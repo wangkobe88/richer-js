@@ -297,7 +297,7 @@ class ExperimentDataService {
    */
   async clearExperimentData(experimentId) {
     try {
-      const tables = ['trades', 'strategy_signals', 'runtime_metrics'];
+      const tables = ['trades', 'strategy_signals', 'runtime_metrics', 'portfolio_snapshots'];
       const results = [];
 
       for (const table of tables) {
@@ -386,6 +386,98 @@ class ExperimentDataService {
 
     } catch (error) {
       console.error('保存运行时指标失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 获取投资组合快照数据
+   * @param {string} experimentId - 实验ID
+   * @param {Object} options - 查询选项
+   * @returns {Promise<Object>} 投资组合快照数据
+   */
+  async getPortfolioSnapshots(experimentId, options = {}) {
+    try {
+      const limit = parseInt(options.limit) || 1000;
+
+      // 尝试从数据库获取
+      let query = this.supabase
+        .from('portfolio_snapshots')
+        .select('*')
+        .eq('experiment_id', experimentId)
+        .order('snapshot_time', { ascending: true })
+        .limit(limit);
+
+      const { data, error } = await query;
+
+      if (error) {
+        // 如果表不存在，返回空数组
+        if (error.code === '42P01') {
+          console.log('portfolio_snapshots 表不存在，返回空数据');
+          return {
+            success: true,
+            snapshots: [],
+            count: 0
+          };
+        }
+        throw error;
+      }
+
+      return {
+        success: true,
+        snapshots: data || [],
+        count: (data || []).length
+      };
+
+    } catch (error) {
+      console.error('获取投资组合快照失败:', error);
+      return {
+        success: false,
+        error: error.message,
+        snapshots: [],
+        count: 0
+      };
+    }
+  }
+
+  /**
+   * 保存投资组合快照
+   * @param {string} experimentId - 实验ID
+   * @param {Object} snapshot - 快照数据
+   * @returns {Promise<boolean>} 是否保存成功
+   */
+  async savePortfolioSnapshot(experimentId, snapshot) {
+    try {
+      const { error } = await this.supabase
+        .from('portfolio_snapshots')
+        .insert({
+          experiment_id: experimentId,
+          snapshot_time: new Date(snapshot.timestamp).toISOString(),
+          total_value: snapshot.totalValue?.toString() || '0',
+          total_value_change: snapshot.totalValueChange?.toString() || '0',
+          total_value_change_percent: snapshot.totalValueChangePercent?.toString() || '0',
+          cash_balance: snapshot.cashBalance?.toString() || '0',
+          cash_native_balance: snapshot.cashBalance?.toString() || '0',
+          total_portfolio_value_native: snapshot.totalValue?.toString() || '0',
+          token_positions: JSON.stringify(snapshot.positions || []),
+          positions_count: snapshot.positions?.length || 0,
+          metadata: snapshot.metadata || {},
+          created_at: new Date().toISOString()
+        });
+
+      if (error) {
+        // 如果表不存在，尝试创建
+        if (error.code === '42P01') {
+          console.log('portfolio_snapshots 表不存在，跳过保存');
+          return false;
+        }
+        throw error;
+      }
+
+      return true;
+
+    } catch (error) {
+      console.error('保存投资组合快照失败:', error);
       return false;
     }
   }

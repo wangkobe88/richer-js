@@ -15,7 +15,11 @@ class AveAPIError extends Error {
     }
 }
 
-class AveTokenAPI {
+/**
+ * AVE API 基类
+ * 包含通用的HTTP请求功能
+ */
+class BaseAveAPI {
     constructor(baseURL = 'https://prod.ave-api.com', timeout = 30000, apiKey = null) {
         this.baseURL = baseURL;
         this.timeout = timeout;
@@ -63,7 +67,13 @@ class AveTokenAPI {
             throw new AveAPIError(`请求失败: ${error.message}`);
         }
     }
+}
 
+/**
+ * AVE Token API
+ * 用于获取代币信息和平台代币列表
+ */
+class AveTokenAPI extends BaseAveAPI {
     /**
      * 根据标签获取平台发行的代币
      * 用于获取 fourmeme 新代币

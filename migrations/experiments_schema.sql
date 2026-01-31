@@ -136,7 +136,41 @@ COMMENT ON COLUMN runtime_metrics.metadata IS '附加元数据(JSON)';
 CREATE INDEX IF NOT EXISTS idx_runtime_metrics_experiment_metric ON runtime_metrics(experiment_id, metric_name);
 CREATE INDEX IF NOT EXISTS idx_runtime_metrics_recorded_at ON runtime_metrics(recorded_at);
 
--- 5. 创建更新触发器（自动更新 updated_at）
+-- 6. 创建投资组合快照表
+CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    experiment_id UUID NOT NULL,
+    snapshot_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    total_value DECIMAL(38,18) DEFAULT 0,
+    total_value_change DECIMAL(38,18) DEFAULT 0,
+    total_value_change_percent DECIMAL(38,18) DEFAULT 0,
+    cash_balance DECIMAL(38,18) DEFAULT 0,
+    cash_native_balance DECIMAL(38,18) DEFAULT 0,
+    total_portfolio_value_native DECIMAL(38,18) DEFAULT 0,
+    token_positions JSONB DEFAULT '[]'::jsonb,
+    positions_count INTEGER DEFAULT 0,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT fk_experiment_portfolio_snapshots FOREIGN KEY (experiment_id) REFERENCES experiments(id) ON DELETE CASCADE
+);
+
+COMMENT ON TABLE portfolio_snapshots IS '投资组合快照表';
+COMMENT ON COLUMN portfolio_snapshots.experiment_id IS '实验ID';
+COMMENT ON COLUMN portfolio_snapshots.snapshot_time IS '快照时间';
+COMMENT ON COLUMN portfolio_snapshots.total_value IS '总价值';
+COMMENT ON COLUMN portfolio_snapshots.total_value_change IS '价值变化';
+COMMENT ON COLUMN portfolio_snapshots.total_value_change_percent IS '价值变化百分比';
+COMMENT ON COLUMN portfolio_snapshots.cash_balance IS '现金余额';
+COMMENT ON COLUMN portfolio_snapshots.cash_native_balance IS '主币现金余额';
+COMMENT ON COLUMN portfolio_snapshots.total_portfolio_value_native IS '总投资组合价值（主币计价）';
+COMMENT ON COLUMN portfolio_snapshots.token_positions IS '代币持仓列表(JSON)';
+COMMENT ON COLUMN portfolio_snapshots.positions_count IS '持仓数量';
+COMMENT ON COLUMN portfolio_snapshots.metadata IS '附加元数据(JSON)';
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_snapshots_experiment_id ON portfolio_snapshots(experiment_id);
+CREATE INDEX IF NOT EXISTS idx_portfolio_snapshots_snapshot_time ON portfolio_snapshots(snapshot_time);
+
+-- 7. 创建更新触发器（自动更新 updated_at）
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -164,12 +198,15 @@ SELECT
     COUNT(DISTINCT CASE WHEN t.success = true THEN t.id END) AS successful_trades,
     COUNT(DISTINCT CASE WHEN t.trade_type = 'virtual' THEN t.id END) AS virtual_trades,
     COUNT(DISTINCT CASE WHEN t.trade_type = 'live' THEN t.id END) AS live_trades,
+    COUNT(DISTINCT ps.id) AS total_snapshots,
+    MAX(ps.total_portfolio_value_native) AS latest_portfolio_value,
     e.created_at,
     e.started_at,
     e.stopped_at
 FROM experiments e
 LEFT JOIN strategy_signals s ON e.id = s.experiment_id
 LEFT JOIN trades t ON e.id = t.experiment_id
+LEFT JOIN portfolio_snapshots ps ON e.id = ps.experiment_id
 GROUP BY e.id, e.experiment_name, e.status, e.trading_mode, e.created_at, e.started_at, e.stopped_at;
 
 COMMENT ON VIEW experiment_stats IS '实验统计视图';

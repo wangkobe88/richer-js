@@ -92,6 +92,16 @@ class FourmemeCollector {
 
             let addedCount = 0;
             let skippedCount = 0;
+            let alreadyInPoolCount = 0;
+
+            // 统计年龄分布
+            const ageRanges = {
+                '0-30s': 0,
+                '30-60s': 0,
+                '1-2m': 0,
+                '2-5m': 0,
+                '5m+': 0
+            };
 
             for (const token of tokens) {
                 const tokenKey = `${token.token}-${token.chain}`;
@@ -101,8 +111,27 @@ class FourmemeCollector {
                     continue;
                 }
 
-                // Check token age
+                // 检查代币是否已在池中（用于统计）
+                const existingToken = this.tokenPool.getToken(token.token, token.chain);
+                if (existingToken) {
+                    alreadyInPoolCount++;
+                }
+
+                // 统计年龄分布
                 const tokenAge = now - (token.created_at * 1000);
+                const tokenAgeSeconds = tokenAge / 1000;
+
+                if (tokenAgeSeconds < 30) {
+                    ageRanges['0-30s']++;
+                } else if (tokenAgeSeconds < 60) {
+                    ageRanges['30-60s']++;
+                } else if (tokenAgeSeconds < 120) {
+                    ageRanges['1-2m']++;
+                } else if (tokenAgeSeconds < 300) {
+                    ageRanges['2-5m']++;
+                } else {
+                    ageRanges['5m+']++;
+                }
 
                 // Only add tokens younger than maxAgeSeconds (1 minute)
                 if (tokenAge < maxAgeMs) {
@@ -127,6 +156,9 @@ class FourmemeCollector {
                 fetched: tokens.length,
                 added: addedCount,
                 skipped: skippedCount,
+                alreadyInPool: alreadyInPoolCount,
+                ageRanges: ageRanges,
+                maxAgeSeconds: this.collectorConfig.maxAgeSeconds,
                 duration: `${duration}ms`
             });
 

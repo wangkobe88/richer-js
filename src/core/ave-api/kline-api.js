@@ -83,7 +83,7 @@ class AveKlineAPI extends BaseAveAPI {
     /**
      * 格式化K线数据点为更易读的格式
      *
-     * @param {Array} points - 原始K线数据点数组 [timestamp, open, high, low, close, volume]
+     * @param {Array} points - 原始K线数据点数组
      * @returns {Array} 格式化后的K线数据
      */
     static formatKlinePoints(points) {
@@ -93,6 +93,7 @@ class AveKlineAPI extends BaseAveAPI {
 
         return points.map(point => {
             if (Array.isArray(point)) {
+                // 数组格式: [timestamp, open, high, low, close, volume]
                 return {
                     timestamp: point[0],
                     open: parseFloat(point[1]) || 0,
@@ -100,6 +101,17 @@ class AveKlineAPI extends BaseAveAPI {
                     low: parseFloat(point[3]) || 0,
                     close: parseFloat(point[4]) || 0,
                     volume: parseFloat(point[5]) || 0
+                };
+            } else if (point && typeof point === 'object') {
+                // 对象格式: {time, open, high, low, close, volume, amount}
+                const timestamp = point.time || point.timestamp || 0;
+                return {
+                    timestamp: timestamp,
+                    open: parseFloat(point.open) || 0,
+                    high: parseFloat(point.high) || 0,
+                    low: parseFloat(point.low) || 0,
+                    close: parseFloat(point.close) || 0,
+                    volume: parseFloat(point.volume) || 0
                 };
             }
             return null;

@@ -23,6 +23,15 @@ class TokenPool {
             return false; // Already in pool
         }
 
+        // 解析当前价格
+        let currentPrice = null;
+        if (tokenData.current_price_usd) {
+            const price = parseFloat(tokenData.current_price_usd);
+            if (!isNaN(price) && price > 0) {
+                currentPrice = price;
+            }
+        }
+
         const poolData = {
             token: tokenData.token,
             tokenAddress: tokenData.token,
@@ -36,7 +45,7 @@ class TokenPool {
             buyDecision: null,
             buyPrice: null,
             buyTime: null,
-            currentPrice: null,
+            currentPrice: currentPrice, // 存储 AVE API 返回的当前价格
             entryMetrics: null
         };
 
@@ -44,7 +53,8 @@ class TokenPool {
         this.logger.debug(`Token added to pool`, {
             symbol: tokenData.symbol,
             address: tokenData.token,
-            chain: tokenData.chain
+            chain: tokenData.chain,
+            currentPrice: currentPrice
         });
 
         return true;
@@ -168,32 +178,60 @@ class TokenPool {
 
     /**
      * Clean up old tokens (exceeded max age)
+     *
+     * 规则：
+     * - 已购买 (bought) 的代币：30分钟后淘汰
+     * - 监控中 (monitoring) 的代币：5分钟后淘汰（购买决策都在5分钟内）
+     * - 已退出 (exited) 的代币：立即移除
+     *
      * @returns {Array} Array of removed token keys
      */
     cleanup() {
         const now = Date.now();
         const toRemove = [];
 
-        for (const [key, token] of this.pool.entries()) {
-            const age = now - token.addedAt;
+        // 时间常量（毫秒）
+        const MONITORING_MAX_AGE = 5 * 60 * 1000;  // 监控中代币：5分钟
+        const BOUGHT_MAX_AGE = 30 * 60 * 1000;     // 已购买代币：30分钟
 
-            // Remove if exceeded max age or already exited
-            if (age > this.maxAge || token.status === 'exited') {
-                toRemove.push(key);
+        for (const [key, token] of this.pool.entries()) {
+            let removeReason = null;
+
+            // 已退出：立即移除
+            if (token.status === 'exited') {
+                removeReason = '已退出';
+            }
+            // 监控中：5分钟后淘汰
+            else if (token.status === 'monitoring') {
+                const age = now - token.createdAt * 1000;  // 使用代币创建时间
+                if (age > MONITORING_MAX_AGE) {
+                    removeReason = `监控超时(${(age / 60000).toFixed(1)}分钟)`;
+                }
+            }
+            // 已购买：30分钟后淘汰
+            else if (token.status === 'bought') {
+                const age = now - token.createdAt * 1000;  // 使用代币创建时间
+                if (age > BOUGHT_MAX_AGE) {
+                    removeReason = `持仓超时(${(age / 60000).toFixed(1)}分钟)`;
+                }
+            }
+
+            if (removeReason) {
+                toRemove.push({ key, reason: removeReason, symbol: token.symbol });
             }
         }
 
-        for (const key of toRemove) {
+        for (const { key, reason, symbol } of toRemove) {
             const token = this.pool.get(key);
             this.logger.debug(`Token removed from pool`, {
-                symbol: token.symbol,
+                symbol: symbol,
                 address: token.token,
-                reason: age > this.maxAge ? '超时' : '已退出'
+                reason: reason
             });
             this.pool.delete(key);
         }
 
-        return toRemove;
+        return toRemove.map(t => t.key);
     }
 
     /**

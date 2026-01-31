@@ -4,11 +4,12 @@
  * Exports all AVE API clients
  */
 
-const { AveAPIError, AveTokenAPI } = require('./token-api');
+const { AveAPIError, BaseAveAPI, AveTokenAPI } = require('./token-api');
 const { AveKlineAPI } = require('./kline-api');
 
 module.exports = {
     AveAPIError,
+    BaseAveAPI,
     AveTokenAPI,
     AveKlineAPI
 };

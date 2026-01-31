@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "dev": "node src/index.js --dev",
     "web": "node src/web-server.js",
-    "web:dev": "node src/web-server.js"
+    "web:dev": "node src/web-server.js",
+    "experiment": "node main.js"
   },
   "keywords": [
     "trading",
@@ -22,7 +23,9 @@
     "@supabase/supabase-js": "^2.93.3",
     "@types/uuid": "^10.0.0",
     "axios": "^1.6.0",
+    "commander": "^14.0.3",
     "cors": "^2.8.6",
+    "decimal.js": "^10.6.0",
     "dotenv": "^16.3.0",
     "express": "^5.2.1",
     "uuid": "^13.0.0"

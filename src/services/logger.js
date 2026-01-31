@@ -9,6 +9,7 @@ const path = require('path');
 class Logger {
     constructor(config = {}) {
         this.logDir = config.dir || path.join(process.cwd(), 'logs');
+        this.experimentId = config.experimentId || 'main';
         this.ensureLogDirectory();
     }
 
@@ -18,18 +19,51 @@ class Logger {
         }
     }
 
-    getLogFilePath(experimentId = 'main') {
+    getLogFilePath(experimentId = null) {
+        const id = experimentId || this.experimentId;
         const date = new Date().toISOString().split('T')[0];
-        return path.join(this.logDir, `experiment-${experimentId}-${date}.log`);
+        return path.join(this.logDir, `experiment-${id}-${date}.log`);
     }
 
-    log(experimentId, level, module, message, data = null) {
-        const timestamp = new Date().toISOString();
-        const moduleInfo = module ? `[${module}]` : '';
-        const dataStr = data ? ` | ${JSON.stringify(data)}` : '';
-        const logLine = `[${timestamp}] [${level}] ${moduleInfo}${experimentId ? `[${experimentId}]` : ''} ${message}${dataStr}`;
+    /**
+     * 格式化日志参数，支持多种调用方式
+     * @private
+     */
+    _formatLogMessage(args) {
+        let experimentId, module, message, data;
 
-        const filePath = this.getLogFilePath(experimentId);
+        // 判断调用方式
+        if (args.length === 0) {
+            return { experimentId: this.experimentId, module: '', message: '', data: null };
+        }
+
+        // logger.info(message, data) - 简单调用
+        if (args.length === 1 || (args.length === 2 && typeof args[1] === 'object')) {
+            message = args[0];
+            data = args[1] || null;
+            return { experimentId: this.experimentId, module: '', message, data };
+        }
+
+        // logger.info(experimentId, module, message, data) - 完整调用
+        if (args.length >= 3) {
+            experimentId = args[0];
+            module = args[1] || '';
+            message = args[2];
+            data = args[3] || null;
+            return { experimentId: experimentId || this.experimentId, module, message, data };
+        }
+
+        // 默认：第一个参数作为消息
+        message = args[0];
+        return { experimentId: this.experimentId, module: '', message, data: null };
+    }
+
+    /**
+     * 写入日志到文件和控制台
+     * @private
+     */
+    _writeLog(level, logLine) {
+        const filePath = this.getLogFilePath();
 
         try {
             fs.appendFileSync(filePath, logLine + '\n', 'utf8');
@@ -47,23 +81,35 @@ class Logger {
         }
     }
 
-    info(experimentId, module, message, data) {
-        this.log(experimentId, 'INFO', module, message, data);
+    log(...args) {
+        const level = args[0] || 'INFO';
+        const { experimentId, module, message, data } = this._formatLogMessage(args.slice(1));
+
+        const timestamp = new Date().toISOString();
+        const moduleInfo = module ? `[${module}]` : '';
+        const dataStr = data ? ` | ${JSON.stringify(data)}` : '';
+        const logLine = `[${timestamp}] [${level}]${moduleInfo}${experimentId ? `[${experimentId}]` : ''} ${message}${dataStr}`;
+
+        this._writeLog(level, logLine);
     }
 
-    warn(experimentId, module, message, data) {
-        this.log(experimentId, 'WARN', module, message, data);
+    info(...args) {
+        this.log('INFO', ...args);
     }
 
-    error(experimentId, module, message, data) {
-        this.log(experimentId, 'ERROR', module, message, data);
+    warn(...args) {
+        this.log('WARN', ...args);
     }
 
-    debug(experimentId, module, message, data) {
-        this.log(experimentId, 'DEBUG', module, message, data);
+    error(...args) {
+        this.log('ERROR', ...args);
     }
 
-    logRaw(experimentId, ...args) {
+    debug(...args) {
+        this.log('DEBUG', ...args);
+    }
+
+    logRaw(...args) {
         const timestamp = new Date().toISOString();
         let message = args.map(arg => {
             if (typeof arg === 'object') {
@@ -74,7 +120,7 @@ class Logger {
 
         const logLine = `[${timestamp}] ${message}`;
 
-        const filePath = this.getLogFilePath(experimentId);
+        const filePath = this.getLogFilePath();
         try {
             fs.appendFileSync(filePath, logLine + '\n', 'utf8');
         } catch (err) {

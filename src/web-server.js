@@ -343,6 +343,21 @@ class RicherJsWebServer {
       }
     });
 
+    // 获取投资组合数据
+    this.app.get('/api/experiment/:id/portfolio', async (req, res) => {
+      try {
+        const options = {
+          limit: parseInt(req.query.limit) || 1000
+        };
+
+        const result = await this.dataService.getPortfolioSnapshots(req.params.id, options);
+        res.json(result);
+      } catch (error) {
+        console.error('获取投资组合数据失败:', error);
+        res.status(500).json({ success: false, error: error.message, snapshots: [] });
+      }
+    });
+
     // ============ API路由：统计信息 ============
 
     // 获取系统统计

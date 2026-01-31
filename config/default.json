@@ -4,17 +4,17 @@
     "timeout": 30000
   },
   "collector": {
-    "interval": 10000,
+    "interval": 20000,
     "platform": "fourmeme",
     "chain": "bsc",
     "maxAgeSeconds": 60,
     "fetchLimit": 50
   },
   "monitor": {
-    "interval": 10000,
+    "interval": 20000,
     "klineLimit": 35,
     "observationWindowMinutes": 30,
-    "decisionCheckInterval": 10000
+    "decisionCheckInterval": 20000
   },
   "strategy": {
     "buyTimeMinutes": 1,

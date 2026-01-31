@@ -62,6 +62,9 @@
                         <button id="refresh-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
                             🔄 刷新
                         </button>
+                        <button id="clear-all-btn" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium text-white transition-colors">
+                            🗑️ 清空数据
+                        </button>
                     </div>
                 </div>
             </div>
@@ -108,7 +111,7 @@
                 <div class="flex flex-wrap gap-3 items-center">
                     <div class="flex items-center gap-2">
                         <label for="blockchain-filter" class="text-sm font-medium text-gray-800 whitespace-nowrap">区块链:</label>
-                        <select id="blockchain-filter" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <select id="blockchain-filter" style="background-color: #374151 !important; color: #ffffff !important; border-color: #4b5563 !important;" class="px-3 py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="all">所有区块链</option>
                             <option value="bsc" selected>BSC</option>
                             <option value="solana">Solana</option>
@@ -116,7 +119,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <label for="status-filter" class="text-sm font-medium text-gray-800 whitespace-nowrap">状态:</label>
-                        <select id="status-filter" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <select id="status-filter" style="background-color: #374151 !important; color: #ffffff !important; border-color: #4b5563 !important;" class="px-3 py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="all">所有状态</option>
                             <option value="initializing">未启动</option>
                             <option value="running">运行中</option>
@@ -127,7 +130,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <label for="mode-filter" class="text-sm font-medium text-gray-800 whitespace-nowrap">模式:</label>
-                        <select id="mode-filter" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <select id="mode-filter" style="background-color: #374151 !important; color: #ffffff !important; border-color: #4b5563 !important;" class="px-3 py-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="all">所有模式</option>
                             <option value="virtual">虚拟交易</option>
                             <option value="live">实盘交易</option>

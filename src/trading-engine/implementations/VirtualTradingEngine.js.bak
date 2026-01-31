@@ -17,7 +17,6 @@ const { StrategyEngine } = require('../../strategies/StrategyEngine');
 const { AveKlineAPI } = require('../../core/ave-api');
 const { RSIIndicator } = require('../../indicators/RSIIndicator');
 const { RoundSummary } = require('../utils/RoundSummary');
-const { PortfolioManager } = require('../../portfolio');
 
 // 加载配置
 const config = require('../../../config/default.json');
@@ -73,10 +72,8 @@ class VirtualTradingEngine {
     this._monitoringTimer = null;
     this._loopCount = 0;
     this._roundSummary = null;
-    this._portfolioManager = null;
-    this._portfolioId = null;
 
-    console.log(`🎮 虚拟交易引擎已创建: ${this.id}, 初始余额: ${this.initialBalance}`);
+    console.log(`🎮 虚拟交易引擎已创建: ${this.id}, 初始余额: ${this.initialBalance} BNB`);
   }
 
   // Getter 方法 - 返回私有属性
@@ -185,30 +182,13 @@ class VirtualTradingEngine {
 
     // 构建可用因子集合
     const availableFactorIds = new Set([
-      'age', 'currentPrice', 'buyPrice', 'holdDuration', 'profitPercent', 'rsi'
+      'age', 'currentPrice', 'buyPrice', 'holdDuration',
+      'profitPercent', 'rsi'
     ]);
 
     // 加载策略（带验证）
     this._strategyEngine.loadStrategies(strategies, availableFactorIds);
     console.log(`✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
-
-    // 6. 初始化投资组合管理器
-    this._portfolioManager = new PortfolioManager({
-      targetTokens: [],  // fourmeme 代币是动态的，不需要预设
-      blockchain: 'bsc'
-    });
-
-    // 创建投资组合
-    const initialCash = this.initialBalance;  // 使用 USD 计价
-    this._portfolioId = await this._portfolioManager.createPortfolio(
-      initialCash,
-      {
-        blockchain: 'bsc',
-        experimentId: this._experimentId,
-        tradingMode: 'virtual'
-      }
-    );
-    console.log(`✅ 投资组合管理器初始化完成，PortfolioID: ${this._portfolioId}`);
   }
 
   /**
@@ -363,10 +343,7 @@ class VirtualTradingEngine {
         this._roundSummary.recordPortfolio(portfolio);
       }
 
-      // 5. 创建并保存投资组合快照
-      await this._createPortfolioSnapshot();
-
-      // 6. 输出轮次摘要
+      // 5. 输出轮次摘要
       if (this._roundSummary) {
         this._roundSummary.printToConsole();
         this._roundSummary.writeToLog();
@@ -390,11 +367,19 @@ class VirtualTradingEngine {
    */
   async _processToken(token) {
     try {
+      this.logger.debug(this._experimentId, 'ProcessToken',
+        `处理代币: ${token.symbol} (${token.status})`);
+
       // 1. 获取K线数据
       const klineData = await this._fetchKlineData(token);
       if (!klineData || klineData.length === 0) {
+        this.logger.warn(this._experimentId, 'ProcessToken',
+          `无法获取 ${token.symbol} 的K线数据`);
         return;
       }
+
+      this.logger.debug(this._experimentId, 'ProcessToken',
+        `${token.symbol} K线数据: ${klineData.length} 条`);
 
       // 2. 更新TokenPool中的K线数据
       this._tokenPool.updateKlineData(
@@ -419,12 +404,7 @@ class VirtualTradingEngine {
             factorValues: factorResults,
             triggeredStrategy: null // 将在策略触发时更新
           },
-          currentPrice,
-          {
-            createdAt: token.createdAt,
-            addedAt: token.addedAt,
-            status: token.status
-          }
+          currentPrice
         );
       }
 
@@ -500,20 +480,65 @@ class VirtualTradingEngine {
       const interval = 1; // 1分钟K线
       const limit = config.monitor?.klineLimit || 35;
 
+      // 计算代币年龄（分钟）
+      const tokenAge = (Date.now() - token.createdAt * 1000) / 1000 / 60;
+
+      this.logger.debug('开始获取K线数据', {
+        symbol: token.symbol,
+        address: token.token?.substring(0, 8) + '...',
+        chain: token.chain,
+        tokenAge: `${tokenAge.toFixed(2)}分钟`,
+        interval: interval,
+        limit: limit
+      });
+
       const result = await this._aveApi.getKlineDataByToken(tokenId, interval, limit);
 
+      this.logger.debug('AVE API返回', {
+        symbol: token.symbol,
+        totalCount: result.total_count || 0,
+        pointsCount: result.points?.length || 0,
+        rawPoint: result.points?.[0]
+      });
+
       if (!result.points || result.points.length === 0) {
+        this.logger.debug('K线数据为空', {
+          symbol: token.symbol,
+          tokenAge: `${tokenAge.toFixed(2)}分钟`
+        });
         return [];
       }
+
+      // 检查第一个数据点的格式
+      const firstPoint = result.points[0];
+      const isArrayFormat = Array.isArray(firstPoint);
+      this.logger.debug('K线数据格式', {
+        symbol: token.symbol,
+        isArrayFormat: isArrayFormat,
+        firstPointKeys: !isArrayFormat ? Object.keys(firstPoint) : 'N/A'
+      });
 
       // 格式化K线数据
       const formattedData = AveKlineAPI.formatKlinePoints(result.points);
 
+      this.logger.debug('K线数据格式化完成', {
+        symbol: token.symbol,
+        originalCount: result.points.length,
+        formattedCount: formattedData.length
+      });
+
+      if (formattedData.length === 0) {
+        this.logger.debug('K线格式化为空', {
+          symbol: token.symbol,
+          reason: '数据点格式不匹配或被过滤'
+        });
+        return [];
+      }
+
       return formattedData;
 
     } catch (error) {
-      // 只在错误时记录日志
-      this.logger.debug('获取K线失败', {
+      this.logger.debug('获取K线异常', {
         symbol: token.symbol,
         error: error.message
       });
@@ -531,20 +556,14 @@ class VirtualTradingEngine {
   _buildFactors(token, klineData) {
     const now = Date.now();
 
-    // 获取当前价格：优先使用K线数据的最新收盘价，否则使用AVE API返回的价格
+    // 获取当前价格：优先使用K线数据，否则使用AVE API返回的价格
     let currentPrice = 0;
-    let priceSource = 'none';
     if (klineData && klineData.length > 0) {
       const latestKline = klineData[klineData.length - 1];
-      if (latestKline.close && latestKline.close > 0) {
-        currentPrice = latestKline.close;
-        priceSource = 'kline';
-      }
-    }
-    // 如果K线数据无效或close为0，回退到AVE API返回的价格
-    if (currentPrice === 0 && token.currentPrice && token.currentPrice > 0) {
+      currentPrice = latestKline.close;
+    } else if (token.currentPrice && token.currentPrice > 0) {
+      // 使用AVE API返回的当前价格
       currentPrice = token.currentPrice;
-      priceSource = 'ave_api';
     }
 
     // 计算代币年龄（分钟）
@@ -553,7 +572,7 @@ class VirtualTradingEngine {
     // 计算持仓时长（秒）
     const holdDuration = token.buyTime ? (now - token.buyTime) / 1000 : 0;
 
-    // 计算盈利百分比（只对已买入的代币）
+    // 计算盈利百分比
     let profitPercent = 0;
     if (token.buyPrice && token.buyPrice > 0 && currentPrice > 0) {
       profitPercent = ((currentPrice - token.buyPrice) / token.buyPrice) * 100;
@@ -561,21 +580,26 @@ class VirtualTradingEngine {
 
     // 计算RSI指标（需要足够的K线数据）
     let rsi = 50; // 默认值
-    let rsiIsDefault = true; // 标记是否为默认值
     if (klineData && klineData.length >= this._rsiIndicator.getRequiredDataPoints()) {
       rsi = this._rsiIndicator.calculateFromKline(klineData);
-      rsiIsDefault = false;
     }
 
     const factors = {
       age: age,
       currentPrice: currentPrice,
-      buyPrice: token.buyPrice || 0,
+      buyPrice: token.buyPrice || null,
       holdDuration: holdDuration,
       profitPercent: profitPercent,
-      rsi: rsi,
-      rsiIsDefault: rsiIsDefault
+      rsi: rsi
     };
+
+    this.logger.debug('策略因子', {
+      symbol: token.symbol,
+      hasKline: klineData.length > 0,
+      priceSource: klineData.length > 0 ? 'kline' : (currentPrice > 0 ? 'ave_api' : 'none'),
+      currentPrice: currentPrice,
+      age: `${age.toFixed(2)}分钟`
+    });
 
     return factors;
   }
@@ -595,6 +619,8 @@ class VirtualTradingEngine {
     if (strategy.action === 'buy') {
       // 只对监控中的代币执行买入
       if (token.status !== 'monitoring') {
+        this.logger.debug(this._experimentId, 'ExecuteStrategy',
+          `跳过买入: ${token.symbol} 状态为 ${token.status}`);
         return false;
       }
 
@@ -631,11 +657,10 @@ class VirtualTradingEngine {
     } else if (strategy.action === 'sell') {
       // 只对已买入的代币执行卖出
       if (token.status !== 'bought') {
+        this.logger.debug(this._experimentId, 'ExecuteStrategy',
+          `跳过卖出: ${token.symbol} 状态为 ${token.status}`);
         return false;
       }
-
-      // 获取卖出比例（默认1.0表示全部卖出）
-      const sellRatio = strategy.sellRatio || 1.0;
 
       // 执行卖出
       const signal = {
@@ -644,17 +669,14 @@ class VirtualTradingEngine {
         tokenAddress: token.token,
         price: latestPrice,
         confidence: 80,
-        reason: strategy.name,
-        sellRatio: sellRatio
+        reason: strategy.name
       };
 
       const result = await this.processSignal(signal);
 
       if (result && result.success) {
-        // 如果全部卖出，标记为已退出
-        if (sellRatio >= 1.0) {
-          this._tokenPool.markAsExited(token.token, token.chain);
-        }
+        // 标记为已退出
+        this._tokenPool.markAsExited(token.token, token.chain);
         return true;
       }
 
@@ -689,18 +711,16 @@ class VirtualTradingEngine {
         priority: 1,
         cooldown: 30,
         enabled: true,
-        condition: 'profitPercent >= takeProfit1 AND holdDuration > 0',
-        sellRatio: 0.5
+        condition: 'profitPercent >= takeProfit1 AND holdDuration > 0'
       },
       {
         id: 'take_profit_2',
-        name: '止盈2 (50%卖出50%)',
+        name: '止盈2 (50%全部卖出)',
         action: 'sell',
         priority: 2,
         cooldown: 30,
         enabled: true,
-        condition: 'profitPercent >= takeProfit2 AND holdDuration > 0',
-        sellRatio: 0.5
+        condition: 'profitPercent >= takeProfit2 AND holdDuration > 0'
       },
       {
         id: 'stop_loss',
@@ -709,8 +729,7 @@ class VirtualTradingEngine {
         priority: 10,
         cooldown: 60,
         enabled: true,
-        condition: 'holdDuration >= stopLossMinutes * 60 AND profitPercent <= 0',
-        sellRatio: 1.0
+        condition: 'holdDuration >= stopLossMinutes * 60 AND profitPercent <= 0'
       }
     ];
   }
@@ -732,6 +751,10 @@ class VirtualTradingEngine {
     const tradeSignal = TradeSignal.fromStrategySignal(signal, this._experimentId);
     await this.dataService.saveSignal(tradeSignal);
 
+    console.log(`📊 收到信号: ${signal.action} ${signal.symbol} (${signal.tokenAddress})`);
+    console.log(`   原因: ${signal.reason}`);
+    console.log(`   置信度: ${signal.confidence}%`);
+
     // 根据信号类型执行交易
     let tradeResult = null;
     if (signal.action === 'buy') {
@@ -739,6 +762,7 @@ class VirtualTradingEngine {
     } else if (signal.action === 'sell') {
       tradeResult = await this._executeSell(signal);
     } else {
+      console.log(`ℹ️ 忽略 hold 信号: ${signal.symbol}`);
       return { executed: false, reason: 'hold信号' };
     }
 
@@ -773,9 +797,16 @@ class VirtualTradingEngine {
         price: price
       };
 
-      return await this.executeTrade(tradeRequest);
+      const result = await this.executeTrade(tradeRequest);
+
+      if (result.success) {
+        console.log(`✅ 买入成功: ${signal.symbol} 数量=${tokenAmount.toFixed(6)}, 价格=${price}`);
+      }
+
+      return result;
 
     } catch (error) {
+      console.error(`❌ 买入失败: ${error.message}`);
       return { success: false, reason: error.message };
     }
   }
@@ -793,11 +824,8 @@ class VirtualTradingEngine {
         return { success: false, reason: '无持仓' };
       }
 
-      // 获取卖出比例，默认1.0表示全部卖出
-      const sellRatio = signal.sellRatio || 1.0;
-
-      // 计算卖出数量
-      const amountToSell = holding.amount * sellRatio;
+      // 卖出全部持仓
+      const amountToSell = holding.amount;
       const price = signal.price || 0;
       const amountOutBNB = price > 0 ? amountToSell * price : 0;
 
@@ -809,9 +837,16 @@ class VirtualTradingEngine {
         price: price
       };
 
-      return await this.executeTrade(tradeRequest);
+      const result = await this.executeTrade(tradeRequest);
+
+      if (result.success) {
+        console.log(`✅ 卖出成功: ${signal.symbol} 数量=${amountToSell.toFixed(6)}, 收入=${amountOutBNB.toFixed(4)} BNB`);
+      }
+
+      return result;
 
     } catch (error) {
+      console.error(`❌ 卖出失败: ${error.message}`);
       return { success: false, reason: error.message };
     }
   }
@@ -846,45 +881,35 @@ class VirtualTradingEngine {
       direction: tradeRequest.direction,
       amount: tradeRequest.amount,
       price: tradeRequest.price,
-      success: false,
+      success: false, // 先设置为false，执行成功后再更新
       error: null
     }, this._experimentId);
 
     try {
-      // 使用 PortfolioManager 执行交易
-      const Decimal = require('decimal.js');
-      const result = await this._portfolioManager.executeTrade(
-        this._portfolioId,
-        tradeRequest.tokenAddress,
-        tradeRequest.direction,
-        new Decimal(tradeRequest.amount),
-        new Decimal(tradeRequest.price),
-        0.001  // 0.1% 手续费
-      );
-
-      if (result.success) {
-        trade.markAsSuccess();
-        this.metrics.successfulTrades++;
-
-        // 同步更新本地 holdings (用于兼容旧代码)
-        this._syncHoldingsFromPortfolio();
-
-        // 保存交易记录
-        await this.dataService.saveTrade(trade);
-
-        return {
-          success: true,
-          trade: trade.toJSON(),
-          portfolio: result.portfolio
-        };
-      } else {
-        throw new Error(result.error || '交易执行失败');
+      if (tradeRequest.direction === 'buy') {
+        await this._processBuy(trade);
+      } else if (tradeRequest.direction === 'sell') {
+        await this._processSell(trade);
       }
+
+      trade.markAsSuccess();
+      this.metrics.successfulTrades++;
+
+      // 保存交易记录
+      await this.dataService.saveTrade(trade);
+
+      return {
+        success: true,
+        trade: trade.toJSON(),
+        balance: this.currentBalance,
+        holdings: Array.from(this.holdings.entries())
+      };
 
     } catch (error) {
       trade.markAsFailed(error.message);
       this.metrics.failedTrades++;
 
+      // 保存失败交易记录
       await this.dataService.saveTrade(trade);
 
       return {
@@ -896,46 +921,62 @@ class VirtualTradingEngine {
   }
 
   /**
-   * 处理买入 (已废弃，使用 PortfolioManager)
+   * 处理买入
    * @param {Trade} trade - 交易实体
    * @private
-   * @deprecated
    */
   async _processBuy(trade) {
-    // 此方法已废弃，交易通过 PortfolioManager.executeTrade() 执行
-    throw new Error('_processBuy 已废弃，请使用 PortfolioManager.executeTrade()');
+    const cost = parseFloat(trade.price) * parseFloat(trade.amount);
+    const costWithFee = cost * 1.001; // 0.1% 手续费
+
+    if (costWithFee > this.currentBalance) {
+      throw new Error(`余额不足: 需要 ${costWithFee.toFixed(4)} BNB, 可用 ${this.currentBalance.toFixed(4)} BNB`);
+    }
+
+    // 扣除余额
+    this.currentBalance -= costWithFee;
+
+    // 更新持仓
+    const holding = this.holdings.get(trade.tokenAddress) || { amount: 0, avgBuyPrice: 0 };
+    const totalCost = holding.amount * holding.avgBuyPrice + cost;
+    holding.amount += parseFloat(trade.amount);
+    holding.avgBuyPrice = totalCost / holding.amount;
+    this.holdings.set(trade.tokenAddress, holding);
+
+    console.log(`💰 买入执行: ${trade.tokenSymbol} ${trade.amount.toFixed(6)} @ ${trade.price}, 耗费 ${costWithFee.toFixed(4)} BNB`);
+    console.log(`   当前余额: ${this.currentBalance.toFixed(4)} BNB`);
   }
 
   /**
-   * 处理卖出 (已废弃，使用 PortfolioManager)
+   * 处理卖出
    * @param {Trade} trade - 交易实体
    * @private
-   * @deprecated
    */
   async _processSell(trade) {
-    // 此方法已废弃，交易通过 PortfolioManager.executeTrade() 执行
-    throw new Error('_processSell 已废弃，请使用 PortfolioManager.executeTrade()');
-  }
+    const revenue = parseFloat(trade.price) * parseFloat(trade.amount);
+    const revenueWithFee = revenue * 0.999; // 0.1% 手续费
 
-  /**
-   * 从 PortfolioManager 同步 holdings 到本地 (兼容性方法)
-   * @private
-   */
-  _syncHoldingsFromPortfolio() {
-    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
-    if (!portfolio) return;
+    // 增加余额
+    this.currentBalance += revenueWithFee;
 
-    const Decimal = require('decimal.js');
-    this.currentBalance = portfolio.cashBalance.toNumber();
-
-    // 转换 positions Map 到 holdings Map
-    this.holdings.clear();
-    for (const [address, position] of portfolio.positions) {
-      this.holdings.set(address, {
-        amount: position.amount.toNumber(),
-        avgBuyPrice: position.averagePrice.toNumber()
-      });
+    // 更新持仓
+    const holding = this.holdings.get(trade.tokenAddress);
+    if (holding) {
+      holding.amount -= parseFloat(trade.amount);
+      if (holding.amount <= 0.000001) {
+        this.holdings.delete(trade.tokenAddress);
+      } else {
+        this.holdings.set(trade.tokenAddress, holding);
+      }
     }
+
+    // 计算盈亏
+    const pnl = revenue - (holding.avgBuyPrice * parseFloat(trade.amount));
+    const pnlPercentage = (pnl / (holding.avgBuyPrice * parseFloat(trade.amount))) * 100;
+
+    console.log(`💰 卖出执行: ${trade.tokenSymbol} ${trade.amount.toFixed(6)} @ ${trade.price}, 收入 ${revenueWithFee.toFixed(4)} BNB`);
+    console.log(`   盈亏: ${pnl.toFixed(4)} BNB (${pnlPercentage.toFixed(2)}%)`);
+    console.log(`   当前余额: ${this.currentBalance.toFixed(4)} BNB`);
   }
 
   /**
@@ -948,37 +989,39 @@ class VirtualTradingEngine {
         limit: 10000
       });
 
-      if (!trades || trades.length === 0) {
-        // 没有交易历史，使用初始余额
-        this._syncHoldingsFromPortfolio();
-        return;
-      }
+      // 重置持仓
+      this.holdings.clear();
+      this.currentBalance = this.initialBalance;
 
-      // 使用 PortfolioManager 重放交易
-      const Decimal = require('decimal.js');
-
+      // 按时间顺序重放交易
       for (const trade of trades.sort((a, b) => a.createdAt - b.createdAt)) {
         if (!trade.success) continue;
 
-        try {
-          await this._portfolioManager.executeTrade(
-            this._portfolioId,
-            trade.tokenAddress,
-            trade.direction,
-            new Decimal(trade.amount),
-            new Decimal(trade.price),
-            0.001  // 0.1% 手续费
-          );
-        } catch (error) {
-          console.error(`重放交易失败: ${trade.tokenSymbol} - ${error.message}`);
+        if (trade.direction === 'buy') {
+          const cost = parseFloat(trade.price) * parseFloat(trade.amount) * 1.001;
+          this.currentBalance -= cost;
+
+          const holding = this.holdings.get(trade.tokenAddress) || { amount: 0, avgBuyPrice: 0 };
+          const totalCost = holding.amount * holding.avgBuyPrice + cost;
+          holding.amount += parseFloat(trade.amount);
+          holding.avgBuyPrice = totalCost / holding.amount;
+          this.holdings.set(trade.tokenAddress, holding);
+
+        } else if (trade.direction === 'sell') {
+          const revenue = parseFloat(trade.price) * parseFloat(trade.amount) * 0.999;
+          this.currentBalance += revenue;
+
+          const holding = this.holdings.get(trade.tokenAddress);
+          if (holding) {
+            holding.amount -= parseFloat(trade.amount);
+            if (holding.amount <= 0.000001) {
+              this.holdings.delete(trade.tokenAddress);
+            }
+          }
         }
       }
 
-      // 同步到本地 holdings
-      this._syncHoldingsFromPortfolio();
-
-      const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
-      console.log(`📦 持仓加载完成: ${this.holdings.size} 个代币, 余额 $${portfolio.cashBalance.toFixed(2)}`);
+      console.log(`📦 持仓加载完成: ${this.holdings.size} 个代币, 余额 ${this.currentBalance.toFixed(4)} BNB`);
 
     } catch (error) {
       console.error('❌ 加载持仓失败:', error.message);
@@ -998,39 +1041,6 @@ class VirtualTradingEngine {
    * @returns {Object}
    */
   getMetrics() {
-    // 从 PortfolioManager 获取最新数据
-    const portfolio = this._portfolioManager ? this._portfolioManager.getPortfolio(this._portfolioId) : null;
-
-    if (portfolio) {
-      const Decimal = require('decimal.js');
-      const initialBalance = portfolio.metadata.initialBalance
-        ? portfolio.metadata.initialBalance.toNumber()
-        : this.initialBalance;
-      const currentBalance = portfolio.cashBalance.toNumber();
-      const totalValue = portfolio.totalValue.toNumber();
-      const profit = totalValue - initialBalance;
-      const profitRate = (profit / initialBalance) * 100;
-
-      return {
-        ...this.metrics,
-        initialBalance: initialBalance,
-        currentBalance: currentBalance,
-        totalValue: totalValue,
-        profit: profit,
-        profitRate: profitRate,
-        holdingsCount: portfolio.positions.size,
-        holdings: Array.from(portfolio.positions.values()).map(p => ({
-          tokenAddress: p.tokenAddress,
-          symbol: p.tokenSymbol,
-          amount: p.amount.toNumber(),
-          avgBuyPrice: p.averagePrice.toNumber(),
-          currentPrice: p.currentPrice.toNumber(),
-          value: p.value.toNumber()
-        }))
-      };
-    }
-
-    // 回退到本地数据
     const profit = this.currentBalance - this.initialBalance;
     const profitRate = (profit / this.initialBalance) * 100;
 
@@ -1038,7 +1048,6 @@ class VirtualTradingEngine {
       ...this.metrics,
       initialBalance: this.initialBalance,
       currentBalance: this.currentBalance,
-      totalValue: this.currentBalance,
       profit: profit,
       profitRate: profitRate,
       holdingsCount: this.holdings.size,
@@ -1070,100 +1079,45 @@ class VirtualTradingEngine {
    * @returns {Object} 投资组合数据
    */
   _buildPortfolioSummary() {
-    if (!this._portfolioManager || !this._portfolioId) {
-      // 回退到本地数据
-      let totalValue = this.currentBalance;
-      const positions = [];
-
-      for (const [tokenAddress, holding] of this.holdings.entries()) {
-        if (holding.amount > 0) {
-          const token = this._tokenPool.getToken(tokenAddress, 'bsc');
-          const currentPrice = (token && token.currentPrice) || holding.avgBuyPrice;
-          const value = holding.amount * currentPrice;
-          totalValue += value;
-
-          positions.push({
-            symbol: token?.symbol || 'UNKNOWN',
-            amount: holding.amount,
-            value: value,
-            buyPrice: holding.avgBuyPrice,
-            currentPrice: currentPrice
-          });
-        }
-      }
-
-      return {
-        totalValue: totalValue,
-        cashBalance: this.currentBalance,
-        positions: positions
-      };
-    }
-
-    // 使用 PortfolioManager 数据
-    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
-    if (!portfolio) {
-      return { totalValue: 0, cashBalance: 0, positions: [] };
-    }
-
+    // 计算总价值
+    let totalValue = this.currentBalance;
     const positions = [];
-    for (const [address, position] of portfolio.positions) {
-      positions.push({
-        symbol: position.tokenSymbol || 'UNKNOWN',
-        amount: position.amount.toNumber(),
-        value: position.value.toNumber(),
-        buyPrice: position.averagePrice.toNumber(),
-        currentPrice: position.currentPrice.toNumber()
-      });
+
+    for (const [tokenAddress, holding] of this.holdings.entries()) {
+      if (holding.amount > 0) {
+        // 获取当前价格（从持仓或 token pool）
+        let currentPrice = holding.avgBuyPrice; // 默认使用买入价
+        const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+        if (token && token.currentPrice) {
+          currentPrice = token.currentPrice;
+        }
+
+        const value = holding.amount * currentPrice;
+        totalValue += value;
+
+        positions.push({
+          symbol: token?.symbol || 'UNKNOWN',
+          amount: holding.amount,
+          value: value,
+          buyPrice: holding.avgBuyPrice,
+          currentPrice: currentPrice
+        });
+      }
     }
 
     return {
-      totalValue: portfolio.totalValue.toNumber(),
-      cashBalance: portfolio.cashBalance.toNumber(),
+      totalValue: totalValue,
+      cashBalance: this.currentBalance,
       positions: positions
     };
   }
-
-  /**
-   * 创建并保存投资组合快照
-   * @private
-   * @returns {Promise<void>}
-   */
-  async _createPortfolioSnapshot() {
-    if (!this._portfolioManager || !this._portfolioId) {
-      return;
-    }
-
-    try {
-      // 获取投资组合数据
-      const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
-      if (!portfolio) {
-        return;
-      }
-
-      // 使用 PortfolioTracker 创建快照
-      const snapshot = await this._portfolioManager.tracker.createSnapshot(
-        this._portfolioId,
-        portfolio.positions,
-        portfolio.cashBalance,
-        {
-          walletAddress: this._experimentId,
-          blockchain: 'bsc',
-          tradingMode: 'virtual',
-          strategy: 'fourmeme',
-          experimentId: this._experimentId,
-          version: '1.0.0'
-        }
-      );
-
-      // 保存到数据库（通过 ExperimentDataService）
-      if (snapshot && this.dataService) {
-        await this.dataService.savePortfolioSnapshot(this._experimentId, snapshot);
-      }
-
-    } catch (error) {
-      this.logger.error(this._experimentId, 'PortfolioSnapshot',
-        `创建快照失败: ${error.message}`);
-    }
+}
+    await this.dataService.saveRuntimeMetric(
+      this._experimentId,
+      metricName,
+      metricValue,
+      { timestamp: new Date().toISOString() }
+    );
   }
 }
 

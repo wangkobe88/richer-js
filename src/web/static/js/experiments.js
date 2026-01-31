@@ -32,6 +32,7 @@ class ExperimentMonitor {
     };
 
     safeAddListener('refresh-btn', 'click', () => this.loadExperiments());
+    safeAddListener('clear-all-btn', 'click', () => this.clearAllExperiments());
 
     safeAddListener('blockchain-filter', 'change', (e) => {
       this.filters.blockchain = e.target.value;
@@ -52,6 +53,26 @@ class ExperimentMonitor {
       this.hideError();
       this.loadExperiments();
     });
+
+    // 使用事件委托处理删除和复制按钮点击
+    const container = document.getElementById('experiments-container');
+    if (container) {
+      container.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('[data-action="delete"]');
+        if (deleteBtn) {
+          const id = deleteBtn.getAttribute('data-id');
+          const name = deleteBtn.getAttribute('data-name');
+          this.deleteExperiment(id, name);
+          return;
+        }
+
+        const copyBtn = e.target.closest('[data-action="copy-id"]');
+        if (copyBtn) {
+          const id = copyBtn.getAttribute('data-id');
+          this.copyExperimentId(id);
+        }
+      });
+    }
   }
 
   async loadExperiments() {
@@ -137,6 +158,11 @@ class ExperimentMonitor {
     const startedAt = exp.startedAt ? new Date(exp.startedAt) : null;
     const duration = startedAt ? Math.floor((Date.now() - startedAt.getTime()) / 1000 / 60) : 0;
 
+    // 格式化实验ID，显示前8位和后4位
+    const shortId = exp.id.length > 12
+      ? `${exp.id.substring(0, 8)}...${exp.id.substring(exp.id.length - 4)}`
+      : exp.id;
+
     return `
       <div class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
         <div class="p-4">
@@ -148,6 +174,15 @@ class ExperimentMonitor {
           </div>
 
           <div class="space-y-2 text-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-gray-800">实验ID:</span>
+              <div class="flex items-center space-x-1">
+                <code class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">${shortId}</code>
+                <button data-action="copy-id" data-id="${exp.id}" class="text-gray-500 hover:text-blue-600 transition-colors" title="复制完整ID">
+                  📋
+                </button>
+              </div>
+            </div>
             <div class="flex items-center justify-between">
               <span class="text-gray-800">交易模式:</span>
               <span class="px-2 py-0.5 text-xs font-medium rounded ${modeColors[exp.tradingMode]}">
@@ -174,22 +209,37 @@ class ExperimentMonitor {
             ` : ''}
           </div>
 
-          <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between">
+          <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
             <a href="/experiment/${exp.id}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
               查看详情 →
             </a>
-            <div class="flex space-x-2">
+            <div class="flex space-x-2 items-center">
               <a href="/experiment/${exp.id}/signals" class="text-green-600 hover:text-green-800 text-sm">
                 信号
               </a>
               <a href="/experiment/${exp.id}/trades" class="text-purple-600 hover:text-purple-800 text-sm">
                 交易
               </a>
+              <button data-action="delete" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-red-600 hover:text-red-800 text-sm font-medium">
+                🗑️ 删除
+              </button>
             </div>
           </div>
         </div>
       </div>
     `;
+  }
+
+  /**
+   * 转义HTML特殊字符
+   * @private
+   * @param {string} text - 原始文本
+   * @returns {string} 转义后的文本
+   */
+  _escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   updateStats() {
@@ -219,6 +269,120 @@ class ExperimentMonitor {
 
   hideError() {
     document.getElementById('error-message').classList.add('hidden');
+  }
+
+  // 清空所有实验数据
+  async clearAllExperiments() {
+    const confirmed = confirm(
+      '⚠️ 确定要清空所有实验数据吗？\n\n' +
+      '此操作将删除：\n' +
+      '📊 所有实验元数据\n' +
+      '💰 所有投资组合快照\n' +
+      '📈 所有策略信号\n' +
+      '💸 所有交易记录\n\n' +
+      '⚠️ 此操作不可恢复！'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch('/api/experiments/clear-all', { method: 'DELETE' });
+      const data = await response.json();
+
+      if (data.success) {
+        alert('✅ ' + data.message);
+        await this.loadExperiments();
+      } else {
+        alert('❌ 清空失败: ' + data.error);
+      }
+    } catch (error) {
+      console.error('清空数据失败:', error);
+      alert('❌ 清空失败: ' + error.message);
+    }
+  }
+
+  // 删除单个实验
+  async deleteExperiment(experimentId, experimentName) {
+    const confirmed = confirm(
+      `⚠️ 确定要删除实验 "${experimentName}" 吗？\n\n` +
+      '此操作将删除该实验的所有数据：\n' +
+      '📊 实验元数据\n' +
+      '💰 投资组合快照\n' +
+      '📈 策略信号\n' +
+      '💸 交易记录\n\n' +
+      '⚠️ 此操作不可恢复！'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(`/api/experiment/${experimentId}`, { method: 'DELETE' });
+      const data = await response.json();
+
+      if (data.success) {
+        alert('✅ 实验已删除');
+        await this.loadExperiments();
+      } else {
+        alert('❌ 删除失败: ' + data.error);
+      }
+    } catch (error) {
+      console.error('删除实验失败:', error);
+      alert('❌ 删除失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 复制实验ID到剪贴板
+   * @param {string} experimentId - 实验ID
+   */
+  async copyExperimentId(experimentId) {
+    try {
+      await navigator.clipboard.writeText(experimentId);
+
+      // 显示成功提示
+      this.showCopySuccess(`✅ ID已复制: ${experimentId}`);
+      console.log('✅ 实验ID已复制到剪贴板:', experimentId);
+
+    } catch (error) {
+      console.error('❌ 复制ID失败:', error);
+
+      // 降级方案：使用传统方法
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = experimentId;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+
+        this.showCopySuccess(`✅ ID已复制: ${experimentId}`);
+      } catch (fallbackError) {
+        console.error('❌ 降级复制也失败:', fallbackError);
+        alert('❌ 复制失败，请手动复制ID');
+      }
+    }
+  }
+
+  /**
+   * 显示复制成功提示（临时通知）
+   * @param {string} message - 提示消息
+   */
+  showCopySuccess(message) {
+    // 创建临时通知元素
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-opacity duration-300';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // 2秒后淡出移除
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 300);
+    }, 2000);
   }
 }
 
