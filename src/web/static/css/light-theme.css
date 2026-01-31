@@ -1,0 +1,427 @@
+/**
+ * 浅色主题样式文件
+ * 专业的浅色交易界面风格
+ */
+
+/* 全局变量重置为浅色主题 */
+:root {
+  --primary-color: #059669;
+  --secondary-color: #2563eb;
+  --danger-color: #dc2626;
+  --warning-color: #d97706;
+  --info-color: #7c3aed;
+
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #e2e8f0;
+
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-tertiary: #6b7280;
+
+  --border-primary: #e5e7eb;
+  --border-secondary: #d1d5db;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* 基础重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+/* 浅色主题特定样式 */
+.bg-white { background-color: var(--bg-primary) !important; }
+.bg-gray-50 { background-color: #f9fafb !important; }
+.bg-gray-100 { background-color: #f3f4f6 !important; }
+.bg-gray-200 { background-color: #e5e7eb !important; }
+.bg-gray-300 { background-color: #d1d5db !important; }
+.bg-gray-700 { background-color: #374151 !important; }
+.bg-gray-800 { background-color: #1f2937 !important; }
+.bg-gray-900 { background-color: #111827 !important; }
+
+/* 导航栏 - 浅色版本 */
+.nav-light {
+  background-color: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+}
+
+.nav-light .text-gray-300 {
+  color: var(--text-secondary) !important;
+}
+
+.nav-light .hover\:text-white:hover {
+  color: var(--text-primary) !important;
+}
+
+/* 卡片 - 浅色版本 */
+.card-light {
+  background-color: var(--bg-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.card-light:hover {
+  border-color: var(--border-secondary) !important;
+  box-shadow: var(--shadow-md) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 文字颜色 */
+.text-white { color: #ffffff !important; }
+.text-gray-100 { color: #f3f4f6 !important; }
+.text-gray-200 { color: #e5e7eb !important; }
+.text-gray-300 { color: #d1d5db !important; }
+.text-gray-400 { color: #9ca3af !important; }
+.text-gray-500 { color: #6b7280 !important; }
+.text-gray-600 { color: #4b5563 !important; }
+.text-gray-700 { color: #374151 !important; }
+.text-gray-800 { color: #1f2937 !important; }
+.text-gray-900 { color: #111827 !important; }
+
+/* 浅色主题文字颜色 */
+.text-primary-light { color: var(--text-primary) !important; }
+.text-secondary-light { color: var(--text-secondary) !important; }
+.text-tertiary-light { color: var(--text-tertiary) !important; }
+
+/* 按钮颜色 */
+.bg-green-600 { background-color: #059669 !important; }
+.bg-green-700 { background-color: #047857 !important; }
+.bg-blue-600 { background-color: #2563eb !important; }
+.bg-blue-700 { background-color: #1d4ed8 !important; }
+.bg-purple-600 { background-color: #7c3aed !important; }
+.bg-red-600 { background-color: #dc2626 !important; }
+
+.bg-green-900 { background-color: #14532d !important; }
+.bg-blue-900 { background-color: #1e3a8a !important; }
+.bg-purple-900 { background-color: #581c87 !important; }
+.bg-yellow-900 { background-color: #78350f !important; }
+
+/* 浅色主题按钮悬停 */
+.hover\:bg-green-700:hover { background-color: #047857 !important; }
+.hover\:bg-blue-700:hover { background-color: #1d4ed8 !important; }
+.hover\:bg-purple-700:hover { background-color: #6d28d9 !important; }
+
+/* 状态徽章 - 浅色版本 */
+.status-running-light {
+  background-color: #f0fdf4 !important;
+  color: #166534 !important;
+  border: 1px solid #bbf7d0 !important;
+}
+
+.status-stopped-light {
+  background-color: #fef2f2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fecaca !important;
+}
+
+.status-completed-light {
+  background-color: #eff6ff !important;
+  color: #1e40af !important;
+  border: 1px solid #dbeafe !important;
+}
+
+/* 边框颜色 */
+.border-gray-700 { border-color: #374151 !important; }
+.border-gray-600 { border-color: #4b5563 !important; }
+.border-gray-300 { border-color: #d1d5db !important; }
+.border-gray-200 { border-color: #e5e7eb !important; }
+
+/* 输入框和表单 */
+input, select, textarea {
+  background-color: var(--bg-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--primary-color) !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1) !important;
+}
+
+/* 背景色类 */
+.bg-green-50 { background-color: #f0fdf4 !important; }
+.bg-green-100 { background-color: #dcfce7 !important; }
+.bg-blue-50 { background-color: #eff6ff !important; }
+.bg-blue-100 { background-color: #dbeafe !important; }
+.bg-purple-50 { background-color: #f5f3ff !important; }
+.bg-purple-100 { background-color: #ede9fe !important; }
+.bg-yellow-50 { background-color: #fefce8 !important; }
+.bg-yellow-100 { background-color: #fde68a !important; }
+.bg-red-50 { background-color: #fef2f2 !important; }
+.bg-red-100 { background-color: #fecaca !important; }
+
+/* 文字颜色类 */
+.text-green-400 { color: #4ade80 !important; }
+.text-green-500 { color: #22c55e !important; }
+.text-green-600 { color: #16a34a !important; }
+.text-green-700 { color: #15803d !important; }
+.text-blue-400 { color: #60a5fa !important; }
+.text-blue-500 { color: #3b82f6 !important; }
+.text-blue-600 { color: #2563eb !important; }
+.text-blue-700 { color: #1d4ed8 !important; }
+.text-purple-400 { color: #c084fc !important; }
+.text-purple-500 { color: #a855f7 !important; }
+.text-purple-600 { color: #9333ea !important; }
+.text-purple-700 { color: #7c3aed !important; }
+.text-yellow-400 { color: #fbbf24 !important; }
+.text-yellow-500 { color: #eab308 !important; }
+.text-yellow-600 { color: #ca8a04 !important; }
+.text-red-400 { color: #f87171 !important; }
+.text-red-500 { color: #ef4444 !important; }
+.text-red-600 { color: #dc2626 !important; }
+
+/* 浅色主题特定文字颜色 */
+.text-green-300-light { color: #86efac !important; }
+.text-blue-300-light { color: #93c5fd !important; }
+.text-purple-300-light { color: #d8b4fe !important; }
+.text-yellow-300-light { color: #fde047 !important; }
+.text-red-300-light { color: #fca5a5 !important; }
+
+/* 主品牌颜色 */
+.text-brand-primary { color: #059669 !important; }
+.text-brand-secondary { color: #2563eb !important; }
+
+.bg-brand-primary { background-color: #059669 !important; }
+.bg-brand-secondary { background-color: #2563eb !important; }
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-secondary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* 表格样式 */
+.table-light {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.table-light th,
+.table-light td {
+  border-color: var(--border-primary) !important;
+}
+
+.table-light thead {
+  background-color: var(--bg-secondary) !important;
+}
+
+.table-light tbody tr:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+
+/* 加载动画 */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-spinner-light {
+  border: 4px solid var(--border-primary);
+  border-top: 4px solid var(--primary-color);
+  animation: spin 1s linear infinite;
+}
+
+/* 页脚 */
+.footer-light {
+  background-color: var(--bg-secondary) !important;
+  border-top: 1px solid var(--border-primary) !important;
+  color: var(--text-secondary) !important;
+}
+
+/* 主题切换按钮 */
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s;
+}
+
+.theme-toggle:hover {
+  box-shadow: var(--shadow-lg);
+  transform: scale(1.05);
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .theme-toggle {
+    top: 10px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* 浅色主题背景渐变 */
+.gradient-light {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 50%, #e2e8f0 100%);
+}
+
+/* 卡片阴影增强 */
+.card-enhanced-light {
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.card-enhanced-light:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), 0 2px 6px 0 rgba(0, 0, 0, 0.15) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* 强制浅色主题的深色元素 */
+.force-light .dark-only {
+  display: none !important;
+}
+
+.force-light .light-only {
+  display: block !important;
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .card-light {
+    border-width: 2px !important;
+  }
+
+  .text-primary-light {
+    font-weight: 600 !important;
+  }
+}
+
+/* 减少动画的用户偏好 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 实验类型特殊样式 */
+.live-experiment-card {
+  border-left: 4px solid #dc2626 !important;
+  position: relative;
+}
+
+.live-experiment-card::before {
+  content: "⚠️ 实盘交易";
+  position: absolute;
+  top: -8px;
+  right: 8px;
+  background: #dc2626;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  z-index: 10;
+  animation: pulse-warning 2s infinite;
+}
+
+.virtual-experiment-card {
+  border-left: 4px solid #2563eb !important;
+}
+
+.backtest-experiment-card {
+  border-left: 4px solid #7c3aed !important;
+}
+
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* 实验类型徽章增强 */
+.experiment-type-badge {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.experiment-type-badge.live {
+  background: linear-gradient(45deg, #dc2626, #ef4444) !important;
+  animation: pulse-live 2s infinite;
+}
+
+.experiment-type-badge.virtual {
+  background: linear-gradient(45deg, #2563eb, #3b82f6) !important;
+}
+
+.experiment-type-badge.backtest {
+  background: linear-gradient(45deg, #7c3aed, #8b5cf6) !important;
+}
+
+@keyframes pulse-live {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* 实验详情页面特殊样式 */
+.live-experiment-page {
+  border-top: 4px solid #dc2626 !important;
+}
+
+.live-experiment-page::before {
+  content: "⚠️ 实盘交易进行中";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #dc2626;
+  color: white;
+  padding: 8px;
+  text-align: center;
+  font-weight: bold;
+  z-index: 1000;
+  animation: pulse-warning 2s infinite;
+}
+
+.virtual-experiment-page {
+  border-top: 4px solid #2563eb !important;
+}
+
+.backtest-experiment-page {
+  border-top: 4px solid #7c3aed !important;
+}
+
+/* 页面主要内容区域上移以避免被警告条遮挡 */
+.live-experiment-page main {
+  padding-top: 60px !important;
+}

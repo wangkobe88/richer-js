@@ -1,0 +1,33 @@
+{
+  "ave": {
+    "apiUrl": "https://prod.ave-api.com",
+    "timeout": 30000
+  },
+  "collector": {
+    "interval": 10000,
+    "platform": "fourmeme",
+    "chain": "bsc",
+    "maxAgeSeconds": 60,
+    "fetchLimit": 50
+  },
+  "monitor": {
+    "interval": 10000,
+    "klineLimit": 35,
+    "observationWindowMinutes": 30,
+    "decisionCheckInterval": 10000
+  },
+  "strategy": {
+    "buyTimeMinutes": 1,
+    "earlyReturnMin": 80,
+    "earlyReturnMax": 120,
+    "takeProfit1": 30,
+    "takeProfit1Sell": 0.5,
+    "takeProfit2": 50,
+    "takeProfit2Sell": 1.0,
+    "stopLossMinutes": 5
+  },
+  "logging": {
+    "level": "INFO",
+    "dir": "./logs"
+  }
+}

@@ -1,0 +1,169 @@
+/**
+ * 高对比度主题样式 - 覆盖Tailwind默认样式
+ * 确保所有文字都有足够的对比度
+ */
+
+/* 全局背景和文字 */
+body {
+  background-color: #111827 !important;
+  color: #f9fafb !important;
+}
+
+/* 移除所有导致浅色背景的类 */
+.bg-white {
+  background-color: #111827 !important;
+}
+
+.bg-gray-50 {
+  background-color: #1f2937 !important;
+}
+
+.bg-gray-100 {
+  background-color: #1f2937 !important;
+}
+
+.bg-gray-200 {
+  background-color: #374151 !important;
+}
+
+/* 确保所有文字颜色都是深色 */
+.text-gray-300,
+.text-gray-400,
+.text-gray-500,
+.text-gray-600,
+.text-gray-700,
+.text-gray-800,
+.text-gray-900 {
+  color: #f9fafb !important;
+}
+
+/* 导航栏特殊处理 */
+nav.bg-gray-100 {
+  background-color: #1f2937 !important;
+  border-bottom-color: #374151 !important;
+}
+
+nav .text-green-600 {
+  color: #4ade80 !important;
+}
+
+nav .text-gray-600 {
+  color: #d1d5db !important;
+}
+
+/* 卡片背景 */
+.bg-gray-100.rounded-lg,
+.card {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+/* 表格样式 */
+table {
+  color: #f9fafb !important;
+}
+
+table th {
+  background-color: #374151 !important;
+  color: #ffffff !important;
+}
+
+table td {
+  color: #f9fafb !important;
+  border-color: #4b5563 !important;
+}
+
+/* 标签页样式 */
+.tab-btn {
+  color: #d1d5db !important;
+  border-color: transparent !important;
+}
+
+.tab-btn.active {
+  color: #60a5fa !important;
+  border-color: #60a5fa !important;
+}
+
+.tab-btn:hover {
+  color: #f9fafb !important;
+  border-color: #4b5563 !important;
+}
+
+/* 输入框样式 */
+input, select, textarea {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #f9fafb !important;
+}
+
+/* 按钮样式 */
+button {
+  color: #ffffff !important;
+}
+
+button:disabled {
+  color: #9ca3af !important;
+}
+
+/* 链接样式 */
+a {
+  color: #60a5fa !important;
+}
+
+a:hover {
+  color: #93c5fd !important;
+  text-decoration: underline !important;
+}
+
+/* 状态徽章 */
+.status-badge {
+  color: #ffffff !important;
+}
+
+/* 统计卡片 */
+.stat-card {
+  background: linear-gradient(135deg, #1f2937 0%, #374151 100%) !important;
+  border-color: #4b5563 !important;
+  color: #ffffff !important;
+}
+
+.stat-card p {
+  color: #e5e7eb !important;
+}
+
+/* 特殊颜色保持 */
+.text-green-400,
+.text-green-500,
+.text-green-600 {
+  color: #4ade80 !important;
+}
+
+.text-blue-400,
+.text-blue-500,
+.text-blue-600 {
+  color: #60a5fa !important;
+}
+
+.text-red-400,
+.text-red-500,
+.text-red-600 {
+  color: #f87171 !important;
+}
+
+.text-yellow-400,
+.text-yellow-500,
+.text-yellow-600 {
+  color: #fbbf24 !important;
+}
+
+.text-purple-400,
+.text-purple-500,
+.text-purple-600 {
+  color: #c084fc !important;
+}
+
+/* 图表容器 */
+.chart-container {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}

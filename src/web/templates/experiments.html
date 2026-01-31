@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>实验监控 - Richer-js Fourmeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
+    <style>
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+            font-size: 1.2rem;
+            background: #f8fafc;
+            color: #374151;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-900">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-white border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-blue-600">
+                            <a href="/" class="hover:text-blue-700 transition-colors">
+                                Richer-js Fourmeme Trading
+                            </a>
+                        </h1>
+                        <div class="block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                                实验监控
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="/create-experiment" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-sm font-medium text-white transition-colors">
+                            ➕ 创建实验
+                        </a>
+                        <button id="refresh-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
+                            🔄 刷新
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 页面标题 -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">Fourmeme 交易实验监控</h1>
+                <p class="text-gray-600 mt-2">基于 earlyReturn 策略的自动化交易实验</p>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="grid grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-600">总实验数</h3>
+                        <span id="total-experiments" class="text-2xl font-bold text-blue-600">0</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-600">运行中</h3>
+                        <span id="running-experiments" class="text-2xl font-bold text-green-600">0</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-600">总交易数</h3>
+                        <span id="total-trades" class="text-2xl font-bold text-purple-600">0</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-600">最后更新</h3>
+                        <span id="last-update" class="text-sm font-medium text-gray-600">--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 筛选控件 -->
+            <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200 shadow-sm">
+                <div class="flex flex-wrap gap-3 items-center">
+                    <div class="flex items-center gap-2">
+                        <label for="blockchain-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">区块链:</label>
+                        <select id="blockchain-filter" class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="all">所有区块链</option>
+                            <option value="bsc" selected>BSC</option>
+                            <option value="solana">Solana</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="status-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">状态:</label>
+                        <select id="status-filter" class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="all">所有状态</option>
+                            <option value="initializing">未启动</option>
+                            <option value="running">运行中</option>
+                            <option value="stopped">已停止</option>
+                            <option value="completed">已完成</option>
+                            <option value="failed">失败</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="mode-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">模式:</label>
+                        <select id="mode-filter" class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="all">所有模式</option>
+                            <option value="virtual">虚拟交易</option>
+                            <option value="live">实盘交易</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 加载指示器 -->
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <span class="ml-4">正在加载实验数据...</span>
+            </div>
+
+            <!-- 错误信息 -->
+            <div id="error-message" class="hidden bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
+                <div class="flex items-center">
+                    <span class="text-red-600">⚠️</span>
+                    <span class="ml-2" id="error-text">加载失败</span>
+                    <button id="retry-btn" class="ml-4 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm">
+                        重试
+                    </button>
+                </div>
+            </div>
+
+            <!-- 实验列表 -->
+            <div id="experiments-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 实验卡片将通过JavaScript动态生成 -->
+            </div>
+
+            <!-- 空状态 -->
+            <div id="empty-state" class="hidden text-center py-12">
+                <div class="text-gray-400 mb-4">
+                    <svg class="w-24 h-24 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2V6a2 2 0 00-2-2h-2.5a2 2 0 00-2 2V9a2 2 0 002 2v2m-6 9l3 3m0 0l-3-3m3 6V4a2 2 0 002-2h2.5a2 2 0 002-2V4a2 2 0 00-2-2h-2.5a2 2 0 00-2 2v9a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-semibold text-gray-600 mb-2">暂无实验数据</h3>
+                <p class="text-gray-500">创建第一个实验开始监控</p>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/simple-init.js"></script>
+    <script src="/static/js/experiments.js"></script>
+</body>
+</html>

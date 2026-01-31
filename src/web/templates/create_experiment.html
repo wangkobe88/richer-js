@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创建实验 - Richer-js Fourmeme Trading</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden { display: none; }
+        .error { border-color: #ef4444; }
+        .success { border-color: #10b981; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="container mx-auto px-4 max-w-4xl">
+        <!-- 页头 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">创建新实验</h1>
+                    <p class="text-gray-600 mt-2">基于 earlyReturn 策略的 fourmeme 代币交易实验</p>
+                </div>
+                <a href="/experiments" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md">
+                    ← 返回列表
+                </a>
+            </div>
+        </div>
+
+        <!-- 创建表单 -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <form id="experiment-form" class="space-y-6">
+                <!-- 基本信息 -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">基本信息</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                实验名称 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text"
+                                   name="experiment_name"
+                                   required
+                                   placeholder="例如：Fourmeme 虚拟交易实验"
+                                   value="Fourmeme 虚拟交易实验"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                实验描述
+                            </label>
+                            <input type="text"
+                                   name="experiment_description"
+                                   placeholder="实验的简要描述"
+                                   value="基于 earlyReturn 策略的 fourmeme 代币自动交易"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                交易模式 <span class="text-red-500">*</span>
+                            </label>
+                            <select name="trading_mode"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="virtual" selected>虚拟交易</option>
+                                <option value="live">实盘交易</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                区块链 <span class="text-red-500">*</span>
+                            </label>
+                            <select name="blockchain"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="bsc" selected>BSC (Binance Smart Chain)</option>
+                                <option value="solana">Solana</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                K线类型 <span class="text-red-500">*</span>
+                            </label>
+                            <select name="kline_type"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="1m" selected>1分钟</option>
+                                <option value="5m">5分钟</option>
+                                <option value="15m">15分钟</option>
+                                <option value="30m">30分钟</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                初始余额 (BNB) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number"
+                                   name="initial_balance"
+                                   required
+                                   step="0.01"
+                                   min="1"
+                                   value="100"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 策略说明 -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h2 class="text-lg font-semibold text-blue-900 mb-2">📊 EarlyReturn 策略说明</h2>
+                    <div class="text-sm text-blue-800 space-y-2">
+                        <p><strong>买入条件：</strong>当代币上线1分钟后，计算 earlyReturn（涨幅）在 80%-120% 区间时买入</p>
+                        <p><strong>卖出条件：</strong>使用阶梯止盈策略</p>
+                        <ul class="list-disc list-inside ml-4">
+                            <li>涨幅达到 +30% 时，卖出 50%</li>
+                            <li>涨幅达到 +50% 时，卖出剩余 50%</li>
+                        </ul>
+                        <p class="mt-2 text-xs text-blue-600">* 该策略基于 6,884 个 fourmeme 代币的历史数据分析得出</p>
+                    </div>
+                </div>
+
+                <!-- 提交按钮 -->
+                <div class="flex justify-end space-x-4">
+                    <a href="/experiments" class="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-md font-medium">
+                        取消
+                    </a>
+                    <button type="submit" id="submit-btn"
+                            class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium">
+                        创建实验
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- 结果消息 -->
+        <div id="result-message" class="hidden mt-6">
+            <div id="result-content" class="rounded-lg p-4"></div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('experiment-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const resultMessage = document.getElementById('result-message');
+        const resultContent = document.getElementById('result-content');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // 禁用提交按钮
+            submitBtn.disabled = true;
+            submitBtn.textContent = '创建中...';
+
+            const formData = new FormData(form);
+            const data = {
+                experiment_name: formData.get('experiment_name'),
+                experiment_description: formData.get('experiment_description'),
+                trading_mode: formData.get('trading_mode'),
+                blockchain: formData.get('blockchain'),
+                kline_type: formData.get('kline_type'),
+                initial_balance: formData.get('initial_balance')
+            };
+
+            try {
+                const response = await fetch('/api/experiments', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // 显示成功消息
+                    resultMessage.classList.remove('hidden');
+                    resultContent.className = 'bg-green-50 border border-green-200 text-green-800';
+                    resultContent.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="font-semibold">✅ 实验创建成功！</p>
+                                <p class="text-sm mt-1">实验ID: ${result.data.id}</p>
+                            </div>
+                            <a href="/experiments" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm">
+                                返回列表
+                            </a>
+                        </div>
+                    `;
+
+                    // 3秒后自动跳转
+                    setTimeout(() => {
+                        window.location.href = '/experiments';
+                    }, 3000);
+                } else {
+                    // 显示错误消息
+                    resultMessage.classList.remove('hidden');
+                    resultContent.className = 'bg-red-50 border border-red-200 text-red-800';
+                    resultContent.innerHTML = `
+                        <p class="font-semibold">❌ 创建失败</p>
+                        <p class="text-sm mt-1">${result.error}</p>
+                    `;
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '创建实验';
+                }
+            } catch (error) {
+                // 显示网络错误
+                resultMessage.classList.remove('hidden');
+                resultContent.className = 'bg-red-50 border border-red-200 text-red-800';
+                resultContent.innerHTML = `
+                    <p class="font-semibold">❌ 网络错误</p>
+                    <p class="text-sm mt-1">${error.message}</p>
+                `;
+                submitBtn.disabled = false;
+                submitBtn.textContent = '创建实验';
+            }
+        });
+    </script>
+</body>
+</html>
