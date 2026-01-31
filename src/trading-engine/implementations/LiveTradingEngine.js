@@ -164,12 +164,10 @@ class LiveTradingEngine {
     this.status = EngineStatus.STOPPED;
 
     // 更新实验状态
-    if (this.experiment) {
-      this.experiment.stop('stopped');
+    if (this._experiment) {
+      this._experiment.stop('stopped');
       const factory = ExperimentFactory.getInstance();
-      await factory.updateStatus(this.experimentId, 'stopped', {
-        results: this.getMetrics()
-      });
+      await factory.updateStatus(this.experimentId, 'stopped');
     }
 
     console.log(`🛑 实盘交易引擎已停止: 实验 ${this.experimentId}`);

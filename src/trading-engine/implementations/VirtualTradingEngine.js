@@ -22,14 +22,14 @@ class VirtualTradingEngine {
    * @param {number} config.initialBalance - 初始余额 (默认 100 BNB)
    */
   constructor(config = {}) {
-    this.id = `virtual_${Date.now()}`;
-    this.name = 'Fourmeme Virtual Trading Engine';
-    this.mode = TradingMode.VIRTUAL;
-    this.status = EngineStatus.STOPPED;
+    this._id = `virtual_${Date.now()}`;
+    this._name = 'Fourmeme Virtual Trading Engine';
+    this._mode = TradingMode.VIRTUAL;
+    this._status = EngineStatus.STOPPED;
 
     // 实验相关
-    this.experiment = null;
-    this.experimentId = null;
+    this._experiment = null;
+    this._experimentId = null;
 
     // 虚拟资金管理
     this.initialBalance = config.initialBalance || 100; // BNB
@@ -55,7 +55,7 @@ class VirtualTradingEngine {
     console.log(`🎮 虚拟交易引擎已创建: ${this.id}, 初始余额: ${this.initialBalance} BNB`);
   }
 
-  // Getter 方法
+  // Getter 方法 - 返回私有属性
   get id() { return this._id; }
   get name() { return this._name; }
   get mode() { return this._mode; }
@@ -73,32 +73,32 @@ class VirtualTradingEngine {
       if (typeof experimentOrId === 'string') {
         // 加载现有实验
         const factory = ExperimentFactory.getInstance();
-        this.experiment = await factory.load(experimentOrId);
-        if (!this.experiment) {
+        this._experiment = await factory.load(experimentOrId);
+        if (!this._experiment) {
           throw new Error(`实验不存在: ${experimentOrId}`);
         }
       } else if (experimentOrId instanceof Experiment) {
         // 使用提供的实验
-        this.experiment = experimentOrId;
+        this._experiment = experimentOrId;
       } else {
         throw new Error('无效的实验参数');
       }
 
-      this.experimentId = this.experiment.id;
+      this._experimentId = this._experiment.id;
 
       // 从实验配置中获取初始余额
-      if (this.experiment.config?.virtual?.initialBalance) {
-        this.initialBalance = this.experiment.config.virtual.initialBalance;
+      if (this._experiment.config?.virtual?.initialBalance) {
+        this.initialBalance = this._experiment.config.virtual.initialBalance;
         this.currentBalance = this.initialBalance;
       }
 
       // 加载持仓数据
       await this._loadHoldings();
 
-      this.status = EngineStatus.STOPPED;
+      this._status = EngineStatus.STOPPED;
 
-      console.log(`✅ 虚拟交易引擎初始化完成: 实验 ${this.experimentId}`);
-      this.logger.info(this.experimentId, 'VirtualTradingEngine', '引擎初始化完成', {
+      console.log(`✅ 虚拟交易引擎初始化完成: 实验 ${this._experimentId}`);
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', '引擎初始化完成', {
         initialBalance: this.initialBalance,
         currentBalance: this.currentBalance,
         holdingsCount: this.holdings.size
@@ -106,7 +106,7 @@ class VirtualTradingEngine {
 
     } catch (error) {
       console.error('❌ 虚拟交易引擎初始化失败:', error.message);
-      this.status = EngineStatus.ERROR;
+      this._status = EngineStatus.ERROR;
       throw error;
     }
   }
@@ -116,22 +116,22 @@ class VirtualTradingEngine {
    * @returns {Promise<void>}
    */
   async start() {
-    if (this.status === EngineStatus.RUNNING) {
+    if (this._status === EngineStatus.RUNNING) {
       console.warn('⚠️ 引擎已在运行');
       return;
     }
 
-    this.status = EngineStatus.RUNNING;
+    this._status = EngineStatus.RUNNING;
 
     // 更新实验状态
-    if (this.experiment) {
-      this.experiment.start();
+    if (this._experiment) {
+      this._experiment.start();
       const factory = ExperimentFactory.getInstance();
-      await factory.updateStatus(this.experimentId, 'running');
+      await factory.updateStatus(this._experimentId, 'running');
     }
 
-    console.log(`🚀 虚拟交易引擎已启动: 实验 ${this.experimentId}`);
-    this.logger.info(this.experimentId, 'VirtualTradingEngine', '引擎已启动');
+    console.log(`🚀 虚拟交易引擎已启动: 实验 ${this._experimentId}`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '引擎已启动');
   }
 
   /**
@@ -139,24 +139,22 @@ class VirtualTradingEngine {
    * @returns {Promise<void>}
    */
   async stop() {
-    if (this.status === EngineStatus.STOPPED) {
+    if (this._status === EngineStatus.STOPPED) {
       console.warn('⚠️ 引擎已停止');
       return;
     }
 
-    this.status = EngineStatus.STOPPED;
+    this._status = EngineStatus.STOPPED;
 
     // 更新实验状态
-    if (this.experiment) {
-      this.experiment.stop('stopped');
+    if (this._experiment) {
+      this._experiment.stop('stopped');
       const factory = ExperimentFactory.getInstance();
-      await factory.updateStatus(this.experimentId, 'stopped', {
-        results: this.getMetrics()
-      });
+      await factory.updateStatus(this._experimentId, 'stopped');
     }
 
-    console.log(`🛑 虚拟交易引擎已停止: 实验 ${this.experimentId}`);
-    this.logger.info(this.experimentId, 'VirtualTradingEngine', '引擎已停止', {
+    console.log(`🛑 虚拟交易引擎已停止: 实验 ${this._experimentId}`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '引擎已停止', {
       metrics: this.metrics
     });
   }
@@ -167,7 +165,7 @@ class VirtualTradingEngine {
    * @returns {Promise<Object>} 处理结果
    */
   async processSignal(signal) {
-    if (this.status !== EngineStatus.RUNNING) {
+    if (this._status !== EngineStatus.RUNNING) {
       console.warn('⚠️ 引擎未运行，忽略信号');
       return { executed: false, reason: '引擎未运行' };
     }
@@ -175,7 +173,7 @@ class VirtualTradingEngine {
     this.metrics.totalSignals++;
 
     // 记录信号到数据库
-    const tradeSignal = TradeSignal.fromStrategySignal(signal, this.experimentId);
+    const tradeSignal = TradeSignal.fromStrategySignal(signal, this._experimentId);
     await this.dataService.saveSignal(tradeSignal);
 
     console.log(`📊 收到信号: ${signal.action} ${signal.symbol} (${signal.tokenAddress})`);
@@ -286,7 +284,7 @@ class VirtualTradingEngine {
    */
   _calculateBuyAmount(signal) {
     // 默认每次使用当前余额的10%
-    const tradeRatio = this.experiment.config?.virtual?.tradeRatio || 0.1;
+    const tradeRatio = this._experiment.config?.virtual?.tradeRatio || 0.1;
     const amount = this.currentBalance * tradeRatio;
 
     // 最小交易金额 0.001 BNB
@@ -304,13 +302,13 @@ class VirtualTradingEngine {
     const trade = Trade.fromVirtualTrade({
       tokenAddress: tradeRequest.tokenAddress,
       symbol: tradeRequest.symbol,
-      chain: this.experiment.blockchain || 'bsc',
+      chain: this._experiment.blockchain || 'bsc',
       direction: tradeRequest.direction,
       amount: tradeRequest.amount,
       price: tradeRequest.price,
       success: false, // 先设置为false，执行成功后再更新
       error: null
-    }, this.experimentId);
+    }, this._experimentId);
 
     try {
       if (tradeRequest.direction === 'buy') {
@@ -412,7 +410,7 @@ class VirtualTradingEngine {
    */
   async _loadHoldings() {
     try {
-      const trades = await this.dataService.getTrades(this.experimentId, {
+      const trades = await this.dataService.getTrades(this._experimentId, {
         limit: 10000
       });
 
@@ -460,7 +458,7 @@ class VirtualTradingEngine {
    * @returns {string}
    */
   getStatus() {
-    return this.status;
+    return this._status;
   }
 
   /**
@@ -493,7 +491,7 @@ class VirtualTradingEngine {
    */
   async saveMetric(metricName, metricValue) {
     await this.dataService.saveRuntimeMetric(
-      this.experimentId,
+      this._experimentId,
       metricName,
       metricValue,
       { timestamp: new Date().toISOString() }

@@ -62,7 +62,7 @@ class ExperimentMonitor {
       if (this.filters.mode !== 'all') params.append('tradingMode', this.filters.mode);
 
       const response = await fetch('/api/experiments?' + params);
-      if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const data = await response.json();
       this.experiments = data.data || [];
@@ -137,59 +137,59 @@ class ExperimentMonitor {
     const startedAt = exp.startedAt ? new Date(exp.startedAt) : null;
     const duration = startedAt ? Math.floor((Date.now() - startedAt.getTime()) / 1000 / 60) : 0;
 
-    return \`
+    return `
       <div class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
         <div class="p-4">
           <div class="flex items-start justify-between mb-3">
-            <h3 class="text-lg font-semibold text-gray-900 truncate flex-1">\${exp.experimentName}</h3>
-            <span class="ml-2 px-2 py-1 text-xs font-medium rounded \${statusColors[exp.status] || 'bg-gray-100'}">
-              \${statusLabel[exp.status] || exp.status}
+            <h3 class="text-lg font-semibold text-gray-900 truncate flex-1">${exp.experimentName}</h3>
+            <span class="ml-2 px-2 py-1 text-xs font-medium rounded ${statusColors[exp.status] || 'bg-gray-100'}">
+              ${statusLabel[exp.status] || exp.status}
             </span>
           </div>
 
           <div class="space-y-2 text-sm">
             <div class="flex items-center justify-between">
-              <span class="text-gray-600">交易模式:</span>
-              <span class="px-2 py-0.5 text-xs font-medium rounded \${modeColors[exp.tradingMode]}">
-                \${exp.tradingMode === 'virtual' ? '虚拟交易' : '实盘交易'}
+              <span class="text-gray-800">交易模式:</span>
+              <span class="px-2 py-0.5 text-xs font-medium rounded ${modeColors[exp.tradingMode]}">
+                ${exp.tradingMode === 'virtual' ? '虚拟交易' : '实盘交易'}
               </span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-gray-600">区块链:</span>
-              <span class="font-medium">\${exp.blockchain?.toUpperCase() || 'N/A'}</span>
+              <span class="text-gray-800">区块链:</span>
+              <span class="font-medium">${exp.blockchain?.toUpperCase() || 'N/A'}</span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-gray-600">K线类型:</span>
-              <span class="font-medium">\${exp.klineType || 'N/A'}</span>
+              <span class="text-gray-800">K线类型:</span>
+              <span class="font-medium">${exp.klineType || 'N/A'}</span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-gray-600">创建时间:</span>
-              <span class="font-medium">\${createdAt.toLocaleString('zh-CN')}</span>
+              <span class="text-gray-800">创建时间:</span>
+              <span class="font-medium">${createdAt.toLocaleString('zh-CN')}</span>
             </div>
-            \${startedAt ? \`
+            ${startedAt ? `
               <div class="flex items-center justify-between">
-                <span class="text-gray-600">运行时长:</span>
-                <span class="font-medium">\${duration} 分钟</span>
+                <span class="text-gray-800">运行时长:</span>
+                <span class="font-medium">${duration} 分钟</span>
               </div>
-            \` : ''}
+            ` : ''}
           </div>
 
           <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between">
-            <a href="/experiment/\${exp.id}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+            <a href="/experiment/${exp.id}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
               查看详情 →
             </a>
             <div class="flex space-x-2">
-              <a href="/experiment/\${exp.id}/signals" class="text-green-600 hover:text-green-800 text-sm">
+              <a href="/experiment/${exp.id}/signals" class="text-green-600 hover:text-green-800 text-sm">
                 信号
               </a>
-              <a href="/experiment/\${exp.id}/trades" class="text-purple-600 hover:text-purple-800 text-sm">
+              <a href="/experiment/${exp.id}/trades" class="text-purple-600 hover:text-purple-800 text-sm">
                 交易
               </a>
             </div>
           </div>
         </div>
       </div>
-    \`;
+    `;
   }
 
   updateStats() {

@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
     <link href="/static/css/style.css" rel="stylesheet">
     <link href="/static/css/main.css" rel="stylesheet">
     <style>
@@ -78,26 +79,26 @@
             <div class="grid grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-sm font-medium text-gray-600">总实验数</h3>
+                        <h3 class="text-sm font-medium text-gray-800">总实验数</h3>
                         <span id="total-experiments" class="text-2xl font-bold text-blue-600">0</span>
                     </div>
                 </div>
                 <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-sm font-medium text-gray-600">运行中</h3>
+                        <h3 class="text-sm font-medium text-gray-800">运行中</h3>
                         <span id="running-experiments" class="text-2xl font-bold text-green-600">0</span>
                     </div>
                 </div>
                 <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-sm font-medium text-gray-600">总交易数</h3>
+                        <h3 class="text-sm font-medium text-gray-800">总交易数</h3>
                         <span id="total-trades" class="text-2xl font-bold text-purple-600">0</span>
                     </div>
                 </div>
                 <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-sm font-medium text-gray-600">最后更新</h3>
-                        <span id="last-update" class="text-sm font-medium text-gray-600">--:--</span>
+                        <h3 class="text-sm font-medium text-gray-800">最后更新</h3>
+                        <span id="last-update" class="text-sm font-medium text-gray-800">--:--</span>
                     </div>
                 </div>
             </div>
@@ -106,16 +107,16 @@
             <div class="bg-white rounded-lg p-4 mb-6 border border-gray-200 shadow-sm">
                 <div class="flex flex-wrap gap-3 items-center">
                     <div class="flex items-center gap-2">
-                        <label for="blockchain-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">区块链:</label>
-                        <select id="blockchain-filter" class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <label for="blockchain-filter" class="text-sm font-medium text-gray-800 whitespace-nowrap">区块链:</label>
+                        <select id="blockchain-filter" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="all">所有区块链</option>
                             <option value="bsc" selected>BSC</option>
                             <option value="solana">Solana</option>
                         </select>
                     </div>
                     <div class="flex items-center gap-2">
-                        <label for="status-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">状态:</label>
-                        <select id="status-filter" class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <label for="status-filter" class="text-sm font-medium text-gray-800 whitespace-nowrap">状态:</label>
+                        <select id="status-filter" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="all">所有状态</option>
                             <option value="initializing">未启动</option>
                             <option value="running">运行中</option>
@@ -125,8 +126,8 @@
                         </select>
                     </div>
                     <div class="flex items-center gap-2">
-                        <label for="mode-filter" class="text-sm font-medium text-gray-700 whitespace-nowrap">模式:</label>
-                        <select id="mode-filter" class="px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <label for="mode-filter" class="text-sm font-medium text-gray-800 whitespace-nowrap">模式:</label>
+                        <select id="mode-filter" class="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="all">所有模式</option>
                             <option value="virtual">虚拟交易</option>
                             <option value="live">实盘交易</option>

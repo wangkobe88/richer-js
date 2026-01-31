@@ -1,0 +1,96 @@
+#!/usr/bin/env node
+
+require('dotenv').config({ path: '../config/.env' });
+const { dbManager } = require('./src/services/dbManager');
+
+async function verifyDatabase() {
+  const supabase = dbManager.getClient();
+
+  console.log('');
+  console.log('========================================');
+  console.log('🔍 验证数据库数据');
+  console.log('========================================');
+  console.log('');
+
+  // 查询实验
+  console.log('📊 查询实验列表...');
+  const { data: experiments, error: expError } = await supabase
+    .from('experiments')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  if (expError) {
+    console.error('❌ 查询实验失败:', expError);
+  } else {
+    console.log(`✅ 找到 ${experiments.length} 个实验:`);
+    experiments.forEach(exp => {
+      console.log(`   - ${exp.experiment_name} (${exp.id})`);
+      console.log(`     状态: ${exp.status}, 模式: ${exp.trading_mode}`);
+    });
+  }
+  console.log('');
+
+  // 查询信号
+  console.log('📈 查询信号记录...');
+  const { data: signals, error: sigError } = await supabase
+    .from('strategy_signals')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  if (sigError) {
+    console.error('❌ 查询信号失败:', sigError);
+  } else {
+    console.log(`✅ 找到 ${signals.length} 条信号:`);
+    signals.forEach(sig => {
+      console.log(`   - ${sig.signal_type} ${sig.token_symbol} @ ${sig.createdAt}`);
+      console.log(`     原因: ${sig.reason}`);
+    });
+  }
+  console.log('');
+
+  // 查询交易
+  console.log('💰 查询交易记录...');
+  const { data: trades, error: tradeError } = await supabase
+    .from('trades')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  if (tradeError) {
+    console.error('❌ 查询交易失败:', tradeError);
+  } else {
+    console.log(`✅ 找到 ${trades.length} 条交易:`);
+    trades.forEach(trade => {
+      console.log(`   - ${trade.direction} ${trade.token_symbol} ${trade.amount} @ ${trade.price}`);
+      console.log(`     状态: ${trade.status}, 成功: ${trade.success}`);
+    });
+  }
+  console.log('');
+
+  // 查询指标
+  console.log('📊 查询运行时指标...');
+  const { data: metrics, error: metricError } = await supabase
+    .from('runtime_metrics')
+    .select('*')
+    .order('recorded_at', { ascending: false })
+    .limit(5);
+
+  if (metricError) {
+    console.error('❌ 查询指标失败:', metricError);
+  } else {
+    console.log(`✅ 找到 ${metrics.length} 条指标:`);
+    metrics.forEach(met => {
+      console.log(`   - ${met.metric_name}: ${met.metric_value}`);
+    });
+  }
+  console.log('');
+
+  console.log('========================================');
+  console.log('✅ 数据库验证完成！');
+  console.log('========================================');
+  console.log('');
+}
+
+verifyDatabase().catch(console.error);

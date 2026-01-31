@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交易信号 - Richer-js Fourmeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-size: 1.2rem;
+            background: rgba(0,0,0,0.9);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 450px;
+            background: #1f2937;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .signal-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .signal-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+
+        .signal-buy {
+            border-left: 4px solid #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .signal-sell {
+            border-left: 4px solid #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .signal-hold {
+            border-left: 4px solid #6b7280;
+            background: rgba(107, 114, 128, 0.1);
+        }
+
+        .signal-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-buy {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .badge-sell {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .badge-hold {
+            background-color: #6b7280;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-900 force-light">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-gray-100 border-b border-gray-300">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-green-600">
+                            <a href="/" class="hover:text-green-300 transition-colors">
+                                Richer-js Fourmeme Trading
+                            </a>
+                        </h1>
+                        <div class="hidden md:block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-white hover:bg-gray-700 transition-colors">
+                                实验列表
+                            </a>
+                            <a id="link-detail" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-white hover:bg-gray-700 transition-colors">
+                                实验详情
+                            </a>
+                            <a href="#" id="current-page" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">
+                                交易信号
+                            </a>
+                            <a id="link-trades" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-white hover:bg-gray-700 transition-colors">
+                                交易记录
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="refresh-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
+                            🔄 刷新
+                        </button>
+                        <button id="auto-refresh-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-sm font-medium text-white transition-colors">
+                            ⏰ 自动刷新: 开启
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 加载指示器 -->
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <span class="ml-4 text-white">正在加载交易信号...</span>
+            </div>
+
+            <!-- 错误信息 -->
+            <div id="error-message" class="hidden bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+                <div class="flex items-center">
+                    <span class="text-red-400">⚠️</span>
+                    <span class="ml-2" id="error-text">加载失败</span>
+                    <button id="retry-btn" class="ml-4 px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-sm">
+                        重试
+                    </button>
+                </div>
+            </div>
+
+            <!-- 信号内容 -->
+            <div id="signals-content" class="hidden">
+                <!-- 实验信息头部 -->
+                <div id="experiment-header" class="bg-gray-100 rounded-lg p-6 mb-8 border border-gray-300">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-2xl font-bold text-white mb-2" id="experiment-name">实验名称</h1>
+                            <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                <span id="experiment-id">ID: --</span>
+                                <span id="experiment-blockchain">区块链: --</span>
+                                <span id="signal-count">信号数量: 0</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <a id="link-back" href="#" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-sm font-medium text-white transition-colors">
+                                ← 返回实验详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 代币选择器 -->
+                <div class="bg-gray-100 rounded-lg p-4 mb-4 border border-gray-300">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div>
+                                <label for="token-selector" class="block text-sm font-medium text-gray-700 mb-1">选择代币查看K线图</label>
+                                <select id="token-selector" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                                    <option value="all">全部代币汇总</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- K线图 -->
+                <div class="bg-gray-100 rounded-lg border border-gray-300 mb-4">
+                    <div class="p-4 border-b border-gray-300">
+                        <h2 class="text-lg font-semibold text-white">价格走势与交易信号</h2>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="kline-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 信号筛选控件 -->
+                <div class="bg-gray-100 rounded-lg p-4 mb-8 border border-gray-300">
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div>
+                            <label for="action-filter" class="block text-sm font-medium text-gray-700 mb-2">信号类型</label>
+                            <select id="action-filter" class="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="all">所有信号</option>
+                                <option value="BUY">买入信号</option>
+                                <option value="SELL">卖出信号</option>
+                                <option value="HOLD">持有信号</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="limit" class="block text-sm font-medium text-gray-700 mb-2">显示数量</label>
+                            <select id="limit" class="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="50">50条</option>
+                                <option value="100" selected>100条</option>
+                                <option value="200">200条</option>
+                                <option value="500">500条</option>
+                            </select>
+                        </div>
+                        <button id="apply-filters" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
+                            应用筛选
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 信号统计 -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">买入信号</p>
+                                <p class="text-2xl font-bold text-green-600" id="buy-signals">0</p>
+                            </div>
+                            <div class="text-green-600 text-2xl">📈</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">卖出信号</p>
+                                <p class="text-2xl font-bold text-red-400" id="sell-signals">0</p>
+                            </div>
+                            <div class="text-red-400 text-2xl">📉</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">持有信号</p>
+                                <p class="text-2xl font-bold text-gray-500" id="hold-signals">0</p>
+                            </div>
+                            <div class="text-gray-500 text-2xl">⏸️</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">平均置信度</p>
+                                <p class="text-2xl font-bold text-purple-400" id="avg-confidence">0%</p>
+                            </div>
+                            <div class="text-purple-400 text-2xl">🎯</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 信号列表 -->
+                <div class="bg-gray-100 rounded-lg border border-gray-300">
+                    <div class="p-4 border-b border-gray-300 flex items-center justify-between">
+                        <h2 class="text-lg font-semibold text-white">信号历史</h2>
+                    </div>
+                    <div id="signals-container" class="divide-y divide-gray-700 max-h-96 overflow-y-auto">
+                        <!-- 信号卡片将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 空状态 -->
+                <div id="empty-state" class="hidden text-center py-12">
+                    <div class="text-gray-400 mb-4">
+                        <svg class="w-24 h-24 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-600 mb-2">暂无交易信号</h3>
+                    <p class="text-gray-500">该实验尚未产生任何交易信号</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/simple-init.js"></script>
+    <script src="/static/js/experiment_signals.js"></script>
+</body>
+</html>

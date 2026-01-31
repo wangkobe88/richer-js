@@ -5,14 +5,14 @@
  * 用于 fourmeme 交易实验的Web监控界面
  */
 
-require('dotenv').config({ path: './config/.env' });
+require('dotenv').config({ path: '../config/.env' });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
 // 导入实验管理组件
-const { ExperimentFactory } = require('./src/trading-engine/factories/ExperimentFactory');
-const { ExperimentDataService } = require('./src/web/services/ExperimentDataService');
+const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
+const { ExperimentDataService } = require('./web/services/ExperimentDataService');
 
 /**
  * Web服务器类
@@ -41,8 +41,8 @@ class RicherJsWebServer {
     this.app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
     // 静态文件服务
-    this.app.use('/static', express.static(path.join(__dirname, 'src/web/static')));
-    this.app.use(express.static(path.join(__dirname, 'src/web/public')));
+    this.app.use('/static', express.static(path.join(__dirname, 'web/static')));
+    this.app.use(express.static(path.join(__dirname, 'web/public')));
 
     // 请求日志
     this.app.use((req, res, next) => {
@@ -110,27 +110,27 @@ class RicherJsWebServer {
 
     // 实验监控页面
     this.app.get('/experiments', (req, res) => {
-      res.sendFile(path.join(__dirname, 'src/web/templates/experiments.html'));
+      res.sendFile(path.join(__dirname, 'web/templates/experiments.html'));
     });
 
     // 创建实验页面
     this.app.get('/create-experiment', (req, res) => {
-      res.sendFile(path.join(__dirname, 'src/web/templates/create_experiment.html'));
+      res.sendFile(path.join(__dirname, 'web/templates/create_experiment.html'));
     });
 
     // 实验详情页面
     this.app.get('/experiment/:id', (req, res) => {
-      res.sendFile(path.join(__dirname, 'src/web/templates/experiment_detail.html'));
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));
     });
 
     // 信号页面
     this.app.get('/experiment/:id/signals', (req, res) => {
-      res.sendFile(path.join(__dirname, 'src/web/templates/experiment_signals.html'));
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_signals.html'));
     });
 
     // 交易页面
     this.app.get('/experiment/:id/trades', (req, res) => {
-      res.sendFile(path.join(__dirname, 'src/web/templates/experiment_trades.html'));
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_trades.html'));
     });
 
     // ============ API路由：实验管理 ============
