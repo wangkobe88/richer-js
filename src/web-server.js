@@ -149,6 +149,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_tokens.html'));
     });
 
+    // 时序数据观察页面
+    this.app.get('/experiment/:id/observer', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_observer.html'));
+    });
+
     // ============ API路由：实验管理 ============
 
     // 获取实验列表
@@ -455,6 +460,202 @@ class RicherJsWebServer {
       } catch (error) {
         console.error('更新代币状态失败:', error);
         res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ API路由：实验时序数据 ============
+
+    // 获取有数据的实验列表
+    this.app.get('/api/experiment/time-series/experiments', async (req, res) => {
+      try {
+        const { ExperimentTimeSeriesService } = require('./web/services/ExperimentTimeSeriesService');
+        const timeSeriesService = new ExperimentTimeSeriesService();
+
+        const experiments = await timeSeriesService.getExperimentsWithData();
+
+        res.json({
+          success: true,
+          data: experiments.map(exp => ({
+            experimentId: exp.experimentId,
+            blockchain: exp.blockchain,
+            dataPointCount: exp.dataPointCount,
+            startTime: exp.dataPointCount > 0 ? null : new Date().toISOString()
+          }))
+        });
+      } catch (error) {
+        console.error('获取实验列表失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // 获取实验的代币列表
+    this.app.get('/api/experiment/time-series/tokens/:experimentId', async (req, res) => {
+      try {
+        const { experimentId } = req.params;
+        const { ExperimentTimeSeriesService } = require('./web/services/ExperimentTimeSeriesService');
+        const timeSeriesService = new ExperimentTimeSeriesService();
+
+        const tokens = await timeSeriesService.getExperimentTokens(experimentId);
+
+        res.json({
+          success: true,
+          data: tokens
+        });
+      } catch (error) {
+        console.error('获取代币列表失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // 获取时序数据
+    this.app.get('/api/experiment/time-series/data', async (req, res) => {
+      try {
+        const { experimentId, tokenAddress, startTime, endTime, limit } = req.query;
+
+        if (!experimentId) {
+          return res.status(400).json({
+            success: false,
+            error: '缺少必需参数: experimentId'
+          });
+        }
+
+        const { ExperimentTimeSeriesService } = require('./web/services/ExperimentTimeSeriesService');
+        const timeSeriesService = new ExperimentTimeSeriesService();
+
+        const options = {};
+        if (startTime) {
+          options.startTime = new Date(startTime);
+        }
+        if (endTime) {
+          options.endTime = new Date(endTime);
+        }
+        if (limit) {
+          options.limit = parseInt(limit);
+        }
+
+        const data = await timeSeriesService.getExperimentTimeSeries(
+          experimentId,
+          tokenAddress,
+          options
+        );
+
+        res.json({
+          success: true,
+          data: data
+        });
+      } catch (error) {
+        console.error('获取时序数据失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // 获取可用的因子列表
+    this.app.get('/api/experiment/time-series/factors', async (req, res) => {
+      try {
+        const { experimentId, tokenAddress } = req.query;
+
+        if (!experimentId || !tokenAddress) {
+          return res.status(400).json({
+            success: false,
+            error: '缺少必需参数: experimentId, tokenAddress'
+          });
+        }
+
+        const { ExperimentTimeSeriesService } = require('./web/services/ExperimentTimeSeriesService');
+        const timeSeriesService = new ExperimentTimeSeriesService();
+
+        const factors = await timeSeriesService.getAvailableFactors(experimentId, tokenAddress);
+
+        res.json({
+          success: true,
+          data: factors
+        });
+      } catch (error) {
+        console.error('获取因子列表失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // 获取特定因子的时序数据
+    this.app.get('/api/experiment/time-series/factor-data', async (req, res) => {
+      try {
+        const { experimentId, tokenAddress, factorName } = req.query;
+
+        if (!experimentId || !tokenAddress || !factorName) {
+          return res.status(400).json({
+            success: false,
+            error: '缺少必需参数: experimentId, tokenAddress, factorName'
+          });
+        }
+
+        const { ExperimentTimeSeriesService } = require('./web/services/ExperimentTimeSeriesService');
+        const timeSeriesService = new ExperimentTimeSeriesService();
+
+        const data = await timeSeriesService.getFactorTimeSeries(
+          experimentId,
+          tokenAddress,
+          factorName
+        );
+
+        res.json({
+          success: true,
+          data: data
+        });
+      } catch (error) {
+        console.error('获取因子时序数据失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // 分页获取时序数据（用于详细数据表格）
+    this.app.get('/api/experiment/time-series/data/paginated', async (req, res) => {
+      try {
+        const { experimentId, tokenAddress, page = '1', pageSize = '50' } = req.query;
+
+        if (!experimentId || !tokenAddress) {
+          return res.status(400).json({
+            success: false,
+            error: '缺少必需参数: experimentId, tokenAddress'
+          });
+        }
+
+        const { ExperimentTimeSeriesService } = require('./web/services/ExperimentTimeSeriesService');
+        const timeSeriesService = new ExperimentTimeSeriesService();
+
+        const result = await timeSeriesService.getPaginatedTimeSeries(
+          experimentId,
+          tokenAddress,
+          {
+            page: parseInt(page),
+            pageSize: parseInt(pageSize)
+          }
+        );
+
+        res.json({
+          success: true,
+          data: result
+        });
+      } catch (error) {
+        console.error('分页查询失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
       }
     });
 

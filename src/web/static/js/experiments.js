@@ -220,6 +220,9 @@ class ExperimentMonitor {
               <a href="/experiment/${exp.id}/trades" class="text-purple-600 hover:text-purple-800 text-sm">
                 交易
               </a>
+              <a href="/experiment/${exp.id}/observer" class="text-emerald-600 hover:text-emerald-800 text-sm">
+                时序
+              </a>
               <button data-action="delete" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-red-600 hover:text-red-800 text-sm font-medium">
                 🗑️ 删除
               </button>

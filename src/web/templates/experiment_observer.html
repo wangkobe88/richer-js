@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>实验运行数据观察 - Richer Trading System</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 15px;
+      color: #1a1a1a;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    select {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      min-width: 200px;
+      background: white;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-primary {
+      background: #1890ff;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #40a9ff;
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-success {
+      background: #52c41a;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #73d13d;
+    }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 400px;
+      width: 100%;
+    }
+
+    .factor-chart-container {
+      position: relative;
+      height: 300px;
+      width: 100%;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .error {
+      background: #fff2f0;
+      border: 1px solid #ffccc7;
+      border-radius: 4px;
+      padding: 12px;
+      color: #ff4d4f;
+      margin-bottom: 20px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    /* 数据表格样式 */
+    .data-table-container {
+      overflow-x: auto;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .data-table th,
+    .data-table td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .data-table th {
+      background: #fafafa;
+      font-weight: 600;
+      color: #666;
+      position: sticky;
+      top: 0;
+    }
+
+    .data-table tbody tr:hover {
+      background: #f5f5f5;
+    }
+
+    .signal-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .signal-buy {
+      background: #f6ffed;
+      color: #52c41a;
+      border: 1px solid #b7eb8f;
+    }
+
+    .signal-sell {
+      background: #fff2f0;
+      color: #ff4d4f;
+      border: 1px solid #ffccc7;
+    }
+
+    .signal-hold {
+      background: #f5f5f5;
+      color: #999;
+      border: 1px solid #e0e0e0;
+    }
+
+    .executed-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .executed-true {
+      background: #f6ffed;
+      color: #52c41a;
+      border: 1px solid #b7eb8f;
+    }
+
+    .executed-false {
+      background: #fff2f0;
+      color: #ff4d4f;
+      border: 1px solid #ffccc7;
+    }
+
+    /* 分页样式 */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .pagination button {
+      padding: 6px 12px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .pagination button:hover:not(:disabled) {
+      background: #f0f0f0;
+    }
+
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pagination .page-info {
+      font-size: 13px;
+      color: #666;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      select {
+        min-width: 100%;
+      }
+
+      .chart-container {
+        height: 300px;
+      }
+
+      .factor-chart-container {
+        height: 250px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 页面头部 -->
+    <div class="header">
+      <h1>📊 实验运行数据观察</h1>
+
+      <!-- 实验信息显示（当 URL 中有实验 ID 时显示） -->
+      <div id="experimentInfo" style="display: none;">
+        <div class="controls">
+          <div class="control-group">
+            <label>当前实验</label>
+            <div style="padding: 8px 12px; background: #f0f0f0; border-radius: 4px; min-width: 300px;">
+              <span style="font-weight: 600;" id="experimentIdDisplay">--</span>
+              <span style="color: #666; margin-left: 10px;" id="experimentDataCount">--</span>
+            </div>
+          </div>
+          <div class="control-group">
+            <label for="tokenSelect">选择代币</label>
+            <select id="tokenSelect" disabled>
+              <option value="">加载中...</option>
+            </select>
+          </div>
+          <div class="control-group" style="flex-direction: row; align-items: flex-end;">
+            <button id="refreshBtn" class="btn btn-secondary">🔄 刷新</button>
+            <button id="backToDetailBtn" class="btn btn-primary">📊 返回实验详情</button>
+            <button id="backToExperimentsBtn" class="btn btn-success">🔬 实验面板</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 实验选择器（当 URL 中没有实验 ID 时显示） -->
+      <div id="experimentSelector" style="display: none;">
+        <div class="controls">
+          <div class="control-group">
+            <label for="experimentSelect">选择实验</label>
+            <select id="experimentSelect">
+              <option value="">加载中...</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="tokenSelect2">选择代币</label>
+            <select id="tokenSelect2" disabled>
+              <option value="">请先选择实验</option>
+            </select>
+          </div>
+          <div class="control-group" style="flex-direction: row; align-items: flex-end;">
+            <button id="refreshBtn2" class="btn btn-secondary">🔄 刷新</button>
+            <button id="backToExperimentsBtn2" class="btn btn-success">🔬 实验面板</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="errorContainer" style="display: none;"></div>
+
+    <!-- 价格走势图 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">💰 价格走势</div>
+      </div>
+      <div id="priceChartContainer" class="chart-container">
+        <div class="empty-state">
+          <p>请选择实验和代币以查看数据</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 因子分析图 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          📈 因子分析
+          <select id="factorSelect" style="margin-left: 15px; min-width: 150px;" disabled>
+            <option value="">请先加载数据</option>
+          </select>
+        </div>
+      </div>
+      <div id="factorChartContainer" class="factor-chart-container">
+        <div class="empty-state">
+          <p>选择因子以查看趋势</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 详细数据表格 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📋 详细数据</div>
+      </div>
+      <div id="dataTableContainer" class="data-table-container">
+        <div class="empty-state">
+          <p>请选择实验和代币以查看详细数据</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 引入 Chart.js 和依赖 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+  <!-- 引入页面逻辑 -->
+  <script src="/static/js/experiment_observer.js"></script>
+</body>
+</html>

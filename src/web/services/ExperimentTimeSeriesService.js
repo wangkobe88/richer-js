@@ -243,6 +243,72 @@ class ExperimentTimeSeriesService {
       return [];
     }
   }
+
+  /**
+   * 获取可用的因子列表
+   * @param {string} experimentId - 实验ID
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<Array>} 因子名称数组
+   */
+  async getAvailableFactors(experimentId, tokenAddress) {
+    try {
+      const data = await this.getExperimentTimeSeries(experimentId, tokenAddress);
+
+      const factorSet = new Set();
+      for (const record of data) {
+        if (record.factor_values && typeof record.factor_values === 'object') {
+          Object.keys(record.factor_values).forEach(key => factorSet.add(key));
+        }
+      }
+
+      return Array.from(factorSet).sort();
+    } catch (error) {
+      console.error('❌ [时序数据] 获取因子列表失败:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * 分页获取时序数据
+   * @param {string} experimentId - 实验ID
+   * @param {string} tokenAddress - 代币地址
+   * @param {Object} options - 分页选项
+   * @param {number} options.page - 页码（从1开始）
+   * @param {number} options.pageSize - 每页大小
+   * @returns {Promise<Object>} 分页结果
+   */
+  async getPaginatedTimeSeries(experimentId, tokenAddress, options = {}) {
+    try {
+      const page = options.page || 1;
+      const pageSize = options.pageSize || 50;
+
+      // 获取所有数据
+      const allData = await this.getExperimentTimeSeries(experimentId, tokenAddress);
+
+      const total = allData.length;
+      const totalPages = Math.ceil(total / pageSize);
+      const offset = (page - 1) * pageSize;
+
+      const paginatedData = allData.slice(offset, offset + pageSize);
+
+      return {
+        data: paginatedData,
+        total,
+        page,
+        pageSize,
+        totalPages
+      };
+    } catch (error) {
+      console.error('❌ [时序数据] 分页查询失败:', error.message);
+      return {
+        data: [],
+        total: 0,
+        page: options.page || 1,
+        pageSize: options.pageSize || 50,
+        totalPages: 0
+      };
+    }
+  }
 }
 
 module.exports = { ExperimentTimeSeriesService };

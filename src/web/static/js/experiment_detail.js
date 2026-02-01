@@ -259,6 +259,21 @@ class ExperimentDetail {
       durationElement.textContent = duration;
     }
 
+    // 设置快速操作导航链接
+    const linkSignals = document.getElementById('link-signals');
+    const linkTrades = document.getElementById('link-trades');
+    const linkObserver = document.getElementById('link-observer');
+
+    if (linkSignals) {
+      linkSignals.href = `/experiment/${this.experimentId}/signals`;
+    }
+    if (linkTrades) {
+      linkTrades.href = `/experiment/${this.experimentId}/trades`;
+    }
+    if (linkObserver) {
+      linkObserver.href = `/experiment/${this.experimentId}/observer`;
+    }
+
     // 更新页面标题
     document.title = `${this.experiment.experiment_name} - 实验详情 - 2025-2026 Become Rich Baby!`;
   }
