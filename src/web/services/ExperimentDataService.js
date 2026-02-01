@@ -297,7 +297,7 @@ class ExperimentDataService {
    */
   async clearExperimentData(experimentId) {
     try {
-      const tables = ['trades', 'strategy_signals', 'runtime_metrics', 'portfolio_snapshots'];
+      const tables = ['trades', 'strategy_signals', 'runtime_metrics', 'portfolio_snapshots', 'experiment_tokens'];
       const results = [];
 
       for (const table of tables) {
@@ -479,6 +479,230 @@ class ExperimentDataService {
     } catch (error) {
       console.error('保存投资组合快照失败:', error);
       return false;
+    }
+  }
+
+  // ========== 代币相关方法 ==========
+
+  /**
+   * 记录代币被发现
+   * @param {string} experimentId - 实验ID
+   * @param {Object} token - 代币信息
+   * @returns {Promise<boolean>} 是否保存成功
+   */
+  async saveToken(experimentId, token) {
+    try {
+      const { error } = await this.supabase
+        .from('experiment_tokens')
+        .insert({
+          experiment_id: experimentId,
+          token_address: token.token,
+          token_symbol: token.symbol || '',
+          blockchain: token.chain || 'bsc',
+          discovered_at: new Date(token.created_at * 1000).toISOString(),
+          status: 'monitoring'
+        });
+
+      if (error) {
+        // 如果是唯一约束冲突，说明已存在，返回成功
+        if (error.code === '23505') {
+          return true;
+        }
+        throw error;
+      }
+
+      return true;
+
+    } catch (error) {
+      console.error('保存代币失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 更新代币状态
+   * @param {string} experimentId - 实验ID
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} status - 状态 (monitoring, bought, exited)
+   * @returns {Promise<boolean>} 是否更新成功
+   */
+  async updateTokenStatus(experimentId, tokenAddress, status) {
+    try {
+      const { error } = await this.supabase
+        .from('experiment_tokens')
+        .update({ status: status, updated_at: new Date().toISOString() })
+        .eq('experiment_id', experimentId)
+        .eq('token_address', tokenAddress);
+
+      if (error) throw error;
+      return true;
+
+    } catch (error) {
+      console.error('更新代币状态失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 获取实验的代币列表
+   * @param {string} experimentId - 实验ID
+   * @param {Object} options - 查询选项
+   * @returns {Promise<Array>} 代币列表
+   */
+  async getTokens(experimentId, options = {}) {
+    try {
+      let query = this.supabase
+        .from('experiment_tokens')
+        .select('*')
+        .eq('experiment_id', experimentId);
+
+      // 状态筛选
+      if (options.status) {
+        query = query.eq('status', options.status);
+      }
+
+      // 排序
+      const sortBy = options.sortBy || 'discovered_at';
+      const sortOrder = options.sortOrder || 'desc';
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+
+      // 分页
+      const offset = parseInt(options.offset) || 0;
+      const limit = parseInt(options.limit) || 100;
+      query = query.range(offset, offset + limit - 1);
+
+      const { data, error } = await query;
+
+      if (error) {
+        // 如果表不存在，返回空数组
+        if (error.code === '42P01') {
+          return [];
+        }
+        throw error;
+      }
+
+      return data || [];
+
+    } catch (error) {
+      console.error('获取代币列表失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 获取格式化的代币数据（用于前端API）
+   * @param {string} experimentId - 实验ID
+   * @param {Object} options - 查询选项
+   * @returns {Promise<Object>} 格式化的响应数据
+   */
+  async getFormattedTokens(experimentId, options = {}) {
+    const tokens = await this.getTokens(experimentId, options);
+
+    // 统计各状态数量
+    const stats = {
+      total: tokens.length,
+      monitoring: tokens.filter(t => t.status === 'monitoring').length,
+      bought: tokens.filter(t => t.status === 'bought').length,
+      exited: tokens.filter(t => t.status === 'exited').length
+    };
+
+    return {
+      success: true,
+      data: tokens,
+      tokens: tokens,
+      count: tokens.length,
+      stats: stats,
+      metadata: {
+        experimentId,
+        timestamp: new Date().toISOString(),
+        filters: options
+      }
+    };
+  }
+
+  /**
+   * 获取单个代币详情
+   * @param {string} experimentId - 实验ID
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<Object|null>} 代币详情
+   */
+  async getToken(experimentId, tokenAddress) {
+    try {
+      const { data, error } = await this.supabase
+        .from('experiment_tokens')
+        .select('*')
+        .eq('experiment_id', experimentId)
+        .eq('token_address', tokenAddress)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+
+    } catch (error) {
+      console.error('获取代币详情失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 获取代币统计（关联交易数据）
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<Object>} 统计数据
+   */
+  async getTokenStats(experimentId) {
+    try {
+      // 获取所有代币
+      const tokens = await this.getTokens(experimentId, { limit: 10000 });
+
+      // 获取所有交易
+      const trades = await this.getTrades(experimentId, { limit: 10000 });
+
+      // 为每个代币统计交易次数
+      const tokenTradeStats = {};
+      trades.forEach(trade => {
+        const addr = trade.tokenAddress;
+        if (!tokenTradeStats[addr]) {
+          tokenTradeStats[addr] = { buyCount: 0, sellCount: 0 };
+        }
+        if (trade.direction === 'buy') tokenTradeStats[addr].buyCount++;
+        if (trade.direction === 'sell') tokenTradeStats[addr].sellCount++;
+      });
+
+      // 组合数据
+      const tokensWithStats = tokens.map(token => ({
+        ...token,
+        tradeCount: (tokenTradeStats[token.token_address]?.buyCount || 0) +
+                     (tokenTradeStats[token.token_address]?.sellCount || 0),
+        buyCount: tokenTradeStats[token.token_address]?.buyCount || 0,
+        sellCount: tokenTradeStats[token.token_address]?.sellCount || 0
+      }));
+
+      // 计算总体统计
+      return {
+        total: tokensWithStats.length,
+        monitoring: tokensWithStats.filter(t => t.status === 'monitoring').length,
+        bought: tokensWithStats.filter(t => t.status === 'bought').length,
+        exited: tokensWithStats.filter(t => t.status === 'exited').length,
+        buyRate: tokens.length > 0 ? (tokensWithStats.filter(t => t.status === 'bought').length / tokens.length * 100).toFixed(1) : '0',
+        tokens: tokensWithStats
+      };
+
+    } catch (error) {
+      console.error('获取代币统计失败:', error);
+      return {
+        total: 0,
+        monitoring: 0,
+        bought: 0,
+        exited: 0,
+        buyRate: '0',
+        tokens: []
+      };
     }
   }
 }

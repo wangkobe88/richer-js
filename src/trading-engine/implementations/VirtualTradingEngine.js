@@ -18,6 +18,7 @@ const { AveKlineAPI } = require('../../core/ave-api');
 const { RSIIndicator } = require('../../indicators/RSIIndicator');
 const { RoundSummary } = require('../utils/RoundSummary');
 const { PortfolioManager } = require('../../portfolio');
+const { BlockchainConfig } = require('../../utils/BlockchainConfig');
 
 // 加载配置
 const config = require('../../../config/default.json');
@@ -43,7 +44,7 @@ class VirtualTradingEngine {
     this._experiment = null;
     this._experimentId = null;
 
-    // 虚拟资金管理
+    // 虚拟资金管理 (使用区块链主币，BSC为BNB)
     this.initialBalance = config.initialBalance || 100; // BNB
     this.currentBalance = this.initialBalance;
     this.holdings = new Map(); // tokenAddress -> { amount, avgBuyPrice }
@@ -75,6 +76,9 @@ class VirtualTradingEngine {
     this._roundSummary = null;
     this._portfolioManager = null;
     this._portfolioId = null;
+
+    // 代币追踪：记录已处理过的代币（用于数据库记录）
+    this._seenTokens = new Set();
 
     console.log(`🎮 虚拟交易引擎已创建: ${this.id}, 初始余额: ${this.initialBalance}`);
   }
@@ -113,8 +117,9 @@ class VirtualTradingEngine {
       // 更新 logger 的 experimentId
       this.logger.experimentId = this._experimentId;
 
-      // 初始化 RoundSummary
-      this._roundSummary = new RoundSummary(this._experimentId, this.logger);
+      // 初始化 RoundSummary (传递区块链信息)
+      const blockchain = this._experiment.blockchain || 'bsc';
+      this._roundSummary = new RoundSummary(this._experimentId, this.logger, blockchain);
 
       // 从实验配置中获取初始余额
       if (this._experiment.config?.virtual?.initialBalance) {
@@ -390,9 +395,39 @@ class VirtualTradingEngine {
    */
   async _processToken(token) {
     try {
+      // 0. 记录代币到数据库（首次发现时）
+      const tokenKey = `${token.token}-${token.chain}`;
+      if (!this._seenTokens.has(tokenKey)) {
+        await this.dataService.saveToken(this._experimentId, {
+          token: token.token,
+          symbol: token.symbol,
+          chain: token.chain,
+          created_at: token.createdAt
+        });
+        this._seenTokens.add(tokenKey);
+      }
+
       // 1. 获取K线数据
       const klineData = await this._fetchKlineData(token);
       if (!klineData || klineData.length === 0) {
+        // 记录到 Summary：无法获取K线数据
+        if (this._roundSummary) {
+          this._roundSummary.recordTokenIndicators(
+            token.token,
+            token.symbol,
+            {
+              type: 'error',
+              error: '无法获取K线数据',
+              factorValues: { currentPrice: 0 }
+            },
+            0,
+            {
+              createdAt: token.createdAt,
+              addedAt: token.addedAt,
+              status: token.status
+            }
+          );
+        }
         return;
       }
 
@@ -406,9 +441,32 @@ class VirtualTradingEngine {
       // 3. 构建因子结果
       const factorResults = this._buildFactors(token, klineData);
 
+      // 检查是否获得有效价格
+      if (factorResults.currentPrice === 0) {
+        // 记录到 Summary：无法获取有效价格
+        if (this._roundSummary) {
+          this._roundSummary.recordTokenIndicators(
+            token.token,
+            token.symbol,
+            {
+              type: 'error',
+              error: '无法获取有效价格 (K线和AVE API均无有效数据)',
+              factorValues: factorResults
+            },
+            0,
+            {
+              createdAt: token.createdAt,
+              addedAt: token.addedAt,
+              status: token.status
+            }
+          );
+        }
+        // 无有效价格，无法执行策略，直接返回
+        return;
+      }
+
       // 记录代币指标到 RoundSummary
       if (this._roundSummary) {
-        const currentPrice = factorResults.currentPrice || token.currentPrice;
         this._roundSummary.recordTokenIndicators(
           token.token,
           token.symbol,
@@ -419,7 +477,7 @@ class VirtualTradingEngine {
             factorValues: factorResults,
             triggeredStrategy: null // 将在策略触发时更新
           },
-          currentPrice,
+          factorResults.currentPrice,
           {
             createdAt: token.createdAt,
             addedAt: token.addedAt,
@@ -428,12 +486,28 @@ class VirtualTradingEngine {
         );
       }
 
-      // 4. 策略分析
+      // 4. 策略分析 - 根据代币状态过滤策略
       const strategy = this._strategyEngine.evaluate(
         factorResults,
         token.token,
         Date.now()
       );
+
+      // 验证策略是否适用于当前代币状态
+      if (strategy) {
+        // 买入策略只对监控中代币有效
+        if (strategy.action === 'buy' && token.status !== 'monitoring') {
+          this.logger.debug(this._experimentId, 'ProcessToken',
+            `${token.symbol} 买入策略跳过 (状态: ${token.status})`);
+          return; // 不再处理此代币
+        }
+        // 卖出策略只对已买入代币有效
+        if (strategy.action === 'sell' && token.status !== 'bought') {
+          this.logger.debug(this._experimentId, 'ProcessToken',
+            `${token.symbol} 卖出策略跳过 (状态: ${token.status})`);
+          return; // 不再处理此代币
+        }
+      }
 
       if (strategy) {
         this.logger.info(this._experimentId, 'ProcessToken',
@@ -476,7 +550,7 @@ class VirtualTradingEngine {
             symbol: token.symbol,
             amount: holding.amount,
             buyPrice: holding.avgBuyPrice,
-            currentPrice: factorResults.currentPrice || token.currentPrice
+            currentPrice: factorResults.currentPrice
           });
         }
       }
@@ -670,7 +744,19 @@ class VirtualTradingEngine {
    * @returns {Array} 策略配置数组
    */
   _buildStrategyConfig() {
-    const strategyConfig = config.strategy || {};
+    // 优先使用实验配置中的策略参数，否则使用默认配置
+    const experimentConfig = this._experiment?.config || {};
+    const defaultStrategyConfig = config.strategy || {};
+    const strategyConfig = experimentConfig.strategy || defaultStrategyConfig;
+
+    // 策略参数值
+    const buyTimeMinutes = strategyConfig.buyTimeMinutes !== undefined ? strategyConfig.buyTimeMinutes : 1.33;
+    const takeProfit1 = strategyConfig.takeProfit1 !== undefined ? strategyConfig.takeProfit1 : 30;
+    const takeProfit2 = strategyConfig.takeProfit2 !== undefined ? strategyConfig.takeProfit2 : 50;
+    const stopLossMinutes = strategyConfig.stopLossMinutes !== undefined ? strategyConfig.stopLossMinutes : 5;
+
+    // 预计算需要用算术表达式的值（ConditionEvaluator不支持算术运算）
+    const stopLossSeconds = stopLossMinutes * 60;
 
     return [
       {
@@ -680,36 +766,36 @@ class VirtualTradingEngine {
         priority: 1,
         cooldown: 60,
         enabled: true,
-        condition: 'age < buyTimeMinutes AND currentPrice > 0'
+        condition: `age < ${buyTimeMinutes} AND currentPrice > 0`
       },
       {
         id: 'take_profit_1',
-        name: '止盈1 (30%卖出50%)',
+        name: `止盈1 (${takeProfit1}%卖出${Math.round((strategyConfig.takeProfit1Sell || 0.5) * 100)}%)`,
         action: 'sell',
         priority: 1,
         cooldown: 30,
         enabled: true,
-        condition: 'profitPercent >= takeProfit1 AND holdDuration > 0',
-        sellRatio: 0.5
+        condition: `profitPercent >= ${takeProfit1} AND holdDuration > 0`,
+        sellRatio: strategyConfig.takeProfit1Sell !== undefined ? strategyConfig.takeProfit1Sell : 0.5
       },
       {
         id: 'take_profit_2',
-        name: '止盈2 (50%卖出50%)',
+        name: `止盈2 (${takeProfit2}%卖出剩余)`,
         action: 'sell',
         priority: 2,
         cooldown: 30,
         enabled: true,
-        condition: 'profitPercent >= takeProfit2 AND holdDuration > 0',
-        sellRatio: 0.5
+        condition: `profitPercent >= ${takeProfit2} AND holdDuration > 0`,
+        sellRatio: strategyConfig.takeProfit2Sell !== undefined ? strategyConfig.takeProfit2Sell : 1.0
       },
       {
         id: 'stop_loss',
-        name: '时间止损',
+        name: `时间止损 (${stopLossMinutes}分钟)`,
         action: 'sell',
         priority: 10,
         cooldown: 60,
         enabled: true,
-        condition: 'holdDuration >= stopLossMinutes * 60 AND profitPercent <= 0',
+        condition: `holdDuration >= ${stopLossSeconds} AND profitPercent <= 0`,
         sellRatio: 1.0
       }
     ];
@@ -773,7 +859,14 @@ class VirtualTradingEngine {
         price: price
       };
 
-      return await this.executeTrade(tradeRequest);
+      const result = await this.executeTrade(tradeRequest);
+
+      // 买入成功后更新代币状态
+      if (result && result.success) {
+        await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'bought');
+      }
+
+      return result;
 
     } catch (error) {
       return { success: false, reason: error.message };
@@ -809,7 +902,18 @@ class VirtualTradingEngine {
         price: price
       };
 
-      return await this.executeTrade(tradeRequest);
+      const result = await this.executeTrade(tradeRequest);
+
+      // 卖出成功后更新代币状态
+      if (result && result.success) {
+        // 全部卖出（sellRatio >= 1.0）时标记为已退出
+        if (sellRatio >= 1.0) {
+          await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'exited');
+        }
+        // 如果是部分卖出（sellRatio < 1.0），状态保持 'bought'
+      }
+
+      return result;
 
     } catch (error) {
       return { success: false, reason: error.message };

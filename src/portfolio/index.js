@@ -26,12 +26,8 @@ const { PortfolioManager } = require('./core/PortfolioManager');
 const { PortfolioCalculator } = require('./calculators/PortfolioCalculator');
 const { PortfolioTracker } = require('./trackers/PortfolioTracker');
 
-// 服务层
-const { PortfolioService } = require('./services/PortfolioService');
-
 // 全局实例
 let portfolioManagerInstance = null;
-let portfolioServiceInstance = null;
 
 // 重新导出所有组件
 module.exports = {
@@ -56,9 +52,6 @@ module.exports = {
   PortfolioCalculator,
   PortfolioTracker,
 
-  // 服务层
-  PortfolioService,
-
   // 全局实例管理
   /**
    * 获取全局投资组合管理器
@@ -71,17 +64,6 @@ module.exports = {
     return portfolioManagerInstance;
   },
 
-  /**
-   * 获取全局投资组合服务
-   * @returns {PortfolioService} 投资组合服务实例
-   */
-  getPortfolioService() {
-    if (!portfolioServiceInstance) {
-      portfolioServiceInstance = new PortfolioService();
-    }
-    return portfolioServiceInstance;
-  },
-
   // 便捷方法
 
   /**
@@ -91,7 +73,7 @@ module.exports = {
    * @returns {Promise<string>} 投资组合ID
    */
   createPortfolio: async (initialCash, config) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.createPortfolio(initialCash, config);
   },
 
@@ -101,7 +83,7 @@ module.exports = {
    * @returns {Promise<PortfolioSnapshot|null>} 快照对象
    */
   createSnapshot: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.getSnapshot(portfolioId);
   },
 
@@ -111,7 +93,7 @@ module.exports = {
    * @returns {Promise<Object>} 统计信息
    */
   getPortfolioStats: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.getPortfolioStats(portfolioId);
   },
 
@@ -122,7 +104,7 @@ module.exports = {
    * @returns {Promise<PerformanceMetrics>} 性能指标
    */
   getPerformanceMetrics: async (portfolioId, timeframe) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.getPerformanceMetrics(portfolioId, timeframe);
   },
 
@@ -132,7 +114,7 @@ module.exports = {
    * @returns {Promise<RiskMetrics>} 风险指标
    */
   getRiskMetrics: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.getRiskMetrics(portfolioId);
   },
 
@@ -142,7 +124,7 @@ module.exports = {
    * @returns {Promise<RebalanceRecommendation[]>} 重新平衡建议
    */
   analyzeRebalanceNeeds: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.analyzeRebalanceNeeds(portfolioId);
   },
 
@@ -153,92 +135,8 @@ module.exports = {
    * @returns {Promise<string[]>} 交易ID列表
    */
   executeRebalance: async (portfolioId, recommendations) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.executeRebalance(portfolioId, recommendations);
-  },
-
-  /**
-   * 从模板创建投资组合
-   * @param {Object} template - 投资组合模板
-   * @param {Decimal} initialCash - 初始现金
-   * @returns {Promise<string>} 投资组合ID
-   */
-  createPortfolioFromTemplate: async (template, initialCash) => {
-    const service = getPortfolioService();
-    return await service.createPortfolioFromTemplate(template, initialCash);
-  },
-
-  /**
-   * 比较投资组合
-   * @param {string} portfolioId1 - 投资组合ID1
-   * @param {string} portfolioId2 - 投资组合ID2
-   * @returns {Promise<PortfolioComparison>} 比较结果
-   */
-  comparePortfolios: async (portfolioId1, portfolioId2) => {
-    const service = getPortfolioService();
-    return await service.comparePortfolios(portfolioId1, portfolioId2);
-  },
-
-  /**
-   * 分析投资组合
-   * @param {string} portfolioId - 投资组合ID
-   * @returns {Promise<PortfolioAnalysis>} 分析结果
-   */
-  analyzePortfolio: async (portfolioId) => {
-    const service = getPortfolioService();
-    return await service.analyzePortfolio(portfolioId);
-  },
-
-  /**
-   * 智能重新平衡
-   * @param {string} portfolioId - 投资组合ID
-   * @param {Object} marketConditions - 市场状况
-   * @returns {Promise<Object>} 重新平衡建议
-   */
-  smartRebalance: async (portfolioId, marketConditions) => {
-    const service = getPortfolioService();
-    return await service.smartRebalance(portfolioId, marketConditions);
-  },
-
-  /**
-   * 批量操作
-   * @param {Array<Object>} operations - 操作数组
-   * @returns {Promise<Array<Object>>} 操作结果
-   */
-  batchOperation: async (operations) => {
-    const service = getPortfolioService();
-    return await service.batchOperation(operations);
-  },
-
-  /**
-   * 获取投资组合仪表板数据
-   * @param {string[]} [portfolioIds] - 投资组合ID数组
-   * @returns {Promise<Object>} 仪表板数据
-   */
-  getDashboardData: async (portfolioIds) => {
-    const service = getPortfolioService();
-    return await service.getDashboardData(portfolioIds);
-  },
-
-  /**
-   * 生成投资组合报告
-   * @param {string} portfolioId - 投资组合ID
-   * @param {'daily'|'weekly'|'monthly'} [timeframe] - 时间框架
-   * @param {'json'|'html'|'pdf'} [format] - 格式
-   * @returns {Promise<string>} 报告内容
-   */
-  generatePortfolioReport: async (portfolioId, timeframe, format) => {
-    const service = getPortfolioService();
-    return await service.generatePortfolioReport(portfolioId, timeframe, format);
-  },
-
-  /**
-   * 获取投资组合模板
-   * @returns {Array<Object>} 投资组合模板数组
-   */
-  getPortfolioTemplates: () => {
-    const service = getPortfolioService();
-    return service.getPortfolioTemplates();
   },
 
   /**
@@ -246,7 +144,7 @@ module.exports = {
    * @returns {Promise<Array<Object>>} 投资组合数组
    */
   getPortfolios: async () => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.getPortfolios();
   },
 
@@ -256,7 +154,7 @@ module.exports = {
    * @returns {Promise<boolean>} 是否成功
    */
   deletePortfolio: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.deletePortfolio(portfolioId);
   },
 
@@ -266,7 +164,7 @@ module.exports = {
    * @returns {Promise<boolean>} 是否成功
    */
   archivePortfolio: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.archivePortfolio(portfolioId);
   },
 
@@ -277,7 +175,7 @@ module.exports = {
    * @returns {Promise<string>} 新投资组合ID
    */
   duplicatePortfolio: async (portfolioId, newConfig) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.duplicatePortfolio(portfolioId, newConfig);
   },
 
@@ -287,7 +185,7 @@ module.exports = {
    * @returns {Promise<string>} JSON格式的投资组合数据
    */
   exportPortfolio: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.exportPortfolio(portfolioId);
   },
 
@@ -297,7 +195,7 @@ module.exports = {
    * @returns {Promise<string>} 投资组合ID
    */
   importPortfolio: async (data) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.importPortfolio(data);
   },
 
@@ -306,7 +204,7 @@ module.exports = {
    * @returns {Promise<string>} 备份数据
    */
   backupPortfolios: async () => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.backup();
   },
 
@@ -316,7 +214,7 @@ module.exports = {
    * @returns {Promise<number>} 恢复的投资组合数量
    */
   restorePortfolios: async (backup) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.restore(backup);
   },
 
@@ -330,7 +228,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   updatePosition: async (portfolioId, tokenAddress, amount, price, type) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.updatePosition(portfolioId, tokenAddress, amount, price, type);
   },
 
@@ -340,7 +238,7 @@ module.exports = {
    * @returns {Promise<Map<string, Position>>} 持仓映射
    */
   getPositions: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.getPositions(portfolioId);
   },
 
@@ -350,7 +248,7 @@ module.exports = {
    * @returns {Promise<AssetAllocation[]>} 资产配置数组
    */
   getAssetAllocation: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.getAssetAllocation(portfolioId);
   },
 
@@ -360,7 +258,7 @@ module.exports = {
    * @returns {Promise<Decimal>} 总价值
    */
   calculatePortfolioValue: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.calculatePortfolioValue(portfolioId);
   },
 
@@ -370,7 +268,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   recordTrade: async (trade) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.recordTrade(trade);
   },
 
@@ -383,7 +281,7 @@ module.exports = {
    * @returns {Promise<TradeRecord[]>} 交易记录
    */
   getTradeHistory: async (portfolioId, limit, from, to) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.getTradeHistory(portfolioId, limit, from, to);
   },
 
@@ -394,7 +292,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   setStopLoss: async (portfolioId, stopLoss) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.setStopLoss(portfolioId, stopLoss);
   },
 
@@ -405,7 +303,7 @@ module.exports = {
    * @returns {Promise<void>}
    */
   setTakeProfit: async (portfolioId, takeProfit) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.setTakeProfit(portfolioId, takeProfit);
   },
 
@@ -415,7 +313,7 @@ module.exports = {
    * @returns {Promise<Object>} 风险检查结果
    */
   checkRiskLimits: async (portfolioId) => {
-    const manager = getPortfolioManager();
+    const manager = module.exports.getPortfolioManager();
     return await manager.checkRiskLimits(portfolioId);
   },
 
@@ -443,7 +341,6 @@ module.exports = {
    */
   resetInstances: () => {
     portfolioManagerInstance = null;
-    portfolioServiceInstance = null;
   },
 
   // 常量

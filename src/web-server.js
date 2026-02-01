@@ -40,8 +40,19 @@ class RicherJsWebServer {
     this.app.use(express.json({ limit: '50mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-    // 静态文件服务
-    this.app.use('/static', express.static(path.join(__dirname, 'web/static')));
+    // 静态文件服务（禁用缓存）
+    this.app.use('/static', express.static(path.join(__dirname, 'web/static'), {
+      maxAge: 0,
+      etag: false,
+      lastModified: false,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.js')) {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
+      }
+    }));
     this.app.use(express.static(path.join(__dirname, 'web/public')));
 
     // 请求日志
@@ -133,6 +144,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_trades.html'));
     });
 
+    // 代币观察页面
+    this.app.get('/experiment/:id/tokens', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_tokens.html'));
+    });
+
     // ============ API路由：实验管理 ============
 
     // 获取实验列表
@@ -184,7 +200,8 @@ class RicherJsWebServer {
           trading_mode,
           blockchain,
           kline_type,
-          initial_balance
+          initial_balance,
+          strategy
         } = req.body;
 
         // 构建实验配置
@@ -197,6 +214,19 @@ class RicherJsWebServer {
             initialBalance: parseFloat(initial_balance) || 100
           }
         };
+
+        // 如果提供了策略参数，添加到配置中
+        if (strategy) {
+          config.strategy = {
+            buyTimeMinutes: strategy.buyTimeMinutes !== undefined ? parseFloat(strategy.buyTimeMinutes) : 1.33,
+            takeProfit1: strategy.takeProfit1 !== undefined ? parseInt(strategy.takeProfit1) : 30,
+            takeProfit1Sell: strategy.takeProfit1Sell !== undefined ? parseFloat(strategy.takeProfit1Sell) : 0.5,
+            takeProfit2: strategy.takeProfit2 !== undefined ? parseInt(strategy.takeProfit2) : 50,
+            takeProfit2Sell: strategy.takeProfit2Sell !== undefined ? parseFloat(strategy.takeProfit2Sell) : 1.0,
+            stopLossMinutes: strategy.stopLossMinutes !== undefined ? parseInt(strategy.stopLossMinutes) : 5,
+            tradeRatio: strategy.tradeRatio !== undefined ? parseFloat(strategy.tradeRatio) : 0.1
+          };
+        }
 
         const experiment = await this.experimentFactory.createFromConfig(config, trading_mode);
         res.json({
@@ -358,6 +388,76 @@ class RicherJsWebServer {
       }
     });
 
+    // ============ API路由：代币管理 ============
+
+    // 获取实验代币列表
+    this.app.get('/api/experiment/:id/tokens', async (req, res) => {
+      try {
+        const options = {
+          status: req.query.status,
+          limit: parseInt(req.query.limit) || 100,
+          offset: parseInt(req.query.offset) || 0
+        };
+
+        const result = await this.dataService.getFormattedTokens(req.params.id, options);
+        res.json(result);
+      } catch (error) {
+        console.error('获取代币列表失败:', error);
+        res.status(500).json({ success: false, error: error.message, tokens: [] });
+      }
+    });
+
+    // 获取实验代币统计
+    this.app.get('/api/experiment/:id/tokens/stats', async (req, res) => {
+      try {
+        const stats = await this.dataService.getTokenStats(req.params.id);
+        res.json({
+          success: true,
+          data: stats
+        });
+      } catch (error) {
+        console.error('获取代币统计失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取单个代币详情
+    this.app.get('/api/experiment/:id/tokens/:address', async (req, res) => {
+      try {
+        const token = await this.dataService.getToken(req.params.id, req.params.address);
+        if (!token) {
+          return res.status(404).json({ success: false, error: '代币不存在' });
+        }
+        res.json({
+          success: true,
+          data: token
+        });
+      } catch (error) {
+        console.error('获取代币详情失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 更新代币状态
+    this.app.put('/api/experiment/:id/tokens/:address', async (req, res) => {
+      try {
+        const { status } = req.body;
+        if (!status || !['monitoring', 'bought', 'exited'].includes(status)) {
+          return res.status(400).json({ success: false, error: '无效的状态' });
+        }
+
+        const success = await this.dataService.updateTokenStatus(req.params.id, req.params.address, status);
+        if (success) {
+          res.json({ success: true });
+        } else {
+          res.status(500).json({ success: false, error: '更新失败' });
+        }
+      } catch (error) {
+        console.error('更新代币状态失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // ============ API路由：统计信息 ============
 
     // 获取系统统计
@@ -392,6 +492,116 @@ class RicherJsWebServer {
         });
       } catch (error) {
         console.error('清空数据失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ API路由：K线数据 ============
+
+    // 获取K线数据（用于信号/交易页面图表显示）
+    this.app.get('/api/experiment/:id/kline', async (req, res) => {
+      try {
+        const { tokenId, source = 'signals' } = req.query;
+
+        // 加载实验信息
+        const experiment = await this.experimentFactory.load(req.params.id);
+        if (!experiment) {
+          return res.status(404).json({ success: false, error: '实验不存在' });
+        }
+
+        // 确定要查询的代币地址
+        let targetTokenAddress = null;
+        let targetTokenSymbol = null;
+
+        if (tokenId) {
+          // 使用指定的代币
+          targetTokenAddress = tokenId;
+          // 从代币表获取符号
+          const tokenData = await this.dataService.getToken(req.params.id, tokenId);
+          targetTokenSymbol = tokenData?.token_symbol || 'Unknown';
+        } else {
+          // 获取实验的第一个代币（优先选择已买入的）
+          const tokens = await this.dataService.getTokens(req.params.id, {
+            sortBy: 'discovered_at',
+            sortOrder: 'asc',
+            limit: 1
+          });
+
+          if (!tokens || tokens.length === 0) {
+            return res.json({
+              success: true,
+              kline_data: [],
+              signals: [],
+              trades_on_chart: [],
+              interval_minutes: 1,
+              token: { symbol: 'N/A', address: null },
+              time_range: { start_date: '-', end_date: '-' }
+            });
+          }
+
+          targetTokenAddress = tokens[0].token_address;
+          targetTokenSymbol = tokens[0].token_symbol;
+        }
+
+        // 构建 tokenId 格式：{address}-{chain}
+        const blockchain = experiment.blockchain || 'bsc';
+        const aveTokenId = `${targetTokenAddress}-${blockchain}`;
+
+        // 导入 AveKlineAPI
+        const { AveKlineAPI } = require('./core/ave-api/kline-api');
+        const config = require('../config/default.json');
+        const apiKey = process.env.AVE_API_KEY;
+        const aveApi = new AveKlineAPI(
+          config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey
+        );
+
+        // 获取1分钟K线数据
+        const klineResult = await aveApi.getKlineDataByToken(aveTokenId, 1, 500);
+
+        // 格式化K线数据
+        const formattedKlineData = AveKlineAPI.formatKlinePoints(klineResult.points);
+
+        // 转换为前端期望的格式（与rich-js兼容）
+        const klineData = formattedKlineData.map(k => ({
+          timestamp: Math.floor(k.timestamp / 1000), // 转换为秒
+          open_price: k.open.toString(),
+          high_price: k.high.toString(),
+          low_price: k.low.toString(),
+          close_price: k.close.toString(),
+          volume: k.volume.toString()
+        })).reverse(); // 按时间正序排列
+
+        // 获取信号数据（用于图表标记）
+        let signalsForChart = [];
+        if (source === 'signals') {
+          const signals = await this.dataService.getSignals(req.params.id, { limit: 100 });
+          signalsForChart = signals.map(s => s.toJSON());
+        }
+
+        // 计算时间范围
+        const timeRange = klineData.length > 0 ? {
+          start_date: new Date(klineData[0].timestamp * 1000).toISOString().split('T')[0],
+          end_date: new Date(klineData[klineData.length - 1].timestamp * 1000).toISOString().split('T')[0]
+        } : { start_date: '-', end_date: '-' };
+
+        res.json({
+          success: true,
+          kline_data: klineData,
+          signals: signalsForChart,
+          trades_on_chart: [], // fourmeme暂不使用交易标记
+          interval_minutes: 1,
+          token: {
+            symbol: targetTokenSymbol,
+            address: targetTokenAddress,
+            blockchain: blockchain
+          },
+          time_range: timeRange
+        });
+
+      } catch (error) {
+        console.error('获取K线数据失败:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

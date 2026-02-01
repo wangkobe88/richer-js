@@ -106,18 +106,7 @@ class FourmemeCollector {
             for (const token of tokens) {
                 const tokenKey = `${token.token}-${token.chain}`;
 
-                // Skip if already collected
-                if (this.collectedTokens.has(tokenKey)) {
-                    continue;
-                }
-
-                // 检查代币是否已在池中（用于统计）
-                const existingToken = this.tokenPool.getToken(token.token, token.chain);
-                if (existingToken) {
-                    alreadyInPoolCount++;
-                }
-
-                // 统计年龄分布
+                // 统计年龄分布（移到 continue 之前，确保所有代币都被统计）
                 const tokenAge = now - (token.created_at * 1000);
                 const tokenAgeSeconds = tokenAge / 1000;
 
@@ -131,6 +120,17 @@ class FourmemeCollector {
                     ageRanges['2-5m']++;
                 } else {
                     ageRanges['5m+']++;
+                }
+
+                // Skip if already collected
+                if (this.collectedTokens.has(tokenKey)) {
+                    continue;
+                }
+
+                // 检查代币是否已在池中（用于统计）
+                const existingToken = this.tokenPool.getToken(token.token, token.chain);
+                if (existingToken) {
+                    alreadyInPoolCount++;
                 }
 
                 // Only add tokens younger than maxAgeSeconds (1 minute)

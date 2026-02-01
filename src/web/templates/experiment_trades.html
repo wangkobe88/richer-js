@@ -218,8 +218,8 @@
                         <div class="flex items-center space-x-4">
                             <div>
                                 <label for="token-selector" class="block text-sm font-medium text-gray-700 mb-1">选择代币查看K线图和交易</label>
-                                <select id="token-selector" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
-                                    <option value="all">全部代币汇总</option>
+                                <select id="token-selector" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                                    <option value="all">全部代币</option>
                                 </select>
                             </div>
                         </div>
@@ -268,9 +268,20 @@
                 <!-- K线图 -->
                 <div class="bg-gray-100 rounded-lg border border-gray-300 mb-4">
                     <div class="p-4 border-b border-gray-300">
-                        <h4 class="text-lg font-semibold text-gray-800">
-                            <span id="trade-chart-token-symbol">代币</span> 价格K线图
-                        </h4>
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-lg font-semibold text-gray-800">
+                                <span id="trade-chart-token-symbol">代币</span> 价格K线图
+                            </h4>
+                            <p class="text-sm text-gray-600">
+                                <span id="trade-chart-interval">1分钟</span> •
+                                <span id="trade-chart-time-range">加载中...</span>
+                            </p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span id="trade-chart-status" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+                                加载中
+                            </span>
+                        </div>
                     </div>
                     <div class="p-4" style="height: 450px;">
                         <div style="position: relative; height: 100%; width: 100%;">
@@ -345,7 +356,7 @@
         </main>
     </div>
 
-    <script src="/static/js/simple-init.js"></script>
-    <script src="/static/js/experiment_trades.js"></script>
+    <script src="/static/js/simple-init.js?v=2.3"></script>
+    <script src="/static/js/experiment_trades.js?v=2.3"></script>
 </body>
 </html>

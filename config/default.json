@@ -17,7 +17,7 @@
     "decisionCheckInterval": 20000
   },
   "strategy": {
-    "buyTimeMinutes": 1,
+    "buyTimeMinutes": 1.33,
     "earlyReturnMin": 80,
     "earlyReturnMax": 120,
     "takeProfit1": 30,

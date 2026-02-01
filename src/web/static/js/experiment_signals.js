@@ -1,8 +1,10 @@
 /**
  * 交易信号页面JavaScript
  * 实现K线图展示和交易信号标记
- * Version: 2.1 - 修复信号标记显示问题
+ * Version: 3.4 - 清理日志，优化无数据提示
  */
+
+class ExperimentSignals {
 
 class ExperimentSignals {
   constructor() {
@@ -34,8 +36,6 @@ class ExperimentSignals {
         throw new Error('无法获取实验ID');
       }
 
-      console.log('🔍 交易信号页面初始化，实验ID:', this.experimentId);
-
       // 初始化事件监听器
       this.setupEventListeners();
 
@@ -49,10 +49,8 @@ class ExperimentSignals {
       document.getElementById('loading').classList.add('hidden');
       document.getElementById('signals-content').classList.remove('hidden');
 
-      console.log('✅ 交易信号页面初始化完成');
-
     } catch (error) {
-      console.error('❌ 交易信号页面初始化失败:', error);
+      console.error('页面初始化失败:', error);
       this.showError('页面初始化失败: ' + error.message);
     }
   }
@@ -71,99 +69,127 @@ class ExperimentSignals {
       throw new Error('Chart.js加载超时，请检查网络连接');
     }
 
-    console.log('✅ Chart.js已加载完成');
+    // console.log('✅ Chart.js已加载完成');
   }
 
   setupEventListeners() {
+    // 辅助函数：安全绑定事件
+    const safeBind = (id, event, handler) => {
+      const element = document.getElementById(id);
+      if (element) {
+        element.addEventListener(event, handler);
+      } else {
+        console.warn(`⚠️ 元素 #${id} 不存在`);
+      }
+    };
+
     // 刷新按钮
-    document.getElementById('refresh-btn').addEventListener('click', () => {
+    safeBind('refresh-btn', 'click', () => {
       this.loadData();
     });
 
     // 自动刷新切换
-    document.getElementById('auto-refresh-btn').addEventListener('click', (e) => {
+    safeBind('auto-refresh-btn', 'click', () => {
       this.toggleAutoRefresh();
     });
 
     // 筛选控件
-    document.getElementById('apply-filters').addEventListener('click', () => {
+    safeBind('apply-filters', 'click', () => {
       this.applyFilters();
     });
 
-    // 图表状态更新
-    document.addEventListener('DOMContentLoaded', () => {
-      // 图表已完全基于实验配置，无需手动选择
-      console.log('📊 图表将基于实验配置自动设置');
-    });
-
-    // 导出按钮
-    document.getElementById('export-signals').addEventListener('click', () => {
+    // 导出按钮（可能不存在）
+    safeBind('export-signals', 'click', () => {
       this.exportSignals();
     });
   }
 
   async loadData() {
     try {
-      console.log('📊 loadData方法被调用 - 开始加载交易信号和K线数据...');
+      // console.log('📊 loadData方法被调用 - 开始加载交易信号和K线数据...');
 
       // 先加载实验信息
       const experimentResponse = await this.fetchExperiment();
-      console.log('📋 实验信息加载完成');
+      // console.log('📋 实验信息加载完成');
 
       // 然后加载信号数据
       const signalsResponse = await this.fetchSignals();
-      console.log('📡 信号数据加载完成:', signalsResponse.signals?.length || 0, '条');
-      console.log('🔍 signalsResponse完整对象:', signalsResponse);
-
-      // 最后加载K线数据
-      console.log('📈 开始加载K线数据...');
-      const klineResponse = await this.fetchKlineData();
-      console.log('📊 K线数据加载完成:', klineResponse.kline_data?.length || 0, '条');
+      // console.log('📡 信号数据加载完成:', signalsResponse.signals?.length || 0, '条');
+      // console.log('🔍 signalsResponse完整对象:', signalsResponse);
 
       // 更新实验信息
       if (experimentResponse.data) {
         this.updateExperimentHeader(experimentResponse.data);
-
-        // 🔥 提取代币列表并填充选择器
-        this.extractTokensFromExperiment(experimentResponse.data);
       }
+
+      // 🔥 提取代币列表并填充选择器（现在直接从API获取）
+      await this.extractTokensFromExperiment();
 
       // 更新信号数据
-      console.log('🔍 赋值前的this.signals:', this.signals?.length || 0);
+      // console.log('🔍 赋值前的this.signals:', this.signals?.length || 0);
       this.signals = signalsResponse.signals || [];
-      console.log('🔍 赋值后的this.signals:', this.signals?.length || 0);
-      console.log('🔍 this.signals前3个:', this.signals.slice(0, 3));
+      // console.log('🔍 赋值后的this.signals:', this.signals?.length || 0);
+      // console.log('🔍 this.signals前3个:', this.signals.slice(0, 3));
       this.updateSignalsStats();  // 使用过滤后的数据更新统计
 
-      // 更新K线数据
-      if (klineResponse.kline_data && klineResponse.kline_data.length > 0) {
-        this.klineData = klineResponse.kline_data;
-        console.log('🎯 准备初始化K线图，数据:', {
-          kline_count: klineResponse.kline_data.length,
-          signals_count: klineResponse.signals?.length || 0,
-          interval: klineResponse.interval_minutes
-        });
-
-        // 更新图表配置信息
-        this.updateChartConfig(klineResponse);
-
-        // 初始化K线图
-        this.initKlineChart(klineResponse);
-      } else {
-        console.warn('⚠️ 没有K线数据');
-        // 即使没有K线数据也要更新配置信息
-        this.updateChartConfig(klineResponse);
-      }
-
-      // 渲染信号列表
+      // 渲染信号列表（即使K线加载失败也要显示）
       this.renderSignals();
 
-      console.log('✅ 数据加载完成');
+      // 尝试加载K线数据（不影响信号显示）
+      try {
+        console.log('📈 开始加载K线数据...');
+        const klineResponse = await this.fetchKlineData();
+        // console.log('📊 K线数据加载完成:', klineResponse.kline_data?.length || 0, '条');
+
+        // 更新K线数据
+        if (klineResponse.kline_data && klineResponse.kline_data.length > 0) {
+          this.klineData = klineResponse.kline_data;
+          console.log('🎯 准备初始化K线图，数据:', {
+            kline_count: klineResponse.kline_data.length,
+            signals_count: klineResponse.signals?.length || 0,
+            interval: klineResponse.interval_minutes
+          });
+
+          // 更新图表配置信息
+          this.updateChartConfig(klineResponse);
+
+          // 初始化K线图
+          this.initKlineChart(klineResponse);
+        } else {
+          console.warn('⚠️ 没有K线数据');
+          // 即使没有K线数据也要更新配置信息
+          this.updateChartConfig(klineResponse || {});
+        }
+      } catch (klineError) {
+        console.error('⚠️ K线数据加载失败（不影响信号显示）:', klineError);
+        // 显示K线图占位符
+        this.showKlinePlaceholder('暂无K线数据');
+      }
+
+      // console.log('✅ 数据加载完成');
 
     } catch (error) {
       console.error('❌ 数据加载失败:', error);
       this.showError('数据加载失败: ' + error.message);
     }
+  }
+
+  /**
+   * 显示K线图占位符
+   */
+  showKlinePlaceholder(message) {
+    const canvas = document.getElementById('kline-chart');
+    if (!canvas) return;
+
+    const container = canvas.parentElement;
+    container.innerHTML = `
+      <div class="flex items-center justify-center h-full bg-gray-100 rounded-lg border border-gray-300">
+        <div class="text-center">
+          <div class="text-yellow-600 text-lg mb-2">📊</div>
+          <div class="text-gray-600 text-sm">${message}</div>
+        </div>
+      </div>
+    `;
   }
 
   async fetchExperiment() {
@@ -188,9 +214,9 @@ class ExperimentSignals {
       throw new Error('获取交易信号失败');
     }
     const result = await response.json();
-    console.log('🔍 fetchSignals原始返回数据:', result);
-    console.log('🔍 信号数据长度:', result.signals?.length || 0);
-    console.log('🔍 信号数据示例:', result.signals?.[0]);
+    // console.log('🔍 fetchSignals原始返回数据:', result);
+    // console.log('🔍 信号数据长度:', result.signals?.length || 0);
+    // console.log('🔍 信号数据示例:', result.signals?.[0]);
     return result;
   }
 
@@ -212,10 +238,9 @@ class ExperimentSignals {
    */
   async loadKlineForToken(token) {
     try {
-      console.log(`🔄 加载代币 ${token.symbol} (${token.address}) 的K线数据...`);
-
       // 显示加载状态
       const chartStatus = document.getElementById('chart-status');
+      const chartContainer = document.querySelector('.chart-container');
       if (chartStatus) {
         chartStatus.textContent = '加载中...';
         chartStatus.className = 'px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium';
@@ -225,12 +250,21 @@ class ExperimentSignals {
       const klineResponse = await this.fetchKlineData(token.address);
 
       if (!klineResponse.kline_data || klineResponse.kline_data.length === 0) {
-        console.warn(`⚠️ 代币 ${token.symbol} 没有K线数据`);
+        // 显示友好提示
         if (chartStatus) {
-          chartStatus.textContent = '无数据';
-          chartStatus.className = 'px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium';
+          chartStatus.textContent = '暂无K线数据';
+          chartStatus.className = 'px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium';
+        }
+        // 隐藏图表容器
+        if (chartContainer) {
+          chartContainer.style.display = 'none';
         }
         return;
+      }
+
+      // 显示图表容器
+      if (chartContainer) {
+        chartContainer.style.display = 'block';
       }
 
       // 更新K线数据
@@ -290,62 +324,127 @@ class ExperimentSignals {
   }
 
   /**
-   * 🔥 从实验配置中提取代币列表
+   * 🔥 从实验代币表获取代币列表
    */
-  extractTokensFromExperiment(experiment) {
-    if (!experiment.config?.targetTokens) {
-      console.warn('⚠️ 实验配置中没有 targetTokens');
-      return;
+  async extractTokensFromExperiment() {
+    try {
+      // console.log('🔄 开始获取实验代币列表...');
+      // console.log('🔄 实验 ID:', this.experimentId);
+      const url = `/api/experiment/${this.experimentId}/tokens?limit=1000`;
+      // console.log('🔄 请求 URL:', url);
+
+      // 从 experiment_tokens 表获取代币列表
+      const response = await fetch(url);
+      // console.log('🔄 响应状态:', response.status);
+      if (!response.ok) {
+        throw new Error('获取代币列表失败');
+      }
+
+      const result = await response.json();
+      // console.log('📦 API success:', result.success);
+      // console.log('📦 result 完整对象:', result);
+      // console.log('📦 Object.keys(result):', Object.keys(result));
+      // console.log('📦 "data" in result:', 'data' in result);
+      // console.log('📦 result.data 类型:', typeof result.data);
+      // console.log('📦 result.data 值:', result.data);
+      // console.log('📦 JSON.stringify(result.data):', JSON.stringify(result.data).substring(0, 200));
+
+      // 直接使用 data 字段，如果不存在则用 tokens
+      const tokens = (result.data && result.data.length > 0) ? result.data :
+                     (result.tokens && result.tokens.length > 0) ? result.tokens : [];
+
+      // console.log('📦 最终 tokens 长度:', tokens.length);
+
+      if (tokens.length === 0) {
+        console.warn('⚠️ 该实验还没有处理过任何代币');
+        this.availableTokens = [];
+      } else {
+        // 提取唯一的代币（按地址去重）
+        const uniqueTokens = new Map();
+        tokens.forEach(token => {
+          if (!uniqueTokens.has(token.token_address)) {
+            uniqueTokens.set(token.token_address, {
+              address: token.token_address,
+              symbol: token.token_symbol || 'Unknown',
+              priority: 0, // fourmeme代币没有优先级概念
+              status: token.status
+            });
+          }
+        });
+
+        this.availableTokens = Array.from(uniqueTokens.values());
+        // console.log('🔍 可用代币列表:', this.availableTokens);
+      }
+
+      // 填充代币选择器
+      this.populateTokenSelector();
+
+    } catch (error) {
+      console.error('❌ 获取代币列表失败:', error);
+      this.availableTokens = [];
+      // 即使失败也要尝试填充选择器
+      this.populateTokenSelector();
     }
-
-    // 提取已启用的代币，按优先级排序
-    this.availableTokens = experiment.config.targetTokens
-      .filter(t => t.enabled)
-      .map(t => ({
-        address: t.address,
-        symbol: t.symbol,
-        priority: t.priority || 999
-      }))
-      .sort((a, b) => a.priority - b.priority);
-
-    console.log('🔍 可用代币列表:', this.availableTokens);
-
-    // 填充代币选择器
-    this.populateTokenSelector();
   }
 
   /**
    * 🔥 填充代币选择器
    */
   populateTokenSelector() {
+    console.log('🎨 populateTokenSelector 被调用，availableTokens:', this.availableTokens.length);
     const selector = document.getElementById('token-selector');
     if (!selector) {
       console.warn('⚠️ 找不到代币选择器元素');
       return;
     }
+    // console.log('✅ 找到 #token-selector 元素');
+
+    // 清空现有选项和事件监听器（克隆节点以移除监听器）
+    const newSelector = selector.cloneNode(false);
+    selector.parentNode.replaceChild(newSelector, selector);
+
+    // 重新获取引用
+    const freshSelector = document.getElementById('token-selector');
 
     // 清空现有选项
-    selector.innerHTML = '<option value="all">全部代币</option>';
+    freshSelector.innerHTML = '<option value="all">全部代币</option>';
+    console.log('📝 已设置默认选项');
 
-    // 添加代币选项
-    this.availableTokens.forEach(token => {
-      const option = document.createElement('option');
-      option.value = token.address;
-      option.textContent = `${token.symbol} (优先级: ${token.priority})`;
-      selector.appendChild(option);
+    // 按状态排序：bought > monitoring > exited
+    const statusOrder = { 'bought': 0, 'monitoring': 1, 'exited': 2 };
+    const sortedTokens = [...this.availableTokens].sort((a, b) => {
+      return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
     });
 
-    // 如果只有一个代币，禁用选择器或隐藏
-    if (this.availableTokens.length === 1) {
-      selector.disabled = true;
-      console.log('⚠️ 只有一个代币，禁用代币选择器');
+    // console.log('🔄 准备添加', sortedTokens.length, '个代币选项');
+
+    // 添加代币选项
+    sortedTokens.forEach((token, index) => {
+      const option = document.createElement('option');
+      option.value = token.address;
+      const statusText = this.getStatusText(token.status);
+      option.textContent = `${token.symbol} (${statusText})`;
+      freshSelector.appendChild(option);
+      if (index < 3) {
+        console.log(`  [${index}] ${option.textContent}`);
+      }
+    });
+
+    // 验证添加结果
+    const finalOptions = freshSelector.querySelectorAll('option');
+    // console.log('📊 最终选择器中的选项数量:', finalOptions.length);
+
+    // 如果没有代币，禁用选择器
+    if (this.availableTokens.length === 0) {
+      freshSelector.disabled = true;
+      console.log('⚠️ 没有可用代币，禁用代币选择器');
     }
 
     // 绑定事件
-    selector.addEventListener('change', async (e) => {
+    freshSelector.addEventListener('change', async (e) => {
       const selectedTokenAddress = e.target.value;
       this.selectedToken = selectedTokenAddress;
-      console.log('🔄 选择代币:', this.selectedToken);
+      // console.log('🔄 选择代币:', this.selectedToken);
 
       // 如果选择了具体代币（不是'all'），重新加载对应的K线图
       if (selectedTokenAddress !== 'all') {
@@ -359,7 +458,33 @@ class ExperimentSignals {
       this.filterAndRenderSignals();
     });
 
-    console.log('✅ 代币选择器已填充');
+    // console.log('✅ 代币选择器已填充，代币数量:', this.availableTokens.length);
+
+    // 调试：检查选择器状态
+    setTimeout(() => {
+      const checkSelector = document.getElementById('token-selector');
+      if (checkSelector) {
+        // console.log('🔍 选择器状态检查:');
+        console.log('  - disabled:', checkSelector.disabled);
+        console.log('  - options.length:', checkSelector.options.length);
+        console.log('  - options[0]:', checkSelector.options[0]?.text);
+        console.log('  - options[1]:', checkSelector.options[1]?.text);
+        console.log('  - computedStyle display:', getComputedStyle(checkSelector).display);
+        console.log('  - computedStyle pointerEvents:', getComputedStyle(checkSelector).pointerEvents);
+      }
+    }, 100);
+  }
+
+  /**
+   * 获取状态显示文本
+   */
+  getStatusText(status) {
+    const statusMap = {
+      'monitoring': '监控中',
+      'bought': '已买入',
+      'exited': '已退出'
+    };
+    return statusMap[status] || status;
   }
 
   /**
@@ -520,7 +645,7 @@ class ExperimentSignals {
       };
     });
 
-    console.log('📊 交易量数据点数:', volumeDataPoints.length);
+    // console.log('📊 交易量数据点数:', volumeDataPoints.length);
     if (volumeDataPoints.length > 0) {
       const totalVolume = volumeDataPoints.reduce((sum, item) => sum + item.y, 0);
       const avgVolume = totalVolume / volumeDataPoints.length;
@@ -578,7 +703,7 @@ class ExperimentSignals {
     }
 
     try {
-      console.log('📊 创建K线图表...');
+      // console.log('📊 创建K线图表...');
       console.log('📈 K线数据点数:', chartData.length);
       console.log('🎯 信号标记数:', Object.keys(signalAnnotations).length);
 
@@ -713,7 +838,7 @@ class ExperimentSignals {
   }
 
   createVolumeChart(volumeDataPoints, klineResponse) {
-    console.log('📊 开始创建独立的交易量图...');
+    // console.log('📊 开始创建独立的交易量图...');
 
     const volumeCanvas = document.getElementById('volume-chart');
     if (!volumeCanvas) {
@@ -826,7 +951,7 @@ class ExperimentSignals {
         }
       });
 
-      console.log('✅ 交易量图初始化完成');
+      // console.log('✅ 交易量图初始化完成');
 
     } catch (error) {
       console.error('❌ 创建交易量图失败:', error);

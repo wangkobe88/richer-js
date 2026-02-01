@@ -249,8 +249,8 @@ class ExperimentTrades {
       // 更新实验头部信息
       this.updateExperimentHeader(this.experiment);
 
-      // 🔥 提取代币列表并填充选择器
-      this.extractTokensFromExperiment(this.experiment);
+      // 🔥 提取代币列表并填充选择器（现在直接从API获取）
+      await this.extractTokensFromExperiment();
 
       console.log('✅ 实验数据加载完成');
 
@@ -293,28 +293,53 @@ class ExperimentTrades {
   }
 
   /**
-   * 🔥 从实验配置中提取代币列表
+   * 🔥 从实验代币表获取代币列表
    */
-  extractTokensFromExperiment(experiment) {
-    if (!experiment.config?.targetTokens) {
-      console.warn('⚠️ 实验配置中没有 targetTokens');
-      return;
+  async extractTokensFromExperiment() {
+    try {
+      console.log('🔄 开始获取实验代币列表...');
+
+      // 从 experiment_tokens 表获取代币列表
+      const response = await fetch(`/api/experiment/${this.experimentId}/tokens?limit=1000`);
+      if (!response.ok) {
+        throw new Error('获取代币列表失败');
+      }
+
+      const result = await response.json();
+      console.log('📦 API返回结果:', result);
+
+      const tokens = result.tokens || result.data || [];
+
+      if (tokens.length === 0) {
+        console.warn('⚠️ 该实验还没有处理过任何代币');
+        this.availableTokens = [];
+      } else {
+        // 提取唯一的代币（按地址去重）
+        const uniqueTokens = new Map();
+        tokens.forEach(token => {
+          if (!uniqueTokens.has(token.token_address)) {
+            uniqueTokens.set(token.token_address, {
+              address: token.token_address,
+              symbol: token.token_symbol || 'Unknown',
+              priority: 0, // fourmeme代币没有优先级概念
+              status: token.status
+            });
+          }
+        });
+
+        this.availableTokens = Array.from(uniqueTokens.values());
+        console.log('🔍 可用代币列表:', this.availableTokens);
+      }
+
+      // 填充代币选择器
+      this.populateTokenSelector();
+
+    } catch (error) {
+      console.error('❌ 获取代币列表失败:', error);
+      this.availableTokens = [];
+      // 即使失败也要尝试填充选择器
+      this.populateTokenSelector();
     }
-
-    // 提取已启用的代币，按优先级排序
-    this.availableTokens = experiment.config.targetTokens
-      .filter(t => t.enabled)
-      .map(t => ({
-        address: t.address,
-        symbol: t.symbol,
-        priority: t.priority || 999
-      }))
-      .sort((a, b) => a.priority - b.priority);
-
-    console.log('🔍 可用代币列表:', this.availableTokens);
-
-    // 填充代币选择器
-    this.populateTokenSelector();
   }
 
   /**
@@ -327,25 +352,39 @@ class ExperimentTrades {
       return;
     }
 
-    // 清空现有选项
-    selector.innerHTML = '<option value="all">全部代币</option>';
+    // 清空现有选项和事件监听器（克隆节点以移除监听器）
+    const newSelector = selector.cloneNode(false);
+    selector.parentNode.replaceChild(newSelector, selector);
 
-    // 添加代币选项
-    this.availableTokens.forEach(token => {
-      const option = document.createElement('option');
-      option.value = token.address;
-      option.textContent = `${token.symbol} (优先级: ${token.priority})`;
-      selector.appendChild(option);
+    // 重新获取引用
+    const freshSelector = document.getElementById('token-selector');
+
+    // 清空现有选项
+    freshSelector.innerHTML = '<option value="all">全部代币</option>';
+
+    // 按状态排序：bought > monitoring > exited
+    const statusOrder = { 'bought': 0, 'monitoring': 1, 'exited': 2 };
+    const sortedTokens = [...this.availableTokens].sort((a, b) => {
+      return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
     });
 
-    // 如果只有一个代币，禁用选择器
-    if (this.availableTokens.length === 1) {
-      selector.disabled = true;
-      console.log('⚠️ 只有一个代币，禁用代币选择器');
+    // 添加代币选项
+    sortedTokens.forEach(token => {
+      const option = document.createElement('option');
+      option.value = token.address;
+      const statusText = this.getStatusText(token.status);
+      option.textContent = `${token.symbol} (${statusText})`;
+      freshSelector.appendChild(option);
+    });
+
+    // 如果没有代币，禁用选择器
+    if (this.availableTokens.length === 0) {
+      freshSelector.disabled = true;
+      console.log('⚠️ 没有可用代币，禁用代币选择器');
     }
 
     // 绑定事件
-    selector.addEventListener('change', async (e) => {
+    freshSelector.addEventListener('change', async (e) => {
       const selectedTokenAddress = e.target.value;
       this.selectedToken = selectedTokenAddress;
       console.log('🔄 选择代币:', this.selectedToken);
@@ -362,7 +401,19 @@ class ExperimentTrades {
       this.filterAndRenderTrades();
     });
 
-    console.log('✅ 代币选择器已填充');
+    console.log('✅ 代币选择器已填充，代币数量:', this.availableTokens.length);
+  }
+
+  /**
+   * 获取状态显示文本
+   */
+  getStatusText(status) {
+    const statusMap = {
+      'monitoring': '监控中',
+      'bought': '已买入',
+      'exited': '已退出'
+    };
+    return statusMap[status] || status;
   }
 
   /**

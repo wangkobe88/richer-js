@@ -21,7 +21,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-3xl font-bold text-gray-800">创建新实验</h1>
-                    <p class="text-gray-600 mt-2">基于 earlyReturn 策略的 fourmeme 代币交易实验</p>
+                    <p class="text-gray-600 mt-2">基于 EarlyReturn 策略的 fourmeme 代币交易实验</p>
                 </div>
                 <a href="/experiments" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md">
                     ← 返回列表
@@ -54,7 +54,7 @@
                             <input type="text"
                                    name="experiment_description"
                                    placeholder="实验的简要描述"
-                                   value="基于 earlyReturn 策略的 fourmeme 代币自动交易"
+                                   value="基于 EarlyReturn 策略的 fourmeme 代币自动交易"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div>
@@ -94,30 +94,150 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                初始余额 (BNB) <span class="text-red-500">*</span>
+                                初始余额 (<span id="native-currency">BNB</span>) <span class="text-red-500">*</span>
                             </label>
                             <input type="number"
                                    name="initial_balance"
+                                   id="initial_balance"
                                    required
-                                   step="0.01"
-                                   min="1"
+                                   step="any"
+                                   min="0.001"
                                    value="100"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="mt-1 text-xs text-gray-500">
+                                区块链主币用于交易和计价
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 策略参数配置 -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">策略参数配置</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                买入时间窗口 (分钟) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number"
+                                   name="buyTimeMinutes"
+                                   required
+                                   step="0.01"
+                                   min="0.1"
+                                   value="1.33"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="mt-1 text-xs text-gray-500">
+                                代币创建后多长时间内可以买入（1.33分钟 = 80秒）
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                第一止盈点 (%) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number"
+                                   name="takeProfit1"
+                                   required
+                                   step="1"
+                                   min="1"
+                                   value="30"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="mt-1 text-xs text-gray-500">
+                                涨幅达到此百分比时触发第一次止盈
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                第一止盈卖出比例 (%) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number"
+                                   name="takeProfit1Sell"
+                                   required
+                                   step="0.1"
+                                   min="0.1"
+                                   max="100"
+                                   value="50"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="mt-1 text-xs text-gray-500">
+                                第一次止盈时卖出的持仓比例（50%）
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                第二止盈点 (%) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number"
+                                   name="takeProfit2"
+                                   required
+                                   step="1"
+                                   min="1"
+                                   value="50"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="mt-1 text-xs text-gray-500">
+                                涨幅达到此百分比时触发第二次止盈
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                第二止盈卖出比例 (%) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number"
+                                   name="takeProfit2Sell"
+                                   required
+                                   step="0.1"
+                                   min="0.1"
+                                   max="100"
+                                   value="50"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="mt-1 text-xs text-gray-500">
+                                第二次止盈时卖出的持仓比例（50%，剩余全部）
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                时间止损 (分钟) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number"
+                                   name="stopLossMinutes"
+                                   required
+                                   step="1"
+                                   min="1"
+                                   value="5"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="mt-1 text-xs text-gray-500">
+                                持仓时间超过此分钟且亏损时，全部卖出
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                每次交易使用资金比例 (%) <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number"
+                                   name="tradeRatio"
+                                   required
+                                   step="1"
+                                   min="1"
+                                   max="100"
+                                   value="10"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="mt-1 text-xs text-gray-500">
+                                每次买入使用当前余额的百分比（10% = 每次10 USD）
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- 策略说明 -->
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h2 class="text-lg font-semibold text-blue-900 mb-2">📊 EarlyReturn 策略说明</h2>
+                    <h2 class="text-lg font-semibold text-blue-900 mb-2">📊 策略说明</h2>
                     <div class="text-sm text-blue-800 space-y-2">
-                        <p><strong>买入条件：</strong>当代币上线1分钟后，计算 earlyReturn（涨幅）在 80%-120% 区间时买入</p>
-                        <p><strong>卖出条件：</strong>使用阶梯止盈策略</p>
+                        <p><strong>买入条件：</strong>当代币创建时间 &lt; 买入时间窗口 且有有效价格时买入</p>
+                        <p><strong>阶梯止盈：</strong></p>
                         <ul class="list-disc list-inside ml-4">
-                            <li>涨幅达到 +30% 时，卖出 50%</li>
-                            <li>涨幅达到 +50% 时，卖出剩余 50%</li>
+                            <li>涨幅达到 <span id="desc-tp1">30</span>% 时，卖出 <span id="desc-tp1-sell">50</span>%</li>
+                            <li>涨幅达到 <span id="desc-tp2">50</span>% 时，卖出剩余 <span id="desc-tp2-sell">50</span>%</li>
                         </ul>
-                        <p class="mt-2 text-xs text-blue-600">* 该策略基于 6,884 个 fourmeme 代币的历史数据分析得出</p>
+                        <p><strong>时间止损：</strong>持仓超过 <span id="desc-sl">5</span> 分钟且亏损时，全部卖出</p>
+                        <p class="mt-2 text-xs text-blue-600">* 策略参数可在上方配置，创建后将保存到实验配置中</p>
                     </div>
                 </div>
 
@@ -146,6 +266,27 @@
         const resultMessage = document.getElementById('result-message');
         const resultContent = document.getElementById('result-content');
 
+        // 参数变化时更新说明
+        const takeProfit1 = document.querySelector('input[name="takeProfit1"]');
+        const takeProfit1Sell = document.querySelector('input[name="takeProfit1Sell"]');
+        const takeProfit2 = document.querySelector('input[name="takeProfit2"]');
+        const takeProfit2Sell = document.querySelector('input[name="takeProfit2Sell"]');
+        const stopLossMinutes = document.querySelector('input[name="stopLossMinutes"]');
+
+        function updateDescriptions() {
+            document.getElementById('desc-tp1').textContent = takeProfit1.value;
+            document.getElementById('desc-tp1-sell').textContent = takeProfit1Sell.value;
+            document.getElementById('desc-tp2').textContent = takeProfit2.value;
+            document.getElementById('desc-tp2-sell').textContent = takeProfit2Sell.value;
+            document.getElementById('desc-sl').textContent = stopLossMinutes.value;
+        }
+
+        takeProfit1.addEventListener('input', updateDescriptions);
+        takeProfit1Sell.addEventListener('input', updateDescriptions);
+        takeProfit2.addEventListener('input', updateDescriptions);
+        takeProfit2Sell.addEventListener('input', updateDescriptions);
+        stopLossMinutes.addEventListener('input', updateDescriptions);
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -160,7 +301,17 @@
                 trading_mode: formData.get('trading_mode'),
                 blockchain: formData.get('blockchain'),
                 kline_type: formData.get('kline_type'),
-                initial_balance: formData.get('initial_balance')
+                initial_balance: parseFloat(formData.get('initial_balance')),
+                // 策略参数
+                strategy: {
+                    buyTimeMinutes: parseFloat(formData.get('buyTimeMinutes')),
+                    takeProfit1: parseFloat(formData.get('takeProfit1')),
+                    takeProfit1Sell: parseFloat(formData.get('takeProfit1Sell')) / 100,
+                    takeProfit2: parseFloat(formData.get('takeProfit2')),
+                    takeProfit2Sell: parseFloat(formData.get('takeProfit2Sell')) / 100,
+                    stopLossMinutes: parseFloat(formData.get('stopLossMinutes')),
+                    tradeRatio: parseFloat(formData.get('tradeRatio')) / 100
+                }
             };
 
             try {
@@ -177,12 +328,13 @@
                 if (result.success) {
                     // 显示成功消息
                     resultMessage.classList.remove('hidden');
-                    resultContent.className = 'bg-green-50 border border-green-200 text-green-800';
+                    resultContent.className = 'bg-green-50 border border-green-200 text-green-800 rounded-lg p-4';
                     resultContent.innerHTML = `
                         <div class="flex items-center justify-between">
                             <div>
                                 <p class="font-semibold">✅ 实验创建成功！</p>
                                 <p class="text-sm mt-1">实验ID: ${result.data.id}</p>
+                                <p class="text-sm mt-1">实验名称: ${result.data.experiment_name}</p>
                             </div>
                             <a href="/experiments" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm">
                                 返回列表
@@ -197,7 +349,7 @@
                 } else {
                     // 显示错误消息
                     resultMessage.classList.remove('hidden');
-                    resultContent.className = 'bg-red-50 border border-red-200 text-red-800';
+                    resultContent.className = 'bg-red-50 border border-red-200 text-red-800 rounded-lg p-4';
                     resultContent.innerHTML = `
                         <p class="font-semibold">❌ 创建失败</p>
                         <p class="text-sm mt-1">${result.error}</p>
@@ -208,7 +360,7 @@
             } catch (error) {
                 // 显示网络错误
                 resultMessage.classList.remove('hidden');
-                resultContent.className = 'bg-red-50 border border-red-200 text-red-800';
+                resultContent.className = 'bg-red-50 border border-red-200 text-red-800 rounded-lg p-4';
                 resultContent.innerHTML = `
                     <p class="font-semibold">❌ 网络错误</p>
                     <p class="text-sm mt-1">${error.message}</p>
@@ -217,6 +369,90 @@
                 submitBtn.textContent = '创建实验';
             }
         });
+
+        // 初始化说明显示
+        updateDescriptions();
+
+        // 根据区块链选择更新主币标签
+        const blockchainSelect = document.querySelector('select[name="blockchain"]');
+        const nativeCurrencyLabel = document.getElementById('native-currency');
+        const initialBalanceInput = document.getElementById('initial_balance');
+
+        // 区块链主币映射
+        const blockchainNativeCurrency = {
+            'bsc': 'BNB',
+            'solana': 'SOL'
+        };
+
+        // 默认初始余额
+        const defaultInitialBalance = {
+            'bsc': '100',    // 100 BNB
+            'solana': '100'  // 100 SOL
+        };
+
+        function updateNativeCurrency() {
+            const blockchain = blockchainSelect.value;
+            const currency = blockchainNativeCurrency[blockchain] || 'BNB';
+            nativeCurrencyLabel.textContent = currency;
+            // 只在用户没有手动输入时更新默认初始余额
+            if (!initialBalanceInput.getAttribute('data-user-modified')) {
+                initialBalanceInput.value = defaultInitialBalance[blockchain] || '100';
+            }
+        }
+
+        blockchainSelect.addEventListener('change', updateNativeCurrency);
+
+        // 标记用户手动修改
+        initialBalanceInput.addEventListener('input', () => {
+            initialBalanceInput.setAttribute('data-user-modified', 'true');
+        });
+
+        // 初始化主币显示
+        updateNativeCurrency();
+
+        // 从URL参数填充表单
+        function populateFromURLParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+
+            // 辅助函数：设置输入框值
+            function setInputValue(name, value) {
+                const input = document.querySelector(`[name="${name}"]`);
+                if (input && value) {
+                    input.value = value;
+                    if (name === 'initial_balance') {
+                        input.setAttribute('data-user-modified', 'true');
+                    }
+                }
+            }
+
+            // 填充基本字段
+            setInputValue('experiment_name', urlParams.get('experiment_name'));
+            setInputValue('experiment_description', urlParams.get('experiment_description'));
+            setInputValue('trading_mode', urlParams.get('trading_mode'));
+            setInputValue('blockchain', urlParams.get('blockchain'));
+            setInputValue('kline_type', urlParams.get('kline_type'));
+            setInputValue('initial_balance', urlParams.get('initial_balance'));
+
+            // 填充策略参数
+            setInputValue('buyTimeMinutes', urlParams.get('buyTimeMinutes'));
+            setInputValue('takeProfit1', urlParams.get('takeProfit1'));
+            setInputValue('takeProfit1Sell', urlParams.get('takeProfit1Sell'));
+            setInputValue('takeProfit2', urlParams.get('takeProfit2'));
+            setInputValue('takeProfit2Sell', urlParams.get('takeProfit2Sell'));
+            setInputValue('stopLossMinutes', urlParams.get('stopLossMinutes'));
+            setInputValue('tradeRatio', urlParams.get('tradeRatio'));
+
+            // 更新区块链选择后更新币种标签
+            if (urlParams.get('blockchain')) {
+                updateNativeCurrency();
+            }
+
+            // 更新策略说明
+            updateDescriptions();
+        }
+
+        // 页面加载时填充URL参数
+        populateFromURLParams();
     </script>
 </body>
 </html>

@@ -8,15 +8,22 @@
  * - 格式化输出到控制台和日志
  */
 
+const { BlockchainConfig } = require('../../utils/BlockchainConfig');
+
 class RoundSummary {
     /**
      * 构造函数
      * @param {string} experimentId - 实验ID
      * @param {Object} logger - 日志记录器
+     * @param {string} blockchain - 区块链类型 (bsc, solana)
      */
-    constructor(experimentId, logger) {
+    constructor(experimentId, logger, blockchain = 'bsc') {
         this.experimentId = experimentId;
         this.logger = logger;
+        this.blockchain = blockchain;
+
+        // 使用 BlockchainConfig 获取主币符号
+        this.nativeCurrency = BlockchainConfig.getNativeTokenSymbol(blockchain);
 
         /** @type {Object} 当前轮次数据 */
         this.roundData = {
@@ -248,7 +255,7 @@ class RoundSummary {
 
         // 价格信息
         if (tokenData.currentPrice) {
-            console.log(`   当前价格: $${tokenData.currentPrice.toFixed(6)}`);
+            console.log(`   当前价格: $${tokenData.currentPrice.toFixed(12)}`);
         } else {
             console.log(`   当前价格: N/A`);
         }
@@ -285,13 +292,13 @@ class RoundSummary {
             console.log(`   持仓:`);
             console.log(`      数量: ${pos.amount ? pos.amount.toFixed(4) : 'N/A'} ${pos.symbol || tokenData.symbol}`);
             if (pos.buyPrice) {
-                console.log(`      买入价: $${pos.buyPrice.toFixed(6)}`);
+                console.log(`      买入价: $${pos.buyPrice.toFixed(12)}`);
             }
             if (pos.currentPrice) {
                 const pnl = pos.currentPrice - pos.buyPrice;
                 const pnlPercent = pos.buyPrice > 0 ? (pnl / pos.buyPrice * 100) : 0;
                 const emoji = pnl >= 0 ? '+' : '';
-                console.log(`      当前价: $${pos.currentPrice.toFixed(6)} (${emoji}${pnlPercent.toFixed(2)}%)`);
+                console.log(`      当前价: $${pos.currentPrice.toFixed(12)} (${emoji}${pnlPercent.toFixed(2)}%)`);
             }
         }
     }
@@ -319,7 +326,7 @@ class RoundSummary {
                     let displayValue = value;
                     if (typeof value === 'number') {
                         if (factorId.startsWith('price') || factorId === 'currentPrice' || factorId === 'buyPrice') {
-                            displayValue = value.toFixed(6);
+                            displayValue = value.toFixed(12);
                         } else if (factorId === 'age') {
                             displayValue = value.toFixed(2);
                         } else {
@@ -397,8 +404,8 @@ class RoundSummary {
             cashPercent = ((portfolio.cashBalance / portfolio.totalValue) * 100).toFixed(1) + '%';
         }
 
-        console.log(`   总价值: $${totalValue}`);
-        console.log(`   现金余额: $${cashBalance} (${cashPercent})`);
+        console.log(`   总价值: ${totalValue} ${this.nativeCurrency}`);
+        console.log(`   现金余额: ${cashBalance} ${this.nativeCurrency} (${cashPercent})`);
 
         // 持仓信息
         if (portfolio.positions && portfolio.positions.length > 0) {
@@ -409,7 +416,7 @@ class RoundSummary {
                 if (portfolio.totalValue > 0 && pos.value) {
                     percent = ((pos.value / portfolio.totalValue) * 100).toFixed(1) + '%';
                 }
-                console.log(`   - ${pos.symbol}: ${pos.amount ? pos.amount.toFixed(4) : 'N/A'} (价值: $${value}, ${percent})`);
+                console.log(`      - ${pos.symbol}: ${pos.amount ? pos.amount.toFixed(4) : 'N/A'} (价值: ${value} ${this.nativeCurrency}, ${percent})`);
             }
         } else {
             console.log(`   持仓数量: 0个代币`);
@@ -460,7 +467,7 @@ class RoundSummary {
             }
 
             if (tokenData.currentPrice) {
-                lines.push(`   当前价格: $${tokenData.currentPrice.toFixed(6)}`);
+                lines.push(`   当前价格: $${tokenData.currentPrice.toFixed(12)}`);
             } else {
                 lines.push(`   当前价格: N/A`);
             }
@@ -562,12 +569,12 @@ class RoundSummary {
      */
     _formatPortfolioSummaryForLog(lines, portfolio) {
         lines.push('投资组合总览:');
-        lines.push(`   总价值: $${portfolio.totalValue ? portfolio.totalValue.toFixed(2) : 'N/A'}`);
-        lines.push(`   现金余额: $${portfolio.cashBalance ? portfolio.cashBalance.toFixed(2) : 'N/A'}`);
+        lines.push(`   总价值: ${portfolio.totalValue ? portfolio.totalValue.toFixed(2) : 'N/A'} ${this.nativeCurrency}`);
+        lines.push(`   现金余额: ${portfolio.cashBalance ? portfolio.cashBalance.toFixed(2) : 'N/A'} ${this.nativeCurrency}`);
         lines.push(`   持仓数量: ${portfolio.positions ? portfolio.positions.length : 0}个`);
         if (portfolio.positions && portfolio.positions.length > 0) {
             for (const pos of portfolio.positions) {
-                lines.push(`      - ${pos.symbol}: $${pos.value ? pos.value.toFixed(2) : 'N/A'}`);
+                lines.push(`      - ${pos.symbol}: ${pos.value ? pos.value.toFixed(2) : 'N/A'} ${this.nativeCurrency}`);
             }
         }
     }

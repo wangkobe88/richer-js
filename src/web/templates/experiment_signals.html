@@ -181,10 +181,30 @@
                         <div class="flex items-center space-x-4">
                             <div>
                                 <label for="token-selector" class="block text-sm font-medium text-gray-700 mb-1">选择代币查看K线图</label>
-                                <select id="token-selector" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
-                                    <option value="all">全部代币汇总</option>
+                                <select id="token-selector" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                                    <option value="all">全部代币</option>
                                 </select>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- K线图控制 -->
+                <div class="bg-gray-100 rounded-lg p-4 mb-4 border border-gray-300">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-800">
+                                <span id="chart-token-symbol">代币</span> K线图
+                            </h4>
+                            <p class="text-sm text-gray-600">
+                                <span id="chart-interval">1分钟</span> •
+                                <span id="chart-time-range">加载中...</span>
+                            </p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span id="chart-status" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+                                加载中
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -290,7 +310,7 @@
         </main>
     </div>
 
-    <script src="/static/js/simple-init.js"></script>
-    <script src="/static/js/experiment_signals.js"></script>
+    <script src="/static/js/simple-init.js?v=3.4"></script>
+    <script src="/static/js/experiment_signals.js?v=3.4"></script>
 </body>
 </html>
