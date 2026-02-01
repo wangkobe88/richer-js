@@ -557,21 +557,34 @@ class RicherJsWebServer {
           apiKey
         );
 
-        // 获取1分钟K线数据
-        const klineResult = await aveApi.getKlineDataByToken(aveTokenId, 1, 500);
+        // 获取1分钟K线数据（获取足够多的数据以覆盖实验时间段）
+        const klineResult = await aveApi.getKlineDataByToken(aveTokenId, 1, 1000);
 
         // 格式化K线数据
         const formattedKlineData = AveKlineAPI.formatKlinePoints(klineResult.points);
 
-        // 转换为前端期望的格式（与rich-js兼容）
-        const klineData = formattedKlineData.map(k => ({
-          timestamp: Math.floor(k.timestamp / 1000), // 转换为秒
-          open_price: k.open.toString(),
-          high_price: k.high.toString(),
-          low_price: k.low.toString(),
-          close_price: k.close.toString(),
-          volume: k.volume.toString()
-        })).reverse(); // 按时间正序排列
+        // 确定实验时间范围
+        const experimentStartTime = new Date(experiment.startedAt || experiment.createdAt).getTime();
+        const experimentEndTime = experiment.stoppedAt
+          ? new Date(experiment.stoppedAt).getTime()
+          : Date.now();
+
+        // 转换为前端期望的格式，并过滤到实验时间范围内
+        const klineData = formattedKlineData
+          .filter(k => {
+            // k.timestamp 是毫秒，检查是否在实验时间范围内
+            const klineTime = k.timestamp;
+            return klineTime >= experimentStartTime && klineTime <= experimentEndTime;
+          })
+          .map(k => ({
+            timestamp: Math.floor(k.timestamp / 1000), // 转换为秒
+            open_price: k.open.toString(),
+            high_price: k.high.toString(),
+            low_price: k.low.toString(),
+            close_price: k.close.toString(),
+            volume: k.volume.toString()
+          }))
+          .sort((a, b) => a.timestamp - b.timestamp); // 按时间正序排列
 
         // 获取信号数据（用于图表标记）
         let signalsForChart = [];
@@ -580,11 +593,19 @@ class RicherJsWebServer {
           signalsForChart = signals.map(s => s.toJSON());
         }
 
-        // 计算时间范围
-        const timeRange = klineData.length > 0 ? {
-          start_date: new Date(klineData[0].timestamp * 1000).toISOString().split('T')[0],
-          end_date: new Date(klineData[klineData.length - 1].timestamp * 1000).toISOString().split('T')[0]
-        } : { start_date: '-', end_date: '-' };
+        // 计算时间范围（使用实验的实际时间范围）
+        const timeRange = {
+          start_date: new Date(experimentStartTime).toISOString().split('T')[0],
+          end_date: new Date(experimentEndTime).toISOString().split('T')[0],
+          start_timestamp: Math.floor(experimentStartTime / 1000),
+          end_timestamp: Math.floor(experimentEndTime / 1000)
+        };
+
+        // 如果没有K线数据，时间范围仍然显示实验的时间范围
+        if (klineData.length > 0) {
+          timeRange.data_start_date = new Date(klineData[0].timestamp * 1000).toISOString().split('T')[0];
+          timeRange.data_end_date = new Date(klineData[klineData.length - 1].timestamp * 1000).toISOString().split('T')[0];
+        }
 
         res.json({
           success: true,

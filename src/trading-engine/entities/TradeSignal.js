@@ -34,8 +34,11 @@ class TradeSignal {
     this.confidence = signalData.confidence;
     this.reason = signalData.reason;
 
-    // 元数据
+    // 元数据（包含价格信息）
     this.metadata = signalData.metadata || {};
+
+    // 执行状态
+    this.executed = signalData.executed || false;
 
     // 时间字段
     this.createdAt = signalData.createdAt || new Date();
@@ -57,6 +60,7 @@ class TradeSignal {
       confidence: this.confidence,
       reason: this.reason,
       metadata: this.metadata,
+      executed: this.executed,
       created_at: this.createdAt.toISOString()
     };
   }
@@ -78,6 +82,7 @@ class TradeSignal {
       confidence: dbRow.confidence,
       reason: dbRow.reason,
       metadata: dbRow.metadata || {},
+      executed: dbRow.executed || false,
       createdAt: new Date(dbRow.created_at)
     };
 
@@ -101,11 +106,30 @@ class TradeSignal {
       confidence: strategySignal.confidence,
       reason: strategySignal.reason,
       metadata: {
+        price: strategySignal.price || null,
         earlyReturn: strategySignal.earlyReturn,
         buyPrice: strategySignal.buyPrice,
-        currentPrice: strategySignal.currentPrice
-      }
+        currentPrice: strategySignal.currentPrice,
+        collectionPrice: strategySignal.collectionPrice
+      },
+      executed: false  // 初始为未执行，成功执行后更新为 true
     });
+  }
+
+  /**
+   * 标记信号为已执行
+   * @param {Object} tradeResult - 交易结果（可选）
+   */
+  markAsExecuted(tradeResult = null) {
+    this.executed = true;
+
+    // 如果有交易结果，更新元数据
+    if (tradeResult) {
+      this.metadata.tradeResult = {
+        success: tradeResult.success,
+        trade: tradeResult.trade || null
+      };
+    }
   }
 
   /**
@@ -153,6 +177,7 @@ class TradeSignal {
       tokenAddress: this.tokenAddress,
       confidence: this.confidence,
       reason: this.reason,
+      executed: this.executed,
       timestamp: this.createdAt
     };
   }
@@ -173,6 +198,7 @@ class TradeSignal {
       confidence: this.confidence,
       reason: this.reason,
       metadata: this.metadata,
+      executed: this.executed,
       created_at: this.createdAt,
       timestamp: this.createdAt
     };

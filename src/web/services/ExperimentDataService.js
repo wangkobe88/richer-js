@@ -250,6 +250,27 @@ class ExperimentDataService {
   }
 
   /**
+   * 更新交易信号
+   * @param {TradeSignal} signal - 信号实体
+   * @returns {Promise<boolean>} 是否更新成功
+   */
+  async updateSignal(signal) {
+    try {
+      const { error } = await this.supabase
+        .from('strategy_signals')
+        .update(signal.toDatabaseFormat())
+        .eq('id', signal.id);
+
+      if (error) throw error;
+      return true;
+
+    } catch (error) {
+      console.error('更新信号失败:', error);
+      return false;
+    }
+  }
+
+  /**
    * 保存交易记录
    * @param {Trade} trade - 交易实体
    * @returns {Promise<boolean>} 是否保存成功
@@ -297,7 +318,7 @@ class ExperimentDataService {
    */
   async clearExperimentData(experimentId) {
     try {
-      const tables = ['trades', 'strategy_signals', 'runtime_metrics', 'portfolio_snapshots', 'experiment_tokens'];
+      const tables = ['trades', 'strategy_signals', 'portfolio_snapshots', 'experiment_tokens'];
       const results = [];
 
       for (const table of tables) {
@@ -320,72 +341,6 @@ class ExperimentDataService {
 
     } catch (error) {
       console.error('清理实验数据失败:', error);
-      return false;
-    }
-  }
-
-  /**
-   * 获取运行时指标
-   * @param {string} experimentId - 实验ID
-   * @param {Object} options - 查询选项
-   * @returns {Promise<Array>} 指标数据
-   */
-  async getRuntimeMetrics(experimentId, options = {}) {
-    try {
-      let query = this.supabase
-        .from('runtime_metrics')
-        .select('*')
-        .eq('experiment_id', experimentId);
-
-      // 添加筛选条件
-      if (options.metricName) {
-        query = query.eq('metric_name', options.metricName);
-      }
-
-      // 添加分页
-      const offset = parseInt(options.offset) || 0;
-      const limit = parseInt(options.limit) || 100;
-      query = query.range(offset, offset + limit - 1);
-
-      // 排序
-      query = query.order('recorded_at', { ascending: false });
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      return data || [];
-
-    } catch (error) {
-      console.error('获取运行时指标失败:', error);
-      return [];
-    }
-  }
-
-  /**
-   * 保存运行时指标
-   * @param {string} experimentId - 实验ID
-   * @param {string} metricName - 指标名称
-   * @param {number} metricValue - 指标值
-   * @param {Object} metadata - 额外元数据
-   * @returns {Promise<boolean>} 是否保存成功
-   */
-  async saveRuntimeMetric(experimentId, metricName, metricValue, metadata = {}) {
-    try {
-      const { error } = await this.supabase
-        .from('runtime_metrics')
-        .insert({
-          experiment_id: experimentId,
-          metric_name: metricName,
-          metric_value: metricValue,
-          metadata: metadata
-        });
-
-      if (error) throw error;
-      return true;
-
-    } catch (error) {
-      console.error('保存运行时指标失败:', error);
       return false;
     }
   }

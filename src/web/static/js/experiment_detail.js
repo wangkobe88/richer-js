@@ -340,7 +340,7 @@ class ExperimentDetail {
   }
 
   initBnbBalanceChart() {
-    const canvas = document.getElementById('bnb-balance-chart');
+    const canvas = document.getElementById('native-balance-chart');
     const ctx = canvas.getContext('2d');
 
     if (this.bnbBalanceChart) {

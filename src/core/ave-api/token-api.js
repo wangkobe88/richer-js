@@ -146,6 +146,49 @@ class AveTokenAPI extends BaseAveAPI {
             launch_at: parseInt(tokenData.launch_at) || 0
         };
     }
+
+    /**
+     * 批量获取代币价格信息
+     *
+     * @param {Array<string>} tokenIds - 代币ID列表，最多200个，格式：{CA}-{chain}
+     * @param {number} tvlMin - 代币最小TVL阈值，默认1000，0表示无阈值
+     * @param {number} tx24hVolumeMin - 代币最小24小时交易量阈值，默认0
+     * @returns {Promise<Object>} 代币价格信息字典
+     */
+    async getTokenPrices(tokenIds, tvlMin = 1000, tx24hVolumeMin = 0) {
+        if (!tokenIds || tokenIds.length === 0) {
+            throw new Error('tokenIds不能为空');
+        }
+
+        if (tokenIds.length > 200) {
+            throw new Error('tokenIds不能超过200个');
+        }
+
+        const data = {
+            token_ids: tokenIds,
+            tvl_min: tvlMin,
+            tx_24h_volume_min: tx24hVolumeMin
+        };
+
+        const result = await this._makeRequest('POST', '/v2/tokens/price', { data });
+
+        const prices = {};
+        const dataSection = result.data || {};
+
+        for (const [tokenId, priceData] of Object.entries(dataSection)) {
+            prices[tokenId] = {
+                current_price_usd: priceData.current_price_usd || '',
+                price_change_1d: priceData.price_change_1d || '',
+                price_change_24h: priceData.price_change_24h || '',
+                tvl: priceData.tvl || '',
+                tx_volume_u_24h: priceData.tx_volume_u_24h || '',
+                token_id: priceData.token_id || tokenId,
+                updated_at: priceData.updated_at || 0
+            };
+        }
+
+        return prices;
+    }
 }
 
 module.exports = { AveAPIError, BaseAveAPI, AveTokenAPI };

@@ -65,7 +65,7 @@ class RoundSummary {
      * @param {string} tokenSymbol - 代币符号
      * @param {Object} indicators - 指标数据
      * @param {number} currentPrice - 当前价格（USD）
-     * @param {Object} tokenInfo - 代币额外信息 { createdAt, addedAt, status }
+     * @param {Object} tokenInfo - 代币额外信息 { createdAt, addedAt, status, collectionPrice }
      */
     recordTokenIndicators(tokenAddress, tokenSymbol, indicators, currentPrice, tokenInfo = {}) {
         this.roundData.tokens.set(tokenAddress, {
@@ -73,6 +73,7 @@ class RoundSummary {
             symbol: tokenSymbol,
             indicators,
             currentPrice,
+            collectionPrice: tokenInfo.collectionPrice || null,
             signal: null,
             signalExecuted: false,
             executionReason: null,
@@ -255,9 +256,14 @@ class RoundSummary {
 
         // 价格信息
         if (tokenData.currentPrice) {
-            console.log(`   当前价格: $${tokenData.currentPrice.toFixed(12)}`);
+            console.log(`   当前价格: $${tokenData.currentPrice.toExponential(4)}`);
         } else {
             console.log(`   当前价格: N/A`);
+        }
+
+        // 获取时价格（收集时价格）
+        if (tokenData.collectionPrice !== null && tokenData.collectionPrice !== undefined) {
+            console.log(`   获取时价格: $${tokenData.collectionPrice.toExponential(4)}`);
         }
 
         // 技术指标
@@ -292,13 +298,13 @@ class RoundSummary {
             console.log(`   持仓:`);
             console.log(`      数量: ${pos.amount ? pos.amount.toFixed(4) : 'N/A'} ${pos.symbol || tokenData.symbol}`);
             if (pos.buyPrice) {
-                console.log(`      买入价: $${pos.buyPrice.toFixed(12)}`);
+                console.log(`      买入价: $${pos.buyPrice.toExponential(4)}`);
             }
             if (pos.currentPrice) {
                 const pnl = pos.currentPrice - pos.buyPrice;
                 const pnlPercent = pos.buyPrice > 0 ? (pnl / pos.buyPrice * 100) : 0;
                 const emoji = pnl >= 0 ? '+' : '';
-                console.log(`      当前价: $${pos.currentPrice.toFixed(12)} (${emoji}${pnlPercent.toFixed(2)}%)`);
+                console.log(`      当前价: $${pos.currentPrice.toExponential(4)} (${emoji}${pnlPercent.toFixed(2)}%)`);
             }
         }
     }
@@ -325,8 +331,8 @@ class RoundSummary {
                     // 格式化因子值
                     let displayValue = value;
                     if (typeof value === 'number') {
-                        if (factorId.startsWith('price') || factorId === 'currentPrice' || factorId === 'buyPrice') {
-                            displayValue = value.toFixed(12);
+                        if (factorId === 'currentPrice' || factorId === 'collectionPrice' || factorId === 'buyPrice') {
+                            displayValue = value.toExponential(4);
                         } else if (factorId === 'age') {
                             displayValue = value.toFixed(2);
                         } else {
@@ -467,9 +473,14 @@ class RoundSummary {
             }
 
             if (tokenData.currentPrice) {
-                lines.push(`   当前价格: $${tokenData.currentPrice.toFixed(12)}`);
+                lines.push(`   当前价格: $${tokenData.currentPrice.toExponential(4)}`);
             } else {
                 lines.push(`   当前价格: N/A`);
+            }
+
+            // 获取时价格（收集时价格）
+            if (tokenData.collectionPrice !== null && tokenData.collectionPrice !== undefined) {
+                lines.push(`   获取时价格: $${tokenData.collectionPrice.toExponential(4)}`);
             }
 
             // 技术指标
@@ -490,8 +501,8 @@ class RoundSummary {
                             // 格式化因子值
                             let displayValue = value;
                             if (typeof value === 'number') {
-                                if (factorId.startsWith('price') || factorId === 'currentPrice' || factorId === 'buyPrice') {
-                                    displayValue = value.toFixed(6);
+                                if (factorId === 'currentPrice' || factorId === 'collectionPrice' || factorId === 'buyPrice') {
+                                    displayValue = value.toExponential(4);
                                 } else if (factorId === 'age') {
                                     displayValue = value.toFixed(2);
                                 } else {

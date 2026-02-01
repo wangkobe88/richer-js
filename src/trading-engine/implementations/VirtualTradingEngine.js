@@ -7,6 +7,7 @@ const { ITradingEngine, TradingMode, EngineStatus } = require('../interfaces/ITr
 const { Experiment, Trade, TradeSignal, TradeStatus } = require('../entities');
 const { ExperimentFactory } = require('../factories/ExperimentFactory');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
+const { ExperimentTimeSeriesService } = require('../../web/services/ExperimentTimeSeriesService');
 const { dbManager } = require('../../services/dbManager');
 const Logger = require('../../services/logger');
 
@@ -14,7 +15,7 @@ const Logger = require('../../services/logger');
 const TokenPool = require('../../core/token-pool');
 const FourmemeCollector = require('../../collectors/fourmeme-collector');
 const { StrategyEngine } = require('../../strategies/StrategyEngine');
-const { AveKlineAPI } = require('../../core/ave-api');
+const { AveKlineAPI, AveTokenAPI } = require('../../core/ave-api');
 const { RSIIndicator } = require('../../indicators/RSIIndicator');
 const { RoundSummary } = require('../utils/RoundSummary');
 const { PortfolioManager } = require('../../portfolio');
@@ -60,6 +61,7 @@ class VirtualTradingEngine {
 
     // 服务
     this.dataService = new ExperimentDataService();
+    this.timeSeriesService = new ExperimentTimeSeriesService();
     this.logger = new Logger({ dir: './logs', experimentId: null }); // 初始无 experimentId，将在 initialize 中设置
 
     // 数据库客户端
@@ -166,6 +168,11 @@ class VirtualTradingEngine {
       config.ave.timeout,
       apiKey
     );
+    this._aveTokenApi = new AveTokenAPI(
+      config.ave.apiUrl,
+      config.ave.timeout,
+      apiKey
+    );
     console.log(`✅ AVE API初始化完成`);
 
     // 3. 初始化收集器
@@ -190,7 +197,7 @@ class VirtualTradingEngine {
 
     // 构建可用因子集合
     const availableFactorIds = new Set([
-      'age', 'currentPrice', 'buyPrice', 'holdDuration', 'profitPercent', 'rsi'
+      'age', 'currentPrice', 'collectionPrice', 'earlyReturn', 'buyPrice', 'holdDuration', 'profitPercent'
     ]);
 
     // 加载策略（带验证）
@@ -350,7 +357,10 @@ class VirtualTradingEngine {
         return;
       }
 
-      // 2. 处理每个代币
+      // 2. 批量获取所有监控代币的实时价格（替代K线数据）
+      await this._fetchBatchPrices(tokens);
+
+      // 3. 处理每个代币
       for (const token of tokens) {
         await this._processToken(token);
       }
@@ -407,42 +417,9 @@ class VirtualTradingEngine {
         this._seenTokens.add(tokenKey);
       }
 
-      // 1. 获取K线数据
-      const klineData = await this._fetchKlineData(token);
-      if (!klineData || klineData.length === 0) {
-        // 记录到 Summary：无法获取K线数据
-        if (this._roundSummary) {
-          this._roundSummary.recordTokenIndicators(
-            token.token,
-            token.symbol,
-            {
-              type: 'error',
-              error: '无法获取K线数据',
-              factorValues: { currentPrice: 0 }
-            },
-            0,
-            {
-              createdAt: token.createdAt,
-              addedAt: token.addedAt,
-              status: token.status
-            }
-          );
-        }
-        return;
-      }
-
-      // 2. 更新TokenPool中的K线数据
-      this._tokenPool.updateKlineData(
-        token.token,
-        token.chain,
-        klineData
-      );
-
-      // 3. 构建因子结果
-      const factorResults = this._buildFactors(token, klineData);
-
-      // 检查是否获得有效价格
-      if (factorResults.currentPrice === 0) {
+      // 1. 检查是否有有效价格（价格已在 _monitoringCycle 中通过 _fetchBatchPrices 批量更新）
+      const currentPrice = token.currentPrice || 0;
+      if (currentPrice === 0) {
         // 记录到 Summary：无法获取有效价格
         if (this._roundSummary) {
           this._roundSummary.recordTokenIndicators(
@@ -450,20 +427,44 @@ class VirtualTradingEngine {
             token.symbol,
             {
               type: 'error',
-              error: '无法获取有效价格 (K线和AVE API均无有效数据)',
-              factorValues: factorResults
+              error: '无法获取有效价格 (价格API无数据)',
+              factorValues: { currentPrice: 0 }
             },
             0,
             {
               createdAt: token.createdAt,
               addedAt: token.addedAt,
-              status: token.status
+              status: token.status,
+              collectionPrice: token.collectionPrice
             }
           );
         }
-        // 无有效价格，无法执行策略，直接返回
         return;
       }
+
+      // 2. 构建因子结果（不再依赖K线数据）
+      const factorResults = this._buildFactors(token);
+
+      // 保存时序数据到数据库
+      await this.timeSeriesService.recordRoundData({
+        experimentId: this._experimentId,
+        tokenAddress: token.token,
+        tokenSymbol: token.symbol,
+        timestamp: new Date(),
+        loopCount: this._loopCount,
+        priceUsd: factorResults.currentPrice,
+        priceNative: null,
+        factorValues: {
+          age: factorResults.age,
+          currentPrice: factorResults.currentPrice,
+          collectionPrice: factorResults.collectionPrice,
+          earlyReturn: factorResults.earlyReturn,
+          buyPrice: factorResults.buyPrice,
+          holdDuration: factorResults.holdDuration,
+          profitPercent: factorResults.profitPercent
+        },
+        blockchain: this._experiment.blockchain || 'bsc'
+      });
 
       // 记录代币指标到 RoundSummary
       if (this._roundSummary) {
@@ -481,12 +482,13 @@ class VirtualTradingEngine {
           {
             createdAt: token.createdAt,
             addedAt: token.addedAt,
-            status: token.status
+            status: token.status,
+            collectionPrice: token.collectionPrice
           }
         );
       }
 
-      // 4. 策略分析 - 根据代币状态过滤策略
+      // 3. 策略分析 - 根据代币状态过滤策略
       const strategy = this._strategyEngine.evaluate(
         factorResults,
         token.token,
@@ -529,8 +531,8 @@ class VirtualTradingEngine {
           }
         }
 
-        // 5. 执行交易
-        const executed = await this._executeStrategy(strategy, token, klineData);
+        // 4. 执行交易（不再传递 klineData）
+        const executed = await this._executeStrategy(strategy, token);
 
         // 记录执行状态
         if (this._roundSummary) {
@@ -596,33 +598,83 @@ class VirtualTradingEngine {
   }
 
   /**
+   * 批量获取代币价格（替代K线数据）
+   * @private
+   * @param {Array} tokens - 代币数组
+   * @returns {Promise<Object>} 价格信息字典 {tokenId: priceInfo}
+   */
+  async _fetchBatchPrices(tokens) {
+    try {
+      if (!tokens || tokens.length === 0) {
+        return {};
+      }
+
+      // 1. 构建 tokenId 列表
+      const tokenIds = tokens.map(t => `${t.token}-${t.chain}`);
+
+      // 2. 分批处理（API最多支持200个）
+      const batchSize = 200;
+      const allPrices = {};
+
+      for (let i = 0; i < tokenIds.length; i += batchSize) {
+        const batchIds = tokenIds.slice(i, i + batchSize);
+
+        // 3. 调用批量 API
+        const prices = await this._aveTokenApi.getTokenPrices(
+          batchIds,
+          0,   // tvlMin: 0 表示不限制
+          0    // tx24hVolumeMin: 0 表示不限制
+        );
+
+        // 4. 更新 TokenPool 中的价格
+        for (const token of tokens) {
+          const tokenId = `${token.token}-${token.chain}`;
+          const priceInfo = prices[tokenId];
+
+          if (priceInfo && priceInfo.current_price_usd) {
+            const price = parseFloat(priceInfo.current_price_usd);
+            if (price > 0) {
+              this._tokenPool.updatePrice(token.token, token.chain, price, Date.now());
+            }
+          }
+        }
+
+        Object.assign(allPrices, prices);
+      }
+
+      return allPrices;
+
+    } catch (error) {
+      this.logger.error(this._experimentId, 'FetchBatchPrices',
+        `批量获取价格失败: ${error.message}`);
+      return {};
+    }
+  }
+
+  /**
    * 构建策略因子
    * @private
    * @param {Object} token - 代币数据
-   * @param {Array} klineData - K线数据
    * @returns {Object} 因子结果
    */
-  _buildFactors(token, klineData) {
+  _buildFactors(token) {
     const now = Date.now();
 
-    // 获取当前价格：优先使用K线数据的最新收盘价，否则使用AVE API返回的价格
-    let currentPrice = 0;
-    let priceSource = 'none';
-    if (klineData && klineData.length > 0) {
-      const latestKline = klineData[klineData.length - 1];
-      if (latestKline.close && latestKline.close > 0) {
-        currentPrice = latestKline.close;
-        priceSource = 'kline';
-      }
-    }
-    // 如果K线数据无效或close为0，回退到AVE API返回的价格
-    if (currentPrice === 0 && token.currentPrice && token.currentPrice > 0) {
-      currentPrice = token.currentPrice;
-      priceSource = 'ave_api';
+    // 获取当前价格（已在 _fetchBatchPrices 中更新）
+    const currentPrice = token.currentPrice || 0;
+
+    // 获取收集时的价格作为基准价格
+    const collectionPrice = token.collectionPrice || currentPrice;
+
+    // 计算 earlyReturn: (当前价格 - 收集时价格) / 收集时价格 * 100%
+    let earlyReturn = 0;
+    if (collectionPrice > 0 && currentPrice > 0) {
+      earlyReturn = ((currentPrice - collectionPrice) / collectionPrice) * 100;
     }
 
-    // 计算代币年龄（分钟）
-    const age = (now - token.createdAt * 1000) / 1000 / 60;
+    // 计算代币年龄（分钟）- 使用收集时间计算
+    const collectionTime = token.collectionTime || token.addedAt;
+    const age = (now - collectionTime) / 1000 / 60;
 
     // 计算持仓时长（秒）
     const holdDuration = token.buyTime ? (now - token.buyTime) / 1000 : 0;
@@ -633,22 +685,14 @@ class VirtualTradingEngine {
       profitPercent = ((currentPrice - token.buyPrice) / token.buyPrice) * 100;
     }
 
-    // 计算RSI指标（需要足够的K线数据）
-    let rsi = 50; // 默认值
-    let rsiIsDefault = true; // 标记是否为默认值
-    if (klineData && klineData.length >= this._rsiIndicator.getRequiredDataPoints()) {
-      rsi = this._rsiIndicator.calculateFromKline(klineData);
-      rsiIsDefault = false;
-    }
-
     const factors = {
       age: age,
       currentPrice: currentPrice,
+      collectionPrice: collectionPrice,  // 新增：收集时的基准价格
+      earlyReturn: earlyReturn,          // 新增：基于价格计算的 earlyReturn
       buyPrice: token.buyPrice || 0,
       holdDuration: holdDuration,
-      profitPercent: profitPercent,
-      rsi: rsi,
-      rsiIsDefault: rsiIsDefault
+      profitPercent: profitPercent
     };
 
     return factors;
@@ -659,12 +703,11 @@ class VirtualTradingEngine {
    * @private
    * @param {Object} strategy - 策略对象
    * @param {Object} token - 代币数据
-   * @param {Array} klineData - K线数据
    * @returns {Promise<boolean>} 是否执行成功
    */
-  async _executeStrategy(strategy, token, klineData) {
-    const latestKline = klineData[klineData.length - 1];
-    const latestPrice = latestKline ? latestKline.close : 0;
+  async _executeStrategy(strategy, token) {
+    // 使用当前价格（已在 _fetchBatchPrices 中更新）
+    const latestPrice = token.currentPrice || 0;
 
     if (strategy.action === 'buy') {
       // 只对监控中的代币执行买入
@@ -751,6 +794,8 @@ class VirtualTradingEngine {
 
     // 策略参数值
     const buyTimeMinutes = strategyConfig.buyTimeMinutes !== undefined ? strategyConfig.buyTimeMinutes : 1.33;
+    const earlyReturnMin = strategyConfig.earlyReturnMin !== undefined ? strategyConfig.earlyReturnMin : 80;
+    const earlyReturnMax = strategyConfig.earlyReturnMax !== undefined ? strategyConfig.earlyReturnMax : 120;
     const takeProfit1 = strategyConfig.takeProfit1 !== undefined ? strategyConfig.takeProfit1 : 30;
     const takeProfit2 = strategyConfig.takeProfit2 !== undefined ? strategyConfig.takeProfit2 : 50;
     const stopLossMinutes = strategyConfig.stopLossMinutes !== undefined ? strategyConfig.stopLossMinutes : 5;
@@ -761,12 +806,12 @@ class VirtualTradingEngine {
     return [
       {
         id: 'early_return_buy',
-        name: '早止买入',
+        name: `早止买入 (${earlyReturnMin}-${earlyReturnMax}%收益率)`,
         action: 'buy',
         priority: 1,
         cooldown: 60,
         enabled: true,
-        condition: `age < ${buyTimeMinutes} AND currentPrice > 0`
+        condition: `age < ${buyTimeMinutes} AND earlyReturn >= ${earlyReturnMin} AND earlyReturn < ${earlyReturnMax} AND currentPrice > 0`
       },
       {
         id: 'take_profit_1',
@@ -814,7 +859,7 @@ class VirtualTradingEngine {
 
     this.metrics.totalSignals++;
 
-    // 记录信号到数据库
+    // 记录信号到数据库（初始状态为未执行）
     const tradeSignal = TradeSignal.fromStrategySignal(signal, this._experimentId);
     await this.dataService.saveSignal(tradeSignal);
 
@@ -828,8 +873,11 @@ class VirtualTradingEngine {
       return { executed: false, reason: 'hold信号' };
     }
 
+    // 如果交易成功，更新信号状态为已执行
     if (tradeResult && tradeResult.success) {
       this.metrics.executedSignals++;
+      tradeSignal.markAsExecuted(tradeResult);
+      await this.dataService.updateSignal(tradeSignal);
     }
 
     return tradeResult;
@@ -927,12 +975,17 @@ class VirtualTradingEngine {
    * @private
    */
   _calculateBuyAmount(signal) {
-    // 默认每次使用当前余额的10%
-    const tradeRatio = this._experiment.config?.virtual?.tradeRatio || 0.1;
-    const amount = this.currentBalance * tradeRatio;
+    // 使用固定的买入数量（从实验配置中获取）
+    const tradeAmount = this._experiment.config?.virtual?.tradeAmount || 0.1;
 
-    // 最小交易金额 0.001 BNB
-    return Math.max(amount, 0.001);
+    // 检查余额是否足够
+    if (this.currentBalance < tradeAmount) {
+      this.logger.warn(this._experimentId, 'CalculateBuyAmount',
+        `余额不足: 需要 ${tradeAmount} BNB, 当前 ${this.currentBalance.toFixed(4)} BNB`);
+      return 0;
+    }
+
+    return tradeAmount;
   }
 
   /**
@@ -1152,20 +1205,6 @@ class VirtualTradingEngine {
         avgBuyPrice: h.avgBuyPrice
       }))
     };
-  }
-
-  /**
-   * 保存运行时指标
-   * @param {string} metricName - 指标名称
-   * @param {number} metricValue - 指标值
-   */
-  async saveMetric(metricName, metricValue) {
-    await this.dataService.saveRuntimeMetric(
-      this._experimentId,
-      metricName,
-      metricValue,
-      { timestamp: new Date().toISOString() }
-    );
   }
 
   /**

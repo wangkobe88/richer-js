@@ -209,18 +209,18 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                每次交易使用资金比例 (%) <span class="text-red-500">*</span>
+                                每次买入<span id="trade-amount-currency">BNB</span>数量 <span class="text-red-500">*</span>
                             </label>
                             <input type="number"
-                                   name="tradeRatio"
+                                   name="tradeAmount"
+                                   id="tradeAmount"
                                    required
-                                   step="1"
-                                   min="1"
-                                   max="100"
-                                   value="10"
+                                   step="0.001"
+                                   min="0.001"
+                                   value="0.1"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <div class="mt-1 text-xs text-gray-500">
-                                每次买入使用当前余额的百分比（10% = 每次10 USD）
+                                每次买入使用的固定<span id="trade-amount-currency-2">BNB</span>数量
                             </div>
                         </div>
                     </div>
@@ -310,7 +310,7 @@
                     takeProfit2: parseFloat(formData.get('takeProfit2')),
                     takeProfit2Sell: parseFloat(formData.get('takeProfit2Sell')) / 100,
                     stopLossMinutes: parseFloat(formData.get('stopLossMinutes')),
-                    tradeRatio: parseFloat(formData.get('tradeRatio')) / 100
+                    tradeAmount: parseFloat(formData.get('tradeAmount'))
                 }
             };
 
@@ -377,6 +377,9 @@
         const blockchainSelect = document.querySelector('select[name="blockchain"]');
         const nativeCurrencyLabel = document.getElementById('native-currency');
         const initialBalanceInput = document.getElementById('initial_balance');
+        const tradeAmountCurrencyLabel = document.getElementById('trade-amount-currency');
+        const tradeAmountCurrencyLabel2 = document.getElementById('trade-amount-currency-2');
+        const tradeAmountInput = document.getElementById('tradeAmount');
 
         // 区块链主币映射
         const blockchainNativeCurrency = {
@@ -390,13 +393,25 @@
             'solana': '100'  // 100 SOL
         };
 
+        // 默认每次买入数量
+        const defaultTradeAmount = {
+            'bsc': '0.1',    // 0.1 BNB
+            'solana': '0.1'  // 0.1 SOL
+        };
+
         function updateNativeCurrency() {
             const blockchain = blockchainSelect.value;
             const currency = blockchainNativeCurrency[blockchain] || 'BNB';
             nativeCurrencyLabel.textContent = currency;
+            tradeAmountCurrencyLabel.textContent = currency;
+            tradeAmountCurrencyLabel2.textContent = currency;
             // 只在用户没有手动输入时更新默认初始余额
             if (!initialBalanceInput.getAttribute('data-user-modified')) {
                 initialBalanceInput.value = defaultInitialBalance[blockchain] || '100';
+            }
+            // 只在用户没有手动输入时更新默认买入数量
+            if (!tradeAmountInput.getAttribute('data-user-modified')) {
+                tradeAmountInput.value = defaultTradeAmount[blockchain] || '0.1';
             }
         }
 
@@ -405,6 +420,9 @@
         // 标记用户手动修改
         initialBalanceInput.addEventListener('input', () => {
             initialBalanceInput.setAttribute('data-user-modified', 'true');
+        });
+        tradeAmountInput.addEventListener('input', () => {
+            tradeAmountInput.setAttribute('data-user-modified', 'true');
         });
 
         // 初始化主币显示
@@ -440,7 +458,7 @@
             setInputValue('takeProfit2', urlParams.get('takeProfit2'));
             setInputValue('takeProfit2Sell', urlParams.get('takeProfit2Sell'));
             setInputValue('stopLossMinutes', urlParams.get('stopLossMinutes'));
-            setInputValue('tradeRatio', urlParams.get('tradeRatio'));
+            setInputValue('tradeAmount', urlParams.get('tradeAmount'));
 
             // 更新区块链选择后更新币种标签
             if (urlParams.get('blockchain')) {

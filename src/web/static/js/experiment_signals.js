@@ -5,8 +5,6 @@
  */
 
 class ExperimentSignals {
-
-class ExperimentSignals {
   constructor() {
     this.experimentId = null;
     this.klineData = [];
@@ -214,6 +212,18 @@ class ExperimentSignals {
       throw new Error('获取交易信号失败');
     }
     const result = await response.json();
+
+    // 标准化信号字段名以匹配前端期望格式
+    if (result.signals && Array.isArray(result.signals)) {
+      result.signals = result.signals.map(signal => ({
+        ...signal,
+        symbol: signal.token_symbol || signal.symbol || 'Unknown',
+        signal_timestamp: signal.timestamp || signal.created_at || new Date().toISOString(),
+        price: signal.price || null,
+        executed: signal.executed || false
+      }));
+    }
+
     // console.log('🔍 fetchSignals原始返回数据:', result);
     // console.log('🔍 信号数据长度:', result.signals?.length || 0);
     // console.log('🔍 信号数据示例:', result.signals?.[0]);

@@ -32,6 +32,8 @@ class TokenPool {
             }
         }
 
+        const collectionTime = Date.now();
+
         const poolData = {
             token: tokenData.token,
             tokenAddress: tokenData.token,
@@ -39,13 +41,16 @@ class TokenPool {
             name: tokenData.name,
             symbol: tokenData.symbol,
             createdAt: tokenData.created_at || Date.now() / 1000,
-            addedAt: Date.now(),
+            addedAt: collectionTime,
             klineData: [],
             status: 'monitoring', // monitoring, bought, selling, exited
             buyDecision: null,
             buyPrice: null,
             buyTime: null,
             currentPrice: currentPrice, // 存储 AVE API 返回的当前价格
+            collectionPrice: currentPrice, // 收集时的价格（作为基准价格）
+            collectionTime: collectionTime, // 收集时间（用于计算 age）
+            priceHistory: [], // 价格历史记录
             entryMetrics: null
         };
 
@@ -123,6 +128,42 @@ class TokenPool {
         if (token) {
             token.currentPrice = price;
         }
+    }
+
+    /**
+     * Update price with timestamp
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @param {number} price - Current price
+     * @param {number} timestamp - Update timestamp
+     */
+    updatePrice(tokenAddress, chain, price, timestamp) {
+        const key = this.getTokenKey({ token: tokenAddress, chain });
+        const token = this.pool.get(key);
+
+        if (token) {
+            token.currentPrice = price;
+            // 记录价格历史（最多保留100条）
+            token.priceHistory.push({
+                price: price,
+                timestamp: timestamp
+            });
+            if (token.priceHistory.length > 100) {
+                token.priceHistory.shift();
+            }
+        }
+    }
+
+    /**
+     * Get price history for a token
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @returns {Array} Price history
+     */
+    getPriceHistory(tokenAddress, chain) {
+        const key = this.getTokenKey({ token: tokenAddress, chain });
+        const token = this.pool.get(key);
+        return token ? token.priceHistory : [];
     }
 
     /**
