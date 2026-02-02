@@ -45,6 +45,9 @@ class ExperimentTrades {
       await this.loadExperimentData();
       await this.loadTradesData();
 
+      // 🔥 从交易数据中提取代币列表并填充选择器
+      this.extractTokensFromExperiment();
+
       // 加载K线数据并初始化图表
       await this.loadKlineDataAndInitChart();
 
@@ -249,9 +252,6 @@ class ExperimentTrades {
       // 更新实验头部信息
       this.updateExperimentHeader(this.experiment);
 
-      // 🔥 提取代币列表并填充选择器（现在直接从API获取）
-      await this.extractTokensFromExperiment();
-
       console.log('✅ 实验数据加载完成');
 
     } catch (error) {
@@ -293,49 +293,40 @@ class ExperimentTrades {
   }
 
   /**
-   * 🔥 从实验代币表获取代币列表
+   * 🔥 从交易数据中提取有交易的代币列表
    */
-  async extractTokensFromExperiment() {
+  extractTokensFromExperiment() {
     try {
-      console.log('🔄 开始获取实验代币列表...');
+      console.log('🔄 从交易数据中提取代币列表...');
 
-      // 从 experiment_tokens 表获取代币列表
-      const response = await fetch(`/api/experiment/${this.experimentId}/tokens?limit=1000`);
-      if (!response.ok) {
-        throw new Error('获取代币列表失败');
-      }
+      // 从已加载的交易数据中提取代币，统计交易数量
+      const tokenTradeCounts = new Map();
 
-      const result = await response.json();
-      console.log('📦 API返回结果:', result);
+      if (this.tradesData && this.tradesData.length > 0) {
+        this.tradesData.forEach(trade => {
+          const address = trade.token_address || trade.tokenAddress;
+          const symbol = trade.token_symbol || trade.symbol || 'Unknown';
 
-      const tokens = result.tokens || result.data || [];
-
-      if (tokens.length === 0) {
-        console.warn('⚠️ 该实验还没有处理过任何代币');
-        this.availableTokens = [];
-      } else {
-        // 提取唯一的代币（按地址去重）
-        const uniqueTokens = new Map();
-        tokens.forEach(token => {
-          if (!uniqueTokens.has(token.token_address)) {
-            uniqueTokens.set(token.token_address, {
-              address: token.token_address,
-              symbol: token.token_symbol || 'Unknown',
-              priority: 0, // fourmeme代币没有优先级概念
-              status: token.status
+          if (!tokenTradeCounts.has(address)) {
+            tokenTradeCounts.set(address, {
+              address: address,
+              symbol: symbol,
+              tradeCount: 0
             });
           }
-        });
 
-        this.availableTokens = Array.from(uniqueTokens.values());
-        console.log('🔍 可用代币列表:', this.availableTokens);
+          tokenTradeCounts.get(address).tradeCount++;
+        });
       }
+
+      this.availableTokens = Array.from(tokenTradeCounts.values());
+      console.log(`📊 从 ${this.tradesData.length} 条交易中提取到 ${this.availableTokens.length} 个有交易的代币`);
 
       // 填充代币选择器
       this.populateTokenSelector();
 
     } catch (error) {
-      console.error('❌ 获取代币列表失败:', error);
+      console.error('❌ 提取代币列表失败:', error);
       this.availableTokens = [];
       // 即使失败也要尝试填充选择器
       this.populateTokenSelector();
@@ -362,18 +353,17 @@ class ExperimentTrades {
     // 清空现有选项
     freshSelector.innerHTML = '<option value="all">全部代币</option>';
 
-    // 按状态排序：bought > monitoring > exited
-    const statusOrder = { 'bought': 0, 'monitoring': 1, 'exited': 2 };
+    // 按交易数量降序排序（交易多的在前）
     const sortedTokens = [...this.availableTokens].sort((a, b) => {
-      return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
+      return (b.tradeCount || 0) - (a.tradeCount || 0);
     });
 
-    // 添加代币选项
+    // 添加代币选项，显示交易数量
     sortedTokens.forEach(token => {
       const option = document.createElement('option');
       option.value = token.address;
-      const statusText = this.getStatusText(token.status);
-      option.textContent = `${token.symbol} (${statusText})`;
+      const tradeCount = token.tradeCount || 0;
+      option.textContent = `${token.symbol} (${tradeCount} 笔交易)`;
       freshSelector.appendChild(option);
     });
 
@@ -913,12 +903,12 @@ class ExperimentTrades {
   }
 
   /**
-   * 🔥 加载特定代币的K线数据
+   * 🔥 加载特定代币的时序数据（替代K线数据）
    * @param {Object} token - 代币对象 { address, symbol, priority }
    */
   async loadKlineForToken(token) {
     try {
-      console.log(`🔄 加载代币 ${token.symbol} (${token.address}) 的K线数据...`);
+      console.log(`🔄 加载代币 ${token.symbol} (${token.address}) 的时序数据...`);
 
       // 显示加载状态
       const chartStatus = document.getElementById('trade-chart-status');
@@ -927,10 +917,33 @@ class ExperimentTrades {
         chartStatus.className = 'px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium';
       }
 
-      // 加载K线数据
-      await this.loadKlineDataAndInitChart(token.address);
+      // 获取时序数据（替代K线数据）
+      const timeSeriesData = await this.fetchTimeSeriesData(token.address);
 
-      console.log(`✅ 代币 ${token.symbol} 的K线图加载完成`);
+      if (!timeSeriesData || timeSeriesData.length === 0) {
+        // 显示友好提示
+        if (chartStatus) {
+          chartStatus.textContent = '暂无时序数据';
+          chartStatus.className = 'px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium';
+        }
+        // 隐藏图表容器
+        const chartContainer = document.getElementById('trade-chart-container');
+        if (chartContainer) {
+          chartContainer.style.display = 'none';
+        }
+        return;
+      }
+
+      // 显示图表容器
+      const chartContainer = document.getElementById('trade-chart-container');
+      if (chartContainer) {
+        chartContainer.style.display = 'block';
+      }
+
+      // 初始化价格折线图并标记交易
+      this.initPriceLineChart(timeSeriesData, token);
+
+      console.log(`✅ 代币 ${token.symbol} 的时序数据图表加载完成`);
 
       // 更新状态
       if (chartStatus) {
@@ -939,7 +952,7 @@ class ExperimentTrades {
       }
 
     } catch (error) {
-      console.error(`❌ 加载代币 ${token.symbol} 的K线数据失败:`, error);
+      console.error(`❌ 加载代币 ${token.symbol} 的时序数据失败:`, error);
 
       // 更新状态
       const chartStatus = document.getElementById('trade-chart-status');
@@ -948,6 +961,161 @@ class ExperimentTrades {
         chartStatus.className = 'px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium';
       }
     }
+  }
+
+  /**
+   * 获取特定代币的时序数据
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<Array>} 时序数据数组
+   */
+  async fetchTimeSeriesData(tokenAddress) {
+    try {
+      const params = new URLSearchParams({
+        experimentId: this.experimentId,
+        tokenAddress: tokenAddress
+      });
+
+      const response = await fetch(`/api/experiment/time-series/data?${params}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return result.data || [];
+    } catch (error) {
+      console.error('❌ 获取时序数据失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 初始化价格折线图（使用时序数据，标记交易）
+   * @param {Array} timeSeriesData - 时序数据
+   * @param {Object} token - 代币对象
+   */
+  initPriceLineChart(timeSeriesData, token) {
+    const canvas = document.getElementById('trade-kline-chart');
+    if (!canvas) return;
+
+    // 销毁旧图表
+    if (this.chart) {
+      this.chart.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+
+    // 准备数据
+    const labels = timeSeriesData.map(d => new Date(d.timestamp));
+    const prices = timeSeriesData.map(d => d.price_usd ? parseFloat(d.price_usd) : null);
+
+    // 准备交易标记点
+    const tradeAnnotations = [];
+    const tokenTrades = this.tradesData.filter(t =>
+      (t.token_address || t.tokenAddress) === token.address
+    );
+
+    tokenTrades.forEach(trade => {
+      const tradeTime = new Date(trade.timestamp || trade.created_at);
+      const direction = trade.direction || 'buy';
+      const isBuy = direction === 'buy';
+
+      // 找到最接近的数据点
+      const closestIndex = labels.findIndex(label => Math.abs(label - tradeTime) < 30000); // 30秒内
+      if (closestIndex >= 0 && prices[closestIndex] !== null) {
+        tradeAnnotations.push({
+          type: 'line',
+          xMin: tradeTime,
+          xMax: tradeTime,
+          yMin: 0,
+          yMax: 'max',
+          borderColor: isBuy ? '#52c41a' : '#ff4d4f',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          label: {
+            display: true,
+            content: isBuy ? '买入' : '卖出',
+            position: 'start',
+            backgroundColor: isBuy ? '#52c41a' : '#ff4d4f',
+            color: '#fff',
+            font: {
+              size: 11
+            }
+          }
+        });
+      }
+    });
+
+    // 创建图表
+    this.chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: `${token.symbol} 价格 (USDT)`,
+          data: prices,
+          borderColor: '#1890ff',
+          backgroundColor: 'rgba(24, 144, 255, 0.1)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: true,
+          tension: 0.1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          annotation: {
+            annotations: tradeAnnotations
+          },
+          legend: {
+            display: true,
+            position: 'top'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                if (value !== null) {
+                  return `价格: $${value.toExponential(4)}`;
+                }
+                return '价格: N/A';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                minute: 'HH:mm',
+                hour: 'MM-dd HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: '时间'
+            }
+          },
+          y: {
+            type: 'linear',
+            display: true,
+            title: {
+              display: true,
+              text: '价格 (USDT)'
+            }
+          }
+        }
+      }
+    });
+
+    console.log(`📊 价格折线图已初始化，包含 ${timeSeriesData.length} 个数据点和 ${tradeAnnotations.length} 个交易标记`);
   }
 
   /**

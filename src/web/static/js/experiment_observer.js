@@ -52,9 +52,21 @@ class ExperimentObserver {
     if (refreshBtn2) refreshBtn2.addEventListener('click', () => this.refreshData());
     if (backToExperimentsBtn2) backToExperimentsBtn2.addEventListener('click', () => this.backToExperiments());
 
-    // 检查 URL 参数
+    // 从 URL 路径中提取实验 ID
+    // 支持 /experiment/{id}/observer 格式
+    const pathParts = window.location.pathname.split('/');
+    const observerIndex = pathParts.indexOf('observer');
+    let experimentIdFromPath = null;
+
+    if (observerIndex > 0 && pathParts[observerIndex - 1]) {
+      experimentIdFromPath = pathParts[observerIndex - 1];
+    }
+
+    // 同时也支持 URL 参数 ?experiment=xxx
     const urlParams = new URLSearchParams(window.location.search);
-    this.preselectedExperimentId = urlParams.get('experiment');
+    const experimentIdFromParam = urlParams.get('experiment');
+
+    this.preselectedExperimentId = experimentIdFromPath || experimentIdFromParam;
 
     // 优先处理 URL 中的实验参数
     if (this.preselectedExperimentId) {

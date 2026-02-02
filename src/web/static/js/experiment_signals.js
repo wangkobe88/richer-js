@@ -120,15 +120,15 @@ class ExperimentSignals {
         this.updateExperimentHeader(experimentResponse.data);
       }
 
-      // 🔥 提取代币列表并填充选择器（现在直接从API获取）
-      await this.extractTokensFromExperiment();
-
-      // 更新信号数据
-      // console.log('🔍 赋值前的this.signals:', this.signals?.length || 0);
+      // 更新信号数据（必须在 extractTokensFromExperiment 之前）
       this.signals = signalsResponse.signals || [];
-      // console.log('🔍 赋值后的this.signals:', this.signals?.length || 0);
-      // console.log('🔍 this.signals前3个:', this.signals.slice(0, 3));
-      this.updateSignalsStats();  // 使用过滤后的数据更新统计
+      console.log('📊 已加载', this.signals.length, '条信号');
+
+      // 🔥 从信号数据中提取代币列表并填充选择器
+      this.extractTokensFromExperiment();
+
+      // 更新信号统计
+      this.updateSignalsStats();
 
       // 渲染信号列表（即使K线加载失败也要显示）
       this.renderSignals();
@@ -243,7 +243,7 @@ class ExperimentSignals {
   }
 
   /**
-   * 🔥 加载特定代币的K线数据
+   * 🔥 加载特定代币的时序数据（替代K线数据）
    * @param {Object} token - 代币对象 { address, symbol, priority }
    */
   async loadKlineForToken(token) {
@@ -256,13 +256,13 @@ class ExperimentSignals {
         chartStatus.className = 'px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium';
       }
 
-      // 获取K线数据
-      const klineResponse = await this.fetchKlineData(token.address);
+      // 获取时序数据（替代K线数据）
+      const timeSeriesResponse = await this.fetchTimeSeriesData(token.address);
 
-      if (!klineResponse.kline_data || klineResponse.kline_data.length === 0) {
+      if (!timeSeriesResponse || !timeSeriesResponse.data || timeSeriesResponse.data.length === 0) {
         // 显示友好提示
         if (chartStatus) {
-          chartStatus.textContent = '暂无K线数据';
+          chartStatus.textContent = '暂无时序数据';
           chartStatus.className = 'px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium';
         }
         // 隐藏图表容器
@@ -277,16 +277,13 @@ class ExperimentSignals {
         chartContainer.style.display = 'block';
       }
 
-      // 更新K线数据
-      this.klineData = klineResponse.kline_data;
+      // 更新时序数据
+      this.klineData = timeSeriesResponse.data;
 
-      // 更新图表配置
-      this.updateChartConfig(klineResponse);
+      // 初始化价格折线图
+      this.initPriceLineChart(timeSeriesResponse.data, token);
 
-      // 重新初始化K线图
-      this.initKlineChart(klineResponse);
-
-      console.log(`✅ 代币 ${token.symbol} 的K线图加载完成`);
+      console.log(`✅ 代币 ${token.symbol} 的时序数据图表加载完成`);
 
       // 更新状态
       if (chartStatus) {
@@ -295,7 +292,7 @@ class ExperimentSignals {
       }
 
     } catch (error) {
-      console.error(`❌ 加载代币 ${token.symbol} 的K线数据失败:`, error);
+      console.error(`❌ 加载代币 ${token.symbol} 的时序数据失败:`, error);
 
       // 更新状态
       const chartStatus = document.getElementById('chart-status');
@@ -304,6 +301,161 @@ class ExperimentSignals {
         chartStatus.className = 'px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium';
       }
     }
+  }
+
+  /**
+   * 获取特定代币的时序数据
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<Object>} 时序数据
+   */
+  async fetchTimeSeriesData(tokenAddress) {
+    try {
+      const params = new URLSearchParams({
+        experimentId: this.experimentId,
+        tokenAddress: tokenAddress
+      });
+
+      const response = await fetch(`/api/experiment/time-series/data?${params}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('❌ 获取时序数据失败:', error);
+      return { data: [] };
+    }
+  }
+
+  /**
+   * 初始化价格折线图（使用时序数据）
+   * @param {Array} timeSeriesData - 时序数据
+   * @param {Object} token - 代币对象
+   */
+  initPriceLineChart(timeSeriesData, token) {
+    const canvas = document.getElementById('kline-chart');
+    if (!canvas) return;
+
+    // 销毁旧图表
+    if (this.chart) {
+      this.chart.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+
+    // 准备数据
+    const labels = timeSeriesData.map(d => new Date(d.timestamp));
+    const prices = timeSeriesData.map(d => d.price_usd ? parseFloat(d.price_usd) : null);
+
+    // 准备信号标记点
+    const signalAnnotations = [];
+    const tokenSignals = this.signals.filter(s =>
+      (s.token_address || s.tokenAddress) === token.address
+    );
+
+    tokenSignals.forEach(signal => {
+      const signalTime = new Date(signal.timestamp || signal.created_at);
+      const signalType = signal.signal_type || signal.action?.toUpperCase();
+      const isBuy = signalType === 'BUY';
+
+      // 找到最接近的数据点
+      const closestIndex = labels.findIndex(label => Math.abs(label - signalTime) < 30000); // 30秒内
+      if (closestIndex >= 0 && prices[closestIndex] !== null) {
+        signalAnnotations.push({
+          type: 'line',
+          xMin: signalTime,
+          xMax: signalTime,
+          yMin: 0,
+          yMax: 'max',
+          borderColor: isBuy ? '#52c41a' : '#ff4d4f',
+          borderWidth: 2,
+          borderDash: [5, 5],
+          label: {
+            display: true,
+            content: isBuy ? '买入' : '卖出',
+            position: 'start',
+            backgroundColor: isBuy ? '#52c41a' : '#ff4d4f',
+            color: '#fff',
+            font: {
+              size: 11
+            }
+          }
+        });
+      }
+    });
+
+    // 创建图表
+    this.chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: `${token.symbol} 价格 (USDT)`,
+          data: prices,
+          borderColor: '#1890ff',
+          backgroundColor: 'rgba(24, 144, 255, 0.1)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: true,
+          tension: 0.1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          annotation: {
+            annotations: signalAnnotations
+          },
+          legend: {
+            display: true,
+            position: 'top'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                if (value !== null) {
+                  return `价格: $${value.toExponential(4)}`;
+                }
+                return '价格: N/A';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                minute: 'HH:mm',
+                hour: 'MM-dd HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: '时间'
+            }
+          },
+          y: {
+            type: 'linear',
+            display: true,
+            title: {
+              display: true,
+              text: '价格 (USDT)'
+            }
+          }
+        }
+      }
+    });
+
+    console.log(`📊 价格折线图已初始化，包含 ${timeSeriesData.length} 个数据点和 ${signalAnnotations.length} 个信号标记`);
   }
 
   updateExperimentHeader(experiment) {
@@ -338,53 +490,29 @@ class ExperimentSignals {
    */
   async extractTokensFromExperiment() {
     try {
-      // console.log('🔄 开始获取实验代币列表...');
-      // console.log('🔄 实验 ID:', this.experimentId);
-      const url = `/api/experiment/${this.experimentId}/tokens?limit=1000`;
-      // console.log('🔄 请求 URL:', url);
+      // 从已加载的信号数据中提取有信号的代币列表
+      // 统计每个代币的信号数量
+      const tokenSignalCounts = new Map();
 
-      // 从 experiment_tokens 表获取代币列表
-      const response = await fetch(url);
-      // console.log('🔄 响应状态:', response.status);
-      if (!response.ok) {
-        throw new Error('获取代币列表失败');
-      }
+      if (this.signals && this.signals.length > 0) {
+        this.signals.forEach(signal => {
+          const address = signal.token_address || signal.tokenAddress;
+          const symbol = signal.token_symbol || signal.symbol || 'Unknown';
 
-      const result = await response.json();
-      // console.log('📦 API success:', result.success);
-      // console.log('📦 result 完整对象:', result);
-      // console.log('📦 Object.keys(result):', Object.keys(result));
-      // console.log('📦 "data" in result:', 'data' in result);
-      // console.log('📦 result.data 类型:', typeof result.data);
-      // console.log('📦 result.data 值:', result.data);
-      // console.log('📦 JSON.stringify(result.data):', JSON.stringify(result.data).substring(0, 200));
-
-      // 直接使用 data 字段，如果不存在则用 tokens
-      const tokens = (result.data && result.data.length > 0) ? result.data :
-                     (result.tokens && result.tokens.length > 0) ? result.tokens : [];
-
-      // console.log('📦 最终 tokens 长度:', tokens.length);
-
-      if (tokens.length === 0) {
-        console.warn('⚠️ 该实验还没有处理过任何代币');
-        this.availableTokens = [];
-      } else {
-        // 提取唯一的代币（按地址去重）
-        const uniqueTokens = new Map();
-        tokens.forEach(token => {
-          if (!uniqueTokens.has(token.token_address)) {
-            uniqueTokens.set(token.token_address, {
-              address: token.token_address,
-              symbol: token.token_symbol || 'Unknown',
-              priority: 0, // fourmeme代币没有优先级概念
-              status: token.status
+          if (!tokenSignalCounts.has(address)) {
+            tokenSignalCounts.set(address, {
+              address: address,
+              symbol: symbol,
+              signalCount: 0
             });
           }
-        });
 
-        this.availableTokens = Array.from(uniqueTokens.values());
-        // console.log('🔍 可用代币列表:', this.availableTokens);
+          tokenSignalCounts.get(address).signalCount++;
+        });
       }
+
+      this.availableTokens = Array.from(tokenSignalCounts.values());
+      console.log(`📊 从 ${this.signals.length} 条信号中提取到 ${this.availableTokens.length} 个有信号的代币`);
 
       // 填充代币选择器
       this.populateTokenSelector();
@@ -420,20 +548,19 @@ class ExperimentSignals {
     freshSelector.innerHTML = '<option value="all">全部代币</option>';
     console.log('📝 已设置默认选项');
 
-    // 按状态排序：bought > monitoring > exited
-    const statusOrder = { 'bought': 0, 'monitoring': 1, 'exited': 2 };
+    // 按信号数量降序排序（信号多的在前）
     const sortedTokens = [...this.availableTokens].sort((a, b) => {
-      return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3);
+      return (b.signalCount || 0) - (a.signalCount || 0);
     });
 
     // console.log('🔄 准备添加', sortedTokens.length, '个代币选项');
 
-    // 添加代币选项
+    // 添加代币选项，显示信号数量
     sortedTokens.forEach((token, index) => {
       const option = document.createElement('option');
       option.value = token.address;
-      const statusText = this.getStatusText(token.status);
-      option.textContent = `${token.symbol} (${statusText})`;
+      const signalCount = token.signalCount || 0;
+      option.textContent = `${token.symbol} (${signalCount} 条信号)`;
       freshSelector.appendChild(option);
       if (index < 3) {
         console.log(`  [${index}] ${option.textContent}`);

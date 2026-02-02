@@ -768,10 +768,8 @@ class VirtualTradingEngine {
       const result = await this.processSignal(signal);
 
       if (result && result.success) {
-        // 如果全部卖出，标记为已退出
-        if (sellRatio >= 1.0) {
-          this._tokenPool.markAsExited(token.token, token.chain);
-        }
+        // 卖出成功后，不再标记为exited
+        // 代币将保持bought状态，继续在池中监控30分钟用于数据收集
         return true;
       }
 
@@ -952,14 +950,8 @@ class VirtualTradingEngine {
 
       const result = await this.executeTrade(tradeRequest);
 
-      // 卖出成功后更新代币状态
-      if (result && result.success) {
-        // 全部卖出（sellRatio >= 1.0）时标记为已退出
-        if (sellRatio >= 1.0) {
-          await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'exited');
-        }
-        // 如果是部分卖出（sellRatio < 1.0），状态保持 'bought'
-      }
+      // 卖出成功后，不再更新代币状态为exited
+      // 代币将保持bought状态，继续在池中监控30分钟用于数据收集
 
       return result;
 

@@ -221,8 +221,7 @@ class TokenPool {
      * Clean up old tokens (exceeded max age)
      *
      * 规则：
-     * - 所有代币（无论是否交易）：30分钟后淘汰（用于数据分析）
-     * - 已退出 (exited) 的代币：立即移除
+     * - 所有代币（无论是否交易，包括已退出）：30分钟后淘汰（用于数据分析）
      *
      * @returns {Array} Array of removed token keys
      */
@@ -236,16 +235,10 @@ class TokenPool {
         for (const [key, token] of this.pool.entries()) {
             let removeReason = null;
 
-            // 已退出：立即移除
-            if (token.status === 'exited') {
-                removeReason = '已退出';
-            }
-            // 监控中或已购买：30分钟后淘汰
-            else if (token.status === 'monitoring' || token.status === 'bought') {
-                const age = now - token.createdAt * 1000;  // 使用代币创建时间
-                if (age > MAX_AGE) {
-                    removeReason = `监控超时(${(age / 60000).toFixed(1)}分钟)`;
-                }
+            // 所有状态（monitoring, bought, exited）都遵循30分钟规则
+            const age = now - token.createdAt * 1000;  // 使用代币创建时间
+            if (age > MAX_AGE) {
+                removeReason = `监控超时(${(age / 60000).toFixed(1)}分钟)`;
             }
 
             if (removeReason) {

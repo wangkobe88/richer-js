@@ -76,7 +76,7 @@ class ExperimentTimeSeriesService {
 
       // Supabase max-rows 限制为 1000，使用分页查询
       const PAGE_SIZE = 1000;
-      const MAX_PAGES = 100;
+      const MAX_PAGES = 1000; // 增加到1000页，最多可获取100万条数据
 
       let allData = [];
       let page = 0;
@@ -115,6 +115,7 @@ class ExperimentTimeSeriesService {
 
         if (data && data.length > 0) {
           allData = allData.concat(data);
+          // 如果返回的数据少于PAGE_SIZE，说明已经是最后一页
           hasMore = data.length === PAGE_SIZE;
         } else {
           hasMore = false;
@@ -122,12 +123,14 @@ class ExperimentTimeSeriesService {
 
         page++;
 
+        // 如果设置了limit且已获取足够数据，提前退出
         if (options.limit && allData.length >= options.limit) {
           allData = allData.slice(0, options.limit);
           break;
         }
       }
 
+      console.log(`📊 [时序数据] 共获取 ${allData.length} 条数据 (实验: ${experimentId}, 代币: ${tokenAddress || '全部'})`);
       return allData;
     } catch (error) {
       console.error('❌ [时序数据] 获取失败:', error.message);
