@@ -12,16 +12,161 @@
         .hidden { display: none; }
         .error { border-color: #ef4444; }
         .success { border-color: #10b981; }
+
+        /* 策略卡片样式 */
+        .strategy-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #fafafa;
+            transition: all 0.2s;
+        }
+        .strategy-card:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .strategy-card .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .strategy-card .strategy-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .strategy-card .btn-remove {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        .strategy-card .btn-remove:hover {
+            background: #dc2626;
+        }
+        .strategy-card .strategy-params {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        .strategy-card .param-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .strategy-card .param-group label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #4b5563;
+            margin-bottom: 0.25rem;
+        }
+        .strategy-card .param-group input,
+        .strategy-card .param-group select {
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+        }
+        .strategy-card .param-group .hint {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+
+        /* 条件帮助器样式 */
+        .condition-help {
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .condition-help h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.75rem;
+        }
+        .condition-help .help-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        .condition-help .help-table th,
+        .condition-help .help-table td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        .condition-help .help-table th {
+            background: #e5e7eb;
+            font-weight: 600;
+        }
+        .condition-help code {
+            background: #1f2937;
+            color: #10b981;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+        .condition-help ul {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+        }
+        .condition-help .preset-templates {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .condition-help .preset-templates button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        .condition-help .preset-templates button:hover {
+            background: #2563eb;
+        }
+
+        /* 初始分配样式 */
+        .initial-allocation {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        /* 动态添加按钮 */
+        .btn-add {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .btn-add:hover {
+            background: #059669;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen py-8">
-    <div class="container mx-auto px-4 max-w-4xl">
+    <div class="container mx-auto px-4 max-w-5xl">
         <!-- 页头 -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-3xl font-bold text-gray-800">创建新实验</h1>
-                    <p class="text-gray-600 mt-2">基于 EarlyReturn 策略的 fourmeme 代币交易实验</p>
+                    <p class="text-gray-600 mt-2">基于策略卡牌管理的 fourmeme 代币交易实验</p>
                 </div>
                 <a href="/experiments" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md">
                     ← 返回列表
@@ -43,8 +188,8 @@
                             <input type="text"
                                    name="experiment_name"
                                    required
-                                   placeholder="例如：Fourmeme 虚拟交易实验"
-                                   value="Fourmeme 虚拟交易实验"
+                                   placeholder="例如：Fourmeme 卡牌策略交易实验"
+                                   value="Fourmeme 卡牌策略交易实验"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div>
@@ -54,7 +199,7 @@
                             <input type="text"
                                    name="experiment_description"
                                    placeholder="实验的简要描述"
-                                   value="基于 EarlyReturn 策略的 fourmeme 代币自动交易"
+                                   value="基于卡牌仓位管理的 fourmeme 代币自动交易"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div>
@@ -81,19 +226,6 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                K线类型 <span class="text-red-500">*</span>
-                            </label>
-                            <select name="kline_type"
-                                    required
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="1m" selected>1分钟</option>
-                                <option value="5m">5分钟</option>
-                                <option value="15m">15分钟</option>
-                                <option value="30m">30分钟</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
                                 初始余额 (<span id="native-currency">BNB</span>) <span class="text-red-500">*</span>
                             </label>
                             <input type="number"
@@ -104,141 +236,156 @@
                                    min="0.001"
                                    value="100"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <div class="mt-1 text-xs text-gray-500">
-                                区块链主币用于交易和计价
-                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 策略参数配置 -->
+                <!-- 卡牌仓位管理配置 -->
                 <div class="border border-gray-200 rounded-lg p-4">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">策略参数配置</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                买入时间窗口 (分钟) <span class="text-red-500">*</span>
-                            </label>
-                            <input type="number"
-                                   name="buyTimeMinutes"
-                                   required
-                                   step="0.01"
-                                   min="0.1"
-                                   value="1.33"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <div class="mt-1 text-xs text-gray-500">
-                                代币创建后多长时间内可以买入（1.33分钟 = 80秒）
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">🃏 卡牌仓位管理</h2>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" name="position_management_enabled" id="pm-enabled" class="w-4 h-4">
+                            <span class="text-sm font-medium text-gray-700">启用卡牌管理</span>
+                        </label>
+                    </div>
+
+                    <div id="pm-config" style="display:none;" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    总卡牌数量
+                                </label>
+                                <input type="number" name="total_cards" value="4" min="2" max="36"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <span class="text-xs text-gray-500">建议4个，支持2-36个</span>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    单卡BNB数量
+                                </label>
+                                <input type="number" name="per_card_max_bnb" value="0.25" step="0.01" min="0.01"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <span class="text-xs text-gray-500">每个卡牌对应的最大BNB</span>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    最小交易卡牌数
+                                </label>
+                                <input type="number" name="min_cards_for_trade" value="1" min="1"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             </div>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
-                                第一止盈点 (%) <span class="text-red-500">*</span>
+                                初始卡牌分配
                             </label>
-                            <input type="number"
-                                   name="takeProfit1"
-                                   required
-                                   step="1"
-                                   min="1"
-                                   value="30"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <div class="mt-1 text-xs text-gray-500">
-                                涨幅达到此百分比时触发第一次止盈
+                            <div class="initial-allocation">
+                                <label class="flex items-center gap-2">
+                                    <span>BNB卡牌:</span>
+                                    <input type="number" name="initial_bnb_cards" value="4" min="0" max="36"
+                                           class="w-20 px-3 py-1 border border-gray-300 rounded-md">
+                                </label>
+                                <label class="flex items-center gap-2">
+                                    <span>代币卡牌:</span>
+                                    <input type="number" name="initial_token_cards" value="0" min="0" max="36"
+                                           class="w-20 px-3 py-1 border border-gray-300 rounded-md">
+                                </label>
                             </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                第一止盈卖出比例 (%) <span class="text-red-500">*</span>
-                            </label>
-                            <input type="number"
-                                   name="takeProfit1Sell"
-                                   required
-                                   step="0.1"
-                                   min="0.1"
-                                   max="100"
-                                   value="50"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <div class="mt-1 text-xs text-gray-500">
-                                第一次止盈时卖出的持仓比例（50%）
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                第二止盈点 (%) <span class="text-red-500">*</span>
-                            </label>
-                            <input type="number"
-                                   name="takeProfit2"
-                                   required
-                                   step="1"
-                                   min="1"
-                                   value="50"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <div class="mt-1 text-xs text-gray-500">
-                                涨幅达到此百分比时触发第二次止盈
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                第二止盈卖出比例 (%) <span class="text-red-500">*</span>
-                            </label>
-                            <input type="number"
-                                   name="takeProfit2Sell"
-                                   required
-                                   step="0.1"
-                                   min="0.1"
-                                   max="100"
-                                   value="50"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <div class="mt-1 text-xs text-gray-500">
-                                第二次止盈时卖出的持仓比例（50%，剩余全部）
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                时间止损 (分钟) <span class="text-red-500">*</span>
-                            </label>
-                            <input type="number"
-                                   name="stopLossMinutes"
-                                   required
-                                   step="1"
-                                   min="1"
-                                   value="5"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <div class="mt-1 text-xs text-gray-500">
-                                持仓时间超过此分钟且亏损时，全部卖出
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                每次买入<span id="trade-amount-currency">BNB</span>数量 <span class="text-red-500">*</span>
-                            </label>
-                            <input type="number"
-                                   name="tradeAmount"
-                                   id="tradeAmount"
-                                   required
-                                   step="0.001"
-                                   min="0.001"
-                                   value="0.1"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <div class="mt-1 text-xs text-gray-500">
-                                每次买入使用的固定<span id="trade-amount-currency-2">BNB</span>数量
-                            </div>
+                            <span class="text-xs text-gray-500">总卡牌数必须等于 BNB卡牌 + 代币卡牌</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- 策略说明 -->
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h2 class="text-lg font-semibold text-blue-900 mb-2">📊 策略说明</h2>
-                    <div class="text-sm text-blue-800 space-y-2">
-                        <p><strong>买入条件：</strong>当代币创建时间 &lt; 买入时间窗口 且有有效价格时买入</p>
-                        <p><strong>阶梯止盈：</strong></p>
-                        <ul class="list-disc list-inside ml-4">
-                            <li>涨幅达到 <span id="desc-tp1">30</span>% 时，卖出 <span id="desc-tp1-sell">50</span>%</li>
-                            <li>涨幅达到 <span id="desc-tp2">50</span>% 时，卖出剩余 <span id="desc-tp2-sell">50</span>%</li>
-                        </ul>
-                        <p><strong>时间止损：</strong>持仓超过 <span id="desc-sl">5</span> 分钟且亏损时，全部卖出</p>
-                        <p class="mt-2 text-xs text-blue-600">* 策略参数可在上方配置，创建后将保存到实验配置中</p>
+                <!-- 买入策略配置 -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">📈 买入策略</h2>
+                        <button type="button" onclick="addBuyStrategy()" class="btn-add">
+                            <span>+ 添加买入条件</span>
+                        </button>
                     </div>
+                    <div id="buy-strategies-container">
+                        <!-- 默认添加一个早止买入策略 -->
+                    </div>
+                </div>
+
+                <!-- 卖出策略配置 -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">📉 卖出策略</h2>
+                        <button type="button" onclick="addSellStrategy()" class="btn-add">
+                            <span>+ 添加卖出条件</span>
+                        </button>
+                    </div>
+                    <div id="sell-strategies-container">
+                        <!-- 默认添加止盈1和止盈2策略 -->
+                    </div>
+                </div>
+
+                <!-- 条件表达式帮助器 -->
+                <div class="border border-blue-200 bg-blue-50 rounded-lg p-4">
+                    <details>
+                        <summary class="text-lg font-semibold text-blue-900 cursor-pointer">
+                            📖 条件表达式语法帮助（点击展开）
+                        </summary>
+                        <div class="condition-help">
+                            <h4>可用因子</h4>
+                            <table class="help-table">
+                                <tr>
+                                    <th>因子</th>
+                                    <th>类型</th>
+                                    <th>说明</th>
+                                    <th>示例</th>
+                                </tr>
+                                <tr>
+                                    <td><code>age</code></td>
+                                    <td>数字</td>
+                                    <td>代币年龄（分钟）</td>
+                                    <td><code>age < 1.33</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>earlyReturn</code></td>
+                                    <td>数字</td>
+                                    <td>早期收益率（%）</td>
+                                    <td><code>earlyReturn >= 80</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>currentPrice</code></td>
+                                    <td>数字</td>
+                                    <td>当前价格</td>
+                                    <td><code>currentPrice > 0</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>profitPercent</code></td>
+                                    <td>数字</td>
+                                    <td>盈利百分比（%）</td>
+                                    <td><code>profitPercent >= 30</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>holdDuration</code></td>
+                                    <td>数字</td>
+                                    <td>持仓时长（秒）</td>
+                                    <td><code>holdDuration > 60</code></td>
+                                </tr>
+                            </table>
+
+                            <h4>操作符</h4>
+                            <ul>
+                                <li><code>AND</code> 或 <code>&&</code>: 且条件（两个条件都满足）</li>
+                                <li><code>OR</code> 或 <code>||</code>: 或条件（任一条件满足）</li>
+                                <li><code>> >= < <= == !=</code>: 比较运算符</li>
+                            </ul>
+
+                            <h4>预设策略模板</h4>
+                            <div class="preset-templates">
+                                <button type="button" onclick="loadPreset('early_buy')">早止买入</button>
+                                <button type="button" onclick="loadPreset('tp1')">止盈1 (30%)</button>
+                                <button type="button" onclick="loadPreset('tp2')">止盈2 (50%)</button>
+                                <button type="button" onclick="loadPreset('stop_loss')">时间止损</button>
+                            </div>
+                        </div>
+                    </details>
                 </div>
 
                 <!-- 提交按钮 -->
@@ -260,59 +407,335 @@
         </div>
     </div>
 
+    <!-- 策略卡片模板 -->
+    <template id="buy-strategy-template">
+        <div class="strategy-card" data-action="buy" data-index="{INDEX}">
+            <div class="card-header">
+                <span class="strategy-name">买入策略 #{INDEX}</span>
+                <button type="button" onclick="removeStrategy(this)" class="btn-remove">删除</button>
+            </div>
+            <div class="card-body">
+                <div class="param-group" style="grid-column: 1 / span 2;">
+                    <label>触发条件：</label>
+                    <input type="text" name="buy_condition_{INDEX}"
+                           placeholder="例如: age < 1.33 AND earlyReturn >= 80 AND earlyReturn < 120"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="strategy-params">
+                    <div class="param-group">
+                        <label>卡牌数量</label>
+                        <select name="buy_cards_{INDEX}">
+                            <option value="1">1卡</option>
+                            <option value="2">2卡</option>
+                            <option value="3">3卡</option>
+                            <option value="4">4卡</option>
+                        </select>
+                    </div>
+                    <div class="param-group">
+                        <label>优先级</label>
+                        <input type="number" name="buy_priority_{INDEX}" value="1" min="1" max="100">
+                    </div>
+                    <div class="param-group">
+                        <label>冷却(秒)</label>
+                        <input type="number" name="buy_cooldown_{INDEX}" value="60" min="0">
+                    </div>
+                    <div class="param-group">
+                        <label>最大执行次数</label>
+                        <input type="number" name="buy_max_executions_{INDEX}" placeholder="不限" min="1">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="sell-strategy-template">
+        <div class="strategy-card" data-action="sell" data-index="{INDEX}">
+            <div class="card-header">
+                <span class="strategy-name">卖出策略 #{INDEX}</span>
+                <button type="button" onclick="removeStrategy(this)" class="btn-remove">删除</button>
+            </div>
+            <div class="card-body">
+                <div class="param-group" style="grid-column: 1 / span 2;">
+                    <label>触发条件：</label>
+                    <input type="text" name="sell_condition_{INDEX}"
+                           placeholder="例如: profitPercent >= 30 AND holdDuration > 0"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="strategy-params">
+                    <div class="param-group">
+                        <label>卡牌数量</label>
+                        <select name="sell_cards_{INDEX}">
+                            <option value="1">1卡</option>
+                            <option value="2">2卡</option>
+                            <option value="3">3卡</option>
+                            <option value="4">4卡</option>
+                            <option value="all" selected>全部</option>
+                        </select>
+                    </div>
+                    <div class="param-group">
+                        <label>优先级</label>
+                        <input type="number" name="sell_priority_{INDEX}" value="1" min="1" max="100">
+                    </div>
+                    <div class="param-group">
+                        <label>冷却(秒)</label>
+                        <input type="number" name="sell_cooldown_{INDEX}" value="30" min="0">
+                    </div>
+                    <div class="param-group">
+                        <label>最大执行次数</label>
+                        <input type="number" name="sell_max_executions_{INDEX}" value="1" min="1">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
     <script>
+        // 全局变量
+        let buyStrategyCount = 0;
+        let sellStrategyCount = 0;
+
+        // DOM 元素
         const form = document.getElementById('experiment-form');
         const submitBtn = document.getElementById('submit-btn');
         const resultMessage = document.getElementById('result-message');
         const resultContent = document.getElementById('result-content');
+        const pmEnabled = document.getElementById('pm-enabled');
+        const pmConfig = document.getElementById('pm-config');
+        const buyContainer = document.getElementById('buy-strategies-container');
+        const sellContainer = document.getElementById('sell-strategies-container');
+        const buyTemplate = document.getElementById('buy-strategy-template');
+        const sellTemplate = document.getElementById('sell-strategy-template');
 
-        // 参数变化时更新说明
-        const takeProfit1 = document.querySelector('input[name="takeProfit1"]');
-        const takeProfit1Sell = document.querySelector('input[name="takeProfit1Sell"]');
-        const takeProfit2 = document.querySelector('input[name="takeProfit2"]');
-        const takeProfit2Sell = document.querySelector('input[name="takeProfit2Sell"]');
-        const stopLossMinutes = document.querySelector('input[name="stopLossMinutes"]');
+        // 卡牌管理启用/禁用
+        pmEnabled.addEventListener('change', () => {
+            pmConfig.style.display = pmEnabled.checked ? 'block' : 'none';
+        });
 
-        function updateDescriptions() {
-            document.getElementById('desc-tp1').textContent = takeProfit1.value;
-            document.getElementById('desc-tp1-sell').textContent = takeProfit1Sell.value;
-            document.getElementById('desc-tp2').textContent = takeProfit2.value;
-            document.getElementById('desc-tp2-sell').textContent = takeProfit2Sell.value;
-            document.getElementById('desc-sl').textContent = stopLossMinutes.value;
+        // 添加买入策略
+        function addBuyStrategy(config = {}) {
+            const index = buyStrategyCount++;
+            let html = buyTemplate.innerHTML.replace(/\{INDEX\}/g, index);
+
+            // 应用预设配置
+            if (config.condition) {
+                html = html.replace(`name="buy_condition_${index}"`, `name="buy_condition_${index}" value="${config.condition}"`);
+            }
+            if (config.cards) {
+                html = html.replace(`name="buy_cards_${index}"`, `name="buy_cards_${index}"`);
+                // 找到select并设置value
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                const select = temp.querySelector(`select[name="buy_cards_${index}"]`);
+                if (select) select.value = config.cards;
+                html = temp.innerHTML;
+            }
+            if (config.priority) {
+                html = html.replace(`name="buy_priority_${index}" value="1"`, `name="buy_priority_${index}" value="${config.priority}"`);
+            }
+            if (config.cooldown) {
+                html = html.replace(`name="buy_cooldown_${index}" value="60"`, `name="buy_cooldown_${index}" value="${config.cooldown}"`);
+            }
+            if (config.maxExecutions !== undefined) {
+                const attr = config.maxExecutions ? `value="${config.maxExecutions}"` : 'placeholder="不限"';
+                html = html.replace(`name="buy_max_executions_${index}" placeholder`, `name="buy_max_executions_${index}" ${attr}`);
+            }
+
+            buyContainer.insertAdjacentHTML('beforeend', html);
         }
 
-        takeProfit1.addEventListener('input', updateDescriptions);
-        takeProfit1Sell.addEventListener('input', updateDescriptions);
-        takeProfit2.addEventListener('input', updateDescriptions);
-        takeProfit2Sell.addEventListener('input', updateDescriptions);
-        stopLossMinutes.addEventListener('input', updateDescriptions);
+        // 添加卖出策略
+        function addSellStrategy(config = {}) {
+            const index = sellStrategyCount++;
+            let html = sellTemplate.innerHTML.replace(/\{INDEX\}/g, index);
 
+            // 应用预设配置
+            if (config.condition) {
+                html = html.replace(`name="sell_condition_${index}"`, `name="sell_condition_${index}" value="${config.condition}"`);
+            }
+            if (config.cards) {
+                html = html.replace(`name="sell_cards_${index}"`, `name="sell_cards_${index}"`);
+                // 找到select并设置value
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
+                const select = temp.querySelector(`select[name="sell_cards_${index}"]`);
+                if (select) select.value = config.cards;
+                html = temp.innerHTML;
+            }
+            if (config.priority) {
+                html = html.replace(`name="sell_priority_${index}" value="1"`, `name="sell_priority_${index}" value="${config.priority}"`);
+            }
+            if (config.cooldown) {
+                html = html.replace(`name="sell_cooldown_${index}" value="30"`, `name="sell_cooldown_${index}" value="${config.cooldown}"`);
+            }
+            if (config.maxExecutions !== undefined) {
+                const attr = config.maxExecutions ? `value="${config.maxExecutions}"` : 'placeholder="不限"';
+                html = html.replace(`name="sell_max_executions_${index}" value="1"`, `name="sell_max_executions_${index}" ${attr}`);
+            }
+
+            sellContainer.insertAdjacentHTML('beforeend', html);
+        }
+
+        // 删除策略
+        function removeStrategy(button) {
+            const card = button.closest('.strategy-card');
+            const action = card.dataset.action;
+            const index = parseInt(card.dataset.index);
+
+            card.remove();
+
+            // 重新编号
+            const container = action === 'buy' ? buyContainer : sellContainer;
+            container.querySelectorAll('.strategy-card').forEach((c, i) => {
+                c.dataset.index = i;
+                c.querySelector('.strategy-name').textContent =
+                    (action === 'buy' ? '买入策略' : '卖出策略') + ' #' + (i + 1);
+
+                // 更新所有name属性中的索引
+                c.querySelectorAll('[name]').forEach(input => {
+                    input.name = input.name.replace(/\d+$/, i);
+                });
+            });
+
+            // 更新计数器
+            if (action === 'buy') {
+                buyStrategyCount = container.querySelectorAll('.strategy-card').length;
+            } else {
+                sellStrategyCount = container.querySelectorAll('.strategy-card').length;
+            }
+        }
+
+        // 加载预设模板
+        function loadPreset(preset) {
+            const presets = {
+                early_buy: {
+                    action: 'buy',
+                    condition: 'age < 1.33 AND earlyReturn >= 80 AND earlyReturn < 120 AND currentPrice > 0',
+                    cards: 1,
+                    priority: 1,
+                    cooldown: 60,
+                    maxExecutions: null
+                },
+                tp1: {
+                    action: 'sell',
+                    condition: 'profitPercent >= 30 AND holdDuration > 0',
+                    cards: 1,
+                    priority: 1,
+                    cooldown: 30,
+                    maxExecutions: 1
+                },
+                tp2: {
+                    action: 'sell',
+                    condition: 'profitPercent >= 50 AND holdDuration > 0',
+                    cards: 'all',
+                    priority: 2,
+                    cooldown: 30,
+                    maxExecutions: 1
+                },
+                stop_loss: {
+                    action: 'sell',
+                    condition: 'holdDuration >= 300 AND profitPercent <= 0',
+                    cards: 'all',
+                    priority: 10,
+                    cooldown: 60,
+                    maxExecutions: 1
+                }
+            };
+
+            const config = presets[preset];
+            if (config) {
+                if (config.action === 'buy') {
+                    addBuyStrategy(config);
+                } else {
+                    addSellStrategy(config);
+                }
+            }
+        }
+
+        // 收集表单数据
+        function collectFormData() {
+            const formData = new FormData(form);
+
+            // 收集买入策略
+            const buyStrategies = [];
+            document.querySelectorAll('#buy-strategies-container .strategy-card').forEach(card => {
+                const index = card.dataset.index;
+                const maxExecutionsInput = card.querySelector(`input[name="buy_max_executions_${index}"]`);
+                buyStrategies.push({
+                    condition: card.querySelector(`input[name="buy_condition_${index}"]`).value,
+                    cards: card.querySelector(`select[name="buy_cards_${index}"]`).value,
+                    priority: parseInt(card.querySelector(`input[name="buy_priority_${index}"]`).value),
+                    cooldown: parseInt(card.querySelector(`input[name="buy_cooldown_${index}"]`).value),
+                    maxExecutions: maxExecutionsInput.value ? parseInt(maxExecutionsInput.value) : null
+                });
+            });
+
+            // 收集卖出策略
+            const sellStrategies = [];
+            document.querySelectorAll('#sell-strategies-container .strategy-card').forEach(card => {
+                const index = card.dataset.index;
+                const maxExecutionsInput = card.querySelector(`input[name="sell_max_executions_${index}"]`);
+                sellStrategies.push({
+                    condition: card.querySelector(`input[name="sell_condition_${index}"]`).value,
+                    cards: card.querySelector(`select[name="sell_cards_${index}"]`).value,
+                    priority: parseInt(card.querySelector(`input[name="sell_priority_${index}"]`).value),
+                    cooldown: parseInt(card.querySelector(`input[name="sell_cooldown_${index}"]`).value),
+                    maxExecutions: maxExecutionsInput.value ? parseInt(maxExecutionsInput.value) : null
+                });
+            });
+
+            // 构建配置数据
+            return {
+                experiment_name: formData.get('experiment_name'),
+                experiment_description: formData.get('experiment_description'),
+                trading_mode: formData.get('trading_mode'),
+                blockchain: formData.get('blockchain'),
+                initial_balance: parseFloat(formData.get('initial_balance')),
+                // 策略配置
+                strategy: {
+                    buyStrategies: buyStrategies,
+                    sellStrategies: sellStrategies,
+                    // 卡牌管理配置
+                    positionManagement: pmEnabled.checked ? {
+                        enabled: true,
+                        totalCards: parseInt(formData.get('total_cards')) || 4,
+                        perCardMaxBNB: parseFloat(formData.get('per_card_max_bnb')) || 0.025,
+                        minCardsForTrade: parseInt(formData.get('min_cards_for_trade')) || 1,
+                        initialAllocation: {
+                            bnbCards: parseInt(formData.get('initial_bnb_cards')) || 4,
+                            tokenCards: parseInt(formData.get('initial_token_cards')) || 0
+                        }
+                    } : null
+                },
+                // 虚拟交易配置
+                virtual: {
+                    initialBalance: parseFloat(formData.get('initial_balance')),
+                    tradeAmount: null  // 将由卡牌管理器计算
+                }
+            };
+        }
+
+        // 表单提交
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            // 验证
+            const buyStrategies = document.querySelectorAll('#buy-strategies-container .strategy-card');
+            const sellStrategies = document.querySelectorAll('#sell-strategies-container .strategy-card');
+
+            if (buyStrategies.length === 0) {
+                alert('请至少添加一个买入策略');
+                return;
+            }
+            if (sellStrategies.length === 0) {
+                alert('请至少添加一个卖出策略');
+                return;
+            }
 
             // 禁用提交按钮
             submitBtn.disabled = true;
             submitBtn.textContent = '创建中...';
 
-            const formData = new FormData(form);
-            const data = {
-                experiment_name: formData.get('experiment_name'),
-                experiment_description: formData.get('experiment_description'),
-                trading_mode: formData.get('trading_mode'),
-                blockchain: formData.get('blockchain'),
-                kline_type: formData.get('kline_type'),
-                initial_balance: parseFloat(formData.get('initial_balance')),
-                // 策略参数
-                strategy: {
-                    buyTimeMinutes: parseFloat(formData.get('buyTimeMinutes')),
-                    takeProfit1: parseFloat(formData.get('takeProfit1')),
-                    takeProfit1Sell: parseFloat(formData.get('takeProfit1Sell')) / 100,
-                    takeProfit2: parseFloat(formData.get('takeProfit2')),
-                    takeProfit2Sell: parseFloat(formData.get('takeProfit2Sell')) / 100,
-                    stopLossMinutes: parseFloat(formData.get('stopLossMinutes')),
-                    tradeAmount: parseFloat(formData.get('tradeAmount'))
-                }
-            };
+            const data = collectFormData();
 
             try {
                 const response = await fetch('/api/experiments', {
@@ -352,7 +775,7 @@
                     resultContent.className = 'bg-red-50 border border-red-200 text-red-800 rounded-lg p-4';
                     resultContent.innerHTML = `
                         <p class="font-semibold">❌ 创建失败</p>
-                        <p class="text-sm mt-1">${result.error}</p>
+                        <p class="text-sm mt-1">${result.error || '未知错误'}</p>
                     `;
                     submitBtn.disabled = false;
                     submitBtn.textContent = '创建实验';
@@ -370,107 +793,10 @@
             }
         });
 
-        // 初始化说明显示
-        updateDescriptions();
-
-        // 根据区块链选择更新主币标签
-        const blockchainSelect = document.querySelector('select[name="blockchain"]');
-        const nativeCurrencyLabel = document.getElementById('native-currency');
-        const initialBalanceInput = document.getElementById('initial_balance');
-        const tradeAmountCurrencyLabel = document.getElementById('trade-amount-currency');
-        const tradeAmountCurrencyLabel2 = document.getElementById('trade-amount-currency-2');
-        const tradeAmountInput = document.getElementById('tradeAmount');
-
-        // 区块链主币映射
-        const blockchainNativeCurrency = {
-            'bsc': 'BNB',
-            'solana': 'SOL'
-        };
-
-        // 默认初始余额
-        const defaultInitialBalance = {
-            'bsc': '100',    // 100 BNB
-            'solana': '100'  // 100 SOL
-        };
-
-        // 默认每次买入数量
-        const defaultTradeAmount = {
-            'bsc': '0.1',    // 0.1 BNB
-            'solana': '0.1'  // 0.1 SOL
-        };
-
-        function updateNativeCurrency() {
-            const blockchain = blockchainSelect.value;
-            const currency = blockchainNativeCurrency[blockchain] || 'BNB';
-            nativeCurrencyLabel.textContent = currency;
-            tradeAmountCurrencyLabel.textContent = currency;
-            tradeAmountCurrencyLabel2.textContent = currency;
-            // 只在用户没有手动输入时更新默认初始余额
-            if (!initialBalanceInput.getAttribute('data-user-modified')) {
-                initialBalanceInput.value = defaultInitialBalance[blockchain] || '100';
-            }
-            // 只在用户没有手动输入时更新默认买入数量
-            if (!tradeAmountInput.getAttribute('data-user-modified')) {
-                tradeAmountInput.value = defaultTradeAmount[blockchain] || '0.1';
-            }
-        }
-
-        blockchainSelect.addEventListener('change', updateNativeCurrency);
-
-        // 标记用户手动修改
-        initialBalanceInput.addEventListener('input', () => {
-            initialBalanceInput.setAttribute('data-user-modified', 'true');
-        });
-        tradeAmountInput.addEventListener('input', () => {
-            tradeAmountInput.setAttribute('data-user-modified', 'true');
-        });
-
-        // 初始化主币显示
-        updateNativeCurrency();
-
-        // 从URL参数填充表单
-        function populateFromURLParams() {
-            const urlParams = new URLSearchParams(window.location.search);
-
-            // 辅助函数：设置输入框值
-            function setInputValue(name, value) {
-                const input = document.querySelector(`[name="${name}"]`);
-                if (input && value) {
-                    input.value = value;
-                    if (name === 'initial_balance') {
-                        input.setAttribute('data-user-modified', 'true');
-                    }
-                }
-            }
-
-            // 填充基本字段
-            setInputValue('experiment_name', urlParams.get('experiment_name'));
-            setInputValue('experiment_description', urlParams.get('experiment_description'));
-            setInputValue('trading_mode', urlParams.get('trading_mode'));
-            setInputValue('blockchain', urlParams.get('blockchain'));
-            setInputValue('kline_type', urlParams.get('kline_type'));
-            setInputValue('initial_balance', urlParams.get('initial_balance'));
-
-            // 填充策略参数
-            setInputValue('buyTimeMinutes', urlParams.get('buyTimeMinutes'));
-            setInputValue('takeProfit1', urlParams.get('takeProfit1'));
-            setInputValue('takeProfit1Sell', urlParams.get('takeProfit1Sell'));
-            setInputValue('takeProfit2', urlParams.get('takeProfit2'));
-            setInputValue('takeProfit2Sell', urlParams.get('takeProfit2Sell'));
-            setInputValue('stopLossMinutes', urlParams.get('stopLossMinutes'));
-            setInputValue('tradeAmount', urlParams.get('tradeAmount'));
-
-            // 更新区块链选择后更新币种标签
-            if (urlParams.get('blockchain')) {
-                updateNativeCurrency();
-            }
-
-            // 更新策略说明
-            updateDescriptions();
-        }
-
-        // 页面加载时填充URL参数
-        populateFromURLParams();
+        // 初始化默认策略
+        loadPreset('early_buy');
+        loadPreset('tp1');
+        loadPreset('tp2');
     </script>
 </body>
 </html>

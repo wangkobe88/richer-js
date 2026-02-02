@@ -76,7 +76,9 @@ class StrategyEngine {
                     priority: config.priority,
                     cooldown: config.cooldown || 300, // 默认5分钟
                     condition,
-                    enabled: config.enabled !== false // 默认启用
+                    enabled: config.enabled !== false, // 默认启用
+                    cards: config.cards || 1,  // 默认使用1卡
+                    maxExecutions: config.maxExecutions || null  // 默认无限制
                 };
 
                 this._strategies.push(strategy);
@@ -84,7 +86,9 @@ class StrategyEngine {
                 // 输出策略加载信息
                 const enabledText = strategy.enabled ? '启用' : '禁用';
                 const actionText = strategy.action === 'buy' ? '买入' : '卖出';
-                console.log(`✅ [${enabledText}] ${strategy.name}: ${actionText} | 优先级:${strategy.priority} | 冷却:${strategy.cooldown}秒`);
+                const cardsText = strategy.cards === 'all' ? '全部' : `${strategy.cards}卡`;
+                const maxExecText = strategy.maxExecutions ? ` ×${strategy.maxExecutions}` : '';
+                console.log(`✅ [${enabledText}] ${strategy.name}: ${actionText} ${cardsText}${maxExecText} | 优先级:${strategy.priority} | 冷却:${strategy.cooldown}秒`);
                 console.log(`   条件: ${config.condition}`);
 
             } catch (error) {
@@ -104,9 +108,10 @@ class StrategyEngine {
      * @param {Map<string, Object>|Object} factorResults - 因子计算结果
      * @param {string} tokenAddress - 代币地址（用于冷却追踪）
      * @param {number} timestamp - 当前时间戳
+     * @param {Object} tokenData - 代币数据（用于检查执行次数）
      * @returns {Object|null} 触发的策略对象，如果没有则返回null
      */
-    evaluate(factorResults, tokenAddress, timestamp = Date.now()) {
+    evaluate(factorResults, tokenAddress, timestamp = Date.now(), tokenData = null) {
         const triggeredStrategies = [];
 
         for (const strategy of this._strategies) {
@@ -118,6 +123,14 @@ class StrategyEngine {
             // 检查冷却期
             if (this.isInCooldown(strategy, tokenAddress, timestamp)) {
                 continue;
+            }
+
+            // 检查执行次数限制
+            if (strategy.maxExecutions && tokenData && tokenData.strategyExecutions) {
+                const execution = tokenData.strategyExecutions[strategy.id];
+                if (execution && execution.count >= strategy.maxExecutions) {
+                    continue;  // 已达到最大执行次数，跳过
+                }
             }
 
             // 评估条件
@@ -303,6 +316,8 @@ class StrategyEngine {
                 id: s.id,
                 name: s.name,
                 action: s.action,
+                cards: s.cards,
+                maxExecutions: s.maxExecutions,
                 priority: s.priority,
                 cooldown: s.cooldown,
                 enabled: s.enabled

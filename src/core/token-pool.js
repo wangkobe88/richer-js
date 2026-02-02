@@ -55,7 +55,11 @@ class TokenPool {
             collectionTime: collectionTime, // 收集时间（用于计算 age）
             priceHistory: [], // 价格历史记录
             entryMetrics: null,
-            rawApiData: rawApiData // 保存完整的原始 API 数据
+            rawApiData: rawApiData, // 保存完整的原始 API 数据
+            // 卡牌仓位管理
+            cardPositionManager: null,
+            // 策略执行状态跟踪
+            strategyExecutions: {}  // strategyId -> { count: number, lastExecuted: timestamp }
         };
 
         this.pool.set(key, poolData);
@@ -296,6 +300,115 @@ class TokenPool {
     getKlineData(tokenAddress, chain) {
         const token = this.getToken(tokenAddress, chain);
         return token ? token.klineData : [];
+    }
+
+    /**
+     * Set card position manager for a token
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @param {Object} cardManager - CardPositionManager instance
+     */
+    setCardPositionManager(tokenAddress, chain, cardManager) {
+        const token = this.getToken(tokenAddress, chain);
+        if (token) {
+            token.cardPositionManager = cardManager;
+        }
+    }
+
+    /**
+     * Get card position manager for a token
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @returns {Object|null} CardPositionManager instance
+     */
+    getCardPositionManager(tokenAddress, chain) {
+        const token = this.getToken(tokenAddress, chain);
+        return token ? token.cardPositionManager : null;
+    }
+
+    /**
+     * Initialize strategy execution tracking for a token
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @param {Array} strategyIds - Array of strategy IDs to track
+     */
+    initStrategyExecutions(tokenAddress, chain, strategyIds) {
+        const token = this.getToken(tokenAddress, chain);
+        if (token) {
+            token.strategyExecutions = {};
+            for (const strategyId of strategyIds) {
+                token.strategyExecutions[strategyId] = {
+                    count: 0,
+                    lastExecuted: null
+                };
+            }
+        }
+    }
+
+    /**
+     * Record strategy execution for a token
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @param {string} strategyId - Strategy ID
+     * @returns {boolean} True if recorded successfully
+     */
+    recordStrategyExecution(tokenAddress, chain, strategyId) {
+        const token = this.getToken(tokenAddress, chain);
+        if (token && token.strategyExecutions) {
+            if (!token.strategyExecutions[strategyId]) {
+                token.strategyExecutions[strategyId] = {
+                    count: 0,
+                    lastExecuted: null
+                };
+            }
+            token.strategyExecutions[strategyId].count++;
+            token.strategyExecutions[strategyId].lastExecuted = Date.now();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get strategy execution info for a token
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @param {string} strategyId - Strategy ID
+     * @returns {Object|null} Strategy execution info { count, lastExecuted }
+     */
+    getStrategyExecution(tokenAddress, chain, strategyId) {
+        const token = this.getToken(tokenAddress, chain);
+        if (token && token.strategyExecutions) {
+            return token.strategyExecutions[strategyId] || null;
+        }
+        return null;
+    }
+
+    /**
+     * Check if strategy can be executed (based on max executions limit)
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @param {string} strategyId - Strategy ID
+     * @param {number} maxExecutions - Maximum allowed executions
+     * @returns {boolean} True if strategy can be executed
+     */
+    canExecuteStrategy(tokenAddress, chain, strategyId, maxExecutions) {
+        if (!maxExecutions) return true; // No limit
+
+        const execution = this.getStrategyExecution(tokenAddress, chain, strategyId);
+        if (!execution) return true; // Never executed, can execute
+
+        return execution.count < maxExecutions;
+    }
+
+    /**
+     * Get all strategy executions for a token
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @returns {Object} All strategy executions
+     */
+    getAllStrategyExecutions(tokenAddress, chain) {
+        const token = this.getToken(tokenAddress, chain);
+        return token ? (token.strategyExecutions || {}) : {};
     }
 }
 

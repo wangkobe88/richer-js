@@ -20,6 +20,7 @@ const { RSIIndicator } = require('../../indicators/RSIIndicator');
 const { RoundSummary } = require('../utils/RoundSummary');
 const { PortfolioManager } = require('../../portfolio');
 const { BlockchainConfig } = require('../../utils/BlockchainConfig');
+const { CardPositionManager } = require('../../portfolio/CardPositionManager');
 
 // 加载配置
 const config = require('../../../config/default.json');
@@ -204,7 +205,16 @@ class VirtualTradingEngine {
     this._strategyEngine.loadStrategies(strategies, availableFactorIds);
     console.log(`✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
-    // 6. 初始化投资组合管理器
+    // 6. 初始化卡牌仓位管理配置
+    const experimentConfig = this._experiment?.config || {};
+    const defaultStrategyConfig = config.strategy || {};
+    const strategyConfig = experimentConfig.strategy || defaultStrategyConfig;
+    this._positionManagement = strategyConfig.positionManagement || null;
+    if (this._positionManagement && this._positionManagement.enabled) {
+      console.log(`✅ 卡牌仓位管理已启用: 总卡牌数=${this._positionManagement.totalCards || 4}, 单卡BNB=${this._positionManagement.perCardMaxBNB || 0.025}`);
+    }
+
+    // 7. 初始化投资组合管理器
     this._portfolioManager = new PortfolioManager({
       targetTokens: [],  // fourmeme 代币是动态的，不需要预设
       blockchain: 'bsc'
@@ -493,7 +503,8 @@ class VirtualTradingEngine {
       const strategy = this._strategyEngine.evaluate(
         factorResults,
         token.token,
-        Date.now()
+        Date.now(),
+        token  // 传递 token 数据用于检查执行次数
       );
 
       // 验证策略是否适用于当前代币状态
@@ -716,6 +727,12 @@ class VirtualTradingEngine {
         return false;
       }
 
+      // 初始化策略执行跟踪
+      if (!token.strategyExecutions) {
+        const strategyIds = this._strategyEngine.getAllStrategies().map(s => s.id);
+        this._tokenPool.initStrategyExecutions(token.token, token.chain, strategyIds);
+      }
+
       // 执行买入
       const signal = {
         action: 'buy',
@@ -723,7 +740,8 @@ class VirtualTradingEngine {
         tokenAddress: token.token,
         price: latestPrice,
         confidence: 80,
-        reason: strategy.name
+        reason: strategy.name,
+        cards: strategy.cards || 1  // 传递卡牌数量
       };
 
       const result = await this.processSignal(signal);
@@ -734,6 +752,25 @@ class VirtualTradingEngine {
           buyPrice: latestPrice,
           buyTime: Date.now()
         });
+
+        // 初始化卡牌仓位管理器
+        if (this._positionManagement && this._positionManagement.enabled) {
+          const cardManager = new CardPositionManager({
+            totalCards: this._positionManagement.totalCards || 4,
+            perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.025,
+            minCardsForTrade: 1,
+            initialAllocation: {
+              bnbCards: (this._positionManagement.totalCards || 4) - (strategy.cards || 1),
+              tokenCards: strategy.cards || 1
+            }
+          });
+          this._tokenPool.setCardPositionManager(token.token, token.chain, cardManager);
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `初始化卡牌管理器: ${token.symbol}, 转移${strategy.cards}卡`);
+        }
+
+        // 记录策略执行
+        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
 
         // 同步更新持仓
         const holding = this.holdings.get(token.token);
@@ -752,8 +789,24 @@ class VirtualTradingEngine {
         return false;
       }
 
-      // 获取卖出比例（默认1.0表示全部卖出）
-      const sellRatio = strategy.sellRatio || 1.0;
+      // 获取卡牌管理器
+      const cardManager = this._tokenPool.getCardPositionManager(token.token, token.chain);
+      let sellRatio = 1.0;  // 默认全部卖出
+      let sellAll = false;
+
+      if (cardManager) {
+        // 使用卡牌管理器计算卖出数量
+        const cards = strategy.cards || 'all';
+        sellAll = (cards === 'all');
+        if (!sellAll) {
+          // 根据卡牌数量计算卖出比例
+          sellRatio = cards / cardManager.totalCards;
+        }
+      } else {
+        // 回退到原来的逻辑
+        sellRatio = strategy.sellRatio || 1.0;
+        sellAll = (sellRatio >= 1.0);
+      }
 
       // 执行卖出
       const signal = {
@@ -763,12 +816,25 @@ class VirtualTradingEngine {
         price: latestPrice,
         confidence: 80,
         reason: strategy.name,
-        sellRatio: sellRatio
+        sellRatio: sellRatio,
+        cards: strategy.cards || 'all'  // 传递卡牌数量
       };
 
       const result = await this.processSignal(signal);
 
       if (result && result.success) {
+        // 更新卡牌分配
+        if (cardManager) {
+          const cards = strategy.cards || 'all';
+          const cardsToTransfer = (cards === 'all') ? null : cards;
+          cardManager.afterSell(token.symbol, cardsToTransfer, (cards === 'all'));
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `卡牌更新: ${token.symbol}, 转移${(cards === 'all') ? '全部' : cards + '卡'}`);
+        }
+
+        // 记录策略执行
+        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+
         // 卖出成功后，不再标记为exited
         // 代币将保持bought状态，继续在池中监控30分钟用于数据收集
         return true;
@@ -799,6 +865,22 @@ class VirtualTradingEngine {
     const takeProfit2 = strategyConfig.takeProfit2 !== undefined ? strategyConfig.takeProfit2 : 50;
     const stopLossMinutes = strategyConfig.stopLossMinutes !== undefined ? strategyConfig.stopLossMinutes : 5;
 
+    // 卡牌管理配置
+    const positionManagement = strategyConfig.positionManagement || {};
+    const totalCards = positionManagement.totalCards || 4;
+
+    // 计算每个策略对应的卡牌数量
+    // 止盈1: 默认卖出1卡 (25% if totalCards=4)
+    // 止盈2: 默认卖出全部剩余 (cards='all')
+    // 止损: 默认卖出全部 (cards='all')
+    const takeProfit1Cards = strategyConfig.takeProfit1Cards !== undefined
+      ? strategyConfig.takeProfit1Cards
+      : 1;
+    const takeProfit2Cards = strategyConfig.takeProfit2Cards !== undefined
+      ? strategyConfig.takeProfit2Cards
+      : 'all';
+    const stopLossCards = 'all';
+
     // 预计算需要用算术表达式的值（ConditionEvaluator不支持算术运算）
     const stopLossSeconds = stopLossMinutes * 60;
 
@@ -810,27 +892,32 @@ class VirtualTradingEngine {
         priority: 1,
         cooldown: 60,
         enabled: true,
+        cards: 1,  // 买入使用1卡
         condition: `age < ${buyTimeMinutes} AND earlyReturn >= ${earlyReturnMin} AND earlyReturn < ${earlyReturnMax} AND currentPrice > 0`
       },
       {
         id: 'take_profit_1',
-        name: `止盈1 (${takeProfit1}%卖出${Math.round((strategyConfig.takeProfit1Sell || 0.5) * 100)}%)`,
+        name: `止盈1 (${takeProfit1}%卖出${takeProfit1Cards}卡)`,
         action: 'sell',
         priority: 1,
         cooldown: 30,
         enabled: true,
+        cards: takeProfit1Cards,
+        maxExecutions: 1,  // 止盈1只执行一次
         condition: `profitPercent >= ${takeProfit1} AND holdDuration > 0`,
-        sellRatio: strategyConfig.takeProfit1Sell !== undefined ? strategyConfig.takeProfit1Sell : 0.5
+        sellRatio: strategyConfig.takeProfit1Sell !== undefined ? strategyConfig.takeProfit1Sell : 0.25  // 1卡 = 25%
       },
       {
         id: 'take_profit_2',
-        name: `止盈2 (${takeProfit2}%卖出剩余)`,
+        name: `止盈2 (${takeProfit2}%卖出全部)`,
         action: 'sell',
         priority: 2,
         cooldown: 30,
         enabled: true,
+        cards: takeProfit2Cards,
+        maxExecutions: 1,  // 止盈2只执行一次
         condition: `profitPercent >= ${takeProfit2} AND holdDuration > 0`,
-        sellRatio: strategyConfig.takeProfit2Sell !== undefined ? strategyConfig.takeProfit2Sell : 1.0
+        sellRatio: 1.0
       },
       {
         id: 'stop_loss',
@@ -839,6 +926,8 @@ class VirtualTradingEngine {
         priority: 10,
         cooldown: 60,
         enabled: true,
+        cards: stopLossCards,
+        maxExecutions: 1,  // 止损只执行一次
         condition: `holdDuration >= ${stopLossSeconds} AND profitPercent <= 0`,
         sellRatio: 1.0
       }
@@ -933,11 +1022,23 @@ class VirtualTradingEngine {
         return { success: false, reason: '无持仓' };
       }
 
-      // 获取卖出比例，默认1.0表示全部卖出
-      const sellRatio = signal.sellRatio || 1.0;
+      let amountToSell;
+      let sellAll = false;
 
-      // 计算卖出数量
-      const amountToSell = holding.amount * sellRatio;
+      // 优先使用卡牌管理器计算卖出数量
+      const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.symbol);
+      if (cardManager) {
+        const cards = signal.cards || 'all';
+        sellAll = (cards === 'all');
+        const cardsToUse = sellAll ? null : cards;
+        amountToSell = cardManager.calculateSellAmount(holding.amount, signal.symbol, cardsToUse, sellAll);
+      } else {
+        // 回退到原来的逻辑：使用 sellRatio
+        const sellRatio = signal.sellRatio || signal.metadata?.sellRatio || 1.0;
+        sellAll = (sellRatio >= 1.0);
+        amountToSell = holding.amount * sellRatio;
+      }
+
       const price = signal.price || 0;
       const amountOutBNB = price > 0 ? amountToSell * price : 0;
 
@@ -968,7 +1069,26 @@ class VirtualTradingEngine {
    * @private
    */
   _calculateBuyAmount(signal) {
-    // 使用固定的买入数量（从实验配置中获取）
+    // 优先使用卡牌管理器计算金额
+    const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.symbol);
+    if (cardManager) {
+      const cards = signal.cards || 1;
+      const amount = cardManager.calculateBuyAmount(cards);
+      if (amount <= 0) {
+        this.logger.warn(this._experimentId, 'CalculateBuyAmount',
+          `卡牌管理器返回金额为0: ${signal.symbol}`);
+        return 0;
+      }
+      // 检查余额是否足够
+      if (this.currentBalance < amount) {
+        this.logger.warn(this._experimentId, 'CalculateBuyAmount',
+          `余额不足: 需要 ${amount} BNB, 当前 ${this.currentBalance.toFixed(4)} BNB`);
+        return 0;
+      }
+      return amount;
+    }
+
+    // 回退到固定金额模式
     const tradeAmount = this._experiment.config?.virtual?.tradeAmount || 0.1;
 
     // 检查余额是否足够

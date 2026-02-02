@@ -14,7 +14,7 @@ class ExperimentSignals {
     this.refreshInterval = null;
     this.currentFilters = {
       action: 'all',
-      limit: 100
+      limit: 10000  // 增加限制以获取所有信号
     };
 
     // 🔥 多代币支持
@@ -220,7 +220,8 @@ class ExperimentSignals {
         symbol: signal.token_symbol || signal.symbol || 'Unknown',
         signal_timestamp: signal.timestamp || signal.created_at || new Date().toISOString(),
         price: signal.price || null,
-        executed: signal.executed || false
+        executed: signal.executed || false,
+        action: signal.action || signal.signal_type || 'HOLD'  // 映射 signal_type 到 action
       }));
     }
 

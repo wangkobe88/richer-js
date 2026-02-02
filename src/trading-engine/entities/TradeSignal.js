@@ -110,7 +110,8 @@ class TradeSignal {
         earlyReturn: strategySignal.earlyReturn,
         buyPrice: strategySignal.buyPrice,
         currentPrice: strategySignal.currentPrice,
-        collectionPrice: strategySignal.collectionPrice
+        collectionPrice: strategySignal.collectionPrice,
+        sellRatio: strategySignal.sellRatio  // 保存卖出比例
       },
       executed: false  // 初始为未执行，成功执行后更新为 true
     });
