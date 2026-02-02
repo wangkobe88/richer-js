@@ -156,7 +156,14 @@ class ExperimentMonitor {
 
     const createdAt = new Date(exp.createdAt);
     const startedAt = exp.startedAt ? new Date(exp.startedAt) : null;
-    const duration = startedAt ? Math.floor((Date.now() - startedAt.getTime()) / 1000 / 60) : 0;
+    const stoppedAt = exp.stoppedAt ? new Date(exp.stoppedAt) : null;
+
+    // 计算运行时长：从启动到停止，或从启动到现在（运行中）
+    let duration = 0;
+    if (startedAt) {
+      const endTime = stoppedAt || new Date();
+      duration = Math.floor((endTime.getTime() - startedAt.getTime()) / 1000 / 60);
+    }
 
     // 格式化实验ID，显示前8位和后4位
     const shortId = exp.id.length > 12

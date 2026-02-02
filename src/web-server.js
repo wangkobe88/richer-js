@@ -129,11 +129,7 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/create_experiment.html'));
     });
 
-    // 实验详情页面
-    this.app.get('/experiment/:id', (req, res) => {
-      res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));
-    });
-
+    // 实验子页面（必须在 /experiment/:id 之前定义）
     // 信号页面
     this.app.get('/experiment/:id/signals', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_signals.html'));
@@ -152,6 +148,11 @@ class RicherJsWebServer {
     // 时序数据观察页面
     this.app.get('/experiment/:id/observer', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_observer.html'));
+    });
+
+    // 实验详情页面（必须放在最后，作为默认路由）
+    this.app.get('/experiment/:id', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));
     });
 
     // ============ API路由：实验管理 ============
@@ -393,77 +394,8 @@ class RicherJsWebServer {
       }
     });
 
-    // ============ API路由：代币管理 ============
-
-    // 获取实验代币列表
-    this.app.get('/api/experiment/:id/tokens', async (req, res) => {
-      try {
-        const options = {
-          status: req.query.status,
-          limit: parseInt(req.query.limit) || 100,
-          offset: parseInt(req.query.offset) || 0
-        };
-
-        const result = await this.dataService.getFormattedTokens(req.params.id, options);
-        res.json(result);
-      } catch (error) {
-        console.error('获取代币列表失败:', error);
-        res.status(500).json({ success: false, error: error.message, tokens: [] });
-      }
-    });
-
-    // 获取实验代币统计
-    this.app.get('/api/experiment/:id/tokens/stats', async (req, res) => {
-      try {
-        const stats = await this.dataService.getTokenStats(req.params.id);
-        res.json({
-          success: true,
-          data: stats
-        });
-      } catch (error) {
-        console.error('获取代币统计失败:', error);
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // 获取单个代币详情
-    this.app.get('/api/experiment/:id/tokens/:address', async (req, res) => {
-      try {
-        const token = await this.dataService.getToken(req.params.id, req.params.address);
-        if (!token) {
-          return res.status(404).json({ success: false, error: '代币不存在' });
-        }
-        res.json({
-          success: true,
-          data: token
-        });
-      } catch (error) {
-        console.error('获取代币详情失败:', error);
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // 更新代币状态
-    this.app.put('/api/experiment/:id/tokens/:address', async (req, res) => {
-      try {
-        const { status } = req.body;
-        if (!status || !['monitoring', 'bought', 'exited'].includes(status)) {
-          return res.status(400).json({ success: false, error: '无效的状态' });
-        }
-
-        const success = await this.dataService.updateTokenStatus(req.params.id, req.params.address, status);
-        if (success) {
-          res.json({ success: true });
-        } else {
-          res.status(500).json({ success: false, error: '更新失败' });
-        }
-      } catch (error) {
-        console.error('更新代币状态失败:', error);
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
     // ============ API路由：实验时序数据 ============
+    // 注意：时序数据 API 必须在代币管理 API 之前定义，避免路由冲突
 
     // 获取有数据的实验列表
     this.app.get('/api/experiment/time-series/experiments', async (req, res) => {
@@ -656,6 +588,76 @@ class RicherJsWebServer {
           success: false,
           error: error.message
         });
+      }
+    });
+
+    // ============ API路由：代币管理 ============
+
+    // 获取实验代币列表
+    this.app.get('/api/experiment/:id/tokens', async (req, res) => {
+      try {
+        const options = {
+          status: req.query.status,
+          limit: parseInt(req.query.limit) || 100,
+          offset: parseInt(req.query.offset) || 0
+        };
+
+        const result = await this.dataService.getFormattedTokens(req.params.id, options);
+        res.json(result);
+      } catch (error) {
+        console.error('获取代币列表失败:', error);
+        res.status(500).json({ success: false, error: error.message, tokens: [] });
+      }
+    });
+
+    // 获取实验代币统计
+    this.app.get('/api/experiment/:id/tokens/stats', async (req, res) => {
+      try {
+        const stats = await this.dataService.getTokenStats(req.params.id);
+        res.json({
+          success: true,
+          data: stats
+        });
+      } catch (error) {
+        console.error('获取代币统计失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取单个代币详情
+    this.app.get('/api/experiment/:id/tokens/:address', async (req, res) => {
+      try {
+        const token = await this.dataService.getToken(req.params.id, req.params.address);
+        if (!token) {
+          return res.status(404).json({ success: false, error: '代币不存在' });
+        }
+        res.json({
+          success: true,
+          data: token
+        });
+      } catch (error) {
+        console.error('获取代币详情失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 更新代币状态
+    this.app.put('/api/experiment/:id/tokens/:address', async (req, res) => {
+      try {
+        const { status } = req.body;
+        if (!status || !['monitoring', 'bought', 'exited'].includes(status)) {
+          return res.status(400).json({ success: false, error: '无效的状态' });
+        }
+
+        const success = await this.dataService.updateTokenStatus(req.params.id, req.params.address, status);
+        if (success) {
+          res.json({ success: true });
+        } else {
+          res.status(500).json({ success: false, error: '更新失败' });
+        }
+      } catch (error) {
+        console.error('更新代币状态失败:', error);
+        res.status(500).json({ success: false, error: error.message });
       }
     });
 

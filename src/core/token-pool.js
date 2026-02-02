@@ -221,8 +221,7 @@ class TokenPool {
      * Clean up old tokens (exceeded max age)
      *
      * 规则：
-     * - 已购买 (bought) 的代币：30分钟后淘汰
-     * - 监控中 (monitoring) 的代币：5分钟后淘汰（购买决策都在5分钟内）
+     * - 所有代币（无论是否交易）：30分钟后淘汰（用于数据分析）
      * - 已退出 (exited) 的代币：立即移除
      *
      * @returns {Array} Array of removed token keys
@@ -231,9 +230,8 @@ class TokenPool {
         const now = Date.now();
         const toRemove = [];
 
-        // 时间常量（毫秒）
-        const MONITORING_MAX_AGE = 5 * 60 * 1000;  // 监控中代币：5分钟
-        const BOUGHT_MAX_AGE = 30 * 60 * 1000;     // 已购买代币：30分钟
+        // 时间常量（毫秒）- 所有代币统一监控30分钟
+        const MAX_AGE = 30 * 60 * 1000;  // 30分钟
 
         for (const [key, token] of this.pool.entries()) {
             let removeReason = null;
@@ -242,18 +240,11 @@ class TokenPool {
             if (token.status === 'exited') {
                 removeReason = '已退出';
             }
-            // 监控中：5分钟后淘汰
-            else if (token.status === 'monitoring') {
+            // 监控中或已购买：30分钟后淘汰
+            else if (token.status === 'monitoring' || token.status === 'bought') {
                 const age = now - token.createdAt * 1000;  // 使用代币创建时间
-                if (age > MONITORING_MAX_AGE) {
+                if (age > MAX_AGE) {
                     removeReason = `监控超时(${(age / 60000).toFixed(1)}分钟)`;
-                }
-            }
-            // 已购买：30分钟后淘汰
-            else if (token.status === 'bought') {
-                const age = now - token.createdAt * 1000;  // 使用代币创建时间
-                if (age > BOUGHT_MAX_AGE) {
-                    removeReason = `持仓超时(${(age / 60000).toFixed(1)}分钟)`;
                 }
             }
 

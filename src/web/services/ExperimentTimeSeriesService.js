@@ -4,7 +4,7 @@
  * 参考 rich-js 实现
  */
 
-const { dbManager } = require('../services/dbManager');
+const { dbManager } = require('../../services/dbManager');
 
 /**
  * 实验时序数据服务类
@@ -107,8 +107,10 @@ class ExperimentTimeSeriesService {
 
         const { data, error } = await query;
 
+        // 表不存在或其他错误时返回空数组
         if (error) {
-          throw error;
+          console.warn('⚠️ [时序数据] 查询失败:', error.message);
+          return [];
         }
 
         if (data && data.length > 0) {
@@ -147,7 +149,11 @@ class ExperimentTimeSeriesService {
         .order('timestamp', { ascending: false })
         .limit(1000);
 
-      if (error) throw error;
+      // 表不存在时返回空数组
+      if (error) {
+        console.warn('⚠️ [时序数据] 表不存在或查询失败:', error.message);
+        return [];
+      }
 
       const experimentsMap = new Map();
 
@@ -198,7 +204,11 @@ class ExperimentTimeSeriesService {
         .eq('experiment_id', experimentId)
         .limit(1000);
 
-      if (error) throw error;
+      // 表不存在或没有数据时返回空数组
+      if (error) {
+        console.warn('⚠️ [时序数据] 表不存在或查询失败:', error.message);
+        return [];
+      }
 
       const uniqueTokens = new Map();
       for (const record of data || []) {
