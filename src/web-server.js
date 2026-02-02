@@ -217,7 +217,8 @@ class RicherJsWebServer {
           blockchain: blockchain || 'bsc',
           kline_type: kline_type || '1m',
           virtual: {
-            initialBalance: parseFloat(initial_balance) || 100
+            initialBalance: parseFloat(initial_balance) || 100,
+            tradeAmount: strategy?.tradeAmount !== undefined ? parseFloat(strategy.tradeAmount) : 0.1
           }
         };
 
@@ -229,8 +230,7 @@ class RicherJsWebServer {
             takeProfit1Sell: strategy.takeProfit1Sell !== undefined ? parseFloat(strategy.takeProfit1Sell) : 0.5,
             takeProfit2: strategy.takeProfit2 !== undefined ? parseInt(strategy.takeProfit2) : 50,
             takeProfit2Sell: strategy.takeProfit2Sell !== undefined ? parseFloat(strategy.takeProfit2Sell) : 1.0,
-            stopLossMinutes: strategy.stopLossMinutes !== undefined ? parseInt(strategy.stopLossMinutes) : 5,
-            tradeRatio: strategy.tradeRatio !== undefined ? parseFloat(strategy.tradeRatio) : 0.1
+            stopLossMinutes: strategy.stopLossMinutes !== undefined ? parseInt(strategy.stopLossMinutes) : 5
           };
         }
 
