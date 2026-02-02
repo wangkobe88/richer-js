@@ -447,16 +447,23 @@ class ExperimentDataService {
    */
   async saveToken(experimentId, token) {
     try {
+      const insertData = {
+        experiment_id: experimentId,
+        token_address: token.token,
+        token_symbol: token.symbol || '',
+        blockchain: token.chain || 'bsc',
+        discovered_at: new Date(token.created_at * 1000).toISOString(),
+        status: 'monitoring'
+      };
+
+      // 如果有原始 API 数据，添加到插入数据中
+      if (token.raw_api_data) {
+        insertData.raw_api_data = token.raw_api_data;
+      }
+
       const { error } = await this.supabase
         .from('experiment_tokens')
-        .insert({
-          experiment_id: experimentId,
-          token_address: token.token,
-          token_symbol: token.symbol || '',
-          blockchain: token.chain || 'bsc',
-          discovered_at: new Date(token.created_at * 1000).toISOString(),
-          status: 'monitoring'
-        });
+        .insert(insertData);
 
       if (error) {
         // 如果是唯一约束冲突，说明已存在，返回成功

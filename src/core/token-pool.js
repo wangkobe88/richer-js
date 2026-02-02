@@ -34,6 +34,9 @@ class TokenPool {
 
         const collectionTime = Date.now();
 
+        // 保存完整的原始 API 数据（用于后续分析）
+        const rawApiData = { ...tokenData };
+
         const poolData = {
             token: tokenData.token,
             tokenAddress: tokenData.token,
@@ -51,7 +54,8 @@ class TokenPool {
             collectionPrice: currentPrice, // 收集时的价格（作为基准价格）
             collectionTime: collectionTime, // 收集时间（用于计算 age）
             priceHistory: [], // 价格历史记录
-            entryMetrics: null
+            entryMetrics: null,
+            rawApiData: rawApiData // 保存完整的原始 API 数据
         };
 
         this.pool.set(key, poolData);

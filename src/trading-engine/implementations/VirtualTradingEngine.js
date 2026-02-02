@@ -412,7 +412,8 @@ class VirtualTradingEngine {
           token: token.token,
           symbol: token.symbol,
           chain: token.chain,
-          created_at: token.createdAt
+          created_at: token.createdAt,
+          raw_api_data: token.rawApiData || null
         });
         this._seenTokens.add(tokenKey);
       }
