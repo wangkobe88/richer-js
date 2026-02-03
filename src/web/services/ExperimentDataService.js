@@ -637,6 +637,73 @@ class ExperimentDataService {
   }
 
   /**
+   * 获取代币列表（包含信号标记）
+   * 从 experiment_tokens 表获取所有代币，同时关联 strategy_signals 表标记哪些代币有交易信号
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<Object>} 代币列表及信号信息
+   */
+  async getTokensWithSignals(experimentId) {
+    try {
+      // 获取所有代币
+      const tokens = await this.getTokens(experimentId, { limit: 10000 });
+
+      // 获取所有信号
+      const signals = await this.getSignals(experimentId, { limit: 10000 });
+
+      // 统计每个代币的信号数量
+      const tokenSignalMap = new Map();
+      for (const signal of signals) {
+        const addr = signal.tokenAddress;
+        if (!tokenSignalMap.has(addr)) {
+          tokenSignalMap.set(addr, {
+            total: 0,
+            buy: 0,
+            sell: 0
+          });
+        }
+        const stats = tokenSignalMap.get(addr);
+        stats.total++;
+        if (signal.signalType === 'BUY') stats.buy++;
+        if (signal.signalType === 'SELL') stats.sell++;
+      }
+
+      // 组合数据
+      const tokensWithSignals = tokens.map(token => {
+        const signalStats = tokenSignalMap.get(token.token_address) || { total: 0, buy: 0, sell: 0 };
+        return {
+          address: token.token_address,
+          symbol: token.token_symbol || token.raw_api_data?.symbol || 'Unknown',
+          status: token.status,
+          discoveredAt: token.discovered_at,
+          hasSignals: signalStats.total > 0,
+          signalCount: signalStats.total,
+          buySignalCount: signalStats.buy,
+          sellSignalCount: signalStats.sell,
+          raw_api_data: token.raw_api_data
+        };
+      });
+
+      // 按发现时间倒序排序
+      tokensWithSignals.sort((a, b) => new Date(b.discoveredAt) - new Date(a.discoveredAt));
+
+      return {
+        success: true,
+        data: tokensWithSignals,
+        count: tokensWithSignals.length
+      };
+
+    } catch (error) {
+      console.error('获取代币列表（含信号）失败:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: [],
+        count: 0
+      };
+    }
+  }
+
+  /**
    * 获取代币统计（关联交易数据）
    * @param {string} experimentId - 实验ID
    * @returns {Promise<Object>} 统计数据

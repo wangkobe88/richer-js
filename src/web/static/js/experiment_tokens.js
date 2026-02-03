@@ -43,9 +43,6 @@ class ExperimentTokens {
 
       this.render();
 
-      // 启动自动刷新
-      this.startAutoRefresh();
-
     } catch (error) {
       console.error('❌ 初始化失败:', error);
       this.showError(error.message);

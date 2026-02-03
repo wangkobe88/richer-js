@@ -171,10 +171,12 @@ class ExperimentObserver {
 
   /**
    * 加载代币列表
+   * 从 experiment_tokens 表获取所有代币，并显示哪些代币有交易信号
    */
   async loadTokens() {
     try {
-      const response = await fetch(`/api/experiment/time-series/tokens/${this.currentExperiment}`);
+      // 使用新的 API 端点，从 experiment_tokens 表获取所有代币，包含信号标记
+      const response = await fetch(`/api/experiment/${this.currentExperiment}/tokens-with-signals`);
       const result = await response.json();
 
       if (!result.success) {
@@ -182,6 +184,8 @@ class ExperimentObserver {
       }
 
       const tokens = result.data;
+
+      console.log(`📊 [代币列表] 加载完成: ${tokens.length} 个代币`);
 
       // 更新所有代币选择器
       const tokenSelectors = [this.tokenSelect, this.tokenSelect2].filter(el => el);
@@ -196,12 +200,42 @@ class ExperimentObserver {
         tokens.forEach(token => {
           const option = document.createElement('option');
           option.value = token.address;
-          option.textContent = `${token.symbol} (${token.address.substring(0, 8)}...)`;
+
+          // 构建显示文本，包含信号标记
+          let displayText = `${token.symbol} (${token.address.substring(0, 8)}...)`;
+
+          // 如果有信号，添加标记
+          if (token.hasSignals && token.signalCount > 0) {
+            const signalBadge = ` [🔴 ${token.signalCount}条]`;
+            displayText += signalBadge;
+            // 使用颜色区分：有信号的代币用红色文字
+            option.style.color = '#ef4444';
+            option.style.fontWeight = '500';
+          }
+
+          // 添加状态标记
+          const statusEmoji = {
+            'monitoring': '👁️',
+            'bought': '💰',
+            'exited': '🚪'
+          };
+          if (statusEmoji[token.status]) {
+            displayText = statusEmoji[token.status] + ' ' + displayText;
+          }
+
+          option.textContent = displayText;
+          option.title = `状态: ${token.status}, 信号: ${token.signalCount} (买${token.buySignalCount}/卖${token.sellSignalCount})`;
           select.appendChild(option);
         });
 
         select.disabled = false;
       });
+
+      // 更新数据统计显示
+      const signalCount = tokens.filter(t => t.hasSignals).length;
+      if (this.experimentDataCount) {
+        this.experimentDataCount.textContent = `共 ${tokens.length} 个代币, ${signalCount} 个有信号`;
+      }
 
     } catch (error) {
       console.error('加载代币列表失败:', error);
@@ -335,7 +369,11 @@ class ExperimentObserver {
           buyPrice: '买入价格',
           holdDuration: '持仓时长',
           profitPercent: '利润百分比',
-          // 新增 AVE API 因子
+          // 历史最高价格相关因子
+          highestPrice: '历史最高价',
+          highestPriceTimestamp: '最高价时间戳',
+          drawdownFromHighest: '距最高价跌幅',
+          // AVE API 因子
           txVolumeU24h: '24小时交易量',
           holders: '持有者数量',
           tvl: '总锁仓量(TVL)',

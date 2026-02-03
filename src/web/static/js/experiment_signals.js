@@ -1197,11 +1197,116 @@ class ExperimentSignals {
     card.className = `signal-card ${signalClass} p-4`;
 
     const signalTime = new Date(signal.signal_timestamp).toLocaleString('zh-CN');
-    const metadataStr = signal.metadata ? JSON.stringify(signal.metadata, null, 2) : '{}';
 
     const executedStatus = signal.executed ?
       '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 已执行</span>' :
       '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">⏳ 未执行</span>';
+
+    // 从 metadata 中获取策略信息
+    const metadata = signal.metadata || {};
+    const strategyName = metadata.strategyName || signal.strategyName || signal.reason || '策略信号';
+    const strategyId = metadata.strategyId || signal.strategyId || null;
+
+    // 构建策略信息HTML
+    let strategyInfoHtml = '';
+    if (strategyName || strategyId) {
+      strategyInfoHtml = `
+        <div class="mt-2 p-2 bg-purple-50 rounded border border-purple-200">
+          <div class="flex items-center space-x-2">
+            <span class="text-purple-700 font-medium text-sm">📌 策略:</span>
+            <span class="text-purple-900 font-semibold text-sm">${strategyName}</span>
+            ${strategyId ? `<span class="text-purple-500 text-xs">(${strategyId})</span>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    // 构建价格和原因信息
+    const priceInfo = signal.price || metadata.price ?
+      `<span class="text-gray-600">价格: <span class="font-medium text-gray-900">${parseFloat(signal.price || metadata.price).toFixed(8)}</span></span>` : '';
+
+    // 构建额外信息（如果有）
+    let extraInfoHtml = '';
+    const extraInfo = [];
+    if (metadata.profitPercent !== undefined && metadata.profitPercent !== null) {
+      extraInfo.push(`收益率: ${metadata.profitPercent.toFixed(2)}%`);
+    }
+    if (metadata.holdDuration !== undefined && metadata.holdDuration !== null) {
+      const holdSeconds = metadata.holdDuration;
+      const holdMinutes = (holdSeconds / 60).toFixed(1);
+      extraInfo.push(`持仓: ${holdMinutes}分钟`);
+    }
+    if (metadata.sellCalculatedRatio !== undefined && metadata.sellCalculatedRatio !== null) {
+      const ratioPercent = (metadata.sellCalculatedRatio * 100).toFixed(0);
+      extraInfo.push(`卖出比例: ${ratioPercent}%`);
+    }
+    if (metadata.cards) {
+      const cardsText = metadata.cards === 'all' ? '全部' : `${metadata.cards}卡`;
+      extraInfo.push(`卡牌: ${cardsText}`);
+    }
+    if (extraInfo.length > 0) {
+      extraInfoHtml = `<div class="flex items-center space-x-3 text-xs text-gray-500 mt-1">
+        ${extraInfo.map(info => `<span>• ${info}</span>`).join('')}
+      </div>`;
+    }
+
+    // 构建卡牌位置变化信息
+    let cardPositionHtml = '';
+    if (metadata.cardPositionChange) {
+      const pos = metadata.cardPositionChange;
+      const before = pos.before || {};
+      const after = pos.after || {};
+      const transferred = pos.transferredCards;
+
+      // 计算变化
+      const bnbCardsChange = (after.bnbCards || 0) - (before.bnbCards || 0);
+      const tokenCardsChange = (after.tokenCards || 0) - (before.tokenCards || 0);
+      const bnbBalanceChange = (after.bnbBalance || 0) - (before.bnbBalance || 0);
+      const tokenBalanceChange = (after.tokenBalance || 0) - (before.tokenBalance || 0);
+
+      // 格式化数字
+      const formatNum = (n) => n !== undefined ? n.toFixed(4) : 'N/A';
+      const formatChange = (n) => n !== undefined ? (n >= 0 ? '+' : '') + n.toFixed(4) : 'N/A';
+
+      cardPositionHtml = `
+        <div class="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+          <div class="flex items-center space-x-2 mb-1">
+            <span class="text-blue-700 font-medium text-sm">🃏 卡牌位置变化</span>
+            ${transferred !== undefined ? `<span class="text-blue-500 text-xs">(转移${transferred}卡)</span>` : ''}
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-gray-600">BNB卡:</span>
+              <span class="text-gray-900">${before.bnbCards || 0}</span>
+              <span class="text-blue-600">→</span>
+              <span class="text-gray-900">${after.bnbCards || 0}</span>
+              <span class="${bnbCardsChange >= 0 ? 'text-green-600' : 'text-red-600'}">(${formatChange(bnbCardsChange)})</span>
+            </div>
+            <div>
+              <span class="text-gray-600">代币卡:</span>
+              <span class="text-gray-900">${before.tokenCards || 0}</span>
+              <span class="text-blue-600">→</span>
+              <span class="text-gray-900">${after.tokenCards || 0}</span>
+              <span class="${tokenCardsChange >= 0 ? 'text-green-600' : 'text-red-600'}">(${formatChange(tokenCardsChange)})</span>
+            </div>
+            <div>
+              <span class="text-gray-600">BNB余额:</span>
+              <span class="text-gray-900">${formatNum(before.bnbBalance)}</span>
+              <span class="text-blue-600">→</span>
+              <span class="text-gray-900">${formatNum(after.bnbBalance)}</span>
+              <span class="${bnbBalanceChange >= 0 ? 'text-green-600' : 'text-red-600'}">(${formatChange(bnbBalanceChange)})</span>
+            </div>
+            <div>
+              <span class="text-gray-600">代币余额:</span>
+              <span class="text-gray-900">${formatNum(before.tokenBalance)}</span>
+              <span class="text-blue-600">→</span>
+              <span class="text-gray-900">${formatNum(after.tokenBalance)}</span>
+              <span class="${tokenBalanceChange >= 0 ? 'text-green-600' : 'text-red-600'}">(${formatChange(tokenBalanceChange)})</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
 
     card.innerHTML = `
       <div class="flex items-center justify-between">
@@ -1210,24 +1315,29 @@ class ExperimentSignals {
             <span class="signal-badge ${badgeClass}">
               ${signal.action.toUpperCase() === 'BUY' ? '买入' : signal.action.toUpperCase() === 'SELL' ? '卖出' : '持有'}
             </span>
-            <span class="text-sm text-gray-500">${signal.symbol || '代币'}</span>
+            <span class="text-sm font-medium text-gray-700">${signal.symbol || '代币'}</span>
             <span class="text-xs text-gray-400">${signalTime}</span>
             ${executedStatus}
           </div>
           <div class="flex items-center space-x-4 text-sm">
-            ${signal.price ? `<span class="text-gray-600">价格: <span class="font-medium">${parseFloat(signal.price).toFixed(8)}</span></span>` : ''}
-            <span class="text-gray-500 text-xs">${signal.reason || '策略信号'}</span>
+            ${priceInfo}
           </div>
-        </div>
-        <div class="flex items-center space-x-2">
-          ${signal.strategy_type ? `<span class="text-xs text-gray-400">${signal.strategy_type}</span>` : ''}
+          ${extraInfoHtml}
         </div>
       </div>
 
-      <div class="mt-3 p-3 bg-blue-50 rounded-md">
-        <div class="text-blue-800 font-medium mb-2">📋 元数据 (Metadata)</div>
-        <pre class="text-xs bg-gray-50 p-2 rounded border border-gray-300 overflow-x-auto max-h-64 text-gray-900 font-mono">${metadataStr}</pre>
-      </div>
+      ${strategyInfoHtml}
+
+      ${cardPositionHtml}
+
+      <details class="mt-3">
+        <summary class="cursor-pointer text-xs text-blue-600 hover:text-blue-800">
+          📋 查看完整元数据
+        </summary>
+        <div class="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+          <pre class="text-xs bg-gray-900 text-green-400 p-2 rounded overflow-x-auto max-h-64 font-mono">${JSON.stringify(signal.metadata || {}, null, 2)}</pre>
+        </div>
+      </details>
     `;
 
     // 添加点击事件，高亮对应的K线标记

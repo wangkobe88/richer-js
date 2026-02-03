@@ -116,6 +116,9 @@ class TradeSignal {
         sellRatio: strategySignal.sellRatio,
         profitPercent: strategySignal.profitPercent,
         holdDuration: strategySignal.holdDuration,
+        // 策略信息
+        strategyId: strategySignal.strategyId || null,
+        strategyName: strategySignal.strategyName || null,
         // 卡牌管理相关
         cards: strategySignal.cards || null,
         cardConfig: strategySignal.cardConfig || null

@@ -610,6 +610,18 @@ class RicherJsWebServer {
 
     // ============ API路由：代币管理 ============
 
+    // 获取实验代币列表（包含信号标记）
+    // 从 experiment_tokens 表获取所有代币，同时关联 strategy_signals 表标记哪些代币有交易信号
+    this.app.get('/api/experiment/:id/tokens-with-signals', async (req, res) => {
+      try {
+        const result = await this.dataService.getTokensWithSignals(req.params.id);
+        res.json(result);
+      } catch (error) {
+        console.error('获取代币列表（含信号）失败:', error);
+        res.status(500).json({ success: false, error: error.message, data: [] });
+      }
+    });
+
     // 获取实验代币列表
     this.app.get('/api/experiment/:id/tokens', async (req, res) => {
       try {
