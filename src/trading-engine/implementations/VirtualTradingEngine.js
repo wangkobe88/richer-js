@@ -198,7 +198,10 @@ class VirtualTradingEngine {
 
     // 构建可用因子集合
     const availableFactorIds = new Set([
-      'age', 'currentPrice', 'collectionPrice', 'earlyReturn', 'buyPrice', 'holdDuration', 'profitPercent'
+      'age', 'currentPrice', 'collectionPrice', 'earlyReturn', 'buyPrice',
+      'holdDuration', 'profitPercent',
+      // 历史最高价格相关因子
+      'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest'
     ]);
 
     // 加载策略（带验证）

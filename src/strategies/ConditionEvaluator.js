@@ -148,9 +148,10 @@ class ConditionEvaluator {
 
             skipWhitespace();
 
-            // 解析右操作数（数字或变量名）
+            // 解析右操作数（数字或变量名，支持负数）
             const rightStart = pos;
-            while (pos < input.length && /[\w.]/.test(input[pos])) {
+            // 匹配负号、数字、字母、下划线、点号
+            while (pos < input.length && /[-\w.]/.test(input[pos])) {
                 pos++;
             }
             const rightOperand = input.substring(rightStart, pos).trim();
