@@ -386,6 +386,36 @@
                                     <td>持仓时长（秒）</td>
                                     <td><code>holdDuration > 60</code></td>
                                 </tr>
+                                <tr style="background-color: #e0f2fe;">
+                                    <td><code>txVolumeU24h</code></td>
+                                    <td>数字</td>
+                                    <td>24小时交易量（USD）</td>
+                                    <td><code>txVolumeU24h > 50000</code></td>
+                                </tr>
+                                <tr style="background-color: #e0f2fe;">
+                                    <td><code>holders</code></td>
+                                    <td>数字</td>
+                                    <td>持有者数量</td>
+                                    <td><code>holders >= 100</code></td>
+                                </tr>
+                                <tr style="background-color: #e0f2fe;">
+                                    <td><code>tvl</code></td>
+                                    <td>数字</td>
+                                    <td>总锁仓量（USD）</td>
+                                    <td><code>tvl > 10000</code></td>
+                                </tr>
+                                <tr style="background-color: #e0f2fe;">
+                                    <td><code>fdv</code></td>
+                                    <td>数字</td>
+                                    <td>完全稀释估值（USD）</td>
+                                    <td><code>fdv < 100000</code></td>
+                                </tr>
+                                <tr style="background-color: #e0f2fe;">
+                                    <td><code>marketCap</code></td>
+                                    <td>数字</td>
+                                    <td>市值（USD）</td>
+                                    <td><code>marketCap > 5000</code></td>
+                                </tr>
                             </table>
 
                             <h4>操作符</h4>
@@ -398,6 +428,7 @@
                             <h4>预设策略模板</h4>
                             <div class="preset-templates">
                                 <button type="button" onclick="loadPreset('early_buy')">早止买入</button>
+                                <button type="button" onclick="loadPreset('high_volume_buy')">高交易量买入</button>
                                 <button type="button" onclick="loadPreset('tp1')">止盈1 (30%)</button>
                                 <button type="button" onclick="loadPreset('tp2')">止盈2 (50%)</button>
                                 <button type="button" onclick="loadPreset('drawback_stop')">高位回落止损</button>
@@ -833,6 +864,15 @@
                     priority: 1,
                     cooldown: 60,
                     maxExecutions: null
+                },
+                high_volume_buy: {
+                    action: 'buy',
+                    condition: 'age < 5 AND txVolumeU24h > 50000 AND holders >= 100 AND currentPrice > 0',
+                    cards: 1,
+                    priority: 5,
+                    cooldown: 60,
+                    maxExecutions: null,
+                    description: '高交易量买入：24小时交易量>5万 且 持有者>=100'
                 },
                 tp1: {
                     action: 'sell',

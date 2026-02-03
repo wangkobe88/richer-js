@@ -42,7 +42,15 @@ class ExperimentDataService {
 
       // 添加分页
       const offset = parseInt(options.offset) || 0;
-      const limit = parseInt(options.limit) || 100;
+      const maxLimit = 10000; // 设置最大返回数量上限
+      let limit = parseInt(options.limit) || 100;
+
+      // 防止 limit 过大导致性能问题
+      if (limit > maxLimit) {
+        console.warn(`[getTrades] 请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
+        limit = maxLimit;
+      }
+
       query = query.range(offset, offset + limit - 1);
 
       // 排序
@@ -84,7 +92,15 @@ class ExperimentDataService {
 
       // 添加分页
       const offset = parseInt(options.offset) || 0;
-      const limit = parseInt(options.limit) || 100;
+      const maxLimit = 10000; // 设置最大返回数量上限
+      let limit = parseInt(options.limit) || 100;
+
+      // 防止 limit 过大导致性能问题
+      if (limit > maxLimit) {
+        console.warn(`[getSignals] 请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
+        limit = maxLimit;
+      }
+
       query = query.range(offset, offset + limit - 1);
 
       // 排序
@@ -530,7 +546,15 @@ class ExperimentDataService {
 
       // 分页
       const offset = parseInt(options.offset) || 0;
-      const limit = parseInt(options.limit) || 100;
+      const maxLimit = 10000; // 设置最大返回数量上限
+      let limit = parseInt(options.limit) || 100;
+
+      // 防止 limit 过大导致性能问题
+      if (limit > maxLimit) {
+        console.warn(`请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
+        limit = maxLimit;
+      }
+
       query = query.range(offset, offset + limit - 1);
 
       const { data, error } = await query;

@@ -97,24 +97,65 @@ class AveTokenAPI extends BaseAveAPI {
         const result = await this._makeRequest('GET', '/v2/tokens/platform', { params });
         const data = result.data || [];
 
-        return data.map(tokenData => ({
-            token: tokenData.token || '',
-            token_address: tokenData.token || '',
-            chain: tokenData.chain || '',
-            name: tokenData.name || '',
-            symbol: tokenData.symbol || '',
-            logo_url: tokenData.logo_url || '',
-            current_price_usd: tokenData.current_price_usd || '',
-            market_cap: tokenData.market_cap || '',
-            fdv: tokenData.fdv || '',
-            tvl: tokenData.tvl || '',
-            created_at: tokenData.created_at || 0,
-            launch_at: tokenData.launch_at || 0,
-            issue_platform: tokenData.issue_platform || '',
-            intro_cn: tokenData.intro_cn || '',
-            intro_en: tokenData.intro_en || '',
-            updated_at: tokenData.updated_at || 0
-        }));
+        return data.map(tokenData => {
+            // 保留完整的原始数据（包括 twitter、website 等可能存在的字段）
+            const result = {
+                total: tokenData.total || '',
+                launch_price: tokenData.launch_price || '',
+                current_price_eth: tokenData.current_price_eth || '',
+                current_price_usd: tokenData.current_price_usd || '',
+                price_change_1d: tokenData.price_change_1d || '',
+                price_change_24h: tokenData.price_change_24h || '',
+                lock_amount: tokenData.lock_amount || '',
+                burn_amount: tokenData.burn_amount || '',
+                other_amount: tokenData.other_amount || '',
+                tx_amount_24h: tokenData.tx_amount_24h || '',
+                tx_volume_u_24h: tokenData.tx_volume_u_24h || '',
+                locked_percent: tokenData.locked_percent || '',
+                market_cap: tokenData.market_cap || '',
+                fdv: tokenData.fdv || '',
+                tvl: tokenData.tvl || '',
+                main_pair_tvl: tokenData.main_pair_tvl || '',
+                token: tokenData.token || '',
+                token_address: tokenData.token || '',
+                chain: tokenData.chain || '',
+                decimal: tokenData.decimal || 0,
+                name: tokenData.name || '',
+                symbol: tokenData.symbol || '',
+                holders: tokenData.holders || 0,
+                appendix: tokenData.appendix || '',
+                logo_url: tokenData.logo_url || '',
+                risk_score: tokenData.risk_score || '',
+                created_at: tokenData.created_at || 0,
+                tx_count_24h: tokenData.tx_count_24h || 0,
+                lock_platform: tokenData.lock_platform || '',
+                is_mintable: tokenData.is_mintable || '',
+                updated_at: tokenData.updated_at || 0,
+                main_pair: tokenData.main_pair || '',
+                has_mint_method: tokenData.has_mint_method || 0,
+                is_lp_not_locked: tokenData.is_lp_not_locked || 0,
+                has_not_renounced: tokenData.has_not_renounced || 0,
+                has_not_audited: tokenData.has_not_audited || 0,
+                has_not_open_source: tokenData.has_not_open_source || 0,
+                is_in_blacklist: tokenData.is_in_blacklist || 0,
+                is_honeypot: tokenData.is_honeypot || 0,
+                ave_risk_level: tokenData.ave_risk_level || 0,
+                // 新增字段
+                issue_platform: tokenData.issue_platform || '',
+                intro_cn: tokenData.intro_cn || '',
+                intro_en: tokenData.intro_en || '',
+                launch_at: tokenData.launch_at || 0
+            };
+
+            // 复制所有其他字段（如 twitter、website、telegram 等）
+            for (const [key, value] of Object.entries(tokenData)) {
+                if (!(key in result)) {
+                    result[key] = value;
+                }
+            }
+
+            return result;
+        });
     }
 
     /**
@@ -149,11 +190,24 @@ class AveTokenAPI extends BaseAveAPI {
 
     /**
      * 批量获取代币价格信息
+     * 包含价格和多个分析因子（交易量、市值、持有者等）
+     *
+     * API 实际返回字段:
+     * - current_price_usd: 当前价格
+     * - price_change_1d: 1日价格变化
+     * - price_change_24h: 24小时价格变化
+     * - tvl: 总锁仓量
+     * - fdv: 完全稀释估值
+     * - market_cap: 市值
+     * - tx_volume_u_24h: 24小时交易量
+     * - holders: 持有者数量
+     * - token_id: 代币ID
+     * - updated_at: 更新时间
      *
      * @param {Array<string>} tokenIds - 代币ID列表，最多200个，格式：{CA}-{chain}
      * @param {number} tvlMin - 代币最小TVL阈值，默认1000，0表示无阈值
      * @param {number} tx24hVolumeMin - 代币最小24小时交易量阈值，默认0
-     * @returns {Promise<Object>} 代币价格信息字典
+     * @returns {Promise<Object>} 代币价格信息字典，包含多个分析因子
      */
     async getTokenPrices(tokenIds, tvlMin = 1000, tx24hVolumeMin = 0) {
         if (!tokenIds || tokenIds.length === 0) {
@@ -177,11 +231,23 @@ class AveTokenAPI extends BaseAveAPI {
 
         for (const [tokenId, priceData] of Object.entries(dataSection)) {
             prices[tokenId] = {
+                // 价格相关
                 current_price_usd: priceData.current_price_usd || '',
                 price_change_1d: priceData.price_change_1d || '',
                 price_change_24h: priceData.price_change_24h || '',
+
+                // 价值因子
                 tvl: priceData.tvl || '',
+                fdv: priceData.fdv || '',
+                market_cap: priceData.market_cap || '',
+
+                // 交易量因子
                 tx_volume_u_24h: priceData.tx_volume_u_24h || '',
+
+                // 持有者因子
+                holders: priceData.holders || 0,
+
+                // 时间戳
                 token_id: priceData.token_id || tokenId,
                 updated_at: priceData.updated_at || 0
             };

@@ -232,6 +232,9 @@ class ExperimentMonitor {
               <a href="/experiment/${exp.id}/signals" class="text-green-600 hover:text-green-800 text-sm">
                 信号
               </a>
+              <a href="/experiment/${exp.id}/tokens" class="text-teal-600 hover:text-teal-800 text-sm">
+                代币
+              </a>
               <a href="/experiment/${exp.id}/trades" class="text-purple-600 hover:text-purple-800 text-sm">
                 交易
               </a>

@@ -334,7 +334,13 @@ class ExperimentObserver {
           earlyReturn: '早期收益率',
           buyPrice: '买入价格',
           holdDuration: '持仓时长',
-          profitPercent: '利润百分比'
+          profitPercent: '利润百分比',
+          // 新增 AVE API 因子
+          txVolumeU24h: '24小时交易量',
+          holders: '持有者数量',
+          tvl: '总锁仓量(TVL)',
+          fdv: '完全稀释估值(FDV)',
+          marketCap: '市值'
         };
         option.textContent = displayNames[factor] || factor;
         this.factorSelect.appendChild(option);

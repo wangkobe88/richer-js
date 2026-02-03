@@ -645,7 +645,7 @@ class VirtualTradingEngine {
           0    // tx24hVolumeMin: 0 表示不限制
         );
 
-        // 4. 更新 TokenPool 中的价格
+        // 4. 更新 TokenPool 中的价格和因子数据
         for (const token of tokens) {
           const tokenId = `${token.token}-${token.chain}`;
           const priceInfo = prices[tokenId];
@@ -653,7 +653,15 @@ class VirtualTradingEngine {
           if (priceInfo && priceInfo.current_price_usd) {
             const price = parseFloat(priceInfo.current_price_usd);
             if (price > 0) {
-              this._tokenPool.updatePrice(token.token, token.chain, price, Date.now());
+              // 构建额外因子数据
+              const extraData = {
+                txVolumeU24h: parseFloat(priceInfo.tx_volume_u_24h) || 0,
+                holders: parseInt(priceInfo.holders) || 0,
+                tvl: parseFloat(priceInfo.tvl) || 0,
+                fdv: parseFloat(priceInfo.fdv) || 0,
+                marketCap: parseFloat(priceInfo.market_cap) || 0
+              };
+              this._tokenPool.updatePrice(token.token, token.chain, price, Date.now(), extraData);
             }
           }
         }
@@ -725,7 +733,13 @@ class VirtualTradingEngine {
       // 新增：历史最高价格相关因子
       highestPrice: highestPrice,
       highestPriceTimestamp: highestPriceTimestamp,
-      drawdownFromHighest: drawdownFromHighest
+      drawdownFromHighest: drawdownFromHighest,
+      // 新增：AVE API 因子
+      txVolumeU24h: token.txVolumeU24h || 0,
+      holders: token.holders || 0,
+      tvl: token.tvl || 0,
+      fdv: token.fdv || 0,
+      marketCap: token.marketCap || 0
     };
 
     return factors;
@@ -763,6 +777,9 @@ class VirtualTradingEngine {
         confidence: 80,
         reason: strategy.name,
         cards: strategy.cards || 1,  // 传递卡牌数量
+        // 新增：策略信息（用于追踪触发哪一条策略）
+        strategyId: strategy.id,
+        strategyName: strategy.name,
         // 新增：卡牌管理配置（用于分析）
         cardConfig: this._positionManagement?.enabled ? {
           totalCards: this._positionManagement.totalCards || 4,
@@ -844,6 +861,9 @@ class VirtualTradingEngine {
         reason: strategy.name,
         sellRatio: sellRatio,
         cards: strategy.cards || 'all',  // 传递卡牌数量
+        // 新增：策略信息（用于追踪触发哪一条策略）
+        strategyId: strategy.id,
+        strategyName: strategy.name,
         // 新增：买入价格和收益信息
         buyPrice: token.buyPrice || null,
         profitPercent: token.buyPrice && latestPrice ? ((latestPrice - token.buyPrice) / token.buyPrice * 100) : null,

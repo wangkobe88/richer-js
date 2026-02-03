@@ -185,7 +185,7 @@
 
                 <!-- 代币选择器 -->
                 <div class="bg-gray-800 rounded-lg p-4 mb-4 border border-gray-700">
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between mb-3">
                         <div class="flex items-center space-x-4">
                             <div>
                                 <label for="token-selector" class="block text-sm font-medium text-white mb-1">选择代币查看K线图</label>
@@ -193,6 +193,19 @@
                                     <option value="all">全部代币</option>
                                 </select>
                             </div>
+                        </div>
+                    </div>
+                    <!-- 代币地址信息 -->
+                    <div id="token-info-container" class="hidden bg-gray-700 rounded-lg p-3 border border-gray-600">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 min-w-0">
+                                <span class="text-sm text-gray-400 mr-2">代币地址:</span>
+                                <code id="token-address" class="text-sm text-green-400 break-all font-mono">0x...</code>
+                            </div>
+                            <button id="copy-address-btn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium text-white transition-colors flex items-center space-x-1">
+                                <span>📋</span>
+                                <span>复制</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -319,6 +332,6 @@
     </div>
 
     <script src="/static/js/simple-init.js?v=3.4"></script>
-    <script src="/static/js/experiment_signals.js?v=3.4"></script>
+    <script src="/static/js/experiment_signals.js?v=3.5"></script>
 </body>
 </html>

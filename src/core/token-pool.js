@@ -59,6 +59,12 @@ class TokenPool {
             highestPriceTimestamp: collectionTime, // 最高价发生时间
             entryMetrics: null,
             rawApiData: rawApiData, // 保存完整的原始 API 数据
+            // 新增：AVE API 因子
+            txVolumeU24h: parseFloat(tokenData.tx_volume_u_24h) || 0,
+            holders: parseInt(tokenData.holders) || 0,
+            tvl: parseFloat(tokenData.tvl) || 0,
+            fdv: parseFloat(tokenData.fdv) || 0,
+            marketCap: parseFloat(tokenData.market_cap) || 0,
             // 卡牌仓位管理
             cardPositionManager: null,
             // 策略执行状态跟踪
@@ -147,13 +153,31 @@ class TokenPool {
      * @param {string} chain - Chain
      * @param {number} price - Current price
      * @param {number} timestamp - Update timestamp
+     * @param {Object} extraData - Extra data from API (txVolumeU24h, holders, tvl, fdv, marketCap)
      */
-    updatePrice(tokenAddress, chain, price, timestamp) {
+    updatePrice(tokenAddress, chain, price, timestamp, extraData = {}) {
         const key = this.getTokenKey({ token: tokenAddress, chain });
         const token = this.pool.get(key);
 
         if (token) {
             token.currentPrice = price;
+
+            // 更新 AVE API 因子
+            if (extraData.txVolumeU24h !== undefined) {
+                token.txVolumeU24h = extraData.txVolumeU24h;
+            }
+            if (extraData.holders !== undefined) {
+                token.holders = extraData.holders;
+            }
+            if (extraData.tvl !== undefined) {
+                token.tvl = extraData.tvl;
+            }
+            if (extraData.fdv !== undefined) {
+                token.fdv = extraData.fdv;
+            }
+            if (extraData.marketCap !== undefined) {
+                token.marketCap = extraData.marketCap;
+            }
 
             // 更新历史最高价格
             if (price > (token.highestPrice || 0)) {

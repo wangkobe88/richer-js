@@ -252,9 +252,15 @@ class ExperimentSignals {
       // 显示加载状态
       const chartStatus = document.getElementById('chart-status');
       const chartContainer = document.querySelector('.chart-container');
+
+      // 首先确保图表容器可见
+      if (chartContainer) {
+        chartContainer.style.display = 'block';
+      }
+
       if (chartStatus) {
         chartStatus.textContent = '加载中...';
-        chartStatus.className = 'px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium';
+        chartStatus.className = 'px-3 py-1 bg-yellow-900 text-yellow-200 rounded-full text-sm font-medium';
       }
 
       // 获取时序数据（替代K线数据）
@@ -264,18 +270,13 @@ class ExperimentSignals {
         // 显示友好提示
         if (chartStatus) {
           chartStatus.textContent = '暂无时序数据';
-          chartStatus.className = 'px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium';
+          chartStatus.className = 'px-3 py-1 bg-gray-900 text-gray-400 rounded-full text-sm font-medium';
         }
         // 隐藏图表容器
         if (chartContainer) {
           chartContainer.style.display = 'none';
         }
         return;
-      }
-
-      // 显示图表容器
-      if (chartContainer) {
-        chartContainer.style.display = 'block';
       }
 
       // 更新时序数据
@@ -289,7 +290,7 @@ class ExperimentSignals {
       // 更新状态
       if (chartStatus) {
         chartStatus.textContent = '数据就绪';
-        chartStatus.className = 'px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium';
+        chartStatus.className = 'px-3 py-1 bg-green-900 text-green-200 rounded-full text-sm font-medium';
       }
 
     } catch (error) {
@@ -299,7 +300,7 @@ class ExperimentSignals {
       const chartStatus = document.getElementById('chart-status');
       if (chartStatus) {
         chartStatus.textContent = '加载失败';
-        chartStatus.className = 'px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium';
+        chartStatus.className = 'px-3 py-1 bg-red-900 text-red-200 rounded-full text-sm font-medium';
       }
     }
   }
@@ -556,12 +557,16 @@ class ExperimentSignals {
 
     // console.log('🔄 准备添加', sortedTokens.length, '个代币选项');
 
-    // 添加代币选项，显示信号数量
+    // 添加代币选项，显示信号数量和地址
     sortedTokens.forEach((token, index) => {
       const option = document.createElement('option');
       option.value = token.address;
       const signalCount = token.signalCount || 0;
-      option.textContent = `${token.symbol} (${signalCount} 条信号)`;
+      // 显示：代币符号 (信号数) - 地址前8位
+      const shortAddress = token.address.length > 12
+        ? `${token.address.substring(0, 8)}...`
+        : token.address;
+      option.textContent = `${token.symbol} (${signalCount} 条) - ${shortAddress}`;
       freshSelector.appendChild(option);
       if (index < 3) {
         console.log(`  [${index}] ${option.textContent}`);
@@ -589,6 +594,17 @@ class ExperimentSignals {
         const selectedToken = this.availableTokens.find(t => t.address === selectedTokenAddress);
         if (selectedToken) {
           await this.loadKlineForToken(selectedToken);
+        }
+      } else {
+        // 选择"全部代币"时，隐藏图表
+        const chartStatus = document.getElementById('chart-status');
+        const chartContainer = document.querySelector('.chart-container');
+        if (chartStatus) {
+          chartStatus.textContent = '请选择代币查看图表';
+          chartStatus.className = 'px-3 py-1 bg-gray-900 text-gray-400 rounded-full text-sm font-medium';
+        }
+        if (chartContainer) {
+          chartContainer.style.display = 'none';
         }
       }
 
@@ -636,14 +652,47 @@ class ExperimentSignals {
     console.log(`🔍 过滤后的信号数量: ${filteredSignals.length} (全部: ${this.signals.length})`);
 
     // 更新代币信息显示
-    const tokenInfo = document.getElementById('token-info');
-    if (tokenInfo) {
+    const tokenInfoContainer = document.getElementById('token-info-container');
+    const tokenAddressEl = document.getElementById('token-address');
+    const copyAddressBtn = document.getElementById('copy-address-btn');
+
+    if (tokenInfoContainer) {
       if (this.selectedToken === 'all') {
-        tokenInfo.textContent = '显示所有代币的K线图和信号汇总';
+        tokenInfoContainer.classList.add('hidden');
       } else {
         const token = this.availableTokens.find(t => t.address === this.selectedToken);
         if (token) {
-          tokenInfo.textContent = `正在查看 ${token.symbol} 的K线图和交易信号`;
+          tokenInfoContainer.classList.remove('hidden');
+          tokenAddressEl.textContent = token.address;
+
+          // 绑定复制按钮事件
+          copyAddressBtn.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(token.address);
+              // 显示复制成功提示
+              copyAddressBtn.innerHTML = '<span>✅</span><span>已复制</span>';
+              setTimeout(() => {
+                copyAddressBtn.innerHTML = '<span>📋</span><span>复制</span>';
+              }, 2000);
+            } catch (error) {
+              console.error('复制地址失败:', error);
+              // 降级方案
+              try {
+                const textArea = document.createElement('textarea');
+                textArea.value = token.address;
+                textArea.style.position = 'fixed';
+                textArea.style.opacity = '0';
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                copyAddressBtn.innerHTML = '<span>✅</span><span>已复制</span>';
+              } catch (fallbackError) {
+                console.error('降级复制也失败:', fallbackError);
+                copyAddressBtn.innerHTML = '<span>❌</span><span>复制失败</span>';
+              }
+            }
+          };
         }
       }
     }

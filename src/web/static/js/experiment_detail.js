@@ -186,7 +186,7 @@ class ExperimentDetail {
     try {
       console.log('💰 正在获取投资组合数据...');
 
-      const response = await fetch(`/api/experiment/${this.experimentId}/portfolio?limit=1000`);
+      const response = await fetch(`/api/experiment/${this.experimentId}/portfolio?limit=10000`);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -210,7 +210,7 @@ class ExperimentDetail {
     try {
       console.log('💰 正在获取交易数据...');
 
-      const response = await fetch(`/api/experiment/${this.experimentId}/trades?limit=1000`);
+      const response = await fetch(`/api/experiment/${this.experimentId}/trades?limit=10000`);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -261,11 +261,15 @@ class ExperimentDetail {
 
     // 设置快速操作导航链接
     const linkSignals = document.getElementById('link-signals');
+    const linkTokens = document.getElementById('link-tokens');
     const linkTrades = document.getElementById('link-trades');
     const linkObserver = document.getElementById('link-observer');
 
     if (linkSignals) {
       linkSignals.href = `/experiment/${this.experimentId}/signals`;
+    }
+    if (linkTokens) {
+      linkTokens.href = `/experiment/${this.experimentId}/tokens`;
     }
     if (linkTrades) {
       linkTrades.href = `/experiment/${this.experimentId}/trades`;

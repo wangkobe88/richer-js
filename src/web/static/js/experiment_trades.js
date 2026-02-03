@@ -446,9 +446,9 @@ class ExperimentTrades {
   async loadTradesData() {
     try {
       console.log('💱 正在获取交易数据...');
-      console.log(`📍 API URL: /api/experiment/${this.experimentId}/trades?limit=1000`);
+      console.log(`📍 API URL: /api/experiment/${this.experimentId}/trades?limit=10000`);
 
-      const response = await fetch(`/api/experiment/${this.experimentId}/trades?limit=1000`);
+      const response = await fetch(`/api/experiment/${this.experimentId}/trades?limit=10000`);
       console.log(`📡 API响应状态: ${response.status} ${response.statusText}`);
 
       if (!response.ok) {

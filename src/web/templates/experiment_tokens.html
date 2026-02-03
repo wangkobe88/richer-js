@@ -4,511 +4,282 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>实验代币 - Richer-js Fourmeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="/static/css/light-theme.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
-    <link href="/static/css/main.css" rel="stylesheet">
+    <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.0" rel="stylesheet">
     <style>
-        .status-monitoring { background-color: #fef3c7; color: #92400e; }
-        .status-bought { background-color: #d1fae5; color: #065f46; }
-        .status-exited { background-color: #e5e7eb; color: #374151; }
-        .status-failed { background-color: #fee2e2; color: #991b1b; }
-
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 50;
+        .loading {
+            display: flex;
             justify-content: center;
             align-items: center;
+            min-height: 100vh;
+            font-size: 1.2rem;
+            background: rgba(0,0,0,0.9);
         }
-        .modal-overlay.active {
-            display: flex;
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
-        .modal-content {
-            background: white;
-            border-radius: 0.5rem;
-            max-width: 500px;
-            width: 90%;
-            max-height: 80vh;
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 状态徽章 */
+        .status-monitoring {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .status-bought {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .status-exited {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        /* 原始数据代码块 */
+        .raw-data-block {
+            background-color: #1f2937;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 8px;
+            max-height: 300px;
             overflow-y: auto;
         }
-        .timeline {
-            position: relative;
-            padding-left: 20px;
+
+        .raw-data-code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: #e5e7eb;
+            white-space: pre-wrap;
+            word-break: break-all;
         }
-        .timeline::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: #e5e7eb;
+
+        .expand-btn {
+            cursor: pointer;
+            user-select: none;
         }
-        .timeline-item {
-            position: relative;
-            padding-bottom: 20px;
+
+        .expand-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
         }
-        .timeline-item::before {
-            content: '';
-            position: absolute;
-            left: -24px;
-            top: 4px;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #3b82f6;
+
+        .expand-content.expanded {
+            max-height: 500px;
+        }
+
+        /* 下拉框选项白色文字 */
+        select option {
+            background-color: #374151;
+            color: white;
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen py-8">
-    <div class="container mx-auto px-4 max-w-7xl">
-        <!-- 页头 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-800">实验代币</h1>
-                    <p class="text-gray-600 mt-1" id="experiment-name">加载中...</p>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="loadData()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                        刷新
-                    </button>
-                    <a href="/experiments" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md">
-                        返回列表
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <!-- 统计概览 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6" id="stats-container">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4">统计概览</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="text-center p-4 bg-gray-50 rounded-lg">
-                    <div class="text-2xl font-bold text-gray-800" id="stat-total">-</div>
-                    <div class="text-sm text-gray-600">处理过</div>
-                </div>
-                <div class="text-center p-4 bg-yellow-50 rounded-lg">
-                    <div class="text-2xl font-bold text-yellow-600" id="stat-monitoring">-</div>
-                    <div class="text-sm text-gray-600">监控中</div>
-                </div>
-                <div class="text-center p-4 bg-green-50 rounded-lg">
-                    <div class="text-2xl font-bold text-green-600" id="stat-bought">-</div>
-                    <div class="text-sm text-gray-600">已买入</div>
-                </div>
-                <div class="text-center p-4 bg-gray-50 rounded-lg">
-                    <div class="text-2xl font-bold text-gray-600" id="stat-exited">-</div>
-                    <div class="text-sm text-gray-600">已退出</div>
-                </div>
-            </div>
-            <div class="mt-4 text-sm text-gray-500">
-                买入率: <span id="stat-buy-rate">-</span>
-            </div>
-        </div>
-
-        <!-- 筛选和搜索 -->
-        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
-            <div class="flex flex-wrap gap-4 items-center">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">状态</label>
-                    <select id="filter-status" class="px-3 py-2 border border-gray-300 rounded-md">
-                        <option value="">全部</option>
-                        <option value="monitoring">监控中</option>
-                        <option value="bought">已买入</option>
-                        <option value="exited">已退出</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
-                    <input type="text" id="search-input" placeholder="代币符号或地址..."
-                           class="px-3 py-2 border border-gray-300 rounded-md w-48">
-                </div>
-            </div>
-        </div>
-
-        <!-- 代币列表 -->
-        <div class="bg-white rounded-lg shadow-md overflow-hidden">
-            <table class="w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">代币</th>
-                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">状态</th>
-                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">发现时间</th>
-                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">交易次数</th>
-                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">操作</th>
-                    </tr>
-                </thead>
-                <tbody id="tokens-table">
-                    <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
-                            <div class="flex justify-center">
-                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-2"></div>
-                                加载中...
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- 分页 -->
-        <div class="bg-white rounded-lg shadow-md p-4 mt-6">
-            <div class="flex justify-between items-center">
-                <div class="text-sm text-gray-600">
-                    显示 <span id="showing-from">0</span> - <span id="showing-to">0</span> / 共 <span id="total-count">0</span>
-                </div>
-                <div class="flex gap-2">
-                    <button id="prev-btn" onclick="prevPage()" disabled
-                            class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-md disabled:opacity-50">
-                        上一页
-                    </button>
-                    <button id="next-btn" onclick="nextPage()" disabled
-                            class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-md disabled:opacity-50">
-                        下一页
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 代币详情弹窗 -->
-    <div id="token-modal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold text-gray-800" id="modal-token-symbol">代币详情</h2>
-                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-2xl">&times;</button>
-                </div>
-                <div id="modal-content"></div>
-                <div class="mt-6 text-right">
-                    <button onclick="closeModal()" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md">
-                        关闭
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const experimentId = new URLSearchParams(window.location.search).get('id');
-        let currentPage = 1;
-        const pageSize = 20;
-        let totalTokens = 0;
-        let currentData = [];
-        let allTokens = [];
-
-        // 状态映射
-        const statusMap = {
-            'monitoring': { text: '监控中', class: 'status-monitoring' },
-            'bought': { text: '已买入', class: 'status-bought' },
-            'exited': { text: '已退出', class: 'status-exited' },
-            'failed': { text: '失败', class: 'status-failed' }
-        };
-
-        // 加载实验信息
-        async function loadExperimentInfo() {
-            try {
-                const res = await fetch(`/api/experiment/${experimentId}`);
-                const result = await res.json();
-                if (result.success) {
-                    document.getElementById('experiment-name').textContent = result.data.experimentName;
-                }
-            } catch (error) {
-                console.error('加载实验信息失败:', error);
-            }
-        }
-
-        // 加载代币数据
-        async function loadData() {
-            showLoading();
-
-            try {
-                const status = document.getElementById('filter-status').value;
-                const search = document.getElementById('search-input').value;
-
-                // 加载代币
-                const res = await fetch(`/api/experiment/${experimentId}/tokens?status=${status}&limit=1000`);
-                const result = await res.json();
-
-                if (result.success) {
-                    allTokens = result.tokens || [];
-                    totalTokens = result.tokens.length;
-
-                    // 本地筛选
-                    if (search) {
-                        const searchLower = search.toLowerCase();
-                        allTokens = allTokens.filter(t =>
-                            (t.token_symbol && t.token_symbol.toLowerCase().includes(searchLower)) ||
-                            (t.token_address && t.token_address.toLowerCase().includes(searchLower))
-                        );
-                    }
-
-                    updateDisplay();
-                } else {
-                    showError(result.error || '加载数据失败');
-                }
-            } catch (error) {
-                showError('网络错误: ' + error.message);
-            }
-        }
-
-        // 更新显示
-        function updateDisplay() {
-            updateStats();
-            updateTable();
-            updatePagination();
-        }
-
-        // 更新统计
-        function updateStats() {
-            const stats = {
-                total: allTokens.length,
-                monitoring: allTokens.filter(t => t.status === 'monitoring').length,
-                bought: allTokens.filter(t => t.status === 'bought').length,
-                exited: allTokens.filter(t => t.status === 'exited').length
-            };
-
-            document.getElementById('stat-total').textContent = stats.total;
-            document.getElementById('stat-monitoring').textContent = stats.monitoring;
-            document.getElementById('stat-bought').textContent = stats.bought;
-            document.getElementById('stat-exited').textContent = stats.exited;
-            document.getElementById('stat-buy-rate').textContent = stats.total > 0
-                ? (stats.bought / stats.total * 100).toFixed(1) + '%'
-                : '0%';
-        }
-
-        // 更新表格
-        function updateTable() {
-            const tbody = document.getElementById('tokens-table');
-            const start = (currentPage - 1) * pageSize;
-            const end = Math.min(start + pageSize, allTokens.length);
-            currentData = allTokens.slice(start, end);
-
-            if (currentData.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
-                            暂无数据
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            tbody.innerHTML = currentData.map(token => {
-                const status = statusMap[token.status] || { text: token.status, class: '' };
-                return `
-                    <tr class="border-b hover:bg-gray-50">
-                        <td class="px-4 py-3">
-                            <div class="font-medium text-gray-900">${token.token_symbol || '-'}</div>
-                            <div class="text-xs text-gray-500 font-mono">${token.token_address?.substring(0, 10)}...</div>
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="px-2 py-1 rounded text-xs ${status.class}">${status.text}</span>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-600">
-                            ${formatDateTime(token.discovered_at)}
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-600">
-                            ${token.trade_count || 0}
-                        </td>
-                        <td class="px-4 py-3">
-                            <button onclick="showTokenDetail('${token.token_address}')"
-                                    class="text-blue-600 hover:text-blue-800 text-sm">
-                                详情
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        // 更新分页
-        function updatePagination() {
-            const start = (currentPage - 1) * pageSize + 1;
-            const end = Math.min(currentPage * pageSize, totalTokens);
-
-            document.getElementById('showing-from').textContent = start;
-            document.getElementById('showing-to').textContent = end;
-            document.getElementById('total-count').textContent = totalTokens;
-
-            document.getElementById('prev-btn').disabled = currentPage <= 1;
-            document.getElementById('next-btn').disabled = end >= totalTokens;
-        }
-
-        // 分页操作
-        function prevPage() {
-            if (currentPage > 1) {
-                currentPage--;
-                updateTable();
-                updatePagination();
-            }
-        }
-
-        function nextPage() {
-            if (currentPage * pageSize < totalTokens) {
-                currentPage++;
-                updateTable();
-                updatePagination();
-            }
-        }
-
-        // 显示代币详情
-        async function showTokenDetail(tokenAddress) {
-            try {
-                // 获取代币基本信息
-                const res = await fetch(`/api/experiment/${experimentId}/tokens/${tokenAddress}`);
-                const result = await res.json();
-
-                if (!result.success) {
-                    alert('加载代币详情失败');
-                    return;
-                }
-
-                const token = result.data;
-
-                // 获取关联的交易记录
-                const tradesRes = await fetch(`/api/experiment/${experimentId}/trades?limit=20`);
-                const tradesResult = await tradesRes.json();
-                const trades = tradesResult.success ? (tradesResult.trades || []) : [];
-
-                // 获取关联的信号记录
-                const signalsRes = await fetch(`/api/experiment/${experimentId}/signals?limit=10`);
-                const signalsResult = await signalsRes.json();
-                const signals = signalsResult.success ? (signalsResult.signals || []) : [];
-
-                // 构建详情内容
-                document.getElementById('modal-token-symbol').textContent = token.token_symbol || '代币详情';
-                document.getElementById('modal-content').innerHTML = `
-                    <div class="space-y-4">
-                        <!-- 基本信息 -->
-                        <div class="border-b pb-4">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-3">基本信息</h3>
-                            <div class="grid grid-cols-2 gap-2 text-sm">
-                                <div><span class="text-gray-500">地址:</span></div>
-                                <div class="font-mono text-xs break-all">${token.token_address}</div>
-                                <div><span class="text-gray-500">状态:</span></div>
-                                <div><span class="px-2 py-1 rounded text-xs ${statusMap[token.status]?.class || ''}">${statusMap[token.status]?.text || token.status}</span></div>
-                                <div><span class="text-gray-500">区块链:</span></div>
-                                <div>${token.blockchain?.toUpperCase() || '-'}</div>
-                                <div><span class="text-gray-500">发现时间:</span></div>
-                                <div>${formatDateTime(token.discovered_at)}</div>
-                            </div>
-                        </div>
-
-                        <!-- 交易历史 -->
-                        <div class="border-b pb-4">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-3">交易历史 (${trades.length})</h3>
-                            ${trades.length > 0 ? `
-                                <div class="space-y-2">
-                                    ${trades.map(trade => `
-                                        <div class="text-sm p-2 bg-gray-50 rounded">
-                                            <div class="flex justify-between">
-                                                <span>${trade.direction === 'buy' ? '买入' : '卖出'}</span>
-                                                <span class="text-gray-500">${formatDateTime(trade.created_at)}</span>
-                                            </div>
-                                            <div>数量: ${trade.amount?.toFixed(4) || '-'}</div>
-                                            <div>价格: $${trade.price?.toFixed(12) || '-'}</div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            ` : '<p class="text-gray-500 text-sm">暂无交易记录</p>'}
-                        </div>
-
-                        <!-- 信号历史 -->
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-800 mb-3">信号历史 (${signals.length})</h3>
-                            ${signals.length > 0 ? `
-                                <div class="space-y-2">
-                                    ${signals.slice(0, 5).map(signal => `
-                                        <div class="text-sm p-2 bg-blue-50 rounded">
-                                            <div class="flex justify-between">
-                                                <span>${signal.signalType || signal.action}</span>
-                                                <span class="text-gray-500">${formatDateTime(signal.created_at)}</span>
-                                            </div>
-                                            <div>${signal.reason || signal.metadata?.reason || '-'}</div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            ` : '<p class="text-gray-500 text-sm">暂无信号记录</p>'}
+<body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-green-400">
+                            <a href="/" class="text-green-400">
+                                Richer-js Fourmeme Trading
+                            </a>
+                        </h1>
+                        <div class="hidden md:block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-300">
+                                实验列表
+                            </a>
+                            <a id="link-detail" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300">
+                                实验详情
+                            </a>
+                            <a id="link-signals" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300">
+                                交易信号
+                            </a>
+                            <a href="#" id="current-page" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">
+                                实验代币
+                            </a>
+                            <a id="link-trades" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300">
+                                交易记录
+                            </a>
                         </div>
                     </div>
-                `;
+                    <div class="flex items-center space-x-4">
+                        <button id="refresh-btn" class="px-4 py-2 bg-blue-600 rounded-md text-sm font-medium text-white">
+                            刷新
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
 
-                // 显示弹窗
-                document.getElementById('token-modal').classList.add('active');
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 加载指示器 -->
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <span class="ml-4 text-white">正在加载实验代币...</span>
+            </div>
 
-            } catch (error) {
-                console.error('加载代币详情失败:', error);
-                alert('加载失败: ' + error.message);
-            }
-        }
+            <!-- 错误信息 -->
+            <div id="error-message" class="hidden bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+                <div class="flex items-center">
+                    <span class="text-red-400">⚠️</span>
+                    <span class="ml-2" id="error-text">加载失败</span>
+                    <button id="retry-btn" class="ml-4 px-3 py-1 bg-red-700 rounded text-sm">
+                        重试
+                    </button>
+                </div>
+            </div>
 
-        function closeModal() {
-            document.getElementById('token-modal').classList.remove('active');
-        }
-
-        // 工具函数
-        function formatDateTime(dateStr) {
-            if (!dateStr) return '-';
-            const date = new Date(dateStr);
-            return date.toLocaleString('zh-CN', {
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
-
-        function showLoading() {
-            document.getElementById('tokens-table').innerHTML = `
-                <tr>
-                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">
-                        <div class="flex justify-center">
-                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-2"></div>
-                            加载中...
+            <!-- 代币内容 -->
+            <div id="tokens-content" class="hidden">
+                <!-- 实验信息头部 -->
+                <div id="experiment-header" class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-2xl font-bold text-white mb-2" id="experiment-name">实验名称</h1>
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                <span id="experiment-id">ID: --</span>
+                                <span id="experiment-blockchain">区块链: --</span>
+                            </div>
                         </div>
-                    </td>
-                </tr>
-            `;
-        }
+                        <div class="flex items-center space-x-4">
+                            <a id="link-back" href="#" class="px-4 py-2 bg-gray-600 rounded-md text-sm font-medium text-white">
+                                返回实验详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
 
-        function showError(message) {
-            document.getElementById('tokens-table').innerHTML = `
-                <tr>
-                    <td colspan="6" class="px-4 py-8 text-center text-red-500">
-                        ${message}
-                    </td>
-                </tr>
-            `;
-        }
+                <!-- 统计卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-400">总发现代币</p>
+                                <p class="text-2xl font-bold text-blue-400" id="total-tokens">0</p>
+                            </div>
+                            <div class="text-blue-400 text-2xl">🔍</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-400">监控中</p>
+                                <p class="text-2xl font-bold text-indigo-400" id="monitoring-tokens">0</p>
+                            </div>
+                            <div class="text-indigo-400 text-2xl">👁️</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-400">已买入</p>
+                                <p class="text-2xl font-bold text-green-400" id="bought-tokens">0</p>
+                            </div>
+                            <div class="text-green-400 text-2xl">💰</div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-400">已退出</p>
+                                <p class="text-2xl font-bold text-red-400" id="exited-tokens">0</p>
+                            </div>
+                            <div class="text-red-400 text-2xl">🚪</div>
+                        </div>
+                    </div>
+                </div>
 
-        // 事件监听
-        document.getElementById('filter-status').addEventListener('change', loadData);
-        document.getElementById('search-input').addEventListener('input', debounce(loadData, 500));
+                <!-- 筛选控件 -->
+                <div class="bg-gray-800 rounded-lg p-4 mb-8 border border-gray-700">
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div>
+                            <label for="status-filter" class="block text-sm font-medium text-white mb-2">状态筛选</label>
+                            <select id="status-filter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                                <option value="all">全部状态</option>
+                                <option value="monitoring">监控中</option>
+                                <option value="bought">已买入</option>
+                                <option value="exited">已退出</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="sort-by" class="block text-sm font-medium text-white mb-2">排序方式</label>
+                            <select id="sort-by" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+                                <option value="discovered_at">发现时间</option>
+                                <option value="fdv">市值 (FDV)</option>
+                                <option value="price">当前价格</option>
+                                <option value="symbol">代币符号</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="search-input" class="block text-sm font-medium text-white mb-2">搜索</label>
+                            <input type="text" id="search-input" placeholder="代币符号或地址..." class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-64">
+                        </div>
+                        <button id="apply-filters" class="px-4 py-2 bg-blue-600 rounded-md text-sm font-medium text-white">
+                            应用筛选
+                        </button>
+                    </div>
+                </div>
 
-        // 防抖函数
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
+                <!-- 代币列表 -->
+                <div class="bg-gray-800 rounded-lg border border-gray-700">
+                    <div class="p-4 border-b border-gray-700">
+                        <h2 class="text-lg font-semibold text-white">代币列表</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-700">
+                            <thead class="bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-48">代币信息</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-32">状态</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">当前价格</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">FDV</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">TVL</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">发现时间</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">原始数据</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tokens-table-body" class="bg-gray-800 divide-y divide-gray-700">
+                                <!-- 代币行将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-        // 初始化
-        loadExperimentInfo();
-        loadData();
-    </script>
+                <!-- 空状态 -->
+                <div id="empty-state" class="hidden text-center py-12">
+                    <div class="text-gray-400 mb-4">
+                        <svg class="w-24 h-24 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-400 mb-2">暂无代币数据</h3>
+                    <p class="text-gray-500">该实验尚未发现任何代币</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/simple-init.js?v=4.7"></script>
+    <script src="/static/js/experiment_tokens.js?v=4.7"></script>
 </body>
 </html>
