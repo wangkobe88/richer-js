@@ -472,7 +472,11 @@ class VirtualTradingEngine {
           earlyReturn: factorResults.earlyReturn,
           buyPrice: factorResults.buyPrice,
           holdDuration: factorResults.holdDuration,
-          profitPercent: factorResults.profitPercent
+          profitPercent: factorResults.profitPercent,
+          // 新增：历史最高价格相关因子
+          highestPrice: factorResults.highestPrice,
+          highestPriceTimestamp: factorResults.highestPriceTimestamp,
+          drawdownFromHighest: factorResults.drawdownFromHighest
         },
         blockchain: this._experiment.blockchain || 'bsc'
       });
@@ -697,6 +701,16 @@ class VirtualTradingEngine {
       profitPercent = ((currentPrice - token.buyPrice) / token.buyPrice) * 100;
     }
 
+    // 获取历史最高价格
+    const highestPrice = token.highestPrice || collectionPrice || currentPrice;
+    const highestPriceTimestamp = token.highestPriceTimestamp || collectionTime;
+
+    // 计算距离最高价的跌幅 %
+    let drawdownFromHighest = 0;
+    if (highestPrice > 0 && currentPrice > 0) {
+      drawdownFromHighest = ((currentPrice - highestPrice) / highestPrice) * 100;
+    }
+
     const factors = {
       age: age,
       currentPrice: currentPrice,
@@ -704,7 +718,11 @@ class VirtualTradingEngine {
       earlyReturn: earlyReturn,          // 新增：基于价格计算的 earlyReturn
       buyPrice: token.buyPrice || 0,
       holdDuration: holdDuration,
-      profitPercent: profitPercent
+      profitPercent: profitPercent,
+      // 新增：历史最高价格相关因子
+      highestPrice: highestPrice,
+      highestPriceTimestamp: highestPriceTimestamp,
+      drawdownFromHighest: drawdownFromHighest
     };
 
     return factors;
@@ -741,7 +759,12 @@ class VirtualTradingEngine {
         price: latestPrice,
         confidence: 80,
         reason: strategy.name,
-        cards: strategy.cards || 1  // 传递卡牌数量
+        cards: strategy.cards || 1,  // 传递卡牌数量
+        // 新增：卡牌管理配置（用于分析）
+        cardConfig: this._positionManagement?.enabled ? {
+          totalCards: this._positionManagement.totalCards || 4,
+          perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.25
+        } : null
       };
 
       const result = await this.processSignal(signal);
@@ -817,7 +840,16 @@ class VirtualTradingEngine {
         confidence: 80,
         reason: strategy.name,
         sellRatio: sellRatio,
-        cards: strategy.cards || 'all'  // 传递卡牌数量
+        cards: strategy.cards || 'all',  // 传递卡牌数量
+        // 新增：买入价格和收益信息
+        buyPrice: token.buyPrice || null,
+        profitPercent: token.buyPrice && latestPrice ? ((latestPrice - token.buyPrice) / token.buyPrice * 100) : null,
+        holdDuration: token.buyTime ? ((Date.now() - token.buyTime) / 1000) : null,
+        // 新增：卡牌管理配置（用于分析）
+        cardConfig: this._positionManagement?.enabled ? {
+          totalCards: this._positionManagement.totalCards || 4,
+          perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.25
+        } : null
       };
 
       const result = await this.processSignal(signal);
@@ -951,12 +983,12 @@ class VirtualTradingEngine {
     const tradeSignal = TradeSignal.fromStrategySignal(signal, this._experimentId);
     await this.dataService.saveSignal(tradeSignal);
 
-    // 根据信号类型执行交易
+    // 根据信号类型执行交易，传递 signalId 和元数据
     let tradeResult = null;
     if (signal.action === 'buy') {
-      tradeResult = await this._executeBuy(signal);
+      tradeResult = await this._executeBuy(signal, tradeSignal.id, signal.metadata);
     } else if (signal.action === 'sell') {
-      tradeResult = await this._executeSell(signal);
+      tradeResult = await this._executeSell(signal, tradeSignal.id, signal.metadata);
     } else {
       return { executed: false, reason: 'hold信号' };
     }
@@ -974,10 +1006,12 @@ class VirtualTradingEngine {
   /**
    * 执行买入交易
    * @param {Object} signal - 买入信号
+   * @param {string} signalId - 信号ID
+   * @param {Object} metadata - 信号元数据
    * @returns {Promise<Object>} 交易结果
    * @private
    */
-  async _executeBuy(signal) {
+  async _executeBuy(signal, signalId = null, metadata = {}) {
     try {
       const amountInBNB = this._calculateBuyAmount(signal);
       if (amountInBNB <= 0) {
@@ -992,7 +1026,13 @@ class VirtualTradingEngine {
         symbol: signal.symbol,
         direction: 'buy',
         amount: tokenAmount,
-        price: price
+        price: price,
+        signalId: signalId,
+        metadata: {
+          ...metadata,
+          cards: signal.cards,
+          cardConfig: signal.cardConfig
+        }
       };
 
       const result = await this.executeTrade(tradeRequest);
@@ -1012,10 +1052,12 @@ class VirtualTradingEngine {
   /**
    * 执行卖出交易
    * @param {Object} signal - 卖出信号
+   * @param {string} signalId - 信号ID
+   * @param {Object} metadata - 信号元数据
    * @returns {Promise<Object>} 交易结果
    * @private
    */
-  async _executeSell(signal) {
+  async _executeSell(signal, signalId = null, metadata = {}) {
     try {
       const holding = this.holdings.get(signal.tokenAddress);
       if (!holding || holding.amount <= 0) {
@@ -1047,7 +1089,16 @@ class VirtualTradingEngine {
         symbol: signal.symbol,
         direction: 'sell',
         amount: amountToSell,
-        price: price
+        price: price,
+        signalId: signalId,
+        metadata: {
+          ...metadata,
+          buyPrice: signal.buyPrice,
+          profitPercent: signal.profitPercent,
+          holdDuration: signal.holdDuration,
+          cards: signal.cards,
+          cardConfig: signal.cardConfig
+        }
       };
 
       const result = await this.executeTrade(tradeRequest);
@@ -1102,12 +1153,36 @@ class VirtualTradingEngine {
   }
 
   /**
+   * 获取主币符号
+   * @returns {string} 主币符号
+   * @private
+   */
+  _getNativeCurrency() {
+    const blockchain = this._experiment.blockchain || 'bsc';
+    const nativeCurrencyMap = {
+      'bsc': 'BNB',
+      'bnb': 'BNB',
+      'ethereum': 'ETH',
+      'eth': 'ETH',
+      'solana': 'SOL',
+      'sol': 'SOL',
+      'base': 'ETH',
+      'polygon': 'MATIC',
+      'matic': 'MATIC'
+    };
+    return nativeCurrencyMap[blockchain.toLowerCase()] || 'BNB';
+  }
+
+  /**
    * 执行交易
    * @param {Object} tradeRequest - 交易请求
    * @returns {Promise<Object>} 交易结果
    */
   async executeTrade(tradeRequest) {
     this.metrics.totalTrades++;
+
+    // 获取主币符号
+    const nativeCurrency = this._getNativeCurrency();
 
     const trade = Trade.fromVirtualTrade({
       tokenAddress: tradeRequest.tokenAddress,
@@ -1117,8 +1192,9 @@ class VirtualTradingEngine {
       amount: tradeRequest.amount,
       price: tradeRequest.price,
       success: false,
-      error: null
-    }, this._experimentId);
+      error: null,
+      metadata: tradeRequest.metadata || {}
+    }, this._experimentId, tradeRequest.signalId, nativeCurrency);
 
     try {
       // 使用 PortfolioManager 执行交易
@@ -1231,12 +1307,33 @@ class VirtualTradingEngine {
         if (!trade.success) continue;
 
         try {
+          // 从新的 input/output 字段获取交易信息
+          // PortfolioManager.executeTrade 期望的参数:
+          // - amount: 代币数量 (买入时是获得的代币数量，卖出时是卖出的代币数量)
+          // - price: 代币单价
+          let tokenAmount, tokenPrice;
+
+          if (trade.tradeDirection === 'buy' || trade.direction === 'buy') {
+            // 买入: output_amount 是获得的代币数量
+            tokenAmount = trade.outputAmount || 0;
+            tokenPrice = trade.unitPrice || 0;
+          } else {
+            // 卖出: input_amount 是卖出的代币数量
+            tokenAmount = trade.inputAmount || 0;
+            tokenPrice = trade.unitPrice || 0;
+          }
+
+          if (tokenAmount <= 0 || tokenPrice <= 0) {
+            console.warn(`跳过无效交易: ${trade.tokenSymbol}, amount=${tokenAmount}, price=${tokenPrice}`);
+            continue;
+          }
+
           await this._portfolioManager.executeTrade(
             this._portfolioId,
             trade.tokenAddress,
-            trade.direction,
-            new Decimal(trade.amount),
-            new Decimal(trade.price),
+            trade.tradeDirection || trade.direction,
+            new Decimal(tokenAmount),
+            new Decimal(tokenPrice),
             0.001  // 0.1% 手续费
           );
         } catch (error) {

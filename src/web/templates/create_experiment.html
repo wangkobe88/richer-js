@@ -357,6 +357,24 @@
                                     <td><code>currentPrice > 0</code></td>
                                 </tr>
                                 <tr>
+                                    <td><code>collectionPrice</code></td>
+                                    <td>数字</td>
+                                    <td>收集时的基准价格</td>
+                                    <td><code>currentPrice > collectionPrice</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>highestPrice</code></td>
+                                    <td>数字</td>
+                                    <td>历史最高价格</td>
+                                    <td><code>currentPrice > highestPrice * 0.9</code></td>
+                                </tr>
+                                <tr>
+                                    <td><code>drawdownFromHighest</code></td>
+                                    <td>数字</td>
+                                    <td>距最高价跌幅（%）</td>
+                                    <td><code>drawdownFromHighest <= -20</code></td>
+                                </tr>
+                                <tr>
                                     <td><code>profitPercent</code></td>
                                     <td>数字</td>
                                     <td>盈利百分比（%）</td>
@@ -382,6 +400,7 @@
                                 <button type="button" onclick="loadPreset('early_buy')">早止买入</button>
                                 <button type="button" onclick="loadPreset('tp1')">止盈1 (30%)</button>
                                 <button type="button" onclick="loadPreset('tp2')">止盈2 (50%)</button>
+                                <button type="button" onclick="loadPreset('drawback_stop')">高位回落止损</button>
                                 <button type="button" onclick="loadPreset('stop_loss')">时间止损</button>
                             </div>
                         </div>
@@ -630,6 +649,15 @@
                     priority: 2,
                     cooldown: 30,
                     maxExecutions: 1
+                },
+                drawback_stop: {
+                    action: 'sell',
+                    condition: 'profitPercent >= 20 AND drawdownFromHighest <= -30',
+                    cards: 'all',
+                    priority: 5,
+                    cooldown: 60,
+                    maxExecutions: 1,
+                    description: '盈利20%后，从最高点回落30%时止损'
                 },
                 stop_loss: {
                     action: 'sell',

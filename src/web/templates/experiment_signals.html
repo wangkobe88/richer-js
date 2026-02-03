@@ -8,9 +8,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="/static/css/light-theme.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
-    <link href="/static/css/main.css" rel="stylesheet">
+    <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.0" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1/dist/chartjs-chart-financial.min.js"></script>
@@ -96,31 +96,37 @@
             background-color: #6b7280;
             color: white;
         }
+
+        /* 下拉框选项白色文字 */
+        select option {
+            background-color: #374151;
+            color: white;
+        }
     </style>
 </head>
-<body class="bg-white text-gray-900 force-light">
+<body class="bg-gray-900 text-gray-100">
     <div class="min-h-screen">
         <!-- 导航栏 -->
-        <nav class="bg-gray-100 border-b border-gray-300">
+        <nav class="bg-gray-800 border-b border-gray-700">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center">
-                        <h1 class="text-xl font-bold text-green-600">
+                        <h1 class="text-xl font-bold text-green-400">
                             <a href="/" class="hover:text-green-300 transition-colors">
                                 Richer-js Fourmeme Trading
                             </a>
                         </h1>
                         <div class="hidden md:block">
-                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-white hover:bg-gray-700 transition-colors">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
                                 实验列表
                             </a>
-                            <a id="link-detail" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-white hover:bg-gray-700 transition-colors">
+                            <a id="link-detail" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
                                 实验详情
                             </a>
                             <a href="#" id="current-page" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">
                                 交易信号
                             </a>
-                            <a id="link-trades" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-white hover:bg-gray-700 transition-colors">
+                            <a id="link-trades" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
                                 交易记录
                             </a>
                         </div>
@@ -159,11 +165,11 @@
             <!-- 信号内容 -->
             <div id="signals-content" class="hidden">
                 <!-- 实验信息头部 -->
-                <div id="experiment-header" class="bg-gray-100 rounded-lg p-6 mb-8 border border-gray-300">
+                <div id="experiment-header" class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
                     <div class="flex items-center justify-between">
                         <div>
                             <h1 class="text-2xl font-bold text-white mb-2" id="experiment-name">实验名称</h1>
-                            <div class="flex items-center space-x-4 text-sm text-gray-500">
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
                                 <span id="experiment-id">ID: --</span>
                                 <span id="experiment-blockchain">区块链: --</span>
                                 <span id="signal-count">信号数量: 0</span>
@@ -178,12 +184,12 @@
                 </div>
 
                 <!-- 代币选择器 -->
-                <div class="bg-gray-100 rounded-lg p-4 mb-4 border border-gray-300">
+                <div class="bg-gray-800 rounded-lg p-4 mb-4 border border-gray-700">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-4">
                             <div>
-                                <label for="token-selector" class="block text-sm font-medium text-gray-700 mb-1">选择代币查看K线图</label>
-                                <select id="token-selector" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                                <label for="token-selector" class="block text-sm font-medium text-white mb-1">选择代币查看K线图</label>
+                                <select id="token-selector" class="px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm">
                                     <option value="all">全部代币</option>
                                 </select>
                             </div>
@@ -192,19 +198,19 @@
                 </div>
 
                 <!-- K线图控制 -->
-                <div class="bg-gray-100 rounded-lg p-4 mb-4 border border-gray-300">
+                <div class="bg-gray-800 rounded-lg p-4 mb-4 border border-gray-700">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h4 class="text-lg font-semibold text-gray-800">
+                            <h4 class="text-lg font-semibold text-white">
                                 <span id="chart-token-symbol">代币</span> K线图
                             </h4>
-                            <p class="text-sm text-gray-600">
+                            <p class="text-sm text-gray-400">
                                 <span id="chart-interval">1分钟</span> •
                                 <span id="chart-time-range">加载中...</span>
                             </p>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <span id="chart-status" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
+                            <span id="chart-status" class="px-3 py-1 bg-yellow-900 text-yellow-200 rounded-full text-sm font-medium">
                                 加载中
                             </span>
                         </div>
@@ -212,8 +218,8 @@
                 </div>
 
                 <!-- K线图 -->
-                <div class="bg-gray-100 rounded-lg border border-gray-300 mb-4">
-                    <div class="p-4 border-b border-gray-300">
+                <div class="bg-gray-800 rounded-lg border border-gray-700 mb-4">
+                    <div class="p-4 border-b border-gray-700">
                         <h2 class="text-lg font-semibold text-white">价格走势与交易信号</h2>
                     </div>
                     <div class="chart-container">
@@ -222,11 +228,11 @@
                 </div>
 
                 <!-- 信号筛选控件 -->
-                <div class="bg-gray-100 rounded-lg p-4 mb-8 border border-gray-300">
+                <div class="bg-gray-800 rounded-lg p-4 mb-8 border border-gray-700">
                     <div class="flex flex-wrap gap-4 items-end">
                         <div>
-                            <label for="action-filter" class="block text-sm font-medium text-gray-700 mb-2">信号类型</label>
-                            <select id="action-filter" class="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <label for="action-filter" class="block text-sm font-medium text-white mb-2">信号类型</label>
+                            <select id="action-filter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="all">所有信号</option>
                                 <option value="BUY">买入信号</option>
                                 <option value="SELL">卖出信号</option>
@@ -234,8 +240,8 @@
                             </select>
                         </div>
                         <div>
-                            <label for="limit" class="block text-sm font-medium text-gray-700 mb-2">显示数量</label>
-                            <select id="limit" class="px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <label for="limit" class="block text-sm font-medium text-white mb-2">显示数量</label>
+                            <select id="limit" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="50">50条</option>
                                 <option value="100" selected>100条</option>
                                 <option value="200">200条</option>
@@ -250,37 +256,37 @@
 
                 <!-- 信号统计 -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">买入信号</p>
-                                <p class="text-2xl font-bold text-green-600" id="buy-signals">0</p>
+                                <p class="text-sm font-medium text-gray-400">买入信号</p>
+                                <p class="text-2xl font-bold text-green-400" id="buy-signals">0</p>
                             </div>
-                            <div class="text-green-600 text-2xl">📈</div>
+                            <div class="text-green-400 text-2xl">📈</div>
                         </div>
                     </div>
-                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">卖出信号</p>
+                                <p class="text-sm font-medium text-gray-400">卖出信号</p>
                                 <p class="text-2xl font-bold text-red-400" id="sell-signals">0</p>
                             </div>
                             <div class="text-red-400 text-2xl">📉</div>
                         </div>
                     </div>
-                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">持有信号</p>
-                                <p class="text-2xl font-bold text-gray-500" id="hold-signals">0</p>
+                                <p class="text-sm font-medium text-gray-400">持有信号</p>
+                                <p class="text-2xl font-bold text-gray-400" id="hold-signals">0</p>
                             </div>
-                            <div class="text-gray-500 text-2xl">⏸️</div>
+                            <div class="text-gray-400 text-2xl">⏸️</div>
                         </div>
                     </div>
-                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-500">平均置信度</p>
+                                <p class="text-sm font-medium text-gray-400">平均置信度</p>
                                 <p class="text-2xl font-bold text-purple-400" id="avg-confidence">0%</p>
                             </div>
                             <div class="text-purple-400 text-2xl">🎯</div>
@@ -289,8 +295,8 @@
                 </div>
 
                 <!-- 信号列表 -->
-                <div class="bg-gray-100 rounded-lg border border-gray-300">
-                    <div class="p-4 border-b border-gray-300 flex items-center justify-between">
+                <div class="bg-gray-800 rounded-lg border border-gray-700">
+                    <div class="p-4 border-b border-gray-700 flex items-center justify-between">
                         <h2 class="text-lg font-semibold text-white">信号历史</h2>
                     </div>
                     <div id="signals-container" class="divide-y divide-gray-700 max-h-96 overflow-y-auto">
@@ -305,7 +311,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                         </svg>
                     </div>
-                    <h3 class="text-xl font-semibold text-gray-600 mb-2">暂无交易信号</h3>
+                    <h3 class="text-xl font-semibold text-gray-400 mb-2">暂无交易信号</h3>
                     <p class="text-gray-500">该实验尚未产生任何交易信号</p>
                 </div>
             </div>

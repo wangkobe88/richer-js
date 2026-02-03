@@ -106,12 +106,19 @@ class TradeSignal {
       confidence: strategySignal.confidence,
       reason: strategySignal.reason,
       metadata: {
+        // 价格相关
         price: strategySignal.price || null,
         earlyReturn: strategySignal.earlyReturn,
         buyPrice: strategySignal.buyPrice,
         currentPrice: strategySignal.currentPrice,
         collectionPrice: strategySignal.collectionPrice,
-        sellRatio: strategySignal.sellRatio  // 保存卖出比例
+        // 卖出相关
+        sellRatio: strategySignal.sellRatio,
+        profitPercent: strategySignal.profitPercent,
+        holdDuration: strategySignal.holdDuration,
+        // 卡牌管理相关
+        cards: strategySignal.cards || null,
+        cardConfig: strategySignal.cardConfig || null
       },
       executed: false  // 初始为未执行，成功执行后更新为 true
     });

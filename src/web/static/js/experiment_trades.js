@@ -100,7 +100,7 @@ class ExperimentTrades {
    */
   bindEvents() {
     // 交易卡片点击事件
-    const tradeCardsView = document.getElementById('trades-cards-view');
+    const tradeCardsView = document.getElementById('trades-container');
     if (tradeCardsView) {
       tradeCardsView.addEventListener('click', (e) => {
         const tradeCard = e.target.closest('.trade-card');
@@ -482,15 +482,15 @@ class ExperimentTrades {
     if (this.currentFilters.direction !== 'all') {
       const direction = this.currentFilters.direction.toLowerCase();
       filteredTrades = filteredTrades.filter(trade =>
-        (trade.trade_direction || trade.action || trade.trade_type || '').toLowerCase() === direction ||
-        (trade.trade_direction || trade.action || trade.trade_type || '') === direction.toUpperCase()
+        (trade.direction || trade.trade_direction || trade.action || trade.trade_type || '').toLowerCase() === direction ||
+        (trade.direction || trade.trade_direction || trade.action || trade.trade_type || '') === direction.toUpperCase()
       );
     }
 
     if (this.currentFilters.success !== 'all') {
       const isSuccess = this.currentFilters.success === 'true';
       filteredTrades = filteredTrades.filter(trade =>
-        (trade.trade_status === 'completed') === isSuccess
+        (trade.status === 'success' || trade.trade_status === 'completed') === isSuccess
       );
     }
 
@@ -501,7 +501,7 @@ class ExperimentTrades {
     }
 
     // 应用排序（默认按时间倒序）
-    filteredTrades.sort((a, b) => new Date(b.executed_at || 0) - new Date(a.executed_at || 0));
+    filteredTrades.sort((a, b) => new Date(b.created_at || b.executed_at || 0) - new Date(a.created_at || a.executed_at || 0));
 
     // 限制数量
     if (this.currentFilters.limit && this.currentFilters.limit > 0) {
@@ -537,16 +537,16 @@ class ExperimentTrades {
     }
 
     const totalTrades = tradesToCount.length;
-    const successfulTrades = tradesToCount.filter(trade => trade.trade_status === 'completed').length;
-    const failedTrades = tradesToCount.filter(trade => trade.trade_status !== 'completed').length;
+    const successfulTrades = tradesToCount.filter(trade => trade.status === 'success' || trade.trade_status === 'completed').length;
+    const failedTrades = tradesToCount.filter(trade => trade.status !== 'success' && trade.trade_status !== 'completed').length;
     const buyTrades = tradesToCount.filter(trade =>
-      (trade.trade_direction || trade.action || trade.trade_type || '').toLowerCase() === 'buy'
+      (trade.direction || trade.trade_direction || trade.action || trade.trade_type || '').toLowerCase() === 'buy'
     ).length;
     const sellTrades = tradesToCount.filter(trade =>
-      (trade.trade_direction || trade.action || trade.trade_type || '').toLowerCase() === 'sell'
+      (trade.direction || trade.trade_direction || trade.action || trade.trade_type || '').toLowerCase() === 'sell'
     ).length;
     const totalVolume = tradesToCount.reduce((sum, trade) =>
-      sum + parseFloat(trade.output_amount || trade.amount_native || 0), 0
+      sum + parseFloat(trade.amount || trade.output_amount || trade.amount_native || 0), 0
     );
     const avgTradeSize = totalVolume / totalTrades;
     const successRate = totalTrades > 0 ? (successfulTrades / totalTrades * 100).toFixed(1) + '%' : '0%';
@@ -581,7 +581,7 @@ class ExperimentTrades {
    * @param {Array} trades - 要渲染的交易数组（可选，默认使用所有交易）
    */
   renderTradeCards(trades = null) {
-    const container = document.getElementById('trades-cards-view');
+    const container = document.getElementById('trades-container');
     const emptyState = document.getElementById('empty-state');
 
     if (!container) return;
@@ -609,20 +609,30 @@ class ExperimentTrades {
    * 渲染单个交易卡片
    */
   renderTradeCard(trade) {
-    const action = trade.trade_direction || trade.action || trade.trade_type || 'unknown';
+    const action = trade.trade_direction || trade.direction || 'unknown';
     const isBuy = action === 'buy' || action === 'BUY';
-    const status = trade.trade_status || 'unknown';
-    const isCompleted = status === 'completed';
+    const status = trade.trade_status || trade.status || 'unknown';
+    const isCompleted = status === 'success' || status === 'completed';
 
     const actionClass = isBuy ? 'bg-green-500' : 'bg-red-500';
     const actionText = isBuy ? '买入' : '卖出';
     const statusClass = isCompleted ? 'bg-green-600' : 'bg-yellow-600';
     const statusText = isCompleted ? '已完成' : '进行中';
 
-    const amount = parseFloat(trade.output_amount || trade.amount_native || 0);
-    const price = parseFloat(trade.unit_price || trade.price_native || 0);
-    const time = trade.executed_at ? new Date(trade.executed_at).toLocaleString('zh-CN') : '--';
+    // 使用新的 input/output 字段
+    const inputCurrency = trade.input_currency || 'BNB';
+    const outputCurrency = trade.output_currency || 'Token';
+    const inputAmount = parseFloat(trade.input_amount || 0);
+    const outputAmount = parseFloat(trade.output_amount || 0);
+    const unitPrice = parseFloat(trade.unit_price || 0);
+
+    const time = trade.executed_at || trade.created_at ? new Date(trade.executed_at || trade.created_at).toLocaleString('zh-CN') : '--';
     const token = trade.token_symbol || trade.symbol || 'Unknown';
+
+    // Gas费用计算
+    const gasFee = (trade.gas_used && trade.gas_price)
+      ? parseFloat(trade.gas_used) * parseFloat(trade.gas_price) / 1e9
+      : 0;
 
     return `
       <div class="trade-card bg-gray-800 rounded-lg p-6 hover:bg-gray-700 transition-colors" data-trade-id="${trade.id}">
@@ -646,20 +656,20 @@ class ExperimentTrades {
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <p class="text-gray-400 text-sm">交易数量</p>
-            <p class="text-white font-medium">${parseFloat(trade.input_amount || trade.token_amount || 0).toFixed(4)}</p>
+            <p class="text-gray-400 text-sm">输入数量</p>
+            <p class="text-white font-medium">${inputAmount > 0 ? inputAmount.toFixed(6) : '0.000000'} ${inputCurrency}</p>
           </div>
           <div>
-            <p class="text-gray-400 text-sm">交易价格</p>
-            <p class="text-white font-medium">${price.toFixed(6)}</p>
+            <p class="text-gray-400 text-sm">输出数量</p>
+            <p class="text-white font-medium">${outputAmount > 0 ? outputAmount.toFixed(4) : '0.0000'} ${outputCurrency}</p>
           </div>
           <div>
-            <p class="text-gray-400 text-sm">交易金额</p>
-            <p class="text-white font-medium">${amount.toFixed(4)} BNB</p>
+            <p class="text-gray-400 text-sm">单价</p>
+            <p class="text-white font-medium">${unitPrice > 0 ? unitPrice.toFixed(8) : '0.00000000'}</p>
           </div>
           <div>
             <p class="text-gray-400 text-sm">Gas费用</p>
-            <p class="text-white font-medium">${parseFloat(trade.gas_used * trade.gas_price / 1000000000 || trade.gas_fee_native || 0).toFixed(6)} BNB</p>
+            <p class="text-white font-medium">${gasFee > 0 ? gasFee.toFixed(6) : '0.000000'} BNB</p>
           </div>
         </div>
       </div>
@@ -742,15 +752,15 @@ class ExperimentTrades {
           </div>
           <div>
             <p class="text-gray-400 text-sm">交易状态</p>
-            <p class="text-white font-medium">${trade.trade_status || 'unknown'}</p>
+            <p class="text-white font-medium">${trade.status || trade.trade_status || 'unknown'}</p>
           </div>
           <div>
             <p class="text-gray-400 text-sm">交易类型</p>
-            <p class="text-white font-medium">${trade.trade_direction || trade.action || trade.trade_type || 'unknown'}</p>
+            <p class="text-white font-medium">${trade.direction || trade.trade_direction || trade.action || trade.trade_type || 'unknown'}</p>
           </div>
           <div>
             <p class="text-gray-400 text-sm">执行时间</p>
-            <p class="text-white font-medium">${trade.executed_at ? new Date(trade.executed_at).toLocaleString('zh-CN') : '--'}</p>
+            <p class="text-white font-medium">${trade.created_at || trade.executed_at ? new Date(trade.created_at || trade.executed_at).toLocaleString('zh-CN') : '--'}</p>
           </div>
         </div>
 
@@ -770,19 +780,19 @@ class ExperimentTrades {
         <div class="grid grid-cols-2 gap-4">
           <div>
             <p class="text-gray-400 text-sm">交易数量</p>
-            <p class="text-white font-medium">${parseFloat(trade.input_amount || trade.token_amount || 0).toFixed(6)}</p>
+            <p class="text-white font-medium">${parseFloat(trade.amount || trade.input_amount || trade.token_amount || 0).toFixed(6)}</p>
           </div>
           <div>
             <p class="text-gray-400 text-sm">交易价格</p>
-            <p class="text-white font-medium">${parseFloat(trade.unit_price || trade.price_native || 0).toFixed(6)} BNB</p>
+            <p class="text-white font-medium">${parseFloat(trade.price || trade.unit_price || trade.price_native || 0).toFixed(6)} BNB</p>
           </div>
           <div>
             <p class="text-gray-400 text-sm">交易金额</p>
-            <p class="text-white font-medium">${parseFloat(trade.output_amount || trade.amount_native || 0).toFixed(4)} BNB</p>
+            <p class="text-white font-medium">${parseFloat(trade.amount || trade.output_amount || trade.amount_native || 0).toFixed(4)} BNB</p>
           </div>
           <div>
             <p class="text-gray-400 text-sm">Gas费用</p>
-            <p class="text-white font-medium">${parseFloat(trade.gas_used * trade.gas_price / 1000000000 || trade.gas_fee_native || 0).toFixed(6)} BNB</p>
+            <p class="text-white font-medium">${(trade.gas_used && trade.gas_price ? parseFloat(trade.gas_used) * parseFloat(trade.gas_price) / 1e9 : parseFloat(trade.gas_fee_native || 0)).toFixed(6)} BNB</p>
           </div>
         </div>
 
@@ -790,7 +800,7 @@ class ExperimentTrades {
         <div class="grid grid-cols-2 gap-4">
           <div>
             <p class="text-gray-400 text-sm">交易哈希</p>
-            <p class="text-white font-medium font-mono text-xs">${trade.transaction_hash || '--'}</p>
+            <p class="text-white font-medium font-mono text-xs">${trade.tx_hash || trade.transaction_hash || '--'}</p>
           </div>
           <div>
             <p class="text-gray-400 text-sm">区块号</p>
@@ -1015,7 +1025,7 @@ class ExperimentTrades {
     );
 
     tokenTrades.forEach(trade => {
-      const tradeTime = new Date(trade.timestamp || trade.created_at);
+      const tradeTime = new Date(trade.timestamp || trade.created_at || trade.executed_at);
       const direction = trade.direction || 'buy';
       const isBuy = direction === 'buy';
 
@@ -1204,13 +1214,13 @@ class ExperimentTrades {
     const tradeAnnotations = {};
     this.tradesData.forEach((trade, index) => {
       // 找到最接近的K线时间点
-      const tradeTime = new Date(trade.executed_at).getTime();
+      const tradeTime = new Date(trade.created_at || trade.executed_at).getTime();
       const closestKline = candlestickData.find(kline =>
         Math.abs(kline[0] - tradeTime) < (klineResponse.interval_minutes * 60 * 1000) // 一个K线间隔内
       );
 
       if (closestKline) {
-        const isBuy = (trade.trade_direction === 'buy' || trade.trade_direction === 'BUY' || trade.action === 'buy' || trade.trade_type === 'buy');
+        const isBuy = (trade.direction === 'buy' || trade.direction === 'BUY' || trade.trade_direction === 'buy' || trade.trade_direction === 'BUY' || trade.action === 'buy' || trade.trade_type === 'buy');
         tradeAnnotations[`trade_${index}`] = {
           type: 'point',
           xValue: closestKline[0],
@@ -1650,7 +1660,7 @@ class ExperimentTrades {
    * 切换视图
    */
   switchView(viewType) {
-    const cardsView = document.getElementById('trades-cards-view');
+    const cardsView = document.getElementById('trades-container');
     const tableView = document.getElementById('trades-table-view');
     const cardsBtn = document.getElementById('view-cards');
     const tableBtn = document.getElementById('view-table');
@@ -1687,15 +1697,15 @@ class ExperimentTrades {
     const currentTrades = filteredTrades.slice(startIndex, endIndex);
 
     tableBody.innerHTML = currentTrades.map(trade => {
-      const action = trade.trade_direction || trade.action || trade.trade_type || 'unknown';
+      const action = trade.direction || trade.trade_direction || trade.action || trade.trade_type || 'unknown';
       const isBuy = action === 'buy';
-      const status = trade.trade_status || 'unknown';
-      const isCompleted = status === 'completed';
+      const status = trade.status || trade.trade_status || 'unknown';
+      const isCompleted = status === 'success' || status === 'completed';
 
-      const time = trade.executed_at ? new Date(trade.executed_at).toLocaleString('zh-CN') : '--';
-      const amount = parseFloat(trade.input_amount || trade.token_amount || 0);
-      const price = parseFloat(trade.unit_price || trade.price_native || 0);
-      const total = parseFloat(trade.output_amount || trade.amount_native || 0);
+      const time = trade.created_at || trade.executed_at ? new Date(trade.created_at || trade.executed_at).toLocaleString('zh-CN') : '--';
+      const amount = parseFloat(trade.amount || trade.input_amount || trade.token_amount || 0);
+      const price = parseFloat(trade.price || trade.unit_price || trade.price_native || 0);
+      const total = parseFloat(trade.amount || trade.output_amount || trade.amount_native || 0);
 
       return `
         <tr class="hover:bg-gray-200">
@@ -1736,21 +1746,21 @@ class ExperimentTrades {
 
     // 准备导出数据
     const exportData = filteredTrades.map(trade => {
-      const action = trade.trade_direction || trade.action || trade.trade_type || 'unknown';
+      const action = trade.direction || trade.trade_direction || trade.action || trade.trade_type || 'unknown';
       const isBuy = action === 'buy';
-      const status = trade.trade_status || 'unknown';
-      const isCompleted = status === 'completed';
+      const status = trade.status || trade.trade_status || 'unknown';
+      const isCompleted = status === 'success' || status === 'completed';
 
       return {
-        时间: trade.executed_at ? new Date(trade.executed_at).toLocaleString('zh-CN') : '--',
+        时间: trade.created_at || trade.executed_at ? new Date(trade.created_at || trade.executed_at).toLocaleString('zh-CN') : '--',
         方向: isBuy ? '买入' : '卖出',
         代币: trade.token_symbol || trade.symbol || 'Unknown',
-        数量: parseFloat(trade.input_amount || trade.token_amount || 0).toFixed(6),
-        单价: parseFloat(trade.unit_price || trade.price_native || 0).toFixed(6),
-        总价: parseFloat(trade.output_amount || trade.amount_native || 0).toFixed(4) + ' BNB',
+        数量: parseFloat(trade.amount || trade.input_amount || trade.token_amount || 0).toFixed(6),
+        单价: parseFloat(trade.price || trade.unit_price || trade.price_native || 0).toFixed(6),
+        总价: parseFloat(trade.amount || trade.output_amount || trade.amount_native || 0).toFixed(4) + ' BNB',
         状态: isCompleted ? '成功' : '进行中',
-        Gas费用: parseFloat(trade.gas_used * trade.gas_price / 1000000000 || trade.gas_fee_native || 0).toFixed(6) + ' BNB',
-        交易哈希: trade.transaction_hash || '--'
+        Gas费用: (trade.gas_used && trade.gas_price ? parseFloat(trade.gas_used) * parseFloat(trade.gas_price) / 1e9 : parseFloat(trade.gas_fee_native || 0)).toFixed(6) + ' BNB',
+        交易哈希: trade.tx_hash || trade.transaction_hash || '--'
       };
     });
 

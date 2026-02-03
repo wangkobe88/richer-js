@@ -1,6 +1,11 @@
 /**
  * 交易实体 - 对应 trades 表
- * 用于 fourmeme 交易记录（虚拟和实盘）
+ * 参考 rich-js 的设计，使用 input/output 模式记录交易
+ *
+ * 买入时: input_currency=BNB, output_currency=代币
+ *        input_amount=花费的BNB, output_amount=获得的代币数量
+ * 卖出时: input_currency=代币, output_currency=BNB
+ *        input_amount=卖出的代币数量, output_amount=获得的BNB
  */
 
 const { v4: uuidv4 } = require('uuid');
@@ -27,23 +32,26 @@ class Trade {
 
     // 关联字段
     this.experimentId = tradeData.experimentId;
+    this.signalId = tradeData.signalId || null;
 
     // 代币信息
     this.tokenAddress = tradeData.tokenAddress;
     this.tokenSymbol = tradeData.tokenSymbol;
+    this.tokenId = tradeData.tokenId || null;
     this.chain = tradeData.chain || 'bsc';
 
-    // 交易类型和方向
-    this.tradeType = tradeData.tradeType; // 'virtual' | 'live'
-    this.direction = tradeData.direction; // 'buy' | 'sell'
+    // 交易方向和状态
+    this.tradeDirection = tradeData.tradeDirection || tradeData.direction;
+    this.tradeStatus = tradeData.tradeStatus || tradeData.status || TradeStatus.PENDING;
+    this.success = tradeData.success ?? false;
+    this.isVirtualTrade = tradeData.isVirtualTrade !== undefined ? tradeData.isVirtualTrade : true;
 
-    // 数量和价格
-    this.amount = tradeData.amount;
-    this.price = tradeData.price;
-
-    // 交易状态
-    this.status = tradeData.status || TradeStatus.PENDING;
-    this.success = tradeData.success;
+    // 🔥 input/output 模式 - 参考 rich-js
+    this.inputCurrency = tradeData.inputCurrency;   // 输入货币 (如 BNB, USDT)
+    this.outputCurrency = tradeData.outputCurrency; // 输出货币 (如 代币符号)
+    this.inputAmount = tradeData.inputAmount;       // 输入数量
+    this.outputAmount = tradeData.outputAmount;     // 输出数量
+    this.unitPrice = tradeData.unitPrice;           // 单价
 
     // 错误信息
     this.errorMessage = tradeData.errorMessage;
@@ -58,7 +66,7 @@ class Trade {
 
     // 时间字段
     this.createdAt = tradeData.createdAt || new Date();
-    this.updatedAt = tradeData.updatedAt || this.createdAt;
+    this.executedAt = tradeData.executedAt || null;
   }
 
   /**
@@ -69,22 +77,22 @@ class Trade {
     return {
       id: this.id,
       experiment_id: this.experimentId,
+      signal_id: this.signalId,
       token_address: this.tokenAddress,
       token_symbol: this.tokenSymbol,
-      chain: this.chain,
-      trade_type: this.tradeType,
-      direction: this.direction,
-      amount: this.amount ? this.amount.toString() : null,
-      price: this.price ? this.price.toString() : null,
-      status: this.status,
+      token_id: this.tokenId,
+      trade_direction: this.tradeDirection,
+      trade_status: this.tradeStatus,
+      input_currency: this.inputCurrency,
+      output_currency: this.outputCurrency,
+      input_amount: this.inputAmount ? this.inputAmount.toString() : null,
+      output_amount: this.outputAmount ? this.outputAmount.toString() : null,
+      unit_price: this.unitPrice ? this.unitPrice.toString() : null,
       success: this.success,
-      error_message: this.errorMessage,
-      tx_hash: this.txHash,
-      gas_used: this.gasUsed,
-      gas_price: this.gasPrice ? this.gasPrice.toString() : null,
-      metadata: this.metadata,
+      is_virtual_trade: this.isVirtualTrade,
       created_at: this.createdAt.toISOString(),
-      updated_at: this.updatedAt.toISOString()
+      executed_at: this.executedAt ? this.executedAt.toISOString() : null,
+      metadata: this.metadata
     };
   }
 
@@ -97,22 +105,23 @@ class Trade {
     const tradeData = {
       id: dbRow.id,
       experimentId: dbRow.experiment_id,
+      signalId: dbRow.signal_id,
       tokenAddress: dbRow.token_address,
       tokenSymbol: dbRow.token_symbol,
+      tokenId: dbRow.token_id,
       chain: dbRow.chain,
-      tradeType: dbRow.trade_type,
-      direction: dbRow.direction,
-      amount: dbRow.amount,
-      price: dbRow.price,
-      status: dbRow.status,
+      tradeDirection: dbRow.trade_direction,
+      tradeStatus: dbRow.trade_status,
+      inputCurrency: dbRow.input_currency,
+      outputCurrency: dbRow.output_currency,
+      inputAmount: dbRow.input_amount,
+      outputAmount: dbRow.output_amount,
+      unitPrice: dbRow.unit_price,
       success: dbRow.success,
-      errorMessage: dbRow.error_message,
-      txHash: dbRow.tx_hash,
-      gasUsed: dbRow.gas_used,
-      gasPrice: dbRow.gas_price,
-      metadata: dbRow.metadata || {},
+      isVirtualTrade: dbRow.is_virtual_trade,
       createdAt: new Date(dbRow.created_at),
-      updatedAt: new Date(dbRow.updated_at)
+      executedAt: dbRow.executed_at ? new Date(dbRow.executed_at) : null,
+      metadata: dbRow.metadata || {}
     };
 
     return new Trade(tradeData);
@@ -122,23 +131,59 @@ class Trade {
    * 从虚拟交易结果创建实例
    * @param {Object} tradeResult - 交易结果
    * @param {string} experimentId - 实验ID
+   * @param {string} signalId - 信号ID（可选）
+   * @param {string} nativeCurrency - 主币符号（如BNB）
    * @returns {Trade} 交易实例
    */
-  static fromVirtualTrade(tradeResult, experimentId) {
+  static fromVirtualTrade(tradeResult, experimentId, signalId = null, nativeCurrency = 'BNB') {
+    const isBuy = tradeResult.direction === 'buy';
+    const tokenSymbol = tradeResult.symbol || 'UNKNOWN';
+
+    let inputCurrency, outputCurrency, inputAmount, outputAmount, unitPrice;
+
+    if (isBuy) {
+      // 买入: 用BNB买代币
+      inputCurrency = nativeCurrency;
+      outputCurrency = tokenSymbol;
+      // tradeResult.amount 是获得的代币数量
+      // tradeResult.price 是单价（BNB per token）
+      // 花费的BNB = amount * price
+      outputAmount = tradeResult.amount || 0;
+      unitPrice = tradeResult.price || 0;
+      inputAmount = outputAmount * unitPrice;
+    } else {
+      // 卖出: 卖代币换BNB
+      inputCurrency = tokenSymbol;
+      outputCurrency = nativeCurrency;
+      // tradeResult.amount 是卖出的代币数量
+      // tradeResult.price 是单价（BNB per token）
+      // 获得的BNB = amount * price
+      inputAmount = tradeResult.amount || 0;
+      unitPrice = tradeResult.price || 0;
+      outputAmount = inputAmount * unitPrice;
+    }
+
     return new Trade({
       experimentId,
+      signalId,
       tokenAddress: tradeResult.tokenAddress,
-      tokenSymbol: tradeResult.symbol,
+      tokenSymbol,
       chain: tradeResult.chain || 'bsc',
-      tradeType: 'virtual',
-      direction: tradeResult.direction,
-      amount: tradeResult.amount,
-      price: tradeResult.price,
-      status: tradeResult.success ? TradeStatus.SUCCESS : TradeStatus.FAILED,
+      tradeDirection: tradeResult.direction,
+      tradeStatus: tradeResult.success ? TradeStatus.SUCCESS : TradeStatus.FAILED,
       success: tradeResult.success,
+      isVirtualTrade: true,
+      inputCurrency,
+      outputCurrency,
+      inputAmount,
+      outputAmount,
+      unitPrice,
       errorMessage: tradeResult.error,
+      executedAt: tradeResult.executedAt || new Date(),
       metadata: {
-        ...tradeResult
+        ...tradeResult.metadata,
+        cards: tradeResult.cards,
+        cardConfig: tradeResult.cardConfig
       }
     });
   }
@@ -147,26 +192,56 @@ class Trade {
    * 从实盘交易结果创建实例
    * @param {Object} tradeResult - 交易结果
    * @param {string} experimentId - 实验ID
+   * @param {string} signalId - 信号ID（可选）
+   * @param {string} nativeCurrency - 主币符号（如BNB）
    * @returns {Trade} 交易实例
    */
-  static fromLiveTrade(tradeResult, experimentId) {
+  static fromLiveTrade(tradeResult, experimentId, signalId = null, nativeCurrency = 'BNB') {
+    const isBuy = tradeResult.direction === 'buy';
+    const tokenSymbol = tradeResult.symbol || 'UNKNOWN';
+
+    let inputCurrency, outputCurrency, inputAmount, outputAmount, unitPrice;
+
+    if (isBuy) {
+      // 买入: 用BNB买代币
+      inputCurrency = nativeCurrency;
+      outputCurrency = tokenSymbol;
+      outputAmount = tradeResult.amount || 0;
+      unitPrice = tradeResult.price || 0;
+      inputAmount = outputAmount * unitPrice;
+    } else {
+      // 卖出: 卖代币换BNB
+      inputCurrency = tokenSymbol;
+      outputCurrency = nativeCurrency;
+      inputAmount = tradeResult.amount || 0;
+      unitPrice = tradeResult.price || 0;
+      outputAmount = inputAmount * unitPrice;
+    }
+
     return new Trade({
       experimentId,
+      signalId,
       tokenAddress: tradeResult.tokenAddress,
-      tokenSymbol: tradeResult.symbol,
+      tokenSymbol,
       chain: tradeResult.chain || 'bsc',
-      tradeType: 'live',
-      direction: tradeResult.direction,
-      amount: tradeResult.amount,
-      price: tradeResult.price,
-      status: tradeResult.success ? TradeStatus.SUCCESS : TradeStatus.FAILED,
+      tradeDirection: tradeResult.direction,
+      tradeStatus: tradeResult.success ? TradeStatus.SUCCESS : TradeStatus.FAILED,
       success: tradeResult.success,
+      isVirtualTrade: false,
+      inputCurrency,
+      outputCurrency,
+      inputAmount,
+      outputAmount,
+      unitPrice,
       errorMessage: tradeResult.error,
       txHash: tradeResult.txHash,
       gasUsed: tradeResult.gasUsed,
       gasPrice: tradeResult.gasPrice,
+      executedAt: tradeResult.executedAt || new Date(),
       metadata: {
-        ...tradeResult
+        ...tradeResult.metadata,
+        cards: tradeResult.cards,
+        cardConfig: tradeResult.cardConfig
       }
     });
   }
@@ -175,9 +250,11 @@ class Trade {
    * 标记交易为成功
    */
   markAsSuccess() {
-    this.status = TradeStatus.SUCCESS;
+    this.tradeStatus = TradeStatus.SUCCESS;
     this.success = true;
-    this.updatedAt = new Date();
+    if (!this.executedAt) {
+      this.executedAt = new Date();
+    }
   }
 
   /**
@@ -185,10 +262,9 @@ class Trade {
    * @param {string} errorMessage - 错误信息
    */
   markAsFailed(errorMessage) {
-    this.status = TradeStatus.FAILED;
+    this.tradeStatus = TradeStatus.FAILED;
     this.success = false;
     this.errorMessage = errorMessage;
-    this.updatedAt = new Date();
   }
 
   /**
@@ -201,13 +277,14 @@ class Trade {
     if (!this.experimentId) errors.push('experimentId is required');
     if (!this.tokenAddress) errors.push('tokenAddress is required');
     if (!this.tokenSymbol) errors.push('tokenSymbol is required');
-    if (!this.tradeType) errors.push('tradeType is required');
-    if (!['virtual', 'live'].includes(this.tradeType)) {
-      errors.push('tradeType must be virtual or live');
+    if (!this.tradeDirection) errors.push('tradeDirection is required');
+    if (!['buy', 'sell'].includes(this.tradeDirection)) {
+      errors.push('tradeDirection must be buy or sell');
     }
-    if (!this.direction) errors.push('direction is required');
-    if (!['buy', 'sell'].includes(this.direction)) {
-      errors.push('direction must be buy or sell');
+    if (!this.inputCurrency) errors.push('inputCurrency is required');
+    if (!this.outputCurrency) errors.push('outputCurrency is required');
+    if (this.inputAmount === null || this.inputAmount === undefined) {
+      errors.push('inputAmount is required');
     }
 
     return {
@@ -225,41 +302,50 @@ class Trade {
       id: this.id,
       symbol: this.tokenSymbol,
       tokenAddress: this.tokenAddress,
-      tradeType: this.tradeType,
-      direction: this.direction,
-      amount: this.amount,
-      price: this.price,
-      status: this.status,
+      direction: this.tradeDirection,
+      inputCurrency: this.inputCurrency,
+      outputCurrency: this.outputCurrency,
+      inputAmount: this.inputAmount,
+      outputAmount: this.outputAmount,
+      unitPrice: this.unitPrice,
+      status: this.tradeStatus,
       success: this.success,
       errorMessage: this.errorMessage,
-      timestamp: this.createdAt
+      executedAt: this.executedAt
     };
   }
 
   /**
-   * 转换为JSON格式
+   * 转换为JSON格式（API响应）
    * @returns {Object} 交易数据的JSON对象
    */
   toJSON() {
     return {
       id: this.id,
       experiment_id: this.experimentId,
+      signal_id: this.signalId,
       token_address: this.tokenAddress,
       token_symbol: this.tokenSymbol,
+      token_id: this.tokenId,
       chain: this.chain,
-      trade_type: this.tradeType,
-      direction: this.direction,
-      amount: this.amount,
-      price: this.price,
-      status: this.status,
+      trade_direction: this.tradeDirection,
+      trade_status: this.tradeStatus,
+      status: this.tradeStatus,  // 兼容旧前端
+      direction: this.tradeDirection,  // 兼容旧前端
+      input_currency: this.inputCurrency,
+      output_currency: this.outputCurrency,
+      input_amount: this.inputAmount,
+      output_amount: this.outputAmount,
+      unit_price: this.unitPrice,
       success: this.success,
+      is_virtual_trade: this.isVirtualTrade,
       error_message: this.errorMessage,
       tx_hash: this.txHash,
       gas_used: this.gasUsed,
       gas_price: this.gasPrice,
       metadata: this.metadata,
       created_at: this.createdAt,
-      updated_at: this.updatedAt,
+      executed_at: this.executedAt,
       timestamp: this.createdAt
     };
   }

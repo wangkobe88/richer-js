@@ -54,6 +54,9 @@ class TokenPool {
             collectionPrice: currentPrice, // 收集时的价格（作为基准价格）
             collectionTime: collectionTime, // 收集时间（用于计算 age）
             priceHistory: [], // 价格历史记录
+            // 历史最高价格追踪
+            highestPrice: currentPrice, // 历史最高价格
+            highestPriceTimestamp: collectionTime, // 最高价发生时间
             entryMetrics: null,
             rawApiData: rawApiData, // 保存完整的原始 API 数据
             // 卡牌仓位管理
@@ -151,6 +154,13 @@ class TokenPool {
 
         if (token) {
             token.currentPrice = price;
+
+            // 更新历史最高价格
+            if (price > (token.highestPrice || 0)) {
+                token.highestPrice = price;
+                token.highestPriceTimestamp = timestamp;
+            }
+
             // 记录价格历史（最多保留100条）
             token.priceHistory.push({
                 price: price,
