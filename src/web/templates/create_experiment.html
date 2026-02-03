@@ -525,6 +525,169 @@
         const buyTemplate = document.getElementById('buy-strategy-template');
         const sellTemplate = document.getElementById('sell-strategy-template');
 
+        // 🔥 检查是否是复制模式
+        const urlParams = new URLSearchParams(window.location.search);
+        const isCopyMode = urlParams.get('copy') === 'true';
+
+        if (isCopyMode) {
+            loadCopiedExperimentData();
+        }
+
+        // 加载复制的实验数据
+        async function loadCopiedExperimentData() {
+            try {
+                const copyDataStr = sessionStorage.getItem('copyExperimentData');
+                if (!copyDataStr) {
+                    showCopyModeNotice('❌ 未找到复制的实验数据');
+                    return;
+                }
+
+                const copyData = JSON.parse(copyDataStr);
+                console.log('📋 加载复制的实验数据:', copyData);
+
+                // 填充基本信息
+                if (copyData.experiment_name) {
+                    form.querySelector('[name="experiment_name"]').value = copyData.experiment_name;
+                }
+                if (copyData.experiment_description) {
+                    form.querySelector('[name="experiment_description"]').value = copyData.experiment_description;
+                }
+                if (copyData.trading_mode) {
+                    form.querySelector('[name="trading_mode"]').value = copyData.trading_mode;
+                }
+                if (copyData.blockchain) {
+                    form.querySelector('[name="blockchain"]').value = copyData.blockchain;
+                }
+                if (copyData.kline_type) {
+                    form.querySelector('[name="kline_type"]').value = copyData.kline_type;
+                }
+
+                // 填充回测配置
+                if (copyData.backtest?.initial_balance) {
+                    form.querySelector('[name="initial_balance"]').value = copyData.backtest.initial_balance;
+                }
+                if (copyData.virtual?.initial_balance) {
+                    form.querySelector('[name="initial_balance"]').value = copyData.virtual.initialBalance || copyData.virtual.initial_balance;
+                }
+                // 直接从 copyData 获取 initial_balance
+                if (copyData.initial_balance) {
+                    form.querySelector('[name="initial_balance"]').value = copyData.initial_balance;
+                }
+
+                // 填充仓位管理配置
+                if (copyData.positionManagement) {
+                    const pm = copyData.positionManagement;
+                    pmEnabled.checked = pm.enabled === true;
+                    pmConfig.style.display = pm.enabled ? 'block' : 'none';
+
+                    if (pm.totalCards) {
+                        form.querySelector('[name="total_cards"]').value = pm.totalCards;
+                    }
+                    if (pm.perCardMaxBNB) {
+                        form.querySelector('[name="per_card_max_bnb"]').value = pm.perCardMaxBNB;
+                    }
+                    if (pm.minCardsForTrade) {
+                        form.querySelector('[name="min_cards_for_trade"]').value = pm.minCardsForTrade;
+                    }
+                    if (pm.initialAllocation) {
+                        form.querySelector('[name="initial_bnb_cards"]').value = pm.initialAllocation.bnbCards || 4;
+                        form.querySelector('[name="initial_token_cards"]').value = pm.initialAllocation.tokenCards || 0;
+                    }
+                }
+
+                // 填充策略配置
+                // 清除默认预设策略
+                buyContainer.innerHTML = '';
+                sellContainer.innerHTML = '';
+                buyStrategyCount = 0;
+                sellStrategyCount = 0;
+
+                // 新格式：分离的 buyStrategies 和 sellStrategies
+                if (copyData.buyStrategies && Array.isArray(copyData.buyStrategies)) {
+                    copyData.buyStrategies.forEach(strategy => {
+                        addBuyStrategy({
+                            condition: strategy.condition,
+                            cards: strategy.cards,
+                            priority: strategy.priority,
+                            cooldown: strategy.cooldown,
+                            maxExecutions: strategy.maxExecutions,
+                            description: strategy.description
+                        });
+                    });
+                }
+
+                if (copyData.sellStrategies && Array.isArray(copyData.sellStrategies)) {
+                    copyData.sellStrategies.forEach(strategy => {
+                        addSellStrategy({
+                            condition: strategy.condition,
+                            cards: strategy.cards,
+                            priority: strategy.priority,
+                            cooldown: strategy.cooldown,
+                            maxExecutions: strategy.maxExecutions,
+                            description: strategy.description
+                        });
+                    });
+                }
+
+                // 兼容旧格式：strategies 数组（带 action 字段）
+                if (copyData.strategies && Array.isArray(copyData.strategies) && !copyData.buyStrategies) {
+                    copyData.strategies.forEach(strategy => {
+                        if (strategy.action === 'buy') {
+                            addBuyStrategy({
+                                condition: strategy.condition,
+                                cards: strategy.cards,
+                                priority: strategy.priority,
+                                cooldown: strategy.cooldown,
+                                maxExecutions: strategy.maxExecutions
+                            });
+                        } else if (strategy.action === 'sell') {
+                            addSellStrategy({
+                                condition: strategy.condition,
+                                cards: strategy.cards,
+                                priority: strategy.priority,
+                                cooldown: strategy.cooldown,
+                                maxExecutions: strategy.maxExecutions
+                            });
+                        }
+                    });
+                }
+
+                // 显示复制模式通知
+                showCopyModeNotice('✅ 已加载复制的实验配置，您可以修改后创建新实验');
+
+                // 清除sessionStorage
+                sessionStorage.removeItem('copyExperimentData');
+
+            } catch (error) {
+                console.error('❌ 加载复制数据失败:', error);
+                showCopyModeNotice('❌ 加载复制数据失败: ' + error.message);
+            }
+        }
+
+        // 显示复制模式通知
+        function showCopyModeNotice(message) {
+            const notice = document.createElement('div');
+            notice.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center space-x-2';
+            notice.innerHTML = `
+                <span>${message}</span>
+                <button onclick="this.parentElement.remove()" class="text-indigo-200 hover:text-white">
+                    ✕
+                </button>
+            `;
+            document.body.appendChild(notice);
+
+            // 5秒后自动消失
+            setTimeout(() => {
+                notice.style.opacity = '0';
+                notice.style.transition = 'opacity 0.3s';
+                setTimeout(() => {
+                    if (notice.parentElement) {
+                        notice.parentElement.removeChild(notice);
+                    }
+                }, 300);
+            }, 5000);
+        }
+
         // 卡牌管理启用/禁用
         pmEnabled.addEventListener('change', () => {
             pmConfig.style.display = pmEnabled.checked ? 'block' : 'none';

@@ -207,9 +207,9 @@ class VirtualTradingEngine {
 
     // 6. 初始化卡牌仓位管理配置
     const experimentConfig = this._experiment?.config || {};
-    const defaultStrategyConfig = config.strategy || {};
-    const strategyConfig = experimentConfig.strategy || defaultStrategyConfig;
-    this._positionManagement = strategyConfig.positionManagement || null;
+    // 新格式：positionManagement 直接在 config 下
+    // 旧格式：positionManagement 在 config.strategy 下
+    this._positionManagement = experimentConfig.positionManagement || experimentConfig.strategy?.positionManagement || null;
     if (this._positionManagement && this._positionManagement.enabled) {
       console.log(`✅ 卡牌仓位管理已启用: 总卡牌数=${this._positionManagement.totalCards || 4}, 单卡BNB=${this._positionManagement.perCardMaxBNB || 0.025}`);
     }
@@ -884,6 +884,102 @@ class VirtualTradingEngine {
    * @returns {Array} 策略配置数组
    */
   _buildStrategyConfig() {
+    const experimentConfig = this._experiment?.config || {};
+
+    // 优先使用前端配置的卡牌策略系统 (strategiesConfig)
+    if (experimentConfig.strategiesConfig) {
+      return this._buildStrategiesFromConfig(experimentConfig.strategiesConfig);
+    }
+
+    // 兼容旧格式：使用硬编码的默认策略
+    return this._buildDefaultStrategies();
+  }
+
+  /**
+   * 从前端配置构建策略
+   * @private
+   * @param {Object} strategiesConfig - 策略配置
+   * @param {Array} strategiesConfig.buyStrategies - 买入策略数组
+   * @param {Array} strategiesConfig.sellStrategies - 卖出策略数组
+   * @returns {Array} 策略配置数组
+   */
+  _buildStrategiesFromConfig(strategiesConfig) {
+    const strategies = [];
+    let buyIndex = 0;
+    let sellIndex = 0;
+
+    // 处理买入策略
+    if (strategiesConfig.buyStrategies && Array.isArray(strategiesConfig.buyStrategies)) {
+      for (const buyStrategy of strategiesConfig.buyStrategies) {
+        buyIndex++;
+        strategies.push({
+          id: `custom_buy_${buyIndex}`,
+          name: buyStrategy.description || `买入策略 #${buyIndex}`,
+          action: 'buy',
+          priority: buyStrategy.priority !== undefined ? buyStrategy.priority : 10,
+          cooldown: buyStrategy.cooldown !== undefined ? buyStrategy.cooldown : 60,
+          enabled: true,
+          cards: buyStrategy.cards !== undefined ? buyStrategy.cards : 1,
+          condition: buyStrategy.condition || 'true',
+          maxExecutions: buyStrategy.maxExecutions
+        });
+      }
+      console.log(`📋 加载了 ${buyIndex} 个自定义买入策略`);
+    }
+
+    // 处理卖出策略
+    if (strategiesConfig.sellStrategies && Array.isArray(strategiesConfig.sellStrategies)) {
+      for (const sellStrategy of strategiesConfig.sellStrategies) {
+        sellIndex++;
+        const cards = sellStrategy.cards !== undefined ? sellStrategy.cards : 'all';
+
+        strategies.push({
+          id: `custom_sell_${sellIndex}`,
+          name: sellStrategy.description || `卖出策略 #${sellIndex}`,
+          action: 'sell',
+          priority: sellStrategy.priority !== undefined ? sellStrategy.priority : 10,
+          cooldown: sellStrategy.cooldown !== undefined ? sellStrategy.cooldown : 30,
+          enabled: true,
+          cards: cards,
+          condition: sellStrategy.condition || 'true',
+          maxExecutions: sellStrategy.maxExecutions,
+          sellRatio: this._calculateSellRatio(cards)
+        });
+      }
+      console.log(`📋 加载了 ${sellIndex} 个自定义卖出策略`);
+    }
+
+    return strategies;
+  }
+
+  /**
+   * 计算卖出比例
+   * @private
+   * @param {number|string} cards - 卡牌数量或 'all'
+   * @returns {number} 卖出比例
+   */
+  _calculateSellRatio(cards) {
+    const positionManagement = this._positionManagement || {};
+    const totalCards = positionManagement.totalCards || 4;
+
+    if (cards === 'all' || cards === undefined) {
+      return 1.0;
+    }
+
+    const cardNum = parseInt(cards);
+    if (isNaN(cardNum)) {
+      return 1.0;
+    }
+
+    return Math.min(cardNum / totalCards, 1.0);
+  }
+
+  /**
+   * 构建默认策略（向后兼容）
+   * @private
+   * @returns {Array} 策略配置数组
+   */
+  _buildDefaultStrategies() {
     // 优先使用实验配置中的策略参数，否则使用默认配置
     const experimentConfig = this._experiment?.config || {};
     const defaultStrategyConfig = config.strategy || {};
@@ -915,6 +1011,8 @@ class VirtualTradingEngine {
 
     // 预计算需要用算术表达式的值（ConditionEvaluator不支持算术运算）
     const stopLossSeconds = stopLossMinutes * 60;
+
+    console.log('⚠️ 使用默认硬编码策略（未配置自定义策略）');
 
     return [
       {

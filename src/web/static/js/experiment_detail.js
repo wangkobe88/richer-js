@@ -797,7 +797,404 @@ class ExperimentDetail {
     return symbols[blockchain] || 'BNB';
   }
 
-  
+  /**
+   * 渲染交易策略列表
+   */
+  renderStrategies() {
+    if (!this.experiment) return;
+
+    const container = document.getElementById('strategies-container');
+    if (!container) return;
+
+    const config = this.parseConfig(this.experiment.config);
+
+    // 优先检查新的卡牌策略格式 (strategiesConfig)
+    if (config.strategiesConfig) {
+      this.renderCardStrategies(container, config.strategiesConfig, config.positionManagement);
+      return;
+    }
+
+    // 获取策略列表 - 优先从代币配置中获取
+    let strategies = [];
+
+    if (config.targetTokens && config.targetTokens.length > 0) {
+      // 从代币配置中提取策略
+      config.targetTokens.forEach(token => {
+        if (token.strategies && token.strategies.length > 0) {
+          token.strategies.forEach(strategy => {
+            strategies.push({
+              ...strategy,
+              tokenSymbol: token.symbol,
+              tokenAddress: token.address,
+              isTokenSpecific: true
+            });
+          });
+        }
+      });
+    }
+
+    // 如果没有代币专属策略，使用全局策略
+    if (strategies.length === 0 && config.strategies && config.strategies.length > 0) {
+      strategies = config.strategies.map(s => ({
+        ...s,
+        isTokenSpecific: false
+      }));
+    }
+
+    // 兼容旧格式：config.strategy (单数对象)
+    if (strategies.length === 0 && config.strategy) {
+      const strategyType = this.experiment.strategyType || 'fourmeme_earlyreturn';
+      strategies = [{
+        type: strategyType,
+        name: this.getStrategyDisplayName(strategyType),
+        params: config.strategy,
+        isTokenSpecific: false
+      }];
+    }
+
+    // 如果仍然没有策略，显示提示
+    if (strategies.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+          <div class="text-gray-400 mb-4">
+            <svg class="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-gray-600 mb-2">暂无策略配置</h3>
+          <p class="text-gray-500">该实验尚未配置交易策略</p>
+        </div>
+      `;
+      return;
+    }
+
+    // 渲染策略列表
+    container.innerHTML = `
+      <div class="space-y-4">
+        ${strategies.map((strategy, index) => this.renderStrategyCard(strategy, index)).join('')}
+      </div>
+    `;
+  }
+
+  /**
+   * 渲染卡牌策略配置
+   */
+  renderCardStrategies(container, strategiesConfig, positionManagement) {
+    const buyStrategies = strategiesConfig.buyStrategies || [];
+    const sellStrategies = strategiesConfig.sellStrategies || [];
+
+    container.innerHTML = `
+      <div class="space-y-6">
+        <!-- 卡牌管理配置 -->
+        ${positionManagement ? this.renderPositionManagement(positionManagement) : ''}
+
+        <!-- 买入策略 -->
+        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+          <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+            买入策略 (${buyStrategies.length})
+          </h4>
+          ${buyStrategies.length > 0 ? `
+            <div class="space-y-3">
+              ${buyStrategies.map((s, i) => this.renderCardStrategy(s, i, 'buy')).join('')}
+            </div>
+          ` : '<p class="text-gray-500 text-sm">暂无买入策略</p>'}
+        </div>
+
+        <!-- 卖出策略 -->
+        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+          <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+            卖出策略 (${sellStrategies.length})
+          </h4>
+          ${sellStrategies.length > 0 ? `
+            <div class="space-y-3">
+              ${sellStrategies.map((s, i) => this.renderCardStrategy(s, i, 'sell')).join('')}
+            </div>
+          ` : '<p class="text-gray-500 text-sm">暂无卖出策略</p>'}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 渲染卡牌管理配置
+   */
+  renderPositionManagement(pm) {
+    return `
+      <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 border border-purple-200 shadow-sm">
+        <h4 class="text-lg font-semibold text-purple-900 mb-3 flex items-center">
+          🃏 卡牌管理配置
+          ${pm.enabled ? '<span class="ml-2 px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">已启用</span>' : '<span class="ml-2 px-2 py-0.5 bg-gray-400 text-white text-xs rounded-full">未启用</span>'}
+        </h4>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
+            <div class="text-xs text-gray-500 mb-1">总卡牌数</div>
+            <div class="font-bold text-purple-700">${pm.totalCards || 0}</div>
+          </div>
+          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
+            <div class="text-xs text-gray-500 mb-1">单卡最大BNB</div>
+            <div class="font-bold text-purple-700">${pm.perCardMaxBNB || 0}</div>
+          </div>
+          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
+            <div class="text-xs text-gray-500 mb-1">最小交易卡牌</div>
+            <div class="font-bold text-purple-700">${pm.minCardsForTrade || 1}</div>
+          </div>
+          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
+            <div class="text-xs text-gray-500 mb-1">初始BNB卡牌</div>
+            <div class="font-bold text-purple-700">${pm.initialAllocation?.bnbCards || 0}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 渲染单个卡牌策略
+   */
+  renderCardStrategy(strategy, index, type) {
+    const isBuy = type === 'buy';
+    const bgColor = isBuy ? 'bg-green-50' : 'bg-red-50';
+    const borderColor = isBuy ? 'border-green-200' : 'border-red-200';
+    const titleColor = isBuy ? 'text-green-800' : 'text-red-800';
+    const badgeColor = isBuy ? 'bg-green-600' : 'bg-red-600';
+
+    return `
+      <div class="${bgColor} rounded-lg p-3 border ${borderColor} shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center space-x-2">
+            <span class="${badgeColor} text-white text-xs px-2 py-1 rounded-full font-bold">#${index + 1}</span>
+            <span class="font-semibold ${titleColor}">优先级: ${strategy.priority}</span>
+            ${strategy.maxExecutions ? `<span class="text-xs text-gray-600">最多执行: ${strategy.maxExecutions}次</span>` : '<span class="text-xs text-gray-600">无限执行</span>'}
+          </div>
+          <span class="text-xs text-gray-600">冷却: ${strategy.cooldown}s</span>
+        </div>
+        <div class="bg-white rounded-lg px-3 py-2 border ${borderColor} mb-2">
+          <div class="text-xs text-gray-500 mb-1">触发条件</div>
+          <code class="text-sm ${titleColor} font-mono break-all">${this._escapeHtml(strategy.condition)}</code>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-gray-600">
+            <span class="mr-3">🃏 卡牌: <strong>${strategy.cards === 'all' ? '全部' : strategy.cards}</strong></span>
+          </span>
+          ${strategy.description ? `<span class="text-gray-500 text-xs">${this._escapeHtml(strategy.description)}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 渲染单个策略卡片
+   */
+  renderStrategyCard(strategy, index) {
+    const strategyType = strategy.type || 'unknown';
+    const strategyName = strategy.name || strategy.type || `策略${index + 1}`;
+    const isLayeredRSI = strategyType === 'rsi' && strategy.params &&
+                          (strategy.params.buyAtRSI || strategy.params.sellAtRSI);
+
+    // 根据策略类型选择颜色主题
+    const typeColors = {
+      'fourmeme_earlyreturn': { bg: 'bg-emerald-50', border: 'border-emerald-200', title: 'text-emerald-700', accent: 'bg-emerald-600' },
+      'early_return': { bg: 'bg-emerald-50', border: 'border-emerald-200', title: 'text-emerald-700', accent: 'bg-emerald-600' },
+      'earlyreturn': { bg: 'bg-emerald-50', border: 'border-emerald-200', title: 'text-emerald-700', accent: 'bg-emerald-600' },
+      'rsi': { bg: 'bg-purple-50', border: 'border-purple-200', title: 'text-purple-700', accent: 'bg-purple-600' },
+      'bollinger': { bg: 'bg-blue-50', border: 'border-blue-200', title: 'text-blue-700', accent: 'bg-blue-600' },
+      'macd': { bg: 'bg-green-50', border: 'border-green-200', title: 'text-green-700', accent: 'bg-green-600' },
+      'ema': { bg: 'bg-yellow-50', border: 'border-yellow-200', title: 'text-yellow-700', accent: 'bg-yellow-600' },
+      'default': { bg: 'bg-gray-50', border: 'border-gray-200', title: 'text-gray-700', accent: 'bg-gray-600' }
+    };
+
+    const colors = typeColors[strategyType] || typeColors['default'];
+
+    return `
+      <div class="${colors.bg} rounded-lg border ${colors.border} overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+        <!-- 策略标题栏 -->
+        <div class="px-4 py-3 ${colors.accent} flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <span class="text-white font-bold text-lg">#${index + 1}</span>
+            <div>
+              <h4 class="text-white font-bold text-base">${strategyName}</h4>
+              ${strategy.isTokenSpecific ? `<span class="text-white text-xs opacity-80">用于 ${strategy.tokenSymbol}</span>` : '<span class="text-white text-xs opacity-80">全局策略</span>'}
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="px-3 py-1 bg-white bg-opacity-20 text-white text-xs font-bold rounded-full uppercase">
+              ${strategyType}
+            </span>
+            ${isLayeredRSI ? '<span class="px-3 py-1 bg-yellow-400 text-yellow-900 text-xs font-bold rounded-full">分层模式</span>' : ''}
+          </div>
+        </div>
+
+        <!-- 策略内容 -->
+        <div class="p-4">
+          ${isLayeredRSI ? this.renderLayeredRSIStrategy(strategy) : this.renderRegularStrategy(strategy)}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 渲染分层RSI策略
+   */
+  renderLayeredRSIStrategy(strategy) {
+    const params = strategy.params || {};
+
+    return `
+      <!-- 基本参数 -->
+      <div class="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+        ${params.period ? `
+          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
+            <div class="text-xs text-gray-500 mb-1">RSI周期</div>
+            <div class="font-bold text-purple-700">${params.period}</div>
+          </div>
+        ` : ''}
+        ${params.dataPoints ? `
+          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
+            <div class="text-xs text-gray-500 mb-1">数据点数</div>
+            <div class="font-bold text-purple-700">${params.dataPoints}</div>
+          </div>
+        ` : ''}
+        ${params.enableLong !== undefined ? `
+          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
+            <div class="text-xs text-gray-500 mb-1">做多</div>
+            <div class="font-bold ${params.enableLong ? 'text-green-600' : 'text-red-500'}">${params.enableLong ? '✓' : '✗'}</div>
+          </div>
+        ` : ''}
+        ${params.enableShort !== undefined ? `
+          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
+            <div class="text-xs text-gray-500 mb-1">做空</div>
+            <div class="font-bold ${params.enableShort ? 'text-green-600' : 'text-red-500'}">${params.enableShort ? '✓' : '✗'}</div>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- 买入层级 -->
+      ${params.buyAtRSI && Array.isArray(params.buyAtRSI) && params.buyAtRSI.length > 0 ? `
+        <div class="mb-4">
+          <div class="flex items-center mb-3">
+            <span class="text-green-600 font-bold text-sm mr-2">📈 买入层级</span>
+            <span class="text-xs text-gray-500">(${params.buyAtRSI.length}个)</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            ${params.buyAtRSI.map((level, idx) => `
+              <div class="bg-gradient-to-br from-green-50 to-white rounded-lg p-3 border-2 border-green-300 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="bg-green-600 text-white text-xs px-2 py-1 rounded-full font-bold">#${idx + 1}</span>
+                  <span class="text-xs text-gray-500">优先级 ${level.priority || (params.buyAtRSI.length - idx)}</span>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-green-700 mb-1">RSI &lt; ${level.rsi}</div>
+                  <div class="flex items-center justify-center space-x-4 text-sm text-green-600">
+                    <span class="flex items-center">
+                      <span class="mr-1">🃏</span>${level.cards}卡
+                    </span>
+                    <span class="flex items-center">
+                      <span class="mr-1">⏱</span>${level.cooldown}s
+                    </span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- 卖出层级 -->
+      ${params.sellAtRSI && Array.isArray(params.sellAtRSI) && params.sellAtRSI.length > 0 ? `
+        <div>
+          <div class="flex items-center mb-3">
+            <span class="text-red-600 font-bold text-sm mr-2">📉 卖出层级</span>
+            <span class="text-xs text-gray-500">(${params.sellAtRSI.length}个)</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            ${params.sellAtRSI.map((level, idx) => `
+              <div class="bg-gradient-to-br from-red-50 to-white rounded-lg p-3 border-2 border-red-300 shadow-sm">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold">#${idx + 1}</span>
+                  <span class="text-xs text-gray-500">优先级 ${level.priority || (params.sellAtRSI.length - idx)}</span>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-red-700 mb-1">RSI &gt; ${level.rsi}</div>
+                  <div class="flex items-center justify-center space-x-4 text-sm text-red-600">
+                    <span class="flex items-center">
+                      <span class="mr-1">🃏</span>${level.cards === 'all' ? '全部' : level.cards + '卡'}
+                    </span>
+                    <span class="flex items-center">
+                      <span class="mr-1">⏱</span>${level.cooldown}s
+                    </span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  /**
+   * 渲染常规策略
+   */
+  renderRegularStrategy(strategy) {
+    const params = strategy.params || {};
+    const config = strategy.config || {};
+
+    return `
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- 策略参数 -->
+        ${Object.keys(params).length > 0 ? `
+          <div class="bg-white rounded-lg p-3 border border-gray-200">
+            <h5 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+              <span class="mr-1">⚙️</span>参数
+            </h5>
+            <div class="space-y-2">
+              ${Object.entries(params).slice(0, 8).map(([key, value]) => `
+                <div class="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
+                  <span class="text-gray-600 text-sm">${this.formatConfigKey(key)}</span>
+                  <span class="font-medium text-gray-900 text-sm">${this.renderConfigValue(value)}</span>
+                </div>
+              `).join('')}
+              ${Object.keys(params).length > 8 ? `
+                <div class="text-xs text-gray-500 text-center pt-1">
+                  ... 还有 ${Object.keys(params).length - 8} 个参数
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- 策略配置 -->
+        ${Object.keys(config).length > 0 ? `
+          <div class="bg-white rounded-lg p-3 border border-gray-200">
+            <h5 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+              <span class="mr-1">🔧</span>配置
+            </h5>
+            <div class="space-y-2">
+              ${Object.entries(config).slice(0, 8).map(([key, value]) => `
+                <div class="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
+                  <span class="text-gray-600 text-sm">${this.formatConfigKey(key)}</span>
+                  <span class="font-medium text-gray-900 text-sm">${this.renderConfigValue(value)}</span>
+                </div>
+              `).join('')}
+              ${Object.keys(config).length > 8 ? `
+                <div class="text-xs text-gray-500 text-center pt-1">
+                  ... 还有 ${Object.keys(config).length - 8} 个配置
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
+        ${Object.keys(params).length === 0 && Object.keys(config).length === 0 ? `
+          <div class="col-span-full text-center py-4 bg-gray-50 rounded text-gray-500 text-sm">
+            暂无参数配置
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+
   /**
    * 渲染概览标签
    */
@@ -806,6 +1203,9 @@ class ExperimentDetail {
 
     // 计算并更新统计数据
     this.calculateAndDisplayStatistics();
+
+    // 渲染交易策略
+    this.renderStrategies();
 
     // 渲染实验配置
     const configContainer = document.getElementById('experiment-config');
@@ -1763,10 +2163,45 @@ class ExperimentDetail {
   }
 
   /**
+   * 获取策略类型的显示名称
+   */
+  getStrategyDisplayName(strategyType) {
+    const names = {
+      'fourmeme_earlyreturn': 'Fourmeme Early Return 策略',
+      'rsi': 'RSI 策略',
+      'bollinger': '布林带策略',
+      'macd': 'MACD 策略',
+      'ema': 'EMA 均线策略',
+      'early_return': 'Early Return 策略',
+      'earlyreturn': 'Early Return 策略'
+    };
+    return names[strategyType] || strategyType;
+  }
+
+  /**
+   * 转义HTML特殊字符
+   * @private
+   * @param {string} text - 原始文本
+   * @returns {string} 转义后的文本
+   */
+  _escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  /**
    * 格式化配置键名为中文
    */
   formatConfigKey(key) {
     const keyMap = {
+      // Fourmeme Early Return 策略参数
+      'takeProfit1': '第一止盈位 (%)',
+      'takeProfit2': '第二止盈位 (%)',
+      'buyTimeMinutes': '买入时间 (分钟)',
+      'stopLossMinutes': '止损时间 (分钟)',
+      'takeProfit1Sell': '第一止盈卖出比例',
+      'takeProfit2Sell': '第二止盈卖出比例',
       // 策略参数
       'period': '周期',
       'oversoldLevel': '超卖水平',

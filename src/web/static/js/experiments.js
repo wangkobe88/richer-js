@@ -66,10 +66,18 @@ class ExperimentMonitor {
           return;
         }
 
-        const copyBtn = e.target.closest('[data-action="copy-id"]');
-        if (copyBtn) {
-          const id = copyBtn.getAttribute('data-id');
+        const copyIdBtn = e.target.closest('[data-action="copy-id"]');
+        if (copyIdBtn) {
+          const id = copyIdBtn.getAttribute('data-id');
           this.copyExperimentId(id);
+          return;
+        }
+
+        const copyExpBtn = e.target.closest('[data-action="copy-experiment"]');
+        if (copyExpBtn) {
+          const id = copyExpBtn.getAttribute('data-id');
+          this.copyExperiment(id);
+          return;
         }
       });
     }
@@ -230,7 +238,10 @@ class ExperimentMonitor {
               <a href="/experiment/${exp.id}/observer" class="text-emerald-600 hover:text-emerald-800 text-sm">
                 时序
               </a>
-              <button data-action="delete" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-red-600 hover:text-red-800 text-sm font-medium">
+              <button data-action="copy-experiment" data-id="${exp.id}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors">
+                📋 复制
+              </button>
+              <button data-action="delete" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-red-600 hover:text-red-800 text-sm font-medium px-2 py-1 bg-red-50 hover:bg-red-100 rounded transition-colors">
                 🗑️ 删除
               </button>
             </div>
@@ -375,6 +386,140 @@ class ExperimentMonitor {
         alert('❌ 复制失败，请手动复制ID');
       }
     }
+  }
+
+  /**
+   * 复制实验配置并跳转到创建实验页面
+   * @param {string} experimentId - 实验ID
+   */
+  async copyExperiment(experimentId) {
+    try {
+      console.log('📋 开始复制实验:', experimentId);
+
+      // 显示复制状态
+      this.showCopyLoading(experimentId);
+
+      // 获取实验详细信息
+      const response = await fetch(`/api/experiment/${experimentId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const experiment = result.data;
+
+      console.log('📦 获取到实验数据:', experiment);
+
+      // 构建复制数据
+      const config = experiment.config || {};
+
+      // 处理策略配置 - 支持新旧两种格式
+      let buyStrategies = [];
+      let sellStrategies = [];
+
+      // 新格式：strategiesConfig
+      if (config.strategiesConfig) {
+        buyStrategies = config.strategiesConfig.buyStrategies || [];
+        sellStrategies = config.strategiesConfig.sellStrategies || [];
+      }
+      // 旧格式：strategies 数组
+      else if (config.strategies && Array.isArray(config.strategies)) {
+        config.strategies.forEach(s => {
+          if (s.action === 'buy') {
+            buyStrategies.push(s);
+          } else if (s.action === 'sell') {
+            sellStrategies.push(s);
+          }
+        });
+      }
+
+      const copyData = {
+        // 基本信息
+        experiment_name: (experiment.experimentName || experiment.experiment_name || '') + ' - 副本',
+        experiment_description: (experiment.experimentDescription || experiment.experiment_description || '') + ' (复制的实验)',
+
+        // 实验设置
+        trading_mode: experiment.tradingMode || experiment.trading_mode || 'virtual',
+        blockchain: experiment.blockchain || experiment.blockchain || 'bsc',
+        kline_type: experiment.klineType || experiment.kline_type || '1m',
+
+        // 策略配置 - 使用统一格式
+        buyStrategies: buyStrategies,
+        sellStrategies: sellStrategies,
+
+        // 仓位管理
+        positionManagement: config.positionManagement,
+
+        // 回测配置
+        backtest: config.backtest || config.backtestConfig,
+
+        // 虚拟交易配置
+        virtual: config.virtual || config.virtualConfig
+      };
+
+      // 添加 initial_balance 从 virtual 配置中获取
+      if (config.virtual) {
+        copyData.initial_balance = config.virtual.initialBalance || config.virtual.initial_balance || 100;
+      }
+
+      console.log('📋 准备复制的配置数据:', copyData);
+
+      // 将配置存储到 sessionStorage
+      sessionStorage.setItem('copyExperimentData', JSON.stringify(copyData));
+
+      // 显示成功提示并跳转
+      this.showCopySuccess('✅ 正在跳转到创建实验页面...');
+
+      // 延迟跳转以便看到提示
+      setTimeout(() => {
+        window.location.href = '/create-experiment?copy=true';
+      }, 500);
+
+    } catch (error) {
+      console.error('❌ 复制实验失败:', error);
+      this.showCopyError(`复制实验失败: ${error.message}`);
+    } finally {
+      this.hideCopyLoading(experimentId);
+    }
+  }
+
+  /**
+   * 显示复制加载状态
+   * @param {string} experimentId - 实验ID
+   */
+  showCopyLoading(experimentId) {
+    const card = document.querySelector(`[data-id="${experimentId}"]`);
+    if (!card) return;
+
+    // 找到复制按钮并添加加载状态
+    const copyBtn = card.querySelector('[data-action="copy-experiment"]');
+    if (copyBtn) {
+      copyBtn.disabled = true;
+      copyBtn.innerHTML = '⏳ 复制中...';
+    }
+  }
+
+  /**
+   * 隐藏复制加载状态
+   * @param {string} experimentId - 实验ID
+   */
+  hideCopyLoading(experimentId) {
+    const card = document.querySelector(`[data-id="${experimentId}"]`);
+    if (!card) return;
+
+    const copyBtn = card.querySelector('[data-action="copy-experiment"]');
+    if (copyBtn) {
+      copyBtn.disabled = false;
+      copyBtn.innerHTML = '📋 复制配置';
+    }
+  }
+
+  /**
+   * 显示复制错误提示
+   * @param {string} message - 错误消息
+   */
+  showCopyError(message) {
+    alert('❌ ' + message);
   }
 
   /**

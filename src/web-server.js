@@ -224,14 +224,31 @@ class RicherJsWebServer {
 
         // 如果提供了策略参数，添加到配置中
         if (strategy) {
-          config.strategy = {
-            buyTimeMinutes: strategy.buyTimeMinutes !== undefined ? parseFloat(strategy.buyTimeMinutes) : 1.33,
-            takeProfit1: strategy.takeProfit1 !== undefined ? parseInt(strategy.takeProfit1) : 30,
-            takeProfit1Sell: strategy.takeProfit1Sell !== undefined ? parseFloat(strategy.takeProfit1Sell) : 0.5,
-            takeProfit2: strategy.takeProfit2 !== undefined ? parseInt(strategy.takeProfit2) : 50,
-            takeProfit2Sell: strategy.takeProfit2Sell !== undefined ? parseFloat(strategy.takeProfit2Sell) : 1.0,
-            stopLossMinutes: strategy.stopLossMinutes !== undefined ? parseInt(strategy.stopLossMinutes) : 5
-          };
+          // 新的卡牌策略系统
+          if (strategy.buyStrategies || strategy.sellStrategies) {
+            config.strategiesConfig = {
+              buyStrategies: strategy.buyStrategies || [],
+              sellStrategies: strategy.sellStrategies || []
+            };
+          }
+
+          // 卡牌管理配置
+          if (strategy.positionManagement) {
+            config.positionManagement = strategy.positionManagement;
+          }
+
+          // 兼容旧格式的简单策略参数（用于 fourmeme_earlyreturn）
+          // 如果没有提供新格式的策略，使用默认值
+          if (!strategy.buyStrategies && !strategy.sellStrategies) {
+            config.strategy = {
+              buyTimeMinutes: strategy.buyTimeMinutes !== undefined ? parseFloat(strategy.buyTimeMinutes) : 1.33,
+              takeProfit1: strategy.takeProfit1 !== undefined ? parseInt(strategy.takeProfit1) : 30,
+              takeProfit1Sell: strategy.takeProfit1Sell !== undefined ? parseFloat(strategy.takeProfit1Sell) : 0.5,
+              takeProfit2: strategy.takeProfit2 !== undefined ? parseInt(strategy.takeProfit2) : 50,
+              takeProfit2Sell: strategy.takeProfit2Sell !== undefined ? parseFloat(strategy.takeProfit2Sell) : 1.0,
+              stopLossMinutes: strategy.stopLossMinutes !== undefined ? parseInt(strategy.stopLossMinutes) : 5
+            };
+          }
         }
 
         const experiment = await this.experimentFactory.createFromConfig(config, trading_mode);
