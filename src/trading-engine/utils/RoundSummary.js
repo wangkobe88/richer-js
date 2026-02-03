@@ -331,7 +331,9 @@ class RoundSummary {
                     // 格式化因子值
                     let displayValue = value;
                     if (typeof value === 'number') {
-                        if (factorId === 'currentPrice' || factorId === 'collectionPrice' || factorId === 'buyPrice') {
+                        // 价格类因子使用科学计数法
+                        if (factorId === 'currentPrice' || factorId === 'collectionPrice' ||
+                            factorId === 'buyPrice' || factorId === 'highestPrice') {
                             displayValue = value.toExponential(4);
                         } else if (factorId === 'age') {
                             displayValue = value.toFixed(2);
@@ -501,7 +503,9 @@ class RoundSummary {
                             // 格式化因子值
                             let displayValue = value;
                             if (typeof value === 'number') {
-                                if (factorId === 'currentPrice' || factorId === 'collectionPrice' || factorId === 'buyPrice') {
+                                // 价格类因子使用科学计数法
+                                if (factorId === 'currentPrice' || factorId === 'collectionPrice' ||
+                                    factorId === 'buyPrice' || factorId === 'highestPrice') {
                                     displayValue = value.toExponential(4);
                                 } else if (factorId === 'age') {
                                     displayValue = value.toFixed(2);
