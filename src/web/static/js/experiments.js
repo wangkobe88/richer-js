@@ -413,24 +413,15 @@ class ExperimentMonitor {
       // 构建复制数据
       const config = experiment.config || {};
 
-      // 处理策略配置 - 支持新旧两种格式
+      // 处理策略配置
       let buyStrategies = [];
       let sellStrategies = [];
 
-      // 新格式：strategiesConfig
+      // 从 strategiesConfig 获取策略
       if (config.strategiesConfig) {
         buyStrategies = config.strategiesConfig.buyStrategies || [];
         sellStrategies = config.strategiesConfig.sellStrategies || [];
-      }
-      // 旧格式：strategies 数组
-      else if (config.strategies && Array.isArray(config.strategies)) {
-        config.strategies.forEach(s => {
-          if (s.action === 'buy') {
-            buyStrategies.push(s);
-          } else if (s.action === 'sell') {
-            sellStrategies.push(s);
-          }
-        });
+        console.log(`📋 从 strategiesConfig 加载: ${buyStrategies.length} 买入策略, ${sellStrategies.length} 卖出策略`);
       }
 
       const copyData = {

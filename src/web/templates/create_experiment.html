@@ -525,6 +525,11 @@
         const buyTemplate = document.getElementById('buy-strategy-template');
         const sellTemplate = document.getElementById('sell-strategy-template');
 
+        // 验证模板已加载
+        if (!buyTemplate || !sellTemplate) {
+            console.error('❌ 策略模板未找到！');
+        }
+
         // 🔥 检查是否是复制模式
         const urlParams = new URLSearchParams(window.location.search);
         const isCopyMode = urlParams.get('copy') === 'true';
@@ -545,34 +550,31 @@
                 const copyData = JSON.parse(copyDataStr);
                 console.log('📋 加载复制的实验数据:', copyData);
 
-                // 填充基本信息
-                if (copyData.experiment_name) {
-                    form.querySelector('[name="experiment_name"]').value = copyData.experiment_name;
-                }
-                if (copyData.experiment_description) {
-                    form.querySelector('[name="experiment_description"]').value = copyData.experiment_description;
-                }
-                if (copyData.trading_mode) {
-                    form.querySelector('[name="trading_mode"]').value = copyData.trading_mode;
-                }
-                if (copyData.blockchain) {
-                    form.querySelector('[name="blockchain"]').value = copyData.blockchain;
-                }
-                if (copyData.kline_type) {
-                    form.querySelector('[name="kline_type"]').value = copyData.kline_type;
-                }
+                // 填充基本信息（带空值检查）
+                const setFieldValue = (fieldName, value) => {
+                    if (value === undefined || value === null) return;
+                    const field = form.querySelector(`[name="${fieldName}"]`);
+                    if (field) {
+                        field.value = value;
+                    } else {
+                        console.warn(`⚠️ 表单字段不存在: ${fieldName}`);
+                    }
+                };
 
-                // 填充回测配置
-                if (copyData.backtest?.initial_balance) {
-                    form.querySelector('[name="initial_balance"]').value = copyData.backtest.initial_balance;
-                }
-                if (copyData.virtual?.initial_balance) {
-                    form.querySelector('[name="initial_balance"]').value = copyData.virtual.initialBalance || copyData.virtual.initial_balance;
-                }
-                // 直接从 copyData 获取 initial_balance
-                if (copyData.initial_balance) {
-                    form.querySelector('[name="initial_balance"]').value = copyData.initial_balance;
-                }
+                setFieldValue('experiment_name', copyData.experiment_name);
+                setFieldValue('experiment_description', copyData.experiment_description);
+                setFieldValue('trading_mode', copyData.trading_mode);
+                setFieldValue('blockchain', copyData.blockchain);
+                // kline_type 字段在当前表单中不存在，跳过
+                // setFieldValue('kline_type', copyData.kline_type);
+
+                // 填充初始余额
+                const initialBalance = copyData.initial_balance ||
+                                     copyData.virtual?.initialBalance ||
+                                     copyData.virtual?.initial_balance ||
+                                     copyData.backtest?.initial_balance ||
+                                     100;
+                setFieldValue('initial_balance', initialBalance);
 
                 // 填充仓位管理配置
                 if (copyData.positionManagement) {
@@ -580,18 +582,12 @@
                     pmEnabled.checked = pm.enabled === true;
                     pmConfig.style.display = pm.enabled ? 'block' : 'none';
 
-                    if (pm.totalCards) {
-                        form.querySelector('[name="total_cards"]').value = pm.totalCards;
-                    }
-                    if (pm.perCardMaxBNB) {
-                        form.querySelector('[name="per_card_max_bnb"]').value = pm.perCardMaxBNB;
-                    }
-                    if (pm.minCardsForTrade) {
-                        form.querySelector('[name="min_cards_for_trade"]').value = pm.minCardsForTrade;
-                    }
+                    setFieldValue('total_cards', pm.totalCards);
+                    setFieldValue('per_card_max_bnb', pm.perCardMaxBNB);
+                    setFieldValue('min_cards_for_trade', pm.minCardsForTrade);
                     if (pm.initialAllocation) {
-                        form.querySelector('[name="initial_bnb_cards"]').value = pm.initialAllocation.bnbCards || 4;
-                        form.querySelector('[name="initial_token_cards"]').value = pm.initialAllocation.tokenCards || 0;
+                        setFieldValue('initial_bnb_cards', pm.initialAllocation.bnbCards || 4);
+                        setFieldValue('initial_token_cards', pm.initialAllocation.tokenCards || 0);
                     }
                 }
 
@@ -602,9 +598,15 @@
                 buyStrategyCount = 0;
                 sellStrategyCount = 0;
 
+                console.log('📋 开始处理策略配置...');
+                console.log('  buyStrategies:', copyData.buyStrategies);
+                console.log('  sellStrategies:', copyData.sellStrategies);
+
                 // 新格式：分离的 buyStrategies 和 sellStrategies
                 if (copyData.buyStrategies && Array.isArray(copyData.buyStrategies)) {
-                    copyData.buyStrategies.forEach(strategy => {
+                    console.log(`✅ 找到 ${copyData.buyStrategies.length} 个买入策略`);
+                    copyData.buyStrategies.forEach((strategy, idx) => {
+                        console.log(`  添加买入策略 #${idx + 1}:`, strategy);
                         addBuyStrategy({
                             condition: strategy.condition,
                             cards: strategy.cards,
@@ -614,10 +616,14 @@
                             description: strategy.description
                         });
                     });
+                } else {
+                    console.log('⚠️ 没有找到 buyStrategies 或不是数组');
                 }
 
                 if (copyData.sellStrategies && Array.isArray(copyData.sellStrategies)) {
-                    copyData.sellStrategies.forEach(strategy => {
+                    console.log(`✅ 找到 ${copyData.sellStrategies.length} 个卖出策略`);
+                    copyData.sellStrategies.forEach((strategy, idx) => {
+                        console.log(`  添加卖出策略 #${idx + 1}:`, strategy);
                         addSellStrategy({
                             condition: strategy.condition,
                             cards: strategy.cards,
@@ -627,6 +633,8 @@
                             description: strategy.description
                         });
                     });
+                } else {
+                    console.log('⚠️ 没有找到 sellStrategies 或不是数组');
                 }
 
                 // 兼容旧格式：strategies 数组（带 action 字段）
@@ -695,20 +703,37 @@
 
         // 添加买入策略
         function addBuyStrategy(config = {}) {
+            console.log('addBuyStrategy 被调用，config:', config);
+            console.log('buyTemplate:', buyTemplate);
+            console.log('buyContainer:', buyContainer);
+
             const index = buyStrategyCount++;
             let html = buyTemplate.innerHTML.replace(/\{INDEX\}/g, index);
+            console.log('模板HTML长度:', html.length);
 
             // 应用预设配置
             if (config.condition) {
                 html = html.replace(`name="buy_condition_${index}"`, `name="buy_condition_${index}" value="${config.condition}"`);
             }
-            if (config.cards) {
+            if (config.cards !== undefined) {
                 html = html.replace(`name="buy_cards_${index}"`, `name="buy_cards_${index}"`);
-                // 找到select并设置value
+                // 找到select并设置selected属性
                 const temp = document.createElement('div');
                 temp.innerHTML = html;
                 const select = temp.querySelector(`select[name="buy_cards_${index}"]`);
-                if (select) select.value = config.cards;
+                if (select) {
+                    // 设置select的值
+                    select.value = String(config.cards);
+                    // 手动设置对应option的selected属性
+                    const options = select.querySelectorAll('option');
+                    options.forEach(opt => {
+                        if (opt.value === String(config.cards)) {
+                            opt.setAttribute('selected', 'selected');
+                        } else {
+                            opt.removeAttribute('selected');
+                        }
+                    });
+                }
                 html = temp.innerHTML;
             }
             if (config.priority) {
@@ -734,13 +759,25 @@
             if (config.condition) {
                 html = html.replace(`name="sell_condition_${index}"`, `name="sell_condition_${index}" value="${config.condition}"`);
             }
-            if (config.cards) {
+            if (config.cards !== undefined) {
                 html = html.replace(`name="sell_cards_${index}"`, `name="sell_cards_${index}"`);
-                // 找到select并设置value
+                // 找到select并设置selected属性
                 const temp = document.createElement('div');
                 temp.innerHTML = html;
                 const select = temp.querySelector(`select[name="sell_cards_${index}"]`);
-                if (select) select.value = config.cards;
+                if (select) {
+                    // 设置select的值
+                    select.value = String(config.cards);
+                    // 手动设置对应option的selected属性
+                    const options = select.querySelectorAll('option');
+                    options.forEach(opt => {
+                        if (opt.value === String(config.cards)) {
+                            opt.setAttribute('selected', 'selected');
+                        } else {
+                            opt.removeAttribute('selected');
+                        }
+                    });
+                }
                 html = temp.innerHTML;
             }
             if (config.priority) {
