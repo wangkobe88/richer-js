@@ -1061,10 +1061,12 @@
             }
         });
 
-        // 初始化默认策略
-        loadPreset('early_buy');
-        loadPreset('tp1');
-        loadPreset('tp2');
+        // 初始化默认策略（复制模式下不添加默认策略）
+        if (!isCopyMode) {
+            loadPreset('early_buy');
+            loadPreset('tp1');
+            loadPreset('tp2');
+        }
     </script>
 </body>
 </html>
