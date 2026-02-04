@@ -800,6 +800,7 @@ class VirtualTradingEngine {
         action: 'buy',
         symbol: token.symbol,
         tokenAddress: token.token,
+        chain: token.chain,  // 🔥 添加 chain 字段，卡牌管理器需要用它作为 key
         price: latestPrice,
         confidence: 80,
         reason: strategy.name,
@@ -882,6 +883,7 @@ class VirtualTradingEngine {
         action: 'sell',
         symbol: token.symbol,
         tokenAddress: token.token,
+        chain: token.chain,  // 🔥 添加 chain 字段，卡牌管理器需要用它作为 key
         price: latestPrice,
         confidence: 80,
         reason: strategy.name,
@@ -1133,7 +1135,8 @@ class VirtualTradingEngine {
   async _executeBuy(signal, signalId = null, metadata = {}) {
     try {
       // 获取卡牌管理器（买入时必须存在）
-      const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.symbol);
+      // 🔥 修复：使用 chain 而不是 symbol 作为 key
+      const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
       if (!cardManager) {
         return { success: false, reason: '卡牌管理器未初始化，无法执行买入' };
       }
@@ -1240,7 +1243,8 @@ class VirtualTradingEngine {
       }
 
       // 获取卡牌管理器（必须存在）
-      const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.symbol);
+      // 🔥 修复：使用 chain 而不是 symbol 作为 key
+      const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
       if (!cardManager) {
         return { success: false, reason: '卡牌管理器未初始化，无法执行卖出' };
       }
