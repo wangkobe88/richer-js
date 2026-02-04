@@ -96,6 +96,36 @@ class TradeSignal {
    * @returns {TradeSignal} 信号实例
    */
   static fromStrategySignal(strategySignal, experimentId) {
+    // 构建基础 metadata
+    const baseMetadata = {
+      // 价格相关
+      price: strategySignal.price || null,
+      earlyReturn: strategySignal.earlyReturn,
+      buyPrice: strategySignal.buyPrice,
+      currentPrice: strategySignal.currentPrice,
+      collectionPrice: strategySignal.collectionPrice,
+      // 卖出相关
+      sellRatio: strategySignal.sellRatio,
+      profitPercent: strategySignal.profitPercent,
+      holdDuration: strategySignal.holdDuration,
+      // 策略信息
+      strategyId: strategySignal.strategyId || null,
+      strategyName: strategySignal.strategyName || null,
+      // 卡牌管理相关
+      cards: strategySignal.cards || null,
+      cardConfig: strategySignal.cardConfig || null
+    };
+
+    // 如果有因子信息，合并到 metadata 中（保留所有原有字段）
+    if (strategySignal.factors) {
+      Object.assign(baseMetadata, strategySignal.factors);
+    }
+
+    // 如果有卖出计算比例，添加到 metadata
+    if (strategySignal.sellCalculatedRatio !== undefined) {
+      baseMetadata.sellCalculatedRatio = strategySignal.sellCalculatedRatio;
+    }
+
     return new TradeSignal({
       experimentId,
       tokenAddress: strategySignal.tokenAddress,
@@ -105,24 +135,7 @@ class TradeSignal {
       action: strategySignal.action,
       confidence: strategySignal.confidence,
       reason: strategySignal.reason,
-      metadata: {
-        // 价格相关
-        price: strategySignal.price || null,
-        earlyReturn: strategySignal.earlyReturn,
-        buyPrice: strategySignal.buyPrice,
-        currentPrice: strategySignal.currentPrice,
-        collectionPrice: strategySignal.collectionPrice,
-        // 卖出相关
-        sellRatio: strategySignal.sellRatio,
-        profitPercent: strategySignal.profitPercent,
-        holdDuration: strategySignal.holdDuration,
-        // 策略信息
-        strategyId: strategySignal.strategyId || null,
-        strategyName: strategySignal.strategyName || null,
-        // 卡牌管理相关
-        cards: strategySignal.cards || null,
-        cardConfig: strategySignal.cardConfig || null
-      },
+      metadata: baseMetadata,
       executed: false  // 初始为未执行，成功执行后更新为 true
     });
   }

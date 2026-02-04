@@ -473,6 +473,7 @@ class VirtualTradingEngine {
           currentPrice: factorResults.currentPrice,
           collectionPrice: factorResults.collectionPrice,
           earlyReturn: factorResults.earlyReturn,
+          riseSpeed: factorResults.riseSpeed,
           buyPrice: factorResults.buyPrice,
           holdDuration: factorResults.holdDuration,
           profitPercent: factorResults.profitPercent,
@@ -556,8 +557,8 @@ class VirtualTradingEngine {
           }
         }
 
-        // 4. 执行交易（不再传递 klineData）
-        const executed = await this._executeStrategy(strategy, token);
+        // 4. 执行交易（传递 factorResults 用于信号 metadata）
+        const executed = await this._executeStrategy(strategy, token, factorResults);
 
         // 记录执行状态
         if (this._roundSummary) {
@@ -709,6 +710,13 @@ class VirtualTradingEngine {
     const collectionTime = token.collectionTime || token.addedAt;
     const age = (now - collectionTime) / 1000 / 60;
 
+    // 计算涨速 (riseSpeed): 每分钟涨幅
+    // riseSpeed = earlyReturn / age
+    let riseSpeed = 0;
+    if (age > 0) {
+      riseSpeed = earlyReturn / age;
+    }
+
     // 计算持仓时长（秒）
     const holdDuration = token.buyTime ? (now - token.buyTime) / 1000 : 0;
 
@@ -733,6 +741,7 @@ class VirtualTradingEngine {
       currentPrice: currentPrice,
       collectionPrice: collectionPrice,  // 新增：收集时的基准价格
       earlyReturn: earlyReturn,          // 新增：基于价格计算的 earlyReturn
+      riseSpeed: riseSpeed,              // 新增：涨速 (每分钟涨幅 %/min)
       buyPrice: token.buyPrice || 0,
       holdDuration: holdDuration,
       profitPercent: profitPercent,
@@ -756,11 +765,17 @@ class VirtualTradingEngine {
    * @private
    * @param {Object} strategy - 策略对象
    * @param {Object} token - 代币数据
+   * @param {Object} factorResults - 因子计算结果（用于信号 metadata）
    * @returns {Promise<boolean>} 是否执行成功
    */
-  async _executeStrategy(strategy, token) {
+  async _executeStrategy(strategy, token, factorResults = null) {
     // 使用当前价格（已在 _fetchBatchPrices 中更新）
     const latestPrice = token.currentPrice || 0;
+
+    // 如果没有传入 factorResults，重新计算一次
+    if (!factorResults) {
+      factorResults = this._buildFactors(token);
+    }
 
     if (strategy.action === 'buy') {
       // 只对监控中的代币执行买入
@@ -812,6 +827,25 @@ class VirtualTradingEngine {
         cardConfig: this._positionManagement?.enabled ? {
           totalCards: this._positionManagement.totalCards || 4,
           perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.25
+        } : null,
+        // 新增：因子信息（用于分析和调整策略）
+        factors: factorResults ? {
+          age: factorResults.age,
+          currentPrice: factorResults.currentPrice,
+          collectionPrice: factorResults.collectionPrice,
+          earlyReturn: factorResults.earlyReturn,
+          riseSpeed: factorResults.riseSpeed,
+          buyPrice: factorResults.buyPrice,
+          holdDuration: factorResults.holdDuration,
+          profitPercent: factorResults.profitPercent,
+          highestPrice: factorResults.highestPrice,
+          highestPriceTimestamp: factorResults.highestPriceTimestamp,
+          drawdownFromHighest: factorResults.drawdownFromHighest,
+          txVolumeU24h: factorResults.txVolumeU24h,
+          holders: factorResults.holders,
+          tvl: factorResults.tvl,
+          fdv: factorResults.fdv,
+          marketCap: factorResults.marketCap
         } : null
       };
 
@@ -908,7 +942,26 @@ class VirtualTradingEngine {
           perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.25
         } : null,
         // 新增：实际计算出的卖出比例（仅用于分析）
-        sellCalculatedRatio: sellCalculatedRatio
+        sellCalculatedRatio: sellCalculatedRatio,
+        // 新增：因子信息（用于分析和调整策略）
+        factors: factorResults ? {
+          age: factorResults.age,
+          currentPrice: factorResults.currentPrice,
+          collectionPrice: factorResults.collectionPrice,
+          earlyReturn: factorResults.earlyReturn,
+          riseSpeed: factorResults.riseSpeed,
+          buyPrice: factorResults.buyPrice,
+          holdDuration: factorResults.holdDuration,
+          profitPercent: factorResults.profitPercent,
+          highestPrice: factorResults.highestPrice,
+          highestPriceTimestamp: factorResults.highestPriceTimestamp,
+          drawdownFromHighest: factorResults.drawdownFromHighest,
+          txVolumeU24h: factorResults.txVolumeU24h,
+          holders: factorResults.holders,
+          tvl: factorResults.tvl,
+          fdv: factorResults.fdv,
+          marketCap: factorResults.marketCap
+        } : null
       };
 
       const result = await this.processSignal(signal);
