@@ -427,9 +427,9 @@ class ExperimentSignals {
               label: (context) => {
                 const value = context.parsed.y;
                 if (value !== null) {
-                  // 市值格式化为亿为单位
-                  const marketCapInYi = value / 1e8; // 转换为亿
-                  return `市值: ${marketCapInYi.toFixed(2)} 亿`;
+                  // 市值格式化为K（千）为单位
+                  const marketCapInK = value / 1e3; // 转换为千
+                  return `市值: ${marketCapInK.toFixed(1)}K`;
                 }
                 return '市值: N/A';
               }
@@ -455,12 +455,12 @@ class ExperimentSignals {
             display: true,
             title: {
               display: true,
-              text: '市值 (亿)'
+              text: '市值 (K)'
             },
             ticks: {
               callback: function(value) {
-                // Y轴刻度显示为亿
-                return (value / 1e8).toFixed(2);
+                // Y轴刻度显示为K（千）
+                return (value / 1e3).toFixed(1) + 'K';
               }
             }
           }
@@ -964,7 +964,7 @@ class ExperimentSignals {
               display: true,
               title: {
                 display: true,
-                text: '市值 (亿)',
+                text: '市值 (K)',
                 color: '#9ca3af'
               },
               grid: {
@@ -973,8 +973,8 @@ class ExperimentSignals {
               ticks: {
                 color: '#9ca3af',
                 callback: function(value) {
-                  // Y轴刻度显示为亿
-                  return (value / 1e8).toFixed(2);
+                  // Y轴刻度显示为K（千）
+                  return (value / 1e3).toFixed(1) + 'K';
                 }
               }
             }
@@ -999,13 +999,13 @@ class ExperimentSignals {
                 },
                 label: function(context) {
                   const data = context.raw;
-                  // 蜡烛图数据：显示OHLC（转换为亿）
-                  const toYi = (val) => (val / 1e8).toFixed(2);
+                  // 蜡烛图数据：显示OHLC（转换为K）
+                  const toK = (val) => (val / 1e3).toFixed(1) + 'K';
                   return [
-                    `开盘: ${toYi(data.o)} 亿`,
-                    `最高: ${toYi(data.h)} 亿`,
-                    `最低: ${toYi(data.l)} 亿`,
-                    `收盘: ${toYi(data.c)} 亿`
+                    `开盘: ${toK(data.o)}`,
+                    `最高: ${toK(data.h)}`,
+                    `最低: ${toK(data.l)}`,
+                    `收盘: ${toK(data.c)}`
                   ];
                 }
               }
