@@ -1255,7 +1255,11 @@ class VirtualTradingEngine {
         };
 
         // 更新元数据中的卡牌变化记录
-        result.metadata.cardPositionChange = {
+        // 🔥 修复：metadata 在 result.trade.metadata 中，不是 result.metadata
+        if (!result.trade.metadata) {
+          result.trade.metadata = {};
+        }
+        result.trade.metadata.cardPositionChange = {
           before: {
             ...beforeCardState,
             ...beforeBalance
@@ -1273,7 +1277,7 @@ class VirtualTradingEngine {
           this.logger.info(this._experimentId, '_executeBuy',
             `更新交易记录 | tradeId=${tradeId}, after状态已更新`);
           await this.dataService.updateTrade(tradeId, {
-            metadata: result.metadata
+            metadata: result.trade.metadata
           });
         } else {
           this.logger.warn(this._experimentId, '_executeBuy',
@@ -1389,7 +1393,11 @@ class VirtualTradingEngine {
         };
 
         // 更新元数据中的卡牌变化记录
-        result.metadata.cardPositionChange = {
+        // 🔥 修复：metadata 在 result.trade.metadata 中，不是 result.metadata
+        if (!result.trade.metadata) {
+          result.trade.metadata = {};
+        }
+        result.trade.metadata.cardPositionChange = {
           before: {
             ...beforeCardState,
             ...beforeBalance
@@ -1407,7 +1415,7 @@ class VirtualTradingEngine {
           this.logger.info(this._experimentId, '_executeSell',
             `更新交易记录 | tradeId=${tradeId}, after状态已更新`);
           await this.dataService.updateTrade(tradeId, {
-            metadata: result.metadata
+            metadata: result.trade.metadata
           });
         } else {
           this.logger.warn(this._experimentId, '_executeSell',
