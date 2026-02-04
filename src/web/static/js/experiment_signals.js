@@ -346,9 +346,12 @@ class ExperimentSignals {
 
     const ctx = canvas.getContext('2d');
 
+    // 🔥 价格乘以10亿得到市值
+    const MARKET_CAP_MULTIPLIER = 1e9; // 10亿
+
     // 准备数据
     const labels = timeSeriesData.map(d => new Date(d.timestamp));
-    const prices = timeSeriesData.map(d => d.price_usd ? parseFloat(d.price_usd) : null);
+    const marketCaps = timeSeriesData.map(d => d.price_usd ? parseFloat(d.price_usd) * MARKET_CAP_MULTIPLIER : null);
 
     // 准备信号标记点
     const signalAnnotations = [];
@@ -363,7 +366,7 @@ class ExperimentSignals {
 
       // 找到最接近的数据点
       const closestIndex = labels.findIndex(label => Math.abs(label - signalTime) < 30000); // 30秒内
-      if (closestIndex >= 0 && prices[closestIndex] !== null) {
+      if (closestIndex >= 0 && marketCaps[closestIndex] !== null) {
         signalAnnotations.push({
           type: 'line',
           xMin: signalTime,
@@ -393,8 +396,8 @@ class ExperimentSignals {
       data: {
         labels: labels,
         datasets: [{
-          label: `${token.symbol} 价格 (USDT)`,
-          data: prices,
+          label: `${token.symbol} 市值`,
+          data: marketCaps,
           borderColor: '#1890ff',
           backgroundColor: 'rgba(24, 144, 255, 0.1)',
           borderWidth: 2,
@@ -424,9 +427,11 @@ class ExperimentSignals {
               label: (context) => {
                 const value = context.parsed.y;
                 if (value !== null) {
-                  return `价格: $${value.toExponential(4)}`;
+                  // 市值格式化为亿为单位
+                  const marketCapInYi = value / 1e8; // 转换为亿
+                  return `市值: ${marketCapInYi.toFixed(2)} 亿`;
                 }
-                return '价格: N/A';
+                return '市值: N/A';
               }
             }
           }
@@ -450,14 +455,20 @@ class ExperimentSignals {
             display: true,
             title: {
               display: true,
-              text: '价格 (USDT)'
+              text: '市值 (亿)'
+            },
+            ticks: {
+              callback: function(value) {
+                // Y轴刻度显示为亿
+                return (value / 1e8).toFixed(2);
+              }
             }
           }
         }
       }
     });
 
-    console.log(`📊 价格折线图已初始化，包含 ${timeSeriesData.length} 个数据点和 ${signalAnnotations.length} 个信号标记`);
+    console.log(`📊 市值折线图已初始化，包含 ${timeSeriesData.length} 个数据点和 ${signalAnnotations.length} 个信号标记`);
   }
 
   updateExperimentHeader(experiment) {
@@ -799,15 +810,18 @@ class ExperimentSignals {
     canvas.width = canvas.width;
     canvas.height = canvas.height;
 
+    // 🔥 价格乘以10亿得到市值
+    const MARKET_CAP_MULTIPLIER = 1e9; // 10亿
+
     // 准备K线数据 - 使用成功项目的格式
     const candlestickData = klineResponse.kline_data.map(kline => {
       const timestamp = parseInt(kline.timestamp) * 1000; // 转换为毫秒
       return [
         timestamp,
-        parseFloat(kline.open_price),
-        parseFloat(kline.high_price),
-        parseFloat(kline.low_price),
-        parseFloat(kline.close_price)
+        parseFloat(kline.open_price) * MARKET_CAP_MULTIPLIER,
+        parseFloat(kline.high_price) * MARKET_CAP_MULTIPLIER,
+        parseFloat(kline.low_price) * MARKET_CAP_MULTIPLIER,
+        parseFloat(kline.close_price) * MARKET_CAP_MULTIPLIER
       ];
     });
 
@@ -902,7 +916,7 @@ class ExperimentSignals {
             // 蜡烛图数据集
             {
               type: 'candlestick',
-              label: `${klineResponse.token?.symbol || '代币'} 价格`,
+              label: `${klineResponse.token?.symbol || '代币'} 市值`,
               data: chartData,
               yAxisID: 'y',
               borderColor: {
@@ -948,13 +962,19 @@ class ExperimentSignals {
               type: 'linear',
               position: 'right',
               display: true,
+              title: {
+                display: true,
+                text: '市值 (亿)',
+                color: '#9ca3af'
+              },
               grid: {
                 color: 'rgba(156, 163, 175, 0.2)'
               },
               ticks: {
                 color: '#9ca3af',
                 callback: function(value) {
-                  return value.toFixed(4);
+                  // Y轴刻度显示为亿
+                  return (value / 1e8).toFixed(2);
                 }
               }
             }
@@ -979,12 +999,13 @@ class ExperimentSignals {
                 },
                 label: function(context) {
                   const data = context.raw;
-                  // 蜡烛图数据：显示OHLC
+                  // 蜡烛图数据：显示OHLC（转换为亿）
+                  const toYi = (val) => (val / 1e8).toFixed(2);
                   return [
-                    `开盘: ${data.o.toFixed(4)}`,
-                    `最高: ${data.h.toFixed(4)}`,
-                    `最低: ${data.l.toFixed(4)}`,
-                    `收盘: ${data.c.toFixed(4)}`
+                    `开盘: ${toYi(data.o)} 亿`,
+                    `最高: ${toYi(data.h)} 亿`,
+                    `最低: ${toYi(data.l)} 亿`,
+                    `收盘: ${toYi(data.c)} 亿`
                   ];
                 }
               }
