@@ -1136,8 +1136,12 @@ class VirtualTradingEngine {
     try {
       // 获取卡牌管理器（买入时必须存在）
       // 🔥 修复：使用 chain 而不是 symbol 作为 key
+      this.logger.info(this._experimentId, '_executeBuy',
+        `获取卡牌管理器 | tokenAddress=${signal.tokenAddress}, chain=${signal.chain}, symbol=${signal.symbol}`);
       const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
       if (!cardManager) {
+        this.logger.error(this._experimentId, '_executeBuy',
+          `卡牌管理器未初始化 | tokenAddress=${signal.tokenAddress}, chain=${signal.chain}`);
         return { success: false, reason: '卡牌管理器未初始化，无法执行买入' };
       }
 
@@ -1152,7 +1156,14 @@ class VirtualTradingEngine {
         tokenBalance: this.holdings.get(signal.tokenAddress)?.amount || 0
       };
 
+      this.logger.info(this._experimentId, '_executeBuy',
+        `卡牌状态 | ${beforeCardState.bnbCards} BNB卡, ${beforeCardState.tokenCards} 代币卡`);
+      this.logger.info(this._experimentId, '_executeBuy',
+        `余额状态 | ${beforeBalance.bnbBalance} BNB, ${beforeBalance.tokenBalance} 代币`);
+
       const amountInBNB = this._calculateBuyAmount(signal);
+      this.logger.info(this._experimentId, '_executeBuy',
+        `计算买入金额 | amountInBNB=${amountInBNB}, signal.cards=${signal.cards}`);
       if (amountInBNB <= 0) {
         return { success: false, reason: '余额不足或计算金额为0' };
       }
@@ -1181,7 +1192,13 @@ class VirtualTradingEngine {
         }
       };
 
+      this.logger.info(this._experimentId, '_executeBuy',
+        `执行交易 | symbol=${signal.symbol}, amount=${tokenAmount}, price=${price}`);
+
       const result = await this.executeTrade(tradeRequest);
+
+      this.logger.info(this._experimentId, '_executeBuy',
+        `交易结果 | success=${result?.success}, reason=${result?.reason || 'none'}`);
 
       // 买入成功后更新卡牌分配和状态
       if (result && result.success) {
