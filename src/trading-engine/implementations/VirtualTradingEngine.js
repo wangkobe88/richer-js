@@ -1369,7 +1369,8 @@ class VirtualTradingEngine {
    */
   _calculateBuyAmount(signal) {
     // 优先使用卡牌管理器计算金额
-    const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.symbol);
+    // 🔥 修复：使用 chain 而不是 symbol 作为 key
+    const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
     if (cardManager) {
       const cards = signal.cards || 1;
       const amount = cardManager.calculateBuyAmount(cards);
