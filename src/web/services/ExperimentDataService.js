@@ -328,6 +328,28 @@ class ExperimentDataService {
   }
 
   /**
+   * 更新交易记录
+   * @param {string} tradeId - 交易ID
+   * @param {Object} updates - 要更新的字段
+   * @returns {Promise<boolean>} 是否更新成功
+   */
+  async updateTrade(tradeId, updates) {
+    try {
+      const { error } = await this.supabase
+        .from('trades')
+        .update(updates)
+        .eq('id', tradeId);
+
+      if (error) throw error;
+      return true;
+
+    } catch (error) {
+      console.error('更新交易记录失败:', error);
+      return false;
+    }
+  }
+
+  /**
    * 清理实验数据
    * @param {string} experimentId - 实验ID
    * @returns {Promise<boolean>} 是否清理成功
