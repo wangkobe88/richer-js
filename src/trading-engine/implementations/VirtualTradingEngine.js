@@ -774,6 +774,27 @@ class VirtualTradingEngine {
         this._tokenPool.initStrategyExecutions(token.token, token.chain, strategyIds);
       }
 
+      // 🔥 修复：在执行买入前先创建卡牌管理器
+      // 因为 _executeBuy 需要卡牌管理器存在才能执行交易
+      if (this._positionManagement && this._positionManagement.enabled) {
+        let cardManager = this._tokenPool.getCardPositionManager(token.token, token.chain);
+        if (!cardManager) {
+          // 卡牌管理器不存在，创建一个新的（初始状态：全部BNB卡）
+          cardManager = new CardPositionManager({
+            totalCards: this._positionManagement.totalCards || 4,
+            perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.25,
+            minCardsForTrade: 1,
+            initialAllocation: {
+              bnbCards: (this._positionManagement.totalCards || 4),
+              tokenCards: 0
+            }
+          });
+          this._tokenPool.setCardPositionManager(token.token, token.chain, cardManager);
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `初始化卡牌管理器: ${token.symbol}, 全部BNB卡状态`);
+        }
+      }
+
       // 执行买入
       const signal = {
         action: 'buy',
@@ -802,20 +823,15 @@ class VirtualTradingEngine {
           buyTime: Date.now()
         });
 
-        // 初始化卡牌仓位管理器
+        // 买入成功后，更新卡牌分配（afterBuy）
         if (this._positionManagement && this._positionManagement.enabled) {
-          const cardManager = new CardPositionManager({
-            totalCards: this._positionManagement.totalCards || 4,
-            perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.025,
-            minCardsForTrade: 1,
-            initialAllocation: {
-              bnbCards: (this._positionManagement.totalCards || 4) - (strategy.cards || 1),
-              tokenCards: strategy.cards || 1
-            }
-          });
-          this._tokenPool.setCardPositionManager(token.token, token.chain, cardManager);
-          this.logger.info(this._experimentId, '_executeStrategy',
-            `初始化卡牌管理器: ${token.symbol}, 转移${strategy.cards}卡`);
+          const cardManager = this._tokenPool.getCardPositionManager(token.token, token.chain);
+          if (cardManager) {
+            const cards = parseInt(strategy.cards) || 1;
+            cardManager.afterBuy(token.symbol, cards);
+            this.logger.info(this._experimentId, '_executeStrategy',
+              `买入成功，更新卡牌分配: ${token.symbol}, 转移${cards}卡`);
+          }
         }
 
         // 记录策略执行
