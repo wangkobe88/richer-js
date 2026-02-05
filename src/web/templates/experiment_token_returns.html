@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代币收益汇总 - Richer-js Fourmeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.0" rel="stylesheet">
+    <style>
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-size: 1.2rem;
+            background: rgba(0,0,0,0.9);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .profit-positive {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .profit-negative {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .profit-neutral {
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .sort-btn {
+            cursor: pointer;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .sort-btn:hover {
+            color: #3b82f6;
+        }
+
+        .sort-btn.active {
+            color: #3b82f6;
+        }
+
+        /* 下拉框选项白色文字 */
+        select option {
+            background-color: #374151;
+            color: white;
+        }
+
+        .table-row:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-monitoring {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .status-bought {
+            background-color: #f59e0b;
+            color: white;
+        }
+
+        .status-exited {
+            background-color: #6b7280;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-green-400">
+                            <a href="/" class="hover:text-green-300 transition-colors">
+                                Richer-js Fourmeme Trading
+                            </a>
+                        </h1>
+                        <div class="hidden md:block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                实验列表
+                            </a>
+                            <a id="link-detail" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                实验详情
+                            </a>
+                            <a id="link-signals" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                交易信号
+                            </a>
+                            <a id="link-trades" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                交易记录
+                            </a>
+                            <a href="#" id="current-page" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">
+                                收益汇总
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="refresh-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
+                            🔄 刷新
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 加载指示器 -->
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <span class="ml-4 text-white">正在加载代币收益数据...</span>
+            </div>
+
+            <!-- 错误信息 -->
+            <div id="error-message" class="hidden bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+                <div class="flex items-center">
+                    <span class="text-red-400">⚠️</span>
+                    <span class="ml-2" id="error-text">加载失败</span>
+                    <button id="retry-btn" class="ml-4 px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-sm">
+                        重试
+                    </button>
+                </div>
+            </div>
+
+            <!-- 收益内容 -->
+            <div id="returns-content" class="hidden">
+                <!-- 实验信息头部 -->
+                <div id="experiment-header" class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-2xl font-bold text-white mb-2" id="experiment-name">实验名称</h1>
+                            <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                <span id="experiment-id">ID: --</span>
+                                <span id="experiment-blockchain">区块链: --</span>
+                                <span id="token-count">交易代币: 0</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-6">
+                            <a id="link-back" href="#" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-sm font-medium text-white transition-colors">
+                                ← 返回实验详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 汇总统计 -->
+                <div class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
+                    <h2 class="text-lg font-semibold text-white mb-4">汇总统计</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">交易代币</div>
+                            <div class="text-2xl font-bold text-gray-100" id="stat-total-tokens">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">盈利数</div>
+                            <div class="text-2xl font-bold text-green-600" id="stat-profit-count">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">亏损数</div>
+                            <div class="text-2xl font-bold text-red-500" id="stat-loss-count">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">胜率</div>
+                            <div class="text-2xl font-bold text-yellow-600" id="stat-win-rate">0%</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">总收益率</div>
+                            <div class="text-2xl font-bold" id="stat-total-return">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 筛选和排序 -->
+                <div class="bg-gray-800 rounded-lg p-4 mb-8 border border-gray-700">
+                    <div class="flex flex-wrap gap-4 items-center justify-between">
+                        <div class="flex flex-wrap gap-4 items-center">
+                            <div>
+                                <label for="status-filter" class="block text-sm font-medium text-gray-300 mb-2">状态筛选</label>
+                                <select id="status-filter" class="px-3 py-2 bg-gray-700 border border-gray-700 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="all">全部</option>
+                                    <option value="profit">盈利</option>
+                                    <option value="loss">亏损</option>
+                                    <option value="holding">持仓中</option>
+                                    <option value="exited">已退出</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button id="export-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-sm font-medium text-white transition-colors">
+                                📊 导出CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 收益表格 -->
+                <div class="bg-gray-800 rounded-lg border border-gray-700">
+                    <div class="p-4 border-b border-gray-700">
+                        <h2 class="text-lg font-semibold text-white">代币收益明细</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-3 text-left">
+                                        <span class="sort-btn" data-sort="symbol">代币</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-right">
+                                        <span class="sort-btn" data-sort="returnRate">收益率</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-right">
+                                        <span class="sort-btn" data-sort="realizedPnL">盈亏金额</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-right">
+                                        <span class="sort-btn" data-sort="totalSpent">总花费</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-right">
+                                        <span class="sort-btn" data-sort="totalReceived">总收回</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center">买入</th>
+                                    <th class="px-4 py-3 text-center">卖出</th>
+                                    <th class="px-4 py-3 text-center">状态</th>
+                                    <th class="px-4 py-3 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="returns-table-body" class="divide-y divide-gray-700">
+                                <!-- 表格行将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 空状态 -->
+                <div id="empty-state" class="hidden text-center py-12">
+                    <div class="text-gray-400 mb-4">
+                        <svg class="w-24 h-24 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-400 mb-2">暂无交易数据</h3>
+                    <p class="text-gray-500">该实验尚未执行任何交易</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/simple-init.js?v=4.2"></script>
+    <script src="/static/js/experiment_token_returns.js?v=4.2"></script>
+</body>
+</html>

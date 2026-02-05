@@ -49,7 +49,7 @@ class VirtualTradingEngine {
     // 虚拟资金管理 (使用区块链主币，BSC为BNB)
     this.initialBalance = config.initialBalance || 100; // BNB
     this.currentBalance = this.initialBalance;
-    this.holdings = new Map(); // tokenAddress -> { amount, avgBuyPrice }
+    // holdings 由 PortfolioManager 统一管理，不再缓存
 
     // 统计信息
     this.metrics = {
@@ -92,6 +92,56 @@ class VirtualTradingEngine {
   get mode() { return this._mode; }
   get status() { return this._status; }
   get experiment() { return this._experiment; }
+
+  /**
+   * 获取持仓（从PortfolioManager，统一处理地址规范化）
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Object|null} 持仓对象 { amount, avgBuyPrice } 或 null
+   * @private
+   */
+  _getHolding(tokenAddress) {
+    if (!this._portfolioManager || !this._portfolioId) {
+      return null;
+    }
+    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+    if (!portfolio) {
+      return null;
+    }
+    // 使用与PortfolioManager相同的地址规范化方法
+    const normalizedAddress = this._portfolioManager._normalizeAddress(tokenAddress);
+    const position = portfolio.positions.get(normalizedAddress);
+    if (!position) {
+      return null;
+    }
+    return {
+      amount: position.amount.toNumber(),
+      avgBuyPrice: position.averagePrice.toNumber()
+    };
+  }
+
+  /**
+   * 获取所有持仓（从PortfolioManager）
+   * @returns {Array} 持仓数组
+   * @private
+   */
+  _getAllHoldings() {
+    if (!this._portfolioManager || !this._portfolioId) {
+      return [];
+    }
+    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+    if (!portfolio) {
+      return [];
+    }
+    const holdings = [];
+    for (const [address, position] of portfolio.positions) {
+      holdings.push({
+        tokenAddress: address,
+        amount: position.amount.toNumber(),
+        avgBuyPrice: position.averagePrice.toNumber()
+      });
+    }
+    return holdings;
+  }
 
   /**
    * 初始化引擎
@@ -139,10 +189,11 @@ class VirtualTradingEngine {
       this._status = EngineStatus.STOPPED;
 
       console.log(`✅ 虚拟交易引擎初始化完成: 实验 ${this._experimentId}`);
+      const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
       this.logger.info(this._experimentId, 'VirtualTradingEngine', '引擎初始化完成', {
         initialBalance: this.initialBalance,
         currentBalance: this.currentBalance,
-        holdingsCount: this.holdings.size
+        holdingsCount: portfolio ? portfolio.positions.size : 0
       });
 
     } catch (error) {
@@ -572,7 +623,7 @@ class VirtualTradingEngine {
 
       // 记录持仓信息（如果有）
       if (this._roundSummary && token.status === 'bought') {
-        const holding = this.holdings.get(token.token);
+        const holding = this._getHolding(token.token);
         if (holding) {
           this._roundSummary.recordPosition(token.token, {
             symbol: token.symbol,
@@ -873,11 +924,7 @@ class VirtualTradingEngine {
         // 记录策略执行
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
 
-        // 同步更新持仓
-        const holding = this.holdings.get(token.token);
-        if (holding) {
-          holding.avgBuyPrice = latestPrice;
-        }
+        // 同步更新持仓（PortfolioManager会自动计算平均价格）
 
         // 🔥 重要：更新代币状态到数据库
         // 注意：卡牌分配的更新已经在 _executeBuy 方法中完成了，这里不需要重复
@@ -1236,7 +1283,7 @@ class VirtualTradingEngine {
       };
       const beforeBalance = {
         bnbBalance: this.currentBalance,
-        tokenBalance: this.holdings.get(signal.tokenAddress)?.amount || 0
+        tokenBalance: this._getHolding(signal.tokenAddress)?.amount || 0
       };
 
       this.logger.info(this._experimentId, '_executeBuy',
@@ -1293,9 +1340,6 @@ class VirtualTradingEngine {
         this.logger.info(this._experimentId, '_executeBuy',
           `更新卡牌分配完成 | after: bnbCards=${cardManager.bnbCards}, tokenCards=${cardManager.tokenCards}`);
 
-        // 同步更新持仓
-        this._syncHoldingsFromPortfolio();
-
         // 记录买入后的状态
         const afterCardState = {
           bnbCards: cardManager.bnbCards,
@@ -1304,7 +1348,7 @@ class VirtualTradingEngine {
         };
         const afterBalance = {
           bnbBalance: this.currentBalance,
-          tokenBalance: this.holdings.get(signal.tokenAddress)?.amount || 0
+          tokenBalance: this._getHolding(signal.tokenAddress)?.amount || 0
         };
 
         // 更新元数据中的卡牌变化记录
@@ -1358,15 +1402,27 @@ class VirtualTradingEngine {
    */
   async _executeSell(signal, signalId = null, metadata = {}) {
     try {
-      const holding = this.holdings.get(signal.tokenAddress);
-      if (!holding || holding.amount <= 0) {
+      // 🔍 诊断日志：检查持仓
+      this.logger.info(this._experimentId, '_executeSell',
+        `检查持仓 | tokenAddress=${signal.tokenAddress}, chain=${signal.chain}`);
+      const holding = this._getHolding(signal.tokenAddress);
+      if (!holding) {
+        this.logger.warn(this._experimentId, '_executeSell',
+          `无持仓 | tokenAddress=${signal.tokenAddress}`);
         return { success: false, reason: '无持仓' };
+      }
+      if (holding.amount <= 0) {
+        this.logger.warn(this._experimentId, '_executeSell',
+          `持仓数量为0 | tokenAddress=${signal.tokenAddress}, amount=${holding.amount}`);
+        return { success: false, reason: '持仓数量为0' };
       }
 
       // 获取卡牌管理器（必须存在）
       // 🔥 修复：使用 chain 而不是 symbol 作为 key
       const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
       if (!cardManager) {
+        this.logger.warn(this._experimentId, '_executeSell',
+          `卡牌管理器未初始化 | tokenAddress=${signal.tokenAddress}, chain=${signal.chain}`);
         return { success: false, reason: '卡牌管理器未初始化，无法执行卖出' };
       }
 
@@ -1431,9 +1487,6 @@ class VirtualTradingEngine {
         this.logger.info(this._experimentId, '_executeSell',
           `更新卡牌分配完成 | after: bnbCards=${cardManager.bnbCards}, tokenCards=${cardManager.tokenCards}`);
 
-        // 同步更新持仓
-        this._syncHoldingsFromPortfolio();
-
         // 记录卖出后的状态
         const afterCardState = {
           bnbCards: cardManager.bnbCards,
@@ -1442,7 +1495,7 @@ class VirtualTradingEngine {
         };
         const afterBalance = {
           bnbBalance: this.currentBalance,
-          tokenBalance: this.holdings.get(signal.tokenAddress)?.amount || 0
+          tokenBalance: this._getHolding(signal.tokenAddress)?.amount || 0
         };
 
         // 更新元数据中的卡牌变化记录
@@ -1599,9 +1652,6 @@ class VirtualTradingEngine {
         trade.markAsSuccess();
         this.metrics.successfulTrades++;
 
-        // 同步更新本地 holdings (用于兼容旧代码)
-        this._syncHoldingsFromPortfolio();
-
         // 保存交易记录
         await this.dataService.saveTrade(trade);
 
@@ -1618,12 +1668,11 @@ class VirtualTradingEngine {
       trade.markAsFailed(error.message);
       this.metrics.failedTrades++;
 
-      await this.dataService.saveTrade(trade);
+      // 失败的交易不再保存到 trades 表，只在信号表中记录
 
       return {
         success: false,
-        error: error.message,
-        trade: trade.toJSON()
+        error: error.message
       };
     }
   }
@@ -1651,27 +1700,6 @@ class VirtualTradingEngine {
   }
 
   /**
-   * 从 PortfolioManager 同步 holdings 到本地 (兼容性方法)
-   * @private
-   */
-  _syncHoldingsFromPortfolio() {
-    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
-    if (!portfolio) return;
-
-    const Decimal = require('decimal.js');
-    this.currentBalance = portfolio.cashBalance.toNumber();
-
-    // 转换 positions Map 到 holdings Map
-    this.holdings.clear();
-    for (const [address, position] of portfolio.positions) {
-      this.holdings.set(address, {
-        amount: position.amount.toNumber(),
-        avgBuyPrice: position.averagePrice.toNumber()
-      });
-    }
-  }
-
-  /**
    * 加载持仓数据
    * @private
    */
@@ -1683,7 +1711,6 @@ class VirtualTradingEngine {
 
       if (!trades || trades.length === 0) {
         // 没有交易历史，使用初始余额
-        this._syncHoldingsFromPortfolio();
         return;
       }
 
@@ -1728,11 +1755,9 @@ class VirtualTradingEngine {
         }
       }
 
-      // 同步到本地 holdings
-      this._syncHoldingsFromPortfolio();
-
       const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
-      console.log(`📦 持仓加载完成: ${this.holdings.size} 个代币, 余额 $${portfolio.cashBalance.toFixed(2)}`);
+      const holdingsCount = portfolio.positions.size;
+      console.log(`📦 持仓加载完成: ${holdingsCount} 个代币, 余额 $${portfolio.cashBalance.toFixed(2)}`);
 
     } catch (error) {
       console.error('❌ 加载持仓失败:', error.message);
@@ -1787,6 +1812,7 @@ class VirtualTradingEngine {
     // 回退到本地数据
     const profit = this.currentBalance - this.initialBalance;
     const profitRate = (profit / this.initialBalance) * 100;
+    const allHoldings = this._getAllHoldings();
 
     return {
       ...this.metrics,
@@ -1795,12 +1821,8 @@ class VirtualTradingEngine {
       totalValue: this.currentBalance,
       profit: profit,
       profitRate: profitRate,
-      holdingsCount: this.holdings.size,
-      holdings: Array.from(this.holdings.entries()).map(([addr, h]) => ({
-        tokenAddress: addr,
-        amount: h.amount,
-        avgBuyPrice: h.avgBuyPrice
-      }))
+      holdingsCount: allHoldings.length,
+      holdings: allHoldings
     };
   }
 
@@ -1814,10 +1836,11 @@ class VirtualTradingEngine {
       // 回退到本地数据
       let totalValue = this.currentBalance;
       const positions = [];
+      const allHoldings = this._getAllHoldings();
 
-      for (const [tokenAddress, holding] of this.holdings.entries()) {
+      for (const holding of allHoldings) {
         if (holding.amount > 0) {
-          const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+          const token = this._tokenPool.getToken(holding.tokenAddress, 'bsc');
           const currentPrice = (token && token.currentPrice) || holding.avgBuyPrice;
           const value = holding.amount * currentPrice;
           totalValue += value;

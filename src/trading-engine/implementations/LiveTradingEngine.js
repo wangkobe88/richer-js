@@ -295,13 +295,11 @@ class LiveTradingEngine {
       trade.markAsFailed(error.message);
       this.metrics.failedTrades++;
 
-      // 保存失败交易记录
-      await this.dataService.saveTrade(trade);
+      // 失败的交易不再保存到 trades 表，只在信号表中记录
 
       return {
         success: false,
-        error: error.message,
-        trade: trade.toJSON()
+        error: error.message
       };
     }
   }

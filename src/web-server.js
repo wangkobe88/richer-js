@@ -150,6 +150,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_observer.html'));
     });
 
+    // 代币收益汇总页面
+    this.app.get('/experiment/:id/token-returns', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_token_returns.html'));
+    });
+
     // 实验详情页面（必须放在最后，作为默认路由）
     this.app.get('/experiment/:id', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));

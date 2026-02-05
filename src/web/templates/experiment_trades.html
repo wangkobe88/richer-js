@@ -158,6 +158,9 @@
                             <a href="#" id="current-page" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">
                                 交易记录
                             </a>
+                            <a id="link-returns" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                收益汇总
+                            </a>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -232,6 +235,24 @@
                             </div>
                         </div>
                     </div>
+                    <!-- 代币地址信息 -->
+                    <div id="token-info-container" class="hidden mt-3 bg-gray-700 rounded-lg p-3 border border-gray-600">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1 min-w-0">
+                                <span class="text-sm text-gray-400 mr-2">代币地址:</span>
+                                <code id="token-address" class="text-sm text-green-400 break-all font-mono">0x...</code>
+                            </div>
+                            <button id="copy-address-btn" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium text-white transition-colors flex items-center space-x-1">
+                                <span>📋</span>
+                                <span>复制</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 代币盈亏信息 -->
+                <div id="token-pnl-container" class="hidden mb-8">
+                    <!-- 盈亏信息将通过JavaScript动态生成 -->
                 </div>
 
                 <!-- 交易统计概览 -->
@@ -345,7 +366,7 @@
                             </button>
                         </div>
                     </div>
-                    <div id="trades-container" class="divide-y divide-gray-700 max-h-96 overflow-y-auto">
+                    <div id="trades-container" class="divide-y divide-gray-700 max-h-[70vh] overflow-y-auto">
                         <!-- 交易卡片将通过JavaScript动态生成 -->
                     </div>
                 </div>

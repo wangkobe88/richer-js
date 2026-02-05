@@ -224,11 +224,13 @@ class ExperimentMonitor {
             ` : ''}
           </div>
 
-          <div class="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-            <a href="/experiment/${exp.id}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-              查看详情 →
-            </a>
-            <div class="flex space-x-2 items-center">
+          <div class="mt-4 pt-4 border-t border-gray-100">
+            <div class="flex justify-between items-center mb-3">
+              <a href="/experiment/${exp.id}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                查看详情 →
+              </a>
+            </div>
+            <div class="flex flex-wrap gap-2">
               <a href="/experiment/${exp.id}/signals" class="text-green-600 hover:text-green-800 text-sm">
                 信号
               </a>
@@ -241,6 +243,10 @@ class ExperimentMonitor {
               <a href="/experiment/${exp.id}/observer" class="text-emerald-600 hover:text-emerald-800 text-sm">
                 时序
               </a>
+              <a href="/experiment/${exp.id}/token-returns" class="text-orange-600 hover:text-orange-800 text-sm">
+                收益
+              </a>
+              <div class="flex-grow"></div>
               <button data-action="copy-experiment" data-id="${exp.id}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors">
                 📋 复制
               </button>

@@ -9,7 +9,7 @@ class ExperimentTrades {
     this.experiment = null;
     this.tradesData = [];  // 原始交易数据（所有代币）
     this.currentPage = 1;
-    this.tradesPerPage = 12;
+    this.tradesPerPage = 100;  // 🔥 增加每页显示数量，确保更多交易能在一页显示
     this.isLoading = false;
     this.klineData = [];
     this.chart = null;
@@ -18,7 +18,7 @@ class ExperimentTrades {
       direction: 'all',
       success: 'all',
       symbol: 'all',
-      limit: 50
+      limit: 10000  // 🔥 修改默认limit，确保显示所有数据
     };
 
     // 🔥 多代币支持
@@ -137,19 +137,27 @@ class ExperimentTrades {
       prevPage.addEventListener('click', () => {
         if (this.currentPage > 1) {
           this.currentPage--;
-          this.renderTradeCards();
-          this.setupPagination();
+          // 获取当前过滤后的交易数据
+          const filteredTrades = this.selectedToken === 'all'
+            ? this.tradesData
+            : this.tradesData.filter(t => t.token_address === this.selectedToken);
+          this.renderTradeCards(filteredTrades);
+          this.setupPagination(filteredTrades);
         }
       });
     }
 
     if (nextPage) {
       nextPage.addEventListener('click', () => {
-        const totalPages = Math.ceil(this.tradesData.length / this.tradesPerPage);
+        // 获取当前过滤后的交易数据
+        const filteredTrades = this.selectedToken === 'all'
+          ? this.tradesData
+          : this.tradesData.filter(t => t.token_address === this.selectedToken);
+        const totalPages = Math.ceil(filteredTrades.length / this.tradesPerPage);
         if (this.currentPage < totalPages) {
           this.currentPage++;
-          this.renderTradeCards();
-          this.setupPagination();
+          this.renderTradeCards(filteredTrades);
+          this.setupPagination(filteredTrades);
         }
       });
     }
@@ -159,8 +167,12 @@ class ExperimentTrades {
     if (filterSelect) {
       filterSelect.addEventListener('change', () => {
         this.currentPage = 1;
-        this.renderTradeCards();
-        this.setupPagination();
+        // 获取当前过滤后的交易数据
+        const filteredTrades = this.selectedToken === 'all'
+          ? this.tradesData
+          : this.tradesData.filter(t => t.token_address === this.selectedToken);
+        this.renderTradeCards(filteredTrades);
+        this.setupPagination(filteredTrades);
       });
     }
 
@@ -169,20 +181,28 @@ class ExperimentTrades {
     if (sortSelect) {
       sortSelect.addEventListener('change', () => {
         this.currentPage = 1;
-        this.renderTradeCards();
-        this.setupPagination();
+        // 获取当前过滤后的交易数据
+        const filteredTrades = this.selectedToken === 'all'
+          ? this.tradesData
+          : this.tradesData.filter(t => t.token_address === this.selectedToken);
+        this.renderTradeCards(filteredTrades);
+        this.setupPagination(filteredTrades);
       });
     }
 
     // 刷新按钮
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) {
-      refreshBtn.addEventListener('click', () => {
-        this.loadTradesData();
-        this.loadKlineDataAndInitChart();
+      refreshBtn.addEventListener('click', async () => {
+        await this.loadTradesData();
+        await this.loadKlineDataAndInitChart();
         this.renderTradeStats();
-        this.renderTradeCards();
-        this.setupPagination();
+        // 刷新后保持当前选择的代币过滤
+        const filteredTrades = this.selectedToken === 'all'
+          ? this.tradesData
+          : this.tradesData.filter(t => t.token_address === this.selectedToken);
+        this.renderTradeCards(filteredTrades);
+        this.setupPagination(filteredTrades);
       });
     }
 
@@ -286,6 +306,17 @@ class ExperimentTrades {
       `;
     }
 
+    // 设置导航链接
+    const linkDetail = document.getElementById('link-detail');
+    const linkSignals = document.getElementById('link-signals');
+    const linkReturns = document.getElementById('link-returns');
+    const linkBack = document.getElementById('link-back');
+
+    if (linkDetail) linkDetail.href = `/experiment/${this.experimentId}`;
+    if (linkSignals) linkSignals.href = `/experiment/${this.experimentId}/signals`;
+    if (linkReturns) linkReturns.href = `/experiment/${this.experimentId}/token-returns`;
+    if (linkBack) linkBack.href = `/experiment/${this.experimentId}`;
+
     // 更新页面标题
     document.title = `交易记录 - ${name} - 2025-2026 Become Rich Baby!`;
 
@@ -358,12 +389,16 @@ class ExperimentTrades {
       return (b.tradeCount || 0) - (a.tradeCount || 0);
     });
 
-    // 添加代币选项，显示交易数量
+    // 添加代币选项，显示交易数量和地址（参考信号页面）
     sortedTokens.forEach(token => {
       const option = document.createElement('option');
       option.value = token.address;
       const tradeCount = token.tradeCount || 0;
-      option.textContent = `${token.symbol} (${tradeCount} 笔交易)`;
+      // 显示：代币符号 (交易数) - 地址前8位
+      const shortAddress = token.address.length > 12
+        ? `${token.address.substring(0, 8)}...`
+        : token.address;
+      option.textContent = `${token.symbol} (${tradeCount} 笔) - ${shortAddress}`;
       freshSelector.appendChild(option);
     });
 
@@ -407,6 +442,115 @@ class ExperimentTrades {
   }
 
   /**
+   * 🔥 计算代币的盈亏
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Object} 盈亏信息
+   */
+  calculateTokenPnL(tokenAddress) {
+    // 获取该代币的所有成功交易，按时间排序
+    const tokenTrades = this.tradesData
+      .filter(t => t.token_address === tokenAddress && (t.status === 'success' || t.trade_status === 'success'))
+      .sort((a, b) => new Date(a.created_at || a.executed_at) - new Date(b.created_at || b.executed_at));
+
+    if (tokenTrades.length === 0) {
+      return null;
+    }
+
+    // FIFO 队列跟踪买入成本
+    const buyQueue = []; // { amount: number, cost: number, price: number }
+    let totalRealizedPnL = 0; // 已实现盈亏
+    let totalBNBSpent = 0; // 总花费 BNB
+    let totalBNBReceived = 0; // 总收到 BNB
+
+    tokenTrades.forEach(trade => {
+      const direction = trade.trade_direction || trade.direction || trade.action;
+      const isBuy = direction === 'buy' || direction === 'BUY';
+
+      if (isBuy) {
+        // 买入：记录到队列
+        const inputAmount = parseFloat(trade.input_amount || 0); // BNB 花费
+        const outputAmount = parseFloat(trade.output_amount || 0); // 代币数量
+        const unitPrice = parseFloat(trade.unit_price || 0);
+
+        if (outputAmount > 0) {
+          buyQueue.push({
+            amount: outputAmount,
+            cost: inputAmount,
+            price: unitPrice
+          });
+          totalBNBSpent += inputAmount;
+        }
+      } else {
+        // 卖出：FIFO 匹配买入
+        const inputAmount = parseFloat(trade.input_amount || 0); // 代币数量
+        const outputAmount = parseFloat(trade.output_amount || 0); // BNB 收到
+        const unitPrice = parseFloat(trade.unit_price || 0);
+
+        let remainingToSell = inputAmount;
+        let costOfSold = 0;
+
+        while (remainingToSell > 0 && buyQueue.length > 0) {
+          const oldestBuy = buyQueue[0];
+          const sellAmount = Math.min(remainingToSell, oldestBuy.amount);
+
+          // 计算本次卖出的成本
+          const unitCost = oldestBuy.cost / oldestBuy.amount;
+          costOfSold += unitCost * sellAmount;
+          remainingToSell -= sellAmount;
+
+          // 更新队列中的剩余数量和成本
+          oldestBuy.amount -= sellAmount;
+          oldestBuy.cost -= unitCost * sellAmount;
+
+          if (oldestBuy.amount <= 0.00000001) {
+            buyQueue.shift(); // 移除已完全匹配的买入
+          }
+        }
+
+        totalBNBReceived += outputAmount;
+        totalRealizedPnL += (outputAmount - costOfSold);
+      }
+    });
+
+    // 计算剩余持仓
+    let remainingTokens = 0;
+    let remainingCost = 0;
+    buyQueue.forEach(buy => {
+      remainingTokens += buy.amount;
+      remainingCost += buy.cost;
+    });
+
+    // 获取当前价格（从最近的交易中）
+    const currentPrice = tokenTrades.length > 0
+      ? parseFloat(tokenTrades[tokenTrades.length - 1].unit_price || 0)
+      : 0;
+
+    // 未实现盈亏
+    const unrealizedPnL = remainingTokens > 0
+      ? (remainingTokens * currentPrice) - remainingCost
+      : 0;
+
+    // 总盈亏
+    const totalPnL = totalRealizedPnL + unrealizedPnL;
+
+    // 盈亏率
+    const pnlRate = totalBNBSpent > 0 ? (totalPnL / totalBNBSpent) * 100 : 0;
+
+    return {
+      totalPnL,
+      totalRealizedPnL,
+      unrealizedPnL,
+      pnlRate,
+      totalBNBSpent,
+      totalBNBReceived,
+      remainingTokens,
+      remainingCost,
+      currentPrice,
+      tradeCount: tokenTrades.length
+    };
+  }
+
+  /**
    * 🔥 根据选择的代币过滤并重新渲染交易
    */
   filterAndRenderTrades() {
@@ -417,15 +561,63 @@ class ExperimentTrades {
     console.log(`🔍 过滤后的交易数量: ${filteredTrades.length} (全部: ${this.tradesData.length})`);
 
     // 更新代币信息显示
-    const tokenInfo = document.getElementById('token-info');
-    if (tokenInfo) {
-      if (this.selectedToken === 'all') {
-        tokenInfo.textContent = '显示所有代币的K线图和交易汇总';
-      } else {
-        const token = this.availableTokens.find(t => t.address === this.selectedToken);
-        if (token) {
-          tokenInfo.textContent = `正在查看 ${token.symbol} 的K线图和交易记录`;
+    const tokenPnLContainer = document.getElementById('token-pnl-container');
+    const tokenInfoContainer = document.getElementById('token-info-container');
+    const tokenAddressEl = document.getElementById('token-address');
+    const copyAddressBtn = document.getElementById('copy-address-btn');
+
+    if (this.selectedToken === 'all') {
+      if (tokenInfoContainer) {
+        tokenInfoContainer.classList.add('hidden');
+      }
+      if (tokenPnLContainer) {
+        tokenPnLContainer.classList.add('hidden');
+      }
+    } else {
+      const token = this.availableTokens.find(t => t.address === this.selectedToken);
+      if (token) {
+        // 显示代币地址
+        if (tokenInfoContainer) {
+          tokenInfoContainer.classList.remove('hidden');
+          if (tokenAddressEl) {
+            tokenAddressEl.textContent = token.address;
+          }
+
+          // 绑定复制按钮事件
+          if (copyAddressBtn) {
+            copyAddressBtn.onclick = async () => {
+              try {
+                await navigator.clipboard.writeText(token.address);
+                // 显示复制成功提示
+                copyAddressBtn.innerHTML = '<span>✅</span><span>已复制</span>';
+                setTimeout(() => {
+                  copyAddressBtn.innerHTML = '<span>📋</span><span>复制</span>';
+                }, 2000);
+              } catch (error) {
+                console.error('复制地址失败:', error);
+                // 降级方案
+                try {
+                  const textArea = document.createElement('textarea');
+                  textArea.value = token.address;
+                  textArea.style.position = 'fixed';
+                  textArea.style.opacity = '0';
+                  document.body.appendChild(textArea);
+                  textArea.select();
+                  document.execCommand('copy');
+                  document.body.removeChild(textArea);
+                  copyAddressBtn.innerHTML = '<span>✅</span><span>已复制</span>';
+                } catch (fallbackError) {
+                  console.error('降级复制也失败:', fallbackError);
+                  copyAddressBtn.innerHTML = '<span>❌</span><span>复制失败</span>';
+                }
+              }
+            };
+          }
         }
+
+        // 计算并显示盈亏
+        const pnl = this.calculateTokenPnL(this.selectedToken);
+        this.renderTokenPnL(token, pnl, tokenPnLContainer);
       }
     }
 
@@ -437,7 +629,75 @@ class ExperimentTrades {
 
     // 重置分页
     this.currentPage = 1;
-    this.setupPagination();
+    this.setupPagination(filteredTrades);
+  }
+
+  /**
+   * 🔥 渲染代币盈亏信息
+   * @param {Object} token - 代币对象
+   * @param {Object} pnl - 盈亏数据
+   * @param {HTMLElement} container - 容器元素
+   */
+  renderTokenPnL(token, pnl, container) {
+    if (!container) {
+      console.warn('⚠️ 找不到 token-pnl-container 元素');
+      return;
+    }
+
+    if (!pnl) {
+      container.innerHTML = '<p class="text-yellow-400">暂无盈亏数据</p>';
+      container.classList.remove('hidden');
+      return;
+    }
+
+    const pnlClass = pnl.totalPnL >= 0 ? 'text-green-400' : 'text-red-400';
+    const pnlSign = pnl.totalPnL >= 0 ? '+' : '';
+    const pnlRateClass = pnl.pnlRate >= 0 ? 'text-green-400' : 'text-red-400';
+    const pnlRateSign = pnl.pnlRate >= 0 ? '+' : '';
+
+    container.innerHTML = `
+      <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-semibold text-white">${token.symbol} 盈亏分析</h3>
+          <span class="text-sm text-gray-400">${pnl.tradeCount} 笔交易</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p class="text-gray-400 text-xs">总盈亏</p>
+            <p class="${pnlClass} text-lg font-semibold">${pnlSign}${pnl.totalPnL.toFixed(4)} BNB</p>
+          </div>
+          <div>
+            <p class="text-gray-400 text-xs">盈亏率</p>
+            <p class="${pnlRateClass} text-lg font-semibold">${pnlRateSign}${pnl.pnlRate.toFixed(2)}%</p>
+          </div>
+          <div>
+            <p class="text-gray-400 text-xs">已实现盈亏</p>
+            <p class="text-white text-lg font-semibold">${pnl.totalRealizedPnL >= 0 ? '+' : ''}${pnl.totalRealizedPnL.toFixed(4)} BNB</p>
+          </div>
+          <div>
+            <p class="text-gray-400 text-xs">未实现盈亏</p>
+            <p class="text-white text-lg font-semibold">${pnl.unrealizedPnL >= 0 ? '+' : ''}${pnl.unrealizedPnL.toFixed(4)} BNB</p>
+          </div>
+        </div>
+        ${pnl.remainingTokens > 0.00000001 ? `
+          <div class="mt-3 pt-3 border-t border-gray-700 grid grid-cols-3 gap-4">
+            <div>
+              <p class="text-gray-400 text-xs">剩余持仓</p>
+              <p class="text-white text-sm font-medium">${pnl.remainingTokens.toFixed(4)} ${token.symbol}</p>
+            </div>
+            <div>
+              <p class="text-gray-400 text-xs">持仓成本</p>
+              <p class="text-white text-sm font-medium">${pnl.remainingCost.toFixed(4)} BNB</p>
+            </div>
+            <div>
+              <p class="text-gray-400 text-xs">当前价格</p>
+              <p class="text-white text-sm font-medium">${pnl.currentPrice.toFixed(8)} BNB</p>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+    container.classList.remove('hidden');
   }
 
   /**
@@ -678,8 +938,9 @@ class ExperimentTrades {
 
   /**
    * 设置分页
+   * @param {Array} filteredTrades - 过滤后的交易数据（可选）
    */
-  setupPagination() {
+  setupPagination(filteredTrades = null) {
     const pagination = document.getElementById('pagination');
     const prevPage = document.getElementById('prev-page');
     const nextPage = document.getElementById('next-page');
@@ -690,8 +951,9 @@ class ExperimentTrades {
 
     if (!pagination) return;
 
-    const filteredTrades = this.getFilteredTrades();
-    const totalPages = Math.ceil(filteredTrades.length / this.tradesPerPage);
+    // 如果没有传入过滤后的交易，使用 getFilteredTrades()
+    const tradesToPaginate = filteredTrades || this.getFilteredTrades();
+    const totalPages = Math.ceil(tradesToPaginate.length / this.tradesPerPage);
 
     if (totalPages <= 1) {
       pagination.classList.add('hidden');
@@ -715,11 +977,11 @@ class ExperimentTrades {
 
     // 更新显示范围
     const start = (this.currentPage - 1) * this.tradesPerPage + 1;
-    const end = Math.min(this.currentPage * this.tradesPerPage, filteredTrades.length);
+    const end = Math.min(this.currentPage * this.tradesPerPage, tradesToPaginate.length);
 
     if (showingStart) showingStart.textContent = start.toString();
     if (showingEnd) showingEnd.textContent = end.toString();
-    if (totalTradesElement) totalTradesElement.textContent = filteredTrades.length.toString();
+    if (totalTradesElement) totalTradesElement.textContent = tradesToPaginate.length.toString();
   }
 
   /**
@@ -1014,9 +1276,12 @@ class ExperimentTrades {
 
     const ctx = canvas.getContext('2d');
 
+    // 🔥 价格乘以10亿得到市值（参考信号页面）
+    const MARKET_CAP_MULTIPLIER = 1e9; // 10亿
+
     // 准备数据
     const labels = timeSeriesData.map(d => new Date(d.timestamp));
-    const prices = timeSeriesData.map(d => d.price_usd ? parseFloat(d.price_usd) : null);
+    const marketCaps = timeSeriesData.map(d => d.price_usd ? parseFloat(d.price_usd) * MARKET_CAP_MULTIPLIER : null);
 
     // 准备交易标记点
     const tradeAnnotations = [];
@@ -1031,7 +1296,7 @@ class ExperimentTrades {
 
       // 找到最接近的数据点
       const closestIndex = labels.findIndex(label => Math.abs(label - tradeTime) < 30000); // 30秒内
-      if (closestIndex >= 0 && prices[closestIndex] !== null) {
+      if (closestIndex >= 0 && marketCaps[closestIndex] !== null) {
         tradeAnnotations.push({
           type: 'line',
           xMin: tradeTime,
@@ -1061,8 +1326,8 @@ class ExperimentTrades {
       data: {
         labels: labels,
         datasets: [{
-          label: `${token.symbol} 价格 (USDT)`,
-          data: prices,
+          label: `${token.symbol} 市值`,
+          data: marketCaps,
           borderColor: '#1890ff',
           backgroundColor: 'rgba(24, 144, 255, 0.1)',
           borderWidth: 2,
@@ -1092,9 +1357,11 @@ class ExperimentTrades {
               label: (context) => {
                 const value = context.parsed.y;
                 if (value !== null) {
-                  return `价格: $${value.toExponential(4)}`;
+                  // 市值格式化为K（千）为单位
+                  const marketCapInK = value / 1e3; // 转换为千
+                  return `市值: ${marketCapInK.toFixed(1)}K`;
                 }
-                return '价格: N/A';
+                return '市值: N/A';
               }
             }
           }
@@ -1118,14 +1385,20 @@ class ExperimentTrades {
             display: true,
             title: {
               display: true,
-              text: '价格 (USDT)'
+              text: '市值 (K)'
+            },
+            ticks: {
+              callback: function(value) {
+                // Y轴刻度显示为K（千）
+                return (value / 1e3).toFixed(1) + 'K';
+              }
             }
           }
         }
       }
     });
 
-    console.log(`📊 价格折线图已初始化，包含 ${timeSeriesData.length} 个数据点和 ${tradeAnnotations.length} 个交易标记`);
+    console.log(`📊 市值折线图已初始化，包含 ${timeSeriesData.length} 个数据点和 ${tradeAnnotations.length} 个交易标记`);
   }
 
   /**
@@ -1584,12 +1857,16 @@ class ExperimentTrades {
     if (!this.autoRefreshEnabled) {
       // 启动自动刷新
       this.autoRefreshEnabled = true;
-      this.autoRefreshInterval = setInterval(() => {
-        this.loadTradesData();
-        this.loadKlineDataAndInitChart();
+      this.autoRefreshInterval = setInterval(async () => {
+        await this.loadTradesData();
+        await this.loadKlineDataAndInitChart();
         this.renderTradeStats();
-        this.renderTradeCards();
-        this.setupPagination();
+        // 保持当前选择的代币过滤
+        const filteredTrades = this.selectedToken === 'all'
+          ? this.tradesData
+          : this.tradesData.filter(t => t.token_address === this.selectedToken);
+        this.renderTradeCards(filteredTrades);
+        this.setupPagination(filteredTrades);
       }, 30000); // 每30秒刷新一次
 
       const btn = document.getElementById('auto-refresh-btn');
@@ -1622,11 +1899,17 @@ class ExperimentTrades {
     this.currentFilters.direction = document.getElementById('direction-filter')?.value || 'all';
     this.currentFilters.success = document.getElementById('success-filter')?.value || 'all';
     this.currentFilters.symbol = document.getElementById('symbol-filter')?.value || 'all';
-    this.currentFilters.limit = parseInt(document.getElementById('limit')?.value || '50');
+    this.currentFilters.limit = parseInt(document.getElementById('limit')?.value || '10000');
 
     this.currentPage = 1;
-    this.renderTradeCards();
-    this.setupPagination();
+    // 首先应用 currentFilters，然后应用 selectedToken
+    let filteredTrades = this.getFilteredTrades();
+    // 然后应用代币选择器过滤
+    if (this.selectedToken !== 'all') {
+      filteredTrades = filteredTrades.filter(t => t.token_address === this.selectedToken);
+    }
+    this.renderTradeCards(filteredTrades);
+    this.setupPagination(filteredTrades);
   }
 
   /**
@@ -1637,7 +1920,7 @@ class ExperimentTrades {
       direction: 'all',
       success: 'all',
       symbol: 'all',
-      limit: 50
+      limit: 10000  // 🔥 修改默认limit，确保显示所有数据
     };
 
     // 重置表单
@@ -1649,11 +1932,15 @@ class ExperimentTrades {
     if (directionFilter) directionFilter.value = 'all';
     if (successFilter) successFilter.value = 'all';
     if (symbolFilter) symbolFilter.value = 'all';
-    if (limitSelect) limitSelect.value = '50';
+    if (limitSelect) limitSelect.value = '10000';
 
     this.currentPage = 1;
-    this.renderTradeCards();
-    this.setupPagination();
+    // 保持当前选择的代币
+    const filteredTrades = this.selectedToken === 'all'
+      ? this.tradesData
+      : this.tradesData.filter(t => t.token_address === this.selectedToken);
+    this.renderTradeCards(filteredTrades);
+    this.setupPagination(filteredTrades);
   }
 
   /**

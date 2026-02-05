@@ -264,6 +264,7 @@ class ExperimentDetail {
     const linkTokens = document.getElementById('link-tokens');
     const linkTrades = document.getElementById('link-trades');
     const linkObserver = document.getElementById('link-observer');
+    const linkReturns = document.getElementById('link-returns');
 
     if (linkSignals) {
       linkSignals.href = `/experiment/${this.experimentId}/signals`;
@@ -276,6 +277,9 @@ class ExperimentDetail {
     }
     if (linkObserver) {
       linkObserver.href = `/experiment/${this.experimentId}/observer`;
+    }
+    if (linkReturns) {
+      linkReturns.href = `/experiment/${this.experimentId}/token-returns`;
     }
 
     // 更新页面标题

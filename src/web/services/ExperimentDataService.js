@@ -24,23 +24,7 @@ class ExperimentDataService {
    */
   async getTrades(experimentId, options = {}) {
     try {
-      let query = this.supabase
-        .from('trades')
-        .select('*')
-        .eq('experiment_id', experimentId);
-
-      // 添加筛选条件
-      if (options.success !== undefined) {
-        query = query.eq('success', options.success === 'true');
-      }
-      if (options.direction) {
-        query = query.eq('direction', options.direction);
-      }
-      if (options.tradeType) {
-        query = query.eq('trade_type', options.tradeType);
-      }
-
-      // 添加分页
+      // 🔥 Supabase 单次查询最多返回 1000 行，需要分页获取
       const offset = parseInt(options.offset) || 0;
       const maxLimit = 10000; // 设置最大返回数量上限
       let limit = parseInt(options.limit) || 100;
@@ -51,17 +35,58 @@ class ExperimentDataService {
         limit = maxLimit;
       }
 
-      query = query.range(offset, offset + limit - 1);
+      // Supabase 分页大小限制
+      const PAGE_SIZE = 1000;
+      const allData = [];
+      let currentOffset = offset;
+      let remaining = limit;
 
-      // 排序
-      query = query.order('created_at', { ascending: false });
+      // 循环获取数据，直到获取足够数量或没有更多数据
+      while (remaining > 0) {
+        const pageSize = Math.min(PAGE_SIZE, remaining);
 
-      const { data, error } = await query;
+        let query = this.supabase
+          .from('trades')
+          .select('*')
+          .eq('experiment_id', experimentId);
 
-      if (error) throw error;
+        // 添加筛选条件
+        if (options.success !== undefined) {
+          query = query.eq('success', options.success === 'true');
+        }
+        if (options.direction) {
+          query = query.eq('direction', options.direction);
+        }
+        if (options.tradeType) {
+          query = query.eq('trade_type', options.tradeType);
+        }
+
+        // 分页
+        query = query.range(currentOffset, currentOffset + pageSize - 1);
+
+        // 排序
+        query = query.order('created_at', { ascending: false });
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          break; // 没有更多数据
+        }
+
+        allData.push(...data);
+        remaining -= data.length;
+        currentOffset += data.length;
+
+        // 如果返回的数据少于请求的数量，说明已经到末尾了
+        if (data.length < pageSize) {
+          break;
+        }
+      }
 
       // 转换为Trade实体
-      return (data || []).map(tradeData => Trade.fromDatabaseFormat(tradeData));
+      return allData.map(tradeData => Trade.fromDatabaseFormat(tradeData));
 
     } catch (error) {
       console.error('获取交易数据失败:', error);
@@ -77,20 +102,7 @@ class ExperimentDataService {
    */
   async getSignals(experimentId, options = {}) {
     try {
-      let query = this.supabase
-        .from('strategy_signals')
-        .select('*')
-        .eq('experiment_id', experimentId);
-
-      // 添加筛选条件
-      if (options.action) {
-        query = query.eq('action', options.action);
-      }
-      if (options.signalType) {
-        query = query.eq('signal_type', options.signalType);
-      }
-
-      // 添加分页
+      // 🔥 Supabase 单次查询最多返回 1000 行，需要分页获取
       const offset = parseInt(options.offset) || 0;
       const maxLimit = 10000; // 设置最大返回数量上限
       let limit = parseInt(options.limit) || 100;
@@ -101,17 +113,55 @@ class ExperimentDataService {
         limit = maxLimit;
       }
 
-      query = query.range(offset, offset + limit - 1);
+      // Supabase 分页大小限制
+      const PAGE_SIZE = 1000;
+      const allData = [];
+      let currentOffset = offset;
+      let remaining = limit;
 
-      // 排序
-      query = query.order('created_at', { ascending: false });
+      // 循环获取数据，直到获取足够数量或没有更多数据
+      while (remaining > 0) {
+        const pageSize = Math.min(PAGE_SIZE, remaining);
 
-      const { data, error } = await query;
+        let query = this.supabase
+          .from('strategy_signals')
+          .select('*')
+          .eq('experiment_id', experimentId);
 
-      if (error) throw error;
+        // 添加筛选条件
+        if (options.action) {
+          query = query.eq('action', options.action);
+        }
+        if (options.signalType) {
+          query = query.eq('signal_type', options.signalType);
+        }
+
+        // 分页
+        query = query.range(currentOffset, currentOffset + pageSize - 1);
+
+        // 排序
+        query = query.order('created_at', { ascending: false });
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          break; // 没有更多数据
+        }
+
+        allData.push(...data);
+        remaining -= data.length;
+        currentOffset += data.length;
+
+        // 如果返回的数据少于请求的数量，说明已经到末尾了
+        if (data.length < pageSize) {
+          break;
+        }
+      }
 
       // 转换为TradeSignal实体
-      return (data || []).map(signalData => TradeSignal.fromDatabaseFormat(signalData));
+      return allData.map(signalData => TradeSignal.fromDatabaseFormat(signalData));
 
     } catch (error) {
       console.error('获取信号数据失败:', error);
