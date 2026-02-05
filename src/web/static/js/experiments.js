@@ -182,7 +182,7 @@ class ExperimentMonitor {
       <div class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
         <div class="p-4">
           <div class="flex items-start justify-between mb-3">
-            <h3 class="text-lg font-semibold text-gray-900 truncate flex-1">${exp.experimentName}</h3>
+            <h3 class="text-xl font-bold text-white truncate flex-1" title="${this._escapeHtml(exp.experimentName)}">${exp.experimentName || '未命名实验'}</h3>
             <span class="ml-2 px-2 py-1 text-xs font-medium rounded ${statusColors[exp.status] || 'bg-gray-100'}">
               ${statusLabel[exp.status] || exp.status}
             </span>
