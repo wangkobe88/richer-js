@@ -101,16 +101,26 @@ class VirtualTradingEngine {
    */
   _getHolding(tokenAddress) {
     if (!this._portfolioManager || !this._portfolioId) {
+      console.log('🔍 [_getHolding] PortfolioManager或portfolioId不存在');
       return null;
     }
     const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
     if (!portfolio) {
+      console.log('🔍 [_getHolding] Portfolio未找到, portfolioId=', this._portfolioId);
       return null;
     }
+
+    // 🔍 调试：列出所有position的key
+    const allKeys = Array.from(portfolio.positions.keys());
+    console.log('🔍 [_getHolding] 查询tokenAddress=', tokenAddress, ', 所有position keys=', allKeys);
+
     // 使用与PortfolioManager相同的地址规范化方法
     const normalizedAddress = this._portfolioManager._normalizeAddress(tokenAddress);
+    console.log('🔍 [_getHolding] 规范化后地址=', normalizedAddress);
+
     const position = portfolio.positions.get(normalizedAddress);
     if (!position) {
+      console.log('🔍 [_getHolding] Position未找到, normalizedAddress=', normalizedAddress);
       return null;
     }
     return {
@@ -510,8 +520,11 @@ class VirtualTradingEngine {
       // 2. 构建因子结果（不再依赖K线数据）
       const factorResults = this._buildFactors(token);
 
+      // 调试日志：即将保存时序数据
+      console.log(`📊 [时序数据] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
+
       // 保存时序数据到数据库
-      await this.timeSeriesService.recordRoundData({
+      const recordResult = await this.timeSeriesService.recordRoundData({
         experimentId: this._experimentId,
         tokenAddress: token.token,
         tokenSymbol: token.symbol,
@@ -541,6 +554,13 @@ class VirtualTradingEngine {
         },
         blockchain: this._experiment.blockchain || 'bsc'
       });
+
+      // 调试日志：记录时序数据保存结果
+      console.log(`📊 [时序数据] 保存结果 | symbol=${token.symbol}, result=${recordResult}`);
+      if (!recordResult) {
+        this.logger.warn(this._experimentId, 'ProcessToken',
+          `时序数据保存失败 | symbol=${token.symbol}, tokenAddress=${token.token}`);
+      }
 
       // 记录代币指标到 RoundSummary
       if (this._roundSummary) {

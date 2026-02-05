@@ -30,6 +30,9 @@ class ExperimentTimeSeriesService {
    */
   async recordRoundData(data) {
     try {
+      // 立即记录方法被调用（用于调试）
+      console.log(`🔍 [时序数据] recordRoundData 被调用 | ${data.tokenSymbol}`);
+
       const supabase = dbManager.getClient();
 
       const record = {
@@ -52,9 +55,17 @@ class ExperimentTimeSeriesService {
         .insert([record]);
 
       if (error) {
-        console.error('❌ [时序数据] 插入失败:', error.message);
+        // 使用 console.error 确保错误输出
+        console.error('❌ [时序数据] 插入失败:', error.message, '|', JSON.stringify({
+          experimentId: data.experimentId,
+          tokenSymbol: data.tokenSymbol,
+          error: error
+        }));
         return false;
       }
+
+      // 使用 console.log 确保输出到标准输出
+      console.log(`✅ [时序数据] 插入成功 | ${data.tokenSymbol} (${data.tokenAddress})`);
 
       return true;
     } catch (error) {

@@ -251,9 +251,13 @@ class ExperimentSignals {
     try {
       // 显示加载状态
       const chartStatus = document.getElementById('chart-status');
+      const chartWrapper = document.getElementById('kline-chart-wrapper');
       const chartContainer = document.querySelector('.chart-container');
 
-      // 首先确保图表容器可见
+      // 首先确保图表区域可见
+      if (chartWrapper) {
+        chartWrapper.style.display = 'block';
+      }
       if (chartContainer) {
         chartContainer.style.display = 'block';
       }
@@ -267,14 +271,9 @@ class ExperimentSignals {
       const timeSeriesResponse = await this.fetchTimeSeriesData(token.address);
 
       if (!timeSeriesResponse || !timeSeriesResponse.data || timeSeriesResponse.data.length === 0) {
-        // 显示友好提示
-        if (chartStatus) {
-          chartStatus.textContent = '暂无时序数据';
-          chartStatus.className = 'px-3 py-1 bg-gray-900 text-gray-400 rounded-full text-sm font-medium';
-        }
-        // 隐藏图表容器
-        if (chartContainer) {
-          chartContainer.style.display = 'none';
+        // 显示友好提示并隐藏整个图表区域
+        if (chartWrapper) {
+          chartWrapper.style.display = 'none';
         }
         return;
       }
@@ -296,11 +295,10 @@ class ExperimentSignals {
     } catch (error) {
       console.error(`❌ 加载代币 ${token.symbol} 的时序数据失败:`, error);
 
-      // 更新状态
-      const chartStatus = document.getElementById('chart-status');
-      if (chartStatus) {
-        chartStatus.textContent = '加载失败';
-        chartStatus.className = 'px-3 py-1 bg-red-900 text-red-200 rounded-full text-sm font-medium';
+      // 隐藏图表区域
+      const chartWrapper = document.getElementById('kline-chart-wrapper');
+      if (chartWrapper) {
+        chartWrapper.style.display = 'none';
       }
     }
   }
@@ -312,17 +310,22 @@ class ExperimentSignals {
    */
   async fetchTimeSeriesData(tokenAddress) {
     try {
+      console.log('🔍 [fetchTimeSeriesData] 开始获取时序数据 | tokenAddress =', tokenAddress);
       const params = new URLSearchParams({
         experimentId: this.experimentId,
         tokenAddress: tokenAddress
       });
 
+      console.log('🔍 [fetchTimeSeriesData] 请求URL =', `/api/experiment/time-series/data?${params}`);
       const response = await fetch(`/api/experiment/time-series/data?${params}`);
+      console.log('🔍 [fetchTimeSeriesData] 响应状态 =', response.status, response.ok);
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result = await response.json();
+      console.log('🔍 [fetchTimeSeriesData] 返回数据 | success =', result.success, ', data.length =', result.data?.length);
       return result;
     } catch (error) {
       console.error('❌ 获取时序数据失败:', error);
@@ -607,15 +610,15 @@ class ExperimentSignals {
           await this.loadKlineForToken(selectedToken);
         }
       } else {
-        // 选择"全部代币"时，隐藏图表
+        // 选择"全部代币"时，隐藏整个图表区域
+        const chartWrapper = document.getElementById('kline-chart-wrapper');
         const chartStatus = document.getElementById('chart-status');
-        const chartContainer = document.querySelector('.chart-container');
+        if (chartWrapper) {
+          chartWrapper.style.display = 'none';
+        }
         if (chartStatus) {
           chartStatus.textContent = '请选择代币查看图表';
           chartStatus.className = 'px-3 py-1 bg-gray-900 text-gray-400 rounded-full text-sm font-medium';
-        }
-        if (chartContainer) {
-          chartContainer.style.display = 'none';
         }
       }
 
