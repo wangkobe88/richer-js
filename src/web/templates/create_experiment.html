@@ -263,6 +263,50 @@
                     </div>
                 </div>
 
+                <!-- 实盘配置（仅在选择实盘模式时显示） -->
+                <div id="live-config" class="border border-gray-200 rounded-lg p-4" style="display:none;">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">🔐 实盘钱包配置</h2>
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-start">
+                            <span class="text-2xl mr-2">⚠️</span>
+                            <div class="text-sm text-yellow-800">
+                                <p class="font-semibold mb-1">安全提示</p>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li>私钥将在提交后使用 AES-256 加密存储</li>
+                                    <li>请确保您拥有此钱包的完全控制权</li>
+                                    <li>建议使用专门用于交易的钱包，不要存放大量资产</li>
+                                    <li>私钥一旦提交，请妥善保管您的 ENCRYPTION_KEY</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                钱包地址 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text"
+                                   name="wallet_address"
+                                   id="wallet_address"
+                                   placeholder="0x..."
+                                   pattern="^0x[a-fA-F0-9]{40}$"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <span class="text-xs text-gray-500">输入您的钱包地址（0x开头的40位十六进制）</span>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                私钥 <span class="text-red-500">*</span>
+                            </label>
+                            <input type="password"
+                                   name="private_key"
+                                   id="private_key"
+                                   placeholder="输入私钥（将使用 AES-256 加密存储）"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <span class="text-xs text-gray-500">私钥将在提交前加密，请确保您的环境设置了 ENCRYPTION_KEY</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 卡牌仓位管理配置 -->
                 <div class="border border-gray-200 rounded-lg p-4">
                     <div class="flex items-center justify-between mb-4">
@@ -588,21 +632,36 @@
         const urlParams = new URLSearchParams(window.location.search);
         const isCopyMode = urlParams.get('copy') === 'true';
 
-        if (isCopyMode) {
-            loadCopiedExperimentData();
-        }
+        // 异步加载复制数据（需要等待加载完成才能使用表单）
+        (async () => {
+            if (isCopyMode) {
+                await loadCopiedExperimentData();
+            }
+        })();
 
         // 加载复制的实验数据
         async function loadCopiedExperimentData() {
+            console.log('🔧 开始加载复制数据...');
             try {
                 const copyDataStr = sessionStorage.getItem('copyExperimentData');
                 if (!copyDataStr) {
+                    console.error('❌ 未找到复制的实验数据');
                     showCopyModeNotice('❌ 未找到复制的实验数据');
+                    // 添加默认策略以确保表单可用
+                    loadPreset('early_buy');
+                    loadPreset('tp1');
+                    loadPreset('tp2');
                     return;
                 }
 
                 const copyData = JSON.parse(copyDataStr);
                 console.log('📋 加载复制的实验数据:', copyData);
+                console.log('📋 策略配置:', {
+                    buyStrategies: copyData.buyStrategies,
+                    sellStrategies: copyData.sellStrategies,
+                    strategiesConfig: copyData.strategiesConfig,
+                    strategies: copyData.strategies
+                });
 
                 // 填充基本信息（带空值检查）
                 const setFieldValue = (fieldName, value) => {
@@ -619,6 +678,10 @@
                 setFieldValue('experiment_description', copyData.experiment_description);
                 setFieldValue('trading_mode', copyData.trading_mode);
                 setFieldValue('blockchain', copyData.blockchain);
+
+                // 🔥 重要：设置 trading_mode 后需要手动调用 handleTradingModeChange
+                // 来移除 backtest_source_experiment 的 required 属性
+                setTimeout(() => handleTradingModeChange(), 0);
                 // kline_type 字段在当前表单中不存在，跳过
                 // setFieldValue('kline_type', copyData.kline_type);
 
@@ -714,6 +777,24 @@
                     });
                 }
 
+                // 如果没有找到任何策略配置，添加默认策略
+                const buyStrategiesCount = buyContainer.querySelectorAll('.strategy-card').length;
+                const sellStrategiesCount = sellContainer.querySelectorAll('.strategy-card').length;
+
+                console.log(`策略添加完成: 买入${buyStrategiesCount}个, 卖出${sellStrategiesCount}个`);
+                console.log('买入容器内容:', buyContainer.innerHTML);
+                console.log('卖出容器内容:', sellContainer.innerHTML);
+
+                if (buyStrategiesCount === 0 && sellStrategiesCount === 0) {
+                    console.warn('⚠️ 没有找到任何策略配置，添加默认策略');
+                    loadPreset('early_buy');
+                    loadPreset('tp1');
+                    loadPreset('tp2');
+
+                    // 再次检查
+                    console.log(`添加默认策略后: 买入${buyContainer.querySelectorAll('.strategy-card').length}个, 卖出${sellContainer.querySelectorAll('.strategy-card').length}个`);
+                }
+
                 // 显示复制模式通知
                 showCopyModeNotice('✅ 已加载复制的实验配置，您可以修改后创建新实验');
 
@@ -759,8 +840,21 @@
         function handleTradingModeChange() {
             const tradingMode = document.getElementById('trading_mode').value;
             const backtestConfig = document.getElementById('backtest-config');
+            const liveConfig = document.getElementById('live-config');
             const initialBalanceLabel = document.getElementById('initial_balance');
             const initialBalanceInput = document.getElementById('initial_balance');
+            const walletAddressInput = document.getElementById('wallet_address');
+            const privateKeyInput = document.getElementById('private_key');
+            const backtestSourceInput = document.getElementById('backtest_source_experiment');
+
+            // 隐藏所有配置区域
+            backtestConfig.style.display = 'none';
+            liveConfig.style.display = 'none';
+
+            // 移除实盘和回测字段的必填属性
+            if (walletAddressInput) walletAddressInput.removeAttribute('required');
+            if (privateKeyInput) privateKeyInput.removeAttribute('required');
+            if (backtestSourceInput) backtestSourceInput.removeAttribute('required');
 
             if (tradingMode === 'backtest') {
                 backtestConfig.style.display = 'block';
@@ -770,8 +864,12 @@
                 }
                 // 加载可回测的实验列表
                 loadBacktestableExperiments();
+            } else if (tradingMode === 'live') {
+                liveConfig.style.display = 'block';
+                // 添加实盘字段的必填属性
+                if (walletAddressInput) walletAddressInput.setAttribute('required', 'required');
+                if (privateKeyInput) privateKeyInput.setAttribute('required', 'required');
             } else {
-                backtestConfig.style.display = 'none';
                 // 恢复默认初始余额
                 if (initialBalanceInput.value === '100') {
                     initialBalanceInput.value = '100';
@@ -825,7 +923,7 @@
             if (config.condition) {
                 html = html.replace(`name="buy_condition_${index}"`, `name="buy_condition_${index}" value="${config.condition}"`);
             }
-            if (config.cards !== undefined) {
+            if (config.cards !== undefined && config.cards !== null) {
                 html = html.replace(`name="buy_cards_${index}"`, `name="buy_cards_${index}"`);
                 // 找到select并设置selected属性
                 const temp = document.createElement('div');
@@ -833,16 +931,20 @@
                 const select = temp.querySelector(`select[name="buy_cards_${index}"]`);
                 if (select) {
                     // 设置select的值
-                    select.value = String(config.cards);
+                    const cardValue = String(config.cards);
+                    select.value = cardValue;
+                    console.log(`设置买入策略 #${index} 卡牌数量: ${cardValue}`);
                     // 手动设置对应option的selected属性
                     const options = select.querySelectorAll('option');
                     options.forEach(opt => {
-                        if (opt.value === String(config.cards)) {
+                        if (opt.value === cardValue) {
                             opt.setAttribute('selected', 'selected');
                         } else {
                             opt.removeAttribute('selected');
                         }
                     });
+                } else {
+                    console.warn(`⚠️ 未找到买入策略 #${index} 的卡牌选择框`);
                 }
                 html = temp.innerHTML;
             }
@@ -869,7 +971,7 @@
             if (config.condition) {
                 html = html.replace(`name="sell_condition_${index}"`, `name="sell_condition_${index}" value="${config.condition}"`);
             }
-            if (config.cards !== undefined) {
+            if (config.cards !== undefined && config.cards !== null) {
                 html = html.replace(`name="sell_cards_${index}"`, `name="sell_cards_${index}"`);
                 // 找到select并设置selected属性
                 const temp = document.createElement('div');
@@ -877,16 +979,20 @@
                 const select = temp.querySelector(`select[name="sell_cards_${index}"]`);
                 if (select) {
                     // 设置select的值
-                    select.value = String(config.cards);
+                    const cardValue = String(config.cards);
+                    select.value = cardValue;
+                    console.log(`设置卖出策略 #${index} 卡牌数量: ${cardValue}`);
                     // 手动设置对应option的selected属性
                     const options = select.querySelectorAll('option');
                     options.forEach(opt => {
-                        if (opt.value === String(config.cards)) {
+                        if (opt.value === cardValue) {
                             opt.setAttribute('selected', 'selected');
                         } else {
                             opt.removeAttribute('selected');
                         }
                     });
+                } else {
+                    console.warn(`⚠️ 未找到卖出策略 #${index} 的卡牌选择框`);
                 }
                 html = temp.innerHTML;
             }
@@ -1067,6 +1173,11 @@
                     initialBalance: parseFloat(formData.get('initial_balance')),
                     sourceExperimentId: formData.get('backtest_source_experiment')
                 };
+            } else if (tradingMode === 'live') {
+                config.wallet = {
+                    address: formData.get('wallet_address'),
+                    privateKey: formData.get('private_key')  // 将在服务器端加密
+                };
             }
 
             return config;
@@ -1074,6 +1185,7 @@
 
         // 表单提交
         form.addEventListener('submit', async (e) => {
+            console.log('📝 表单提交事件触发');
             e.preventDefault();
 
             // 验证
@@ -1081,20 +1193,51 @@
             const sellStrategies = document.querySelectorAll('#sell-strategies-container .strategy-card');
             const tradingMode = document.getElementById('trading_mode').value;
 
+            console.log(`📝 策略验证: 买入策略${buyStrategies.length}个, 卖出策略${sellStrategies.length}个`);
+
             if (buyStrategies.length === 0) {
+                console.error('❌ 验证失败: 没有买入策略');
                 alert('请至少添加一个买入策略');
                 return;
             }
             if (sellStrategies.length === 0) {
+                console.error('❌ 验证失败: 没有卖出策略');
                 alert('请至少添加一个卖出策略');
                 return;
             }
+
+            console.log('✅ 策略验证通过');
 
             // 回测模式额外验证
             if (tradingMode === 'backtest') {
                 const sourceExperiment = document.getElementById('backtest_source_experiment').value;
                 if (!sourceExperiment) {
                     alert('请选择源实验');
+                    return;
+                }
+            }
+
+            // 实盘模式额外验证
+            if (tradingMode === 'live') {
+                const walletAddress = document.getElementById('wallet_address').value;
+                const privateKey = document.getElementById('private_key').value;
+
+                if (!walletAddress) {
+                    alert('请输入钱包地址');
+                    return;
+                }
+                if (!privateKey) {
+                    alert('请输入私钥');
+                    return;
+                }
+                // 验证钱包地址格式
+                if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+                    alert('钱包地址格式不正确，应为0x开头的40位十六进制字符');
+                    return;
+                }
+                // 验证私钥格式
+                if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
+                    alert('私钥格式不正确，应为0x开头的64位十六进制字符');
                     return;
                 }
             }
