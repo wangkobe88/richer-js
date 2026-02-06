@@ -209,9 +209,9 @@ class Experiment {
     if (!this.blockchain) errors.push('blockchain is required');
     if (!this.klineType) errors.push('klineType is required');
 
-    // 交易模式验证 - 只支持 virtual 和 live
-    if (!['virtual', 'live'].includes(this.tradingMode)) {
-      errors.push('tradingMode must be one of: virtual, live (backtest not supported)');
+    // 交易模式验证 - 支持 virtual, live 和 backtest
+    if (!['virtual', 'live', 'backtest'].includes(this.tradingMode)) {
+      errors.push('tradingMode must be one of: virtual, live, backtest');
     }
 
     // 状态验证

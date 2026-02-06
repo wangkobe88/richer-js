@@ -6,7 +6,8 @@
 // 交易模式
 const TradingMode = {
   LIVE: 'live',
-  VIRTUAL: 'virtual'
+  VIRTUAL: 'virtual',
+  BACKTEST: 'backtest'
 };
 
 // 引擎状态

@@ -14,6 +14,8 @@ const path = require('path');
 const { ExperimentFactory } = require('./src/trading-engine/factories/ExperimentFactory');
 const { Experiment } = require('./src/trading-engine/entities/Experiment');
 const { VirtualTradingEngine } = require('./src/trading-engine/implementations/VirtualTradingEngine');
+const { LiveTradingEngine } = require('./src/trading-engine/implementations/LiveTradingEngine');
+const { BacktestEngine } = require('./src/trading-engine/implementations/BacktestEngine');
 
 const consoleLogger = {
   info: (msg) => console.log(msg),
@@ -32,14 +34,42 @@ class VirtualTradingSystem {
   }
 
   /**
-   * 通过实验ID启动虚拟交易引擎
+   * 创建引擎（根据交易模式）
+   * @private
+   * @param {Object} experiment - 实验对象
+   * @returns {Object} 交易引擎实例
+   */
+  _createEngine(experiment) {
+    const tradingMode = experiment.tradingMode;
+
+    switch (tradingMode) {
+      case 'virtual':
+        const initialBalance = experiment.config?.virtual?.initialBalance || 100;
+        console.log(`🎮 创建虚拟交易引擎，初始余额: ${initialBalance}`);
+        return new VirtualTradingEngine({ initialBalance });
+
+      case 'live':
+        console.log(`🔴 创建实盘交易引擎`);
+        return new LiveTradingEngine();
+
+      case 'backtest':
+        console.log(`📊 创建回测引擎`);
+        return new BacktestEngine();
+
+      default:
+        throw new Error(`不支持的交易模式: ${tradingMode}`);
+    }
+  }
+
+  /**
+   * 通过实验ID启动交易引擎
    * @param {string} experimentId - 实验ID
    */
   async startByExperimentId(experimentId) {
     try {
       console.log(``);
       console.log(`========================================`);
-      console.log(`🚀 Richer-js 虚拟交易引擎`);
+      console.log(`🚀 Richer-js 交易系统`);
       console.log(`========================================`);
       console.log(``);
       console.log(`🔍 启动实验: ${experimentId}`);
@@ -72,48 +102,55 @@ class VirtualTradingSystem {
 
       console.log(`✅ 实验状态检查通过`);
 
-      // 3. 检查是否是虚拟交易模式
-      if (experiment.tradingMode !== 'virtual') {
-        throw new Error(`只支持虚拟交易模式，当前模式: ${experiment.tradingMode}`);
-      }
+      // 3. 根据交易模式创建引擎
+      const engineNameMap = {
+        'virtual': '虚拟交易',
+        'live': '实盘交易',
+        'backtest': '回测'
+      };
+      console.log(`🎯 交易模式: ${engineNameMap[experiment.tradingMode] || experiment.tradingMode}`);
 
-      // 4. 获取初始余额
-      const initialBalance = experiment.config?.virtual?.initialBalance || 100;
-      console.log(`💰 初始余额: ${initialBalance} ${experiment.blockchain.toUpperCase()}`);
+      // 4. 创建对应的引擎
+      this.engine = this._createEngine(experiment);
 
-      // 5. 初始化虚拟交易引擎
-      console.log(`🎮 正在初始化虚拟交易引擎...`);
-      this.engine = new VirtualTradingEngine({
-        initialBalance: initialBalance
-      });
-
+      // 5. 初始化引擎
+      console.log(`⚙️  正在初始化引擎...`);
       await this.engine.initialize(experimentId);
-      console.log(`✅ 虚拟引擎初始化完成`);
+      console.log(`✅ 引擎初始化完成`);
 
       // 6. 启动引擎
-      console.log(`🚀 正在启动虚拟交易引擎...`);
+      console.log(`🚀 正在启动引擎...`);
       await this.engine.start();
       this.isRunning = true;
       this.experimentId = experimentId;
 
       // 更新实验状态为运行中
       await experimentFactory.updateStatus(experimentId, 'running');
-      console.log(`✅ 虚拟交易引擎已启动`);
+      console.log(`✅ 引擎已启动`);
 
       // 7. 打印引擎信息
       this.printStatus(experiment);
 
-      // 8. 设置优雅退出
-      this.setupGracefulShutdown();
+      // 8. 对于非回测模式，设置优雅退出
+      if (experiment.tradingMode !== 'backtest') {
+        this.setupGracefulShutdown();
 
-      console.log(``);
-      console.log(`========================================`);
-      console.log(`✅ 引擎运行中，按 Ctrl+C 停止`);
-      console.log(`========================================`);
-      console.log(``);
+        console.log(``);
+        console.log(`========================================`);
+        console.log(`✅ 引擎运行中，按 Ctrl+C 停止`);
+        console.log(`========================================`);
+        console.log(``);
 
-      // 保持运行
-      process.stdin.resume();
+        // 保持运行
+        process.stdin.resume();
+      } else {
+        // 回测模式会自动运行完成
+        console.log(``);
+        console.log(`========================================`);
+        console.log(`📊 回测运行中...`);
+        console.log(`========================================`);
+        console.log(``);
+      }
 
     } catch (error) {
       console.error(``);
@@ -121,8 +158,9 @@ class VirtualTradingSystem {
       console.error(``);
 
       // 如果已经加载了实验，更新状态为失败
-      if (experimentId && experimentFactory) {
-        await experimentFactory.updateStatus(experimentId, 'failed');
+      if (experimentId) {
+        const factory = ExperimentFactory.getInstance();
+        await factory.updateStatus(experimentId, 'failed');
       }
 
       process.exit(1);

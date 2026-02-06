@@ -6,6 +6,7 @@ const { ExperimentFactory } = require('./factories/ExperimentFactory');
 const { Experiment, TradeSignal, Trade, TradeStatus } = require('./entities');
 const { VirtualTradingEngine } = require('./implementations/VirtualTradingEngine');
 const { LiveTradingEngine } = require('./implementations/LiveTradingEngine');
+const { BacktestEngine } = require('./implementations/BacktestEngine');
 const { TradingMode, EngineStatus, ITradingEngine } = require('./interfaces/ITradingEngine');
 
 module.exports = {
@@ -21,6 +22,7 @@ module.exports = {
   // Implementations
   VirtualTradingEngine,
   LiveTradingEngine,
+  BacktestEngine,
 
   // Interfaces
   TradingMode,

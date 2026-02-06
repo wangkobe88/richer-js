@@ -21,6 +21,10 @@ class ExperimentSignals {
     this.selectedToken = 'all';  // 当前选择的代币，'all'表示全部
     this.availableTokens = [];   // 可用的代币列表
 
+    // 🔥 回测模式支持
+    this._isBacktest = false;    // 是否是回测实验
+    this._sourceExperimentId = null;  // 源实验ID
+
     this.init();
   }
 
@@ -110,15 +114,22 @@ class ExperimentSignals {
       const experimentResponse = await this.fetchExperiment();
       // console.log('📋 实验信息加载完成');
 
-      // 然后加载信号数据
-      const signalsResponse = await this.fetchSignals();
-      // console.log('📡 信号数据加载完成:', signalsResponse.signals?.length || 0, '条');
-      // console.log('🔍 signalsResponse完整对象:', signalsResponse);
-
       // 更新实验信息
       if (experimentResponse.data) {
         this.updateExperimentHeader(experimentResponse.data);
       }
+
+      // 🔥 检查是否是回测实验，如果是则显示源实验提示
+      if (this._isBacktest && this._sourceExperimentId) {
+        console.log('📊 [回测模式] 获取源实验信号数据:', this._sourceExperimentId);
+        // 在页面标题中显示源实验信息
+        this.updateBacktestHeader(this._sourceExperimentId);
+      }
+
+      // 然后加载信号数据（fetchSignals 内部会自动使用源实验ID）
+      const signalsResponse = await this.fetchSignals();
+      // console.log('📡 信号数据加载完成:', signalsResponse.signals?.length || 0, '条');
+      // console.log('🔍 signalsResponse完整对象:', signalsResponse);
 
       // 更新信号数据（必须在 extractTokensFromExperiment 之前）
       this.signals = signalsResponse.signals || [];
@@ -198,7 +209,10 @@ class ExperimentSignals {
     return await response.json();
   }
 
-  async fetchSignals() {
+  async fetchSignals(experimentId = null) {
+    // 如果没有指定 experimentId，使用当前实验的 ID
+    const targetId = experimentId || this.experimentId;
+
     const params = new URLSearchParams({
       limit: this.currentFilters.limit
     });
@@ -207,7 +221,7 @@ class ExperimentSignals {
       params.append('action', this.currentFilters.action);
     }
 
-    const response = await fetch(`/api/experiment/${this.experimentId}/signals?${params}`);
+    const response = await fetch(`/api/experiment/${targetId}/signals?${params}`);
     if (!response.ok) {
       throw new Error('获取交易信号失败');
     }
@@ -311,8 +325,14 @@ class ExperimentSignals {
   async fetchTimeSeriesData(tokenAddress) {
     try {
       console.log('🔍 [fetchTimeSeriesData] 开始获取时序数据 | tokenAddress =', tokenAddress);
+
+      // 🔥 对于回测实验，使用源实验的时序数据
+      const targetExperimentId = this._isBacktest && this._sourceExperimentId
+        ? this._sourceExperimentId
+        : this.experimentId;
+
       const params = new URLSearchParams({
-        experimentId: this.experimentId,
+        experimentId: targetExperimentId,
         tokenAddress: tokenAddress
       });
 
@@ -486,6 +506,14 @@ class ExperimentSignals {
     document.getElementById('experiment-name').textContent = name;
     document.getElementById('experiment-id').textContent = `ID: ${this.experimentId}`;
 
+    // 🔥 设置回测状态
+    this._isBacktest = experiment.tradingMode === 'backtest';
+    if (this._isBacktest) {
+      this._sourceExperimentId = experiment.config?.backtest?.sourceExperimentId || null;
+    } else {
+      this._sourceExperimentId = null;
+    }
+
     // 🔥 使用 BlockchainConfig 获取区块链显示名称和 logo
     const blockchain = experiment.blockchain || 'unknown';
     const blockchainDisplay = this.getBlockchainDisplay(blockchain);
@@ -499,6 +527,35 @@ class ExperimentSignals {
 
     // 更新页面标题
     document.title = `交易信号 - ${name} - 2025-2026 Become Rich Baby!`;
+  }
+
+  /**
+   * 🔥 更新回测模式的头部信息，显示源实验提示
+   * @param {string} sourceExperimentId - 源实验ID
+   */
+  updateBacktestHeader(sourceExperimentId) {
+    const header = document.getElementById('experiment-header');
+    if (!header) return;
+
+    // 创建回测提示元素
+    const backtestNotice = document.createElement('div');
+    backtestNotice.className = 'mt-4 p-3 bg-blue-900 border border-blue-700 rounded-lg';
+    backtestNotice.innerHTML = `
+      <div class="flex items-center space-x-2">
+        <span class="text-blue-300 text-lg">📊</span>
+        <div class="flex-1">
+          <div class="text-blue-200 font-medium">回测模式 - 显示源实验数据</div>
+          <div class="text-blue-400 text-sm mt-1">
+            当前为回测实验，以下显示的是源实验 <code class="bg-blue-800 px-1 rounded text-blue-300">${sourceExperimentId.substring(0, 8)}...</code> 的原始信号数据
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 插入到头部内容的最后
+    header.appendChild(backtestNotice);
+
+    console.log('📊 [回测模式] 已添加源实验提示');
   }
 
   /**

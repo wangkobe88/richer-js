@@ -207,10 +207,13 @@
                                 交易模式 <span class="text-red-500">*</span>
                             </label>
                             <select name="trading_mode"
+                                    id="trading_mode"
                                     required
+                                    onchange="handleTradingModeChange()"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="virtual" selected>虚拟交易</option>
                                 <option value="live">实盘交易</option>
+                                <option value="backtest">回测</option>
                             </select>
                         </div>
                         <div>
@@ -236,6 +239,26 @@
                                    min="0.001"
                                    value="100"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 回测配置（仅在选择回测模式时显示） -->
+                <div id="backtest-config" class="border border-gray-200 rounded-lg p-4" style="display:none;">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">📊 回测配置</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                源实验 <span class="text-red-500">*</span>
+                            </label>
+                            <select name="backtest_source_experiment"
+                                    id="backtest_source_experiment"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">请选择源实验...</option>
+                                <!-- 动态加载可回测的实验列表 -->
+                            </select>
+                            <span class="text-xs text-gray-500">选择要基于其历史数据进行回测的源实验</span>
                         </div>
                     </div>
                 </div>
@@ -732,6 +755,62 @@
             pmConfig.style.display = pmEnabled.checked ? 'block' : 'none';
         });
 
+        // 交易模式切换处理
+        function handleTradingModeChange() {
+            const tradingMode = document.getElementById('trading_mode').value;
+            const backtestConfig = document.getElementById('backtest-config');
+            const initialBalanceLabel = document.getElementById('initial_balance');
+            const initialBalanceInput = document.getElementById('initial_balance');
+
+            if (tradingMode === 'backtest') {
+                backtestConfig.style.display = 'block';
+                // 回测模式可能需要不同的初始余额设置
+                if (initialBalanceInput.value === '100') {
+                    initialBalanceInput.value = '100';
+                }
+                // 加载可回测的实验列表
+                loadBacktestableExperiments();
+            } else {
+                backtestConfig.style.display = 'none';
+                // 恢复默认初始余额
+                if (initialBalanceInput.value === '100') {
+                    initialBalanceInput.value = '100';
+                }
+            }
+        }
+
+        // 加载可回测的实验列表
+        async function loadBacktestableExperiments() {
+            try {
+                console.log('📊 开始加载可回测实验列表...');
+                const response = await fetch('/api/experiments/backtestable');
+                const result = await response.json();
+
+                console.log('📊 API 响应:', result);
+
+                if (result.success && result.data) {
+                    const select = document.getElementById('backtest_source_experiment');
+                    console.log('📊 找到 select 元素:', select);
+                    console.log('📊 实验数量:', result.data.length);
+
+                    select.innerHTML = '<option value="">请选择源实验...</option>';
+
+                    result.data.forEach(exp => {
+                        const option = document.createElement('option');
+                        option.value = exp.id;
+                        option.textContent = `${exp.experiment_name} (${exp.id}) - 状态: ${exp.status}`;
+                        select.appendChild(option);
+                    });
+
+                    console.log('📊 下拉框更新完成，选项数量:', select.options.length);
+                } else {
+                    console.warn('📊 API 返回失败或无数据:', result);
+                }
+            } catch (error) {
+                console.error('❌ 加载可回测实验失败:', error);
+            }
+        }
+
         // 添加买入策略
         function addBuyStrategy(config = {}) {
             console.log('addBuyStrategy 被调用，config:', config);
@@ -922,6 +1001,7 @@
         // 收集表单数据
         function collectFormData() {
             const formData = new FormData(form);
+            const tradingMode = formData.get('trading_mode');
 
             // 收集买入策略
             const buyStrategies = [];
@@ -952,10 +1032,10 @@
             });
 
             // 构建配置数据
-            return {
+            const config = {
                 experiment_name: formData.get('experiment_name'),
                 experiment_description: formData.get('experiment_description'),
-                trading_mode: formData.get('trading_mode'),
+                trading_mode: tradingMode,
                 blockchain: formData.get('blockchain'),
                 initial_balance: parseFloat(formData.get('initial_balance')),
                 // 策略配置
@@ -973,13 +1053,23 @@
                             tokenCards: parseInt(formData.get('initial_token_cards')) || 0
                         }
                     } : null
-                },
-                // 虚拟交易配置
-                virtual: {
-                    initialBalance: parseFloat(formData.get('initial_balance')),
-                    tradeAmount: null  // 将由卡牌管理器计算
                 }
             };
+
+            // 根据交易模式添加特定配置
+            if (tradingMode === 'virtual') {
+                config.virtual = {
+                    initialBalance: parseFloat(formData.get('initial_balance')),
+                    tradeAmount: null
+                };
+            } else if (tradingMode === 'backtest') {
+                config.backtest = {
+                    initialBalance: parseFloat(formData.get('initial_balance')),
+                    sourceExperimentId: formData.get('backtest_source_experiment')
+                };
+            }
+
+            return config;
         }
 
         // 表单提交
@@ -989,6 +1079,7 @@
             // 验证
             const buyStrategies = document.querySelectorAll('#buy-strategies-container .strategy-card');
             const sellStrategies = document.querySelectorAll('#sell-strategies-container .strategy-card');
+            const tradingMode = document.getElementById('trading_mode').value;
 
             if (buyStrategies.length === 0) {
                 alert('请至少添加一个买入策略');
@@ -997,6 +1088,15 @@
             if (sellStrategies.length === 0) {
                 alert('请至少添加一个卖出策略');
                 return;
+            }
+
+            // 回测模式额外验证
+            if (tradingMode === 'backtest') {
+                const sourceExperiment = document.getElementById('backtest_source_experiment').value;
+                if (!sourceExperiment) {
+                    alert('请选择源实验');
+                    return;
+                }
             }
 
             // 禁用提交按钮

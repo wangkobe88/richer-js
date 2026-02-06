@@ -162,6 +162,48 @@ class RicherJsWebServer {
 
     // ============ API路由：实验管理 ============
 
+    // 获取可回测的实验列表（必须在 /api/experiments 之前定义，避免路由冲突）
+    this.app.get('/api/experiments/backtestable', async (req, res) => {
+      try {
+        console.log('📊 [API] 获取可回测实验列表...');
+
+        // 直接获取虚拟交易模式的实验列表
+        const experiments = await this.experimentFactory.list({
+          tradingMode: 'virtual',
+          limit: 100
+          // 不过滤状态，让用户可以选择
+        });
+
+        console.log(`📊 [API] 找到 ${experiments.length} 个虚拟交易实验`);
+
+        // 过滤出有足够运行时间的实验
+        const backtestableExperiments = experiments
+          .filter(exp => {
+            // 简单的过滤条件：实验有创建时间
+            return exp.createdAt;
+          })
+          .map(exp => ({
+            id: exp.id,
+            experiment_name: exp.experimentName,
+            trading_mode: exp.tradingMode,
+            status: exp.status,
+            blockchain: exp.blockchain,
+            created_at: exp.createdAt
+          }));
+
+        console.log(`📊 [API] 返回 ${backtestableExperiments.length} 个可回测实验`);
+
+        res.json({
+          success: true,
+          data: backtestableExperiments,
+          count: backtestableExperiments.length
+        });
+      } catch (error) {
+        console.error('❌ [API] 获取可回测实验列表失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 获取实验列表
     this.app.get('/api/experiments', async (req, res) => {
       try {
@@ -212,7 +254,9 @@ class RicherJsWebServer {
           blockchain,
           kline_type,
           initial_balance,
-          strategy
+          strategy,
+          virtual,
+          backtest
         } = req.body;
 
         // 构建实验配置
@@ -220,12 +264,27 @@ class RicherJsWebServer {
           name: experiment_name,
           description: experiment_description,
           blockchain: blockchain || 'bsc',
-          kline_type: kline_type || '1m',
-          virtual: {
+          kline_type: kline_type || '1m'
+        };
+
+        // 根据交易模式添加特定配置
+        if (trading_mode === 'virtual') {
+          config.virtual = {
+            initialBalance: virtual?.initialBalance || parseFloat(initial_balance) || 100,
+            tradeAmount: strategy?.tradeAmount !== undefined ? parseFloat(strategy.tradeAmount) : 0.1
+          };
+        } else if (trading_mode === 'backtest') {
+          config.backtest = {
+            initialBalance: backtest?.initialBalance || parseFloat(initial_balance) || 100,
+            sourceExperimentId: backtest?.sourceExperimentId
+          };
+        } else {
+          // 兼容旧格式
+          config.virtual = {
             initialBalance: parseFloat(initial_balance) || 100,
             tradeAmount: strategy?.tradeAmount !== undefined ? parseFloat(strategy.tradeAmount) : 0.1
-          }
-        };
+          };
+        }
 
         // 如果提供了策略参数，添加到配置中
         if (strategy) {

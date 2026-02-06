@@ -428,9 +428,17 @@ class ExperimentTokenReturns {
     });
     const totalReturn = totalSpent > 0 ? ((totalReceived - totalSpent) / totalSpent * 100) : 0;
 
+    // 计算 BNB 总增减（净盈亏）
+    const bnbChange = totalReceived - totalSpent;
+
     const totalReturnEl = document.getElementById('stat-total-return');
     totalReturnEl.textContent = `${totalReturn > 0 ? '+' : ''}${totalReturn.toFixed(2)}%`;
     totalReturnEl.className = `text-2xl font-bold ${totalReturn > 0 ? 'text-green-600' : totalReturn < 0 ? 'text-red-500' : 'text-gray-600'}`;
+
+    // BNB 总增减显示
+    const bnbChangeEl = document.getElementById('stat-bnb-change');
+    bnbChangeEl.textContent = `${bnbChange > 0 ? '+' : ''}${bnbChange.toFixed(4)} BNB`;
+    bnbChangeEl.className = `text-2xl font-bold ${bnbChange > 0 ? 'text-green-600' : bnbChange < 0 ? 'text-red-500' : 'text-gray-600'}`;
 
     document.getElementById('stat-total-tokens').textContent = totalTokens;
     document.getElementById('stat-profit-count').textContent = profitCount;

@@ -180,6 +180,7 @@ class Trade {
       unitPrice,
       errorMessage: tradeResult.error,
       executedAt: tradeResult.executedAt || new Date(),
+      createdAt: tradeResult.timestamp || new Date(), // 🔥 使用传入的时间戳，如果没有则使用当前时间
       metadata: {
         ...tradeResult.metadata,
         cards: tradeResult.cards,

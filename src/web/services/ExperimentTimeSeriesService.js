@@ -85,9 +85,10 @@ class ExperimentTimeSeriesService {
     try {
       const supabase = dbManager.getClient();
 
-      // Supabase max-rows 限制为 1000，使用分页查询
-      const PAGE_SIZE = 1000;
-      const MAX_PAGES = 1000; // 增加到1000页，最多可获取100万条数据
+      // 减小 PAGE_SIZE 避免超时
+      const PAGE_SIZE = 500;
+      const MAX_PAGES = 2000; // 最多2000页，约100万条数据
+      const QUERY_TIMEOUT = 30000; // 30秒超时
 
       let allData = [];
       let page = 0;
@@ -97,29 +98,44 @@ class ExperimentTimeSeriesService {
         const from = page * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
 
-        let query = supabase
-          .from('experiment_time_series_data')
-          .select('*')
-          .eq('experiment_id', experimentId)
-          .order('timestamp', { ascending: true })
-          .range(from, to);
+        // 创建带超时的查询
+        const queryPromise = (async () => {
+          let query = supabase
+            .from('experiment_time_series_data')
+            .select('*')
+            .eq('experiment_id', experimentId)
+            .order('timestamp', { ascending: true })
+            .range(from, to);
 
-        if (tokenAddress) {
-          query = query.eq('token_address', tokenAddress);
-        }
+          if (tokenAddress) {
+            query = query.eq('token_address', tokenAddress);
+          }
 
-        if (options.startTime) {
-          query = query.gte('timestamp', options.startTime);
-        }
+          if (options.startTime) {
+            query = query.gte('timestamp', options.startTime);
+          }
 
-        if (options.endTime) {
-          query = query.lte('timestamp', options.endTime);
-        }
+          if (options.endTime) {
+            query = query.lte('timestamp', options.endTime);
+          }
 
-        const { data, error } = await query;
+          return await query;
+        })();
+
+        // 添加超时控制
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Query timeout')), QUERY_TIMEOUT);
+        });
+
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
         // 表不存在或其他错误时返回空数组
         if (error) {
+          if (error.message === 'Query timeout') {
+            console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1})，已获取 ${allData.length} 条数据`);
+            // 超时时返回已获取的数据
+            break;
+          }
           console.warn('⚠️ [时序数据] 查询失败:', error.message);
           return [];
         }
@@ -139,6 +155,11 @@ class ExperimentTimeSeriesService {
           allData = allData.slice(0, options.limit);
           break;
         }
+
+        // 显示进度
+        if (page % 10 === 0) {
+          console.log(`📊 [时序数据] 已获取 ${allData.length} 条数据...`);
+        }
       }
 
       console.log(`📊 [时序数据] 共获取 ${allData.length} 条数据 (实验: ${experimentId}, 代币: ${tokenAddress || '全部'})`);
@@ -157,11 +178,12 @@ class ExperimentTimeSeriesService {
     try {
       const supabase = dbManager.getClient();
 
+      // 使用更高效的查询：直接统计每个实验的数据点数量
+      // 使用 RPC 调用或者分组查询来减少数据传输
       const { data, error } = await supabase
         .from('experiment_time_series_data')
-        .select('experiment_id, token_address, token_symbol, timestamp, blockchain')
-        .order('timestamp', { ascending: false })
-        .limit(1000);
+        .select('experiment_id, blockchain')
+        .limit(10000); // 增加限制，但只获取必要字段
 
       // 表不存在时返回空数组
       if (error) {
@@ -169,34 +191,28 @@ class ExperimentTimeSeriesService {
         return [];
       }
 
+      // 使用 Set 去重，统计唯一实验
       const experimentsMap = new Map();
 
       for (const record of data || []) {
-        if (!experimentsMap.has(record.experiment_id)) {
-          experimentsMap.set(record.experiment_id, {
-            experimentId: record.experiment_id,
-            blockchain: record.blockchain,
-            tokens: new Map(),
-            dataPointCount: 0
+        const expId = record.experiment_id;
+        if (!experimentsMap.has(expId)) {
+          experimentsMap.set(expId, {
+            experimentId: expId,
+            blockchain: record.blockchain || 'bsc',
+            dataPointCount: 0,
+            tokenCount: 0
           });
         }
-
-        const exp = experimentsMap.get(record.experiment_id);
-        const tokenKey = record.token_address.toLowerCase();
-
-        if (!exp.tokens.has(tokenKey)) {
-          exp.tokens.set(tokenKey, {
-            address: record.token_address,
-            symbol: record.token_symbol,
-            dataPointCount: 0
-          });
-        }
-
-        exp.tokens.get(tokenKey).dataPointCount++;
-        exp.dataPointCount++;
+        experimentsMap.get(expId).dataPointCount++;
       }
 
-      return Array.from(experimentsMap.values());
+      // 如果数据很多，说明可能有更完整的数据，再查询详细信息
+      const result = Array.from(experimentsMap.values());
+
+      // 只返回有足够数据的实验（至少100个数据点）
+      return result.filter(exp => exp.dataPointCount >= 100);
+
     } catch (error) {
       console.error('❌ [时序数据] 获取实验列表失败:', error.message);
       return [];

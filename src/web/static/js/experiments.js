@@ -151,7 +151,8 @@ class ExperimentMonitor {
 
     const modeColors = {
       virtual: 'bg-purple-100 text-purple-800',
-      live: 'bg-orange-100 text-orange-800'
+      live: 'bg-orange-100 text-orange-800',
+      backtest: 'bg-blue-100 text-blue-800'
     };
 
     const statusLabel = {
@@ -160,6 +161,12 @@ class ExperimentMonitor {
       stopped: '已停止',
       completed: '已完成',
       failed: '失败'
+    };
+
+    const modeLabel = {
+      virtual: '虚拟交易',
+      live: '实盘交易',
+      backtest: '回测'
     };
 
     const createdAt = new Date(exp.createdAt);
@@ -200,8 +207,8 @@ class ExperimentMonitor {
             </div>
             <div class="flex items-center justify-between">
               <span class="text-gray-800">交易模式:</span>
-              <span class="px-2 py-0.5 text-xs font-medium rounded ${modeColors[exp.tradingMode]}">
-                ${exp.tradingMode === 'virtual' ? '虚拟交易' : '实盘交易'}
+              <span class="px-2 py-0.5 text-xs font-medium rounded ${modeColors[exp.tradingMode] || 'bg-gray-100 text-gray-800'}">
+                ${modeLabel[exp.tradingMode] || exp.tradingMode}
               </span>
             </div>
             <div class="flex items-center justify-between">

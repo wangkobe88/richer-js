@@ -136,7 +136,8 @@ class TradeSignal {
       confidence: strategySignal.confidence,
       reason: strategySignal.reason,
       metadata: baseMetadata,
-      executed: false  // 初始为未执行，成功执行后更新为 true
+      executed: false,  // 初始为未执行，成功执行后更新为 true
+      createdAt: strategySignal.timestamp || new Date()  // 🔥 使用传入的时间戳，如果没有则使用当前时间
     });
   }
 
