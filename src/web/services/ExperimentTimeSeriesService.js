@@ -75,7 +75,7 @@ class ExperimentTimeSeriesService {
   }
 
   /**
-   * 获取实验的时序数据
+   * 获取实验的时序数据（优化版，支持重试）
    * @param {string} experimentId - 实验ID
    * @param {string} [tokenAddress] - 代币地址（可选）
    * @param {Object} [options] - 查询选项
@@ -85,24 +85,33 @@ class ExperimentTimeSeriesService {
     try {
       const supabase = dbManager.getClient();
 
-      // 减小 PAGE_SIZE 避免超时
-      const PAGE_SIZE = 500;
-      const MAX_PAGES = 2000; // 最多2000页，约100万条数据
-      const QUERY_TIMEOUT = 30000; // 30秒超时
+      // 根据重试次数调整超时和分页大小
+      const retryAttempt = options.retryAttempt || 1;
+      const maxRetries = options.maxRetries || 3;
+
+      // 首次尝试用较小的分页，后续重试用更保守的设置
+      const BASE_PAGE_SIZE = 100;
+      const PAGE_SIZE = Math.max(50, Math.floor(BASE_PAGE_SIZE / retryAttempt));
+      const MAX_PAGES = 20000; // 支持200万条数据
+      const QUERY_TIMEOUT = Math.max(10000, Math.floor(30000 / retryAttempt)); // 首次30秒，最少10秒
 
       let allData = [];
       let page = 0;
       let hasMore = true;
+      let consecutiveErrors = 0;
+      const MAX_CONSECUTIVE_ERRORS = 3;
+
+      console.log(`📊 [时序数据] 开始查询 (重试 ${retryAttempt}/${maxRetries}, 分页大小: ${PAGE_SIZE}, 超时: ${QUERY_TIMEOUT}ms)`);
 
       while (hasMore && page < MAX_PAGES) {
         const from = page * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
 
-        // 创建带超时的查询
-        const queryPromise = (async () => {
+        try {
+          // 创建查询
           let query = supabase
             .from('experiment_time_series_data')
-            .select('*')
+            .select('id, experiment_id, token_address, token_symbol, timestamp, loop_count, price_usd, price_native, factor_values, signal_type, signal_executed, execution_reason, blockchain')
             .eq('experiment_id', experimentId)
             .order('timestamp', { ascending: true })
             .range(from, to);
@@ -119,54 +128,91 @@ class ExperimentTimeSeriesService {
             query = query.lte('timestamp', options.endTime);
           }
 
-          return await query;
-        })();
+          // 执行查询（带超时）
+          const queryPromise = query;
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Query timeout')), QUERY_TIMEOUT);
+          });
 
-        // 添加超时控制
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Query timeout')), QUERY_TIMEOUT);
-        });
+          const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
 
-        const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+          if (error) {
+            if (error.message === 'Query timeout' || error.message?.includes('timeout')) {
+              console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1}, from=${from}, to=${to})，已获取 ${allData.length} 条数据`);
+              // 超时时返回已获取的数据，让调用者决定是否重试
+              if (allData.length > 0) {
+                console.log(`📊 [时序数据] 返回部分数据: ${allData.length} 条`);
+                return allData;
+              }
+              throw new Error(`查询超时且无数据返回`);
+            }
 
-        // 表不存在或其他错误时返回空数组
-        if (error) {
-          if (error.message === 'Query timeout') {
-            console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1})，已获取 ${allData.length} 条数据`);
-            // 超时时返回已获取的数据
+            // 其他错误
+            console.warn(`⚠️ [时序数据] 查询错误 (页 ${page + 1}):`, error.message);
+            consecutiveErrors++;
+
+            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+              console.warn(`⚠️ [时序数据] 连续错误 ${consecutiveErrors} 次，停止查询`);
+              break;
+            }
+
+            hasMore = false;
             break;
           }
-          console.warn('⚠️ [时序数据] 查询失败:', error.message);
-          return [];
-        }
 
-        if (data && data.length > 0) {
-          allData = allData.concat(data);
-          // 如果返回的数据少于PAGE_SIZE，说明已经是最后一页
-          hasMore = data.length === PAGE_SIZE;
-        } else {
+          // 重置连续错误计数
+          consecutiveErrors = 0;
+
+          if (data && data.length > 0) {
+            allData = allData.concat(data);
+            // 如果返回的数据少于PAGE_SIZE，说明已经是最后一页
+            hasMore = data.length === PAGE_SIZE;
+          } else {
+            hasMore = false;
+          }
+
+          page++;
+
+          // 显示进度（每20页显示一次，避免过多输出）
+          if (page % 20 === 0) {
+            console.log(`📊 [时序数据] 已获取 ${allData.length} 条数据...`);
+          }
+
+          // 如果设置了limit且已获取足够数据，提前退出
+          if (options.limit && allData.length >= options.limit) {
+            allData = allData.slice(0, options.limit);
+            break;
+          }
+
+        } catch (queryError) {
+          if (queryError.message === 'Query timeout' || queryError.message?.includes('timeout')) {
+            console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1})，已获取 ${allData.length} 条数据`);
+            if (allData.length > 0) {
+              console.log(`📊 [时序数据] 返回部分数据: ${allData.length} 条`);
+              return allData;
+            }
+            throw new Error(`查询超时且无数据返回`);
+          }
+
+          console.error(`❌ [时序数据] 查询异常 (页 ${page + 1}):`, queryError.message);
+          consecutiveErrors++;
+
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            console.warn(`⚠️ [时序数据] 连续错误 ${consecutiveErrors} 次，停止查询`);
+            break;
+          }
+
           hasMore = false;
-        }
-
-        page++;
-
-        // 如果设置了limit且已获取足够数据，提前退出
-        if (options.limit && allData.length >= options.limit) {
-          allData = allData.slice(0, options.limit);
           break;
-        }
-
-        // 显示进度
-        if (page % 10 === 0) {
-          console.log(`📊 [时序数据] 已获取 ${allData.length} 条数据...`);
         }
       }
 
       console.log(`📊 [时序数据] 共获取 ${allData.length} 条数据 (实验: ${experimentId}, 代币: ${tokenAddress || '全部'})`);
       return allData;
+
     } catch (error) {
       console.error('❌ [时序数据] 获取失败:', error.message);
-      return [];
+      throw error; // 抛出错误，让调用者处理重试
     }
   }
 

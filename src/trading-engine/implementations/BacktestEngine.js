@@ -207,67 +207,87 @@ class BacktestEngine {
   }
 
   /**
-   * 加载历史数据
+   * 加载历史数据（带重试机制）
    * @private
    * @returns {Promise<void>}
    */
   async _loadHistoricalData() {
-    try {
-      console.log(`📊 开始加载历史数据，源实验: ${this._sourceExperimentId}`);
+    const MAX_RETRIES = 3;
+    let lastError = null;
 
-      // 从时序数据表获取历史数据（不设置 limit 获取全部数据）
-      let data;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        data = await this.timeSeriesService.getExperimentTimeSeries(
-          this._sourceExperimentId,
-          null,
-          {} // 不设置 limit，获取全部数据
-        );
-      } catch (queryError) {
-        // 如果查询超时或失败，尝试检查是否有任何数据
-        console.warn(`⚠️  时序数据查询出现问题: ${queryError.message}`);
-        console.warn(`⚠️  尝试使用简化查询...`);
+        console.log(`📊 开始加载历史数据 (尝试 ${attempt}/${MAX_RETRIES})，源实验: ${this._sourceExperimentId}`);
 
-        // 简化查询：只检查是否存在数据
+        // 从时序数据表获取历史数据
+        let data;
         try {
-          const { ExperimentFactory } = require('../factories/ExperimentFactory');
-          const factory = ExperimentFactory.getInstance();
-          const sourceExp = await factory.load(this._sourceExperimentId);
+          data = await this.timeSeriesService.getExperimentTimeSeries(
+            this._sourceExperimentId,
+            null,
+            {
+              retryAttempt: attempt,
+              maxRetries: MAX_RETRIES
+            }
+          );
+        } catch (queryError) {
+          console.warn(`⚠️  时序数据查询出现问题 (尝试 ${attempt}/${MAX_RETRIES}): ${queryError.message}`);
+          lastError = queryError;
 
-          if (!sourceExp) {
-            throw new Error(`源实验不存在: ${this._sourceExperimentId}`);
+          // 如果是最后一次尝试失败，抛出错误
+          if (attempt === MAX_RETRIES) {
+            // 检查源实验状态
+            const { ExperimentFactory } = require('../factories/ExperimentFactory');
+            const factory = ExperimentFactory.getInstance();
+            const sourceExp = await factory.load(this._sourceExperimentId);
+
+            if (!sourceExp) {
+              throw new Error(`源实验不存在: ${this._sourceExperimentId}`);
+            }
+
+            // 检查源实验是否是虚拟交易模式
+            if (sourceExp.tradingMode !== 'virtual') {
+              throw new Error(`源实验必须是虚拟交易模式，当前模式: ${sourceExp.tradingMode}`);
+            }
+
+            throw new Error(`无法获取源实验的时序数据（已重试 ${MAX_RETRIES} 次）。请确保源实验已运行并收集了足够的时序数据。`);
           }
 
-          // 检查源实验是否是虚拟交易模式
-          if (sourceExp.tradingMode !== 'virtual') {
-            throw new Error(`源实验必须是虚拟交易模式，当前模式: ${sourceExp.tradingMode}`);
-          }
-
-          throw new Error(`无法获取源实验的时序数据。请确保源实验已运行并收集了数据。`);
-        } catch (sourceError) {
-          throw new Error(`源实验验证失败: ${sourceError.message}`);
+          // 等待后重试
+          console.log(`⏳ 等待 2 秒后重试...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
         }
+
+        if (!data || data.length === 0) {
+          throw new Error(`源实验没有时序数据。请确保源实验已运行并收集了足够的时序数据。`);
+        }
+
+        // 按时间戳排序
+        this._historicalData = data.sort((a, b) => {
+          const timeA = new Date(a.timestamp).getTime();
+          const timeB = new Date(b.timestamp).getTime();
+          return timeA - timeB;
+        });
+
+        // 按 loop_count 分组（用于模拟轮次处理）
+        this._groupDataByLoopCount();
+
+        console.log(`✅ 历史数据加载完成: ${this._historicalData.length} 条数据点`);
+        return; // 成功，退出重试循环
+
+      } catch (error) {
+        console.error(`❌ 加载历史数据失败 (尝试 ${attempt}/${MAX_RETRIES}): ${error.message}`);
+        lastError = error;
+
+        if (attempt === MAX_RETRIES) {
+          throw error;
+        }
+
+        // 等待后重试
+        console.log(`⏳ 等待 2 秒后重试...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
-
-      if (!data || data.length === 0) {
-        throw new Error(`源实验没有时序数据。请确保源实验已运行并收集了足够的时序数据。`);
-      }
-
-      // 按时间戳排序
-      this._historicalData = data.sort((a, b) => {
-        const timeA = new Date(a.timestamp).getTime();
-        const timeB = new Date(b.timestamp).getTime();
-        return timeA - timeB;
-      });
-
-      // 按 loop_count 分组（用于模拟轮次处理）
-      this._groupDataByLoopCount();
-
-      console.log(`✅ 历史数据加载完成: ${this._historicalData.length} 条数据点`);
-
-    } catch (error) {
-      console.error('❌ 加载历史数据失败:', error.message);
-      throw error;
     }
   }
 
@@ -326,48 +346,81 @@ class BacktestEngine {
    */
   async _runBacktest() {
     const startTime = Date.now();
-    console.log(`📊 开始回测，共 ${this._groupedData.length} 个轮次`);
+    let completedSuccessfully = false;
 
-    // 遍历每个轮次
-    for (const roundData of this._groupedData) {
-      const { loopCount, dataPoints } = roundData;
+    try {
+      console.log(`📊 开始回测，共 ${this._groupedData.length} 个轮次`);
 
-      // 更新当前轮次
-      this._currentLoopCount = loopCount;
+      // 遍历每个轮次
+      for (const roundData of this._groupedData) {
+        const { loopCount, dataPoints } = roundData;
 
-      this.logger.info(this._experimentId, 'BacktestEngine',
-        `开始处理第 ${loopCount} 轮，数据点数: ${dataPoints.length}`);
+        // 更新当前轮次
+        this._currentLoopCount = loopCount;
 
-      // 开始新轮次记录
-      if (this._roundSummary) {
-        this._roundSummary.startRound(loopCount);
+        this.logger.info(this._experimentId, 'BacktestEngine',
+          `开始处理第 ${loopCount} 轮，数据点数: ${dataPoints.length}`);
+
+        // 开始新轮次记录
+        if (this._roundSummary) {
+          this._roundSummary.startRound(loopCount);
+        }
+
+        // 处理该轮次的每个数据点（每个代币）
+        for (const dataPoint of dataPoints) {
+          await this._processTimePoint(dataPoint);
+        }
+
+        // 创建投资组合快照
+        await this._createPortfolioSnapshot();
+
+        // 输出轮次摘要
+        if (this._roundSummary) {
+          this._roundSummary.printToConsole();
+          this._roundSummary.writeToLog();
+        }
+
+        this.metrics.processedDataPoints += dataPoints.length;
       }
 
-      // 处理该轮次的每个数据点（每个代币）
-      for (const dataPoint of dataPoints) {
-        await this._processTimePoint(dataPoint);
+      const duration = Date.now() - startTime;
+      console.log(`✅ 回测完成，耗时: ${duration}ms`);
+      console.log(`📊 处理了 ${this.metrics.processedDataPoints} 个数据点`);
+
+      completedSuccessfully = true;
+
+    } catch (error) {
+      console.error(`❌ 回测执行失败: ${error.message}`);
+      console.error(error.stack);
+    } finally {
+      // 无论成功或失败，都要更新实验状态
+      try {
+        const factory = ExperimentFactory.getInstance();
+
+        // 根据执行结果设置最终状态
+        const finalStatus = completedSuccessfully ? 'completed' : 'failed';
+
+        console.log(`📊 更新实验状态为: ${finalStatus}`);
+
+        // 更新停止时间
+        const additionalData = {};
+        if (completedSuccessfully) {
+          // 如果成功完成，可以保存一些最终统计到配置中
+          additionalData.config = this._experiment?.config || {};
+        }
+
+        await factory.updateStatus(this._experimentId, finalStatus, additionalData);
+        this._status = EngineStatus.STOPPED;
+
+        if (completedSuccessfully) {
+          console.log(`✅ 回测实验已完成，状态已更新`);
+        } else {
+          console.log(`⚠️ 回测实验失败，状态已更新`);
+        }
+      } catch (updateError) {
+        console.error(`❌ 更新实验状态失败: ${updateError.message}`);
       }
-
-      // 创建投资组合快照
-      await this._createPortfolioSnapshot();
-
-      // 输出轮次摘要
-      if (this._roundSummary) {
-        this._roundSummary.printToConsole();
-        this._roundSummary.writeToLog();
-      }
-
-      this.metrics.processedDataPoints += dataPoints.length;
     }
-
-    const duration = Date.now() - startTime;
-    console.log(`✅ 回测完成，耗时: ${duration}ms`);
-    console.log(`📊 处理了 ${this.metrics.processedDataPoints} 个数据点`);
-
-    // 标记实验完成
-    const factory = ExperimentFactory.getInstance();
-    await factory.updateStatus(this._experimentId, 'completed');
-    this._status = EngineStatus.STOPPED;
   }
 
   /**
