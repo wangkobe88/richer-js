@@ -180,36 +180,41 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
 
       // 清空并重建 PortfolioManager 持仓
-      portfolio.positions.clear();
+      if (portfolio && portfolio.positions) {
+        portfolio.positions.clear();
 
-      for (const token of walletBalances) {
-        const normalizedAddr = BlockchainConfig.normalizeTokenAddress(token.address, this._blockchain);
+        for (const token of walletBalances) {
+          const normalizedAddr = BlockchainConfig.normalizeTokenAddress(token.address, this._blockchain);
 
-        await this._portfolioManager.updatePosition(
-          this._portfolioId,
-          normalizedAddr,
-          token.balance,
-          token.pnl?.averagePurchasePrice || token.averagePurchasePrice || 0,
-          'hold'
-        );
+          await this._portfolioManager.updatePosition(
+            this._portfolioId,
+            normalizedAddr,
+            token.balance,
+            token.pnl?.averagePurchasePrice || token.averagePurchasePrice || 0,
+            'hold'
+          );
 
-        // 恢复或创建 CardPositionManager
-        let cardManager = this._tokenPool.getCardPositionManager(normalizedAddr, this._blockchain);
-        if (!cardManager && existingCardManagers.has(normalizedAddr)) {
-          // 恢复已有代币的卡牌状态
-          const savedState = existingCardManagers.get(normalizedAddr);
-          const { CardPositionManager } = require('../../portfolio/CardPositionManager');
-          cardManager = new CardPositionManager({
-            totalCards: savedState.totalCards || 4,
-            perCardMaxBNB: savedState.perCardMaxBNB || 0.25,
-            minCardsForTrade: 1,
-            initialAllocation: {
-              bnbCards: savedState.bnbCards,
-              tokenCards: savedState.tokenCards
-            }
-          });
-          this._tokenPool.setCardPositionManager(normalizedAddr, this._blockchain, cardManager);
+          // 恢复或创建 CardPositionManager
+          let cardManager = this._tokenPool.getCardPositionManager(normalizedAddr, this._blockchain);
+          if (!cardManager && existingCardManagers.has(normalizedAddr)) {
+            // 恢复已有代币的卡牌状态
+            const savedState = existingCardManagers.get(normalizedAddr);
+            const { CardPositionManager } = require('../../portfolio/CardPositionManager');
+            cardManager = new CardPositionManager({
+              totalCards: savedState.totalCards || 4,
+              perCardMaxBNB: savedState.perCardMaxBNB || 0.25,
+              minCardsForTrade: 1,
+              initialAllocation: {
+                bnbCards: savedState.bnbCards,
+                tokenCards: savedState.tokenCards
+              }
+            });
+            this._tokenPool.setCardPositionManager(normalizedAddr, this._blockchain, cardManager);
+          }
         }
+      } else {
+        console.warn('⚠️ Portfolio 为空，跳过持仓同步');
+        return;
       }
 
       console.log(`🔄 持仓同步完成: ${walletBalances.length} 种代币`);
@@ -247,29 +252,48 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
 
       // 使用真实交易器执行买入
+      // FourMemeDirectTrader 使用 slippageTolerance (百分比格式，如 5 表示 5%)
+      // PancakeSwapV2Trader 使用 slippage (小数格式，如 0.05 表示 5%)
+      const buyOptions = {
+        slippage: this._maxSlippage,
+        slippageTolerance: this._maxSlippage * 100, // 转换为百分比
+        gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
+      };
+
       const buyResult = await this._trader.buyToken(
         signal.tokenAddress,
         String(amountInBNB),
-        {
-          slippage: this._maxSlippage,
-          gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
-        }
+        buyOptions
       );
 
       if (!buyResult.success) {
         return { success: false, reason: buyResult.error || '交易执行失败' };
       }
 
-      // 更新 PortfolioManager
-      const price = signal.price || 0;
-      const tokenAmount = price > 0 ? amountInBNB / price : 0;
+      // 更新 PortfolioManager（使用实际成交数据）
+      // 尝试从交易结果中获取实际代币数量，如果没有则用价格估算
+      let actualTokenAmount;
+      let actualPrice = signal.price || 0;
+
+      if (buyResult.actualAmountOut || buyResult.amountOut) {
+        // 交易器返回了实际成交数量
+        actualTokenAmount = parseFloat(buyResult.actualAmountOut || buyResult.amountOut || 0);
+        // 反推实际成交价格
+        if (actualTokenAmount > 0) {
+          actualPrice = amountInBNB / actualTokenAmount;
+        }
+      } else {
+        // 交易器没有返回实际数量，使用价格估算
+        actualPrice = signal.price || 0;
+        actualTokenAmount = actualPrice > 0 ? amountInBNB / actualPrice : 0;
+      }
 
       await this._portfolioManager.executeTrade(
         this._portfolioId,
         signal.tokenAddress,
         'buy',
-        tokenAmount,
-        price
+        actualTokenAmount,
+        actualPrice
       );
 
       // 更新卡牌分配
@@ -285,10 +309,10 @@ class LiveTradingEngine extends AbstractTradingEngine {
       return {
         success: true,
         tradeId: signalId,
-        txHash: buyResult.txHash,
+        txHash: buyResult.transactionHash || buyResult.txHash,
         metadata: {
           ...metadata,
-          txHash: buyResult.txHash,
+          txHash: buyResult.transactionHash || buyResult.txHash,
           cardPositionChange: {
             before: beforeCardState,
             after: afterCardState,
@@ -341,16 +365,23 @@ class LiveTradingEngine extends AbstractTradingEngine {
       let sellResult;
       let traderUsed = 'unknown';
 
+      // 准备交易参数（两个交易器滑点格式不同）
+      const fourmemeOptions = {
+        slippageTolerance: this._maxSlippage * 100, // 转换为百分比格式
+        gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
+      };
+      const pancakeOptions = {
+        slippage: this._maxSlippage, // 小数格式
+        gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
+      };
+
       // 1. 首先尝试使用 FourMeme 交易器（内盘）
       try {
         console.log(`🔄 尝试使用 FourMeme 交易器卖出 ${signal.symbol}...`);
         sellResult = await this._fourMemeTrader.sellToken(
           signal.tokenAddress,
           String(amountToSell),
-          {
-            slippage: this._maxSlippage,
-            gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
-          }
+          fourmemeOptions
         );
 
         if (sellResult.success) {
@@ -368,10 +399,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           sellResult = await this._pancakeSwapTrader.sellToken(
             signal.tokenAddress,
             String(amountToSell),
-            {
-              slippage: this._maxSlippage,
-              gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
-            }
+            pancakeOptions
           );
 
           if (sellResult.success) {
@@ -615,18 +643,35 @@ class LiveTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 获取当前价格
+   * 获取当前价格（优先 FourMeme，失败则尝试 PancakeSwap V2）
    * @private
    * @param {string} tokenAddress - 代币地址
    * @returns {Promise<number>} 当前价格
    */
   async _getCurrentPrice(tokenAddress) {
     try {
-      return await this._trader.getTokenPrice(tokenAddress);
-    } catch (error) {
-      console.error(`❌ 获取价格失败 [${tokenAddress}]:`, error.message);
-      return 0;
+      // 优先使用 FourMeme 交易器获取价格
+      const price = await this._fourMemeTrader.getTokenPrice(tokenAddress);
+      if (price && parseFloat(price) > 0) {
+        return parseFloat(price);
+      }
+    } catch (fourmemeError) {
+      console.debug(`⚠️ FourMeme 获取价格失败: ${fourmemeError.message}`);
     }
+
+    // FourMeme 失败，尝试使用 PancakeSwap V2 获取价格
+    try {
+      const pancakePrice = await this._pancakeSwapTrader.getTokenPrice(tokenAddress);
+      if (pancakePrice && parseFloat(pancakePrice) > 0) {
+        console.log(`📊 使用 PancakeSwap V2 价格: ${pancakePrice}`);
+        return parseFloat(pancakePrice);
+      }
+    } catch (pancakeError) {
+      console.debug(`⚠️ PancakeSwap V2 获取价格也失败: ${pancakeError.message}`);
+    }
+
+    console.error(`❌ 所有价格源均失败 [${tokenAddress}]`);
+    return 0;
   }
 
   /**
