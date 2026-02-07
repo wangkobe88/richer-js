@@ -7,9 +7,9 @@
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const Decimal = require('decimal.js');
-const BlockchainConfig = require('../../config/blockchainConfig');
+const BlockchainConfig = require('../../utils/BlockchainConfig');
 const { WalletService } = require('../../services/WalletService');
-const traderFactory = require('./traders');
+const traderFactory = require('../traders');
 
 /**
  * 实盘交易引擎
@@ -526,8 +526,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
     );
 
     // 计算可用主币余额
-    const nativeTokenInfo = BlockchainConfig.getNativeTokenInfo(this._blockchain);
-    const nativeAddr = BlockchainConfig.normalizeTokenAddress(nativeTokenInfo.wrappedAddress, this._blockchain);
+    const nativeTokenAddresses = BlockchainConfig.getNativeTokenAddresses(this._blockchain);
+    const nativeAddr = BlockchainConfig.normalizeTokenAddress(nativeTokenAddresses[0], this._blockchain);
     let nativeBalance = new Decimal(0);
 
     for (const token of walletBalances) {

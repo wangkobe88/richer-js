@@ -4,7 +4,7 @@
  */
 
 const Decimal = require('decimal.js');
-const BlockchainConfig = require('../config/blockchainConfig');
+const BlockchainConfig = require('../utils/BlockchainConfig');
 
 /**
  * 钱包余额信息

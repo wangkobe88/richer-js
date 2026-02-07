@@ -4,7 +4,6 @@
  */
 
 const ITrader = require('./ITrader');
-const PlaceholderTrader = require('./PlaceholderTrader');
 const FourMemeDirectTrader = require('./implementations/FourMemeDirectTrader');
 const PancakeSwapV2Trader = require('./implementations/PancakeSwapV2Trader');
 

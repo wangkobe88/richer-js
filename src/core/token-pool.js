@@ -444,6 +444,18 @@ class TokenPool {
         const token = this.getToken(tokenAddress, chain);
         return token ? (token.strategyExecutions || {}) : {};
     }
+
+    /**
+     * Initialize TokenPool (async initialization method)
+     * @returns {Promise<void>}
+     */
+    async initialize() {
+        // 异步初始化方法（兼容 TradingEngine 的要求）
+        if (this.logger && typeof this.logger.info === 'function') {
+            this.logger.info('TokenPool initialized', { poolSize: this.pool.size });
+        }
+        return Promise.resolve();
+    }
 }
 
 module.exports = TokenPool;

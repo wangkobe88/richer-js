@@ -1602,6 +1602,15 @@ class PortfolioManager extends IPortfolioManager {
     }
     return this;
   }
+
+  /**
+   * Initialize PortfolioManager (async initialization method)
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    // 异步初始化方法（兼容 TradingEngine 的要求）
+    return Promise.resolve();
+  }
 }
 
 module.exports = {

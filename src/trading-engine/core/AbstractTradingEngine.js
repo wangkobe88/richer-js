@@ -8,7 +8,7 @@
 const { ITradingEngine, TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { Experiment } = require('../entities/Experiment');
 const { dbManager } = require('../../services/dbManager');
-const BlockchainConfig = require('../../config/blockchainConfig');
+const BlockchainConfig = require('../../utils/BlockchainConfig');
 const Logger = require('../../utils/Logger');
 
 // 延迟导入以避免循环依赖
@@ -23,11 +23,14 @@ let ExperimentTimeSeriesService = null;
  */
 function getLazyModules() {
   if (!TokenPool) {
-    TokenPool = require('../../data-services/TokenPool');
-    StrategyEngine = require('../../data-services/StrategyEngine');
-    PortfolioManager = require('../../portfolio/PortfolioManager');
-    RoundSummary = require('../utils/RoundSummary');
-    ExperimentTimeSeriesService = require('../../web/services/ExperimentTimeSeriesService');
+    TokenPool = require('../../core/token-pool');
+    StrategyEngine = require('../../core/strategy-engine');
+    const PM = require('../../portfolio/core/PortfolioManager');
+    PortfolioManager = PM.PortfolioManager;
+    const RS = require('../utils/RoundSummary');
+    RoundSummary = RS.RoundSummary;
+    const ETSS = require('../../web/services/ExperimentTimeSeriesService');
+    ExperimentTimeSeriesService = ETSS.ExperimentTimeSeriesService;
   }
   return { TokenPool, StrategyEngine, PortfolioManager, RoundSummary, ExperimentTimeSeriesService };
 }
@@ -188,10 +191,14 @@ class AbstractTradingEngine extends ITradingEngine {
 
     // 创建实验投资组合
     const initialBalance = this._experiment.initial_capital || 10;
-    await this._portfolioManager.createPortfolio(
-      this._portfolioId,
+    const portfolioConfig = {
+      id: this._portfolioId,
+      blockchain: this._blockchain,
+      initialCapital: initialBalance
+    };
+    this._portfolioId = await this._portfolioManager.createPortfolio(
       initialBalance,
-      this._blockchain
+      portfolioConfig
     );
 
     // RoundSummary - 轮次总结
@@ -584,8 +591,8 @@ class AbstractTradingEngine extends ITradingEngine {
    * @returns {string} 原生货币符号
    */
   _getNativeCurrency() {
-    const config = BlockchainConfig[this._blockchain];
-    return config?.nativeCurrency || 'BNB';
+    const tokenConfig = BlockchainConfig.getNativeToken(this._blockchain);
+    return tokenConfig?.symbol || 'BNB';
   }
 
   /**
@@ -644,14 +651,21 @@ class AbstractTradingEngine extends ITradingEngine {
 
     const snapshot = {
       experiment_id: this._experimentId,
-      total_value: String(portfolio.totalValue),
-      available_balance: String(portfolio.availableBalance),
-      total_invested: String(portfolio.totalInvested),
-      total_pnl: String(portfolio.totalPnL),
-      total_pnl_percentage: String(portfolio.totalPnLPercentage),
-      position_count: portfolio.positions.size,
-      loop_count: this._loopCount,
-      timestamp: new Date().toISOString()
+      total_value: String(portfolio.totalValue || 0),
+      total_value_change: '0',
+      total_value_change_percent: '0',
+      cash_balance: String(portfolio.cashBalance || portfolio.availableBalance || 0),
+      cash_native_balance: String(portfolio.cashBalance || portfolio.availableBalance || 0),
+      total_portfolio_value_native: String(portfolio.totalValue || 0),
+      token_positions: '[]',
+      positions_count: portfolio.positions ? portfolio.positions.size : 0,
+      metadata: JSON.stringify({
+        loop_count: this._loopCount,
+        availableBalance: String(portfolio.availableBalance || 0),
+        totalInvested: String(portfolio.totalInvested || 0),
+        totalPnL: String(portfolio.totalPnL || 0),
+        timestamp: new Date().toISOString()
+      })
     };
 
     const { error } = await supabase

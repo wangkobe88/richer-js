@@ -20,6 +20,12 @@ class Logger {
         }
     }
 
+    async initialize() {
+        // 异步初始化方法（兼容 TradingEngine 的要求）
+        // 日志目录已在构造函数中创建
+        return Promise.resolve();
+    }
+
     getLogFilePath() {
         const date = new Date().toISOString().split('T')[0];
         return path.join(this.logDir, `richer-js-${date}.log`);
