@@ -233,11 +233,27 @@ class VirtualTradingSystem {
       const metrics = this.engine.getMetrics();
       console.log(``);
       console.log(`📈 最终统计:`);
-      console.log(`   总信号数: ${metrics.totalSignals}`);
-      console.log(`   总交易数: ${metrics.totalTrades}`);
-      console.log(`   成功交易: ${metrics.successfulTrades}`);
-      console.log(`   失败交易: ${metrics.failedTrades}`);
-      console.log(`   当前余额: ${metrics.currentBalance.toFixed(4)} BNB`);
+
+      // 从 metrics 中提取数据
+      const summary = metrics.summary || {};
+      const portfolio = metrics.portfolio || {};
+      const engine = metrics.engine || {};
+
+      console.log(`   引擎状态: ${engine.status || 'unknown'}`);
+      console.log(`   循环次数: ${engine.loopCount || 0}`);
+      console.log(`   总信号数: ${summary.totalSignals || 0}`);
+      console.log(`   买入信号: ${summary.buySignals || 0}`);
+      console.log(`   卖出信号: ${summary.sellSignals || 0}`);
+      console.log(`   执行交易: ${summary.executedTrades || 0}`);
+      if (portfolio.totalValue !== undefined) {
+        console.log(`   总价值: ${portfolio.totalValue} BNB`);
+      }
+      if (portfolio.availableBalance !== undefined) {
+        console.log(`   可用余额: ${portfolio.availableBalance} BNB`);
+      }
+      if (portfolio.totalPnL !== undefined) {
+        console.log(`   总盈亏: ${portfolio.totalPnL} BNB`);
+      }
 
     } catch (error) {
       console.error(`❌ 停止失败: ${error.message}`);

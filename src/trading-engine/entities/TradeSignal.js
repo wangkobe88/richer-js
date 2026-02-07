@@ -166,6 +166,28 @@ class TradeSignal {
   }
 
   /**
+   * 保存信号到数据库
+   * @returns {Promise<string>} 返回信号ID
+   */
+  async save() {
+    const { dbManager } = require('../../services/dbManager');
+    const supabase = dbManager.getClient();
+
+    const dbData = this.toDatabaseFormat();
+    const { data, error } = await supabase
+      .from('strategy_signals')
+      .insert([dbData])
+      .select();
+
+    if (error) {
+      throw new Error(`保存信号失败: ${error.message}`);
+    }
+
+    // 返回插入的记录ID
+    return data[0].id;
+  }
+
+  /**
    * 验证信号数据
    * @returns {Object} 验证结果
    */

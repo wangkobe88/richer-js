@@ -17,8 +17,10 @@ let CardPositionManager = null;
 function getLazyModules() {
   if (!TokenPool) {
     TokenPool = require('../../core/token-pool');
-    StrategyEngine = require('../../strategies/StrategyEngine');
-    CardPositionManager = require('../../portfolio/CardPositionManager');
+    const SE = require('../../strategies/StrategyEngine');
+    StrategyEngine = SE.StrategyEngine;
+    const CPM = require('../../portfolio/CardPositionManager');
+    CardPositionManager = CPM.CardPositionManager;
   }
   return { TokenPool, StrategyEngine, CardPositionManager };
 }

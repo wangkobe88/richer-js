@@ -19,8 +19,10 @@ function getLazyModules() {
   if (!TokenPool) {
     TokenPool = require('../../core/token-pool');
     FourmemeCollector = require('../../collectors/fourmeme-collector');
-    StrategyEngine = require('../../strategies/StrategyEngine');
-    CardPositionManager = require('../../portfolio/CardPositionManager');
+    const SE = require('../../strategies/StrategyEngine');
+    StrategyEngine = SE.StrategyEngine;
+    const CPM = require('../../portfolio/CardPositionManager');
+    CardPositionManager = CPM.CardPositionManager;
   }
   return { TokenPool, FourmemeCollector, StrategyEngine, CardPositionManager };
 }
@@ -430,16 +432,52 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     // 5. 初始化策略引擎
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
-    const strategies = this._buildStrategyConfig();
-    this._strategyEngine = new StrategyEngine({ strategies });
+    const strategiesConfig = this._buildStrategyConfig();
+    this._strategyEngine = new StrategyEngine({ strategies: strategiesConfig });
 
     const availableFactorIds = new Set([
       'age', 'currentPrice', 'collectionPrice', 'earlyReturn', 'buyPrice',
       'holdDuration', 'profitPercent',
-      'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest'
+      'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
+      'fdv', 'holders', 'tvl', 'marketCap'
     ]);
 
-    this._strategyEngine.loadStrategies(strategies, availableFactorIds);
+    // 转换策略配置格式：{ buyStrategies: [...], sellStrategies: [...] } -> 扁平数组
+    const strategyArray = [];
+    if (strategiesConfig.buyStrategies && Array.isArray(strategiesConfig.buyStrategies)) {
+      strategiesConfig.buyStrategies.forEach((s, idx) => {
+        strategyArray.push({
+          id: `buy_${idx}_${s.priority || 0}`,
+          name: `买入策略 P${s.priority || 0}`,
+          description: s.description || '',
+          action: 'buy',
+          condition: s.condition,
+          priority: s.priority || 0,
+          cooldown: s.cooldown || 300,
+          cards: s.cards || 1,
+          maxExecutions: s.maxExecutions || null,
+          enabled: true
+        });
+      });
+    }
+    if (strategiesConfig.sellStrategies && Array.isArray(strategiesConfig.sellStrategies)) {
+      strategiesConfig.sellStrategies.forEach((s, idx) => {
+        strategyArray.push({
+          id: `sell_${idx}_${s.priority || 0}`,
+          name: `卖出策略 P${s.priority || 0}`,
+          description: s.description || '',
+          action: 'sell',
+          condition: s.condition,
+          priority: s.priority || 0,
+          cooldown: s.cooldown || 300,
+          cards: s.cards || 1,
+          maxExecutions: s.maxExecutions || null,
+          enabled: true
+        });
+      });
+    }
+
+    this._strategyEngine.loadStrategies(strategyArray, availableFactorIds);
     console.log(`✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
     // 6. 初始化卡牌仓位管理配置

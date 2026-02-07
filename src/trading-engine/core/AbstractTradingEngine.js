@@ -24,7 +24,8 @@ let ExperimentTimeSeriesService = null;
 function getLazyModules() {
   if (!TokenPool) {
     TokenPool = require('../../core/token-pool');
-    StrategyEngine = require('../../core/strategy-engine');
+    const SE = require('../../strategies/StrategyEngine');
+    StrategyEngine = SE.StrategyEngine;
     const PM = require('../../portfolio/core/PortfolioManager');
     PortfolioManager = PM.PortfolioManager;
     const RS = require('../utils/RoundSummary');
@@ -179,11 +180,8 @@ class AbstractTradingEngine extends ITradingEngine {
     });
     await this._tokenPool.initialize();
 
-    // StrategyEngine - 策略引擎
-    this._strategyEngine = new StrategyEngine({
-      blockchain: this._blockchain
-    });
-    await this._strategyEngine.initialize();
+    // StrategyEngine - 策略引擎（由子类在各自的方法中初始化）
+    // 留空，子类会覆盖或在 _initializeDataSources 中初始化
 
     // PortfolioManager - 投资组合管理
     this._portfolioManager = new PortfolioManager();
@@ -202,7 +200,7 @@ class AbstractTradingEngine extends ITradingEngine {
     );
 
     // RoundSummary - 轮次总结
-    this._roundSummary = new RoundSummary(this._experimentId, this._blockchain);
+    this._roundSummary = new RoundSummary(this._experimentId, this._logger, this._blockchain);
 
     // ExperimentTimeSeriesService - 时序数据服务
     if (this._shouldRecordTimeSeries()) {
@@ -336,8 +334,10 @@ class AbstractTradingEngine extends ITradingEngine {
    * @returns {Object} 策略配置
    */
   _buildStrategyConfig() {
-    if (this._experiment.strategiesConfig && Object.keys(this._experiment.strategiesConfig).length > 0) {
-      return this._experiment.strategiesConfig;
+    // 策略配置可能在 config.strategiesConfig 或直接在 experiment 上
+    const strategiesConfig = this._experiment.config?.strategiesConfig || this._experiment.strategiesConfig;
+    if (strategiesConfig && Object.keys(strategiesConfig).length > 0) {
+      return strategiesConfig;
     }
 
     // 使用默认策略配置
@@ -417,15 +417,26 @@ class AbstractTradingEngine extends ITradingEngine {
       return { success: false, message: '引擎已停止' };
     }
 
-    // 创建信号实体
+    // 创建信号实体 - 合并 factors 到 metadata
+    const signalMetadata = {
+      ...signal.metadata,
+      ...(signal.factors || {}),
+      price: signal.price,
+      strategyId: signal.strategyId,
+      strategyName: signal.strategyName,
+      cards: signal.cards,
+      cardConfig: signal.cardConfig
+    };
+
     const tradeSignal = new TradeSignal({
-      experiment_id: this._experimentId,
-      token_address: signal.tokenAddress,
-      symbol: signal.symbol,
-      signal_type: signal.action.toUpperCase(),
+      experimentId: this._experimentId,
+      tokenAddress: signal.tokenAddress,
+      tokenSymbol: signal.symbol,
+      signalType: signal.action.toUpperCase(),
+      action: signal.action.toLowerCase(),
       confidence: signal.confidence || 0.5,
       reason: signal.reason || '',
-      metadata: signal.metadata || {}
+      metadata: signalMetadata
     });
 
     // 保存信号到数据库
@@ -533,15 +544,30 @@ class AbstractTradingEngine extends ITradingEngine {
     const position = portfolio.positions.get(tradeRequest.tokenAddress.toLowerCase());
     const currentPrice = tradeRequest.price || (position ? position.currentPrice : 0);
 
-    // 创建交易实体
+    // 创建交易实体 (使用 input/output 模式)
+    const isBuy = tradeRequest.direction.toLowerCase() === 'buy';
+    const tokenAmount = parseFloat(tradeRequest.amount);
+    const price = parseFloat(currentPrice);
+
+    // 计算正确的 input/output 金额
+    // 买入: input = BNB金额, output = 代币数量
+    // 卖出: input = 代币数量, output = BNB金额
+    const inputAmount = isBuy ? (tokenAmount * price) : tokenAmount;
+    const outputAmount = isBuy ? tokenAmount : (tokenAmount * price);
+
     const trade = new Trade({
-      experiment_id: this._experimentId,
-      token_address: tradeRequest.tokenAddress,
-      symbol: tradeRequest.symbol,
-      trade_type: tradeRequest.direction.toLowerCase(),
-      amount: String(tradeRequest.amount),
-      price: String(currentPrice),
-      tx_hash: tradeRequest.txHash || null,
+      experimentId: this._experimentId,
+      signalId: tradeRequest.signalId || null,
+      tokenAddress: tradeRequest.tokenAddress,
+      tokenSymbol: tradeRequest.symbol,
+      direction: tradeRequest.direction.toLowerCase(),
+      // 买入: BNB -> 代币, 卖出: 代币 -> BNB
+      inputCurrency: isBuy ? 'BNB' : tradeRequest.symbol,
+      outputCurrency: isBuy ? tradeRequest.symbol : 'BNB',
+      inputAmount: String(inputAmount),
+      outputAmount: String(outputAmount),
+      unitPrice: String(price),
+      txHash: tradeRequest.txHash || null,
       metadata: tradeRequest.metadata || {}
     });
 
@@ -651,6 +677,7 @@ class AbstractTradingEngine extends ITradingEngine {
 
     const snapshot = {
       experiment_id: this._experimentId,
+      snapshot_time: new Date().toISOString(),
       total_value: String(portfolio.totalValue || 0),
       total_value_change: '0',
       total_value_change_percent: '0',
@@ -766,12 +793,16 @@ class AbstractTradingEngine extends ITradingEngine {
       return {};
     }
 
+    // 兼容处理：PortfolioManager 使用 cashBalance，但某些地方可能期望 availableBalance
+    const cashBalance = portfolio.cashBalance || portfolio.availableBalance || 0;
+
     return {
       totalValue: portfolio.totalValue,
-      availableBalance: portfolio.availableBalance,
-      totalInvested: portfolio.totalInvested,
-      totalPnL: portfolio.totalPnL,
-      totalPnLPercentage: portfolio.totalPnLPercentage,
+      cashBalance: cashBalance,
+      availableBalance: cashBalance, // 兼容性字段
+      totalInvested: portfolio.totalInvested || 0,
+      totalPnL: portfolio.totalPnL || 0,
+      totalPnLPercentage: portfolio.totalPnLPercentage || 0,
       positionCount: portfolio.positions.size,
       positions: Array.from(portfolio.positions.values()).map(p => ({
         tokenAddress: p.tokenAddress,

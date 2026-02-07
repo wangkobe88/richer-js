@@ -295,6 +295,28 @@ class Trade {
   }
 
   /**
+   * 保存交易到数据库
+   * @returns {Promise<string>} 返回交易ID
+   */
+  async save() {
+    const { dbManager } = require('../../services/dbManager');
+    const supabase = dbManager.getClient();
+
+    const dbData = this.toDatabaseFormat();
+    const { data, error } = await supabase
+      .from('trades')
+      .insert([dbData])
+      .select();
+
+    if (error) {
+      throw new Error(`保存交易失败: ${error.message}`);
+    }
+
+    // 返回插入的记录ID
+    return data[0].id;
+  }
+
+  /**
    * 转换为简化的日志格式
    * @returns {Object} 日志格式对象
    */
