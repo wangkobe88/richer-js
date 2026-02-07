@@ -489,16 +489,28 @@ class AbstractTradingEngine extends ITradingEngine {
    * 更新信号状态
    * @private
    * @param {string} signalId - 信号ID
-   * @param {string} status - 新状态
+   * @param {string} status - 新状态 ('executed' | 'failed')
    * @param {Object} result - 执行结果
    * @returns {Promise<void>}
    */
   async _updateSignalStatus(signalId, status, result) {
     const supabase = dbManager.getClient();
 
+    // 先获取当前信号数据（包括 metadata）
+    const { data: currentSignal, error: fetchError } = await supabase
+      .from('strategy_signals')
+      .select('metadata')
+      .eq('id', signalId)
+      .single();
+
+    if (fetchError) {
+      this._logger.error('获取信号数据失败', { signalId, error: fetchError.message });
+      return;
+    }
+
+    // 准备更新数据
     const updateData = {
-      status,
-      updated_at: new Date().toISOString()
+      executed: status === 'executed'
     };
 
     if (result.tradeId) {
@@ -509,8 +521,18 @@ class AbstractTradingEngine extends ITradingEngine {
       updateData.execution_reason = result.message;
     }
 
+    // 更新 metadata.tradeResult
+    const newMetadata = { ...(currentSignal.metadata || {}) };
+    if (result.trade || result.success !== undefined) {
+      newMetadata.tradeResult = {
+        success: result.success || false,
+        trade: result.trade || null
+      };
+    }
+    updateData.metadata = newMetadata;
+
     const { error } = await supabase
-      .from('trade_signals')
+      .from('strategy_signals')
       .update(updateData)
       .eq('id', signalId);
 
@@ -581,6 +603,9 @@ class AbstractTradingEngine extends ITradingEngine {
     );
 
     if (result.success) {
+      // 标记交易为成功
+      trade.markAsSuccess();
+
       // 保存交易记录
       await trade.save();
       this._logger.info('交易已执行', {
@@ -594,9 +619,13 @@ class AbstractTradingEngine extends ITradingEngine {
       return {
         success: true,
         tradeId: trade.id,
+        trade: trade,
         ...result
       };
     } else {
+      // 标记交易为失败
+      trade.markAsFailed(result.message);
+
       this._logger.error('交易执行失败', {
         symbol: tradeRequest.symbol,
         error: result.message

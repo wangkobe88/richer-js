@@ -176,7 +176,10 @@ class ExperimentTokens {
     const idEl = document.getElementById('experiment-id');
     const blockchainEl = document.getElementById('experiment-blockchain');
 
-    if (nameEl) nameEl.textContent = this.experiment.experiment_name || '未命名实验';
+    if (nameEl) {
+      const name = this.experiment.experimentName || this.experiment.experiment_name || '未命名实验';
+      nameEl.textContent = name;
+    }
     if (idEl) idEl.textContent = `ID: ${this.experimentId}`;
     if (blockchainEl) {
       const blockchain = this.experiment.blockchain || this.experiment.blockchainName || 'unknown';
