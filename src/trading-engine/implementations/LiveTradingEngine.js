@@ -297,7 +297,11 @@ class LiveTradingEngine extends AbstractTradingEngine {
       const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
       if (portfolio) {
         const maxSpendable = portfolio.availableBalance || portfolio.cashBalance;
+        this.logger.info(this._experimentId, '_executeBuy',
+          `资金检查 | 需要 ${amountInBNB} BNB, 可用 ${maxSpendable} BNB, 保留 ${this._reserveNative} BNB`);
         if (new Decimal(amountInBNB).gt(maxSpendable)) {
+          this.logger.error(this._experimentId, '_executeBuy',
+            `资金不足 | 需要 ${amountInBNB} BNB，可用 ${maxSpendable} BNB（已保留 ${this._reserveNative} BNB 用于 GAS）`);
           return {
             success: false,
             reason: `资金不足: 需要 ${amountInBNB} BNB，可用 ${maxSpendable} BNB（已保留 ${this._reserveNative} BNB 用于 GAS）`
@@ -306,6 +310,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
 
       // 使用真实交易器执行买入
+      this.logger.info(this._experimentId, '_executeBuy',
+        `执行交易 | symbol=${signal.symbol}, amount=${amountInBNB} BNB, tokenAddress=${signal.tokenAddress}`);
       // FourMemeDirectTrader 使用 slippageTolerance (百分比格式，如 5 表示 5%)
       // PancakeSwapV2Trader 使用 slippage (小数格式，如 0.05 表示 5%)
       const buyOptions = {
@@ -320,7 +326,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
         buyOptions
       );
 
+      this.logger.info(this._experimentId, '_executeBuy',
+        `交易结果 | success=${buyResult?.success}, error=${buyResult?.error || 'none'}, txHash=${buyResult?.transactionHash || buyResult?.txHash || 'none'}`);
+
       if (!buyResult.success) {
+        this.logger.error(this._experimentId, '_executeBuy',
+          `交易执行失败 | reason=${buyResult.error || '交易执行失败'}`);
         return { success: false, reason: buyResult.error || '交易执行失败' };
       }
 
@@ -399,9 +410,14 @@ class LiveTradingEngine extends AbstractTradingEngine {
         });
       }
 
+      this.logger.info(this._experimentId, '_executeBuy',
+        `========== _executeBuy 完成 | success=true, tradeId=${tradeResult.tradeId} ==========`);
+
       return tradeResult;
 
     } catch (error) {
+      this.logger.error(this._experimentId, '_executeBuy',
+        `========== _executeBuy 异常 | error=${error.message} ==========`);
       return { success: false, reason: error.message };
     }
   }

@@ -344,6 +344,37 @@ class PortfolioManager extends IPortfolioManager {
           });
         }
 
+      } else if (type === 'hold') {
+        // 持仓同步（用于实盘交易同步现有持仓，不扣除现金余额）
+        const existingPosition = portfolio.positions.get(normalizedAddress);
+        if (existingPosition) {
+          // 更新现有持仓的数量和价格
+          existingPosition.amount = tradeAmount;
+          existingPosition.averagePrice = tradePrice;
+          existingPosition.currentPrice = tradePrice;
+          existingPosition.value = tradeValue;
+          existingPosition.lastUpdated = Date.now();
+        } else {
+          // 创建新持仓记录（现有持仓，不是通过本实验买入的）
+          portfolio.positions.set(normalizedAddress, {
+            tokenAddress: normalizedAddress,
+            tokenSymbol: this.getTokenSymbol(tokenAddress),
+            blockchain: this.getTokenBlockchain(tokenAddress),
+            amount: tradeAmount,
+            averagePrice: tradePrice,
+            currentPrice: tradePrice,
+            value: tradeValue,
+            // 🔥 实验交易相关字段（初始持仓标记）
+            initialAmount: tradeAmount,
+            initialValue: tradeValue,
+            totalBuyValue: new Decimal(0),  // 不是通过本实验买入的
+            totalBuyAmount: new Decimal(0),
+            // ✅ AVE PNL数据（如果提供）
+            pnl: null,
+            lastUpdated: Date.now()
+          });
+        }
+
       } else if (type === 'sell') {
         // 卖出操作
         const existingPosition = portfolio.positions.get(normalizedAddress);
