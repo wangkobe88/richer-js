@@ -159,15 +159,11 @@ class ExperimentSignals {
             interval: klineResponse.interval_minutes
           });
 
-          // 更新图表配置信息
-          this.updateChartConfig(klineResponse);
-
           // 初始化K线图
           this.initKlineChart(klineResponse);
         } else {
           console.warn('⚠️ 没有K线数据');
-          // 即使没有K线数据也要更新配置信息
-          this.updateChartConfig(klineResponse || {});
+          this.showKlinePlaceholder('暂无K线数据');
         }
       } catch (klineError) {
         console.error('⚠️ K线数据加载失败（不影响信号显示）:', klineError);
@@ -264,7 +260,6 @@ class ExperimentSignals {
   async loadKlineForToken(token) {
     try {
       // 显示加载状态
-      const chartStatus = document.getElementById('chart-status');
       const chartWrapper = document.getElementById('kline-chart-wrapper');
       const chartContainer = document.querySelector('.chart-container');
 
@@ -274,11 +269,6 @@ class ExperimentSignals {
       }
       if (chartContainer) {
         chartContainer.style.display = 'block';
-      }
-
-      if (chartStatus) {
-        chartStatus.textContent = '加载中...';
-        chartStatus.className = 'px-3 py-1 bg-yellow-900 text-yellow-200 rounded-full text-sm font-medium';
       }
 
       // 获取时序数据（替代K线数据）
@@ -669,13 +659,8 @@ class ExperimentSignals {
       } else {
         // 选择"全部代币"时，隐藏整个图表区域
         const chartWrapper = document.getElementById('kline-chart-wrapper');
-        const chartStatus = document.getElementById('chart-status');
         if (chartWrapper) {
           chartWrapper.style.display = 'none';
-        }
-        if (chartStatus) {
-          chartStatus.textContent = '请选择代币查看图表';
-          chartStatus.className = 'px-3 py-1 bg-gray-900 text-gray-400 rounded-full text-sm font-medium';
         }
       }
 
@@ -773,19 +758,6 @@ class ExperimentSignals {
 
     // 更新统计信息
     this.updateSignalsStats(filteredSignals);
-  }
-
-  // 更新图表配置信息
-  updateChartConfig(klineResponse) {
-    const tokenSymbol = klineResponse.token?.symbol || 'HJM';
-    const interval = klineResponse.interval_minutes || 15;
-    const timeRange = klineResponse.time_range || { start_date: '2025-11-23', end_date: '2025-11-24' };
-
-    document.getElementById('chart-token-symbol').textContent = tokenSymbol;
-    document.getElementById('chart-interval').textContent = `${interval}分钟`;
-    document.getElementById('chart-time-range').textContent = `${timeRange.start_date} 至 ${timeRange.end_date}`;
-
-    console.log(`📊 图表配置更新: ${tokenSymbol}, ${interval}分钟, ${timeRange.start_date} 到 ${timeRange.end_date}`);
   }
 
   /**

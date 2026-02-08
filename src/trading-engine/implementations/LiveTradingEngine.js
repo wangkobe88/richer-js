@@ -322,7 +322,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       // 转换为 wei 格式（交易器期望 BigInt/BigNumber 格式）
       const ethers = require('ethers');
+      this.logger.info(this._experimentId, '_executeBuy',
+        `类型检查 | amountInBNB=${amountInBNB}, typeof=${typeof amountInBNB}, string=${amountInBNB.toString()}`);
+
       const amountInWei = ethers.parseEther(amountInBNB.toString());
+
+      this.logger.info(this._experimentId, '_executeBuy',
+        `Wei 转换 | amountInWei=${amountInWei}, typeof=${typeof amountInWei}`);
 
       const buyResult = await this._trader.buyToken(
         signal.tokenAddress,
@@ -1422,7 +1428,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
           `余额不足: 需要 ${amount} BNB, 当前 ${portfolio.availableBalance.toFixed(4)} BNB`);
         return 0;
       }
-      return amount;
+      // 转换为数字（amount 可能是 Decimal 对象）
+      return typeof amount === 'number' ? amount : amount.toNumber();
     }
 
     // 默认使用可用余额的 20%

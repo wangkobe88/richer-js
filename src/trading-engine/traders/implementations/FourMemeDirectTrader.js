@@ -430,9 +430,21 @@ class FourMemeDirectTrader extends BaseTrader {
      * 获取价格报价（使用 TokenManagerHelper3）
      */
     async quotePrice(tokenAddress, amountIn) {
+        // 确保 amountIn 是 BigInt 格式（wei）
+        let amountInWei = amountIn;
+        if (typeof amountIn === 'string') {
+            try {
+                amountInWei = BigInt(amountIn);
+            } catch {
+                amountInWei = ethers.parseEther(amountIn);
+            }
+        } else if (typeof amountIn === 'number') {
+            amountInWei = ethers.parseEther(amountIn.toString());
+        }
+
         try {
             // 使用 TokenManagerHelper3 的 tryBuy 函数进行精确预估
-            const quoteResult = await this.helperContract.tryBuy(tokenAddress, 0, amountIn);
+            const quoteResult = await this.helperContract.tryBuy(tokenAddress, 0, amountInWei);
 
             // 动态确定使用的 TokenManager
             const actualTokenManager = quoteResult.tokenManager;
@@ -554,11 +566,25 @@ class FourMemeDirectTrader extends BaseTrader {
      */
     async buyToken(tokenAddress, amountIn, options = {}) {
         try {
+            // 确保 amountIn 是 BigInt 格式（wei）
+            let amountInWei = amountIn;
+            if (typeof amountIn === 'string') {
+                // 如果是字符串，假设是 wei 格式的字符串，或者需要转换
+                try {
+                    amountInWei = BigInt(amountIn);
+                } catch {
+                    // 如果转换失败，可能是 BNB 格式的小数，需要转换为 wei
+                    amountInWei = ethers.parseEther(amountIn);
+                }
+            } else if (typeof amountIn === 'number') {
+                amountInWei = ethers.parseEther(amountIn.toString());
+            }
+
             this.log(`准备通过 FourMeme TokenManager2 购买代币: ${tokenAddress}`);
-            this.log(`购买金额: ${ethers.formatEther(amountIn)} BNB`);
+            this.log(`购买金额: ${ethers.formatEther(amountInWei)} BNB`);
 
             // 首先获取价格报价
-            const priceQuote = await this.quotePrice(tokenAddress, amountIn);
+            const priceQuote = await this.quotePrice(tokenAddress, amountInWei);
             if (!priceQuote.success) {
                 throw new Error(`无法获取价格报价: ${priceQuote.error}`);
             }
