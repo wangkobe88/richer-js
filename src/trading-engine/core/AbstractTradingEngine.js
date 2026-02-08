@@ -8,7 +8,7 @@
 const { ITradingEngine, TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { Experiment } = require('../entities/Experiment');
 const { dbManager } = require('../../services/dbManager');
-const BlockchainConfig = require('../../utils/BlockchainConfig');
+const { BlockchainConfig } = require('../../utils/BlockchainConfig');
 const Logger = require('../../utils/logger');
 
 // 延迟导入以避免循环依赖
@@ -140,6 +140,9 @@ class AbstractTradingEngine extends ITradingEngine {
     } else {
       this._experiment = experimentOrId;
     }
+
+    // 调试：输出 config 内容
+    console.log(`🔍 实验 config 内容:`, JSON.stringify(this._experiment.config, null, 2));
 
     this._experimentId = this._experiment.id;
     this._portfolioId = `portfolio_${this._experimentId}`;

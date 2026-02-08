@@ -304,6 +304,32 @@
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <span class="text-xs text-gray-500">私钥将在提交前加密，请确保您的环境设置了 ENCRYPTION_KEY</span>
                         </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                保留金额 (BNB) <span class="text-gray-500">- 用于 GAS 费用</span>
+                            </label>
+                            <input type="number"
+                                   name="reserve_amount"
+                                   id="reserve_amount"
+                                   step="0.001"
+                                   min="0.01"
+                                   value="0.1"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <span class="text-xs text-gray-500">保留用于支付 GAS 费用的 BNB 数量（最小 0.01 BNB）</span>
+                        </div>
+                    </div>
+                    <div class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div class="flex items-start">
+                            <span class="text-lg mr-2">💡</span>
+                            <div class="text-sm text-blue-800">
+                                <p class="font-semibold mb-1">资金说明</p>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li>可动用资金 = 钱包 BNB 余额 - 保留金额</li>
+                                    <li>保留金额将始终保留，不用于购买代币</li>
+                                    <li>引擎启动时会自动查询钱包余额</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -841,7 +867,7 @@
             const tradingMode = document.getElementById('trading_mode').value;
             const backtestConfig = document.getElementById('backtest-config');
             const liveConfig = document.getElementById('live-config');
-            const initialBalanceLabel = document.getElementById('initial_balance');
+            const initialBalanceContainer = document.getElementById('initial_balance')?.parentElement;
             const initialBalanceInput = document.getElementById('initial_balance');
             const walletAddressInput = document.getElementById('wallet_address');
             const privateKeyInput = document.getElementById('private_key');
@@ -850,6 +876,11 @@
             // 隐藏所有配置区域
             backtestConfig.style.display = 'none';
             liveConfig.style.display = 'none';
+
+            // 显示初始余额字段（默认）
+            if (initialBalanceContainer) {
+                initialBalanceContainer.style.display = 'block';
+            }
 
             // 移除实盘和回测字段的必填属性
             if (walletAddressInput) walletAddressInput.removeAttribute('required');
@@ -869,6 +900,10 @@
                 // 添加实盘字段的必填属性
                 if (walletAddressInput) walletAddressInput.setAttribute('required', 'required');
                 if (privateKeyInput) privateKeyInput.setAttribute('required', 'required');
+                // 实盘模式隐藏初始余额字段（资金从钱包获取）
+                if (initialBalanceContainer) {
+                    initialBalanceContainer.style.display = 'none';
+                }
             } else {
                 // 恢复默认初始余额
                 if (initialBalanceInput.value === '100') {
@@ -1178,6 +1213,8 @@
                     address: formData.get('wallet_address'),
                     privateKey: formData.get('private_key')  // 将在服务器端加密
                 };
+                // 实盘交易：保留用于 GAS 的金额
+                config.reserveNative = parseFloat(formData.get('reserve_amount')) || 0.1;
             }
 
             return config;
@@ -1221,6 +1258,7 @@
             if (tradingMode === 'live') {
                 const walletAddress = document.getElementById('wallet_address').value;
                 const privateKey = document.getElementById('private_key').value;
+                const reserveAmount = parseFloat(document.getElementById('reserve_amount').value);
 
                 if (!walletAddress) {
                     alert('请输入钱包地址');
@@ -1238,6 +1276,11 @@
                 // 验证私钥格式
                 if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
                     alert('私钥格式不正确，应为0x开头的64位十六进制字符');
+                    return;
+                }
+                // 验证保留金额
+                if (isNaN(reserveAmount) || reserveAmount < 0.01) {
+                    alert('保留金额必须至少为 0.01 BNB');
                     return;
                 }
             }

@@ -4,7 +4,7 @@
  */
 
 const Decimal = require('decimal.js');
-const BlockchainConfig = require('../utils/BlockchainConfig');
+const { BlockchainConfig } = require('../utils/BlockchainConfig');
 
 /**
  * 钱包余额信息
@@ -27,6 +27,7 @@ class WalletService {
     this.retryAttempts = config.retryAttempts || 3;
     this.retryDelay = config.retryDelay || 2000;
     this.baseURL = 'https://prod.ave-api.com';
+    this.provider = config.provider || null; // 可选的区块链 provider，用于获取原生代币余额
 
     // 缓存钱包余额数据
     this.balanceCache = new Map();
@@ -203,6 +204,57 @@ class WalletService {
 
             balances = filteredBalances;
             console.log(`   ✅ 合并完成: ${totalSOL} SOL (${wsolAddress})`);
+          }
+        }
+
+        // 🔥 对于 EVM 链（BSC），检查是否有原生代币余额
+        // AVE API 可能不返回原生代币（BNB/ETH），只返回 WBNB/WETH
+        // 如果配置了 provider，尝试直接从区块链获取原生代币余额
+        if (!isSolana && this.provider && walletAddress) {
+          const nativeTokenInfo = BlockchainConfig.getNativeToken(normalizedChain);
+          const nativeTokenAddresses = BlockchainConfig.getNativeTokenAddresses(normalizedChain);
+          const nativeAddrs = new Set(
+            nativeTokenAddresses.map(addr => BlockchainConfig.normalizeTokenAddress(addr, normalizedChain))
+          );
+
+          // 检查 AVE API 返回的余额中是否有原生代币
+          const hasNativeBalance = balances.some(b =>
+            nativeAddrs.has(BlockchainConfig.normalizeTokenAddress(b.address, normalizedChain))
+          );
+
+          if (!hasNativeBalance) {
+            console.log(`🔍 AVE API 未返回原生代币 (${nativeTokenInfo.symbol})，尝试从区块链获取...`);
+            try {
+              const balance = await this.provider.getBalance(walletAddress);
+              const balanceAmount = new Decimal(balance.toString()).div(new Decimal(10).pow(nativeTokenInfo.decimals));
+
+              if (balanceAmount.gt(0)) {
+                console.log(`💰 从区块链获取原生 ${nativeTokenInfo.symbol} 余额: ${balanceAmount}`);
+
+                // 使用 AVE API 的原生表示地址
+                const aveNativeAddress = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
+                balances.unshift({
+                  symbol: nativeTokenInfo.symbol,
+                  address: aveNativeAddress,
+                  balance: balanceAmount,
+                  valueUSD: balanceAmount,
+                  decimals: nativeTokenInfo.decimals,
+                  priceUSD: new Decimal(0),
+                  pnl: {
+                    unrealized: new Decimal(0),
+                    realized: new Decimal(0),
+                    total: new Decimal(0),
+                    totalRatio: 0,
+                    averagePurchasePrice: 0
+                  },
+                  averagePurchasePrice: new Decimal(0),
+                  balanceAmount: balanceAmount,
+                  currentPriceUSD: new Decimal(0)
+                });
+              }
+            } catch (rpcError) {
+              console.warn(`⚠️ 从区块链获取原生代币余额失败: ${rpcError.message}`);
+            }
           }
         }
 

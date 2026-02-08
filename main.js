@@ -179,7 +179,18 @@ class VirtualTradingSystem {
     console.log(`   策略类型: ${experiment.strategyType}`);
     console.log(`   区块链: ${experiment.blockchain}`);
     console.log(`   K线类型: ${experiment.klineType}`);
-    console.log(`   初始余额: ${experiment.config?.virtual?.initialBalance || 100} ${experiment.blockchain.toUpperCase()}`);
+
+    // 根据交易模式显示不同的初始余额
+    if (experiment.tradingMode === 'live') {
+      // 实盘：显示钱包余额（从引擎获取）
+      const walletBalance = this.engine._walletBalance;
+      if (walletBalance) {
+        console.log(`   钱包余额: ${walletBalance.toFixed(4)} ${experiment.blockchain.toUpperCase()}`);
+      }
+    } else {
+      // 虚拟盘：显示配置的初始余额
+      console.log(`   初始余额: ${experiment.config?.virtual?.initialBalance || 100} ${experiment.blockchain.toUpperCase()}`);
+    }
     console.log(``);
   }
 

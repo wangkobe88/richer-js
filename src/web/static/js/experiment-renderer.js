@@ -65,7 +65,7 @@ class ExperimentRenderer {
       <!-- 卡片主体 -->
       <div class="p-4 border-l-2 border-r-2 border-b-2 ${typeConfig.border} rounded-b-lg bg-white">
         <h3 class="text-xl font-semibold text-gray-900 mb-3">
-          ${experiment.experiment_name || '未命名实验'}
+          ${experiment.experimentName || experiment.experiment_name || '未命名实验'}
         </h3>
 
         <p class="text-gray-600 mb-4 line-clamp-2 text-sm">
@@ -140,7 +140,7 @@ class ExperimentRenderer {
                   class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors">
             📋 复制
           </button>
-          <button onclick="window.experimentRenderer.clearExperimentData('${experiment.id}', '${experiment.experiment_name || '未命名实验'}')"
+          <button onclick="window.experimentRenderer.clearExperimentData('${experiment.id}', '${experiment.experimentName || experiment.experiment_name || '未命名实验'}')"
                   class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors">
             🗑️ 清除数据
           </button>
@@ -485,7 +485,14 @@ class ExperimentRenderer {
     if (config.wallet) {
       formData.wallet_address = config.wallet.address || '';
       formData.private_key = config.wallet.privateKey || ''; // 恢复私钥复制（支持加密格式）
-      formData.reserve_native = config.wallet.reserveNative || '0.1';
+    }
+    // 保留金额独立于 wallet 配置
+    if (config.reserveNative !== undefined) {
+      formData.reserve_amount = config.reserveNative;
+    } else if (config.wallet?.reserveNative !== undefined) {
+      formData.reserve_amount = config.wallet.reserveNative;
+    } else {
+      formData.reserve_amount = '0.1';
     }
 
     // 提取交易配置

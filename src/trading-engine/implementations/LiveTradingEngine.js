@@ -7,9 +7,10 @@
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const Decimal = require('decimal.js');
-const BlockchainConfig = require('../../utils/BlockchainConfig');
+const { BlockchainConfig } = require('../../utils/BlockchainConfig');
 const { WalletService } = require('../../services/WalletService');
 const traderFactory = require('../traders');
+const Logger = require('../../services/logger');
 
 /**
  * 实盘交易引擎
@@ -33,7 +34,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // 实盘特有属性
     this._walletAddress = null;
     this._privateKey = null;
-    this._reserveNative = new Decimal(0.1);
+    this._reserveNative = new Decimal(config.reserveNative || 0.1);
+    this._walletBalance = new Decimal(0); // 保存总钱包余额
     this._maxSlippage = 0.05;
 
     // 服务
@@ -42,6 +44,21 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this._fourMemeTrader = null;
     this._pancakeSwapTrader = null;
     this._monitoringTimer = null;
+
+    // 代币池相关（与虚拟盘一致）
+    this._fourmemeCollector = null;
+    this._aveTokenApi = null;
+    this._seenTokens = new Set();
+
+    // 日志记录器（与虚拟盘一致）
+    this.logger = null;
+
+    // 数据服务（与虚拟盘一致）
+    this.dataService = null;
+    this.timeSeriesService = null;
+
+    // RoundSummary - 轮次总结（与虚拟盘一致）
+    this._roundSummary = null;
 
     // 统计信息
     this.metrics = {
@@ -90,7 +107,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
       throw new Error(`私钥解密失败: ${error.message}`);
     }
 
-    // 初始化 WalletService
+    // 初始化 WalletService（先不传 provider）
     this._walletService = new WalletService({
       apiKey: process.env.AVE_API_KEY,
       timeout: 30000,
@@ -126,6 +143,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
     // 设置默认交易器为 FourMeme（用于买入）
     this._trader = this._fourMemeTrader;
+
+    // 将 trader 的 provider 传递给 WalletService，用于获取原生代币余额
+    if (this._trader.provider) {
+      this._walletService.provider = this._trader.provider;
+      console.log('✅ WalletService 已配置 provider');
+    }
 
     // 初始化实盘特定组件
     await this._initializeLiveComponents();
@@ -213,14 +236,14 @@ class LiveTradingEngine extends AbstractTradingEngine {
           }
         }
       } else {
-        console.warn('⚠️ Portfolio 为空，跳过持仓同步');
+        this.logger.warn(this._experimentId, 'SyncHoldings', 'Portfolio 为空，跳过持仓同步');
         return;
       }
 
-      console.log(`🔄 持仓同步完成: ${walletBalances.length} 种代币`);
+      this.logger.info(this._experimentId, 'SyncHoldings', `持仓同步完成: ${walletBalances.length} 种代币`);
 
     } catch (error) {
-      console.error(`❌ 持仓同步失败: ${error.message}`);
+      this.logger.error(this._experimentId, 'SyncHoldings', `持仓同步失败: ${error.message}`);
       // 不抛出错误，允许引擎继续运行
     }
   }
@@ -234,21 +257,52 @@ class LiveTradingEngine extends AbstractTradingEngine {
    * @returns {Promise<Object>} 交易结果
    */
   async _executeBuy(signal, signalId = null, metadata = {}) {
+    this.logger.info(this._experimentId, '_executeBuy',
+      `========== _executeBuy 被调用 ==========`);
+    this.logger.info(this._experimentId, '_executeBuy',
+      `signal | action=${signal.action}, symbol=${signal.symbol}, tokenAddress=${signal.tokenAddress}, chain=${signal.chain}, price=${signal.price}, cards=${signal.cards}, signalId=${signalId}`);
+
     try {
       const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
       if (!cardManager) {
+        this.logger.error(this._experimentId, '_executeBuy',
+          `卡牌管理器未初始化 | tokenAddress=${signal.tokenAddress}, chain=${signal.chain}`);
         return { success: false, reason: '卡牌管理器未初始化' };
       }
 
+      // 记录买入前的卡牌和余额状态（与虚拟盘一致）
       const beforeCardState = {
         bnbCards: cardManager.bnbCards,
         tokenCards: cardManager.tokenCards,
         totalCards: cardManager.totalCards
       };
+      const beforeBalance = {
+        bnbBalance: this._walletBalance,
+        tokenBalance: this._getHolding(signal.tokenAddress)?.amount || 0
+      };
+
+      this.logger.info(this._experimentId, '_executeBuy',
+        `卡牌状态 | ${beforeCardState.bnbCards} BNB卡, ${beforeCardState.tokenCards} 代币卡`);
+      this.logger.info(this._experimentId, '_executeBuy',
+        `余额状态 | ${beforeBalance.bnbBalance} BNB, ${beforeBalance.tokenBalance} 代币`);
 
       const amountInBNB = this._calculateBuyAmount(signal);
+      this.logger.info(this._experimentId, '_executeBuy',
+        `计算买入金额 | amountInBNB=${amountInBNB}, signal.cards=${signal.cards}`);
       if (amountInBNB <= 0) {
         return { success: false, reason: '余额不足或计算金额为0' };
+      }
+
+      // 检查资金是否足够
+      const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+      if (portfolio) {
+        const maxSpendable = portfolio.availableBalance || portfolio.cashBalance;
+        if (new Decimal(amountInBNB).gt(maxSpendable)) {
+          return {
+            success: false,
+            reason: `资金不足: 需要 ${amountInBNB} BNB，可用 ${maxSpendable} BNB（已保留 ${this._reserveNative} BNB 用于 GAS）`
+          };
+        }
       }
 
       // 使用真实交易器执行买入
@@ -298,15 +352,23 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       // 更新卡牌分配
       const cards = parseInt(signal.cards) || 1;
+      this.logger.info(this._experimentId, '_executeBuy',
+        `更新卡牌分配 | cards=${cards}, before: bnbCards=${cardManager.bnbCards}, tokenCards=${cardManager.tokenCards}`);
       cardManager.afterBuy(signal.symbol, cards);
+      this.logger.info(this._experimentId, '_executeBuy',
+        `更新卡牌分配完成 | after: bnbCards=${cardManager.bnbCards}, tokenCards=${cardManager.tokenCards}`);
 
       const afterCardState = {
         bnbCards: cardManager.bnbCards,
         tokenCards: cardManager.tokenCards,
         totalCards: cardManager.totalCards
       };
+      const afterBalance = {
+        bnbBalance: this._walletBalance,
+        tokenBalance: this._getHolding(signal.tokenAddress)?.amount || 0
+      };
 
-      return {
+      const tradeResult = {
         success: true,
         tradeId: signalId,
         txHash: buyResult.transactionHash || buyResult.txHash,
@@ -314,12 +376,30 @@ class LiveTradingEngine extends AbstractTradingEngine {
           ...metadata,
           txHash: buyResult.transactionHash || buyResult.txHash,
           cardPositionChange: {
-            before: beforeCardState,
-            after: afterCardState,
+            before: {
+              ...beforeCardState,
+              ...beforeBalance
+            },
+            after: {
+              ...afterCardState,
+              ...afterBalance
+            },
             transferredCards: cards
           }
         }
       };
+
+      // 更新交易记录到数据库（与虚拟盘一致）
+      const tradeId = tradeResult.tradeId;
+      if (tradeId && tradeResult.metadata) {
+        this.logger.info(this._experimentId, '_executeBuy',
+          `更新交易记录 | tradeId=${tradeId}, after状态已更新`);
+        await this.dataService.updateTrade(tradeId, {
+          metadata: tradeResult.metadata
+        });
+      }
+
+      return tradeResult;
 
     } catch (error) {
       return { success: false, reason: error.message };
@@ -335,22 +415,43 @@ class LiveTradingEngine extends AbstractTradingEngine {
    * @returns {Promise<Object>} 交易结果
    */
   async _executeSell(signal, signalId = null, metadata = {}) {
+    this.logger.info(this._experimentId, '_executeSell',
+      `检查持仓 | tokenAddress=${signal.tokenAddress}, chain=${signal.chain}`);
     try {
       const holding = this._getHolding(signal.tokenAddress);
       if (!holding || holding.amount <= 0) {
+        this.logger.warn(this._experimentId, '_executeSell',
+          `无持仓 | tokenAddress=${signal.tokenAddress}`);
         return { success: false, reason: '无持仓' };
+      }
+      if (holding.amount <= 0) {
+        this.logger.warn(this._experimentId, '_executeSell',
+          `持仓数量为0 | tokenAddress=${signal.tokenAddress}, amount=${holding.amount}`);
+        return { success: false, reason: '持仓数量为0' };
       }
 
       const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
       if (!cardManager) {
+        this.logger.warn(this._experimentId, '_executeSell',
+          `卡牌管理器未初始化 | tokenAddress=${signal.tokenAddress}, chain=${signal.chain}`);
         return { success: false, reason: '卡牌管理器未初始化' };
       }
 
+      // 记录卖出前的卡牌和余额状态（与虚拟盘一致）
       const beforeCardState = {
         bnbCards: cardManager.bnbCards,
         tokenCards: cardManager.tokenCards,
         totalCards: cardManager.totalCards
       };
+      const beforeBalance = {
+        bnbBalance: this._walletBalance,
+        tokenBalance: holding.amount
+      };
+
+      this.logger.info(this._experimentId, '_executeSell',
+        `卡牌状态 | ${beforeCardState.bnbCards} BNB卡, ${beforeCardState.tokenCards} 代币卡`);
+      this.logger.info(this._experimentId, '_executeSell',
+        `余额状态 | ${beforeBalance.bnbBalance} BNB, ${beforeBalance.tokenBalance} 代币`);
 
       const cards = signal.cards || 'all';
       const sellAll = (cards === 'all');
@@ -377,7 +478,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       // 1. 首先尝试使用 FourMeme 交易器（内盘）
       try {
-        console.log(`🔄 尝试使用 FourMeme 交易器卖出 ${signal.symbol}...`);
+        this.logger.info(this._experimentId, '_executeSell', `尝试使用 FourMeme 交易器卖出 ${signal.symbol}...`);
         sellResult = await this._fourMemeTrader.sellToken(
           signal.tokenAddress,
           String(amountToSell),
@@ -386,13 +487,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
         if (sellResult.success) {
           traderUsed = 'fourmeme';
-          console.log(`✅ FourMeme 交易器卖出成功`);
+          this.logger.info(this._experimentId, '_executeSell', `FourMeme 交易器卖出成功`);
         } else {
           throw new Error(sellResult.error || 'FourMeme 交易失败');
         }
       } catch (fourmemeError) {
-        console.warn(`⚠️ FourMeme 交易器卖出失败: ${fourmemeError.message}`);
-        console.log(`🔄 尝试使用 PancakeSwap V2 交易器卖出 ${signal.symbol}...`);
+        this.logger.warn(this._experimentId, '_executeSell', `FourMeme 交易器卖出失败: ${fourmemeError.message}`);
+        this.logger.info(this._experimentId, '_executeSell', `尝试使用 PancakeSwap V2 交易器卖出 ${signal.symbol}...`);
 
         // 2. FourMeme 失败，尝试使用 PancakeSwap V2（外盘）
         try {
@@ -404,12 +505,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
           if (sellResult.success) {
             traderUsed = 'pancakeswap-v2';
-            console.log(`✅ PancakeSwap V2 交易器卖出成功`);
+            this.logger.info(this._experimentId, '_executeSell', `PancakeSwap V2 交易器卖出成功`);
           } else {
             throw new Error(sellResult.error || 'PancakeSwap V2 交易失败');
           }
         } catch (pancakeError) {
-          console.error(`❌ PancakeSwap V2 交易器也失败: ${pancakeError.message}`);
+          this.logger.error(this._experimentId, '_executeSell', `PancakeSwap V2 交易器也失败: ${pancakeError.message}`);
           return {
             success: false,
             reason: `所有交易器均失败: FourMeme(${fourmemeError.message}), PancakeSwap V2(${pancakeError.message})`
@@ -436,15 +537,23 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       // 更新卡牌分配
       const actualCards = sellAll ? beforeCardState.tokenCards : cardsToUse;
+      this.logger.info(this._experimentId, '_executeSell',
+        `更新卡牌分配 | actualCards=${actualCards}, sellAll=${sellAll}, before: bnbCards=${cardManager.bnbCards}, tokenCards=${cardManager.tokenCards}`);
       cardManager.afterSell(signal.symbol, actualCards);
+      this.logger.info(this._experimentId, '_executeSell',
+        `更新卡牌分配完成 | after: bnbCards=${cardManager.bnbCards}, tokenCards=${cardManager.tokenCards}`);
 
       const afterCardState = {
         bnbCards: cardManager.bnbCards,
         tokenCards: cardManager.tokenCards,
         totalCards: cardManager.totalCards
       };
+      const afterBalance = {
+        bnbBalance: this._walletBalance,
+        tokenBalance: this._getHolding(signal.tokenAddress)?.amount || 0
+      };
 
-      return {
+      const tradeResult = {
         success: true,
         tradeId: signalId,
         txHash: sellResult.transactionHash || sellResult.txHash,
@@ -453,12 +562,30 @@ class LiveTradingEngine extends AbstractTradingEngine {
           txHash: sellResult.transactionHash || sellResult.txHash,
           traderUsed: traderUsed,
           cardPositionChange: {
-            before: beforeCardState,
-            after: afterCardState,
+            before: {
+              ...beforeCardState,
+              ...beforeBalance
+            },
+            after: {
+              ...afterCardState,
+              ...afterBalance
+            },
             transferredCards: actualCards
           }
         }
       };
+
+      // 更新交易记录到数据库（与虚拟盘一致）
+      const tradeId = tradeResult.tradeId;
+      if (tradeId && tradeResult.metadata) {
+        this.logger.info(this._experimentId, '_executeSell',
+          `更新交易记录 | tradeId=${tradeId}, after状态已更新`);
+        await this.dataService.updateTrade(tradeId, {
+          metadata: tradeResult.metadata
+        });
+      }
+
+      return tradeResult;
 
     } catch (error) {
       return { success: false, reason: error.message };
@@ -483,12 +610,52 @@ class LiveTradingEngine extends AbstractTradingEngine {
    */
   async _initializeLiveComponents() {
     // 延迟加载模块
-    const { TokenPool } = require('../../core/token-pool');
+    const TokenPool = require('../../core/token-pool');
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
+    const FourmemeCollector = require('../../collectors/fourmeme-collector');
+    const { AveTokenAPI } = require('../../core/ave-api');
+    const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
+    const { RoundSummary } = require('../utils/RoundSummary');
 
-    // 初始化 TokenPool
-    this._tokenPool = new TokenPool();
+    // 加载配置
+    const config = require('../../../config/default.json');
+
+    // 初始化 Logger（与虚拟盘一致）
+    this.logger = new Logger({ dir: './logs', experimentId: this._experimentId });
+    this.logger.info(this._experimentId, 'LiveTradingEngine', 'Logger 初始化完成');
+
+    // 初始化 DataService（与虚拟盘一致）
+    this.dataService = new ExperimentDataService();
+
+    // 初始化 TokenPool（与虚拟盘一致，传递 logger）
+    this._tokenPool = new TokenPool(this.logger);
     await this._tokenPool.initialize();
+    this.logger.info('LiveTradingEngine', 'Initialize', '代币池初始化完成');
+    console.log(`✅ 代币池初始化完成`);
+
+    // 初始化 AVE Token API
+    const apiKey = process.env.AVE_API_KEY;
+    this._aveTokenApi = new AveTokenAPI(
+      config.ave.apiUrl,
+      config.ave.timeout,
+      apiKey
+    );
+    this.logger.info('LiveTradingEngine', 'Initialize', 'AVE Token API 初始化完成');
+    console.log(`✅ AVE Token API 初始化完成`);
+
+    // 初始化 Fourmeme 收集器（与虚拟盘一致，传递 logger）
+    this._fourmemeCollector = new FourmemeCollector(
+      config,
+      this.logger,
+      this._tokenPool
+    );
+    this.logger.info('LiveTradingEngine', 'Initialize', 'Fourmeme 收集器初始化完成');
+    console.log(`✅ Fourmeme 收集器初始化完成`);
+
+    // 初始化 RoundSummary（与虚拟盘一致）
+    this._roundSummary = new RoundSummary(this._experimentId, this.logger, this._blockchain);
+    this.logger.info('LiveTradingEngine', 'Initialize', 'RoundSummary 初始化完成');
+    console.log(`✅ RoundSummary 初始化完成`);
 
     // 初始化策略引擎
     const strategies = this._buildStrategyConfig();
@@ -501,12 +668,48 @@ class LiveTradingEngine extends AbstractTradingEngine {
       'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap'
     ]);
 
-    this._strategyEngine.loadStrategies(strategies, availableFactorIds);
+    // 转换策略配置格式（与虚拟盘一致）
+    const strategyArray = [];
+    if (strategies.buyStrategies && Array.isArray(strategies.buyStrategies)) {
+      strategies.buyStrategies.forEach((s, idx) => {
+        strategyArray.push({
+          id: `buy_${idx}_${s.priority || 0}`,
+          name: `买入策略 P${s.priority || 0}`,
+          description: s.description || '',
+          action: 'buy',
+          condition: s.condition,
+          priority: s.priority || 0,
+          cooldown: s.cooldown || 300,
+          cards: s.cards || 1,
+          maxExecutions: s.maxExecutions || null,
+          enabled: true
+        });
+      });
+    }
+    if (strategies.sellStrategies && Array.isArray(strategies.sellStrategies)) {
+      strategies.sellStrategies.forEach((s, idx) => {
+        strategyArray.push({
+          id: `sell_${idx}_${s.priority || 0}`,
+          name: `卖出策略 P${s.priority || 0}`,
+          description: s.description || '',
+          action: 'sell',
+          condition: s.condition,
+          priority: s.priority || 0,
+          cooldown: s.cooldown || 300,
+          cards: s.cards || 1,
+          maxExecutions: s.maxExecutions || null,
+          enabled: true
+        });
+      });
+    }
+
+    this._strategyEngine.loadStrategies(strategyArray, availableFactorIds);
+    this.logger.info('LiveTradingEngine', 'Initialize', `策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
     console.log(`✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
     // 初始化时序数据服务
     const { ExperimentTimeSeriesService } = require('../../web/services/ExperimentTimeSeriesService');
-    this._timeSeriesService = new ExperimentTimeSeriesService();
+    this.timeSeriesService = new ExperimentTimeSeriesService();
   }
 
   /**
@@ -519,40 +722,51 @@ class LiveTradingEngine extends AbstractTradingEngine {
       throw new Error('WalletService 未初始化');
     }
 
-    // 获取钱包余额
+    // 获取钱包余额（包括原生代币）
     const walletBalances = await this._walletService.getWalletBalances(
       this._walletAddress,
       this._blockchain
     );
 
     // 计算可用主币余额
+    // 使用 BlockchainConfig 获取所有可能的 Native 代币地址（包括 AVE API 表示）
     const nativeTokenAddresses = BlockchainConfig.getNativeTokenAddresses(this._blockchain);
-    const nativeAddr = BlockchainConfig.normalizeTokenAddress(nativeTokenAddresses[0], this._blockchain);
     let nativeBalance = new Decimal(0);
 
     for (const token of walletBalances) {
       const normalizedAddr = BlockchainConfig.normalizeTokenAddress(token.address, this._blockchain);
-      if (normalizedAddr === nativeAddr) {
+      // 检查是否是原生代币（包括 WBNB 和 AVE API 的原生表示）
+      if (nativeTokenAddresses.some(nativeAddr =>
+        BlockchainConfig.normalizeTokenAddress(nativeAddr, this._blockchain) === normalizedAddr
+      )) {
         nativeBalance = token.balance;
+        this.logger.info(this._experimentId, 'InitializeRealPortfolio', `找到 Native 代币余额 ${normalizedAddr}: ${nativeBalance}`);
         break;
       }
     }
 
     const availableBalance = Decimal.max(0, nativeBalance.sub(this._reserveNative));
 
-    console.log(`💰 钱包余额: 主币总额=${nativeBalance}, 保留=${this._reserveNative}, 可用=${availableBalance}`);
+    // 保存总钱包余额（用于显示）
+    this._walletBalance = nativeBalance;
+
+    this.logger.info(this._experimentId, 'InitializeRealPortfolio', `钱包余额: 主币总额=${nativeBalance}, 保留=${this._reserveNative}, 可用=${availableBalance}`);
 
     // 创建投资组合
-    await this._portfolioManager.createPortfolio(
-      this._portfolioId,
+    const portfolioId = await this._portfolioManager.createPortfolio(
       availableBalance,
-      this._blockchain
+      { blockchain: this._blockchain }
+    );
+    this._portfolioId = portfolioId;
+
+    // 初始化持仓（排除原生代币）
+    const nativeAddrs = new Set(
+      nativeTokenAddresses.map(addr => BlockchainConfig.normalizeTokenAddress(addr, this._blockchain))
     );
 
-    // 初始化持仓
     for (const token of walletBalances) {
       const normalizedAddr = BlockchainConfig.normalizeTokenAddress(token.address, this._blockchain);
-      if (normalizedAddr !== nativeAddr && token.balance.gt(0)) {
+      if (!nativeAddrs.has(normalizedAddr) && token.balance.gt(0)) {
         await this._portfolioManager.updatePosition(
           this._portfolioId,
           normalizedAddr,
@@ -565,134 +779,586 @@ class LiveTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 监控循环
+   * 监控循环（与虚拟盘一致）
    * @private
    * @returns {Promise<void>}
    */
   async _monitoringCycle() {
     this._loopCount++;
+    const startTime = Date.now();
 
     if (this._isStopped) {
       return;
     }
 
+    // RoundSummary - 开始新轮次
+    if (this._roundSummary) {
+      this._roundSummary.startRound(this._loopCount);
+    }
+
+    this.logger.info(this._experimentId, 'MonitoringCycle', `开始第 ${this._loopCount} 轮监控`);
+
     try {
       // 同步真实持仓
       await this._syncHoldings();
 
-      // 获取当前持仓
-      const holdings = this._getAllHoldings();
+      // RoundSummary - 记录收集器统计
+      if (this._roundSummary) {
+        const collectorStats = this._fourmemeCollector.getStats();
+        this._roundSummary.recordCollectorStats({
+          lastFetched: collectorStats.totalCollected - (collectorStats.lastCollectionTime ? 0 : collectorStats.totalCollected),
+          lastAdded: 0,
+          lastSkipped: collectorStats.totalSkipped,
+          poolSize: collectorStats.poolSize,
+          monitoringCount: collectorStats.monitoringCount,
+          boughtCount: collectorStats.boughtCount
+        });
+      }
 
-      console.log(`💰 第 ${this._loopCount} 轮监控: ${holdings.length} 个持仓`);
+      // 获取代币池中的监控代币（与虚拟盘一致）
+      const tokens = this._tokenPool.getMonitoringTokens();
+      this.logger.debug(this._experimentId, 'MonitoringCycle', `池中监控代币数: ${tokens.length} (monitoring+bought)`);
 
-      // 处理每个持仓
-      for (const holding of holdings) {
-        await this._processHolding(holding);
+      if (tokens.length === 0) {
+        this.logger.debug(this._experimentId, 'MonitoringCycle', `第 ${this._loopCount} 轮监控: 无代币需要处理`);
+        // 创建投资组合快照
+        await this._createPortfolioSnapshot();
+        // RoundSummary - 打印总结
+        if (this._roundSummary) {
+          this._roundSummary.printToConsole();
+          this._roundSummary.writeToLog();
+        }
+        return;
+      }
+
+      // 批量获取价格
+      await this._fetchBatchPrices(tokens);
+
+      // 处理每个代币（包括买入和卖出策略）
+      for (const token of tokens) {
+        await this._processToken(token);
+      }
+
+      // 清理过期代币
+      const removed = this._tokenPool.cleanup();
+      if (removed.length > 0) {
+        this.logger.info(this._experimentId, 'MonitoringCycle', `清理过期代币: ${removed.length} 个`);
+      }
+
+      // RoundSummary - 记录投资组合摘要
+      if (this._roundSummary) {
+        const portfolio = this._buildPortfolioSummary();
+        this._roundSummary.recordPortfolio(portfolio);
       }
 
       // 创建投资组合快照
       await this._createPortfolioSnapshot();
 
+      // RoundSummary - 打印总结
+      if (this._roundSummary) {
+        this._roundSummary.printToConsole();
+        this._roundSummary.writeToLog();
+      }
+
+      const duration = Date.now() - startTime;
+      this.logger.info(this._experimentId, 'MonitoringCycle', `第 ${this._loopCount} 轮监控完成，耗时: ${duration}ms`);
+
     } catch (error) {
-      console.error(`❌ 监控循环失败: ${error.message}`);
+      this.logger.error(this._experimentId, 'MonitoringCycle', `监控循环失败: ${error.message}`);
     }
   }
 
   /**
-   * 处理单个持仓
+   * 构建投资组合摘要（与虚拟盘一致）
    * @private
-   * @param {Object} holding - 持仓信息
-   * @returns {Promise<void>}
+   * @returns {Object} 投资组合摘要
    */
-  async _processHolding(holding) {
-    // 获取当前价格
-    const currentPrice = await this._getCurrentPrice(holding.tokenAddress);
-
-    if (!currentPrice || currentPrice <= 0) {
-      console.warn(`⚠️ 无法获取 ${holding.symbol} 的当前价格`);
-      return;
+  _buildPortfolioSummary() {
+    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+    if (!portfolio) {
+      return {
+        totalValue: 0,
+        availableBalance: 0,
+        positions: []
+      };
     }
 
-    // 构建因子
-    const factors = this._buildFactors(holding, currentPrice);
+    return {
+      totalValue: portfolio.totalValue,
+      availableBalance: portfolio.cashBalance,
+      positions: Array.from(portfolio.positions.entries()).map(([address, position]) => ({
+        address: address,
+        symbol: 'UNKNOWN',
+        amount: position.amount,
+        avgBuyPrice: position.avgBuyPrice,
+        currentValue: position.amount * position.avgBuyPrice
+      }))
+    };
+  }
 
-    // 评估策略
-    const strategy = this._strategyEngine.evaluate(
-      factors,
-      holding.tokenAddress,
-      Date.now(),
-      {}
-    );
+  /**
+   * 批量获取代币价格（与虚拟盘一致）
+   * @private
+   * @param {Array} tokens - 代币数组
+   * @returns {Promise<Object>} 价格信息字典
+   */
+  async _fetchBatchPrices(tokens) {
+    try {
+      if (!tokens || tokens.length === 0) {
+        return {};
+      }
 
-    if (strategy && strategy.action === 'sell') {
-      console.log(`📉 ${holding.symbol} 触发卖出策略: ${strategy.name}`);
+      const tokenIds = tokens.map(t => `${t.token}-${t.chain}`);
+      const batchSize = 200;
+      const allPrices = {};
+
+      for (let i = 0; i < tokenIds.length; i += batchSize) {
+        const batchIds = tokenIds.slice(i, i + batchSize);
+
+        const prices = await this._aveTokenApi.getTokenPrices(
+          batchIds,
+          0,
+          0
+        );
+
+        for (const token of tokens) {
+          const tokenId = `${token.token}-${token.chain}`;
+          const priceInfo = prices[tokenId];
+
+          if (priceInfo && priceInfo.current_price_usd) {
+            const price = parseFloat(priceInfo.current_price_usd);
+            if (price > 0) {
+              const extraData = {
+                txVolumeU24h: parseFloat(priceInfo.tx_volume_u_24h) || 0,
+                holders: parseInt(priceInfo.holders) || 0,
+                tvl: parseFloat(priceInfo.tvl) || 0,
+                fdv: parseFloat(priceInfo.fdv) || 0,
+                marketCap: parseFloat(priceInfo.market_cap) || 0
+              };
+              this._tokenPool.updatePrice(token.token, token.chain, price, Date.now(), extraData);
+            }
+          }
+        }
+
+        Object.assign(allPrices, prices);
+      }
+
+      return allPrices;
+
+    } catch (error) {
+      this.logger.error(this._experimentId, 'FetchBatchPrices', `批量获取价格失败: ${error.message}`);
+      return {};
+    }
+  }
+
+  /**
+   * 处理单个代币（与虚拟盘一致）
+   * @private
+   * @param {Object} token - 代币数据
+   * @returns {Promise<void>}
+   */
+  async _processToken(token) {
+    try {
+      const tokenKey = `${token.token}-${token.chain}`;
+      if (!this._seenTokens.has(tokenKey)) {
+        // 保存代币到数据库（与虚拟盘一致）
+        await this.dataService.saveToken(this._experimentId, {
+          token: token.token,
+          symbol: token.symbol,
+          chain: token.chain,
+          created_at: token.createdAt,
+          raw_api_data: token.rawApiData || null
+        });
+        this._seenTokens.add(tokenKey);
+        this.logger.debug(this._experimentId, 'ProcessToken', `新代币已保存: ${token.symbol}`);
+      }
+
+      const currentPrice = token.currentPrice || 0;
+      if (currentPrice === 0) {
+        // 使用 RoundSummary 记录价格获取失败（与虚拟盘一致）
+        if (this._roundSummary) {
+          this._roundSummary.recordTokenIndicators(
+            token.token,
+            token.symbol,
+            {
+              type: 'error',
+              error: '无法获取有效价格 (价格API无数据)',
+              factorValues: { currentPrice: 0 }
+            },
+            0,
+            {
+              createdAt: token.createdAt,
+              addedAt: token.addedAt,
+              status: token.status,
+              collectionPrice: token.collectionPrice
+            }
+          );
+        }
+        return;
+      }
+
+      // 构建因子
+      const factorResults = this._buildFactors(token);
+
+      // 记录时序数据（与虚拟盘一致，添加日志）
+      console.log(`📊 [时序数据] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
+      if (this.timeSeriesService) {
+        const recordResult = await this.timeSeriesService.recordRoundData({
+          experimentId: this._experimentId,
+          tokenAddress: token.token,
+          tokenSymbol: token.symbol,
+          timestamp: new Date(),
+          loopCount: this._loopCount,
+          priceUsd: factorResults.currentPrice,
+          priceNative: null,
+          factorValues: {
+            age: factorResults.age,
+            currentPrice: factorResults.currentPrice,
+            collectionPrice: factorResults.collectionPrice,
+            earlyReturn: factorResults.earlyReturn,
+            riseSpeed: factorResults.riseSpeed,
+            buyPrice: factorResults.buyPrice,
+            holdDuration: factorResults.holdDuration,
+            profitPercent: factorResults.profitPercent,
+            highestPrice: factorResults.highestPrice,
+            highestPriceTimestamp: factorResults.highestPriceTimestamp,
+            drawdownFromHighest: factorResults.drawdownFromHighest,
+            txVolumeU24h: factorResults.txVolumeU24h,
+            holders: factorResults.holders,
+            tvl: factorResults.tvl,
+            fdv: factorResults.fdv,
+            marketCap: factorResults.marketCap
+          },
+          blockchain: this._blockchain
+        });
+        console.log(`📊 [时序数据] 保存结果 | symbol=${token.symbol}, result=${recordResult}`);
+        if (!recordResult) {
+          this.logger.warn(this._experimentId, 'ProcessToken', `时序数据保存失败 | symbol=${token.symbol}`);
+        }
+      }
+
+      // RoundSummary - 记录代币指标
+      if (this._roundSummary) {
+        this._roundSummary.recordTokenIndicators(
+          token.token,
+          token.symbol,
+          {
+            type: 'factor-based',
+            factorCount: Object.keys(factorResults).length,
+            strategyCount: this._strategyEngine.getStrategyCount(),
+            factorValues: factorResults,
+            triggeredStrategy: null
+          },
+          factorResults.currentPrice,
+          {
+            createdAt: token.createdAt,
+            addedAt: token.addedAt,
+            status: token.status,
+            collectionPrice: token.collectionPrice
+          }
+        );
+      }
+
+      // 评估策略
+      const strategy = this._strategyEngine.evaluate(
+        factorResults,
+        token.token,
+        Date.now(),
+        token
+      );
+
+      if (strategy) {
+        if (strategy.action === 'buy' && token.status !== 'monitoring') {
+          this.logger.debug(this._experimentId, 'ProcessToken', `${token.symbol} 买入策略跳过 (状态: ${token.status})`);
+          return;
+        }
+        if (strategy.action === 'sell' && token.status !== 'bought') {
+          this.logger.debug(this._experimentId, 'ProcessToken', `${token.symbol} 卖出策略跳过 (状态: ${token.status})`);
+          return;
+        }
+      }
+
+      if (strategy) {
+        this.logger.info(this._experimentId, 'ProcessToken', `${token.symbol} 触发策略: ${strategy.name} (${strategy.action})`);
+
+        // RoundSummary - 记录信号
+        if (this._roundSummary) {
+          this._roundSummary.recordSignal(token.token, {
+            direction: strategy.action.toUpperCase(),
+            action: strategy.action,
+            confidence: 80,
+            reason: strategy.name
+          });
+
+          const tokenData = this._roundSummary.getRoundData()?.tokens?.find(t => t.address === token.token);
+          if (tokenData && tokenData.indicators) {
+            tokenData.indicators.triggeredStrategy = strategy;
+          }
+        }
+
+        const executed = await this._executeStrategy(strategy, token, factorResults);
+
+        // RoundSummary - 记录执行结果
+        if (this._roundSummary) {
+          this._roundSummary.recordSignalExecution(
+            token.token,
+            executed,
+            executed ? null : '执行失败'
+          );
+        }
+      }
+
+      // RoundSummary - 记录持仓信息
+      if (this._roundSummary && token.status === 'bought') {
+        const holding = this._getHolding(token.token);
+        if (holding) {
+          this._roundSummary.recordPosition(token.token, {
+            symbol: token.symbol,
+            amount: holding.amount,
+            buyPrice: holding.avgBuyPrice,
+            currentPrice: factorResults.currentPrice
+          });
+        }
+      }
+
+    } catch (error) {
+      this.logger.error(this._experimentId, 'ProcessToken', `处理代币 ${token.symbol} 失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 构建策略因子（与虚拟盘一致）
+   * @private
+   * @param {Object} token - 代币数据
+   * @returns {Object} 因子结果
+   */
+  _buildFactors(token) {
+    const now = Date.now();
+    const currentPrice = token.currentPrice || 0;
+    const collectionPrice = token.collectionPrice || currentPrice;
+
+    let earlyReturn = 0;
+    if (collectionPrice > 0 && currentPrice > 0) {
+      earlyReturn = ((currentPrice - collectionPrice) / collectionPrice) * 100;
+    }
+
+    const collectionTime = token.collectionTime || token.addedAt;
+    const age = (now - collectionTime) / 1000 / 60;
+
+    let riseSpeed = 0;
+    if (age > 0) {
+      riseSpeed = earlyReturn / age;
+    }
+
+    const holdDuration = token.buyTime ? (now - token.buyTime) / 1000 : 0;
+
+    let profitPercent = 0;
+    if (token.buyPrice && token.buyPrice > 0 && currentPrice > 0) {
+      profitPercent = ((currentPrice - token.buyPrice) / token.buyPrice) * 100;
+    }
+
+    const highestPrice = token.highestPrice || collectionPrice || currentPrice;
+    const highestPriceTimestamp = token.highestPriceTimestamp || collectionTime;
+
+    let drawdownFromHighest = 0;
+    if (highestPrice > 0 && currentPrice > 0) {
+      drawdownFromHighest = ((currentPrice - highestPrice) / highestPrice) * 100;
+    }
+
+    return {
+      age: age,
+      currentPrice: currentPrice,
+      collectionPrice: collectionPrice,
+      earlyReturn: earlyReturn,
+      riseSpeed: riseSpeed,
+      buyPrice: token.buyPrice || 0,
+      holdDuration: holdDuration,
+      profitPercent: profitPercent,
+      highestPrice: highestPrice,
+      highestPriceTimestamp: highestPriceTimestamp,
+      drawdownFromHighest: drawdownFromHighest,
+      txVolumeU24h: token.txVolumeU24h || 0,
+      holders: token.holders || 0,
+      tvl: token.tvl || 0,
+      fdv: token.fdv || 0,
+      marketCap: token.marketCap || 0
+    };
+  }
+
+  /**
+   * 执行策略（与虚拟盘一致）
+   * @private
+   * @param {Object} strategy - 策略对象
+   * @param {Object} token - 代币数据
+   * @param {Object} factorResults - 因子计算结果
+   * @returns {Promise<boolean>} 是否执行成功
+   */
+  async _executeStrategy(strategy, token, factorResults = null) {
+    const latestPrice = token.currentPrice || 0;
+
+    if (!factorResults) {
+      factorResults = this._buildFactors(token);
+    }
+
+    // 获取卡牌仓位管理配置（与虚拟盘一致）
+    const positionManagement = this._experiment.config?.positionManagement;
+
+    if (strategy.action === 'buy') {
+      if (token.status !== 'monitoring') {
+        return false;
+      }
+
+      // 初始化策略执行记录
+      if (!token.strategyExecutions) {
+        const strategyIds = this._strategyEngine.getAllStrategies().map(s => s.id);
+        this._tokenPool.initStrategyExecutions(token.token, token.chain, strategyIds);
+      }
+
+      // 初始化卡牌管理器
+      if (positionManagement && positionManagement.enabled) {
+        let cardManager = this._tokenPool.getCardPositionManager(token.token, token.chain);
+        if (!cardManager) {
+          const { CardPositionManager } = require('../../portfolio/CardPositionManager');
+          cardManager = new CardPositionManager({
+            totalCards: positionManagement.totalCards || 4,
+            perCardMaxBNB: positionManagement.perCardMaxBNB || 0.25,
+            minCardsForTrade: 1,
+            initialAllocation: {
+              bnbCards: (positionManagement.totalCards || 4),
+              tokenCards: 0
+            }
+          });
+          this._tokenPool.setCardPositionManager(token.token, token.chain, cardManager);
+          this.logger.info(this._experimentId, '_executeStrategy', `初始化卡牌管理器: ${token.symbol}, 全部BNB卡状态`);
+        }
+      }
+
+      const signal = {
+        action: 'buy',
+        symbol: token.symbol,
+        tokenAddress: token.token,
+        chain: token.chain,
+        price: latestPrice,
+        confidence: 80,
+        reason: strategy.name,
+        cards: strategy.cards || 1,
+        strategyId: strategy.id,
+        strategyName: strategy.name,
+        cardConfig: positionManagement?.enabled ? {
+          totalCards: positionManagement.totalCards || 4,
+          perCardMaxBNB: positionManagement.perCardMaxBNB || 0.25
+        } : null,
+        factors: factorResults ? {
+          age: factorResults.age,
+          currentPrice: factorResults.currentPrice,
+          collectionPrice: factorResults.collectionPrice,
+          earlyReturn: factorResults.earlyReturn,
+          riseSpeed: factorResults.riseSpeed,
+          buyPrice: factorResults.buyPrice,
+          holdDuration: factorResults.holdDuration,
+          profitPercent: factorResults.profitPercent,
+          highestPrice: factorResults.highestPrice,
+          highestPriceTimestamp: factorResults.highestPriceTimestamp,
+          drawdownFromHighest: factorResults.drawdownFromHighest,
+          txVolumeU24h: factorResults.txVolumeU24h,
+          holders: factorResults.holders,
+          tvl: factorResults.tvl,
+          fdv: factorResults.fdv,
+          marketCap: factorResults.marketCap
+        } : null
+      };
+
+      const result = await this.processSignal(signal);
+
+      if (result && result.success) {
+        this._tokenPool.markAsBought(token.token, token.chain, {
+          buyPrice: latestPrice,
+          buyTime: Date.now()
+        });
+
+        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+
+        // 更新代币状态到数据库（与虚拟盘一致）
+        await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
+
+        return true;
+      }
+
+      return false;
+
+    } else if (strategy.action === 'sell') {
+      if (token.status !== 'bought') {
+        return false;
+      }
+
+      const cardManager = this._tokenPool.getCardPositionManager(token.token, token.chain);
+
+      if (!cardManager) {
+        this.logger.warn(this._experimentId, '_executeStrategy', `代币 ${token.symbol} 没有卡牌管理器，跳过卖出`);
+        return false;
+      }
+
+      const cards = strategy.cards || 'all';
+      const sellAll = (cards === 'all');
+
+      let sellCalculatedRatio = 1.0;
+      if (!sellAll) {
+        const cardNum = parseInt(cards);
+        if (!isNaN(cardNum) && cardNum > 0) {
+          sellCalculatedRatio = cardNum / cardManager.totalCards;
+        }
+      }
 
       const signal = {
         action: 'sell',
-        symbol: holding.symbol,
-        tokenAddress: holding.tokenAddress,
-        chain: this._blockchain,
-        price: currentPrice,
+        symbol: token.symbol,
+        tokenAddress: token.token,
+        chain: token.chain,
+        price: latestPrice,
         confidence: 80,
         reason: strategy.name,
-        cards: strategy.cards || 'all'
+        cards: strategy.cards || 'all',
+        strategyId: strategy.id,
+        strategyName: strategy.name,
+        buyPrice: token.buyPrice || null,
+        profitPercent: token.buyPrice && latestPrice ? ((latestPrice - token.buyPrice) / token.buyPrice * 100) : null,
+        holdDuration: token.buyTime ? ((Date.now() - token.buyTime) / 1000) : null,
+        cardConfig: positionManagement?.enabled ? {
+          totalCards: positionManagement.totalCards || 4,
+          perCardMaxBNB: positionManagement.perCardMaxBNB || 0.25
+        } : null,
+        sellCalculatedRatio: sellCalculatedRatio,
+        factors: factorResults ? {
+          age: factorResults.age,
+          currentPrice: factorResults.currentPrice,
+          collectionPrice: factorResults.collectionPrice,
+          earlyReturn: factorResults.earlyReturn,
+          riseSpeed: factorResults.riseSpeed,
+          buyPrice: factorResults.buyPrice,
+          holdDuration: factorResults.holdDuration,
+          profitPercent: factorResults.profitPercent,
+          highestPrice: factorResults.highestPrice,
+          highestPriceTimestamp: factorResults.highestPriceTimestamp,
+          drawdownFromHighest: factorResults.drawdownFromHighest,
+          txVolumeU24h: factorResults.txVolumeU24h,
+          holders: factorResults.holders,
+          tvl: factorResults.tvl,
+          fdv: factorResults.fdv,
+          marketCap: factorResults.marketCap
+        } : null
       };
 
-      await this.processSignal(signal);
-    }
-  }
+      const result = await this.processSignal(signal);
 
-  /**
-   * 获取当前价格（优先 FourMeme，失败则尝试 PancakeSwap V2）
-   * @private
-   * @param {string} tokenAddress - 代币地址
-   * @returns {Promise<number>} 当前价格
-   */
-  async _getCurrentPrice(tokenAddress) {
-    try {
-      // 优先使用 FourMeme 交易器获取价格
-      const price = await this._fourMemeTrader.getTokenPrice(tokenAddress);
-      if (price && parseFloat(price) > 0) {
-        return parseFloat(price);
+      if (result && result.success) {
+        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+        return true;
       }
-    } catch (fourmemeError) {
-      console.debug(`⚠️ FourMeme 获取价格失败: ${fourmemeError.message}`);
+
+      return false;
     }
 
-    // FourMeme 失败，尝试使用 PancakeSwap V2 获取价格
-    try {
-      const pancakePrice = await this._pancakeSwapTrader.getTokenPrice(tokenAddress);
-      if (pancakePrice && parseFloat(pancakePrice) > 0) {
-        console.log(`📊 使用 PancakeSwap V2 价格: ${pancakePrice}`);
-        return parseFloat(pancakePrice);
-      }
-    } catch (pancakeError) {
-      console.debug(`⚠️ PancakeSwap V2 获取价格也失败: ${pancakeError.message}`);
-    }
-
-    console.error(`❌ 所有价格源均失败 [${tokenAddress}]`);
-    return 0;
-  }
-
-  /**
-   * 构建因子
-   * @private
-   * @param {Object} holding - 持仓信息
-   * @param {number} currentPrice - 当前价格
-   * @returns {Object} 因子对象
-   */
-  _buildFactors(holding, currentPrice) {
-    const buyPrice = holding.avgBuyPrice || 0;
-    const profitPercent = buyPrice > 0 ? ((currentPrice - buyPrice) / buyPrice * 100) : 0;
-
-    return {
-      currentPrice: currentPrice,
-      buyPrice: buyPrice,
-      profitPercent: profitPercent,
-      holdDuration: holding.holdDuration || 0,
-      highestPrice: holding.highestPrice || currentPrice,
-      drawdownFromHighest: holding.highestPrice > 0 ? ((currentPrice - holding.highestPrice) / holding.highestPrice * 100) : 0
-    };
+    return false;
   }
 
   /**
@@ -702,20 +1368,69 @@ class LiveTradingEngine extends AbstractTradingEngine {
    * @returns {number} BNB金额
    */
   _calculateBuyAmount(signal) {
+    this.logger.info(this._experimentId, '_calculateBuyAmount',
+      `_calculateBuyAmount 被调用 | symbol=${signal.symbol}, tokenAddress=${signal.tokenAddress}, chain=${signal.chain}, cards=${signal.cards}`);
+
     const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
+    this.logger.info(this._experimentId, '_calculateBuyAmount',
+      `获取卡牌管理器 | cardManager=${cardManager ? '存在' : '不存在'}`);
+
     if (cardManager) {
       const cards = signal.cards || 1;
+      this.logger.info(this._experimentId, '_calculateBuyAmount',
+        `卡牌管理器状态 | bnbCards=${cardManager.bnbCards}, tokenCards=${cardManager.tokenCards}, totalCards=${cardManager.totalCards}, perCardMaxBNB=${cardManager.perCardMaxBNB}`);
+
       const amount = cardManager.calculateBuyAmount(cards);
-      if (amount > 0) {
-        return amount;
+      this.logger.info(this._experimentId, '_calculateBuyAmount',
+        `卡牌管理器计算金额 | cards=${cards}, amount=${amount}`);
+
+      if (amount <= 0) {
+        this.logger.warn(this._experimentId, '_calculateBuyAmount',
+          `卡牌管理器返回金额为0: ${signal.symbol}`);
+        return 0;
       }
+
+      // 检查可用余额是否足够
+      const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+      if (portfolio && portfolio.availableBalance && portfolio.availableBalance.lt(amount)) {
+        this.logger.warn(this._experimentId, '_calculateBuyAmount',
+          `余额不足: 需要 ${amount} BNB, 当前 ${portfolio.availableBalance.toFixed(4)} BNB`);
+        return 0;
+      }
+      return amount;
     }
 
     // 默认使用可用余额的 20%
     const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
     const tradeAmount = portfolio.availableBalance.mul(0.2);
 
+    this.logger.info(this._experimentId, '_calculateBuyAmount',
+      `使用默认金额计算 | tradeAmount=${tradeAmount}`);
+
     return tradeAmount.toNumber();
+  }
+
+  /**
+   * 启动引擎（覆盖基类方法）
+   * @returns {Promise<void>}
+   */
+  async start() {
+    const { EngineStatus } = require('../interfaces/ITradingEngine');
+
+    if (this._status === EngineStatus.RUNNING) {
+      console.warn('⚠️ 引擎已在运行');
+      return;
+    }
+
+    // 调用基类 start 方法
+    await super.start();
+
+    // 启动收集器
+    this._fourmemeCollector.start();
+    const config = require('../../../config/default.json');
+    console.log(`🔄 Fourmeme 收集器已启动 (${config.collector.interval}ms 间隔)`);
+
+    console.log(`🚀 实盘交易引擎已启动: 实验 ${this._experimentId}`);
   }
 
   /**
@@ -725,6 +1440,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
   async stop() {
     if (this._isStopped) {
       return;
+    }
+
+    // 停止收集器
+    if (this._fourmemeCollector) {
+      this._fourmemeCollector.stop();
+      console.log(`⏹️ Fourmeme 收集器已停止`);
     }
 
     // 停止监控循环

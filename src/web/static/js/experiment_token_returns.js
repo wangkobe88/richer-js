@@ -401,7 +401,10 @@ class ExperimentTokenReturns {
     const linkTrades = document.getElementById('link-trades');
     const linkBack = document.getElementById('link-back');
 
-    if (nameEl) nameEl.textContent = this.experimentData.name || '未命名实验';
+    if (nameEl) {
+      const name = this.experimentData.experimentName || this.experimentData.name || '未命名实验';
+      nameEl.textContent = name;
+    }
     if (idEl) idEl.textContent = `ID: ${this.experimentId.slice(0, 8)}...`;
     if (blockchainEl) blockchainEl.textContent = `区块链: ${this.experimentData.blockchain || 'BSC'}`;
     if (countEl) countEl.textContent = `交易代币: ${this.tokenReturns.length}`;

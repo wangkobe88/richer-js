@@ -13,6 +13,7 @@ const path = require('path');
 // 导入实验管理组件
 const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
 const { ExperimentDataService } = require('./web/services/ExperimentDataService');
+const { CryptoUtils } = require('./utils/CryptoUtils');
 
 /**
  * Web服务器类
@@ -256,7 +257,9 @@ class RicherJsWebServer {
           initial_balance,
           strategy,
           virtual,
-          backtest
+          backtest,
+          wallet,
+          reserveNative
         } = req.body;
 
         // 构建实验配置
@@ -277,6 +280,25 @@ class RicherJsWebServer {
           config.backtest = {
             initialBalance: backtest?.initialBalance || parseFloat(initial_balance) || 100,
             sourceExperimentId: backtest?.sourceExperimentId
+          };
+        } else if (trading_mode === 'live') {
+          // 实盘交易配置 - 必须加密私钥
+          if (!wallet || !wallet.privateKey) {
+            return res.status(400).json({ success: false, error: '实盘交易需要提供钱包私钥' });
+          }
+
+          // 加密私钥
+          const { CryptoUtils } = require('../src/utils/CryptoUtils');
+          const cryptoUtils = new CryptoUtils();
+          config.wallet = {
+            address: wallet.address,
+            privateKey: cryptoUtils.encrypt(wallet.privateKey) // 只加密私钥
+          };
+          config.reserveNative = reserveNative || 0.1; // 保留用于 GAS 的金额
+          config.trading = {
+            maxGasPrice: strategy?.trading?.maxGasPrice || 10,
+            maxGasLimit: strategy?.trading?.maxGasLimit || 500000,
+            maxSlippage: strategy?.trading?.maxSlippage || 5
           };
         } else {
           // 兼容旧格式
