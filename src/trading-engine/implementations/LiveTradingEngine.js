@@ -320,9 +320,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
         gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
       };
 
+      // 转换为 wei 格式（交易器期望 BigInt/BigNumber 格式）
+      const ethers = require('ethers');
+      const amountInWei = ethers.parseEther(amountInBNB.toString());
+
       const buyResult = await this._trader.buyToken(
         signal.tokenAddress,
-        String(amountInBNB),
+        amountInWei,
         buyOptions
       );
 
@@ -492,12 +496,17 @@ class LiveTradingEngine extends AbstractTradingEngine {
         gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
       };
 
+      // 转换为 BigInt 格式（交易器期望 BigInt 格式，代币最小单位）
+      // amountToSell 已经是代币数量，需要转换为 BigInt
+      const ethers = require('ethers');
+      const amountToSellBigInt = ethers.getBigInt(Math.floor(amountToSell));
+
       // 1. 首先尝试使用 FourMeme 交易器（内盘）
       try {
         this.logger.info(this._experimentId, '_executeSell', `尝试使用 FourMeme 交易器卖出 ${signal.symbol}...`);
         sellResult = await this._fourMemeTrader.sellToken(
           signal.tokenAddress,
-          String(amountToSell),
+          amountToSellBigInt,
           fourmemeOptions
         );
 
@@ -515,7 +524,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
         try {
           sellResult = await this._pancakeSwapTrader.sellToken(
             signal.tokenAddress,
-            String(amountToSell),
+            amountToSellBigInt,
             pancakeOptions
           );
 
