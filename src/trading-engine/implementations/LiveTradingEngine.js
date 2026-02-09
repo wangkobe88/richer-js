@@ -357,11 +357,30 @@ class LiveTradingEngine extends AbstractTradingEngine {
         if (actualTokenAmount > 0) {
           actualPrice = amountInBNB / actualTokenAmount;
         }
+        this.logger.info(this._experimentId, '_executeBuy',
+          `交易器返回 | actualAmountOut=${actualTokenAmount}, actualPrice=${actualPrice}`);
       } else {
         // 交易器没有返回实际数量，使用价格估算
         actualPrice = signal.price || 0;
         actualTokenAmount = actualPrice > 0 ? amountInBNB / actualPrice : 0;
+        this.logger.info(this._experimentId, '_executeBuy',
+          `价格估算 | signal.price=${signal.price}, actualPrice=${actualPrice}, actualTokenAmount=${actualTokenAmount}`);
       }
+
+      // 确保数值有效
+      if (!isFinite(actualTokenAmount) || actualTokenAmount <= 0) {
+        this.logger.error(this._experimentId, '_executeBuy',
+          `代币数量无效 | actualTokenAmount=${actualTokenAmount}, 使用 fallback`);
+        actualTokenAmount = amountInBNB / (signal.price || 1e-6);
+      }
+      if (!isFinite(actualPrice) || actualPrice <= 0) {
+        this.logger.error(this._experimentId, '_executeBuy',
+          `价格无效 | actualPrice=${actualPrice}, 使用 signal.price=${signal.price}`);
+        actualPrice = signal.price || 1e-6;
+      }
+
+      this.logger.info(this._experimentId, '_executeBuy',
+        `更新 Portfolio | actualTokenAmount=${actualTokenAmount}, actualPrice=${actualPrice}`);
 
       await this._portfolioManager.executeTrade(
         this._portfolioId,

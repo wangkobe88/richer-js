@@ -686,8 +686,22 @@ class FourMemeDirectTrader extends BaseTrader {
      */
     async sellToken(tokenAddress, amountOut, options = {}) {
         try {
+            // 确保 amountOut 是 BigInt 格式（代币最小单位）
+            let amountOutWei = amountOut;
+            if (typeof amountOut === 'string') {
+                try {
+                    amountOutWei = BigInt(amountOut);
+                } catch {
+                    // 如果转换失败，可能是代币数量（非 wei），需要转换
+                    // 对于 ERC20 代币，假设是 18 位小数
+                    amountOutWei = ethers.parseUnits(amountOut, 18);
+                }
+            } else if (typeof amountOut === 'number') {
+                amountOutWei = BigInt(Math.floor(amountOut));
+            }
+
             this.log(`准备通过 FourMeme TokenManager2 卖出代币: ${tokenAddress}`);
-            this.log(`卖出数量: ${ethers.formatUnits(amountOut, 18)} tokens`);
+            this.log(`卖出数量: ${ethers.formatUnits(amountOutWei, 18)} tokens`);
 
             // 首先需要授权 TokenManager2 使用我们的代币
             const tokenContract = new ethers.Contract(tokenAddress, [
@@ -704,9 +718,9 @@ class FourMemeDirectTrader extends BaseTrader {
             // 检查当前授权
             const platformAddress = this.currentPlatformAddress || this.fourMemeConfig.v2PlatformAddress;
             const currentAllowance = await tokenContract.allowance(this.wallet.address, platformAddress);
-            if (currentAllowance < amountOut) {
+            if (currentAllowance < amountOutWei) {
                 this.log('授权 TokenManager2 使用代币...');
-                const approveTx = await tokenContract.approve(platformAddress, amountOut);
+                const approveTx = await tokenContract.approve(platformAddress, amountOutWei);
                 await approveTx.wait();
                 this.log('✅ 授权完成');
             }
@@ -714,7 +728,7 @@ class FourMemeDirectTrader extends BaseTrader {
             // 使用 TokenManagerHelper3 预估卖出结果
             let sellEstimate;
             try {
-                sellEstimate = await this.helperContract.trySell(tokenAddress, amountOut);
+                sellEstimate = await this.helperContract.trySell(tokenAddress, amountOutWei);
 
                 if (sellEstimate.tokenManager !== platformAddress) {
                     throw new Error(`代币由不同的 TokenManager 管理: ${sellEstimate.tokenManager}`);
@@ -758,7 +772,7 @@ class FourMemeDirectTrader extends BaseTrader {
                 // 使用 sellToken 函数
                 tx = await platformContract.sellToken(
                     tokenAddress,
-                    amountOut,
+                    amountOutWei,
                     {
                         gasLimit,
                         gasPrice
@@ -771,7 +785,7 @@ class FourMemeDirectTrader extends BaseTrader {
                 tx = await platformContract.sellToken(
                     0, // origin
                     tokenAddress,
-                    amountOut,
+                    amountOutWei,
                     minFunds,
                     0, // feeRate = 0 (无额外费用)
                     this.wallet.address, // feeRecipient
@@ -800,7 +814,7 @@ class FourMemeDirectTrader extends BaseTrader {
                     transactionHash: receipt.hash,
                     blockNumber: receipt.blockNumber,
                     gasUsed: receipt.gasUsed.toString(),
-                    amountOut: ethers.formatUnits(amountOut, 18),
+                    amountOut: ethers.formatUnits(amountOutWei, 18),
                     actualReceived: actualBnbReceived,
                     protocol: 'FourMeme TokenManager2',
                     method: 'sellToken'

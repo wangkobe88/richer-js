@@ -186,15 +186,29 @@ class ExperimentSignals {
     const canvas = document.getElementById('kline-chart');
     if (!canvas) return;
 
-    const container = canvas.parentElement;
-    container.innerHTML = `
-      <div class="flex items-center justify-center h-full bg-gray-100 rounded-lg border border-gray-300">
+    // 隐藏 canvas，显示占位符
+    canvas.style.display = 'none';
+
+    // 检查是否已有占位符元素
+    let placeholder = document.getElementById('kline-chart-placeholder');
+    if (!placeholder) {
+      const container = canvas.parentElement;
+      placeholder = document.createElement('div');
+      placeholder.id = 'kline-chart-placeholder';
+      placeholder.className = 'flex items-center justify-center h-full bg-gray-800 rounded-lg border border-gray-700';
+      placeholder.style.minHeight = '450px';
+      placeholder.innerHTML = `
         <div class="text-center">
           <div class="text-yellow-600 text-lg mb-2">📊</div>
-          <div class="text-gray-600 text-sm">${message}</div>
+          <div class="text-gray-400 text-sm">${message}</div>
         </div>
-      </div>
-    `;
+      `;
+      container.appendChild(placeholder);
+    } else {
+      // 更新占位符消息
+      placeholder.querySelector('.text-gray-400, .text-gray-600').textContent = message;
+      placeholder.style.display = 'flex';
+    }
   }
 
   async fetchExperiment() {
@@ -259,6 +273,8 @@ class ExperimentSignals {
    */
   async loadKlineForToken(token) {
     try {
+      console.log('🔄 loadKlineForToken 开始:', token.symbol, token.address);
+
       // 显示加载状态
       const chartWrapper = document.getElementById('kline-chart-wrapper');
       const chartContainer = document.querySelector('.chart-container');
@@ -266,15 +282,24 @@ class ExperimentSignals {
       // 首先确保图表区域可见
       if (chartWrapper) {
         chartWrapper.style.display = 'block';
+        console.log('✅ chartWrapper 设置为可见');
       }
       if (chartContainer) {
         chartContainer.style.display = 'block';
+        console.log('✅ chartContainer 设置为可见');
       }
 
       // 获取时序数据（替代K线数据）
       const timeSeriesResponse = await this.fetchTimeSeriesData(token.address);
 
+      console.log('📊 fetchTimeSeriesData 返回:', {
+        success: timeSeriesResponse?.success,
+        dataLength: timeSeriesResponse?.data?.length,
+        firstData: timeSeriesResponse?.data?.[0]
+      });
+
       if (!timeSeriesResponse || !timeSeriesResponse.data || timeSeriesResponse.data.length === 0) {
+        console.warn('⚠️ 没有时序数据，隐藏图表');
         // 显示友好提示并隐藏整个图表区域
         if (chartWrapper) {
           chartWrapper.style.display = 'none';
@@ -289,12 +314,6 @@ class ExperimentSignals {
       this.initPriceLineChart(timeSeriesResponse.data, token);
 
       console.log(`✅ 代币 ${token.symbol} 的时序数据图表加载完成`);
-
-      // 更新状态
-      if (chartStatus) {
-        chartStatus.textContent = '数据就绪';
-        chartStatus.className = 'px-3 py-1 bg-green-900 text-green-200 rounded-full text-sm font-medium';
-      }
 
     } catch (error) {
       console.error(`❌ 加载代币 ${token.symbol} 的时序数据失败:`, error);
@@ -349,100 +368,139 @@ class ExperimentSignals {
    * @param {Object} token - 代币对象
    */
   initPriceLineChart(timeSeriesData, token) {
-    const canvas = document.getElementById('kline-chart');
-    if (!canvas) return;
+    try {
+      console.log('📊 initPriceLineChart 被调用，数据点:', timeSeriesData.length, '代币:', token.symbol);
 
-    // 销毁旧图表
-    if (this.chart) {
-      this.chart.destroy();
-    }
-
-    const ctx = canvas.getContext('2d');
-
-    // 🔥 价格乘以10亿得到市值
-    const MARKET_CAP_MULTIPLIER = 1e9; // 10亿
-
-    // 准备数据
-    const labels = timeSeriesData.map(d => new Date(d.timestamp));
-    const marketCaps = timeSeriesData.map(d => d.price_usd ? parseFloat(d.price_usd) * MARKET_CAP_MULTIPLIER : null);
-
-    // 准备信号标记点
-    const signalAnnotations = [];
-    const tokenSignals = this.signals.filter(s =>
-      (s.token_address || s.tokenAddress) === token.address
-    );
-
-    tokenSignals.forEach(signal => {
-      const signalTime = new Date(signal.timestamp || signal.created_at);
-      const signalType = signal.signal_type || signal.action?.toUpperCase();
-      const isBuy = signalType === 'BUY';
-
-      // 找到最接近的数据点
-      const closestIndex = labels.findIndex(label => Math.abs(label - signalTime) < 30000); // 30秒内
-      if (closestIndex >= 0 && marketCaps[closestIndex] !== null) {
-        signalAnnotations.push({
-          type: 'line',
-          xMin: signalTime,
-          xMax: signalTime,
-          yMin: 0,
-          yMax: 'max',
-          borderColor: isBuy ? '#52c41a' : '#ff4d4f',
-          borderWidth: 2,
-          borderDash: [5, 5],
-          label: {
-            display: true,
-            content: isBuy ? '买入' : '卖出',
-            position: 'start',
-            backgroundColor: isBuy ? '#52c41a' : '#ff4d4f',
-            color: '#fff',
-            font: {
-              size: 11
-            }
-          }
-        });
+      // 确保图表容器可见
+      const chartWrapper = document.getElementById('kline-chart-wrapper');
+      if (chartWrapper) {
+        chartWrapper.style.display = 'block';
       }
-    });
 
-    // 创建图表
-    this.chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: `${token.symbol} 市值`,
-          data: marketCaps,
-          borderColor: '#1890ff',
-          backgroundColor: 'rgba(24, 144, 255, 0.1)',
-          borderWidth: 2,
-          pointRadius: 0,
-          pointHoverRadius: 4,
-          fill: true,
-          tension: 0.1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          mode: 'index',
-          intersect: false,
+      // 隐藏占位符
+      const placeholder = document.getElementById('kline-chart-placeholder');
+      if (placeholder) {
+        placeholder.style.display = 'none';
+      }
+
+      // 确保并显示 canvas
+      let canvas = document.getElementById('kline-chart');
+      if (!canvas) {
+        // canvas 不存在，需要重新创建
+        const chartContainer = document.querySelector('.chart-container');
+        if (!chartContainer) {
+          console.error('❌ 找不到 .chart-container 容器');
+          return;
+        }
+        canvas = document.createElement('canvas');
+        canvas.id = 'kline-chart';
+        chartContainer.innerHTML = ''; // 清空容器
+        chartContainer.appendChild(canvas);
+        console.log('✅ 重新创建了 kline-chart canvas 元素');
+      }
+      canvas.style.display = 'block';
+
+      // 销毁旧图表
+      if (this.chart) {
+        this.chart.destroy();
+        this.chart = null;
+      }
+
+      const ctx = canvas.getContext('2d');
+
+      // 🔥 价格乘以10亿得到市值
+      const MARKET_CAP_MULTIPLIER = 1e9; // 10亿
+
+      // 准备数据
+      const labels = timeSeriesData.map(d => new Date(d.timestamp));
+      const marketCaps = timeSeriesData.map(d => d.price_usd ? parseFloat(d.price_usd) * MARKET_CAP_MULTIPLIER : null);
+
+      console.log('📊 图表数据准备完成:', {
+        labels: labels.length,
+        marketCaps: marketCaps.filter(m => m !== null).length,
+        firstLabel: labels[0],
+        lastLabel: labels[labels.length - 1]
+      });
+
+      // 准备信号标记点
+      const signalAnnotations = [];
+      const tokenSignals = this.signals.filter(s =>
+        (s.token_address || s.tokenAddress) === token.address
+      );
+
+      console.log('📊 找到', tokenSignals.length, '个该代币的信号');
+
+      tokenSignals.forEach(signal => {
+        const signalTime = new Date(signal.timestamp || signal.created_at);
+        const signalType = signal.signal_type || signal.action?.toUpperCase();
+        const isBuy = signalType === 'BUY';
+
+        // 找到最接近的数据点
+        const closestIndex = labels.findIndex(label => Math.abs(label - signalTime) < 30000); // 30秒内
+        if (closestIndex >= 0 && marketCaps[closestIndex] !== null) {
+          signalAnnotations.push({
+            type: 'line',
+            xMin: signalTime,
+            xMax: signalTime,
+            yMin: 0,
+            yMax: 'max',
+            borderColor: isBuy ? '#52c41a' : '#ff4d4f',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              display: true,
+              content: isBuy ? '买入' : '卖出',
+              position: 'start',
+              backgroundColor: isBuy ? '#52c41a' : '#ff4d4f',
+              color: '#fff',
+              font: {
+                size: 11
+              }
+            }
+          });
+        }
+      });
+
+      // 创建图表
+      this.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: `${token.symbol} 市值`,
+            data: marketCaps,
+            borderColor: '#1890ff',
+            backgroundColor: 'rgba(24, 144, 255, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: true,
+            tension: 0.1
+          }]
         },
-        plugins: {
-          annotation: {
-            annotations: signalAnnotations
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
           },
-          legend: {
-            display: true,
-            position: 'top'
-          },
-          tooltip: {
-            callbacks: {
-              label: (context) => {
-                const value = context.parsed.y;
-                if (value !== null) {
-                  // 市值格式化为K（千）为单位
-                  const marketCapInK = value / 1e3; // 转换为千
-                  return `市值: ${marketCapInK.toFixed(1)}K`;
+          plugins: {
+            annotation: {
+              annotations: signalAnnotations
+            },
+            legend: {
+              display: true,
+              position: 'top'
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const value = context.parsed.y;
+                  if (value !== null) {
+                    // 市值格式化为K（千）为单位
+                    const marketCapInK = value / 1e3; // 转换为千
+                    return `市值: ${marketCapInK.toFixed(1)}K`;
                 }
                 return '市值: N/A';
               }
@@ -481,7 +539,13 @@ class ExperimentSignals {
       }
     });
 
-    console.log(`📊 市值折线图已初始化，包含 ${timeSeriesData.length} 个数据点和 ${signalAnnotations.length} 个信号标记`);
+    console.log(`✅ 市值折线图已初始化，包含 ${timeSeriesData.length} 个数据点和 ${signalAnnotations.length} 个信号标记`);
+
+  } catch (error) {
+    console.error('❌ initPriceLineChart 失败:', error);
+    // 显示错误提示
+    this.showKlinePlaceholder('图表初始化失败: ' + error.message);
+  }
   }
 
   updateExperimentHeader(experiment) {

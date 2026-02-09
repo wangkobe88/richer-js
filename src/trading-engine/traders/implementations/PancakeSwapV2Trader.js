@@ -951,7 +951,14 @@ class PancakeSwapV2Trader extends BaseTrader {
         console.log(`💰 开始卖出代币: ${tokenAddress}`);
         console.log(`🪙 代币数量: ${tokenAmount}`);
         console.log(`🔍 代币数量类型: ${typeof tokenAmount}`);
-        console.log(`🔍 代币数量长度: ${tokenAmount ? tokenAmount.length : 'N/A'}`);
+
+        // 转换 tokenAmount 为字符串格式（parseUnits 需要字符串）
+        let tokenAmountStr = tokenAmount;
+        if (typeof tokenAmount === 'bigint') {
+            // 如果是 BigInt，转换为字符串
+            tokenAmountStr = tokenAmount.toString();
+        }
+        console.log(`🔍 转换后代币数量: ${tokenAmountStr}`);
 
         // 详细钱包检查
         console.log(`🔍 钱包地址: ${this.wallet.address}`);
@@ -973,7 +980,7 @@ class PancakeSwapV2Trader extends BaseTrader {
         const decimals = await this.getTokenDecimals(tokenAddress);
         console.log(`🔢 代币精度: ${decimals}`);
 
-        let amountIn = ethers.parseUnits(tokenAmount, decimals);
+        let amountIn = ethers.parseUnits(tokenAmountStr, decimals);
         console.log(`📝 解析后的 amountIn: ${amountIn.toString()}`);
 
         // 2. 详细检查代币余额
@@ -995,7 +1002,7 @@ class PancakeSwapV2Trader extends BaseTrader {
             const adjustedAmountFormatted = ethers.formatUnits(adjustedAmount, decimals);
 
             console.warn(`⚠️ 代币余额略不足，自动调整交易金额:`);
-            console.warn(`   原始请求: ${tokenAmount}`);
+            console.warn(`   原始请求: ${tokenAmountStr}`);
             console.warn(`   实际余额: ${tokenBalance}`);
             console.warn(`   调整后: ${adjustedAmountFormatted}`);
 
@@ -1045,7 +1052,7 @@ class PancakeSwapV2Trader extends BaseTrader {
 
         // 检查流动性
         if (tokenReserve < amountIn) {
-            console.warn(`⚠️ 池子流动性可能不足: 储备 ${ethers.formatUnits(tokenReserve, decimals)}, 交易 ${tokenAmount}`);
+            console.warn(`⚠️ 池子流动性可能不足: 储备 ${ethers.formatUnits(tokenReserve, decimals)}, 交易 ${tokenAmountStr}`);
         }
 
         // 7. 计算预期输出
