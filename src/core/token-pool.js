@@ -260,33 +260,112 @@ class TokenPool {
     }
 
     /**
-     * Clean up old tokens (exceeded max age)
+     * 清理低收益且无交易的代币（节约存储资源）
      *
      * 规则：
+     * - 在监控池中 ≥ 5分钟 (使用 addedAt 判断)
+     * - earlyReturn < 5%
+     * - status = 'monitoring' (未发生交易)
+     *
+     * @param {Map} factorResultsMap - tokenAddress -> { earlyReturn, ... }
+     * @returns {Array} 被标记为不活跃的代币列表 [{ address, symbol, chain, reason, poolTimeMinutes, earlyReturn }]
+     */
+    cleanupInactiveTokens(factorResultsMap) {
+        const now = Date.now();
+        const MIN_POOL_TIME = 5 * 60 * 1000; // 5分钟
+        const MAX_EARLY_RETURN = 5; // 5%
+        const removed = [];
+
+        for (const [key, token] of this.pool.entries()) {
+            // 只处理监控中的代币（已买入的不清理）
+            if (token.status !== 'monitoring') {
+                continue;
+            }
+
+            // 条件1: 在池中 ≥ 5分钟
+            const poolTime = now - token.addedAt;
+            if (poolTime < MIN_POOL_TIME) {
+                continue;
+            }
+
+            // 条件2: earlyReturn < 5%
+            const factors = factorResultsMap.get(token.token);
+            if (!factors || factors.earlyReturn >= MAX_EARLY_RETURN) {
+                continue;
+            }
+
+            // 条件3: 没有交易行为 (status = 'monitoring' 已保证)
+
+            // 满足条件，标记为不活跃
+            token.status = 'inactive'; // 标记状态
+            removed.push({
+                address: token.token,
+                symbol: token.symbol,
+                chain: token.chain,
+                reason: 'low_return_no_trade',
+                poolTimeMinutes: Math.floor(poolTime / 60000),
+                earlyReturn: factors.earlyReturn
+            });
+
+            this.logger.debug(`Token marked as inactive`, {
+                symbol: token.symbol,
+                address: token.token,
+                poolTimeMinutes: Math.floor(poolTime / 60000),
+                earlyReturn: factors.earlyReturn
+            });
+        }
+
+        return removed;
+    }
+
+    /**
+     * 获取需要从池中移除的代币列表
+     *
+     * 移除条件：
+     * - status = 'inactive' (新标记的不活跃代币)
+     * - 或 超过30分钟的任何代币
+     *
+     * @returns {Array} 需要移除的代币列表
+     */
+    getTokensToRemove() {
+        const toRemove = [];
+
+        for (const [key, token] of this.pool.entries()) {
+            let shouldRemove = false;
+            let reason = '';
+
+            if (token.status === 'inactive') {
+                shouldRemove = true;
+                reason = '低收益无交易';
+            } else {
+                const now = Date.now();
+                const age = now - token.createdAt * 1000;
+                const MAX_AGE = 30 * 60 * 1000; // 30分钟
+                if (age > MAX_AGE) {
+                    shouldRemove = true;
+                    reason = `监控超时(${(age / 60000).toFixed(1)}分钟)`;
+                }
+            }
+
+            if (shouldRemove) {
+                toRemove.push({ key, reason, symbol: token.symbol });
+            }
+        }
+
+        return toRemove;
+    }
+
+    /**
+     * Clean up old tokens (exceeded max age or marked inactive)
+     *
+     * 规则：
+     * - status = 'inactive' 的代币：立即移除
      * - 所有代币（无论是否交易，包括已退出）：30分钟后淘汰（用于数据分析）
      *
      * @returns {Array} Array of removed token keys
      */
     cleanup() {
-        const now = Date.now();
-        const toRemove = [];
-
-        // 时间常量（毫秒）- 所有代币统一监控30分钟
-        const MAX_AGE = 30 * 60 * 1000;  // 30分钟
-
-        for (const [key, token] of this.pool.entries()) {
-            let removeReason = null;
-
-            // 所有状态（monitoring, bought, exited）都遵循30分钟规则
-            const age = now - token.createdAt * 1000;  // 使用代币创建时间
-            if (age > MAX_AGE) {
-                removeReason = `监控超时(${(age / 60000).toFixed(1)}分钟)`;
-            }
-
-            if (removeReason) {
-                toRemove.push({ key, reason: removeReason, symbol: token.symbol });
-            }
-        }
+        const toRemove = this.getTokensToRemove();
 
         for (const { key, reason, symbol } of toRemove) {
             const token = this.pool.get(key);

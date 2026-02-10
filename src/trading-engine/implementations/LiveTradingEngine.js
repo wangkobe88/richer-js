@@ -884,9 +884,28 @@ class LiveTradingEngine extends AbstractTradingEngine {
       // 批量获取价格
       await this._fetchBatchPrices(tokens);
 
+      // 存储因子数据用于清理不活跃代币
+      const factorResultsMap = new Map();
+
       // 处理每个代币（包括买入和卖出策略）
       for (const token of tokens) {
         await this._processToken(token);
+        // 收集因子数据用于后续清理判断
+        const factorResults = this._buildFactors(token);
+        factorResultsMap.set(token.token, factorResults);
+      }
+
+      // 🔧 清理低收益且无交易的代币
+      const removedInactive = this._tokenPool.cleanupInactiveTokens(factorResultsMap);
+      if (removedInactive.length > 0) {
+        this.logger.info(this._experimentId, 'MonitoringCycle',
+          `清理不活跃代币: ${removedInactive.length} 个 - ` +
+          removedInactive.map(t => `${t.symbol}(${t.poolTimeMinutes}分钟, ${t.earlyReturn}%)`).join(', ')
+        );
+        // 同步 status 到数据库
+        for (const t of removedInactive) {
+          await this._updateTokenStatus(t.address, t.chain, 'inactive');
+        }
       }
 
       // 清理过期代币
@@ -1482,6 +1501,37 @@ class LiveTradingEngine extends AbstractTradingEngine {
     console.log(`🔄 Fourmeme 收集器已启动 (${config.collector.interval}ms 间隔)`);
 
     console.log(`🚀 实盘交易引擎已启动: 实验 ${this._experimentId}`);
+  }
+
+  /**
+   * 更新代币状态到数据库
+   * @private
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} chain - 链
+   * @param {string} status - 状态
+   * @returns {Promise<void>}
+   */
+  async _updateTokenStatus(tokenAddress, chain, status) {
+    const { dbManager } = require('../../services/dbManager');
+    const supabase = dbManager.getClient();
+
+    const { error } = await supabase
+      .from('experiment_tokens')
+      .update({
+        status: status,
+        updated_at: new Date().toISOString()
+      })
+      .eq('experiment_id', this._experimentId)
+      .eq('token_address', tokenAddress)
+      .eq('chain', chain || 'bsc');
+
+    if (error) {
+      this.logger.error(this._experimentId, '_updateTokenStatus',
+        `更新代币状态失败 | tokenAddress=${tokenAddress}, status=${status}, error=${error.message}`);
+    } else {
+      this.logger.debug(this._experimentId, '_updateTokenStatus',
+        `代币状态已更新 | tokenAddress=${tokenAddress}, status=${status}`);
+    }
   }
 
   /**
