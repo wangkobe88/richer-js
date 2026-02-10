@@ -532,9 +532,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       if (this._roundSummary) {
         const collectorStats = this._fourmemeCollector.getStats();
         this._roundSummary.recordCollectorStats({
-          lastFetched: collectorStats.totalCollected - (collectorStats.lastCollectionTime ? 0 : collectorStats.totalCollected),
-          lastAdded: 0,
-          lastSkipped: collectorStats.totalSkipped,
+          lastFetched: collectorStats.lastFetched || 0,
+          lastAdded: collectorStats.lastAdded || 0,
+          lastSkipped: collectorStats.lastSkipped || 0,
           poolSize: collectorStats.poolSize,
           monitoringCount: collectorStats.monitoringCount,
           boughtCount: collectorStats.boughtCount

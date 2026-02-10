@@ -856,9 +856,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
       if (this._roundSummary) {
         const collectorStats = this._fourmemeCollector.getStats();
         this._roundSummary.recordCollectorStats({
-          lastFetched: collectorStats.totalCollected - (collectorStats.lastCollectionTime ? 0 : collectorStats.totalCollected),
-          lastAdded: 0,
-          lastSkipped: collectorStats.totalSkipped,
+          lastFetched: collectorStats.lastFetched || 0,
+          lastAdded: collectorStats.lastAdded || 0,
+          lastSkipped: collectorStats.lastSkipped || 0,
           poolSize: collectorStats.poolSize,
           monitoringCount: collectorStats.monitoringCount,
           boughtCount: collectorStats.boughtCount
@@ -938,7 +938,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 构建投资组合摘要（与虚拟盘一致）
+   * 构建投资组合摘要（只显示通过策略买入的代币）
    * @private
    * @returns {Object} 投资组合摘要
    */
@@ -952,16 +952,25 @@ class LiveTradingEngine extends AbstractTradingEngine {
       };
     }
 
+    // 只显示通过策略买入的代币（status = 'bought'）
+    const boughtTokens = this._tokenPool.getTokensByStatus('bought');
+    const boughtTokenAddresses = new Set(boughtTokens.map(t => t.token));
+
     return {
       totalValue: portfolio.totalValue,
       availableBalance: portfolio.cashBalance,
-      positions: Array.from(portfolio.positions.entries()).map(([address, position]) => ({
-        address: address,
-        symbol: 'UNKNOWN',
-        amount: position.amount,
-        avgBuyPrice: position.avgBuyPrice,
-        currentValue: position.amount * position.avgBuyPrice
-      }))
+      positions: Array.from(portfolio.positions.entries())
+        .filter(([address]) => boughtTokenAddresses.has(address))
+        .map(([address, position]) => {
+          const token = this._tokenPool.getToken(address, this._blockchain);
+          return {
+            address: address,
+            symbol: token?.symbol || 'UNKNOWN',
+            amount: position.amount,
+            avgBuyPrice: position.avgBuyPrice,
+            currentValue: position.amount * (position.avgBuyPrice || 0)
+          };
+        })
     };
   }
 
