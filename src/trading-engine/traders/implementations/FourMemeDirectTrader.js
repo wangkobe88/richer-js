@@ -72,11 +72,16 @@ class FourMemeDirectTrader extends BaseTrader {
             'function buyTokenAMAP(address token, uint256 funds, uint256 minAmount) external payable',
             'function buyTokenAMAP(address token, address to, uint256 funds, uint256 minAmount) external payable',
             'function buyTokenAMAP(uint256 origin, address token, uint256 funds, uint256 minAmount) external payable',
-            // 卖出函数
+            // 卖出函数 - 按照使用顺序排列，避免函数签名冲突
+            // 4参数版本 (0x0da74935) - 优先使用
+            'function sellToken(uint256 origin, address token, uint256 amount, uint256 minFunds) external',
+            // 2参数版本
             'function sellToken(address token, uint256 amount) external',
+            // 3参数版本
+            'function sellToken(address token, uint256 amount, uint256 minFunds) external',
+            // 6参数版本 (0x06e7b98f)
             'function sellToken(uint256 origin, address token, uint256 amount, uint256 minFunds, uint256 feeRate, address feeRecipient) external',
-            'function sellToken(uint256 origin, address token, address from, uint256 amount, uint256 minFunds, uint256 feeRate, address feeRecipient) external',
-            'function sellToken(address token, uint256 amount, uint256 minFunds, uint256 feeRate, address feeRecipient) external',
+            // 7参数版本
             'function sellToken(uint256 origin, address token, address from, uint256 amount, uint256 minFunds, uint256 feeRate, address feeRecipient) external',
             // 查询函数 (移除 struct 语法，因为这些函数在 ethers.js 中需要不同的处理)
             // 'function calcBuyAmount(struct TokenManager3.TokenInfo ti, uint256 funds) pure returns (uint256)',
@@ -749,51 +754,50 @@ class FourMemeDirectTrader extends BaseTrader {
                 this.fourMemeConfig.gasPrice;
 
             // 设置最小接收金额 (考虑滑点)
-            const minFunds = sellEstimate ?
-                (sellEstimate.funds * BigInt(10000 - (options.slippageTolerance || 5) * 100)) / BigInt(10000) :
-                BigInt(1); // 如果没有预估，设置为最小值
+            // 注意：minFunds 不能为 0，否则 FourMeme 合约会 revert
+            let minFunds;
+            if (sellEstimate && sellEstimate.funds > 0n) {
+                // 有预估时，使用滑点保护
+                minFunds = (sellEstimate.funds * BigInt(10000 - (options.slippageTolerance || 5) * 100)) / BigInt(10000);
+                // 确保 minFunds 至少为 1 wei
+                if (minFunds === 0n) minFunds = 1n;
+            } else if (sellEstimate && sellEstimate.funds === 0n) {
+                // 预估 funds 为 0，说明代币 bonding curve 已饱和
+                // 使用一个小的非零值作为 minFunds（避免 revert），但交易可能仍会失败
+                this.log(`⚠️ 预估获得 0 BNB，代币可能已饱和，将尝试卖出`, 'warning');
+                minFunds = 1n; // 使用最小值
+            } else {
+                // 没有预估时，使用最小值
+                minFunds = 1n;
+            }
 
             // 确定使用哪个版本的ABI
             const platformAbi = this.currentVersion === 1 ? this.v1PlatformAbi : this.v2PlatformAbi;
-
-            // 创建平台合约实例（使用钱包签名）
-            const platformContract = new ethers.Contract(
-                platformAddress,
-                platformAbi,
-                this.wallet
-            );
 
             this.log(`执行卖出:`);
             this.log(`   最小接收: ${ethers.formatEther(minFunds)} BNB`);
             this.log(`   使用平台合约: ${platformAddress}`);
 
             let tx;
+
+            // 使用 4 参数版本直接调用 (避免函数签名歧义)
+            const fourParamSellAbi = ['function sellToken(uint256 origin, address token, uint256 amount, uint256 minFunds) external'];
+            const platformContract4Param = new ethers.Contract(platformAddress, fourParamSellAbi, this.wallet);
+
             try {
-                // 使用 sellToken 函数
-                tx = await platformContract.sellToken(
+                tx = await platformContract4Param.sellToken(
+                    0, // origin
                     tokenAddress,
                     amountOutWei,
+                    minFunds,
                     {
                         gasLimit,
                         gasPrice
                     }
                 );
             } catch (error) {
-                this.log(`sellToken 失败，尝试带费用参数的版本: ${error.message}`, 'warning');
-
-                // 尝试使用带费用参数的版本
-                tx = await platformContract.sellToken(
-                    0, // origin
-                    tokenAddress,
-                    amountOutWei,
-                    minFunds,
-                    0, // feeRate = 0 (无额外费用)
-                    this.wallet.address, // feeRecipient
-                    {
-                        gasLimit,
-                        gasPrice
-                    }
-                );
+                this.log(`4参数版本 sellToken 失败: ${error.message}`, 'warning');
+                throw error; // 直接抛出错误，不再尝试其他版本
             }
 
             this.log(`交易已发送，哈希: ${tx.hash}`);
