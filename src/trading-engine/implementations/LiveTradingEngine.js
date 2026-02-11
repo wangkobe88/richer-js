@@ -134,11 +134,19 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // 初始化 FourMeme 交易器（用于内盘交易）
     this._fourMemeTrader = traderFactory.createTrader('fourmeme', traderConfig);
     await this._fourMemeTrader.setWallet(this._privateKey);
+    // 传递 logger 给交易器
+    if (this._fourMemeTrader.setLogger) {
+      this._fourMemeTrader.setLogger(this.logger);
+    }
     console.log('✅ FourMeme 交易器初始化成功');
 
     // 初始化 PancakeSwap V2 交易器（用于出盘后代币的外部交易）
     this._pancakeSwapTrader = traderFactory.createTrader('pancakeswap-v2', traderConfig);
     await this._pancakeSwapTrader.setWallet(this._privateKey);
+    // 传递 logger 给交易器
+    if (this._pancakeSwapTrader.setLogger) {
+      this._pancakeSwapTrader.setLogger(this.logger);
+    }
     console.log('✅ PancakeSwap V2 交易器初始化成功');
 
     // 设置默认交易器为 FourMeme（用于买入）
@@ -521,10 +529,11 @@ class LiveTradingEngine extends AbstractTradingEngine {
         gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
       };
 
-      // 转换为 BigInt 格式（交易器期望 BigInt 格式，代币最小单位）
-      // amountToSell 已经是代币数量，需要转换为 BigInt
+      // 转换为 wei 格式（交易器期望 BigInt 格式，代币最小单位）
+      // amountToSell 已经是代币数量（decimal 格式），需要转换为 wei
+      // ERC20 代币通常是 18 位小数
       const ethers = require('ethers');
-      const amountToSellBigInt = ethers.getBigInt(Math.floor(amountToSell));
+      const amountToSellBigInt = ethers.parseUnits(amountToSell.toFixed(18), 18);
 
       // 1. 首先尝试使用 FourMeme 交易器（内盘）
       try {
@@ -543,6 +552,20 @@ class LiveTradingEngine extends AbstractTradingEngine {
         }
       } catch (fourmemeError) {
         this.logger.warn(this._experimentId, '_executeSell', `FourMeme 交易器卖出失败: ${fourmemeError.message}`);
+
+        // 检查是否是 bonding curve 饱和错误
+        const isBondingCurveSaturated = fourmemeError.code === 'BONDING_CURVE_SATURATED' ||
+          fourmemeError.message?.includes('bonding curve') ||
+          fourmemeError.message?.includes('已饱和');
+
+        if (isBondingCurveSaturated) {
+          // Bonding curve 饱和，内盘无法卖出
+          // 这种情况下，尝试 PancakeSwap 可能也会失败（如果没有流动性池）
+          // 但为了完整性，仍然尝试一次，以便在确实有流动性时能够卖出
+          this.logger.warn(this._experimentId, '_executeSell',
+            `Bonding curve 已饱和，尝试通过 PancakeSwap 卖出（如果有流动性池）`);
+        }
+
         this.logger.info(this._experimentId, '_executeSell', `尝试使用 PancakeSwap V2 交易器卖出 ${signal.symbol}...`);
 
         // 2. FourMeme 失败，尝试使用 PancakeSwap V2（外盘）
@@ -561,6 +584,15 @@ class LiveTradingEngine extends AbstractTradingEngine {
           }
         } catch (pancakeError) {
           this.logger.error(this._experimentId, '_executeSell', `PancakeSwap V2 交易器也失败: ${pancakeError.message}`);
+
+          // 提供更友好的错误信息
+          if (isBondingCurveSaturated && pancakeError.message?.includes('交易对')) {
+            return {
+              success: false,
+              reason: `代币 bonding curve 已饱和且未在 DEX 创建流动性池，无法卖出。需等待流动性添加到 DEX 后才能卖出。`
+            };
+          }
+
           return {
             success: false,
             reason: `所有交易器均失败: FourMeme(${fourmemeError.message}), PancakeSwap V2(${pancakeError.message})`

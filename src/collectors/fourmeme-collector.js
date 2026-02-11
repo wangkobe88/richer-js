@@ -84,11 +84,20 @@ class FourmemeCollector {
             this.stats.totalCollected += tokens.length;
             this.stats.lastCollectionTime = new Date().toISOString();
 
-            this.logger.debug(`获取到 ${tokens.length} 个four.meme代币`);
-
             // Filter and add new tokens
             const now = Date.now();
             const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
+
+            this.logger.debug(`获取到 ${tokens.length} 个four.meme代币`);
+
+            // 添加详细日志：显示 API 返回的最新代币创建时间
+            if (tokens.length > 0) {
+                const latestCreatedAt = Math.max(...tokens.map(t => t.created_at || 0));
+                const latestAgeSeconds = (now - latestCreatedAt * 1000) / 1000;
+                const oldestCreatedAt = Math.min(...tokens.map(t => t.created_at || 0));
+                const oldestAgeSeconds = (now - oldestCreatedAt * 1000) / 1000;
+                this.logger.debug(`API 返回代币时间范围 | 最新: ${latestAgeSeconds.toFixed(0)}秒前, 最旧: ${oldestAgeSeconds.toFixed(0)}秒前`);
+            }
 
             let addedCount = 0;
             let skippedCount = 0;

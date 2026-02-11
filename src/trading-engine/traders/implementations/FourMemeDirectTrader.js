@@ -144,11 +144,30 @@ class FourMemeDirectTrader extends BaseTrader {
 
     /**
      * 日志输出方法
+     * 如果外部设置了 logger，使用外部 logger；否则使用 console.log
      */
     log(message, type = 'info') {
         const timestamp = new Date().toLocaleTimeString();
         const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
-        console.log(`[${timestamp}] ${prefix} ${message}`);
+
+        if (this.logger) {
+            // 使用外部设置的 logger (LiveTradingEngine 的 logger)
+            // Logger 的 info 方法支持单参数格式：logger.info(message)
+            // 所以我们需要把前缀和消息合并
+            const logMethod = type === 'error' ? 'error' : type === 'success' ? 'info' : type === 'warning' ? 'warn' : 'info';
+            this.logger[logMethod](`[FourMemeDirectTrader] ${message}`);
+        } else {
+            // 回退到 console.log
+            console.log(`[${timestamp}] ${prefix} ${message}`);
+        }
+    }
+
+    /**
+     * 设置外部 logger
+     * @param {Object} logger - 外部 logger 对象
+     */
+    setLogger(logger) {
+        this.logger = logger;
     }
 
     /**
@@ -691,6 +710,9 @@ class FourMemeDirectTrader extends BaseTrader {
      */
     async sellToken(tokenAddress, amountOut, options = {}) {
         try {
+            // 确保 tokenAddress 是 checksum 格式（ethers.js v6 要求）
+            tokenAddress = ethers.getAddress(tokenAddress);
+
             // 确保 amountOut 是 BigInt 格式（代币最小单位）
             let amountOutWei = amountOut;
             if (typeof amountOut === 'string') {
@@ -702,11 +724,24 @@ class FourMemeDirectTrader extends BaseTrader {
                     amountOutWei = ethers.parseUnits(amountOut, 18);
                 }
             } else if (typeof amountOut === 'number') {
-                amountOutWei = BigInt(Math.floor(amountOut));
+                // 对于数字，需要先获取 decimals，然后转换为 wei 格式
+                this.log(`amountOut 是数字，获取代币 decimals 进行转换: amountOut=${amountOut}`);
+                const decimals = await this.getTokenDecimals(tokenAddress);
+                // 舍入到 6 位小数（FourMeme 合约要求）
+                const amountRounded = Math.round(amountOut * 1000000) / 1000000;
+                amountOutWei = ethers.parseUnits(amountRounded.toFixed(6), decimals);
+                this.log(`转换后 amountOutWei=${amountOutWei}, decimals=${decimals}, 舍入到6位小数`);
+            } else if (typeof amountOut === 'bigint') {
+                // 对于 bigint，也需要舍入到 6 位小数
+                const decimals = await this.getTokenDecimals(tokenAddress);
+                const amountFormatted = parseFloat(ethers.formatUnits(amountOut, decimals));
+                const amountRounded = Math.round(amountFormatted * 1000000) / 1000000;
+                amountOutWei = ethers.parseUnits(amountRounded.toFixed(6), decimals);
+                this.log(`BigInt 舍入: ${amountFormatted} -> ${amountRounded.toFixed(6)} (wei: ${amountOutWei})`);
             }
 
             this.log(`准备通过 FourMeme TokenManager2 卖出代币: ${tokenAddress}`);
-            this.log(`卖出数量: ${ethers.formatUnits(amountOutWei, 18)} tokens`);
+            this.log(`卖出数量: ${ethers.formatUnits(amountOutWei, 18)} tokens (假设18位小数)`);
 
             // 首先需要授权 TokenManager2 使用我们的代币
             const tokenContract = new ethers.Contract(tokenAddress, [
@@ -722,20 +757,49 @@ class FourMemeDirectTrader extends BaseTrader {
 
             // 检查当前授权
             const platformAddress = this.currentPlatformAddress || this.fourMemeConfig.v2PlatformAddress;
+            this.log(`使用的 platformAddress: ${platformAddress}`);
+            this.log(`钱包地址: ${this.wallet.address}`);
+
+            // 检查代币余额
+            const tokenBalance = await tokenContract.balanceOf(this.wallet.address);
+            this.log(`代币余额: ${tokenBalance} (${ethers.formatUnits(tokenBalance, 18)} tokens)`);
+
+            // 安全检查：确保卖出数量不超过实际余额
+            if (amountOutWei > tokenBalance) {
+                this.log(`⚠️ 卖出数量超过余额，调整为余额数量`, 'warning');
+                this.log(`   原始卖出数量: ${ethers.formatUnits(amountOutWei, 18)} tokens`);
+                this.log(`   实际余额: ${ethers.formatUnits(tokenBalance, 18)} tokens`);
+                // 使用余额作为卖出数量
+                amountOutWei = tokenBalance;
+                this.log(`   调整后卖出数量: ${ethers.formatUnits(amountOutWei, 18)} tokens`);
+            }
+
             const currentAllowance = await tokenContract.allowance(this.wallet.address, platformAddress);
+            this.log(`当前授权额度: ${currentAllowance} (${ethers.formatUnits(currentAllowance, 18)} tokens)`);
+            this.log(`需要授权额度: ${amountOutWei} (${ethers.formatUnits(amountOutWei, 18)} tokens)`);
+
             if (currentAllowance < amountOutWei) {
                 this.log('授权 TokenManager2 使用代币...');
                 const approveTx = await tokenContract.approve(platformAddress, amountOutWei);
                 await approveTx.wait();
                 this.log('✅ 授权完成');
+            } else {
+                this.log('✅ 授权额度充足，无需重新授权');
             }
 
             // 使用 TokenManagerHelper3 预估卖出结果
             let sellEstimate;
             try {
+                this.log(`调用 trySell | token=${tokenAddress}, amountOutWei=${amountOutWei}`);
                 sellEstimate = await this.helperContract.trySell(tokenAddress, amountOutWei);
 
-                if (sellEstimate.tokenManager !== platformAddress) {
+                this.log(`trySell 原始返回:`);
+                this.log(`   tokenManager: ${sellEstimate.tokenManager}`);
+                this.log(`   quote: ${sellEstimate.quote}`);
+                this.log(`   funds: ${sellEstimate.funds}`);
+                this.log(`   fee: ${sellEstimate.fee}`);
+
+                if (sellEstimate.tokenManager.toLowerCase() !== platformAddress.toLowerCase()) {
                     throw new Error(`代币由不同的 TokenManager 管理: ${sellEstimate.tokenManager}`);
                 }
 
@@ -743,8 +807,18 @@ class FourMemeDirectTrader extends BaseTrader {
                 this.log(`   预估获得 BNB: ${ethers.formatEther(sellEstimate.funds)} BNB`);
                 this.log(`   预估费用: ${ethers.formatEther(sellEstimate.fee)} BNB`);
                 this.log(`   净收入: ${ethers.formatEther(sellEstimate.funds - sellEstimate.fee)} BNB`);
+
+                // ⚠️ 注意：不提前返回失败
+                // trySell 只是预估，可能不准确。即使预估显示净收入 <= 0，
+                // 实际卖出仍然可能成功。让合约执行来决定是否可以卖出。
+                const netIncome = sellEstimate.funds - sellEstimate.fee;
+                if (netIncome <= 0n) {
+                    this.log(`⚠️ 警告: 卖出预估净收入 <= 0，但将继续尝试卖出`, 'warning');
+                    this.log(`   预估可能不准确，让合约执行决定`, 'warning');
+                }
             } catch (error) {
                 this.log(`预估失败: ${error.message}`, 'warning');
+                // 预估失败不影响继续执行卖出
             }
 
             // 准备交易参数
@@ -777,16 +851,25 @@ class FourMemeDirectTrader extends BaseTrader {
             this.log(`执行卖出:`);
             this.log(`   最小接收: ${ethers.formatEther(minFunds)} BNB`);
             this.log(`   使用平台合约: ${platformAddress}`);
+            this.log(`   Gas Limit: ${gasLimit}`);
+            this.log(`   Gas Price: ${gasPrice} (${ethers.formatUnits(gasPrice, 'gwei')} Gwei)`);
 
             let tx;
 
-            // 使用 4 参数版本直接调用 (避免函数签名歧义)
+            // 首先尝试使用 4 参数版本（这是成功交易使用的版本）
+            // function sellToken(uint256 origin, address token, uint256 amount, uint256 minFunds) external
             const fourParamSellAbi = ['function sellToken(uint256 origin, address token, uint256 amount, uint256 minFunds) external'];
             const platformContract4Param = new ethers.Contract(platformAddress, fourParamSellAbi, this.wallet);
 
+            this.log(`调用参数 (4参数版本):`);
+            this.log(`   origin: 0`);
+            this.log(`   token: ${tokenAddress}`);
+            this.log(`   amount: ${amountOutWei} (${ethers.formatUnits(amountOutWei, 18)} tokens)`);
+            this.log(`   minFunds: ${minFunds} (${ethers.formatEther(minFunds)} BNB)`);
+
             try {
                 tx = await platformContract4Param.sellToken(
-                    0, // origin
+                    0,              // origin
                     tokenAddress,
                     amountOutWei,
                     minFunds,
@@ -795,9 +878,34 @@ class FourMemeDirectTrader extends BaseTrader {
                         gasPrice
                     }
                 );
-            } catch (error) {
-                this.log(`4参数版本 sellToken 失败: ${error.message}`, 'warning');
-                throw error; // 直接抛出错误，不再尝试其他版本
+                this.log(`✅ 4参数版本调用成功`);
+            } catch (error4) {
+                this.log(`4参数版本失败: ${error4.message}`, 'warning');
+
+                // 尝试 7 参数版本
+                this.log(`尝试 7 参数版本...`);
+                const sevenParamSellAbi = ['function sellToken(uint256 origin, address token, address from, uint256 amount, uint256 minFunds, uint256 feeRate, address feeRecipient) external'];
+                const platformContract7Param = new ethers.Contract(platformAddress, sevenParamSellAbi, this.wallet);
+
+                try {
+                    tx = await platformContract7Param.sellToken(
+                        0,                      // origin
+                        tokenAddress,           // token
+                        this.wallet.address,    // from
+                        amountOutWei,           // amount
+                        minFunds,               // minFunds
+                        0,                      // feeRate (0 = 使用默认费率)
+                        this.wallet.address,    // feeRecipient
+                        {
+                            gasLimit,
+                            gasPrice
+                        }
+                    );
+                    this.log(`✅ 7参数版本调用成功`);
+                } catch (error7) {
+                    this.log(`7参数版本也失败: ${error7.message}`, 'warning');
+                    throw new Error(`所有版本均失败: 4参数(${error4.message}), 7参数(${error7.message})`);
+                }
             }
 
             this.log(`交易已发送，哈希: ${tx.hash}`);
@@ -959,6 +1067,24 @@ class FourMemeDirectTrader extends BaseTrader {
         } catch (error) {
             this.log(`获取代币价格失败: ${error.message}`, 'warning');
             return '0';
+        }
+    }
+
+    /**
+     * 获取代币精度
+     * @param {string} tokenAddress - 代币地址
+     * @returns {Promise<number>} 代币精度
+     */
+    async getTokenDecimals(tokenAddress) {
+        try {
+            const tokenContract = new ethers.Contract(tokenAddress, [
+                'function decimals() view returns (uint8)'
+            ], this.provider);
+            const decimals = await tokenContract.decimals();
+            return decimals;
+        } catch (error) {
+            this.log(`获取代币精度失败，使用默认值 18: ${error.message}`, 'warning');
+            return 18;
         }
     }
 
