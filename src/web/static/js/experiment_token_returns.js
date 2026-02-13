@@ -355,10 +355,28 @@ class ExperimentTokenReturns {
       return `
         <tr class="table-row">
           <td class="px-4 py-3">
-            <div class="flex items-center">
+            <div class="flex items-center justify-between">
               <span class="font-medium text-white">${item.symbol}</span>
+              <div class="flex items-center space-x-2">
+                <button class="copy-addr-btn text-gray-400 hover:text-blue-400 transition-colors"
+                        data-address="${item.tokenAddress}"
+                        title="复制代币地址">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                  </svg>
+                </button>
+                <a href="https://gmgn.ai/bsc/token/${item.tokenAddress}" target="_blank" rel="noopener noreferrer"
+                   class="text-gray-400 hover:text-purple-400 transition-colors"
+                   title="在 GMGN 查看">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                  </svg>
+                </a>
+              </div>
             </div>
-            <div class="text-xs text-gray-500 font-mono mt-1">${item.tokenAddress.slice(0, 8)}...${item.tokenAddress.slice(-6)}</div>
+            <div class="text-xs text-gray-500 font-mono mt-1 flex items-center justify-between">
+              <span>${item.tokenAddress.slice(0, 8)}...${item.tokenAddress.slice(-6)}</span>
+            </div>
           </td>
           <td class="px-4 py-3 text-right">
             <span class="${returnRateClass}">${returnRateSign}${pnl.returnRate.toFixed(2)}%</span>
@@ -389,6 +407,47 @@ class ExperimentTokenReturns {
         </tr>
       `;
     }).join('');
+
+    // 绑定拷贝按钮事件
+    this.bindCopyButtons();
+  }
+
+  bindCopyButtons() {
+    document.querySelectorAll('.copy-addr-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const address = btn.dataset.address;
+
+        try {
+          await navigator.clipboard.writeText(address);
+
+          // 显示成功提示
+          const originalHTML = btn.innerHTML;
+          btn.innerHTML = `<svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>`;
+
+          setTimeout(() => {
+            btn.innerHTML = originalHTML;
+          }, 1500);
+        } catch (err) {
+          console.error('复制失败:', err);
+          // 降级方案：使用传统方法
+          const textArea = document.createElement('textarea');
+          textArea.value = address;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          document.body.appendChild(textArea);
+          textArea.select();
+          try {
+            document.execCommand('copy');
+          } catch (e) {
+            console.error('降级复制也失败:', e);
+          }
+          document.body.removeChild(textArea);
+        }
+      });
+    });
   }
 
   updateHeader() {

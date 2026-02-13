@@ -623,7 +623,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           symbol: token.symbol,
           chain: token.chain,
           created_at: token.createdAt,
-          raw_api_data: token.rawApiData || null
+          raw_api_data: token.rawApiData || null,
+          contract_risk_raw_ave_data: token.contractRisk || null,
+          creator_address: token.creatorAddress || null
         });
         this._seenTokens.add(tokenKey);
       }

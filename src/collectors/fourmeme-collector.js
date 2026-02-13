@@ -144,6 +144,29 @@ class FourmemeCollector {
 
                 // Only add tokens younger than maxAgeSeconds (1 minute)
                 if (tokenAge < maxAgeMs) {
+                    // 调用 getContractRisk API 获取合约风险数据
+                    let contractRiskData = null;
+                    try {
+                        const tokenId = `${token.token}-${token.chain}`;
+                        contractRiskData = await this.aveApi.getContractRisk(tokenId);
+                        // 提取创建者地址添加到 token 对象
+                        if (contractRiskData.creator_address) {
+                            token.creator_address = contractRiskData.creator_address;
+                        }
+                    } catch (riskError) {
+                        // 风险数据获取失败不影响代币添加
+                        this.logger.warn('获取合约风险数据失败', {
+                            token: token.token,
+                            symbol: token.symbol,
+                            error: riskError.message
+                        });
+                    }
+
+                    // 将风险数据添加到 token 对象
+                    if (contractRiskData) {
+                        token.contract_risk_raw_ave_data = contractRiskData;
+                    }
+
                     const added = this.tokenPool.addToken(token);
                     if (added) {
                         addedCount++;
