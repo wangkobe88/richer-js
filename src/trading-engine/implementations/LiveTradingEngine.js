@@ -81,7 +81,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
    */
   async _initializeDataSources() {
     // 首先初始化 Logger（必须在交易器之前）
-    const { Logger } = require('../../services/logger');
+    const Logger = require('../../services/logger');
     this.logger = new Logger({ dir: './logs', experimentId: this._experimentId });
     this.logger.info(this._experimentId, 'LiveTradingEngine', 'Logger 初始化完成');
 
