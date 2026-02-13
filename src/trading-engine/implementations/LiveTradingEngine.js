@@ -398,6 +398,37 @@ class LiveTradingEngine extends AbstractTradingEngine {
         actualPrice
       );
 
+      // 创建交易记录并保存到数据库（与虚拟盘一致）
+      const { Trade } = require('../entities');
+      const trade = new Trade({
+        experimentId: this._experimentId,
+        signalId: signalId,
+        tokenAddress: signal.tokenAddress,
+        tokenSymbol: signal.symbol,
+        tradeDirection: 'buy',
+        tradeStatus: 'success',
+        success: true,
+        isVirtualTrade: false,
+        // 买入: BNB -> 代币
+        inputCurrency: 'BNB',
+        outputCurrency: signal.symbol,
+        inputAmount: String(amountInBNB),
+        outputAmount: String(actualTokenAmount),
+        unitPrice: String(actualPrice),
+        txHash: buyResult.transactionHash || buyResult.txHash,
+        gasUsed: buyResult.gasUsed || null,
+        gasPrice: buyResult.gasPrice || null,
+        executedAt: new Date(),
+        metadata: {
+          ...metadata,
+          txHash: buyResult.transactionHash || buyResult.txHash,
+          protocol: 'FourMeme',
+          method: 'buyToken'
+        }
+      });
+      const tradeId = await trade.save();
+      this.logger.info(this._experimentId, '_executeBuy', `交易记录已保存 | tradeId=${tradeId}`);
+
       // 更新卡牌分配
       const cards = parseInt(signal.cards) || 1;
       this.logger.info(this._experimentId, '_executeBuy',
@@ -418,8 +449,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       const tradeResult = {
         success: true,
-        tradeId: signalId,
+        tradeId: tradeId,
         txHash: buyResult.transactionHash || buyResult.txHash,
+        trade: trade,
         metadata: {
           ...metadata,
           txHash: buyResult.transactionHash || buyResult.txHash,
@@ -437,8 +469,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
         }
       };
 
-      // 更新交易记录到数据库（与虚拟盘一致）
-      const tradeId = tradeResult.tradeId;
+      // 更新交易记录的 metadata（与虚拟盘一致）
       if (tradeId && tradeResult.metadata) {
         this.logger.info(this._experimentId, '_executeBuy',
           `更新交易记录 | tradeId=${tradeId}, after状态已更新`);
@@ -617,6 +648,46 @@ class LiveTradingEngine extends AbstractTradingEngine {
         price
       );
 
+      // 计算实际收到的 BNB 数量
+      let actualBnbReceived = 0;
+      if (sellResult.actualReceived) {
+        actualBnbReceived = parseFloat(sellResult.actualReceived);
+      } else if (price > 0 && amountToSell > 0) {
+        actualBnbReceived = amountToSell * price;
+      }
+
+      // 创建交易记录并保存到数据库（与虚拟盘一致）
+      const { Trade } = require('../entities');
+      const trade = new Trade({
+        experimentId: this._experimentId,
+        signalId: signalId,
+        tokenAddress: signal.tokenAddress,
+        tokenSymbol: signal.symbol,
+        tradeDirection: 'sell',
+        tradeStatus: 'success',
+        success: true,
+        isVirtualTrade: false,
+        // 卖出: 代币 -> BNB
+        inputCurrency: signal.symbol,
+        outputCurrency: 'BNB',
+        inputAmount: String(amountToSell),
+        outputAmount: String(actualBnbReceived),
+        unitPrice: String(price),
+        txHash: sellResult.transactionHash || sellResult.txHash,
+        gasUsed: sellResult.gasUsed || null,
+        gasPrice: sellResult.gasPrice || null,
+        executedAt: new Date(),
+        metadata: {
+          ...metadata,
+          txHash: sellResult.transactionHash || sellResult.txHash,
+          traderUsed: traderUsed,
+          protocol: traderUsed === 'fourmeme' ? 'FourMeme' : 'PancakeSwap V2',
+          method: 'sellToken'
+        }
+      });
+      const tradeId = await trade.save();
+      this.logger.info(this._experimentId, '_executeSell', `交易记录已保存 | tradeId=${tradeId}`);
+
       // 更新卡牌分配
       const actualCards = sellAll ? beforeCardState.tokenCards : cardsToUse;
       this.logger.info(this._experimentId, '_executeSell',
@@ -637,8 +708,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       const tradeResult = {
         success: true,
-        tradeId: signalId,
+        tradeId: tradeId,
         txHash: sellResult.transactionHash || sellResult.txHash,
+        trade: trade,
         metadata: {
           ...metadata,
           txHash: sellResult.transactionHash || sellResult.txHash,
@@ -657,8 +729,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
         }
       };
 
-      // 更新交易记录到数据库（与虚拟盘一致）
-      const tradeId = tradeResult.tradeId;
+      // 更新交易记录的 metadata（与虚拟盘一致）
       if (tradeId && tradeResult.metadata) {
         this.logger.info(this._experimentId, '_executeSell',
           `更新交易记录 | tradeId=${tradeId}, after状态已更新`);
