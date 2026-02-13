@@ -152,10 +152,16 @@ class FourMemeDirectTrader extends BaseTrader {
 
         if (this.logger) {
             // 使用外部设置的 logger (LiveTradingEngine 的 logger)
-            // Logger 的 info 方法支持单参数格式：logger.info(message)
-            // 所以我们需要把前缀和消息合并
-            const logMethod = type === 'error' ? 'error' : type === 'success' ? 'info' : type === 'warning' ? 'warn' : 'info';
-            this.logger[logMethod](`[FourMemeDirectTrader] ${message}`);
+            // 使用 Logger 的标准调用方式：logger.info(experimentId, module, message)
+            // 但这里我们只有 message，所以简化为直接调用 info 方法
+            try {
+                const logMethod = type === 'error' ? 'error' : type === 'success' ? 'info' : type === 'warning' ? 'warn' : 'info';
+                // 直接调用，让 Logger 的 _formatLogMessage 处理
+                this.logger[logMethod](`[FourMemeDirectTrader] ${message}`);
+            } catch (logError) {
+                // 如果 logger 调用失败，回退到 console
+                console.log(`[${timestamp}] ${prefix} [FourMemeDirectTrader] ${message}`);
+            }
         } else {
             // 回退到 console.log
             console.log(`[${timestamp}] ${prefix} ${message}`);
@@ -709,9 +715,15 @@ class FourMemeDirectTrader extends BaseTrader {
      * 卖出代币（使用 FourMeme TokenManager2）
      */
     async sellToken(tokenAddress, amountOut, options = {}) {
+        // 方法入口日志 - 确保能看到调用
+        this.log(`========== sellToken 被调用 ==========`);
+        this.log(`tokenAddress=${tokenAddress}, amountOut=${amountOut}, options=${JSON.stringify(options)}`);
+
         try {
             // 确保 tokenAddress 是 checksum 格式（ethers.js v6 要求）
+            this.log(`准备转换 tokenAddress 为 checksum 格式`);
             tokenAddress = ethers.getAddress(tokenAddress);
+            this.log(`tokenAddress checksum 完成: ${tokenAddress}`);
 
             // 确保 amountOut 是 BigInt 格式（代币最小单位）
             let amountOutWei = amountOut;
@@ -935,7 +947,10 @@ class FourMemeDirectTrader extends BaseTrader {
                 throw new Error('交易失败');
             }
         } catch (error) {
-            this.log(`❌ 卖出失败: ${error.message}`, 'error');
+            this.log(`❌ 卖出失败 ==========`, 'error');
+            this.log(`错误类型: ${error.name || 'Unknown'}`, 'error');
+            this.log(`错误消息: ${error.message}`, 'error');
+            this.log(`错误堆栈: ${error.stack || '无堆栈信息'}`, 'error');
             return {
                 success: false,
                 error: error.message,

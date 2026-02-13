@@ -1214,7 +1214,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       })
       .eq('experiment_id', this._experimentId)
       .eq('token_address', tokenAddress)
-      .eq('chain', chain || 'bsc');
+      .eq('blockchain', chain || 'bsc');
 
     if (error) {
       this.logger.error(this._experimentId, '_updateTokenStatus',

@@ -80,6 +80,11 @@ class LiveTradingEngine extends AbstractTradingEngine {
    * @returns {Promise<void>}
    */
   async _initializeDataSources() {
+    // 首先初始化 Logger（必须在交易器之前）
+    const { Logger } = require('../../services/logger');
+    this.logger = new Logger({ dir: './logs', experimentId: this._experimentId });
+    this.logger.info(this._experimentId, 'LiveTradingEngine', 'Logger 初始化完成');
+
     // 从实验配置获取钱包信息
     const walletConfig = this._experiment.config?.wallet;
     if (!walletConfig) {
@@ -773,10 +778,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // 加载配置
     const config = require('../../../config/default.json');
 
-    // 初始化 Logger（与虚拟盘一致）
-    this.logger = new Logger({ dir: './logs', experimentId: this._experimentId });
-    this.logger.info(this._experimentId, 'LiveTradingEngine', 'Logger 初始化完成');
-
+    // Logger 已经在 _initializeDataSources 中初始化，这里跳过
     // 初始化 DataService（与虚拟盘一致）
     this.dataService = new ExperimentDataService();
 
@@ -1635,7 +1637,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
       })
       .eq('experiment_id', this._experimentId)
       .eq('token_address', tokenAddress)
-      .eq('chain', chain || 'bsc');
+      .eq('blockchain', chain || 'bsc');
 
     if (error) {
       this.logger.error(this._experimentId, '_updateTokenStatus',
