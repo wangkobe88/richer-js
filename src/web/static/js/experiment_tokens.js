@@ -69,6 +69,18 @@ class ExperimentTokens {
       applyFiltersBtn.addEventListener('click', () => this.applyFilters());
     }
 
+    // 状态筛选变化时自动触发筛选
+    const statusFilter = document.getElementById('status-filter');
+    if (statusFilter) {
+      statusFilter.addEventListener('change', () => this.applyFilters());
+    }
+
+    // 排序方式变化时自动触发筛选
+    const sortBySelect = document.getElementById('sort-by');
+    if (sortBySelect) {
+      sortBySelect.addEventListener('change', () => this.applyFilters());
+    }
+
     // 搜索框回车触发筛选
     const searchInput = document.getElementById('search-input');
     if (searchInput) {
@@ -274,6 +286,7 @@ class ExperimentTokens {
     const shortAddress = this.shortenAddress(token.token_address);
     const symbol = token.token_symbol || rawData?.symbol || '-';
     const isExpanded = this.expandedTokens.has(token.token_address);
+    const gmgnUrl = `https://gmgn.ai/bsc/token/${token.token_address}`;
 
     return `
       <tr class="token-row" data-token-address="${token.token_address}">
@@ -284,6 +297,9 @@ class ExperimentTokens {
               <div class="font-medium text-white">${this.escapeHtml(symbol)}</div>
               <div class="text-xs text-gray-400 font-mono flex items-center">
                 <code class="text-gray-400">${shortAddress}</code>
+                <a href="${gmgnUrl}" target="_blank" class="ml-2 text-green-400" title="GMGN">
+                  🔗
+                </a>
                 <button class="ml-2 text-blue-400 copy-address-btn" data-address="${token.token_address}" title="复制地址">
                   📋
                 </button>
