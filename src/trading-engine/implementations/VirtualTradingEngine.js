@@ -947,9 +947,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             return true; // 允许购买，不继续检查
           }
         } catch (error) {
-          this.logger.error(this._experimentId, '_executeStrategy',
-            `重新获取失败，拒绝购买 | symbol=${token.symbol}, error=${error.message}`);
-          return false; // 拒绝购买
+          this.logger.warn(this._experimentId, '_executeStrategy',
+            `重新获取失败，允许购买 | symbol=${token.symbol}, error=${error.message}`);
+          return true; // API 调用失败，允许购买
         }
       }
 
