@@ -149,7 +149,7 @@ class AbstractTradingEngine extends ITradingEngine {
     this._blockchain = this._experiment.blockchain || 'bsc';
 
     // 初始化日志记录器
-    this._logger = new Logger(this._experimentId);
+    this._logger = new Logger({ experimentId: this._experimentId });
     await this._logger.initialize();
 
     // 初始化核心组件
