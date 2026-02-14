@@ -9,7 +9,7 @@ const { ITradingEngine, TradingMode, EngineStatus } = require('../interfaces/ITr
 const { Experiment } = require('../entities/Experiment');
 const { dbManager } = require('../../services/dbManager');
 const { BlockchainConfig } = require('../../utils/BlockchainConfig');
-const Logger = require('../../utils/logger');
+const Logger = require('../../services/logger');
 
 // 延迟导入以避免循环依赖
 let TokenPool = null;

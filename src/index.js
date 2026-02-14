@@ -15,7 +15,7 @@ const configPath = path.join(__dirname, '../config/default.json');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
 // Initialize logger
-const Logger = require('./utils/logger');
+const Logger = require('./services/logger');
 const logger = new Logger(config.logging);
 
 // Initialize core components
