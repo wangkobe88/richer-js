@@ -50,10 +50,13 @@ class ExperimentTrades {
       await this.loadTradesData();
 
       // 🔥 从交易数据中提取代币列表并填充选择器
-      this.extractTokensFromExperiment();
+      await this.extractTokensFromExperiment();
 
-      // 加载K线数据并初始化图表
-      await this.loadKlineDataAndInitChart();
+      // 🔥 解析URL hash参数，自动选择代币
+      this.parseHashToken();
+
+      // 加载K线数据并初始化图表（传递选择的代币ID）
+      await this.loadKlineDataAndInitChart(this.selectedToken);
 
       // 渲染页面
       this.renderTradeStats();
@@ -77,6 +80,48 @@ class ExperimentTrades {
   extractExperimentId() {
     const pathParts = window.location.pathname.split('/');
     return pathParts[pathParts.length - 2]; // 获取倒数第二个部分
+  }
+
+  /**
+   * 🔥 解析URL hash参数，自动选择代币
+   * 支持 #token=0x... 格式
+   */
+  parseHashToken() {
+    try {
+      const hash = window.location.hash;
+      if (!hash) return;
+
+      console.log('🔍 检测 URL hash参数:', hash);
+
+      // 解析 #token=0x...
+      const tokenMatch = hash.match(/#token=([^&]+)/);
+      if (tokenMatch) {
+        const tokenAddress = tokenMatch[1];
+        console.log('🔍 发现token参数，自动选择代币:', tokenAddress);
+
+        // 检查该代币是否在可用列表中
+        const tokenExists = this.availableTokens.some(t => t.address.toLowerCase() === tokenAddress.toLowerCase());
+
+        if (tokenExists) {
+          // 设置选择的代币
+          this.selectedToken = tokenAddress;
+
+          // 更新选择器的值
+          const selector = document.getElementById('token-selector');
+          if (selector) {
+            selector.value = tokenAddress;
+            console.log('✅ 已自动选择代币:', tokenAddress);
+          }
+
+          // 触发选择变化，加载K线数据
+          this.filterAndRenderTrades();
+        } else {
+          console.warn('⚠️ URL中的代币不在交易列表中:', tokenAddress);
+        }
+      }
+    } catch (error) {
+      console.error('❌ 解析URL hash参数失败:', error);
+    }
   }
 
   /**
@@ -613,6 +658,7 @@ class ExperimentTrades {
     const tokenInfoContainer = document.getElementById('token-info-container');
     const tokenAddressEl = document.getElementById('token-address');
     const copyAddressBtn = document.getElementById('copy-address-btn');
+    const gmgnLinkBtn = document.getElementById('gmgn-link-btn');
 
     if (this.selectedToken === 'all') {
       if (tokenInfoContainer) {
@@ -630,7 +676,11 @@ class ExperimentTrades {
           if (tokenAddressEl) {
             tokenAddressEl.textContent = token.address;
           }
-
+          // 更新 GMGN 链接
+          if (gmgnLinkBtn) {
+            const gmgnUrl = `https://gmgn.ai/bsc/token/${token.address}`;
+            gmgnLinkBtn.href = gmgnUrl;
+          }
           // 绑定复制按钮事件
           if (copyAddressBtn) {
             copyAddressBtn.onclick = async () => {
@@ -1246,18 +1296,9 @@ class ExperimentTrades {
           chartStatus.textContent = '暂无时序数据';
           chartStatus.className = 'px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm font-medium';
         }
-        // 隐藏图表容器
-        const chartContainer = document.getElementById('trade-chart-container');
-        if (chartContainer) {
-          chartContainer.style.display = 'none';
-        }
+        // 仍然创建空图表显示占位
+        this.initPriceLineChart([], token);
         return;
-      }
-
-      // 显示图表容器
-      const chartContainer = document.getElementById('trade-chart-container');
-      if (chartContainer) {
-        chartContainer.style.display = 'block';
       }
 
       // 初始化价格折线图并标记交易

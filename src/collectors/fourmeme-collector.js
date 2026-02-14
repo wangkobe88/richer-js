@@ -158,16 +158,38 @@ class FourmemeCollector {
                     try {
                         const tokenId = `${token.token}-${token.chain}`;
                         contractRiskData = await this.aveApi.getContractRisk(tokenId);
+
+                        // 详细日志：记录 API 返回的 creator_address
+                        const apiCreatorAddress = contractRiskData.creator_address || null;
+                        this.logger.debug('获取合约风险数据成功', {
+                            token: token.token,
+                            symbol: token.symbol,
+                            creator_address: apiCreatorAddress,
+                            has_creator: !!apiCreatorAddress
+                        });
+
                         // 提取创建者地址添加到 token 对象
-                        if (contractRiskData.creator_address) {
-                            token.creator_address = contractRiskData.creator_address;
+                        if (apiCreatorAddress) {
+                            token.creator_address = apiCreatorAddress;
+                            this.logger.debug('设置创建者地址', {
+                                token: token.token,
+                                symbol: token.symbol,
+                                creator_address: apiCreatorAddress
+                            });
+                        } else {
+                            this.logger.warn('合约风险数据中 creator_address 为空', {
+                                token: token.token,
+                                symbol: token.symbol,
+                                risk_data_keys: Object.keys(contractRiskData)
+                            });
                         }
                     } catch (riskError) {
                         // 风险数据获取失败不影响代币添加
                         this.logger.warn('获取合约风险数据失败', {
                             token: token.token,
                             symbol: token.symbol,
-                            error: riskError.message
+                            error: riskError.message,
+                            error_code: riskError.code || null
                         });
                     }
 
@@ -180,6 +202,17 @@ class FourmemeCollector {
                     let isDevCreator = false;
                     if (token.creator_address) {
                         isDevCreator = await this.isDevWallet(token.creator_address);
+                        this.logger.debug('Dev钱包检查结果', {
+                            token: token.token,
+                            symbol: token.symbol,
+                            creator_address: token.creator_address,
+                            is_dev_wallet: isDevCreator
+                        });
+                    } else {
+                        this.logger.warn('代币没有 creator_address，跳过 Dev 钱包检查', {
+                            token: token.token,
+                            symbol: token.symbol
+                        });
                     }
 
                     if (isDevCreator) {

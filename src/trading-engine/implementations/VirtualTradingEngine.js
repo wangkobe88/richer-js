@@ -916,6 +916,50 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         return false;
       }
 
+      // 验证 creator_address：如果为 null，重新获取并检查 Dev 钱包
+      if (!token.creator_address) {
+        this.logger.warn(this._experimentId, '_executeStrategy',
+          `代币缺少 creator_address，重新获取并验证 | symbol=${token.symbol}, address=${token.token}`);
+
+        const { AveTokenAPI } = getLazyModules();
+        if (!this._aveTokenApi) {
+          const apiKey = process.env.AVE_API_KEY;
+          this._aveTokenApi = new AveTokenAPI(
+            this._aveConfig.apiUrl || 'https://prod.ave-api.com',
+            this._aveConfig.timeout || 30000,
+            apiKey
+          );
+        }
+
+        try {
+          const tokenId = `${token.token}-${token.chain}`;
+          const contractRiskData = await this._aveTokenApi.getContractRisk(tokenId);
+
+          if (contractRiskData.creator_address) {
+            token.creator_address = contractRiskData.creator_address;
+            this.logger.info(this._experimentId, '_executeStrategy',
+              `重新获取 creator_address 成功 | symbol=${token.symbol}, address=${token.token}, creator=${contractRiskData.creator_address}`);
+          } else {
+            this.logger.error(this._experimentId, '_executeStrategy',
+              `重新获取后仍无 creator_address，拒绝购买 | symbol=${token.symbol}, address=${token.token}`);
+            return false;
+          }
+        } catch (error) {
+          this.logger.error(this._experimentId, '_executeStrategy',
+            `重新获取 creator_address 失败，拒绝购买 | symbol=${token.symbol}, address=${token.token}, error=${error.message}`);
+          return false;
+        }
+
+        // 检查是否为 Dev 钱包
+        const { FourmemeCollector } = getLazyModules();
+        const isNegativeDevWallet = await this.isNegativeDevWallet(token.creator_address);
+        if (isNegativeDevWallet) {
+          this.logger.error(this._experimentId, '_executeStrategy',
+            `代币创建者为 Dev 钱包，拒绝购买 | symbol=${token.symbol}, address=${token.token}, creator=${token.creator_address}`);
+          return false;
+        }
+      }
+
       if (!token.strategyExecutions) {
         const strategyIds = this._strategyEngine.getAllStrategies().map(s => s.id);
         this._tokenPool.initStrategyExecutions(token.token, token.chain, strategyIds);
@@ -1112,6 +1156,32 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     }
 
     return tradeAmount;
+  }
+
+  /**
+   * 检查创建者地址是否为 Dev 钱包
+   * @private
+   * @param {string} creatorAddress - 创建者地址
+   * @returns {Promise<boolean>} 是否为 Dev 钱包
+   */
+  async isNegativeDevWallet(creatorAddress) {
+    if (!creatorAddress) return false;
+
+    try {
+      const { WalletDataService } = require('../../web/services/WalletDataService');
+      const walletService = new WalletDataService();
+
+      const allWallets = await walletService.getWallets();
+      const devWallets = allWallets.filter(w => w.category === 'dev');
+
+      return devWallets.some(w =>
+        w.address.toLowerCase() === creatorAddress.toLowerCase()
+      );
+    } catch (error) {
+      this.logger.error(this._experimentId, 'isNegativeDevWallet',
+        `检查 Dev 钱包失败 | error=${error.message}`);
+      return false;
+    }
   }
 
   /**

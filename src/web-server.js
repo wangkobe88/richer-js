@@ -434,7 +434,13 @@ class RicherJsWebServer {
     // 创建钱包
     this.app.post('/api/wallets', async (req, res) => {
       try {
+        console.log('创建钱包请求体:', req.body);
         const { address, name, category } = req.body;
+
+        if (!address) {
+          return res.status(400).json({ success: false, error: '钱包地址不能为空' });
+        }
+
         const wallet = await this.walletService.createWallet({ address, name, category });
         res.json({
           success: true,
