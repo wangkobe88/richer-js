@@ -284,6 +284,8 @@ class ExperimentTokens {
     const tvl = this.formatLargeNumber(rawData?.tvl);
     const discoveredAt = this.formatDateTime(token.discovered_at);
     const shortAddress = this.shortenAddress(token.token_address);
+    const creatorAddress = token.creator_address || null;
+    const shortCreatorAddress = creatorAddress ? this.shortenAddress(creatorAddress) : '-';
     const symbol = token.token_symbol || rawData?.symbol || '-';
     const isExpanded = this.expandedTokens.has(token.token_address);
     const gmgnUrl = `https://gmgn.ai/bsc/token/${token.token_address}`;
@@ -318,6 +320,11 @@ class ExperimentTokens {
         </td>
         <td class="px-4 py-3 text-sm text-white">
           ${tvl}
+        </td>
+        <td class="px-4 py-3 text-sm text-gray-400">
+          <div class="flex items-center">
+            <code class="text-gray-400 font-mono text-xs">${shortCreatorAddress}</code>
+          </div>
         </td>
         <td class="px-4 py-3 text-sm text-gray-400">
           ${discoveredAt}
