@@ -604,6 +604,30 @@ class ExperimentDataService {
   }
 
   /**
+   * 更新代币的 creator_address
+   * @param {string} experimentId - 实验ID
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} creatorAddress - 创建者地址
+   * @returns {Promise<boolean>} 是否更新成功
+   */
+  async updateTokenCreatorAddress(experimentId, tokenAddress, creatorAddress) {
+    try {
+      const { error } = await this.supabase
+        .from('experiment_tokens')
+        .update({ creator_address: creatorAddress, updated_at: new Date().toISOString() })
+        .eq('experiment_id', experimentId)
+        .eq('token_address', tokenAddress);
+
+      if (error) throw error;
+      return true;
+
+    } catch (error) {
+      console.error('更新代币 creator_address 失败:', error);
+      return false;
+    }
+  }
+
+  /**
    * 获取实验的代币列表
    * @param {string} experimentId - 实验ID
    * @param {Object} options - 查询选项

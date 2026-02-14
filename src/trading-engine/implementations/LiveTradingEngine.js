@@ -1416,6 +1416,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
           if (contractRiskData.creator_address) {
             token.creator_address = contractRiskData.creator_address;
+            // 更新数据库中的 creator_address
+            await this.dataService.updateTokenCreatorAddress(this._experimentId, token.token, contractRiskData.creator_address);
             this.logger.info(this._experimentId, '_executeStrategy',
               `重新获取成功，继续 Dev 钱包检查 | symbol=${token.symbol}, creator=${contractRiskData.creator_address}`);
           } else {
