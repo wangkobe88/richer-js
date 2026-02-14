@@ -13,6 +13,7 @@ const path = require('path');
 // 导入实验管理组件
 const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
 const { ExperimentDataService } = require('./web/services/ExperimentDataService');
+const { WalletDataService } = require('./web/services/WalletDataService');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 
 /**
@@ -23,8 +24,8 @@ class RicherJsWebServer {
     this.app = express();
     this.port = process.env.WEB_PORT || 3000;
     this.setupMiddleware();
-    this.setupRoutes();
     this.initializeServices();
+    this.setupRoutes();
   }
 
   /**
@@ -69,6 +70,7 @@ class RicherJsWebServer {
   initializeServices() {
     this.experimentFactory = ExperimentFactory.getInstance();
     this.dataService = new ExperimentDataService();
+    this.walletService = new WalletDataService();
     console.log('✅ Web服务初始化完成');
   }
 
@@ -128,6 +130,11 @@ class RicherJsWebServer {
     // 创建实验页面
     this.app.get('/create-experiment', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/create_experiment.html'));
+    });
+
+    // 钱包管理页面
+    this.app.get('/wallets', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/wallets.html'));
     });
 
     // 实验子页面（必须在 /experiment/:id 之前定义）
@@ -404,6 +411,63 @@ class RicherJsWebServer {
         }
       } catch (error) {
         console.error('删除实验失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ API路由：钱包管理 ============
+
+    // 获取钱包列表
+    this.app.get('/api/wallets', async (req, res) => {
+      try {
+        const wallets = await this.walletService.getWallets();
+        res.json({
+          success: true,
+          data: wallets
+        });
+      } catch (error) {
+        console.error('获取钱包列表失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 创建钱包
+    this.app.post('/api/wallets', async (req, res) => {
+      try {
+        const { address, name, category } = req.body;
+        const wallet = await this.walletService.createWallet({ address, name, category });
+        res.json({
+          success: true,
+          data: wallet
+        });
+      } catch (error) {
+        console.error('创建钱包失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 更新钱包
+    this.app.put('/api/wallets/:id', async (req, res) => {
+      try {
+        const { name, category } = req.body;
+        const wallet = await this.walletService.updateWallet(req.params.id, { name, category });
+        res.json({
+          success: true,
+          data: wallet
+        });
+      } catch (error) {
+        console.error('更新钱包失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 删除钱包
+    this.app.delete('/api/wallets/:id', async (req, res) => {
+      try {
+        await this.walletService.deleteWallet(req.params.id);
+        res.json({ success: true });
+      } catch (error) {
+        console.error('删除钱包失败:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

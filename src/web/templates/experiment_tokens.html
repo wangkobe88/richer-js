@@ -51,6 +51,11 @@
             color: white;
         }
 
+        .status-negative-dev {
+            background-color: #f97316;
+            color: white;
+        }
+
         /* 原始数据代码块 */
         .raw-data-block {
             background-color: #1f2937;
@@ -170,7 +175,7 @@
                 </div>
 
                 <!-- 统计卡片 -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
                     <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
                         <div class="flex items-center justify-between">
                             <div>
@@ -207,6 +212,15 @@
                             <div class="text-red-400 text-2xl">🚪</div>
                         </div>
                     </div>
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-400">Dev钱包</p>
+                                <p class="text-2xl font-bold text-orange-400" id="negative-dev-tokens">0</p>
+                            </div>
+                            <div class="text-orange-400 text-2xl">🚫</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 筛选控件 -->
@@ -219,6 +233,7 @@
                                 <option value="monitoring">监控中</option>
                                 <option value="bought">已买入</option>
                                 <option value="exited">已退出</option>
+                                <option value="negative_dev">Dev钱包</option>
                             </select>
                         </div>
                         <div>

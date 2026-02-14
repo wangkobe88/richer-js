@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>钱包管理 - Richer-js FourMeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+            font-size: 1.2rem;
+            background: #f8fafc;
+            color: #374151;
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-900">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-white border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-blue-600">
+                            <a href="/" class="hover:text-blue-700 transition-colors">
+                                Richer-js FourMeme Trading
+                            </a>
+                        </h1>
+                        <div class="block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                                实验监控
+                            </a>
+                            <a href="/wallets" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors bg-purple-100">
+                                钱包管理
+                            </a>
+                            <a href="/create-experiment" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                                创建实验
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="refresh-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
+                            🔄 刷新
+                        </button>
+                        <button id="add-wallet-btn" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-sm font-medium text-white transition-colors">
+                            ➕ 添加钱包
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 页面标题 -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">钱包管理</h1>
+                <p class="text-gray-600 mt-2">管理您的钱包地址，用于交易监控</p>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-800">总钱包数</h3>
+                        <span id="total-wallets" class="text-2xl font-bold text-purple-600">0</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-800">热门币</h3>
+                        <span id="hot-count" class="text-2xl font-bold text-red-600">0</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-800">长期持有</h3>
+                        <span id="long-count" class="text-2xl font-bold text-green-600">0</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-800">测试钱包</h3>
+                        <span id="test-count" class="text-2xl font-bold text-blue-600">0</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-800">流水盘Dev</h3>
+                        <span id="dev-count" class="text-2xl font-bold text-orange-600">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 加载状态 -->
+            <div id="loading" class="hidden">
+                <div class="loading-spinner"></div>
+                <p class="text-center mt-4 text-gray-600">加载中...</p>
+            </div>
+
+            <!-- 错误消息 -->
+            <div id="error-message" class="hidden mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                <p class="text-red-800 font-medium">错误</p>
+                <p id="error-text" class="text-red-700 mt-1"></p>
+            </div>
+
+            <!-- 钱包内容 -->
+            <div id="wallets-content" class="hidden">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">钱包地址</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">名称</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分类</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wallets-table-body" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 空状态 -->
+                <div id="empty-state" class="hidden text-center py-12">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h10m-3 0h1m-6 0h1" />
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">暂无钱包</h3>
+                    <p class="mt-1 text-sm text-gray-500">添加您的第一个钱包开始监控</p>
+                    <div class="mt-6">
+                        <button onclick="window.walletManager.showAddModal()" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                            添加钱包
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/wallets.js"></script>
+</body>
+</html>

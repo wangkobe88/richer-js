@@ -214,11 +214,13 @@ class ExperimentTokens {
     const monitoringEl = document.getElementById('monitoring-tokens');
     const boughtEl = document.getElementById('bought-tokens');
     const exitedEl = document.getElementById('exited-tokens');
+    const negativeDevEl = document.getElementById('negative-dev-tokens');
 
     if (totalEl) totalEl.textContent = stats.total;
     if (monitoringEl) monitoringEl.textContent = stats.monitoring;
     if (boughtEl) boughtEl.textContent = stats.bought;
     if (exitedEl) exitedEl.textContent = stats.exited;
+    if (negativeDevEl) negativeDevEl.textContent = stats.negativeDev;
   }
 
   /**
@@ -229,7 +231,8 @@ class ExperimentTokens {
       total: this.tokens.length,
       monitoring: this.tokens.filter(t => t.status === 'monitoring').length,
       bought: this.tokens.filter(t => t.status === 'bought').length,
-      exited: this.tokens.filter(t => t.status === 'exited').length
+      exited: this.tokens.filter(t => t.status === 'exited').length,
+      negativeDev: this.tokens.filter(t => t.status === 'negative_dev').length
     };
   }
 
@@ -329,7 +332,8 @@ class ExperimentTokens {
     const statusMap = {
       'monitoring': { text: '监控中', class: 'status-monitoring' },
       'bought': { text: '已买入', class: 'status-bought' },
-      'exited': { text: '已退出', class: 'status-exited' }
+      'exited': { text: '已退出', class: 'status-exited' },
+      'negative_dev': { text: 'Dev钱包', class: 'status-negative-dev' }
     };
     return statusMap[status] || { text: status || '未知', class: 'bg-gray-500 text-white' };
   }

@@ -541,7 +541,7 @@ class ExperimentDataService {
         token_symbol: token.symbol || '',
         blockchain: token.chain || 'bsc',
         discovered_at: new Date(token.created_at * 1000).toISOString(),
-        status: 'monitoring'
+        status: token.status || 'monitoring'
       };
 
       // 如果有原始 API 数据，添加到插入数据中

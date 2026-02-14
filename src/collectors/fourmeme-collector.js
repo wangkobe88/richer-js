@@ -5,6 +5,7 @@
  */
 
 const { AveTokenAPI } = require('../core/ave-api');
+const { WalletDataService } = require('../web/services/WalletDataService');
 
 class FourmemeCollector {
     constructor(config, logger, tokenPool) {
@@ -22,14 +23,22 @@ class FourmemeCollector {
             apiKey
         );
 
+        // Initialize WalletService for dev wallet filtering
+        this.walletService = new WalletDataService();
+
         // Track collected tokens to avoid duplicates
         this.collectedTokens = new Set();
+
+        // Dev wallet cache (refresh every minute)
+        this.devWallets = [];
+        this.lastDevWalletRefresh = 0;
 
         // Statistics
         this.stats = {
             totalCollected: 0,
             totalAdded: 0,
             totalSkipped: 0,
+            totalDevFiltered: 0,
             lastCollectionTime: null
         };
 
@@ -167,6 +176,23 @@ class FourmemeCollector {
                         token.contract_risk_raw_ave_data = contractRiskData;
                     }
 
+                    // 检查创建者是否为 Dev 钱包
+                    let isDevCreator = false;
+                    if (token.creator_address) {
+                        isDevCreator = await this.isDevWallet(token.creator_address);
+                    }
+
+                    if (isDevCreator) {
+                        // 标记为 negative_dev 状态
+                        token.status = 'negative_dev';
+                        this.stats.totalDevFiltered++;
+                        this.logger.info('代币创建者为Dev钱包，标记为negative_dev', {
+                            token: token.token,
+                            symbol: token.symbol,
+                            creator: token.creator_address
+                        });
+                    }
+
                     const added = this.tokenPool.addToken(token);
                     if (added) {
                         addedCount++;
@@ -200,6 +226,35 @@ class FourmemeCollector {
                 stack: error.stack
             });
         }
+    }
+
+    /**
+     * Check if creator address is a dev wallet
+     * @param {string} creatorAddress - Creator wallet address
+     * @returns {Promise<boolean>} True if creator is in dev wallet list
+     */
+    async isDevWallet(creatorAddress) {
+        if (!creatorAddress) return false;
+
+        // Refresh dev wallet cache every 60 seconds
+        const now = Date.now();
+        if (now - this.lastDevWalletRefresh > 60000) {
+            try {
+                const allWallets = await this.walletService.getWallets();
+                this.devWallets = allWallets.filter(w => w.category === 'dev');
+                this.lastDevWalletRefresh = now;
+                this.logger.debug('刷新Dev钱包缓存', {
+                    count: this.devWallets.length
+                });
+            } catch (error) {
+                this.logger.warn('刷新Dev钱包缓存失败', { error: error.message });
+            }
+        }
+
+        // Check if creator is in dev wallet list
+        return this.devWallets.some(w =>
+            w.address.toLowerCase() === creatorAddress.toLowerCase()
+        );
     }
 
     /**
