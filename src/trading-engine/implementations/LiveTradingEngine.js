@@ -1420,24 +1420,34 @@ class LiveTradingEngine extends AbstractTradingEngine {
             await this.dataService.updateTokenCreatorAddress(this._experimentId, token.token, contractRiskData.creator_address);
             this.logger.info(this._experimentId, '_executeStrategy',
               `重新获取成功，继续 Dev 钱包检查 | symbol=${token.symbol}, creator=${contractRiskData.creator_address}`);
+            // 重新获取成功，继续检查 Dev 钱包
           } else {
             this.logger.warn(this._experimentId, '_executeStrategy',
-              `重新获取后仍无 creator_address，允许购买 | symbol=${token.symbol}, address=${token.token}`);
-            return true; // 允许购买，不继续检查
+              `重新获取后仍无 creator_address，跳过 Dev 钱包检查，继续购买流程 | symbol=${token.symbol}, address=${token.token}`);
+            // 跳过 Dev 钱包检查，直接继续购买流程
           }
         } catch (error) {
           this.logger.warn(this._experimentId, '_executeStrategy',
-            `重新获取失败，允许购买 | symbol=${token.symbol}, error=${error.message}`);
-          return true; // API 调用失败，允许购买
+            `重新获取 creator_address 失败，跳过 Dev 钱包检查，继续购买流程 | symbol=${token.symbol}, error=${error.message}`);
+          // API 调用失败，跳过 Dev 钱包检查，直接继续购买流程
         }
       }
 
       // 2. 如果创建者地址存在，检查是否为 Dev 钱包
-      const isNegativeDevWallet = await this.isNegativeDevWallet(token.creator_address);
-      if (isNegativeDevWallet) {
-        this.logger.error(this._experimentId, '_executeStrategy',
-          `代币创建者为 Dev 钱包，拒绝购买 | symbol=${token.symbol}, address=${token.token}, creator=${token.creator_address}`);
-        return false;
+      if (token.creator_address) {
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `开始 Dev 钱包检查 | symbol=${token.symbol}, creator=${token.creator_address}`);
+        const isNegativeDevWallet = await this.isNegativeDevWallet(token.creator_address);
+        if (isNegativeDevWallet) {
+          this.logger.error(this._experimentId, '_executeStrategy',
+            `代币创建者为 Dev 钱包，拒绝购买 | symbol=${token.symbol}, address=${token.token}, creator=${token.creator_address}`);
+          return false;
+        }
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `Dev 钱包检查通过，继续购买流程 | symbol=${token.symbol}`);
+      } else {
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `无 creator_address，跳过 Dev 钱包检查，继续购买流程 | symbol=${token.symbol}`);
       }
       // ========== 验证结束 ==========
 
