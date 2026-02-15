@@ -54,9 +54,8 @@ class BacktestEngine extends AbstractTradingEngine {
     this._currentDataIndex = 0;
     this._currentLoopCount = 0;
 
-    // 虚拟资金管理
+    // 虚拟资金管理（余额从 PortfolioManager 获取，不再单独维护）
     this.initialBalance = 100;
-    this.currentBalance = this.initialBalance;
 
     // 统计信息
     this.metrics = {
@@ -100,7 +99,6 @@ class BacktestEngine extends AbstractTradingEngine {
     // 从配置获取初始余额
     if (this._experiment.config?.backtest?.initialBalance) {
       this.initialBalance = this._experiment.config.backtest.initialBalance;
-      this.currentBalance = this.initialBalance;
     }
 
     // 验证源实验存在
@@ -166,14 +164,18 @@ class BacktestEngine extends AbstractTradingEngine {
       console.log(`📊 处理了 ${this.metrics.processedDataPoints} 个数据点`);
 
       // 输出回测结果汇总
-      const profit = this.currentBalance - this.initialBalance;
+      // 从 PortfolioManager 获取最终余额
+      const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+      const finalBalance = portfolio?.totalValue || this.initialBalance;
+      const finalBalanceValue = typeof finalBalance === 'number' ? finalBalance : finalBalance.toNumber();
+      const profit = finalBalanceValue - this.initialBalance;
       const profitPercent = ((profit / this.initialBalance) * 100).toFixed(2);
       console.log(``);
       console.log(`========================================`);
       console.log(`📊 回测结果汇总`);
       console.log(`========================================`);
       console.log(`初始余额: ${this.initialBalance} BSC`);
-      console.log(`最终余额: ${this.currentBalance.toFixed(2)} BSC`);
+      console.log(`最终余额: ${finalBalanceValue.toFixed(2)} BSC`);
       console.log(`收益: ${profit.toFixed(2)} BSC (${profitPercent > 0 ? '+' : ''}${profitPercent}%)`);
       console.log(`总交易次数: ${this.metrics.totalTrades}`);
       console.log(`成功交易: ${this.metrics.successfulTrades}`);
@@ -275,7 +277,10 @@ class BacktestEngine extends AbstractTradingEngine {
 
       const result = await this.executeTrade(tradeRequest);
 
+      // 更新统计信息
+      this.metrics.totalTrades++;
       if (result && result.success) {
+        this.metrics.successfulTrades++;
         const cards = parseInt(signal.cards) || 1;
         cardManager.afterBuy(signal.symbol, cards);
 
@@ -300,6 +305,8 @@ class BacktestEngine extends AbstractTradingEngine {
             metadata: result.trade.metadata
           });
         }
+      } else {
+        this.metrics.failedTrades++;
       }
 
       return result;
@@ -369,7 +376,10 @@ class BacktestEngine extends AbstractTradingEngine {
 
       const result = await this.executeTrade(tradeRequest);
 
+      // 更新统计信息
+      this.metrics.totalTrades++;
       if (result && result.success) {
+        this.metrics.successfulTrades++;
         const actualCards = sellAll ? beforeCardState.tokenCards : cardsToUse;
         cardManager.afterSell(signal.symbol, actualCards);
 
@@ -394,6 +404,8 @@ class BacktestEngine extends AbstractTradingEngine {
             metadata: result.trade.metadata
           });
         }
+      } else {
+        this.metrics.failedTrades++;
       }
 
       return result;
@@ -862,6 +874,10 @@ class BacktestEngine extends AbstractTradingEngine {
    * @returns {number} BNB金额
    */
   _calculateBuyAmount(signal) {
+    // 从 PortfolioManager 获取可用余额
+    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+    const availableBalance = portfolio?.availableBalance || 0;
+
     const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
     if (cardManager) {
       const cards = signal.cards || 1;
@@ -869,14 +885,18 @@ class BacktestEngine extends AbstractTradingEngine {
       if (amount <= 0) {
         return 0;
       }
-      if (this.currentBalance < amount) {
+      // 转换 Decimal 为数字
+      const amountValue = typeof amount === 'number' ? amount : amount.toNumber();
+      const balanceValue = typeof availableBalance === 'number' ? availableBalance : availableBalance.toNumber();
+      if (balanceValue < amountValue) {
         return 0;
       }
-      return amount;
+      return amountValue;
     }
 
     const tradeAmount = this._experiment.config?.backtest?.tradeAmount || 0.1;
-    if (this.currentBalance < tradeAmount) {
+    const balanceValue = typeof availableBalance === 'number' ? availableBalance : availableBalance.toNumber();
+    if (balanceValue < tradeAmount) {
       return 0;
     }
     return tradeAmount;
