@@ -5,6 +5,7 @@
  */
 
 const { AveTokenAPI } = require('../core/ave-api');
+const { FourMemeTokenAPI } = require('../core/fourmeme-api');
 const { WalletDataService } = require('../web/services/WalletDataService');
 
 class FourmemeCollector {
@@ -15,12 +16,18 @@ class FourmemeCollector {
         this.collectorConfig = config.collector;
         this.aveConfig = config.ave;
 
-        // Initialize AVE API client
+        // Initialize AVE API client (for getting platform tokens)
         const apiKey = process.env.AVE_API_KEY;
         this.aveApi = new AveTokenAPI(
             this.aveConfig.apiUrl,
             this.aveConfig.timeout,
             apiKey
+        );
+
+        // Initialize FourMeme API client (for getting creator address)
+        this.fourMemeApi = new FourMemeTokenAPI(
+            config.fourmeme?.apiUrl || 'https://four.meme',
+            config.fourmeme?.timeout || 30000
         );
 
         // Initialize WalletService for dev wallet filtering
@@ -153,15 +160,14 @@ class FourmemeCollector {
 
                 // Only add tokens younger than maxAgeSeconds (1 minute)
                 if (tokenAge < maxAgeMs) {
-                    // 调用 getContractRisk API 获取合约风险数据
-                    let contractRiskData = null;
+                    // 调用 FourMeme API 获取创建者地址
+                    let creatorInfo = null;
                     try {
-                        const tokenId = `${token.token}-${token.chain}`;
-                        contractRiskData = await this.aveApi.getContractRisk(tokenId);
+                        creatorInfo = await this.fourMemeApi.getCreatorAddress(token.token);
 
                         // 详细日志：记录 API 返回的 creator_address
-                        const apiCreatorAddress = contractRiskData.creator_address || null;
-                        this.logger.debug('获取合约风险数据成功', {
+                        const apiCreatorAddress = creatorInfo.creator_address || null;
+                        this.logger.debug('获取创建者地址成功', {
                             token: token.token,
                             symbol: token.symbol,
                             creator_address: apiCreatorAddress,
@@ -177,25 +183,23 @@ class FourmemeCollector {
                                 creator_address: apiCreatorAddress
                             });
                         } else {
-                            this.logger.warn('合约风险数据中 creator_address 为空', {
+                            this.logger.warn('FourMeme API 返回的创建者地址为空', {
                                 token: token.token,
-                                symbol: token.symbol,
-                                risk_data_keys: Object.keys(contractRiskData)
+                                symbol: token.symbol
                             });
                         }
                     } catch (riskError) {
-                        // 风险数据获取失败不影响代币添加
-                        this.logger.warn('获取合约风险数据失败', {
+                        // 创建者地址获取失败不影响代币添加
+                        this.logger.warn('获取创建者地址失败', {
                             token: token.token,
                             symbol: token.symbol,
-                            error: riskError.message,
-                            error_code: riskError.code || null
+                            error: riskError.message
                         });
                     }
 
-                    // 将风险数据添加到 token 对象
-                    if (contractRiskData) {
-                        token.contract_risk_raw_ave_data = contractRiskData;
+                    // 将创建者信息添加到 token 对象（备用）
+                    if (creatorInfo) {
+                        token.fourmeme_creator_info = creatorInfo;
                     }
 
                     // 检查创建者是否为 Dev 钱包

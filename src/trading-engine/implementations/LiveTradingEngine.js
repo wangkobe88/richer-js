@@ -771,7 +771,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
     const TokenPool = require('../../core/token-pool');
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
     const FourmemeCollector = require('../../collectors/fourmeme-collector');
-    const { AveTokenAPI } = require('../../core/ave-api');
     const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
     const { RoundSummary } = require('../utils/RoundSummary');
 
@@ -788,15 +787,14 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this.logger.info('LiveTradingEngine', 'Initialize', '代币池初始化完成');
     console.log(`✅ 代币池初始化完成`);
 
-    // 初始化 AVE Token API
-    const apiKey = process.env.AVE_API_KEY;
-    this._aveTokenApi = new AveTokenAPI(
-      config.ave.apiUrl,
-      config.ave.timeout,
-      apiKey
+    // 初始化 FourMeme API（用于获取创建者地址）
+    const { FourMemeTokenAPI } = require('../../core/fourmeme-api');
+    this._fourMemeApi = new FourMemeTokenAPI(
+      config.fourmeme?.apiUrl || 'https://four.meme',
+      config.fourmeme?.timeout || 30000
     );
-    this.logger.info('LiveTradingEngine', 'Initialize', 'AVE Token API 初始化完成');
-    console.log(`✅ AVE Token API 初始化完成`);
+    this.logger.info('LiveTradingEngine', 'Initialize', 'FourMeme API 初始化完成');
+    console.log(`✅ FourMeme API 初始化完成`);
 
     // 初始化 Fourmeme 收集器（与虚拟盘一致，传递 logger）
     this._fourmemeCollector = new FourmemeCollector(
@@ -1399,27 +1397,16 @@ class LiveTradingEngine extends AbstractTradingEngine {
         this.logger.warn(this._experimentId, '_executeStrategy',
           `代币 creator_address 为 null，重新获取并验证 | symbol=${token.symbol}, address=${token.token}`);
 
-        // 懒初始化 AVE API（只初始化一次）
-        if (!this._aveTokenApi) {
-          const { AveTokenAPI } = require('../../core/ave-api');
-          const apiKey = process.env.AVE_API_KEY;
-          this._aveTokenApi = new AveTokenAPI(
-            this._aveConfig?.apiUrl || 'https://prod.ave-api.com',
-            this._aveConfig?.timeout || 30000,
-            apiKey
-          );
-        }
-
         try {
-          const tokenId = `${token.token}-${token.chain}`;
-          const contractRiskData = await this._aveTokenApi.getContractRisk(tokenId);
+          // 使用 FourMeme API 获取创建者地址
+          const creatorInfo = await this._fourMemeApi.getCreatorAddress(token.token);
 
-          if (contractRiskData.creator_address) {
-            token.creator_address = contractRiskData.creator_address;
+          if (creatorInfo.creator_address) {
+            token.creator_address = creatorInfo.creator_address;
             // 更新数据库中的 creator_address
-            await this.dataService.updateTokenCreatorAddress(this._experimentId, token.token, contractRiskData.creator_address);
+            await this.dataService.updateTokenCreatorAddress(this._experimentId, token.token, creatorInfo.creator_address);
             this.logger.info(this._experimentId, '_executeStrategy',
-              `重新获取成功，继续 Dev 钱包检查 | symbol=${token.symbol}, creator=${contractRiskData.creator_address}`);
+              `重新获取成功，继续 Dev 钱包检查 | symbol=${token.symbol}, creator=${creatorInfo.creator_address}`);
             // 重新获取成功，继续检查 Dev 钱包
           } else {
             this.logger.warn(this._experimentId, '_executeStrategy',

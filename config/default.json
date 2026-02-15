@@ -3,6 +3,10 @@
     "apiUrl": "https://prod.ave-api.com",
     "timeout": 30000
   },
+  "fourmeme": {
+    "apiUrl": "https://four.meme",
+    "timeout": 30000
+  },
   "collector": {
     "interval": 20000,
     "platform": "fourmeme",

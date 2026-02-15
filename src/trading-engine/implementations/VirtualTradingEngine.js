@@ -398,20 +398,23 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._tokenPool = new TokenPool(this.logger);
     console.log(`✅ 代币池初始化完成`);
 
-    // 2. 初始化AVE API
-    const { AveKlineAPI, AveTokenAPI } = require('../../core/ave-api');
+    // 2. 初始化AVE API（用于K线数据）
+    const { AveKlineAPI } = require('../../core/ave-api');
     const apiKey = process.env.AVE_API_KEY;
     this._aveApi = new AveKlineAPI(
       config.ave.apiUrl,
       config.ave.timeout,
       apiKey
     );
-    this._aveTokenApi = new AveTokenAPI(
-      config.ave.apiUrl,
-      config.ave.timeout,
-      apiKey
+    console.log(`✅ AVE K线API初始化完成`);
+
+    // 2.1 初始化FourMeme API（用于获取创建者地址）
+    const { FourMemeTokenAPI } = require('../../core/fourmeme-api');
+    this._fourMemeApi = new FourMemeTokenAPI(
+      config.fourmeme?.apiUrl || 'https://four.meme',
+      config.fourmeme?.timeout || 30000
     );
-    console.log(`✅ AVE API初始化完成`);
+    console.log(`✅ FourMeme API初始化完成`);
 
     // 3. 初始化收集器
     this._fourmemeCollector = new FourmemeCollector(
@@ -922,27 +925,16 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         this.logger.warn(this._experimentId, '_executeStrategy',
           `代币 creator_address 为 null，重新获取并验证 | symbol=${token.symbol}, address=${token.token}`);
 
-        // 懒初始化 AVE API（只初始化一次）
-        if (!this._aveTokenApi) {
-          const { AveTokenAPI } = require('../../core/ave-api');
-          const apiKey = process.env.AVE_API_KEY;
-          this._aveTokenApi = new AveTokenAPI(
-            this._aveConfig?.apiUrl || 'https://prod.ave-api.com',
-            this._aveConfig?.timeout || 30000,
-            apiKey
-          );
-        }
-
         try {
-          const tokenId = `${token.token}-${token.chain}`;
-          const contractRiskData = await this._aveTokenApi.getContractRisk(tokenId);
+          // 使用 FourMeme API 获取创建者地址
+          const creatorInfo = await this._fourMemeApi.getCreatorAddress(token.token);
 
-          if (contractRiskData.creator_address) {
-            token.creator_address = contractRiskData.creator_address;
+          if (creatorInfo.creator_address) {
+            token.creator_address = creatorInfo.creator_address;
             // 更新数据库中的 creator_address
-            await this.dataService.updateTokenCreatorAddress(this._experimentId, token.token, contractRiskData.creator_address);
+            await this.dataService.updateTokenCreatorAddress(this._experimentId, token.token, creatorInfo.creator_address);
             this.logger.info(this._experimentId, '_executeStrategy',
-              `重新获取成功，继续 Dev 钱包检查 | symbol=${token.symbol}, creator=${contractRiskData.creator_address}`);
+              `重新获取成功，继续 Dev 钱包检查 | symbol=${token.symbol}, creator=${creatorInfo.creator_address}`);
             // 重新获取成功，继续检查 Dev 钱包
           } else {
             this.logger.warn(this._experimentId, '_executeStrategy',

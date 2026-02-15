@@ -21,6 +21,9 @@ class ExperimentSignals {
     this.selectedToken = 'all';  // 当前选择的代币，'all'表示全部
     this.availableTokens = [];   // 可用的代币列表
 
+    // 🔥 区块链信息（用于生成GMGN链接）
+    this.blockchain = 'bsc';  // 默认BSC
+
     // 🔥 回测模式支持
     this._isBacktest = false;    // 是否是回测实验
     this._sourceExperimentId = null;  // 源实验ID
@@ -568,6 +571,9 @@ class ExperimentSignals {
       this._sourceExperimentId = null;
     }
 
+    // 🔥 存储区块链信息（用于生成GMGN链接）
+    this.blockchain = experiment.blockchain || 'bsc';
+
     // 🔥 使用 BlockchainConfig 获取区块链显示名称和 logo
     const blockchain = experiment.blockchain || 'unknown';
     const blockchainDisplay = this.getBlockchainDisplay(blockchain);
@@ -775,6 +781,7 @@ class ExperimentSignals {
     const tokenInfoContainer = document.getElementById('token-info-container');
     const tokenAddressEl = document.getElementById('token-address');
     const copyAddressBtn = document.getElementById('copy-address-btn');
+    const gmgnLinkBtn = document.getElementById('gmgn-link-btn');
 
     if (tokenInfoContainer) {
       if (this.selectedToken === 'all') {
@@ -784,6 +791,12 @@ class ExperimentSignals {
         if (token) {
           tokenInfoContainer.classList.remove('hidden');
           tokenAddressEl.textContent = token.address;
+
+          // 🔥 生成GMGN链接
+          // GMGN URL格式: https://gmgn.ai/{blockchain}/token/{address}
+          const gmgnBlockchain = this.getGMGNBlockchain(this.blockchain);
+          const gmgnUrl = `https://gmgn.ai/${gmgnBlockchain}/token/${token.address}`;
+          gmgnLinkBtn.href = gmgnUrl;
 
           // 绑定复制按钮事件
           copyAddressBtn.onclick = async () => {
@@ -1599,6 +1612,25 @@ class ExperimentSignals {
 
   hideError() {
     document.getElementById('error-message').classList.add('hidden');
+  }
+
+  /**
+   * 🔥 获取GMGN区块链标识
+   * @param {string} blockchain - 区块链标识
+   * @returns {string} GMGN使用的区块链标识
+   */
+  getGMGNBlockchain(blockchain) {
+    const gmgnBlockchainMap = {
+      'bsc': 'bsc',
+      'bnb': 'bsc',
+      'binance': 'bsc',
+      'sol': 'sol',
+      'solana': 'sol',
+      'base': 'base',
+      'eth': 'eth',
+      'ethereum': 'eth'
+    };
+    return gmgnBlockchainMap[blockchain?.toLowerCase()] || 'bsc';
   }
 
   /**
