@@ -67,7 +67,9 @@ class BaseFourMemeAPI {
                 ...options
             };
             const response = await this.client.request(config);
-            return response.data;
+            // 响应拦截器已经处理了 response，直接返回 response
+            // response 现在是 { code: 0, msg: "success", data: {...} }
+            return response;
         } catch (error) {
             if (error instanceof FourMemeAPIError) throw error;
             throw new FourMemeAPIError(`请求失败: ${error.message}`);
