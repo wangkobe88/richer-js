@@ -165,6 +165,23 @@ class BacktestEngine extends AbstractTradingEngine {
       console.log(`✅ 回测完成，耗时: ${duration}ms`);
       console.log(`📊 处理了 ${this.metrics.processedDataPoints} 个数据点`);
 
+      // 输出回测结果汇总
+      const profit = this.currentBalance - this.initialBalance;
+      const profitPercent = ((profit / this.initialBalance) * 100).toFixed(2);
+      console.log(``);
+      console.log(`========================================`);
+      console.log(`📊 回测结果汇总`);
+      console.log(`========================================`);
+      console.log(`初始余额: ${this.initialBalance} BSC`);
+      console.log(`最终余额: ${this.currentBalance.toFixed(2)} BSC`);
+      console.log(`收益: ${profit.toFixed(2)} BSC (${profitPercent > 0 ? '+' : ''}${profitPercent}%)`);
+      console.log(`总交易次数: ${this.metrics.totalTrades}`);
+      console.log(`成功交易: ${this.metrics.successfulTrades}`);
+      console.log(`失败交易: ${this.metrics.failedTrades}`);
+      console.log(`总信号数: ${this.metrics.totalSignals}`);
+      console.log(`执行信号数: ${this.metrics.executedSignals}`);
+      console.log(`========================================`);
+
       completedSuccessfully = true;
 
     } catch (error) {
