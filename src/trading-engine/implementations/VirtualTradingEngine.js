@@ -956,12 +956,16 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
 
       // 2. 如果创建者地址存在，检查是否为 Dev 钱包
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `开始 Dev 钱包检查 | symbol=${token.symbol}, creator=${token.creator_address || 'null'}`);
       const isNegativeDevWallet = await this.isNegativeDevWallet(token.creator_address);
       if (isNegativeDevWallet) {
         this.logger.error(this._experimentId, '_executeStrategy',
           `代币创建者为 Dev 钱包，拒绝购买 | symbol=${token.symbol}, address=${token.token}, creator=${token.creator_address}`);
         return false;
       }
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `Dev 钱包检查通过，继续购买流程 | symbol=${token.symbol}`);
       // ========== 验证结束 ==========
 
       if (!token.strategyExecutions) {
@@ -1022,7 +1026,11 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         } : null
       };
 
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `调用 processSignal | symbol=${token.symbol}, action=${signal.action}`);
       const result = await this.processSignal(signal);
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `processSignal 返回 | symbol=${token.symbol}, success=${result?.success}, reason=${result?.reason || result?.message || 'none'}`);
 
       if (result && result.success) {
         this._tokenPool.markAsBought(token.token, token.chain, {
