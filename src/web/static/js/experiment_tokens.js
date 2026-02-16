@@ -280,6 +280,7 @@ class ExperimentTokens {
     const statusInfo = this.getStatusInfo(token.status);
     const rawData = token.raw_api_data;
     const price = this.formatPrice(rawData?.current_price_usd);
+    const launchPrice = this.formatPrice(rawData?.launch_price);
     const fdv = this.formatLargeNumber(rawData?.fdv);
     const tvl = this.formatLargeNumber(rawData?.tvl);
     const discoveredAt = this.formatDateTime(token.discovered_at);
@@ -314,6 +315,9 @@ class ExperimentTokens {
         </td>
         <td class="px-4 py-3 text-sm text-white">
           ${price}
+        </td>
+        <td class="px-4 py-3 text-sm text-white">
+          ${launchPrice}
         </td>
         <td class="px-4 py-3 text-sm text-white">
           ${fdv}
@@ -580,6 +584,19 @@ class ExperimentTokens {
     console.log('🔄 手动刷新...');
 
     try {
+      // 先调用价格刷新 API 获取最新价格
+      const priceRefreshResponse = await fetch(`/api/experiment/${this.experimentId}/tokens/refresh-prices`, {
+        method: 'POST'
+      });
+
+      if (priceRefreshResponse.ok) {
+        const priceResult = await priceRefreshResponse.json();
+        if (priceResult.success) {
+          console.log(`✅ 价格刷新完成: ${priceResult.updated} 个代币已更新`);
+        }
+      }
+
+      // 再加载代币数据（此时数据已包含最新价格）
       await this.loadTokens();
       this.applyFilters();
       this.renderStatistics();

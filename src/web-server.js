@@ -14,6 +14,7 @@ const path = require('path');
 const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
 const { ExperimentDataService } = require('./web/services/ExperimentDataService');
 const { WalletDataService } = require('./web/services/WalletDataService');
+const { PriceRefreshService } = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 
 /**
@@ -71,6 +72,11 @@ class RicherJsWebServer {
     this.experimentFactory = ExperimentFactory.getInstance();
     this.dataService = new ExperimentDataService();
     this.walletService = new WalletDataService();
+    this.priceRefreshService = new PriceRefreshService(
+      console,
+      this.dataService.supabase,
+      require('../config/default.json')
+    );
     console.log('✅ Web服务初始化完成');
   }
 
@@ -805,6 +811,31 @@ class RicherJsWebServer {
         });
       } catch (error) {
         console.error('获取代币统计失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 刷新实验代币的实时价格
+    this.app.post('/api/experiment/:id/tokens/refresh-prices', async (req, res) => {
+      try {
+        const result = await this.priceRefreshService.refreshTokenPrices(req.params.id);
+
+        if (result.success) {
+          res.json({
+            success: true,
+            updated: result.updated,
+            failed: result.failed,
+            duration: result.duration,
+            message: result.message
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            error: result.error || '价格刷新失败'
+          });
+        }
+      } catch (error) {
+        console.error('刷新价格失败:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });
