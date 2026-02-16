@@ -52,16 +52,23 @@ class ExperimentTrades {
       // 🔥 从交易数据中提取代币列表并填充选择器
       await this.extractTokensFromExperiment();
 
-      // 🔥 解析URL hash参数，自动选择代币
-      this.parseHashToken();
+      // 🔥 解析URL hash参数，自动选择代币（会加载对应代币的时序图表）
+      await this.parseHashToken();
 
-      // 加载K线数据并初始化图表（传递选择的代币ID）
-      await this.loadKlineDataAndInitChart(this.selectedToken);
+      // 只有当没有选择特定代币时，才加载默认K线数据
+      // 如果URL hash中有token参数，parseHashToken已经加载了时序图表
+      if (this.selectedToken === 'all') {
+        await this.loadKlineDataAndInitChart();
+      }
 
-      // 渲染页面
-      this.renderTradeStats();
-      this.renderTradeCards();
-      this.setupPagination();
+      // 渲染页面 - 根据 selectedToken 决定是否过滤数据
+      const filteredTrades = this.selectedToken === 'all'
+        ? this.tradesData
+        : this.tradesData.filter(t => t.token_address === this.selectedToken);
+
+      this.renderTradeStats(filteredTrades);
+      this.renderTradeCards(filteredTrades);
+      this.setupPagination(filteredTrades);
 
       // 隐藏加载指示器
       this.hideLoading();
@@ -86,7 +93,7 @@ class ExperimentTrades {
    * 🔥 解析URL hash参数，自动选择代币
    * 支持 #token=0x... 格式
    */
-  parseHashToken() {
+  async parseHashToken() {
     try {
       const hash = window.location.hash;
       if (!hash) return;
@@ -100,9 +107,9 @@ class ExperimentTrades {
         console.log('🔍 发现token参数，自动选择代币:', tokenAddress);
 
         // 检查该代币是否在可用列表中
-        const tokenExists = this.availableTokens.some(t => t.address.toLowerCase() === tokenAddress.toLowerCase());
+        const selectedToken = this.availableTokens.find(t => t.address.toLowerCase() === tokenAddress.toLowerCase());
 
-        if (tokenExists) {
+        if (selectedToken) {
           // 设置选择的代币
           this.selectedToken = tokenAddress;
 
@@ -113,7 +120,10 @@ class ExperimentTrades {
             console.log('✅ 已自动选择代币:', tokenAddress);
           }
 
-          // 触发选择变化，加载K线数据
+          // 加载该代币的时序数据图表（与下拉框选择逻辑一致）
+          await this.loadKlineForToken(selectedToken);
+
+          // 过滤并渲染交易记录
           this.filterAndRenderTrades();
         } else {
           console.warn('⚠️ URL中的代币不在交易列表中:', tokenAddress);
