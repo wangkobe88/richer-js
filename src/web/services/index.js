@@ -3,7 +3,7 @@
  */
 
 const { ExperimentDataService } = require('./ExperimentDataService');
-const { PriceRefreshService } = require('./price-refresh-service');
+const PriceRefreshService = require('./price-refresh-service');
 
 module.exports = {
   ExperimentDataService,

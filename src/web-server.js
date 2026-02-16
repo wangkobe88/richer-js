@@ -14,7 +14,7 @@ const path = require('path');
 const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
 const { ExperimentDataService } = require('./web/services/ExperimentDataService');
 const { WalletDataService } = require('./web/services/WalletDataService');
-const { PriceRefreshService } = require('./web/services/price-refresh-service');
+const PriceRefreshService = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 
 /**
