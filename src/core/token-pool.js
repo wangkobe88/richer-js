@@ -52,8 +52,8 @@ class TokenPool {
             chain: tokenData.chain,
             name: tokenData.name,
             symbol: tokenData.symbol,
-            createdAt: tokenData.created_at || Date.now() / 1000,
-            addedAt: collectionTime,
+            createdAt: tokenData.created_at || Date.now() / 1000,  // 代币创建时间（用于计算 age）
+            addedAt: collectionTime,  // 添加到监控池的时间
             klineData: [],
             status: 'monitoring', // monitoring, bought, selling, exited
             buyDecision: null,
@@ -62,7 +62,7 @@ class TokenPool {
             currentPrice: currentPrice, // AVE API 返回的当前价格（会实时更新）
             launchPrice: launchPrice, // 发行价格（作为 earlyReturn 的基准）
             collectionPrice: currentPrice, // 收集时的价格（保留用于兼容）
-            collectionTime: collectionTime, // 收集时间（用于计算 age）
+            collectionTime: collectionTime, // 收集时间
             priceHistory: [], // 价格历史记录
             // 历史最高价格追踪
             highestPrice: currentPrice, // 历史最高价格

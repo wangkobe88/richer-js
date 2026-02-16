@@ -1342,8 +1342,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // collectionPrice 保留用于兼容和调试
     const collectionPrice = token.collectionPrice || currentPrice;
 
-    const collectionTime = token.collectionTime || token.addedAt;
-    const age = (now - collectionTime) / 1000 / 60;
+    // age 基于代币创建时间（AVE API 的 created_at），而不是收集时间
+    const tokenCreatedAt = token.createdAt || Date.now() / 1000;
+    const age = (now - tokenCreatedAt * 1000) / 1000 / 60;
 
     let riseSpeed = 0;
     if (age > 0) {

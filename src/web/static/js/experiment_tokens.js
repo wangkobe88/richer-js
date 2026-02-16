@@ -290,6 +290,7 @@ class ExperimentTokens {
     const symbol = token.token_symbol || rawData?.symbol || '-';
     const isExpanded = this.expandedTokens.has(token.token_address);
     const gmgnUrl = `https://gmgn.ai/bsc/token/${token.token_address}`;
+    const signalsUrl = `/experiment/${this.experimentId}/signals#token=${token.token_address}`;
 
     return `
       <tr class="token-row" data-token-address="${token.token_address}">
@@ -300,8 +301,11 @@ class ExperimentTokens {
               <div class="font-medium text-white">${this.escapeHtml(symbol)}</div>
               <div class="text-xs text-gray-400 font-mono flex items-center">
                 <code class="text-gray-400">${shortAddress}</code>
-                <a href="${gmgnUrl}" target="_blank" class="ml-2 text-green-400" title="GMGN">
-                  🔗
+                <a href="${gmgnUrl}" target="_blank" class="ml-2" title="GMGN">
+                  <img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4">
+                </a>
+                <a href="${signalsUrl}" target="_blank" class="ml-2 text-purple-400" title="信号">
+                  📊
                 </a>
                 <button class="ml-2 text-blue-400 copy-address-btn" data-address="${token.token_address}" title="复制地址">
                   📋

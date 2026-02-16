@@ -368,9 +368,7 @@ class ExperimentTokenReturns {
                 <a href="https://gmgn.ai/bsc/token/${item.tokenAddress}" target="_blank" rel="noopener noreferrer"
                    class="text-gray-400 hover:text-purple-400 transition-colors"
                    title="在 GMGN 查看">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                  </svg>
+                  <img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4">
                 </a>
               </div>
             </div>
@@ -400,8 +398,11 @@ class ExperimentTokenReturns {
             ${statusBadge}
           </td>
           <td class="px-4 py-3 text-center">
-            <a href="/experiment/${this.experimentId}/trades#token=${item.tokenAddress}" class="text-blue-400 hover:text-blue-300 text-sm">
+            <a href="/experiment/${this.experimentId}/trades#token=${item.tokenAddress}" target="_blank" class="text-blue-400 hover:text-blue-300 text-sm mr-2">
               查看交易
+            </a>
+            <a href="/experiment/${this.experimentId}/signals#token=${item.tokenAddress}" target="_blank" class="text-purple-400 hover:text-purple-300 text-sm">
+              查看信号
             </a>
           </td>
         </tr>

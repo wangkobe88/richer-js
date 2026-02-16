@@ -141,38 +141,49 @@ class ExperimentSignals {
       // 🔥 从信号数据中提取代币列表并填充选择器
       this.extractTokensFromExperiment();
 
-      // 更新信号统计
-      this.updateSignalsStats();
+      // 🔥 解析URL hash参数，自动选择代币（会加载对应代币的时序图表）
+      await this.parseHashToken();
 
-      // 渲染信号列表（即使K线加载失败也要显示）
-      this.renderSignals();
+      // 只有当没有选择特定代币时，才加载默认K线数据
+      // 如果URL hash中有token参数，parseHashToken已经加载了时序图表
+      if (this.selectedToken === 'all') {
+        // 尝试加载K线数据（不影响信号显示）
+        try {
+          console.log('📈 开始加载K线数据...');
+          const klineResponse = await this.fetchKlineData();
 
-      // 尝试加载K线数据（不影响信号显示）
-      try {
-        console.log('📈 开始加载K线数据...');
-        const klineResponse = await this.fetchKlineData();
-        // console.log('📊 K线数据加载完成:', klineResponse.kline_data?.length || 0, '条');
+          // 更新K线数据
+          if (klineResponse.kline_data && klineResponse.kline_data.length > 0) {
+            this.klineData = klineResponse.kline_data;
+            console.log('🎯 准备初始化K线图，数据:', {
+              kline_count: klineResponse.kline_data.length,
+              signals_count: klineResponse.signals?.length || 0,
+              interval: klineResponse.interval_minutes
+            });
 
-        // 更新K线数据
-        if (klineResponse.kline_data && klineResponse.kline_data.length > 0) {
-          this.klineData = klineResponse.kline_data;
-          console.log('🎯 准备初始化K线图，数据:', {
-            kline_count: klineResponse.kline_data.length,
-            signals_count: klineResponse.signals?.length || 0,
-            interval: klineResponse.interval_minutes
-          });
-
-          // 初始化K线图
-          this.initKlineChart(klineResponse);
-        } else {
-          console.warn('⚠️ 没有K线数据');
+            // 初始化K线图
+            this.initKlineChart(klineResponse);
+          } else {
+            console.warn('⚠️ 没有K线数据');
+            this.showKlinePlaceholder('暂无K线数据');
+          }
+        } catch (klineError) {
+          console.error('⚠️ K线数据加载失败（不影响信号显示）:', klineError);
+          // 显示K线图占位符
           this.showKlinePlaceholder('暂无K线数据');
         }
-      } catch (klineError) {
-        console.error('⚠️ K线数据加载失败（不影响信号显示）:', klineError);
-        // 显示K线图占位符
-        this.showKlinePlaceholder('暂无K线数据');
       }
+
+      // 根据 selectedToken 决定是否过滤数据
+      const filteredSignals = this.selectedToken === 'all'
+        ? this.signals
+        : this.signals.filter(s => s.token_address === this.selectedToken);
+
+      // 更新信号统计
+      this.updateSignalsStats(filteredSignals);
+
+      // 渲染信号列表
+      this.renderSignals(filteredSignals);
 
       // console.log('✅ 数据加载完成');
 
@@ -268,6 +279,51 @@ class ExperimentSignals {
       throw new Error('获取K线数据失败');
     }
     return await response.json();
+  }
+
+  /**
+   * 🔥 解析URL hash参数，自动选择代币
+   * 支持 #token=0x... 格式
+   */
+  async parseHashToken() {
+    try {
+      const hash = window.location.hash;
+      if (!hash) return;
+
+      console.log('🔍 检测 URL hash参数:', hash);
+
+      // 解析 #token=0x...
+      const tokenMatch = hash.match(/#token=([^&]+)/);
+      if (tokenMatch) {
+        const tokenAddress = tokenMatch[1];
+        console.log('🔍 发现token参数，自动选择代币:', tokenAddress);
+
+        // 检查该代币是否在可用列表中
+        const selectedToken = this.availableTokens.find(t => t.address.toLowerCase() === tokenAddress.toLowerCase());
+
+        if (selectedToken) {
+          // 设置选择的代币
+          this.selectedToken = tokenAddress;
+
+          // 更新选择器的值
+          const selector = document.getElementById('token-selector');
+          if (selector) {
+            selector.value = tokenAddress;
+            console.log('✅ 已自动选择代币:', tokenAddress);
+          }
+
+          // 加载该代币的时序数据图表
+          await this.loadKlineForToken(selectedToken);
+
+          // 过滤并渲染信号列表
+          this.filterAndRenderSignals();
+        } else {
+          console.warn('⚠️ URL中的代币不在信号列表中:', tokenAddress);
+        }
+      }
+    } catch (error) {
+      console.error('❌ 解析URL hash参数失败:', error);
+    }
   }
 
   /**

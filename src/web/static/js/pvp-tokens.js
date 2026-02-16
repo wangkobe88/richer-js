@@ -173,9 +173,7 @@ class PVPTokensViewer {
             const externalLinksHtml = `
                 <div class="external-links">
                     <a href="${gmgnLink}" target="_blank" class="external-link" title="GMGN">
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
-                        </svg>
+                        <img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4">
                     </a>
                     <a href="${twitterSearchLink}" target="_blank" class="external-link" title="Twitter搜索">
                         <svg viewBox="0 0 24 24" fill="currentColor">
