@@ -848,12 +848,15 @@ class VirtualTradingEngine extends AbstractTradingEngine {
   _buildFactors(token) {
     const now = Date.now();
     const currentPrice = token.currentPrice || 0;
-    const collectionPrice = token.collectionPrice || currentPrice;
+    const launchPrice = token.launchPrice || 0;
 
     let earlyReturn = 0;
-    if (collectionPrice > 0 && currentPrice > 0) {
-      earlyReturn = ((currentPrice - collectionPrice) / collectionPrice) * 100;
+    if (launchPrice > 0 && currentPrice > 0) {
+      earlyReturn = ((currentPrice - launchPrice) / launchPrice) * 100;
     }
+
+    // collectionPrice 保留用于兼容和调试
+    const collectionPrice = token.collectionPrice || currentPrice;
 
     const collectionTime = token.collectionTime || token.addedAt;
     const age = (now - collectionTime) / 1000 / 60;
@@ -870,7 +873,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       profitPercent = ((currentPrice - token.buyPrice) / token.buyPrice) * 100;
     }
 
-    const highestPrice = token.highestPrice || collectionPrice || currentPrice;
+    const highestPrice = token.highestPrice || launchPrice || currentPrice;
     const highestPriceTimestamp = token.highestPriceTimestamp || collectionTime;
 
     let drawdownFromHighest = 0;

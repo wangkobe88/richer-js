@@ -32,6 +32,15 @@ class TokenPool {
             }
         }
 
+        // 解析发行价格（作为 earlyReturn 的基准）
+        let launchPrice = null;
+        if (tokenData.launch_price) {
+            const price = parseFloat(tokenData.launch_price);
+            if (!isNaN(price) && price > 0) {
+                launchPrice = price;
+            }
+        }
+
         const collectionTime = Date.now();
 
         // 保存完整的原始 API 数据（用于后续分析）
@@ -50,8 +59,9 @@ class TokenPool {
             buyDecision: null,
             buyPrice: null,
             buyTime: null,
-            currentPrice: currentPrice, // 存储 AVE API 返回的当前价格
-            collectionPrice: currentPrice, // 收集时的价格（作为基准价格）
+            currentPrice: currentPrice, // AVE API 返回的当前价格（会实时更新）
+            launchPrice: launchPrice, // 发行价格（作为 earlyReturn 的基准）
+            collectionPrice: currentPrice, // 收集时的价格（保留用于兼容）
             collectionTime: collectionTime, // 收集时间（用于计算 age）
             priceHistory: [], // 价格历史记录
             // 历史最高价格追踪
