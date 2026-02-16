@@ -787,6 +787,17 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this.logger.info('LiveTradingEngine', 'Initialize', '代币池初始化完成');
     console.log(`✅ 代币池初始化完成`);
 
+    // 初始化 AVE TokenAPI（用于获取价格数据）
+    const { AveTokenAPI } = require('../../core/ave-api');
+    const apiKey = process.env.AVE_API_KEY;
+    this._aveTokenApi = new AveTokenAPI(
+      config.ave.apiUrl,
+      config.ave.timeout,
+      apiKey
+    );
+    this.logger.info('LiveTradingEngine', 'Initialize', 'AVE TokenAPI 初始化完成');
+    console.log(`✅ AVE TokenAPI 初始化完成`);
+
     // 初始化 FourMeme API（用于获取创建者地址）
     const { FourMemeTokenAPI } = require('../../core/fourmeme-api');
     this._fourMemeApi = new FourMemeTokenAPI(

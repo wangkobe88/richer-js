@@ -69,8 +69,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     // Virtual 特有组件
     this._fourmemeCollector = null;
-    this._aveApi = null;
     this._aveTokenApi = null;
+    this._fourMemeApi = null;
     this._rsiIndicator = null;
     this._monitoringTimer = null;
 
@@ -398,15 +398,15 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._tokenPool = new TokenPool(this.logger);
     console.log(`✅ 代币池初始化完成`);
 
-    // 2. 初始化AVE API（用于K线数据）
-    const { AveKlineAPI } = require('../../core/ave-api');
+    // 2. 初始化AVE TokenAPI（用于获取代币价格和因子数据）
+    const { AveTokenAPI } = require('../../core/ave-api');
     const apiKey = process.env.AVE_API_KEY;
-    this._aveApi = new AveKlineAPI(
+    this._aveTokenApi = new AveTokenAPI(
       config.ave.apiUrl,
       config.ave.timeout,
       apiKey
     );
-    console.log(`✅ AVE K线API初始化完成`);
+    console.log(`✅ AVE TokenAPI初始化完成`);
 
     // 2.1 初始化FourMeme API（用于获取创建者地址）
     const { FourMemeTokenAPI } = require('../../core/fourmeme-api');
