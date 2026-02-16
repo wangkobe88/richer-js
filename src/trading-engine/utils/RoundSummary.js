@@ -65,7 +65,7 @@ class RoundSummary {
      * @param {string} tokenSymbol - 代币符号
      * @param {Object} indicators - 指标数据
      * @param {number} currentPrice - 当前价格（USD）
-     * @param {Object} tokenInfo - 代币额外信息 { createdAt, addedAt, status, collectionPrice }
+     * @param {Object} tokenInfo - 代币额外信息 { createdAt, addedAt, status, collectionPrice, launchPrice }
      */
     recordTokenIndicators(tokenAddress, tokenSymbol, indicators, currentPrice, tokenInfo = {}) {
         this.roundData.tokens.set(tokenAddress, {
@@ -74,6 +74,7 @@ class RoundSummary {
             indicators,
             currentPrice,
             collectionPrice: tokenInfo.collectionPrice || null,
+            launchPrice: tokenInfo.launchPrice || null,
             signal: null,
             signalExecuted: false,
             executionReason: null,
@@ -264,6 +265,11 @@ class RoundSummary {
         // 获取时价格（收集时价格）
         if (tokenData.collectionPrice !== null && tokenData.collectionPrice !== undefined) {
             console.log(`   获取时价格: $${tokenData.collectionPrice.toExponential(4)}`);
+        }
+
+        // 发行价格（earlyReturn 基准）
+        if (tokenData.launchPrice !== null && tokenData.launchPrice !== undefined && tokenData.launchPrice > 0) {
+            console.log(`   发行价格: $${tokenData.launchPrice.toExponential(4)}`);
         }
 
         // 技术指标
@@ -483,6 +489,11 @@ class RoundSummary {
             // 获取时价格（收集时价格）
             if (tokenData.collectionPrice !== null && tokenData.collectionPrice !== undefined) {
                 lines.push(`   获取时价格: $${tokenData.collectionPrice.toExponential(4)}`);
+            }
+
+            // 发行价格（earlyReturn 基准）
+            if (tokenData.launchPrice !== null && tokenData.launchPrice !== undefined && tokenData.launchPrice > 0) {
+                lines.push(`   发行价格: $${tokenData.launchPrice.toExponential(4)}`);
             }
 
             // 技术指标

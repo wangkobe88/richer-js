@@ -649,7 +649,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
               createdAt: token.createdAt,
               addedAt: token.addedAt,
               status: token.status,
-              collectionPrice: token.collectionPrice
+              collectionPrice: token.collectionPrice,
+              launchPrice: token.launchPrice
             }
           );
         }
@@ -711,7 +712,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             createdAt: token.createdAt,
             addedAt: token.addedAt,
             status: token.status,
-            collectionPrice: token.collectionPrice
+            collectionPrice: token.collectionPrice,
+            launchPrice: token.launchPrice
           }
         );
       }
