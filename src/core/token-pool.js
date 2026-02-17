@@ -5,10 +5,11 @@
  */
 
 class TokenPool {
-    constructor(logger) {
+    constructor(logger, priceHistoryCache = null) {
         this.logger = logger;
         this.pool = new Map(); // tokenAddress -> TokenData
         this.maxAge = 30 * 60 * 1000; // 30 minutes
+        this.priceHistoryCache = priceHistoryCache; // 价格历史缓存（用于趋势检测）
     }
 
     /**
@@ -85,6 +86,12 @@ class TokenPool {
         };
 
         this.pool.set(key, poolData);
+
+        // 初始化价格历史缓存（如果可用）
+        if (this.priceHistoryCache && currentPrice) {
+            this.priceHistoryCache.addPrice(key, currentPrice, collectionTime);
+        }
+
         this.logger.debug(`Token added to pool`, {
             symbol: tokenData.symbol,
             address: tokenData.token,
@@ -205,6 +212,11 @@ class TokenPool {
             });
             if (token.priceHistory.length > 100) {
                 token.priceHistory.shift();
+            }
+
+            // 更新价格历史缓存（用于趋势检测）
+            if (this.priceHistoryCache) {
+                this.priceHistoryCache.addPrice(key, price, timestamp);
             }
         }
     }
@@ -388,6 +400,11 @@ class TokenPool {
                 reason: reason
             });
             this.pool.delete(key);
+
+            // 清理价格历史缓存
+            if (this.priceHistoryCache) {
+                this.priceHistoryCache.clear(key);
+            }
         }
 
         return toRemove.map(t => t.key);
@@ -547,6 +564,60 @@ class TokenPool {
             this.logger.info('TokenPool initialized', { poolSize: this.pool.size });
         }
         return Promise.resolve();
+    }
+
+    /**
+     * 获取代币的价格历史（用于趋势检测）
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @returns {Array<number>} 价格数组
+     */
+    getTokenPrices(tokenAddress, chain) {
+        if (this.priceHistoryCache) {
+            const key = this.getTokenKey({ token: tokenAddress, chain });
+            return this.priceHistoryCache.getPriceArray(key);
+        }
+        return [];
+    }
+
+    /**
+     * 获取代币的数据点数量
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @returns {number} 数据点数量
+     */
+    getDataPointCount(tokenAddress, chain) {
+        if (this.priceHistoryCache) {
+            const key = this.getTokenKey({ token: tokenAddress, chain });
+            return this.priceHistoryCache.getDataPointCount(key);
+        }
+        return 0;
+    }
+
+    /**
+     * 检查代币是否有足够的数据点
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @param {number} minPoints - 最小数据点数
+     * @returns {boolean}
+     */
+    hasEnoughData(tokenAddress, chain, minPoints = 6) {
+        if (this.priceHistoryCache) {
+            const key = this.getTokenKey({ token: tokenAddress, chain });
+            return this.priceHistoryCache.hasEnoughData(key, minPoints);
+        }
+        return false;
+    }
+
+    /**
+     * 获取价格历史缓存的统计信息
+     * @returns {{tokenCount: number, totalPriceRecords: number}|null}
+     */
+    getPriceHistoryStats() {
+        if (this.priceHistoryCache) {
+            return this.priceHistoryCache.getStats();
+        }
+        return null;
     }
 }
 
