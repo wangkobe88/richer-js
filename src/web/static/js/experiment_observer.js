@@ -17,7 +17,7 @@ class ExperimentObserver {
     this.init();
   }
 
-  init() {
+  async init() {
     // 绑定元素
     this.experimentSelect = document.getElementById('experimentSelect');
     this.tokenSelect = document.getElementById('tokenSelect');
@@ -77,7 +77,9 @@ class ExperimentObserver {
 
       // 直接加载指定实验的数据
       this.currentExperiment = this.preselectedExperimentId;
-      this.loadTokens();
+      await this.loadTokens();
+      // 解析URL hash中的token参数
+      await this.parseHashToken();
       // 加载实验统计数据
       this.loadExperimentStats();
     } else {
@@ -244,6 +246,60 @@ class ExperimentObserver {
   }
 
   /**
+   * 解析 URL hash 中的 token 参数
+   * 支持 #token=xxx 格式
+   */
+  async parseHashToken() {
+    const hash = window.location.hash;
+    const tokenMatch = hash.match(/#token=([^&]+)/);
+
+    if (!tokenMatch) return;
+
+    const tokenAddress = tokenMatch[1];
+
+    // 获取当前活动的代币选择器
+    // 当 experimentInfo 显示时，使用 tokenSelect
+    // 当 experimentSelector 显示时，使用 tokenSelect2
+    let activeSelect = null;
+
+    if (this.experimentInfo && this.experimentInfo.style.display !== 'none') {
+      // 使用 experimentInfo 区域的选择器
+      activeSelect = this.tokenSelect;
+    } else if (this.experimentSelector && this.experimentSelector.style.display !== 'none') {
+      // 使用 experimentSelector 区域的选择器
+      activeSelect = this.tokenSelect2;
+    }
+
+    // 如果上述逻辑没有匹配到，fallback 到原来的逻辑
+    if (!activeSelect) {
+      activeSelect = this.tokenSelect || this.tokenSelect2;
+    }
+
+    if (!activeSelect) return;
+
+    // 检查代币是否在选择器中
+    const tokenOption = Array.from(activeSelect.options).find(
+      option => option.value === tokenAddress
+    );
+
+    if (tokenOption) {
+      // 选中该代币
+      activeSelect.value = tokenAddress;
+      this.currentToken = tokenAddress;
+
+      // 加载该代币的时序数据
+      await this.loadTimeSeriesData();
+
+      // 加载因子列表
+      await this.loadFactors();
+
+      console.log(`📊 [URL参数] 自动选中代币: ${tokenAddress}`);
+    } else {
+      console.warn(`⚠️ [URL参数] 未找到代币: ${tokenAddress}`);
+    }
+  }
+
+  /**
    * 加载实验统计信息
    */
   async loadExperimentStats() {
@@ -271,9 +327,22 @@ class ExperimentObserver {
    */
   async onTokenChange() {
     // 获取当前活动的代币选择器
-    const activeSelect = this.tokenSelect2 && this.experimentSelector?.style.display !== 'none'
-      ? this.tokenSelect2
-      : this.tokenSelect;
+    // 当 experimentInfo 显示时，使用 tokenSelect
+    // 当 experimentSelector 显示时，使用 tokenSelect2
+    let activeSelect = null;
+
+    if (this.experimentInfo && this.experimentInfo.style.display !== 'none') {
+      // 使用 experimentInfo 区域的选择器
+      activeSelect = this.tokenSelect;
+    } else if (this.experimentSelector && this.experimentSelector.style.display !== 'none') {
+      // 使用 experimentSelector 区域的选择器
+      activeSelect = this.tokenSelect2;
+    }
+
+    // 如果上述逻辑没有匹配到，fallback 到原来的逻辑
+    if (!activeSelect) {
+      activeSelect = this.tokenSelect || this.tokenSelect2;
+    }
 
     if (!activeSelect) return;
 
@@ -816,7 +885,7 @@ class ExperimentObserver {
 
 // 初始化
 let observer;
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   observer = new ExperimentObserver();
   // 暴露到全局以便分页按钮调用
   window.observer = observer;
