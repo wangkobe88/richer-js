@@ -1124,7 +1124,20 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           holders: factorResults.holders,
           tvl: factorResults.tvl,
           fdv: factorResults.fdv,
-          marketCap: factorResults.marketCap
+          marketCap: factorResults.marketCap,
+          // 趋势检测因子
+          trendDataPoints: factorResults.trendDataPoints,
+          trendCV: factorResults.trendCV,
+          trendDirectionCount: factorResults.trendDirectionCount,
+          trendStrengthScore: factorResults.trendStrengthScore,
+          trendTotalReturn: factorResults.trendTotalReturn,
+          trendRiseRatio: factorResults.trendRiseRatio,
+          trendRecentDownCount: factorResults.trendRecentDownCount,
+          trendRecentDownRatio: factorResults.trendRecentDownRatio,
+          trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
+          trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
+          trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
+          trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
         } : null
       };
 
@@ -1208,7 +1221,20 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           holders: factorResults.holders,
           tvl: factorResults.tvl,
           fdv: factorResults.fdv,
-          marketCap: factorResults.marketCap
+          marketCap: factorResults.marketCap,
+          // 趋势检测因子
+          trendDataPoints: factorResults.trendDataPoints,
+          trendCV: factorResults.trendCV,
+          trendDirectionCount: factorResults.trendDirectionCount,
+          trendStrengthScore: factorResults.trendStrengthScore,
+          trendTotalReturn: factorResults.trendTotalReturn,
+          trendRiseRatio: factorResults.trendRiseRatio,
+          trendRecentDownCount: factorResults.trendRecentDownCount,
+          trendRecentDownRatio: factorResults.trendRecentDownRatio,
+          trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
+          trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
+          trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
+          trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
         } : null
       };
 
