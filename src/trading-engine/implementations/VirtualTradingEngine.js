@@ -460,19 +460,14 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       'holdDuration', 'profitPercent',
       'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
       'fdv', 'holders', 'tvl', 'marketCap',
-      // 趋势检测因子（可灵活组合）
-      'trendDataPoints', 'trendPassed',
-      'trendFirstPassPoint', 'trendScore', 'trendTotalReturn', 'trendRiseRatio',
-      'trendCV', 'trendDirection',
-      // 四步法各步结果（用于自定义组合）
-      'trendCVStep1Pass', 'trendDirectionCount', 'trendStep2Pass',
-      'trendStrengthScore', 'trendStep3Pass', 'trendStep4Pass',
-      'trendDetectPrice', 'trendDetectReturn',
-      // 卖出相关因子
-      'trendRecentDownCount', 'trendRecentDownRatio', 'trendScoreChange',
-      'trendScoreDropped', 'trendPriceChangeFromDetect', 'trendReversed',
-      'trendConsecutiveDowns', 'trendAcceleration',
-      'trendSinceBuyScore', 'trendSinceBuyReturn'
+      // 趋势检测因子
+      'trendDataPoints',
+      // 四步法核心指标
+      'trendCV', 'trendDirectionCount', 'trendStrengthScore', 'trendTotalReturn', 'trendRiseRatio',
+      // 卖出相关指标
+      'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns', 'trendPriceChangeFromDetect',
+      // 持仓后指标
+      'trendSinceBuyReturn', 'trendSinceBuyDataPoints'
     ]);
 
     // 转换策略配置格式：{ buyStrategies: [...], sellStrategies: [...] } -> 扁平数组
@@ -935,133 +930,73 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       marketCap: token.marketCap || 0
     };
 
-    // 新增：趋势检测中间因子（用于实验配置组合）
+    // 趋势检测指标因子（只生成数值指标，不做判断）
     const prices = this._tokenPool.getTokenPrices(token.token, token.chain);
     factors.trendDataPoints = prices.length;
 
     if (prices.length >= 6 && this._trendDetector) {
-      const trendResult = this._trendDetector.detect(prices);
-      // 暴露中间结果，而非最终的布尔值
-      factors.trendPassed = trendResult.passed;  // 是否通过（用于向后兼容）
-      factors.trendFirstPassPoint = trendResult.firstPassPoint || 0;  // 首次通过的数据点数
-      factors.trendScore = trendResult.score || 0;  // 趋势强度评分 (0-100)
-      factors.trendTotalReturn = trendResult.totalReturn || 0;  // 检测时总涨幅 (%)
-      factors.trendRiseRatio = trendResult.riseRatio || 0;  // 上涨次数占比 (0-1)
-      factors.trendCV = trendResult.cv || 0;  // 变异系数
-      factors.trendDirection = trendResult.direction || 0;  // 方向确认通过数 (0-3)
+      // 使用最近的10个数据点（或全部，如果不足10个）
+      const _prices = prices.slice(0, Math.min(10, prices.length));
 
-      // 暴露更底层的因子，方便实验配置灵活组合
-      // 四步法的各步结果
-      if (prices.length >= 6) {
-        // 重新计算各步的中间结果，作为独立因子
-        const _prices = prices.slice(0, Math.min(10, prices.length));
+      // 四步法核心指标
+      factors.trendCV = this._trendDetector._calculateCV(_prices);
 
-        // 第一步：CV
-        const _cv = this._trendDetector._calculateCV(_prices);
-        factors.trendCVStep1Pass = _cv > 0.005;  // CV > 0.5%
+      const _direction = this._trendDetector._confirmDirection(_prices);
+      factors.trendDirectionCount = _direction.passed;
 
-        // 第二步：方向确认
-        const _direction = this._trendDetector._confirmDirection(_prices);
-        factors.trendDirectionCount = _direction.passed;  // 0-3
-        factors.trendStep2Pass = _direction.passed >= 2;
+      const _strength = this._trendDetector._calculateTrendStrength(_prices);
+      factors.trendStrengthScore = _strength.score;
+      factors.trendTotalReturn = _strength.details.totalReturn;
+      factors.trendRiseRatio = _strength.details.riseRatio;
 
-        // 第三步：强度评分
-        const _strength = this._trendDetector._calculateTrendStrength(_prices);
-        factors.trendStrengthScore = _strength.score;  // 0-100
-        factors.trendStep3Pass = _strength.score >= 30;
+      // 卖出相关指标
+      const _checkSize = Math.min(5, _prices.length);
+      const _recentPrices = _prices.slice(-_checkSize);
+      let _downCount = 0;
+      for (let i = 1; i < _recentPrices.length; i++) {
+        if (_recentPrices[i] < _recentPrices[i - 1]) _downCount++;
+      }
+      factors.trendRecentDownCount = _downCount;
+      factors.trendRecentDownRatio = _downCount / Math.max(1, _recentPrices.length - 1);
 
-        // 第四步：质量筛选
-        factors.trendStep4Pass = _strength.details.totalReturn > 5 && _strength.details.riseRatio > 0.5;
-
-        // 传递检测时的价格数据（用于更精细的条件）
-        factors.trendDetectPrice = _prices[_prices.length - 1];  // 检测时的价格
-        factors.trendDetectReturn = _strength.details.totalReturn;  // 检测时的涨幅
-
-        // 新增：卖出相关因子
-        // 1. 趋势反转检测（最近N次数据中下跌次数）
-        const _checkSize = Math.min(5, _prices.length);
-        const _recentPrices = _prices.slice(-_checkSize);
-        let _downCount = 0;
-        for (let i = 1; i < _recentPrices.length; i++) {
-          if (_recentPrices[i] < _recentPrices[i - 1]) _downCount++;
+      let _consecutiveDowns = 0;
+      for (let i = _prices.length - 1; i > 0; i--) {
+        if (_prices[i] < _prices[i - 1]) {
+          _consecutiveDowns++;
+        } else {
+          break;
         }
-        factors.trendRecentDownCount = _downCount;  // 最近5次中下跌次数
-        factors.trendRecentDownRatio = _downCount / (_recentPrices.length - 1);  // 下跌占比
+      }
+      factors.trendConsecutiveDowns = _consecutiveDowns;
 
-        // 2. 趋势评分变化（相对于检测时）
-        factors.trendScoreChange = factors.trendStrengthScore - (_strength.score || 0);
-        factors.trendScoreDropped = factors.trendScoreChange < -10;  // 评分下降超过10
+      factors.trendPriceChangeFromDetect = currentPrice > 0 && _prices[_prices.length - 1] > 0
+        ? ((currentPrice - _prices[_prices.length - 1]) / _prices[_prices.length - 1]) * 100
+        : 0;
 
-        // 3. 价格从检测时的变化
-        const _detectPrice = factors.trendDetectPrice;
-        factors.trendPriceChangeFromDetect = currentPrice > 0 && _detectPrice > 0
-          ? ((currentPrice - _detectPrice) / _detectPrice) * 100
-          : 0;
-
-        // 4. 趋势反转判断（多个条件）
-        factors.trendReversed = factors.trendRecentDownRatio >= 0.6 ||  // 最近60%+下跌
-                                factors.trendStrengthScore < 20 ||         // 评分过低
-                                (factors.trendPriceChangeFromDetect < -5 && factors.trendDataPoints >= factors.trendFirstPassPoint + 3);  // 检测后下跌5%+
-
-        // 5. 连续下跌次数
-        let _consecutiveDowns = 0;
-        for (let i = _prices.length - 1; i > 0; i--) {
-          if (_prices[i] < _prices[i - 1]) {
-            _consecutiveDowns++;
-          } else {
-            break;
-          }
-        }
-        factors.trendConsecutiveDowns = _consecutiveDowns;
-
-        // 6. 趋势加速度（最近涨幅 vs 整体涨幅）
-        if (_prices.length >= 4) {
-          const _earlyReturn = ((_prices[Math.floor(_prices.length / 2)] - _prices[0]) / _prices[0]) * 100;
-          const _recentReturn = ((_prices[_prices.length - 1] - _prices[Math.floor(_prices.length / 2)]) / _prices[Math.floor(_prices.length / 2)]) * 100;
-          factors.trendAcceleration = _recentReturn - _earlyReturn;  // 正值=加速，负值=减速
-        }
-
-        // 7. 持仓后趋势质量（如果已买入）
-        if (token.buyTime && token.buyPrice) {
-          // 买入后的价格变化（用所有历史数据）
-          const _buyPriceIndex = prices.findIndex(p => Math.abs(p - token.buyPrice) / token.buyPrice < 0.01);
-          if (_buyPriceIndex >= 0 && _buyPriceIndex < prices.length - 1) {
-            const _pricesAfterBuy = prices.slice(_buyPriceIndex);
-            const _buyTrendStrength = this._trendDetector._calculateTrendStrength(_pricesAfterBuy);
-            factors.trendSinceBuyScore = _buyTrendStrength.score;
-            factors.trendSinceBuyReturn = ((prices[prices.length - 1] - prices[_buyPriceIndex]) / prices[_buyPriceIndex]) * 100;
-          }
+      // 持仓后指标
+      if (token.buyTime && token.buyPrice) {
+        const _buyPriceIndex = prices.findIndex(p => Math.abs(p - token.buyPrice) / token.buyPrice < 0.01);
+        if (_buyPriceIndex >= 0 && _buyPriceIndex < prices.length - 1) {
+          factors.trendSinceBuyReturn = ((prices[prices.length - 1] - prices[_buyPriceIndex]) / prices[_buyPriceIndex]) * 100;
+          factors.trendSinceBuyDataPoints = prices.length - _buyPriceIndex;
+        } else {
+          factors.trendSinceBuyReturn = profitPercent;
+          factors.trendSinceBuyDataPoints = 0;
         }
       }
     } else {
       // 数据不足时的默认值
-      factors.trendPassed = false;
-      factors.trendFirstPassPoint = 0;
-      factors.trendScore = 0;
-      factors.trendTotalReturn = 0;
-      factors.trendRiseRatio = 0;
       factors.trendCV = 0;
-      factors.trendDirection = 0;
-      factors.trendCVStep1Pass = false;
       factors.trendDirectionCount = 0;
-      factors.trendStep2Pass = false;
       factors.trendStrengthScore = 0;
-      factors.trendStep3Pass = false;
-      factors.trendStep4Pass = false;
-      factors.trendDetectPrice = currentPrice;
-      factors.trendDetectReturn = earlyReturn;
-
-      // 卖出相关因子默认值
+      factors.trendTotalReturn = earlyReturn;
+      factors.trendRiseRatio = 0;
       factors.trendRecentDownCount = 0;
       factors.trendRecentDownRatio = 0;
-      factors.trendScoreChange = 0;
-      factors.trendScoreDropped = false;
-      factors.trendPriceChangeFromDetect = earlyReturn;
-      factors.trendReversed = false;
       factors.trendConsecutiveDowns = 0;
-      factors.trendAcceleration = 0;
-      factors.trendSinceBuyScore = 0;
+      factors.trendPriceChangeFromDetect = earlyReturn;
       factors.trendSinceBuyReturn = profitPercent;
+      factors.trendSinceBuyDataPoints = 0;
     }
 
     return factors;
