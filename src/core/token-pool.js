@@ -455,6 +455,8 @@ class TokenPool {
         const token = this.getToken(tokenAddress, chain);
         if (token) {
             token.cardPositionManager = cardManager;
+        } else {
+            console.error(`⚠️ TokenPool.setCardPositionManager: 代币不存在 ${tokenAddress}-${chain}, 无法设置卡牌管理器`);
         }
     }
 
@@ -466,6 +468,9 @@ class TokenPool {
      */
     getCardPositionManager(tokenAddress, chain) {
         const token = this.getToken(tokenAddress, chain);
+        if (!token) {
+            console.error(`⚠️ TokenPool.getCardPositionManager: 代币不存在 ${tokenAddress}-${chain}`);
+        }
         return token ? token.cardPositionManager : null;
     }
 

@@ -241,6 +241,7 @@ class BacktestEngine extends AbstractTradingEngine {
     try {
       const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
       if (!cardManager) {
+        console.error(`❌ 买入失败: ${signal.symbol} (${signal.tokenAddress}) - 卡牌管理器未初始化`);
         return { success: false, reason: '卡牌管理器未初始化' };
       }
 
@@ -252,6 +253,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
       const amountInBNB = this._calculateBuyAmount(signal);
       if (amountInBNB <= 0) {
+        console.error(`❌ 买入失败: ${signal.symbol} - 计算金额为0 (amountInBNB=${amountInBNB})`);
         return { success: false, reason: '余额不足或计算金额为0' };
       }
 
@@ -276,6 +278,15 @@ class BacktestEngine extends AbstractTradingEngine {
       };
 
       const result = await this.executeTrade(tradeRequest);
+
+      // 调试日志
+      if (!result || !result.success) {
+        console.error(`❌ 买入执行失败: ${signal.symbol}`);
+        console.error(`   result:`, result);
+        console.error(`   reason: ${result?.reason || result?.message || '未知'}`);
+      } else {
+        console.log(`✅ 买入成功: ${signal.symbol}, 金额: ${amountInBNB} BNB`);
+      }
 
       // 更新统计信息
       this.metrics.totalTrades++;
@@ -312,6 +323,7 @@ class BacktestEngine extends AbstractTradingEngine {
       return result;
 
     } catch (error) {
+      console.error(`❌ 买入异常: ${signal.symbol}`, error.message);
       return { success: false, reason: error.message };
     }
   }
@@ -446,7 +458,42 @@ class BacktestEngine extends AbstractTradingEngine {
     const { getAvailableFactorIds } = require('../core/FactorBuilder');
     const availableFactorIds = getAvailableFactorIds();
 
-    this._strategyEngine.loadStrategies(strategies, availableFactorIds);
+    // 转换策略配置格式：{ buyStrategies: [...], sellStrategies: [...] } -> 扁平数组
+    const strategyArray = [];
+    if (strategies.buyStrategies && Array.isArray(strategies.buyStrategies)) {
+      strategies.buyStrategies.forEach((s, idx) => {
+        strategyArray.push({
+          id: `buy_${idx}_${s.priority || 0}`,
+          name: `买入策略 P${s.priority || 0}`,
+          description: s.description || '',
+          action: 'buy',
+          condition: s.condition,
+          priority: s.priority || 0,
+          cooldown: s.cooldown || 300,
+          cards: s.cards || 1,
+          maxExecutions: s.maxExecutions || null,
+          enabled: true
+        });
+      });
+    }
+    if (strategies.sellStrategies && Array.isArray(strategies.sellStrategies)) {
+      strategies.sellStrategies.forEach((s, idx) => {
+        strategyArray.push({
+          id: `sell_${idx}_${s.priority || 0}`,
+          name: `卖出策略 P${s.priority || 0}`,
+          description: s.description || '',
+          action: 'sell',
+          condition: s.condition,
+          priority: s.priority || 0,
+          cooldown: s.cooldown || 300,
+          cards: s.cards || 1,
+          maxExecutions: s.maxExecutions || null,
+          enabled: true
+        });
+      });
+    }
+
+    this._strategyEngine.loadStrategies(strategyArray, availableFactorIds);
     console.log(`✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
     // 3. 初始化卡牌仓位管理配置
@@ -737,6 +784,13 @@ class BacktestEngine extends AbstractTradingEngine {
             }
           });
           this._tokenPool.setCardPositionManager(tokenState.token, tokenState.chain, cardManager);
+
+          // 调试：验证卡牌管理器是否设置成功
+          const verifyManager = this._tokenPool.getCardPositionManager(tokenState.token, tokenState.chain);
+          if (!verifyManager) {
+            console.error(`⚠️ 卡牌管理器设置失败: ${tokenState.symbol} (${tokenState.token})`);
+            console.error(`   代币在 tokenPool 中: ${this._tokenPool.getToken(tokenState.token, tokenState.chain) ? '是' : '否'}`);
+          }
         }
       }
 
@@ -755,7 +809,12 @@ class BacktestEngine extends AbstractTradingEngine {
         timestamp: timestamp
       };
 
+      // 调试：检查引擎状态
+      console.log(`🔍 执行买入策略前: _isStopped=${this._isStopped}, _status=${this._status}`);
+
       const result = await this.processSignal(signal);
+
+      console.log(`🔍 processSignal 返回:`, result);
 
       if (result && result.success) {
         tokenState.status = 'bought';
@@ -770,6 +829,16 @@ class BacktestEngine extends AbstractTradingEngine {
         }
 
         return true;
+      }
+
+      // 执行失败，记录失败原因
+      const failureReason = result?.message || result?.reason || '执行失败';
+      console.error(`❌ 买入策略执行失败: ${tokenState.symbol} (${tokenState.token})`);
+      console.error(`   原因: ${failureReason}`);
+      console.error(`   result:`, result);
+
+      if (this._roundSummary) {
+        this._roundSummary.recordSignalExecution(tokenState.token, false, failureReason);
       }
 
       return false;
@@ -829,6 +898,16 @@ class BacktestEngine extends AbstractTradingEngine {
         return true;
       }
 
+      // 执行失败，记录失败原因
+      const failureReason = result?.message || result?.reason || '执行失败';
+      console.error(`❌ 卖出策略执行失败: ${tokenState.symbol} (${tokenState.token})`);
+      console.error(`   原因: ${failureReason}`);
+      console.error(`   result:`, result);
+
+      if (this._roundSummary) {
+        this._roundSummary.recordSignalExecution(tokenState.token, false, failureReason);
+      }
+
       return false;
     }
 
@@ -844,27 +923,36 @@ class BacktestEngine extends AbstractTradingEngine {
   _calculateBuyAmount(signal) {
     // 从 PortfolioManager 获取可用余额
     const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
-    const availableBalance = portfolio?.availableBalance || 0;
+    const cashBalance = portfolio?.cashBalance || 0;
 
     const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
     if (cardManager) {
       const cards = signal.cards || 1;
       const amount = cardManager.calculateBuyAmount(cards);
+      console.log(`💰 计算买入金额: ${signal.symbol}, 卡牌管理器存在, cards=${cards}, amount=${amount}`);
+
       if (amount <= 0) {
+        console.error(`❌ calculateBuyAmount 返回 0: ${signal.symbol}, cards=${cards}`);
         return 0;
       }
       // 转换 Decimal 为数字
       const amountValue = typeof amount === 'number' ? amount : amount.toNumber();
-      const balanceValue = typeof availableBalance === 'number' ? availableBalance : availableBalance.toNumber();
+      const balanceValue = typeof cashBalance === 'number' ? cashBalance : cashBalance.toNumber();
+
+      console.log(`💰 余额检查: amountValue=${amountValue}, balanceValue=${balanceValue}`);
+
       if (balanceValue < amountValue) {
+        console.error(`❌ 余额不足: 需要 ${amountValue}, 可用 ${balanceValue}`);
         return 0;
       }
       return amountValue;
     }
 
+    console.log(`💰 卡牌管理器不存在，使用默认金额: ${signal.symbol}`);
     const tradeAmount = this._experiment.config?.backtest?.tradeAmount || 0.1;
-    const balanceValue = typeof availableBalance === 'number' ? availableBalance : availableBalance.toNumber();
+    const balanceValue = typeof cashBalance === 'number' ? cashBalance : cashBalance.toNumber();
     if (balanceValue < tradeAmount) {
+      console.error(`❌ 余额不足(默认): 需要 ${tradeAmount}, 可用 ${balanceValue}`);
       return 0;
     }
     return tradeAmount;
@@ -881,6 +969,7 @@ class BacktestEngine extends AbstractTradingEngine {
     }
 
     this._status = EngineStatus.RUNNING;
+    this._isStopped = false;  // 🔥 修复：确保引擎未被标记为停止
 
     if (this._experiment) {
       this._experiment.start();

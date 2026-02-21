@@ -409,7 +409,11 @@ class AbstractTradingEngine extends ITradingEngine {
    * @returns {Promise<Object>} 处理结果
    */
   async processSignal(signal) {
+    // 调试：记录 processSignal 被调用
+    console.log(`🔔 processSignal 被调用: ${signal.symbol} ${signal.action} (${signal.tokenAddress})`);
+
     if (!this._experiment) {
+      console.error(`❌ processSignal: this._experiment 为 null`);
       throw new Error('引擎未初始化');
     }
 
@@ -444,6 +448,7 @@ class AbstractTradingEngine extends ITradingEngine {
 
     // 保存信号到数据库
     const signalId = await tradeSignal.save();
+    console.log(`✅ 信号已保存: ${signal.symbol} ${signal.action}, signalId=${signalId}`);
     this._logger.info('信号已保存', {
       signalId,
       action: signal.action,
@@ -453,10 +458,13 @@ class AbstractTradingEngine extends ITradingEngine {
 
     // 执行交易
     let result;
+    // 使用 signal 中的时间戳（如果有），否则使用当前时间
+    // 回测引擎会传入历史数据时间，虚拟引擎使用当前时间
+    const signalTime = signal.timestamp || new Date();
     const metadata = {
       signalId,
       loopCount: this._loopCount,
-      timestamp: new Date().toISOString(),
+      timestamp: signalTime instanceof Date ? signalTime.toISOString() : signalTime,
       factors: signal.factors || null  // 保存 factors 到交易 metadata
     };
 
