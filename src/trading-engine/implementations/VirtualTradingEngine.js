@@ -910,7 +910,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     if (prices.length >= 6 && this._trendDetector) {
       // 使用最近的10个数据点（或全部，如果不足10个）
-      const _prices = prices.slice(0, Math.min(10, prices.length));
+      // 注意：prices 数组中最新价格在末尾，所以用负索引取最近的 N 个
+      const _prices = prices.slice(-Math.min(10, prices.length));
 
       // 四步法核心指标
       factors.trendCV = this._trendDetector._calculateCV(_prices);
