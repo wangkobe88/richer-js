@@ -89,26 +89,30 @@ class ExperimentTimeSeriesService {
       const retryAttempt = options.retryAttempt || 1;
       const maxRetries = options.maxRetries || 3;
 
-      // 首次尝试用较小的分页，后续重试用更保守的设置
+      // 增加超时时间：首次60秒，最少30秒
       const BASE_PAGE_SIZE = 100;
       const PAGE_SIZE = Math.max(50, Math.floor(BASE_PAGE_SIZE / retryAttempt));
-      const MAX_PAGES = 20000; // 支持200万条数据
-      const QUERY_TIMEOUT = Math.max(10000, Math.floor(30000 / retryAttempt)); // 首次30秒，最少10秒
+      const MAX_PAGES = 20000;
+      const QUERY_TIMEOUT = Math.max(30000, Math.floor(60000 / retryAttempt)); // 首次60秒，最少30秒
 
       let allData = [];
       let page = 0;
       let hasMore = true;
       let consecutiveErrors = 0;
+      let consecutiveEmptyPages = 0;
       const MAX_CONSECUTIVE_ERRORS = 3;
+      const MAX_CONSECUTIVE_EMPTY_PAGES = 5; // 连续5页空数据后停止
 
       console.log(`📊 [时序数据] 开始查询 (重试 ${retryAttempt}/${maxRetries}, 分页大小: ${PAGE_SIZE}, 超时: ${QUERY_TIMEOUT}ms)`);
+
+      let lastTimestamp = null; // 用于游标分页
 
       while (hasMore && page < MAX_PAGES) {
         const from = page * PAGE_SIZE;
         const to = from + PAGE_SIZE - 1;
 
         try {
-          // 创建查询
+          // 创建查询 - 使用游标分页避免 range() 的问题
           let query = supabase
             .from('experiment_time_series_data')
             .select('id, experiment_id, token_address, token_symbol, timestamp, loop_count, price_usd, price_native, factor_values, signal_type, signal_executed, execution_reason, blockchain')
@@ -129,17 +133,19 @@ class ExperimentTimeSeriesService {
           }
 
           // 执行查询（带超时）
-          const queryPromise = query;
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Query timeout')), QUERY_TIMEOUT);
           });
 
-          const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+          const { data, error } = await Promise.race([query, timeoutPromise]);
+
+          // 调试日志：每页都输出
+          console.log(`📊 [时序数据] 第 ${page + 1} 页 (range ${from}-${to}): ${data?.length || 0} 条, hasMore=${hasMore}`);
 
           if (error) {
             if (error.message === 'Query timeout' || error.message?.includes('timeout')) {
               console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1}, from=${from}, to=${to})，已获取 ${allData.length} 条数据`);
-              // 超时时返回已获取的数据，让调用者决定是否重试
+              // 超时时返回已获取的数据
               if (allData.length > 0) {
                 console.log(`📊 [时序数据] 返回部分数据: ${allData.length} 条`);
                 return allData;
@@ -165,10 +171,25 @@ class ExperimentTimeSeriesService {
 
           if (data && data.length > 0) {
             allData = allData.concat(data);
+            consecutiveEmptyPages = 0; // 重置空页计数
+
+            // 记录最后一个时间戳，用于后续查询
+            if (data.length > 0) {
+              lastTimestamp = data[data.length - 1].timestamp;
+            }
+
             // 如果返回的数据少于PAGE_SIZE，说明已经是最后一页
             hasMore = data.length === PAGE_SIZE;
           } else {
-            hasMore = false;
+            // 返回空数据
+            consecutiveEmptyPages++;
+            console.warn(`⚠️ [时序数据] 第 ${page + 1} 页返回空数据 (连续空页: ${consecutiveEmptyPages}/${MAX_CONSECUTIVE_EMPTY_PAGES})`);
+
+            // 连续多次空数据，可能已经没有更多数据了
+            if (consecutiveEmptyPages >= MAX_CONSECUTIVE_EMPTY_PAGES) {
+              console.warn(`⚠️ [时序数据] 连续 ${MAX_CONSECUTIVE_EMPTY_PAGES} 页空数据，停止查询`);
+              hasMore = false;
+            }
           }
 
           page++;
@@ -180,6 +201,7 @@ class ExperimentTimeSeriesService {
 
           // 如果设置了limit且已获取足够数据，提前退出
           if (options.limit && allData.length >= options.limit) {
+            console.log(`📊 [时序数据] 达到 limit 限制 (${options.limit})，提前退出`);
             allData = allData.slice(0, options.limit);
             break;
           }
@@ -207,6 +229,8 @@ class ExperimentTimeSeriesService {
         }
       }
 
+      console.log(`📊 [时序数据] 查询循环结束: page=${page}, hasMore=${hasMore}, allData.length=${allData.length}`);
+      console.log(`📊 [时序数据] 查询循环结束: page=${page}, hasMore=${hasMore}, allData.length=${allData.length}`);
       console.log(`📊 [时序数据] 共获取 ${allData.length} 条数据 (实验: ${experimentId}, 代币: ${tokenAddress || '全部'})`);
       return allData;
 

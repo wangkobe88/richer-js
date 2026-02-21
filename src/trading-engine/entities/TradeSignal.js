@@ -40,8 +40,9 @@ class TradeSignal {
     // 执行状态
     this.executed = signalData.executed || false;
 
-    // 时间字段
-    this.createdAt = signalData.createdAt || new Date();
+    // 时间字段（确保是 Date 对象）
+    const createdAtSource = signalData.createdAt;
+    this.createdAt = createdAtSource ? new Date(createdAtSource) : new Date();
   }
 
   /**
@@ -137,7 +138,7 @@ class TradeSignal {
       reason: strategySignal.reason,
       metadata: baseMetadata,
       executed: false,  // 初始为未执行，成功执行后更新为 true
-      createdAt: strategySignal.timestamp || new Date()  // 🔥 使用传入的时间戳，如果没有则使用当前时间
+      createdAt: strategySignal.timestamp ? new Date(strategySignal.timestamp) : new Date()  // 🔥 使用传入的时间戳，如果没有则使用当前时间
     });
   }
 

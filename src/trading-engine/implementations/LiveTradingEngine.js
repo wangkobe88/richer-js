@@ -1752,59 +1752,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
     console.log(`🛑 实盘交易引擎已停止`);
   }
 
-  /**
-   * 构建默认策略（覆盖基类方法，Live 特有实现）
-   * @protected
-   * @returns {Object} 默认策略配置
-   */
-  _buildDefaultStrategies() {
-    const config = this._experiment?.config || {};
-    const strategyConfig = config.strategy || {};
 
-    const takeProfit1 = strategyConfig.takeProfit1 !== undefined ? strategyConfig.takeProfit1 : 30;
-    const takeProfit2 = strategyConfig.takeProfit2 !== undefined ? strategyConfig.takeProfit2 : 50;
-    const stopLossMinutes = strategyConfig.stopLossMinutes !== undefined ? strategyConfig.stopLossMinutes : 5;
-
-    const stopLossSeconds = stopLossMinutes * 60;
-
-    console.log('⚠️ 使用默认实盘策略（止盈+止损）');
-
-    return {
-      take_profit_1: {
-        id: 'take_profit_1',
-        name: `止盈1 (${takeProfit1}%)`,
-        action: 'sell',
-        priority: 1,
-        cooldown: 30,
-        enabled: true,
-        cards: 'all',
-        maxExecutions: 1,
-        condition: `profitPercent >= ${takeProfit1} AND holdDuration > 0`
-      },
-      take_profit_2: {
-        id: 'take_profit_2',
-        name: `止盈2 (${takeProfit2}%)`,
-        action: 'sell',
-        priority: 2,
-        cooldown: 30,
-        enabled: true,
-        cards: 'all',
-        maxExecutions: 1,
-        condition: `profitPercent >= ${takeProfit2} AND holdDuration > 0`
-      },
-      stop_loss: {
-        id: 'stop_loss',
-        name: `时间止损 (${stopLossMinutes}分钟)`,
-        action: 'sell',
-        priority: 10,
-        cooldown: 60,
-        enabled: true,
-        cards: 'all',
-        maxExecutions: 1,
-        condition: `holdDuration >= ${stopLossSeconds} AND profitPercent <= 0`
-      }
-    };
-  }
+  // 注意：不再允许使用硬编码策略
+  // 策略必须在实验配置中通过 config.strategiesConfig 明确定义
 }
 
 module.exports = { LiveTradingEngine };

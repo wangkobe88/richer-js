@@ -160,8 +160,8 @@ class BacktestEngine extends AbstractTradingEngine {
       }
 
       const duration = Date.now() - startTime;
-      console.log(`✅ 回测完成，耗时: ${duration}ms`);
-      console.log(`📊 处理了 ${this.metrics.processedDataPoints} 个数据点`);
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `✅ 回测完成，耗时: ${duration}ms，处理了 ${this.metrics.processedDataPoints} 个数据点`);
 
       // 输出回测结果汇总
       // 从 PortfolioManager 获取最终余额
@@ -170,6 +170,17 @@ class BacktestEngine extends AbstractTradingEngine {
       const finalBalanceValue = typeof finalBalance === 'number' ? finalBalance : finalBalance.toNumber();
       const profit = finalBalanceValue - this.initialBalance;
       const profitPercent = ((profit / this.initialBalance) * 100).toFixed(2);
+
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `📊 回测结果汇总 | ` +
+        `初始余额: ${this.initialBalance} BSC | ` +
+        `最终余额: ${finalBalanceValue.toFixed(2)} BSC | ` +
+        `收益: ${profit.toFixed(2)} BSC (${profitPercent > 0 ? '+' : ''}${profitPercent}%) | ` +
+        `总交易: ${this.metrics.totalTrades} | ` +
+        `成功: ${this.metrics.successfulTrades} | ` +
+        `失败: ${this.metrics.failedTrades}`
+      );
+
       console.log(``);
       console.log(`========================================`);
       console.log(`📊 回测结果汇总`);
@@ -187,25 +198,16 @@ class BacktestEngine extends AbstractTradingEngine {
       completedSuccessfully = true;
 
     } catch (error) {
-      console.error(`❌ 回测执行失败: ${error.message}`);
+      this.logger.error(this._experimentId, 'BacktestEngine',
+        `❌ 回测执行失败: ${error.message}`);
       console.error(error.stack);
     } finally {
-      // 更新实验状态
+      // 使用基类的 _updateExperimentStatus 方法更新最终状态
+      const finalStatus = completedSuccessfully ? 'completed' : 'failed';
+      console.log(`📊 更新实验状态为: ${finalStatus}`);
+
       try {
-        const { ExperimentFactory } = require('../factories/ExperimentFactory');
-        const factory = ExperimentFactory.getInstance();
-
-        const finalStatus = completedSuccessfully ? 'completed' : 'failed';
-
-        console.log(`📊 更新实验状态为: ${finalStatus}`);
-
-        const additionalData = {};
-        if (completedSuccessfully) {
-          additionalData.config = this._experiment?.config || {};
-        }
-
-        await factory.updateStatus(this._experimentId, finalStatus, additionalData);
-        this._status = EngineStatus.STOPPED;
+        await this._updateExperimentStatus(finalStatus);
 
         if (completedSuccessfully) {
           console.log(`✅ 回测实验已完成，状态已更新`);
@@ -519,7 +521,8 @@ class BacktestEngine extends AbstractTradingEngine {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        console.log(`📊 开始加载历史数据 (尝试 ${attempt}/${MAX_RETRIES})，源实验: ${this._sourceExperimentId}`);
+        this.logger.info(this._experimentId, 'BacktestEngine',
+          `📊 开始加载历史数据 (尝试 ${attempt}/${MAX_RETRIES})，源实验: ${this._sourceExperimentId}`);
 
         let data;
         try {
@@ -532,7 +535,8 @@ class BacktestEngine extends AbstractTradingEngine {
             }
           );
         } catch (queryError) {
-          console.warn(`⚠️  时序数据查询出现问题 (尝试 ${attempt}/${MAX_RETRIES}): ${queryError.message}`);
+          this.logger.warn(this._experimentId, '_loadHistoricalData',
+            `⚠️  时序数据查询出现问题 (尝试 ${attempt}/${MAX_RETRIES}): ${queryError.message}`);
           lastError = queryError;
 
           if (attempt === MAX_RETRIES) {
@@ -551,7 +555,8 @@ class BacktestEngine extends AbstractTradingEngine {
             throw new Error(`无法获取源实验的时序数据（已重试 ${MAX_RETRIES} 次）。请确保源实验已运行并收集了足够的时序数据。`);
           }
 
-          console.log(`⏳ 等待 2 秒后重试...`);
+          this.logger.info(this._experimentId, '_loadHistoricalData',
+            `⏳ 等待 2 秒后重试...`);
           await new Promise(resolve => setTimeout(resolve, 2000));
           continue;
         }
@@ -568,18 +573,21 @@ class BacktestEngine extends AbstractTradingEngine {
 
         this._groupDataByLoopCount();
 
-        console.log(`✅ 历史数据加载完成: ${this._historicalData.length} 条数据点`);
+        this.logger.info(this._experimentId, 'BacktestEngine',
+          `✅ 历史数据加载完成: ${this._historicalData.length} 条数据点，分为 ${this._groupedData.length} 个轮次`);
         return;
 
       } catch (error) {
-        console.error(`❌ 加载历史数据失败 (尝试 ${attempt}/${MAX_RETRIES}): ${error.message}`);
+        this.logger.error(this._experimentId, '_loadHistoricalData',
+          `❌ 加载历史数据失败 (尝试 ${attempt}/${MAX_RETRIES}): ${error.message}`);
         lastError = error;
 
         if (attempt === MAX_RETRIES) {
           throw error;
         }
 
-        console.log(`⏳ 等待 2 秒后重试...`);
+        this.logger.info(this._experimentId, '_loadHistoricalData',
+          `⏳ 等待 2 秒后重试...`);
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
@@ -603,7 +611,12 @@ class BacktestEngine extends AbstractTradingEngine {
       .map(([loopCount, dataPoints]) => ({ loopCount, dataPoints }))
       .sort((a, b) => a.loopCount - b.loopCount);
 
-    console.log(`📊 数据分为 ${this._groupedData.length} 个轮次`);
+    const loopCounts = this._groupedData.map(g => g.loopCount);
+    const minLoop = Math.min(...loopCounts);
+    const maxLoop = Math.max(...loopCounts);
+
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `📊 数据分为 ${this._groupedData.length} 个轮次 (loop_count: ${minLoop} - ${maxLoop})`);
   }
 
   /**
@@ -968,19 +981,10 @@ class BacktestEngine extends AbstractTradingEngine {
       return;
     }
 
-    this._status = EngineStatus.RUNNING;
-    this._isStopped = false;  // 🔥 修复：确保引擎未被标记为停止
-
-    if (this._experiment) {
-      this._experiment.start();
-      const { ExperimentFactory } = require('../factories/ExperimentFactory');
-      const factory = ExperimentFactory.getInstance();
-      await factory.updateStatus(this._experimentId, 'running');
-    }
+    // 调用基类 start 方法（会设置状态并调用 _updateExperimentStatus）
+    await super.start();
 
     console.log(`🚀 回测引擎已启动: 实验 ${this._experimentId}`);
-
-    await this._runMainLoop();
   }
 
   /**
@@ -992,92 +996,15 @@ class BacktestEngine extends AbstractTradingEngine {
       return;
     }
 
-    this._status = EngineStatus.STOPPED;
-
-    if (this._experiment) {
-      this._experiment.stop('stopped');
-      const { ExperimentFactory } = require('../factories/ExperimentFactory');
-      const factory = ExperimentFactory.getInstance();
-      await factory.updateStatus(this._experimentId, 'stopped');
-    }
+    // 调用基类 stop 方法（会设置状态并调用 _updateExperimentStatus）
+    await super.stop();
 
     console.log(`🛑 回测引擎已停止: 实验 ${this._experimentId}`);
   }
 
-  /**
-   * 构建默认策略（覆盖基类方法，Backtest 特有实现）
-   * @protected
-   * @returns {Object} 默认策略配置
-   */
-  _buildDefaultStrategies() {
-    const experimentConfig = this._experiment?.config || {};
-    const defaultStrategyConfig = config.strategy || {};
-    const strategyConfig = experimentConfig.strategy || defaultStrategyConfig;
 
-    const buyTimeMinutes = strategyConfig.buyTimeMinutes !== undefined ? strategyConfig.buyTimeMinutes : 1.33;
-    const earlyReturnMin = strategyConfig.earlyReturnMin !== undefined ? strategyConfig.earlyReturnMin : 80;
-    const earlyReturnMax = strategyConfig.earlyReturnMax !== undefined ? strategyConfig.earlyReturnMax : 120;
-    const takeProfit1 = strategyConfig.takeProfit1 !== undefined ? strategyConfig.takeProfit1 : 30;
-    const takeProfit2 = strategyConfig.takeProfit2 !== undefined ? strategyConfig.takeProfit2 : 50;
-    const stopLossMinutes = strategyConfig.stopLossMinutes !== undefined ? strategyConfig.stopLossMinutes : 5;
-
-    const takeProfit1Cards = strategyConfig.takeProfit1Cards !== undefined
-      ? strategyConfig.takeProfit1Cards
-      : 1;
-    const takeProfit2Cards = strategyConfig.takeProfit2Cards !== undefined
-      ? strategyConfig.takeProfit2Cards
-      : 'all';
-
-    const stopLossSeconds = stopLossMinutes * 60;
-
-    console.log('⚠️ 使用默认硬编码策略（未配置自定义策略）');
-
-    return {
-      early_return_buy: {
-        id: 'early_return_buy',
-        name: `早止买入 (${earlyReturnMin}-${earlyReturnMax}%收益率)`,
-        action: 'buy',
-        priority: 1,
-        cooldown: 60,
-        enabled: true,
-        cards: 1,
-        condition: `age < ${buyTimeMinutes} AND earlyReturn >= ${earlyReturnMin} AND earlyReturn < ${earlyReturnMax} AND currentPrice > 0`
-      },
-      take_profit_1: {
-        id: 'take_profit_1',
-        name: `止盈1 (${takeProfit1}%卖出${takeProfit1Cards}卡)`,
-        action: 'sell',
-        priority: 1,
-        cooldown: 30,
-        enabled: true,
-        cards: takeProfit1Cards,
-        maxExecutions: 1,
-        condition: `profitPercent >= ${takeProfit1} AND holdDuration > 0`
-      },
-      take_profit_2: {
-        id: 'take_profit_2',
-        name: `止盈2 (${takeProfit2}%卖出全部)`,
-        action: 'sell',
-        priority: 2,
-        cooldown: 30,
-        enabled: true,
-        cards: takeProfit2Cards,
-        maxExecutions: 1,
-        condition: `profitPercent >= ${takeProfit2} AND holdDuration > 0`
-      },
-      stop_loss: {
-        id: 'stop_loss',
-        name: `时间止损 (${stopLossMinutes}分钟)`,
-        action: 'sell',
-        priority: 10,
-        cooldown: 60,
-        enabled: true,
-        cards: 'all',
-        maxExecutions: 1,
-        condition: `holdDuration >= ${stopLossSeconds} AND profitPercent <= 0`
-      }
-    };
-  }
+  // 注意：不再允许使用硬编码策略
+  // 策略必须在实验配置中通过 config.strategiesConfig 明确定义
 }
 
 module.exports = { BacktestEngine };

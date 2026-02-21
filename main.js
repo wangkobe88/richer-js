@@ -120,12 +120,17 @@ class VirtualTradingSystem {
 
       // 6. 启动引擎
       console.log(`🚀 正在启动引擎...`);
+
+      // 对于回测模式，引擎内部会管理状态（running -> completed/failed）
+      // 对于其他模式，需要在启动前设置为 running
+      if (experiment.tradingMode !== 'backtest') {
+        await experimentFactory.updateStatus(experimentId, 'running');
+      }
+
       await this.engine.start();
       this.isRunning = true;
       this.experimentId = experimentId;
 
-      // 更新实验状态为运行中
-      await experimentFactory.updateStatus(experimentId, 'running');
       console.log(`✅ 引擎已启动`);
 
       // 7. 打印引擎信息

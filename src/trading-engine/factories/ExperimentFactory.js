@@ -137,10 +137,18 @@ class ExperimentFactory {
         updateData.stopped_at = new Date().toISOString();
       }
 
-      // 合并额外数据
+      // 合并额外数据（但不覆盖 status 和 stopped_at）
       if (Object.keys(additionalData).length > 0) {
         Object.assign(updateData, additionalData);
       }
+
+      // 确保 status 和 stopped_at 不被覆盖
+      updateData.status = status;
+      if (['completed', 'failed', 'stopped'].includes(status)) {
+        updateData.stopped_at = new Date().toISOString();
+      }
+
+      console.log(`📝 ExperimentFactory.updateStatus: experimentId=${experimentId}, status=${status}, stopped_at=${updateData.stopped_at}`);
 
       const { error } = await this.supabase
         .from('experiments')
@@ -151,10 +159,12 @@ class ExperimentFactory {
         throw error;
       }
 
+      console.log(`✅ ExperimentFactory.updateStatus: 实验状态更新成功`);
       return true;
 
     } catch (error) {
       console.error('❌ 更新实验状态失败:', error.message);
+      console.error('   updateData:', { status, ...additionalData });
       return false;
     }
   }

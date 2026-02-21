@@ -335,6 +335,7 @@ class AbstractTradingEngine extends ITradingEngine {
    * 构建策略配置
    * @protected
    * @returns {Object} 策略配置
+   * @throws {Error} 如果实验没有配置交易策略
    */
   _buildStrategyConfig() {
     // 策略配置可能在 config.strategiesConfig 或直接在 experiment 上
@@ -343,8 +344,12 @@ class AbstractTradingEngine extends ITradingEngine {
       return strategiesConfig;
     }
 
-    // 使用默认策略配置
-    return this._buildDefaultStrategies();
+    // 不允许使用硬编码策略，必须明确配置
+    throw new Error(
+      `实验 ${this._experimentId} 没有配置交易策略。` +
+      `请在实验配置中设置 config.strategiesConfig，` +
+      `包含 buyStrategies 和 sellStrategies 数组。`
+    );
   }
 
   /**
@@ -369,30 +374,6 @@ class AbstractTradingEngine extends ITradingEngine {
     }
 
     return strategies;
-  }
-
-  /**
-   * 构建默认策略配置
-   * @protected
-   * @returns {Object} 默认策略配置
-   */
-  _buildDefaultStrategies() {
-    return {
-      momentum: {
-        enabled: true,
-        params: {
-          buyThreshold: 0.3,
-          sellThreshold: -0.2
-        }
-      },
-      liquidity: {
-        enabled: true,
-        params: {
-          minLiquidity: 10000,
-          minLiquidityChange: 0.5
-        }
-      }
-    };
   }
 
   // ==================== 信号处理方法（共同逻辑）====================
@@ -443,7 +424,8 @@ class AbstractTradingEngine extends ITradingEngine {
       action: signal.action.toLowerCase(),
       confidence: signal.confidence || 0.5,
       reason: signal.reason || '',
-      metadata: signalMetadata
+      metadata: signalMetadata,
+      createdAt: signal.timestamp || new Date()  // 使用信号中的时间戳（回测使用历史时间）
     });
 
     // 保存信号到数据库
@@ -525,9 +507,10 @@ class AbstractTradingEngine extends ITradingEngine {
       executed: status === 'executed'
     };
 
-    if (result.tradeId) {
-      updateData.trade_id = result.tradeId;
-    }
+    // 注意：strategy_signals 表没有 trade_id 列，交易信息存储在 metadata 中
+    // if (result.tradeId) {
+    //   updateData.trade_id = result.tradeId;
+    // }
 
     if (result.message) {
       updateData.execution_reason = result.message;
@@ -538,7 +521,16 @@ class AbstractTradingEngine extends ITradingEngine {
     if (result.trade || result.success !== undefined) {
       newMetadata.tradeResult = {
         success: result.success || false,
-        trade: result.trade || null
+        tradeId: result.tradeId || null,  // 存储交易ID
+        trade: result.trade ? {
+          id: result.trade.id,
+          tokenSymbol: result.trade.tokenSymbol,
+          tradeDirection: result.trade.tradeDirection,
+          inputAmount: result.trade.inputAmount,
+          outputAmount: result.trade.outputAmount,
+          unitPrice: result.trade.unitPrice,
+          success: result.trade.success
+        } : null
       };
     }
     updateData.metadata = newMetadata;
@@ -632,7 +624,7 @@ class AbstractTradingEngine extends ITradingEngine {
         success: true,
         tradeId: trade.id,
         trade: trade,
-        ...result
+        portfolio: result.portfolio  // 只提取 portfolio，不覆盖 trade
       };
     } else {
       // 标记交易为失败

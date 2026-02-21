@@ -65,7 +65,10 @@ class Trade {
     this.metadata = tradeData.metadata || {};
 
     // 时间字段
-    this.createdAt = tradeData.createdAt || new Date();
+    // 优先使用 createdAt，如果没有则从 metadata.timestamp 获取（回测引擎使用历史时间）
+    // 确保 createdAt 始终是 Date 对象
+    const timestampSource = tradeData.createdAt || tradeData.metadata?.timestamp;
+    this.createdAt = timestampSource ? new Date(timestampSource) : new Date();
     this.executedAt = tradeData.executedAt || null;
   }
 
