@@ -456,7 +456,8 @@ class AbstractTradingEngine extends ITradingEngine {
     const metadata = {
       signalId,
       loopCount: this._loopCount,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      factors: signal.factors || null  // 保存 factors 到交易 metadata
     };
 
     try {

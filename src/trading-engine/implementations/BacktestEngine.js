@@ -442,12 +442,9 @@ class BacktestEngine extends AbstractTradingEngine {
     const strategies = this._buildStrategyConfig();
     this._strategyEngine = new StrategyEngine({ strategies });
 
-    const availableFactorIds = new Set([
-      'age', 'currentPrice', 'collectionPrice', 'earlyReturn', 'buyPrice',
-      'holdDuration', 'profitPercent',
-      'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
-      'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap'
-    ]);
+    // 使用统一的 FactorBuilder 获取可用因子列表
+    const { getAvailableFactorIds } = require('../core/FactorBuilder');
+    const availableFactorIds = getAvailableFactorIds();
 
     this._strategyEngine.loadStrategies(strategies, availableFactorIds);
     console.log(`✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
@@ -688,49 +685,20 @@ class BacktestEngine extends AbstractTradingEngine {
    * @returns {Object} 因子结果
    */
   _buildFactorsFromData(tokenState, dataPoint) {
+    // 使用统一的 FactorBuilder 构建因子
+    const { buildFactorsFromTimeSeries } = require('../core/FactorBuilder');
+
     const factorValues = dataPoint.factor_values || {};
     const now = new Date(dataPoint.timestamp).getTime();
     const priceUsd = parseFloat(dataPoint.price_usd) || 0;
 
-    const collectionTime = tokenState.collectionTime || now;
-    const age = (now - collectionTime) / 1000 / 60;
-
-    const holdDuration = tokenState.buyTime ? (now - tokenState.buyTime) / 1000 : 0;
-
-    let profitPercent = 0;
-    if (tokenState.buyPrice && tokenState.buyPrice > 0 && priceUsd > 0) {
-      profitPercent = ((priceUsd - tokenState.buyPrice) / tokenState.buyPrice) * 100;
-    }
-
-    const highestPrice = tokenState.highestPrice || priceUsd;
-    let drawdownFromHighest = 0;
-    if (highestPrice > 0 && priceUsd > 0) {
-      drawdownFromHighest = ((priceUsd - highestPrice) / highestPrice) * 100;
-    }
-
-    if (priceUsd > tokenState.highestPrice) {
+    // 更新最高价格状态
+    if (priceUsd > (tokenState.highestPrice || 0)) {
       tokenState.highestPrice = priceUsd;
       tokenState.highestPriceTimestamp = now;
     }
 
-    return {
-      age: age,
-      currentPrice: priceUsd,
-      collectionPrice: tokenState.collectionPrice,
-      earlyReturn: factorValues.earlyReturn || 0,
-      riseSpeed: factorValues.riseSpeed || 0,
-      buyPrice: tokenState.buyPrice || 0,
-      holdDuration: holdDuration,
-      profitPercent: profitPercent,
-      highestPrice: highestPrice,
-      highestPriceTimestamp: tokenState.highestPriceTimestamp,
-      drawdownFromHighest: drawdownFromHighest,
-      txVolumeU24h: factorValues.txVolumeU24h || 0,
-      holders: factorValues.holders || 0,
-      tvl: factorValues.tvl || 0,
-      fdv: factorValues.fdv || 0,
-      marketCap: factorValues.marketCap || 0
-    };
+    return buildFactorsFromTimeSeries(factorValues, tokenState, priceUsd, now);
   }
 
   /**

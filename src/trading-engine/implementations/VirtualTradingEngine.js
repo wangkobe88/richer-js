@@ -455,20 +455,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     const strategiesConfig = this._buildStrategyConfig();
     this._strategyEngine = new StrategyEngine({ strategies: strategiesConfig });
 
-    const availableFactorIds = new Set([
-      'age', 'currentPrice', 'collectionPrice', 'earlyReturn', 'buyPrice',
-      'holdDuration', 'profitPercent',
-      'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
-      'fdv', 'holders', 'tvl', 'marketCap',
-      // 趋势检测因子
-      'trendDataPoints',
-      // 四步法核心指标
-      'trendCV', 'trendDirectionCount', 'trendStrengthScore', 'trendTotalReturn', 'trendRiseRatio',
-      // 卖出相关指标
-      'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns', 'trendPriceChangeFromDetect',
-      // 持仓后指标
-      'trendSinceBuyReturn', 'trendSinceBuyDataPoints'
-    ]);
+    // 使用统一的 FactorBuilder 获取可用因子列表
+    const { getAvailableFactorIds } = require('../core/FactorBuilder');
+    const availableFactorIds = getAvailableFactorIds();
 
     // 转换策略配置格式：{ buyStrategies: [...], sellStrategies: [...] } -> 扁平数组
     const strategyArray = [];
@@ -686,6 +675,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       console.log(`📊 [时序数据] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
 
+      // 使用统一的 FactorBuilder 序列化因子
+      const { buildFactorValuesForTimeSeries } = require('../core/FactorBuilder');
+
       const recordResult = await this.timeSeriesService.recordRoundData({
         experimentId: this._experimentId,
         tokenAddress: token.token,
@@ -694,25 +686,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         loopCount: this._loopCount,
         priceUsd: factorResults.currentPrice,
         priceNative: null,
-        factorValues: {
-          age: factorResults.age,
-          currentPrice: factorResults.currentPrice,
-          collectionPrice: factorResults.collectionPrice,
-          launchPrice: factorResults.launchPrice,
-          earlyReturn: factorResults.earlyReturn,
-          riseSpeed: factorResults.riseSpeed,
-          buyPrice: factorResults.buyPrice,
-          holdDuration: factorResults.holdDuration,
-          profitPercent: factorResults.profitPercent,
-          highestPrice: factorResults.highestPrice,
-          highestPriceTimestamp: factorResults.highestPriceTimestamp,
-          drawdownFromHighest: factorResults.drawdownFromHighest,
-          txVolumeU24h: factorResults.txVolumeU24h,
-          holders: factorResults.holders,
-          tvl: factorResults.tvl,
-          fdv: factorResults.fdv,
-          marketCap: factorResults.marketCap
-        },
+        factorValues: buildFactorValuesForTimeSeries(factorResults),
         blockchain: this._experiment.blockchain || 'bsc'
       });
 

@@ -1198,6 +1198,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
       // 记录时序数据（与虚拟盘一致，添加日志）
       console.log(`📊 [时序数据] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
       if (this.timeSeriesService) {
+        // 使用统一的 FactorBuilder 序列化因子
+        const { buildFactorValuesForTimeSeries } = require('../core/FactorBuilder');
+
         const recordResult = await this.timeSeriesService.recordRoundData({
           experimentId: this._experimentId,
           tokenAddress: token.token,
@@ -1206,25 +1209,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           loopCount: this._loopCount,
           priceUsd: factorResults.currentPrice,
           priceNative: null,
-          factorValues: {
-            age: factorResults.age,
-            currentPrice: factorResults.currentPrice,
-            collectionPrice: factorResults.collectionPrice,
-            launchPrice: factorResults.launchPrice,
-            earlyReturn: factorResults.earlyReturn,
-            riseSpeed: factorResults.riseSpeed,
-            buyPrice: factorResults.buyPrice,
-            holdDuration: factorResults.holdDuration,
-            profitPercent: factorResults.profitPercent,
-            highestPrice: factorResults.highestPrice,
-            highestPriceTimestamp: factorResults.highestPriceTimestamp,
-            drawdownFromHighest: factorResults.drawdownFromHighest,
-            txVolumeU24h: factorResults.txVolumeU24h,
-            holders: factorResults.holders,
-            tvl: factorResults.tvl,
-            fdv: factorResults.fdv,
-            marketCap: factorResults.marketCap
-          },
+          factorValues: buildFactorValuesForTimeSeries(factorResults),
           blockchain: this._blockchain
         });
         console.log(`📊 [时序数据] 保存结果 | symbol=${token.symbol}, result=${recordResult}`);
