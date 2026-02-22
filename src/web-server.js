@@ -14,6 +14,7 @@ const path = require('path');
 const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
 const { ExperimentDataService } = require('./web/services/ExperimentDataService');
 const { WalletDataService } = require('./web/services/WalletDataService');
+const { TokenHolderDataService } = require('./web/services/TokenHolderDataService');
 const PriceRefreshService = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 
@@ -72,6 +73,7 @@ class RicherJsWebServer {
     this.experimentFactory = ExperimentFactory.getInstance();
     this.dataService = new ExperimentDataService();
     this.walletService = new WalletDataService();
+    this.tokenHolderService = new TokenHolderDataService();
     this.priceRefreshService = new PriceRefreshService(
       console,
       this.dataService.supabase,
@@ -141,6 +143,11 @@ class RicherJsWebServer {
     // 钱包管理页面
     this.app.get('/wallets', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/wallets.html'));
+    });
+
+    // 代币持有者页面
+    this.app.get('/token-holders', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/token-holders.html'));
     });
 
     // 实验子页面（必须在 /experiment/:id 之前定义）
@@ -480,6 +487,35 @@ class RicherJsWebServer {
         res.json({ success: true });
       } catch (error) {
         console.error('删除钱包失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ API路由：代币持有者 ============
+
+    // 获取代币持有者数据
+    this.app.get('/api/token-holders/:tokenAddress', async (req, res) => {
+      try {
+        const { tokenAddress } = req.params;
+        if (!tokenAddress) {
+          return res.status(400).json({ success: false, error: '代币地址不能为空' });
+        }
+        const data = await this.tokenHolderService.getTokenHolders(tokenAddress);
+        res.json({ success: true, data });
+      } catch (error) {
+        console.error('获取代币持有者失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取有持有者数据的代币列表
+    this.app.get('/api/token-holders', async (req, res) => {
+      try {
+        const { experiment } = req.query;
+        const tokens = await this.tokenHolderService.getTokenList(experiment || null);
+        res.json({ success: true, data: tokens });
+      } catch (error) {
+        console.error('获取代币列表失败:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

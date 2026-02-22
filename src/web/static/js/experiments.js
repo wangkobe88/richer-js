@@ -237,7 +237,7 @@ class ExperimentMonitor {
                 查看详情 →
               </a>
             </div>
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap gap-2 mb-2">
               <a href="/experiment/${exp.id}/signals" class="text-green-600 hover:text-green-800 text-sm">
                 信号
               </a>
@@ -253,7 +253,11 @@ class ExperimentMonitor {
               <a href="/experiment/${exp.id}/token-returns" class="text-orange-600 hover:text-orange-800 text-sm">
                 收益
               </a>
-              <div class="flex-grow"></div>
+              <a href="/token-holders?experiment=${exp.id}" class="text-cyan-600 text-sm" title="查看该实验的代币持有者信息">
+                持有者
+              </a>
+            </div>
+            <div class="flex justify-end gap-2">
               <button data-action="copy-experiment" data-id="${exp.id}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors">
                 📋 复制
               </button>

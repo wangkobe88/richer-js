@@ -11,10 +11,11 @@ const { TokenHolderService } = require('../trading-engine/holders/TokenHolderSer
 const { dbManager } = require('../services/dbManager');
 
 class FourmemeCollector {
-    constructor(config, logger, tokenPool) {
+    constructor(config, logger, tokenPool, experimentId = null) {
         this.config = config;
         this.logger = logger;
         this.tokenPool = tokenPool;
+        this.experimentId = experimentId;  // 保存实验ID
         this.collectorConfig = config.collector;
         this.aveConfig = config.ave;
 
@@ -247,7 +248,7 @@ class FourmemeCollector {
                         console.log(`[持有者黑名单检测] 检查代币 ${token.symbol} (${token.token}) 持有者...`);
                         const holderCheck = await this.tokenHolderService.checkHolderRisk(
                             token.token,
-                            null,  // 收集阶段无 experimentId
+                            this.experimentId,  // 传递实验ID
                             token.chain || 'bsc',
                             ['pump_group', 'negative_holder']
                         );

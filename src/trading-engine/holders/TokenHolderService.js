@@ -49,23 +49,29 @@ class TokenHolderService {
   /**
    * 检查持有者是否包含黑名单钱包
    * @param {string} tokenAddress - 代币地址
+   * @param {string} experimentId - 实验ID，可为 null
    * @param {string} chain - 区块链，默认 'bsc'
    * @param {Array<string>} riskCategories - 风险category数组，如 ['pump_group', 'negative_holder']
    * @returns {Promise<Object>} { hasNegative, negativeHolders, reason }
    */
   async checkHolderRisk(tokenAddress, experimentId, chain = 'bsc', riskCategories = ['pump_group', 'negative_holder']) {
     try {
-      // 获取最新的持有者数据
-      const holderData = await this._getLatestHolders(tokenAddress);
+      // 添加调试日志
+      this.logger.info('[TokenHolderService] checkHolderRisk 调用', {
+        token_address: tokenAddress,
+        experiment_id: experimentId,
+        experiment_id_type: typeof experimentId,
+        chain: chain
+      });
 
-      if (!holderData) {
-        // 如果没有数据，先获取
-        await this.fetchAndStoreHolders(tokenAddress, experimentId, chain);
-        // 重新获取
-        const newData = await this._getLatestHolders(tokenAddress);
-        return this._checkNegativeHolders(newData.holders, riskCategories);
-      }
+      // 总是获取最新数据并更新（使用 upsert）
+      const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
 
+      // 存储到数据库（会更新已存在的记录）
+      const snapshotId = `${tokenAddress}_${Date.now()}`;
+      await this._storeHolders(tokenAddress, experimentId, snapshotId, holderData);
+
+      // 检查黑名单持有者
       return this._checkNegativeHolders(holderData.holders, riskCategories);
     } catch (error) {
       this.logger.error(null, 'TokenHolderService',
@@ -110,18 +116,46 @@ class TokenHolderService {
   }
 
   /**
-   * 私有方法：存储持有者数据
+   * 私有方法：存储持有者数据（总是插入新记录）
    * @private
    */
   async _storeHolders(tokenAddress, experimentId, snapshotId, holderData) {
-    await this.supabase
+    // 添加调试日志
+    this.logger.info('[TokenHolderService] 准备存储持有者数据', {
+      token_address: tokenAddress,
+      experiment_id: experimentId,
+      experiment_id_type: typeof experimentId,
+      holders_count: holderData.holders?.length || 0
+    });
+
+    // 直接插入新记录（一个代币可以有多条持有者记录）
+    const { error, data } = await this.supabase
       .from('token_holders')
       .insert({
         token_address: tokenAddress,
         experiment_id: experimentId,
         holder_data: holderData,
         snapshot_id: snapshotId
+      })
+      .select()
+      .single();
+
+    if (error) {
+      this.logger.error('[TokenHolderService] 插入失败', {
+        error: error.message,
+        details: error.hint || error.details || error.code,
+        token_address: tokenAddress,
+        experiment_id: experimentId
       });
+      throw new Error(`存储持有者数据失败: ${error.message}`);
+    }
+
+    this.logger.info('[TokenHolderService] 插入成功', {
+      token_address: tokenAddress,
+      experiment_id: experimentId,
+      inserted_id: data?.id,
+      inserted_experiment_id: data?.experiment_id
+    });
   }
 
   /**

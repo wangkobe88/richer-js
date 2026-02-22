@@ -440,13 +440,14 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     );
     console.log(`✅ FourMeme API初始化完成`);
 
-    // 3. 初始化收集器
+    // 3. 初始化收集器（传递实验ID）
     this._fourmemeCollector = new FourmemeCollector(
       config,
       this.logger,
-      this._tokenPool
+      this._tokenPool,
+      this._experimentId  // 传递实验ID
     );
-    console.log(`✅ Fourmeme收集器初始化完成`);
+    console.log(`✅ Fourmeme收集器初始化完成 [实验ID: ${this._experimentId}]`);
 
     // 4. 初始化RSI指标
     const { RSIIndicator } = require('../../indicators/RSIIndicator');
