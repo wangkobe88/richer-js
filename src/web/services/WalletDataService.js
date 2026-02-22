@@ -120,6 +120,57 @@ class WalletDataService {
       return false;
     }
   }
+
+  /**
+   * 批量创建钱包（跳过已存在的）
+   * @param {Array<Object>} wallets - 钱包数组 [{ address, name, category }]
+   * @return {Promise<Object>} { success: 数量, skipped: 数量, errors: 数量 }
+   */
+  async bulkCreateWallets(wallets) {
+    const results = {
+      success: 0,
+      skipped: 0,
+      errors: 0,
+      details: []
+    };
+
+    try {
+      // 获取所有现有地址
+      const { data: existing } = await this.supabase
+        .from('wallets')
+        .select('address');
+
+      const existingAddresses = new Set(
+        (existing || []).map(w => w.address.toLowerCase())
+      );
+
+      // 过滤出需要新增的钱包
+      const newWallets = wallets.filter(w => {
+        const addr = w.address?.toLowerCase();
+        return addr && !existingAddresses.has(addr);
+      });
+
+      results.skipped = wallets.length - newWallets.length;
+
+      // 批量插入
+      if (newWallets.length > 0) {
+        const { data, error } = await this.supabase
+          .from('wallets')
+          .insert(newWallets)
+          .select();
+
+        if (error) throw error;
+        results.success = data.length;
+        results.details = data;
+      }
+
+      return results;
+    } catch (error) {
+      console.error('批量创建钱包失败:', error);
+      results.errors = wallets.length - results.success - results.skipped;
+      throw error;
+    }
+  }
 }
 
 module.exports = { WalletDataService };

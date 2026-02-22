@@ -520,6 +520,72 @@ class RicherJsWebServer {
       }
     });
 
+    // 批量添加流水盘钱包到黑名单
+    this.app.post('/api/token-holders/add-pump-group', async (req, res) => {
+      try {
+        const { holders, snapshotDate } = req.body;
+
+        if (!holders || !Array.isArray(holders)) {
+          return res.status(400).json({ success: false, error: '持有者数据格式错误' });
+        }
+
+        // 排除 fourmeme LP 地址
+        const EXCLUDE_LP = '0x5c952063c7fc8610ffdb798152d69f0b9550762b';
+
+        // 筛选持仓比例大于1%的钱包
+        const targetWallets = holders.filter(h => {
+          if (h.address?.toLowerCase() === EXCLUDE_LP.toLowerCase()) {
+            return false;
+          }
+          let ratio = 0;
+          if (typeof h.balance_ratio === 'number') {
+            ratio = h.balance_ratio;
+          } else if (typeof h.balance_ratio === 'string') {
+            const cleaned = h.balance_ratio.replace('%', '').trim();
+            ratio = (parseFloat(cleaned) || 0) / 100;
+          }
+          return ratio > 0.01; // 大于1%
+        });
+
+        if (targetWallets.length === 0) {
+          return res.json({
+            success: true,
+            message: '没有符合条件的新钱包需要添加',
+            data: { success: 0, skipped: 0, wallets: [] }
+          });
+        }
+
+        // 生成钱包名称（使用日期）
+        const dateStr = snapshotDate
+          ? new Date(snapshotDate).toISOString().split('T')[0].replace(/-/g, '')
+          : new Date().toISOString().split('T')[0].replace(/-/g, '');
+        const walletName = `流水盘钱包群-${dateStr}`;
+
+        // 批量创建钱包
+        const walletsToCreate = targetWallets.map(h => ({
+          address: h.address,
+          name: walletName,
+          category: 'pump_group'
+        }));
+
+        const result = await this.walletService.bulkCreateWallets(walletsToCreate);
+
+        res.json({
+          success: true,
+          message: `成功添加 ${result.success} 个钱包，跳过 ${result.skipped} 个已存在的钱包`,
+          data: {
+            success: result.success,
+            skipped: result.skipped,
+            walletName: walletName,
+            wallets: result.details
+          }
+        });
+      } catch (error) {
+        console.error('批量添加流水盘钱包失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // ============ API路由：实验数据 ============
 
     // 获取交易信号

@@ -12,6 +12,7 @@ class TokenHoldersManager {
     // 检查 URL 参数
     const urlParams = new URLSearchParams(window.location.search);
     this.experimentId = urlParams.get('experiment');
+    const tokenParam = urlParams.get('token');
 
     this.bindEvents();
 
@@ -21,6 +22,14 @@ class TokenHoldersManager {
       await this.loadTokenList(this.experimentId);
     } else {
       await this.loadTokenList();
+    }
+
+    // 如果有代币地址参数，自动搜索
+    if (tokenParam) {
+      // 设置搜索框的值
+      document.getElementById('token-search').value = tokenParam;
+      // 执行搜索
+      await this.search();
     }
   }
 
@@ -184,6 +193,9 @@ class TokenHoldersManager {
         ? `⚠️ ${snapshot.blacklisted_count} 个黑名单`
         : '✅ 无黑名单';
 
+      // 将持有者数据存储为JSON，供按钮使用
+      const holdersJson = encodeURIComponent(JSON.stringify(snapshot.holders));
+
       return `
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 overflow-hidden">
           <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
@@ -201,9 +213,16 @@ class TokenHoldersManager {
                 <p class="text-sm text-gray-600 mt-1">
                   持有者: ${snapshot.holders_count} 个
                 </p>
+                <p class="text-xs text-gray-500 mt-1">
+                  快照ID: <span class="font-mono">${snapshot.snapshot_id || 'N/A'}</span>
+                </p>
                 <span class="inline-block mt-2 px-3 py-1 rounded-full text-xs font-medium ${badgeClass}">
                   ${badgeText}
                 </span>
+                <button onclick="window.tokenHolders.addPumpGroupWallets('${holdersJson}', '${snapshot.checked_at}')"
+                        class="ml-2 px-3 py-1 bg-orange-500 hover:bg-orange-600 rounded text-xs font-medium text-white transition-colors">
+                  ⚠️ 添加流水盘钱包
+                </button>
               </div>
             </div>
           </div>
@@ -264,6 +283,9 @@ class TokenHoldersManager {
         <td class="px-4 py-2 text-sm">
           <span class="font-mono text-gray-900">${holder.address}</span>
           ${holder.wallet_name ? `<span class="ml-2 text-xs text-gray-500">(${holder.wallet_name})</span>` : ''}
+          <a href="https://gmgn.ai/bsc/address/${holder.address}" target="_blank" class="ml-2 text-xs text-blue-500 hover:text-blue-700" title="在 GMGN 查看">
+            GMGN
+          </a>
         </td>
         <td class="px-4 py-2 text-right text-sm text-gray-900">${holder.balance_ratio || '-'}</td>
         <td class="px-4 py-2 text-right text-sm text-gray-900">${holder.balance_usd || '-'}</td>
@@ -290,6 +312,52 @@ class TokenHoldersManager {
         btn.textContent = originalText;
       }, 1500);
     });
+  }
+
+  /**
+   * 添加流水盘钱包到黑名单
+   * @param {string} holdersJson - 持有者数据的JSON字符串（已编码）
+   * @param {string} snapshotDate - 快照时间
+   */
+  async addPumpGroupWallets(holdersJson, snapshotDate) {
+    try {
+      const holders = JSON.parse(decodeURIComponent(holdersJson));
+
+      // 确认对话框
+      const confirmed = confirm(
+        `⚠️ 确定要添加流水盘钱包吗？\n\n` +
+        `将把持仓比例 > 1% 的钱包（排除 fourmeme LP）添加到黑名单。\n` +
+        `钱包名称: 流水盘钱包群-${new Date(snapshotDate).toISOString().split('T')[0].replace(/-/g, '')}\n` +
+        `分类: pump_group`
+      );
+
+      if (!confirmed) return;
+
+      // 调用API
+      const response = await fetch('/api/token-holders/add-pump-group', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          holders: holders,
+          snapshotDate: snapshotDate
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`✅ ${result.message}\n\n钱包名称: ${result.data.walletName}`);
+        // 重新加载数据
+        this.search();
+      } else {
+        alert(`❌ 添加失败: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('添加流水盘钱包失败:', error);
+      alert(`❌ 添加失败: ${error.message}`);
+    }
   }
 
   showLoading(show) {

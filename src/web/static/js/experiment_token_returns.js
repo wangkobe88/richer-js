@@ -401,8 +401,11 @@ class ExperimentTokenReturns {
             <a href="/experiment/${this.experimentId}/trades#token=${item.tokenAddress}" target="_blank" class="text-blue-400 hover:text-blue-300 text-sm mr-2">
               查看交易
             </a>
-            <a href="/experiment/${this.experimentId}/signals#token=${item.tokenAddress}" target="_blank" class="text-purple-400 hover:text-purple-300 text-sm">
+            <a href="/experiment/${this.experimentId}/signals#token=${item.tokenAddress}" target="_blank" class="text-purple-400 hover:text-purple-300 text-sm mr-2">
               查看信号
+            </a>
+            <a href="/token-holders?experiment=${this.experimentId}&token=${item.tokenAddress}" target="_blank" class="text-cyan-400 hover:text-cyan-300 text-sm">
+              持有者
             </a>
           </td>
         </tr>
