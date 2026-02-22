@@ -411,6 +411,11 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     });
     console.log(`✅ 趋势检测器初始化完成`);
 
+    // 2.1 初始化持有者服务
+    const { TokenHolderService } = require('../holders/TokenHolderService');
+    this._tokenHolderService = new TokenHolderService(this.supabase, this.logger);
+    console.log(`✅ 持有者服务初始化完成`);
+
     // 3. 初始化代币池（传入价格历史缓存）
     this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache);
     console.log(`✅ 代币池初始化完成`);
@@ -635,6 +640,35 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     try {
       const tokenKey = `${token.token}-${token.chain}`;
       if (!this._seenTokens.has(tokenKey)) {
+        // 功能一：持有者黑名单检测（监控池加入前）
+        if (this._tokenHolderService) {
+          try {
+            const holderCheck = await this._tokenHolderService.checkHolderRisk(
+              token.token,
+              ['pump_group', 'negative_holder']
+            );
+
+            if (holderCheck.hasNegative) {
+              // 标记代币状态为 bad_holder
+              await this.supabase
+                .from('experiment_tokens')
+                .update({ status: 'bad_holder' })
+                .eq('token_address', token.token);
+
+              this.logger.warn(this._experimentId, 'ProcessToken',
+                `拒绝加入监控池: ${token.symbol} - ${holderCheck.reason}`);
+
+              // 添加到 seenTokens 避免重复检查
+              this._seenTokens.add(tokenKey);
+              return;
+            }
+          } catch (holderError) {
+            this.logger.error(this._experimentId, 'ProcessToken',
+              `持有者检测失败: ${token.symbol} - ${holderError.message}`);
+            // 检测失败时继续流程，避免阻止正常代币
+          }
+        }
+
         await this.dataService.saveToken(this._experimentId, {
           token: token.token,
           symbol: token.symbol,
@@ -1043,7 +1077,47 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         this.logger.info(this._experimentId, '_executeStrategy',
           `无 creator_address，跳过 Dev 钱包检查，继续购买流程 | symbol=${token.symbol}`);
       }
-      // ========== 验证结束 ==========
+      // ========== Dev 钱包验证结束 ==========
+
+      // 功能二：购买前持有者二次检测
+      if (this._tokenHolderService) {
+        try {
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `开始持有者黑名单检测 | symbol=${token.symbol}`);
+
+          const holderCheck = await this._tokenHolderService.checkHolderRisk(
+            token.token,
+            ['pump_group', 'negative_holder']
+          );
+
+          if (holderCheck.hasNegative) {
+            this.logger.warn(this._experimentId, '_executeStrategy',
+              `拒绝购买: ${token.symbol} - ${holderCheck.reason}`);
+
+            // 记录被阻止的信号
+            if (this._roundSummary) {
+              this._roundSummary.recordSignal(token.token, {
+                direction: 'BUY',
+                action: 'buy',
+                confidence: 0,
+                reason: `黑名单持有者: ${holderCheck.reason}`,
+                blocked: true,
+                blockReason: 'bad_holder'
+              });
+            }
+
+            return false;
+          }
+
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `持有者黑名单检测通过 | symbol=${token.symbol}`);
+        } catch (holderError) {
+          this.logger.error(this._experimentId, '_executeStrategy',
+            `持有者检测失败: ${token.symbol} - ${holderError.message}`);
+          // 检测失败时继续流程，避免阻止正常购买
+        }
+      }
+      // ========== 持有者检测结束 ==========
 
       if (!token.strategyExecutions) {
         const strategyIds = this._strategyEngine.getAllStrategies().map(s => s.id);
