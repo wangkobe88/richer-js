@@ -413,7 +413,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     // 2.1 初始化持有者服务
     const { TokenHolderService } = require('../holders/TokenHolderService');
-    this._tokenHolderService = new TokenHolderService(this.supabase, this.logger);
+    const { dbManager } = require('../../services/dbManager');
+    const supabase = dbManager.getClient();
+    this._tokenHolderService = new TokenHolderService(supabase, this.logger);
     console.log(`✅ 持有者服务初始化完成`);
 
     // 3. 初始化代币池（传入价格历史缓存）
@@ -640,35 +642,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     try {
       const tokenKey = `${token.token}-${token.chain}`;
       if (!this._seenTokens.has(tokenKey)) {
-        // 功能一：持有者黑名单检测（监控池加入前）
-        if (this._tokenHolderService) {
-          try {
-            const holderCheck = await this._tokenHolderService.checkHolderRisk(
-              token.token,
-              ['pump_group', 'negative_holder']
-            );
-
-            if (holderCheck.hasNegative) {
-              // 标记代币状态为 bad_holder
-              await this.supabase
-                .from('experiment_tokens')
-                .update({ status: 'bad_holder' })
-                .eq('token_address', token.token);
-
-              this.logger.warn(this._experimentId, 'ProcessToken',
-                `拒绝加入监控池: ${token.symbol} - ${holderCheck.reason}`);
-
-              // 添加到 seenTokens 避免重复检查
-              this._seenTokens.add(tokenKey);
-              return;
-            }
-          } catch (holderError) {
-            this.logger.error(this._experimentId, 'ProcessToken',
-              `持有者检测失败: ${token.symbol} - ${holderError.message}`);
-            // 检测失败时继续流程，避免阻止正常代币
-          }
-        }
-
         await this.dataService.saveToken(this._experimentId, {
           token: token.token,
           symbol: token.symbol,
@@ -1087,6 +1060,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
           const holderCheck = await this._tokenHolderService.checkHolderRisk(
             token.token,
+            this._experimentId,  // 传递实验ID
+            token.chain || 'bsc',
             ['pump_group', 'negative_holder']
           );
 

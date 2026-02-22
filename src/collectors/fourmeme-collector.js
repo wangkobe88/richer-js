@@ -7,6 +7,8 @@
 const { AveTokenAPI } = require('../core/ave-api');
 const { FourMemeTokenAPI } = require('../core/fourmeme-api');
 const { WalletDataService } = require('../web/services/WalletDataService');
+const { TokenHolderService } = require('../trading-engine/holders/TokenHolderService');
+const { dbManager } = require('../services/dbManager');
 
 class FourmemeCollector {
     constructor(config, logger, tokenPool) {
@@ -33,6 +35,10 @@ class FourmemeCollector {
         // Initialize WalletService for dev wallet filtering
         this.walletService = new WalletDataService();
 
+        // Initialize TokenHolderService for holder blacklist filtering
+        const supabase = dbManager.getClient();
+        this.tokenHolderService = new TokenHolderService(supabase, this.logger);
+
         // Track collected tokens to avoid duplicates
         this.collectedTokens = new Set();
 
@@ -46,6 +52,7 @@ class FourmemeCollector {
             totalAdded: 0,
             totalSkipped: 0,
             totalDevFiltered: 0,
+            totalBadHolderFiltered: 0,
             lastCollectionTime: null
         };
 
@@ -202,38 +209,87 @@ class FourmemeCollector {
                         token.fourmeme_creator_info = creatorInfo;
                     }
 
-                    // 检查创建者是否为 Dev 钱包
+                    // === Dev 钱包检测模块 ===
                     let isDevCreator = false;
                     if (token.creator_address) {
+                        console.log(`[Dev钱包检测] 检查代币 ${token.symbol} (${token.token}) 创建者: ${token.creator_address}`);
                         isDevCreator = await this.isDevWallet(token.creator_address);
-                        this.logger.debug('Dev钱包检查结果', {
+                        console.log(`[Dev钱包检测] ${token.symbol} - ${isDevCreator ? '❌ 是Dev钱包' : '✅ 通过'}`);
+                        this.logger.info('[Dev钱包检测] 检查完成', {
                             token: token.token,
                             symbol: token.symbol,
                             creator_address: token.creator_address,
                             is_dev_wallet: isDevCreator
                         });
                     } else {
-                        this.logger.warn('代币没有 creator_address，跳过 Dev 钱包检查', {
+                        console.log(`[Dev钱包检测] ⚠️ ${token.symbol} 无创建者地址，跳过检查`);
+                        this.logger.warn('[Dev钱包检测] 代币没有 creator_address', {
                             token: token.token,
                             symbol: token.symbol
                         });
                     }
 
                     if (isDevCreator) {
-                        // 标记为 negative_dev 状态
                         token.status = 'negative_dev';
                         this.stats.totalDevFiltered++;
-                        this.logger.info('代币创建者为Dev钱包，标记为negative_dev', {
+                        console.log(`[Dev钱包检测] 🚫 ${token.symbol} 创建者为Dev钱包，已拒绝`);
+                        this.logger.info('[Dev钱包检测] 拒绝Dev钱包创建的代币', {
                             token: token.token,
                             symbol: token.symbol,
-                            creator: token.creator_address
+                            creator: token.creator_address,
+                            status: 'negative_dev'
                         });
                     }
 
-                    const added = this.tokenPool.addToken(token);
-                    if (added) {
-                        addedCount++;
-                        this.collectedTokens.add(tokenKey);
+                    // === 持有者黑名单检测模块 ===
+                    let hasBadHolder = false;
+                    try {
+                        console.log(`[持有者黑名单检测] 检查代币 ${token.symbol} (${token.token}) 持有者...`);
+                        const holderCheck = await this.tokenHolderService.checkHolderRisk(
+                            token.token,
+                            null,  // 收集阶段无 experimentId
+                            token.chain || 'bsc',
+                            ['pump_group', 'negative_holder']
+                        );
+
+                        if (holderCheck.hasNegative) {
+                            token.status = 'bad_holder';
+                            hasBadHolder = true;
+                            this.stats.totalBadHolderFiltered++;
+                            console.log(`[持有者黑名单检测] 🚫 ${token.symbol} 包含黑名单持有者，已拒绝`);
+                            console.log(`[持有者黑名单检测] 原因: ${holderCheck.reason}`);
+                            this.logger.info('[持有者黑名单检测] 拒绝包含黑名单持有者的代币', {
+                                token: token.token,
+                                symbol: token.symbol,
+                                status: 'bad_holder',
+                                reason: holderCheck.reason,
+                                negative_holders: holderCheck.negativeHolders?.length || 0
+                            });
+                        } else {
+                            console.log(`[持有者黑名单检测] ✅ ${token.symbol} 持有者检查通过`);
+                            this.logger.info('[持有者黑名单检测] 检查通过', {
+                                token: token.token,
+                                symbol: token.symbol
+                            });
+                        }
+                    } catch (holderError) {
+                        console.log(`[持有者黑名单检测] ⚠️ ${token.symbol} 检测失败: ${holderError.message}`);
+                        this.logger.error('[持有者黑名单检测] 检测失败', {
+                            token: token.token,
+                            symbol: token.symbol,
+                            error: holderError.message
+                        });
+                    }
+
+                    // Dev钱包或持有者检测失败则跳过添加
+                    if (isDevCreator || hasBadHolder) {
+                        skippedCount++;
+                    } else {
+                        const added = this.tokenPool.addToken(token);
+                        if (added) {
+                            addedCount++;
+                            this.collectedTokens.add(tokenKey);
+                        }
                     }
                 } else {
                     skippedCount++;
@@ -315,6 +371,8 @@ class FourmemeCollector {
             totalCollected: 0,
             totalAdded: 0,
             totalSkipped: 0,
+            totalDevFiltered: 0,
+            totalBadHolderFiltered: 0,
             lastCollectionTime: null
         };
     }

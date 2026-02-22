@@ -19,13 +19,14 @@ class TokenHolderService {
   /**
    * 获取并存储代币持有者信息
    * @param {string} tokenAddress - 代币地址
-   * @param {string} experimentId - 实验ID
+   * @param {string} experimentId - 实验ID，可为 null
+   * @param {string} chain - 区块链，默认 'bsc'
    * @returns {Promise<Object>} { snapshotId, holders }
    */
-  async fetchAndStoreHolders(tokenAddress, experimentId) {
+  async fetchAndStoreHolders(tokenAddress, experimentId, chain = 'bsc') {
     try {
       // 从AVE获取持有者数据
-      const holderData = await this._getHoldersFromAVE(tokenAddress);
+      const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
 
       // 生成快照ID
       const snapshotId = `${tokenAddress}_${Date.now()}`;
@@ -48,17 +49,18 @@ class TokenHolderService {
   /**
    * 检查持有者是否包含黑名单钱包
    * @param {string} tokenAddress - 代币地址
+   * @param {string} chain - 区块链，默认 'bsc'
    * @param {Array<string>} riskCategories - 风险category数组，如 ['pump_group', 'negative_holder']
    * @returns {Promise<Object>} { hasNegative, negativeHolders, reason }
    */
-  async checkHolderRisk(tokenAddress, riskCategories = ['pump_group', 'negative_holder']) {
+  async checkHolderRisk(tokenAddress, experimentId, chain = 'bsc', riskCategories = ['pump_group', 'negative_holder']) {
     try {
       // 获取最新的持有者数据
       const holderData = await this._getLatestHolders(tokenAddress);
 
       if (!holderData) {
         // 如果没有数据，先获取
-        await this.fetchAndStoreHolders(tokenAddress, null);
+        await this.fetchAndStoreHolders(tokenAddress, experimentId, chain);
         // 重新获取
         const newData = await this._getLatestHolders(tokenAddress);
         return this._checkNegativeHolders(newData.holders, riskCategories);
@@ -77,7 +79,7 @@ class TokenHolderService {
    * 私有方法：从AVE获取持有者
    * @private
    */
-  async _getHoldersFromAVE(tokenAddress) {
+  async _getHoldersFromAVE(tokenAddress, chain = 'bsc') {
     if (!this.aveApi) {
       const { AveTokenAPI } = require('../../core/ave-api');
       const apiKey = process.env.AVE_API_KEY;
@@ -89,14 +91,22 @@ class TokenHolderService {
       );
     }
 
-    // 使用 AveTokenAPI 的 getTokenTop100Holders 方法
-    const result = await this.aveApi.getTokenTop100Holders(tokenAddress);
+    // AVE API 需要 tokenId 格式为 {address}-{chain}
+    const tokenId = `${tokenAddress}-${chain}`;
 
-    if (!result || !result.holders) {
+    // 使用 AveTokenAPI 的 getTokenTop100Holders 方法
+    const holders = await this.aveApi.getTokenTop100Holders(tokenId);
+
+    // getTokenTop100Holders 返回的是持有者数组
+    if (!holders || !Array.isArray(holders)) {
       throw new Error('AVE API返回数据格式错误');
     }
 
-    return result;
+    // 包装成统一格式
+    return {
+      holders: holders,
+      token: tokenAddress
+    };
   }
 
   /**
