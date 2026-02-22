@@ -16,12 +16,12 @@ class TokenHoldersManager {
 
     this.bindEvents();
 
-    // 如果有实验ID，显示实验信息
+    // 如果有实验ID，显示实验信息并加载代币列表
     if (this.experimentId) {
       await this.showExperimentInfo();
-      await this.loadTokenList(this.experimentId);
+      await this.loadTokenList(this.experimentId, tokenParam);
     } else {
-      await this.loadTokenList();
+      await this.loadTokenList(null, tokenParam);
     }
 
     // 如果有代币地址参数，自动搜索
@@ -74,7 +74,7 @@ class TokenHoldersManager {
     });
   }
 
-  async loadTokenList(experimentId = null) {
+  async loadTokenList(experimentId = null, skipAutoSearch = false) {
     try {
       const url = experimentId
         ? `/api/token-holders?experiment=${experimentId}`
@@ -96,8 +96,8 @@ class TokenHoldersManager {
           select.appendChild(option);
         });
 
-        // 如果有代币且来自实验，自动查询第一个
-        if (result.data.length > 0 && experimentId) {
+        // 只有在没有指定代币参数且来自实验时，才自动查询第一个
+        if (!skipAutoSearch && result.data.length > 0 && experimentId) {
           document.getElementById('token-search').value = result.data[0];
           this.search();
         }

@@ -24,7 +24,7 @@ const StrategyEngine = require('./core/strategy-engine');
 const DecisionMaker = require('./core/decision-maker');
 
 // Initialize collectors and monitors
-const FourmemeCollector = require('./collectors/fourmeme-collector');
+const PlatformCollector = require('./collectors/platform-collector');
 const KlineMonitor = require('./monitors/kline-monitor');
 
 class RicherJs {
@@ -69,7 +69,7 @@ class RicherJs {
         this.logger.info('决策器已初始化');
 
         // Initialize collector
-        this.collector = new FourmemeCollector(
+        this.collector = new PlatformCollector(
             this.config,
             this.logger,
             this.tokenPool

@@ -770,7 +770,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // 延迟加载模块
     const TokenPool = require('../../core/token-pool');
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
-    const FourmemeCollector = require('../../collectors/fourmeme-collector');
+    const PlatformCollector = require('../../collectors/platform-collector');
     const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
     const { RoundSummary } = require('../utils/RoundSummary');
 
@@ -807,13 +807,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this.logger.info('LiveTradingEngine', 'Initialize', 'FourMeme API 初始化完成');
     console.log(`✅ FourMeme API 初始化完成`);
 
-    // 初始化 Fourmeme 收集器（与虚拟盘一致，传递 logger）
-    this._fourmemeCollector = new FourmemeCollector(
+    // 初始化 Platform 收集器（支持 fourmeme 和 flap）
+    this._fourmemeCollector = new PlatformCollector(
       config,
       this.logger,
       this._tokenPool
     );
-    this.logger.info('LiveTradingEngine', 'Initialize', 'Fourmeme 收集器初始化完成');
+    this.logger.info('LiveTradingEngine', 'Initialize', 'Platform 收集器初始化完成');
     console.log(`✅ Fourmeme 收集器初始化完成`);
 
     // 初始化 RoundSummary（与虚拟盘一致）

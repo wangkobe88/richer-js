@@ -1,7 +1,7 @@
 /**
- * Fourmeme Token Collector
+ * Platform Token Collector
  *
- * Collects new tokens from four.meme platform every 10 seconds
+ * Collects new tokens from four.meme and flap platforms every 10 seconds
  */
 
 const { AveTokenAPI } = require('../core/ave-api');
@@ -10,7 +10,7 @@ const { WalletDataService } = require('../web/services/WalletDataService');
 const { TokenHolderService } = require('../trading-engine/holders/TokenHolderService');
 const { dbManager } = require('../services/dbManager');
 
-class FourmemeCollector {
+class PlatformCollector {
     constructor(config, logger, tokenPool, experimentId = null) {
         this.config = config;
         this.logger = logger;
@@ -47,17 +47,26 @@ class FourmemeCollector {
         this.devWallets = [];
         this.lastDevWalletRefresh = 0;
 
-        // Statistics
+        // Statistics (按平台分别统计)
         this.stats = {
-            totalCollected: 0,
-            totalAdded: 0,
-            totalSkipped: 0,
-            totalDevFiltered: 0,
-            totalBadHolderFiltered: 0,
+            fourmeme: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0,
+                totalDevFiltered: 0,
+                totalBadHolderFiltered: 0
+            },
+            flap: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0,
+                totalDevFiltered: 0,
+                totalBadHolderFiltered: 0
+            },
             lastCollectionTime: null
         };
 
-        this.logger.info('Fourmeme收集器初始化完成', {
+        this.logger.info('多平台收集器初始化完成', {
             interval: this.collectorConfig.interval,
             platform: this.collectorConfig.platform,
             chain: this.collectorConfig.chain,
@@ -69,7 +78,7 @@ class FourmemeCollector {
      * Start the collector
      */
     start() {
-        this.logger.info('启动Fourmeme收集器');
+        this.logger.info('启动多平台收集器');
         this.collect(); // First collection
 
         // Set up interval
@@ -85,14 +94,42 @@ class FourmemeCollector {
         if (this.intervalId) {
             clearInterval(this.intervalId);
             this.intervalId = null;
-            this.logger.info('Fourmeme收集器已停止');
+            this.logger.info('多平台收集器已停止');
         }
     }
 
     /**
-     * Collect new tokens from four.meme
+     * Collect new tokens from all platforms (fourmeme and flap)
      */
     async collect() {
+        try {
+            const startTime = Date.now();
+
+            // 顺序调用：先收集 fourmeme，再收集 flap
+            await this.collectFourmemeTokens();
+            await this.collectFlapTokens();
+
+            this.stats.lastCollectionTime = new Date().toISOString();
+
+            const duration = Date.now() - startTime;
+            this.logger.debug('多平台收集完成', {
+                duration: `${duration}ms`,
+                fourmeme: this.stats.fourmeme,
+                flap: this.stats.flap
+            });
+
+        } catch (error) {
+            this.logger.error('收集代币失败', {
+                error: error.message,
+                stack: error.stack
+            });
+        }
+    }
+
+    /**
+     * Collect new tokens from four.meme platform
+     */
+    async collectFourmemeTokens() {
         try {
             const startTime = Date.now();
             this.logger.debug('开始收集four.meme新代币');
@@ -105,8 +142,7 @@ class FourmemeCollector {
 
             const tokens = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
 
-            this.stats.totalCollected += tokens.length;
-            this.stats.lastCollectionTime = new Date().toISOString();
+            this.stats.fourmeme.totalCollected += tokens.length;
 
             // Filter and add new tokens
             const now = Date.now();
@@ -232,7 +268,7 @@ class FourmemeCollector {
 
                     if (isDevCreator) {
                         token.status = 'negative_dev';
-                        this.stats.totalDevFiltered++;
+                        this.stats.fourmeme.totalDevFiltered++;
                         console.log(`[Dev钱包检测] 🚫 ${token.symbol} 创建者为Dev钱包，已拒绝`);
                         this.logger.info('[Dev钱包检测] 拒绝Dev钱包创建的代币', {
                             token: token.token,
@@ -256,7 +292,7 @@ class FourmemeCollector {
                         if (holderCheck.hasNegative) {
                             token.status = 'bad_holder';
                             hasBadHolder = true;
-                            this.stats.totalBadHolderFiltered++;
+                            this.stats.fourmeme.totalBadHolderFiltered++;
                             console.log(`[持有者黑名单检测] 🚫 ${token.symbol} 包含黑名单持有者，已拒绝`);
                             console.log(`[持有者黑名单检测] 原因: ${holderCheck.reason}`);
                             this.logger.info('[持有者黑名单检测] 拒绝包含黑名单持有者的代币', {
@@ -300,11 +336,23 @@ class FourmemeCollector {
                 this.collectedTokens.add(tokenKey);
             }
 
-            this.stats.totalAdded += addedCount;
-            this.stats.totalSkipped += skippedCount;
+            // 为 fourmeme 平台的代币添加 platform 字段
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+                if (this.collectedTokens.has(tokenKey)) {
+                    const poolToken = this.tokenPool.getToken(token.token, token.chain);
+                    if (poolToken && !poolToken.platform) {
+                        poolToken.platform = 'fourmeme';
+                    }
+                }
+            }
+
+            this.stats.fourmeme.totalAdded += addedCount;
+            this.stats.fourmeme.totalSkipped += skippedCount;
 
             const duration = Date.now() - startTime;
-            this.logger.debug('收集完成', {
+            this.logger.debug('four.meme平台收集完成', {
+                platform: 'fourmeme',
                 fetched: tokens.length,
                 added: addedCount,
                 skipped: skippedCount,
@@ -316,6 +364,189 @@ class FourmemeCollector {
 
         } catch (error) {
             this.logger.error('收集four.meme代币失败', {
+                error: error.message,
+                stack: error.stack
+            });
+        }
+    }
+
+    /**
+     * Collect new tokens from flap platform
+     */
+    async collectFlapTokens() {
+        try {
+            const startTime = Date.now();
+            this.logger.debug('开始收集flap新代币');
+
+            // Fetch new tokens from AVE API
+            const tag = 'flap_in_new';
+            const chain = this.collectorConfig.chain;
+            const limit = this.collectorConfig.fetchLimit;
+            const orderby = 'created_at';
+
+            const tokens = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+
+            this.stats.flap.totalCollected += tokens.length;
+
+            // Filter and add new tokens
+            const now = Date.now();
+            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
+
+            this.logger.debug(`获取到 ${tokens.length} 个flap代币`);
+
+            // 添加详细日志：显示 API 返回的最新代币创建时间
+            if (tokens.length > 0) {
+                const latestCreatedAt = Math.max(...tokens.map(t => t.created_at || 0));
+                const latestAgeSeconds = (now - latestCreatedAt * 1000) / 1000;
+                const oldestCreatedAt = Math.min(...tokens.map(t => t.created_at || 0));
+                const oldestAgeSeconds = (now - oldestCreatedAt * 1000) / 1000;
+                this.logger.debug(`API 返回代币时间范围 | 最新: ${latestAgeSeconds.toFixed(0)}秒前, 最旧: ${oldestAgeSeconds.toFixed(0)}秒前`);
+            }
+
+            let addedCount = 0;
+            let skippedCount = 0;
+            let alreadyInPoolCount = 0;
+
+            // 统计年龄分布
+            const ageRanges = {
+                '0-30s': 0,
+                '30-60s': 0,
+                '1-2m': 0,
+                '2-5m': 0,
+                '5m+': 0
+            };
+
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+
+                // 统计年龄分布
+                const tokenAge = now - (token.created_at * 1000);
+                const tokenAgeSeconds = tokenAge / 1000;
+
+                if (tokenAgeSeconds < 30) {
+                    ageRanges['0-30s']++;
+                } else if (tokenAgeSeconds < 60) {
+                    ageRanges['30-60s']++;
+                } else if (tokenAgeSeconds < 120) {
+                    ageRanges['1-2m']++;
+                } else if (tokenAgeSeconds < 300) {
+                    ageRanges['2-5m']++;
+                } else {
+                    ageRanges['5m+']++;
+                }
+
+                // Skip if already collected
+                if (this.collectedTokens.has(tokenKey)) {
+                    continue;
+                }
+
+                // 检查代币是否已在池中（用于统计）
+                const existingToken = this.tokenPool.getToken(token.token, token.chain);
+                if (existingToken) {
+                    alreadyInPoolCount++;
+                }
+
+                // 设置平台字段
+                token.platform = 'flap';
+                // Flap 平台无创建者地址（跳过 Four.meme API 调用）
+                token.creator_address = null;
+
+                // Only add tokens younger than maxAgeSeconds (1 minute)
+                if (tokenAge < maxAgeMs) {
+                    // === Dev 钱包检测模块 ===
+                    // Flap 平台无创建者地址，跳过 Dev 钱包检测
+                    const isDevCreator = false;
+                    console.log(`[Flap平台] ${token.symbol} 无创建者地址，跳过Dev钱包检测`);
+
+                    // === 持有者黑名单检测模块 ===
+                    let hasBadHolder = false;
+                    try {
+                        console.log(`[持有者黑名单检测] 检查代币 ${token.symbol} (${token.token}) 持有者...`);
+                        const holderCheck = await this.tokenHolderService.checkHolderRisk(
+                            token.token,
+                            this.experimentId,
+                            token.chain || 'bsc',
+                            ['pump_group', 'negative_holder']
+                        );
+
+                        if (holderCheck.hasNegative) {
+                            token.status = 'bad_holder';
+                            hasBadHolder = true;
+                            this.stats.flap.totalBadHolderFiltered++;
+                            console.log(`[持有者黑名单检测] 🚫 ${token.symbol} 包含黑名单持有者，已拒绝`);
+                            console.log(`[持有者黑名单检测] 原因: ${holderCheck.reason}`);
+                            this.logger.info('[持有者黑名单检测] 拒绝包含黑名单持有者的代币', {
+                                token: token.token,
+                                symbol: token.symbol,
+                                platform: 'flap',
+                                status: 'bad_holder',
+                                reason: holderCheck.reason,
+                                negative_holders: holderCheck.negativeHolders?.length || 0
+                            });
+                        } else {
+                            console.log(`[持有者黑名单检测] ✅ ${token.symbol} 持有者检查通过`);
+                            this.logger.info('[持有者黑名单检测] 检查通过', {
+                                token: token.token,
+                                symbol: token.symbol,
+                                platform: 'flap'
+                            });
+                        }
+                    } catch (holderError) {
+                        console.log(`[持有者黑名单检测] ⚠️ ${token.symbol} 检测失败: ${holderError.message}`);
+                        this.logger.error('[持有者黑名单检测] 检测失败', {
+                            token: token.token,
+                            symbol: token.symbol,
+                            platform: 'flap',
+                            error: holderError.message
+                        });
+                    }
+
+                    // 持有者检测失败则跳过添加
+                    if (hasBadHolder) {
+                        skippedCount++;
+                    } else {
+                        const added = this.tokenPool.addToken(token);
+                        if (added) {
+                            addedCount++;
+                            this.collectedTokens.add(tokenKey);
+                        }
+                    }
+                } else {
+                    skippedCount++;
+                }
+
+                // Always add to collected set to avoid reprocessing
+                this.collectedTokens.add(tokenKey);
+            }
+
+            // 为 flap 平台的代币添加 platform 字段
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+                if (this.collectedTokens.has(tokenKey)) {
+                    const poolToken = this.tokenPool.getToken(token.token, token.chain);
+                    if (poolToken && !poolToken.platform) {
+                        poolToken.platform = 'flap';
+                    }
+                }
+            }
+
+            this.stats.flap.totalAdded += addedCount;
+            this.stats.flap.totalSkipped += skippedCount;
+
+            const duration = Date.now() - startTime;
+            this.logger.debug('flap平台收集完成', {
+                platform: 'flap',
+                fetched: tokens.length,
+                added: addedCount,
+                skipped: skippedCount,
+                alreadyInPool: alreadyInPoolCount,
+                ageRanges: ageRanges,
+                maxAgeSeconds: this.collectorConfig.maxAgeSeconds,
+                duration: `${duration}ms`
+            });
+
+        } catch (error) {
+            this.logger.error('收集flap代币失败', {
                 error: error.message,
                 stack: error.stack
             });
@@ -369,14 +600,23 @@ class FourmemeCollector {
      */
     resetStats() {
         this.stats = {
-            totalCollected: 0,
-            totalAdded: 0,
-            totalSkipped: 0,
-            totalDevFiltered: 0,
-            totalBadHolderFiltered: 0,
+            fourmeme: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0,
+                totalDevFiltered: 0,
+                totalBadHolderFiltered: 0
+            },
+            flap: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0,
+                totalDevFiltered: 0,
+                totalBadHolderFiltered: 0
+            },
             lastCollectionTime: null
         };
     }
 }
 
-module.exports = FourmemeCollector;
+module.exports = PlatformCollector;

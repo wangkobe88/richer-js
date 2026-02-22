@@ -65,12 +65,13 @@ class RoundSummary {
      * @param {string} tokenSymbol - 代币符号
      * @param {Object} indicators - 指标数据
      * @param {number} currentPrice - 当前价格（USD）
-     * @param {Object} tokenInfo - 代币额外信息 { createdAt, addedAt, status, collectionPrice, launchPrice }
+     * @param {Object} tokenInfo - 代币额外信息 { createdAt, addedAt, status, collectionPrice, launchPrice, platform }
      */
     recordTokenIndicators(tokenAddress, tokenSymbol, indicators, currentPrice, tokenInfo = {}) {
         this.roundData.tokens.set(tokenAddress, {
             address: tokenAddress,
             symbol: tokenSymbol,
+            platform: tokenInfo.platform || 'fourmeme',
             indicators,
             currentPrice,
             collectionPrice: tokenInfo.collectionPrice || null,
@@ -244,6 +245,7 @@ class RoundSummary {
     _printTokenSummary(tokenData) {
         console.log(`\n代币: ${tokenData.symbol}`);
         console.log(`   地址: ${tokenData.address}`);
+        console.log(`   平台: ${tokenData.platform || 'fourmeme'}`);
 
         // 时间信息
         if (tokenData.createdAt) {
@@ -469,6 +471,7 @@ class RoundSummary {
             lines.push('');
             lines.push(`代币: ${tokenData.symbol}`);
             lines.push(`   地址: ${tokenData.address}`);
+            lines.push(`   平台: ${tokenData.platform || 'fourmeme'}`);
 
             // 时间信息
             if (tokenData.createdAt) {

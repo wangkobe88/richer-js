@@ -287,6 +287,9 @@ class ExperimentTokens {
     const shortAddress = this.shortenAddress(token.token_address);
     const creatorAddress = token.creator_address || null;
     const shortCreatorAddress = creatorAddress ? this.shortenAddress(creatorAddress) : '-';
+    const platform = token.platform || 'fourmeme';
+    const platformLabel = platform === 'flap' ? 'Flap' : 'Four.meme';
+    const platformClass = platform === 'flap' ? 'bg-purple-600' : 'bg-blue-600';
     const symbol = token.token_symbol || rawData?.symbol || '-';
     const isExpanded = this.expandedTokens.has(token.token_address);
     const gmgnUrl = `https://gmgn.ai/bsc/token/${token.token_address}`;
@@ -333,6 +336,9 @@ class ExperimentTokens {
           <div class="flex items-center">
             <code class="text-gray-400 font-mono text-xs">${shortCreatorAddress}</code>
           </div>
+        </td>
+        <td class="px-4 py-3 text-sm">
+          <span class="px-2 py-1 rounded text-xs font-medium ${platformClass} text-white">${platformLabel}</span>
         </td>
         <td class="px-4 py-3 text-sm text-gray-400">
           ${discoveredAt}

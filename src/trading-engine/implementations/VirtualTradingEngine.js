@@ -11,20 +11,20 @@ const Logger = require('../../services/logger');
 
 // 延迟导入以避免循环依赖
 let TokenPool = null;
-let FourmemeCollector = null;
+let PlatformCollector = null;
 let StrategyEngine = null;
 let CardPositionManager = null;
 
 function getLazyModules() {
   if (!TokenPool) {
     TokenPool = require('../../core/token-pool');
-    FourmemeCollector = require('../../collectors/fourmeme-collector');
+    PlatformCollector = require('../../collectors/platform-collector');
     const SE = require('../../strategies/StrategyEngine');
     StrategyEngine = SE.StrategyEngine;
     const CPM = require('../../portfolio/CardPositionManager');
     CardPositionManager = CPM.CardPositionManager;
   }
-  return { TokenPool, FourmemeCollector, StrategyEngine, CardPositionManager };
+  return { TokenPool, PlatformCollector, StrategyEngine, CardPositionManager };
 }
 
 // 加载配置
@@ -392,7 +392,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * @returns {Promise<void>}
    */
   async _initializeMonitoring() {
-    const { TokenPool, FourmemeCollector } = getLazyModules();
+    const { TokenPool, PlatformCollector } = getLazyModules();
 
     // 1. 初始化价格历史缓存（用于趋势检测）
     const PriceHistoryCache = require('../PriceHistoryCache');
@@ -441,7 +441,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     console.log(`✅ FourMeme API初始化完成`);
 
     // 3. 初始化收集器（传递实验ID）
-    this._fourmemeCollector = new FourmemeCollector(
+    this._fourmemeCollector = new PlatformCollector(
       config,
       this.logger,
       this._tokenPool,
@@ -647,6 +647,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           token: token.token,
           symbol: token.symbol,
           chain: token.chain,
+          platform: token.platform || 'fourmeme',
           created_at: token.createdAt,
           raw_api_data: token.rawApiData || null,
           contract_risk_raw_ave_data: token.contractRisk || null,

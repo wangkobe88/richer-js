@@ -540,6 +540,7 @@ class ExperimentDataService {
         token_address: token.token,
         token_symbol: token.symbol || '',
         blockchain: token.chain || 'bsc',
+        platform: token.platform || 'fourmeme',
         discovered_at: new Date(token.created_at * 1000).toISOString(),
         status: token.status || 'monitoring'
       };
