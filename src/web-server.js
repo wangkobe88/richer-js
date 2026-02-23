@@ -150,6 +150,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/token-holders.html'));
     });
 
+    // 平台标签代币页面
+    this.app.get('/platform-tokens', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/platform_tokens.html'));
+    });
+
     // 实验子页面（必须在 /experiment/:id 之前定义）
     // 信号页面
     this.app.get('/experiment/:id/signals', (req, res) => {
@@ -1321,6 +1326,54 @@ class RicherJsWebServer {
       } catch (error) {
         console.error('获取K线数据失败:', error);
         res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ 平台标签代币 API ============
+
+    // 获取平台标签代币列表
+    this.app.get('/api/platform/tokens', async (req, res) => {
+      try {
+        const { AveTokenAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { tag, chain = 'bsc', limit = 100, orderby = 'created_at' } = req.query;
+
+        if (!tag) {
+          return res.status(400).json({
+            success: false,
+            error: 'tag 参数是必需的'
+          });
+        }
+
+        const apiKey = process.env.AVE_API_KEY;
+        if (!apiKey) {
+          return res.status(500).json({
+            success: false,
+            error: 'AVE_API_KEY 未配置'
+          });
+        }
+
+        const aveApi = new AveTokenAPI(
+          config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey
+        );
+
+        const tokens = await aveApi.getPlatformTokens(tag, chain, parseInt(limit), orderby);
+
+        res.json({
+          success: true,
+          tokens: tokens,
+          count: tokens?.length || 0,
+          requestParams: { tag, chain, limit, orderby }
+        });
+      } catch (error) {
+        console.error('获取平台标签代币失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
       }
     });
 
