@@ -491,6 +491,70 @@ class RicherJsWebServer {
       }
     });
 
+    // 添加单个钱包到流水盘
+    this.app.post('/api/wallets/add-single', async (req, res) => {
+      try {
+        const { address, name, category } = req.body;
+
+        if (!address) {
+          return res.status(400).json({ success: false, error: '钱包地址不能为空' });
+        }
+
+        // 检查钱包是否已存在
+        const existing = await this.walletService.getWalletByAddress(address);
+        if (existing) {
+          return res.json({
+            success: true,
+            message: '钱包已存在于黑名单中',
+            data: existing,
+            alreadyExists: true
+          });
+        }
+
+        // 创建钱包
+        const wallet = await this.walletService.createWallet({
+          address,
+          name: name || '流水盘钱包',
+          category: category || 'pump_group'
+        });
+
+        res.json({
+          success: true,
+          message: '钱包已添加到黑名单',
+          data: wallet
+        });
+      } catch (error) {
+        console.error('添加单个钱包失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 根据地址删除钱包
+    this.app.delete('/api/wallets/address/:address', async (req, res) => {
+      try {
+        const { address } = req.params;
+
+        if (!address) {
+          return res.status(400).json({ success: false, error: '钱包地址不能为空' });
+        }
+
+        // 先检查钱包是否存在
+        const existing = await this.walletService.getWalletByAddress(address);
+        if (!existing) {
+          return res.status(404).json({ success: false, error: '钱包不存在' });
+        }
+
+        await this.walletService.deleteWalletByAddress(address);
+        res.json({
+          success: true,
+          message: '钱包已从黑名单中删除'
+        });
+      } catch (error) {
+        console.error('删除钱包失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // ============ API路由：代币持有者 ============
 
     // 获取代币持有者数据
@@ -978,6 +1042,36 @@ class RicherJsWebServer {
       } catch (error) {
         console.error('获取代币列表失败:', error);
         res.status(500).json({ success: false, error: error.message, tokens: [] });
+      }
+    });
+
+    // 分析实验代币涨幅
+    this.app.post('/api/experiment/:id/analyze-tokens', async (req, res) => {
+      try {
+        const { TokenAnalysisService } = require('./web/services/TokenAnalysisService');
+        const analysisService = new TokenAnalysisService();
+
+        console.log(`[代币分析] 开始分析实验 ${req.params.id} 的代币涨幅...`);
+
+        let progress = 0;
+        const totalTokens = await analysisService.getAllTokens(req.params.id);
+        const total = totalTokens.length;
+
+        const result = await analysisService.analyzeExperimentTokens(req.params.id, (current, total) => {
+          progress = current;
+          const percent = ((current / total) * 100).toFixed(1);
+          console.log(`[代币分析] 进度: ${current}/${total} (${percent}%)`);
+        });
+
+        console.log(`[代币分析] 分析完成: ${result.analyzed} 成功, ${result.failed} 失败`);
+
+        res.json({
+          success: true,
+          ...result
+        });
+      } catch (error) {
+        console.error('分析代币涨幅失败:', error);
+        res.status(500).json({ success: false, error: error.message });
       }
     });
 

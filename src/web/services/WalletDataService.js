@@ -122,6 +122,53 @@ class WalletDataService {
   }
 
   /**
+   * 根据地址删除钱包
+   * @param {string} address - 钱包地址
+   * @return {Promise<boolean>} 是否成功
+   */
+  async deleteWalletByAddress(address) {
+    try {
+      const { error } = await this.supabase
+        .from('wallets')
+        .delete()
+        .eq('address', address);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('根据地址删除钱包失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 根据地址获取钱包
+   * @param {string} address - 钱包地址
+   * @return {Promise<Object>} 钱包对象
+   */
+  async getWalletByAddress(address) {
+    try {
+      const { data, error } = await this.supabase
+        .from('wallets')
+        .select('*')
+        .eq('address', address)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // 没有找到记录
+          return null;
+        }
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      console.error('根据地址获取钱包失败:', error);
+      return null;
+    }
+  }
+
+  /**
    * 批量创建钱包（跳过已存在的）
    * @param {Array<Object>} wallets - 钱包数组 [{ address, name, category }]
    * @return {Promise<Object>} { success: 数量, skipped: 数量, errors: 数量 }

@@ -278,6 +278,9 @@ class TokenHoldersManager {
     const badgeClass = categoryBadges[holder.category] || 'badge-none';
     const categoryLabel = holder.category ? (categoryNames[holder.category] || holder.category) : '';
 
+    // 判断钱包是否已在黑名单中
+    const isInBlacklist = holder.category === 'pump_group' || holder.category === 'dev' || holder.category === 'negative_holder';
+
     return `
       <tr class="border-b">
         <td class="px-4 py-2 text-sm">
@@ -293,10 +296,20 @@ class TokenHoldersManager {
           ${categoryLabel ? `<span class="badge ${badgeClass}">${categoryLabel}</span>` : '<span class="text-gray-400 text-xs">无</span>'}
         </td>
         <td class="px-4 py-2 text-center text-sm">
-          <button type="button" class="text-blue-600"
+          <button type="button" class="text-blue-600 hover:text-blue-800 mr-2"
                   onclick="window.tokenHolders.copyAddress('${holder.address}')">
             📋 复制
           </button>
+          ${isInBlacklist
+            ? `<button type="button" class="text-red-600 hover:text-red-800"
+                  onclick="window.tokenHolders.deleteWallet('${holder.address}')">
+                 🗑️ 删除
+               </button>`
+            : `<button type="button" class="text-orange-600 hover:text-orange-800"
+                  onclick="window.tokenHolders.addSinglePumpGroupWallet('${holder.address}')">
+                 ⚠️ 加入流水盘
+               </button>`
+          }
         </td>
       </tr>
     `;
@@ -357,6 +370,88 @@ class TokenHoldersManager {
     } catch (error) {
       console.error('添加流水盘钱包失败:', error);
       alert(`❌ 添加失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 添加单个钱包到流水盘黑名单
+   * @param {string} address - 钱包地址
+   */
+  async addSinglePumpGroupWallet(address) {
+    try {
+      // 确认对话框
+      const confirmed = confirm(
+        `⚠️ 确定要将此钱包添加到流水盘黑名单吗？\n\n` +
+        `地址: ${address}\n` +
+        `分类: pump_group`
+      );
+
+      if (!confirmed) return;
+
+      // 调用API
+      const response = await fetch('/api/wallets/add-single', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          address: address,
+          name: '流水盘钱包',
+          category: 'pump_group'
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        if (result.alreadyExists) {
+          alert(`ℹ️ ${result.message}`);
+        } else {
+          alert(`✅ ${result.message}`);
+        }
+        // 重新加载数据
+        this.search();
+      } else {
+        alert(`❌ 添加失败: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('添加单个钱包失败:', error);
+      alert(`❌ 添加失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 删除钱包
+   * @param {string} address - 钱包地址
+   */
+  async deleteWallet(address) {
+    try {
+      // 确认对话框
+      const confirmed = confirm(
+        `🗑️ 确定要将此钱包从黑名单中删除吗？\n\n` +
+        `地址: ${address}\n\n` +
+        `注意：删除后该钱包将不再被识别为黑名单钱包。`
+      );
+
+      if (!confirmed) return;
+
+      // 调用API
+      const response = await fetch(`/api/wallets/address/${address}`, {
+        method: 'DELETE'
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`✅ ${result.message}`);
+        // 重新加载数据
+        this.search();
+      } else {
+        alert(`❌ 删除失败: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('删除钱包失败:', error);
+      alert(`❌ 删除失败: ${error.message}`);
     }
   }
 

@@ -12,7 +12,6 @@ class ExperimentTokens {
     this.autoRefresh = false; // 默认关闭自动刷新
     this.refreshInterval = 10000; // 10秒
     this.refreshTimer = null;
-    this.expandedTokens = new Set(); // 记录展开的代币
 
     // 分页
     this.currentPage = 1;
@@ -99,6 +98,28 @@ class ExperimentTokens {
         }
       });
     }
+
+    // 分析按钮
+    const analyzeBtn = document.getElementById('analyze-btn');
+    if (analyzeBtn) {
+      analyzeBtn.addEventListener('click', () => this.startAnalysis());
+    }
+
+    // 涨幅筛选按钮
+    const filterFinal50Btn = document.getElementById('filter-final-50');
+    if (filterFinal50Btn) {
+      filterFinal50Btn.addEventListener('click', () => this.filterByChange('final', 50));
+    }
+
+    const filterMax50Btn = document.getElementById('filter-max-50');
+    if (filterMax50Btn) {
+      filterMax50Btn.addEventListener('click', () => this.filterByChange('max', 50));
+    }
+
+    const clearFilterBtn = document.getElementById('clear-filter');
+    if (clearFilterBtn) {
+      clearFilterBtn.addEventListener('click', () => this.clearFilters());
+    }
   }
 
   /**
@@ -149,11 +170,15 @@ class ExperimentTokens {
       this.tokens = result.tokens || [];
       this.filteredTokens = [...this.tokens];
 
-      // 加载黑名单钱包数量
+      // 加载黑名单统计数据
       if (blacklistRes.ok) {
         const blacklistData = await blacklistRes.json();
         if (blacklistData.success) {
           this.blacklistStats = blacklistData.data;
+          // 建立代币到黑名单状态的映射
+          this.blacklistTokenMap = new Map(
+            (blacklistData.data.blacklistedTokenList || []).map(t => [t.token, t])
+          );
         }
       }
 
@@ -273,26 +298,22 @@ class ExperimentTokens {
    * 渲染黑名单统计
    */
   renderBlacklistStats() {
-    // 基于 status === 'bad_holder' 计算统计数据
-    const badHolderCount = this.tokens.filter(t => t.status === 'bad_holder').length;
-    const totalTokens = this.tokens.length;
+    if (!this.blacklistStats) return;
 
     const collectedEl = document.getElementById('stat-collected-tokens');
     const blacklistedEl = document.getElementById('stat-blacklisted-tokens');
     const rateEl = document.getElementById('stat-blacklist-rate');
     const walletsEl = document.getElementById('stat-blacklist-wallets');
 
-    if (collectedEl) collectedEl.textContent = totalTokens;
-    if (blacklistedEl) blacklistedEl.textContent = badHolderCount;
+    if (collectedEl) collectedEl.textContent = this.blacklistStats.totalTokens || 0;
+    if (blacklistedEl) blacklistedEl.textContent = this.blacklistStats.blacklistedTokens || 0;
+    if (walletsEl) walletsEl.textContent = this.blacklistStats.blacklistWalletCount || 0;
+
     if (rateEl) {
-      const rate = totalTokens > 0
-        ? (badHolderCount / totalTokens * 100)
+      const rate = this.blacklistStats.totalTokens > 0
+        ? (this.blacklistStats.blacklistedTokens / this.blacklistStats.totalTokens * 100)
         : 0;
       rateEl.textContent = `${rate.toFixed(2)}%`;
-    }
-    // 黑名单钱包数从 API 获取
-    if (walletsEl && this.blacklistStats) {
-      walletsEl.textContent = this.blacklistStats.blacklistWalletCount || 0;
     }
   }
 
@@ -401,12 +422,29 @@ class ExperimentTokens {
     const platformLabel = platform === 'flap' ? 'Flap' : 'Four.meme';
     const platformClass = platform === 'flap' ? 'bg-purple-600' : 'bg-blue-600';
     const symbol = token.token_symbol || rawData?.symbol || '-';
-    const isExpanded = this.expandedTokens.has(token.token_address);
     const gmgnUrl = `https://gmgn.ai/bsc/token/${token.token_address}`;
     const signalsUrl = `/experiment/${this.experimentId}/signals#token=${token.token_address}`;
+    const holdersUrl = `/token-holders?experiment=${this.experimentId}&token=${token.token_address}`;
 
-    // 检查是否命中黑名单（基于 status）
-    const hasBlacklist = token.status === 'bad_holder';
+    // 获取分析结果
+    const analysis = token.analysis_results;
+
+    // 格式化涨幅
+    const finalChangeEl = analysis
+      ? this.formatChangePercent(analysis.final_change_percent)
+      : '<span class="text-gray-500">-</span>';
+
+    const maxChangeEl = analysis
+      ? `<span class="text-yellow-400">${this.formatChangePercent(analysis.max_change_percent)}</span>`
+      : '<span class="text-gray-500">-</span>';
+
+    const dataPointsEl = analysis
+      ? `<span class="text-gray-400">${analysis.data_points || 0}</span>`
+      : '<span class="text-gray-500">-</span>';
+
+    // 检查是否命中黑名单（基于 token_holders 数据）
+    const blacklistInfo = this.blacklistTokenMap?.get(token.token_address);
+    const hasBlacklist = blacklistInfo && blacklistInfo.hasBlacklist;
     const blacklistBadge = hasBlacklist
       ? '<span class="ml-2 px-2 py-0.5 bg-red-900 text-red-400 text-xs rounded border border-red-700" title="命中持有者黑名单">⚠️ 黑名单</span>'
       : '';
@@ -418,17 +456,22 @@ class ExperimentTokens {
           <div class="flex items-center">
             <img src="${rawData?.logo_url || ''}" alt="" class="w-8 h-8 rounded-full mr-3 ${!rawData?.logo_url ? 'hidden' : ''}" onerror="this.style.display='none'">
             <div>
-              <div class="font-medium text-white">${this.escapeHtml(symbol)}${blacklistBadge}</div>
-              <div class="text-xs text-gray-400 font-mono flex items-center">
+              <div class="font-medium text-white">
+                ${this.escapeHtml(symbol)}${blacklistBadge}
+                <a href="${holdersUrl}" target="_blank" class="ml-2 text-cyan-400 hover:text-cyan-300 text-xs" title="查看持有者">
+                  👥 持有者
+                </a>
+              </div>
+              <div class="text-xs text-gray-400 font-mono flex items-center flex-wrap gap-1">
                 <code class="text-gray-400">${shortAddress}</code>
-                ${hasBlacklist ? '<span class="text-red-400 ml-2">(' + (blacklistInfo.blacklistedHolders || 0) + ' 个黑名单持有者)</span>' : ''}
-                <a href="${gmgnUrl}" target="_blank" class="ml-2" title="GMGN">
+                ${hasBlacklist && blacklistInfo ? '<span class="text-red-400">(' + (blacklistInfo.blacklistedHolders || 0) + '个黑名单持有者)</span>' : ''}
+                <a href="${gmgnUrl}" target="_blank" class="text-gray-400 hover:text-purple-400" title="GMGN">
                   <img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4">
                 </a>
-                <a href="${signalsUrl}" target="_blank" class="ml-2 text-purple-400" title="信号">
+                <a href="${signalsUrl}" target="_blank" class="text-purple-400 hover:text-purple-300" title="信号">
                   📊
                 </a>
-                <button class="ml-2 text-blue-400 copy-address-btn" data-address="${token.token_address}" title="复制地址">
+                <button class="text-blue-400 copy-address-btn" data-address="${token.token_address}" title="复制地址">
                   📋
                 </button>
               </div>
@@ -438,16 +481,22 @@ class ExperimentTokens {
         <td class="px-6 py-3">
           <span class="px-2 py-1 rounded text-xs font-medium ${statusInfo.class}">${statusInfo.text}</span>
         </td>
-        <td class="px-4 py-3 text-sm text-white">
+        <td class="px-4 py-3 text-sm text-white text-right">
           ${price}
         </td>
-        <td class="px-4 py-3 text-sm text-white">
+        <td class="px-4 py-3 text-sm text-white text-right">
           ${launchPrice}
         </td>
-        <td class="px-4 py-3 text-sm text-white">
+        <td class="px-4 py-3 text-sm text-white text-right font-medium">
+          ${finalChangeEl}
+        </td>
+        <td class="px-4 py-3 text-sm text-white text-right font-medium">
+          ${maxChangeEl}
+        </td>
+        <td class="px-4 py-3 text-sm text-white text-right">
           ${fdv}
         </td>
-        <td class="px-4 py-3 text-sm text-white">
+        <td class="px-4 py-3 text-sm text-white text-right">
           ${tvl}
         </td>
         <td class="px-4 py-3 text-sm text-gray-400">
@@ -455,29 +504,96 @@ class ExperimentTokens {
             <code class="text-gray-400 font-mono text-xs">${shortCreatorAddress}</code>
           </div>
         </td>
-        <td class="px-4 py-3 text-sm">
+        <td class="px-4 py-3 text-sm text-center">
           <span class="px-2 py-1 rounded text-xs font-medium ${platformClass} text-white">${platformLabel}</span>
         </td>
         <td class="px-4 py-3 text-sm text-gray-400">
           ${discoveredAt}
         </td>
-        <td class="px-4 py-3">
-          <button class="expand-btn text-blue-400 text-sm" data-token-address="${token.token_address}">
-            <span class="expand-text">${isExpanded ? '收起' : '展开'}</span> ${isExpanded ? '▲' : '▼'}
-          </button>
-          <div class="expand-content ${isExpanded ? 'expanded' : ''}" data-token-address="${token.token_address}">
-            <div class="raw-data-block">
-              <pre class="raw-data-code">${this.escapeHtml(JSON.stringify(rawData, null, 2))}</pre>
-            </div>
-            <div class="mt-2">
-              <button class="copy-json-btn text-xs bg-gray-600 text-white px-2 py-1 rounded" data-token-address="${token.token_address}">
-                复制 JSON
-              </button>
-            </div>
-          </div>
+        <td class="px-4 py-3 text-sm text-center">
+          ${dataPointsEl}
         </td>
       </tr>
     `;
+  }
+
+  /**
+   * 格式化涨幅百分比
+   */
+  formatChangePercent(percent) {
+    if (percent === undefined || percent === null || isNaN(percent)) {
+      return '<span class="text-gray-500">-</span>';
+    }
+    const value = parseFloat(percent);
+    let colorClass = 'text-gray-400';
+    if (value > 0) {
+      colorClass = 'text-green-400';
+    } else if (value < 0) {
+      colorClass = 'text-red-400';
+    }
+    return `<span class="${colorClass}">${value > 0 ? '+' : ''}${value.toFixed(2)}%</span>`;
+  }
+
+  /**
+   * 启动涨幅分析
+   */
+  async startAnalysis() {
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const progressContainer = document.getElementById('analysis-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const resultText = document.getElementById('analysis-result');
+
+    if (analyzeBtn) {
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = '⏳ 分析中...';
+    }
+
+    if (progressContainer) {
+      progressContainer.classList.remove('hidden');
+    }
+
+    try {
+      const response = await fetch(`/api/experiment/${this.experimentId}/analyze-tokens`, {
+        method: 'POST'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '分析失败');
+      }
+
+      if (resultText) {
+        resultText.textContent = `✅ 完成: ${result.analyzed} 成功, ${result.failed} 失败`;
+      }
+
+      // 重新加载数据
+      await this.loadTokens();
+      this.render();
+
+    } catch (error) {
+      console.error('分析失败:', error);
+      if (resultText) {
+        resultText.textContent = `❌ 失败: ${error.message}`;
+      }
+      alert('分析失败：' + error.message);
+    } finally {
+      if (analyzeBtn) {
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = '🔄 重新分析';
+      }
+
+      if (progressContainer) {
+        setTimeout(() => {
+          progressContainer.classList.add('hidden');
+        }, 2000);
+      }
+    }
   }
 
   /**
@@ -699,6 +815,14 @@ class ExperimentTokens {
           const aSymbol = (a.token_symbol || '').toLowerCase();
           const bSymbol = (b.token_symbol || '').toLowerCase();
           return aSymbol.localeCompare(bSymbol);
+        case 'final_change':
+          const aFinalChange = a.analysis_results?.final_change_percent || -999;
+          const bFinalChange = b.analysis_results?.final_change_percent || -999;
+          return bFinalChange - aFinalChange;
+        case 'max_change':
+          const aMaxChange = a.analysis_results?.max_change_percent || -999;
+          const bMaxChange = b.analysis_results?.max_change_percent || -999;
+          return bMaxChange - aMaxChange;
         case 'discovered_at':
         default:
           return new Date(b.discovered_at || 0) - new Date(a.discovered_at || 0);
@@ -770,6 +894,76 @@ class ExperimentTokens {
       clearInterval(this.refreshTimer);
       this.refreshTimer = null;
     }
+  }
+
+  /**
+   * 按涨幅筛选
+   * @param {string} type - 'final' 或 'max'
+   * @param {number} threshold - 涨幅阈值（百分比）
+   */
+  filterByChange(type, threshold) {
+    const sortBy = document.getElementById('sort-by')?.value || 'discovered_at';
+    const searchInput = document.getElementById('search-input')?.value || '';
+
+    let filtered = [...this.tokens];
+
+    // 按涨幅筛选
+    filtered = filtered.filter(t => {
+      const analysis = t.analysis_results;
+      if (!analysis) return false;
+      const percent = type === 'final'
+        ? analysis.final_change_percent
+        : analysis.max_change_percent;
+      return percent !== undefined && percent !== null && percent > threshold;
+    });
+
+    // 搜索框筛选
+    if (searchInput) {
+      const searchLower = searchInput.toLowerCase();
+      filtered = filtered.filter(t =>
+        (t.token_symbol && t.token_symbol.toLowerCase().includes(searchLower)) ||
+        (t.token_address && t.token_address.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // 按涨幅降序排序
+    filtered.sort((a, b) => {
+      const aChange = a.analysis_results?.[type === 'final' ? 'final_change_percent' : 'max_change_percent'] || -999;
+      const bChange = b.analysis_results?.[type === 'final' ? 'final_change_percent' : 'max_change_percent'] || -999;
+      return bChange - aChange;
+    });
+
+    this.filteredTokens = filtered;
+    this.currentPage = 1;
+    this.renderTokens();
+    this.showToast(`已筛选: ${type === 'final' ? '最终涨幅' : '最高涨幅'} > ${threshold}%`);
+  }
+
+  /**
+   * 清除筛选
+   */
+  clearFilters() {
+    // 重置状态筛选
+    const statusFilter = document.getElementById('status-filter');
+    if (statusFilter) {
+      statusFilter.value = 'all';
+    }
+
+    // 重置排序
+    const sortBySelect = document.getElementById('sort-by');
+    if (sortBySelect) {
+      sortBySelect.value = 'discovered_at';
+    }
+
+    // 重置搜索框
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.value = '';
+    }
+
+    // 应用默认筛选
+    this.applyFilters();
+    this.showToast('已清除所有筛选');
   }
 }
 

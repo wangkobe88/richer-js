@@ -224,7 +224,7 @@
                 </div>
 
                 <!-- 持有者黑名单统计 -->
-                <div class="bg-gray-900 rounded-lg p-4 mb-8 border border-orange-900">
+                <div class="bg-gray-900 rounded-lg p-4 mb-4 border border-orange-900">
                     <h3 class="text-md font-semibold text-orange-400 mb-3">⚠️ 持有者黑名单统计</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
@@ -243,6 +243,26 @@
                             <div class="text-xs text-gray-400 mb-1">黑名单钱包数</div>
                             <div class="text-xl font-bold text-gray-100" id="stat-blacklist-wallets">0</div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- 涨幅分析工具 -->
+                <div class="bg-gray-800 rounded-lg p-4 mb-8 border border-blue-700">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-md font-semibold text-blue-400">📊 涨幅分析</h3>
+                        <span id="analysis-status" class="text-sm text-gray-400">基于时序数据计算最终涨幅和最高涨幅</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <button id="analyze-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
+                            🔄 开始分析
+                        </button>
+                        <div id="analysis-progress" class="hidden flex items-center gap-2">
+                            <div class="w-48 bg-gray-700 rounded-full h-2">
+                                <div id="progress-bar" class="bg-blue-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+                            </div>
+                            <span id="progress-text" class="text-sm text-gray-400">0%</span>
+                        </div>
+                        <span id="analysis-result" class="text-sm text-gray-400"></span>
                     </div>
                 </div>
 
@@ -267,6 +287,8 @@
                                 <option value="fdv">市值 (FDV)</option>
                                 <option value="price">收集时价格</option>
                                 <option value="symbol">代币符号</option>
+                                <option value="final_change">最终涨幅</option>
+                                <option value="max_change">最高涨幅</option>
                             </select>
                         </div>
                         <div>
@@ -276,6 +298,17 @@
                         <button id="apply-filters" class="px-4 py-2 bg-blue-600 rounded-md text-sm font-medium text-white">
                             应用筛选
                         </button>
+                        <div class="border-l border-gray-600 pl-4 flex gap-2">
+                            <button id="filter-final-50" class="px-4 py-2 bg-green-700 hover:bg-green-600 rounded-md text-sm font-medium text-white transition-colors">
+                                📈 最终涨幅 &gt;50%
+                            </button>
+                            <button id="filter-max-50" class="px-4 py-2 bg-yellow-700 hover:bg-yellow-600 rounded-md text-sm font-medium text-white transition-colors">
+                                🚀 最高涨幅 &gt;50%
+                            </button>
+                            <button id="clear-filter" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-md text-sm font-medium text-white transition-colors">
+                                清除筛选
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -290,14 +323,16 @@
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-48">代币信息</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-32">状态</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">收集时价格</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">发布时价格</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">FDV</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">TVL</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-56">创建者地址</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">平台</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">收集时价格</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">发布时价格</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">最终涨幅</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-yellow-300 uppercase tracking-wider">最高涨幅</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">FDV</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">TVL</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-40">创建者地址</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">平台</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">发现时间</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">原始数据</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">数据点</th>
                                 </tr>
                             </thead>
                             <tbody id="tokens-table-body" class="bg-gray-800 divide-y divide-gray-700">
@@ -324,6 +359,6 @@
     </div>
 
     <script src="/static/js/simple-init.js?v=4.7"></script>
-    <script src="/static/js/experiment_tokens.js?v=5.2"></script>
+    <script src="/static/js/experiment_tokens.js?v=6.4"></script>
 </body>
 </html>
