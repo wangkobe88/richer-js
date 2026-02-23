@@ -318,8 +318,8 @@ class PlatformCollector {
                         });
                     }
 
-                    // Dev钱包或持有者检测失败则跳过添加
-                    if (isDevCreator || hasBadHolder) {
+                    // Dev钱包跳过添加，但持有者黑名单的代币仍需保存到数据库
+                    if (isDevCreator) {
                         skippedCount++;
                     } else {
                         const added = this.tokenPool.addToken(token);
@@ -501,15 +501,11 @@ class PlatformCollector {
                         });
                     }
 
-                    // 持有者检测失败则跳过添加
-                    if (hasBadHolder) {
-                        skippedCount++;
-                    } else {
-                        const added = this.tokenPool.addToken(token);
-                        if (added) {
-                            addedCount++;
-                            this.collectedTokens.add(tokenKey);
-                        }
+                    // 黑名单持有者的代币也添加到 tokenPool 以便保存到数据库，但交易引擎会跳过
+                    const added = this.tokenPool.addToken(token);
+                    if (added) {
+                        addedCount++;
+                        this.collectedTokens.add(tokenKey);
                     }
                 } else {
                     skippedCount++;

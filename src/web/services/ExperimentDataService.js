@@ -636,6 +636,57 @@ class ExperimentDataService {
    */
   async getTokens(experimentId, options = {}) {
     try {
+      const sortBy = options.sortBy || 'discovered_at';
+      const sortOrder = options.sortOrder || 'desc';
+      const offset = parseInt(options.offset) || 0;
+      const maxLimit = 10000; // 设置最大返回数量上限
+      let limit = parseInt(options.limit) || 100;
+
+      // 防止 limit 过大导致性能问题
+      if (limit > maxLimit) {
+        console.warn(`请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
+        limit = maxLimit;
+      }
+
+      // 如果 limit <= 1000，直接查询
+      if (limit <= 1000) {
+        return await this._getTokensSingleQuery(experimentId, options, offset, limit);
+      }
+
+      // 否则使用分页循环获取所有数据
+      const pageSize = 1000;
+      let allTokens = [];
+      let currentOffset = offset;
+      let remaining = limit;
+
+      while (remaining > 0) {
+        const currentPageSize = Math.min(remaining, pageSize);
+        const pageTokens = await this._getTokensSingleQuery(experimentId, options, currentOffset, currentPageSize);
+        allTokens = allTokens.concat(pageTokens);
+
+        if (pageTokens.length < currentPageSize) {
+          // 没有更多数据了
+          break;
+        }
+
+        remaining -= pageTokens.length;
+        currentOffset += pageTokens.length;
+      }
+
+      return allTokens;
+
+    } catch (error) {
+      console.error('获取代币列表失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 单次查询获取代币列表
+   * @private
+   */
+  async _getTokensSingleQuery(experimentId, options, offset, limit) {
+    try {
       let query = this.supabase
         .from('experiment_tokens')
         .select('*')
@@ -652,16 +703,6 @@ class ExperimentDataService {
       query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 
       // 分页
-      const offset = parseInt(options.offset) || 0;
-      const maxLimit = 10000; // 设置最大返回数量上限
-      let limit = parseInt(options.limit) || 100;
-
-      // 防止 limit 过大导致性能问题
-      if (limit > maxLimit) {
-        console.warn(`请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
-        limit = maxLimit;
-      }
-
       query = query.range(offset, offset + limit - 1);
 
       const { data, error } = await query;

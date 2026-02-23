@@ -149,24 +149,38 @@ class TokenHolderDataService {
    */
   async getTokenList(experimentId = null) {
     try {
-      let query = this.supabase
-        .from('token_holders')
-        .select('token_address');
+      const pageSize = 1000;
+      let allTokens = new Set();
+      let offset = 0;
+      let hasMore = true;
 
-      if (experimentId) {
-        query = query.eq('experiment_id', experimentId);
+      while (hasMore) {
+        let query = this.supabase
+          .from('token_holders')
+          .select('token_address');
+
+        if (experimentId) {
+          query = query.eq('experiment_id', experimentId);
+        }
+
+        const { data, error } = await query
+          .order('checked_at', { ascending: false })
+          .range(offset, offset + pageSize - 1);
+
+        if (error) {
+          throw new Error(`查询代币列表失败: ${error.message}`);
+        }
+
+        if (data && data.length > 0) {
+          data.forEach(d => allTokens.add(d.token_address));
+          offset += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
       }
 
-      const { data, error } = await query
-        .order('checked_at', { ascending: false });
-
-      if (error) {
-        throw new Error(`查询代币列表失败: ${error.message}`);
-      }
-
-      // 去重
-      const uniqueTokens = [...new Set(data?.map(d => d.token_address) || [])];
-      return uniqueTokens;
+      return Array.from(allTokens);
     } catch (error) {
       console.error('获取代币列表失败:', error);
       throw error;

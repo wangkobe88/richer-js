@@ -141,6 +141,15 @@
 
             <!-- 钱包内容 -->
             <div id="wallets-content" class="hidden">
+                <!-- 搜索框 -->
+                <div class="mb-4 flex items-center gap-4">
+                    <div class="flex-1">
+                        <input type="text" id="wallet-search" placeholder="搜索钱包地址..."
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <span id="search-results" class="text-sm text-gray-600"></span>
+                </div>
+
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
@@ -173,6 +182,6 @@
         </main>
     </div>
 
-    <script src="/static/js/wallets.js"></script>
+    <script src="/static/js/wallets.js?v=2.2"></script>
 </body>
 </html>

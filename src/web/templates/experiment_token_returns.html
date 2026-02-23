@@ -183,7 +183,7 @@
                 <!-- 汇总统计 -->
                 <div class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
                     <h2 class="text-lg font-semibold text-white mb-4">汇总统计</h2>
-                    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                    <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4">
                         <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
                             <div class="text-sm text-gray-400 mb-1">交易代币</div>
                             <div class="text-2xl font-bold text-gray-100" id="stat-total-tokens">0</div>
@@ -207,6 +207,28 @@
                         <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
                             <div class="text-sm text-gray-400 mb-1">BNB总增减</div>
                             <div class="text-2xl font-bold" id="stat-bnb-change">0 BNB</div>
+                        </div>
+                    </div>
+                    <!-- 持有者黑名单统计 -->
+                    <div class="bg-gray-750 rounded-lg p-4 border border-orange-900">
+                        <h3 class="text-md font-semibold text-orange-400 mb-3">⚠️ 持有者黑名单统计</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="bg-gray-700 p-3 rounded-lg border border-gray-600">
+                                <div class="text-xs text-gray-400 mb-1">收集代币总数</div>
+                                <div class="text-xl font-bold text-gray-100" id="stat-collected-tokens">0</div>
+                            </div>
+                            <div class="bg-gray-700 p-3 rounded-lg border border-gray-600">
+                                <div class="text-xs text-gray-400 mb-1">命中黑名单</div>
+                                <div class="text-xl font-bold text-red-500" id="stat-blacklisted-tokens">0</div>
+                            </div>
+                            <div class="bg-gray-700 p-3 rounded-lg border border-gray-600">
+                                <div class="text-xs text-gray-400 mb-1">黑名单命中率</div>
+                                <div class="text-xl font-bold text-orange-500" id="stat-blacklist-rate">0%</div>
+                            </div>
+                            <div class="bg-gray-700 p-3 rounded-lg border border-gray-600">
+                                <div class="text-xs text-gray-400 mb-1">黑名单钱包数</div>
+                                <div class="text-xl font-bold text-gray-100" id="stat-blacklist-wallets">0</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -269,6 +291,8 @@
                             </tbody>
                         </table>
                     </div>
+                    <!-- 分页控制 -->
+                    <div id="pagination-container"></div>
                 </div>
 
                 <!-- 空状态 -->
@@ -286,6 +310,6 @@
     </div>
 
     <script src="/static/js/simple-init.js?v=4.3"></script>
-    <script src="/static/js/experiment_token_returns.js?v=4.6"></script>
+    <script src="/static/js/experiment_token_returns.js?v=4.0"></script>
 </body>
 </html>

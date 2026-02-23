@@ -14,6 +14,15 @@ class ExperimentTokens {
     this.refreshTimer = null;
     this.expandedTokens = new Set(); // 记录展开的代币
 
+    // 分页
+    this.currentPage = 1;
+    this.pageSize = 50;
+    this.totalPages = 1;
+
+    // 黑名单统计
+    this.blacklistStats = null;
+    this.blacklistTokenMap = new Map();
+
     this.init();
   }
 
@@ -122,13 +131,16 @@ class ExperimentTokens {
    */
   async loadTokens() {
     try {
-      const response = await fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`);
+      const [tokensRes, blacklistRes] = await Promise.all([
+        fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`),
+        fetch(`/api/experiment/${this.experimentId}/holder-blacklist-stats`)
+      ]);
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!tokensRes.ok) {
+        throw new Error(`HTTP ${tokensRes.status}: ${tokensRes.statusText}`);
       }
 
-      const result = await response.json();
+      const result = await tokensRes.json();
 
       if (!result.success) {
         throw new Error(result.error || '加载代币数据失败');
@@ -136,6 +148,14 @@ class ExperimentTokens {
 
       this.tokens = result.tokens || [];
       this.filteredTokens = [...this.tokens];
+
+      // 加载黑名单钱包数量
+      if (blacklistRes.ok) {
+        const blacklistData = await blacklistRes.json();
+        if (blacklistData.success) {
+          this.blacklistStats = blacklistData.data;
+        }
+      }
 
     } catch (error) {
       console.error('❌ 加载代币数据失败:', error);
@@ -150,6 +170,7 @@ class ExperimentTokens {
     this.hideLoading();
     this.renderExperimentHeader();
     this.renderStatistics();
+    this.renderBlacklistStats();
     this.renderTokens();
     this.setupNavigationLinks();
   }
@@ -249,6 +270,33 @@ class ExperimentTokens {
   }
 
   /**
+   * 渲染黑名单统计
+   */
+  renderBlacklistStats() {
+    // 基于 status === 'bad_holder' 计算统计数据
+    const badHolderCount = this.tokens.filter(t => t.status === 'bad_holder').length;
+    const totalTokens = this.tokens.length;
+
+    const collectedEl = document.getElementById('stat-collected-tokens');
+    const blacklistedEl = document.getElementById('stat-blacklisted-tokens');
+    const rateEl = document.getElementById('stat-blacklist-rate');
+    const walletsEl = document.getElementById('stat-blacklist-wallets');
+
+    if (collectedEl) collectedEl.textContent = totalTokens;
+    if (blacklistedEl) blacklistedEl.textContent = badHolderCount;
+    if (rateEl) {
+      const rate = totalTokens > 0
+        ? (badHolderCount / totalTokens * 100)
+        : 0;
+      rateEl.textContent = `${rate.toFixed(2)}%`;
+    }
+    // 黑名单钱包数从 API 获取
+    if (walletsEl && this.blacklistStats) {
+      walletsEl.textContent = this.blacklistStats.blacklistWalletCount || 0;
+    }
+  }
+
+  /**
    * 渲染代币列表
    */
   renderTokens() {
@@ -260,17 +308,79 @@ class ExperimentTokens {
     if (this.filteredTokens.length === 0) {
       tbody.innerHTML = '';
       if (emptyState) emptyState.classList.remove('hidden');
+      this.renderPagination(0);
       return;
     }
 
     if (emptyState) emptyState.classList.add('hidden');
 
-    tbody.innerHTML = this.filteredTokens.map((token, index) => this.renderTokenRow(token, index)).join('');
+    // 计算分页
+    this.totalPages = Math.ceil(this.filteredTokens.length / this.pageSize);
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    const endIndex = Math.min(startIndex + this.pageSize, this.filteredTokens.length);
+    const pageData = this.filteredTokens.slice(startIndex, endIndex);
+
+    tbody.innerHTML = pageData.map((token, index) => this.renderTokenRow(token, startIndex + index)).join('');
 
     // 绑定展开/收起事件
     this.bindExpandEvents();
     // 绑定复制事件
     this.bindCopyEvents();
+
+    // 渲染分页控制
+    this.renderPagination(this.filteredTokens.length);
+  }
+
+  /**
+   * 渲染分页控制
+   */
+  renderPagination(totalItems) {
+    const paginationContainer = document.getElementById('pagination-container');
+    if (!paginationContainer) return;
+
+    if (totalItems === 0) {
+      paginationContainer.innerHTML = '';
+      return;
+    }
+
+    const totalPages = Math.ceil(totalItems / this.pageSize);
+    const startItem = (this.currentPage - 1) * this.pageSize + 1;
+    const endItem = Math.min(this.currentPage * this.pageSize, totalItems);
+
+    let paginationHTML = `
+      <div class="flex items-center justify-between px-4 py-3 border-t border-gray-700">
+        <div class="text-sm text-gray-400">
+          显示 <span class="font-medium text-white">${startItem}</span> 到 <span class="font-medium text-white">${endItem}</span>
+          共 <span class="font-medium text-white">${totalItems}</span> 个代币
+        </div>
+        <div class="flex items-center space-x-2">
+          <button ${this.currentPage === 1 ? 'disabled' : ''} onclick="window.experimentTokens.goToPage(${this.currentPage - 1})"
+                  class="px-3 py-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm text-white">
+            上一页
+          </button>
+          <span class="text-sm text-gray-400">
+            第 <span class="font-medium text-white">${this.currentPage}</span> / <span class="font-medium text-white">${totalPages}</span> 页
+          </span>
+          <button ${this.currentPage === totalPages ? 'disabled' : ''} onclick="window.experimentTokens.goToPage(${this.currentPage + 1})"
+                  class="px-3 py-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm text-white">
+            下一页
+          </button>
+        </div>
+      </div>
+    `;
+
+    paginationContainer.innerHTML = paginationHTML;
+  }
+
+  /**
+   * 跳转到指定页
+   */
+  goToPage(page) {
+    if (page < 1 || page > this.totalPages) return;
+    this.currentPage = page;
+    this.renderTokens();
+    // 滚动到表格顶部
+    document.getElementById('tokens-table-body')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   /**
@@ -295,15 +405,23 @@ class ExperimentTokens {
     const gmgnUrl = `https://gmgn.ai/bsc/token/${token.token_address}`;
     const signalsUrl = `/experiment/${this.experimentId}/signals#token=${token.token_address}`;
 
+    // 检查是否命中黑名单（基于 status）
+    const hasBlacklist = token.status === 'bad_holder';
+    const blacklistBadge = hasBlacklist
+      ? '<span class="ml-2 px-2 py-0.5 bg-red-900 text-red-400 text-xs rounded border border-red-700" title="命中持有者黑名单">⚠️ 黑名单</span>'
+      : '';
+    const rowClass = hasBlacklist ? 'bg-red-900/20' : '';
+
     return `
-      <tr class="token-row" data-token-address="${token.token_address}">
+      <tr class="token-row ${rowClass}" data-token-address="${token.token_address}">
         <td class="px-4 py-3">
           <div class="flex items-center">
             <img src="${rawData?.logo_url || ''}" alt="" class="w-8 h-8 rounded-full mr-3 ${!rawData?.logo_url ? 'hidden' : ''}" onerror="this.style.display='none'">
             <div>
-              <div class="font-medium text-white">${this.escapeHtml(symbol)}</div>
+              <div class="font-medium text-white">${this.escapeHtml(symbol)}${blacklistBadge}</div>
               <div class="text-xs text-gray-400 font-mono flex items-center">
                 <code class="text-gray-400">${shortAddress}</code>
+                ${hasBlacklist ? '<span class="text-red-400 ml-2">(' + (blacklistInfo.blacklistedHolders || 0) + ' 个黑名单持有者)</span>' : ''}
                 <a href="${gmgnUrl}" target="_blank" class="ml-2" title="GMGN">
                   <img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4">
                 </a>
@@ -370,7 +488,8 @@ class ExperimentTokens {
       'monitoring': { text: '监控中', class: 'status-monitoring' },
       'bought': { text: '已买入', class: 'status-bought' },
       'exited': { text: '已退出', class: 'status-exited' },
-      'negative_dev': { text: 'Dev钱包', class: 'status-negative-dev' }
+      'negative_dev': { text: 'Dev钱包', class: 'status-negative-dev' },
+      'bad_holder': { text: '黑名单持有者', class: 'status-negative-dev' }
     };
     return statusMap[status] || { text: status || '未知', class: 'bg-gray-500 text-white' };
   }
@@ -550,7 +669,10 @@ class ExperimentTokens {
     // 筛选
     let filtered = [...this.tokens];
 
-    if (statusFilter !== 'all') {
+    if (statusFilter === 'blacklist') {
+      // 黑名单筛选 - 基于 status === 'bad_holder'
+      filtered = filtered.filter(t => t.status === 'bad_holder');
+    } else if (statusFilter !== 'all') {
       filtered = filtered.filter(t => t.status === statusFilter);
     }
 
@@ -584,6 +706,7 @@ class ExperimentTokens {
     });
 
     this.filteredTokens = filtered;
+    this.currentPage = 1; // 重置到第一页
     this.renderTokens();
   }
 
@@ -652,5 +775,5 @@ class ExperimentTokens {
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
-  new ExperimentTokens();
+  window.experimentTokens = new ExperimentTokens();
 });

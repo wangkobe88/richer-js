@@ -12,6 +12,11 @@ class ExperimentTokenReturns {
     this.sortField = 'returnRate';
     this.sortOrder = 'desc'; // 'asc' or 'desc'
 
+    // 分页
+    this.currentPage = 1;
+    this.pageSize = 50;
+    this.totalPages = 1;
+
     this.init();
   }
 
@@ -73,10 +78,11 @@ class ExperimentTokenReturns {
     this.showLoading(true);
 
     try {
-      // 并行加载实验数据和交易数据
-      const [experimentRes, tradesRes] = await Promise.all([
+      // 并行加载实验数据、交易数据和黑名单统计
+      const [experimentRes, tradesRes, blacklistRes] = await Promise.all([
         fetch(`/api/experiment/${this.experimentId}`),
-        fetch(`/api/experiment/${this.experimentId}/trades?limit=1000`)
+        fetch(`/api/experiment/${this.experimentId}/trades?limit=10000`), // 增加limit到10000
+        fetch(`/api/experiment/${this.experimentId}/holder-blacklist-stats`)
       ]);
 
       if (!experimentRes.ok || !tradesRes.ok) {
@@ -92,6 +98,18 @@ class ExperimentTokenReturns {
 
       this.experimentData = experimentData.data;
       this.tradesData = tradesData.trades || [];
+
+      // 加载黑名单统计
+      if (blacklistRes.ok) {
+        const blacklistData = await blacklistRes.json();
+        if (blacklistData.success) {
+          this.blacklistStats = blacklistData.data;
+          // 建立代币到黑名单状态的映射
+          this.blacklistTokenMap = new Map(
+            blacklistData.data.blacklistedTokenList.map(t => [t.token, t])
+          );
+        }
+      }
 
       // 计算所有代币收益
       this.calculateAllTokensPnL();
@@ -324,12 +342,19 @@ class ExperimentTokenReturns {
     if (this.filteredReturns.length === 0) {
       tbody.innerHTML = '';
       emptyState?.classList.remove('hidden');
+      this.renderPagination(0);
       return;
     }
 
     emptyState?.classList.add('hidden');
 
-    tbody.innerHTML = this.filteredReturns.map(item => {
+    // 计算分页
+    this.totalPages = Math.ceil(this.filteredReturns.length / this.pageSize);
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    const endIndex = Math.min(startIndex + this.pageSize, this.filteredReturns.length);
+    const pageData = this.filteredReturns.slice(startIndex, endIndex);
+
+    tbody.innerHTML = pageData.map(item => {
       const pnl = item.pnl;
 
       // 格式化数值
@@ -352,11 +377,21 @@ class ExperimentTokenReturns {
           break;
       }
 
+      // 检查是否命中黑名单
+      const blacklistInfo = this.blacklistTokenMap?.get(item.tokenAddress);
+      const hasBlacklist = blacklistInfo && blacklistInfo.hasBlacklist;
+      const blacklistBadge = hasBlacklist
+        ? '<span class="ml-2 px-2 py-0.5 bg-red-900 text-red-400 text-xs rounded border border-red-700" title="命中持有者黑名单">⚠️ 黑名单</span>'
+        : '';
+
       return `
-        <tr class="table-row">
+        <tr class="table-row ${hasBlacklist ? 'bg-red-900/20' : ''}">
           <td class="px-4 py-3">
             <div class="flex items-center justify-between">
-              <span class="font-medium text-white">${item.symbol}</span>
+              <div>
+                <span class="font-medium text-white">${item.symbol}</span>
+                ${blacklistBadge}
+              </div>
               <div class="flex items-center space-x-2">
                 <button class="copy-addr-btn text-gray-400 hover:text-blue-400 transition-colors"
                         data-address="${item.tokenAddress}"
@@ -374,6 +409,7 @@ class ExperimentTokenReturns {
             </div>
             <div class="text-xs text-gray-500 font-mono mt-1 flex items-center justify-between">
               <span>${item.tokenAddress.slice(0, 8)}...${item.tokenAddress.slice(-6)}</span>
+              ${hasBlacklist ? '<span class="text-red-400">(' + (blacklistInfo.blacklistedHolders || 0) + ' 个黑名单持有者)</span>' : ''}
             </div>
           </td>
           <td class="px-4 py-3 text-right">
@@ -414,6 +450,53 @@ class ExperimentTokenReturns {
 
     // 绑定拷贝按钮事件
     this.bindCopyButtons();
+
+    // 渲染分页控制
+    this.renderPagination(this.filteredReturns.length);
+  }
+
+  renderPagination(totalItems) {
+    const paginationContainer = document.getElementById('pagination-container');
+    if (!paginationContainer) return;
+
+    if (totalItems === 0) {
+      paginationContainer.innerHTML = '';
+      return;
+    }
+
+    const totalPages = Math.ceil(totalItems / this.pageSize);
+    const startItem = (this.currentPage - 1) * this.pageSize + 1;
+    const endItem = Math.min(this.currentPage * this.pageSize, totalItems);
+
+    let paginationHTML = `
+      <div class="flex items-center justify-between px-4 py-3 border-t border-gray-700">
+        <div class="text-sm text-gray-400">
+          显示 <span class="font-medium text-white">${startItem}</span> 到 <span class="font-medium text-white">${endItem}</span>
+          共 <span class="font-medium text-white">${totalItems}</span> 个代币
+        </div>
+        <div class="flex items-center space-x-2">
+          <button ${this.currentPage === 1 ? 'disabled' : ''} onclick="window.tokenReturns.goToPage(${this.currentPage - 1})"
+                  class="px-3 py-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm text-white">
+            上一页
+          </button>
+          <span class="text-sm text-gray-400">
+            第 <span class="font-medium text-white">${this.currentPage}</span> / <span class="font-medium text-white">${totalPages}</span> 页
+          </span>
+          <button ${this.currentPage === totalPages ? 'disabled' : ''} onclick="window.tokenReturns.goToPage(${this.currentPage + 1})"
+                  class="px-3 py-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm text-white">
+            下一页
+          </button>
+        </div>
+      </div>
+    `;
+
+    paginationContainer.innerHTML = paginationHTML;
+  }
+
+  goToPage(page) {
+    if (page < 1 || page > this.totalPages) return;
+    this.currentPage = page;
+    this.renderTable();
   }
 
   bindCopyButtons() {
@@ -510,6 +593,18 @@ class ExperimentTokenReturns {
     document.getElementById('stat-profit-count').textContent = profitCount;
     document.getElementById('stat-loss-count').textContent = lossCount;
     document.getElementById('stat-win-rate').textContent = `${winRate.toFixed(1)}%`;
+
+    // 更新黑名单统计
+    if (this.blacklistStats) {
+      document.getElementById('stat-collected-tokens').textContent = this.blacklistStats.totalTokens || 0;
+      document.getElementById('stat-blacklisted-tokens').textContent = this.blacklistStats.blacklistedTokens || 0;
+      document.getElementById('stat-blacklist-wallets').textContent = this.blacklistStats.blacklistWalletCount || 0;
+
+      const rate = this.blacklistStats.totalTokens > 0
+        ? (this.blacklistStats.blacklistedTokens / this.blacklistStats.totalTokens * 100)
+        : 0;
+      document.getElementById('stat-blacklist-rate').textContent = `${rate.toFixed(2)}%`;
+    }
   }
 
   exportToCSV() {

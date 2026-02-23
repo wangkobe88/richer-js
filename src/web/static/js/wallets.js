@@ -4,6 +4,7 @@
 class WalletManager {
   constructor() {
     this.wallets = [];
+    this.filteredWallets = [];
     this.init();
   }
 
@@ -30,6 +31,66 @@ class WalletManager {
     document.getElementById('retry-btn')?.addEventListener('click', () => {
       this.loadData();
     });
+
+    // 搜索框
+    const searchInput = document.getElementById('wallet-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        this.handleSearch(e.target.value);
+      });
+    }
+
+    // 表格事件委托（复制和删除按钮）
+    const tbody = document.getElementById('wallets-table-body');
+    if (tbody) {
+      tbody.addEventListener('click', (e) => {
+        const copyBtn = e.target.closest('.copy-address-btn');
+        const deleteBtn = e.target.closest('.delete-wallet-btn');
+
+        if (copyBtn) {
+          const address = copyBtn.dataset.address;
+          if (address) {
+            this.copyAddress(address);
+          }
+        }
+
+        if (deleteBtn) {
+          const id = deleteBtn.dataset.id;
+          if (id) {
+            this.deleteWallet(parseInt(id));
+          }
+        }
+      });
+    }
+  }
+
+  handleSearch(query) {
+    const searchTerm = query.toLowerCase().trim();
+
+    if (!searchTerm) {
+      this.filteredWallets = [...this.wallets];
+    } else {
+      this.filteredWallets = this.wallets.filter(wallet =>
+        wallet.address.toLowerCase().includes(searchTerm) ||
+        (wallet.name && wallet.name.toLowerCase().includes(searchTerm))
+      );
+    }
+
+    this.renderTable();
+    this.updateSearchResults();
+  }
+
+  updateSearchResults() {
+    const resultsEl = document.getElementById('search-results');
+    if (resultsEl) {
+      const total = this.wallets.length;
+      const filtered = this.filteredWallets.length;
+      if (filtered !== total) {
+        resultsEl.textContent = `找到 ${filtered} 个钱包（共 ${total} 个）`;
+      } else {
+        resultsEl.textContent = '';
+      }
+    }
   }
 
   async loadData() {
@@ -45,6 +106,14 @@ class WalletManager {
       }
 
       this.wallets = result.data || [];
+      this.filteredWallets = [...this.wallets];
+
+      // 清空搜索框
+      const searchInput = document.getElementById('wallet-search');
+      if (searchInput) {
+        searchInput.value = '';
+      }
+
       this.renderTable();
       this.showContent(true);
 
@@ -64,28 +133,36 @@ class WalletManager {
 
     if (!tbody) return;
 
-    if (this.wallets.length === 0) {
+    if (this.filteredWallets.length === 0) {
       tbody.innerHTML = '';
-      emptyState?.classList.remove('hidden');
+      const searchInput = document.getElementById('wallet-search');
+      const hasSearch = searchInput && searchInput.value.trim();
+      if (hasSearch) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">未找到匹配的钱包</td></tr>';
+      } else {
+        emptyState?.classList.remove('hidden');
+      }
       return;
     }
 
     emptyState?.classList.add('hidden');
-    tbody.innerHTML = this.wallets.map(wallet => {
+    tbody.innerHTML = this.filteredWallets.map(wallet => {
       return `
         <tr class="table-row">
-          <td class="px-4 py-3 font-mono text-sm">
-            <span class="text-white">${wallet.address}</span>
+          <td class="px-4 py-3 font-mono text-sm text-white">
+            <span>${this.escapeHtml(wallet.address)}</span>
           </td>
           <td class="px-4 py-3">
             <input type="text"
-                   value="${wallet.name || ''}"
-                   onchange="window.walletManager.updateWallet('${wallet.id}', 'name', this.value)"
-                   class="w-full px-3 py-2 bg-transparent border-none text-white text-sm focus:ring-2 focus:ring-blue-500">
+                   value="${this.escapeHtml(wallet.name || '')}"
+                   data-wallet-id="${wallet.id}"
+                   data-field="name"
+                   class="wallet-name-input w-full px-3 py-2 bg-transparent border-none text-white text-sm focus:ring-2 focus:ring-blue-500">
           </td>
           <td class="px-4 py-3">
-            <select onchange="window.walletManager.updateWallet('${wallet.id}', 'category', this.value)"
-                    class="w-full px-3 py-2 bg-transparent border-none text-white text-sm focus:ring-2 focus:ring-blue-500">
+            <select data-wallet-id="${wallet.id}"
+                    data-field="category"
+                    class="wallet-category-select w-full px-3 py-2 bg-transparent border-none text-white text-sm focus:ring-2 focus:ring-blue-500">
               <option value="">无分类</option>
               <option value="hot" ${wallet.category === 'hot' ? 'selected' : ''}>热门代币</option>
               <option value="long" ${wallet.category === 'long' ? 'selected' : ''}>长期持有</option>
@@ -96,18 +173,48 @@ class WalletManager {
             </select>
           </td>
           <td class="px-4 py-3 text-center">
-            <button type="button" class="text-blue-400 hover:text-blue-300 text-sm mr-2"
-                    onclick="window.walletManager.copyAddress('${wallet.address}')">
+            <button type="button" class="copy-address-btn text-white hover:text-gray-300 text-sm mr-2"
+                    data-address="${this.escapeHtml(wallet.address)}">
               📋 复制
             </button>
-            <button type="button" class="text-red-400 hover:text-red-300 text-sm"
-                    onclick="window.walletManager.deleteWallet('${wallet.id}')">
+            <button type="button" class="delete-wallet-btn text-white hover:text-gray-300 text-sm"
+                    data-id="${wallet.id}">
               🗑️ 删除
             </button>
           </td>
         </tr>
       `;
     }).join('');
+
+    // 绑定输入框和下拉框的变化事件
+    this.bindInputEvents();
+  }
+
+  bindInputEvents() {
+    // 绑定名称输入框
+    document.querySelectorAll('.wallet-name-input').forEach(input => {
+      input.addEventListener('change', (e) => {
+        const walletId = parseInt(e.target.dataset.walletId);
+        const value = e.target.value;
+        this.updateWallet(walletId, 'name', value);
+      });
+    });
+
+    // 绑定分类下拉框
+    document.querySelectorAll('.wallet-category-select').forEach(select => {
+      select.addEventListener('change', (e) => {
+        const walletId = parseInt(e.target.dataset.walletId);
+        const value = e.target.value;
+        this.updateWallet(walletId, 'category', value);
+      });
+    });
+  }
+
+  escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   updateStats() {
@@ -144,9 +251,15 @@ class WalletManager {
       }
 
       this.wallets.push(result.data);
-      this.renderTable();
+      // 重新应用搜索
+      const searchInput = document.getElementById('wallet-search');
+      if (searchInput && searchInput.value.trim()) {
+        this.handleSearch(searchInput.value);
+      } else {
+        this.filteredWallets = [...this.wallets];
+        this.renderTable();
+      }
       this.updateStats();
-      this.closeModal();
     } catch (error) {
       console.error('添加钱包失败:', error);
       alert('添加失败：' + error.message);
@@ -198,7 +311,14 @@ class WalletManager {
 
       // 从本地数据中移除
       this.wallets = this.wallets.filter(w => w.id !== id);
-      this.renderTable();
+      // 重新应用搜索
+      const searchInput = document.getElementById('wallet-search');
+      if (searchInput && searchInput.value.trim()) {
+        this.handleSearch(searchInput.value);
+      } else {
+        this.filteredWallets = [...this.wallets];
+        this.renderTable();
+      }
       this.updateStats();
     } catch (error) {
       console.error('删除钱包失败:', error);
@@ -207,8 +327,48 @@ class WalletManager {
   }
 
   copyAddress(address) {
-    navigator.clipboard.writeText(address);
-    alert('地址已复制到剪贴板：' + address);
+    navigator.clipboard.writeText(address).then(() => {
+      // 显示成功提示
+      this.showToast('地址已复制到剪贴板');
+    }).catch(err => {
+      // 降级方案
+      const textarea = document.createElement('textarea');
+      textarea.value = address;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        this.showToast('地址已复制到剪贴板');
+      } catch (e) {
+        alert('复制失败，请手动复制');
+      }
+      document.body.removeChild(textarea);
+    });
+  }
+
+  showToast(message) {
+    // 移除旧的 toast
+    const oldToast = document.querySelector('.wallet-toast');
+    if (oldToast) {
+      oldToast.remove();
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'wallet-toast fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s';
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 2000);
   }
 
   showAddModal() {
@@ -243,11 +403,11 @@ class WalletManager {
           </select>
         </div>
         <div class="flex space-x-4">
-          <button type="button" onclick="window.walletManager.closeModal()"
+          <button type="button" id="modal-cancel-btn"
                   class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-sm font-medium text-white">
             取消
           </button>
-          <button type="button" onclick="window.walletManager.confirmAddWallet()"
+          <button type="button" id="modal-confirm-btn"
                   class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white">
             添加
           </button>
@@ -256,6 +416,15 @@ class WalletManager {
     `;
 
     document.body.appendChild(modal);
+
+    // 绑定按钮事件
+    document.getElementById('modal-cancel-btn').addEventListener('click', () => {
+      this.closeModal();
+    });
+
+    document.getElementById('modal-confirm-btn').addEventListener('click', () => {
+      this.confirmAddWallet();
+    });
   }
 
   closeModal() {

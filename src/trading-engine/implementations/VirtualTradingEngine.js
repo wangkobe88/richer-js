@@ -651,9 +651,17 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           created_at: token.createdAt,
           raw_api_data: token.rawApiData || null,
           contract_risk_raw_ave_data: token.contractRisk || null,
-          creator_address: token.creatorAddress || null
+          creator_address: token.creatorAddress || null,
+          status: token.status || 'monitoring'
         });
         this._seenTokens.add(tokenKey);
+      }
+
+      // bad_holder 状态的代币跳过后续处理
+      if (token.status === 'bad_holder') {
+        this.logger.info(this._experimentId, 'ProcessToken',
+          `跳过黑名单持有者代币: ${token.symbol}`);
+        return;
       }
 
       const currentPrice = token.currentPrice || 0;

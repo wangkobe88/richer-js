@@ -529,12 +529,15 @@ class RicherJsWebServer {
           return res.status(400).json({ success: false, error: '持有者数据格式错误' });
         }
 
-        // 排除 fourmeme LP 地址
-        const EXCLUDE_LP = '0x5c952063c7fc8610ffdb798152d69f0b9550762b';
+        // 排除 LP 地址
+        const EXCLUDE_ADDRESSES = [
+          '0x5c952063c7fc8610ffdb798152d69f0b9550762b', // fourmeme LP
+          '0xe2ce6ab80874fa9fa2aae65d277dd6b8e65c9de0'  // slap.sh LP
+        ].map(addr => addr.toLowerCase());
 
-        // 筛选持仓比例大于1%的钱包
+        // 筛选持仓比例大于0.05%的钱包
         const targetWallets = holders.filter(h => {
-          if (h.address?.toLowerCase() === EXCLUDE_LP.toLowerCase()) {
+          if (EXCLUDE_ADDRESSES.includes(h.address?.toLowerCase())) {
             return false;
           }
           let ratio = 0;
@@ -544,7 +547,7 @@ class RicherJsWebServer {
             const cleaned = h.balance_ratio.replace('%', '').trim();
             ratio = (parseFloat(cleaned) || 0) / 100;
           }
-          return ratio > 0.01; // 大于1%
+          return ratio > 0.0005; // 大于0.05%
         });
 
         if (targetWallets.length === 0) {
@@ -582,6 +585,81 @@ class RicherJsWebServer {
         });
       } catch (error) {
         console.error('批量添加流水盘钱包失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取实验的持有者黑名单统计
+    this.app.get('/api/experiment/:id/holder-blacklist-stats', async (req, res) => {
+      try {
+        const experimentId = req.params.id;
+
+        // 获取黑名单钱包
+        const { data: blacklistWallets } = await this.dataService.supabase
+          .from('wallets')
+          .select('address')
+          .in('category', ['dev', 'pump_group', 'negative_holder']);
+
+        const blacklistSet = new Set((blacklistWallets || []).map(w => w.address.toLowerCase()));
+
+        // 获取该实验的所有持有者快照
+        const pageSize = 1000;
+        let offset = 0;
+        let hasMore = true;
+        const tokenBlacklistStats = new Map();
+
+        while (hasMore) {
+          const { data: snapshots } = await this.dataService.supabase
+            .from('token_holders')
+            .select('token_address, holder_data')
+            .eq('experiment_id', experimentId)
+            .range(offset, offset + pageSize - 1);
+
+          if (snapshots && snapshots.length > 0) {
+            for (const snapshot of snapshots) {
+              const tokenAddr = snapshot.token_address;
+              if (!tokenBlacklistStats.has(tokenAddr)) {
+                tokenBlacklistStats.set(tokenAddr, {
+                  hasBlacklist: false,
+                  blacklistedHolders: 0
+                });
+              }
+              const stats = tokenBlacklistStats.get(tokenAddr);
+
+              if (snapshot.holder_data?.holders) {
+                for (const holder of snapshot.holder_data.holders) {
+                  const addr = holder.address?.toLowerCase();
+                  if (addr && blacklistSet.has(addr)) {
+                    stats.hasBlacklist = true;
+                    stats.blacklistedHolders++;
+                  }
+                }
+              }
+            }
+            offset += pageSize;
+            hasMore = snapshots.length === pageSize;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        const tokensWithBlacklist = Array.from(tokenBlacklistStats.entries())
+          .filter(([_, stats]) => stats.hasBlacklist)
+          .map(([tokenAddr, stats]) => ({ token: tokenAddr, ...stats }));
+
+        const totalTokens = tokenBlacklistStats.size;
+
+        res.json({
+          success: true,
+          data: {
+            totalTokens: totalTokens,
+            blacklistedTokens: tokensWithBlacklist.length,
+            blacklistedTokenList: tokensWithBlacklist,
+            blacklistWalletCount: blacklistSet.size
+          }
+        });
+      } catch (error) {
+        console.error('获取黑名单统计失败:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });
