@@ -128,10 +128,11 @@ class WalletDataService {
    */
   async deleteWalletByAddress(address) {
     try {
+      // 使用 ilike 进行不区分大小写的匹配
       const { error } = await this.supabase
         .from('wallets')
         .delete()
-        .eq('address', address);
+        .ilike('address', address);
 
       if (error) throw error;
       return true;
@@ -148,10 +149,11 @@ class WalletDataService {
    */
   async getWalletByAddress(address) {
     try {
+      // 使用 ilike 进行不区分大小写的匹配
       const { data, error } = await this.supabase
         .from('wallets')
         .select('*')
-        .eq('address', address)
+        .ilike('address', address)
         .single();
 
       if (error) {

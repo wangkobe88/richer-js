@@ -480,7 +480,37 @@ class RicherJsWebServer {
       }
     });
 
-    // 删除钱包
+    // 根据地址删除钱包（必须在 /api/wallets/:id 之前定义）
+    this.app.delete('/api/wallets/address/:address', async (req, res) => {
+      try {
+        const { address } = req.params;
+
+        console.log('🗑️ 删除钱包请求:', address);
+
+        if (!address) {
+          return res.status(400).json({ success: false, error: '钱包地址不能为空' });
+        }
+
+        // 先检查钱包是否存在
+        const existing = await this.walletService.getWalletByAddress(address);
+        console.log('🔍 查找结果:', existing);
+        if (!existing) {
+          return res.status(404).json({ success: false, error: '钱包不存在' });
+        }
+
+        const deleted = await this.walletService.deleteWalletByAddress(address);
+        console.log('✅ 删除结果:', deleted);
+        res.json({
+          success: true,
+          message: '钱包已从黑名单中删除'
+        });
+      } catch (error) {
+        console.error('❌ 删除钱包失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 删除钱包（按ID）
     this.app.delete('/api/wallets/:id', async (req, res) => {
       try {
         await this.walletService.deleteWallet(req.params.id);
@@ -525,32 +555,6 @@ class RicherJsWebServer {
         });
       } catch (error) {
         console.error('添加单个钱包失败:', error);
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // 根据地址删除钱包
-    this.app.delete('/api/wallets/address/:address', async (req, res) => {
-      try {
-        const { address } = req.params;
-
-        if (!address) {
-          return res.status(400).json({ success: false, error: '钱包地址不能为空' });
-        }
-
-        // 先检查钱包是否存在
-        const existing = await this.walletService.getWalletByAddress(address);
-        if (!existing) {
-          return res.status(404).json({ success: false, error: '钱包不存在' });
-        }
-
-        await this.walletService.deleteWalletByAddress(address);
-        res.json({
-          success: true,
-          message: '钱包已从黑名单中删除'
-        });
-      } catch (error) {
-        console.error('删除钱包失败:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

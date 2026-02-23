@@ -435,12 +435,18 @@ class TokenHoldersManager {
 
       if (!confirmed) return;
 
-      // 调用API
-      const response = await fetch(`/api/wallets/address/${address}`, {
+      console.log('🗑️ 准备删除钱包:', address);
+
+      // 调用API - 使用 encodeURIComponent 确保地址正确编码
+      const response = await fetch(`/api/wallets/address/${encodeURIComponent(address)}`, {
         method: 'DELETE'
       });
 
+      console.log('📡 API响应状态:', response.status);
+
       const result = await response.json();
+
+      console.log('📦 API响应结果:', result);
 
       if (result.success) {
         alert(`✅ ${result.message}`);
@@ -450,7 +456,7 @@ class TokenHoldersManager {
         alert(`❌ 删除失败: ${result.error}`);
       }
     } catch (error) {
-      console.error('删除钱包失败:', error);
+      console.error('❌ 删除钱包异常:', error);
       alert(`❌ 删除失败: ${error.message}`);
     }
   }
