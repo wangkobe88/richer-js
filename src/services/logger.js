@@ -25,6 +25,14 @@ class Logger {
         return Promise.resolve();
     }
 
+    /**
+     * 更新实验ID
+     * @param {string} experimentId - 实验ID
+     */
+    setExperimentId(experimentId) {
+        this.experimentId = experimentId;
+    }
+
     getLogFilePath(experimentId = null) {
         const id = experimentId || this.experimentId;
         const date = new Date().toISOString().split('T')[0];

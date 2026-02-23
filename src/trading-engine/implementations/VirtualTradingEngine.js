@@ -388,6 +388,18 @@ class VirtualTradingEngine extends AbstractTradingEngine {
   // ==================== Virtual 特有方法 ====================
 
   /**
+   * 更新所有组件的 logger experimentId
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _updateComponentLoggers() {
+    // 更新 PlatformCollector 的 logger experimentId
+    if (this._fourmemeCollector) {
+      this._fourmemeCollector.logger.setExperimentId(this._experimentId);
+    }
+  }
+
+  /**
    * 初始化监控模块
    * @private
    * @returns {Promise<void>}

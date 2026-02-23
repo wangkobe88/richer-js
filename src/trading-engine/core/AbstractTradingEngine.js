@@ -152,6 +152,11 @@ class AbstractTradingEngine extends ITradingEngine {
     this._logger = new Logger({ experimentId: this._experimentId });
     await this._logger.initialize();
 
+    // 通知子类更新组件的 logger（如果有）
+    if (typeof this._updateComponentLoggers === 'function') {
+      await this._updateComponentLoggers();
+    }
+
     // 初始化核心组件
     await this._initializeComponents();
 
