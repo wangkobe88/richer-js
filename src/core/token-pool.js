@@ -57,7 +57,8 @@ class TokenPool {
             createdAt: tokenData.created_at || Date.now() / 1000,  // 代币创建时间（用于计算 age）
             addedAt: collectionTime,  // 添加到监控池的时间
             klineData: [],
-            status: 'monitoring', // monitoring, bought, selling, exited
+            // 保留传入的 status（如 bad_holder, negative_dev），默认为 monitoring
+            status: tokenData.status || 'monitoring', // monitoring, bought, selling, exited, bad_holder, negative_dev
             buyDecision: null,
             buyPrice: null,
             buyTime: null,
