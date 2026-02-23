@@ -286,7 +286,7 @@ class PlatformCollector {
                             token.token,
                             this.experimentId,  // 传递实验ID
                             token.chain || 'bsc',
-                            ['pump_group', 'negative_holder']
+                            ['pump_group', 'negative_holder', 'dev']
                         );
 
                         if (holderCheck.hasNegative) {
@@ -466,7 +466,7 @@ class PlatformCollector {
                             token.token,
                             this.experimentId,
                             token.chain || 'bsc',
-                            ['pump_group', 'negative_holder']
+                            ['pump_group', 'negative_holder', 'dev']
                         );
 
                         if (holderCheck.hasNegative) {

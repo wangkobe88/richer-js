@@ -277,12 +277,16 @@ class TokenPool {
     }
 
     /**
-     * Get monitoring tokens (status = 'monitoring' or 'bought')
+     * Get monitoring tokens (status = 'monitoring', 'bought', 'bad_holder', 'negative_dev')
+     * 包含 bad_holder 和 negative_dev 状态，以便保存到数据库，但后续处理会跳过
      * @returns {Array} Array of token data
      */
     getMonitoringTokens() {
         return this.getAllTokens().filter(t =>
-            t.status === 'monitoring' || t.status === 'bought'
+            t.status === 'monitoring' ||
+            t.status === 'bought' ||
+            t.status === 'bad_holder' ||
+            t.status === 'negative_dev'
         );
     }
 
