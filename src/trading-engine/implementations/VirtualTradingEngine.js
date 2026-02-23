@@ -65,7 +65,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 服务
     this.dataService = new ExperimentDataService();
     this.timeSeriesService = null; // 在 _initializeComponents 中初始化
-    // Logger 将在 initialize() 中创建（使用正确的 experimentId）
+    // 先创建一个临时 Logger（experimentId=null），在 initialize() 中会被替换
+    this.logger = new Logger({ dir: './logs', experimentId: null });
 
     // Virtual 特有组件
     this._fourmemeCollector = null;
