@@ -159,10 +159,10 @@ class AveTokenAPI extends BaseAveAPI {
     }
 
     /**
-     * 获取代币详细信息
+     * 获取指定代币的详细信息
      *
      * @param {string} tokenId - 代币ID，格式：{token}-{chain}
-     * @returns {Promise<Object>} 代币详细信息
+     * @returns {Promise<Object>} 代币详细信息，包含token、pairs和is_audited字段
      */
     async getTokenDetail(tokenId) {
         if (!tokenId) {
@@ -171,21 +171,87 @@ class AveTokenAPI extends BaseAveAPI {
 
         const result = await this._makeRequest('GET', `/v2/tokens/${tokenId}`);
         const data = result.data || {};
-        const tokenData = data.token || {};
 
-        return {
-            token: tokenData.token || '',
-            chain: tokenData.chain || '',
-            name: tokenData.name || '',
-            symbol: tokenData.symbol || '',
-            logo_url: tokenData.logo_url || '',
+        const tokenData = data.token || {};
+        const pairsData = data.pairs || [];
+
+        // 创建代币信息
+        const token = {
+            total: String(tokenData.total || 0),
+            launch_price: String(tokenData.launch_price || 0),
+            current_price_eth: String(tokenData.current_price_eth || 0),
             current_price_usd: String(tokenData.current_price_usd || 0),
+            price_change_1d: String(tokenData.price_change_1d || 0),
+            price_change_24h: String(tokenData.price_change_24h || 0),
+            lock_amount: String(tokenData.lock_amount || 0),
+            burn_amount: String(tokenData.burn_amount || 0),
+            other_amount: String(tokenData.other_amount || 0),
+            tx_amount_24h: String(tokenData.tx_amount_24h || 0),
+            tx_volume_u_24h: String(tokenData.tx_volume_u_24h || 0),
+            locked_percent: String(tokenData.locked_percent || 0),
             market_cap: String(tokenData.market_cap || 0),
             fdv: String(tokenData.fdv || 0),
             tvl: String(tokenData.tvl || 0),
+            main_pair_tvl: String(tokenData.main_pair_tvl || 0),
+            token: String(tokenData.token || ''),
+            chain: String(tokenData.chain || ''),
+            decimal: parseInt(tokenData.decimal) || 0,
+            name: String(tokenData.name || ''),
+            symbol: String(tokenData.symbol || ''),
+            holders: parseInt(tokenData.holders) || 0,
+            appendix: String(tokenData.appendix || ''),
+            risk_level: parseInt(tokenData.risk_level) || 0,
+            logo_url: String(tokenData.logo_url || ''),
+            risk_info: String(tokenData.risk_info || ''),
+            risk_score: String(tokenData.risk_score || 0),
+            launch_at: parseInt(tokenData.launch_at) || 0,
             created_at: parseInt(tokenData.created_at) || 0,
-            launch_at: parseInt(tokenData.launch_at) || 0
+            tx_count_24h: parseInt(tokenData.tx_count_24h) || 0,
+            lock_platform: String(tokenData.lock_platform || ''),
+            is_mintable: String(tokenData.is_mintable || ''),
+            updated_at: parseInt(tokenData.updated_at) || 0,
+            main_pair: String(tokenData.main_pair || '')
         };
+
+        // 创建交易对信息
+        const pairs = pairsData.map(pairData => ({
+            reserve0: String(pairData.reserve0 || 0),
+            reserve1: String(pairData.reserve1 || 0),
+            token0_price_eth: String(pairData.token0_price_eth || 0),
+            token0_price_usd: String(pairData.token0_price_usd || 0),
+            token1_price_eth: String(pairData.token1_price_eth || 0),
+            token1_price_usd: String(pairData.token1_price_usd || 0),
+            price_change: String(pairData.price_change || 0),
+            price_change_24h: String(pairData.price_change_24h || 0),
+            price_change_1h: String(pairData.price_change_1h || 0),
+            volume_u: String(pairData.volume_u || 0),
+            low_u: String(pairData.low_u || 0),
+            high_u: String(pairData.high_u || 0),
+            fee: String(pairData.fee || 0),
+            total_supply: String(pairData.total_supply || 0),
+            tx_amount: String(pairData.tx_amount || 0),
+            pair: String(pairData.pair || ''),
+            chain: String(pairData.chain || ''),
+            amm: String(pairData.amm || ''),
+            token0_address: String(pairData.token0_address || ''),
+            token0_symbol: String(pairData.token0_symbol || ''),
+            token0_decimal: parseInt(pairData.token0_decimal) || 0,
+            token1_address: String(pairData.token1_address || ''),
+            token1_symbol: String(pairData.token1_symbol || ''),
+            token1_decimal: parseInt(pairData.token1_decimal) || 0,
+            target_token: String(pairData.target_token || ''),
+            price_change_1d: String(pairData.price_change_1d || 0),
+            created_at: parseInt(pairData.created_at) || 0,
+            tx_count: parseInt(pairData.tx_count) || 0,
+            updated_at: parseInt(pairData.updated_at) || 0,
+            market_cap: String(pairData.market_cap || 0),
+            fdv: String(pairData.fdv || 0),
+            is_fake: Boolean(pairData.is_fake || false)
+        }));
+
+        const isAudited = parseInt(data.is_audited) || 0;
+
+        return { token, pairs, is_audited: isAudited };
     }
 
     /**

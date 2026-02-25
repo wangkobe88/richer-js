@@ -53,15 +53,13 @@ class PlatformCollector {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0,
-                totalDevFiltered: 0,
-                totalBadHolderFiltered: 0
+                totalDevFiltered: 0
             },
             flap: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0,
-                totalDevFiltered: 0,
-                totalBadHolderFiltered: 0
+                totalDevFiltered: 0
             },
             lastCollectionTime: null
         };
@@ -278,47 +276,7 @@ class PlatformCollector {
                         });
                     }
 
-                    // === 持有者黑名单检测模块 ===
-                    let hasBadHolder = false;
-                    try {
-                        console.log(`[持有者黑名单检测] 检查代币 ${token.symbol} (${token.token}) 持有者...`);
-                        const holderCheck = await this.tokenHolderService.checkHolderRisk(
-                            token.token,
-                            this.experimentId,  // 传递实验ID
-                            token.chain || 'bsc',
-                            ['pump_group', 'negative_holder', 'dev']
-                        );
-
-                        if (holderCheck.hasNegative) {
-                            token.status = 'bad_holder';
-                            hasBadHolder = true;
-                            this.stats.fourmeme.totalBadHolderFiltered++;
-                            console.log(`[持有者黑名单检测] 🚫 ${token.symbol} 包含黑名单持有者，已拒绝`);
-                            console.log(`[持有者黑名单检测] 原因: ${holderCheck.reason}`);
-                            this.logger.info('[持有者黑名单检测] 拒绝包含黑名单持有者的代币', {
-                                token: token.token,
-                                symbol: token.symbol,
-                                status: 'bad_holder',
-                                reason: holderCheck.reason,
-                                negative_holders: holderCheck.negativeHolders?.length || 0
-                            });
-                        } else {
-                            console.log(`[持有者黑名单检测] ✅ ${token.symbol} 持有者检查通过`);
-                            this.logger.info('[持有者黑名单检测] 检查通过', {
-                                token: token.token,
-                                symbol: token.symbol
-                            });
-                        }
-                    } catch (holderError) {
-                        console.log(`[持有者黑名单检测] ⚠️ ${token.symbol} 检测失败: ${holderError.message}`);
-                        this.logger.error('[持有者黑名单检测] 检测失败', {
-                            token: token.token,
-                            symbol: token.symbol,
-                            error: holderError.message
-                        });
-                    }
-
-                    // Dev钱包跳过添加，但持有者黑名单的代币仍需保存到数据库
+                    // Dev钱包跳过添加
                     if (isDevCreator) {
                         skippedCount++;
                     } else {
@@ -458,50 +416,7 @@ class PlatformCollector {
                     const isDevCreator = false;
                     console.log(`[Flap平台] ${token.symbol} 无创建者地址，跳过Dev钱包检测`);
 
-                    // === 持有者黑名单检测模块 ===
-                    let hasBadHolder = false;
-                    try {
-                        console.log(`[持有者黑名单检测] 检查代币 ${token.symbol} (${token.token}) 持有者...`);
-                        const holderCheck = await this.tokenHolderService.checkHolderRisk(
-                            token.token,
-                            this.experimentId,
-                            token.chain || 'bsc',
-                            ['pump_group', 'negative_holder', 'dev']
-                        );
-
-                        if (holderCheck.hasNegative) {
-                            token.status = 'bad_holder';
-                            hasBadHolder = true;
-                            this.stats.flap.totalBadHolderFiltered++;
-                            console.log(`[持有者黑名单检测] 🚫 ${token.symbol} 包含黑名单持有者，已拒绝`);
-                            console.log(`[持有者黑名单检测] 原因: ${holderCheck.reason}`);
-                            this.logger.info('[持有者黑名单检测] 拒绝包含黑名单持有者的代币', {
-                                token: token.token,
-                                symbol: token.symbol,
-                                platform: 'flap',
-                                status: 'bad_holder',
-                                reason: holderCheck.reason,
-                                negative_holders: holderCheck.negativeHolders?.length || 0
-                            });
-                        } else {
-                            console.log(`[持有者黑名单检测] ✅ ${token.symbol} 持有者检查通过`);
-                            this.logger.info('[持有者黑名单检测] 检查通过', {
-                                token: token.token,
-                                symbol: token.symbol,
-                                platform: 'flap'
-                            });
-                        }
-                    } catch (holderError) {
-                        console.log(`[持有者黑名单检测] ⚠️ ${token.symbol} 检测失败: ${holderError.message}`);
-                        this.logger.error('[持有者黑名单检测] 检测失败', {
-                            token: token.token,
-                            symbol: token.symbol,
-                            platform: 'flap',
-                            error: holderError.message
-                        });
-                    }
-
-                    // 黑名单持有者的代币也添加到 tokenPool 以便保存到数据库，但交易引擎会跳过
+                    // 添加代币到 tokenPool
                     const added = this.tokenPool.addToken(token);
                     if (added) {
                         addedCount++;
@@ -600,15 +515,13 @@ class PlatformCollector {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0,
-                totalDevFiltered: 0,
-                totalBadHolderFiltered: 0
+                totalDevFiltered: 0
             },
             flap: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0,
-                totalDevFiltered: 0,
-                totalBadHolderFiltered: 0
+                totalDevFiltered: 0
             },
             lastCollectionTime: null
         };

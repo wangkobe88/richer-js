@@ -1169,13 +1169,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
         this.logger.debug(this._experimentId, 'ProcessToken', `新代币已保存: ${token.symbol}`);
       }
 
-      // bad_holder 状态的代币跳过后续处理
-      if (token.status === 'bad_holder') {
-        this.logger.info(this._experimentId, 'ProcessToken',
-          `跳过黑名单持有者代币: ${token.symbol}`);
-        return;
-      }
-
       const currentPrice = token.currentPrice || 0;
       if (currentPrice === 0) {
         // 使用 RoundSummary 记录价格获取失败（与虚拟盘一致）

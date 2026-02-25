@@ -563,6 +563,20 @@ class ExperimentTokenReturns {
   }
 
   updateStats() {
+    // 更新全部代币统计
+    this.updateAllTokensStats();
+
+    // 更新干净代币统计
+    this.updateCleanTokensStats();
+
+    // 更新黑名单统计
+    this.updateBlacklistStats();
+  }
+
+  /**
+   * 更新全部代币统计
+   */
+  updateAllTokensStats() {
     const totalTokens = this.tokenReturns.length;
     const profitCount = this.tokenReturns.filter(t => t.pnl.returnRate > 0).length;
     const lossCount = this.tokenReturns.filter(t => t.pnl.returnRate < 0).length;
@@ -593,8 +607,53 @@ class ExperimentTokenReturns {
     document.getElementById('stat-profit-count').textContent = profitCount;
     document.getElementById('stat-loss-count').textContent = lossCount;
     document.getElementById('stat-win-rate').textContent = `${winRate.toFixed(1)}%`;
+  }
 
-    // 更新黑名单统计
+  /**
+   * 更新干净代币统计（无黑名单持有者）
+   */
+  updateCleanTokensStats() {
+    // 筛选未命中黑名单的代币
+    const cleanTokens = this.tokenReturns.filter(item => {
+      const blacklistInfo = this.blacklistTokenMap?.get(item.tokenAddress);
+      return !blacklistInfo || !blacklistInfo.hasBlacklist;
+    });
+
+    const totalTokens = cleanTokens.length;
+    const profitCount = cleanTokens.filter(t => t.pnl.returnRate > 0).length;
+    const lossCount = cleanTokens.filter(t => t.pnl.returnRate < 0).length;
+    const winRate = totalTokens > 0 ? (profitCount / totalTokens * 100) : 0;
+
+    // 计算总收益率
+    let totalSpent = 0;
+    let totalReceived = 0;
+    cleanTokens.forEach(t => {
+      totalSpent += t.pnl.totalSpent;
+      totalReceived += t.pnl.totalReceived + t.pnl.remainingCost;
+    });
+    const totalReturn = totalSpent > 0 ? ((totalReceived - totalSpent) / totalSpent * 100) : 0;
+
+    // 计算 BNB 总增减
+    const bnbChange = totalReceived - totalSpent;
+
+    const totalReturnEl = document.getElementById('stat-clean-total-return');
+    totalReturnEl.textContent = `${totalReturn > 0 ? '+' : ''}${totalReturn.toFixed(2)}%`;
+    totalReturnEl.className = `text-2xl font-bold ${totalReturn > 0 ? 'text-green-600' : totalReturn < 0 ? 'text-red-500' : 'text-gray-600'}`;
+
+    const bnbChangeEl = document.getElementById('stat-clean-bnb-change');
+    bnbChangeEl.textContent = `${bnbChange > 0 ? '+' : ''}${bnbChange.toFixed(4)} BNB`;
+    bnbChangeEl.className = `text-2xl font-bold ${bnbChange > 0 ? 'text-green-600' : bnbChange < 0 ? 'text-red-500' : 'text-gray-600'}`;
+
+    document.getElementById('stat-clean-total-tokens').textContent = totalTokens;
+    document.getElementById('stat-clean-profit-count').textContent = profitCount;
+    document.getElementById('stat-clean-loss-count').textContent = lossCount;
+    document.getElementById('stat-clean-win-rate').textContent = `${winRate.toFixed(1)}%`;
+  }
+
+  /**
+   * 更新黑名单统计
+   */
+  updateBlacklistStats() {
     if (this.blacklistStats) {
       document.getElementById('stat-collected-tokens').textContent = this.blacklistStats.totalTokens || 0;
       document.getElementById('stat-blacklisted-tokens').textContent = this.blacklistStats.blacklistedTokens || 0;

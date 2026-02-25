@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVE 交易API测试 - Richer-js</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .test-section {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            background: #fafafa;
+        }
+        .test-section h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+        .result-box {
+            background: #1f2937;
+            color: #10b981;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e7eb;
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        /* TAB 样式 */
+        .tab-container {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            overflow: hidden;
+            background: white;
+        }
+        .tab-header {
+            display: flex;
+            background: #f3f4f6;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .tab-button {
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #6b7280;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        .tab-button:hover {
+            color: #374151;
+            background: #e5e7eb;
+        }
+        .tab-button.active {
+            color: #2563eb;
+            background: white;
+            border-bottom-color: #2563eb;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        /* 表格样式 */
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .data-table th {
+            position: sticky;
+            top: 0;
+            background: #f9fafb;
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+        .data-table td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid #f3f4f6;
+            color: #1f2937;
+        }
+        .data-table tr:hover {
+            background: #f9fafb;
+        }
+        .monospace {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+            font-size: 0.75rem;
+        }
+        .text-green { color: #10b981; }
+        .text-red { color: #ef4444; }
+        .empty-state {
+            padding: 2rem;
+            text-align: center;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="container mx-auto px-4 max-w-6xl">
+        <!-- 页头 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">AVE 交易API测试</h1>
+                    <p class="text-gray-600 mt-2">测试 AveTxAPI 的各种方法</p>
+                </div>
+                <a href="/" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md">
+                    ← 返回首页
+                </a>
+            </div>
+        </div>
+
+        <!-- API Key 配置 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">API 配置</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">AVE API Key</label>
+                    <input type="text" id="apiKey" placeholder="输入 AVE API Key（可选）"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">API Base URL</label>
+                    <input type="text" id="apiBaseUrl" value="https://prod.ave-api.com"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+        </div>
+
+        <!-- 交换交易记录 -->
+        <div class="test-section">
+            <h3>1. 获取交换交易记录 (getSwapTransactions)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">交易对ID</label>
+                    <input type="text" id="swapPairId" value="0x1234...abcd-bsc"
+                           placeholder="格式: {pair-address}-{chain}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">返回数量</label>
+                    <input type="number" id="swapLimit" value="10" min="1" max="300"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">排序</label>
+                    <select id="swapSort" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="asc">asc (升序)</option>
+                        <option value="desc">desc (降序)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">开始时间 (Unix时间戳)</label>
+                    <input type="number" id="swapFromTime" placeholder="留空表示不限制"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">结束时间 (Unix时间戳)</label>
+                    <input type="number" id="swapToTime" placeholder="留空表示不限制"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end mb-4">
+                <button onclick="testGetSwapTransactions()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="swapResultContainer" class="tab-container" style="display:none;">
+                <div class="tab-header">
+                    <button class="tab-button active" onclick="switchSwapTab('table')">📊 表格视图</button>
+                    <button class="tab-button" onclick="switchSwapTab('json')">📝 JSON视图</button>
+                </div>
+                <div id="swapTabTable" class="tab-content active">
+                    <div id="swapTableContainer" class="table-container"></div>
+                </div>
+                <div id="swapTabJson" class="tab-content">
+                    <div id="swapResult" class="result-box m-0 rounded-none border-0"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 流动性变化记录 -->
+        <div class="test-section">
+            <h3>2. 获取流动性变化记录 (getLiquidityTransactions)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">交易对ID</label>
+                    <input type="text" id="liqPairId" value="0x1234...abcd-bsc"
+                           placeholder="格式: {pair-address}-{chain}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">类型</label>
+                    <select id="liqType" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="all">全部</option>
+                        <option value="addLiquidity">添加流动性</option>
+                        <option value="removeLiquidity">移除流动性</option>
+                        <option value="createPair">创建交易对</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">返回数量</label>
+                    <input type="number" id="liqLimit" value="10" min="1" max="300"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="testGetLiquidityTransactions()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="liqResult" class="result-box mt-4" style="display:none;"></div>
+        </div>
+
+        <!-- 地址交易记录 -->
+        <div class="test-section">
+            <h3>3. 获取地址交易记录 (getAddressTransactions)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">钱包地址</label>
+                    <input type="text" id="addrWallet" placeholder="0x..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">区块链</label>
+                    <select id="addrChain" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="bsc">BSC</option>
+                        <option value="eth">ETH</option>
+                        <option value="solana">Solana</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">代币地址</label>
+                    <input type="text" id="addrToken" placeholder="0x..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">每页数量</label>
+                    <input type="number" id="addrPageSize" value="50" min="1" max="100"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="testGetAddressTransactions()"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="addrResult" class="result-box mt-4" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 存储交换交易数据
+        let swapTransactions = [];
+
+        // 工具函数：转换为北京时间
+        function toBeijingTime(timestamp) {
+            if (!timestamp) return '-';
+            const date = new Date(timestamp * 1000);
+            const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+            return beijingTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '').substring(0, 19);
+        }
+
+        // TAB 切换
+        function switchSwapTab(tab) {
+            const buttons = document.querySelectorAll('#swapResultContainer .tab-button');
+            const contents = document.querySelectorAll('#swapResultContainer .tab-content');
+
+            buttons.forEach(btn => btn.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+
+            if (tab === 'table') {
+                buttons[0].classList.add('active');
+                document.getElementById('swapTabTable').classList.add('active');
+            } else {
+                buttons[1].classList.add('active');
+                document.getElementById('swapTabJson').classList.add('active');
+            }
+        }
+
+        // 渲染交换交易表格
+        function renderSwapTable(transactions) {
+            const container = document.getElementById('swapTableContainer');
+
+            if (!transactions || transactions.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无数据</div>';
+                return;
+            }
+
+            const html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>时间 (北京)</th>
+                            <th>交易ID</th>
+                            <th>区块链</th>
+                            <th>发送地址</th>
+                            <th>from</th>
+                            <th>from数量</th>
+                            <th>to</th>
+                            <th>to数量</th>
+                            <th>USD价值</th>
+                            <th>区块</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${transactions.map(tx => `
+                            <tr>
+                                <td>${toBeijingTime(tx.time)}</td>
+                                <td class="monospace" title="${tx.tx_id}">${tx.tx_id.substring(0, 10)}...</td>
+                                <td>${tx.chain || '-'}</td>
+                                <td class="monospace" title="${tx.from_address}">${tx.from_address.substring(0, 8)}...</td>
+                                <td>${tx.from_token_symbol || '-'}</td>
+                                <td>${tx.from_amount ? tx.from_amount.toFixed(6) : '-'}</td>
+                                <td>${tx.to_token_symbol || '-'}</td>
+                                <td>${tx.to_amount ? tx.to_amount.toFixed(6) : '-'}</td>
+                                <td>${tx.from_usd ? '$' + tx.from_usd.toFixed(2) : '-'}</td>
+                                <td>${tx.block_number || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // 工具函数：显示结果
+        function showResult(elementId, data, error = null) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            if (error) {
+                el.style.color = '#ef4444';
+                el.textContent = '❌ 错误: ' + error;
+            } else {
+                el.style.color = '#10b981';
+                el.textContent = '✅ 成功:\n' + JSON.stringify(data, null, 2);
+            }
+        }
+
+        // 工具函数：显示加载中
+        function showLoading(elementId) {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.style.color = '#10b981';
+            el.innerHTML = '<span class="loading"></span> 请求中...';
+        }
+
+        // 获取API配置
+        function getApiConfig() {
+            return {
+                apiKey: document.getElementById('apiKey').value || null,
+                baseURL: document.getElementById('apiBaseUrl').value || 'https://prod.ave-api.com'
+            };
+        }
+
+        // 测试获取交换交易记录
+        async function testGetSwapTransactions() {
+            const pairId = document.getElementById('swapPairId').value;
+            const limit = parseInt(document.getElementById('swapLimit').value) || 10;
+            const sort = document.getElementById('swapSort').value || 'asc';
+            const fromTimeInput = document.getElementById('swapFromTime').value;
+            const toTimeInput = document.getElementById('swapToTime').value;
+
+            const fromTime = fromTimeInput ? parseInt(fromTimeInput) : null;
+            const toTime = toTimeInput ? parseInt(toTimeInput) : null;
+
+            if (!pairId) {
+                document.getElementById('swapResultContainer').style.display = 'block';
+                showResult('swapResult', null, '请输入交易对ID');
+                return;
+            }
+
+            document.getElementById('swapResultContainer').style.display = 'block';
+            showResult('swapResult', null, '请求中...');
+
+            try {
+                const response = await fetch('/api/ave-tx/swap', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...getApiConfig(),
+                        pairId,
+                        limit,
+                        sort,
+                        fromTime,
+                        toTime
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    swapTransactions = result.data.transactions || [];
+
+                    // 渲染表格
+                    renderSwapTable(swapTransactions);
+
+                    // 显示 JSON
+                    showResult('swapResult', result.data);
+
+                    // 默认显示表格视图
+                    switchSwapTab('table');
+                } else {
+                    showResult('swapResult', null, result.error);
+                }
+            } catch (error) {
+                showResult('swapResult', null, error.message);
+            }
+        }
+
+        // 测试获取流动性变化记录
+        async function testGetLiquidityTransactions() {
+            const resultId = 'liqResult';
+            const pairId = document.getElementById('liqPairId').value;
+            const type = document.getElementById('liqType').value || 'all';
+            const limit = parseInt(document.getElementById('liqLimit').value) || 10;
+
+            if (!pairId) {
+                showResult(resultId, null, '请输入交易对ID');
+                return;
+            }
+
+            showLoading(resultId);
+
+            try {
+                const response = await fetch('/api/ave-tx/liquidity', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...getApiConfig(),
+                        pairId,
+                        limit,
+                        type
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showResult(resultId, result.data);
+                } else {
+                    showResult(resultId, null, result.error);
+                }
+            } catch (error) {
+                showResult(resultId, null, error.message);
+            }
+        }
+
+        // 测试获取地址交易记录
+        async function testGetAddressTransactions() {
+            const resultId = 'addrResult';
+            const walletAddress = document.getElementById('addrWallet').value;
+            const chain = document.getElementById('addrChain').value || 'bsc';
+            const tokenAddress = document.getElementById('addrToken').value;
+            const pageSize = parseInt(document.getElementById('addrPageSize').value) || 50;
+
+            if (!walletAddress) {
+                showResult(resultId, null, '请输入钱包地址');
+                return;
+            }
+            if (!tokenAddress) {
+                showResult(resultId, null, '请输入代币地址');
+                return;
+            }
+
+            showLoading(resultId);
+
+            try {
+                const response = await fetch('/api/ave-tx/address', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...getApiConfig(),
+                        walletAddress,
+                        chain,
+                        tokenAddress,
+                        pageSize
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    showResult(resultId, result.data);
+                } else {
+                    showResult(resultId, null, result.error);
+                }
+            } catch (error) {
+                showResult(resultId, null, error.message);
+            }
+        }
+    </script>
+</body>
+</html>

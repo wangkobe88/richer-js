@@ -662,10 +662,85 @@ class RicherJsWebServer {
       }
     });
 
+    // 批量添加好持有者到白名单
+    this.app.post('/api/token-holders/add-good-holders', async (req, res) => {
+      try {
+        const { holders, snapshotDate } = req.body;
+
+        if (!holders || !Array.isArray(holders)) {
+          return res.status(400).json({ success: false, error: '持有者数据格式错误' });
+        }
+
+        // 排除 LP 地址
+        const EXCLUDE_ADDRESSES = [
+          '0x5c952063c7fc8610ffdb798152d69f0b9550762b', // fourmeme LP
+          '0xe2ce6ab80874fa9fa2aae65d277dd6b8e65c9de0'  // slap.sh LP
+        ].map(addr => addr.toLowerCase());
+
+        // 筛选所有有效钱包（白名单不筛选持仓比例）
+        const targetWallets = holders.filter(h => {
+          if (EXCLUDE_ADDRESSES.includes(h.address?.toLowerCase())) {
+            return false;
+          }
+          return h.address && h.address.length > 0;
+        });
+
+        if (targetWallets.length === 0) {
+          return res.json({
+            success: true,
+            message: '没有符合条件的新钱包需要添加',
+            data: { success: 0, skipped: 0, wallets: [] }
+          });
+        }
+
+        // 生成钱包名称（使用日期）
+        const dateStr = snapshotDate
+          ? new Date(snapshotDate).toISOString().split('T')[0].replace(/-/g, '')
+          : new Date().toISOString().split('T')[0].replace(/-/g, '');
+        const walletName = `好持有者-${dateStr}`;
+
+        // 批量创建钱包
+        const walletsToCreate = targetWallets.map(h => ({
+          address: h.address,
+          name: walletName,
+          category: 'good_holder'
+        }));
+
+        const result = await this.walletService.bulkCreateWallets(walletsToCreate);
+
+        res.json({
+          success: true,
+          message: `成功添加 ${result.success} 个好持有者，跳过 ${result.skipped} 个已存在的钱包`,
+          data: {
+            success: result.success,
+            skipped: result.skipped,
+            walletName: walletName,
+            wallets: result.details
+          }
+        });
+      } catch (error) {
+        console.error('批量添加好持有者失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 获取实验的持有者黑名单统计
     this.app.get('/api/experiment/:id/holder-blacklist-stats', async (req, res) => {
       try {
-        const experimentId = req.params.id;
+        let experimentId = req.params.id;
+
+        // 🔥 如果是回测实验，使用源实验ID查询黑名单数据
+        const { data: expConfig } = await this.dataService.supabase
+          .from('experiments')
+          .select('config')
+          .eq('id', experimentId)
+          .single();
+
+        if (expConfig?.config?.backtest?.sourceExperimentId) {
+          const sourceExperimentId = expConfig.config.backtest.sourceExperimentId;
+          console.log(`📊 [黑名单统计] 回测实验，使用源实验ID: ${sourceExperimentId}`);
+          experimentId = sourceExperimentId;
+        }
 
         // 获取黑名单钱包
         const { data: blacklistWallets } = await this.dataService.supabase
@@ -1375,6 +1450,261 @@ class RicherJsWebServer {
           error: error.message
         });
       }
+    });
+
+    // ============ AVE 交易API测试端点 ============
+
+    // 获取交换交易记录
+    this.app.post('/api/ave-tx/swap', async (req, res) => {
+      try {
+        const { AveTxAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, pairId, limit = 10, sort = 'asc' } = req.body;
+
+        const aveApi = new AveTxAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const transactions = await aveApi.getSwapTransactions(pairId, limit, null, null, sort);
+
+        res.json({
+          success: true,
+          data: {
+            count: transactions.length,
+            transactions: transactions
+          }
+        });
+      } catch (error) {
+        console.error('获取交换交易记录失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // 获取流动性变化记录
+    this.app.post('/api/ave-tx/liquidity', async (req, res) => {
+      try {
+        const { AveTxAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, pairId, limit = 10, type = 'all' } = req.body;
+
+        const aveApi = new AveTxAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const transactions = await aveApi.getLiquidityTransactions(pairId, limit, null, null, 'asc', type);
+
+        res.json({
+          success: true,
+          data: {
+            count: transactions.length,
+            transactions: transactions
+          }
+        });
+      } catch (error) {
+        console.error('获取流动性变化记录失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // 获取地址交易记录
+    this.app.post('/api/ave-tx/address', async (req, res) => {
+      try {
+        const { AveTxAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, walletAddress, chain, tokenAddress, pageSize = 50 } = req.body;
+
+        const aveApi = new AveTxAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const result = await aveApi.getAddressTransactions(walletAddress, chain, tokenAddress, null, null, pageSize);
+
+        res.json({
+          success: true,
+          data: {
+            count: result.transactions.length,
+            hasMore: result.has_more,
+            nextCursor: result.next_cursor,
+            transactions: result.transactions
+          }
+        });
+      } catch (error) {
+        console.error('获取地址交易记录失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // AVE TX 测试页面
+    this.app.get('/ave-tx-test', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/ave-tx-test.html'));
+    });
+
+    // ============ 代币最早交易 API ============
+
+    // 获取代币最早交易记录
+    this.app.post('/api/token-early-trades', async (req, res) => {
+      try {
+        const { AveTokenAPI } = require('./core/ave-api');
+        const { AveTxAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, tokenAddress, chain } = req.body;
+
+        if (!tokenAddress) {
+          return res.status(400).json({
+            success: false,
+            error: '代币地址不能为空'
+          });
+        }
+
+        if (!chain) {
+          return res.status(400).json({
+            success: false,
+            error: '区块链不能为空'
+          });
+        }
+
+        // 使用提供的配置或默认配置
+        const finalApiKey = apiKey || process.env.AVE_API_KEY;
+        const finalBaseURL = baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com';
+
+        // 构建 tokenId
+        const tokenId = `${tokenAddress}-${chain}`;
+
+        // 1. 获取代币详情
+        const tokenApi = new AveTokenAPI(finalBaseURL, config.ave?.timeout || 30000, finalApiKey);
+        const tokenDetail = await tokenApi.getTokenDetail(tokenId);
+
+        // 2. 获取 main_pair 和 launch_at
+        const { token, pairs } = tokenDetail;
+        let mainPair = token.main_pair;
+
+        // 如果 main_pair 为空，从 pairs 数组中取第一个
+        if (!mainPair && pairs && pairs.length > 0) {
+          mainPair = pairs[0].pair;
+        }
+
+        if (!mainPair) {
+          return res.status(400).json({
+            success: false,
+            error: '该代币没有交易对信息'
+          });
+        }
+
+        // 使用 launch_at 作为起始时间（如果有的话），否则不设置 fromTime
+        const launchAt = token.launch_at || null;
+        const toTime = launchAt ? launchAt + 600 : null; // launch_at 后10分钟 (600秒)
+
+        console.log(`📊 [最早交易] token=${tokenAddress}, chain=${chain}`);
+        console.log(`   launch_at=${launchAt}, created_at=${token.created_at}`);
+        console.log(`   mainPair=${mainPair}`);
+        console.log(`   toTime=${toTime}`);
+
+        // 3. 获取最早交易记录
+        const pairId = `${mainPair}-${chain}`;
+        const txApi = new AveTxAPI(finalBaseURL, config.ave?.timeout || 30000, finalApiKey);
+
+        // 尝试两种方式：
+        // 方式1：使用 fromTime = launch_at, toTime = launch_at + 5分钟
+        // 方式2：不使用时间限制，获取所有数据
+        let earlyTrades = await txApi.getSwapTransactions(
+          pairId,
+          300,   // limit
+          launchAt,  // fromTime - 使用 launch_at 作为起始时间
+          toTime,  // toTime - launch_at 后5分钟
+          'asc'  // sort
+        );
+
+        console.log(`   方式1 (fromTime=launch_at, toTime=launch_at+5min): 查询到 ${earlyTrades.length} 条交易`);
+
+        // 如果使用 fromTime 没有结果，不使用时间限制重试
+        if (earlyTrades.length === 0 && launchAt) {
+          console.log(`   ⚠️ 使用时间范围过滤没有结果，尝试不使用时间限制...`);
+          earlyTrades = await txApi.getSwapTransactions(
+            pairId,
+            300,
+            null,  // fromTime - 不设置
+            null,  // toTime - 不设置
+            'asc'
+          );
+          console.log(`   方式2 (无时间限制): 查询到 ${earlyTrades.length} 条交易`);
+        }
+
+        console.log(`   查询到 ${earlyTrades.length} 条交易记录`);
+        if (earlyTrades.length > 0) {
+          const firstTime = earlyTrades[0].time;
+          const lastTime = earlyTrades[earlyTrades.length - 1].time;
+          console.log(`   最早交易时间: ${firstTime} (${toBeijingTime(firstTime)})`);
+          console.log(`   最晚交易时间: ${lastTime} (${toBeijingTime(lastTime)})`);
+          console.log(`   代币 launch_at: ${launchAt} (${launchAt ? toBeijingTime(launchAt) : 'null'})`);
+          console.log(`   代币 created_at: ${token.created_at} (${toBeijingTime(token.created_at)})`);
+        } else {
+          console.log(`   ⚠️ 没有查询到交易记录`);
+          console.log(`   代币 launch_at: ${launchAt} (${launchAt ? toBeijingTime(launchAt) : 'null'})`);
+        }
+
+        // 辅助函数：转换为北京时间字符串
+        function toBeijingTime(timestamp) {
+          if (!timestamp) return '-';
+          const date = new Date(timestamp * 1000);
+          const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+          return beijingTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '').substring(0, 19);
+        }
+
+        res.json({
+          success: true,
+          data: {
+            tokenInfo: tokenDetail,
+            earlyTrades: earlyTrades,
+            debug: {
+              launchAt,
+              createdAt: token.created_at,
+              pairId,
+              totalTrades: earlyTrades.length,
+              firstTradeTime: earlyTrades.length > 0 ? earlyTrades[0].time : null,
+              lastTradeTime: earlyTrades.length > 0 ? earlyTrades[earlyTrades.length - 1].time : null,
+              apiParams: {
+                pairId,
+                limit: 300,
+                fromTime: launchAt,
+                fromTimeFormatted: launchAt ? toBeijingTime(launchAt) : 'null',
+                toTime: toTime,
+                toTimeFormatted: toTime ? toBeijingTime(toTime) : 'null',
+                sort: 'asc'
+              }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('获取代币最早交易失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // 代币最早交易页面
+    this.app.get('/token-early-trades', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/token-early-trades.html'));
     });
 
     // 404处理

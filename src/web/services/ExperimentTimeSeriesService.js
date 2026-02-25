@@ -77,7 +77,7 @@ class ExperimentTimeSeriesService {
   /**
    * 获取实验的时序数据（优化版，支持重试）
    * @param {string} experimentId - 实验ID
-   * @param {string} [tokenAddress] - 代币地址（可选）
+   * @param {string|Array<string>} [tokenAddress] - 代币地址或地址数组（可选）
    * @param {Object} [options] - 查询选项
    * @returns {Promise<Array>} 时序数据数组
    */
@@ -103,7 +103,11 @@ class ExperimentTimeSeriesService {
       const MAX_CONSECUTIVE_ERRORS = 3;
       const MAX_CONSECUTIVE_EMPTY_PAGES = 5; // 连续5页空数据后停止
 
-      console.log(`📊 [时序数据] 开始查询 (重试 ${retryAttempt}/${maxRetries}, 分页大小: ${PAGE_SIZE}, 超时: ${QUERY_TIMEOUT}ms)`);
+      // 日志中显示筛选信息
+      const tokenFilterInfo = Array.isArray(tokenAddress)
+        ? `${tokenAddress.length} 个代币`
+        : tokenAddress || '全部';
+      console.log(`📊 [时序数据] 开始查询 (重试 ${retryAttempt}/${maxRetries}, 分页大小: ${PAGE_SIZE}, 超时: ${QUERY_TIMEOUT}ms, 代币: ${tokenFilterInfo})`);
 
       let lastTimestamp = null; // 用于游标分页
 
@@ -120,8 +124,15 @@ class ExperimentTimeSeriesService {
             .order('timestamp', { ascending: true })
             .range(from, to);
 
+          // 支持单个地址（字符串）或多个地址（数组）过滤
           if (tokenAddress) {
-            query = query.eq('token_address', tokenAddress);
+            if (Array.isArray(tokenAddress)) {
+              if (tokenAddress.length > 0) {
+                query = query.in('token_address', tokenAddress);
+              }
+            } else {
+              query = query.eq('token_address', tokenAddress);
+            }
           }
 
           if (options.startTime) {

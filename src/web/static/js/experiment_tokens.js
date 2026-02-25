@@ -424,6 +424,7 @@ class ExperimentTokens {
     const symbol = token.token_symbol || rawData?.symbol || '-';
     const gmgnUrl = `https://gmgn.ai/bsc/token/${token.token_address}`;
     const signalsUrl = `/experiment/${this.experimentId}/signals#token=${token.token_address}`;
+    const observerUrl = `/experiment/${this.experimentId}/observer#token=${token.token_address}`;
     const holdersUrl = `/token-holders?experiment=${this.experimentId}&token=${token.token_address}`;
 
     // 获取分析结果
@@ -467,6 +468,9 @@ class ExperimentTokens {
                 ${hasBlacklist && blacklistInfo ? '<span class="text-red-400">(' + (blacklistInfo.blacklistedHolders || 0) + '个黑名单持有者)</span>' : ''}
                 <a href="${gmgnUrl}" target="_blank" class="text-gray-400 hover:text-purple-400" title="GMGN">
                   <img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4">
+                </a>
+                <a href="${observerUrl}" target="_blank" class="text-green-400 hover:text-green-300" title="时序数据">
+                  📈 时序
                 </a>
                 <a href="${signalsUrl}" target="_blank" class="text-purple-400 hover:text-purple-300" title="信号">
                   📊

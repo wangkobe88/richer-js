@@ -223,6 +223,10 @@ class TokenHoldersManager {
                         class="ml-2 px-3 py-1 bg-orange-500 hover:bg-orange-600 rounded text-xs font-medium text-white transition-colors">
                   ⚠️ 添加流水盘钱包
                 </button>
+                <button onclick="window.tokenHolders.addGoodHolderWallets('${holdersJson}', '${snapshot.checked_at}')"
+                        class="ml-2 px-3 py-1 bg-green-500 hover:bg-green-600 rounded text-xs font-medium text-white transition-colors">
+                  ✨ 标记好持有者
+                </button>
               </div>
             </div>
           </div>
@@ -263,7 +267,8 @@ class TokenHoldersManager {
       'negative_holder': 'badge-negative_holder',
       'hot': 'badge-hot',
       'long': 'badge-long',
-      'test': 'badge-test'
+      'test': 'badge-test',
+      'good_holder': 'badge-good_holder'
     };
 
     const categoryNames = {
@@ -272,14 +277,16 @@ class TokenHoldersManager {
       'negative_holder': '🚫 负面',
       'hot': '🔥 热门',
       'long': '📈 长期',
-      'test': '🧪 测试'
+      'test': '🧪 测试',
+      'good_holder': '✨ 好持有者'
     };
 
     const badgeClass = categoryBadges[holder.category] || 'badge-none';
     const categoryLabel = holder.category ? (categoryNames[holder.category] || holder.category) : '';
 
-    // 判断钱包是否已在黑名单中
+    // 判断钱包类型
     const isInBlacklist = holder.category === 'pump_group' || holder.category === 'dev' || holder.category === 'negative_holder';
+    const isInWhitelist = holder.category === 'good_holder';
 
     return `
       <tr class="border-b">
@@ -296,18 +303,30 @@ class TokenHoldersManager {
           ${categoryLabel ? `<span class="badge ${badgeClass}">${categoryLabel}</span>` : '<span class="text-gray-400 text-xs">无</span>'}
         </td>
         <td class="px-4 py-2 text-center text-sm">
-          <button type="button" class="text-blue-600 hover:text-blue-800 mr-2"
+          <button type="button" class="text-blue-600 hover:text-blue-800 mr-1"
                   onclick="window.tokenHolders.copyAddress('${holder.address}')">
-            📋 复制
+            📋
           </button>
-          ${isInBlacklist
-            ? `<button type="button" class="text-red-600 hover:text-red-800"
+          ${isInWhitelist
+            ? `<button type="button" class="text-gray-600 hover:text-gray-800 mr-1"
+                  onclick="window.tokenHolders.deleteWallet('${holder.address}')"
+                  title="取消白名单">
+                 ⚡ 取消
+               </button>`
+            : isInBlacklist
+            ? `<button type="button" class="text-red-600 hover:text-red-800 mr-1"
                   onclick="window.tokenHolders.deleteWallet('${holder.address}')">
                  🗑️ 删除
                </button>`
-            : `<button type="button" class="text-orange-600 hover:text-orange-800"
-                  onclick="window.tokenHolders.addSinglePumpGroupWallet('${holder.address}')">
-                 ⚠️ 加入流水盘
+            : `<button type="button" class="text-orange-600 hover:text-orange-800 mr-1"
+                  onclick="window.tokenHolders.addSinglePumpGroupWallet('${holder.address}')"
+                  title="加入流水盘黑名单">
+                 ⚠️
+               </button>
+               <button type="button" class="text-green-600 hover:text-green-800"
+                  onclick="window.tokenHolders.addSingleGoodHolder('${holder.address}')"
+                  title="标记为好持有者">
+                 ✨
                </button>`
           }
         </td>
@@ -416,6 +435,110 @@ class TokenHoldersManager {
       }
     } catch (error) {
       console.error('添加单个钱包失败:', error);
+      alert(`❌ 添加失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 批量添加好持有者到白名单
+   * @param {string} holdersJson - 持有者数据的JSON字符串（已编码）
+   * @param {string} snapshotDate - 快照时间
+   */
+  async addGoodHolderWallets(holdersJson, snapshotDate) {
+    try {
+      const holders = JSON.parse(decodeURIComponent(holdersJson));
+
+      // 确认对话框
+      const dateStr = snapshotDate
+        ? new Date(snapshotDate).toISOString().split('T')[0].replace(/-/g, '')
+        : new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const walletName = `好持有者-${dateStr}`;
+
+      const confirmed = confirm(
+        `✨ 确定要标记好持有者吗？\n\n` +
+        `将把所有钱包添加到白名单。\n` +
+        `钱包名称: ${walletName}\n` +
+        `分类: good_holder\n\n` +
+        `注意：白名单钱包将跳过黑名单检测。`
+      );
+
+      if (!confirmed) return;
+
+      // 调用API
+      const response = await fetch('/api/token-holders/add-good-holders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          holders: holders,
+          snapshotDate: snapshotDate
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`✅ ${result.message}\n\n钱包名称: ${result.data.walletName}`);
+        // 重新加载数据
+        this.search();
+      } else {
+        alert(`❌ 添加失败: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('添加好持有者失败:', error);
+      alert(`❌ 添加失败: ${error.message}`);
+    }
+  }
+
+  /**
+   * 添加单个钱包到好持有者白名单
+   * @param {string} address - 钱包地址
+   */
+  async addSingleGoodHolder(address) {
+    try {
+      const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+      const walletName = `好持有者-${dateStr}`;
+
+      // 确认对话框
+      const confirmed = confirm(
+        `✨ 确定要将此钱包标记为好持有者吗？\n\n` +
+        `地址: ${address}\n` +
+        `钱包名称: ${walletName}\n` +
+        `分类: good_holder\n\n` +
+        `注意：白名单钱包将跳过黑名单检测。`
+      );
+
+      if (!confirmed) return;
+
+      // 调用API
+      const response = await fetch('/api/wallets/add-single', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          address: address,
+          name: walletName,
+          category: 'good_holder'
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        if (result.alreadyExists) {
+          alert(`ℹ️ ${result.message}`);
+        } else {
+          alert(`✅ ${result.message}`);
+        }
+        // 重新加载数据
+        this.search();
+      } else {
+        alert(`❌ 添加失败: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('添加好持有者失败:', error);
       alert(`❌ 添加失败: ${error.message}`);
     }
   }

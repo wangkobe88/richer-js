@@ -670,13 +670,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         this._seenTokens.add(tokenKey);
       }
 
-      // bad_holder 状态的代币跳过后续处理
-      if (token.status === 'bad_holder') {
-        this.logger.info(this._experimentId, 'ProcessToken',
-          `跳过黑名单持有者代币: ${token.symbol}`);
-        return;
-      }
-
       const currentPrice = token.currentPrice || 0;
       if (currentPrice === 0) {
         if (this._roundSummary) {
@@ -1026,104 +1019,22 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     }
 
     if (strategy.action === 'buy') {
+      // 状态检查 - 如果状态不对，直接返回，不保存信号
       if (token.status !== 'monitoring') {
         return false;
       }
 
-      // ========== 验证 creator_address ==========
-      // 1. 如果创建者地址为 null，重新获取
-      if (!token.creator_address) {
-        this.logger.warn(this._experimentId, '_executeStrategy',
-          `代币 creator_address 为 null，重新获取并验证 | symbol=${token.symbol}, address=${token.token}`);
+      // ========== 先创建并保存信号到数据库 ==========
+      // 信号应该先被保存，然后再进行预检查
+      // 这样即使预检查失败，信号记录也会被保存
 
-        try {
-          // 使用 FourMeme API 获取创建者地址
-          const creatorInfo = await this._fourMemeApi.getCreatorAddress(token.token);
-
-          if (creatorInfo.creator_address) {
-            token.creator_address = creatorInfo.creator_address;
-            // 更新数据库中的 creator_address
-            await this.dataService.updateTokenCreatorAddress(this._experimentId, token.token, creatorInfo.creator_address);
-            this.logger.info(this._experimentId, '_executeStrategy',
-              `重新获取成功，继续 Dev 钱包检查 | symbol=${token.symbol}, creator=${creatorInfo.creator_address}`);
-            // 重新获取成功，继续检查 Dev 钱包
-          } else {
-            this.logger.warn(this._experimentId, '_executeStrategy',
-              `重新获取后仍无 creator_address，跳过 Dev 钱包检查，继续购买流程 | symbol=${token.symbol}, address=${token.token}`);
-            // 跳过 Dev 钱包检查，直接继续购买流程
-          }
-        } catch (error) {
-          this.logger.warn(this._experimentId, '_executeStrategy',
-            `重新获取 creator_address 失败，跳过 Dev 钱包检查，继续购买流程 | symbol=${token.symbol}, error=${error.message}`);
-          // API 调用失败，跳过 Dev 钱包检查，直接继续购买流程
-        }
-      }
-
-      // 2. 如果创建者地址存在，检查是否为 Dev 钱包
-      if (token.creator_address) {
-        this.logger.info(this._experimentId, '_executeStrategy',
-          `开始 Dev 钱包检查 | symbol=${token.symbol}, creator=${token.creator_address}`);
-        const isNegativeDevWallet = await this.isNegativeDevWallet(token.creator_address);
-        if (isNegativeDevWallet) {
-          this.logger.error(this._experimentId, '_executeStrategy',
-            `代币创建者为 Dev 钱包，拒绝购买 | symbol=${token.symbol}, address=${token.token}, creator=${token.creator_address}`);
-          return false;
-        }
-        this.logger.info(this._experimentId, '_executeStrategy',
-          `Dev 钱包检查通过，继续购买流程 | symbol=${token.symbol}`);
-      } else {
-        this.logger.info(this._experimentId, '_executeStrategy',
-          `无 creator_address，跳过 Dev 钱包检查，继续购买流程 | symbol=${token.symbol}`);
-      }
-      // ========== Dev 钱包验证结束 ==========
-
-      // 功能二：购买前持有者二次检测
-      if (this._tokenHolderService) {
-        try {
-          this.logger.info(this._experimentId, '_executeStrategy',
-            `开始持有者黑名单检测 | symbol=${token.symbol}`);
-
-          const holderCheck = await this._tokenHolderService.checkHolderRisk(
-            token.token,
-            this._experimentId,  // 传递实验ID
-            token.chain || 'bsc',
-            ['pump_group', 'negative_holder']
-          );
-
-          if (holderCheck.hasNegative) {
-            this.logger.warn(this._experimentId, '_executeStrategy',
-              `拒绝购买: ${token.symbol} - ${holderCheck.reason}`);
-
-            // 记录被阻止的信号
-            if (this._roundSummary) {
-              this._roundSummary.recordSignal(token.token, {
-                direction: 'BUY',
-                action: 'buy',
-                confidence: 0,
-                reason: `黑名单持有者: ${holderCheck.reason}`,
-                blocked: true,
-                blockReason: 'bad_holder'
-              });
-            }
-
-            return false;
-          }
-
-          this.logger.info(this._experimentId, '_executeStrategy',
-            `持有者黑名单检测通过 | symbol=${token.symbol}`);
-        } catch (holderError) {
-          this.logger.error(this._experimentId, '_executeStrategy',
-            `持有者检测失败: ${token.symbol} - ${holderError.message}`);
-          // 检测失败时继续流程，避免阻止正常购买
-        }
-      }
-      // ========== 持有者检测结束 ==========
-
+      // 初始化 strategyExecutions
       if (!token.strategyExecutions) {
         const strategyIds = this._strategyEngine.getAllStrategies().map(s => s.id);
         this._tokenPool.initStrategyExecutions(token.token, token.chain, strategyIds);
       }
 
+      // 初始化 CardPositionManager（如果启用）
       if (this._positionManagement && this._positionManagement.enabled) {
         let cardManager = this._tokenPool.getCardPositionManager(token.token, token.chain);
         if (!cardManager) {
@@ -1142,6 +1053,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         }
       }
 
+      // 创建信号对象
       const signal = {
         action: 'buy',
         symbol: token.symbol,
@@ -1191,8 +1103,139 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       };
 
       this.logger.info(this._experimentId, '_executeStrategy',
-        `调用 processSignal | symbol=${token.symbol}, action=${signal.action}`);
+        `创建信号 | symbol=${token.symbol}, action=${signal.action}`);
+
+      // 先保存信号到数据库
+      let signalId = null;
+      try {
+        const { TradeSignal } = require('../entities');
+        const tradeSignal = new TradeSignal({
+          experimentId: this._experimentId,
+          tokenAddress: signal.tokenAddress,
+          tokenSymbol: signal.symbol,
+          signalType: signal.action.toUpperCase(),
+          action: signal.action,
+          confidence: signal.confidence,
+          reason: signal.reason,
+          metadata: {
+            ...signal.cardConfig,
+            price: signal.price,
+            strategyId: signal.strategyId,
+            strategyName: signal.strategyName,
+            cards: signal.cards,
+            ...signal.factors
+          }
+        });
+        signalId = await tradeSignal.save();
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `信号已保存 | symbol=${token.symbol}, signalId=${signalId}`);
+      } catch (saveError) {
+        this.logger.error(this._experimentId, '_executeStrategy',
+          `保存信号失败 | symbol=${token.symbol}, error=${saveError.message}`);
+        return false;
+      }
+
+      // ========== 然后进行预检查 ==========
+      let preCheckPassed = true;
+      let blockReason = null;
+
+      // 1. 验证 creator_address
+      if (!token.creator_address) {
+        this.logger.warn(this._experimentId, '_executeStrategy',
+          `代币 creator_address 为 null，重新获取并验证 | symbol=${token.symbol}, address=${token.token}`);
+
+        try {
+          const creatorInfo = await this._fourMemeApi.getCreatorAddress(token.token);
+          if (creatorInfo.creator_address) {
+            token.creator_address = creatorInfo.creator_address;
+            await this.dataService.updateTokenCreatorAddress(this._experimentId, token.token, creatorInfo.creator_address);
+            this.logger.info(this._experimentId, '_executeStrategy',
+              `重新获取成功，继续 Dev 钱包检查 | symbol=${token.symbol}, creator=${creatorInfo.creator_address}`);
+          }
+        } catch (error) {
+          this.logger.warn(this._experimentId, '_executeStrategy',
+            `重新获取 creator_address 失败，跳过 Dev 钱包检查 | symbol=${token.symbol}, error=${error.message}`);
+        }
+      }
+
+      // 2. Dev 钱包检查
+      if (token.creator_address) {
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `开始 Dev 钱包检查 | symbol=${token.symbol}, creator=${token.creator_address}`);
+        const isNegativeDevWallet = await this.isNegativeDevWallet(token.creator_address);
+        if (isNegativeDevWallet) {
+          this.logger.error(this._experimentId, '_executeStrategy',
+            `代币创建者为 Dev 钱包，拒绝购买 | symbol=${token.symbol}, creator=${token.creator_address}`);
+          preCheckPassed = false;
+          blockReason = 'negative_dev_wallet';
+        } else {
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `Dev 钱包检查通过 | symbol=${token.symbol}`);
+        }
+      }
+
+      // 3. 持有者黑名单检查
+      if (preCheckPassed && this._tokenHolderService) {
+        try {
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `开始持有者黑名单检测 | symbol=${token.symbol}`);
+
+          const holderCheck = await this._tokenHolderService.checkHolderRisk(
+            token.token,
+            this._experimentId,
+            token.chain || 'bsc',
+            ['pump_group', 'negative_holder']
+          );
+
+          if (holderCheck.hasNegative) {
+            this.logger.warn(this._experimentId, '_executeStrategy',
+              `持有者黑名单检测失败 | symbol=${token.symbol}, reason=${holderCheck.reason}`);
+            preCheckPassed = false;
+            blockReason = holderCheck.reason || 'bad_holder';
+          } else {
+            this.logger.info(this._experimentId, '_executeStrategy',
+              `持有者黑名单检测通过 | symbol=${token.symbol}`);
+          }
+        } catch (holderError) {
+          this.logger.error(this._experimentId, '_executeStrategy',
+            `持有者检测失败: ${token.symbol} - ${holderError.message}`);
+          // 检测失败时继续流程
+        }
+      }
+
+      // 如果预检查失败，更新信号状态为 failed 并返回
+      if (!preCheckPassed) {
+        this.logger.warn(this._experimentId, '_executeStrategy',
+          `预检查失败 | symbol=${token.symbol}, reason=${blockReason}`);
+
+        // 更新信号状态为 failed（预检查失败）
+        if (signalId) {
+          await this._updateSignalStatus(signalId, 'failed', {
+            message: `预检查失败: ${blockReason}`,
+            reason: blockReason
+          });
+        }
+
+        // 记录到 RoundSummary
+        if (this._roundSummary) {
+          this._roundSummary.recordSignal(token.token, {
+            direction: 'BUY',
+            action: 'buy',
+            confidence: 0,
+            reason: `预检查失败: ${blockReason}`
+          });
+          this._roundSummary.recordSignalExecution(token.token, false, `预检查失败: ${blockReason}`);
+        }
+
+        return false;
+      }
+
+      // ========== 预检查通过，执行交易 ==========
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `预检查通过，调用 processSignal | symbol=${token.symbol}`);
+
       const result = await this.processSignal(signal);
+
       this.logger.info(this._experimentId, '_executeStrategy',
         `processSignal 返回 | symbol=${token.symbol}, success=${result?.success}, reason=${result?.reason || result?.message || 'none'}`);
 

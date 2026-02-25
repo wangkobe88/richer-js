@@ -170,6 +170,7 @@ class WalletManager {
               <option value="dev" ${wallet.category === 'dev' ? 'selected' : ''}>流水盘Dev</option>
               <option value="pump_group" ${wallet.category === 'pump_group' ? 'selected' : ''}>流水盘钱包</option>
               <option value="negative_holder" ${wallet.category === 'negative_holder' ? 'selected' : ''}>负面持有者</option>
+              <option value="good_holder" ${wallet.category === 'good_holder' ? 'selected' : ''}>白名单持有者</option>
             </select>
           </td>
           <td class="px-4 py-3 text-center">
@@ -226,6 +227,7 @@ class WalletManager {
     const devCount = document.getElementById('dev-count');
     const pumpGroupCount = document.getElementById('pump_group-count');
     const negativeHolderCount = document.getElementById('negative_holder-count');
+    const goodHolderCount = document.getElementById('good_holder-count');
 
     if (totalCount) totalCount.textContent = this.wallets.length;
     if (hotCount) hotCount.textContent = this.wallets.filter(w => w.category === 'hot').length;
@@ -234,6 +236,7 @@ class WalletManager {
     if (devCount) devCount.textContent = this.wallets.filter(w => w.category === 'dev').length;
     if (pumpGroupCount) pumpGroupCount.textContent = this.wallets.filter(w => w.category === 'pump_group').length;
     if (negativeHolderCount) negativeHolderCount.textContent = this.wallets.filter(w => w.category === 'negative_holder').length;
+    if (goodHolderCount) goodHolderCount.textContent = this.wallets.filter(w => w.category === 'good_holder').length;
   }
 
   async addWallet(address, name, category) {
@@ -400,6 +403,7 @@ class WalletManager {
             <option value="dev">流水盘Dev</option>
             <option value="pump_group">流水盘钱包</option>
             <option value="negative_holder">负面持有者</option>
+            <option value="good_holder">白名单持有者</option>
           </select>
         </div>
         <div class="flex space-x-4">

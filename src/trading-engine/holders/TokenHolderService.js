@@ -204,10 +204,26 @@ class TokenHolderService {
       throw new Error(`查询钱包信息失败: ${error.message}`);
     }
 
-    // 筛选出黑名单钱包
-    const negativeWallets = (walletData || []).filter(w =>
-      w.category && riskCategories.includes(w.category)
+    // 分离白名单钱包和黑名单钱包
+    const goodHolders = new Set(
+      (walletData || [])
+        .filter(w => w.category === 'good_holder')
+        .map(w => w.address.toLowerCase())
     );
+
+    // 筛选出黑名单钱包（排除白名单）
+    const negativeWallets = (walletData || []).filter(w => {
+      if (!w.category) return false;
+      // 如果在白名单中，跳过黑名单检测
+      if (goodHolders.has(w.address.toLowerCase())) {
+        this.logger.info('[TokenHolderService] 白名单持有者跳过黑名单检测', {
+          address: w.address,
+          category: w.category
+        });
+        return false;
+      }
+      return riskCategories.includes(w.category);
+    });
 
     if (negativeWallets.length > 0) {
       const categories = negativeWallets.map(w => w.category);

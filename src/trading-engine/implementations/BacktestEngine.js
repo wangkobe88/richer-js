@@ -519,16 +519,27 @@ class BacktestEngine extends AbstractTradingEngine {
     const MAX_RETRIES = 3;
     let lastError = null;
 
+    // 获取涨幅过滤参数
+    const minMaxChangePercent = this._experiment.config?.backtest?.minMaxChangePercent || 0;
+
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         this.logger.info(this._experimentId, 'BacktestEngine',
           `📊 开始加载历史数据 (尝试 ${attempt}/${MAX_RETRIES})，源实验: ${this._sourceExperimentId}`);
 
+        // 如果设置了涨幅过滤，先筛选代币地址
+        let filteredAddresses = null;
+        if (minMaxChangePercent > 0) {
+          filteredAddresses = await this._filterTokensByMaxChange(minMaxChangePercent);
+          this.logger.info(this._experimentId, 'BacktestEngine',
+            `📊 代币筛选: 总代币数=${this._backtestStats.totalTokens || '?}, 满足条件=${filteredAddresses.length}, 阈值=${minMaxChangePercent}%`);
+        }
+
         let data;
         try {
           data = await this.timeSeriesService.getExperimentTimeSeries(
             this._sourceExperimentId,
-            null,
+            filteredAddresses,  // 传入筛选后的地址，null 表示不过滤
             {
               retryAttempt: attempt,
               maxRetries: MAX_RETRIES
@@ -591,6 +602,74 @@ class BacktestEngine extends AbstractTradingEngine {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
+  }
+
+  /**
+   * 根据最高涨幅筛选代币
+   * @private
+   * @param {number} threshold - 涨幅阈值（%）
+   * @returns {Promise<Array<string>>} 筛选后的代币地址数组
+   */
+  async _filterTokensByMaxChange(threshold) {
+    const { dbManager } = require('../../services/dbManager');
+    const supabase = dbManager.getClient();
+
+    // 查询源实验的所有代币
+    const { data: allTokens, error } = await supabase
+      .from('experiment_tokens')
+      .select('token_address, analysis_results')
+      .eq('experiment_id', this._sourceExperimentId);
+
+    if (error) {
+      this.logger.error(this._experimentId, '_filterTokensByMaxChange',
+        `查询代币失败: ${error.message}`);
+      throw new Error(`查询代币失败: ${error.message}`);
+    }
+
+    // 记录统计信息
+    this._backtestStats = {
+      totalTokens: allTokens?.length || 0,
+      filteredTokens: 0
+    };
+
+    // 筛选代币
+    const filteredAddresses = [];
+    for (const token of allTokens || []) {
+      if (this._shouldIncludeToken(token, threshold)) {
+        filteredAddresses.push(token.token_address);
+      }
+    }
+
+    this._backtestStats.filteredTokens = filteredAddresses.length;
+
+    return filteredAddresses;
+  }
+
+  /**
+   * 判断代币是否应该包含在回测中
+   * @private
+   * @param {Object} token - 代币数据
+   * @param {number} threshold - 涨幅阈值（%）
+   * @returns {boolean} 是否包含
+   */
+  _shouldIncludeToken(token, threshold) {
+    // 无分析结果 -> 包含（待分析的代币）
+    if (!token.analysis_results) {
+      return true;
+    }
+
+    // 有分析结果 -> 检查最高涨幅
+    const maxChange = token.analysis_results.max_change_percent;
+    // null/undefined 视为待分析，包含
+    if (maxChange === null || maxChange === undefined) {
+      return true;
+    }
+    // 阈值为0 -> 包含所有
+    if (threshold <= 0) {
+      return true;
+    }
+
+    return maxChange >= threshold;
   }
 
   /**
