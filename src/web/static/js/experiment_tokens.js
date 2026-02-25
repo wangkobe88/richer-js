@@ -122,6 +122,12 @@ class ExperimentTokens {
     if (clearFilterBtn) {
       clearFilterBtn.addEventListener('click', () => this.clearFilters());
     }
+
+    // 黑白名单筛选按钮
+    const filterHolderListBtn = document.getElementById('filter-holder-list');
+    if (filterHolderListBtn) {
+      filterHolderListBtn.addEventListener('click', () => this.filterByHolderList());
+    }
   }
 
   /**
@@ -487,20 +493,20 @@ class ExperimentTokens {
 
     return `
       <tr class="token-row ${rowClass}" data-token-address="${token.token_address}">
-        <td class="px-4 py-3" style="min-width: 380px;">
-          <div class="flex items-start gap-3">
-            <img src="${rawData?.logo_url || ''}" alt="" class="w-8 h-8 rounded-full flex-shrink-0 mt-0.5 ${!rawData?.logo_url ? 'hidden' : ''}" onerror="this.style.display='none'">
-            <div class="flex-1" style="min-width: 300px;">
+        <td class="px-4 py-3" style="min-width: 280px;">
+          <div class="flex items-start gap-2">
+            <img src="${rawData?.logo_url || ''}" alt="" class="w-7 h-7 rounded-full flex-shrink-0 mt-0.5 ${!rawData?.logo_url ? 'hidden' : ''}" onerror="this.style.display='none'">
+            <div class="flex-1" style="min-width: 220px;">
               <!-- 第一行：符号、徽章、链接 -->
-              <div class="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1.5">
+              <div class="flex items-center flex-wrap gap-x-1.5 gap-y-1 mb-1">
                 <span class="font-medium text-white text-sm">${this.escapeHtml(symbol)}</span>
                 ${blacklistBadge}
                 ${whitelistBadge}
-                <a href="${holdersUrl}" target="_blank" class="text-cyan-400 hover:text-cyan-300 text-xs whitespace-nowrap" title="查看持有者">👥 持有者</a>
-                <a href="${earlyTradesUrl}" target="_blank" class="text-amber-400 hover:text-amber-300 text-xs whitespace-nowrap" title="查看最早交易">📈 最早交易</a>
+                <a href="${holdersUrl}" target="_blank" class="text-cyan-400 hover:text-cyan-300 text-xs whitespace-nowrap" title="查看持有者">👥</a>
+                <a href="${earlyTradesUrl}" target="_blank" class="text-amber-400 hover:text-amber-300 text-xs whitespace-nowrap" title="查看最早交易">📈</a>
               </div>
               <!-- 第二行：地址和操作 -->
-              <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs">
+              <div class="flex items-center flex-wrap gap-x-1 gap-y-0.5 text-xs">
                 <code class="text-gray-400 text-xs">${shortAddress}</code>
                 ${hasBlacklist && blacklistInfo ? '<span class="text-red-400 whitespace-nowrap">(' + (blacklistInfo.blacklistedHolders || 0) + '⚠️)</span>' : ''}
                 ${hasWhitelist && whitelistInfo ? '<span class="text-green-400 whitespace-nowrap">(' + (whitelistInfo.whitelistedHolders || 0) + '✨)</span>' : ''}
@@ -513,7 +519,7 @@ class ExperimentTokens {
             </div>
           </div>
         </td>
-        <td class="px-6 py-3">
+        <td class="px-6 py-3 whitespace-nowrap">
           <span class="px-2 py-1 rounded text-xs font-medium ${statusInfo.class}">${statusInfo.text}</span>
         </td>
         <td class="px-4 py-3 text-sm text-white text-right">
@@ -1028,6 +1034,37 @@ class ExperimentTokens {
     // 应用默认筛选
     this.applyFilters();
     this.showToast('已清除所有筛选');
+  }
+
+  /**
+   * 筛选命中黑白名单的代币
+   */
+  filterByHolderList() {
+    let filtered = [...this.tokens];
+
+    // 筛选命中黑名单或白名单的代币
+    filtered = filtered.filter(t => {
+      const hasBlacklist = this.blacklistTokenMap?.has(t.token_address);
+      const hasWhitelist = this.whitelistTokenMap?.has(t.token_address);
+      return hasBlacklist || hasWhitelist;
+    });
+
+    // 按发现时间降序排序
+    filtered.sort((a, b) => new Date(b.discovered_at || 0) - new Date(a.discovered_at || 0));
+
+    this.filteredTokens = filtered;
+    this.currentPage = 1;
+    this.renderTokens();
+
+    // 统计黑名单和白名单数量
+    const blacklistCount = filtered.filter(t => this.blacklistTokenMap?.has(t.token_address)).length;
+    const whitelistCount = filtered.filter(t => this.whitelistTokenMap?.has(t.token_address)).length;
+
+    if (filtered.length === 0) {
+      this.showToast('⚠️ 没有命中黑白名单的代币');
+    } else {
+      this.showToast(`已筛选: 命中黑白名单，共 ${filtered.length} 个代币（黑名单: ${blacklistCount}，白名单: ${whitelistCount}）`);
+    }
   }
 }
 

@@ -512,21 +512,28 @@ class AbstractTradingEngine extends ITradingEngine {
       executed: status === 'executed'
     };
 
-    // 注意：strategy_signals 表没有 trade_id 列，交易信息存储在 metadata 中
-    // if (result.tradeId) {
-    //   updateData.trade_id = result.tradeId;
-    // }
-
-    if (result.message) {
-      updateData.execution_reason = result.message;
-    }
-
-    // 更新 metadata.tradeResult
+    // 合并 metadata 并添加 execution_reason
     const newMetadata = { ...(currentSignal.metadata || {}) };
+
+    // 将执行原因记录到 metadata 中
+    if (result.message) {
+      newMetadata.execution_reason = result.message;
+    }
+    if (result.reason) {
+      newMetadata.execution_reason = result.reason;
+    }
+    if (result.error) {
+      newMetadata.execution_error = result.error;
+    }
+    // 添加执行时间戳
+    newMetadata.executed_at = new Date().toISOString();
+    newMetadata.execution_status = status;
+
+    // 交易结果
     if (result.trade || result.success !== undefined) {
       newMetadata.tradeResult = {
         success: result.success || false,
-        tradeId: result.tradeId || null,  // 存储交易ID
+        tradeId: result.tradeId || null,
         trade: result.trade ? {
           id: result.trade.id,
           tokenSymbol: result.trade.tokenSymbol,
@@ -538,6 +545,7 @@ class AbstractTradingEngine extends ITradingEngine {
         } : null
       };
     }
+
     updateData.metadata = newMetadata;
 
     const { error } = await supabase

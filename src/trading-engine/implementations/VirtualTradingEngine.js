@@ -781,13 +781,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           }
         }
 
-        const executed = await this._executeStrategy(strategy, token, factorResults);
+        const executionResult = await this._executeStrategy(strategy, token, factorResults);
 
         if (this._roundSummary) {
           this._roundSummary.recordSignalExecution(
             token.token,
-            executed,
-            executed ? null : '执行失败'
+            executionResult.success,
+            executionResult.success ? null : (executionResult.reason || '执行失败')
           );
         }
       }
@@ -1011,6 +1011,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * @returns {Promise<boolean>} 是否执行成功
    */
   async _executeStrategy(strategy, token, factorResults = null) {
+    // 返回格式: { success: boolean, reason?: string }
+    const successResult = (success) => ({ success });
+    const failResult = (reason) => ({ success: false, reason });
+
     const { CardPositionManager } = getLazyModules();
     const latestPrice = token.currentPrice || 0;
 
@@ -1021,7 +1025,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     if (strategy.action === 'buy') {
       // 状态检查 - 如果状态不对，直接返回，不保存信号
       if (token.status !== 'monitoring') {
-        return false;
+        return failResult(`代币状态不是 monitoring (当前: ${token.status})`);
       }
 
       // ========== 先创建并保存信号到数据库 ==========
@@ -1227,7 +1231,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           this._roundSummary.recordSignalExecution(token.token, false, `预检查失败: ${blockReason}`);
         }
 
-        return false;
+        return failResult(`预检查失败: ${blockReason}`);
       }
 
       // ========== 预检查通过，执行交易 ==========
@@ -1249,14 +1253,14 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
         await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
 
-        return true;
+        return successResult(true);
       }
 
-      return false;
+      return failResult('交易执行失败: result.success 为 false');
 
     } else if (strategy.action === 'sell') {
       if (token.status !== 'bought') {
-        return false;
+        return failResult(`代币状态不是 bought (当前: ${token.status})`);
       }
 
       const cardManager = this._tokenPool.getCardPositionManager(token.token, token.chain);
@@ -1264,7 +1268,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       if (!cardManager) {
         this.logger.warn(this._experimentId, '_executeStrategy',
           `代币 ${token.symbol} 没有卡牌管理器，跳过卖出`);
-        return false;
+        return failResult('没有卡牌管理器');
       }
 
       const cards = strategy.cards || 'all';
@@ -1334,13 +1338,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       if (result && result.success) {
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
-        return true;
+        return successResult(true);
       }
 
-      return false;
+      return failResult('卖出交易执行失败: result.success 为 false');
     }
 
-    return false;
+    return failResult('未知策略类型');
   }
 
   /**

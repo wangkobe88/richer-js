@@ -247,6 +247,10 @@ class TradeSignal {
       reason: this.reason,
       metadata: this.metadata,
       executed: this.executed,
+      // 从 metadata 中提取 execution_reason 以便前端显示
+      execution_reason: this.metadata?.execution_reason || null,
+      execution_status: this.metadata?.execution_status || null,
+      executed_at: this.metadata?.executed_at || null,
       created_at: this.createdAt,
       timestamp: this.createdAt
     };

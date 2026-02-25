@@ -1280,14 +1280,14 @@ class LiveTradingEngine extends AbstractTradingEngine {
           }
         }
 
-        const executed = await this._executeStrategy(strategy, token, factorResults);
+        const executionResult = await this._executeStrategy(strategy, token, factorResults);
 
         // RoundSummary - 记录执行结果
         if (this._roundSummary) {
           this._roundSummary.recordSignalExecution(
             token.token,
-            executed,
-            executed ? null : '执行失败'
+            executionResult.success,
+            executionResult.success ? null : (executionResult.reason || '执行失败')
           );
         }
       }
@@ -1380,9 +1380,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
    * @param {Object} strategy - 策略对象
    * @param {Object} token - 代币数据
    * @param {Object} factorResults - 因子计算结果
-   * @returns {Promise<boolean>} 是否执行成功
+   * @returns {Promise<Object>} 执行结果 { success: boolean, reason?: string }
    */
   async _executeStrategy(strategy, token, factorResults = null) {
+    // 辅助函数：返回成功/失败结果
+    const successResult = () => ({ success: true });
+    const failResult = (reason) => ({ success: false, reason });
+
     const latestPrice = token.currentPrice || 0;
 
     if (!factorResults) {
@@ -1394,7 +1398,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
     if (strategy.action === 'buy') {
       if (token.status !== 'monitoring') {
-        return false;
+        return failResult(`代币状态不是 monitoring (当前: ${token.status})`);
       }
 
       // ========== 验证 creator_address ==========
@@ -1434,7 +1438,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
         if (isNegativeDevWallet) {
           this.logger.error(this._experimentId, '_executeStrategy',
             `代币创建者为 Dev 钱包，拒绝购买 | symbol=${token.symbol}, address=${token.token}, creator=${token.creator_address}`);
-          return false;
+          return failResult('代币创建者为 Dev 钱包，拒绝购买');
         }
         this.logger.info(this._experimentId, '_executeStrategy',
           `Dev 钱包检查通过，继续购买流程 | symbol=${token.symbol}`);
@@ -1517,21 +1521,21 @@ class LiveTradingEngine extends AbstractTradingEngine {
         // 更新代币状态到数据库（与虚拟盘一致）
         await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
 
-        return true;
+        return successResult();
       }
 
-      return false;
+      return failResult('交易执行失败: result.success 为 false');
 
     } else if (strategy.action === 'sell') {
       if (token.status !== 'bought') {
-        return false;
+        return failResult(`代币状态不是 bought (当前: ${token.status})`);
       }
 
       const cardManager = this._tokenPool.getCardPositionManager(token.token, token.chain);
 
       if (!cardManager) {
         this.logger.warn(this._experimentId, '_executeStrategy', `代币 ${token.symbol} 没有卡牌管理器，跳过卖出`);
-        return false;
+        return failResult('没有卡牌管理器');
       }
 
       const cards = strategy.cards || 'all';
@@ -1588,13 +1592,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       if (result && result.success) {
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
-        return true;
+        return successResult();
       }
 
-      return false;
+      return failResult('卖出交易执行失败: result.success 为 false');
     }
 
-    return false;
+    return failResult('未知策略类型');
   }
 
   /**
