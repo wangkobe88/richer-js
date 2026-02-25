@@ -487,28 +487,28 @@ class ExperimentTokens {
 
     return `
       <tr class="token-row ${rowClass}" data-token-address="${token.token_address}">
-        <td class="px-4 py-3 min-w-[400px]">
+        <td class="px-4 py-3" style="min-width: 380px;">
           <div class="flex items-start gap-3">
-            <img src="${rawData?.logo_url || ''}" alt="" class="w-8 h-8 rounded-full flex-shrink-0 ${!rawData?.logo_url ? 'hidden' : ''}" onerror="this.style.display='none'">
-            <div class="flex-1 min-w-0">
+            <img src="${rawData?.logo_url || ''}" alt="" class="w-8 h-8 rounded-full flex-shrink-0 mt-0.5 ${!rawData?.logo_url ? 'hidden' : ''}" onerror="this.style.display='none'">
+            <div class="flex-1" style="min-width: 300px;">
               <!-- 第一行：符号、徽章、链接 -->
-              <div class="flex items-center flex-wrap gap-1 mb-1">
-                <span class="font-medium text-white">${this.escapeHtml(symbol)}</span>
+              <div class="flex items-center flex-wrap gap-x-2 gap-y-1 mb-1.5">
+                <span class="font-medium text-white text-sm">${this.escapeHtml(symbol)}</span>
                 ${blacklistBadge}
                 ${whitelistBadge}
-                <a href="${holdersUrl}" target="_blank" class="text-cyan-400 hover:text-cyan-300 text-xs" title="查看持有者">👥 持有者</a>
-                <a href="${earlyTradesUrl}" target="_blank" class="text-amber-400 hover:text-amber-300 text-xs" title="查看最早交易">📈 最早交易</a>
+                <a href="${holdersUrl}" target="_blank" class="text-cyan-400 hover:text-cyan-300 text-xs whitespace-nowrap" title="查看持有者">👥 持有者</a>
+                <a href="${earlyTradesUrl}" target="_blank" class="text-amber-400 hover:text-amber-300 text-xs whitespace-nowrap" title="查看最早交易">📈 最早交易</a>
               </div>
               <!-- 第二行：地址和操作 -->
-              <div class="flex items-center flex-wrap gap-1 text-xs">
-                <code class="text-gray-400">${shortAddress}</code>
-                ${hasBlacklist && blacklistInfo ? '<span class="text-red-400">(' + (blacklistInfo.blacklistedHolders || 0) + '⚠️)</span>' : ''}
-                ${hasWhitelist && whitelistInfo ? '<span class="text-green-400">(' + (whitelistInfo.whitelistedHolders || 0) + '✨)</span>' : ''}
-                <a href="${gmgnUrl}" target="_blank" class="text-gray-400 hover:text-purple-400" title="GMGN">GMGN</a>
+              <div class="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-xs">
+                <code class="text-gray-400 text-xs">${shortAddress}</code>
+                ${hasBlacklist && blacklistInfo ? '<span class="text-red-400 whitespace-nowrap">(' + (blacklistInfo.blacklistedHolders || 0) + '⚠️)</span>' : ''}
+                ${hasWhitelist && whitelistInfo ? '<span class="text-green-400 whitespace-nowrap">(' + (whitelistInfo.whitelistedHolders || 0) + '✨)</span>' : ''}
+                <a href="${gmgnUrl}" target="_blank" class="text-gray-400 hover:text-purple-400 whitespace-nowrap" title="GMGN">GMGN</a>
                 <span class="text-gray-600">|</span>
-                <a href="${observerUrl}" target="_blank" class="text-green-400 hover:text-green-300" title="时序数据">时序</a>
-                <a href="${signalsUrl}" target="_blank" class="text-purple-400 hover:text-purple-300" title="信号">信号</a>
-                <button class="text-blue-400 copy-address-btn hover:text-blue-300" data-address="${token.token_address}" title="复制地址">📋</button>
+                <a href="${observerUrl}" target="_blank" class="text-green-400 hover:text-green-300 whitespace-nowrap" title="时序数据">时序</a>
+                <a href="${signalsUrl}" target="_blank" class="text-purple-400 hover:text-purple-300 whitespace-nowrap" title="信号">信号</a>
+                <button class="text-blue-400 copy-address-btn hover:text-blue-300 whitespace-nowrap" data-address="${token.token_address}" title="复制地址">📋</button>
               </div>
             </div>
           </div>
@@ -668,15 +668,27 @@ class ExperimentTokens {
     // 转换为数字
     const numValue = typeof num === 'string' ? parseFloat(num) : num;
     if (isNaN(numValue)) return '-';
-    if (numValue === 0) return '0';
+    if (numValue === 0) return '$0';
+
+    // 处理负数
+    const absValue = Math.abs(numValue);
+    const sign = numValue < 0 ? '-' : '';
+
+    // 小于 1 的数字直接返回，不加后缀
+    if (absValue < 1) {
+      return `$${sign}${absValue.toFixed(6)}`;
+    }
 
     const suffixes = ['', 'K', 'M', 'B', 'T'];
-    const suffixIndex = Math.floor(Math.log10(Math.abs(numValue)) / 3);
+    const suffixIndex = Math.floor(Math.log10(absValue) / 3);
 
-    if (suffixIndex === 0) return `$${numValue.toFixed(2)}`;
+    // 限制 suffixIndex 在数组范围内
+    const validIndex = Math.min(suffixIndex, suffixes.length - 1);
 
-    const scaled = numValue / Math.pow(1000, suffixIndex);
-    return `$${scaled.toFixed(2)}${suffixes[suffixIndex]}`;
+    if (validIndex === 0) return `$${sign}${numValue.toFixed(2)}`;
+
+    const scaled = absValue / Math.pow(1000, validIndex);
+    return `$${sign}${scaled.toFixed(2)}${suffixes[validIndex]}`;
   }
 
   /**
