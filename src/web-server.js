@@ -540,23 +540,36 @@ class RicherJsWebServer {
         if (existing) {
           return res.json({
             success: true,
-            message: '钱包已存在于黑名单中',
+            message: '钱包已存在',
             data: existing,
             alreadyExists: true
           });
         }
 
         // 创建钱包
-        const wallet = await this.walletService.createWallet({
+        const result = await this.walletService.createWallet({
           address,
           name: name || '流水盘钱包',
           category: category || 'pump_group'
         });
 
+        if (result.alreadyExists) {
+          return res.json({
+            success: true,
+            message: '钱包已存在',
+            data: result.data,
+            alreadyExists: true
+          });
+        }
+
+        if (!result.success) {
+          return res.status(500).json({ success: false, error: result.error || '创建钱包失败' });
+        }
+
         res.json({
           success: true,
-          message: '钱包已添加到黑名单',
-          data: wallet
+          message: '钱包已添加',
+          data: result.data
         });
       } catch (error) {
         console.error('添加单个钱包失败:', error);
@@ -608,11 +621,19 @@ class RicherJsWebServer {
           '0xe2ce6ab80874fa9fa2aae65d277dd6b8e65c9de0'  // slap.sh LP
         ].map(addr => addr.toLowerCase());
 
-        // 筛选持仓比例大于0.05%的钱包
+        // 筛选有效钱包
         const targetWallets = holders.filter(h => {
+          // 排除 LP 地址
           if (EXCLUDE_ADDRESSES.includes(h.address?.toLowerCase())) {
             return false;
           }
+
+          // 如果没有 balance_ratio 字段（来自早期交易页面），不过滤持仓比例
+          if (h.balance_ratio === undefined || h.balance_ratio === null) {
+            return h.address && h.address.length > 0;
+          }
+
+          // 有 balance_ratio 字段时，筛选持仓比例大于0.05%的钱包
           let ratio = 0;
           if (typeof h.balance_ratio === 'number') {
             ratio = h.balance_ratio;
@@ -652,6 +673,7 @@ class RicherJsWebServer {
           data: {
             success: result.success,
             skipped: result.skipped,
+            skippedWallets: result.skippedWallets || [],
             walletName: walletName,
             wallets: result.details
           }
@@ -714,6 +736,7 @@ class RicherJsWebServer {
           data: {
             success: result.success,
             skipped: result.skipped,
+            skippedWallets: result.skippedWallets || [],
             walletName: walletName,
             wallets: result.details
           }

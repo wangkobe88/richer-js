@@ -56,7 +56,7 @@ class WalletDataService {
   /**
    * 创建钱包
    * @param {Object} walletData - 钱包数据 { address, name?, category? }
-   * @return {Promise<Object>} 创建的钱包对象
+   * @return {Promise<Object>} { success, data?, alreadyExists? }
    */
   async createWallet(walletData) {
     try {
@@ -71,10 +71,23 @@ class WalletDataService {
         .single();
 
       if (error) throw error;
-      return data;
+      return { success: true, data };
     } catch (error) {
       console.error('创建钱包失败:', error);
-      return null;
+
+      // 检查是否是唯一约束错误（重复）
+      const errorMsg = error.message || '';
+      const isDuplicate = errorMsg.includes('unique constraint') ||
+                        errorMsg.includes('duplicate key') ||
+                        error.code === '23505';
+
+      if (isDuplicate) {
+        // 返回已存在标记，并获取现有钱包数据
+        const existing = await this.getWalletByAddress(walletData.address);
+        return { success: false, alreadyExists: true, data: existing };
+      }
+
+      return { success: false, error: error.message };
     }
   }
 
@@ -173,52 +186,76 @@ class WalletDataService {
   /**
    * 批量创建钱包（跳过已存在的）
    * @param {Array<Object>} wallets - 钱包数组 [{ address, name, category }]
-   * @return {Promise<Object>} { success: 数量, skipped: 数量, errors: 数量 }
+   * @return {Promise<Object>} { success: 数量, skipped: 数量, errors: 数量, skippedWallets: [] }
    */
   async bulkCreateWallets(wallets) {
     const results = {
       success: 0,
       skipped: 0,
       errors: 0,
-      details: []
+      details: [],
+      skippedWallets: []
     };
 
-    try {
-      // 获取所有现有地址
-      const { data: existing } = await this.supabase
-        .from('wallets')
-        .select('address');
+    // 直接逐个插入，捕获每个重复错误
+    const existingAddresses = new Set();
 
-      const existingAddresses = new Set(
-        (existing || []).map(w => w.address.toLowerCase())
-      );
+    for (const w of wallets) {
+      const addr = w.address?.toLowerCase();
+      if (!addr) continue;
 
-      // 过滤出需要新增的钱包
-      const newWallets = wallets.filter(w => {
-        const addr = w.address?.toLowerCase();
-        return addr && !existingAddresses.has(addr);
-      });
-
-      results.skipped = wallets.length - newWallets.length;
-
-      // 批量插入
-      if (newWallets.length > 0) {
+      try {
         const { data, error } = await this.supabase
           .from('wallets')
-          .insert(newWallets)
+          .insert(w)
           .select();
 
-        if (error) throw error;
-        results.success = data.length;
-        results.details = data;
-      }
+        if (error) {
+          // 检查是否是唯一约束错误
+          const errorMsg = error.message || '';
+          const isDuplicate = errorMsg.includes('unique constraint') ||
+                            errorMsg.includes('duplicate key') ||
+                            error.code === '23505';
 
-      return results;
-    } catch (error) {
-      console.error('批量创建钱包失败:', error);
-      results.errors = wallets.length - results.success - results.skipped;
-      throw error;
+          if (isDuplicate) {
+            // 重复，跳过
+            results.skipped++;
+            results.skippedWallets.push({
+              address: w.address,
+              existingCategory: 'duplicate'
+            });
+            existingAddresses.add(addr);
+          } else {
+            console.error('插入钱包失败:', w.address, error);
+            results.errors++;
+          }
+        } else if (data && data.length > 0) {
+          results.success++;
+          results.details.push(data[0]);
+          existingAddresses.add(addr);
+        }
+      } catch (err) {
+        // 捕获异常级别的错误
+        const errorMsg = err.message || '';
+        const isDuplicate = errorMsg.includes('unique constraint') ||
+                          errorMsg.includes('duplicate key') ||
+                          err.code === '23505';
+
+        if (isDuplicate) {
+          results.skipped++;
+          results.skippedWallets.push({
+            address: w.address,
+            existingCategory: 'duplicate'
+          });
+          existingAddresses.add(addr);
+        } else {
+          console.error('插入钱包异常:', w.address, err);
+          results.errors++;
+        }
+      }
     }
+
+    return results;
   }
 }
 

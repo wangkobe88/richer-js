@@ -688,7 +688,18 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert(`✅ ${result.message}\n\n钱包名称: ${result.data.walletName}`);
+                    let message = `✅ ${result.message}\n\n钱包名称: ${result.data.walletName}`;
+                    // 如果有跳过的钱包，显示详情
+                    if (result.data.skipped > 0 && result.data.skippedWallets) {
+                        message += `\n\n跳过的钱包 (${result.data.skipped} 个):\n`;
+                        result.data.skippedWallets.slice(0, 10).forEach(w => {
+                            message += `  - ${w.address.substring(0, 10)}...${w.address.substring(w.address.length - 6)}\n`;
+                        });
+                        if (result.data.skippedWallets.length > 10) {
+                            message += `  ... 还有 ${result.data.skippedWallets.length - 10} 个\n`;
+                        }
+                    }
+                    alert(message);
                     // 重新加载钱包列表
                     await loadWalletLists();
                     // 重新渲染表格
@@ -745,7 +756,18 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    alert(`✅ ${result.message}\n\n钱包名称: ${result.data.walletName}`);
+                    let message = `✅ ${result.message}\n\n钱包名称: ${result.data.walletName}`;
+                    // 如果有跳过的钱包，显示详情
+                    if (result.data.skipped > 0 && result.data.skippedWallets) {
+                        message += `\n\n跳过的钱包 (${result.data.skipped} 个):\n`;
+                        result.data.skippedWallets.slice(0, 10).forEach(w => {
+                            message += `  - ${w.address.substring(0, 10)}...${w.address.substring(w.address.length - 6)}\n`;
+                        });
+                        if (result.data.skippedWallets.length > 10) {
+                            message += `  ... 还有 ${result.data.skippedWallets.length - 10} 个\n`;
+                        }
+                    }
+                    alert(message);
                     // 重新加载钱包列表
                     await loadWalletLists();
                     // 重新渲染表格
