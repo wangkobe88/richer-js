@@ -532,7 +532,7 @@ class BacktestEngine extends AbstractTradingEngine {
         if (minMaxChangePercent > 0) {
           filteredAddresses = await this._filterTokensByMaxChange(minMaxChangePercent);
           this.logger.info(this._experimentId, 'BacktestEngine',
-            `📊 代币筛选: 总代币数=${this._backtestStats.totalTokens || '?}, 满足条件=${filteredAddresses.length}, 阈值=${minMaxChangePercent}%`);
+            `📊 代币筛选: 总代币数=${this._backtestStats.totalTokens || 0}, 满足条件=${filteredAddresses.length}, 阈值=${minMaxChangePercent}%`);
         }
 
         let data;
