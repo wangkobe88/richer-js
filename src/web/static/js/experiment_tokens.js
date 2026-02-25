@@ -21,6 +21,8 @@ class ExperimentTokens {
     // 黑名单统计
     this.blacklistStats = null;
     this.blacklistTokenMap = new Map();
+    // 白名单统计
+    this.whitelistTokenMap = new Map();
 
     this.init();
   }
@@ -170,7 +172,7 @@ class ExperimentTokens {
       this.tokens = result.tokens || [];
       this.filteredTokens = [...this.tokens];
 
-      // 加载黑名单统计数据
+      // 加载黑名单/白名单统计数据
       if (blacklistRes.ok) {
         const blacklistData = await blacklistRes.json();
         if (blacklistData.success) {
@@ -178,6 +180,10 @@ class ExperimentTokens {
           // 建立代币到黑名单状态的映射
           this.blacklistTokenMap = new Map(
             (blacklistData.data.blacklistedTokenList || []).map(t => [t.token, t])
+          );
+          // 建立代币到白名单状态的映射
+          this.whitelistTokenMap = new Map(
+            (blacklistData.data.whitelistedTokenList || []).map(t => [t.token, t])
           );
         }
       }
@@ -300,6 +306,7 @@ class ExperimentTokens {
   renderBlacklistStats() {
     if (!this.blacklistStats) return;
 
+    // 黑名单统计
     const collectedEl = document.getElementById('stat-collected-tokens');
     const blacklistedEl = document.getElementById('stat-blacklisted-tokens');
     const rateEl = document.getElementById('stat-blacklist-rate');
@@ -314,6 +321,23 @@ class ExperimentTokens {
         ? (this.blacklistStats.blacklistedTokens / this.blacklistStats.totalTokens * 100)
         : 0;
       rateEl.textContent = `${rate.toFixed(2)}%`;
+    }
+
+    // 白名单统计
+    const wCollectedEl = document.getElementById('stat-whitelist-collected-tokens');
+    const wWhitelistedEl = document.getElementById('stat-whitelisted-tokens');
+    const wRateEl = document.getElementById('stat-whitelist-rate');
+    const wWalletsEl = document.getElementById('stat-whitelist-wallets');
+
+    if (wCollectedEl) wCollectedEl.textContent = this.blacklistStats.totalTokens || 0;
+    if (wWhitelistedEl) wWhitelistedEl.textContent = this.blacklistStats.whitelistedTokens || 0;
+    if (wWalletsEl) wWalletsEl.textContent = this.blacklistStats.whitelistWalletCount || 0;
+
+    if (wRateEl) {
+      const wRate = this.blacklistStats.totalTokens > 0
+        ? (this.blacklistStats.whitelistedTokens / this.blacklistStats.totalTokens * 100)
+        : 0;
+      wRateEl.textContent = `${wRate.toFixed(2)}%`;
     }
   }
 
@@ -426,6 +450,8 @@ class ExperimentTokens {
     const signalsUrl = `/experiment/${this.experimentId}/signals#token=${token.token_address}`;
     const observerUrl = `/experiment/${this.experimentId}/observer#token=${token.token_address}`;
     const holdersUrl = `/token-holders?experiment=${this.experimentId}&token=${token.token_address}`;
+    const chain = this.experiment?.blockchain || 'bsc';
+    const earlyTradesUrl = `/token-early-trades?token=${token.token_address}&chain=${chain}`;
 
     // 获取分析结果
     const analysis = token.analysis_results;
@@ -449,6 +475,14 @@ class ExperimentTokens {
     const blacklistBadge = hasBlacklist
       ? '<span class="ml-2 px-2 py-0.5 bg-red-900 text-red-400 text-xs rounded border border-red-700" title="命中持有者黑名单">⚠️ 黑名单</span>'
       : '';
+
+    // 检查是否命中白名单（基于 token_holders 数据）
+    const whitelistInfo = this.whitelistTokenMap?.get(token.token_address);
+    const hasWhitelist = whitelistInfo && whitelistInfo.hasWhitelist;
+    const whitelistBadge = hasWhitelist
+      ? '<span class="ml-2 px-2 py-0.5 bg-green-900 text-green-400 text-xs rounded border border-green-700" title="命中持有者白名单">✨ 白名单</span>'
+      : '';
+
     const rowClass = hasBlacklist ? 'bg-red-900/20' : '';
 
     return `
@@ -458,14 +492,18 @@ class ExperimentTokens {
             <img src="${rawData?.logo_url || ''}" alt="" class="w-8 h-8 rounded-full mr-3 ${!rawData?.logo_url ? 'hidden' : ''}" onerror="this.style.display='none'">
             <div>
               <div class="font-medium text-white">
-                ${this.escapeHtml(symbol)}${blacklistBadge}
+                ${this.escapeHtml(symbol)}${blacklistBadge}${whitelistBadge}
                 <a href="${holdersUrl}" target="_blank" class="ml-2 text-cyan-400 hover:text-cyan-300 text-xs" title="查看持有者">
                   👥 持有者
+                </a>
+                <a href="${earlyTradesUrl}" target="_blank" class="ml-2 text-amber-400 hover:text-amber-300 text-xs" title="查看最早交易">
+                  📈 最早交易
                 </a>
               </div>
               <div class="text-xs text-gray-400 font-mono flex items-center flex-wrap gap-1">
                 <code class="text-gray-400">${shortAddress}</code>
                 ${hasBlacklist && blacklistInfo ? '<span class="text-red-400">(' + (blacklistInfo.blacklistedHolders || 0) + '个黑名单持有者)</span>' : ''}
+                ${hasWhitelist && whitelistInfo ? '<span class="text-green-400">(' + (whitelistInfo.whitelistedHolders || 0) + '个白名单持有者)</span>' : ''}
                 <a href="${gmgnUrl}" target="_blank" class="text-gray-400 hover:text-purple-400" title="GMGN">
                   <img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4">
                 </a>
@@ -911,6 +949,12 @@ class ExperimentTokens {
 
     let filtered = [...this.tokens];
 
+    console.log(`🔍 筛选前总代币数: ${filtered.length}`);
+
+    // 统计有分析结果的代币
+    const withAnalysis = filtered.filter(t => t.analysis_results && t.analysis_results[type === 'final' ? 'final_change_percent' : 'max_change_percent'] !== undefined);
+    console.log(`📊 有分析结果的代币数: ${withAnalysis.length}`);
+
     // 按涨幅筛选
     filtered = filtered.filter(t => {
       const analysis = t.analysis_results;
@@ -920,6 +964,8 @@ class ExperimentTokens {
         : analysis.max_change_percent;
       return percent !== undefined && percent !== null && percent > threshold;
     });
+
+    console.log(`✅ 筛选后代币数: ${filtered.length}`);
 
     // 搜索框筛选
     if (searchInput) {
@@ -940,7 +986,16 @@ class ExperimentTokens {
     this.filteredTokens = filtered;
     this.currentPage = 1;
     this.renderTokens();
-    this.showToast(`已筛选: ${type === 'final' ? '最终涨幅' : '最高涨幅'} > ${threshold}%`);
+
+    if (filtered.length === 0) {
+      if (withAnalysis.length === 0) {
+        this.showToast(`⚠️ 该实验的代币还没有涨幅分析数据！请先点击页面顶部的"🔄 开始分析"按钮。`);
+      } else {
+        this.showToast(`⚠️ 没有符合条件的代币（${type === 'final' ? '最终涨幅' : '最高涨幅'} > ${threshold}%）。已有分析数据的代币: ${withAnalysis.length} 个`);
+      }
+    } else {
+      this.showToast(`已筛选: ${type === 'final' ? '最终涨幅' : '最高涨幅'} > ${threshold}%，共 ${filtered.length} 个代币`);
+    }
   }
 
   /**

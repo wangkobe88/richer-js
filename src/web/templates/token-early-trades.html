@@ -414,11 +414,38 @@
                 `;
             }
 
+            // 提取交易中的唯一钱包地址
+            const uniqueWallets = new Set();
+            trades.forEach(tx => {
+                if (tx.from_address) uniqueWallets.add(tx.from_address.toLowerCase());
+                if (tx.to_address) uniqueWallets.add(tx.to_address.toLowerCase());
+            });
+            const walletsArray = Array.from(uniqueWallets).map(addr => ({ address: addr }));
+
             const html = `
                 ${debugHtml}
                 <div class="mb-4 text-sm text-gray-600">
-                    显示 ${trades.length} 条交易记录（按时间升序）
+                    显示 ${trades.length} 条交易记录（按时间升序），涉及 ${uniqueWallets.size} 个唯一钱包
                 </div>
+
+                <!-- 批量操作区域 -->
+                <div class="mb-4 p-4 bg-gray-50 border border-gray-200 rounded">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="font-semibold text-gray-800">批量操作</span>
+                        <span class="text-sm text-gray-600">共 ${uniqueWallets.size} 个唯一钱包</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="batchAddGoodHolders()"
+                                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors">
+                            ✨ 全部标记为好持有者
+                        </button>
+                        <button onclick="batchAddPumpGroup()"
+                                class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium transition-colors">
+                            ⚠️ 全部添加到流水盘黑名单
+                        </button>
+                    </div>
+                </div>
+
                 <div class="table-container">
                     <table class="data-table">
                         <thead>
@@ -617,6 +644,121 @@
             }
         }
 
+        // 批量标记为好持有者
+        async function batchAddGoodHolders() {
+            try {
+                // 提取所有唯一钱包地址
+                const uniqueWallets = new Set();
+                currentEarlyTrades.forEach(tx => {
+                    if (tx.from_address) uniqueWallets.add(tx.from_address.toLowerCase());
+                    if (tx.to_address) uniqueWallets.add(tx.to_address.toLowerCase());
+                });
+
+                const walletsArray = Array.from(uniqueWallets).map(addr => ({ address: addr }));
+
+                if (walletsArray.length === 0) {
+                    alert('没有可添加的钱包');
+                    return;
+                }
+
+                // 确认对话框
+                const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+                const walletName = `好持有者-${dateStr}`;
+
+                const confirmed = confirm(
+                    `✨ 确定要将所有钱包标记为好持有者吗？\n\n` +
+                    `钱包数量: ${walletsArray.length}\n` +
+                    `钱包名称: ${walletName}\n` +
+                    `分类: good_holder\n\n` +
+                    `注意：白名单钱包将跳过黑名单检测。`
+                );
+
+                if (!confirmed) return;
+
+                // 调用API
+                const response = await fetch('/api/token-holders/add-good-holders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        holders: walletsArray,
+                        snapshotDate: new Date().toISOString()
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`✅ ${result.message}\n\n钱包名称: ${result.data.walletName}`);
+                    // 重新加载钱包列表
+                    await loadWalletLists();
+                    // 重新渲染表格
+                    renderEarlyTrades(currentEarlyTrades, null);
+                } else {
+                    alert(`❌ 添加失败: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('批量添加好持有者失败:', error);
+                alert(`❌ 添加失败: ${error.message}`);
+            }
+        }
+
+        // 批量添加到流水盘黑名单
+        async function batchAddPumpGroup() {
+            try {
+                // 提取所有唯一钱包地址
+                const uniqueWallets = new Set();
+                currentEarlyTrades.forEach(tx => {
+                    if (tx.from_address) uniqueWallets.add(tx.from_address.toLowerCase());
+                    if (tx.to_address) uniqueWallets.add(tx.to_address.toLowerCase());
+                });
+
+                const walletsArray = Array.from(uniqueWallets).map(addr => ({ address: addr }));
+
+                if (walletsArray.length === 0) {
+                    alert('没有可添加的钱包');
+                    return;
+                }
+
+                // 确认对话框
+                const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+                const walletName = `流水盘钱包群-${dateStr}`;
+
+                const confirmed = confirm(
+                    `⚠️ 确定要将所有钱包添加到流水盘黑名单吗？\n\n` +
+                    `钱包数量: ${walletsArray.length}\n` +
+                    `钱包名称: ${walletName}\n` +
+                    `分类: pump_group`
+                );
+
+                if (!confirmed) return;
+
+                // 调用API
+                const response = await fetch('/api/token-holders/add-pump-group', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        holders: walletsArray,
+                        snapshotDate: new Date().toISOString()
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`✅ ${result.message}\n\n钱包名称: ${result.data.walletName}`);
+                    // 重新加载钱包列表
+                    await loadWalletLists();
+                    // 重新渲染表格
+                    renderEarlyTrades(currentEarlyTrades, null);
+                } else {
+                    alert(`❌ 添加失败: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('批量添加流水盘钱包失败:', error);
+                alert(`❌ 添加失败: ${error.message}`);
+            }
+        }
+
         // 显示加载状态
         function showLoading() {
             const status = document.getElementById('queryStatus');
@@ -660,6 +802,15 @@
                 console.error('加载钱包列表失败:', error);
                 // 不阻断查询流程，只是无法显示正确的按钮状态
             }
+        }
+
+        // 从 URL 获取参数
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                token: params.get('token'),
+                chain: params.get('chain')
+            };
         }
 
         // 查询代币最早交易
@@ -713,6 +864,22 @@
                 showError(error.message);
             }
         }
+
+        // 页面加载时检查 URL 参数
+        window.addEventListener('DOMContentLoaded', async () => {
+            const params = getUrlParams();
+
+            if (params.token) {
+                // 设置表单值
+                document.getElementById('tokenAddress').value = params.token;
+                if (params.chain) {
+                    document.getElementById('chain').value = params.chain;
+                }
+
+                // 自动执行查询
+                await queryTokenEarlyTrades();
+            }
+        });
     </script>
 </body>
 </html>

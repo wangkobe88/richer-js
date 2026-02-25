@@ -223,7 +223,7 @@
                     </div>
                 </div>
 
-                <!-- 持有者黑名单统计 -->
+                <!-- 持有者黑白名单统计 -->
                 <div class="bg-gray-900 rounded-lg p-4 mb-4 border border-orange-900">
                     <h3 class="text-md font-semibold text-orange-400 mb-3">⚠️ 持有者黑名单统计</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -242,6 +242,29 @@
                         <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
                             <div class="text-xs text-gray-400 mb-1">黑名单钱包数</div>
                             <div class="text-xl font-bold text-gray-100" id="stat-blacklist-wallets">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 持有者白名单统计 -->
+                <div class="bg-gray-900 rounded-lg p-4 mb-4 border border-green-900">
+                    <h3 class="text-md font-semibold text-green-400 mb-3">✨ 持有者白名单统计</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                            <div class="text-xs text-gray-400 mb-1">已检查持有者的代币</div>
+                            <div class="text-xl font-bold text-gray-100" id="stat-whitelist-collected-tokens">0</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                            <div class="text-xs text-gray-400 mb-1">命中白名单</div>
+                            <div class="text-xl font-bold text-green-500" id="stat-whitelisted-tokens">0</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                            <div class="text-xs text-gray-400 mb-1">白名单命中率</div>
+                            <div class="text-xl font-bold text-emerald-500" id="stat-whitelist-rate">0%</div>
+                        </div>
+                        <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                            <div class="text-xs text-gray-400 mb-1">白名单钱包数</div>
+                            <div class="text-xl font-bold text-gray-100" id="stat-whitelist-wallets">0</div>
                         </div>
                     </div>
                 </div>
@@ -321,7 +344,7 @@
                         <table class="min-w-full divide-y divide-gray-700">
                             <thead class="bg-gray-700">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-48">代币信息</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-80">代币信息</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider w-32">状态</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">收集时价格</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">发布时价格</th>

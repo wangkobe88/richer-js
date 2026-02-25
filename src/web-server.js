@@ -750,11 +750,19 @@ class RicherJsWebServer {
 
         const blacklistSet = new Set((blacklistWallets || []).map(w => w.address.toLowerCase()));
 
+        // 获取白名单钱包
+        const { data: whitelistWallets } = await this.dataService.supabase
+          .from('wallets')
+          .select('address')
+          .eq('category', 'good_holder');
+
+        const whitelistSet = new Set((whitelistWallets || []).map(w => w.address.toLowerCase()));
+
         // 获取该实验的所有持有者快照
         const pageSize = 1000;
         let offset = 0;
         let hasMore = true;
-        const tokenBlacklistStats = new Map();
+        const tokenStats = new Map();
 
         while (hasMore) {
           const { data: snapshots } = await this.dataService.supabase
@@ -766,20 +774,30 @@ class RicherJsWebServer {
           if (snapshots && snapshots.length > 0) {
             for (const snapshot of snapshots) {
               const tokenAddr = snapshot.token_address;
-              if (!tokenBlacklistStats.has(tokenAddr)) {
-                tokenBlacklistStats.set(tokenAddr, {
+              if (!tokenStats.has(tokenAddr)) {
+                tokenStats.set(tokenAddr, {
                   hasBlacklist: false,
-                  blacklistedHolders: 0
+                  blacklistedHolders: 0,
+                  hasWhitelist: false,
+                  whitelistedHolders: 0
                 });
               }
-              const stats = tokenBlacklistStats.get(tokenAddr);
+              const stats = tokenStats.get(tokenAddr);
 
               if (snapshot.holder_data?.holders) {
                 for (const holder of snapshot.holder_data.holders) {
                   const addr = holder.address?.toLowerCase();
-                  if (addr && blacklistSet.has(addr)) {
-                    stats.hasBlacklist = true;
-                    stats.blacklistedHolders++;
+                  if (addr) {
+                    // 检查黑名单
+                    if (blacklistSet.has(addr)) {
+                      stats.hasBlacklist = true;
+                      stats.blacklistedHolders++;
+                    }
+                    // 检查白名单
+                    if (whitelistSet.has(addr)) {
+                      stats.hasWhitelist = true;
+                      stats.whitelistedHolders++;
+                    }
                   }
                 }
               }
@@ -791,11 +809,15 @@ class RicherJsWebServer {
           }
         }
 
-        const tokensWithBlacklist = Array.from(tokenBlacklistStats.entries())
+        const tokensWithBlacklist = Array.from(tokenStats.entries())
           .filter(([_, stats]) => stats.hasBlacklist)
           .map(([tokenAddr, stats]) => ({ token: tokenAddr, ...stats }));
 
-        const totalTokens = tokenBlacklistStats.size;
+        const tokensWithWhitelist = Array.from(tokenStats.entries())
+          .filter(([_, stats]) => stats.hasWhitelist)
+          .map(([tokenAddr, stats]) => ({ token: tokenAddr, ...stats }));
+
+        const totalTokens = tokenStats.size;
 
         res.json({
           success: true,
@@ -803,7 +825,10 @@ class RicherJsWebServer {
             totalTokens: totalTokens,
             blacklistedTokens: tokensWithBlacklist.length,
             blacklistedTokenList: tokensWithBlacklist,
-            blacklistWalletCount: blacklistSet.size
+            blacklistWalletCount: blacklistSet.size,
+            whitelistedTokens: tokensWithWhitelist.length,
+            whitelistedTokenList: tokensWithWhitelist,
+            whitelistWalletCount: whitelistSet.size
           }
         });
       } catch (error) {
@@ -1593,20 +1618,73 @@ class RicherJsWebServer {
         const tokenApi = new AveTokenAPI(finalBaseURL, config.ave?.timeout || 30000, finalApiKey);
         const tokenDetail = await tokenApi.getTokenDetail(tokenId);
 
-        // 2. 获取 main_pair 和 launch_at
+        // 2. 获取 platform 和 launch_at
         const { token, pairs } = tokenDetail;
-        let mainPair = token.main_pair;
 
-        // 如果 main_pair 为空，从 pairs 数组中取第一个
-        if (!mainPair && pairs && pairs.length > 0) {
-          mainPair = pairs[0].pair;
+        // 从数据库查询代币平台信息
+        let platform = null;
+        try {
+          const { data: tokenRecord } = await this.dataService.supabase
+            .from('experiment_tokens')
+            .select('platform')
+            .eq('token_address', tokenAddress)
+            .eq('chain', chain)
+            .limit(1)
+            .maybeSingle();
+
+          platform = tokenRecord?.platform || null;
+          console.log(`📊 [最早交易] 从数据库查询 platform: ${platform}`);
+        } catch (dbError) {
+          console.log(`📊 [最早交易] 数据库查询失败: ${dbError.message}`);
         }
 
-        if (!mainPair) {
-          return res.status(400).json({
-            success: false,
-            error: '该代币没有交易对信息'
-          });
+        // 如果数据库中没有，从 token 对象获取（AVE API 可能返回）
+        if (!platform && token.platform) {
+          platform = token.platform;
+        }
+
+        // 如果仍然没有，尝试从 pair 地址推测
+        if (!platform) {
+          let mainPair = token.main_pair;
+          if (!mainPair && pairs && pairs.length > 0) {
+            mainPair = pairs[0].pair;
+          }
+          // 检查 pair 后缀
+          if (mainPair) {
+            if (mainPair.endsWith('_fo')) {
+              platform = 'fourmeme';
+            } else if (mainPair.endsWith('_iportal')) {
+              platform = 'flap';
+            }
+          }
+        }
+
+        // 默认为 fourmeme
+        if (!platform) {
+          platform = 'fourmeme';
+        }
+
+        console.log(`📊 [最早交易] 最终确定的 platform: ${platform}`);
+
+        // 根据平台构造内盘 pair
+        let innerPair;
+        if (platform === 'fourmeme') {
+          innerPair = `${tokenAddress}_fo`;
+        } else if (platform === 'flap') {
+          innerPair = `${tokenAddress}_iportal`;
+        } else {
+          // 未知平台，使用 main_pair
+          let mainPair = token.main_pair;
+          if (!mainPair && pairs && pairs.length > 0) {
+            mainPair = pairs[0].pair;
+          }
+          if (!mainPair) {
+            return res.status(400).json({
+              success: false,
+              error: '该代币没有交易对信息'
+            });
+          }
+          innerPair = mainPair;
         }
 
         // 使用 launch_at 作为起始时间（如果有的话），否则不设置 fromTime
@@ -1614,12 +1692,13 @@ class RicherJsWebServer {
         const toTime = launchAt ? launchAt + 600 : null; // launch_at 后10分钟 (600秒)
 
         console.log(`📊 [最早交易] token=${tokenAddress}, chain=${chain}`);
+        console.log(`   platform=${platform}`);
         console.log(`   launch_at=${launchAt}, created_at=${token.created_at}`);
-        console.log(`   mainPair=${mainPair}`);
+        console.log(`   innerPair=${innerPair}`);
         console.log(`   toTime=${toTime}`);
 
-        // 3. 获取最早交易记录
-        const pairId = `${mainPair}-${chain}`;
+        // 3. 获取最早交易记录（使用内盘 pair）
+        const pairId = `${innerPair}-${chain}`;
         const txApi = new AveTxAPI(finalBaseURL, config.ave?.timeout || 30000, finalApiKey);
 
         // 尝试两种方式：
