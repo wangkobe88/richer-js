@@ -512,85 +512,59 @@ class ExperimentTokens {
     // 检查是否命中黑名单（基于 token_holders 数据）
     const blacklistInfo = this.blacklistTokenMap?.get(token.token_address);
     const hasBlacklist = blacklistInfo && blacklistInfo.hasBlacklist;
+    const blacklistCount = blacklistInfo?.blacklistedHolders || 0;
     const blacklistBadge = hasBlacklist
-      ? '<span class="ml-2 px-2 py-0.5 bg-red-900 text-red-400 text-xs rounded border border-red-700" title="命中持有者黑名单">⚠️ 黑名单</span>'
+      ? `<span class="px-1 py-0.5 bg-red-900 text-red-400 text-[10px] rounded border border-red-700" title="黑名单命中${blacklistCount}个">⚠️${blacklistCount}</span>`
       : '';
 
     // 检查是否命中白名单（基于 token_holders 数据）
     const whitelistInfo = this.whitelistTokenMap?.get(token.token_address);
     const hasWhitelist = whitelistInfo && whitelistInfo.hasWhitelist;
+    const whitelistCount = whitelistInfo?.whitelistedHolders || 0;
     const whitelistBadge = hasWhitelist
-      ? '<span class="ml-2 px-2 py-0.5 bg-green-900 text-green-400 text-xs rounded border border-green-700" title="命中持有者白名单">✨ 白名单</span>'
+      ? `<span class="px-1 py-0.5 bg-green-900 text-green-400 text-[10px] rounded border border-green-700" title="白名单命中${whitelistCount}个">✨${whitelistCount}</span>`
       : '';
 
     const rowClass = hasBlacklist ? 'bg-red-900/20' : '';
 
     return `
       <tr class="token-row ${rowClass}" data-token-address="${token.token_address}">
-        <td class="px-4 py-3" style="min-width: 280px;">
-          <div class="flex items-start gap-2">
-            <img src="${rawData?.logo_url || ''}" alt="" class="w-7 h-7 rounded-full flex-shrink-0 mt-0.5 ${!rawData?.logo_url ? 'hidden' : ''}" onerror="this.style.display='none'">
-            <div class="flex-1" style="min-width: 220px;">
-              <!-- 第一行：符号、徽章、链接 -->
-              <div class="flex items-center flex-wrap gap-x-1.5 gap-y-1 mb-1">
-                <span class="font-medium text-white text-sm">${this.escapeHtml(symbol)}</span>
-                ${blacklistBadge}
-                ${whitelistBadge}
-                <a href="${holdersUrl}" target="_blank" class="text-cyan-400 hover:text-cyan-300 text-xs whitespace-nowrap" title="查看持有者">👥</a>
-                <a href="${earlyTradesUrl}" target="_blank" class="text-amber-400 hover:text-amber-300 text-xs whitespace-nowrap" title="查看最早交易">📈</a>
-              </div>
-              <!-- 第二行：地址和操作 -->
-              <div class="flex items-center flex-wrap gap-x-1 gap-y-0.5 text-xs">
-                <code class="text-gray-400 text-xs">${shortAddress}</code>
-                ${hasBlacklist && blacklistInfo ? '<span class="text-red-400 whitespace-nowrap">(' + (blacklistInfo.blacklistedHolders || 0) + '⚠️)</span>' : ''}
-                ${hasWhitelist && whitelistInfo ? '<span class="text-green-400 whitespace-nowrap">(' + (whitelistInfo.whitelistedHolders || 0) + '✨)</span>' : ''}
-                <a href="${gmgnUrl}" target="_blank" class="text-gray-400 hover:text-purple-400 whitespace-nowrap" title="GMGN">GMGN</a>
-                <span class="text-gray-600">|</span>
-                <a href="${observerUrl}" target="_blank" class="text-green-400 hover:text-green-300 whitespace-nowrap" title="时序数据">时序</a>
-                <a href="${signalsUrl}" target="_blank" class="text-purple-400 hover:text-purple-300 whitespace-nowrap" title="信号">信号</a>
-                <button class="text-blue-400 copy-address-btn hover:text-blue-300 whitespace-nowrap" data-address="${token.token_address}" title="复制地址">📋</button>
-              </div>
+        <td class="px-1 py-1 overflow-hidden" style="width: 130px;">
+          <div class="flex flex-col gap-0.5">
+            <div class="flex items-center gap-0.5 truncate">
+              <img src="${rawData?.logo_url || ''}" alt="" class="w-3.5 h-3.5 rounded-full flex-shrink-0 ${!rawData?.logo_url ? 'hidden' : ''}" onerror="this.style.display='none'">
+              <span class="font-medium text-white text-[10px] truncate">${this.escapeHtml(symbol)}</span>
+              ${blacklistBadge}
+              ${whitelistBadge}
+            </div>
+            <div class="flex items-center gap-0.5 text-[10px] text-gray-400 truncate">
+              <code class="text-gray-500 truncate text-[9px]">${shortAddress}</code>
+            </div>
+            <div class="flex items-center gap-1 text-[9px] text-gray-500 truncate">
+              <a href="${gmgnUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">GMGN</a>
+              <span class="text-gray-600">|</span>
+              <a href="${observerUrl}" target="_blank" class="hover:text-green-400 flex-shrink-0">时序</a>
+              <span class="text-gray-600">|</span>
+              <a href="${signalsUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">信号</a>
+              <span class="text-gray-600">|</span>
+              <button class="copy-address-btn hover:text-blue-400 flex-shrink-0" data-address="${token.token_address}">复制</button>
             </div>
           </div>
         </td>
-        <td class="px-6 py-3 whitespace-nowrap">
-          <span class="px-2 py-1 rounded text-xs font-medium ${statusInfo.class}">${statusInfo.text}</span>
+        <td class="px-1.5 py-1 text-center overflow-hidden">
+          <span class="px-1 py-0.5 rounded text-[10px] font-medium ${statusInfo.class}">${statusInfo.text}</span>
         </td>
-        <td class="px-4 py-3 text-sm text-white text-right">
-          ${price}
-        </td>
-        <td class="px-4 py-3 text-sm text-white text-right">
-          ${launchPrice}
-        </td>
-        <td class="px-4 py-3 text-sm text-white text-right font-medium">
-          ${finalChangeEl}
-        </td>
-        <td class="px-4 py-3 text-sm text-white text-right font-medium">
-          ${maxChangeEl}
-        </td>
-        <td class="px-4 py-3 text-sm text-white text-right">
-          ${fdv}
-        </td>
-        <td class="px-4 py-3 text-sm text-white text-right">
-          ${tvl}
-        </td>
-        <td class="px-4 py-3 text-sm text-gray-400">
-          <div class="flex items-center">
-            <code class="text-gray-400 font-mono text-xs">${shortCreatorAddress}</code>
-          </div>
-        </td>
-        <td class="px-4 py-3 text-sm text-center">
-          <span class="px-2 py-1 rounded text-xs font-medium ${platformClass} text-white">${platformLabel}</span>
-        </td>
-        <td class="px-4 py-3 text-sm text-gray-400">
-          ${discoveredAt}
-        </td>
-        <td class="px-4 py-3 text-sm text-center">
-          ${dataPointsEl}
-        </td>
-        <td class="px-4 py-3 text-sm text-center">
-          ${this.renderJudgeColumn(token)}
-        </td>
+        <td class="px-1.5 py-1 text-right text-[10px] text-white overflow-hidden truncate">${price}</td>
+        <td class="px-1.5 py-1 text-right text-[10px] text-white overflow-hidden truncate">${launchPrice}</td>
+        <td class="px-1.5 py-1 text-right text-[10px] text-white font-medium overflow-hidden truncate">${finalChangeEl}</td>
+        <td class="px-1.5 py-1 text-right text-[10px] text-white font-medium overflow-hidden truncate">${maxChangeEl}</td>
+        <td class="px-1.5 py-1 text-right text-[10px] text-white overflow-hidden truncate">${fdv}</td>
+        <td class="px-1.5 py-1 text-right text-[10px] text-white overflow-hidden truncate">${tvl}</td>
+        <td class="px-1.5 py-1 text-left text-[10px] text-gray-400 overflow-hidden truncate"><code class="text-gray-400 font-mono truncate">${shortCreatorAddress}</code></td>
+        <td class="px-1.5 py-1 text-center overflow-hidden"><span class="px-1 py-0.5 rounded text-[10px] font-medium ${platformClass} text-white">${platformLabel}</span></td>
+        <td class="px-1.5 py-1 text-left text-[10px] text-gray-400 overflow-hidden truncate">${discoveredAt}</td>
+        <td class="px-1.5 py-1 text-center text-[10px] text-gray-400 overflow-hidden">${dataPointsEl}</td>
+        <td class="px-1.5 py-1 text-center overflow-hidden">${this.renderJudgeColumn(token)}</td>
       </tr>
     `;
   }
@@ -1143,24 +1117,21 @@ class ExperimentTokens {
     const judgeData = token.human_judges;
 
     if (!judgeData || !judgeData.category) {
-      // 未标注，显示标注按钮
-      return `<button class="judge-btn px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-white transition-colors" data-token-address="${token.token_address}">🏷️ 标注</button>`;
+      return `<button class="judge-btn hover:text-blue-400 text-[9px] text-gray-400" data-token-address="${token.token_address}">标注</button>`;
     }
 
     const category = CATEGORY_MAP[judgeData.category];
     if (!category) {
-      // 无效分类，显示标注按钮
-      return `<button class="judge-btn px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-white transition-colors" data-token-address="${token.token_address}">🏷️ 标注</button>`;
+      return `<button class="judge-btn hover:text-blue-400 text-[9px] text-gray-400" data-token-address="${token.token_address}">标注</button>`;
     }
 
-    // 已标注，显示分类徽章和操作按钮
     return `
-      <div class="flex items-center justify-center gap-1">
-        <span class="px-2 py-1 rounded text-xs ${category.bgClass} ${category.colorClass} border ${category.borderClass}" title="${judgeData.note || ''}">
-          ${category.emoji} ${category.label}
+      <div class="flex items-center justify-center gap-0.5">
+        <span class="px-1 py-0.5 rounded text-[9px] ${category.bgClass} ${category.colorClass} border ${category.borderClass}" title="${judgeData.note || ''}">
+          ${category.emoji}
         </span>
-        <button class="edit-judge-btn text-blue-400 hover:text-blue-300 text-xs" data-token-address="${token.token_address}" title="编辑标注">✏️</button>
-        <button class="delete-judge-btn text-red-400 hover:text-red-300 text-xs" data-token-address="${token.token_address}" title="删除标注">🗑️</button>
+        <button class="edit-judge-btn hover:text-blue-300 text-[9px] text-gray-400" data-token-address="${token.token_address}" title="编辑">编</button>
+        <button class="delete-judge-btn hover:text-red-300 text-[9px] text-gray-400" data-token-address="${token.token_address}" title="删除">删</button>
       </div>
     `;
   }

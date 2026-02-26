@@ -2,6 +2,15 @@
  * 代币收益汇总页面
  */
 
+// 标注分类映射
+const CATEGORY_MAP = {
+  fake_pump: { label: '流水盘', emoji: '🎭', colorClass: 'text-red-400', bgClass: 'bg-red-900', borderClass: 'border-red-700' },
+  no_user: { label: '无人玩', emoji: '👻', colorClass: 'text-gray-400', bgClass: 'bg-gray-700', borderClass: 'border-gray-600' },
+  low_quality: { label: '低质量', emoji: '📉', colorClass: 'text-orange-400', bgClass: 'bg-orange-900', borderClass: 'border-orange-700' },
+  mid_quality: { label: '中质量', emoji: '📊', colorClass: 'text-blue-400', bgClass: 'bg-blue-900', borderClass: 'border-blue-700' },
+  high_quality: { label: '高质量', emoji: '🚀', colorClass: 'text-green-400', bgClass: 'bg-green-900', borderClass: 'border-green-700' }
+};
+
 class ExperimentTokenReturns {
   constructor() {
     this.experimentId = null;
@@ -17,6 +26,10 @@ class ExperimentTokenReturns {
     this.blacklistTokenMap = new Map();
     // 白名单统计
     this.whitelistTokenMap = new Map();
+    // 标注数据
+    this.judgesData = new Map();
+    // 当前编辑的代币地址
+    this.currentEditingToken = null;
 
     this.init();
   }
@@ -73,6 +86,24 @@ class ExperimentTokenReturns {
     document.getElementById('export-btn')?.addEventListener('click', () => {
       this.exportToCSV();
     });
+
+    // 标注模态框事件
+    document.getElementById('judge-cancel-btn')?.addEventListener('click', () => {
+      this.closeJudgeModal();
+    });
+
+    document.getElementById('judge-save-btn')?.addEventListener('click', () => {
+      this.saveJudge();
+    });
+
+    const judgeModal = document.getElementById('judge-modal');
+    if (judgeModal) {
+      judgeModal.addEventListener('click', (e) => {
+        if (e.target === judgeModal) {
+          this.closeJudgeModal();
+        }
+      });
+    }
   }
 
   async loadData() {
@@ -80,10 +111,11 @@ class ExperimentTokenReturns {
 
     try {
       // 并行加载实验数据、交易数据和黑名单统计
-      const [experimentRes, tradesRes, blacklistRes] = await Promise.all([
+      const [experimentRes, tradesRes, blacklistRes, tokensRes] = await Promise.all([
         fetch(`/api/experiment/${this.experimentId}`),
-        fetch(`/api/experiment/${this.experimentId}/trades?limit=10000`), // 增加limit到10000
-        fetch(`/api/experiment/${this.experimentId}/holder-blacklist-stats`)
+        fetch(`/api/experiment/${this.experimentId}/trades?limit=10000`),
+        fetch(`/api/experiment/${this.experimentId}/holder-blacklist-stats`),
+        fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`)
       ]);
 
       if (!experimentRes.ok || !tradesRes.ok) {
@@ -99,6 +131,45 @@ class ExperimentTokenReturns {
 
       this.experimentData = experimentData.data;
       this.tradesData = tradesData.trades || [];
+
+      // 检查是否是回测实验，获取标注数据时使用源实验ID
+      let judgeExperimentId = this.experimentId;
+      if (this.experimentData.config?.backtest?.sourceExperimentId) {
+        judgeExperimentId = this.experimentData.config.backtest.sourceExperimentId;
+        console.log(`回测实验，从源实验加载标注: ${judgeExperimentId}`);
+      }
+
+      // 加载标注数据
+      if (tokensRes.ok) {
+        const tokensData = await tokensRes.json();
+        if (tokensData.success && tokensData.tokens) {
+          tokensData.tokens.forEach(token => {
+            if (token.human_judges) {
+              this.judgesData.set(token.token_address, token.human_judges);
+            }
+          });
+        }
+      }
+
+      // 如果是回测且当前实验没有标注数据，尝试从源实验加载
+      if (judgeExperimentId !== this.experimentId && this.judgesData.size === 0) {
+        try {
+          const sourceTokensRes = await fetch(`/api/experiment/${judgeExperimentId}/tokens?limit=10000`);
+          if (sourceTokensRes.ok) {
+            const sourceTokensData = await sourceTokensRes.json();
+            if (sourceTokensData.success && sourceTokensData.tokens) {
+              sourceTokensData.tokens.forEach(token => {
+                if (token.human_judges) {
+                  this.judgesData.set(token.token_address, token.human_judges);
+                }
+              });
+              console.log(`从源实验加载了 ${this.judgesData.size} 条标注数据`);
+            }
+          }
+        } catch (error) {
+          console.error('从源实验加载标注数据失败:', error);
+        }
+      }
 
       // 加载黑名单/白名单统计
       if (blacklistRes.ok) {
@@ -443,6 +514,9 @@ class ExperimentTokenReturns {
             ${statusBadge}
           </td>
           <td class="px-4 py-3 text-center">
+            ${this.renderJudgeColumn(item.tokenAddress, item.symbol)}
+          </td>
+          <td class="px-4 py-3 text-center">
             <a href="/experiment/${this.experimentId}/trades#token=${item.tokenAddress}" target="_blank" class="text-blue-400 hover:text-blue-300 text-sm mr-2">
               查看交易
             </a>
@@ -462,6 +536,9 @@ class ExperimentTokenReturns {
 
     // 绑定拷贝按钮事件
     this.bindCopyButtons();
+
+    // 绑定标注按钮事件
+    this.bindJudgeButtons();
 
     // 清空分页容器
     document.getElementById('pagination-container').innerHTML = '';
@@ -703,6 +780,168 @@ class ExperimentTokenReturns {
     if (errorEl) errorEl.classList.remove('hidden');
     this.showLoading(false);
     this.showContent(false);
+  }
+
+  /**
+   * 渲染标注列
+   */
+  renderJudgeColumn(tokenAddress, symbol) {
+    const judgeData = this.judgesData.get(tokenAddress);
+
+    if (!judgeData || !judgeData.category) {
+      return `<button class="judge-btn px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-white" data-token-address="${tokenAddress}" data-symbol="${symbol}">标注</button>`;
+    }
+
+    const category = CATEGORY_MAP[judgeData.category];
+    if (!category) {
+      return `<button class="judge-btn px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-white" data-token-address="${tokenAddress}" data-symbol="${symbol}">标注</button>`;
+    }
+
+    return `
+      <div class="flex items-center justify-center gap-1">
+        <span class="px-2 py-1 rounded text-xs ${category.bgClass} ${category.colorClass} border ${category.borderClass}" title="${judgeData.note || ''}">
+          ${category.emoji} ${category.label}
+        </span>
+        <button class="edit-judge-btn text-blue-400 hover:text-blue-300 text-xs" data-token-address="${tokenAddress}" data-symbol="${symbol}" title="编辑">✏️</button>
+        <button class="delete-judge-btn text-red-400 hover:text-red-300 text-xs" data-token-address="${tokenAddress}" title="删除">🗑️</button>
+      </div>
+    `;
+  }
+
+  /**
+   * 绑定标注按钮事件
+   */
+  bindJudgeButtons() {
+    // 标注按钮
+    document.querySelectorAll('.judge-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tokenAddress = btn.dataset.tokenAddress;
+        this.openJudgeModal(tokenAddress, btn.dataset.symbol);
+      });
+    });
+
+    // 编辑标注按钮
+    document.querySelectorAll('.edit-judge-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tokenAddress = btn.dataset.tokenAddress;
+        this.openJudgeModal(tokenAddress, btn.dataset.symbol);
+      });
+    });
+
+    // 删除标注按钮
+    document.querySelectorAll('.delete-judge-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tokenAddress = btn.dataset.tokenAddress;
+        this.deleteJudge(tokenAddress);
+      });
+    });
+  }
+
+  /**
+   * 打开标注模态框
+   */
+  openJudgeModal(tokenAddress, symbol) {
+    this.currentEditingToken = tokenAddress;
+
+    const modal = document.getElementById('judge-modal');
+    const symbolEl = document.getElementById('modal-token-symbol');
+    const addressEl = document.getElementById('modal-token-address');
+    const noteEl = document.getElementById('judge-note');
+
+    if (symbolEl) symbolEl.textContent = symbol || tokenAddress;
+    if (addressEl) addressEl.textContent = tokenAddress;
+
+    const judgeData = this.judgesData.get(tokenAddress);
+    const categoryRadios = document.querySelectorAll('input[name="judge-category"]');
+    categoryRadios.forEach(radio => {
+      radio.checked = radio.value === (judgeData?.category || '');
+    });
+
+    if (noteEl) noteEl.value = judgeData?.note || '';
+
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  /**
+   * 关闭标注模态框
+   */
+  closeJudgeModal() {
+    const modal = document.getElementById('judge-modal');
+    if (modal) modal.classList.add('hidden');
+
+    const categoryRadios = document.querySelectorAll('input[name="judge-category"]');
+    categoryRadios.forEach(radio => {
+      radio.checked = false;
+    });
+
+    const noteEl = document.getElementById('judge-note');
+    if (noteEl) noteEl.value = '';
+
+    this.currentEditingToken = null;
+  }
+
+  /**
+   * 保存标注
+   */
+  async saveJudge() {
+    if (!this.currentEditingToken) return;
+
+    const selectedRadio = document.querySelector('input[name="judge-category"]:checked');
+    if (!selectedRadio) {
+      alert('请选择一个分类');
+      return;
+    }
+
+    const category = selectedRadio.value;
+    const noteEl = document.getElementById('judge-note');
+    const note = noteEl?.value || '';
+
+    try {
+      const response = await fetch(`/api/experiment/${this.experimentId}/tokens/${this.currentEditingToken}/judge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, note })
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || '保存失败');
+
+      this.judgesData.set(this.currentEditingToken, result.data.human_judges);
+      this.closeJudgeModal();
+      this.renderTable();
+    } catch (error) {
+      console.error('保存标注失败:', error);
+      alert('保存失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 删除标注
+   */
+  async deleteJudge(tokenAddress) {
+    if (!confirm('确定要删除这个标注吗？')) return;
+
+    try {
+      const response = await fetch(`/api/experiment/${this.experimentId}/tokens/${tokenAddress}/judge`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || '删除失败');
+
+      this.judgesData.delete(tokenAddress);
+      this.renderTable();
+    } catch (error) {
+      console.error('删除标注失败:', error);
+      alert('删除失败: ' + error.message);
+    }
   }
 }
 
