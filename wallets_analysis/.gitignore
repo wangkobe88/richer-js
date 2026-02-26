@@ -1,0 +1,11 @@
+# 缓存目录
+cache/
+
+# 输出文件
+output/*.json
+output/*.csv
+!output/.gitkeep
+
+# Node.js
+node_modules/
+*.log

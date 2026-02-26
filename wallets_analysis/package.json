@@ -1,0 +1,18 @@
+{
+  "name": "wallets-analysis",
+  "version": "1.0.0",
+  "description": "分析代币早期交易者的钱包画像",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "analyze": "node index.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.0.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

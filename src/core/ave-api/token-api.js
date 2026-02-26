@@ -45,7 +45,8 @@ class BaseAveAPI {
                         error.response.status
                     );
                 } else if (error.request) {
-                    throw new AveAPIError('网络请求失败，请检查网络连接');
+                    const detailedError = error.code ? `网络请求失败: ${error.code} - ${error.message}` : `网络请求失败，请检查网络连接: ${error.message}`;
+                    throw new AveAPIError(detailedError);
                 } else {
                     throw new AveAPIError(`请求配置错误: ${error.message}`);
                 }

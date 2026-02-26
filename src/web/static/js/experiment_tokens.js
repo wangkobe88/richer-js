@@ -547,6 +547,8 @@ class ExperimentTokens {
               <span class="text-gray-600">|</span>
               <a href="${signalsUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">信号</a>
               <span class="text-gray-600">|</span>
+              <a href="${earlyTradesUrl}" target="_blank" class="hover:text-amber-400 flex-shrink-0" title="早期交易">早期</a>
+              <span class="text-gray-600">|</span>
               <button class="copy-address-btn hover:text-blue-400 flex-shrink-0" data-address="${token.token_address}">复制</button>
             </div>
           </div>
