@@ -3,6 +3,15 @@
  * 提供实验发现代币的列表展示和详情查看功能
  */
 
+// 标注分类映射
+const CATEGORY_MAP = {
+  fake_pump: { label: '流水盘', emoji: '🎭', colorClass: 'text-red-400', bgClass: 'bg-red-900', borderClass: 'border-red-700' },
+  no_user: { label: '无人玩', emoji: '👻', colorClass: 'text-gray-400', bgClass: 'bg-gray-700', borderClass: 'border-gray-600' },
+  low_quality: { label: '低质量', emoji: '📉', colorClass: 'text-orange-400', bgClass: 'bg-orange-900', borderClass: 'border-orange-700' },
+  mid_quality: { label: '中质量', emoji: '📊', colorClass: 'text-blue-400', bgClass: 'bg-blue-900', borderClass: 'border-blue-700' },
+  high_quality: { label: '高质量', emoji: '🚀', colorClass: 'text-green-400', bgClass: 'bg-green-900', borderClass: 'border-green-700' }
+};
+
 class ExperimentTokens {
   constructor() {
     this.experimentId = this.extractExperimentId();
@@ -23,6 +32,8 @@ class ExperimentTokens {
     this.blacklistTokenMap = new Map();
     // 白名单统计
     this.whitelistTokenMap = new Map();
+    // 当前编辑的代币地址（用于标注功能）
+    this.currentEditingToken = null;
 
     this.init();
   }
@@ -127,6 +138,27 @@ class ExperimentTokens {
     const filterHolderListBtn = document.getElementById('filter-holder-list');
     if (filterHolderListBtn) {
       filterHolderListBtn.addEventListener('click', () => this.filterByHolderList());
+    }
+
+    // 标注模态框事件
+    const judgeCancelBtn = document.getElementById('judge-cancel-btn');
+    if (judgeCancelBtn) {
+      judgeCancelBtn.addEventListener('click', () => this.closeJudgeModal());
+    }
+
+    const judgeSaveBtn = document.getElementById('judge-save-btn');
+    if (judgeSaveBtn) {
+      judgeSaveBtn.addEventListener('click', () => this.saveJudge());
+    }
+
+    // 点击模态框背景关闭
+    const judgeModal = document.getElementById('judge-modal');
+    if (judgeModal) {
+      judgeModal.addEventListener('click', (e) => {
+        if (e.target === judgeModal) {
+          this.closeJudgeModal();
+        }
+      });
     }
   }
 
@@ -377,6 +409,8 @@ class ExperimentTokens {
     this.bindExpandEvents();
     // 绑定复制事件
     this.bindCopyEvents();
+    // 绑定标注事件
+    this.bindJudgeEvents();
 
     // 渲染分页控制
     this.renderPagination(this.filteredTokens.length);
@@ -553,6 +587,9 @@ class ExperimentTokens {
         </td>
         <td class="px-4 py-3 text-sm text-center">
           ${dataPointsEl}
+        </td>
+        <td class="px-4 py-3 text-sm text-center">
+          ${this.renderJudgeColumn(token)}
         </td>
       </tr>
     `;
@@ -780,6 +817,38 @@ class ExperimentTokens {
           const jsonStr = JSON.stringify(token.raw_api_data, null, 2);
           this.copyToClipboard(jsonStr, 'JSON');
         }
+      });
+    });
+  }
+
+  /**
+   * 绑定标注事件
+   */
+  bindJudgeEvents() {
+    // 标注按钮
+    document.querySelectorAll('.judge-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tokenAddress = btn.dataset.tokenAddress;
+        this.openJudgeModal(tokenAddress);
+      });
+    });
+
+    // 编辑标注按钮
+    document.querySelectorAll('.edit-judge-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tokenAddress = btn.dataset.tokenAddress;
+        this.openJudgeModal(tokenAddress);
+      });
+    });
+
+    // 删除标注按钮
+    document.querySelectorAll('.delete-judge-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tokenAddress = btn.dataset.tokenAddress;
+        this.deleteJudge(tokenAddress);
       });
     });
   }
@@ -1064,6 +1133,172 @@ class ExperimentTokens {
       this.showToast('⚠️ 没有命中黑白名单的代币');
     } else {
       this.showToast(`已筛选: 命中黑白名单，共 ${filtered.length} 个代币（黑名单: ${blacklistCount}，白名单: ${whitelistCount}）`);
+    }
+  }
+
+  /**
+   * 渲染标注列
+   */
+  renderJudgeColumn(token) {
+    const judgeData = token.human_judges;
+
+    if (!judgeData || !judgeData.category) {
+      // 未标注，显示标注按钮
+      return `<button class="judge-btn px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-white transition-colors" data-token-address="${token.token_address}">🏷️ 标注</button>`;
+    }
+
+    const category = CATEGORY_MAP[judgeData.category];
+    if (!category) {
+      // 无效分类，显示标注按钮
+      return `<button class="judge-btn px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs text-white transition-colors" data-token-address="${token.token_address}">🏷️ 标注</button>`;
+    }
+
+    // 已标注，显示分类徽章和操作按钮
+    return `
+      <div class="flex items-center justify-center gap-1">
+        <span class="px-2 py-1 rounded text-xs ${category.bgClass} ${category.colorClass} border ${category.borderClass}" title="${judgeData.note || ''}">
+          ${category.emoji} ${category.label}
+        </span>
+        <button class="edit-judge-btn text-blue-400 hover:text-blue-300 text-xs" data-token-address="${token.token_address}" title="编辑标注">✏️</button>
+        <button class="delete-judge-btn text-red-400 hover:text-red-300 text-xs" data-token-address="${token.token_address}" title="删除标注">🗑️</button>
+      </div>
+    `;
+  }
+
+  /**
+   * 打开标注模态框
+   */
+  openJudgeModal(tokenAddress) {
+    const token = this.tokens.find(t => t.token_address === tokenAddress);
+    if (!token) return;
+
+    this.currentEditingToken = tokenAddress;
+
+    const modal = document.getElementById('judge-modal');
+    const symbolEl = document.getElementById('modal-token-symbol');
+    const addressEl = document.getElementById('modal-token-address');
+    const noteEl = document.getElementById('judge-note');
+
+    // 设置代币信息
+    if (symbolEl) symbolEl.textContent = token.token_symbol || token.raw_api_data?.symbol || '-';
+    if (addressEl) addressEl.textContent = tokenAddress;
+
+    // 设置已有标注信息
+    const judgeData = token.human_judges;
+    const categoryRadios = document.querySelectorAll('input[name="judge-category"]');
+    categoryRadios.forEach(radio => {
+      radio.checked = radio.value === (judgeData?.category || '');
+    });
+
+    if (noteEl) noteEl.value = judgeData?.note || '';
+
+    // 显示模态框
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  /**
+   * 关闭标注模态框
+   */
+  closeJudgeModal() {
+    const modal = document.getElementById('judge-modal');
+    if (modal) modal.classList.add('hidden');
+
+    // 清空输入
+    const categoryRadios = document.querySelectorAll('input[name="judge-category"]');
+    categoryRadios.forEach(radio => {
+      radio.checked = false;
+    });
+
+    const noteEl = document.getElementById('judge-note');
+    if (noteEl) noteEl.value = '';
+
+    this.currentEditingToken = null;
+  }
+
+  /**
+   * 保存标注
+   */
+  async saveJudge() {
+    if (!this.currentEditingToken) return;
+
+    const selectedRadio = document.querySelector('input[name="judge-category"]:checked');
+    if (!selectedRadio) {
+      this.showToast('请选择一个分类');
+      return;
+    }
+
+    const category = selectedRadio.value;
+    const noteEl = document.getElementById('judge-note');
+    const note = noteEl?.value || '';
+
+    try {
+      const response = await fetch(`/api/experiment/${this.experimentId}/tokens/${this.currentEditingToken}/judge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ category, note })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '保存标注失败');
+      }
+
+      // 更新本地数据
+      const tokenIndex = this.tokens.findIndex(t => t.token_address === this.currentEditingToken);
+      if (tokenIndex !== -1) {
+        this.tokens[tokenIndex].human_judges = result.data.human_judges;
+      }
+
+      this.closeJudgeModal();
+      this.renderTokens();
+      this.showToast('标注已保存');
+
+    } catch (error) {
+      console.error('保存标注失败:', error);
+      this.showToast('保存失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 删除标注
+   */
+  async deleteJudge(tokenAddress) {
+    if (!confirm('确定要删除这个标注吗？')) return;
+
+    try {
+      const response = await fetch(`/api/experiment/${this.experimentId}/tokens/${tokenAddress}/judge`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || '删除标注失败');
+      }
+
+      // 更新本地数据
+      const tokenIndex = this.tokens.findIndex(t => t.token_address === tokenAddress);
+      if (tokenIndex !== -1) {
+        this.tokens[tokenIndex].human_judges = null;
+      }
+
+      this.renderTokens();
+      this.showToast('标注已删除');
+
+    } catch (error) {
+      console.error('删除标注失败:', error);
+      this.showToast('删除失败: ' + error.message);
     }
   }
 }

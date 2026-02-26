@@ -1283,6 +1283,100 @@ class RicherJsWebServer {
       }
     });
 
+    // ============ 代币人工标注 API ============
+
+    // 保存/更新代币标注
+    this.app.post('/api/experiment/:experimentId/tokens/:address/judge', async (req, res) => {
+      try {
+        const { experimentId, address } = req.params;
+        const { category, note } = req.body;
+
+        // 验证 category
+        const validCategories = ['fake_pump', 'no_user', 'low_quality', 'mid_quality', 'high_quality'];
+        if (!category || !validCategories.includes(category)) {
+          return res.status(400).json({ success: false, error: '无效的类别' });
+        }
+
+        const judgeData = {
+          category,
+          note: note || null,
+          judge_at: new Date().toISOString()
+        };
+
+        const { error } = await this.dataService.supabase
+          .from('experiment_tokens')
+          .update({ human_judges: judgeData })
+          .eq('experiment_id', experimentId)
+          .eq('token_address', address);
+
+        if (error) throw error;
+
+        res.json({
+          success: true,
+          data: {
+            token_address: address,
+            human_judges: judgeData
+          }
+        });
+      } catch (error) {
+        console.error('保存代币标注失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 删除代币标注
+    this.app.delete('/api/experiment/:experimentId/tokens/:address/judge', async (req, res) => {
+      try {
+        const { experimentId, address } = req.params;
+
+        const { error } = await this.dataService.supabase
+          .from('experiment_tokens')
+          .update({ human_judges: null })
+          .eq('experiment_id', experimentId)
+          .eq('token_address', address);
+
+        if (error) throw error;
+
+        res.json({
+          success: true,
+          message: '标注已删除'
+        });
+      } catch (error) {
+        console.error('删除代币标注失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取单个代币标注
+    this.app.get('/api/experiment/:experimentId/tokens/:address/judge', async (req, res) => {
+      try {
+        const { experimentId, address } = req.params;
+
+        const { data, error } = await this.dataService.supabase
+          .from('experiment_tokens')
+          .select('human_judges')
+          .eq('experiment_id', experimentId)
+          .eq('token_address', address)
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // 记录不存在，返回未标注
+            return res.json({ success: true, data: null });
+          }
+          throw error;
+        }
+
+        res.json({
+          success: true,
+          data: data.human_judges
+        });
+      } catch (error) {
+        console.error('获取代币标注失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // ============ API路由：统计信息 ============
 
     // 获取系统统计
