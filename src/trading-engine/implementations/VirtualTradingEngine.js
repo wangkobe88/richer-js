@@ -1178,32 +1178,33 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         }
       }
 
-      // 3. 持有者黑名单检查
+      // 3. 持有者黑白名单检查
       if (preCheckPassed && this._tokenHolderService) {
         try {
           this.logger.info(this._experimentId, '_executeStrategy',
-            `开始持有者黑名单检测 | symbol=${token.symbol}`);
+            `开始持有者黑白名单检测 | symbol=${token.symbol}`);
 
           const holderCheck = await this._tokenHolderService.checkHolderRisk(
             token.token,
             this._experimentId,
-            token.chain || 'bsc',
-            ['pump_group', 'negative_holder']
+            token.chain || 'bsc'
           );
 
-          if (holderCheck.hasNegative) {
+          if (!holderCheck.canBuy) {
             this.logger.warn(this._experimentId, '_executeStrategy',
-              `持有者黑名单检测失败 | symbol=${token.symbol}, reason=${holderCheck.reason}`);
+              `持有者检查失败 | symbol=${token.symbol}, reason=${holderCheck.reason}, whitelist=${holderCheck.whitelistCount}, blacklist=${holderCheck.blacklistCount}`);
             preCheckPassed = false;
-            blockReason = holderCheck.reason || 'bad_holder';
+            blockReason = holderCheck.reason || 'holder_check_failed';
           } else {
             this.logger.info(this._experimentId, '_executeStrategy',
-              `持有者黑名单检测通过 | symbol=${token.symbol}`);
+              `持有者检查通过 | symbol=${token.symbol}, reason=${holderCheck.reason}, whitelist=${holderCheck.whitelistCount}, blacklist=${holderCheck.blacklistCount}`);
           }
         } catch (holderError) {
           this.logger.error(this._experimentId, '_executeStrategy',
             `持有者检测失败: ${token.symbol} - ${holderError.message}`);
-          // 检测失败时继续流程
+          // 检测失败时拒绝购买，保守处理
+          preCheckPassed = false;
+          blockReason = `持有者检测异常: ${holderError.message}`;
         }
       }
 
@@ -1489,6 +1490,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     // 调用基类 start 方法
     await super.start();
+
+    // 初始化钱包缓存（黑白名单）
+    console.log(`🔄 正在加载钱包缓存...`);
+    await this._tokenHolderService.initWalletCache();
 
     // 启动收集器
     this._fourmemeCollector.start();

@@ -14,6 +14,93 @@ class TokenHolderService {
     this.supabase = supabase;
     this.logger = logger;
     this.aveApi = null;
+
+    // 黑白名单缓存（初始化时加载一次，不更新）
+    this._blacklistAddresses = new Set(); // 黑名单地址（不含白名单）
+    this._whitelistAddresses = new Set();  // 白名单地址
+    this._cacheLoaded = false;
+  }
+
+  /**
+   * 初始化钱包缓存（在引擎启动时调用）
+   */
+  async initWalletCache() {
+    if (this._cacheLoaded) {
+      this.logger.info('[TokenHolderService] 钱包缓存已加载，跳过');
+      return;
+    }
+
+    try {
+      this.logger.info('[TokenHolderService] 开始加载钱包缓存...');
+
+      // 并行获取黑白名单
+      const [blacklistResult, whitelistResult] = await Promise.all([
+        this._fetchWalletsByCategories(['pump_group', 'negative_holder', 'dev']),
+        this._fetchWalletsByCategories(['good_holder'])
+      ]);
+
+      this._blacklistAddresses = new Set(blacklistResult.map(w => w.address.toLowerCase()));
+      this._whitelistAddresses = new Set(whitelistResult.map(w => w.address.toLowerCase()));
+      this._cacheLoaded = true;
+
+      this.logger.info('[TokenHolderService] 钱包缓存加载完成', {
+        blacklistCount: this._blacklistAddresses.size,
+        whitelistCount: this._whitelistAddresses.size
+      });
+    } catch (error) {
+      this.logger.error('[TokenHolderService] 钱包缓存加载失败', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 分批获取钱包（处理 Supabase 1000 条限制）
+   * @param {Array<string>} categories - 钱包分类
+   * @returns {Promise<Array<{address: string}>>}
+   */
+  async _fetchWalletsByCategories(categories) {
+    const allWallets = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data, error } = await this.supabase
+        .from('wallets')
+        .select('address')
+        .in('category', categories)
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) {
+        throw new Error(`获取钱包数据失败: ${error.message}`);
+      }
+
+      if (data && data.length > 0) {
+        allWallets.push(...data);
+        hasMore = data.length === pageSize;
+        page++;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    this.logger.info('[TokenHolderService] 分批获取钱包完成', {
+      categories,
+      totalPages: page,
+      totalCount: allWallets.length
+    });
+
+    return allWallets;
+  }
+
+  /**
+   * 确保缓存已加载
+   * @private
+   */
+  async _ensureCacheLoaded() {
+    if (!this._cacheLoaded) {
+      await this.initWalletCache();
+    }
   }
 
   /**
@@ -47,37 +134,36 @@ class TokenHolderService {
   }
 
   /**
-   * 检查持有者是否包含黑名单钱包
+   * 检查持有者风险（基于黑白名单缓存）
    * @param {string} tokenAddress - 代币地址
    * @param {string} experimentId - 实验ID，可为 null
    * @param {string} chain - 区块链，默认 'bsc'
-   * @param {Array<string>} riskCategories - 风险category数组，如 ['pump_group', 'negative_holder']
-   * @returns {Promise<Object>} { hasNegative, negativeHolders, reason }
+   * @returns {Promise<Object>} { canBuy, whitelistCount, blacklistCount, reason }
    */
-  async checkHolderRisk(tokenAddress, experimentId, chain = 'bsc', riskCategories = ['pump_group', 'negative_holder']) {
+  async checkHolderRisk(tokenAddress, experimentId, chain = 'bsc') {
     try {
-      // 添加调试日志
-      this.logger.info('[TokenHolderService] checkHolderRisk 调用', {
-        token_address: tokenAddress,
-        experiment_id: experimentId,
-        experiment_id_type: typeof experimentId,
-        chain: chain
-      });
+      // 确保缓存已加载
+      await this._ensureCacheLoaded();
 
-      // 总是获取最新数据并更新（使用 upsert）
+      // 获取持有者数据
       const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
 
-      // 存储到数据库（会更新已存在的记录）
+      // 存储到数据库
       const snapshotId = `${tokenAddress}_${Date.now()}`;
       await this._storeHolders(tokenAddress, experimentId, snapshotId, holderData);
 
-      // 检查黑名单持有者
-      return this._checkNegativeHolders(holderData.holders, riskCategories);
+      // 使用缓存数据检查
+      return this._checkHoldersWithCache(holderData.holders);
     } catch (error) {
       this.logger.error(null, 'TokenHolderService',
         `检查持有者风险失败: ${tokenAddress} - ${error.message}`);
-      // 出错时默认返回无风险，避免阻止正常交易
-      return { hasNegative: false, negativeHolders: [], reason: null };
+      // 出错时默认返回不可购买，保守处理
+      return {
+        canBuy: false,
+        whitelistCount: 0,
+        blacklistCount: 0,
+        reason: `检查失败: ${error.message}`
+      };
     }
   }
 
@@ -179,64 +265,108 @@ class TokenHolderService {
   }
 
   /**
-   * 私有方法：检查是否包含黑名单持有者
+   * 使用缓存检查持有者（新逻辑）
    * @private
+   * @param {Array} holders - 持有者数组
+   * @returns {Object} { canBuy, whitelistCount, blacklistCount, reason }
    */
-  async _checkNegativeHolders(holders, riskCategories) {
+  _checkHoldersWithCache(holders) {
     if (!holders || holders.length === 0) {
-      return { hasNegative: false, negativeHolders: [], reason: null };
-    }
-
-    // 提取持有者地址
-    const holderAddresses = holders.map(h => h.address).filter(Boolean);
-
-    if (holderAddresses.length === 0) {
-      return { hasNegative: false, negativeHolders: [], reason: null };
-    }
-
-    // 查询这些地址在wallets表中的category
-    const { data: walletData, error } = await this.supabase
-      .from('wallets')
-      .select('address, category')
-      .in('address', holderAddresses);
-
-    if (error) {
-      throw new Error(`查询钱包信息失败: ${error.message}`);
-    }
-
-    // 分离白名单钱包和黑名单钱包
-    const goodHolders = new Set(
-      (walletData || [])
-        .filter(w => w.category === 'good_holder')
-        .map(w => w.address.toLowerCase())
-    );
-
-    // 筛选出黑名单钱包（排除白名单）
-    const negativeWallets = (walletData || []).filter(w => {
-      if (!w.category) return false;
-      // 如果在白名单中，跳过黑名单检测
-      if (goodHolders.has(w.address.toLowerCase())) {
-        this.logger.info('[TokenHolderService] 白名单持有者跳过黑名单检测', {
-          address: w.address,
-          category: w.category
-        });
-        return false;
-      }
-      return riskCategories.includes(w.category);
-    });
-
-    if (negativeWallets.length > 0) {
-      const categories = negativeWallets.map(w => w.category);
-      const reason = `包含黑名单持有者: ${[...new Set(categories)].join(', ')}`;
-
       return {
-        hasNegative: true,
-        negativeHolders: negativeWallets,
-        reason
+        canBuy: true,
+        whitelistCount: 0,
+        blacklistCount: 0,
+        reason: '无持有者数据'
       };
     }
 
-    return { hasNegative: false, negativeHolders: [], reason: null };
+    let whitelistCount = 0;
+    let blacklistCount = 0;
+    const matchedBlacklist = [];
+    const matchedWhitelist = [];
+
+    holders.forEach(holder => {
+      const addr = holder.address?.toLowerCase();
+      if (!addr) return;
+
+      // 优先检查白名单（白名单会覆盖黑名单）
+      if (this._whitelistAddresses.has(addr)) {
+        whitelistCount++;
+        matchedWhitelist.push(addr);
+      } else if (this._blacklistAddresses.has(addr)) {
+        blacklistCount++;
+        matchedBlacklist.push(addr);
+      }
+    });
+
+    // 判断逻辑
+    const canBuy = this._evaluateCanBuy(whitelistCount, blacklistCount);
+    const reason = this._getReason(whitelistCount, blacklistCount, canBuy);
+
+    this.logger.info('[TokenHolderService] 持有者检查结果', {
+      whitelistCount,
+      blacklistCount,
+      canBuy,
+      reason,
+      matchedBlacklist: matchedBlacklist.slice(0, 5), // 只记录前5个
+      matchedWhitelist: matchedWhitelist.slice(0, 5)
+    });
+
+    return {
+      canBuy,
+      whitelistCount,
+      blacklistCount,
+      reason
+    };
+  }
+
+  /**
+   * 评估是否可以购买
+   * @private
+   * @param {number} whitelistCount - 白名单数量
+   * @param {number} blacklistCount - 黑名单数量
+   * @returns {boolean}
+   */
+  _evaluateCanBuy(whitelistCount, blacklistCount) {
+    // 条件1：黑白名单均没有命中
+    if (whitelistCount === 0 && blacklistCount === 0) {
+      return true;
+    }
+
+    // 条件2：白名单 >= 黑名单 * 2，且黑名单 <= 10
+    if (blacklistCount <= 10 && whitelistCount >= blacklistCount * 2) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * 生成原因说明
+   * @private
+   * @param {number} whitelistCount - 白名单数量
+   * @param {number} blacklistCount - 黑名单数量
+   * @param {boolean} canBuy - 是否可以购买
+   * @returns {string}
+   */
+  _getReason(whitelistCount, blacklistCount, canBuy) {
+    if (canBuy) {
+      if (whitelistCount === 0 && blacklistCount === 0) {
+        return '无黑白名单命中';
+      }
+      return `白名单${whitelistCount}个 >= 黑名单${blacklistCount}个 × 2，且黑名单 ≤ 10`;
+    }
+
+    if (blacklistCount > 10) {
+      return `黑名单持有者过多(${blacklistCount}个 > 10)`;
+    }
+    if (blacklistCount > 0 && whitelistCount < blacklistCount * 2) {
+      return `白名单不足(${whitelistCount}个 < 黑名单${blacklistCount}个 × 2)`;
+    }
+    if (blacklistCount > 0 && whitelistCount === 0) {
+      return `命中黑名单但无白名单抵消(${blacklistCount}个黑名单)`;
+    }
+    return '未知原因';
   }
 }
 
