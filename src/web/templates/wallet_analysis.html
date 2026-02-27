@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>钱包分析 - Richer-js FourMeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .tab-btn.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        .category-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .category-fake_pump { background: #fecaca; color: #991b1b; }
+        .category-no_user { background: #e5e7eb; color: #374151; }
+        .category-low_quality { background: #fed7aa; color: #9a3412; }
+        .category-mid_quality { background: #bfdbfe; color: #1e40af; }
+        .category-high_quality { background: #bbf7d0; color: #166534; }
+        .label-pump_group { background: #fbcfe8; color: #9d174d; }
+        .label-good_holder { background: #d1fae5; color: #065f46; }
+    </style>
+</head>
+<body class="bg-white text-gray-900">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-white border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-blue-600">
+                            <a href="/" class="hover:text-blue-700 transition-colors">
+                                Richer-js FourMeme Trading
+                            </a>
+                        </h1>
+                        <div class="block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                                实验监控
+                            </a>
+                            <a href="/wallets" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                                钱包管理
+                            </a>
+                            <a href="/wallet-analysis" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors bg-blue-50">
+                                钱包分析
+                            </a>
+                        </div>
+                    </div>
+                    <button id="refresh-stats-btn" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors">
+                        🔄 刷新统计
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 页面标题 -->
+            <div class="mb-6">
+                <h1 class="text-3xl font-bold text-gray-900">钱包分析工具</h1>
+                <p class="text-gray-600 mt-2">基于实验数据生成钱包画像和标签</p>
+            </div>
+
+            <!-- 统计概览 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-800">总钱包数</h3>
+                        <span id="stat-total" class="text-2xl font-bold text-blue-600">-</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-800">流水盘钱包</h3>
+                        <span id="stat-pump" class="text-2xl font-bold text-pink-600">-</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-800">正常钱包</h3>
+                        <span id="stat-good" class="text-2xl font-bold text-emerald-600">-</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-medium text-gray-800">最后更新</h3>
+                        <span id="stat-updated" class="text-sm font-medium text-gray-500">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 标签页 -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+                <div class="border-b border-gray-200">
+                    <nav class="flex -mb-px">
+                        <button class="tab-btn active px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="generate">
+                            🔍 生成画像
+                        </button>
+                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="label">
+                            🏷️ 生成标签
+                        </button>
+                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="view">
+                            📋 查看画像
+                        </button>
+                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="sync">
+                            🔄 同步到Supabase
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- 生成画像 Tab -->
+                <div id="tab-generate" class="tab-content active p-6">
+                    <h2 class="text-lg font-semibold mb-4">生成钱包画像</h2>
+                    <p class="text-gray-600 mb-4">基于所有实验的标注代币，分析早期交易者和持有者，生成钱包画像。</p>
+
+                    <div id="generate-info" class="mb-4 p-4 bg-blue-50 rounded-md">
+                        <p class="text-sm text-blue-800">
+                            已标注代币: <span id="info-token-count" class="font-semibold">加载中...</span>
+                        </p>
+                    </div>
+
+                    <button id="generate-btn" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md text-sm font-medium text-white transition-colors">
+                        开始生成
+                    </button>
+
+                    <!-- 进度显示 -->
+                    <div id="generate-progress" class="hidden mt-6">
+                        <div class="flex items-center justify-between mb-2">
+                            <span id="progress-message" class="text-sm text-gray-600">准备中...</span>
+                            <span id="progress-percent" class="text-sm font-medium text-blue-600">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="progress-bar" class="progress-bar bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- 结果显示 -->
+                    <div id="generate-result" class="hidden mt-6 p-4 bg-green-50 rounded-md">
+                        <h3 class="font-semibold text-green-800 mb-2">生成完成！</h3>
+                        <div id="result-stats" class="text-sm text-green-700"></div>
+                    </div>
+                </div>
+
+                <!-- 生成标签 Tab -->
+                <div id="tab-label" class="tab-content p-6">
+                    <h2 class="text-lg font-semibold mb-4">生成钱包标签</h2>
+                    <p class="text-gray-600 mb-4">基于钱包画像自动生成 pump_group（流水盘钱包）和 good_holder（正常钱包）标签。</p>
+
+                    <div class="mb-4">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">算法参数（可选）</h3>
+                        <div class="grid grid-cols-3 gap-4 max-w-lg">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">纯流水盘阈值</label>
+                                <input type="number" step="0.1" min="0" max="1" id="param-pure-threshold" value="0.8"
+                                       class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">最小流水盘次数</label>
+                                <input type="number" min="1" id="param-min-count" value="3"
+                                       class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">混合型阈值</label>
+                                <input type="number" step="0.1" min="0" max="1" id="param-mixed-threshold" value="0.4"
+                                       class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="label-btn" class="px-6 py-2 bg-purple-600 hover:bg-purple-700 rounded-md text-sm font-medium text-white transition-colors">
+                        生成标签
+                    </button>
+
+                    <!-- 标签结果 -->
+                    <div id="label-result" class="hidden mt-6 p-4 bg-purple-50 rounded-md">
+                        <h3 class="font-semibold text-purple-800 mb-2">标签生成完成！</h3>
+                        <div id="label-stats" class="text-sm text-purple-700"></div>
+                    </div>
+                </div>
+
+                <!-- 查看画像 Tab -->
+                <div id="tab-view" class="tab-content p-6">
+                    <h2 class="text-lg font-semibold mb-4">查看钱包画像</h2>
+
+                    <!-- 筛选器 -->
+                    <div class="mb-4 flex items-center gap-4">
+                        <div class="flex-1">
+                            <input type="text" id="profile-search" placeholder="搜索钱包地址..."
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <select id="label-filter" class="px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="">全部标签</option>
+                            <option value="pump_group">流水盘钱包</option>
+                            <option value="good_holder">正常钱包</option>
+                        </select>
+                        <select id="category-filter" class="px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="">全部分类</option>
+                            <option value="fake_pump">流水盘</option>
+                            <option value="no_user">无人玩</option>
+                            <option value="low_quality">低质量</option>
+                            <option value="mid_quality">中质量</option>
+                            <option value="high_quality">高质量</option>
+                        </select>
+                    </div>
+
+                    <!-- 结果统计 -->
+                    <div id="view-stats" class="mb-4 text-sm text-gray-600"></div>
+
+                    <!-- 钱包列表 -->
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">钱包地址</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">参与次数</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">标签</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">主导分类</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">分类统计</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profiles-table" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 分页 -->
+                    <div id="pagination" class="mt-4 flex items-center justify-between">
+                        <span id="pagination-info" class="text-sm text-gray-600"></span>
+                        <div class="flex gap-2">
+                            <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50">上一页</button>
+                            <button id="next-page" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50">下一页</button>
+                        </div>
+                    </div>
+
+                    <!-- 空状态 -->
+                    <div id="view-empty" class="hidden text-center py-12 text-gray-500">
+                        暂无数据，请先生成钱包画像
+                    </div>
+                </div>
+
+                <!-- 同步到Supabase Tab -->
+                <div id="tab-sync" class="tab-content p-6">
+                    <h2 class="text-lg font-semibold mb-4">同步标签到 wallets 表</h2>
+                    <p class="text-gray-600 mb-4">将钱包标签同步到 wallets 表，用于黑名单/白名单功能。</p>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">同步模式</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center">
+                                <input type="radio" name="sync-mode" value="upsert" checked class="mr-2">
+                                <span class="text-sm">Upsert（更新或插入）</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="sync-mode" value="update" class="mr-2">
+                                <span class="text-sm">仅更新已有钱包</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="sync-mode" value="insert" class="mr-2">
+                                <span class="text-sm">仅插入新钱包</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button id="sync-btn" class="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-md text-sm font-medium text-white transition-colors">
+                        开始同步
+                    </button>
+
+                    <!-- 同步结果 -->
+                    <div id="sync-result" class="hidden mt-6 p-4 bg-green-50 rounded-md">
+                        <h3 class="font-semibold text-green-800 mb-2">同步完成！</h3>
+                        <div id="sync-stats" class="text-sm text-green-700"></div>
+                    </div>
+
+                    <!-- 同步进度 -->
+                    <div id="sync-progress" class="hidden mt-6">
+                        <div class="flex items-center">
+                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600 mr-3"></div>
+                            <span class="text-sm text-gray-600">正在同步...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/wallet-analysis.js?v=1.0"></script>
+</body>
+</html>

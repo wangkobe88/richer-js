@@ -196,7 +196,8 @@ class AbstractTradingEngine extends ITradingEngine {
     await this._portfolioManager.initialize();
 
     // 创建实验投资组合
-    const initialBalance = this._experiment.initial_capital || 10;
+    // 优先使用子类设置的 initialBalance，再回退到实验配置中的 initial_capital
+    const initialBalance = this.initialBalance || this._experiment.initial_capital || 10;
     const portfolioConfig = {
       id: this._portfolioId,
       blockchain: this._blockchain,

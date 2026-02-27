@@ -8,6 +8,7 @@ const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const Logger = require('../../services/logger');
+const Decimal = require('decimal.js');
 
 // 延迟导入以避免循环依赖
 let TokenPool = null;
@@ -260,7 +261,8 @@ class BacktestEngine extends AbstractTradingEngine {
       }
 
       const price = signal.price || 0;
-      const tokenAmount = price > 0 ? amountInBNB / price : 0;
+      // 使用 Decimal 进行除法，避免浮点数精度问题
+      const tokenAmount = price > 0 ? new Decimal(amountInBNB).div(price).toNumber() : 0;
 
       const tradeRequest = {
         tokenAddress: signal.tokenAddress,

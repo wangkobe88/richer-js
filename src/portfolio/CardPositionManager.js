@@ -112,7 +112,12 @@ class CardPositionManager {
       return 0;
     }
 
-    const buyAmount = this.perCardMaxBNB * actualCards;
+    // 使用 Decimal 进行乘法，避免浮点数精度问题
+    const perCardDecimal = new Decimal(this.perCardMaxBNB);
+    const actualCardsDecimal = new Decimal(actualCards);
+    const buyAmountDecimal = perCardDecimal.mul(actualCardsDecimal);
+    const buyAmount = buyAmountDecimal.toNumber();
+
     console.log(`💰 计算购买金额: ${this.perCardMaxBNB} BNB/卡 × ${actualCards}个卡牌 = ${buyAmount} BNB`);
 
     return buyAmount;
@@ -120,24 +125,28 @@ class CardPositionManager {
 
   /**
    * 计算下次出售应该售卖的代币数量
-   * @param {number} tokenBalance - 当前代币余额
+   * @param {number|Decimal} tokenBalance - 当前代币余额
    * @param {string} tokenSymbol - 代币符号,用于日志
    * @param {number} [cards=1] - 使用的卡片数量,默认1个
    * @param {boolean} [sellAll=false] - 是否出售全部持仓
    * @returns {number} 出售数量(代币)
    */
   calculateSellAmount(tokenBalance, tokenSymbol = 'TOKEN', cards = 1, sellAll = false) {
-    // 全部出售模式
+    // 全部出售模式 - 直接返回原值（保持 Decimal 类型）
     if (sellAll) {
       console.log(`💰 计算出售数量(全部): ${tokenBalance} ${tokenSymbol}`);
-      return tokenBalance;
+      // 如果是 Decimal 类型，返回其数值；否则返回原值
+      return tokenBalance instanceof Decimal ? tokenBalance.toNumber() : tokenBalance;
     }
 
     if (!this.canTrade('sell')) {
       throw new Error(`无法进行出售：代币仓位只有${this.tokenCards}个卡牌,需要至少${this.minCardsForTrade}个`);
     }
 
-    if (tokenBalance <= 0) {
+    // 使用 Decimal 进行高精度计算
+    const balance = new Decimal(tokenBalance);
+
+    if (balance.lte(0)) {
       throw new Error(`${tokenSymbol}代币余额不足,无法进行出售`);
     }
 
@@ -158,7 +167,14 @@ class CardPositionManager {
       return 0;
     }
 
-    const sellAmount = tokenBalance / this.tokenCards * actualCards;
+    // 使用 Decimal 进行除法和乘法，避免浮点数精度问题
+    const tokenCardsDecimal = new Decimal(this.tokenCards);
+    const actualCardsDecimal = new Decimal(actualCards);
+    const sellAmountDecimal = balance.div(tokenCardsDecimal).mul(actualCardsDecimal);
+
+    // 转换为 number 返回（保持与现有接口兼容）
+    const sellAmount = sellAmountDecimal.toNumber();
+
     console.log(`💰 计算出售数量: (${tokenBalance} ${tokenSymbol} ÷ ${this.tokenCards}个卡牌) × ${actualCards}个卡牌 = ${sellAmount} ${tokenSymbol}`);
 
     return sellAmount;

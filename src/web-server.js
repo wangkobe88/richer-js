@@ -15,6 +15,7 @@ const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFact
 const { ExperimentDataService } = require('./web/services/ExperimentDataService');
 const { WalletDataService } = require('./web/services/WalletDataService');
 const { TokenHolderDataService } = require('./web/services/TokenHolderDataService');
+const { WalletAnalysisDataService } = require('./web/services/WalletAnalysisDataService');
 const PriceRefreshService = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 
@@ -74,6 +75,7 @@ class RicherJsWebServer {
     this.dataService = new ExperimentDataService();
     this.walletService = new WalletDataService();
     this.tokenHolderService = new TokenHolderDataService();
+    this.walletAnalysisService = new WalletAnalysisDataService();
     this.priceRefreshService = new PriceRefreshService(
       console,
       this.dataService.supabase,
@@ -143,6 +145,11 @@ class RicherJsWebServer {
     // 钱包管理页面
     this.app.get('/wallets', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/wallets.html'));
+    });
+
+    // 钱包分析页面
+    this.app.get('/wallet-analysis', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/wallet_analysis.html'));
     });
 
     // 代币持有者页面
@@ -577,6 +584,141 @@ class RicherJsWebServer {
       }
     });
 
+    // ============ API路由：钱包分析 ============
+
+    // 获取标注代币总数
+    this.app.get('/api/wallet-analysis/token-count', async (req, res) => {
+      try {
+        const tokens = await this.walletAnalysisService.getAnnotatedTokens(null);
+        res.json({ success: true, data: { count: tokens.length } });
+      } catch (error) {
+        console.error('获取标注代币数量失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取可用实验列表
+    this.app.get('/api/wallet-analysis/experiments', async (req, res) => {
+      try {
+        const experiments = await this.walletAnalysisService.getAvailableExperiments();
+        res.json({ success: true, data: experiments });
+      } catch (error) {
+        console.error('获取实验列表失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 生成钱包画像（使用所有实验的标注代币）
+    this.app.post('/api/wallet-analysis/generate-profiles', async (req, res) => {
+      try {
+        const taskId = Date.now().toString();
+
+        // 异步执行分析
+        this.walletAnalysisService.generateProfiles((progress) => {
+          console.log(`[钱包分析] ${taskId}: ${progress.progress}% - ${progress.message}`);
+        }).then(result => {
+          console.log(`[钱包分析] ${taskId} 完成:`, result.stats);
+        }).catch(error => {
+          console.error(`[钱包分析] ${taskId} 失败:`, error);
+        });
+
+        res.json({ success: true, taskId });
+      } catch (error) {
+        console.error('生成钱包画像失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取生成任务状态
+    this.app.get('/api/wallet-analysis/generate-profiles/:taskId/status', async (req, res) => {
+      // 简化实现：返回当前数据库状态
+      try {
+        const stats = await this.walletAnalysisService.getStats();
+        res.json({
+          success: true,
+          data: {
+            status: 'completed',
+            progress: 100,
+            message: '完成',
+            stats: {
+              totalWallets: stats.totalProfiles
+            }
+          }
+        });
+      } catch (error) {
+        console.error('获取任务状态失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 生成钱包标签
+    this.app.post('/api/wallet-analysis/generate-labels', async (req, res) => {
+      try {
+        const { algorithmConfig } = req.body;
+        const result = await this.walletAnalysisService.generateLabels(algorithmConfig);
+        res.json({ success: true, data: result });
+      } catch (error) {
+        console.error('生成标签失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 同步到 wallets 表
+    this.app.post('/api/wallet-analysis/sync-to-wallets', async (req, res) => {
+      try {
+        const { mode = 'upsert' } = req.body;
+        const result = await this.walletAnalysisService.syncToWallets(mode);
+        res.json({ success: true, data: result });
+      } catch (error) {
+        console.error('同步失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取钱包画像列表
+    this.app.get('/api/wallet-analysis/profiles', async (req, res) => {
+      try {
+        const filters = {
+          label: req.query.label,
+          dominant_category: req.query.dominant_category,
+          search: req.query.search,
+          page: parseInt(req.query.page) || 1,
+          limit: parseInt(req.query.limit) || 50
+        };
+        const result = await this.walletAnalysisService.getProfiles(filters);
+        res.json({ success: true, data: result });
+      } catch (error) {
+        console.error('获取钱包画像失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取钱包画像详情
+    this.app.get('/api/wallet-analysis/profiles/:address', async (req, res) => {
+      try {
+        const blockchain = req.query.blockchain || 'bsc';
+        const profile = await this.walletAnalysisService.getProfile(req.params.address, blockchain);
+        if (!profile) {
+          return res.status(404).json({ success: false, error: '钱包画像不存在' });
+        }
+        res.json({ success: true, data: profile });
+      } catch (error) {
+        console.error('获取钱包画像详情失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取统计概览
+    this.app.get('/api/wallet-analysis/stats', async (req, res) => {
+      try {
+        const stats = await this.walletAnalysisService.getStats();
+        res.json({ success: true, data: stats });
+      } catch (error) {
+        console.error('获取统计失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // ============ API路由：代币持有者 ============
 
     // 获取代币持有者数据
@@ -765,26 +907,52 @@ class RicherJsWebServer {
           experimentId = sourceExperimentId;
         }
 
-        // 获取黑名单钱包
-        const { data: blacklistWallets } = await this.dataService.supabase
-          .from('wallets')
-          .select('address')
-          .in('category', ['dev', 'pump_group', 'negative_holder']);
-
-        const blacklistSet = new Set((blacklistWallets || []).map(w => w.address.toLowerCase()));
-
-        // 获取白名单钱包
-        const { data: whitelistWallets } = await this.dataService.supabase
-          .from('wallets')
-          .select('address')
-          .eq('category', 'good_holder');
-
-        const whitelistSet = new Set((whitelistWallets || []).map(w => w.address.toLowerCase()));
-
-        // 获取该实验的所有持有者快照
+        // 获取黑名单钱包（使用分页获取全部）
         const pageSize = 1000;
+        const blacklistSet = new Set();
         let offset = 0;
         let hasMore = true;
+
+        while (hasMore) {
+          const { data: blacklistWallets } = await this.dataService.supabase
+            .from('wallets')
+            .select('address')
+            .in('category', ['dev', 'pump_group', 'negative_holder'])
+            .range(offset, offset + pageSize - 1);
+
+          if (blacklistWallets && blacklistWallets.length > 0) {
+            blacklistWallets.forEach(w => blacklistSet.add(w.address.toLowerCase()));
+            offset += pageSize;
+            hasMore = blacklistWallets.length === pageSize;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        // 获取白名单钱包（使用分页获取全部）
+        offset = 0;
+        hasMore = true;
+        const whitelistSet = new Set();
+
+        while (hasMore) {
+          const { data: whitelistWallets } = await this.dataService.supabase
+            .from('wallets')
+            .select('address')
+            .eq('category', 'good_holder')
+            .range(offset, offset + pageSize - 1);
+
+          if (whitelistWallets && whitelistWallets.length > 0) {
+            whitelistWallets.forEach(w => whitelistSet.add(w.address.toLowerCase()));
+            offset += pageSize;
+            hasMore = whitelistWallets.length === pageSize;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        // 获取该实验的所有持有者快照
+        offset = 0;
+        hasMore = true;
         const tokenStats = new Map();
 
         while (hasMore) {

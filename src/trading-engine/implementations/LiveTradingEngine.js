@@ -366,16 +366,16 @@ class LiveTradingEngine extends AbstractTradingEngine {
       if (buyResult.actualAmountOut || buyResult.amountOut) {
         // 交易器返回了实际成交数量
         actualTokenAmount = parseFloat(buyResult.actualAmountOut || buyResult.amountOut || 0);
-        // 反推实际成交价格
+        // 反推实际成交价格（使用 Decimal 避免浮点数精度问题）
         if (actualTokenAmount > 0) {
-          actualPrice = amountInBNB / actualTokenAmount;
+          actualPrice = new Decimal(amountInBNB).div(actualTokenAmount).toNumber();
         }
         this.logger.info(this._experimentId, '_executeBuy',
           `交易器返回 | actualAmountOut=${actualTokenAmount}, actualPrice=${actualPrice}`);
       } else {
-        // 交易器没有返回实际数量，使用价格估算
+        // 交易器没有返回实际数量，使用价格估算（使用 Decimal 避免浮点数精度问题）
         actualPrice = signal.price || 0;
-        actualTokenAmount = actualPrice > 0 ? amountInBNB / actualPrice : 0;
+        actualTokenAmount = actualPrice > 0 ? new Decimal(amountInBNB).div(actualPrice).toNumber() : 0;
         this.logger.info(this._experimentId, '_executeBuy',
           `价格估算 | signal.price=${signal.price}, actualPrice=${actualPrice}, actualTokenAmount=${actualTokenAmount}`);
       }
@@ -658,7 +658,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
       if (sellResult.actualReceived) {
         actualBnbReceived = parseFloat(sellResult.actualReceived);
       } else if (price > 0 && amountToSell > 0) {
-        actualBnbReceived = amountToSell * price;
+        // 使用 Decimal 进行乘法，避免浮点数精度问题
+        actualBnbReceived = new Decimal(amountToSell).mul(price).toNumber();
       }
 
       // 创建交易记录并保存到数据库（与虚拟盘一致）

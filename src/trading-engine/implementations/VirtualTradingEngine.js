@@ -8,6 +8,7 @@ const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
 const Logger = require('../../services/logger');
+const Decimal = require('decimal.js');
 
 // 延迟导入以避免循环依赖
 let TokenPool = null;
@@ -166,7 +167,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
 
       const price = signal.price || signal.buyPrice || 0;
-      const tokenAmount = price > 0 ? amountInBNB / price : 0;
+      // 使用 Decimal 进行除法，避免浮点数精度问题
+      const tokenAmount = price > 0 ? new Decimal(amountInBNB).div(price).toNumber() : 0;
 
       const tradeRequest = {
         tokenAddress: signal.tokenAddress,
@@ -298,7 +300,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
 
       const price = signal.price || 0;
-      const amountOutBNB = price > 0 ? amountToSell * price : 0;
+      // 使用 Decimal 进行乘法，避免浮点数精度问题
+      const amountOutBNB = price > 0 ? new Decimal(amountToSell).mul(price).toNumber() : 0;
 
       const tradeRequest = {
         tokenAddress: signal.tokenAddress,
@@ -1434,8 +1437,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       if (!trades || trades.length === 0) {
         return;
       }
-
-      const Decimal = require('decimal.js');
 
       for (const trade of trades.sort((a, b) => a.createdAt - b.createdAt)) {
         if (!trade.success) continue;
