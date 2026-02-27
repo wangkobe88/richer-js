@@ -41,7 +41,7 @@ const CATEGORY_MAP = {
 async function main() {
   console.log('╔══════════════════════════════════════════════════════════════╗');
   console.log('║                    🔍 钱包分析工具                           ║');
-  console.log('║              Wallet Profile Analyzer v1.0                   ║');
+  console.log('║       Wallet Profile Analyzer v2.0 (含持有者数据)             ║');
   console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
   const startTime = Date.now();
@@ -84,9 +84,9 @@ async function main() {
       console.log(`   ${info?.emoji || '?'} ${info?.label || cat}: ${count} 个`);
     }
 
-    // 4. 分析早期交易者
+    // 4. 分析早期交易者和持有者
     console.log('\n┌─────────────────────────────────────────────────────────┐');
-    console.log('│ 第 3 步: 分析早期交易者                                   │');
+    console.log('│ 第 3 步: 分析早期交易者和持有者                           │');
     console.log('└─────────────────────────────────────────────────────────┘\n');
 
     // 延迟创建 WalletAnalysisService 以避免网络资源冲突
@@ -122,19 +122,12 @@ async function main() {
       console.log(`   ${info?.emoji || '?'} ${info?.label || cat}: ${count} (${percent}%)`);
     }
 
-    console.log(`\n   按质量等级分布:`);
-    const qualityLabels = { high: '高质量', mid: '中质量', low: '低质量', unknown: '未知' };
-    for (const [quality, count] of Object.entries(summary.qualityDistribution)) {
-      const percent = ((count / summary.totalWallets) * 100).toFixed(1);
-      console.log(`   ${qualityLabels[quality]}: ${count} (${percent}%)`);
-    }
-
     // 显示 Top 10 钱包
-    console.log(`\n   🏆 Top 10 钱包 (按质量分数):`);
+    console.log(`\n   🏆 Top 10 钱包 (按参与数量):`);
     for (let i = 0; i < Math.min(10, summary.topWallets.length); i++) {
       const wallet = summary.topWallets[i];
       const catInfo = CATEGORY_MAP[wallet.dominantCategory];
-      console.log(`   ${i + 1}. ${wallet.address.slice(0, 10)}...${wallet.address.slice(-6)} | 分数: ${wallet.score} | 参与: ${wallet.totalParticipations} | ${catInfo?.emoji || '?'} ${catInfo?.label || wallet.dominantCategory}`);
+      console.log(`   ${i + 1}. ${wallet.address.slice(0, 10)}...${wallet.address.slice(-6)} | 参与: ${wallet.totalParticipations} | ${catInfo?.emoji || '?'} ${catInfo?.label || wallet.dominantCategory}`);
     }
 
     // 6. 输出结果
@@ -152,7 +145,6 @@ async function main() {
         total_wallets: summary.totalWallets,
         total_tokens_analyzed: annotatedTokens.size,
         by_dominant_category: summary.byDominantCategory,
-        quality_distribution: summary.qualityDistribution,
         top_wallets: summary.topWallets
       },
       wallets: {}
@@ -162,9 +154,10 @@ async function main() {
     for (const [wallet, profile] of walletProfiles) {
       outputData.wallets[wallet] = {
         total_participations: profile.totalParticipations,
+        early_trade_count: profile.earlyTradeCount,
+        holder_count: profile.holderCount,
         categories: profile.categories,
         dominant_category: _getDominantCategory(profile.categories),
-        dominant_quality: CATEGORY_MAP[_getDominantCategory(profile.categories)]?.quality || 'unknown',
         tokens: profile.tokens
       };
     }

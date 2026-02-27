@@ -17,6 +17,9 @@ dotenvConfig({ path: resolve(__dirname, '../config/.env') });
 
 import config from '../config.js';
 
+// 是否使用服务器端 API（当 AVE API Key 失效时）
+const USE_SERVER_API = process.env.USE_SERVER_API === 'true' || !process.env.AVE_API_KEY;
+
 export class EarlyTradesService {
   constructor() {
     // 暂时注释掉 Supabase 客户端初始化
@@ -27,10 +30,11 @@ export class EarlyTradesService {
     // 直接使用固定的 AVE API 地址
     this.aveApiKey = process.env.AVE_API_KEY;
     this.aveTimeout = config.earlyTrades?.timeout || 30000;
+    this.serverApiUrl = process.env.SERVER_API_URL || 'http://localhost:3010';
 
     // 调试：打印 AVE_API_KEY 状态
     if (!this.aveApiKey) {
-      console.error('⚠️ AVE_API_KEY 未设置！早期交易功能将无法工作。');
+      console.warn('⚠️  AVE_API_KEY 未设置，将使用服务器端 API');
     } else {
       console.log(`✅ AVE_API_KEY 已设置 (${this.aveApiKey.substring(0, 10)}...)`);
     }
@@ -94,9 +98,11 @@ export class EarlyTradesService {
    * 获取代币的早期交易者
    * @param {string} tokenAddress - 代币地址
    * @param {string} chain - 链
+   * @param {Object} tokenInfo - 额外的代币信息 {platform, mainPair}
+   * @param {number} limit - 获取前N条交易记录，默认60
    * @returns {Promise<Set<string>>} 钱包地址集合
    */
-  async getEarlyTraders(tokenAddress, chain = 'bsc') {
+  async getEarlyTraders(tokenAddress, chain = 'bsc', tokenInfo = null, limit = 60) {
     // 检查缓存
     const cacheKey = `${tokenAddress}_${chain}`;
     if (config.analysis.enableCache && this.cache.has(cacheKey)) {
@@ -106,6 +112,72 @@ export class EarlyTradesService {
       }
     }
 
+    try {
+      // 优先使用服务器端 API（更可靠）
+      if (USE_SERVER_API || !this.aveApiKey) {
+        return await this._getEarlyTradersFromServer(tokenAddress, chain, limit);
+      }
+
+      // 使用 AVE API
+      return await this._getEarlyTradersFromAveApi(tokenAddress, chain, tokenInfo, limit);
+
+    } catch (error) {
+      console.warn(`   ⚠️  获取代币 ${tokenAddress.slice(0, 10)}... 早期交易者失败: ${error.message}`);
+      return new Set();
+    }
+  }
+
+  /**
+   * 从服务器端 API 获取早期交易者
+   * @private
+   */
+  async _getEarlyTradersFromServer(tokenAddress, chain, limit = 60) {
+    try {
+      const response = await fetch(`${this.serverApiUrl}/api/token-early-trades`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tokenAddress, chain })  // 不传limit，让服务器返回所有数据
+      });
+
+      const result = await response.json();
+
+      if (!result.success || !result.data.earlyTrades) {
+        console.warn(`   ⚠️  代币 ${tokenAddress.slice(0, 10)}... 服务器 API 返回失败`);
+        return new Set();
+      }
+
+      // 只取前N条交易记录
+      const limitedTrades = result.data.earlyTrades.slice(0, limit);
+
+      const traders = new Set();
+      for (const trade of limitedTrades) {
+        const traderAddress = trade.from_address || trade.sender_address;
+        if (traderAddress && typeof traderAddress === 'string') {
+          traders.add(traderAddress.toLowerCase());
+        }
+      }
+
+      // 缓存结果
+      if (config.analysis.enableCache) {
+        this.cache.set(`${tokenAddress}_${chain}`, {
+          traders,
+          timestamp: Date.now()
+        });
+      }
+
+      return traders;
+
+    } catch (error) {
+      console.warn(`   ⚠️  服务器 API 调用失败: ${error.message}`);
+      return new Set();
+    }
+  }
+
+  /**
+   * 从 AVE API 获取早期交易者
+   * @private
+   */
+  async _getEarlyTradersFromAveApi(tokenAddress, chain, tokenInfo = null, limit = 60) {
     try {
       // 1. 获取代币详情（包括 launch_at）
       const tokenId = `${tokenAddress}-${chain}`;
@@ -130,21 +202,18 @@ export class EarlyTradesService {
       const launchAt = token.launch_at || null;
 
       // 2. 获取 inner pair
-      const innerPair = await this._getInnerPair(tokenAddress, chain, tokenDetail);
+      const innerPair = await this._getInnerPair(tokenAddress, chain, tokenDetail, tokenInfo);
       if (!innerPair) {
         console.warn(`   ⚠️  代币 ${tokenAddress.slice(0, 10)}... 没有 inner pair`);
         return new Set();
       }
 
-      // 3. 获取早期交易
-      const toTime = launchAt ? launchAt + config.analysis.earlyTradeWindow : null;
+      // 3. 获取前N条交易记录（最早的N条）
+      const earlyTrades = await this._getSwapTransactions(`${innerPair}-${chain}`, limit);
 
-      // 方式1：使用时间范围
-      let earlyTrades = await this._getSwapTransactions(`${innerPair}-${chain}`, launchAt, toTime);
-
-      // 方式2：如果没有结果，不使用时间范围
+      // 调试：如果仍然没有结果，输出详细信息
       if (!earlyTrades || earlyTrades.length === 0) {
-        earlyTrades = await this._getSwapTransactions(`${innerPair}-${chain}`, null, null);
+        console.warn(`   ⚠️  代币 ${tokenAddress.slice(0, 10)}... inner pair ${innerPair} 没有交易记录`);
       }
 
       const traders = new Set();
@@ -174,17 +243,14 @@ export class EarlyTradesService {
   }
 
   /**
-   * 获取交易对的交换交易记录
+   * 获取交易对的交换交易记录（获取前N条最早的交易）
    * @private
    */
-  async _getSwapTransactions(pairId, fromTime = null, toTime = null) {
+  async _getSwapTransactions(pairId, limit = 60) {
     const params = {
-      limit: 300,
-      sort: 'asc'
+      limit: limit,
+      sort: 'asc'  // 按时间升序，获取最早的N条
     };
-
-    if (fromTime) params.from_time = fromTime;
-    if (toTime) params.to_time = toTime;
 
     try {
       const result = await this._callAveApi(`/v2/txs/swap/${pairId}`, params);
@@ -245,8 +311,51 @@ export class EarlyTradesService {
    * 获取代币的 inner pair
    * @private
    */
-  async _getInnerPair(tokenAddress, chain, tokenDetail = null) {
-    // 先尝试从 tokenDetail 获取
+  async _getInnerPair(tokenAddress, chain, tokenDetail = null, tokenInfo = null) {
+    // 优先从传入的 tokenInfo 获取（从数据库读取的）
+    if (tokenInfo && tokenInfo.mainPair) {
+      return tokenInfo.mainPair;
+    }
+
+    if (tokenInfo && tokenInfo.platform) {
+      const platform = tokenInfo.platform;
+      if (platform === 'fourmeme') {
+        return `${tokenAddress}_fo`;
+      } else if (platform === 'flap') {
+        return `${tokenAddress}_iportal`;
+      }
+    }
+
+    // 尝试从数据库获取
+    try {
+      const { data } = await this.supabase
+        .from('experiment_tokens')
+        .select('platform, raw_api_data')
+        .eq('token_address', tokenAddress)
+        .eq('blockchain', chain)
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        // 从 raw_api_data 获取 main_pair
+        const mainPair = data.raw_api_data?.main_pair;
+        if (mainPair) {
+          return mainPair;
+        }
+
+        // 根据 platform 构造
+        const platform = data.platform;
+        if (platform === 'fourmeme') {
+          return `${tokenAddress}_fo`;
+        } else if (platform === 'flap') {
+          return `${tokenAddress}_iportal`;
+        }
+      }
+    } catch (e) {
+      // 忽略数据库查询错误
+    }
+
+    // 从 tokenDetail 获取（AVE API 返回的）
     if (tokenDetail && tokenDetail.token) {
       const token = tokenDetail.token;
 
@@ -254,40 +363,6 @@ export class EarlyTradesService {
       let mainPair = token.main_pair;
       if (!mainPair && tokenDetail.pairs && tokenDetail.pairs.length > 0) {
         mainPair = tokenDetail.pairs[0].pair;
-      }
-
-      // 检查 pair 后缀判断平台
-      let platform = null;
-      if (mainPair) {
-        if (mainPair.endsWith('_fo')) {
-          platform = 'fourmeme';
-        } else if (mainPair.endsWith('_iportal')) {
-          platform = 'flap';
-        }
-      }
-
-      // 从数据库查询 platform
-      if (!platform) {
-        try {
-          const { data } = await this.supabase
-            .from('experiment_tokens')
-            .select('platform')
-            .eq('token_address', tokenAddress)
-            .eq('blockchain', chain)
-            .limit(1)
-            .maybeSingle();
-
-          platform = data?.platform || null;
-        } catch (e) {
-          // 忽略数据库查询错误
-        }
-      }
-
-      // 根据 platform 构造 inner pair
-      if (platform === 'fourmeme') {
-        return `${tokenAddress}_fo`;
-      } else if (platform === 'flap') {
-        return `${tokenAddress}_iportal`;
       }
 
       // 使用 main_pair 作为 inner pair

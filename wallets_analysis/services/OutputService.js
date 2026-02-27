@@ -67,7 +67,6 @@ export class OutputService {
       total_wallets: data.summary.total_wallets,
       total_tokens_analyzed: data.summary.total_tokens_analyzed,
       by_dominant_category: data.summary.by_dominant_category,
-      quality_distribution: data.summary.quality_distribution,
       top_wallets: data.summary.top_wallets.slice(0, 100)
     };
 
@@ -87,31 +86,29 @@ export class OutputService {
     lines.push([
       '钱包地址',
       '总参与次数',
+      '早期交易者次数',
+      '持有者次数',
       '流水盘',
       '无人玩',
       '低质量',
       '中质量',
-      '高质量',
-      '主导分类',
-      '质量等级'
+      '高质量'
     ].join(','));
 
     // 数据行
     for (const [wallet, profile] of Object.entries(data.wallets)) {
       const cats = profile.categories;
-      const dominant = profile.dominant_category;
-      const quality = profile.dominant_quality;
 
       lines.push([
         wallet,
-        profile.total_participations,
+        profile.total_participations || profile.totalParticipations,
+        profile.early_trade_count || profile.earlyTradeCount || 0,
+        profile.holder_count || profile.holderCount || 0,
         cats.fake_pump || 0,
         cats.no_user || 0,
         cats.low_quality || 0,
         cats.mid_quality || 0,
-        cats.high_quality || 0,
-        dominant,
-        quality
+        cats.high_quality || 0
       ].join(','));
     }
 

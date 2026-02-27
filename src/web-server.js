@@ -1708,7 +1708,7 @@ class RicherJsWebServer {
         const { AveTxAPI } = require('./core/ave-api');
         const config = require('../config/default.json');
 
-        const { apiKey, baseURL, tokenAddress, chain } = req.body;
+        const { apiKey, baseURL, tokenAddress, chain, limit = 60 } = req.body;
 
         if (!tokenAddress) {
           return res.status(400).json({
@@ -1806,43 +1806,29 @@ class RicherJsWebServer {
 
         // 使用 launch_at 作为起始时间（如果有的话），否则不设置 fromTime
         const launchAt = token.launch_at || null;
-        const toTime = launchAt ? launchAt + 600 : null; // launch_at 后10分钟 (600秒)
+        // 不再使用时间窗口，直接取前N条交易
+        // const toTime = launchAt ? launchAt + 600 : null;
 
         console.log(`📊 [最早交易] token=${tokenAddress}, chain=${chain}`);
         console.log(`   platform=${platform}`);
         console.log(`   launch_at=${launchAt}, created_at=${token.created_at}`);
         console.log(`   innerPair=${innerPair}`);
-        console.log(`   toTime=${toTime}`);
+        console.log(`   limit=${limit}`);
 
         // 3. 获取最早交易记录（使用内盘 pair）
         const pairId = `${innerPair}-${chain}`;
         const txApi = new AveTxAPI(finalBaseURL, config.ave?.timeout || 30000, finalApiKey);
 
-        // 尝试两种方式：
-        // 方式1：使用 fromTime = launch_at, toTime = launch_at + 5分钟
-        // 方式2：不使用时间限制，获取所有数据
-        let earlyTrades = await txApi.getSwapTransactions(
+        // 获取前N条交易记录（按时间升序）
+        const earlyTrades = await txApi.getSwapTransactions(
           pairId,
-          300,   // limit
-          launchAt,  // fromTime - 使用 launch_at 作为起始时间
-          toTime,  // toTime - launch_at 后5分钟
-          'asc'  // sort
+          limit,   // limit - 使用传入的参数，默认60条
+          null,    // fromTime - 不设置时间限制
+          null,    // toTime - 不设置时间限制
+          'asc'    // sort - 按时间升序，取最早的N条
         );
 
-        console.log(`   方式1 (fromTime=launch_at, toTime=launch_at+5min): 查询到 ${earlyTrades.length} 条交易`);
-
-        // 如果使用 fromTime 没有结果，不使用时间限制重试
-        if (earlyTrades.length === 0 && launchAt) {
-          console.log(`   ⚠️ 使用时间范围过滤没有结果，尝试不使用时间限制...`);
-          earlyTrades = await txApi.getSwapTransactions(
-            pairId,
-            300,
-            null,  // fromTime - 不设置
-            null,  // toTime - 不设置
-            'asc'
-          );
-          console.log(`   方式2 (无时间限制): 查询到 ${earlyTrades.length} 条交易`);
-        }
+        console.log(`   查询到 ${earlyTrades.length} 条交易记录`);
 
         console.log(`   查询到 ${earlyTrades.length} 条交易记录`);
         if (earlyTrades.length > 0) {
@@ -1857,6 +1843,9 @@ class RicherJsWebServer {
           console.log(`   代币 launch_at: ${launchAt} (${launchAt ? toBeijingTime(launchAt) : 'null'})`);
         }
 
+        // 只返回前N条交易记录
+        const limitedTrades = earlyTrades.slice(0, limit);
+
         // 辅助函数：转换为北京时间字符串
         function toBeijingTime(timestamp) {
           if (!timestamp) return '-';
@@ -1869,21 +1858,22 @@ class RicherJsWebServer {
           success: true,
           data: {
             tokenInfo: tokenDetail,
-            earlyTrades: earlyTrades,
+            earlyTrades: limitedTrades,
             debug: {
               launchAt,
               createdAt: token.created_at,
               pairId,
               totalTrades: earlyTrades.length,
-              firstTradeTime: earlyTrades.length > 0 ? earlyTrades[0].time : null,
-              lastTradeTime: earlyTrades.length > 0 ? earlyTrades[earlyTrades.length - 1].time : null,
+              returnedTrades: limitedTrades.length,
+              firstTradeTime: limitedTrades.length > 0 ? limitedTrades[0].time : null,
+              lastTradeTime: limitedTrades.length > 0 ? limitedTrades[limitedTrades.length - 1].time : null,
               apiParams: {
                 pairId,
-                limit: 300,
-                fromTime: launchAt,
-                fromTimeFormatted: launchAt ? toBeijingTime(launchAt) : 'null',
-                toTime: toTime,
-                toTimeFormatted: toTime ? toBeijingTime(toTime) : 'null',
+                limit,
+                fromTime: null,
+                fromTimeFormatted: 'null',
+                toTime: null,
+                toTimeFormatted: 'null',
                 sort: 'asc'
               }
             }
