@@ -123,27 +123,34 @@ class WalletAnalysisDataService {
         console.log(`获取 ${experiments.length} 个实验的标注代币...`);
 
         // 分批处理实验
-        const batchSize = 20;
+        const batchSize = 10;  // 减小批次大小
         for (let i = 0; i < experiments.length; i += batchSize) {
           const batch = experiments.slice(i, i + batchSize);
 
           for (const exp of batch) {
-            const tokens = await this._getExperimentTokens(exp.id);
-
-            for (const token of tokens) {
-              if (!token.human_judges || !token.human_judges.category) continue;
-              const key = `${token.token_address}_${token.blockchain || 'bsc'}`;
-              if (!tokenMap.has(key)) {
-                tokenMap.set(key, {
-                  address: token.token_address,
-                  symbol: token.token_symbol,
-                  chain: token.blockchain || 'bsc',
-                  category: token.human_judges.category,
-                  note: token.human_judges.note,
-                  experimentId: exp.id
-                });
+            try {
+              const tokens = await this._getExperimentTokens(exp.id);
+              for (const token of tokens) {
+                if (!token.human_judges || !token.human_judges.category) continue;
+                const key = `${token.token_address}_${token.blockchain || 'bsc'}`;
+                if (!tokenMap.has(key)) {
+                  tokenMap.set(key, {
+                    address: token.token_address,
+                    symbol: token.token_symbol,
+                    chain: token.blockchain || 'bsc',
+                    category: token.human_judges.category,
+                    note: token.human_judges.note,
+                    experimentId: exp.id
+                  });
+                }
               }
+            } catch (err) {
+              // 单个实验失败不影响其他实验
+              console.warn(`处理实验 ${exp.id} 失败:`, err.message);
             }
+
+            // 实验间延迟，避免连续查询超时
+            await this._delay(200);
           }
 
           // 批次间延迟
@@ -162,34 +169,50 @@ class WalletAnalysisDataService {
   }
 
   /**
-   * 获取单个实验的代币
+   * 获取单个实验的代币（带超时保护）
    */
   async _getExperimentTokens(experimentId) {
     try {
       const allTokens = [];
       let page = 0;
-      const pageSize = 500;
+      const pageSize = 100;  // 减小每页大小
       let hasMore = true;
+      let emptyCount = 0;     // 空页计数
 
-      while (hasMore) {
-        const { data, error } = await this.supabase
-          .from('experiment_tokens')
-          .select('token_address, token_symbol, blockchain, human_judges')
-          .eq('experiment_id', experimentId)
-          .not('human_judges', 'is', null)
-          .range(page * pageSize, (page + 1) * pageSize - 1);
+      while (hasMore && emptyCount < 3) {  // 连续3页空数据就停止
+        try {
+          const { data, error } = await this.supabase
+            .from('experiment_tokens')
+            .select('token_address, token_symbol, blockchain, human_judges')
+            .eq('experiment_id', experimentId)
+            .not('human_judges', 'is', null)
+            .range(page * pageSize, (page + 1) * pageSize - 1);
 
-        if (error) {
-          console.warn(`获取实验 ${experimentId} 代币失败: ${error.message}`);
-          break;
-        }
+          if (error) {
+            if (error.code === '57014') {
+              // 超时错误，返回已有数据
+              console.warn(`实验 ${experimentId} 查询超时，已获取 ${allTokens.length} 条`);
+              break;
+            }
+            throw error;
+          }
 
-        if (data && data.length > 0) {
-          allTokens.push(...data);
-          hasMore = data.length === pageSize;
-          page++;
-        } else {
-          hasMore = false;
+          if (data && data.length > 0) {
+            allTokens.push(...data);
+            hasMore = data.length === pageSize;
+            page++;
+            emptyCount = 0;
+          } else {
+            emptyCount++;
+            hasMore = false;
+          }
+        } catch (err) {
+          if (err.code === '57014') {
+            // 超时错误，返回已有数据
+            console.warn(`实验 ${experimentId} 查询超时，已获取 ${allTokens.length} 条`);
+            break;
+          }
+          throw err;
         }
       }
 
@@ -201,32 +224,91 @@ class WalletAnalysisDataService {
   }
 
   /**
-   * 获取代币的早期交易者（前60笔）
+   * 获取代币的早期交易者 - 通过 AVE API
+   * 使用时间窗口：代币创建后10分钟内的交易，最多300条
    */
   async getEarlyTraders(tokenAddress, chain = 'bsc') {
     try {
-      // 从 token_early_trades 表获取早期交易者
-      const { data, error } = await this.supabase
-        .from('token_early_trades')
-        .select('trader')
-        .eq('token_address', tokenAddress)
-        .limit(60);
+      const apiUrl = process.env.AVE_API_URL || 'https://prod.ave-api.com';
+      const apiKey = process.env.AVE_API_KEY;
 
-      if (error) {
-        // 如果表不存在或查询失败，返回空集合
+      if (!apiKey) {
+        console.warn('AVE_API_KEY 未设置，无法获取早期交易者');
         return new Set();
       }
 
+      // 1. 获取代币详情（获取 inner pair 和 launch_at）
+      const tokenId = `${tokenAddress}-${chain}`;
+      const tokenRes = await fetch(`${apiUrl}/v2/tokens/${tokenId}`, {
+        headers: { 'X-API-KEY': apiKey }
+      });
+
+      if (!tokenRes.ok) {
+        return new Set();
+      }
+
+      const tokenData = await tokenRes.json();
+      const token = tokenData.data?.token;
+
+      if (!token) {
+        return new Set();
+      }
+
+      // 获取 launch_at（代币创建时间）
+      const launchAt = token.launch_at || null;
+
+      // 如果没有 launch_at，无法确定时间窗口，返回空
+      if (!launchAt) {
+        console.warn(`代币 ${tokenAddress.slice(0, 10)}... 没有 launch_at，跳过`);
+        return new Set();
+      }
+
+      // 获取 inner pair
+      let innerPair = token.main_pair;
+      if (!innerPair && token.pairs && token.pairs.length > 0) {
+        innerPair = token.pairs[0].pair;
+      }
+
+      if (!innerPair) {
+        innerPair = `${tokenAddress}_fo`;
+      }
+
+      // 2. 获取早期交易（使用时间窗口：launch_at 到 launch_at + 600秒）
+      const pairId = `${innerPair}-${chain}`;
+      const fromTime = launchAt;
+      const toTime = launchAt + 600;  // +10分钟
+
+      const params = new URLSearchParams({
+        sort: 'asc',
+        limit: '300',
+        from_time: fromTime.toString(),
+        to_time: toTime.toString()
+      });
+
+      const txRes = await fetch(`${apiUrl}/v2/txs/swap/${pairId}?${params}`, {
+        headers: { 'X-API-KEY': apiKey }
+      });
+
+      if (!txRes.ok) {
+        return new Set();
+      }
+
+      const txData = await txRes.json();
+      const txs = txData.data?.txs || txData.data || [];
+
+      // 提取交易者地址
       const traders = new Set();
-      for (const row of data || []) {
-        if (row.trader && typeof row.trader === 'string') {
-          traders.add(row.trader.toLowerCase());
+      for (const tx of txs) {
+        const fromAddress = tx.from_address || tx.sender_address;
+        if (fromAddress && typeof fromAddress === 'string') {
+          traders.add(fromAddress.toLowerCase());
         }
       }
 
       return traders;
+
     } catch (error) {
-      console.warn(`获取代币 ${tokenAddress} 早期交易者失败:`, error.message);
+      console.warn(`获取代币 ${tokenAddress.slice(0, 10)}... 早期交易者失败:`, error.message);
       return new Set();
     }
   }

@@ -14,6 +14,7 @@ const CATEGORY_MAP = {
 class ExperimentTokenReturns {
   constructor() {
     this.experimentId = null;
+    this.judgeExperimentId = null; // 用于保存标注的实际实验ID（回测时为源实验ID）
     this.experimentData = null;
     this.tradesData = [];
     this.tokenReturns = []; // { tokenAddress, symbol, pnl, ... }
@@ -28,6 +29,8 @@ class ExperimentTokenReturns {
     this.whitelistTokenMap = new Map();
     // 标注数据
     this.judgesData = new Map();
+    // 平台数据
+    this.tokenPlatformMap = new Map();
     // 当前编辑的代币地址
     this.currentEditingToken = null;
 
@@ -133,13 +136,13 @@ class ExperimentTokenReturns {
       this.tradesData = tradesData.trades || [];
 
       // 检查是否是回测实验，获取标注数据时使用源实验ID
-      let judgeExperimentId = this.experimentId;
+      this.judgeExperimentId = this.experimentId;
       if (this.experimentData.config?.backtest?.sourceExperimentId) {
-        judgeExperimentId = this.experimentData.config.backtest.sourceExperimentId;
-        console.log(`回测实验，从源实验加载标注: ${judgeExperimentId}`);
+        this.judgeExperimentId = this.experimentData.config.backtest.sourceExperimentId;
+        console.log(`回测实验，标注将保存到源实验: ${this.judgeExperimentId}`);
       }
 
-      // 加载标注数据
+      // 加载标注数据和平台数据
       if (tokensRes.ok) {
         const tokensData = await tokensRes.json();
         if (tokensData.success && tokensData.tokens) {
@@ -147,14 +150,18 @@ class ExperimentTokenReturns {
             if (token.human_judges) {
               this.judgesData.set(token.token_address, token.human_judges);
             }
+            // 保存平台信息
+            if (token.platform) {
+              this.tokenPlatformMap.set(token.token_address, token.platform);
+            }
           });
         }
       }
 
       // 如果是回测且当前实验没有标注数据，尝试从源实验加载
-      if (judgeExperimentId !== this.experimentId && this.judgesData.size === 0) {
+      if (this.judgeExperimentId !== this.experimentId && (this.judgesData.size === 0 || this.tokenPlatformMap.size === 0)) {
         try {
-          const sourceTokensRes = await fetch(`/api/experiment/${judgeExperimentId}/tokens?limit=10000`);
+          const sourceTokensRes = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens?limit=10000`);
           if (sourceTokensRes.ok) {
             const sourceTokensData = await sourceTokensRes.json();
             if (sourceTokensData.success && sourceTokensData.tokens) {
@@ -162,8 +169,13 @@ class ExperimentTokenReturns {
                 if (token.human_judges) {
                   this.judgesData.set(token.token_address, token.human_judges);
                 }
+                // 同时加载平台数据
+                if (token.platform) {
+                  this.tokenPlatformMap.set(token.token_address, token.platform);
+                }
               });
               console.log(`从源实验加载了 ${this.judgesData.size} 条标注数据`);
+              console.log(`从源实验加载了 ${this.tokenPlatformMap.size} 条平台数据`);
             }
           }
         } catch (error) {
@@ -492,6 +504,9 @@ class ExperimentTokenReturns {
               ${hasWhitelist ? '<span class="text-green-400">(' + (whitelistInfo.whitelistedHolders || 0) + '✨)</span>' : ''}
             </div>
           </td>
+          <td class="px-4 py-3 text-center">
+            ${this.renderPlatformBadge(item.tokenAddress)}
+          </td>
           <td class="px-4 py-3 text-right">
             <span class="${returnRateClass}">${returnRateSign}${pnl.returnRate.toFixed(2)}%</span>
           </td>
@@ -614,6 +629,9 @@ class ExperimentTokenReturns {
     // 更新干净代币统计
     this.updateCleanTokensStats();
 
+    // 更新非流水盘代币统计
+    this.updateNoFakePumpTokensStats();
+
     // 更新黑名单统计
     this.updateBlacklistStats();
   }
@@ -693,6 +711,48 @@ class ExperimentTokenReturns {
     document.getElementById('stat-clean-profit-count').textContent = profitCount;
     document.getElementById('stat-clean-loss-count').textContent = lossCount;
     document.getElementById('stat-clean-win-rate').textContent = `${winRate.toFixed(1)}%`;
+  }
+
+  /**
+   * 更新非流水盘代币统计（去除人工标注为fake_pump的代币）
+   */
+  updateNoFakePumpTokensStats() {
+    // 筛选未标注为 fake_pump 的代币
+    const noFakeTokens = this.tokenReturns.filter(item => {
+      const judgeData = this.judgesData.get(item.tokenAddress);
+      // 如果没有标注数据，或者标注类别不是 fake_pump，则计入非流水盘代币
+      return !judgeData || !judgeData.category || judgeData.category !== 'fake_pump';
+    });
+
+    const totalTokens = noFakeTokens.length;
+    const profitCount = noFakeTokens.filter(t => t.pnl.returnRate > 0).length;
+    const lossCount = noFakeTokens.filter(t => t.pnl.returnRate < 0).length;
+    const winRate = totalTokens > 0 ? (profitCount / totalTokens * 100) : 0;
+
+    // 计算总收益率
+    let totalSpent = 0;
+    let totalReceived = 0;
+    noFakeTokens.forEach(t => {
+      totalSpent += t.pnl.totalSpent;
+      totalReceived += t.pnl.totalReceived + t.pnl.remainingCost;
+    });
+    const totalReturn = totalSpent > 0 ? ((totalReceived - totalSpent) / totalSpent * 100) : 0;
+
+    // 计算 BNB 总增减
+    const bnbChange = totalReceived - totalSpent;
+
+    const totalReturnEl = document.getElementById('stat-nofake-total-return');
+    totalReturnEl.textContent = `${totalReturn > 0 ? '+' : ''}${totalReturn.toFixed(2)}%`;
+    totalReturnEl.className = `text-2xl font-bold ${totalReturn > 0 ? 'text-green-600' : totalReturn < 0 ? 'text-red-500' : 'text-gray-600'}`;
+
+    const bnbChangeEl = document.getElementById('stat-nofake-bnb-change');
+    bnbChangeEl.textContent = `${bnbChange > 0 ? '+' : ''}${bnbChange.toFixed(4)} BNB`;
+    bnbChangeEl.className = `text-2xl font-bold ${bnbChange > 0 ? 'text-green-600' : bnbChange < 0 ? 'text-red-500' : 'text-gray-600'}`;
+
+    document.getElementById('stat-nofake-total-tokens').textContent = totalTokens;
+    document.getElementById('stat-nofake-profit-count').textContent = profitCount;
+    document.getElementById('stat-nofake-loss-count').textContent = lossCount;
+    document.getElementById('stat-nofake-win-rate').textContent = `${winRate.toFixed(1)}%`;
   }
 
   /**
@@ -780,6 +840,18 @@ class ExperimentTokenReturns {
     if (errorEl) errorEl.classList.remove('hidden');
     this.showLoading(false);
     this.showContent(false);
+  }
+
+  /**
+   * 渲染平台徽章
+   * @param {string} tokenAddress - 代币地址
+   * @returns {string} 平台徽章 HTML
+   */
+  renderPlatformBadge(tokenAddress) {
+    const platform = this.tokenPlatformMap.get(tokenAddress) || 'fourmeme';
+    const platformLabel = platform === 'flap' ? 'Flap' : 'Four.meme';
+    const platformClass = platform === 'flap' ? 'bg-purple-600' : 'bg-blue-600';
+    return `<span class="px-2 py-0.5 rounded text-xs font-medium ${platformClass} text-white">${platformLabel}</span>`;
   }
 
   /**
@@ -900,7 +972,7 @@ class ExperimentTokenReturns {
     const note = noteEl?.value || '';
 
     try {
-      const response = await fetch(`/api/experiment/${this.experimentId}/tokens/${this.currentEditingToken}/judge`, {
+      const response = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens/${this.currentEditingToken}/judge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category, note })
@@ -927,7 +999,7 @@ class ExperimentTokenReturns {
     if (!confirm('确定要删除这个标注吗？')) return;
 
     try {
-      const response = await fetch(`/api/experiment/${this.experimentId}/tokens/${tokenAddress}/judge`, {
+      const response = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens/${tokenAddress}/judge`, {
         method: 'DELETE'
       });
 

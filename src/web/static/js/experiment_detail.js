@@ -282,6 +282,41 @@ class ExperimentDetail {
       linkReturns.href = `/experiment/${this.experimentId}/token-returns`;
     }
 
+    // 显示回测实验的源实验ID
+    const sourceInfoElement = document.getElementById('source-experiment-info');
+    const sourceLinkElement = document.getElementById('source-experiment-link');
+
+    console.log('🔍 检查源实验ID元素:', { sourceInfoElement, sourceLinkElement });
+
+    if (sourceInfoElement && sourceLinkElement) {
+      // 获取配置数据
+      const config = this.experiment.config || {};
+      const backtestConfig = config.backtest || this.experiment.backtestConfig || {};
+      const sourceExperimentId = backtestConfig.sourceExperimentId;
+
+      console.log('🔍 检查回测源实验:', {
+        hasConfig: !!this.experiment.config,
+        hasBacktestConfig: !!backtestConfig,
+        sourceExperimentId: sourceExperimentId
+      });
+
+      if (sourceExperimentId) {
+        const shortId = sourceExperimentId.length > 12
+          ? `${sourceExperimentId.substring(0, 8)}...${sourceExperimentId.substring(sourceExperimentId.length - 4)}`
+          : sourceExperimentId;
+
+        sourceLinkElement.textContent = shortId;
+        sourceLinkElement.href = `/experiment/${sourceExperimentId}`;
+        sourceInfoElement.classList.remove('hidden');
+        console.log('✅ 显示源实验ID:', shortId);
+      } else {
+        sourceInfoElement.classList.add('hidden');
+        console.log('ℹ️ 非回测实验或无源实验ID');
+      }
+    } else {
+      console.warn('⚠️ 源实验信息元素未找到');
+    }
+
     // 更新页面标题
     document.title = `${this.experiment.experiment_name} - 实验详情 - 2025-2026 Become Rich Baby!`;
   }

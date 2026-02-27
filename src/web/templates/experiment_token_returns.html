@@ -289,6 +289,37 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- 非流水盘代币统计 -->
+                    <div class="pt-4 border-t border-gray-700">
+                        <h3 class="text-md font-semibold text-purple-400 mb-3">🚫 非流水盘代币统计 (去除fake_pump)</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                                <div class="text-sm text-gray-400 mb-1">交易代币</div>
+                                <div class="text-2xl font-bold text-gray-100" id="stat-nofake-total-tokens">0</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                                <div class="text-sm text-gray-400 mb-1">盈利数</div>
+                                <div class="text-2xl font-bold text-green-600" id="stat-nofake-profit-count">0</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                                <div class="text-sm text-gray-400 mb-1">亏损数</div>
+                                <div class="text-2xl font-bold text-red-500" id="stat-nofake-loss-count">0</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                                <div class="text-sm text-gray-400 mb-1">胜率</div>
+                                <div class="text-2xl font-bold text-yellow-600" id="stat-nofake-win-rate">0%</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                                <div class="text-sm text-gray-400 mb-1">总收益率</div>
+                                <div class="text-2xl font-bold" id="stat-nofake-total-return">0%</div>
+                            </div>
+                            <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                                <div class="text-sm text-gray-400 mb-1">BNB总增减</div>
+                                <div class="text-2xl font-bold" id="stat-nofake-bnb-change">0 BNB</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 筛选和排序 -->
@@ -326,6 +357,7 @@
                                     <th class="px-4 py-3 text-left">
                                         <span class="sort-btn" data-sort="symbol">代币</span>
                                     </th>
+                                    <th class="px-4 py-3 text-center">平台</th>
                                     <th class="px-4 py-3 text-right">
                                         <span class="sort-btn" data-sort="returnRate">收益率</span>
                                     </th>

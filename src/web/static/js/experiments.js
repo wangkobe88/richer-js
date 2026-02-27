@@ -79,6 +79,33 @@ class ExperimentMonitor {
           this.copyExperiment(id);
           return;
         }
+
+        const editNameBtn = e.target.closest('[data-action="edit-name"]');
+        if (editNameBtn) {
+          const id = editNameBtn.getAttribute('data-id');
+          const name = editNameBtn.getAttribute('data-name');
+          this.openEditNameModal(id, name);
+          return;
+        }
+      });
+    }
+
+    // 绑定模态框事件
+    document.getElementById('cancel-edit-btn')?.addEventListener('click', () => {
+      this.closeEditNameModal();
+    });
+
+    document.getElementById('save-name-btn')?.addEventListener('click', () => {
+      this.saveExperimentName();
+    });
+
+    // 点击模态框外部关闭
+    const modal = document.getElementById('edit-name-modal');
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          this.closeEditNameModal();
+        }
       });
     }
   }
@@ -189,7 +216,12 @@ class ExperimentMonitor {
       <div class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
         <div class="p-4">
           <div class="flex items-start justify-between mb-3">
-            <h3 class="text-xl font-bold text-white truncate flex-1" title="${this._escapeHtml(exp.experimentName || exp.experiment_name)}">${exp.experimentName || exp.experiment_name || '未命名实验'}</h3>
+            <div class="flex items-center gap-2 flex-1 min-w-0">
+              <h3 class="text-xl font-bold text-white truncate flex-1" title="${this._escapeHtml(exp.experimentName || exp.experiment_name)}">${exp.experimentName || exp.experiment_name || '未命名实验'}</h3>
+              <button data-action="edit-name" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName || exp.experiment_name)}" class="text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0" title="编辑名字">
+                ✏️
+              </button>
+            </div>
             <span class="ml-2 px-2 py-1 text-xs font-medium rounded ${statusColors[exp.status] || 'bg-gray-100'}">
               ${statusLabel[exp.status] || exp.status}
             </span>
@@ -551,6 +583,79 @@ class ExperimentMonitor {
         document.body.removeChild(toast);
       }, 300);
     }, 2000);
+  }
+
+  /**
+   * 打开编辑实验名字模态框
+   * @param {string} experimentId - 实验ID
+   * @param {string} currentName - 当前名字
+   */
+  openEditNameModal(experimentId, currentName) {
+    const modal = document.getElementById('edit-name-modal');
+    const input = document.getElementById('experiment-name-input');
+    const idDisplay = document.getElementById('experiment-id-display');
+
+    if (modal && input && idDisplay) {
+      input.value = currentName || '';
+      idDisplay.textContent = experimentId;
+      input.dataset.experimentId = experimentId;
+
+      modal.classList.remove('hidden');
+    }
+  }
+
+  /**
+   * 关闭编辑实验名字模态框
+   */
+  closeEditNameModal() {
+    const modal = document.getElementById('edit-name-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  }
+
+  /**
+   * 保存实验名字
+   */
+  async saveExperimentName() {
+    const input = document.getElementById('experiment-name-input');
+    const experimentId = input?.dataset.experimentId;
+
+    if (!experimentId) {
+      alert('❌ 无法获取实验ID');
+      return;
+    }
+
+    const newName = input?.value?.trim();
+    if (!newName) {
+      alert('❌ 请输入实验名字');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/experiment/${experimentId}/name`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ experimentName: newName })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        this.closeEditNameModal();
+        this.showCopySuccess('✅ 实验名字已更新');
+        await this.loadExperiments();
+      } else {
+        alert('❌ 更新失败: ' + (result.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('❌ 更新实验名字失败:', error);
+      alert('❌ 更新失败: ' + error.message);
+    }
   }
 }
 

@@ -186,6 +186,31 @@
         </main>
     </div>
 
+    <!-- 编辑实验名字模态框 -->
+    <div id="edit-name-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">✏️ 编辑实验名字</h3>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">实验名字</label>
+                    <input type="text" id="experiment-name-input" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="请输入实验名字" maxlength="100">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">实验ID</label>
+                    <div id="experiment-id-display" class="text-sm text-gray-500 font-mono bg-gray-100 px-3 py-2 rounded-md"></div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button id="cancel-edit-btn" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-sm font-medium text-gray-700 transition-colors">
+                        取消
+                    </button>
+                    <button id="save-name-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
+                        保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/simple-init.js?v=4.6"></script>
     <script src="/static/js/experiments.js?v=4.6"></script>
 </body>

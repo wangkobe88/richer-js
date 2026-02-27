@@ -404,6 +404,40 @@ class RicherJsWebServer {
       }
     });
 
+    // 更新实验名字
+    this.app.put('/api/experiment/:id/name', async (req, res) => {
+      try {
+        const { experimentName } = req.body;
+
+        if (!experimentName || typeof experimentName !== 'string') {
+          return res.status(400).json({ success: false, error: '无效的实验名字' });
+        }
+
+        if (experimentName.trim().length === 0) {
+          return res.status(400).json({ success: false, error: '实验名字不能为空' });
+        }
+
+        if (experimentName.length > 100) {
+          return res.status(400).json({ success: false, error: '实验名字不能超过100个字符' });
+        }
+
+        // 直接更新 experiment_name 字段，不改变 config
+        const { error } = await this.experimentFactory.supabase
+          .from('experiments')
+          .update({ experiment_name: experimentName.trim() })
+          .eq('id', req.params.id);
+
+        if (error) {
+          throw error;
+        }
+
+        res.json({ success: true });
+      } catch (error) {
+        console.error('更新实验名字失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 更新实验状态
     this.app.put('/api/experiment/:id/status', async (req, res) => {
       try {
@@ -1972,28 +2006,29 @@ class RicherJsWebServer {
           innerPair = mainPair;
         }
 
-        // 使用 launch_at 作为起始时间（如果有的话），否则不设置 fromTime
+        // 使用 launch_at 作为起始时间，获取代币创建后10分钟内的交易
         const launchAt = token.launch_at || null;
-        // 不再使用时间窗口，直接取前N条交易
-        // const toTime = launchAt ? launchAt + 600 : null;
+        const fromTime = launchAt;
+        const toTime = launchAt ? launchAt + 600 : null;  // +10分钟
 
         console.log(`📊 [最早交易] token=${tokenAddress}, chain=${chain}`);
         console.log(`   platform=${platform}`);
         console.log(`   launch_at=${launchAt}, created_at=${token.created_at}`);
         console.log(`   innerPair=${innerPair}`);
-        console.log(`   limit=${limit}`);
+        console.log(`   fromTime=${fromTime} (${fromTime ? toBeijingTime(fromTime) : 'null'})`);
+        console.log(`   toTime=${toTime} (${toTime ? toBeijingTime(toTime) : 'null'})`);
 
         // 3. 获取最早交易记录（使用内盘 pair）
         const pairId = `${innerPair}-${chain}`;
         const txApi = new AveTxAPI(finalBaseURL, config.ave?.timeout || 30000, finalApiKey);
 
-        // 获取前N条交易记录（按时间升序）
+        // 获取交易记录（使用时间窗口，最多300条）
         const earlyTrades = await txApi.getSwapTransactions(
           pairId,
-          limit,   // limit - 使用传入的参数，默认60条
-          null,    // fromTime - 不设置时间限制
-          null,    // toTime - 不设置时间限制
-          'asc'    // sort - 按时间升序，取最早的N条
+          300,        // limit - 最多300条
+          fromTime,   // fromTime - 代币创建时间
+          toTime,     // toTime - 代币创建后10分钟
+          'asc'       // sort - 按时间升序
         );
 
         console.log(`   查询到 ${earlyTrades.length} 条交易记录`);
