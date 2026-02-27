@@ -354,7 +354,12 @@ class TokenPool {
      *
      * 移除条件：
      * - status = 'inactive' (新标记的不活跃代币)
-     * - 或 超过30分钟的任何代币
+     * - 或 超过30分钟的未交易代币 (status = 'monitoring')
+     * - 或 已退出的代币 (status = 'exited')
+     *
+     * 不移除：
+     * - status = 'bought' (已买入，需要持续监控到卖出)
+     * - status = 'selling' (正在卖出中)
      *
      * @returns {Array} 需要移除的代币列表
      */
@@ -365,10 +370,20 @@ class TokenPool {
             let shouldRemove = false;
             let reason = '';
 
+            // 已买入或正在卖出的代币，不移除（需要持续监控）
+            if (token.status === 'bought' || token.status === 'selling') {
+                continue;
+            }
+
             if (token.status === 'inactive') {
                 shouldRemove = true;
                 reason = '低收益无交易';
-            } else {
+            } else if (token.status === 'exited') {
+                // 已退出的代币可以移除（已完成交易）
+                shouldRemove = true;
+                reason = '已退出交易';
+            } else if (token.status === 'monitoring') {
+                // 只有未交易的监控中代币才按时间淘汰
                 const now = Date.now();
                 const age = now - token.createdAt * 1000;
                 const MAX_AGE = 30 * 60 * 1000; // 30分钟
@@ -389,9 +404,14 @@ class TokenPool {
     /**
      * Clean up old tokens (exceeded max age or marked inactive)
      *
-     * 规则：
-     * - status = 'inactive' 的代币：立即移除
-     * - 所有代币（无论是否交易，包括已退出）：30分钟后淘汰（用于数据分析）
+     * 移除规则：
+     * - status = 'inactive' 的代币：立即移除（低收益无交易）
+     * - status = 'monitoring' 的代币：30分钟后移除（未交易，仅观察）
+     * - status = 'exited' 的代币：立即移除（已完成交易）
+     *
+     * 不移除（需要持续监控）：
+     * - status = 'bought' 的代币：已买入，需要监控到卖出
+     * - status = 'selling' 的代币：正在卖出中
      *
      * @returns {Array} Array of removed token keys
      */
