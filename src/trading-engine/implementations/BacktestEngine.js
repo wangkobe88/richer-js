@@ -160,6 +160,9 @@ class BacktestEngine extends AbstractTradingEngine {
         this.metrics.processedDataPoints += dataPoints.length;
       }
 
+      // 回测结束前强制卖出所有剩余持仓
+      await this._forceSellAllRemaining();
+
       const duration = Date.now() - startTime;
       this.logger.info(this._experimentId, 'BacktestEngine',
         `✅ 回测完成，耗时: ${duration}ms，处理了 ${this.metrics.processedDataPoints} 个数据点`);
@@ -1050,6 +1053,120 @@ class BacktestEngine extends AbstractTradingEngine {
       return 0;
     }
     return tradeAmount;
+  }
+
+  /**
+   * 回测结束前强制卖出所有剩余持仓
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _forceSellAllRemaining() {
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `🔄 回测结束，开始强制卖出剩余持仓...`);
+
+    // 1. 找出所有仍为 'bought' 状态的代币
+    const remainingTokens = [];
+    for (const [address, tokenState] of this._tokenStates) {
+      if (tokenState.status === 'bought') {
+        remainingTokens.push({ address, tokenState });
+      }
+    }
+
+    if (remainingTokens.length === 0) {
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `✅ 无剩余持仓需要强制卖出`);
+      return;
+    }
+
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `📊 发现 ${remainingTokens.length} 个剩余持仓待卖出`);
+
+    // 2. 获取最后的数据点时间戳（作为卖出时间）
+    const lastRoundData = this._groupedData[this._groupedData.length - 1];
+    const lastDataPoint = lastRoundData.dataPoints[lastRoundData.dataPoints.length - 1];
+    const forceSellTime = new Date(lastDataPoint.timestamp);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // 3. 逐个执行卖出
+    for (const { address, tokenState } of remainingTokens) {
+      try {
+        // 使用当前价格或最后已知价格
+        const sellPrice = tokenState.currentPrice || tokenState.highestPrice;
+
+        if (!sellPrice || sellPrice <= 0) {
+          this.logger.warn(this._experimentId, '_forceSellAllRemaining',
+            `⚠️ 跳过 ${tokenState.symbol}: 无有效价格`);
+          failCount++;
+          continue;
+        }
+
+        // 获取持仓信息
+        const holding = this._getHolding(address);
+        if (!holding || holding.amount <= 0) {
+          this.logger.warn(this._experimentId, '_forceSellAllRemaining',
+            `⚠️ 跳过 ${tokenState.symbol}: 无有效持仓`);
+          failCount++;
+          continue;
+        }
+
+        // 计算收益率
+        const buyPrice = tokenState.buyPrice || sellPrice;
+        const profitPercent = ((sellPrice - buyPrice) / buyPrice * 100).toFixed(2);
+        const holdDurationMinutes = tokenState.buyTime
+          ? ((forceSellTime.getTime() - tokenState.buyTime) / 1000 / 60)
+          : 0;
+
+        // 创建强制卖出信号
+        const signal = {
+          action: 'sell',
+          symbol: tokenState.symbol,
+          tokenAddress: address,
+          chain: 'bsc',
+          price: sellPrice,
+          confidence: 100,
+          reason: '回测结束强制卖出',
+          cards: 'all',
+          buyPrice: buyPrice,
+          profitPercent: parseFloat(profitPercent),
+          holdDuration: holdDurationMinutes * 60,
+          factors: {
+            forceSell: true,
+            reason: 'backtest_end'
+          },
+          timestamp: forceSellTime
+        };
+
+        // 执行卖出
+        const result = await this._executeSell(signal, null, {
+          forceSell: true,
+          reason: 'backtest_end'
+        }, forceSellTime);
+
+        if (result && result.success) {
+          successCount++;
+          this.logger.info(this._experimentId, '_forceSellAllRemaining',
+            `✅ 强制卖出成功: ${tokenState.symbol}, ` +
+            `收益率: ${profitPercent}%, 持仓时长: ${holdDurationMinutes.toFixed(1)}分钟`);
+
+          // 更新代币状态
+          tokenState.status = 'sold';
+        } else {
+          failCount++;
+          this.logger.warn(this._experimentId, '_forceSellAllRemaining',
+            `❌ 强制卖出失败: ${tokenState.symbol}, 原因: ${result?.reason || '未知'}`);
+        }
+
+      } catch (error) {
+        failCount++;
+        this.logger.error(this._experimentId, '_forceSellAllRemaining',
+          `❌ 强制卖出异常: ${tokenState.symbol} - ${error.message}`);
+      }
+    }
+
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `📊 强制卖出完成 | 成功: ${successCount}, 失败: ${failCount}`);
   }
 
   /**

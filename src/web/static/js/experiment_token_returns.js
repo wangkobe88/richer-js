@@ -538,6 +538,9 @@ class ExperimentTokenReturns {
             <a href="/experiment/${this.experimentId}/signals#token=${item.tokenAddress}" target="_blank" class="text-purple-400 hover:text-purple-300 text-sm mr-2">
               查看信号
             </a>
+            <a href="${this.getTimeSeriesUrl(item.tokenAddress)}" target="_blank" class="text-emerald-400 hover:text-emerald-300 text-sm mr-2">
+              时序数据
+            </a>
             <a href="/token-holders?experiment=${this.experimentId}&token=${item.tokenAddress}" target="_blank" class="text-cyan-400 hover:text-cyan-300 text-sm mr-2">
               持有者
             </a>
@@ -852,6 +855,17 @@ class ExperimentTokenReturns {
     const platformLabel = platform === 'flap' ? 'Flap' : 'Four.meme';
     const platformClass = platform === 'flap' ? 'bg-purple-600' : 'bg-blue-600';
     return `<span class="px-2 py-0.5 rounded text-xs font-medium ${platformClass} text-white">${platformLabel}</span>`;
+  }
+
+  /**
+   * 获取时序数据页面的URL
+   * @param {string} tokenAddress - 代币地址
+   * @returns {string} 时序数据页面URL
+   */
+  getTimeSeriesUrl(tokenAddress) {
+    // 如果是回测实验，使用源实验ID；否则使用当前实验ID
+    const targetExperimentId = this.judgeExperimentId || this.experimentId;
+    return `/experiment/${targetExperimentId}/observer#token=${tokenAddress}`;
   }
 
   /**

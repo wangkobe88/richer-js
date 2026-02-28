@@ -100,8 +100,10 @@ class ExperimentTimeSeriesService {
       let hasMore = true;
       let consecutiveErrors = 0;
       let consecutiveEmptyPages = 0;
+      let currentTimeoutRetries = 0; // 当前页的超时重试计数
       const MAX_CONSECUTIVE_ERRORS = 3;
       const MAX_CONSECUTIVE_EMPTY_PAGES = 5; // 连续5页空数据后停止
+      const MAX_TIMEOUT_RETRIES = 2; // 超时重试次数
 
       // 日志中显示筛选信息
       const tokenFilterInfo = Array.isArray(tokenAddress)
@@ -155,7 +157,12 @@ class ExperimentTimeSeriesService {
 
           if (error) {
             if (error.message === 'Query timeout' || error.message?.includes('timeout')) {
-              console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1}, from=${from}, to=${to})，已获取 ${allData.length} 条数据`);
+              currentTimeoutRetries++;
+              if (currentTimeoutRetries <= MAX_TIMEOUT_RETRIES) {
+                console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1}), 重试 ${currentTimeoutRetries}/${MAX_TIMEOUT_RETRIES}...`);
+                continue; // 重试当前页（不增加page）
+              }
+              console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1}, from=${from}, to=${to})，已重试 ${MAX_TIMEOUT_RETRIES} 次，已获取 ${allData.length} 条数据`);
               // 超时时返回已获取的数据
               if (allData.length > 0) {
                 console.log(`📊 [时序数据] 返回部分数据: ${allData.length} 条`);
@@ -177,8 +184,9 @@ class ExperimentTimeSeriesService {
             break;
           }
 
-          // 重置连续错误计数
+          // 重置连续错误计数和超时重试计数
           consecutiveErrors = 0;
+          currentTimeoutRetries = 0;
 
           if (data && data.length > 0) {
             allData = allData.concat(data);
@@ -219,7 +227,12 @@ class ExperimentTimeSeriesService {
 
         } catch (queryError) {
           if (queryError.message === 'Query timeout' || queryError.message?.includes('timeout')) {
-            console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1})，已获取 ${allData.length} 条数据`);
+            currentTimeoutRetries++;
+            if (currentTimeoutRetries <= MAX_TIMEOUT_RETRIES) {
+              console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1}), 重试 ${currentTimeoutRetries}/${MAX_TIMEOUT_RETRIES}...`);
+              continue; // 重试当前页（不增加page）
+            }
+            console.warn(`⚠️ [时序数据] 查询超时 (页 ${page + 1})，已重试 ${MAX_TIMEOUT_RETRIES} 次，已获取 ${allData.length} 条数据`);
             if (allData.length > 0) {
               console.log(`📊 [时序数据] 返回部分数据: ${allData.length} 条`);
               return allData;
