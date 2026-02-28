@@ -62,7 +62,14 @@ class BaseAveAPI {
                 ...options
             };
             const response = await this.client.request(config);
-            return response.data;
+            const result = response.data;
+
+            // 检查 AVE API 是否返回了错误（HTTP 200 但包含 error 字段）
+            if (result && typeof result === 'object' && result.error) {
+                throw new AveAPIError(`AVE API 错误: ${result.error}`, 400);
+            }
+
+            return result;
         } catch (error) {
             if (error instanceof AveAPIError) throw error;
             throw new AveAPIError(`请求失败: ${error.message}`);

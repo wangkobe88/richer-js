@@ -149,43 +149,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: '卡牌管理器未初始化，无法执行买入' };
       }
 
-      // === Dev持仓检查 ===
-      const token = this._tokenPool.getToken(signal.tokenAddress, signal.chain);
-      if (token && token.creator_address) {
-        const { TokenHolderService } = require('../holders/TokenHolderService');
-        const holderService = new TokenHolderService();
-
-        const devCheck = await holderService.checkDevHoldingRatio(
-          signal.tokenAddress,
-          token.creator_address,
-          signal.chain,
-          15  // 15%阈值
-        );
-
-        this.logger.info(this._experimentId, '_executeBuy',
-          `Dev持仓检查 | symbol=${signal.symbol}, devHoldingRatio=${devCheck.devHoldingRatio.toFixed(1)}%, canBuy=${devCheck.canBuy}, reason=${devCheck.reason}`);
-
-        if (!devCheck.canBuy) {
-          const rejectReason = `Dev持仓比例过高: ${devCheck.reason}`;
-          this.logger.warn(this._experimentId, '_executeBuy',
-            `拒绝购买 | ${rejectReason} | symbol=${signal.symbol}`);
-
-          return {
-            success: false,
-            reason: rejectReason,
-            metadata: {
-              ...metadata,
-              rejectedBy: 'devHoldingCheck',
-              rejectReason: rejectReason,
-              devHoldingRatio: devCheck.devHoldingRatio
-            }
-          };
-        }
-      } else {
-        this.logger.info(this._experimentId, '_executeBuy',
-          `无创建者地址信息，跳过Dev持仓检查 | symbol=${signal.symbol}`);
-      }
-      // === Dev持仓检查结束 ===
+      // 注意：Dev持仓检查已在预检查阶段完成，此处不再重复检查
 
       // 记录买入前的卡牌和余额状态
       const beforeCardState = {
@@ -1259,33 +1223,40 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         }
       }
 
-      // 3. 持有者黑白名单检查
+      // 3. 综合持有者检查（黑/白名单 + Dev持仓比例）- 一次性获取数据完成所有检查
       if (preCheckPassed && this._tokenHolderService) {
         try {
           this.logger.info(this._experimentId, '_executeStrategy',
-            `开始持有者黑白名单检测 | symbol=${token.symbol}`);
+            `开始综合持有者检测 | symbol=${token.symbol}, creator=${token.creator_address || 'none'}`);
 
-          const holderCheck = await this._tokenHolderService.checkHolderRisk(
+          const holderCheck = await this._tokenHolderService.checkAllHolderRisks(
             token.token,
+            token.creator_address || null,
             this._experimentId,
-            token.chain || 'bsc'
+            token.chain || 'bsc',
+            15  // Dev持仓阈值 15%
           );
 
           if (!holderCheck.canBuy) {
             this.logger.warn(this._experimentId, '_executeStrategy',
-              `持有者检查失败 | symbol=${token.symbol}, reason=${holderCheck.reason}, whitelist=${holderCheck.whitelistCount}, blacklist=${holderCheck.blacklistCount}`);
+              `持有者检查失败 | symbol=${token.symbol}, reason=${holderCheck.reason}, ` +
+              `whitelist=${holderCheck.whitelistCount}, blacklist=${holderCheck.blacklistCount}, ` +
+              `devHoldingRatio=${holderCheck.devHoldingRatio.toFixed(1)}%`);
             preCheckPassed = false;
             blockReason = holderCheck.reason || 'holder_check_failed';
           } else {
             this.logger.info(this._experimentId, '_executeStrategy',
-              `持有者检查通过 | symbol=${token.symbol}, reason=${holderCheck.reason}, whitelist=${holderCheck.whitelistCount}, blacklist=${holderCheck.blacklistCount}`);
+              `持有者检查通过 | symbol=${token.symbol}, reason=${holderCheck.reason}, ` +
+              `whitelist=${holderCheck.whitelistCount}, blacklist=${holderCheck.blacklistCount}, ` +
+              `devHoldingRatio=${holderCheck.devHoldingRatio.toFixed(1)}%`);
           }
         } catch (holderError) {
+          const errorMsg = holderError?.message || String(holderError);
           this.logger.error(this._experimentId, '_executeStrategy',
-            `持有者检测失败: ${token.symbol} - ${holderError.message}`);
+            `持有者检测失败: ${token.symbol} - ${errorMsg}`);
           // 检测失败时拒绝购买，保守处理
           preCheckPassed = false;
-          blockReason = `持有者检测异常: ${holderError.message}`;
+          blockReason = `持有者检测异常: ${errorMsg}`;
         }
       }
 

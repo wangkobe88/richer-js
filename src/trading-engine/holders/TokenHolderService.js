@@ -5,6 +5,20 @@
 
 const config = require('../../../config/default.json');
 
+/**
+ * 安全地获取错误消息
+ * @private
+ * @param {*} error - 错误对象
+ * @returns {string} 错误消息
+ */
+function _safeGetErrorMessage(error) {
+  if (!error) return '未知错误';
+  if (typeof error === 'string') return error;
+  if (error.message) return error.message;
+  if (error.error) return error.error;
+  return String(error);
+}
+
 class TokenHolderService {
   /**
    * @param {Object} supabase - Supabase客户端
@@ -72,7 +86,7 @@ class TokenHolderService {
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (error) {
-        throw new Error(`获取钱包数据失败: ${error.message}`);
+        throw new Error(`获取钱包数据失败: ${_safeGetErrorMessage(error)}`);
       }
 
       if (data && data.length > 0) {
@@ -128,7 +142,7 @@ class TokenHolderService {
       };
     } catch (error) {
       this.logger.error(null, 'TokenHolderService',
-        `获取持有者失败: ${tokenAddress} - ${error.message}`);
+        `获取持有者失败: ${tokenAddress} - ${_safeGetErrorMessage(error)}`);
       throw error;
     }
   }
@@ -156,13 +170,109 @@ class TokenHolderService {
       return this._checkHoldersWithCache(holderData.holders);
     } catch (error) {
       this.logger.error(null, 'TokenHolderService',
-        `检查持有者风险失败: ${tokenAddress} - ${error.message}`);
+        `检查持有者风险失败: ${tokenAddress} - ${_safeGetErrorMessage(error)}`);
       // 出错时默认返回不可购买，保守处理
       return {
         canBuy: false,
         whitelistCount: 0,
         blacklistCount: 0,
-        reason: `检查失败: ${error.message}`
+        reason: `检查失败: ${_safeGetErrorMessage(error)}`
+      };
+    }
+  }
+
+  /**
+   * 综合持有者检查（一次性完成所有检查）
+   * 包括：黑/白名单检查 + Dev持仓比例检查
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} creatorAddress - 创建者地址（可为 null）
+   * @param {string} experimentId - 实验ID，可为 null
+   * @param {string} chain - 区块链，默认 'bsc'
+   * @param {number} devThreshold - Dev持仓阈值（百分比），默认 15
+   * @returns {Promise<Object>} 综合检查结果
+   */
+  async checkAllHolderRisks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', devThreshold = 15) {
+    try {
+      // 确保缓存已加载
+      await this._ensureCacheLoaded();
+
+      // 获取持有者数据（只调用一次 API）
+      const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
+
+      // 存储到数据库
+      const snapshotId = `${tokenAddress}_${Date.now()}`;
+      await this._storeHolders(tokenAddress, experimentId, snapshotId, holderData);
+
+      // 1. 黑/白名单检查
+      const blacklistCheck = this._checkHoldersWithCache(holderData.holders);
+
+      // 2. Dev 持仓检查
+      let devCheck = { canBuy: true, devHoldingRatio: 0, reason: '无创建者地址，跳过' };
+      if (creatorAddress) {
+        const creator = holderData.holders?.find(
+          h => h.address && h.address.toLowerCase() === creatorAddress.toLowerCase()
+        );
+        if (creator) {
+          const devHoldingRatio = (creator.balance_ratio || 0) * 100;
+          const canBuy = devHoldingRatio < devThreshold;
+          devCheck = {
+            canBuy,
+            devHoldingRatio,
+            reason: canBuy
+              ? `Dev持仓比例${devHoldingRatio.toFixed(1)}%正常`
+              : `Dev持仓比例${devHoldingRatio.toFixed(1)}%超过阈值${devThreshold}%`
+          };
+        } else {
+          devCheck = { canBuy: true, devHoldingRatio: 0, reason: 'Dev不在持有者中' };
+        }
+      }
+
+      // 合并结果
+      const canBuy = blacklistCheck.canBuy && devCheck.canBuy;
+      const reasons = [];
+      if (!blacklistCheck.canBuy) reasons.push(`黑/白名单: ${blacklistCheck.reason}`);
+      if (!devCheck.canBuy) reasons.push(`Dev持仓: ${devCheck.reason}`);
+      if (canBuy && reasons.length === 0) {
+        reasons.push('所有持有者检查通过');
+      }
+
+      this.logger.info('[TokenHolderService] 综合持有者检查完成', {
+        token_address: tokenAddress,
+        creator_address: creatorAddress || 'none',
+        canBuy,
+        blacklistCheck,
+        devCheck
+      });
+
+      return {
+        canBuy,
+        whitelistCount: blacklistCheck.whitelistCount,
+        blacklistCount: blacklistCheck.blacklistCount,
+        devHoldingRatio: devCheck.devHoldingRatio,
+        reason: reasons.join('; '),
+        blacklistReason: blacklistCheck.reason,
+        devReason: devCheck.reason,
+        // 返回持有者数据供后续使用（如果需要）
+        holdersCount: holderData.holders?.length || 0
+      };
+
+    } catch (error) {
+      const errorMessage = _safeGetErrorMessage(error);
+      this.logger.error('[TokenHolderService] 综合持有者检查失败', {
+        token_address: tokenAddress,
+        creator_address: creatorAddress,
+        error: errorMessage
+      });
+      // 出错时保守处理，拒绝购买
+      return {
+        canBuy: false,
+        whitelistCount: 0,
+        blacklistCount: 0,
+        devHoldingRatio: 0,
+        reason: `持有者检查失败: ${errorMessage}`,
+        blacklistReason: `检查失败: ${errorMessage}`,
+        devReason: `检查失败: ${errorMessage}`,
+        holdersCount: 0
       };
     }
   }
@@ -228,12 +338,12 @@ class TokenHolderService {
 
     if (error) {
       this.logger.error('[TokenHolderService] 插入失败', {
-        error: error.message,
+        error: _safeGetErrorMessage(error),
         details: error.hint || error.details || error.code,
         token_address: tokenAddress,
         experiment_id: experimentId
       });
-      throw new Error(`存储持有者数据失败: ${error.message}`);
+      throw new Error(`存储持有者数据失败: ${_safeGetErrorMessage(error)}`);
     }
 
     this.logger.info('[TokenHolderService] 插入成功', {
@@ -258,7 +368,7 @@ class TokenHolderService {
       .maybeSingle(); // 使用 maybeSingle 允许没有结果
 
     if (error) {
-      throw new Error(`查询持有者数据失败: ${error.message}`);
+      throw new Error(`查询持有者数据失败: ${_safeGetErrorMessage(error)}`);
     }
 
     return data?.holder_data;
@@ -444,16 +554,18 @@ class TokenHolderService {
       };
 
     } catch (error) {
+      const errorMessage = error?.message || error?.error || String(error);
       this.logger.error('[TokenHolderService] Dev持仓检查失败', {
         token_address: tokenAddress,
         creator_address: creatorAddress,
-        error: error.message
+        error: errorMessage,
+        errorType: error?.constructor?.name || typeof error
       });
       // 出错时保守处理，拒绝购买
       return {
         canBuy: false,
         devHoldingRatio: 0,
-        reason: `Dev持仓检查失败: ${error.message}`
+        reason: `Dev持仓检查失败: ${errorMessage}`
       };
     }
   }
