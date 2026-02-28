@@ -143,6 +143,44 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: '卡牌管理器未初始化，无法执行买入' };
       }
 
+      // === Dev持仓检查 ===
+      const token = this._tokenPool.getToken(signal.tokenAddress, signal.chain);
+      if (token && token.creator_address) {
+        const { TokenHolderService } = require('../holders/TokenHolderService');
+        const holderService = new TokenHolderService();
+
+        const devCheck = await holderService.checkDevHoldingRatio(
+          signal.tokenAddress,
+          token.creator_address,
+          signal.chain,
+          15  // 15%阈值
+        );
+
+        this.logger.info(this._experimentId, '_executeBuy',
+          `Dev持仓检查 | symbol=${signal.symbol}, devHoldingRatio=${devCheck.devHoldingRatio.toFixed(1)}%, canBuy=${devCheck.canBuy}, reason=${devCheck.reason}`);
+
+        if (!devCheck.canBuy) {
+          const rejectReason = `Dev持仓比例过高: ${devCheck.reason}`;
+          this.logger.warn(this._experimentId, '_executeBuy',
+            `拒绝购买 | ${rejectReason} | symbol=${signal.symbol}`);
+
+          return {
+            success: false,
+            reason: rejectReason,
+            metadata: {
+              ...metadata,
+              rejectedBy: 'devHoldingCheck',
+              rejectReason: rejectReason,
+              devHoldingRatio: devCheck.devHoldingRatio
+            }
+          };
+        }
+      } else {
+        this.logger.info(this._experimentId, '_executeBuy',
+          `无创建者地址信息，跳过Dev持仓检查 | symbol=${signal.symbol}`);
+      }
+      // === Dev持仓检查结束 ===
+
       // 记录买入前的卡牌和余额状态
       const beforeCardState = {
         bnbCards: cardManager.bnbCards,

@@ -12,7 +12,8 @@
     "platform": "fourmeme",
     "chain": "bsc",
     "maxAgeSeconds": 60,
-    "fetchLimit": 50
+    "fetchLimit": 50,
+    "enableFlap": false
   },
   "monitor": {
     "interval": 10000,

@@ -103,9 +103,17 @@ class PlatformCollector {
         try {
             const startTime = Date.now();
 
-            // 顺序调用：先收集 fourmeme，再收集 flap
+            // 顺序调用：先收集 fourmeme
             await this.collectFourmemeTokens();
-            await this.collectFlapTokens();
+
+            // === Flap平台暂时关闭 ===
+            // await this.collectFlapTokens();
+            if (this.collectorConfig.enableFlap !== false) {
+                await this.collectFlapTokens();
+            } else {
+                this.logger.info('Flap平台数据采集已通过配置关闭 (config.collector.enableFlap = false)');
+            }
+            // === Flap平台关闭结束 ===
 
             this.stats.lastCollectionTime = new Date().toISOString();
 

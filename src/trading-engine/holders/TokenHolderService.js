@@ -368,6 +368,95 @@ class TokenHolderService {
     }
     return '未知原因';
   }
+
+  /**
+   * 检查Dev持仓比例是否超过阈值
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} creatorAddress - 创建者地址
+   * @param {string} chain - 区块链
+   * @param {number} threshold - 阈值（百分比，如15表示15%）
+   * @returns {Promise<Object>} { canBuy, devHoldingRatio, reason }
+   */
+  async checkDevHoldingRatio(tokenAddress, creatorAddress, chain = 'bsc', threshold = 15) {
+    try {
+      this.logger.info('[TokenHolderService] 开始Dev持仓检查', {
+        token_address: tokenAddress,
+        creator_address: creatorAddress,
+        threshold: `${threshold}%`
+      });
+
+      // 如果没有创建者地址，无法检查，默认通过
+      if (!creatorAddress) {
+        return {
+          canBuy: true,
+          devHoldingRatio: 0,
+          reason: '无创建者地址，跳过Dev持仓检查'
+        };
+      }
+
+      // 获取持有者数据
+      const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
+
+      if (!holderData.holders || holderData.holders.length === 0) {
+        return {
+          canBuy: true,
+          devHoldingRatio: 0,
+          reason: '无持有者数据，跳过Dev持仓检查'
+        };
+      }
+
+      // 查找创建者在持有者中的数据
+      const creator = holderData.holders.find(
+        h => h.address && h.address.toLowerCase() === creatorAddress.toLowerCase()
+      );
+
+      if (!creator) {
+        // Dev不在持有者中，通过检查
+        this.logger.info('[TokenHolderService] Dev不在持有者中', {
+          token_address: tokenAddress,
+          creator_address: creatorAddress
+        });
+        return {
+          canBuy: true,
+          devHoldingRatio: 0,
+          reason: 'Dev不在持有者中'
+        };
+      }
+
+      // 计算Dev持仓比例
+      const devHoldingRatio = (creator.balance_ratio || 0) * 100;
+      const canBuy = devHoldingRatio < threshold;
+
+      this.logger.info('[TokenHolderService] Dev持仓检查结果', {
+        token_address: tokenAddress,
+        creator_address: creatorAddress,
+        devHoldingRatio: `${devHoldingRatio.toFixed(1)}%`,
+        threshold: `${threshold}%`,
+        canBuy
+      });
+
+      return {
+        canBuy,
+        devHoldingRatio,
+        reason: canBuy
+          ? `Dev持仓比例${devHoldingRatio.toFixed(1)}%正常`
+          : `Dev持仓比例${devHoldingRatio.toFixed(1)}%超过阈值${threshold}%`
+      };
+
+    } catch (error) {
+      this.logger.error('[TokenHolderService] Dev持仓检查失败', {
+        token_address: tokenAddress,
+        creator_address: creatorAddress,
+        error: error.message
+      });
+      // 出错时保守处理，拒绝购买
+      return {
+        canBuy: false,
+        devHoldingRatio: 0,
+        reason: `Dev持仓检查失败: ${error.message}`
+      };
+    }
+  }
 }
 
 module.exports = { TokenHolderService };
