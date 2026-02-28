@@ -445,7 +445,7 @@ class AbstractTradingEngine extends ITradingEngine {
     });
 
     // 执行交易
-    let result;
+    let result = { success: false, message: '交易未执行' }; // 初始化 result
     // 使用 signal 中的时间戳（如果有），否则使用当前时间
     // 回测引擎会传入历史数据时间，虚拟引擎使用当前时间
     const signalTime = signal.timestamp || new Date();
@@ -472,14 +472,28 @@ class AbstractTradingEngine extends ITradingEngine {
       this._logger.error('信号执行失败', {
         signalId,
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
+        errorName: error.name,
+        errorCause: error.cause
       });
 
-      await this._updateSignalStatus(signalId, 'failed', {
-        error: error.message
-      });
+      // 确保 result 有正确的值
+      result = {
+        success: false,
+        message: error.message || '未知错误',
+        reason: error.message || '未知错误',
+        error: error.message || '未知错误'
+      };
 
-      result = { success: false, message: error.message };
+      try {
+        await this._updateSignalStatus(signalId, 'failed', result);
+      } catch (updateError) {
+        this._logger.error('更新信号状态失败', {
+          signalId,
+          error: updateError.message,
+          stack: updateError.stack
+        });
+      }
     }
 
     return result;
@@ -495,6 +509,11 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   async _updateSignalStatus(signalId, status, result) {
     const supabase = dbManager.getClient();
+
+    // 确保 result 是一个对象
+    if (!result || typeof result !== 'object') {
+      result = { success: false, message: 'Invalid result object' };
+    }
 
     // 先获取当前信号数据（包括 metadata）
     const { data: currentSignal, error: fetchError } = await supabase
@@ -516,33 +535,33 @@ class AbstractTradingEngine extends ITradingEngine {
     // 合并 metadata 并添加 execution_reason
     const newMetadata = { ...(currentSignal.metadata || {}) };
 
-    // 将执行原因记录到 metadata 中
-    if (result.message) {
+    // 将执行原因记录到 metadata 中（安全访问）
+    if (result && result.message) {
       newMetadata.execution_reason = result.message;
     }
-    if (result.reason) {
+    if (result && result.reason) {
       newMetadata.execution_reason = result.reason;
     }
-    if (result.error) {
+    if (result && result.error) {
       newMetadata.execution_error = result.error;
     }
     // 添加执行时间戳
     newMetadata.executed_at = new Date().toISOString();
     newMetadata.execution_status = status;
 
-    // 交易结果
-    if (result.trade || result.success !== undefined) {
+    // 交易结果（安全访问）
+    if (result && (result.trade || result.success !== undefined)) {
       newMetadata.tradeResult = {
-        success: result.success || false,
+        success: result.success ?? false,
         tradeId: result.tradeId || null,
-        trade: result.trade ? {
-          id: result.trade.id,
-          tokenSymbol: result.trade.tokenSymbol,
-          tradeDirection: result.trade.tradeDirection,
-          inputAmount: result.trade.inputAmount,
-          outputAmount: result.trade.outputAmount,
-          unitPrice: result.trade.unitPrice,
-          success: result.trade.success
+        trade: (result.trade && typeof result.trade === 'object') ? {
+          id: result.trade.id || null,
+          tokenSymbol: result.trade.tokenSymbol || 'UNKNOWN',
+          tradeDirection: result.trade.tradeDirection || 'unknown',
+          inputAmount: result.trade.inputAmount || '0',
+          outputAmount: result.trade.outputAmount || '0',
+          unitPrice: result.trade.unitPrice || '0',
+          success: result.trade.success ?? false
         } : null
       };
     }
@@ -612,13 +631,55 @@ class AbstractTradingEngine extends ITradingEngine {
     });
 
     // 调用投资组合管理器执行交易
-    const result = await this._portfolioManager.executeTrade(
-      this._portfolioId,
-      tradeRequest.tokenAddress,
-      tradeRequest.direction.toLowerCase(),
-      tradeRequest.amount,
-      currentPrice
-    );
+    let result;
+    try {
+      result = await this._portfolioManager.executeTrade(
+        this._portfolioId,
+        tradeRequest.tokenAddress,
+        tradeRequest.direction.toLowerCase(),
+        tradeRequest.amount,
+        currentPrice
+      );
+
+      this.logger.info('PortfolioManager.executeTrade 返回', {
+        success: result?.success,
+        hasPortfolio: !!result?.portfolio,
+        error: result?.error || result?.message || 'none'
+      });
+    } catch (pmError) {
+      // PortfolioManager.executeTrade 抛出了异常
+      this.logger.error('PortfolioManager.executeTrade 异常', {
+        error: pmError.message,
+        errorName: pmError.name,
+        stack: pmError.stack,
+        symbol: tradeRequest.symbol,
+        tokenAddress: tradeRequest.tokenAddress,
+        amount: tradeRequest.amount,
+        price: currentPrice,
+        errorCause: pmError.cause,
+        pmErrorString: String(pmError)
+      });
+
+      // 标记交易为失败
+      trade.markAsFailed(pmError.message || '交易执行异常');
+
+      return {
+        success: false,
+        message: pmError.message || '交易执行异常',
+        reason: pmError.message || '交易执行异常',
+        error: pmError.message || '交易执行异常'
+      };
+    }
+
+    // 检查 result 是否存在
+    if (!result) {
+      this.logger.error('PortfolioManager.executeTrade 返回 null/undefined');
+      return {
+        success: false,
+        message: 'PortfolioManager.executeTrade 返回空值',
+        error: 'PortfolioManager.executeTrade 返回空值'
+      };
+    }
 
     if (result.success) {
       // 标记交易为成功
@@ -642,16 +703,24 @@ class AbstractTradingEngine extends ITradingEngine {
       };
     } else {
       // 标记交易为失败
-      trade.markAsFailed(result.message);
+      const failureReason = result.message || result.reason || result.error || '未知失败原因';
+      trade.markAsFailed(failureReason);
 
       this._logger.error('交易执行失败', {
         symbol: tradeRequest.symbol,
-        error: result.message
+        error: failureReason,
+        resultKeys: result ? Object.keys(result) : 'result is null/undefined',
+        resultSuccess: result?.success,
+        hasMessage: !!result?.message,
+        hasReason: !!result?.reason,
+        hasError: !!result?.error
       });
 
       return {
         success: false,
-        message: result.message
+        message: failureReason,
+        reason: failureReason,
+        error: failureReason
       };
     }
   }

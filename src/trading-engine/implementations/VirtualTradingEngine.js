@@ -137,9 +137,15 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     try {
       // 获取卡牌管理器（买入时必须存在）
       const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
+
+      this.logger.info(this._experimentId, '_executeBuy',
+        `获取卡牌管理器 | symbol=${signal.symbol}, cardManager=${cardManager ? '存在' : '不存在'}`);
+
       if (!cardManager) {
         this.logger.error(this._experimentId, '_executeBuy',
           `卡牌管理器未初始化 | tokenAddress=${signal.tokenAddress}, chain=${signal.chain}`);
+        this.logger.error(this._experimentId, '_executeBuy',
+          `positionManagement配置 | ${JSON.stringify(this._positionManagement || 'null')}`);
         return { success: false, reason: '卡牌管理器未初始化，无法执行买入' };
       }
 
@@ -233,11 +239,15 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       const result = await this.executeTrade(tradeRequest);
 
+      // 安全地访问 result 属性
+      const resultSuccess = result?.success ?? false;
+      const resultReason = result?.reason || result?.message || result?.error || 'none';
+
       this.logger.info(this._experimentId, '_executeBuy',
-        `交易结果 | success=${result?.success}, reason=${result?.reason || 'none'}`);
+        `交易结果 | success=${resultSuccess}, reason=${resultReason}`);
 
       // 买入成功后更新卡牌分配和状态
-      if (result && result.success) {
+      if (result && resultSuccess) {
         const cards = parseInt(signal.cards) || 1;
         this.logger.info(this._experimentId, '_executeBuy',
           `更新卡牌分配 | cards=${cards}, before: bnbCards=${cardManager.bnbCards}, tokenCards=${cardManager.tokenCards}`);
@@ -255,35 +265,52 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           tokenBalance: this._getHolding(signal.tokenAddress)?.amount || 0
         };
 
-        if (!result.trade.metadata) {
-          result.trade.metadata = {};
-        }
-        result.trade.metadata.cardPositionChange = {
-          before: {
-            ...beforeCardState,
-            ...beforeBalance
-          },
-          after: {
-            ...afterCardState,
-            ...afterBalance
-          },
-          transferredCards: cards
-        };
+        // 安全地访问 result.trade
+        if (result.trade && typeof result.trade === 'object') {
+          if (!result.trade.metadata) {
+            result.trade.metadata = {};
+          }
+          result.trade.metadata.cardPositionChange = {
+            before: {
+              ...beforeCardState,
+              ...beforeBalance
+            },
+            after: {
+              ...afterCardState,
+              ...afterBalance
+            },
+            transferredCards: cards
+          };
 
-        const tradeId = result.trade?.id;
-        if (tradeId) {
-          this.logger.info(this._experimentId, '_executeBuy',
-            `更新交易记录 | tradeId=${tradeId}, after状态已更新`);
-          await this.dataService.updateTrade(tradeId, {
-            metadata: result.trade.metadata
-          });
+          const tradeId = result.trade.id;
+          if (tradeId) {
+            this.logger.info(this._experimentId, '_executeBuy',
+              `更新交易记录 | tradeId=${tradeId}, after状态已更新`);
+            try {
+              await this.dataService.updateTrade(tradeId, {
+                metadata: result.trade.metadata
+              });
+            } catch (updateError) {
+              this.logger.error(this._experimentId, '_executeBuy',
+                `更新交易记录失败 | tradeId=${tradeId}, error=${updateError.message}`);
+            }
+          }
+        } else {
+          this.logger.warn(this._experimentId, '_executeBuy',
+            `result.trade 不存在或不是对象 | type=${typeof result?.trade}`);
         }
       }
 
-      return result;
+      return result || { success: false, reason: 'executeTrade 返回空值' };
 
     } catch (error) {
-      return { success: false, reason: error.message };
+      this.logger.error(this._experimentId, '_executeBuy',
+        `异常 | error=${error.message}, stack=${error.stack}`);
+      return {
+        success: false,
+        reason: error.message || '买入执行异常',
+        error: error.message || '买入执行异常'
+      };
     }
   }
 
@@ -562,8 +589,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 6. 初始化卡牌仓位管理配置
     const experimentConfig = this._experiment?.config || {};
     this._positionManagement = experimentConfig.positionManagement || experimentConfig.strategy?.positionManagement || null;
+
+    console.log(`🔍 卡牌管理配置检查 | positionManagement=${JSON.stringify(this._positionManagement || 'null')}`);
+
     if (this._positionManagement && this._positionManagement.enabled) {
       console.log(`✅ 卡牌仓位管理已启用: 总卡牌数=${this._positionManagement.totalCards || 4}, 单卡BNB=${this._positionManagement.perCardMaxBNB || 0.025}`);
+    } else {
+      console.log(`⚠️ 卡牌仓位管理未启用: positionManagement=${!!this._positionManagement}, enabled=${this._positionManagement?.enabled}`);
     }
 
     // 7. 初始化时序数据服务
@@ -1080,9 +1112,17 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
 
       // 初始化 CardPositionManager（如果启用）
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `卡牌管理器检查 | enabled=${this._positionManagement?.enabled}, hasConfig=${!!this._positionManagement}`);
+
       if (this._positionManagement && this._positionManagement.enabled) {
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `卡牌管理器已启用，准备创建 | symbol=${token.symbol}`);
+
         let cardManager = this._tokenPool.getCardPositionManager(token.token, token.chain);
         if (!cardManager) {
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `卡牌管理器不存在，开始创建 | symbol=${token.symbol}`);
           cardManager = new CardPositionManager({
             totalCards: this._positionManagement.totalCards || 4,
             perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.25,
