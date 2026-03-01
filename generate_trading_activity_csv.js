@@ -8,7 +8,6 @@ require('dotenv').config({ path: 'config/.env' });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 const BASE_URL = 'http://localhost:3010';
-const TIME_WINDOW_SECONDS = 90;
 const LOW_VALUE_THRESHOLD_USD = 10;
 const DELAY_MS = 1000;
 
@@ -38,7 +37,7 @@ async function fetchEarlyTrades(tokenAddress) {
     const response = await fetch(`${BASE_URL}/api/token-early-trades`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tokenAddress, chain: 'bsc', limit: 300 })
+      body: JSON.stringify({ tokenAddress, chain: 'bsc', limit: 300, timeWindowMinutes: 1.5 })
     });
 
     if (!response.ok) {
@@ -58,11 +57,6 @@ async function fetchEarlyTrades(tokenAddress) {
   } catch (e) {
     return { success: false, trades: [] };
   }
-}
-
-function filterTradesInTimeWindow(trades, launchAt) {
-  if (!launchAt) return [];
-  return trades.filter(t => t.time >= launchAt && t.time <= launchAt + TIME_WINDOW_SECONDS);
 }
 
 function analyzeTrades(trades) {
@@ -120,12 +114,13 @@ async function main() {
       continue;
     }
 
-    const inWindow = filterTradesInTimeWindow(apiResult.trades, token.launchAt);
-    const all = analyzeTrades(inWindow);
-    const filtered = analyzeTrades(inWindow.filter(t => (t.from_usd || t.to_usd || 0) >= LOW_VALUE_THRESHOLD_USD));
+    // API 已经按时间窗口返回了数据，直接使用
+    const trades = apiResult.trades;
+    const all = analyzeTrades(trades);
+    const filtered = analyzeTrades(trades.filter(t => (t.from_usd || t.to_usd || 0) >= LOW_VALUE_THRESHOLD_USD));
 
-    const firstTime = inWindow.length > 0 ? (inWindow[0].time - token.launchAt) : '';
-    const lastTime = inWindow.length > 0 ? (inWindow[inWindow.length - 1].time - token.launchAt) : '';
+    const firstTime = trades.length > 0 ? (trades[0].time - token.launchAt) : '';
+    const lastTime = trades.length > 0 ? (trades[trades.length - 1].time - token.launchAt) : '';
 
     const noteEscaped = token.note.replace(/"/g, '""');
     csvRows.push(`${token.tokenAddress},${token.category},"${CATEGORY_MAP[token.category]?.label || token.category}",${token.launchAt},${all.totalTrades},${filtered.totalTrades},${filtered.totalVolumeUsd.toFixed(2)},${filtered.uniqueWallets},${firstTime},${lastTime},"${noteEscaped}"`);

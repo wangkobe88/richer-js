@@ -134,6 +134,9 @@ class ExperimentDataService {
           .eq('experiment_id', experimentId);
 
         // 添加筛选条件
+        if (options.tokenAddress) {
+          query = query.eq('token_address', options.tokenAddress);
+        }
         if (options.action) {
           query = query.eq('action', options.action);
         }
@@ -144,9 +147,15 @@ class ExperimentDataService {
         // 分页
         query = query.range(currentOffset, currentOffset + pageSize - 1);
 
-        // 排序：优先显示 BUY 信号，然后按时间降序
-        query = query.order('action', { ascending: false }) // 'buy' > 'sell' 按字母顺序
-                  .order('created_at', { ascending: false });
+        // 排序：当指定了tokenAddress时，只按时间排序；否则优先显示BUY信号
+        if (options.tokenAddress) {
+          // 按特定代币查询时，按时间降序排列（买入和卖出信号混合）
+          query = query.order('created_at', { ascending: false });
+        } else {
+          // 查询全部信号时，优先显示BUY信号，然后按时间降序
+          query = query.order('action', { ascending: false })
+                    .order('created_at', { ascending: false });
+        }
 
         const { data, error } = await query;
 

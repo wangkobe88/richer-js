@@ -172,7 +172,7 @@
         <!-- 查询表单 -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <h2 class="text-xl font-semibold text-gray-800 mb-4">代币信息</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">代币地址</label>
                     <input type="text" id="tokenAddress" placeholder="0x..."
@@ -185,6 +185,11 @@
                         <option value="eth">ETH</option>
                         <option value="solana">Solana</option>
                     </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">时间窗口（分钟）</label>
+                    <input type="number" id="timeWindowMinutes" value="3" min="0.5" max="60" step="0.5"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
                 </div>
                 <div class="flex items-end">
                     <button onclick="queryTokenEarlyTrades()"
@@ -398,18 +403,39 @@
                             '<div class="mt-2 p-2 bg-red-100 rounded text-red-800">⚠️ API 返回的最早交易晚于代币创建时间，说明 AVE API 只保留最近一段时间的数据</div>' : ''}
                     </div>
 
+                    ${debugInfo.pagination && debugInfo.pagination.totalPages > 1 ? `
+                    <div class="mb-4 p-4 bg-purple-50 border border-purple-200 rounded text-sm">
+                        <div class="font-semibold text-purple-800 mb-2">📄 分页查询详情</div>
+                        <div class="mb-2 text-purple-800">共查询 <span class="font-bold">${debugInfo.pagination.totalPages}</span> 次，获取 <span class="font-bold">${debugInfo.totalTrades}</span> 条交易</div>
+                        <div class="space-y-1">
+                            ${debugInfo.pagination.logs.map(log => `
+                                <div class="text-purple-800 text-xs">
+                                    第${log.page}次: ${log.count}条, toTime=${log.toTimeFormatted}
+                                    ${log.nextToTimeFormatted ? ` → 下次: ${log.nextToTimeFormatted}` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
                     <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded text-sm">
                         <div class="font-semibold text-gray-800 mb-2">🔧 getSwapTransactions 参数</div>
                         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-800">
                             <div>pairId: <span class="monospace font-medium">${debugInfo.apiParams?.pairId || '-'}</span></div>
                             <div>limit: <span class="font-medium">${debugInfo.apiParams?.limit || '-'}</span></div>
+                            <div>时间窗口: <span class="font-medium">${debugInfo.apiParams?.timeWindowMinutes || 3} 分钟</span></div>
                             <div>fromTime: <span class="font-medium">${debugInfo.apiParams?.fromTimeFormatted || 'null'}</span></div>
                             <div>toTime: <span class="font-medium">${debugInfo.apiParams?.toTimeFormatted || 'null'}</span></div>
                             <div>sort: <span class="font-medium">${debugInfo.apiParams?.sort || '-'}</span></div>
                         </div>
                         <div class="mt-2 text-gray-800 text-xs">
-                            💡 fromTime: 代币 launch_at，toTime: launch_at + 10分钟，获取代币创建后10分钟内的交易
+                            💡 fromTime: 代币 launch_at，toTime: launch_at + ${debugInfo.apiParams?.timeWindowMinutes || 3}分钟，获取代币创建后${debugInfo.apiParams?.timeWindowMinutes || 3}分钟内的交易
                         </div>
+                        ${debugInfo.pagination && debugInfo.pagination.totalPages > 1 ? `
+                        <div class="mt-2 text-purple-700 text-xs">
+                            🔄 由于交易超过300条，进行了向前分页查询，每次返回300条时继续用更早的toTime查询
+                        </div>
+                        ` : ''}
                     </div>
                 `;
             }
@@ -426,6 +452,8 @@
                 ${debugHtml}
                 <div class="mb-4 text-sm text-gray-600">
                     显示 ${trades.length} 条交易记录（按时间升序），涉及 ${uniqueWallets.size} 个唯一钱包
+                    ${debugInfo?.pagination && debugInfo.pagination.totalPages > 1 ?
+                        `<span class="ml-2 text-purple-600">🔄 经 ${debugInfo.pagination.totalPages} 次分页查询获取</span>` : ''}
                 </div>
 
                 <!-- 批量操作区域 -->
@@ -839,6 +867,7 @@
         async function queryTokenEarlyTrades() {
             const tokenAddress = document.getElementById('tokenAddress').value.trim();
             const chain = document.getElementById('chain').value;
+            const timeWindowMinutes = parseInt(document.getElementById('timeWindowMinutes').value) || 3;
 
             if (!tokenAddress) {
                 showError('请输入代币地址');
@@ -855,7 +884,7 @@
                 const response = await fetch('/api/token-early-trades', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tokenAddress, chain })
+                    body: JSON.stringify({ tokenAddress, chain, timeWindowMinutes })
                 });
 
                 const result = await response.json();

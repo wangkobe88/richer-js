@@ -1138,6 +1138,7 @@ class RicherJsWebServer {
         const options = {
           action: req.query.action,
           signalType: req.query.signalType,
+          tokenAddress: req.query.tokenAddress,  // 新增：按代币地址过滤
           limit: parseInt(req.query.limit) || 100,
           offset: parseInt(req.query.offset) || 0
         };
@@ -1978,7 +1979,7 @@ class RicherJsWebServer {
         const { AveTxAPI } = require('./core/ave-api');
         const config = require('../config/default.json');
 
-        const { apiKey, baseURL, tokenAddress, chain, limit = 60 } = req.body;
+        const { apiKey, baseURL, tokenAddress, chain, limit = 300, timeWindowMinutes = 3 } = req.body;
 
         if (!tokenAddress) {
           return res.status(400).json({
@@ -2074,14 +2075,15 @@ class RicherJsWebServer {
           innerPair = mainPair;
         }
 
-        // 使用 launch_at 作为起始时间，获取代币创建后10分钟内的交易
+        // 使用 launch_at 作为起始时间，获取代币创建后指定时间窗口内的交易
         const launchAt = token.launch_at || null;
         const fromTime = launchAt;
-        const toTime = launchAt ? launchAt + 600 : null;  // +10分钟
+        const toTime = launchAt ? launchAt + (timeWindowMinutes * 60) : null;
 
         console.log(`📊 [最早交易] token=${tokenAddress}, chain=${chain}`);
         console.log(`   platform=${platform}`);
         console.log(`   launch_at=${launchAt}, created_at=${token.created_at}`);
+        console.log(`   时间窗口: ${timeWindowMinutes}分钟`);
         console.log(`   innerPair=${innerPair}`);
         console.log(`   fromTime=${fromTime} (${fromTime ? toBeijingTime(fromTime) : 'null'})`);
         console.log(`   toTime=${toTime} (${toTime ? toBeijingTime(toTime) : 'null'})`);
@@ -2090,18 +2092,63 @@ class RicherJsWebServer {
         const pairId = `${innerPair}-${chain}`;
         const txApi = new AveTxAPI(finalBaseURL, config.ave?.timeout || 30000, finalApiKey);
 
-        // 获取交易记录（使用时间窗口，最多300条）
-        const earlyTrades = await txApi.getSwapTransactions(
-          pairId,
-          300,        // limit - 最多300条
-          fromTime,   // fromTime - 代币创建时间
-          toTime,     // toTime - 代币创建后10分钟
-          'asc'       // sort - 按时间升序
-        );
+        // 获取交易记录（使用时间窗口，支持分页）
+        // AVE API 从 toTime 向后回溯，所以如果返回300条，可能还有更早的交易
+        const allTrades = [];
+        const paginationLogs = []; // 记录每次分页查询的详情
+        let currentToTime = toTime;
+        let pageCount = 0;
+        const MAX_PAGES = 10; // 安全限制，最多查询10次
 
-        console.log(`   查询到 ${earlyTrades.length} 条交易记录`);
+        while (pageCount < MAX_PAGES) {
+          const trades = await txApi.getSwapTransactions(
+            pairId,
+            300,        // limit - 每次最多300条
+            fromTime,   // fromTime - 代币创建时间
+            currentToTime,  // toTime - 当前查询的结束时间
+            'asc'       // sort - 按时间升序
+          );
 
-        console.log(`   查询到 ${earlyTrades.length} 条交易记录`);
+          pageCount++;
+          const logEntry = {
+            page: pageCount,
+            count: trades.length,
+            toTime: currentToTime,
+            toTimeFormatted: currentToTime ? toBeijingTime(currentToTime) : 'null'
+          };
+          paginationLogs.push(logEntry);
+          console.log(`   第${pageCount}次查询: ${trades.length}条, toTime=${currentToTime} (${logEntry.toTimeFormatted})`);
+
+          if (trades.length === 0) {
+            // 没有更多数据了
+            break;
+          }
+
+          allTrades.push(...trades);
+
+          // 如果返回少于300条，说明已经取完所有数据
+          if (trades.length < 300) {
+            break;
+          }
+
+          // 返回了300条，可能还有更早的数据，继续向前查询
+          // 新的 toTime = 当前结果第一条交易时间 - 1（向前1秒）
+          logEntry.nextToTime = trades[0].time - 1;
+          logEntry.nextToTimeFormatted = toBeijingTime(logEntry.nextToTime);
+          currentToTime = trades[0].time - 1;
+
+          // 安全检查：如果 toTime 已经早于 fromTime，停止查询
+          if (currentToTime < fromTime) {
+            console.log(`   ⚠️ 查询范围超出 fromTime，停止分页`);
+            break;
+          }
+        }
+
+        // 按时间排序确保顺序正确
+        allTrades.sort((a, b) => a.time - b.time);
+
+        const earlyTrades = allTrades;
+        console.log(`   总共查询${pageCount}次，获取${earlyTrades.length}条交易记录`);
         if (earlyTrades.length > 0) {
           const firstTime = earlyTrades[0].time;
           const lastTime = earlyTrades[earlyTrades.length - 1].time;
@@ -2114,8 +2161,9 @@ class RicherJsWebServer {
           console.log(`   代币 launch_at: ${launchAt} (${launchAt ? toBeijingTime(launchAt) : 'null'})`);
         }
 
-        // 只返回前N条交易记录
-        const limitedTrades = earlyTrades.slice(0, limit);
+        // 如果进行了分页查询（多次API调用），返回所有获取的数据
+        // 否则只返回前N条交易记录
+        const limitedTrades = pageCount > 1 ? earlyTrades : earlyTrades.slice(0, limit);
 
         // 辅助函数：转换为北京时间字符串
         function toBeijingTime(timestamp) {
@@ -2138,13 +2186,19 @@ class RicherJsWebServer {
               returnedTrades: limitedTrades.length,
               firstTradeTime: limitedTrades.length > 0 ? limitedTrades[0].time : null,
               lastTradeTime: limitedTrades.length > 0 ? limitedTrades[limitedTrades.length - 1].time : null,
+              timeWindowMinutes,
+              pagination: {
+                totalPages: pageCount,
+                logs: paginationLogs
+              },
               apiParams: {
                 pairId,
                 limit,
-                fromTime: null,
-                fromTimeFormatted: 'null',
-                toTime: null,
-                toTimeFormatted: 'null',
+                timeWindowMinutes,
+                fromTime: fromTime,
+                fromTimeFormatted: fromTime ? toBeijingTime(fromTime) : 'null',
+                toTime: toTime,
+                toTimeFormatted: toTime ? toBeijingTime(toTime) : 'null',
                 sort: 'asc'
               }
             }

@@ -10,6 +10,7 @@ class StrategyAnalysisPage {
     this.currentTimeIndex = 0;
     this.analysisData = null;
     this.chart = null;
+    this.priceChart = null;
 
     this.init();
   }
@@ -198,6 +199,7 @@ class StrategyAnalysisPage {
       this.renderDetails(0);
 
       document.getElementById('chartContainer').style.display = 'block';
+      document.getElementById('priceChartContainer').style.display = 'block';
       document.getElementById('strategySummary').style.display = 'block';
       document.getElementById('detailsContainer').style.display = 'block';
       document.getElementById('emptyState').style.display = 'none';
@@ -231,6 +233,9 @@ class StrategyAnalysisPage {
     // 销毁旧图表
     if (this.chart) {
       this.chart.destroy();
+    }
+    if (this.priceChart) {
+      this.priceChart.destroy();
     }
 
     const timePoints = this.analysisData.timePoints;
@@ -307,6 +312,98 @@ class StrategyAnalysisPage {
         }
       }
     });
+
+    // 渲染价格图表
+    this.renderPriceChart();
+  }
+
+  renderPriceChart() {
+    const priceChartWrapper = document.getElementById('priceChartWrapper');
+    if (!priceChartWrapper) return;
+
+    const timePoints = this.analysisData.timePoints;
+
+    // 提取价格数据
+    const labels = timePoints.map(tp => {
+      const date = new Date(tp.timestamp);
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    });
+    const prices = timePoints.map(tp => tp.data.price_usd ? parseFloat(tp.data.price_usd) : null);
+
+    // 清空容器并创建新的 canvas
+    priceChartWrapper.innerHTML = '<canvas id="priceChart"></canvas>';
+    const canvas = document.getElementById('priceChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    // 创建价格图表
+    this.priceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: '价格 (USDT)',
+          data: prices,
+          borderColor: '#52c41a',
+          backgroundColor: 'rgba(82, 196, 26, 0.1)',
+          tension: 0.1,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: {
+          duration: 0
+        },
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.raw;
+                if (value !== null) {
+                  return `价格: $${value.toFixed(6)}`;
+                }
+                return '价格: N/A';
+              }
+            }
+          },
+          legend: {
+            display: true,
+            position: 'top'
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              maxTicksLimit: 20
+            },
+            title: {
+              display: true,
+              text: '时间'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: '价格 (USDT)'
+            }
+          }
+        },
+        onClick: (event, elements) => {
+          if (elements.length > 0) {
+            const index = elements[0].index;
+            this.renderDetails(index);
+          }
+        }
+      }
+    });
   }
 
   renderDetails(index) {
@@ -331,27 +428,63 @@ class StrategyAnalysisPage {
 
     // 使用 subConditions 定义来计算每个条件的满足情况
     const subConditions = this.analysisData.subConditions || [];
-    subConditions.forEach(sc => {
-      // 从 factor_values 中获取实际值
-      const actualValue = factorValues[sc.variable];
-      const satisfied = this._compareValues(actualValue, sc.operator, sc.value);
+    const strategyVariables = new Set(subConditions.map(sc => sc.variable));
 
-      const item = document.createElement('div');
-      item.className = `condition-item ${satisfied ? 'satisfied' : 'not-satisfied'}`;
+    // 1. 先展示策略相关的因子
+    if (subConditions.length > 0) {
+      const strategySection = document.createElement('div');
+      strategySection.innerHTML = '<div class="section-title" style="font-weight:600; color:#1a1a1a; margin: 15px 0 10px 0; padding-bottom:8px; border-bottom:1px solid #ddd;">📋 策略条件</div>';
+      conditionList.appendChild(strategySection);
 
-      item.innerHTML = `
-        <div class="condition-header">
-          <span class="condition-icon">${satisfied ? '✅' : '❌'}</span>
-          <span class="condition-text">${sc.raw}</span>
-        </div>
-        <div class="condition-values">
-          实际值: ${actualValue !== null && actualValue !== undefined ? actualValue : 'N/A'} |
-          期望: ${sc.operator} ${sc.value}
-        </div>
-      `;
+      subConditions.forEach(sc => {
+        // 从 factor_values 中获取实际值
+        const actualValue = factorValues[sc.variable];
+        const satisfied = this._compareValues(actualValue, sc.operator, sc.value);
 
-      conditionList.appendChild(item);
-    });
+        const item = document.createElement('div');
+        item.className = `condition-item ${satisfied ? 'satisfied' : 'not-satisfied'}`;
+
+        item.innerHTML = `
+          <div class="condition-header">
+            <span class="condition-icon">${satisfied ? '✅' : '❌'}</span>
+            <span class="condition-text">${sc.raw}</span>
+          </div>
+          <div class="condition-values">
+            实际值: ${actualValue !== null && actualValue !== undefined ? actualValue : 'N/A'} |
+            期望: ${sc.operator} ${sc.value}
+          </div>
+        `;
+
+        conditionList.appendChild(item);
+      });
+    }
+
+    // 2. 再展示其它因子
+    const otherFactors = Object.keys(factorValues).filter(key => !strategyVariables.has(key));
+    if (otherFactors.length > 0) {
+      const otherSection = document.createElement('div');
+      otherSection.innerHTML = '<div class="section-title" style="font-weight:600; color:#1a1a1a; margin: 20px 0 10px 0; padding-bottom:8px; border-bottom:1px solid #ddd;">📊 其它因子</div>';
+      conditionList.appendChild(otherSection);
+
+      otherFactors.forEach(key => {
+        const value = factorValues[key];
+        const item = document.createElement('div');
+        item.className = 'condition-item';
+        item.style.background = '#fafafa';
+        item.style.borderColor = '#eee';
+
+        item.innerHTML = `
+          <div class="condition-header">
+            <span class="condition-text">${key}</span>
+          </div>
+          <div class="condition-values">
+            值: ${value !== null && value !== undefined ? value : 'N/A'}
+          </div>
+        `;
+
+        conditionList.appendChild(item);
+      });
+    }
 
     // 更新导航按钮
     document.getElementById('prevBtn').disabled = index === 0;

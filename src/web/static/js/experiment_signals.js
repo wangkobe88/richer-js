@@ -129,23 +129,44 @@ class ExperimentSignals {
         this.updateBacktestHeader(this._sourceExperimentId);
       }
 
-      // 然后加载信号数据（fetchSignals 内部会自动使用源实验ID）
+      // 🔥 先解析URL hash参数，自动选择代币（必须在fetchSignals之前）
+      await this.parseHashToken();
+
+      // 然后加载信号数据（fetchSignals 内部会自动使用源实验ID和tokenAddress过滤）
       const signalsResponse = await this.fetchSignals();
-      // console.log('📡 信号数据加载完成:', signalsResponse.signals?.length || 0, '条');
-      // console.log('🔍 signalsResponse完整对象:', signalsResponse);
+      console.log('📡 fetchSignals返回:', {
+        success: signalsResponse.success,
+        signalsCount: signalsResponse.signals?.length || 0,
+        count: signalsResponse.count
+      });
 
       // 更新信号数据（必须在 extractTokensFromExperiment 之前）
       this.signals = signalsResponse.signals || [];
       console.log('📊 已加载', this.signals.length, '条信号');
+      console.log('📊 selectedToken:', this.selectedToken);
 
       // 🔥 从信号数据中提取代币列表并填充选择器
       this.extractTokensFromExperiment();
 
-      // 🔥 解析URL hash参数，自动选择代币（会加载对应代币的时序图表）
-      await this.parseHashToken();
+      // 🔥 如果URL中有token参数且找到了对应的代币，加载其时序图表
+      if (this.selectedToken && this.selectedToken !== 'all') {
+        const selectedToken = this.availableTokens.find(t => t.address.toLowerCase() === this.selectedToken.toLowerCase());
+        if (selectedToken) {
+          // 更新选择器的值
+          const selector = document.getElementById('token-selector');
+          if (selector) {
+            selector.value = this.selectedToken;
+            console.log('✅ 已自动选择代币:', this.selectedToken);
+          }
+          // 加载该代币的时序数据图表
+          await this.loadKlineForToken(selectedToken);
+        } else {
+          console.warn('⚠️ URL中的代币不在信号列表中:', this.selectedToken);
+          this.selectedToken = 'all'; // 重置为全部
+        }
+      }
 
       // 只有当没有选择特定代币时，才加载默认K线数据
-      // 如果URL hash中有token参数，parseHashToken已经加载了时序图表
       if (this.selectedToken === 'all') {
         // 尝试加载K线数据（不影响信号显示）
         try {
@@ -178,6 +199,9 @@ class ExperimentSignals {
       const filteredSignals = this.selectedToken === 'all'
         ? this.signals
         : this.signals.filter(s => s.token_address === this.selectedToken);
+
+      console.log('🔍 filteredSignals:', filteredSignals.length, 'selectedToken:', this.selectedToken);
+      console.log('🔍 Sample signals:', filteredSignals.slice(0, 3).map(s => ({ action: s.action, symbol: s.symbol, token_address: s.token_address })));
 
       // 更新信号统计
       this.updateSignalsStats(filteredSignals);
@@ -245,6 +269,14 @@ class ExperimentSignals {
       params.append('action', this.currentFilters.action);
     }
 
+    // 🔥 如果选择了特定代币，传递tokenAddress参数进行服务端过滤
+    if (this.selectedToken && this.selectedToken !== 'all') {
+      params.append('tokenAddress', this.selectedToken);
+    }
+
+    console.log('🔍 fetchSignals params:', Object.fromEntries(params));
+    console.log('🔍 fetchSignals URL:', `/api/experiment/${targetId}/signals?${params}`);
+
     const response = await fetch(`/api/experiment/${targetId}/signals?${params}`);
     if (!response.ok) {
       throw new Error('获取交易信号失败');
@@ -296,30 +328,13 @@ class ExperimentSignals {
       const tokenMatch = hash.match(/#token=([^&]+)/);
       if (tokenMatch) {
         const tokenAddress = tokenMatch[1];
-        console.log('🔍 发现token参数，自动选择代币:', tokenAddress);
+        console.log('🔍 发现token参数，设置selectedToken:', tokenAddress);
 
-        // 检查该代币是否在可用列表中
-        const selectedToken = this.availableTokens.find(t => t.address.toLowerCase() === tokenAddress.toLowerCase());
+        // 直接设置 selectedToken（用于API过滤）
+        // 此时 availableTokens 还未填充，所以先不检查
+        this.selectedToken = tokenAddress;
 
-        if (selectedToken) {
-          // 设置选择的代币
-          this.selectedToken = tokenAddress;
-
-          // 更新选择器的值
-          const selector = document.getElementById('token-selector');
-          if (selector) {
-            selector.value = tokenAddress;
-            console.log('✅ 已自动选择代币:', tokenAddress);
-          }
-
-          // 加载该代币的时序数据图表
-          await this.loadKlineForToken(selectedToken);
-
-          // 过滤并渲染信号列表
-          this.filterAndRenderSignals();
-        } else {
-          console.warn('⚠️ URL中的代币不在信号列表中:', tokenAddress);
-        }
+        // 注意：时序图表加载和选择器更新会在 extractTokensFromExperiment 之后进行
       }
     } catch (error) {
       console.error('❌ 解析URL hash参数失败:', error);
