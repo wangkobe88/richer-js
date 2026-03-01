@@ -31,9 +31,30 @@ class TokenHolderDataService {
       if (!snapshots || snapshots.length === 0) {
         return {
           token_address: tokenAddress,
+          creator_address: null,
           snapshots: [],
           stats: { total_snapshots: 0, total_holders: 0, blacklisted_holders: 0 }
         };
+      }
+
+      // 2. 获取代币的创建者地址（从 experiment_tokens 表）
+      let creatorAddress = null;
+      try {
+        const { data: tokenData } = await this.supabase
+          .from('experiment_tokens')
+          .select('raw_api_data')
+          .eq('token_address', tokenAddress)
+          .limit(1)
+          .maybeSingle();
+
+        if (tokenData?.raw_api_data) {
+          const apiData = typeof tokenData.raw_api_data === 'string'
+            ? JSON.parse(tokenData.raw_api_data)
+            : tokenData.raw_api_data;
+          creatorAddress = apiData.creator_address || null;
+        }
+      } catch (e) {
+        console.log('获取创建者地址失败:', e.message);
       }
 
       // 2. 提取所有实验ID
@@ -130,6 +151,7 @@ class TokenHolderDataService {
 
       return {
         token_address: tokenAddress,
+        creator_address: creatorAddress,
         snapshots: processedSnapshots,
         stats: {
           total_snapshots: snapshots.length,

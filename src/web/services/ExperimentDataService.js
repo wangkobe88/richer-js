@@ -105,7 +105,12 @@ class ExperimentDataService {
       // 🔥 Supabase 单次查询最多返回 1000 行，需要分页获取
       const offset = parseInt(options.offset) || 0;
       const maxLimit = 10000; // 设置最大返回数量上限
-      let limit = parseInt(options.limit) || 100;
+      let limit = parseInt(options.limit) || 1000;
+
+      // 提高默认 limit 以确保 BUY 信号不被遗漏
+      if (!options.limit && limit === 100) {
+        limit = 1000;
+      }
 
       // 防止 limit 过大导致性能问题
       if (limit > maxLimit) {
@@ -139,8 +144,9 @@ class ExperimentDataService {
         // 分页
         query = query.range(currentOffset, currentOffset + pageSize - 1);
 
-        // 排序
-        query = query.order('created_at', { ascending: false });
+        // 排序：优先显示 BUY 信号，然后按时间降序
+        query = query.order('action', { ascending: false }) // 'buy' > 'sell' 按字母顺序
+                  .order('created_at', { ascending: false });
 
         const { data, error } = await query;
 

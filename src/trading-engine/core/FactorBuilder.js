@@ -64,21 +64,19 @@ function buildFactorValuesForTimeSeries(factorResults) {
 function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0, timestamp = Date.now()) {
   const fv = factorValues || {};
 
-  // 从 tokenState 计算动态因子
-  const collectionTime = tokenState.collectionTime || timestamp;
-  const age = (timestamp - collectionTime) / 1000 / 60;
+  // 优先使用 factor_values 中的 age（基于代币创建时间），如果没有则重新计算
+  let age = fv.age;
+  if (age === undefined || age === null) {
+    const collectionTime = tokenState.collectionTime || timestamp;
+    age = (timestamp - collectionTime) / 1000 / 60;
+  }
 
+  // 持仓相关因子需要基于回测引擎的买入状态动态计算
   const holdDuration = tokenState.buyTime ? (timestamp - tokenState.buyTime) / 1000 : 0;
 
   let profitPercent = 0;
   if (tokenState.buyPrice && tokenState.buyPrice > 0 && priceUsd > 0) {
     profitPercent = ((priceUsd - tokenState.buyPrice) / tokenState.buyPrice) * 100;
-  }
-
-  const highestPrice = tokenState.highestPrice || priceUsd;
-  let drawdownFromHighest = 0;
-  if (highestPrice > 0 && priceUsd > 0) {
-    drawdownFromHighest = ((priceUsd - highestPrice) / highestPrice) * 100;
   }
 
   return {
@@ -92,9 +90,10 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     buyPrice: tokenState.buyPrice || 0,
     holdDuration: holdDuration,
     profitPercent: profitPercent,
-    highestPrice: highestPrice,
-    highestPriceTimestamp: tokenState.highestPriceTimestamp || fv.highestPriceTimestamp || timestamp,
-    drawdownFromHighest: drawdownFromHighest,
+    // 直接使用 factor_values 中的最高价相关数据（虚拟引擎已动态维护）
+    highestPrice: fv.highestPrice || priceUsd,
+    highestPriceTimestamp: fv.highestPriceTimestamp || timestamp,
+    drawdownFromHighest: fv.drawdownFromHighest || 0,
     txVolumeU24h: fv.txVolumeU24h || 0,
     holders: fv.holders || 0,
     tvl: fv.tvl || 0,

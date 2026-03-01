@@ -140,11 +140,15 @@ class TokenHoldersManager {
   renderResults(data) {
     // 渲染代币信息
     const tokenInfo = document.getElementById('token-info');
+    const creatorInfo = data.creator_address
+      ? `<p class="font-mono text-sm text-orange-600 mt-1">👑 Dev: ${data.creator_address}</p>`
+      : '';
     tokenInfo.innerHTML = `
       <div class="flex items-center justify-between">
         <div>
           <h2 class="text-xl font-bold text-gray-900">代币地址</h2>
           <p class="font-mono text-sm text-gray-600 mt-1">${data.token_address}</p>
+          ${creatorInfo}
         </div>
         <button onclick="window.tokenHolders.copyAddress('${data.token_address}')"
                 class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors">
@@ -186,6 +190,9 @@ class TokenHoldersManager {
       `;
       return;
     }
+
+    // 存储创建者地址用于后续比对
+    this.creatorAddress = data.creator_address?.toLowerCase() || null;
 
     snapshotsContainer.innerHTML = data.snapshots.map((snapshot, index) => {
       const badgeClass = snapshot.blacklisted_count > 0 ? 'bg-red-100' : 'bg-green-100';
@@ -232,14 +239,14 @@ class TokenHoldersManager {
           </div>
 
           <div class="p-4">
-            ${snapshot.holders.length > 0 ? this.renderHoldersTable(snapshot.holders) : '<p class="text-gray-600">无持有者数据</p>'}
+            ${snapshot.holders.length > 0 ? this.renderHoldersTable(snapshot.holders, this.creatorAddress) : '<p class="text-gray-600">无持有者数据</p>'}
           </div>
         </div>
       `;
     }).join('');
   }
 
-  renderHoldersTable(holders) {
+  renderHoldersTable(holders, creatorAddress = null) {
     return `
       <div class="overflow-x-auto">
         <table class="min-w-full">
@@ -253,14 +260,14 @@ class TokenHoldersManager {
             </tr>
           </thead>
           <tbody class="bg-white">
-            ${holders.map(holder => this.renderHolderRow(holder)).join('')}
+            ${holders.map(holder => this.renderHolderRow(holder, creatorAddress)).join('')}
           </tbody>
         </table>
       </div>
     `;
   }
 
-  renderHolderRow(holder) {
+  renderHolderRow(holder, creatorAddress = null) {
     const categoryBadges = {
       'dev': 'badge-dev',
       'pump_group': 'badge-pump_group',
@@ -281,17 +288,30 @@ class TokenHoldersManager {
       'good_holder': '✨ 好持有者'
     };
 
+    // 检查是否是创建者
+    const isCreator = creatorAddress && holder.address &&
+      holder.address.toLowerCase() === creatorAddress;
+
     const badgeClass = categoryBadges[holder.category] || 'badge-none';
     const categoryLabel = holder.category ? (categoryNames[holder.category] || holder.category) : '';
+
+    // 如果是创建者，添加Dev标签（如果还没有标签）
+    const displayLabel = isCreator && !categoryLabel
+      ? '<span class="badge badge-dev">👑 Dev</span>'
+      : (categoryLabel ? `<span class="badge ${badgeClass}">${categoryLabel}</span>` : '<span class="text-gray-400 text-xs">无</span>');
+
+    // 如果是创建者，高亮行背景
+    const rowClass = isCreator ? 'bg-orange-50 border-b border-orange-200' : 'border-b';
 
     // 判断钱包类型
     const isInBlacklist = holder.category === 'pump_group' || holder.category === 'dev' || holder.category === 'negative_holder';
     const isInWhitelist = holder.category === 'good_holder';
 
     return `
-      <tr class="border-b">
+      <tr class="${rowClass}">
         <td class="px-4 py-2 text-sm">
           <span class="font-mono text-gray-900">${holder.address}</span>
+          ${isCreator ? '<span class="ml-2 text-xs font-bold text-orange-600">👑 Dev</span>' : ''}
           ${holder.wallet_name ? `<span class="ml-2 text-xs text-gray-500">(${holder.wallet_name})</span>` : ''}
           <a href="https://gmgn.ai/bsc/address/${holder.address}" target="_blank" class="ml-2 text-xs text-blue-500 hover:text-blue-700" title="在 GMGN 查看">
             GMGN
@@ -300,7 +320,7 @@ class TokenHoldersManager {
         <td class="px-4 py-2 text-right text-sm text-gray-900">${holder.balance_ratio || '-'}</td>
         <td class="px-4 py-2 text-right text-sm text-gray-900">${holder.balance_usd || '-'}</td>
         <td class="px-4 py-2 text-center text-sm">
-          ${categoryLabel ? `<span class="badge ${badgeClass}">${categoryLabel}</span>` : '<span class="text-gray-400 text-xs">无</span>'}
+          ${displayLabel}
         </td>
         <td class="px-4 py-2 text-center text-sm">
           <button type="button" class="text-blue-600 hover:text-blue-800 mr-1"
