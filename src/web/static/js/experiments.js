@@ -285,6 +285,9 @@ class ExperimentMonitor {
               <a href="/experiment/${exp.id}/token-returns" class="text-orange-600 hover:text-orange-800 text-sm">
                 收益
               </a>
+              <a href="/experiment/${exp.id}/strategy-analysis" class="text-pink-600 hover:text-pink-800 text-sm">
+                策略
+              </a>
               <a href="/token-holders?experiment=${exp.id}" class="text-cyan-600 text-sm" title="查看该实验的代币持有者信息">
                 持有者
               </a>

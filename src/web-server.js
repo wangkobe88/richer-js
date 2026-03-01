@@ -188,6 +188,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_token_returns.html'));
     });
 
+    // 交易策略分析页面
+    this.app.get('/experiment/:id/strategy-analysis', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/strategy_analysis.html'));
+    });
+
     // 实验详情页面（必须放在最后，作为默认路由）
     this.app.get('/experiment/:id', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));
@@ -257,6 +262,69 @@ class RicherJsWebServer {
       } catch (error) {
         console.error('获取实验列表失败:', error);
         res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ API路由：策略分析 ============
+    // 注意：这些路由必须在 /api/experiment/:id 之前定义，避免路由冲突
+
+    // 获取实验的策略列表
+    this.app.get('/api/experiment/strategies', async (req, res) => {
+      try {
+        const { experimentId } = req.query;
+
+        if (!experimentId) {
+          return res.status(400).json({
+            success: false,
+            error: '缺少必需参数: experimentId'
+          });
+        }
+
+        const { StrategyAnalysisService } = require('./web/services/StrategyAnalysisService');
+        const analysisService = new StrategyAnalysisService();
+
+        const result = await analysisService.getStrategies(experimentId);
+        res.json(result);
+
+      } catch (error) {
+        console.error('获取策略列表失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
+    // 分析策略在代币时序数据上的匹配情况
+    this.app.get('/api/experiment/strategy-analysis', async (req, res) => {
+      try {
+        const { experimentId, tokenAddress, strategyType = 'buy', strategyIndex = '0' } = req.query;
+
+        if (!experimentId || !tokenAddress) {
+          return res.status(400).json({
+            success: false,
+            error: '缺少必需参数: experimentId, tokenAddress'
+          });
+        }
+
+        const { StrategyAnalysisService } = require('./web/services/StrategyAnalysisService');
+        const analysisService = new StrategyAnalysisService();
+
+        const result = await analysisService.analyzeStrategy(
+          experimentId,
+          tokenAddress,
+          strategyType,
+          parseInt(strategyIndex)
+        );
+
+        res.json(result);
+
+      } catch (error) {
+        console.error('策略分析失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
       }
     });
 
@@ -1804,7 +1872,7 @@ class RicherJsWebServer {
         const { AveTxAPI } = require('./core/ave-api');
         const config = require('../config/default.json');
 
-        const { apiKey, baseURL, pairId, limit = 10, sort = 'asc' } = req.body;
+        const { apiKey, baseURL, pairId, limit = 10, sort = 'asc', fromTime = null, toTime = null } = req.body;
 
         const aveApi = new AveTxAPI(
           baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
@@ -1812,7 +1880,7 @@ class RicherJsWebServer {
           apiKey || process.env.AVE_API_KEY
         );
 
-        const transactions = await aveApi.getSwapTransactions(pairId, limit, null, null, sort);
+        const transactions = await aveApi.getSwapTransactions(pairId, limit, fromTime, toTime, sort);
 
         res.json({
           success: true,

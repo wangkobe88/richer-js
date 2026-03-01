@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>交易策略分析 - Richer Trading System</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .header h1 {
+      font-size: 20px;
+      margin-bottom: 15px;
+      color: #1a1a1a;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      color: #666;
+      font-weight: 500;
+    }
+
+    select, button {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      min-width: 150px;
+      background: white;
+    }
+
+    button {
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #1890ff;
+      color: white;
+      border: none;
+    }
+
+    .btn-primary:hover {
+      background: #40a9ff;
+    }
+
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #e0e0e0;
+    }
+
+    .chart-container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .chart-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .chart-info {
+      font-size: 12px;
+      color: #666;
+    }
+
+    #chartWrapper {
+      position: relative;
+      height: 200px;
+      width: 100%;
+    }
+
+    .details-container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .details-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .details-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .details-nav {
+      display: flex;
+      gap: 10px;
+    }
+
+    .current-time {
+      padding: 8px 12px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .condition-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 10px;
+    }
+
+    .condition-item {
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #eee;
+    }
+
+    .condition-item.satisfied {
+      background: #f6ffed;
+      border-color: #b7eb8f;
+    }
+
+    .condition-item.not-satisfied {
+      background: #fff2f0;
+      border-color: #ffccc7;
+    }
+
+    .condition-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+
+    .condition-icon {
+      font-size: 16px;
+    }
+
+    .condition-text {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #333;
+    }
+
+    .condition-values {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .error {
+      background: #fff2f0;
+      color: #ff4d4f;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 10px 0;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .strategy-summary {
+      padding: 15px;
+      background: #fafafa;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 13px;
+    }
+
+    .strategy-condition {
+      font-family: 'Courier New', monospace;
+      background: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 5px;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 头部 -->
+    <div class="header">
+      <h1>📊 交易策略分析</h1>
+      <div class="controls">
+        <div class="control-group">
+          <label>实验</label>
+          <select id="experimentSelect">
+            <option value="">选择实验...</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>代币</label>
+          <select id="tokenSelect" disabled>
+            <option value="">请先选择实验</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>策略类型</label>
+          <select id="strategyTypeSelect" disabled>
+            <option value="buy">买入策略</option>
+            <option value="sell">卖出策略</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>策略</label>
+          <select id="strategySelect" disabled>
+            <option value="">请先选择策略类型</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label>&nbsp;</label>
+          <button id="analyzeBtn" class="btn-primary" disabled>分析</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="errorContainer"></div>
+
+    <!-- 图表区域 -->
+    <div class="chart-container" id="chartContainer" style="display: none;">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">条件匹配图表</div>
+          <div class="chart-info" id="chartInfo">总条件: 0</div>
+        </div>
+      </div>
+      <div id="chartWrapper">
+        <div class="empty-state">
+          <p>请选择代币和策略后开始分析</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 策略摘要 -->
+    <div class="details-container" id="strategySummary" style="display: none;">
+      <div class="strategy-summary">
+        <strong>策略条件:</strong>
+        <div class="strategy-condition" id="strategyCondition"></div>
+      </div>
+    </div>
+
+    <!-- 详情区域 -->
+    <div class="details-container" id="detailsContainer" style="display: none;">
+      <div class="details-header">
+        <div class="current-time" id="currentTime">请选择时间点</div>
+        <div class="details-nav">
+          <button class="btn-secondary" id="prevBtn" disabled>◀ 上一个</button>
+          <button class="btn-secondary" id="nextBtn" disabled>下一个 > </button>
+        </div>
+      </div>
+      <div class="condition-list" id="conditionList">
+        <!-- 条件列表将在这里动态生成 -->
+      </div>
+    </div>
+
+    <!-- 空状态 -->
+    <div class="empty-state" id="emptyState">
+      <p>请选择实验、代币和策略后开始分析</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="/static/js/strategy_analysis.js"></script>
+</body>
+</html>

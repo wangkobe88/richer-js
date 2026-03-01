@@ -492,6 +492,7 @@ class ExperimentTokens {
     const holdersUrl = `/token-holders?experiment=${this.experimentId}&token=${token.token_address}`;
     const chain = this.experiment?.blockchain || 'bsc';
     const earlyTradesUrl = `/token-early-trades?token=${token.token_address}&chain=${chain}`;
+    const strategyUrl = `/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${token.token_address}`;
 
     // 获取分析结果
     const analysis = token.analysis_results;
@@ -546,6 +547,8 @@ class ExperimentTokens {
               <a href="${observerUrl}" target="_blank" class="hover:text-green-400 flex-shrink-0">时序</a>
               <span class="text-gray-600">|</span>
               <a href="${signalsUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">信号</a>
+              <span class="text-gray-600">|</span>
+              <a href="${strategyUrl}" class="hover:text-pink-400 flex-shrink-0">策略</a>
               <span class="text-gray-600">|</span>
               <a href="${earlyTradesUrl}" target="_blank" class="hover:text-amber-400 flex-shrink-0" title="早期交易">早期</a>
               <span class="text-gray-600">|</span>

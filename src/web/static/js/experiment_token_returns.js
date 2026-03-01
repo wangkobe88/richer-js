@@ -538,6 +538,9 @@ class ExperimentTokenReturns {
             <a href="/experiment/${this.experimentId}/signals#token=${item.tokenAddress}" target="_blank" class="text-purple-400 hover:text-purple-300 text-sm mr-2">
               查看信号
             </a>
+            <a href="/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${item.tokenAddress}" class="text-pink-400 hover:text-pink-300 text-sm mr-2">
+              策略分析
+            </a>
             <a href="${this.getTimeSeriesUrl(item.tokenAddress)}" target="_blank" class="text-emerald-400 hover:text-emerald-300 text-sm mr-2">
               时序数据
             </a>
