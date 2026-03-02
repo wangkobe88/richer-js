@@ -1266,7 +1266,33 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           holderBlacklistCount: factorResults.holderBlacklistCount || 0,
           holdersCount: factorResults.holdersCount || 0,
           devHoldingRatio: factorResults.devHoldingRatio || 0,
-          holderCanBuy: factorResults.holderCanBuy ?? null
+          holderCanBuy: factorResults.holderCanBuy ?? null,
+          // 早期参与者检查因子（初始为空值，检查通过后更新）
+          earlyTradesChecked: factorResults.earlyTradesChecked || 0,
+          earlyTradesCheckTimestamp: factorResults.earlyTradesCheckTimestamp || null,
+          earlyTradesCheckDuration: factorResults.earlyTradesCheckDuration || null,
+          earlyTradesCheckTime: factorResults.earlyTradesCheckTime || null,
+          earlyTradesWindow: factorResults.earlyTradesWindow || null,
+          earlyTradesExpectedFirstTime: factorResults.earlyTradesExpectedFirstTime || null,
+          earlyTradesExpectedLastTime: factorResults.earlyTradesExpectedLastTime || null,
+          earlyTradesDataFirstTime: factorResults.earlyTradesDataFirstTime || null,
+          earlyTradesDataLastTime: factorResults.earlyTradesDataLastTime || null,
+          earlyTradesDataCoverage: factorResults.earlyTradesDataCoverage || 0,
+          earlyTradesDataGapBefore: factorResults.earlyTradesDataGapBefore || null,
+          earlyTradesDataGapAfter: factorResults.earlyTradesDataGapAfter || null,
+          earlyTradesVolumePerMin: factorResults.earlyTradesVolumePerMin || 0,
+          earlyTradesCountPerMin: factorResults.earlyTradesCountPerMin || 0,
+          earlyTradesWalletsPerMin: factorResults.earlyTradesWalletsPerMin || 0,
+          earlyTradesHighValuePerMin: factorResults.earlyTradesHighValuePerMin || 0,
+          earlyTradesTotalCount: factorResults.earlyTradesTotalCount || 0,
+          earlyTradesVolume: factorResults.earlyTradesVolume || 0,
+          earlyTradesUniqueWallets: factorResults.earlyTradesUniqueWallets || 0,
+          earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
+          earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0,
+          earlyTradesAcceleration: factorResults.earlyTradesAcceleration || 0,
+          earlyTradesAccelerationRatio: factorResults.earlyTradesAccelerationRatio || null,
+          earlyTradesGrowthTrend: factorResults.earlyTradesGrowthTrend || null,
+          earlyTradesGrowthScore: factorResults.earlyTradesGrowthScore || null
         } : null
       };
 
@@ -1349,11 +1375,15 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           this.logger.info(this._experimentId, '_executeStrategy',
             `开始购买前检查 | symbol=${token.symbol}, creator=${token.creator_address || 'none'}`);
 
+          // 构建代币信息（用于早期参与者检查）
+          const tokenInfo = this._buildTokenInfo(token);
+
           preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             token.token,
             token.creator_address || null,
             this._experimentId,
-            token.chain || 'bsc'
+            token.chain || 'bsc',
+            tokenInfo
           );
 
           if (!preBuyCheckResult.canBuy) {
@@ -1420,7 +1450,33 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           holderBlacklistCount: preBuyCheckResult.holderBlacklistCount,
           holdersCount: preBuyCheckResult.holdersCount,
           devHoldingRatio: preBuyCheckResult.devHoldingRatio,
-          holderCanBuy: preBuyCheckResult.holderCanBuy
+          holderCanBuy: preBuyCheckResult.holderCanBuy,
+          // 早期参与者检查因子
+          earlyTradesChecked: preBuyCheckResult.earlyTradesChecked,
+          earlyTradesCheckTimestamp: preBuyCheckResult.earlyTradesCheckTimestamp,
+          earlyTradesCheckDuration: preBuyCheckResult.earlyTradesCheckDuration,
+          earlyTradesCheckTime: preBuyCheckResult.earlyTradesCheckTime,
+          earlyTradesWindow: preBuyCheckResult.earlyTradesWindow,
+          earlyTradesExpectedFirstTime: preBuyCheckResult.earlyTradesExpectedFirstTime,
+          earlyTradesExpectedLastTime: preBuyCheckResult.earlyTradesExpectedLastTime,
+          earlyTradesDataFirstTime: preBuyCheckResult.earlyTradesDataFirstTime,
+          earlyTradesDataLastTime: preBuyCheckResult.earlyTradesDataLastTime,
+          earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage,
+          earlyTradesDataGapBefore: preBuyCheckResult.earlyTradesDataGapBefore,
+          earlyTradesDataGapAfter: preBuyCheckResult.earlyTradesDataGapAfter,
+          earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin,
+          earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin,
+          earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin,
+          earlyTradesHighValuePerMin: preBuyCheckResult.earlyTradesHighValuePerMin,
+          earlyTradesTotalCount: preBuyCheckResult.earlyTradesTotalCount,
+          earlyTradesVolume: preBuyCheckResult.earlyTradesVolume,
+          earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets,
+          earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount,
+          earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount,
+          earlyTradesAcceleration: preBuyCheckResult.earlyTradesAcceleration,
+          earlyTradesAccelerationRatio: preBuyCheckResult.earlyTradesAccelerationRatio,
+          earlyTradesGrowthTrend: preBuyCheckResult.earlyTradesGrowthTrend,
+          earlyTradesGrowthScore: preBuyCheckResult.earlyTradesGrowthScore
         });
 
         // 更新 signal 对象的 factors（用于后续 processSignal）
@@ -1433,7 +1489,33 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           holderBlacklistCount: preBuyCheckResult.holderBlacklistCount,
           holdersCount: preBuyCheckResult.holdersCount,
           devHoldingRatio: preBuyCheckResult.devHoldingRatio,
-          holderCanBuy: preBuyCheckResult.holderCanBuy
+          holderCanBuy: preBuyCheckResult.holderCanBuy,
+          // 早期参与者检查因子
+          earlyTradesChecked: preBuyCheckResult.earlyTradesChecked,
+          earlyTradesCheckTimestamp: preBuyCheckResult.earlyTradesCheckTimestamp,
+          earlyTradesCheckDuration: preBuyCheckResult.earlyTradesCheckDuration,
+          earlyTradesCheckTime: preBuyCheckResult.earlyTradesCheckTime,
+          earlyTradesWindow: preBuyCheckResult.earlyTradesWindow,
+          earlyTradesExpectedFirstTime: preBuyCheckResult.earlyTradesExpectedFirstTime,
+          earlyTradesExpectedLastTime: preBuyCheckResult.earlyTradesExpectedLastTime,
+          earlyTradesDataFirstTime: preBuyCheckResult.earlyTradesDataFirstTime,
+          earlyTradesDataLastTime: preBuyCheckResult.earlyTradesDataLastTime,
+          earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage,
+          earlyTradesDataGapBefore: preBuyCheckResult.earlyTradesDataGapBefore,
+          earlyTradesDataGapAfter: preBuyCheckResult.earlyTradesDataGapAfter,
+          earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin,
+          earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin,
+          earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin,
+          earlyTradesHighValuePerMin: preBuyCheckResult.earlyTradesHighValuePerMin,
+          earlyTradesTotalCount: preBuyCheckResult.earlyTradesTotalCount,
+          earlyTradesVolume: preBuyCheckResult.earlyTradesVolume,
+          earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets,
+          earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount,
+          earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount,
+          earlyTradesAcceleration: preBuyCheckResult.earlyTradesAcceleration,
+          earlyTradesAccelerationRatio: preBuyCheckResult.earlyTradesAccelerationRatio,
+          earlyTradesGrowthTrend: preBuyCheckResult.earlyTradesGrowthTrend,
+          earlyTradesGrowthScore: preBuyCheckResult.earlyTradesGrowthScore
         };
 
         // 更新数据库中的信号元数据
@@ -1632,6 +1714,51 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         `检查 Dev 钱包失败 | error=${error.message}`);
       return false;
     }
+  }
+
+  /**
+   * 构建代币信息（用于早期参与者检查）
+   * @private
+   * @param {Object} token - 代币对象
+   * @returns {Object} tokenInfo
+   */
+  _buildTokenInfo(token) {
+    // 获取 launchAt
+    let launchAt = null;
+    if (token.launchAt) {
+      launchAt = token.launchAt;
+    } else if (token.raw_api_data) {
+      try {
+        const rawApiData = typeof token.raw_api_data === 'string'
+          ? JSON.parse(token.raw_api_data)
+          : token.raw_api_data;
+        launchAt = rawApiData.token?.launch_at || rawApiData.launch_at || null;
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+
+    // 确定内盘交易对
+    let innerPair = null;
+    const platform = token.platform || 'fourmeme';
+
+    if (platform === 'fourmeme') {
+      innerPair = `${token.token}_fo`;
+    } else if (platform === 'flap') {
+      innerPair = `${token.token}_iportal`;
+    } else if (token.main_pair) {
+      innerPair = token.main_pair;
+    } else if (token.pair) {
+      innerPair = token.pair;
+    } else {
+      // 默认使用 fourmeme 格式
+      innerPair = `${token.token}_fo`;
+    }
+
+    return {
+      launchAt,
+      innerPair
+    };
   }
 
   /**

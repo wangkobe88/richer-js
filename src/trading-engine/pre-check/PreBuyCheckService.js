@@ -3,19 +3,21 @@
  * 统一的购买前检查入口，整合所有预检查逻辑
  *
  * 职责：
- * 1. 执行购买前的所有检查（黑/白名单、Dev持仓等）
+ * 1. 执行购买前的所有检查（黑/白名单、Dev持仓、早期参与者等）
  * 2. 返回结构化的检查结果
  * 3. 将检查结果转换为因子格式
  */
 
 const { TokenHolderService } = require('../holders/TokenHolderService');
+const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService');
 
 /**
  * 默认配置
  */
 const DEFAULT_CONFIG = {
-  devHoldingThreshold: 15,  // Dev持仓阈值（百分比）
-  holderCheckEnabled: true   // 是否启用持有者检查
+  devHoldingThreshold: 15,           // Dev持仓阈值（百分比）
+  holderCheckEnabled: true,          // 是否启用持有者检查
+  earlyParticipantCheckEnabled: true // 是否启用早期参与者检查
 };
 
 class PreBuyCheckService {
@@ -31,6 +33,11 @@ class PreBuyCheckService {
 
     // 初始化持有者服务
     this.holderService = new TokenHolderService(supabase, logger);
+
+    // 初始化早期参与者检查服务
+    this.earlyParticipantService = new EarlyParticipantCheckService(logger, {
+      calculateGrowthScore: false  // 暂不计算增长评分
+    });
   }
 
   /**
@@ -48,9 +55,12 @@ class PreBuyCheckService {
    * @param {string} creatorAddress - 创建者地址（可为null）
    * @param {string} experimentId - 实验ID
    * @param {string} chain - 区块链
+   * @param {Object} tokenInfo - 代币信息（用于早期参与者检查）
+   * @param {number} tokenInfo.launchAt - 代币创建时间戳（秒）
+   * @param {string} tokenInfo.innerPair - 内盘交易对
    * @returns {Promise<Object>} 检查结果
    */
-  async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc') {
+  async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null) {
     const startTime = Date.now();
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
@@ -61,13 +71,11 @@ class PreBuyCheckService {
     });
 
     try {
-      // 执行持有者检查
-      const holderCheck = await this._performHolderCheck(
-        tokenAddress,
-        creatorAddress,
-        experimentId,
-        chain
-      );
+      // 并行执行检查（如果都有数据）
+      const [holderCheck, earlyParticipantCheck] = await Promise.all([
+        this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain),
+        this._performEarlyParticipantCheck(tokenAddress, chain, tokenInfo)
+      ]);
 
       // 构建结果
       const result = {
@@ -83,10 +91,13 @@ class PreBuyCheckService {
         devHoldingRatio: holderCheck.devHoldingRatio,
         holderCanBuy: holderCheck.canBuy,
 
-        // 详细原因（用于日志）
+        // 持有者检查详细原因
         holderCheckReason: holderCheck.reason,
         blacklistReason: holderCheck.blacklistReason,
         devCheckReason: holderCheck.devReason,
+
+        // 早期参与者检查结果
+        ...earlyParticipantCheck,
 
         // 综合结果
         canBuy: holderCheck.canBuy,
@@ -99,6 +110,8 @@ class PreBuyCheckService {
         blacklistCount: result.holderBlacklistCount,
         whitelistCount: result.holderWhitelistCount,
         devHoldingRatio: result.devHoldingRatio,
+        earlyTradesTotalCount: result.earlyTradesTotalCount || 0,
+        earlyTradesWalletsPerMin: result.earlyTradesWalletsPerMin || 0,
         duration: result.checkDuration
       });
 
@@ -130,7 +143,10 @@ class PreBuyCheckService {
         devCheckReason: `检查失败: ${errorMessage}`,
 
         canBuy: false,
-        checkReason: `购买前检查失败: ${errorMessage}`
+        checkReason: `购买前检查失败: ${errorMessage}`,
+
+        // 早期参与者检查失败时的空值
+        ...this.earlyParticipantService.getEmptyFactorValues()
       };
     }
   }
@@ -163,6 +179,33 @@ class PreBuyCheckService {
   }
 
   /**
+   * 执行早期参与者检查
+   * @private
+   */
+  async _performEarlyParticipantCheck(tokenAddress, chain, tokenInfo) {
+    if (!this.config.earlyParticipantCheckEnabled) {
+      return this.earlyParticipantService.getEmptyFactorValues();
+    }
+
+    if (!tokenInfo || !tokenInfo.launchAt || !tokenInfo.innerPair) {
+      this.logger.warn('[PreBuyCheckService] 缺少代币信息，跳过早期参与者检查', {
+        token_address: tokenAddress,
+        has_launch_at: !!tokenInfo?.launchAt,
+        has_inner_pair: !!tokenInfo?.innerPair
+      });
+      return this.earlyParticipantService.getEmptyFactorValues();
+    }
+
+    return await this.earlyParticipantService.performCheck(
+      tokenAddress,
+      tokenInfo.innerPair,
+      chain,
+      tokenInfo.launchAt,
+      Math.floor(Date.now() / 1000)
+    );
+  }
+
+  /**
    * 获取未执行检查时的默认因子值
    * @returns {Object} 默认因子值
    */
@@ -175,7 +218,8 @@ class PreBuyCheckService {
       holderBlacklistCount: 0,
       holdersCount: 0,
       devHoldingRatio: 0,
-      holderCanBuy: null
+      holderCanBuy: null,
+      ...this.earlyParticipantService.getEmptyFactorValues()
     };
   }
 

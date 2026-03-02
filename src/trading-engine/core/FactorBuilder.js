@@ -55,7 +55,33 @@ function buildFactorValuesForTimeSeries(factorResults) {
     holderBlacklistCount: factorResults.holderBlacklistCount || 0,
     holdersCount: factorResults.holdersCount || 0,
     devHoldingRatio: factorResults.devHoldingRatio || 0,
-    holderCanBuy: factorResults.holderCanBuy ?? null
+    holderCanBuy: factorResults.holderCanBuy ?? null,
+    // 早期参与者检查因子
+    earlyTradesChecked: factorResults.earlyTradesChecked || 0,
+    earlyTradesCheckTimestamp: factorResults.earlyTradesCheckTimestamp || null,
+    earlyTradesCheckDuration: factorResults.earlyTradesCheckDuration || null,
+    earlyTradesCheckTime: factorResults.earlyTradesCheckTime || null,
+    earlyTradesWindow: factorResults.earlyTradesWindow || null,
+    earlyTradesExpectedFirstTime: factorResults.earlyTradesExpectedFirstTime || null,
+    earlyTradesExpectedLastTime: factorResults.earlyTradesExpectedLastTime || null,
+    earlyTradesDataFirstTime: factorResults.earlyTradesDataFirstTime || null,
+    earlyTradesDataLastTime: factorResults.earlyTradesDataLastTime || null,
+    earlyTradesDataCoverage: factorResults.earlyTradesDataCoverage || 0,
+    earlyTradesDataGapBefore: factorResults.earlyTradesDataGapBefore || null,
+    earlyTradesDataGapAfter: factorResults.earlyTradesDataGapAfter || null,
+    earlyTradesVolumePerMin: factorResults.earlyTradesVolumePerMin || 0,
+    earlyTradesCountPerMin: factorResults.earlyTradesCountPerMin || 0,
+    earlyTradesWalletsPerMin: factorResults.earlyTradesWalletsPerMin || 0,
+    earlyTradesHighValuePerMin: factorResults.earlyTradesHighValuePerMin || 0,
+    earlyTradesTotalCount: factorResults.earlyTradesTotalCount || 0,
+    earlyTradesVolume: factorResults.earlyTradesVolume || 0,
+    earlyTradesUniqueWallets: factorResults.earlyTradesUniqueWallets || 0,
+    earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
+    earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0,
+    earlyTradesAcceleration: factorResults.earlyTradesAcceleration || 0,
+    earlyTradesAccelerationRatio: factorResults.earlyTradesAccelerationRatio || null,
+    earlyTradesGrowthTrend: factorResults.earlyTradesGrowthTrend || null,
+    earlyTradesGrowthScore: factorResults.earlyTradesGrowthScore || null
   };
 }
 
@@ -123,7 +149,33 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     holderBlacklistCount: fv.holderBlacklistCount ?? 0,
     holdersCount: fv.holdersCount ?? 0,
     devHoldingRatio: fv.devHoldingRatio ?? 0,
-    holderCanBuy: fv.holderCanBuy ?? null
+    holderCanBuy: fv.holderCanBuy ?? null,
+    // 早期参与者检查因子
+    earlyTradesChecked: fv.earlyTradesChecked ?? 0,
+    earlyTradesCheckTimestamp: fv.earlyTradesCheckTimestamp ?? null,
+    earlyTradesCheckDuration: fv.earlyTradesCheckDuration ?? null,
+    earlyTradesCheckTime: fv.earlyTradesCheckTime ?? null,
+    earlyTradesWindow: fv.earlyTradesWindow ?? null,
+    earlyTradesExpectedFirstTime: fv.earlyTradesExpectedFirstTime ?? null,
+    earlyTradesExpectedLastTime: fv.earlyTradesExpectedLastTime ?? null,
+    earlyTradesDataFirstTime: fv.earlyTradesDataFirstTime ?? null,
+    earlyTradesDataLastTime: fv.earlyTradesDataLastTime ?? null,
+    earlyTradesDataCoverage: fv.earlyTradesDataCoverage ?? 0,
+    earlyTradesDataGapBefore: fv.earlyTradesDataGapBefore ?? null,
+    earlyTradesDataGapAfter: fv.earlyTradesDataGapAfter ?? null,
+    earlyTradesVolumePerMin: fv.earlyTradesVolumePerMin ?? 0,
+    earlyTradesCountPerMin: fv.earlyTradesCountPerMin ?? 0,
+    earlyTradesWalletsPerMin: fv.earlyTradesWalletsPerMin ?? 0,
+    earlyTradesHighValuePerMin: fv.earlyTradesHighValuePerMin ?? 0,
+    earlyTradesTotalCount: fv.earlyTradesTotalCount ?? 0,
+    earlyTradesVolume: fv.earlyTradesVolume ?? 0,
+    earlyTradesUniqueWallets: fv.earlyTradesUniqueWallets ?? 0,
+    earlyTradesHighValueCount: fv.earlyTradesHighValueCount ?? 0,
+    earlyTradesFilteredCount: fv.earlyTradesFilteredCount ?? 0,
+    earlyTradesAcceleration: fv.earlyTradesAcceleration ?? 0,
+    earlyTradesAccelerationRatio: fv.earlyTradesAccelerationRatio ?? null,
+    earlyTradesGrowthTrend: fv.earlyTradesGrowthTrend ?? null,
+    earlyTradesGrowthScore: fv.earlyTradesGrowthScore ?? null
   };
 }
 
@@ -144,7 +196,17 @@ function getAvailableFactorIds() {
     // 购买前检查因子
     'preBuyCheck', 'checkTimestamp', 'checkDuration',
     'holderWhitelistCount', 'holderBlacklistCount', 'holdersCount',
-    'devHoldingRatio', 'holderCanBuy'
+    'devHoldingRatio', 'holderCanBuy',
+    // 早期参与者检查因子
+    'earlyTradesChecked', 'earlyTradesCheckTimestamp', 'earlyTradesCheckDuration',
+    'earlyTradesCheckTime', 'earlyTradesWindow',
+    'earlyTradesExpectedFirstTime', 'earlyTradesExpectedLastTime',
+    'earlyTradesDataFirstTime', 'earlyTradesDataLastTime', 'earlyTradesDataCoverage',
+    'earlyTradesDataGapBefore', 'earlyTradesDataGapAfter',
+    'earlyTradesVolumePerMin', 'earlyTradesCountPerMin', 'earlyTradesWalletsPerMin', 'earlyTradesHighValuePerMin',
+    'earlyTradesTotalCount', 'earlyTradesVolume', 'earlyTradesUniqueWallets',
+    'earlyTradesHighValueCount', 'earlyTradesFilteredCount',
+    'earlyTradesAcceleration', 'earlyTradesAccelerationRatio', 'earlyTradesGrowthTrend', 'earlyTradesGrowthScore'
   ]);
 }
 

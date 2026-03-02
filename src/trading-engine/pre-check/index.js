@@ -4,7 +4,9 @@
  */
 
 const { PreBuyCheckService } = require('./PreBuyCheckService');
+const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService');
 
 module.exports = {
-  PreBuyCheckService
+  PreBuyCheckService,
+  EarlyParticipantCheckService
 };
