@@ -1723,19 +1723,35 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * @returns {Object} tokenInfo
    */
   _buildTokenInfo(token) {
-    // 获取 launchAt
+    // 获取 launchAt（代币创建时间戳）
     let launchAt = null;
+
+    // 尝试多个来源获取 launchAt
+    // 1. 直接从 token.launchAt 获取
     if (token.launchAt) {
       launchAt = token.launchAt;
-    } else if (token.raw_api_data) {
+    }
+    // 2. 从 token.raw_api_data.token.launch_at 获取
+    else if (token.raw_api_data) {
       try {
         const rawApiData = typeof token.raw_api_data === 'string'
           ? JSON.parse(token.raw_api_data)
           : token.raw_api_data;
-        launchAt = rawApiData.token?.launch_at || rawApiData.launch_at || null;
+
+        // 尝试从不同的路径获取
+        if (rawApiData.token?.launch_at) {
+          launchAt = rawApiData.token.launch_at;
+        } else if (rawApiData.launch_at) {
+          launchAt = rawApiData.launch_at;
+        }
       } catch (e) {
         // 忽略解析错误
       }
+    }
+
+    // 3. 如果还是没有，使用 createdAt 作为备选（ createdAt 和 launch_at 通常是接近的）
+    if (!launchAt && token.createdAt) {
+      launchAt = token.createdAt;
     }
 
     // 确定内盘交易对
@@ -1755,10 +1771,16 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       innerPair = `${token.token}_fo`;
     }
 
-    return {
+    const result = {
       launchAt,
       innerPair
     };
+
+    // 记录调试信息
+    this.logger.info(this._experimentId, '_buildTokenInfo',
+      `代币信息构建 | symbol=${token.symbol}, launchAt=${launchAt}, innerPair=${innerPair}`);
+
+    return result;
   }
 
   /**
