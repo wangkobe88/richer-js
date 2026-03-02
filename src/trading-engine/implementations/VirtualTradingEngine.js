@@ -399,6 +399,15 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             metadata: result.trade.metadata
           });
         }
+
+        // 🔥 卖出成功后，检查是否还有剩余持仓
+        // 如果tokenCards为0，说明已全部卖出，更新状态为exited
+        if (cardManager.tokenCards === 0) {
+          this.logger.info(this._experimentId, '_executeSell',
+            `已全部卖出，更新代币状态为exited | tokenAddress=${signal.tokenAddress}, symbol=${signal.symbol}`);
+          this._tokenPool.markAsExited(signal.tokenAddress, signal.chain);
+          await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'exited');
+        }
       }
 
       return result;
@@ -415,6 +424,107 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    */
   _shouldRecordTimeSeries() {
     return true;
+  }
+
+  /**
+   * 覆盖 processSignal 方法，避免重复创建信号
+   * 在 VirtualTradingEngine._executeStrategy() 中已经创建并保存了信号
+   *
+   * @param {Object} signal - 信号对象
+   * @param {string} existingSignalId - 已存在的信号ID（已在_executeStrategy中保存）
+   * @returns {Promise<Object>} 处理结果
+   */
+  async processSignal(signal, existingSignalId = null) {
+    // 调试：记录 processSignal 被调用
+    console.log(`🔔 VirtualTradingEngine.processSignal 被调用: ${signal.symbol} ${signal.action} (${signal.tokenAddress}), existingSignalId=${existingSignalId}`);
+
+    if (!this._experiment) {
+      console.error(`❌ processSignal: this._experiment 为 null`);
+      throw new Error('引擎未初始化');
+    }
+
+    // 检查引擎状态
+    if (this._isStopped) {
+      return { success: false, message: '引擎已停止' };
+    }
+
+    let signalId = existingSignalId;
+    let result = { success: false, message: '交易未执行' };
+
+    // 如果没有预先保存的信号ID（卖出策略的情况），则创建并保存信号
+    if (!signalId) {
+      const { TradeSignal } = require('../entities');
+
+      // 创建信号实体 - 合并 factors 到 metadata
+      const signalMetadata = {
+        ...signal.metadata,
+        ...(signal.factors || {}),
+        price: signal.price,
+        strategyId: signal.strategyId,
+        strategyName: signal.strategyName,
+        cards: signal.cards,
+        cardConfig: signal.cardConfig
+      };
+
+      const tradeSignal = new TradeSignal({
+        experimentId: this._experimentId,
+        tokenAddress: signal.tokenAddress,
+        tokenSymbol: signal.symbol,
+        signalType: signal.action.toUpperCase(),
+        action: signal.action.toLowerCase(),
+        confidence: signal.confidence || 0.5,
+        reason: signal.reason || '',
+        metadata: signalMetadata,
+        createdAt: signal.timestamp || new Date()
+      });
+
+      signalId = await tradeSignal.save();
+      console.log(`✅ [卖出] 信号已保存: ${signal.symbol} ${signal.action}, signalId=${signalId}`);
+    } else {
+      console.log(`♻️  [买入] 使用已存在的信号: ${signal.symbol} ${signal.action}, signalId=${signalId}`);
+    }
+
+    // 执行交易
+    const signalTime = signal.timestamp || new Date();
+    const metadata = {
+      signalId,
+      loopCount: this._loopCount,
+      timestamp: signalTime instanceof Date ? signalTime.toISOString() : signalTime,
+      factors: signal.factors || null
+    };
+
+    try {
+      if (signal.action.toLowerCase() === 'buy') {
+        result = await this._executeBuy(signal, signalId, metadata);
+      } else if (signal.action.toLowerCase() === 'sell') {
+        result = await this._executeSell(signal, signalId, metadata);
+      } else {
+        result = { success: false, message: `未知动作: ${signal.action}` };
+      }
+
+      // 更新信号状态
+      if (signalId) {
+        await this._updateSignalStatus(signalId, result.success ? 'executed' : 'failed', result);
+      }
+
+    } catch (error) {
+      this._logger.error('信号执行失败', {
+        signalId,
+        error: error.message,
+        stack: error.stack
+      });
+
+      if (signalId) {
+        await this._updateSignalStatus(signalId, 'failed', {
+          message: error.message,
+          error: error.stack
+        });
+      }
+
+      result = { success: false, message: error.message };
+    }
+
+    return result;
   }
 
   // ==================== Virtual 特有方法 ====================
@@ -966,27 +1076,35 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       marketCap: token.marketCap || 0
     };
 
-    // 趋势检测指标因子（只生成数值指标，不做判断）
+    // 趋势检测指标因子（渐进式计算，尽可能早提供有效值）
     const prices = this._tokenPool.getTokenPrices(token.token, token.chain);
     factors.trendDataPoints = prices.length;
 
-    if (prices.length >= 6 && this._trendDetector) {
-      // 使用最近的10个数据点（或全部，如果不足10个）
-      // 注意：prices 数组中最新价格在末尾，所以用负索引取最近的 N 个
-      const _prices = prices.slice(-Math.min(10, prices.length));
+    // 渐进式计算：根据可用数据点数量计算不同指标
+    if (prices.length >= 2) {
+      // 基础指标（需要至少 2 个数据点）
 
-      // 四步法核心指标
-      factors.trendCV = this._trendDetector._calculateCV(_prices);
+      // 使用所有可用价格（不限制为 10 个）
+      const _prices = prices.slice(-Math.min(prices.length, prices.length));
 
-      const _direction = this._trendDetector._confirmDirection(_prices);
-      factors.trendDirectionCount = _direction.passed;
+      // 1. 总收益率和上涨占比（需要 2 个点）
+      const firstPrice = _prices[0];
+      const lastPrice = _prices[_prices.length - 1];
+      factors.trendTotalReturn = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
 
-      const _strength = this._trendDetector._calculateTrendStrength(_prices);
-      factors.trendStrengthScore = _strength.score;
-      factors.trendTotalReturn = _strength.details.totalReturn;
-      factors.trendRiseRatio = _strength.details.riseRatio;
+      // 计算上涨次数占比
+      let riseCount = 0;
+      for (let i = 1; i < _prices.length; i++) {
+        if (_prices[i] > _prices[i - 1]) riseCount++;
+      }
+      factors.trendRiseRatio = riseCount / Math.max(1, _prices.length - 1);
 
-      // 卖出相关指标
+      // 2. 变异系数 CV（需要 2 个点）
+      if (this._trendDetector) {
+        factors.trendCV = this._trendDetector._calculateCV(_prices);
+      }
+
+      // 3. 最近的下跌统计（检查最近 5 个或所有数据点）
       const _checkSize = Math.min(5, _prices.length);
       const _recentPrices = _prices.slice(-_checkSize);
       let _downCount = 0;
@@ -996,6 +1114,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       factors.trendRecentDownCount = _downCount;
       factors.trendRecentDownRatio = _downCount / Math.max(1, _recentPrices.length - 1);
 
+      // 4. 连续下跌次数
       let _consecutiveDowns = 0;
       for (let i = _prices.length - 1; i > 0; i--) {
         if (_prices[i] < _prices[i - 1]) {
@@ -1006,35 +1125,18 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
       factors.trendConsecutiveDowns = _consecutiveDowns;
 
-      factors.trendPriceChangeFromDetect = currentPrice > 0 && _prices[_prices.length - 1] > 0
-        ? ((currentPrice - _prices[_prices.length - 1]) / _prices[_prices.length - 1]) * 100
-        : 0;
+      // 需要至少 4 个数据点的指标
+      if (_prices.length >= 4 && this._trendDetector) {
+        // 方向确认（3 种方法）
+        const _direction = this._trendDetector._confirmDirection(_prices);
+        factors.trendDirectionCount = _direction.passed;
 
-      // 持仓后指标
-      if (token.buyTime && token.buyPrice) {
-        const _buyPriceIndex = prices.findIndex(p => Math.abs(p - token.buyPrice) / token.buyPrice < 0.01);
-        if (_buyPriceIndex >= 0 && _buyPriceIndex < prices.length - 1) {
-          factors.trendSinceBuyReturn = ((prices[prices.length - 1] - prices[_buyPriceIndex]) / prices[_buyPriceIndex]) * 100;
-          factors.trendSinceBuyDataPoints = prices.length - _buyPriceIndex;
-        } else {
-          factors.trendSinceBuyReturn = profitPercent;
-          factors.trendSinceBuyDataPoints = 0;
-        }
+        // 趋势强度评分
+        const _strength = this._trendDetector._calculateTrendStrength(_prices);
+        factors.trendStrengthScore = _strength.score;
       }
-    } else {
-      // 数据不足时的默认值
-      factors.trendCV = 0;
-      factors.trendDirectionCount = 0;
-      factors.trendStrengthScore = 0;
-      factors.trendTotalReturn = earlyReturn;
-      factors.trendRiseRatio = 0;
-      factors.trendRecentDownCount = 0;
-      factors.trendRecentDownRatio = 0;
-      factors.trendConsecutiveDowns = 0;
-      factors.trendPriceChangeFromDetect = earlyReturn;
-      factors.trendSinceBuyReturn = profitPercent;
-      factors.trendSinceBuyDataPoints = 0;
     }
+    // 数据不足时（< 2 个点），保持指标未定义（undefined）
 
     return factors;
   }
@@ -1291,7 +1393,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, '_executeStrategy',
         `预检查通过，调用 processSignal | symbol=${token.symbol}`);
 
-      const result = await this.processSignal(signal);
+      const result = await this.processSignal(signal, signalId);
 
       this.logger.info(this._experimentId, '_executeStrategy',
         `processSignal 返回 | symbol=${token.symbol}, success=${result?.success}, reason=${result?.reason || result?.message || 'none'}`);

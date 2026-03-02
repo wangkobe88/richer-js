@@ -1,0 +1,4005 @@
+{
+  "summary": {
+    "fake_pump": {
+      "label": "流水盘",
+      "emoji": "🎭",
+      "total": 148,
+      "hasTwitter": 111,
+      "hasTwitterRate": "75.00%",
+      "hasWebsite": 60,
+      "hasWebsiteRate": "40.54%",
+      "hasTelegram": 10,
+      "hasTelegramRate": "6.76%",
+      "hasAnySocial": 121,
+      "hasAnySocialRate": "81.76%",
+      "missingSocial": 27,
+      "missingSocialRate": "18.24%"
+    },
+    "no_user": {
+      "label": "无人玩",
+      "emoji": "👻",
+      "total": 0,
+      "hasTwitter": 0,
+      "hasTwitterRate": "0%",
+      "hasWebsite": 0,
+      "hasWebsiteRate": "0%",
+      "hasTelegram": 0,
+      "hasTelegramRate": "0%",
+      "hasAnySocial": 0,
+      "hasAnySocialRate": "0%",
+      "missingSocial": 0,
+      "missingSocialRate": "0%"
+    },
+    "low_quality": {
+      "label": "低质量",
+      "emoji": "📉",
+      "total": 151,
+      "hasTwitter": 113,
+      "hasTwitterRate": "74.83%",
+      "hasWebsite": 36,
+      "hasWebsiteRate": "23.84%",
+      "hasTelegram": 2,
+      "hasTelegramRate": "1.32%",
+      "hasAnySocial": 127,
+      "hasAnySocialRate": "84.11%",
+      "missingSocial": 24,
+      "missingSocialRate": "15.89%"
+    },
+    "mid_quality": {
+      "label": "中质量",
+      "emoji": "📊",
+      "total": 112,
+      "hasTwitter": 90,
+      "hasTwitterRate": "80.36%",
+      "hasWebsite": 35,
+      "hasWebsiteRate": "31.25%",
+      "hasTelegram": 0,
+      "hasTelegramRate": "0.00%",
+      "hasAnySocial": 93,
+      "hasAnySocialRate": "83.04%",
+      "missingSocial": 19,
+      "missingSocialRate": "16.96%"
+    },
+    "high_quality": {
+      "label": "高质量",
+      "emoji": "🚀",
+      "total": 25,
+      "hasTwitter": 21,
+      "hasTwitterRate": "84.00%",
+      "hasWebsite": 3,
+      "hasWebsiteRate": "12.00%",
+      "hasTelegram": 2,
+      "hasTelegramRate": "8.00%",
+      "hasAnySocial": 21,
+      "hasAnySocialRate": "84.00%",
+      "missingSocial": 4,
+      "missingSocialRate": "16.00%"
+    }
+  },
+  "rawData": [
+    {
+      "tokenAddress": "0x14367b92f64547a6a5b612cd3de77884e3c74444",
+      "tokenSymbol": "COOKS",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe6f203c693b09568921f2769cd69031d71fb4444",
+      "tokenSymbol": "白菜对我笑",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x53d429d7d049bbb9d1af95eba40756cf493affff",
+      "tokenSymbol": "养蛊",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x157c2e4e31597682ca44ca5d0d21d4eb4ba74444",
+      "tokenSymbol": "Constitution",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xed1916b7f30a1145d4821219de1891efb908ffff",
+      "tokenSymbol": "三生万物",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfea73dd6d9fa8612fc73479b96dc5088ff26ffff",
+      "tokenSymbol": "Utility",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa6667e40f368069c6b02de4b860da98164a54444",
+      "tokenSymbol": "BNB2",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9bc7e5a72c479f639cea138547c27400e5ff4444",
+      "tokenSymbol": "WHWIRE",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfe36dfc1293274805797f860eba4c23e2cdb4444",
+      "tokenSymbol": "三生万物",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x1c56c487b665cbedfc4124232596c79d69ffffff",
+      "tokenSymbol": "黑金猫",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xe6fc008ee42d4ce3dbbc12d97dccfbf033b07777",
+      "tokenSymbol": "燃烧之火",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7c3ab27b15f265811452a2b0bcf577584ef67777",
+      "tokenSymbol": "狗狗币",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xb14b7a538e8ffd79ff6ae7ac11a567b25dd37777",
+      "tokenSymbol": "一步登天",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xbb81261207e47a2aa2df803ff6a2d8b3ba724444",
+      "tokenSymbol": "币安老虎机",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfb52987cd42ed958f8c1a834a11d17ec2ebbffff",
+      "tokenSymbol": "BB",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2f0fc9eb6eb5267138d72cd1e5b933f0e52c4444",
+      "tokenSymbol": "牧马人",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x4bba725e321847d7e9fa040f01acbfacc5feffff",
+      "tokenSymbol": "MBGA",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x00c1c2be91a3abf17cb29bc25a2874b87c72ffff",
+      "tokenSymbol": "火球",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0224eb4f36be1a0cc63dcdcaa9346a62e2fb4444",
+      "tokenSymbol": "金马黑盾",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x3357d89328b56e36edb665e90c8495356ec8ffff",
+      "tokenSymbol": "10全10美",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x09f905afec8ad84a36c171a2b1e3f37eebb54444",
+      "tokenSymbol": "火马",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x742ca8140d67077acfefb6a3602933348fedffff",
+      "tokenSymbol": "五行",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7ff8982e661880e1c1dab4987650c2c0ca92ffff",
+      "tokenSymbol": "唵嘛呢叭咪吽",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x648d32c7906198746a8151fbebd3294f57d27777",
+      "tokenSymbol": "DOGSHIT",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2a6e1389f547f6a088772d8706f27d45169bffff",
+      "tokenSymbol": "DOGSHIT",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe916675f90c42a779b824c0f388c995420edffff",
+      "tokenSymbol": "超级燃烧",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x056706aedddf387511bef1353eb4ec9599bf4444",
+      "tokenSymbol": "gork420",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x175dbb3331810acf19d169eaf11bfbd167497777",
+      "tokenSymbol": "888蝴蝶",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x563d9f43e6db31ca33f3af7475b87cb1d8684444",
+      "tokenSymbol": "Slurmit",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0eea2c8968a0b25d7aec8e6dfcd18b503bc64444",
+      "tokenSymbol": "币安老虎机",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf817686609f1c524f11e9920dd44ec591e3d7777",
+      "tokenSymbol": "燃烧蝴蝶",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9da6dfee03b96110f8d3fe0c2be49c5a236c4444",
+      "tokenSymbol": "奶豆",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8b9bdb8a75df5d9ef0ef513ceacbe5e950864444",
+      "tokenSymbol": "4",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe70f4caf83e758506846ab371fbdedd4cb8d7777",
+      "tokenSymbol": "SCUT",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfca0fa98bda76f840a065f8c7c4b06f8e4e77777",
+      "tokenSymbol": "GUILD",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x4e63c0de139b1abb00e73ebd906eddc58cf57777",
+      "tokenSymbol": "知行何一",
+      "category": "high_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x72c1ac163f7cf43baff980e62c4ec51295944444",
+      "tokenSymbol": "一粒米鸭",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x050f052ab0634e235c87f6093505659fe8034444",
+      "tokenSymbol": "大狗大狗",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x37f9f8a095be277f70e773f6df3cb3103f664444",
+      "tokenSymbol": "dogdog",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7bb8f0bfc823c6e14e6dd824c62bdd4cd230ffff",
+      "tokenSymbol": "asdfd2",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xc601c87968e0aa3f2d206da4d130234941d14444",
+      "tokenSymbol": "Cha Kouay",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x4ea7142012fb4eb493114961c554b14a10ad4444",
+      "tokenSymbol": "丑鱼",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xee5f05d2f95bef0fe767fb45d65b968ef3784444",
+      "tokenSymbol": "teamgold",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x009b31adf3afda8882732983301432ed51d94444",
+      "tokenSymbol": "没脑子",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6502a5a69e4a557844aa5d363cf43fb17e577777",
+      "tokenSymbol": "GORKLON",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2ea095c42444d9ee540bb1ae6acdb021fca9ffff",
+      "tokenSymbol": "X-金库",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x35e79fa76753ce9177ac53d5dd6c0fac74874444",
+      "tokenSymbol": "FLAPAGENT",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8b3d626249ed627444bbb691d41333a9293a4444",
+      "tokenSymbol": "有借有还",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8ee658048edd5c6812d3361008d173cfdaa4ffff",
+      "tokenSymbol": "攒",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf34c16d9e4fbcaee05f80ba4e89dc506b3d14444",
+      "tokenSymbol": "ELys",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x407f257846f902ec95561e12d54a2895382a7777",
+      "tokenSymbol": "FB",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x53d5a9c6e18904f8ebfef073d4368a37c1504444",
+      "tokenSymbol": "Asterus",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x459ac519e9b4c29461ad98e75ff3e89f00634444",
+      "tokenSymbol": "Goblin",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x975005ecee691d90fe35fcb01623f17a71cb4444",
+      "tokenSymbol": "Lista",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5e95c36976b31efef740879a1770525c60a54444",
+      "tokenSymbol": "clod",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x591da92b0873dd82a062a1102f1a1cb5fd094444",
+      "tokenSymbol": "SEC",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9f3666678674309dca4bf6e314786fc4fa4b7777",
+      "tokenSymbol": "火灵珠",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5f9dbb46c7864216429609580a94c96d02934444",
+      "tokenSymbol": "four ball",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x04523c406d562409f075514abfd4bdc0fc534444",
+      "tokenSymbol": "BABYPUNCH",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x4cda359d4e5876c51f94ab07c76581d5be714444",
+      "tokenSymbol": "G",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x3deb172d03827c819c80a131a44ad7e30d704444",
+      "tokenSymbol": "周期渡我",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x7e5a8ba386415ba3164b635cca8057179b094444",
+      "tokenSymbol": "CORNER",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x9c5ca2e4f942636afd51ac749767e6062d154444",
+      "tokenSymbol": "CORNER",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xae93b3bb415848170df754b858e321ace8d44444",
+      "tokenSymbol": "DIOGE",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x144d2f2e3186033137eaa2184039435661cc4444",
+      "tokenSymbol": "smile",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa5bc1bda32ce7f37df81648ebb5f459dea034444",
+      "tokenSymbol": "BAI",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x746390035c294b3a9830470f2820befafa547777",
+      "tokenSymbol": "BENCHMARK",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8c46824efc7e9cb950f35ef05ba2bd93d1874444",
+      "tokenSymbol": "BNBXBT",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x3afe04adc8e163a67911d9f54dd54952a0474444",
+      "tokenSymbol": "YES",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xd2caff188b67d79081b0587bb9518d4ab4554444",
+      "tokenSymbol": "Slurmit",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x1c458db72247b6bdf61ff07b3371aa6521904444",
+      "tokenSymbol": "黄金币",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xf4944b40d6f7a6eb8a902e9c67d2a5c1dd917777",
+      "tokenSymbol": "龙虾",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfd254e4e9efbb0225dadbd4519c41222c5ff4444",
+      "tokenSymbol": "红中",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x003d92adb1fca893a07c53a96856452257197777",
+      "tokenSymbol": "蝴蝶病毒",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7d4ae790ea51f91dd55ae0de2035f94e0d8c4444",
+      "tokenSymbol": "虾条",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xffeeef9163314e85465e02bad261f8c990df4444",
+      "tokenSymbol": "金鹅",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa89fcb71caef83dc074c5a9a8b31e9ac2a1d4444",
+      "tokenSymbol": "Geese",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8e7244dcbb210604f18a658356a9b702393b4444",
+      "tokenSymbol": "Lista",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x16392ec912d2bd3f86e06e3df9f851dc69c54444",
+      "tokenSymbol": "GORK3.0",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2ebe1655a41daa1fb3a15061b4628ad7c8b84444",
+      "tokenSymbol": "候",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x46c7b4b9b5bc0ea54035a96edeaa626f828f4444",
+      "tokenSymbol": "GORK",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x63c5de94fe7329ac72b48b0cf5716e14f24b7777",
+      "tokenSymbol": "解套马",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xce1e55cabefa6db1d690c3246ee405244a8affff",
+      "tokenSymbol": "DRYDUCK",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x88ba1e63857c6bac6381213847c684041cca4444",
+      "tokenSymbol": "41",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xb38083606bc233a4f45023f1d07e4059943e4444",
+      "tokenSymbol": "候年",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xd1361dc6d1d2d5f3642c7573da35d7f52a9e8888",
+      "tokenSymbol": "四匹马",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x729ae6dd1716aefe6e5faa113dfc541c19ed4444",
+      "tokenSymbol": "蚌埠住了",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9a91517c0f5788fdb69c7d2faa55bf7fe6f94444",
+      "tokenSymbol": "蚌埠住了",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7b8d3f43b93a0404cd2d44da2ecce5dff95a4444",
+      "tokenSymbol": "蚌埠住了",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xab1cc2325c6770aff6783b563e2da63e789a4444",
+      "tokenSymbol": "4INDEX",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf6c6cebff6cc8b1e68655437608ddf4f1e714444",
+      "tokenSymbol": "MINIPUNCH",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xe66256865db33ada01219d5b9f6ee772a62e4444",
+      "tokenSymbol": "Crypto Queen",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xde7ceb0837cacc5c43631dc6cb3ac7f4f1114444",
+      "tokenSymbol": "AGU",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x13f994a36702b66095961ddb084755fda7164444",
+      "tokenSymbol": "沃克西兹",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xe2559b1e787b3a89c8fcb3a96a03aaba443d4444",
+      "tokenSymbol": "ClawCZ",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe3959eea5ae8805340079e2ea088671041627777",
+      "tokenSymbol": "赛博打工虾",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x395e437bfbd1f1d9981eb5d2280862870f4b7777",
+      "tokenSymbol": "追梦",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x29517911478586f5ead87a28bb410398069c4444",
+      "tokenSymbol": "ClawCZ",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xd3cb51136952b4c031b039274a8be7f378104444",
+      "tokenSymbol": "ClawCZ",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0c38dd85b48204b13f78f1fc7c4556b640824444",
+      "tokenSymbol": "SHIELD",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x32846b9b8f1c3aa8a86b0c18b50998b737ad4444",
+      "tokenSymbol": "奶豆",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6c27c08dfb1e0d3c0d77f2487dc49a44a7074444",
+      "tokenSymbol": "Meaningful",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x998504ed5b0b59c81932cd899b39d4e0cf3e7777",
+      "tokenSymbol": "FA",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0550d9fcfa86bdc4a5cd665746d11d65b7e84444",
+      "tokenSymbol": "币安大鸽",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9ae27d0181cefd9894d403cc44166422c4014444",
+      "tokenSymbol": "LOOP",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2815d2fe6248a31711ad051681e34aeb62194444",
+      "tokenSymbol": "XDOG",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x466377bab24db5712922c6a25fe3ebdc36274444",
+      "tokenSymbol": "蝾螈小宝",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x674f7e95afe7ea046832a9743b81742a967f4444",
+      "tokenSymbol": "pigeon doctor",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x681434e2a77701071be2df53e45c44cb5f097777",
+      "tokenSymbol": "喷射雪球",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xed62dc646cf69fdc6198dfb0e698b63dea677777",
+      "tokenSymbol": "雪球聚变",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x13436da507639c78d90a66cf2a29c7183190ffff",
+      "tokenSymbol": "FA",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x16f1344ad0fc956d51143ce6fcbb144fe2a17777",
+      "tokenSymbol": "九品芝麻官",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x2fbee5e7dd23c2daf47bddfc042f9a1d471e4444",
+      "tokenSymbol": "4",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x597a8337ac8373e1ca3cdb7355b0ee66a3e34444",
+      "tokenSymbol": "OPN",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6e9d1a29a15522e06ee82f4b0642685b8b274444",
+      "tokenSymbol": "CoPaw",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2a0e3706b7439e295b9a0295289368b199587777",
+      "tokenSymbol": "零亏损",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6595bd9cde76a96f578a8bc04e96c852fc124444",
+      "tokenSymbol": "叙事危机",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x692e85637eded0b84e1e028efe16b16a4dff4444",
+      "tokenSymbol": "链式聊天",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x21437d36caf69cf36170acd32c6ba0266e4c7777",
+      "tokenSymbol": "1",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xdd4901e7a70df134a58fe7ac12fb5ea971927777",
+      "tokenSymbol": "蝴蝶能量",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x4034bc490ac2eefe0dfac8efcb5ed99dcaf37777",
+      "tokenSymbol": "水马",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x1161a3750451bccc07c4e0f1b0166b9c78694444",
+      "tokenSymbol": "清醒与沉沦",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x65a0d93f6c99eddadd67e6159af512ff1d6d7777",
+      "tokenSymbol": "马头🔥🔥",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xb27ee82d52e741b11d87993fc244978e834bffff",
+      "tokenSymbol": "MOSS",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5252b73af52d840e5eec997bb9bf34864ffe7777",
+      "tokenSymbol": "蝴蝶V3",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa191eb14372bd5530cbcfbed5f8e8934ed144444",
+      "tokenSymbol": "头号天象",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7320152ccc9f7667fa7b9dec62a2148838bb7777",
+      "tokenSymbol": "竞速赛场",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x012488feb6fd0dc22c57a3963ffc3d7586d87777",
+      "tokenSymbol": "开工大吉",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x775ef48abe85c741c4317660909d771b7dbb4444",
+      "tokenSymbol": "细狗",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xda99895274857ccc9bcbb35d0b07e675ec407777",
+      "tokenSymbol": "PVE 蝴蝶",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf93e22979fc83615b744bea9f151b0d7cd8a7777",
+      "tokenSymbol": "一路平安",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x976a0d33b8c90ac6ed9b258f3fc6590193677777",
+      "tokenSymbol": "DOGBURN",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa1d95feb74696f6c748f20c5d177a4ad5b027777",
+      "tokenSymbol": "保时捷",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7eb9c9f142984b0008a3227047b5b49655aa4444",
+      "tokenSymbol": "每日竞赛",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7d44e9d546b2d00d2bcabdcd84e95ba60bde7777",
+      "tokenSymbol": "CONCLAVE",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x719920ba8e22419057bd7c21f72df8e3f7187777",
+      "tokenSymbol": "天马AI",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x021886168601517ca3aa3d63267b4268317c7777",
+      "tokenSymbol": "龙虾茶馆",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0f71d082dc9b555ab600d14704f2e4d7274a7777",
+      "tokenSymbol": "AI龙虾",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xeecfb42d44e1b21ef5bf373d54eaea121fa37777",
+      "tokenSymbol": "金元宝",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x0dc5f5ad790f0192b18df9bce830dcc885067777",
+      "tokenSymbol": "踏马归来",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x8e46a33467a0106740eb04d65ceea0fb00cd7777",
+      "tokenSymbol": "🔥燃烧DOG",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xd609fc0f5fdcd528433a1f75fde5a7cccaa24444",
+      "tokenSymbol": "蜕皮",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x579205402816d19b511bb3d6fab8fb4017a8ffff",
+      "tokenSymbol": "大表鸽",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf49ee1083c2a26809676afc73ba35ab611147777",
+      "tokenSymbol": "元宇宙刀狗",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2f83b1ca2a28d086f55fff3b425f64a351c67777",
+      "tokenSymbol": "元宇宙蝴蝶",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xfbc1e9e8119822e9c598b143d575f7f474587777",
+      "tokenSymbol": "赛博蝴蝶",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x1002c47597f3fa1490dd72e93f301a8bb75a7777",
+      "tokenSymbol": "飞天彩蝶",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe2f61b843fe24f8abb9cd9b9edf592f44e124444",
+      "tokenSymbol": "FOMO",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5a48e524aacb24767780e0fe6d11ab8c42187777",
+      "tokenSymbol": "元宵",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x9fd6b41a1c5098a7f5100881bd8cb8f112a14444",
+      "tokenSymbol": "大表鸽",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8b1b47d0329ddfd6e089e99af62a4891bbc9ffff",
+      "tokenSymbol": "发财树",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x14367b92f64547a6a5b612cd3de77884e3c74444",
+      "tokenSymbol": "COOKS",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe6f203c693b09568921f2769cd69031d71fb4444",
+      "tokenSymbol": "白菜对我笑",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x53d429d7d049bbb9d1af95eba40756cf493affff",
+      "tokenSymbol": "养蛊",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x157c2e4e31597682ca44ca5d0d21d4eb4ba74444",
+      "tokenSymbol": "Constitution",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xed1916b7f30a1145d4821219de1891efb908ffff",
+      "tokenSymbol": "三生万物",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfea73dd6d9fa8612fc73479b96dc5088ff26ffff",
+      "tokenSymbol": "Utility",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa6667e40f368069c6b02de4b860da98164a54444",
+      "tokenSymbol": "BNB2",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9bc7e5a72c479f639cea138547c27400e5ff4444",
+      "tokenSymbol": "WHWIRE",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfe36dfc1293274805797f860eba4c23e2cdb4444",
+      "tokenSymbol": "三生万物",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x1c56c487b665cbedfc4124232596c79d69ffffff",
+      "tokenSymbol": "黑金猫",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xe6fc008ee42d4ce3dbbc12d97dccfbf033b07777",
+      "tokenSymbol": "燃烧之火",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7c3ab27b15f265811452a2b0bcf577584ef67777",
+      "tokenSymbol": "狗狗币",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xb14b7a538e8ffd79ff6ae7ac11a567b25dd37777",
+      "tokenSymbol": "一步登天",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xbb81261207e47a2aa2df803ff6a2d8b3ba724444",
+      "tokenSymbol": "币安老虎机",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfb52987cd42ed958f8c1a834a11d17ec2ebbffff",
+      "tokenSymbol": "BB",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2f0fc9eb6eb5267138d72cd1e5b933f0e52c4444",
+      "tokenSymbol": "牧马人",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x4bba725e321847d7e9fa040f01acbfacc5feffff",
+      "tokenSymbol": "MBGA",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x00c1c2be91a3abf17cb29bc25a2874b87c72ffff",
+      "tokenSymbol": "火球",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0224eb4f36be1a0cc63dcdcaa9346a62e2fb4444",
+      "tokenSymbol": "金马黑盾",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x3357d89328b56e36edb665e90c8495356ec8ffff",
+      "tokenSymbol": "10全10美",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x09f905afec8ad84a36c171a2b1e3f37eebb54444",
+      "tokenSymbol": "火马",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x742ca8140d67077acfefb6a3602933348fedffff",
+      "tokenSymbol": "五行",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7ff8982e661880e1c1dab4987650c2c0ca92ffff",
+      "tokenSymbol": "唵嘛呢叭咪吽",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x648d32c7906198746a8151fbebd3294f57d27777",
+      "tokenSymbol": "DOGSHIT",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2a6e1389f547f6a088772d8706f27d45169bffff",
+      "tokenSymbol": "DOGSHIT",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe916675f90c42a779b824c0f388c995420edffff",
+      "tokenSymbol": "超级燃烧",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x056706aedddf387511bef1353eb4ec9599bf4444",
+      "tokenSymbol": "gork420",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x175dbb3331810acf19d169eaf11bfbd167497777",
+      "tokenSymbol": "888蝴蝶",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x563d9f43e6db31ca33f3af7475b87cb1d8684444",
+      "tokenSymbol": "Slurmit",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0eea2c8968a0b25d7aec8e6dfcd18b503bc64444",
+      "tokenSymbol": "币安老虎机",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf817686609f1c524f11e9920dd44ec591e3d7777",
+      "tokenSymbol": "燃烧蝴蝶",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9da6dfee03b96110f8d3fe0c2be49c5a236c4444",
+      "tokenSymbol": "奶豆",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8b9bdb8a75df5d9ef0ef513ceacbe5e950864444",
+      "tokenSymbol": "4",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe70f4caf83e758506846ab371fbdedd4cb8d7777",
+      "tokenSymbol": "SCUT",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfca0fa98bda76f840a065f8c7c4b06f8e4e77777",
+      "tokenSymbol": "GUILD",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x4e63c0de139b1abb00e73ebd906eddc58cf57777",
+      "tokenSymbol": "知行何一",
+      "category": "high_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x72c1ac163f7cf43baff980e62c4ec51295944444",
+      "tokenSymbol": "一粒米鸭",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x050f052ab0634e235c87f6093505659fe8034444",
+      "tokenSymbol": "大狗大狗",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x37f9f8a095be277f70e773f6df3cb3103f664444",
+      "tokenSymbol": "dogdog",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7bb8f0bfc823c6e14e6dd824c62bdd4cd230ffff",
+      "tokenSymbol": "asdfd2",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xc601c87968e0aa3f2d206da4d130234941d14444",
+      "tokenSymbol": "Cha Kouay",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x4ea7142012fb4eb493114961c554b14a10ad4444",
+      "tokenSymbol": "丑鱼",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xee5f05d2f95bef0fe767fb45d65b968ef3784444",
+      "tokenSymbol": "teamgold",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x009b31adf3afda8882732983301432ed51d94444",
+      "tokenSymbol": "没脑子",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6502a5a69e4a557844aa5d363cf43fb17e577777",
+      "tokenSymbol": "GORKLON",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2ea095c42444d9ee540bb1ae6acdb021fca9ffff",
+      "tokenSymbol": "X-金库",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x35e79fa76753ce9177ac53d5dd6c0fac74874444",
+      "tokenSymbol": "FLAPAGENT",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8b3d626249ed627444bbb691d41333a9293a4444",
+      "tokenSymbol": "有借有还",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8ee658048edd5c6812d3361008d173cfdaa4ffff",
+      "tokenSymbol": "攒",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x288cba3a036b87e793b84483eaadf58a52c54444",
+      "tokenSymbol": "Ropie",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6b79f47cdb4b9cff726cd02ded5af41f2a6e4444",
+      "tokenSymbol": "1000x",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa62fa54e88387ad2991b7e092f8475b27ed84444",
+      "tokenSymbol": "钳钳",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7463b839652dfb30f596c8bb57a1251c231b7777",
+      "tokenSymbol": "幸运马",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x32846b9b8f1c3aa8a86b0c18b50998b737ad4444",
+      "tokenSymbol": "奶豆",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6c27c08dfb1e0d3c0d77f2487dc49a44a7074444",
+      "tokenSymbol": "Meaningful",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x998504ed5b0b59c81932cd899b39d4e0cf3e7777",
+      "tokenSymbol": "FA",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0550d9fcfa86bdc4a5cd665746d11d65b7e84444",
+      "tokenSymbol": "币安大鸽",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9ae27d0181cefd9894d403cc44166422c4014444",
+      "tokenSymbol": "LOOP",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2815d2fe6248a31711ad051681e34aeb62194444",
+      "tokenSymbol": "XDOG",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x466377bab24db5712922c6a25fe3ebdc36274444",
+      "tokenSymbol": "蝾螈小宝",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x674f7e95afe7ea046832a9743b81742a967f4444",
+      "tokenSymbol": "pigeon doctor",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x681434e2a77701071be2df53e45c44cb5f097777",
+      "tokenSymbol": "喷射雪球",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xed62dc646cf69fdc6198dfb0e698b63dea677777",
+      "tokenSymbol": "雪球聚变",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x13436da507639c78d90a66cf2a29c7183190ffff",
+      "tokenSymbol": "FA",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x16f1344ad0fc956d51143ce6fcbb144fe2a17777",
+      "tokenSymbol": "九品芝麻官",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x2fbee5e7dd23c2daf47bddfc042f9a1d471e4444",
+      "tokenSymbol": "4",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x597a8337ac8373e1ca3cdb7355b0ee66a3e34444",
+      "tokenSymbol": "OPN",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6e9d1a29a15522e06ee82f4b0642685b8b274444",
+      "tokenSymbol": "CoPaw",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2a0e3706b7439e295b9a0295289368b199587777",
+      "tokenSymbol": "零亏损",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6595bd9cde76a96f578a8bc04e96c852fc124444",
+      "tokenSymbol": "叙事危机",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x692e85637eded0b84e1e028efe16b16a4dff4444",
+      "tokenSymbol": "链式聊天",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x21437d36caf69cf36170acd32c6ba0266e4c7777",
+      "tokenSymbol": "1",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xdd4901e7a70df134a58fe7ac12fb5ea971927777",
+      "tokenSymbol": "蝴蝶能量",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x4034bc490ac2eefe0dfac8efcb5ed99dcaf37777",
+      "tokenSymbol": "水马",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x1161a3750451bccc07c4e0f1b0166b9c78694444",
+      "tokenSymbol": "清醒与沉沦",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x65a0d93f6c99eddadd67e6159af512ff1d6d7777",
+      "tokenSymbol": "马头🔥🔥",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xb27ee82d52e741b11d87993fc244978e834bffff",
+      "tokenSymbol": "MOSS",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5252b73af52d840e5eec997bb9bf34864ffe7777",
+      "tokenSymbol": "蝴蝶V3",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa191eb14372bd5530cbcfbed5f8e8934ed144444",
+      "tokenSymbol": "头号天象",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7320152ccc9f7667fa7b9dec62a2148838bb7777",
+      "tokenSymbol": "竞速赛场",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x012488feb6fd0dc22c57a3963ffc3d7586d87777",
+      "tokenSymbol": "开工大吉",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x775ef48abe85c741c4317660909d771b7dbb4444",
+      "tokenSymbol": "细狗",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xda99895274857ccc9bcbb35d0b07e675ec407777",
+      "tokenSymbol": "PVE 蝴蝶",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf93e22979fc83615b744bea9f151b0d7cd8a7777",
+      "tokenSymbol": "一路平安",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x976a0d33b8c90ac6ed9b258f3fc6590193677777",
+      "tokenSymbol": "DOGBURN",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa1d95feb74696f6c748f20c5d177a4ad5b027777",
+      "tokenSymbol": "保时捷",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7eb9c9f142984b0008a3227047b5b49655aa4444",
+      "tokenSymbol": "每日竞赛",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7d44e9d546b2d00d2bcabdcd84e95ba60bde7777",
+      "tokenSymbol": "CONCLAVE",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x719920ba8e22419057bd7c21f72df8e3f7187777",
+      "tokenSymbol": "天马AI",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x021886168601517ca3aa3d63267b4268317c7777",
+      "tokenSymbol": "龙虾茶馆",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0f71d082dc9b555ab600d14704f2e4d7274a7777",
+      "tokenSymbol": "AI龙虾",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xeecfb42d44e1b21ef5bf373d54eaea121fa37777",
+      "tokenSymbol": "金元宝",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x0dc5f5ad790f0192b18df9bce830dcc885067777",
+      "tokenSymbol": "踏马归来",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x8e46a33467a0106740eb04d65ceea0fb00cd7777",
+      "tokenSymbol": "🔥燃烧DOG",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xd609fc0f5fdcd528433a1f75fde5a7cccaa24444",
+      "tokenSymbol": "蜕皮",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x579205402816d19b511bb3d6fab8fb4017a8ffff",
+      "tokenSymbol": "大表鸽",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf49ee1083c2a26809676afc73ba35ab611147777",
+      "tokenSymbol": "元宇宙刀狗",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2f83b1ca2a28d086f55fff3b425f64a351c67777",
+      "tokenSymbol": "元宇宙蝴蝶",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xfbc1e9e8119822e9c598b143d575f7f474587777",
+      "tokenSymbol": "赛博蝴蝶",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x407f257846f902ec95561e12d54a2895382a7777",
+      "tokenSymbol": "FB",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x53d5a9c6e18904f8ebfef073d4368a37c1504444",
+      "tokenSymbol": "Asterus",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x459ac519e9b4c29461ad98e75ff3e89f00634444",
+      "tokenSymbol": "Goblin",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x975005ecee691d90fe35fcb01623f17a71cb4444",
+      "tokenSymbol": "Lista",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5e95c36976b31efef740879a1770525c60a54444",
+      "tokenSymbol": "clod",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x591da92b0873dd82a062a1102f1a1cb5fd094444",
+      "tokenSymbol": "SEC",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9f3666678674309dca4bf6e314786fc4fa4b7777",
+      "tokenSymbol": "火灵珠",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5f9dbb46c7864216429609580a94c96d02934444",
+      "tokenSymbol": "four ball",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x04523c406d562409f075514abfd4bdc0fc534444",
+      "tokenSymbol": "BABYPUNCH",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x4cda359d4e5876c51f94ab07c76581d5be714444",
+      "tokenSymbol": "G",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x3deb172d03827c819c80a131a44ad7e30d704444",
+      "tokenSymbol": "周期渡我",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x7e5a8ba386415ba3164b635cca8057179b094444",
+      "tokenSymbol": "CORNER",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x9c5ca2e4f942636afd51ac749767e6062d154444",
+      "tokenSymbol": "CORNER",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xae93b3bb415848170df754b858e321ace8d44444",
+      "tokenSymbol": "DIOGE",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x144d2f2e3186033137eaa2184039435661cc4444",
+      "tokenSymbol": "smile",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa5bc1bda32ce7f37df81648ebb5f459dea034444",
+      "tokenSymbol": "BAI",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x746390035c294b3a9830470f2820befafa547777",
+      "tokenSymbol": "BENCHMARK",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8c46824efc7e9cb950f35ef05ba2bd93d1874444",
+      "tokenSymbol": "BNBXBT",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x3afe04adc8e163a67911d9f54dd54952a0474444",
+      "tokenSymbol": "YES",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xd2caff188b67d79081b0587bb9518d4ab4554444",
+      "tokenSymbol": "Slurmit",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x1c458db72247b6bdf61ff07b3371aa6521904444",
+      "tokenSymbol": "黄金币",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xf4944b40d6f7a6eb8a902e9c67d2a5c1dd917777",
+      "tokenSymbol": "龙虾",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfd254e4e9efbb0225dadbd4519c41222c5ff4444",
+      "tokenSymbol": "红中",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x003d92adb1fca893a07c53a96856452257197777",
+      "tokenSymbol": "蝴蝶病毒",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7d4ae790ea51f91dd55ae0de2035f94e0d8c4444",
+      "tokenSymbol": "虾条",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xffeeef9163314e85465e02bad261f8c990df4444",
+      "tokenSymbol": "金鹅",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa89fcb71caef83dc074c5a9a8b31e9ac2a1d4444",
+      "tokenSymbol": "Geese",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8e7244dcbb210604f18a658356a9b702393b4444",
+      "tokenSymbol": "Lista",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x16392ec912d2bd3f86e06e3df9f851dc69c54444",
+      "tokenSymbol": "GORK3.0",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2ebe1655a41daa1fb3a15061b4628ad7c8b84444",
+      "tokenSymbol": "候",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x46c7b4b9b5bc0ea54035a96edeaa626f828f4444",
+      "tokenSymbol": "GORK",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x63c5de94fe7329ac72b48b0cf5716e14f24b7777",
+      "tokenSymbol": "解套马",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xce1e55cabefa6db1d690c3246ee405244a8affff",
+      "tokenSymbol": "DRYDUCK",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x88ba1e63857c6bac6381213847c684041cca4444",
+      "tokenSymbol": "41",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xb38083606bc233a4f45023f1d07e4059943e4444",
+      "tokenSymbol": "候年",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xd1361dc6d1d2d5f3642c7573da35d7f52a9e8888",
+      "tokenSymbol": "四匹马",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x729ae6dd1716aefe6e5faa113dfc541c19ed4444",
+      "tokenSymbol": "蚌埠住了",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9a91517c0f5788fdb69c7d2faa55bf7fe6f94444",
+      "tokenSymbol": "蚌埠住了",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7b8d3f43b93a0404cd2d44da2ecce5dff95a4444",
+      "tokenSymbol": "蚌埠住了",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xab1cc2325c6770aff6783b563e2da63e789a4444",
+      "tokenSymbol": "4INDEX",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf6c6cebff6cc8b1e68655437608ddf4f1e714444",
+      "tokenSymbol": "MINIPUNCH",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xe66256865db33ada01219d5b9f6ee772a62e4444",
+      "tokenSymbol": "Crypto Queen",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xde7ceb0837cacc5c43631dc6cb3ac7f4f1114444",
+      "tokenSymbol": "AGU",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x13f994a36702b66095961ddb084755fda7164444",
+      "tokenSymbol": "沃克西兹",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xe2559b1e787b3a89c8fcb3a96a03aaba443d4444",
+      "tokenSymbol": "ClawCZ",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe3959eea5ae8805340079e2ea088671041627777",
+      "tokenSymbol": "赛博打工虾",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x395e437bfbd1f1d9981eb5d2280862870f4b7777",
+      "tokenSymbol": "追梦",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x29517911478586f5ead87a28bb410398069c4444",
+      "tokenSymbol": "ClawCZ",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xd3cb51136952b4c031b039274a8be7f378104444",
+      "tokenSymbol": "ClawCZ",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0c38dd85b48204b13f78f1fc7c4556b640824444",
+      "tokenSymbol": "SHIELD",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9bc7e5a72c479f639cea138547c27400e5ff4444",
+      "tokenSymbol": "WHWIRE",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfe36dfc1293274805797f860eba4c23e2cdb4444",
+      "tokenSymbol": "三生万物",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x1c56c487b665cbedfc4124232596c79d69ffffff",
+      "tokenSymbol": "黑金猫",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xe6fc008ee42d4ce3dbbc12d97dccfbf033b07777",
+      "tokenSymbol": "燃烧之火",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7c3ab27b15f265811452a2b0bcf577584ef67777",
+      "tokenSymbol": "狗狗币",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xb14b7a538e8ffd79ff6ae7ac11a567b25dd37777",
+      "tokenSymbol": "一步登天",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xbb81261207e47a2aa2df803ff6a2d8b3ba724444",
+      "tokenSymbol": "币安老虎机",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfb52987cd42ed958f8c1a834a11d17ec2ebbffff",
+      "tokenSymbol": "BB",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2f0fc9eb6eb5267138d72cd1e5b933f0e52c4444",
+      "tokenSymbol": "牧马人",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x4bba725e321847d7e9fa040f01acbfacc5feffff",
+      "tokenSymbol": "MBGA",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x00c1c2be91a3abf17cb29bc25a2874b87c72ffff",
+      "tokenSymbol": "火球",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0224eb4f36be1a0cc63dcdcaa9346a62e2fb4444",
+      "tokenSymbol": "金马黑盾",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x3357d89328b56e36edb665e90c8495356ec8ffff",
+      "tokenSymbol": "10全10美",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x09f905afec8ad84a36c171a2b1e3f37eebb54444",
+      "tokenSymbol": "火马",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x742ca8140d67077acfefb6a3602933348fedffff",
+      "tokenSymbol": "五行",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7ff8982e661880e1c1dab4987650c2c0ca92ffff",
+      "tokenSymbol": "唵嘛呢叭咪吽",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x648d32c7906198746a8151fbebd3294f57d27777",
+      "tokenSymbol": "DOGSHIT",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2a6e1389f547f6a088772d8706f27d45169bffff",
+      "tokenSymbol": "DOGSHIT",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe916675f90c42a779b824c0f388c995420edffff",
+      "tokenSymbol": "超级燃烧",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x056706aedddf387511bef1353eb4ec9599bf4444",
+      "tokenSymbol": "gork420",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x175dbb3331810acf19d169eaf11bfbd167497777",
+      "tokenSymbol": "888蝴蝶",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x563d9f43e6db31ca33f3af7475b87cb1d8684444",
+      "tokenSymbol": "Slurmit",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0eea2c8968a0b25d7aec8e6dfcd18b503bc64444",
+      "tokenSymbol": "币安老虎机",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf817686609f1c524f11e9920dd44ec591e3d7777",
+      "tokenSymbol": "燃烧蝴蝶",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9da6dfee03b96110f8d3fe0c2be49c5a236c4444",
+      "tokenSymbol": "奶豆",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8b9bdb8a75df5d9ef0ef513ceacbe5e950864444",
+      "tokenSymbol": "4",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe70f4caf83e758506846ab371fbdedd4cb8d7777",
+      "tokenSymbol": "SCUT",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfca0fa98bda76f840a065f8c7c4b06f8e4e77777",
+      "tokenSymbol": "GUILD",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x4e63c0de139b1abb00e73ebd906eddc58cf57777",
+      "tokenSymbol": "知行何一",
+      "category": "high_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x72c1ac163f7cf43baff980e62c4ec51295944444",
+      "tokenSymbol": "一粒米鸭",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x050f052ab0634e235c87f6093505659fe8034444",
+      "tokenSymbol": "大狗大狗",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x37f9f8a095be277f70e773f6df3cb3103f664444",
+      "tokenSymbol": "dogdog",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7bb8f0bfc823c6e14e6dd824c62bdd4cd230ffff",
+      "tokenSymbol": "asdfd2",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xc601c87968e0aa3f2d206da4d130234941d14444",
+      "tokenSymbol": "Cha Kouay",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x35e79fa76753ce9177ac53d5dd6c0fac74874444",
+      "tokenSymbol": "FLAPAGENT",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8b3d626249ed627444bbb691d41333a9293a4444",
+      "tokenSymbol": "有借有还",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8ee658048edd5c6812d3361008d173cfdaa4ffff",
+      "tokenSymbol": "攒",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf34c16d9e4fbcaee05f80ba4e89dc506b3d14444",
+      "tokenSymbol": "ELys",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf0b9da4c3d0f54ba73022d3820d1f5b4d10d4444",
+      "tokenSymbol": "teamgold",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe761817ab691b4cb2fde2f522bf4164cb2984444",
+      "tokenSymbol": "Beaver",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6ca594011a4c6528878e44450122117e59154444",
+      "tokenSymbol": "Beaver",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x079223b1ccb9dcbe3bb56e1c526c7d5839cd4444",
+      "tokenSymbol": "小黄鸭",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xea2f2552838225ddf30079b62c1a62fe947c4444",
+      "tokenSymbol": "Beaver",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x31edb2494faf272d23cd4aa19a06cfff0461ffff",
+      "tokenSymbol": "余烬",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x1e0bc2c28c8592d5e45d461163a31049be694444",
+      "tokenSymbol": "Momo",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6c0013dac51a8632037d575c3a2668dee4254444",
+      "tokenSymbol": "哪吒2",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x38ebce85eb9eccea63a6c53756db060a3a444444",
+      "tokenSymbol": "候年",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xbda4bd5f10dbedd35dd5a07a5e7c17e328787777",
+      "tokenSymbol": "喂养流浪猫",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x9a40ca3b4919a922de7d86ff89cb77ccf1a67777",
+      "tokenSymbol": "ETFLAP",
+      "category": "high_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x86410ff343e92df0384b5e03aa3f931215da4444",
+      "tokenSymbol": "four ball",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x791774f6f6b578820cacf618a56eddd09e2c4444",
+      "tokenSymbol": "CLOVR",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7783f42e5125f769b59c7155f57c2b9e53ea4444",
+      "tokenSymbol": "自己吓自己",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf2c3eedd45b84d083bfe3973d60742f067b04444",
+      "tokenSymbol": "BNBAI",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xebf6903fcc6fbd37f33eb7bacc9004ecc5644444",
+      "tokenSymbol": "LIA",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x33e1762026f729ca91ad890eef15da2a90614444",
+      "tokenSymbol": "Rumble",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa1b0f411cec27f32d7a97d6da3efc1c3cf7d4444",
+      "tokenSymbol": "HOMI XCX",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5a358f4f4d0a3f3fe76600e7e29eb865ae854444",
+      "tokenSymbol": "BlueCoin",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x098e0c21cf418d07ffa961394e438257a7024444",
+      "tokenSymbol": "BTC",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf91d80db00e52b128786fb8bc6c40957bae44444",
+      "tokenSymbol": "Sadie",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6d2dba2d8104bde33d0dbdbeca52ebcb22b57777",
+      "tokenSymbol": "花蝴蝶",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2005bd449d80849a27fb8fc1daf278c3b1a24444",
+      "tokenSymbol": "币安少儿版",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf2f1cfc6e18075d2cc0cf7e0317f02b5c6164444",
+      "tokenSymbol": "披萨指数",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x49f0b92c3bbc1ed4651e85105bf536bc6df44444",
+      "tokenSymbol": "TDS",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x83ede61a4bc889b9154dc860f93b3ff396127777",
+      "tokenSymbol": "西班牙",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x615b5cd9ec36a9fcda9791f03bb67bf6ec344444",
+      "tokenSymbol": "智障博士生",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5b232dab55f847f4a0cd0329655fdc252ebd4444",
+      "tokenSymbol": "发发发",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xaa80e141ed6cc4d329b683dc31d792d1ae66ffff",
+      "tokenSymbol": "静观",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x43cc8c9e6311e949e6fed70ec693d26c40444444",
+      "tokenSymbol": "The Brain",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xb8caca1583b325fb0974635affd052b1f9884444",
+      "tokenSymbol": "黄金时代",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xb0ee506d85b9ca8ed8587aa78d4007f19b4b4444",
+      "tokenSymbol": "黄金时代",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf2329f860fa5b0de3b9fa603c57cbfab15494444",
+      "tokenSymbol": "喵",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0f0e4fb60219865644c4bdb858c3f9559c7c4444",
+      "tokenSymbol": "创建热门怎么这么难",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x1f2cb65db828de2263177245cc1ea2b602284444",
+      "tokenSymbol": "MISANTHROPIC",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xb0d5fb00f3cece42faaa8dd7910417b4a0fd7777",
+      "tokenSymbol": "WEB4AI革命",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xb1fc63396cd8c207036418829963df489ca54444",
+      "tokenSymbol": "lion",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa3de39cb9aa3d91f8307cb50da8c3087ed604444",
+      "tokenSymbol": "DIVIDE",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xb4e0caf6f76ebd281fb5eec1c2bcc34ea2e67777",
+      "tokenSymbol": "X-燃烧金库",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8b4234da049e95023116bff3c6ef0d52e3964444",
+      "tokenSymbol": "做你的",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xeff6c7b49508deffbe5e25766761edb1a9287777",
+      "tokenSymbol": "开门红",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x8b1b47d0329ddfd6e089e99af62a4891bbc9ffff",
+      "tokenSymbol": "发财树",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x14367b92f64547a6a5b612cd3de77884e3c74444",
+      "tokenSymbol": "COOKS",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe6f203c693b09568921f2769cd69031d71fb4444",
+      "tokenSymbol": "白菜对我笑",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x53d429d7d049bbb9d1af95eba40756cf493affff",
+      "tokenSymbol": "养蛊",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x157c2e4e31597682ca44ca5d0d21d4eb4ba74444",
+      "tokenSymbol": "Constitution",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xed1916b7f30a1145d4821219de1891efb908ffff",
+      "tokenSymbol": "三生万物",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfea73dd6d9fa8612fc73479b96dc5088ff26ffff",
+      "tokenSymbol": "Utility",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa6667e40f368069c6b02de4b860da98164a54444",
+      "tokenSymbol": "BNB2",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9bc7e5a72c479f639cea138547c27400e5ff4444",
+      "tokenSymbol": "WHWIRE",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfe36dfc1293274805797f860eba4c23e2cdb4444",
+      "tokenSymbol": "三生万物",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x1c56c487b665cbedfc4124232596c79d69ffffff",
+      "tokenSymbol": "黑金猫",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xe6fc008ee42d4ce3dbbc12d97dccfbf033b07777",
+      "tokenSymbol": "燃烧之火",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7c3ab27b15f265811452a2b0bcf577584ef67777",
+      "tokenSymbol": "狗狗币",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xb14b7a538e8ffd79ff6ae7ac11a567b25dd37777",
+      "tokenSymbol": "一步登天",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xbb81261207e47a2aa2df803ff6a2d8b3ba724444",
+      "tokenSymbol": "币安老虎机",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfb52987cd42ed958f8c1a834a11d17ec2ebbffff",
+      "tokenSymbol": "BB",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf2c3eedd45b84d083bfe3973d60742f067b04444",
+      "tokenSymbol": "BNBAI",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xebf6903fcc6fbd37f33eb7bacc9004ecc5644444",
+      "tokenSymbol": "LIA",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x33e1762026f729ca91ad890eef15da2a90614444",
+      "tokenSymbol": "Rumble",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa1b0f411cec27f32d7a97d6da3efc1c3cf7d4444",
+      "tokenSymbol": "HOMI XCX",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5a358f4f4d0a3f3fe76600e7e29eb865ae854444",
+      "tokenSymbol": "BlueCoin",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x098e0c21cf418d07ffa961394e438257a7024444",
+      "tokenSymbol": "BTC",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf91d80db00e52b128786fb8bc6c40957bae44444",
+      "tokenSymbol": "Sadie",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x6d2dba2d8104bde33d0dbdbeca52ebcb22b57777",
+      "tokenSymbol": "花蝴蝶",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x2005bd449d80849a27fb8fc1daf278c3b1a24444",
+      "tokenSymbol": "币安少儿版",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf2f1cfc6e18075d2cc0cf7e0317f02b5c6164444",
+      "tokenSymbol": "披萨指数",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x49f0b92c3bbc1ed4651e85105bf536bc6df44444",
+      "tokenSymbol": "TDS",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x83ede61a4bc889b9154dc860f93b3ff396127777",
+      "tokenSymbol": "西班牙",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x615b5cd9ec36a9fcda9791f03bb67bf6ec344444",
+      "tokenSymbol": "智障博士生",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x5b232dab55f847f4a0cd0329655fdc252ebd4444",
+      "tokenSymbol": "发发发",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xaa80e141ed6cc4d329b683dc31d792d1ae66ffff",
+      "tokenSymbol": "静观",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x43cc8c9e6311e949e6fed70ec693d26c40444444",
+      "tokenSymbol": "The Brain",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xb8caca1583b325fb0974635affd052b1f9884444",
+      "tokenSymbol": "黄金时代",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xb0ee506d85b9ca8ed8587aa78d4007f19b4b4444",
+      "tokenSymbol": "黄金时代",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xf2329f860fa5b0de3b9fa603c57cbfab15494444",
+      "tokenSymbol": "喵",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x0f0e4fb60219865644c4bdb858c3f9559c7c4444",
+      "tokenSymbol": "创建热门怎么这么难",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x1f2cb65db828de2263177245cc1ea2b602284444",
+      "tokenSymbol": "MISANTHROPIC",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xb0d5fb00f3cece42faaa8dd7910417b4a0fd7777",
+      "tokenSymbol": "WEB4AI革命",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xb1fc63396cd8c207036418829963df489ca54444",
+      "tokenSymbol": "lion",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": true,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa3de39cb9aa3d91f8307cb50da8c3087ed604444",
+      "tokenSymbol": "DIVIDE",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xb4e0caf6f76ebd281fb5eec1c2bcc34ea2e67777",
+      "tokenSymbol": "X-燃烧金库",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x8b4234da049e95023116bff3c6ef0d52e3964444",
+      "tokenSymbol": "做你的",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xeff6c7b49508deffbe5e25766761edb1a9287777",
+      "tokenSymbol": "开门红",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0x8b1b47d0329ddfd6e089e99af62a4891bbc9ffff",
+      "tokenSymbol": "发财树",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x14367b92f64547a6a5b612cd3de77884e3c74444",
+      "tokenSymbol": "COOKS",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xe6f203c693b09568921f2769cd69031d71fb4444",
+      "tokenSymbol": "白菜对我笑",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x53d429d7d049bbb9d1af95eba40756cf493affff",
+      "tokenSymbol": "养蛊",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x157c2e4e31597682ca44ca5d0d21d4eb4ba74444",
+      "tokenSymbol": "Constitution",
+      "category": "mid_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xed1916b7f30a1145d4821219de1891efb908ffff",
+      "tokenSymbol": "三生万物",
+      "category": "high_quality",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfea73dd6d9fa8612fc73479b96dc5088ff26ffff",
+      "tokenSymbol": "Utility",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xa6667e40f368069c6b02de4b860da98164a54444",
+      "tokenSymbol": "BNB2",
+      "category": "low_quality",
+      "hasTwitter": false,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x9bc7e5a72c479f639cea138547c27400e5ff4444",
+      "tokenSymbol": "WHWIRE",
+      "category": "low_quality",
+      "hasTwitter": true,
+      "hasWebsite": true,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0xfe36dfc1293274805797f860eba4c23e2cdb4444",
+      "tokenSymbol": "三生万物",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x1c56c487b665cbedfc4124232596c79d69ffffff",
+      "tokenSymbol": "黑金猫",
+      "category": "fake_pump",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xe6fc008ee42d4ce3dbbc12d97dccfbf033b07777",
+      "tokenSymbol": "燃烧之火",
+      "category": "fake_pump",
+      "hasTwitter": true,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": true
+    },
+    {
+      "tokenAddress": "0x7c3ab27b15f265811452a2b0bcf577584ef67777",
+      "tokenSymbol": "狗狗币",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    },
+    {
+      "tokenAddress": "0xb14b7a538e8ffd79ff6ae7ac11a567b25dd37777",
+      "tokenSymbol": "一步登天",
+      "category": "mid_quality",
+      "hasTwitter": false,
+      "hasWebsite": false,
+      "hasTelegram": false,
+      "hasAnySocial": false
+    }
+  ]
+}

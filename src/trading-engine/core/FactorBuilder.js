@@ -37,7 +37,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     tvl: factorResults.tvl,
     fdv: factorResults.fdv,
     marketCap: factorResults.marketCap,
-    // 趋势因子（用于回测）
+    // 趋势因子（渐进式计算）
     trendCV: factorResults.trendCV,
     trendDirectionCount: factorResults.trendDirectionCount,
     trendStrengthScore: factorResults.trendStrengthScore,
@@ -46,10 +46,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     trendDataPoints: factorResults.trendDataPoints,
     trendRecentDownCount: factorResults.trendRecentDownCount,
     trendRecentDownRatio: factorResults.trendRecentDownRatio,
-    trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
-    trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
-    trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
-    trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
+    trendConsecutiveDowns: factorResults.trendConsecutiveDowns
   };
 }
 
@@ -99,7 +96,7 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     tvl: fv.tvl || 0,
     fdv: fv.fdv || 0,
     marketCap: fv.marketCap || 0,
-    // 趋势因子（从时序数据中读取）
+    // 趋势因子（从时序数据中读取，渐进式计算）
     trendCV: fv.trendCV ?? null,
     trendDirectionCount: fv.trendDirectionCount ?? null,
     trendStrengthScore: fv.trendStrengthScore ?? null,
@@ -108,10 +105,7 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     trendDataPoints: fv.trendDataPoints ?? null,
     trendRecentDownCount: fv.trendRecentDownCount ?? null,
     trendRecentDownRatio: fv.trendRecentDownRatio ?? null,
-    trendConsecutiveDowns: fv.trendConsecutiveDowns ?? null,
-    trendPriceChangeFromDetect: fv.trendPriceChangeFromDetect ?? null,
-    trendSinceBuyReturn: fv.trendSinceBuyReturn ?? null,
-    trendSinceBuyDataPoints: fv.trendSinceBuyDataPoints ?? null
+    trendConsecutiveDowns: fv.trendConsecutiveDowns ?? null
   };
 }
 
@@ -126,10 +120,9 @@ function getAvailableFactorIds() {
     'holdDuration', 'profitPercent',
     'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
     'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap',
-    // 趋势因子
+    // 趋势因子（渐进式计算）
     'trendCV', 'trendDirectionCount', 'trendStrengthScore', 'trendTotalReturn', 'trendRiseRatio',
-    'trendDataPoints', 'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns',
-    'trendPriceChangeFromDetect', 'trendSinceBuyReturn', 'trendSinceBuyDataPoints'
+    'trendDataPoints', 'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns'
   ]);
 }
 
