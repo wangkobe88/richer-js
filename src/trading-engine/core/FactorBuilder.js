@@ -46,7 +46,16 @@ function buildFactorValuesForTimeSeries(factorResults) {
     trendDataPoints: factorResults.trendDataPoints,
     trendRecentDownCount: factorResults.trendRecentDownCount,
     trendRecentDownRatio: factorResults.trendRecentDownRatio,
-    trendConsecutiveDowns: factorResults.trendConsecutiveDowns
+    trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
+    // 购买前检查因子（两阶段因子）
+    preBuyCheck: factorResults.preBuyCheck || 0,
+    checkTimestamp: factorResults.checkTimestamp || null,
+    checkDuration: factorResults.checkDuration || null,
+    holderWhitelistCount: factorResults.holderWhitelistCount || 0,
+    holderBlacklistCount: factorResults.holderBlacklistCount || 0,
+    holdersCount: factorResults.holdersCount || 0,
+    devHoldingRatio: factorResults.devHoldingRatio || 0,
+    holderCanBuy: factorResults.holderCanBuy ?? null
   };
 }
 
@@ -105,7 +114,16 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     trendDataPoints: fv.trendDataPoints ?? null,
     trendRecentDownCount: fv.trendRecentDownCount ?? null,
     trendRecentDownRatio: fv.trendRecentDownRatio ?? null,
-    trendConsecutiveDowns: fv.trendConsecutiveDowns ?? null
+    trendConsecutiveDowns: fv.trendConsecutiveDowns ?? null,
+    // 购买前检查因子
+    preBuyCheck: fv.preBuyCheck ?? 0,
+    checkTimestamp: fv.checkTimestamp ?? null,
+    checkDuration: fv.checkDuration ?? null,
+    holderWhitelistCount: fv.holderWhitelistCount ?? 0,
+    holderBlacklistCount: fv.holderBlacklistCount ?? 0,
+    holdersCount: fv.holdersCount ?? 0,
+    devHoldingRatio: fv.devHoldingRatio ?? 0,
+    holderCanBuy: fv.holderCanBuy ?? null
   };
 }
 
@@ -122,7 +140,11 @@ function getAvailableFactorIds() {
     'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap',
     // 趋势因子（渐进式计算）
     'trendCV', 'trendDirectionCount', 'trendStrengthScore', 'trendTotalReturn', 'trendRiseRatio',
-    'trendDataPoints', 'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns'
+    'trendDataPoints', 'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns',
+    // 购买前检查因子
+    'preBuyCheck', 'checkTimestamp', 'checkDuration',
+    'holderWhitelistCount', 'holderBlacklistCount', 'holdersCount',
+    'devHoldingRatio', 'holderCanBuy'
   ]);
 }
 

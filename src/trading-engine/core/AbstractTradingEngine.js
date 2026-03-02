@@ -578,6 +578,46 @@ class AbstractTradingEngine extends ITradingEngine {
     }
   }
 
+  /**
+   * 更新信号元数据（用于添加预检查因子等）
+   * @private
+   * @param {string} signalId - 信号ID
+   * @param {Object} additionalMetadata - 要添加的元数据
+   * @returns {Promise<void>}
+   */
+  async _updateSignalMetadata(signalId, additionalMetadata) {
+    const supabase = dbManager.getClient();
+
+    if (!additionalMetadata || typeof additionalMetadata !== 'object') {
+      this._logger.warn('无效的元数据对象', { signalId });
+      return;
+    }
+
+    // 先获取当前信号数据（包括 metadata）
+    const { data: currentSignal, error: fetchError } = await supabase
+      .from('strategy_signals')
+      .select('metadata')
+      .eq('id', signalId)
+      .single();
+
+    if (fetchError) {
+      this._logger.error('获取信号数据失败', { signalId, error: fetchError.message });
+      return;
+    }
+
+    // 合并 metadata
+    const newMetadata = { ...(currentSignal.metadata || {}), ...additionalMetadata };
+
+    const { error } = await supabase
+      .from('strategy_signals')
+      .update({ metadata: newMetadata })
+      .eq('id', signalId);
+
+    if (error) {
+      this._logger.error('更新信号元数据失败', { signalId, error: error.message });
+    }
+  }
+
   // ==================== 交易执行方法（共同逻辑）====================
 
   /**

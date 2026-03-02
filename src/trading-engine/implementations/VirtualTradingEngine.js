@@ -573,6 +573,14 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._tokenHolderService = new TokenHolderService(supabase, this.logger);
     console.log(`✅ 持有者服务初始化完成`);
 
+    // 2.2 初始化购买前检查服务
+    const { PreBuyCheckService } = require('../pre-check/PreBuyCheckService');
+    this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, {
+      devHoldingThreshold: 15,
+      holderCheckEnabled: true
+    });
+    console.log(`✅ 购买前检查服务初始化完成`);
+
     // 3. 初始化代币池（传入价格历史缓存）
     this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache);
     console.log(`✅ 代币池初始化完成`);
@@ -1249,7 +1257,16 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
           trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
           trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
-          trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
+          trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints,
+          // 购买前检查因子（初始为空值，检查通过后更新）
+          preBuyCheck: factorResults.preBuyCheck || 0,
+          checkTimestamp: factorResults.checkTimestamp || null,
+          checkDuration: factorResults.checkDuration || null,
+          holderWhitelistCount: factorResults.holderWhitelistCount || 0,
+          holderBlacklistCount: factorResults.holderBlacklistCount || 0,
+          holdersCount: factorResults.holdersCount || 0,
+          devHoldingRatio: factorResults.devHoldingRatio || 0,
+          holderCanBuy: factorResults.holderCanBuy ?? null
         } : null
       };
 
@@ -1325,40 +1342,40 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         }
       }
 
-      // 3. 综合持有者检查（黑/白名单 + Dev持仓比例）- 一次性获取数据完成所有检查
-      if (preCheckPassed && this._tokenHolderService) {
+      // 3. 综合购买前检查（使用 PreBuyCheckService）
+      let preBuyCheckResult = null;
+      if (preCheckPassed && this._preBuyCheckService) {
         try {
           this.logger.info(this._experimentId, '_executeStrategy',
-            `开始综合持有者检测 | symbol=${token.symbol}, creator=${token.creator_address || 'none'}`);
+            `开始购买前检查 | symbol=${token.symbol}, creator=${token.creator_address || 'none'}`);
 
-          const holderCheck = await this._tokenHolderService.checkAllHolderRisks(
+          preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             token.token,
             token.creator_address || null,
             this._experimentId,
-            token.chain || 'bsc',
-            15  // Dev持仓阈值 15%
+            token.chain || 'bsc'
           );
 
-          if (!holderCheck.canBuy) {
+          if (!preBuyCheckResult.canBuy) {
             this.logger.warn(this._experimentId, '_executeStrategy',
-              `持有者检查失败 | symbol=${token.symbol}, reason=${holderCheck.reason}, ` +
-              `whitelist=${holderCheck.whitelistCount}, blacklist=${holderCheck.blacklistCount}, ` +
-              `devHoldingRatio=${holderCheck.devHoldingRatio.toFixed(1)}%`);
+              `购买前检查失败 | symbol=${token.symbol}, reason=${preBuyCheckResult.checkReason}, ` +
+              `whitelist=${preBuyCheckResult.holderWhitelistCount}, blacklist=${preBuyCheckResult.holderBlacklistCount}, ` +
+              `devHoldingRatio=${preBuyCheckResult.devHoldingRatio.toFixed(1)}%`);
             preCheckPassed = false;
-            blockReason = holderCheck.reason || 'holder_check_failed';
+            blockReason = preBuyCheckResult.checkReason || 'pre_buy_check_failed';
           } else {
             this.logger.info(this._experimentId, '_executeStrategy',
-              `持有者检查通过 | symbol=${token.symbol}, reason=${holderCheck.reason}, ` +
-              `whitelist=${holderCheck.whitelistCount}, blacklist=${holderCheck.blacklistCount}, ` +
-              `devHoldingRatio=${holderCheck.devHoldingRatio.toFixed(1)}%`);
+              `购买前检查通过 | symbol=${token.symbol}, reason=${preBuyCheckResult.checkReason}, ` +
+              `whitelist=${preBuyCheckResult.holderWhitelistCount}, blacklist=${preBuyCheckResult.holderBlacklistCount}, ` +
+              `devHoldingRatio=${preBuyCheckResult.devHoldingRatio.toFixed(1)}%`);
           }
-        } catch (holderError) {
-          const errorMsg = holderError?.message || String(holderError);
+        } catch (checkError) {
+          const errorMsg = checkError?.message || String(checkError);
           this.logger.error(this._experimentId, '_executeStrategy',
-            `持有者检测失败: ${token.symbol} - ${errorMsg}`);
+            `购买前检查异常: ${token.symbol} - ${errorMsg}`);
           // 检测失败时拒绝购买，保守处理
           preCheckPassed = false;
-          blockReason = `持有者检测异常: ${errorMsg}`;
+          blockReason = `购买前检查异常: ${errorMsg}`;
         }
       }
 
@@ -1389,9 +1406,51 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         return failResult(`预检查失败: ${blockReason}`);
       }
 
-      // ========== 预检查通过，执行交易 ==========
+      // ========== 预检查通过，合并因子并执行交易 ==========
       this.logger.info(this._experimentId, '_executeStrategy',
-        `预检查通过，调用 processSignal | symbol=${token.symbol}`);
+        `预检查通过，合并因子数据 | symbol=${token.symbol}`);
+
+      // 将预检查结果合并到 factorResults 中
+      if (preBuyCheckResult) {
+        Object.assign(factorResults, {
+          preBuyCheck: preBuyCheckResult.preBuyCheck,
+          checkTimestamp: preBuyCheckResult.checkTimestamp,
+          checkDuration: preBuyCheckResult.checkDuration,
+          holderWhitelistCount: preBuyCheckResult.holderWhitelistCount,
+          holderBlacklistCount: preBuyCheckResult.holderBlacklistCount,
+          holdersCount: preBuyCheckResult.holdersCount,
+          devHoldingRatio: preBuyCheckResult.devHoldingRatio,
+          holderCanBuy: preBuyCheckResult.holderCanBuy
+        });
+
+        // 更新 signal 对象的 factors（用于后续 processSignal）
+        signal.factors = {
+          ...signal.factors,
+          preBuyCheck: preBuyCheckResult.preBuyCheck,
+          checkTimestamp: preBuyCheckResult.checkTimestamp,
+          checkDuration: preBuyCheckResult.checkDuration,
+          holderWhitelistCount: preBuyCheckResult.holderWhitelistCount,
+          holderBlacklistCount: preBuyCheckResult.holderBlacklistCount,
+          holdersCount: preBuyCheckResult.holdersCount,
+          devHoldingRatio: preBuyCheckResult.devHoldingRatio,
+          holderCanBuy: preBuyCheckResult.holderCanBuy
+        };
+
+        // 更新数据库中的信号元数据
+        if (signalId) {
+          try {
+            await this._updateSignalMetadata(signalId, signal.factors);
+            this.logger.info(this._experimentId, '_executeStrategy',
+              `信号元数据已更新 | symbol=${token.symbol}, signalId=${signalId}`);
+          } catch (updateError) {
+            this.logger.warn(this._experimentId, '_executeStrategy',
+              `更新信号元数据失败 | symbol=${token.symbol}, error=${updateError.message}`);
+          }
+        }
+      }
+
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `调用 processSignal | symbol=${token.symbol}`);
 
       const result = await this.processSignal(signal, signalId);
 
@@ -1645,7 +1704,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     // 初始化钱包缓存（黑白名单）
     console.log(`🔄 正在加载钱包缓存...`);
-    await this._tokenHolderService.initWalletCache();
+    await this._preBuyCheckService.initialize();
 
     // 启动收集器
     this._fourmemeCollector.start();
