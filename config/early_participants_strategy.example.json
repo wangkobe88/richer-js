@@ -1,0 +1,97 @@
+{
+  "comment": "早期参与者检查策略配置示例",
+  "source": "基于102个样本的全因子分析结果",
+
+  "earlyParticipants": {
+    "comment": "核心三因子策略（默认配置，召回率70%）",
+
+    "countPerMinThreshold": 10.6,
+    "volumePerMinThreshold": 1107,
+    "highValuePerMinThreshold": 5.6,
+
+    "enableWalletsPerMin": false,
+    "enableDataCoverage": false,
+    "enableTotalCount": false
+  },
+
+  "earlyParticipants_strict": {
+    "comment": "严格策略（启用钱包数，提高精确率）",
+
+    "countPerMinThreshold": 10.6,
+    "volumePerMinThreshold": 1107,
+    "highValuePerMinThreshold": 5.6,
+
+    "enableWalletsPerMin": true,
+    "walletsPerMinThreshold": 7.1,
+    "enableDataCoverage": false,
+    "enableTotalCount": false
+  },
+
+  "earlyParticipants_balanced": {
+    "comment": "平衡策略（启用数据覆盖度）",
+
+    "countPerMinThreshold": 10.6,
+    "volumePerMinThreshold": 1107,
+    "highValuePerMinThreshold": 5.6,
+
+    "enableWalletsPerMin": false,
+    "enableDataCoverage": true,
+    "dataCoverageThreshold": 0.8,
+    "enableTotalCount": false
+  },
+
+  "earlyParticipants_highQuality": {
+    "comment": "高质量策略（启用所有增强因子，P50阈值）",
+
+    "countPerMinThreshold": 28.4,
+    "volumePerMinThreshold": 3206,
+    "highValuePerMinThreshold": 11,
+
+    "enableWalletsPerMin": true,
+    "walletsPerMinThreshold": 11.9,
+    "enableDataCoverage": true,
+    "dataCoverageThreshold": 0.9,
+    "enableTotalCount": true,
+    "totalCountThreshold": 44
+  },
+
+  "factor_reference": {
+    "comment": "因子参考阈值（基于正样本分位数）",
+
+    "countPerMin": {
+      "P25": 10.6,
+      "P50": 28.4,
+      "P70": 49.8,
+      "AUC": "78.7%"
+    },
+    "volumePerMin": {
+      "P25": 1107,
+      "P50": 3206,
+      "P70": 5495,
+      "AUC": "78.0%"
+    },
+    "highValuePerMin": {
+      "P25": 5.6,
+      "P50": 11,
+      "P70": 17.5,
+      "AUC": "78.5%"
+    },
+    "walletsPerMin": {
+      "P25": 7.1,
+      "P50": 11.9,
+      "P70": 25.5,
+      "AUC": "78.8%"
+    },
+    "dataCoverage": {
+      "P25": 0.8,
+      "P50": 1.0,
+      "AUC": "73.1%"
+    },
+    "totalCount": {
+      "P25": 17,
+      "P50": 44,
+      "P70": 78,
+      "AUC": "82.7%"
+    }
+  }
+}

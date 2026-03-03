@@ -1,0 +1,768 @@
+{
+  "exportTime": "2026-03-03T08:30:42.191Z",
+  "sampleCount": 102,
+  "positiveCount": 20,
+  "thresholds": {
+    "countPerMin": {
+      "p25": 10.6,
+      "p40": 20.6,
+      "p50": 28.4,
+      "p60": 30.6,
+      "p70": 49.8
+    },
+    "volumePerMin": {
+      "p25": 1106.92,
+      "p40": 1870.17,
+      "p50": 3206.42,
+      "p60": 3869.57,
+      "p70": 5494.63
+    },
+    "highValuePerMin": {
+      "p25": 5.6,
+      "p40": 7.9,
+      "p50": 11,
+      "p60": 13.3,
+      "p70": 17.5
+    },
+    "walletsPerMin": {
+      "p25": 7.1,
+      "p40": 10.6,
+      "p50": 11.9,
+      "p60": 14.3,
+      "p70": 25.5
+    },
+    "dataCoverage": {
+      "p25": 0,
+      "p40": 0,
+      "p50": 0,
+      "p60": 0,
+      "p70": 0
+    },
+    "totalCount": {
+      "p25": 24,
+      "p40": 33,
+      "p50": 51,
+      "p60": 61,
+      "p70": 357
+    }
+  },
+  "results": [
+    {
+      "tp": 12,
+      "tn": 77,
+      "fp": 5,
+      "fn": 8,
+      "accuracy": 0.8725490196078431,
+      "precision": 0.7058823529411765,
+      "recall": 0.6,
+      "f1": 0.6486486486486486,
+      "passRate": 0.16666666666666666,
+      "name": "核心三因子-p25+钱包-p40",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": true,
+        "walletPct": "p40",
+        "useCoverage": false,
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 11,
+      "tn": 78,
+      "fp": 4,
+      "fn": 9,
+      "accuracy": 0.8725490196078431,
+      "precision": 0.7333333333333333,
+      "recall": 0.55,
+      "f1": 0.6285714285714286,
+      "passRate": 0.14705882352941177,
+      "name": "核心三因子-p40+钱包-p40",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": true,
+        "walletPct": "p40",
+        "useCoverage": false,
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 11,
+      "tn": 77,
+      "fp": 5,
+      "fn": 9,
+      "accuracy": 0.8627450980392157,
+      "precision": 0.6875,
+      "recall": 0.55,
+      "f1": 0.6111111111111112,
+      "passRate": 0.1568627450980392,
+      "name": "核心三因子-p40",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": false,
+        "useCoverage": false,
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 11,
+      "tn": 77,
+      "fp": 5,
+      "fn": 9,
+      "accuracy": 0.8627450980392157,
+      "precision": 0.6875,
+      "recall": 0.55,
+      "f1": 0.6111111111111112,
+      "passRate": 0.1568627450980392,
+      "name": "核心三因子-p40+钱包-p25",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": false,
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 11,
+      "tn": 77,
+      "fp": 5,
+      "fn": 9,
+      "accuracy": 0.8627450980392157,
+      "precision": 0.6875,
+      "recall": 0.55,
+      "f1": 0.6111111111111112,
+      "passRate": 0.1568627450980392,
+      "name": "核心三因子-p40+总交易-p25",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": false,
+        "useCoverage": false,
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 11,
+      "tn": 77,
+      "fp": 5,
+      "fn": 9,
+      "accuracy": 0.8627450980392157,
+      "precision": 0.6875,
+      "recall": 0.55,
+      "f1": 0.6111111111111112,
+      "passRate": 0.1568627450980392,
+      "name": "核心三因子-p40+总交易-p40",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": false,
+        "useCoverage": false,
+        "useTotal": true,
+        "totalPct": "p40"
+      }
+    },
+    {
+      "tp": 11,
+      "tn": 77,
+      "fp": 5,
+      "fn": 9,
+      "accuracy": 0.8627450980392157,
+      "precision": 0.6875,
+      "recall": 0.55,
+      "f1": 0.6111111111111112,
+      "passRate": 0.1568627450980392,
+      "name": "核心三因子-p40+钱包+总交易",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": false,
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 14,
+      "tn": 70,
+      "fp": 12,
+      "fn": 6,
+      "accuracy": 0.8235294117647058,
+      "precision": 0.5384615384615384,
+      "recall": 0.7,
+      "f1": 0.608695652173913,
+      "passRate": 0.2549019607843137,
+      "name": "核心三因子-p25",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": false,
+        "useCoverage": false,
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 11,
+      "tn": 76,
+      "fp": 6,
+      "fn": 9,
+      "accuracy": 0.8529411764705882,
+      "precision": 0.6470588235294118,
+      "recall": 0.55,
+      "f1": 0.5945945945945946,
+      "passRate": 0.16666666666666666,
+      "name": "核心三因子-p25+总交易-p40",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": false,
+        "useCoverage": false,
+        "useTotal": true,
+        "totalPct": "p40"
+      }
+    },
+    {
+      "tp": 13,
+      "tn": 71,
+      "fp": 11,
+      "fn": 7,
+      "accuracy": 0.8235294117647058,
+      "precision": 0.5416666666666666,
+      "recall": 0.65,
+      "f1": 0.5909090909090908,
+      "passRate": 0.23529411764705882,
+      "name": "核心三因子-p25+总交易-p25",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": false,
+        "useCoverage": false,
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 13,
+      "tn": 71,
+      "fp": 11,
+      "fn": 7,
+      "accuracy": 0.8235294117647058,
+      "precision": 0.5416666666666666,
+      "recall": 0.65,
+      "f1": 0.5909090909090908,
+      "passRate": 0.23529411764705882,
+      "name": "核心三因子-p25+钱包+总交易",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": false,
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 13,
+      "tn": 70,
+      "fp": 12,
+      "fn": 7,
+      "accuracy": 0.8137254901960784,
+      "precision": 0.52,
+      "recall": 0.65,
+      "f1": 0.5777777777777778,
+      "passRate": 0.24509803921568626,
+      "name": "核心三因子-p25+钱包-p25",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": false,
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 8,
+      "tn": 81,
+      "fp": 1,
+      "fn": 12,
+      "accuracy": 0.8725490196078431,
+      "precision": 0.8888888888888888,
+      "recall": 0.4,
+      "f1": 0.5517241379310346,
+      "passRate": 0.08823529411764706,
+      "name": "核心三因子-p50",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": false,
+        "useCoverage": false,
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 8,
+      "tn": 81,
+      "fp": 1,
+      "fn": 12,
+      "accuracy": 0.8725490196078431,
+      "precision": 0.8888888888888888,
+      "recall": 0.4,
+      "f1": 0.5517241379310346,
+      "passRate": 0.08823529411764706,
+      "name": "核心三因子-p50+钱包-p25",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": false,
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 8,
+      "tn": 81,
+      "fp": 1,
+      "fn": 12,
+      "accuracy": 0.8725490196078431,
+      "precision": 0.8888888888888888,
+      "recall": 0.4,
+      "f1": 0.5517241379310346,
+      "passRate": 0.08823529411764706,
+      "name": "核心三因子-p50+钱包-p40",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": true,
+        "walletPct": "p40",
+        "useCoverage": false,
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 8,
+      "tn": 81,
+      "fp": 1,
+      "fn": 12,
+      "accuracy": 0.8725490196078431,
+      "precision": 0.8888888888888888,
+      "recall": 0.4,
+      "f1": 0.5517241379310346,
+      "passRate": 0.08823529411764706,
+      "name": "核心三因子-p50+总交易-p25",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": false,
+        "useCoverage": false,
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 8,
+      "tn": 81,
+      "fp": 1,
+      "fn": 12,
+      "accuracy": 0.8725490196078431,
+      "precision": 0.8888888888888888,
+      "recall": 0.4,
+      "f1": 0.5517241379310346,
+      "passRate": 0.08823529411764706,
+      "name": "核心三因子-p50+总交易-p40",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": false,
+        "useCoverage": false,
+        "useTotal": true,
+        "totalPct": "p40"
+      }
+    },
+    {
+      "tp": 8,
+      "tn": 81,
+      "fp": 1,
+      "fn": 12,
+      "accuracy": 0.8725490196078431,
+      "precision": 0.8888888888888888,
+      "recall": 0.4,
+      "f1": 0.5517241379310346,
+      "passRate": 0.08823529411764706,
+      "name": "核心三因子-p50+钱包+总交易",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": false,
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p25+覆盖度-p25",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": false,
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p25+覆盖度-p40",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": false,
+        "useCoverage": true,
+        "coveragePct": "p40",
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p25+钱包+覆盖度",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p25+覆盖度+总交易",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": false,
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p25+全增强",
+      "config": {
+        "countPct": "p25",
+        "volumePct": "p25",
+        "highValuePct": "p25",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p40+覆盖度-p25",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": false,
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p40+覆盖度-p40",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": false,
+        "useCoverage": true,
+        "coveragePct": "p40",
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p40+钱包+覆盖度",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p40+覆盖度+总交易",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": false,
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p40+全增强",
+      "config": {
+        "countPct": "p40",
+        "volumePct": "p40",
+        "highValuePct": "p40",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p50+覆盖度-p25",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": false,
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p50+覆盖度-p40",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": false,
+        "useCoverage": true,
+        "coveragePct": "p40",
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p50+钱包+覆盖度",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": false
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p50+覆盖度+总交易",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": false,
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    },
+    {
+      "tp": 0,
+      "tn": 82,
+      "fp": 0,
+      "fn": 20,
+      "accuracy": 0.803921568627451,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "passRate": 0,
+      "name": "核心三因子-p50+全增强",
+      "config": {
+        "countPct": "p50",
+        "volumePct": "p50",
+        "highValuePct": "p50",
+        "useWallets": true,
+        "walletPct": "p25",
+        "useCoverage": true,
+        "coveragePct": "p25",
+        "useTotal": true,
+        "totalPct": "p25"
+      }
+    }
+  ],
+  "recommendation": {
+    "best": "核心三因子-p25+钱包-p40",
+    "bestConfig": {
+      "countPct": "p25",
+      "volumePct": "p25",
+      "highValuePct": "p25",
+      "useWallets": true,
+      "walletPct": "p40",
+      "useCoverage": false,
+      "useTotal": false
+    }
+  }
+}

@@ -18,7 +18,8 @@ const DEFAULT_CONFIG = {
   lowValueThreshold: 10,         // 低价值阈值（USD）
   highValueThreshold: 100,       // 高价值阈值（USD）
   calculateGrowthScore: false,   // 是否计算增长评分
-  accelerationSegments: 3        // 加速度计算分段数
+  accelerationSegments: 3,       // 加速度计算分段数（已废弃，保留配置兼容性）
+  calculateGrowthMetrics: false  // 是否计算增长特征（分析显示无效，默认关闭）
 };
 
 class EarlyParticipantCheckService {
@@ -90,17 +91,17 @@ class EarlyParticipantCheckService {
       // 3. 计算基础统计
       const basicStats = this._calculateBasicStats(trades);
 
-      // 4. 计算速率指标（时间标准化）
-      const windowMinutes = windowSeconds / 60;
-      const rateMetrics = this._calculateRateMetrics(basicStats, windowMinutes, coverage.actualCoverage);
+      // 4. 计算速率指标（用代币年龄作为窗口）
+      const rateMetrics = this._calculateRateMetrics(basicStats, elapsedSeconds);
 
-      // 5. 计算增长特征
-      const growthMetrics = this._calculateGrowthMetrics(trades, launchAt, windowSeconds);
-
-      // 6. 计算增长评分（可选）
+      // 5. 计算增长特征（可选，分析显示效果不佳，默认关闭）
+      let growthMetrics = { acceleration: 0, accelerationRatio: null, trend: 'no_data' };
       let growthScore = null;
-      if (this.config.calculateGrowthScore) {
-        growthScore = this._calculateGrowthScore(rateMetrics, growthMetrics);
+      if (this.config.calculateGrowthMetrics) {
+        growthMetrics = this._calculateGrowthMetrics(trades, launchAt, windowSeconds);
+        if (this.config.calculateGrowthScore) {
+          growthScore = this._calculateGrowthScore(rateMetrics, growthMetrics);
+        }
       }
 
       const result = {
@@ -113,14 +114,12 @@ class EarlyParticipantCheckService {
         earlyTradesCheckTime: elapsedSeconds,
         earlyTradesWindow: windowSeconds,
 
-        // 数据范围
+        // 数据范围（删除无效的gapBefore/gapAfter）
         earlyTradesExpectedFirstTime: launchAt,
         earlyTradesExpectedLastTime: launchAt + windowSeconds,
         earlyTradesDataFirstTime: coverage.dataFirstTime,
         earlyTradesDataLastTime: coverage.dataLastTime,
         earlyTradesDataCoverage: coverage.coverageRatio,
-        earlyTradesDataGapBefore: coverage.gapBefore,
-        earlyTradesDataGapAfter: coverage.gapAfter,
 
         // 速率指标（时间标准化，可跨代币比较）
         earlyTradesVolumePerMin: rateMetrics.volumePerMin,
@@ -133,24 +132,25 @@ class EarlyParticipantCheckService {
         earlyTradesVolume: basicStats.totalVolume,
         earlyTradesUniqueWallets: basicStats.uniqueWallets,
         earlyTradesHighValueCount: basicStats.highValueCount,
-        earlyTradesFilteredCount: basicStats.filteredCount,
-
-        // 增长特征
-        earlyTradesAcceleration: growthMetrics.acceleration,
-        earlyTradesAccelerationRatio: growthMetrics.accelerationRatio,
-        earlyTradesGrowthTrend: growthMetrics.trend,
-
-        // 增长评分（可选）
-        earlyTradesGrowthScore: growthScore
+        earlyTradesFilteredCount: basicStats.filteredCount
       };
+
+      // 增长特征（可选，分析显示效果不佳）
+      if (this.config.calculateGrowthMetrics) {
+        result.earlyTradesAcceleration = growthMetrics.acceleration;
+        result.earlyTradesAccelerationRatio = growthMetrics.accelerationRatio;
+        result.earlyTradesGrowthTrend = growthMetrics.trend;
+        result.earlyTradesGrowthScore = growthScore;
+      }
 
       this.logger.info('[EarlyParticipantCheckService] 早期参与者检查完成', {
         token_address: tokenAddress,
         trades_count: trades.length,
         coverage: coverage.coverageRatio,
         volume_per_min: rateMetrics.volumePerMin.toFixed(2),
+        count_per_min: rateMetrics.countPerMin.toFixed(1),
         wallets_per_min: rateMetrics.walletsPerMin.toFixed(1),
-        growth_trend: growthMetrics.trend,
+        high_value_per_min: rateMetrics.highValuePerMin.toFixed(1),
         duration: result.earlyTradesCheckDuration
       });
 
@@ -272,13 +272,14 @@ class EarlyParticipantCheckService {
 
   /**
    * 计算速率指标（时间标准化）
+   * 方案C：用代币年龄（检查时间）作为窗口
    * @private
    */
-  _calculateRateMetrics(basicStats, windowMinutes, actualCoverageSeconds) {
-    // 使用实际覆盖的窗口大小计算速率
-    const actualWindowMinutes = actualCoverageSeconds / 60;
+  _calculateRateMetrics(basicStats, checkTimeSeconds) {
+    // 用从创建到检查的时间作为窗口（代币年龄）
+    const ageMinutes = checkTimeSeconds / 60;
 
-    if (actualWindowMinutes <= 0) {
+    if (ageMinutes <= 0) {
       return {
         volumePerMin: 0,
         countPerMin: 0,
@@ -288,88 +289,11 @@ class EarlyParticipantCheckService {
     }
 
     return {
-      volumePerMin: parseFloat((basicStats.totalVolume / actualWindowMinutes).toFixed(2)),
-      countPerMin: parseFloat((basicStats.totalCount / actualWindowMinutes).toFixed(1)),
-      walletsPerMin: parseFloat((basicStats.uniqueWallets / actualWindowMinutes).toFixed(1)),
-      highValuePerMin: parseFloat((basicStats.highValueCount / actualWindowMinutes).toFixed(1))
+      volumePerMin: parseFloat((basicStats.totalVolume / ageMinutes).toFixed(2)),
+      countPerMin: parseFloat((basicStats.totalCount / ageMinutes).toFixed(1)),
+      walletsPerMin: parseFloat((basicStats.uniqueWallets / ageMinutes).toFixed(1)),
+      highValuePerMin: parseFloat((basicStats.highValueCount / ageMinutes).toFixed(1))
     };
-  }
-
-  /**
-   * 计算增长特征
-   * @private
-   */
-  _calculateGrowthMetrics(trades, launchAt, windowSeconds) {
-    const segments = this.config.accelerationSegments;
-    const segmentSize = windowSeconds / segments;
-
-    const segmentCounts = new Array(segments).fill(0);
-
-    trades.forEach(t => {
-      const offset = t.time - launchAt;
-      const segmentIndex = Math.min(Math.floor(offset / segmentSize), segments - 1);
-      segmentCounts[segmentIndex]++;
-    });
-
-    const firstSegment = segmentCounts[0];
-    const lastSegment = segmentCounts[segments - 1];
-    const acceleration = lastSegment - firstSegment;
-    const accelerationRatio = firstSegment > 0 ? lastSegment / firstSegment : null;
-
-    // 分类增长趋势
-    let trend = 'unknown';
-    if (segmentCounts.every(c => c === 0)) {
-      trend = 'no_data';
-    } else if (acceleration > firstSegment * 0.5) {
-      trend = 'accelerating';    // 加速增长
-    } else if (acceleration < -firstSegment * 0.2) {
-      trend = 'decelerating';    // 减速增长
-    } else {
-      trend = 'stable';          // 稳定增长
-    }
-
-    return {
-      firstSegment,
-      middleSegments: segmentCounts.slice(1, -1),
-      lastSegment,
-      acceleration,
-      accelerationRatio: accelerationRatio !== null ? parseFloat(accelerationRatio.toFixed(2)) : null,
-      trend
-    };
-  }
-
-  /**
-   * 计算增长评分（0-100）
-   * 基于分析报告的结论设计
-   * @private
-   */
-  _calculateGrowthScore(rateMetrics, growthMetrics) {
-    let score = 0;
-
-    // 1. 参与钱包数/分钟 (权重: 30%)
-    // 高质量: 27+，流水盘: ~9
-    if (rateMetrics.walletsPerMin >= 27) score += 30;
-    else if (rateMetrics.walletsPerMin >= 18) score += 20;
-    else if (rateMetrics.walletsPerMin >= 9) score += 10;
-
-    // 2. 高价值交易/分钟 (权重: 40%)
-    // 高质量: 21+，流水盘: ~2
-    if (rateMetrics.highValuePerMin >= 21) score += 40;
-    else if (rateMetrics.highValuePerMin >= 11) score += 30;
-    else if (rateMetrics.highValuePerMin >= 5) score += 20;
-    else if (rateMetrics.highValuePerMin >= 2) score += 10;
-
-    // 3. 交易额/分钟 (权重: 20%)
-    // 高质量: $6300+，流水盘: ~$750
-    if (rateMetrics.volumePerMin >= 6300) score += 20;
-    else if (rateMetrics.volumePerMin >= 2700) score += 15;
-    else if (rateMetrics.volumePerMin >= 1500) score += 10;
-
-    // 4. 增长趋势 (权重: 10%)
-    if (growthMetrics.trend === 'accelerating') score += 10;
-    else if (growthMetrics.trend === 'stable') score += 5;
-
-    return score;
   }
 
   /**
@@ -390,8 +314,6 @@ class EarlyParticipantCheckService {
       earlyTradesDataFirstTime: null,
       earlyTradesDataLastTime: null,
       earlyTradesDataCoverage: 0,
-      earlyTradesDataGapBefore: 0,
-      earlyTradesDataGapAfter: windowSeconds,
 
       earlyTradesVolumePerMin: 0,
       earlyTradesCountPerMin: 0,
@@ -402,13 +324,7 @@ class EarlyParticipantCheckService {
       earlyTradesVolume: 0,
       earlyTradesUniqueWallets: 0,
       earlyTradesHighValueCount: 0,
-      earlyTradesFilteredCount: 0,
-
-      earlyTradesAcceleration: 0,
-      earlyTradesAccelerationRatio: null,
-      earlyTradesGrowthTrend: 'no_data',
-
-      earlyTradesGrowthScore: null
+      earlyTradesFilteredCount: 0
     };
   }
 
@@ -430,8 +346,6 @@ class EarlyParticipantCheckService {
       earlyTradesDataFirstTime: null,
       earlyTradesDataLastTime: null,
       earlyTradesDataCoverage: 0,
-      earlyTradesDataGapBefore: null,
-      earlyTradesDataGapAfter: null,
 
       earlyTradesVolumePerMin: 0,
       earlyTradesCountPerMin: 0,
@@ -442,18 +356,27 @@ class EarlyParticipantCheckService {
       earlyTradesVolume: 0,
       earlyTradesUniqueWallets: 0,
       earlyTradesHighValueCount: 0,
-      earlyTradesFilteredCount: 0,
-
-      earlyTradesAcceleration: 0,
-      earlyTradesAccelerationRatio: null,
-      earlyTradesGrowthTrend: null,
-
-      earlyTradesGrowthScore: null
+      earlyTradesFilteredCount: 0
     };
   }
 
   /**
-   * 评估早期参与者数据是否满足购买条件（策略8：三特征AND p25阈值）
+   * 评估早期参与者数据是否满足购买条件
+   *
+   * 策略B：高召回率+多因子稳定性
+   * 基于全因子分析（102个样本）
+   *
+   * 核心条件：
+   * - highValueCount >= 8     (高价值交易数, AUC: 83.0%)
+   * - highValuePerMin >= 5.6  (高价值/分, AUC: 78.5%)
+   * - countPerMin >= 10.6     (交易次数/分, AUC: 78.7%)
+   *
+   * 性能指标：
+   * - F1: 0.64
+   * - 精确率: 55.6%
+   * - 召回率: 75%
+   * - 通过率: 26.5%
+   *
    * @param {Object} checkResult - performCheck 返回的结果
    * @param {Object} strategyConfig - 策略配置
    * @returns {Object} { canBuy: boolean, reason: string, details: Object }
@@ -467,35 +390,49 @@ class EarlyParticipantCheckService {
       };
     }
 
-    const thresholds = strategyConfig?.threeFeatureAndP25 || {
-      volumePerMinThreshold: 1610,
-      countPerMinThreshold: 14,
-      highValuePerMinThreshold: 8
-    };
+    const config = strategyConfig?.earlyParticipants || {};
 
-    const volumeOk = (checkResult.earlyTradesVolumePerMin || 0) >= thresholds.volumePerMinThreshold;
-    const countOk = (checkResult.earlyTradesCountPerMin || 0) >= thresholds.countPerMinThreshold;
-    const highValueOk = (checkResult.earlyTradesHighValuePerMin || 0) >= thresholds.highValuePerMinThreshold;
+    // 基于分析的阈值（策略B）
+    const highValueCountThreshold = config.highValueCountThreshold ?? 8;
+    const highValuePerMinThreshold = config.highValuePerMinThreshold ?? 5.6;
+    const countPerMinThreshold = config.countPerMinThreshold ?? 10.6;
 
-    const canBuy = volumeOk && countOk && highValueOk;
+    // 检查三个核心条件
+    const highValueCountOk = (checkResult.earlyTradesHighValueCount || 0) >= highValueCountThreshold;
+    const highValuePerMinOk = (checkResult.earlyTradesHighValuePerMin || 0) >= highValuePerMinThreshold;
+    const countPerMinOk = (checkResult.earlyTradesCountPerMin || 0) >= countPerMinThreshold;
 
+    const canBuy = highValueCountOk && highValuePerMinOk && countPerMinOk;
+
+    // 构建失败原因
     const reasons = [];
-    if (!volumeOk) reasons.push(`交易额(${checkResult.earlyTradesVolumePerMin?.toFixed(0) || 0}) < ${thresholds.volumePerMinThreshold}`);
-    if (!countOk) reasons.push(`交易次数(${checkResult.earlyTradesCountPerMin?.toFixed(1) || 0}) < ${thresholds.countPerMinThreshold}`);
-    if (!highValueOk) reasons.push(`高价值交易(${checkResult.earlyTradesHighValuePerMin?.toFixed(1) || 0}) < ${thresholds.highValuePerMinThreshold}`);
+    if (!highValueCountOk) reasons.push(`高价值交易数(${checkResult.earlyTradesHighValueCount || 0}) < ${highValueCountThreshold}`);
+    if (!highValuePerMinOk) reasons.push(`高价值/分(${(checkResult.earlyTradesHighValuePerMin || 0).toFixed(1)}) < ${highValuePerMinThreshold}`);
+    if (!countPerMinOk) reasons.push(`交易次数/分(${(checkResult.earlyTradesCountPerMin || 0).toFixed(1)}) < ${countPerMinThreshold}`);
+
+    // 构建通过原因
+    const passInfos = [
+      `高价值交易数:${checkResult.earlyTradesHighValueCount || 0}`,
+      `高价值/分:${(checkResult.earlyTradesHighValuePerMin || 0).toFixed(1)}`,
+      `交易次数/分:${(checkResult.earlyTradesCountPerMin || 0).toFixed(1)}`
+    ];
 
     return {
       canBuy,
       reason: canBuy
-        ? `早期参与者检查通过 (交易额:${checkResult.earlyTradesVolumePerMin?.toFixed(0) || 0}/分, 交易次数:${checkResult.earlyTradesCountPerMin?.toFixed(1) || 0}/分, 高价值:${checkResult.earlyTradesHighValuePerMin?.toFixed(1) || 0}/分)`
+        ? `早期参与者检查通过 (${passInfos.join(', ')})`
         : `早期参与者检查失败: ${reasons.join(', ')}`,
       details: {
-        volumeOk,
-        countOk,
-        highValueOk,
-        volumePerMin: checkResult.earlyTradesVolumePerMin || 0,
+        highValueCountOk,
+        highValuePerMinOk,
+        countPerMinOk,
+        highValueCount: checkResult.earlyTradesHighValueCount || 0,
+        highValuePerMin: checkResult.earlyTradesHighValuePerMin || 0,
         countPerMin: checkResult.earlyTradesCountPerMin || 0,
-        highValuePerMin: checkResult.earlyTradesHighValuePerMin || 0
+        // 额外信息
+        totalCount: checkResult.earlyTradesTotalCount || 0,
+        uniqueWallets: checkResult.earlyTradesUniqueWallets || 0,
+        volumePerMin: checkResult.earlyTradesVolumePerMin || 0
       }
     };
   }
