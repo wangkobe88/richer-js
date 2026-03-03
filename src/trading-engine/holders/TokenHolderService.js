@@ -32,7 +32,13 @@ class TokenHolderService {
     // 黑白名单缓存（初始化时加载一次，不更新）
     this._blacklistAddresses = new Set(); // 黑名单地址（不含白名单）
     this._whitelistAddresses = new Set();  // 白名单地址
+    this._lpAddresses = new Set();         // LP地址（用于排除）
     this._cacheLoaded = false;
+
+    // 常用DEX LP地址（BSC）
+    this._commonLPAddresses = new Set([
+      '0x5c952063c7fc8610ffdb798152d69f0b9550762b'  // 4meme LP
+    ]);
   }
 
   /**
@@ -55,11 +61,16 @@ class TokenHolderService {
 
       this._blacklistAddresses = new Set(blacklistResult.map(w => w.address.toLowerCase()));
       this._whitelistAddresses = new Set(whitelistResult.map(w => w.address.toLowerCase()));
+
+      // LP地址直接使用硬编码列表
+      this._lpAddresses = new Set(this._commonLPAddresses);
+
       this._cacheLoaded = true;
 
       this.logger.info('[TokenHolderService] 钱包缓存加载完成', {
         blacklistCount: this._blacklistAddresses.size,
-        whitelistCount: this._whitelistAddresses.size
+        whitelistCount: this._whitelistAddresses.size,
+        lpCount: this._lpAddresses.size
       });
     } catch (error) {
       this.logger.error('[TokenHolderService] 钱包缓存加载失败', error);
@@ -183,15 +194,16 @@ class TokenHolderService {
 
   /**
    * 综合持有者检查（一次性完成所有检查）
-   * 包括：黑/白名单检查 + Dev持仓比例检查
+   * 包括：黑/白名单检查 + Dev持仓比例检查 + 大额持仓检查
    * @param {string} tokenAddress - 代币地址
    * @param {string} creatorAddress - 创建者地址（可为 null）
    * @param {string} experimentId - 实验ID，可为 null
    * @param {string} chain - 区块链，默认 'bsc'
    * @param {number} devThreshold - Dev持仓阈值（百分比），默认 15
+   * @param {number} largeHoldingThreshold - 大额持仓阈值（百分比），默认 18
    * @returns {Promise<Object>} 综合检查结果
    */
-  async checkAllHolderRisks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', devThreshold = 15) {
+  async checkAllHolderRisks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', devThreshold = 15, largeHoldingThreshold = 18) {
     try {
       // 确保缓存已加载
       await this._ensureCacheLoaded();
@@ -227,11 +239,15 @@ class TokenHolderService {
         }
       }
 
+      // 3. 大额持仓检查（排除LP地址）
+      const largeHoldingCheck = this._checkLargeHolding(holderData.holders, largeHoldingThreshold);
+
       // 合并结果
-      const canBuy = blacklistCheck.canBuy && devCheck.canBuy;
+      const canBuy = blacklistCheck.canBuy && devCheck.canBuy && largeHoldingCheck.canBuy;
       const reasons = [];
       if (!blacklistCheck.canBuy) reasons.push(`黑/白名单: ${blacklistCheck.reason}`);
       if (!devCheck.canBuy) reasons.push(`Dev持仓: ${devCheck.reason}`);
+      if (!largeHoldingCheck.canBuy) reasons.push(`大额持仓: ${largeHoldingCheck.reason}`);
       if (canBuy && reasons.length === 0) {
         reasons.push('所有持有者检查通过');
       }
@@ -241,7 +257,8 @@ class TokenHolderService {
         creator_address: creatorAddress || 'none',
         canBuy,
         blacklistCheck,
-        devCheck
+        devCheck,
+        largeHoldingCheck
       });
 
       return {
@@ -249,9 +266,11 @@ class TokenHolderService {
         whitelistCount: blacklistCheck.whitelistCount,
         blacklistCount: blacklistCheck.blacklistCount,
         devHoldingRatio: devCheck.devHoldingRatio,
+        maxHoldingRatio: largeHoldingCheck.maxHoldingRatio,
         reason: reasons.join('; '),
         blacklistReason: blacklistCheck.reason,
         devReason: devCheck.reason,
+        largeHoldingReason: largeHoldingCheck.reason,
         // 返回持有者数据供后续使用（如果需要）
         holdersCount: holderData.holders?.length || 0
       };
@@ -269,9 +288,11 @@ class TokenHolderService {
         whitelistCount: 0,
         blacklistCount: 0,
         devHoldingRatio: 0,
+        maxHoldingRatio: 0,
         reason: `持有者检查失败: ${errorMessage}`,
         blacklistReason: `检查失败: ${errorMessage}`,
         devReason: `检查失败: ${errorMessage}`,
+        largeHoldingReason: `检查失败: ${errorMessage}`,
         holdersCount: 0
       };
     }
@@ -568,6 +589,62 @@ class TokenHolderService {
         reason: `Dev持仓检查失败: ${errorMessage}`
       };
     }
+  }
+
+  /**
+   * 检查是否有任何持有者（排除LP地址）持仓比例超过阈值
+   * @param {Array} holders - 持有者数组
+   * @param {number} threshold - 阈值（百分比，如18表示18%），默认 18
+   * @returns {Object} { canBuy, maxHoldingRatio, maxHolderAddress, reason }
+   */
+  _checkLargeHolding(holders, threshold = 18) {
+    if (!holders || holders.length === 0) {
+      return {
+        canBuy: true,
+        maxHoldingRatio: 0,
+        maxHolderAddress: null,
+        reason: '无持有者数据'
+      };
+    }
+
+    let maxHoldingRatio = 0;
+    let maxHolderAddress = null;
+
+    // 遍历所有持有者，排除LP地址
+    holders.forEach(holder => {
+      const addr = holder.address?.toLowerCase();
+      if (!addr) return;
+
+      // 跳过LP地址
+      if (this._lpAddresses.has(addr)) {
+        return;
+      }
+
+      const holdingRatio = (holder.balance_ratio || 0) * 100;
+      if (holdingRatio > maxHoldingRatio) {
+        maxHoldingRatio = holdingRatio;
+        maxHolderAddress = addr;
+      }
+    });
+
+    const canBuy = maxHoldingRatio < threshold;
+    const reason = canBuy
+      ? `最大持仓比例${maxHoldingRatio.toFixed(1)}%正常`
+      : `最大持仓比例${maxHoldingRatio.toFixed(1)}%超过阈值${threshold}% (地址:${maxHolderAddress})`;
+
+    this.logger.info('[TokenHolderService] 大额持仓检查结果', {
+      maxHoldingRatio: `${maxHoldingRatio.toFixed(1)}%`,
+      maxHolderAddress,
+      threshold: `${threshold}%`,
+      canBuy
+    });
+
+    return {
+      canBuy,
+      maxHoldingRatio,
+      maxHolderAddress,
+      reason
+    };
   }
 }
 

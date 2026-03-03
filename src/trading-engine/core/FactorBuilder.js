@@ -55,7 +55,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     holderBlacklistCount: factorResults.holderBlacklistCount || 0,
     holdersCount: factorResults.holdersCount || 0,
     devHoldingRatio: factorResults.devHoldingRatio || 0,
+    maxHoldingRatio: factorResults.maxHoldingRatio || 0,
     holderCanBuy: factorResults.holderCanBuy ?? null,
+    preTraderCanBuy: factorResults.preTraderCanBuy ?? null,
+    preTraderCheckReason: factorResults.preTraderCheckReason ?? null,
     // 早期参与者检查因子
     earlyTradesChecked: factorResults.earlyTradesChecked || 0,
     earlyTradesCheckTimestamp: factorResults.earlyTradesCheckTimestamp || null,
@@ -149,7 +152,10 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     holderBlacklistCount: fv.holderBlacklistCount ?? 0,
     holdersCount: fv.holdersCount ?? 0,
     devHoldingRatio: fv.devHoldingRatio ?? 0,
+    maxHoldingRatio: fv.maxHoldingRatio ?? 0,
     holderCanBuy: fv.holderCanBuy ?? null,
+    preTraderCanBuy: fv.preTraderCanBuy ?? null,
+    preTraderCheckReason: fv.preTraderCheckReason ?? null,
     // 早期参与者检查因子
     earlyTradesChecked: fv.earlyTradesChecked ?? 0,
     earlyTradesCheckTimestamp: fv.earlyTradesCheckTimestamp ?? null,
@@ -196,7 +202,8 @@ function getAvailableFactorIds() {
     // 购买前检查因子
     'preBuyCheck', 'checkTimestamp', 'checkDuration',
     'holderWhitelistCount', 'holderBlacklistCount', 'holdersCount',
-    'devHoldingRatio', 'holderCanBuy',
+    'devHoldingRatio', 'maxHoldingRatio', 'holderCanBuy',
+    'preTraderCanBuy', 'preTraderCheckReason',
     // 早期参与者检查因子
     'earlyTradesChecked', 'earlyTradesCheckTimestamp', 'earlyTradesCheckDuration',
     'earlyTradesCheckTime', 'earlyTradesWindow',

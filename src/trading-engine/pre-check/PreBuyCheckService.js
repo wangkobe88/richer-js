@@ -16,8 +16,16 @@ const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService
  */
 const DEFAULT_CONFIG = {
   devHoldingThreshold: 15,           // Dev持仓阈值（百分比）
+  largeHoldingThreshold: 18,         // 大额持仓阈值（百分比）
   holderCheckEnabled: true,          // 是否启用持有者检查
-  earlyParticipantCheckEnabled: true // 是否启用早期参与者检查
+  earlyParticipantCheckEnabled: true, // 是否启用早期参与者检查
+  earlyParticipantFilterEnabled: false, // 是否启用早期参与者筛选（策略8）
+  earlyParticipantStrategy: 'three_feature_and_p25',
+  threeFeatureAndP25: {              // 策略8阈值配置
+    volumePerMinThreshold: 1610,
+    countPerMinThreshold: 14,
+    highValuePerMinThreshold: 8
+  }
 };
 
 class PreBuyCheckService {
@@ -99,19 +107,47 @@ class PreBuyCheckService {
         // 早期参与者检查结果
         ...earlyParticipantCheck,
 
+        // 早期参与者购买资格评估
+        preTraderCanBuy: null,
+        preTraderCheckReason: null,
+
         // 综合结果
         canBuy: holderCheck.canBuy,
         checkReason: holderCheck.reason
       };
 
+      // 评估早期参与者购买资格
+      if (this.config.earlyParticipantFilterEnabled && earlyParticipantCheck.earlyTradesChecked === 1) {
+        const eligibility = this.earlyParticipantService.evaluateBuyEligibility(
+          earlyParticipantCheck,
+          this.config
+        );
+        result.preTraderCanBuy = eligibility.canBuy;
+        result.preTraderCheckReason = eligibility.reason;
+
+        // 综合决策：两个检查都必须通过
+        result.canBuy = result.holderCanBuy && result.preTraderCanBuy;
+        result.checkReason = this._buildCombinedCheckReason(
+          result.holderCanBuy,
+          result.preTraderCanBuy,
+          holderCheck.reason,
+          eligibility.reason
+        );
+      }
+
       this.logger.info('[PreBuyCheckService] 购买前检查完成', {
         token_address: tokenAddress,
+        holderCanBuy: result.holderCanBuy,
+        preTraderCanBuy: result.preTraderCanBuy,
         canBuy: result.canBuy,
+        checkReason: result.checkReason,
         blacklistCount: result.holderBlacklistCount,
         whitelistCount: result.holderWhitelistCount,
         devHoldingRatio: result.devHoldingRatio,
         earlyTradesTotalCount: result.earlyTradesTotalCount || 0,
-        earlyTradesWalletsPerMin: result.earlyTradesWalletsPerMin || 0,
+        earlyTradesVolumePerMin: result.earlyTradesVolumePerMin || 0,
+        earlyTradesCountPerMin: result.earlyTradesCountPerMin || 0,
+        earlyTradesHighValuePerMin: result.earlyTradesHighValuePerMin || 0,
         duration: result.checkDuration
       });
 
@@ -163,9 +199,11 @@ class PreBuyCheckService {
         blacklistCount: 0,
         holdersCount: 0,
         devHoldingRatio: 0,
+        maxHoldingRatio: 0,
         reason: '持有者检查已禁用',
         blacklistReason: '检查已禁用',
-        devReason: '检查已禁用'
+        devReason: '检查已禁用',
+        largeHoldingReason: '检查已禁用'
       };
     }
 
@@ -174,7 +212,8 @@ class PreBuyCheckService {
       creatorAddress,
       experimentId,
       chain,
-      this.config.devHoldingThreshold
+      this.config.devHoldingThreshold,
+      this.config.largeHoldingThreshold
     );
   }
 
@@ -206,6 +245,28 @@ class PreBuyCheckService {
   }
 
   /**
+   * 构建综合检查原因
+   * @private
+   */
+  _buildCombinedCheckReason(holderCanBuy, preTraderCanBuy, holderReason, preTraderReason) {
+    const reasons = [];
+
+    if (!holderCanBuy) {
+      reasons.push(`持有者: ${holderReason}`);
+    }
+
+    if (!preTraderCanBuy) {
+      reasons.push(`早期参与者: ${preTraderReason}`);
+    }
+
+    if (reasons.length === 0) {
+      return '所有检查通过';
+    }
+
+    return reasons.join(' | ');
+  }
+
+  /**
    * 获取未执行检查时的默认因子值
    * @returns {Object} 默认因子值
    */
@@ -218,7 +279,10 @@ class PreBuyCheckService {
       holderBlacklistCount: 0,
       holdersCount: 0,
       devHoldingRatio: 0,
+      maxHoldingRatio: 0,
       holderCanBuy: null,
+      preTraderCanBuy: null,
+      preTraderCheckReason: null,
       ...this.earlyParticipantService.getEmptyFactorValues()
     };
   }

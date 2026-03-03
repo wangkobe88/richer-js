@@ -548,7 +548,7 @@ class ExperimentTokens {
               <span class="text-gray-600">|</span>
               <a href="${signalsUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">信号</a>
               <span class="text-gray-600">|</span>
-              <a href="${strategyUrl}" class="hover:text-pink-400 flex-shrink-0">策略</a>
+              <a href="${strategyUrl}" target="_blank" class="hover:text-pink-400 flex-shrink-0">策略</a>
               <span class="text-gray-600">|</span>
               <a href="${earlyTradesUrl}" target="_blank" class="hover:text-amber-400 flex-shrink-0" title="早期交易">早期</a>
               <span class="text-gray-600">|</span>

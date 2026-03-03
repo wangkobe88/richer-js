@@ -453,6 +453,54 @@ class EarlyParticipantCheckService {
   }
 
   /**
+   * 评估早期参与者数据是否满足购买条件（策略8：三特征AND p25阈值）
+   * @param {Object} checkResult - performCheck 返回的结果
+   * @param {Object} strategyConfig - 策略配置
+   * @returns {Object} { canBuy: boolean, reason: string, details: Object }
+   */
+  evaluateBuyEligibility(checkResult, strategyConfig) {
+    if (!checkResult || checkResult.earlyTradesChecked !== 1) {
+      return {
+        canBuy: true,
+        reason: '早期参与者检查未执行',
+        details: null
+      };
+    }
+
+    const thresholds = strategyConfig?.threeFeatureAndP25 || {
+      volumePerMinThreshold: 1610,
+      countPerMinThreshold: 14,
+      highValuePerMinThreshold: 8
+    };
+
+    const volumeOk = (checkResult.earlyTradesVolumePerMin || 0) >= thresholds.volumePerMinThreshold;
+    const countOk = (checkResult.earlyTradesCountPerMin || 0) >= thresholds.countPerMinThreshold;
+    const highValueOk = (checkResult.earlyTradesHighValuePerMin || 0) >= thresholds.highValuePerMinThreshold;
+
+    const canBuy = volumeOk && countOk && highValueOk;
+
+    const reasons = [];
+    if (!volumeOk) reasons.push(`交易额(${checkResult.earlyTradesVolumePerMin?.toFixed(0) || 0}) < ${thresholds.volumePerMinThreshold}`);
+    if (!countOk) reasons.push(`交易次数(${checkResult.earlyTradesCountPerMin?.toFixed(1) || 0}) < ${thresholds.countPerMinThreshold}`);
+    if (!highValueOk) reasons.push(`高价值交易(${checkResult.earlyTradesHighValuePerMin?.toFixed(1) || 0}) < ${thresholds.highValuePerMinThreshold}`);
+
+    return {
+      canBuy,
+      reason: canBuy
+        ? `早期参与者检查通过 (交易额:${checkResult.earlyTradesVolumePerMin?.toFixed(0) || 0}/分, 交易次数:${checkResult.earlyTradesCountPerMin?.toFixed(1) || 0}/分, 高价值:${checkResult.earlyTradesHighValuePerMin?.toFixed(1) || 0}/分)`
+        : `早期参与者检查失败: ${reasons.join(', ')}`,
+      details: {
+        volumeOk,
+        countOk,
+        highValueOk,
+        volumePerMin: checkResult.earlyTradesVolumePerMin || 0,
+        countPerMin: checkResult.earlyTradesCountPerMin || 0,
+        highValuePerMin: checkResult.earlyTradesHighValuePerMin || 0
+      }
+    };
+  }
+
+  /**
    * 安全地获取错误消息
    * @private
    */

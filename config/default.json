@@ -31,6 +31,17 @@
     "takeProfit2Sell": 1.0,
     "stopLossMinutes": 5
   },
+  "preBuyCheck": {
+    "holderCheckEnabled": true,
+    "earlyParticipantFilterEnabled": false,
+    "earlyParticipantStrategy": "three_feature_and_p25",
+    "threeFeatureAndP25": {
+      "volumePerMinThreshold": 1610,
+      "countPerMinThreshold": 14,
+      "highValuePerMinThreshold": 8
+    },
+    "largeHoldingThreshold": 18
+  },
   "logging": {
     "level": "INFO",
     "dir": "./logs"
