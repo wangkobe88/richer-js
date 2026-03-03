@@ -575,11 +575,17 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     // 2.2 初始化购买前检查服务
     const { PreBuyCheckService } = require('../pre-check/PreBuyCheckService');
-    this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, {
-      devHoldingThreshold: 15,
-      holderCheckEnabled: true
-    });
-    console.log(`✅ 购买前检查服务初始化完成`);
+
+    // 合并配置：外部默认配置 + 实验配置
+    const defaultConfig = require('../../../config/default.json');
+    const experimentPreBuyConfig = this._experiment?.config?.preBuyCheck || {};
+    const preBuyCheckConfig = {
+      ...defaultConfig.preBuyCheck,
+      ...experimentPreBuyConfig
+    };
+
+    this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
+    console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
 
     // 3. 初始化代币池（传入价格历史缓存）
     this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache);
