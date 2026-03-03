@@ -19,6 +19,37 @@ function _safeGetErrorMessage(error) {
   return String(error);
 }
 
+/**
+ * 安全地解析 balance_ratio 为数字
+ * AVE API 返回的 balance_ratio 可能是：
+ * - 数字（如 0.0525）
+ * - 字符串百分比（如 "5.25%"）
+ * - 字符串小数（如 "0.0525"）
+ * - 空字符串或其他无效值
+ * @private
+ * @param {*} ratio - balance_ratio 值
+ * @returns {number} 解析后的百分比（0-100）
+ */
+function _parseBalanceRatio(ratio) {
+  if (ratio === null || ratio === undefined) return 0;
+  if (typeof ratio === 'number') {
+    // 如果已经是数字，可能是小数（0.0525）或百分比（5.25）
+    // 假设 <= 1 的值是小数形式，需要 * 100
+    return ratio <= 1 ? ratio * 100 : ratio;
+  }
+  if (typeof ratio === 'string') {
+    const trimmed = ratio.trim();
+    if (trimmed === '') return 0;
+    // 移除可能的 % 符号
+    const numericStr = trimmed.replace('%', '');
+    const parsed = parseFloat(numericStr);
+    if (isNaN(parsed)) return 0;
+    // 如果 <= 1，假设是小数形式，需要 * 100
+    return parsed <= 1 ? parsed * 100 : parsed;
+  }
+  return 0;
+}
+
 class TokenHolderService {
   /**
    * @param {Object} supabase - Supabase客户端
@@ -225,7 +256,7 @@ class TokenHolderService {
           h => h.address && h.address.toLowerCase() === creatorAddress.toLowerCase()
         );
         if (creator) {
-          const devHoldingRatio = (creator.balance_ratio || 0) * 100;
+          const devHoldingRatio = _parseBalanceRatio(creator.balance_ratio);
           const canBuy = devHoldingRatio < devThreshold;
           devCheck = {
             canBuy,
@@ -555,7 +586,7 @@ class TokenHolderService {
       }
 
       // 计算Dev持仓比例
-      const devHoldingRatio = (creator.balance_ratio || 0) * 100;
+      const devHoldingRatio = _parseBalanceRatio(creator.balance_ratio);
       const canBuy = devHoldingRatio < threshold;
 
       this.logger.info('[TokenHolderService] Dev持仓检查结果', {
@@ -620,7 +651,7 @@ class TokenHolderService {
         return;
       }
 
-      const holdingRatio = (holder.balance_ratio || 0) * 100;
+      const holdingRatio = _parseBalanceRatio(holder.balance_ratio);
       if (holdingRatio > maxHoldingRatio) {
         maxHoldingRatio = holdingRatio;
         maxHolderAddress = addr;

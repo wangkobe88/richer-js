@@ -921,6 +921,81 @@ class ExperimentDataService {
       };
     }
   }
+
+  /**
+   * 获取拒绝信号统计
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<Object>} 拒绝统计数据
+   */
+  async getRejectionStats(experimentId) {
+    try {
+      // 获取所有信号（在JavaScript中过滤，因为Supabase JSONB查询不稳定）
+      const { data, error } = await this.supabase
+        .from('strategy_signals')
+        .select('id, metadata, reason')
+        .eq('experiment_id', experimentId);
+
+      if (error) throw error;
+
+      const byReason = {};
+      let totalRejected = 0;
+
+      if (data && data.length > 0) {
+        // 过滤出被拒绝的信号
+        const rejectedSignals = data.filter(signal =>
+          signal.metadata?.execution_status === 'failed'
+        );
+
+        totalRejected = rejectedSignals.length;
+
+        for (const signal of rejectedSignals) {
+          let reason = signal.metadata?.execution_reason || signal.reason || '未知原因';
+
+          // 简化和分类拒绝原因
+          const category = this._categorizeRejectionReason(reason);
+          byReason[category] = (byReason[category] || 0) + 1;
+        }
+      }
+
+      return {
+        totalRejected,
+        byReason
+      };
+
+    } catch (error) {
+      console.error('获取拒绝统计失败:', error);
+      return {
+        totalRejected: 0,
+        byReason: {}
+      };
+    }
+  }
+
+  /**
+   * 分类拒绝原因
+   * @private
+   * @param {string} reason - 原始拒绝原因
+   * @returns {string} 分类后的原因
+   */
+  _categorizeRejectionReason(reason) {
+    if (!reason) return '未知原因';
+
+    const r = reason.toLowerCase();
+
+    if (r.includes('negative_dev') || r.includes('负面dev')) return 'Dev钱包负面';
+    if (r.includes('黑名单') || r.includes('blacklist')) return '黑/白名单检查';
+    if (r.includes('早期参与者') || r.includes('pretrader') || r.includes('volumepermin') || r.includes('countpermin') || r.includes('highvaluepermin')) {
+      return '早期参与者指标';
+    }
+    if (r.includes('dev持仓') || r.includes('devholding')) return 'Dev持仓超标';
+    if (r.includes('大额持仓') || r.includes('maxholding') || r.includes('largeholding')) return '大额持仓超标';
+    if (r.includes('预检查失败')) return '预检查失败';
+
+    // 如果原始原因比较短，直接使用
+    if (reason.length < 30) return reason;
+
+    return '其他原因';
+  }
 }
 
 module.exports = { ExperimentDataService };

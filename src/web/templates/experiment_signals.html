@@ -97,6 +97,38 @@
             color: white;
         }
 
+        .badge-rejected {
+            background-color: #dc2626;
+            color: white;
+        }
+
+        /* 拒绝信号卡片样式 */
+        .signal-rejected {
+            border-left: 4px solid #dc2626;
+            background: rgba(220, 38, 38, 0.15);
+            opacity: 0.85;
+        }
+
+        .signal-rejected:hover {
+            opacity: 1;
+            background: rgba(220, 38, 38, 0.2);
+        }
+
+        /* 拒绝原因进度条 */
+        .rejection-reason-bar {
+            height: 24px;
+            background: #374151;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .rejection-reason-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #dc2626, #ef4444);
+            transition: width 0.5s ease;
+        }
+
         /* 下拉框选项白色文字 */
         select option {
             background-color: #374151;
@@ -247,6 +279,12 @@
                                 <option value="500">500条</option>
                             </select>
                         </div>
+                        <div class="flex items-center pb-2">
+                            <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" id="include-rejected" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                                <span class="text-sm text-gray-300">显示被拒绝的信号</span>
+                            </label>
+                        </div>
                         <button id="apply-filters" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
                             应用筛选
                         </button>
@@ -254,7 +292,7 @@
                 </div>
 
                 <!-- 信号统计 -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
                     <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
                         <div class="flex items-center justify-between">
                             <div>
@@ -291,6 +329,30 @@
                             <div class="text-purple-400 text-2xl">🎯</div>
                         </div>
                     </div>
+                    <div class="bg-gray-800 rounded-lg p-6 border border-red-700 cursor-pointer" onclick="window.experimentSignals?.toggleRejectionDetails()">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-400">被拒绝信号</p>
+                                <p class="text-2xl font-bold text-red-400" id="rejected-signals">0</p>
+                            </div>
+                            <div class="text-red-400 text-2xl">🚫</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 拒绝原因明细面板 -->
+                <div id="rejection-details" class="hidden bg-gray-800 rounded-lg p-4 mb-8 border border-red-700">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-white">拒绝原因统计</h3>
+                        <button onclick="window.experimentSignals?.toggleRejectionDetails()" class="text-gray-400 hover:text-white">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="rejection-reasons-list" class="space-y-3">
+                        <!-- 动态生成拒绝原因统计 -->
+                    </div>
                 </div>
 
                 <!-- 信号列表 -->
@@ -317,7 +379,7 @@
         </main>
     </div>
 
-    <script src="/static/js/simple-init.js?v=3.4"></script>
-    <script src="/static/js/experiment_signals.js?v=3.9"></script>
+    <script src="/static/js/simple-init.js?v=4.0"></script>
+    <script src="/static/js/experiment_signals.js?v=4.0"></script>
 </body>
 </html>

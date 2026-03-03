@@ -1151,6 +1151,20 @@ class RicherJsWebServer {
       }
     });
 
+    // 获取拒绝信号统计
+    this.app.get('/api/experiment/:id/rejection-stats', async (req, res) => {
+      try {
+        const stats = await this.dataService.getRejectionStats(req.params.id);
+        res.json({
+          success: true,
+          data: stats
+        });
+      } catch (error) {
+        console.error('获取拒绝统计失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 获取交易记录
     this.app.get('/api/experiment/:id/trades', async (req, res) => {
       try {

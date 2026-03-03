@@ -1394,7 +1394,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
               `购买前检查失败 | symbol=${token.symbol}, holderCanBuy=${preBuyCheckResult.holderCanBuy}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
               `reason=${preBuyCheckResult.checkReason}, ` +
               `whitelist=${preBuyCheckResult.holderWhitelistCount}, blacklist=${preBuyCheckResult.holderBlacklistCount}, ` +
-              `devHoldingRatio=${preBuyCheckResult.devHoldingRatio.toFixed(1)}%, maxHoldingRatio=${preBuyCheckResult.maxHoldingRatio.toFixed(1)}%`);
+              `devHoldingRatio=${(isNaN(preBuyCheckResult.devHoldingRatio) ? 'N/A' : preBuyCheckResult.devHoldingRatio.toFixed(1))}%, maxHoldingRatio=${(isNaN(preBuyCheckResult.maxHoldingRatio) ? 'N/A' : preBuyCheckResult.maxHoldingRatio.toFixed(1))}%`);
             preCheckPassed = false;
             blockReason = preBuyCheckResult.checkReason || 'pre_buy_check_failed';
           } else {
@@ -1402,7 +1402,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
               `购买前检查通过 | symbol=${token.symbol}, holderCanBuy=${preBuyCheckResult.holderCanBuy}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
               `reason=${preBuyCheckResult.checkReason}, ` +
               `whitelist=${preBuyCheckResult.holderWhitelistCount}, blacklist=${preBuyCheckResult.holderBlacklistCount}, ` +
-              `devHoldingRatio=${preBuyCheckResult.devHoldingRatio.toFixed(1)}%, maxHoldingRatio=${preBuyCheckResult.maxHoldingRatio.toFixed(1)}%`);
+              `devHoldingRatio=${(isNaN(preBuyCheckResult.devHoldingRatio) ? 'N/A' : preBuyCheckResult.devHoldingRatio.toFixed(1))}%, maxHoldingRatio=${(isNaN(preBuyCheckResult.maxHoldingRatio) ? 'N/A' : preBuyCheckResult.maxHoldingRatio.toFixed(1))}%`);
           }
         } catch (checkError) {
           const errorMsg = checkError?.message || String(checkError);

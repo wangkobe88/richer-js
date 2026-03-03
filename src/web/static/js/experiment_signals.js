@@ -1,7 +1,7 @@
 /**
  * 交易信号页面JavaScript
  * 实现K线图展示和交易信号标记
- * Version: 3.4 - 清理日志，优化无数据提示
+ * Version: 4.0 - 添加拒绝信号标记和统计
  */
 
 class ExperimentSignals {
@@ -27,6 +27,10 @@ class ExperimentSignals {
     // 🔥 回测模式支持
     this._isBacktest = false;    // 是否是回测实验
     this._sourceExperimentId = null;  // 源实验ID
+
+    // 🔥 拒绝信号统计
+    this.rejectionStats = null;
+    this.showRejected = true;  // 默认显示被拒绝的信号
 
     this.init();
   }
@@ -100,6 +104,12 @@ class ExperimentSignals {
 
     // 筛选控件
     safeBind('apply-filters', 'click', () => {
+      this.applyFilters();
+    });
+
+    // 显示/隐藏拒绝信号复选框
+    safeBind('include-rejected', 'change', (e) => {
+      this.showRejected = e.target.checked;
       this.applyFilters();
     });
 
@@ -208,6 +218,9 @@ class ExperimentSignals {
 
       // 渲染信号列表
       this.renderSignals(filteredSignals);
+
+      // 加载拒绝信号统计（不阻塞其他操作）
+      this.loadRejectionStats();
 
       // console.log('✅ 数据加载完成');
 
@@ -695,7 +708,7 @@ class ExperimentSignals {
   async extractTokensFromExperiment() {
     try {
       // 从已加载的信号数据中提取有信号的代币列表
-      // 统计每个代币的信号数量
+      // 统计每个代币的信号数量和被拒绝信号数量
       const tokenSignalCounts = new Map();
 
       if (this.signals && this.signals.length > 0) {
@@ -707,11 +720,17 @@ class ExperimentSignals {
             tokenSignalCounts.set(address, {
               address: address,
               symbol: symbol,
-              signalCount: 0
+              signalCount: 0,
+              rejectedCount: 0
             });
           }
 
           tokenSignalCounts.get(address).signalCount++;
+
+          // 统计被拒绝的信号
+          if (this.isSignalRejected(signal)) {
+            tokenSignalCounts.get(address).rejectedCount++;
+          }
         });
       }
 
@@ -759,16 +778,25 @@ class ExperimentSignals {
 
     // console.log('🔄 准备添加', sortedTokens.length, '个代币选项');
 
-    // 添加代币选项，显示信号数量和地址
+    // 添加代币选项，显示信号数量、被拒绝数量和地址
     sortedTokens.forEach((token, index) => {
       const option = document.createElement('option');
       option.value = token.address;
       const signalCount = token.signalCount || 0;
-      // 显示：代币符号 (信号数) - 地址前8位
+      const rejectedCount = token.rejectedCount || 0;
+
+      // 显示：代币符号 (信号数) 🚫(被拒绝数) - 地址前8位
       const shortAddress = token.address.length > 12
         ? `${token.address.substring(0, 8)}...`
         : token.address;
-      option.textContent = `${token.symbol} (${signalCount} 条) - ${shortAddress}`;
+
+      let textContent = `${token.symbol} (${signalCount} 条)`;
+      if (rejectedCount > 0) {
+        textContent += ` 🚫(${rejectedCount})`;
+      }
+      textContent += ` - ${shortAddress}`;
+
+      option.textContent = textContent;
       freshSelector.appendChild(option);
       if (index < 3) {
         console.log(`  [${index}] ${option.textContent}`);
@@ -1377,7 +1405,12 @@ class ExperimentSignals {
     container.innerHTML = '';
 
     // 如果没有传入参数，使用所有信号
-    const signalsToRender = signals !== null ? signals : this.signals;
+    let signalsToRender = signals !== null ? signals : this.signals;
+
+    // 根据 showRejected 过滤信号
+    if (!this.showRejected) {
+      signalsToRender = signalsToRender.filter(s => !this.isSignalRejected(s));
+    }
 
     // 按时间倒序排列
     const sortedSignals = [...signalsToRender].sort((a, b) =>
@@ -1392,21 +1425,39 @@ class ExperimentSignals {
 
   createSignalCard(signal) {
     const card = document.createElement('div');
-    const signalClass = this.getSignalClass(signal.action);
-    const badgeClass = this.getBadgeClass(signal.action);
+    const signalClass = this.getSignalClass(signal.action, signal);
+    const badgeClass = this.getBadgeClass(signal.action, signal);
 
     card.className = `signal-card ${signalClass} p-4`;
 
     const signalTime = new Date(signal.signal_timestamp).toLocaleString('zh-CN');
 
+    // 检查是否是被拒绝的信号
+    const isRejected = this.isSignalRejected(signal);
     const executedStatus = signal.executed ?
       '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 已执行</span>' :
-      '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">⏳ 未执行</span>';
+      (isRejected ?
+        '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">🚫 被拒绝</span>' :
+        '<span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">⏳ 未执行</span>');
 
     // 从 metadata 中获取策略信息
     const metadata = signal.metadata || {};
     const strategyName = metadata.strategyName || signal.strategyName || signal.reason || '策略信号';
     const strategyId = metadata.strategyId || signal.strategyId || null;
+    const executionReason = signal.execution_reason || metadata.execution_reason || '';
+
+    // 构建拒绝原因HTML
+    let rejectionInfoHtml = '';
+    if (isRejected && executionReason) {
+      rejectionInfoHtml = `
+        <div class="mt-2 p-2 bg-red-50 rounded border border-red-200">
+          <div class="flex items-center space-x-2">
+            <span class="text-red-700 font-medium text-sm">🚫 拒绝原因:</span>
+            <span class="text-red-900 text-sm">${this._escapeHtml(executionReason)}</span>
+          </div>
+        </div>
+      `;
+    }
 
     // 构建策略信息HTML
     let strategyInfoHtml = '';
@@ -1423,21 +1474,22 @@ class ExperimentSignals {
     }
 
     // 构建价格和原因信息
-    const priceInfo = signal.price || metadata.price ?
-      `<span class="text-gray-600">价格: <span class="font-medium text-gray-900">${parseFloat(signal.price || metadata.price).toFixed(8)}</span></span>` : '';
+    const priceValue = signal.price || metadata.price;
+    const priceInfo = (priceValue !== undefined && priceValue !== null && !isNaN(priceValue)) ?
+      `<span class="text-gray-600">价格: <span class="font-medium text-gray-900">${parseFloat(priceValue).toFixed(8)}</span></span>` : '';
 
     // 构建额外信息（如果有）
     let extraInfoHtml = '';
     const extraInfo = [];
-    if (metadata.profitPercent !== undefined && metadata.profitPercent !== null) {
+    if (metadata.profitPercent !== undefined && metadata.profitPercent !== null && !isNaN(metadata.profitPercent)) {
       extraInfo.push(`收益率: ${metadata.profitPercent.toFixed(2)}%`);
     }
-    if (metadata.holdDuration !== undefined && metadata.holdDuration !== null) {
+    if (metadata.holdDuration !== undefined && metadata.holdDuration !== null && !isNaN(metadata.holdDuration)) {
       const holdSeconds = metadata.holdDuration;
       const holdMinutes = (holdSeconds / 60).toFixed(1);
       extraInfo.push(`持仓: ${holdMinutes}分钟`);
     }
-    if (metadata.sellCalculatedRatio !== undefined && metadata.sellCalculatedRatio !== null) {
+    if (metadata.sellCalculatedRatio !== undefined && metadata.sellCalculatedRatio !== null && !isNaN(metadata.sellCalculatedRatio)) {
       const ratioPercent = (metadata.sellCalculatedRatio * 100).toFixed(0);
       extraInfo.push(`卖出比例: ${ratioPercent}%`);
     }
@@ -1527,6 +1579,8 @@ class ExperimentSignals {
         </div>
       </div>
 
+      ${rejectionInfoHtml}
+
       ${strategyInfoHtml}
 
       ${cardPositionHtml}
@@ -1549,7 +1603,11 @@ class ExperimentSignals {
     return card;
   }
 
-  getSignalClass(action) {
+  getSignalClass(action, signal) {
+    // 检查是否是被拒绝的信号
+    if (signal && signal.execution_status === 'failed') {
+      return 'signal-rejected';
+    }
     switch (action.toUpperCase()) {
       case 'BUY': return 'signal-buy';
       case 'SELL': return 'signal-sell';
@@ -1558,13 +1616,26 @@ class ExperimentSignals {
     }
   }
 
-  getBadgeClass(action) {
+  getBadgeClass(action, signal) {
+    // 检查是否是被拒绝的信号
+    if (signal && signal.execution_status === 'failed') {
+      return 'badge-rejected';
+    }
     switch (action.toUpperCase()) {
       case 'BUY': return 'badge-buy';
       case 'SELL': return 'badge-sell';
       case 'HOLD': return 'badge-hold';
       default: return 'badge-hold';
     }
+  }
+
+  /**
+   * 检查信号是否被拒绝
+   * @param {Object} signal - 信号对象
+   * @returns {boolean} 是否被拒绝
+   */
+  isSignalRejected(signal) {
+    return signal && signal.execution_status === 'failed';
   }
 
   highlightSignal(signal) {
@@ -1720,6 +1791,101 @@ class ExperimentSignals {
       'ethereum': 'Ethereum'
     };
     return blockchainMap[blockchain?.toLowerCase()] || blockchain || 'Unknown';
+  }
+
+  /**
+   * 加载拒绝信号统计
+   * @returns {Promise<void>}
+   */
+  async loadRejectionStats() {
+    try {
+      const response = await fetch(`/api/experiment/${this.experimentId}/rejection-stats`);
+      const result = await response.json();
+
+      if (result.success) {
+        this.rejectionStats = result.data;
+        this.updateRejectionStatsUI();
+      }
+    } catch (error) {
+      console.error('加载拒绝统计失败:', error);
+    }
+  }
+
+  /**
+   * 更新拒绝统计UI
+   */
+  updateRejectionStatsUI() {
+    if (!this.rejectionStats) return;
+
+    // 更新拒绝信号总数
+    const rejectedSignalsEl = document.getElementById('rejected-signals');
+    if (rejectedSignalsEl) {
+      rejectedSignalsEl.textContent = this.rejectionStats.totalRejected || 0;
+    }
+
+    // 更新拒绝原因明细
+    this.renderRejectionDetails();
+  }
+
+  /**
+   * 渲染拒绝原因明细
+   */
+  renderRejectionDetails() {
+    const container = document.getElementById('rejection-reasons-list');
+    if (!container || !this.rejectionStats) return;
+
+    const byReason = this.rejectionStats.byReason || {};
+    const entries = Object.entries(byReason).sort((a, b) => b[1] - a[1]);
+
+    if (entries.length === 0) {
+      container.innerHTML = '<p class="text-gray-400 text-sm">暂无拒绝记录</p>';
+      return;
+    }
+
+    const maxCount = entries[0][1];
+    const totalCount = this.rejectionStats.totalRejected || 1;
+
+    container.innerHTML = entries.map(([reason, count]) => {
+      const percentage = ((count / totalCount) * 100).toFixed(1);
+      const barWidth = ((count / maxCount) * 100).toFixed(1);
+
+      return `
+        <div class="flex items-center space-x-3">
+          <div class="flex-1">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-sm text-gray-300">${this._escapeHtml(reason)}</span>
+              <span class="text-sm text-gray-400">${count} (${percentage}%)</span>
+            </div>
+            <div class="rejection-reason-bar">
+              <div class="rejection-reason-fill" style="width: ${barWidth}%"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  /**
+   * 切换拒绝原因明细的显示/隐藏
+   */
+  toggleRejectionDetails() {
+    const detailsPanel = document.getElementById('rejection-details');
+    if (detailsPanel) {
+      detailsPanel.classList.toggle('hidden');
+    }
+  }
+
+  /**
+   * HTML转义工具方法
+   * @private
+   * @param {string} text - 要转义的文本
+   * @returns {string} 转义后的文本
+   */
+  _escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 }
 
