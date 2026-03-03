@@ -33,7 +33,7 @@
   },
   "preBuyCheck": {
     "holderCheckEnabled": true,
-    "earlyParticipantFilterEnabled": false,
+    "earlyParticipantFilterEnabled": true,
     "earlyParticipantStrategy": "three_feature_and_p25",
     "threeFeatureAndP25": {
       "volumePerMinThreshold": 1610,
