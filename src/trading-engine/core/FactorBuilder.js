@@ -37,12 +37,14 @@ function buildFactorValuesForTimeSeries(factorResults) {
     tvl: factorResults.tvl,
     fdv: factorResults.fdv,
     marketCap: factorResults.marketCap,
-    // 趋势因子（渐进式计算）
+    // 趋势因子（固定窗口8个点）
     trendCV: factorResults.trendCV,
-    trendDirectionCount: factorResults.trendDirectionCount,
+    trendPriceUp: factorResults.trendPriceUp,
+    trendMedianUp: factorResults.trendMedianUp,
     trendStrengthScore: factorResults.trendStrengthScore,
     trendTotalReturn: factorResults.trendTotalReturn,
     trendRiseRatio: factorResults.trendRiseRatio,
+    trendSlope: factorResults.trendSlope,
     trendDataPoints: factorResults.trendDataPoints,
     trendRecentDownCount: factorResults.trendRecentDownCount,
     trendRecentDownRatio: factorResults.trendRecentDownRatio,
@@ -134,12 +136,14 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     tvl: fv.tvl || 0,
     fdv: fv.fdv || 0,
     marketCap: fv.marketCap || 0,
-    // 趋势因子（从时序数据中读取，渐进式计算）
+    // 趋势因子（从时序数据中读取，固定窗口8个点）
     trendCV: fv.trendCV ?? null,
-    trendDirectionCount: fv.trendDirectionCount ?? null,
+    trendPriceUp: fv.trendPriceUp ?? 0,
+    trendMedianUp: fv.trendMedianUp ?? 0,
     trendStrengthScore: fv.trendStrengthScore ?? null,
     trendTotalReturn: fv.trendTotalReturn ?? null,
     trendRiseRatio: fv.trendRiseRatio ?? null,
+    trendSlope: fv.trendSlope ?? null,
     trendDataPoints: fv.trendDataPoints ?? null,
     trendRecentDownCount: fv.trendRecentDownCount ?? null,
     trendRecentDownRatio: fv.trendRecentDownRatio ?? null,
@@ -196,9 +200,10 @@ function getAvailableFactorIds() {
     'holdDuration', 'profitPercent',
     'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
     'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap',
-    // 趋势因子（渐进式计算）
-    'trendCV', 'trendDirectionCount', 'trendStrengthScore', 'trendTotalReturn', 'trendRiseRatio',
-    'trendDataPoints', 'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns',
+    // 趋势因子（固定窗口8个点）
+    'trendCV', 'trendPriceUp', 'trendMedianUp', 'trendStrengthScore',
+    'trendTotalReturn', 'trendRiseRatio', 'trendSlope', 'trendDataPoints',
+    'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns',
     // 购买前检查因子
     'preBuyCheck', 'checkTimestamp', 'checkDuration',
     'holderWhitelistCount', 'holderBlacklistCount', 'holdersCount',

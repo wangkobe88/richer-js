@@ -1090,16 +1090,19 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       marketCap: token.marketCap || 0
     };
 
-    // 趋势检测指标因子（渐进式计算，尽可能早提供有效值）
+    // 趋势检测指标因子（使用固定窗口：最多8个点）
     const prices = this._tokenPool.getTokenPrices(token.token, token.chain);
-    factors.trendDataPoints = prices.length;
+
+    // 固定窗口：只使用最近8个点
+    const maxPoints = 8;
+    const _prices = prices.slice(-maxPoints);
+
+    // 记录实际使用的数据点数量
+    factors.trendDataPoints = _prices.length;
 
     // 渐进式计算：根据可用数据点数量计算不同指标
-    if (prices.length >= 2) {
+    if (_prices.length >= 2) {
       // 基础指标（需要至少 2 个数据点）
-
-      // 使用所有可用价格（不限制为 10 个）
-      const _prices = prices.slice(-Math.min(prices.length, prices.length));
 
       // 1. 总收益率和上涨占比（需要 2 个点）
       const firstPrice = _prices[0];
@@ -1141,9 +1144,11 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       // 需要至少 4 个数据点的指标
       if (_prices.length >= 4 && this._trendDetector) {
-        // 方向确认（3 种方法）
+        // 方向确认（2个独立指标 + 斜率数值）
         const _direction = this._trendDetector._confirmDirection(_prices);
-        factors.trendDirectionCount = _direction.passed;
+        factors.trendPriceUp = _direction.trendPriceUp;
+        factors.trendMedianUp = _direction.trendMedianUp;
+        factors.trendSlope = _direction.relativeSlope || 0; // 相对斜率（百分比）
 
         // 趋势强度评分
         const _strength = this._trendDetector._calculateTrendStrength(_prices);
@@ -1254,7 +1259,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           // 趋势检测因子
           trendDataPoints: factorResults.trendDataPoints,
           trendCV: factorResults.trendCV,
-          trendDirectionCount: factorResults.trendDirectionCount,
+          trendPriceUp: factorResults.trendPriceUp,
+          trendMedianUp: factorResults.trendMedianUp,
+          trendSlope: factorResults.trendSlope,
           trendStrengthScore: factorResults.trendStrengthScore,
           trendTotalReturn: factorResults.trendTotalReturn,
           trendRiseRatio: factorResults.trendRiseRatio,
@@ -1682,7 +1689,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           // 趋势检测因子
           trendDataPoints: factorResults.trendDataPoints,
           trendCV: factorResults.trendCV,
-          trendDirectionCount: factorResults.trendDirectionCount,
+          trendPriceUp: factorResults.trendPriceUp,
+          trendMedianUp: factorResults.trendMedianUp,
+          trendSlope: factorResults.trendSlope,
           trendStrengthScore: factorResults.trendStrengthScore,
           trendTotalReturn: factorResults.trendTotalReturn,
           trendRiseRatio: factorResults.trendRiseRatio,

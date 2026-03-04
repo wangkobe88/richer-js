@@ -182,59 +182,82 @@ class TrendDetector {
 
   /**
    * 确认方向（第二步）
-   * 三种方法：斜率、首尾价格、中位数比较
+   * 返回2个独立指标（1=通过/正值，0=不通过/负值）：价格上涨、中位数上升
+   * 使用固定窗口：最多8个点，最少4个点
    */
   _confirmDirection(prices) {
-    const n = prices.length;
-    if (n < 4) return { passed: 0 };
+    // 固定窗口：只使用最近8个点
+    const maxPoints = 8;
+    const minPoints = 4;
 
-    let passed = 0;
+    if (prices.length < minPoints) {
+      return {
+        trendPriceUp: 0,
+        trendMedianUp: 0,
+        relativeSlope: 0
+      };
+    }
 
-    // 方法1：线性回归斜率 > 0
-    const slope = this._calculateLinearRegressionSlope(prices);
-    const avgPrice = prices.reduce((a, b) => a + b, 0) / n;
-    // 使用相对斜率阈值：每10秒至少涨0.1%（可配置）
-    const minRelativeSlope = this.minSlopeThreshold || 0.001;
+    // 只取最近8个点（如果超过8个），否则使用全部点
+    const recentPrices = prices.slice(-maxPoints);
+    const n = recentPrices.length;
+
+    // 计算斜率（作为数值因子返回，不再做布尔判断）
+    const slope = this._calculateLinearRegressionSlope(recentPrices);
+    const avgPrice = recentPrices.reduce((a, b) => a + b, 0) / n;
     const relativeSlope = avgPrice > 0 ? slope / avgPrice : 0;
-    if (relativeSlope > minRelativeSlope) passed++;
 
     // 方法2：最新价格 > 初始价格
-    if (prices[n - 1] > prices[0]) passed++;
+    const trendPriceUp = recentPrices[n - 1] > recentPrices[0] ? 1 : 0;
 
     // 方法3：后半部分中位数 > 前半部分中位数
     const mid = Math.floor(n / 2);
-    const firstHalfMedian = this._median(prices.slice(0, mid));
-    const secondHalfMedian = this._median(prices.slice(mid));
-    if (secondHalfMedian > firstHalfMedian) passed++;
+    const firstHalfMedian = this._median(recentPrices.slice(0, mid));
+    const secondHalfMedian = this._median(recentPrices.slice(mid));
+    const trendMedianUp = secondHalfMedian > firstHalfMedian ? 1 : 0;
 
-    return { passed, relativeSlope };
+    return {
+      trendPriceUp,
+      trendMedianUp,
+      relativeSlope
+    };
   }
 
   /**
    * 计算趋势强度评分（第三步）
+   * 使用固定窗口：最多8个点，最少4个点
    */
   _calculateTrendStrength(prices) {
-    const n = prices.length;
-    if (n < 4) return { score: 0, details: {} };
+    // 固定窗口：只使用最近8个点
+    const maxPoints = 8;
+    const minPoints = 4;
 
-    const avgPrice = prices.reduce((a, b) => a + b, 0) / n;
-    const slope = this._calculateLinearRegressionSlope(prices);
+    if (prices.length < minPoints) {
+      return { score: 0, details: {} };
+    }
+
+    // 只取最近8个点（如果超过8个），否则使用全部点
+    const recentPrices = prices.slice(-maxPoints);
+    const n = recentPrices.length;
+
+    const avgPrice = recentPrices.reduce((a, b) => a + b, 0) / n;
+    const slope = this._calculateLinearRegressionSlope(recentPrices);
 
     // 归一化斜率（相对于平均价格的百分比变化率）
     const normalizedSlope = (slope / avgPrice) * 100;
 
     // 总收益率
-    const totalReturn = ((prices[n - 1] - prices[0]) / prices[0]) * 100;
+    const totalReturn = ((recentPrices[n - 1] - recentPrices[0]) / recentPrices[0]) * 100;
 
     // 上涨次数占比
     let riseCount = 0;
     for (let i = 1; i < n; i++) {
-      if (prices[i] > prices[i - 1]) riseCount++;
+      if (recentPrices[i] > recentPrices[i - 1]) riseCount++;
     }
     const riseRatio = riseCount / (n - 1);
 
     // CV
-    const cv = this._calculateCV(prices);
+    const cv = this._calculateCV(recentPrices);
 
     // 各项评分
     const slopeScore = Math.min(Math.abs(normalizedSlope) * 1000, 100);
