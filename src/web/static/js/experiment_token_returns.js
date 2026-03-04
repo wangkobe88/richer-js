@@ -330,6 +330,9 @@ class ExperimentTokenReturns {
       status = 'bought';
     }
 
+    // 获取首次交易时间
+    const firstTradeTime = tokenTrades[0]?.created_at || tokenTrades[0]?.executed_at || null;
+
     return {
       returnRate,
       realizedPnL: totalRealizedPnL,
@@ -339,6 +342,7 @@ class ExperimentTokenReturns {
       remainingCost,
       buyCount: tokenTrades.filter(t => (t.trade_direction || t.direction || t.action) === 'buy' || (t.trade_direction || t.direction || t.action) === 'BUY').length,
       sellCount: tokenTrades.filter(t => (t.trade_direction || t.direction || t.action) === 'sell' || (t.trade_direction || t.direction || t.action) === 'SELL').length,
+      firstTradeTime,
       status
     };
   }
@@ -524,6 +528,9 @@ class ExperimentTokenReturns {
           </td>
           <td class="px-4 py-3 text-center text-purple-400">
             ${pnl.sellCount}
+          </td>
+          <td class="px-4 py-3 text-center text-gray-400 text-xs">
+            ${this.formatBeijingTime(pnl.firstTradeTime)}
           </td>
           <td class="px-4 py-3 text-center">
             ${statusBadge}
@@ -869,6 +876,23 @@ class ExperimentTokenReturns {
     // 如果是回测实验，使用源实验ID；否则使用当前实验ID
     const targetExperimentId = this.judgeExperimentId || this.experimentId;
     return `/experiment/${targetExperimentId}/observer#token=${tokenAddress}`;
+  }
+
+  /**
+   * 格式化北京时间
+   * @param {string} timeStr - ISO 时间字符串
+   * @returns {string} 格式化后的北京时间
+   */
+  formatBeijingTime(timeStr) {
+    if (!timeStr) return '-';
+    try {
+      const date = new Date(timeStr);
+      // 转换为北京时间 (UTC+8)
+      const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+      return beijingTime.toISOString().slice(0, 19).replace('T', ' ');
+    } catch (e) {
+      return '-';
+    }
   }
 
   /**

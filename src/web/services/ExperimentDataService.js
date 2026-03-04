@@ -807,11 +807,24 @@ class ExperimentDataService {
    */
   async getTokensWithSignals(experimentId) {
     try {
-      // 获取所有代币
-      const tokens = await this.getTokens(experimentId, { limit: 10000 });
+      // 检查是否是回测实验，如果是则使用源实验的代币列表
+      let dataExperimentId = experimentId;
+      const { data: experiment } = await this.supabase
+        .from('experiments')
+        .select('config')
+        .eq('id', experimentId)
+        .single();
 
-      // 获取所有信号
-      const signals = await this.getSignals(experimentId, { limit: 10000 });
+      if (experiment?.config?.backtest?.sourceExperimentId) {
+        dataExperimentId = experiment.config.backtest.sourceExperimentId;
+        console.log(`getTokensWithSignals: 回测实验 ${experimentId}，使用源实验 ${dataExperimentId} 的代币列表`);
+      }
+
+      // 获取所有代币
+      const tokens = await this.getTokens(dataExperimentId, { limit: 10000 });
+
+      // 获取所有信号（使用源实验的信号）
+      const signals = await this.getSignals(dataExperimentId, { limit: 10000 });
 
       // 统计每个代币的信号数量
       const tokenSignalMap = new Map();
@@ -834,10 +847,13 @@ class ExperimentDataService {
       const tokensWithSignals = tokens.map(token => {
         const signalStats = tokenSignalMap.get(token.token_address) || { total: 0, buy: 0, sell: 0 };
         return {
-          address: token.token_address,
-          symbol: token.token_symbol || token.raw_api_data?.symbol || 'Unknown',
+          token_address: token.token_address,
+          token_symbol: token.token_symbol || token.raw_api_data?.symbol || 'Unknown',
+          address: token.token_address,  // 兼容旧字段名
+          symbol: token.token_symbol || token.raw_api_data?.symbol || 'Unknown',  // 兼容旧字段名
           status: token.status,
-          discoveredAt: token.discovered_at,
+          discovered_at: token.discovered_at,
+          discoveredAt: token.discovered_at,  // 兼容旧字段名
           hasSignals: signalStats.total > 0,
           signalCount: signalStats.total,
           buySignalCount: signalStats.buy,

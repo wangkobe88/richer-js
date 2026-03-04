@@ -417,6 +417,10 @@ class StrategyAnalysisPage {
     // 获取因子值（factor_values 是一个 JSON 对象）
     const factorValues = timePoint.data.factor_values || {};
 
+    // 获取因子序号和Loop数
+    const factorIndex = timePoint.data.factorIndex || index + 1;
+    const loopCount = timePoint.data.loop_count || 0;
+
     // 更新时间显示
     const date = new Date(timePoint.timestamp);
     document.getElementById('currentTime').textContent =
@@ -433,7 +437,7 @@ class StrategyAnalysisPage {
     // 1. 先展示策略相关的因子
     if (subConditions.length > 0) {
       const strategySection = document.createElement('div');
-      strategySection.innerHTML = '<div class="section-title" style="font-weight:600; color:#1a1a1a; margin: 15px 0 10px 0; padding-bottom:8px; border-bottom:1px solid #ddd;">📋 策略条件</div>';
+      strategySection.innerHTML = `<div class="section-title" style="font-weight:600; color:#1a1a1a; margin: 15px 0 10px 0; padding-bottom:8px; border-bottom:1px solid #ddd;">📋 策略条件 (因子序号: ${factorIndex}, Loop: ${loopCount})</div>`;
       conditionList.appendChild(strategySection);
 
       subConditions.forEach(sc => {

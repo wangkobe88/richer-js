@@ -7,8 +7,8 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function checkTokenSignals() {
-  const experimentId = '3c143a5b-509b-43bc-8464-0fec05a073a2';
-  const tokenAddress = '0x29c843390b18bdd4ef6a3894c2949d33ede64444';
+  const experimentId = 'f2c221a8-1214-466a-abae-2d68921b6dda';
+  const tokenAddress = '0xc44af04f87a07b18289dc3254e9c3a6a1c8d4444';
 
   console.log('========================================');
   console.log(`查询实验: ${experimentId}`);
@@ -38,12 +38,12 @@ async function checkTokenSignals() {
   // 2. 查询交易信号
   console.log('2. 交易信号:');
   const { data: signals, error: signalsError } = await supabase
-    .from('trading_signals')
+    .from('strategy_signals')
     .select('*')
     .eq('experiment_id', experimentId)
     .eq('token_address', tokenAddress)
-    .order('created_at', { ascending: true })
-    .limit(20);
+    .order('created_at', { ascending: false })
+    .limit(5);
 
   if (signalsError) {
     console.log('  错误:', signalsError.message);
@@ -51,13 +51,35 @@ async function checkTokenSignals() {
     console.log(`  找到 ${signals?.length || 0} 条信号`);
     if (signals && signals.length > 0) {
       signals.forEach((s, i) => {
+        const m = s.metadata || {};
         console.log(`  信号 ${i + 1}:`);
-        console.log(`    类型: ${s.signal_type} (${s.action})`);
+        console.log(`    类型: ${s.action}`);
         console.log(`    状态: ${s.status}`);
-        console.log(`    原因: ${s.reason}`);
-        console.log(`    信心度: ${s.confidence}`);
         console.log(`    时间: ${s.created_at}`);
-        console.log(`    元数据: ${JSON.stringify(s.metadata).substring(0, 100)}...`);
+
+        // 早期参与者指标
+        if (m.earlyTradesChecked === 1) {
+          console.log(`    早期参与者指标:`);
+          console.log(`      检查时间: ${m.earlyTradesCheckTime}秒`);
+          console.log(`      总交易数: ${m.earlyTradesTotalCount}`);
+          console.log(`      总交易额: $${(m.earlyTradesVolume || 0).toFixed(2)}`);
+          console.log(`      交易额/分: $${(m.earlyTradesVolumePerMin || 0).toFixed(2)}`);
+          console.log(`      交易次数/分: ${(m.earlyTradesCountPerMin || 0).toFixed(2)}`);
+          console.log(`      钱包数/分: ${(m.earlyTradesWalletsPerMin || 0).toFixed(2)}`);
+          console.log(`      高价值交易数: ${m.earlyTradesHighValueCount || 0}`);
+          console.log(`      高价值/分: ${(m.earlyTradesHighValuePerMin || 0).toFixed(2)}`);
+          console.log(`      独立钱包数: ${m.earlyTradesUniqueWallets || 0}`);
+          console.log(`    `);
+          console.log(`    策略B检查:`);
+          const hvCountOk = (m.earlyTradesHighValueCount || 0) >= 8;
+          const hvPerMinOk = (m.earlyTradesHighValuePerMin || 0) >= 5.6;
+          const countPerMinOk = (m.earlyTradesCountPerMin || 0) >= 10.6;
+          const pass = hvCountOk && hvPerMinOk && countPerMinOk;
+          console.log(`      高价值交易数>=8: ${m.earlyTradesHighValueCount || 0} ${hvCountOk ? '✓' : '✗'}`);
+          console.log(`      高价值/分>=5.6: ${(m.earlyTradesHighValuePerMin || 0).toFixed(1)} ${hvPerMinOk ? '✓' : '✗'}`);
+          console.log(`      交易次数/分>=10.6: ${(m.earlyTradesCountPerMin || 0).toFixed(1)} ${countPerMinOk ? '✓' : '✗'}`);
+          console.log(`    => ${pass ? '✓ 通过' : '✗ 不通过'}`);
+        }
       });
     }
   }

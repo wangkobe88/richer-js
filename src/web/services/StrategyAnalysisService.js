@@ -23,7 +23,7 @@ class StrategyAnalysisService {
         throw new Error('实验不存在');
       }
 
-      // 2. 获取策略配置
+      // 2. 获取策略配置（使用实验本身的策略配置）
       const strategiesConfig = experiment.config?.strategiesConfig;
       if (!strategiesConfig) {
         throw new Error('实验没有策略配置');
@@ -39,8 +39,16 @@ class StrategyAnalysisService {
 
       const strategy = strategies[strategyIndex];
 
-      // 3. 获取代币时序数据
-      const timeSeriesData = await this._getTimeSeriesData(experimentId, tokenAddress);
+      // 3. 确定时序数据来源的实验ID
+      // 如果是回测实验，使用源实验的时序数据
+      let dataExperimentId = experimentId;
+      if (experiment.config?.backtest?.sourceExperimentId) {
+        dataExperimentId = experiment.config.backtest.sourceExperimentId;
+        console.log(`回测实验，使用源实验 ${dataExperimentId} 的时序数据`);
+      }
+
+      // 4. 获取代币时序数据
+      const timeSeriesData = await this._getTimeSeriesData(dataExperimentId, tokenAddress);
       if (!timeSeriesData || timeSeriesData.length === 0) {
         return {
           success: true,
@@ -145,7 +153,23 @@ class StrategyAnalysisService {
       throw new Error(`获取时序数据失败: ${error.message}`);
     }
 
-    return data || [];
+    // 为每个时间点添加因子序号（基于loop_count分组）
+    const dataWithIndex = [];
+    let currentLoopCount = null;
+    let factorIndex = 0;
+
+    (data || []).forEach(point => {
+      if (currentLoopCount !== point.loop_count) {
+        currentLoopCount = point.loop_count;
+        factorIndex++;
+      }
+      dataWithIndex.push({
+        ...point,
+        factorIndex
+      });
+    });
+
+    return dataWithIndex;
   }
 
   /**
