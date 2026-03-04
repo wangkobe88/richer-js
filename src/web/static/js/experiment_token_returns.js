@@ -887,9 +887,44 @@ class ExperimentTokenReturns {
     if (!timeStr) return '-';
     try {
       const date = new Date(timeStr);
+
       // 转换为北京时间 (UTC+8)
-      const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-      return beijingTime.toISOString().slice(0, 19).replace('T', ' ');
+      // 使用 UTC 方法避免本地时区干扰
+      let beijingHours = date.getUTCHours() + 8;
+      let beijingDate = date.getUTCDate();
+      let beijingMonth = date.getUTCMonth() + 1;
+      let beijingYear = date.getUTCFullYear();
+
+      // 处理跨日
+      if (beijingHours >= 24) {
+        beijingHours -= 24;
+        beijingDate += 1;
+        const tempDate = new Date(Date.UTC(beijingYear, beijingMonth - 1, beijingDate));
+        beijingDate = tempDate.getUTCDate();
+        beijingMonth = tempDate.getUTCMonth() + 1;
+        beijingYear = tempDate.getUTCFullYear();
+      }
+
+      // 获取时段
+      let period = '';
+      if (beijingHours >= 0 && beijingHours < 6) {
+        period = '凌晨';
+      } else if (beijingHours >= 6 && beijingHours < 12) {
+        period = '上午';
+      } else if (beijingHours >= 12 && beijingHours < 18) {
+        period = '下午';
+      } else {
+        period = '晚上';
+      }
+
+      // 格式化日期时间
+      const month = String(beijingMonth).padStart(2, '0');
+      const day = String(beijingDate).padStart(2, '0');
+      const hours = String(beijingHours).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+
+      return `${month}-${day} ${period}${hours}:${minutes}:${seconds}`;
     } catch (e) {
       return '-';
     }

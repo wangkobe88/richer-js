@@ -31,40 +31,59 @@
             font-size: 12px;
             font-weight: 500;
         }
-        .category-fake_pump { background: #fecaca; color: #991b1b; }
-        .category-no_user { background: #e5e7eb; color: #374151; }
-        .category-low_quality { background: #fed7aa; color: #9a3412; }
-        .category-mid_quality { background: #bfdbfe; color: #1e40af; }
-        .category-high_quality { background: #bbf7d0; color: #166534; }
-        .label-pump_group { background: #fbcfe8; color: #9d174d; }
-        .label-good_holder { background: #d1fae5; color: #065f46; }
+        .category-fake_pump { background: #991b1b; color: #fecaca; }
+        .category-no_user { background: #374151; color: #d1d5db; }
+        .category-low_quality { background: #9a3412; color: #fed7aa; }
+        .category-mid_quality { background: #1e40af; color: #bfdbfe; }
+        .category-high_quality { background: #166534; color: #bbf7d0; }
+        .label-pump_group { background: #9d174d; color: #fbcfe8; }
+        .label-good_holder { background: #065f46; color: #d1fae5; }
+        /* 表格悬停效果 */
+        tbody tr:hover {
+            background-color: #374151 !important;
+        }
+        /* 输入框下拉框样式 */
+        input, select {
+            background-color: #374151 !important;
+            color: #ffffff !important;
+            border-color: #4b5563 !important;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+        }
+        select option {
+            background-color: #374151 !important;
+            color: #ffffff !important;
+        }
     </style>
 </head>
-<body class="bg-white text-gray-900">
+<body class="bg-gray-900 text-gray-100">
     <div class="min-h-screen">
         <!-- 导航栏 -->
-        <nav class="bg-white border-b border-gray-200">
+        <nav class="bg-gray-800 border-b border-gray-700">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center">
-                        <h1 class="text-xl font-bold text-blue-600">
-                            <a href="/" class="hover:text-blue-700 transition-colors">
+                        <h1 class="text-xl font-bold text-blue-400">
+                            <a href="/" class="hover:text-blue-300 transition-colors">
                                 Richer-js FourMeme Trading
                             </a>
                         </h1>
                         <div class="block">
-                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
                                 实验监控
                             </a>
-                            <a href="/wallets" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                            <a href="/wallets" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
                                 钱包管理
                             </a>
-                            <a href="/wallet-analysis" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors bg-blue-50">
+                            <a href="/wallet-analysis" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-gray-700 transition-colors bg-blue-900">
                                 钱包分析
                             </a>
                         </div>
                     </div>
-                    <button id="refresh-stats-btn" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium text-gray-700 transition-colors">
+                    <button id="refresh-stats-btn" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm font-medium text-gray-300 transition-colors">
                         🔄 刷新统计
                     </button>
                 </div>
@@ -75,52 +94,55 @@
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <!-- 页面标题 -->
             <div class="mb-6">
-                <h1 class="text-3xl font-bold text-gray-900">钱包分析工具</h1>
-                <p class="text-gray-600 mt-2">基于实验数据生成钱包画像和标签</p>
+                <h1 class="text-3xl font-bold text-white">钱包分析工具</h1>
+                <p class="text-gray-400 mt-2">基于实验数据生成钱包画像和标签</p>
             </div>
 
             <!-- 统计概览 -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 shadow-sm">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-sm font-medium text-gray-800">总钱包数</h3>
-                        <span id="stat-total" class="text-2xl font-bold text-blue-600">-</span>
+                        <h3 class="text-sm font-medium text-gray-300">总钱包数</h3>
+                        <span id="stat-total" class="text-2xl font-bold text-blue-400">-</span>
                     </div>
                 </div>
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 shadow-sm">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-sm font-medium text-gray-800">流水盘钱包</h3>
-                        <span id="stat-pump" class="text-2xl font-bold text-pink-600">-</span>
+                        <h3 class="text-sm font-medium text-gray-300">流水盘钱包</h3>
+                        <span id="stat-pump" class="text-2xl font-bold text-pink-400">-</span>
                     </div>
                 </div>
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 shadow-sm">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-sm font-medium text-gray-800">正常钱包</h3>
-                        <span id="stat-good" class="text-2xl font-bold text-emerald-600">-</span>
+                        <h3 class="text-sm font-medium text-gray-300">正常钱包</h3>
+                        <span id="stat-good" class="text-2xl font-bold text-emerald-400">-</span>
                     </div>
                 </div>
-                <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 shadow-sm">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-sm font-medium text-gray-800">最后更新</h3>
-                        <span id="stat-updated" class="text-sm font-medium text-gray-500">-</span>
+                        <h3 class="text-sm font-medium text-gray-300">最后更新</h3>
+                        <span id="stat-updated" class="text-sm font-medium text-gray-400">-</span>
                     </div>
                 </div>
             </div>
 
             <!-- 标签页 -->
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <div class="border-b border-gray-200">
+            <div class="bg-gray-800 rounded-lg border border-gray-700 shadow-sm">
+                <div class="border-b border-gray-700">
                     <nav class="flex -mb-px">
-                        <button class="tab-btn active px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="generate">
+                        <button class="tab-btn active px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-600 transition-colors text-gray-300 hover:text-white" data-tab="generate">
                             🔍 生成画像
                         </button>
-                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="label">
+                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-600 transition-colors text-gray-300 hover:text-white" data-tab="label">
                             🏷️ 生成标签
                         </button>
-                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="view">
+                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-600 transition-colors text-gray-300 hover:text-white" data-tab="bayes">
+                            🤖 贝叶斯模型
+                        </button>
+                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-600 transition-colors text-gray-300 hover:text-white" data-tab="view">
                             📋 查看画像
                         </button>
-                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-300 transition-colors" data-tab="sync">
+                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-600 transition-colors text-gray-300 hover:text-white" data-tab="sync">
                             🔄 同步到Supabase
                         </button>
                     </nav>
@@ -128,59 +150,59 @@
 
                 <!-- 生成画像 Tab -->
                 <div id="tab-generate" class="tab-content active p-6">
-                    <h2 class="text-lg font-semibold mb-4">生成钱包画像</h2>
-                    <p class="text-gray-600 mb-4">基于所有实验的标注代币，分析早期交易者和持有者，生成钱包画像。</p>
+                    <h2 class="text-lg font-semibold mb-4 text-white">生成钱包画像</h2>
+                    <p class="text-gray-400 mb-4">基于所有实验的标注代币，分析早期交易者和持有者，生成钱包画像。</p>
 
-                    <div id="generate-info" class="mb-4 p-4 bg-blue-50 rounded-md">
-                        <p class="text-sm text-blue-800">
-                            已标注代币: <span id="info-token-count" class="font-semibold">加载中...</span>
+                    <div id="generate-info" class="mb-4 p-4 bg-blue-900 rounded-md border border-blue-800">
+                        <p class="text-sm text-blue-200">
+                            已标注代币: <span id="info-token-count" class="font-semibold text-blue-100">加载中...</span>
                         </p>
                     </div>
 
-                    <button id="generate-btn" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md text-sm font-medium text-white transition-colors">
+                    <button id="generate-btn" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md text-sm font-medium text-white transition-colors">
                         开始生成
                     </button>
 
                     <!-- 进度显示 -->
                     <div id="generate-progress" class="hidden mt-6">
                         <div class="flex items-center justify-between mb-2">
-                            <span id="progress-message" class="text-sm text-gray-600">准备中...</span>
-                            <span id="progress-percent" class="text-sm font-medium text-blue-600">0%</span>
+                            <span id="progress-message" class="text-sm text-gray-400">准备中...</span>
+                            <span id="progress-percent" class="text-sm font-medium text-blue-400">0%</span>
                         </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="w-full bg-gray-700 rounded-full h-2">
                             <div id="progress-bar" class="progress-bar bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
                         </div>
                     </div>
 
                     <!-- 结果显示 -->
-                    <div id="generate-result" class="hidden mt-6 p-4 bg-green-50 rounded-md">
-                        <h3 class="font-semibold text-green-800 mb-2">生成完成！</h3>
-                        <div id="result-stats" class="text-sm text-green-700"></div>
+                    <div id="generate-result" class="hidden mt-6 p-4 bg-green-900 rounded-md border border-green-800">
+                        <h3 class="font-semibold text-green-200 mb-2">生成完成！</h3>
+                        <div id="result-stats" class="text-sm text-green-300"></div>
                     </div>
                 </div>
 
                 <!-- 生成标签 Tab -->
                 <div id="tab-label" class="tab-content p-6">
-                    <h2 class="text-lg font-semibold mb-4">生成钱包标签</h2>
-                    <p class="text-gray-600 mb-4">基于钱包画像自动生成 pump_group（流水盘钱包）和 good_holder（正常钱包）标签。</p>
+                    <h2 class="text-lg font-semibold mb-4 text-white">生成钱包标签</h2>
+                    <p class="text-gray-400 mb-4">基于钱包画像自动生成 pump_group（流水盘钱包）和 good_holder（正常钱包）标签。</p>
 
                     <div class="mb-4">
-                        <h3 class="text-sm font-medium text-gray-700 mb-2">算法参数（可选）</h3>
+                        <h3 class="text-sm font-medium text-gray-300 mb-2">算法参数（可选）</h3>
                         <div class="grid grid-cols-3 gap-4 max-w-lg">
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">纯流水盘阈值</label>
+                                <label class="block text-xs text-gray-400 mb-1">纯流水盘阈值</label>
                                 <input type="number" step="0.1" min="0" max="1" id="param-pure-threshold" value="0.8"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                       class="w-full px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white">
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">最小流水盘次数</label>
+                                <label class="block text-xs text-gray-400 mb-1">最小流水盘次数</label>
                                 <input type="number" min="1" id="param-min-count" value="3"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                       class="w-full px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white">
                             </div>
                             <div>
-                                <label class="block text-xs text-gray-500 mb-1">混合型阈值</label>
+                                <label class="block text-xs text-gray-400 mb-1">混合型阈值</label>
                                 <input type="number" step="0.1" min="0" max="1" id="param-mixed-threshold" value="0.4"
-                                       class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                       class="w-full px-2 py-1 border border-gray-600 rounded text-sm bg-gray-700 text-white">
                             </div>
                         </div>
                     </div>
@@ -190,28 +212,132 @@
                     </button>
 
                     <!-- 标签结果 -->
-                    <div id="label-result" class="hidden mt-6 p-4 bg-purple-50 rounded-md">
-                        <h3 class="font-semibold text-purple-800 mb-2">标签生成完成！</h3>
-                        <div id="label-stats" class="text-sm text-purple-700"></div>
+                    <div id="label-result" class="hidden mt-6 p-4 bg-purple-900 rounded-md border border-purple-800">
+                        <h3 class="font-semibold text-purple-200 mb-2">标签生成完成！</h3>
+                        <div id="label-stats" class="text-sm text-purple-300"></div>
+                    </div>
+                </div>
+
+                <!-- 贝叶斯模型 Tab -->
+                <div id="tab-bayes" class="tab-content p-6">
+                    <h2 class="text-lg font-semibold mb-4 text-white">🤖 贝叶斯推断模型</h2>
+                    <p class="text-gray-400 mb-6">基于钱包画像预测代币性质。通过历史标注数据训练模型，使用贝叶斯推断预测新代币是流水盘/高质量等的概率。</p>
+
+                    <!-- 模型状态卡片 -->
+                    <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                            <h3 class="text-sm font-medium text-gray-400 mb-2">模型状态</h3>
+                            <div id="bayes-status" class="text-sm font-semibold">-</div>
+                        </div>
+                        <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                            <h3 class="text-sm font-medium text-gray-400 mb-2">训练代币数</h3>
+                            <div id="bayes-tokens" class="text-sm font-semibold text-blue-400">-</div>
+                        </div>
+                        <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                            <h3 class="text-sm font-medium text-gray-400 mb-2">最后更新</h3>
+                            <div id="bayes-updated" class="text-sm text-gray-400">-</div>
+                        </div>
+                        <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                            <button id="refresh-bayes-btn" class="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded text-gray-300">
+                                刷新状态
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 训练模型 -->
+                    <div class="mb-8">
+                        <h3 class="text-md font-semibold text-gray-300 mb-3">训练模型</h3>
+                        <p class="text-sm text-gray-500 mb-4">基于所有标注代币和钱包画像数据训练贝叶斯模型。此过程可能需要较长时间（约10-30分钟，取决于代币数量）。</p>
+
+                        <button id="train-bayes-btn" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md text-sm font-medium text-white transition-colors">
+                            🚀 开始训练模型
+                        </button>
+
+                        <!-- 训练进度 -->
+                        <div id="train-bayes-progress" class="hidden mt-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span id="train-bayes-message" class="text-sm text-gray-400">准备中...</span>
+                                <span id="train-bayes-percent" class="text-sm font-medium text-indigo-400">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2">
+                                <div id="train-bayes-bar" class="progress-bar bg-indigo-600 h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <!-- 训练结果 -->
+                        <div id="train-bayes-result" class="hidden mt-4 p-4 bg-indigo-900 rounded-md border border-indigo-800">
+                            <h3 class="font-semibold text-indigo-200 mb-2">训练完成！</h3>
+                            <div id="train-bayes-stats" class="text-sm text-indigo-300"></div>
+                        </div>
+                    </div>
+
+                    <!-- 预测代币 -->
+                    <div>
+                        <h3 class="text-md font-semibold text-gray-300 mb-3">预测代币性质</h3>
+                        <p class="text-sm text-gray-500 mb-4">输入代币地址，使用贝叶斯模型预测代币性质。</p>
+
+                        <div class="flex items-center gap-3 mb-4">
+                            <input type="text" id="predict-token-address" placeholder="0x123..."
+                                   class="flex-1 px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white text-sm">
+                            <button id="predict-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md text-sm font-medium text-white transition-colors">
+                                🔮 预测
+                            </button>
+                        </div>
+
+                        <!-- 预测结果 -->
+                        <div id="predict-result" class="hidden mt-4">
+                            <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+                                <h4 class="text-sm font-semibold text-gray-300 mb-3" id="predict-token-title">预测结果</h4>
+
+                                <!-- 预测条形图 -->
+                                <div id="predict-bars" class="space-y-2 mb-4">
+                                    <!-- 动态生成 -->
+                                </div>
+
+                                <!-- 详情 -->
+                                <div id="predict-details" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                    <div class="bg-gray-800 rounded p-3 border border-gray-700">
+                                        <div class="text-gray-400 mb-1">预测性质</div>
+                                        <div id="predict-category" class="text-lg font-bold text-blue-400">-</div>
+                                    </div>
+                                    <div class="bg-gray-800 rounded p-3 border border-gray-700">
+                                        <div class="text-gray-400 mb-1">置信度</div>
+                                        <div id="predict-confidence" class="text-lg font-bold text-purple-400">-</div>
+                                    </div>
+                                    <div class="bg-gray-800 rounded p-3 border border-gray-700">
+                                        <div class="text-gray-400 mb-1">数据来源</div>
+                                        <div id="predict-method" class="text-sm text-gray-300">-</div>
+                                    </div>
+                                </div>
+
+                                <!-- 关键钱包 -->
+                                <div class="mt-4">
+                                    <h5 class="text-xs font-medium text-gray-400 mb-2">关键钱包贡献</h5>
+                                    <div id="predict-wallets" class="space-y-1">
+                                        <!-- 动态生成 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- 查看画像 Tab -->
                 <div id="tab-view" class="tab-content p-6">
-                    <h2 class="text-lg font-semibold mb-4">查看钱包画像</h2>
+                    <h2 class="text-lg font-semibold mb-4 text-white">查看钱包画像</h2>
 
                     <!-- 筛选器 -->
                     <div class="mb-4 flex items-center gap-4">
                         <div class="flex-1">
                             <input type="text" id="profile-search" placeholder="搜索钱包地址..."
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                   class="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white">
                         </div>
-                        <select id="label-filter" class="px-3 py-2 border border-gray-300 rounded-md">
+                        <select id="label-filter" class="px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white">
                             <option value="">全部标签</option>
                             <option value="pump_group">流水盘钱包</option>
                             <option value="good_holder">正常钱包</option>
                         </select>
-                        <select id="category-filter" class="px-3 py-2 border border-gray-300 rounded-md">
+                        <select id="category-filter" class="px-3 py-2 border border-gray-600 rounded-md bg-gray-700 text-white">
                             <option value="">全部分类</option>
                             <option value="fake_pump">流水盘</option>
                             <option value="no_user">无人玩</option>
@@ -222,31 +348,31 @@
                     </div>
 
                     <!-- 结果统计 -->
-                    <div id="view-stats" class="mb-4 text-sm text-gray-600"></div>
+                    <div id="view-stats" class="mb-4 text-sm text-gray-400"></div>
 
                     <!-- 钱包列表 -->
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                        <table class="min-w-full divide-y divide-gray-700">
+                            <thead class="bg-gray-700">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">钱包地址</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">参与次数</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">标签</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">主导分类</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">分类统计</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">钱包地址</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">参与次数</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">标签</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">主导分类</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">分类统计</th>
                                 </tr>
                             </thead>
-                            <tbody id="profiles-table" class="bg-white divide-y divide-gray-200">
+                            <tbody id="profiles-table" class="bg-gray-800 divide-y divide-gray-700">
                             </tbody>
                         </table>
                     </div>
 
                     <!-- 分页 -->
                     <div id="pagination" class="mt-4 flex items-center justify-between">
-                        <span id="pagination-info" class="text-sm text-gray-600"></span>
+                        <span id="pagination-info" class="text-sm text-gray-400"></span>
                         <div class="flex gap-2">
-                            <button id="prev-page" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50">上一页</button>
-                            <button id="next-page" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50">下一页</button>
+                            <button id="prev-page" class="px-3 py-1 border border-gray-600 rounded text-sm hover:bg-gray-700 disabled:opacity-50 text-gray-300">上一页</button>
+                            <button id="next-page" class="px-3 py-1 border border-gray-600 rounded text-sm hover:bg-gray-700 disabled:opacity-50 text-gray-300">下一页</button>
                         </div>
                     </div>
 
@@ -258,23 +384,23 @@
 
                 <!-- 同步到Supabase Tab -->
                 <div id="tab-sync" class="tab-content p-6">
-                    <h2 class="text-lg font-semibold mb-4">同步标签到 wallets 表</h2>
-                    <p class="text-gray-600 mb-4">将钱包标签同步到 wallets 表，用于黑名单/白名单功能。</p>
+                    <h2 class="text-lg font-semibold mb-4 text-white">同步标签到 wallets 表</h2>
+                    <p class="text-gray-400 mb-4">将钱包标签同步到 wallets 表，用于黑名单/白名单功能。</p>
 
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">同步模式</label>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">同步模式</label>
                         <div class="flex gap-4">
                             <label class="flex items-center">
                                 <input type="radio" name="sync-mode" value="upsert" checked class="mr-2">
-                                <span class="text-sm">Upsert（更新或插入）</span>
+                                <span class="text-sm text-gray-300">Upsert（更新或插入）</span>
                             </label>
                             <label class="flex items-center">
                                 <input type="radio" name="sync-mode" value="update" class="mr-2">
-                                <span class="text-sm">仅更新已有钱包</span>
+                                <span class="text-sm text-gray-300">仅更新已有钱包</span>
                             </label>
                             <label class="flex items-center">
                                 <input type="radio" name="sync-mode" value="insert" class="mr-2">
-                                <span class="text-sm">仅插入新钱包</span>
+                                <span class="text-sm text-gray-300">仅插入新钱包</span>
                             </label>
                         </div>
                     </div>
@@ -284,16 +410,16 @@
                     </button>
 
                     <!-- 同步结果 -->
-                    <div id="sync-result" class="hidden mt-6 p-4 bg-green-50 rounded-md">
-                        <h3 class="font-semibold text-green-800 mb-2">同步完成！</h3>
-                        <div id="sync-stats" class="text-sm text-green-700"></div>
+                    <div id="sync-result" class="hidden mt-6 p-4 bg-green-900 rounded-md border border-green-800">
+                        <h3 class="font-semibold text-green-200 mb-2">同步完成！</h3>
+                        <div id="sync-stats" class="text-sm text-green-300"></div>
                     </div>
 
                     <!-- 同步进度 -->
                     <div id="sync-progress" class="hidden mt-6">
                         <div class="flex items-center">
-                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600 mr-3"></div>
-                            <span class="text-sm text-gray-600">正在同步...</span>
+                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-green-400 mr-3"></div>
+                            <span class="text-sm text-gray-400">正在同步...</span>
                         </div>
                     </div>
                 </div>

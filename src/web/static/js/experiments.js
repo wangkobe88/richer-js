@@ -252,15 +252,19 @@ class ExperimentMonitor {
               <span class="font-medium">${exp.klineType || 'N/A'}</span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-gray-800">创建时间:</span>
-              <span class="font-medium">${createdAt.toLocaleString('zh-CN')}</span>
+              <span class="text-gray-800">开始时间:</span>
+              <span class="font-medium">${this._formatBeijingTime(startedAt)}</span>
             </div>
-            ${startedAt ? `
+            ${stoppedAt ? `
               <div class="flex items-center justify-between">
-                <span class="text-gray-800">运行时长:</span>
-                <span class="font-medium">${duration} 分钟</span>
+                <span class="text-gray-800">结束时间:</span>
+                <span class="font-medium">${this._formatBeijingTime(stoppedAt)}</span>
               </div>
             ` : ''}
+            <div class="flex items-center justify-between">
+              <span class="text-gray-800">运行时长:</span>
+              <span class="font-medium">${startedAt ? duration + ' 分钟' : '-'}</span>
+            </div>
           </div>
 
           <div class="mt-4 pt-4 border-t border-gray-100">
@@ -316,6 +320,58 @@ class ExperimentMonitor {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * 格式化北京时间并显示时段
+   * @private
+   * @param {Date|string} date - 日期对象或ISO字符串
+   * @returns {string} 格式化后的时间字符串
+   */
+  _formatBeijingTime(date) {
+    if (!date) return '-';
+
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '-';
+
+    // 转换为北京时间 (UTC+8)
+    // 使用 UTC 方法避免本地时区干扰
+    let beijingHours = d.getUTCHours() + 8;
+    let beijingDate = d.getUTCDate();
+    let beijingMonth = d.getUTCMonth() + 1;
+    let beijingYear = d.getUTCFullYear();
+
+    // 处理跨日
+    if (beijingHours >= 24) {
+      beijingHours -= 24;
+      beijingDate += 1;
+      // 简单处理跨月（月末日期由 Date 对象自动处理）
+      const tempDate = new Date(Date.UTC(beijingYear, beijingMonth - 1, beijingDate));
+      beijingDate = tempDate.getUTCDate();
+      beijingMonth = tempDate.getUTCMonth() + 1;
+      beijingYear = tempDate.getUTCFullYear();
+    }
+
+    // 获取时段
+    let period = '';
+    if (beijingHours >= 0 && beijingHours < 6) {
+      period = '凌晨';
+    } else if (beijingHours >= 6 && beijingHours < 12) {
+      period = '上午';
+    } else if (beijingHours >= 12 && beijingHours < 18) {
+      period = '下午';
+    } else {
+      period = '晚上';
+    }
+
+    // 格式化日期时间
+    const month = String(beijingMonth).padStart(2, '0');
+    const day = String(beijingDate).padStart(2, '0');
+    const hours = String(beijingHours).padStart(2, '0');
+    const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(d.getUTCSeconds()).padStart(2, '0');
+
+    return `${month}-${day} ${period}${hours}:${minutes}:${seconds}`;
   }
 
   updateStats() {

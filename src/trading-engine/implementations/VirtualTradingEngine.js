@@ -1425,6 +1425,54 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         this.logger.warn(this._experimentId, '_executeStrategy',
           `预检查失败 | symbol=${token.symbol}, reason=${blockReason}`);
 
+        // 即使预检查失败，也要保存早期参与者检查结果到 metadata（用于分析）
+        if (preBuyCheckResult && signalId) {
+          const failedCheckFactors = {
+            preBuyCheck: preBuyCheckResult.preBuyCheck,
+            checkTimestamp: preBuyCheckResult.checkTimestamp,
+            checkDuration: preBuyCheckResult.checkDuration,
+            holderWhitelistCount: preBuyCheckResult.holderWhitelistCount,
+            holderBlacklistCount: preBuyCheckResult.holderBlacklistCount,
+            holdersCount: preBuyCheckResult.holdersCount,
+            devHoldingRatio: preBuyCheckResult.devHoldingRatio,
+            maxHoldingRatio: preBuyCheckResult.maxHoldingRatio,
+            holderCanBuy: preBuyCheckResult.holderCanBuy,
+            preTraderCanBuy: preBuyCheckResult.preTraderCanBuy,
+            preTraderCheckReason: preBuyCheckResult.preTraderCheckReason,
+            // 早期参与者检查因子（重要：即使失败也要保存）
+            earlyTradesChecked: preBuyCheckResult.earlyTradesChecked,
+            earlyTradesCheckTimestamp: preBuyCheckResult.earlyTradesCheckTimestamp,
+            earlyTradesCheckDuration: preBuyCheckResult.earlyTradesCheckDuration,
+            earlyTradesCheckTime: preBuyCheckResult.earlyTradesCheckTime,
+            earlyTradesWindow: preBuyCheckResult.earlyTradesWindow,
+            earlyTradesExpectedFirstTime: preBuyCheckResult.earlyTradesExpectedFirstTime,
+            earlyTradesExpectedLastTime: preBuyCheckResult.earlyTradesExpectedLastTime,
+            earlyTradesDataFirstTime: preBuyCheckResult.earlyTradesDataFirstTime,
+            earlyTradesDataLastTime: preBuyCheckResult.earlyTradesDataLastTime,
+            earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage,
+            earlyTradesDataGapBefore: preBuyCheckResult.earlyTradesDataGapBefore,
+            earlyTradesDataGapAfter: preBuyCheckResult.earlyTradesDataGapAfter,
+            earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin,
+            earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin,
+            earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin,
+            earlyTradesHighValuePerMin: preBuyCheckResult.earlyTradesHighValuePerMin,
+            earlyTradesTotalCount: preBuyCheckResult.earlyTradesTotalCount,
+            earlyTradesVolume: preBuyCheckResult.earlyTradesVolume,
+            earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets,
+            earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount,
+            earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount
+          };
+
+          try {
+            await this._updateSignalMetadata(signalId, failedCheckFactors);
+            this.logger.info(this._experimentId, '_executeStrategy',
+              `预检查失败，但已保存早期参与者数据 | symbol=${token.symbol}, signalId=${signalId}`);
+          } catch (updateError) {
+            this.logger.warn(this._experimentId, '_executeStrategy',
+              `更新信号元数据失败 | symbol=${token.symbol}, error=${updateError.message}`);
+          }
+        }
+
         // 更新信号状态为 failed（预检查失败）
         if (signalId) {
           await this._updateSignalStatus(signalId, 'failed', {

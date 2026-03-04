@@ -376,6 +376,9 @@ class ExperimentSignals {
         console.log('✅ chartContainer 设置为可见');
       }
 
+      // 获取代币的详细信息（created_at 和 discovered_at）
+      const tokenInfo = await this.fetchTokenInfo(token.address);
+
       // 获取时序数据（替代K线数据）
       const timeSeriesResponse = await this.fetchTimeSeriesData(token.address);
 
@@ -397,8 +400,8 @@ class ExperimentSignals {
       // 更新时序数据
       this.klineData = timeSeriesResponse.data;
 
-      // 初始化价格折线图
-      this.initPriceLineChart(timeSeriesResponse.data, token);
+      // 初始化价格折线图，传入代币信息
+      this.initPriceLineChart(timeSeriesResponse.data, token, tokenInfo);
 
       console.log(`✅ 代币 ${token.symbol} 的时序数据图表加载完成`);
 
@@ -450,11 +453,51 @@ class ExperimentSignals {
   }
 
   /**
+   * 获取代币的详细信息（created_at, discovered_at）
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<Object>} 代币信息
+   */
+  async fetchTokenInfo(tokenAddress) {
+    try {
+      const targetExperimentId = this._isBacktest && this._sourceExperimentId
+        ? this._sourceExperimentId
+        : this.experimentId;
+
+      const response = await fetch(`/api/experiment/${targetExperimentId}/tokens?limit=10000`);
+      if (!response.ok) {
+        console.warn('获取代币列表失败，使用空数据');
+        return null;
+      }
+
+      const result = await response.json();
+      const tokens = result.data || result.tokens || [];
+      const tokenInfo = tokens.find(t =>
+        (t.token_address || t.address) === tokenAddress
+      );
+
+      if (tokenInfo) {
+        console.log('📊 找到代币信息:', {
+          created_at: tokenInfo.created_at,
+          discovered_at: tokenInfo.discovered_at,
+          raw_api_data_created_at: tokenInfo.raw_api_data?.created_at
+        });
+        return tokenInfo;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('❌ 获取代币信息失败:', error);
+      return null;
+    }
+  }
+
+  /**
    * 初始化价格折线图（使用时序数据）
    * @param {Array} timeSeriesData - 时序数据
    * @param {Object} token - 代币对象
+   * @param {Object} tokenInfo - 代币详细信息（包含 created_at, discovered_at）
    */
-  initPriceLineChart(timeSeriesData, token) {
+  initPriceLineChart(timeSeriesData, token, tokenInfo = null) {
     try {
       console.log('📊 initPriceLineChart 被调用，数据点:', timeSeriesData.length, '代币:', token.symbol);
 
@@ -498,15 +541,63 @@ class ExperimentSignals {
       // 🔥 价格乘以10亿得到市值
       const MARKET_CAP_MULTIPLIER = 1e9; // 10亿
 
+      // 🔥 准备扩展数据：在时序数据前面添加发布时价格和收集时价格
+      const extendedData = [];
+
+      // 从时序数据第一个点获取 launchPrice 和 collectionPrice
+      const firstPoint = timeSeriesData[0];
+      const factorValues = firstPoint?.factor_values || {};
+      const launchPrice = factorValues.launchPrice;
+      const collectionPrice = factorValues.collectionPrice;
+
+      // 添加发布时价格点（如果有数据）
+      if (launchPrice && tokenInfo?.raw_api_data?.created_at) {
+        const createdAt = new Date(tokenInfo.raw_api_data.created_at * 1000); // 转换为毫秒
+        extendedData.push({
+          timestamp: createdAt.toISOString(),
+          price_usd: launchPrice,
+          isReferencePoint: true,
+          pointType: 'launch'
+        });
+        console.log('📊 添加发布时价格点:', {
+          time: createdAt.toISOString(),
+          price: launchPrice
+        });
+      }
+
+      // 添加收集时价格点（如果有数据）
+      if (collectionPrice && tokenInfo?.discovered_at) {
+        const discoveredAt = new Date(tokenInfo.discovered_at);
+        extendedData.push({
+          timestamp: discoveredAt.toISOString(),
+          price_usd: collectionPrice,
+          isReferencePoint: true,
+          pointType: 'collection'
+        });
+        console.log('📊 添加收集时价格点:', {
+          time: discoveredAt.toISOString(),
+          price: collectionPrice
+        });
+      }
+
+      // 添加时序数据
+      timeSeriesData.forEach(d => {
+        extendedData.push({
+          ...d,
+          isReferencePoint: false
+        });
+      });
+
       // 准备数据
-      const labels = timeSeriesData.map(d => new Date(d.timestamp));
-      const marketCaps = timeSeriesData.map(d => d.price_usd ? parseFloat(d.price_usd) * MARKET_CAP_MULTIPLIER : null);
+      const labels = extendedData.map(d => new Date(d.timestamp));
+      const marketCaps = extendedData.map(d => d.price_usd ? parseFloat(d.price_usd) * MARKET_CAP_MULTIPLIER : null);
 
       console.log('📊 图表数据准备完成:', {
         labels: labels.length,
         marketCaps: marketCaps.filter(m => m !== null).length,
         firstLabel: labels[0],
-        lastLabel: labels[labels.length - 1]
+        lastLabel: labels[labels.length - 1],
+        referencePoints: extendedData.filter(d => d.isReferencePoint).length
       });
 
       // 准备信号标记点
@@ -559,8 +650,18 @@ class ExperimentSignals {
             borderColor: '#1890ff',
             backgroundColor: 'rgba(24, 144, 255, 0.1)',
             borderWidth: 2,
-            pointRadius: 0,
-            pointHoverRadius: 4,
+            pointRadius: extendedData.map(d => d.isReferencePoint ? 6 : 0),
+            pointHoverRadius: extendedData.map(d => d.isReferencePoint ? 8 : 4),
+            pointBackgroundColor: extendedData.map(d => {
+              if (d.pointType === 'launch') return '#9ca3af'; // 灰色 - 发布价
+              if (d.pointType === 'collection') return '#8b5cf6'; // 紫色 - 收集价
+              return '#1890ff';
+            }),
+            pointBorderColor: extendedData.map(d => {
+              if (d.isReferencePoint) return '#fff';
+              return '#1890ff';
+            }),
+            pointBorderWidth: extendedData.map(d => d.isReferencePoint ? 2 : 0),
             fill: true,
             tension: 0.1
           }]
@@ -584,17 +685,29 @@ class ExperimentSignals {
               callbacks: {
                 label: (context) => {
                   const value = context.parsed.y;
+                  const dataIndex = context.dataIndex;
+                  const dataPoint = extendedData[dataIndex];
+
                   if (value !== null) {
                     // 市值格式化为K（千）为单位
-                    const marketCapInK = value / 1e3; // 转换为千
-                    return `市值: ${marketCapInK.toFixed(1)}K`;
+                    const marketCapInK = value / 1e3;
+                    let label = `市值: ${marketCapInK.toFixed(1)}K`;
+
+                    // 添加参考点标签
+                    if (dataPoint?.pointType === 'launch') {
+                      label = '📌 发布时价格: ' + label;
+                    } else if (dataPoint?.pointType === 'collection') {
+                      label = '📍 收集时价格: ' + label;
+                    }
+
+                    return label;
+                  }
+                  return '市值: N/A';
                 }
-                return '市值: N/A';
               }
             }
-          }
-        },
-        scales: {
+          },
+          scales: {
           x: {
             type: 'time',
             time: {

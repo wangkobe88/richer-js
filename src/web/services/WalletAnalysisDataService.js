@@ -225,81 +225,138 @@ class WalletAnalysisDataService {
 
   /**
    * 获取代币的早期交易者 - 通过 AVE API
-   * 使用时间窗口：代币创建后10分钟内的交易，最多300条
+   * 使用时间窗口：代币创建后3分钟内的交易，支持分页获取
    */
   async getEarlyTraders(tokenAddress, chain = 'bsc') {
     try {
-      const apiUrl = process.env.AVE_API_URL || 'https://prod.ave-api.com';
-      const apiKey = process.env.AVE_API_KEY;
+      const { AveTokenAPI } = require('../../core/ave-api/token-api');
+      const { AveTxAPI } = require('../../core/ave-api/tx-api');
+      // 使用绝对路径加载配置
+      const path = require('path');
+      const configPath = path.join(__dirname, '../../../config/default.json');
+      const config = require(configPath);
 
+      const apiKey = process.env.AVE_API_KEY;
       if (!apiKey) {
         console.warn('AVE_API_KEY 未设置，无法获取早期交易者');
         return new Set();
       }
 
-      // 1. 获取代币详情（获取 inner pair 和 launch_at）
+      const baseURL = config.ave?.apiUrl || 'https://prod.ave-api.com';
+      const timeout = config.ave?.timeout || 30000;
+
+      // 1. 获取代币详情
       const tokenId = `${tokenAddress}-${chain}`;
-      const tokenRes = await fetch(`${apiUrl}/v2/tokens/${tokenId}`, {
-        headers: { 'X-API-KEY': apiKey }
-      });
+      const tokenApi = new AveTokenAPI(baseURL, timeout, apiKey);
+      const tokenDetail = await tokenApi.getTokenDetail(tokenId);
 
-      if (!tokenRes.ok) {
-        return new Set();
-      }
-
-      const tokenData = await tokenRes.json();
-      const token = tokenData.data?.token;
-
+      const { token, pairs } = tokenDetail;
       if (!token) {
         return new Set();
       }
 
       // 获取 launch_at（代币创建时间）
       const launchAt = token.launch_at || null;
-
-      // 如果没有 launch_at，无法确定时间窗口，返回空
       if (!launchAt) {
         console.warn(`代币 ${tokenAddress.slice(0, 10)}... 没有 launch_at，跳过`);
         return new Set();
       }
 
-      // 获取 inner pair
-      let innerPair = token.main_pair;
-      if (!innerPair && token.pairs && token.pairs.length > 0) {
-        innerPair = token.pairs[0].pair;
+      // 2. 确定平台和 inner pair
+      let platform = null;
+      try {
+        const { data: tokenRecord } = await this.supabase
+          .from('experiment_tokens')
+          .select('platform')
+          .eq('token_address', tokenAddress)
+          .eq('chain', chain)
+          .limit(1)
+          .maybeSingle();
+
+        platform = tokenRecord?.platform || null;
+      } catch (dbError) {
+        // 数据库查询失败，继续
       }
 
-      if (!innerPair) {
+      if (!platform && token.platform) {
+        platform = token.platform;
+      }
+
+      if (!platform) {
+        let mainPair = token.main_pair;
+        if (!mainPair && pairs && pairs.length > 0) {
+          mainPair = pairs[0].pair;
+        }
+        if (mainPair) {
+          if (mainPair.endsWith('_fo')) {
+            platform = 'fourmeme';
+          } else if (mainPair.endsWith('_iportal')) {
+            platform = 'flap';
+          }
+        }
+      }
+
+      if (!platform) {
+        platform = 'fourmeme';
+      }
+
+      // 3. 构造内盘 pair
+      let innerPair;
+      if (platform === 'fourmeme') {
         innerPair = `${tokenAddress}_fo`;
+      } else if (platform === 'flap') {
+        innerPair = `${tokenAddress}_iportal`;
+      } else {
+        let mainPair = token.main_pair;
+        if (!mainPair && pairs && pairs.length > 0) {
+          mainPair = pairs[0].pair;
+        }
+        if (!mainPair) {
+          return new Set();
+        }
+        innerPair = mainPair;
       }
 
-      // 2. 获取早期交易（使用时间窗口：launch_at 到 launch_at + 600秒）
+      // 4. 获取早期交易（3分钟窗口）
       const pairId = `${innerPair}-${chain}`;
       const fromTime = launchAt;
-      const toTime = launchAt + 600;  // +10分钟
+      const toTime = launchAt + 180;  // +3分钟
 
-      const params = new URLSearchParams({
-        sort: 'asc',
-        limit: '300',
-        from_time: fromTime.toString(),
-        to_time: toTime.toString()
-      });
+      const txApi = new AveTxAPI(baseURL, timeout, apiKey);
 
-      const txRes = await fetch(`${apiUrl}/v2/txs/swap/${pairId}?${params}`, {
-        headers: { 'X-API-KEY': apiKey }
-      });
+      // 支持分页获取，最多10页
+      const allTrades = [];
+      let currentToTime = toTime;
+      const MAX_PAGES = 10;
 
-      if (!txRes.ok) {
-        return new Set();
+      for (let pageCount = 0; pageCount < MAX_PAGES; pageCount++) {
+        const trades = await txApi.getSwapTransactions(
+          pairId,
+          300,        // limit
+          fromTime,   // fromTime
+          currentToTime,  // toTime
+          'asc'       // sort
+        );
+
+        if (trades.length === 0) {
+          break;
+        }
+
+        allTrades.push(...trades);
+
+        // 如果返回少于300条，说明已经取完所有数据
+        if (trades.length < 300) {
+          break;
+        }
+
+        // 更新 toTime 为最后一笔交易的时间，继续查询更早的交易
+        currentToTime = trades[trades.length - 1].time;
       }
 
-      const txData = await txRes.json();
-      const txs = txData.data?.txs || txData.data || [];
-
-      // 提取交易者地址
+      // 5. 提取交易者地址
       const traders = new Set();
-      for (const tx of txs) {
-        const fromAddress = tx.from_address || tx.sender_address;
+      for (const tx of allTrades) {
+        const fromAddress = tx.from_address || tx.wallet_address;
         if (fromAddress && typeof fromAddress === 'string') {
           traders.add(fromAddress.toLowerCase());
         }
@@ -314,54 +371,40 @@ class WalletAnalysisDataService {
   }
 
   /**
-   * 获取代币的持有者
-   */
-  async getTokenHolders(tokenAddress) {
-    try {
-      const { data, error } = await this.supabase
-        .from('token_holders')
-        .select('holder_data')
-        .eq('token_address', tokenAddress)
-        .order('checked_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error || !data?.holder_data?.holders) {
-        return new Set();
-      }
-
-      const holders = new Set();
-      for (const holder of data.holder_data.holders) {
-        const address = holder.address || holder.holder;
-        if (address && typeof address === 'string') {
-          holders.add(address.toLowerCase());
-        }
-      }
-
-      return holders;
-    } catch (error) {
-      console.warn(`获取代币 ${tokenAddress} 持有者失败:`, error.message);
-      return new Set();
-    }
-  }
-
-  /**
    * 生成钱包画像（使用所有实验的标注代币）
    */
-  async generateProfiles(onProgress) {
-    const taskId = this._generateTaskId();
+  async generateProfiles(taskId, onProgress) {
     this.activeTasks.set(taskId, { status: 'running', progress: 0, message: '初始化...' });
 
+    // 创建包装函数，同时更新 activeTasks 和调用 onProgress
+    const updateProgress = (status) => {
+      this.activeTasks.set(taskId, status);
+      onProgress?.(status);
+    };
+
     try {
+      // 清空 wallet_profiles 表
+      updateProgress({ status: 'running', progress: 2, message: '清空旧数据...' });
+      const { error: deleteError } = await this.supabase
+        .from('wallet_profiles')
+        .delete()
+        .not('wallet_address', 'is', null);  // 删除所有记录
+
+      if (deleteError) {
+        console.warn('清空 wallet_profiles 表失败:', deleteError.message);
+      } else {
+        console.log('已清空 wallet_profiles 表');
+      }
+
       // 获取所有标注代币
-      onProgress?.({ status: 'running', progress: 5, message: '获取标注代币...' });
+      updateProgress({ status: 'running', progress: 5, message: '获取标注代币...' });
       const tokens = await this.getAnnotatedTokens(null);
 
       if (tokens.length === 0) {
         throw new Error('没有找到已标注的代币');
       }
 
-      onProgress?.({ status: 'running', progress: 10, message: `找到 ${tokens.length} 个标注代币，开始分析...` });
+      updateProgress({ status: 'running', progress: 10, message: `找到 ${tokens.length} 个标注代币，开始分析...` });
 
       // 分析钱包
       const walletProfiles = new Map();
@@ -370,8 +413,9 @@ class WalletAnalysisDataService {
       let lastProgressUpdate = Date.now();
 
       // 批量处理，每批处理指定数量的代币
-      const batchSize = 10;
-      const delayBetweenBatches = 500; // 毫秒
+      const batchSize = 5;  // 减少批次大小，避免API速率限制
+      const delayBetweenBatches = 2000; // 批次间延迟2秒
+      const delayBetweenTokens = 500;   // 代币间延迟500ms
 
       for (let i = 0; i < tokens.length; i += batchSize) {
         const batch = tokens.slice(i, i + batchSize);
@@ -379,21 +423,21 @@ class WalletAnalysisDataService {
         // 处理当前批次
         for (const token of batch) {
           try {
-            const [traders, holders] = await Promise.all([
-              this.getEarlyTraders(token.address, token.chain),
-              this.getTokenHolders(token.address)
-            ]);
+            // 获取早期交易者
+            const traders = await this.getEarlyTraders(token.address, token.chain);
 
-            const allWallets = new Set([...traders, ...holders]);
+            // 代币间延迟，避免API速率限制
+            if (batch.indexOf(token) < batch.length - 1) {
+              await this._delay(delayBetweenTokens);
+            }
 
-            for (const wallet of allWallets) {
+            for (const wallet of traders) {
               if (!walletProfiles.has(wallet)) {
                 walletProfiles.set(wallet, {
                   walletAddress: wallet,
                   blockchain: token.chain,
                   totalParticipations: 0,
                   earlyTradeCount: 0,
-                  holderCount: 0,
                   categories: {},
                   tokens: []
                 });
@@ -402,22 +446,14 @@ class WalletAnalysisDataService {
               const profile = walletProfiles.get(wallet);
               profile.categories[token.category] = (profile.categories[token.category] || 0) + 1;
               profile.totalParticipations++;
-
-              if (traders.has(wallet)) {
-                profile.earlyTradeCount++;
-              }
-              if (holders.has(wallet)) {
-                profile.holderCount++;
-              }
+              profile.earlyTradeCount++;
 
               // 限制 tokens 数组大小，避免数据过大
               if (profile.tokens.length < 100) {
                 profile.tokens.push({
                   address: token.address,
                   symbol: token.symbol,
-                  category: token.category,
-                  asEarlyTrader: traders.has(wallet),
-                  asHolder: holders.has(wallet)
+                  category: token.category
                 });
               }
             }
@@ -428,7 +464,7 @@ class WalletAnalysisDataService {
             const now = Date.now();
             if (now - lastProgressUpdate > 1000) {
               const progress = Math.min(85, 10 + Math.floor((processed / total) * 75));
-              onProgress?.({ status: 'running', progress, message: `处理 ${processed}/${total} 个代币...` });
+              updateProgress({ status: 'running', progress, message: `处理 ${processed}/${total} 个代币...` });
               lastProgressUpdate = now;
             }
           } catch (error) {
@@ -443,7 +479,7 @@ class WalletAnalysisDataService {
       }
 
       // 保存到数据库
-      onProgress?.({ status: 'running', progress: 88, message: '保存到数据库...' });
+      updateProgress({ status: 'running', progress: 88, message: '保存到数据库...' });
 
       const blockchain = tokens[0]?.chain || 'bsc';
       await this._saveProfiles(walletProfiles, blockchain);
@@ -451,7 +487,7 @@ class WalletAnalysisDataService {
       // 生成统计
       const stats = this._generateStats(walletProfiles);
 
-      onProgress?.({ status: 'completed', progress: 100, message: '完成！', stats });
+      updateProgress({ status: 'completed', progress: 100, message: '完成！', stats });
 
       return {
         taskId,
@@ -490,7 +526,6 @@ class WalletAnalysisDataService {
         blockchain: blockchain,
         total_participations: profile.totalParticipations,
         early_trade_count: profile.earlyTradeCount,
-        holder_count: profile.holderCount,
         categories: profile.categories,
         dominant_category: this._getDominantCategory(profile.categories),
         updated_at: new Date().toISOString()
@@ -889,13 +924,6 @@ class WalletAnalysisDataService {
    */
   getTaskStatus(taskId) {
     return this.activeTasks.get(taskId) || { status: 'not_found' };
-  }
-
-  /**
-   * 生成任务ID
-   */
-  _generateTaskId() {
-    return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   /**

@@ -1097,8 +1097,12 @@ class ExperimentTokens {
       return hasBlacklist || hasWhitelist;
     });
 
-    // 按发现时间降序排序
-    filtered.sort((a, b) => new Date(b.discovered_at || 0) - new Date(a.discovered_at || 0));
+    // 按最高涨幅降序排序
+    filtered.sort((a, b) => {
+      const aMaxChange = a.analysis_results?.max_change_percent || -999;
+      const bMaxChange = b.analysis_results?.max_change_percent || -999;
+      return bMaxChange - aMaxChange;
+    });
 
     this.filteredTokens = filtered;
     this.currentPage = 1;
@@ -1111,7 +1115,7 @@ class ExperimentTokens {
     if (filtered.length === 0) {
       this.showToast('⚠️ 没有命中黑白名单的代币');
     } else {
-      this.showToast(`已筛选: 命中黑白名单，共 ${filtered.length} 个代币（黑名单: ${blacklistCount}，白名单: ${whitelistCount}）`);
+      this.showToast(`已筛选: 命中黑白名单（按最高涨幅排序），共 ${filtered.length} 个代币（黑名单: ${blacklistCount}，白名单: ${whitelistCount}）`);
     }
   }
 

@@ -11,6 +11,7 @@ class TrendDetector {
    * @param {number} config.scoreThreshold - 趋势强度评分阈值，默认30
    * @param {number} config.totalReturnThreshold - 总涨幅阈值，默认5（%）
    * @param {number} config.riseRatioThreshold - 上涨占比阈值，默认0.5（50%）
+   * @param {number} config.minSlopeThreshold - 最小相对斜率阈值，默认0.001（0.1%/间隔）
    */
   constructor(config = {}) {
     this.minDataPoints = config.minDataPoints || 6;
@@ -19,6 +20,7 @@ class TrendDetector {
     this.scoreThreshold = config.scoreThreshold ?? 30;
     this.totalReturnThreshold = config.totalReturnThreshold ?? 5;
     this.riseRatioThreshold = config.riseRatioThreshold ?? 0.5;
+    this.minSlopeThreshold = config.minSlopeThreshold ?? 0.02; // 默认每10秒至少涨2%
   }
 
   /**
@@ -190,7 +192,11 @@ class TrendDetector {
 
     // 方法1：线性回归斜率 > 0
     const slope = this._calculateLinearRegressionSlope(prices);
-    if (slope > 0) passed++;
+    const avgPrice = prices.reduce((a, b) => a + b, 0) / n;
+    // 使用相对斜率阈值：每10秒至少涨0.1%（可配置）
+    const minRelativeSlope = this.minSlopeThreshold || 0.001;
+    const relativeSlope = avgPrice > 0 ? slope / avgPrice : 0;
+    if (relativeSlope > minRelativeSlope) passed++;
 
     // 方法2：最新价格 > 初始价格
     if (prices[n - 1] > prices[0]) passed++;
@@ -201,7 +207,7 @@ class TrendDetector {
     const secondHalfMedian = this._median(prices.slice(mid));
     if (secondHalfMedian > firstHalfMedian) passed++;
 
-    return { passed };
+    return { passed, relativeSlope };
   }
 
   /**

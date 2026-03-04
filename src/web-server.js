@@ -16,6 +16,7 @@ const { ExperimentDataService } = require('./web/services/ExperimentDataService'
 const { WalletDataService } = require('./web/services/WalletDataService');
 const { TokenHolderDataService } = require('./web/services/TokenHolderDataService');
 const { WalletAnalysisDataService } = require('./web/services/WalletAnalysisDataService');
+const { BayesModelService } = require('./services/BayesModelService');
 const PriceRefreshService = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 
@@ -76,6 +77,7 @@ class RicherJsWebServer {
     this.walletService = new WalletDataService();
     this.tokenHolderService = new TokenHolderDataService();
     this.walletAnalysisService = new WalletAnalysisDataService();
+    this.bayesModelService = new BayesModelService();
     this.priceRefreshService = new PriceRefreshService(
       console,
       this.dataService.supabase,
@@ -715,8 +717,8 @@ class RicherJsWebServer {
       try {
         const taskId = Date.now().toString();
 
-        // 异步执行分析
-        this.walletAnalysisService.generateProfiles((progress) => {
+        // 异步执行分析，传入 taskId
+        this.walletAnalysisService.generateProfiles(taskId, (progress) => {
           console.log(`[钱包分析] ${taskId}: ${progress.progress}% - ${progress.message}`);
         }).then(result => {
           console.log(`[钱包分析] ${taskId} 完成:`, result.stats);
@@ -733,20 +735,31 @@ class RicherJsWebServer {
 
     // 获取生成任务状态
     this.app.get('/api/wallet-analysis/generate-profiles/:taskId/status', async (req, res) => {
-      // 简化实现：返回当前数据库状态
       try {
-        const stats = await this.walletAnalysisService.getStats();
-        res.json({
-          success: true,
-          data: {
-            status: 'completed',
-            progress: 100,
-            message: '完成',
-            stats: {
-              totalWallets: stats.totalProfiles
+        const taskId = req.params.taskId;
+        const taskStatus = this.walletAnalysisService.getTaskStatus(taskId);
+
+        if (taskStatus.status === 'not_found') {
+          // 任务不存在，可能是已完成的旧任务
+          const stats = await this.walletAnalysisService.getStats();
+          res.json({
+            success: true,
+            data: {
+              status: 'completed',
+              progress: 100,
+              message: '完成',
+              stats: {
+                totalWallets: stats.totalProfiles
+              }
             }
-          }
-        });
+          });
+        } else {
+          // 返回实际任务状态
+          res.json({
+            success: true,
+            data: taskStatus
+          });
+        }
       } catch (error) {
         console.error('获取任务状态失败:', error);
         res.status(500).json({ success: false, error: error.message });
@@ -817,6 +830,57 @@ class RicherJsWebServer {
         res.json({ success: true, data: stats });
       } catch (error) {
         console.error('获取统计失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ API路由：贝叶斯模型 ============
+
+    // 训练模型
+    this.app.post('/api/bayes/train', async (req, res) => {
+      try {
+        const taskId = Date.now().toString();
+
+        // 异步执行训练
+        this.bayesModelService.trainModel((progress) => {
+          console.log(`[贝叶斯训练] ${progress.progress}% - ${progress.message}`);
+        }).then(result => {
+          console.log(`[贝叶斯训练] 完成:`, result.stats);
+        }).catch(error => {
+          console.error(`[贝叶斯训练] 失败:`, error);
+        });
+
+        res.json({ success: true, taskId });
+      } catch (error) {
+        console.error('训练贝叶斯模型失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 预测代币性质
+    this.app.post('/api/bayes/predict', async (req, res) => {
+      try {
+        const { tokenAddress, chain = 'bsc' } = req.body;
+
+        if (!tokenAddress) {
+          return res.status(400).json({ success: false, error: '代币地址不能为空' });
+        }
+
+        const result = await this.bayesModelService.predictToken(tokenAddress, chain);
+        res.json({ success: true, data: result });
+      } catch (error) {
+        console.error('贝叶斯预测失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取模型信息
+    this.app.get('/api/bayes/model', async (req, res) => {
+      try {
+        const info = await this.bayesModelService.getModelInfo();
+        res.json({ success: true, data: info });
+      } catch (error) {
+        console.error('获取贝叶斯模型信息失败:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });
