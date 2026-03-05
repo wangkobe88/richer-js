@@ -401,12 +401,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         }
 
         // 🔥 卖出成功后，检查是否还有剩余持仓
-        // 如果tokenCards为0，说明已全部卖出，更新状态为exited
+        // 如果tokenCards为0，说明已全部卖出，更新状态为sold（交易后观察期）
         if (cardManager.tokenCards === 0) {
           this.logger.info(this._experimentId, '_executeSell',
-            `已全部卖出，更新代币状态为exited | tokenAddress=${signal.tokenAddress}, symbol=${signal.symbol}`);
-          this._tokenPool.markAsExited(signal.tokenAddress, signal.chain);
-          await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'exited');
+            `已全部卖出，更新代币状态为sold(观察30分钟) | tokenAddress=${signal.tokenAddress}, symbol=${signal.symbol}`);
+          this._tokenPool.markAsSold(signal.tokenAddress, signal.chain);
+          await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'sold');
         }
       }
 

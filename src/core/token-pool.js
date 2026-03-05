@@ -58,7 +58,7 @@ class TokenPool {
             addedAt: collectionTime,  // 添加到监控池的时间
             klineData: [],
             // 保留传入的 status（如 bad_holder, negative_dev），默认为 monitoring
-            status: tokenData.status || 'monitoring', // monitoring, bought, selling, exited, bad_holder, negative_dev
+            status: tokenData.status || 'monitoring', // monitoring, bought, selling, sold, exited, bad_holder, negative_dev
             buyDecision: null,
             buyPrice: null,
             buyTime: null,
@@ -250,6 +250,22 @@ class TokenPool {
     }
 
     /**
+     * Mark token as sold (交易后观察状态)
+     * 卖出后将状态设为 'sold'，继续收集价格信息30分钟后才移除
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     */
+    markAsSold(tokenAddress, chain) {
+        const key = this.getTokenKey({ token: tokenAddress, chain });
+        const token = this.pool.get(key);
+
+        if (token) {
+            token.status = 'sold';
+            token.soldAt = Date.now(); // 记录卖出时间
+        }
+    }
+
+    /**
      * Remove token from pool
      * @param {string} tokenAddress - Token address
      * @param {string} chain - Chain
@@ -277,14 +293,16 @@ class TokenPool {
     }
 
     /**
-     * Get monitoring tokens (status = 'monitoring', 'bought', 'bad_holder', 'negative_dev')
-     * 包含 bad_holder 和 negative_dev 状态，以便保存到数据库，但后续处理会跳过
+     * Get monitoring tokens (status = 'monitoring', 'bought', 'sold', 'bad_holder', 'negative_dev')
+     * 包含 bad_holder、negative_dev 和 sold 状态
+     * - sold: 已卖出，继续观察30分钟用于分析交易效果
      * @returns {Array} Array of token data
      */
     getMonitoringTokens() {
         return this.getAllTokens().filter(t =>
             t.status === 'monitoring' ||
             t.status === 'bought' ||
+            t.status === 'sold' ||
             t.status === 'bad_holder' ||
             t.status === 'negative_dev'
         );
@@ -355,16 +373,20 @@ class TokenPool {
      * 移除条件：
      * - status = 'inactive' (新标记的不活跃代币)
      * - 或 超过30分钟的未交易代币 (status = 'monitoring')
-     * - 或 已退出的代币 (status = 'exited')
+     * - 或 已退出超过30分钟的代币 (status = 'exited'，保留时间向后兼容)
+     * - 或 已卖出超过30分钟的代币 (status = 'sold'，交易后观察期结束)
      *
      * 不移除：
      * - status = 'bought' (已买入，需要持续监控到卖出)
      * - status = 'selling' (正在卖出中)
+     * - status = 'sold' 且未超过30分钟 (交易后观察期)
      *
      * @returns {Array} 需要移除的代币列表
      */
     getTokensToRemove() {
         const toRemove = [];
+        const now = Date.now();
+        const POST_SALE_OBSERVATION_TIME = 30 * 60 * 1000; // 30分钟
 
         for (const [key, token] of this.pool.entries()) {
             let shouldRemove = false;
@@ -378,13 +400,18 @@ class TokenPool {
             if (token.status === 'inactive') {
                 shouldRemove = true;
                 reason = '低收益无交易';
+            } else if (token.status === 'sold') {
+                // 已卖出的代币，30分钟观察期后才移除
+                if (token.soldAt && (now - token.soldAt) >= POST_SALE_OBSERVATION_TIME) {
+                    shouldRemove = true;
+                    reason = `交易后观察结束(${((now - token.soldAt) / 60000).toFixed(1)}分钟)`;
+                }
             } else if (token.status === 'exited') {
-                // 已退出的代币可以移除（已完成交易）
+                // 已退出的代币立即移除（向后兼容）
                 shouldRemove = true;
                 reason = '已退出交易';
             } else if (token.status === 'monitoring') {
                 // 只有未交易的监控中代币才按时间淘汰
-                const now = Date.now();
                 const age = now - token.createdAt * 1000;
                 const MAX_AGE = 30 * 60 * 1000; // 30分钟
                 if (age > MAX_AGE) {
@@ -447,6 +474,7 @@ class TokenPool {
             monitoring: tokens.filter(t => t.status === 'monitoring').length,
             bought: tokens.filter(t => t.status === 'bought').length,
             selling: tokens.filter(t => t.status === 'selling').length,
+            sold: tokens.filter(t => t.status === 'sold').length,
             exited: tokens.filter(t => t.status === 'exited').length
         };
     }
