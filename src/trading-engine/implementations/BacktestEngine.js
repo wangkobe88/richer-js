@@ -436,6 +436,105 @@ class BacktestEngine extends AbstractTradingEngine {
     return false;
   }
 
+  /**
+   * 处理信号（Backtest 特有：支持预先保存的信号ID）
+   * @param {Object} signal - 信号对象
+   * @param {string} [existingSignalId] - 预先保存的信号ID
+   * @returns {Promise<Object>} 处理结果
+   */
+  async processSignal(signal, existingSignalId = null) {
+    if (!this._experiment) {
+      throw new Error('引擎未初始化');
+    }
+
+    // 检查引擎状态
+    if (this._isStopped) {
+      return { success: false, message: '引擎已停止' };
+    }
+
+    let signalId = existingSignalId;
+    let result = { success: false, message: '交易未执行' };
+
+    // 如果没有预先保存的信号ID（卖出策略的情况），则创建并保存信号
+    if (!signalId) {
+      const { TradeSignal } = require('../entities');
+
+      // 创建信号实体
+      const signalMetadata = {
+        ...signal.metadata,
+        ...signal.factors,
+        price: signal.price,
+        strategyId: signal.strategyId,
+        strategyName: signal.strategyName,
+        cards: signal.cards
+      };
+
+      const tradeSignal = new TradeSignal({
+        experimentId: this._experimentId,
+        tokenAddress: signal.tokenAddress,
+        tokenSymbol: signal.symbol,
+        signalType: signal.action.toUpperCase(),
+        action: signal.action.toLowerCase(),
+        confidence: signal.confidence || 0.5,
+        reason: signal.reason || '',
+        metadata: signalMetadata,
+        createdAt: signal.timestamp || new Date()
+      });
+
+      signalId = await tradeSignal.save();
+      this.logger.info('processSignal', `信号已保存 | symbol=${signal.symbol}, signalId=${signalId}`);
+    } else {
+      this.logger.info('processSignal', `使用已存在的信号 | symbol=${signal.symbol}, signalId=${signalId}`);
+    }
+
+    // 执行交易
+    const signalTime = signal.timestamp || new Date();
+    const metadata = {
+      signalId,
+      loopCount: this._loopCount,
+      timestamp: signalTime instanceof Date ? signalTime.toISOString() : signalTime,
+      factors: signal.factors || null
+    };
+
+    try {
+      if (signal.action.toLowerCase() === 'buy') {
+        result = await this._executeBuy(signal, signalId, metadata);
+      } else if (signal.action.toLowerCase() === 'sell') {
+        result = await this._executeSell(signal, signalId, metadata);
+      } else {
+        result = { success: false, message: `未知动作: ${signal.action}` };
+      }
+
+      // 更新信号状态
+      await this._updateSignalStatus(signalId, result.success ? 'executed' : 'failed', result);
+
+    } catch (error) {
+      this.logger.error('processSignal', '信号执行失败', {
+        signalId,
+        error: error.message,
+        stack: error.stack
+      });
+
+      result = {
+        success: false,
+        message: error.message || '未知错误',
+        reason: error.message || '未知错误',
+        error: error.message || '未知错误'
+      };
+
+      try {
+        await this._updateSignalStatus(signalId, 'failed', result);
+      } catch (statusError) {
+        this.logger.error('processSignal', '更新信号状态失败', {
+          signalId,
+          error: statusError.message
+        });
+      }
+    }
+
+    return result;
+  }
+
   // ==================== Backtest 特有方法 ====================
 
   /**
@@ -1065,7 +1164,7 @@ class BacktestEngine extends AbstractTradingEngine {
       }
 
       // ========== 预检查通过，执行交易 ==========
-      const result = await this.processSignal(signal);
+      const result = await this.processSignal(signal, signalId);
 
       if (result && result.success) {
         tokenState.status = 'bought';

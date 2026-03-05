@@ -1685,37 +1685,52 @@ class ExperimentSignals {
       // 早期参与者检查信息
       let earlyTradesHtml = '';
       if (pf.earlyTradesChecked === 1) {
-        earlyTradesHtml = `
-          <div class="mt-2 pt-2 border-t border-amber-300">
-            <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者</div>
-            <div class="grid grid-cols-3 gap-2 text-xs">
-              <div>
-                <span class="text-amber-800">高价值交易:</span>
-                <span class="text-amber-900 font-bold">${pf.earlyTradesHighValueCount || 0}</span>
-              </div>
-              <div>
-                <span class="text-amber-800">高价值/分:</span>
-                <span class="text-amber-900 font-bold">${pf.earlyTradesHighValuePerMin ? pf.earlyTradesHighValuePerMin.toFixed(1) : '0'}</span>
-              </div>
-              <div>
-                <span class="text-amber-800">交易/分:</span>
-                <span class="text-amber-900 font-bold">${pf.earlyTradesCountPerMin ? pf.earlyTradesCountPerMin.toFixed(1) : '0'}</span>
-              </div>
-              <div>
-                <span class="text-amber-800">实际跨度:</span>
-                <span class="text-gray-900 font-medium">${pf.earlyTradesActualSpan ? pf.earlyTradesActualSpan.toFixed(0) : '0'}秒</span>
-              </div>
-              <div>
-                <span class="text-amber-800">总交易:</span>
-                <span class="text-gray-900 font-medium">${pf.earlyTradesTotalCount || 0}</span>
-              </div>
-              <div>
-                <span class="text-amber-800">独立钱包:</span>
-                <span class="text-gray-900 font-medium">${pf.earlyTradesUniqueWallets || 0}</span>
+        // 检查是否有交易数据
+        const hasTradeData = (pf.earlyTradesTotalCount || 0) > 0;
+
+        if (hasTradeData) {
+          earlyTradesHtml = `
+            <div class="mt-2 pt-2 border-t border-amber-300">
+              <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者</div>
+              <div class="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <span class="text-amber-800">高价值交易:</span>
+                  <span class="text-amber-900 font-bold">${pf.earlyTradesHighValueCount || 0}</span>
+                </div>
+                <div>
+                  <span class="text-amber-800">高价值/分:</span>
+                  <span class="text-amber-900 font-bold">${pf.earlyTradesHighValuePerMin ? pf.earlyTradesHighValuePerMin.toFixed(1) : '0'}</span>
+                </div>
+                <div>
+                  <span class="text-amber-800">交易/分:</span>
+                  <span class="text-amber-900 font-bold">${pf.earlyTradesCountPerMin ? pf.earlyTradesCountPerMin.toFixed(1) : '0'}</span>
+                </div>
+                <div>
+                  <span class="text-amber-800">实际跨度:</span>
+                  <span class="text-gray-900 font-medium">${pf.earlyTradesActualSpan ? pf.earlyTradesActualSpan.toFixed(0) : '0'}秒</span>
+                </div>
+                <div>
+                  <span class="text-amber-800">总交易:</span>
+                  <span class="text-gray-900 font-medium">${pf.earlyTradesTotalCount || 0}</span>
+                </div>
+                <div>
+                  <span class="text-amber-800">独立钱包:</span>
+                  <span class="text-gray-900 font-medium">${pf.earlyTradesUniqueWallets || 0}</span>
+                </div>
               </div>
             </div>
-          </div>
-        `;
+          `;
+        } else {
+          // 没有交易数据时的提示
+          earlyTradesHtml = `
+            <div class="mt-2 pt-2 border-t border-amber-300">
+              <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者</div>
+              <div class="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
+                ⚠️ 无交易数据 - AVE API 未返回该代币对的早期交易记录
+              </div>
+            </div>
+          `;
+        }
       }
 
       preBuyCheckHtml = `

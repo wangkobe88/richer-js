@@ -215,16 +215,18 @@ class ExperimentMonitor {
     return `
       <div class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
         <div class="p-4">
-          <div class="flex items-start justify-between mb-3">
-            <div class="flex items-center gap-2 flex-1 min-w-0">
-              <h3 class="text-xl font-bold text-white truncate flex-1" title="${this._escapeHtml(exp.experimentName || exp.experiment_name)}">${exp.experimentName || exp.experiment_name || '未命名实验'}</h3>
-              <button data-action="edit-name" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName || exp.experiment_name)}" class="text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0" title="编辑名字">
-                ✏️
-              </button>
+          <div class="mb-3">
+            <div class="flex items-start justify-between mb-2">
+              <h3 class="text-xl font-bold text-gray-100 break-words leading-tight flex-1 pr-3" title="${this._escapeHtml(exp.experimentName || exp.experiment_name)}">${exp.experimentName || exp.experiment_name || '未命名实验'}</h3>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="px-2 py-1 text-xs font-medium rounded ${statusColors[exp.status] || 'bg-gray-100'}">
+                  ${statusLabel[exp.status] || exp.status}
+                </span>
+                <button data-action="edit-name" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName || exp.experiment_name)}" class="text-gray-400 hover:text-blue-600 transition-colors" title="编辑名字">
+                  ✏️
+                </button>
+              </div>
             </div>
-            <span class="ml-2 px-2 py-1 text-xs font-medium rounded ${statusColors[exp.status] || 'bg-gray-100'}">
-              ${statusLabel[exp.status] || exp.status}
-            </span>
           </div>
 
           <div class="space-y-2 text-sm">
