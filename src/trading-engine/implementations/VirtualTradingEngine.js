@@ -1250,71 +1250,76 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.25
         } : null,
         factors: factorResults ? {
-          age: factorResults.age,
-          currentPrice: factorResults.currentPrice,
-          collectionPrice: factorResults.collectionPrice,
-          earlyReturn: factorResults.earlyReturn,
-          riseSpeed: factorResults.riseSpeed,
-          buyPrice: factorResults.buyPrice,
-          holdDuration: factorResults.holdDuration,
-          profitPercent: factorResults.profitPercent,
-          highestPrice: factorResults.highestPrice,
-          highestPriceTimestamp: factorResults.highestPriceTimestamp,
-          drawdownFromHighest: factorResults.drawdownFromHighest,
-          txVolumeU24h: factorResults.txVolumeU24h,
-          holders: factorResults.holders,
-          tvl: factorResults.tvl,
-          fdv: factorResults.fdv,
-          marketCap: factorResults.marketCap,
-          // 趋势检测因子
-          trendDataPoints: factorResults.trendDataPoints,
-          trendCV: factorResults.trendCV,
-          trendPriceUp: factorResults.trendPriceUp,
-          trendMedianUp: factorResults.trendMedianUp,
-          trendSlope: factorResults.trendSlope,
-          trendStrengthScore: factorResults.trendStrengthScore,
-          trendTotalReturn: factorResults.trendTotalReturn,
-          trendRiseRatio: factorResults.trendRiseRatio,
-          trendRecentDownCount: factorResults.trendRecentDownCount,
-          trendRecentDownRatio: factorResults.trendRecentDownRatio,
-          trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
-          trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
-          trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
-          trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints,
-          // 购买前检查因子（初始为空值，检查通过后更新）
-          preBuyCheck: factorResults.preBuyCheck || 0,
-          checkTimestamp: factorResults.checkTimestamp || null,
-          checkDuration: factorResults.checkDuration || null,
-          holderWhitelistCount: factorResults.holderWhitelistCount || 0,
-          holderBlacklistCount: factorResults.holderBlacklistCount || 0,
-          holdersCount: factorResults.holdersCount || 0,
-          devHoldingRatio: factorResults.devHoldingRatio || 0,
-          maxHoldingRatio: factorResults.maxHoldingRatio || 0,
-          holderCanBuy: factorResults.holderCanBuy ?? null,
-          preTraderCanBuy: factorResults.preTraderCanBuy ?? null,
-          preTraderCheckReason: factorResults.preTraderCheckReason ?? null,
-          // 早期参与者检查因子（初始为空值，检查通过后更新）
-          earlyTradesChecked: factorResults.earlyTradesChecked || 0,
-          earlyTradesCheckTimestamp: factorResults.earlyTradesCheckTimestamp || null,
-          earlyTradesCheckDuration: factorResults.earlyTradesCheckDuration || null,
-          earlyTradesCheckTime: factorResults.earlyTradesCheckTime || null,
-          earlyTradesWindow: factorResults.earlyTradesWindow || null,
-          earlyTradesExpectedFirstTime: factorResults.earlyTradesExpectedFirstTime || null,
-          earlyTradesExpectedLastTime: factorResults.earlyTradesExpectedLastTime || null,
-          earlyTradesDataFirstTime: factorResults.earlyTradesDataFirstTime || null,
-          earlyTradesDataLastTime: factorResults.earlyTradesDataLastTime || null,
-          earlyTradesDataCoverage: factorResults.earlyTradesDataCoverage || 0,
-          earlyTradesActualSpan: factorResults.earlyTradesActualSpan || 0,
-          earlyTradesRateCalcWindow: factorResults.earlyTradesRateCalcWindow || 1,
-          earlyTradesVolumePerMin: factorResults.earlyTradesVolumePerMin || 0,
-          earlyTradesCountPerMin: factorResults.earlyTradesCountPerMin || 0,
-          earlyTradesWalletsPerMin: factorResults.earlyTradesWalletsPerMin || 0,
-          earlyTradesHighValuePerMin: factorResults.earlyTradesHighValuePerMin || 0,
-          earlyTradesTotalCount: factorResults.earlyTradesTotalCount || 0,
-          earlyTradesVolume: factorResults.earlyTradesVolume || 0,
-          earlyTradesUniqueWallets: factorResults.earlyTradesUniqueWallets || 0,
-          earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
-          earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0
+          // 趋势/技术指标 factors
+          trendFactors: {
+            age: factorResults.age,
+            currentPrice: factorResults.currentPrice,
+            collectionPrice: factorResults.collectionPrice,
+            earlyReturn: factorResults.earlyReturn,
+            riseSpeed: factorResults.riseSpeed,
+            buyPrice: factorResults.buyPrice,
+            holdDuration: factorResults.holdDuration,
+            profitPercent: factorResults.profitPercent,
+            highestPrice: factorResults.highestPrice,
+            highestPriceTimestamp: factorResults.highestPriceTimestamp,
+            drawdownFromHighest: factorResults.drawdownFromHighest,
+            txVolumeU24h: factorResults.txVolumeU24h,
+            holders: factorResults.holders,
+            tvl: factorResults.tvl,
+            fdv: factorResults.fdv,
+            marketCap: factorResults.marketCap,
+            // 趋势检测因子
+            trendDataPoints: factorResults.trendDataPoints,
+            trendCV: factorResults.trendCV,
+            trendPriceUp: factorResults.trendPriceUp,
+            trendMedianUp: factorResults.trendMedianUp,
+            trendSlope: factorResults.trendSlope,
+            trendStrengthScore: factorResults.trendStrengthScore,
+            trendTotalReturn: factorResults.trendTotalReturn,
+            trendRiseRatio: factorResults.trendRiseRatio,
+            trendRecentDownCount: factorResults.trendRecentDownCount,
+            trendRecentDownRatio: factorResults.trendRecentDownRatio,
+            trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
+            trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
+            trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
+            trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
+          },
+          // 购买前检查 factors（初始为空，检查通过后更新）
+          preBuyCheckFactors: {
+            preBuyCheck: factorResults.preBuyCheck || 0,
+            checkTimestamp: factorResults.checkTimestamp || null,
+            checkDuration: factorResults.checkDuration || null,
+            holderWhitelistCount: factorResults.holderWhitelistCount || 0,
+            holderBlacklistCount: factorResults.holderBlacklistCount || 0,
+            holdersCount: factorResults.holdersCount || 0,
+            devHoldingRatio: factorResults.devHoldingRatio || 0,
+            maxHoldingRatio: factorResults.maxHoldingRatio || 0,
+            holderCanBuy: factorResults.holderCanBuy ?? null,
+            preTraderCanBuy: factorResults.preTraderCanBuy ?? null,
+            preTraderCheckReason: factorResults.preTraderCheckReason ?? null,
+            // 早期参与者检查因子
+            earlyTradesChecked: factorResults.earlyTradesChecked || 0,
+            earlyTradesCheckTimestamp: factorResults.earlyTradesCheckTimestamp || null,
+            earlyTradesCheckDuration: factorResults.earlyTradesCheckDuration || null,
+            earlyTradesCheckTime: factorResults.earlyTradesCheckTime || null,
+            earlyTradesWindow: factorResults.earlyTradesWindow || null,
+            earlyTradesExpectedFirstTime: factorResults.earlyTradesExpectedFirstTime || null,
+            earlyTradesExpectedLastTime: factorResults.earlyTradesExpectedLastTime || null,
+            earlyTradesDataFirstTime: factorResults.earlyTradesDataFirstTime || null,
+            earlyTradesDataLastTime: factorResults.earlyTradesDataLastTime || null,
+            earlyTradesDataCoverage: factorResults.earlyTradesDataCoverage || 0,
+            earlyTradesActualSpan: factorResults.earlyTradesActualSpan || 0,
+            earlyTradesRateCalcWindow: factorResults.earlyTradesRateCalcWindow || 1,
+            earlyTradesVolumePerMin: factorResults.earlyTradesVolumePerMin || 0,
+            earlyTradesCountPerMin: factorResults.earlyTradesCountPerMin || 0,
+            earlyTradesWalletsPerMin: factorResults.earlyTradesWalletsPerMin || 0,
+            earlyTradesHighValuePerMin: factorResults.earlyTradesHighValuePerMin || 0,
+            earlyTradesTotalCount: factorResults.earlyTradesTotalCount || 0,
+            earlyTradesVolume: factorResults.earlyTradesVolume || 0,
+            earlyTradesUniqueWallets: factorResults.earlyTradesUniqueWallets || 0,
+            earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
+            earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0
+          }
         } : null
       };
 
@@ -1497,16 +1502,16 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, '_executeStrategy',
         `预检查通过，构建信号元数据 | symbol=${token.symbol}`);
 
-      // 构建信号元数据（包含常规因子和购买前置检查因子）
+      // 构建信号元数据（包含趋势因子和购买前检查因子）
       if (preBuyCheckResult && signalId) {
-        // 构建常规因子快照（购买时点的代币状态）
-        const regularFactors = buildFactorValuesForTimeSeries(factorResults);
+        // 构建趋势因子快照（购买时点的代币状态）
+        const trendFactors = buildFactorValuesForTimeSeries(factorResults);
 
-        // 构建购买前置检查因子
+        // 构建购买前检查因子
         const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
 
         const signalMetadata = {
-          regularFactors: regularFactors,
+          trendFactors: trendFactors,
           preBuyCheckFactors: preBuyCheckFactors,
           preBuyCheckResult: {
             canBuy: preBuyCheckResult.canBuy,
@@ -1591,37 +1596,40 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         } : null,
         sellCalculatedRatio: sellCalculatedRatio,
         factors: factorResults ? {
-          age: factorResults.age,
-          currentPrice: factorResults.currentPrice,
-          collectionPrice: factorResults.collectionPrice,
-          earlyReturn: factorResults.earlyReturn,
-          riseSpeed: factorResults.riseSpeed,
-          buyPrice: factorResults.buyPrice,
-          holdDuration: factorResults.holdDuration,
-          profitPercent: factorResults.profitPercent,
-          highestPrice: factorResults.highestPrice,
-          highestPriceTimestamp: factorResults.highestPriceTimestamp,
-          drawdownFromHighest: factorResults.drawdownFromHighest,
-          txVolumeU24h: factorResults.txVolumeU24h,
-          holders: factorResults.holders,
-          tvl: factorResults.tvl,
-          fdv: factorResults.fdv,
-          marketCap: factorResults.marketCap,
-          // 趋势检测因子
-          trendDataPoints: factorResults.trendDataPoints,
-          trendCV: factorResults.trendCV,
-          trendPriceUp: factorResults.trendPriceUp,
-          trendMedianUp: factorResults.trendMedianUp,
-          trendSlope: factorResults.trendSlope,
-          trendStrengthScore: factorResults.trendStrengthScore,
-          trendTotalReturn: factorResults.trendTotalReturn,
-          trendRiseRatio: factorResults.trendRiseRatio,
-          trendRecentDownCount: factorResults.trendRecentDownCount,
-          trendRecentDownRatio: factorResults.trendRecentDownRatio,
-          trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
-          trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
-          trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
-          trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
+          // 趋势/技术指标 factors
+          trendFactors: {
+            age: factorResults.age,
+            currentPrice: factorResults.currentPrice,
+            collectionPrice: factorResults.collectionPrice,
+            earlyReturn: factorResults.earlyReturn,
+            riseSpeed: factorResults.riseSpeed,
+            buyPrice: factorResults.buyPrice,
+            holdDuration: factorResults.holdDuration,
+            profitPercent: factorResults.profitPercent,
+            highestPrice: factorResults.highestPrice,
+            highestPriceTimestamp: factorResults.highestPriceTimestamp,
+            drawdownFromHighest: factorResults.drawdownFromHighest,
+            txVolumeU24h: factorResults.txVolumeU24h,
+            holders: factorResults.holders,
+            tvl: factorResults.tvl,
+            fdv: factorResults.fdv,
+            marketCap: factorResults.marketCap,
+            // 趋势检测因子
+            trendDataPoints: factorResults.trendDataPoints,
+            trendCV: factorResults.trendCV,
+            trendPriceUp: factorResults.trendPriceUp,
+            trendMedianUp: factorResults.trendMedianUp,
+            trendSlope: factorResults.trendSlope,
+            trendStrengthScore: factorResults.trendStrengthScore,
+            trendTotalReturn: factorResults.trendTotalReturn,
+            trendRiseRatio: factorResults.trendRiseRatio,
+            trendRecentDownCount: factorResults.trendRecentDownCount,
+            trendRecentDownRatio: factorResults.trendRecentDownRatio,
+            trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
+            trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
+            trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
+            trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
+          }
         } : null
       };
 

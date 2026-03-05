@@ -63,8 +63,7 @@ class PreBuyCheckService {
    * @param {string} creatorAddress - 创建者地址（可为null）
    * @param {string} experimentId - 实验ID
    * @param {string} chain - 区块链
-   * @param {Object} tokenInfo - 代币信息（用于早期参与者检查）
-   * @param {number} tokenInfo.launchAt - 代币创建时间戳（秒）
+   * @param {Object} tokenInfo - 代币信息（用于早期参与者检查，只需要 innerPair）
    * @param {string} tokenInfo.innerPair - 内盘交易对
    * @param {string} preBuyCheckCondition - 购买前检查条件表达式（可选）
    * @param {Object} options - 可选配置
@@ -367,7 +366,7 @@ class PreBuyCheckService {
    * @private
    * @param {string} tokenAddress - 代币地址
    * @param {string} chain - 区块链
-   * @param {Object} tokenInfo - 代币信息
+   * @param {Object} tokenInfo - 代币信息（只需要 innerPair）
    * @param {number} checkTime - 检查时间戳（秒），用于回测时指定历史时间点
    * @param {boolean} skipEarlyParticipant - 是否跳过检查
    */
@@ -376,10 +375,10 @@ class PreBuyCheckService {
       return this.earlyParticipantService.getEmptyFactorValues();
     }
 
-    if (!tokenInfo || !tokenInfo.launchAt || !tokenInfo.innerPair) {
+    // 早期参与者检查只需要 innerPair，不再需要 launchAt
+    if (!tokenInfo || !tokenInfo.innerPair) {
       this.logger.warn('[PreBuyCheckService] 缺少代币信息，跳过早期参与者检查', {
         token_address: tokenAddress,
-        has_launch_at: !!tokenInfo?.launchAt,
         has_inner_pair: !!tokenInfo?.innerPair
       });
       return this.earlyParticipantService.getEmptyFactorValues();
@@ -392,7 +391,7 @@ class PreBuyCheckService {
       tokenAddress,
       tokenInfo.innerPair,
       chain,
-      tokenInfo.launchAt,
+      null,  // launchAt 参数已不再使用
       effectiveCheckTime
     );
   }

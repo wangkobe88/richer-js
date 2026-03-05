@@ -91,6 +91,11 @@ class BacktestEngine extends AbstractTradingEngine {
    * @returns {Promise<void>}
    */
   async _initializeDataSources() {
+    // 更新 logger 的 experimentId，确保日志写入正确的文件
+    if (this.logger && this.logger.setExperimentId) {
+      this.logger.setExperimentId(this._experimentId);
+    }
+
     // 从配置获取源实验ID
     this._sourceExperimentId = this._experiment.config?.backtest?.sourceExperimentId;
     if (!this._sourceExperimentId) {
@@ -526,15 +531,9 @@ class BacktestEngine extends AbstractTradingEngine {
    * 构建代币信息（用于回测时的早期参与者检查）
    * @private
    * @param {Object} tokenState - 代币状态
-   * @returns {Object} tokenInfo
+   * @returns {Object} tokenInfo（只包含 innerPair）
    */
   _buildTokenInfoForBacktest(tokenState) {
-    // 获取 launchAt（代币创建时间戳）
-    let launchAt = null;
-    if (tokenState.createdAt) {
-      launchAt = Math.floor(tokenState.createdAt.getTime() / 1000);
-    }
-
     // 构建 innerPair（内盘交易对）
     let innerPair = null;
     const platform = tokenState.platform || 'fourmeme';
@@ -551,10 +550,7 @@ class BacktestEngine extends AbstractTradingEngine {
       innerPair = `${tokenState.token}_fo`;
     }
 
-    return {
-      launchAt,
-      innerPair
-    };
+    return { innerPair };
   }
 
   /**
@@ -910,69 +906,11 @@ class BacktestEngine extends AbstractTradingEngine {
         return false;
       }
 
-      // ========== 购买前检查（回测模式） ==========
-      let preCheckPassed = true;
-      let preCheckReason = null;
+      // ========== 先创建并保存信号到数据库 ==========
+      // 信号应该先被保存，然后再进行预检查
+      // 这样即使预检查失败，信号记录也会被保存
 
-      this.logger.info(this._experimentId, '_executeStrategy',
-        `开始购买前检查（回测） | symbol=${tokenState.symbol}, hasPreBuyCheckService=${!!this._preBuyCheckService}`);
-
-      if (this._preBuyCheckService) {
-        try {
-          // 构建 tokenInfo（用于早期参与者检查）
-          const tokenInfo = this._buildTokenInfoForBacktest(tokenState);
-          this.logger.info(this._experimentId, '_executeStrategy',
-            `tokenInfo 已构建 | symbol=${tokenState.symbol}, launchAt=${tokenInfo.launchAt}, innerPair=${tokenInfo.innerPair}`);
-
-          // 获取检查条件：策略条件 > 实验默认条件 > 空
-          const preBuyCheckCondition = strategy.preBuyCheckCondition ||
-                                       this._experiment?.config?.strategiesConfig?.defaultPreBuyCheckCondition ||
-                                       null;
-
-          this.logger.info(this._experimentId, '_executeStrategy',
-            `准备执行预检查 | symbol=${tokenState.symbol}, preBuyCheckCondition="${preBuyCheckCondition}"`);
-
-          const preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
-            tokenState.token,
-            tokenState.creatorAddress || null,
-            this._experiment.id,
-            tokenState.chain || 'bsc',
-            tokenInfo,
-            preBuyCheckCondition,
-            {
-              checkTime: Math.floor(timestamp.getTime() / 1000),  // 使用回测时间点
-              skipHolderCheck: true  // 回测时跳过持有者检查
-            }
-          );
-
-          this.logger.info(this._experimentId, '_executeStrategy',
-            `预检查完成 | symbol=${tokenState.symbol}, canBuy=${preBuyCheckResult.canBuy}, reason=${preBuyCheckResult.checkReason}`);
-
-          if (!preBuyCheckResult.canBuy) {
-            preCheckPassed = false;
-            preCheckReason = preBuyCheckResult.checkReason || '预检查失败';
-            this.logger.info(this._experimentId, '_executeStrategy',
-              `购买前检查失败（回测） | symbol=${tokenState.symbol}, reason=${preCheckReason}`);
-          }
-        } catch (error) {
-          this.logger.error(this._experimentId, '_executeStrategy',
-            `购买前检查异常 | symbol=${tokenState.symbol}, error=${error.message}`);
-          // 出错时保守处理，跳过这次买入
-          preCheckPassed = false;
-          preCheckReason = `检查异常: ${error.message}`;
-        }
-      } else {
-        this.logger.warn(this._experimentId, '_executeStrategy',
-          '预检查服务未初始化，跳过预检查');
-      }
-
-      if (!preCheckPassed) {
-        if (this._roundSummary) {
-          this._roundSummary.recordSignalExecution(tokenState.token, false, preCheckReason);
-        }
-        return false;
-      }
-
+      // 初始化 CardPositionManager（如果启用）
       if (this._positionManagement && this._positionManagement.enabled) {
         let cardManager = this._tokenPool.getCardPositionManager(tokenState.token, tokenState.chain);
         if (!cardManager) {
@@ -986,15 +924,14 @@ class BacktestEngine extends AbstractTradingEngine {
             }
           });
           this._tokenPool.setCardPositionManager(tokenState.token, tokenState.chain, cardManager);
-
-          // 调试：验证卡牌管理器是否设置成功
-          const verifyManager = this._tokenPool.getCardPositionManager(tokenState.token, tokenState.chain);
-          if (!verifyManager) {
-            console.error(`⚠️ 卡牌管理器设置失败: ${tokenState.symbol} (${tokenState.token})`);
-            console.error(`   代币在 tokenPool 中: ${this._tokenPool.getToken(tokenState.token, tokenState.chain) ? '是' : '否'}`);
-          }
         }
       }
+
+      // 构建初始信号（只有 trendFactors，preBuyCheckFactors 稍后填充）
+      const initialSignalFactors = {
+        trendFactors: factorResults || {},
+        preBuyCheckFactors: {}  // 初始为空，预检查后填充
+      };
 
       const signal = {
         action: 'buy',
@@ -1007,16 +944,128 @@ class BacktestEngine extends AbstractTradingEngine {
         cards: strategy.cards || 1,
         strategyId: strategy.id,
         strategyName: strategy.name,
-        factors: factorResults,
+        factors: initialSignalFactors,
         timestamp: timestamp
       };
 
-      // 调试：检查引擎状态
-      this.logger.debug(this._experimentId, '_executeStrategy', `🔍 执行买入策略前: _isStopped=${this._isStopped}, _status=${this._status}`);
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `创建信号 | symbol=${tokenState.symbol}, action=${signal.action}`);
 
+      // 先保存信号到数据库
+      let signalId = null;
+      try {
+        const { TradeSignal } = require('../entities');
+        const tradeSignal = new TradeSignal({
+          experimentId: this._experimentId,
+          tokenAddress: signal.tokenAddress,
+          tokenSymbol: signal.symbol,
+          signalType: signal.action.toUpperCase(),
+          action: signal.action,
+          confidence: signal.confidence,
+          reason: signal.reason,
+          metadata: {
+            ...signal,
+            price: signal.price,
+            strategyId: signal.strategyId,
+            strategyName: signal.strategyName,
+            cards: signal.cards
+          },
+          createdAt: signal.timestamp || new Date()
+        });
+
+        signalId = await tradeSignal.save();
+        // 将 signalId 添加到 signal 对象中，供后续使用
+        signal.signalId = signalId;
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `信号已保存 | symbol=${tokenState.symbol}, signalId=${signalId}`);
+      } catch (saveError) {
+        this.logger.error(this._experimentId, '_executeStrategy',
+          `保存信号失败 | symbol=${tokenState.symbol}, error=${saveError.message}`);
+        return false;
+      }
+
+      // ========== 执行购买前检查 ==========
+      let preCheckPassed = true;
+      let preCheckReason = null;
+      let preBuyCheckResult = null;
+
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `开始购买前检查（回测） | symbol=${tokenState.symbol}, hasPreBuyCheckService=${!!this._preBuyCheckService}`);
+
+      if (this._preBuyCheckService) {
+        try {
+          const tokenInfo = this._buildTokenInfoForBacktest(tokenState);
+          const preBuyCheckCondition = strategy.preBuyCheckCondition ||
+                                       this._experiment?.config?.strategiesConfig?.defaultPreBuyCheckCondition ||
+                                       null;
+
+          preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
+            tokenState.token,
+            tokenState.creatorAddress || null,
+            this._experiment.id,
+            tokenState.chain || 'bsc',
+            tokenInfo,
+            preBuyCheckCondition,
+            {
+              checkTime: Math.floor(timestamp.getTime() / 1000),
+              skipHolderCheck: true
+            }
+          );
+
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `预检查完成 | symbol=${tokenState.symbol}, canBuy=${preBuyCheckResult.canBuy}, reason=${preBuyCheckResult.checkReason}`);
+
+          if (!preBuyCheckResult.canBuy) {
+            preCheckPassed = false;
+            preCheckReason = preBuyCheckResult.checkReason || '预检查失败';
+          }
+        } catch (error) {
+          this.logger.error(this._experimentId, '_executeStrategy',
+            `购买前检查异常 | symbol=${tokenState.symbol}, error=${error.message}`);
+          preCheckPassed = false;
+          preCheckReason = `检查异常: ${error.message}`;
+        }
+      }
+
+      // ========== 更新信号 metadata（包含预检查结果） ==========
+      try {
+        const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
+
+        const signalMetadata = {
+          trendFactors: buildFactorValuesForTimeSeries(factorResults),
+          preBuyCheckFactors: preBuyCheckResult ? buildPreBuyCheckFactorValues(preBuyCheckResult) : {},
+          preBuyCheckResult: preBuyCheckResult ? {
+            canBuy: preBuyCheckResult.canBuy,
+            reason: preBuyCheckResult.checkReason || (preCheckPassed ? 'passed' : 'failed')
+          } : null
+        };
+
+        await this._updateSignalMetadata(signalId, signalMetadata);
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `信号元数据已更新 | symbol=${tokenState.symbol}, signalId=${signalId}`);
+      } catch (updateError) {
+        this.logger.warn(this._experimentId, '_executeStrategy',
+          `更新信号元数据失败 | symbol=${tokenState.symbol}, error=${updateError.message}`);
+      }
+
+      // ========== 如果预检查失败，更新信号状态并返回 ==========
+      if (!preCheckPassed) {
+        await this._updateSignalStatus(signalId, 'failed', {
+          message: `预检查失败: ${preCheckReason}`,
+          reason: preCheckReason
+        });
+
+        if (this._roundSummary) {
+          this._roundSummary.recordSignalExecution(tokenState.token, false, preCheckReason);
+        }
+
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `预检查失败，信号已标记为失败 | symbol=${tokenState.symbol}, signalId=${signalId}`);
+        return false;
+      }
+
+      // ========== 预检查通过，执行交易 ==========
       const result = await this.processSignal(signal);
-
-      this.logger.debug(this._experimentId, '_executeStrategy', `🔍 processSignal 返回: ${JSON.stringify(result)}`);
 
       if (result && result.success) {
         tokenState.status = 'bought';
@@ -1033,11 +1082,12 @@ class BacktestEngine extends AbstractTradingEngine {
         return true;
       }
 
-      // 执行失败，记录失败原因
+      // 执行失败，更新信号状态
       const failureReason = result?.message || result?.reason || '执行失败';
-      console.error(`❌ 买入策略执行失败: ${tokenState.symbol} (${tokenState.token})`);
-      console.error(`   原因: ${failureReason}`);
-      console.error(`   result:`, result);
+      await this._updateSignalStatus(signalId, 'failed', {
+        message: failureReason,
+        reason: failureReason
+      });
 
       if (this._roundSummary) {
         this._roundSummary.recordSignalExecution(tokenState.token, false, failureReason);
@@ -1069,6 +1119,11 @@ class BacktestEngine extends AbstractTradingEngine {
 
       const cards = strategy.cards || 'all';
 
+      // 构建两层结构的 factors（卖出只需要 trendFactors）
+      const signalFactors = {
+        trendFactors: factorResults || {}
+      };
+
       const signal = {
         action: 'sell',
         symbol: tokenState.symbol,
@@ -1083,7 +1138,7 @@ class BacktestEngine extends AbstractTradingEngine {
         buyPrice: tokenState.buyPrice || null,
         profitPercent: tokenState.buyPrice && price ? ((price - tokenState.buyPrice) / tokenState.buyPrice * 100) : null,
         holdDuration: tokenState.buyTime ? ((timestamp.getTime() - tokenState.buyTime) / 1000) : null,
-        factors: factorResults,
+        factors: signalFactors,
         timestamp: timestamp
       };
 
@@ -1237,8 +1292,10 @@ class BacktestEngine extends AbstractTradingEngine {
           profitPercent: parseFloat(profitPercent),
           holdDuration: holdDurationMinutes * 60,
           factors: {
-            forceSell: true,
-            reason: 'backtest_end'
+            trendFactors: {
+              forceSell: true,
+              reason: 'backtest_end'
+            }
           },
           timestamp: forceSellTime
         };

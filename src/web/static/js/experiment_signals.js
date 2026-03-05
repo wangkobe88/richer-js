@@ -130,13 +130,11 @@ class ExperimentSignals {
       // 更新实验信息
       if (experimentResponse.data) {
         this.updateExperimentHeader(experimentResponse.data);
-      }
 
-      // 🔥 检查是否是回测实验，如果是则显示源实验提示
-      if (this._isBacktest && this._sourceExperimentId) {
-        console.log('📊 [回测模式] 获取源实验信号数据:', this._sourceExperimentId);
-        // 在页面标题中显示源实验信息
-        this.updateBacktestHeader(this._sourceExperimentId);
+        // 🔥 如果是回测实验，异步获取源实验的区块链信息（用于生成GMGN链接）
+        if (this._isBacktest && this._sourceExperimentId) {
+          await this.fetchSourceExperimentInfo();
+        }
       }
 
       // 🔥 先解析URL hash参数，自动选择代币（必须在fetchSignals之前）
@@ -271,7 +269,7 @@ class ExperimentSignals {
   }
 
   async fetchSignals(experimentId = null) {
-    // 如果没有指定 experimentId，使用当前实验的 ID
+    // 🔥 始终使用当前实验的ID获取信号（回测实验显示自己的信号）
     const targetId = experimentId || this.experimentId;
 
     const params = new URLSearchParams({
@@ -764,15 +762,15 @@ class ExperimentSignals {
     this._isBacktest = experiment.tradingMode === 'backtest';
     if (this._isBacktest) {
       this._sourceExperimentId = experiment.config?.backtest?.sourceExperimentId || null;
+      // 🔥 对于回测实验，先使用回测实验的区块链配置，后面会异步获取源实验的配置
+      this.blockchain = experiment.blockchain || 'bsc';
     } else {
       this._sourceExperimentId = null;
+      this.blockchain = experiment.blockchain || 'bsc';
     }
 
-    // 🔥 存储区块链信息（用于生成GMGN链接）
-    this.blockchain = experiment.blockchain || 'bsc';
-
     // 🔥 使用 BlockchainConfig 获取区块链显示名称和 logo
-    const blockchain = experiment.blockchain || 'unknown';
+    const blockchain = this.blockchain || 'unknown';
     const blockchainDisplay = this.getBlockchainDisplay(blockchain);
     const blockchainElement = document.getElementById('experiment-blockchain');
     if (blockchainElement) {
@@ -813,6 +811,38 @@ class ExperimentSignals {
     header.appendChild(backtestNotice);
 
     console.log('📊 [回测模式] 已添加源实验提示');
+  }
+
+  /**
+   * 🔥 获取源实验的信息（区块链配置）
+   */
+  async fetchSourceExperimentInfo() {
+    if (!this._sourceExperimentId) return;
+
+    try {
+      const response = await fetch(`/api/experiment/${this._sourceExperimentId}`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.data) {
+          // 更新区块链配置
+          this.blockchain = result.data.blockchain || 'bsc';
+          console.log('📊 [回测模式] 使用源实验的区块链配置:', this.blockchain);
+
+          // 更新区块链显示
+          const blockchainDisplay = this.getBlockchainDisplay(this.blockchain);
+          const blockchainElement = document.getElementById('experiment-blockchain');
+          if (blockchainElement) {
+            blockchainElement.innerHTML = `
+              <img src="/static/${this.blockchain.toLowerCase()}-logo.png" alt="${blockchainDisplay}" class="w-4 h-4 inline-block rounded-full" onerror="this.style.display='none'">
+              ${blockchainDisplay}
+            `;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ 获取源实验区块链信息失败，使用默认值:', error);
+      this.blockchain = this.blockchain || 'bsc';
+    }
   }
 
   /**
@@ -1631,22 +1661,22 @@ class ExperimentSignals {
       let holderCheckHtml = '';
       if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined) {
         holderCheckHtml = `
-          <div class="grid grid-cols-2 gap-2 text-xs mt-1">
+          <div class="grid grid-cols-2 gap-2 text-xs mt-2">
             <div>
-              <span class="text-gray-600">白名单:</span>
-              <span class="text-blue-700 font-medium">${pf.holderWhitelistCount || 0}</span>
+              <span class="text-amber-800">白名单:</span>
+              <span class="text-blue-900 font-bold">${pf.holderWhitelistCount || 0}</span>
             </div>
             <div>
-              <span class="text-gray-600">黑名单:</span>
-              <span class="text-red-700 font-medium">${pf.holderBlacklistCount || 0}</span>
+              <span class="text-amber-800">黑名单:</span>
+              <span class="text-red-900 font-bold">${pf.holderBlacklistCount || 0}</span>
             </div>
             <div>
-              <span class="text-gray-600">持有人数:</span>
-              <span class="text-gray-900">${pf.holdersCount || 0}</span>
+              <span class="text-amber-800">持有人数:</span>
+              <span class="text-gray-900 font-medium">${pf.holdersCount || 0}</span>
             </div>
             <div>
-              <span class="text-gray-600">Dev持有:</span>
-              <span class="text-gray-900">${pf.devHoldingRatio ? pf.devHoldingRatio.toFixed(1) : 'N/A'}%</span>
+              <span class="text-amber-800">Dev持有:</span>
+              <span class="text-gray-900 font-medium">${pf.devHoldingRatio ? pf.devHoldingRatio.toFixed(1) : 'N/A'}%</span>
             </div>
           </div>
         `;
@@ -1656,32 +1686,32 @@ class ExperimentSignals {
       let earlyTradesHtml = '';
       if (pf.earlyTradesChecked === 1) {
         earlyTradesHtml = `
-          <div class="mt-2 pt-2 border-t border-amber-100">
-            <div class="text-xs font-medium text-amber-700 mb-1">📊 早期参与者</div>
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者</div>
             <div class="grid grid-cols-3 gap-2 text-xs">
               <div>
-                <span class="text-gray-600">高价值交易:</span>
-                <span class="text-amber-700 font-medium">${pf.earlyTradesHighValueCount || 0}</span>
+                <span class="text-amber-800">高价值交易:</span>
+                <span class="text-amber-900 font-bold">${pf.earlyTradesHighValueCount || 0}</span>
               </div>
               <div>
-                <span class="text-gray-600">高价值/分:</span>
-                <span class="text-amber-700 font-medium">${pf.earlyTradesHighValuePerMin ? pf.earlyTradesHighValuePerMin.toFixed(1) : '0'}</span>
+                <span class="text-amber-800">高价值/分:</span>
+                <span class="text-amber-900 font-bold">${pf.earlyTradesHighValuePerMin ? pf.earlyTradesHighValuePerMin.toFixed(1) : '0'}</span>
               </div>
               <div>
-                <span class="text-gray-600">交易/分:</span>
-                <span class="text-amber-700 font-medium">${pf.earlyTradesCountPerMin ? pf.earlyTradesCountPerMin.toFixed(1) : '0'}</span>
+                <span class="text-amber-800">交易/分:</span>
+                <span class="text-amber-900 font-bold">${pf.earlyTradesCountPerMin ? pf.earlyTradesCountPerMin.toFixed(1) : '0'}</span>
               </div>
               <div>
-                <span class="text-gray-600">实际跨度:</span>
-                <span class="text-gray-900">${pf.earlyTradesActualSpan ? pf.earlyTradesActualSpan.toFixed(0) : '0'}秒</span>
+                <span class="text-amber-800">实际跨度:</span>
+                <span class="text-gray-900 font-medium">${pf.earlyTradesActualSpan ? pf.earlyTradesActualSpan.toFixed(0) : '0'}秒</span>
               </div>
               <div>
-                <span class="text-gray-600">总交易:</span>
-                <span class="text-gray-900">${pf.earlyTradesTotalCount || 0}</span>
+                <span class="text-amber-800">总交易:</span>
+                <span class="text-gray-900 font-medium">${pf.earlyTradesTotalCount || 0}</span>
               </div>
               <div>
-                <span class="text-gray-600">独立钱包:</span>
-                <span class="text-gray-900">${pf.earlyTradesUniqueWallets || 0}</span>
+                <span class="text-amber-800">独立钱包:</span>
+                <span class="text-gray-900 font-medium">${pf.earlyTradesUniqueWallets || 0}</span>
               </div>
             </div>
           </div>
@@ -1689,14 +1719,14 @@ class ExperimentSignals {
       }
 
       preBuyCheckHtml = `
-        <div class="mt-2 p-2 bg-amber-50 rounded border border-amber-200">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-amber-700 font-medium text-sm">🔍 购买前置检查</span>
+        <div class="mt-2 p-3 bg-amber-100 rounded-lg border border-amber-300">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-amber-900 font-semibold text-sm">🔍 购买前置检查</span>
             ${checkResultBadge}
           </div>
           ${holderCheckHtml}
           ${earlyTradesHtml}
-          ${pr.reason ? `<div class="text-xs text-gray-600 mt-1">${this._escapeHtml(pr.reason)}</div>` : ''}
+          ${pr.reason ? `<div class="text-xs text-amber-800 mt-2">${this._escapeHtml(pr.reason)}</div>` : ''}
         </div>
       `;
     }
