@@ -91,6 +91,9 @@ class BayesModelService {
       categoryToWallets[category] = {};
     }
 
+    // 存储训练数据：用于后续测试时无需重新获取
+    const trainingData = [];  // [{ tokenAddress, category, wallets }]
+
     const { WalletAnalysisDataService } = require('../web/services/WalletAnalysisDataService');
     const walletService = new WalletAnalysisDataService();
 
@@ -112,6 +115,15 @@ class BayesModelService {
             categoryToWallets[category][wallet] = (categoryToWallets[category][wallet] || 0) + 1;
           }
 
+          // 存储训练数据
+          trainingData.push({
+            tokenAddress: token.token_address,
+            tokenSymbol: token.token_symbol,
+            category: category,
+            wallets: Array.from(traders),
+            blockchain: token.blockchain
+          });
+
           processed++;
 
           // 更新进度
@@ -126,6 +138,15 @@ class BayesModelService {
           }
         } catch (e) {
           console.warn(`获取代币 ${token.token_address} 早期交易者失败:`, e.message);
+          // 即使失败也记录，钱包集合为空
+          trainingData.push({
+            tokenAddress: token.token_address,
+            tokenSymbol: token.token_symbol,
+            category: token.human_judges.category,
+            wallets: [],
+            blockchain: token.blockchain,
+            error: e.message
+          });
         }
       }
 
@@ -181,6 +202,7 @@ class BayesModelService {
       prior,
       likelihood,
       walletIndex,
+      trainingData,  // 存储训练集数据，用于测试时无需重新获取
       metadata: {
         minWalletSupport: 3,
         smoothingFactor: 0.001,
@@ -259,6 +281,13 @@ class BayesModelService {
     const walletService = new WalletAnalysisDataService();
     const traders = await walletService.getEarlyTraders(tokenAddress, chain);
 
+    return this._predictWithWallets(tokenAddress, traders);
+  }
+
+  /**
+   * 使用钱包集合进行预测（内部方法，避免重复获取数据）
+   */
+  _predictWithWallets(tokenAddress, traders) {
     if (traders.size === 0) {
       return {
         tokenAddress,
@@ -398,6 +427,73 @@ class BayesModelService {
    */
   _maxObject(obj) {
     return Math.max(...Object.values(obj));
+  }
+
+  /**
+   * 评估训练集准确率
+   */
+  async evaluateTrainingSet() {
+    // 加载模型
+    if (!this.model) {
+      await this.loadModel();
+    }
+
+    if (!this.model || !this.model.trainingData) {
+      throw new Error('模型不存在或没有训练数据');
+    }
+
+    const results = [];
+    let correct = 0;
+    let total = 0;
+    const byCategory = {};
+
+    for (const item of this.model.trainingData) {
+      const { tokenAddress, category: trueCategory, wallets } = item;
+      const traders = new Set(wallets);
+
+      const prediction = this._predictWithWallets(tokenAddress, traders);
+      const isCorrect = trueCategory === prediction.predictedCategory;
+
+      if (isCorrect) correct++;
+      total++;
+
+      if (!byCategory[trueCategory]) {
+        byCategory[trueCategory] = { correct: 0, total: 0 };
+      }
+      if (isCorrect) byCategory[trueCategory].correct++;
+      byCategory[trueCategory].total++;
+
+      results.push({
+        tokenAddress,
+        tokenSymbol: item.tokenSymbol,
+        trueCategory,
+        predictedCategory: prediction.predictedCategory,
+        confidence: prediction.confidence,
+        method: prediction.method,
+        walletCount: prediction.walletCount,
+        correct: isCorrect
+      });
+    }
+
+    // 计算各类别准确率
+    const categoryAccuracy = {};
+    for (const [cat, stats] of Object.entries(byCategory)) {
+      categoryAccuracy[cat] = {
+        correct: stats.correct,
+        total: stats.total,
+        accuracy: stats.correct / stats.total
+      };
+    }
+
+    return {
+      overall: {
+        correct,
+        total,
+        accuracy: correct / total
+      },
+      byCategory: categoryAccuracy,
+      results: results.slice(0, 100)  // 返回前100个结果
+    };
   }
 }
 

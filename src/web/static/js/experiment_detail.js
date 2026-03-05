@@ -1016,6 +1016,12 @@ class ExperimentDetail {
           <div class="text-xs text-gray-500 mb-1">触发条件</div>
           <code class="text-sm ${titleColor} font-mono break-all">${this._escapeHtml(strategy.condition)}</code>
         </div>
+        ${isBuy && strategy.preBuyCheckCondition ? `
+        <div class="bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">
+          <div class="text-xs text-amber-600 mb-1">🔍 检查条件</div>
+          <code class="text-sm text-amber-800 font-mono break-all">${this._escapeHtml(strategy.preBuyCheckCondition)}</code>
+        </div>
+        ` : ''}
         <div class="flex items-center justify-between text-sm">
           <span class="text-gray-600">
             <span class="mr-3">🃏 卡牌: <strong>${strategy.cards === 'all' ? '全部' : strategy.cards}</strong></span>

@@ -14,12 +14,12 @@ const config = require('../../../config/default.json');
  * 默认配置
  */
 const DEFAULT_CONFIG = {
-  maxWindowSeconds: 180,         // 最大检查窗口（3分钟）
-  lowValueThreshold: 10,         // 低价值阈值（USD）
-  highValueThreshold: 100,       // 高价值阈值（USD）
-  calculateGrowthScore: false,   // 是否计算增长评分
-  accelerationSegments: 3,       // 加速度计算分段数（已废弃，保留配置兼容性）
-  calculateGrowthMetrics: false  // 是否计算增长特征（分析显示无效，默认关闭）
+  fixedWindowSeconds: 90,         // 固定回溯窗口（90秒）
+  lowValueThreshold: 10,          // 低价值阈值（USD）
+  highValueThreshold: 100,        // 高价值阈值（USD）
+  calculateGrowthScore: false,    // 是否计算增长评分
+  accelerationSegments: 3,        // 加速度计算分段数（已废弃，保留配置兼容性）
+  calculateGrowthMetrics: false   // 是否计算增长特征（分析显示无效，默认关闭）
 };
 
 class EarlyParticipantCheckService {
@@ -55,54 +55,39 @@ class EarlyParticipantCheckService {
    * @param {string} tokenAddress - 代币地址
    * @param {string} innerPair - 内盘交易对（如 0x..._fo）
    * @param {string} chain - 区块链
-   * @param {number} launchAt - 代币创建时间戳（秒）
+   * @param {number} launchAt - 代币创建时间戳（秒）（保留参数兼容性，但不再使用）
    * @param {number} checkTime - 当前检查时间戳（秒）
    * @returns {Promise<Object>} 检查结果
    */
   async performCheck(tokenAddress, innerPair, chain, launchAt, checkTime) {
     const startTime = Date.now();
 
-    // 计算检查窗口
-    const elapsedSeconds = checkTime - launchAt;
-    const windowSeconds = Math.min(elapsedSeconds, this.config.maxWindowSeconds);
-
     this.logger.info('[EarlyParticipantCheckService] 开始早期参与者检查', {
       token_address: tokenAddress,
-      launch_at: launchAt,
-      check_time: checkTime,
-      elapsed_seconds: elapsedSeconds,
-      window_seconds: windowSeconds
+      inner_pair: innerPair,
+      chain,
+      check_time: checkTime
     });
 
     try {
-      // 1. 获取早期交易数据
-      const trades = await this._fetchEarlyTrades(innerPair, chain, launchAt, windowSeconds);
+      // 1. 获取交易数据（固定90秒回溯窗口）
+      const trades = await this._fetchEarlyTrades(innerPair, chain, checkTime);
 
       if (!trades || trades.length === 0) {
         this.logger.warn('[EarlyParticipantCheckService] 未获取到交易数据', {
           token_address: tokenAddress
         });
-        return this._getEmptyResult(launchAt, checkTime, windowSeconds);
+        return this._getEmptyResult();
       }
 
-      // 2. 计算数据覆盖度
-      const coverage = this._calculateDataCoverage(trades, launchAt, windowSeconds);
+      // 2. 计算实际数据跨度
+      const coverage = this._calculateDataCoverage(trades);
 
       // 3. 计算基础统计
       const basicStats = this._calculateBasicStats(trades);
 
-      // 4. 计算速率指标（用代币年龄作为窗口）
-      const rateMetrics = this._calculateRateMetrics(basicStats, elapsedSeconds);
-
-      // 5. 计算增长特征（可选，分析显示效果不佳，默认关闭）
-      let growthMetrics = { acceleration: 0, accelerationRatio: null, trend: 'no_data' };
-      let growthScore = null;
-      if (this.config.calculateGrowthMetrics) {
-        growthMetrics = this._calculateGrowthMetrics(trades, launchAt, windowSeconds);
-        if (this.config.calculateGrowthScore) {
-          growthScore = this._calculateGrowthScore(rateMetrics, growthMetrics);
-        }
-      }
+      // 4. 计算速率指标（使用实际数据跨度）
+      const rateMetrics = this._calculateRateMetrics(basicStats, coverage);
 
       const result = {
         // 标记已执行检查
@@ -111,17 +96,20 @@ class EarlyParticipantCheckService {
         earlyTradesCheckDuration: Date.now() - startTime,
 
         // 基础信息
-        earlyTradesCheckTime: elapsedSeconds,
-        earlyTradesWindow: windowSeconds,
+        earlyTradesCheckTime: checkTime,
+        earlyTradesWindow: this.config.fixedWindowSeconds,
 
-        // 数据范围（删除无效的gapBefore/gapAfter）
-        earlyTradesExpectedFirstTime: launchAt,
-        earlyTradesExpectedLastTime: launchAt + windowSeconds,
+        // 数据范围
+        earlyTradesExpectedFirstTime: checkTime - this.config.fixedWindowSeconds,
+        earlyTradesExpectedLastTime: checkTime,
         earlyTradesDataFirstTime: coverage.dataFirstTime,
         earlyTradesDataLastTime: coverage.dataLastTime,
         earlyTradesDataCoverage: coverage.coverageRatio,
+        // 新增：实际数据跨度
+        earlyTradesActualSpan: coverage.actualSpan,
+        earlyTradesRateCalcWindow: coverage.rateCalculationWindow,
 
-        // 速率指标（时间标准化，可跨代币比较）
+        // 速率指标（使用实际数据跨度计算）
         earlyTradesVolumePerMin: rateMetrics.volumePerMin,
         earlyTradesCountPerMin: rateMetrics.countPerMin,
         earlyTradesWalletsPerMin: rateMetrics.walletsPerMin,
@@ -135,18 +123,11 @@ class EarlyParticipantCheckService {
         earlyTradesFilteredCount: basicStats.filteredCount
       };
 
-      // 增长特征（可选，分析显示效果不佳）
-      if (this.config.calculateGrowthMetrics) {
-        result.earlyTradesAcceleration = growthMetrics.acceleration;
-        result.earlyTradesAccelerationRatio = growthMetrics.accelerationRatio;
-        result.earlyTradesGrowthTrend = growthMetrics.trend;
-        result.earlyTradesGrowthScore = growthScore;
-      }
-
       this.logger.info('[EarlyParticipantCheckService] 早期参与者检查完成', {
         token_address: tokenAddress,
         trades_count: trades.length,
-        coverage: coverage.coverageRatio,
+        actual_span: coverage.actualSpan,
+        rate_calc_window: coverage.rateCalculationWindow,
         volume_per_min: rateMetrics.volumePerMin.toFixed(2),
         count_per_min: rateMetrics.countPerMin.toFixed(1),
         wallets_per_min: rateMetrics.walletsPerMin.toFixed(1),
@@ -165,78 +146,75 @@ class EarlyParticipantCheckService {
       });
 
       // 出错时返回空结果，不影响整体购买流程
-      return this._getEmptyResult(launchAt, checkTime, windowSeconds);
+      return this._getEmptyResult();
     }
   }
 
   /**
    * 获取早期交易数据
+   * 固定回溯90秒窗口，直接调用API（不需要分页）
    * @private
    */
-  async _fetchEarlyTrades(innerPair, chain, launchAt, windowSeconds) {
+  async _fetchEarlyTrades(innerPair, chain, checkTime) {
     const txApi = this._getTxApi();
     const pairId = `${innerPair}-${chain}`;
-    const fromTime = launchAt;
-    const toTime = launchAt + windowSeconds;
 
-    const allTrades = [];
-    let currentToTime = toTime;
-    const MAX_PAGES = 10;
+    // 固定回溯90秒
+    const toTime = checkTime;
+    const fromTime = checkTime - this.config.fixedWindowSeconds;
 
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const trades = await txApi.getSwapTransactions(
-        pairId,
-        300,              // limit
-        fromTime,         // fromTime
-        currentToTime,    // toTime
-        'asc'             // sort
-      );
+    this.logger.debug('[EarlyParticipantCheckService] 获取交易数据', {
+      pair_id: pairId,
+      from_time: fromTime,
+      to_time: toTime,
+      window_seconds: this.config.fixedWindowSeconds
+    });
 
-      if (trades.length === 0) break;
+    // 直接调用API，limit=300，不需要分页
+    const trades = await txApi.getSwapTransactions(
+      pairId,
+      300,        // limit - 最大300条
+      fromTime,   // fromTime - checkTime - 90秒
+      toTime,     // toTime - checkTime
+      'asc'       // sort - 按时间升序
+    );
 
-      allTrades.push(...trades);
+    this.logger.debug('[EarlyParticipantCheckService] 获取到交易数据', {
+      trades_count: trades.length
+    });
 
-      if (trades.length < 300) break;
-
-      // 继续向前查询
-      currentToTime = trades[0].time - 1;
-      if (currentToTime < fromTime) break;
-    }
-
-    // 按时间排序
-    allTrades.sort((a, b) => a.time - b.time);
-
-    return allTrades;
+    return trades;
   }
 
   /**
-   * 计算数据覆盖度
+   * 计算数据覆盖度和实际数据跨度
    * @private
    */
-  _calculateDataCoverage(trades, launchAt, windowSeconds) {
+  _calculateDataCoverage(trades) {
     if (!trades || trades.length === 0) {
       return {
         dataFirstTime: null,
         dataLastTime: null,
         coverageRatio: 0,
-        actualCoverage: 0,
-        gapBefore: 0,
-        gapAfter: windowSeconds
+        actualSpan: 0,
+        rateCalculationWindow: 1  // 最小窗口，避免除以0
       };
     }
 
     const dataFirstTime = trades[0].time;
     const dataLastTime = trades[trades.length - 1].time;
-    const actualCoverage = dataLastTime - dataFirstTime;
-    const coverageRatio = actualCoverage / windowSeconds;
+    const actualSpan = dataLastTime - dataFirstTime;
+
+    // 边界情况：只有1笔交易时，actualSpan = 0
+    // 使用最小窗口1秒避免除以0
+    const rateCalculationWindow = actualSpan > 0 ? actualSpan : 1;
 
     return {
       dataFirstTime,
       dataLastTime,
-      coverageRatio: parseFloat(Math.min(coverageRatio, 1).toFixed(3)),
-      actualCoverage,
-      gapBefore: parseFloat(Math.max(0, dataFirstTime - launchAt).toFixed(1)),
-      gapAfter: parseFloat(Math.max(0, (launchAt + windowSeconds) - dataLastTime).toFixed(1))
+      coverageRatio: 1,  // 数据已获取，覆盖度总是1
+      actualSpan: parseFloat(actualSpan.toFixed(1)),
+      rateCalculationWindow: parseFloat(rateCalculationWindow.toFixed(1))
     };
   }
 
@@ -271,15 +249,14 @@ class EarlyParticipantCheckService {
   }
 
   /**
-   * 计算速率指标（时间标准化）
-   * 方案C：用代币年龄（检查时间）作为窗口
+   * 计算速率指标（使用实际数据跨度）
    * @private
    */
-  _calculateRateMetrics(basicStats, checkTimeSeconds) {
-    // 用从创建到检查的时间作为窗口（代币年龄）
-    const ageMinutes = checkTimeSeconds / 60;
+  _calculateRateMetrics(basicStats, coverage) {
+    // 使用实际数据跨度计算速率（单位：分钟）
+    const windowMinutes = coverage.rateCalculationWindow / 60;
 
-    if (ageMinutes <= 0) {
+    if (windowMinutes <= 0) {
       return {
         volumePerMin: 0,
         countPerMin: 0,
@@ -289,31 +266,35 @@ class EarlyParticipantCheckService {
     }
 
     return {
-      volumePerMin: parseFloat((basicStats.totalVolume / ageMinutes).toFixed(2)),
-      countPerMin: parseFloat((basicStats.totalCount / ageMinutes).toFixed(1)),
-      walletsPerMin: parseFloat((basicStats.uniqueWallets / ageMinutes).toFixed(1)),
-      highValuePerMin: parseFloat((basicStats.highValueCount / ageMinutes).toFixed(1))
+      volumePerMin: parseFloat((basicStats.totalVolume / windowMinutes).toFixed(2)),
+      countPerMin: parseFloat((basicStats.totalCount / windowMinutes).toFixed(1)),
+      walletsPerMin: parseFloat((basicStats.uniqueWallets / windowMinutes).toFixed(1)),
+      highValuePerMin: parseFloat((basicStats.highValueCount / windowMinutes).toFixed(1))
     };
   }
 
   /**
-   * 获取空结果
+   * 获取空结果（未获取到交易数据时）
    * @private
    */
-  _getEmptyResult(launchAt, checkTime, windowSeconds) {
+  _getEmptyResult() {
+    const checkTime = Math.floor(Date.now() / 1000);
+
     return {
       earlyTradesChecked: 1,
       earlyTradesCheckTimestamp: Date.now(),
       earlyTradesCheckDuration: 0,
 
-      earlyTradesCheckTime: checkTime - launchAt,
-      earlyTradesWindow: windowSeconds,
+      earlyTradesCheckTime: checkTime,
+      earlyTradesWindow: this.config.fixedWindowSeconds,
 
-      earlyTradesExpectedFirstTime: launchAt,
-      earlyTradesExpectedLastTime: launchAt + windowSeconds,
+      earlyTradesExpectedFirstTime: checkTime - this.config.fixedWindowSeconds,
+      earlyTradesExpectedLastTime: checkTime,
       earlyTradesDataFirstTime: null,
       earlyTradesDataLastTime: null,
       earlyTradesDataCoverage: 0,
+      earlyTradesActualSpan: 0,
+      earlyTradesRateCalcWindow: 1,
 
       earlyTradesVolumePerMin: 0,
       earlyTradesCountPerMin: 0,

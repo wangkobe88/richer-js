@@ -885,6 +885,17 @@ class RicherJsWebServer {
       }
     });
 
+    // 评估训练集准确率
+    this.app.get('/api/bayes/evaluate', async (req, res) => {
+      try {
+        const evaluation = await this.bayesModelService.evaluateTrainingSet();
+        res.json({ success: true, data: evaluation });
+      } catch (error) {
+        console.error('评估训练集失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // ============ API路由：代币持有者 ============
 
     // 获取代币持有者数据
