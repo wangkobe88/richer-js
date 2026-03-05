@@ -1294,8 +1294,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           earlyTradesDataFirstTime: factorResults.earlyTradesDataFirstTime || null,
           earlyTradesDataLastTime: factorResults.earlyTradesDataLastTime || null,
           earlyTradesDataCoverage: factorResults.earlyTradesDataCoverage || 0,
-          earlyTradesDataGapBefore: factorResults.earlyTradesDataGapBefore || null,
-          earlyTradesDataGapAfter: factorResults.earlyTradesDataGapAfter || null,
           earlyTradesVolumePerMin: factorResults.earlyTradesVolumePerMin || 0,
           earlyTradesCountPerMin: factorResults.earlyTradesCountPerMin || 0,
           earlyTradesWalletsPerMin: factorResults.earlyTradesWalletsPerMin || 0,
@@ -1304,11 +1302,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           earlyTradesVolume: factorResults.earlyTradesVolume || 0,
           earlyTradesUniqueWallets: factorResults.earlyTradesUniqueWallets || 0,
           earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
-          earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0,
-          earlyTradesAcceleration: factorResults.earlyTradesAcceleration || 0,
-          earlyTradesAccelerationRatio: factorResults.earlyTradesAccelerationRatio || null,
-          earlyTradesGrowthTrend: factorResults.earlyTradesGrowthTrend || null,
-          earlyTradesGrowthScore: factorResults.earlyTradesGrowthScore || null
+          earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0
         } : null
       };
 
@@ -1457,8 +1451,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             earlyTradesDataFirstTime: preBuyCheckResult.earlyTradesDataFirstTime,
             earlyTradesDataLastTime: preBuyCheckResult.earlyTradesDataLastTime,
             earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage,
-            earlyTradesDataGapBefore: preBuyCheckResult.earlyTradesDataGapBefore,
-            earlyTradesDataGapAfter: preBuyCheckResult.earlyTradesDataGapAfter,
             earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin,
             earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin,
             earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin,
@@ -1531,8 +1523,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           earlyTradesDataFirstTime: preBuyCheckResult.earlyTradesDataFirstTime,
           earlyTradesDataLastTime: preBuyCheckResult.earlyTradesDataLastTime,
           earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage,
-          earlyTradesDataGapBefore: preBuyCheckResult.earlyTradesDataGapBefore,
-          earlyTradesDataGapAfter: preBuyCheckResult.earlyTradesDataGapAfter,
           earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin,
           earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin,
           earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin,
@@ -1541,11 +1531,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           earlyTradesVolume: preBuyCheckResult.earlyTradesVolume,
           earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets,
           earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount,
-          earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount,
-          earlyTradesAcceleration: preBuyCheckResult.earlyTradesAcceleration,
-          earlyTradesAccelerationRatio: preBuyCheckResult.earlyTradesAccelerationRatio,
-          earlyTradesGrowthTrend: preBuyCheckResult.earlyTradesGrowthTrend,
-          earlyTradesGrowthScore: preBuyCheckResult.earlyTradesGrowthScore
+          earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount
         });
 
         // 更新 signal 对象的 factors（用于后续 processSignal）
@@ -1573,8 +1559,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           earlyTradesDataFirstTime: preBuyCheckResult.earlyTradesDataFirstTime,
           earlyTradesDataLastTime: preBuyCheckResult.earlyTradesDataLastTime,
           earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage,
-          earlyTradesDataGapBefore: preBuyCheckResult.earlyTradesDataGapBefore,
-          earlyTradesDataGapAfter: preBuyCheckResult.earlyTradesDataGapAfter,
           earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin,
           earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin,
           earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin,
@@ -1583,11 +1567,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           earlyTradesVolume: preBuyCheckResult.earlyTradesVolume,
           earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets,
           earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount,
-          earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount,
-          earlyTradesAcceleration: preBuyCheckResult.earlyTradesAcceleration,
-          earlyTradesAccelerationRatio: preBuyCheckResult.earlyTradesAccelerationRatio,
-          earlyTradesGrowthTrend: preBuyCheckResult.earlyTradesGrowthTrend,
-          earlyTradesGrowthScore: preBuyCheckResult.earlyTradesGrowthScore
+          earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount
         };
 
         // 更新数据库中的信号元数据

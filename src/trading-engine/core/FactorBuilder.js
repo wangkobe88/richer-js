@@ -72,8 +72,6 @@ function buildFactorValuesForTimeSeries(factorResults) {
     earlyTradesDataFirstTime: factorResults.earlyTradesDataFirstTime || null,
     earlyTradesDataLastTime: factorResults.earlyTradesDataLastTime || null,
     earlyTradesDataCoverage: factorResults.earlyTradesDataCoverage || 0,
-    earlyTradesDataGapBefore: factorResults.earlyTradesDataGapBefore || null,
-    earlyTradesDataGapAfter: factorResults.earlyTradesDataGapAfter || null,
     earlyTradesVolumePerMin: factorResults.earlyTradesVolumePerMin || 0,
     earlyTradesCountPerMin: factorResults.earlyTradesCountPerMin || 0,
     earlyTradesWalletsPerMin: factorResults.earlyTradesWalletsPerMin || 0,
@@ -82,11 +80,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     earlyTradesVolume: factorResults.earlyTradesVolume || 0,
     earlyTradesUniqueWallets: factorResults.earlyTradesUniqueWallets || 0,
     earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
-    earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0,
-    earlyTradesAcceleration: factorResults.earlyTradesAcceleration || 0,
-    earlyTradesAccelerationRatio: factorResults.earlyTradesAccelerationRatio || null,
-    earlyTradesGrowthTrend: factorResults.earlyTradesGrowthTrend || null,
-    earlyTradesGrowthScore: factorResults.earlyTradesGrowthScore || null
+    earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0
   };
 }
 
@@ -171,8 +165,6 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     earlyTradesDataFirstTime: fv.earlyTradesDataFirstTime ?? null,
     earlyTradesDataLastTime: fv.earlyTradesDataLastTime ?? null,
     earlyTradesDataCoverage: fv.earlyTradesDataCoverage ?? 0,
-    earlyTradesDataGapBefore: fv.earlyTradesDataGapBefore ?? null,
-    earlyTradesDataGapAfter: fv.earlyTradesDataGapAfter ?? null,
     earlyTradesVolumePerMin: fv.earlyTradesVolumePerMin ?? 0,
     earlyTradesCountPerMin: fv.earlyTradesCountPerMin ?? 0,
     earlyTradesWalletsPerMin: fv.earlyTradesWalletsPerMin ?? 0,
@@ -181,11 +173,7 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     earlyTradesVolume: fv.earlyTradesVolume ?? 0,
     earlyTradesUniqueWallets: fv.earlyTradesUniqueWallets ?? 0,
     earlyTradesHighValueCount: fv.earlyTradesHighValueCount ?? 0,
-    earlyTradesFilteredCount: fv.earlyTradesFilteredCount ?? 0,
-    earlyTradesAcceleration: fv.earlyTradesAcceleration ?? 0,
-    earlyTradesAccelerationRatio: fv.earlyTradesAccelerationRatio ?? null,
-    earlyTradesGrowthTrend: fv.earlyTradesGrowthTrend ?? null,
-    earlyTradesGrowthScore: fv.earlyTradesGrowthScore ?? null
+    earlyTradesFilteredCount: fv.earlyTradesFilteredCount ?? 0
   };
 }
 
@@ -214,11 +202,9 @@ function getAvailableFactorIds() {
     'earlyTradesCheckTime', 'earlyTradesWindow',
     'earlyTradesExpectedFirstTime', 'earlyTradesExpectedLastTime',
     'earlyTradesDataFirstTime', 'earlyTradesDataLastTime', 'earlyTradesDataCoverage',
-    'earlyTradesDataGapBefore', 'earlyTradesDataGapAfter',
     'earlyTradesVolumePerMin', 'earlyTradesCountPerMin', 'earlyTradesWalletsPerMin', 'earlyTradesHighValuePerMin',
     'earlyTradesTotalCount', 'earlyTradesVolume', 'earlyTradesUniqueWallets',
-    'earlyTradesHighValueCount', 'earlyTradesFilteredCount',
-    'earlyTradesAcceleration', 'earlyTradesAccelerationRatio', 'earlyTradesGrowthTrend', 'earlyTradesGrowthScore'
+    'earlyTradesHighValueCount', 'earlyTradesFilteredCount'
   ]);
 }
 
