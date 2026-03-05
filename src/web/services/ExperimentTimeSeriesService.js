@@ -21,9 +21,7 @@ class ExperimentTimeSeriesService {
    * @param {number} data.loopCount - 轮次计数
    * @param {number} data.priceUsd - USD价格
    * @param {number} data.priceNative - 原生币价格
-   * @param {Object} data.factorValues - 因子值对象（仅包含常规因子）
-   * @param {string} [data.signalType] - 信号类型 (BUY/SELL/HOLD)
-   * @param {boolean} [data.signalExecuted] - 信号是否执行
+   * @param {Object} data.factorValues - 因子值对象（仅包含常规因子：基础因子 + 趋势因子）
    * @param {string} [data.blockchain] - 区块链类型
    * @returns {Promise<boolean>} 是否成功
    */
@@ -43,8 +41,6 @@ class ExperimentTimeSeriesService {
         price_usd: data.priceUsd !== null && data.priceUsd !== undefined ? String(data.priceUsd) : null,
         price_native: data.priceNative !== null && data.priceNative !== undefined ? String(data.priceNative) : null,
         factor_values: data.factorValues || {},
-        signal_type: data.signalType || null,
-        signal_executed: data.signalExecuted !== undefined ? data.signalExecuted : null,
         blockchain: data.blockchain || 'bsc'
       };
 
@@ -119,7 +115,7 @@ class ExperimentTimeSeriesService {
           // 创建查询 - 使用游标分页避免 range() 的问题
           let query = supabase
             .from('experiment_time_series_data')
-            .select('id, experiment_id, token_address, token_symbol, timestamp, loop_count, price_usd, price_native, factor_values, signal_type, signal_executed, blockchain')
+            .select('id, experiment_id, token_address, token_symbol, timestamp, loop_count, price_usd, price_native, factor_values, blockchain')
             .eq('experiment_id', experimentId)
             .order('timestamp', { ascending: true })
             .range(from, to);
