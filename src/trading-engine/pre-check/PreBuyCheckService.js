@@ -66,16 +66,18 @@ class PreBuyCheckService {
    * @param {Object} tokenInfo - 代币信息（用于早期参与者检查）
    * @param {number} tokenInfo.launchAt - 代币创建时间戳（秒）
    * @param {string} tokenInfo.innerPair - 内盘交易对
+   * @param {string} preBuyCheckCondition - 购买前检查条件表达式（可选）
    * @returns {Promise<Object>} 检查结果
    */
-  async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null) {
+  async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null) {
     const startTime = Date.now();
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
       creator_address: creatorAddress || 'none',
       experiment_id: experimentId,
-      chain
+      chain,
+      has_condition: !!preBuyCheckCondition
     });
 
     try {
@@ -85,74 +87,22 @@ class PreBuyCheckService {
         this._performEarlyParticipantCheck(tokenAddress, chain, tokenInfo)
       ]);
 
-      // 构建结果
-      const result = {
-        // 标记已执行预检查
-        preBuyCheck: 1,
-        checkTimestamp: Date.now(),
-        checkDuration: Date.now() - startTime,
-
-        // 持有者检查结果
-        holderWhitelistCount: holderCheck.whitelistCount,
-        holderBlacklistCount: holderCheck.blacklistCount,
-        holdersCount: holderCheck.holdersCount,
-        devHoldingRatio: holderCheck.devHoldingRatio,
-        holderCanBuy: holderCheck.canBuy,
-
-        // 持有者检查详细原因
-        holderCheckReason: holderCheck.reason,
-        blacklistReason: holderCheck.blacklistReason,
-        devCheckReason: holderCheck.devReason,
-
-        // 早期参与者检查结果
-        ...earlyParticipantCheck,
-
-        // 早期参与者购买资格评估
-        preTraderCanBuy: null,
-        preTraderCheckReason: null,
-
-        // 综合结果
-        canBuy: holderCheck.canBuy,
-        checkReason: holderCheck.reason
-      };
-
-      // 评估早期参与者购买资格
-      if (this.config.earlyParticipantFilterEnabled && earlyParticipantCheck.earlyTradesChecked === 1) {
-        const eligibility = this.earlyParticipantService.evaluateBuyEligibility(
+      // 如果提供了条件表达式，使用表达式评估
+      if (preBuyCheckCondition && preBuyCheckCondition.trim()) {
+        return this._evaluateWithCondition(
+          holderCheck,
           earlyParticipantCheck,
-          this.config
-        );
-        result.preTraderCanBuy = eligibility.canBuy;
-        result.preTraderCheckReason = eligibility.reason;
-
-        // 综合决策：两个检查都必须通过
-        result.canBuy = result.holderCanBuy && result.preTraderCanBuy;
-        result.checkReason = this._buildCombinedCheckReason(
-          result.holderCanBuy,
-          result.preTraderCanBuy,
-          holderCheck.reason,
-          eligibility.reason
+          preBuyCheckCondition,
+          startTime
         );
       }
 
-      this.logger.info('[PreBuyCheckService] 购买前检查完成', {
-        token_address: tokenAddress,
-        holderCanBuy: result.holderCanBuy,
-        preTraderCanBuy: result.preTraderCanBuy,
-        canBuy: result.canBuy,
-        checkReason: result.checkReason,
-        blacklistCount: result.holderBlacklistCount,
-        whitelistCount: result.holderWhitelistCount,
-        devHoldingRatio: result.devHoldingRatio,
-        earlyTradesTotalCount: result.earlyTradesTotalCount || 0,
-        earlyTradesVolumePerMin: result.earlyTradesVolumePerMin || 0,
-        earlyTradesCountPerMin: result.earlyTradesCountPerMin || 0,
-        earlyTradesHighValuePerMin: result.earlyTradesHighValuePerMin || 0,
-        duration: result.checkDuration
-      });
-
-      return result;
-
+      // 否则使用默认逻辑（向后兼容）
+      return this._evaluateDefault(
+        holderCheck,
+        earlyParticipantCheck,
+        startTime
+      );
     } catch (error) {
       const errorMessage = this._safeGetErrorMessage(error);
 
@@ -172,6 +122,7 @@ class PreBuyCheckService {
         holderBlacklistCount: 0,
         holdersCount: 0,
         devHoldingRatio: 0,
+        maxHoldingRatio: 0,
         holderCanBuy: false,
 
         holderCheckReason: `检查失败: ${errorMessage}`,
@@ -185,6 +136,186 @@ class PreBuyCheckService {
         ...this.earlyParticipantService.getEmptyFactorValues()
       };
     }
+  }
+
+  /**
+   * 使用条件表达式评估
+   * @private
+   */
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, condition, startTime) {
+    // 构建基础结果
+    const baseResult = {
+      // 标记已执行预检查
+      preBuyCheck: 1,
+      checkTimestamp: Date.now(),
+      checkDuration: Date.now() - startTime,
+
+      // 持有者检查结果
+      holderWhitelistCount: holderCheck.whitelistCount || 0,
+      holderBlacklistCount: holderCheck.blacklistCount || 0,
+      holdersCount: holderCheck.holdersCount || 0,
+      devHoldingRatio: holderCheck.devHoldingRatio || 0,
+      maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
+      holderCanBuy: holderCheck.canBuy,
+
+      // 持有者检查详细原因
+      holderCheckReason: holderCheck.reason,
+      blacklistReason: holderCheck.blacklistReason,
+      devCheckReason: holderCheck.devReason,
+
+      // 早期参与者检查结果
+      ...earlyParticipantCheck,
+
+      // 早期参与者购买资格评估
+      preTraderCanBuy: null,
+      preTraderCheckReason: null
+    };
+
+    try {
+      // 构建评估上下文
+      const context = {
+        // 持有者因子
+        holderWhitelistCount: holderCheck.whitelistCount || 0,
+        holderBlacklistCount: holderCheck.blacklistCount || 0,
+        holdersCount: holderCheck.holdersCount || 0,
+        devHoldingRatio: holderCheck.devHoldingRatio || 0,
+        maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
+        // 早期参与者因子
+        earlyTradesChecked: earlyParticipantCheck.earlyTradesChecked || 0,
+        earlyTradesHighValueCount: earlyParticipantCheck.earlyTradesHighValueCount || 0,
+        earlyTradesHighValuePerMin: earlyParticipantCheck.earlyTradesHighValuePerMin || 0,
+        earlyTradesCountPerMin: earlyParticipantCheck.earlyTradesCountPerMin || 0,
+        earlyTradesVolumePerMin: earlyParticipantCheck.earlyTradesVolumePerMin || 0,
+        earlyTradesWalletsPerMin: earlyParticipantCheck.earlyTradesWalletsPerMin || 0,
+        earlyTradesTotalCount: earlyParticipantCheck.earlyTradesTotalCount || 0,
+        earlyTradesVolume: earlyParticipantCheck.earlyTradesVolume || 0,
+        earlyTradesUniqueWallets: earlyParticipantCheck.earlyTradesUniqueWallets || 0,
+        earlyTradesDataCoverage: earlyParticipantCheck.earlyTradesDataCoverage || 0,
+        earlyTradesFilteredCount: earlyParticipantCheck.earlyTradesFilteredCount || 0
+      };
+
+      const canBuy = this._safeEvaluate(condition, context);
+
+      this.logger.info('[PreBuyCheckService] 条件表达式评估完成', {
+        token_address: context.token_address,
+        condition,
+        canBuy,
+        context: {
+          holderBlacklistCount: context.holderBlacklistCount,
+          devHoldingRatio: context.devHoldingRatio,
+          maxHoldingRatio: context.maxHoldingRatio,
+          earlyTradesHighValueCount: context.earlyTradesHighValueCount,
+          earlyTradesCountPerMin: context.earlyTradesCountPerMin
+        }
+      });
+
+      return {
+        ...baseResult,
+        canBuy,
+        preTraderCanBuy: canBuy,
+        checkReason: canBuy ? '购买前检查通过' : `购买前检查失败: ${condition}`
+      };
+    } catch (error) {
+      this.logger.error('[PreBuyCheckService] 条件表达式评估失败', {
+        condition,
+        error: error.message
+      });
+      return {
+        ...baseResult,
+        canBuy: false,
+        checkReason: `条件表达式错误: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * 默认评估逻辑（向后兼容）
+   * @private
+   */
+  _evaluateDefault(holderCheck, earlyParticipantCheck, startTime) {
+    // 构建基础结果
+    const result = {
+      // 标记已执行预检查
+      preBuyCheck: 1,
+      checkTimestamp: Date.now(),
+      checkDuration: Date.now() - startTime,
+
+      // 持有者检查结果
+      holderWhitelistCount: holderCheck.whitelistCount,
+      holderBlacklistCount: holderCheck.blacklistCount,
+      holdersCount: holderCheck.holdersCount,
+      devHoldingRatio: holderCheck.devHoldingRatio,
+      holderCanBuy: holderCheck.canBuy,
+
+      // 持有者检查详细原因
+      holderCheckReason: holderCheck.reason,
+      blacklistReason: holderCheck.blacklistReason,
+      devCheckReason: holderCheck.devReason,
+
+      // 早期参与者检查结果
+      ...earlyParticipantCheck,
+
+      // 早期参与者购买资格评估
+      preTraderCanBuy: null,
+      preTraderCheckReason: null,
+
+      // 综合结果
+      canBuy: holderCheck.canBuy,
+      checkReason: holderCheck.reason
+    };
+
+    // 评估早期参与者购买资格
+    if (this.config.earlyParticipantFilterEnabled && earlyParticipantCheck.earlyTradesChecked === 1) {
+      const eligibility = this.earlyParticipantService.evaluateBuyEligibility(
+        earlyParticipantCheck,
+        this.config
+      );
+      result.preTraderCanBuy = eligibility.canBuy;
+      result.preTraderCheckReason = eligibility.reason;
+
+      // 综合决策：两个检查都必须通过
+      result.canBuy = result.holderCanBuy && result.preTraderCanBuy;
+      result.checkReason = this._buildCombinedCheckReason(
+        result.holderCanBuy,
+        result.preTraderCanBuy,
+        holderCheck.reason,
+        eligibility.reason
+      );
+    }
+
+    this.logger.info('[PreBuyCheckService] 购买前检查完成', {
+      holderCanBuy: result.holderCanBuy,
+      preTraderCanBuy: result.preTraderCanBuy,
+      canBuy: result.canBuy,
+      checkReason: result.checkReason,
+      blacklistCount: result.holderBlacklistCount,
+      whitelistCount: result.holderWhitelistCount,
+      devHoldingRatio: result.devHoldingRatio,
+      earlyTradesTotalCount: result.earlyTradesTotalCount || 0,
+      earlyTradesVolumePerMin: result.earlyTradesVolumePerMin || 0,
+      earlyTradesCountPerMin: result.earlyTradesCountPerMin || 0,
+      earlyTradesHighValuePerMin: result.earlyTradesHighValuePerMin || 0
+    });
+
+    return result;
+  }
+
+  /**
+   * 安全的表达式评估
+   * @private
+   */
+  _safeEvaluate(expression, context) {
+    // 替换 AND/OR 为 JavaScript 运算符
+    const jsExpr = expression
+      .replace(/\bAND\b/gi, '&&')
+      .replace(/\bOR\b/gi, '||')
+      .replace(/\bNOT\b/gi, '!');
+
+    // 使用 Function 构造器评估
+    const keys = Object.keys(context);
+    const values = Object.values(context);
+    const fn = new Function(...keys, `return ${jsExpr};`);
+    return fn(...values);
   }
 
   /**

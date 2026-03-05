@@ -578,6 +578,22 @@
                            placeholder="例如: age < 1.33 AND earlyReturn >= 80 AND earlyReturn < 120"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
+                <div class="param-group pre-buy-check-group" style="grid-column: 1 / span 2;">
+                    <label>🔍 检查条件：</label>
+                    <input type="text" name="buy_preCheck_condition_{INDEX}"
+                           placeholder="例如: holderBlacklistCount < 5 AND devHoldingRatio < 15 AND earlyTradesHighValueCount >= 8"
+                           value="holderBlacklistCount <= 10 AND holderWhitelistCount >= holderBlacklistCount * 2 AND devHoldingRatio < 15 AND maxHoldingRatio < 18 AND earlyTradesHighValueCount >= 8 AND earlyTradesHighValuePerMin >= 5.6 AND earlyTradesCountPerMin >= 10.6"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="text-xs text-gray-500 mt-1">
+                        <details>
+                            <summary class="cursor-pointer">📋 可用因子</summary>
+                            <div class="mt-2 p-2 bg-gray-50 rounded text-xs">
+                                <strong>持有者检查:</strong> holderWhitelistCount, holderBlacklistCount, holdersCount, devHoldingRatio, maxHoldingRatio<br>
+                                <strong>早期参与者:</strong> earlyTradesHighValueCount, earlyTradesHighValuePerMin, earlyTradesCountPerMin, earlyTradesVolumePerMin, earlyTradesWalletsPerMin, earlyTradesTotalCount, earlyTradesVolume, earlyTradesUniqueWallets, earlyTradesDataCoverage, earlyTradesFilteredCount
+                            </div>
+                        </details>
+                    </div>
+                </div>
                 <div class="strategy-params">
                     <div class="param-group">
                         <label>卡牌数量</label>
@@ -914,6 +930,16 @@
             if (privateKeyInput) privateKeyInput.removeAttribute('required');
             if (backtestSourceInput) backtestSourceInput.removeAttribute('required');
 
+            // 处理检查条件显示（回测模式下隐藏）
+            const preBuyCheckGroups = document.querySelectorAll('.pre-buy-check-group');
+            preBuyCheckGroups.forEach(group => {
+                if (tradingMode === 'backtest') {
+                    group.style.display = 'none';
+                } else {
+                    group.style.display = 'block';
+                }
+            });
+
             if (tradingMode === 'backtest') {
                 backtestConfig.style.display = 'block';
                 // 回测模式可能需要不同的初始余额设置
@@ -1019,6 +1045,9 @@
             if (config.maxExecutions !== undefined) {
                 const attr = config.maxExecutions ? `value="${config.maxExecutions}"` : 'placeholder="不限"';
                 html = html.replace(`name="buy_max_executions_${index}" placeholder`, `name="buy_max_executions_${index}" ${attr}`);
+            }
+            if (config.preBuyCheckCondition) {
+                html = html.replace(`name="buy_preCheck_condition_${index}" value="holderBlacklistCount <= 10 AND holderWhitelistCount >= holderBlacklistCount * 2 AND devHoldingRatio < 15 AND maxHoldingRatio < 18 AND earlyTradesHighValueCount >= 8 AND earlyTradesHighValuePerMin >= 5.6 AND earlyTradesCountPerMin >= 10.6"`, `name="buy_preCheck_condition_${index}" value="${config.preBuyCheckCondition}"`);
             }
 
             buyContainer.insertAdjacentHTML('beforeend', html);
@@ -1176,12 +1205,14 @@
             document.querySelectorAll('#buy-strategies-container .strategy-card').forEach(card => {
                 const index = card.dataset.index;
                 const maxExecutionsInput = card.querySelector(`input[name="buy_max_executions_${index}"]`);
+                const preBuyCheckInput = card.querySelector(`input[name="buy_preCheck_condition_${index}"]`);
                 buyStrategies.push({
                     condition: card.querySelector(`input[name="buy_condition_${index}"]`).value,
                     cards: card.querySelector(`select[name="buy_cards_${index}"]`).value,
                     priority: parseInt(card.querySelector(`input[name="buy_priority_${index}"]`).value),
                     cooldown: parseInt(card.querySelector(`input[name="buy_cooldown_${index}"]`).value),
-                    maxExecutions: maxExecutionsInput.value ? parseInt(maxExecutionsInput.value) : null
+                    maxExecutions: maxExecutionsInput.value ? parseInt(maxExecutionsInput.value) : null,
+                    preBuyCheckCondition: preBuyCheckInput ? preBuyCheckInput.value.trim() || null : null
                 });
             });
 

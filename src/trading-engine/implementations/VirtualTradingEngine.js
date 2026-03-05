@@ -650,6 +650,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           cooldown: s.cooldown || 300,
           cards: s.cards || 1,
           maxExecutions: s.maxExecutions || null,
+          preBuyCheckCondition: s.preBuyCheckCondition || null,
           enabled: true
         });
       });
@@ -1388,12 +1389,18 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           // 构建代币信息（用于早期参与者检查）
           const tokenInfo = this._buildTokenInfo(token);
 
+          // 获取检查条件：策略条件 > 实验默认条件 > 空
+          const preBuyCheckCondition = strategy.preBuyCheckCondition ||
+                                       this._experiment?.config?.strategiesConfig?.defaultPreBuyCheckCondition ||
+                                       null;
+
           preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             token.token,
             token.creator_address || null,
             this._experimentId,
             token.chain || 'bsc',
-            tokenInfo
+            tokenInfo,
+            preBuyCheckCondition
           );
 
           if (!preBuyCheckResult.canBuy) {
