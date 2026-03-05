@@ -1175,6 +1175,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     const successResult = (success) => ({ success });
     const failResult = (reason) => ({ success: false, reason });
 
+    // 导入 FactorBuilder 函数（用于序列化因子）
+    const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
+
     const { CardPositionManager } = getLazyModules();
     const latestPrice = token.currentPrice || 0;
 

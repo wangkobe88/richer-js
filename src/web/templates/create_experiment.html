@@ -932,14 +932,10 @@
             if (privateKeyInput) privateKeyInput.removeAttribute('required');
             if (backtestSourceInput) backtestSourceInput.removeAttribute('required');
 
-            // 处理检查条件显示（回测模式下隐藏）
+            // 检查条件在所有模式下都显示（回测也支持早期参与者检查）
             const preBuyCheckGroups = document.querySelectorAll('.pre-buy-check-group');
             preBuyCheckGroups.forEach(group => {
-                if (tradingMode === 'backtest') {
-                    group.style.display = 'none';
-                } else {
-                    group.style.display = 'block';
-                }
+                group.style.display = 'block';
             });
 
             if (tradingMode === 'backtest') {

@@ -67,24 +67,32 @@ class PreBuyCheckService {
    * @param {number} tokenInfo.launchAt - 代币创建时间戳（秒）
    * @param {string} tokenInfo.innerPair - 内盘交易对
    * @param {string} preBuyCheckCondition - 购买前检查条件表达式（可选）
+   * @param {Object} options - 可选配置
+   * @param {number} options.checkTime - 检查时间戳（秒），用于回测时指定历史时间点
+   * @param {boolean} options.skipHolderCheck - 是否跳过持有者检查（回测时为 true）
+   * @param {boolean} options.skipEarlyParticipant - 是否跳过早期参与者检查
    * @returns {Promise<Object>} 检查结果
    */
-  async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null) {
+  async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
+    const { checkTime, skipHolderCheck, skipEarlyParticipant } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
       creator_address: creatorAddress || 'none',
       experiment_id: experimentId,
       chain,
-      has_condition: !!preBuyCheckCondition
+      has_condition: !!preBuyCheckCondition,
+      check_time: checkTime || Math.floor(Date.now() / 1000),
+      skip_holder_check: skipHolderCheck || false,
+      skip_early_participant: skipEarlyParticipant || false
     });
 
     try {
       // 并行执行检查（如果都有数据）
       const [holderCheck, earlyParticipantCheck] = await Promise.all([
-        this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain),
-        this._performEarlyParticipantCheck(tokenAddress, chain, tokenInfo)
+        this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
+        this._performEarlyParticipantCheck(tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant)
       ]);
 
       // 如果提供了条件表达式，使用表达式评估
@@ -321,9 +329,15 @@ class PreBuyCheckService {
   /**
    * 执行持有者检查
    * @private
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} creatorAddress - 创建者地址
+   * @param {string} experimentId - 实验ID
+   * @param {string} chain - 区块链
+   * @param {boolean} skipHolderCheck - 是否跳过检查（回测时为 true）
    */
-  async _performHolderCheck(tokenAddress, creatorAddress, experimentId, chain) {
-    if (!this.config.holderCheckEnabled) {
+  async _performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck = false) {
+    if (skipHolderCheck || !this.config.holderCheckEnabled) {
+      const reason = skipHolderCheck ? '持有者检查已跳过（回测模式）' : '持有者检查已禁用';
       return {
         canBuy: true,
         whitelistCount: 0,
@@ -331,10 +345,10 @@ class PreBuyCheckService {
         holdersCount: 0,
         devHoldingRatio: 0,
         maxHoldingRatio: 0,
-        reason: '持有者检查已禁用',
-        blacklistReason: '检查已禁用',
-        devReason: '检查已禁用',
-        largeHoldingReason: '检查已禁用'
+        reason: reason,
+        blacklistReason: '检查已跳过',
+        devReason: '检查已跳过',
+        largeHoldingReason: '检查已跳过'
       };
     }
 
@@ -351,9 +365,14 @@ class PreBuyCheckService {
   /**
    * 执行早期参与者检查
    * @private
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} chain - 区块链
+   * @param {Object} tokenInfo - 代币信息
+   * @param {number} checkTime - 检查时间戳（秒），用于回测时指定历史时间点
+   * @param {boolean} skipEarlyParticipant - 是否跳过检查
    */
-  async _performEarlyParticipantCheck(tokenAddress, chain, tokenInfo) {
-    if (!this.config.earlyParticipantCheckEnabled) {
+  async _performEarlyParticipantCheck(tokenAddress, chain, tokenInfo, checkTime = null, skipEarlyParticipant = false) {
+    if (skipEarlyParticipant || !this.config.earlyParticipantCheckEnabled) {
       return this.earlyParticipantService.getEmptyFactorValues();
     }
 
@@ -366,12 +385,15 @@ class PreBuyCheckService {
       return this.earlyParticipantService.getEmptyFactorValues();
     }
 
+    // 使用传入的 checkTime，如果没有则使用当前时间
+    const effectiveCheckTime = checkTime || Math.floor(Date.now() / 1000);
+
     return await this.earlyParticipantService.performCheck(
       tokenAddress,
       tokenInfo.innerPair,
       chain,
       tokenInfo.launchAt,
-      Math.floor(Date.now() / 1000)
+      effectiveCheckTime
     );
   }
 

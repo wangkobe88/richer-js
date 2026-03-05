@@ -513,6 +513,57 @@ class BacktestEngine extends AbstractTradingEngine {
     // 4. 初始化时序数据服务（用于读取源实验数据）
     const { ExperimentTimeSeriesService } = require('../../web/services/ExperimentTimeSeriesService');
     this.timeSeriesService = new ExperimentTimeSeriesService();
+
+    // 5. 初始化购买前检查服务（回测模式：支持早期参与者检查，跳过持有者检查）
+    const { PreBuyCheckService } = require('../pre-check/PreBuyCheckService');
+    const { dbManager } = require('../../services/dbManager');
+    const supabase = dbManager.getClient();
+
+    // 合并配置：外部默认配置 + 实验配置
+    const defaultConfig = require('../../../config/default.json');
+    const experimentPreBuyConfig = this._experiment?.config?.preBuyCheck || {};
+    const preBuyCheckConfig = {
+      ...defaultConfig.preBuyCheck,
+      ...experimentPreBuyConfig
+    };
+
+    this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
+    console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
+  }
+
+  /**
+   * 构建代币信息（用于回测时的早期参与者检查）
+   * @private
+   * @param {Object} tokenState - 代币状态
+   * @returns {Object} tokenInfo
+   */
+  _buildTokenInfoForBacktest(tokenState) {
+    // 获取 launchAt（代币创建时间戳）
+    let launchAt = null;
+    if (tokenState.createdAt) {
+      launchAt = Math.floor(tokenState.createdAt.getTime() / 1000);
+    }
+
+    // 构建 innerPair（内盘交易对）
+    let innerPair = null;
+    const platform = tokenState.platform || 'fourmeme';
+    if (platform === 'fourmeme') {
+      innerPair = `${tokenState.token}_fo`;
+    } else if (platform === 'flap') {
+      innerPair = `${tokenState.token}_iportal`;
+    } else if (tokenState.main_pair) {
+      innerPair = tokenState.main_pair;
+    } else if (tokenState.pair) {
+      innerPair = tokenState.pair;
+    } else {
+      // 默认使用 fourmeme 格式
+      innerPair = `${tokenState.token}_fo`;
+    }
+
+    return {
+      launchAt,
+      innerPair
+    };
   }
 
   /**
@@ -865,6 +916,55 @@ class BacktestEngine extends AbstractTradingEngine {
 
       if (strategy.maxExecutions &&
           tokenState.strategyExecutions[strategy.id].count >= strategy.maxExecutions) {
+        return false;
+      }
+
+      // ========== 购买前检查（回测模式） ==========
+      let preCheckPassed = true;
+      let preCheckReason = null;
+
+      if (this._preBuyCheckService) {
+        try {
+          // 构建 tokenInfo（用于早期参与者检查）
+          const tokenInfo = this._buildTokenInfoForBacktest(tokenState);
+
+          // 获取检查条件：策略条件 > 实验默认条件 > 空
+          const preBuyCheckCondition = strategy.preBuyCheckCondition ||
+                                       this._experiment?.config?.strategiesConfig?.defaultPreBuyCheckCondition ||
+                                       null;
+
+          const preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
+            tokenState.token,
+            tokenState.creatorAddress || null,
+            this._experiment.id,
+            tokenState.chain || 'bsc',
+            tokenInfo,
+            preBuyCheckCondition,
+            {
+              checkTime: Math.floor(timestamp.getTime() / 1000),  // 使用回测时间点
+              skipHolderCheck: true  // 回测时跳过持有者检查
+            }
+          );
+
+          if (!preBuyCheckResult.canBuy) {
+            preCheckPassed = false;
+            preCheckReason = preBuyCheckResult.checkReason || '预检查失败';
+            this.logger.info(this._experimentId, '_executeStrategy',
+              `购买前检查失败（回测） | symbol=${tokenState.symbol}, reason=${preCheckReason}`);
+          }
+        } catch (error) {
+          this.logger.error(this._experimentId, '_executeStrategy',
+            `购买前检查异常 | symbol=${tokenState.symbol}, error=${error.message}`);
+          // 出错时保守处理，跳过这次买入
+          preCheckPassed = false;
+          preCheckReason = `检查异常: ${error.message}`;
+        }
+      }
+
+      if (!preCheckPassed) {
+        if (this._roundSummary) {
+          this._roundSummary.recordSignalExecution(tokenState.token, false, preCheckReason);
+        }
         return false;
       }
 
