@@ -535,6 +535,11 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * @returns {Promise<void>}
    */
   async _updateComponentLoggers() {
+    // 更新 VirtualTradingEngine 自己的 logger experimentId
+    if (this.logger && this.logger.setExperimentId) {
+      this.logger.setExperimentId(this._experimentId);
+    }
+
     // 更新 PlatformCollector 的 logger experimentId
     if (this._fourmemeCollector) {
       this._fourmemeCollector.logger.setExperimentId(this._experimentId);

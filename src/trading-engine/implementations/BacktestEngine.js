@@ -80,7 +80,7 @@ class BacktestEngine extends AbstractTradingEngine {
     this._seenTokens = new Set();
     this._tokenStates = new Map();
 
-    console.log(`📊 回测引擎已创建: ${this.id}`);
+    // 构造函数不使用logger（logger在initialize时创建）
   }
 
   // ==================== 抽象方法实现 ====================
@@ -110,7 +110,7 @@ class BacktestEngine extends AbstractTradingEngine {
       throw new Error(`源实验不存在: ${this._sourceExperimentId}`);
     }
 
-    console.log(`📊 回测配置: 源实验=${this._sourceExperimentId}, 初始余额=${this.initialBalance}`);
+    this.logger.info(this._experimentId, '_initializeDataSources', `📊 回测配置: 源实验=${this._sourceExperimentId}, 初始余额=${this.initialBalance}`);
 
     // 初始化 Backtest 特有组件
     await this._initializeBacktestComponents();
@@ -118,7 +118,7 @@ class BacktestEngine extends AbstractTradingEngine {
     // 加载历史数据
     await this._loadHistoricalData();
 
-    console.log(`📊 加载了 ${this._historicalData.length} 条历史数据点`);
+    this.logger.info(this._experimentId, '_loadHistoricalData', `📊 加载了 ${this._historicalData.length} 条历史数据点`);
   }
 
   /**
@@ -131,7 +131,7 @@ class BacktestEngine extends AbstractTradingEngine {
     let completedSuccessfully = false;
 
     try {
-      console.log(`📊 开始回测，共 ${this._groupedData.length} 个轮次`);
+      this.logger.info(this._experimentId, '_runMainLoop', `📊 开始回测，共 ${this._groupedData.length} 个轮次`);
 
       for (const roundData of this._groupedData) {
         const { loopCount, dataPoints } = roundData;
@@ -185,19 +185,7 @@ class BacktestEngine extends AbstractTradingEngine {
         `失败: ${this.metrics.failedTrades}`
       );
 
-      console.log(``);
-      console.log(`========================================`);
-      console.log(`📊 回测结果汇总`);
-      console.log(`========================================`);
-      console.log(`初始余额: ${this.initialBalance} BSC`);
-      console.log(`最终余额: ${finalBalanceValue.toFixed(2)} BSC`);
-      console.log(`收益: ${profit.toFixed(2)} BSC (${profitPercent > 0 ? '+' : ''}${profitPercent}%)`);
-      console.log(`总交易次数: ${this.metrics.totalTrades}`);
-      console.log(`成功交易: ${this.metrics.successfulTrades}`);
-      console.log(`失败交易: ${this.metrics.failedTrades}`);
-      console.log(`总信号数: ${this.metrics.totalSignals}`);
-      console.log(`执行信号数: ${this.metrics.executedSignals}`);
-      console.log(`========================================`);
+      this.logger.info(this._experimentId, '_generateFinalReport', `📊 回测结果汇总 | 初始余额: ${this.initialBalance} BSC, 最终余额: ${finalBalanceValue.toFixed(2)} BSC, 收益: ${profit.toFixed(2)} BSC (${profitPercent > 0 ? '+' : ''}${profitPercent}%), 总交易: ${this.metrics.totalTrades}, 成功: ${this.metrics.successfulTrades}, 失败: ${this.metrics.failedTrades}, 信号: ${this.metrics.totalSignals}/${this.metrics.executedSignals}`);
 
       completedSuccessfully = true;
 
@@ -208,15 +196,15 @@ class BacktestEngine extends AbstractTradingEngine {
     } finally {
       // 使用基类的 _updateExperimentStatus 方法更新最终状态
       const finalStatus = completedSuccessfully ? 'completed' : 'failed';
-      console.log(`📊 更新实验状态为: ${finalStatus}`);
+      this.logger.info(this._experimentId, '_updateExperimentStatus', `📊 更新实验状态为: ${finalStatus}`);
 
       try {
         await this._updateExperimentStatus(finalStatus);
 
         if (completedSuccessfully) {
-          console.log(`✅ 回测实验已完成，状态已更新`);
+          this.logger.info(this._experimentId, '_updateExperimentStatus', `✅ 回测实验已完成，状态已更新`);
         } else {
-          console.log(`⚠️ 回测实验失败，状态已更新`);
+          this.logger.warn(this._experimentId, '_updateExperimentStatus', `⚠️ 回测实验失败，状态已更新`);
         }
       } catch (updateError) {
         console.error(`❌ 更新实验状态失败: ${updateError.message}`);
@@ -292,7 +280,7 @@ class BacktestEngine extends AbstractTradingEngine {
         console.error(`   result:`, result);
         console.error(`   reason: ${result?.reason || result?.message || '未知'}`);
       } else {
-        console.log(`✅ 买入成功: ${signal.symbol}, 金额: ${amountInBNB} BNB`);
+        this.logger.info(this._experimentId, '_executeBuy', `✅ 买入成功: ${signal.symbol}, 金额: ${amountInBNB} BNB`);
       }
 
       // 更新统计信息
@@ -451,11 +439,13 @@ class BacktestEngine extends AbstractTradingEngine {
    * @returns {Promise<void>}
    */
   async _initializeBacktestComponents() {
+    this.logger.info(this._experimentId, '_initializeBacktestComponents', '开始初始化回测组件');
+
     const { TokenPool, StrategyEngine } = getLazyModules();
 
     // 1. 初始化代币池（简化版，用于状态管理）
     this._tokenPool = new TokenPool(this.logger);
-    console.log(`✅ 代币池初始化完成`);
+    this.logger.info(this._experimentId, '_initializeBacktestComponents', '✅ 代币池初始化完成');
 
     // 2. 初始化策略引擎
     const strategies = this._buildStrategyConfig();
@@ -501,18 +491,19 @@ class BacktestEngine extends AbstractTradingEngine {
     }
 
     this._strategyEngine.loadStrategies(strategyArray, availableFactorIds);
-    console.log(`✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
+    this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
     // 3. 初始化卡牌仓位管理配置
     const experimentConfig = this._experiment?.config || {};
     this._positionManagement = experimentConfig.positionManagement || experimentConfig.strategy?.positionManagement || null;
     if (this._positionManagement && this._positionManagement.enabled) {
-      console.log(`✅ 卡牌仓位管理已启用: 总卡牌数=${this._positionManagement.totalCards || 4}, 单卡BNB=${this._positionManagement.perCardMaxBNB || 0.025}`);
+      this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 卡牌仓位管理已启用: 总卡牌数=${this._positionManagement.totalCards || 4}, 单卡BNB=${this._positionManagement.perCardMaxBNB || 0.025}`);
     }
 
     // 4. 初始化时序数据服务（用于读取源实验数据）
     const { ExperimentTimeSeriesService } = require('../../web/services/ExperimentTimeSeriesService');
     this.timeSeriesService = new ExperimentTimeSeriesService();
+    this.logger.info(this._experimentId, '_initializeBacktestComponents', '✅ 时序数据服务初始化完成');
 
     // 5. 初始化购买前检查服务（回测模式：支持早期参与者检查，跳过持有者检查）
     const { PreBuyCheckService } = require('../pre-check/PreBuyCheckService');
@@ -528,7 +519,7 @@ class BacktestEngine extends AbstractTradingEngine {
     };
 
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
-    console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
+    this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
   }
 
   /**
@@ -923,15 +914,23 @@ class BacktestEngine extends AbstractTradingEngine {
       let preCheckPassed = true;
       let preCheckReason = null;
 
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `开始购买前检查（回测） | symbol=${tokenState.symbol}, hasPreBuyCheckService=${!!this._preBuyCheckService}`);
+
       if (this._preBuyCheckService) {
         try {
           // 构建 tokenInfo（用于早期参与者检查）
           const tokenInfo = this._buildTokenInfoForBacktest(tokenState);
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `tokenInfo 已构建 | symbol=${tokenState.symbol}, launchAt=${tokenInfo.launchAt}, innerPair=${tokenInfo.innerPair}`);
 
           // 获取检查条件：策略条件 > 实验默认条件 > 空
           const preBuyCheckCondition = strategy.preBuyCheckCondition ||
                                        this._experiment?.config?.strategiesConfig?.defaultPreBuyCheckCondition ||
                                        null;
+
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `准备执行预检查 | symbol=${tokenState.symbol}, preBuyCheckCondition="${preBuyCheckCondition}"`);
 
           const preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             tokenState.token,
@@ -946,6 +945,9 @@ class BacktestEngine extends AbstractTradingEngine {
             }
           );
 
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `预检查完成 | symbol=${tokenState.symbol}, canBuy=${preBuyCheckResult.canBuy}, reason=${preBuyCheckResult.checkReason}`);
+
           if (!preBuyCheckResult.canBuy) {
             preCheckPassed = false;
             preCheckReason = preBuyCheckResult.checkReason || '预检查失败';
@@ -959,6 +961,9 @@ class BacktestEngine extends AbstractTradingEngine {
           preCheckPassed = false;
           preCheckReason = `检查异常: ${error.message}`;
         }
+      } else {
+        this.logger.warn(this._experimentId, '_executeStrategy',
+          '预检查服务未初始化，跳过预检查');
       }
 
       if (!preCheckPassed) {
@@ -1007,11 +1012,11 @@ class BacktestEngine extends AbstractTradingEngine {
       };
 
       // 调试：检查引擎状态
-      console.log(`🔍 执行买入策略前: _isStopped=${this._isStopped}, _status=${this._status}`);
+      this.logger.debug(this._experimentId, '_executeStrategy', `🔍 执行买入策略前: _isStopped=${this._isStopped}, _status=${this._status}`);
 
       const result = await this.processSignal(signal);
 
-      console.log(`🔍 processSignal 返回:`, result);
+      this.logger.debug(this._experimentId, '_executeStrategy', `🔍 processSignal 返回: ${JSON.stringify(result)}`);
 
       if (result && result.success) {
         tokenState.status = 'bought';
@@ -1126,7 +1131,7 @@ class BacktestEngine extends AbstractTradingEngine {
     if (cardManager) {
       const cards = signal.cards || 1;
       const amount = cardManager.calculateBuyAmount(cards);
-      console.log(`💰 计算买入金额: ${signal.symbol}, 卡牌管理器存在, cards=${cards}, amount=${amount}`);
+      this.logger.debug(this._experimentId, '_calculateBuyAmount', `💰 计算买入金额: ${signal.symbol}, 卡牌管理器存在, cards=${cards}, amount=${amount}`);
 
       if (amount <= 0) {
         console.error(`❌ calculateBuyAmount 返回 0: ${signal.symbol}, cards=${cards}`);
@@ -1136,7 +1141,7 @@ class BacktestEngine extends AbstractTradingEngine {
       const amountValue = typeof amount === 'number' ? amount : amount.toNumber();
       const balanceValue = typeof cashBalance === 'number' ? cashBalance : cashBalance.toNumber();
 
-      console.log(`💰 余额检查: amountValue=${amountValue}, balanceValue=${balanceValue}`);
+      this.logger.debug(this._experimentId, '_calculateBuyAmount', `💰 余额检查: amountValue=${amountValue}, balanceValue=${balanceValue}`);
 
       if (balanceValue < amountValue) {
         console.error(`❌ 余额不足: 需要 ${amountValue}, 可用 ${balanceValue}`);
@@ -1145,7 +1150,7 @@ class BacktestEngine extends AbstractTradingEngine {
       return amountValue;
     }
 
-    console.log(`💰 卡牌管理器不存在，使用默认金额: ${signal.symbol}`);
+    this.logger.debug(this._experimentId, '_calculateBuyAmount', `💰 卡牌管理器不存在，使用默认金额: ${signal.symbol}`);
     const tradeAmount = this._experiment.config?.backtest?.tradeAmount || 0.1;
     const balanceValue = typeof cashBalance === 'number' ? cashBalance : cashBalance.toNumber();
     if (balanceValue < tradeAmount) {
@@ -1282,7 +1287,7 @@ class BacktestEngine extends AbstractTradingEngine {
     // 调用基类 start 方法（会设置状态并调用 _updateExperimentStatus）
     await super.start();
 
-    console.log(`🚀 回测引擎已启动: 实验 ${this._experimentId}`);
+    this.logger.info(this._experimentId, 'start', `🚀 回测引擎已启动: 实验 ${this._experimentId}`);
   }
 
   /**
@@ -1297,7 +1302,7 @@ class BacktestEngine extends AbstractTradingEngine {
     // 调用基类 stop 方法（会设置状态并调用 _updateExperimentStatus）
     await super.stop();
 
-    console.log(`🛑 回测引擎已停止: 实验 ${this._experimentId}`);
+    this.logger.info(this._experimentId, 'stop', `🛑 回测引擎已停止: 实验 ${this._experimentId}`);
   }
 
 
