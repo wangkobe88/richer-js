@@ -863,6 +863,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       // 使用统一的 FactorBuilder 序列化因子
       const { buildFactorValuesForTimeSeries } = require('../core/FactorBuilder');
+      const { buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
 
       const recordResult = await this.timeSeriesService.recordRoundData({
         experimentId: this._experimentId,
@@ -1435,48 +1436,27 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         this.logger.warn(this._experimentId, '_executeStrategy',
           `预检查失败 | symbol=${token.symbol}, reason=${blockReason}`);
 
-        // 即使预检查失败，也要保存早期参与者检查结果到 metadata（用于分析）
+        // 即使预检查失败，也要保存购买前置检查结果到 metadata（用于分析）
         if (preBuyCheckResult && signalId) {
-          const failedCheckFactors = {
-            preBuyCheck: preBuyCheckResult.preBuyCheck,
-            checkTimestamp: preBuyCheckResult.checkTimestamp,
-            checkDuration: preBuyCheckResult.checkDuration,
-            holderWhitelistCount: preBuyCheckResult.holderWhitelistCount,
-            holderBlacklistCount: preBuyCheckResult.holderBlacklistCount,
-            holdersCount: preBuyCheckResult.holdersCount,
-            devHoldingRatio: preBuyCheckResult.devHoldingRatio,
-            maxHoldingRatio: preBuyCheckResult.maxHoldingRatio,
-            holderCanBuy: preBuyCheckResult.holderCanBuy,
-            preTraderCanBuy: preBuyCheckResult.preTraderCanBuy,
-            preTraderCheckReason: preBuyCheckResult.preTraderCheckReason,
-            // 早期参与者检查因子（重要：即使失败也要保存）
-            earlyTradesChecked: preBuyCheckResult.earlyTradesChecked,
-            earlyTradesCheckTimestamp: preBuyCheckResult.earlyTradesCheckTimestamp,
-            earlyTradesCheckDuration: preBuyCheckResult.earlyTradesCheckDuration,
-            earlyTradesCheckTime: preBuyCheckResult.earlyTradesCheckTime,
-            earlyTradesWindow: preBuyCheckResult.earlyTradesWindow,
-            earlyTradesExpectedFirstTime: preBuyCheckResult.earlyTradesExpectedFirstTime,
-            earlyTradesExpectedLastTime: preBuyCheckResult.earlyTradesExpectedLastTime,
-            earlyTradesDataFirstTime: preBuyCheckResult.earlyTradesDataFirstTime,
-            earlyTradesDataLastTime: preBuyCheckResult.earlyTradesDataLastTime,
-            earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage,
-            earlyTradesActualSpan: preBuyCheckResult.earlyTradesActualSpan || 0,
-            earlyTradesRateCalcWindow: preBuyCheckResult.earlyTradesRateCalcWindow || 1,
-            earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin,
-            earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin,
-            earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin,
-            earlyTradesHighValuePerMin: preBuyCheckResult.earlyTradesHighValuePerMin,
-            earlyTradesTotalCount: preBuyCheckResult.earlyTradesTotalCount,
-            earlyTradesVolume: preBuyCheckResult.earlyTradesVolume,
-            earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets,
-            earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount,
-            earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount
+          // 构建常规因子快照（购买时点的代币状态）
+          const regularFactors = buildFactorValuesForTimeSeries(factorResults);
+
+          // 构建购买前置检查因子
+          const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
+
+          const failedCheckMetadata = {
+            regularFactors: regularFactors,
+            preBuyCheckFactors: preBuyCheckFactors,
+            preBuyCheckResult: {
+              canBuy: preBuyCheckResult.canBuy,
+              reason: preBuyCheckResult.checkReason || 'pre_buy_check_failed'
+            }
           };
 
           try {
-            await this._updateSignalMetadata(signalId, failedCheckFactors);
+            await this._updateSignalMetadata(signalId, failedCheckMetadata);
             this.logger.info(this._experimentId, '_executeStrategy',
-              `预检查失败，但已保存早期参与者数据 | symbol=${token.symbol}, signalId=${signalId}`);
+              `预检查失败，但已保存购买前置检查数据 | symbol=${token.symbol}, signalId=${signalId}`);
           } catch (updateError) {
             this.logger.warn(this._experimentId, '_executeStrategy',
               `更新信号元数据失败 | symbol=${token.symbol}, error=${updateError.message}`);
@@ -1505,96 +1485,34 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         return failResult(`预检查失败: ${blockReason}`);
       }
 
-      // ========== 预检查通过，合并因子并执行交易 ==========
+      // ========== 预检查通过，构建信号元数据并执行交易 ==========
       this.logger.info(this._experimentId, '_executeStrategy',
-        `预检查通过，合并因子数据 | symbol=${token.symbol}`);
+        `预检查通过，构建信号元数据 | symbol=${token.symbol}`);
 
-      // 将预检查结果合并到 factorResults 中
-      if (preBuyCheckResult) {
-        Object.assign(factorResults, {
-          preBuyCheck: preBuyCheckResult.preBuyCheck,
-          checkTimestamp: preBuyCheckResult.checkTimestamp,
-          checkDuration: preBuyCheckResult.checkDuration,
-          holderWhitelistCount: preBuyCheckResult.holderWhitelistCount,
-          holderBlacklistCount: preBuyCheckResult.holderBlacklistCount,
-          holdersCount: preBuyCheckResult.holdersCount,
-          devHoldingRatio: preBuyCheckResult.devHoldingRatio,
-          maxHoldingRatio: preBuyCheckResult.maxHoldingRatio,
-          holderCanBuy: preBuyCheckResult.holderCanBuy,
-          preTraderCanBuy: preBuyCheckResult.preTraderCanBuy,
-          preTraderCheckReason: preBuyCheckResult.preTraderCheckReason,
-          // 早期参与者检查因子
-          earlyTradesChecked: preBuyCheckResult.earlyTradesChecked,
-          earlyTradesCheckTimestamp: preBuyCheckResult.earlyTradesCheckTimestamp,
-          earlyTradesCheckDuration: preBuyCheckResult.earlyTradesCheckDuration,
-          earlyTradesCheckTime: preBuyCheckResult.earlyTradesCheckTime,
-          earlyTradesWindow: preBuyCheckResult.earlyTradesWindow,
-          earlyTradesExpectedFirstTime: preBuyCheckResult.earlyTradesExpectedFirstTime,
-          earlyTradesExpectedLastTime: preBuyCheckResult.earlyTradesExpectedLastTime,
-          earlyTradesDataFirstTime: preBuyCheckResult.earlyTradesDataFirstTime,
-          earlyTradesDataLastTime: preBuyCheckResult.earlyTradesDataLastTime,
-          earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage,
-          earlyTradesActualSpan: preBuyCheckResult.earlyTradesActualSpan || 0,
-          earlyTradesRateCalcWindow: preBuyCheckResult.earlyTradesRateCalcWindow || 1,
-          earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin,
-          earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin,
-          earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin,
-          earlyTradesHighValuePerMin: preBuyCheckResult.earlyTradesHighValuePerMin,
-          earlyTradesTotalCount: preBuyCheckResult.earlyTradesTotalCount,
-          earlyTradesVolume: preBuyCheckResult.earlyTradesVolume,
-          earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets,
-          earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount,
-          earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount
-        });
+      // 构建信号元数据（包含常规因子和购买前置检查因子）
+      if (preBuyCheckResult && signalId) {
+        // 构建常规因子快照（购买时点的代币状态）
+        const regularFactors = buildFactorValuesForTimeSeries(factorResults);
 
-        // 更新 signal 对象的 factors（用于后续 processSignal）
-        signal.factors = {
-          ...signal.factors,
-          preBuyCheck: preBuyCheckResult.preBuyCheck,
-          checkTimestamp: preBuyCheckResult.checkTimestamp,
-          checkDuration: preBuyCheckResult.checkDuration,
-          holderWhitelistCount: preBuyCheckResult.holderWhitelistCount,
-          holderBlacklistCount: preBuyCheckResult.holderBlacklistCount,
-          holdersCount: preBuyCheckResult.holdersCount,
-          devHoldingRatio: preBuyCheckResult.devHoldingRatio,
-          maxHoldingRatio: preBuyCheckResult.maxHoldingRatio,
-          holderCanBuy: preBuyCheckResult.holderCanBuy,
-          preTraderCanBuy: preBuyCheckResult.preTraderCanBuy,
-          preTraderCheckReason: preBuyCheckResult.preTraderCheckReason,
-          // 早期参与者检查因子
-          earlyTradesChecked: preBuyCheckResult.earlyTradesChecked,
-          earlyTradesCheckTimestamp: preBuyCheckResult.earlyTradesCheckTimestamp,
-          earlyTradesCheckDuration: preBuyCheckResult.earlyTradesCheckDuration,
-          earlyTradesCheckTime: preBuyCheckResult.earlyTradesCheckTime,
-          earlyTradesWindow: preBuyCheckResult.earlyTradesWindow,
-          earlyTradesExpectedFirstTime: preBuyCheckResult.earlyTradesExpectedFirstTime,
-          earlyTradesExpectedLastTime: preBuyCheckResult.earlyTradesExpectedLastTime,
-          earlyTradesDataFirstTime: preBuyCheckResult.earlyTradesDataFirstTime,
-          earlyTradesDataLastTime: preBuyCheckResult.earlyTradesDataLastTime,
-          earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage,
-          earlyTradesActualSpan: preBuyCheckResult.earlyTradesActualSpan || 0,
-          earlyTradesRateCalcWindow: preBuyCheckResult.earlyTradesRateCalcWindow || 1,
-          earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin,
-          earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin,
-          earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin,
-          earlyTradesHighValuePerMin: preBuyCheckResult.earlyTradesHighValuePerMin,
-          earlyTradesTotalCount: preBuyCheckResult.earlyTradesTotalCount,
-          earlyTradesVolume: preBuyCheckResult.earlyTradesVolume,
-          earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets,
-          earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount,
-          earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount
+        // 构建购买前置检查因子
+        const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
+
+        const signalMetadata = {
+          regularFactors: regularFactors,
+          preBuyCheckFactors: preBuyCheckFactors,
+          preBuyCheckResult: {
+            canBuy: preBuyCheckResult.canBuy,
+            reason: preBuyCheckResult.checkReason || 'passed'
+          }
         };
 
-        // 更新数据库中的信号元数据
-        if (signalId) {
-          try {
-            await this._updateSignalMetadata(signalId, signal.factors);
-            this.logger.info(this._experimentId, '_executeStrategy',
-              `信号元数据已更新 | symbol=${token.symbol}, signalId=${signalId}`);
-          } catch (updateError) {
-            this.logger.warn(this._experimentId, '_executeStrategy',
-              `更新信号元数据失败 | symbol=${token.symbol}, error=${updateError.message}`);
-          }
+        try {
+          await this._updateSignalMetadata(signalId, signalMetadata);
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `信号元数据已更新 | symbol=${token.symbol}, signalId=${signalId}`);
+        } catch (updateError) {
+          this.logger.warn(this._experimentId, '_executeStrategy',
+            `更新信号元数据失败 | symbol=${token.symbol}, error=${updateError.message}`);
         }
       }
 

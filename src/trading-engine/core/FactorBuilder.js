@@ -3,15 +3,16 @@
  * 统一管理所有因子的计算逻辑，供多个引擎共享
  *
  * 职责：
- * 1. 计算所有交易因子（基础因子 + 趋势因子）
- * 2. 序列化因子到时序数据格式
- * 3. 从时序数据反序列化因子
+ * 1. 构建常规因子（基础因子 + 趋势因子）用于时序数据
+ * 2. 构建购买前置检查因子用于信号 metadata
+ * 3. 从时序数据反序列化常规因子
  */
 
 /**
- * 构建因子对象用于记录时序数据
+ * 构建常规因子对象用于记录时序数据
+ * 常规因子：代币状态相关的因子，每个K线都有值
  * @param {Object} factorResults - _buildFactors() 返回的完整因子结果
- * @returns {Object} 适合存储到时序数据的因子对象
+ * @returns {Object} 适合存储到时序数据的常规因子对象
  */
 function buildFactorValuesForTimeSeries(factorResults) {
   if (!factorResults) {
@@ -48,51 +49,61 @@ function buildFactorValuesForTimeSeries(factorResults) {
     trendDataPoints: factorResults.trendDataPoints,
     trendRecentDownCount: factorResults.trendRecentDownCount,
     trendRecentDownRatio: factorResults.trendRecentDownRatio,
-    trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
-    // 购买前检查因子（两阶段因子）
-    preBuyCheck: factorResults.preBuyCheck || 0,
-    checkTimestamp: factorResults.checkTimestamp || null,
-    checkDuration: factorResults.checkDuration || null,
-    holderWhitelistCount: factorResults.holderWhitelistCount || 0,
-    holderBlacklistCount: factorResults.holderBlacklistCount || 0,
-    holdersCount: factorResults.holdersCount || 0,
-    devHoldingRatio: factorResults.devHoldingRatio || 0,
-    maxHoldingRatio: factorResults.maxHoldingRatio || 0,
-    holderCanBuy: factorResults.holderCanBuy ?? null,
-    preTraderCanBuy: factorResults.preTraderCanBuy ?? null,
-    preTraderCheckReason: factorResults.preTraderCheckReason ?? null,
-    // 早期参与者检查因子
-    earlyTradesChecked: factorResults.earlyTradesChecked || 0,
-    earlyTradesCheckTimestamp: factorResults.earlyTradesCheckTimestamp || null,
-    earlyTradesCheckDuration: factorResults.earlyTradesCheckDuration || null,
-    earlyTradesCheckTime: factorResults.earlyTradesCheckTime || null,
-    earlyTradesWindow: factorResults.earlyTradesWindow || null,
-    earlyTradesExpectedFirstTime: factorResults.earlyTradesExpectedFirstTime || null,
-    earlyTradesExpectedLastTime: factorResults.earlyTradesExpectedLastTime || null,
-    earlyTradesDataFirstTime: factorResults.earlyTradesDataFirstTime || null,
-    earlyTradesDataLastTime: factorResults.earlyTradesDataLastTime || null,
-    earlyTradesDataCoverage: factorResults.earlyTradesDataCoverage || 0,
-    earlyTradesActualSpan: factorResults.earlyTradesActualSpan || 0,
-    earlyTradesRateCalcWindow: factorResults.earlyTradesRateCalcWindow || 1,
-    earlyTradesVolumePerMin: factorResults.earlyTradesVolumePerMin || 0,
-    earlyTradesCountPerMin: factorResults.earlyTradesCountPerMin || 0,
-    earlyTradesWalletsPerMin: factorResults.earlyTradesWalletsPerMin || 0,
-    earlyTradesHighValuePerMin: factorResults.earlyTradesHighValuePerMin || 0,
-    earlyTradesTotalCount: factorResults.earlyTradesTotalCount || 0,
-    earlyTradesVolume: factorResults.earlyTradesVolume || 0,
-    earlyTradesUniqueWallets: factorResults.earlyTradesUniqueWallets || 0,
-    earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
-    earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0
+    trendConsecutiveDowns: factorResults.trendConsecutiveDowns
   };
 }
 
 /**
- * 从时序数据构建因子对象
+ * 构建购买前置检查因子对象用于信号 metadata
+ * 购买前置检查因子：只在购买时执行一次，存储在购买信号的 metadata 中
+ * @param {Object} preBuyCheckResult - 购买前置检查结果
+ * @returns {Object} 购买前置检查因子对象
+ */
+function buildPreBuyCheckFactorValues(preBuyCheckResult) {
+  if (!preBuyCheckResult) {
+    return {};
+  }
+
+  return {
+    // 持有者检查因子
+    holderWhitelistCount: preBuyCheckResult.holderWhitelistCount || 0,
+    holderBlacklistCount: preBuyCheckResult.holderBlacklistCount || 0,
+    holdersCount: preBuyCheckResult.holdersCount || 0,
+    devHoldingRatio: preBuyCheckResult.devHoldingRatio || 0,
+    maxHoldingRatio: preBuyCheckResult.maxHoldingRatio || 0,
+    holderCanBuy: preBuyCheckResult.holderCanBuy ?? null,
+    // 早期参与者检查因子
+    earlyTradesChecked: preBuyCheckResult.earlyTradesChecked || 0,
+    earlyTradesCheckTimestamp: preBuyCheckResult.earlyTradesCheckTimestamp || null,
+    earlyTradesCheckDuration: preBuyCheckResult.earlyTradesCheckDuration || null,
+    earlyTradesCheckTime: preBuyCheckResult.earlyTradesCheckTime || null,
+    earlyTradesWindow: preBuyCheckResult.earlyTradesWindow || null,
+    earlyTradesExpectedFirstTime: preBuyCheckResult.earlyTradesExpectedFirstTime || null,
+    earlyTradesExpectedLastTime: preBuyCheckResult.earlyTradesExpectedLastTime || null,
+    earlyTradesDataFirstTime: preBuyCheckResult.earlyTradesDataFirstTime || null,
+    earlyTradesDataLastTime: preBuyCheckResult.earlyTradesDataLastTime || null,
+    earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage || 0,
+    earlyTradesActualSpan: preBuyCheckResult.earlyTradesActualSpan || 0,
+    earlyTradesRateCalcWindow: preBuyCheckResult.earlyTradesRateCalcWindow || 1,
+    earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin || 0,
+    earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin || 0,
+    earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin || 0,
+    earlyTradesHighValuePerMin: preBuyCheckResult.earlyTradesHighValuePerMin || 0,
+    earlyTradesTotalCount: preBuyCheckResult.earlyTradesTotalCount || 0,
+    earlyTradesVolume: preBuyCheckResult.earlyTradesVolume || 0,
+    earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets || 0,
+    earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount || 0,
+    earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount || 0
+  };
+}
+
+/**
+ * 从时序数据构建常规因子对象
  * @param {Object} factorValues - 时序数据中的 factor_values
  * @param {Object} tokenState - 代币状态
  * @param {number} priceUsd - 当前价格
  * @param {number} timestamp - 时间戳
- * @returns {Object} 因子对象
+ * @returns {Object} 常规因子对象
  */
 function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0, timestamp = Date.now()) {
   const fv = factorValues || {};
@@ -143,47 +154,14 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     trendDataPoints: fv.trendDataPoints ?? null,
     trendRecentDownCount: fv.trendRecentDownCount ?? null,
     trendRecentDownRatio: fv.trendRecentDownRatio ?? null,
-    trendConsecutiveDowns: fv.trendConsecutiveDowns ?? null,
-    // 购买前检查因子
-    preBuyCheck: fv.preBuyCheck ?? 0,
-    checkTimestamp: fv.checkTimestamp ?? null,
-    checkDuration: fv.checkDuration ?? null,
-    holderWhitelistCount: fv.holderWhitelistCount ?? 0,
-    holderBlacklistCount: fv.holderBlacklistCount ?? 0,
-    holdersCount: fv.holdersCount ?? 0,
-    devHoldingRatio: fv.devHoldingRatio ?? 0,
-    maxHoldingRatio: fv.maxHoldingRatio ?? 0,
-    holderCanBuy: fv.holderCanBuy ?? null,
-    preTraderCanBuy: fv.preTraderCanBuy ?? null,
-    preTraderCheckReason: fv.preTraderCheckReason ?? null,
-    // 早期参与者检查因子
-    earlyTradesChecked: fv.earlyTradesChecked ?? 0,
-    earlyTradesCheckTimestamp: fv.earlyTradesCheckTimestamp ?? null,
-    earlyTradesCheckDuration: fv.earlyTradesCheckDuration ?? null,
-    earlyTradesCheckTime: fv.earlyTradesCheckTime ?? null,
-    earlyTradesWindow: fv.earlyTradesWindow ?? null,
-    earlyTradesExpectedFirstTime: fv.earlyTradesExpectedFirstTime ?? null,
-    earlyTradesExpectedLastTime: fv.earlyTradesExpectedLastTime ?? null,
-    earlyTradesDataFirstTime: fv.earlyTradesDataFirstTime ?? null,
-    earlyTradesDataLastTime: fv.earlyTradesDataLastTime ?? null,
-    earlyTradesDataCoverage: fv.earlyTradesDataCoverage ?? 0,
-    earlyTradesActualSpan: fv.earlyTradesActualSpan ?? 0,
-    earlyTradesRateCalcWindow: fv.earlyTradesRateCalcWindow ?? 1,
-    earlyTradesVolumePerMin: fv.earlyTradesVolumePerMin ?? 0,
-    earlyTradesCountPerMin: fv.earlyTradesCountPerMin ?? 0,
-    earlyTradesWalletsPerMin: fv.earlyTradesWalletsPerMin ?? 0,
-    earlyTradesHighValuePerMin: fv.earlyTradesHighValuePerMin ?? 0,
-    earlyTradesTotalCount: fv.earlyTradesTotalCount ?? 0,
-    earlyTradesVolume: fv.earlyTradesVolume ?? 0,
-    earlyTradesUniqueWallets: fv.earlyTradesUniqueWallets ?? 0,
-    earlyTradesHighValueCount: fv.earlyTradesHighValueCount ?? 0,
-    earlyTradesFilteredCount: fv.earlyTradesFilteredCount ?? 0
+    trendConsecutiveDowns: fv.trendConsecutiveDowns ?? null
   };
 }
 
 /**
- * 获取所有可用的因子ID列表
- * @returns {Set<string>} 因子ID集合
+ * 获取所有可用的常规因子ID列表
+ * 注意：购买前置检查因子不在此列表中，它们只存储在信号 metadata 中
+ * @returns {Set<string>} 常规因子ID集合
  */
 function getAvailableFactorIds() {
   return new Set([
@@ -195,26 +173,13 @@ function getAvailableFactorIds() {
     // 趋势因子（固定窗口8个点）
     'trendCV', 'trendPriceUp', 'trendMedianUp', 'trendStrengthScore',
     'trendTotalReturn', 'trendRiseRatio', 'trendSlope', 'trendDataPoints',
-    'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns',
-    // 购买前检查因子
-    'preBuyCheck', 'checkTimestamp', 'checkDuration',
-    'holderWhitelistCount', 'holderBlacklistCount', 'holdersCount',
-    'devHoldingRatio', 'maxHoldingRatio', 'holderCanBuy',
-    'preTraderCanBuy', 'preTraderCheckReason',
-    // 早期参与者检查因子
-    'earlyTradesChecked', 'earlyTradesCheckTimestamp', 'earlyTradesCheckDuration',
-    'earlyTradesCheckTime', 'earlyTradesWindow',
-    'earlyTradesExpectedFirstTime', 'earlyTradesExpectedLastTime',
-    'earlyTradesDataFirstTime', 'earlyTradesDataLastTime', 'earlyTradesDataCoverage',
-    'earlyTradesActualSpan', 'earlyTradesRateCalcWindow',
-    'earlyTradesVolumePerMin', 'earlyTradesCountPerMin', 'earlyTradesWalletsPerMin', 'earlyTradesHighValuePerMin',
-    'earlyTradesTotalCount', 'earlyTradesVolume', 'earlyTradesUniqueWallets',
-    'earlyTradesHighValueCount', 'earlyTradesFilteredCount'
+    'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns'
   ]);
 }
 
 module.exports = {
   buildFactorValuesForTimeSeries,
+  buildPreBuyCheckFactorValues,
   buildFactorsFromTimeSeries,
   getAvailableFactorIds
 };

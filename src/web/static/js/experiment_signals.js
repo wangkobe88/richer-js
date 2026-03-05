@@ -1616,6 +1616,91 @@ class ExperimentSignals {
       </div>`;
     }
 
+    // 构建购买前置检查信息（仅买入信号）
+    let preBuyCheckHtml = '';
+    if (signal.action.toUpperCase() === 'BUY' && metadata.preBuyCheckFactors) {
+      const pf = metadata.preBuyCheckFactors;
+      const pr = metadata.preBuyCheckResult || {};
+
+      // 购买前置检查结果
+      const checkResultBadge = pr.canBuy === false ?
+        '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">❌ 失败</span>' :
+        '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 通过</span>';
+
+      // 持有者检查信息
+      let holderCheckHtml = '';
+      if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined) {
+        holderCheckHtml = `
+          <div class="grid grid-cols-2 gap-2 text-xs mt-1">
+            <div>
+              <span class="text-gray-600">白名单:</span>
+              <span class="text-blue-700 font-medium">${pf.holderWhitelistCount || 0}</span>
+            </div>
+            <div>
+              <span class="text-gray-600">黑名单:</span>
+              <span class="text-red-700 font-medium">${pf.holderBlacklistCount || 0}</span>
+            </div>
+            <div>
+              <span class="text-gray-600">持有人数:</span>
+              <span class="text-gray-900">${pf.holdersCount || 0}</span>
+            </div>
+            <div>
+              <span class="text-gray-600">Dev持有:</span>
+              <span class="text-gray-900">${pf.devHoldingRatio ? pf.devHoldingRatio.toFixed(1) : 'N/A'}%</span>
+            </div>
+          </div>
+        `;
+      }
+
+      // 早期参与者检查信息
+      let earlyTradesHtml = '';
+      if (pf.earlyTradesChecked === 1) {
+        earlyTradesHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-100">
+            <div class="text-xs font-medium text-amber-700 mb-1">📊 早期参与者</div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <span class="text-gray-600">高价值交易:</span>
+                <span class="text-amber-700 font-medium">${pf.earlyTradesHighValueCount || 0}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">高价值/分:</span>
+                <span class="text-amber-700 font-medium">${pf.earlyTradesHighValuePerMin ? pf.earlyTradesHighValuePerMin.toFixed(1) : '0'}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">交易/分:</span>
+                <span class="text-amber-700 font-medium">${pf.earlyTradesCountPerMin ? pf.earlyTradesCountPerMin.toFixed(1) : '0'}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">实际跨度:</span>
+                <span class="text-gray-900">${pf.earlyTradesActualSpan ? pf.earlyTradesActualSpan.toFixed(0) : '0'}秒</span>
+              </div>
+              <div>
+                <span class="text-gray-600">总交易:</span>
+                <span class="text-gray-900">${pf.earlyTradesTotalCount || 0}</span>
+              </div>
+              <div>
+                <span class="text-gray-600">独立钱包:</span>
+                <span class="text-gray-900">${pf.earlyTradesUniqueWallets || 0}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      preBuyCheckHtml = `
+        <div class="mt-2 p-2 bg-amber-50 rounded border border-amber-200">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-amber-700 font-medium text-sm">🔍 购买前置检查</span>
+            ${checkResultBadge}
+          </div>
+          ${holderCheckHtml}
+          ${earlyTradesHtml}
+          ${pr.reason ? `<div class="text-xs text-gray-600 mt-1">${this._escapeHtml(pr.reason)}</div>` : ''}
+        </div>
+      `;
+    }
+
     // 构建卡牌位置变化信息
     let cardPositionHtml = '';
     if (metadata.cardPositionChange) {
@@ -1695,6 +1780,8 @@ class ExperimentSignals {
       ${rejectionInfoHtml}
 
       ${strategyInfoHtml}
+
+      ${preBuyCheckHtml}
 
       ${cardPositionHtml}
 
