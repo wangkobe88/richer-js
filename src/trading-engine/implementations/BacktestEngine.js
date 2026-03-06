@@ -900,8 +900,31 @@ class BacktestEngine extends AbstractTradingEngine {
           return;
         }
 
+        // 获取策略的 preBuyCheckCondition（从原始配置中查找）
+        const strategiesConfig = this._experiment?.config?.strategiesConfig || {};
+        let preBuyCheckCondition = null;
+
+        if (strategy.action === 'buy' && strategiesConfig.buyStrategies) {
+          const buyStrategyConfig = strategiesConfig.buyStrategies.find(
+            s => s.priority === strategy.priority
+          );
+          if (buyStrategyConfig) {
+            preBuyCheckCondition = buyStrategyConfig.preBuyCheckCondition || null;
+          }
+        } else if (strategy.action === 'sell' && strategiesConfig.sellStrategies) {
+          const sellStrategyConfig = strategiesConfig.sellStrategies.find(
+            s => s.priority === strategy.priority
+          );
+          if (sellStrategyConfig) {
+            preBuyCheckCondition = sellStrategyConfig.preBuyCheckCondition || null;
+          }
+        }
+
+        // 将 preBuyCheckCondition 添加到 strategy 对象中，供后续使用
+        strategy.preBuyCheckCondition = preBuyCheckCondition;
+
         this.logger.info(this._experimentId, 'BacktestEngine',
-          `${tokenSymbol} 触发策略: ${strategy.name} (${strategy.action})`);
+          `${tokenSymbol} 触发策略: ${strategy.name} (${strategy.action}), hasPreBuyCheckCondition=${!!preBuyCheckCondition}`);
 
         if (this._roundSummary) {
           this._roundSummary.recordSignal(tokenAddress, {
