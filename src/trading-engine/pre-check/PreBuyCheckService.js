@@ -210,7 +210,7 @@ class PreBuyCheckService {
         holdersCount: holderCheck.holdersCount || 0,
         devHoldingRatio: holderCheck.devHoldingRatio || 0,
         maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
-        // 早期参与者因子
+        // 早期参与者因子 - 速率指标
         earlyTradesChecked: earlyParticipantCheck.earlyTradesChecked || 0,
         earlyTradesHighValueCount: earlyParticipantCheck.earlyTradesHighValueCount || 0,
         earlyTradesHighValuePerMin: earlyParticipantCheck.earlyTradesHighValuePerMin || 0,
@@ -221,7 +221,14 @@ class PreBuyCheckService {
         earlyTradesVolume: earlyParticipantCheck.earlyTradesVolume || 0,
         earlyTradesUniqueWallets: earlyParticipantCheck.earlyTradesUniqueWallets || 0,
         earlyTradesDataCoverage: earlyParticipantCheck.earlyTradesDataCoverage || 0,
-        earlyTradesFilteredCount: earlyParticipantCheck.earlyTradesFilteredCount || 0
+        earlyTradesFilteredCount: earlyParticipantCheck.earlyTradesFilteredCount || 0,
+        // 早期参与者因子 - 数据跨度
+        earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
+        earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1
+        // 注意：以下因子主要用于调试，通常不用于条件表达式
+        // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
+        // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
+        // earlyTradesDataFirstTime, earlyTradesDataLastTime
       };
 
       const canBuy = this._safeEvaluate(condition, context);
