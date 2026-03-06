@@ -94,20 +94,43 @@ class PreBuyCheckService {
         this._performEarlyParticipantCheck(tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant)
       ]);
 
-      // 如果提供了条件表达式，使用表达式评估
-      if (preBuyCheckCondition && preBuyCheckCondition.trim()) {
-        return this._evaluateWithCondition(
-          holderCheck,
-          earlyParticipantCheck,
-          preBuyCheckCondition,
-          startTime
-        );
+      // 如果没有提供条件表达式，返回检查失败
+      // 不再使用默认配置，要求明确配置检查条件
+      if (!preBuyCheckCondition || !preBuyCheckCondition.trim()) {
+        this.logger.warn('[PreBuyCheckService] 未配置检查条件，拒绝购买', {
+          token_address: tokenAddress,
+          experiment_id: experimentId
+        });
+
+        return {
+          preBuyCheck: 1,
+          checkTimestamp: Date.now(),
+          checkDuration: Date.now() - startTime,
+
+          holderWhitelistCount: holderCheck.whitelistCount || 0,
+          holderBlacklistCount: holderCheck.blacklistCount || 0,
+          holdersCount: holderCheck.holdersCount || 0,
+          devHoldingRatio: holderCheck.devHoldingRatio || 0,
+          maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
+          holderCanBuy: false,
+
+          holderCheckReason: holderCheck.reason || '检查未配置',
+          blacklistReason: holderCheck.blacklistReason || '',
+          devReason: holderCheck.devReason || '',
+
+          canBuy: false,
+          checkReason: '未配置购买前检查条件，请在实验配置中设置检查条件',
+
+          // 早期参与者检查失败时的空值
+          ...this.earlyParticipantService.getEmptyFactorValues()
+        };
       }
 
-      // 否则使用默认逻辑（向后兼容）
-      return this._evaluateDefault(
+      // 使用条件表达式评估
+      return this._evaluateWithCondition(
         holderCheck,
         earlyParticipantCheck,
+        preBuyCheckCondition,
         startTime
       );
     } catch (error) {

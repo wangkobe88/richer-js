@@ -651,6 +651,9 @@ class ExperimentDataService {
    */
   async getTokens(experimentId, options = {}) {
     try {
+      // 🔥 对于回测实验，自动使用源实验的代币数据
+      const targetExperimentId = await this._getTargetExperimentIdForTokens(experimentId);
+
       const sortBy = options.sortBy || 'discovered_at';
       const sortOrder = options.sortOrder || 'desc';
       const offset = parseInt(options.offset) || 0;
@@ -665,7 +668,7 @@ class ExperimentDataService {
 
       // 如果 limit <= 1000，直接查询
       if (limit <= 1000) {
-        return await this._getTokensSingleQuery(experimentId, options, offset, limit);
+        return await this._getTokensSingleQuery(targetExperimentId, options, offset, limit);
       }
 
       // 否则使用分页循环获取所有数据
@@ -676,7 +679,7 @@ class ExperimentDataService {
 
       while (remaining > 0) {
         const currentPageSize = Math.min(remaining, pageSize);
-        const pageTokens = await this._getTokensSingleQuery(experimentId, options, currentOffset, currentPageSize);
+        const pageTokens = await this._getTokensSingleQuery(targetExperimentId, options, currentOffset, currentPageSize);
         allTokens = allTokens.concat(pageTokens);
 
         if (pageTokens.length < currentPageSize) {
@@ -693,6 +696,61 @@ class ExperimentDataService {
     } catch (error) {
       console.error('获取代币列表失败:', error);
       return [];
+    }
+  }
+
+  /**
+   * 获取代币数据的实际实验ID（回测实验使用源实验ID）
+   * @private
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<string>} 目标实验ID
+   */
+  async _getTargetExperimentIdForTokens(experimentId) {
+    try {
+      console.log(`[_getTargetExperimentIdForTokens] 开始查询实验信息: ${experimentId}`);
+
+      // 查询实验信息
+      const { data: expConfig, error } = await this.supabase
+        .from('experiments')
+        .select('config')
+        .eq('id', experimentId)
+        .single();
+
+      console.log(`[_getTargetExperimentIdForTokens] 查询结果: error=${error}, expConfig=${!!expConfig}`);
+
+      if (error || !expConfig) {
+        console.warn(`[getTokens] 无法获取实验信息: ${experimentId}, 使用原ID`);
+        return experimentId;
+      }
+
+      console.log(`[_getTargetExperimentIdForTokens] expConfig keys: ${Object.keys(expConfig)}`);
+      console.log(`[_getTargetExperimentIdForTokens] expConfig.config type: ${typeof expConfig.config}`);
+
+      // 处理 config 字段（Supabase返回的原始数据）
+      let config = expConfig.config;
+      console.log(`[_getTargetExperimentIdForTokens] 原始config type: ${typeof config}, value: ${config}`);
+
+      if (typeof config === 'string') {
+        console.log(`[_getTargetExperimentIdForTokens] 解析 JSON config`);
+        config = JSON.parse(config);
+      }
+
+      console.log(`[_getTargetExperimentIdForTokens] 解析后的config:`, config);
+      console.log(`[_getTargetExperimentIdForTokens] config.backtest:`, config?.backtest);
+      console.log(`[_getTargetExperimentIdForTokens] sourceExperimentId:`, config?.backtest?.sourceExperimentId);
+
+      // 如果是回测实验且有源实验ID，使用源实验ID
+      if (config?.backtest?.sourceExperimentId) {
+        const sourceId = config.backtest.sourceExperimentId;
+        console.log(`[getTokens] 回测实验使用源实验代币数据: ${experimentId} -> ${sourceId}`);
+        return sourceId;
+      }
+
+      console.log(`[getTokens] 非回测实验或无源实验ID，使用原ID: ${experimentId}`);
+      return experimentId;
+    } catch (error) {
+      console.error(`[getTokens] 判断源实验ID失败: ${error.message}`, error);
+      return experimentId;
     }
   }
 
@@ -777,10 +835,13 @@ class ExperimentDataService {
    */
   async getToken(experimentId, tokenAddress) {
     try {
+      // 🔥 对于回测实验，使用源实验的代币数据
+      const targetExperimentId = await this._getTargetExperimentIdForTokens(experimentId);
+
       const { data, error } = await this.supabase
         .from('experiment_tokens')
         .select('*')
-        .eq('experiment_id', experimentId)
+        .eq('experiment_id', targetExperimentId)
         .eq('token_address', tokenAddress)
         .single();
 

@@ -573,6 +573,7 @@ class BacktestEngine extends AbstractTradingEngine {
           cooldown: s.cooldown || 300,
           cards: s.cards || 1,
           maxExecutions: s.maxExecutions || null,
+          preBuyCheckCondition: s.preBuyCheckCondition || null,  // 购买前检查条件
           enabled: true
         });
       });
@@ -1094,9 +1095,8 @@ class BacktestEngine extends AbstractTradingEngine {
       if (this._preBuyCheckService) {
         try {
           const tokenInfo = this._buildTokenInfoForBacktest(tokenState);
-          const preBuyCheckCondition = strategy.preBuyCheckCondition ||
-                                       this._experiment?.config?.strategiesConfig?.defaultPreBuyCheckCondition ||
-                                       null;
+          // 只使用策略级别的预检查条件，不再使用默认配置
+          const preBuyCheckCondition = strategy.preBuyCheckCondition || null;
 
           preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             tokenState.token,

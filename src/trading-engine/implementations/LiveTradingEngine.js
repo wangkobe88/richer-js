@@ -1320,15 +1320,18 @@ class LiveTradingEngine extends AbstractTradingEngine {
   _buildFactors(token) {
     const now = Date.now();
     const currentPrice = token.currentPrice || 0;
-    const launchPrice = token.launchPrice || 0;
+
+    // collectionPrice 保留用于兼容和调试
+    const collectionPrice = token.collectionPrice || currentPrice;
+
+    // 使用 launchPrice 作为基准，如果没有则使用 collectionPrice（收集价格）
+    // 这样可以确保即使 AVE API 没有返回 launch_price，earlyReturn 也能基于收集价格计算
+    const launchPrice = token.launchPrice || collectionPrice || 0;
 
     let earlyReturn = 0;
     if (launchPrice > 0 && currentPrice > 0) {
       earlyReturn = ((currentPrice - launchPrice) / launchPrice) * 100;
     }
-
-    // collectionPrice 保留用于兼容和调试
-    const collectionPrice = token.collectionPrice || currentPrice;
 
     // age 基于代币创建时间（AVE API 的 created_at），而不是收集时间
     const tokenCreatedAt = token.createdAt || Date.now() / 1000;
@@ -1346,6 +1349,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
       profitPercent = ((currentPrice - token.buyPrice) / token.buyPrice) * 100;
     }
 
+    const collectionTime = token.collectionTime || token.addedAt || now;
     const highestPrice = token.highestPrice || launchPrice || currentPrice;
     const highestPriceTimestamp = token.highestPriceTimestamp || collectionTime;
 
