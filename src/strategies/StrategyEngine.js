@@ -78,7 +78,8 @@ class StrategyEngine {
                     condition,
                     enabled: config.enabled !== false, // 默认启用
                     cards: config.cards || 1,  // 默认使用1卡
-                    maxExecutions: config.maxExecutions || null  // 默认无限制
+                    maxExecutions: config.maxExecutions || null,  // 默认无限制
+                    preBuyCheckCondition: config.preBuyCheckCondition || null  // 购买前检查条件
                 };
 
                 this._strategies.push(strategy);
