@@ -32,6 +32,9 @@ class ExperimentSignals {
     this.rejectionStats = null;
     this.showRejected = true;  // 默认显示被拒绝的信号
 
+    // 🔥 实验配置（用于获取预检查条件）
+    this.experimentConfig = null;
+
     this.init();
   }
 
@@ -757,6 +760,9 @@ class ExperimentSignals {
     const name = experiment.experimentName || experiment.experiment_name || '未知实验';
     document.getElementById('experiment-name').textContent = name;
     document.getElementById('experiment-id').textContent = `ID: ${this.experimentId}`;
+
+    // 🔥 保存实验配置（用于预检查条件判断）
+    this.experimentConfig = experiment.config || null;
 
     // 🔥 设置回测状态
     this._isBacktest = experiment.tradingMode === 'backtest';
@@ -1652,6 +1658,10 @@ class ExperimentSignals {
       const pf = metadata.preBuyCheckFactors;
       const pr = metadata.preBuyCheckResult || {};
 
+      // 🔥 获取预检查条件并解析阈值
+      const preBuyCheckCondition = this._getPreBuyCheckCondition('buy');
+      const thresholds = preBuyCheckCondition ? this._parsePreBuyCheckCondition(preBuyCheckCondition) : {};
+
       // 购买前置检查结果
       const checkResultBadge = pr.canBuy === false ?
         '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">❌ 失败</span>' :
@@ -1660,15 +1670,20 @@ class ExperimentSignals {
       // 持有者检查信息
       let holderCheckHtml = '';
       if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined) {
+        const whitelistClass = this._getFactorClass('holderWhitelistCount', pf.holderWhitelistCount || 0, thresholds);
+        const blacklistClass = this._getFactorClass('holderBlacklistCount', pf.holderBlacklistCount || 0, thresholds);
+        const devClass = this._getFactorClass('devHoldingRatio', pf.devHoldingRatio || 0, thresholds);
+        const maxClass = this._getFactorClass('maxHoldingRatio', pf.maxHoldingRatio || 0, thresholds);
+
         holderCheckHtml = `
           <div class="grid grid-cols-2 gap-2 text-xs mt-2">
             <div>
               <span class="text-amber-800">白名单:</span>
-              <span class="text-blue-900 font-bold">${pf.holderWhitelistCount || 0}</span>
+              <span class="${whitelistClass}">${pf.holderWhitelistCount || 0}</span>
             </div>
             <div>
               <span class="text-amber-800">黑名单:</span>
-              <span class="text-red-900 font-bold">${pf.holderBlacklistCount || 0}</span>
+              <span class="${blacklistClass}">${pf.holderBlacklistCount || 0}</span>
             </div>
             <div>
               <span class="text-amber-800">持有人数:</span>
@@ -1676,7 +1691,11 @@ class ExperimentSignals {
             </div>
             <div>
               <span class="text-amber-800">Dev持有:</span>
-              <span class="text-gray-900 font-medium">${pf.devHoldingRatio ? pf.devHoldingRatio.toFixed(1) : 'N/A'}%</span>
+              <span class="${devClass}">${pf.devHoldingRatio ? pf.devHoldingRatio.toFixed(1) : 'N/A'}%</span>
+            </div>
+            <div>
+              <span class="text-amber-800">最大持仓:</span>
+              <span class="${maxClass}">${pf.maxHoldingRatio ? pf.maxHoldingRatio.toFixed(1) : 'N/A'}%</span>
             </div>
           </div>
         `;
@@ -1689,25 +1708,37 @@ class ExperimentSignals {
         const hasTradeData = (pf.earlyTradesTotalCount || 0) > 0;
 
         if (hasTradeData) {
+          // 获取每个因子的样式类
+          const highValueCountClass = this._getFactorClass('earlyTradesHighValueCount', pf.earlyTradesHighValueCount || 0, thresholds);
+          const highValuePerMinClass = this._getFactorClass('earlyTradesHighValuePerMin', pf.earlyTradesHighValuePerMin || 0, thresholds);
+          const countPerMinClass = this._getFactorClass('earlyTradesCountPerMin', pf.earlyTradesCountPerMin || 0, thresholds);
+          const volumePerMinClass = this._getFactorClass('earlyTradesVolumePerMin', pf.earlyTradesVolumePerMin || 0, thresholds);
+          const actualSpanClass = this._getFactorClass('earlyTradesActualSpan', pf.earlyTradesActualSpan || 0, thresholds);
+          const uniqueWalletsClass = this._getFactorClass('earlyTradesUniqueWallets', pf.earlyTradesUniqueWallets || 0, thresholds);
+
           earlyTradesHtml = `
             <div class="mt-2 pt-2 border-t border-amber-300">
               <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者</div>
               <div class="grid grid-cols-3 gap-2 text-xs">
                 <div>
                   <span class="text-amber-800">高价值交易:</span>
-                  <span class="text-amber-900 font-bold">${pf.earlyTradesHighValueCount || 0}</span>
+                  <span class="${highValueCountClass}">${pf.earlyTradesHighValueCount || 0}</span>
                 </div>
                 <div>
                   <span class="text-amber-800">高价值/分:</span>
-                  <span class="text-amber-900 font-bold">${pf.earlyTradesHighValuePerMin ? pf.earlyTradesHighValuePerMin.toFixed(1) : '0'}</span>
+                  <span class="${highValuePerMinClass}">${pf.earlyTradesHighValuePerMin ? pf.earlyTradesHighValuePerMin.toFixed(1) : '0'}</span>
                 </div>
                 <div>
                   <span class="text-amber-800">交易/分:</span>
-                  <span class="text-amber-900 font-bold">${pf.earlyTradesCountPerMin ? pf.earlyTradesCountPerMin.toFixed(1) : '0'}</span>
+                  <span class="${countPerMinClass}">${pf.earlyTradesCountPerMin ? pf.earlyTradesCountPerMin.toFixed(1) : '0'}</span>
+                </div>
+                <div>
+                  <span class="text-amber-800">交易量/分:</span>
+                  <span class="${volumePerMinClass}">${pf.earlyTradesVolumePerMin ? pf.earlyTradesVolumePerMin.toFixed(0) : '0'}</span>
                 </div>
                 <div>
                   <span class="text-amber-800">实际跨度:</span>
-                  <span class="text-gray-900 font-medium">${pf.earlyTradesActualSpan ? pf.earlyTradesActualSpan.toFixed(0) : '0'}秒</span>
+                  <span class="${actualSpanClass}">${pf.earlyTradesActualSpan ? pf.earlyTradesActualSpan.toFixed(0) : '0'}秒</span>
                 </div>
                 <div>
                   <span class="text-amber-800">总交易:</span>
@@ -1715,7 +1746,7 @@ class ExperimentSignals {
                 </div>
                 <div>
                   <span class="text-amber-800">独立钱包:</span>
-                  <span class="text-gray-900 font-medium">${pf.earlyTradesUniqueWallets || 0}</span>
+                  <span class="${uniqueWalletsClass}">${pf.earlyTradesUniqueWallets || 0}</span>
                 </div>
               </div>
             </div>
@@ -2131,6 +2162,111 @@ class ExperimentSignals {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * 从实验配置中获取购买前检查条件
+   * @private
+   * @param {string} action - 交易动作 ('buy' 或 'sell')
+   * @returns {string|null} 条件表达式
+   */
+  _getPreBuyCheckCondition(action) {
+    if (!this.experimentConfig || !this.experimentConfig.strategiesConfig) {
+      return null;
+    }
+
+    const strategiesConfig = this.experimentConfig.strategiesConfig;
+    const strategies = action === 'buy' ? strategiesConfig.buyStrategies : strategiesConfig.sellStrategies;
+
+    if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
+      return null;
+    }
+
+    // 获取第一个策略的预检查条件
+    return strategies[0].preBuyCheckCondition || null;
+  }
+
+  /**
+   * 解析预检查条件表达式，提取各因子的阈值
+   * 支持的运算符: >=, <=, >, <, =, ==
+   * @private
+   * @param {string} condition - 条件表达式
+   * @returns {Object} 因子名到阈值的映射 { factorName: { operator, value } }
+   */
+  _parsePreBuyCheckCondition(condition) {
+    if (!condition || typeof condition !== 'string') {
+      return {};
+    }
+
+    const thresholds = {};
+
+    // 匹配模式: factorName operator value
+    // 支持的运算符: >=, <=, >, <, =, ==, AND, OR
+    const patterns = [
+      /(\w+)\s*(>=|<=|>|<|=|==)\s*(\d+\.?\d*)/g
+    ];
+
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(condition)) !== null) {
+        const [, factorName, operator, value] = match;
+        thresholds[factorName] = {
+          operator: operator,
+          value: parseFloat(value)
+        };
+      }
+    }
+
+    return thresholds;
+  }
+
+  /**
+   * 检查因子值是否满足预检查条件
+   * @private
+   * @param {string} factorName - 因子名称
+   * @param {number} factorValue - 因子值
+   * @param {Object} thresholds - 从 _parsePreBuyCheckCondition 返回的阈值对象
+   * @returns {boolean} 是否满足条件
+   */
+  _checkFactorMeetsCondition(factorName, factorValue, thresholds) {
+    if (!thresholds || !thresholds[factorName]) {
+      return true; // 没有条件要求，视为满足
+    }
+
+    const threshold = thresholds[factorName];
+    const value = threshold.value;
+
+    switch (threshold.operator) {
+      case '>=':
+        return factorValue >= value;
+      case '<=':
+        return factorValue <= value;
+      case '>':
+        return factorValue > value;
+      case '<':
+        return factorValue < value;
+      case '=':
+      case '==':
+        return factorValue == value;
+      default:
+        return true;
+    }
+  }
+
+  /**
+   * 根据是否满足条件返回对应的 CSS 类
+   * @private
+   * @param {string} factorName - 因子名称
+   * @param {number} factorValue - 因子值
+   * @param {Object} thresholds - 阈值对象
+   * @returns {string} CSS 类名
+   */
+  _getFactorClass(factorName, factorValue, thresholds) {
+    if (this._checkFactorMeetsCondition(factorName, factorValue, thresholds)) {
+      return 'text-green-700'; // 满足条件 - 绿色
+    } else {
+      return 'text-red-700 font-bold'; // 不满足条件 - 红色加粗
+    }
   }
 }
 
