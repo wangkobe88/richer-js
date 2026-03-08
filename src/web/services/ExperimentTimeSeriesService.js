@@ -83,11 +83,11 @@ class ExperimentTimeSeriesService {
       const retryAttempt = options.retryAttempt || 1;
       const maxRetries = options.maxRetries || 3;
 
-      // 增加超时时间：首次60秒，最少30秒
+      // 超时时间：固定72秒（1.2分钟），所有重试都使用相同超时
       const BASE_PAGE_SIZE = 100;
       const PAGE_SIZE = Math.max(50, Math.floor(BASE_PAGE_SIZE / retryAttempt));
       const MAX_PAGES = 20000;
-      const QUERY_TIMEOUT = Math.max(30000, Math.floor(60000 / retryAttempt)); // 首次60秒，最少30秒
+      const QUERY_TIMEOUT = 72000; // 固定72秒（1.2分钟）
 
       let allData = [];
       let page = 0;
