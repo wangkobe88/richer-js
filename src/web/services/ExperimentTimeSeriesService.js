@@ -97,7 +97,7 @@ class ExperimentTimeSeriesService {
       let currentTimeoutRetries = 0; // 当前页的超时重试计数
       const MAX_CONSECUTIVE_ERRORS = 3;
       const MAX_CONSECUTIVE_EMPTY_PAGES = 5; // 连续5页空数据后停止
-      const MAX_TIMEOUT_RETRIES = 2; // 超时重试次数
+      const MAX_TIMEOUT_RETRIES = 5; // 超时重试次数
 
       // 日志中显示筛选信息
       const tokenFilterInfo = Array.isArray(tokenAddress)
