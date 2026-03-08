@@ -5,8 +5,10 @@
 
 const { PreBuyCheckService } = require('./PreBuyCheckService');
 const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService');
+const { WalletClusterService } = require('./WalletClusterService');
 
 module.exports = {
   PreBuyCheckService,
-  EarlyParticipantCheckService
+  EarlyParticipantCheckService,
+  WalletClusterService
 };

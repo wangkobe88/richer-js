@@ -40,7 +40,10 @@
       "countPerMinThreshold": 14,
       "highValuePerMinThreshold": 8
     },
-    "largeHoldingThreshold": 18
+    "largeHoldingThreshold": 18,
+    "walletClusterCheckEnabled": false,
+    "walletClusterPumpDumpThreshold": 0.3,
+    "walletClusterMegaRatioThreshold": 0.4
   },
   "logging": {
     "level": "INFO",

@@ -10,6 +10,7 @@
 
 const { TokenHolderService } = require('../holders/TokenHolderService');
 const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService');
+const { WalletClusterService } = require('./WalletClusterService');
 
 /**
  * 默认配置
@@ -25,7 +26,11 @@ const DEFAULT_CONFIG = {
     volumePerMinThreshold: 1610,
     countPerMinThreshold: 14,
     highValuePerMinThreshold: 8
-  }
+  },
+  // 钱包簇检查配置
+  walletClusterCheckEnabled: false,  // 是否启用钱包簇检查（默认关闭）
+  walletClusterPumpDumpThreshold: 0.3,  // 第2簇/第1簇判定阈值
+  walletClusterMegaRatioThreshold: 0.4  // 超大簇占比阈值
 };
 
 class PreBuyCheckService {
@@ -45,6 +50,12 @@ class PreBuyCheckService {
     // 初始化早期参与者检查服务
     this.earlyParticipantService = new EarlyParticipantCheckService(logger, {
       calculateGrowthScore: false  // 暂不计算增长评分
+    });
+
+    // 初始化钱包簇检查服务
+    this.walletClusterService = new WalletClusterService(logger, {
+      pumpDumpThreshold: this.config.walletClusterPumpDumpThreshold,
+      megaClusterRatioThreshold: this.config.walletClusterMegaRatioThreshold
     });
   }
 
@@ -88,10 +99,15 @@ class PreBuyCheckService {
     });
 
     try {
-      // 并行执行检查（如果都有数据）
-      const [holderCheck, earlyParticipantCheck] = await Promise.all([
+      // 先执行早期参与者检查（获取交易数据）
+      const earlyParticipantCheck = await this._performEarlyParticipantCheck(
+        tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
+      );
+
+      // 并行执行持有者检查和钱包簇检查
+      const [holderCheck, walletClusterCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
-        this._performEarlyParticipantCheck(tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant)
+        this._performWalletClusterCheck(tokenAddress, chain, tokenInfo, checkTime, earlyParticipantCheck)
       ]);
 
       // 如果没有提供条件表达式，返回检查失败
@@ -122,7 +138,9 @@ class PreBuyCheckService {
           checkReason: '未配置购买前检查条件，请在实验配置中设置检查条件',
 
           // 早期参与者检查失败时的空值
-          ...this.earlyParticipantService.getEmptyFactorValues()
+          ...this.earlyParticipantService.getEmptyFactorValues(),
+          // 钱包簇检查失败时的空值
+          ...this.walletClusterService.getEmptyFactorValues()
         };
       }
 
@@ -130,6 +148,7 @@ class PreBuyCheckService {
       return this._evaluateWithCondition(
         holderCheck,
         earlyParticipantCheck,
+        walletClusterCheck,
         preBuyCheckCondition,
         startTime
       );
@@ -163,7 +182,9 @@ class PreBuyCheckService {
         checkReason: `购买前检查失败: ${errorMessage}`,
 
         // 早期参与者检查失败时的空值
-        ...this.earlyParticipantService.getEmptyFactorValues()
+        ...this.earlyParticipantService.getEmptyFactorValues(),
+        // 钱包簇检查失败时的空值
+        ...this.walletClusterService.getEmptyFactorValues()
       };
     }
   }
@@ -172,7 +193,7 @@ class PreBuyCheckService {
    * 使用条件表达式评估
    * @private
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, condition, startTime) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, condition, startTime) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -195,6 +216,9 @@ class PreBuyCheckService {
 
       // 早期参与者检查结果
       ...earlyParticipantCheck,
+
+      // 钱包簇检查结果
+      ...walletClusterCheck,
 
       // 早期参与者购买资格评估
       preTraderCanBuy: null,
@@ -224,11 +248,20 @@ class PreBuyCheckService {
         earlyTradesFilteredCount: earlyParticipantCheck.earlyTradesFilteredCount || 0,
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
-        earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1
+        earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,
+        // 钱包簇因子
+        walletClusterSecondToFirstRatio: walletClusterCheck.walletClusterSecondToFirstRatio || 0,
+        walletClusterMegaRatio: walletClusterCheck.walletClusterMegaRatio || 0,
+        walletClusterTop2Ratio: walletClusterCheck.walletClusterTop2Ratio || 0,
+        walletClusterCount: walletClusterCheck.walletClusterCount || 0,
+        walletClusterMaxSize: walletClusterCheck.walletClusterMaxSize || 0,
+        walletClusterAvgSize: walletClusterCheck.walletClusterAvgSize || 0,
+        walletClusterMaxClusterWallets: walletClusterCheck.walletClusterMaxClusterWallets || 0
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
         // earlyTradesDataFirstTime, earlyTradesDataLastTime
+        // walletClusterCheckTimestamp, walletClusterCheckDuration
       };
 
       const canBuy = this._safeEvaluate(condition, context);
@@ -242,7 +275,8 @@ class PreBuyCheckService {
           devHoldingRatio: context.devHoldingRatio,
           maxHoldingRatio: context.maxHoldingRatio,
           earlyTradesHighValueCount: context.earlyTradesHighValueCount,
-          earlyTradesCountPerMin: context.earlyTradesCountPerMin
+          earlyTradesCountPerMin: context.earlyTradesCountPerMin,
+          walletClusterSecondToFirstRatio: context.walletClusterSecondToFirstRatio
         }
       });
 
@@ -427,6 +461,41 @@ class PreBuyCheckService {
   }
 
   /**
+   * 执行钱包簇检查
+   * @private
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} chain - 区块链
+   * @param {Object} tokenInfo - 代币信息（只需要 innerPair）
+   * @param {number} checkTime - 检查时间戳（秒）
+   * @param {Object} earlyParticipantCheck - 早期参与者检查结果（包含 trades 数据）
+   * @returns {Promise<Object>} 钱包簇检查结果
+   */
+  async _performWalletClusterCheck(tokenAddress, chain, tokenInfo, checkTime = null, earlyParticipantCheck = null) {
+    // 如果未启用或缺少信息，返回空值
+    if (!this.config.walletClusterCheckEnabled) {
+      return this.walletClusterService.getEmptyFactorValues();
+    }
+
+    // 从早期参与者检查结果中获取交易数据
+    const trades = earlyParticipantCheck?._trades;
+
+    if (!trades || trades.length === 0) {
+      return this.walletClusterService.getEmptyFactorValues();
+    }
+
+    try {
+      // 使用早期参与者检查已经获取的交易数据
+      return this.walletClusterService.performClusterAnalysis(trades);
+    } catch (error) {
+      this.logger.error('[PreBuyCheckService] 钱包簇检查失败', {
+        token_address: tokenAddress,
+        error: error.message
+      });
+      return this.walletClusterService.getEmptyFactorValues();
+    }
+  }
+
+  /**
    * 构建综合检查原因
    * @private
    */
@@ -465,7 +534,8 @@ class PreBuyCheckService {
       holderCanBuy: null,
       preTraderCanBuy: null,
       preTraderCheckReason: null,
-      ...this.earlyParticipantService.getEmptyFactorValues()
+      ...this.earlyParticipantService.getEmptyFactorValues(),
+      ...this.walletClusterService.getEmptyFactorValues()
     };
   }
 

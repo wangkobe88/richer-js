@@ -120,7 +120,10 @@ class EarlyParticipantCheckService {
         earlyTradesVolume: basicStats.totalVolume,
         earlyTradesUniqueWallets: basicStats.uniqueWallets,
         earlyTradesHighValueCount: basicStats.highValueCount,
-        earlyTradesFilteredCount: basicStats.filteredCount
+        earlyTradesFilteredCount: basicStats.filteredCount,
+
+        // 内部数据（供钱包簇检查复用）
+        _trades: trades
       };
 
       this.logger.info('[EarlyParticipantCheckService] 早期参与者检查完成', {
@@ -305,7 +308,10 @@ class EarlyParticipantCheckService {
       earlyTradesVolume: 0,
       earlyTradesUniqueWallets: 0,
       earlyTradesHighValueCount: 0,
-      earlyTradesFilteredCount: 0
+      earlyTradesFilteredCount: 0,
+
+      // 内部数据（供钱包簇检查复用）
+      _trades: []
     };
   }
 
@@ -337,7 +343,10 @@ class EarlyParticipantCheckService {
       earlyTradesVolume: 0,
       earlyTradesUniqueWallets: 0,
       earlyTradesHighValueCount: 0,
-      earlyTradesFilteredCount: 0
+      earlyTradesFilteredCount: 0,
+
+      // 内部数据（供钱包簇检查复用）
+      _trades: []
     };
   }
 
