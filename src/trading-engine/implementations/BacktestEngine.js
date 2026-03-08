@@ -663,7 +663,7 @@ class BacktestEngine extends AbstractTradingEngine {
    * @returns {Promise<void>}
    */
   async _loadHistoricalData() {
-    const MAX_RETRIES = 3;
+    const MAX_RETRIES = 6;
     let lastError = null;
 
     // 获取涨幅过滤参数

@@ -6,8 +6,8 @@
 require('dotenv').config({ path: './config/.env' });
 const { createClient } = require('@supabase/supabase-js');
 
-// 默认超时配置（30秒的1.5倍 = 45秒）
-const DEFAULT_TIMEOUT_MS = 45000;
+// 默认超时配置（1.2分钟 = 72秒）
+const DEFAULT_TIMEOUT_MS = 72000;
 
 /**
  * 创建带超时的 fetch 函数
