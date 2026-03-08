@@ -1,34 +1,71 @@
-require('dotenv').config({ path: './config/.env' });
-const { createClient } = require('@supabase/supabase-js');
+/**
+ * 查看回测实验 ab75cb2b 的所有相关数据
+ */
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY
-);
+const { dbManager } = require('../src/services/dbManager');
+const supabase = dbManager.getClient();
 
-(async () => {
-  // 检查源实验的时序数据
-  const { data: timeSeries, error } = await supabase
-    .from('experiment_time_series')
+async function checkAllData() {
+  const experimentId = 'ab75cb2b-4930-4049-a3bd-f96e3de6af47';
+
+  // 获取实验配置
+  const { data: experiment } = await supabase
+    .from('experiments')
     .select('*')
-    .eq('experiment_id', '0cc6804d-834e-44f8-8287-c4b4a78abd30')
-    .limit(1);
+    .eq('id', experimentId)
+    .single();
 
-  console.log('Error:', error?.message);
-  console.log('时序数据存在:', timeSeries && timeSeries.length > 0);
+  const sourceExperimentId = experiment.config?.backtest?.sourceExperimentId;
+  console.log(`实验ID: ${experimentId}`);
+  console.log(`源实验ID: ${sourceExperimentId}`);
+  console.log('');
 
-  if (timeSeries && timeSeries.length > 0) {
-    const ts = timeSeries[0];
-    console.log('\n时序数据结构:');
-    console.log('factor_values keys:', ts.factor_values ? Object.keys(ts.factor_values) : 'null');
+  // 查看这个回测实验的 trades 表数据
+  const { data: trades } = await supabase
+    .from('trades')
+    .select('*')
+    .eq('experiment_id', experimentId);
 
-    if (ts.factor_values) {
-      const fv = ts.factor_values;
-      console.log('\n是否有趋势因子:');
-      console.log('  trendCV:', fv.trendCV);
-      console.log('  trendDirectionCount:', fv.trendDirectionCount);
-      console.log('  trendStrengthScore:', fv.trendStrengthScore);
-      console.log('  trendTotalReturn:', fv.trendTotalReturn);
+  console.log(`回测实验的 trades 表记录数: ${trades?.length || 0}`);
+
+  if (trades && trades.length > 0) {
+    console.log('回测实验有交易数据！');
+    console.log('示例:', JSON.stringify(trades[0], null, 2));
+  }
+
+  // 查看源实验的 trades 表数据
+  if (sourceExperimentId) {
+    const { data: sourceTrades } = await supabase
+      .from('trades')
+      .select('*')
+      .eq('experiment_id', sourceExperimentId)
+      .order('created_at', { ascending: true })
+      .limit(10);
+
+    console.log(`\n源实验的 trades 表记录数: ${sourceTrades?.length || 0}`);
+
+    if (sourceTrades && sourceTrades.length > 0) {
+      console.log('源实验交易示例:');
+      console.log(JSON.stringify(sourceTrades[0], null, 2));
     }
   }
-})();
+
+  // 检查是否有其他表存储了回测结果
+  const { data: tokens } = await supabase
+    .from('experiment_tokens')
+    .select('*')
+    .eq('experiment_id', experimentId);
+
+  console.log(`\n回测实验的 experiment_tokens 表记录数: ${tokens?.length || 0}`);
+
+  if (tokens && tokens.length > 0) {
+    console.log('示例代币:', tokens[0].token_symbol);
+  }
+}
+
+checkAllData().then(() => {
+  process.exit(0);
+}).catch(error => {
+  console.error('查询失败:', error);
+  process.exit(1);
+});

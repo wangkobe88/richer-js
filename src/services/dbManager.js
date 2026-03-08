@@ -6,10 +6,53 @@
 require('dotenv').config({ path: './config/.env' });
 const { createClient } = require('@supabase/supabase-js');
 
+// 默认超时配置（30秒的1.5倍 = 45秒）
+const DEFAULT_TIMEOUT_MS = 45000;
+
+/**
+ * 创建带超时的 fetch 函数
+ * @param {number} timeout - 超时时间（毫秒）
+ * @returns {Function} fetch 函数
+ */
+function createFetchWithTimeout(timeout = DEFAULT_TIMEOUT_MS) {
+  return async (url, options = {}) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(`请求超时（超过 ${timeout / 1000} 秒）`);
+      }
+      throw error;
+    }
+  };
+}
+
 class DatabaseClientManager {
     constructor() {
         this.client = null;
         this.isInitialized = false;
+        this.timeout = DEFAULT_TIMEOUT_MS;
+    }
+
+    /**
+     * 设置超时时间
+     * @param {number} timeout - 超时时间（毫秒）
+     */
+    setTimeout(timeout) {
+        this.timeout = timeout;
+        // 如果已经初始化，需要重新创建客户端
+        if (this.isInitialized) {
+            this.resetClient();
+        }
     }
 
     /**
@@ -38,11 +81,14 @@ class DatabaseClientManager {
                     },
                     auth: {
                         persistSession: false
+                    },
+                    global: {
+                        fetch: createFetchWithTimeout(this.timeout)
                     }
                 }
             );
             this.isInitialized = true;
-            console.log('✅ 数据库客户端已初始化');
+            console.log(`✅ 数据库客户端已初始化（超时: ${this.timeout / 1000} 秒）`);
         }
         return this.client;
     }

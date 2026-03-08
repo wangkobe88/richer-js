@@ -1275,8 +1275,11 @@ class ExperimentDetail {
               <span class="font-medium text-gray-900">${this.experiment.strategyType || '未知'}</span>
             </div>
             <div class="flex justify-between">
-              <span class="text-gray-600">区块链:</span>
-              <span class="font-medium text-gray-900">${this.getBlockchainLabel(this.experiment.blockchain)}</span>
+              <span class="text-gray-600">区块链/平台:</span>
+              <div class="flex items-center gap-2">
+                <img src="${this.getPlatformLogo(this.experiment.platform)}" alt="${this.getPlatformLabel(this.experiment.platform)}" class="w-5 h-5 rounded-full" title="${this.getPlatformLabel(this.experiment.platform)}">
+                <img src="${this.getBlockchainLogo(this.experiment.blockchain)}" alt="${this.getBlockchainLabel(this.experiment.blockchain)}" class="w-4 h-4 rounded-full opacity-70" title="${this.getBlockchainLabel(this.experiment.blockchain)}">
+              </div>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-600">交易模式:</span>
@@ -1986,6 +1989,38 @@ class ExperimentDetail {
     };
 
     return labels[blockchain] || blockchain;
+  }
+
+  getPlatformLabel(platform) {
+    const labels = {
+      'fourmeme': 'Four.meme',
+      'flap': 'Flap',
+      'bankr': 'Bankr',
+      'pumpfun': 'Pump.fun'
+    };
+
+    return labels[platform] || platform || 'Four.meme';
+  }
+
+  getPlatformLogo(platform) {
+    const logos = {
+      'fourmeme': '/static/fourmeme-logo.png',
+      'flap': '/static/flap-logo.png',
+      'bankr': '/static/bankr-logo.png',
+      'pumpfun': '/static/pumpfun-logo.png'
+    };
+
+    return logos[platform] || '/static/fourmeme-logo.png';
+  }
+
+  getBlockchainLogo(blockchain) {
+    const logos = {
+      'bsc': '/static/bsc-logo.png',
+      'base': '/static/base-logo.png',
+      'solana': '/static/solana-logo.png'
+    };
+
+    return logos[blockchain] || '/static/bsc-logo.png';
   }
 
   getModeLabel(mode) {

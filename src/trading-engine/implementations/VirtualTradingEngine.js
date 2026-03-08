@@ -1763,7 +1763,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     let innerPair = null;
     const platform = token.platform || 'fourmeme';
 
-    if (platform === 'fourmeme') {
+    // 优先使用已设置的 pairAddress（由 PlatformCollector 设置）
+    if (token.pairAddress) {
+      innerPair = token.pairAddress;
+    } else if (platform === 'fourmeme') {
       innerPair = `${token.token}_fo`;
     } else if (platform === 'flap') {
       innerPair = `${token.token}_iportal`;

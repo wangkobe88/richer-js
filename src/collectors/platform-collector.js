@@ -8,6 +8,7 @@ const { AveTokenAPI } = require('../core/ave-api');
 const { FourMemeTokenAPI } = require('../core/fourmeme-api');
 const { WalletDataService } = require('../web/services/WalletDataService');
 const { TokenHolderService } = require('../trading-engine/holders/TokenHolderService');
+const { PlatformPairResolver } = require('../core/PlatformPairResolver');
 const { dbManager } = require('../services/dbManager');
 
 class PlatformCollector {
@@ -40,6 +41,9 @@ class PlatformCollector {
         const supabase = dbManager.getClient();
         this.tokenHolderService = new TokenHolderService(supabase, this.logger);
 
+        // Initialize PlatformPairResolver for resolving pair addresses
+        this.pairResolver = new PlatformPairResolver(this.logger);
+
         // Track collected tokens to avoid duplicates
         this.collectedTokens = new Set();
 
@@ -56,6 +60,18 @@ class PlatformCollector {
                 totalDevFiltered: 0
             },
             flap: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0,
+                totalDevFiltered: 0
+            },
+            bankr: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0,
+                totalDevFiltered: 0
+            },
+            pumpfun: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0,
@@ -97,7 +113,7 @@ class PlatformCollector {
     }
 
     /**
-     * Collect new tokens from all platforms (fourmeme and flap)
+     * Collect new tokens from all platforms (fourmeme, flap, bankr, pumpfun)
      */
     async collect() {
         try {
@@ -107,7 +123,6 @@ class PlatformCollector {
             await this.collectFourmemeTokens();
 
             // === Flap平台暂时关闭 ===
-            // await this.collectFlapTokens();
             if (this.collectorConfig.enableFlap !== false) {
                 await this.collectFlapTokens();
             } else {
@@ -115,13 +130,29 @@ class PlatformCollector {
             }
             // === Flap平台关闭结束 ===
 
+            // 收集 bankr 平台 (Base 链)
+            if (this.collectorConfig.enableBankr !== false) {
+                await this.collectBankrTokens();
+            } else {
+                this.logger.info('Bankr平台数据采集已通过配置关闭 (config.collector.enableBankr = false)');
+            }
+
+            // 收集 pumpfun 平台 (Solana 链)
+            if (this.collectorConfig.enablePumpfun !== false) {
+                await this.collectPumpfunTokens();
+            } else {
+                this.logger.info('Pumpfun平台数据采集已通过配置关闭 (config.collector.enablePumpfun = false)');
+            }
+
             this.stats.lastCollectionTime = new Date().toISOString();
 
             const duration = Date.now() - startTime;
             this.logger.debug('多平台收集完成', {
                 duration: `${duration}ms`,
                 fourmeme: this.stats.fourmeme,
-                flap: this.stats.flap
+                flap: this.stats.flap,
+                bankr: this.stats.bankr,
+                pumpfun: this.stats.pumpfun
             });
 
         } catch (error) {
@@ -302,13 +333,16 @@ class PlatformCollector {
                 this.collectedTokens.add(tokenKey);
             }
 
-            // 为 fourmeme 平台的代币添加 platform 字段
+            // 为 fourmeme 平台的代币添加 platform 字段和 pairAddress
             for (const token of tokens) {
                 const tokenKey = `${token.token}-${token.chain}`;
                 if (this.collectedTokens.has(tokenKey)) {
                     const poolToken = this.tokenPool.getToken(token.token, token.chain);
                     if (poolToken && !poolToken.platform) {
                         poolToken.platform = 'fourmeme';
+                        // fourmeme 使用直接拼接策略
+                        const pairAddress = `${token.token}_fo`;
+                        poolToken.pairAddress = pairAddress;
                     }
                 }
             }
@@ -438,13 +472,16 @@ class PlatformCollector {
                 this.collectedTokens.add(tokenKey);
             }
 
-            // 为 flap 平台的代币添加 platform 字段
+            // 为 flap 平台的代币添加 platform 字段和 pairAddress
             for (const token of tokens) {
                 const tokenKey = `${token.token}-${token.chain}`;
                 if (this.collectedTokens.has(tokenKey)) {
                     const poolToken = this.tokenPool.getToken(token.token, token.chain);
                     if (poolToken && !poolToken.platform) {
                         poolToken.platform = 'flap';
+                        // flap 使用直接拼接策略
+                        const pairAddress = `${token.token}_iportal`;
+                        poolToken.pairAddress = pairAddress;
                     }
                 }
             }
@@ -466,6 +503,308 @@ class PlatformCollector {
 
         } catch (error) {
             this.logger.error('收集flap代币失败', {
+                error: error.message,
+                stack: error.stack
+            });
+        }
+    }
+
+    /**
+     * Collect new tokens from bankr platform (Base chain)
+     */
+    async collectBankrTokens() {
+        try {
+            const startTime = Date.now();
+            this.logger.debug('开始收集bankr新代币');
+
+            // Fetch new tokens from AVE API
+            const tag = 'bankr_in_new';
+            const chain = 'base';
+            const limit = this.collectorConfig.fetchLimit;
+            const orderby = 'created_at';
+
+            const tokens = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+
+            this.stats.bankr.totalCollected += tokens.length;
+
+            // Filter and add new tokens
+            const now = Date.now();
+            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
+
+            this.logger.debug(`获取到 ${tokens.length} 个bankr代币`);
+
+            if (tokens.length > 0) {
+                const latestCreatedAt = Math.max(...tokens.map(t => t.created_at || 0));
+                const latestAgeSeconds = (now - latestCreatedAt * 1000) / 1000;
+                const oldestCreatedAt = Math.min(...tokens.map(t => t.created_at || 0));
+                const oldestAgeSeconds = (now - oldestCreatedAt * 1000) / 1000;
+                this.logger.debug(`API 返回代币时间范围 | 最新: ${latestAgeSeconds.toFixed(0)}秒前, 最旧: ${oldestAgeSeconds.toFixed(0)}秒前`);
+            }
+
+            let addedCount = 0;
+            let skippedCount = 0;
+            let alreadyInPoolCount = 0;
+
+            const ageRanges = {
+                '0-30s': 0,
+                '30-60s': 0,
+                '1-2m': 0,
+                '2-5m': 0,
+                '5m+': 0
+            };
+
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+
+                // 统计年龄分布
+                const tokenAge = now - (token.created_at * 1000);
+                const tokenAgeSeconds = tokenAge / 1000;
+
+                if (tokenAgeSeconds < 30) {
+                    ageRanges['0-30s']++;
+                } else if (tokenAgeSeconds < 60) {
+                    ageRanges['30-60s']++;
+                } else if (tokenAgeSeconds < 120) {
+                    ageRanges['1-2m']++;
+                } else if (tokenAgeSeconds < 300) {
+                    ageRanges['2-5m']++;
+                } else {
+                    ageRanges['5m+']++;
+                }
+
+                if (this.collectedTokens.has(tokenKey)) {
+                    continue;
+                }
+
+                const existingToken = this.tokenPool.getToken(token.token, token.chain);
+                if (existingToken) {
+                    alreadyInPoolCount++;
+                }
+
+                // 设置平台字段
+                token.platform = 'bankr';
+
+                // Bankr 平台暂无创建者地址检测
+                token.creator_address = null;
+
+                if (tokenAge < maxAgeMs) {
+                    // Bankr 平台暂无 Dev 钱包检测
+                    const isDevCreator = false;
+
+                    if (!isDevCreator) {
+                        // 在添加到池之前解析 pairAddress（同步等待）
+                        try {
+                            const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'bankr', 'base');
+                            token.pairAddress = pairResult.pairAddress;
+                            this.logger.debug('解析 bankr pair 地址成功', {
+                                token: token.token,
+                                pair_address: token.pairAddress
+                            });
+                        } catch (error) {
+                            this.logger.warn('解析 bankr pair 地址失败，跳过此代币', {
+                                token: token.token,
+                                error: error.message
+                            });
+                            skippedCount++;
+                            this.collectedTokens.add(tokenKey);
+                            continue;
+                        }
+
+                        const added = this.tokenPool.addToken(token);
+                        if (added) {
+                            addedCount++;
+                            this.collectedTokens.add(tokenKey);
+                        }
+                    } else {
+                        skippedCount++;
+                    }
+                } else {
+                    skippedCount++;
+                }
+
+                this.collectedTokens.add(tokenKey);
+            }
+
+            // 为 bankr 平台的代币添加 platform 字段
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+                if (this.collectedTokens.has(tokenKey)) {
+                    const poolToken = this.tokenPool.getToken(token.token, token.chain);
+                    if (poolToken && !poolToken.platform) {
+                        poolToken.platform = 'bankr';
+                        // pairAddress 已在添加到池之前设置
+                    }
+                }
+            }
+
+            this.stats.bankr.totalAdded += addedCount;
+            this.stats.bankr.totalSkipped += skippedCount;
+
+            const duration = Date.now() - startTime;
+            this.logger.debug('bankr平台收集完成', {
+                platform: 'bankr',
+                fetched: tokens.length,
+                added: addedCount,
+                skipped: skippedCount,
+                alreadyInPool: alreadyInPoolCount,
+                ageRanges: ageRanges,
+                maxAgeSeconds: this.collectorConfig.maxAgeSeconds,
+                duration: `${duration}ms`
+            });
+
+        } catch (error) {
+            this.logger.error('收集bankr代币失败', {
+                error: error.message,
+                stack: error.stack
+            });
+        }
+    }
+
+    /**
+     * Collect new tokens from pumpfun platform (Solana chain)
+     */
+    async collectPumpfunTokens() {
+        try {
+            const startTime = Date.now();
+            this.logger.debug('开始收集pumpfun新代币');
+
+            // Fetch new tokens from AVE API
+            const tag = 'pump_in_new';
+            const chain = 'solana';
+            const limit = this.collectorConfig.fetchLimit;
+            const orderby = 'created_at';
+
+            const tokens = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+
+            this.stats.pumpfun.totalCollected += tokens.length;
+
+            // Filter and add new tokens
+            const now = Date.now();
+            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
+
+            this.logger.debug(`获取到 ${tokens.length} 个pumpfun代币`);
+
+            if (tokens.length > 0) {
+                const latestCreatedAt = Math.max(...tokens.map(t => t.created_at || 0));
+                const latestAgeSeconds = (now - latestCreatedAt * 1000) / 1000;
+                const oldestCreatedAt = Math.min(...tokens.map(t => t.created_at || 0));
+                const oldestAgeSeconds = (now - oldestCreatedAt * 1000) / 1000;
+                this.logger.debug(`API 返回代币时间范围 | 最新: ${latestAgeSeconds.toFixed(0)}秒前, 最旧: ${oldestAgeSeconds.toFixed(0)}秒前`);
+            }
+
+            let addedCount = 0;
+            let skippedCount = 0;
+            let alreadyInPoolCount = 0;
+
+            const ageRanges = {
+                '0-30s': 0,
+                '30-60s': 0,
+                '1-2m': 0,
+                '2-5m': 0,
+                '5m+': 0
+            };
+
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+
+                // 统计年龄分布
+                const tokenAge = now - (token.created_at * 1000);
+                const tokenAgeSeconds = tokenAge / 1000;
+
+                if (tokenAgeSeconds < 30) {
+                    ageRanges['0-30s']++;
+                } else if (tokenAgeSeconds < 60) {
+                    ageRanges['30-60s']++;
+                } else if (tokenAgeSeconds < 120) {
+                    ageRanges['1-2m']++;
+                } else if (tokenAgeSeconds < 300) {
+                    ageRanges['2-5m']++;
+                } else {
+                    ageRanges['5m+']++;
+                }
+
+                if (this.collectedTokens.has(tokenKey)) {
+                    continue;
+                }
+
+                const existingToken = this.tokenPool.getToken(token.token, token.chain);
+                if (existingToken) {
+                    alreadyInPoolCount++;
+                }
+
+                // 设置平台字段
+                token.platform = 'pumpfun';
+
+                // Pumpfun 平台暂无创建者地址检测
+                token.creator_address = null;
+
+                if (tokenAge < maxAgeMs) {
+                    // Pumpfun 平台暂无 Dev 钱包检测
+                    const isDevCreator = false;
+
+                    if (!isDevCreator) {
+                        // 在添加到池之前解析 pairAddress（同步等待）
+                        try {
+                            const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'pumpfun', 'solana');
+                            token.pairAddress = pairResult.pairAddress;
+                            this.logger.debug('解析 pumpfun pair 地址成功', {
+                                token: token.token,
+                                pair_address: token.pairAddress
+                            });
+                        } catch (error) {
+                            this.logger.warn('解析 pumpfun pair 地址失败，跳过此代币', {
+                                token: token.token,
+                                error: error.message
+                            });
+                            skippedCount++;
+                            this.collectedTokens.add(tokenKey);
+                            continue;
+                        }
+
+                        const added = this.tokenPool.addToken(token);
+                        if (added) {
+                            addedCount++;
+                            this.collectedTokens.add(tokenKey);
+                        }
+                    } else {
+                        skippedCount++;
+                    }
+                } else {
+                    skippedCount++;
+                }
+
+                this.collectedTokens.add(tokenKey);
+            }
+
+            // 为 pumpfun 平台的代币添加 platform 字段
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+                if (this.collectedTokens.has(tokenKey)) {
+                    const poolToken = this.tokenPool.getToken(token.token, token.chain);
+                    if (poolToken && !poolToken.platform) {
+                        poolToken.platform = 'pumpfun';
+                        // pairAddress 已在添加到池之前设置
+                    }
+                }
+            }
+
+            this.stats.pumpfun.totalAdded += addedCount;
+            this.stats.pumpfun.totalSkipped += skippedCount;
+
+            const duration = Date.now() - startTime;
+            this.logger.debug('pumpfun平台收集完成', {
+                platform: 'pumpfun',
+                fetched: tokens.length,
+                added: addedCount,
+                skipped: skippedCount,
+                alreadyInPool: alreadyInPoolCount,
+                ageRanges: ageRanges,
+                maxAgeSeconds: this.collectorConfig.maxAgeSeconds,
+                duration: `${duration}ms`
+            });
+
+        } catch (error) {
+            this.logger.error('收集pumpfun代币失败', {
                 error: error.message,
                 stack: error.stack
             });
@@ -526,6 +865,18 @@ class PlatformCollector {
                 totalDevFiltered: 0
             },
             flap: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0,
+                totalDevFiltered: 0
+            },
+            bankr: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0,
+                totalDevFiltered: 0
+            },
+            pumpfun: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0,

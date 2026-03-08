@@ -220,12 +220,30 @@
                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                 区块链 <span class="text-red-500">*</span>
                             </label>
-                            <select name="blockchain"
+                            <select name="blockchain" id="blockchain_select"
                                     required
+                                    onchange="handleBlockchainChange()"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="bsc" selected>BSC (Binance Smart Chain)</option>
+                                <option value="base">Base</option>
                                 <option value="solana">Solana</option>
                             </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                平台 <span class="text-red-500">*</span>
+                            </label>
+                            <select name="platform" id="platform_select"
+                                    required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <!-- 选项将根据区块链动态加载 -->
+                            </select>
+                            <div id="platform_logo_display" class="mt-2 flex items-center gap-2 hidden">
+                                <img id="selected_platform_logo" src="" alt="" class="w-5 h-5 rounded-full">
+                                <img id="selected_blockchain_logo" src="" alt="" class="w-4 h-4 rounded-full opacity-70">
+                                <span id="selected_platform_name" class="text-xs text-gray-600"></span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">选择该区块链上的代币发行平台</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
@@ -907,6 +925,105 @@
             pmConfig.style.display = pmEnabled.checked ? 'block' : 'none';
         });
 
+        // === 多链多平台配置 ===
+        // 区块链和平台映射配置
+        const BLOCKCHAIN_PLATFORMS = {
+            bsc: [
+                { value: 'fourmeme', name: 'Four.meme', logo: '/static/fourmeme-logo.png' },
+                { value: 'flap', name: 'Flap', logo: '/static/flap-logo.png' }
+            ],
+            base: [
+                { value: 'bankr', name: 'Bankr', logo: '/static/bankr-logo.png' }
+            ],
+            solana: [
+                { value: 'pumpfun', name: 'Pump.fun', logo: '/static/pumpfun-logo.png' }
+            ]
+        };
+
+        // 区块链logo配置
+        const BLOCKCHAIN_LOGOS = {
+            bsc: '/static/bsc-logo.png',
+            base: '/static/base-logo.png',
+            solana: '/static/solana-logo.png'
+        };
+
+        // 区块链原生币映射
+        const BLOCKCHAIN_NATIVE_CURRENCY = {
+            bsc: 'BNB',
+            base: 'ETH',
+            solana: 'SOL'
+        };
+
+        // 区块链变化处理
+        function handleBlockchainChange() {
+            const blockchainSelect = document.getElementById('blockchain_select');
+            const platformSelect = document.getElementById('platform_select');
+            const nativeCurrencySpan = document.getElementById('native-currency');
+
+            const selectedBlockchain = blockchainSelect.value;
+            const platforms = BLOCKCHAIN_PLATFORMS[selectedBlockchain] || [];
+
+            // 清空并更新平台选项
+            platformSelect.innerHTML = '';
+            platforms.forEach(platform => {
+                const option = document.createElement('option');
+                option.value = platform.value;
+                option.textContent = platform.name;
+                option.dataset.logo = platform.logo || '';
+                platformSelect.appendChild(option);
+            });
+
+            // 更新原生币显示
+            if (nativeCurrencySpan) {
+                nativeCurrencySpan.textContent = BLOCKCHAIN_NATIVE_CURRENCY[selectedBlockchain] || 'BNB';
+            }
+
+            // 更新卡牌配置中的原生币引用（如果存在）
+            const perCardLabel = document.querySelector('label[for="per_card_max_bnb"]');
+            if (perCardLabel) {
+                const currency = BLOCKCHAIN_NATIVE_CURRENCY[selectedBlockchain] || 'BNB';
+                perCardLabel.innerHTML = `每卡最大持仓 (${currency}) <span class="text-red-500">*</span>`;
+            }
+
+            const reserveLabel = document.querySelector('label[for="reserve_amount"]');
+            if (reserveLabel) {
+                const currency = BLOCKCHAIN_NATIVE_CURRENCY[selectedBlockchain] || 'BNB';
+                reserveLabel.innerHTML = `保留金额 (${currency}) <span class="text-red-500">*</span>`;
+            }
+
+            // 更新logo显示
+            updateLogoDisplay();
+        }
+
+        // 更新logo显示
+        function updateLogoDisplay() {
+            const blockchainSelect = document.getElementById('blockchain_select');
+            const platformSelect = document.getElementById('platform_select');
+            const logoDisplay = document.getElementById('platform_logo_display');
+            const platformLogo = document.getElementById('selected_platform_logo');
+            const blockchainLogo = document.getElementById('selected_blockchain_logo');
+            const platformName = document.getElementById('selected_platform_name');
+
+            const selectedBlockchain = blockchainSelect.value;
+            const selectedPlatform = platformSelect.value;
+            const platforms = BLOCKCHAIN_PLATFORMS[selectedBlockchain] || [];
+            const platformData = platforms.find(p => p.value === selectedPlatform);
+
+            if (platformData && logoDisplay) {
+                logoDisplay.classList.remove('hidden');
+                if (platformLogo) platformLogo.src = platformData.logo || '';
+                if (platformLogo) platformLogo.alt = platformData.name || '';
+                if (blockchainLogo) blockchainLogo.src = BLOCKCHAIN_LOGOS[selectedBlockchain] || '';
+                if (blockchainLogo) blockchainLogo.alt = selectedBlockchain.toUpperCase();
+                if (platformName) platformName.textContent = `${platformData.name} @ ${selectedBlockchain.toUpperCase()}`;
+            }
+        }
+
+        // 平台变化处理
+        function handlePlatformChange() {
+            updateLogoDisplay();
+        }
+
         // 交易模式切换处理
         function handleTradingModeChange() {
             const tradingMode = document.getElementById('trading_mode').value;
@@ -1243,6 +1360,7 @@
                 experiment_description: formData.get('experiment_description'),
                 trading_mode: tradingMode,
                 blockchain: formData.get('blockchain'),
+                platform: formData.get('platform'),
                 initial_balance: parseFloat(formData.get('initial_balance')),
                 // 策略配置
                 strategy: {
@@ -1419,6 +1537,12 @@
             loadPreset('tp1');
             loadPreset('tp2');
         }
+
+        // 添加平台变化事件监听器
+        document.getElementById('platform_select').addEventListener('change', handlePlatformChange);
+
+        // 初始化区块链和平台
+        handleBlockchainChange();
     </script>
 </body>
 </html>

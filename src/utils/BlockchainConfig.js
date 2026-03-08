@@ -58,6 +58,16 @@ class BlockchainConfig {
       aliases: ['sol', 'solana'],
       color: '#00FFA3'
     },
+    base: {
+      id: 'base',
+      name: 'Base',
+      fullName: 'Base Network',
+      type: 'evm',
+      chainId: 8453,
+      logoFile: 'base-logo.png',
+      aliases: ['base', 'base_l2', 'base_mainnet'],
+      color: '#0052FF'
+    },
     // 预留：未来扩展的区块链
     ethereum: {
       id: 'ethereum',
@@ -114,6 +124,18 @@ class BlockchainConfig {
       usdtPair: 'SOLUSDT',
       aveTokenId: 'So11111111111111111111111111111111111111112-solana'
     },
+    base: {
+      symbol: 'ETH',
+      name: 'ETH',
+      addresses: [
+        '0x4200000000000000000000000000000000000006', // WETH on Base
+        '0x4200000000000000000000000000000000000006', // WETH (小写)
+        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'  // ETH (AVE API)
+      ],
+      decimals: 18,
+      usdtPair: 'ETHUSDT',
+      aveTokenId: '0x4200000000000000000000000000000000000006-base'
+    },
     ethereum: {
       symbol: 'ETH',
       name: 'ETH',
@@ -142,6 +164,7 @@ class BlockchainConfig {
     bnb: 'bsc',        // 别名
     solana: 'solana',
     sol: 'solana',     // 别名
+    base: 'base',
     ethereum: 'eth',
     eth: 'eth'         // 别名
   };
@@ -204,6 +227,30 @@ class BlockchainConfig {
         // 'raydium'
       ]
     },
+    base: {
+      network: {
+        name: 'Base',
+        chainId: 8453,
+        rpcUrl: 'https://mainnet.base.org',
+        fallbackRpcUrls: [
+          'https://base.publicnode.com',
+          'https://rpc.ankr.com/base'
+        ],
+        blockExplorer: 'https://basescan.org',
+        confirmations: 1
+      },
+      trading: {
+        maxGasPrice: 10,        // Gwei (Base 低费用)
+        maxGasLimit: 500000,
+        defaultSlippage: 0.02,  // 2%
+        maxSlippage: 0.05       // 5%
+      },
+      availableTraders: [
+        // Base DEX traders - 未来实现
+        // 'uniswap-v3-base',
+        // 'baseswap'
+      ]
+    },
     ethereum: {
       network: {
         name: 'Ethereum',
@@ -245,13 +292,13 @@ class BlockchainConfig {
    * 当前支持的区块链列表
    *
    * 注意：虽然配置文件包含 ethereum，但用户明确要求
-   * 暂时只支持 BSC 和 Solana，其他链作为预留配置。
+   * 支持 BSC、Solana 和 Base，其他链作为预留配置。
    *
    * @static
    * @type {string[]}
    * @readonly
    */
-  static SUPPORTED_BLOCKCHAINS = ['bsc', 'solana'];
+  static SUPPORTED_BLOCKCHAINS = ['bsc', 'solana', 'base'];
 
   // ========== 公共方法 ==========
 

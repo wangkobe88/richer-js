@@ -637,7 +637,11 @@ class BacktestEngine extends AbstractTradingEngine {
     // 构建 innerPair（内盘交易对）
     let innerPair = null;
     const platform = tokenState.platform || 'fourmeme';
-    if (platform === 'fourmeme') {
+
+    // 优先使用已设置的 pairAddress（由数据加载时设置）
+    if (tokenState.pairAddress) {
+      innerPair = tokenState.pairAddress;
+    } else if (platform === 'fourmeme') {
       innerPair = `${tokenState.token}_fo`;
     } else if (platform === 'flap') {
       innerPair = `${tokenState.token}_iportal`;

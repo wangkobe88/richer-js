@@ -196,6 +196,21 @@ class ExperimentMonitor {
       backtest: '回测'
     };
 
+    // 区块链配置
+    const blockchainConfig = {
+      bsc: { name: 'BSC', logo: '/static/bsc-logo.png', color: '#F3BA2F' },
+      base: { name: 'Base', logo: '/static/base-logo.png', color: '#0052FF' },
+      solana: { name: 'Solana', logo: '/static/solana-logo.png', color: '#9945FF' }
+    };
+
+    // 平台配置（包含logo）
+    const platformConfig = {
+      fourmeme: { name: 'Four.meme', logo: '/static/fourmeme-logo.png' },
+      flap: { name: 'Flap', logo: '/static/flap-logo.png' },
+      bankr: { name: 'Bankr', logo: '/static/bankr-logo.png' },
+      pumpfun: { name: 'Pump.fun', logo: '/static/pumpfun-logo.png' }
+    };
+
     const createdAt = new Date(exp.createdAt);
     const startedAt = exp.startedAt ? new Date(exp.startedAt) : null;
     const stoppedAt = exp.stoppedAt ? new Date(exp.stoppedAt) : null;
@@ -246,8 +261,26 @@ class ExperimentMonitor {
               </span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-gray-800">区块链:</span>
-              <span class="font-medium">${exp.blockchain?.toUpperCase() || 'N/A'}</span>
+              <span class="text-gray-800">区块链/平台:</span>
+              <div class="flex items-center gap-2">
+                ${(() => {
+                  const platform = exp.platform || 'fourmeme';
+                  const bc = exp.blockchain || 'bsc';
+                  const platConfig = platformConfig[platform];
+                  const bcConfig = blockchainConfig[bc];
+
+                  let logos = '';
+                  // 优先显示平台logo
+                  if (platConfig && platConfig.logo) {
+                    logos += `<img src="${platConfig.logo}" alt="${platConfig.name}" class="w-5 h-5 rounded-full" title="${platConfig.name}">`;
+                  }
+                  // 显示区块链logo（更小一点作为辅助）
+                  if (bcConfig && bcConfig.logo) {
+                    logos += `<img src="${bcConfig.logo}" alt="${bcConfig.name}" class="w-4 h-4 rounded-full opacity-70" title="${bcConfig.name}">`;
+                  }
+                  return logos || `<span class="font-medium">${platform}</span>`;
+                })()}
+              </div>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-gray-800">K线类型:</span>
