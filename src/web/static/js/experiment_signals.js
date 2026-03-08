@@ -1670,46 +1670,74 @@ class ExperimentSignals {
         '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">❌ 失败</span>' :
         '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 通过</span>';
 
-      // 第一阶段：买入策略条件（趋势因子）
+      // 显示实验配置的策略条件
+      let strategyConfigHtml = '';
+      if (buyCondition || preBuyCheckCondition) {
+        strategyConfigHtml = `
+          <div class="mb-2 pb-2 border-b border-amber-300">
+            ${buyCondition ? `
+              <div class="text-xs mb-1">
+                <span class="font-semibold text-amber-900">📋 买入条件配置:</span>
+                <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(buyCondition)}</code>
+              </div>
+            ` : ''}
+            ${preBuyCheckCondition ? `
+              <div class="text-xs">
+                <span class="font-semibold text-amber-900">🔍 预检查条件配置:</span>
+                <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(preBuyCheckCondition)}</code>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+
+      // 辅助函数：格式化数值
+      const formatNum = (val, decimals = 2) => val !== undefined && val !== null ? val.toFixed(decimals) : 'N/A';
+      const formatPercent = (val) => val !== undefined && val !== null ? val.toFixed(1) + '%' : 'N/A';
+
+      // 第一阶段：买入策略条件（趋势因子）- 显示所有因子
       let trendFactorsHtml = '';
-      if (tf.age !== undefined || tf.earlyReturn !== undefined || tf.currentPrice !== undefined) {
+      if (Object.keys(tf).length > 0) {
         const ageClass = this._getFactorClass('age', tf.age || 0, buyThresholds);
         const earlyReturnClass = this._getFactorClass('earlyReturn', tf.earlyReturn || 0, buyThresholds);
         const currentPriceClass = this._getFactorClass('currentPrice', tf.currentPrice || 0, buyThresholds);
         const collectionPriceClass = this._getFactorClass('collectionPrice', tf.collectionPrice || 0, buyThresholds);
+        const trendCVClass = this._getFactorClass('trendCV', tf.trendCV || 0, buyThresholds);
+        const trendSlopeClass = this._getFactorClass('trendSlope', tf.trendSlope || 0, buyThresholds);
+        const trendStrengthScoreClass = this._getFactorClass('trendStrengthScore', tf.trendStrengthScore || 0, buyThresholds);
+        const trendTotalReturnClass = this._getFactorClass('trendTotalReturn', tf.trendTotalReturn || 0, buyThresholds);
+        const trendRiseRatioClass = this._getFactorClass('trendRiseRatio', tf.trendRiseRatio || 0, buyThresholds);
+        const drawdownFromHighestClass = this._getFactorClass('drawdownFromHighest', tf.drawdownFromHighest || 0, buyThresholds);
+        const tvlClass = this._getFactorClass('tvl', tf.tvl || 0, buyThresholds);
 
         trendFactorsHtml = `
           <div class="mt-2 pt-2 border-t border-amber-300">
-            <div class="text-xs font-semibold text-amber-900 mb-1">📈 买入条件（第一阶段）</div>
-            <div class="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <span class="text-amber-800">代币年龄:</span>
-                <span class="${ageClass}">${tf.age !== undefined ? tf.age.toFixed(2) : 'N/A'}分</span>
-              </div>
-              <div>
-                <span class="text-amber-800">早期收益率:</span>
-                <span class="${earlyReturnClass}">${tf.earlyReturn !== undefined ? tf.earlyReturn.toFixed(1) : 'N/A'}%</span>
-              </div>
-              <div>
-                <span class="text-amber-800">当前价格:</span>
-                <span class="${currentPriceClass}">${tf.currentPrice !== undefined ? tf.currentPrice.toFixed(8) : 'N/A'}</span>
-              </div>
-              <div>
-                <span class="text-amber-800">获取价格:</span>
-                <span class="${collectionPriceClass}">${tf.collectionPrice !== undefined ? tf.collectionPrice.toFixed(8) : 'N/A'}</span>
-              </div>
-              ${tf.txVolumeU24h !== undefined ? `
-              <div>
-                <span class="text-amber-800">24h交易量:</span>
-                <span class="text-gray-900">$${(tf.txVolumeU24h / 1000).toFixed(1)}K</span>
-              </div>
-              ` : ''}
-              ${tf.holders !== undefined ? `
-              <div>
-                <span class="text-amber-800">持有者数:</span>
-                <span class="text-gray-900">${tf.holders}</span>
-              </div>
-              ` : ''}
+            <div class="text-xs font-semibold text-amber-900 mb-1">📈 买入条件因子（趋势分析）</div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div><span class="text-amber-800">代币年龄:</span> <span class="${ageClass}">${formatNum(tf.age)}分</span></div>
+              <div><span class="text-amber-800">早期收益率:</span> <span class="${earlyReturnClass}">${formatPercent(tf.earlyReturn)}</span></div>
+              <div><span class="text-amber-800">当前价格:</span> <span class="${currentPriceClass}">${formatNum(tf.currentPrice, 8)}</span></div>
+              <div><span class="text-amber-800">获取价格:</span> <span class="${collectionPriceClass}">${formatNum(tf.collectionPrice, 8)}</span></div>
+              ${tf.buyPrice !== undefined ? `<div><span class="text-amber-800">买入价格:</span> <span class="text-gray-900">${formatNum(tf.buyPrice, 8)}</span></div>` : ''}
+              ${tf.highestPrice !== undefined ? `<div><span class="text-amber-800">最高价格:</span> <span class="text-gray-900">${formatNum(tf.highestPrice, 8)}</span></div>` : ''}
+              ${tf.launchPrice !== undefined ? `<div><span class="text-amber-800">发行价格:</span> <span class="text-gray-900">${formatNum(tf.launchPrice, 8)}</span></div>` : ''}
+              <div><span class="text-amber-800">趋势CV:</span> <span class="${trendCVClass}">${formatNum(tf.trendCV)}</span></div>
+              <div><span class="text-amber-800">趋势斜率:</span> <span class="${trendSlopeClass}">${formatNum(tf.trendSlope)}</span></div>
+              <div><span class="text-amber-800">趋势强度:</span> <span class="${trendStrengthScoreClass}">${formatNum(tf.trendStrengthScore)}</span></div>
+              <div><span class="text-amber-800">总回报:</span> <span class="${trendTotalReturnClass}">${formatPercent(tf.trendTotalReturn)}</span></div>
+              <div><span class="text-amber-800">上升比例:</span> <span class="${trendRiseRatioClass}">${formatNum(tf.trendRiseRatio)}</span></div>
+              <div><span class="text-amber-800">距最高跌幅:</span> <span class="${drawdownFromHighestClass}">${formatPercent(tf.drawdownFromHighest)}</span></div>
+              ${tf.trendPriceUp !== undefined ? `<div><span class="text-amber-800">价格上升:</span> <span class="text-gray-900">${tf.trendPriceUp >= 1 ? '✅' : '❌'}</span></div>` : ''}
+              ${tf.trendMedianUp !== undefined ? `<div><span class="text-amber-800">中位数上升:</span> <span class="text-gray-900">${tf.trendMedianUp >= 1 ? '✅' : '❌'}</span></div>` : ''}
+              ${tf.trendRecentDownRatio !== undefined ? `<div><span class="text-amber-800">近期下跌比:</span> <span class="text-gray-900">${formatNum(tf.trendRecentDownRatio)}</span></div>` : ''}
+              <div><span class="text-amber-800">TVL:</span> <span class="${tvlClass}">$${formatNum(tf.tvl, 0)}</span></div>
+              ${tf.fdv !== undefined ? `<div><span class="text-amber-800">FDV:</span> <span class="text-gray-900">$${formatNum(tf.fdv, 0)}</span></div>` : ''}
+              ${tf.marketCap !== undefined ? `<div><span class="text-amber-800">市值:</span> <span class="text-gray-900">$${formatNum(tf.marketCap, 0)}</span></div>` : ''}
+              ${tf.holders !== undefined ? `<div><span class="text-amber-800">持有者数:</span> <span class="text-gray-900">${tf.holders}</span></div>` : ''}
+              ${tf.txVolumeU24h !== undefined ? `<div><span class="text-amber-800">24h交易量:</span> <span class="text-gray-900">$${formatNum(tf.txVolumeU24h / 1000)}K</span></div>` : ''}
+              ${tf.riseSpeed !== undefined ? `<div><span class="text-amber-800">上升速度:</span> <span class="text-gray-900">${formatNum(tf.riseSpeed)}</span></div>` : ''}
+              ${tf.profitPercent !== undefined ? `<div><span class="text-amber-800">利润率:</span> <span class="text-gray-900">${formatPercent(tf.profitPercent)}</span></div>` : ''}
+              ${tf.holdDuration !== undefined ? `<div><span class="text-amber-800">持仓时长:</span> <span class="text-gray-900">${formatNum(tf.holdDuration / 60)}分</span></div>` : ''}
             </div>
           </div>
         `;
@@ -1717,7 +1745,7 @@ class ExperimentSignals {
 
       // 第二阶段：持有者检查信息
       let holderCheckHtml = '';
-      if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined) {
+      if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined || pf.holdersCount !== undefined) {
         const whitelistClass = this._getFactorClass('holderWhitelistCount', pf.holderWhitelistCount || 0, preCheckThresholds);
         const blacklistClass = this._getFactorClass('holderBlacklistCount', pf.holderBlacklistCount || 0, preCheckThresholds);
         const devClass = this._getFactorClass('devHoldingRatio', pf.devHoldingRatio || 0, preCheckThresholds);
@@ -1725,28 +1753,14 @@ class ExperimentSignals {
 
         holderCheckHtml = `
           <div class="mt-2 pt-2 border-t border-amber-300">
-            <div class="text-xs font-semibold text-amber-900 mb-1">👥 持有者检查</div>
+            <div class="text-xs font-semibold text-amber-900 mb-1">👥 持有者检查因子</div>
             <div class="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <span class="text-amber-800">白名单:</span>
-                <span class="${whitelistClass}">${pf.holderWhitelistCount || 0}</span>
-              </div>
-              <div>
-                <span class="text-amber-800">黑名单:</span>
-                <span class="${blacklistClass}">${pf.holderBlacklistCount || 0}</span>
-              </div>
-              <div>
-                <span class="text-amber-800">持有人数:</span>
-                <span class="text-gray-900 font-medium">${pf.holdersCount || 0}</span>
-              </div>
-              <div>
-                <span class="text-amber-800">Dev持有:</span>
-                <span class="${devClass}">${pf.devHoldingRatio ? pf.devHoldingRatio.toFixed(1) : 'N/A'}%</span>
-              </div>
-              <div>
-                <span class="text-amber-800">最大持仓:</span>
-                <span class="${maxClass}">${pf.maxHoldingRatio ? pf.maxHoldingRatio.toFixed(1) : 'N/A'}%</span>
-              </div>
+              <div><span class="text-amber-800">白名单数:</span> <span class="${whitelistClass}">${pf.holderWhitelistCount || 0}</span></div>
+              <div><span class="text-amber-800">黑名单数:</span> <span class="${blacklistClass}">${pf.holderBlacklistCount || 0}</span></div>
+              <div><span class="text-amber-800">持有人数:</span> <span class="text-gray-900">${pf.holdersCount || 0}</span></div>
+              <div><span class="text-amber-800">Dev持有:</span> <span class="${devClass}">${formatPercent(pf.devHoldingRatio)}</span></div>
+              <div><span class="text-amber-800">最大持仓:</span> <span class="${maxClass}">${formatPercent(pf.maxHoldingRatio)}</span></div>
+              ${pf.holderCanBuy !== undefined ? `<div><span class="text-amber-800">持有者检查:</span> <span class="${pf.holderCanBuy ? 'text-green-600' : 'text-red-600'}">${pf.holderCanBuy ? '✅ 通过' : '❌ 失败'}</span></div>` : ''}
             </div>
           </div>
         `;
@@ -1755,55 +1769,45 @@ class ExperimentSignals {
       // 第三阶段：早期参与者检查信息
       let earlyTradesHtml = '';
       if (pf.earlyTradesChecked === 1) {
-        // 检查是否有交易数据
         const hasTradeData = (pf.earlyTradesTotalCount || 0) > 0;
 
         if (hasTradeData) {
-          // 获取每个因子的样式类
           const highValueCountClass = this._getFactorClass('earlyTradesHighValueCount', pf.earlyTradesHighValueCount || 0, preCheckThresholds);
           const highValuePerMinClass = this._getFactorClass('earlyTradesHighValuePerMin', pf.earlyTradesHighValuePerMin || 0, preCheckThresholds);
           const countPerMinClass = this._getFactorClass('earlyTradesCountPerMin', pf.earlyTradesCountPerMin || 0, preCheckThresholds);
           const volumePerMinClass = this._getFactorClass('earlyTradesVolumePerMin', pf.earlyTradesVolumePerMin || 0, preCheckThresholds);
           const actualSpanClass = this._getFactorClass('earlyTradesActualSpan', pf.earlyTradesActualSpan || 0, preCheckThresholds);
           const uniqueWalletsClass = this._getFactorClass('earlyTradesUniqueWallets', pf.earlyTradesUniqueWallets || 0, preCheckThresholds);
+          const secondToFirstRatioClass = this._getFactorClass('walletClusterSecondToFirstRatio', pf.walletClusterSecondToFirstRatio || 0, preCheckThresholds);
+          const megaRatioClass = this._getFactorClass('walletClusterMegaRatio', pf.walletClusterMegaRatio || 0, preCheckThresholds);
 
           earlyTradesHtml = `
             <div class="mt-2 pt-2 border-t border-amber-300">
-              <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者检查</div>
+              <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者检查因子</div>
               <div class="grid grid-cols-3 gap-2 text-xs">
-                <div>
-                  <span class="text-amber-800">高价值交易:</span>
-                  <span class="${highValueCountClass}">${pf.earlyTradesHighValueCount || 0}</span>
-                </div>
-                <div>
-                  <span class="text-amber-800">高价值/分:</span>
-                  <span class="${highValuePerMinClass}">${pf.earlyTradesHighValuePerMin ? pf.earlyTradesHighValuePerMin.toFixed(1) : '0'}</span>
-                </div>
-                <div>
-                  <span class="text-amber-800">交易/分:</span>
-                  <span class="${countPerMinClass}">${pf.earlyTradesCountPerMin ? pf.earlyTradesCountPerMin.toFixed(1) : '0'}</span>
-                </div>
-                <div>
-                  <span class="text-amber-800">交易量/分:</span>
-                  <span class="${volumePerMinClass}">${pf.earlyTradesVolumePerMin ? pf.earlyTradesVolumePerMin.toFixed(0) : '0'}</span>
-                </div>
-                <div>
-                  <span class="text-amber-800">实际跨度:</span>
-                  <span class="${actualSpanClass}">${pf.earlyTradesActualSpan ? pf.earlyTradesActualSpan.toFixed(0) : '0'}秒</span>
-                </div>
-                <div>
-                  <span class="text-amber-800">总交易:</span>
-                  <span class="text-gray-900 font-medium">${pf.earlyTradesTotalCount || 0}</span>
-                </div>
-                <div>
-                  <span class="text-amber-800">独立钱包:</span>
-                  <span class="${uniqueWalletsClass}">${pf.earlyTradesUniqueWallets || 0}</span>
-                </div>
+                <div><span class="text-amber-800">高价值交易:</span> <span class="${highValueCountClass}">${pf.earlyTradesHighValueCount || 0}</span></div>
+                <div><span class="text-amber-800">高价值/分:</span> <span class="${highValuePerMinClass}">${formatNum(pf.earlyTradesHighValuePerMin)}</span></div>
+                <div><span class="text-amber-800">交易/分:</span> <span class="${countPerMinClass}">${formatNum(pf.earlyTradesCountPerMin)}</span></div>
+                <div><span class="text-amber-800">交易量/分:</span> <span class="${volumePerMinClass}">$${formatNum(pf.earlyTradesVolumePerMin)}</span></div>
+                <div><span class="text-amber-800">实际跨度:</span> <span class="${actualSpanClass}">${formatNum(pf.earlyTradesActualSpan)}秒</span></div>
+                <div><span class="text-amber-800">总交易数:</span> <span class="text-gray-900">${pf.earlyTradesTotalCount || 0}</span></div>
+                <div><span class="text-amber-800">独立钱包:</span> <span class="${uniqueWalletsClass}">${pf.earlyTradesUniqueWallets || 0}</span></div>
+                <div><span class="text-amber-800">钱包/分:</span> <span class="text-gray-900">${formatNum(pf.earlyTradesWalletsPerMin)}</span></div>
+                <div><span class="text-amber-800">总交易量:</span> <span class="text-gray-900">$${formatNum(pf.earlyTradesVolume)}</span></div>
+                <div><span class="text-amber-800">检查窗口:</span> <span class="text-gray-900">${pf.earlyTradesWindow || 0}秒</span></div>
+                <div><span class="text-amber-800">过滤后交易:</span> <span class="text-gray-900">${pf.earlyTradesFilteredCount || 0}</span></div>
+                <div><span class="text-amber-800">检查耗时:</span> <span class="text-gray-900">${pf.earlyTradesCheckDuration || 0}ms</span></div>
+
+                <div><span class="text-amber-800">聚簇数:</span> <span class="text-gray-900">${pf.walletClusterCount || 0}</span></div>
+                <div><span class="text-amber-800">平均大小:</span> <span class="text-gray-900">${formatNum(pf.walletClusterAvgSize)}</span></div>
+                <div><span class="text-amber-800">最大聚簇:</span> <span class="text-gray-900">${pf.walletClusterMaxClusterWallets || 0}</span></div>
+                <div><span class="text-amber-800">Mega聚簇:</span> <span class="${megaRatioClass}">${formatPercent(pf.walletClusterMegaRatio)}</span></div>
+                <div><span class="text-amber-800">第二/第一比:</span> <span class="${secondToFirstRatioClass}">${formatNum(pf.walletClusterSecondToFirstRatio)}</span></div>
+                <div><span class="text-amber-800">Top2聚簇比:</span> <span class="text-gray-900">${formatNum(pf.walletClusterTop2Ratio)}</span></div>
               </div>
             </div>
           `;
         } else {
-          // 没有交易数据时的提示
           earlyTradesHtml = `
             <div class="mt-2 pt-2 border-t border-amber-300">
               <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者检查</div>
@@ -1821,10 +1825,106 @@ class ExperimentSignals {
             <span class="text-amber-900 font-semibold text-sm">🔍 购买前置检查</span>
             ${checkResultBadge}
           </div>
+          ${strategyConfigHtml}
           ${trendFactorsHtml}
           ${holderCheckHtml}
           ${earlyTradesHtml}
           ${pr.reason ? `<div class="text-xs text-amber-800 mt-2 border-t border-amber-300 pt-2">${this._escapeHtml(pr.reason)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    // 构建卖出策略信息（仅卖出信号）
+    let sellStrategyHtml = '';
+    if (signal.action.toUpperCase() === 'SELL') {
+      const tf = metadata.trendFactors || {};
+      const tradeResult = metadata.tradeResult || {};
+      const buyPrice = tf.buyPrice || metadata.buyPrice || 0;
+
+      // 🔥 获取卖出策略条件并解析阈值
+      const sellCondition = this._getBuyCondition('sell');
+      const sellThresholds = sellCondition ? this._parseBuyCondition(sellCondition) : {};
+
+      // 辅助函数：格式化数值
+      const formatNum = (val, decimals = 2) => val !== undefined && val !== null ? val.toFixed(decimals) : 'N/A';
+      const formatPercent = (val) => val !== undefined && val !== null ? val.toFixed(1) + '%' : 'N/A';
+
+      // 显示实验配置的卖出策略条件
+      let sellStrategyConfigHtml = '';
+      if (sellCondition) {
+        sellStrategyConfigHtml = `
+          <div class="mb-2 pb-2 border-b border-blue-300">
+            <div class="text-xs">
+              <span class="font-semibold text-blue-900">📋 卖出条件配置:</span>
+              <code class="ml-2 px-2 py-0.5 bg-blue-200 rounded text-xs text-blue-900 break-all">${this._escapeHtml(sellCondition)}</code>
+            </div>
+          </div>
+        `;
+      }
+
+      // 卖出因子显示
+      let sellFactorsHtml = '';
+      if (Object.keys(tf).length > 0) {
+        const drawdownClass = this._getFactorClass('drawdownFromHighest', tf.drawdownFromHighest || 0, sellThresholds);
+        const holdDurationClass = this._getFactorClass('holdDuration', (tf.holdDuration || 0) / 60, sellThresholds);
+        const profitPercentClass = tf.profitPercent >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+
+        sellFactorsHtml = `
+          <div class="mt-2 pt-2 border-t border-blue-300">
+            <div class="text-xs font-semibold text-blue-900 mb-1">📉 卖出决策因子</div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div><span class="text-blue-800">代币年龄:</span> <span class="text-gray-900">${formatNum(tf.age)}分</span></div>
+              <div><span class="text-blue-800">持仓时长:</span> <span class="${holdDurationClass}">${formatNum(tf.holdDuration / 60)}分</span></div>
+              <div><span class="text-blue-800">利润率:</span> <span class="${profitPercentClass}">${formatPercent(tf.profitPercent)}</span></div>
+              <div><span class="text-blue-800">买入价格:</span> <span class="text-gray-900">${formatNum(buyPrice, 8)}</span></div>
+              <div><span class="text-blue-800">当前价格:</span> <span class="text-gray-900">${formatNum(tf.currentPrice, 8)}</span></div>
+              <div><span class="text-blue-800">最高价格:</span> <span class="text-gray-900">${formatNum(tf.highestPrice, 8)}</span></div>
+              <div><span class="text-blue-800">距最高跌幅:</span> <span class="${drawdownClass}">${formatPercent(tf.drawdownFromHighest)}</span></div>
+              ${tf.earlyReturn !== undefined ? `<div><span class="text-blue-800">早期收益率:</span> <span class="text-gray-900">${formatPercent(tf.earlyReturn)}</span></div>` : ''}
+              ${tf.trendStrengthScore !== undefined ? `<div><span class="text-blue-800">趋势强度:</span> <span class="text-gray-900">${formatNum(tf.trendStrengthScore)}</span></div>` : ''}
+              ${tf.trendTotalReturn !== undefined ? `<div><span class="text-blue-800">总回报:</span> <span class="text-gray-900">${formatPercent(tf.trendTotalReturn)}</span></div>` : ''}
+              ${tf.holdDuration !== undefined ? `<div><span class="text-blue-800">买入后时长:</span> <span class="text-gray-900">${formatNum(tf.holdDuration / 60)}分</span></div>` : ''}
+              ${tf.trendRecentDownRatio !== undefined ? `<div><span class="text-blue-800">近期下跌比:</span> <span class="text-gray-900">${formatNum(tf.trendRecentDownRatio)}</span></div>` : ''}
+              ${tf.trendConsecutiveDowns !== undefined ? `<div><span class="text-blue-800">连跌次数:</span> <span class="text-gray-900">${tf.trendConsecutiveDowns}</span></div>` : ''}
+              ${tf.txVolumeU24h !== undefined ? `<div><span class="text-blue-800">24h交易量:</span> <span class="text-gray-900">$${formatNum(tf.txVolumeU24h / 1000)}K</span></div>` : ''}
+            </div>
+          </div>
+        `;
+      }
+
+      // 交易结果信息
+      let tradeResultHtml = '';
+      if (tradeResult.trade && tradeResult.trade.success) {
+        const trade = tradeResult.trade;
+        const inputAmount = parseFloat(trade.inputAmount || 0);
+        const outputAmount = parseFloat(trade.outputAmount || 0);
+        const actualProfitPercent = inputAmount > 0 ? ((outputAmount - inputAmount) / inputAmount * 100) : 0;
+
+        tradeResultHtml = `
+          <div class="mt-2 pt-2 border-t border-blue-300">
+            <div class="text-xs font-semibold text-blue-900 mb-1">💰 交易执行结果</div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div><span class="text-blue-800">卖出数量:</span> <span class="text-gray-900">${formatNum(inputAmount)}</span></div>
+              <div><span class="text-blue-800">获得金额:</span> <span class="text-gray-900">${formatNum(outputAmount, 4)} BNB</span></div>
+              <div><span class="text-blue-800">实际利润率:</span> <span class="${actualProfitPercent >= 0 ? 'text-green-600' : 'text-red-600'}">${formatPercent(actualProfitPercent)}</span></div>
+              <div><span class="text-blue-800">交易状态:</span> <span class="text-green-600">✅ 成功</span></div>
+            </div>
+          </div>
+        `;
+      }
+
+      sellStrategyHtml = `
+        <div class="mt-2 p-3 bg-blue-100 rounded-lg border border-blue-300">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-blue-900 font-semibold text-sm">📤 卖出策略检查</span>
+            ${tradeResult.trade && tradeResult.trade.success ?
+              '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 已执行</span>' :
+              '<span class="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">📊 决策信息</span>'
+            }
+          </div>
+          ${sellStrategyConfigHtml}
+          ${sellFactorsHtml}
+          ${tradeResultHtml}
         </div>
       `;
     }
@@ -1910,6 +2010,8 @@ class ExperimentSignals {
       ${strategyInfoHtml}
 
       ${preBuyCheckHtml}
+
+      ${sellStrategyHtml}
 
       ${cardPositionHtml}
 
