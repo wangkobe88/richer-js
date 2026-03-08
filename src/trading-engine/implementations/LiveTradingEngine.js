@@ -782,8 +782,52 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // 初始化 DataService（与虚拟盘一致）
     this.dataService = new ExperimentDataService();
 
-    // 初始化 TokenPool（与虚拟盘一致，传递 logger）
-    this._tokenPool = new TokenPool(this.logger);
+    // ========== 风险控制组件初始化（与虚拟盘一致） ==========
+
+    // 1. 初始化价格历史缓存（用于趋势检测）
+    const PriceHistoryCache = require('../PriceHistoryCache');
+    this._priceHistoryCache = new PriceHistoryCache(15 * 60 * 1000); // 15分钟
+    this.logger.info('LiveTradingEngine', 'Initialize', '价格历史缓存初始化完成');
+    console.log(`✅ 价格历史缓存初始化完成`);
+
+    // 2. 初始化趋势检测器
+    const TrendDetector = require('../TrendDetector');
+    this._trendDetector = new TrendDetector({
+      minDataPoints: 6,
+      maxDataPoints: Infinity,
+      cvThreshold: 0.005,
+      scoreThreshold: 30,
+      totalReturnThreshold: 5,
+      riseRatioThreshold: 0.5
+    });
+    this.logger.info('LiveTradingEngine', 'Initialize', '趋势检测器初始化完成');
+    console.log(`✅ 趋势检测器初始化完成`);
+
+    // 3. 初始化持有者服务
+    const { TokenHolderService } = require('../holders/TokenHolderService');
+    const { dbManager } = require('../../services/dbManager');
+    const supabase = dbManager.getClient();
+    this._tokenHolderService = new TokenHolderService(supabase, this.logger);
+    this.logger.info('LiveTradingEngine', 'Initialize', '持有者服务初始化完成');
+    console.log(`✅ 持有者服务初始化完成`);
+
+    // 4. 初始化购买前检查服务
+    const { PreBuyCheckService } = require('../pre-check/PreBuyCheckService');
+
+    // 合并配置：外部默认配置 + 实验配置
+    const defaultConfig = require('../../../config/default.json');
+    const experimentPreBuyConfig = this._experiment?.config?.preBuyCheck || {};
+    const preBuyCheckConfig = {
+      ...defaultConfig.preBuyCheck,
+      ...experimentPreBuyConfig
+    };
+
+    this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
+    this.logger.info('LiveTradingEngine', 'Initialize', `购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
+    console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
+
+    // 5. 初始化 TokenPool（传入价格历史缓存，与虚拟盘一致）
+    this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache);
     await this._tokenPool.initialize();
     this.logger.info('LiveTradingEngine', 'Initialize', '代币池初始化完成');
     console.log(`✅ 代币池初始化完成`);
@@ -826,12 +870,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
     const strategies = this._buildStrategyConfig();
     this._strategyEngine = new StrategyEngine({ strategies });
 
-    const availableFactorIds = new Set([
-      'age', 'currentPrice', 'collectionPrice', 'earlyReturn', 'buyPrice',
-      'holdDuration', 'profitPercent',
-      'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
-      'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap'
-    ]);
+    // 使用统一的 FactorBuilder 获取可用因子列表（与虚拟盘一致）
+    const { getAvailableFactorIds } = require('../core/FactorBuilder');
+    const availableFactorIds = getAvailableFactorIds();
 
     // 转换策略配置格式（与虚拟盘一致）
     const strategyArray = [];
@@ -847,6 +888,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           cooldown: s.cooldown || 300,
           cards: s.cards || 1,
           maxExecutions: s.maxExecutions || null,
+          preBuyCheckCondition: s.preBuyCheckCondition || null, // 添加预检查条件
           enabled: true
         });
       });
@@ -1453,6 +1495,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
       // ========== 验证结束 ==========
 
+      // ========== 先创建并保存信号到数据库（与虚拟盘一致）==========
       // 初始化策略执行记录
       if (!token.strategyExecutions) {
         const strategyIds = this._strategyEngine.getAllStrategies().map(s => s.id);
@@ -1478,6 +1521,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
         }
       }
 
+      // 创建信号对象（与虚拟盘一致）
       const signal = {
         action: 'buy',
         symbol: token.symbol,
@@ -1494,26 +1538,228 @@ class LiveTradingEngine extends AbstractTradingEngine {
           perCardMaxBNB: positionManagement.perCardMaxBNB || 0.25
         } : null,
         factors: factorResults ? {
-          age: factorResults.age,
-          currentPrice: factorResults.currentPrice,
-          collectionPrice: factorResults.collectionPrice,
-          earlyReturn: factorResults.earlyReturn,
-          riseSpeed: factorResults.riseSpeed,
-          buyPrice: factorResults.buyPrice,
-          holdDuration: factorResults.holdDuration,
-          profitPercent: factorResults.profitPercent,
-          highestPrice: factorResults.highestPrice,
-          highestPriceTimestamp: factorResults.highestPriceTimestamp,
-          drawdownFromHighest: factorResults.drawdownFromHighest,
-          txVolumeU24h: factorResults.txVolumeU24h,
-          holders: factorResults.holders,
-          tvl: factorResults.tvl,
-          fdv: factorResults.fdv,
-          marketCap: factorResults.marketCap
+          // 使用 FactorBuilder 构建完整的因子数据（与虚拟盘一致）
+          trendFactors: this._buildTrendFactors(factorResults),
+          // 购买前检查 factors（初始为默认值，检查通过后更新）
+          preBuyCheckFactors: {
+            preBuyCheck: factorResults.preBuyCheck || 0,
+            checkTimestamp: factorResults.checkTimestamp || null,
+            checkDuration: factorResults.checkDuration || null,
+            holderWhitelistCount: factorResults.holderWhitelistCount || 0,
+            holderBlacklistCount: factorResults.holderBlacklistCount || 0,
+            holdersCount: factorResults.holdersCount || 0,
+            devHoldingRatio: factorResults.devHoldingRatio || 0,
+            maxHoldingRatio: factorResults.maxHoldingRatio || 0,
+            holderCanBuy: factorResults.holderCanBuy ?? null,
+            preTraderCanBuy: factorResults.preTraderCanBuy ?? null,
+            preTraderCheckReason: factorResults.preTraderCheckReason ?? null,
+            // 早期参与者检查因子
+            earlyTradesChecked: factorResults.earlyTradesChecked || 0,
+            earlyTradesCheckTimestamp: factorResults.earlyTradesCheckTimestamp || null,
+            earlyTradesCheckDuration: factorResults.earlyTradesCheckDuration || null,
+            earlyTradesCheckTime: factorResults.earlyTradesCheckTime || null,
+            earlyTradesWindow: factorResults.earlyTradesWindow || null,
+            earlyTradesExpectedFirstTime: factorResults.earlyTradesExpectedFirstTime || null,
+            earlyTradesExpectedLastTime: factorResults.earlyTradesExpectedLastTime || null,
+            earlyTradesDataFirstTime: factorResults.earlyTradesDataFirstTime || null,
+            earlyTradesDataLastTime: factorResults.earlyTradesDataLastTime || null,
+            earlyTradesDataCoverage: factorResults.earlyTradesDataCoverage || 0,
+            earlyTradesActualSpan: factorResults.earlyTradesActualSpan || 0,
+            earlyTradesRateCalcWindow: factorResults.earlyTradesRateCalcWindow || 1,
+            earlyTradesVolumePerMin: factorResults.earlyTradesVolumePerMin || 0,
+            earlyTradesCountPerMin: factorResults.earlyTradesCountPerMin || 0,
+            earlyTradesWalletsPerMin: factorResults.earlyTradesWalletsPerMin || 0,
+            earlyTradesHighValuePerMin: factorResults.earlyTradesHighValuePerMin || 0,
+            earlyTradesTotalCount: factorResults.earlyTradesTotalCount || 0,
+            earlyTradesVolume: factorResults.earlyTradesVolume || 0,
+            earlyTradesUniqueWallets: factorResults.earlyTradesUniqueWallets || 0,
+            earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
+            earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0,
+            // 钱包簇检查因子
+            walletClusterSecondToFirstRatio: factorResults.walletClusterSecondToFirstRatio || 0,
+            walletClusterMegaRatio: factorResults.walletClusterMegaRatio || 0,
+            walletClusterTop2Ratio: factorResults.walletClusterTop2Ratio || 0,
+            walletClusterCount: factorResults.walletClusterCount || 0,
+            walletClusterMaxSize: factorResults.walletClusterMaxSize || 0,
+            walletClusterSecondSize: factorResults.walletClusterSecondSize || 0,
+            walletClusterAvgSize: factorResults.walletClusterAvgSize || 0,
+            walletClusterMinSize: factorResults.walletClusterMinSize || 0,
+            walletClusterMegaCount: factorResults.walletClusterMegaCount || 0,
+            walletClusterMaxClusterWallets: factorResults.walletClusterMaxClusterWallets || 0,
+            walletClusterIntervalMean: factorResults.walletClusterIntervalMean || null,
+            walletClusterThreshold: factorResults.walletClusterThreshold || null
+          }
         } : null
       };
 
-      const result = await this.processSignal(signal);
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `创建信号 | symbol=${token.symbol}, action=${signal.action}`);
+
+      // 先保存信号到数据库（与虚拟盘一致）
+      let signalId = null;
+      try {
+        const { TradeSignal } = require('../entities');
+        const tradeSignal = new TradeSignal({
+          experimentId: this._experimentId,
+          tokenAddress: signal.tokenAddress,
+          tokenSymbol: signal.symbol,
+          signalType: signal.action.toUpperCase(),
+          action: signal.action,
+          confidence: signal.confidence,
+          reason: signal.reason,
+          metadata: {
+            ...signal.cardConfig,
+            price: signal.price,
+            strategyId: signal.strategyId,
+            strategyName: signal.strategyName,
+            cards: signal.cards,
+            ...signal.factors
+          }
+        });
+        signalId = await tradeSignal.save();
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `信号已保存 | symbol=${token.symbol}, signalId=${signalId}`);
+      } catch (saveError) {
+        this.logger.error(this._experimentId, '_executeStrategy',
+          `保存信号失败 | symbol=${token.symbol}, error=${saveError.message}`);
+        return failResult('保存信号失败');
+      }
+
+      // ========== 然后进行预检查（与虚拟盘一致）==========
+      let preCheckPassed = true;
+      let blockReason = null;
+      let preBuyCheckResult = null;
+
+      // 1. Dev 钱包检查已在前面完成
+      // 2. 综合购买前检查（使用 PreBuyCheckService）
+      if (this._preBuyCheckService) {
+        try {
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `开始购买前检查 | symbol=${token.symbol}, creator=${token.creator_address || 'none'}`);
+
+          // 构建代币信息（用于早期参与者检查）
+          const tokenInfo = this._buildTokenInfo(token);
+
+          // 只使用策略级别的预检查条件
+          const preBuyCheckCondition = strategy.preBuyCheckCondition || null;
+
+          preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
+            token.token,
+            token.creator_address || null,
+            this._experimentId,
+            token.chain || 'bsc',
+            tokenInfo,
+            preBuyCheckCondition
+          );
+
+          if (!preBuyCheckResult.canBuy) {
+            this.logger.warn(this._experimentId, '_executeStrategy',
+              `购买前检查失败 | symbol=${token.symbol}, holderCanBuy=${preBuyCheckResult.holderCanBuy}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
+              `reason=${preBuyCheckResult.checkReason}, ` +
+              `whitelist=${preBuyCheckResult.holderWhitelistCount}, blacklist=${preBuyCheckResult.holderBlacklistCount}, ` +
+              `devHoldingRatio=${(isNaN(preBuyCheckResult.devHoldingRatio) ? 'N/A' : preBuyCheckResult.devHoldingRatio.toFixed(1))}%, maxHoldingRatio=${(isNaN(preBuyCheckResult.maxHoldingRatio) ? 'N/A' : preBuyCheckResult.maxHoldingRatio.toFixed(1))}%`);
+            preCheckPassed = false;
+            blockReason = preBuyCheckResult.checkReason || 'pre_buy_check_failed';
+          } else {
+            this.logger.info(this._experimentId, '_executeStrategy',
+              `购买前检查通过 | symbol=${token.symbol}, holderCanBuy=${preBuyCheckResult.holderCanBuy}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
+              `reason=${preBuyCheckResult.checkReason}`);
+          }
+        } catch (checkError) {
+          const errorMsg = checkError?.message || String(checkError);
+          this.logger.error(this._experimentId, '_executeStrategy',
+            `购买前检查异常: ${token.symbol} - ${errorMsg}`);
+          // 检查失败时拒绝购买，保守处理
+          preCheckPassed = false;
+          blockReason = `购买前检查异常: ${errorMsg}`;
+        }
+      }
+
+      // 如果预检查失败，更新信号状态并返回失败（与虚拟盘一致）
+      if (!preCheckPassed) {
+        this.logger.warn(this._experimentId, '_executeStrategy',
+          `预检查失败 | symbol=${token.symbol}, reason=${blockReason}`);
+
+        // 即使预检查失败，也要保存购买前置检查结果到 metadata（用于分析）
+        if (preBuyCheckResult && signalId) {
+          const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
+          const regularFactors = buildFactorValuesForTimeSeries(factorResults);
+          const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
+
+          const failedCheckMetadata = {
+            regularFactors: regularFactors,
+            preBuyCheckFactors: preBuyCheckFactors,
+            preBuyCheckResult: {
+              canBuy: preBuyCheckResult.canBuy,
+              reason: preBuyCheckResult.checkReason || 'pre_buy_check_failed'
+            }
+          };
+
+          try {
+            await this._updateSignalMetadata(signalId, failedCheckMetadata);
+            this.logger.info(this._experimentId, '_executeStrategy',
+              `预检查失败，但已保存购买前置检查数据 | symbol=${token.symbol}, signalId=${signalId}`);
+          } catch (updateError) {
+            this.logger.warn(this._experimentId, '_executeStrategy',
+              `更新信号元数据失败 | symbol=${token.symbol}, error=${updateError.message}`);
+          }
+        }
+
+        // 更新信号状态为 failed（预检查失败）
+        if (signalId) {
+          await this._updateSignalStatus(signalId, 'failed', {
+            message: `预检查失败: ${blockReason}`,
+            reason: blockReason
+          });
+        }
+
+        // 记录到 RoundSummary
+        if (this._roundSummary) {
+          this._roundSummary.recordSignal(token.token, {
+            direction: 'BUY',
+            action: 'buy',
+            confidence: 0,
+            reason: `预检查失败: ${blockReason}`
+          });
+          this._roundSummary.recordSignalExecution(token.token, false, `预检查失败: ${blockReason}`);
+        }
+
+        return failResult(`预检查失败: ${blockReason}`);
+      }
+
+      // ========== 预检查通过，构建信号元数据并执行交易 ==========
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `预检查通过，构建信号元数据 | symbol=${token.symbol}`);
+
+      // 构建信号元数据（包含趋势因子和购买前检查因子）
+      if (preBuyCheckResult && signalId) {
+        const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
+        const trendFactors = buildFactorValuesForTimeSeries(factorResults);
+        const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
+
+        const signalMetadata = {
+          trendFactors: trendFactors,
+          preBuyCheckFactors: preBuyCheckFactors,
+          preBuyCheckResult: {
+            canBuy: preBuyCheckResult.canBuy,
+            reason: preBuyCheckResult.checkReason || 'passed'
+          }
+        };
+
+        try {
+          await this._updateSignalMetadata(signalId, signalMetadata);
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `信号元数据已更新 | symbol=${token.symbol}, signalId=${signalId}`);
+        } catch (updateError) {
+          this.logger.warn(this._experimentId, '_executeStrategy',
+            `更新信号元数据失败 | symbol=${token.symbol}, error=${updateError.message}`);
+        }
+      }
+
+      this.logger.info(this._experimentId, '_executeStrategy',
+        `调用 processSignal | symbol=${token.symbol}`);
+
+      const result = await this.processSignal(signal, signalId);
 
       if (result && result.success) {
         this._tokenPool.markAsBought(token.token, token.chain, {
@@ -1574,22 +1820,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
         } : null,
         sellCalculatedRatio: sellCalculatedRatio,
         factors: factorResults ? {
-          age: factorResults.age,
-          currentPrice: factorResults.currentPrice,
-          collectionPrice: factorResults.collectionPrice,
-          earlyReturn: factorResults.earlyReturn,
-          riseSpeed: factorResults.riseSpeed,
-          buyPrice: factorResults.buyPrice,
-          holdDuration: factorResults.holdDuration,
-          profitPercent: factorResults.profitPercent,
-          highestPrice: factorResults.highestPrice,
-          highestPriceTimestamp: factorResults.highestPriceTimestamp,
-          drawdownFromHighest: factorResults.drawdownFromHighest,
-          txVolumeU24h: factorResults.txVolumeU24h,
-          holders: factorResults.holders,
-          tvl: factorResults.tvl,
-          fdv: factorResults.fdv,
-          marketCap: factorResults.marketCap
+          // 使用 FactorBuilder 构建完整的因子数据（与虚拟盘一致）
+          trendFactors: this._buildTrendFactors(factorResults)
         } : null
       };
 
@@ -1733,6 +1965,109 @@ class LiveTradingEngine extends AbstractTradingEngine {
     } else {
       this.logger.debug(this._experimentId, '_updateTokenStatus',
         `代币状态已更新 | tokenAddress=${tokenAddress}, status=${status}`);
+    }
+  }
+
+  /**
+   * 构建代币信息（用于早期参与者检查）
+   * @private
+   * @param {Object} token - 代币数据
+   * @returns {Object} 代币信息
+   */
+  _buildTokenInfo(token) {
+    return {
+      tokenAddress: token.token,
+      symbol: token.symbol,
+      chain: token.chain || 'bsc',
+      createdAt: token.createdAt,
+      collectionTime: token.collectionTime || token.addedAt || Date.now(),
+      currentPrice: token.currentPrice || 0,
+      launchPrice: token.launchPrice || token.collectionPrice || token.currentPrice || 0
+    };
+  }
+
+  /**
+   * 构建趋势因子（用于信号元数据）
+   * @private
+   * @param {Object} factorResults - 因子计算结果
+   * @returns {Object} 趋势因子
+   */
+  _buildTrendFactors(factorResults) {
+    const { buildFactorValuesForTimeSeries } = require('../core/FactorBuilder');
+    return {
+      ...buildFactorValuesForTimeSeries(factorResults),
+      // 添加趋势检测相关因子（如果存在）
+      trendDataPoints: factorResults.trendDataPoints,
+      trendCV: factorResults.trendCV,
+      trendPriceUp: factorResults.trendPriceUp,
+      trendMedianUp: factorResults.trendMedianUp,
+      trendSlope: factorResults.trendSlope,
+      trendStrengthScore: factorResults.trendStrengthScore,
+      trendTotalReturn: factorResults.trendTotalReturn,
+      trendRiseRatio: factorResults.trendRiseRatio,
+      trendRecentDownCount: factorResults.trendRecentDownCount,
+      trendRecentDownRatio: factorResults.trendRecentDownRatio,
+      trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
+      trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
+      trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
+      trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
+    };
+  }
+
+  /**
+   * 构建购买前检查因子（用于信号元数据）
+   * @private
+   * @param {Object} preBuyCheckResult - 预检查结果
+   * @returns {Object} 预检查因子
+   */
+  _buildPreBuyCheckFactors(preBuyCheckResult) {
+    const { buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
+    return buildPreBuyCheckFactorValues(preBuyCheckResult);
+  }
+
+  /**
+   * 更新信号元数据
+   * @private
+   * @param {string} signalId - 信号ID
+   * @param {Object} metadata - 元数据
+   * @returns {Promise<void>}
+   */
+  async _updateSignalMetadata(signalId, metadata) {
+    if (!signalId || !metadata) {
+      return;
+    }
+
+    try {
+      await this.dataService.updateSignalMetadata(signalId, metadata);
+    } catch (error) {
+      this.logger.error(this._experimentId, '_updateSignalMetadata',
+        `更新信号元数据失败 | signalId=${signalId}, error=${error.message}`);
+    }
+  }
+
+  /**
+   * 更新信号状态
+   * @private
+   * @param {string} signalId - 信号ID
+   * @param {string} status - 状态
+   * @param {Object} result - 结果对象
+   * @returns {Promise<void>}
+   */
+  async _updateSignalStatus(signalId, status, result = {}) {
+    if (!signalId) {
+      return;
+    }
+
+    try {
+      await this.dataService.updateSignalStatus(signalId, status, {
+        executed: status === 'executed',
+        execution_status: status,
+        execution_reason: result.reason || result.message || null,
+        executed_at: new Date().toISOString()
+      });
+    } catch (error) {
+      this.logger.error(this._experimentId, '_updateSignalStatus',
+        `更新信号状态失败 | signalId=${signalId}, error=${error.message}`);
     }
   }
 
