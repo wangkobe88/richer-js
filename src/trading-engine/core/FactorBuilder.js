@@ -93,7 +93,20 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     earlyTradesVolume: preBuyCheckResult.earlyTradesVolume || 0,
     earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets || 0,
     earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount || 0,
-    earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount || 0
+    earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount || 0,
+    // 钱包簇检查因子
+    walletClusterSecondToFirstRatio: preBuyCheckResult.walletClusterSecondToFirstRatio || 0,
+    walletClusterMegaRatio: preBuyCheckResult.walletClusterMegaRatio || 0,
+    walletClusterTop2Ratio: preBuyCheckResult.walletClusterTop2Ratio || 0,
+    walletClusterCount: preBuyCheckResult.walletClusterCount || 0,
+    walletClusterMaxSize: preBuyCheckResult.walletClusterMaxSize || 0,
+    walletClusterSecondSize: preBuyCheckResult.walletClusterSecondSize || 0,
+    walletClusterAvgSize: preBuyCheckResult.walletClusterAvgSize || 0,
+    walletClusterMinSize: preBuyCheckResult.walletClusterMinSize || 0,
+    walletClusterMegaCount: preBuyCheckResult.walletClusterMegaCount || 0,
+    walletClusterMaxClusterWallets: preBuyCheckResult.walletClusterMaxClusterWallets || 0,
+    walletClusterIntervalMean: preBuyCheckResult.walletClusterIntervalMean || null,
+    walletClusterThreshold: preBuyCheckResult.walletClusterThreshold || null
   };
 }
 
