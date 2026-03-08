@@ -56,7 +56,7 @@ walletClusterSecondToFirstRatio > 0.2 && walletClusterMegaRatio < 0.3
 
 ```javascript
 // 同时检查交易活跃度和簇特征
-earlyTradesCountPerMin >= 10.6 && walletClusterSecondToFirstRatio > 0.3
+earlyTradesCountPerMin >= 10.6 AND walletClusterSecondToFirstRatio > 0.3
 ```
 
 ### 4. 单特征过滤
@@ -83,22 +83,6 @@ AND walletClusterTop2Ratio < 0.85
 
 ---
 
-## 配置
-
-在 `config/default.json` 中配置：
-
-```json
-{
-  "preBuyCheck": {
-    "walletClusterCheckEnabled": false,  // 是否启用（默认关闭）
-    "walletClusterPumpDumpThreshold": 0.3,  // 内部判断阈值
-    "walletClusterMegaRatioThreshold": 0.4  // 内部判断阈值
-  }
-}
-```
-
----
-
 ## 性能指标
 
 基于12个样本（6个拉砸 + 6个非拉砸）的测试结果：
@@ -111,39 +95,12 @@ AND walletClusterTop2Ratio < 0.85
 
 ---
 
-## 启用方法
-
-### 方法1：通过配置文件
-
-修改 `config/default.json`：
-```json
-{
-  "preBuyCheck": {
-    "walletClusterCheckEnabled": true
-  }
-}
-```
-
-### 方法2：通过实验配置
-
-在创建实验时设置：
-```javascript
-{
-  preBuyCheck: {
-    walletClusterCheckEnabled: true
-  }
-}
-```
-
----
-
 ## 注意事项
 
-1. **默认关闭**：钱包簇检查默认关闭，需要显式启用
-2. **向后兼容**：未启用时返回空值（0），不影响现有逻辑
-3. **数据复用**：使用早期参与者检查的交易数据，无额外API调用
-4. **性能影响**：计算开销极小（毫秒级）
-5. **钱包数**：使用 `earlyTradesUniqueWallets` 获取总钱包数
+1. **自动执行**：钱包簇因子与早期参与者因子一样，总是计算并可用
+2. **数据复用**：使用早期参与者检查的交易数据，无额外API调用
+3. **性能影响**：计算开销极小（毫秒级）
+4. **钱包数**：使用 `earlyTradesUniqueWallets` 获取总钱包数（不重复提供）
 
 ---
 
@@ -155,14 +112,3 @@ AND walletClusterTop2Ratio < 0.85
 | 高召回率 | `walletClusterSecondToFirstRatio > 0.2` |
 | 高精确率 | `walletClusterSecondToFirstRatio > 0.4 && walletClusterMegaRatio < 0.3` |
 | 组合检查 | `earlyTradesCountPerMin >= 10.6 && walletClusterSecondToFirstRatio > 0.3` |
-
----
-
-## 调试
-
-日志中会输出判断结果（仅用于调试，不暴露到因子中）：
-```json
-{
-  "is_pump_dump": true
-}
-```

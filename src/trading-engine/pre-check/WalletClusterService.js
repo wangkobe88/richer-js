@@ -11,24 +11,15 @@
  * 3. top2ClusterRatio - 前2簇占比
  */
 
-/**
- * 默认配置
- */
-const DEFAULT_CONFIG = {
-  clusterThresholdSeconds: 2,    // 交易簇时间间隔阈值（秒）
-  megaClusterThreshold: 100,     // 超大簇阈值（笔数）
-  pumpDumpThreshold: 0.3,        // 拉砸判定阈值（第2簇/第1簇）
-  megaClusterRatioThreshold: 0.4 // 超大簇占比阈值
-};
-
 class WalletClusterService {
   /**
    * @param {Object} logger - Logger实例
-   * @param {Object} config - 配置对象
    */
-  constructor(logger, config = {}) {
+  constructor(logger) {
     this.logger = logger;
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    // 固定配置
+    this.clusterThresholdSeconds = 2;
+    this.megaClusterThreshold = 100;
   }
 
   /**
@@ -48,7 +39,7 @@ class WalletClusterService {
     }
 
     // 1. 识别交易簇
-    const clusters = this._detectClusters(trades, this.config.clusterThresholdSeconds);
+    const clusters = this._detectClusters(trades, this.clusterThresholdSeconds);
 
     if (clusters.length === 0) {
       return this._getEmptyResult();
@@ -65,7 +56,7 @@ class WalletClusterService {
     const walletStats = this._calculateWalletStats(trades, clusters);
 
     // 5. 计算核心特征
-    const megaClusters = clusterSizes.filter(s => s >= this.config.megaClusterThreshold);
+    const megaClusters = clusterSizes.filter(s => s >= this.megaClusterThreshold);
     const megaClusterTradeCount = megaClusters.reduce((sum, s) => sum + s, 0);
 
     const secondToFirstRatio = sortedSizes.length >= 2
@@ -76,19 +67,14 @@ class WalletClusterService {
       ? (sortedSizes[0] + sortedSizes[1]) / trades.length
       : sortedSizes[0] / trades.length;
 
-    // 6. 判断是否为拉砸代币
+    // 6. 判断是否为拉砸代币（仅用于日志）
     const isPumpDump =
-      secondToFirstRatio < this.config.pumpDumpThreshold ||
-      (megaClusterTradeCount / trades.length) > this.config.megaClusterRatioThreshold;
+      secondToFirstRatio < 0.3 ||
+      (megaClusterTradeCount / trades.length) > 0.4;
 
     const result = {
-      // 标记已执行检查
-      walletClusterChecked: 1,
-      walletClusterCheckTimestamp: Date.now(),
-      walletClusterCheckDuration: Date.now() - startTime,
-
       // 基础信息
-      walletClusterThreshold: this.config.clusterThresholdSeconds,
+      walletClusterThreshold: this.clusterThresholdSeconds,
 
       // 簇数量
       walletClusterCount: clusters.length,
@@ -206,7 +192,7 @@ class WalletClusterService {
    */
   _getEmptyResult() {
     return {
-      walletClusterThreshold: this.config.clusterThresholdSeconds,
+      walletClusterThreshold: this.clusterThresholdSeconds,
 
       walletClusterCount: 0,
       walletClusterMaxSize: 0,
@@ -251,4 +237,4 @@ class WalletClusterService {
   }
 }
 
-module.exports = { WalletClusterService, DEFAULT_CONFIG };
+module.exports = { WalletClusterService };

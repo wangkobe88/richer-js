@@ -26,11 +26,7 @@ const DEFAULT_CONFIG = {
     volumePerMinThreshold: 1610,
     countPerMinThreshold: 14,
     highValuePerMinThreshold: 8
-  },
-  // 钱包簇检查配置
-  walletClusterCheckEnabled: false,  // 是否启用钱包簇检查（默认关闭）
-  walletClusterPumpDumpThreshold: 0.3,  // 第2簇/第1簇判定阈值
-  walletClusterMegaRatioThreshold: 0.4  // 超大簇占比阈值
+  }
 };
 
 class PreBuyCheckService {
@@ -53,10 +49,7 @@ class PreBuyCheckService {
     });
 
     // 初始化钱包簇检查服务
-    this.walletClusterService = new WalletClusterService(logger, {
-      pumpDumpThreshold: this.config.walletClusterPumpDumpThreshold,
-      megaClusterRatioThreshold: this.config.walletClusterMegaRatioThreshold
-    });
+    this.walletClusterService = new WalletClusterService(logger);
   }
 
   /**
@@ -107,7 +100,7 @@ class PreBuyCheckService {
       // 并行执行持有者检查和钱包簇检查
       const [holderCheck, walletClusterCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
-        this._performWalletClusterCheck(tokenAddress, chain, tokenInfo, checkTime, earlyParticipantCheck)
+        this._performWalletClusterCheck(earlyParticipantCheck)
       ]);
 
       // 如果没有提供条件表达式，返回检查失败
@@ -463,19 +456,10 @@ class PreBuyCheckService {
   /**
    * 执行钱包簇检查
    * @private
-   * @param {string} tokenAddress - 代币地址
-   * @param {string} chain - 区块链
-   * @param {Object} tokenInfo - 代币信息（只需要 innerPair）
-   * @param {number} checkTime - 检查时间戳（秒）
    * @param {Object} earlyParticipantCheck - 早期参与者检查结果（包含 trades 数据）
-   * @returns {Promise<Object>} 钱包簇检查结果
+   * @returns {Object} 钱包簇检查结果
    */
-  async _performWalletClusterCheck(tokenAddress, chain, tokenInfo, checkTime = null, earlyParticipantCheck = null) {
-    // 如果未启用或缺少信息，返回空值
-    if (!this.config.walletClusterCheckEnabled) {
-      return this.walletClusterService.getEmptyFactorValues();
-    }
-
+  async _performWalletClusterCheck(earlyParticipantCheck = null) {
     // 从早期参与者检查结果中获取交易数据
     const trades = earlyParticipantCheck?._trades;
 
@@ -488,7 +472,6 @@ class PreBuyCheckService {
       return this.walletClusterService.performClusterAnalysis(trades);
     } catch (error) {
       this.logger.error('[PreBuyCheckService] 钱包簇检查失败', {
-        token_address: tokenAddress,
         error: error.message
       });
       return this.walletClusterService.getEmptyFactorValues();

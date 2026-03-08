@@ -43,9 +43,9 @@ async function testIntegration() {
   // 4. 测试配置加载
   console.log('\n【测试 4/5】配置加载');
   const config = require('../config/default.json');
-  console.log('✅ walletClusterCheckEnabled:', config.preBuyCheck.walletClusterCheckEnabled);
-  console.log('✅ walletClusterPumpDumpThreshold:', config.preBuyCheck.walletClusterPumpDumpThreshold);
-  console.log('✅ walletClusterMegaRatioThreshold:', config.preBuyCheck.walletClusterMegaRatioThreshold);
+  console.log('✅ holderCheckEnabled:', config.preBuyCheck.holderCheckEnabled);
+  console.log('✅ earlyParticipantFilterEnabled:', config.preBuyCheck.earlyParticipantFilterEnabled);
+  console.log('✅ earlyParticipantStrategy:', config.preBuyCheck.earlyParticipantStrategy);
 
   // 5. 测试因子名称
   console.log('\n【测试 5/5】因子名称验证');
