@@ -12,11 +12,12 @@ const { PlatformPairResolver } = require('../core/PlatformPairResolver');
 const { dbManager } = require('../services/dbManager');
 
 class PlatformCollector {
-    constructor(config, logger, tokenPool, experimentId = null) {
+    constructor(config, logger, tokenPool, experimentId = null, blockchain = 'bsc') {
         this.config = config;
         this.logger = logger;
         this.tokenPool = tokenPool;
         this.experimentId = experimentId;  // 保存实验ID
+        this.blockchain = blockchain;  // 保存区块链配置
         this.collectorConfig = config.collector;
         this.aveConfig = config.ave;
 
@@ -114,40 +115,50 @@ class PlatformCollector {
 
     /**
      * Collect new tokens from all platforms (fourmeme, flap, bankr, pumpfun)
+     * 根据 blockchain 配置过滤应该收集的平台
      */
     async collect() {
         try {
             const startTime = Date.now();
 
-            // 顺序调用：先收集 fourmeme
-            await this.collectFourmemeTokens();
+            // 根据 blockchain 配置决定收集哪些平台
+            if (this.blockchain === 'bsc') {
+                // BSC 链：fourmeme 和 flap
+                await this.collectFourmemeTokens();
 
-            // === Flap平台暂时关闭 ===
-            if (this.collectorConfig.enableFlap !== false) {
-                await this.collectFlapTokens();
-            } else {
-                this.logger.info('Flap平台数据采集已通过配置关闭 (config.collector.enableFlap = false)');
-            }
-            // === Flap平台关闭结束 ===
+                // === Flap平台暂时关闭 ===
+                if (this.collectorConfig.enableFlap !== false) {
+                    await this.collectFlapTokens();
+                } else {
+                    this.logger.info('Flap平台数据采集已通过配置关闭 (config.collector.enableFlap = false)');
+                }
+                // === Flap平台关闭结束 ===
 
-            // 收集 bankr 平台 (Base 链)
-            if (this.collectorConfig.enableBankr !== false) {
-                await this.collectBankrTokens();
-            } else {
-                this.logger.info('Bankr平台数据采集已通过配置关闭 (config.collector.enableBankr = false)');
-            }
+            } else if (this.blockchain === 'base') {
+                // Base 链：bankr
+                if (this.collectorConfig.enableBankr !== false) {
+                    await this.collectBankrTokens();
+                } else {
+                    this.logger.info('Bankr平台数据采集已通过配置关闭 (config.collector.enableBankr = false)');
+                }
 
-            // 收集 pumpfun 平台 (Solana 链)
-            if (this.collectorConfig.enablePumpfun !== false) {
-                await this.collectPumpfunTokens();
+            } else if (this.blockchain === 'solana') {
+                // Solana 链：pumpfun
+                if (this.collectorConfig.enablePumpfun !== false) {
+                    await this.collectPumpfunTokens();
+                } else {
+                    this.logger.info('Pumpfun平台数据采集已通过配置关闭 (config.collector.enablePumpfun = false)');
+                }
+
             } else {
-                this.logger.info('Pumpfun平台数据采集已通过配置关闭 (config.collector.enablePumpfun = false)');
+                this.logger.warn(`未知的区块链配置: ${this.blockchain}，跳过代币收集`);
             }
 
             this.stats.lastCollectionTime = new Date().toISOString();
 
             const duration = Date.now() - startTime;
             this.logger.debug('多平台收集完成', {
+                blockchain: this.blockchain,
                 duration: `${duration}ms`,
                 fourmeme: this.stats.fourmeme,
                 flap: this.stats.flap,

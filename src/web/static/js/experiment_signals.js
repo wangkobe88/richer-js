@@ -1654,54 +1654,105 @@ class ExperimentSignals {
 
     // 构建购买前置检查信息（仅买入信号）
     let preBuyCheckHtml = '';
-    if (signal.action.toUpperCase() === 'BUY' && metadata.preBuyCheckFactors) {
-      const pf = metadata.preBuyCheckFactors;
+    if (signal.action.toUpperCase() === 'BUY') {
+      const pf = metadata.preBuyCheckFactors || {};
+      const tf = metadata.trendFactors || {};
       const pr = metadata.preBuyCheckResult || {};
 
-      // 🔥 获取预检查条件并解析阈值
+      // 🔥 获取策略条件并解析阈值
+      const buyCondition = this._getBuyCondition('buy');
+      const buyThresholds = buyCondition ? this._parseBuyCondition(buyCondition) : {};
       const preBuyCheckCondition = this._getPreBuyCheckCondition('buy');
-      const thresholds = preBuyCheckCondition ? this._parsePreBuyCheckCondition(preBuyCheckCondition) : {};
+      const preCheckThresholds = preBuyCheckCondition ? this._parsePreBuyCheckCondition(preBuyCheckCondition) : {};
 
       // 购买前置检查结果
       const checkResultBadge = pr.canBuy === false ?
         '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">❌ 失败</span>' :
         '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 通过</span>';
 
-      // 持有者检查信息
-      let holderCheckHtml = '';
-      if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined) {
-        const whitelistClass = this._getFactorClass('holderWhitelistCount', pf.holderWhitelistCount || 0, thresholds);
-        const blacklistClass = this._getFactorClass('holderBlacklistCount', pf.holderBlacklistCount || 0, thresholds);
-        const devClass = this._getFactorClass('devHoldingRatio', pf.devHoldingRatio || 0, thresholds);
-        const maxClass = this._getFactorClass('maxHoldingRatio', pf.maxHoldingRatio || 0, thresholds);
+      // 第一阶段：买入策略条件（趋势因子）
+      let trendFactorsHtml = '';
+      if (tf.age !== undefined || tf.earlyReturn !== undefined || tf.currentPrice !== undefined) {
+        const ageClass = this._getFactorClass('age', tf.age || 0, buyThresholds);
+        const earlyReturnClass = this._getFactorClass('earlyReturn', tf.earlyReturn || 0, buyThresholds);
+        const currentPriceClass = this._getFactorClass('currentPrice', tf.currentPrice || 0, buyThresholds);
+        const collectionPriceClass = this._getFactorClass('collectionPrice', tf.collectionPrice || 0, buyThresholds);
 
-        holderCheckHtml = `
-          <div class="grid grid-cols-2 gap-2 text-xs mt-2">
-            <div>
-              <span class="text-amber-800">白名单:</span>
-              <span class="${whitelistClass}">${pf.holderWhitelistCount || 0}</span>
-            </div>
-            <div>
-              <span class="text-amber-800">黑名单:</span>
-              <span class="${blacklistClass}">${pf.holderBlacklistCount || 0}</span>
-            </div>
-            <div>
-              <span class="text-amber-800">持有人数:</span>
-              <span class="text-gray-900 font-medium">${pf.holdersCount || 0}</span>
-            </div>
-            <div>
-              <span class="text-amber-800">Dev持有:</span>
-              <span class="${devClass}">${pf.devHoldingRatio ? pf.devHoldingRatio.toFixed(1) : 'N/A'}%</span>
-            </div>
-            <div>
-              <span class="text-amber-800">最大持仓:</span>
-              <span class="${maxClass}">${pf.maxHoldingRatio ? pf.maxHoldingRatio.toFixed(1) : 'N/A'}%</span>
+        trendFactorsHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="text-xs font-semibold text-amber-900 mb-1">📈 买入条件（第一阶段）</div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span class="text-amber-800">代币年龄:</span>
+                <span class="${ageClass}">${tf.age !== undefined ? tf.age.toFixed(2) : 'N/A'}分</span>
+              </div>
+              <div>
+                <span class="text-amber-800">早期收益率:</span>
+                <span class="${earlyReturnClass}">${tf.earlyReturn !== undefined ? tf.earlyReturn.toFixed(1) : 'N/A'}%</span>
+              </div>
+              <div>
+                <span class="text-amber-800">当前价格:</span>
+                <span class="${currentPriceClass}">${tf.currentPrice !== undefined ? tf.currentPrice.toFixed(8) : 'N/A'}</span>
+              </div>
+              <div>
+                <span class="text-amber-800">获取价格:</span>
+                <span class="${collectionPriceClass}">${tf.collectionPrice !== undefined ? tf.collectionPrice.toFixed(8) : 'N/A'}</span>
+              </div>
+              ${tf.txVolumeU24h !== undefined ? `
+              <div>
+                <span class="text-amber-800">24h交易量:</span>
+                <span class="text-gray-900">$${(tf.txVolumeU24h / 1000).toFixed(1)}K</span>
+              </div>
+              ` : ''}
+              ${tf.holders !== undefined ? `
+              <div>
+                <span class="text-amber-800">持有者数:</span>
+                <span class="text-gray-900">${tf.holders}</span>
+              </div>
+              ` : ''}
             </div>
           </div>
         `;
       }
 
-      // 早期参与者检查信息
+      // 第二阶段：持有者检查信息
+      let holderCheckHtml = '';
+      if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined) {
+        const whitelistClass = this._getFactorClass('holderWhitelistCount', pf.holderWhitelistCount || 0, preCheckThresholds);
+        const blacklistClass = this._getFactorClass('holderBlacklistCount', pf.holderBlacklistCount || 0, preCheckThresholds);
+        const devClass = this._getFactorClass('devHoldingRatio', pf.devHoldingRatio || 0, preCheckThresholds);
+        const maxClass = this._getFactorClass('maxHoldingRatio', pf.maxHoldingRatio || 0, preCheckThresholds);
+
+        holderCheckHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="text-xs font-semibold text-amber-900 mb-1">👥 持有者检查</div>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span class="text-amber-800">白名单:</span>
+                <span class="${whitelistClass}">${pf.holderWhitelistCount || 0}</span>
+              </div>
+              <div>
+                <span class="text-amber-800">黑名单:</span>
+                <span class="${blacklistClass}">${pf.holderBlacklistCount || 0}</span>
+              </div>
+              <div>
+                <span class="text-amber-800">持有人数:</span>
+                <span class="text-gray-900 font-medium">${pf.holdersCount || 0}</span>
+              </div>
+              <div>
+                <span class="text-amber-800">Dev持有:</span>
+                <span class="${devClass}">${pf.devHoldingRatio ? pf.devHoldingRatio.toFixed(1) : 'N/A'}%</span>
+              </div>
+              <div>
+                <span class="text-amber-800">最大持仓:</span>
+                <span class="${maxClass}">${pf.maxHoldingRatio ? pf.maxHoldingRatio.toFixed(1) : 'N/A'}%</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // 第三阶段：早期参与者检查信息
       let earlyTradesHtml = '';
       if (pf.earlyTradesChecked === 1) {
         // 检查是否有交易数据
@@ -1709,16 +1760,16 @@ class ExperimentSignals {
 
         if (hasTradeData) {
           // 获取每个因子的样式类
-          const highValueCountClass = this._getFactorClass('earlyTradesHighValueCount', pf.earlyTradesHighValueCount || 0, thresholds);
-          const highValuePerMinClass = this._getFactorClass('earlyTradesHighValuePerMin', pf.earlyTradesHighValuePerMin || 0, thresholds);
-          const countPerMinClass = this._getFactorClass('earlyTradesCountPerMin', pf.earlyTradesCountPerMin || 0, thresholds);
-          const volumePerMinClass = this._getFactorClass('earlyTradesVolumePerMin', pf.earlyTradesVolumePerMin || 0, thresholds);
-          const actualSpanClass = this._getFactorClass('earlyTradesActualSpan', pf.earlyTradesActualSpan || 0, thresholds);
-          const uniqueWalletsClass = this._getFactorClass('earlyTradesUniqueWallets', pf.earlyTradesUniqueWallets || 0, thresholds);
+          const highValueCountClass = this._getFactorClass('earlyTradesHighValueCount', pf.earlyTradesHighValueCount || 0, preCheckThresholds);
+          const highValuePerMinClass = this._getFactorClass('earlyTradesHighValuePerMin', pf.earlyTradesHighValuePerMin || 0, preCheckThresholds);
+          const countPerMinClass = this._getFactorClass('earlyTradesCountPerMin', pf.earlyTradesCountPerMin || 0, preCheckThresholds);
+          const volumePerMinClass = this._getFactorClass('earlyTradesVolumePerMin', pf.earlyTradesVolumePerMin || 0, preCheckThresholds);
+          const actualSpanClass = this._getFactorClass('earlyTradesActualSpan', pf.earlyTradesActualSpan || 0, preCheckThresholds);
+          const uniqueWalletsClass = this._getFactorClass('earlyTradesUniqueWallets', pf.earlyTradesUniqueWallets || 0, preCheckThresholds);
 
           earlyTradesHtml = `
             <div class="mt-2 pt-2 border-t border-amber-300">
-              <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者</div>
+              <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者检查</div>
               <div class="grid grid-cols-3 gap-2 text-xs">
                 <div>
                   <span class="text-amber-800">高价值交易:</span>
@@ -1755,7 +1806,7 @@ class ExperimentSignals {
           // 没有交易数据时的提示
           earlyTradesHtml = `
             <div class="mt-2 pt-2 border-t border-amber-300">
-              <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者</div>
+              <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者检查</div>
               <div class="text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
                 ⚠️ 无交易数据 - AVE API 未返回该代币对的早期交易记录
               </div>
@@ -1770,9 +1821,10 @@ class ExperimentSignals {
             <span class="text-amber-900 font-semibold text-sm">🔍 购买前置检查</span>
             ${checkResultBadge}
           </div>
+          ${trendFactorsHtml}
           ${holderCheckHtml}
           ${earlyTradesHtml}
-          ${pr.reason ? `<div class="text-xs text-amber-800 mt-2">${this._escapeHtml(pr.reason)}</div>` : ''}
+          ${pr.reason ? `<div class="text-xs text-amber-800 mt-2 border-t border-amber-300 pt-2">${this._escapeHtml(pr.reason)}</div>` : ''}
         </div>
       `;
     }
@@ -2162,6 +2214,62 @@ class ExperimentSignals {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * 从实验配置中获取买入条件（触发条件）
+   * @private
+   * @param {string} action - 交易动作 ('buy' 或 'sell')
+   * @returns {string|null} 条件表达式
+   */
+  _getBuyCondition(action) {
+    if (!this.experimentConfig || !this.experimentConfig.strategiesConfig) {
+      return null;
+    }
+
+    const strategiesConfig = this.experimentConfig.strategiesConfig;
+    const strategies = action === 'buy' ? strategiesConfig.buyStrategies : strategiesConfig.sellStrategies;
+
+    if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
+      return null;
+    }
+
+    // 获取第一个策略的触发条件
+    return strategies[0].condition || null;
+  }
+
+  /**
+   * 解析买入条件表达式，提取各因子的阈值
+   * 支持的运算符: >=, <=, >, <, =, ==
+   * @private
+   * @param {string} condition - 条件表达式
+   * @returns {Object} 因子名到阈值的映射 { factorName: { operator, value } }
+   */
+  _parseBuyCondition(condition) {
+    if (!condition || typeof condition !== 'string') {
+      return {};
+    }
+
+    const thresholds = {};
+
+    // 匹配模式: factorName operator value
+    // 支持的运算符: >=, <=, >, <, =, ==, AND, OR
+    const patterns = [
+      /(\w+)\s*(>=|<=|>|<|=|==)\s*(\d+\.?\d*)/g
+    ];
+
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(condition)) !== null) {
+        const [, factorName, operator, value] = match;
+        thresholds[factorName] = {
+          operator: operator,
+          value: parseFloat(value)
+        };
+      }
+    }
+
+    return thresholds;
   }
 
   /**
