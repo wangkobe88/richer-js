@@ -1327,7 +1327,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             walletClusterSecondToFirstRatio: factorResults.walletClusterSecondToFirstRatio || 0,
             walletClusterTop2Ratio: factorResults.walletClusterTop2Ratio || 0,
             walletClusterMegaRatio: factorResults.walletClusterMegaRatio || 0,
-            walletClusterMaxClusterWallets: factorResults.walletClusterMaxClusterWallets || 0
+            walletClusterMaxClusterWallets: factorResults.walletClusterMaxClusterWallets || 0,
+            // 最大区块买入金额占比因子
+            walletClusterMaxBlockBuyRatio: factorResults.walletClusterMaxBlockBuyRatio || 0,
+            walletClusterMaxBlockNumber: factorResults.walletClusterMaxBlockNumber || null,
+            walletClusterMaxBlockBuyAmount: factorResults.walletClusterMaxBlockBuyAmount || 0,
+            walletClusterTotalBuyAmount: factorResults.walletClusterTotalBuyAmount || 0
           }
         } : null
       };

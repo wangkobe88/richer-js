@@ -620,11 +620,13 @@ class BacktestEngine extends AbstractTradingEngine {
     const experimentPreBuyConfig = this._experiment?.config?.preBuyCheck || {};
     const preBuyCheckConfig = {
       ...defaultConfig.preBuyCheck,
-      ...experimentPreBuyConfig
+      ...experimentPreBuyConfig,
+      // 回测模式使用时间戳聚簇（历史数据质量不稳定）
+      useTimeBasedClustering: true
     };
 
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
-    this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
+    this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, useTimeBasedClustering=true)`);
   }
 
   /**

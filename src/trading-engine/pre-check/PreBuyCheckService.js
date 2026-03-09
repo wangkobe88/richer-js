@@ -49,7 +49,9 @@ class PreBuyCheckService {
     });
 
     // 初始化钱包簇检查服务
-    this.walletClusterService = new WalletClusterService(logger);
+    // 回测模式使用时间戳聚簇，虚拟/实盘使用区块号聚簇
+    const clusterMode = this.config.useTimeBasedClustering ? 'time' : 'block';
+    this.walletClusterService = new WalletClusterService(logger, { mode: clusterMode });
   }
 
   /**
@@ -249,7 +251,12 @@ class PreBuyCheckService {
         walletClusterCount: walletClusterCheck.walletClusterCount || 0,
         walletClusterMaxSize: walletClusterCheck.walletClusterMaxSize || 0,
         walletClusterAvgSize: walletClusterCheck.walletClusterAvgSize || 0,
-        walletClusterMaxClusterWallets: walletClusterCheck.walletClusterMaxClusterWallets || 0
+        walletClusterMaxClusterWallets: walletClusterCheck.walletClusterMaxClusterWallets || 0,
+        // 最大区块买入金额占比因子
+        walletClusterMaxBlockBuyRatio: walletClusterCheck.walletClusterMaxBlockBuyRatio || 0,
+        walletClusterMaxBlockNumber: walletClusterCheck.walletClusterMaxBlockNumber || null,
+        walletClusterMaxBlockBuyAmount: walletClusterCheck.walletClusterMaxBlockBuyAmount || 0,
+        walletClusterTotalBuyAmount: walletClusterCheck.walletClusterTotalBuyAmount || 0
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime

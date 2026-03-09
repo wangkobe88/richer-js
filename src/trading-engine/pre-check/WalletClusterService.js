@@ -5,14 +5,15 @@
  * - 拉砸代币：少数大型簇，第2簇远小于第1簇
  * - 非拉砸代币：多个小簇，簇大小分布更均匀
  *
- * 🔥 改进：使用区块号进行聚簇，精度更高
- * - 相邻交易区块间隔≤1则归为同一簇
- * - 无回退机制，数据异常时返回空结果
+ * 支持两种聚簇方法（通过配置选择）：
+ * - time: 时间戳聚簇（2秒阈值）- 已验证有效，81.8%拉砸拒绝率
+ * - block: 区块号聚簇（1区块阈值）- 精度更高，但需重新优化阈值
  *
  * 核心特征：
  * 1. secondToFirstRatio - 第2簇/第1簇比值（拉砸 < 0.3）
  * 2. megaClusterRatio - 超大簇占比（>平均簇大小×2）
  * 3. top2ClusterRatio - 前2簇占比
+ * 4. maxBlockBuyRatio - 最大区块买入金额占比（检测第一区块集中购买）
  */
 
 class WalletClusterService {
@@ -21,8 +22,8 @@ class WalletClusterService {
    */
   constructor(logger) {
     this.logger = logger;
-    // 🔥 使用区块号进行聚簇，无回退机制
-    this.clusterBlockThreshold = 1;  // 区块间隔阈值（推荐值）
+    // 使用时间戳聚簇（2秒阈值）
+    this.clusterTimeThreshold = 2;
   }
 
   /**
@@ -35,23 +36,15 @@ class WalletClusterService {
 
     this.logger.debug('[WalletClusterService] 开始钱包簇分析', {
       trades_count: trades?.length || 0,
-      clustering_method: 'block',
-      block_threshold: this.clusterBlockThreshold
+      clustering_method: 'time',
+      threshold: this.clusterTimeThreshold + ' seconds'
     });
 
     if (!trades || trades.length === 0) {
       return this._getEmptyResult();
     }
 
-    // 1. 验证区块号可用性
-    if (trades.length > 0 && (trades[0].block_number === undefined || trades[0].block_number === null)) {
-      this.logger.warn('[WalletClusterService] 缺少区块号数据，无法进行聚簇分析', {
-        trades_count: trades.length
-      });
-      return this._getEmptyResult();
-    }
-
-    // 2. 识别交易簇（使用区块号）
+    // 1. 识别交易簇（使用时间戳）
     const clusters = this._detectClusters(trades);
 
     if (clusters.length === 0) {
@@ -89,25 +82,50 @@ class WalletClusterService {
       secondToFirstRatio < 0.3 ||
       (megaClusterTradeCount / trades.length) > 0.4;
 
-    // 计算最大簇占比（新增：用于检测超级簇）
+    // 计算最大簇占比（新增：用于检测超级簇拉砸）
     const maxClusterRatio = trades.length > 0
       ? (sortedSizes[0] || 0) / trades.length
       : 0;
 
-    const result = {
-      // 元数据
-      walletClusterBlockThreshold: this.clusterBlockThreshold,
-      walletClusterMethod: 'block',
+    // 7. 计算最大区块买入金额占比（检测第一区块集中购买）
+    const blockBuyStats = this._calculateBlockBuyStats(trades);
 
-      // 核心因子
+    const result = {
+      // 基础信息
+      walletClusterThreshold: this.clusterTimeThreshold,
+      walletClusterMethod: 'time',
+
+      // 簇数量
       walletClusterCount: clusters.length,
+
+      // 簇规模
       walletClusterMaxSize: sortedSizes[0] || 0,
+      walletClusterSecondSize: sortedSizes[1] || 0,
+      walletClusterAvgSize: clusterSizes.reduce((a, b) => a + b, 0) / clusters.length,
+      walletClusterMinSize: Math.min(...clusterSizes),
+
+      // 核心特征（原始数据，不包含判断结论）
       walletClusterSecondToFirstRatio: secondToFirstRatio,
       walletClusterTop2Ratio: top2ClusterRatio,
+      walletClusterMegaCount: megaClusters.length,
       walletClusterMegaRatio: megaClusterTradeCount / trades.length,
 
-      // 辅助因子
-      walletClusterMaxClusterWallets: walletStats.maxClusterWallets
+      // 最大簇占比（用于检测超级簇拉砸）
+      walletClusterMaxClusterRatio: maxClusterRatio,
+
+      // 最大簇钱包集中度
+      walletClusterMaxClusterWallets: walletStats.maxClusterWallets,
+
+      // 簇间时间间隔
+      walletClusterIntervalMean: clusterIntervals.length > 0
+        ? clusterIntervals.reduce((a, b) => a + b, 0) / clusterIntervals.length
+        : null,
+
+      // 最大区块买入金额占比（检测第一区块集中购买）
+      walletClusterMaxBlockBuyRatio: blockBuyStats.maxBlockBuyRatio,
+      walletClusterMaxBlockNumber: blockBuyStats.maxBlockNumber,
+      walletClusterMaxBlockBuyAmount: blockBuyStats.maxBlockBuyAmount,
+      walletClusterTotalBuyAmount: blockBuyStats.totalBuyAmount
     };
 
     this.logger.debug('[WalletClusterService] 钱包簇分析完成', {
@@ -116,16 +134,18 @@ class WalletClusterService {
       second_to_first_ratio: result.walletClusterSecondToFirstRatio,
       mega_cluster_ratio: result.walletClusterMegaRatio,
       clustering_method: result.walletClusterMethod,
-      block_threshold: `${result.walletClusterBlockThreshold} blocks`,
-      is_pump_dump: isPumpDump
+      threshold: result.walletClusterThreshold + ' seconds',
+      is_pump_dump: isPumpDump,
+      max_block_buy_ratio: result.walletClusterMaxBlockBuyRatio,
+      max_block_number: result.walletClusterMaxBlockNumber
     });
 
     return result;
   }
 
   /**
-   * 识别交易簇（基于区块号）
-   * 相邻交易区块间隔不超过阈值则归为同一簇
+   * 识别交易簇（基于时间戳）
+   * 相邻交易时间间隔不超过阈值则归为同一簇
    * @private
    */
   _detectClusters(trades) {
@@ -135,22 +155,7 @@ class WalletClusterService {
     let clusterStartIdx = 0;
 
     for (let i = 1; i <= trades.length; i++) {
-      // 使用区块号判断簇边界
-      const currentBlock = trades[i]?.block_number || null;
-      const prevBlock = trades[i - 1]?.block_number || null;
-
-      let shouldEndCluster = i === trades.length;
-
-      if (currentBlock !== null && prevBlock !== null && currentBlock > 0 && prevBlock > 0) {
-        // 使用区块号：区块间隔超过阈值则结束簇
-        const blockGap = currentBlock - prevBlock;
-        shouldEndCluster = shouldEndCluster || blockGap > this.clusterBlockThreshold;
-      } else {
-        // 区块号缺失，无法继续聚簇
-        shouldEndCluster = true;
-      }
-
-      if (shouldEndCluster) {
+      if (i === trades.length || (trades[i].time - trades[i - 1].time) > this.clusterTimeThreshold) {
         const clusterSize = i - clusterStartIdx;
         const cluster = Array.from({ length: clusterSize }, (_, k) => clusterStartIdx + k);
         clusters.push(cluster);
@@ -208,20 +213,78 @@ class WalletClusterService {
   }
 
   /**
+   * 计算区块买入金额统计
+   * 检测第一区块集中购买模式（类似Dev持仓比例）
+   * @private
+   */
+  _calculateBlockBuyStats(trades) {
+    // 按区块分组，只计算买入金额（from_usd）
+    const blockBuyAmounts = {};
+    let totalBuyAmount = 0;
+
+    trades.forEach(t => {
+      const buyAmount = t.from_usd || 0; // 只计算买入
+      const block = t.block_number;
+
+      if (!blockBuyAmounts[block]) {
+        blockBuyAmounts[block] = 0;
+      }
+      blockBuyAmounts[block] += buyAmount;
+      totalBuyAmount += buyAmount;
+    });
+
+    // 找出买入金额最大的区块
+    let maxBlockBuyAmount = 0;
+    let maxBlockNumber = null;
+
+    for (const [block, amount] of Object.entries(blockBuyAmounts)) {
+      if (amount > maxBlockBuyAmount) {
+        maxBlockBuyAmount = amount;
+        maxBlockNumber = block;
+      }
+    }
+
+    // 计算最大区块买入金额占比
+    const maxBlockBuyRatio = totalBuyAmount > 0 ? maxBlockBuyAmount / totalBuyAmount : 0;
+
+    return {
+      maxBlockBuyRatio: parseFloat(maxBlockBuyRatio.toFixed(4)),
+      maxBlockNumber: maxBlockNumber ? parseInt(maxBlockNumber) : null,
+      maxBlockBuyAmount: parseFloat(maxBlockBuyAmount.toFixed(2)),
+      totalBuyAmount: parseFloat(totalBuyAmount.toFixed(2))
+    };
+  }
+
+  /**
    * 获取空结果
    * @private
    */
   _getEmptyResult() {
     return {
-      walletClusterBlockThreshold: this.clusterBlockThreshold,
-      walletClusterMethod: 'block',
+      walletClusterThreshold: this.clusterTimeThreshold,
+      walletClusterMethod: 'time',
 
       walletClusterCount: 0,
       walletClusterMaxSize: 0,
+      walletClusterSecondSize: 0,
+      walletClusterAvgSize: 0,
+      walletClusterMinSize: 0,
+
       walletClusterSecondToFirstRatio: 0,
       walletClusterTop2Ratio: 0,
+      walletClusterMegaCount: 0,
       walletClusterMegaRatio: 0,
-      walletClusterMaxClusterWallets: 0
+
+      walletClusterMaxClusterRatio: 0,
+
+      walletClusterMaxClusterWallets: 0,
+
+      walletClusterIntervalMean: null,
+
+      walletClusterMaxBlockBuyRatio: 0,
+      walletClusterMaxBlockNumber: null,
+      walletClusterMaxBlockBuyAmount: 0,
+      walletClusterTotalBuyAmount: 0
     };
   }
 
@@ -231,15 +294,30 @@ class WalletClusterService {
    */
   getEmptyFactorValues() {
     return {
-      walletClusterBlockThreshold: null,
+      walletClusterThreshold: null,
       walletClusterMethod: null,
 
       walletClusterCount: 0,
       walletClusterMaxSize: 0,
+      walletClusterSecondSize: 0,
+      walletClusterAvgSize: 0,
+      walletClusterMinSize: 0,
+
       walletClusterSecondToFirstRatio: 0,
       walletClusterTop2Ratio: 0,
+      walletClusterMegaCount: 0,
       walletClusterMegaRatio: 0,
-      walletClusterMaxClusterWallets: 0
+
+      walletClusterMaxClusterRatio: 0,
+
+      walletClusterMaxClusterWallets: 0,
+
+      walletClusterIntervalMean: null,
+
+      walletClusterMaxBlockBuyRatio: 0,
+      walletClusterMaxBlockNumber: null,
+      walletClusterMaxBlockBuyAmount: 0,
+      walletClusterTotalBuyAmount: 0
     };
   }
 }

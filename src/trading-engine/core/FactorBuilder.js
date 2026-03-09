@@ -102,7 +102,12 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     walletClusterSecondToFirstRatio: preBuyCheckResult.walletClusterSecondToFirstRatio || 0,
     walletClusterTop2Ratio: preBuyCheckResult.walletClusterTop2Ratio || 0,
     walletClusterMegaRatio: preBuyCheckResult.walletClusterMegaRatio || 0,
-    walletClusterMaxClusterWallets: preBuyCheckResult.walletClusterMaxClusterWallets || 0
+    walletClusterMaxClusterWallets: preBuyCheckResult.walletClusterMaxClusterWallets || 0,
+    // 最大区块买入金额占比因子
+    walletClusterMaxBlockBuyRatio: preBuyCheckResult.walletClusterMaxBlockBuyRatio || 0,
+    walletClusterMaxBlockNumber: preBuyCheckResult.walletClusterMaxBlockNumber || null,
+    walletClusterMaxBlockBuyAmount: preBuyCheckResult.walletClusterMaxBlockBuyAmount || 0,
+    walletClusterTotalBuyAmount: preBuyCheckResult.walletClusterTotalBuyAmount || 0
   };
 }
 
