@@ -294,30 +294,30 @@ class ExperimentMonitor {
 
           <div class="mt-4 pt-4 border-t border-gray-100">
             <div class="flex justify-between items-center mb-3">
-              <a href="/experiment/${exp.id}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+              <a href="/experiment/${exp.id}" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                 查看详情 →
               </a>
             </div>
             <div class="flex flex-wrap gap-2 mb-2">
-              <a href="/experiment/${exp.id}/signals" class="text-green-600 hover:text-green-800 text-sm">
+              <a href="/experiment/${exp.id}/signals" target="_blank" class="text-green-600 hover:text-green-800 text-sm">
                 信号
               </a>
-              <a href="/experiment/${exp.id}/tokens" class="text-teal-600 hover:text-teal-800 text-sm">
+              <a href="/experiment/${exp.id}/tokens" target="_blank" class="text-teal-600 hover:text-teal-800 text-sm">
                 代币
               </a>
-              <a href="/experiment/${exp.id}/trades" class="text-purple-600 hover:text-purple-800 text-sm">
+              <a href="/experiment/${exp.id}/trades" target="_blank" class="text-purple-600 hover:text-purple-800 text-sm">
                 交易
               </a>
-              <a href="/experiment/${exp.id}/observer" class="text-emerald-600 hover:text-emerald-800 text-sm">
+              <a href="/experiment/${exp.id}/observer" target="_blank" class="text-emerald-600 hover:text-emerald-800 text-sm">
                 时序
               </a>
-              <a href="/experiment/${exp.id}/token-returns" class="text-orange-600 hover:text-orange-800 text-sm">
+              <a href="/experiment/${exp.id}/token-returns" target="_blank" class="text-orange-600 hover:text-orange-800 text-sm">
                 收益
               </a>
-              <a href="/experiment/${exp.id}/strategy-analysis" class="text-pink-600 hover:text-pink-800 text-sm">
+              <a href="/experiment/${exp.id}/strategy-analysis" target="_blank" class="text-pink-600 hover:text-pink-800 text-sm">
                 策略
               </a>
-              <a href="/token-holders?experiment=${exp.id}" class="text-cyan-600 text-sm" title="查看该实验的代币持有者信息">
+              <a href="/token-holders?experiment=${exp.id}" target="_blank" class="text-cyan-600 text-sm" title="查看该实验的代币持有者信息">
                 持有者
               </a>
             </div>

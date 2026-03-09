@@ -1582,18 +1582,14 @@ class LiveTradingEngine extends AbstractTradingEngine {
             earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
             earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0,
             // 钱包簇检查因子
-            walletClusterSecondToFirstRatio: factorResults.walletClusterSecondToFirstRatio || 0,
-            walletClusterMegaRatio: factorResults.walletClusterMegaRatio || 0,
-            walletClusterTop2Ratio: factorResults.walletClusterTop2Ratio || 0,
+            walletClusterBlockThreshold: factorResults.walletClusterBlockThreshold || null,
+            walletClusterMethod: factorResults.walletClusterMethod || null,
             walletClusterCount: factorResults.walletClusterCount || 0,
             walletClusterMaxSize: factorResults.walletClusterMaxSize || 0,
-            walletClusterSecondSize: factorResults.walletClusterSecondSize || 0,
-            walletClusterAvgSize: factorResults.walletClusterAvgSize || 0,
-            walletClusterMinSize: factorResults.walletClusterMinSize || 0,
-            walletClusterMegaCount: factorResults.walletClusterMegaCount || 0,
-            walletClusterMaxClusterWallets: factorResults.walletClusterMaxClusterWallets || 0,
-            walletClusterIntervalMean: factorResults.walletClusterIntervalMean || null,
-            walletClusterThreshold: factorResults.walletClusterThreshold || null
+            walletClusterSecondToFirstRatio: factorResults.walletClusterSecondToFirstRatio || 0,
+            walletClusterTop2Ratio: factorResults.walletClusterTop2Ratio || 0,
+            walletClusterMegaRatio: factorResults.walletClusterMegaRatio || 0,
+            walletClusterMaxClusterWallets: factorResults.walletClusterMaxClusterWallets || 0
           }
         } : null
       };

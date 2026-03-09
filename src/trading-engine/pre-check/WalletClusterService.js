@@ -5,9 +5,13 @@
  * - 拉砸代币：少数大型簇，第2簇远小于第1簇
  * - 非拉砸代币：多个小簇，簇大小分布更均匀
  *
+ * 🔥 改进：使用区块号进行聚簇，精度更高
+ * - 相邻交易区块间隔≤1则归为同一簇
+ * - 无回退机制，数据异常时返回空结果
+ *
  * 核心特征：
  * 1. secondToFirstRatio - 第2簇/第1簇比值（拉砸 < 0.3）
- * 2. megaClusterRatio - 超大簇占比（>100笔）
+ * 2. megaClusterRatio - 超大簇占比（>平均簇大小×2）
  * 3. top2ClusterRatio - 前2簇占比
  */
 
@@ -17,9 +21,8 @@ class WalletClusterService {
    */
   constructor(logger) {
     this.logger = logger;
-    // 固定配置
-    this.clusterThresholdSeconds = 2;
-    this.megaClusterThreshold = 100;
+    // 🔥 使用区块号进行聚簇，无回退机制
+    this.clusterBlockThreshold = 1;  // 区块间隔阈值（推荐值）
   }
 
   /**
@@ -31,15 +34,25 @@ class WalletClusterService {
     const startTime = Date.now();
 
     this.logger.debug('[WalletClusterService] 开始钱包簇分析', {
-      trades_count: trades?.length || 0
+      trades_count: trades?.length || 0,
+      clustering_method: 'block',
+      block_threshold: this.clusterBlockThreshold
     });
 
     if (!trades || trades.length === 0) {
       return this._getEmptyResult();
     }
 
-    // 1. 识别交易簇
-    const clusters = this._detectClusters(trades, this.clusterThresholdSeconds);
+    // 1. 验证区块号可用性
+    if (trades.length > 0 && (trades[0].block_number === undefined || trades[0].block_number === null)) {
+      this.logger.warn('[WalletClusterService] 缺少区块号数据，无法进行聚簇分析', {
+        trades_count: trades.length
+      });
+      return this._getEmptyResult();
+    }
+
+    // 2. 识别交易簇（使用区块号）
+    const clusters = this._detectClusters(trades);
 
     if (clusters.length === 0) {
       return this._getEmptyResult();
@@ -56,7 +69,11 @@ class WalletClusterService {
     const walletStats = this._calculateWalletStats(trades, clusters);
 
     // 5. 计算核心特征
-    const megaClusters = clusterSizes.filter(s => s >= this.megaClusterThreshold);
+    // 动态计算megaCluster阈值：平均簇大小的2倍，且至少为5
+    const avgClusterSize = clusterSizes.reduce((a, b) => a + b, 0) / clusters.length;
+    const megaClusterThreshold = Math.max(5, Math.floor(avgClusterSize * 2));
+
+    const megaClusters = clusterSizes.filter(s => s >= megaClusterThreshold);
     const megaClusterTradeCount = megaClusters.reduce((sum, s) => sum + s, 0);
 
     const secondToFirstRatio = sortedSizes.length >= 2
@@ -72,32 +89,25 @@ class WalletClusterService {
       secondToFirstRatio < 0.3 ||
       (megaClusterTradeCount / trades.length) > 0.4;
 
+    // 计算最大簇占比（新增：用于检测超级簇）
+    const maxClusterRatio = trades.length > 0
+      ? (sortedSizes[0] || 0) / trades.length
+      : 0;
+
     const result = {
-      // 基础信息
-      walletClusterThreshold: this.clusterThresholdSeconds,
+      // 元数据
+      walletClusterBlockThreshold: this.clusterBlockThreshold,
+      walletClusterMethod: 'block',
 
-      // 簇数量
+      // 核心因子
       walletClusterCount: clusters.length,
-
-      // 簇规模
       walletClusterMaxSize: sortedSizes[0] || 0,
-      walletClusterSecondSize: sortedSizes[1] || 0,
-      walletClusterAvgSize: clusterSizes.reduce((a, b) => a + b, 0) / clusters.length,
-      walletClusterMinSize: Math.min(...clusterSizes),
-
-      // 核心特征（原始数据，不包含判断结论）
       walletClusterSecondToFirstRatio: secondToFirstRatio,
       walletClusterTop2Ratio: top2ClusterRatio,
-      walletClusterMegaCount: megaClusters.length,
       walletClusterMegaRatio: megaClusterTradeCount / trades.length,
 
-      // 最大簇钱包集中度
-      walletClusterMaxClusterWallets: walletStats.maxClusterWallets,
-
-      // 簇间时间间隔
-      walletClusterIntervalMean: clusterIntervals.length > 0
-        ? clusterIntervals.reduce((a, b) => a + b, 0) / clusterIntervals.length
-        : null
+      // 辅助因子
+      walletClusterMaxClusterWallets: walletStats.maxClusterWallets
     };
 
     this.logger.debug('[WalletClusterService] 钱包簇分析完成', {
@@ -105,6 +115,8 @@ class WalletClusterService {
       max_cluster_size: result.walletClusterMaxSize,
       second_to_first_ratio: result.walletClusterSecondToFirstRatio,
       mega_cluster_ratio: result.walletClusterMegaRatio,
+      clustering_method: result.walletClusterMethod,
+      block_threshold: `${result.walletClusterBlockThreshold} blocks`,
       is_pump_dump: isPumpDump
     });
 
@@ -112,27 +124,36 @@ class WalletClusterService {
   }
 
   /**
-   * 识别交易簇（修复版）
-   * 使用固定时间窗口：每笔交易与簇首笔的时间间隔不超过阈值
+   * 识别交易簇（基于区块号）
+   * 相邻交易区块间隔不超过阈值则归为同一簇
    * @private
    */
-  _detectClusters(trades, thresholdSecs) {
+  _detectClusters(trades) {
     if (!trades || trades.length === 0) return [];
 
     const clusters = [];
-    let clusterStartIdx = 0;  // 当前簇的首笔交易索引
+    let clusterStartIdx = 0;
 
     for (let i = 1; i <= trades.length; i++) {
-      // 检查是否应该结束当前簇：
-      // 1. 到达数组末尾，或
-      // 2. 当前交易与簇首笔的时间间隔超过阈值
-      if (i === trades.length ||
-          (trades[i].time - trades[clusterStartIdx].time) > thresholdSecs) {
-        // 结束当前簇，添加 [clusterStartIdx, i) 的所有交易
+      // 使用区块号判断簇边界
+      const currentBlock = trades[i]?.block_number || null;
+      const prevBlock = trades[i - 1]?.block_number || null;
+
+      let shouldEndCluster = i === trades.length;
+
+      if (currentBlock !== null && prevBlock !== null && currentBlock > 0 && prevBlock > 0) {
+        // 使用区块号：区块间隔超过阈值则结束簇
+        const blockGap = currentBlock - prevBlock;
+        shouldEndCluster = shouldEndCluster || blockGap > this.clusterBlockThreshold;
+      } else {
+        // 区块号缺失，无法继续聚簇
+        shouldEndCluster = true;
+      }
+
+      if (shouldEndCluster) {
         const clusterSize = i - clusterStartIdx;
         const cluster = Array.from({ length: clusterSize }, (_, k) => clusterStartIdx + k);
         clusters.push(cluster);
-        // 开始新簇
         clusterStartIdx = i;
       }
     }
@@ -192,22 +213,15 @@ class WalletClusterService {
    */
   _getEmptyResult() {
     return {
-      walletClusterThreshold: this.clusterThresholdSeconds,
+      walletClusterBlockThreshold: this.clusterBlockThreshold,
+      walletClusterMethod: 'block',
 
       walletClusterCount: 0,
       walletClusterMaxSize: 0,
-      walletClusterSecondSize: 0,
-      walletClusterAvgSize: 0,
-      walletClusterMinSize: 0,
-
       walletClusterSecondToFirstRatio: 0,
       walletClusterTop2Ratio: 0,
-      walletClusterMegaCount: 0,
       walletClusterMegaRatio: 0,
-
-      walletClusterMaxClusterWallets: 0,
-
-      walletClusterIntervalMean: null
+      walletClusterMaxClusterWallets: 0
     };
   }
 
@@ -217,22 +231,15 @@ class WalletClusterService {
    */
   getEmptyFactorValues() {
     return {
-      walletClusterThreshold: null,
+      walletClusterBlockThreshold: null,
+      walletClusterMethod: null,
 
       walletClusterCount: 0,
       walletClusterMaxSize: 0,
-      walletClusterSecondSize: 0,
-      walletClusterAvgSize: 0,
-      walletClusterMinSize: 0,
-
       walletClusterSecondToFirstRatio: 0,
       walletClusterTop2Ratio: 0,
-      walletClusterMegaCount: 0,
       walletClusterMegaRatio: 0,
-
-      walletClusterMaxClusterWallets: 0,
-
-      walletClusterIntervalMean: null
+      walletClusterMaxClusterWallets: 0
     };
   }
 }

@@ -31,6 +31,8 @@ class ExperimentTokenReturns {
     this.judgesData = new Map();
     // 平台数据
     this.tokenPlatformMap = new Map();
+    // 最高涨幅数据
+    this.tokenMaxChangeMap = new Map();
     // 当前编辑的代币地址
     this.currentEditingToken = null;
 
@@ -154,12 +156,16 @@ class ExperimentTokenReturns {
             if (token.platform) {
               this.tokenPlatformMap.set(token.token_address, token.platform);
             }
+            // 保存最高涨幅
+            if (token.analysis_results?.max_change_percent !== undefined) {
+              this.tokenMaxChangeMap.set(token.token_address, token.analysis_results.max_change_percent);
+            }
           });
         }
       }
 
       // 如果是回测且当前实验没有标注数据，尝试从源实验加载
-      if (this.judgeExperimentId !== this.experimentId && (this.judgesData.size === 0 || this.tokenPlatformMap.size === 0)) {
+      if (this.judgeExperimentId !== this.experimentId && (this.judgesData.size === 0 || this.tokenPlatformMap.size === 0 || this.tokenMaxChangeMap.size === 0)) {
         try {
           const sourceTokensRes = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens?limit=10000`);
           if (sourceTokensRes.ok) {
@@ -173,9 +179,14 @@ class ExperimentTokenReturns {
                 if (token.platform) {
                   this.tokenPlatformMap.set(token.token_address, token.platform);
                 }
+                // 同时加载最高涨幅数据
+                if (token.analysis_results?.max_change_percent !== undefined) {
+                  this.tokenMaxChangeMap.set(token.token_address, token.analysis_results.max_change_percent);
+                }
               });
               console.log(`从源实验加载了 ${this.judgesData.size} 条标注数据`);
               console.log(`从源实验加载了 ${this.tokenPlatformMap.size} 条平台数据`);
+              console.log(`从源实验加载了 ${this.tokenMaxChangeMap.size} 条最高涨幅数据`);
             }
           }
         } catch (error) {
@@ -389,6 +400,10 @@ class ExperimentTokenReturns {
           aVal = a.symbol.toLowerCase();
           bVal = b.symbol.toLowerCase();
           break;
+        case 'maxChange':
+          aVal = this.tokenMaxChangeMap.get(a.tokenAddress) || -999;
+          bVal = this.tokenMaxChangeMap.get(b.tokenAddress) || -999;
+          break;
         case 'returnRate':
           aVal = a.pnl.returnRate;
           bVal = b.pnl.returnRate;
@@ -468,95 +483,101 @@ class ExperimentTokenReturns {
       const blacklistInfo = this.blacklistTokenMap?.get(item.tokenAddress);
       const hasBlacklist = blacklistInfo && blacklistInfo.hasBlacklist;
       const blacklistBadge = hasBlacklist
-        ? '<span class="ml-2 px-2 py-0.5 bg-red-900 text-red-400 text-xs rounded border border-red-700" title="命中持有者黑名单">⚠️ 黑名单</span>'
+        ? '<span class="token-badge bg-red-900 text-red-400 border border-red-700" title="命中持有者黑名单">⚠️</span>'
         : '';
 
       // 检查是否命中白名单
       const whitelistInfo = this.whitelistTokenMap?.get(item.tokenAddress);
       const hasWhitelist = whitelistInfo && whitelistInfo.hasWhitelist;
       const whitelistBadge = hasWhitelist
-        ? '<span class="ml-2 px-2 py-0.5 bg-green-900 text-green-400 text-xs rounded border border-green-700" title="命中持有者白名单">✨ 白名单</span>'
+        ? '<span class="token-badge bg-green-900 text-green-400 border border-green-700" title="命中持有者白名单">✨</span>'
         : '';
 
       return `
         <tr class="table-row ${hasBlacklist ? 'bg-red-900/20' : ''}">
-          <td class="px-4 py-3">
-            <div class="flex items-center justify-between">
-              <div>
-                <span class="font-medium text-white">${item.symbol}</span>
-                ${blacklistBadge}
-                ${whitelistBadge}
+          <td class="px-2 py-2 token-symbol-cell">
+            <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center">
+                <span class="font-medium text-white text-sm">${item.symbol}</span>
+                ${(blacklistBadge || whitelistBadge) ? `<div class="token-badges">${blacklistBadge}${whitelistBadge}</div>` : ''}
               </div>
-              <div class="flex items-center space-x-2">
-                <button class="copy-addr-btn text-gray-400 hover:text-blue-400 transition-colors"
+              <div class="flex items-center space-x-1">
+                <button class="copy-addr-btn text-gray-400 hover:text-blue-400 transition-colors p-0.5"
                         data-address="${item.tokenAddress}"
                         title="复制代币地址">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                   </svg>
                 </button>
                 <a href="https://gmgn.ai/bsc/token/${item.tokenAddress}" target="_blank" rel="noopener noreferrer"
-                   class="text-gray-400 hover:text-purple-400 transition-colors"
+                   class="text-gray-400 hover:text-purple-400 transition-colors p-0.5"
                    title="在 GMGN 查看">
-                  <img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4">
+                  <img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3">
                 </a>
               </div>
             </div>
-            <div class="text-xs text-gray-500 font-mono mt-1 flex items-center justify-between">
-              <span>${item.tokenAddress.slice(0, 8)}...${item.tokenAddress.slice(-6)}</span>
-              ${hasBlacklist ? '<span class="text-red-400">(' + (blacklistInfo.blacklistedHolders || 0) + '⚠️)</span>' : ''}
-              ${hasWhitelist ? '<span class="text-green-400">(' + (whitelistInfo.whitelistedHolders || 0) + '✨)</span>' : ''}
+            <div class="text-xs text-gray-500 font-mono flex items-center justify-between">
+              <span class="text-xs">${item.tokenAddress.slice(0, 6)}...${item.tokenAddress.slice(-4)}</span>
+              <div class="flex items-center gap-1">
+                ${hasBlacklist ? '<span class="text-red-400 text-xs" title="' + (blacklistInfo.blacklistedHolders || 0) + '个黑名单持有者">' + (blacklistInfo.blacklistedHolders || 0) + '⚠️</span>' : ''}
+                ${hasWhitelist ? '<span class="text-green-400 text-xs" title="' + (whitelistInfo.whitelistedHolders || 0) + '个白名单持有者">' + (whitelistInfo.whitelistedHolders || 0) + '✨</span>' : ''}
+              </div>
             </div>
           </td>
-          <td class="px-4 py-3 text-center">
+          <td class="px-2 py-2 text-center">
             ${this.renderPlatformBadge(item.tokenAddress)}
           </td>
-          <td class="px-4 py-3 text-right">
-            <span class="${returnRateClass}">${returnRateSign}${pnl.returnRate.toFixed(2)}%</span>
+          <td class="px-2 py-2 text-right">
+            ${this.renderMaxChange(item.tokenAddress)}
           </td>
-          <td class="px-4 py-3 text-right">
-            <span class="${pnlClass}">${pnlSign}${pnl.realizedPnL.toFixed(4)} BNB</span>
+          <td class="px-2 py-2 text-right">
+            <span class="${returnRateClass} text-sm">${returnRateSign}${pnl.returnRate.toFixed(2)}%</span>
           </td>
-          <td class="px-4 py-3 text-right text-gray-400">
-            ${pnl.totalSpent.toFixed(4)} BNB
+          <td class="px-2 py-2 text-right">
+            <span class="${pnlClass} text-sm">${pnlSign}${pnl.realizedPnL.toFixed(4)} BNB</span>
           </td>
-          <td class="px-4 py-3 text-right text-gray-400">
-            ${pnl.totalReceived.toFixed(4)} BNB
+          <td class="px-2 py-2 text-right text-gray-400 text-sm">
+            ${pnl.totalSpent.toFixed(4)}
           </td>
-          <td class="px-4 py-3 text-center text-blue-400">
+          <td class="px-2 py-2 text-right text-gray-400 text-sm">
+            ${pnl.totalReceived.toFixed(4)}
+          </td>
+          <td class="px-2 py-2 text-center text-blue-400 text-sm">
             ${pnl.buyCount}
           </td>
-          <td class="px-4 py-3 text-center text-purple-400">
+          <td class="px-2 py-2 text-center text-purple-400 text-sm">
             ${pnl.sellCount}
           </td>
-          <td class="px-4 py-3 text-center text-gray-400 text-xs">
+          <td class="px-2 py-2 text-center text-gray-400 text-xs">
             ${this.formatBeijingTime(pnl.firstTradeTime)}
           </td>
-          <td class="px-4 py-3 text-center">
+          <td class="px-2 py-2 text-center">
             ${statusBadge}
           </td>
-          <td class="px-4 py-3 text-center">
+          <td class="px-2 py-2 text-center">
             ${this.renderJudgeColumn(item.tokenAddress, item.symbol)}
           </td>
-          <td class="px-4 py-3 text-center">
-            <a href="/experiment/${this.experimentId}/trades#token=${item.tokenAddress}" target="_blank" class="text-blue-400 hover:text-blue-300 text-sm mr-2">
-              查看交易
-            </a>
-            <a href="/experiment/${this.experimentId}/signals#token=${item.tokenAddress}" target="_blank" class="text-purple-400 hover:text-purple-300 text-sm mr-2">
-              查看信号
-            </a>
-            <a href="/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${item.tokenAddress}" target="_blank" class="text-pink-400 hover:text-pink-300 text-sm mr-2">
-              策略分析
-            </a>
-            <a href="${this.getTimeSeriesUrl(item.tokenAddress)}" target="_blank" class="text-emerald-400 hover:text-emerald-300 text-sm mr-2">
-              时序数据
-            </a>
-            <a href="/token-holders?experiment=${this.experimentId}&token=${item.tokenAddress}" target="_blank" class="text-cyan-400 hover:text-cyan-300 text-sm mr-2">
-              持有者
-            </a>
-            <a href="/token-early-trades?token=${item.tokenAddress}&chain=${this.experimentData?.blockchain || 'bsc'}" target="_blank" class="text-amber-400 hover:text-amber-300 text-sm">
-              早期交易
-            </a>
+          <td class="px-2 py-2 text-center">
+            <div class="action-links">
+              <a href="/experiment/${this.experimentId}/trades#token=${item.tokenAddress}" target="_blank" class="action-link text-blue-400 hover:text-blue-300">
+                查看交易
+              </a>
+              <a href="/experiment/${this.experimentId}/signals#token=${item.tokenAddress}" target="_blank" class="action-link text-purple-400 hover:text-purple-300">
+                查看信号
+              </a>
+              <a href="/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${item.tokenAddress}" target="_blank" class="action-link text-pink-400 hover:text-pink-300">
+                策略分析
+              </a>
+              <a href="${this.getTimeSeriesUrl(item.tokenAddress)}" target="_blank" class="action-link text-emerald-400 hover:text-emerald-300">
+                时序数据
+              </a>
+              <a href="/token-holders?experiment=${this.experimentId}&token=${item.tokenAddress}" target="_blank" class="action-link text-cyan-400 hover:text-cyan-300">
+                持有者
+              </a>
+              <a href="/token-early-trades?token=${item.tokenAddress}&chain=${this.experimentData?.blockchain || 'bsc'}" target="_blank" class="action-link text-amber-400 hover:text-amber-300">
+                早期交易
+              </a>
+            </div>
           </td>
         </tr>
       `;
@@ -796,9 +817,10 @@ class ExperimentTokenReturns {
   }
 
   exportToCSV() {
-    const headers = ['代币', '代币地址', '收益率(%)', '盈亏金额(BNB)', '总花费(BNB)', '总收回(BNB)', '剩余持仓', '买入次数', '卖出次数', '状态'];
+    const headers = ['代币', '代币地址', '最高涨幅(%)', '收益率(%)', '盈亏金额(BNB)', '总花费(BNB)', '总收回(BNB)', '剩余持仓', '买入次数', '卖出次数', '状态'];
     const rows = this.filteredReturns.map(item => {
       const pnl = item.pnl;
+      const maxChange = this.tokenMaxChangeMap.get(item.tokenAddress);
       let statusText = '';
       switch (pnl.status) {
         case 'monitoring': statusText = '监控中'; break;
@@ -808,6 +830,7 @@ class ExperimentTokenReturns {
       return [
         item.symbol,
         item.tokenAddress,
+        maxChange !== undefined ? maxChange.toFixed(2) : '-',
         pnl.returnRate.toFixed(2),
         pnl.realizedPnL.toFixed(4),
         pnl.totalSpent.toFixed(4),
@@ -865,6 +888,21 @@ class ExperimentTokenReturns {
     const platformLabel = platform === 'flap' ? 'Flap' : 'Four.meme';
     const platformClass = platform === 'flap' ? 'bg-purple-600' : 'bg-blue-600';
     return `<span class="px-2 py-0.5 rounded text-xs font-medium ${platformClass} text-white">${platformLabel}</span>`;
+  }
+
+  /**
+   * 渲染最高涨幅
+   * @param {string} tokenAddress - 代币地址
+   * @returns {string} 最高涨幅 HTML
+   */
+  renderMaxChange(tokenAddress) {
+    const maxChange = this.tokenMaxChangeMap.get(tokenAddress);
+    if (maxChange === undefined || maxChange === null) {
+      return '<span class="text-gray-500">-</span>';
+    }
+    const changeClass = maxChange > 0 ? 'text-green-400' : maxChange < 0 ? 'text-red-400' : 'text-gray-400';
+    const sign = maxChange > 0 ? '+' : '';
+    return `<span class="${changeClass}">${sign}${maxChange.toFixed(2)}%</span>`;
   }
 
   /**

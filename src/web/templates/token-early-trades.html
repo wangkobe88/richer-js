@@ -70,21 +70,35 @@
             position: sticky;
             top: 0;
             background: #f9fafb;
-            padding: 0.5rem 0.75rem;
+            padding: 0.5rem 0.5rem;
             text-align: left;
             font-weight: 600;
             color: #374151;
             border-bottom: 1px solid #e5e7eb;
             white-space: nowrap;
+            font-size: 0.75rem;
         }
         .data-table td {
-            padding: 0.5rem 0.75rem;
+            padding: 0.35rem 0.5rem;
             border-bottom: 1px solid #f3f4f6;
             color: #1f2937;
+            vertical-align: middle;
         }
         .data-table tr:hover {
-            background: #f9fafb;
+            background: #f3f4f6 !important;
         }
+        /* 簇背景色样式（确保hover时不覆盖） */
+        .bg-blue-50:hover { background: #dbeafe !important; }
+        .bg-green-50:hover { background: #dcfce7 !important; }
+        .bg-yellow-50:hover { background: #fef9c3 !important; }
+        .bg-purple-50:hover { background: #f3e8ff !important; }
+        .bg-pink-50:hover { background: #fce7f3 !important; }
+        .bg-indigo-50:hover { background: #e0e7ff !important; }
+        .bg-orange-50:hover { background: #ffedd5 !important; }
+
+        /* 买卖类型边框样式 */
+        .border-green-500 { border-left-color: #22c55e !important; }
+        .border-red-500 { border-left-color: #ef4444 !important; }
         .monospace {
             font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
             font-size: 0.75rem;
@@ -230,6 +244,48 @@
         let currentEarlyTrades = [];
         let walletBlacklist = new Set(); // 存储黑名单钱包地址
         let walletWhitelist = new Set(); // 存储白名单钱包地址
+        let tradeClusters = []; // 存储交易簇信息
+        let targetTokenAddress = ''; // 目标代币地址，用于判断买卖方向
+
+        // 聚簇检测算法（2秒窗口，相邻交易间隔）
+        function detectClusters(trades, thresholdSecs = 2) {
+            if (!trades || trades.length === 0) return [];
+
+            const clusters = [];
+            let clusterStartIdx = 0;
+
+            for (let i = 1; i <= trades.length; i++) {
+                // 检查相邻交易间隔
+                if (i === trades.length ||
+                    (trades[i].time - trades[i - 1].time) > thresholdSecs) {
+                    const clusterSize = i - clusterStartIdx;
+                    const cluster = {
+                        startIdx: clusterStartIdx,
+                        endIdx: i,
+                        size: clusterSize,
+                        clusterId: clusters.length + 1
+                    };
+                    clusters.push(cluster);
+                    clusterStartIdx = i;
+                }
+            }
+
+            return clusters;
+        }
+
+        // 为每个交易分配簇信息
+        function assignClusters(trades) {
+            tradeClusters = detectClusters(trades, 2);
+
+            // 为每个交易添加簇信息
+            trades.forEach((trade, index) => {
+                const cluster = tradeClusters.find(c => index >= c.startIdx && index < c.endIdx);
+                trade.clusterId = cluster ? cluster.clusterId : null;
+                trade.clusterSize = cluster ? cluster.size : 1;
+                trade.isClusterStart = cluster && cluster.startIdx === index;
+                trade.isClusterEnd = cluster && cluster.endIdx === index + 1;
+            });
+        }
 
         // TAB 切换
         function switchTab(tab) {
@@ -253,7 +309,18 @@
             if (!timestamp) return '-';
             const date = new Date(timestamp * 1000);
             const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-            return beijingTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '').substring(0, 19);
+            const iso = beijingTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+            // 返回完整时间（用于title）
+            return iso.substring(0, 19);
+        }
+
+        // 转换为简短时间（只显示时分秒）
+        function toShortTime(timestamp) {
+            if (!timestamp) return '-';
+            const date = new Date(timestamp * 1000);
+            const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+            const iso = beijingTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '');
+            return iso.substring(11, 19); // 只返回时分秒
         }
 
         // 渲染代币信息
@@ -380,6 +447,9 @@
                 return;
             }
 
+            // 执行聚簇检测
+            assignClusters(trades);
+
             // 显示调试信息
             let debugHtml = '';
             if (debugInfo) {
@@ -448,10 +518,26 @@
             });
             const walletsArray = Array.from(uniqueWallets).map(addr => ({ address: addr }));
 
+            // 簇统计信息
+            const clusterStats = {
+                count: tradeClusters.length,
+                maxSize: Math.max(...tradeClusters.map(c => c.size), 0),
+                avgSize: tradeClusters.length > 0
+                    ? (tradeClusters.reduce((sum, c) => sum + c.size, 0) / tradeClusters.length).toFixed(1)
+                    : 0
+            };
+
             const html = `
                 ${debugHtml}
-                <div class="mb-4 text-sm text-gray-600">
-                    显示 ${trades.length} 条交易记录（按时间升序），涉及 ${uniqueWallets.size} 个唯一钱包
+                <div class="mb-4 text-sm text-gray-600 flex items-center gap-4">
+                    <span>显示 ${trades.length} 条交易记录</span>
+                    <span>涉及 ${uniqueWallets.size} 个唯一钱包</span>
+                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                        检测到 ${clusterStats.count} 个簇
+                    </span>
+                    <span class="text-xs text-gray-500">
+                        最大簇: ${clusterStats.maxSize}笔 | 平均: ${clusterStats.avgSize}笔
+                    </span>
                     ${debugInfo?.pagination && debugInfo.pagination.totalPages > 1 ?
                         `<span class="ml-2 text-purple-600">🔄 经 ${debugInfo.pagination.totalPages} 次分页查询获取</span>` : ''}
                 </div>
@@ -475,23 +561,24 @@
                 </div>
 
                 <div class="table-container">
-                    <table class="data-table">
+                    <table class="data-table" style="font-size: 0.75rem; table-layout: auto;">
                         <thead>
                             <tr>
-                                <th>时间 (北京)</th>
-                                <th>交易ID</th>
-                                <th>买入钱包</th>
-                                <th>卖出钱包</th>
-                                <th>from</th>
-                                <th>from数量</th>
-                                <th>to</th>
-                                <th>to数量</th>
-                                <th>USD价值</th>
-                                <th>区块</th>
+                                <th style="width: 40px;">#</th>
+                                <th style="width: 75px;">时间</th>
+                                <th style="width: 55px;">间隔</th>
+                                <th style="width: 75px;">簇</th>
+                                <th style="width: 60px;">区块</th>
+                                <th style="width: 40px;">类型</th>
+                                <th style="min-width: 120px;">钱包</th>
+                                <th style="min-width: 120px;">对方</th>
+                                <th style="min-width: 160px;">交易</th>
+                                <th style="width: 60px;">USD</th>
+                                <th style="width: 55px;">区块#</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${trades.map(tx => renderTradeRow(tx)).join('')}
+                            ${trades.map((tx, index) => renderTradeRow(tx, index, trades[index - 1], trades[index + 1])).join('')}
                         </tbody>
                     </table>
                 </div>
@@ -501,54 +588,144 @@
         }
 
         // 渲染单行交易
-        function renderTradeRow(tx) {
+        function renderTradeRow(tx, index, prevTx, nextTx) {
             const fromAddr = tx.from_address || '';
             const toAddr = tx.to_address || '';
 
+            // 判断交易类型：根据 token 地址判断买卖方向
+            // to_token 是目标代币 = 买入，from_token 是目标代币 = 卖出
+            const toToken = tx.to_token || '';
+            const fromToken = tx.from_token || '';
+            const isBuy = toToken.toLowerCase() === targetTokenAddress.toLowerCase();
+            const tradeTypeClass = isBuy ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500';
+
             // 判断钱包是否在黑名单/白名单中
-            const fromInBlacklist = walletBlacklist.has(fromAddr.toLowerCase());
-            const fromInWhitelist = walletWhitelist.has(fromAddr.toLowerCase());
-            const toInBlacklist = walletBlacklist.has(toAddr.toLowerCase());
-            const toInWhitelist = walletWhitelist.has(toAddr.toLowerCase());
+            const fromInBlacklist = fromAddr ? walletBlacklist.has(fromAddr.toLowerCase()) : false;
+            const fromInWhitelist = fromAddr ? walletWhitelist.has(fromAddr.toLowerCase()) : false;
+            const toInBlacklist = toAddr ? walletBlacklist.has(toAddr.toLowerCase()) : false;
+            const toInWhitelist = toAddr ? walletWhitelist.has(toAddr.toLowerCase()) : false;
 
             // 生成地址短码
-            const fromShort = fromAddr ? `${fromAddr.substring(0, 8)}...` : '-';
-            const toShort = toAddr ? `${toAddr.substring(0, 8)}...` : '-';
+            const fromShort = fromAddr ? `${fromAddr.substring(0, 5)}...${fromAddr.slice(-3)}` : '-';
+            const toShort = toAddr ? `${toAddr.substring(0, 5)}...${toAddr.slice(-3)}` : '-';
+
+            // 计算距上次交易的间隔时间
+            let intervalStr = '-';
+            let intervalClass = 'text-gray-300';
+            if (prevTx && prevTx.time && tx.time) {
+                const interval = tx.time - prevTx.time;
+                if (interval === 0) {
+                    intervalStr = '0s';
+                    intervalClass = 'text-gray-400';
+                } else if (interval < 60) {
+                    intervalStr = `${interval}s`;
+                    intervalClass = interval < 2 ? 'text-red-500 font-bold' : 'font-semibold text-blue-600';
+                } else if (interval < 3600) {
+                    const minutes = Math.floor(interval / 60);
+                    const seconds = interval % 60;
+                    intervalStr = seconds > 0 ? `${minutes}m${seconds}s` : `${minutes}m`;
+                    intervalClass = 'font-semibold text-blue-600';
+                } else {
+                    const hours = Math.floor(interval / 3600);
+                    const minutes = Math.floor((interval % 3600) / 60);
+                    intervalStr = minutes > 0 ? `${hours}h${minutes}m` : `${hours}h`;
+                    intervalClass = 'font-semibold text-blue-600';
+                }
+            }
+
+            // 判断是否同区块
+            const currentBlock = tx.block_number;
+            const prevBlock = prevTx?.block_number;
+            const nextBlock = nextTx?.block_number;
+            const isBlockStart = currentBlock !== prevBlock && currentBlock === nextBlock;
+            const isBlockMiddle = currentBlock === prevBlock && currentBlock === nextBlock;
+            const isBlockEnd = currentBlock === prevBlock && currentBlock !== nextBlock;
+            const isSingleBlock = currentBlock !== prevBlock && currentBlock !== nextBlock;
+
+            let blockIndicator = '';
+            if (isBlockStart || isSingleBlock) {
+                blockIndicator = `<span class="text-xs px-1 py-0.5 bg-indigo-100 text-indigo-700 rounded" title="区块 ${currentBlock}">B${currentBlock}</span>`;
+            } else if (isBlockEnd) {
+                blockIndicator = `<span class="text-xs px-1 py-0.5 bg-indigo-50 text-indigo-500 rounded" title="区块 ${currentBlock}">└</span>`;
+            }
+
+            // 簇信息显示
+            let clusterCell = '';
+            let rowClass = tradeTypeClass;
+            if (tx.clusterId) {
+                const clusterColor = getClusterColor(tx.clusterId);
+                rowClass = `${tradeTypeClass} ${clusterColor.rowBgClass}`;
+
+                if (tx.isClusterStart) {
+                    clusterCell = `<span class="px-1.5 py-0.5 rounded text-xs font-bold ${clusterColor.bgClass} ${clusterColor.textClass}" title="簇 #${tx.clusterId}, ${tx.clusterSize}笔交易">#${tx.clusterId}[${tx.clusterSize}]</span>`;
+                } else {
+                    clusterCell = `<span class="text-xs ${clusterColor.textClass} opacity-50" title="簇 #${tx.clusterId}">└</span>`;
+                }
+            } else {
+                clusterCell = '<span class="text-gray-300">·</span>';
+            }
+
+            // 交易信息（from -> to）
+            const fromSymbol = tx.from_token_symbol || '';
+            const toSymbol = tx.to_token_symbol || '';
+            const fromAmt = tx.from_amount ? tx.from_amount.toFixed(3) : '?';
+            const toAmt = tx.to_amount ? tx.to_amount.toFixed(2) : '?';
+            const tradeInfo = `${fromAmt} ${fromSymbol} → ${toAmt} ${toSymbol}`;
+
+            // 交易类型标记
+            const typeMark = isBuy
+                ? '<span class="text-green-600 font-bold">买</span>'
+                : '<span class="text-red-600 font-bold">卖</span>';
 
             return `
-                <tr>
-                    <td>${toBeijingTime(tx.time)}</td>
-                    <td class="monospace" title="${tx.tx_id}">${tx.tx_id.substring(0, 10)}...</td>
-                    <td class="monospace" title="${fromAddr}">
+                <tr class="${rowClass}">
+                    <td class="text-gray-500">${index + 1}</td>
+                    <td class="text-xs" title="${toBeijingTime(tx.time)}">${toShortTime(tx.time)}</td>
+                    <td class="${intervalClass} text-xs">${intervalStr}</td>
+                    <td>${clusterCell}</td>
+                    <td class="text-xs">${blockIndicator}</td>
+                    <td class="text-xs">${typeMark}</td>
+                    <td class="monospace text-xs" title="${isBuy ? '买家' : '卖家'}: ${fromAddr}">
                         ${fromShort}
-                        <a href="https://gmgn.ai/bsc/address/${fromAddr}" target="_blank" class="gmgn-link" title="在 GMGN 查看">GMGN</a>
+                        <a href="https://gmgn.ai/bsc/address/${fromAddr}" target="_blank" class="gmgn-link ml-1">GMGN</a>
                         ${fromAddr ? renderWalletActions(fromAddr, fromInBlacklist, fromInWhitelist) : ''}
                     </td>
-                    <td class="monospace" title="${toAddr}">
-                        ${toShort}
-                        <a href="https://gmgn.ai/bsc/address/${toAddr}" target="_blank" class="gmgn-link" title="在 GMGN 查看">GMGN</a>
+                    <td class="monospace text-xs text-gray-400" title="${isBuy ? '池子' : '买家'}: ${toAddr || '池子'}">
+                        ${toShort || '池子'}
+                        ${toAddr ? `<a href="https://gmgn.ai/bsc/address/${toAddr}" target="_blank" class="gmgn-link ml-1">GMGN</a>` : ''}
                         ${toAddr ? renderWalletActions(toAddr, toInBlacklist, toInWhitelist) : ''}
                     </td>
-                    <td>${tx.from_token_symbol || '-'}</td>
-                    <td>${tx.from_amount ? tx.from_amount.toFixed(6) : '-'}</td>
-                    <td>${tx.to_token_symbol || '-'}</td>
-                    <td>${tx.to_amount ? tx.to_amount.toFixed(6) : '-'}</td>
-                    <td>${tx.from_usd ? '$' + tx.from_usd.toFixed(2) : '-'}</td>
-                    <td>${tx.block_number || '-'}</td>
+                    <td class="text-xs" title="${tradeInfo}">${tradeInfo}</td>
+                    <td class="text-xs">${tx.from_usd ? '$' + tx.from_usd.toFixed(1) : '-'}</td>
+                    <td class="text-xs text-gray-500">${tx.block_number || '-'}</td>
                 </tr>
             `;
+        }
+
+        // 获取簇颜色
+        function getClusterColor(clusterId) {
+            const colors = [
+                { bgClass: 'bg-blue-100', textClass: 'text-blue-700', rowBgClass: 'bg-blue-50' },
+                { bgClass: 'bg-green-100', textClass: 'text-green-700', rowBgClass: 'bg-green-50' },
+                { bgClass: 'bg-yellow-100', textClass: 'text-yellow-700', rowBgClass: 'bg-yellow-50' },
+                { bgClass: 'bg-purple-100', textClass: 'text-purple-700', rowBgClass: 'bg-purple-50' },
+                { bgClass: 'bg-pink-100', textClass: 'text-pink-700', rowBgClass: 'bg-pink-50' },
+                { bgClass: 'bg-indigo-100', textClass: 'text-indigo-700', rowBgClass: 'bg-indigo-50' },
+                { bgClass: 'bg-orange-100', textClass: 'text-orange-700', rowBgClass: 'bg-orange-50' },
+            ];
+            return colors[(clusterId - 1) % colors.length];
         }
 
         // 渲染钱包操作按钮
         function renderWalletActions(address, inBlacklist, inWhitelist) {
             if (inWhitelist) {
-                return `<button class="action-btn btn-delete" onclick="deleteWallet('${address}')" title="从白名单删除">⚡ 取消</button>`;
+                return `<button class="action-btn btn-delete" onclick="deleteWallet('${address}')" title="从白名单删除" style="font-size: 10px;">⚡</button>`;
             } else if (inBlacklist) {
-                return `<button class="action-btn btn-delete" onclick="deleteWallet('${address}')" title="从黑名单删除">🗑️</button>`;
+                return `<button class="action-btn btn-delete" onclick="deleteWallet('${address}')" title="从黑名单删除" style="font-size: 10px;">🗑️</button>`;
             } else {
                 return `
-                    <button class="action-btn btn-good-holder" onclick="addGoodHolder('${address}')" title="标记为好持有者">✨</button>
-                    <button class="action-btn btn-pump-group" onclick="addPumpGroup('${address}')" title="添加到流水盘黑名单">⚠️</button>
+                    <button class="action-btn btn-good-holder" onclick="addGoodHolder('${address}')" title="标记为好持有者" style="font-size: 10px;">✨</button>
+                    <button class="action-btn btn-pump-group" onclick="addPumpGroup('${address}')" title="添加到流水盘黑名单" style="font-size: 10px;">⚠️</button>
                 `;
             }
         }
@@ -897,6 +1074,10 @@
                 currentTokenInfo = result.data.tokenInfo;
                 currentEarlyTrades = result.data.earlyTrades || [];
                 const debugInfo = result.data.debug || null;
+
+                // 设置目标代币地址（用于判断买卖方向）
+                const urlParams = getUrlParams();
+                targetTokenAddress = urlParams.token || '';
 
                 // 渲染代币信息
                 renderTokenInfo(currentTokenInfo);

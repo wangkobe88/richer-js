@@ -10,7 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
     <link href="/static/css/style.css?v=4.0" rel="stylesheet">
-    <link href="/static/css/main.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.2" rel="stylesheet">
     <style>
         .loading {
             display: flex;
@@ -83,6 +83,46 @@
             border-radius: 9999px;
             font-size: 0.75rem;
             font-weight: 500;
+        }
+
+        .action-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem 0.5rem;
+            justify-content: center;
+        }
+
+        .action-link {
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            transition: background-color 0.15s;
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+
+        .action-link:hover {
+            background-color: rgba(59, 130, 246, 0.15);
+        }
+
+        .token-symbol-cell {
+            min-width: 140px;
+        }
+
+        .token-badges {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-left: 0.5rem;
+        }
+
+        .token-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-size: 0.65rem;
+            font-weight: 500;
+            white-space: nowrap;
         }
 
         .status-monitoring {
@@ -359,6 +399,9 @@
                                     </th>
                                     <th class="px-4 py-3 text-center">平台</th>
                                     <th class="px-4 py-3 text-right">
+                                        <span class="sort-btn" data-sort="maxChange">最高涨幅</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-right">
                                         <span class="sort-btn" data-sort="returnRate">收益率</span>
                                     </th>
                                     <th class="px-4 py-3 text-right">
@@ -461,6 +504,6 @@
     </div>
 
     <script src="/static/js/simple-init.js?v=4.3"></script>
-    <script src="/static/js/experiment_token_returns.js?v=4.5"></script>
+    <script src="/static/js/experiment_token_returns.js?v=5.0"></script>
 </body>
 </html>
