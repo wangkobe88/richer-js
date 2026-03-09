@@ -898,11 +898,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
       if (strategy) {
         if (strategy.action === 'buy') {
-          // 只排除 sold 状态（已完全卖出的代币）
-          // bought 状态允许再次买入（通过卡牌机制控制，有BNB卡就能买）
-          if (tokenState.status === 'sold') {
-            return;
-          }
+          // 买入行为完全由卡牌管理器控制，无需状态检查
         } else if (strategy.action === 'sell' && tokenState.status !== 'bought') {
           return;
         }
@@ -1276,6 +1272,22 @@ class BacktestEngine extends AbstractTradingEngine {
       if (result && result.success) {
         tokenState.strategyExecutions[strategy.id].count++;
         tokenState.strategyExecutions[strategy.id].lastExecution = timestamp.getTime();
+
+        // 检查是否全部卖出，更新状态
+        const holding = this._getHolding(tokenState.token);
+        const isAllSold = (cards === 'all') || !holding || holding.amount <= 0;
+
+        if (isAllSold) {
+          // 全部卖出，状态更新为 'sold'
+          tokenState.status = 'sold';
+          tokenState.soldAt = timestamp.getTime();
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `代币 ${tokenState.symbol} 全部卖出，状态更新为 sold`);
+        } else {
+          // 部分卖出，状态保持 'bought'
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `代币 ${tokenState.symbol} 部分卖出，剩余 ${holding?.amount || 0}`);
+        }
 
         if (this._roundSummary) {
           this._roundSummary.recordSignalExecution(tokenState.token, true, null);

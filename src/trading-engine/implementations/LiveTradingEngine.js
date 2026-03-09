@@ -744,6 +744,15 @@ class LiveTradingEngine extends AbstractTradingEngine {
         });
       }
 
+      // 🔥 卖出成功后，检查是否还有剩余持仓
+      // 如果tokenCards为0，说明已全部卖出，更新状态为sold（交易后观察期）
+      if (cardManager.tokenCards === 0) {
+        this.logger.info(this._experimentId, '_executeSell',
+          `已全部卖出，更新代币状态为sold(观察30分钟) | tokenAddress=${signal.tokenAddress}, symbol=${signal.symbol}`);
+        this._tokenPool.markAsSold(signal.tokenAddress, signal.chain);
+        await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'sold');
+      }
+
       return tradeResult;
 
     } catch (error) {
@@ -1296,12 +1305,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       if (strategy) {
         if (strategy.action === 'buy') {
-          // 只排除 sold 状态（已完全卖出的代币）
-          // bought 状态允许再次买入（通过卡牌机制控制，有BNB卡就能买）
-          if (token.status === 'sold') {
-            this.logger.debug(this._experimentId, 'ProcessToken', `${token.symbol} 买入策略跳过 (状态: ${token.status}，已完全卖出)`);
-            return;
-          }
+          // 买入行为完全由卡牌管理器控制，无需状态检查
         }
         if (strategy.action === 'sell' && token.status !== 'bought') {
           this.logger.debug(this._experimentId, 'ProcessToken', `${token.symbol} 卖出策略跳过 (状态: ${token.status})`);
@@ -1448,11 +1452,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
     const positionManagement = this._experiment.config?.positionManagement;
 
     if (strategy.action === 'buy') {
-      // 状态检查 - 只排除 sold 状态（已完全卖出的代币）
-      // bought 状态允许再次买入（通过卡牌机制控制）
-      if (token.status === 'sold') {
-        return failResult(`代币状态为 sold (已完全卖出，无法再次买入)`);
-      }
+      // 买入行为完全由卡牌管理器控制，无需状态检查
 
       // ========== 验证 creator_address ==========
       // 1. 如果创建者地址为 null，重新获取
