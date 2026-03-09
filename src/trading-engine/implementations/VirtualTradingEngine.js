@@ -920,10 +920,14 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       );
 
       if (strategy) {
-        if (strategy.action === 'buy' && token.status !== 'monitoring') {
-          this.logger.debug(this._experimentId, 'ProcessToken',
-            `${token.symbol} 买入策略跳过 (状态: ${token.status})`);
-          return;
+        if (strategy.action === 'buy') {
+          // 只排除 sold 状态（已完全卖出的代币）
+          // bought 状态允许再次买入（通过卡牌机制控制，有BNB卡就能买）
+          if (token.status === 'sold') {
+            this.logger.debug(this._experimentId, 'ProcessToken',
+              `${token.symbol} 买入策略跳过 (状态: ${token.status}，已完全卖出)`);
+            return;
+          }
         }
         if (strategy.action === 'sell' && token.status !== 'bought') {
           this.logger.debug(this._experimentId, 'ProcessToken',
@@ -1196,9 +1200,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     }
 
     if (strategy.action === 'buy') {
-      // 状态检查 - 如果状态不对，直接返回，不保存信号
-      if (token.status !== 'monitoring') {
-        return failResult(`代币状态不是 monitoring (当前: ${token.status})`);
+      // 状态检查 - 只排除 sold 状态（已完全卖出的代币）
+      // bought 状态允许再次买入（通过卡牌机制控制）
+      if (token.status === 'sold') {
+        return failResult(`代币状态为 sold (已完全卖出，无法再次买入)`);
       }
 
       // ========== 先创建并保存信号到数据库 ==========

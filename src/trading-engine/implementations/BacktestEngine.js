@@ -897,10 +897,13 @@ class BacktestEngine extends AbstractTradingEngine {
       );
 
       if (strategy) {
-        if (strategy.action === 'buy' && tokenState.status !== 'monitoring') {
-          return;
-        }
-        if (strategy.action === 'sell' && tokenState.status !== 'bought') {
+        if (strategy.action === 'buy') {
+          // 只排除 sold 状态（已完全卖出的代币）
+          // bought 状态允许再次买入（通过卡牌机制控制，有BNB卡就能买）
+          if (tokenState.status === 'sold') {
+            return;
+          }
+        } else if (strategy.action === 'sell' && tokenState.status !== 'bought') {
           return;
         }
 

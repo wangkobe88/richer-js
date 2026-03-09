@@ -169,12 +169,19 @@ class ExperimentSignals {
             selector.value = this.selectedToken;
             console.log('✅ 已自动选择代币:', this.selectedToken);
           }
+          // 🔥 调用 filterAndRenderSignals 以显示代币地址信息
+          this.filterAndRenderSignals();
           // 加载该代币的时序数据图表
           await this.loadKlineForToken(selectedToken);
         } else {
           console.warn('⚠️ URL中的代币不在信号列表中:', this.selectedToken);
           this.selectedToken = 'all'; // 重置为全部
         }
+      }
+
+      // 🔥 如果没有选择特定代币，也要调用 filterAndRenderSignals 来渲染所有信号
+      if (this.selectedToken === 'all') {
+        this.filterAndRenderSignals();
       }
 
       // 只有当没有选择特定代币时，才加载默认K线数据
@@ -1044,7 +1051,12 @@ class ExperimentSignals {
           // GMGN URL格式: https://gmgn.ai/{blockchain}/token/{address}
           const gmgnBlockchain = this.getGMGNBlockchain(this.blockchain);
           const gmgnUrl = `https://gmgn.ai/${gmgnBlockchain}/token/${token.address}`;
-          gmgnLinkBtn.href = gmgnUrl;
+          if (gmgnLinkBtn) {
+            gmgnLinkBtn.href = gmgnUrl;
+            console.log('🔗 GMGN链接已设置:', gmgnUrl);
+          } else {
+            console.warn('⚠️ gmgnLinkBtn 元素未找到');
+          }
 
           // 绑定复制按钮事件
           copyAddressBtn.onclick = async () => {
