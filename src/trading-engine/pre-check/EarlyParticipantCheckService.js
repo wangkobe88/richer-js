@@ -155,7 +155,7 @@ class EarlyParticipantCheckService {
 
   /**
    * 获取早期交易数据
-   * 固定回溯90秒窗口，直接调用API（不需要分页）
+   * 固定回溯90秒窗口，循环获取直到覆盖完整时间窗口
    * @private
    */
   async _fetchEarlyTrades(innerPair, chain, checkTime) {
@@ -163,30 +163,119 @@ class EarlyParticipantCheckService {
     const pairId = `${innerPair}-${chain}`;
 
     // 固定回溯90秒
-    const toTime = checkTime;
-    const fromTime = checkTime - this.config.fixedWindowSeconds;
+    const targetFromTime = checkTime - this.config.fixedWindowSeconds;
+    let currentToTime = checkTime;
 
-    this.logger.debug('[EarlyParticipantCheckService] 获取交易数据', {
+    const allTrades = [];
+    let loopCount = 0;
+    const maxLoops = 10; // 防止无限循环，最多10次（可覆盖3000笔交易）
+
+    this.logger.debug('[EarlyParticipantCheckService] 开始循环获取交易数据', {
       pair_id: pairId,
-      from_time: fromTime,
-      to_time: toTime,
+      target_from_time: targetFromTime,
+      initial_to_time: currentToTime,
       window_seconds: this.config.fixedWindowSeconds
     });
 
-    // 直接调用API，limit=300，不需要分页
-    const trades = await txApi.getSwapTransactions(
-      pairId,
-      300,        // limit - 最大300条
-      fromTime,   // fromTime - checkTime - 90秒
-      toTime,     // toTime - checkTime
-      'asc'       // sort - 按时间升序
-    );
+    while (loopCount < maxLoops) {
+      loopCount++;
 
-    this.logger.debug('[EarlyParticipantCheckService] 获取到交易数据', {
-      trades_count: trades.length
+      // 调用API获取一批数据
+      const trades = await txApi.getSwapTransactions(
+        pairId,
+        300,              // limit - 最大300条
+        targetFromTime,   // fromTime - 固定为目标起始时间
+        currentToTime,    // toTime - 当前批次的结束时间
+        'asc'             // sort - 按时间升序
+      );
+
+      if (trades.length === 0) {
+        this.logger.debug('[EarlyParticipantCheckService] 批次无数据，结束', {
+          loop: loopCount
+        });
+        break;
+      }
+
+      // 记录这批交易的时间范围
+      const batchFirstTime = trades[0].time;
+      const batchLastTime = trades[trades.length - 1].time;
+
+      this.logger.debug('[EarlyParticipantCheckService] 获取到批次数据', {
+        loop: loopCount,
+        trades_count: trades.length,
+        batch_first_time: batchFirstTime,
+        batch_last_time: batchLastTime,
+        batch_span: (batchLastTime - batchFirstTime).toFixed(1) + 's'
+      });
+
+      allTrades.push(...trades);
+
+      // 检查是否已经覆盖到目标起始时间
+      if (batchFirstTime <= targetFromTime) {
+        this.logger.debug('[EarlyParticipantCheckService] 已覆盖完整时间窗口', {
+          loop: loopCount,
+          total_trades: allTrades.length
+        });
+        break;
+      }
+
+      // 如果返回了300条数据，可能还有更早的数据
+      // 更新toTime为当前批次最早交易时间的前1秒，继续获取
+      if (trades.length === 300) {
+        currentToTime = batchFirstTime - 1;
+        this.logger.debug('[EarlyParticipantCheckService] 继续获取更早的数据', {
+          loop: loopCount,
+          new_to_time: currentToTime
+        });
+      } else {
+        // 返回数据不足300条，说明已经没有更早的数据了
+        this.logger.debug('[EarlyParticipantCheckService] 数据已获取完毕', {
+          loop: loopCount,
+          total_trades: allTrades.length
+        });
+        break;
+      }
+    }
+
+    // 按时间排序并去重（以防批次间有重叠）
+    const uniqueTrades = this._deduplicateTrades(allTrades);
+
+    this.logger.info('[EarlyParticipantCheckService] 交易数据获取完成', {
+      pair_id: pairId,
+      total_trades: uniqueTrades.length,
+      loops: loopCount,
+      expected_window: this.config.fixedWindowSeconds + 's',
+      actual_span: uniqueTrades.length > 0
+        ? ((uniqueTrades[uniqueTrades.length - 1].time - uniqueTrades[0].time).toFixed(1) + 's')
+        : '0s',
+      data_completeness: uniqueTrades.length > 0 && uniqueTrades[0].time <= targetFromTime ? 'complete' : 'partial'
     });
 
-    return trades;
+    return uniqueTrades;
+  }
+
+  /**
+   * 对交易数据去重（基于tx_id）
+   * @private
+   */
+  _deduplicateTrades(trades) {
+    if (!trades || trades.length === 0) return [];
+
+    const seen = new Set();
+    const unique = [];
+
+    // 先按时间排序
+    const sorted = trades.sort((a, b) => a.time - b.time);
+
+    for (const trade of sorted) {
+      const key = trade.tx_id || `${trade.time}_${trade.from_address}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(trade);
+      }
+    }
+
+    return unique;
   }
 
   /**

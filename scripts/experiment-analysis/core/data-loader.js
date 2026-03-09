@@ -88,6 +88,20 @@ class DataLoader {
   }
 
   /**
+   * 获取策略分析数据（包含完整的因子值）
+   */
+  async getStrategyAnalysis(tokenAddress, strategyType = 'buy', strategyIndex = 0) {
+    const params = new URLSearchParams({
+      experimentId: this.experimentId,
+      tokenAddress,
+      strategyType,
+      strategyIndex: strategyIndex.toString()
+    });
+    const res = await this.request(`/experiment/strategy-analysis?${params}`);
+    return res.data || null;
+  }
+
+  /**
    * 获取单个代币的信号
    */
   async getTokenSignals(tokenAddress) {

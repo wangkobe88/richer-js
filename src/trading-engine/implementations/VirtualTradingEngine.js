@@ -362,7 +362,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         const actualCards = sellAll ? beforeCardState.tokenCards : cardsToUse;
         this.logger.info(this._experimentId, '_executeSell',
           `更新卡牌分配 | actualCards=${actualCards}, sellAll=${sellAll}, before: bnbCards=${cardManager.bnbCards}, tokenCards=${cardManager.tokenCards}`);
-        cardManager.afterSell(signal.symbol, actualCards);
+        cardManager.afterSell(signal.symbol, actualCards, sellAll);
         this.logger.info(this._experimentId, '_executeSell',
           `更新卡牌分配完成 | after: bnbCards=${cardManager.bnbCards}, tokenCards=${cardManager.tokenCards}`);
 

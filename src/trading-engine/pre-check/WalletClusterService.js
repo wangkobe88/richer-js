@@ -112,29 +112,29 @@ class WalletClusterService {
   }
 
   /**
-   * 识别交易簇
+   * 识别交易簇（修复版）
+   * 使用固定时间窗口：每笔交易与簇首笔的时间间隔不超过阈值
    * @private
    */
   _detectClusters(trades, thresholdSecs) {
     if (!trades || trades.length === 0) return [];
 
     const clusters = [];
-    let currentCluster = [0];
+    let clusterStartIdx = 0;  // 当前簇的首笔交易索引
 
-    for (let i = 1; i < trades.length; i++) {
-      const interval = trades[i].time - trades[i - 1].time;
-      if (interval <= thresholdSecs) {
-        currentCluster.push(i);
-      } else {
-        if (currentCluster.length > 0) {
-          clusters.push([...currentCluster]);
-        }
-        currentCluster = [i];
+    for (let i = 1; i <= trades.length; i++) {
+      // 检查是否应该结束当前簇：
+      // 1. 到达数组末尾，或
+      // 2. 当前交易与簇首笔的时间间隔超过阈值
+      if (i === trades.length ||
+          (trades[i].time - trades[clusterStartIdx].time) > thresholdSecs) {
+        // 结束当前簇，添加 [clusterStartIdx, i) 的所有交易
+        const clusterSize = i - clusterStartIdx;
+        const cluster = Array.from({ length: clusterSize }, (_, k) => clusterStartIdx + k);
+        clusters.push(cluster);
+        // 开始新簇
+        clusterStartIdx = i;
       }
-    }
-
-    if (currentCluster.length > 0) {
-      clusters.push([...currentCluster]);
     }
 
     return clusters;

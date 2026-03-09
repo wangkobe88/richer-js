@@ -98,16 +98,6 @@ class ExperimentMonitor {
     document.getElementById('save-name-btn')?.addEventListener('click', () => {
       this.saveExperimentName();
     });
-
-    // 点击模态框外部关闭
-    const modal = document.getElementById('edit-name-modal');
-    if (modal) {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          this.closeEditNameModal();
-        }
-      });
-    }
   }
 
   async loadExperiments() {

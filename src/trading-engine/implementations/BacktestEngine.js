@@ -393,7 +393,7 @@ class BacktestEngine extends AbstractTradingEngine {
       if (result && result.success) {
         this.metrics.successfulTrades++;
         const actualCards = sellAll ? beforeCardState.tokenCards : cardsToUse;
-        cardManager.afterSell(signal.symbol, actualCards);
+        cardManager.afterSell(signal.symbol, actualCards, sellAll);
 
         const afterCardState = {
           bnbCards: cardManager.bnbCards,

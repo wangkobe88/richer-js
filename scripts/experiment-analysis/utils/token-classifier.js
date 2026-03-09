@@ -15,7 +15,10 @@ class TokenClassifier {
       requireNonLowQuality = false  // 必须非低质量
     } = options;
 
-    const highestReturn = token.highest_return || token.highestReturn || 0;
+    // 最高涨幅从 analysis_results.max_change_percent 获取
+    const analysisResults = token.analysis_results || token.analysisResults || {};
+    const highestReturn = analysisResults.max_change_percent || token.highest_return || token.highestReturn || 0;
+
     const humanJudges = token.human_judges || token.humanJudges || {};
     const category = humanJudges.category;
 

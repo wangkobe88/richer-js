@@ -103,14 +103,15 @@ class SignalFilter {
       };
     }
 
-    // 有信号但被拒绝
-    const rejectedSignals = buySignals.filter(s => this.isRejectedSignal(s));
+    // 有信号但被拒绝（预检查失败）
+    const rejectedSignals = buySignals.filter(s =>
+      s.executed === false || s.execution_status === 'failed'
+    );
     if (rejectedSignals.length > 0) {
-      const reason = this.getRejectionReason(rejectedSignals[0]);
       return {
         reason: 'signal_rejected',
-        description: `信号被拒绝: ${reason}`,
-        suggestion: `可以优化预检查条件或调整黑名单策略`
+        description: '预检查拒绝',
+        suggestion: '可以考虑调整预检查条件'
       };
     }
 
