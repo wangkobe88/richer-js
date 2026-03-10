@@ -52,14 +52,8 @@ class EarlyWhaleService {
       return this._getEmptyResult(startTime);
     }
 
-    // 判断使用哪种方法
-    const useRealEarlyMethod = this._shouldUseRealEarlyMethod(tokenCreateTime, checkTime, windowStart);
-
-    if (useRealEarlyMethod) {
-      return this._analyzeWithRealEarlyData(trades, tokenCreateTime, startTime);
-    } else {
-      return this._analyzeWithRelativePosition(trades, windowStart || trades[0]?.time, startTime);
-    }
+    // 全部使用 relative 方法，保持语义一致
+    return this._analyzeWithRelativePosition(trades, windowStart || trades[0]?.time, startTime);
   }
 
   /**
