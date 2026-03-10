@@ -730,24 +730,24 @@ class BacktestEngine extends AbstractTradingEngine {
           return timeA - timeB;
         });
 
-        // 加载源实验的代币创建时间
+        // 加载源实验的代币创建时间（discovered_at 与 launch_at 一致）
         const { dbManager } = require('../../services/dbManager');
         const supabase = dbManager.getClient();
 
-        const { data: tokenCreationTimes } = await supabase
+        const { data: tokensData } = await supabase
           .from('experiment_tokens')
-          .select('token_address, token_created_at')
+          .select('token_address, discovered_at')
           .eq('experiment_id', this._sourceExperimentId);
 
-        // 存储 token 创建时间到 Map
-        for (const row of tokenCreationTimes || []) {
-          if (row.token_created_at) {
-            this._tokenCreatedTimes.set(row.token_address, row.token_created_at);
+        // 存储 token 创建时间到 Map（discovered_at 就是代币的 launch_at）
+        for (const row of tokensData || []) {
+          if (row.discovered_at) {
+            this._tokenCreatedTimes.set(row.token_address, row.discovered_at);
           }
         }
 
         this.logger.info(this._experimentId, '_loadHistoricalData',
-          `✅ 已加载 ${this._tokenCreatedTimes.size} 个代币的创建时间`);
+          `✅ 已加载 ${this._tokenCreatedTimes.size} 个代币的创建时间 (discovered_at)`);
 
         this._groupDataByLoopCount();
 
