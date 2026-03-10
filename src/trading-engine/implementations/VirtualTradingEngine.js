@@ -1469,7 +1469,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           // 构建购买前置检查因子
           const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
 
+          // 提取 tokenCreateTime（用于记录使用的是哪种方法）
+          const tokenCreateTime = token.createdAt
+            ? Math.floor(new Date(token.createdAt * 1000).getTime() / 1000)
+            : null;
+
           const failedCheckMetadata = {
+            tokenCreateTime: tokenCreateTime,
             regularFactors: regularFactors,
             preBuyCheckFactors: preBuyCheckFactors,
             preBuyCheckResult: {
@@ -1522,7 +1528,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         // 构建购买前检查因子
         const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
 
+        // 提取 tokenCreateTime（用于记录使用的是哪种方法）
+        const tokenCreateTime = token.createdAt
+          ? Math.floor(new Date(token.createdAt * 1000).getTime() / 1000)
+          : null;
+
         const signalMetadata = {
+          tokenCreateTime: tokenCreateTime,
           trendFactors: trendFactors,
           preBuyCheckFactors: preBuyCheckFactors,
           preBuyCheckResult: {
@@ -1790,7 +1802,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     }
 
     const result = {
-      launchAt,
+      tokenCreatedAt: launchAt,  // PreBuyCheckService 需要 tokenCreatedAt 字段
       innerPair
     };
 

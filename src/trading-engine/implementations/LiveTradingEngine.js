@@ -1688,7 +1688,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
           const regularFactors = buildFactorValuesForTimeSeries(factorResults);
           const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
 
+          // 提取 tokenCreateTime（用于记录使用的是哪种方法）
+          const tokenCreateTime = token.createdAt
+            ? Math.floor(new Date(token.createdAt * 1000).getTime() / 1000)
+            : null;
+
           const failedCheckMetadata = {
+            tokenCreateTime: tokenCreateTime,
             regularFactors: regularFactors,
             preBuyCheckFactors: preBuyCheckFactors,
             preBuyCheckResult: {
@@ -1739,7 +1745,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
         const trendFactors = buildFactorValuesForTimeSeries(factorResults);
         const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
 
+        // 提取 tokenCreateTime（用于记录使用的是哪种方法）
+        const tokenCreateTime = token.createdAt
+          ? Math.floor(new Date(token.createdAt * 1000).getTime() / 1000)
+          : null;
+
         const signalMetadata = {
+          tokenCreateTime: tokenCreateTime,
           trendFactors: trendFactors,
           preBuyCheckFactors: preBuyCheckFactors,
           preBuyCheckResult: {
@@ -1977,6 +1989,57 @@ class LiveTradingEngine extends AbstractTradingEngine {
    * @returns {Object} 代币信息
    */
   _buildTokenInfo(token) {
+    // 获取 launchAt（代币创建时间戳）
+    let launchAt = null;
+
+    // 尝试多个来源获取 launchAt
+    // 1. 直接从 token.launchAt 获取
+    if (token.launchAt) {
+      launchAt = token.launchAt;
+    }
+    // 2. 从 token.raw_api_data.token.launch_at 获取
+    else if (token.raw_api_data) {
+      try {
+        const rawApiData = typeof token.raw_api_data === 'string'
+          ? JSON.parse(token.raw_api_data)
+          : token.raw_api_data;
+
+        // 尝试从不同的路径获取
+        if (rawApiData.token?.launch_at) {
+          launchAt = rawApiData.token.launch_at;
+        } else if (rawApiData.launch_at) {
+          launchAt = rawApiData.launch_at;
+        }
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+
+    // 3. 如果还是没有，使用 createdAt 作为备选
+    if (!launchAt && token.createdAt) {
+      launchAt = token.createdAt;
+    }
+
+    // 确定内盘交易对
+    let innerPair = null;
+    const platform = token.platform || 'fourmeme';
+
+    // 优先使用已设置的 pairAddress（由 PlatformCollector 设置）
+    if (token.pairAddress) {
+      innerPair = token.pairAddress;
+    } else if (platform === 'fourmeme') {
+      innerPair = `${token.token}_fo`;
+    } else if (platform === 'flap') {
+      innerPair = `${token.token}_iportal`;
+    } else if (token.main_pair) {
+      innerPair = token.main_pair;
+    } else if (token.pair) {
+      innerPair = token.pair;
+    } else {
+      // 默认使用 fourmeme 格式
+      innerPair = `${token.token}_fo`;
+    }
+
     return {
       tokenAddress: token.token,
       symbol: token.symbol,
@@ -1984,7 +2047,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
       createdAt: token.createdAt,
       collectionTime: token.collectionTime || token.addedAt || Date.now(),
       currentPrice: token.currentPrice || 0,
-      launchPrice: token.launchPrice || token.collectionPrice || token.currentPrice || 0
+      launchPrice: token.launchPrice || token.collectionPrice || token.currentPrice || 0,
+      tokenCreatedAt: launchAt,  // PreBuyCheckService 需要这个字段
+      innerPair: innerPair        // EarlyParticipantCheckService 需要这个字段
     };
   }
 
