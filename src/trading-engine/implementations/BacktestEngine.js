@@ -731,25 +731,60 @@ class BacktestEngine extends AbstractTradingEngine {
         });
 
         // 加载源实验的代币创建时间（discovered_at 与 launch_at 一致）
-        // 注意：Supabase 默认限制 1000 行，需要设置更大的 limit
+        // 注意：Supabase 有 1000 行的硬限制，需要使用分页查询
         const { dbManager } = require('../../services/dbManager');
         const supabase = dbManager.getClient();
 
-        const { data: tokensData } = await supabase
-          .from('experiment_tokens')
-          .select('token_address, discovered_at')
-          .eq('experiment_id', this._sourceExperimentId)
-          .limit(10000); // 设置足够大的 limit
+        // 分页查询所有代币
+        const PAGE_SIZE = 1000;
+        let allTokensData = [];
+        let page = 0;
+
+        while (true) {
+          const start = page * PAGE_SIZE;
+          const end = start + PAGE_SIZE - 1;
+
+          const { data: pageData, error: pageError } = await supabase
+            .from('experiment_tokens')
+            .select('token_address, discovered_at')
+            .eq('experiment_id', this._sourceExperimentId)
+            .range(start, end);
+
+          if (pageError) {
+            this.logger.warn(this._experimentId, '_loadHistoricalData',
+              `⚠️  查询代币创建时间失败 (页 ${page + 1}): ${pageError.message}`);
+            break;
+          }
+
+          if (!pageData || pageData.length === 0) {
+            break; // 没有更多数据
+          }
+
+          allTokensData = allTokensData.concat(pageData);
+          page++;
+
+          // 如果返回的数据少于 PAGE_SIZE，说明已经是最后一页
+          if (pageData.length < PAGE_SIZE) {
+            break;
+          }
+
+          // 安全限制，最多查询 20 页
+          if (page >= 20) {
+            this.logger.warn(this._experimentId, '_loadHistoricalData',
+              `⚠️  已达到最大查询页数限制 (20页)，停止查询`);
+            break;
+          }
+        }
 
         // 存储 token 创建时间到 Map（discovered_at 就是代币的 launch_at）
-        for (const row of tokensData || []) {
+        for (const row of allTokensData || []) {
           if (row.discovered_at) {
             this._tokenCreatedTimes.set(row.token_address, row.discovered_at);
           }
         }
 
         this.logger.info(this._experimentId, '_loadHistoricalData',
-          `✅ 已加载 ${this._tokenCreatedTimes.size} 个代币的创建时间 (discovered_at)`);
+          `✅ 已加载 ${this._tokenCreatedTimes.size} 个代币的创建时间 (discovered_at, 分 ${page} 页)`);
 
         this._groupDataByLoopCount();
 
