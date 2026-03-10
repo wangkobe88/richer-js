@@ -594,9 +594,11 @@
 
             // 判断交易类型：根据 token 地址判断买卖方向
             // to_token 是目标代币 = 买入，from_token 是目标代币 = 卖出
+            // 注意：from_token/to_token 字段只存储地址的后几位
             const toToken = tx.to_token || '';
             const fromToken = tx.from_token || '';
-            const isBuy = toToken.toLowerCase() === targetTokenAddress.toLowerCase();
+            const targetSuffix = targetTokenAddress.toLowerCase().slice(-8);
+            const isBuy = toToken.toLowerCase().endsWith(targetSuffix);
             const tradeTypeClass = isBuy ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500';
 
             // 判断钱包是否在黑名单/白名单中

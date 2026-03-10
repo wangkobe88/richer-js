@@ -6,8 +6,8 @@
  * - 非拉砸代币：多个小簇，簇大小分布更均匀
  *
  * 支持两种聚簇方法（通过配置选择）：
- * - time: 时间戳聚簇（2秒阈值）- 已验证有效，81.8%拉砸拒绝率
- * - block: 区块号聚簇（1区块阈值）- 精度更高，但需重新优化阈值
+ * - time: 时间戳聚簇（2秒阈值）- 精度较低
+ * - block: 区块号聚簇（7区块阈值）- 精度更高，推荐使用
  *
  * 核心特征：
  * 1. secondToFirstRatio - 第2簇/第1簇比值（拉砸 < 0.3）
@@ -19,11 +19,26 @@
 class WalletClusterService {
   /**
    * @param {Object} logger - Logger实例
+   * @param {Object} config - 配置对象
+   * @param {string} config.mode - 'time' 或 'block'
+   * @param {number} config.clusterBlockThreshold - 区块号阈值
    */
-  constructor(logger) {
+  constructor(logger, config = {}) {
     this.logger = logger;
-    // 使用时间戳聚簇（2秒阈值）
-    this.clusterTimeThreshold = 2;
+
+    // 支持两种模式：time（时间戳聚簇）或 block（区块号聚簇）
+    // 默认使用区块号聚簇，因为更准确
+    const mode = config.mode || 'block';
+
+    if (mode === 'time') {
+      // 兼容旧配置：时间戳聚簇
+      this.clusterBlockThreshold = config.clusterBlockThreshold || 2;
+      this.clusterMethod = 'time';
+    } else {
+      // 新配置：区块号聚簇（默认，阈值=7）
+      this.clusterBlockThreshold = config.clusterBlockThreshold || 7;
+      this.clusterMethod = 'block';
+    }
   }
 
   /**
@@ -36,8 +51,8 @@ class WalletClusterService {
 
     this.logger.debug('[WalletClusterService] 开始钱包簇分析', {
       trades_count: trades?.length || 0,
-      clustering_method: 'time',
-      threshold: this.clusterTimeThreshold + ' seconds'
+      clustering_method: this.clusterMethod,
+      threshold: this.clusterBlockThreshold + ' blocks'
     });
 
     if (!trades || trades.length === 0) {
@@ -92,8 +107,9 @@ class WalletClusterService {
 
     const result = {
       // 基础信息
-      walletClusterThreshold: this.clusterTimeThreshold,
-      walletClusterMethod: 'time',
+      walletClusterThreshold: this.clusterBlockThreshold,
+      walletClusterMethod: this.clusterMethod,
+      walletClusterBlockThreshold: this.clusterBlockThreshold,
 
       // 簇数量
       walletClusterCount: clusters.length,
@@ -134,7 +150,7 @@ class WalletClusterService {
       second_to_first_ratio: result.walletClusterSecondToFirstRatio,
       mega_cluster_ratio: result.walletClusterMegaRatio,
       clustering_method: result.walletClusterMethod,
-      threshold: result.walletClusterThreshold + ' seconds',
+      threshold: result.walletClusterThreshold + ' blocks',
       is_pump_dump: isPumpDump,
       max_block_buy_ratio: result.walletClusterMaxBlockBuyRatio,
       max_block_number: result.walletClusterMaxBlockNumber
@@ -144,8 +160,8 @@ class WalletClusterService {
   }
 
   /**
-   * 识别交易簇（基于时间戳）
-   * 相邻交易时间间隔不超过阈值则归为同一簇
+   * 识别交易簇
+   * 根据配置使用时间戳或区块号进行聚簇
    * @private
    */
   _detectClusters(trades) {
@@ -155,7 +171,23 @@ class WalletClusterService {
     let clusterStartIdx = 0;
 
     for (let i = 1; i <= trades.length; i++) {
-      if (i === trades.length || (trades[i].time - trades[i - 1].time) > this.clusterTimeThreshold) {
+      let shouldSplit = false;
+
+      if (this.clusterMethod === 'time') {
+        // 时间戳聚簇
+        const timeGap = (i < trades.length && trades[i].time && trades[i - 1].time)
+          ? trades[i].time - trades[i - 1].time
+          : (this.clusterBlockThreshold + 1);
+        shouldSplit = (i === trades.length || timeGap > this.clusterBlockThreshold);
+      } else {
+        // 区块号聚簇
+        const blockGap = (i < trades.length && trades[i].block_number && trades[i - 1].block_number)
+          ? trades[i].block_number - trades[i - 1].block_number
+          : (this.clusterBlockThreshold + 1);
+        shouldSplit = (i === trades.length || blockGap > this.clusterBlockThreshold);
+      }
+
+      if (shouldSplit) {
         const clusterSize = i - clusterStartIdx;
         const cluster = Array.from({ length: clusterSize }, (_, k) => clusterStartIdx + k);
         clusters.push(cluster);
@@ -167,7 +199,7 @@ class WalletClusterService {
   }
 
   /**
-   * 计算簇间时间间隔
+   * 计算簇间间隔
    * @private
    */
   _calculateClusterIntervals(trades, clusters) {
@@ -176,8 +208,18 @@ class WalletClusterService {
     for (let i = 1; i < clusters.length; i++) {
       const prevClusterLastIdx = clusters[i - 1][clusters[i - 1].length - 1];
       const currClusterFirstIdx = clusters[i][0];
-      const interval = trades[currClusterFirstIdx].time - trades[prevClusterLastIdx].time;
-      intervals.push(interval);
+
+      if (this.clusterMethod === 'time') {
+        const interval = trades[currClusterFirstIdx].time - trades[prevClusterLastIdx].time;
+        intervals.push(interval);
+      } else {
+        const prevBlock = trades[prevClusterLastIdx].block_number;
+        const currBlock = trades[currClusterFirstIdx].block_number;
+        const interval = (currBlock && prevBlock) ? (currBlock - prevBlock) : null;
+        if (interval !== null) {
+          intervals.push(interval);
+        }
+      }
     }
 
     return intervals;
@@ -261,8 +303,9 @@ class WalletClusterService {
    */
   _getEmptyResult() {
     return {
-      walletClusterThreshold: this.clusterTimeThreshold,
-      walletClusterMethod: 'time',
+      walletClusterThreshold: this.clusterBlockThreshold,
+      walletClusterMethod: this.clusterMethod,
+      walletClusterBlockThreshold: this.clusterBlockThreshold,
 
       walletClusterCount: 0,
       walletClusterMaxSize: 0,

@@ -40,7 +40,8 @@
       "countPerMinThreshold": 14,
       "highValuePerMinThreshold": 8
     },
-    "largeHoldingThreshold": 18
+    "largeHoldingThreshold": 18,
+    "clusterBlockThreshold": 7
   },
   "logging": {
     "level": "INFO",

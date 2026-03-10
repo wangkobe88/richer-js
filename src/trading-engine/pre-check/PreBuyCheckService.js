@@ -49,9 +49,14 @@ class PreBuyCheckService {
     });
 
     // 初始化钱包簇检查服务
-    // 回测模式使用时间戳聚簇，虚拟/实盘使用区块号聚簇
+    // 默认使用区块号聚簇（比时间戳更准确）
+    // 如果需要使用时间戳聚簇，配置 useTimeBasedClustering: true
     const clusterMode = this.config.useTimeBasedClustering ? 'time' : 'block';
-    this.walletClusterService = new WalletClusterService(logger, { mode: clusterMode });
+    const clusterConfig = {
+      mode: clusterMode,
+      clusterBlockThreshold: this.config.clusterBlockThreshold || 7
+    };
+    this.walletClusterService = new WalletClusterService(logger, clusterConfig);
   }
 
   /**
