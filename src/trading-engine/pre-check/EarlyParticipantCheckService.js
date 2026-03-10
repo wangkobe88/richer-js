@@ -19,7 +19,9 @@ const DEFAULT_CONFIG = {
   highValueThreshold: 100,        // 高价值阈值（USD）
   calculateGrowthScore: false,    // 是否计算增长评分
   accelerationSegments: 3,        // 加速度计算分段数（已废弃，保留配置兼容性）
-  calculateGrowthMetrics: false   // 是否计算增长特征（分析显示无效，默认关闭）
+  calculateGrowthMetrics: false,  // 是否计算增长特征（分析显示无效，默认关闭）
+  apiMaxRetries: 3,               // API调用最大重试次数
+  apiRetryDelayMs: 1000           // API重试延迟（毫秒）
 };
 
 class EarlyParticipantCheckService {
@@ -31,6 +33,57 @@ class EarlyParticipantCheckService {
     this.logger = logger;
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.aveTxApi = null;
+  }
+
+  /**
+   * 带重试的API调用
+   * @private
+   */
+  async _fetchTradesWithRetry(txApi, pairId, limit, fromTime, toTime, sort) {
+    const maxRetries = this.config.apiMaxRetries || 3;
+    const retryDelay = this.config.apiRetryDelayMs || 1000;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const trades = await txApi.getSwapTransactions(pairId, limit, fromTime, toTime, sort);
+        if (attempt > 1) {
+          this.logger.info('[EarlyParticipantCheckService] API重试成功', {
+            attempt,
+            pair_id: pairId
+          });
+        }
+        return trades;
+      } catch (error) {
+        lastError = error;
+        this.logger.warn('[EarlyParticipantCheckService] API调用失败', {
+          attempt,
+          max_retries: maxRetries,
+          pair_id: pairId,
+          error: error.message
+        });
+
+        if (attempt < maxRetries) {
+          // 指数退避
+          const delay = retryDelay * Math.pow(2, attempt - 1);
+          this.logger.debug('[EarlyParticipantCheckService] 等待重试', {
+            delay_ms: delay
+          });
+          await this._sleep(delay);
+        }
+      }
+    }
+
+    // 所有重试都失败
+    throw new Error(`API调用失败（重试${maxRetries}次后）: ${lastError?.message || '未知错误'}`);
+  }
+
+  /**
+   * 延迟函数
+   * @private
+   */
+  _sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
@@ -74,10 +127,13 @@ class EarlyParticipantCheckService {
       const trades = await this._fetchEarlyTrades(innerPair, chain, checkTime);
 
       if (!trades || trades.length === 0) {
-        this.logger.warn('[EarlyParticipantCheckService] 未获取到交易数据', {
-          token_address: tokenAddress
+        this.logger.error('[EarlyParticipantCheckService] 未获取到交易数据，拒绝交易', {
+          token_address: tokenAddress,
+          inner_pair: innerPair,
+          chain
         });
-        return this._getEmptyResult();
+        // 数据获取失败时抛出错误，而不是返回空结果
+        throw new Error('未获取到交易数据，无法进行早期参与者检查');
       }
 
       // 2. 计算实际数据跨度
@@ -180,8 +236,9 @@ class EarlyParticipantCheckService {
     while (loopCount < maxLoops) {
       loopCount++;
 
-      // 调用API获取一批数据
-      const trades = await txApi.getSwapTransactions(
+      // 调用API获取一批数据（带重试）
+      const trades = await this._fetchTradesWithRetry(
+        txApi,
         pairId,
         300,              // limit - 最大300条
         targetFromTime,   // fromTime - 固定为目标起始时间
@@ -462,9 +519,10 @@ class EarlyParticipantCheckService {
    */
   evaluateBuyEligibility(checkResult, strategyConfig) {
     if (!checkResult || checkResult.earlyTradesChecked !== 1) {
+      // 数据获取失败时，拒绝交易
       return {
-        canBuy: true,
-        reason: '早期参与者检查未执行',
+        canBuy: false,
+        reason: '早期参与者数据未获取到，拒绝交易',
         details: null
       };
     }

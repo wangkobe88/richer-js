@@ -185,7 +185,7 @@ class EarlyWhaleService {
    * @private
    */
   _buildWalletMap(trades, timeBase) {
-    const baseCurrencies = ['WBNB', 'USDT', 'BUSD', 'USDC', 'ETH'];
+    const baseCurrencies = ['WBNB', 'USDT', 'BUSD', 'USDC', 'ETH', 'USD1'];
     const walletMap = new Map();
 
     for (const trade of trades) {
@@ -290,9 +290,10 @@ class EarlyWhaleService {
       checkDuration: 0,
       method: 'none',
 
-      // 核心因子（默认值）
-      earlyWhaleHoldRatio: 1.0,  // 没有数据时，认为持有率100%（不拒绝）
-      earlyWhaleSellRatio: 0,
+      // 核心因子（数据缺失时，设置为拒绝状态）
+      // 使用 holdRatio=0, sellRatio=1 来触发拒绝（sellRatio > 0.7 时拒绝）
+      earlyWhaleHoldRatio: 0,    // 没有数据时，认为持有率0%
+      earlyWhaleSellRatio: 1,    // 没有数据时，认为卖出率100%（触发拒绝）
       earlyWhaleCount: 0,
 
       // 调试信息
@@ -307,8 +308,8 @@ class EarlyWhaleService {
    */
   getEmptyFactorValues() {
     return {
-      earlyWhaleHoldRatio: 1.0,
-      earlyWhaleSellRatio: 0,
+      earlyWhaleHoldRatio: 0,      // 数据缺失时，认为持有率0%
+      earlyWhaleSellRatio: 1,      // 数据缺失时，认为卖出率100%（触发拒绝）
       earlyWhaleCount: 0,
       earlyWhaleMethod: 'error',
       earlyWhaleTotalTrades: 0,

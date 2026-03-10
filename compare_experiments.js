@@ -1,6 +1,5 @@
 /**
- * 对比两个实验的效果
- * b04ea30f vs 933be40d
+ * 比较两个实验的效果
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -9,162 +8,71 @@ require('dotenv').config({ path: 'config/.env' });
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 async function compareExperiments() {
-  console.log('=== 对比实验效果 ===\n');
+  const newExpId = '5072373e-b79d-4d66-b471-03c7c72730ec';
+  const oldExpId = '933be40d-1056-463f-b629-aa226a2ea064';
 
-  const experiments = [
-    { id: '933be40d-1056-463f-b629-aa226a2ea064', name: '实验933be40d' },
-    { id: 'b04ea30f-9591-442c-88ee-677c29b8da4c', name: '实验b04ea30f' }
-  ];
+  const { data: newTrades } = await supabase
+    .from('trades')
+    .select('*')
+    .eq('experiment_id', newExpId)
+    .eq('trade_direction', 'sell');
 
-  for (const exp of experiments) {
-    console.log(`【${exp.name}】\n`);
+  const { data: oldTrades } = await supabase
+    .from('trades')
+    .select('*')
+    .eq('experiment_id', oldExpId)
+    .eq('trade_direction', 'sell');
 
-    // 获取实验配置
-    const { data: experimentData } = await supabase
-      .from('experiments')
-      .select('*')
-      .eq('id', exp.id)
-      .single();
+  console.log('=== 实验效果对比 ===\n');
+  console.log('新实验（有过滤条件）:', newExpId);
+  console.log('旧实验（无过滤条件）:', oldExpId);
+  console.log('');
 
-    if (experimentData) {
-      console.log('实验配置:');
-      console.log(`  状态: ${experimentData.status}`);
-      console.log(`  创建时间: ${experimentData.created_at}`);
-      console.log(`  购买前检查条件: ${experimentData.config?.preBuyCheck?.preBuyCheckCondition || experimentData.config?.preBuyCheckCondition || 'N/A'}`);
-      console.log('');
-    }
+  const newProfits = newTrades.map(t => t.metadata?.profitPercent).filter(p => p !== undefined);
+  const newProfitCount = newProfits.filter(p => p > 0).length;
+  const newLossCount = newProfits.filter(p => p <= 0).length;
+  const newAvgProfit = newProfits.filter(p => p > 0).reduce((a, b) => a + b, 0) / (newProfitCount || 1);
+  const newAvgLoss = newProfits.filter(p => p <= 0).reduce((a, b) => a + b, 0) / (newLossCount || 1);
+  const newTotalProfit = newProfits.reduce((a, b) => a + b, 0);
 
-    // 获取信号统计
-    const { data: buySignals } = await supabase
-      .from('strategy_signals')
-      .select('*')
-      .eq('experiment_id', exp.id)
-      .eq('action', 'buy')
-      .order('created_at', { ascending: false });
+  console.log('=== 新实验（有过滤条件）===');
+  console.log('总交易数:', newTrades.length);
+  console.log('盈利:', newProfitCount, '笔');
+  console.log('亏损:', newLossCount, '笔');
+  console.log('胜率:', (newProfitCount / newTrades.length * 100).toFixed(1) + '%');
+  console.log('平均盈利:', newAvgProfit.toFixed(1) + '%');
+  console.log('平均亏损:', newAvgLoss.toFixed(1) + '%');
+  console.log('总收益:', newTotalProfit.toFixed(1) + '%');
+  console.log('');
 
-    const executedSignals = buySignals.filter(s => s.metadata?.execution_status === 'executed');
-    const rejectedSignals = buySignals.filter(s => s.metadata?.execution_status !== 'executed');
+  const oldProfits = oldTrades.map(t => t.metadata?.profitPercent).filter(p => p !== undefined);
+  const oldProfitCount = oldProfits.filter(p => p > 0).length;
+  const oldLossCount = oldProfits.filter(p => p <= 0).length;
+  const oldAvgProfit = oldProfits.filter(p => p > 0).reduce((a, b) => a + b, 0) / (oldProfitCount || 1);
+  const oldAvgLoss = oldProfits.filter(p => p <= 0).reduce((a, b) => a + b, 0) / (oldLossCount || 1);
+  const oldTotalProfit = oldProfits.reduce((a, b) => a + b, 0);
 
-    console.log('信号统计:');
-    console.log(`  总信号数: ${buySignals?.length || 0}`);
-    console.log(`  执行信号数: ${executedSignals.length}`);
-    console.log(`  拒绝信号数: ${rejectedSignals.length}`);
+  console.log('=== 旧实验（无过滤条件）===');
+  console.log('总交易数:', oldTrades.length);
+  console.log('盈利:', oldProfitCount, '笔');
+  console.log('亏损:', oldLossCount, '笔');
+  console.log('胜率:', (oldProfitCount / oldTrades.length * 100).toFixed(1) + '%');
+  console.log('平均盈利:', oldAvgProfit.toFixed(1) + '%');
+  console.log('平均亏损:', oldAvgLoss.toFixed(1) + '%');
+  console.log('总收益:', oldTotalProfit.toFixed(1) + '%');
+  console.log('');
 
-    // 获取交易统计
-    const { data: trades } = await supabase
-      .from('trades')
-      .select('trade_direction, metadata')
-      .eq('experiment_id', exp.id);
+  console.log('=== 对比结果 ===');
+  const tradeDiff = newTrades.length - oldTrades.length;
+  const profitDiff = newTotalProfit - oldTotalProfit;
+  const winRateDiff = (newProfitCount / newTrades.length * 100) - (oldProfitCount / oldTrades.length * 100);
 
-    if (trades && trades.length > 0) {
-      const buyTrades = trades.filter(t => t.trade_direction === 'buy');
-      const sellTrades = trades.filter(t => t.trade_direction === 'sell');
+  console.log('交易数变化:', tradeDiff);
+  console.log('总收益变化:', (profitDiff > 0 ? '+' : '') + profitDiff.toFixed(1) + '%');
+  console.log('胜率变化:', (winRateDiff > 0 ? '+' : '') + winRateDiff.toFixed(1) + '%');
 
-      console.log('\n交易统计:');
-      console.log(`  买入交易数: ${buyTrades.length}`);
-      console.log(`  卖出交易数: ${sellTrades.length}`);
-
-      // 计算收益
-      let totalProfit = 0;
-      let profitCount = 0;
-      let totalLoss = 0;
-      let lossCount = 0;
-
-      sellTrades.forEach(t => {
-        const profit = t.metadata?.profitPercent || 0;
-        if (profit > 0) {
-          totalProfit += profit;
-          profitCount++;
-        } else {
-          totalLoss += profit;
-          lossCount++;
-        }
-      });
-
-      console.log('\n收益统计:');
-      console.log(`  盈利交易: ${profitCount}个, 总收益: +${totalProfit.toFixed(1)}%`);
-      console.log(`  亏损交易: ${lossCount}个, 总亏损: ${totalLoss.toFixed(1)}%`);
-      console.log(`  净收益: ${(totalProfit + totalLoss).toFixed(1)}%`);
-      console.log(`  胜率: ${(profitCount / sellTrades.length * 100).toFixed(1)}%`);
-    }
-
-    // 分析拒绝原因
-    if (rejectedSignals.length > 0) {
-      console.log('\n【拒绝原因分析】\n');
-
-      const rejectReasons = {};
-      rejectedSignals.forEach(signal => {
-        const reason = signal.metadata?.preBuyCheckFactors?.checkReason || signal.metadata?.execution_reason || '未知';
-        // 提取关键信息
-        if (reason.includes('walletClusterCount')) {
-          rejectReasons['聚簇条件'] = (rejectReasons['聚簇条件'] || 0) + 1;
-        } else if (reason.includes('earlyTrades')) {
-          rejectReasons['早期参与者'] = (rejectReasons['早期参与者'] || 0) + 1;
-        } else if (reason.includes('holder') || reason.includes('黑名单')) {
-          rejectReasons['持有者检查'] = (rejectReasons['持有者检查'] || 0) + 1;
-        } else if (reason.includes('未配置')) {
-          rejectReasons['未配置条件'] = (rejectReasons['未配置条件'] || 0) + 1;
-        } else {
-          rejectReasons[reason.substring(0, 20)] = (rejectReasons[reason.substring(0, 20)] || 0) + 1;
-        }
-      });
-
-      console.log('拒绝原因分类:');
-      Object.entries(rejectReasons).forEach(([reason, count]) => {
-        console.log(`  ${reason}: ${count}个`);
-      });
-    }
-
-    // 分析执行信号的聚簇因子
-    console.log('\n【执行信号的聚簇因子分析】\n');
-
-    const executedWithFactors = executedSignals.filter(s => s.metadata?.preBuyCheckFactors);
-    if (executedWithFactors.length > 0) {
-      console.log('代币        | 簇数 | Top2% | Mega% | 簇数>=3 && Top2>85?');
-      console.log('------------|------|-------|-------|-------------------');
-
-      executedWithFactors.slice(0, 15).forEach(signal => {
-        const factors = signal.metadata?.preBuyCheckFactors;
-        const symbol = signal.metadata?.symbol || signal.token_address.substring(0, 8);
-        const clusterCount = factors?.walletClusterCount || 0;
-        const top2Ratio = ((factors?.walletClusterTop2Ratio || 0) * 100).toFixed(1);
-        const megaRatio = ((factors?.walletClusterMegaRatio || 0) * 100).toFixed(1);
-        const wouldReject = clusterCount >= 3 && parseFloat(top2Ratio) > 85;
-
-        console.log(`${symbol.substring(0, 11).padEnd(11)} | ${clusterCount.toString().padStart(4)} | ${top2Ratio.padStart(5)}% | ${megaRatio.padStart(5)}% | ${wouldReject ? '❌ 应拒绝' : ''}`);
-      });
-
-      if (executedWithFactors.length > 15) {
-        console.log(`  ... 还有 ${executedWithFactors.length - 15} 个信号`);
-      }
-    }
-
-    console.log('\n' + '='.repeat(60) + '\n');
-  }
-
-  // 获取收益率对比
-  console.log('【收益率对比】\n');
-
-  for (const exp of experiments) {
-    const { data: sellTrades } = await supabase
-      .from('trades')
-      .select('metadata, token_address')
-      .eq('experiment_id', exp.id)
-      .eq('trade_direction', 'sell')
-      .order('metadata->>profitPercent', { ascending: false });
-
-    if (sellTrades && sellTrades.length > 0) {
-      console.log(`${exp.name}:`);
-
-      sellTrades.slice(0, 10).forEach(t => {
-        const profit = t.metadata?.profitPercent || 0;
-        const symbol = t.metadata?.symbol || t.token_address.substring(0, 8);
-        const type = profit > 0 ? '✓' : '✗';
-        console.log(`  ${type} ${symbol}: ${profit > 0 ? '+' : ''}${profit.toFixed(1)}%`);
-      });
-
-      console.log('');
-    }
+  if (newTotalProfit < oldTotalProfit) {
+    console.log('\n⚠️  结论: 新实验的总收益更低');
   }
 }
 
