@@ -79,6 +79,7 @@ class BacktestEngine extends AbstractTradingEngine {
     // 代币追踪
     this._seenTokens = new Set();
     this._tokenStates = new Map();
+    this._tokenCreatedTimes = new Map(); // 存储代币创建时间
 
     // 构造函数不使用logger（logger在initialize时创建）
   }
@@ -631,7 +632,7 @@ class BacktestEngine extends AbstractTradingEngine {
    * 构建代币信息（用于回测时的早期参与者检查）
    * @private
    * @param {Object} tokenState - 代币状态
-   * @returns {Object} tokenInfo（只包含 innerPair）
+   * @returns {Object} tokenInfo（包含 innerPair 和 tokenCreatedAt）
    */
   _buildTokenInfoForBacktest(tokenState) {
     // 构建 innerPair（内盘交易对）
@@ -654,7 +655,7 @@ class BacktestEngine extends AbstractTradingEngine {
       innerPair = `${tokenState.token}_fo`;
     }
 
-    return { innerPair };
+    return { innerPair, tokenCreatedAt: tokenState.tokenCreatedAt };
   }
 
   /**
@@ -728,6 +729,25 @@ class BacktestEngine extends AbstractTradingEngine {
           const timeB = new Date(b.timestamp).getTime();
           return timeA - timeB;
         });
+
+        // 加载源实验的代币创建时间
+        const { dbManager } = require('../../services/dbManager');
+        const supabase = dbManager.getClient();
+
+        const { data: tokenCreationTimes } = await supabase
+          .from('experiment_tokens')
+          .select('token_address, token_created_at')
+          .eq('experiment_id', this._sourceExperimentId);
+
+        // 存储 token 创建时间到 Map
+        for (const row of tokenCreationTimes || []) {
+          if (row.token_created_at) {
+            this._tokenCreatedTimes.set(row.token_address, row.token_created_at);
+          }
+        }
+
+        this.logger.info(this._experimentId, '_loadHistoricalData',
+          `✅ 已加载 ${this._tokenCreatedTimes.size} 个代币的创建时间`);
 
         this._groupDataByLoopCount();
 
@@ -959,6 +979,9 @@ class BacktestEngine extends AbstractTradingEngine {
     if (!this._tokenStates.has(tokenAddress)) {
       const factorValues = dataPoint.factor_values || {};
 
+      // 从 Map 获取 token 创建时间
+      const tokenCreatedAt = this._tokenCreatedTimes.get(tokenAddress) || null;
+
       this._tokenStates.set(tokenAddress, {
         token: tokenAddress,
         symbol: tokenSymbol,
@@ -971,7 +994,8 @@ class BacktestEngine extends AbstractTradingEngine {
         buyTime: null,
         highestPrice: factorValues.highestPrice || parseFloat(dataPoint.price_usd) || 0,
         highestPriceTimestamp: factorValues.highestPriceTimestamp || new Date(dataPoint.timestamp).getTime(),
-        strategyExecutions: {}
+        strategyExecutions: {},
+        tokenCreatedAt: tokenCreatedAt
       });
 
       this._tokenPool.addToken({
@@ -1156,7 +1180,13 @@ class BacktestEngine extends AbstractTradingEngine {
       try {
         const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
 
+        // 提取 tokenCreateTime（用于记录使用的是哪种方法）
+        const tokenCreateTime = tokenState.tokenCreatedAt
+          ? Math.floor(new Date(tokenState.tokenCreatedAt).getTime() / 1000)
+          : null;
+
         const signalMetadata = {
+          tokenCreateTime: tokenCreateTime,
           trendFactors: buildFactorValuesForTimeSeries(factorResults),
           preBuyCheckFactors: preBuyCheckResult ? buildPreBuyCheckFactorValues(preBuyCheckResult) : {},
           preBuyCheckResult: preBuyCheckResult ? {
