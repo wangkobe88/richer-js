@@ -731,13 +731,15 @@ class BacktestEngine extends AbstractTradingEngine {
         });
 
         // 加载源实验的代币创建时间（discovered_at 与 launch_at 一致）
+        // 注意：Supabase 默认限制 1000 行，需要设置更大的 limit
         const { dbManager } = require('../../services/dbManager');
         const supabase = dbManager.getClient();
 
         const { data: tokensData } = await supabase
           .from('experiment_tokens')
           .select('token_address, discovered_at')
-          .eq('experiment_id', this._sourceExperimentId);
+          .eq('experiment_id', this._sourceExperimentId)
+          .limit(10000); // 设置足够大的 limit
 
         // 存储 token 创建时间到 Map（discovered_at 就是代币的 launch_at）
         for (const row of tokensData || []) {
