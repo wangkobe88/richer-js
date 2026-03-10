@@ -107,7 +107,14 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     walletClusterMaxBlockBuyRatio: preBuyCheckResult.walletClusterMaxBlockBuyRatio || 0,
     walletClusterMaxBlockNumber: preBuyCheckResult.walletClusterMaxBlockNumber || null,
     walletClusterMaxBlockBuyAmount: preBuyCheckResult.walletClusterMaxBlockBuyAmount || 0,
-    walletClusterTotalBuyAmount: preBuyCheckResult.walletClusterTotalBuyAmount || 0
+    walletClusterTotalBuyAmount: preBuyCheckResult.walletClusterTotalBuyAmount || 0,
+    // 早期大户检查因子
+    earlyWhaleHoldRatio: preBuyCheckResult.earlyWhaleHoldRatio ?? 1.0,
+    earlyWhaleSellRatio: preBuyCheckResult.earlyWhaleSellRatio || 0,
+    earlyWhaleCount: preBuyCheckResult.earlyWhaleCount || 0,
+    earlyWhaleMethod: preBuyCheckResult.earlyWhaleMethod || null,
+    earlyWhaleTotalTrades: preBuyCheckResult.earlyWhaleTotalTrades || 0,
+    earlyWhaleEarlyThreshold: preBuyCheckResult.earlyWhaleEarlyThreshold || 0
   };
 }
 

@@ -11,6 +11,7 @@
 const { TokenHolderService } = require('../holders/TokenHolderService');
 const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService');
 const { WalletClusterService } = require('./WalletClusterService');
+const { EarlyWhaleService } = require('./EarlyWhaleService');
 
 /**
  * 默认配置
@@ -57,6 +58,9 @@ class PreBuyCheckService {
       clusterBlockThreshold: this.config.clusterBlockThreshold || 7
     };
     this.walletClusterService = new WalletClusterService(logger, clusterConfig);
+
+    // 初始化早期大户检查服务
+    this.earlyWhaleService = new EarlyWhaleService(logger);
   }
 
   /**
@@ -104,10 +108,11 @@ class PreBuyCheckService {
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
       );
 
-      // 并行执行持有者检查和钱包簇检查
-      const [holderCheck, walletClusterCheck] = await Promise.all([
+      // 并行执行持有者检查、钱包簇检查和早期大户检查
+      const [holderCheck, walletClusterCheck, earlyWhaleCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
-        this._performWalletClusterCheck(earlyParticipantCheck)
+        this._performWalletClusterCheck(earlyParticipantCheck),
+        this._performEarlyWhaleCheck(earlyParticipantCheck, tokenInfo, checkTime)
       ]);
 
       // 如果没有提供条件表达式，返回检查失败
@@ -140,7 +145,9 @@ class PreBuyCheckService {
           // 早期参与者检查失败时的空值
           ...this.earlyParticipantService.getEmptyFactorValues(),
           // 钱包簇检查失败时的空值
-          ...this.walletClusterService.getEmptyFactorValues()
+          ...this.walletClusterService.getEmptyFactorValues(),
+          // 早期大户检查失败时的空值
+          ...this.earlyWhaleService.getEmptyFactorValues()
         };
       }
 
@@ -149,6 +156,7 @@ class PreBuyCheckService {
         holderCheck,
         earlyParticipantCheck,
         walletClusterCheck,
+        earlyWhaleCheck,
         preBuyCheckCondition,
         startTime
       );
@@ -184,7 +192,9 @@ class PreBuyCheckService {
         // 早期参与者检查失败时的空值
         ...this.earlyParticipantService.getEmptyFactorValues(),
         // 钱包簇检查失败时的空值
-        ...this.walletClusterService.getEmptyFactorValues()
+        ...this.walletClusterService.getEmptyFactorValues(),
+        // 早期大户检查失败时的空值
+        ...this.earlyWhaleService.getEmptyFactorValues()
       };
     }
   }
@@ -193,7 +203,7 @@ class PreBuyCheckService {
    * 使用条件表达式评估
    * @private
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, condition, startTime) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, earlyWhaleCheck, condition, startTime) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -219,6 +229,9 @@ class PreBuyCheckService {
 
       // 钱包簇检查结果
       ...walletClusterCheck,
+
+      // 早期大户检查结果
+      ...earlyWhaleCheck,
 
       // 早期参与者购买资格评估
       preTraderCanBuy: null,
@@ -261,12 +274,17 @@ class PreBuyCheckService {
         walletClusterMaxBlockBuyRatio: walletClusterCheck.walletClusterMaxBlockBuyRatio || 0,
         walletClusterMaxBlockNumber: walletClusterCheck.walletClusterMaxBlockNumber || null,
         walletClusterMaxBlockBuyAmount: walletClusterCheck.walletClusterMaxBlockBuyAmount || 0,
-        walletClusterTotalBuyAmount: walletClusterCheck.walletClusterTotalBuyAmount || 0
+        walletClusterTotalBuyAmount: walletClusterCheck.walletClusterTotalBuyAmount || 0,
+        // 早期大户因子
+        earlyWhaleHoldRatio: earlyWhaleCheck.earlyWhaleHoldRatio || 1.0,
+        earlyWhaleSellRatio: earlyWhaleCheck.earlyWhaleSellRatio || 0,
+        earlyWhaleCount: earlyWhaleCheck.earlyWhaleCount || 0
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
         // earlyTradesDataFirstTime, earlyTradesDataLastTime
         // walletClusterCheckTimestamp, walletClusterCheckDuration
+        // earlyWhaleMethod, earlyWhaleTotalTrades, earlyWhaleEarlyThreshold
       };
 
       const canBuy = this._safeEvaluate(condition, context);
@@ -491,6 +509,48 @@ class PreBuyCheckService {
   }
 
   /**
+   * 执行早期大户检查
+   * @private
+   * @param {Object} earlyParticipantCheck - 早期参与者检查结果（包含 trades 数据）
+   * @param {Object} tokenInfo - 代币信息
+   * @param {number} checkTime - 检查时间（秒）
+   * @returns {Object} 早期大户检查结果
+   */
+  async _performEarlyWhaleCheck(earlyParticipantCheck = null, tokenInfo = null, checkTime = null) {
+    // 从早期参与者检查结果中获取交易数据
+    const trades = earlyParticipantCheck?._trades;
+
+    if (!trades || trades.length === 0) {
+      return this.earlyWhaleService.getEmptyFactorValues();
+    }
+
+    try {
+      // 获取代币创建时间（如果有的话）
+      const tokenCreateTime = tokenInfo?.tokenCreatedAt ? Math.floor(new Date(tokenInfo.tokenCreatedAt).getTime() / 1000) : null;
+
+      // 获取观察窗口起始时间
+      const windowStart = earlyParticipantCheck.earlyTradesDataFirstTime
+        ? Math.floor(new Date(earlyParticipantCheck.earlyTradesDataFirstTime).getTime() / 1000)
+        : null;
+
+      // 使用传入的 checkTime，如果没有则使用当前时间
+      const effectiveCheckTime = checkTime || Math.floor(Date.now() / 1000);
+
+      // 执行早期大户分析
+      return this.earlyWhaleService.performEarlyWhaleAnalysis(trades, {
+        tokenCreateTime,
+        checkTime: effectiveCheckTime,
+        windowStart
+      });
+    } catch (error) {
+      this.logger.error('[PreBuyCheckService] 早期大户检查失败', {
+        error: error.message
+      });
+      return this.earlyWhaleService.getEmptyFactorValues();
+    }
+  }
+
+  /**
    * 构建综合检查原因
    * @private
    */
@@ -530,7 +590,8 @@ class PreBuyCheckService {
       preTraderCanBuy: null,
       preTraderCheckReason: null,
       ...this.earlyParticipantService.getEmptyFactorValues(),
-      ...this.walletClusterService.getEmptyFactorValues()
+      ...this.walletClusterService.getEmptyFactorValues(),
+      ...this.earlyWhaleService.getEmptyFactorValues()
     };
   }
 
