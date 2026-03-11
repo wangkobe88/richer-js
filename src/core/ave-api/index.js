@@ -7,11 +7,13 @@
 const { AveAPIError, BaseAveAPI, AveTokenAPI } = require('./token-api');
 const { AveKlineAPI } = require('./kline-api');
 const { AveTxAPI } = require('./tx-api');
+const { AveWalletAPI } = require('./wallet-api');
 
 module.exports = {
     AveAPIError,
     BaseAveAPI,
     AveTokenAPI,
     AveKlineAPI,
-    AveTxAPI
+    AveTxAPI,
+    AveWalletAPI
 };

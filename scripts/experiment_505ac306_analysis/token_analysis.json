@@ -1,0 +1,339 @@
+[
+  {
+    "token_address": "0x51aafaf2cc4bc093965024b88efb6c0c48774444",
+    "token_symbol": "龙虾人生",
+    "executed_at": "2026-03-10T11:37:06.239Z",
+    "profit_percent": -8.437302781688427,
+    "return_category": "小跌",
+    "participant_count": 73,
+    "category_counts": {
+      "🐟 散户": 17,
+      "🐟 普通玩家": 28,
+      "🏆 巨鲸": 9,
+      "🌟 新星玩家": 9,
+      "🎲 高频交易者": 15,
+      "🤖 疑似机器人": 1,
+      "💰 大户": 10,
+      "💎 聪明钱老鸟": 1,
+      "🦅 老鸟赢家": 1
+    }
+  },
+  {
+    "token_address": "0x0f14933b0ccad8d31cb7ffb457667f919a6f4444",
+    "token_symbol": "饲料",
+    "executed_at": "2026-03-10T11:37:05.524Z",
+    "profit_percent": 18.010994502748634,
+    "return_category": "小涨",
+    "participant_count": 132,
+    "category_counts": {
+      "💰 大户": 18,
+      "🏆 巨鲸": 10,
+      "🎲 高频交易者": 36,
+      "🌟 新星玩家": 28,
+      "🐟 散户": 35,
+      "🐟 普通玩家": 35,
+      "💎 聪明钱老鸟": 3,
+      "🤖 疑似机器人": 3,
+      "🦅 老鸟赢家": 8
+    }
+  },
+  {
+    "token_address": "0x340b4bb0ca122f949b2a32f5caf0fe0803324444",
+    "token_symbol": "Scrapling",
+    "executed_at": "2026-03-10T11:37:04.624Z",
+    "profit_percent": 1.2217031979877835,
+    "return_category": "小涨",
+    "participant_count": 43,
+    "category_counts": {
+      "🐟 普通玩家": 12,
+      "💰 大户": 6,
+      "🌟 新星玩家": 11,
+      "🏆 巨鲸": 3,
+      "🎲 高频交易者": 10,
+      "🐟 散户": 9,
+      "🤖 疑似机器人": 1,
+      "💎 聪明钱老鸟": 3
+    }
+  },
+  {
+    "token_address": "0xc3ca235bb3ac1bb951ce2833a9c8525f524e4444",
+    "token_symbol": "澳龙",
+    "executed_at": "2026-03-10T11:37:01.907Z",
+    "profit_percent": -34.682999503393475,
+    "return_category": "大跌",
+    "participant_count": 90,
+    "category_counts": {
+      "🐟 普通玩家": 21,
+      "🎲 高频交易者": 26,
+      "🌟 新星玩家": 17,
+      "🏆 巨鲸": 8,
+      "💰 大户": 10,
+      "🐟 散户": 28,
+      "🤖 疑似机器人": 3,
+      "💎 聪明钱老鸟": 4,
+      "🦅 老鸟赢家": 1
+    }
+  },
+  {
+    "token_address": "0x4240cf814aa7b0b30c308e7daaeae4f465c94444",
+    "token_symbol": "6G",
+    "executed_at": "2026-03-10T11:36:59.385Z",
+    "profit_percent": -16.648315140009494,
+    "return_category": "小跌",
+    "participant_count": 52,
+    "category_counts": {
+      "🎲 高频交易者": 20,
+      "💰 大户": 8,
+      "🌟 新星玩家": 16,
+      "🐟 散户": 13,
+      "🏆 巨鲸": 5,
+      "🐟 普通玩家": 9,
+      "🦅 老鸟赢家": 2,
+      "💎 聪明钱老鸟": 1,
+      "🤖 疑似机器人": 3
+    }
+  },
+  {
+    "token_address": "0xfbbf59bc00815b8fae78ff0bb136fae20f594444",
+    "token_symbol": "金龙鱼",
+    "executed_at": "2026-03-10T11:36:51.680Z",
+    "profit_percent": -3.2044720888119023,
+    "return_category": "小跌",
+    "participant_count": 69,
+    "category_counts": {
+      "💎 聪明钱老鸟": 4,
+      "🎲 高频交易者": 23,
+      "💰 大户": 12,
+      "🐟 散户": 13,
+      "🌟 新星玩家": 9,
+      "🐟 普通玩家": 18,
+      "🏆 巨鲸": 7,
+      "🦅 老鸟赢家": 4,
+      "🤖 疑似机器人": 2
+    }
+  },
+  {
+    "token_address": "0x2bf6635545fd2a908d7912537fbb8584c51f4444",
+    "token_symbol": "NemoClaw",
+    "executed_at": "2026-03-10T11:36:31.712Z",
+    "profit_percent": -8.5634695739878,
+    "return_category": "小跌",
+    "participant_count": 37,
+    "category_counts": {
+      "🌟 新星玩家": 9,
+      "🎲 高频交易者": 12,
+      "💰 大户": 8,
+      "🐟 散户": 5,
+      "🏆 巨鲸": 5,
+      "🐟 普通玩家": 8,
+      "💎 聪明钱老鸟": 1,
+      "🦅 老鸟赢家": 1
+    }
+  },
+  {
+    "token_address": "0x6b0fd53e4676b99dd80051b73cb7260d926c4444",
+    "token_symbol": "1$",
+    "executed_at": "2026-03-10T11:35:11.205Z",
+    "profit_percent": -55.232833464877665,
+    "return_category": "大跌",
+    "participant_count": 117,
+    "category_counts": {
+      "🐟 普通玩家": 39,
+      "🌟 新星玩家": 28,
+      "💰 大户": 13,
+      "🐟 散户": 32,
+      "🏆 巨鲸": 9,
+      "💎 聪明钱老鸟": 4,
+      "🎲 高频交易者": 25,
+      "🦅 老鸟赢家": 4,
+      "🤖 疑似机器人": 2
+    }
+  },
+  {
+    "token_address": "0xa322f68af1dd4078d0e72998921f546391274444",
+    "token_symbol": "LEO",
+    "executed_at": "2026-03-10T11:35:07.738Z",
+    "profit_percent": -31.497667743092933,
+    "return_category": "大跌",
+    "participant_count": 114,
+    "category_counts": {
+      "🎲 高频交易者": 39,
+      "🐟 普通玩家": 24,
+      "🐟 散户": 24,
+      "💰 大户": 24,
+      "🦅 老鸟赢家": 5,
+      "💎 聪明钱老鸟": 6,
+      "🌟 新星玩家": 28,
+      "🏆 巨鲸": 13,
+      "🤖 疑似机器人": 2
+    }
+  },
+  {
+    "token_address": "0x8a67fe988d731031ad057d97876f901cc1f54444",
+    "token_symbol": "UselessCLAW",
+    "executed_at": "2026-03-10T11:35:04.931Z",
+    "profit_percent": -8.12153881788129,
+    "return_category": "小跌",
+    "participant_count": 76,
+    "category_counts": {
+      "🌟 新星玩家": 18,
+      "🎲 高频交易者": 16,
+      "🐟 散户": 21,
+      "🏆 巨鲸": 10,
+      "💰 大户": 10,
+      "🐟 普通玩家": 20,
+      "🤖 疑似机器人": 1,
+      "💎 聪明钱老鸟": 2,
+      "🦅 老鸟赢家": 6
+    }
+  },
+  {
+    "token_address": "0x3217f78a55d544667538524f3b56f9d098304444",
+    "token_symbol": "无用龙虾",
+    "executed_at": "2026-03-10T11:35:03.970Z",
+    "profit_percent": 2.982309900898394,
+    "return_category": "小涨",
+    "participant_count": 62,
+    "category_counts": {
+      "🐟 普通玩家": 29,
+      "🏆 巨鲸": 9,
+      "🦅 老鸟赢家": 4,
+      "🎲 高频交易者": 7,
+      "🌟 新星玩家": 9,
+      "🐟 散户": 7,
+      "💰 大户": 6,
+      "💎 聪明钱老鸟": 1
+    }
+  },
+  {
+    "token_address": "0x67af02b5e5624da2bbafe9621e42fb54cc094444",
+    "token_symbol": "1M",
+    "executed_at": "2026-03-10T11:34:52.569Z",
+    "profit_percent": -13.746966616383549,
+    "return_category": "小跌",
+    "participant_count": 58,
+    "category_counts": {
+      "🎲 高频交易者": 12,
+      "🐟 普通玩家": 15,
+      "💰 大户": 7,
+      "🐟 散户": 13,
+      "🏆 巨鲸": 8,
+      "💎 聪明钱老鸟": 1,
+      "🌟 新星玩家": 12,
+      "🦅 老鸟赢家": 2,
+      "🤖 疑似机器人": 1
+    }
+  },
+  {
+    "token_address": "0xc6c9d84b77a6d007ae205804f4e8397cb76e4444",
+    "token_symbol": "XGrok",
+    "executed_at": "2026-03-10T11:34:49.485Z",
+    "profit_percent": -30.73624823695346,
+    "return_category": "大跌",
+    "participant_count": 70,
+    "category_counts": {
+      "🐟 散户": 30,
+      "🏆 巨鲸": 3,
+      "🐟 普通玩家": 26,
+      "🌟 新星玩家": 13,
+      "🎲 高频交易者": 2,
+      "💎 聪明钱老鸟": 3,
+      "💰 大户": 4,
+      "🦅 老鸟赢家": 2
+    }
+  },
+  {
+    "token_address": "0x32b1792f9e34b5f9b83324fd34802a102791ffff",
+    "token_symbol": "龙虾发币",
+    "executed_at": "2026-03-10T11:34:46.745Z",
+    "profit_percent": 39.71274016041784,
+    "return_category": "大涨",
+    "participant_count": 37,
+    "category_counts": {
+      "🎲 高频交易者": 4,
+      "💰 大户": 3,
+      "🌟 新星玩家": 12,
+      "🐟 散户": 10,
+      "🏆 巨鲸": 6,
+      "🦅 老鸟赢家": 2,
+      "🐟 普通玩家": 11,
+      "🤖 疑似机器人": 1,
+      "💎 聪明钱老鸟": 1
+    }
+  },
+  {
+    "token_address": "0xb5115e3b79e37f6abc2a39be8739eda3430e4444",
+    "token_symbol": "爪子",
+    "executed_at": "2026-03-10T11:34:43.994Z",
+    "profit_percent": -36.05300973974134,
+    "return_category": "大跌",
+    "participant_count": 77,
+    "category_counts": {
+      "🌟 新星玩家": 13,
+      "🐟 散户": 30,
+      "🐟 普通玩家": 28,
+      "🏆 巨鲸": 5,
+      "🎲 高频交易者": 8,
+      "💰 大户": 5,
+      "🦅 老鸟赢家": 2,
+      "💎 聪明钱老鸟": 2
+    }
+  },
+  {
+    "token_address": "0x4fa826c7c4c666c17950916d8310f8ad0c114444",
+    "token_symbol": "爪子",
+    "executed_at": "2026-03-10T11:34:42.593Z",
+    "profit_percent": -35.642605633802816,
+    "return_category": "大跌",
+    "participant_count": 50,
+    "category_counts": {
+      "🐟 普通玩家": 9,
+      "🎲 高频交易者": 21,
+      "🐟 散户": 9,
+      "🌟 新星玩家": 12,
+      "💎 聪明钱老鸟": 2,
+      "💰 大户": 6,
+      "🏆 巨鲸": 8,
+      "🤖 疑似机器人": 1,
+      "🦅 老鸟赢家": 4
+    }
+  },
+  {
+    "token_address": "0x7a8c4f9097ca55b66527f12ad8e4824602dc4444",
+    "token_symbol": "爪子",
+    "executed_at": "2026-03-10T11:34:41.443Z",
+    "profit_percent": 18.296747500287317,
+    "return_category": "小涨",
+    "participant_count": 45,
+    "category_counts": {
+      "🌟 新星玩家": 16,
+      "🎲 高频交易者": 11,
+      "💰 大户": 8,
+      "🐟 普通玩家": 12,
+      "🐟 散户": 7,
+      "💎 聪明钱老鸟": 2,
+      "🤖 疑似机器人": 1,
+      "🏆 巨鲸": 4,
+      "🦅 老鸟赢家": 1
+    }
+  },
+  {
+    "token_address": "0xdc0ba14ece7b3f541b44094de989072ff6f54444",
+    "token_symbol": "2529",
+    "executed_at": "2026-03-10T11:34:37.363Z",
+    "profit_percent": -28.240910760190964,
+    "return_category": "大跌",
+    "participant_count": 198,
+    "category_counts": {
+      "🐟 散户": 55,
+      "💰 大户": 31,
+      "🌟 新星玩家": 51,
+      "💎 聪明钱老鸟": 7,
+      "🎲 高频交易者": 42,
+      "🐟 普通玩家": 40,
+      "🏆 巨鲸": 27,
+      "🤖 疑似机器人": 4,
+      "🦅 老鸟赢家": 14
+    }
+  }
+]

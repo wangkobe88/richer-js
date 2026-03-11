@@ -1,0 +1,246 @@
+{
+  "version": "1.0",
+  "created_at": "2026-03-10T14:16:50.595Z",
+  "data_source": {
+    "total_wallets": 1278,
+    "tokens_analyzed": 6
+  },
+  "dimensions": {
+    "balance": {
+      "name": "持仓规模",
+      "categories": [
+        {
+          "name": "极小户",
+          "max": 66.10730603887,
+          "description": "≤$66"
+        },
+        {
+          "name": "微型户",
+          "min": 66.10730603887,
+          "max": 350.312660196502,
+          "description": "$66-$350"
+        },
+        {
+          "name": "小户",
+          "min": 350.312660196502,
+          "max": 2166.050617481671,
+          "description": "$350-$2166"
+        },
+        {
+          "name": "中户",
+          "min": 2166.050617481671,
+          "max": 20600.81268913391,
+          "description": "$2166-$20601"
+        },
+        {
+          "name": "大户",
+          "min": 20600.81268913391,
+          "max": 52973.383497054,
+          "description": "$20601-$52973"
+        },
+        {
+          "name": "巨鲸",
+          "min": 52973.383497054,
+          "description": ">$52973"
+        }
+      ]
+    },
+    "trading": {
+      "name": "交易活跃度",
+      "categories": [
+        {
+          "name": "低频",
+          "max": 445,
+          "description": "≤445次"
+        },
+        {
+          "name": "中频",
+          "min": 445,
+          "max": 1054,
+          "description": "445-1054次"
+        },
+        {
+          "name": "高频",
+          "min": 1054,
+          "max": 1833,
+          "description": "1054-1833次"
+        },
+        {
+          "name": "超高频",
+          "min": 1833,
+          "description": ">1833次"
+        }
+      ]
+    },
+    "age": {
+      "name": "钱包年龄",
+      "categories": [
+        {
+          "name": "新钱包",
+          "max": 11,
+          "description": "<11天"
+        },
+        {
+          "name": "较新",
+          "min": 11,
+          "max": 60,
+          "description": "11-60天"
+        },
+        {
+          "name": "成熟",
+          "min": 60,
+          "max": 149,
+          "description": "60-149天"
+        },
+        {
+          "name": "老钱包",
+          "min": 149,
+          "description": ">149天"
+        }
+      ]
+    },
+    "profitability": {
+      "name": "盈利能力",
+      "categories": [
+        {
+          "name": "低胜率",
+          "max": 0.08,
+          "description": "≤8%"
+        },
+        {
+          "name": "中胜率",
+          "min": 0.08,
+          "max": 0.18,
+          "description": "8%-18%"
+        },
+        {
+          "name": "高胜率",
+          "min": 0.18,
+          "description": ">18%"
+        }
+      ]
+    }
+  },
+  "combo_categories": [
+    {
+      "id": "whale",
+      "name": "🏆 巨鲸",
+      "emoji": "🏆",
+      "description": "超大资金玩家",
+      "rules": [
+        {
+          "dimension": "balance",
+          "category": "巨鲸"
+        }
+      ],
+      "investment_insight": "机构级资金，可能是项目方或大户"
+    },
+    {
+      "id": "smart_money",
+      "name": "💎 聪明钱老鸟",
+      "emoji": "💎",
+      "description": "经验丰富且盈利能力强",
+      "rules": [
+        {
+          "dimension": "age",
+          "category": "老钱包"
+        },
+        {
+          "dimension": "balance",
+          "category": "大户"
+        }
+      ],
+      "investment_insight": "经验丰富的成功交易者，值得关注"
+    },
+    {
+      "id": "new_wallet_bot",
+      "name": "🤖 疑似机器人",
+      "emoji": "🤖",
+      "description": "新钱包但交易频繁",
+      "rules": [
+        {
+          "dimension": "age",
+          "category": "新钱包"
+        },
+        {
+          "dimension": "trading",
+          "category": "超高频"
+        }
+      ],
+      "investment_insight": "可能是批量操作的机器人账户"
+    },
+    {
+      "id": "high_frequency_trader",
+      "name": "🎲 高频交易者",
+      "emoji": "🎲",
+      "description": "交易非常活跃",
+      "rules": [
+        {
+          "dimension": "trading",
+          "category": "超高频"
+        }
+      ],
+      "investment_insight": "专业交易者或套利者"
+    },
+    {
+      "id": "profitable_newbie",
+      "name": "🌟 新星玩家",
+      "emoji": "🌟",
+      "description": "新钱包但胜率高",
+      "rules": [
+        {
+          "dimension": "age",
+          "category": "新钱包"
+        },
+        {
+          "dimension": "profitability",
+          "category": "高胜率"
+        }
+      ],
+      "investment_insight": "新用户但表现出色，值得关注"
+    },
+    {
+      "id": "experienced_winner",
+      "name": "🦅 老鸟赢家",
+      "emoji": "🦅",
+      "description": "老钱包且胜率高",
+      "rules": [
+        {
+          "dimension": "age",
+          "category": "老钱包"
+        },
+        {
+          "dimension": "profitability",
+          "category": "高胜率"
+        }
+      ],
+      "investment_insight": "经验丰富的成功交易者"
+    },
+    {
+      "id": "large_trader",
+      "name": "💰 大户",
+      "emoji": "💰",
+      "description": "资金较大的玩家",
+      "rules": [
+        {
+          "dimension": "balance",
+          "category": "大户"
+        }
+      ],
+      "investment_insight": "有实力的个人投资者"
+    },
+    {
+      "id": "retail_investor",
+      "name": "🐟 散户",
+      "emoji": "🐟",
+      "description": "普通散户玩家",
+      "rules": [
+        {
+          "dimension": "balance",
+          "category": "小户"
+        }
+      ],
+      "investment_insight": "普通跟风投资者"
+    }
+  ]
+}

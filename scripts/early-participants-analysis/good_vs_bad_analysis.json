@@ -1,0 +1,346 @@
+{
+  "goodTokens": [
+    {
+      "symbol": "Buttcoin2026",
+      "category": "high_quality",
+      "maxReturn": 3788.11
+    },
+    {
+      "symbol": "BINANCE",
+      "category": "high_quality",
+      "maxReturn": 1921.54
+    },
+    {
+      "symbol": "CMO",
+      "category": "high_quality",
+      "maxReturn": 1465.83
+    },
+    {
+      "symbol": "zero motive",
+      "category": "high_quality",
+      "maxReturn": 832.84
+    },
+    {
+      "symbol": "Dude",
+      "category": "high_quality",
+      "maxReturn": 698.72
+    },
+    {
+      "symbol": "Happy Women's Day",
+      "category": "mid_quality",
+      "maxReturn": 671.02
+    },
+    {
+      "symbol": "Flagent",
+      "category": "high_quality",
+      "maxReturn": 496.17
+    },
+    {
+      "symbol": "one-shot",
+      "category": "high_quality",
+      "maxReturn": 461.3
+    },
+    {
+      "symbol": "FOUR",
+      "category": "mid_quality",
+      "maxReturn": 344.71
+    },
+    {
+      "symbol": "ROME",
+      "category": "mid_quality",
+      "maxReturn": 335.64
+    },
+    {
+      "symbol": "蚂蚁吃象",
+      "category": "mid_quality",
+      "maxReturn": 274.63
+    },
+    {
+      "symbol": "BSC",
+      "category": "mid_quality",
+      "maxReturn": 249.34
+    }
+  ],
+  "badTokens": [
+    {
+      "symbol": "Renaissance",
+      "category": "fake_pump",
+      "maxReturn": 1025.42
+    },
+    {
+      "symbol": "MWG",
+      "category": "low_quality",
+      "maxReturn": 192.17
+    },
+    {
+      "symbol": "求真",
+      "category": "low_quality",
+      "maxReturn": 177.34
+    },
+    {
+      "symbol": "MemeWar",
+      "category": "low_quality",
+      "maxReturn": 172.47
+    },
+    {
+      "symbol": "抖音求真",
+      "category": "low_quality",
+      "maxReturn": 121.1
+    },
+    {
+      "symbol": "Big Chungus",
+      "category": "low_quality",
+      "maxReturn": 109.74
+    },
+    {
+      "symbol": "ClawWiki",
+      "category": "low_quality",
+      "maxReturn": 94.84
+    },
+    {
+      "symbol": "耐心资本",
+      "category": "low_quality",
+      "maxReturn": 75.2
+    },
+    {
+      "symbol": "嘿嘿",
+      "category": "low_quality",
+      "maxReturn": 65.77
+    },
+    {
+      "symbol": "BINANCEANWHERE",
+      "category": "low_quality",
+      "maxReturn": 38.32
+    }
+  ],
+  "results": [
+    {
+      "factor": "walletClusterCount",
+      "f": 0.8353929807217004,
+      "goodMean": 8.25,
+      "badMean": 5
+    },
+    {
+      "factor": "walletClusterTop2Ratio",
+      "f": 0.6612220773727561,
+      "goodMean": 0.6873914314563146,
+      "badMean": 0.8553927437370066
+    },
+    {
+      "factor": "earlyTradesCheckDuration",
+      "f": 0.42980899111245613,
+      "goodMean": 87.33333333333333,
+      "badMean": 115
+    },
+    {
+      "factor": "walletClusterIntervalMean",
+      "f": 0.32615006844397365,
+      "goodMean": 4.335020535020535,
+      "badMean": 5.631746031746031
+    },
+    {
+      "factor": "walletClusterMegaCount",
+      "f": 0.2873900293255133,
+      "goodMean": 0.16666666666666666,
+      "badMean": 0.4
+    },
+    {
+      "factor": "earlyTradesHighValueCount",
+      "f": 0.28108730957072137,
+      "goodMean": 37.583333333333336,
+      "badMean": 50.7
+    },
+    {
+      "factor": "walletClusterMegaRatio",
+      "f": 0.2660934153914931,
+      "goodMean": 0.1649365628604383,
+      "badMean": 0.3832561728395062
+    },
+    {
+      "factor": "earlyTradesTotalCount",
+      "f": 0.26468089364551045,
+      "goodMean": 111.08333333333333,
+      "badMean": 155
+    },
+    {
+      "factor": "walletClusterMaxSize",
+      "f": 0.2252556562748917,
+      "goodMean": 78.25,
+      "badMean": 125.4
+    },
+    {
+      "factor": "earlyTradesFilteredCount",
+      "f": 0.2214755139247139,
+      "goodMean": 85.58333333333333,
+      "badMean": 113.9
+    },
+    {
+      "factor": "walletClusterMaxClusterWallets",
+      "f": 0.19316380295797425,
+      "goodMean": 48,
+      "badMean": 68.9
+    },
+    {
+      "factor": "walletClusterAvgSize",
+      "f": 0.17995139363731752,
+      "goodMean": 40.882112794612794,
+      "badMean": 79.77333333333334
+    },
+    {
+      "factor": "earlyTradesVolume",
+      "f": 0.15951764225589865,
+      "goodMean": 10691.841666666665,
+      "badMean": 13580.414
+    },
+    {
+      "factor": "earlyTradesCountPerMin",
+      "f": 0.15645282506160307,
+      "goodMean": 90.87499999999999,
+      "badMean": 119.80999999999999
+    },
+    {
+      "factor": "earlyTradesHighValuePerMin",
+      "f": 0.15139203790420766,
+      "goodMean": 30.900000000000002,
+      "badMean": 39.459999999999994
+    },
+    {
+      "factor": "walletClusterSecondToFirstRatio",
+      "f": 0.1309545676942377,
+      "goodMean": 0.4225243319536666,
+      "badMean": 0.305611983849301
+    },
+    {
+      "factor": "earlyTradesUniqueWallets",
+      "f": 0.1106063984137128,
+      "goodMean": 67.33333333333333,
+      "badMean": 80.8
+    },
+    {
+      "factor": "earlyTradesActualSpan",
+      "f": 0.08772632669213713,
+      "goodMean": 76.16666666666667,
+      "badMean": 78.4
+    },
+    {
+      "factor": "earlyTradesRateCalcWindow",
+      "f": 0.08772632669213713,
+      "goodMean": 76.16666666666667,
+      "badMean": 78.4
+    },
+    {
+      "factor": "walletClusterMinSize",
+      "f": 0.0845746999806039,
+      "goodMean": 26.333333333333332,
+      "badMean": 53.9
+    },
+    {
+      "factor": "earlyTradesVolumePerMin",
+      "f": 0.06246676619270869,
+      "goodMean": 8935.470000000001,
+      "badMean": 10552.783
+    },
+    {
+      "factor": "earlyTradesWalletsPerMin",
+      "f": 0.05282147220267505,
+      "goodMean": 54.666666666666664,
+      "badMean": 62.739999999999995
+    },
+    {
+      "factor": "walletClusterSecondSize",
+      "f": 0.02538535113963088,
+      "goodMean": 12.416666666666666,
+      "badMean": 14.9
+    },
+    {
+      "factor": "earlyTradesCheckTimestamp",
+      "f": 0.007411027139856624,
+      "goodMean": 1773026381201.4167,
+      "badMean": 1773026385310.2
+    },
+    {
+      "factor": "earlyTradesDataLastTime",
+      "f": 0.0033337121797346273,
+      "goodMean": 1772975605.5833333,
+      "badMean": 1772976304.7
+    },
+    {
+      "factor": "earlyTradesCheckTime",
+      "f": 0.0033133383746639456,
+      "goodMean": 1772975609.25,
+      "badMean": 1772976306.2
+    },
+    {
+      "factor": "earlyTradesExpectedLastTime",
+      "f": 0.0033133383746639456,
+      "goodMean": 1772975609.25,
+      "badMean": 1772976306.2
+    },
+    {
+      "factor": "earlyTradesExpectedFirstTime",
+      "f": 0.0033133383746639456,
+      "goodMean": 1772975519.25,
+      "badMean": 1772976216.2
+    },
+    {
+      "factor": "earlyTradesDataFirstTime",
+      "f": 0.003312202968797851,
+      "goodMean": 1772975529.4166667,
+      "badMean": 1772976226.3
+    },
+    {
+      "factor": "holdersCount",
+      "f": 0,
+      "goodMean": 0,
+      "badMean": 0
+    },
+    {
+      "factor": "devHoldingRatio",
+      "f": 0,
+      "goodMean": 0,
+      "badMean": 0
+    },
+    {
+      "factor": "maxHoldingRatio",
+      "f": 0,
+      "goodMean": 0,
+      "badMean": 0
+    },
+    {
+      "factor": "earlyTradesWindow",
+      "f": 0,
+      "goodMean": 90,
+      "badMean": 90
+    },
+    {
+      "factor": "earlyTradesChecked",
+      "f": 0,
+      "goodMean": 1,
+      "badMean": 1
+    },
+    {
+      "factor": "holderBlacklistCount",
+      "f": 0,
+      "goodMean": 0,
+      "badMean": 0
+    },
+    {
+      "factor": "holderWhitelistCount",
+      "f": 0,
+      "goodMean": 0,
+      "badMean": 0
+    },
+    {
+      "factor": "walletClusterThreshold",
+      "f": 0,
+      "goodMean": 2,
+      "badMean": 2
+    },
+    {
+      "factor": "earlyTradesDataCoverage",
+      "f": 0,
+      "goodMean": 1,
+      "badMean": 1
+    }
+  ]
+}

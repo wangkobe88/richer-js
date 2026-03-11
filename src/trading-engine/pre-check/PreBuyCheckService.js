@@ -11,7 +11,7 @@
 const { TokenHolderService } = require('../holders/TokenHolderService');
 const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService');
 const { WalletClusterService } = require('./WalletClusterService');
-const { EarlyWhaleService } = require('./EarlyWhaleService');
+const { WalletDataService } = require('../../web/services/WalletDataService');
 
 /**
  * 默认配置
@@ -58,9 +58,6 @@ class PreBuyCheckService {
       clusterBlockThreshold: this.config.clusterBlockThreshold || 7
     };
     this.walletClusterService = new WalletClusterService(logger, clusterConfig);
-
-    // 初始化早期大户检查服务
-    this.earlyWhaleService = new EarlyWhaleService(logger);
   }
 
   /**
@@ -85,11 +82,69 @@ class PreBuyCheckService {
    * @param {number} options.checkTime - 检查时间戳（秒），用于回测时指定历史时间点
    * @param {boolean} options.skipHolderCheck - 是否跳过持有者检查（回测时为 true）
    * @param {boolean} options.skipEarlyParticipant - 是否跳过早期参与者检查
+   * @param {number} options.tokenBuyTime - 代币首次买入时间戳（毫秒），用于判断是否有历史交易记录
    * @returns {Promise<Object>} 检查结果
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime } = options;
+
+    // 判断代币是否已有交易记录（已通过购买前检查）
+    const hasPriorTrade = tokenBuyTime !== null && tokenBuyTime !== undefined;
+
+    if (hasPriorTrade) {
+      this.logger.info('[PreBuyCheckService] 代币已有交易记录，收集因子数据但直接通过', {
+        token_address: tokenAddress,
+        buy_time: tokenBuyTime,
+        buy_time_readable: new Date(tokenBuyTime).toISOString()
+      });
+
+      // 仍然执行所有检查以收集因子数据，但最终直接通过
+      const earlyParticipantCheck = await this._performEarlyParticipantCheck(
+        tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
+      );
+
+      const [holderCheck, walletClusterCheck, creatorDevCheck] = await Promise.all([
+        this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
+        this._performWalletClusterCheck(earlyParticipantCheck),
+        this._checkCreatorIsNotBadDevWallet(creatorAddress)
+      ]);
+
+      // 构建完整的结果（包含所有因子）
+      return {
+        // 标记已执行预检查
+        preBuyCheck: 1,
+        checkTimestamp: Date.now(),
+        checkDuration: Date.now() - startTime,
+
+        // 持有者检查结果
+        holderWhitelistCount: holderCheck.whitelistCount || 0,
+        holderBlacklistCount: holderCheck.blacklistCount || 0,
+        holdersCount: holderCheck.holdersCount || 0,
+        devHoldingRatio: holderCheck.devHoldingRatio || 0,
+        maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
+        holderCanBuy: true,  // 强制通过
+
+        holderCheckReason: '代币已通过购买前检查（历史交易记录）',
+        blacklistReason: holderCheck.blacklistReason || '',
+        devReason: holderCheck.devReason || '',
+
+        // 创建者Dev钱包检查
+        creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet !== false,
+
+        // 早期参与者检查结果
+        ...earlyParticipantCheck,
+
+        // 钱包簇检查结果
+        ...walletClusterCheck,
+
+        // 标记跳过了条件匹配（但因子已收集）
+        skippedConditionMatch: true,
+
+        canBuy: true,  // 直接通过
+        checkReason: `代币已通过购买前检查（历史交易记录，买入时间: ${new Date(tokenBuyTime).toISOString()}）`
+      };
+    }
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -108,11 +163,11 @@ class PreBuyCheckService {
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
       );
 
-      // 并行执行持有者检查、钱包簇检查和早期大户检查
-      const [holderCheck, walletClusterCheck, earlyWhaleCheck] = await Promise.all([
+      // 并行执行持有者检查、钱包簇检查和创建者Dev钱包检查
+      const [holderCheck, walletClusterCheck, creatorDevCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
-        this._performEarlyWhaleCheck(earlyParticipantCheck, tokenInfo, checkTime)
+        this._checkCreatorIsBadDevWallet(creatorAddress)
       ]);
 
       // 如果没有提供条件表达式，返回检查失败
@@ -139,15 +194,16 @@ class PreBuyCheckService {
           blacklistReason: holderCheck.blacklistReason || '',
           devReason: holderCheck.devReason || '',
 
+          // 创建者Dev钱包检查（true=创建者不是坏Dev钱包）
+          creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet !== false,
+
           canBuy: false,
           checkReason: '未配置购买前检查条件，请在实验配置中设置检查条件',
 
           // 早期参与者检查失败时的空值
           ...this.earlyParticipantService.getEmptyFactorValues(),
           // 钱包簇检查失败时的空值
-          ...this.walletClusterService.getEmptyFactorValues(),
-          // 早期大户检查失败时的空值
-          ...this.earlyWhaleService.getEmptyFactorValues()
+          ...this.walletClusterService.getEmptyFactorValues()
         };
       }
 
@@ -156,7 +212,7 @@ class PreBuyCheckService {
         holderCheck,
         earlyParticipantCheck,
         walletClusterCheck,
-        earlyWhaleCheck,
+        creatorDevCheck,
         preBuyCheckCondition,
         startTime
       );
@@ -192,9 +248,7 @@ class PreBuyCheckService {
         // 早期参与者检查失败时的空值
         ...this.earlyParticipantService.getEmptyFactorValues(),
         // 钱包簇检查失败时的空值
-        ...this.walletClusterService.getEmptyFactorValues(),
-        // 早期大户检查失败时的空值
-        ...this.earlyWhaleService.getEmptyFactorValues()
+        ...this.walletClusterService.getEmptyFactorValues()
       };
     }
   }
@@ -203,7 +257,7 @@ class PreBuyCheckService {
    * 使用条件表达式评估
    * @private
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, earlyWhaleCheck, condition, startTime) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, condition, startTime) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -224,14 +278,17 @@ class PreBuyCheckService {
       blacklistReason: holderCheck.blacklistReason,
       devCheckReason: holderCheck.devReason,
 
+      // 创建者Dev钱包检查（true=创建者不是坏Dev钱包）
+      creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet !== false,
+
+      // 跳过第二阶段检查标记（完整检查时为 false）
+      skippedConditionMatch: false,
+
       // 早期参与者检查结果
       ...earlyParticipantCheck,
 
       // 钱包簇检查结果
       ...walletClusterCheck,
-
-      // 早期大户检查结果
-      ...earlyWhaleCheck,
 
       // 早期参与者购买资格评估
       preTraderCanBuy: null,
@@ -275,10 +332,8 @@ class PreBuyCheckService {
         walletClusterMaxBlockNumber: walletClusterCheck.walletClusterMaxBlockNumber || null,
         walletClusterMaxBlockBuyAmount: walletClusterCheck.walletClusterMaxBlockBuyAmount || 0,
         walletClusterTotalBuyAmount: walletClusterCheck.walletClusterTotalBuyAmount || 0,
-        // 早期大户因子
-        earlyWhaleHoldRatio: earlyWhaleCheck.earlyWhaleHoldRatio || 1.0,
-        earlyWhaleSellRatio: earlyWhaleCheck.earlyWhaleSellRatio || 0,
-        earlyWhaleCount: earlyWhaleCheck.earlyWhaleCount || 0
+        // 创建者Dev钱包因子（true=创建者不是坏Dev钱包）
+        creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet !== false
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
@@ -509,48 +564,6 @@ class PreBuyCheckService {
   }
 
   /**
-   * 执行早期大户检查
-   * @private
-   * @param {Object} earlyParticipantCheck - 早期参与者检查结果（包含 trades 数据）
-   * @param {Object} tokenInfo - 代币信息
-   * @param {number} checkTime - 检查时间（秒）
-   * @returns {Object} 早期大户检查结果
-   */
-  async _performEarlyWhaleCheck(earlyParticipantCheck = null, tokenInfo = null, checkTime = null) {
-    // 从早期参与者检查结果中获取交易数据
-    const trades = earlyParticipantCheck?._trades;
-
-    if (!trades || trades.length === 0) {
-      return this.earlyWhaleService.getEmptyFactorValues();
-    }
-
-    try {
-      // 获取代币创建时间（如果有的话）
-      const tokenCreateTime = tokenInfo?.tokenCreatedAt ? Math.floor(new Date(tokenInfo.tokenCreatedAt).getTime() / 1000) : null;
-
-      // 获取观察窗口起始时间
-      const windowStart = earlyParticipantCheck.earlyTradesDataFirstTime
-        ? Math.floor(new Date(earlyParticipantCheck.earlyTradesDataFirstTime).getTime() / 1000)
-        : null;
-
-      // 使用传入的 checkTime，如果没有则使用当前时间
-      const effectiveCheckTime = checkTime || Math.floor(Date.now() / 1000);
-
-      // 执行早期大户分析
-      return this.earlyWhaleService.performEarlyWhaleAnalysis(trades, {
-        tokenCreateTime,
-        checkTime: effectiveCheckTime,
-        windowStart
-      });
-    } catch (error) {
-      this.logger.error('[PreBuyCheckService] 早期大户检查失败', {
-        error: error.message
-      });
-      return this.earlyWhaleService.getEmptyFactorValues();
-    }
-  }
-
-  /**
    * 构建综合检查原因
    * @private
    */
@@ -589,10 +602,52 @@ class PreBuyCheckService {
       holderCanBuy: null,
       preTraderCanBuy: null,
       preTraderCheckReason: null,
+      // 创建者Dev钱包检查（默认值：null 表示未检查）
+      creatorIsNotBadDevWallet: null,
+      // 跳过第二阶段检查标记（默认值：false 表示未跳过）
+      skippedConditionMatch: false,
       ...this.earlyParticipantService.getEmptyFactorValues(),
-      ...this.walletClusterService.getEmptyFactorValues(),
-      ...this.earlyWhaleService.getEmptyFactorValues()
+      ...this.walletClusterService.getEmptyFactorValues()
     };
+  }
+
+  /**
+   * 检查创建者是否为坏Dev钱包
+   * @private
+   * @param {string} creatorAddress - 创建者地址
+   * @returns {Promise<Object>} { creatorIsNotBadDevWallet: boolean }
+   */
+  async _checkCreatorIsNotBadDevWallet(creatorAddress) {
+    if (!creatorAddress) {
+      // 无创建者地址时，默认通过（返回 true）
+      return { creatorIsNotBadDevWallet: true };
+    }
+
+    try {
+      const walletService = new WalletDataService();
+      const allWallets = await walletService.getWallets();
+      const devWallets = allWallets.filter(w => w.category === 'dev');
+
+      const isBadDevWallet = devWallets.some(
+        w => w.address.toLowerCase() === creatorAddress.toLowerCase()
+      );
+
+      this.logger.info('[PreBuyCheckService] 创建者Dev钱包检查完成', {
+        creator_address: creatorAddress,
+        is_bad_dev_wallet: isBadDevWallet,
+        creatorIsNotBadDevWallet: !isBadDevWallet
+      });
+
+      // 返回反向值（creatorIsNotBadDevWallet = 不是坏Dev钱包）
+      return { creatorIsNotBadDevWallet: !isBadDevWallet };
+    } catch (error) {
+      this.logger.error('[PreBuyCheckService] 创建者Dev钱包检查失败', {
+        creator_address: creatorAddress,
+        error: error.message
+      });
+      // 检查失败时保守处理，返回 true（不拒绝）
+      return { creatorIsNotBadDevWallet: true };
+    }
   }
 
   /**

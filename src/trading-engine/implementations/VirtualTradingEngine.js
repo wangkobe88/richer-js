@@ -1393,23 +1393,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         }
       }
 
-      // 2. Dev 钱包检查
-      if (token.creator_address) {
-        this.logger.info(this._experimentId, '_executeStrategy',
-          `开始 Dev 钱包检查 | symbol=${token.symbol}, creator=${token.creator_address}`);
-        const isNegativeDevWallet = await this.isNegativeDevWallet(token.creator_address);
-        if (isNegativeDevWallet) {
-          this.logger.error(this._experimentId, '_executeStrategy',
-            `代币创建者为 Dev 钱包，拒绝购买 | symbol=${token.symbol}, creator=${token.creator_address}`);
-          preCheckPassed = false;
-          blockReason = 'negative_dev_wallet';
-        } else {
-          this.logger.info(this._experimentId, '_executeStrategy',
-            `Dev 钱包检查通过 | symbol=${token.symbol}`);
-        }
-      }
-
-      // 3. 综合购买前检查（使用 PreBuyCheckService）
+      // 2. 综合购买前检查（使用 PreBuyCheckService）
       let preBuyCheckResult = null;
       if (preCheckPassed && this._preBuyCheckService) {
         try {
@@ -1428,7 +1412,11 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             this._experimentId,
             token.chain || 'bsc',
             tokenInfo,
-            preBuyCheckCondition
+            preBuyCheckCondition,
+            {
+              checkTime: Math.floor(Date.now() / 1000),
+              tokenBuyTime: token.buyTime || null  // 代币首次买入时间
+            }
           );
 
           if (!preBuyCheckResult.canBuy) {
@@ -1723,26 +1711,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * @param {string} creatorAddress - 创建者地址
    * @returns {Promise<boolean>} 是否为 Dev 钱包
    */
-  async isNegativeDevWallet(creatorAddress) {
-    if (!creatorAddress) return false;
-
-    try {
-      const { WalletDataService } = require('../../web/services/WalletDataService');
-      const walletService = new WalletDataService();
-
-      const allWallets = await walletService.getWallets();
-      const devWallets = allWallets.filter(w => w.category === 'dev');
-
-      return devWallets.some(w =>
-        w.address.toLowerCase() === creatorAddress.toLowerCase()
-      );
-    } catch (error) {
-      this.logger.error(this._experimentId, 'isNegativeDevWallet',
-        `检查 Dev 钱包失败 | error=${error.message}`);
-      return false;
-    }
-  }
-
   /**
    * 构建代币信息（用于早期参与者检查）
    * @private

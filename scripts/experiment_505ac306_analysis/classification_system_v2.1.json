@@ -1,0 +1,202 @@
+{
+  "version": "2.1",
+  "description": "调整分类阈值，使各类别分布更均衡",
+  "dimensions": {
+    "balance": {
+      "description": "钱包余额(BNB)",
+      "categories": [
+        {
+          "name": "🏆 巨鲸",
+          "min": 4873942.2098475415
+        },
+        {
+          "name": "💰 大户",
+          "min": 20276.55042245454,
+          "max": 4873942.2098475415
+        },
+        {
+          "name": "🐟 中户",
+          "min": 314.556865954511,
+          "max": 20276.55042245454
+        },
+        {
+          "name": "🐟 散户",
+          "max": 314.556865954511
+        }
+      ]
+    },
+    "trading": {
+      "description": "总交易次数",
+      "categories": [
+        {
+          "name": "🎲 高频",
+          "min": 2731
+        },
+        {
+          "name": "⚡ 活跃",
+          "max": 2731
+        },
+        {
+          "name": "🐌 中等",
+          "min": 335
+        },
+        {
+          "name": "🌱 低频",
+          "max": 335
+        }
+      ]
+    },
+    "age": {
+      "description": "钱包年龄(天)",
+      "categories": [
+        {
+          "name": "🦅 老鸟",
+          "min": 150
+        },
+        {
+          "name": "🌿 中等",
+          "min": 16,
+          "max": 150
+        },
+        {
+          "name": "🌱 新钱包",
+          "max": 16
+        }
+      ]
+    },
+    "profitability": {
+      "description": "盈利代币比例",
+      "categories": [
+        {
+          "name": "🏆 赢家",
+          "min": 0.5
+        },
+        {
+          "name": "🤔 中等",
+          "min": 0.25,
+          "max": 0.5
+        },
+        {
+          "name": "📉 输家",
+          "max": 0.25
+        }
+      ]
+    }
+  },
+  "combo_categories": [
+    {
+      "name": "🏆 巨鲸",
+      "priority": 1,
+      "rules": [
+        {
+          "dimension": "balance",
+          "category": "🏆 巨鲸"
+        }
+      ],
+      "description": "余额Top 5%"
+    },
+    {
+      "name": "💎 聪明钱",
+      "priority": 2,
+      "rules": [
+        {
+          "dimension": "balance",
+          "category": "💰 大户"
+        },
+        {
+          "dimension": "age",
+          "category": "🦅 老鸟"
+        }
+      ],
+      "description": "大户+老钱包"
+    },
+    {
+      "name": "🤖 疑似机器人",
+      "priority": 3,
+      "rules": [
+        {
+          "dimension": "trading",
+          "category": "🎲 高频"
+        },
+        {
+          "dimension": "trading",
+          "category": "⚡ 活跃"
+        }
+      ],
+      "description": "高频或活跃交易"
+    },
+    {
+      "name": "🤖 超新钱包",
+      "priority": 4,
+      "rules": [
+        {
+          "dimension": "age",
+          "category": "🌱 新钱包"
+        },
+        {
+          "dimension": "trading",
+          "category": "⚡ 活跃"
+        }
+      ],
+      "description": "新钱包+活跃交易"
+    },
+    {
+      "name": "🌟 新星玩家",
+      "priority": 5,
+      "rules": [
+        {
+          "dimension": "trading",
+          "category": "⚡ 活跃"
+        },
+        {
+          "dimension": "age",
+          "category": "🌱 新钱包"
+        }
+      ],
+      "description": "活跃+新钱包"
+    },
+    {
+      "name": "🦅 老鸟赢家",
+      "priority": 6,
+      "rules": [
+        {
+          "dimension": "age",
+          "category": "🦅 老鸟"
+        },
+        {
+          "dimension": "profitability",
+          "category": "🏆 赢家"
+        }
+      ],
+      "description": "老钱包+高盈利"
+    },
+    {
+      "name": "💰 大户",
+      "priority": 7,
+      "rules": [
+        {
+          "dimension": "balance",
+          "category": "💰 大户"
+        }
+      ],
+      "description": "余额75-95%"
+    },
+    {
+      "name": "🐟 散户",
+      "priority": 8,
+      "rules": [
+        {
+          "dimension": "balance",
+          "category": "🐟 散户"
+        }
+      ],
+      "description": "低余额"
+    },
+    {
+      "name": "🐟 普通玩家",
+      "priority": 999,
+      "rules": [],
+      "description": "其他所有钱包"
+    }
+  ]
+}

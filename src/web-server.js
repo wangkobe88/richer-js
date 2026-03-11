@@ -154,6 +154,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/wallet_analysis.html'));
     });
 
+    // AVE钱包API查询页面
+    this.app.get('/wallet-ave-query', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/wallet_ave_query.html'));
+    });
+
     // 代币持有者页面
     this.app.get('/token-holders', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/token-holders.html'));
@@ -2057,6 +2062,59 @@ class RicherJsWebServer {
     // AVE TX 测试页面
     this.app.get('/ave-tx-test', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/ave-tx-test.html'));
+    });
+
+    // ============ 钱包分析 API ============
+
+    // 查询钱包信息
+    this.app.post('/api/wallet/query', async (req, res) => {
+      try {
+        const { AveWalletAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { walletAddress, chain } = req.body;
+
+        if (!walletAddress) {
+          return res.status(400).json({
+            success: false,
+            error: '钱包地址不能为空'
+          });
+        }
+
+        if (!chain) {
+          return res.status(400).json({
+            success: false,
+            error: '区块链不能为空'
+          });
+        }
+
+        const finalApiKey = process.env.AVE_API_KEY;
+        const finalBaseURL = config.ave?.apiUrl || 'https://prod.ave-api.com';
+
+        const walletAPI = new AveWalletAPI(finalBaseURL, 30000, finalApiKey);
+
+        // 并行获取钱包信息和代币列表
+        const [walletInfo, tokens] = await Promise.all([
+          walletAPI.getWalletInfo(walletAddress, chain),
+          walletAPI.getWalletTokens(walletAddress, chain, 'balance_usd', 'desc')
+        ]);
+
+        res.json({
+          success: true,
+          data: {
+            walletInfo,
+            tokens,
+            raw: { walletInfo, tokens }
+          }
+        });
+
+      } catch (error) {
+        console.error('钱包查询失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message || '查询失败'
+        });
+      }
     });
 
     // ============ 代币最早交易 API ============

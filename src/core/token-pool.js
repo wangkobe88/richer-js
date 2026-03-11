@@ -57,8 +57,7 @@ class TokenPool {
             createdAt: tokenData.created_at || Date.now() / 1000,  // 代币创建时间（用于计算 age）
             addedAt: collectionTime,  // 添加到监控池的时间
             klineData: [],
-            // 保留传入的 status（如 bad_holder, negative_dev），默认为 monitoring
-            status: tokenData.status || 'monitoring', // monitoring, bought, selling, sold, exited, bad_holder, negative_dev
+            status: tokenData.status || 'monitoring', // monitoring, bought, selling, sold, exited
             buyDecision: null,
             buyPrice: null,
             buyTime: null,
@@ -293,8 +292,9 @@ class TokenPool {
     }
 
     /**
-     * Get monitoring tokens (status = 'monitoring', 'bought', 'sold', 'bad_holder', 'negative_dev')
-     * 包含 bad_holder、negative_dev 和 sold 状态
+     * Get monitoring tokens (status = 'monitoring', 'bought', 'sold')
+     * - monitoring: 监控中
+     * - bought: 已买入
      * - sold: 已卖出，继续观察30分钟用于分析交易效果
      * @returns {Array} Array of token data
      */
@@ -302,9 +302,7 @@ class TokenPool {
         return this.getAllTokens().filter(t =>
             t.status === 'monitoring' ||
             t.status === 'bought' ||
-            t.status === 'sold' ||
-            t.status === 'bad_holder' ||
-            t.status === 'negative_dev'
+            t.status === 'sold'
         );
     }
 

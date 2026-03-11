@@ -108,13 +108,10 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     walletClusterMaxBlockNumber: preBuyCheckResult.walletClusterMaxBlockNumber || null,
     walletClusterMaxBlockBuyAmount: preBuyCheckResult.walletClusterMaxBlockBuyAmount || 0,
     walletClusterTotalBuyAmount: preBuyCheckResult.walletClusterTotalBuyAmount || 0,
-    // 早期大户检查因子
-    earlyWhaleHoldRatio: preBuyCheckResult.earlyWhaleHoldRatio ?? 1.0,
-    earlyWhaleSellRatio: preBuyCheckResult.earlyWhaleSellRatio || 0,
-    earlyWhaleCount: preBuyCheckResult.earlyWhaleCount || 0,
-    earlyWhaleMethod: preBuyCheckResult.earlyWhaleMethod || null,
-    earlyWhaleTotalTrades: preBuyCheckResult.earlyWhaleTotalTrades || 0,
-    earlyWhaleEarlyThreshold: preBuyCheckResult.earlyWhaleEarlyThreshold || 0
+    // 创建者Dev钱包检查因子
+    creatorIsNotBadDevWallet: preBuyCheckResult.creatorIsNotBadDevWallet ?? null,
+    // 跳过条件匹配标记（因子已收集但不做条件匹配）
+    skippedConditionMatch: preBuyCheckResult.skippedConditionMatch || false
   };
 }
 

@@ -6,10 +6,7 @@
 
 const { AveTokenAPI } = require('../core/ave-api');
 const { FourMemeTokenAPI } = require('../core/fourmeme-api');
-const { WalletDataService } = require('../web/services/WalletDataService');
-const { TokenHolderService } = require('../trading-engine/holders/TokenHolderService');
 const { PlatformPairResolver } = require('../core/PlatformPairResolver');
-const { dbManager } = require('../services/dbManager');
 
 class PlatformCollector {
     constructor(config, logger, tokenPool, experimentId = null, blockchain = 'bsc') {
@@ -35,48 +32,33 @@ class PlatformCollector {
             config.fourmeme?.timeout || 30000
         );
 
-        // Initialize WalletService for dev wallet filtering
-        this.walletService = new WalletDataService();
-
-        // Initialize TokenHolderService for holder blacklist filtering
-        const supabase = dbManager.getClient();
-        this.tokenHolderService = new TokenHolderService(supabase, this.logger);
-
         // Initialize PlatformPairResolver for resolving pair addresses
         this.pairResolver = new PlatformPairResolver(this.logger);
 
         // Track collected tokens to avoid duplicates
         this.collectedTokens = new Set();
 
-        // Dev wallet cache (refresh every minute)
-        this.devWallets = [];
-        this.lastDevWalletRefresh = 0;
-
         // Statistics (按平台分别统计)
         this.stats = {
             fourmeme: {
                 totalCollected: 0,
                 totalAdded: 0,
-                totalSkipped: 0,
-                totalDevFiltered: 0
+                totalSkipped: 0
             },
             flap: {
                 totalCollected: 0,
                 totalAdded: 0,
-                totalSkipped: 0,
-                totalDevFiltered: 0
+                totalSkipped: 0
             },
             bankr: {
                 totalCollected: 0,
                 totalAdded: 0,
-                totalSkipped: 0,
-                totalDevFiltered: 0
+                totalSkipped: 0
             },
             pumpfun: {
                 totalCollected: 0,
                 totalAdded: 0,
-                totalSkipped: 0,
-                totalDevFiltered: 0
+                totalSkipped: 0
             },
             lastCollectionTime: null
         };
@@ -294,47 +276,13 @@ class PlatformCollector {
                         token.fourmeme_creator_info = creatorInfo;
                     }
 
-                    // === Dev 钱包检测模块 ===
-                    let isDevCreator = false;
-                    if (token.creator_address) {
-                        console.log(`[Dev钱包检测] 检查代币 ${token.symbol} (${token.token}) 创建者: ${token.creator_address}`);
-                        isDevCreator = await this.isDevWallet(token.creator_address);
-                        console.log(`[Dev钱包检测] ${token.symbol} - ${isDevCreator ? '❌ 是Dev钱包' : '✅ 通过'}`);
-                        this.logger.info('[Dev钱包检测] 检查完成', {
-                            token: token.token,
-                            symbol: token.symbol,
-                            creator_address: token.creator_address,
-                            is_dev_wallet: isDevCreator
-                        });
+                    // 添加代币到监控池
+                    const added = this.tokenPool.addToken(token);
+                    if (added) {
+                        addedCount++;
+                        this.collectedTokens.add(tokenKey);
                     } else {
-                        console.log(`[Dev钱包检测] ⚠️ ${token.symbol} 无创建者地址，跳过检查`);
-                        this.logger.warn('[Dev钱包检测] 代币没有 creator_address', {
-                            token: token.token,
-                            symbol: token.symbol
-                        });
-                    }
-
-                    if (isDevCreator) {
-                        token.status = 'negative_dev';
-                        this.stats.fourmeme.totalDevFiltered++;
-                        console.log(`[Dev钱包检测] 🚫 ${token.symbol} 创建者为Dev钱包，已拒绝`);
-                        this.logger.info('[Dev钱包检测] 拒绝Dev钱包创建的代币', {
-                            token: token.token,
-                            symbol: token.symbol,
-                            creator: token.creator_address,
-                            status: 'negative_dev'
-                        });
-                    }
-
-                    // Dev钱包跳过添加
-                    if (isDevCreator) {
                         skippedCount++;
-                    } else {
-                        const added = this.tokenPool.addToken(token);
-                        if (added) {
-                            addedCount++;
-                            this.collectedTokens.add(tokenKey);
-                        }
                     }
                 } else {
                     skippedCount++;
@@ -464,11 +412,6 @@ class PlatformCollector {
 
                 // Only add tokens younger than maxAgeSeconds (1 minute)
                 if (tokenAge < maxAgeMs) {
-                    // === Dev 钱包检测模块 ===
-                    // Flap 平台无创建者地址，跳过 Dev 钱包检测
-                    const isDevCreator = false;
-                    console.log(`[Flap平台] ${token.symbol} 无创建者地址，跳过Dev钱包检测`);
-
                     // 添加代币到 tokenPool
                     const added = this.tokenPool.addToken(token);
                     if (added) {
@@ -599,35 +542,28 @@ class PlatformCollector {
                 token.creator_address = null;
 
                 if (tokenAge < maxAgeMs) {
-                    // Bankr 平台暂无 Dev 钱包检测
-                    const isDevCreator = false;
-
-                    if (!isDevCreator) {
-                        // 在添加到池之前解析 pairAddress（同步等待）
-                        try {
-                            const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'bankr', 'base');
-                            token.pairAddress = pairResult.pairAddress;
-                            this.logger.debug('解析 bankr pair 地址成功', {
-                                token: token.token,
-                                pair_address: token.pairAddress
-                            });
-                        } catch (error) {
-                            this.logger.warn('解析 bankr pair 地址失败，跳过此代币', {
-                                token: token.token,
-                                error: error.message
-                            });
-                            skippedCount++;
-                            this.collectedTokens.add(tokenKey);
-                            continue;
-                        }
-
-                        const added = this.tokenPool.addToken(token);
-                        if (added) {
-                            addedCount++;
-                            this.collectedTokens.add(tokenKey);
-                        }
-                    } else {
+                    // 在添加到池之前解析 pairAddress（同步等待）
+                    try {
+                        const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'bankr', 'base');
+                        token.pairAddress = pairResult.pairAddress;
+                        this.logger.debug('解析 bankr pair 地址成功', {
+                            token: token.token,
+                            pair_address: token.pairAddress
+                        });
+                    } catch (error) {
+                        this.logger.warn('解析 bankr pair 地址失败，跳过此代币', {
+                            token: token.token,
+                            error: error.message
+                        });
                         skippedCount++;
+                        this.collectedTokens.add(tokenKey);
+                        continue;
+                    }
+
+                    const added = this.tokenPool.addToken(token);
+                    if (added) {
+                        addedCount++;
+                        this.collectedTokens.add(tokenKey);
                     }
                 } else {
                     skippedCount++;
@@ -750,35 +686,28 @@ class PlatformCollector {
                 token.creator_address = null;
 
                 if (tokenAge < maxAgeMs) {
-                    // Pumpfun 平台暂无 Dev 钱包检测
-                    const isDevCreator = false;
-
-                    if (!isDevCreator) {
-                        // 在添加到池之前解析 pairAddress（同步等待）
-                        try {
-                            const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'pumpfun', 'solana');
-                            token.pairAddress = pairResult.pairAddress;
-                            this.logger.debug('解析 pumpfun pair 地址成功', {
-                                token: token.token,
-                                pair_address: token.pairAddress
-                            });
-                        } catch (error) {
-                            this.logger.warn('解析 pumpfun pair 地址失败，跳过此代币', {
-                                token: token.token,
-                                error: error.message
-                            });
-                            skippedCount++;
-                            this.collectedTokens.add(tokenKey);
-                            continue;
-                        }
-
-                        const added = this.tokenPool.addToken(token);
-                        if (added) {
-                            addedCount++;
-                            this.collectedTokens.add(tokenKey);
-                        }
-                    } else {
+                    // 在添加到池之前解析 pairAddress（同步等待）
+                    try {
+                        const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'pumpfun', 'solana');
+                        token.pairAddress = pairResult.pairAddress;
+                        this.logger.debug('解析 pumpfun pair 地址成功', {
+                            token: token.token,
+                            pair_address: token.pairAddress
+                        });
+                    } catch (error) {
+                        this.logger.warn('解析 pumpfun pair 地址失败，跳过此代币', {
+                            token: token.token,
+                            error: error.message
+                        });
                         skippedCount++;
+                        this.collectedTokens.add(tokenKey);
+                        continue;
+                    }
+
+                    const added = this.tokenPool.addToken(token);
+                    if (added) {
+                        addedCount++;
+                        this.collectedTokens.add(tokenKey);
                     }
                 } else {
                     skippedCount++;
@@ -823,35 +752,6 @@ class PlatformCollector {
     }
 
     /**
-     * Check if creator address is a dev wallet
-     * @param {string} creatorAddress - Creator wallet address
-     * @returns {Promise<boolean>} True if creator is in dev wallet list
-     */
-    async isDevWallet(creatorAddress) {
-        if (!creatorAddress) return false;
-
-        // Refresh dev wallet cache every 60 seconds
-        const now = Date.now();
-        if (now - this.lastDevWalletRefresh > 60000) {
-            try {
-                const allWallets = await this.walletService.getWallets();
-                this.devWallets = allWallets.filter(w => w.category === 'dev');
-                this.lastDevWalletRefresh = now;
-                this.logger.debug('刷新Dev钱包缓存', {
-                    count: this.devWallets.length
-                });
-            } catch (error) {
-                this.logger.warn('刷新Dev钱包缓存失败', { error: error.message });
-            }
-        }
-
-        // Check if creator is in dev wallet list
-        return this.devWallets.some(w =>
-            w.address.toLowerCase() === creatorAddress.toLowerCase()
-        );
-    }
-
-    /**
      * Get collector statistics
      * @returns {Object} Statistics
      */
@@ -872,26 +772,22 @@ class PlatformCollector {
             fourmeme: {
                 totalCollected: 0,
                 totalAdded: 0,
-                totalSkipped: 0,
-                totalDevFiltered: 0
+                totalSkipped: 0
             },
             flap: {
                 totalCollected: 0,
                 totalAdded: 0,
-                totalSkipped: 0,
-                totalDevFiltered: 0
+                totalSkipped: 0
             },
             bankr: {
                 totalCollected: 0,
                 totalAdded: 0,
-                totalSkipped: 0,
-                totalDevFiltered: 0
+                totalSkipped: 0
             },
             pumpfun: {
                 totalCollected: 0,
                 totalAdded: 0,
-                totalSkipped: 0,
-                totalDevFiltered: 0
+                totalSkipped: 0
             },
             lastCollectionTime: null
         };

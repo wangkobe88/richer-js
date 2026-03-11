@@ -1682,6 +1682,12 @@ class ExperimentSignals {
         '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">❌ 失败</span>' :
         '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 通过</span>';
 
+      // 跳过条件匹配标识（代币已有交易记录）
+      let skippedMatchBadge = '';
+      if (pf.skippedConditionMatch === true) {
+        skippedMatchBadge = '<span class="ml-2 text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full" title="代币已有交易记录，跳过条件匹配（因子已收集）">⚡️ 快速通道</span>';
+      }
+
       // 显示实验配置的策略条件
       let strategyConfigHtml = '';
       if (buyCondition || preBuyCheckCondition) {
@@ -1835,7 +1841,10 @@ class ExperimentSignals {
         <div class="mt-2 p-3 bg-amber-100 rounded-lg border border-amber-300">
           <div class="flex items-center justify-between mb-2">
             <span class="text-amber-900 font-semibold text-sm">🔍 购买前置检查</span>
-            ${checkResultBadge}
+            <div class="flex items-center gap-1">
+              ${checkResultBadge}
+              ${skippedMatchBadge}
+            </div>
           </div>
           ${strategyConfigHtml}
           ${trendFactorsHtml}

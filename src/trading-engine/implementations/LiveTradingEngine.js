@@ -1651,7 +1651,11 @@ class LiveTradingEngine extends AbstractTradingEngine {
             this._experimentId,
             token.chain || 'bsc',
             tokenInfo,
-            preBuyCheckCondition
+            preBuyCheckCondition,
+            {
+              checkTime: Math.floor(Date.now() / 1000),
+              tokenBuyTime: token.buyTime || null  // 代币首次买入时间
+            }
           );
 
           if (!preBuyCheckResult.canBuy) {

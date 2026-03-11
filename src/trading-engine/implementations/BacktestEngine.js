@@ -1194,7 +1194,8 @@ class BacktestEngine extends AbstractTradingEngine {
             preBuyCheckCondition,
             {
               checkTime: Math.floor(timestamp.getTime() / 1000),
-              skipHolderCheck: true
+              skipHolderCheck: true,
+              tokenBuyTime: tokenState.buyTime || null  // 代币首次买入时间
             }
           );
 

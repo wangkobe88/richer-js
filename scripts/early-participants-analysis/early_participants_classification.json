@@ -1,0 +1,389 @@
+{
+  "tokenAddress": "0x30d31d1b0d4f1fb82e17f858497a523fb0dd4444",
+  "chain": "bsc",
+  "timeWindowMinutes": 3,
+  "totalParticipants": 375,
+  "timestamp": "2026-03-10T13:36:05.353Z",
+  "categories": [
+    {
+      "name": "散户高频高分散低胜率",
+      "count": 102,
+      "percentage": "27.2%"
+    },
+    {
+      "name": "散户超高频高分散低胜率",
+      "count": 69,
+      "percentage": "18.4%"
+    },
+    {
+      "name": "散户中频高分散低胜率",
+      "count": 50,
+      "percentage": "13.3%"
+    },
+    {
+      "name": "散户低频高分散低胜率",
+      "count": 35,
+      "percentage": "9.3%"
+    },
+    {
+      "name": "散户高频高分散中胜率",
+      "count": 21,
+      "percentage": "5.6%"
+    },
+    {
+      "name": "散户低频低分散低胜率",
+      "count": 21,
+      "percentage": "5.6%"
+    },
+    {
+      "name": "散户低频高分散中胜率",
+      "count": 15,
+      "percentage": "4.0%"
+    },
+    {
+      "name": "散户低频中分散低胜率",
+      "count": 15,
+      "percentage": "4.0%"
+    },
+    {
+      "name": "散户低频中分散中胜率",
+      "count": 14,
+      "percentage": "3.7%"
+    },
+    {
+      "name": "散户中频高分散中胜率",
+      "count": 12,
+      "percentage": "3.2%"
+    },
+    {
+      "name": "散户低频低分散中胜率",
+      "count": 9,
+      "percentage": "2.4%"
+    },
+    {
+      "name": "散户超高频高分散中胜率",
+      "count": 8,
+      "percentage": "2.1%"
+    },
+    {
+      "name": "散户中频高分散高胜率",
+      "count": 1,
+      "percentage": "0.3%"
+    },
+    {
+      "name": "散户低频中分散高胜率",
+      "count": 1,
+      "percentage": "0.3%"
+    },
+    {
+      "name": "散户高频高分散高胜率",
+      "count": 1,
+      "percentage": "0.3%"
+    },
+    {
+      "name": "散户超高频高分散高胜率",
+      "count": 1,
+      "percentage": "0.3%"
+    }
+  ],
+  "mainCategories": {
+    "🏆 巨鲸交易员": {
+      "count": 0,
+      "percentage": "0.0%",
+      "avgBalance": 0,
+      "avgTrades": 0,
+      "sampleWallets": []
+    },
+    "💰 大户玩家": {
+      "count": 0,
+      "percentage": "0.0%",
+      "avgBalance": 0,
+      "avgTrades": 0,
+      "sampleWallets": []
+    },
+    "🎲 高频散户": {
+      "count": 202,
+      "percentage": "53.9%",
+      "avgBalance": "6539467.00",
+      "avgTrades": "2262",
+      "sampleWallets": [
+        {
+          "address": "0x92d693a469cee71422af071b70df6d24125da075",
+          "balance": 4173.681490145305,
+          "trades": 1206,
+          "tokens": 100,
+          "profitableRatio": "49.0%"
+        },
+        {
+          "address": "0xe18c8685818cb936dc2448be33349da61b412a4d",
+          "balance": 22932.89329526783,
+          "trades": 3398,
+          "tokens": 100,
+          "profitableRatio": "6.0%"
+        },
+        {
+          "address": "0x8a6a0ed6a708ff72c61af2f82429273b2967a7da",
+          "balance": 2581.622172511118,
+          "trades": 1262,
+          "tokens": 100,
+          "profitableRatio": "39.0%"
+        },
+        {
+          "address": "0xcfe30db196c9a99fc80c72ad44fb4a135a53491f",
+          "balance": 35956.594857275595,
+          "trades": 2635,
+          "tokens": 100,
+          "profitableRatio": "4.0%"
+        },
+        {
+          "address": "0x6541674e8e03f3c9e346af05c1c420cbf2a9b495",
+          "balance": 3992.0087993837,
+          "trades": 1354,
+          "tokens": 100,
+          "profitableRatio": "24.0%"
+        },
+        {
+          "address": "0x8cbef174b6e9c34246ed47cef807ac744d00a8f9",
+          "balance": 3921.358759709372,
+          "trades": 1441,
+          "tokens": 100,
+          "profitableRatio": "29.0%"
+        },
+        {
+          "address": "0xc4c2d5b225e51f523b3f43b7369806492bbc972b",
+          "balance": 21309.580533199398,
+          "trades": 2362,
+          "tokens": 100,
+          "profitableRatio": "14.0%"
+        },
+        {
+          "address": "0xd5c73577f1c8fa13be4fa311b67c56e47823a95d",
+          "balance": 337.128335449881,
+          "trades": 2942,
+          "tokens": 100,
+          "profitableRatio": "47.0%"
+        },
+        {
+          "address": "0x39a6034254db70afad60b2c9bb2233664e632719",
+          "balance": 3013.258782060061,
+          "trades": 1277,
+          "tokens": 100,
+          "profitableRatio": "42.0%"
+        },
+        {
+          "address": "0x8dcf1fe4669bdde6c9239da19e2f29891debaa23",
+          "balance": 21949.959028858942,
+          "trades": 1642,
+          "tokens": 100,
+          "profitableRatio": "27.0%"
+        }
+      ]
+    },
+    "🐟 普通散户": {
+      "count": 110,
+      "percentage": "29.3%",
+      "avgBalance": "157773.82",
+      "avgTrades": "213",
+      "sampleWallets": [
+        {
+          "address": "0xf97b5adde6362cb6a6f0eccfdf6d35a075d504c6",
+          "balance": 20748.2264990591,
+          "trades": 346,
+          "tokens": 100,
+          "profitableRatio": "2.0%"
+        },
+        {
+          "address": "0x5d94be1410c5b14e87f7eecaf9c05b19ba718d62",
+          "balance": 17009.9050977654,
+          "trades": 236,
+          "tokens": 100,
+          "profitableRatio": "0.0%"
+        },
+        {
+          "address": "0x833684ceccb2abc2b7cde5b8cc4c40be0e6abe22",
+          "balance": 62.807550347553,
+          "trades": 46,
+          "tokens": 27,
+          "profitableRatio": "22.2%"
+        },
+        {
+          "address": "0xeecf0f192f855dbb75ff9c62d547f6ee80c3d54d",
+          "balance": 39.285522577426,
+          "trades": 178,
+          "tokens": 97,
+          "profitableRatio": "38.1%"
+        },
+        {
+          "address": "0x7154c0de04431c41a97d0f3770d8a31dad4c2022",
+          "balance": 414.147556436268,
+          "trades": 407,
+          "tokens": 100,
+          "profitableRatio": "0.0%"
+        },
+        {
+          "address": "0xcf86916922d1234e77b39f2ed99a108d50925fb9",
+          "balance": 50.811380285117,
+          "trades": 269,
+          "tokens": 100,
+          "profitableRatio": "42.0%"
+        },
+        {
+          "address": "0x07cca5374b11c668e0f424b7ed6d68c768721d3d",
+          "balance": 8778943.206074208,
+          "trades": 438,
+          "tokens": 100,
+          "profitableRatio": "4.0%"
+        },
+        {
+          "address": "0x1331a83b3485cda6d20408c659bcfd4d6c5578f0",
+          "balance": 0.004636409231,
+          "trades": 200,
+          "tokens": 100,
+          "profitableRatio": "16.0%"
+        },
+        {
+          "address": "0xc3df93163c9ba1cc0e720523bc349631cfcf2944",
+          "balance": 132.407859714628,
+          "trades": 305,
+          "tokens": 100,
+          "profitableRatio": "19.0%"
+        },
+        {
+          "address": "0x1e114cc44223ba251c1423cc56c770a51a472d00",
+          "balance": 15.792809548735,
+          "trades": 188,
+          "tokens": 68,
+          "profitableRatio": "26.5%"
+        }
+      ]
+    },
+    "📈 分散投资者": {
+      "count": 0,
+      "percentage": "0.0%",
+      "avgBalance": 0,
+      "avgTrades": 0,
+      "sampleWallets": []
+    },
+    "💎 专注玩家": {
+      "count": 0,
+      "percentage": "0.0%",
+      "avgBalance": 0,
+      "avgTrades": 0,
+      "sampleWallets": []
+    },
+    "🎯 高胜率玩家": {
+      "count": 4,
+      "percentage": "1.1%",
+      "avgBalance": "38837.82",
+      "avgTrades": "3307",
+      "sampleWallets": [
+        {
+          "address": "0x9742b72a5ec69f20fc40c73bb011dfbc5126ea73",
+          "balance": 11300.976320811389,
+          "trades": 972,
+          "tokens": 100,
+          "profitableRatio": "55.0%"
+        },
+        {
+          "address": "0x7569113d0c475bcf8b21f983b7f4863ca1e9fcb4",
+          "balance": 2998.122693737471,
+          "trades": 254,
+          "tokens": 70,
+          "profitableRatio": "51.4%"
+        },
+        {
+          "address": "0x70a4609c9429b74394705632a06ee4bf5fed88c1",
+          "balance": 70.202838879095,
+          "trades": 1630,
+          "tokens": 100,
+          "profitableRatio": "52.0%"
+        },
+        {
+          "address": "0x38d6e7807b276a83c1f4b8ca562c91b418cc598c",
+          "balance": 140981.95843937818,
+          "trades": 10372,
+          "tokens": 100,
+          "profitableRatio": "59.0%"
+        }
+      ]
+    },
+    "📉 低胜率玩家": {
+      "count": 292,
+      "percentage": "77.9%",
+      "avgBalance": "6572483.93",
+      "avgTrades": "1530",
+      "sampleWallets": [
+        {
+          "address": "0xf97b5adde6362cb6a6f0eccfdf6d35a075d504c6",
+          "balance": 20748.2264990591,
+          "trades": 346,
+          "tokens": 100,
+          "profitableRatio": "2.0%"
+        },
+        {
+          "address": "0x5d94be1410c5b14e87f7eecaf9c05b19ba718d62",
+          "balance": 17009.9050977654,
+          "trades": 236,
+          "tokens": 100,
+          "profitableRatio": "0.0%"
+        },
+        {
+          "address": "0xe18c8685818cb936dc2448be33349da61b412a4d",
+          "balance": 22932.89329526783,
+          "trades": 3398,
+          "tokens": 100,
+          "profitableRatio": "6.0%"
+        },
+        {
+          "address": "0x833684ceccb2abc2b7cde5b8cc4c40be0e6abe22",
+          "balance": 62.807550347553,
+          "trades": 46,
+          "tokens": 27,
+          "profitableRatio": "22.2%"
+        },
+        {
+          "address": "0xcfe30db196c9a99fc80c72ad44fb4a135a53491f",
+          "balance": 35956.594857275595,
+          "trades": 2635,
+          "tokens": 100,
+          "profitableRatio": "4.0%"
+        },
+        {
+          "address": "0xe70eda20ab493244171ad742a94fbf584765ec63",
+          "balance": 195650.40088373548,
+          "trades": 623,
+          "tokens": 100,
+          "profitableRatio": "17.0%"
+        },
+        {
+          "address": "0xccf00fdeb409ce21e155b597a087acf3d2269e63",
+          "balance": 720.196269542894,
+          "trades": 956,
+          "tokens": 100,
+          "profitableRatio": "24.0%"
+        },
+        {
+          "address": "0x6541674e8e03f3c9e346af05c1c420cbf2a9b495",
+          "balance": 3992.0087993837,
+          "trades": 1354,
+          "tokens": 100,
+          "profitableRatio": "24.0%"
+        },
+        {
+          "address": "0x399212dbb608adb0f5a1513a5f76bbbbb4024abf",
+          "balance": 1024.863799436576,
+          "trades": 989,
+          "tokens": 100,
+          "profitableRatio": "19.0%"
+        },
+        {
+          "address": "0x8cbef174b6e9c34246ed47cef807ac744d00a8f9",
+          "balance": 3921.358759709372,
+          "trades": 1441,
+          "tokens": 100,
+          "profitableRatio": "29.0%"
+        }
+      ]
+    }
+  }
+}

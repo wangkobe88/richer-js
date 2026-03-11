@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>钱包查询 - AVE API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <style>
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e5e7eb;
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        pre {
+            background: #1f2937;
+            color: #f3f4f6;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            overflow-x: auto;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="container mx-auto px-4 max-w-6xl">
+        <!-- 页头 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">钱包盈亏查询</h1>
+                    <p class="text-gray-600 mt-2">查询钱包在AVE API中的盈亏和持仓数据</p>
+                </div>
+                <a href="/experiments" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md">
+                    ← 返回实验列表
+                </a>
+            </div>
+        </div>
+
+        <!-- 查询表单 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">查询参数</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">钱包地址</label>
+                    <input type="text" id="walletAddress" placeholder="0x..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">区块链</label>
+                    <select id="chain" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="bsc">BSC</option>
+                        <option value="eth">ETH</option>
+                        <option value="solana">Solana</option>
+                        <option value="base">Base</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button onclick="queryWallet()"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
+                        🔍 查询
+                    </button>
+                </div>
+            </div>
+            <div id="queryStatus" class="hidden mt-4"></div>
+        </div>
+
+        <!-- 结果展示区 -->
+        <div id="resultContainer" class="hidden">
+            <!-- TAB切换 -->
+            <div class="bg-white rounded-lg shadow-md">
+                <div class="border-b border-gray-200 flex">
+                    <button class="px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600" onclick="showTab('summary', event)">📊 摘要</button>
+                    <button class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent" onclick="showTab('tokens', event)">💰 代币</button>
+                    <button class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent" onclick="showTab('info', event)">📄 钱包信息</button>
+                    <button class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent" onclick="showTab('raw', event)">📋 原始JSON</button>
+                </div>
+
+                <!-- 摘要TAB -->
+                <div id="tab-summary" class="p-6">
+                    <div id="summaryContent"></div>
+                </div>
+
+                <!-- 代币TAB -->
+                <div id="tab-tokens" class="p-6 hidden">
+                    <div id="tokensContent"></div>
+                </div>
+
+                <!-- 钱包信息TAB -->
+                <div id="tab-info" class="p-6 hidden">
+                    <div id="infoContent"></div>
+                </div>
+
+                <!-- 原始JSON TAB -->
+                <div id="tab-raw" class="p-6 hidden">
+                    <div id="rawContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let walletData = null;
+
+        // TAB切换
+        function showTab(tabName, event) {
+            // 隐藏所有内容
+            document.getElementById('tab-summary').classList.add('hidden');
+            document.getElementById('tab-tokens').classList.add('hidden');
+            document.getElementById('tab-info').classList.add('hidden');
+            document.getElementById('tab-raw').classList.add('hidden');
+
+            // 重置所有按钮样式
+            document.querySelectorAll('[onclick^="showTab"]').forEach(btn => {
+                btn.className = 'px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 border-b-2 border-transparent';
+            });
+
+            // 显示选中的TAB和内容
+            const targetBtn = event ? event.target : document.querySelector(`[onclick*="showTab('${tabName}'"]`);
+            if (targetBtn) {
+                targetBtn.className = 'px-4 py-2 text-sm font-medium text-blue-600 border-b-2 border-blue-600';
+            }
+            document.getElementById('tab-' + tabName).classList.remove('hidden');
+        }
+
+        // 格式化金额
+        function formatMoney(value) {
+            if (value === null || value === undefined) return '-';
+            const num = parseFloat(value);
+            if (isNaN(num)) return value;
+            return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // 格式化百分比
+        function formatPercent(value) {
+            if (value === null || value === undefined) return '-';
+            const num = parseFloat(value);
+            if (isNaN(num)) return value;
+            return (num * 100).toFixed(2) + '%';
+        }
+
+        // 渲染摘要
+        function renderSummary(data) {
+            const { walletInfo, tokens } = data;
+            const container = document.getElementById('summaryContent');
+
+            const winRate = walletInfo.total_win_ratio ? (walletInfo.total_win_ratio * 100).toFixed(2) : '0';
+
+            const html = `
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-gray-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-gray-800">${formatMoney(walletInfo.total_balance)}</div>
+                        <div class="text-sm text-gray-600">总持仓</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold ${parseFloat(walletInfo.total_profit) >= 0 ? 'text-green-600' : 'text-red-600'}">${formatMoney(walletInfo.total_profit)}</div>
+                        <div class="text-sm text-gray-600">总盈亏</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold">${winRate}%</div>
+                        <div class="text-sm text-gray-600">胜率</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-600">${tokens.length}</div>
+                        <div class="text-sm text-gray-600">代币数</div>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // 渲染代币列表
+        function renderTokens(tokens) {
+            const container = document.getElementById('tokensContent');
+
+            const html = `
+                <div class="mb-4">
+                    <span class="text-gray-600">共 ${tokens.length} 个代币</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-700">代币</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-700">持仓</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-700">盈亏</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-700">盈亏比</th>
+                                <th class="px-4 py-2 text-right text-xs font-medium text-gray-700">价格</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tokens.slice(0, 20).map(token => `
+                                <tr class="border-t border-gray-100">
+                                    <td class="px-4 py-2">
+                                        <div class="font-medium">${token.symbol || '-'}</div>
+                                        <div class="text-xs text-gray-500 font-mono">${token.token?.substring(0, 8)}...</div>
+                                    </td>
+                                    <td class="px-4 py-2 text-right">
+                                        ${formatMoney(token.balance_usd)}
+                                    </td>
+                                    <td class="px-4 py-2 text-right ${parseFloat(token.total_profit) >= 0 ? 'text-green-600' : 'text-red-600'}">
+                                        ${formatMoney(token.total_profit)}
+                                    </td>
+                                    <td class="px-4 py-2 text-right text-gray-600">
+                                        ${formatPercent(token.total_profit_ratio)}
+                                    </td>
+                                    <td class="px-4 py-2 text-right text-gray-600">
+                                        ${formatMoney(token.current_price_usd)}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    ${tokens.length > 20 ? `<div class="mt-2 text-sm text-gray-500">仅显示前20个代币</div>` : ''}
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // 渲染钱包信息
+        function renderWalletInfo(info) {
+            const container = document.getElementById('infoContent');
+
+            const html = `
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="font-semibold text-gray-800 mb-2">基础信息</h3>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div><span class="text-gray-600">钱包地址:</span> <span class="font-mono text-xs">${info.wallet_address}</span></div>
+                            <div><span class="text-gray-600">区块链:</span> <span>${info.chain.toUpperCase()}</span></div>
+                            <div><span class="text-gray-600">主币:</span> <span>${info.main_token_symbol || '-'} ($${info.main_token_price?.toFixed(2) || '-'})</span></div>
+                            <div><span class="text-gray-600">买入次数:</span> <span>${info.total_purchase || 0}</span></div>
+                            <div><span class="text-gray-600">卖出次数:</span> <span>${info.total_sold || 0}</span></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-800 mb-2">盈亏详情</h3>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div><span class="text-gray-600">总持仓价值:</span> <span>${formatMoney(info.total_balance)}</span></div>
+                            <div><span class="text-gray-600">总盈亏:</span> <span class="${parseFloat(info.total_profit) >= 0 ? 'text-green-600' : 'text-red-600'}">${formatMoney(info.total_profit)} (${formatPercent(info.total_profit_ratio)})</span></div>
+                            <div><span class="text-gray-600">未实现盈亏:</span> <span>${formatMoney(info.total_unrealized_profit)}</span></div>
+                            <div><span class="text-gray-600">已实现盈亏:</span> <span>${formatMoney(info.total_realized_profit)}</span></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        // 渲染原始JSON
+        function renderRaw(data) {
+            const container = document.getElementById('rawContent');
+            container.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        // 查询钱包
+        async function queryWallet() {
+            const walletAddress = document.getElementById('walletAddress').value.trim();
+            const chain = document.getElementById('chain').value;
+
+            if (!walletAddress) {
+                showError('请输入钱包地址');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/wallet/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ walletAddress, chain })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || '查询失败');
+                }
+
+                walletData = result.data;
+
+                // 渲染所有TAB
+                renderSummary(walletData);
+                renderTokens(walletData.tokens);
+                renderWalletInfo(walletData.walletInfo);
+                renderRaw(walletData.raw);
+
+                // 显示结果
+                document.getElementById('resultContainer').classList.remove('hidden');
+                document.getElementById('queryStatus').classList.add('hidden');
+
+                // 默认显示summary tab
+                showTab('summary');
+
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        // 显示加载状态
+        function showLoading() {
+            const status = document.getElementById('queryStatus');
+            status.className = 'mt-4 text-center';
+            status.innerHTML = '<span class="loading"></span> 查询中...';
+            status.classList.remove('hidden');
+            document.getElementById('resultContainer').classList.add('hidden');
+        }
+
+        // 显示错误
+        function showError(message) {
+            const status = document.getElementById('queryStatus');
+            status.className = 'mt-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800';
+            status.textContent = '❌ ' + message;
+            status.classList.remove('hidden');
+        }
+
+        // 从URL获取参数
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                wallet: params.get('wallet'),
+                chain: params.get('chain')
+            };
+        }
+
+        // 页面加载时检查URL参数
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = getUrlParams();
+
+            if (params.wallet) {
+                document.getElementById('walletAddress').value = params.wallet;
+                if (params.chain) {
+                    document.getElementById('chain').value = params.chain;
+                }
+                // 自动执行查询
+                queryWallet();
+            }
+        });
+    </script>
+</body>
+</html>

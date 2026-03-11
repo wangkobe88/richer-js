@@ -1,0 +1,1248 @@
+[
+  {
+    "address": "0xdf2237114d595e0bf4d35cbcdebcdf43c55c4669",
+    "total_balance": 12927.372282666896,
+    "total_trades": 813,
+    "wallet_age_days": 131,
+    "wallet_first_seen": "2025-10-29"
+  },
+  {
+    "address": "0xa27f4420ceeaaa1b8e8251af1cc85d8894261ccd",
+    "total_balance": 288.800526547762,
+    "total_trades": 1285,
+    "wallet_age_days": 34,
+    "wallet_first_seen": "2026-02-04"
+  },
+  {
+    "address": "0x696a4f5ef67eb52aaa30b772d3c778d2ac89cc9a",
+    "total_balance": 3119.990761861988,
+    "total_trades": 1774,
+    "wallet_age_days": 50,
+    "wallet_first_seen": "2026-01-19"
+  },
+  {
+    "address": "0x077b9981bc8a2ca417cea41861111da63266988b",
+    "total_balance": 748700083.2192246,
+    "total_trades": 793,
+    "wallet_age_days": 353,
+    "wallet_first_seen": "2025-03-21"
+  },
+  {
+    "address": "0x718758c2aa5f67ffff9054f8535aa3a0cf9ac480",
+    "total_balance": 27578.23976305064,
+    "total_trades": 1809,
+    "wallet_age_days": 5,
+    "wallet_first_seen": "2026-03-04"
+  },
+  {
+    "address": "0x70cb56981896f3e9a7235bb6a46f9860ff34ae56",
+    "total_balance": 235.238920872674,
+    "total_trades": 389,
+    "wallet_age_days": 7,
+    "wallet_first_seen": "2026-03-03"
+  },
+  {
+    "address": "0x671ca46a9500aeea5c97dd74f19a58284d75b212",
+    "total_balance": 4885707.4649236575,
+    "total_trades": 1190,
+    "wallet_age_days": 168,
+    "wallet_first_seen": "2025-09-23"
+  },
+  {
+    "address": "0xa22a6ce36e4d4c97f7baf1a516ed7931af4b0a0d",
+    "total_balance": 6684927.787202998,
+    "total_trades": 1553,
+    "wallet_age_days": 155,
+    "wallet_first_seen": "2025-10-05"
+  },
+  {
+    "address": "0x6d92da6fdb420c11bc4cc0cb172297366fabcd97",
+    "total_balance": 913.396921325893,
+    "total_trades": 167,
+    "wallet_age_days": 3,
+    "wallet_first_seen": "2026-03-07"
+  },
+  {
+    "address": "0x9a51d9fecd5c7026e2cfa32854f27d0976e6c2d0",
+    "total_balance": 778.231998874139,
+    "total_trades": 1251,
+    "wallet_age_days": 51,
+    "wallet_first_seen": "2026-01-17"
+  },
+  {
+    "address": "0x967962841b5e9e97b42d7aadd8c6c59d45eea62e",
+    "total_balance": 219.995613125353,
+    "total_trades": 1315,
+    "wallet_age_days": 156,
+    "wallet_first_seen": "2025-10-04"
+  },
+  {
+    "address": "0x61e1de40854cae288a11feb9b28a064df14d29ef",
+    "total_balance": 44716.32895180792,
+    "total_trades": 6340,
+    "wallet_age_days": 155,
+    "wallet_first_seen": "2025-10-05"
+  },
+  {
+    "address": "0x60e47a0df5ed426544596b29141f9dacf5f3898e",
+    "total_balance": 185.695753477078,
+    "total_trades": 1401,
+    "wallet_age_days": 0,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0xb505fe79666e7a64d9d6a389a1ef7b5254a85611",
+    "total_balance": 3785.486663204101,
+    "total_trades": 535,
+    "wallet_age_days": 0,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0x1d6177fd239a0df85a8b0d00aedc9dbd9757a29d",
+    "total_balance": 2985.589814403297,
+    "total_trades": 1463,
+    "wallet_age_days": 3,
+    "wallet_first_seen": "2026-03-07"
+  },
+  {
+    "address": "0xcf86916922d1234e77b39f2ed99a108d50925fb9",
+    "total_balance": 49.600631773277,
+    "total_trades": 286,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0x09bb7f9489c4398e81b5d24dac5e380b79a80b0b",
+    "total_balance": 22242.339190884555,
+    "total_trades": 4133,
+    "wallet_age_days": 248,
+    "wallet_first_seen": "2025-07-05"
+  },
+  {
+    "address": "0xa2f58c16b24bca07ce20a2a6dc66073f1f648a0a",
+    "total_balance": 9670.891680442855,
+    "total_trades": 2261,
+    "wallet_age_days": 45,
+    "wallet_first_seen": "2026-01-24"
+  },
+  {
+    "address": "0x9e80f30c23c296ab4ebe44eea6167ad67193572e",
+    "total_balance": 899.909397024164,
+    "total_trades": 1044,
+    "wallet_age_days": 46,
+    "wallet_first_seen": "2026-01-23"
+  },
+  {
+    "address": "0x2ce9d43d1cba6ae31d7f07bfe0098dfa2d833373",
+    "total_balance": 4987761.159339607,
+    "total_trades": 3309,
+    "wallet_age_days": 157,
+    "wallet_first_seen": "2025-10-04"
+  },
+  {
+    "address": "0x6232a4ef92f63d51aa01d70f4b73d77d782db894",
+    "total_balance": 18472.867485707335,
+    "total_trades": 1221,
+    "wallet_age_days": 126,
+    "wallet_first_seen": "2025-11-03"
+  },
+  {
+    "address": "0x303eeb9f810c57190c9647165232d82b9b973238",
+    "total_balance": 640.839147389449,
+    "total_trades": 814,
+    "wallet_age_days": 6,
+    "wallet_first_seen": "2026-03-03"
+  },
+  {
+    "address": "0x5ec2f8bd011beb980733825b9049c1caf719f676",
+    "total_balance": 817.250653306565,
+    "total_trades": 685,
+    "wallet_age_days": 6,
+    "wallet_first_seen": "2026-03-04"
+  },
+  {
+    "address": "0x6f8acf67a063c9e0a67356ee20b7cecc3880e894",
+    "total_balance": 823.986229097036,
+    "total_trades": 1497,
+    "wallet_age_days": 10,
+    "wallet_first_seen": "2026-02-28"
+  },
+  {
+    "address": "0x86d2a433efdd75a35c7ef1fd5e8f889bbc8e2028",
+    "total_balance": 3283.593883445566,
+    "total_trades": 1823,
+    "wallet_age_days": 45,
+    "wallet_first_seen": "2026-01-23"
+  },
+  {
+    "address": "0x70bdb7c50f43023fdd9e4246afae8413372133d3",
+    "total_balance": 1243.168990234067,
+    "total_trades": 1172,
+    "wallet_age_days": 20,
+    "wallet_first_seen": "2026-02-18"
+  },
+  {
+    "address": "0x848a744b6d5dd9564893f28d1591ab67dec219b3",
+    "total_balance": 253.28740804977,
+    "total_trades": 635,
+    "wallet_age_days": 44,
+    "wallet_first_seen": "2026-01-24"
+  },
+  {
+    "address": "0x110adcd77365b6f3e39afbef4ba9dba26fb44bac",
+    "total_balance": 17461.03588237817,
+    "total_trades": 1280,
+    "wallet_age_days": 62,
+    "wallet_first_seen": "2026-01-06"
+  },
+  {
+    "address": "0x1a43d0f85b6f19e79243dd241d64e3dc0dcc47e0",
+    "total_balance": 1198.947059614822,
+    "total_trades": 1319,
+    "wallet_age_days": 56,
+    "wallet_first_seen": "2026-01-13"
+  },
+  {
+    "address": "0xb7a85e6fa623dddc900803c03c1ef82ce07ef989",
+    "total_balance": 38069.753633493165,
+    "total_trades": 1554,
+    "wallet_age_days": 146,
+    "wallet_first_seen": "2025-10-15"
+  },
+  {
+    "address": "0xb2f78b17faeafaeac961d74050536e85528135f5",
+    "total_balance": 5695.47281583563,
+    "total_trades": 1964,
+    "wallet_age_days": 56,
+    "wallet_first_seen": "2026-01-13"
+  },
+  {
+    "address": "0xb553c27bcbe21f7ed246f1a791a9047be85ff233",
+    "total_balance": 880.306470158154,
+    "total_trades": 202,
+    "wallet_age_days": 8,
+    "wallet_first_seen": "2026-03-01"
+  },
+  {
+    "address": "0x0d4dde28d283e32f1b865775e0fd7c3ba9c19c74",
+    "total_balance": 247229.4525081586,
+    "total_trades": 1073,
+    "wallet_age_days": 352,
+    "wallet_first_seen": "2025-03-23"
+  },
+  {
+    "address": "0x5c0f823dc7b21b4fbbafc4e27e3d834d456e514b",
+    "total_balance": 157.71015994784,
+    "total_trades": 1054,
+    "wallet_age_days": 44,
+    "wallet_first_seen": "2026-01-24"
+  },
+  {
+    "address": "0xf1ee5f05f4a6dd4443487d980b064bfd5d9d17fc",
+    "total_balance": 2447.220989626567,
+    "total_trades": 1228,
+    "wallet_age_days": 39,
+    "wallet_first_seen": "2026-01-30"
+  },
+  {
+    "address": "0xe6225a9e1693aee35d8c3775e0c29a0d7e0c1710",
+    "total_balance": 439.409637555052,
+    "total_trades": 589,
+    "wallet_age_days": 137,
+    "wallet_first_seen": "2025-10-23"
+  },
+  {
+    "address": "0x3781c8fe412b1b34cd1acbd20b100a7f03c67ffd",
+    "total_balance": 1858.300682420369,
+    "total_trades": 1353,
+    "wallet_age_days": 52,
+    "wallet_first_seen": "2026-01-17"
+  },
+  {
+    "address": "0x282ab40be1511bc0136c6e9ad021c1eaef8f8a1f",
+    "total_balance": 21929.745189099023,
+    "total_trades": 2282,
+    "wallet_age_days": 66,
+    "wallet_first_seen": "2026-01-03"
+  },
+  {
+    "address": "0xdadca49e762abb5c904223d73388eb9dcceba21c",
+    "total_balance": 5315.057998996671,
+    "total_trades": 1891,
+    "wallet_age_days": 149,
+    "wallet_first_seen": "2025-10-11"
+  },
+  {
+    "address": "0xa58acdb0e20b87aa6dc24a1b48afc2b15a01144d",
+    "total_balance": 17853.223244990117,
+    "total_trades": 1574,
+    "wallet_age_days": 50,
+    "wallet_first_seen": "2026-01-18"
+  },
+  {
+    "address": "0xa0786be05ba9ad949a0150cea0aa7160829e8b8d",
+    "total_balance": 943.293133951101,
+    "total_trades": 836,
+    "wallet_age_days": 62,
+    "wallet_first_seen": "2026-01-06"
+  },
+  {
+    "address": "0x2d3ed81ada2f34ba42c2ae5051f56a6871b821fd",
+    "total_balance": 1496.737512306191,
+    "total_trades": 795,
+    "wallet_age_days": 27,
+    "wallet_first_seen": "2026-02-10"
+  },
+  {
+    "address": "0x40e56fa7759c1bdc67764fcd76c8ee7bc9486c08",
+    "total_balance": 25148.748883435386,
+    "total_trades": 3331,
+    "wallet_age_days": 58,
+    "wallet_first_seen": "2026-01-10"
+  },
+  {
+    "address": "0xae124017236d3e6c0bb0795b916e5d6c94330218",
+    "total_balance": 120.171840723902,
+    "total_trades": 1608,
+    "wallet_age_days": 40,
+    "wallet_first_seen": "2026-01-29"
+  },
+  {
+    "address": "0xebbdfe1881f01b4355758e8f1e09f40a0d62dd8f",
+    "total_balance": 438.682430859341,
+    "total_trades": 2960,
+    "wallet_age_days": 27,
+    "wallet_first_seen": "2026-02-11"
+  },
+  {
+    "address": "0x2b806d0230c23d6bb1180d2fa920a80ea17e57f3",
+    "total_balance": 4698.110319378823,
+    "total_trades": 1151,
+    "wallet_age_days": 54,
+    "wallet_first_seen": "2026-01-15"
+  },
+  {
+    "address": "0x0df7c38c841c4a18090775d159db02435ded45ae",
+    "total_balance": 20888.820272361267,
+    "total_trades": 4834,
+    "wallet_age_days": 90,
+    "wallet_first_seen": "2025-12-10"
+  },
+  {
+    "address": "0x29935ef1417e1c3b1fec68dd666ea9baac31d4ed",
+    "total_balance": 2432.913381582385,
+    "total_trades": 167,
+    "wallet_age_days": 8,
+    "wallet_first_seen": "2026-03-01"
+  },
+  {
+    "address": "0xbeaba42106867743db849d9b26c049f654c54c5e",
+    "total_balance": 17760.95852047151,
+    "total_trades": 2530,
+    "wallet_age_days": 135,
+    "wallet_first_seen": "2025-10-26"
+  },
+  {
+    "address": "0x222fb40f6d379cd3824c7e33836684bc8ffe5245",
+    "total_balance": 847.815676640702,
+    "total_trades": 2023,
+    "wallet_age_days": 9,
+    "wallet_first_seen": "2026-03-01"
+  },
+  {
+    "address": "0x88669768e431ad1e6861982309cc694ced330903",
+    "total_balance": 15584.324514809234,
+    "total_trades": 2577,
+    "wallet_age_days": 97,
+    "wallet_first_seen": "2025-12-03"
+  },
+  {
+    "address": "0x0eab4aac96834745010c8951b6e75c3325b4b7c3",
+    "total_balance": 21918.424561890206,
+    "total_trades": 2751,
+    "wallet_age_days": 150,
+    "wallet_first_seen": "2025-10-11"
+  },
+  {
+    "address": "0x5b03223e4bdc91c603a4d98dc588771553fd7c8e",
+    "total_balance": 1472.353649140491,
+    "total_trades": 430,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-08"
+  },
+  {
+    "address": "0xb8af408c3aa0b6bedb4b3678d77508d8d12cf24d",
+    "total_balance": 1372.564748366773,
+    "total_trades": 215,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0x577490edb21e4036b0978423e8febcf9b3e0126f",
+    "total_balance": 530.282260882119,
+    "total_trades": 880,
+    "wallet_age_days": 6,
+    "wallet_first_seen": "2026-03-04"
+  },
+  {
+    "address": "0x746152302f01acaa31403ed48f7eee5e18b5ae33",
+    "total_balance": 681.646814575523,
+    "total_trades": 1383,
+    "wallet_age_days": 88,
+    "wallet_first_seen": "2025-12-12"
+  },
+  {
+    "address": "0x95fcf053e99acafcbdd4faaf10ae42e1886fdc4d",
+    "total_balance": 32096.474372298166,
+    "total_trades": 280,
+    "wallet_age_days": 167,
+    "wallet_first_seen": "2025-09-23"
+  },
+  {
+    "address": "0xef8bf2d1c1ca2ef8f46f98671f07d9ebc20cbb92",
+    "total_balance": 17050.444301253134,
+    "total_trades": 1214,
+    "wallet_age_days": 59,
+    "wallet_first_seen": "2026-01-10"
+  },
+  {
+    "address": "0x52e8088f4b2c5fdddf92664c05c1e12742d6f401",
+    "total_balance": 2138.982298618237,
+    "total_trades": 1491,
+    "wallet_age_days": 17,
+    "wallet_first_seen": "2026-02-21"
+  },
+  {
+    "address": "0x29e1eb3c82a574529b21c637185a53df6ed7092b",
+    "total_balance": 20.991968625751,
+    "total_trades": 650,
+    "wallet_age_days": 5,
+    "wallet_first_seen": "2026-03-04"
+  },
+  {
+    "address": "0xef3a2e8f40257eedb1a51111360bb3f97773cfaa",
+    "total_balance": 3377.440245146568,
+    "total_trades": 2823,
+    "wallet_age_days": 90,
+    "wallet_first_seen": "2025-12-09"
+  },
+  {
+    "address": "0xe1f7fe58ada460d5bc3a54666fb064abc8eeed68",
+    "total_balance": 22.766075866142,
+    "total_trades": 4203,
+    "wallet_age_days": 50,
+    "wallet_first_seen": "2026-01-19"
+  },
+  {
+    "address": "0x194d488d6f6df74df13a261e85a40b6456ee4e38",
+    "total_balance": 165.727590240934,
+    "total_trades": 593,
+    "wallet_age_days": 358,
+    "wallet_first_seen": "2025-03-17"
+  },
+  {
+    "address": "0x124541c0fe7257b286f6b4cdd848cd514e690df3",
+    "total_balance": 8735.218998593202,
+    "total_trades": 733,
+    "wallet_age_days": 353,
+    "wallet_first_seen": "2025-03-21"
+  },
+  {
+    "address": "0x386760f6b16959fe44c6f7267605661aae805965",
+    "total_balance": 609.433438444067,
+    "total_trades": 292,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0x6c7cfa1b11c420fc829ea1357700c0a1e91e2433",
+    "total_balance": 9420.494828353647,
+    "total_trades": 4619,
+    "wallet_age_days": 48,
+    "wallet_first_seen": "2026-01-21"
+  },
+  {
+    "address": "0xd4f52e39d2702fd809a4f06b4598e367605a6f80",
+    "total_balance": 4043.020107553712,
+    "total_trades": 858,
+    "wallet_age_days": 13,
+    "wallet_first_seen": "2026-02-24"
+  },
+  {
+    "address": "0x3c48da228e7b806598c99ac01d9c4049bfcfcb9b",
+    "total_balance": 70.436544739314,
+    "total_trades": 247,
+    "wallet_age_days": 2,
+    "wallet_first_seen": "2026-03-08"
+  },
+  {
+    "address": "0x33eba5b5fe1d9e2ed584aa9ecb80a1bdb7c4b516",
+    "total_balance": 21312.97717416451,
+    "total_trades": 2570,
+    "wallet_age_days": 98,
+    "wallet_first_seen": "2025-12-02"
+  },
+  {
+    "address": "0x0164f5cd6a5c3c2c08a57ef459c5a662910f2f24",
+    "total_balance": 2200703.0365578667,
+    "total_trades": 736,
+    "wallet_age_days": 353,
+    "wallet_first_seen": "2025-03-22"
+  },
+  {
+    "address": "0x9c5700aaaab1c229f9f4f27ebd405759d6f9ef65",
+    "total_balance": 4115.447268418829,
+    "total_trades": 627,
+    "wallet_age_days": 47,
+    "wallet_first_seen": "2026-01-21"
+  },
+  {
+    "address": "0x298e6993c9caa357fe767b65943eb8d292568a9d",
+    "total_balance": 998.777773709463,
+    "total_trades": 1030,
+    "wallet_age_days": 247,
+    "wallet_first_seen": "2025-07-05"
+  },
+  {
+    "address": "0x4d7a95ca885f515a413a5b21b349a8bad83489c2",
+    "total_balance": 8866.654256463311,
+    "total_trades": 758,
+    "wallet_age_days": 194,
+    "wallet_first_seen": "2025-08-27"
+  },
+  {
+    "address": "0x757b3e98158c4d0afa53d0e7c040ccb69369f9d7",
+    "total_balance": 896.226801540645,
+    "total_trades": 1680,
+    "wallet_age_days": 10,
+    "wallet_first_seen": "2026-02-28"
+  },
+  {
+    "address": "0xb5f498e627c8faec9a4a9e5b6c3918f16a8e1463",
+    "total_balance": 111.585481902852,
+    "total_trades": 1008,
+    "wallet_age_days": 29,
+    "wallet_first_seen": "2026-02-09"
+  },
+  {
+    "address": "0x9873c1bcdd705c9c274353b023502c626ba42653",
+    "total_balance": 287.931544311766,
+    "total_trades": 298,
+    "wallet_age_days": 4,
+    "wallet_first_seen": "2026-03-06"
+  },
+  {
+    "address": "0x0e8aec1a13ed611039b6df28663976716ea34ebe",
+    "total_balance": 275.926362103962,
+    "total_trades": 522,
+    "wallet_age_days": 13,
+    "wallet_first_seen": "2026-02-25"
+  },
+  {
+    "address": "0xa84484c41148d118318e6679759d57ac880eb934",
+    "total_balance": 7900.808351230111,
+    "total_trades": 1500,
+    "wallet_age_days": 8,
+    "wallet_first_seen": "2026-03-01"
+  },
+  {
+    "address": "0x183fb667f7be89e01d2c7cfc793adc6b816af257",
+    "total_balance": 683.65620831288,
+    "total_trades": 1151,
+    "wallet_age_days": 9,
+    "wallet_first_seen": "2026-03-01"
+  },
+  {
+    "address": "0x15e52a04b9d6de94332499dc8690950cb833ed6c",
+    "total_balance": 625.951247555226,
+    "total_trades": 652,
+    "wallet_age_days": 165,
+    "wallet_first_seen": "2025-09-25"
+  },
+  {
+    "address": "0x747b6790e2ca0f0ae0620d59b5136a94b7be5629",
+    "total_balance": 20170.81289220331,
+    "total_trades": 1025,
+    "wallet_age_days": 166,
+    "wallet_first_seen": "2025-09-24"
+  },
+  {
+    "address": "0xa809f02967d6d70639a5d2b13cfee0f39441bea1",
+    "total_balance": 0.000348295052,
+    "total_trades": 125,
+    "wallet_age_days": 54,
+    "wallet_first_seen": "2026-01-14"
+  },
+  {
+    "address": "0x0742437b071f181f67e0023d187edcfb95778a56",
+    "total_balance": 3652.830277872901,
+    "total_trades": 2957,
+    "wallet_age_days": 135,
+    "wallet_first_seen": "2025-10-26"
+  },
+  {
+    "address": "0xe0a64560157664298ff80f38a09e0866ff1afe0f",
+    "total_balance": 943.856771201586,
+    "total_trades": 575,
+    "wallet_age_days": 150,
+    "wallet_first_seen": "2025-10-10"
+  },
+  {
+    "address": "0x478f64e092a37bc1a791e7ef516829719a72e577",
+    "total_balance": 20018.2611208002,
+    "total_trades": 1374,
+    "wallet_age_days": 137,
+    "wallet_first_seen": "2025-10-24"
+  },
+  {
+    "address": "0xfb75dd62871a413aa94b6de46282a3b6e7345ad6",
+    "total_balance": 91.034776974364,
+    "total_trades": 154,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0x638caa69ad90e1b96479fd460c409560d91710b4",
+    "total_balance": 100.037405532892,
+    "total_trades": 151,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0xf118e11382e7e57051d6dfa4e79338627e7832c9",
+    "total_balance": 90.563454937381,
+    "total_trades": 151,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0xbbf459b718bb23430c442135d550cae9dd788642",
+    "total_balance": 90.457283831824,
+    "total_trades": 154,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0x1a0d4cd1f36a1fe16d38560560665ac642efa6ab",
+    "total_balance": 376.87338080522,
+    "total_trades": 393,
+    "wallet_age_days": 4,
+    "wallet_first_seen": "2026-03-06"
+  },
+  {
+    "address": "0x6c758c7966253059ad1ea66cdb9e1e14eeb84789",
+    "total_balance": 375.050581506751,
+    "total_trades": 397,
+    "wallet_age_days": 4,
+    "wallet_first_seen": "2026-03-06"
+  },
+  {
+    "address": "0x9d1517ca9c646331899708d75ee695a83dd29797",
+    "total_balance": 488.016789169153,
+    "total_trades": 395,
+    "wallet_age_days": 4,
+    "wallet_first_seen": "2026-03-06"
+  },
+  {
+    "address": "0xb78aed7344e478ca23f61de34656321030a889dd",
+    "total_balance": 1534.888607385292,
+    "total_trades": 168,
+    "wallet_age_days": 2,
+    "wallet_first_seen": "2026-03-08"
+  },
+  {
+    "address": "0x26a05b628562a81c664fe33eb2357fc075181efa",
+    "total_balance": 915.526165992708,
+    "total_trades": 902,
+    "wallet_age_days": 48,
+    "wallet_first_seen": "2026-01-21"
+  },
+  {
+    "address": "0x4362c9a9615bd6bc2fbdbf49ff2a90679672a3e6",
+    "total_balance": 14789082.073081369,
+    "total_trades": 1578,
+    "wallet_age_days": 390,
+    "wallet_first_seen": "2025-02-13"
+  },
+  {
+    "address": "0x8adf367582b08a6c44507b9c91075c62e8f1658f",
+    "total_balance": 248.315388529891,
+    "total_trades": 1164,
+    "wallet_age_days": 44,
+    "wallet_first_seen": "2026-01-24"
+  },
+  {
+    "address": "0x058f2a8542a54ea41cb94776b0053812334e6eca",
+    "total_balance": 176.571919346811,
+    "total_trades": 301,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0xaeb2aee4900af3fcd8d4b653c1ecfffd7d6f9ace",
+    "total_balance": 282.282198736027,
+    "total_trades": 428,
+    "wallet_age_days": 19,
+    "wallet_first_seen": "2026-02-19"
+  },
+  {
+    "address": "0x63f7a796bb4eb914b61a41dff4551ecfed2d17e2",
+    "total_balance": 2222997.079596817,
+    "total_trades": 1394,
+    "wallet_age_days": 390,
+    "wallet_first_seen": "2025-02-12"
+  },
+  {
+    "address": "0x19e5fc93478a54a11daf7584b39ba8f5a6aef76d",
+    "total_balance": 255.331370988184,
+    "total_trades": 1903,
+    "wallet_age_days": 72,
+    "wallet_first_seen": "2025-12-27"
+  },
+  {
+    "address": "0x684a365f71fc3a0f848f510fbd3467d867bd3c80",
+    "total_balance": 20252.859783333966,
+    "total_trades": 743,
+    "wallet_age_days": 59,
+    "wallet_first_seen": "2026-01-10"
+  },
+  {
+    "address": "0x7994787d072e7bac88f7cc3b982f8455475d58df",
+    "total_balance": 393.41566076413,
+    "total_trades": 1934,
+    "wallet_age_days": 12,
+    "wallet_first_seen": "2026-02-26"
+  },
+  {
+    "address": "0xefe04fcc87c045adfcd3a769e3241a4396c09f28",
+    "total_balance": 21141.408876317804,
+    "total_trades": 762,
+    "wallet_age_days": 348,
+    "wallet_first_seen": "2025-03-27"
+  },
+  {
+    "address": "0x6fbe678bac0401548311a4453a90156525bcc4dd",
+    "total_balance": 316.811710858156,
+    "total_trades": 1719,
+    "wallet_age_days": 265,
+    "wallet_first_seen": "2025-06-17"
+  },
+  {
+    "address": "0x2626ee79f7fad81c3a56dd096182677f64996026",
+    "total_balance": 17252.43827691284,
+    "total_trades": 1013,
+    "wallet_age_days": 146,
+    "wallet_first_seen": "2025-10-14"
+  },
+  {
+    "address": "0xb89d4d21511914590159ef23c7ecf26fa35cd3ec",
+    "total_balance": 7.721528092646,
+    "total_trades": 88,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0xb3597de13502f0e9eb8033abee97a518067d23e5",
+    "total_balance": 20867.466061605493,
+    "total_trades": 2903,
+    "wallet_age_days": 145,
+    "wallet_first_seen": "2025-10-15"
+  },
+  {
+    "address": "0x3835b9e2fbef10e1af1bcaaf5b37d68145bc663b",
+    "total_balance": 57.230362836933,
+    "total_trades": 867,
+    "wallet_age_days": 172,
+    "wallet_first_seen": "2025-09-19"
+  },
+  {
+    "address": "0x04ee06850d3d027e7aa36aa19e9078e212340991",
+    "total_balance": 273.841516478479,
+    "total_trades": 1100,
+    "wallet_age_days": 153,
+    "wallet_first_seen": "2025-10-08"
+  },
+  {
+    "address": "0x55fade80e573c4594b0dd73041297024f1f2ee95",
+    "total_balance": 416241.0302054193,
+    "total_trades": 1087,
+    "wallet_age_days": 88,
+    "wallet_first_seen": "2025-12-11"
+  },
+  {
+    "address": "0x8e24d7d885ae647ef74b75cb275714f4d51fd9ce",
+    "total_balance": 3442.739789344211,
+    "total_trades": 394,
+    "wallet_age_days": 41,
+    "wallet_first_seen": "2026-01-27"
+  },
+  {
+    "address": "0xfdb7866008f2f0084a075d28bd82d21ef24e45a3",
+    "total_balance": 1437.289314057755,
+    "total_trades": 969,
+    "wallet_age_days": 151,
+    "wallet_first_seen": "2025-10-10"
+  },
+  {
+    "address": "0x96c214678b3855be5e6c03351fb2ad4fb2713531",
+    "total_balance": 24782.588880575327,
+    "total_trades": 2685,
+    "wallet_age_days": 71,
+    "wallet_first_seen": "2025-12-29"
+  },
+  {
+    "address": "0x4677eb08408a7d07c79d51ce7e120f5d77e60c06",
+    "total_balance": 21097.676148812036,
+    "total_trades": 2593,
+    "wallet_age_days": 134,
+    "wallet_first_seen": "2025-10-27"
+  },
+  {
+    "address": "0x0b2d1965fd4d2250d03a277bce935e0d7f0e282e",
+    "total_balance": 2653.028230436979,
+    "total_trades": 158,
+    "wallet_age_days": 53,
+    "wallet_first_seen": "2026-01-15"
+  },
+  {
+    "address": "0xdf904e7ac1e9b6dc1c84ffd21351933129176941",
+    "total_balance": 3314.494102586741,
+    "total_trades": 830,
+    "wallet_age_days": 66,
+    "wallet_first_seen": "2026-01-03"
+  },
+  {
+    "address": "0x4f42a903262651a0d03c4a596857b9f68abe32e5",
+    "total_balance": 358.306013842274,
+    "total_trades": 2084,
+    "wallet_age_days": 9,
+    "wallet_first_seen": "2026-02-28"
+  },
+  {
+    "address": "0xc7b3492bd21ef3be25a70b30cb1933ee08450a99",
+    "total_balance": 40928.880448737706,
+    "total_trades": 728,
+    "wallet_age_days": 161,
+    "wallet_first_seen": "2025-09-30"
+  },
+  {
+    "address": "0xf7aef3f1d159d47dd1a0d18c441ec543e4006e27",
+    "total_balance": 20600.81268913391,
+    "total_trades": 1630,
+    "wallet_age_days": 196,
+    "wallet_first_seen": "2025-08-26"
+  },
+  {
+    "address": "0xf5699e29b1df54c51a58813f871198c5df65005e",
+    "total_balance": 169.290772430201,
+    "total_trades": 176,
+    "wallet_age_days": 3,
+    "wallet_first_seen": "2026-03-06"
+  },
+  {
+    "address": "0x8d44b438e0c8357e5e78a1642a9433e2d80ca62a",
+    "total_balance": 347.725810906916,
+    "total_trades": 954,
+    "wallet_age_days": 14,
+    "wallet_first_seen": "2026-02-23"
+  },
+  {
+    "address": "0x694f0bbb8dcf0f6d2ae28658758fb5d2866530b8",
+    "total_balance": 21239.62025215038,
+    "total_trades": 15692,
+    "wallet_age_days": 55,
+    "wallet_first_seen": "2026-01-14"
+  },
+  {
+    "address": "0xa697b9fd6e19a268f493597c062810cdaadccd81",
+    "total_balance": 1692.313388096738,
+    "total_trades": 190,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0xc1a3f323b26aff63bb18db0f61b49324e2583d5c",
+    "total_balance": 12850.712307703827,
+    "total_trades": 1866,
+    "wallet_age_days": 170,
+    "wallet_first_seen": "2025-09-20"
+  },
+  {
+    "address": "0xa09341e1fa764ff04fe7dd853d30a36853391970",
+    "total_balance": 94.547528091424,
+    "total_trades": 354,
+    "wallet_age_days": 6,
+    "wallet_first_seen": "2026-03-03"
+  },
+  {
+    "address": "0xa467eb62a818207ecfb9f731a503c5fb5a955462",
+    "total_balance": 885.181067379336,
+    "total_trades": 1117,
+    "wallet_age_days": 296,
+    "wallet_first_seen": "2025-05-17"
+  },
+  {
+    "address": "0x00a5d1d4dc3245c3d330d6c7d05d492640bd69b3",
+    "total_balance": 4848448.764315726,
+    "total_trades": 670,
+    "wallet_age_days": 368,
+    "wallet_first_seen": "2025-03-06"
+  },
+  {
+    "address": "0xbde46701552c2737cabb4a8d93a6bff1b9476b07",
+    "total_balance": 322.678071275179,
+    "total_trades": 75,
+    "wallet_age_days": 10,
+    "wallet_first_seen": "2026-02-27"
+  },
+  {
+    "address": "0x4fced1f4e745071e1273f9717ce4ccea8609b96a",
+    "total_balance": 1645.863109381061,
+    "total_trades": 504,
+    "wallet_age_days": 159,
+    "wallet_first_seen": "2025-10-02"
+  },
+  {
+    "address": "0xb14d1735ba12ca02247f7d10d020b8bbadde2bb7",
+    "total_balance": 4821749.426510999,
+    "total_trades": 105,
+    "wallet_age_days": 138,
+    "wallet_first_seen": "2025-10-22"
+  },
+  {
+    "address": "0x1cbcbd05eb10948ca224df51516d9b0b4bd55760",
+    "total_balance": 148.689156039794,
+    "total_trades": 58,
+    "wallet_age_days": 14,
+    "wallet_first_seen": "2026-02-24"
+  },
+  {
+    "address": "0xa84a05c2f8af3e87afbae0d9e45763b154277789",
+    "total_balance": 888.168209793305,
+    "total_trades": 685,
+    "wallet_age_days": 152,
+    "wallet_first_seen": "2025-10-09"
+  },
+  {
+    "address": "0xde5596946a0331a11ff5ade19857c5315192e5a9",
+    "total_balance": 306.337652980164,
+    "total_trades": 1271,
+    "wallet_age_days": 4,
+    "wallet_first_seen": "2026-03-05"
+  },
+  {
+    "address": "0xd4daba95c7399fea56537e7d44f05419302435ec",
+    "total_balance": 7056569.921805186,
+    "total_trades": 371,
+    "wallet_age_days": 364,
+    "wallet_first_seen": "2025-03-11"
+  },
+  {
+    "address": "0x7f8d9654ea36c6bd3f8d24f26a42542ac644d2fb",
+    "total_balance": 11434.42705547119,
+    "total_trades": 2113,
+    "wallet_age_days": 167,
+    "wallet_first_seen": "2025-09-24"
+  },
+  {
+    "address": "0x3fb33c6501af9138649e9744a153045f732f3d08",
+    "total_balance": 4252.754402618838,
+    "total_trades": 1772,
+    "wallet_age_days": 27,
+    "wallet_first_seen": "2026-02-10"
+  },
+  {
+    "address": "0xf3f1ab3b4949e4205f09bef4cdd82273711a7e39",
+    "total_balance": 20.509601451423,
+    "total_trades": 1045,
+    "wallet_age_days": 93,
+    "wallet_first_seen": "2025-12-06"
+  },
+  {
+    "address": "0x347ffc6db9acc54ac2019795173b9599e8b82bd9",
+    "total_balance": 1317426.6563104794,
+    "total_trades": 1266,
+    "wallet_age_days": 384,
+    "wallet_first_seen": "2025-02-19"
+  },
+  {
+    "address": "0x8d389fbe0b769b70abd6fce560e0a03f770dd289",
+    "total_balance": 3099.777869758767,
+    "total_trades": 481,
+    "wallet_age_days": 8,
+    "wallet_first_seen": "2026-03-02"
+  },
+  {
+    "address": "0x0a57669d82f9e185241206ecd0756c70820dc888",
+    "total_balance": 27440.46840008144,
+    "total_trades": 1955,
+    "wallet_age_days": 72,
+    "wallet_first_seen": "2025-12-27"
+  },
+  {
+    "address": "0x9d7db23994172a990e2d0a18ecaf28cb53c44a6f",
+    "total_balance": 0.013576353882,
+    "total_trades": 54,
+    "wallet_age_days": 32,
+    "wallet_first_seen": "2026-02-06"
+  },
+  {
+    "address": "0xef978f0d65b1594cb54d9f1fa7651de030937dbc",
+    "total_balance": 579.159827220547,
+    "total_trades": 142,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0x7c7cbf775c1b44b227e3e675cf95ae489b349755",
+    "total_balance": 581.293565786134,
+    "total_trades": 932,
+    "wallet_age_days": 319,
+    "wallet_first_seen": "2025-04-25"
+  },
+  {
+    "address": "0x58738611bf07655d8532ceb7bedff2bcfd585915",
+    "total_balance": 231040.8769208248,
+    "total_trades": 252,
+    "wallet_age_days": 385,
+    "wallet_first_seen": "2025-02-18"
+  },
+  {
+    "address": "0x1ef883ee11a8edb40094e53a88666ec7d2e1fdd8",
+    "total_balance": 564.727391870702,
+    "total_trades": 760,
+    "wallet_age_days": 235,
+    "wallet_first_seen": "2025-07-17"
+  },
+  {
+    "address": "0x4c7d7ec9a042236b452e214894ce5533462b76c6",
+    "total_balance": 724.015809936594,
+    "total_trades": 612,
+    "wallet_age_days": 268,
+    "wallet_first_seen": "2025-06-15"
+  },
+  {
+    "address": "0x92dc2386dd744eeee3f367c52f3e04bbcca1b11f",
+    "total_balance": 717.304547180404,
+    "total_trades": 434,
+    "wallet_age_days": 148,
+    "wallet_first_seen": "2025-10-13"
+  },
+  {
+    "address": "0xd0a85ee2a4b25880a1903cb8eedbae6d2d3ecc72",
+    "total_balance": 76.328446641142,
+    "total_trades": 1051,
+    "wallet_age_days": 71,
+    "wallet_first_seen": "2025-12-28"
+  },
+  {
+    "address": "0xe823636a0df29d28749fcd160069950ed55262c7",
+    "total_balance": 12825.692288270011,
+    "total_trades": 4432,
+    "wallet_age_days": 334,
+    "wallet_first_seen": "2025-04-10"
+  },
+  {
+    "address": "0x5a71acccd3869d979789c21de042c9a42f05eb58",
+    "total_balance": 227.450124435037,
+    "total_trades": 383,
+    "wallet_age_days": 90,
+    "wallet_first_seen": "2025-12-09"
+  },
+  {
+    "address": "0xc8fb11807d7f1d1f15058a0d985df9160dee49b3",
+    "total_balance": 762.488002472678,
+    "total_trades": 2845,
+    "wallet_age_days": 141,
+    "wallet_first_seen": "2025-10-19"
+  },
+  {
+    "address": "0xf2b57e9208ae4d6b93c71f8d1814ea4229daecd6",
+    "total_balance": 17002.41717498819,
+    "total_trades": 376,
+    "wallet_age_days": 51,
+    "wallet_first_seen": "2026-01-18"
+  },
+  {
+    "address": "0x1c5f853b13ceaaa224e7595c2c74491aafefa2cf",
+    "total_balance": 25517.34726736144,
+    "total_trades": 2041,
+    "wallet_age_days": 170,
+    "wallet_first_seen": "2025-09-20"
+  },
+  {
+    "address": "0x167abe00d7f00e233a6911154ad3f3db8171d26e",
+    "total_balance": 98.202706255337,
+    "total_trades": 1165,
+    "wallet_age_days": 56,
+    "wallet_first_seen": "2026-01-12"
+  },
+  {
+    "address": "0xe4f2bff79ad6d999ec9103423a20f2af8345cdb6",
+    "total_balance": 841674472.5267397,
+    "total_trades": 120,
+    "wallet_age_days": 364,
+    "wallet_first_seen": "2025-03-11"
+  },
+  {
+    "address": "0x5f47f4f4b955508e3d401e4082642496fa7a287b",
+    "total_balance": 352.74123110828,
+    "total_trades": 1025,
+    "wallet_age_days": 37,
+    "wallet_first_seen": "2026-01-31"
+  },
+  {
+    "address": "0xee0b2f6f7da9debb96a6f4ac339d8363fc603a9d",
+    "total_balance": 4984.951024683548,
+    "total_trades": 678,
+    "wallet_age_days": 1,
+    "wallet_first_seen": "2026-03-09"
+  },
+  {
+    "address": "0x421e241b6d45539c6d8081efeb7700eaf1ff5b02",
+    "total_balance": 15.373734315026,
+    "total_trades": 38,
+    "wallet_age_days": 11,
+    "wallet_first_seen": "2026-02-27"
+  },
+  {
+    "address": "0xb52610be2753cb255a3676fb22ebd3ad8d5c7b38",
+    "total_balance": 20259.899888376167,
+    "total_trades": 2469,
+    "wallet_age_days": 88,
+    "wallet_first_seen": "2025-12-12"
+  },
+  {
+    "address": "0x93c925a5532e9dab63aa3f62025fc9458555f8ed",
+    "total_balance": 27.189090211043,
+    "total_trades": 576,
+    "wallet_age_days": 27,
+    "wallet_first_seen": "2026-02-10"
+  },
+  {
+    "address": "0x1cbf2bee6ced7a70458800bf438dc113d2324130",
+    "total_balance": 352.526605350535,
+    "total_trades": 137,
+    "wallet_age_days": 12,
+    "wallet_first_seen": "2026-02-25"
+  },
+  {
+    "address": "0x3f3d47595e8f83e782daebc10d634db4829589f8",
+    "total_balance": 57940991.034399934,
+    "total_trades": 11237,
+    "wallet_age_days": 417,
+    "wallet_first_seen": "2025-01-17"
+  },
+  {
+    "address": "0x9a98c8b4e29989e05fb374ba9370e9143828f6a0",
+    "total_balance": 2343133.3488182323,
+    "total_trades": 12059,
+    "wallet_age_days": 417,
+    "wallet_first_seen": "2025-01-17"
+  },
+  {
+    "address": "0xa8e1dc7f7b507c6f05d46b4abd24496ec5126a22",
+    "total_balance": 14.938552570843,
+    "total_trades": 1266,
+    "wallet_age_days": 261,
+    "wallet_first_seen": "2025-06-22"
+  },
+  {
+    "address": "0x7e8fb0392542812476d9f2d0d71c01d1fa0776c5",
+    "total_balance": 463948456.41939235,
+    "total_trades": 911,
+    "wallet_age_days": 395,
+    "wallet_first_seen": "2025-02-08"
+  },
+  {
+    "address": "0xf9abc1efe2240e091e6a2db71635d7e67767e4d5",
+    "total_balance": 179.804538042499,
+    "total_trades": 658,
+    "wallet_age_days": 18,
+    "wallet_first_seen": "2026-02-20"
+  },
+  {
+    "address": "0x51ccb174a7ccd9bdd65e82150bf201f5e7b25369",
+    "total_balance": 344.114450958955,
+    "total_trades": 101,
+    "wallet_age_days": 37,
+    "wallet_first_seen": "2026-01-31"
+  },
+  {
+    "address": "0xfd798fe67b9fc2dbad2bbe81bbf540a72fd82e5f",
+    "total_balance": 374.161543518374,
+    "total_trades": 470,
+    "wallet_age_days": 17,
+    "wallet_first_seen": "2026-02-21"
+  },
+  {
+    "address": "0x865042d1db319b211198d506840ae3773ca0342b",
+    "total_balance": 423.106376390251,
+    "total_trades": 701,
+    "wallet_age_days": 133,
+    "wallet_first_seen": "2025-10-27"
+  },
+  {
+    "address": "0x79faa917f3ee7a13eb3ff718189fdb4ec5ef5d27",
+    "total_balance": 31.387888580295,
+    "total_trades": 192,
+    "wallet_age_days": 20,
+    "wallet_first_seen": "2026-02-17"
+  },
+  {
+    "address": "0x6e02d52ce7769d7c19a815954c62dbeff9f8b405",
+    "total_balance": 124.13887963472,
+    "total_trades": 130,
+    "wallet_age_days": 126,
+    "wallet_first_seen": "2025-11-03"
+  },
+  {
+    "address": "0xf49d366be54680775a0f8e7aa088d4d1bee32385",
+    "total_balance": 1397.979374202442,
+    "total_trades": 1021,
+    "wallet_age_days": 6,
+    "wallet_first_seen": "2026-03-03"
+  },
+  {
+    "address": "0x717dfd51870e268c68698c142c61f5ad35ec3e53",
+    "total_balance": 255.459110291648,
+    "total_trades": 903,
+    "wallet_age_days": 3,
+    "wallet_first_seen": "2026-03-07"
+  },
+  {
+    "address": "0x06444dc133aa3896fc72225cc11523f832e273f8",
+    "total_balance": 471.612611419653,
+    "total_trades": 112,
+    "wallet_age_days": 47,
+    "wallet_first_seen": "2026-01-22"
+  },
+  {
+    "address": "0x57ca2f104e737d6b5bb523d6091efb6a1c45e40a",
+    "total_balance": 33.042068911881,
+    "total_trades": 268,
+    "wallet_age_days": 121,
+    "wallet_first_seen": "2025-11-08"
+  },
+  {
+    "address": "0x878a051559152383fbd35315eb03f3ef5fbf76a6",
+    "total_balance": 30080.447435541995,
+    "total_trades": 3488,
+    "wallet_age_days": 63,
+    "wallet_first_seen": "2026-01-05"
+  },
+  {
+    "address": "0x3a5a56e5f51a815008b752fc3453d969e3edc63d",
+    "total_balance": 59.572657217311,
+    "total_trades": 202,
+    "wallet_age_days": 2,
+    "wallet_first_seen": "2026-03-08"
+  },
+  {
+    "address": "0x58eddc33c39b1f340c8b4b9b3f4c9aa487282d61",
+    "total_balance": 97.480009505032,
+    "total_trades": 30,
+    "wallet_age_days": 2,
+    "wallet_first_seen": "2026-03-08"
+  }
+]
