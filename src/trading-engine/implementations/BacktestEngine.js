@@ -1067,6 +1067,15 @@ class BacktestEngine extends AbstractTradingEngine {
       tokenState.highestPriceTimestamp = now;
     }
 
+    // 维护最近一次购买后的最高价状态（类似 profitPercent 的处理方式）
+    if (tokenState.buyTime) {
+      if (tokenState.highestPriceSinceLastBuy === null || priceUsd > tokenState.highestPriceSinceLastBuy) {
+        tokenState.highestPriceSinceLastBuy = priceUsd;
+        tokenState.highestPriceSinceLastBuyTimestamp = now;
+      }
+    }
+
+    // 构建因子（FactorBuilder 会动态计算 drawdownFromHighestSinceLastBuy）
     return buildFactorsFromTimeSeries(factorValues, tokenState, priceUsd, now);
   }
 
@@ -1195,7 +1204,8 @@ class BacktestEngine extends AbstractTradingEngine {
             {
               checkTime: Math.floor(timestamp.getTime() / 1000),
               skipHolderCheck: true,
-              tokenBuyTime: tokenState.buyTime || null  // 代币首次买入时间
+              tokenBuyTime: tokenState.buyTime || null,  // 代币首次买入时间
+              drawdownFromHighest: factorResults.drawdownFromHighest || null  // 从最高价跌幅
             }
           );
 
@@ -1264,6 +1274,9 @@ class BacktestEngine extends AbstractTradingEngine {
         tokenState.status = 'bought';
         tokenState.buyPrice = price;
         tokenState.buyTime = timestamp.getTime();
+        // 重置最近一次购买后的最高价（用于止损/止盈）
+        tokenState.highestPriceSinceLastBuy = price;
+        tokenState.highestPriceSinceLastBuyTimestamp = timestamp.getTime();
 
         tokenState.strategyExecutions[strategy.id].count++;
         tokenState.strategyExecutions[strategy.id].lastExecution = timestamp.getTime();

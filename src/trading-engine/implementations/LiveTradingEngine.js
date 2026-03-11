@@ -1408,6 +1408,27 @@ class LiveTradingEngine extends AbstractTradingEngine {
       drawdownFromHighest = ((currentPrice - highestPrice) / highestPrice) * 100;
     }
 
+    // 计算最近一次购买后的最高价回撤（用于止损/止盈）
+    let highestPriceSinceLastBuy = token.highestPriceSinceLastBuy;
+    let highestPriceSinceLastBuyTimestamp = token.highestPriceSinceLastBuyTimestamp;
+    let drawdownFromHighestSinceLastBuy = null;
+
+    if (token.buyTime) {
+      // 如果代币已被购买，维护购买后的最高价
+      if (highestPriceSinceLastBuy === null || currentPrice > highestPriceSinceLastBuy) {
+        highestPriceSinceLastBuy = currentPrice;
+        highestPriceSinceLastBuyTimestamp = now;
+        // 更新 token 状态
+        token.highestPriceSinceLastBuy = currentPrice;
+        token.highestPriceSinceLastBuyTimestamp = now;
+      }
+
+      // 计算从购买后最高价的回撤
+      if (highestPriceSinceLastBuy > 0) {
+        drawdownFromHighestSinceLastBuy = ((currentPrice - highestPriceSinceLastBuy) / highestPriceSinceLastBuy) * 100;
+      }
+    }
+
     return {
       age: age,
       currentPrice: currentPrice,
@@ -1421,6 +1442,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
       highestPrice: highestPrice,
       highestPriceTimestamp: highestPriceTimestamp,
       drawdownFromHighest: drawdownFromHighest,
+      highestPriceSinceLastBuy: highestPriceSinceLastBuy,
+      drawdownFromHighestSinceLastBuy: drawdownFromHighestSinceLastBuy,
       txVolumeU24h: token.txVolumeU24h || 0,
       holders: token.holders || 0,
       tvl: token.tvl || 0,
@@ -1654,7 +1677,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
             preBuyCheckCondition,
             {
               checkTime: Math.floor(Date.now() / 1000),
-              tokenBuyTime: token.buyTime || null  // 代币首次买入时间
+              tokenBuyTime: token.buyTime || null,  // 代币首次买入时间
+              drawdownFromHighest: factorResults.drawdownFromHighest || null  // 趋势因子：最高价回撤
             }
           );
 

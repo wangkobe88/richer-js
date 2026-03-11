@@ -33,6 +33,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     highestPrice: factorResults.highestPrice,
     highestPriceTimestamp: factorResults.highestPriceTimestamp,
     drawdownFromHighest: factorResults.drawdownFromHighest,
+    // 最近一次购买后的最高价相关因子（用于止损/止盈）
+    // 注意：这个因子会保存到时序数据库，但回测时会动态计算（类似 profitPercent）
+    highestPriceSinceLastBuy: factorResults.highestPriceSinceLastBuy,
+    drawdownFromHighestSinceLastBuy: factorResults.drawdownFromHighestSinceLastBuy,
     txVolumeU24h: factorResults.txVolumeU24h,
     holders: factorResults.holders,
     tvl: factorResults.tvl,
@@ -110,6 +114,8 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     walletClusterTotalBuyAmount: preBuyCheckResult.walletClusterTotalBuyAmount || 0,
     // 创建者Dev钱包检查因子
     creatorIsNotBadDevWallet: preBuyCheckResult.creatorIsNotBadDevWallet ?? null,
+    // 趋势因子（允许在条件表达式中使用）
+    drawdownFromHighest: preBuyCheckResult.drawdownFromHighest ?? null,
     // 跳过条件匹配标记（因子已收集但不做条件匹配）
     skippedConditionMatch: preBuyCheckResult.skippedConditionMatch || false
   };
@@ -141,6 +147,26 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     profitPercent = ((priceUsd - tokenState.buyPrice) / tokenState.buyPrice) * 100;
   }
 
+  // 动态计算最近一次购买后的最高价回撤（类似 profitPercent 的处理方式）
+  let highestPriceSinceLastBuy = null;
+  let drawdownFromHighestSinceLastBuy = null;
+
+  if (tokenState.buyTime) {
+    // 从时序数据读取最高价，如果没有则使用购买价
+    highestPriceSinceLastBuy = tokenState.highestPriceSinceLastBuy || tokenState.buyPrice || priceUsd;
+
+    // 如果当前价格更高，更新最高价
+    if (priceUsd > highestPriceSinceLastBuy) {
+      highestPriceSinceLastBuy = priceUsd;
+      // 注意：这里只更新返回值，不更新 tokenState（调用方需要更新）
+    }
+
+    // 计算回撤
+    if (highestPriceSinceLastBuy > 0) {
+      drawdownFromHighestSinceLastBuy = ((priceUsd - highestPriceSinceLastBuy) / highestPriceSinceLastBuy) * 100;
+    }
+  }
+
   return {
     // 基础因子
     age: age,
@@ -156,6 +182,9 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     highestPrice: fv.highestPrice || priceUsd,
     highestPriceTimestamp: fv.highestPriceTimestamp || timestamp,
     drawdownFromHighest: fv.drawdownFromHighest || 0,
+    // 最近一次购买后的最高价相关因子（动态计算，类似 profitPercent）
+    highestPriceSinceLastBuy: highestPriceSinceLastBuy,
+    drawdownFromHighestSinceLastBuy: drawdownFromHighestSinceLastBuy,
     txVolumeU24h: fv.txVolumeU24h || 0,
     holders: fv.holders || 0,
     tvl: fv.tvl || 0,
@@ -187,6 +216,8 @@ function getAvailableFactorIds() {
     'age', 'currentPrice', 'collectionPrice', 'earlyReturn', 'buyPrice',
     'holdDuration', 'profitPercent',
     'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
+    // 最近一次购买后的最高价相关因子（用于止损/止盈）
+    'highestPriceSinceLastBuy', 'drawdownFromHighestSinceLastBuy',
     'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap',
     // 趋势因子（固定窗口8个点）
     'trendCV', 'trendPriceUp', 'trendMedianUp', 'trendStrengthScore',

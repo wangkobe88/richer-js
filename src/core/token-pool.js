@@ -69,6 +69,9 @@ class TokenPool {
             // 历史最高价格追踪
             highestPrice: currentPrice, // 历史最高价格
             highestPriceTimestamp: collectionTime, // 最高价发生时间
+            // 最近一次购买后的最高价格追踪（用于止损/止盈）
+            highestPriceSinceLastBuy: null, // 最近一次购买后的最高价格
+            highestPriceSinceLastBuyTimestamp: null, // 最近一次购买后的最高价发生时间
             entryMetrics: null,
             rawApiData: rawApiData, // 保存完整的原始 API 数据
             // 新增：AVE API 因子
@@ -150,6 +153,9 @@ class TokenPool {
             token.buyPrice = buyDecision.buyPrice;
             token.buyTime = Date.now();
             token.currentPrice = buyDecision.buyPrice;
+            // 重置最近一次购买后的最高价（用于止损/止盈）
+            token.highestPriceSinceLastBuy = buyDecision.buyPrice;
+            token.highestPriceSinceLastBuyTimestamp = Date.now();
         }
     }
 

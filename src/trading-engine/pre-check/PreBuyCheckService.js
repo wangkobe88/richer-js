@@ -84,11 +84,12 @@ class PreBuyCheckService {
    * @param {boolean} options.skipHolderCheck - 是否跳过持有者检查（回测时为 true）
    * @param {boolean} options.skipEarlyParticipant - 是否跳过早期参与者检查
    * @param {number} options.tokenBuyTime - 代币首次买入时间戳（毫秒），用于判断是否有历史交易记录
+   * @param {number} options.drawdownFromHighest - 从最高价跌幅（%），负数表示下跌
    * @returns {Promise<Object>} 检查结果
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest } = options;
 
     // 判断代币是否已有交易记录（已通过购买前检查）
     const hasPriorTrade = tokenBuyTime !== null && tokenBuyTime !== undefined;
@@ -134,6 +135,9 @@ class PreBuyCheckService {
 
         // 创建者Dev钱包检查
         creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
+
+        // 从最高价跌幅（允许在条件表达式中使用）
+        drawdownFromHighest: drawdownFromHighest ?? 0,
 
         // 早期参与者检查结果
         ...earlyParticipantCheck,
@@ -217,7 +221,8 @@ class PreBuyCheckService {
         walletClusterCheck,
         creatorDevCheck,
         preBuyCheckCondition,
-        startTime
+        startTime,
+        options.drawdownFromHighest  // 传入 drawdownFromHighest
       );
     } catch (error) {
       const errorMessage = this._safeGetErrorMessage(error);
@@ -260,7 +265,7 @@ class PreBuyCheckService {
    * 使用条件表达式评估
    * @private
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, condition, startTime) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, condition, startTime, drawdownFromHighest = null) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -281,8 +286,11 @@ class PreBuyCheckService {
       blacklistReason: holderCheck.blacklistReason,
       devCheckReason: holderCheck.devReason,
 
-      // 创建者Dev钱包检查（true=创建者不是坏Dev钱包）
+      // 创建者Dev钱包检查（1=不在Dev列表中, 0=在Dev列表中）
       creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
+
+      // 从最高价跌幅（允许在条件表达式中使用）
+      drawdownFromHighest: drawdownFromHighest ?? 0,
 
       // 跳过第二阶段检查标记（完整检查时为 false）
       skippedConditionMatch: false,
@@ -335,8 +343,10 @@ class PreBuyCheckService {
         walletClusterMaxBlockNumber: walletClusterCheck.walletClusterMaxBlockNumber || null,
         walletClusterMaxBlockBuyAmount: walletClusterCheck.walletClusterMaxBlockBuyAmount || 0,
         walletClusterTotalBuyAmount: walletClusterCheck.walletClusterTotalBuyAmount || 0,
-        // 创建者Dev钱包因子（true=创建者不是坏Dev钱包）
-        creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet !== false
+        // 创建者Dev钱包因子（1=不在Dev列表中, 0=在Dev列表中）
+        creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
+        // 趋势因子（允许在条件表达式中使用）
+        drawdownFromHighest: drawdownFromHighest ?? 0
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
