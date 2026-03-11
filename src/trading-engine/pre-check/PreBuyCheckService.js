@@ -12,6 +12,7 @@ const { TokenHolderService } = require('../holders/TokenHolderService');
 const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService');
 const { WalletClusterService } = require('./WalletClusterService');
 const { WalletDataService } = require('../../web/services/WalletDataService');
+const TwitterSearchService = require('./TwitterSearchService');
 
 /**
  * 默认配置
@@ -59,6 +60,9 @@ class PreBuyCheckService {
       clusterBlockThreshold: this.config.clusterBlockThreshold || 7
     };
     this.walletClusterService = new WalletClusterService(logger, clusterConfig);
+
+    // 初始化Twitter搜索服务
+    this.twitterSearchService = new TwitterSearchService(logger);
   }
 
   /**
@@ -108,10 +112,11 @@ class PreBuyCheckService {
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
       );
 
-      const [holderCheck, walletClusterCheck, creatorDevCheck] = await Promise.all([
+      const [holderCheck, walletClusterCheck, creatorDevCheck, twitterCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
-        this._checkCreatorIsNotBadDevWallet(creatorAddress)
+        this._checkCreatorIsNotBadDevWallet(creatorAddress),
+        this._performTwitterSearch(tokenAddress)
       ]);
 
       // 构建完整的结果（包含所有因子）
@@ -145,6 +150,11 @@ class PreBuyCheckService {
         // 钱包簇检查结果
         ...walletClusterCheck,
 
+        // Twitter搜索结果
+        ...twitterCheck.factors,
+        _twitterRawResult: twitterCheck.rawResult,
+        _twitterDuration: twitterCheck.duration,
+
         // 标记跳过了条件匹配（但因子已收集）
         skippedConditionMatch: true,
 
@@ -170,11 +180,12 @@ class PreBuyCheckService {
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
       );
 
-      // 并行执行持有者检查、钱包簇检查和创建者Dev钱包检查
-      const [holderCheck, walletClusterCheck, creatorDevCheck] = await Promise.all([
+      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查和Twitter搜索
+      const [holderCheck, walletClusterCheck, creatorDevCheck, twitterCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
-        this._checkCreatorIsNotBadDevWallet(creatorAddress)
+        this._checkCreatorIsNotBadDevWallet(creatorAddress),
+        this._performTwitterSearch(tokenAddress)
       ]);
 
       // 如果没有提供条件表达式，返回检查失败
@@ -220,6 +231,7 @@ class PreBuyCheckService {
         earlyParticipantCheck,
         walletClusterCheck,
         creatorDevCheck,
+        twitterCheck,
         preBuyCheckCondition,
         startTime,
         options.drawdownFromHighest  // 传入 drawdownFromHighest
@@ -256,7 +268,21 @@ class PreBuyCheckService {
         // 早期参与者检查失败时的空值
         ...this.earlyParticipantService.getEmptyFactorValues(),
         // 钱包簇检查失败时的空值
-        ...this.walletClusterService.getEmptyFactorValues()
+        ...this.walletClusterService.getEmptyFactorValues(),
+        // Twitter检查失败时的空值
+        twitterTotalResults: 0,
+        twitterQualityTweets: 0,
+        twitterLikes: 0,
+        twitterRetweets: 0,
+        twitterComments: 0,
+        twitterTotalEngagement: 0,
+        twitterAvgEngagement: 0,
+        twitterVerifiedUsers: 0,
+        twitterFollowers: 0,
+        twitterUniqueUsers: 0,
+        twitterSearchSuccess: false,
+        twitterSearchDuration: 0,
+        twitterSearchError: errorMessage
       };
     }
   }
@@ -265,7 +291,7 @@ class PreBuyCheckService {
    * 使用条件表达式评估
    * @private
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, condition, startTime, drawdownFromHighest = null) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, twitterCheck, condition, startTime, drawdownFromHighest = null) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -300,6 +326,11 @@ class PreBuyCheckService {
 
       // 钱包簇检查结果
       ...walletClusterCheck,
+
+      // Twitter搜索结果
+      ...twitterCheck.factors,
+      _twitterRawResult: twitterCheck.rawResult,
+      _twitterDuration: twitterCheck.duration,
 
       // 早期参与者购买资格评估
       preTraderCanBuy: null,
@@ -345,6 +376,19 @@ class PreBuyCheckService {
         walletClusterTotalBuyAmount: walletClusterCheck.walletClusterTotalBuyAmount || 0,
         // 创建者Dev钱包因子（1=不在Dev列表中, 0=在Dev列表中）
         creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
+        // Twitter因子
+        twitterTotalResults: twitterCheck.factors.twitterTotalResults || 0,
+        twitterQualityTweets: twitterCheck.factors.twitterQualityTweets || 0,
+        twitterLikes: twitterCheck.factors.twitterLikes || 0,
+        twitterRetweets: twitterCheck.factors.twitterRetweets || 0,
+        twitterComments: twitterCheck.factors.twitterComments || 0,
+        twitterTotalEngagement: twitterCheck.factors.twitterTotalEngagement || 0,
+        twitterAvgEngagement: twitterCheck.factors.twitterAvgEngagement || 0,
+        twitterVerifiedUsers: twitterCheck.factors.twitterVerifiedUsers || 0,
+        twitterFollowers: twitterCheck.factors.twitterFollowers || 0,
+        twitterUniqueUsers: twitterCheck.factors.twitterUniqueUsers || 0,
+        twitterSearchSuccess: twitterCheck.factors.twitterSearchSuccess || false,
+        twitterSearchDuration: twitterCheck.factors.twitterSearchDuration || 0,
         // 趋势因子（允许在条件表达式中使用）
         drawdownFromHighest: drawdownFromHighest ?? 0
         // 注意：以下因子主要用于调试，通常不用于条件表达式
@@ -367,7 +411,9 @@ class PreBuyCheckService {
           maxHoldingRatio: context.maxHoldingRatio,
           earlyTradesHighValueCount: context.earlyTradesHighValueCount,
           earlyTradesCountPerMin: context.earlyTradesCountPerMin,
-          walletClusterSecondToFirstRatio: context.walletClusterSecondToFirstRatio
+          walletClusterSecondToFirstRatio: context.walletClusterSecondToFirstRatio,
+          twitterTotalResults: context.twitterTotalResults,
+          twitterSearchDuration: context.twitterSearchDuration
         }
       });
 
@@ -577,6 +623,31 @@ class PreBuyCheckService {
   }
 
   /**
+   * 执行Twitter搜索检查
+   * @private
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Object} Twitter搜索结果
+   */
+  async _performTwitterSearch(tokenAddress) {
+    try {
+      return await this.twitterSearchService.performCheck(tokenAddress);
+    } catch (error) {
+      this.logger.error('[PreBuyCheckService] Twitter搜索检查失败', {
+        token_address: tokenAddress,
+        error: error.message
+      });
+      // 返回空因子值
+      return {
+        success: false,
+        factors: this.twitterSearchService.getEmptyFactors(0, error.message),
+        rawResult: null,
+        duration: 0,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * 构建综合检查原因
    * @private
    */
@@ -620,7 +691,21 @@ class PreBuyCheckService {
       // 跳过第二阶段检查标记（默认值：false 表示未跳过）
       skippedConditionMatch: false,
       ...this.earlyParticipantService.getEmptyFactorValues(),
-      ...this.walletClusterService.getEmptyFactorValues()
+      ...this.walletClusterService.getEmptyFactorValues(),
+      // Twitter因子
+      twitterTotalResults: 0,
+      twitterQualityTweets: 0,
+      twitterLikes: 0,
+      twitterRetweets: 0,
+      twitterComments: 0,
+      twitterTotalEngagement: 0,
+      twitterAvgEngagement: 0,
+      twitterVerifiedUsers: 0,
+      twitterFollowers: 0,
+      twitterUniqueUsers: 0,
+      twitterSearchSuccess: false,
+      twitterSearchDuration: 0,
+      twitterSearchError: null
     };
   }
 

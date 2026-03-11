@@ -37,6 +37,10 @@ class TradeSignal {
     // 元数据（包含价格信息）
     this.metadata = signalData.metadata || {};
 
+    // Twitter搜索结果
+    this.twitter_search_result = signalData.twitter_search_result || null;
+    this.twitter_search_duration = signalData.twitter_search_duration || null;
+
     // 执行状态
     this.executed = signalData.executed || false;
 
@@ -61,6 +65,8 @@ class TradeSignal {
       confidence: this.confidence,
       reason: this.reason,
       metadata: this.metadata,
+      twitter_search_result: this.twitter_search_result,
+      twitter_search_duration: this.twitter_search_duration,
       executed: this.executed,
       created_at: this.createdAt.toISOString()
     };
@@ -83,6 +89,8 @@ class TradeSignal {
       confidence: dbRow.confidence,
       reason: dbRow.reason,
       metadata: dbRow.metadata || {},
+      twitter_search_result: dbRow.twitter_search_result || null,
+      twitter_search_duration: dbRow.twitter_search_duration || null,
       executed: dbRow.executed || false,
       createdAt: new Date(dbRow.created_at)
     };

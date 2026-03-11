@@ -1497,7 +1497,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           };
 
           try {
-            await this._updateSignalMetadata(signalId, failedCheckMetadata);
+            // 传递Twitter数据
+            const directFields = {
+              twitter_search_result: preBuyCheckResult._twitterRawResult || null,
+              twitter_search_duration: preBuyCheckResult._twitterDuration || null
+            };
+            await this._updateSignalMetadata(signalId, failedCheckMetadata, directFields);
             this.logger.info(this._experimentId, '_executeStrategy',
               `预检查失败，但已保存购买前置检查数据 | symbol=${token.symbol}, signalId=${signalId}`);
           } catch (updateError) {
@@ -1556,7 +1561,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         };
 
         try {
-          await this._updateSignalMetadata(signalId, signalMetadata);
+          // 传递Twitter数据
+          const directFields = {
+            twitter_search_result: preBuyCheckResult._twitterRawResult || null,
+            twitter_search_duration: preBuyCheckResult._twitterDuration || null
+          };
+          await this._updateSignalMetadata(signalId, signalMetadata, directFields);
           this.logger.info(this._experimentId, '_executeStrategy',
             `信号元数据已更新 | symbol=${token.symbol}, signalId=${signalId}`);
         } catch (updateError) {

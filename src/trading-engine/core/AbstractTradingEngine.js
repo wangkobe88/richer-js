@@ -583,9 +583,10 @@ class AbstractTradingEngine extends ITradingEngine {
    * @private
    * @param {string} signalId - 信号ID
    * @param {Object} additionalMetadata - 要添加的元数据
+   * @param {Object} directFields - 直接更新的表字段（非metadata），如 twitter_search_result, twitter_search_duration
    * @returns {Promise<void>}
    */
-  async _updateSignalMetadata(signalId, additionalMetadata) {
+  async _updateSignalMetadata(signalId, additionalMetadata, directFields = null) {
     const supabase = dbManager.getClient();
 
     if (!additionalMetadata || typeof additionalMetadata !== 'object') {
@@ -608,9 +609,22 @@ class AbstractTradingEngine extends ITradingEngine {
     // 合并 metadata
     const newMetadata = { ...(currentSignal.metadata || {}), ...additionalMetadata };
 
+    // 构建更新数据
+    const updateData = { metadata: newMetadata };
+
+    // 如果有直接字段需要更新，添加到更新数据中
+    if (directFields && typeof directFields === 'object') {
+      if (directFields.twitter_search_result !== undefined) {
+        updateData.twitter_search_result = directFields.twitter_search_result;
+      }
+      if (directFields.twitter_search_duration !== undefined) {
+        updateData.twitter_search_duration = directFields.twitter_search_duration;
+      }
+    }
+
     const { error } = await supabase
       .from('strategy_signals')
-      .update({ metadata: newMetadata })
+      .update(updateData)
       .eq('id', signalId);
 
     if (error) {

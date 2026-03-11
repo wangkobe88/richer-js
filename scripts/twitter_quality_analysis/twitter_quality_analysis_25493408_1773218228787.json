@@ -1,0 +1,1240 @@
+{
+  "experiment_id": "25493408-98b3-4342-a1ac-036ba49f97ee",
+  "analysis_timestamp": "2026-03-11T08:37:08.787Z",
+  "total_judged_tokens": 63,
+  "tokens_with_buy_signal": 54,
+  "tokens_analyzed": 54,
+  "summary_by_quality": {
+    "fake_pump": {
+      "count": 0,
+      "stats": null
+    },
+    "no_user": {
+      "count": 0,
+      "stats": null
+    },
+    "low_quality": {
+      "count": 22,
+      "stats": {
+        "tweets_count": {
+          "avg": 0,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "total_engagement": {
+          "avg": 0,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "avg_engagement": {
+          "avg": 0,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "verified_users": {
+          "avg": 0,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "total_followers": {
+          "avg": 0,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "unique_users": {
+          "avg": 0,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "time_span_hours": {
+          "avg": 0,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    "mid_quality": {
+      "count": 24,
+      "stats": {
+        "tweets_count": {
+          "avg": 0.2916666666666667,
+          "median": 0,
+          "min": 0,
+          "max": 2
+        },
+        "total_engagement": {
+          "avg": 2.2083333333333335,
+          "median": 0,
+          "min": 0,
+          "max": 19
+        },
+        "avg_engagement": {
+          "avg": 1.8333333333333333,
+          "median": 0,
+          "min": 0,
+          "max": 11
+        },
+        "verified_users": {
+          "avg": 0.25,
+          "median": 0,
+          "min": 0,
+          "max": 1
+        },
+        "total_followers": {
+          "avg": 2233.7083333333335,
+          "median": 0,
+          "min": 0,
+          "max": 32529
+        },
+        "unique_users": {
+          "avg": 0.25,
+          "median": 0,
+          "min": 0,
+          "max": 1
+        },
+        "time_span_hours": {
+          "avg": 0.013333333333333334,
+          "median": 0,
+          "min": 0,
+          "max": 0.32
+        }
+      }
+    },
+    "high_quality": {
+      "count": 8,
+      "stats": {
+        "tweets_count": {
+          "avg": 0.25,
+          "median": 0,
+          "min": 0,
+          "max": 1
+        },
+        "total_engagement": {
+          "avg": 3.125,
+          "median": 0,
+          "min": 0,
+          "max": 13
+        },
+        "avg_engagement": {
+          "avg": 3.125,
+          "median": 0,
+          "min": 0,
+          "max": 13
+        },
+        "verified_users": {
+          "avg": 0.25,
+          "median": 0,
+          "min": 0,
+          "max": 1
+        },
+        "total_followers": {
+          "avg": 5172,
+          "median": 0,
+          "min": 0,
+          "max": 36040
+        },
+        "unique_users": {
+          "avg": 0.25,
+          "median": 0,
+          "min": 0,
+          "max": 1
+        },
+        "time_span_hours": {
+          "avg": 0,
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    }
+  },
+  "detailed_results": [
+    {
+      "token_address": "0x0f14933b0ccad8d31cb7ffb457667f919a6f4444",
+      "token_symbol": "饲料",
+      "quality_category": "high_quality",
+      "first_buy_time": "2026-03-10T01:44:12.587Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x340b4bb0ca122f949b2a32f5caf0fe0803324444",
+      "token_symbol": "Scrapling",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-10T01:41:43.310Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xc3ca235bb3ac1bb951ce2833a9c8525f524e4444",
+      "token_symbol": "澳龙",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-10T01:34:22.041Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x51aafaf2cc4bc093965024b88efb6c0c48774444",
+      "token_symbol": "龙虾人生",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-10T01:45:31.925Z",
+      "twitter_before_buy": {
+        "tweets_count": 2,
+        "total_likes": 12,
+        "total_retweets": 3,
+        "total_replies": 4,
+        "total_engagement": 19,
+        "avg_engagement": 10,
+        "verified_users": 1,
+        "total_followers": 6072,
+        "unique_users": 1,
+        "first_tweet_at": "2026-03-10T01:20:32.000Z",
+        "last_tweet_at": "2026-03-10T01:39:26.000Z",
+        "time_span_hours": 0.32
+      }
+    },
+    {
+      "token_address": "0xfbbf59bc00815b8fae78ff0bb136fae20f594444",
+      "token_symbol": "金龙鱼",
+      "quality_category": "high_quality",
+      "first_buy_time": "2026-03-10T00:58:50.942Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x2bf6635545fd2a908d7912537fbb8584c51f4444",
+      "token_symbol": "NemoClaw",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T23:41:39.128Z",
+      "twitter_before_buy": {
+        "tweets_count": 1,
+        "total_likes": 2,
+        "total_retweets": 1,
+        "total_replies": 2,
+        "total_engagement": 5,
+        "avg_engagement": 5,
+        "verified_users": 1,
+        "total_followers": 2808,
+        "unique_users": 1,
+        "first_tweet_at": "2026-03-09T23:25:40.000Z",
+        "last_tweet_at": "2026-03-09T23:25:40.000Z",
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x6b0fd53e4676b99dd80051b73cb7260d926c4444",
+      "token_symbol": "1$",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T17:31:52.454Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xa322f68af1dd4078d0e72998921f546391274444",
+      "token_symbol": "LEO",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T17:16:21.788Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x8a67fe988d731031ad057d97876f901cc1f54444",
+      "token_symbol": "UselessCLAW",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T17:06:41.797Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xc6c9d84b77a6d007ae205804f4e8397cb76e4444",
+      "token_symbol": "XGrok",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T16:13:41.449Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x67af02b5e5624da2bbafe9621e42fb54cc094444",
+      "token_symbol": "1M",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T16:22:30.817Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x32b1792f9e34b5f9b83324fd34802a102791ffff",
+      "token_symbol": "龙虾发币",
+      "quality_category": "high_quality",
+      "first_buy_time": "2026-03-09T16:06:02.303Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xb5115e3b79e37f6abc2a39be8739eda3430e4444",
+      "token_symbol": "爪子",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T15:57:40.752Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x4fa826c7c4c666c17950916d8310f8ad0c114444",
+      "token_symbol": "爪子",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T15:55:40.564Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x7a8c4f9097ca55b66527f12ad8e4824602dc4444",
+      "token_symbol": "爪子",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T15:53:30.610Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xdc0ba14ece7b3f541b44094de989072ff6f54444",
+      "token_symbol": "2529",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T15:39:40.769Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xc8a1342d00c5e3642a33268caa2209f8b95f4444",
+      "token_symbol": "皮皮虾",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T15:03:50.551Z",
+      "twitter_before_buy": {
+        "tweets_count": 1,
+        "total_likes": 4,
+        "total_retweets": 1,
+        "total_replies": 1,
+        "total_engagement": 6,
+        "avg_engagement": 6,
+        "verified_users": 1,
+        "total_followers": 525,
+        "unique_users": 1,
+        "first_tweet_at": "2026-03-09T15:02:08.000Z",
+        "last_tweet_at": "2026-03-09T15:02:08.000Z",
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x5850bbdd3fd65a4d7c23623ffc7c3f041d954444",
+      "token_symbol": "LOBSTER",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T14:59:00.065Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x30d31d1b0d4f1fb82e17f858497a523fb0dd4444",
+      "token_symbol": "LOBSTER",
+      "quality_category": "high_quality",
+      "first_buy_time": "2026-03-09T14:55:39.846Z",
+      "twitter_before_buy": {
+        "tweets_count": 1,
+        "total_likes": 5,
+        "total_retweets": 1,
+        "total_replies": 6,
+        "total_engagement": 12,
+        "avg_engagement": 12,
+        "verified_users": 1,
+        "total_followers": 5336,
+        "unique_users": 1,
+        "first_tweet_at": "2026-03-09T14:55:19.000Z",
+        "last_tweet_at": "2026-03-09T14:55:19.000Z",
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xdda271f0dc2202270a7d5ca00cd81951d52e4444",
+      "token_symbol": "ipolloclaw",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T14:51:29.728Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x7d0c83bcf0ea81abe79257a9706b888c0bc44444",
+      "token_symbol": "人生",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T14:04:09.259Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x8d6f27bcc67efd9f74322b8dee1c9f16f0214444",
+      "token_symbol": "Life",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T14:00:19.246Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xbe4f0994a27e520422e89926a774d5441e1b4444",
+      "token_symbol": "Vibecoin",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T13:39:08.366Z",
+      "twitter_before_buy": {
+        "tweets_count": 1,
+        "total_likes": 3,
+        "total_retweets": 2,
+        "total_replies": 2,
+        "total_engagement": 7,
+        "avg_engagement": 7,
+        "verified_users": 1,
+        "total_followers": 32529,
+        "unique_users": 1,
+        "first_tweet_at": "2026-03-09T13:32:30.000Z",
+        "last_tweet_at": "2026-03-09T13:32:30.000Z",
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xd9625927fec260a637f86cc143b938a1eac54444",
+      "token_symbol": "BINANCE",
+      "quality_category": "high_quality",
+      "first_buy_time": "2026-03-09T13:11:18.504Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x3441fead2d5426b3d2726ac168cffb62b8e14444",
+      "token_symbol": "1ru1h",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T12:58:50.496Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x16c0c845970b7fbc88f38879416212a36d66ffff",
+      "token_symbol": "SYNPTX",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T12:48:38.384Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x340d46b4cd8546f07a06cfae1e1889c541ba4444",
+      "token_symbol": "HODL",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T12:49:17.950Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xbf14e033b9c1318fb3ff3adf580c9285200c4444",
+      "token_symbol": "赛博皇上",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T12:19:07.188Z",
+      "twitter_before_buy": {
+        "tweets_count": 1,
+        "total_likes": 7,
+        "total_retweets": 1,
+        "total_replies": 3,
+        "total_engagement": 11,
+        "avg_engagement": 11,
+        "verified_users": 1,
+        "total_followers": 3996,
+        "unique_users": 1,
+        "first_tweet_at": "2026-03-09T12:18:02.000Z",
+        "last_tweet_at": "2026-03-09T12:18:02.000Z",
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x887cb960a7de49146ca2c6aae50dd42ca0874444",
+      "token_symbol": "赛博皇上",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T12:11:37.080Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x3e949a377c1b932723d271cef872724dcf624444",
+      "token_symbol": "BettaFish",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T11:55:26.546Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xe98b1351cb3c181cc1fb93386e1da3e377574444",
+      "token_symbol": "Lobster",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T10:51:35.941Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xd7a23f95c6698c44c7b861408f0d7b47acc74444",
+      "token_symbol": "来宝",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T10:24:15.763Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x9e9f5e1c6d8b9f6b49de7ca3e57a977b2f304444",
+      "token_symbol": "OPC时代",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T09:57:25.543Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x4acb64218d105d6efcc175fe78619947e83e4444",
+      "token_symbol": "KKClaw",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T09:39:06.756Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x4d15d67fcf9bd0b109efa7fc1b150416cca04444",
+      "token_symbol": "小龙虾",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T09:39:05.467Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xb9b1142a28fade5771b7ae076c96c3bee8beffff",
+      "token_symbol": "龙虾基金",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T09:35:25.354Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x1443d233e2dbad52df65e6b17063274e6c844444",
+      "token_symbol": "Lenny",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T09:33:04.480Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xf40dec26ab76df60a761e78c84682d7117a64444",
+      "token_symbol": "COS",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T08:55:13.934Z",
+      "twitter_before_buy": {
+        "tweets_count": 1,
+        "total_likes": 2,
+        "total_retweets": 0,
+        "total_replies": 3,
+        "total_engagement": 5,
+        "avg_engagement": 5,
+        "verified_users": 1,
+        "total_followers": 7679,
+        "unique_users": 1,
+        "first_tweet_at": "2026-03-09T08:50:23.000Z",
+        "last_tweet_at": "2026-03-09T08:50:23.000Z",
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x9149356cbb14b5ee8ba169cd3a1e55a5f19c4444",
+      "token_symbol": "Humberto",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T08:29:15.327Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xf3372a3dbc824f0b0044ca77209559514b294444",
+      "token_symbol": "GLUBSCHIS",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T08:28:16.684Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xd8d4ddeb91987a121422567260a88230dbb34444",
+      "token_symbol": "CTO",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T08:11:33.736Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xfdf9c429eb38c6104a552433af05461e09034444",
+      "token_symbol": "ArkClaw",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T07:55:23.961Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x6abe6ae55d989e8483b391eb8b4a7000b2d74444",
+      "token_symbol": "DouClaw",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T07:47:44.134Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x6df5fd6949f2527ee99ce7c979c00f2a5bd34444",
+      "token_symbol": "扑街虾",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T07:32:04.095Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x721f5abc0d34948aa0904ba135cc4d9c6ff84444",
+      "token_symbol": "虾头男",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T07:23:33.783Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xa9fe96fd5230a135ada220523032b3e1a67d4444",
+      "token_symbol": "WorkBuddy",
+      "quality_category": "high_quality",
+      "first_buy_time": "2026-03-09T07:13:53.992Z",
+      "twitter_before_buy": {
+        "tweets_count": 1,
+        "total_likes": 8,
+        "total_retweets": 3,
+        "total_replies": 2,
+        "total_engagement": 13,
+        "avg_engagement": 13,
+        "verified_users": 1,
+        "total_followers": 36040,
+        "unique_users": 1,
+        "first_tweet_at": "2026-03-09T07:13:48.000Z",
+        "last_tweet_at": "2026-03-09T07:13:48.000Z",
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xa9d099604d2ac1e8409322d8dfd0b7f4f7354444",
+      "token_symbol": "小龙虾",
+      "quality_category": "high_quality",
+      "first_buy_time": "2026-03-09T07:26:02.638Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0xc516fcdf712f9ff8089fd2f0e98e644eb6ba4444",
+      "token_symbol": "我的虾盾",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T07:09:33.359Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x98fe71847aa16d9e40a4f0e123d172bc71d14444",
+      "token_symbol": "币安矩阵",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T06:27:42.052Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x16aeb87aeb78e4cf7987f16e910c285d77354444",
+      "token_symbol": "AGENTGDP",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T06:16:22.089Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x3440f3389227f833ad31d3877ebd3792c2dc4444",
+      "token_symbol": "$250",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T05:41:01.401Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x779f44f13a6afe5171afab07d04d18c8f67e4444",
+      "token_symbol": "OP",
+      "quality_category": "low_quality",
+      "first_buy_time": "2026-03-09T05:06:20.897Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x77e41a64b056b2de34cddeb087a4162145c74444",
+      "token_symbol": "ClawHouse",
+      "quality_category": "high_quality",
+      "first_buy_time": "2026-03-09T04:35:00.817Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    },
+    {
+      "token_address": "0x0da3a0a3bd66bbeaaa4d35d12cb9ea3725294444",
+      "token_symbol": "龙虾人",
+      "quality_category": "mid_quality",
+      "first_buy_time": "2026-03-09T04:17:40.055Z",
+      "twitter_before_buy": {
+        "tweets_count": 0,
+        "total_likes": 0,
+        "total_retweets": 0,
+        "total_replies": 0,
+        "total_engagement": 0,
+        "avg_engagement": 0,
+        "verified_users": 0,
+        "total_followers": 0,
+        "unique_users": 0,
+        "first_tweet_at": null,
+        "last_tweet_at": null,
+        "time_span_hours": 0
+      }
+    }
+  ]
+}
