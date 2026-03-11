@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代币详情 - Richer-js Fourmeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.0" rel="stylesheet">
+    <style>
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-size: 1.2rem;
+            background: rgba(0,0,0,0.9);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 状态徽章 */
+        .status-monitoring { background-color: #3b82f6; color: white; }
+        .status-bought { background-color: #10b981; color: white; }
+        .status-exited { background-color: #ef4444; color: white; }
+
+        /* 标签页样式 */
+        .tab-container {
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            background: #1f2937;
+        }
+
+        .tab-header {
+            display: flex;
+            background: #111827;
+            border-bottom: 1px solid #374151;
+        }
+
+        .tab-button {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #9ca3af;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-button:hover {
+            color: #d1d5db;
+            background: #1f2937;
+        }
+
+        .tab-button.active {
+            color: #60a5fa;
+            background: #1f2937;
+            border-bottom-color: #60a5fa;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 1.5rem;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Twitter卡片样式 */
+        .twitter-card {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .tweet-item {
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .tweet-user {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .tweet-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #3b82f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.75rem;
+        }
+
+        .tweet-metrics {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.75rem;
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .feature-item {
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        .feature-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #60a5fa;
+        }
+
+        .feature-label {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-top: 0.25rem;
+        }
+
+        /* 代码块样式 */
+        .code-block {
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .code-content {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: #e5e7eb;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+
+        .btn-secondary {
+            background: #4b5563;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #374151;
+        }
+
+        .info-card {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #374151;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #9ca3af;
+            font-size: 0.875rem;
+        }
+
+        .info-value {
+            color: #e5e7eb;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        .monospace {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-green-400">
+                            <a href="/" class="text-green-400">
+                                Richer-js Fourmeme Trading
+                            </a>
+                        </h1>
+                        <div class="hidden md:block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-300">
+                                实验列表
+                            </a>
+                            <a id="link-experiment" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300">
+                                实验详情
+                            </a>
+                            <a href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">
+                                代币详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 加载指示器 -->
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <span class="ml-4 text-white">正在加载代币详情...</span>
+            </div>
+
+            <!-- 错误信息 -->
+            <div id="error-message" class="hidden bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+                <div class="flex items-center">
+                    <span class="text-red-400">⚠️</span>
+                    <span class="ml-2" id="error-text">加载失败</span>
+                </div>
+            </div>
+
+            <!-- 内容区 -->
+            <div id="content" class="hidden">
+                <!-- 代币基本信息 -->
+                <div class="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold text-white" id="token-title">代币详情</h2>
+                        <a id="link-back" href="#" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-sm font-medium text-white">
+                            ← 返回
+                        </a>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="info-card">
+                            <div class="info-row">
+                                <span class="info-label">代币符号</span>
+                                <span class="info-value" id="token-symbol">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">代币地址</span>
+                                <span class="info-value monospace" id="token-address">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">区块链</span>
+                                <span class="info-value" id="token-chain">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">状态</span>
+                                <span class="info-value" id="token-status">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">发现时间</span>
+                                <span class="info-value" id="token-discovered-at">-</span>
+                            </div>
+                        </div>
+
+                        <!-- 代币描述 -->
+                        <div class="info-card">
+                            <h3 class="text-sm font-medium text-gray-400 mb-2">代币描述</h3>
+                            <div id="token-description" class="text-sm text-gray-300 max-h-32 overflow-y-auto">
+                                -
+                            </div>
+                        </div>
+
+                        <!-- Twitter信息卡片 -->
+                        <div class="twitter-card">
+                            <h3 class="text-lg font-semibold text-white mb-4">🐦 Twitter 信息</h3>
+
+                            <!-- 从描述提取推文 -->
+                            <div class="mb-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-gray-400">从代币描述提取推文</span>
+                                    <button id="btn-extract-description" class="btn btn-primary text-xs">
+                                        提取推文
+                                    </button>
+                                </div>
+                                <div id="description-tweets-container">
+                                    <p class="text-sm text-gray-500">点击"提取推文"按钮</p>
+                                </div>
+                            </div>
+
+                            <!-- 搜索代币地址 -->
+                            <div class="mb-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm text-gray-400">搜索代币地址</span>
+                                    <button id="btn-search-address" class="btn btn-primary text-xs">
+                                        搜索Twitter
+                                    </button>
+                                </div>
+                                <div id="address-search-container">
+                                    <p class="text-sm text-gray-500">点击"搜索Twitter"按钮</p>
+                                </div>
+                            </div>
+
+                            <!-- Twitter特征 -->
+                            <div id="twitter-features-container" class="hidden">
+                                <h4 class="text-sm text-gray-400 mb-2">Twitter 特征</h4>
+                                <div class="feature-grid">
+                                    <div class="feature-item">
+                                        <div class="feature-value" id="feature-total-results">-</div>
+                                        <div class="feature-label">总结果数</div>
+                                    </div>
+                                    <div class="feature-item">
+                                        <div class="feature-value" id="feature-likes">-</div>
+                                        <div class="feature-label">点赞数</div>
+                                    </div>
+                                    <div class="feature-item">
+                                        <div class="feature-value" id="feature-retweets">-</div>
+                                        <div class="feature-label">转发数</div>
+                                    </div>
+                                    <div class="feature-item">
+                                        <div class="feature-value" id="feature-comments">-</div>
+                                        <div class="feature-label">评论数</div>
+                                    </div>
+                                    <div class="feature-item">
+                                        <div class="feature-value" id="feature-followers">-</div>
+                                        <div class="feature-label">粉丝总数</div>
+                                    </div>
+                                    <div class="feature-item">
+                                        <div class="feature-value" id="feature-verified">-</div>
+                                        <div class="feature-label">认证用户</div>
+                                    </div>
+                                    <div class="feature-item">
+                                        <div class="feature-value" id="feature-quality">-</div>
+                                        <div class="feature-label">高质量推文</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 外部链接 -->
+                    <div class="mt-4 flex flex-wrap gap-2" id="external-links">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+
+                <!-- 标签页 -->
+                <div class="tab-container">
+                    <div class="tab-header">
+                        <button class="tab-button active" data-tab="basic">基本信息</button>
+                        <button class="tab-button" data-tab="trades">交易记录</button>
+                        <button class="tab-button" data-tab="signals">信号记录</button>
+                        <button class="tab-button" data-tab="holders">持有者</button>
+                        <button class="tab-button" data-tab="early-trades">早期交易</button>
+                    </div>
+
+                    <!-- 基本信息标签页 -->
+                    <div id="tab-basic" class="tab-content active">
+                        <h3 class="text-lg font-semibold text-white mb-4">原始API数据</h3>
+                        <div class="code-block">
+                            <pre id="raw-api-data" class="code-content">-</pre>
+                        </div>
+                    </div>
+
+                    <!-- 交易记录标签页 -->
+                    <div id="tab-trades" class="tab-content">
+                        <h3 class="text-lg font-semibold text-white mb-4">交易记录</h3>
+                        <div id="trades-container">
+                            <p class="text-gray-500">加载中...</p>
+                        </div>
+                    </div>
+
+                    <!-- 信号记录标签页 -->
+                    <div id="tab-signals" class="tab-content">
+                        <h3 class="text-lg font-semibold text-white mb-4">交易信号</h3>
+                        <div id="signals-container">
+                            <p class="text-gray-500">加载中...</p>
+                        </div>
+                    </div>
+
+                    <!-- 持有者标签页 -->
+                    <div id="tab-holders" class="tab-content">
+                        <h3 class="text-lg font-semibold text-white mb-4">持有者信息</h3>
+                        <div class="text-center py-8">
+                            <a id="link-holders" href="#" target="_blank" class="btn btn-primary">
+                                查看持有者详情
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- 早期交易标签页 -->
+                    <div id="tab-early-trades" class="tab-content">
+                        <h3 class="text-lg font-semibold text-white mb-4">早期交易分析</h3>
+                        <div class="text-center py-8">
+                            <a id="link-early-trades" href="#" target="_blank" class="btn btn-primary">
+                                查看早期交易详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/simple-init.js?v=4.3"></script>
+    <script src="/static/js/token_detail.js?v=1.0"></script>
+</body>
+</html>

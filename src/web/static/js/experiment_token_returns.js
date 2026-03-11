@@ -577,6 +577,9 @@ class ExperimentTokenReturns {
               <a href="/token-early-trades?token=${item.tokenAddress}&chain=${this.experimentData?.blockchain || 'bsc'}" target="_blank" class="action-link text-amber-400 hover:text-amber-300">
                 早期交易
               </a>
+              <a href="/token-detail?experiment=${this.experimentId}&address=${item.tokenAddress}" target="_blank" class="action-link text-indigo-400 hover:text-indigo-300">
+                代币详情
+              </a>
             </div>
           </td>
         </tr>

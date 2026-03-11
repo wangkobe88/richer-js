@@ -1,0 +1,422 @@
+{
+  "timestamp": "2026-03-11T05:04:24.013Z",
+  "dataset": {
+    "total": 57,
+    "profitable": 20,
+    "losing": 37
+  },
+  "bestSingleRules": [
+    {
+      "name": "uniqueWallets_max < 15",
+      "config": {
+        "name": "uniqueWallets_max",
+        "field": "uniqueWallets",
+        "thresholds": [
+          5,
+          10,
+          15
+        ],
+        "compare": "<"
+      },
+      "threshold": 15,
+      "precision": 0.74,
+      "recall": 1,
+      "f1": 0.8505747126436781,
+      "rejectLosing": 37,
+      "rejectProfitable": 13
+    },
+    {
+      "name": "uniqueWallets_max < 5",
+      "config": {
+        "name": "uniqueWallets_max",
+        "field": "uniqueWallets",
+        "thresholds": [
+          5,
+          10,
+          15
+        ],
+        "compare": "<"
+      },
+      "threshold": 5,
+      "precision": 0.7115384615384616,
+      "recall": 1,
+      "f1": 0.8314606741573033,
+      "rejectLosing": 37,
+      "rejectProfitable": 15
+    },
+    {
+      "name": "uniqueWallets_max < 10",
+      "config": {
+        "name": "uniqueWallets_max",
+        "field": "uniqueWallets",
+        "thresholds": [
+          5,
+          10,
+          15
+        ],
+        "compare": "<"
+      },
+      "threshold": 10,
+      "precision": 0.7115384615384616,
+      "recall": 1,
+      "f1": 0.8314606741573033,
+      "rejectLosing": 37,
+      "rejectProfitable": 15
+    },
+    {
+      "name": "top2Ratio < 0.55",
+      "config": {
+        "name": "top2Ratio",
+        "field": "top2Ratio",
+        "thresholds": [
+          0.5,
+          0.55,
+          0.6,
+          0.65,
+          0.7,
+          0.75,
+          0.8,
+          0.85,
+          0.9
+        ],
+        "compare": "<"
+      },
+      "threshold": 0.55,
+      "precision": 0.7692307692307693,
+      "recall": 0.8108108108108109,
+      "f1": 0.7894736842105263,
+      "rejectLosing": 30,
+      "rejectProfitable": 9
+    },
+    {
+      "name": "whitelistCount >= 1",
+      "config": {
+        "name": "whitelistCount",
+        "field": "whitelistCount",
+        "thresholds": [
+          1,
+          2,
+          3,
+          5
+        ],
+        "compare": ">="
+      },
+      "threshold": 1,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "whitelistCount >= 2",
+      "config": {
+        "name": "whitelistCount",
+        "field": "whitelistCount",
+        "thresholds": [
+          1,
+          2,
+          3,
+          5
+        ],
+        "compare": ">="
+      },
+      "threshold": 2,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "whitelistCount >= 3",
+      "config": {
+        "name": "whitelistCount",
+        "field": "whitelistCount",
+        "thresholds": [
+          1,
+          2,
+          3,
+          5
+        ],
+        "compare": ">="
+      },
+      "threshold": 3,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "whitelistCount >= 5",
+      "config": {
+        "name": "whitelistCount",
+        "field": "whitelistCount",
+        "thresholds": [
+          1,
+          2,
+          3,
+          5
+        ],
+        "compare": ">="
+      },
+      "threshold": 5,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendRecentDownRatio < 0.2",
+      "config": {
+        "name": "trendRecentDownRatio",
+        "field": "trendRecentDownRatio",
+        "thresholds": [
+          0.2,
+          0.3,
+          0.4,
+          0.5,
+          0.6
+        ],
+        "compare": "<"
+      },
+      "threshold": 0.2,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendRecentDownRatio < 0.3",
+      "config": {
+        "name": "trendRecentDownRatio",
+        "field": "trendRecentDownRatio",
+        "thresholds": [
+          0.2,
+          0.3,
+          0.4,
+          0.5,
+          0.6
+        ],
+        "compare": "<"
+      },
+      "threshold": 0.3,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendRecentDownRatio < 0.4",
+      "config": {
+        "name": "trendRecentDownRatio",
+        "field": "trendRecentDownRatio",
+        "thresholds": [
+          0.2,
+          0.3,
+          0.4,
+          0.5,
+          0.6
+        ],
+        "compare": "<"
+      },
+      "threshold": 0.4,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendRecentDownRatio < 0.5",
+      "config": {
+        "name": "trendRecentDownRatio",
+        "field": "trendRecentDownRatio",
+        "thresholds": [
+          0.2,
+          0.3,
+          0.4,
+          0.5,
+          0.6
+        ],
+        "compare": "<"
+      },
+      "threshold": 0.5,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendRecentDownRatio < 0.6",
+      "config": {
+        "name": "trendRecentDownRatio",
+        "field": "trendRecentDownRatio",
+        "thresholds": [
+          0.2,
+          0.3,
+          0.4,
+          0.5,
+          0.6
+        ],
+        "compare": "<"
+      },
+      "threshold": 0.6,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendConsecutiveDowns <= 0",
+      "config": {
+        "name": "trendConsecutiveDowns",
+        "field": "trendConsecutiveDowns",
+        "thresholds": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "compare": "<="
+      },
+      "threshold": 0,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendConsecutiveDowns <= 1",
+      "config": {
+        "name": "trendConsecutiveDowns",
+        "field": "trendConsecutiveDowns",
+        "thresholds": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "compare": "<="
+      },
+      "threshold": 1,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendConsecutiveDowns <= 2",
+      "config": {
+        "name": "trendConsecutiveDowns",
+        "field": "trendConsecutiveDowns",
+        "thresholds": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "compare": "<="
+      },
+      "threshold": 2,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendConsecutiveDowns <= 3",
+      "config": {
+        "name": "trendConsecutiveDowns",
+        "field": "trendConsecutiveDowns",
+        "thresholds": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "compare": "<="
+      },
+      "threshold": 3,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendDataPoints >= 3",
+      "config": {
+        "name": "trendDataPoints",
+        "field": "trendDataPoints",
+        "thresholds": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "compare": ">="
+      },
+      "threshold": 3,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendDataPoints >= 4",
+      "config": {
+        "name": "trendDataPoints",
+        "field": "trendDataPoints",
+        "thresholds": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "compare": ">="
+      },
+      "threshold": 4,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "name": "trendDataPoints >= 5",
+      "config": {
+        "name": "trendDataPoints",
+        "field": "trendDataPoints",
+        "thresholds": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "compare": ">="
+      },
+      "threshold": 5,
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    }
+  ],
+  "bestDoubleRules": [],
+  "bestTripleRules": []
+}

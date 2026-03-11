@@ -17,6 +17,7 @@ const { WalletDataService } = require('./web/services/WalletDataService');
 const { TokenHolderDataService } = require('./web/services/TokenHolderDataService');
 const { WalletAnalysisDataService } = require('./web/services/WalletAnalysisDataService');
 const { BayesModelService } = require('./services/BayesModelService');
+const { TwitterService } = require('./services/TwitterService');
 const PriceRefreshService = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 
@@ -78,6 +79,7 @@ class RicherJsWebServer {
     this.tokenHolderService = new TokenHolderDataService();
     this.walletAnalysisService = new WalletAnalysisDataService();
     this.bayesModelService = new BayesModelService();
+    this.twitterService = new TwitterService(console);
     this.priceRefreshService = new PriceRefreshService(
       console,
       this.dataService.supabase,
@@ -198,6 +200,11 @@ class RicherJsWebServer {
     // 交易策略分析页面
     this.app.get('/experiment/:id/strategy-analysis', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/strategy_analysis.html'));
+    });
+
+    // 代币详情页面（独立页面，不在实验子路由下）
+    this.app.get('/token-detail', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/token_detail.html'));
     });
 
     // 实验详情页面（必须放在最后，作为默认路由）
@@ -1738,6 +1745,141 @@ class RicherJsWebServer {
         });
       } catch (error) {
         console.error('获取代币标注失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ API路由：Twitter功能 ============
+
+    // 从代币描述提取推文
+    this.app.post('/api/twitter/description/extract', async (req, res) => {
+      try {
+        const { description } = req.body;
+        if (!description) {
+          return res.status(400).json({ success: false, error: '缺少description参数' });
+        }
+
+        const tweets = this.twitterService.extractTweetsFromDescription(description);
+        res.json({
+          success: true,
+          data: tweets
+        });
+      } catch (error) {
+        console.error('从描述提取推文失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 从代币描述提取推文（含详情）
+    this.app.post('/api/twitter/description/extract-detail', async (req, res) => {
+      try {
+        const { description } = req.body;
+        if (!description) {
+          return res.status(400).json({ success: false, error: '缺少description参数' });
+        }
+
+        const result = await this.twitterService.extractTweetsFromDescriptionWithDetails(description);
+        res.json({
+          success: true,
+          data: result
+        });
+      } catch (error) {
+        console.error('从描述提取推文详情失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 搜索代币地址的推文
+    this.app.get('/api/twitter/token/:address/search', async (req, res) => {
+      try {
+        const { address } = req.params;
+        const options = {
+          minTweetCount: parseInt(req.query.minTweetCount) || 2,
+          maxRetries: parseInt(req.query.maxRetries) || 3,
+          timeout: parseInt(req.query.timeout) || 30000
+        };
+
+        const result = await this.twitterService.searchTokenAddress(address, options);
+        res.json(result);
+      } catch (error) {
+        console.error('搜索代币地址推文失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 提取代币的Twitter特征
+    this.app.get('/api/twitter/token/:address/extract', async (req, res) => {
+      try {
+        const { address } = req.params;
+        const options = {
+          minTweetCount: parseInt(req.query.minTweetCount) || 2,
+          maxRetries: parseInt(req.query.maxRetries) || 3,
+          timeout: parseInt(req.query.timeout) || 30000
+        };
+
+        const result = await this.twitterService.extractTokenTwitterFeatures(address, options);
+        res.json(result);
+      } catch (error) {
+        console.error('提取代币Twitter特征失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取推文详情
+    this.app.get('/api/twitter/tweet/:id', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const result = await this.twitterService.getTweetDetail(id);
+        res.json(result);
+      } catch (error) {
+        console.error('获取推文详情失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取用户信息
+    this.app.get('/api/twitter/user/:handle', async (req, res) => {
+      try {
+        const { handle } = req.params;
+        const result = await this.twitterService.getUserInfo(handle);
+        res.json(result);
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取代币的完整Twitter信息（包含描述推文和可选的地址搜索）
+    this.app.get('/api/experiment/:id/tokens/:address/twitter', async (req, res) => {
+      try {
+        const { id, address } = req.params;
+        const { searchAddress = 'false' } = req.query;
+
+        // 获取代币数据
+        const token = await this.dataService.getToken(id, address);
+        if (!token) {
+          return res.status(404).json({ success: false, error: '代币不存在' });
+        }
+
+        // 获取基础Twitter信息（包含描述推文）
+        const result = await this.twitterService.getTokenTwitterInfo(token);
+
+        // 如果需要搜索地址
+        if (searchAddress === 'true') {
+          try {
+            const addressSearchResult = await this.twitterService.extractTokenTwitterFeatures(address, { minTweetCount: 1 });
+            result.addressSearchResults = addressSearchResult;
+          } catch (error) {
+            result.addressSearchResults = { error: error.message };
+          }
+        }
+
+        res.json({
+          success: true,
+          data: result
+        });
+      } catch (error) {
+        console.error('获取代币Twitter信息失败:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

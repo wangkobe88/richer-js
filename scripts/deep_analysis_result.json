@@ -1,0 +1,417 @@
+{
+  "correlations": [
+    {
+      "factor": "highValueCount",
+      "correlation": -0.4662334072464431,
+      "n": 57
+    },
+    {
+      "factor": "highValuePerMin",
+      "correlation": -0.4569058928926015,
+      "n": 57
+    },
+    {
+      "factor": "totalVolume",
+      "correlation": -0.45368102502477936,
+      "n": 57
+    },
+    {
+      "factor": "top2Ratio",
+      "correlation": -0.45063423737477226,
+      "n": 57
+    },
+    {
+      "factor": "volumePerMin",
+      "correlation": -0.4448397518467351,
+      "n": 57
+    },
+    {
+      "factor": "totalCount",
+      "correlation": -0.42791759237906746,
+      "n": 57
+    },
+    {
+      "factor": "countPerMin",
+      "correlation": -0.42781039548429667,
+      "n": 57
+    },
+    {
+      "factor": "walletsPerMin",
+      "correlation": -0.42300025104373523,
+      "n": 57
+    },
+    {
+      "factor": "uniqueWallets",
+      "correlation": -0.4130952023358697,
+      "n": 57
+    },
+    {
+      "factor": "actualSpan",
+      "correlation": -0.39283164167474055,
+      "n": 57
+    },
+    {
+      "factor": "clusterMaxSize",
+      "correlation": -0.37751010592311685,
+      "n": 57
+    },
+    {
+      "factor": "drawdownFromHighest",
+      "correlation": -0.30823605476732074,
+      "n": 57
+    },
+    {
+      "factor": "earlyReturn",
+      "correlation": 0.22829831944094053,
+      "n": 57
+    },
+    {
+      "factor": "clusterCount",
+      "correlation": -0.06740331918117985,
+      "n": 57
+    },
+    {
+      "factor": "secondToFirstRatio",
+      "correlation": -0.06734795721405863,
+      "n": 57
+    },
+    {
+      "factor": "megaRatio",
+      "correlation": -0.06056045701185143,
+      "n": 57
+    },
+    {
+      "factor": "maxBlockBuyRatio",
+      "correlation": 0.011584181968959361,
+      "n": 57
+    },
+    {
+      "factor": "blacklistCount",
+      "correlation": 0,
+      "n": 57
+    },
+    {
+      "factor": "whitelistCount",
+      "correlation": 0,
+      "n": 57
+    },
+    {
+      "factor": "holdersCount",
+      "correlation": 0,
+      "n": 57
+    },
+    {
+      "factor": "devHoldingRatio",
+      "correlation": 0,
+      "n": 57
+    },
+    {
+      "factor": "maxHoldingRatio",
+      "correlation": 0,
+      "n": 57
+    }
+  ],
+  "bestThresholds": [
+    {
+      "factor": "top2Ratio",
+      "threshold": 0.55,
+      "compare": "<",
+      "precision": 0.7692307692307693,
+      "recall": 0.8108108108108109,
+      "f1": 0.7894736842105263,
+      "rejectLosing": 30,
+      "rejectProfitable": 9
+    },
+    {
+      "factor": "actualSpan",
+      "threshold": 90,
+      "compare": ">=",
+      "precision": 0.6491228070175439,
+      "recall": 1,
+      "f1": 0.7872340425531915,
+      "rejectLosing": 37,
+      "rejectProfitable": 20
+    },
+    {
+      "factor": "top2Ratio",
+      "threshold": 0.5,
+      "compare": "<",
+      "precision": 0.7142857142857143,
+      "recall": 0.8108108108108109,
+      "f1": 0.759493670886076,
+      "rejectLosing": 30,
+      "rejectProfitable": 12
+    },
+    {
+      "factor": "top2Ratio",
+      "threshold": 0.6,
+      "compare": "<",
+      "precision": 0.7567567567567568,
+      "recall": 0.7567567567567568,
+      "f1": 0.7567567567567567,
+      "rejectLosing": 28,
+      "rejectProfitable": 9
+    },
+    {
+      "factor": "countPerMin",
+      "threshold": 200,
+      "compare": ">=",
+      "precision": 0.6153846153846154,
+      "recall": 0.8648648648648649,
+      "f1": 0.7191011235955056,
+      "rejectLosing": 32,
+      "rejectProfitable": 20
+    },
+    {
+      "factor": "countPerMin",
+      "threshold": 180,
+      "compare": ">=",
+      "precision": 0.6078431372549019,
+      "recall": 0.8378378378378378,
+      "f1": 0.7045454545454545,
+      "rejectLosing": 31,
+      "rejectProfitable": 20
+    },
+    {
+      "factor": "earlyReturn",
+      "threshold": 250,
+      "compare": ">",
+      "precision": 0.75,
+      "recall": 0.6486486486486487,
+      "f1": 0.6956521739130435,
+      "rejectLosing": 24,
+      "rejectProfitable": 8
+    },
+    {
+      "factor": "countPerMin",
+      "threshold": 150,
+      "compare": ">=",
+      "precision": 0.6,
+      "recall": 0.8108108108108109,
+      "f1": 0.6896551724137931,
+      "rejectLosing": 30,
+      "rejectProfitable": 20
+    },
+    {
+      "factor": "earlyReturn",
+      "threshold": 200,
+      "compare": "<",
+      "precision": 0.625,
+      "recall": 0.6756756756756757,
+      "f1": 0.6493506493506493,
+      "rejectLosing": 25,
+      "rejectProfitable": 15
+    },
+    {
+      "factor": "countPerMin",
+      "threshold": 120,
+      "compare": ">=",
+      "precision": 0.5777777777777777,
+      "recall": 0.7027027027027027,
+      "f1": 0.6341463414634145,
+      "rejectLosing": 26,
+      "rejectProfitable": 19
+    },
+    {
+      "factor": "top2Ratio",
+      "threshold": 0.65,
+      "compare": "<",
+      "precision": 0.7,
+      "recall": 0.5675675675675675,
+      "f1": 0.626865671641791,
+      "rejectLosing": 21,
+      "rejectProfitable": 9
+    },
+    {
+      "factor": "volumePerMin",
+      "threshold": 10000,
+      "compare": ">=",
+      "precision": 0.5652173913043478,
+      "recall": 0.7027027027027027,
+      "f1": 0.6265060240963856,
+      "rejectLosing": 26,
+      "rejectProfitable": 20
+    },
+    {
+      "factor": "megaRatio",
+      "threshold": 0.3,
+      "compare": "<",
+      "precision": 0.6774193548387096,
+      "recall": 0.5675675675675675,
+      "f1": 0.6176470588235294,
+      "rejectLosing": 21,
+      "rejectProfitable": 10
+    },
+    {
+      "factor": "volumePerMin",
+      "threshold": 8000,
+      "compare": ">=",
+      "precision": 0.5555555555555556,
+      "recall": 0.6756756756756757,
+      "f1": 0.6097560975609757,
+      "rejectLosing": 25,
+      "rejectProfitable": 20
+    },
+    {
+      "factor": "top2Ratio",
+      "threshold": 0.75,
+      "compare": "<",
+      "precision": 0.782608695652174,
+      "recall": 0.4864864864864865,
+      "f1": 0.6000000000000001,
+      "rejectLosing": 18,
+      "rejectProfitable": 5
+    },
+    {
+      "factor": "megaRatio",
+      "threshold": 0.35,
+      "compare": "<",
+      "precision": 0.6666666666666666,
+      "recall": 0.5405405405405406,
+      "f1": 0.5970149253731343,
+      "rejectLosing": 20,
+      "rejectProfitable": 10
+    },
+    {
+      "factor": "secondToFirstRatio",
+      "threshold": 0.5,
+      "compare": ">",
+      "precision": 0.6176470588235294,
+      "recall": 0.5675675675675675,
+      "f1": 0.5915492957746479,
+      "rejectLosing": 21,
+      "rejectProfitable": 13
+    },
+    {
+      "factor": "top2Ratio",
+      "threshold": 0.8,
+      "compare": "<",
+      "precision": 0.8095238095238095,
+      "recall": 0.4594594594594595,
+      "f1": 0.5862068965517242,
+      "rejectLosing": 17,
+      "rejectProfitable": 4
+    },
+    {
+      "factor": "top2Ratio",
+      "threshold": 0.7,
+      "compare": "<",
+      "precision": 0.6785714285714286,
+      "recall": 0.5135135135135135,
+      "f1": 0.5846153846153848,
+      "rejectLosing": 19,
+      "rejectProfitable": 9
+    },
+    {
+      "factor": "countPerMin",
+      "threshold": 100,
+      "compare": ">=",
+      "precision": 0.5476190476190477,
+      "recall": 0.6216216216216216,
+      "f1": 0.5822784810126581,
+      "rejectLosing": 23,
+      "rejectProfitable": 19
+    },
+    {
+      "factor": "volumePerMin",
+      "threshold": 6000,
+      "compare": ">=",
+      "precision": 0.5675675675675675,
+      "recall": 0.5675675675675675,
+      "f1": 0.5675675675675675,
+      "rejectLosing": 21,
+      "rejectProfitable": 16
+    },
+    {
+      "factor": "countPerMin",
+      "threshold": 80,
+      "compare": ">=",
+      "precision": 0.5526315789473685,
+      "recall": 0.5675675675675675,
+      "f1": 0.5599999999999999,
+      "rejectLosing": 21,
+      "rejectProfitable": 17
+    },
+    {
+      "factor": "secondToFirstRatio",
+      "threshold": 0.4,
+      "compare": ">",
+      "precision": 0.6428571428571429,
+      "recall": 0.4864864864864865,
+      "f1": 0.5538461538461539,
+      "rejectLosing": 18,
+      "rejectProfitable": 10
+    },
+    {
+      "factor": "top2Ratio",
+      "threshold": 0.85,
+      "compare": "<",
+      "precision": 0.8333333333333334,
+      "recall": 0.40540540540540543,
+      "f1": 0.5454545454545455,
+      "rejectLosing": 15,
+      "rejectProfitable": 3
+    },
+    {
+      "factor": "top2Ratio",
+      "threshold": 0.9,
+      "compare": "<",
+      "precision": 0.8333333333333334,
+      "recall": 0.40540540540540543,
+      "f1": 0.5454545454545455,
+      "rejectLosing": 15,
+      "rejectProfitable": 3
+    },
+    {
+      "factor": "secondToFirstRatio",
+      "threshold": 0.35,
+      "compare": ">",
+      "precision": 0.6538461538461539,
+      "recall": 0.4594594594594595,
+      "f1": 0.5396825396825398,
+      "rejectLosing": 17,
+      "rejectProfitable": 9
+    },
+    {
+      "factor": "countPerMin",
+      "threshold": 100,
+      "compare": "<",
+      "precision": 0.9333333333333333,
+      "recall": 0.3783783783783784,
+      "f1": 0.5384615384615385,
+      "rejectLosing": 14,
+      "rejectProfitable": 1
+    },
+    {
+      "factor": "volumePerMin",
+      "threshold": 5000,
+      "compare": ">=",
+      "precision": 0.5588235294117647,
+      "recall": 0.5135135135135135,
+      "f1": 0.5352112676056339,
+      "rejectLosing": 19,
+      "rejectProfitable": 15
+    },
+    {
+      "factor": "countPerMin",
+      "threshold": 60,
+      "compare": ">=",
+      "precision": 0.5806451612903226,
+      "recall": 0.4864864864864865,
+      "f1": 0.5294117647058824,
+      "rejectLosing": 18,
+      "rejectProfitable": 13
+    },
+    {
+      "factor": "megaRatio",
+      "threshold": 0.4,
+      "compare": "<",
+      "precision": 0.6666666666666666,
+      "recall": 0.43243243243243246,
+      "f1": 0.5245901639344263,
+      "rejectLosing": 16,
+      "rejectProfitable": 8
+    }
+  ],
+  "tripleCombinations": []
+}
