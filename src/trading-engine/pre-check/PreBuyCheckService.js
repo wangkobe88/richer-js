@@ -133,7 +133,7 @@ class PreBuyCheckService {
         devReason: holderCheck.devReason || '',
 
         // 创建者Dev钱包检查
-        creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet !== false,
+        creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
 
         // 早期参与者检查结果
         ...earlyParticipantCheck,
@@ -170,7 +170,7 @@ class PreBuyCheckService {
       const [holderCheck, walletClusterCheck, creatorDevCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
-        this._checkCreatorIsBadDevWallet(creatorAddress)
+        this._checkCreatorIsNotBadDevWallet(creatorAddress)
       ]);
 
       // 如果没有提供条件表达式，返回检查失败
@@ -198,7 +198,7 @@ class PreBuyCheckService {
           devReason: holderCheck.devReason || '',
 
           // 创建者Dev钱包检查（true=创建者不是坏Dev钱包）
-          creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet !== false,
+          creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
 
           canBuy: false,
           checkReason: '未配置购买前检查条件，请在实验配置中设置检查条件',
@@ -282,7 +282,7 @@ class PreBuyCheckService {
       devCheckReason: holderCheck.devReason,
 
       // 创建者Dev钱包检查（true=创建者不是坏Dev钱包）
-      creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet !== false,
+      creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
 
       // 跳过第二阶段检查标记（完整检查时为 false）
       skippedConditionMatch: false,
@@ -618,12 +618,15 @@ class PreBuyCheckService {
    * 检查创建者是否为坏Dev钱包
    * @private
    * @param {string} creatorAddress - 创建者地址
-   * @returns {Promise<Object>} { creatorIsNotBadDevWallet: boolean }
+   * @returns {Promise<Object>} { creatorIsNotBadDevWallet: number } 1=不在Dev列表中（好）, 0=在Dev列表中（坏）
    */
   async _checkCreatorIsNotBadDevWallet(creatorAddress) {
+    // 数据异常（无创建者地址）时，默认给 1（通过）
     if (!creatorAddress) {
-      // 无创建者地址时，默认通过（返回 true）
-      return { creatorIsNotBadDevWallet: true };
+      this.logger.info('[PreBuyCheckService] 创建者地址为空，默认通过', {
+        creator_address: creatorAddress
+      });
+      return { creatorIsNotBadDevWallet: 1 };
     }
 
     try {
@@ -635,21 +638,23 @@ class PreBuyCheckService {
         w => w.address.toLowerCase() === creatorAddress.toLowerCase()
       );
 
+      // 1 = 不在Dev列表中（好）, 0 = 在Dev列表中（坏）
+      const result = isBadDevWallet ? 0 : 1;
+
       this.logger.info('[PreBuyCheckService] 创建者Dev钱包检查完成', {
         creator_address: creatorAddress,
         is_bad_dev_wallet: isBadDevWallet,
-        creatorIsNotBadDevWallet: !isBadDevWallet
+        creatorIsNotBadDevWallet: result
       });
 
-      // 返回反向值（creatorIsNotBadDevWallet = 不是坏Dev钱包）
-      return { creatorIsNotBadDevWallet: !isBadDevWallet };
+      return { creatorIsNotBadDevWallet: result };
     } catch (error) {
       this.logger.error('[PreBuyCheckService] 创建者Dev钱包检查失败', {
         creator_address: creatorAddress,
         error: error.message
       });
-      // 检查失败时保守处理，返回 true（不拒绝）
-      return { creatorIsNotBadDevWallet: true };
+      // 检查失败时保守处理，返回 1（不拒绝）
+      return { creatorIsNotBadDevWallet: 1 };
     }
   }
 
