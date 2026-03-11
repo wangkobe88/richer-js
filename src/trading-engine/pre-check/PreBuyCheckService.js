@@ -23,6 +23,7 @@ const DEFAULT_CONFIG = {
   earlyParticipantCheckEnabled: true, // 是否启用早期参与者检查
   earlyParticipantFilterEnabled: false, // 是否启用早期参与者筛选（策略8）
   earlyParticipantStrategy: 'three_feature_and_p25',
+  skipPreBuyConditionMatch: true,    // 是否对已有交易记录的代币跳过条件匹配（收集因子但直接通过）
   threeFeatureAndP25: {              // 策略8阈值配置
     volumePerMinThreshold: 1610,
     countPerMinThreshold: 14,
@@ -91,12 +92,14 @@ class PreBuyCheckService {
 
     // 判断代币是否已有交易记录（已通过购买前检查）
     const hasPriorTrade = tokenBuyTime !== null && tokenBuyTime !== undefined;
+    const shouldSkipConditionMatch = this.config.skipPreBuyConditionMatch && hasPriorTrade;
 
-    if (hasPriorTrade) {
-      this.logger.info('[PreBuyCheckService] 代币已有交易记录，收集因子数据但直接通过', {
+    if (shouldSkipConditionMatch) {
+      this.logger.info('[PreBuyCheckService] 代币已有交易记录，跳过条件匹配（收集因子但直接通过）', {
         token_address: tokenAddress,
         buy_time: tokenBuyTime,
-        buy_time_readable: new Date(tokenBuyTime).toISOString()
+        buy_time_readable: new Date(tokenBuyTime).toISOString(),
+        skip_pre_buy_condition_match: true
       });
 
       // 仍然执行所有检查以收集因子数据，但最终直接通过
