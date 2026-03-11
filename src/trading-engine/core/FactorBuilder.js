@@ -116,6 +116,11 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     creatorIsNotBadDevWallet: preBuyCheckResult.creatorIsNotBadDevWallet ?? null,
     // 趋势因子（允许在条件表达式中使用）
     drawdownFromHighest: preBuyCheckResult.drawdownFromHighest ?? null,
+    // 严格同名代币检查因子
+    strictSameNameTokenCount: preBuyCheckResult.strictSameNameTokenCount ?? -1,
+    strictSameNameSearchCount: preBuyCheckResult.strictSameNameSearchCount ?? 0,
+    strictSameNameFilteredCount: preBuyCheckResult.strictSameNameFilteredCount ?? 0,
+    strictSameNameMaxFDV: preBuyCheckResult.strictSameNameMaxFDV ?? 0,
     // 跳过条件匹配标记（因子已收集但不做条件匹配）
     skippedConditionMatch: preBuyCheckResult.skippedConditionMatch || false
   };

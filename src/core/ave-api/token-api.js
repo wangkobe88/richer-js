@@ -525,6 +525,78 @@ class AveTokenAPI extends BaseAveAPI {
             vote_support: data.vote_support || 0
         };
     }
+
+    /**
+     * 搜索代币
+     *
+     * @param {string} keyword - 搜索关键词（符号或合约地址）
+     * @param {string} chain - 链名称（可选）
+     * @param {number} limit - 返回结果数量，默认100，最大300
+     * @param {string} orderby - 排序方式，可选值：tx_volume_u_24h, main_pair_tvl, fdv, market_cap
+     * @returns {Promise<Array>} 代币列表
+     */
+    async searchTokens(keyword, chain = null, limit = 100, orderby = null) {
+        if (!keyword || typeof keyword !== 'string' || !keyword.trim()) {
+            throw new Error('keyword必须是非空字符串');
+        }
+
+        if (limit > 300) {
+            throw new Error('limit不能超过300');
+        }
+
+        const params = { keyword: keyword.trim() };
+        if (chain) params.chain = chain;
+        if (limit !== 100) params.limit = limit;
+        if (orderby) params.orderby = orderby;
+
+        const result = await this._makeRequest('GET', '/v2/tokens', { params });
+
+        // AVE API 返回格式: { status: 0, msg: 'SUCCESS', data_type: 1, data: [...] }
+        const tokens = result.data || [];
+        return tokens.map(token_data => ({
+            total: token_data.total || '',
+            launch_price: token_data.launch_price || '',
+            current_price_eth: token_data.current_price_eth || '',
+            current_price_usd: token_data.current_price_usd || '',
+            price_change_1d: token_data.price_change_1d || '',
+            price_change_24h: token_data.price_change_24h || '',
+            lock_amount: token_data.lock_amount || '',
+            burn_amount: token_data.burn_amount || '',
+            other_amount: token_data.other_amount || '',
+            tx_amount_24h: token_data.tx_amount_24h || '',
+            tx_volume_u_24h: token_data.tx_volume_u_24h || '',
+            locked_percent: token_data.locked_percent || '',
+            market_cap: token_data.market_cap || '',
+            fdv: token_data.fdv || '',
+            tvl: token_data.tvl || '',
+            main_pair_tvl: token_data.main_pair_tvl || '',
+            token: token_data.token || '',
+            chain: token_data.chain || '',
+            decimal: token_data.decimal || 0,
+            name: token_data.name || '',
+            symbol: token_data.symbol || '',
+            holders: token_data.holders || 0,
+            appendix: token_data.appendix || '',
+            risk_level: token_data.risk_level || 0,
+            logo_url: token_data.logo_url || '',
+            risk_score: token_data.risk_score || '',
+            created_at: token_data.created_at || 0,
+            tx_count_24h: token_data.tx_count_24h || 0,
+            buy_tx: token_data.buy_tx || '',
+            sell_tx: token_data.sell_tx || '',
+            is_mintable: token_data.is_mintable || '',
+            updated_at: token_data.updated_at || 0,
+            main_pair: token_data.main_pair || '',
+            has_mint_method: token_data.has_mint_method || 0,
+            is_lp_not_locked: token_data.is_lp_not_locked || 0,
+            has_not_renounced: token_data.has_not_renounced || 0,
+            has_not_audited: token_data.has_not_audited || 0,
+            has_not_open_source: token_data.has_not_open_source || 0,
+            is_in_blacklist: token_data.is_in_blacklist || 0,
+            is_honeypot: token_data.is_honeypot || 0,
+            ave_risk_level: token_data.ave_risk_level || 0
+        }));
+    }
 }
 
 module.exports = { AveAPIError, BaseAveAPI, AveTokenAPI };

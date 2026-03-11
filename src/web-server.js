@@ -2201,6 +2201,46 @@ class RicherJsWebServer {
       }
     });
 
+    // 搜索代币 (searchTokens)
+    this.app.post('/api/ave-token/search', async (req, res) => {
+      try {
+        const { AveTokenAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, keyword, chain = null, limit = 50, orderby = null } = req.body;
+
+        if (!keyword) {
+          return res.status(400).json({
+            success: false,
+            error: '搜索关键词不能为空'
+          });
+        }
+
+        const finalApiKey = apiKey || process.env.AVE_API_KEY;
+        const finalBaseURL = baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com';
+
+        const tokenAPI = new AveTokenAPI(finalBaseURL, 30000, finalApiKey);
+
+        const tokens = await tokenAPI.searchTokens(keyword, chain, limit, orderby);
+
+        res.json({
+          success: true,
+          data: {
+            keyword,
+            chain,
+            count: tokens.length,
+            tokens
+          }
+        });
+      } catch (error) {
+        console.error('搜索代币失败:', error);
+        res.status(500).json({
+          success: false,
+          error: error.message
+        });
+      }
+    });
+
     // AVE TX 测试页面
     this.app.get('/ave-tx-test', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/ave-tx-test.html'));

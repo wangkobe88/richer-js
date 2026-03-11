@@ -13,6 +13,7 @@ const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService
 const { WalletClusterService } = require('./WalletClusterService');
 const { WalletDataService } = require('../../web/services/WalletDataService');
 const TwitterSearchService = require('./TwitterSearchService');
+const { SameNameTokenService } = require('./SameNameTokenService');
 
 /**
  * 默认配置
@@ -63,6 +64,9 @@ class PreBuyCheckService {
 
     // 初始化Twitter搜索服务
     this.twitterSearchService = new TwitterSearchService(logger);
+
+    // 初始化严格同名代币检查服务
+    this.sameNameService = new SameNameTokenService(logger);
   }
 
   /**
@@ -91,9 +95,21 @@ class PreBuyCheckService {
    * @param {number} options.drawdownFromHighest - 从最高价跌幅（%），负数表示下跌
    * @returns {Promise<Object>} 检查结果
    */
+  /**
+   * 执行所有购买前检查
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} creatorAddress - 创建者地址（可为null）
+   * @param {string} experimentId - 实验ID
+   * @param {string} chain - 区块链
+   * @param {Object} tokenInfo - 代币信息
+   * @param {string} preBuyCheckCondition - 购买前检查条件表达式
+   * @param {Object} options - 可选配置
+   * @param {string} options.tokenSymbol - 代币符号
+   * @param {string} options.tokenName - 代币名称
+   */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, tokenSymbol, tokenName } = options;
 
     // 判断代币是否已有交易记录（已通过购买前检查）
     const hasPriorTrade = tokenBuyTime !== null && tokenBuyTime !== undefined;
@@ -112,11 +128,12 @@ class PreBuyCheckService {
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
       );
 
-      const [holderCheck, walletClusterCheck, creatorDevCheck, twitterCheck] = await Promise.all([
+      const [holderCheck, walletClusterCheck, creatorDevCheck, twitterCheck, sameNameCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
         this._checkCreatorIsNotBadDevWallet(creatorAddress),
-        this._performTwitterSearch(tokenAddress)
+        this._performTwitterSearch(tokenAddress),
+        this._performSameNameCheck(tokenSymbol, tokenName)
       ]);
 
       // 构建完整的结果（包含所有因子）
@@ -155,6 +172,9 @@ class PreBuyCheckService {
         _twitterRawResult: twitterCheck.rawResult,
         _twitterDuration: twitterCheck.duration,
 
+        // 严格同名代币检查结果
+        ...sameNameCheck.factors,
+
         // 标记跳过了条件匹配（但因子已收集）
         skippedConditionMatch: true,
 
@@ -181,11 +201,12 @@ class PreBuyCheckService {
       );
 
       // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查和Twitter搜索
-      const [holderCheck, walletClusterCheck, creatorDevCheck, twitterCheck] = await Promise.all([
+      const [holderCheck, walletClusterCheck, creatorDevCheck, twitterCheck, sameNameCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
         this._checkCreatorIsNotBadDevWallet(creatorAddress),
-        this._performTwitterSearch(tokenAddress)
+        this._performTwitterSearch(tokenAddress),
+        this._performSameNameCheck(tokenSymbol, tokenName)
       ]);
 
       // 如果没有提供条件表达式，返回检查失败
@@ -643,6 +664,38 @@ class PreBuyCheckService {
         rawResult: null,
         duration: 0,
         error: error.message
+      };
+    }
+  }
+
+  /**
+   * 执行严格同名代币检查
+   * @private
+   * @param {string} tokenSymbol - 代币符号
+   * @param {string} tokenName - 代币名称
+   * @returns {Promise<Object>} 检查结果
+   */
+  async _performSameNameCheck(tokenSymbol, tokenName) {
+    try {
+      // 如果没有提供 symbol 或 name，返回空因子
+      if (!tokenSymbol) {
+        this.logger.warn('[PreBuyCheckService] 缺少 tokenSymbol，跳过同名代币检查');
+        return {
+          success: false,
+          factors: this.sameNameService.getEmptyFactors('缺少 tokenSymbol')
+        };
+      }
+
+      return await this.sameNameService.performCheck(tokenSymbol, tokenName);
+    } catch (error) {
+      this.logger.error('[PreBuyCheckService] 严格同名代币检查失败', {
+        symbol: tokenSymbol,
+        error: error.message
+      });
+      // 返回空因子值
+      return {
+        success: false,
+        factors: this.sameNameService.getEmptyFactors(error.message)
       };
     }
   }
