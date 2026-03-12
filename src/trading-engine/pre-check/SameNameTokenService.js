@@ -125,8 +125,14 @@ class SameNameTokenService {
 
   /**
    * 获取最大FDV
+   *
+   * 排除AVE API的虚假数据：
+   * 1. TVL < $1000 的代币（缺乏实际流动性）
+   * 2. 24h交易量为0的代币（无实际交易）
+   * 3. FDV > 20M 的代币（明显异常值）
+   *
    * @param {Array} tokens - 代币列表
-   * @returns {number} 最大FDV
+   * @returns {number} 最大FDV（经过有效性过滤）
    * @private
    */
   _getMaxFDV(tokens) {
@@ -134,11 +140,27 @@ class SameNameTokenService {
       return 0;
     }
 
-    const fdvs = tokens
-      .map(t => this._parseFDV(t.fdv))
-      .filter(v => v > 0);
+    const MIN_VALID_TVL = 1000;       // TVL至少$1000
+    const MAX_VALID_FDV = 20000000;   // FDV超过20M认为是虚假数据
 
-    return fdvs.length > 0 ? Math.max(...fdvs) : 0;
+    const validTokens = tokens.filter(t => {
+      const fdv = this._parseFDV(t.fdv);
+      const tvl = this._parseFDV(t.tvl);
+      const txVolume = this._parseFDV(t.tx_volume_u_24h);
+
+      // 过滤条件：必须有合理TVL、有交易量、FDV在合理范围内
+      return fdv > 0 &&
+             fdv <= MAX_VALID_FDV &&
+             tvl >= MIN_VALID_TVL &&
+             txVolume > 0;
+    });
+
+    if (validTokens.length === 0) {
+      return 0;
+    }
+
+    const fdvs = validTokens.map(t => this._parseFDV(t.fdv));
+    return Math.max(...fdvs);
   }
 
   /**

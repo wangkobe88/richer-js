@@ -116,11 +116,20 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     creatorIsNotBadDevWallet: preBuyCheckResult.creatorIsNotBadDevWallet ?? null,
     // 趋势因子（允许在条件表达式中使用）
     drawdownFromHighest: preBuyCheckResult.drawdownFromHighest ?? null,
-    // 严格同名代币检查因子
-    strictSameNameTokenCount: preBuyCheckResult.strictSameNameTokenCount ?? -1,
-    strictSameNameSearchCount: preBuyCheckResult.strictSameNameSearchCount ?? 0,
-    strictSameNameFilteredCount: preBuyCheckResult.strictSameNameFilteredCount ?? 0,
-    strictSameNameMaxFDV: preBuyCheckResult.strictSameNameMaxFDV ?? 0,
+    // Twitter搜索因子
+    twitterTotalResults: preBuyCheckResult.twitterTotalResults ?? 0,
+    twitterQualityTweets: preBuyCheckResult.twitterQualityTweets ?? 0,
+    twitterLikes: preBuyCheckResult.twitterLikes ?? 0,
+    twitterRetweets: preBuyCheckResult.twitterRetweets ?? 0,
+    twitterComments: preBuyCheckResult.twitterComments ?? 0,
+    twitterTotalEngagement: preBuyCheckResult.twitterTotalEngagement ?? 0,
+    twitterAvgEngagement: preBuyCheckResult.twitterAvgEngagement ?? 0,
+    twitterVerifiedUsers: preBuyCheckResult.twitterVerifiedUsers ?? 0,
+    twitterFollowers: preBuyCheckResult.twitterFollowers ?? 0,
+    twitterUniqueUsers: preBuyCheckResult.twitterUniqueUsers ?? 0,
+    twitterSearchSuccess: preBuyCheckResult.twitterSearchSuccess ?? false,
+    twitterSearchDuration: preBuyCheckResult.twitterSearchDuration ?? null,
+    twitterSearchError: preBuyCheckResult.twitterSearchError ?? null,
     // 跳过条件匹配标记（因子已收集但不做条件匹配）
     skippedConditionMatch: preBuyCheckResult.skippedConditionMatch || false
   };

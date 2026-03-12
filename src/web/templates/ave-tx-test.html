@@ -467,6 +467,7 @@
                             <th>Name</th>
                             <th>代币地址</th>
                             <th>链</th>
+                            <th>创建时间 (北京)</th>
                             <th>FDV</th>
                             <th>市值</th>
                             <th>当前价格</th>
@@ -481,6 +482,7 @@
                                 <td>${t.name || '-'}</td>
                                 <td class="monospace" title="${t.token}">${t.token ? t.token.substring(0, 10) + '...' : '-'}</td>
                                 <td>${t.chain || '-'}</td>
+                                <td>${t.launch_at || t.created_at ? toBeijingTime(t.launch_at || t.created_at) : '-'}</td>
                                 <td>${t.fdv || '-'}</td>
                                 <td>${t.market_cap || '-'}</td>
                                 <td>${t.current_price_usd || '-'}</td>

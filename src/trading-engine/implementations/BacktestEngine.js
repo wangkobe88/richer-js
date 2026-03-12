@@ -1205,9 +1205,7 @@ class BacktestEngine extends AbstractTradingEngine {
               checkTime: Math.floor(timestamp.getTime() / 1000),
               skipHolderCheck: true,
               tokenBuyTime: tokenState.buyTime || null,  // 代币首次买入时间
-              drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 从最高价跌幅
-              tokenSymbol: tokenState.symbol,  // 用于同名代币检查
-              tokenName: tokenState.name || null  // 用于同名代币检查（历史数据可能为空）
+              drawdownFromHighest: factorResults.drawdownFromHighest || null  // 从最高价跌幅
             }
           );
 

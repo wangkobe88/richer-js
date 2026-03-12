@@ -1426,19 +1426,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           // 构建代币信息（用于早期参与者检查）
           const tokenInfo = this._buildTokenInfo(token);
 
-          // 获取代币名称（用于同名代币检查）
-          let tokenName = null;
-          if (token.raw_api_data) {
-            try {
-              const rawData = typeof token.raw_api_data === 'string'
-                ? JSON.parse(token.raw_api_data)
-                : token.raw_api_data;
-              tokenName = rawData.name || null;
-            } catch (e) {
-              // 忽略解析错误
-            }
-          }
-
           // 只使用策略级别的预检查条件，不再使用默认配置
           const preBuyCheckCondition = strategy.preBuyCheckCondition || null;
 
@@ -1452,9 +1439,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             {
               checkTime: Math.floor(Date.now() / 1000),
               tokenBuyTime: token.buyTime || null,  // 代币首次买入时间
-              drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 从最高价跌幅
-              tokenSymbol: token.symbol,  // 用于同名代币检查
-              tokenName: tokenName  // 用于同名代币检查
+              drawdownFromHighest: factorResults.drawdownFromHighest || null  // 从最高价跌幅
             }
           );
 
@@ -1556,6 +1541,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       if (preBuyCheckResult && signalId) {
         // 构建趋势因子快照（购买时点的代币状态）
         const trendFactors = buildFactorValuesForTimeSeries(factorResults);
+
+        // 调试日志：检查 preBuyCheckResult 中的推特数据
+        this.logger.debug(this._experimentId, '_executeStrategy',
+          `preBuyCheckResult keys: ${Object.keys(preBuyCheckResult).filter(k => k.startsWith('twitter')).join(', ')}`);
+        this.logger.debug(this._experimentId, '_executeStrategy',
+          `twitterTotalResults: ${preBuyCheckResult.twitterTotalResults}, _twitterDuration: ${preBuyCheckResult._twitterDuration}`);
 
         // 构建购买前检查因子
         const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
