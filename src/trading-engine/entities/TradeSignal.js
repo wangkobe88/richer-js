@@ -254,6 +254,8 @@ class TradeSignal {
       confidence: this.confidence,
       reason: this.reason,
       metadata: this.metadata,
+      twitter_search_result: this.twitter_search_result,
+      twitter_search_duration: this.twitter_search_duration,
       executed: this.executed,
       // 从 metadata 中提取 execution_reason 以便前端显示
       execution_reason: this.metadata?.execution_reason || null,

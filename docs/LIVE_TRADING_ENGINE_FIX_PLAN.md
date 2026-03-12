@@ -302,10 +302,7 @@ _buildTrendFactors(factorResults) {
     trendRiseRatio: factorResults.trendRiseRatio,
     trendRecentDownCount: factorResults.trendRecentDownCount,
     trendRecentDownRatio: factorResults.trendRecentDownRatio,
-    trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
-    trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
-    trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
-    trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
+    trendConsecutiveDowns: factorResults.trendConsecutiveDowns
   };
 }
 

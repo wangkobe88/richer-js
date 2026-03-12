@@ -1286,6 +1286,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             highestPrice: factorResults.highestPrice,
             highestPriceTimestamp: factorResults.highestPriceTimestamp,
             drawdownFromHighest: factorResults.drawdownFromHighest,
+            // 最近一次购买后的最高价相关因子（用于止损/止盈）
+            highestPriceSinceLastBuy: factorResults.highestPriceSinceLastBuy,
+            drawdownFromHighestSinceLastBuy: factorResults.drawdownFromHighestSinceLastBuy,
             txVolumeU24h: factorResults.txVolumeU24h,
             holders: factorResults.holders,
             tvl: factorResults.tvl,
@@ -1302,10 +1305,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             trendRiseRatio: factorResults.trendRiseRatio,
             trendRecentDownCount: factorResults.trendRecentDownCount,
             trendRecentDownRatio: factorResults.trendRecentDownRatio,
-            trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
-            trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
-            trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
-            trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
+            trendConsecutiveDowns: factorResults.trendConsecutiveDowns
           },
           // 购买前检查 factors（初始为空，检查通过后更新）
           preBuyCheckFactors: {
@@ -1661,6 +1661,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             highestPrice: factorResults.highestPrice,
             highestPriceTimestamp: factorResults.highestPriceTimestamp,
             drawdownFromHighest: factorResults.drawdownFromHighest,
+            // 最近一次购买后的最高价相关因子（用于止损/止盈）
+            highestPriceSinceLastBuy: factorResults.highestPriceSinceLastBuy,
+            drawdownFromHighestSinceLastBuy: factorResults.drawdownFromHighestSinceLastBuy,
             txVolumeU24h: factorResults.txVolumeU24h,
             holders: factorResults.holders,
             tvl: factorResults.tvl,
@@ -1677,10 +1680,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             trendRiseRatio: factorResults.trendRiseRatio,
             trendRecentDownCount: factorResults.trendRecentDownCount,
             trendRecentDownRatio: factorResults.trendRecentDownRatio,
-            trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
-            trendPriceChangeFromDetect: factorResults.trendPriceChangeFromDetect,
-            trendSinceBuyReturn: factorResults.trendSinceBuyReturn,
-            trendSinceBuyDataPoints: factorResults.trendSinceBuyDataPoints
+            trendConsecutiveDowns: factorResults.trendConsecutiveDowns
           }
         } : null
       };

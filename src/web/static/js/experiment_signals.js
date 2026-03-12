@@ -1784,6 +1784,76 @@ class ExperimentSignals {
         `;
       }
 
+      // Twitter搜索因子
+      let twitterHtml = '';
+      const hasTwitterData = pf.twitterTotalResults !== undefined ||
+                             pf.twitterQualityTweets !== undefined ||
+                             pf.twitterTotalEngagement !== undefined;
+
+      if (hasTwitterData) {
+        const totalResultsClass = this._getFactorClass('twitterTotalResults', pf.twitterTotalResults || 0, preCheckThresholds);
+        const qualityTweetsClass = this._getFactorClass('twitterQualityTweets', pf.twitterQualityTweets || 0, preCheckThresholds);
+        const totalEngagementClass = this._getFactorClass('twitterTotalEngagement', pf.twitterTotalEngagement || 0, preCheckThresholds);
+        const verifiedUsersClass = this._getFactorClass('twitterVerifiedUsers', pf.twitterVerifiedUsers || 0, preCheckThresholds);
+
+        // 生成唯一ID用于弹窗
+        const modalId = `twitter-modal-${signal.id}-${Date.now()}`;
+        const hasRawResult = signal.twitter_search_result && Object.keys(signal.twitter_search_result).length > 0;
+
+        twitterHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-amber-900">🐦 Twitter搜索因子</div>
+              ${hasRawResult ? `
+                <button onclick="window.experimentSignals.showTwitterRawResult('${modalId}')" class="text-xs px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded transition-colors flex items-center space-x-1">
+                  <span>📋</span>
+                  <span>原始结果</span>
+                </button>
+              ` : `
+                <button disabled class="text-xs px-2 py-1 bg-gray-100 text-gray-400 rounded cursor-not-allowed flex items-center space-x-1" title="此信号无原始搜索结果">
+                  <span>📋</span>
+                  <span>无原始结果</span>
+                </button>
+              `}
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div><span class="text-amber-800">搜索结果:</span> <span class="${totalResultsClass}">${pf.twitterTotalResults || 0}</span></div>
+              <div><span class="text-amber-800">质量推文:</span> <span class="${qualityTweetsClass}">${pf.twitterQualityTweets || 0}</span></div>
+              <div><span class="text-amber-800">总互动:</span> <span class="${totalEngagementClass}">${pf.twitterTotalEngagement || 0}</span></div>
+              <div><span class="text-amber-800">点赞数:</span> <span class="text-gray-900">${pf.twitterLikes || 0}</span></div>
+              <div><span class="text-amber-800">转发数:</span> <span class="text-gray-900">${pf.twitterRetweets || 0}</span></div>
+              <div><span class="text-amber-800">评论数:</span> <span class="text-gray-900">${pf.twitterComments || 0}</span></div>
+              <div><span class="text-amber-800">平均互动:</span> <span class="text-gray-900">${formatNum(pf.twitterAvgEngagement)}</span></div>
+              <div><span class="text-amber-800">认证用户:</span> <span class="${verifiedUsersClass}">${pf.twitterVerifiedUsers || 0}</span></div>
+              <div><span class="text-amber-800">粉丝数:</span> <span class="text-gray-900">${(pf.twitterFollowers || 0) / 1000}K</span></div>
+              <div><span class="text-amber-800">独立用户:</span> <span class="text-gray-900">${pf.twitterUniqueUsers || 0}</span></div>
+              <div><span class="text-amber-800">搜索耗时:</span> <span class="text-gray-900">${pf.twitterSearchDuration || 0}ms</span></div>
+              <div><span class="text-amber-800">搜索状态:</span> <span class="${pf.twitterSearchSuccess ? 'text-green-600' : 'text-red-600'}">${pf.twitterSearchSuccess ? '✅ 成功' : '❌ 失败'}</span></div>
+            </div>
+            ${pf.twitterSearchError ? `<div class="text-xs text-red-600 mt-1">错误: ${this._escapeHtml(pf.twitterSearchError)}</div>` : ''}
+          </div>
+
+          <!-- Twitter原始结果弹窗 -->
+          ${hasRawResult ? `
+            <div id="${modalId}" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div class="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-hidden border border-gray-600">
+                <div class="flex items-center justify-between p-4 border-b border-gray-600">
+                  <h3 class="text-lg font-semibold text-white">🐦 Twitter搜索原始结果</h3>
+                  <button onclick="window.experimentSignals.closeTwitterModal('${modalId}')" class="text-gray-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
+                  <pre class="text-xs text-green-400 bg-gray-900 p-4 rounded border border-gray-700 overflow-x-auto">${JSON.stringify(signal.twitter_search_result, null, 2)}</pre>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        `;
+      }
+
       // 第三阶段：早期参与者检查信息
       let earlyTradesHtml = '';
       if (pf.earlyTradesChecked === 1) {
@@ -1849,6 +1919,7 @@ class ExperimentSignals {
           ${strategyConfigHtml}
           ${trendFactorsHtml}
           ${holderCheckHtml}
+          ${twitterHtml}
           ${earlyTradesHtml}
           ${pr.reason ? `<div class="text-xs text-amber-800 mt-2 border-t border-amber-300 pt-2">${this._escapeHtml(pr.reason)}</div>` : ''}
         </div>
@@ -2323,6 +2394,28 @@ class ExperimentSignals {
     const detailsPanel = document.getElementById('rejection-details');
     if (detailsPanel) {
       detailsPanel.classList.toggle('hidden');
+    }
+  }
+
+  /**
+   * 显示Twitter原始结果弹窗
+   * @param {string} modalId - 弹窗元素的ID
+   */
+  showTwitterRawResult(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.remove('hidden');
+    }
+  }
+
+  /**
+   * 关闭Twitter原始结果弹窗
+   * @param {string} modalId - 弹窗元素的ID
+   */
+  closeTwitterModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.add('hidden');
     }
   }
 
