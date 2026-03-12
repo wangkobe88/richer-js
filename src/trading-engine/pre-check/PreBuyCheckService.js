@@ -87,13 +87,14 @@ class PreBuyCheckService {
    * @param {number} options.checkTime - 检查时间戳（秒），用于回测时指定历史时间点
    * @param {boolean} options.skipHolderCheck - 是否跳过持有者检查（回测时为 true）
    * @param {boolean} options.skipEarlyParticipant - 是否跳过早期参与者检查
+   * @param {boolean} options.skipTwitterSearch - 是否跳过Twitter搜索（回测时为 true，因子使用默认值）
    * @param {number} options.tokenBuyTime - 代币首次买入时间戳（毫秒），用于判断是否有历史交易记录
    * @param {number} options.drawdownFromHighest - 从最高价跌幅（%），负数表示下跌
    * @returns {Promise<Object>} 检查结果
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest } = options;
 
     // 判断代币是否已有交易记录（已通过购买前检查）
     const hasPriorTrade = tokenBuyTime !== null && tokenBuyTime !== undefined;
@@ -112,11 +113,15 @@ class PreBuyCheckService {
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
       );
 
-      const [holderCheck, walletClusterCheck, creatorDevCheck, twitterCheck] = await Promise.all([
+      // Twitter搜索：回测时跳过，使用默认因子
+      const twitterCheck = skipTwitterSearch
+        ? this._getEmptyTwitterCheck()
+        : await this._performTwitterSearch(tokenAddress);
+
+      const [holderCheck, walletClusterCheck, creatorDevCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
-        this._checkCreatorIsNotBadDevWallet(creatorAddress),
-        this._performTwitterSearch(tokenAddress)
+        this._checkCreatorIsNotBadDevWallet(creatorAddress)
       ]);
 
       // 构建完整的结果（包含所有因子）
@@ -171,7 +176,8 @@ class PreBuyCheckService {
       has_condition: !!preBuyCheckCondition,
       check_time: checkTime || Math.floor(Date.now() / 1000),
       skip_holder_check: skipHolderCheck || false,
-      skip_early_participant: skipEarlyParticipant || false
+      skip_early_participant: skipEarlyParticipant || false,
+      skip_twitter_search: skipTwitterSearch || false
     });
 
     try {
@@ -180,12 +186,16 @@ class PreBuyCheckService {
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
       );
 
-      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查和Twitter搜索
-      const [holderCheck, walletClusterCheck, creatorDevCheck, twitterCheck] = await Promise.all([
+      // Twitter搜索：回测时跳过，使用默认因子
+      const twitterCheck = skipTwitterSearch
+        ? this._getEmptyTwitterCheck()
+        : await this._performTwitterSearch(tokenAddress);
+
+      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查
+      const [holderCheck, walletClusterCheck, creatorDevCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
-        this._checkCreatorIsNotBadDevWallet(creatorAddress),
-        this._performTwitterSearch(tokenAddress)
+        this._checkCreatorIsNotBadDevWallet(creatorAddress)
       ]);
 
       // 如果没有提供条件表达式，返回检查失败
@@ -655,6 +665,35 @@ class PreBuyCheckService {
         error: error.message
       };
     }
+  }
+
+  /**
+   * 获取空的Twitter搜索检查结果（用于回测时跳过Twitter搜索）
+   * @private
+   * @returns {Object} 空的Twitter搜索结果
+   */
+  _getEmptyTwitterCheck() {
+    return {
+      success: false,
+      factors: {
+        twitterTotalResults: 0,
+        twitterQualityTweets: 0,
+        twitterLikes: 0,
+        twitterRetweets: 0,
+        twitterComments: 0,
+        twitterTotalEngagement: 0,
+        twitterAvgEngagement: 0,
+        twitterVerifiedUsers: 0,
+        twitterFollowers: 0,
+        twitterUniqueUsers: 0,
+        twitterSearchSuccess: false,
+        twitterSearchDuration: 0,
+        twitterSearchError: 'Skipped in backtest'
+      },
+      rawResult: null,
+      duration: 0,
+      error: 'Skipped in backtest'
+    };
   }
 
   /**

@@ -1204,6 +1204,7 @@ class BacktestEngine extends AbstractTradingEngine {
             {
               checkTime: Math.floor(timestamp.getTime() / 1000),
               skipHolderCheck: true,
+              skipTwitterSearch: true,  // 回测时跳过Twitter搜索，因子使用默认值
               tokenBuyTime: tokenState.buyTime || null,  // 代币首次买入时间
               drawdownFromHighest: factorResults.drawdownFromHighest || null  // 从最高价跌幅
             }
