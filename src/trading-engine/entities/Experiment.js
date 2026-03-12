@@ -25,6 +25,7 @@ class Experiment {
     // 状态和配置
     this.status = experimentData.status || 'initializing';
     this.config = experimentData.config || {};
+    this.stats = experimentData.stats || null;
 
     // 交易模式 - 只支持 virtual 和 live，不支持 backtest
     this.tradingMode = experimentData.tradingMode;
@@ -50,6 +51,7 @@ class Experiment {
       experiment_description: this.experimentDescription,
       status: this.status,
       config: this.config,
+      stats: this.stats,
       trading_mode: this.tradingMode,
       strategy_type: this.strategyType,
       blockchain: this.blockchain,
@@ -73,6 +75,7 @@ class Experiment {
       experimentDescription: dbRow.experiment_description,
       status: dbRow.status,
       config: dbRow.config,
+      stats: dbRow.stats,
       tradingMode: dbRow.trading_mode,
       strategyType: dbRow.strategy_type,
       blockchain: dbRow.blockchain,
@@ -242,6 +245,7 @@ class Experiment {
       experimentDescription: this.experimentDescription,
       status: this.status,
       config: this.config,
+      stats: this.stats,
       tradingMode: this.tradingMode,
       strategyType: this.strategyType,
       blockchain: this.blockchain,

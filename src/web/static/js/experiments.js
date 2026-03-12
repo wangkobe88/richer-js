@@ -7,6 +7,7 @@ class ExperimentMonitor {
   constructor() {
     window.experimentMonitor = true;
     this.experiments = [];
+    this.sourceExperimentNames = new Map(); // 缓存源实验名字
     this.filters = {
       blockchain: 'all',
       status: 'all',
@@ -33,6 +34,7 @@ class ExperimentMonitor {
 
     safeAddListener('refresh-btn', 'click', () => this.loadExperiments());
     safeAddListener('clear-all-btn', 'click', () => this.clearAllExperiments());
+    safeAddListener('analyze-btn', 'click', () => this.analyzeAllExperiments());
 
     safeAddListener('blockchain-filter', 'change', (e) => {
       this.filters.blockchain = e.target.value;
@@ -113,6 +115,9 @@ class ExperimentMonitor {
       const data = await response.json();
       this.experiments = data.data || [];
 
+      // 加载源实验名字
+      await this.loadSourceExperimentNames();
+
       this.applyFilters();
       this.updateStats();
 
@@ -124,6 +129,44 @@ class ExperimentMonitor {
       console.error('❌ 加载实验数据失败:', error);
       this.showError('加载实验数据失败: ' + error.message);
     }
+  }
+
+  /**
+   * 加载所有回测实验的源实验名字
+   */
+  async loadSourceExperimentNames() {
+    // 收集所有唯一的源实验ID
+    const sourceIds = new Set();
+    this.experiments.forEach(exp => {
+      if (exp.tradingMode === 'backtest' && exp.config?.backtest?.sourceExperimentId) {
+        sourceIds.add(exp.config.backtest.sourceExperimentId);
+      }
+    });
+
+    if (sourceIds.size === 0) return;
+
+    // 批量获取源实验信息
+    const promises = Array.from(sourceIds).map(async sourceId => {
+      try {
+        const response = await fetch(`/api/experiment/${sourceId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            return { id: sourceId, name: data.data.experimentName || data.data.experiment_name || '未知实验' };
+          }
+        }
+      } catch (error) {
+        console.error(`获取源实验名字失败 ${sourceId}:`, error);
+      }
+      return { id: sourceId, name: null };
+    });
+
+    const results = await Promise.all(promises);
+    results.forEach(result => {
+      if (result.name) {
+        this.sourceExperimentNames.set(result.id, result.name);
+      }
+    });
   }
 
   applyFilters() {
@@ -144,32 +187,35 @@ class ExperimentMonitor {
   }
 
   renderExperiments() {
-    const container = document.getElementById('experiments-container');
+    const tbody = document.getElementById('experiments-table-body');
     const emptyState = document.getElementById('empty-state');
+    const container = document.getElementById('experiments-container');
 
     if (this.filteredExperiments.length === 0) {
-      container.innerHTML = '';
+      tbody.innerHTML = '';
       emptyState.classList.remove('hidden');
+      container.classList.add('hidden');
       return;
     }
 
     emptyState.classList.add('hidden');
-    container.innerHTML = this.filteredExperiments.map(exp => this.renderExperimentCard(exp)).join('');
+    container.classList.remove('hidden');
+    tbody.innerHTML = this.filteredExperiments.map(exp => this.renderExperimentRow(exp)).join('');
   }
 
-  renderExperimentCard(exp) {
+  renderExperimentRow(exp) {
     const statusColors = {
-      initializing: 'bg-gray-100 text-gray-800',
-      running: 'bg-green-100 text-green-800',
-      stopped: 'bg-yellow-100 text-yellow-800',
-      completed: 'bg-blue-100 text-blue-800',
-      failed: 'bg-red-100 text-red-800'
+      initializing: 'bg-gray-600 text-gray-200',
+      running: 'bg-green-700 text-green-100',
+      stopped: 'bg-yellow-700 text-yellow-100',
+      completed: 'bg-blue-700 text-blue-100',
+      failed: 'bg-red-700 text-red-100'
     };
 
     const modeColors = {
-      virtual: 'bg-purple-100 text-purple-800',
-      live: 'bg-orange-100 text-orange-800',
-      backtest: 'bg-blue-100 text-blue-800'
+      virtual: 'bg-purple-700 text-purple-100',
+      live: 'bg-orange-700 text-orange-100',
+      backtest: 'bg-blue-700 text-blue-100'
     };
 
     const statusLabel = {
@@ -181,158 +227,145 @@ class ExperimentMonitor {
     };
 
     const modeLabel = {
-      virtual: '虚拟交易',
-      live: '实盘交易',
+      virtual: '虚拟',
+      live: '实盘',
       backtest: '回测'
     };
 
-    // 区块链配置
     const blockchainConfig = {
-      bsc: { name: 'BSC', logo: '/static/bsc-logo.png', color: '#F3BA2F' },
-      base: { name: 'Base', logo: '/static/base-logo.png', color: '#0052FF' },
-      solana: { name: 'Solana', logo: '/static/solana-logo.png', color: '#9945FF' }
-    };
-
-    // 平台配置（包含logo）
-    const platformConfig = {
-      fourmeme: { name: 'Four.meme', logo: '/static/fourmeme-logo.png' },
-      flap: { name: 'Flap', logo: '/static/flap-logo.png' },
-      bankr: { name: 'Bankr', logo: '/static/bankr-logo.png' },
-      pumpfun: { name: 'Pump.fun', logo: '/static/pumpfun-logo.png' }
+      bsc: { name: 'BSC', short: 'BSC' },
+      base: { name: 'Base', short: 'Base' },
+      solana: { name: 'Solana', short: 'Sol' },
+      ethereum: { name: 'Ethereum', short: 'ETH' }
     };
 
     const createdAt = new Date(exp.createdAt);
     const startedAt = exp.startedAt ? new Date(exp.startedAt) : null;
     const stoppedAt = exp.stoppedAt ? new Date(exp.stoppedAt) : null;
 
-    // 计算运行时长：从启动到停止，或从启动到现在（运行中）
+    // 计算运行时长
     let duration = 0;
     if (startedAt) {
       const endTime = stoppedAt || new Date();
       duration = Math.floor((endTime.getTime() - startedAt.getTime()) / 1000 / 60);
     }
 
-    // 格式化实验ID，显示前8位和后4位
-    const shortId = exp.id.length > 12
-      ? `${exp.id.substring(0, 8)}...${exp.id.substring(exp.id.length - 4)}`
-      : exp.id;
+    // 格式化时长
+    const formatDuration = (mins) => {
+      if (mins < 60) return `${mins}m`;
+      const hours = Math.floor(mins / 60);
+      const remainingMins = mins % 60;
+      return remainingMins > 0 ? `${hours}h${remainingMins}m` : `${hours}h`;
+    };
+
+    const stats = exp.stats || {};
 
     return `
-      <div class="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-        <div class="p-4">
-          <div class="mb-3">
-            <div class="flex items-start justify-between mb-2">
-              <h3 class="text-xl font-bold text-gray-100 break-words leading-tight flex-1 pr-3" title="${this._escapeHtml(exp.experimentName || exp.experiment_name)}">${exp.experimentName || exp.experiment_name || '未命名实验'}</h3>
-              <div class="flex items-center gap-2 flex-shrink-0">
-                <span class="px-2 py-1 text-xs font-medium rounded ${statusColors[exp.status] || 'bg-gray-100'}">
-                  ${statusLabel[exp.status] || exp.status}
-                </span>
-                <button data-action="edit-name" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName || exp.experiment_name)}" class="text-gray-400 hover:text-blue-600 transition-colors" title="编辑名字">
-                  ✏️
-                </button>
-              </div>
+      <tr class="hover:bg-gray-700 transition-colors">
+        <!-- 实验名称 -->
+        <td class="px-2 py-2">
+          <div class="flex items-center gap-2">
+            <div class="font-medium text-white text-sm break-words" title="${this._escapeHtml(exp.experimentName || exp.experiment_name)}">
+              ${exp.experimentName || exp.experiment_name || '未命名实验'}
+            </div>
+            <button data-action="edit-name" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName || exp.experiment_name)}" class="text-gray-500 hover:text-blue-400 transition-colors text-xs" title="编辑名字">
+              ✏️
+            </button>
+          </div>
+        </td>
+
+        <!-- 状态 -->
+        <td class="px-2 py-2 text-center">
+          <span class="px-2 py-0.5 text-xs font-medium rounded ${statusColors[exp.status] || 'bg-gray-600'}">
+            ${statusLabel[exp.status] || exp.status}
+          </span>
+        </td>
+
+        <!-- 模式 -->
+        <td class="px-2 py-2 text-center">
+          <span class="px-2 py-0.5 text-xs font-medium rounded ${modeColors[exp.tradingMode] || 'bg-gray-600 text-gray-200'}">
+            ${modeLabel[exp.tradingMode] || exp.tradingMode}
+          </span>
+        </td>
+
+        <!-- 链 -->
+        <td class="px-2 py-2 text-center">
+          <span class="text-gray-300 text-xs">${blockchainConfig[exp.blockchain]?.short || exp.blockchain || '-'}</span>
+        </td>
+
+        <!-- 时长 -->
+        <td class="px-2 py-2 text-right">
+          <span class="text-gray-300 text-xs">${startedAt ? formatDuration(duration) : '-'}</span>
+        </td>
+
+        <!-- 代币数 -->
+        <td class="px-2 py-2 text-right">
+          <span class="text-gray-300 text-xs">${stats.tokenCount || 0}</span>
+        </td>
+
+        <!-- 胜率 -->
+        <td class="px-2 py-2 text-right">
+          <span class="text-xs font-medium ${stats.winRate >= 50 ? 'text-green-400' : 'text-red-400'}">
+            ${stats.winRate?.toFixed(1) || 0}%
+          </span>
+        </td>
+
+        <!-- 收益率 -->
+        <td class="px-2 py-2 text-right">
+          <span class="text-xs font-medium ${stats.totalReturn >= 0 ? 'text-green-400' : 'text-red-400'}">
+            ${stats.totalReturn >= 0 ? '+' : ''}${(stats.totalReturn || 0).toFixed(1)}%
+          </span>
+        </td>
+
+        <!-- BNB变化 -->
+        <td class="px-2 py-2 text-right">
+          <span class="text-xs font-medium ${stats.bnbChange >= 0 ? 'text-green-400' : 'text-red-400'}">
+            ${stats.bnbChange >= 0 ? '+' : ''}${(stats.bnbChange || 0).toFixed(2)}
+          </span>
+        </td>
+
+        <!-- 源实验 -->
+        <td class="px-2 py-2">
+          ${exp.tradingMode === 'backtest' && exp.config?.backtest?.sourceExperimentId ? `
+            <a href="/experiment/${exp.config.backtest.sourceExperimentId}" target="_blank" class="text-blue-400 hover:text-blue-300 text-xs truncate block max-w-[100px]" title="${this.sourceExperimentNames.get(exp.config.backtest.sourceExperimentId) || ''}">
+              ${this.sourceExperimentNames.get(exp.config.backtest.sourceExperimentId) || this._formatExperimentId(exp.config.backtest.sourceExperimentId)}
+            </a>
+          ` : '<span class="text-gray-500 text-xs">-</span>'}
+        </td>
+
+        <!-- 操作按钮 -->
+        <td class="px-2 py-2">
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center gap-1 flex-wrap">
+              <a href="/experiment/${exp.id}" target="_blank" class="text-xs px-1.5 py-0.5 text-blue-400 hover:bg-blue-900 rounded transition-colors">详情</a>
+              <a href="/experiment/${exp.id}/signals" target="_blank" class="text-xs px-1.5 py-0.5 text-green-400 hover:bg-green-900 rounded transition-colors">信号</a>
+              <a href="/experiment/${exp.id}/tokens" target="_blank" class="text-xs px-1.5 py-0.5 text-teal-400 hover:bg-teal-900 rounded transition-colors">代币</a>
+              <a href="/experiment/${exp.id}/trades" target="_blank" class="text-xs px-1.5 py-0.5 text-purple-400 hover:bg-purple-900 rounded transition-colors">交易</a>
+              <a href="/experiment/${exp.id}/token-returns" target="_blank" class="text-xs px-1.5 py-0.5 text-orange-400 hover:bg-orange-900 rounded transition-colors">收益</a>
+            </div>
+            <div class="flex items-center gap-1 flex-wrap">
+              <a href="/experiment/${exp.id}/strategy-analysis" target="_blank" class="text-xs px-1.5 py-0.5 text-pink-400 hover:bg-pink-900 rounded transition-colors">策略</a>
+              <a href="/token-holders?experiment=${exp.id}" target="_blank" class="text-xs px-1.5 py-0.5 text-cyan-400 hover:bg-cyan-900 rounded transition-colors">持有者</a>
+              <button data-action="copy-experiment" data-id="${exp.id}" class="text-xs px-1.5 py-0.5 text-indigo-400 hover:bg-indigo-900 rounded transition-colors" title="复制">📋复制</button>
+              <button data-action="delete" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-red-400 hover:bg-red-900 rounded transition-colors" title="删除">🗑️删除</button>
             </div>
           </div>
-
-          <div class="space-y-2 text-sm">
-            <div class="flex items-center justify-between">
-              <span class="text-gray-800">实验ID:</span>
-              <div class="flex items-center space-x-1">
-                <code class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">${shortId}</code>
-                <button data-action="copy-id" data-id="${exp.id}" class="text-gray-500 hover:text-blue-600 transition-colors" title="复制完整ID">
-                  📋
-                </button>
-              </div>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-gray-800">交易模式:</span>
-              <span class="px-2 py-0.5 text-xs font-medium rounded ${modeColors[exp.tradingMode] || 'bg-gray-100 text-gray-800'}">
-                ${modeLabel[exp.tradingMode] || exp.tradingMode}
-              </span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-gray-800">区块链/平台:</span>
-              <div class="flex items-center gap-2">
-                ${(() => {
-                  const platform = exp.platform || 'fourmeme';
-                  const bc = exp.blockchain || 'bsc';
-                  const platConfig = platformConfig[platform];
-                  const bcConfig = blockchainConfig[bc];
-
-                  let logos = '';
-                  // 优先显示平台logo
-                  if (platConfig && platConfig.logo) {
-                    logos += `<img src="${platConfig.logo}" alt="${platConfig.name}" class="w-5 h-5 rounded-full" title="${platConfig.name}">`;
-                  }
-                  // 显示区块链logo（更小一点作为辅助）
-                  if (bcConfig && bcConfig.logo) {
-                    logos += `<img src="${bcConfig.logo}" alt="${bcConfig.name}" class="w-4 h-4 rounded-full opacity-70" title="${bcConfig.name}">`;
-                  }
-                  return logos || `<span class="font-medium">${platform}</span>`;
-                })()}
-              </div>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-gray-800">K线类型:</span>
-              <span class="font-medium">${exp.klineType || 'N/A'}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-gray-800">开始时间:</span>
-              <span class="font-medium">${this._formatBeijingTime(startedAt)}</span>
-            </div>
-            ${stoppedAt ? `
-              <div class="flex items-center justify-between">
-                <span class="text-gray-800">结束时间:</span>
-                <span class="font-medium">${this._formatBeijingTime(stoppedAt)}</span>
-              </div>
-            ` : ''}
-            <div class="flex items-center justify-between">
-              <span class="text-gray-800">运行时长:</span>
-              <span class="font-medium">${startedAt ? duration + ' 分钟' : '-'}</span>
-            </div>
-          </div>
-
-          <div class="mt-4 pt-4 border-t border-gray-100">
-            <div class="flex justify-between items-center mb-3">
-              <a href="/experiment/${exp.id}" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                查看详情 →
-              </a>
-            </div>
-            <div class="flex flex-wrap gap-2 mb-2">
-              <a href="/experiment/${exp.id}/signals" target="_blank" class="text-green-600 hover:text-green-800 text-sm">
-                信号
-              </a>
-              <a href="/experiment/${exp.id}/tokens" target="_blank" class="text-teal-600 hover:text-teal-800 text-sm">
-                代币
-              </a>
-              <a href="/experiment/${exp.id}/trades" target="_blank" class="text-purple-600 hover:text-purple-800 text-sm">
-                交易
-              </a>
-              <a href="/experiment/${exp.id}/observer" target="_blank" class="text-emerald-600 hover:text-emerald-800 text-sm">
-                时序
-              </a>
-              <a href="/experiment/${exp.id}/token-returns" target="_blank" class="text-orange-600 hover:text-orange-800 text-sm">
-                收益
-              </a>
-              <a href="/experiment/${exp.id}/strategy-analysis" target="_blank" class="text-pink-600 hover:text-pink-800 text-sm">
-                策略
-              </a>
-              <a href="/token-holders?experiment=${exp.id}" target="_blank" class="text-cyan-600 text-sm" title="查看该实验的代币持有者信息">
-                持有者
-              </a>
-            </div>
-            <div class="flex justify-end gap-2">
-              <button data-action="copy-experiment" data-id="${exp.id}" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium px-2 py-1 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors">
-                📋 复制
-              </button>
-              <button data-action="delete" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-red-600 hover:text-red-800 text-sm font-medium px-2 py-1 bg-red-50 hover:bg-red-100 rounded transition-colors">
-                🗑️ 删除
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+        </td>
+      </tr>
     `;
+  }
+
+  /**
+   * 格式化实验ID为简短形式
+   * @private
+   * @param {string} experimentId - 实验ID
+   * @returns {string} 格式化后的ID
+   */
+  _formatExperimentId(experimentId) {
+    if (!experimentId) return '-';
+    return experimentId.length > 12
+      ? `${experimentId.substring(0, 8)}...${experimentId.substring(experimentId.length - 4)}`
+      : experimentId;
   }
 
   /**
@@ -739,6 +772,68 @@ class ExperimentMonitor {
     } catch (error) {
       console.error('❌ 更新实验名字失败:', error);
       alert('❌ 更新失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 分析所有实验的统计数据
+   */
+  async analyzeAllExperiments() {
+    const confirmed = confirm(
+      '⚠️ 确定要分析所有实验的统计数据吗？\n\n' +
+      '此操作将：\n' +
+      '📊 计算每个实验的交易代币数、胜率、收益率等统计数据\n' +
+      '💾 将统计数据保存到 experiments 表的 stats 字段\n' +
+      '⏱️ 跳过已有统计数据的实验\n\n' +
+      '⚠️ 此操作可能需要较长时间，请耐心等待...'
+    );
+
+    if (!confirmed) return;
+
+    const analyzeBtn = document.getElementById('analyze-btn');
+    if (analyzeBtn) {
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = '⏳ 分析中...';
+    }
+
+    try {
+      const response = await fetch('/api/experiments/analyze-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        const { total, processed, failed, skipped } = result.data;
+
+        let message = `✅ 分析完成！\n\n`;
+        message += `📊 总实验数: ${total}\n`;
+        message += `✅ 成功分析: ${processed}\n`;
+        message += `⏭️ 跳过: ${skipped}\n`;
+        if (failed > 0) {
+          message += `❌ 失败: ${failed}\n`;
+        }
+
+        alert(message);
+
+        // 刷新实验列表以显示新的统计数据
+        await this.loadExperiments();
+      } else {
+        alert('❌ 分析失败: ' + (result.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('❌ 分析实验统计数据失败:', error);
+      alert('❌ 分析失败: ' + error.message);
+    } finally {
+      if (analyzeBtn) {
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = '📊 分析';
+      }
     }
   }
 }

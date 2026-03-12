@@ -250,9 +250,9 @@ class ExperimentTokenReturns {
   }
 
   /**
-   * 计算单个代币的盈亏（复用交易页面的计算方法）
+   * 计算单个代币的盈亏（返回交易对明细）
    * @param {string} tokenAddress - 代币地址
-   * @returns {Object|null} 盈亏信息
+   * @returns {Object|null} 盈亏信息（包含交易对明细）
    */
   calculateTokenPnL(tokenAddress) {
     // 获取该代币的所有成功交易，按时间排序
@@ -264,15 +264,20 @@ class ExperimentTokenReturns {
       return null;
     }
 
-    // FIFO 队列跟踪买入成本
-    const buyQueue = []; // { amount, cost, price }
-    let totalRealizedPnL = 0; // 已实现盈亏
-    let totalBNBSpent = 0; // 总花费 BNB
-    let totalBNBReceived = 0; // 总收到 BNB
+    // FIFO 队列跟踪买入（增加买入信息）
+    const buyQueue = []; // { amount, cost, price, trade, buyTime }
+    let totalRealizedPnL = 0;
+    let totalBNBSpent = 0;
+    let totalBNBReceived = 0;
+
+    // 交易对数组
+    const tradePairs = [];
+    let pairIndex = 0;
 
     tokenTrades.forEach(trade => {
       const direction = trade.trade_direction || trade.direction || trade.action;
       const isBuy = direction === 'buy' || direction === 'BUY';
+      const tradeTime = trade.created_at || trade.executed_at;
 
       if (isBuy) {
         // 买入：记录到队列
@@ -284,43 +289,81 @@ class ExperimentTokenReturns {
           buyQueue.push({
             amount: outputAmount,
             cost: inputAmount,
-            price: unitPrice
+            price: unitPrice,
+            trade: trade,
+            buyTime: tradeTime
           });
           totalBNBSpent += inputAmount;
         }
       } else {
-        // 卖出：FIFO 匹配
+        // 卖出：FIFO 匹配，记录交易对
         const inputAmount = parseFloat(trade.input_amount || 0); // 代币数量
         const outputAmount = parseFloat(trade.output_amount || 0); // BNB 收到
-        const unitPrice = parseFloat(trade.unit_price || 0);
+        const sellPrice = parseFloat(trade.unit_price || 0);
 
         let remainingToSell = inputAmount;
-        let costOfSold = 0;
+        let pairCost = 0; // 本次匹配的总成本
+        let pairAmount = 0; // 本次匹配的总数量
+
+        // 记录本次卖出的所有匹配买入（用于部分匹配场景）
+        const matchedBuys = [];
 
         while (remainingToSell > 0 && buyQueue.length > 0) {
           const oldestBuy = buyQueue[0];
           const sellAmount = Math.min(remainingToSell, oldestBuy.amount);
 
-          // 计算本次卖出的成本
           const unitCost = oldestBuy.cost / oldestBuy.amount;
-          costOfSold += unitCost * sellAmount;
-          remainingToSell -= sellAmount;
+          pairCost += unitCost * sellAmount;
+          pairAmount += sellAmount;
 
-          // 更新队列中的剩余数量和成本
+          matchedBuys.push({
+            amount: sellAmount,
+            cost: unitCost * sellAmount,
+            buyTime: oldestBuy.buyTime,
+            buyPrice: oldestBuy.price
+          });
+
+          remainingToSell -= sellAmount;
           oldestBuy.amount -= sellAmount;
           oldestBuy.cost -= unitCost * sellAmount;
 
           if (oldestBuy.amount <= 0.00000001) {
-            buyQueue.shift(); // 移除已完全匹配的买入
+            buyQueue.shift();
           }
         }
 
-        totalBNBReceived += outputAmount;
-        totalRealizedPnL += (outputAmount - costOfSold);
+        // 创建交易对
+        if (pairAmount > 0) {
+          const pairPnL = outputAmount - pairCost;
+          const pairReturnRate = (pairPnL / pairCost) * 100;
+          const buyTime = matchedBuys[0]?.buyTime;
+          const buyPrice = matchedBuys[0]?.buyPrice;
+
+          const holdDuration = buyTime
+            ? Math.floor((new Date(tradeTime) - new Date(buyTime)) / 1000 / 60) // 分钟
+            : null;
+
+          tradePairs.push({
+            pairIndex: ++pairIndex,
+            buyTime,
+            sellTime: tradeTime,
+            holdDuration, // 分钟
+            buyPrice,
+            sellPrice,
+            amount: pairAmount,
+            cost: pairCost,
+            received: outputAmount,
+            returnRate: pairReturnRate,
+            pnl: pairPnL
+          });
+
+          totalBNBReceived += outputAmount;
+          totalRealizedPnL += pairPnL;
+        }
       }
     });
 
-    // 计算剩余持仓
+    // 计算剩余持仓（未完成交易的买入）
     let remainingAmount = 0;
     let remainingCost = 0;
     buyQueue.forEach(buy => {
@@ -329,32 +372,39 @@ class ExperimentTokenReturns {
     });
 
     // 计算收益率
-    const totalCost = totalBNBSpent || 1; // 避免除零
-    const totalValue = totalBNBReceived + remainingCost; // 剩余部分按成本价计算
+    const totalCost = totalBNBSpent || 1;
+    const totalValue = totalBNBReceived + remainingCost;
     const returnRate = ((totalValue - totalCost) / totalCost) * 100;
 
     // 确定状态
     let status = 'monitoring';
-    if (buyQueue.length === 0) {
+    if (buyQueue.length === 0 && tradePairs.length > 0) {
       status = 'exited';
     } else if (totalBNBReceived > 0) {
       status = 'bought';
     }
 
-    // 获取首次交易时间
     const firstTradeTime = tokenTrades[0]?.created_at || tokenTrades[0]?.executed_at || null;
+    const symbol = tokenTrades[0]?.token_symbol || 'Unknown';
 
     return {
+      // 汇总数据（兼容原有字段）
       returnRate,
       realizedPnL: totalRealizedPnL,
       totalSpent: totalBNBSpent,
       totalReceived: totalBNBReceived,
       remainingAmount,
       remainingCost,
-      buyCount: tokenTrades.filter(t => (t.trade_direction || t.direction || t.action) === 'buy' || (t.trade_direction || t.direction || t.action) === 'BUY').length,
-      sellCount: tokenTrades.filter(t => (t.trade_direction || t.direction || t.action) === 'sell' || (t.trade_direction || t.direction || t.action) === 'SELL').length,
+      buyCount: tradePairs.length + (remainingAmount > 0 ? 1 : 0), // 交易对数 + 持仓中的买入
+      sellCount: tradePairs.length,
       firstTradeTime,
-      status
+      status,
+      symbol,
+
+      // 新增：交易对明细
+      tradePairs,
+      pairCount: tradePairs.length,
+      hasUnmatchedBuy: remainingAmount > 0.00000001 // 是否有未匹配的买入（持仓中）
     };
   }
 
@@ -455,145 +505,273 @@ class ExperimentTokenReturns {
 
     emptyState?.classList.add('hidden');
 
-    // 直接展示全部数据
-    tbody.innerHTML = this.filteredReturns.map(item => {
+    // 生成表格行（主行 + 可展开的交易对明细行）
+    const allRows = this.filteredReturns.flatMap(item => {
       const pnl = item.pnl;
+      const rows = [];
 
-      // 格式化数值
-      const returnRateClass = pnl.returnRate > 0 ? 'profit-positive' : pnl.returnRate < 0 ? 'profit-negative' : 'profit-neutral';
-      const returnRateSign = pnl.returnRate > 0 ? '+' : '';
-      const pnlClass = pnl.realizedPnL > 0 ? 'profit-positive' : pnl.realizedPnL < 0 ? 'profit-negative' : 'profit-neutral';
-      const pnlSign = pnl.realizedPnL > 0 ? '+' : '';
+      // 计算是否默认展开（多个交易对或持仓中）
+      const defaultExpanded = (pnl.pairCount || 0) > 1 || pnl.hasUnmatchedBuy;
 
-      // 状态徽章
-      let statusBadge = '';
-      switch (pnl.status) {
-        case 'monitoring':
-          statusBadge = '<span class="status-badge status-monitoring">监控中</span>';
-          break;
-        case 'bought':
-          statusBadge = '<span class="status-badge status-bought">已买入</span>';
-          break;
-        case 'exited':
-          statusBadge = '<span class="status-badge status-exited">已退出</span>';
-          break;
+      // === 主行（汇总） ===
+      rows.push(this.renderMainRow(item, defaultExpanded));
+
+      // === 交易对明细行 ===
+      if (pnl.tradePairs && pnl.tradePairs.length > 0) {
+        pnl.tradePairs.forEach(pair => {
+          rows.push(this.renderTradePairRow(item, pair, defaultExpanded));
+        });
       }
 
-      // 检查是否命中黑名单
-      const blacklistInfo = this.blacklistTokenMap?.get(item.tokenAddress);
-      const hasBlacklist = blacklistInfo && blacklistInfo.hasBlacklist;
-      const blacklistBadge = hasBlacklist
-        ? '<span class="token-badge bg-red-900 text-red-400 border border-red-700" title="命中持有者黑名单">⚠️</span>'
-        : '';
+      // === 未匹配买入提示行 ===
+      if (pnl.hasUnmatchedBuy) {
+        rows.push(this.renderUnmatchedBuyRow(item, defaultExpanded));
+      }
 
-      // 检查是否命中白名单
-      const whitelistInfo = this.whitelistTokenMap?.get(item.tokenAddress);
-      const hasWhitelist = whitelistInfo && whitelistInfo.hasWhitelist;
-      const whitelistBadge = hasWhitelist
-        ? '<span class="token-badge bg-green-900 text-green-400 border border-green-700" title="命中持有者白名单">✨</span>'
-        : '';
+      return rows;
+    });
 
-      return `
-        <tr class="table-row ${hasBlacklist ? 'bg-red-900/20' : ''}">
-          <td class="px-2 py-2 token-symbol-cell">
-            <div class="flex items-center justify-between mb-1">
-              <div class="flex items-center">
-                <span class="font-medium text-white text-sm">${item.symbol}</span>
-                ${(blacklistBadge || whitelistBadge) ? `<div class="token-badges">${blacklistBadge}${whitelistBadge}</div>` : ''}
-              </div>
-              <div class="flex items-center space-x-1">
-                <button class="copy-addr-btn text-gray-400 hover:text-blue-400 transition-colors p-0.5"
-                        data-address="${item.tokenAddress}"
-                        title="复制代币地址">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                  </svg>
-                </button>
-                <a href="https://gmgn.ai/bsc/token/${item.tokenAddress}" target="_blank" rel="noopener noreferrer"
-                   class="text-gray-400 hover:text-purple-400 transition-colors p-0.5"
-                   title="在 GMGN 查看">
-                  <img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3">
-                </a>
-              </div>
-            </div>
-            <div class="text-xs text-gray-500 font-mono flex items-center justify-between">
-              <span class="text-xs">${item.tokenAddress.slice(0, 6)}...${item.tokenAddress.slice(-4)}</span>
-              <div class="flex items-center gap-1">
-                ${hasBlacklist ? '<span class="text-red-400 text-xs" title="' + (blacklistInfo.blacklistedHolders || 0) + '个黑名单持有者">' + (blacklistInfo.blacklistedHolders || 0) + '⚠️</span>' : ''}
-                ${hasWhitelist ? '<span class="text-green-400 text-xs" title="' + (whitelistInfo.whitelistedHolders || 0) + '个白名单持有者">' + (whitelistInfo.whitelistedHolders || 0) + '✨</span>' : ''}
-              </div>
-            </div>
-          </td>
-          <td class="px-2 py-2 text-center">
-            ${this.renderPlatformBadge(item.tokenAddress)}
-          </td>
-          <td class="px-2 py-2 text-right">
-            ${this.renderMaxChange(item.tokenAddress)}
-          </td>
-          <td class="px-2 py-2 text-right">
-            <span class="${returnRateClass} text-sm">${returnRateSign}${pnl.returnRate.toFixed(2)}%</span>
-          </td>
-          <td class="px-2 py-2 text-right">
-            <span class="${pnlClass} text-sm">${pnlSign}${pnl.realizedPnL.toFixed(4)} BNB</span>
-          </td>
-          <td class="px-2 py-2 text-right text-gray-400 text-sm">
-            ${pnl.totalSpent.toFixed(4)}
-          </td>
-          <td class="px-2 py-2 text-right text-gray-400 text-sm">
-            ${pnl.totalReceived.toFixed(4)}
-          </td>
-          <td class="px-2 py-2 text-center text-blue-400 text-sm">
-            ${pnl.buyCount}
-          </td>
-          <td class="px-2 py-2 text-center text-purple-400 text-sm">
-            ${pnl.sellCount}
-          </td>
-          <td class="px-2 py-2 text-center text-gray-400 text-xs">
-            ${this.formatBeijingTime(pnl.firstTradeTime)}
-          </td>
-          <td class="px-2 py-2 text-center">
-            ${statusBadge}
-          </td>
-          <td class="px-2 py-2 text-center">
-            ${this.renderJudgeColumn(item.tokenAddress, item.symbol)}
-          </td>
-          <td class="px-2 py-2 text-center">
-            <div class="action-links">
-              <a href="/experiment/${this.experimentId}/trades#token=${item.tokenAddress}" target="_blank" class="action-link text-blue-400 hover:text-blue-300">
-                查看交易
-              </a>
-              <a href="/experiment/${this.experimentId}/signals#token=${item.tokenAddress}" target="_blank" class="action-link text-purple-400 hover:text-purple-300">
-                查看信号
-              </a>
-              <a href="/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${item.tokenAddress}" target="_blank" class="action-link text-pink-400 hover:text-pink-300">
-                策略分析
-              </a>
-              <a href="${this.getTimeSeriesUrl(item.tokenAddress)}" target="_blank" class="action-link text-emerald-400 hover:text-emerald-300">
-                时序数据
-              </a>
-              <a href="/token-holders?experiment=${this.experimentId}&token=${item.tokenAddress}" target="_blank" class="action-link text-cyan-400 hover:text-cyan-300">
-                持有者
-              </a>
-              <a href="/token-early-trades?token=${item.tokenAddress}&chain=${this.experimentData?.blockchain || 'bsc'}" target="_blank" class="action-link text-amber-400 hover:text-amber-300">
-                早期交易
-              </a>
-              <a href="/token-detail?experiment=${this.experimentId}&address=${item.tokenAddress}" target="_blank" class="action-link text-indigo-400 hover:text-indigo-300">
-                代币详情
-              </a>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join('');
+    tbody.innerHTML = allRows.join('');
 
-    // 绑定拷贝按钮事件
+    // 绑定事件
     this.bindCopyButtons();
-
-    // 绑定标注按钮事件
     this.bindJudgeButtons();
+    this.bindToggleButtons();
 
     // 清空分页容器
     document.getElementById('pagination-container').innerHTML = '';
+  }
+
+  /**
+   * 渲染代币主行（汇总行）
+   */
+  renderMainRow(item, defaultExpanded = false) {
+    const pnl = item.pnl;
+
+    // 格式化数值
+    const returnRateClass = pnl.returnRate > 0 ? 'profit-positive' : pnl.returnRate < 0 ? 'profit-negative' : 'profit-neutral';
+    const returnRateSign = pnl.returnRate > 0 ? '+' : '';
+    const pnlClass = pnl.realizedPnL > 0 ? 'profit-positive' : pnl.realizedPnL < 0 ? 'profit-negative' : 'profit-neutral';
+    const pnlSign = pnl.realizedPnL > 0 ? '+' : '';
+
+    // 状态徽章
+    let statusBadge = '';
+    switch (pnl.status) {
+      case 'monitoring':
+        statusBadge = '<span class="status-badge status-monitoring">监控中</span>';
+        break;
+      case 'bought':
+        statusBadge = '<span class="status-badge status-bought">已买入</span>';
+        break;
+      case 'exited':
+        statusBadge = '<span class="status-badge status-exited">已退出</span>';
+        break;
+    }
+
+    // 检查黑名单/白名单
+    const blacklistInfo = this.blacklistTokenMap?.get(item.tokenAddress);
+    const hasBlacklist = blacklistInfo && blacklistInfo.hasBlacklist;
+    const blacklistBadge = hasBlacklist
+      ? '<span class="token-badge bg-red-900 text-red-400 border border-red-700" title="命中持有者黑名单">⚠️</span>'
+      : '';
+
+    const whitelistInfo = this.whitelistTokenMap?.get(item.tokenAddress);
+    const hasWhitelist = whitelistInfo && whitelistInfo.hasWhitelist;
+    const whitelistBadge = hasWhitelist
+      ? '<span class="token-badge bg-green-900 text-green-400 border border-green-700" title="命中持有者白名单">✨</span>'
+      : '';
+
+    // 展开/收起按钮（多次交易默认展开）
+    const hasTradePairs = pnl.tradePairs && pnl.tradePairs.length > 0;
+    const expandBtn = hasTradePairs
+      ? `<button class="toggle-pairs-btn text-gray-400 hover:text-white transition-colors mr-1" data-token="${item.tokenAddress}" title="${defaultExpanded ? '收起' : '展开'}交易对详情">
+          <svg class="w-4 h-4 transform transition-transform duration-200 ${defaultExpanded ? 'rotate-90' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>`
+      : '';
+
+    return `
+      <tr class="table-row main-row ${hasBlacklist ? 'bg-red-900/20' : ''}" data-token="${item.tokenAddress}" data-main-row="true">
+        <td class="px-2 py-2 token-symbol-cell">
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center">
+              ${expandBtn}
+              <span class="font-medium text-white text-sm">${item.symbol}</span>
+              ${(blacklistBadge || whitelistBadge) ? `<div class="token-badges ml-1">${blacklistBadge}${whitelistBadge}</div>` : ''}
+            </div>
+            <div class="flex items-center space-x-1">
+              <button class="copy-addr-btn text-gray-400 hover:text-blue-400 transition-colors p-0.5"
+                      data-address="${item.tokenAddress}"
+                      title="复制代币地址">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              </button>
+              <a href="https://gmgn.ai/bsc/token/${item.tokenAddress}" target="_blank" rel="noopener noreferrer"
+                 class="text-gray-400 hover:text-purple-400 transition-colors p-0.5"
+                 title="在 GMGN 查看">
+                <img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3">
+              </a>
+            </div>
+          </div>
+          <div class="text-xs text-gray-500 font-mono flex items-center justify-between">
+            <span class="text-xs">${item.tokenAddress.slice(0, 6)}...${item.tokenAddress.slice(-4)}</span>
+            <div class="flex items-center gap-1">
+              ${hasBlacklist ? '<span class="text-red-400 text-xs" title="' + (blacklistInfo.blacklistedHolders || 0) + '个黑名单持有者">' + (blacklistInfo.blacklistedHolders || 0) + '⚠️</span>' : ''}
+              ${hasWhitelist ? '<span class="text-green-400 text-xs" title="' + (whitelistInfo.whitelistedHolders || 0) + '个白名单持有者">' + (whitelistInfo.whitelistedHolders || 0) + '✨</span>' : ''}
+            </div>
+          </div>
+        </td>
+        <td class="px-2 py-2 text-center">
+          ${this.renderPlatformBadge(item.tokenAddress)}
+        </td>
+        <td class="px-2 py-2 text-right">
+          ${this.renderMaxChange(item.tokenAddress)}
+        </td>
+        <td class="px-2 py-2 text-right">
+          <span class="${returnRateClass} text-sm">${returnRateSign}${pnl.returnRate.toFixed(2)}%</span>
+        </td>
+        <td class="px-2 py-2 text-right">
+          <span class="${pnlClass} text-sm">${pnlSign}${pnl.realizedPnL.toFixed(4)} BNB</span>
+        </td>
+        <td class="px-2 py-2 text-right text-gray-400 text-sm">
+          ${pnl.totalSpent.toFixed(4)}
+        </td>
+        <td class="px-2 py-2 text-right text-gray-400 text-sm">
+          ${pnl.totalReceived.toFixed(4)}
+        </td>
+        <td class="px-2 py-2 text-center text-amber-400 text-sm">
+          ${pnl.pairCount || 0}对
+        </td>
+        <td class="px-2 py-2 text-center text-gray-400 text-xs">
+          ${this.formatBeijingTime(pnl.firstTradeTime)}
+        </td>
+        <td class="px-2 py-2 text-center">
+          ${statusBadge}
+        </td>
+        <td class="px-2 py-2 text-center">
+          ${this.renderJudgeColumn(item.tokenAddress, item.symbol)}
+        </td>
+        <td class="px-2 py-2 text-center">
+          <div class="action-links">
+            <a href="/experiment/${this.experimentId}/trades#token=${item.tokenAddress}" target="_blank" class="action-link text-blue-400 hover:text-blue-300">
+              查看交易
+            </a>
+            <a href="/experiment/${this.experimentId}/signals#token=${item.tokenAddress}" target="_blank" class="action-link text-purple-400 hover:text-purple-300">
+              查看信号
+            </a>
+            <a href="/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${item.tokenAddress}" target="_blank" class="action-link text-pink-400 hover:text-pink-300">
+              策略分析
+            </a>
+            <a href="${this.getTimeSeriesUrl(item.tokenAddress)}" target="_blank" class="action-link text-emerald-400 hover:text-emerald-300">
+              时序数据
+            </a>
+            <a href="/token-holders?experiment=${this.experimentId}&token=${item.tokenAddress}" target="_blank" class="action-link text-cyan-400 hover:text-cyan-300">
+              持有者
+            </a>
+            <a href="/token-early-trades?token=${item.tokenAddress}&chain=${this.experimentData?.blockchain || 'bsc'}" target="_blank" class="action-link text-amber-400 hover:text-amber-300">
+              早期交易
+            </a>
+            <a href="/token-detail?experiment=${this.experimentId}&address=${item.tokenAddress}" target="_blank" class="action-link text-indigo-400 hover:text-indigo-300">
+              代币详情
+            </a>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  /**
+   * 渲染交易对明细行
+   */
+  renderTradePairRow(item, pair, defaultExpanded) {
+    const returnRateClass = pair.returnRate > 0 ? 'profit-positive' : pair.returnRate < 0 ? 'profit-negative' : 'profit-neutral';
+    const returnRateSign = pair.returnRate > 0 ? '+' : '';
+    const pnlClass = pair.pnl > 0 ? 'profit-positive' : pair.pnl < 0 ? 'profit-negative' : 'profit-neutral';
+    const pnlSign = pair.pnl > 0 ? '+' : '';
+
+    return `
+      <tr class="table-row pair-row ${defaultExpanded ? '' : 'hidden'}" data-token="${item.tokenAddress}" data-pair-row="true">
+        <td class="px-2 py-2 pl-8 text-gray-400">
+          <div class="flex items-center">
+            <svg class="w-3 h-3 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/>
+            </svg>
+            <span class="text-xs">第${pair.pairIndex}对</span>
+            <span class="text-gray-600 ml-2 text-xs">(${pair.holdDuration !== null ? pair.holdDuration.toFixed(0) + '分钟' : '-'})</span>
+          </div>
+        </td>
+        <td class="px-2 py-2 text-center text-gray-600">-</td>
+        <td class="px-2 py-2 text-right text-gray-600 text-xs">
+          买入: $${pair.buyPrice?.toFixed(8) || 'N/A'}<br>
+          卖出: $${pair.sellPrice?.toFixed(8) || 'N/A'}
+        </td>
+        <td class="px-2 py-2 text-right">
+          <span class="${returnRateClass} text-xs">${returnRateSign}${pair.returnRate.toFixed(2)}%</span>
+        </td>
+        <td class="px-2 py-2 text-right">
+          <span class="${pnlClass} text-xs">${pnlSign}${pair.pnl.toFixed(5)} BNB</span>
+        </td>
+        <td class="px-2 py-2 text-right text-gray-600 text-xs">
+          ${pair.cost.toFixed(5)}
+        </td>
+        <td class="px-2 py-2 text-right text-gray-600 text-xs">
+          ${pair.received.toFixed(5)}
+        </td>
+        <td class="px-2 py-2 text-center text-gray-600 text-xs">-</td>
+        <td class="px-2 py-2 text-center text-gray-500 text-xs">
+          ${this.formatBeijingTime(pair.buyTime)}
+        </td>
+        <td class="px-2 py-2 text-center">-</td>
+        <td class="px-2 py-2 text-center">-</td>
+        <td class="px-2 py-2 text-center">-</td>
+      </tr>
+    `;
+  }
+
+  /**
+   * 渲染未匹配买入提示行
+   */
+  renderUnmatchedBuyRow(item, defaultExpanded = false) {
+    return `
+      <tr class="table-row pair-row ${defaultExpanded ? '' : 'hidden'}" data-token="${item.tokenAddress}" data-unmatched-row="true">
+        <td class="px-2 py-2 pl-8 text-gray-400" colspan="13">
+          <div class="flex items-center text-xs">
+            <svg class="w-3 h-3 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-yellow-400">持仓中</span>
+            <span class="text-gray-500 ml-2">尚未卖出的买入</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  /**
+   * 绑定展开/收起按钮事件
+   */
+  bindToggleButtons() {
+    document.querySelectorAll('.toggle-pairs-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const tokenAddress = btn.dataset.token;
+        const svg = btn.querySelector('svg');
+        const isExpanded = svg.classList.contains('rotate-90');
+
+        // 切换图标旋转
+        svg.classList.toggle('rotate-90');
+
+        // 切换明细行显示
+        const pairRows = document.querySelectorAll(`tr[data-token="${tokenAddress}"][data-pair-row="true"], tr[data-token="${tokenAddress}"][data-unmatched-row="true"]`);
+        pairRows.forEach(row => {
+          row.classList.toggle('hidden');
+        });
+      });
+    });
   }
 
   bindCopyButtons() {
@@ -820,29 +998,73 @@ class ExperimentTokenReturns {
   }
 
   exportToCSV() {
-    const headers = ['代币', '代币地址', '最高涨幅(%)', '收益率(%)', '盈亏金额(BNB)', '总花费(BNB)', '总收回(BNB)', '剩余持仓', '买入次数', '卖出次数', '状态'];
-    const rows = this.filteredReturns.map(item => {
+    const headers = ['代币', '交易对序号', '买入时间', '卖出时间', '持仓时长(分钟)', '买入价格', '卖出价格', '数量', '成本(BNB)', '收入(BNB)', '收益率(%)', '盈亏(BNB)'];
+
+    const rows = this.filteredReturns.flatMap(item => {
       const pnl = item.pnl;
-      const maxChange = this.tokenMaxChangeMap.get(item.tokenAddress);
-      let statusText = '';
-      switch (pnl.status) {
-        case 'monitoring': statusText = '监控中'; break;
-        case 'bought': statusText = '已买入'; break;
-        case 'exited': statusText = '已退出'; break;
+      const rows = [];
+
+      // 如果有交易对明细，导出每个交易对
+      if (pnl.tradePairs && pnl.tradePairs.length > 0) {
+        pnl.tradePairs.forEach(pair => {
+          rows.push([
+            item.symbol,
+            `第${pair.pairIndex}对`,
+            this.formatBeijingTime(pair.buyTime),
+            this.formatBeijingTime(pair.sellTime),
+            pair.holdDuration?.toFixed(0) || '-',
+            pair.buyPrice?.toFixed(8) || 'N/A',
+            pair.sellPrice?.toFixed(8) || 'N/A',
+            pair.amount?.toFixed(2) || 'N/A',
+            pair.cost?.toFixed(6) || '0',
+            pair.received?.toFixed(6) || '0',
+            pair.returnRate?.toFixed(2) || '0',
+            pair.pnl?.toFixed(6) || '0'
+          ]);
+        });
+      } else {
+        // 没有交易对明细，导出汇总行
+        let statusText = '';
+        switch (pnl.status) {
+          case 'monitoring': statusText = '监控中'; break;
+          case 'bought': statusText = '已买入'; break;
+          case 'exited': statusText = '已退出'; break;
+        }
+        rows.push([
+          item.symbol,
+          '汇总',
+          '-',
+          '-',
+          '-',
+          '-',
+          '-',
+          '-',
+          pnl.totalSpent?.toFixed(4) || '0',
+          pnl.totalReceived?.toFixed(4) || '0',
+          pnl.returnRate?.toFixed(2) || '0',
+          pnl.realizedPnL?.toFixed(4) || '0'
+        ]);
       }
-      return [
-        item.symbol,
-        item.tokenAddress,
-        maxChange !== undefined ? maxChange.toFixed(2) : '-',
-        pnl.returnRate.toFixed(2),
-        pnl.realizedPnL.toFixed(4),
-        pnl.totalSpent.toFixed(4),
-        pnl.totalReceived.toFixed(4),
-        pnl.remainingAmount.toFixed(2),
-        pnl.buyCount,
-        pnl.sellCount,
-        statusText
-      ];
+
+      // 如果有未匹配的买入，添加持仓行
+      if (pnl.hasUnmatchedBuy) {
+        rows.push([
+          item.symbol,
+          '持仓中',
+          '-',
+          '-',
+          '-',
+          '-',
+          '-',
+          pnl.remainingAmount?.toFixed(2) || '0',
+          pnl.remainingCost?.toFixed(6) || '0',
+          '0',
+          '0',
+          '-'
+        ]);
+      }
+
+      return rows;
     });
 
     const csvContent = [headers, ...rows]

@@ -86,7 +86,9 @@ class TokenPool {
             // 卡牌仓位管理
             cardPositionManager: null,
             // 策略执行状态跟踪
-            strategyExecutions: {}  // strategyId -> { count: number, lastExecuted: timestamp }
+            strategyExecutions: {},  // strategyId -> { count: number, lastExecuted: timestamp }
+            // 多次交易轮数跟踪
+            completedPairs: []  // 已完成的交易对 [{ buyTime, sellTime, returnRate, pnl }]
         };
 
         this.pool.set(key, poolData);
@@ -681,6 +683,75 @@ class TokenPool {
             return this.priceHistoryCache.getStats();
         }
         return null;
+    }
+
+    // ==================== 多次交易轮数跟踪 ====================
+
+    /**
+     * 获取代币当前交易轮数（已完成交易对数）
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @returns {number} 当前轮数
+     */
+    getCurrentRound(tokenAddress, chain) {
+        const token = this.getToken(tokenAddress, chain);
+        return token && token.completedPairs ? token.completedPairs.length : 0;
+    }
+
+    /**
+     * 获取上一对交易收益率（%）
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @returns {number|null} 上一对收益率，如果没有返回null
+     */
+    getLastPairReturnRate(tokenAddress, chain) {
+        const token = this.getToken(tokenAddress, chain);
+        if (!token || !token.completedPairs || token.completedPairs.length === 0) {
+            return null;
+        }
+        return token.completedPairs[token.completedPairs.length - 1].returnRate;
+    }
+
+    /**
+     * 记录已完成的交易对
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @param {Object} pairData - 交易对数据
+     * @param {number} pairData.buyTime - 买入时间戳
+     * @param {number} pairData.sellTime - 卖出时间戳
+     * @param {number} pairData.returnRate - 收益率（%）
+     * @param {number} pairData.pnl - 盈亏金额（BNB）
+     */
+    addCompletedPair(tokenAddress, chain, pairData) {
+        const token = this.getToken(tokenAddress, chain);
+        if (token) {
+            if (!token.completedPairs) {
+                token.completedPairs = [];
+            }
+            token.completedPairs.push({
+                buyTime: pairData.buyTime,
+                sellTime: pairData.sellTime,
+                returnRate: pairData.returnRate,
+                pnl: pairData.pnl
+            });
+            this.logger.debug('[TokenPool] 记录已完成交易对', {
+                symbol: token.symbol,
+                address: tokenAddress,
+                round: token.completedPairs.length,
+                returnRate: pairData.returnRate
+            });
+        }
+    }
+
+    /**
+     * 获取代币的所有已完成交易对
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @returns {Array} 已完成交易对列表
+     */
+    getCompletedPairs(tokenAddress, chain) {
+        const token = this.getToken(tokenAddress, chain);
+        return token && token.completedPairs ? token.completedPairs : [];
     }
 }
 

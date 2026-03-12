@@ -139,6 +139,15 @@
             background-color: #6b7280;
             color: white;
         }
+
+        /* 交易对明细行样式 */
+        .pair-row {
+            background-color: rgba(55, 65, 81, 0.5);
+        }
+
+        .rotate-90 {
+            transform: rotate(90deg);
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100">
@@ -413,8 +422,7 @@
                                     <th class="px-4 py-3 text-right">
                                         <span class="sort-btn" data-sort="totalReceived">总收回</span>
                                     </th>
-                                    <th class="px-4 py-3 text-center">买入</th>
-                                    <th class="px-4 py-3 text-center">卖出</th>
+                                    <th class="px-4 py-3 text-center">交易对</th>
                                     <th class="px-4 py-3 text-center">首次交易(北京时间)</th>
                                     <th class="px-4 py-3 text-center">状态</th>
                                     <th class="px-4 py-3 text-center" style="width: 90px;">标注</th>
@@ -504,6 +512,6 @@
     </div>
 
     <script src="/static/js/simple-init.js?v=4.3"></script>
-    <script src="/static/js/experiment_token_returns.js?v=5.0"></script>
+    <script src="/static/js/experiment_token_returns.js?v=6.1"></script>
 </body>
 </html>

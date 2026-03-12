@@ -749,6 +749,27 @@ class LiveTradingEngine extends AbstractTradingEngine {
       if (cardManager.tokenCards === 0) {
         this.logger.info(this._experimentId, '_executeSell',
           `已全部卖出，更新代币状态为sold(观察30分钟) | tokenAddress=${signal.tokenAddress}, symbol=${signal.symbol}`);
+
+        // 记录已完成的交易对
+        const token = this._tokenPool.getToken(signal.tokenAddress, signal.chain);
+        if (token && token.buyTime && token.buyPrice) {
+          const sellTime = Date.now();
+          const buyPrice = token.buyPrice;
+          const sellPrice = price;
+          const returnRate = buyPrice > 0 ? ((sellPrice - buyPrice) / buyPrice * 100) : 0;
+          const pnl = actualBnbReceived - (actualBnbReceived / (1 + returnRate / 100));
+
+          this._tokenPool.addCompletedPair(signal.tokenAddress, signal.chain, {
+            buyTime: token.buyTime,
+            sellTime: sellTime,
+            returnRate: returnRate,
+            pnl: pnl
+          });
+
+          this.logger.info(this._experimentId, '_executeSell',
+            `记录已完成交易对 | symbol=${token.symbol}, buyPrice=${buyPrice}, sellPrice=${sellPrice}, returnRate=${returnRate.toFixed(2)}%, pnl=${pnl.toFixed(6)} BNB`);
+        }
+
         this._tokenPool.markAsSold(signal.tokenAddress, signal.chain);
         await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'sold');
       }
@@ -1665,8 +1686,25 @@ class LiveTradingEngine extends AbstractTradingEngine {
           // 构建代币信息（用于早期参与者检查）
           const tokenInfo = this._buildTokenInfo(token);
 
-          // 只使用策略级别的预检查条件
-          const preBuyCheckCondition = strategy.preBuyCheckCondition || null;
+          // 根据交易轮数选择检查条件
+          const currentRound = this._tokenPool.getCurrentRound(token.token, token.chain || 'bsc');
+          let preBuyCheckCondition;
+
+          if (currentRound === 0) {
+            // 首次买入
+            preBuyCheckCondition = strategy.preBuyCheckCondition || null;
+          } else {
+            // 再次买入
+            preBuyCheckCondition = strategy.repeatBuyCheckCondition || strategy.preBuyCheckCondition || null;
+          }
+
+          // 如果都没有配置，默认通过
+          if (!preBuyCheckCondition || !preBuyCheckCondition.trim()) {
+            preBuyCheckCondition = 'true';
+          }
+
+          // 获取上一对收益率
+          const lastPairReturnRate = this._tokenPool.getLastPairReturnRate(token.token, token.chain || 'bsc');
 
           preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             token.token,
@@ -1678,7 +1716,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
             {
               checkTime: Math.floor(Date.now() / 1000),
               tokenBuyTime: token.buyTime || null,  // 代币首次买入时间
-              drawdownFromHighest: factorResults.drawdownFromHighest || null  // 趋势因子：最高价回撤
+              drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 趋势因子：最高价回撤
+              buyRound: currentRound + 1,  // 即将进行的轮数
+              lastPairReturnRate: lastPairReturnRate ?? 0
             }
           );
 

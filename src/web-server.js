@@ -556,6 +556,132 @@ class RicherJsWebServer {
       }
     });
 
+    // 分析所有实验的统计数据
+    this.app.post('/api/experiments/analyze-all', async (req, res) => {
+      try {
+        const { ExperimentStatsService } = require('./web/services/ExperimentStatsService');
+        const statsService = new ExperimentStatsService();
+
+        // 获取所有实验
+        const filters = {
+          limit: 1000,
+          offset: 0
+        };
+        const experiments = await this.experimentFactory.list(filters);
+
+        console.log(`📊 开始分析 ${experiments.length} 个实验的统计数据...`);
+
+        const results = {
+          total: experiments.length,
+          processed: 0,
+          failed: 0,
+          skipped: 0,
+          details: []
+        };
+
+        for (const experiment of experiments) {
+          try {
+            const expData = experiment.toJSON();
+
+            // 如果已经有统计数据，跳过
+            if (expData.stats && Object.keys(expData.stats).length > 0) {
+              results.skipped++;
+              results.details.push({
+                id: experiment.id,
+                name: expData.experimentName,
+                status: 'skipped',
+                reason: '已有统计数据'
+              });
+              continue;
+            }
+
+            // 只分析已停止或已完成的实验
+            if (expData.status !== 'stopped' && expData.status !== 'completed') {
+              results.skipped++;
+              results.details.push({
+                id: experiment.id,
+                name: expData.experimentName,
+                status: 'skipped',
+                reason: '实验未完成'
+              });
+              continue;
+            }
+
+            // 计算统计数据
+            const stats = await statsService.calculateExperimentStats(experiment.id);
+
+            // 保存到数据库
+            const { error } = await this.dataService.supabase
+              .from('experiments')
+              .update({ stats })
+              .eq('id', experiment.id);
+
+            if (error) {
+              throw new Error(`保存统计数据失败: ${error.message}`);
+            }
+
+            results.processed++;
+            results.details.push({
+              id: experiment.id,
+              name: expData.experimentName,
+              status: 'success',
+              stats
+            });
+
+            console.log(`✅ 已分析实验: ${expData.experimentName}`);
+
+          } catch (error) {
+            results.failed++;
+            results.details.push({
+              id: experiment.id,
+              name: experiment.experimentName || '未知',
+              status: 'failed',
+              error: error.message
+            });
+            console.error(`❌ 分析实验失败 ${experiment.id}:`, error.message);
+          }
+        }
+
+        console.log(`📊 分析完成: 成功 ${results.processed}, 失败 ${results.failed}, 跳过 ${results.skipped}`);
+
+        res.json({
+          success: true,
+          data: results
+        });
+      } catch (error) {
+        console.error('分析实验统计数据失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 更新单个实验的统计数据
+    this.app.put('/api/experiment/:id/stats', async (req, res) => {
+      try {
+        const { ExperimentStatsService } = require('./web/services/ExperimentStatsService');
+        const statsService = new ExperimentStatsService();
+
+        const stats = await statsService.calculateExperimentStats(req.params.id);
+
+        // 保存到数据库
+        const { error } = await this.dataService.supabase
+          .from('experiments')
+          .update({ stats })
+          .eq('id', req.params.id);
+
+        if (error) {
+          throw new Error(`保存统计数据失败: ${error.message}`);
+        }
+
+        res.json({
+          success: true,
+          data: stats
+        });
+      } catch (error) {
+        console.error('更新实验统计数据失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // ============ API路由：钱包管理 ============
 
     // 获取钱包列表

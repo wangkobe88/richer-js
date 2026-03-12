@@ -597,17 +597,43 @@
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div class="param-group pre-buy-check-group" style="grid-column: 1 / span 2;">
-                    <label>🔍 检查条件：</label>
+                    <label>🔍 首次购买检查条件（第1次买入）：</label>
                     <input type="text" name="buy_preCheck_condition_{INDEX}"
                            placeholder="例如: holderBlacklistCount < 5 AND devHoldingRatio < 15 AND earlyTradesHighValueCount >= 8"
                            value=""
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <div class="text-xs text-gray-500 mt-1">
+                        仅在第1次买入此代币时检查
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
                         <details>
                             <summary class="cursor-pointer">📋 可用因子</summary>
                             <div class="mt-2 p-2 bg-gray-50 rounded text-xs">
                                 <strong>持有者检查:</strong> holderWhitelistCount, holderBlacklistCount, holdersCount, devHoldingRatio, maxHoldingRatio<br>
-                                <strong>早期参与者:</strong> earlyTradesHighValueCount, earlyTradesHighValuePerMin, earlyTradesCountPerMin, earlyTradesVolumePerMin, earlyTradesWalletsPerMin, earlyTradesTotalCount, earlyTradesVolume, earlyTradesUniqueWallets, earlyTradesDataCoverage, earlyTradesFilteredCount
+                                <strong>早期参与者:</strong> earlyTradesHighValueCount, earlyTradesHighValuePerMin, earlyTradesCountPerMin, earlyTradesVolumePerMin, earlyTradesWalletsPerMin, earlyTradesTotalCount, earlyTradesVolume, earlyTradesUniqueWallets, earlyTradesDataCoverage, earlyTradesFilteredCount<br>
+                                <strong>钱包簇:</strong> walletClusterSecondToFirstRatio, walletClusterMegaRatio, walletClusterTop2Ratio, walletClusterConcentration
+                            </div>
+                        </details>
+                    </div>
+                </div>
+                <div class="param-group repeat-buy-check-group" style="grid-column: 1 / span 2;">
+                    <label>🔄 再次购买检查条件（第2次及以后）：</label>
+                    <input type="text" name="buy_repeatCheck_condition_{INDEX}"
+                           placeholder="例如: lastPairReturnRate < 10 AND lastPairReturnRate > -15"
+                           value=""
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="text-xs text-gray-500 mt-1">
+                        第2次及之后的买入检查，可使用 <code>lastPairReturnRate</code>（上一对交易收益率%）
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <details>
+                            <summary class="cursor-pointer">📋 可用因子（包含首次检查的所有因子 + 新增因子）</summary>
+                            <div class="mt-2 p-2 bg-gray-50 rounded text-xs">
+                                <strong>新增因子:</strong><br>
+                                • lastPairReturnRate - 上一对交易收益率(%)<br>
+                                • buyRound - 当前交易轮数（2, 3, ...）<br>
+                                <hr class="my-1">
+                                <strong>其他因子:</strong> 与首次检查相同
                             </div>
                         </details>
                     </div>
@@ -818,6 +844,7 @@
                             cooldown: strategy.cooldown,
                             maxExecutions: strategy.maxExecutions,
                             preBuyCheckCondition: strategy.preBuyCheckCondition,
+                            repeatBuyCheckCondition: strategy.repeatBuyCheckCondition,
                             description: strategy.description
                         });
                     });
@@ -852,7 +879,8 @@
                                 priority: strategy.priority,
                                 cooldown: strategy.cooldown,
                                 maxExecutions: strategy.maxExecutions,
-                                preBuyCheckCondition: strategy.preBuyCheckCondition
+                                preBuyCheckCondition: strategy.preBuyCheckCondition,
+                                repeatBuyCheckCondition: strategy.repeatBuyCheckCondition
                             });
                         } else if (strategy.action === 'sell') {
                             addSellStrategy({
@@ -1175,6 +1203,17 @@
                     console.warn(`[addBuyStrategy] 未找到检查条件输入框 #${index}`);
                 }
             }
+
+            if (config.repeatBuyCheckCondition !== undefined) {
+                console.log(`[addBuyStrategy] 设置再次购买检查条件 #${index}:`, config.repeatBuyCheckCondition);
+                const input = buyContainer.querySelector(`input[name="buy_repeatCheck_condition_${index}"]`);
+                if (input) {
+                    input.value = config.repeatBuyCheckCondition || '';
+                    console.log(`[addBuyStrategy] 再次购买检查条件已设置: "${input.value}"`);
+                } else {
+                    console.warn(`[addBuyStrategy] 未找到再次购买检查条件输入框 #${index}`);
+                }
+            }
         }
 
         // 添加卖出策略
@@ -1330,13 +1369,15 @@
                 const index = card.dataset.index;
                 const maxExecutionsInput = card.querySelector(`input[name="buy_max_executions_${index}"]`);
                 const preBuyCheckInput = card.querySelector(`input[name="buy_preCheck_condition_${index}"]`);
+                const repeatBuyCheckInput = card.querySelector(`input[name="buy_repeatCheck_condition_${index}"]`);
                 buyStrategies.push({
                     condition: card.querySelector(`input[name="buy_condition_${index}"]`).value,
                     cards: card.querySelector(`select[name="buy_cards_${index}"]`).value,
                     priority: parseInt(card.querySelector(`input[name="buy_priority_${index}"]`).value),
                     cooldown: parseInt(card.querySelector(`input[name="buy_cooldown_${index}"]`).value),
                     maxExecutions: maxExecutionsInput.value ? parseInt(maxExecutionsInput.value) : null,
-                    preBuyCheckCondition: preBuyCheckInput ? preBuyCheckInput.value.trim() || null : null
+                    preBuyCheckCondition: preBuyCheckInput ? preBuyCheckInput.value.trim() || null : null,
+                    repeatBuyCheckCondition: repeatBuyCheckInput ? repeatBuyCheckInput.value.trim() || null : null
                 });
             });
 

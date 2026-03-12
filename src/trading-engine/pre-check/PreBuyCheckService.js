@@ -244,7 +244,11 @@ class PreBuyCheckService {
         twitterCheck,
         preBuyCheckCondition,
         startTime,
-        options.drawdownFromHighest  // 传入 drawdownFromHighest
+        options.drawdownFromHighest,  // 传入 drawdownFromHighest
+        {
+          buyRound: options.buyRound,
+          lastPairReturnRate: options.lastPairReturnRate
+        }
       );
     } catch (error) {
       const errorMessage = this._safeGetErrorMessage(error);
@@ -300,8 +304,17 @@ class PreBuyCheckService {
   /**
    * 使用条件表达式评估
    * @private
+   * @param {Object} holderCheck - 持有者检查结果
+   * @param {Object} earlyParticipantCheck - 早期参与者检查结果
+   * @param {Object} walletClusterCheck - 钱包簇检查结果
+   * @param {Object} creatorDevCheck - 创建者Dev检查结果
+   * @param {Object} twitterCheck - Twitter检查结果
+   * @param {string} condition - 条件表达式
+   * @param {number} startTime - 开始时间戳
+   * @param {number} drawdownFromHighest - 从最高价跌幅
+   * @param {Object} extraContext - 额外上下文 { buyRound, lastPairReturnRate }
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, twitterCheck, condition, startTime, drawdownFromHighest = null) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, twitterCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -400,7 +413,10 @@ class PreBuyCheckService {
         twitterSearchSuccess: twitterCheck.factors.twitterSearchSuccess || false,
         twitterSearchDuration: twitterCheck.factors.twitterSearchDuration || 0,
         // 趋势因子（允许在条件表达式中使用）
-        drawdownFromHighest: drawdownFromHighest ?? 0
+        drawdownFromHighest: drawdownFromHighest ?? 0,
+        // 多次交易因子（允许在条件表达式中使用）
+        buyRound: extraContext.buyRound || 1,
+        lastPairReturnRate: extraContext.lastPairReturnRate ?? 0
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime

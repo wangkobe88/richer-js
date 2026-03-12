@@ -1191,8 +1191,28 @@ class BacktestEngine extends AbstractTradingEngine {
       if (this._preBuyCheckService) {
         try {
           const tokenInfo = this._buildTokenInfoForBacktest(tokenState);
-          // 只使用策略级别的预检查条件，不再使用默认配置
-          const preBuyCheckCondition = strategy.preBuyCheckCondition || null;
+
+          // 根据交易轮数选择检查条件
+          const currentRound = tokenState.completedPairs ? tokenState.completedPairs.length : 0;
+          let preBuyCheckCondition;
+
+          if (currentRound === 0) {
+            // 首次买入
+            preBuyCheckCondition = strategy.preBuyCheckCondition || null;
+          } else {
+            // 再次买入
+            preBuyCheckCondition = strategy.repeatBuyCheckCondition || strategy.preBuyCheckCondition || null;
+          }
+
+          // 如果都没有配置，默认通过
+          if (!preBuyCheckCondition || !preBuyCheckCondition.trim()) {
+            preBuyCheckCondition = 'true';
+          }
+
+          // 获取上一对收益率
+          const lastPairReturnRate = currentRound > 0 && tokenState.completedPairs
+            ? tokenState.completedPairs[currentRound - 1].returnRate
+            : 0;
 
           preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             tokenState.token,
@@ -1206,7 +1226,9 @@ class BacktestEngine extends AbstractTradingEngine {
               skipHolderCheck: true,
               skipTwitterSearch: true,  // 回测时跳过Twitter搜索，因子使用默认值
               tokenBuyTime: tokenState.buyTime || null,  // 代币首次买入时间
-              drawdownFromHighest: factorResults.drawdownFromHighest || null  // 从最高价跌幅
+              drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 从最高价跌幅
+              buyRound: currentRound + 1,  // 即将进行的轮数
+              lastPairReturnRate: lastPairReturnRate ?? 0
             }
           );
 
@@ -1365,6 +1387,33 @@ class BacktestEngine extends AbstractTradingEngine {
           tokenState.soldAt = timestamp.getTime();
           this.logger.info(this._experimentId, '_executeStrategy',
             `代币 ${tokenState.symbol} 全部卖出，状态更新为 sold`);
+
+          // 记录已完成的交易对
+          if (tokenState.buyTime && tokenState.buyPrice) {
+            const sellPrice = factorResults.currentPrice || 0;
+            const buyPrice = tokenState.buyPrice;
+            const returnRate = buyPrice > 0 ? ((sellPrice - buyPrice) / buyPrice * 100) : 0;
+
+            // 计算盈亏 (回测中使用估算)
+            const holding = this._getHolding(tokenState.token);
+            const amountSold = holding ? holding.amount : 0;
+            const received = amountSold * sellPrice;
+            const cost = received / (1 + returnRate / 100);
+            const pnl = received - cost;
+
+            if (!tokenState.completedPairs) {
+              tokenState.completedPairs = [];
+            }
+            tokenState.completedPairs.push({
+              buyTime: tokenState.buyTime,
+              sellTime: timestamp.getTime(),
+              returnRate: returnRate,
+              pnl: pnl
+            });
+
+            this.logger.info(this._experimentId, '_executeStrategy',
+              `记录已完成交易对 | symbol=${tokenState.symbol}, buyPrice=${buyPrice}, sellPrice=${sellPrice}, returnRate=${returnRate.toFixed(2)}%, pnl=${pnl.toFixed(6)} BNB`);
+          }
         } else {
           // 部分卖出，状态保持 'bought'
           this.logger.info(this._experimentId, '_executeStrategy',
