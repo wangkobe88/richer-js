@@ -128,45 +128,9 @@ class PreBuyCheckService {
         this._checkCreatorIsNotBadDevWallet(creatorAddress)
       ]);
 
-      // 如果没有提供条件表达式，返回检查失败
-      // 不再使用默认配置，要求明确配置检查条件
+      // 如果没有提供条件表达式，默认通过（不执行任何检查）
       if (!preBuyCheckCondition || !preBuyCheckCondition.trim()) {
-        this.logger.warn('[PreBuyCheckService] 未配置检查条件，拒绝购买', {
-          token_address: tokenAddress,
-          experiment_id: experimentId
-        });
-
-        return {
-          preBuyCheck: 1,
-          checkTimestamp: Date.now(),
-          checkDuration: Date.now() - startTime,
-
-          holderWhitelistCount: holderCheck.whitelistCount || 0,
-          holderBlacklistCount: holderCheck.blacklistCount || 0,
-          holdersCount: holderCheck.holdersCount || 0,
-          devHoldingRatio: holderCheck.devHoldingRatio || 0,
-          maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
-          holderCanBuy: false,
-
-          holderCheckReason: holderCheck.reason || '检查未配置',
-          blacklistReason: holderCheck.blacklistReason || '',
-          devReason: holderCheck.devReason || '',
-
-          // 创建者Dev钱包检查（true=创建者不是坏Dev钱包）
-          creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
-
-          // 多次交易因子
-          buyRound: options.buyRound || 1,
-          lastPairReturnRate: options.lastPairReturnRate ?? 0,
-
-          canBuy: false,
-          checkReason: '未配置购买前检查条件，请在实验配置中设置检查条件',
-
-          // 早期参与者检查失败时的空值
-          ...this.earlyParticipantService.getEmptyFactorValues(),
-          // 钱包簇检查失败时的空值
-          ...this.walletClusterService.getEmptyFactorValues()
-        };
+        preBuyCheckCondition = 'true';  // 设置为 true 以便后续通过评估
       }
 
       // 使用条件表达式评估
