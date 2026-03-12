@@ -337,13 +337,14 @@ class ExperimentMonitor {
         <td class="px-2 py-2">
           <div class="flex flex-col gap-1">
             <div class="flex items-center gap-1 flex-wrap">
+              <button data-action="copy-id" data-id="${exp.id}" class="text-xs px-1.5 py-0.5 text-yellow-400 hover:bg-yellow-900 rounded transition-colors" title="复制ID">📋ID</button>
               <a href="/experiment/${exp.id}" target="_blank" class="text-xs px-1.5 py-0.5 text-blue-400 hover:bg-blue-900 rounded transition-colors">详情</a>
               <a href="/experiment/${exp.id}/signals" target="_blank" class="text-xs px-1.5 py-0.5 text-green-400 hover:bg-green-900 rounded transition-colors">信号</a>
               <a href="/experiment/${exp.id}/tokens" target="_blank" class="text-xs px-1.5 py-0.5 text-teal-400 hover:bg-teal-900 rounded transition-colors">代币</a>
               <a href="/experiment/${exp.id}/trades" target="_blank" class="text-xs px-1.5 py-0.5 text-purple-400 hover:bg-purple-900 rounded transition-colors">交易</a>
-              <a href="/experiment/${exp.id}/token-returns" target="_blank" class="text-xs px-1.5 py-0.5 text-orange-400 hover:bg-orange-900 rounded transition-colors">收益</a>
             </div>
             <div class="flex items-center gap-1 flex-wrap">
+              <a href="/experiment/${exp.id}/token-returns" target="_blank" class="text-xs px-1.5 py-0.5 text-orange-400 hover:bg-orange-900 rounded transition-colors">收益</a>
               <a href="/experiment/${exp.id}/strategy-analysis" target="_blank" class="text-xs px-1.5 py-0.5 text-pink-400 hover:bg-pink-900 rounded transition-colors">策略</a>
               <a href="/token-holders?experiment=${exp.id}" target="_blank" class="text-xs px-1.5 py-0.5 text-cyan-400 hover:bg-cyan-900 rounded transition-colors">持有者</a>
               <button data-action="copy-experiment" data-id="${exp.id}" class="text-xs px-1.5 py-0.5 text-indigo-400 hover:bg-indigo-900 rounded transition-colors" title="复制">📋复制</button>

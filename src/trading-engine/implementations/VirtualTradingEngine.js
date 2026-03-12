@@ -678,6 +678,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           cards: s.cards || 1,
           maxExecutions: s.maxExecutions || null,
           preBuyCheckCondition: s.preBuyCheckCondition || null,
+          repeatBuyCheckCondition: s.repeatBuyCheckCondition || null,
           enabled: true
         });
       });

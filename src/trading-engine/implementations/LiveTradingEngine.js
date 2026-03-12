@@ -919,6 +919,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           cards: s.cards || 1,
           maxExecutions: s.maxExecutions || null,
           preBuyCheckCondition: s.preBuyCheckCondition || null, // 添加预检查条件
+          repeatBuyCheckCondition: s.repeatBuyCheckCondition || null, // 添加再次购买检查条件
           enabled: true
         });
       });

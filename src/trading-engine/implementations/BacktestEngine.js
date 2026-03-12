@@ -963,6 +963,7 @@ class BacktestEngine extends AbstractTradingEngine {
         // 获取策略的 preBuyCheckCondition（从原始配置中查找）
         const strategiesConfig = this._experiment?.config?.strategiesConfig || {};
         let preBuyCheckCondition = null;
+        let repeatBuyCheckCondition = null;
 
         if (strategy.action === 'buy' && strategiesConfig.buyStrategies) {
           const buyStrategyConfig = strategiesConfig.buyStrategies.find(
@@ -970,6 +971,7 @@ class BacktestEngine extends AbstractTradingEngine {
           );
           if (buyStrategyConfig) {
             preBuyCheckCondition = buyStrategyConfig.preBuyCheckCondition || null;
+            repeatBuyCheckCondition = buyStrategyConfig.repeatBuyCheckCondition || null;
           }
         } else if (strategy.action === 'sell' && strategiesConfig.sellStrategies) {
           const sellStrategyConfig = strategiesConfig.sellStrategies.find(
@@ -980,8 +982,9 @@ class BacktestEngine extends AbstractTradingEngine {
           }
         }
 
-        // 将 preBuyCheckCondition 添加到 strategy 对象中，供后续使用
+        // 将 preBuyCheckCondition 和 repeatBuyCheckCondition 添加到 strategy 对象中，供后续使用
         strategy.preBuyCheckCondition = preBuyCheckCondition;
+        strategy.repeatBuyCheckCondition = repeatBuyCheckCondition;
 
         this.logger.info(this._experimentId, 'BacktestEngine',
           `${tokenSymbol} 触发策略: ${strategy.name} (${strategy.action}), hasPreBuyCheckCondition=${!!preBuyCheckCondition}`);
