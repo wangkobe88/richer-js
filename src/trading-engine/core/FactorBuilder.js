@@ -116,6 +116,9 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     creatorIsNotBadDevWallet: preBuyCheckResult.creatorIsNotBadDevWallet ?? null,
     // 趋势因子（允许在条件表达式中使用）
     drawdownFromHighest: preBuyCheckResult.drawdownFromHighest ?? null,
+    // 多次交易因子
+    buyRound: preBuyCheckResult.buyRound ?? 1,
+    lastPairReturnRate: preBuyCheckResult.lastPairReturnRate ?? 0,
     // Twitter搜索因子
     twitterTotalResults: preBuyCheckResult.twitterTotalResults ?? 0,
     twitterQualityTweets: preBuyCheckResult.twitterQualityTweets ?? 0,
@@ -129,9 +132,7 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     twitterUniqueUsers: preBuyCheckResult.twitterUniqueUsers ?? 0,
     twitterSearchSuccess: preBuyCheckResult.twitterSearchSuccess ?? false,
     twitterSearchDuration: preBuyCheckResult.twitterSearchDuration ?? null,
-    twitterSearchError: preBuyCheckResult.twitterSearchError ?? null,
-    // 跳过条件匹配标记（因子已收集但不做条件匹配）
-    skippedConditionMatch: preBuyCheckResult.skippedConditionMatch || false
+    twitterSearchError: preBuyCheckResult.twitterSearchError ?? null
   };
 }
 

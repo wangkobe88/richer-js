@@ -24,7 +24,6 @@ const DEFAULT_CONFIG = {
   earlyParticipantCheckEnabled: true, // 是否启用早期参与者检查
   earlyParticipantFilterEnabled: false, // 是否启用早期参与者筛选（策略8）
   earlyParticipantStrategy: 'three_feature_and_p25',
-  skipPreBuyConditionMatch: true,    // 是否对已有交易记录的代币跳过条件匹配（收集因子但直接通过）
   threeFeatureAndP25: {              // 策略8阈值配置
     volumePerMinThreshold: 1610,
     countPerMinThreshold: 14,
@@ -94,79 +93,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest } = options;
-
-    // 判断代币是否已有交易记录（已通过购买前检查）
-    const hasPriorTrade = tokenBuyTime !== null && tokenBuyTime !== undefined;
-    const shouldSkipConditionMatch = this.config.skipPreBuyConditionMatch && hasPriorTrade;
-
-    if (shouldSkipConditionMatch) {
-      this.logger.info('[PreBuyCheckService] 代币已有交易记录，跳过条件匹配（收集因子但直接通过）', {
-        token_address: tokenAddress,
-        buy_time: tokenBuyTime,
-        buy_time_readable: new Date(tokenBuyTime).toISOString(),
-        skip_pre_buy_condition_match: true
-      });
-
-      // 仍然执行所有检查以收集因子数据，但最终直接通过
-      const earlyParticipantCheck = await this._performEarlyParticipantCheck(
-        tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
-      );
-
-      // Twitter搜索：回测时跳过，使用默认因子
-      const twitterCheck = skipTwitterSearch
-        ? this._getEmptyTwitterCheck()
-        : await this._performTwitterSearch(tokenAddress);
-
-      const [holderCheck, walletClusterCheck, creatorDevCheck] = await Promise.all([
-        this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
-        this._performWalletClusterCheck(earlyParticipantCheck),
-        this._checkCreatorIsNotBadDevWallet(creatorAddress)
-      ]);
-
-      // 构建完整的结果（包含所有因子）
-      return {
-        // 标记已执行预检查
-        preBuyCheck: 1,
-        checkTimestamp: Date.now(),
-        checkDuration: Date.now() - startTime,
-
-        // 持有者检查结果
-        holderWhitelistCount: holderCheck.whitelistCount || 0,
-        holderBlacklistCount: holderCheck.blacklistCount || 0,
-        holdersCount: holderCheck.holdersCount || 0,
-        devHoldingRatio: holderCheck.devHoldingRatio || 0,
-        maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
-        holderCanBuy: true,  // 强制通过
-
-        holderCheckReason: '代币已通过购买前检查（历史交易记录）',
-        blacklistReason: holderCheck.blacklistReason || '',
-        devReason: holderCheck.devReason || '',
-
-        // 创建者Dev钱包检查
-        creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
-
-        // 从最高价跌幅（允许在条件表达式中使用）
-        drawdownFromHighest: drawdownFromHighest ?? 0,
-
-        // 早期参与者检查结果
-        ...earlyParticipantCheck,
-
-        // 钱包簇检查结果
-        ...walletClusterCheck,
-
-        // Twitter搜索结果
-        ...twitterCheck.factors,
-        _twitterRawResult: twitterCheck.rawResult,
-        _twitterDuration: twitterCheck.duration,
-
-        // 标记跳过了条件匹配（但因子已收集）
-        skippedConditionMatch: true,
-
-        canBuy: true,  // 直接通过
-        checkReason: `代币已通过购买前检查（历史交易记录，买入时间: ${new Date(tokenBuyTime).toISOString()}）`
-      };
-    }
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -174,10 +101,13 @@ class PreBuyCheckService {
       experiment_id: experimentId,
       chain,
       has_condition: !!preBuyCheckCondition,
+      condition: preBuyCheckCondition || '(空，默认通过)',
       check_time: checkTime || Math.floor(Date.now() / 1000),
       skip_holder_check: skipHolderCheck || false,
       skip_early_participant: skipEarlyParticipant || false,
-      skip_twitter_search: skipTwitterSearch || false
+      skip_twitter_search: skipTwitterSearch || false,
+      buy_round: buyRound || 1,
+      last_pair_return_rate: lastPairReturnRate ?? 0
     });
 
     try {
@@ -224,6 +154,10 @@ class PreBuyCheckService {
 
           // 创建者Dev钱包检查（true=创建者不是坏Dev钱包）
           creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
+
+          // 多次交易因子
+          buyRound: options.buyRound || 1,
+          lastPairReturnRate: options.lastPairReturnRate ?? 0,
 
           canBuy: false,
           checkReason: '未配置购买前检查条件，请在实验配置中设置检查条件',
@@ -278,6 +212,10 @@ class PreBuyCheckService {
 
         canBuy: false,
         checkReason: `购买前检查失败: ${errorMessage}`,
+
+        // 多次交易因子（默认值）
+        buyRound: options.buyRound || 1,
+        lastPairReturnRate: options.lastPairReturnRate ?? 0,
 
         // 早期参与者检查失败时的空值
         ...this.earlyParticipantService.getEmptyFactorValues(),
@@ -341,8 +279,9 @@ class PreBuyCheckService {
       // 从最高价跌幅（允许在条件表达式中使用）
       drawdownFromHighest: drawdownFromHighest ?? 0,
 
-      // 跳过第二阶段检查标记（完整检查时为 false）
-      skippedConditionMatch: false,
+      // 多次交易因子
+      buyRound: extraContext.buyRound || 1,
+      lastPairReturnRate: extraContext.lastPairReturnRate ?? 0,
 
       // 早期参与者检查结果
       ...earlyParticipantCheck,
@@ -753,8 +692,9 @@ class PreBuyCheckService {
       preTraderCheckReason: null,
       // 创建者Dev钱包检查（默认值：null 表示未检查）
       creatorIsNotBadDevWallet: null,
-      // 跳过第二阶段检查标记（默认值：false 表示未跳过）
-      skippedConditionMatch: false,
+      // 多次交易因子（默认值）
+      buyRound: 1,
+      lastPairReturnRate: 0,
       ...this.earlyParticipantService.getEmptyFactorValues(),
       ...this.walletClusterService.getEmptyFactorValues(),
       // Twitter因子
