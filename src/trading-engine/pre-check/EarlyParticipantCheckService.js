@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
   calculateGrowthScore: false,    // 是否计算增长评分
   accelerationSegments: 3,        // 加速度计算分段数（已废弃，保留配置兼容性）
   calculateGrowthMetrics: false,  // 是否计算增长特征（分析显示无效，默认关闭）
-  apiMaxRetries: 3,               // API调用最大重试次数
+  apiMaxRetries: 6,               // API调用最大重试次数
   apiRetryDelayMs: 1000           // API重试延迟（毫秒）
 };
 
@@ -64,9 +64,16 @@ class EarlyParticipantCheckService {
         });
 
         if (attempt < maxRetries) {
-          // 指数退避
-          const delay = retryDelay * Math.pow(2, attempt - 1);
+          // 第1-2次：指数退避 (1秒, 2秒)
+          // 第3-6次：固定等待2秒
+          let delay;
+          if (attempt <= 2) {
+            delay = retryDelay * Math.pow(2, attempt - 1);
+          } else {
+            delay = 2000; // 第3-6次重试都等待2秒
+          }
           this.logger.debug('[EarlyParticipantCheckService] 等待重试', {
+            attempt,
             delay_ms: delay
           });
           await this._sleep(delay);

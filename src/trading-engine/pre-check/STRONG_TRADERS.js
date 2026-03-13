@@ -15,8 +15,9 @@
  * - 208630e8-33bc-46a9-84d2-2b66db0b6ed4
  * - 8b6408cd-c555-4a98-b9a7-19a5f0925a00
  * - 6b17ff18-002d-4ce0-a745-b8e02676abd4
+ * - 015db965-0b33-4d98-88b1-386203886381
  *
- * Total: 58 wallets
+ * Total: 59 wallets
  */
 
 const STRONG_TRADERS_VERSION = 'v2';
@@ -26,7 +27,8 @@ const STRONG_TRADERS_SOURCE_EXPERIMENTS = [
   '25493408-98b3-4342-a1ac-036ba49f97ee',
   '208630e8-33bc-46a9-84d2-2b66db0b6ed4',
   '8b6408cd-c555-4a98-b9a7-19a5f0925a00',
-  '6b17ff18-002d-4ce0-a745-b8e02676abd4'
+  '6b17ff18-002d-4ce0-a745-b8e02676abd4',
+  '015db965-0b33-4d98-88b1-386203886381'
 ];
 
 const STRONG_TRADERS = new Set([
@@ -52,6 +54,7 @@ const STRONG_TRADERS = new Set([
   '0x62c4e6a3d263773aabaf39db54b226e6f0699851',
   '0x718758c2aa5f67ffff9054f8535aa3a0cf9ac480',
   '0x7a2363a401b2340c7941dd2eeff0196a5078d2e6',
+  '0x7eb1b96417b3531f3e0bef6799b9fa7500414891',
   '0x7f82b152fc941b2a402b8a41bfe7bd17ee58dfab',
   '0x82ce3546ad8f0da77b337eeac7d718b0843610ef',
   '0x832060fb7024ff837d947f2f0bfc4d0f6d332dd6',
