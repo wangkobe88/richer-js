@@ -1377,7 +1377,14 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             walletClusterMaxBlockBuyRatio: factorResults.walletClusterMaxBlockBuyRatio || 0,
             walletClusterMaxBlockNumber: factorResults.walletClusterMaxBlockNumber || null,
             walletClusterMaxBlockBuyAmount: factorResults.walletClusterMaxBlockBuyAmount || 0,
-            walletClusterTotalBuyAmount: factorResults.walletClusterTotalBuyAmount || 0
+            walletClusterTotalBuyAmount: factorResults.walletClusterTotalBuyAmount || 0,
+            // 强势交易者持仓因子
+            strongTraderNetPositionRatio: factorResults.strongTraderNetPositionRatio || 0,
+            strongTraderTotalBuyRatio: factorResults.strongTraderTotalBuyRatio || 0,
+            strongTraderTotalSellRatio: factorResults.strongTraderTotalSellRatio || 0,
+            strongTraderWalletCount: factorResults.strongTraderWalletCount || 0,
+            strongTraderTradeCount: factorResults.strongTraderTradeCount || 0,
+            strongTraderSellIntensity: factorResults.strongTraderSellIntensity || 0
           }
         } : null
       };

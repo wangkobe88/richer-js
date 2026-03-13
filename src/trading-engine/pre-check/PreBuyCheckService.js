@@ -13,6 +13,7 @@ const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService
 const { WalletClusterService } = require('./WalletClusterService');
 const { WalletDataService } = require('../../web/services/WalletDataService');
 const TwitterSearchService = require('./TwitterSearchService');
+const StrongTraderPositionService = require('./StrongTraderPositionService');
 
 /**
  * 默认配置
@@ -62,6 +63,9 @@ class PreBuyCheckService {
 
     // 初始化Twitter搜索服务
     this.twitterSearchService = new TwitterSearchService(logger);
+
+    // 初始化强势交易者持仓服务
+    this.strongTraderPositionService = new StrongTraderPositionService();
   }
 
   /**
@@ -121,11 +125,12 @@ class PreBuyCheckService {
         ? this._getEmptyTwitterCheck()
         : await this._performTwitterSearch(tokenAddress);
 
-      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查
-      const [holderCheck, walletClusterCheck, creatorDevCheck] = await Promise.all([
+      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查
+      const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
-        this._checkCreatorIsNotBadDevWallet(creatorAddress)
+        this._checkCreatorIsNotBadDevWallet(creatorAddress),
+        this._performStrongTraderPositionCheck(tokenAddress, tokenInfo?.innerPair, checkTime, skipEarlyParticipant)
       ]);
 
       // 如果没有提供条件表达式，默认通过（不执行任何检查）
@@ -140,6 +145,7 @@ class PreBuyCheckService {
         walletClusterCheck,
         creatorDevCheck,
         twitterCheck,
+        strongTraderCheck,
         preBuyCheckCondition,
         startTime,
         options.drawdownFromHighest,  // 传入 drawdownFromHighest
@@ -198,7 +204,9 @@ class PreBuyCheckService {
         twitterUniqueUsers: 0,
         twitterSearchSuccess: false,
         twitterSearchDuration: 0,
-        twitterSearchError: errorMessage
+        twitterSearchError: errorMessage,
+        // 强势交易者持仓检查失败时的空值
+        ...this.strongTraderPositionService.getEmptyFactorValues()
       };
     }
   }
@@ -211,12 +219,13 @@ class PreBuyCheckService {
    * @param {Object} walletClusterCheck - 钱包簇检查结果
    * @param {Object} creatorDevCheck - 创建者Dev检查结果
    * @param {Object} twitterCheck - Twitter检查结果
+   * @param {Object} strongTraderCheck - 强势交易者持仓检查结果
    * @param {string} condition - 条件表达式
    * @param {number} startTime - 开始时间戳
    * @param {number} drawdownFromHighest - 从最高价跌幅
    * @param {Object} extraContext - 额外上下文 { buyRound, lastPairReturnRate }
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, twitterCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, twitterCheck, strongTraderCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -257,6 +266,9 @@ class PreBuyCheckService {
       ...twitterCheck.factors,
       _twitterRawResult: twitterCheck.rawResult,
       _twitterDuration: twitterCheck.duration,
+
+      // 强势交易者持仓检查结果
+      ...strongTraderCheck,
 
       // 早期参与者购买资格评估
       preTraderCanBuy: null,
@@ -315,6 +327,13 @@ class PreBuyCheckService {
         twitterUniqueUsers: twitterCheck.factors.twitterUniqueUsers || 0,
         twitterSearchSuccess: twitterCheck.factors.twitterSearchSuccess || false,
         twitterSearchDuration: twitterCheck.factors.twitterSearchDuration || 0,
+        // 强势交易者持仓因子
+        strongTraderNetPositionRatio: strongTraderCheck.strongTraderNetPositionRatio || 0,
+        strongTraderTotalBuyRatio: strongTraderCheck.strongTraderTotalBuyRatio || 0,
+        strongTraderTotalSellRatio: strongTraderCheck.strongTraderTotalSellRatio || 0,
+        strongTraderWalletCount: strongTraderCheck.strongTraderWalletCount || 0,
+        strongTraderTradeCount: strongTraderCheck.strongTraderTradeCount || 0,
+        strongTraderSellIntensity: strongTraderCheck.strongTraderSellIntensity || 0,
         // 趋势因子（允许在条件表达式中使用）
         drawdownFromHighest: drawdownFromHighest ?? 0,
         // 多次交易因子（允许在条件表达式中使用）
@@ -616,6 +635,65 @@ class PreBuyCheckService {
   }
 
   /**
+   * 执行强势交易者持仓检查
+   * @private
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} pairAddress - 交易对地址（innerPair）
+   * @param {number} checkTime - 检查时间戳（秒）
+   * @param {boolean} skipEarlyParticipant - 是否跳过检查（与早期参与者检查同步）
+   * @returns {Promise<Object>} 强势交易者持仓检查结果
+   */
+  async _performStrongTraderPositionCheck(tokenAddress, pairAddress, checkTime = null, skipEarlyParticipant = false) {
+    // 如果跳过早期参与者检查，也跳过强势交易者检查（因为使用同样的时间窗口）
+    if (skipEarlyParticipant) {
+      return this.strongTraderPositionService.getEmptyFactorValues();
+    }
+
+    // 如果没有交易对地址，返回空值
+    if (!pairAddress) {
+      this.logger.warn('[PreBuyCheckService] 缺少交易对地址，跳过强势交易者持仓检查', {
+        token_address: tokenAddress,
+        has_pair_address: !!pairAddress
+      });
+      return this.strongTraderPositionService.getEmptyFactorValues();
+    }
+
+    try {
+      // 使用传入的 checkTime，如果没有则使用当前时间
+      const effectiveCheckTime = checkTime || Math.floor(Date.now() / 1000);
+
+      this.logger.debug('[PreBuyCheckService] 开始强势交易者持仓检查', {
+        token_address: tokenAddress,
+        pair_address: pairAddress,
+        check_time: effectiveCheckTime
+      });
+
+      const result = await this.strongTraderPositionService.analyzePosition(
+        tokenAddress,
+        pairAddress,
+        effectiveCheckTime
+      );
+
+      this.logger.debug('[PreBuyCheckService] 强势交易者持仓检查完成', {
+        token_address: tokenAddress,
+        net_position_ratio: result.strongTraderNetPositionRatio,
+        wallet_count: result.strongTraderWalletCount,
+        trade_count: result.strongTraderTradeCount,
+        total_trades_analyzed: result._meta?.total_trades_analyzed || 0
+      });
+
+      return result;
+    } catch (error) {
+      this.logger.error('[PreBuyCheckService] 强势交易者持仓检查失败', {
+        token_address: tokenAddress,
+        pair_address: pairAddress,
+        error: error.message
+      });
+      return this.strongTraderPositionService.getEmptyFactorValues();
+    }
+  }
+
+  /**
    * 构建综合检查原因
    * @private
    */
@@ -674,7 +752,9 @@ class PreBuyCheckService {
       twitterUniqueUsers: 0,
       twitterSearchSuccess: false,
       twitterSearchDuration: 0,
-      twitterSearchError: null
+      twitterSearchError: null,
+      // 强势交易者持仓因子
+      ...this.strongTraderPositionService.getEmptyFactorValues()
     };
   }
 

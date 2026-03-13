@@ -134,7 +134,14 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     twitterMaxFollowerUser: preBuyCheckResult.twitterMaxFollowerUser ?? null,
     twitterSearchSuccess: preBuyCheckResult.twitterSearchSuccess ?? false,
     twitterSearchDuration: preBuyCheckResult.twitterSearchDuration ?? null,
-    twitterSearchError: preBuyCheckResult.twitterSearchError ?? null
+    twitterSearchError: preBuyCheckResult.twitterSearchError ?? null,
+    // 强势交易者持仓因子
+    strongTraderNetPositionRatio: preBuyCheckResult.strongTraderNetPositionRatio ?? 0,
+    strongTraderTotalBuyRatio: preBuyCheckResult.strongTraderTotalBuyRatio ?? 0,
+    strongTraderTotalSellRatio: preBuyCheckResult.strongTraderTotalSellRatio ?? 0,
+    strongTraderWalletCount: preBuyCheckResult.strongTraderWalletCount ?? 0,
+    strongTraderTradeCount: preBuyCheckResult.strongTraderTradeCount ?? 0,
+    strongTraderSellIntensity: preBuyCheckResult.strongTraderSellIntensity ?? 0
   };
 }
 
