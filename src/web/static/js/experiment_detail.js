@@ -1017,9 +1017,15 @@ class ExperimentDetail {
           <code class="text-sm ${titleColor} font-mono break-all">${this._escapeHtml(strategy.condition)}</code>
         </div>
         ${isBuy && strategy.preBuyCheckCondition ? `
-        <div class="bg-amber-50 rounded-lg px-3 py-2 border border-amber-200">
-          <div class="text-xs text-amber-600 mb-1">🔍 检查条件</div>
+        <div class="bg-amber-50 rounded-lg px-3 py-2 border border-amber-200 mb-2">
+          <div class="text-xs text-amber-600 mb-1">🔍 首次购买检查条件（第1次买入）</div>
           <code class="text-sm text-amber-800 font-mono break-all">${this._escapeHtml(strategy.preBuyCheckCondition)}</code>
+        </div>
+        ` : ''}
+        ${isBuy && strategy.repeatBuyCheckCondition ? `
+        <div class="bg-blue-50 rounded-lg px-3 py-2 border border-blue-200 mb-2">
+          <div class="text-xs text-blue-600 mb-1">🔄 再次购买检查条件（第2次及以后）</div>
+          <code class="text-sm text-blue-800 font-mono break-all">${this._escapeHtml(strategy.repeatBuyCheckCondition)}</code>
         </div>
         ` : ''}
         <div class="flex items-center justify-between text-sm">

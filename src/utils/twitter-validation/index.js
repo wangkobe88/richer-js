@@ -18,6 +18,71 @@ const ENDPOINTS = {
   search: `${API_CONFIG.baseUrl}/sapi/Search`
 };
 
+// ==================== Twitter 用户黑名单 ====================
+/**
+ * Twitter用户黑名单
+ * 这些用户的推文将被过滤，不计入统计
+ *
+ * 分类说明：
+ * - 推广机器人: 自动发布格式化推广内容的账号
+ * - 警告机器人: 自动发布诈骗警告的账号
+ * - 追踪机器人: 自动发布追踪信息的账号（"2 tracking addresses bought..."）
+ * - 币圈活跃用户: 在多个代币中频繁发推的账号
+ *
+ * 更新日期: 2026-03-13
+ */
+const TWITTER_USER_BLACKLIST = [
+  // ========== 推广机器人 ==========
+  'BscPulseAlerts',           // 格式化推广：Quick Swap, Check Chart, Progress等
+  'BscKOLScanner',            // 推广：Just Popped on BSC等
+  'AutorunSOL',               // 推广机器人：🔔 New token! Check the ANALYSIS! (8个代币)
+  'LeekPony',                 // 推广机器人：🔥🔥🔥...格式化推广 (8个代币)
+
+  // ========== 警告机器人 ==========
+  'LAOWAI6654088',            // 诈骗警告：大量重复的⚠️诈骗推文
+
+  // ========== 币圈活跃用户（跨多个代币频繁发推）==========
+  '0xfacairiji',              // 币圈KOL：28380粉丝，涉及4个代币 (摇钱树、皮克斯、再不吃就老了、索隆)
+  'feibo03',                  // 大V：36094粉丝，涉及4个代币 (龙虾股、Epic Fury、B小将、NERO)
+  'Web3_GXFC',                 // 中V：2950粉丝，涉及3个代币 (哥斯拉、万事币安、黄羊)
+  'mxi46636628',              // 中V：6693粉丝，涉及3个代币 (ninebot、懂个球、币安党)
+
+  // ========== 追踪机器人 ==========
+  // 以下账号自动发布"2 tracking addresses bought this token..."格式的推文
+  'devito33612',              // 追踪机器人
+  'FrauMbahc',                // 追踪机器人
+  'AynurJahn22666',           // 追踪机器人
+  'AnneliesRua',               // 追踪机器人
+  'kraushaarmz',              // 追踪机器人
+  'GBudig68111',              // 追踪机器人
+  'UnivprofB28462',           // 追踪机器人
+  'SolveigBlo',               // 追踪机器人
+  'KeudelRupp',               // 追踪机器人
+  'OxanaDh',                  // 追踪机器人
+  'BrankoRadium',             // 追踪机器人
+  'ReinhardtHhu',             // 追踪机器人
+  'JasminHpa',                // 追踪机器人
+  'mike1774232',              // 追踪机器人
+  'ScJozefl',                 // 追踪机器人
+  'GieDoris45678',            // 追踪机器人
+  'AntjeBeng',                // 追踪机器人
+  'benthinjun',               // 追踪机器人
+  'hartmann59676',            // 追踪机器人
+  'IlonaSco',                 // 追踪机器人
+  'IrmengardDsx',             // 追踪机器人
+  'MetaMbao',                 // 追踪机器人
+  'collins686952',            // 追踪机器人
+];
+
+/**
+ * 检查用户是否在黑名单中
+ * @param {string} username - Twitter用户名（不含@）
+ * @returns {boolean} 是否在黑名单中
+ */
+function isUserBlacklisted(username) {
+  return TWITTER_USER_BLACKLIST.includes(username);
+}
+
 /**
  * Twitter API客户端，使用原生fetch和重试机制
  */
@@ -361,7 +426,20 @@ class TwitterTokenValidator {
     const qualityTweets = [];
     const lowQualityTweets = [];
 
+    // 黑名单过滤统计
+    let filteredCount = 0;
+    const filteredUsers = new Set();
+
     for (const tweet of tweets) {
+      // ==================== 黑名单过滤 ====================
+      const username = tweet.user.screenName;
+      if (isUserBlacklisted(username)) {
+        filteredCount++;
+        filteredUsers.add(username);
+        continue;  // 跳过黑名单用户的推文
+      }
+      // =====================================================
+
       const favoriteCount = tweet.favoriteCount || 0;
       const retweetCount = tweet.retweetCount || 0;
       const replyCount = tweet.replyCount || 0;
@@ -391,6 +469,11 @@ class TwitterTokenValidator {
       } else {
         lowQualityTweets.push(tweetData);
       }
+    }
+
+    // 记录过滤日志
+    if (filteredCount > 0) {
+      console.debug(`[Twitter黑名单] 过滤了 ${filteredCount} 条推文 (来自 ${filteredUsers.size} 个黑名单用户: ${Array.from(filteredUsers).join(', ')})`);
     }
 
     const stats = this._calculateTweetStatistics(qualityTweets);
@@ -857,5 +940,7 @@ module.exports = {
 
   // 配置和常量
   API_CONFIG,
-  ENDPOINTS
+  ENDPOINTS,
+  TWITTER_USER_BLACKLIST,
+  isUserBlacklisted
 };

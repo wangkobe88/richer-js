@@ -1,0 +1,92 @@
+{
+  "totalUsers": 92,
+  "multiTokenUsers": 10,
+  "multiTokenUsers3Plus": 6,
+  "activeUsers": 5,
+  "users": [
+    {
+      "username": "AutorunSOL",
+      "followers": 1058,
+      "verified": true,
+      "tokenCount": 8,
+      "tokens": [
+        "哥斯拉",
+        "懂个球",
+        "万事币安",
+        "黄羊",
+        "币胜",
+        "BAGENT",
+        "奉九",
+        "END"
+      ],
+      "totalTweets": 21
+    },
+    {
+      "username": "LeekPony",
+      "followers": 2585,
+      "verified": true,
+      "tokenCount": 8,
+      "tokens": [
+        "小龙虾",
+        "万事币安",
+        "B 小将",
+        "币胜",
+        "BAGENT",
+        "黄羊",
+        "奉九",
+        "END"
+      ],
+      "totalTweets": 21
+    },
+    {
+      "username": "feibo03",
+      "followers": 36094,
+      "verified": true,
+      "tokenCount": 4,
+      "tokens": [
+        "龙虾股",
+        "Epic Fury",
+        "B 小将",
+        "NERO"
+      ],
+      "totalTweets": 5
+    },
+    {
+      "username": "0xfacairiji",
+      "followers": 28380,
+      "verified": true,
+      "tokenCount": 4,
+      "tokens": [
+        "摇钱树",
+        "皮克斯",
+        "再不吃就老了",
+        "索隆"
+      ],
+      "totalTweets": 9
+    },
+    {
+      "username": "mxi46636628",
+      "followers": 6693,
+      "verified": true,
+      "tokenCount": 3,
+      "tokens": [
+        "ninebot",
+        "懂个球",
+        "币安党"
+      ],
+      "totalTweets": 3
+    },
+    {
+      "username": "Web3_GXFC",
+      "followers": 2950,
+      "verified": false,
+      "tokenCount": 3,
+      "tokens": [
+        "哥斯拉",
+        "万事币安",
+        "黄羊"
+      ],
+      "totalTweets": 13
+    }
+  ]
+}

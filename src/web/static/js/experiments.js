@@ -298,6 +298,16 @@ class ExperimentMonitor {
           <span class="text-gray-300 text-xs">${startedAt ? formatDuration(duration) : '-'}</span>
         </td>
 
+        <!-- 开始时间 -->
+        <td class="px-2 py-2">
+          <span class="text-gray-300 text-xs">${startedAt ? this._formatBeijingTime(startedAt) : '-'}</span>
+        </td>
+
+        <!-- 结束时间 -->
+        <td class="px-2 py-2">
+          <span class="text-gray-300 text-xs">${stoppedAt ? this._formatBeijingTime(stoppedAt) : (exp.status === 'running' ? '运行中' : '-')}</span>
+        </td>
+
         <!-- 代币数 -->
         <td class="px-2 py-2 text-right">
           <span class="text-gray-300 text-xs">${stats.tokenCount || 0}</span>

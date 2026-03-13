@@ -86,16 +86,27 @@ class TwitterSearchService {
     const verifiedUsers = new Set();
     const uniqueUsers = new Set();
 
+    // 计算最大粉丝数（过滤黑名单后的最大粉丝用户）
+    let maxFollower = 0;
+    let maxFollowerUser = null;
+
     allTweets.forEach(tweet => {
       totalLikes += tweet.metrics?.favorite_count || 0;
       totalRetweets += tweet.metrics?.retweet_count || 0;
       totalReplies += tweet.metrics?.reply_count || 0;
 
       if (tweet.user) {
-        totalFollowers += tweet.user.followers_count || 0;
+        const followers = tweet.user.followers_count || 0;
+        totalFollowers += followers;
         uniqueUsers.add(tweet.user.screen_name);
         if (tweet.user.verified) {
           verifiedUsers.add(tweet.user.screen_name);
+        }
+
+        // 更新最大粉丝数
+        if (followers > maxFollower) {
+          maxFollower = followers;
+          maxFollowerUser = tweet.user.screen_name;
         }
       }
     });
@@ -121,6 +132,10 @@ class TwitterSearchService {
       twitterFollowers: totalFollowers,
       twitterUniqueUsers: uniqueUsers.size,
 
+      // 最大粉丝数指标（过滤黑名单后）
+      twitterMaxFollower: maxFollower,
+      twitterMaxFollowerUser: maxFollowerUser,
+
       // 搜索状态
       twitterSearchSuccess: true,
       twitterSearchDuration: duration,
@@ -143,6 +158,8 @@ class TwitterSearchService {
       twitterVerifiedUsers: 0,
       twitterFollowers: 0,
       twitterUniqueUsers: 0,
+      twitterMaxFollower: 0,
+      twitterMaxFollowerUser: null,
       twitterSearchSuccess: false,
       twitterSearchDuration: duration,
       twitterSearchError: error
@@ -164,6 +181,8 @@ class TwitterSearchService {
       twitterVerifiedUsers: '认证用户数',
       twitterFollowers: '推文用户粉丝总数',
       twitterUniqueUsers: '独立用户数',
+      twitterMaxFollower: '最大推文发布者粉丝数(过滤黑名单后)',
+      twitterMaxFollowerUser: '最大粉丝数用户名',
       twitterSearchSuccess: 'Twitter搜索是否成功',
       twitterSearchDuration: 'Twitter搜索耗时(毫秒)',
       twitterSearchError: 'Twitter搜索错误信息'
