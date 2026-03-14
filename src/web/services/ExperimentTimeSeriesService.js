@@ -444,7 +444,7 @@ class ExperimentTimeSeriesService {
    * @param {number} threshold - 涨幅阈值百分比，默认20
    * @returns {Promise<Object>} 压缩结果统计
    */
-  async compressTimeSeriesData(experimentId, threshold = 20) {
+  async compressTimeSeriesData(experimentId, threshold = 50) {
     try {
       const supabase = dbManager.getClient();
       console.log(`🗜️ [时序数据压缩] 开始压缩实验 ${experimentId}, 阈值: ${threshold}%`);

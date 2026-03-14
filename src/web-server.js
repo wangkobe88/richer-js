@@ -565,7 +565,7 @@ class RicherJsWebServer {
     this.app.post('/api/experiment/:id/compress-time-series', async (req, res) => {
       try {
         const { id: experimentId } = req.params;
-        const { threshold = 20 } = req.body;
+        const { threshold = 50 } = req.body;
 
         // 验证阈值
         const validThreshold = parseFloat(threshold);

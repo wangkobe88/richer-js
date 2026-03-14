@@ -866,7 +866,7 @@ class ExperimentMonitor {
     const confirmed = confirm(
       `🗜️ 确定要压缩实验 "${experimentName}" 的时序数据吗？\n\n` +
       '此操作将：\n' +
-      '📊 删除最大涨幅低于 20% 的代币的时序数据\n' +
+      '📊 删除最大涨幅低于 50% 的代币的时序数据\n' +
       '💾 大幅减少存储空间和回测时间\n' +
       '⚠️ 被删除的数据无法恢复！\n\n' +
       '注意：有分析结果的代币会被处理，无结果的会被跳过。'
@@ -885,7 +885,7 @@ class ExperimentMonitor {
       const response = await fetch(`/api/experiment/${experimentId}/compress-time-series`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ threshold: 20 })
+        body: JSON.stringify({ threshold: 50 })
       });
 
       if (!response.ok) {
