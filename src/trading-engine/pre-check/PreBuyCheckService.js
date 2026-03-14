@@ -16,6 +16,303 @@ const TwitterSearchService = require('./TwitterSearchService');
 const StrongTraderPositionService = require('./StrongTraderPositionService');
 
 /**
+ * 因子元数据配置
+ * 用于诊断失败条件时显示友好的名称和格式化
+ */
+const FACTOR_METADATA = {
+  // 持有者检查因子
+  holderWhitelistCount: {
+    name: '白名单持有者数量',
+    format: v => v.toString(),
+    unit: '',
+    severity: 'info'
+  },
+  holderBlacklistCount: {
+    name: '黑名单持有者数量',
+    format: v => v.toString(),
+    unit: '',
+    severity: 'critical'
+  },
+  holdersCount: {
+    name: '持有者总数',
+    format: v => v.toString(),
+    unit: '',
+    severity: 'info'
+  },
+  devHoldingRatio: {
+    name: 'Dev持仓比例',
+    format: v => v.toFixed(1) + '%',
+    unit: '%',
+    severity: 'critical'
+  },
+  maxHoldingRatio: {
+    name: '最大持仓比例',
+    format: v => v.toFixed(1) + '%',
+    unit: '%',
+    severity: 'critical'
+  },
+  // 早期参与者因子
+  earlyTradesChecked: {
+    name: '早期交易检查状态',
+    format: v => v === 1 ? '已检查' : '未检查',
+    unit: '',
+    severity: 'info'
+  },
+  earlyTradesHighValueCount: {
+    name: '早期大额交易笔数',
+    format: v => v.toString(),
+    unit: '笔',
+    severity: 'warning'
+  },
+  earlyTradesHighValuePerMin: {
+    name: '早期大额交易速率',
+    format: v => v.toFixed(1),
+    unit: '笔/分钟',
+    severity: 'warning'
+  },
+  earlyTradesCountPerMin: {
+    name: '早期交易速率',
+    format: v => v.toFixed(1),
+    unit: '笔/分钟',
+    severity: 'warning'
+  },
+  earlyTradesVolumePerMin: {
+    name: '早期交易量速率',
+    format: v => v.toFixed(0),
+    unit: '/分钟',
+    severity: 'warning'
+  },
+  earlyTradesWalletsPerMin: {
+    name: '早期活跃钱包速率',
+    format: v => v.toFixed(1),
+    unit: '个/分钟',
+    severity: 'warning'
+  },
+  earlyTradesTotalCount: {
+    name: '早期交易总笔数',
+    format: v => v.toString(),
+    unit: '笔',
+    severity: 'info'
+  },
+  earlyTradesVolume: {
+    name: '早期交易总量',
+    format: v => v.toFixed(0),
+    unit: '',
+    severity: 'info'
+  },
+  earlyTradesUniqueWallets: {
+    name: '早期唯一钱包数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
+  earlyTradesDataCoverage: {
+    name: '早期数据覆盖率',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'info'
+  },
+  earlyTradesFilteredCount: {
+    name: '早期过滤交易数',
+    format: v => v.toString(),
+    unit: '笔',
+    severity: 'info'
+  },
+  earlyTradesActualSpan: {
+    name: '早期数据实际跨度',
+    format: v => v.toFixed(1) + '秒',
+    unit: '秒',
+    severity: 'info'
+  },
+  earlyTradesRateCalcWindow: {
+    name: '早期速率计算窗口',
+    format: v => v.toFixed(1) + '秒',
+    unit: '秒',
+    severity: 'info'
+  },
+  // 钱包簇因子
+  walletClusterSecondToFirstRatio: {
+    name: '第二大簇与第一大簇比例',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'warning'
+  },
+  walletClusterMegaRatio: {
+    name: 'Mega聚簇比例',
+    format: v => v.toFixed(2),
+    unit: '',
+    severity: 'warning'
+  },
+  walletClusterTop2Ratio: {
+    name: '前两大簇比例',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'warning'
+  },
+  walletClusterCount: {
+    name: '聚簇数量',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
+  walletClusterMaxSize: {
+    name: '最大聚簇大小',
+    format: v => v.toString(),
+    unit: '笔',
+    severity: 'info'
+  },
+  walletClusterAvgSize: {
+    name: '平均聚簇大小',
+    format: v => v.toFixed(1),
+    unit: '笔',
+    severity: 'info'
+  },
+  walletClusterMaxClusterWallets: {
+    name: '最大聚簇钱包数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
+  walletClusterMaxBlockBuyRatio: {
+    name: '最大区块买入占比',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'warning'
+  },
+  walletClusterTotalBuyAmount: {
+    name: '总买入金额',
+    format: v => v.toFixed(0),
+    unit: '',
+    severity: 'info'
+  },
+  // Twitter因子
+  twitterTotalResults: {
+    name: 'Twitter搜索结果数',
+    format: v => v.toString(),
+    unit: '条',
+    severity: 'info'
+  },
+  twitterQualityTweets: {
+    name: 'Twitter高质量推文数',
+    format: v => v.toString(),
+    unit: '条',
+    severity: 'info'
+  },
+  twitterLikes: {
+    name: 'Twitter点赞数',
+    format: v => v.toString(),
+    unit: '',
+    severity: 'info'
+  },
+  twitterRetweets: {
+    name: 'Twitter转发数',
+    format: v => v.toString(),
+    unit: '',
+    severity: 'info'
+  },
+  twitterComments: {
+    name: 'Twitter评论数',
+    format: v => v.toString(),
+    unit: '',
+    severity: 'info'
+  },
+  twitterTotalEngagement: {
+    name: 'Twitter总互动量',
+    format: v => v.toString(),
+    unit: '',
+    severity: 'info'
+  },
+  twitterAvgEngagement: {
+    name: 'Twitter平均互动量',
+    format: v => v.toFixed(0),
+    unit: '',
+    severity: 'info'
+  },
+  twitterVerifiedUsers: {
+    name: 'Twitter认证用户数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
+  twitterFollowers: {
+    name: 'Twitter粉丝总数',
+    format: v => v.toString(),
+    unit: '',
+    severity: 'info'
+  },
+  twitterUniqueUsers: {
+    name: 'Twitter唯一用户数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
+  // 强势交易者持仓因子
+  strongTraderNetPositionRatio: {
+    name: '强势交易者净持仓比',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'warning'
+  },
+  strongTraderTotalBuyRatio: {
+    name: '强势交易者买入占比',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'warning'
+  },
+  strongTraderTotalSellRatio: {
+    name: '强势交易者卖出占比',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'warning'
+  },
+  strongTraderWalletCount: {
+    name: '强势交易者钱包数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
+  strongTraderTradeCount: {
+    name: '强势交易者交易笔数',
+    format: v => v.toString(),
+    unit: '笔',
+    severity: 'info'
+  },
+  strongTraderSellIntensity: {
+    name: '强势交易者卖出强度',
+    format: v => v.toFixed(2),
+    unit: '',
+    severity: 'warning'
+  },
+  // 创建者Dev钱包因子
+  creatorIsNotBadDevWallet: {
+    name: '创建者非Dev钱包',
+    format: v => v === 1 ? '是' : '否',
+    unit: '',
+    severity: 'critical'
+  },
+  // 趋势因子
+  drawdownFromHighest: {
+    name: '从最高价跌幅',
+    format: v => v.toFixed(1) + '%',
+    unit: '%',
+    severity: 'warning'
+  },
+  // 多次交易因子
+  buyRound: {
+    name: '买入轮次',
+    format: v => `第${v}轮`,
+    unit: '',
+    severity: 'info'
+  },
+  lastPairReturnRate: {
+    name: '上一对收益率',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'warning'
+  }
+};
+
+/**
  * 默认配置
  */
 const DEFAULT_CONFIG = {
@@ -388,12 +685,22 @@ class PreBuyCheckService {
         }
       });
 
-      return {
+      const result = {
         ...baseResult,
         canBuy,
-        preTraderCanBuy: canBuy,
-        checkReason: canBuy ? '购买前检查通过' : `购买前检查失败: ${condition}`
+        preTraderCanBuy: canBuy
       };
+
+      // 如果条件失败，执行详细诊断
+      if (!canBuy) {
+        const diagnosis = this._diagnoseFailedCondition(condition, context);
+        result.checkReason = diagnosis.summaryReason;
+        result.failedConditions = diagnosis.failedConditions;
+      } else {
+        result.checkReason = '购买前检查通过';
+      }
+
+      return result;
     } catch (error) {
       this.logger.error('[PreBuyCheckService] 条件表达式评估失败', {
         condition,
@@ -495,6 +802,175 @@ class PreBuyCheckService {
     const values = Object.values(context);
     const fn = new Function(...keys, `return ${jsExpr};`);
     return fn(...values);
+  }
+
+  /**
+   * 从条件表达式中提取因子名称
+   * 例如: "holderBlacklistCount === 0" -> "holderBlacklistCount"
+   * @private
+   */
+  _extractFactorName(expression) {
+    // 匹配模式：变量名后跟操作符和值
+    // 支持: variable === value, variable !== value, variable > value, variable < value, etc.
+    const match = expression.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(===|!==|==|!=|>=|<=|>|<)\s*/);
+    if (match) {
+      return match[1];
+    }
+    return null;
+  }
+
+  /**
+   * 解析条件表达式，提取所有原子条件
+   * 例如: "holderBlacklistCount === 0 && devHoldingRatio < 15"
+   * -> ["holderBlacklistCount === 0", "devHoldingRatio < 15"]
+   * @private
+   */
+  _parseCondition(condition) {
+    // 替换 AND/OR 为 JavaScript 运算符
+    const jsExpr = condition
+      .replace(/\bAND\b/gi, '&&')
+      .replace(/\bOR\b/gi, '||')
+      .replace(/\bNOT\b/gi, '!');
+
+    // 分割条件表达式（按 && 和 || 分割）
+    // 需要处理括号内的内容，避免错误分割
+    const atomicConditions = [];
+    let current = '';
+    let depth = 0;
+
+    for (let i = 0; i < jsExpr.length; i++) {
+      const char = jsExpr[i];
+      if (char === '(') depth++;
+      else if (char === ')') depth--;
+      else if ((char === '&' || char === '|') && depth === 0) {
+        // 检查是否是 && 或 ||
+        if (i + 1 < jsExpr.length && jsExpr[i + 1] === char) {
+          const trimmed = current.trim();
+          if (trimmed) atomicConditions.push(trimmed);
+          current = '';
+          i++; // 跳过下一个字符
+          continue;
+        }
+      }
+      current += char;
+    }
+
+    const trimmed = current.trim();
+    if (trimmed) atomicConditions.push(trimmed);
+
+    return atomicConditions;
+  }
+
+  /**
+   * 提取条件的期望部分（用于显示）
+   * 例如: "holderBlacklistCount === 0" -> "=== 0"
+   * @private
+   */
+  _extractExpectedPart(expression) {
+    // 匹配操作符和值部分
+    const match = expression.match(/^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*(===|!==|==|!=|>=|<=|>|<)\s*(.+)/);
+    if (match) {
+      return `${match[1]} ${match[2]}`.trim();
+    }
+    return expression;
+  }
+
+  /**
+   * 诊断失败的条件，返回详细的不满足条件列表
+   * @private
+   */
+  _diagnoseFailedCondition(condition, context) {
+    const atomicConditions = this._parseCondition(condition);
+    const failedList = [];
+
+    for (const expr of atomicConditions) {
+      // 跳过括号包裹的复杂表达式
+      if (expr.startsWith('(') && expr.endsWith(')')) {
+        failedList.push({
+          id: `complex_${failedList.length}`,
+          name: '复杂条件',
+          expression: expr,
+          expected: expr,
+          actualValue: null,
+          actualFormatted: '(复杂表达式)',
+          satisfied: null,
+          severity: 'info',
+          factorName: null
+        });
+        continue;
+      }
+
+      const factorName = this._extractFactorName(expr);
+      const metadata = factorName ? FACTOR_METADATA[factorName] : null;
+      const actualValue = factorName !== null ? context[factorName] : null;
+
+      try {
+        // 单独评估这个条件
+        const satisfied = this._safeEvaluate(expr, context);
+
+        failedList.push({
+          id: factorName || `condition_${failedList.length}`,
+          name: metadata?.name || factorName || expr,
+          expression: expr,
+          expected: this._extractExpectedPart(expr),
+          actualValue,
+          actualFormatted: metadata ? metadata.format(actualValue ?? 0) : (actualValue ?? 'N/A'),
+          satisfied,
+          severity: satisfied ? 'info' : (metadata?.severity || 'warning'),
+          factorName
+        });
+      } catch (e) {
+        // 评估失败，可能是复杂表达式
+        failedList.push({
+          id: factorName || `condition_${failedList.length}`,
+          name: metadata?.name || factorName || expr,
+          expression: expr,
+          expected: this._extractExpectedPart(expr),
+          actualValue,
+          actualFormatted: metadata ? metadata.format(actualValue ?? 0) : (actualValue ?? 'N/A'),
+          satisfied: null,
+          severity: 'info',
+          factorName,
+          error: e.message
+        });
+      }
+    }
+
+    return {
+      failedConditions: failedList,
+      summaryReason: this._buildSummaryReason(failedList)
+    };
+  }
+
+  /**
+   * 构建简化的失败原因摘要
+   * @private
+   */
+  _buildSummaryReason(failedList) {
+    // 只显示不满足的关键条件
+    const criticalFailed = failedList.filter(f => !f.satisfied && f.severity === 'critical');
+    const warningFailed = failedList.filter(f => !f.satisfied && f.severity === 'warning');
+
+    const parts = [];
+
+    for (const item of criticalFailed) {
+      parts.push(`${item.name}失败(${item.actualFormatted})`);
+    }
+
+    for (const item of warningFailed) {
+      parts.push(`${item.name}不满足(${item.actualFormatted})`);
+    }
+
+    if (parts.length === 0) {
+      // 如果没有明确的失败条件，返回第一个不满足的条件
+      const anyFailed = failedList.find(f => f.satisfied === false);
+      if (anyFailed) {
+        return `${anyFailed.name}不满足(${anyFailed.actualFormatted})`;
+      }
+      return '条件表达式评估失败';
+    }
+
+    return parts.join(', ');
   }
 
   /**

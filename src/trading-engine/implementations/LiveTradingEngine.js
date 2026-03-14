@@ -1775,7 +1775,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
             preBuyCheckFactors: preBuyCheckFactors,
             preBuyCheckResult: {
               canBuy: preBuyCheckResult.canBuy,
-              reason: preBuyCheckResult.checkReason || 'pre_buy_check_failed'
+              reason: preBuyCheckResult.checkReason || 'pre_buy_check_failed',
+              failedConditions: preBuyCheckResult.failedConditions || null
             }
           };
 
@@ -1832,7 +1833,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
           preBuyCheckFactors: preBuyCheckFactors,
           preBuyCheckResult: {
             canBuy: preBuyCheckResult.canBuy,
-            reason: preBuyCheckResult.checkReason || 'passed'
+            reason: preBuyCheckResult.checkReason || 'passed',
+            failedConditions: preBuyCheckResult.failedConditions || null
           }
         };
 

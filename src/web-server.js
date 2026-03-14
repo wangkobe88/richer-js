@@ -1421,10 +1421,10 @@ class RicherJsWebServer {
         const { STRONG_TRADERS } = require('./trading-engine/pre-check/STRONG_TRADERS');
         const { WalletClusterService } = require('./trading-engine/pre-check/WalletClusterService');
 
-        // 获取信号数据以获取 token_address
+        // 获取信号数据以获取 token_address 和 metadata（包含preBuyCheckResult）
         const { data: signalData, error: signalError } = await this.dataService.supabase
           .from('strategy_signals')
-          .select('token_address')
+          .select('token_address, metadata')
           .eq('id', req.params.id)
           .single();
 
@@ -1484,6 +1484,7 @@ class RicherJsWebServer {
               success: true,
               data: null,
               token_address: signalData?.token_address || null,
+              signal_metadata: signalData?.metadata || null,
               strong_traders: Array.from(STRONG_TRADERS),
               cluster_analysis: clusterAnalysis,
               clusters: clustersWithTrades
@@ -1496,6 +1497,7 @@ class RicherJsWebServer {
             success: true,
             data: data,
             token_address: signalData?.token_address || null,
+            signal_metadata: signalData?.metadata || null,
             strong_traders: Array.from(STRONG_TRADERS),
             cluster_analysis: clusterAnalysis,
             clusters: clustersWithTrades

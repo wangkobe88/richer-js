@@ -1268,7 +1268,8 @@ class BacktestEngine extends AbstractTradingEngine {
           preBuyCheckFactors: preBuyCheckResult ? buildPreBuyCheckFactorValues(preBuyCheckResult) : {},
           preBuyCheckResult: preBuyCheckResult ? {
             canBuy: preBuyCheckResult.canBuy,
-            reason: preBuyCheckResult.checkReason || (preCheckPassed ? 'passed' : 'failed')
+            reason: preBuyCheckResult.checkReason || (preCheckPassed ? 'passed' : 'failed'),
+            failedConditions: preBuyCheckResult.failedConditions || null
           } : null
         };
 

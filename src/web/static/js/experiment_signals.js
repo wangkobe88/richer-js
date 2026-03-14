@@ -1936,6 +1936,46 @@ class ExperimentSignals {
         `;
       }
 
+      // 构建失败条件详情
+      let failedConditionsHtml = '';
+      if (pr.failedConditions && pr.failedConditions.length > 0) {
+        const failedItems = pr.failedConditions.map(fc => {
+          const statusIcon = fc.satisfied ? '✅' : '❌';
+          const statusClass = fc.satisfied ? 'text-green-700' : 'text-red-700';
+          const severityIcon = fc.severity === 'critical' ? '🔴' : fc.severity === 'warning' ? '⚠️' : 'ℹ️';
+
+          return `
+            <div class="flex items-start justify-between py-1 border-b border-amber-200 last:border-0">
+              <div class="flex-1">
+                <div class="text-xs text-amber-900">
+                  <span class="mr-1">${severityIcon}</span>
+                  <span class="font-semibold">${fc.name}</span>
+                </div>
+                <div class="text-xs text-amber-700 ml-5">
+                  <span class="text-gray-600">条件:</span> <code class="text-xs bg-amber-200 px-1 rounded">${this._escapeHtml(fc.expression)}</code>
+                </div>
+              </div>
+              <div class="ml-2 text-right">
+                <div class="text-xs ${statusClass} font-semibold">${statusIcon} ${fc.satisfied ? '满足' : '不满足'}</div>
+                <div class="text-xs text-gray-600">实际: ${this._escapeHtml(fc.actualFormatted)}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        failedConditionsHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="text-xs font-semibold text-amber-900 mb-1">📋 条件检查详情</div>
+            <div class="bg-white rounded p-2 border border-amber-200">
+              ${failedItems}
+            </div>
+            ${pr.reason ? `<div class="text-xs text-amber-800 mt-2">📝 ${this._escapeHtml(pr.reason)}</div>` : ''}
+          </div>
+        `;
+      } else if (pr.reason) {
+        failedConditionsHtml = `<div class="text-xs text-amber-800 mt-2 border-t border-amber-300 pt-2">${this._escapeHtml(pr.reason)}</div>`;
+      }
+
       preBuyCheckHtml = `
         <div class="mt-2 p-3 bg-amber-100 rounded-lg border border-amber-300">
           <div class="flex items-center justify-between mb-2">
@@ -1951,7 +1991,7 @@ class ExperimentSignals {
           ${twitterHtml}
           ${earlyTradesHtml}
           ${strongTraderHtml}
-          ${pr.reason ? `<div class="text-xs text-amber-800 mt-2 border-t border-amber-300 pt-2">${this._escapeHtml(pr.reason)}</div>` : ''}
+          ${failedConditionsHtml}
         </div>
       `;
     }
