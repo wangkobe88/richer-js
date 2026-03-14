@@ -90,7 +90,8 @@ const STRONG_TRADERS = new Set([
   '0xf3b10fb66d1a5e6af63b0c5bb18c2a78571e0f09',
   '0xf7ff38f74c8a5b4750e5f65ae74c924a441b7b90',
   '0xfb5ab95041b5fb4925d925fbcb4e81c99fa3b8ac',
-  '0xfbf4d0bc7fa1333df0204b4a38231daebcecaf73'
+  '0xfbf4d0bc7fa1333df0204b4a38231daebcecaf73',
+  '0x64b23c2987aca16b3d3c55ad6f694058783c72ea' //打狗一级棒
 ]);
 
 module.exports = { STRONG_TRADERS, STRONG_TRADERS_VERSION, STRONG_TRADERS_SOURCE_EXPERIMENTS };

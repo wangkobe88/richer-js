@@ -437,6 +437,174 @@ class ExperimentTimeSeriesService {
       };
     }
   }
+
+  /**
+   * 压缩时序数据 - 删除低涨幅代币的数据
+   * @param {string} experimentId - 实验ID
+   * @param {number} threshold - 涨幅阈值百分比，默认20
+   * @returns {Promise<Object>} 压缩结果统计
+   */
+  async compressTimeSeriesData(experimentId, threshold = 20) {
+    try {
+      const supabase = dbManager.getClient();
+      console.log(`🗜️ [时序数据压缩] 开始压缩实验 ${experimentId}, 阈值: ${threshold}%`);
+
+      // 步骤1: 查询所有代币及其 analysis_results
+      console.log(`📊 [时序数据压缩] 步骤1: 查询代币分析结果...`);
+      const pageSize = 1000;
+      let offset = 0;
+      let hasMore = true;
+      let allTokens = [];
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('experiment_tokens')
+          .select('token_address, token_symbol, analysis_results')
+          .eq('experiment_id', experimentId)
+          .range(offset, offset + pageSize - 1);
+
+        if (error) {
+          throw new Error(`查询代币失败: ${error.message}`);
+        }
+
+        if (data && data.length > 0) {
+          allTokens = allTokens.concat(data);
+          offset += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`📊 [时序数据压缩] 共查询到 ${allTokens.length} 个代币`);
+
+      // 步骤2: 统计压缩前的数据量
+      console.log(`📊 [时序数据压缩] 步骤2: 统计压缩前数据量...`);
+      const { count: beforeCount, error: countError } = await supabase
+        .from('experiment_time_series_data')
+        .select('*', { count: 'exact', head: true })
+        .eq('experiment_id', experimentId);
+
+      if (countError) {
+        throw new Error(`统计数据量失败: ${countError.message}`);
+      }
+
+      console.log(`📊 [时序数据压缩] 压缩前: ${beforeCount} 条时序数据`);
+
+      // 步骤3: 筛选需要删除的代币（max_change_percent < threshold）
+      console.log(`📊 [时序数据压缩] 步骤3: 筛选低涨幅代币...`);
+      const tokensToDelete = [];
+      const skippedTokens = [];
+
+      for (const token of allTokens) {
+        const analysis = token.analysis_results;
+
+        // 无分析结果 -> 跳过
+        if (!analysis) {
+          skippedTokens.push({
+            address: token.token_address,
+            symbol: token.token_symbol,
+            reason: 'no_analysis_results'
+          });
+          continue;
+        }
+
+        const maxChange = analysis.max_change_percent;
+
+        // max_change_percent 为 null/undefined -> 跳过
+        if (maxChange === null || maxChange === undefined) {
+          skippedTokens.push({
+            address: token.token_address,
+            symbol: token.token_symbol,
+            reason: 'no_max_change'
+          });
+          continue;
+        }
+
+        // 低于阈值 -> 标记删除
+        if (maxChange < threshold) {
+          tokensToDelete.push({
+            address: token.token_address,
+            symbol: token.token_symbol,
+            maxChange: maxChange
+          });
+        }
+      }
+
+      console.log(`📊 [时序数据压缩] 需要删除: ${tokensToDelete.length} 个代币, 跳过: ${skippedTokens.length} 个代币`);
+
+      // 步骤4: 删除时序数据（分批处理避免超时）
+      if (tokensToDelete.length > 0) {
+        console.log(`📊 [时序数据压缩] 步骤4: 删除时序数据...`);
+        const deleteBatchSize = 500;
+        let deletedCount = 0;
+
+        for (let i = 0; i < tokensToDelete.length; i += deleteBatchSize) {
+          const batch = tokensToDelete.slice(i, i + deleteBatchSize);
+          const addresses = batch.map(t => t.address);
+
+          const { error: deleteError } = await supabase
+            .from('experiment_time_series_data')
+            .delete()
+            .in('token_address', addresses)
+            .eq('experiment_id', experimentId);
+
+          if (deleteError) {
+            console.error(`❌ [时序数据压缩] 批次删除失败: ${deleteError.message}`);
+          } else {
+            deletedCount += addresses.length;
+            console.log(`✅ [时序数据压缩] 已删除 ${deletedCount}/${tokensToDelete.length} 个代币的数据`);
+          }
+        }
+      }
+
+      // 步骤5: 统计压缩后的数据量
+      console.log(`📊 [时序数据压缩] 步骤5: 统计压缩后数据量...`);
+      const { count: afterCount, error: afterCountError } = await supabase
+        .from('experiment_time_series_data')
+        .select('*', { count: 'exact', head: true })
+        .eq('experiment_id', experimentId);
+
+      if (afterCountError) {
+        console.warn(`⚠️ [时序数据压缩] 统计压缩后数据量失败: ${afterCountError.message}`);
+      }
+
+      const deletedRecords = beforeCount - (afterCount || 0);
+      const compressionRatio = beforeCount > 0 ? ((deletedRecords / beforeCount) * 100).toFixed(1) : 0;
+
+      console.log(`✅ [时序数据压缩] 压缩完成!`);
+      console.log(`   压缩前: ${beforeCount} 条`);
+      console.log(`   压缩后: ${afterCount || 0} 条`);
+      console.log(`   删除: ${deletedRecords} 条 (${compressionRatio}%)`);
+
+      return {
+        success: true,
+        data: {
+          experimentId: experimentId,
+          threshold: threshold,
+          totalTokens: allTokens.length,
+          tokensToDelete: tokensToDelete.length,
+          skippedTokens: skippedTokens.length,
+          beforeCount: beforeCount,
+          afterCount: afterCount || 0,
+          deletedRecords: deletedRecords,
+          compressionRatio: parseFloat(compressionRatio),
+          deletedTokens: tokensToDelete.map(t => ({
+            address: t.address,
+            symbol: t.symbol,
+            maxChange: t.maxChange
+          }))
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ [时序数据压缩] 压缩失败:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 }
 
 module.exports = { ExperimentTimeSeriesService };

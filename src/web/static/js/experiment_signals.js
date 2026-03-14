@@ -2480,17 +2480,26 @@ class ExperimentSignals {
       const response = await fetch(`/api/signal/${signalId}/early-trades`);
       const result = await response.json();
 
-      if (result.success && result.data) {
-        const trades = result.data.trades_data || [];
-        const tradeCount = trades.length;
-
-        if (tradeCount === 0) {
+      if (result.success) {
+        if (!result.data) {
+          // 信号创建于数据存储功能上线前，无历史数据
           contentDiv.innerHTML = `
             <div class="text-center py-8">
-              <p class="text-gray-400">无早期交易数据</p>
+              <p class="text-yellow-400 mb-2">此信号无早期交易数据</p>
+              <p class="text-xs text-gray-500">该信号创建于数据存储功能上线前，未保存原始交易数据</p>
             </div>
           `;
         } else {
+          const trades = result.data.trades_data || [];
+          const tradeCount = trades.length;
+
+          if (tradeCount === 0) {
+            contentDiv.innerHTML = `
+              <div class="text-center py-8">
+                <p class="text-gray-400">无早期交易数据</p>
+              </div>
+            `;
+          } else {
           // 构建交易数据展示表格
           const tableRows = trades.slice(0, 100).map((trade, idx) => {
             const time = new Date(trade.time * 1000).toLocaleString('zh-CN');
@@ -2541,6 +2550,7 @@ class ExperimentSignals {
               </table>
             </div>
           `;
+          }
         }
       } else {
         contentDiv.innerHTML = `

@@ -89,6 +89,14 @@ class ExperimentMonitor {
           this.openEditNameModal(id, name);
           return;
         }
+
+        const compressBtn = e.target.closest('[data-action="compress"]');
+        if (compressBtn) {
+          const id = compressBtn.getAttribute('data-id');
+          const name = compressBtn.getAttribute('data-name');
+          this.compressTimeSeries(id, name);
+          return;
+        }
       });
     }
 
@@ -358,6 +366,7 @@ class ExperimentMonitor {
               <a href="/experiment/${exp.id}/strategy-analysis" target="_blank" class="text-xs px-1.5 py-0.5 text-pink-400 hover:bg-pink-900 rounded transition-colors">策略</a>
               <a href="/token-holders?experiment=${exp.id}" target="_blank" class="text-xs px-1.5 py-0.5 text-cyan-400 hover:bg-cyan-900 rounded transition-colors">持有者</a>
               <button data-action="copy-experiment" data-id="${exp.id}" class="text-xs px-1.5 py-0.5 text-indigo-400 hover:bg-indigo-900 rounded transition-colors" title="复制">📋复制</button>
+              ${exp.tradingMode !== 'backtest' ? `<button data-action="compress" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-amber-400 hover:bg-amber-900 rounded transition-colors" title="压缩时序数据">🗜️压缩</button>` : ''}
               <button data-action="delete" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-red-400 hover:bg-red-900 rounded transition-colors" title="删除">🗑️删除</button>
             </div>
           </div>
@@ -844,6 +853,73 @@ class ExperimentMonitor {
       if (analyzeBtn) {
         analyzeBtn.disabled = false;
         analyzeBtn.textContent = '📊 分析';
+      }
+    }
+  }
+
+  /**
+   * 压缩实验时序数据
+   * @param {string} experimentId - 实验ID
+   * @param {string} experimentName - 实验名称
+   */
+  async compressTimeSeries(experimentId, experimentName) {
+    const confirmed = confirm(
+      `🗜️ 确定要压缩实验 "${experimentName}" 的时序数据吗？\n\n` +
+      '此操作将：\n' +
+      '📊 删除最大涨幅低于 20% 的代币的时序数据\n' +
+      '💾 大幅减少存储空间和回测时间\n' +
+      '⚠️ 被删除的数据无法恢复！\n\n' +
+      '注意：有分析结果的代币会被处理，无结果的会被跳过。'
+    );
+
+    if (!confirmed) return;
+
+    // 禁用按钮并显示加载状态
+    const compressBtn = document.querySelector(`[data-action="compress"][data-id="${experimentId}"]`);
+    if (compressBtn) {
+      compressBtn.disabled = true;
+      compressBtn.textContent = '⏳ 压缩中...';
+    }
+
+    try {
+      const response = await fetch(`/api/experiment/${experimentId}/compress-time-series`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threshold: 20 })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        const data = result.data;
+
+        let message = `✅ 压缩完成！\n\n`;
+        message += `📊 总代币数: ${data.totalTokens}\n`;
+        message += `🗑️ 删除代币数: ${data.tokensToDelete}\n`;
+        message += `⏭️ 跳过代币数: ${data.skippedTokens}\n\n`;
+        message += `📈 数据统计:\n`;
+        message += `   压缩前: ${data.beforeCount} 条记录\n`;
+        message += `   压缩后: ${data.afterCount} 条记录\n`;
+        message += `   删除: ${data.deletedRecords} 条记录 (${data.compressionRatio}%)\n`;
+
+        alert(message);
+
+        // 刷新实验列表
+        await this.loadExperiments();
+      } else {
+        alert('❌ 压缩失败: ' + (result.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('❌ 压缩时序数据失败:', error);
+      alert('❌ 压缩失败: ' + error.message);
+    } finally {
+      if (compressBtn) {
+        compressBtn.disabled = false;
+        compressBtn.textContent = '🗜️压缩';
       }
     }
   }

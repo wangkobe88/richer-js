@@ -136,8 +136,11 @@ class PreBuyCheckService {
       ]);
 
       // 如果没有提供条件表达式，默认通过（不执行任何检查）
-      if (!preBuyCheckCondition || !preBuyCheckCondition.trim()) {
+      // 确保 preBuyCheckCondition 是字符串类型，防止 .trim() 调用失败
+      if (!preBuyCheckCondition || String(preBuyCheckCondition).trim() === '') {
         preBuyCheckCondition = 'true';  // 设置为 true 以便后续通过评估
+      } else {
+        preBuyCheckCondition = String(preBuyCheckCondition).trim();
       }
 
       // 存储早期交易者数据（如果有 signalId 和交易数据）

@@ -1207,9 +1207,11 @@ class BacktestEngine extends AbstractTradingEngine {
             preBuyCheckCondition = strategy.repeatBuyCheckCondition || strategy.preBuyCheckCondition || null;
           }
 
-          // 如果都没有配置，默认通过
-          if (!preBuyCheckCondition || !preBuyCheckCondition.trim()) {
+          // 如果都没有配置，默认通过（确保 preBuyCheckCondition 是字符串）
+          if (!preBuyCheckCondition || String(preBuyCheckCondition).trim() === '') {
             preBuyCheckCondition = 'true';
+          } else {
+            preBuyCheckCondition = String(preBuyCheckCondition).trim();
           }
 
           // 获取上一对收益率

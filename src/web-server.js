@@ -556,6 +556,37 @@ class RicherJsWebServer {
       }
     });
 
+    // 压缩实验时序数据（删除低涨幅代币的数据）
+    this.app.post('/api/experiment/:id/compress-time-series', async (req, res) => {
+      try {
+        const { id: experimentId } = req.params;
+        const { threshold = 20 } = req.body;
+
+        // 验证阈值
+        const validThreshold = parseFloat(threshold);
+        if (isNaN(validThreshold) || validThreshold < 0 || validThreshold > 100) {
+          return res.status(400).json({
+            success: false,
+            error: '阈值必须是 0-100 之间的数字'
+          });
+        }
+
+        const { ExperimentTimeSeriesService } = require('./web/services/ExperimentTimeSeriesService');
+        const timeSeriesService = new ExperimentTimeSeriesService();
+
+        const result = await timeSeriesService.compressTimeSeriesData(experimentId, validThreshold);
+
+        if (result.success) {
+          res.json(result);
+        } else {
+          res.status(500).json(result);
+        }
+      } catch (error) {
+        console.error('压缩时序数据失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 分析所有实验的统计数据
     this.app.post('/api/experiments/analyze-all', async (req, res) => {
       try {
