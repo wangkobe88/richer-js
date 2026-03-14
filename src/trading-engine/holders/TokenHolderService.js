@@ -163,10 +163,11 @@ class TokenHolderService {
    * 获取并存储代币持有者信息
    * @param {string} tokenAddress - 代币地址
    * @param {string} experimentId - 实验ID，可为 null
+   * @param {string} signalId - 信号ID，可为 null
    * @param {string} chain - 区块链，默认 'bsc'
    * @returns {Promise<Object>} { snapshotId, holders }
    */
-  async fetchAndStoreHolders(tokenAddress, experimentId, chain = 'bsc') {
+  async fetchAndStoreHolders(tokenAddress, experimentId, signalId, chain = 'bsc') {
     try {
       // 从AVE获取持有者数据
       const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
@@ -175,7 +176,7 @@ class TokenHolderService {
       const snapshotId = `${tokenAddress}_${Date.now()}`;
 
       // 存储到数据库
-      await this._storeHolders(tokenAddress, experimentId, snapshotId, holderData);
+      await this._storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData);
 
       return {
         snapshotId,
@@ -193,10 +194,11 @@ class TokenHolderService {
    * 检查持有者风险（基于黑白名单缓存）
    * @param {string} tokenAddress - 代币地址
    * @param {string} experimentId - 实验ID，可为 null
+   * @param {string} signalId - 信号ID，可为 null
    * @param {string} chain - 区块链，默认 'bsc'
    * @returns {Promise<Object>} { canBuy, whitelistCount, blacklistCount, reason }
    */
-  async checkHolderRisk(tokenAddress, experimentId, chain = 'bsc') {
+  async checkHolderRisk(tokenAddress, experimentId, signalId, chain = 'bsc') {
     try {
       // 确保缓存已加载
       await this._ensureCacheLoaded();
@@ -206,7 +208,7 @@ class TokenHolderService {
 
       // 存储到数据库
       const snapshotId = `${tokenAddress}_${Date.now()}`;
-      await this._storeHolders(tokenAddress, experimentId, snapshotId, holderData);
+      await this._storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData);
 
       // 使用缓存数据检查
       return this._checkHoldersWithCache(holderData.holders);
@@ -227,14 +229,15 @@ class TokenHolderService {
    * 综合持有者检查（一次性完成所有检查）
    * 包括：黑/白名单检查 + Dev持仓比例检查 + 大额持仓检查
    * @param {string} tokenAddress - 代币地址
-   * @param {string} creatorAddress - 创建者地址（可为 null）
-   * @param {string} experimentId - 实验ID，可为 null
+   * @param {string} creatorAddress - 创建者地址（可为null）
+   * @param {string} experimentId - 实验ID，可为null
+   * @param {string} signalId - 信号ID，可为null
    * @param {string} chain - 区块链，默认 'bsc'
    * @param {number} devThreshold - Dev持仓阈值（百分比），默认 15
    * @param {number} largeHoldingThreshold - 大额持仓阈值（百分比），默认 18
    * @returns {Promise<Object>} 综合检查结果
    */
-  async checkAllHolderRisks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', devThreshold = 15, largeHoldingThreshold = 18) {
+  async checkAllHolderRisks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', devThreshold = 15, largeHoldingThreshold = 18) {
     try {
       // 确保缓存已加载
       await this._ensureCacheLoaded();
@@ -244,7 +247,7 @@ class TokenHolderService {
 
       // 存储到数据库
       const snapshotId = `${tokenAddress}_${Date.now()}`;
-      await this._storeHolders(tokenAddress, experimentId, snapshotId, holderData);
+      await this._storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData);
 
       // 1. 黑/白名单检查
       const blacklistCheck = this._checkHoldersWithCache(holderData.holders);
@@ -367,12 +370,12 @@ class TokenHolderService {
    * 私有方法：存储持有者数据（总是插入新记录）
    * @private
    */
-  async _storeHolders(tokenAddress, experimentId, snapshotId, holderData) {
+  async _storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData) {
     // 添加调试日志
     this.logger.info('[TokenHolderService] 准备存储持有者数据', {
       token_address: tokenAddress,
       experiment_id: experimentId,
-      experiment_id_type: typeof experimentId,
+      signal_id: signalId,
       holders_count: holderData.holders?.length || 0
     });
 
@@ -382,6 +385,7 @@ class TokenHolderService {
       .insert({
         token_address: tokenAddress,
         experiment_id: experimentId,
+        signal_id: signalId,
         holder_data: holderData,
         snapshot_id: snapshotId
       })
@@ -393,7 +397,8 @@ class TokenHolderService {
         error: _safeGetErrorMessage(error),
         details: error.hint || error.details || error.code,
         token_address: tokenAddress,
-        experiment_id: experimentId
+        experiment_id: experimentId,
+        signal_id: signalId
       });
       throw new Error(`存储持有者数据失败: ${_safeGetErrorMessage(error)}`);
     }
@@ -401,8 +406,8 @@ class TokenHolderService {
     this.logger.info('[TokenHolderService] 插入成功', {
       token_address: tokenAddress,
       experiment_id: experimentId,
-      inserted_id: data?.id,
-      inserted_experiment_id: data?.experiment_id
+      signal_id: signalId,
+      inserted_id: data?.id
     });
   }
 

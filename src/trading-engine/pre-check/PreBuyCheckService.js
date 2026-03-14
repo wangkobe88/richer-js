@@ -46,10 +46,10 @@ class PreBuyCheckService {
     // 初始化持有者服务
     this.holderService = new TokenHolderService(supabase, logger);
 
-    // 初始化早期参与者检查服务
+    // 初始化早期参与者检查服务（传入 supabase 用于存储数据）
     this.earlyParticipantService = new EarlyParticipantCheckService(logger, {
       calculateGrowthScore: false  // 暂不计算增长评分
-    });
+    }, supabase);
 
     // 初始化钱包簇检查服务
     // 默认使用区块号聚簇（比时间戳更准确）
@@ -82,6 +82,7 @@ class PreBuyCheckService {
    * @param {string} tokenAddress - 代币地址
    * @param {string} creatorAddress - 创建者地址（可为null）
    * @param {string} experimentId - 实验ID
+   * @param {string} signalId - 信号ID（可为null）
    * @param {string} chain - 区块链
    * @param {Object} tokenInfo - 代币信息（用于早期参与者检查，只需要 innerPair）
    * @param {string} tokenInfo.innerPair - 内盘交易对
@@ -95,7 +96,7 @@ class PreBuyCheckService {
    * @param {number} options.drawdownFromHighest - 从最高价跌幅（%），负数表示下跌
    * @returns {Promise<Object>} 检查结果
    */
-  async performAllChecks(tokenAddress, creatorAddress, experimentId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
+  async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
     const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate } = options;
 
@@ -103,6 +104,7 @@ class PreBuyCheckService {
       token_address: tokenAddress,
       creator_address: creatorAddress || 'none',
       experiment_id: experimentId,
+      signal_id: signalId || 'none',
       chain,
       has_condition: !!preBuyCheckCondition,
       condition: preBuyCheckCondition || '(空，默认通过)',
@@ -127,7 +129,7 @@ class PreBuyCheckService {
 
       // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查
       const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck] = await Promise.all([
-        this._performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck),
+        this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
         this._checkCreatorIsNotBadDevWallet(creatorAddress),
         this._performStrongTraderPositionCheck(tokenAddress, tokenInfo?.innerPair, checkTime, skipEarlyParticipant)
@@ -136,6 +138,24 @@ class PreBuyCheckService {
       // 如果没有提供条件表达式，默认通过（不执行任何检查）
       if (!preBuyCheckCondition || !preBuyCheckCondition.trim()) {
         preBuyCheckCondition = 'true';  // 设置为 true 以便后续通过评估
+      }
+
+      // 存储早期交易者数据（如果有 signalId 和交易数据）
+      if (signalId && earlyParticipantCheck._trades && earlyParticipantCheck._trades.length > 0) {
+        // 同步存储，确保数据保存完成
+        const storeSuccess = await this.earlyParticipantService.storeEarlyParticipantTrades(
+          tokenAddress,
+          signalId,
+          experimentId,
+          tokenInfo?.innerPair || null,
+          chain,
+          earlyParticipantCheck._trades,
+          checkTime || Math.floor(Date.now() / 1000)
+        );
+        this.logger.info('[PreBuyCheckService] 早期交易数据存储完成', {
+          signal_id: signalId,
+          success: storeSuccess
+        });
       }
 
       // 使用条件表达式评估
@@ -480,10 +500,11 @@ class PreBuyCheckService {
    * @param {string} tokenAddress - 代币地址
    * @param {string} creatorAddress - 创建者地址
    * @param {string} experimentId - 实验ID
+   * @param {string} signalId - 信号ID
    * @param {string} chain - 区块链
    * @param {boolean} skipHolderCheck - 是否跳过检查（回测时为 true）
    */
-  async _performHolderCheck(tokenAddress, creatorAddress, experimentId, chain, skipHolderCheck = false) {
+  async _performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck = false) {
     if (skipHolderCheck || !this.config.holderCheckEnabled) {
       const reason = skipHolderCheck ? '持有者检查已跳过（回测模式）' : '持有者检查已禁用';
       return {
@@ -504,6 +525,7 @@ class PreBuyCheckService {
       tokenAddress,
       creatorAddress,
       experimentId,
+      signalId,
       chain,
       this.config.devHoldingThreshold,
       this.config.largeHoldingThreshold

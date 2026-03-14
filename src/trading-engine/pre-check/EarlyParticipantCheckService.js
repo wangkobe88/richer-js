@@ -28,11 +28,21 @@ class EarlyParticipantCheckService {
   /**
    * @param {Object} logger - Logger实例
    * @param {Object} config - 配置对象
+   * @param {Object} supabase - Supabase客户端（可选，用于存储数据）
    */
-  constructor(logger, config = {}) {
+  constructor(logger, config = {}, supabase = null) {
     this.logger = logger;
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.aveTxApi = null;
+    this.supabase = supabase;
+  }
+
+  /**
+   * 设置 Supabase 客户端（延迟注入）
+   * @param {Object} supabase - Supabase客户端
+   */
+  setSupabase(supabase) {
+    this.supabase = supabase;
   }
 
   /**
@@ -579,6 +589,75 @@ class EarlyParticipantCheckService {
         volumePerMin: checkResult.earlyTradesVolumePerMin || 0
       }
     };
+  }
+
+  /**
+   * 存储早期交易者数据（裸数据）
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} signalId - 信号ID
+   * @param {string} experimentId - 实验ID
+   * @param {string} innerPair - 内盘交易对
+   * @param {string} chain - 区块链
+   * @param {Array} tradesData - 原始交易数据（_trades字段）
+   * @param {number} checkTime - 检查时间戳（秒）
+   * @returns {Promise<boolean>} 是否存储成功
+   */
+  async storeEarlyParticipantTrades(tokenAddress, signalId, experimentId, innerPair, chain, tradesData, checkTime) {
+    if (!this.supabase) {
+      this.logger.warn('[EarlyParticipantCheckService] Supabase 客户端未初始化，跳过存储早期交易数据');
+      return false;
+    }
+
+    if (!signalId) {
+      this.logger.warn('[EarlyParticipantCheckService] signalId 为空，跳过存储早期交易数据');
+      return false;
+    }
+
+    if (!tradesData || tradesData.length === 0) {
+      this.logger.debug('[EarlyParticipantCheckService] 早期交易数据为空，跳过存储');
+      return false;
+    }
+
+    try {
+      const { error } = await this.supabase
+        .from('early_participant_trades')
+        .insert({
+          signal_id: signalId,
+          token_address: tokenAddress,
+          experiment_id: experimentId,
+          chain: chain,
+          trades_data: tradesData,    // 裸数据，不做任何处理
+          inner_pair: innerPair,
+          check_time: checkTime,
+          window_seconds: this.config.fixedWindowSeconds
+        });
+
+      if (error) {
+        this.logger.error('[EarlyParticipantCheckService] 存储早期交易数据失败', {
+          token_address: tokenAddress,
+          signal_id: signalId,
+          error: error.message,
+          details: error.hint || error.details || error.code
+        });
+        return false;
+      }
+
+      this.logger.info('[EarlyParticipantCheckService] 早期交易数据存储成功', {
+        token_address: tokenAddress,
+        signal_id: signalId,
+        trades_count: tradesData.length
+      });
+
+      return true;
+    } catch (error) {
+      const errorMessage = this._safeGetErrorMessage(error);
+      this.logger.error('[EarlyParticipantCheckService] 存储早期交易数据异常', {
+        token_address: tokenAddress,
+        signal_id: signalId,
+        error: errorMessage
+      });
+      return false;
+    }
   }
 
   /**

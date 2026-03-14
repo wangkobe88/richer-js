@@ -41,7 +41,8 @@
       "highValuePerMinThreshold": 8
     },
     "largeHoldingThreshold": 18,
-    "clusterBlockThreshold": 7
+    "clusterBlockThreshold": 7,
+    "skipTwitterSearch": true
   },
   "logging": {
     "level": "INFO",

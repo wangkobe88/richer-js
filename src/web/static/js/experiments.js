@@ -300,12 +300,12 @@ class ExperimentMonitor {
 
         <!-- 开始时间 -->
         <td class="px-2 py-2">
-          <span class="text-gray-300 text-xs">${startedAt ? this._formatBeijingTime(startedAt) : '-'}</span>
+          <div class="text-gray-300 text-xs leading-tight">${startedAt ? this._formatBeijingTime(startedAt) : '-'}</div>
         </td>
 
         <!-- 结束时间 -->
         <td class="px-2 py-2">
-          <span class="text-gray-300 text-xs">${stoppedAt ? this._formatBeijingTime(stoppedAt) : (exp.status === 'running' ? '运行中' : '-')}</span>
+          <div class="text-gray-300 text-xs leading-tight">${stoppedAt ? this._formatBeijingTime(stoppedAt) : (exp.status === 'running' ? '运行中' : '-')}</div>
         </td>
 
         <!-- 代币数 -->
@@ -440,7 +440,7 @@ class ExperimentMonitor {
     const minutes = String(d.getUTCMinutes()).padStart(2, '0');
     const seconds = String(d.getUTCSeconds()).padStart(2, '0');
 
-    return `${month}-${day} ${period}${hours}:${minutes}:${seconds}`;
+    return `${month}-${day}<br>${period}${hours}:${minutes}:${seconds}`;
   }
 
   updateStats() {

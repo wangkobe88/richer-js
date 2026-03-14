@@ -9,7 +9,9 @@
     "dev": "node src/index.js --dev",
     "web": "node src/web-server.js",
     "web:dev": "node src/web-server.js",
-    "experiment": "node main.js"
+    "experiment": "node main.js",
+    "cleanup:holders": "node scripts/cleanup_orphaned_token_holders.js --dry-run",
+    "cleanup:holders:exec": "node scripts/cleanup_orphaned_token_holders.js --execute"
   },
   "keywords": [
     "trading",

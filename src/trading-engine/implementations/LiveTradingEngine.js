@@ -852,9 +852,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
       ...experimentPreBuyConfig
     };
 
+    // 保存配置供后续使用
+    this._preBuyCheckConfig = preBuyCheckConfig;
+
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
-    this.logger.info('LiveTradingEngine', 'Initialize', `购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
-    console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
+    this.logger.info('LiveTradingEngine', 'Initialize', `购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
+    console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
 
     // 5. 初始化 TokenPool（传入价格历史缓存，与虚拟盘一致）
     this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache);
@@ -1711,6 +1714,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
             token.token,
             token.creator_address || null,
             this._experimentId,
+            signalId,  // 传入信号ID
             token.chain || 'bsc',
             tokenInfo,
             preBuyCheckCondition,
@@ -1719,7 +1723,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
               tokenBuyTime: token.buyTime || null,  // 代币首次买入时间
               drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 趋势因子：最高价回撤
               buyRound: currentRound + 1,  // 即将进行的轮数
-              lastPairReturnRate: lastPairReturnRate ?? 0
+              lastPairReturnRate: lastPairReturnRate ?? 0,
+              skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false
             }
           );
 

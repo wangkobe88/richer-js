@@ -610,8 +610,11 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       ...experimentPreBuyConfig
     };
 
+    // 保存配置供后续使用
+    this._preBuyCheckConfig = preBuyCheckConfig;
+
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
-    console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
+    console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
 
     // 3. 初始化代币池（传入价格历史缓存）
     this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache);
@@ -1479,6 +1482,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             token.token,
             token.creator_address || null,
             this._experimentId,
+            signalId,  // 传入信号ID
             token.chain || 'bsc',
             tokenInfo,
             preBuyCheckCondition,
@@ -1487,7 +1491,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
               tokenBuyTime: token.buyTime || null,  // 代币首次买入时间
               drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 从最高价跌幅
               buyRound: currentRound + 1,  // 即将进行的轮数
-              lastPairReturnRate: lastPairReturnRate ?? 0
+              lastPairReturnRate: lastPairReturnRate ?? 0,
+              skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false
             }
           );
 

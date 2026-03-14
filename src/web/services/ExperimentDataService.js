@@ -421,7 +421,7 @@ class ExperimentDataService {
    */
   async clearExperimentData(experimentId) {
     try {
-      const tables = ['experiment_time_series_data', 'trades', 'strategy_signals', 'portfolio_snapshots', 'experiment_tokens'];
+      const tables = ['experiment_time_series_data', 'trades', 'strategy_signals', 'portfolio_snapshots', 'experiment_tokens', 'token_holders', 'early_participant_trades'];
       const results = [];
 
       for (const table of tables) {

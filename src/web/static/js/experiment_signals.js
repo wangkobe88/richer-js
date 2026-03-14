@@ -1869,9 +1869,18 @@ class ExperimentSignals {
           const secondToFirstRatioClass = this._getFactorClass('walletClusterSecondToFirstRatio', pf.walletClusterSecondToFirstRatio || 0, preCheckThresholds);
           const megaRatioClass = this._getFactorClass('walletClusterMegaRatio', pf.walletClusterMegaRatio || 0, preCheckThresholds);
 
+          // 生成唯一ID用于弹窗
+          const earlyTradesModalId = `early-trades-modal-${signal.id}-${Date.now()}`;
+
           earlyTradesHtml = `
             <div class="mt-2 pt-2 border-t border-amber-300">
-              <div class="text-xs font-semibold text-amber-900 mb-1">📊 早期参与者检查因子</div>
+              <div class="flex items-center justify-between mb-1">
+                <div class="text-xs font-semibold text-amber-900">📊 早期参与者检查因子</div>
+                <button onclick="window.experimentSignals.showEarlyTradesRawResult('${signal.id}')" class="text-xs px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded transition-colors flex items-center space-x-1">
+                  <span>📋</span>
+                  <span>原始交易数据</span>
+                </button>
+              </div>
               <div class="grid grid-cols-3 gap-2 text-xs">
                 <div><span class="text-amber-800">高价值交易:</span> <span class="${highValueCountClass}">${pf.earlyTradesHighValueCount || 0}</span></div>
                 <div><span class="text-amber-800">高价值/分:</span> <span class="${highValuePerMinClass}">${formatNum(pf.earlyTradesHighValuePerMin)}</span></div>
@@ -1892,6 +1901,28 @@ class ExperimentSignals {
                 <div><span class="text-amber-800">Mega聚簇:</span> <span class="${megaRatioClass}">${formatPercent(pf.walletClusterMegaRatio)}</span></div>
                 <div><span class="text-amber-800">第二/第一比:</span> <span class="${secondToFirstRatioClass}">${formatNum(pf.walletClusterSecondToFirstRatio)}</span></div>
                 <div><span class="text-amber-800">Top2聚簇比:</span> <span class="text-gray-900">${formatNum(pf.walletClusterTop2Ratio)}</span></div>
+              </div>
+            </div>
+
+            <!-- 早期交易原始数据弹窗 -->
+            <div id="${earlyTradesModalId}" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div class="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-hidden border border-gray-600">
+                <div class="flex items-center justify-between p-4 border-b border-gray-600">
+                  <h3 class="text-lg font-semibold text-white">📊 早期交易者原始数据</h3>
+                  <button onclick="window.experimentSignals.closeEarlyTradesModal('${earlyTradesModalId}')" class="text-gray-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="p-4">
+                  <div id="${earlyTradesModalId}-content" class="text-xs text-gray-400">
+                    <div class="flex items-center justify-center py-8">
+                      <div class="loading-spinner"></div>
+                      <span class="ml-4">正在加载交易数据...</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           `;
@@ -2413,6 +2444,123 @@ class ExperimentSignals {
    * @param {string} modalId - 弹窗元素的ID
    */
   closeTwitterModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.add('hidden');
+    }
+  }
+
+  /**
+   * 显示早期交易原始数据弹窗
+   * @param {string} signalId - 信号ID
+   */
+  async showEarlyTradesRawResult(signalId) {
+    try {
+      // 查找对应的弹窗元素（由于动态生成，使用选择器）
+      const modalId = `early-trades-modal-${signalId}`;
+      const modal = document.getElementById(modalId);
+      const contentDiv = document.getElementById(`${modalId}-content`);
+
+      if (!modal || !contentDiv) {
+        alert('无法找到弹窗元素，请刷新页面后重试');
+        return;
+      }
+
+      // 显示弹窗
+      modal.classList.remove('hidden');
+
+      // 加载早期交易数据
+      contentDiv.innerHTML = `
+        <div class="flex items-center justify-center py-8">
+          <div class="loading-spinner"></div>
+          <span class="ml-4 text-white">正在加载交易数据...</span>
+        </div>
+      `;
+
+      const response = await fetch(`/api/signal/${signalId}/early-trades`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const trades = result.data.trades_data || [];
+        const tradeCount = trades.length;
+
+        if (tradeCount === 0) {
+          contentDiv.innerHTML = `
+            <div class="text-center py-8">
+              <p class="text-gray-400">无早期交易数据</p>
+            </div>
+          `;
+        } else {
+          // 构建交易数据展示表格
+          const tableRows = trades.slice(0, 100).map((trade, idx) => {
+            const time = new Date(trade.time * 1000).toLocaleString('zh-CN');
+            const fromUsd = trade.from_usd ? `$${trade.from_usd.toFixed(2)}` : '-';
+            const toUsd = trade.to_usd ? `$${trade.to_usd.toFixed(2)}` : '-';
+
+            return `
+              <tr class="border-b border-gray-700 hover:bg-gray-700">
+                <td class="px-2 py-1 text-xs text-gray-400">${idx + 1}</td>
+                <td class="px-2 py-1 text-xs text-gray-300 font-mono">${time}</td>
+                <td class="px-2 py-1 text-xs text-gray-300 font-mono">${trade.from_address?.substring(0, 10)}...</td>
+                <td class="px-2 py-1 text-xs text-gray-300 font-mono">${trade.to_address?.substring(0, 10)}...</td>
+                <td class="px-2 py-1 text-xs text-right text-green-400">${fromUsd}</td>
+                <td class="px-2 py-1 text-xs text-right text-blue-400">${toUsd}</td>
+                <td class="px-2 py-1 text-xs text-gray-500">${trade.tx_id?.substring(0, 8)}...</td>
+              </tr>
+            `;
+          }).join('');
+
+          contentDiv.innerHTML = `
+            <div class="mb-3 flex items-center justify-between">
+              <div class="text-sm text-white">
+                <span class="font-semibold">交易数量:</span>
+                <span class="ml-2 text-green-400">${tradeCount} 条</span>
+                ${tradeCount > 100 ? `<span class="ml-2 text-xs text-gray-500">(仅显示前 100 条)</span>` : ''}
+              </div>
+              <div class="text-xs text-gray-500">
+                检查窗口: ${result.data.window_seconds}秒 |
+                内盘交易对: ${result.data.inner_pair || 'N/A'}
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead>
+                  <tr class="border-b border-gray-600 bg-gray-700">
+                    <th class="px-2 py-2 text-xs text-gray-400 font-medium">#</th>
+                    <th class="px-2 py-2 text-xs text-gray-400 font-medium">时间</th>
+                    <th class="px-2 py-2 text-xs text-gray-400 font-medium">卖出地址</th>
+                    <th class="px-2 py-2 text-xs text-gray-400 font-medium">买入地址</th>
+                    <th class="px-2 py-2 text-xs text-gray-400 font-medium text-right">卖出金额</th>
+                    <th class="px-2 py-2 text-xs text-gray-400 font-medium text-right">买入金额</th>
+                    <th class="px-2 py-2 text-xs text-gray-400 font-medium">交易ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRows}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+      } else {
+        contentDiv.innerHTML = `
+          <div class="text-center py-8">
+            <p class="text-red-400">加载数据失败</p>
+            <p class="text-xs text-gray-500">${result.error || '未知错误'}</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error('加载早期交易数据失败:', error);
+      alert('加载早期交易数据失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 关闭早期交易原始数据弹窗
+   * @param {string} modalId - 弹窗元素的ID
+   */
+  closeEarlyTradesModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
       modal.classList.add('hidden');

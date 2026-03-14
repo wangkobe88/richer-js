@@ -1378,6 +1378,37 @@ class RicherJsWebServer {
       }
     });
 
+    // 获取早期交易者数据（按信号ID）
+    this.app.get('/api/signal/:id/early-trades', async (req, res) => {
+      try {
+        const { data, error } = await this.supabase
+          .from('early_participant_trades')
+          .select('*')
+          .eq('signal_id', req.params.id)
+          .single();
+
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // 未找到数据
+            res.json({
+              success: true,
+              data: null
+            });
+          } else {
+            throw error;
+          }
+        } else {
+          res.json({
+            success: true,
+            data: data
+          });
+        }
+      } catch (error) {
+        console.error('获取早期交易数据失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 获取交易记录
     this.app.get('/api/experiment/:id/trades', async (req, res) => {
       try {
