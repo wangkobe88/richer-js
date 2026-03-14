@@ -1869,8 +1869,8 @@ class ExperimentSignals {
           const secondToFirstRatioClass = this._getFactorClass('walletClusterSecondToFirstRatio', pf.walletClusterSecondToFirstRatio || 0, preCheckThresholds);
           const megaRatioClass = this._getFactorClass('walletClusterMegaRatio', pf.walletClusterMegaRatio || 0, preCheckThresholds);
 
-          // 生成唯一ID用于弹窗
-          const earlyTradesModalId = `early-trades-modal-${signal.id}-${Date.now()}`;
+          // 生成唯一ID用于弹窗（不使用 Date.now() 以便 showEarlyTradesRawResult 能够找到）
+          const earlyTradesModalId = `early-trades-modal-${signal.id}`;
 
           earlyTradesHtml = `
             <div class="mt-2 pt-2 border-t border-amber-300">
@@ -1938,6 +1938,29 @@ class ExperimentSignals {
         }
       }
 
+      // 第四阶段：强势交易者持仓检查信息
+      let strongTraderHtml = '';
+      if (pf.strongTraderTradeCount !== undefined && pf.strongTraderTradeCount > 0) {
+        const netPositionRatioClass = this._getFactorClass('strongTraderNetPositionRatio', pf.strongTraderNetPositionRatio || 0, preCheckThresholds);
+        const totalBuyRatioClass = this._getFactorClass('strongTraderTotalBuyRatio', pf.strongTraderTotalBuyRatio || 0, preCheckThresholds);
+        const totalSellRatioClass = this._getFactorClass('strongTraderTotalSellRatio', pf.strongTraderTotalSellRatio || 0, preCheckThresholds);
+        const sellIntensityClass = this._getFactorClass('strongTraderSellIntensity', pf.strongTraderSellIntensity || 0, preCheckThresholds);
+
+        strongTraderHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="text-xs font-semibold text-amber-900 mb-1">💪 强势交易者持仓因子</div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div><span class="text-amber-800">净持仓比:</span> <span class="${netPositionRatioClass}">${formatPercent(pf.strongTraderNetPositionRatio)}</span></div>
+              <div><span class="text-amber-800">总买入比:</span> <span class="${totalBuyRatioClass}">${formatPercent(pf.strongTraderTotalBuyRatio)}</span></div>
+              <div><span class="text-amber-800">总卖出比:</span> <span class="${totalSellRatioClass}">${formatPercent(pf.strongTraderTotalSellRatio)}</span></div>
+              <div><span class="text-amber-800">钱包数:</span> <span class="text-gray-900">${pf.strongTraderWalletCount || 0}</span></div>
+              <div><span class="text-amber-800">交易数:</span> <span class="text-gray-900">${pf.strongTraderTradeCount || 0}</span></div>
+              <div><span class="text-amber-800">卖出强度:</span> <span class="${sellIntensityClass}">${formatNum(pf.strongTraderSellIntensity)}</span></div>
+            </div>
+          </div>
+        `;
+      }
+
       preBuyCheckHtml = `
         <div class="mt-2 p-3 bg-amber-100 rounded-lg border border-amber-300">
           <div class="flex items-center justify-between mb-2">
@@ -1952,6 +1975,7 @@ class ExperimentSignals {
           ${holderCheckHtml}
           ${twitterHtml}
           ${earlyTradesHtml}
+          ${strongTraderHtml}
           ${pr.reason ? `<div class="text-xs text-amber-800 mt-2 border-t border-amber-300 pt-2">${this._escapeHtml(pr.reason)}</div>` : ''}
         </div>
       `;

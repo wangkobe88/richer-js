@@ -1223,7 +1223,7 @@ class BacktestEngine extends AbstractTradingEngine {
             tokenState.token,                    // tokenAddress
             tokenState.creatorAddress || null,   // creatorAddress
             this._experiment.id,                 // experimentId
-            null,                                // signalId (回测没有signalId)
+            signalId,                            // signalId (回测也有signalId，用于保存早期交易数据)
             tokenState.chain || 'bsc',          // chain
             tokenInfo,                          // tokenInfo
             preBuyCheckCondition,               // preBuyCheckCondition

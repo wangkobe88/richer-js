@@ -1412,7 +1412,7 @@ class RicherJsWebServer {
     // 获取早期交易者数据（按信号ID）
     this.app.get('/api/signal/:id/early-trades', async (req, res) => {
       try {
-        const { data, error } = await this.supabase
+        const { data, error } = await this.dataService.supabase
           .from('early_participant_trades')
           .select('*')
           .eq('signal_id', req.params.id)
