@@ -1220,12 +1220,13 @@ class BacktestEngine extends AbstractTradingEngine {
             : 0;
 
           preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
-            tokenState.token,
-            tokenState.creatorAddress || null,
-            this._experiment.id,
-            tokenState.chain || 'bsc',
-            tokenInfo,
-            preBuyCheckCondition,
+            tokenState.token,                    // tokenAddress
+            tokenState.creatorAddress || null,   // creatorAddress
+            this._experiment.id,                 // experimentId
+            null,                                // signalId (回测没有signalId)
+            tokenState.chain || 'bsc',          // chain
+            tokenInfo,                          // tokenInfo
+            preBuyCheckCondition,               // preBuyCheckCondition
             {
               checkTime: Math.floor(timestamp.getTime() / 1000),
               skipHolderCheck: true,
