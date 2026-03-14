@@ -22,6 +22,7 @@ const { OverviewAnalyzer } = require('./analyzers/overview-analyzer');
 const { MissedOpportunitiesAnalyzer } = require('./analyzers/missed-opportunities-analyzer');
 const { BadBuysAnalyzer } = require('./analyzers/bad-buys-analyzer');
 const { BadSellsAnalyzer } = require('./analyzers/bad-sells-analyzer');
+const { PreCheckRejectionAnalyzer } = require('./analyzers/precheck-rejection-analyzer');
 const { StrategyOptimizer } = require('./analyzers/strategy-optimizer');
 const { ReportGenerator } = require('./core/report-generator');
 
@@ -100,7 +101,7 @@ function printHelp() {
 选项:
   --id <实验ID>           要分析的实验ID (必需)
   --module <模块名>       只分析指定模块
-                          可选值: overview|missed-opportunities|bad-buys|bad-sells|optimizer
+                          可选值: overview|missed-opportunities|bad-buys|bad-sells|precheck-rejection|optimizer
   --format <格式>         输出格式 (text|json|html) 默认: text
   --output <文件>         输出到文件
   --base-url <URL>        API基础URL (默认: http://localhost:3010/api)
@@ -113,6 +114,7 @@ function printHelp() {
   missed-opportunities   漏掉的好票分析
   bad-buys              错误购买分析
   bad-sells             错误卖出分析
+  precheck-rejection    预检查拒绝分析 (哪些好票因预检查被拒绝)
   optimizer             策略优化建议 (综合分析)
 
 示例:
@@ -196,14 +198,23 @@ async function main() {
       report.addSection('四、错误卖出', badSellsAnalyzer.formatReport());
     }
 
-    // 5. 策略优化建议
+    // 5. 预检查拒绝分析
+    if (!options.module || options.module === 'precheck-rejection') {
+      console.log('🛡️  分析预检查拒绝...');
+      const precheckAnalyzer = new PreCheckRejectionAnalyzer(dataLoader);
+      await precheckAnalyzer.analyze({ minReturn: options.minReturn });
+      analyzerResults.precheckRejection = precheckAnalyzer.getResults();
+      report.addSection('五、预检查拒绝', precheckAnalyzer.formatReport());
+    }
+
+    // 6. 策略优化建议
     if (!options.module || options.module === 'optimizer') {
       console.log('⚙️  生成优化建议...');
       const optimizer = new StrategyOptimizer(dataLoader);
       optimizer.setAnalyzerResults(analyzerResults);
       await optimizer.analyze();
       analyzerResults.optimizer = optimizer.getResults();
-      report.addSection('五、优化建议', optimizer.formatReport());
+      report.addSection('六、优化建议', optimizer.formatReport());
     }
 
     // 生成报告
