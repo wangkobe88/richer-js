@@ -22,7 +22,36 @@ class StrongTraderPositionService {
   }
 
   /**
-   * 分析强势交易者在指定代币中的持仓情况
+   * 从已有的交易数据中分析强势交易者持仓情况
+   * 复用早期参与者检查已获取的交易数据，避免重复API调用
+   * @param {string} tokenAddress - 代币地址
+   * @param {Array} trades - 交易数据数组
+   * @returns {Object} 持仓分析结果
+   */
+  analyzeFromTrades(tokenAddress, trades) {
+    if (!trades || trades.length === 0) {
+      return {
+        ...this.getEmptyFactorValues(),
+        _meta: {
+          total_trades_analyzed: 0
+        }
+      };
+    }
+
+    // 分析强势交易者行为
+    const analysis = this._analyzeStrongTraders(trades, tokenAddress);
+
+    return {
+      ...analysis,
+      _meta: {
+        total_trades_analyzed: trades.length
+      }
+    };
+  }
+
+  /**
+   * 分析强势交易者在指定代币中的持仓情况（通过API获取数据）
+   * 注意：此方法会调用API，建议使用 analyzeFromTrades 复用已有数据
    * @param {string} tokenAddress - 代币地址
    * @param {string} pairAddress - 交易对地址
    * @param {number} checkTime - 检查时间戳（购买信号时间）

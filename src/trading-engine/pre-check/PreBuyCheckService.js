@@ -429,7 +429,7 @@ class PreBuyCheckService {
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck),
         this._checkCreatorIsNotBadDevWallet(creatorAddress),
-        this._performStrongTraderPositionCheck(tokenAddress, tokenInfo?.innerPair, checkTime, skipEarlyParticipant)
+        this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck)
       ]);
 
       // 如果没有提供条件表达式，默认通过（不执行任何检查）
@@ -1139,40 +1139,32 @@ class PreBuyCheckService {
    * 执行强势交易者持仓检查
    * @private
    * @param {string} tokenAddress - 代币地址
-   * @param {string} pairAddress - 交易对地址（innerPair）
-   * @param {number} checkTime - 检查时间戳（秒）
-   * @param {boolean} skipEarlyParticipant - 是否跳过检查（与早期参与者检查同步）
+   * @param {Object} earlyParticipantCheck - 早期参与者检查结果（包含 _trades 数据）
    * @returns {Promise<Object>} 强势交易者持仓检查结果
    */
-  async _performStrongTraderPositionCheck(tokenAddress, pairAddress, checkTime = null, skipEarlyParticipant = false) {
-    // 如果跳过早期参与者检查，也跳过强势交易者检查（因为使用同样的时间窗口）
-    if (skipEarlyParticipant) {
-      return this.strongTraderPositionService.getEmptyFactorValues();
-    }
+  async _performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck = null) {
+    // 从早期参与者检查结果中获取交易数据（复用，避免重复API调用）
+    const trades = earlyParticipantCheck?._trades;
 
-    // 如果没有交易对地址，返回空值
-    if (!pairAddress) {
-      this.logger.warn('[PreBuyCheckService] 缺少交易对地址，跳过强势交易者持仓检查', {
+    if (!trades || trades.length === 0) {
+      this.logger.warn('[PreBuyCheckService] 缺少早期交易数据，跳过强势交易者持仓检查', {
         token_address: tokenAddress,
-        has_pair_address: !!pairAddress
+        has_trades: !!trades,
+        trades_count: trades?.length || 0
       });
       return this.strongTraderPositionService.getEmptyFactorValues();
     }
 
     try {
-      // 使用传入的 checkTime，如果没有则使用当前时间
-      const effectiveCheckTime = checkTime || Math.floor(Date.now() / 1000);
-
       this.logger.debug('[PreBuyCheckService] 开始强势交易者持仓检查', {
         token_address: tokenAddress,
-        pair_address: pairAddress,
-        check_time: effectiveCheckTime
+        trades_count: trades.length
       });
 
-      const result = await this.strongTraderPositionService.analyzePosition(
+      // 使用早期参与者检查已经获取的交易数据进行分析
+      const result = this.strongTraderPositionService.analyzeFromTrades(
         tokenAddress,
-        pairAddress,
-        effectiveCheckTime
+        trades
       );
 
       this.logger.debug('[PreBuyCheckService] 强势交易者持仓检查完成', {
@@ -1180,14 +1172,13 @@ class PreBuyCheckService {
         net_position_ratio: result.strongTraderNetPositionRatio,
         wallet_count: result.strongTraderWalletCount,
         trade_count: result.strongTraderTradeCount,
-        total_trades_analyzed: result._meta?.total_trades_analyzed || 0
+        total_trades_analyzed: trades.length
       });
 
       return result;
     } catch (error) {
       this.logger.error('[PreBuyCheckService] 强势交易者持仓检查失败', {
         token_address: tokenAddress,
-        pair_address: pairAddress,
         error: error.message
       });
       return this.strongTraderPositionService.getEmptyFactorValues();
