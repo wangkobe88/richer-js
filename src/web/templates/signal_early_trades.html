@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>早期交易数据 - Richer-js Fourmeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.0" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e5e7eb;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 20px 30px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0;
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: #9ca3af;
+            margin-top: 4px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #60a5fa;
+            text-decoration: none;
+            font-size: 0.875rem;
+            margin-bottom: 16px;
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: #93c5fd;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 12px 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.875rem;
+            color: #e5e7eb;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .text-green {
+            color: #34d399;
+        }
+
+        .text-blue {
+            color: #60a5fa;
+        }
+
+        .text-red {
+            color: #f87171;
+        }
+
+        .text-yellow {
+            color: #fbbf24;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        a {
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #60a5fa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .error-state {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .trade-buy {
+            background: rgba(52, 211, 153, 0.1);
+            border-left: 3px solid #34d399;
+        }
+
+        .trade-sell {
+            background: rgba(248, 113, 113, 0.1);
+            border-left: 3px solid #f87171;
+        }
+
+        .trade-strong {
+            background: rgba(251, 191, 36, 0.15);
+            border-left: 3px solid #fbbf24;
+        }
+
+        .trade-strong .strong-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .direction-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .direction-buy {
+            background: rgba(52, 211, 153, 0.2);
+            color: #34d399;
+        }
+
+        .direction-sell {
+            background: rgba(248, 113, 113, 0.2);
+            color: #f87171;
+        }
+
+        th {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 12px 16px;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        th:nth-child(2),
+        td:nth-child(2) {
+            width: 180px;
+        }
+
+        th:nth-child(3),
+        td:nth-child(3) {
+            width: 90px;
+        }
+
+        th:nth-child(4),
+        td:nth-child(4) {
+            width: 140px;
+        }
+
+        th:nth-child(5),
+        td:nth-child(5) {
+            width: 180px;
+        }
+
+        th:nth-child(6),
+        td:nth-child(6),
+        th:nth-child(7),
+        td:nth-child(7) {
+            text-align: right;
+            width: 100px;
+        }
+
+        th:nth-child(8),
+        td:nth-child(8) {
+            width: 80px;
+        }
+
+        .cluster-section {
+            margin-top: 24px;
+        }
+
+        .cluster-header {
+            background: rgba(99, 102, 241, 0.1);
+            border-left: 4px solid #6366f1;
+            padding: 12px 16px;
+            margin: 16px 0 12px 0;
+            border-radius: 4px;
+        }
+
+        .cluster-header.mega {
+            background: rgba(251, 191, 36, 0.15);
+            border-left-color: #fbbf24;
+        }
+
+        .cluster-info {
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+
+        .cluster-divider {
+            grid-column: 1 / -1;
+            border-top: 2px dashed rgba(107, 114, 128, 0.3);
+            margin: 16px 0;
+            padding-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="javascript:window.close();" class="back-link">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            返回
+        </a>
+
+        <div class="header">
+            <h1 class="title">📊 早期交易者原始数据</h1>
+            <p class="subtitle">信号 ID: <span id="signalId" class="mono">加载中...</span></p>
+        </div>
+
+        <div id="content">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <div>正在加载交易数据...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 辅助函数：格式化数字
+        function formatNum(num) {
+            if (num === null || num === undefined) return '-';
+            if (typeof num === 'number') {
+                return num.toFixed(2);
+            }
+            return num.toString();
+        }
+
+        // 辅助函数：格式化百分比
+        function formatPercent(ratio) {
+            if (ratio === null || ratio === undefined) return '-';
+            return (ratio * 100).toFixed(1) + '%';
+        }
+
+        // 从 URL 获取 signal ID
+        // URL 格式: /signal/:signalId/early-trades
+        const pathParts = window.location.pathname.split('/');
+        const signalId = pathParts[pathParts.length - 2]; // 获取倒数第二段（signalId）
+        document.getElementById('signalId').textContent = signalId;
+
+        // 加载早期交易数据
+        async function loadEarlyTrades() {
+            const contentDiv = document.getElementById('content');
+
+            try {
+                const response = await fetch(`/api/signal/${signalId}/early-trades`);
+                const result = await response.json();
+
+                if (result.success) {
+                    if (!result.data) {
+                        // 信号创建于数据存储功能上线前，无历史数据
+                        contentDiv.innerHTML = `
+                            <div class="card">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">⚠️</div>
+                                    <h3 class="text-yellow text-lg font-semibold mb-2">此信号无早期交易数据</h3>
+                                    <p>该信号创建于数据存储功能上线前，未保存原始交易数据</p>
+                                </div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    const trades = result.data.trades_data || [];
+                    const tradeCount = trades.length;
+
+                    if (tradeCount === 0) {
+                        contentDiv.innerHTML = `
+                            <div class="card">
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">📊</div>
+                                    <h3 class="text-gray-400 text-lg font-semibold mb-2">无早期交易数据</h3>
+                                    <p>该信号的早期交易数据为空</p>
+                                </div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    // 构建信息卡片
+                    const infoHtml = `
+                        <div class="card">
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">交易数量</div>
+                                    <div class="info-value">${tradeCount} 条</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">检查窗口</div>
+                                    <div class="info-value">${result.data.window_seconds} 秒</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">内盘交易对</div>
+                                    <div class="info-value mono">${result.data.inner_pair || 'N/A'}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">区块链</div>
+                                    <div class="info-value">${result.data.chain || 'bsc'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // 构建交易数据表格
+                    const tokenAddress = result.token_address?.toLowerCase() || '';
+                    const strongTraders = new Set((result.strong_traders || []).map(addr => addr.toLowerCase()));
+
+                    // 统计
+                    let buyCount = 0;
+                    let sellCount = 0;
+                    let strongTraderBuyCount = 0;
+                    let strongTraderSellCount = 0;
+
+                    const displayTrades = trades.slice(0, 500); // 显示前500条
+                    const tableRows = displayTrades.map((trade, idx) => {
+                        const time = new Date(trade.time * 1000).toLocaleString('zh-CN');
+                        const fromUsd = trade.from_usd ? `$${trade.from_usd.toFixed(2)}` : '-';
+                        const toUsd = trade.to_usd ? `$${trade.to_usd.toFixed(2)}` : '-';
+
+                        // 判断买/卖方向
+                        const toToken = trade.to_token?.toLowerCase() || '';
+                        const fromToken = trade.from_token?.toLowerCase() || '';
+
+                        let direction = '';
+                        let directionClass = '';
+
+                        if (toToken === tokenAddress) {
+                            direction = '买入';
+                            directionClass = 'direction-buy';
+                            buyCount++;
+                        } else if (fromToken === tokenAddress) {
+                            direction = '卖出';
+                            directionClass = 'direction-sell';
+                            sellCount++;
+                        }
+
+                        // 判断是否是强势交易者
+                        const walletAddress = (trade.wallet_address || trade.from_address || '').toLowerCase();
+                        const isStrongTrader = strongTraders.has(walletAddress);
+                        let strongTraderBadge = '';
+                        let rowClass = '';
+
+                        if (isStrongTrader) {
+                            strongTraderBadge = '<span class="strong-badge">💪 强势交易者</span>';
+                            rowClass = 'trade-strong';
+                            if (direction === '买入') strongTraderBuyCount++;
+                            if (direction === '卖出') strongTraderSellCount++;
+                        } else if (direction === '买入') {
+                            rowClass = 'trade-buy';
+                        } else if (direction === '卖出') {
+                            rowClass = 'trade-sell';
+                        }
+
+                        return `
+                            <tr class="${rowClass}">
+                                <td>${idx + 1}</td>
+                                <td class="mono">${time}</td>
+                                <td class="mono">${trade.block_number || '-'}</td>
+                                <td>
+                                    ${trade.from_address ? `<a href="https://gmgn.ai/bsc/address/${trade.from_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.from_address}">${trade.from_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
+                                    ${direction ? `<br><span class="direction-badge ${directionClass}">${direction}</span>` : ''}
+                                </td>
+                                <td>
+                                    ${trade.to_address ? `<a href="https://gmgn.ai/bsc/address/${trade.to_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.to_address}">${trade.to_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
+                                    ${strongTraderBadge ? `<br>${strongTraderBadge}` : ''}
+                                </td>
+                                <td class="text-green text-right">${fromUsd}</td>
+                                <td class="text-blue text-right">${toUsd}</td>
+                                <td class="mono">${trade.tx_id ? `<span title="${trade.tx_id}">${trade.tx_id.substring(0, 10)}...</span>` : '<span class="text-gray-500">-</span>'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                    // 添加统计信息
+                    const statsHtml = `
+                        <div class="card">
+                            <div class="card-title">
+                                <span>📊</span>
+                                <span>交易统计</span>
+                            </div>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">买入交易</div>
+                                    <div class="info-value text-green">${buyCount}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">卖出交易</div>
+                                    <div class="info-value text-red">${sellCount}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">强势交易者买入</div>
+                                    <div class="info-value text-yellow">${strongTraderBuyCount}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">强势交易者卖出</div>
+                                    <div class="info-value text-yellow">${strongTraderSellCount}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // 聚簇分析信息
+                    let clusterHtml = '';
+                    if (result.cluster_analysis) {
+                        const ca = result.cluster_analysis;
+                        clusterHtml = `
+                            <div class="card">
+                                <div class="card-title">
+                                    <span>🔗</span>
+                                    <span>聚簇分析</span>
+                                </div>
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <div class="info-label">聚簇方法</div>
+                                        <div class="info-value">${ca.walletClusterMethod === 'block' ? '区块号聚簇' : '时间戳聚簇'}</div>
+                                    </div>
+                                    <div class="info-item">
+                                        <div class="info-label">聚簇阈值</div>
+                                        <div class="info-value">${ca.walletClusterThreshold} 区块</div>
+                                    </div>
+                                    <div class="info-item">
+                                        <div class="info-label">簇数量</div>
+                                        <div class="info-value">${ca.walletClusterCount}</div>
+                                    </div>
+                                    <div class="info-item">
+                                        <div class="info-label">最大簇大小</div>
+                                        <div class="info-value">${ca.walletClusterMaxSize}</div>
+                                    </div>
+                                    <div class="info-item">
+                                        <div class="info-label">第2簇/第1簇比</div>
+                                        <div class="info-value">${formatNum(ca.walletClusterSecondToFirstRatio)}</div>
+                                    </div>
+                                    <div class="info-item">
+                                        <div class="info-label">Mega聚簇占比</div>
+                                        <div class="info-value text-yellow">${formatPercent(ca.walletClusterMegaRatio)}</div>
+                                    </div>
+                                    <div class="info-item">
+                                        <div class="info-label">Top2聚簇占比</div>
+                                        <div class="info-value">${formatPercent(ca.walletClusterTop2Ratio)}</div>
+                                    </div>
+                                    <div class="info-item">
+                                        <div class="info-label">最大区块买入占比</div>
+                                        <div class="info-value">${formatPercent(ca.walletClusterMaxBlockBuyRatio)}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    const tableHtml = `
+                        <div class="card">
+                            <div class="card-title">
+                                <span>📋</span>
+                                <span>交易记录</span>
+                                ${tradeCount > 500 ? `<span class="text-sm text-yellow ml-2">(仅显示前 500 条，共 ${tradeCount} 条)</span>` : ''}
+                            </div>
+                            <div class="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>时间</th>
+                                            <th>区块号</th>
+                                            <th>卖出地址 / 方向<br><span class="text-xs font-normal text-gray-500">点击查看 GMGN</span></th>
+                                            <th>买入地址 / 标记<br><span class="text-xs font-normal text-gray-500">点击查看 GMGN</span></th>
+                                            <th class="text-right">卖出金额</th>
+                                            <th class="text-right">买入金额</th>
+                                            <th>交易ID</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${tableRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+
+                    // 图例说明
+                    const legendHtml = `
+                        <div class="card">
+                            <div class="card-title">
+                                <span>🎨</span>
+                                <span>图例说明</span>
+                            </div>
+                            <div class="info-grid">
+                                <div class="info-item trade-buy">
+                                    <div class="info-label">买入交易</div>
+                                    <div class="info-value">🟢 买入代币</div>
+                                </div>
+                                <div class="info-item trade-sell">
+                                    <div class="info-label">卖出交易</div>
+                                    <div class="info-value">🔴 卖出代币</div>
+                                </div>
+                                <div class="info-item trade-strong">
+                                    <div class="info-label">强势交易者</div>
+                                    <div class="info-value">💪 高收割率交易者</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // 按簇分组展示
+                    let clusterGroupHtml = '';
+                    if (result.clusters && result.clusters.length > 0) {
+                        const clusterCards = result.clusters.map((cluster, idx) => {
+                            const clusterRows = cluster.trades.slice(0, 100).map((trade, tIdx) => {
+                                const time = new Date(trade.time * 1000).toLocaleString('zh-CN');
+                                const fromUsd = trade.from_usd ? `$${trade.from_usd.toFixed(2)}` : '-';
+                                const toUsd = trade.to_usd ? `$${trade.to_usd.toFixed(2)}` : '-';
+
+                                // 判断买/卖方向
+                                const toToken = trade.to_token?.toLowerCase() || '';
+                                const fromToken = trade.from_token?.toLowerCase() || '';
+                                let direction = '';
+                                let directionClass = '';
+                                if (toToken === tokenAddress) {
+                                    direction = '买入';
+                                    directionClass = 'direction-buy';
+                                } else if (fromToken === tokenAddress) {
+                                    direction = '卖出';
+                                    directionClass = 'direction-sell';
+                                }
+
+                                // 判断是否是强势交易者
+                                const walletAddress = (trade.wallet_address || trade.from_address || '').toLowerCase();
+                                const isStrongTrader = strongTraders.has(walletAddress);
+                                let strongTraderBadge = '';
+                                if (isStrongTrader) {
+                                    strongTraderBadge = '<span class="strong-badge">💪</span>';
+                                }
+
+                                return `
+                                    <tr>
+                                        <td>${tIdx + 1}</td>
+                                        <td class="mono">${time}</td>
+                                        <td class="mono">${trade.block_number || '-'}</td>
+                                        <td>
+                                            ${trade.from_address ? `<a href="https://gmgn.ai/bsc/address/${trade.from_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.from_address}">${trade.from_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
+                                            ${direction ? `<br><span class="direction-badge ${directionClass}">${direction}</span>` : ''}
+                                        </td>
+                                        <td>
+                                            ${trade.to_address ? `<a href="https://gmgn.ai/bsc/address/${trade.to_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.to_address}">${trade.to_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
+                                            ${strongTraderBadge ? `<br>${strongTraderBadge}` : ''}
+                                        </td>
+                                        <td class="text-green text-right">${fromUsd}</td>
+                                        <td class="text-blue text-right">${toUsd}</td>
+                                        <td class="mono">${trade.tx_id ? `<span title="${trade.tx_id}">${trade.tx_id.substring(0, 10)}...</span>` : '<span class="text-gray-500">-</span>'}</td>
+                                    </tr>
+                                `;
+                            }).join('');
+
+                            return `
+                                <div class="cluster-section">
+                                    <div class="cluster-header ${cluster.isMega ? 'mega' : ''}">
+                                        <div class="flex items-center justify-between">
+                                            <div class="text-white font-semibold">
+                                                🔗 簇 #${cluster.id}
+                                                ${cluster.isMega ? '<span class="ml-2 text-yellow">💎 Mega聚簇</span>' : ''}
+                                            </div>
+                                            <div class="cluster-info">
+                                                大小: ${cluster.size} |
+                                                区块: ${cluster.minBlock}-${cluster.maxBlock} |
+                                                钱包: ${cluster.uniqueWallets}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card">
+                                        <div class="table-container">
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th>#</th>
+                                                        <th>时间</th>
+                                                        <th>区块号</th>
+                                                        <th>卖出地址 / 方向</th>
+                                                        <th>买入地址 / 标记</th>
+                                                        <th class="text-right">卖出金额</th>
+                                                        <th class="text-right">买入金额</th>
+                                                        <th>交易ID</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${clusterRows}
+                                                </tbody>
+                                            </table>
+                                            ${cluster.trades.length > 100 ? `<div class="text-center text-xs text-gray-500 pt-2">(仅显示前 100 条，共 ${cluster.trades.length} 条)</div>` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+
+                        clusterGroupHtml = `
+                            <div class="mt-6">
+                                <h2 class="text-xl font-bold text-white mb-4">🔗 按簇分组展示</h2>
+                                ${clusterCards}
+                            </div>
+                        `;
+                    }
+
+                    contentDiv.innerHTML = infoHtml + statsHtml + clusterHtml + tableHtml + legendHtml + clusterGroupHtml;
+
+                } else {
+                    // 加载失败
+                    contentDiv.innerHTML = `
+                        <div class="error-state">
+                            <div class="text-red text-lg font-semibold mb-2">加载数据失败</div>
+                            <div class="text-gray-400">${result.error || '未知错误'}</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('加载早期交易数据失败:', error);
+                contentDiv.innerHTML = `
+                    <div class="error-state">
+                        <div class="text-red text-lg font-semibold mb-2">加载失败</div>
+                        <div class="text-gray-400">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        // 页面加载时执行
+        loadEarlyTrades();
+    </script>
+</body>
+</html>

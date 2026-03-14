@@ -207,6 +207,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/token_detail.html'));
     });
 
+    // 信号早期交易数据页面
+    this.app.get('/signal/:id/early-trades', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/signal_early_trades.html'));
+    });
+
     // 实验详情页面（必须放在最后，作为默认路由）
     this.app.get('/experiment/:id', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));
@@ -1412,18 +1417,76 @@ class RicherJsWebServer {
     // 获取早期交易者数据（按信号ID）
     this.app.get('/api/signal/:id/early-trades', async (req, res) => {
       try {
+        // 获取强势交易者列表
+        const { STRONG_TRADERS } = require('./trading-engine/pre-check/STRONG_TRADERS');
+        const { WalletClusterService } = require('./trading-engine/pre-check/WalletClusterService');
+
+        // 获取信号数据以获取 token_address
+        const { data: signalData, error: signalError } = await this.dataService.supabase
+          .from('strategy_signals')
+          .select('token_address')
+          .eq('id', req.params.id)
+          .single();
+
+        if (signalError) {
+          throw signalError;
+        }
+
+        // 获取早期交易数据
         const { data, error } = await this.dataService.supabase
           .from('early_participant_trades')
           .select('*')
           .eq('signal_id', req.params.id)
           .single();
 
+        // 执行聚簇分析
+        let clusterAnalysis = null;
+        let clustersWithTrades = null;
+
+        if (data && data.trades_data && data.trades_data.length > 0) {
+          const clusterService = new WalletClusterService(console, { mode: 'block', clusterBlockThreshold: 7 });
+          clusterAnalysis = clusterService.performClusterAnalysis(data.trades_data);
+
+          // 构建带交易的簇数据
+          const trades = data.trades_data;
+          const detectedClusters = clusterService._detectClusters(trades);
+
+          clustersWithTrades = detectedClusters.map((clusterIndices, idx) => {
+            const clusterTrades = clusterIndices.map(i => trades[i]);
+            const blocks = clusterTrades.map(t => t.block_number).filter(b => b != null);
+            const uniqueWallets = new Set();
+            clusterTrades.forEach(t => {
+              if (t.from_address) uniqueWallets.add(t.from_address.toLowerCase());
+              if (t.to_address) uniqueWallets.add(t.to_address.toLowerCase());
+            });
+
+            // 计算Mega簇阈值
+            const avgClusterSize = detectedClusters.reduce((sum, c) => sum + c.length, 0) / detectedClusters.length;
+            const megaThreshold = Math.max(5, Math.floor(avgClusterSize * 2));
+            const isMega = clusterIndices.length >= megaThreshold;
+
+            return {
+              id: idx + 1,
+              size: clusterIndices.length,
+              minBlock: blocks.length > 0 ? Math.min(...blocks) : null,
+              maxBlock: blocks.length > 0 ? Math.max(...blocks) : null,
+              uniqueWallets: uniqueWallets.size,
+              isMega: isMega,
+              trades: clusterTrades
+            };
+          });
+        }
+
         if (error) {
           if (error.code === 'PGRST116') {
             // 未找到数据
             res.json({
               success: true,
-              data: null
+              data: null,
+              token_address: signalData?.token_address || null,
+              strong_traders: Array.from(STRONG_TRADERS),
+              cluster_analysis: clusterAnalysis,
+              clusters: clustersWithTrades
             });
           } else {
             throw error;
@@ -1431,7 +1494,11 @@ class RicherJsWebServer {
         } else {
           res.json({
             success: true,
-            data: data
+            data: data,
+            token_address: signalData?.token_address || null,
+            strong_traders: Array.from(STRONG_TRADERS),
+            cluster_analysis: clusterAnalysis,
+            clusters: clustersWithTrades
           });
         }
       } catch (error) {
