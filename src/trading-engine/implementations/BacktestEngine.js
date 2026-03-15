@@ -548,8 +548,23 @@ class BacktestEngine extends AbstractTradingEngine {
 
     const { TokenPool, StrategyEngine } = getLazyModules();
 
-    // 1. 初始化代币池（简化版，用于状态管理）
-    this._tokenPool = new TokenPool(this.logger);
+    // 1. 初始化持有者历史缓存（用于回测时动态计算持有者趋势因子）
+    const HolderHistoryCache = require('../HolderHistoryCache');
+    this._holderHistoryCache = new HolderHistoryCache(15 * 60 * 1000); // 15分钟
+
+    // 1.1 初始化持有者趋势检测器（用于动态计算持有者趋势因子）
+    const HolderTrendDetector = require('../HolderTrendDetector');
+    this._holderTrendDetector = new HolderTrendDetector({
+      minDataPoints: 6,
+      maxDataPoints: Infinity,
+      cvThreshold: 0.02,
+      scoreThreshold: 30,
+      growthRatioThreshold: 3,
+      riseRatioThreshold: 0.5
+    });
+
+    // 2. 初始化代币池（简化版，用于状态管理，传入持有者历史缓存）
+    this._tokenPool = new TokenPool(this.logger, null, this._holderHistoryCache);
     this.logger.info(this._experimentId, '_initializeBacktestComponents', '✅ 代币池初始化完成');
 
     // 2. 初始化策略引擎
@@ -1076,10 +1091,85 @@ class BacktestEngine extends AbstractTradingEngine {
         tokenState.highestPriceSinceLastBuy = priceUsd;
         tokenState.highestPriceSinceLastBuyTimestamp = now;
       }
+
+      // 维护最近一次购买后的最高持有者数量状态
+      const currentHolderCount = factorValues.holders || 0;
+      if (tokenState.highestHolderCountSinceLastBuy === null || currentHolderCount > tokenState.highestHolderCountSinceLastBuy) {
+        tokenState.highestHolderCountSinceLastBuy = currentHolderCount;
+        tokenState.highestHolderCountSinceLastBuyTimestamp = now;
+      }
     }
 
-    // 构建因子（FactorBuilder 会动态计算 drawdownFromHighestSinceLastBuy）
-    return buildFactorsFromTimeSeries(factorValues, tokenState, priceUsd, now);
+    // 更新持有者历史缓存
+    const tokenKey = `${tokenState.token}-bsc`;
+    const holderCount = factorValues.holders || 0;
+    if (this._holderHistoryCache && holderCount > 0) {
+      this._holderHistoryCache.addHolderCount(tokenKey, holderCount, now);
+    }
+
+    // 构建基础因子（FactorBuilder 会动态计算 drawdownFromHighestSinceLastBuy 等）
+    let factors = buildFactorsFromTimeSeries(factorValues, tokenState, priceUsd, now);
+
+    // 动态计算持有者趋势因子（如果时序数据中没有）
+    if (!factors.holderTrendCV && this._holderHistoryCache) {
+      const holderCounts = this._holderHistoryCache.getHolderCountArray(tokenKey);
+      const maxPoints = 8;
+      const _holderCounts = holderCounts.slice(-maxPoints);
+
+      factors.holderTrendDataPoints = _holderCounts.length;
+
+      if (_holderCounts.length >= 2) {
+        // 基础指标
+        const firstCount = _holderCounts[0];
+        const lastCount = _holderCounts[_holderCounts.length - 1];
+        factors.holderTrendGrowthRatio = firstCount > 0 ? ((lastCount - firstCount) / firstCount) * 100 : 0;
+
+        let riseCount = 0;
+        for (let i = 1; i < _holderCounts.length; i++) {
+          if (_holderCounts[i] > _holderCounts[i - 1]) riseCount++;
+        }
+        factors.holderTrendRiseRatio = riseCount / Math.max(1, _holderCounts.length - 1);
+
+        // 变异系数 CV
+        if (this._holderTrendDetector) {
+          factors.holderTrendCV = this._holderTrendDetector._calculateCV(_holderCounts);
+        }
+
+        // 减少统计
+        const _checkSize = Math.min(5, _holderCounts.length);
+        const _recentCounts = _holderCounts.slice(-_checkSize);
+        let _decreaseCount = 0;
+        for (let i = 1; i < _recentCounts.length; i++) {
+          if (_recentCounts[i] < _recentCounts[i - 1]) _decreaseCount++;
+        }
+        factors.holderTrendRecentDecreaseCount = _decreaseCount;
+        factors.holderTrendRecentDecreaseRatio = _decreaseCount / Math.max(1, _recentCounts.length - 1);
+
+        // 连续减少次数
+        let _consecutiveDecreases = 0;
+        for (let i = _holderCounts.length - 1; i > 0; i--) {
+          if (_holderCounts[i] < _holderCounts[i - 1]) {
+            _consecutiveDecreases++;
+          } else {
+            break;
+          }
+        }
+        factors.holderTrendConsecutiveDecreases = _consecutiveDecreases;
+
+        // 需要至少 4 个数据点的指标
+        if (_holderCounts.length >= 4 && this._holderTrendDetector) {
+          const _direction = this._holderTrendDetector._confirmDirection(_holderCounts);
+          factors.holderTrendHolderCountUp = _direction.holderCountUp;
+          factors.holderTrendMedianUp = _direction.holderMedianUp;
+          factors.holderTrendSlope = _direction.relativeSlope || 0;
+
+          const _strength = this._holderTrendDetector._calculateTrendStrength(_holderCounts);
+          factors.holderTrendStrengthScore = _strength.score;
+        }
+      }
+    }
+
+    return factors;
   }
 
   /**
