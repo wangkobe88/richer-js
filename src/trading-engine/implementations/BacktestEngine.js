@@ -1444,13 +1444,13 @@ class BacktestEngine extends AbstractTradingEngine {
 
         // 调试日志：确认买入状态设置
         this.logger.info(this._experimentId, '_executeStrategy',
-          `✅ 买入成功后设置 tokenState: symbol=${tokenState.symbol}, buyTime=${new Date(tokenState.buyTime).toISOString()}, buyPrice=${price}, holders=${dataPoint.factor_values?.holders}`);
+          `✅ 买入成功后设置 tokenState: symbol=${tokenState.symbol}, buyTime=${new Date(tokenState.buyTime).toISOString()}, buyPrice=${price}, holders=${factorResults.holders}`);
 
         // 重置最近一次购买后的最高价（用于止损/止盈）
         tokenState.highestPriceSinceLastBuy = price;
         tokenState.highestPriceSinceLastBuyTimestamp = timestamp.getTime();
         // 初始化持有者回撤基准（买入时的持有者数量）
-        const currentHolderCount = dataPoint.factor_values?.holders || 0;
+        const currentHolderCount = factorResults.holders || 0;
         tokenState.highestHolderCountSinceLastBuy = currentHolderCount;
         tokenState.highestHolderCountSinceLastBuyTimestamp = timestamp.getTime();
 
