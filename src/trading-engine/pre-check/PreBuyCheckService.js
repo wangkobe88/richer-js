@@ -427,7 +427,7 @@ class PreBuyCheckService {
       // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查
       const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck),
-        this._performWalletClusterCheck(earlyParticipantCheck),
+        this._performWalletClusterCheck(earlyParticipantCheck, tokenAddress),
         this._checkCreatorIsNotBadDevWallet(creatorAddress),
         this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck)
       ]);
@@ -1050,9 +1050,10 @@ class PreBuyCheckService {
    * 执行钱包簇检查
    * @private
    * @param {Object} earlyParticipantCheck - 早期参与者检查结果（包含 trades 数据）
+   * @param {string} tokenAddress - 代币地址（用于区分买入/卖出）
    * @returns {Object} 钱包簇检查结果
    */
-  async _performWalletClusterCheck(earlyParticipantCheck = null) {
+  async _performWalletClusterCheck(earlyParticipantCheck = null, tokenAddress = null) {
     // 从早期参与者检查结果中获取交易数据
     const trades = earlyParticipantCheck?._trades;
 
@@ -1061,8 +1062,8 @@ class PreBuyCheckService {
     }
 
     try {
-      // 使用早期参与者检查已经获取的交易数据
-      return this.walletClusterService.performClusterAnalysis(trades);
+      // 使用早期参与者检查已经获取的交易数据，传递代币地址
+      return this.walletClusterService.performClusterAnalysis(trades, tokenAddress);
     } catch (error) {
       this.logger.error('[PreBuyCheckService] 钱包簇检查失败', {
         error: error.message

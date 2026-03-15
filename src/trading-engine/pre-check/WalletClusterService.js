@@ -44,9 +44,10 @@ class WalletClusterService {
   /**
    * 执行钱包簇分析
    * @param {Array} trades - 早期交易数据（必须按时间升序排列）
+   * @param {string} tokenAddress - 代币地址（用于区分买入/卖出）
    * @returns {Object} 分析结果
    */
-  performClusterAnalysis(trades) {
+  performClusterAnalysis(trades, tokenAddress = null) {
     const startTime = Date.now();
 
     this.logger.debug('[WalletClusterService] 开始钱包簇分析', {
@@ -103,7 +104,7 @@ class WalletClusterService {
       : 0;
 
     // 7. 计算最大区块买入金额占比（检测第一区块集中购买）
-    const blockBuyStats = this._calculateBlockBuyStats(trades);
+    const blockBuyStats = this._calculateBlockBuyStats(trades, tokenAddress);
 
     const result = {
       // 基础信息
@@ -255,46 +256,97 @@ class WalletClusterService {
   }
 
   /**
-   * 计算区块买入金额统计
-   * 检测第一区块集中购买模式（类似Dev持仓比例）
+   * 计算区块内连续购买代币数量统计
+   * 检测单个区块内连续购买操作拿了多少比例的代币
    * @private
+   * @param {Array} trades - 交易数据
+   * @param {string} tokenAddress - 代币地址（用于区分买入/卖出）
+   * @returns {Object} 区块购买统计
    */
-  _calculateBlockBuyStats(trades) {
-    // 按区块分组，只计算买入金额（from_usd）
-    const blockBuyAmounts = {};
-    let totalBuyAmount = 0;
+  _calculateBlockBuyStats(trades, tokenAddress) {
+    if (!trades || trades.length === 0 || !tokenAddress) {
+      return {
+        maxBlockBuyRatio: 0,
+        maxBlockNumber: null,
+        maxBlockBuyTokenAmount: 0
+      };
+    }
 
+    const tokenAddressLower = tokenAddress.toLowerCase();
+
+    // 1. 按区块分组
+    const blockGroups = new Map();
     trades.forEach(t => {
-      const buyAmount = t.from_usd || 0; // 只计算买入
       const block = t.block_number;
+      if (block == null) return;
 
-      if (!blockBuyAmounts[block]) {
-        blockBuyAmounts[block] = 0;
+      if (!blockGroups.has(block)) {
+        blockGroups.set(block, []);
       }
-      blockBuyAmounts[block] += buyAmount;
-      totalBuyAmount += buyAmount;
+      blockGroups.get(block).push(t);
     });
 
-    // 找出买入金额最大的区块
-    let maxBlockBuyAmount = 0;
+    // 2. 遍历每个区块，找出最大连续购买簇
+    let maxClusterAmount = 0;
     let maxBlockNumber = null;
 
-    for (const [block, amount] of Object.entries(blockBuyAmounts)) {
-      if (amount > maxBlockBuyAmount) {
-        maxBlockBuyAmount = amount;
-        maxBlockNumber = block;
+    for (const [blockNumber, blockTrades] of blockGroups.entries()) {
+      const clusterAmount = this._findMaxContinuousBuyCluster(blockTrades, tokenAddressLower);
+      if (clusterAmount > maxClusterAmount) {
+        maxClusterAmount = clusterAmount;
+        maxBlockNumber = blockNumber;
       }
     }
 
-    // 计算最大区块买入金额占比
-    const maxBlockBuyRatio = totalBuyAmount > 0 ? maxBlockBuyAmount / totalBuyAmount : 0;
+    // 3. 计算比例（代币总供应量为10亿）
+    const TOTAL_SUPPLY = 1_000_000_000;
+    const maxBlockBuyRatio = maxClusterAmount / TOTAL_SUPPLY;
 
     return {
-      maxBlockBuyRatio: parseFloat(maxBlockBuyRatio.toFixed(4)),
-      maxBlockNumber: maxBlockNumber ? parseInt(maxBlockNumber) : null,
-      maxBlockBuyAmount: parseFloat(maxBlockBuyAmount.toFixed(2)),
-      totalBuyAmount: parseFloat(totalBuyAmount.toFixed(2))
+      maxBlockBuyRatio: parseFloat(maxBlockBuyRatio.toFixed(6)),
+      maxBlockNumber: maxBlockNumber,
+      maxBlockBuyTokenAmount: parseFloat(maxClusterAmount.toFixed(2))
     };
+  }
+
+  /**
+   * 找出单个区块内最大的连续购买簇的代币数量
+   * 连续购买：遇到卖出则打断，忽略非买卖交易
+   * @private
+   * @param {Array} blockTrades - 同一区块内的交易
+   * @param {string} tokenAddressLower - 代币地址（小写）
+   * @returns {number} 最大连续购买簇的代币数量
+   */
+  _findMaxContinuousBuyCluster(blockTrades, tokenAddressLower) {
+    let maxAmount = 0;
+    let currentAmount = 0;
+
+    // 按时间排序
+    const sortedTrades = [...blockTrades].sort((a, b) => (a.time || 0) - (b.time || 0));
+
+    for (const trade of sortedTrades) {
+      const toToken = (trade.to_token || '').toLowerCase();
+      const fromToken = (trade.from_token || '').toLowerCase();
+      const toAmount = trade.to_amount || 0;
+
+      const isBuy = toToken === tokenAddressLower;
+      const isSell = fromToken === tokenAddressLower;
+
+      if (isBuy) {
+        // 买入，累计代币数量
+        currentAmount += toAmount;
+      } else if (isSell) {
+        // 卖出，记录当前簇并重置
+        maxAmount = Math.max(maxAmount, currentAmount);
+        currentAmount = 0;
+      }
+      // 既不是买入也不是卖出（如添加流动性），忽略，不打断连续购买
+    }
+
+    // 处理最后一个簇
+    maxAmount = Math.max(maxAmount, currentAmount);
+
+    return maxAmount;
   }
 
   /**
