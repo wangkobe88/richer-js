@@ -125,7 +125,7 @@ const FACTOR_METADATA = {
     severity: 'warning'
   },
   earlyTradesDrawdownFromHighest: {
-    name: '早期交易价格跌幅',
+    name: '早期交易末价格从最高点跌幅',
     format: v => v.toFixed(1) + '%',
     unit: '%',
     severity: 'warning'
@@ -706,11 +706,12 @@ class PreBuyCheckService {
         preTraderCanBuy: canBuy
       };
 
-      // 如果条件失败，执行详细诊断
+      // 无论成功失败，都执行详细诊断
+      const diagnosis = this._diagnoseCondition(condition, context);
+      result.failedConditions = diagnosis.conditionList;
+
       if (!canBuy) {
-        const diagnosis = this._diagnoseFailedCondition(condition, context);
         result.checkReason = diagnosis.summaryReason;
-        result.failedConditions = diagnosis.failedConditions;
       } else {
         result.checkReason = '购买前检查通过';
       }
@@ -891,18 +892,18 @@ class PreBuyCheckService {
   }
 
   /**
-   * 诊断失败的条件，返回详细的不满足条件列表
+   * 诊断条件，返回详细的条件检查结果
    * @private
    */
-  _diagnoseFailedCondition(condition, context) {
+  _diagnoseCondition(condition, context) {
     const atomicConditions = this._parseCondition(condition);
-    const failedList = [];
+    const conditionList = [];
 
     for (const expr of atomicConditions) {
       // 跳过括号包裹的复杂表达式
       if (expr.startsWith('(') && expr.endsWith(')')) {
-        failedList.push({
-          id: `complex_${failedList.length}`,
+        conditionList.push({
+          id: `complex_${conditionList.length}`,
           name: '复杂条件',
           expression: expr,
           expected: expr,
@@ -910,6 +911,7 @@ class PreBuyCheckService {
           actualFormatted: '(复杂表达式)',
           satisfied: null,
           severity: 'info',
+          margin: null,
           factorName: null
         });
         continue;
@@ -923,8 +925,14 @@ class PreBuyCheckService {
         // 单独评估这个条件
         const satisfied = this._safeEvaluate(expr, context);
 
-        failedList.push({
-          id: factorName || `condition_${failedList.length}`,
+        // 计算风险边际（仅对满足的条件）
+        let margin = null;
+        if (satisfied && factorName && actualValue !== null && actualValue !== undefined) {
+          margin = this._calculateMargin(expr, actualValue);
+        }
+
+        conditionList.push({
+          id: factorName || `condition_${conditionList.length}`,
           name: metadata?.name || factorName || expr,
           expression: expr,
           expected: this._extractExpectedPart(expr),
@@ -932,12 +940,13 @@ class PreBuyCheckService {
           actualFormatted: metadata ? metadata.format(actualValue ?? 0) : (actualValue ?? 'N/A'),
           satisfied,
           severity: satisfied ? 'info' : (metadata?.severity || 'warning'),
+          margin,  // 风险边际：'loose'=宽松, 'edge'=边缘, null=无法计算
           factorName
         });
       } catch (e) {
         // 评估失败，可能是复杂表达式
-        failedList.push({
-          id: factorName || `condition_${failedList.length}`,
+        conditionList.push({
+          id: factorName || `condition_${conditionList.length}`,
           name: metadata?.name || factorName || expr,
           expression: expr,
           expected: this._extractExpectedPart(expr),
@@ -945,6 +954,7 @@ class PreBuyCheckService {
           actualFormatted: metadata ? metadata.format(actualValue ?? 0) : (actualValue ?? 'N/A'),
           satisfied: null,
           severity: 'info',
+          margin: null,
           factorName,
           error: e.message
         });
@@ -952,9 +962,65 @@ class PreBuyCheckService {
     }
 
     return {
-      failedConditions: failedList,
-      summaryReason: this._buildSummaryReason(failedList)
+      conditionList,
+      summaryReason: this._buildSummaryReason(conditionList)
     };
+  }
+
+  /**
+   * 计算风险边际
+   * 返回: 'loose' (宽松，距离阈值>30%), 'edge' (边缘，距离阈值<30%), null (无法计算)
+   * @private
+   */
+  _calculateMargin(expression, actualValue) {
+    // 提取操作符和阈值
+    const match = expression.match(/^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*(===|!==|==|!=|>=|<=|>|<)\s*(.+)/);
+    if (!match) return null;
+
+    const operator = match[1];
+    const thresholdStr = match[2].trim();
+    const threshold = parseFloat(thresholdStr);
+
+    if (isNaN(threshold) || isNaN(actualValue) || actualValue === null || actualValue === undefined) {
+      return null;
+    }
+
+    // 计算距离阈值的百分比差异
+    let diffPercent = null;
+
+    switch (operator) {
+      case '>':
+      case '>=':
+        // 例如: actualValue=15, threshold=10, diff=50%
+        if (threshold !== 0) {
+          diffPercent = ((actualValue - threshold) / Math.abs(threshold)) * 100;
+        }
+        break;
+      case '<':
+      case '<=':
+        // 例如: actualValue=5, threshold=10, diff=50%
+        if (threshold !== 0) {
+          diffPercent = ((threshold - actualValue) / Math.abs(threshold)) * 100;
+        }
+        break;
+      case '===':
+      case '==':
+        // 精确匹配，无边际
+        return null;
+      case '!==':
+      case '!=':
+        // 不等于匹配，无边际
+        return null;
+      default:
+        return null;
+    }
+
+    if (diffPercent === null || isNaN(diffPercent)) {
+      return null;
+    }
+
+    // 边际判断：30%以上为宽松，以下为边缘
+    return diffPercent >= 30 ? 'loose' : 'edge';
   }
 
   /**

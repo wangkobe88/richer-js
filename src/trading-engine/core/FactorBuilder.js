@@ -37,6 +37,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 注意：这个因子会保存到时序数据库，但回测时会动态计算（类似 profitPercent）
     highestPriceSinceLastBuy: factorResults.highestPriceSinceLastBuy,
     drawdownFromHighestSinceLastBuy: factorResults.drawdownFromHighestSinceLastBuy,
+    // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
+    highestHolderCountSinceLastBuy: factorResults.highestHolderCountSinceLastBuy,
+    holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,
     txVolumeU24h: factorResults.txVolumeU24h,
     holders: factorResults.holders,
     tvl: factorResults.tvl,
@@ -53,7 +56,19 @@ function buildFactorValuesForTimeSeries(factorResults) {
     trendDataPoints: factorResults.trendDataPoints,
     trendRecentDownCount: factorResults.trendRecentDownCount,
     trendRecentDownRatio: factorResults.trendRecentDownRatio,
-    trendConsecutiveDowns: factorResults.trendConsecutiveDowns
+    trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
+    // 持有者趋势因子（固定窗口8个点）
+    holderTrendCV: factorResults.holderTrendCV,
+    holderTrendHolderCountUp: factorResults.holderTrendHolderCountUp,
+    holderTrendMedianUp: factorResults.holderTrendMedianUp,
+    holderTrendStrengthScore: factorResults.holderTrendStrengthScore,
+    holderTrendGrowthRatio: factorResults.holderTrendGrowthRatio,
+    holderTrendRiseRatio: factorResults.holderTrendRiseRatio,
+    holderTrendSlope: factorResults.holderTrendSlope,
+    holderTrendDataPoints: factorResults.holderTrendDataPoints,
+    holderTrendRecentDecreaseCount: factorResults.holderTrendRecentDecreaseCount,
+    holderTrendRecentDecreaseRatio: factorResults.holderTrendRecentDecreaseRatio,
+    holderTrendConsecutiveDecreases: factorResults.holderTrendConsecutiveDecreases
   };
 }
 
@@ -194,6 +209,27 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     }
   }
 
+  // 动态计算最近一次购买后的最高持有者数量回撤
+  let highestHolderCountSinceLastBuy = null;
+  let holderDrawdownFromHighestSinceLastBuy = null;
+  const currentHolderCount = fv.holders || 0;
+
+  if (tokenState.buyTime) {
+    // 从时序数据读取最高持有者数量，如果没有则使用购买时的持有者数量
+    highestHolderCountSinceLastBuy = tokenState.highestHolderCountSinceLastBuy || currentHolderCount;
+
+    // 如果当前持有者数量更高，更新最高值
+    if (currentHolderCount > highestHolderCountSinceLastBuy) {
+      highestHolderCountSinceLastBuy = currentHolderCount;
+      // 注意：这里只更新返回值，不更新 tokenState（调用方需要更新）
+    }
+
+    // 计算回撤
+    if (highestHolderCountSinceLastBuy > 0) {
+      holderDrawdownFromHighestSinceLastBuy = ((currentHolderCount - highestHolderCountSinceLastBuy) / highestHolderCountSinceLastBuy) * 100;
+    }
+  }
+
   return {
     // 基础因子
     age: age,
@@ -212,6 +248,9 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     // 最近一次购买后的最高价相关因子（动态计算，类似 profitPercent）
     highestPriceSinceLastBuy: highestPriceSinceLastBuy,
     drawdownFromHighestSinceLastBuy: drawdownFromHighestSinceLastBuy,
+    // 最近一次购买后的最高持有者数量相关因子（动态计算）
+    highestHolderCountSinceLastBuy: highestHolderCountSinceLastBuy,
+    holderDrawdownFromHighestSinceLastBuy: holderDrawdownFromHighestSinceLastBuy,
     txVolumeU24h: fv.txVolumeU24h || 0,
     holders: fv.holders || 0,
     tvl: fv.tvl || 0,
@@ -228,7 +267,19 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     trendDataPoints: fv.trendDataPoints ?? null,
     trendRecentDownCount: fv.trendRecentDownCount ?? null,
     trendRecentDownRatio: fv.trendRecentDownRatio ?? null,
-    trendConsecutiveDowns: fv.trendConsecutiveDowns ?? null
+    trendConsecutiveDowns: fv.trendConsecutiveDowns ?? null,
+    // 持有者趋势因子（从时序数据中读取）
+    holderTrendCV: fv.holderTrendCV ?? null,
+    holderTrendHolderCountUp: fv.holderTrendHolderCountUp ?? 0,
+    holderTrendMedianUp: fv.holderTrendMedianUp ?? 0,
+    holderTrendStrengthScore: fv.holderTrendStrengthScore ?? null,
+    holderTrendGrowthRatio: fv.holderTrendGrowthRatio ?? null,
+    holderTrendRiseRatio: fv.holderTrendRiseRatio ?? null,
+    holderTrendSlope: fv.holderTrendSlope ?? null,
+    holderTrendDataPoints: fv.holderTrendDataPoints ?? null,
+    holderTrendRecentDecreaseCount: fv.holderTrendRecentDecreaseCount ?? null,
+    holderTrendRecentDecreaseRatio: fv.holderTrendRecentDecreaseRatio ?? null,
+    holderTrendConsecutiveDecreases: fv.holderTrendConsecutiveDecreases ?? null
   };
 }
 
@@ -245,11 +296,17 @@ function getAvailableFactorIds() {
     'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
     // 最近一次购买后的最高价相关因子（用于止损/止盈）
     'highestPriceSinceLastBuy', 'drawdownFromHighestSinceLastBuy',
+    // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
+    'highestHolderCountSinceLastBuy', 'holderDrawdownFromHighestSinceLastBuy',
     'txVolumeU24h', 'holders', 'tvl', 'fdv', 'marketCap',
-    // 趋势因子（固定窗口8个点）
+    // 价格趋势因子（固定窗口8个点）
     'trendCV', 'trendPriceUp', 'trendMedianUp', 'trendStrengthScore',
     'trendTotalReturn', 'trendRiseRatio', 'trendSlope', 'trendDataPoints',
-    'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns'
+    'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns',
+    // 持有者趋势因子（固定窗口8个点）
+    'holderTrendCV', 'holderTrendHolderCountUp', 'holderTrendMedianUp', 'holderTrendStrengthScore',
+    'holderTrendGrowthRatio', 'holderTrendRiseRatio', 'holderTrendSlope', 'holderTrendDataPoints',
+    'holderTrendRecentDecreaseCount', 'holderTrendRecentDecreaseRatio', 'holderTrendConsecutiveDecreases'
   ]);
 }
 

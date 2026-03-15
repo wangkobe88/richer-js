@@ -398,9 +398,9 @@ class EarlyParticipantCheckService {
     let highValueCount = 0;
     const uniqueWallets = new Set();
 
-    // 新增：用于计算最高价跌幅
+    // 新增：用于计算价格相关因子
     let highestPrice = 0;
-    let lowestPrice = Infinity;
+    let finalPrice = 0;  // 窗口结束时价格（最后有效价格）
     let finalLiquidity = null;
 
     trades.forEach(t => {
@@ -428,7 +428,7 @@ class EarlyParticipantCheckService {
 
       if (price > 0) {
         if (price > highestPrice) highestPrice = price;
-        if (price < lowestPrice) lowestPrice = price;
+        finalPrice = price;  // 更新最后价格
       }
 
       // 记录最后一笔交易的流动性
@@ -436,12 +436,11 @@ class EarlyParticipantCheckService {
     });
 
     // 计算从最高价的跌幅（百分比）
+    // 使用窗口结束时的价格（最后价格）vs 最高价，而不是最低价 vs 最高价
+    // 这样可以反映购买时刻从历史最高点的实际回撤情况
     let drawdownFromHighest = 0;
-    if (highestPrice > 0 && lowestPrice < Infinity) {
-      // 使用最低价计算跌幅
-      if (lowestPrice > 0) {
-        drawdownFromHighest = ((lowestPrice - highestPrice) / highestPrice) * 100;
-      }
+    if (highestPrice > 0 && finalPrice > 0) {
+      drawdownFromHighest = ((finalPrice - highestPrice) / highestPrice) * 100;
     }
 
     return {

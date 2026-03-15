@@ -1936,7 +1936,7 @@ class ExperimentSignals {
         `;
       }
 
-      // 构建失败条件详情
+      // 构建条件检查详情
       let failedConditionsHtml = '';
       if (pr.failedConditions && pr.failedConditions.length > 0) {
         const failedItems = pr.failedConditions.map(fc => {
@@ -1944,12 +1944,21 @@ class ExperimentSignals {
           const statusClass = fc.satisfied ? 'text-green-700' : 'text-red-700';
           const severityIcon = fc.severity === 'critical' ? '🔴' : fc.severity === 'warning' ? '⚠️' : 'ℹ️';
 
+          // 风险指示：宽松/边缘
+          let marginBadge = '';
+          if (fc.satisfied && fc.margin === 'loose') {
+            marginBadge = '<span class="ml-2 text-xs px-1.5 py-0.5 bg-green-200 text-green-800 rounded">🟢 宽松</span>';
+          } else if (fc.satisfied && fc.margin === 'edge') {
+            marginBadge = '<span class="ml-2 text-xs px-1.5 py-0.5 bg-yellow-200 text-yellow-800 rounded">🟡 边缘</span>';
+          }
+
           return `
             <div class="flex items-start justify-between py-1 border-b border-amber-200 last:border-0">
               <div class="flex-1">
                 <div class="text-xs text-amber-900">
                   <span class="mr-1">${severityIcon}</span>
                   <span class="font-semibold">${fc.name}</span>
+                  ${marginBadge}
                 </div>
                 <div class="text-xs text-amber-700 ml-5">
                   <span class="text-gray-600">条件:</span> <code class="text-xs bg-amber-200 px-1 rounded">${this._escapeHtml(fc.expression)}</code>
@@ -1966,7 +1975,7 @@ class ExperimentSignals {
         failedConditionsHtml = `
           <div class="mt-2 pt-2 border-t border-amber-300">
             <div class="text-xs font-semibold text-amber-900 mb-1">📋 条件检查详情</div>
-            <div class="bg-white rounded p-2 border border-amber-200">
+            <div class="bg-white rounded p-2 border border-amber-200 max-h-80 overflow-y-auto">
               ${failedItems}
             </div>
             ${pr.reason ? `<div class="text-xs text-amber-800 mt-2">📝 ${this._escapeHtml(pr.reason)}</div>` : ''}

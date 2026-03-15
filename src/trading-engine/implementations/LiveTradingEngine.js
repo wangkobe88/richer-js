@@ -830,8 +830,27 @@ class LiveTradingEngine extends AbstractTradingEngine {
       totalReturnThreshold: 5,
       riseRatioThreshold: 0.5
     });
-    this.logger.info('LiveTradingEngine', 'Initialize', '趋势检测器初始化完成');
-    console.log(`✅ 趋势检测器初始化完成`);
+    this.logger.info('LiveTradingEngine', 'Initialize', '价格趋势检测器初始化完成');
+    console.log(`✅ 价格趋势检测器初始化完成`);
+
+    // 2.5 初始化持有者历史缓存（用于持有者趋势检测）
+    const HolderHistoryCache = require('../HolderHistoryCache');
+    this._holderHistoryCache = new HolderHistoryCache(15 * 60 * 1000); // 15分钟
+    this.logger.info('LiveTradingEngine', 'Initialize', '持有者历史缓存初始化完成');
+    console.log(`✅ 持有者历史缓存初始化完成`);
+
+    // 2.6 初始化持有者趋势检测器
+    const HolderTrendDetector = require('../HolderTrendDetector');
+    this._holderTrendDetector = new HolderTrendDetector({
+      minDataPoints: 6,
+      maxDataPoints: Infinity,
+      cvThreshold: 0.02, // 持有者变化更稳定，阈值更高
+      scoreThreshold: 30,
+      growthRatioThreshold: 3, // 3%增长
+      riseRatioThreshold: 0.5
+    });
+    this.logger.info('LiveTradingEngine', 'Initialize', '持有者趋势检测器初始化完成');
+    console.log(`✅ 持有者趋势检测器初始化完成`);
 
     // 3. 初始化持有者服务
     const { TokenHolderService } = require('../holders/TokenHolderService');
@@ -859,8 +878,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this.logger.info('LiveTradingEngine', 'Initialize', `购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
     console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
 
-    // 5. 初始化 TokenPool（传入价格历史缓存，与虚拟盘一致）
-    this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache);
+    // 5. 初始化 TokenPool（传入价格历史缓存和持有者历史缓存，与虚拟盘一致）
+    this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache, this._holderHistoryCache);
     await this._tokenPool.initialize();
     this.logger.info('LiveTradingEngine', 'Initialize', '代币池初始化完成');
     console.log(`✅ 代币池初始化完成`);
@@ -1454,7 +1473,25 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
     }
 
-    return {
+    // 计算最近一次购买后的最高持有者数量回撤
+    let highestHolderCountSinceLastBuy = token.highestHolderCountSinceLastBuy;
+    let highestHolderCountSinceLastBuyTimestamp = token.highestHolderCountSinceLastBuyTimestamp;
+    let holderDrawdownFromHighestSinceLastBuy = null;
+    const currentHolderCount = token.holders || 0;
+
+    if (token.buyTime) {
+      // 如果代币已被购买，维护购买后的最高持有者数量
+      // 注意：持有者数量更新是在 TokenPool.updatePrice 中处理的
+      highestHolderCountSinceLastBuy = token.highestHolderCountSinceLastBuy;
+      highestHolderCountSinceLastBuyTimestamp = token.highestHolderCountSinceLastBuyTimestamp;
+
+      // 计算从购买后最高持有者数量的回撤
+      if (highestHolderCountSinceLastBuy !== null && highestHolderCountSinceLastBuy > 0) {
+        holderDrawdownFromHighestSinceLastBuy = ((currentHolderCount - highestHolderCountSinceLastBuy) / highestHolderCountSinceLastBuy) * 100;
+      }
+    }
+
+    const factors = {
       age: age,
       currentPrice: currentPrice,
       collectionPrice: collectionPrice,
@@ -1469,12 +1506,146 @@ class LiveTradingEngine extends AbstractTradingEngine {
       drawdownFromHighest: drawdownFromHighest,
       highestPriceSinceLastBuy: highestPriceSinceLastBuy,
       drawdownFromHighestSinceLastBuy: drawdownFromHighestSinceLastBuy,
+      highestHolderCountSinceLastBuy: highestHolderCountSinceLastBuy,
+      holderDrawdownFromHighestSinceLastBuy: holderDrawdownFromHighestSinceLastBuy,
       txVolumeU24h: token.txVolumeU24h || 0,
       holders: token.holders || 0,
       tvl: token.tvl || 0,
       fdv: token.fdv || 0,
       marketCap: token.marketCap || 0
     };
+
+    // 价格趋势检测因子（使用固定窗口：最多8个点）
+    const prices = this._tokenPool.getTokenPrices(token.token, token.chain);
+
+    // 固定窗口：只使用最近8个点
+    const maxPoints = 8;
+    const _prices = prices.slice(-maxPoints);
+
+    // 记录实际使用的数据点数量
+    factors.trendDataPoints = _prices.length;
+
+    // 渐进式计算：根据可用数据点数量计算不同指标
+    if (_prices.length >= 2) {
+      // 基础指标（需要至少 2 个数据点）
+
+      // 1. 总收益率和上涨占比（需要 2 个点）
+      const firstPrice = _prices[0];
+      const lastPrice = _prices[_prices.length - 1];
+      factors.trendTotalReturn = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
+
+      // 计算上涨次数占比
+      let riseCount = 0;
+      for (let i = 1; i < _prices.length; i++) {
+        if (_prices[i] > _prices[i - 1]) riseCount++;
+      }
+      factors.trendRiseRatio = riseCount / Math.max(1, _prices.length - 1);
+
+      // 2. 变异系数 CV（需要 2 个点）
+      if (this._trendDetector) {
+        factors.trendCV = this._trendDetector._calculateCV(_prices);
+      }
+
+      // 3. 最近的下跌统计（检查最近 5 个或所有数据点）
+      const _checkSize = Math.min(5, _prices.length);
+      const _recentPrices = _prices.slice(-_checkSize);
+      let _downCount = 0;
+      for (let i = 1; i < _recentPrices.length; i++) {
+        if (_recentPrices[i] < _recentPrices[i - 1]) _downCount++;
+      }
+      factors.trendRecentDownCount = _downCount;
+      factors.trendRecentDownRatio = _downCount / Math.max(1, _recentPrices.length - 1);
+
+      // 4. 连续下跌次数
+      let _consecutiveDowns = 0;
+      for (let i = _prices.length - 1; i > 0; i--) {
+        if (_prices[i] < _prices[i - 1]) {
+          _consecutiveDowns++;
+        } else {
+          break;
+        }
+      }
+      factors.trendConsecutiveDowns = _consecutiveDowns;
+
+      // 需要至少 4 个数据点的指标
+      if (_prices.length >= 4 && this._trendDetector) {
+        // 方向确认（2个独立指标 + 斜率数值）
+        const _direction = this._trendDetector._confirmDirection(_prices);
+        factors.trendPriceUp = _direction.trendPriceUp;
+        factors.trendMedianUp = _direction.trendMedianUp;
+        factors.trendSlope = _direction.relativeSlope || 0; // 相对斜率（百分比）
+
+        // 趋势强度评分
+        const _strength = this._trendDetector._calculateTrendStrength(_prices);
+        factors.trendStrengthScore = _strength.score;
+      }
+    }
+
+    // 持有者趋势检测因子（使用固定窗口：最多8个点）
+    const holderCounts = this._tokenPool.getTokenHolderCounts(token.token, token.chain);
+
+    // 固定窗口：只使用最近8个点
+    const _holderCounts = holderCounts.slice(-maxPoints);
+
+    // 记录持有者趋势数据点数量
+    factors.holderTrendDataPoints = _holderCounts.length;
+
+    if (_holderCounts.length >= 2) {
+      // 基础指标（需要至少 2 个数据点）
+
+      // 1. 增长率和增长占比（需要 2 个点）
+      const firstCount = _holderCounts[0];
+      const lastCount = _holderCounts[_holderCounts.length - 1];
+      factors.holderTrendGrowthRatio = firstCount > 0 ? ((lastCount - firstCount) / firstCount) * 100 : 0;
+
+      // 计算增长次数占比
+      let riseCount = 0;
+      for (let i = 1; i < _holderCounts.length; i++) {
+        if (_holderCounts[i] > _holderCounts[i - 1]) riseCount++;
+      }
+      factors.holderTrendRiseRatio = riseCount / Math.max(1, _holderCounts.length - 1);
+
+      // 2. 变异系数 CV（需要 2 个点）
+      if (this._holderTrendDetector) {
+        factors.holderTrendCV = this._holderTrendDetector._calculateCV(_holderCounts);
+      }
+
+      // 3. 最近的减少统计（检查最近 5 个或所有数据点）
+      const _checkSize = Math.min(5, _holderCounts.length);
+      const _recentCounts = _holderCounts.slice(-_checkSize);
+      let _decreaseCount = 0;
+      for (let i = 1; i < _recentCounts.length; i++) {
+        if (_recentCounts[i] < _recentCounts[i - 1]) _decreaseCount++;
+      }
+      factors.holderTrendRecentDecreaseCount = _decreaseCount;
+      factors.holderTrendRecentDecreaseRatio = _decreaseCount / Math.max(1, _recentCounts.length - 1);
+
+      // 4. 连续减少次数
+      let _consecutiveDecreases = 0;
+      for (let i = _holderCounts.length - 1; i > 0; i--) {
+        if (_holderCounts[i] < _holderCounts[i - 1]) {
+          _consecutiveDecreases++;
+        } else {
+          break;
+        }
+      }
+      factors.holderTrendConsecutiveDecreases = _consecutiveDecreases;
+
+      // 需要至少 4 个数据点的指标
+      if (_holderCounts.length >= 4 && this._holderTrendDetector) {
+        // 方向确认（2个独立指标 + 斜率数值）
+        const _direction = this._holderTrendDetector._confirmDirection(_holderCounts);
+        factors.holderTrendHolderCountUp = _direction.holderCountUp;
+        factors.holderTrendMedianUp = _direction.holderMedianUp;
+        factors.holderTrendSlope = _direction.relativeSlope || 0; // 相对斜率（百分比）
+
+        // 趋势强度评分
+        const _strength = this._holderTrendDetector._calculateTrendStrength(_holderCounts);
+        factors.holderTrendStrengthScore = _strength.score;
+      }
+    }
+
+    return factors;
   }
 
   /**
@@ -2141,7 +2312,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
     const { buildFactorValuesForTimeSeries } = require('../core/FactorBuilder');
     return {
       ...buildFactorValuesForTimeSeries(factorResults),
-      // 添加趋势检测相关因子（如果存在）
+      // 添加价格趋势检测相关因子（如果存在）
       trendDataPoints: factorResults.trendDataPoints,
       trendCV: factorResults.trendCV,
       trendPriceUp: factorResults.trendPriceUp,
@@ -2152,7 +2323,19 @@ class LiveTradingEngine extends AbstractTradingEngine {
       trendRiseRatio: factorResults.trendRiseRatio,
       trendRecentDownCount: factorResults.trendRecentDownCount,
       trendRecentDownRatio: factorResults.trendRecentDownRatio,
-      trendConsecutiveDowns: factorResults.trendConsecutiveDowns
+      trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
+      // 添加持有者趋势检测相关因子（如果存在）
+      holderTrendDataPoints: factorResults.holderTrendDataPoints,
+      holderTrendCV: factorResults.holderTrendCV,
+      holderTrendHolderCountUp: factorResults.holderTrendHolderCountUp,
+      holderTrendMedianUp: factorResults.holderTrendMedianUp,
+      holderTrendSlope: factorResults.holderTrendSlope,
+      holderTrendStrengthScore: factorResults.holderTrendStrengthScore,
+      holderTrendGrowthRatio: factorResults.holderTrendGrowthRatio,
+      holderTrendRiseRatio: factorResults.holderTrendRiseRatio,
+      holderTrendRecentDecreaseCount: factorResults.holderTrendRecentDecreaseCount,
+      holderTrendRecentDecreaseRatio: factorResults.holderTrendRecentDecreaseRatio,
+      holderTrendConsecutiveDecreases: factorResults.holderTrendConsecutiveDecreases
     };
   }
 

@@ -5,11 +5,12 @@
  */
 
 class TokenPool {
-    constructor(logger, priceHistoryCache = null) {
+    constructor(logger, priceHistoryCache = null, holderHistoryCache = null) {
         this.logger = logger;
         this.pool = new Map(); // tokenAddress -> TokenData
         this.maxAge = 30 * 60 * 1000; // 30 minutes
         this.priceHistoryCache = priceHistoryCache; // 价格历史缓存（用于趋势检测）
+        this.holderHistoryCache = holderHistoryCache; // 持有者历史缓存（用于持有者趋势检测）
     }
 
     /**
@@ -72,6 +73,9 @@ class TokenPool {
             // 最近一次购买后的最高价格追踪（用于止损/止盈）
             highestPriceSinceLastBuy: null, // 最近一次购买后的最高价格
             highestPriceSinceLastBuyTimestamp: null, // 最近一次购买后的最高价发生时间
+            // 最近一次购买后的最高持有者数量追踪（用于持有者回撤检测）
+            highestHolderCountSinceLastBuy: null, // 最近一次购买后的最高持有者数量
+            highestHolderCountSinceLastBuyTimestamp: null, // 最近一次购买后的最高持有者数量发生时间
             entryMetrics: null,
             rawApiData: rawApiData, // 保存完整的原始 API 数据
             // 新增：AVE API 因子
@@ -158,6 +162,9 @@ class TokenPool {
             // 重置最近一次购买后的最高价（用于止损/止盈）
             token.highestPriceSinceLastBuy = buyDecision.buyPrice;
             token.highestPriceSinceLastBuyTimestamp = Date.now();
+            // 重置最近一次购买后的最高持有者数量
+            token.highestHolderCountSinceLastBuy = token.holders || 0;
+            token.highestHolderCountSinceLastBuyTimestamp = Date.now();
         }
     }
 
@@ -226,6 +233,20 @@ class TokenPool {
             // 更新价格历史缓存（用于趋势检测）
             if (this.priceHistoryCache) {
                 this.priceHistoryCache.addPrice(key, price, timestamp);
+            }
+
+            // 更新持有者历史缓存（用于持有者趋势检测）
+            if (this.holderHistoryCache && extraData.holders !== undefined) {
+                this.holderHistoryCache.addHolderCount(key, extraData.holders, timestamp);
+            }
+
+            // 更新最近一次购买后的最高持有者数量（如果已买入）
+            if (token.buyTime && extraData.holders !== undefined) {
+                const currentHolderCount = extraData.holders;
+                if (token.highestHolderCountSinceLastBuy === null || currentHolderCount > token.highestHolderCountSinceLastBuy) {
+                    token.highestHolderCountSinceLastBuy = currentHolderCount;
+                    token.highestHolderCountSinceLastBuyTimestamp = timestamp;
+                }
             }
         }
     }
@@ -464,6 +485,11 @@ class TokenPool {
             if (this.priceHistoryCache) {
                 this.priceHistoryCache.clear(key);
             }
+
+            // 清理持有者历史缓存
+            if (this.holderHistoryCache) {
+                this.holderHistoryCache.clear(key);
+            }
         }
 
         return toRemove.map(t => t.key);
@@ -681,6 +707,31 @@ class TokenPool {
     getPriceHistoryStats() {
         if (this.priceHistoryCache) {
             return this.priceHistoryCache.getStats();
+        }
+        return null;
+    }
+
+    /**
+     * 获取代币的持有者历史（用于持有者趋势检测）
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @returns {Array<number>} 持有者数量数组
+     */
+    getTokenHolderCounts(tokenAddress, chain) {
+        if (this.holderHistoryCache) {
+            const key = this.getTokenKey({ token: tokenAddress, chain });
+            return this.holderHistoryCache.getHolderCountArray(key);
+        }
+        return [];
+    }
+
+    /**
+     * 获取持有者历史缓存的统计信息
+     * @returns {{tokenCount: number, totalRecords: number}|null}
+     */
+    getHolderHistoryStats() {
+        if (this.holderHistoryCache) {
+            return this.holderHistoryCache.getStats();
         }
         return null;
     }

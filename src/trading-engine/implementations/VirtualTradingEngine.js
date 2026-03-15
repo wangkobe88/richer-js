@@ -590,7 +590,24 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       totalReturnThreshold: 5,
       riseRatioThreshold: 0.5
     });
-    console.log(`✅ 趋势检测器初始化完成`);
+    console.log(`✅ 价格趋势检测器初始化完成`);
+
+    // 2.5 初始化持有者历史缓存（用于持有者趋势检测）
+    const HolderHistoryCache = require('../HolderHistoryCache');
+    this._holderHistoryCache = new HolderHistoryCache(15 * 60 * 1000); // 15分钟
+    console.log(`✅ 持有者历史缓存初始化完成`);
+
+    // 2.6 初始化持有者趋势检测器
+    const HolderTrendDetector = require('../HolderTrendDetector');
+    this._holderTrendDetector = new HolderTrendDetector({
+      minDataPoints: 6,
+      maxDataPoints: Infinity,
+      cvThreshold: 0.02, // 持有者变化更稳定，阈值更高
+      scoreThreshold: 30,
+      growthRatioThreshold: 3, // 3%增长
+      riseRatioThreshold: 0.5
+    });
+    console.log(`✅ 持有者趋势检测器初始化完成`);
 
     // 2.1 初始化持有者服务
     const { TokenHolderService } = require('../holders/TokenHolderService');
@@ -616,8 +633,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
     console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
 
-    // 3. 初始化代币池（传入价格历史缓存）
-    this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache);
+    // 3. 初始化代币池（传入价格历史缓存和持有者历史缓存）
+    this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache, this._holderHistoryCache);
     console.log(`✅ 代币池初始化完成`);
 
     // 2. 初始化AVE TokenAPI（用于获取代币价格和因子数据）
@@ -1126,6 +1143,24 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
     }
 
+    // 计算最近一次购买后的最高持有者数量回撤
+    let highestHolderCountSinceLastBuy = token.highestHolderCountSinceLastBuy;
+    let highestHolderCountSinceLastBuyTimestamp = token.highestHolderCountSinceLastBuyTimestamp;
+    let holderDrawdownFromHighestSinceLastBuy = null;
+    const currentHolderCount = token.holders || 0;
+
+    if (token.buyTime) {
+      // 如果代币已被购买，维护购买后的最高持有者数量
+      // 注意：持有者数量更新是在 TokenPool.updatePrice 中处理的
+      highestHolderCountSinceLastBuy = token.highestHolderCountSinceLastBuy;
+      highestHolderCountSinceLastBuyTimestamp = token.highestHolderCountSinceLastBuyTimestamp;
+
+      // 计算从购买后最高持有者数量的回撤
+      if (highestHolderCountSinceLastBuy !== null && highestHolderCountSinceLastBuy > 0) {
+        holderDrawdownFromHighestSinceLastBuy = ((currentHolderCount - highestHolderCountSinceLastBuy) / highestHolderCountSinceLastBuy) * 100;
+      }
+    }
+
     const factors = {
       age: age,
       currentPrice: currentPrice,
@@ -1141,6 +1176,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       drawdownFromHighest: drawdownFromHighest,
       highestPriceSinceLastBuy: highestPriceSinceLastBuy,
       drawdownFromHighestSinceLastBuy: drawdownFromHighestSinceLastBuy,
+      highestHolderCountSinceLastBuy: highestHolderCountSinceLastBuy,
+      holderDrawdownFromHighestSinceLastBuy: holderDrawdownFromHighestSinceLastBuy,
       txVolumeU24h: token.txVolumeU24h || 0,
       holders: token.holders || 0,
       tvl: token.tvl || 0,
@@ -1214,6 +1251,70 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
     }
     // 数据不足时（< 2 个点），保持指标未定义（undefined）
+
+    // 持有者趋势检测因子（使用固定窗口：最多8个点）
+    const holderCounts = this._tokenPool.getTokenHolderCounts(token.token, token.chain);
+
+    // 固定窗口：只使用最近8个点
+    const _holderCounts = holderCounts.slice(-maxPoints);
+
+    // 记录持有者趋势数据点数量
+    factors.holderTrendDataPoints = _holderCounts.length;
+
+    if (_holderCounts.length >= 2) {
+      // 基础指标（需要至少 2 个数据点）
+
+      // 1. 增长率和增长占比（需要 2 个点）
+      const firstCount = _holderCounts[0];
+      const lastCount = _holderCounts[_holderCounts.length - 1];
+      factors.holderTrendGrowthRatio = firstCount > 0 ? ((lastCount - firstCount) / firstCount) * 100 : 0;
+
+      // 计算增长次数占比
+      let riseCount = 0;
+      for (let i = 1; i < _holderCounts.length; i++) {
+        if (_holderCounts[i] > _holderCounts[i - 1]) riseCount++;
+      }
+      factors.holderTrendRiseRatio = riseCount / Math.max(1, _holderCounts.length - 1);
+
+      // 2. 变异系数 CV（需要 2 个点）
+      if (this._holderTrendDetector) {
+        factors.holderTrendCV = this._holderTrendDetector._calculateCV(_holderCounts);
+      }
+
+      // 3. 最近的减少统计（检查最近 5 个或所有数据点）
+      const _checkSize = Math.min(5, _holderCounts.length);
+      const _recentCounts = _holderCounts.slice(-_checkSize);
+      let _decreaseCount = 0;
+      for (let i = 1; i < _recentCounts.length; i++) {
+        if (_recentCounts[i] < _recentCounts[i - 1]) _decreaseCount++;
+      }
+      factors.holderTrendRecentDecreaseCount = _decreaseCount;
+      factors.holderTrendRecentDecreaseRatio = _decreaseCount / Math.max(1, _recentCounts.length - 1);
+
+      // 4. 连续减少次数
+      let _consecutiveDecreases = 0;
+      for (let i = _holderCounts.length - 1; i > 0; i--) {
+        if (_holderCounts[i] < _holderCounts[i - 1]) {
+          _consecutiveDecreases++;
+        } else {
+          break;
+        }
+      }
+      factors.holderTrendConsecutiveDecreases = _consecutiveDecreases;
+
+      // 需要至少 4 个数据点的指标
+      if (_holderCounts.length >= 4 && this._holderTrendDetector) {
+        // 方向确认（2个独立指标 + 斜率数值）
+        const _direction = this._holderTrendDetector._confirmDirection(_holderCounts);
+        factors.holderTrendHolderCountUp = _direction.holderCountUp;
+        factors.holderTrendMedianUp = _direction.holderMedianUp;
+        factors.holderTrendSlope = _direction.relativeSlope || 0; // 相对斜率（百分比）
+
+        // 趋势强度评分
+        const _strength = this._holderTrendDetector._calculateTrendStrength(_holderCounts);
+        factors.holderTrendStrengthScore = _strength.score;
+      }
+    }
 
     return factors;
   }
