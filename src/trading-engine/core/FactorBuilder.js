@@ -227,6 +227,9 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     // 计算回撤
     if (highestHolderCountSinceLastBuy > 0) {
       holderDrawdownFromHighestSinceLastBuy = ((currentHolderCount - highestHolderCountSinceLastBuy) / highestHolderCountSinceLastBuy) * 100;
+    } else {
+      // 没有持有者数据时，返回 0 而不是 null（避免因缺少数据而触发卖出条件）
+      holderDrawdownFromHighestSinceLastBuy = 0;
     }
   }
 

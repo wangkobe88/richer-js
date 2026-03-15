@@ -1020,6 +1020,15 @@ class BacktestEngine extends AbstractTradingEngine {
         this.logger.info(this._experimentId, 'BacktestEngine',
           `${tokenSymbol} 触发策略: ${strategy.name} (${strategy.action}), hasPreBuyCheckCondition=${!!preBuyCheckCondition}`);
 
+        // 调试日志：如果代币已买入，显示卖出相关因子
+        if (tokenState.status === 'bought' && strategy.action === 'sell') {
+          this.logger.info(this._experimentId, 'BacktestEngine',
+            `  卖出因子检查: holders=${factorResults.holders}, ` +
+            `holderDrawdown=${factorResults.holderDrawdownFromHighestSinceLastBuy?.toFixed(2) || 'NULL'}%, ` +
+            `holdDuration=${factorResults.holdDuration}s, ` +
+            `priceDrawdown=${factorResults.drawdownFromHighestSinceLastBuy?.toFixed(2) || 'NULL'}%`);
+        }
+
         if (this._roundSummary) {
           this._roundSummary.recordSignal(tokenAddress, {
             direction: strategy.action.toUpperCase(),
@@ -1123,8 +1132,30 @@ class BacktestEngine extends AbstractTradingEngine {
       this._holderHistoryCache.addHolderCount(tokenKey, holderCount, now);
     }
 
+    // 调试日志：在构建因子前检查 tokenState.buyTime
+    if (tokenState.buyTime) {
+      this.logger.info(this._experimentId, '_buildFactorsFromData_PRE',
+        `构建因子前: symbol=${tokenState.symbol}, buyTime=${new Date(tokenState.buyTime).toISOString()}, buyPrice=${tokenState.buyPrice}, highestHolder=${tokenState.highestHolderCountSinceLastBuy}`);
+    }
+
     // 构建基础因子（FactorBuilder 会动态计算 drawdownFromHighestSinceLastBuy 等）
     let factors = buildFactorsFromTimeSeries(factorValues, tokenState, priceUsd, now);
+
+    // 调试日志：检查持有者回撤因子计算
+    if (tokenState.buyTime) {
+      const holderDrawdown = factors.holderDrawdownFromHighestSinceLastBuy;
+      const priceDrawdown = factors.drawdownFromHighestSinceLastBuy;
+
+      this.logger.info(this._experimentId, '_buildFactorsFromData',
+        `${tokenState.symbol}: ` +
+        `buyTime=${new Date(tokenState.buyTime).toISOString()}, ` +
+        `holders=${factorValues.holders}, ` +
+        `highestHolder=${tokenState.highestHolderCountSinceLastBuy}, ` +
+        `holderDrawdown=${holderDrawdown !== null ? holderDrawdown.toFixed(2) + '%' : 'NULL'}, ` +
+        `priceDrawdown=${priceDrawdown !== null ? priceDrawdown.toFixed(2) + '%' : 'NULL'}, ` +
+        `holdDuration=${factors.holdDuration}s`
+      );
+    }
 
     // 动态计算持有者趋势因子（如果时序数据中没有）
     if (!factors.holderTrendCV && this._holderHistoryCache) {
@@ -1410,6 +1441,11 @@ class BacktestEngine extends AbstractTradingEngine {
         tokenState.status = 'bought';
         tokenState.buyPrice = price;
         tokenState.buyTime = timestamp.getTime();
+
+        // 调试日志：确认买入状态设置
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `✅ 买入成功后设置 tokenState: symbol=${tokenState.symbol}, buyTime=${new Date(tokenState.buyTime).toISOString()}, buyPrice=${price}, holders=${dataPoint.factor_values?.holders}`);
+
         // 重置最近一次购买后的最高价（用于止损/止盈）
         tokenState.highestPriceSinceLastBuy = price;
         tokenState.highestPriceSinceLastBuyTimestamp = timestamp.getTime();
