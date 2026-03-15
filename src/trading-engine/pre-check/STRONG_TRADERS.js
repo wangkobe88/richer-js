@@ -17,7 +17,7 @@
  * - 6b17ff18-002d-4ce0-a745-b8e02676abd4
  * - 015db965-0b33-4d98-88b1-386203886381
  *
- * Total: 59 wallets
+ * Total: 60 wallets
  */
 
 const STRONG_TRADERS_VERSION = 'v2';
@@ -62,6 +62,7 @@ const STRONG_TRADERS = new Set([
   '0x8a4050efada1ac7556e8b000f3dde8650e1f35e9',
   '0x8dcf1fe4669bdde6c9239da19e2f29891debaa23',
   '0x997b43fd3096ad3df370f32591c9ba4ca4e7c1fb',
+  '0x9ba457f105bffac35d67138fecb32a86428c02a2', // 用户名Felix
   '0x9c13d5338a7cd9148ab32ac735f733cb1245422a',
   '0x9e7b8fe784127d5a31a1f61fb118806583a5216a',
   '0xa2f1dee309d1865818484db29a08fbb51308f525',

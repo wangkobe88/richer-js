@@ -1367,6 +1367,14 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             earlyTradesUniqueWallets: factorResults.earlyTradesUniqueWallets || 0,
             earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
             earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0,
+            // 早期参与者买卖方向统计（新增）
+            earlyTradesBuyCount: factorResults.earlyTradesBuyCount || 0,
+            earlyTradesSellCount: factorResults.earlyTradesSellCount || 0,
+            earlyTradesBuyVolume: factorResults.earlyTradesBuyVolume || 0,
+            earlyTradesSellVolume: factorResults.earlyTradesSellVolume || 0,
+            earlyTradesSellRatio: factorResults.earlyTradesSellRatio || 0,
+            earlyTradesSellVolumeRatio: factorResults.earlyTradesSellVolumeRatio || 0,
+            earlyTradesFirstSellDelay: factorResults.earlyTradesFirstSellDelay ?? null,
             // 钱包簇检查因子
             walletClusterBlockThreshold: factorResults.walletClusterBlockThreshold || null,
             walletClusterMethod: factorResults.walletClusterMethod || null,

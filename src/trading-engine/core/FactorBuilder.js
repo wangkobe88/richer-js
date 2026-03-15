@@ -98,6 +98,14 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     earlyTradesUniqueWallets: preBuyCheckResult.earlyTradesUniqueWallets || 0,
     earlyTradesHighValueCount: preBuyCheckResult.earlyTradesHighValueCount || 0,
     earlyTradesFilteredCount: preBuyCheckResult.earlyTradesFilteredCount || 0,
+    // 早期参与者买卖方向统计（新增）
+    earlyTradesBuyCount: preBuyCheckResult.earlyTradesBuyCount || 0,
+    earlyTradesSellCount: preBuyCheckResult.earlyTradesSellCount || 0,
+    earlyTradesBuyVolume: preBuyCheckResult.earlyTradesBuyVolume || 0,
+    earlyTradesSellVolume: preBuyCheckResult.earlyTradesSellVolume || 0,
+    earlyTradesSellRatio: preBuyCheckResult.earlyTradesSellRatio || 0,
+    earlyTradesSellVolumeRatio: preBuyCheckResult.earlyTradesSellVolumeRatio || 0,
+    earlyTradesFirstSellDelay: preBuyCheckResult.earlyTradesFirstSellDelay ?? null,
     // 钱包簇检查因子
     walletClusterBlockThreshold: preBuyCheckResult.walletClusterBlockThreshold || null,
     walletClusterMethod: preBuyCheckResult.walletClusterMethod || null,

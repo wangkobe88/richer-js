@@ -156,8 +156,8 @@ class EarlyParticipantCheckService {
       // 2. 计算实际数据跨度
       const coverage = this._calculateDataCoverage(trades);
 
-      // 3. 计算基础统计
-      const basicStats = this._calculateBasicStats(trades);
+      // 3. 计算基础统计（传入tokenAddress以识别买卖方向）
+      const basicStats = this._calculateBasicStats(trades, tokenAddress);
 
       // 4. 计算速率指标（使用实际数据跨度）
       const rateMetrics = this._calculateRateMetrics(basicStats, coverage);
@@ -195,6 +195,15 @@ class EarlyParticipantCheckService {
         earlyTradesHighValueCount: basicStats.highValueCount,
         earlyTradesFilteredCount: basicStats.filteredCount,
 
+        // 买卖方向统计（新增）
+        earlyTradesBuyCount: basicStats.buyCount,
+        earlyTradesSellCount: basicStats.sellCount,
+        earlyTradesBuyVolume: basicStats.buyVolume,
+        earlyTradesSellVolume: basicStats.sellVolume,
+        earlyTradesSellRatio: basicStats.sellRatio,
+        earlyTradesSellVolumeRatio: basicStats.sellVolumeRatio,
+        earlyTradesFirstSellDelay: basicStats.firstSellDelay,
+
         // 内部数据（供钱包簇检查复用）
         _trades: trades
       };
@@ -208,6 +217,9 @@ class EarlyParticipantCheckService {
         count_per_min: rateMetrics.countPerMin.toFixed(1),
         wallets_per_min: rateMetrics.walletsPerMin.toFixed(1),
         high_value_per_min: rateMetrics.highValuePerMin.toFixed(1),
+        sell_ratio: (basicStats.sellRatio * 100).toFixed(1) + '%',
+        sell_volume_ratio: (basicStats.sellVolumeRatio * 100).toFixed(1) + '%',
+        first_sell_delay: basicStats.firstSellDelay,
         duration: result.earlyTradesCheckDuration
       });
 
@@ -387,12 +399,24 @@ class EarlyParticipantCheckService {
   /**
    * 计算基础统计
    * @private
+   * @param {Array} trades - 交易数据
+   * @param {string} tokenAddress - 代币地址（用于识别买卖方向）
    */
-  _calculateBasicStats(trades) {
+  _calculateBasicStats(trades, tokenAddress) {
     let totalVolume = 0;
     let filteredCount = 0;
     let highValueCount = 0;
     const uniqueWallets = new Set();
+
+    // 买卖方向统计
+    let buyCount = 0;
+    let sellCount = 0;
+    let buyVolume = 0;
+    let sellVolume = 0;
+    let firstBuyTime = null;
+    let firstSellTime = null;
+
+    const tokenAddressLower = tokenAddress ? tokenAddress.toLowerCase() : null;
 
     trades.forEach(t => {
       const value = t.from_usd || t.to_usd || 0;
@@ -403,14 +427,59 @@ class EarlyParticipantCheckService {
 
       if (value >= this.config.lowValueThreshold) filteredCount++;
       if (value >= this.config.highValueThreshold) highValueCount++;
+
+      // 识别买卖方向（如果有tokenAddress）
+      if (tokenAddressLower) {
+        const toToken = (t.to_token || '').toLowerCase();
+        const fromToken = (t.from_token || '').toLowerCase();
+        const isBuy = toToken === tokenAddressLower;
+        const isSell = fromToken === tokenAddressLower;
+
+        if (isBuy) {
+          buyCount++;
+          buyVolume += value;
+          if (firstBuyTime === null || t.time < firstBuyTime) {
+            firstBuyTime = t.time;
+          }
+        } else if (isSell) {
+          sellCount++;
+          sellVolume += value;
+          if (firstSellTime === null || t.time < firstSellTime) {
+            firstSellTime = t.time;
+          }
+        }
+      }
     });
+
+    // 计算卖出比例
+    const totalTradeCount = buyCount + sellCount;
+    const sellRatio = totalTradeCount > 0 ? sellCount / totalTradeCount : 0;
+    const totalTradeVolume = buyVolume + sellVolume;
+    const sellVolumeRatio = totalTradeVolume > 0 ? sellVolume / totalTradeVolume : 0;
+
+    // 计算第一笔卖出延迟
+    let firstSellDelay = null;
+    if (firstBuyTime !== null && firstSellTime !== null) {
+      firstSellDelay = firstSellTime - firstBuyTime;
+    }
 
     return {
       totalCount: trades.length,
       totalVolume: parseFloat(totalVolume.toFixed(2)),
       uniqueWallets: uniqueWallets.size,
       filteredCount,
-      highValueCount
+      highValueCount,
+
+      // 新增：买卖方向统计
+      buyCount,
+      sellCount,
+      buyVolume: parseFloat(buyVolume.toFixed(2)),
+      sellVolume: parseFloat(sellVolume.toFixed(2)),
+      sellRatio: parseFloat(sellRatio.toFixed(4)),
+      sellVolumeRatio: parseFloat(sellVolumeRatio.toFixed(4)),
+      firstSellDelay: firstSellDelay !== null ? parseFloat(firstSellDelay.toFixed(1)) : null,
+      firstBuyTime,
+      firstSellTime
     };
   }
 
@@ -473,6 +542,15 @@ class EarlyParticipantCheckService {
       earlyTradesHighValueCount: 0,
       earlyTradesFilteredCount: 0,
 
+      // 买卖方向统计（新增）
+      earlyTradesBuyCount: 0,
+      earlyTradesSellCount: 0,
+      earlyTradesBuyVolume: 0,
+      earlyTradesSellVolume: 0,
+      earlyTradesSellRatio: 0,
+      earlyTradesSellVolumeRatio: 0,
+      earlyTradesFirstSellDelay: null,
+
       // 内部数据（供钱包簇检查复用）
       _trades: []
     };
@@ -507,6 +585,15 @@ class EarlyParticipantCheckService {
       earlyTradesUniqueWallets: 0,
       earlyTradesHighValueCount: 0,
       earlyTradesFilteredCount: 0,
+
+      // 买卖方向统计（新增）
+      earlyTradesBuyCount: 0,
+      earlyTradesSellCount: 0,
+      earlyTradesBuyVolume: 0,
+      earlyTradesSellVolume: 0,
+      earlyTradesSellRatio: 0,
+      earlyTradesSellVolumeRatio: 0,
+      earlyTradesFirstSellDelay: null,
 
       // 内部数据（供钱包簇检查复用）
       _trades: []
