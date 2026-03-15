@@ -1413,6 +1413,10 @@ class BacktestEngine extends AbstractTradingEngine {
         // 重置最近一次购买后的最高价（用于止损/止盈）
         tokenState.highestPriceSinceLastBuy = price;
         tokenState.highestPriceSinceLastBuyTimestamp = timestamp.getTime();
+        // 初始化持有者回撤基准（买入时的持有者数量）
+        const currentHolderCount = dataPoint.factor_values?.holders || 0;
+        tokenState.highestHolderCountSinceLastBuy = currentHolderCount;
+        tokenState.highestHolderCountSinceLastBuyTimestamp = timestamp.getTime();
 
         tokenState.strategyExecutions[strategy.id].count++;
         tokenState.strategyExecutions[strategy.id].lastExecution = timestamp.getTime();
