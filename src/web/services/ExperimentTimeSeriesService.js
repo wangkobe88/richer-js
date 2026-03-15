@@ -535,7 +535,7 @@ class ExperimentTimeSeriesService {
 
       // 步骤4: 删除时序数据（分批处理避免超时）
       if (tokensToDelete.length > 0) {
-        console.log(`📊 [时序数据压缩] 步骤4: 删除时序数据...`);
+        console.log(`📊 [时序数据压缩] 步骤4: 删除时序数据和代币记录...`);
         const deleteBatchSize = 500;
         let deletedCount = 0;
 
@@ -543,6 +543,7 @@ class ExperimentTimeSeriesService {
           const batch = tokensToDelete.slice(i, i + deleteBatchSize);
           const addresses = batch.map(t => t.address);
 
+          // 删除时序数据
           const { error: deleteError } = await supabase
             .from('experiment_time_series_data')
             .delete()
@@ -550,10 +551,24 @@ class ExperimentTimeSeriesService {
             .eq('experiment_id', experimentId);
 
           if (deleteError) {
-            console.error(`❌ [时序数据压缩] 批次删除失败: ${deleteError.message}`);
+            console.error(`❌ [时序数据压缩] 批次删除时序数据失败: ${deleteError.message}`);
           } else {
             deletedCount += addresses.length;
-            console.log(`✅ [时序数据压缩] 已删除 ${deletedCount}/${tokensToDelete.length} 个代币的数据`);
+            console.log(`✅ [时序数据压缩] 已删除 ${deletedCount}/${tokensToDelete.length} 个代币的时序数据`);
+          }
+
+          // 删除代币记录
+          const { error: tokenDeleteError } = await supabase
+            .from('experiment_tokens')
+            .delete()
+            .in('token_address', addresses)
+            .eq('experiment_id', experimentId);
+
+          if (tokenDeleteError) {
+            // 如果有外键约束或其他错误，跳过不处理
+            console.warn(`⚠️ [时序数据压缩] 批次删除代币记录跳过: ${tokenDeleteError.message}`);
+          } else {
+            console.log(`✅ [时序数据压缩] 已删除批次代币记录`);
           }
         }
       }
@@ -569,13 +584,15 @@ class ExperimentTimeSeriesService {
         console.warn(`⚠️ [时序数据压缩] 统计压缩后数据量失败: ${afterCountError.message}`);
       }
 
+      // 统计删除的代币数量
       const deletedRecords = beforeCount - (afterCount || 0);
+      const deletedTokenCount = tokensToDelete.length;
       const compressionRatio = beforeCount > 0 ? ((deletedRecords / beforeCount) * 100).toFixed(1) : 0;
+      const tokenCompressionRatio = allTokens.length > 0 ? ((deletedTokenCount / allTokens.length) * 100).toFixed(1) : 0;
 
       console.log(`✅ [时序数据压缩] 压缩完成!`);
-      console.log(`   压缩前: ${beforeCount} 条`);
-      console.log(`   压缩后: ${afterCount || 0} 条`);
-      console.log(`   删除: ${deletedRecords} 条 (${compressionRatio}%)`);
+      console.log(`   时序数据: ${beforeCount} -> ${afterCount || 0} (删除 ${deletedRecords} 条, ${compressionRatio}%)`);
+      console.log(`   代币记录: ${allTokens.length} -> ${allTokens.length - deletedTokenCount} (删除 ${deletedTokenCount} 个, ${tokenCompressionRatio}%)`);
 
       return {
         success: true,
@@ -584,11 +601,14 @@ class ExperimentTimeSeriesService {
           threshold: threshold,
           totalTokens: allTokens.length,
           tokensToDelete: tokensToDelete.length,
+          deletedTokenCount: deletedTokenCount,
+          remainingTokenCount: allTokens.length - deletedTokenCount,
           skippedTokens: skippedTokens.length,
           beforeCount: beforeCount,
           afterCount: afterCount || 0,
           deletedRecords: deletedRecords,
           compressionRatio: parseFloat(compressionRatio),
+          tokenCompressionRatio: parseFloat(tokenCompressionRatio),
           deletedTokens: tokensToDelete.map(t => ({
             address: t.address,
             symbol: t.symbol,

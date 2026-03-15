@@ -10,6 +10,8 @@ class ExperimentSignals {
     this.klineData = [];
     this.signals = [];  // 原始信号数据（所有代币）
     this.chart = null;
+    this.holderChart = null;
+    this.volumeChart = null;
     this.autoRefresh = true;
     this.refreshInterval = null;
     this.currentFilters = {
@@ -402,6 +404,10 @@ class ExperimentSignals {
         if (chartWrapper) {
           chartWrapper.style.display = 'none';
         }
+        const holderChartWrapper = document.getElementById('holder-chart-wrapper');
+        if (holderChartWrapper) {
+          holderChartWrapper.style.display = 'none';
+        }
         return;
       }
 
@@ -410,6 +416,9 @@ class ExperimentSignals {
 
       // 初始化价格折线图，传入代币信息
       this.initPriceLineChart(timeSeriesResponse.data, token, tokenInfo);
+
+      // 初始化 Holder 走势图
+      this.initHolderChart(timeSeriesResponse.data, token);
 
       console.log(`✅ 代币 ${token.symbol} 的时序数据图表加载完成`);
 
@@ -420,6 +429,10 @@ class ExperimentSignals {
       const chartWrapper = document.getElementById('kline-chart-wrapper');
       if (chartWrapper) {
         chartWrapper.style.display = 'none';
+      }
+      const holderChartWrapper = document.getElementById('holder-chart-wrapper');
+      if (holderChartWrapper) {
+        holderChartWrapper.style.display = 'none';
       }
     }
   }
@@ -620,27 +633,48 @@ class ExperimentSignals {
         const signalTime = new Date(signal.timestamp || signal.created_at);
         const signalType = signal.signal_type || signal.action?.toUpperCase();
         const isBuy = signalType === 'BUY';
+        const isExecuted = signal.executed === true || signal.executed === 'true';
 
         // 找到最接近的数据点
         const closestIndex = labels.findIndex(label => Math.abs(label - signalTime) < 30000); // 30秒内
         if (closestIndex >= 0 && marketCaps[closestIndex] !== null) {
+          // 根据执行状态设置不同的样式
+          let borderColor, borderWidth, borderDash, labelBg, labelText;
+
+          if (isExecuted) {
+            // 已执行的信号：深色、实线、更粗
+            borderColor = isBuy ? '#22c55e' : '#dc2626';  // 深绿/深红
+            borderWidth = 3;
+            borderDash = [];  // 实线
+            labelBg = borderColor;
+            labelText = (isBuy ? '买入' : '卖出') + ' ✓';
+          } else {
+            // 未执行的信号：浅色、虚线、较细
+            borderColor = isBuy ? '#86efac' : '#fca5a5';  // 浅绿/浅红
+            borderWidth = 2;
+            borderDash = [5, 5];  // 虚线
+            labelBg = borderColor;
+            labelText = (isBuy ? '买入' : '卖出') + ' ✗';
+          }
+
           signalAnnotations.push({
             type: 'line',
             xMin: signalTime,
             xMax: signalTime,
             yMin: 0,
             yMax: 'max',
-            borderColor: isBuy ? '#52c41a' : '#ff4d4f',
-            borderWidth: 2,
-            borderDash: [5, 5],
+            borderColor: borderColor,
+            borderWidth: borderWidth,
+            borderDash: borderDash,
             label: {
               display: true,
-              content: isBuy ? '买入' : '卖出',
+              content: labelText,
               position: 'start',
-              backgroundColor: isBuy ? '#52c41a' : '#ff4d4f',
+              backgroundColor: labelBg,
               color: '#fff',
               font: {
-                size: 11
+                size: isExecuted ? 12 : 11,
+                weight: isExecuted ? 'bold' : 'normal'
               }
             }
           });
@@ -756,6 +790,236 @@ class ExperimentSignals {
   }
   }
 
+  /**
+   * 初始化 Holder 走势图
+   * @param {Array} timeSeriesData - 时序数据
+   * @param {Object} token - 代币信息
+   */
+  initHolderChart(timeSeriesData, token) {
+    try {
+      console.log('📊 initHolderChart 被调用，数据点:', timeSeriesData.length, '代币:', token.symbol);
+
+      // 确保图表容器可见
+      const chartWrapper = document.getElementById('holder-chart-wrapper');
+      if (chartWrapper) {
+        chartWrapper.classList.remove('hidden');
+        chartWrapper.style.display = 'block';
+      }
+
+      // 确保并显示 canvas
+      let canvas = document.getElementById('holder-chart');
+      if (!canvas) {
+        const chartContainer = chartWrapper.querySelector('.chart-container');
+        if (!chartContainer) {
+          console.error('❌ 找不到 holder chart container');
+          return;
+        }
+        canvas = document.createElement('canvas');
+        canvas.id = 'holder-chart';
+        chartContainer.innerHTML = '';
+        chartContainer.appendChild(canvas);
+        console.log('✅ 重新创建了 holder-chart canvas 元素');
+      }
+      canvas.style.display = 'block';
+
+      // 销毁旧图表
+      if (this.holderChart) {
+        this.holderChart.destroy();
+        this.holderChart = null;
+      }
+
+      const ctx = canvas.getContext('2d');
+
+      // 准备数据：提取 holders 数据
+      const labels = timeSeriesData.map(d => new Date(d.timestamp));
+      const holders = timeSeriesData.map(d => {
+        const fv = d.factor_values || {};
+        return fv.holders || null;
+      });
+
+      // 过滤掉 null 值用于统计
+      const validHolders = holders.filter(h => h !== null);
+      const hasData = validHolders.length > 0;
+
+      console.log('📊 Holder 图表数据准备完成:', {
+        labels: labels.length,
+        holders: validHolders.length,
+        firstHolder: validHolders[0],
+        lastHolder: validHolders[validHolders.length - 1]
+      });
+
+      if (!hasData) {
+        console.warn('⚠️ 没有有效的 holder 数据');
+        this.showHolderPlaceholder('暂无 Holder 数据');
+        return;
+      }
+
+      // 准备信号标记点
+      const signalAnnotations = [];
+      const tokenSignals = this.signals.filter(s =>
+        (s.token_address || s.tokenAddress) === token.address
+      );
+
+      tokenSignals.forEach(signal => {
+        const signalTime = new Date(signal.timestamp || signal.created_at);
+        const signalType = signal.signal_type || signal.action?.toUpperCase();
+        const isBuy = signalType === 'BUY';
+        const isExecuted = signal.executed === true || signal.executed === 'true';
+
+        // 找到最接近的数据点
+        const closestIndex = labels.findIndex(label => Math.abs(label - signalTime) < 30000); // 30秒内
+        if (closestIndex >= 0) {
+          // 获取该时间点的 holder 值作为 y 轴范围
+          const holderValue = holders[closestIndex];
+          if (holderValue !== null && holderValue !== undefined) {
+            // 根据执行状态设置不同的样式
+            let borderColor, borderWidth, borderDash, labelBg, labelText;
+
+            if (isExecuted) {
+              // 已执行的信号：深色、实线、更粗
+              borderColor = isBuy ? '#22c55e' : '#dc2626';  // 深绿/深红
+              borderWidth = 3;
+              borderDash = [];  // 实线
+              labelBg = borderColor;
+              labelText = (isBuy ? '买入' : '卖出') + ' ✓';
+            } else {
+              // 未执行的信号：浅色、虚线、较细
+              borderColor = isBuy ? '#86efac' : '#fca5a5';  // 浅绿/浅红
+              borderWidth = 2;
+              borderDash = [5, 5];  // 虚线
+              labelBg = borderColor;
+              labelText = (isBuy ? '买入' : '卖出') + ' ✗';
+            }
+
+            signalAnnotations.push({
+              type: 'line',
+              xMin: signalTime,
+              xMax: signalTime,
+              yMin: 0,
+              yMax: 'max',
+              borderColor: borderColor,
+              borderWidth: borderWidth,
+              borderDash: borderDash,
+              label: {
+                display: true,
+                content: labelText,
+                position: 'start',
+                backgroundColor: labelBg,
+                color: '#fff',
+                font: {
+                  size: isExecuted ? 12 : 11,
+                  weight: isExecuted ? 'bold' : 'normal'
+                }
+              }
+            });
+          }
+        }
+      });
+
+      // 创建图表
+      this.holderChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: `${token.symbol} Holders`,
+            data: holders,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: true,
+            tension: 0.1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            annotation: {
+              annotations: signalAnnotations
+            },
+            legend: {
+              display: true,
+              position: 'top'
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const value = context.parsed.y;
+                  if (value !== null && value !== undefined) {
+                    return `Holders: ${value}`;
+                  }
+                  return 'Holders: N/A';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                displayFormats: {
+                  minute: 'HH:mm',
+                  hour: 'MM-dd HH:mm'
+                }
+              },
+              title: {
+                display: true,
+                text: '时间'
+              }
+            },
+            y: {
+              type: 'linear',
+              display: true,
+              title: {
+                display: true,
+                text: 'Holders 数量'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      console.log(`✅ Holder 走势图已初始化，包含 ${validHolders.length} 个数据点和 ${signalAnnotations.length} 个信号标记`);
+
+    } catch (error) {
+      console.error('❌ initHolderChart 失败:', error);
+      this.showHolderPlaceholder('图表初始化失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 显示 Holder 图表占位符
+   * @param {string} message - 提示消息
+   */
+  showHolderPlaceholder(message) {
+    const chartWrapper = document.getElementById('holder-chart-wrapper');
+    if (chartWrapper) {
+      const chartContainer = chartWrapper.querySelector('.chart-container');
+      if (chartContainer) {
+        chartContainer.innerHTML = `
+          <div id="holder-chart-placeholder" class="flex items-center justify-center h-full text-gray-400">
+            <div class="text-center">
+              <div class="text-4xl mb-2">📊</div>
+              <div>${message}</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+  }
+
   updateExperimentHeader(experiment) {
     // 显示实验头部区域（移除hidden类）
     const header = document.getElementById('experiment-header');
@@ -768,13 +1032,16 @@ class ExperimentSignals {
     document.getElementById('experiment-name').textContent = name;
     document.getElementById('experiment-id').textContent = `ID: ${this.experimentId}`;
 
-    // 🔥 保存实验配置（用于预检查条件判断）
-    this.experimentConfig = experiment.config || null;
+    // 🔥 解析实验配置（可能是 JSON 字符串或对象）
+    const config = typeof experiment.config === 'string'
+      ? JSON.parse(experiment.config)
+      : (experiment.config || {});
+    this.experimentConfig = config;
 
     // 🔥 设置回测状态
     this._isBacktest = experiment.tradingMode === 'backtest';
     if (this._isBacktest) {
-      this._sourceExperimentId = experiment.config?.backtest?.sourceExperimentId || null;
+      this._sourceExperimentId = config.backtest?.sourceExperimentId || null;
       // 🔥 对于回测实验，先使用回测实验的区块链配置，后面会异步获取源实验的配置
       this.blockchain = experiment.blockchain || 'bsc';
     } else {

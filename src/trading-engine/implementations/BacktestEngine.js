@@ -803,6 +803,9 @@ class BacktestEngine extends AbstractTradingEngine {
 
         this._groupDataByLoopCount();
 
+        // 预加载持有者历史数据到缓存（用于回测时计算持有者趋势因子）
+        await this._preloadHolderHistory();
+
         this.logger.info(this._experimentId, 'BacktestEngine',
           `✅ 历史数据加载完成: ${this._historicalData.length} 条数据点，分为 ${this._groupedData.length} 个轮次`);
         return;
@@ -931,6 +934,55 @@ class BacktestEngine extends AbstractTradingEngine {
 
     this.logger.info(this._experimentId, 'BacktestEngine',
       `📊 数据分为 ${this._groupedData.length} 个轮次 (loop_count: ${minLoop} - ${maxLoop})`);
+  }
+
+  /**
+   * 预加载持有者历史数据到缓存
+   * 在回测开始前，从时序数据中提取每个代币的 holder 历史数据，
+   * 预填充到 _holderHistoryCache 中，以便后续计算持有者趋势因子。
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _preloadHolderHistory() {
+    if (!this._holderHistoryCache) {
+      return;
+    }
+
+    this.logger.info(this._experimentId, '_preloadHolderHistory', '开始预加载持有者历史数据...');
+
+    // 按代币分组时序数据
+    const tokenDataMap = new Map();
+    for (const dataPoint of this._historicalData) {
+      const tokenAddress = dataPoint.token_address;
+      if (!tokenDataMap.has(tokenAddress)) {
+        tokenDataMap.set(tokenAddress, []);
+      }
+      tokenDataMap.get(tokenAddress).push(dataPoint);
+    }
+
+    // 为每个代币预加载 holder 历史
+    let loadedTokens = 0;
+
+    for (const [tokenAddress, dataPoints] of tokenDataMap) {
+      const tokenKey = `${tokenAddress}-bsc`;
+
+      // 按时间排序
+      dataPoints.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      // 添加 holder 数据到缓存
+      for (const dataPoint of dataPoints) {
+        const holders = dataPoint.factor_values?.holders;
+        if (holders !== undefined && holders !== null) {
+          const timestamp = new Date(dataPoint.timestamp).getTime();
+          this._holderHistoryCache.addHolderCount(tokenKey, holders, timestamp);
+        }
+      }
+
+      loadedTokens++;
+    }
+
+    this.logger.info(this._experimentId, '_preloadHolderHistory',
+      `✅ 预加载完成: ${loadedTokens} 个代币的 holder 历史数据已加载到缓存`);
   }
 
   /**
@@ -1125,10 +1177,10 @@ class BacktestEngine extends AbstractTradingEngine {
       }
     }
 
-    // 更新持有者历史缓存
+    // 更新持有者历史缓存（包括 holders=0 的情况，以便累积足够数据点）
     const tokenKey = `${tokenState.token}-bsc`;
     const holderCount = factorValues.holders || 0;
-    if (this._holderHistoryCache && holderCount > 0) {
+    if (this._holderHistoryCache && holderCount >= 0) {
       this._holderHistoryCache.addHolderCount(tokenKey, holderCount, now);
     }
 
