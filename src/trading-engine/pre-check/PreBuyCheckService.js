@@ -118,6 +118,18 @@ const FACTOR_METADATA = {
     unit: '笔',
     severity: 'info'
   },
+  earlyTradesFinalLiquidity: {
+    name: '早期交易末流动性',
+    format: v => v ? '$' + v.toFixed(0) : 'N/A',
+    unit: '',
+    severity: 'warning'
+  },
+  earlyTradesDrawdownFromHighest: {
+    name: '早期交易价格跌幅',
+    format: v => v.toFixed(1) + '%',
+    unit: '%',
+    severity: 'warning'
+  },
   earlyTradesActualSpan: {
     name: '早期数据实际跨度',
     format: v => v.toFixed(1) + '秒',
@@ -616,6 +628,9 @@ class PreBuyCheckService {
         earlyTradesUniqueWallets: earlyParticipantCheck.earlyTradesUniqueWallets || 0,
         earlyTradesDataCoverage: earlyParticipantCheck.earlyTradesDataCoverage || 0,
         earlyTradesFilteredCount: earlyParticipantCheck.earlyTradesFilteredCount || 0,
+        // 早期交易新增因子
+        earlyTradesFinalLiquidity: earlyParticipantCheck.earlyTradesFinalLiquidity || null,
+        earlyTradesDrawdownFromHighest: earlyParticipantCheck.earlyTradesDrawdownFromHighest || null,
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,

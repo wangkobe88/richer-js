@@ -78,6 +78,16 @@ const PRECHECK_CONDITIONS = {
     name: '回撤检测',
     condition: '> -25%',
     check: (v) => v > -25
+  },
+  earlyTradesFinalLiquidity: {
+    name: '早期交易末流动性',
+    condition: '>= 5000',
+    check: (v) => v >= 5000
+  },
+  earlyTradesDrawdownFromHighest: {
+    name: '早期交易价格跌幅',
+    condition: '> -30%',
+    check: (v) => v > -30
   }
 };
 

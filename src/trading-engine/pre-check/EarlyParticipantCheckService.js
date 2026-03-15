@@ -195,6 +195,10 @@ class EarlyParticipantCheckService {
         earlyTradesHighValueCount: basicStats.highValueCount,
         earlyTradesFilteredCount: basicStats.filteredCount,
 
+        // 新增因子
+        earlyTradesFinalLiquidity: basicStats.earlyTradesFinalLiquidity,
+        earlyTradesDrawdownFromHighest: basicStats.earlyTradesDrawdownFromHighest,
+
         // 内部数据（供钱包簇检查复用）
         _trades: trades
       };
@@ -394,6 +398,11 @@ class EarlyParticipantCheckService {
     let highValueCount = 0;
     const uniqueWallets = new Set();
 
+    // 新增：用于计算最高价跌幅
+    let highestPrice = 0;
+    let lowestPrice = Infinity;
+    let finalLiquidity = null;
+
     trades.forEach(t => {
       const value = t.from_usd || t.to_usd || 0;
       totalVolume += value;
@@ -403,14 +412,47 @@ class EarlyParticipantCheckService {
 
       if (value >= this.config.lowValueThreshold) filteredCount++;
       if (value >= this.config.highValueThreshold) highValueCount++;
+
+      // 计算价格相关因子
+      const toTokenPrice = t.to_token_price_usd || 0;
+      const fromTokenPrice = t.from_token_price_usd || 0;
+
+      // 代币价格通常是较小的值（如 8.4e-6），而 WBNB 价格较大（如 670）
+      // 通过判断哪个价格小于 1 来确定代币价格
+      let price = 0;
+      if (toTokenPrice > 0 && toTokenPrice < 1) {
+        price = toTokenPrice;
+      } else if (fromTokenPrice > 0 && fromTokenPrice < 1) {
+        price = fromTokenPrice;
+      }
+
+      if (price > 0) {
+        if (price > highestPrice) highestPrice = price;
+        if (price < lowestPrice) lowestPrice = price;
+      }
+
+      // 记录最后一笔交易的流动性
+      finalLiquidity = t.pair_liquidity_usd || null;
     });
+
+    // 计算从最高价的跌幅（百分比）
+    let drawdownFromHighest = 0;
+    if (highestPrice > 0 && lowestPrice < Infinity) {
+      // 使用最低价计算跌幅
+      if (lowestPrice > 0) {
+        drawdownFromHighest = ((lowestPrice - highestPrice) / highestPrice) * 100;
+      }
+    }
 
     return {
       totalCount: trades.length,
       totalVolume: parseFloat(totalVolume.toFixed(2)),
       uniqueWallets: uniqueWallets.size,
       filteredCount,
-      highValueCount
+      highValueCount,
+      // 新增因子
+      earlyTradesFinalLiquidity: finalLiquidity,
+      earlyTradesDrawdownFromHighest: parseFloat(drawdownFromHighest.toFixed(2))
     };
   }
 
@@ -473,6 +515,10 @@ class EarlyParticipantCheckService {
       earlyTradesHighValueCount: 0,
       earlyTradesFilteredCount: 0,
 
+      // 新增因子
+      earlyTradesFinalLiquidity: null,
+      earlyTradesDrawdownFromHighest: null,
+
       // 内部数据（供钱包簇检查复用）
       _trades: []
     };
@@ -507,6 +553,10 @@ class EarlyParticipantCheckService {
       earlyTradesUniqueWallets: 0,
       earlyTradesHighValueCount: 0,
       earlyTradesFilteredCount: 0,
+
+      // 新增因子
+      earlyTradesFinalLiquidity: null,
+      earlyTradesDrawdownFromHighest: null,
 
       // 内部数据（供钱包簇检查复用）
       _trades: []
