@@ -892,13 +892,29 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 按轮次分组数据
+   * 按轮次分组数据，支持 loop 范围过滤
    * @private
    */
   _groupDataByLoopCount() {
     const grouped = new Map();
+
+    // 获取 loop 范围配置
+    const loopConfig = this._experiment.config?.backtest?.loop;
+    const loopStart = loopConfig?.start;
+    const loopEnd = loopConfig?.end;
+
+    if (loopStart !== undefined || loopEnd !== undefined) {
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `📊 Loop 范围过滤: start=${loopStart ?? '无'}, end=${loopEnd ?? '无'}`);
+    }
+
     for (const dataPoint of this._historicalData) {
       const loopCount = dataPoint.loop_count || 0;
+
+      // 应用 loop 范围过滤
+      if (loopStart !== undefined && loopCount < loopStart) continue;
+      if (loopEnd !== undefined && loopCount > loopEnd) continue;
+
       if (!grouped.has(loopCount)) {
         grouped.set(loopCount, []);
       }
@@ -910,8 +926,8 @@ class BacktestEngine extends AbstractTradingEngine {
       .sort((a, b) => a.loopCount - b.loopCount);
 
     const loopCounts = this._groupedData.map(g => g.loopCount);
-    const minLoop = Math.min(...loopCounts);
-    const maxLoop = Math.max(...loopCounts);
+    const minLoop = loopCounts.length > 0 ? Math.min(...loopCounts) : 0;
+    const maxLoop = loopCounts.length > 0 ? Math.max(...loopCounts) : 0;
 
     this.logger.info(this._experimentId, 'BacktestEngine',
       `📊 数据分为 ${this._groupedData.length} 个轮次 (loop_count: ${minLoop} - ${maxLoop})`);
