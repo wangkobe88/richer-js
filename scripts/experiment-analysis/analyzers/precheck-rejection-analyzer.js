@@ -58,21 +58,6 @@ const PRECHECK_CONDITIONS = {
     condition: '>= 60秒',
     check: (v) => v >= 60
   },
-  earlyTradesSellRatio: {
-    name: '早期交易卖出比例',
-    condition: '<= 0.3',
-    check: (v) => v <= 0.3
-  },
-  earlyTradesSellVolumeRatio: {
-    name: '早期交易卖出金额比例',
-    condition: '<= 0.25',
-    check: (v) => v <= 0.25
-  },
-  earlyTradesFirstSellDelay: {
-    name: '第一笔卖出延迟',
-    condition: '>= 30秒',
-    check: (v) => v === null || v >= 30
-  },
   walletClusterMaxBlockBuyRatio: {
     name: '区块最大购买比例',
     condition: '< 0.15',

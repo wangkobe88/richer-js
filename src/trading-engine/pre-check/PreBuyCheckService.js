@@ -616,14 +616,6 @@ class PreBuyCheckService {
         earlyTradesUniqueWallets: earlyParticipantCheck.earlyTradesUniqueWallets || 0,
         earlyTradesDataCoverage: earlyParticipantCheck.earlyTradesDataCoverage || 0,
         earlyTradesFilteredCount: earlyParticipantCheck.earlyTradesFilteredCount || 0,
-        // 早期参与者因子 - 买卖方向统计（新增）
-        earlyTradesBuyCount: earlyParticipantCheck.earlyTradesBuyCount || 0,
-        earlyTradesSellCount: earlyParticipantCheck.earlyTradesSellCount || 0,
-        earlyTradesBuyVolume: earlyParticipantCheck.earlyTradesBuyVolume || 0,
-        earlyTradesSellVolume: earlyParticipantCheck.earlyTradesSellVolume || 0,
-        earlyTradesSellRatio: earlyParticipantCheck.earlyTradesSellRatio || 0,
-        earlyTradesSellVolumeRatio: earlyParticipantCheck.earlyTradesSellVolumeRatio || 0,
-        earlyTradesFirstSellDelay: earlyParticipantCheck.earlyTradesFirstSellDelay ?? null,
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,
