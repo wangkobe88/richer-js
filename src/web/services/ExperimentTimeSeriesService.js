@@ -625,6 +625,122 @@ class ExperimentTimeSeriesService {
       };
     }
   }
+
+  /**
+   * 清理无价格数据的代币
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<Object>} 清理结果统计
+   */
+  async cleanupTokens(experimentId) {
+    try {
+      const supabase = dbManager.getClient();
+      console.log(`🧹 [清理代币] 开始清理实验 ${experimentId}`);
+
+      // 步骤1: 查询所有代币及其 analysis_results
+      console.log(`📊 [清理代币] 步骤1: 查询代币分析结果...`);
+      const pageSize = 1000;
+      let offset = 0;
+      let hasMore = true;
+      let allTokens = [];
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('experiment_tokens')
+          .select('token_address, token_symbol, analysis_results')
+          .eq('experiment_id', experimentId)
+          .range(offset, offset + pageSize - 1);
+
+        if (error) {
+          throw new Error(`查询代币失败: ${error.message}`);
+        }
+
+        if (data && data.length > 0) {
+          allTokens = allTokens.concat(data);
+          offset += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`📊 [清理代币] 共查询到 ${allTokens.length} 个代币`);
+
+      // 步骤2: 筛选需要删除的代币（无 analysis_results 或 analysis_results 为空）
+      console.log(`📊 [清理代币] 步骤2: 筛选无数据代币...`);
+      const tokensToDelete = [];
+      const tokensWithAnalysis = [];
+
+      for (const token of allTokens) {
+        const analysis = token.analysis_results;
+
+        // 无分析结果或分析结果为空对象 -> 标记删除
+        if (!analysis || (typeof analysis === 'object' && Object.keys(analysis).length === 0)) {
+          tokensToDelete.push({
+            address: token.token_address,
+            symbol: token.token_symbol
+          });
+        } else {
+          tokensWithAnalysis.push({
+            address: token.token_address,
+            symbol: token.token_symbol
+          });
+        }
+      }
+
+      console.log(`📊 [清理代币] 需要删除: ${tokensToDelete.length} 个代币, 保留: ${tokensWithAnalysis.length} 个代币`);
+
+      // 步骤3: 删除代币记录（分批处理避免超时）
+      if (tokensToDelete.length > 0) {
+        console.log(`📊 [清理代币] 步骤3: 删除代币记录...`);
+        const deleteBatchSize = 500;
+        let deletedCount = 0;
+
+        for (let i = 0; i < tokensToDelete.length; i += deleteBatchSize) {
+          const batch = tokensToDelete.slice(i, i + deleteBatchSize);
+          const addresses = batch.map(t => t.address);
+
+          // 删除代币记录
+          const { error: tokenDeleteError } = await supabase
+            .from('experiment_tokens')
+            .delete()
+            .in('token_address', addresses)
+            .eq('experiment_id', experimentId);
+
+          if (tokenDeleteError) {
+            console.error(`❌ [清理代币] 批次删除失败: ${tokenDeleteError.message}`);
+          } else {
+            deletedCount += addresses.length;
+            console.log(`✅ [清理代币] 已删除 ${deletedCount}/${tokensToDelete.length} 个代币`);
+          }
+        }
+      } else {
+        console.log(`📊 [清理代币] 没有需要删除的代币`);
+      }
+
+      console.log(`✅ [清理代币] 清理完成!`);
+      console.log(`   总代币数: ${allTokens.length}`);
+      console.log(`   删除代币数: ${tokensToDelete.length} (无价格数据)`);
+      console.log(`   保留代币数: ${tokensWithAnalysis.length} (有价格数据)`);
+
+      return {
+        success: true,
+        data: {
+          experimentId: experimentId,
+          totalTokens: allTokens.length,
+          deletedTokens: tokensToDelete.length,
+          remainingTokens: tokensWithAnalysis.length,
+          deletedTokenList: tokensToDelete
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ [清理代币] 清理失败:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 }
 
 module.exports = { ExperimentTimeSeriesService };

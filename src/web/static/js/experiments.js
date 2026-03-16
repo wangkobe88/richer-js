@@ -11,7 +11,8 @@ class ExperimentMonitor {
     this.filters = {
       blockchain: 'all',
       status: 'all',
-      mode: 'all'
+      mode: 'all',
+      virtualExpId: ''
     };
     this.init();
   }
@@ -48,6 +49,11 @@ class ExperimentMonitor {
 
     safeAddListener('mode-filter', 'change', (e) => {
       this.filters.mode = e.target.value;
+      this.applyFilters();
+    });
+
+    safeAddListener('virtual-exp-filter', 'change', (e) => {
+      this.filters.virtualExpId = e.target.value;
       this.applyFilters();
     });
 
@@ -97,6 +103,14 @@ class ExperimentMonitor {
           this.compressTimeSeries(id, name);
           return;
         }
+
+        const cleanupBtn = e.target.closest('[data-action="cleanup"]');
+        if (cleanupBtn) {
+          const id = cleanupBtn.getAttribute('data-id');
+          const name = cleanupBtn.getAttribute('data-name');
+          this.cleanupTokens(id, name);
+          return;
+        }
       });
     }
 
@@ -125,6 +139,9 @@ class ExperimentMonitor {
 
       // 加载源实验名字
       await this.loadSourceExperimentNames();
+
+      // 填充虚拟实验下拉框
+      this.populateVirtualExperimentsFilter();
 
       this.applyFilters();
       this.updateStats();
@@ -177,6 +194,39 @@ class ExperimentMonitor {
     });
   }
 
+  /**
+   * 填充虚拟实验下拉框
+   */
+  populateVirtualExperimentsFilter() {
+    const select = document.getElementById('virtual-exp-filter');
+    if (!select) return;
+
+    // 获取所有虚拟实验
+    const virtualExperiments = this.experiments.filter(exp => exp.tradingMode === 'virtual');
+
+    // 保存当前选中的值
+    const currentValue = select.value;
+
+    // 清空现有选项（保留第一个"所有虚拟实验"选项）
+    select.innerHTML = '<option value="">所有虚拟实验</option>';
+
+    // 添加虚拟实验选项
+    virtualExperiments.forEach(exp => {
+      const option = document.createElement('option');
+      option.value = exp.id;
+      const name = exp.experimentName || exp.experiment_name || '未命名实验';
+      const shortId = this._formatExperimentId(exp.id);
+      option.textContent = `${name} (${shortId})`;
+      option.title = `${name}\n${exp.id}`;
+      select.appendChild(option);
+    });
+
+    // 恢复之前选中的值（如果仍然存在）
+    if (currentValue && virtualExperiments.some(exp => exp.id === currentValue)) {
+      select.value = currentValue;
+    }
+  }
+
   applyFilters() {
     let filtered = [...this.experiments];
 
@@ -188,6 +238,20 @@ class ExperimentMonitor {
     }
     if (this.filters.mode !== 'all') {
       filtered = filtered.filter(exp => exp.tradingMode === this.filters.mode);
+    }
+
+    // 虚拟实验ID过滤：显示该虚拟实验本身以及依托其的回测实验
+    if (this.filters.virtualExpId) {
+      const targetId = this.filters.virtualExpId;
+      filtered = filtered.filter(exp => {
+        // 匹配虚拟实验ID本身
+        if (exp.id === targetId) return true;
+        // 匹配依托该虚拟实验的回测实验
+        if (exp.tradingMode === 'backtest' && exp.config?.backtest?.sourceExperimentId === targetId) {
+          return true;
+        }
+        return false;
+      });
     }
 
     this.filteredExperiments = filtered;
@@ -372,6 +436,7 @@ class ExperimentMonitor {
               <a href="/token-holders?experiment=${exp.id}" target="_blank" class="text-xs px-1.5 py-0.5 text-cyan-400 hover:bg-cyan-900 rounded transition-colors">持有者</a>
               <button data-action="copy-experiment" data-id="${exp.id}" class="text-xs px-1.5 py-0.5 text-indigo-400 hover:bg-indigo-900 rounded transition-colors" title="复制">📋复制</button>
               ${exp.tradingMode !== 'backtest' ? `<button data-action="compress" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-amber-400 hover:bg-amber-900 rounded transition-colors" title="压缩时序数据">🗜️压缩</button>` : ''}
+              ${exp.tradingMode !== 'backtest' ? `<button data-action="cleanup" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-red-400 hover:bg-red-900 rounded transition-colors" title="清理无价格数据的代币">🧹清理</button>` : ''}
               <button data-action="delete" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-red-400 hover:bg-red-900 rounded transition-colors" title="删除">🗑️删除</button>
             </div>
           </div>
@@ -925,6 +990,68 @@ class ExperimentMonitor {
       if (compressBtn) {
         compressBtn.disabled = false;
         compressBtn.textContent = '🗜️压缩';
+      }
+    }
+  }
+
+  /**
+   * 清理无价格数据的代币
+   * @param {string} experimentId - 实验ID
+   * @param {string} experimentName - 实验名称
+   */
+  async cleanupTokens(experimentId, experimentName) {
+    const confirmed = confirm(
+      `🧹 确定要清理实验 "${experimentName}" 中的无数据代币吗？\n\n` +
+      '此操作将：\n' +
+      '🗑️ 删除无价格数据的代币记录\n' +
+      '📊 保留有时序数据的代币\n' +
+      '⚠️ 被删除的数据无法恢复！\n\n' +
+      '注意：仅删除代币元数据，不影响信号和交易记录。'
+    );
+
+    if (!confirmed) return;
+
+    // 禁用按钮并显示加载状态
+    const cleanupBtn = document.querySelector(`[data-action="cleanup"][data-id="${experimentId}"]`);
+    if (cleanupBtn) {
+      cleanupBtn.disabled = true;
+      cleanupBtn.textContent = '⏳ 清理中...';
+    }
+
+    try {
+      const response = await fetch(`/api/experiment/${experimentId}/cleanup-tokens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        const data = result.data;
+
+        let message = `✅ 清理完成！\n\n`;
+        message += `📊 总代币数: ${data.totalTokens}\n`;
+        message += `🗑️ 删除代币数: ${data.deletedTokens} (无价格数据)\n`;
+        message += `⏭️ 保留代币数: ${data.remainingTokens} (有价格数据)\n`;
+
+        alert(message);
+
+        // 刷新实验列表
+        await this.loadExperiments();
+      } else {
+        alert('❌ 清理失败: ' + (result.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('❌ 清理代币失败:', error);
+      alert('❌ 清理失败: ' + error.message);
+    } finally {
+      if (cleanupBtn) {
+        cleanupBtn.disabled = false;
+        cleanupBtn.textContent = '🧹清理';
       }
     }
   }

@@ -592,6 +592,27 @@ class RicherJsWebServer {
       }
     });
 
+    // 清理无价格数据的代币
+    this.app.post('/api/experiment/:id/cleanup-tokens', async (req, res) => {
+      try {
+        const { id: experimentId } = req.params;
+
+        const { ExperimentTimeSeriesService } = require('./web/services/ExperimentTimeSeriesService');
+        const timeSeriesService = new ExperimentTimeSeriesService();
+
+        const result = await timeSeriesService.cleanupTokens(experimentId);
+
+        if (result.success) {
+          res.json(result);
+        } else {
+          res.status(500).json(result);
+        }
+      } catch (error) {
+        console.error('清理代币失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 分析所有实验的统计数据
     this.app.post('/api/experiments/analyze-all', async (req, res) => {
       try {
