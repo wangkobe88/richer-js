@@ -1336,6 +1336,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
 
     const { CardPositionManager } = getLazyModules();
+
     const latestPrice = token.currentPrice || 0;
 
     if (!factorResults) {

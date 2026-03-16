@@ -1941,7 +1941,9 @@ class ExperimentSignals {
       // 🔥 获取策略条件并解析阈值
       const buyCondition = this._getBuyCondition('buy');
       const buyThresholds = buyCondition ? this._parseBuyCondition(buyCondition) : {};
-      const preBuyCheckCondition = this._getPreBuyCheckCondition('buy');
+      // 获取购买轮次，用于显示对应的预检查条件
+      const buyRound = pf.buyRound || 1;
+      const preBuyCheckCondition = this._getPreBuyCheckCondition('buy', buyRound);
       const preCheckThresholds = preBuyCheckCondition ? this._parsePreBuyCheckCondition(preBuyCheckCondition) : {};
 
       // 购买前置检查结果
@@ -1968,7 +1970,7 @@ class ExperimentSignals {
             ` : ''}
             ${preBuyCheckCondition ? `
               <div class="text-xs">
-                <span class="font-semibold text-amber-900">🔍 预检查条件配置:</span>
+                <span class="font-semibold text-amber-900">🔍 预检查条件配置 (第${buyRound}轮${buyRound > 1 ? '购买' : ''}):</span>
                 <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(preBuyCheckCondition)}</code>
               </div>
             ` : ''}
@@ -2838,9 +2840,10 @@ class ExperimentSignals {
    * 从实验配置中获取购买前检查条件
    * @private
    * @param {string} action - 交易动作 ('buy' 或 'sell')
+   * @param {number} buyRound - 购买轮次 (1=首次购买, 2+=后续购买)
    * @returns {string|null} 条件表达式
    */
-  _getPreBuyCheckCondition(action) {
+  _getPreBuyCheckCondition(action, buyRound = 1) {
     if (!this.experimentConfig || !this.experimentConfig.strategiesConfig) {
       return null;
     }
@@ -2852,8 +2855,16 @@ class ExperimentSignals {
       return null;
     }
 
-    // 获取第一个策略的预检查条件
-    return strategies[0].preBuyCheckCondition || null;
+    const strategy = strategies[0];
+
+    // 根据购买轮次返回对应的预检查条件
+    if (buyRound === 1) {
+      // 首次购买：使用 preBuyCheckCondition
+      return strategy.preBuyCheckCondition || null;
+    } else {
+      // 后续购买：使用 repeatBuyCheckCondition
+      return strategy.repeatBuyCheckCondition || null;
+    }
   }
 
   /**
