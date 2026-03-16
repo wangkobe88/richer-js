@@ -1869,10 +1869,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
       if (shouldPerformPreCheck && this._preBuyCheckService) {
         try {
           this.logger.info(this._experimentId, '_executeStrategy',
-            `开始购买前检查 | symbol=${token.symbol}, creator=${token.creator_address || 'none'}`);
-
-          // 构建代币信息（用于早期参与者检查）
-          const tokenInfo = this._buildTokenInfo(token);
+            `执行购买前检查 | symbol=${token.symbol}, round=${currentRound + 1}, creator=${token.creator_address || 'none'}`);
 
           // 构建代币信息（用于早期参与者检查）
           const tokenInfo = this._buildTokenInfo(token);
