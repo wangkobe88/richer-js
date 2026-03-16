@@ -1377,36 +1377,38 @@ class BacktestEngine extends AbstractTradingEngine {
       let preCheckReason = null;
       let preBuyCheckResult = null;
 
-      this.logger.info(this._experimentId, '_executeStrategy',
-        `开始购买前检查（回测） | symbol=${tokenState.symbol}, hasPreBuyCheckService=${!!this._preBuyCheckService}`);
+      // 根据交易轮数确定是否需要执行预检查
+      const currentRound = tokenState.completedPairs ? tokenState.completedPairs.length : 0;
+      let shouldPerformPreCheck = false;
 
-      if (this._preBuyCheckService) {
+      if (currentRound === 0) {
+        // 首次买入：如果有 preBuyCheckCondition 则执行预检查
+        shouldPerformPreCheck = !!(strategy.preBuyCheckCondition && String(strategy.preBuyCheckCondition).trim() !== '');
+      } else {
+        // 再次买入：只有明确配置了 repeatBuyCheckCondition 时才执行预检查
+        shouldPerformPreCheck = !!(strategy.repeatBuyCheckCondition && String(strategy.repeatBuyCheckCondition).trim() !== '');
+      }
+
+      if (shouldPerformPreCheck && this._preBuyCheckService) {
         try {
           const tokenInfo = this._buildTokenInfoForBacktest(tokenState);
 
-          // 根据交易轮数选择检查条件
-          const currentRound = tokenState.completedPairs ? tokenState.completedPairs.length : 0;
           let preBuyCheckCondition;
-
           if (currentRound === 0) {
-            // 首次买入
-            preBuyCheckCondition = strategy.preBuyCheckCondition || null;
+            preBuyCheckCondition = strategy.preBuyCheckCondition;
           } else {
-            // 再次买入
-            preBuyCheckCondition = strategy.repeatBuyCheckCondition || strategy.preBuyCheckCondition || null;
+            preBuyCheckCondition = strategy.repeatBuyCheckCondition;
           }
 
-          // 如果都没有配置，默认通过（确保 preBuyCheckCondition 是字符串）
-          if (!preBuyCheckCondition || String(preBuyCheckCondition).trim() === '') {
-            preBuyCheckCondition = 'true';
-          } else {
-            preBuyCheckCondition = String(preBuyCheckCondition).trim();
-          }
+          preBuyCheckCondition = String(preBuyCheckCondition).trim();
 
           // 获取上一对收益率
           const lastPairReturnRate = currentRound > 0 && tokenState.completedPairs
             ? tokenState.completedPairs[currentRound - 1].returnRate
             : 0;
+
+          this.logger.info(this._experimentId, '_executeStrategy',
+            `执行购买前检查（回测） | symbol=${tokenState.symbol}, round=${currentRound + 1}, condition=${preBuyCheckCondition}`);
 
           preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             tokenState.token,                    // tokenAddress
@@ -1440,6 +1442,9 @@ class BacktestEngine extends AbstractTradingEngine {
           preCheckPassed = false;
           preCheckReason = `检查异常: ${error.message}`;
         }
+      } else {
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `跳过购买前检查 | symbol=${tokenState.symbol}, round=${currentRound + 1}, shouldPerformPreCheck=${shouldPerformPreCheck}`);
       }
 
       // ========== 更新信号 metadata（包含预检查结果） ==========

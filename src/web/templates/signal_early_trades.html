@@ -397,7 +397,21 @@
                         return;
                     }
 
-                    const trades = result.data.trades_data || [];
+                    let trades = result.data.trades_data || [];
+
+                    // 按区块号从低到高排序
+                    trades.sort((a, b) => {
+                        const blockA = a.block_number || 0;
+                        const blockB = b.block_number || 0;
+                        if (blockA !== blockB) {
+                            return blockA - blockB;
+                        }
+                        // 区块号相同时，按时间排序
+                        const timeA = a.time || 0;
+                        const timeB = b.time || 0;
+                        return timeA - timeB;
+                    });
+
                     const tradeCount = trades.length;
 
                     if (tradeCount === 0) {

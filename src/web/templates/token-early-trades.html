@@ -447,6 +447,18 @@
                 return;
             }
 
+            // 按区块号从低到高排序（区块号相同时按时间排序）
+            trades.sort((a, b) => {
+                const blockA = a.block_number || 0;
+                const blockB = b.block_number || 0;
+                if (blockA !== blockB) {
+                    return blockA - blockB;
+                }
+                const timeA = a.time || 0;
+                const timeB = b.time || 0;
+                return timeA - timeB;
+            });
+
             // 执行聚簇检测
             assignClusters(trades);
 
@@ -574,6 +586,7 @@
                                 <th style="min-width: 120px;">对方</th>
                                 <th style="min-width: 160px;">交易</th>
                                 <th style="width: 60px;">USD</th>
+                                <th style="width: 70px;">TVL</th>
                                 <th style="width: 55px;">区块#</th>
                             </tr>
                         </thead>
@@ -594,11 +607,18 @@
 
             // 判断交易类型：根据 token 地址判断买卖方向
             // to_token 是目标代币 = 买入，from_token 是目标代币 = 卖出
-            // 注意：from_token/to_token 字段只存储地址的后几位
-            const toToken = tx.to_token || '';
-            const fromToken = tx.from_token || '';
-            const targetSuffix = targetTokenAddress.toLowerCase().slice(-8);
-            const isBuy = toToken.toLowerCase().endsWith(targetSuffix);
+            const toToken = (tx.to_token || '').toLowerCase();
+            const fromToken = (tx.from_token || '').toLowerCase();
+            const targetAddr = targetTokenAddress.toLowerCase();
+
+            // 判断买卖：检查 to_token 是否是目标代币
+            let isBuy = false;
+            if (toToken && toToken === targetAddr) {
+                isBuy = true;
+            } else if (toToken && targetAddr.endsWith(toToken) && toToken.length >= 8) {
+                // 如果完整地址不匹配，尝试后缀匹配（至少8位）
+                isBuy = true;
+            }
             const tradeTypeClass = isBuy ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500';
 
             // 判断钱包是否在黑名单/白名单中
@@ -699,6 +719,7 @@
                     </td>
                     <td class="text-xs" title="${tradeInfo}">${tradeInfo}</td>
                     <td class="text-xs">${tx.from_usd ? '$' + tx.from_usd.toFixed(1) : '-'}</td>
+                    <td class="text-xs">${tx.pair_liquidity_usd ? '$' + (tx.pair_liquidity_usd / 1000).toFixed(1) + 'K' : '-'}</td>
                     <td class="text-xs text-gray-500">${tx.block_number || '-'}</td>
                 </tr>
             `;
@@ -1078,8 +1099,8 @@
                 const debugInfo = result.data.debug || null;
 
                 // 设置目标代币地址（用于判断买卖方向）
-                const urlParams = getUrlParams();
-                targetTokenAddress = urlParams.token || '';
+                // 使用实际查询的代币地址，而不是 URL 参数
+                targetTokenAddress = tokenAddress;
 
                 // 渲染代币信息
                 renderTokenInfo(currentTokenInfo);

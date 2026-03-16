@@ -1554,32 +1554,35 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       // 2. 综合购买前检查（使用 PreBuyCheckService）
       let preBuyCheckResult = null;
-      if (preCheckPassed && this._preBuyCheckService) {
+
+      // 根据交易轮数确定是否需要执行预检查
+      const currentRound = this._tokenPool.getCurrentRound(token.token, token.chain || 'bsc');
+      let shouldPerformPreCheck = false;
+
+      if (currentRound === 0) {
+        // 首次买入：如果有 preBuyCheckCondition 则执行预检查
+        shouldPerformPreCheck = !!(strategy.preBuyCheckCondition && String(strategy.preBuyCheckCondition).trim() !== '');
+      } else {
+        // 再次买入：只有明确配置了 repeatBuyCheckCondition 时才执行预检查
+        shouldPerformPreCheck = !!(strategy.repeatBuyCheckCondition && String(strategy.repeatBuyCheckCondition).trim() !== '');
+      }
+
+      if (preCheckPassed && shouldPerformPreCheck && this._preBuyCheckService) {
         try {
           this.logger.info(this._experimentId, '_executeStrategy',
-            `开始购买前检查 | symbol=${token.symbol}, creator=${token.creator_address || 'none'}`);
+            `执行购买前检查 | symbol=${token.symbol}, round=${currentRound + 1}, creator=${token.creator_address || 'none'}`);
 
           // 构建代币信息（用于早期参与者检查）
           const tokenInfo = this._buildTokenInfo(token);
 
-          // 根据交易轮数选择检查条件
-          const currentRound = this._tokenPool.getCurrentRound(token.token, token.chain || 'bsc');
           let preBuyCheckCondition;
-
           if (currentRound === 0) {
-            // 首次买入
-            preBuyCheckCondition = strategy.preBuyCheckCondition || null;
+            preBuyCheckCondition = strategy.preBuyCheckCondition;
           } else {
-            // 再次买入
-            preBuyCheckCondition = strategy.repeatBuyCheckCondition || strategy.preBuyCheckCondition || null;
+            preBuyCheckCondition = strategy.repeatBuyCheckCondition;
           }
 
-          // 如果都没有配置，默认通过（确保 preBuyCheckCondition 是字符串）
-          if (!preBuyCheckCondition || String(preBuyCheckCondition).trim() === '') {
-            preBuyCheckCondition = 'true';
-          } else {
-            preBuyCheckCondition = String(preBuyCheckCondition).trim();
-          }
+          preBuyCheckCondition = String(preBuyCheckCondition).trim();
 
           // 获取上一对收益率
           const lastPairReturnRate = this._tokenPool.getLastPairReturnRate(token.token, token.chain || 'bsc');
@@ -1625,6 +1628,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           preCheckPassed = false;
           blockReason = `购买前检查异常: ${errorMsg}`;
         }
+      } else if (!shouldPerformPreCheck) {
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `跳过购买前检查 | symbol=${token.symbol}, round=${currentRound + 1}`);
       }
 
       // 如果预检查失败，更新信号状态为 failed 并返回

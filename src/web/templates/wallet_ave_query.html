@@ -148,6 +148,29 @@
             return (num * 100).toFixed(2) + '%';
         }
 
+        // 计算钱包年龄
+        function calculateWalletAge(walletInfo) {
+            const ageTimestamp = walletInfo?.wallet_age;
+            if (!ageTimestamp) return '-';
+            const now = Math.floor(Date.now() / 1000); // 当前时间戳（秒）
+            const ageSeconds = now - ageTimestamp;
+
+            const days = Math.floor(ageSeconds / 86400);
+            const hours = Math.floor((ageSeconds % 86400) / 3600);
+            const minutes = Math.floor((ageSeconds % 3600) / 60);
+
+            if (days > 365) {
+                const years = (days / 365).toFixed(1);
+                return `${years}年 (${days}天)`;
+            } else if (days > 0) {
+                return `${days}天`;
+            } else if (hours > 0) {
+                return `${hours}小时`;
+            } else {
+                return `${minutes}分钟`;
+            }
+        }
+
         // 渲染摘要
         function renderSummary(data) {
             const { walletInfo, tokens } = data;
@@ -156,7 +179,7 @@
             const winRate = walletInfo.total_win_ratio ? (walletInfo.total_win_ratio * 100).toFixed(2) : '0';
 
             const html = `
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                     <div class="bg-gray-50 rounded-lg p-4 text-center">
                         <div class="text-2xl font-bold text-gray-800">${formatMoney(walletInfo.total_balance)}</div>
                         <div class="text-sm text-gray-600">总持仓</div>
@@ -172,6 +195,10 @@
                     <div class="bg-gray-50 rounded-lg p-4 text-center">
                         <div class="text-2xl font-bold text-blue-600">${tokens.length}</div>
                         <div class="text-sm text-gray-600">代币数</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-purple-600">${calculateWalletAge(walletInfo)}</div>
+                        <div class="text-sm text-gray-600">钱包年龄</div>
                     </div>
                 </div>
             `;
@@ -240,6 +267,7 @@
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div><span class="text-gray-600">钱包地址:</span> <span class="font-mono text-xs">${info.wallet_address}</span></div>
                             <div><span class="text-gray-600">区块链:</span> <span>${info.chain.toUpperCase()}</span></div>
+                            <div><span class="text-gray-600">钱包年龄:</span> <span class="font-semibold text-blue-600">${calculateWalletAge(info)}</span></div>
                             <div><span class="text-gray-600">主币:</span> <span>${info.main_token_symbol || '-'} ($${info.main_token_price?.toFixed(2) || '-'})</span></div>
                             <div><span class="text-gray-600">买入次数:</span> <span>${info.total_purchase || 0}</span></div>
                             <div><span class="text-gray-600">卖出次数:</span> <span>${info.total_sold || 0}</span></div>

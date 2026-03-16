@@ -272,13 +272,18 @@ class ExperimentMonitor {
       <tr class="hover:bg-gray-700 transition-colors">
         <!-- 实验名称 -->
         <td class="px-2 py-2">
-          <div class="flex items-center gap-2">
-            <div class="font-medium text-white text-sm break-words" title="${this._escapeHtml(exp.experimentName || exp.experiment_name)}">
-              ${exp.experimentName || exp.experiment_name || '未命名实验'}
+          <div class="flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+              <div class="font-medium text-white text-sm break-words" title="${this._escapeHtml(exp.experimentName || exp.experiment_name)}">
+                ${exp.experimentName || exp.experiment_name || '未命名实验'}
+              </div>
+              <button data-action="edit-name" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName || exp.experiment_name)}" class="text-gray-500 hover:text-blue-400 transition-colors text-xs" title="编辑名字">
+                ✏️
+              </button>
             </div>
-            <button data-action="edit-name" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName || exp.experiment_name)}" class="text-gray-500 hover:text-blue-400 transition-colors text-xs" title="编辑名字">
-              ✏️
-            </button>
+            <div class="text-gray-500 text-xs font-mono" title="${exp.id}">
+              ${this._formatExperimentId(exp.id)}
+            </div>
           </div>
         </td>
 

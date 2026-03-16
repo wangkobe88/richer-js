@@ -17,7 +17,7 @@
  * - 6b17ff18-002d-4ce0-a745-b8e02676abd4
  * - 015db965-0b33-4d98-88b1-386203886381
  *
- * Total: 60 wallets
+ * Total: 62 wallets
  */
 
 const STRONG_TRADERS_VERSION = 'v2';
@@ -52,6 +52,7 @@ const STRONG_TRADERS = new Set([
   '0x5ea930326bf81a4fee8f278ad5feefa2ab3a5ce2',
   '0x5f7234e878e58efd440a159ba79715f03862d538',
   '0x62c4e6a3d263773aabaf39db54b226e6f0699851',
+  '0x6d3a4313d2b8c93fef5a6d4c6667a05cd754735d', // draco
   '0x718758c2aa5f67ffff9054f8535aa3a0cf9ac480',
   '0x7a2363a401b2340c7941dd2eeff0196a5078d2e6',
   '0x7eb1b96417b3531f3e0bef6799b9fa7500414891',
@@ -92,7 +93,8 @@ const STRONG_TRADERS = new Set([
   '0xf7ff38f74c8a5b4750e5f65ae74c924a441b7b90',
   '0xfb5ab95041b5fb4925d925fbcb4e81c99fa3b8ac',
   '0xfbf4d0bc7fa1333df0204b4a38231daebcecaf73',
-  '0x64b23c2987aca16b3d3c55ad6f694058783c72ea' //打狗一级棒
+  '0x64b23c2987aca16b3d3c55ad6f694058783c72ea', //打狗一级棒
+  '0xda8e6446c8e2c55a43599cf4f461adbfff56b311' //侥幸哥
 ]);
 
 module.exports = { STRONG_TRADERS, STRONG_TRADERS_VERSION, STRONG_TRADERS_SOURCE_EXPERIMENTS };
