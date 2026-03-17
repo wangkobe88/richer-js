@@ -1,0 +1,146 @@
+{
+  "high_high": [
+    {
+      "token": "DogeDistorted",
+      "human": "high_quality",
+      "machine": "high",
+      "machineScore": 68,
+      "scores": {
+        "clarity": 28,
+        "credibility": 5,
+        "appeal": 15,
+        "timeliness": 15,
+        "completeness": 5
+      }
+    },
+    {
+      "token": "武侠猫",
+      "human": "high_quality",
+      "machine": "high",
+      "machineScore": 63,
+      "scores": {
+        "clarity": 28,
+        "credibility": 5,
+        "appeal": 10,
+        "timeliness": 15,
+        "completeness": 5
+      }
+    }
+  ],
+  "high_mid": [
+    {
+      "token": "躺赢",
+      "human": "high_quality",
+      "machine": "mid",
+      "machineScore": 55,
+      "scores": {
+        "clarity": 25,
+        "credibility": 15,
+        "appeal": 15,
+        "timeliness": 0,
+        "completeness": 0
+      }
+    }
+  ],
+  "high_low": [],
+  "mid_high": [],
+  "mid_mid": [],
+  "mid_low": [
+    {
+      "token": "柴柴",
+      "human": "mid_quality",
+      "machine": "low",
+      "machineScore": 38,
+      "scores": {
+        "clarity": 10,
+        "credibility": 5,
+        "appeal": 3,
+        "timeliness": 15,
+        "completeness": 5
+      }
+    },
+    {
+      "token": "无主之币",
+      "human": "mid_quality",
+      "machine": "low",
+      "machineScore": 23,
+      "scores": {
+        "clarity": 15,
+        "credibility": 0,
+        "appeal": 8,
+        "timeliness": 0,
+        "completeness": 0
+      }
+    }
+  ],
+  "low_high": [],
+  "low_mid": [
+    {
+      "token": "躺赢",
+      "human": "low_quality",
+      "machine": "mid",
+      "machineScore": 55,
+      "scores": {
+        "clarity": 25,
+        "credibility": 15,
+        "appeal": 15,
+        "timeliness": 0,
+        "completeness": 0
+      }
+    },
+    {
+      "token": "Stolenhub",
+      "human": "low_quality",
+      "machine": "mid",
+      "machineScore": 58,
+      "scores": {
+        "clarity": 28,
+        "credibility": 0,
+        "appeal": 15,
+        "timeliness": 15,
+        "completeness": 0
+      }
+    },
+    {
+      "token": "宽宽",
+      "human": "low_quality",
+      "machine": "mid",
+      "machineScore": 55,
+      "scores": {
+        "clarity": 30,
+        "credibility": 5,
+        "appeal": 0,
+        "timeliness": 15,
+        "completeness": 5
+      }
+    }
+  ],
+  "low_low": [
+    {
+      "token": "鹅虾",
+      "human": "low_quality",
+      "machine": "low",
+      "machineScore": 35,
+      "scores": {
+        "clarity": 10,
+        "credibility": 5,
+        "appeal": 0,
+        "timeliness": 15,
+        "completeness": 5
+      }
+    },
+    {
+      "token": "佛系",
+      "human": "low_quality",
+      "machine": "low",
+      "machineScore": 30,
+      "scores": {
+        "clarity": 10,
+        "credibility": 0,
+        "appeal": 5,
+        "timeliness": 15,
+        "completeness": 0
+      }
+    }
+  ]
+}

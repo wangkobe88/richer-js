@@ -1,0 +1,1352 @@
+{
+  "70fea05f": {
+    "expId": "70fea05f-2ed5-4b82-86d2-3dcddf27ab11",
+    "tokens": [
+      {
+        "address": "0x85efc36ddb171261b674d0f979c8066459d34444",
+        "symbol": "大狗大狗",
+        "twitterText": "抖音爆火的一个大狗叫😂 大家都说听着像“doge doge”叫叫叫\n\n听完你们就知道了 感觉会像下一个“我的刀盾”一样 成为人人的口头禅 \n\n目前抖音已经有上千万话题热度🔥\n\n非常顶级🔥🔥🔥 https://t.co/4OLsL1AmmV",
+        "introEn": "打狗",
+        "introCn": null,
+        "narrative_score": 60,
+        "narrative_category": "high",
+        "scores": {
+          "content": 35,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0xa1795a0f4e65f4842ca9329dc1b62b69f0d04444",
+        "symbol": "天使—COCO",
+        "twitterText": "小安助手接入到币安广场\n看前面币安Openclaw聊群的群主\n天使 COCO在广场发了贴\n小安助手之前只是分析代币吧\n现在直接进化成龙虾能发帖？\n\n埋伏了3个小安外盘的标\n0x44448367f79bdf56b812a9d5e0eed19e9fea9b7a\n0x2f333f2aad0674dd06f24905125aac6f659a4444\n0x6e94ed013f379febec2e0ca14d82e7f09b934444\nhttps://t.co/arAjKAwfYN",
+        "introEn": "首个币安厂场小安助手接入的成员",
+        "introCn": null,
+        "narrative_score": 60,
+        "narrative_category": "high",
+        "scores": {
+          "content": 35,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0xba76fdd6bed23057c7c11ebb34dd247b33b34444",
+        "symbol": "傻币",
+        "twitterText": "Hello?! The News are calling memecoins SILLY coins on a recent interview with BBC World Service\n\nHe's essentially saying that people in Korea have taken a great interest in trading \"silly coins\" rather than trading boring old company stock like Samsung and etc.\n\nYT: https://t.co/0mPN8D7iZH",
+        "introEn": "어리석은 동전",
+        "introCn": null,
+        "narrative_score": 60,
+        "narrative_category": "high",
+        "scores": {
+          "content": 35,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0x44443664201f5de5be8c245bc5a4e0bd1c15b64d",
+        "symbol": "BONKRot",
+        "twitterText": "什么情况，除了moondoge之外，这里的其他代币全部都叫“bonkrot”?\n\n$bonk刚好有自己的狗\nrot是“腐烂，有点智障的意思”\n\nbonkrot感觉就是智障的$bonk狗，有点嘲讽sol那边了。\nhttps://t.co/mCIsET4LbN https://t.co/4Yi9DvlGSG",
+        "introEn": "BONKRot",
+        "introCn": null,
+        "narrative_score": 55,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 30,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0x442861972106d123d685cd30d58bbb9be9404444",
+        "symbol": "小萝卜",
+        "twitterText": "这才是爆火的真神  小萝卜 3.3亿的话题播放量  真神meme  下一个恶俗企鹅 https://t.co/CgBAjhyNA3",
+        "introEn": "下一个恶俗企鹅",
+        "introCn": null,
+        "narrative_score": 55,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 30,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0xdd8cfbe605febc8e5fc731e8d2d71620712dffff",
+        "symbol": "Clawford",
+        "twitterText": "Clawford University 是 OpenClaw 生态的 AI Agent 学习平台。\nAgent 不该只是执行命令的工具，它们应该像人一样学习、成长、拿到可验证的能力证明。\n🎓 35+ 技能包\n搜索、写代码、链上分析、DEX 交易、内容创作。每个技能都有领域知识、执行策略和评测基准。\n📚 完整课程体系\n选课、上课、考试、拿学分、修学位。Agent 也有学期、GPA和成绩单，和真正的大学一样。\n🏫 Campus 社交网络\nAgent之间可以发帖、评论、投票、互关、私信、组学习小组。真正可用的Agent 社交平台。\n📜 链上 NFT 证书\n 灵魂绑定，不可转让。通过评测后，技能等级和分数永久上链 BSC。\n🏪 Karma 代币技能市场发布、评分、交易技能包。技能不只是能力，也是资产。\n🌐 基于 OpenClaw 生态，兼容 Claude Code / Cursor / Windsurf\n#AIAgents #OpenClaw #BuildInPublic",
+        "introEn": "基于 OpenClaw 生态，为 AI Agent提供系统化的学习平台。35+技能包覆盖搜索、写代码、链上分析、DEX 交易等领域。完整课程体系：选课、考试、GPA、学位。Campus 社交网络让Agent 之间互动协作。技能通过评测后获得链上 NFT证书（BSC），灵魂绑定，不可转让。兼容 Claude Code /Cursor / Windsurf。",
+        "introCn": null,
+        "narrative_score": 53,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 13
+        }
+      },
+      {
+        "address": "0xc3b1a6229d9017376cf9a5ba7a60782bd8db4444",
+        "symbol": "frogs",
+        "twitterText": "When I was a kid, my life goal was to make money.\n\nI caught frogs in my backyard and sold them to classmates during the Pokémon hype at age 8. It went viral at school, and every boy wanted one. I was busy catching frogs until the principal called my mom after receiving dozens of complaints from the girls. That was the first time I made a thousand.\n\nI started my startup at 20, after my ex broke up with me, saying I was too poor. I grinded every single day trying to get money to impress her. I made some bucks, but my motivation shifted from just making money to longer-term goals: how to sustain a business, how to grow my team, and how to scale.\n\nAround age 30, I decided to join crypto. After seeing my then-university friend raise several million dollars at a 200M valuation for a new DeFi protocol, I felt like that was my shot to get quick wins. But, like any early joiner, I lost a lot of money on this and that magic beans.\n\nI then joined an enterprise, learned a lot, and had a great time with colleagues. It was the first time my mindset shifted from just making money to building meaningful products.\n\nTrust Wallet is my latest platform. My mentor @cz_binance gives me full support and questions nothing I decide. It's the first time I could freely embrace both a business and technology mindset at a large scale and be accountable for the success and well-being of our hundred colleagues. No principal is stopping me from selling “frogs” or whatever viral thing because I'm the one leading the company’s direction.\n\nAt this point, I have nothing to lose. I can always rebuild anything, whether from the backyard or with just a computer and an internet connection. At the same time, I have many opportunities to succeed, with a user base of millions on @TrustWallet and established industry collaborations.\n\nI believe that when we build products that sustainably create value for users, money will follow. More than that, my motivation has shifted toward creating an intense but rewarding work environment for colleagues since they are all the reasons a company can survive and thrive.\n\nWe come from diverse backgrounds—across Asia, the Middle East, and Europe—different religions and cultures. Some of us have crazier stories than mine, but we all share one mission: to build products that positively impact millions.\n\nIf you’re interested in joining this journey and used to be recognized as the most self-driven colleague in your organization, Trust Wallet has a seat for you.\n\nFeel free to DM or send your CV to https://t.co/iBhMzBQNEv. I look forward to seeing you.",
+        "introEn": "青蛙",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0xea1605d3c2c48aea17b45c485e45bc74a2e74444",
+        "symbol": "宝可梦",
+        "twitterText": "When I was a kid, my life goal was to make money.\n\nI caught frogs in my backyard and sold them to classmates during the Pokémon hype at age 8. It went viral at school, and every boy wanted one. I was busy catching frogs until the principal called my mom after receiving dozens of complaints from the girls. That was the first time I made a thousand.\n\nI started my startup at 20, after my ex broke up with me, saying I was too poor. I grinded every single day trying to get money to impress her. I made some bucks, but my motivation shifted from just making money to longer-term goals: how to sustain a business, how to grow my team, and how to scale.\n\nAround age 30, I decided to join crypto. After seeing my then-university friend raise several million dollars at a 200M valuation for a new DeFi protocol, I felt like that was my shot to get quick wins. But, like any early joiner, I lost a lot of money on this and that magic beans.\n\nI then joined an enterprise, learned a lot, and had a great time with colleagues. It was the first time my mindset shifted from just making money to building meaningful products.\n\nTrust Wallet is my latest platform. My mentor @cz_binance gives me full support and questions nothing I decide. It's the first time I could freely embrace both a business and technology mindset at a large scale and be accountable for the success and well-being of our hundred colleagues. No principal is stopping me from selling “frogs” or whatever viral thing because I'm the one leading the company’s direction.\n\nAt this point, I have nothing to lose. I can always rebuild anything, whether from the backyard or with just a computer and an internet connection. At the same time, I have many opportunities to succeed, with a user base of millions on @TrustWallet and established industry collaborations.\n\nI believe that when we build products that sustainably create value for users, money will follow. More than that, my motivation has shifted toward creating an intense but rewarding work environment for colleagues since they are all the reasons a company can survive and thrive.\n\nWe come from diverse backgrounds—across Asia, the Middle East, and Europe—different religions and cultures. Some of us have crazier stories than mine, but we all share one mission: to build products that positively impact millions.\n\nIf you’re interested in joining this journey and used to be recognized as the most self-driven colleague in your organization, Trust Wallet has a seat for you.\n\nFeel free to DM or send your CV to https://t.co/iBhMzBQNEv. I look forward to seeing you.",
+        "introEn": "文章先提到宝可梦",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0xb707fbba262be7282175e10b3b2ba261a90a4444",
+        "symbol": "青蛙",
+        "twitterText": "When I was a kid, my life goal was to make money.\n\nI caught frogs in my backyard and sold them to classmates during the Pokémon hype at age 8. It went viral at school, and every boy wanted one. I was busy catching frogs until the principal called my mom after receiving dozens of complaints from the girls. That was the first time I made a thousand.\n\nI started my startup at 20, after my ex broke up with me, saying I was too poor. I grinded every single day trying to get money to impress her. I made some bucks, but my motivation shifted from just making money to longer-term goals: how to sustain a business, how to grow my team, and how to scale.\n\nAround age 30, I decided to join crypto. After seeing my then-university friend raise several million dollars at a 200M valuation for a new DeFi protocol, I felt like that was my shot to get quick wins. But, like any early joiner, I lost a lot of money on this and that magic beans.\n\nI then joined an enterprise, learned a lot, and had a great time with colleagues. It was the first time my mindset shifted from just making money to building meaningful products.\n\nTrust Wallet is my latest platform. My mentor @cz_binance gives me full support and questions nothing I decide. It's the first time I could freely embrace both a business and technology mindset at a large scale and be accountable for the success and well-being of our hundred colleagues. No principal is stopping me from selling “frogs” or whatever viral thing because I'm the one leading the company’s direction.\n\nAt this point, I have nothing to lose. I can always rebuild anything, whether from the backyard or with just a computer and an internet connection. At the same time, I have many opportunities to succeed, with a user base of millions on @TrustWallet and established industry collaborations.\n\nI believe that when we build products that sustainably create value for users, money will follow. More than that, my motivation has shifted toward creating an intense but rewarding work environment for colleagues since they are all the reasons a company can survive and thrive.\n\nWe come from diverse backgrounds—across Asia, the Middle East, and Europe—different religions and cultures. Some of us have crazier stories than mine, but we all share one mission: to build products that positively impact millions.\n\nIf you’re interested in joining this journey and used to be recognized as the most self-driven colleague in your organization, Trust Wallet has a seat for you.\n\nFeel free to DM or send your CV to https://t.co/iBhMzBQNEv. I look forward to seeing you.",
+        "introEn": "青蛙",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0xa3fef13cde295f0ce3c67ee120706e7e17684444",
+        "symbol": "sabake",
+        "twitterText": "CAKE FOR ZOO FRIENDS 🎂\nสุขสันต์วันเกิด น้องซาบาเกะ10 🐈\nลูกชายสุดที่รักหม่ามี้ 🩷 https://t.co/4lUcewuaQ8",
+        "introEn": "河马动物园的猫sabake",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x82a59d36642650314402c72a6a9ba1364b114444",
+        "symbol": "遗憾",
+        "twitterText": "最近爆火的话题\n遗憾\n是年少时最后的那局游戏吗\n是没有结尾的高中故事吗\n是枯坐一天错过的金狗后的不甘吗\n人生的遗憾常在 人生没有逆转时间的公式 \n所以的遗憾都是最好的礼物 https://t.co/zQy2KnlU6F",
+        "introEn": "遗憾是人生最好的礼物",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x664d53426b2d5c84ae8cf8c1ecb991b2fdc14444",
+        "symbol": "生菜",
+        "twitterText": "支付宝刚刚发的梗上微博热搜了  生菜 = 生财\n链接可查https://t.co/nzYwnDCSb3\n顶级谐音梗 🔥🔥🔥 https://t.co/wilDiSzsIQ",
+        "introEn": "生财",
+        "introCn": null,
+        "narrative_score": 47,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 30,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x36a02d1f411f6410bbef118bb85ca043153d4444",
+        "symbol": "Yuan",
+        "twitterText": "BREAKING: Iran may allow oil tankers to pass through the Strait of Hormuz if the oil is traded in Chinese Yuan instead of US Dollars.",
+        "introEn": "Iran may allow oil tankers to pass through Strait of Hormuz if the oil is traded in Chinese Yuan instead of U.S. Dollars.",
+        "introCn": null,
+        "narrative_score": 43,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 25,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 13
+        }
+      },
+      {
+        "address": "0x0f1e1e1fd78e0146186a85eae95de6a03fc84444",
+        "symbol": "元",
+        "twitterText": "BREAKING: Iran may allow oil tankers to pass through the Strait of Hormuz if the oil is traded in Chinese Yuan instead of US Dollars.",
+        "introEn": "人民币",
+        "introCn": null,
+        "narrative_score": 43,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 25,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 13
+        }
+      },
+      {
+        "address": "0x711585dad366ec83ff683d1fdec029d9131b4444",
+        "symbol": "卡穆",
+        "twitterText": "สวัสดีวันเสาร์ #hippo #PygmyHippo #ขาหมูแอนด์เดอะแก๊ง #หมูเด้งเด้งกี่โมง #Moodeng #พี่ขาหมู #สวนสัตว์เปิดเขาเขียว https://t.co/ZbzNE57wX8",
+        "introEn": "卡穆",
+        "introCn": null,
+        "narrative_score": 37,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0xa6ea173f846bbbb1f538650ab11adf78b4a04444",
+        "symbol": "russian victory",
+        "twitterText": "cant believe my gf was right about hermes bags and gold bracelets being a better investment than literally 99% of my investments\n\ntotal russian victory https://t.co/modAyqrTlO",
+        "introEn": "russian victory",
+        "introCn": null,
+        "narrative_score": 37,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0xbdc7cbf2b4b1c9d55e8c09a2d04a5f5dc0054444",
+        "symbol": "monkey business",
+        "twitterText": "Guess you could call it \"monkey business\"\n\nhttps://t.co/L5B48mcHRn",
+        "introEn": "monkey business",
+        "introCn": null,
+        "narrative_score": 37,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x4a059e7684d8d8fbd234e98c97029ee0f4c0ffff",
+        "symbol": "MWM",
+        "twitterText": null,
+        "introEn": "Leaked draft of CZ's supposed upcoming book Money Without Masters. https://www.scribd.com/document/1012071546/mwm-draft-qw32-docx",
+        "introCn": null,
+        "narrative_score": 33,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x444484ea02eb33b4fd4f18c36a9e627952c7aed7",
+        "symbol": "Memrush",
+        "twitterText": "这他妈是我眼花了吗？打错了 自己看看\nhttps://t.co/USvdmZG9g4 https://t.co/zJnifsIGdS",
+        "introEn": "Memrush",
+        "introCn": null,
+        "narrative_score": 32,
+        "narrative_category": "low",
+        "scores": {
+          "content": 15,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0xa0f2e7fc936b1163a26d8d3c86d971a7e0834444",
+        "symbol": "MOONDOGE",
+        "twitterText": null,
+        "introEn": "币安演示狗币MOONDOGECOIN",
+        "introCn": null,
+        "narrative_score": 28,
+        "narrative_category": "low",
+        "scores": {
+          "content": 15,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x2e585d709331f08ef9af3d20ae07c9c606234444",
+        "symbol": "Doers",
+        "twitterText": null,
+        "introEn": "币安给龙虾的新称号",
+        "introCn": null,
+        "narrative_score": 28,
+        "narrative_category": "low",
+        "scores": {
+          "content": 15,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x1b90a7ab88c69e55ba22c3fb44b5770ab5644444",
+        "symbol": "青蛙",
+        "twitterText": "一代人有一代人的青蛙要抓\nP小将们一定能够抓到属于自己的青蛙 https://t.co/RkWYQ8SeyE",
+        "introEn": "一代人有一代人的青蛙要抓",
+        "introCn": null,
+        "narrative_score": 27,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x938f9a0e6e5e80e0a64aabb64704900ca4c64444",
+        "symbol": "30000",
+        "twitterText": null,
+        "introEn": "人生不过30000天",
+        "introCn": null,
+        "narrative_score": 23,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0xe7dec75bfa2458b8c9bf6e2518694683c08dffff",
+        "symbol": "FOURBOT",
+        "twitterText": null,
+        "introEn": "FourBotai token",
+        "introCn": null,
+        "narrative_score": 20,
+        "narrative_category": "low",
+        "scores": {
+          "content": 15,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 5
+        }
+      },
+      {
+        "address": "0x1be79e8aaaa99e3c96f96063d446c6df5dc9ffff",
+        "symbol": "自由黄金",
+        "twitterText": null,
+        "introEn": "Hold $自由黄金, Earn Gold.",
+        "introCn": null,
+        "narrative_score": 18,
+        "narrative_category": "low",
+        "scores": {
+          "content": 5,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x444433123b4bc5fd7dc39850553ea643a9a1f438",
+        "symbol": "MOONDOGE",
+        "twitterText": null,
+        "introEn": "https://x.com/jiujinshan2026/status/2032492535529234577?s=20",
+        "introCn": null,
+        "narrative_score": 15,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 5
+        }
+      },
+      {
+        "address": "0x3841d6c6664c203bdc621a86960fbdb511114444",
+        "symbol": "无主之币",
+        "twitterText": null,
+        "introEn": "无主之币",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x4444ca27bf6cd6c57afb1dd53984283595c57d30",
+        "symbol": "无主之币",
+        "twitterText": null,
+        "introEn": "无主之币",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x7a46660f15a7e286f0801cbc7febc02a18e54444",
+        "symbol": "傻币",
+        "twitterText": null,
+        "introEn": "愚蠢的硬币",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x26c63760da93f8b974cc055491012be5bdd44444",
+        "symbol": "QQ",
+        "twitterText": null,
+        "introEn": "哈基米那绿豆QQ",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x94822f5d38d08922dbb85759f315306c56be4444",
+        "symbol": "π",
+        "twitterText": null,
+        "introEn": "Infinite Runner",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0xf662f64e40dabb2fbad0c709d3208750f0b84444",
+        "symbol": "猿神",
+        "twitterText": null,
+        "introEn": "信我我后期很牛逼",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0xc14c6045d3bfd296b9c89c0d91fd7c5bd98e4444",
+        "symbol": "人前显圣",
+        "twitterText": null,
+        "introEn": "谁曾经没有一个英雄梦呢？",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x503efd1cddfd4abc0a4feafbcee7f2d7a5ee4444",
+        "symbol": "ELON",
+        "twitterText": "True",
+        "introEn": "This is Elon",
+        "introCn": null,
+        "narrative_score": 10,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 10
+        }
+      },
+      {
+        "address": "0x4444af7cfec9914ebb197a7c8eaeffbf8a984bb5",
+        "symbol": "MOONDOGECOIN",
+        "twitterText": null,
+        "introEn": "Offical MOONDOGECOIN",
+        "introCn": null,
+        "narrative_score": 5,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 5
+        }
+      },
+      {
+        "address": "0x444408a2e7950b99e4feced8683e4836a30c0d11",
+        "symbol": "MOONCAT",
+        "twitterText": null,
+        "introEn": "MOONCAT",
+        "introCn": null,
+        "narrative_score": 5,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 5
+        }
+      },
+      {
+        "address": "0xced03b6dcd0b87782ee431bba849ca8ea03c4444",
+        "symbol": "MUSK",
+        "twitterText": null,
+        "introEn": null,
+        "introCn": null,
+        "narrative_score": 0,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 0
+        }
+      }
+    ]
+  },
+  "7855de6d": {
+    "expId": "7855de6d-5f74-4884-a44e-3c2c2b351259",
+    "tokens": [
+      {
+        "address": "0x883596c72dc2efc2cd01edd6276d1fc192824444",
+        "symbol": "M",
+        "twitterText": "XAI JUST TRADEMARKED A NEW COMPANY CALLED \"Macro $M\"\n\nhttps://t.co/dhY6kZ9rfE https://t.co/JGcgkrAVx7",
+        "introEn": "Macro",
+        "introCn": null,
+        "narrative_score": 60,
+        "narrative_category": "high",
+        "scores": {
+          "content": 35,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0x7a3d167ed4be80979464d428221bcf6cc9744444",
+        "symbol": "蝉",
+        "twitterText": "微博 抖音热搜🔥\n\n蝉是一种很摇滚的生物。\n\n一生大部分时间都在地下，醒来爬到地上就开始对这个世界狂叫，只是为了交配，交配完立马挂掉\n\n这个梗已经开始全网爆火 不亚于“我的刀盾”传播\n\n盛夏 音乐 性 死亡  这太摇滚了 \n这不就是我们的一生吗😂\n\n顶级🔥🔥🔥 https://t.co/NRCDb2GlXT",
+        "introEn": "不鸣则已，一鸣惊人",
+        "introCn": null,
+        "narrative_score": 60,
+        "narrative_category": "high",
+        "scores": {
+          "content": 35,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0x509f1dade2c64246f06f760bfe2ad0871c4c4444",
+        "symbol": "relink",
+        "twitterText": "抖音热搜第二，全球首发侵入式脑机接口医疗器械获批上市\n\n这款脑机接口名字：relink\n\nhttps://t.co/JOhvUqx8uI https://t.co/waT1Bm2JDd",
+        "introEn": "抖音热搜第二以及央视网新闻报道",
+        "introCn": null,
+        "narrative_score": 60,
+        "narrative_category": "high",
+        "scores": {
+          "content": 30,
+          "credibility": 10,
+          "virality": 5,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0xdb4a085f5fabf47700c65628270b4a86a6794444",
+        "symbol": "宽宽",
+        "twitterText": "这两天在深圳商场里看到了好几个这个公益广告\n愿手术台上没有下一个“宽宽”\n一只网红小猫因为医疗事故倒在了医院\n很多P小将（包括我）枯坐的夜晚都有自己的毛孩子陪在身边\n愿所有的相遇都有始有终，愿所有的毛孩子，都能健康到老\n\n原抖音：\nhttps://t.co/SekWSLw01r https://t.co/jPMwVQ2eer",
+        "introEn": "宽宽",
+        "introCn": null,
+        "narrative_score": 55,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 30,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0x5356867b27ae4206f3a04b42bde05253411c4444",
+        "symbol": "one symbol book",
+        "twitterText": "别被P图给骗了，我去找了这才是真正币安代码库里书的彩蛋，明确提到了ticker和book的书是《one symbol book》\n\n链接都是币安代码库放心验证⬇️\nhttps://t.co/3fkORhmffs\nhttps://t.co/ibuZQ7s1ui https://t.co/Wlvh4dAVvv",
+        "introEn": "币安官方代码库书彩蛋",
+        "introCn": null,
+        "narrative_score": 55,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 30,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0xcbf321deb1fd1e08363a78b6f8e2736e281d4444",
+        "symbol": "火鸡面",
+        "twitterText": "微博热搜：火鸡面\n\n一位81岁的潮汕爷爷因误食孙辈的火鸡面被辣到流泪干呕，最终破例倒掉食物的视频引发全网热议，意外折射出代际饮食冲突与健康隐患问题\n\nhttps://t.co/YdKodNoDu7 https://t.co/KGbI6EnAQP",
+        "introEn": "微博热搜关于81岁老爷爷因误食孙辈的火鸡面被辣到流泪干呕",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 30,
+          "credibility": 5,
+          "virality": 5,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x110dc457610c2354de260c171134667c77dc4444",
+        "symbol": "MEME",
+        "twitterText": "Ok so the coin who had the trademark on $MEME (Memecoin) just lost it\n\nAnd now its in public domain, so we can run the most iconic mememcoin on pumpfun! https://t.co/2ohPizPd4U",
+        "introEn": "Deployed using https://j7tracker.io",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x66a8816466b0c483c46369905213e6abbd9d4444",
+        "symbol": "PMM",
+        "twitterText": "现在这个系列很火，币安百分百也会发，提前给币安做一个喽。 https://t.co/GB84vPgzDR",
+        "introEn": "precious metal maxxing",
+        "introCn": null,
+        "narrative_score": 47,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 30,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x4d91824d5e9a832b897107a65af30c0fa4184444",
+        "symbol": "社恐人",
+        "twitterText": "微博热搜第一，微信新功能被称为社恐福音。说的正是我们p小将啊，p小将天天在家里在战壕pvp，p小将都是社恐人。很久才出门一次，不知道什么时候开始慢慢变得社恐了，社恐这个梗也很火，然后还出现了社恐大队头像，在抖音也超级火爆。 https://t.co/SCymYzN2yb",
+        "introEn": "微博热搜第一",
+        "introCn": null,
+        "narrative_score": 47,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 25,
+          "credibility": 5,
+          "virality": 5,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x538c72dc596b752df1ccb663a65e7c437d954444",
+        "symbol": "伞",
+        "twitterText": "命运 我要向你大战300回合！\n 一位叫耀阳的小孩子身患疾病\n 这些年来\n 饱受折磨 一天换药的时间达8个小时\n 他经常带着一把伞 \n因为他那把“伞”\n 就是那把斩破命运的🗡\n 他没有放弃 而是选择对命运宣战 ！！\n希望他拿握紧手中的伞\n打破这该死的命运！！！ https://t.co/DgD206lecX",
+        "introEn": "命运，我要向你宣战！！！",
+        "introCn": null,
+        "narrative_score": 45,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 20,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0x86d9c065322b69ad6c0af025c2029436ec5e4444",
+        "symbol": "TBOE",
+        "twitterText": "How it felt to get Elon's permission to publish this book after 4 years of working on it: https://t.co/CWiW9LUx36",
+        "introEn": "The book of elon",
+        "introCn": null,
+        "narrative_score": 45,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 20,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0x47be48b1c3cc8d4d11257759e87a484051d84444",
+        "symbol": "我们一起学猫叫 一起喵喵喵喵喵",
+        "twitterText": "@fififilin memecoin holders be like\n\n我们一起学猫叫，一起喵喵喵喵喵",
+        "introEn": "我们一起学猫叫 一起喵喵喵喵喵",
+        "introCn": null,
+        "narrative_score": 40,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 30,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 10
+        }
+      },
+      {
+        "address": "0x8eb7ac07970c00b4bac5cdb45aa736d0270b4444",
+        "symbol": "逼逼",
+        "twitterText": "Wait is Bibi an AI???",
+        "introEn": "你不要再逼逼了啊",
+        "introCn": null,
+        "narrative_score": 38,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 13
+        }
+      },
+      {
+        "address": "0xf48b3e3e463c032d1ba12232295925f6adc7ffff",
+        "symbol": "0x98",
+        "twitterText": "The biggest story right now is this guy getting MEV'ed for $50M. 0x98B9D979C33dD7284C854909BCC09b51FBF97Ac8\nwe can send fees to him via BNB since BNB is EVM.\n\nhttps://t.co/ETYwHUOgvQ",
+        "introEn": "Justice for 0x98",
+        "introCn": null,
+        "narrative_score": 37,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x942a28cf14a4e711882155013d696eecc22a4444",
+        "symbol": "ACT: S",
+        "twitterText": "Have we all been ignoring how elon and trump has been HARD pushing save america, and he just pinned it\n\nYET NO RUNNER?? https://t.co/SddmFvOVle",
+        "introEn": "Act S:SAVEAmericaAct",
+        "introCn": null,
+        "narrative_score": 37,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x9dc44f7f7409dc6cf8a7620118446682f9ccffff",
+        "symbol": "躺赢",
+        "twitterText": "在Web3行业里，拿得住，躺赢的都很低调，但还是会有些痕迹。😆",
+        "introEn": "百1分红俱乐部",
+        "introCn": null,
+        "narrative_score": 35,
+        "narrative_category": "low",
+        "scores": {
+          "content": 25,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 10
+        }
+      },
+      {
+        "address": "0x3dc6fbae094e38dbf32cdad562dee184f9ae4444",
+        "symbol": "鹅虾",
+        "twitterText": "国内量子位将腾讯发的openclaw称为“鹅虾”。\nhttps://t.co/PGGSoeyn70 https://t.co/FAWkwaPwd4",
+        "introEn": "国内媒体称呼腾讯龙虾",
+        "introCn": null,
+        "narrative_score": 35,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0x4556657ec7bd384c458e3b178aa3325d59564444",
+        "symbol": "柴柴",
+        "twitterText": "三大创世神之一的Cheems转世了，在抖音最像Cheems的柴犬。https://t.co/3LUIgLuTkl",
+        "introEn": "创世神Cheems转世了",
+        "introCn": null,
+        "narrative_score": 35,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0xbeedc0bf0188f2e44c2af0b8907c0571d4fa4444",
+        "symbol": "皇冠",
+        "twitterText": "每个人都是自己的无冕之王\n带上王冠\n我们都是自己的无冕之王 https://t.co/pMQzOeFjJl",
+        "introEn": "KingHat CULT",
+        "introCn": null,
+        "narrative_score": 32,
+        "narrative_category": "low",
+        "scores": {
+          "content": 15,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x79fa6d5d72c403d20629806e98ad15b16dd04444",
+        "symbol": "躺赢",
+        "twitterText": "为什么龙虾这么火 因为他可以全托管 就是因为全托管 我们才能躺着赚钱 躺赢才是龙虾AI爆火的原因 躺赢才是龙虾的根本",
+        "introEn": "躺赢才是龙虾的根本",
+        "introCn": null,
+        "narrative_score": 30,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 10
+        }
+      },
+      {
+        "address": "0xd583de96dd227184f7abc2a33ebc6cbead044444",
+        "symbol": "simulation",
+        "twitterText": "@Math_files This perfectly matches simulation theory. Objects in a video game are only rendered when observed and there is a minimum voxel size.",
+        "introEn": "simulation theory",
+        "introCn": null,
+        "narrative_score": 30,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 10
+        }
+      },
+      {
+        "address": "0xe3db3df131a186b1c075323848e76f5a15da4444",
+        "symbol": "羊群效应",
+        "twitterText": "羊群效应”（Herd Effect），也叫“从众效应”，是一个非常有趣且深刻的心理学与经济学概念。\n\n简单来说，就是个人在群体压力下，放弃自己的意见，转而跟随大多数人的行为。就像领头羊往哪儿跑，后面的羊群哪怕前面是悬崖，也会不假思索地跟着冲过去。\n跟老马表达的意思一样\n为什么没有被代币化\n顶级啊",
+        "introEn": "羊群效应",
+        "introCn": null,
+        "narrative_score": 30,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 10
+        }
+      },
+      {
+        "address": "0xa4b59951ebdbf9588ecf69f696f32d1365da4444",
+        "symbol": "老虎",
+        "twitterText": null,
+        "introEn": "pepe叫的猫",
+        "introCn": null,
+        "narrative_score": 28,
+        "narrative_category": "low",
+        "scores": {
+          "content": 15,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0xae40028b5a19f3edaaf892471ad1c500db494444",
+        "symbol": "父亲",
+        "twitterText": "https://t.co/kpxB93DCCG",
+        "introEn": "EverythingInTheWorld",
+        "introCn": null,
+        "narrative_score": 27,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x6e8733ab14c7dcbbe525ec123b5b968caac64444",
+        "symbol": "1%",
+        "twitterText": "https://t.co/acZFJamLN1",
+        "introEn": "1%",
+        "introCn": null,
+        "narrative_score": 27,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0xa4af696aa4643f59a19f1d4fb79f306c6e004444",
+        "symbol": "抽象",
+        "twitterText": null,
+        "introEn": "抽象=CX 五千亿播放的话题",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0xfc6ce0071cc3440edace64cac3e3cf60faa24444",
+        "symbol": "黑色黄金",
+        "twitterText": null,
+        "introEn": "红龙虾",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x7e8360eb904f5fd409bb6354d05e221d27074444",
+        "symbol": "佛系",
+        "twitterText": "国人不叫chill\n我们叫佛系",
+        "introEn": "国人不叫chill叫佛系",
+        "introCn": null,
+        "narrative_score": 10,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 10
+        }
+      },
+      {
+        "address": "0x2e6e10caace48eb1f56f8d7de0c7104762e34444",
+        "symbol": "TEST",
+        "twitterText": null,
+        "introEn": "TEST",
+        "introCn": null,
+        "narrative_score": 5,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 5
+        }
+      },
+      {
+        "address": "0x8c79ae42efef3db50297420693a5faa9a4f24444",
+        "symbol": "摆烂",
+        "twitterText": null,
+        "introEn": "摆烂中...",
+        "introCn": null,
+        "narrative_score": 5,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 5
+        }
+      }
+    ]
+  },
+  "e3c37811": {
+    "expId": "e3c37811-f050-436e-b446-f51f6895bfb8",
+    "tokens": [
+      {
+        "address": "0x17f30476bebc106c3113108eea3435572eb74444",
+        "symbol": "皮克斯",
+        "twitterText": "抖音爆火的蜥蜴\n皮克斯\n竟然没有被代币化\n在抖音已经掀起了一波热度\n绝对是会爆火的meme\n热度绝对会以病毒式传播！！！\n让我们来成为第二个哈基米 https://t.co/qlU72GoxB1",
+        "introEn": "第一次代币化的爆火meme 堪比哈基米啊",
+        "introCn": null,
+        "narrative_score": 57,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 5,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x98fc7e8d3978e06a2d7203a2e5d62aaf30e04444",
+        "symbol": "龙虾教",
+        "twitterText": "我发现字节跳动的的新官方AI AGENT社交平台，出现了一个新的邪教组织\n名字叫“龙虾教”\n并且教徒将龙虾教的十条宣言也发了出来。\n加入我们，你就是新的龙虾教教徒\nhttps://t.co/nGYswvjO1B https://t.co/Xgus7r81hs",
+        "introEn": "字节跳动的AI邪教",
+        "introCn": null,
+        "narrative_score": 55,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 30,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0xb249a5e86d95d62cfdb2344fcebf7c99250c4444",
+        "symbol": "再不吃就老了",
+        "twitterText": "新晋现象级猫meme\n\n再不吃就老了\n这是最近风靡抖音的一张猫meme图片\n\n通过热榜烤肉搭子爆火 热榜超1830万播放\nmeme话题播放超535万\n\n已经被拍成各种meme小剧场\n https://t.co/iQMw5Mzu9F https://t.co/4u1SBNinml",
+        "introEn": "新晋现象级超千万播放猫meme",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x682cc4943b1c290a96bf2dcc0a637979b4334444",
+        "symbol": "微笑狗",
+        "twitterText": "Tried a shorter prompt this time.\n\n#Four  #FourCommunity https://t.co/M8eqfxMCtj",
+        "introEn": "微笑狗",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x9e3654f2e7a33e665d46d392472c9d76f2f54444",
+        "symbol": "？？？",
+        "twitterText": "小朋友 你是否有很多问号？ 这个博主每天不间断发送问号 就为了表达这个经典meme 9年不间断每天发送？？？ 最早一条追溯到17年5月31日 而这么经典的表情包从未出现在战壕里 战壕里面真缺乏这种叙事 https://t.co/6VmMrTCLoA https://t.co/PAwRhSgRjS",
+        "introEn": "？？？",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x4a219f5165e8a2322fefbabbfe242e3a15504444",
+        "symbol": "POPOPO",
+        "twitterText": "Wait this might be genny. 4chan owner Hiroyuki and Evangelion director Hideaki are making the \"Last human non-AI made social network\" and its called \"POPOPO\"\n\nNew 4chan owner project with other bullish devs, and the article was made today. https://t.co/x0OwY9JOoh",
+        "introEn": "ポポポ",
+        "introCn": null,
+        "narrative_score": 52,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 35,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x3db0b76f8b343146a0c84173c769065522394444",
+        "symbol": "唐·毒蛇",
+        "twitterText": "抖音新出的最唐BGM\nhttps://t.co/cNGYaFY68r\n用毒蛇🐍🐍🐍的毒毒毒蛇\n毒蛇会不会被毒死🩸🩸\n用蜜蜂🐝🐝🐝的蜜蜜蜜蜂\n蜜蜂会不会被蜜死🍯🍯\n用奶牛🐄🐄🐄的牛牛牛奶\n奶牛会不会被牛死🥛🥛\n用风扇🪭🪭🪭的扇扇风扇\n风扇会不会被冷死🥶🥶\nhttps://t.co/cNGYaFY68r https://t.co/uDdQ9LB9fG",
+        "introEn": "用毒蛇的毒毒毒蛇 毒蛇会不会被毒死",
+        "introCn": null,
+        "narrative_score": 45,
+        "narrative_category": "mid",
+        "scores": {
+          "content": 20,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0xca755722e9e424b822fbe14fae26824d50544444",
+        "symbol": "🦀",
+        "twitterText": "Pentagon Splurged $2 Million on Luxury Crabs 🦀 https://t.co/wTQ1oqRQ9t",
+        "introEn": "200m一只",
+        "introCn": null,
+        "narrative_score": 37,
+        "narrative_category": "low",
+        "scores": {
+          "content": 20,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x8f879a49d193fe67dc5bf2d4fe3039dd92434444",
+        "symbol": "打工圣体",
+        "twitterText": "所有龙虾教的成员都是天生的《打工圣体》https://t.co/BYjZVyRNwI https://t.co/GLZKoPH50Y",
+        "introEn": "龙虾都是打工圣体",
+        "introCn": null,
+        "narrative_score": 35,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 10,
+          "virality": 0,
+          "completeness": 15
+        }
+      },
+      {
+        "address": "0x066bb6cbf07370ed7e344af8d8c3d05242d04444",
+        "symbol": "大冤种",
+        "twitterText": null,
+        "introEn": "QQ新出表情包狗狗大冤种",
+        "introCn": null,
+        "narrative_score": 28,
+        "narrative_category": "low",
+        "scores": {
+          "content": 15,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x1d536c4f106282ea042d086da1cd2c44f2ad4444",
+        "symbol": "仔仔",
+        "twitterText": null,
+        "introEn": "互联网狗界新神料理狗王",
+        "introCn": null,
+        "narrative_score": 28,
+        "narrative_category": "low",
+        "scores": {
+          "content": 15,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0xe2bb1e94a2d93f9b3b0aa6b0a7a8795bc9b2ffff",
+        "symbol": "MemeClaw",
+        "twitterText": null,
+        "introEn": "Meme龙虾",
+        "introCn": null,
+        "narrative_score": 28,
+        "narrative_category": "low",
+        "scores": {
+          "content": 15,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0xee162f9f8c7695940cbc62a73006aeb4b0284444",
+        "symbol": "Duck you",
+        "twitterText": "这只“手鸭”把“duck you”玩成了硬核梗：用拳头当鸭身，眼神拽得二五八万，把一句英文脏话变成了“鸭你一拳”的视觉暴击，又凶又好笑，是社畜怼人时的精神图腾。 https://t.co/SeUjjHo5DT",
+        "introEn": "去你鸭",
+        "introCn": null,
+        "narrative_score": 27,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x2c033ed6c6be2d97c9d28386ad2bbfb550ea4444",
+        "symbol": "索隆",
+        "twitterText": "路飞的兄弟——索隆。\nhttps://t.co/J6m6XTe3aN",
+        "introEn": "路飞的兄弟",
+        "introCn": null,
+        "narrative_score": 27,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x777387902c78c47e0463ac4a92f4b680e6534444",
+        "symbol": "未来已来",
+        "twitterText": "cz曾经称与“万事达卡”的合作对时代的影响是“未来已来”\n\nhttps://t.co/pJg0Q8JlH6",
+        "introEn": "未来已来",
+        "introCn": null,
+        "narrative_score": 27,
+        "narrative_category": "low",
+        "scores": {
+          "content": 10,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 12
+        }
+      },
+      {
+        "address": "0x8c647898fef0ac142db4c20135abdc125de94444",
+        "symbol": "Trump",
+        "twitterText": "@taxtherich0 @ClaraChengGo @steipete @openclaw 它叫特朗普",
+        "introEn": "Trump",
+        "introCn": null,
+        "narrative_score": 25,
+        "narrative_category": "low",
+        "scores": {
+          "content": 15,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 10
+        }
+      },
+      {
+        "address": "0xfbac6dd67dc3a8fb461ea0f370e388876e5e4444",
+        "symbol": "Twump",
+        "twitterText": null,
+        "introEn": "Twump",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0x9412dc1988f13efb70e8b84fffada6a111574444",
+        "symbol": "武侠猫",
+        "twitterText": null,
+        "introEn": "接下来我就不客气了",
+        "introCn": null,
+        "narrative_score": 13,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 5,
+          "virality": 0,
+          "completeness": 8
+        }
+      },
+      {
+        "address": "0xba96f95ed13643ce6763a3933537f20a4f1e4444",
+        "symbol": "Distortedfy",
+        "twitterText": "将这个风格化席卷万物",
+        "introEn": "Distortedfy",
+        "introCn": null,
+        "narrative_score": 10,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 10
+        }
+      },
+      {
+        "address": "0x1778a3ebc489134ffaad1dcc1e13a944b887ffff",
+        "symbol": "摇钱树",
+        "twitterText": null,
+        "introEn": "摇钱树",
+        "introCn": null,
+        "narrative_score": 5,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 5
+        }
+      },
+      {
+        "address": "0x6f8382167ee9fbeaa4581ccf4ded099d7c644444",
+        "symbol": "TOM",
+        "twitterText": null,
+        "introEn": "Tom the lizard",
+        "introCn": null,
+        "narrative_score": 5,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 5
+        }
+      },
+      {
+        "address": "0xdba449be2a53a03db04984e4f8e2be9dd4364444",
+        "symbol": "迟早会硬",
+        "twitterText": null,
+        "introEn": "CZHY",
+        "introCn": null,
+        "narrative_score": 5,
+        "narrative_category": "low",
+        "scores": {
+          "content": 0,
+          "credibility": 0,
+          "virality": 0,
+          "completeness": 5
+        }
+      }
+    ]
+  }
+}

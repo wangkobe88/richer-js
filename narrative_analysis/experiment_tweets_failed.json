@@ -1,0 +1,114 @@
+[
+  {
+    "address": "0xa0f2e7fc936b1163a26d8d3c86d971a7e0834444",
+    "symbol": "MOONDOGE",
+    "twitterUrl": "https://x.com/jiujinshan2026/status/2032492535529234577?s=20",
+    "tweetId": "2032492535529234577",
+    "reason": "推文详情获取失败"
+  },
+  {
+    "address": "0x444433123b4bc5fd7dc39850553ea643a9a1f438",
+    "symbol": "MOONDOGE",
+    "twitterUrl": "https://x.com/jiujinshan2026/status/2032492535529234577?s=20",
+    "tweetId": "2032492535529234577",
+    "reason": "推文详情获取失败"
+  },
+  {
+    "address": "0x4444af7cfec9914ebb197a7c8eaeffbf8a984bb5",
+    "symbol": "MOONDOGECOIN",
+    "twitterUrl": "https://x.com/MOOND0GECOIN",
+    "reason": "无法提取推文ID"
+  },
+  {
+    "address": "0x7a46660f15a7e286f0801cbc7febc02a18e54444",
+    "symbol": "傻币",
+    "twitterUrl": "https://x.com/nillburt/status/2032610503382446457?s=20",
+    "tweetId": "2032610503382446457",
+    "reason": "推文详情获取失败"
+  },
+  {
+    "address": "0x938f9a0e6e5e80e0a64aabb64704900ca4c64444",
+    "symbol": "30000",
+    "twitterUrl": "https://x.com/PEACEPETITION4/status/2032626075466084581",
+    "tweetId": "2032626075466084581",
+    "reason": "推文详情获取失败"
+  },
+  {
+    "address": "0x26c63760da93f8b974cc055491012be5bdd44444",
+    "symbol": "QQ",
+    "twitterUrl": "https://x.com/hajimi_CTO_BNB",
+    "reason": "无法提取推文ID"
+  },
+  {
+    "address": "0x94822f5d38d08922dbb85759f315306c56be4444",
+    "symbol": "π",
+    "twitterUrl": "https://x.com/i/communities/2032693425469067565",
+    "reason": "无法提取推文ID"
+  },
+  {
+    "address": "0x1be79e8aaaa99e3c96f96063d446c6df5dc9ffff",
+    "symbol": "自由黄金",
+    "twitterUrl": "https://x.com/FreedomofGold",
+    "reason": "无法提取推文ID"
+  },
+  {
+    "address": "0x2e585d709331f08ef9af3d20ae07c9c606234444",
+    "symbol": "Doers",
+    "twitterUrl": "https://x.com/i/status/2032299185819828322",
+    "tweetId": "2032299185819828322",
+    "reason": "推文详情获取失败"
+  },
+  {
+    "address": "0xf662f64e40dabb2fbad0c709d3208750f0b84444",
+    "symbol": "猿神",
+    "twitterUrl": "https://x.com/n14952v5/status/2032728053584130114?s=46",
+    "tweetId": "2032728053584130114",
+    "reason": "推文详情获取失败"
+  },
+  {
+    "address": "0xc14c6045d3bfd296b9c89c0d91fd7c5bd98e4444",
+    "symbol": "人前显圣",
+    "twitterUrl": "https://x.com/i/communities/2032779203335102479",
+    "reason": "无法提取推文ID"
+  },
+  {
+    "address": "0xa4b59951ebdbf9588ecf69f696f32d1365da4444",
+    "symbol": "老虎",
+    "twitterUrl": "https://x.com/PEACEPETITION4/status/2032293379699359926",
+    "tweetId": "2032293379699359926",
+    "reason": "推文详情获取失败"
+  },
+  {
+    "address": "0xa4af696aa4643f59a19f1d4fb79f306c6e004444",
+    "symbol": "抽象",
+    "twitterUrl": "https://x.com/i/communities/2032364885389251056",
+    "reason": "无法提取推文ID"
+  },
+  {
+    "address": "0x066bb6cbf07370ed7e344af8d8c3d05242d04444",
+    "symbol": "大冤种",
+    "twitterUrl": "https://x.com/PEACEPETITION4/status/2031929955899380178",
+    "tweetId": "2031929955899380178",
+    "reason": "推文详情获取失败"
+  },
+  {
+    "address": "0x1778a3ebc489134ffaad1dcc1e13a944b887ffff",
+    "symbol": "摇钱树",
+    "twitterUrl": "https://x.com/jeuxivoire/status/2031947462991364483?s=20",
+    "tweetId": "2031947462991364483",
+    "reason": "推文详情获取失败"
+  },
+  {
+    "address": "0x1d536c4f106282ea042d086da1cd2c44f2ad4444",
+    "symbol": "仔仔",
+    "twitterUrl": "https://x.com/i/communities/2031983861664780537",
+    "reason": "无法提取推文ID"
+  },
+  {
+    "address": "0xe2bb1e94a2d93f9b3b0aa6b0a7a8795bc9b2ffff",
+    "symbol": "MemeClaw",
+    "twitterUrl": "https://x.com/Crabbybot/status/2032033561021415893",
+    "tweetId": "2032033561021415893",
+    "reason": "推文详情获取失败"
+  }
+]

@@ -658,7 +658,6 @@ async function main() {
     { method: 'svd', weighting: 'net_amount', k: 16 },
     { method: 'svd', weighting: 'net_ratio', k: 16 },
     { method: 'svd', weighting: 'buy_only', k: 16 },
-    { method: 'nmf', weighting: 'net_amount', k: 16 },
   ];
 
   for (const config of configs) {
@@ -689,7 +688,7 @@ async function main() {
 
       result = { walletEmbeddings, tokenEmbeddings, wallets, tokens };
     } else {
-      const nmfResult = nmf(matrix, config.k, 100);
+      const nmfResult = nmf(matrix, config.k, 50);
 
       result = {
         walletEmbeddings: nmfResult.W,

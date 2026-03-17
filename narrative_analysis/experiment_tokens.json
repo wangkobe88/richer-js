@@ -1,0 +1,39 @@
+{
+  "70fea05f": {
+    "expId": "70fea05f-2ed5-4b82-86d2-3dcddf27ab11",
+    "totalSignals": 100,
+    "executedBuySignals": 6,
+    "tradedTokens": 5,
+    "tokenAddresses": [
+      "0xc14c6045d3bfd296b9c89c0d91fd7c5bd98e4444",
+      "0x82a59d36642650314402c72a6a9ba1364b114444",
+      "0xba76fdd6bed23057c7c11ebb34dd247b33b34444",
+      "0xa1795a0f4e65f4842ca9329dc1b62b69f0d04444",
+      "0xdd8cfbe605febc8e5fc731e8d2d71620712dffff"
+    ]
+  },
+  "7855de6d": {
+    "expId": "7855de6d-5f74-4884-a44e-3c2c2b351259",
+    "totalSignals": 100,
+    "executedBuySignals": 6,
+    "tradedTokens": 6,
+    "tokenAddresses": [
+      "0x942a28cf14a4e711882155013d696eecc22a4444",
+      "0xe3db3df131a186b1c075323848e76f5a15da4444",
+      "0x509f1dade2c64246f06f760bfe2ad0871c4c4444",
+      "0xd583de96dd227184f7abc2a33ebc6cbead044444",
+      "0x110dc457610c2354de260c171134667c77dc4444",
+      "0x47be48b1c3cc8d4d11257759e87a484051d84444"
+    ]
+  },
+  "e3c37811": {
+    "expId": "e3c37811-f050-436e-b446-f51f6895bfb8",
+    "totalSignals": 100,
+    "executedBuySignals": 2,
+    "tradedTokens": 2,
+    "tokenAddresses": [
+      "0x8c647898fef0ac142db4c20135abdc125de94444",
+      "0x777387902c78c47e0463ac4a92f4b680e6534444"
+    ]
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "experiments": {
+    "70fea05f": {
+      "expId": "70fea05f-2ed5-4b82-86d2-3dcddf27ab11",
+      "original": {
+        "totalTrades": 104,
+        "filteredTrades": 0,
+        "effectiveTrades": 104,
+        "buyCount": 26,
+        "totalSpent": 52,
+        "totalReceived": 56.24740004064799,
+        "totalPnL": 4.247400040647989,
+        "totalReturnRate": 8.168077001246132
+      },
+      "filtered": {
+        "totalTrades": 104,
+        "filteredTrades": 60,
+        "effectiveTrades": 44,
+        "buyCount": 11,
+        "totalSpent": 22,
+        "totalReceived": 23.677230821638595,
+        "totalPnL": 1.6772308216385952,
+        "totalReturnRate": 7.623776461993614
+      },
+      "diff": {
+        "returnRate": -0.544300539252518
+      }
+    },
+    "7855de6d": {
+      "expId": "7855de6d-5f74-4884-a44e-3c2c2b351259",
+      "original": {
+        "totalTrades": 70,
+        "filteredTrades": 0,
+        "effectiveTrades": 70,
+        "buyCount": 17.5,
+        "totalSpent": 35,
+        "totalReceived": 44.036885703896985,
+        "totalPnL": 9.036885703896985,
+        "totalReturnRate": 25.81967343970567
+      },
+      "filtered": {
+        "totalTrades": 70,
+        "filteredTrades": 44,
+        "effectiveTrades": 26,
+        "buyCount": 6.5,
+        "totalSpent": 13,
+        "totalReceived": 22.590344284381832,
+        "totalPnL": 9.590344284381832,
+        "totalReturnRate": 73.77187911062948
+      },
+      "diff": {
+        "returnRate": 47.95220567092382
+      }
+    },
+    "e3c37811": {
+      "expId": "e3c37811-f050-436e-b446-f51f6895bfb8",
+      "original": {
+        "totalTrades": 46,
+        "filteredTrades": 0,
+        "effectiveTrades": 46,
+        "buyCount": 11.5,
+        "totalSpent": 23,
+        "totalReceived": 24.529415695668646,
+        "totalPnL": 1.5294156956686464,
+        "totalReturnRate": 6.649633459428897
+      },
+      "filtered": {
+        "totalTrades": 46,
+        "filteredTrades": 32,
+        "effectiveTrades": 14,
+        "buyCount": 3.5,
+        "totalSpent": 7,
+        "totalReceived": 8.719005904989904,
+        "totalPnL": 1.7190059049899045,
+        "totalReturnRate": 24.55722721414149
+      },
+      "diff": {
+        "returnRate": 17.907593754712593
+      }
+    }
+  },
+  "summary": {
+    "original": {
+      "totalSpent": 110,
+      "totalReceived": 124.81370144021362,
+      "totalPnL": 14.81370144021362,
+      "expCount": 3,
+      "totalReturnRate": 13.46700130928511
+    },
+    "filtered": {
+      "totalSpent": 42,
+      "totalReceived": 54.98658101101034,
+      "totalPnL": 12.986581011010331,
+      "expCount": 3,
+      "totalReturnRate": 30.920430978596023
+    },
+    "diff": 17.453429669310914,
+    "filteredTokenCount": 56
+  }
+}

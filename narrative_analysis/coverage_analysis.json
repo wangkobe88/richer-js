@@ -1,0 +1,821 @@
+{
+  "stats": {
+    "totalTokens": 143,
+    "hasAppendix": 135,
+    "hasTwitterUrl": 128,
+    "noAppendix": 0,
+    "emptyAppendix": 8,
+    "hasOtherLinks": 7,
+    "tweetFetched": 7,
+    "tweetNotFetched": 121,
+    "noTwitterAtAll": 0
+  },
+  "details": {
+    "noAppendix": [],
+    "emptyAppendix": [
+      "TEST",
+      "我不是首富",
+      "摆烂",
+      "虾农",
+      "TOM",
+      "Noorung",
+      "迟早会硬",
+      "MOONCAT"
+    ],
+    "onlyOtherLinks": [
+      {
+        "token": "黑色黄金",
+        "links": "website"
+      },
+      {
+        "token": "Twump",
+        "links": "website, youtube"
+      },
+      {
+        "token": "CLAWSHARE",
+        "links": "website"
+      },
+      {
+        "token": "fourback",
+        "links": "website"
+      },
+      {
+        "token": "武侠猫",
+        "links": "website, tiktok"
+      },
+      {
+        "token": "凯撒",
+        "links": "website, weibo"
+      },
+      {
+        "token": "无主之币",
+        "links": "website"
+      }
+    ],
+    "hasTwitterButNoContent": [
+      {
+        "token": "社恐人",
+        "tweet_id": "2032320197957447968",
+        "url": "https://x.com/jiamixionger/status/2032320197957447968?s=46",
+        "category": "low_quality"
+      },
+      {
+        "token": "炸虾",
+        "tweet_id": "2032293808210395338",
+        "url": "https://x.com/godc99/status/2032293808210395338?s=46",
+        "category": "mid_quality"
+      },
+      {
+        "token": "老虎",
+        "tweet_id": "2032293379699359926",
+        "url": "https://x.com/PEACEPETITION4/status/2032293379699359926",
+        "category": "mid_quality"
+      },
+      {
+        "token": "Pepper",
+        "tweet_id": "2032298635711390088",
+        "url": "https://x.com/esotericpigeon/status/2032298635711390088?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "傻币",
+        "tweet_id": "2032610503382446457",
+        "url": "https://x.com/nillburt/status/2032610503382446457?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "逼逼",
+        "tweet_id": "2032331535085703409",
+        "url": "https://x.com/i/status/2032331535085703409",
+        "category": "low_quality"
+      },
+      {
+        "token": "30000",
+        "tweet_id": "2032626075466084581",
+        "url": "https://x.com/PEACEPETITION4/status/2032626075466084581",
+        "category": "mid_quality"
+      },
+      {
+        "token": "BONKRot",
+        "tweet_id": "2032633636881838510",
+        "url": "https://x.com/angle754445/status/2032633636881838510",
+        "category": "mid_quality"
+      },
+      {
+        "token": "一币安天下",
+        "tweet_id": "2032340190652744025",
+        "url": "https://x.com/ihave100names/status/2032340190652744025",
+        "category": "high_quality"
+      },
+      {
+        "token": "Fourbook",
+        "tweet_id": null,
+        "url": "https://x.com/fourmemebook",
+        "category": "fake_pump"
+      },
+      {
+        "token": "少年你的剑太重了",
+        "tweet_id": "2032349775841149241",
+        "url": "https://x.com/Bnb___guy/status/2032349775841149241",
+        "category": "mid_quality"
+      },
+      {
+        "token": "HOLD",
+        "tweet_id": null,
+        "url": "https://x.com/search?q=CZ&src=typed_query",
+        "category": "mid_quality"
+      },
+      {
+        "token": "卡穆",
+        "tweet_id": "2032651890803327427",
+        "url": "https://x.com/i/status/2032651890803327427",
+        "category": "low_quality"
+      },
+      {
+        "token": "AYM",
+        "tweet_id": "2032333956453150776",
+        "url": "https://x.com/we_love_gg_snsd/status/2032333956453150776?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "宝可梦",
+        "tweet_id": "2032643283047035324",
+        "url": "https://x.com/felix_fan/status/2032643283047035324?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "青蛙",
+        "tweet_id": "2032656214388351402",
+        "url": "https://x.com/chinh132hn/status/2032656214388351402",
+        "category": "low_quality"
+      },
+      {
+        "token": "火鸡面",
+        "tweet_id": "2032370280073768991",
+        "url": "https://x.com/CDaneliak56999/status/2032370280073768991",
+        "category": "low_quality"
+      },
+      {
+        "token": "ACT: S",
+        "tweet_id": "2032453151987732496",
+        "url": "https://x.com/0xethanwife/status/2032453151987732496",
+        "category": "low_quality"
+      },
+      {
+        "token": "TBOE",
+        "tweet_id": "2030733626833354909",
+        "url": "https://x.com/EricJorgenson/status/2030733626833354909?s=20",
+        "category": "high_quality"
+      },
+      {
+        "token": "大象",
+        "tweet_id": "2032379964226482596",
+        "url": "https://x.com/prottlegang3/status/2032379964226482596",
+        "category": "low_quality"
+      },
+      {
+        "token": "锤子",
+        "tweet_id": "2032384444816867390",
+        "url": "https://x.com/i/status/2032384444816867390",
+        "category": "mid_quality"
+      },
+      {
+        "token": "Doers",
+        "tweet_id": "2032299185819828322",
+        "url": "https://x.com/i/status/2032299185819828322",
+        "category": "fake_pump"
+      },
+      {
+        "token": "priceless",
+        "tweet_id": "2032050666676633749",
+        "url": "https://x.com/angle754445/status/2032050666676633749",
+        "category": "mid_quality"
+      },
+      {
+        "token": "NOKINGS",
+        "tweet_id": "2032384444816867390",
+        "url": "https://x.com/i/status/2032384444816867390",
+        "category": "mid_quality"
+      },
+      {
+        "token": "伞",
+        "tweet_id": "2032263910502658484",
+        "url": "https://x.com/six1xxx/status/2032263910502658484?s=20",
+        "category": "high_quality"
+      },
+      {
+        "token": "蝉",
+        "tweet_id": "2032338350095630344",
+        "url": "https://x.com/swpsd22871656/status/2032338350095630344",
+        "category": "high_quality"
+      },
+      {
+        "token": "佛系",
+        "tweet_id": "2032285429119234229",
+        "url": "https://x.com/AXopq74224/status/2032285429119234229?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "皇冠",
+        "tweet_id": "2032386096890577202",
+        "url": "https://x.com/i/status/2032386096890577202",
+        "category": "high_quality"
+      },
+      {
+        "token": "one symbol book",
+        "tweet_id": "2032393619269914760",
+        "url": "https://x.com/can4feelmyworld/status/2032393619269914760?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "父亲",
+        "tweet_id": "2032115963710103712",
+        "url": "https://x.com/Tad_2/status/2032115963710103712",
+        "category": "low_quality"
+      },
+      {
+        "token": "HODLER",
+        "tweet_id": "2032395147586011227",
+        "url": "https://x.com/derpserk_ai/status/2032395147586011227",
+        "category": "low_quality"
+      },
+      {
+        "token": "未来已来",
+        "tweet_id": "2032053759812272411",
+        "url": "https://x.com/i/status/2032053759812272411",
+        "category": "mid_quality"
+      },
+      {
+        "token": "遗憾",
+        "tweet_id": "2032765210432516107",
+        "url": "https://x.com/six1xxx/status/2032765210432516107?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "SquareSkill",
+        "tweet_id": "2031527822620242021",
+        "url": "https://x.com/BinanceAcademy/status/2031527822620242021",
+        "category": "high_quality"
+      },
+      {
+        "token": "哦买尬",
+        "tweet_id": "2031928384528478360",
+        "url": "https://x.com/king1883560/status/2031928384528478360?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "iPollo",
+        "tweet_id": "2031642649728614570",
+        "url": "https://x.com/i/status/2031642649728614570",
+        "category": "mid_quality"
+      },
+      {
+        "token": "glitches",
+        "tweet_id": "2032058309809750261",
+        "url": "https://x.com/i/status/2032058309809750261",
+        "category": "low_quality"
+      },
+      {
+        "token": "大冤种",
+        "tweet_id": "2031929955899380178",
+        "url": "https://x.com/PEACEPETITION4/status/2031929955899380178",
+        "category": "mid_quality"
+      },
+      {
+        "token": "华莱士",
+        "tweet_id": "2031648744396247346",
+        "url": "https://x.com/CDaneliak56999/status/2031648744396247346",
+        "category": "low_quality"
+      },
+      {
+        "token": "Richer",
+        "tweet_id": "2031537652437233857",
+        "url": "https://x.com/CourseyJon89682/status/2031537652437233857?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "emo鸡",
+        "tweet_id": "2031931885845430380",
+        "url": "https://x.com/Mapalubnb/status/2031931885845430380",
+        "category": "low_quality"
+      },
+      {
+        "token": "trenches",
+        "tweet_id": null,
+        "url": "https://x.com/i/communities/1945668714151706732",
+        "category": "mid_quality"
+      },
+      {
+        "token": "仔仔",
+        "tweet_id": null,
+        "url": "https://x.com/i/communities/2031983861664780537",
+        "category": "mid_quality"
+      },
+      {
+        "token": "Glitchcoin",
+        "tweet_id": "2032058309809750261",
+        "url": "https://x.com/i/status/2032058309809750261",
+        "category": "mid_quality"
+      },
+      {
+        "token": "Hairy Creature",
+        "tweet_id": "2031543843569778727",
+        "url": "https://x.com/karina030417/status/2031543843569778727",
+        "category": "mid_quality"
+      },
+      {
+        "token": "MHC",
+        "tweet_id": "2031574432356118722",
+        "url": "https://x.com/cz_binance/status/2031574432356118722",
+        "category": "mid_quality"
+      },
+      {
+        "token": "麦门",
+        "tweet_id": null,
+        "url": "https://x.com/i/communities/2031656293241688383",
+        "category": "mid_quality"
+      },
+      {
+        "token": "luna",
+        "tweet_id": "2032078813904191788",
+        "url": "https://x.com/0xAikADai/status/2032078813904191788",
+        "category": "low_quality"
+      },
+      {
+        "token": "奥德彪精神",
+        "tweet_id": "2031936206389612837",
+        "url": "https://x.com/kunkundev/status/2031936206389612837?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "耐心",
+        "tweet_id": "2032084071447478290",
+        "url": "https://x.com/cha_xun92563/status/2032084071447478290",
+        "category": "mid_quality"
+      },
+      {
+        "token": "DeskClaw",
+        "tweet_id": "2031552394480521297",
+        "url": "https://x.com/MangZhong_WEB3/status/2031552394480521297?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "AImeme",
+        "tweet_id": "2031383878061982180",
+        "url": "https://x.com/K_xiange/status/2031383878061982180?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "唐·毒蛇",
+        "tweet_id": "2031987599695569159",
+        "url": "https://x.com/aryonserwin/status/2031987599695569159",
+        "category": "high_quality"
+      },
+      {
+        "token": "何意味",
+        "tweet_id": "2031560613936378142",
+        "url": "https://x.com/in927772/status/2031560613936378142?s=46",
+        "category": "high_quality"
+      },
+      {
+        "token": "POPOPO",
+        "tweet_id": "2032035782161285176",
+        "url": "https://x.com/thedevrrrrrrr/status/2032035782161285176",
+        "category": "low_quality"
+      },
+      {
+        "token": "HARBOR",
+        "tweet_id": null,
+        "url": "https://x.com/HarborClaw",
+        "category": "low_quality"
+      },
+      {
+        "token": "5",
+        "tweet_id": "2032067518593187966",
+        "url": "https://x.com/MGGA_BSC/status/2032067518593187966",
+        "category": "low_quality"
+      },
+      {
+        "token": "龙虾港",
+        "tweet_id": null,
+        "url": "https://x.com/ClawDockNet",
+        "category": "high_quality"
+      },
+      {
+        "token": "Crypto King",
+        "tweet_id": "2032031396425060818",
+        "url": "https://x.com/OxAikADai/status/2032031396425060818",
+        "category": "low_quality"
+      },
+      {
+        "token": "富个鸟啊",
+        "tweet_id": "2031574432356118722",
+        "url": "https://x.com/i/status/2031574432356118722",
+        "category": "low_quality"
+      },
+      {
+        "token": "Epic Fury",
+        "tweet_id": "2032068749411696711",
+        "url": "https://x.com/digua1992_/status/2032068749411696711?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "我们一起学猫叫 一起喵喵喵喵喵",
+        "tweet_id": "1752339575358558261",
+        "url": "https://x.com/vitalikbuterin/status/1752339575358558261?s=46",
+        "category": "low_quality"
+      },
+      {
+        "token": "摇钱树",
+        "tweet_id": "2031947462991364483",
+        "url": "https://x.com/jeuxivoire/status/2031947462991364483?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "金羊",
+        "tweet_id": "2031998449047011814",
+        "url": "https://x.com/i/status/2031998449047011814",
+        "category": "high_quality"
+      },
+      {
+        "token": "姐们要战斗",
+        "tweet_id": "2031713054506025217",
+        "url": "https://x.com/heyibinance/status/2031713054506025217",
+        "category": "fake_pump"
+      },
+      {
+        "token": "Hermes Agent",
+        "tweet_id": "2027046011735261667",
+        "url": "https://x.com/Gorden_Sun/status/2027046011735261667?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "皮克斯",
+        "tweet_id": "2031955622028329301",
+        "url": "https://x.com/six1xxx/status/2031955622028329301?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "NERO",
+        "tweet_id": "2032073153284022426",
+        "url": "https://x.com/i/status/2032073153284022426",
+        "category": "mid_quality"
+      },
+      {
+        "token": "阿汤",
+        "tweet_id": "2031962024713077159",
+        "url": "https://x.com/Gd6731717152221/status/2031962024713077159",
+        "category": "low_quality"
+      },
+      {
+        "token": "养神",
+        "tweet_id": "2032075110715429102",
+        "url": "https://x.com/YiZHIbaozz/status/2032075110715429102?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "🦀",
+        "tweet_id": "2031967170465542355",
+        "url": "https://x.com/i/status/2031967170465542355",
+        "category": "low_quality"
+      },
+      {
+        "token": "Claude ",
+        "tweet_id": "2031692038329024781",
+        "url": "https://x.com/AISafetyMemes/status/2031692038329024781",
+        "category": "mid_quality"
+      },
+      {
+        "token": "Four.meme trenches",
+        "tweet_id": null,
+        "url": "https://x.com/i/communities/1945668714151706732",
+        "category": "low_quality"
+      },
+      {
+        "token": "WSJ",
+        "tweet_id": "1934985595509756197",
+        "url": "https://x.com/elonmusk/status/1934985595509756197",
+        "category": "high_quality"
+      },
+      {
+        "token": "Angel",
+        "tweet_id": null,
+        "url": "https://x.com/Ernesto_bcz",
+        "category": "low_quality"
+      },
+      {
+        "token": "changpeng",
+        "tweet_id": null,
+        "url": "https://x.com/changpenglive",
+        "category": "low_quality"
+      },
+      {
+        "token": "changpeng",
+        "tweet_id": null,
+        "url": "https://x.com/changpenglive",
+        "category": "mid_quality"
+      },
+      {
+        "token": "哒哒哒哒哒哒哒哒哒哒",
+        "tweet_id": "2032077827013791797",
+        "url": "https://x.com/i/status/2032077827013791797",
+        "category": "low_quality"
+      },
+      {
+        "token": "WAT",
+        "tweet_id": "2032077819782582629",
+        "url": "https://x.com/torrinworx/status/2032077819782582629",
+        "category": "low_quality"
+      },
+      {
+        "token": "Trump",
+        "tweet_id": "2032065836446539779",
+        "url": "https://x.com/i/status/2032065836446539779",
+        "category": "low_quality"
+      },
+      {
+        "token": "MAC",
+        "tweet_id": "2031710542587716059",
+        "url": "https://x.com/Elsharnoub4370/status/2031710542587716059",
+        "category": "mid_quality"
+      },
+      {
+        "token": "AHI",
+        "tweet_id": "2031984501510074580",
+        "url": "https://x.com/HubbardTra29412/status/2031984501510074580",
+        "category": "low_quality"
+      },
+      {
+        "token": "再不吃就老了",
+        "tweet_id": "2031986309049491625",
+        "url": "https://x.com/YiZHIbaozz/status/2031986309049491625?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "变形的脸",
+        "tweet_id": "2031947383177941132",
+        "url": "https://x.com/i/status/2031947383177941132",
+        "category": "low_quality"
+      },
+      {
+        "token": "吃瓜群众",
+        "tweet_id": "2031713054506025217",
+        "url": "https://x.com/heyibinance/status/2031713054506025217",
+        "category": "mid_quality"
+      },
+      {
+        "token": "Duck you",
+        "tweet_id": "2031912339264717286",
+        "url": "https://x.com/7elevEnhwuw/status/2031912339264717286?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "MaxClaw",
+        "tweet_id": "2031913644783779940",
+        "url": "https://x.com/mostjiaodu/status/2031913644783779940?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "Flash",
+        "tweet_id": null,
+        "url": "https://x.com/fourdotmemezh?s=21",
+        "category": "mid_quality"
+      },
+      {
+        "token": "龙虾",
+        "tweet_id": "2031916065307927030",
+        "url": "https://x.com/netizensolana/status/2031916065307927030",
+        "category": "low_quality"
+      },
+      {
+        "token": "Dittofy一姐",
+        "tweet_id": null,
+        "url": "https://x.com/heyibinance",
+        "category": "low_quality"
+      },
+      {
+        "token": "龙虾教",
+        "tweet_id": "2032006185399017693",
+        "url": "https://x.com/i/status/2032006185399017693",
+        "category": "mid_quality"
+      },
+      {
+        "token": "InStreet",
+        "tweet_id": "2032002882887959003",
+        "url": "https://x.com/in927772/status/2032002882887959003?s=46",
+        "category": "low_quality"
+      },
+      {
+        "token": "杨果福",
+        "tweet_id": "2031919713715196177",
+        "url": "https://x.com/wifcashback/status/2031919713715196177?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "Distortedfy",
+        "tweet_id": "2031920449777778906",
+        "url": "https://x.com/brrcot/status/2031920449777778906?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "躺赢",
+        "tweet_id": "2032280750176026750",
+        "url": "https://x.com/HuronForest/status/2032280750176026750",
+        "category": "high_quality"
+      },
+      {
+        "token": "龙虾教",
+        "tweet_id": "2032006185399017693",
+        "url": "https://x.com/i/status/2032006185399017693",
+        "category": "mid_quality"
+      },
+      {
+        "token": "打工圣体",
+        "tweet_id": "2032007749715051006",
+        "url": "https://x.com/MGGA_BSC/status/2032007749715051006",
+        "category": "low_quality"
+      },
+      {
+        "token": "Teamily AI",
+        "tweet_id": "2032009470755422315",
+        "url": "https://x.com/nikenike0827/status/2032009470755422315",
+        "category": "low_quality"
+      },
+      {
+        "token": "微笑狗",
+        "tweet_id": "2032010157425926252",
+        "url": "https://x.com/i/status/2032010157425926252",
+        "category": "high_quality"
+      },
+      {
+        "token": "der",
+        "tweet_id": "2032018854667534727",
+        "url": "https://x.com/S93curiB8dp67lv/status/2032018854667534727?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "路飞",
+        "tweet_id": "2032020706754798020",
+        "url": "https://x.com/i/status/2032020706754798020",
+        "category": "high_quality"
+      },
+      {
+        "token": "索隆",
+        "tweet_id": "2032024268255670487",
+        "url": "https://x.com/angle754445/status/2032024268255670487",
+        "category": "mid_quality"
+      },
+      {
+        "token": "MemeClaw",
+        "tweet_id": "2032033561021415893",
+        "url": "https://x.com/Crabbybot/status/2032033561021415893",
+        "category": "low_quality"
+      },
+      {
+        "token": "POPOPO",
+        "tweet_id": "2032035782161285176",
+        "url": "https://x.com/thedevrrrrrrr/status/2032035782161285176",
+        "category": "mid_quality"
+      },
+      {
+        "token": "小蓝",
+        "tweet_id": "2032037458934980684",
+        "url": "https://x.com/S93curiB8dp67lv/status/2032037458934980684?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "币盈万事安",
+        "tweet_id": "2006394918458245480",
+        "url": "https://x.com/binancezh/status/2006394918458245480",
+        "category": "low_quality"
+      },
+      {
+        "token": "0x98",
+        "tweet_id": "2032207540394623396",
+        "url": "https://x.com/fault1314/status/2032207540394623396?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "YUME",
+        "tweet_id": "2032047775911936085",
+        "url": "https://x.com/i/status/2032047775911936085",
+        "category": "low_quality"
+      },
+      {
+        "token": "币安党",
+        "tweet_id": "2032017346576203874",
+        "url": "https://x.com/i/status/2032017346576203874",
+        "category": "mid_quality"
+      },
+      {
+        "token": "1%",
+        "tweet_id": "2032355166700388763",
+        "url": "https://x.com/i/status/2032355166700388763",
+        "category": "high_quality"
+      },
+      {
+        "token": "抽象",
+        "tweet_id": null,
+        "url": "https://x.com/i/communities/2032364885389251056",
+        "category": "mid_quality"
+      },
+      {
+        "token": "MEME",
+        "tweet_id": "2032435428763332714",
+        "url": "https://x.com/0xethanwife/status/2032435428763332714",
+        "category": "low_quality"
+      },
+      {
+        "token": "Zoe",
+        "tweet_id": "2032274445260276179",
+        "url": "https://x.com/abc/status/2032274445260276179",
+        "category": "low_quality"
+      },
+      {
+        "token": "simulation",
+        "tweet_id": "2032438458199990624",
+        "url": "https://x.com/elonmusk/status/2032438458199990624",
+        "category": "low_quality"
+      },
+      {
+        "token": "relink",
+        "tweet_id": "2032438815391207484",
+        "url": "https://x.com/CDaneliak56999/status/2032438815391207484",
+        "category": "low_quality"
+      },
+      {
+        "token": "M",
+        "tweet_id": "2032160820541423953",
+        "url": "https://x.com/PavelSherepo/status/2032160820541423953",
+        "category": "mid_quality"
+      },
+      {
+        "token": "PMM",
+        "tweet_id": "2032256510617928061",
+        "url": "https://x.com/mostjiaodu/status/2032256510617928061?s=20",
+        "category": "mid_quality"
+      },
+      {
+        "token": "羊群效应",
+        "tweet_id": "2032454118900687236",
+        "url": "https://x.com/S93curiB8dp67lv/status/2032454118900687236?s=20",
+        "category": "low_quality"
+      },
+      {
+        "token": "躺͏平",
+        "tweet_id": "2032265666393186436",
+        "url": "https://x.com/MythicTalent/status/2032265666393186436",
+        "category": "high_quality"
+      },
+      {
+        "token": "MOONDOGE",
+        "tweet_id": "2032492535529234577",
+        "url": "https://x.com/jiujinshan2026/status/2032492535529234577?s=20",
+        "category": "high_quality"
+      },
+      {
+        "token": "MOONDOGECOIN",
+        "tweet_id": null,
+        "url": "https://x.com/MOOND0GECOIN",
+        "category": "mid_quality"
+      }
+    ],
+    "successfullyFetched": [
+      {
+        "token": "鹅虾",
+        "tweet_id": "2032302223842296157",
+        "category": "low_quality"
+      },
+      {
+        "token": "躺赢",
+        "tweet_id": "1925570035696734458",
+        "category": "low_quality"
+      },
+      {
+        "token": "柴柴",
+        "tweet_id": "2032303536940413391",
+        "category": "mid_quality"
+      },
+      {
+        "token": "Stolenhub",
+        "tweet_id": "2031928946464366912",
+        "category": "low_quality"
+      },
+      {
+        "token": "DogeDistorted",
+        "tweet_id": "2031808424204280180",
+        "category": "high_quality"
+      },
+      {
+        "token": "宽宽",
+        "tweet_id": "2032314618149028154",
+        "category": "low_quality"
+      },
+      {
+        "token": "生菜",
+        "tweet_id": "2032722446567223690",
+        "category": "low_quality"
+      }
+    ]
+  }
+}

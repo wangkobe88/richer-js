@@ -50,17 +50,17 @@
 <body class="bg-white text-gray-900 force-light">
     <div class="min-h-screen">
         <!-- 导航栏 -->
-        <nav class="bg-gray-100 border-b border-gray-300">
+        <nav class="bg-gray-800 border-b border-gray-700">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center">
-                        <h1 class="text-xl font-bold text-green-600">
+                        <h1 class="text-xl font-bold text-green-400">
                             <a href="/" class="hover:text-green-300 transition-colors">
                                 Richer-js Fourmeme Trading
                             </a>
                         </h1>
                         <div class="hidden md:block">
-                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-white hover:bg-gray-700 transition-colors">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
                                 实验列表
                             </a>
                             <a href="#" id="current-page" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">
@@ -102,7 +102,7 @@
             <!-- 实验详情内容 -->
             <div id="experiment-content" class="hidden">
                 <!-- 实验头部信息 -->
-                <div class="bg-gray-100 rounded-lg p-6 mb-8 border border-gray-300">
+                <div class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
                     <div class="flex items-center justify-between mb-4">
                         <div>
                             <h1 class="text-3xl font-bold text-white mb-2" id="experiment-name">实验名称</h1>
@@ -178,7 +178,7 @@
                 <!-- 投资组合价值图表 -->
                 <div class="space-y-8 mb-8">
                     <!-- 主币余额图表 -->
-                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
                         <h2 class="text-xl font-semibold text-white mb-4">主币余额变化</h2>
                         <div class="chart-container">
                             <canvas id="native-balance-chart"></canvas>
@@ -186,7 +186,7 @@
                     </div>
 
                     <!-- 代币市值图表 -->
-                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
                         <h2 class="text-xl font-semibold text-white mb-4">代币市值变化</h2>
                         <div class="chart-container">
                             <canvas id="token-value-chart"></canvas>
@@ -194,7 +194,7 @@
                     </div>
 
                     <!-- 总价值图表 -->
-                    <div class="bg-gray-100 rounded-lg p-6 border border-gray-300">
+                    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
                         <h2 class="text-xl font-semibold text-white mb-4">总投资组合价值变化</h2>
                         <div class="chart-container">
                             <canvas id="total-value-chart"></canvas>
@@ -225,7 +225,7 @@
         </main>
     </div>
 
-    <script src="/static/js/simple-init.js?v=4.2"></script>
-    <script src="/static/js/experiment_detail.js?v=4.5"></script>
+    <script src="/static/js/simple-init.js?v=4.3"></script>
+    <script src="/static/js/experiment_detail.js?v=4.8"></script>
 </body>
 </html>
