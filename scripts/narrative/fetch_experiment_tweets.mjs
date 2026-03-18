@@ -5,7 +5,7 @@ import fs from 'fs';
  * 获取三个实验中有交易代币的推文内容
  */
 async function fetchExperimentTweets() {
-  const expTokens = JSON.parse(fs.readFileSync('narrative_analysis/experiment_tokens.json', 'utf-8'));
+  const expTokens = JSON.parse(fs.readFileSync('data/experiment_tokens.json', 'utf-8'));
 
   // 从之前的查询结果获取代币详情（包含Twitter URL）
   const tokenDetails = {
@@ -82,12 +82,12 @@ async function fetchExperimentTweets() {
 
   // 保存结果
   fs.writeFileSync(
-    'narrative_analysis/experiment_tweets_with_content.json',
+    'data/experiment_tweets_with_content.json',
     JSON.stringify(results, null, 2)
   );
 
   fs.writeFileSync(
-    'narrative_analysis/experiment_tweets_failed.json',
+    'data/experiment_tweets_failed.json',
     JSON.stringify(failed, null, 2)
   );
 

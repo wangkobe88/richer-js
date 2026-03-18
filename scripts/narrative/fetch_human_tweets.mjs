@@ -8,7 +8,7 @@ dotenv.config({ path: '../../config/.env' });
  * 从人工标注代币中获取推文内容
  */
 async function fetchHumanJudgedTweets() {
-  const humanData = JSON.parse(fs.readFileSync('narrative_analysis/human_judged_tokens.json', 'utf-8'));
+  const humanData = JSON.parse(fs.readFileSync('data/human_judged_tokens.json', 'utf-8'));
 
   console.log('=== 从人工标注代币获取推文内容 ===\n');
   console.log(`总代币数: ${humanData.length}`);
@@ -84,12 +84,12 @@ async function fetchHumanJudgedTweets() {
 
   // 保存结果
   fs.writeFileSync(
-    'narrative_analysis/human_tweets_with_content.json',
+    'data/human_tweets_with_content.json',
     JSON.stringify(results, null, 2)
   );
 
   fs.writeFileSync(
-    'narrative_analysis/human_tweets_failed.json',
+    'data/human_tweets_failed.json',
     JSON.stringify(failed, null, 2)
   );
 

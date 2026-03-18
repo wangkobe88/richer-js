@@ -5,9 +5,9 @@ import fs from 'fs';
  */
 class AnalyzeCoverage {
   constructor() {
-    this.humanData = JSON.parse(fs.readFileSync('narrative_analysis/human_judged_tokens.json', 'utf-8'));
-    this.tweetsWithContent = JSON.parse(fs.readFileSync('narrative_analysis/tweets_with_content.json', 'utf-8'));
-    this.tweetsFromAppendix = JSON.parse(fs.readFileSync('narrative_analysis/tweets_from_appendix.json', 'utf-8'));
+    this.humanData = JSON.parse(fs.readFileSync('data/human_judged_tokens.json', 'utf-8'));
+    this.tweetsWithContent = JSON.parse(fs.readFileSync('data/tweets_with_content.json', 'utf-8'));
+    this.tweetsFromAppendix = JSON.parse(fs.readFileSync('data/tweets_from_appendix.json', 'utf-8'));
 
     // 创建已获取内容的推文ID映射
     this.tweetContentMap = new Map(
@@ -169,11 +169,11 @@ class AnalyzeCoverage {
 
     // 保存详细结果
     fs.writeFileSync(
-      'narrative_analysis/coverage_analysis.json',
+      'data/coverage_analysis.json',
       JSON.stringify({ stats, details }, null, 2)
     );
 
-    console.log('\n详细分析已保存到 narrative_analysis/coverage_analysis.json');
+    console.log('\n详细分析已保存到 data/coverage_analysis.json');
   }
 }
 

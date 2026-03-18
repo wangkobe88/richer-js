@@ -145,7 +145,7 @@ class CombinedNarrativeScorer {
   }
 
   analyze() {
-    const data = JSON.parse(fs.readFileSync('../../narrative_analysis/all_narratives_combined.json', 'utf-8'));
+    const data = JSON.parse(fs.readFileSync('../data/all_narratives_combined.json', 'utf-8'));
 
     const results = {};
     const lowQualityTokens = new Set();
@@ -183,12 +183,12 @@ class CombinedNarrativeScorer {
     this.printStats(results, lowQualityTokens);
 
     fs.writeFileSync(
-      '../../narrative_analysis/combined_narrative_scores.json',
+      '../data/combined_narrative_scores.json',
       JSON.stringify(results, null, 2)
     );
 
     fs.writeFileSync(
-      '../../narrative_analysis/low_quality_tokens_combined.json',
+      '../data/low_quality_tokens_combined.json',
       JSON.stringify([...lowQualityTokens], null, 2)
     );
 

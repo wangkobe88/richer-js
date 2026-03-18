@@ -95,11 +95,11 @@ class NarrativeAnalyzerV3 {
   analyzeAll() {
     console.log('=== 使用人工标注推文数据重新分析 ===\n');
 
-    const tweets = JSON.parse(fs.readFileSync('narrative_analysis/human_tweets_with_content.json', 'utf-8'));
+    const tweets = JSON.parse(fs.readFileSync('data/human_tweets_with_content.json', 'utf-8'));
     const results = tweets.map(t => this.analyzeTweet(t));
 
     fs.writeFileSync(
-      'narrative_analysis/human_narrative_scores.json',
+      'data/human_narrative_scores.json',
       JSON.stringify(results, null, 2)
     );
 

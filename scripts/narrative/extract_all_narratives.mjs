@@ -21,7 +21,7 @@ async function extractAllNarratives() {
   const results = {};
 
   // 首先加载已有的Twitter推文数据
-  const twitterData = JSON.parse(fs.readFileSync('../../narrative_analysis/experiment_tweets_full.json', 'utf-8'));
+  const twitterData = JSON.parse(fs.readFileSync('../data/experiment_tweets_full.json', 'utf-8'));
   const twitterMap = new Map();
 
   for (const [expId, expData] of Object.entries(twitterData)) {
@@ -164,11 +164,11 @@ async function extractAllNarratives() {
 
   // 保存结果
   fs.writeFileSync(
-    '../../narrative_analysis/all_narratives_combined.json',
+    '../data/all_narratives_combined.json',
     JSON.stringify(results, null, 2)
   );
 
-  console.log('\n已保存到 narrative_analysis/all_narratives_combined.json');
+  console.log('\n已保存到 data/all_narratives_combined.json');
 
   return results;
 }

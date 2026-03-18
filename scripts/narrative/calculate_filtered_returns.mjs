@@ -130,7 +130,7 @@ async function main() {
 
   // 加载低质量代币列表
   const lowQualityTokens = new Set(
-    JSON.parse(fs.readFileSync('../../narrative_analysis/low_quality_tokens.json', 'utf-8'))
+    JSON.parse(fs.readFileSync('../data/low_quality_tokens.json', 'utf-8'))
   );
 
   console.log(`低质量叙事代币数量: ${lowQualityTokens.size}`);
@@ -249,7 +249,7 @@ async function main() {
 
   // 保存结果
   fs.writeFileSync(
-    '../../narrative_analysis/narrative_filter_returns.json',
+    '../data/narrative_filter_returns.json',
     JSON.stringify({
       experiments: results,
       summary: {
@@ -263,7 +263,7 @@ async function main() {
     }, null, 2)
   );
 
-  console.log('\n结果已保存到 narrative_analysis/narrative_filter_returns.json');
+  console.log('\n结果已保存到 data/narrative_filter_returns.json');
 }
 
 main().catch(err => {

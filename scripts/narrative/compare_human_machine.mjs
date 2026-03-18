@@ -6,8 +6,8 @@ import fs from 'fs';
 class HumanMachineComparison {
   constructor() {
     // 加载数据
-    this.humanData = JSON.parse(fs.readFileSync('narrative_analysis/human_judged_tokens.json', 'utf-8'));
-    this.machineScores = JSON.parse(fs.readFileSync('narrative_analysis/narrative_scores.json', 'utf-8'));
+    this.humanData = JSON.parse(fs.readFileSync('data/human_judged_tokens.json', 'utf-8'));
+    this.machineScores = JSON.parse(fs.readFileSync('data/narrative_scores.json', 'utf-8'));
 
     // 创建token到机器评分的映射
     this.machineMap = new Map(
@@ -110,11 +110,11 @@ class HumanMachineComparison {
     };
 
     fs.writeFileSync(
-      'narrative_analysis/human_machine_comparison.json',
+      'data/human_machine_comparison.json',
       JSON.stringify(comparisonData, null, 2)
     );
 
-    console.log('\n对比结果已保存到 narrative_analysis/human_machine_comparison.json');
+    console.log('\n对比结果已保存到 data/human_machine_comparison.json');
 
     return comparison;
   }
