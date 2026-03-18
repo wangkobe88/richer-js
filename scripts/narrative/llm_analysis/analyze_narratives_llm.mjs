@@ -25,7 +25,7 @@ const CONFIG = {
   model: process.env.LLM_MODEL || 'deepseek-ai/DeepSeek-R1',
   baseUrl: process.env.LLM_BASE_URL || 'https://api.siliconflow.cn/v1',
   maxTokens: parseInt(process.env.LLM_MAX_TOKENS) || 16000,
-  timeout: parseInt(process.env.LLM_TIMEOUT) || 300000,  // 增加到5分钟，适应DeepSeek-R1
+  timeout: parseInt(process.env.LLM_TIMEOUT) || 600000,  // 增加到10分钟，减少超时
   apiKey: process.env.API_KEY || process.env.SILICONFLOW_API_KEY,
 
   // 数据路径
