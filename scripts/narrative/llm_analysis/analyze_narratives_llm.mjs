@@ -18,6 +18,48 @@ const __dirname = path.dirname(__filename);
 // 加载环境变量
 dotenv.config({ path: path.resolve(__dirname, '../../../config/.env') });
 
+/**
+ * 加载人工标注数据（从数据库导出的文件）
+ * 按地址和symbol索引
+ */
+let humanAnnotationsByAddress = null;
+let humanAnnotationsBySymbol = null;
+
+function loadHumanAnnotationsFromDB() {
+  if (humanAnnotationsByAddress) return; // 已加载
+
+  try {
+    const dbPath = path.resolve(__dirname, '../data/human_judged_tokens_from_db.json');
+    const dbData = JSON.parse(fs.readFileSync(dbPath, 'utf-8'));
+
+    // 使用预构建的索引
+    humanAnnotationsByAddress = dbData.byAddress || {};
+    humanAnnotationsBySymbol = dbData.bySymbol || {};
+
+    console.log(`   已从数据库加载 ${dbData.total} 个代币的人工标注\n`);
+  } catch (error) {
+    console.warn('⚠️  无法加载数据库人工标注:', error.message);
+    humanAnnotationsByAddress = {};
+    humanAnnotationsBySymbol = {};
+  }
+}
+
+/**
+ * 通过地址查找人工标注
+ */
+function getHumanAnnotationByAddress(address) {
+  loadHumanAnnotationsFromDB();
+  return humanAnnotationsByAddress[address?.toLowerCase()] || null;
+}
+
+/**
+ * 通过symbol查找人工标注（可能有多个）
+ */
+function getHumanAnnotationBySymbol(symbol) {
+  loadHumanAnnotationsFromDB();
+  return humanAnnotationsBySymbol[symbol] || null;
+}
+
 // 配置
 const CONFIG = {
   // LLM配置
@@ -44,18 +86,18 @@ const CONFIG = {
 /**
  * 加载代币叙事数据（包含规则评分和完整元数据）
  */
-function loadTokenData(humanAnnotations = new Map()) {
+function loadTokenData() {
+  // 加载数据库人工标注
+  loadHumanAnnotationsFromDB();
+
   const data = JSON.parse(fs.readFileSync(CONFIG.narrativeDataPath, 'utf-8'));
   const ruleScoresData = JSON.parse(fs.readFileSync(CONFIG.ruleScoresPath, 'utf-8'));
   const tweetsData = JSON.parse(fs.readFileSync(CONFIG.tweetsDataPath, 'utf-8'));
 
-  // 构建推文数据映射 (按symbol)
+  // 构建推文数据映射 (按tweet_id精确匹配)
   const tweetsMap = new Map();
   for (const tweet of tweetsData) {
-    if (!tweetsMap.has(tweet.token)) {
-      tweetsMap.set(tweet.token, []);
-    }
-    tweetsMap.get(tweet.token).push(tweet);
+    tweetsMap.set(tweet.tweet_id, tweet);
   }
 
   // 构建规则评分映射 (按address)
@@ -93,25 +135,27 @@ function loadTokenData(humanAnnotations = new Map()) {
         }
       }
 
-      // 获取对应的推文数据
-      const tokenTweets = tweetsMap.get(t.symbol) || [];
-      const mainTweet = tokenTweets.length > 0 ? tokenTweets[0] : null;
+      // 从twitterUrl中提取tweet_id，用于精确匹配推文
+      let tweetId = null;
+      let mainTweet = null;
+      if (twitterUrl) {
+        const match = twitterUrl.match(/status\/(\d+)/);
+        if (match) {
+          tweetId = match[1];
+          // 用tweet_id精确匹配推文数据
+          mainTweet = tweetsMap.get(tweetId) || null;
+        }
+      }
 
       // 优先使用tweets_with_content.json中的text，其次使用原始数据
       const tweetText = mainTweet?.text || t.twitterText || '';
 
-      // 从twitterUrl中提取tweet_id
-      let tweetId = null;
-      if (twitterUrl) {
-        const match = twitterUrl.match(/status\/(\d+)/);
-        if (match) tweetId = match[1];
-      }
-
       // 获取规则评分
       const ruleScores = ruleScoresMap.get(t.address);
 
-      // 获取人工标注
-      const humanAnnotation = humanAnnotations.get(t.symbol);
+      // 获取人工标注（按地址匹配，优先于symbol）
+      const humanAnnotation = getHumanAnnotationByAddress(t.address) ||
+                             getHumanAnnotationBySymbol(t.symbol)?.[0] || null;
 
       tokens.push({
         expId,
@@ -189,57 +233,6 @@ function saveCache(cache) {
 }
 
 /**
- * 加载人工标注数据
- * human_judged_tokens.json 是一个数组，每个元素包含:
- * - token_symbol: 代币符号
- * - human_judges.category: 人工标注分类 (high_quality, mid_quality, low_quality, fake_pump)
- */
-function loadHumanAnnotations() {
-  try {
-    if (fs.existsSync(CONFIG.humanAnnotationPath)) {
-      const humanData = JSON.parse(fs.readFileSync(CONFIG.humanAnnotationPath, 'utf-8'));
-      const annotations = new Map();
-
-      // human_judged_tokens.json 是一个数组
-      if (Array.isArray(humanData)) {
-        for (const item of humanData) {
-          if (item.human_judges && item.human_judges.category) {
-            annotations.set(item.token_symbol, {
-              category: item.human_judges.category,
-              judgeAt: item.human_judges.judge_at,
-              note: item.human_judges.note
-            });
-          }
-        }
-      }
-
-      console.log(`   已加载 ${annotations.size} 个代币的人工标注\n`);
-
-      // 统计分布
-      const byCategory = { high_quality: 0, mid_quality: 0, low_quality: 0, fake_pump: 0 };
-      for (const ann of annotations.values()) {
-        if (ann.category && byCategory[ann.category] !== undefined) {
-          byCategory[ann.category]++;
-        }
-      }
-      console.log('   人工标注分布:');
-      console.log(`     high_quality: ${byCategory.high_quality}个`);
-      console.log(`     mid_quality: ${byCategory.mid_quality}个`);
-      console.log(`     low_quality: ${byCategory.low_quality}个`);
-      if (byCategory.fake_pump > 0) {
-        console.log(`     fake_pump: ${byCategory.fake_pump}个`);
-      }
-      console.log();
-
-      return annotations;
-    }
-  } catch (error) {
-    console.warn('⚠️  加载人工标注失败:', error.message);
-  }
-  return new Map();
-}
-
-/**
  * 使用LLM分析单个代币
  * V3: 移除预处理skip逻辑，让LLM判断内容是否可理解
  * 黑名单检查: 如果推文发布者在黑名单中，直接返回low
@@ -280,7 +273,7 @@ async function analyzeToken(llmClient, token) {
           },
           // 方法标识
           method: 'blacklist',
-          promptVersion: 'V4',
+          promptVersion: 'V4.5',
           timestamp: new Date().toISOString()
         }
       };
@@ -333,7 +326,7 @@ async function analyzeToken(llmClient, token) {
       if (categoryMatch && categoryMatch[1] === 'unrated') {
         result = {
           reasoning,
-          scores: { credibility: 0, substance: 0, virality: 0, completeness: 0 },
+          scores: { credibility: 0, virality: 0 },
           total_score: 0,
           category: 'unrated'
         };
@@ -355,13 +348,13 @@ async function analyzeToken(llmClient, token) {
 
             // 如果没有category，计算total_score和category
             if (!category || category === 'null') {
-              // V4: 计算total_score和category
-              // 分数范围: credibility(40) + substance(35) + virality(15) + completeness(10) = 100
-              const totalScore = (scores.credibility || 0) + (scores.substance || 0) +
-                                (scores.virality || 0) + (scores.completeness || 0);
-              // V4阈值: high≥75, mid≥55, low<55
-              if (totalScore >= 75) category = 'high';
-              else if (totalScore >= 55) category = 'mid';
+              // V4.5: 计算total_score和category
+              // 分数范围: credibility(50) + virality(50) = 100
+              const totalScore = (scores.credibility || 0) + (scores.virality || 0);
+              // V4.5阈值: high≥75(credibility≥35), mid≥50(credibility≥20), low<50
+              const credScore = scores.credibility || 0;
+              if (totalScore >= 75 && credScore >= 35) category = 'high';
+              else if (totalScore >= 50 && credScore >= 20) category = 'mid';
               else category = 'low';
 
               result = {
@@ -373,8 +366,7 @@ async function analyzeToken(llmClient, token) {
               console.log(`  ✅ 自动修复成功: total_score=${totalScore}, category=${category}`);
             } else {
               // LLM已经返回category（如unrated），计算total_score
-              const totalScore = (scores.credibility || 0) + (scores.substance || 0) +
-                                (scores.virality || 0) + (scores.completeness || 0);
+              const totalScore = (scores.credibility || 0) + (scores.virality || 0);
               result = {
                 reasoning,
                 scores,
@@ -395,20 +387,22 @@ async function analyzeToken(llmClient, token) {
     }
 
     // 验证结果格式
-    // unrated可以没有scores
-    if (result.category !== 'unrated' && (!result.scores || typeof result.total_score !== 'number')) {
-      throw new Error('LLM返回格式不正确');
-    }
-    if (!['high', 'mid', 'low', 'unrated'].includes(result.category)) {
+    // V4.5: unrated和low都可以没有scores（直接返回）
+    if (!result.category || !['high', 'mid', 'low', 'unrated'].includes(result.category)) {
       throw new Error('LLM返回格式不正确');
     }
 
-    // 验证分数范围 (V4)
-    // unrated没有scores，跳过验证
-    if (result.category !== 'unrated' && result.scores) {
+    // high和mid必须有scores，low和unrated可以没有
+    if (['high', 'mid'].includes(result.category)) {
+      if (!result.scores || typeof result.total_score !== 'number') {
+        throw new Error('LLM返回格式不正确');
+      }
+    }
+
+    // 验证分数范围 (V4.5)
+    if (result.scores) {
       const { scores } = result;
-      if (scores.credibility > 40 || scores.substance > 35 ||
-          scores.virality > 15 || scores.completeness > 10) {
+      if (scores.credibility > 50 || scores.virality > 50) {
         throw new Error('分数超出范围');
       }
     }
@@ -446,7 +440,7 @@ async function analyzeToken(llmClient, token) {
         fullPrompt: prompt,
         // 方法标识
         method: 'llm',
-        promptVersion: 'V4',
+        promptVersion: 'V4.5',
         timestamp: new Date().toISOString()
       }
     };
@@ -713,9 +707,7 @@ async function main() {
 
     // 加载数据
     console.log('📂 加载代币数据...');
-    console.log('📂 加载人工标注...');
-    const humanAnnotations = loadHumanAnnotations();
-    let tokens = loadTokenData(humanAnnotations);
+    let tokens = loadTokenData();
     console.log(`   已加载 ${tokens.length} 个代币\n`);
 
     // 测试模式：限制处理数量
@@ -754,7 +746,7 @@ async function main() {
     const analysisLog = {
       timestamp: new Date().toISOString(),
       model: CONFIG.model,
-      promptVersion: 'V4',
+      promptVersion: 'V4.5',
       totalTokens: tokens.length,
       config: {
         baseUrl: CONFIG.baseUrl,
@@ -797,7 +789,7 @@ async function main() {
     const promptLog = {
       timestamp: new Date().toISOString(),
       model: CONFIG.model,
-      promptVersion: 'V4',
+      promptVersion: 'V4.5',
       prompts: analysisResults
         .filter(r => !r.cached && r.result)
         .map(r => ({

@@ -14,6 +14,16 @@ export const TWITTER_USER_BLACKLIST = [
     screenName: 'Cortaviousloma1',
     reason: '发布低质量/垃圾内容',
     addedAt: '2026-03-18'
+  },
+  {
+    screenName: 'heyi1f',
+    reason: '发布低质量/垃圾内容',
+    addedAt: '2026-03-19'
+  },
+  {
+    screenName: 'can4feelmyworld',
+    reason: '发布低质量/垃圾内容',
+    addedAt: '2026-03-19'
   }
 ];
 

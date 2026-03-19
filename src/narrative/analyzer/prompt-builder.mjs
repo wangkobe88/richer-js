@@ -1,136 +1,33 @@
 /**
- * LLM叙事分析Prompt模板 - V4.6
- *
- * V3 问题：
- * - LLM过度评分，混淆"内容质量"与"代币叙事质量"
- * - 谐音梗、热搜搬运、伪关联被判定为high
- * - 可信度权重不足，声称"官方"但无验证的得高分
- *
- * V4.1-V4.3 改进点：
- * - 明确社交媒体热点属于媒体/热点相关叙事
- * - 明确加密社区文化评分
- * - 同名人物/事物即视为代币实质
- * - 删除"完整性"维度，传播力从15分→25分
- *
- * V4.4 改进点：
- * - **叙事背景按"影响力层级"评分**，而非叙事类型
- * - **加密相关事件有优势**（同一层级比一般事件高5分）
- *
- * V4.5 改进点（重大架构调整）：
- * - **简化为两个维度各50分**：叙事背景 + 传播力
- * - **删除"代币实质"维度**（同名=实质已融入判断逻辑）
- * - 叙事背景(50分)：影响力层级（币安官方最高，加密相关有优势）
- * - 传播力(50分)：meme潜力+社交属性+FOMO+内容丰富度
- *
- * V4.6 改进点（情感叙事优化）：
- * - **情感共鸣也是叙事背景**：meme币的本质是传播，情感/文化/梗本身就是有价值的叙事背景
- * - **社区级情感叙事提升分数**：从10-24分→20-34分（若具备强情感共鸣）
- * - **情感溢价加分**：具备情感共鸣、社会讨论、文化认同的叙事额外加分
- * - **增加情感叙事示例**：伞、情感类符号等可评为high
- *
- * V4.7 改进点（边界情况修复）：
- * - **语言检查优先级最高**：非中英文推文直接low，即使有链接也不检查关联度
- * - **无价值内容检测**：无推文+intro无意义/通用+无效website→low
- * - **外部平台链接处理**：抖音/YouTube等外部平台链接→unrated（主体信息在外部）
- * - **口号式强关联识别**：结尾/点睛处提及代币名称算强关联（如"total russian victory"）
- *
- * V4.8 改进点（推文时效性检测）：
- * - **推文时间检查**：发布时间超过2周的推文直接low
- * - 原因：老推文通常已被用于发过多个代币，叙事价值已耗尽
- *
- * V4.9 改进点（媒体权威性检测）：
- * - **媒体命名权威性分级**：区分平台官方（抖音/微博）和普通媒体（量子位/36氪）
- * - 顶级平台官方命名：25-35分（有权威性）
- * - 普通媒体用语：0-10分（只是报道，非官方命名）
- *
- * V5.0 改进点（限定范围影响力处理）：
- * - **限定范围降权**：明确限定地点（如"深圳商场"）的影响力极低
- * - 商场广告等：0-8分（连地区级都算不上）
- * - 限定范围的传播力大幅降低
- * - 例如：深圳商场广告→叙事背景5分 + 传播力12分 = 17分(low)
- *
- * V5.1 改进点（外部平台链接处理）：
- * - **将website信息传递给LLM**：LLM现在能看到website链接
- * - **主体信息在外部平台→unrated**：无推文 + intro简单 + website是内容平台链接
- * - 内容平台链接：X社区(/i/communities/)、抖音视频、YouTube等
- * - 例如：website是https://x.com/i/communities/xxx → 主体信息在社区里，无法评估
- *
- * V5.2 改进点（大IP关联标准）：
- * - **区分大IP和小IP的关联标准**：世界级大IP需要强证据才能建立关联
- * - 大IP列表：美国总统、顶级名人（马斯克/特朗普等）、CZ、币安、世界级品牌
- * - 大IP需要强关联证据：本人提及、官方发布、权威媒体报道
- * - 仅有同名或简单提及（如"它叫特朗普"）视为蹭热度/伪关联，直接返回low
- * - 小IP/新概念：只需说明"这是什么"即可建立关联
- *
- * V5.3 改进点（评估步骤优化）：
- * - **提前判断推文关联度**：将"有链接但无法理解→unrated"的逻辑提前到第三步
- * - 避免LLM在判断关联度之前就错误地返回low
- * - 确保推文包含链接但未提及代币的情况正确返回unrated
- *
- * V5.4 改进点（时间判断修复）：
- * - **明确时间判断前提**：必须明确知道推文发布时间（createdAt字段有值）才能判断
- * - **如果createdAt为空/null**：跳过时间判断，不能假设推文时间
- * - **更新当前日期**：2026年3月19日
- * - 修复1%代币误判问题（实际5.4天被误判为超过2周）
- *
- * V5.5 改进点（纯链接推文处理）：
- * - **明确纯链接推文处理**：推文仅包含链接（如"https://t.co/xxx"）且未提及代币 → 直接返回unrated
- * - 避免LLM将纯链接推文误判为"推文内容仅为代币名称"
- * - 修复1%代币问题（推文只有链接，应该给unrated而不是low）
- *
- * V5.6 改进点（推文/介绍明确区分）：
- * - **明确标注推文和介绍**：【推文】vs【介绍英文】vs【介绍中文】
- * - **优先级调整**：纯链接推文→直接unrated，不再检查其他条件
- * - **添加纯链接推文示例**：1%代币示例
- *
- * V5.7 改进点（完全无信息处理）：
- * - **完全无信息→unrated**：无推文 + intro只是名字/简单描述 + 无website
- * - 添加TOM token示例：intro只是"Tom the lizard"，没有说明这是什么、有什么价值
- * - 这种情况无法评估叙事质量，直接返回unrated
- *
- * V5.8 改进点（大IP关联标准优化）：
- * - **区分"大IP官方背书"vs"基于大IP相关事件的叙事"**
- * - 大IP官方背书代币：需要本人提及、官方发布等强证据
- * - 基于大IP相关事件的代币：只需要有人声称/报道了这个事件即可
- * - 例如：作家声称获得Elon许可出版书 → 这是真实事件叙事，不需要Elon认可这个代币
- * - 添加TBOE token示例：《The Book of Elvis》，作家推文说获得Elon许可出版，应评为高质量
- *
- * V5.9 改进点（泛泛情感概念蹭热点修复）：
- * - **区分"有价值的情感叙事"vs"泛泛的情感概念"**
- * - 泛泛情感概念：只是借用一个常见词/抽象概念，没有具体事件/独特性支撑 → low
- * - 例如："遗憾"、"佛系"、"躺平"、"社恐"等常见词，没有独特故事或事件 → low
- * - 有价值的情感叙事：有具体的故事/文化符号/社区共识支撑（如"伞"的避雨情感）
- * - **加强纯谐音梗检测**：谐音+没有实质内容 → 直接low，即使有情感包装
- * - 例如："Duck you=鸭你一拳"、"生菜=生财" → 纯谐音梗，low
- * - **蹭热搜检测**：只是提到"XX上热搜/爆火"，没有具体内容 → low
- * - 例如："社恐在微博热搜第一"但只是说这个词很火，没有具体事件/内容 → low
- *
- * V5.10 改进点（加密相关账号识别）：
- * - **明确加密相关账号的价值**：@cz_binance是CZ，Trust Wallet是币安旗下钱包
- * - 这些账号的推文本身就具备平台级影响力，即使不是直接发币
- * - **个人创业故事的理解**：如果代币名称是个人故事的核​​心隐喻（如"青蛙"贯穿童年到现在），应该评分
- * - 判断标准：代币名称是否在故事中反复出现、是否是故事的核心象征
+ * Prompt构建器
+ * 完整迁移自 scripts/narrative/llm_analysis/prompt-template-v4.mjs V5.10
  */
 
-/**
- * 单个代币分析Prompt
- */
-export const NARRATIVE_ANALYSIS_PROMPT_V4 = (tokenData) => {
-  const twitterText = tokenData.twitter?.text || '';
-  const introEn = tokenData.intro?.en || '';
-  const introCn = tokenData.intro?.cn || '';
-  const tweetCreatedAt = tokenData.twitter?.metadata?.createdAt || '';
-  const website = tokenData.metadata?.website || '';
+export class PromptBuilder {
 
-  // 构建输入内容（明确标注推文和介绍，避免混淆）
-  const contentParts = [];
-  if (twitterText) contentParts.push(`【推文】${twitterText}`);
-  if (introEn) contentParts.push(`【介绍英文】${introEn}`);
-  if (introCn) contentParts.push(`【介绍中文】${introCn}`);
-  if (website) contentParts.push(`【网站】${website}`);
-  const contentStr = contentParts.join('\n') || '无可用内容';
+  static getPromptVersion() {
+    return 'V5.10';
+  }
 
-  return `评估BSC链代币叙事质量。
+  /**
+   * 构建代币叙事分析Prompt（完整版）
+   */
+  static build(tokenData, twitterInfo = null) {
+    const twitterText = twitterInfo?.text || '';
+    const introEn = tokenData.intro_en || '';
+    const introCn = tokenData.intro_cn || '';
+    const tweetCreatedAt = twitterInfo?.created_at || '';
+    const website = tokenData.website || '';
+
+    // 构建输入内容（明确标注推文和介绍，避免混淆）
+    const contentParts = [];
+    if (twitterText) contentParts.push(`【推文】${twitterText}`);
+    if (introEn) contentParts.push(`【介绍英文】${introEn}`);
+    if (introCn) contentParts.push(`【介绍中文】${introCn}`);
+    if (website) contentParts.push(`【网站】${website}`);
+    const contentStr = contentParts.join('\n') || '无可用内容';
+
+    return `评估BSC链代币叙事质量。
 
 【代币】${tokenData.symbol || 'N/A'}
 ${contentStr}
@@ -147,8 +44,8 @@ ${contentStr}
 - **关键**：对于meme币，内容中提到代币同名人物/事物即视为有实质（如"COCO发贴"→COCO就是那个人），无需额外解释"代表"关系
 - 与代币名称有强关联即可
 - 评估叙事本身的质量，而非验证真假
-- **V4.6重要**：情感共鸣、社会讨论、文化认同、梗文化都是meme币的核心叙事背景，不应因"缺乏官方背书"而低估
-- **V5.2重要（大IP关联标准）**：世界级大IP（特朗普/马斯克/CZ等）需要强证据才能建立有效关联
+- 情感共鸣、社会讨论、文化认同、梗文化都是meme币的核心叙事背景，不应因"缺乏官方背书"而低估
+- **大IP关联标准**：世界级大IP（特朗普/马斯克/CZ等）需要强证据才能建立有效关联
   - **区分两种情况**：
     1. **大IP官方背书代币**：需要本人提及、官方发布、权威媒体报道等强证据
        - 例如：Elon发推说"我发了一个代币" → 需要Elon本人提及
@@ -156,7 +53,7 @@ ${contentStr}
     2. **基于大IP相关事件的代币**：只需要有人声称/报道了这个事件即可
        - 例如：作家推文说"获得Elon许可出版这本书" → 这是真实事件叙事，不需要Elon认可这个代币
        - 叙事价值在于这个事件本身，而非大IP的官方认可
-  - **V5.10重要（加密相关账号识别）**：
+  - **加密相关账号识别**：
     - **@cz_binance** = CZ（币安创始人），世界级加密人物
     - **Trust Wallet** = 币安旗下钱包，平台级影响力
     - 如果推文作者是这些项目的人，或者推文中提到这些账号/平台，应该加分
@@ -269,193 +166,174 @@ ${contentStr}
 【评分示例】
 示例1(币安官方):
 介绍:币安演示狗币MOONDOGECOIN
-→币安官方+强传播力→{credibility:35,virality:38,total:73,category:"high"}
+币安官方+强传播力→{credibility:35,virality:38,total:73,category:"high"}
 
 示例2(纯谐音梗-直接low):
 代币:生菜
 内容:支付宝热搜"生菜=生财"，顶级谐音梗
-→纯谐音梗，无传播潜力→{category:"low",reason:"纯谐音梗，无代币用途或价值主张说明"}
+纯谐音梗，无传播潜力→{category:"low",reason:"纯谐音梗，无代币用途或价值主张说明"}
 
 示例3(热搜搬运-直接low):
 代币:火鸡面
 内容:81岁爷爷误食火鸡面被辣到，微博热搜事件
-→纯热点搬运无代币意义→{category:"low",reason:"纯热搜事件搬运，未说明与代币的关联或代币价值"}
+纯热点搬运无代币意义→{category:"low",reason:"纯热搜事件搬运，未说明与代币的关联或代币价值"}
 
 示例4(伪关联-直接low):
 代币:宝可梦
 内容:个人创业故事，仅在开头提到"8岁时在宝可梦热潮期间卖青蛙"（无链接/图片）
-→纯文本关联极弱→{category:"low",reason:"代币名称只在背景中顺便提及，与内容核心主题无关"}
+纯文本关联极弱→{category:"low",reason:"代币名称只在背景中顺便提及，与内容核心主题无关"}
 
 示例4.5(CZ相关-可评分):
 代币:MWM
 内容:CZ的书籍《Money Without Masters》泄露草稿
-→CZ相关(加密重大事件)+强传播力→{credibility:35,virality:40,total:75,category:"high"}
+CZ相关(加密重大事件)+强传播力→{credibility:35,virality:40,total:75,category:"high"}
 
 示例5(有链接但无法理解-unrated):
 代币:Memrush
 内容:简短"打错了" + https://t.co/xxx链接
-→推文未提及代币或关联概念，只有链接→{category:"unrated",reason:"推文包含链接但未提及代币或任何关联概念，无法评估"}
+推文未提及代币或关联概念，只有链接→{category:"unrated",reason:"推文包含链接但未提及代币或任何关联概念，无法评估"}
 
 示例6(平台级热点-可评分):
 代币:大狗大狗
 内容:抖音爆火的"大狗"声音，已有上千万话题热度，像"doge doge"
-→平台级热点(抖音千万话题+doge相关)+强传播力→{credibility:22,virality:45,total:67,category:"mid"}
+平台级热点(抖音千万话题+doge相关)+强传播力→{credibility:22,virality:45,total:67,category:"mid"}
 
 示例6.5(社区级加密-可评分):
 代币:BONKRot
 内容:基于Solana链知名代币$bonk的嘲讽版本
-→社区级影响力(加密社区)+中等传播力→{credibility:12,virality:42,total:54,category:"mid"}
+社区级影响力(加密社区)+中等传播力→{credibility:12,virality:42,total:54,category:"mid"}
 
 示例7(币安平台级-可评分):
 代币:天使—COCO
 内容:币安Openclaw聊群的群主 天使 COCO在广场发了贴
-→平台级影响力(币安广场)+强传播力→{credibility:28,virality:47,total:75,category:"high"}
+平台级影响力(币安广场)+强传播力→{credibility:28,virality:47,total:75,category:"high"}
 
 示例8(社区级一般-可评分):
 代币:30000
 内容:"人生不过30000天"的哲学概念
-→社区级影响力(哲学概念)+中等传播力→{credibility:8,virality:45,total:53,category:"mid"}
+社区级影响力(哲学概念)+中等传播力→{credibility:8,virality:45,total:53,category:"mid"}
 
 示例9(高质量-币安官方):
 代币:某代币
 内容:币安发布的新功能代币，有明确概念和官方背景
-→币安官方+强传播力→{credibility:38,virality:50,total:88,category:"high"}
+币安官方+强传播力→{credibility:38,virality:50,total:88,category:"high"}
 
 示例10(情感叙事-可high):
 代币:伞
 内容:伞字梗，避雨情感共鸣，加密社区文化符号
-→社区级情感叙事(强情感共鸣)+强传播力→{credibility:28,virality:47,total:75,category:"high"}
+社区级情感叙事(强情感共鸣)+强传播力→{credibility:28,virality:47,total:75,category:"high"}
 
 示例11(文化梗-可high):
 代币:唐·毒蛇
 内容:创意文化梗，社区传播潜力强
-→社区级情感叙事(文化梗)+强传播力→{credibility:25,virality:50,total:75,category:"high"}
+社区级情感叙事(文化梗)+强传播力→{credibility:25,virality:50,total:75,category:"high"}
 
 示例12(泰语推文-直接low):
 代币:卡穆
 内容:สวัสดีวันเสาร์ #hippo https://t.co/xxx
-→泰语推文→{category:"low",reason:"推文为泰语，非中英文内容限制传播"}
+泰语推文→{category:"low",reason:"推文为泰语，非中英文内容限制传播"}
 
 示例13(无价值内容-直接low):
 代币:π
 介绍:Infinite Runner, website:推特搜索链接
-→无有意义内容→{category:"low",reason:"无推文，介绍为通用描述，无有效信息来源"}
+无有意义内容→{category:"low",reason:"无推文，介绍为通用描述，无有效信息来源"}
 
 示例14(抖音链接-unrated):
 代币:猿神
 介绍:信我我后期很牛逼, website:抖音链接
-→主体信息在外部平台→{category:"unrated",reason:"推文无意义，主体信息可能在抖音链接中"}
+主体信息在外部平台→{category:"unrated",reason:"推文无意义，主体信息可能在抖音链接中"}
 
 示例15(老推文-直接low):
 代币:躺赢
 内容:CZ的推文（2025年5月）
-→推文发布超过2周→{category:"low",reason:"推文发布时间过久，叙事价值已耗尽"}
+推文发布超过2周→{category:"low",reason:"推文发布时间过久，叙事价值已耗尽"}
 
 示例16(普通媒体用语-low):
 代币:鹅虾
 内容:量子位将腾讯openclaw称为"鹅虾"
-→普通媒体用语(无权威性)→{category:"low",reason:"量子位仅为科技媒体，其用语只是报道，非官方命名"}
+普通媒体用语(无权威性)→{category:"low",reason:"量子位仅为科技媒体，其用语只是报道，非官方命名"}
 
 示例16.2(平台官方命名-可high):
 代币:某代币
 内容:抖音官方将此称为年度热词
-→平台官方命名(有权威性)+强传播力→{credibility:30,virality:42,total:72,category:"high"}
+平台官方命名(有权威性)+强传播力→{credibility:30,virality:42,total:72,category:"high"}
 
 示例16.5(限定范围影响力-low):
 代币:宽宽
 内容:深圳商场里的公益广告"愿手术台上没有下一个宽宽"
-→商场广告牌(极低影响力)+传播力受限→{credibility:5,virality:12,total:17,category:"low",reason:"只是商场里的广告牌，连地区级都算不上"}
+商场广告牌(极低影响力)+传播力受限→{credibility:5,virality:12,total:17,category:"low",reason:"只是商场里的广告牌，连地区级都算不上"}
 
 示例17(普通媒体用语-low):
 代币:鹅虾
 内容:量子位将腾讯openclaw称为"鹅虾"
-→普通媒体用语(无权威性)→{category:"low",reason:"量子位仅为科技媒体，其用语只是报道，非官方命名"}
+普通媒体用语(无权威性)→{category:"low",reason:"量子位仅为科技媒体，其用语只是报道，非官方命名"}
 
 示例17.5(外部平台链接-unrated):
 代币:抽象
 介绍:抽象=CX 五千亿播放的话题, website:https://x.com/i/communities/xxx
-→主体信息在X社区→{category:"unrated",reason:"无推文，website是X社区链接，主体信息无法评估"}
+主体信息在X社区→{category:"unrated",reason:"无推文，website是X社区链接，主体信息无法评估"}
 
 示例18(口号式强关联-可评分):
 代币:russian victory
 内容:投资建议讨论...total russian victory https://t.co/xxx
-→结尾口号式提及+强传播力→{credibility:18,virality:42,total:60,category:"mid"}
+结尾口号式提及+强传播力→{credibility:18,virality:42,total:60,category:"mid"}
 
 示例19(大IP蹭热度-直接low):
 代币:Trump
 内容:它叫特朗普
-→大IP蹭热度(无强关联证据)→{category:"low",reason:"代币名称是世界级大IP(特朗普)，但推文只是简单提及'它叫特朗普'，缺乏本人提及、官方发布或权威媒体报道等强关联证据"}
+大IP蹭热度(无强关联证据)→{category:"low",reason:"代币名称是世界级大IP(特朗普)，但推文只是简单提及'它叫特朗普'，缺乏本人提及、官方发布或权威媒体报道等强关联证据"}
 
 示例20(纯链接推文-unrated):
 代币:1%
 内容:【推文】https://t.co/acZFJamLN1 【介绍英文】1%
-→推文仅为链接，未提及代币→{category:"unrated",reason:"推文内容仅为链接，未提及代币名称或关联概念，核心信息在链接中"}
+推文仅为链接，未提及代币→{category:"unrated",reason:"推文内容仅为链接，未提及代币名称或关联概念，核心信息在链接中"}
 
 示例21(有链接但无法理解-unrated):
 代币:微笑狗
 内容:Tried a shorter prompt this time. #Four #FourCommunity https://t.co/xxx
-→推文包含链接但未提及代币→{category:"unrated",reason:"推文包含链接但未提及代币名称或任何关联概念，核心信息可能在链接中"}
+推文包含链接但未提及代币→{category:"unrated",reason:"推文包含链接但未提及代币名称或任何关联概念，核心信息可能在链接中"}
 
 示例22(完全无信息-unrated):
 代币:TOM
 内容:【介绍英文】Tom the lizard
-→无推文+intro只是名字+无website→{category:"unrated",reason:"无推文，intro只是简单名字'Tom the lizard'，没有说明这是什么、有什么价值，无法评估叙事质量"}
+无推文+intro只是名字+无website→{category:"unrated",reason:"无推文，intro只是简单名字'Tom the lizard'，没有说明这是什么、有什么价值，无法评估叙事质量"}
 
 示例23(基于大IP相关事件的叙事-可high):
 代币:TBOE
 内容:【推文】How it felt to get Elon's permission to publish this book after 4 years of working on it 【介绍英文】The book of elon
-→真实事件叙事(作家声称获得Elon许可出版书)+强传播力→{credibility:32,virality:45,total:77,category:"high",reason:"基于真实事件(作家获得Elon许可出版书)，这是有价值的叙事，不需要Elon官方认可这个代币"}
+真实事件叙事(作家声称获得Elon许可出版书)+强传播力→{credibility:32,virality:45,total:77,category:"high",reason:"基于真实事件(作家获得Elon许可出版书)，这是有价值的叙事，不需要Elon官方认可这个代币"}
 
 示例24(纯谐音梗-直接low):
 代币:Duck you
 内容:Duck you的视觉暴击和硬核梗文化
-→纯谐音梗(Duck you=鸭你一拳)→{category:"low",reason:"纯谐音梗，核心只是谐音关联，即使有情感包装也没有实质内容"}
+纯谐音梗(Duck you=鸭你一拳)→{category:"low",reason:"纯谐音梗，核心只是谐音关联，即使有情感包装也没有实质内容"}
 
 示例25(泛泛情感概念-low):
 代币:遗憾
 内容:人生中的遗憾，情感共鸣
-→泛泛情感概念(只是常见词"遗憾"，没有具体故事/独特性)→{category:"low",reason:"只是借用常见词'遗憾'，没有具体的故事、文化符号或社区共识支撑"}
+泛泛情感概念(只是常见词"遗憾"，没有具体故事/独特性)→{category:"low",reason:"只是借用常见词'遗憾'，没有具体的故事、文化符号或社区共识支撑"}
 
 示例26(蹭热搜-low):
 代币:社恐人
 内容:社恐在微博热搜第一
-→蹭热搜(只是提到"上热搜"，没有具体内容/事件)→{category:"low",reason:"只是提到'社恐上热搜'，没有具体的叙事内容或事件，属于蹭热点"}
+蹭热搜(只是提到"上热搜"，没有具体内容/事件)→{category:"low",reason:"只是提到'社恐上热搜'，没有具体的叙事内容或事件，属于蹭热点"}
 
 示例27(有价值的情感叙事-可high):
 代币:伞
 内容:伞字梗，避雨情感共鸣，加密社区文化符号
-→社区级情感叙事(有具体文化符号+情感共鸣)→{credibility:28,virality:47,total:75,category:"high",reason:"有具体的文化符号'伞'和'避雨'情感，具备社区共识和传播潜力"}
+社区级情感叙事(有具体文化符号+情感共鸣)→{credibility:28,virality:47,total:75,category:"high",reason:"有具体的文化符号'伞'和'避雨'情感，具备社区共识和传播潜力"}
 
 示例28(个人创业故事-可mid):
 代币:青蛙
 内容:【推文】Trust Wallet员工个人故事，童年抓青蛙创业 → 现在做加密，My mentor @cz_binance gives me full support
-→个人创业故事(青蛙是核心隐喻)+Trust Wallet+CZ背书→{credibility:28,virality:40,total:68,category:"mid",reason:"个人创业故事，'青蛙'是核心隐喻贯穿始终，且有Trust Wallet和CZ背书，具备平台级影响力"}
+个人创业故事(青蛙是核心隐喻)+Trust Wallet+CZ背书→{credibility:28,virality:40,total:68,category:"mid",reason:"个人创业故事，'青蛙'是核心隐喻贯穿始终，且有Trust Wallet和CZ背书，具备平台级影响力"}
 
 【输出格式】
 正常评分输出（包含scores）:
 {"reasoning":"2-3句中文说明理由","scores":{"credibility":0-50,"virality":0-50},"total_score":0-100,"category":"high/mid/low"}
 
 无法理解输出（不包含scores）:
-{"category":"unrated","reasoning":"说明无法理解代币性质的原因"}`;
-};
-
-/**
- * 获取Prompt摘要（用于日志记录）
- */
-export const getPromptSummary = (tokenData) => {
-  const twitterText = tokenData.twitter?.text || '';
-  const introEn = tokenData.intro?.en || '';
-  const introCn = tokenData.intro?.cn || '';
-  const contentLength = twitterText.length + introEn.length + introCn.length;
-  return {
-    symbol: tokenData.symbol,
-    hasTwitter: twitterText.length > 0,
-    hasIntroEn: introEn.length > 0,
-    hasIntroCn: introCn.length > 0,
-    totalContentLength: contentLength,
-    twitterLength: twitterText.length,
-    introEnLength: introEn.length,
-    introCnLength: introCn.length,
-    promptVersion: 'V5.10'
-  };
-};
+{"category":"unrated","reasoning":"说明无法理解代币性质的原因"}
+`;
+  }
+}

@@ -20,6 +20,7 @@ const { BayesModelService } = require('./services/BayesModelService');
 const { TwitterService } = require('./services/TwitterService');
 const PriceRefreshService = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
+const narrativeRoutes = require('./web/routes/narrative.routes');
 
 /**
  * Web服务器类
@@ -207,6 +208,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/token_detail.html'));
     });
 
+    // 叙事分析页面（独立页面，不在实验子路由下）
+    this.app.get('/narrative-analyzer', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/narrative-analyzer.html'));
+    });
+
     // 信号早期交易数据页面
     this.app.get('/signal/:id/early-trades', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/signal_early_trades.html'));
@@ -216,6 +222,9 @@ class RicherJsWebServer {
     this.app.get('/experiment/:id', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));
     });
+
+    // ============ API路由：叙事分析 ============
+    this.app.use('/api/narrative', narrativeRoutes);
 
     // ============ API路由：实验管理 ============
 
