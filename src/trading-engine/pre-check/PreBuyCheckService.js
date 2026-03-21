@@ -321,6 +321,16 @@ const FACTOR_METADATA = {
     format: v => (v * 100).toFixed(1) + '%',
     unit: '',
     severity: 'warning'
+  },
+  // 叙事分析因子
+  narrativeRating: {
+    name: '代币叙事评级',
+    format: v => {
+      const labels = { 1: '低质量', 2: '中质量', 3: '高质量', 9: '未评级' };
+      return labels[v] || `${v}`;
+    },
+    unit: '',
+    severity: 'warning'
   }
 };
 
@@ -588,6 +598,9 @@ class PreBuyCheckService {
       buyRound: extraContext.buyRound || 1,
       lastPairReturnRate: extraContext.lastPairReturnRate ?? 0,
 
+      // 叙事分析因子
+      narrativeRating: extraContext.narrativeRating ?? 9,
+
       // 早期参与者检查结果
       ...earlyParticipantCheck,
 
@@ -673,7 +686,9 @@ class PreBuyCheckService {
         drawdownFromHighest: drawdownFromHighest ?? 0,
         // 多次交易因子（允许在条件表达式中使用）
         buyRound: extraContext.buyRound || 1,
-        lastPairReturnRate: extraContext.lastPairReturnRate ?? 0
+        lastPairReturnRate: extraContext.lastPairReturnRate ?? 0,
+        // 叙事分析因子（允许在条件表达式中使用）
+        narrativeRating: extraContext.narrativeRating ?? 9
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
@@ -696,7 +711,8 @@ class PreBuyCheckService {
           earlyTradesCountPerMin: context.earlyTradesCountPerMin,
           walletClusterSecondToFirstRatio: context.walletClusterSecondToFirstRatio,
           twitterTotalResults: context.twitterTotalResults,
-          twitterSearchDuration: context.twitterSearchDuration
+          twitterSearchDuration: context.twitterSearchDuration,
+          narrativeRating: context.narrativeRating
         }
       });
 
@@ -1311,6 +1327,8 @@ class PreBuyCheckService {
       // 多次交易因子（默认值）
       buyRound: 1,
       lastPairReturnRate: 0,
+      // 叙事分析因子（默认值）
+      narrativeRating: 9,
       ...this.earlyParticipantService.getEmptyFactorValues(),
       ...this.walletClusterService.getEmptyFactorValues(),
       // Twitter因子

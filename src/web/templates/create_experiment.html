@@ -422,6 +422,31 @@
                     </div>
                 </div>
 
+                <!-- 叙事分析配置 -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">📖 叙事分析</h2>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" name="narrative_analysis_enabled" id="na-enabled" class="w-4 h-4">
+                            <span class="text-sm font-medium text-gray-700">启用代币叙事分析</span>
+                        </label>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div class="flex items-start">
+                            <span class="text-lg mr-2">💡</span>
+                            <div class="text-sm text-blue-800">
+                                <p class="font-semibold mb-1">说明</p>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li>当代币满足触发条件时，自动进行叙事分析</li>
+                                    <li>分析结果生成"代币评级"因子：1=低质量，2=中质量，3=高质量，9=未评级</li>
+                                    <li>该因子可用于购买前检查条件中，例如：<code>narrativeRating >= 2</code></li>
+                                    <li>每个代币只分析一次，结果永久缓存（基于代币基础数据，无时效性）</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 买入策略配置 -->
                 <div class="border border-gray-200 rounded-lg p-4">
                     <div class="flex items-center justify-between mb-4">
@@ -611,7 +636,8 @@
                             <div class="mt-2 p-2 bg-gray-50 rounded text-xs">
                                 <strong>持有者检查:</strong> holderWhitelistCount, holderBlacklistCount, holdersCount, devHoldingRatio, maxHoldingRatio<br>
                                 <strong>早期参与者:</strong> earlyTradesHighValueCount, earlyTradesHighValuePerMin, earlyTradesCountPerMin, earlyTradesVolumePerMin, earlyTradesWalletsPerMin, earlyTradesTotalCount, earlyTradesVolume, earlyTradesUniqueWallets, earlyTradesDataCoverage, earlyTradesFilteredCount<br>
-                                <strong>钱包簇:</strong> walletClusterSecondToFirstRatio, walletClusterMegaRatio, walletClusterTop2Ratio, walletClusterConcentration
+                                <strong>钱包簇:</strong> walletClusterSecondToFirstRatio, walletClusterMegaRatio, walletClusterTop2Ratio, walletClusterConcentration<br>
+                                <strong>叙事分析:</strong> narrativeRating (1=低质量, 2=中质量, 3=高质量, 9=未评级)
                             </div>
                         </details>
                     </div>
@@ -819,6 +845,12 @@
                         setFieldValue('initial_bnb_cards', pm.initialAllocation.bnbCards || 4);
                         setFieldValue('initial_token_cards', pm.initialAllocation.tokenCards || 0);
                     }
+                }
+
+                // 填充叙事分析配置
+                const naEnabled = document.getElementById('na-enabled');
+                if (copyData.strategy?.narrativeAnalysis?.enabled && naEnabled) {
+                    naEnabled.checked = true;
                 }
 
                 // 填充策略配置
@@ -1417,7 +1449,11 @@
                             bnbCards: parseInt(formData.get('initial_bnb_cards')) || 4,
                             tokenCards: parseInt(formData.get('initial_token_cards')) || 0
                         }
-                    } : null
+                    } : null,
+                    // 叙事分析配置
+                    narrativeAnalysis: {
+                        enabled: document.getElementById('na-enabled')?.checked || false
+                    }
                 }
             };
 

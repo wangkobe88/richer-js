@@ -79,6 +79,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 卡牌仓位管理配置
     this._positionManagement = null;
 
+    // 叙事分析配置
+    this._narrativeAnalysisEnabled = false;
+
     // 代币追踪：记录已处理过的代币
     this._seenTokens = new Set();
 
@@ -733,6 +736,16 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       console.log(`✅ 卡牌仓位管理已启用: 总卡牌数=${this._positionManagement.totalCards || 4}, 单卡BNB=${this._positionManagement.perCardMaxBNB || 0.025}`);
     } else {
       console.log(`⚠️ 卡牌仓位管理未启用: positionManagement=${!!this._positionManagement}, enabled=${this._positionManagement?.enabled}`);
+    }
+
+    // 6.1 初始化叙事分析配置
+    const narrativeAnalysisConfig = experimentConfig.strategy?.narrativeAnalysis || experimentConfig.narrativeAnalysis || {};
+    this._narrativeAnalysisEnabled = narrativeAnalysisConfig.enabled === true;
+
+    if (this._narrativeAnalysisEnabled) {
+      console.log(`✅ 叙事分析已启用`);
+    } else {
+      console.log(`⚠️ 叙事分析未启用`);
     }
 
     // 7. 初始化时序数据服务
@@ -1530,6 +1543,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         return false;
       }
 
+      // ========== 叙事分析步骤 ==========
+      let narrativeRating = 9; // 默认未评级
+      if (this._narrativeAnalysisEnabled) {
+        narrativeRating = await this._executeNarrativeAnalysis(token.token);
+      }
+      // ========== 叙事分析步骤结束 ==========
+
       // ========== 然后进行预检查 ==========
       let preCheckPassed = true;
       let blockReason = null;
@@ -1606,6 +1626,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             }
           );
 
+          // 添加叙事评级因子
+          preBuyCheckResult.narrativeRating = narrativeRating;
+
           if (!preBuyCheckResult.canBuy) {
             this.logger.warn(this._experimentId, '_executeStrategy',
               `购买前检查失败 | symbol=${token.symbol}, holderCanBuy=${preBuyCheckResult.holderCanBuy}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
@@ -1632,6 +1655,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       } else if (!shouldPerformPreCheck) {
         this.logger.info(this._experimentId, '_executeStrategy',
           `跳过购买前检查 | symbol=${token.symbol}, round=${currentRound + 1}`);
+        // 创建空的预检查结果，但包含叙事评级
+        preBuyCheckResult = {
+          canBuy: true,
+          checkReason: '跳过购买前检查',
+          narrativeRating: narrativeRating
+        };
       }
 
       // 如果预检查失败，更新信号状态为 failed 并返回
@@ -1919,6 +1948,59 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * @param {string} creatorAddress - 创建者地址
    * @returns {Promise<boolean>} 是否为 Dev 钱包
    */
+  /**
+   * 执行代币叙事分析
+   * @private
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<number>} 叙事评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级)
+   */
+  async _executeNarrativeAnalysis(tokenAddress) {
+    const startTime = Date.now();
+
+    try {
+      this.logger.info(this._experimentId, 'NarrativeAnalysis',
+        `开始叙事分析 | address=${tokenAddress}`);
+
+      // 动态导入 NarrativeAnalyzer
+      const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
+
+      // 执行分析（自动处理缓存，无缓存则调用 LLM）
+      const result = await NarrativeAnalyzer.analyze(tokenAddress);
+
+      const duration = Date.now() - startTime;
+      const fromCache = result.meta?.fromCache ? '缓存' : 'LLM';
+      this.logger.info(this._experimentId, 'NarrativeAnalysis',
+        `分析完成 | address=${tokenAddress}, category=${result.llmAnalysis?.category}, source=${fromCache}, duration=${duration}ms`);
+
+      // 映射 category 到 rating
+      return this._mapCategoryToRating(result.llmAnalysis?.category);
+
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error(this._experimentId, 'NarrativeAnalysis',
+        `分析失败 | address=${tokenAddress}, error=${error.message}, duration=${duration}ms`);
+
+      // 出错时返回未评级
+      return 9;
+    }
+  }
+
+  /**
+   * 映射叙事类别到评级
+   * @private
+   * @param {string} category - 叙事类别 (high/mid/low/unrated)
+   * @returns {number} 评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级)
+   */
+  _mapCategoryToRating(category) {
+    const mapping = {
+      'high': 3,     // 高质量
+      'mid': 2,      // 中质量
+      'low': 1,      // 低质量
+      'unrated': 9   // 未评级
+    };
+    return mapping[category] || 9;
+  }
+
   /**
    * 构建代币信息（用于早期参与者检查）
    * @private

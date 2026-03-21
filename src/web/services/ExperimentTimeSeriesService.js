@@ -479,17 +479,36 @@ class ExperimentTimeSeriesService {
       console.log(`📊 [时序数据压缩] 共查询到 ${allTokens.length} 个代币`);
 
       // 步骤2: 统计压缩前的数据量
+      // 注意：当数据量很大时，count: 'exact' 可能超时，使用 estimated 或跳过统计
       console.log(`📊 [时序数据压缩] 步骤2: 统计压缩前数据量...`);
-      const { count: beforeCount, error: countError } = await supabase
-        .from('experiment_time_series_data')
-        .select('*', { count: 'exact', head: true })
-        .eq('experiment_id', experimentId);
+      let beforeCount = null;
+      try {
+        const { count, error: countError } = await supabase
+          .from('experiment_time_series_data')
+          .select('*', { count: 'exact', head: true })
+          .eq('experiment_id', experimentId);
 
-      if (countError) {
-        throw new Error(`统计数据量失败: ${countError.message}`);
+        if (countError) {
+          // 如果 exact 失败，尝试使用 estimated
+          console.warn(`⚠️ [时序数据压缩] exact count 失败: ${JSON.stringify(countError)}, 尝试 estimated...`);
+          const { count: estCount, error: estError } = await supabase
+            .from('experiment_time_series_data')
+            .select('*', { count: 'estimated', head: true })
+            .eq('experiment_id', experimentId);
+
+          if (estError) {
+            console.warn(`⚠️ [时序数据压缩] estimated count 也失败: ${JSON.stringify(estError)}, 跳过统计`);
+          } else {
+            beforeCount = estCount;
+            console.log(`📊 [时序数据压缩] 压缩前(estimated): ${beforeCount} 条时序数据`);
+          }
+        } else {
+          beforeCount = count;
+          console.log(`📊 [时序数据压缩] 压缩前: ${beforeCount} 条时序数据`);
+        }
+      } catch (err) {
+        console.warn(`⚠️ [时序数据压缩] 统计数据量异常: ${err.message}, 跳过统计`);
       }
-
-      console.log(`📊 [时序数据压缩] 压缩前: ${beforeCount} 条时序数据`);
 
       // 步骤3: 筛选需要删除的代币（max_change_percent < threshold）
       console.log(`📊 [时序数据压缩] 步骤3: 筛选低涨幅代币...`);
@@ -575,23 +594,47 @@ class ExperimentTimeSeriesService {
 
       // 步骤5: 统计压缩后的数据量
       console.log(`📊 [时序数据压缩] 步骤5: 统计压缩后数据量...`);
-      const { count: afterCount, error: afterCountError } = await supabase
-        .from('experiment_time_series_data')
-        .select('*', { count: 'exact', head: true })
-        .eq('experiment_id', experimentId);
+      let afterCount = null;
+      try {
+        const { count, error: afterCountError } = await supabase
+          .from('experiment_time_series_data')
+          .select('*', { count: 'exact', head: true })
+          .eq('experiment_id', experimentId);
 
-      if (afterCountError) {
-        console.warn(`⚠️ [时序数据压缩] 统计压缩后数据量失败: ${afterCountError.message}`);
+        if (afterCountError) {
+          // 如果 exact 失败，尝试使用 estimated
+          console.warn(`⚠️ [时序数据压缩] exact count 失败: ${JSON.stringify(afterCountError)}, 尝试 estimated...`);
+          const { count: estCount, error: estError } = await supabase
+            .from('experiment_time_series_data')
+            .select('*', { count: 'estimated', head: true })
+            .eq('experiment_id', experimentId);
+
+          if (estError) {
+            console.warn(`⚠️ [时序数据压缩] estimated count 也失败: ${JSON.stringify(estError)}`);
+          } else {
+            afterCount = estCount;
+            console.log(`📊 [时序数据压缩] 压缩后(estimated): ${afterCount} 条时序数据`);
+          }
+        } else {
+          afterCount = count;
+          console.log(`📊 [时序数据压缩] 压缩后: ${afterCount} 条时序数据`);
+        }
+      } catch (err) {
+        console.warn(`⚠️ [时序数据压缩] 统计数据量异常: ${err.message}`);
       }
 
       // 统计删除的代币数量
-      const deletedRecords = beforeCount - (afterCount || 0);
+      const deletedRecords = (beforeCount !== null && afterCount !== null) ? (beforeCount - afterCount) : null;
       const deletedTokenCount = tokensToDelete.length;
-      const compressionRatio = beforeCount > 0 ? ((deletedRecords / beforeCount) * 100).toFixed(1) : 0;
+      const compressionRatio = (beforeCount !== null && beforeCount > 0 && deletedRecords !== null) ? ((deletedRecords / beforeCount) * 100).toFixed(1) : null;
       const tokenCompressionRatio = allTokens.length > 0 ? ((deletedTokenCount / allTokens.length) * 100).toFixed(1) : 0;
 
       console.log(`✅ [时序数据压缩] 压缩完成!`);
-      console.log(`   时序数据: ${beforeCount} -> ${afterCount || 0} (删除 ${deletedRecords} 条, ${compressionRatio}%)`);
+      if (beforeCount !== null && afterCount !== null) {
+        console.log(`   时序数据: ${beforeCount} -> ${afterCount} (删除 ${deletedRecords} 条, ${compressionRatio}%)`);
+      } else {
+        console.log(`   时序数据: 统计失败 (数据量过大)`);
+      }
       console.log(`   代币记录: ${allTokens.length} -> ${allTokens.length - deletedTokenCount} (删除 ${deletedTokenCount} 个, ${tokenCompressionRatio}%)`);
 
       return {
@@ -605,9 +648,9 @@ class ExperimentTimeSeriesService {
           remainingTokenCount: allTokens.length - deletedTokenCount,
           skippedTokens: skippedTokens.length,
           beforeCount: beforeCount,
-          afterCount: afterCount || 0,
+          afterCount: afterCount,
           deletedRecords: deletedRecords,
-          compressionRatio: parseFloat(compressionRatio),
+          compressionRatio: compressionRatio !== null ? parseFloat(compressionRatio) : null,
           tokenCompressionRatio: parseFloat(tokenCompressionRatio),
           deletedTokens: tokensToDelete.map(t => ({
             address: t.address,
