@@ -3,7 +3,7 @@
  */
 
 import twitterValidationModule from '../../utils/twitter-validation/index.js';
-const { getTweetDetail } = twitterValidationModule;
+const { getTweetDetail, getUserByScreenName } = twitterValidationModule;
 
 export class TwitterFetcher {
 
@@ -32,6 +32,7 @@ export class TwitterFetcher {
       }
 
       return {
+        type: 'tweet',
         text: tweetData.text,
         author_name: tweetData.user?.name || tweetData.author_name || null,
         author_screen_name: tweetData.user?.screen_name || tweetData.author_screen_name || null,
@@ -50,18 +51,88 @@ export class TwitterFetcher {
   }
 
   /**
+   * 从推特账号链接获取账号信息
+   * @param {string} username - Twitter用户名（不含@）
+   * @returns {Promise<Object>} 账号信息
+   */
+  static async fetchAccountInfo(username) {
+    if (!username) {
+      return null;
+    }
+
+    try {
+      console.log(`[TwitterFetcher] 获取账号信息: @${username}`);
+
+      const userInfo = await getUserByScreenName(username);
+
+      if (!userInfo) {
+        console.warn('[TwitterFetcher] 账号信息为空');
+        return null;
+      }
+
+      return {
+        type: 'account',
+        screen_name: userInfo.screen_name || '',
+        name: userInfo.name || '',
+        description: userInfo.description || '',
+        followers_count: userInfo.followers_count || 0,
+        verified: userInfo.verified || false,
+        is_blue_verified: userInfo.is_blue_verified || false,
+        statuses_count: userInfo.statuses_count || 0,
+        created_at: userInfo.created_at || '',
+        location: userInfo.location || '',
+        url: userInfo.url || ''
+      };
+    } catch (error) {
+      console.error('[TwitterFetcher] 获取账号信息失败:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * 从多个URL尝试获取推文（备用方案）
    */
   static async fetchFromUrls(twitterUrl, websiteUrl) {
-    // 优先尝试 twitterUrl
+    // 优先尝试 twitterUrl 作为推文
     let result = await this.fetchFromUrl(twitterUrl);
     if (result) {
       return result;
     }
 
+    // 如果 twitterUrl 是账号链接，尝试获取账号信息
+    const urlType = TwitterExtractor.getTwitterUrlType(twitterUrl);
+    if (urlType === 'account') {
+      const username = TwitterExtractor.extractUsername(twitterUrl);
+      if (username) {
+        result = await this.fetchAccountInfo(username);
+        if (result) {
+          console.log(`[TwitterFetcher] 成功获取账号信息: @${username}`);
+          return result;
+        }
+      }
+    }
+
     // 如果 websiteUrl 也是推特链接，尝试获取
     if (websiteUrl && websiteUrl.includes('x.com') && websiteUrl.includes('status')) {
       result = await this.fetchFromUrl(websiteUrl);
+      if (result) {
+        return result;
+      }
+    }
+
+    // 如果 websiteUrl 是账号链接，尝试获取账号信息
+    if (websiteUrl) {
+      const websiteUrlType = TwitterExtractor.getTwitterUrlType(websiteUrl);
+      if (websiteUrlType === 'account') {
+        const username = TwitterExtractor.extractUsername(websiteUrl);
+        if (username) {
+          result = await this.fetchAccountInfo(username);
+          if (result) {
+            console.log(`[TwitterFetcher] 从 websiteUrl 成功获取账号信息: @${username}`);
+            return result;
+          }
+        }
+      }
     }
 
     return result;
@@ -89,6 +160,52 @@ export class TwitterExtractor {
       if (match) {
         return match[1];
       }
+    }
+
+    return null;
+  }
+
+  /**
+   * 从推特账号链接中提取用户名
+   * @param {string} url - 推特URL
+   * @returns {string|null} 用户名（不含@）
+   */
+  static extractUsername(url) {
+    if (!url) return null;
+
+    // 匹配 x.com/username 或 twitter.com/username 格式
+    // 排除包含 status 的推文链接
+    const patterns = [
+      /x\.com\/([\w-]+)$/,
+      /twitter\.com\/([\w-]+)$/
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && !url.includes('/status')) {
+        return match[1];
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 判断推特URL的类型
+   * @param {string} url - 推特URL
+   * @returns {string|null} 'tweet' | 'account' | null
+   */
+  static getTwitterUrlType(url) {
+    if (!url) return null;
+
+    // 推文链接：包含 status
+    if (/status\/\d+/.test(url)) {
+      return 'tweet';
+    }
+
+    // 账号链接：x.com/username 或 twitter.com/username
+    if (/^https?:\/\/(x\.com|twitter\.com)\/[\w-]+$/.test(url)) {
+      return 'account';
     }
 
     return null;

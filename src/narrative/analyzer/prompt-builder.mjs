@@ -6,22 +6,38 @@
 export class PromptBuilder {
 
   static getPromptVersion() {
-    return 'V5.10';
+    return 'V5.11';
   }
 
   /**
    * 构建代币叙事分析Prompt（完整版）
    */
   static build(tokenData, twitterInfo = null) {
-    const twitterText = twitterInfo?.text || '';
     const introEn = tokenData.intro_en || '';
     const introCn = tokenData.intro_cn || '';
-    const tweetCreatedAt = twitterInfo?.created_at || '';
     const website = tokenData.website || '';
 
-    // 构建输入内容（明确标注推文和介绍，避免混淆）
+    // 构建输入内容（明确标注推文/账号和介绍，避免混淆）
     const contentParts = [];
-    if (twitterText) contentParts.push(`【推文】${twitterText}`);
+
+    if (twitterInfo) {
+      if (twitterInfo.type === 'account') {
+        // 账号信息格式
+        const accountInfo = [];
+        accountInfo.push(`【推特账号】@${twitterInfo.screen_name} (${twitterInfo.name})`);
+        if (twitterInfo.description) {
+          accountInfo.push(`简介: ${twitterInfo.description}`);
+        }
+        accountInfo.push(`粉丝数: ${(twitterInfo.followers_count || 0).toLocaleString()}`);
+        accountInfo.push(`认证状态: ${twitterInfo.verified ? '已认证' : '未认证'}`);
+        accountInfo.push(`推文数: ${(twitterInfo.statuses_count || 0).toLocaleString()}`);
+        contentParts.push(accountInfo.join('\n'));
+      } else if (twitterInfo.text) {
+        // 推文格式（现有逻辑）
+        contentParts.push(`【推文】${twitterInfo.text}`);
+      }
+    }
+
     if (introEn) contentParts.push(`【介绍英文】${introEn}`);
     if (introCn) contentParts.push(`【介绍中文】${introCn}`);
     if (website) contentParts.push(`【网站】${website}`);
@@ -34,8 +50,10 @@ ${contentStr}
 
 【重要说明】
 - "【推文】"是推文的实际内容
+- "【推特账号】"是代币关联的推特账号信息（简介、粉丝数、认证状态等）
 - "【介绍英文/中文】"是代币的介绍文字，不是推文内容
 - 如果【推文】只是一个链接（如"https://t.co/xxx"），说明主体信息在链接中，无法评估
+- 如果只有推特账号信息而无推文，说明叙事线索主要在账号背景中
 
 【核心原则】
 评估BSC链meme代币的叙事质量。注意：
@@ -45,6 +63,14 @@ ${contentStr}
 - 与代币名称有强关联即可
 - 评估叙事本身的质量，而非验证真假
 - 情感共鸣、社会讨论、文化认同、梗文化都是meme币的核心叙事背景，不应因"缺乏官方背书"而低估
+- **区分"官方代币"和"蹭平台热度的meme币"**：
+  - 如果推文明确说明"XX平台官方发布XX代币"、"这是XX的官方代币" → 官方代币叙事
+  - 如果只是"XX平台上线了XX功能/服务/产品，代币叫XX" → 可能是蹭平台热度的meme币，影响力打折扣
+  - 判断标准：是否有明确的"官方发布"、"官方代币"表述，否则视为蹭热度
+- **平台产品更新的影响力评估**：
+  - 世界级知名平台（币安、特斯拉、Twitter、苹果等）的功能更新 → 可能是平台级影响力
+  - 一般/中小型平台的功能更新 → 影响力有限（0-8分），除非有病毒式传播证据
+  - "一个平台增加一个功能"属于产品迭代，不是重大事件，不应高估
 - **大IP关联标准**：世界级大IP（特朗普/马斯克/CZ等）需要强证据才能建立有效关联
   - **区分两种情况**：
     1. **大IP官方背书代币**：需要本人提及、官方发布、权威媒体报道等强证据
@@ -85,6 +111,10 @@ ${contentStr}
 - **如果有推文但没有链接/图片（纯文本）**：
   - 强关联（推文提到代币或关联概念）→ 继续评分
   - 关联弱（代币仅被顺便提及）→ 后续继续判断，可能返回low
+- **如果只有推特账号信息而无推文**：
+  - 需要通过账号简介、粉丝数、认证状态等来评估叙事潜力
+  - 认证账号 + 有意义的简介 + 一定粉丝数 → 可以评分
+  - 无简介或粉丝数极低 → 可能返回 low 或 unrated
 
 第四步：判断可理解性
 - 内容是否足以理解代币是什么、有什么叙事价值？
@@ -121,6 +151,13 @@ ${contentStr}
      - **情况B（基于大IP相关事件的代币）**：代币基于某个真实事件/声称，**不需要**大IP官方认可
        - 例如：作家推文说"获得Elon许可出版这本书" → 这是真实事件叙事，可以评分
        - 关键：叙事价值在于这个事件本身，而非大IP的官方背书
+6. **平台产品更新蹭热度**：内容只是某个平台上线了新功能/新服务，代币蹭这个热度
+   - **判断标准**：推文只是说"XX平台上线了XX功能/Skills/服务"，没有明确的"官方代币"表述
+   - **影响力评估**：
+     - 世界级知名平台（币安、特斯拉、Twitter等）的功能更新 → 可能有一定影响力，但需谨慎评估
+     - 一般/中小型平台（如Orbofi、普通Web3项目）的功能更新 → 影响力极低（0-8分），通常返回low
+   - **原因**："一个平台增加一个功能"是产品迭代，不是重大事件，除非有病毒式传播的证据
+   - **示例**："Orbofi上线Fourmeme Skills功能" → 只是产品更新，非知名平台，影响力有限 → low
 
 第六步：如果通过以上检查，按以下标准评分
 

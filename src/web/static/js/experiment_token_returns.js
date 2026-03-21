@@ -1411,7 +1411,17 @@ class ExperimentTokenReturns {
     const narrative = this.narrativeDataMap.get(tokenAddress);
 
     if (!narrative || !narrative.is_valid) {
-      return '<span class="text-gray-500 text-xs">-</span>';
+      // 没有数据时，显示可点击的链接去分析
+      return `
+        <div class="flex items-center justify-center">
+          <a href="/narrative-analyzer?address=${tokenAddress}"
+             target="_blank"
+             class="text-gray-500 text-xs hover:text-blue-400 transition-colors"
+             title="点击进行叙事分析">
+            点击分析
+          </a>
+        </div>
+      `;
     }
 
     // 从 llm_category 映射到评级
@@ -1432,11 +1442,13 @@ class ExperimentTokenReturns {
 
     return `
       <div class="flex items-center justify-center">
-        <span class="px-2 py-1 rounded text-xs ${ratingInfo.bgClass} ${ratingInfo.colorClass} border ${ratingInfo.borderClass}"
-              title="${summaryTitle || ratingInfo.label}"
-              style="cursor: ${hasSummary ? 'help' : 'default'}">
+        <a href="/narrative-analyzer?address=${tokenAddress}"
+           target="_blank"
+           class="px-2 py-1 rounded text-xs ${ratingInfo.bgClass} ${ratingInfo.colorClass} border ${ratingInfo.borderClass} hover:opacity-80 transition-opacity"
+           title="${summaryTitle || ratingInfo.label + '，点击查看详情'}"
+           style="cursor: pointer; text-decoration: none;">
           ${ratingInfo.emoji} ${rating}
-        </span>
+        </a>
       </div>
     `;
   }
