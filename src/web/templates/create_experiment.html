@@ -426,10 +426,16 @@
                 <div class="border border-gray-200 rounded-lg p-4">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-xl font-semibold text-gray-800">📖 叙事分析</h2>
-                        <label class="flex items-center gap-2">
-                            <input type="checkbox" name="narrative_analysis_enabled" id="na-enabled" class="w-4 h-4">
-                            <span class="text-sm font-medium text-gray-700">启用代币叙事分析</span>
-                        </label>
+                        <div class="flex items-center gap-4">
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" name="narrative_analysis_enabled" id="na-enabled" class="w-4 h-4">
+                                <span class="text-sm font-medium text-gray-700">启用代币叙事分析</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" name="narrative_analysis_reanalyze" id="na-reanalyze" class="w-4 h-4">
+                                <span class="text-sm font-medium text-gray-700">重新分析（忽略缓存）</span>
+                            </label>
+                        </div>
                     </div>
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <div class="flex items-start">
@@ -440,7 +446,8 @@
                                     <li>当代币满足触发条件时，自动进行叙事分析</li>
                                     <li>分析结果生成"代币评级"因子：1=低质量，2=中质量，3=高质量，9=未评级</li>
                                     <li>该因子可用于购买前检查条件中，例如：<code>narrativeRating >= 2</code></li>
-                                    <li>每个代币只分析一次，结果永久缓存（基于代币基础数据，无时效性）</li>
+                                    <li>默认情况下，每个代币只分析一次，结果永久缓存</li>
+                                    <li>勾选"重新分析"将强制使用 LLM 重新分析，覆盖已有缓存（较慢但数据最新）</li>
                                 </ul>
                             </div>
                         </div>
@@ -849,8 +856,12 @@
 
                 // 填充叙事分析配置
                 const naEnabled = document.getElementById('na-enabled');
+                const naReanalyze = document.getElementById('na-reanalyze');
                 if (copyData.strategy?.narrativeAnalysis?.enabled && naEnabled) {
                     naEnabled.checked = true;
+                }
+                if (copyData.strategy?.narrativeAnalysis?.reanalyze && naReanalyze) {
+                    naReanalyze.checked = true;
                 }
 
                 // 填充策略配置
@@ -1452,7 +1463,8 @@
                     } : null,
                     // 叙事分析配置
                     narrativeAnalysis: {
-                        enabled: document.getElementById('na-enabled')?.checked || false
+                        enabled: document.getElementById('na-enabled')?.checked || false,
+                        reanalyze: document.getElementById('na-reanalyze')?.checked || false
                     }
                 }
             };

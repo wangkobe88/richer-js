@@ -1426,8 +1426,9 @@ class ExperimentTokenReturns {
     const ratingInfo = NARRATIVE_RATING_MAP[rating] || NARRATIVE_RATING_MAP[9];
 
     // 检查是否有摘要
-    const hasSummary = narrative.llm_summary && narrative.llm_summary.trim() !== '';
-    const summaryTitle = hasSummary ? narrative.llm_summary.slice(0, 200) + (narrative.llm_summary.length > 200 ? '...' : '') : '';
+    const summaryStr = narrative.llm_summary && typeof narrative.llm_summary === 'string' ? narrative.llm_summary : '';
+    const hasSummary = summaryStr.trim() !== '';
+    const summaryTitle = hasSummary ? summaryStr.slice(0, 200) + (summaryStr.length > 200 ? '...' : '') : '';
 
     return `
       <div class="flex items-center justify-center">

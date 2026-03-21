@@ -81,6 +81,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     // 叙事分析配置
     this._narrativeAnalysisEnabled = false;
+    this._narrativeReanalyze = false;
 
     // 代币追踪：记录已处理过的代币
     this._seenTokens = new Set();
@@ -741,9 +742,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 6.1 初始化叙事分析配置
     const narrativeAnalysisConfig = experimentConfig.strategiesConfig?.narrativeAnalysis || experimentConfig.narrativeAnalysis || {};
     this._narrativeAnalysisEnabled = narrativeAnalysisConfig.enabled === true;
+    this._narrativeReanalyze = narrativeAnalysisConfig.reanalyze === true;
 
     if (this._narrativeAnalysisEnabled) {
-      console.log(`✅ 叙事分析已启用`);
+      console.log(`✅ 叙事分析已启用 (重新分析: ${this._narrativeReanalyze ? '是' : '否'})`);
     } else {
       console.log(`⚠️ 叙事分析未启用`);
     }
@@ -1964,8 +1966,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       // 动态导入 NarrativeAnalyzer
       const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
 
-      // 执行分析（自动处理缓存，无缓存则调用 LLM）
-      const result = await NarrativeAnalyzer.analyze(tokenAddress);
+      // 执行分析（根据配置决定是否忽略缓存）
+      const result = await NarrativeAnalyzer.analyze(tokenAddress, {
+        ignoreCache: this._narrativeReanalyze
+      });
 
       const duration = Date.now() - startTime;
       const fromCache = result.meta?.fromCache ? '缓存' : 'LLM';

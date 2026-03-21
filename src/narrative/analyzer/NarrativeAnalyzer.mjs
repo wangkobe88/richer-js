@@ -15,26 +15,33 @@ export class NarrativeAnalyzer {
 
   /**
    * 分析代币叙事（带缓存）
+   * @param {string} address - 代币地址
+   * @param {Object} options - 选项
+   * @param {boolean} options.ignoreCache - 是否忽略缓存，强制重新分析
    */
-  static async analyze(address) {
+  static async analyze(address, options = {}) {
+    const { ignoreCache = false } = options;
+
     // 标准化地址
     const normalizedAddress = address.toLowerCase();
 
-    // 1. 检查缓存
-    const cached = await NarrativeRepository.findByAddress(normalizedAddress);
-    if (cached && cached.is_valid && this.isCacheValid(cached)) {
-      return {
-        ...this.formatResult(cached),
-        meta: {
-          fromCache: true,
-          analyzedAt: cached.analyzed_at,
-          promptVersion: cached.prompt_version
-        },
-        debugInfo: {
-          promptUsed: cached.prompt_used,
-          promptVersion: cached.prompt_version
-        }
-      };
+    // 1. 检查缓存（除非要求忽略缓存）
+    if (!ignoreCache) {
+      const cached = await NarrativeRepository.findByAddress(normalizedAddress);
+      if (cached && cached.is_valid && this.isCacheValid(cached)) {
+        return {
+          ...this.formatResult(cached),
+          meta: {
+            fromCache: true,
+            analyzedAt: cached.analyzed_at,
+            promptVersion: cached.prompt_version
+          },
+          debugInfo: {
+            promptUsed: cached.prompt_used,
+            promptVersion: cached.prompt_version
+          }
+        };
+      }
     }
 
     // 2. 从数据库获取代币数据

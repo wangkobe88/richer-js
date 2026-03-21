@@ -60,6 +60,10 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // RoundSummary - 轮次总结（与虚拟盘一致）
     this._roundSummary = null;
 
+    // 叙事分析配置
+    this._narrativeAnalysisEnabled = false;
+    this._narrativeReanalyze = false;
+
     // 统计信息
     this.metrics = {
       totalTrades: 0,
@@ -967,6 +971,18 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this.logger.info('LiveTradingEngine', 'Initialize', `策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
     console.log(`✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
+    // 初始化叙事分析配置
+    const narrativeAnalysisConfig = this._experiment.config?.strategiesConfig?.narrativeAnalysis || this._experiment.config?.narrativeAnalysis || {};
+    this._narrativeAnalysisEnabled = narrativeAnalysisConfig.enabled === true;
+    this._narrativeReanalyze = narrativeAnalysisConfig.reanalyze === true;
+
+    if (this._narrativeAnalysisEnabled) {
+      this.logger.info('LiveTradingEngine', 'Initialize', `✅ 叙事分析已启用 (重新分析: ${this._narrativeReanalyze ? '是' : '否'})`);
+      console.log(`✅ 叙事分析已启用 (重新分析: ${this._narrativeReanalyze ? '是' : '否'})`);
+    } else {
+      this.logger.info('LiveTradingEngine', 'Initialize', `⚠️ 叙事分析未启用`);
+    }
+
     // 初始化时序数据服务
     const { ExperimentTimeSeriesService } = require('../../web/services/ExperimentTimeSeriesService');
     this.timeSeriesService = new ExperimentTimeSeriesService();
@@ -1846,6 +1862,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
         return failResult('保存信号失败');
       }
 
+      // ========== 叙事分析步骤 ==========
+      let narrativeRating = 9; // 默认未评级
+      if (this._narrativeAnalysisEnabled) {
+        narrativeRating = await this._executeNarrativeAnalysis(token.token);
+      }
+      // ========== 叙事分析步骤结束 ==========
+
       // ========== 然后进行预检查（与虚拟盘一致）==========
       let preCheckPassed = true;
       let blockReason = null;
@@ -1900,7 +1923,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
               drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 趋势因子：最高价回撤
               buyRound: currentRound + 1,  // 即将进行的轮数
               lastPairReturnRate: lastPairReturnRate ?? 0,
-              skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false
+              skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false,
+              narrativeRating: narrativeRating  // 叙事评级
             }
           );
 
@@ -2427,6 +2451,49 @@ class LiveTradingEngine extends AbstractTradingEngine {
     await super.stop();
 
     console.log(`🛑 实盘交易引擎已停止`);
+  }
+
+  /**
+   * 执行叙事分析（实盘模式）
+   * @private
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<number>} 叙事评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级)
+   */
+  async _executeNarrativeAnalysis(tokenAddress) {
+    const startTime = Date.now();
+    try {
+      const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
+      const result = await NarrativeAnalyzer.analyze(tokenAddress, {
+        ignoreCache: this._narrativeReanalyze
+      });
+      const fromCache = result.meta?.fromCache ? '缓存' : 'LLM';
+      const rating = this._mapCategoryToRating(result.llmAnalysis?.category);
+
+      this.logger.info(this._experimentId, '_executeNarrativeAnalysis',
+        `叙事分析完成 | token=${tokenAddress.slice(0, 10)}..., rating=${rating}, source=${fromCache}, duration=${Date.now() - startTime}ms`);
+
+      return rating;
+    } catch (error) {
+      this.logger.warn(this._experimentId, '_executeNarrativeAnalysis',
+        `叙事分析失败 | token=${tokenAddress.slice(0, 10)}..., error=${error.message}`);
+      return 9; // 错误返回未评级
+    }
+  }
+
+  /**
+   * 将叙事分析类别映射到评级
+   * @private
+   * @param {string} category - 叙事类别 (high/mid/low/unrated)
+   * @returns {number} 评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级)
+   */
+  _mapCategoryToRating(category) {
+    const mapping = {
+      'high': 3,
+      'mid': 2,
+      'low': 1,
+      'unrated': 9
+    };
+    return mapping[category] || 9;
   }
 
 

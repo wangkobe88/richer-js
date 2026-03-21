@@ -78,6 +78,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
     // 叙事分析配置
     this._narrativeAnalysisEnabled = false;
+    this._narrativeReanalyze = false;
 
     // 代币追踪
     this._seenTokens = new Set();
@@ -627,9 +628,10 @@ class BacktestEngine extends AbstractTradingEngine {
     // 3.1 初始化叙事分析配置
     const narrativeAnalysisConfig = experimentConfig.strategiesConfig?.narrativeAnalysis || experimentConfig.narrativeAnalysis || {};
     this._narrativeAnalysisEnabled = narrativeAnalysisConfig.enabled === true;
+    this._narrativeReanalyze = narrativeAnalysisConfig.reanalyze === true;
 
     if (this._narrativeAnalysisEnabled) {
-      this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 叙事分析已启用`);
+      this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 叙事分析已启用 (重新分析: ${this._narrativeReanalyze ? '是' : '否'})`);
     } else {
       this.logger.info(this._experimentId, '_initializeBacktestComponents', `⚠️ 叙事分析未启用`);
     }
@@ -1875,7 +1877,9 @@ class BacktestEngine extends AbstractTradingEngine {
     const startTime = Date.now();
     try {
       const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
-      const result = await NarrativeAnalyzer.analyze(tokenAddress);
+      const result = await NarrativeAnalyzer.analyze(tokenAddress, {
+        ignoreCache: this._narrativeReanalyze
+      });
       const fromCache = result.meta?.fromCache ? '缓存' : 'LLM';
       const rating = this._mapCategoryToRating(result.llmAnalysis?.category);
 
