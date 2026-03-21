@@ -11,6 +11,14 @@ const CATEGORY_MAP = {
   high_quality: { label: '高质量', emoji: '🚀', colorClass: 'text-green-400', bgClass: 'bg-green-900', borderClass: 'border-green-700' }
 };
 
+// 叙事评级映射
+const NARRATIVE_RATING_MAP = {
+  1: { label: '低质量', emoji: '📉', colorClass: 'text-orange-400', bgClass: 'bg-orange-900', borderClass: 'border-orange-700' },
+  2: { label: '中质量', emoji: '📊', colorClass: 'text-blue-400', bgClass: 'bg-blue-900', borderClass: 'border-blue-700' },
+  3: { label: '高质量', emoji: '🚀', colorClass: 'text-green-400', bgClass: 'bg-green-900', borderClass: 'border-green-700' },
+  9: { label: '未评级', emoji: '❓', colorClass: 'text-gray-400', bgClass: 'bg-gray-700', borderClass: 'border-gray-600' }
+};
+
 class ExperimentTokenReturns {
   constructor() {
     this.experimentId = null;
@@ -33,6 +41,8 @@ class ExperimentTokenReturns {
     this.tokenPlatformMap = new Map();
     // 最高涨幅数据
     this.tokenMaxChangeMap = new Map();
+    // 叙事分析数据
+    this.narrativeDataMap = new Map();
     // 当前编辑的代币地址
     this.currentEditingToken = null;
 
@@ -163,6 +173,9 @@ class ExperimentTokenReturns {
           });
         }
       }
+
+      // 加载叙事分析数据
+      await this.loadNarrativeData();
 
       // 如果是回测且当前实验没有标注数据，尝试从源实验加载
       if (this.judgeExperimentId !== this.experimentId && (this.judgesData.size === 0 || this.tokenPlatformMap.size === 0 || this.tokenMaxChangeMap.size === 0)) {
@@ -626,6 +639,9 @@ class ExperimentTokenReturns {
         <td class="px-2 py-2 text-center">
           ${this.renderPlatformBadge(item.tokenAddress)}
         </td>
+        <td class="px-2 py-2 text-center">
+          ${this.renderNarrativeRating(item.tokenAddress)}
+        </td>
         <td class="px-2 py-2 text-right">
           ${this.renderMaxChange(item.tokenAddress)}
         </td>
@@ -703,6 +719,7 @@ class ExperimentTokenReturns {
           </div>
         </td>
         <td class="px-2 py-2 text-center text-gray-600">-</td>
+        <td class="px-2 py-2 text-center text-gray-600">-</td>
         <td class="px-2 py-2 text-right text-gray-600 text-xs">
           买入: $${pair.buyPrice?.toFixed(8) || 'N/A'}<br>
           卖出: $${pair.sellPrice?.toFixed(8) || 'N/A'}
@@ -736,7 +753,7 @@ class ExperimentTokenReturns {
   renderUnmatchedBuyRow(item, defaultExpanded = false) {
     return `
       <tr class="table-row pair-row ${defaultExpanded ? '' : 'hidden'}" data-token="${item.tokenAddress}" data-unmatched-row="true">
-        <td class="px-2 py-2 pl-8 text-gray-400" colspan="13">
+        <td class="px-2 py-2 pl-8 text-gray-400" colspan="14">
           <div class="flex items-center text-xs">
             <svg class="w-3 h-3 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -1353,6 +1370,74 @@ class ExperimentTokenReturns {
       console.error('删除标注失败:', error);
       alert('删除失败: ' + error.message);
     }
+  }
+
+  /**
+   * 加载叙事分析数据
+   */
+  async loadNarrativeData() {
+    try {
+      // 获取所有代币地址
+      const tokenAddresses = [...new Set(this.tradesData.map(t => t.token_address))];
+
+      // 批量获取叙事数据
+      for (const address of tokenAddresses) {
+        try {
+          const response = await fetch(`/api/narrative/result/${address}`);
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data) {
+              this.narrativeDataMap.set(address, result.data);
+            }
+          }
+        } catch (error) {
+          // 单个代币加载失败不影响其他代币
+          console.warn(`加载代币 ${address} 的叙事数据失败:`, error);
+        }
+      }
+
+      console.log(`加载了 ${this.narrativeDataMap.size} 条叙事分析数据`);
+    } catch (error) {
+      console.error('加载叙事分析数据失败:', error);
+    }
+  }
+
+  /**
+   * 渲染叙事评级列
+   * @param {string} tokenAddress - 代币地址
+   * @returns {string} 叙事评级 HTML
+   */
+  renderNarrativeRating(tokenAddress) {
+    const narrative = this.narrativeDataMap.get(tokenAddress);
+
+    if (!narrative || !narrative.is_valid) {
+      return '<span class="text-gray-500 text-xs">-</span>';
+    }
+
+    // 从 llm_category 映射到评级
+    const categoryToRating = {
+      'high': 3,
+      'mid': 2,
+      'low': 1,
+      'unrated': 9
+    };
+
+    const rating = categoryToRating[narrative.llm_category] ?? 9;
+    const ratingInfo = NARRATIVE_RATING_MAP[rating] || NARRATIVE_RATING_MAP[9];
+
+    // 检查是否有摘要
+    const hasSummary = narrative.llm_summary && narrative.llm_summary.trim() !== '';
+    const summaryTitle = hasSummary ? narrative.llm_summary.slice(0, 200) + (narrative.llm_summary.length > 200 ? '...' : '') : '';
+
+    return `
+      <div class="flex items-center justify-center">
+        <span class="px-2 py-1 rounded text-xs ${ratingInfo.bgClass} ${ratingInfo.colorClass} border ${ratingInfo.borderClass}"
+              title="${summaryTitle || ratingInfo.label}"
+              style="cursor: ${hasSummary ? 'help' : 'default'}">
+          ${ratingInfo.emoji} ${rating}
+        </span>
+      </div>
+    `;
   }
 }
 

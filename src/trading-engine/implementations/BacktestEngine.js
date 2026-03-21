@@ -76,6 +76,9 @@ class BacktestEngine extends AbstractTradingEngine {
     // Backtest 特有组件
     this._positionManagement = null;
 
+    // 叙事分析配置
+    this._narrativeAnalysisEnabled = false;
+
     // 代币追踪
     this._seenTokens = new Set();
     this._tokenStates = new Map();
@@ -619,6 +622,16 @@ class BacktestEngine extends AbstractTradingEngine {
     this._positionManagement = experimentConfig.positionManagement || experimentConfig.strategy?.positionManagement || null;
     if (this._positionManagement && this._positionManagement.enabled) {
       this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 卡牌仓位管理已启用: 总卡牌数=${this._positionManagement.totalCards || 4}, 单卡BNB=${this._positionManagement.perCardMaxBNB || 0.025}`);
+    }
+
+    // 3.1 初始化叙事分析配置
+    const narrativeAnalysisConfig = experimentConfig.strategiesConfig?.narrativeAnalysis || experimentConfig.narrativeAnalysis || {};
+    this._narrativeAnalysisEnabled = narrativeAnalysisConfig.enabled === true;
+
+    if (this._narrativeAnalysisEnabled) {
+      this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 叙事分析已启用`);
+    } else {
+      this.logger.info(this._experimentId, '_initializeBacktestComponents', `⚠️ 叙事分析未启用`);
     }
 
     // 4. 初始化时序数据服务（用于读取源实验数据）
@@ -1372,6 +1385,13 @@ class BacktestEngine extends AbstractTradingEngine {
         return false;
       }
 
+      // ========== 叙事分析步骤 ==========
+      let narrativeRating = 9; // 默认未评级
+      if (this._narrativeAnalysisEnabled) {
+        narrativeRating = await this._executeNarrativeAnalysis(tokenState.token);
+      }
+      // ========== 叙事分析步骤结束 ==========
+
       // ========== 执行购买前检查 ==========
       let preCheckPassed = true;
       let preCheckReason = null;
@@ -1425,7 +1445,8 @@ class BacktestEngine extends AbstractTradingEngine {
               tokenBuyTime: tokenState.buyTime || null,  // 代币首次买入时间
               drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 从最高价跌幅
               buyRound: currentRound + 1,  // 即将进行的轮数
-              lastPairReturnRate: lastPairReturnRate ?? 0
+              lastPairReturnRate: lastPairReturnRate ?? 0,
+              narrativeRating: narrativeRating  // 叙事评级
             }
           );
 
@@ -1842,6 +1863,47 @@ class BacktestEngine extends AbstractTradingEngine {
     await super.stop();
 
     this.logger.info(this._experimentId, 'stop', `🛑 回测引擎已停止: 实验 ${this._experimentId}`);
+  }
+
+  /**
+   * 执行叙事分析（回测模式）
+   * @private
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<number>} 叙事评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级)
+   */
+  async _executeNarrativeAnalysis(tokenAddress) {
+    const startTime = Date.now();
+    try {
+      const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
+      const result = await NarrativeAnalyzer.analyze(tokenAddress);
+      const fromCache = result.meta?.fromCache ? '缓存' : 'LLM';
+      const rating = this._mapCategoryToRating(result.llmAnalysis?.category);
+
+      this.logger.info(this._experimentId, '_executeNarrativeAnalysis',
+        `叙事分析完成 | token=${tokenAddress.slice(0, 10)}..., rating=${rating}, source=${fromCache}, duration=${Date.now() - startTime}ms`);
+
+      return rating;
+    } catch (error) {
+      this.logger.warn(this._experimentId, '_executeNarrativeAnalysis',
+        `叙事分析失败 | token=${tokenAddress.slice(0, 10)}..., error=${error.message}`);
+      return 9; // 错误返回未评级
+    }
+  }
+
+  /**
+   * 将叙事分析类别映射到评级
+   * @private
+   * @param {string} category - 叙事类别 (high/mid/low/unrated)
+   * @returns {number} 评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级)
+   */
+  _mapCategoryToRating(category) {
+    const mapping = {
+      'high': 3,
+      'mid': 2,
+      'low': 1,
+      'unrated': 9
+    };
+    return mapping[category] || 9;
   }
 
 
