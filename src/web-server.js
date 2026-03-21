@@ -451,6 +451,12 @@ class RicherJsWebServer {
             config.positionManagement = strategy.positionManagement;
           }
 
+          // 叙事分析配置
+          if (strategy.narrativeAnalysis) {
+            config.strategiesConfig = config.strategiesConfig || {};
+            config.strategiesConfig.narrativeAnalysis = strategy.narrativeAnalysis;
+          }
+
           // 兼容旧格式的简单策略参数（用于 fourmeme_earlyreturn）
           // 如果没有提供新格式的策略，使用默认值
           if (!strategy.buyStrategies && !strategy.sellStrategies) {

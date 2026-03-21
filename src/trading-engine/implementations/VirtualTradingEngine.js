@@ -739,7 +739,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     }
 
     // 6.1 初始化叙事分析配置
-    const narrativeAnalysisConfig = experimentConfig.strategy?.narrativeAnalysis || experimentConfig.narrativeAnalysis || {};
+    const narrativeAnalysisConfig = experimentConfig.strategiesConfig?.narrativeAnalysis || experimentConfig.narrativeAnalysis || {};
     this._narrativeAnalysisEnabled = narrativeAnalysisConfig.enabled === true;
 
     if (this._narrativeAnalysisEnabled) {
