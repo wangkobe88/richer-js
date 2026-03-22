@@ -15,7 +15,8 @@ const API_CONFIG = {
 const NEW_ENDPOINTS = {
   userByScreenName: `${API_CONFIG.baseUrl}/graphql/UserByScreenName`,
   userTweets: `${API_CONFIG.baseUrl}/sapi/UserTweets`,
-  tweetDetail: `${API_CONFIG.baseUrl}/sapi/TweetDetail`
+  tweetDetail: `${API_CONFIG.baseUrl}/sapi/TweetDetail`,
+  tweetDetailGraphQL: `${API_CONFIG.baseUrl}/graphql/TweetDetail`
 };
 
 /**
@@ -158,7 +159,11 @@ async function getTweetDetail(tweetId) {
 
   try {
     const params = new URLSearchParams({
-      tweet_id: tweetId
+      tweet_id: tweetId,
+      fieldToggles: JSON.stringify({
+        withArticleRichContentState: true,
+        withArticlePlainText: true
+      })
     });
 
     const response = await makeRequest(`${NEW_ENDPOINTS.tweetDetail}?${params}`);
@@ -214,8 +219,127 @@ async function getTweetDetail(tweetId) {
   }
 }
 
+/**
+ * 通过 GraphQL API 获取推文详情（支持 Article 内容）
+ * @param {string} tweetId - 推文ID
+ * @returns {Promise<Object>} 推文详情（包含 article 字段）
+ */
+async function getTweetDetailGraphQL(tweetId) {
+  console.log(`📄 获取推文详情 (GraphQL): ${tweetId}`);
+
+  try {
+    const variables = {
+      focalTweetId: tweetId,
+      referrer: 'profile',
+      with_rux_injections: false,
+      includePromotedContent: false,
+      withCommunity: true,
+      withQuickPromoteEligibilityTweetFields: true,
+      withBirdwatchNotes: true,
+      withVoice: true,
+      withV2Timeline: true,
+      fieldToggles: {
+        withArticleRichContentState: true,
+        withArticlePlainText: true
+      }
+    };
+
+    const params = new URLSearchParams({
+      variables: JSON.stringify(variables)
+    });
+
+    const response = await makeRequest(`${NEW_ENDPOINTS.tweetDetailGraphQL}?${params}`);
+
+    const instructions = response?.data?.threaded_conversation_with_injections_v2?.instructions || [];
+
+    // 查找目标推文
+    let tweetResult = null;
+    for (const inst of instructions) {
+      if (inst.entries) {
+        for (const entry of inst.entries) {
+          const result = entry?.content?.itemContent?.tweet_results?.result;
+          if (result) {
+            const restId = result.rest_id;
+            // 检查是否是请求的推文
+            if (restId === tweetId || !tweetResult) {
+              tweetResult = result;
+            }
+          }
+        }
+      }
+    }
+
+    if (!tweetResult) {
+      throw new Error('推文详情获取失败');
+    }
+
+    // 解析推文数据
+    const legacy = tweetResult.legacy || {};
+    const core = tweetResult.core || {};
+    const userResult = core?.user_results?.result;
+    const userLegacy = userResult?.legacy || {};
+    const userCore = userResult?.core || {};
+
+    // 检查是否有 Article
+    const articleResult = tweetResult.article?.article_results?.result;
+
+    const tweetDetail = {
+      tweet_id: tweetResult.rest_id,
+      text: legacy.full_text || legacy.text || '',
+      created_at: legacy.created_at,
+      createdTimeStamp: legacy.created_at ? new Date(legacy.created_at).getTime() : null,
+
+      // 用户信息
+      user: {
+        id: userResult?.rest_id,
+        name: userCore?.name || userLegacy?.name,
+        screen_name: userCore?.screen_name || userLegacy?.screen_name,
+        description: userLegacy?.description,
+        followers_count: userLegacy?.followers_count,
+        verified: userLegacy?.verified || false,
+        is_blue_verified: userResult?.is_blue_verified || false
+      },
+
+      // 互动数据
+      likeCount: legacy.favorite_count || 0,
+      retweetCount: legacy.retweet_count || 0,
+      replyCount: legacy.reply_count || 0,
+      quoteCount: legacy.quote_count || 0,
+      viewCount: legacy.view_count || 0,
+
+      // URL
+      urls: legacy.entities?.urls?.map(u => u.expanded_url || u.url) || [],
+
+      // 回复/转发信息
+      is_reply: !!legacy.in_reply_to_status_id,
+      reply_to_tweet_id: legacy.in_reply_to_status_id || null,
+      related_tweet_id: legacy.conversation_id || null,
+
+      // Article 数据（如果有）
+      article: articleResult ? {
+        id: articleResult.rest_id,
+        title: articleResult.title,
+        preview_text: articleResult.preview_text,
+        cover_image_url: articleResult.cover_media?.media_info?.original_img_url
+      } : null
+    };
+
+    console.log(`✅ 成功获取推文详情 (GraphQL): ID=${tweetDetail.tweet_id}`);
+    if (tweetDetail.article) {
+      console.log(`   📰 Article: "${tweetDetail.article.title}"`);
+    }
+
+    return tweetDetail;
+
+  } catch (error) {
+    console.error(`❌ 获取推文详情失败 (GraphQL, ${tweetId}):`, error.message);
+    throw error;
+  }
+}
+
 module.exports = {
   getUserByScreenName,
   getUserTweets,
-  getTweetDetail
+  getTweetDetail,
+  getTweetDetailGraphQL
 };

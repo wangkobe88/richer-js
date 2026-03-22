@@ -908,7 +908,7 @@ function sleep(ms) {
 }
 
 // 导入新增的API功能
-const { getUserByScreenName, getUserTweets, getTweetDetail } = require('./new-apis');
+const { getUserByScreenName, getUserTweets, getTweetDetail, getTweetDetailGraphQL } = require('./new-apis');
 
 // 导出所有函数
 module.exports = {
@@ -929,6 +929,7 @@ module.exports = {
   getUserByScreenName,
   getUserTweets,
   getTweetDetail,
+  getTweetDetailGraphQL,
 
   // 类（高级用法）
   TwitterTokenValidator,

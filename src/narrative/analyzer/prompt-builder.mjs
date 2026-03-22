@@ -1,13 +1,13 @@
 /**
  * Prompt构建器
  * 评估BSC链meme代币叙事质量
- * V5.29 - 增加"功能性符号"识别，网站内容作为补充信息
+ * V5.30 - 支持 Twitter Article 内容提取（标题和预览文本）
  */
 
 export class PromptBuilder {
 
   static getPromptVersion() {
-    return 'V5.29';
+    return 'V5.30';
   }
 
   /**
@@ -53,11 +53,28 @@ export class PromptBuilder {
         contentParts.push(`【推文作者】@${authorScreenName}${authorName ? ` (${authorName})` : ''}`);
         contentParts.push(`【推文】${twitterInfo.text}`);
 
+        // 如果有 Article 内容，添加到内容中
+        if (twitterInfo.article) {
+          if (twitterInfo.article.title) {
+            contentParts.push(`【Article标题】${twitterInfo.article.title}`);
+          }
+          if (twitterInfo.article.preview_text) {
+            contentParts.push(`【Article内容】${twitterInfo.article.preview_text}`);
+          }
+        }
+
         // 如果是回复推文，添加原始推文
         if (twitterInfo.in_reply_to) {
           const replyToName = twitterInfo.in_reply_to.author_screen_name || '未知';
           const replyToDisplayName = twitterInfo.in_reply_to.author_name || '';
           contentParts.push(`【回复的推文】@${replyToName}${replyToDisplayName ? ` (${replyToDisplayName})` : ''}: ${twitterInfo.in_reply_to.text}`);
+          // 如果原始推文也有 Article
+          if (twitterInfo.in_reply_to.article && twitterInfo.in_reply_to.article.title) {
+            contentParts.push(`【回复的Article标题】${twitterInfo.in_reply_to.article.title}`);
+            if (twitterInfo.in_reply_to.article.preview_text) {
+              contentParts.push(`【回复的Article内容】${twitterInfo.in_reply_to.article.preview_text}`);
+            }
+          }
         }
 
         // 如果是转发推文，添加被转发的推文
@@ -118,6 +135,10 @@ ${contentStr}
 【重要说明】
 - "【推文】"是推文的实际内容
 - "【推文作者】"是推文发布者的账号信息（@username 和姓名），对于判断影响力非常重要
+- "【Article标题】"和"【Article内容】"是 Twitter Article 的标题和预览文本
+  - Article 是 X 平台的长文章功能，包含更完整的内容
+  - 预览文本虽然是截断的，但通常包含文章的核心观点和关键信息
+  - 对于叙事分析来说，Article 内容是重要的信息来源
 - "【回复的推文】"是当前推文回复的原始推文内容，提供上下文信息
   - **对于回复推文，必须同时查看回复内容和原始推文**
   - 原始推文往往包含更重要的叙事线索（如代币名称、关联概念等）

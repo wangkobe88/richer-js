@@ -4,7 +4,7 @@
  * 避免重复调用昂贵的API
  */
 
-import dbManager from '../../services/dbManager.js';
+import { dbManager } from '../../services/dbManager.js';
 
 const RAPIDAPI_KEY = 'b2d183d4cbmshe79b303f1de4b64p18e56ejsna95529b3f9ef';
 
