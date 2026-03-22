@@ -6,13 +6,16 @@
 export class PromptBuilder {
 
   static getPromptVersion() {
-    return 'V5.11';
+    return 'V5.14';
   }
 
   /**
    * 构建代币叙事分析Prompt（完整版）
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} twitterInfo - Twitter信息
+   * @param {Object} websiteInfo - 网页内容信息（仅在无Twitter信息时使用）
    */
-  static build(tokenData, twitterInfo = null) {
+  static build(tokenData, twitterInfo = null, websiteInfo = null) {
     const introEn = tokenData.intro_en || '';
     const introCn = tokenData.intro_cn || '';
     const website = tokenData.website || '';
@@ -20,6 +23,7 @@ export class PromptBuilder {
     // 构建输入内容（明确标注推文/账号和介绍，避免混淆）
     const contentParts = [];
 
+    // 优先使用Twitter信息
     if (twitterInfo) {
       if (twitterInfo.type === 'account') {
         // 账号信息格式
@@ -36,6 +40,10 @@ export class PromptBuilder {
         // 推文格式（现有逻辑）
         contentParts.push(`【推文】${twitterInfo.text}`);
       }
+    } else if (websiteInfo && websiteInfo.content) {
+      // 没有Twitter信息时，使用网页内容
+      contentParts.push(`【网页内容】${websiteInfo.content}`);
+      contentParts.push(`【网页来源】${websiteInfo.url}`);
     }
 
     if (introEn) contentParts.push(`【介绍英文】${introEn}`);
@@ -51,9 +59,11 @@ ${contentStr}
 【重要说明】
 - "【推文】"是推文的实际内容
 - "【推特账号】"是代币关联的推特账号信息（简介、粉丝数、认证状态等）
+- "【网页内容】"是代币网站页面的正文内容（仅在无Twitter信息时使用）
 - "【介绍英文/中文】"是代币的介绍文字，不是推文内容
 - 如果【推文】只是一个链接（如"https://t.co/xxx"），说明主体信息在链接中，无法评估
 - 如果只有推特账号信息而无推文，说明叙事线索主要在账号背景中
+- 如果只有【网页内容】而无推文，说明叙事线索主要在网页内容中
 
 【核心原则】
 评估BSC链meme代币的叙事质量。注意：
@@ -163,6 +173,25 @@ ${contentStr}
 
 【评分维度】（总分100）
 1.叙事背景(50分):按影响力量级评分（加密相关有优势，情感叙事有溢价）
+
+  * **世界级公司事件分级**（根据公司级别和事件类型）：
+    - **第一梯队公司（Meta/Facebook、Google、Apple、Tesla、微软、亚马逊）的**：
+      - 品牌战略级事件（如Facebook→Meta）：35-50分
+      - 革命性产品发布（如iPhone、ChatGPT级别）：30-45分
+      - 重大产品更新：20-35分
+    - **第二梯队公司（阿里巴巴、腾讯、字节跳动、亚马逊AWS等区域性/特定领域巨头）的**：
+      - 品牌战略级事件：20-35分
+      - 重大产品发布：15-30分
+      - **组织调整/部门设立**：5-15分（如"成立XX事业群"、"成立AI部门"）
+    - **其他知名公司**：组织调整/部门设立 → 0-8分
+
+  * **AI相关事件的特殊处理**（2025-2026年AI已常态化）：
+    - **革命性AI突破**（如ChatGPT级别）：30-45分
+    - **知名公司"成立AI部门"**：0-10分（已是常态，缺乏传播价值）
+      - 原因：2025-2026年，几乎所有大公司都在做AI，"成立AI部门"不是新闻
+      - 除非有突破性创新产品，否则视为常规组织调整
+    - **普通AI产品发布**：5-15分
+
   * 币安/官方权威（如"币安XX"、"CZ演示"、"官方项目"、CZ相关）：35-50分
   * 世界级/加密重大事件（如全球大事件、顶级名人、国际主流媒体、CZ相关）：30-44分
   * 平台级影响力（加密相关）：25-34分（如抖音千万话题+币圈人物、知名KOL、交易所相关）
@@ -189,6 +218,7 @@ ${contentStr}
 2.传播力(50分):meme潜力+社交属性+情感共鸣+FOMO+内容丰富度
   * **情感溢价**：若叙事具备强情感共鸣，在原分数基础上+5分
   * **限定范围降权**：如果内容明确限定地点（如"深圳商场"），传播力减半
+  * **AI相关事件降权**：常规AI产品发布/部门设立，传播力减半（AI已泛滥，缺乏新鲜感）
   * 具备病毒传播属性+内容丰富：40-50分
   * 有较强传播性+内容较丰富：30-39分
   * 有一定传播性：15-29分
@@ -364,6 +394,16 @@ CZ相关(加密重大事件)+强传播力→{credibility:35,virality:40,total:75
 代币:青蛙
 内容:【推文】Trust Wallet员工个人故事，童年抓青蛙创业 → 现在做加密，My mentor @cz_binance gives me full support
 个人创业故事(青蛙是核心隐喻)+Trust Wallet+CZ背书→{credibility:28,virality:40,total:68,category:"mid",reason:"个人创业故事，'青蛙'是核心隐喻贯穿始终，且有Trust Wallet和CZ背书，具备平台级影响力"}
+
+示例29(第二梯队公司组织调整-low):
+代币:ATH
+内容:【网页内容】阿里巴巴成立Token Hub事业群，建立以"创造Token、输送Token、应用Token"为核心目标的全新组织，由CEO吴泳铭直接负责...
+第二梯队公司(阿里巴巴)的组织调整(成立Token Hub事业群)→{credibility:10,virality:12,total:22,category:"low",reason:"阿里巴巴虽然是大公司，但只是内部组织调整(成立事业群)，且AI相关事件在2025-2026年已是常态，缺乏传播价值"}
+
+示例29.1(第一梯队公司品牌战略-可high):
+代币:META
+内容:Facebook宣布更名为Meta，全力进军元宇宙
+第一梯队公司(Meta)的品牌战略级事件(Facebook→Meta)→{credibility:40,virality:45,total:85,category:"high",reason:"Meta(Facebook)的品牌战略级转型，是全球关注的重大事件，具备世界级影响力"}
 
 【输出格式】
 正常评分输出（包含scores）:

@@ -1507,7 +1507,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             strongTraderTotalSellRatio: factorResults.strongTraderTotalSellRatio || 0,
             strongTraderWalletCount: factorResults.strongTraderWalletCount || 0,
             strongTraderTradeCount: factorResults.strongTraderTradeCount || 0,
-            strongTraderSellIntensity: factorResults.strongTraderSellIntensity || 0
+            strongTraderSellIntensity: factorResults.strongTraderSellIntensity || 0,
+            // 叙事分析评级因子
+            narrativeRating: factorResults.narrativeRating ?? 9
           }
         } : null
       };
@@ -1966,15 +1968,17 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       // 动态导入 NarrativeAnalyzer
       const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
 
-      // 执行分析（根据配置决定是否忽略缓存）
+      // 执行分析（传递 experimentId 用于标识数据来源）
       const result = await NarrativeAnalyzer.analyze(tokenAddress, {
-        ignoreCache: this._narrativeReanalyze
+        ignoreCache: this._narrativeReanalyze,
+        experimentId: this._experimentId
       });
 
       const duration = Date.now() - startTime;
       const fromCache = result.meta?.fromCache ? '缓存' : 'LLM';
+      const sourceExp = result.meta?.sourceExperimentId || 'N/A';
       this.logger.info(this._experimentId, 'NarrativeAnalysis',
-        `分析完成 | address=${tokenAddress}, category=${result.llmAnalysis?.category}, source=${fromCache}, duration=${duration}ms`);
+        `分析完成 | address=${tokenAddress}, category=${result.llmAnalysis?.category}, source=${fromCache}, sourceExp=${sourceExp}, duration=${duration}ms`);
 
       // 映射 category 到 rating
       return this._mapCategoryToRating(result.llmAnalysis?.category);

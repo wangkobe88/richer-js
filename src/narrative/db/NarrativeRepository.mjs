@@ -58,11 +58,12 @@ export class NarrativeRepository {
       llm_category: result.llm_category,
       llm_raw_output: result.llm_raw_output,
       llm_summary: result.llm_summary,
-      prompt_version: result.prompt_version || 'V5.10',
+      prompt_version: result.prompt_version || 'V5.13',
       prompt_used: result.prompt_used,
       analysis_status: result.analysis_status || 'completed',
       error_message: result.error_message,
       is_valid: result.is_valid !== undefined ? result.is_valid : true,
+      experiment_id: result.experiment_id || null,  // 标识来源实验
       analyzed_at: result.analyzed_at || new Date().toISOString()
     };
 

@@ -5,6 +5,7 @@
 
 import { NarrativeRepository } from '../db/NarrativeRepository.mjs';
 import { TwitterFetcher } from '../utils/twitter-fetcher.mjs';
+import { fetchWebsiteContent, isFetchableUrl } from '../utils/web-fetcher.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
 import { LLMClient } from './llm-client.mjs';
 
@@ -18,30 +19,39 @@ export class NarrativeAnalyzer {
    * @param {string} address - 代币地址
    * @param {Object} options - 选项
    * @param {boolean} options.ignoreCache - 是否忽略缓存，强制重新分析
+   * @param {string} options.experimentId - 实验ID，用于标识数据来源
    */
   static async analyze(address, options = {}) {
-    const { ignoreCache = false } = options;
+    const { ignoreCache = false, experimentId = null } = options;
 
     // 标准化地址
     const normalizedAddress = address.toLowerCase();
 
-    // 1. 检查缓存（除非要求忽略缓存）
-    if (!ignoreCache) {
-      const cached = await NarrativeRepository.findByAddress(normalizedAddress);
-      if (cached && cached.is_valid && this.isCacheValid(cached)) {
-        return {
-          ...this.formatResult(cached),
-          meta: {
-            fromCache: true,
-            analyzedAt: cached.analyzed_at,
-            promptVersion: cached.prompt_version
-          },
-          debugInfo: {
-            promptUsed: cached.prompt_used,
-            promptVersion: cached.prompt_version
-          }
-        };
-      }
+    // 1. 检查缓存
+    const cached = await NarrativeRepository.findByAddress(normalizedAddress);
+
+    // 判断是否可以使用缓存
+    const canUseCache = cached && cached.is_valid && (
+      // 情况1: 不忽略缓存 → 直接使用（不管来源）
+      !ignoreCache ||
+      // 情况2: 忽略缓存但数据已是本实验产生的 → 使用（避免重复分析）
+      (ignoreCache && cached.experiment_id === experimentId)
+    );
+
+    if (canUseCache && this.isCacheValid(cached)) {
+      return {
+        ...this.formatResult(cached),
+        meta: {
+          fromCache: true,
+          analyzedAt: cached.analyzed_at,
+          sourceExperimentId: cached.experiment_id,
+          promptVersion: cached.prompt_version
+        },
+        debugInfo: {
+          promptUsed: cached.prompt_used,
+          promptVersion: cached.prompt_version
+        }
+      };
     }
 
     // 2. 从数据库获取代币数据
@@ -59,11 +69,22 @@ export class NarrativeAnalyzer {
       extractedInfo.website
     );
 
+    // 4.5 如果没有Twitter信息且有网站，尝试获取网页内容
+    // 注意：当Twitter获取失败时，即使网站是YouTube/TikTok等，也会尝试获取
+    let websiteInfo = null;
+    if (!twitterInfo && extractedInfo.website) {
+      // Twitter失败时，尝试获取任何类型的网站内容
+      websiteInfo = await fetchWebsiteContent(extractedInfo.website, { maxLength: 5000 });
+    } else if (!extractedInfo.twitter_url && extractedInfo.website && isFetchableUrl(extractedInfo.website)) {
+      // 没有Twitter URL时，只获取可安全获取的网站（排除视频平台等）
+      websiteInfo = await fetchWebsiteContent(extractedInfo.website, { maxLength: 5000 });
+    }
+
     // 5. 构建Prompt并调用LLM
     let llmResult;
     let promptUsed = '';
     try {
-      promptUsed = PromptBuilder.build(tokenData, twitterInfo);
+      promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo);
       llmResult = await LLMClient.analyze(promptUsed);
     } catch (error) {
       console.error('LLM分析失败:', error.message);
@@ -73,7 +94,7 @@ export class NarrativeAnalyzer {
       };
     }
 
-    // 6. 保存结果
+    // 6. 保存结果（包含 experiment_id）
     const saveResult = await NarrativeRepository.save({
       token_address: normalizedAddress,
       token_symbol: tokenData.symbol,
@@ -90,6 +111,7 @@ export class NarrativeAnalyzer {
         category: llmResult.category
       },
       prompt_used: promptUsed,
+      experiment_id: experimentId,  // 记录来源实验
       analyzed_at: new Date().toISOString()
     });
 
@@ -98,6 +120,7 @@ export class NarrativeAnalyzer {
       meta: {
         fromCache: false,
         analyzedAt: saveResult.analyzed_at,
+        sourceExperimentId: experimentId,
         promptVersion: PromptBuilder.getPromptVersion()
       },
       debugInfo: {
@@ -151,8 +174,23 @@ export class NarrativeAnalyzer {
       appendix = rawData.appendix;
     }
 
-    // 提取twitter_url（优先级：appendix.twitter > rawData.webUrl > rawData.twitterUrl）
+    // 提取twitter_url（按优先级）：
+    // 1. appendix.twitter
+    // 2. rawData.webUrl
+    // 3. rawData.twitterUrl
+    // 4. fourmeme_creator_info.full_info.raw.twitterUrl
+    // 5. fourmeme_creator_info.full_info.twitterUrl
     let twitterUrl = appendix.twitter || rawData.webUrl || rawData.twitterUrl || '';
+
+    // 尝试从 fourmeme_creator_info 获取
+    if (!twitterUrl && rawData.fourmeme_creator_info) {
+      const creatorInfo = rawData.fourmeme_creator_info;
+      if (creatorInfo.full_info && creatorInfo.full_info.raw && creatorInfo.full_info.raw.twitterUrl) {
+        twitterUrl = creatorInfo.full_info.raw.twitterUrl;
+      } else if (creatorInfo.full_info && creatorInfo.full_info.twitterUrl) {
+        twitterUrl = creatorInfo.full_info.twitterUrl;
+      }
+    }
 
     // 提取website（appendix.website > rawData.website）
     let website = appendix.website || rawData.website || rawData.websiteUrl || '';

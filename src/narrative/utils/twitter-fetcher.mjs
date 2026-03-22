@@ -5,6 +5,22 @@
 import twitterValidationModule from '../../utils/twitter-validation/index.js';
 const { getTweetDetail, getUserByScreenName } = twitterValidationModule;
 
+/**
+ * 叙事分析Twitter用户黑名单
+ * 这些用户专门制造虚假叙事糊弄人，应该过滤
+ */
+const NARRATIVE_TWITTER_BLACKLIST = [
+  'Cortaviousloma1',  // 制造虚假叙事
+];
+
+/**
+ * 检查用户是否在黑名单中
+ */
+function isUserBlacklisted(username) {
+  if (!username) return false;
+  return NARRATIVE_TWITTER_BLACKLIST.includes(username);
+}
+
 export class TwitterFetcher {
 
   /**
@@ -28,6 +44,13 @@ export class TwitterFetcher {
 
       if (!tweetData || !tweetData.text) {
         console.warn('[TwitterFetcher] 推文数据为空:', tweetData);
+        return null;
+      }
+
+      // 检查推文作者是否在黑名单中
+      const authorScreenName = tweetData.user?.screen_name || tweetData.author_screen_name;
+      if (isUserBlacklisted(authorScreenName)) {
+        console.warn(`[TwitterFetcher] 推文作者 @${authorScreenName} 在叙事分析黑名单中，已跳过`);
         return null;
       }
 
@@ -67,6 +90,12 @@ export class TwitterFetcher {
 
       if (!userInfo) {
         console.warn('[TwitterFetcher] 账号信息为空');
+        return null;
+      }
+
+      // 检查账号是否在黑名单中
+      if (isUserBlacklisted(userInfo.screen_name)) {
+        console.warn(`[TwitterFetcher] 账号 @${userInfo.screen_name} 在叙事分析黑名单中，已跳过`);
         return null;
       }
 

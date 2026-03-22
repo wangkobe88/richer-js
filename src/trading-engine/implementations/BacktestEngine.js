@@ -1878,13 +1878,15 @@ class BacktestEngine extends AbstractTradingEngine {
     try {
       const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
       const result = await NarrativeAnalyzer.analyze(tokenAddress, {
-        ignoreCache: this._narrativeReanalyze
+        ignoreCache: this._narrativeReanalyze,
+        experimentId: this._experimentId
       });
       const fromCache = result.meta?.fromCache ? '缓存' : 'LLM';
+      const sourceExp = result.meta?.sourceExperimentId || 'N/A';
       const rating = this._mapCategoryToRating(result.llmAnalysis?.category);
 
       this.logger.info(this._experimentId, '_executeNarrativeAnalysis',
-        `叙事分析完成 | token=${tokenAddress.slice(0, 10)}..., rating=${rating}, source=${fromCache}, duration=${Date.now() - startTime}ms`);
+        `叙事分析完成 | token=${tokenAddress.slice(0, 10)}..., rating=${rating}, source=${fromCache}, sourceExp=${sourceExp}, duration=${Date.now() - startTime}ms`);
 
       return rating;
     } catch (error) {

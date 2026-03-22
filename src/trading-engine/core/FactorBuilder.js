@@ -159,7 +159,9 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     strongTraderTotalSellRatio: preBuyCheckResult.strongTraderTotalSellRatio ?? 0,
     strongTraderWalletCount: preBuyCheckResult.strongTraderWalletCount ?? 0,
     strongTraderTradeCount: preBuyCheckResult.strongTraderTradeCount ?? 0,
-    strongTraderSellIntensity: preBuyCheckResult.strongTraderSellIntensity ?? 0
+    strongTraderSellIntensity: preBuyCheckResult.strongTraderSellIntensity ?? 0,
+    // 叙事分析评级因子
+    narrativeRating: preBuyCheckResult.narrativeRating ?? 9
   };
 }
 
