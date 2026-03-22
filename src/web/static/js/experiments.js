@@ -122,6 +122,19 @@ class ExperimentMonitor {
     document.getElementById('save-name-btn')?.addEventListener('click', () => {
       this.saveExperimentName();
     });
+
+    // 绑定压缩模态框事件
+    document.getElementById('cancel-compress-btn')?.addEventListener('click', () => {
+      this.closeCompressModal();
+    });
+
+    // 绑定压缩档位按钮事件
+    document.querySelectorAll('.compress-threshold-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const threshold = parseInt(e.currentTarget.dataset.threshold);
+        this.executeCompress(threshold);
+      });
+    });
   }
 
   async loadExperiments() {
@@ -934,13 +947,61 @@ class ExperimentMonitor {
    * @param {string} experimentName - 实验名称
    */
   async compressTimeSeries(experimentId, experimentName) {
+    // 打开压缩档位选择模态框
+    this.openCompressModal(experimentId, experimentName);
+  }
+
+  /**
+   * 打开压缩档位选择模态框
+   * @param {string} experimentId - 实验ID
+   * @param {string} experimentName - 实验名称
+   */
+  openCompressModal(experimentId, experimentName) {
+    const modal = document.getElementById('compress-modal');
+    const nameDisplay = document.getElementById('compress-experiment-name');
+
+    if (modal && nameDisplay) {
+      nameDisplay.textContent = `实验: ${experimentName}`;
+      modal.dataset.experimentId = experimentId;
+      modal.classList.remove('hidden');
+    }
+  }
+
+  /**
+   * 关闭压缩档位选择模态框
+   */
+  closeCompressModal() {
+    const modal = document.getElementById('compress-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      delete modal.dataset.experimentId;
+    }
+  }
+
+  /**
+   * 执行压缩操作
+   * @param {number} threshold - 涨幅阈值
+   */
+  async executeCompress(threshold) {
+    const modal = document.getElementById('compress-modal');
+    const experimentId = modal?.dataset.experimentId;
+
+    if (!experimentId) {
+      alert('❌ 无法获取实验ID');
+      return;
+    }
+
+    // 关闭模态框
+    this.closeCompressModal();
+
+    // 最终确认
     const confirmed = confirm(
-      `🗜️ 确定要压缩实验 "${experimentName}" 的时序数据吗？\n\n` +
-      '此操作将：\n' +
-      '📊 删除最大涨幅低于 50% 的代币的时序数据\n' +
-      '💾 大幅减少存储空间和回测时间\n' +
-      '⚠️ 被删除的数据无法恢复！\n\n' +
-      '注意：有分析结果的代币会被处理，无结果的会被跳过。'
+      `🗜️ 确定要压缩时序数据吗？\n\n` +
+      `此操作将：\n` +
+      `📊 删除最大涨幅低于 ${threshold}% 的代币的时序数据\n` +
+      `💾 大幅减少存储空间和回测时间\n` +
+      `⚠️ 被删除的数据无法恢复！\n\n` +
+      `注意：有分析结果的代币会被处理，无结果的会被跳过。`
     );
 
     if (!confirmed) return;
@@ -956,7 +1017,7 @@ class ExperimentMonitor {
       const response = await fetch(`/api/experiment/${experimentId}/compress-time-series`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ threshold: 50 })
+        body: JSON.stringify({ threshold })
       });
 
       if (!response.ok) {
@@ -976,6 +1037,11 @@ class ExperimentMonitor {
         message += `   压缩前: ${data.beforeCount} 条记录\n`;
         message += `   压缩后: ${data.afterCount} 条记录\n`;
         message += `   删除: ${data.deletedRecords} 条记录 (${data.compressionRatio}%)\n`;
+
+        if (data.orphanCleanedCount > 0) {
+          message += `\n🧹 孤儿清理:\n`;
+          message += `   清理了 ${data.orphanCleanedCount} 个孤儿代币的时序数据\n`;
+        }
 
         alert(message);
 

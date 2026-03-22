@@ -599,6 +599,86 @@ class ExperimentTimeSeriesService {
         }
       }
 
+      // 步骤4.5: 清理孤儿数据（代币表中不存在但时序数据中存在的记录）
+      console.log(`📊 [时序数据压缩] 步骤4.5: 清理孤儿数据...`);
+      let orphanCleanedCount = 0;
+      try {
+        // 获取当前代币表中的所有代币地址
+        const { data: currentTokens } = await supabase
+          .from('experiment_tokens')
+          .select('token_address')
+          .eq('experiment_id', experimentId);
+
+        const currentTokenAddresses = new Set(currentTokens?.map(t => t.token_address) || []);
+
+        // 获取时序数据中的所有唯一代币地址（分页获取）
+        console.log(`   [孤儿清理] 扫描时序数据中的代币地址...`);
+        const uniqueTokensInTimeSeries = new Set();
+        let from = 0;
+        const pageSize = 1000;
+        let hasMore = true;
+
+        while (hasMore) {
+          const { data: tsData, error: tsError } = await supabase
+            .from('experiment_time_series_data')
+            .select('token_address')
+            .eq('experiment_id', experimentId)
+            .range(from, from + pageSize - 1);
+
+          if (tsError) {
+            console.warn(`⚠️ [孤儿清理] 获取时序数据失败: ${tsError.message}，使用已获取的数据`);
+            break;
+          }
+
+          if (!tsData || tsData.length === 0) {
+            hasMore = false;
+          } else {
+            tsData.forEach(d => uniqueTokensInTimeSeries.add(d.token_address));
+            from += pageSize;
+            hasMore = tsData.length === pageSize;
+            if (from % 10000 === 0) {
+              console.log(`   [孤儿清理] 已扫描 ${from} 条记录，发现 ${uniqueTokensInTimeSeries.size} 个唯一代币...`);
+            }
+          }
+        }
+
+        console.log(`   [孤儿清理] 时序数据中唯一代币: ${uniqueTokensInTimeSeries.size} 个`);
+        console.log(`   [孤儿清理] 代币表中代币: ${currentTokenAddresses.size} 个`);
+
+        // 找出孤儿代币
+        const orphanAddresses = Array.from(uniqueTokensInTimeSeries).filter(addr => !currentTokenAddresses.has(addr));
+
+        if (orphanAddresses.length > 0) {
+          console.log(`⚠️ [时序数据压缩] 发现 ${orphanAddresses.length} 个孤儿代币，开始清理...`);
+
+          // 分批删除孤儿时序数据
+          const deleteBatchSize = 50;
+
+          for (let i = 0; i < orphanAddresses.length; i += deleteBatchSize) {
+            const batch = orphanAddresses.slice(i, i + deleteBatchSize);
+
+            const { error: orphanDeleteError } = await supabase
+              .from('experiment_time_series_data')
+              .delete()
+              .in('token_address', batch)
+              .eq('experiment_id', experimentId);
+
+            if (orphanDeleteError) {
+              console.error(`❌ [时序数据压缩] 清理孤儿数据批次 ${Math.floor(i/deleteBatchSize) + 1} 失败: ${orphanDeleteError.message}`);
+            } else {
+              orphanCleanedCount += batch.length;
+              console.log(`✅ [时序数据压缩] 已清理 ${orphanCleanedCount}/${orphanAddresses.length} 个孤儿代币`);
+            }
+          }
+
+          console.log(`✅ [时序数据压缩] 孤儿数据清理完成: ${orphanCleanedCount} 个孤儿代币的时序数据已删除`);
+        } else {
+          console.log(`✅ [时序数据压缩] 没有发现孤儿数据`);
+        }
+      } catch (orphanError) {
+        console.warn(`⚠️ [时序数据压缩] 清理孤儿数据时出错: ${orphanError.message}，跳过孤儿清理`);
+      }
+
       // 步骤5: 统计压缩后的数据量
       console.log(`📊 [时序数据压缩] 步骤5: 统计压缩后数据量...`);
       let afterCount = null;
@@ -643,6 +723,9 @@ class ExperimentTimeSeriesService {
         console.log(`   时序数据: 统计失败 (数据量过大)`);
       }
       console.log(`   代币记录: ${allTokens.length} -> ${allTokens.length - deletedTokenCount} (删除 ${deletedTokenCount} 个, ${tokenCompressionRatio}%)`);
+      if (orphanCleanedCount > 0) {
+        console.log(`   孤儿清理: 删除了 ${orphanCleanedCount} 个孤儿代币的时序数据`);
+      }
 
       return {
         success: true,
@@ -659,6 +742,7 @@ class ExperimentTimeSeriesService {
           deletedRecords: deletedRecords,
           compressionRatio: compressionRatio !== null ? parseFloat(compressionRatio) : null,
           tokenCompressionRatio: parseFloat(tokenCompressionRatio),
+          orphanCleanedCount: orphanCleanedCount,
           deletedTokens: tokensToDelete.map(t => ({
             address: t.address,
             symbol: t.symbol,

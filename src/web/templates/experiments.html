@@ -250,6 +250,61 @@
         </div>
     </div>
 
+    <!-- 压缩档位选择模态框 -->
+    <div id="compress-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4 border border-gray-700">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-white mb-2">🗜️ 压缩时序数据</h3>
+                <p class="text-sm text-gray-400 mb-4" id="compress-experiment-name"></p>
+                <p class="text-sm text-gray-400 mb-4">选择压缩档位，删除最大涨幅低于指定阈值的代币时序数据</p>
+
+                <div class="grid grid-cols-2 gap-3 mb-6">
+                    <!-- 50% 档位 -->
+                    <button class="compress-threshold-btn px-4 py-3 bg-gray-700 hover:bg-green-700 border-2 border-gray-600 hover:border-green-500 rounded-lg transition-all text-left" data-threshold="50">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-lg font-bold text-green-400">50%</span>
+                            <span class="text-xs text-gray-400">低档位</span>
+                        </div>
+                        <div class="text-xs text-gray-300">保留涨幅 &gt;50% 的代币</div>
+                    </button>
+
+                    <!-- 70% 档位 -->
+                    <button class="compress-threshold-btn px-4 py-3 bg-gray-700 hover:bg-blue-700 border-2 border-gray-600 hover:border-blue-500 rounded-lg transition-all text-left" data-threshold="70">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-lg font-bold text-blue-400">70%</span>
+                            <span class="text-xs text-gray-400">中档位</span>
+                        </div>
+                        <div class="text-xs text-gray-300">保留涨幅 &gt;70% 的代币</div>
+                    </button>
+
+                    <!-- 100% 档位 -->
+                    <button class="compress-threshold-btn px-4 py-3 bg-gray-700 hover:bg-purple-700 border-2 border-gray-600 hover:border-purple-500 rounded-lg transition-all text-left" data-threshold="100">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-lg font-bold text-purple-400">100%</span>
+                            <span class="text-xs text-gray-400">高档位</span>
+                        </div>
+                        <div class="text-xs text-gray-300">保留涨幅 &gt;100% 的代币</div>
+                    </button>
+
+                    <!-- 150% 档位 -->
+                    <button class="compress-threshold-btn px-4 py-3 bg-gray-700 hover:bg-red-700 border-2 border-gray-600 hover:border-red-500 rounded-lg transition-all text-left" data-threshold="150">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-lg font-bold text-red-400">150%</span>
+                            <span class="text-xs text-gray-400">最高档</span>
+                        </div>
+                        <div class="text-xs text-gray-300">保留涨幅 &gt;150% 的代币</div>
+                    </button>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <button id="cancel-compress-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-md text-sm font-medium text-white transition-colors">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/simple-init.js?v=4.6"></script>
     <script src="/static/js/experiments.js?v=7.9"></script>
 </body>
