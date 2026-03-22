@@ -66,6 +66,8 @@ router.get('/result/:address', async (req, res) => {
       });
     }
 
+    // 直接返回数据库记录，保持原始结构
+    // 前端需要 is_valid, llm_category 等字段
     res.json({
       success: true,
       data: result
@@ -112,6 +114,17 @@ router.get('/list', async (req, res) => {
  * 重新分析代币（忽略缓存）
  */
 router.post('/reanalyze/:address', async (req, res) => {
+  // 设置服务器端超时（90秒）
+  const timeout = 90000;
+  const timeoutId = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(408).json({
+        success: false,
+        error: '请求超时，分析时间过长'
+      });
+    }
+  }, timeout);
+
   try {
     const { address } = req.params;
     const { NarrativeRepository } = await import('../../narrative/db/NarrativeRepository.mjs');
@@ -125,16 +138,23 @@ router.post('/reanalyze/:address', async (req, res) => {
     const Analyzer = await loadAnalyzer();
     const result = await Analyzer.analyze(address);
 
-    res.json({
-      success: true,
-      data: result
-    });
+    clearTimeout(timeoutId);
+
+    if (!res.headersSent) {
+      res.json({
+        success: true,
+        data: result
+      });
+    }
   } catch (error) {
+    clearTimeout(timeoutId);
     console.error('重新分析失败:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
   }
 });
 

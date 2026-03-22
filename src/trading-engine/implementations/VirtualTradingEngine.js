@@ -1626,12 +1626,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
               drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 从最高价跌幅
               buyRound: currentRound + 1,  // 即将进行的轮数
               lastPairReturnRate: lastPairReturnRate ?? 0,
+              narrativeRating: narrativeRating,  // 叙事评级
               skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false
             }
           );
 
-          // 添加叙事评级因子
-          preBuyCheckResult.narrativeRating = narrativeRating;
+          // 叙事评级已在 performAllChecks 中使用，无需再添加
 
           if (!preBuyCheckResult.canBuy) {
             this.logger.warn(this._experimentId, '_executeStrategy',

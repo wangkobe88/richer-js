@@ -4,6 +4,7 @@
 
 import twitterValidationModule from '../../utils/twitter-validation/index.js';
 const { getTweetDetail, getUserByScreenName } = twitterValidationModule;
+import { fetchWebsiteContent, isFetchableUrl } from './web-fetcher.mjs';
 
 /**
  * 叙事分析Twitter用户黑名单
@@ -165,6 +166,70 @@ export class TwitterFetcher {
     }
 
     return result;
+  }
+
+  /**
+   * 从推文中提取并获取链接内容
+   * @param {Object} tweetInfo - 推文信息（包含text字段）
+   * @returns {Promise<Object>} 链接内容信息
+   */
+  static async fetchTweetLinks(tweetInfo) {
+    if (!tweetInfo || !tweetInfo.text) {
+      return null;
+    }
+
+    // 从推文中提取所有URL
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = tweetInfo.text.match(urlRegex);
+
+    if (!urls || urls.length === 0) {
+      return null;
+    }
+
+    console.log(`[TwitterFetcher] 推文中发现 ${urls.length} 个链接`);
+
+    // 只获取第一个有效的URL内容（避免耗时过长）
+    for (const url of urls) {
+      // 跳过Twitter/X自身的链接
+      if (url.includes('x.com') || url.includes('twitter.com') || url.includes('t.co/')) {
+        continue;
+      }
+
+      // 检查是否是可以获取的URL
+      if (!isFetchableUrl(url)) {
+        console.log(`[TwitterFetcher] 跳过不可获取的URL: ${url}`);
+        continue;
+      }
+
+      console.log(`[TwitterFetcher] 尝试获取推文链接内容: ${url}`);
+      const linkContent = await fetchWebsiteContent(url, { maxLength: 3000, timeout: 10000 });
+
+      if (linkContent && linkContent.content) {
+        console.log(`[TwitterFetcher] 成功获取链接内容，长度: ${linkContent.content.length} 字符`);
+        return linkContent;
+      }
+    }
+
+    console.log('[TwitterFetcher] 未能获取任何有效的链接内容');
+    return null;
+  }
+
+  /**
+   * 增强推文信息，包含链接内容
+   * @param {Object} tweetInfo - 原始推文信息
+   * @returns {Promise<Object>} 增强后的推文信息
+   */
+  static async enrichWithLinkContent(tweetInfo) {
+    if (!tweetInfo) {
+      return tweetInfo;
+    }
+
+    const linkContent = await this.fetchTweetLinks(tweetInfo);
+
+    return {
+      ...tweetInfo,
+      link_content: linkContent
+    };
   }
 }
 

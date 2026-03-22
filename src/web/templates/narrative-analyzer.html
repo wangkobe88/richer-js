@@ -342,6 +342,10 @@
             color: #7f8c8d;
             text-align: center;
             padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            margin-top: 15px;
+            border: 1px solid #dee2e6;
         }
 
         .reanalyze-btn {
@@ -443,10 +447,19 @@
                 </div>
             </div>
 
-            <div class="meta-info" id="metaInfo"></div>
+            <div class="meta-info" id="metaInfo">等待分析结果...</div>
         </div>
     </div>
 
-    <script src="/static/js/narrative-analyzer.js"></script>
+    <script src="/static/js/narrative-analyzer.js?v=20250322-3"></script>
+    <script>
+        // 调试信息：检查页面加载状态
+        window.addEventListener('load', function() {
+            console.log('[页面] DOM加载完成');
+            const metaInfoEl = document.getElementById('metaInfo');
+            console.log('[页面] metaInfo 元素:', metaInfoEl);
+            console.log('[页面] metaInfo 当前内容:', metaInfoEl ? metaInfoEl.textContent : '元素不存在');
+        });
+    </script>
 </body>
 </html>

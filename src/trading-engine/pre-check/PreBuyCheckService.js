@@ -417,7 +417,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -493,7 +493,8 @@ class PreBuyCheckService {
         options.drawdownFromHighest,  // 传入 drawdownFromHighest
         {
           buyRound: options.buyRound,
-          lastPairReturnRate: options.lastPairReturnRate
+          lastPairReturnRate: options.lastPairReturnRate,
+          narrativeRating: narrativeRating
         }
       );
     } catch (error) {
@@ -565,7 +566,7 @@ class PreBuyCheckService {
    * @param {string} condition - 条件表达式
    * @param {number} startTime - 开始时间戳
    * @param {number} drawdownFromHighest - 从最高价跌幅
-   * @param {Object} extraContext - 额外上下文 { buyRound, lastPairReturnRate }
+   * @param {Object} extraContext - 额外上下文 { buyRound, lastPairReturnRate, narrativeRating }
    */
   _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, twitterCheck, strongTraderCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
     // 构建基础结果

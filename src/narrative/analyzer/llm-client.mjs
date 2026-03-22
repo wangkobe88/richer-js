@@ -27,39 +27,60 @@ export class LLMClient {
       throw new Error('SILICONFLOW_API_KEY 未配置');
     }
 
-    const response = await fetch(`${API_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 1000
-      })
-    });
+    // 创建超时控制器
+    const timeout = 60000; // 60秒超时
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`LLM API 调用失败: ${response.status} ${errorText}`);
+    console.log('[LLMClient] 开始调用LLM API...');
+
+    try {
+      const response = await fetch(`${API_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 1000
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`LLM API 调用失败: ${response.status} ${errorText}`);
+      }
+
+      console.log('[LLMClient] API响应成功，解析中...');
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+
+      if (!content) {
+        throw new Error('LLM 返回内容为空');
+      }
+
+      console.log('[LLMClient] 解析响应完成');
+      // 解析JSON响应
+      return this.parseResponse(content);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.error('[LLMClient] 请求超时');
+        throw new Error(`LLM API 调用超时（${timeout/1000}秒）`);
+      }
+      throw error;
     }
-
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('LLM 返回内容为空');
-    }
-
-    // 解析JSON响应
-    return this.parseResponse(content);
   }
 
   /**

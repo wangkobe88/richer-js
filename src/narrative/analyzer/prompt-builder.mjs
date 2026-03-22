@@ -6,19 +6,27 @@
 export class PromptBuilder {
 
   static getPromptVersion() {
-    return 'V5.14';
+    return 'V5.18';
   }
 
   /**
    * 构建代币叙事分析Prompt（完整版）
-   * @param {Object} tokenData - 代币数据
+   * @param {Object} tokenData - 代币数据（包含 symbol, address, raw_api_data）
    * @param {Object} twitterInfo - Twitter信息
    * @param {Object} websiteInfo - 网页内容信息（仅在无Twitter信息时使用）
+   * @param {Object} extractedInfo - 提取的结构化信息（包含 intro_en, intro_cn, website, description）
    */
-  static build(tokenData, twitterInfo = null, websiteInfo = null) {
-    const introEn = tokenData.intro_en || '';
-    const introCn = tokenData.intro_cn || '';
-    const website = tokenData.website || '';
+  static build(tokenData, twitterInfo = null, websiteInfo = null, extractedInfo = null) {
+    // 从 extractedInfo 获取，如果没有则尝试从 tokenData 获取
+    const info = extractedInfo || {};
+    const introEn = info.intro_en || tokenData.intro_en || '';
+    const introCn = info.intro_cn || tokenData.intro_cn || '';
+    const description = info.description || tokenData.description || '';
+    const website = info.website || tokenData.website || '';
+
+    // 从 raw_api_data 获取 name
+    const rawData = tokenData.raw_api_data || {};
+    const tokenName = rawData.name || rawData.tokenName || tokenData.symbol || '';
 
     // 构建输入内容（明确标注推文/账号和介绍，避免混淆）
     const contentParts = [];
@@ -37,8 +45,14 @@ export class PromptBuilder {
         accountInfo.push(`推文数: ${(twitterInfo.statuses_count || 0).toLocaleString()}`);
         contentParts.push(accountInfo.join('\n'));
       } else if (twitterInfo.text) {
-        // 推文格式（现有逻辑）
+        // 推文格式
         contentParts.push(`【推文】${twitterInfo.text}`);
+
+        // 如果有推文链接内容，添加到内容中
+        if (twitterInfo.link_content && twitterInfo.link_content.content) {
+          contentParts.push(`【推文链接内容】${twitterInfo.link_content.content}`);
+          contentParts.push(`【链接来源】${twitterInfo.link_content.url}`);
+        }
       }
     } else if (websiteInfo && websiteInfo.content) {
       // 没有Twitter信息时，使用网页内容
@@ -53,17 +67,25 @@ export class PromptBuilder {
 
     return `评估BSC链代币叙事质量。
 
-【代币】${tokenData.symbol || 'N/A'}
+【代币信息】
+- 代币符号: ${tokenData.symbol || 'N/A'}
+- 代币名称: ${tokenName || '(未提供)'}
+- 代币描述: ${description || '(无)'}
+
 ${contentStr}
 
 【重要说明】
 - "【推文】"是推文的实际内容
 - "【推特账号】"是代币关联的推特账号信息（简介、粉丝数、认证状态等）
+- "【推文链接内容】"是推文中链接指向的网页内容，已自动获取并提取正文
 - "【网页内容】"是代币网站页面的正文内容（仅在无Twitter信息时使用）
 - "【介绍英文/中文】"是代币的介绍文字，不是推文内容
-- 如果【推文】只是一个链接（如"https://t.co/xxx"），说明主体信息在链接中，无法评估
+- 如果【推文】只是一个链接（如"https://t.co/xxx"），但现在我们会尝试获取链接内容
 - 如果只有推特账号信息而无推文，说明叙事线索主要在账号背景中
 - 如果只有【网页内容】而无推文，说明叙事线索主要在网页内容中
+- **代币名称匹配规则**：判断推文是否提及代币时，应忽略大小写、连字符、空格等差异
+  - 例如：代币"AIFREE"应匹配推文中的"AI-free"、"ai free"、"AiFree"等变体
+  - 匹配逻辑：去掉连字符和空格后，进行大小写不敏感的字符串比较
 
 【核心原则】
 评估BSC链meme代币的叙事质量。注意：
@@ -73,10 +95,13 @@ ${contentStr}
 - 与代币名称有强关联即可
 - 评估叙事本身的质量，而非验证真假
 - 情感共鸣、社会讨论、文化认同、梗文化都是meme币的核心叙事背景，不应因"缺乏官方背书"而低估
-- **区分"官方代币"和"蹭平台热度的meme币"**：
-  - 如果推文明确说明"XX平台官方发布XX代币"、"这是XX的官方代币" → 官方代币叙事
-  - 如果只是"XX平台上线了XX功能/服务/产品，代币叫XX" → 可能是蹭平台热度的meme币，影响力打折扣
-  - 判断标准：是否有明确的"官方发布"、"官方代币"表述，否则视为蹭热度
+- **Meme币的关联判断**：
+  - meme币只需要名称匹配即可建立关联，无需"官方发布"、"官方代币"等表述
+  - 例如：如果内容提到"MuleRun（骡子快跑）"，代币叫"骡子"，这就是有效关联
+  - meme币不需要"代币用途说明"或"价值主张说明"，只需要名称关联
+  - **例外**：如果代币名称是世界级大IP（特朗普/马斯克等），才需要强关联证据（本人提及、官方发布）
+- **严禁以"缺乏代币用途/价值主张说明"或"未提及与产品的直接关联"为由返回low**
+  - 这些理由不适用于meme币，meme币的核心就是名称关联，不需要用途说明
 - **平台产品更新的影响力评估**：
   - 世界级知名平台（币安、特斯拉、Twitter、苹果等）的功能更新 → 可能是平台级影响力
   - 一般/中小型平台的功能更新 → 影响力有限（0-8分），除非有病毒式传播证据
@@ -187,10 +212,13 @@ ${contentStr}
 
   * **AI相关事件的特殊处理**（2025-2026年AI已常态化）：
     - **革命性AI突破**（如ChatGPT级别）：30-45分
+      - 判断标准：技术上的"首个/首创/突破性创新"，如"全球首个XX"、"首创XX技术"
+      - 例如："全球首个自进化个人AI"、"首个实现XX的AI模型"
     - **知名公司"成立AI部门"**：0-10分（已是常态，缺乏传播价值）
       - 原因：2025-2026年，几乎所有大公司都在做AI，"成立AI部门"不是新闻
       - 除非有突破性创新产品，否则视为常规组织调整
     - **普通AI产品发布**：5-15分
+      - 例如：某个公司发布了一个普通的AI工具/功能，没有"首个/首创/突破"等描述
 
   * 币安/官方权威（如"币安XX"、"CZ演示"、"官方项目"、CZ相关）：35-50分
   * 世界级/加密重大事件（如全球大事件、顶级名人、国际主流媒体、CZ相关）：30-44分

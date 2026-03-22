@@ -59,10 +59,16 @@ export class NarrativeAnalyzer {
     const extractedInfo = this.extractInfo(tokenData);
 
     // 4. 获取推文内容
-    const twitterInfo = await TwitterFetcher.fetchFromUrls(
+    let twitterInfo = await TwitterFetcher.fetchFromUrls(
       extractedInfo.twitter_url,
       extractedInfo.website
     );
+
+    // 4.5 如果成功获取推文，尝试获取推文中的链接内容
+    if (twitterInfo && twitterInfo.text) {
+      console.log('[NarrativeAnalyzer] 推文已获取，尝试获取推文链接内容');
+      twitterInfo = await TwitterFetcher.enrichWithLinkContent(twitterInfo);
+    }
 
     // 4.5 如果没有Twitter信息且有网站，尝试获取网页内容
     // 注意：当Twitter获取失败时，即使网站是YouTube/TikTok等，也会尝试获取
@@ -80,7 +86,7 @@ export class NarrativeAnalyzer {
     let promptUsed = '';
     let analysisFailed = false;
     try {
-      promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo);
+      promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo);
       llmResult = await LLMClient.analyze(promptUsed);
     } catch (error) {
       console.error('LLM分析失败:', error.message);

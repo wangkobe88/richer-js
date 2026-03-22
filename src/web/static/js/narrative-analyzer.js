@@ -98,9 +98,16 @@ class NarrativeAnalyzer {
     this.showLoading();
 
     try {
+      // 创建超时控制器（90秒超时）
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+
       const response = await fetch(`/api/narrative/reanalyze/${this.currentAddress}`, {
-        method: 'POST'
+        method: 'POST',
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -110,7 +117,11 @@ class NarrativeAnalyzer {
 
       this.displayResult(data.data);
     } catch (error) {
-      this.showError(error.message);
+      if (error.name === 'AbortError') {
+        this.showError('请求超时，分析时间过长，请稍后重试');
+      } else {
+        this.showError(error.message);
+      }
     } finally {
       this.hideLoading();
     }
@@ -118,6 +129,10 @@ class NarrativeAnalyzer {
 
   displayResult(data) {
     const { token, twitter, llmAnalysis, meta } = data;
+
+    // 调试日志
+    console.log('[NarrativeAnalyzer] displayResult called');
+    console.log('[NarrativeAnalyzer] meta:', meta);
 
     // 显示代币信息
     document.getElementById('tokenSymbol').textContent = token.symbol || '-';
@@ -206,7 +221,16 @@ class NarrativeAnalyzer {
         metaInfo.push(`Prompt版本: ${meta.promptVersion}`);
       }
     }
-    document.getElementById('metaInfo').textContent = metaInfo.join(' | ');
+    // 确保 metaInfo 至少显示时间信息
+    const metaText = metaInfo.length > 0 ? metaInfo.join(' | ') : `分析时间: ${this.formatDate(new Date().toISOString())}`;
+    console.log('[NarrativeAnalyzer] metaInfo text:', metaText);
+
+    const metaInfoElement = document.getElementById('metaInfo');
+    if (metaInfoElement) {
+      metaInfoElement.textContent = metaText;
+    } else {
+      console.error('[NarrativeAnalyzer] metaInfo element not found!');
+    }
 
     this.showResult();
   }
@@ -223,11 +247,17 @@ class NarrativeAnalyzer {
   showLoading() {
     this.loadingSection.classList.add('active');
     this.analyzeBtn.disabled = true;
+    if (this.reanalyzeBtn) {
+      this.reanalyzeBtn.disabled = true;
+    }
   }
 
   hideLoading() {
     this.loadingSection.classList.remove('active');
     this.analyzeBtn.disabled = false;
+    if (this.reanalyzeBtn) {
+      this.reanalyzeBtn.disabled = false;
+    }
   }
 
   showResult() {
