@@ -555,14 +555,15 @@ class ExperimentTimeSeriesService {
       // 步骤4: 删除时序数据（分批处理避免超时）
       if (tokensToDelete.length > 0) {
         console.log(`📊 [时序数据压缩] 步骤4: 删除时序数据和代币记录...`);
-        const deleteBatchSize = 500;
+        const deleteBatchSize = 50; // 减小批次大小避免超时（500 -> 50）
         let deletedCount = 0;
+        let failedBatches = 0;
 
         for (let i = 0; i < tokensToDelete.length; i += deleteBatchSize) {
           const batch = tokensToDelete.slice(i, i + deleteBatchSize);
           const addresses = batch.map(t => t.address);
 
-          // 删除时序数据
+          // 先删除时序数据（必须成功才能删除代币记录，避免孤儿数据）
           const { error: deleteError } = await supabase
             .from('experiment_time_series_data')
             .delete()
@@ -570,13 +571,13 @@ class ExperimentTimeSeriesService {
             .eq('experiment_id', experimentId);
 
           if (deleteError) {
-            console.error(`❌ [时序数据压缩] 批次删除时序数据失败: ${deleteError.message}`);
-          } else {
-            deletedCount += addresses.length;
-            console.log(`✅ [时序数据压缩] 已删除 ${deletedCount}/${tokensToDelete.length} 个代币的时序数据`);
+            console.error(`❌ [时序数据压缩] 批次 ${Math.floor(i/deleteBatchSize) + 1} 删除时序数据失败: ${deleteError.message}`);
+            failedBatches++;
+            // 时序数据删除失败时，跳过代币记录删除，避免孤儿数据
+            continue;
           }
 
-          // 删除代币记录
+          // 时序数据删除成功后，再删除代币记录
           const { error: tokenDeleteError } = await supabase
             .from('experiment_tokens')
             .delete()
@@ -584,11 +585,17 @@ class ExperimentTimeSeriesService {
             .eq('experiment_id', experimentId);
 
           if (tokenDeleteError) {
-            // 如果有外键约束或其他错误，跳过不处理
-            console.warn(`⚠️ [时序数据压缩] 批次删除代币记录跳过: ${tokenDeleteError.message}`);
+            console.error(`❌ [时序数据压缩] 批次 ${Math.floor(i/deleteBatchSize) + 1} 删除代币记录失败: ${tokenDeleteError.message}`);
+            // 代币记录删除失败但时序数据已删除 -> 会产生孤儿数据，需要记录
+            console.warn(`⚠️ [时序数据压缩] 警告: 时序数据已删除但代币记录删除失败，可能产生孤儿数据`);
           } else {
-            console.log(`✅ [时序数据压缩] 已删除批次代币记录`);
+            deletedCount += addresses.length;
+            console.log(`✅ [时序数据压缩] 已删除 ${deletedCount}/${tokensToDelete.length} 个代币 (${addresses.length} 个/批次)`);
           }
+        }
+
+        if (failedBatches > 0) {
+          console.warn(`⚠️ [时序数据压缩] ${failedBatches} 个批次删除失败，已跳过`);
         }
       }
 

@@ -249,9 +249,9 @@ class ExperimentNarrative {
   }
 
   renderRow(item) {
-    // 叙事评级
+    // 叙事评级（作为链接）
     const ratingInfo = NARRATIVE_RATING_MAP[item.narrative.rating] || NARRATIVE_RATING_MAP[9];
-    const ratingBadge = `<span class="rating-badge ${ratingInfo.class}">${ratingInfo.emoji} ${ratingInfo.label}</span>`;
+    const ratingBadge = `<a href="/narrative-analyzer?address=${item.token_address}" target="_blank" class="rating-badge ${ratingInfo.class} hover:opacity-80 transition-opacity">${ratingInfo.emoji} ${ratingInfo.label}</a>`;
 
     // 人工评级
     let judgeBadge = '<span class="text-gray-500 text-xs">-</span>';
@@ -297,6 +297,11 @@ class ExperimentNarrative {
         <td class="px-4 py-3">
           <div class="flex items-center">
             <span class="font-medium text-white">${item.token_symbol}</span>
+            <a href="https://gmgn.ai/bsc/token/${item.token_address}" target="_blank" rel="noopener noreferrer"
+               class="ml-2 text-gray-400 hover:text-purple-400 transition-colors"
+               title="在 GMGN 查看">
+              <img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3">
+            </a>
             <span class="ml-2 text-xs text-gray-500 font-mono">${item.token_address.slice(0, 8)}...</span>
           </div>
         </td>

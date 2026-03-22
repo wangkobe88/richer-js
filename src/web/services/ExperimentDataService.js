@@ -1081,11 +1081,15 @@ class ExperimentDataService {
    */
   async getExperimentNarratives(experimentId) {
     try {
+      console.log(`[getExperimentNarratives] experimentId=${experimentId}`);
+
       // 对于回测实验，使用源实验的代币数据
       const targetExperimentId = await this._getTargetExperimentIdForTokens(experimentId);
+      console.log(`[getExperimentNarratives] targetExperimentId=${targetExperimentId}`);
 
       // 获取目标实验的代币列表
       const tokens = await this.getTokens(targetExperimentId, { limit: 10000 });
+      console.log(`[getExperimentNarratives] tokens.length=${tokens.length}`);
 
       if (tokens.length === 0) {
         return {
@@ -1107,16 +1111,28 @@ class ExperimentDataService {
       // 转换为小写地址，因为 token_narrative 表的 token_address 存储为小写
       const addresses = tokens.map(t => t.token_address.toLowerCase());
 
-      // 批量查询叙事数据
-      const { data: narratives, error: narrativeError } = await this.supabase
-        .from('token_narrative')
-        .select('*')
-        .in('token_address', addresses);
+      // 分批查询叙事数据（避免 URL 过长导致 414 错误）
+      const batchSize = 200;
+      const allNarratives = [];
+      for (let i = 0; i < addresses.length; i += batchSize) {
+        const batch = addresses.slice(i, i + batchSize);
+        const { data: batchNarratives, error: batchError } = await this.supabase
+          .from('token_narrative')
+          .select('*')
+          .in('token_address', batch);
 
-      if (narrativeError) {
-        console.error('获取叙事数据失败:', narrativeError);
-        throw narrativeError;
+        if (batchError) {
+          console.error(`获取叙事数据失败（批次 ${i / batchSize + 1}）:`, batchError);
+          throw batchError;
+        }
+
+        if (batchNarratives) {
+          allNarratives.push(...batchNarratives);
+        }
       }
+
+      const narratives = allNarratives;
+      console.log(`[getExperimentNarratives] narratives.length=${narratives.length}`);
 
       // 构建叙事数据映射（键使用小写地址）
       const narrativeMap = new Map();
@@ -1124,11 +1140,28 @@ class ExperimentDataService {
         narrativeMap.set(narrative.token_address.toLowerCase(), narrative);
       }
 
+      console.log(`[getExperimentNarratives] narrativeMap.size=${narrativeMap.size}`);
+
+      // 调试：检查第一个 token 的字段
+      if (tokens.length > 0) {
+        console.log(`[getExperimentNarratives] 第一个代币字段:`, Object.keys(tokens[0]));
+        console.log(`[getExperimentNarratives] 第一个代币的 human_judges:`, tokens[0].human_judges);
+        console.log(`[getExperimentNarratives] 第一个代币的 analysis_results:`, tokens[0].analysis_results);
+      }
+
       // 组合数据：只返回有叙事数据的代币
       const combinedData = tokens
         .filter(token => narrativeMap.has(token.token_address.toLowerCase()))
         .map(token => {
           const narrative = narrativeMap.get(token.token_address.toLowerCase());
+
+          // 调试日志：检查 human_judges 和 analysis_results
+          const hasHumanJudges = !!token.human_judges;
+          const hasAnalysisResults = !!token.analysis_results;
+          const hasMaxChange = token.analysis_results?.max_change_percent !== null && token.analysis_results?.max_change_percent !== undefined;
+          if (hasHumanJudges || hasAnalysisResults) {
+            console.log(`[Narrative] token=${token.token_symbol}, hasHumanJudges=${hasHumanJudges}, hasAnalysisResults=${hasAnalysisResults}, hasMaxChange=${hasMaxChange}`);
+          }
 
           // 从 llm_category 推导 rating
           let rating = 9; // 默认未评级
@@ -1161,6 +1194,8 @@ class ExperimentDataService {
             max_change_percent: token.analysis_results?.max_change_percent || null
           };
         });
+
+      console.log(`[getExperimentNarratives] combinedData.length=${combinedData.length}`);
 
       // 计算统计数据
       const stats = {
