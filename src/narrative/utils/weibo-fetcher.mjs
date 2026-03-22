@@ -27,6 +27,12 @@ export class WeiboExtractor {
       return match[1];
     }
 
+    // 匹配 weibo.com/detail/xxx 格式
+    const detailMatch = url.match(/weibo\.com\/detail\/([a-zA-Z0-9]+)/);
+    if (detailMatch) {
+      return detailMatch[1];
+    }
+
     // 匹配 m.weibo.cn/detail/xxx 格式
     const mobileMatch = url.match(/m\.weibo\.cn\/detail\/([a-zA-Z0-9]+)/);
     if (mobileMatch) {
@@ -66,7 +72,17 @@ export class WeiboExtractor {
   static isValidWeiboUrl(url) {
     if (!url) return false;
 
-    return /weibo\.com/.test(url) && /\/[a-zA-Z0-9]+$/.test(url);
+    // 支持多种微博URL格式：
+    // - weibo.com/uid/weiboid (用户微博)
+    // - weibo.com/detail/weiboid (详情页)
+    // - m.weibo.cn/detail/weiboid (移动端)
+    const isWeiboDomain = /weibo\.(com|cn)/.test(url);
+
+    if (!isWeiboDomain) return false;
+
+    // 检查URL路径格式
+    return /\/\d+\/[a-zA-Z0-9]+$/.test(url) ||   // 用户微博格式: /uid/weiboid
+           /\/detail\/[a-zA-Z0-9]+$/.test(url);   // 详情页格式: /detail/weiboid (PC和移动端通用)
   }
 }
 

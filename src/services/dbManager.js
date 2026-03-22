@@ -94,6 +94,14 @@ class DatabaseClientManager {
     }
 
     /**
+     * 获取Supabase客户端（getClient的别名）
+     * @returns {SupabaseClient}
+     */
+    getSupabase() {
+        return this.getClient();
+    }
+
+    /**
      * 重置客户端连接
      */
     resetClient() {
