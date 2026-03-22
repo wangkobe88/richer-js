@@ -29,6 +29,7 @@ export class NarrativeRepository {
 
   /**
    * 根据代币地址查找分析结果（返回最新的一条）
+   * @param {string} address - 代币地址
    */
   static async findByAddress(address) {
     const supabase = this.getSupabase();

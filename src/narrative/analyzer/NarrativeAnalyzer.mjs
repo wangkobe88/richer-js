@@ -27,27 +27,31 @@ export class NarrativeAnalyzer {
     // 标准化地址
     const normalizedAddress = address.toLowerCase();
 
-    // 1. 检查缓存
+    // 1. 检查缓存（查询最新的记录，任何实验的都可以）
     const cached = await NarrativeRepository.findByAddress(normalizedAddress);
 
-    // 判断是否可以使用缓存（通过 ignoreCache 参数控制，不检查版本）
-    const canUseCache = cached && cached.is_valid && !ignoreCache;
-
-    if (canUseCache) {
-      return {
-        ...this.formatResult(cached),
-        meta: {
-          fromCache: true,
-          analyzedAt: cached.analyzed_at,
-          sourceExperimentId: cached.experiment_id,
-          promptVersion: cached.prompt_version
-        },
-        debugInfo: {
-          promptUsed: cached.prompt_used,
-          promptVersion: cached.prompt_version
+    // 2. 判断是否可以使用缓存
+    if (cached && cached.is_valid) {
+      if (!ignoreCache) {
+        // ===== 不设置重新分析（ignoreCache=false）=====
+        // 直接使用已有的分析结果（任何实验的都可以）
+        return this.formatResult(cached);
+      } else {
+        // ===== 设置了重新分析（ignoreCache=true）=====
+        // 检查缓存的 experiment_id 是否是当前实验
+        if (cached.experiment_id === experimentId) {
+          // 缓存是当前实验的 → 说明本实验已经分析过这个代币了
+          // 直接使用缓存，不再重复分析
+          return this.formatResult(cached);
         }
-      };
+        // 缓存是别的实验的（或 experiment_id 为空）
+        // → 需要重新分析，保存时带上当前 experiment_id
+        // 这样后续再遇到这个代币时，就会命中本实验的缓存
+      }
     }
+
+    // 3. 执行叙事分析（缓存未命中 或 需要重新分析）
+    // 分析结果会保存时带上当前 experiment_id，用于后续缓存判断
 
     // 2. 从数据库获取代币数据
     const tokenData = await this.fetchTokenData(normalizedAddress);
