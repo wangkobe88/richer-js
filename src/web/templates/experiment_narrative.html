@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>叙事分析 - Richer-js Fourmeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.2" rel="stylesheet">
+    <style>
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-size: 1.2rem;
+            background: rgba(0,0,0,0.9);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .sort-btn {
+            cursor: pointer;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .sort-btn:hover {
+            color: #3b82f6;
+        }
+
+        .sort-btn.active {
+            color: #3b82f6;
+        }
+
+        select option {
+            background-color: #374151;
+            color: white;
+        }
+
+        .table-row:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        .rating-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .rating-high {
+            background-color: #065f46;
+            color: #34d399;
+        }
+
+        .rating-mid {
+            background-color: #1e3a8a;
+            color: #60a5fa;
+        }
+
+        .rating-low {
+            background-color: #7c2d12;
+            color: #fb923c;
+        }
+
+        .rating-unrated {
+            background-color: #374151;
+            color: #9ca3af;
+        }
+
+        .judge-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-size: 0.65rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-green-400">
+                            <a href="/" class="hover:text-green-300 transition-colors">
+                                Richer-js Fourmeme Trading
+                            </a>
+                        </h1>
+                        <div class="hidden md:block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                实验列表
+                            </a>
+                            <a id="link-detail" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                实验详情
+                            </a>
+                            <a href="#" id="current-page" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">
+                                叙事分析
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="refresh-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
+                            🔄 刷新
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 加载指示器 -->
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <span class="ml-4 text-white">正在加载叙事数据...</span>
+            </div>
+
+            <!-- 错误信息 -->
+            <div id="error-message" class="hidden bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+                <div class="flex items-center">
+                    <span class="text-red-400">⚠️</span>
+                    <span class="ml-2" id="error-text">加载失败</span>
+                    <button id="retry-btn" class="ml-4 px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-sm">
+                        重试
+                    </button>
+                </div>
+            </div>
+
+            <!-- 叙事内容 -->
+            <div id="narrative-content" class="hidden">
+                <!-- 实验信息头部 -->
+                <div id="experiment-header" class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-2xl font-bold text-white mb-2">叙事分析</h1>
+                            <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                <span id="experiment-name">实验名称</span>
+                                <span id="experiment-id">ID: --</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-6">
+                            <a id="link-back" href="#" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-sm font-medium text-white transition-colors">
+                                ← 返回实验详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 汇总统计 -->
+                <div class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
+                    <h2 class="text-lg font-semibold text-white mb-4">汇总统计</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">实验代币总数</div>
+                            <div class="text-2xl font-bold text-gray-100" id="stat-total-tokens">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">有叙事数据</div>
+                            <div class="text-2xl font-bold text-blue-400" id="stat-narrative-tokens">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">叙事覆盖率</div>
+                            <div class="text-2xl font-bold text-green-400" id="stat-coverage">0%</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">平均最大涨幅</div>
+                            <div class="text-2xl font-bold text-yellow-400" id="stat-avg-max-change">0%</div>
+                        </div>
+                    </div>
+
+                    <!-- 叙事评级分布 -->
+                    <div class="pt-4 border-t border-gray-700">
+                        <h3 class="text-md font-semibold text-blue-400 mb-3">叙事评级分布</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="bg-gray-700 p-3 rounded-lg border border-green-700">
+                                <div class="text-xs text-gray-400 mb-1">高质量 🚀</div>
+                                <div class="text-xl font-bold text-green-400" id="stat-high-count">0</div>
+                            </div>
+                            <div class="bg-gray-700 p-3 rounded-lg border border-blue-700">
+                                <div class="text-xs text-gray-400 mb-1">中质量 📊</div>
+                                <div class="text-xl font-bold text-blue-400" id="stat-mid-count">0</div>
+                            </div>
+                            <div class="bg-gray-700 p-3 rounded-lg border border-orange-700">
+                                <div class="text-xs text-gray-400 mb-1">低质量 📉</div>
+                                <div class="text-xl font-bold text-orange-400" id="stat-low-count">0</div>
+                            </div>
+                            <div class="bg-gray-700 p-3 rounded-lg border border-gray-600">
+                                <div class="text-xs text-gray-400 mb-1">未评级 ❓</div>
+                                <div class="text-xl font-bold text-gray-400" id="stat-unrated-count">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 筛选和排序 -->
+                <div class="bg-gray-800 rounded-lg p-4 mb-8 border border-gray-700">
+                    <div class="flex flex-wrap gap-4 items-center justify-between">
+                        <div class="flex flex-wrap gap-4 items-center">
+                            <div>
+                                <label for="rating-filter" class="block text-sm font-medium text-gray-300 mb-2">叙事评级筛选</label>
+                                <select id="rating-filter" class="px-3 py-2 bg-gray-700 border border-gray-700 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="all">全部</option>
+                                    <option value="high">高质量 🚀</option>
+                                    <option value="mid">中质量 📊</option>
+                                    <option value="low">低质量 📉</option>
+                                    <option value="unrated">未评级 ❓</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="judge-filter" class="block text-sm font-medium text-gray-300 mb-2">人工评级筛选</label>
+                                <select id="judge-filter" class="px-3 py-2 bg-gray-700 border border-gray-700 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="all">全部</option>
+                                    <option value="high_quality">高质量 🚀</option>
+                                    <option value="mid_quality">中质量 📊</option>
+                                    <option value="low_quality">低质量 📉</option>
+                                    <option value="no_user">无人玩 👻</option>
+                                    <option value="fake_pump">流水盘 🎭</option>
+                                    <option value="none">无人工评级</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 叙事表格 -->
+                <div class="bg-gray-800 rounded-lg border border-gray-700">
+                    <div class="p-4 border-b border-gray-700">
+                        <h2 class="text-lg font-semibold text-white">叙事数据明细</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-3 text-left">代币</th>
+                                    <th class="px-4 py-3 text-center">平台</th>
+                                    <th class="px-4 py-3 text-center">叙事评级</th>
+                                    <th class="px-4 py-3 text-center">人工评级</th>
+                                    <th class="px-4 py-3 text-right">
+                                        <span class="sort-btn" data-sort="max_change">最大涨幅</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-left">叙事摘要</th>
+                                    <th class="px-4 py-3 text-center">来源实验</th>
+                                    <th class="px-4 py-3 text-center">
+                                        <span class="sort-btn" data-sort="analyzed_at">分析时间</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="narrative-table-body" class="divide-y divide-gray-700">
+                                <!-- 表格行将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 空状态 -->
+                <div id="empty-state" class="hidden text-center py-12">
+                    <div class="text-gray-400 mb-4">
+                        <svg class="w-24 h-24 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-400 mb-2">暂无叙事数据</h3>
+                    <p class="text-gray-500">该实验的代币暂无叙事分析数据</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/simple-init.js?v=4.3"></script>
+    <script src="/static/js/experiment_narrative.js?v=1.0"></script>
+</body>
+</html>

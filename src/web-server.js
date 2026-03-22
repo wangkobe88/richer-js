@@ -198,6 +198,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_token_returns.html'));
     });
 
+    // 实验叙事分析页面
+    this.app.get('/experiment/:id/narrative', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_narrative.html'));
+    });
+
     // 交易策略分析页面
     this.app.get('/experiment/:id/strategy-analysis', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/strategy_analysis.html'));
@@ -1883,6 +1888,17 @@ class RicherJsWebServer {
       } catch (error) {
         console.error('获取代币统计失败:', error);
         res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取实验叙事分析数据
+    this.app.get('/api/experiment/:id/narrative', async (req, res) => {
+      try {
+        const result = await this.dataService.getExperimentNarratives(req.params.id);
+        res.json(result);
+      } catch (error) {
+        console.error('获取实验叙事数据失败:', error);
+        res.status(500).json({ success: false, error: error.message, data: [], count: 0 });
       }
     });
 

@@ -1073,6 +1073,138 @@ class ExperimentDataService {
 
     return '其他原因';
   }
+
+  /**
+   * 获取实验的叙事分析数据
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<Object>} 叙事数据
+   */
+  async getExperimentNarratives(experimentId) {
+    try {
+      // 对于回测实验，使用源实验的代币数据
+      const targetExperimentId = await this._getTargetExperimentIdForTokens(experimentId);
+
+      // 获取目标实验的代币列表
+      const tokens = await this.getTokens(targetExperimentId, { limit: 10000 });
+
+      if (tokens.length === 0) {
+        return {
+          success: true,
+          data: [],
+          count: 0,
+          stats: {
+            total_tokens: 0,
+            narrative_tokens: 0,
+            high_quality_count: 0,
+            mid_quality_count: 0,
+            low_quality_count: 0,
+            unrated_count: 0,
+            avg_max_change: 0
+          }
+        };
+      }
+
+      const addresses = tokens.map(t => t.token_address);
+
+      // 批量查询叙事数据
+      const { data: narratives, error: narrativeError } = await this.supabase
+        .from('token_narrative')
+        .select('*')
+        .in('token_address', addresses);
+
+      if (narrativeError) {
+        console.error('获取叙事数据失败:', narrativeError);
+        throw narrativeError;
+      }
+
+      // 构建叙事数据映射
+      const narrativeMap = new Map();
+      for (const narrative of (narratives || [])) {
+        narrativeMap.set(narrative.token_address, narrative);
+      }
+
+      // 组合数据：只返回有叙事数据的代币
+      const combinedData = tokens
+        .filter(token => narrativeMap.has(token.token_address))
+        .map(token => {
+          const narrative = narrativeMap.get(token.token_address);
+
+          // 从 llm_category 推导 rating
+          let rating = 9; // 默认未评级
+          if (narrative.llm_category) {
+            const category = narrative.llm_category.toLowerCase();
+            if (category === 'high' || category === '高质量') {
+              rating = 3;
+            } else if (category === 'mid' || category === '中质量') {
+              rating = 2;
+            } else if (category === 'low' || category === '低质量') {
+              rating = 1;
+            }
+          }
+
+          return {
+            token_address: token.token_address,
+            token_symbol: token.token_symbol || 'Unknown',
+            platform: token.platform || 'fourmeme',
+            blockchain: token.blockchain || 'bsc',
+            discovered_at: token.discovered_at,
+            narrative: {
+              llm_category: narrative.llm_category,
+              llm_summary: narrative.llm_summary,
+              rating: rating,
+              experiment_id: narrative.experiment_id,
+              analyzed_at: narrative.analyzed_at,
+              prompt_version: narrative.prompt_version
+            },
+            human_judge: token.human_judges || null,
+            max_change_percent: token.analysis_results?.max_change_percent || null
+          };
+        });
+
+      // 计算统计数据
+      const stats = {
+        total_tokens: tokens.length,
+        narrative_tokens: combinedData.length,
+        high_quality_count: combinedData.filter(d => d.narrative.rating === 3).length,
+        mid_quality_count: combinedData.filter(d => d.narrative.rating === 2).length,
+        low_quality_count: combinedData.filter(d => d.narrative.rating === 1).length,
+        unrated_count: combinedData.filter(d => d.narrative.rating === 9).length
+      };
+
+      // 计算平均最大涨幅（只统计有值的）
+      const validMaxChanges = combinedData
+        .map(d => d.max_change_percent)
+        .filter(v => v !== null && v !== undefined && !isNaN(v));
+      stats.avg_max_change = validMaxChanges.length > 0
+        ? (validMaxChanges.reduce((a, b) => a + b, 0) / validMaxChanges.length).toFixed(2)
+        : 0;
+
+      return {
+        success: true,
+        data: combinedData,
+        count: combinedData.length,
+        stats: stats
+      };
+
+    } catch (error) {
+      console.error('获取实验叙事数据失败:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: [],
+        count: 0,
+        stats: {
+          total_tokens: 0,
+          narrative_tokens: 0,
+          high_quality_count: 0,
+          mid_quality_count: 0,
+          low_quality_count: 0,
+          unrated_count: 0,
+          avg_max_change: 0
+        }
+      };
+    }
+  }
 }
 
 module.exports = { ExperimentDataService };

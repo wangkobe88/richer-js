@@ -28,7 +28,7 @@ export class NarrativeRepository {
   }
 
   /**
-   * 根据代币地址查找分析结果
+   * 根据代币地址查找分析结果（返回最新的一条）
    */
   static async findByAddress(address) {
     const supabase = this.getSupabase();
@@ -36,6 +36,8 @@ export class NarrativeRepository {
       .from('token_narrative')
       .select('*')
       .eq('token_address', address.toLowerCase())
+      .order('analyzed_at', { ascending: false, nullsFirst: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) throw error;

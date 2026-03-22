@@ -83,6 +83,7 @@ export class NarrativeAnalyzer {
     // 5. 构建Prompt并调用LLM
     let llmResult;
     let promptUsed = '';
+    let analysisFailed = false;
     try {
       promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo);
       llmResult = await LLMClient.analyze(promptUsed);
@@ -92,9 +93,29 @@ export class NarrativeAnalyzer {
         category: 'unrated',
         reasoning: `分析失败: ${error.message}`
       };
+      analysisFailed = true;
     }
 
-    // 6. 保存结果（包含 experiment_id）
+    // 6. 如果分析失败且有缓存，使用缓存作为fallback
+    if (analysisFailed && cached && cached.is_valid && this.isCacheValid(cached)) {
+      console.log(`分析失败，使用已有缓存作为fallback | address=${normalizedAddress}, cached_experiment=${cached.experiment_id}`);
+      return {
+        ...this.formatResult(cached),
+        meta: {
+          fromCache: true,
+          fromFallback: true, // 标记这是fallback缓存
+          analyzedAt: cached.analyzed_at,
+          sourceExperimentId: cached.experiment_id,
+          promptVersion: cached.prompt_version
+        },
+        debugInfo: {
+          promptUsed: cached.prompt_used,
+          promptVersion: cached.prompt_version
+        }
+      };
+    }
+
+    // 7. 保存结果（包含 experiment_id）- 只有在分析成功时才保存
     const saveResult = await NarrativeRepository.save({
       token_address: normalizedAddress,
       token_symbol: tokenData.symbol,
