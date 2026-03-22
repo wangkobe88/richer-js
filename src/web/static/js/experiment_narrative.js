@@ -22,11 +22,13 @@ const HUMAN_JUDGE_MAP = {
 class ExperimentNarrative {
   constructor() {
     this.experimentId = null;
+    this.judgeExperimentId = null;
     this.experimentData = null;
     this.narrativeData = [];
     this.filteredData = [];
     this.sortField = 'analyzed_at';
     this.sortOrder = 'desc';
+    this.currentEditingToken = null;
 
     this.init();
   }
@@ -83,17 +85,23 @@ class ExperimentNarrative {
         this.applyFilterAndSort();
       });
     });
+
+    // 人工评级弹窗事件
+    document.getElementById('judge-cancel-btn')?.addEventListener('click', () => {
+      this.closeJudgeModal();
+    });
+
+    document.getElementById('judge-save-btn')?.addEventListener('click', () => {
+      this.saveJudge();
+    });
   }
 
   async loadData() {
     this.showLoading(true);
 
     try {
-      // 并行加载实验数据和叙事数据
-      const [experimentRes, narrativeRes] = await Promise.all([
-        fetch(`/api/experiment/${this.experimentId}`),
-        fetch(`/api/experiment/${this.experimentId}/narrative`)
-      ]);
+      // 获取实验数据（用于判断是否回测实验）
+      const experimentRes = await fetch(`/api/experiment/${this.experimentId}`);
 
       if (!experimentRes.ok) {
         throw new Error('加载实验数据失败');
@@ -106,19 +114,32 @@ class ExperimentNarrative {
 
       this.experimentData = experimentData.data;
 
-      // 加载叙事数据
-      if (narrativeRes.ok) {
-        const narrativeResult = await narrativeRes.json();
-        if (narrativeResult.success) {
-          this.narrativeData = narrativeResult.data || [];
-          this.stats = narrativeResult.stats || {};
-        } else {
-          this.narrativeData = [];
-          this.stats = {};
-        }
+      // 判断是否是回测实验，获取标注数据时使用源实验ID
+      this.judgeExperimentId = this.experimentId;
+      if (this.experimentData.config?.backtest?.sourceExperimentId) {
+        this.judgeExperimentId = this.experimentData.config.backtest.sourceExperimentId;
+      }
+
+      // 加载叙事数据和人工标注数据
+      const narrativeRes = await fetch(`/api/experiment/${this.experimentId}/narrative`);
+
+      if (!narrativeRes.ok) {
+        throw new Error('加载叙事数据失败');
+      }
+
+      const narrativeResult = await narrativeRes.json();
+
+      if (narrativeResult.success) {
+        this.narrativeData = narrativeResult.data || [];
+        this.stats = narrativeResult.stats || {};
       } else {
         this.narrativeData = [];
         this.stats = {};
+      }
+
+      // 如果是回测实验且当前实验没有人工标注数据，尝试从源实验加载
+      if (this.judgeExperimentId !== this.experimentId) {
+        await this.loadJudgeDataFromSource();
       }
 
       // 更新页面
@@ -132,6 +153,28 @@ class ExperimentNarrative {
       this.showError(error.message);
     } finally {
       this.showLoading(false);
+    }
+  }
+
+  /**
+   * 从源实验加载人工标注数据
+   */
+  async loadJudgeDataFromSource() {
+    try {
+      const sourceTokensRes = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens?limit=10000`);
+      if (sourceTokensRes.ok) {
+        const sourceTokensData = await sourceTokensRes.json();
+        if (sourceTokensData.success && sourceTokensData.tokens) {
+          sourceTokensData.tokens.forEach(token => {
+            const existingItem = this.narrativeData.find(item => item.token_address === token.token_address);
+            if (existingItem && token.human_judges) {
+              existingItem.human_judge = token.human_judges;
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('从源实验加载人工标注数据失败:', error);
     }
   }
 
@@ -246,6 +289,26 @@ class ExperimentNarrative {
     if (emptyState) emptyState.classList.add('hidden');
 
     tbody.innerHTML = this.filteredData.map(item => this.renderRow(item)).join('');
+
+    // 绑定人工评级按钮事件
+    this.bindJudgeButtons();
+  }
+
+  bindJudgeButtons() {
+    document.querySelectorAll('.judge-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const tokenAddress = e.target.dataset.address;
+        const tokenSymbol = e.target.dataset.symbol;
+        this.openJudgeModal(tokenAddress, tokenSymbol);
+      });
+    });
+
+    document.querySelectorAll('.judge-delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const tokenAddress = e.target.dataset.address;
+        this.deleteJudge(tokenAddress);
+      });
+    });
   }
 
   renderRow(item) {
@@ -254,12 +317,25 @@ class ExperimentNarrative {
     const ratingBadge = `<a href="/narrative-analyzer?address=${item.token_address}" target="_blank" class="rating-badge ${ratingInfo.class} hover:opacity-80 transition-opacity">${ratingInfo.emoji} ${ratingInfo.label}</a>`;
 
     // 人工评级
-    let judgeBadge = '<span class="text-gray-500 text-xs">-</span>';
+    let judgeBadge = '';
     if (item.human_judge && item.human_judge.category) {
       const judgeInfo = HUMAN_JUDGE_MAP[item.human_judge.category];
       if (judgeInfo) {
-        judgeBadge = `<span class="judge-badge ${judgeInfo.bgClass} ${judgeInfo.borderClass} ${judgeInfo.textClass}">${judgeInfo.emoji} ${judgeInfo.label}</span>`;
+        judgeBadge = `
+          <span class="judge-badge ${judgeInfo.bgClass} ${judgeInfo.borderClass} ${judgeInfo.textClass}">${judgeInfo.emoji} ${judgeInfo.label}</span>
+          <button class="judge-delete-btn ml-1 text-gray-400 hover:text-red-400 transition-colors" data-address="${item.token_address}" title="删除标注">✕</button>
+        `;
       }
+    }
+
+    // 如果没有人工评级，显示添加按钮
+    if (!judgeBadge) {
+      judgeBadge = `
+        <button class="judge-btn px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded text-xs text-white transition-colors"
+                data-address="${item.token_address}" data-symbol="${item.token_symbol}" title="添加标注">
+          +
+        </button>
+      `;
     }
 
     // 最大涨幅
@@ -320,6 +396,120 @@ class ExperimentNarrative {
         </td>
       </tr>
     `;
+  }
+
+  /**
+   * 打开标注模态框
+   */
+  openJudgeModal(tokenAddress, symbol) {
+    this.currentEditingToken = tokenAddress;
+
+    const modal = document.getElementById('judge-modal');
+    const symbolEl = document.getElementById('modal-token-symbol');
+    const addressEl = document.getElementById('modal-token-address');
+    const noteEl = document.getElementById('judge-note');
+
+    if (symbolEl) symbolEl.textContent = symbol || tokenAddress;
+    if (addressEl) addressEl.textContent = tokenAddress;
+
+    const judgeData = this.narrativeData.find(item => item.token_address === tokenAddress)?.human_judge;
+    const categoryRadios = document.querySelectorAll('input[name="judge-category"]');
+    categoryRadios.forEach(radio => {
+      radio.checked = radio.value === (judgeData?.category || '');
+    });
+
+    if (noteEl) noteEl.value = judgeData?.note || '';
+
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  /**
+   * 关闭标注模态框
+   */
+  closeJudgeModal() {
+    const modal = document.getElementById('judge-modal');
+    if (modal) modal.classList.add('hidden');
+
+    const categoryRadios = document.querySelectorAll('input[name="judge-category"]');
+    categoryRadios.forEach(radio => {
+      radio.checked = false;
+    });
+
+    const noteEl = document.getElementById('judge-note');
+    if (noteEl) noteEl.value = '';
+
+    this.currentEditingToken = null;
+  }
+
+  /**
+   * 保存标注
+   */
+  async saveJudge() {
+    if (!this.currentEditingToken) return;
+
+    const selectedRadio = document.querySelector('input[name="judge-category"]:checked');
+    if (!selectedRadio) {
+      alert('请选择一个分类');
+      return;
+    }
+
+    const category = selectedRadio.value;
+    const noteEl = document.getElementById('judge-note');
+    const note = noteEl?.value || '';
+
+    try {
+      const response = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens/${this.currentEditingToken}/judge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category, note })
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || '保存失败');
+
+      // 更新本地数据
+      const item = this.narrativeData.find(i => i.token_address === this.currentEditingToken);
+      if (item) {
+        item.human_judge = result.data.human_judges;
+      }
+
+      this.closeJudgeModal();
+      this.renderTable();
+    } catch (error) {
+      console.error('保存标注失败:', error);
+      alert('保存失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 删除标注
+   */
+  async deleteJudge(tokenAddress) {
+    if (!confirm('确定要删除这个标注吗？')) return;
+
+    try {
+      const response = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens/${tokenAddress}/judge`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || '删除失败');
+
+      // 更新本地数据
+      const item = this.narrativeData.find(i => i.token_address === tokenAddress);
+      if (item) {
+        delete item.human_judge;
+      }
+
+      this.renderTable();
+    } catch (error) {
+      console.error('删除标注失败:', error);
+      alert('删除失败: ' + error.message);
+    }
   }
 
   updateSortButtons() {

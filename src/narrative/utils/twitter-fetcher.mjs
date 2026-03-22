@@ -55,7 +55,7 @@ export class TwitterFetcher {
         return null;
       }
 
-      return {
+      const result = {
         type: 'tweet',
         text: tweetData.text,
         author_name: tweetData.user?.name || tweetData.author_name || null,
@@ -68,6 +68,48 @@ export class TwitterFetcher {
           retweet_count: tweetData.retweet_count || tweetData.retweetCount || 0
         }
       };
+
+      // 如果是回复推文，获取原始推文
+      if (tweetData.is_reply && tweetData.related_tweet_id) {
+        console.log(`[TwitterFetcher] 这是回复推文，尝试获取原始推文: ${tweetData.related_tweet_id}`);
+        try {
+          const originalTweet = await getTweetDetail(tweetData.related_tweet_id);
+          if (originalTweet && originalTweet.text) {
+            console.log(`[TwitterFetcher] 成功获取原始推文`);
+            result.in_reply_to = {
+              text: originalTweet.text,
+              author_name: originalTweet.user?.name || null,
+              author_screen_name: originalTweet.user?.screen_name || null,
+              created_at: originalTweet.created_at || null,
+              tweet_id: tweetData.related_tweet_id
+            };
+          }
+        } catch (err) {
+          console.warn(`[TwitterFetcher] 获取原始推文失败: ${err.message}`);
+        }
+      }
+
+      // 如果是转发推文，获取被转发的推文
+      if (tweetData.is_retweet && tweetData.related_tweet_id) {
+        console.log(`[TwitterFetcher] 这是转发推文，尝试获取原始推文: ${tweetData.related_tweet_id}`);
+        try {
+          const originalTweet = await getTweetDetail(tweetData.related_tweet_id);
+          if (originalTweet && originalTweet.text) {
+            console.log(`[TwitterFetcher] 成功获取原始推文`);
+            result.retweet_of = {
+              text: originalTweet.text,
+              author_name: originalTweet.user?.name || null,
+              author_screen_name: originalTweet.user?.screen_name || null,
+              created_at: originalTweet.created_at || null,
+              tweet_id: tweetData.related_tweet_id
+            };
+          }
+        } catch (err) {
+          console.warn(`[TwitterFetcher] 获取原始推文失败: ${err.message}`);
+        }
+      }
+
+      return result;
     } catch (error) {
       console.error('[TwitterFetcher] 获取推文失败:', error.message);
       return null;
@@ -190,7 +232,7 @@ export class TwitterFetcher {
 
     // 只获取第一个有效的URL内容（避免耗时过长）
     for (const url of urls) {
-      // 跳过Twitter/X自身的链接
+      // 跳过Twitter/X自身的链接（包括Article，因为需要JS渲染）
       if (url.includes('x.com') || url.includes('twitter.com') || url.includes('t.co/')) {
         continue;
       }

@@ -5,6 +5,7 @@
 
 import { NarrativeRepository } from '../db/NarrativeRepository.mjs';
 import { TwitterFetcher } from '../utils/twitter-fetcher.mjs';
+import { WeiboFetcher, WeiboExtractor } from '../utils/weibo-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl } from '../utils/web-fetcher.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
 import { LLMClient } from './llm-client.mjs';
@@ -62,7 +63,7 @@ export class NarrativeAnalyzer {
     // 3. 提取结构化信息
     const extractedInfo = this.extractInfo(tokenData);
 
-    // 4. 获取推文内容
+    // 4. 获取Twitter内容
     let twitterInfo = await TwitterFetcher.fetchFromUrls(
       extractedInfo.twitter_url,
       extractedInfo.website
@@ -74,7 +75,23 @@ export class NarrativeAnalyzer {
       twitterInfo = await TwitterFetcher.enrichWithLinkContent(twitterInfo);
     }
 
-    // 4.5 如果没有Twitter信息且有网站，尝试获取网页内容
+    // 5. 获取背景信息（微博等外部资源）- 不存储到 token_narrative
+    let backgroundInfo = null;
+
+    // 检查是否是微博链接（作为背景信息）
+    if (extractedInfo.website && WeiboExtractor.isValidWeiboUrl(extractedInfo.website)) {
+      console.log('[NarrativeAnalyzer] 检测到微博链接，获取作为背景信息');
+      backgroundInfo = await WeiboFetcher.fetchFromUrl(extractedInfo.website);
+      backgroundInfo.source = 'weibo';
+    }
+    // 检查 twitter_url 是否是微博链接
+    else if (extractedInfo.twitter_url && WeiboExtractor.isValidWeiboUrl(extractedInfo.twitter_url)) {
+      console.log('[NarrativeAnalyzer] 检测到微博链接，获取作为背景信息');
+      backgroundInfo = await WeiboFetcher.fetchFromUrl(extractedInfo.twitter_url);
+      backgroundInfo.source = 'weibo';
+    }
+
+    // 6. 如果没有Twitter信息且有网站，尝试获取网页内容
     // 注意：当Twitter获取失败时，即使网站是YouTube/TikTok等，也会尝试获取
     let websiteInfo = null;
     if (!twitterInfo && extractedInfo.website) {
@@ -83,14 +100,26 @@ export class NarrativeAnalyzer {
     } else if (!extractedInfo.twitter_url && extractedInfo.website && isFetchableUrl(extractedInfo.website)) {
       // 没有Twitter URL时，只获取可安全获取的网站（排除视频平台等）
       websiteInfo = await fetchWebsiteContent(extractedInfo.website, { maxLength: 5000 });
+    } else if (twitterInfo && extractedInfo.website && isFetchableUrl(extractedInfo.website)) {
+      // 有Twitter信息但也要获取网站内容的情况：
+      // 1. Twitter只是账号信息，没有推文内容
+      // 2. Twitter推文内容很少（少于50字符）
+      const shouldFetchWebsite =
+        (twitterInfo.type === 'account') ||  // 只是账号，没有推文
+        (twitterInfo.text && twitterInfo.text.length < 50);  // 推文太短
+
+      if (shouldFetchWebsite) {
+        console.log('[NarrativeAnalyzer] Twitter信息不完整，尝试获取网站内容作为补充');
+        websiteInfo = await fetchWebsiteContent(extractedInfo.website, { maxLength: 5000 });
+      }
     }
 
-    // 5. 构建Prompt并调用LLM
+    // 7. 构建Prompt并调用LLM
     let llmResult;
     let promptUsed = '';
     let analysisFailed = false;
     try {
-      promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo);
+      promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo, backgroundInfo);
       llmResult = await LLMClient.analyze(promptUsed);
     } catch (error) {
       console.error('LLM分析失败:', error.message);
@@ -101,7 +130,7 @@ export class NarrativeAnalyzer {
       analysisFailed = true;
     }
 
-    // 6. 如果分析失败且有缓存，使用缓存作为fallback
+    // 8. 如果分析失败且有缓存，使用缓存作为fallback
     if (analysisFailed && cached && cached.is_valid) {
       console.log(`分析失败，使用已有缓存作为fallback | address=${normalizedAddress}, cached_experiment=${cached.experiment_id}`);
       return {
@@ -120,7 +149,8 @@ export class NarrativeAnalyzer {
       };
     }
 
-    // 7. 保存结果（包含 experiment_id）- 只有在分析成功时才保存
+    // 9. 保存结果（包含 experiment_id）- 只有在分析成功时才保存
+    // 注意：只保存 twitter_info，微博等背景信息不保存（已缓存到 external_resource_cache）
     const saveResult = await NarrativeRepository.save({
       token_address: normalizedAddress,
       token_symbol: tokenData.symbol,
@@ -144,6 +174,7 @@ export class NarrativeAnalyzer {
 
     return {
       ...this.formatResult(saveResult),
+      backgroundInfo: backgroundInfo, // 返回背景信息供调试使用
       meta: {
         fromCache: false,
         analyzedAt: saveResult.analyzed_at,
