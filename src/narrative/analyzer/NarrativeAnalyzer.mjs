@@ -30,15 +30,10 @@ export class NarrativeAnalyzer {
     // 1. 检查缓存
     const cached = await NarrativeRepository.findByAddress(normalizedAddress);
 
-    // 判断是否可以使用缓存
-    const canUseCache = cached && cached.is_valid && (
-      // 情况1: 不忽略缓存 → 直接使用（不管来源）
-      !ignoreCache ||
-      // 情况2: 忽略缓存但数据已是本实验产生的 → 使用（避免重复分析）
-      (ignoreCache && cached.experiment_id === experimentId)
-    );
+    // 判断是否可以使用缓存（通过 ignoreCache 参数控制，不检查版本）
+    const canUseCache = cached && cached.is_valid && !ignoreCache;
 
-    if (canUseCache && this.isCacheValid(cached)) {
+    if (canUseCache) {
       return {
         ...this.formatResult(cached),
         meta: {
@@ -97,7 +92,7 @@ export class NarrativeAnalyzer {
     }
 
     // 6. 如果分析失败且有缓存，使用缓存作为fallback
-    if (analysisFailed && cached && cached.is_valid && this.isCacheValid(cached)) {
+    if (analysisFailed && cached && cached.is_valid) {
       console.log(`分析失败，使用已有缓存作为fallback | address=${normalizedAddress}, cached_experiment=${cached.experiment_id}`);
       return {
         ...this.formatResult(cached),
@@ -132,6 +127,7 @@ export class NarrativeAnalyzer {
         category: llmResult.category
       },
       prompt_used: promptUsed,
+      prompt_version: PromptBuilder.getPromptVersion(),
       experiment_id: experimentId,  // 记录来源实验
       analyzed_at: new Date().toISOString()
     });
@@ -223,14 +219,6 @@ export class NarrativeAnalyzer {
       twitter_url: twitterUrl,
       description: rawData.description || ''
     };
-  }
-
-  /**
-   * 判断缓存是否有效
-   */
-  static isCacheValid(cached) {
-    const currentVersion = PromptBuilder.getPromptVersion();
-    return cached.prompt_version === currentVersion;
   }
 
   /**
