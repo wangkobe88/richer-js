@@ -1104,7 +1104,8 @@ class ExperimentDataService {
         };
       }
 
-      const addresses = tokens.map(t => t.token_address);
+      // 转换为小写地址，因为 token_narrative 表的 token_address 存储为小写
+      const addresses = tokens.map(t => t.token_address.toLowerCase());
 
       // 批量查询叙事数据
       const { data: narratives, error: narrativeError } = await this.supabase
@@ -1117,17 +1118,17 @@ class ExperimentDataService {
         throw narrativeError;
       }
 
-      // 构建叙事数据映射
+      // 构建叙事数据映射（键使用小写地址）
       const narrativeMap = new Map();
       for (const narrative of (narratives || [])) {
-        narrativeMap.set(narrative.token_address, narrative);
+        narrativeMap.set(narrative.token_address.toLowerCase(), narrative);
       }
 
       // 组合数据：只返回有叙事数据的代币
       const combinedData = tokens
-        .filter(token => narrativeMap.has(token.token_address))
+        .filter(token => narrativeMap.has(token.token_address.toLowerCase()))
         .map(token => {
-          const narrative = narrativeMap.get(token.token_address);
+          const narrative = narrativeMap.get(token.token_address.toLowerCase());
 
           // 从 llm_category 推导 rating
           let rating = 9; // 默认未评级
