@@ -910,6 +910,16 @@ function sleep(ms) {
 // 导入新增的API功能
 const { getUserByScreenName, getUserTweets, getTweetDetail, getTweetDetailGraphQL } = require('./new-apis');
 
+// 导入 Communities API
+const {
+  fetchCommunityById,
+  fetchCommunityForTweet,
+  extractCommunityIdFromTweet,
+  getCommunityInfluenceLevel,
+  getCommunityInfluenceDescription,
+  isValidCommunityId
+} = require('./communities-api');
+
 // 导出所有函数
 module.exports = {
   // 原有功能函数

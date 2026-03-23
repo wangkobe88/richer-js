@@ -5,6 +5,7 @@
 import twitterValidationModule from '../../utils/twitter-validation/index.js';
 const { getTweetDetail, getTweetDetailGraphQL, getUserByScreenName } = twitterValidationModule;
 import { fetchWebsiteContent, isFetchableUrl } from './web-fetcher.mjs';
+import { TwitterMediaExtractor } from './twitter-media-extractor.mjs';
 
 /**
  * 叙事分析Twitter用户黑名单
@@ -63,13 +64,17 @@ export class TwitterFetcher {
         text: tweetData.text,
         author_name: tweetData.user?.name || tweetData.author_name || null,
         author_screen_name: tweetData.user?.screen_name || tweetData.author_screen_name || null,
+        author_followers_count: tweetData.user?.followers_count || null,
+        author_verified: tweetData.user?.verified || tweetData.user?.is_blue_verified || false,
         created_at: tweetData.created_at || tweetData.createdTimeStamp || null,
         tweet_id: tweetId,
         twitter_url: twitterUrl,
         metrics: {
           favorite_count: tweetData.favorite_count || tweetData.likeCount || 0,
           retweet_count: tweetData.retweet_count || tweetData.retweetCount || 0
-        }
+        },
+        // 媒体信息
+        media: tweetData.media || null
       };
 
       // 处理 Article 数据

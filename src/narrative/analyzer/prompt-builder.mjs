@@ -1,13 +1,13 @@
 /**
  * Prompt构建器
  * 评估BSC链meme代币叙事质量
- * V5.30 - 支持 Twitter Article 内容提取（标题和预览文本）
+ * V5.51 - 添加 FourMeme 平方官方账号 (@Four_FORM_) 特殊规则
  */
 
 export class PromptBuilder {
 
   static getPromptVersion() {
-    return 'V5.30';
+    return 'V5.51';
   }
 
   /**
@@ -17,8 +17,11 @@ export class PromptBuilder {
    * @param {Object} websiteInfo - 网页内容信息（仅在无Twitter信息时使用）
    * @param {Object} extractedInfo - 提取的结构化信息（包含 intro_en, intro_cn, website, description）
    * @param {Object} backgroundInfo - 背景信息（微博等外部资源，作为补充）
+   * @param {Object} githubInfo - GitHub仓库信息（如果有）
+   * @param {Object} youtubeInfo - YouTube视频信息（如果有）
+   * @param {Object} douyinInfo - 抖音视频信息（如果有）
    */
-  static build(tokenData, twitterInfo = null, websiteInfo = null, extractedInfo = null, backgroundInfo = null) {
+  static build(tokenData, twitterInfo = null, websiteInfo = null, extractedInfo = null, backgroundInfo = null, githubInfo = null, youtubeInfo = null, douyinInfo = null) {
     // 从 extractedInfo 获取，如果没有则尝试从 tokenData 获取
     const info = extractedInfo || {};
     const introEn = info.intro_en || tokenData.intro_en || '';
@@ -29,6 +32,33 @@ export class PromptBuilder {
     // 从 raw_api_data 获取 name
     const rawData = tokenData.raw_api_data || {};
     const tokenName = rawData.name || rawData.tokenName || tokenData.symbol || '';
+
+    // 检查推文中是否包含代币名称（用于辅助 LLM 判断）
+    let nameMatchHint = '';
+    if (twitterInfo && twitterInfo.text && tokenName) {
+      const tweetText = twitterInfo.text.toLowerCase();
+      const nameVariants = [
+        tokenName.toLowerCase(),
+        tokenData.symbol?.toLowerCase() || '',
+        // 常见的多语言变体（可以根据需要扩展）
+        ...(tokenName === '路飞' ? ['luffy', 'ลูฟี่', '루피', '路飞'] : []),
+        ...(tokenName === '特朗普' ? ['trump', 'ทรัมป์', '트럼프'] : []),
+        ...(tokenName === '马斯克' ? ['musk', 'มาสก์', '머스크'] : []),
+      ].filter(n => n);
+
+      const matchedVariants = nameVariants.filter(n => tweetText.includes(n.toLowerCase()));
+      if (matchedVariants.length > 0) {
+        nameMatchHint = `\n【代币名称匹配】推文中包含代币名称的变体: ${matchedVariants.join(', ')}`;
+      }
+
+      // 检查中文合成词/简称关联
+      if (!nameMatchHint) {
+        const compoundWordMatches = this.checkCompoundWordMatch(tokenName, tweetText);
+        if (compoundWordMatches) {
+          nameMatchHint = compoundWordMatches;
+        }
+      }
+    }
 
     // 构建输入内容（明确标注推文/账号和介绍，避免混淆）
     const contentParts = [];
@@ -50,8 +80,29 @@ export class PromptBuilder {
         // 推文格式 - 先显示作者信息，再显示推文内容
         const authorScreenName = twitterInfo.author_screen_name || twitterInfo.author_name || '未知';
         const authorName = twitterInfo.author_name || '';
-        contentParts.push(`【推文作者】@${authorScreenName}${authorName ? ` (${authorName})` : ''}`);
-        contentParts.push(`【推文】${twitterInfo.text}`);
+        const followersCount = twitterInfo.author_followers_count;
+        const verified = twitterInfo.author_verified;
+        const favoriteCount = twitterInfo.metrics?.favorite_count || 0;
+        const retweetCount = twitterInfo.metrics?.retweet_count || 0;
+
+        contentParts.push(`【推文作者】@${authorScreenName}${authorName ? ` (${authorName})` : ''}${verified ? ' ✓' : ''}`);
+        if (followersCount !== null && followersCount !== undefined) {
+          // 使用纯数字，不带逗号分隔符，避免LLM解析错误
+          contentParts.push(`【作者粉丝数】${followersCount} (${followersCount >= 10000 ? '高影响力' : followersCount >= 1000 ? '中等影响力' : '低影响力'})`);
+        }
+        contentParts.push(`【推文互动】点赞 ${favoriteCount} / 转发 ${retweetCount}`);
+
+        // 显示推文内容（包含翻译信息）
+        if (twitterInfo.text_translated) {
+          // 已翻译的内容
+          contentParts.push(`【推文（已翻译，原文${twitterInfo.original_language}）】${twitterInfo.text}`);
+          if (twitterInfo.text_original) {
+            contentParts.push(`【推文原文】${twitterInfo.text_original}`);
+          }
+        } else {
+          // 原始内容
+          contentParts.push(`【推文】${twitterInfo.text}${nameMatchHint}`);
+        }
 
         // 如果有 Article 内容，添加到内容中
         if (twitterInfo.article) {
@@ -89,6 +140,30 @@ export class PromptBuilder {
           contentParts.push(`【推文链接内容】${twitterInfo.link_content.content}`);
           contentParts.push(`【链接来源】${twitterInfo.link_content.url}`);
         }
+
+        // 如果有图片分析结果，添加到内容中
+        if (twitterInfo.image_analysis && twitterInfo.image_analysis.analysis) {
+          const analysis = twitterInfo.image_analysis.analysis;
+          contentParts.push(`【推文配图分析】`);
+          if (analysis.description) {
+            contentParts.push(`  描述: ${analysis.description}`);
+          }
+          if (analysis.meme_type) {
+            contentParts.push(`  梗图类型: ${analysis.meme_type}`);
+          }
+          if (analysis.meme_meaning) {
+            contentParts.push(`  梗图含义: ${analysis.meme_meaning}`);
+          }
+          if (analysis.key_elements && analysis.key_elements.length > 0) {
+            contentParts.push(`  关键元素: ${analysis.key_elements.join(', ')}`);
+          }
+          if (analysis.emotion) {
+            contentParts.push(`  情感基调: ${analysis.emotion}`);
+          }
+          if (analysis.token_relevance) {
+            contentParts.push(`  代币关联: ${analysis.token_relevance}`);
+          }
+        }
       }
 
       // 如果有网站内容，作为补充信息添加
@@ -116,6 +191,59 @@ export class PromptBuilder {
       if (backgroundInfo.created_at) {
         contentParts.push(`【背景信息发布时间】${backgroundInfo.created_at}`);
       }
+    }
+
+    // 添加 GitHub 仓库信息（如果有）
+    if (githubInfo && githubInfo.stargazers_count !== null) {
+      contentParts.push(`【GitHub仓库】${githubInfo.full_name || githubInfo.url}`);
+      if (githubInfo.description) {
+        contentParts.push(`【仓库描述】${githubInfo.description}`);
+      }
+      contentParts.push(`【Stars】${githubInfo.stargazers_count.toLocaleString()}`);
+      contentParts.push(`【Forks】${(githubInfo.forks_count || 0).toLocaleString()}`);
+      if (githubInfo.language) {
+        contentParts.push(`【主要语言】${githubInfo.language}`);
+      }
+      // 影响力等级
+      const level = githubInfo.influence_level || 'unknown';
+      contentParts.push(`【影响力等级】${githubInfo.influence_description || level}`);
+    }
+
+    // 添加 YouTube 视频信息（如果有）
+    if (youtubeInfo && youtubeInfo.title) {
+      contentParts.push(`【YouTube视频】${youtubeInfo.title}`);
+      if (youtubeInfo.author_name || youtubeInfo.channel_title) {
+        contentParts.push(`【视频作者】${youtubeInfo.author_name || youtubeInfo.channel_title}`);
+      }
+      if (youtubeInfo.view_count) {
+        contentParts.push(`【观看数】${youtubeInfo.view_count.toLocaleString()}`);
+      }
+      if (youtubeInfo.subscriber_count) {
+        contentParts.push(`【频道订阅数】${youtubeInfo.subscriber_count.toLocaleString()}`);
+      }
+      // 影响力等级
+      const ytLevel = youtubeInfo.influence_level || 'unknown';
+      contentParts.push(`【影响力等级】${youtubeInfo.influence_description || ytLevel}`);
+    }
+
+    // 添加抖音视频信息（如果有）
+    if (douyinInfo && douyinInfo.title) {
+      contentParts.push(`【抖音视频】${douyinInfo.title}`);
+      if (douyinInfo.author_nickname) {
+        contentParts.push(`【视频作者】${douyinInfo.author_nickname}${douyinInfo.author_verified ? ' ✓' : ''}`);
+      }
+      if (douyinInfo.view_count) {
+        contentParts.push(`【观看数】${douyinInfo.view_count.toLocaleString()}`);
+      }
+      if (douyinInfo.like_count) {
+        contentParts.push(`【点赞数】${douyinInfo.like_count.toLocaleString()}`);
+      }
+      if (douyinInfo.author_follower_count) {
+        contentParts.push(`【作者粉丝数】${douyinInfo.author_follower_count.toLocaleString()}`);
+      }
+      // 影响力等级
+      const dyLevel = douyinInfo.influence_level || 'unknown';
+      contentParts.push(`【影响力等级】${douyinInfo.influence_description || dyLevel}`);
     }
 
     if (introEn) contentParts.push(`【介绍英文】${introEn}`);
@@ -150,6 +278,35 @@ ${contentStr}
 - "【网站补充内容】"是代币网站页面的正文内容（在有Twitter信息时作为补充）
 - "【介绍英文/中文】"是代币的介绍文字
 - "【背景信息】"是来自微博等其他平台的补充信息，作为叙事背景参考
+- "【GitHub仓库】"是代币关联的 GitHub 仓库信息
+  - Stars 数量是衡量项目影响力的重要指标
+  - 影响力等级：世界级（10k+）、平台级（1k+）、社区级（100+）、小众级（10+）、无影响力（<10）
+  - **对于带 GitHub 链接的代币，需要区分两种情况**：
+    1. **一般情况（非官方代币）**：主要看 GitHub 项目影响力
+       - 如果 star 数很低（<100），说明项目缺乏社区认可，叙事质量低
+       - 即使有一定 star 数，如果与代币没有强关联，也不应高估
+    2. **官方代币**：看事情本身（如重大技术突破、平台支持）
+       - 判断是否是官方代币：仓库名与代币高度相关，且是原始仓库（非 fork）
+       - 如果是官方代币，评估重点在于事件本身的影响力
+- "【YouTube视频】"是代币关联的 YouTube 视频信息
+  - 使用 JustOneAPI 获取详细视频信息（标题、频道、观看数等）
+  - 观看数是判断视频影响力的重要指标
+  - 影响力等级：世界级（10亿+）、病毒传播（1亿+）、超级病毒（1000万+）、高度病毒（100万+）、热门（10万+）、社区级（1万+）、小众级（1000+）
+  - **对于带 YouTube 视频的代币**：
+    - 主要看视频内容与代币的关联度
+    - 视频观看数是重要参考：高观看数（百万+）说明视频有广泛传播
+    - 即使观看数不高，如果内容与代币高度相关也有一定价值
+    - 超高观看数（10亿+）的病毒视频可视为世界级影响力
+- "【抖音视频】"是代币关联的抖音视频信息
+  - 使用 JustOneAPI 获取详细视频信息（标题、作者、观看数、点赞数等）
+  - 观看数和点赞数是判断视频影响力的重要指标
+  - 影响力等级：世界级（1亿+）、病毒传播（1000万+）、超级病毒（100万+）、高度病毒（10万+）、热门（1万+）、社区级（1000+）、小众级（1000以下）
+  - **对于带抖音视频的代币**：
+    - 主要看视频内容与代币的关联度
+    - 视频观看数和点赞数是重要参考：高观看数/点赞数说明视频有广泛传播
+    - 即使观看数不高，如果内容与代币高度相关也有一定价值
+    - 超高观看数（1亿+）的病毒视频可视为世界级影响力
+    - 抖音是中国最流行的短视频平台，具有强大的传播力和影响力
 - 如果只有推特账号信息而无推文，说明叙事线索主要在账号背景中
 - 如果既有推文又有网站内容，需要综合两者信息进行评估
 - 如果只有【网页内容】而无推文，说明叙事线索主要在网页内容中
@@ -157,6 +314,22 @@ ${contentStr}
   - 例如：代币"AIFREE"应匹配推文中的"AI-free"、"ai free"、"AiFree"等变体
   - 匹配逻辑：去掉连字符和空格后，进行大小写不敏感的字符串比较
   - **谐音/相似发音也应视为有效关联**：如"Goo"可匹配"蛊"，"Duck"可匹配"达克"等
+  - **译名变体也应视为有效关联**：同一人物/概念在不同语言/地区的译名差异
+    - 例如："路飞"应匹配"卢菲"、"鲁夫"、"Luffy"、"ルフィ"等
+    - 例如："特朗普"应匹配"川普"、"Trump"、"トランプ"等
+    - 判断时优先看：是否指代同一人物/概念（即使译名不同）
+  - **中文品牌简称/双关语匹配**：中文名称常用简称或双关语来指代知名品牌
+    - "万事"是"万事达（Mastercard）"的中文简称 → "万事币安" = 万事达 + 币安
+    - "马斯"是"马斯克（Musk）"的中文简称 → "马斯狗" = 马斯克 + 狗
+    - "币安"是"Binance"的中文品牌名
+    - **合成词分析**：如果代币名是两个词的组合（如"万事+币安"），需要分别检查推文中是否提到这两个概念
+    - **判断逻辑**：即使推文中没有完整提及代币名，如果提及了组合词的各个部分（如同时提到Mastercard和Binance），应视为有效关联
+  - **重要：名称匹配即视为有效关联，不需要是同一事物**
+    - 例如：推文提到一只名叫"路飞"的侏儒河马，代币叫"路飞" → 有效关联
+    - 例如：推文提到"特朗普大楼"，代币叫"特朗普" → 有效关联
+    - 例如：推文提到"万事达卡"，代币叫"万事币安" → 有效关联（万事=万事达）
+    - **判断逻辑**：只要推文中明确提到了代币名称（或其译名变体、简称、合成词的组成部分），就视为有关联
+    - **不需要验证**：不需要验证推文中的"路飞"是否就是动漫角色路飞
 
 【核心原则】
 评估BSC链meme代币的叙事质量。注意：
@@ -188,6 +361,10 @@ ${contentStr}
   2. **基于大IP相关事件的代币**：只需要有人声称/报道了这个事件即可
      - 例如：作家推文说"获得Elon许可出版这本书" → 这是真实事件叙事，不需要Elon认可
 - **加密相关账号识别**：
+  - **@Four_FORM_** = FourMeme 平方官方账号（BSC链发币平台）
+    - 这是本代币所在的官方发币平台，它的推文代表平台官方宣传
+    - **平台官方推文应给予更高权重**，即使内容简单，也是对代币的官方背书
+    - 评级应至少为 **mid（40-60分）**，如果配图是热门梗图，可评 **high（70-90分）**
   - **@cz_binance** = CZ（币安创始人），世界级加密人物
   - **@heyibinance** = 何一（币安联合创始人），世界级加密人物
   - **Trust Wallet** = 币安旗下钱包，平台级影响力
@@ -212,11 +389,50 @@ ${contentStr}
 - **注意**：如果createdAt为空/null，跳过时间判断
 
 第二步：判断推文语言
-- **如果有推文且不是中文/英文**：直接返回 low
-- 原因：非中英文推文会极大限制主要用户群体的传播
+- **如果有推文且不是中文/英文**：
+  - 先检查影响力指标：
+    1. 作者粉丝数 >= 10000
+    2. 或作者是认证用户
+    3. 或推文有高互动（点赞数 >= 1000 或 转发数 >= 500）
+  - **如果满足以上任意影响力条件**：跳过语言限制，继续评估第三步
+    - 原因：高影响力内容即使语言不同，也可能在全球范围传播（如表情包、视频内容等）
+  - **如果不满足任何影响力条件**：返回 low
+    - 原因：非中英文 + 低影响力，难以在主要市场形成有效传播
 - **注意**：如果推文内容显示为"True"/空/无法获取实际文本，返回 unrated
 
-第三步：判断可理解性/关联度
+第三步：判断核心信息是否缺失（**最高优先级判断**）
+
+**核心信息完全缺失 → 直接返回 unrated，跳过后续所有评估**
+
+**判断标准（必须同时满足以下所有条件）：**
+1. **无推文**（或推文信息为空）
+2. **无 website**（或 website 为空）
+3. **intro 内容极其有限**，仅满足以下任一情况：
+   - 只是简单名字描述，如"Tom the lizard"、"A meme coin"、"Just a token"
+   - 单个词或短语，没有实际内容
+   - 通用的、无意义的描述
+
+**原因：核心叙事信息缺失，无法评估代币性质和传播潜力**
+
+**示例（这些都是 unrated）：**
+- 代币:"Tom"，intro:"Tom the lizard"，无推文，无website → unrated
+- 代币:"XYZ"，intro:"A meme coin"，无推文，无website → unrated
+- 代币:"ABC"，intro:"Just a token"，无推文，无website → unrated
+
+**重要：如果满足以上条件，直接返回 unrated，不要继续评估！**
+
+第五步：判断可理解性/关联度
+
+**重要说明：对于非中英文但高影响力的内容**
+- 如果内容来自高影响力作者（粉丝数 >= 10000 或 认证用户）或有高互动（点赞 >= 1000）
+- 即使是其他语言，也应该宽松对待"关联度"判断：
+  1. **代币名称匹配**：如果内容中包含代币名称（包括其他语言的拼写、音译、谐音），视为有关联
+     - 例如：代币"路飞"，泰语内容中包含"ลูฟี่" → 有效关联
+     - 例如：代币"Bitcoin"，日语内容中包含"ビットコイン" → 有效关联
+  2. **关键词匹配**：如果内容包含与代币相关的关键词（如动物名称、角色名、概念等），视为有关联
+  3. **图片/媒体内容**：如果有图片、视频等，即使不能完全理解文字，也可能有传播价值
+  4. **高影响力本身就是强信号**：如果作者有大量粉丝或推文有高互动，说明内容具有传播力
+- **评估原则**：对于非中英文内容 + 高影响力的情况，不应因为"语言不理解"就判定为无关联
 
 **情况1：信息获取不全（技术限制）→ unrated**
 - 推文纯链接但链接内容获取失败（网络错误、访问限制等）
@@ -225,13 +441,13 @@ ${contentStr}
 - 原因：技术限制导致无法获取完整信息，无法评估
 
 **情况2：信息在外部平台 → unrated**
-- website是抖音视频、B站、YouTube、快手等视频平台链接
+- website是B站、快手等视频平台链接（YouTube、抖音 已可获取）
 - website是Telegram、Discord、小红书、Instagram等无法获取的平台
 - website是X社区链接、Twitter Article等需要登录/JS渲染的平台
 - 无推文 + intro只是名字 + website指向外部平台
-- 示例：website是https://x.com/i/communities/xxx、抖音视频链接、B站视频
+- 示例：website是https://x.com/i/communities/xxx、B站视频
 - 原因：主体信息在外部平台，无法获取
-- 注意：微博链接现在可以获取内容，不再标记为 unrated
+- 注意：微博、YouTube、抖音 链接现在可以获取内容，这些不再标记为 unrated
 
 **情况3：信息完整但无有效关联 → low（不是unrated）**
 - 获取了完整信息（推文、网页内容等），但与代币无明显关联
@@ -247,7 +463,7 @@ ${contentStr}
 - **普通/小众概念**（某个开源工具、普通产品）→ 通常low
 - **无法体现知名度**→ low（不是unrated，因为信息已完整获取）
 
-第四步：检测"低质量叙事"（以下情况直接返回low）
+第六步：检测"低质量叙事"（以下情况直接返回low）
 1. **纯谐音梗**：只有谐音关联（如"生菜=生财"、"Duck you=鸭你一拳"），无实质内容
 2. **热搜搬运**：纯报道热点事件（如"XX上热搜"），没有具体内容/事件
 3. **泛泛情感概念**：只是借用常见词/抽象概念（"遗憾"、"佛系"等），没有具体故事/文化符号
@@ -268,8 +484,37 @@ ${contentStr}
    - **评估原则**：功能性符号通常 **0-15分**（传播力极弱）
      - 即使有全球认知度，也不应给予高分
      - 示例：皮特托先生（紧急出口标志）→ low（功能性符号，缺乏meme属性）
+8. **无影响力的新说法/梗**：创造或使用一个新的概念/梗，但发表者无影响力且未形成社交热度
+   - **发表者影响力要求**：发表者需要具备一定的影响力
+     - 粉丝数 < 1000：通常视为无影响力
+     - 粉丝数 1000-10000：影响力有限，需要结合其他因素
+     - 粉丝数 > 10000 或认证用户：有一定影响力
+   - **社交热度证据**：需要有以下之一
+     - 明确提到已经"火了"、"爆火"、"热搜"
+     - 有转发、评论数据佐证（高互动量）
+     - 被其他大号转发或引用
+   - **评估原则**：新说法如果没有影响力支撑，视为 low（0-15分）
+     - 单纯一个新说法，没有发表者影响力，没有社交热度 → low
+     - 示例：小号粉丝发"打工圣体"，无其他佐证 → low（新说法无分量）
+9. **低 star 数的 GitHub 项目**：带 GitHub 链接但项目影响力极低
+   - **GitHub star 数评级标准**：
+     - < 10 stars：无影响力 → low（0-10分）
+     - 10-100 stars：小众影响力 → low（0-15分），除非有其他强支撑
+     - 100-1000 stars：社区级影响力 → 可评 mid-low（10-25分）
+     - 1000-10000 stars：平台级影响力 → 可评 mid（20-35分）
+     - > 10000 stars：世界级影响力 → 可评 mid-high（30-50分）
+   - **非官方代币的 GitHub 项目评估**：
+     - 如果不是官方代币，主要看 GitHub 项目本身的影响力
+     - 低 star 数（<100）说明项目缺乏社区认可，叙事质量低
+     - 即使有一定 star 数，如果项目与代币没有强关联，也不应高估
+   - **官方代币的 GitHub 项目评估**：
+     - 如果是官方代币（仓库名与代币高度相关，且非 fork），评估重点在于事件本身
+     - GitHub star 数作为参考，但不是唯一标准
+   - **评估原则**：低影响力 GitHub 项目 → low（0-15分）
+     - 示例：某小项目的 GitHub 链接，50 stars → low（缺乏影响力）
+     - 示例：知名项目如 React/Vue 相关 → 可根据 star 数评级
 
-第五步：如果通过以上检查，按以下标准评分
+第七步：如果通过以上检查，按以下标准评分
 
 【评分维度】（总分100）
 
@@ -329,9 +574,9 @@ ${contentStr}
 【评级标准】
 - unrated: 信息获取不全或信息在外部平台，无法评估
   - 技术限制导致无法获取完整信息（网站无法访问、链接内容获取失败等）
-  - 主体信息在外部平台（B站、抖音、YouTube、快手等）无法获取
+  - 主体信息在外部平台（B站、快手等）无法获取
   - 完全无信息（intro只是名字、无推文、无website）
-  - 注意：微博现在可以获取，不再标记为 unrated
+  - 注意：微博、YouTube、抖音 现在可以获取，不再标记为 unrated
 - low: 信息完整但无有效关联，或触发低质量叙事模式，或 非中英文推文，或 总分<50
   - 获取了完整信息但与代币无明显关联
   - 通用描述/无意义内容
@@ -401,10 +646,10 @@ CZ相关(加密重大事件)+强传播力→{credibility:35,virality:40,total:75
 介绍:Infinite Runner, website:推特搜索链接
 无有意义内容→{category:"low",reason:"无推文，介绍为通用描述，无有效信息"}
 
-示例13(抖音链接-unrated):
+示例13(B站链接-unrated):
 代币:猿神
-介绍:信我我后期很牛逼, website:抖音链接
-主体信息在外部平台→{category:"unrated",reason:"主体信息在抖音链接中"}
+介绍:信信我我后期很牛逼, website:B站视频链接
+主体信息在外部平台→{category:"unrated",reason:"主体信息在B站链接中"}
 
 示例14(功能性符号-low):
 代币:皮特托先生
@@ -465,5 +710,81 @@ CZ相关(加密重大事件)+强传播力→{credibility:35,virality:40,total:75
 无法理解输出（不包含scores）:
 {"category":"unrated","reasoning":"说明无法理解代币性质的原因"}
 `;
+  }
+
+  /**
+   * 检查中文合成词/简称关联
+   * 识别如"万事币安"(万事达+币安)这类由多个词组成的代币名
+   * @param {string} tokenName - 代币名称
+   * @param {string} tweetText - 推文内容（已转小写）
+   * @returns {string|null} 匹配提示或 null
+   */
+  static checkCompoundWordMatch(tokenName, tweetText) {
+    // 中文品牌简称/双关语映射表
+    const chineseAbbreviations = {
+      '万事': ['mastercard', '万事达', 'master'],
+      '马斯': ['musk', '马斯克'],
+      '币安': ['binance', '币安'],
+      '安币': ['binance', '币安'],
+    };
+
+    // 常见合成词模式（代币名 -> 分解后的组成部分）
+    const compoundPatterns = {
+      '万事币安': ['万事', '币安'],
+      '马斯狗': ['马斯', '狗'],
+      // 可以继续添加其他模式
+    };
+
+    // 检查是否是已知合成词
+    const components = compoundPatterns[tokenName];
+    if (components) {
+      const matchedComponents = [];
+      const matchedKeywords = [];
+
+      for (const component of components) {
+        // 检查组件本身是否在推文中
+        if (tweetText.includes(component.toLowerCase())) {
+          matchedComponents.push(component);
+        }
+
+        // 检查组件对应的英文/全称是否在推文中
+        const abbreviations = chineseAbbreviations[component];
+        if (abbreviations) {
+          for (const abbr of abbreviations) {
+            if (tweetText.includes(abbr.toLowerCase())) {
+              matchedKeywords.push(abbr);
+              break; // 每个组件只匹配一个关键词
+            }
+          }
+        }
+      }
+
+      // 如果匹配到任何组件或关键词，返回提示
+      if (matchedComponents.length > 0 || matchedKeywords.length > 0) {
+        const hints = [];
+        if (matchedComponents.length > 0) {
+          hints.push(`直接匹配: ${matchedComponents.join(', ')}`);
+        }
+        if (matchedKeywords.length > 0) {
+          hints.push(`关联匹配: ${matchedKeywords.join(', ')}`);
+        }
+        return `\n【代币名称关联】代币"${tokenName}"是合成词，推文包含其组成部分: ${hints.join('; ')}`;
+      }
+    }
+
+    // 检查其他可能的简称关联
+    // 遍历所有已知简称，看代币名是否包含它们
+    for (const [abbr, keywords] of Object.entries(chineseAbbreviations)) {
+      if (tokenName.includes(abbr)) {
+        // 检查推文中是否包含对应的英文/全称
+        for (const keyword of keywords) {
+          if (tweetText.includes(keyword.toLowerCase())) {
+            return `\n【代币名称关联】代币"${tokenName}"包含"${abbr}"（${keyword}的简称），推文提及${keyword}`;
+          }
+        }
+      }
+    }
+
+    return null;
   }
 }

@@ -283,6 +283,30 @@ async function getTweetDetailGraphQL(tweetId) {
     // 检查是否有 Article
     const articleResult = tweetResult.article?.article_results?.result;
 
+    // 检查是否有媒体（图片、视频等）
+    const mediaEntities = legacy.extended_entities?.media || legacy.entities?.media || [];
+    const images = [];
+    const videos = [];
+
+    for (const media of mediaEntities) {
+      if (media.type === 'photo') {
+        images.push({
+          url: media.media_url_https,
+          media_key: media.media_key,
+          width: media.original_info?.width || 0,
+          height: media.original_info?.height || 0,
+          display_url: media.display_url,
+          expanded_url: media.expanded_url
+        });
+      } else if (media.type === 'video' || media.type === 'animated_gif') {
+        // 视频信息（暂不处理）
+        videos.push({
+          type: media.type,
+          media_key: media.media_key
+        });
+      }
+    }
+
     const tweetDetail = {
       tweet_id: tweetResult.rest_id,
       text: legacy.full_text || legacy.text || '',
@@ -310,6 +334,13 @@ async function getTweetDetailGraphQL(tweetId) {
       // URL
       urls: legacy.entities?.urls?.map(u => u.expanded_url || u.url) || [],
 
+      // 媒体信息
+      media: {
+        images: images,
+        videos: videos,
+        has_media: images.length > 0 || videos.length > 0
+      },
+
       // 回复/转发信息
       is_reply: !!legacy.in_reply_to_status_id,
       reply_to_tweet_id: legacy.in_reply_to_status_id || null,
@@ -327,6 +358,9 @@ async function getTweetDetailGraphQL(tweetId) {
     console.log(`✅ 成功获取推文详情 (GraphQL): ID=${tweetDetail.tweet_id}`);
     if (tweetDetail.article) {
       console.log(`   📰 Article: "${tweetDetail.article.title}"`);
+    }
+    if (tweetDetail.media.has_media) {
+      console.log(`   📷 媒体: ${tweetDetail.media.images.length} 张图片, ${tweetDetail.media.videos.length} 个视频`);
     }
 
     return tweetDetail;

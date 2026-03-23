@@ -1,12 +1,12 @@
 /**
  * 微博获取工具
- * 使用 RapidAPI 的 Weibo All API
+ * 使用 JustOneAPI 的微博接口
  */
 
 import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
 
-const RAPIDAPI_KEY = 'b2d183d4cbmshe79b303f1de4b64p18e56ejsna95529b3f9ef';
-const RAPIDAPI_HOST = 'weibo-all-api.p.rapidapi.com';
+const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
+const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/weibo/get-weibo-detail/v1';
 
 /**
  * 微博URL工具类
@@ -128,15 +128,13 @@ export class WeiboFetcher {
 
       console.log(`[WeiboFetcher] 获取微博内容: ${weiboId}`);
 
-      // 调用 RapidAPI
-      const apiUrl = `https://${RAPIDAPI_HOST}/api/weibo/get-weibo-detail/v1?id=${encodeURIComponent(weiboId)}`;
+      // 调用 JustOneAPI
+      const apiUrl = `${JUSTONEAPI_URL}?token=${JUSTONEAPI_KEY}&id=${encodeURIComponent(weiboId)}`;
 
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'x-rapidapi-host': RAPIDAPI_HOST,
-          'x-rapidapi-key': RAPIDAPI_KEY
+          'Content-Type': 'application/json'
         }
       });
 
@@ -159,6 +157,9 @@ export class WeiboFetcher {
 
       const status = data.data.status;
 
+      // 解析粉丝数（可能是字符串格式 "6509万"）
+      const followersCount = this._parseFollowersCount(status.user?.followers_count);
+
       // 格式化返回结果
       const result = {
         type: 'weibo',
@@ -169,7 +170,7 @@ export class WeiboFetcher {
         author_user_id: status.user?.id?.toString(),
         author_avatar: status.user?.profile_image_url,
         author_description: status.user?.description,
-        author_followers_count: parseInt(status.user?.followers_count) || 0,
+        author_followers_count: followersCount,
         author_verified: status.user?.verified || false,
         author_verified_reason: status.user?.verified_reason,
         created_at: status.created_at,
@@ -217,6 +218,35 @@ export class WeiboFetcher {
     text = text.replace(/\s+/g, ' ').trim();
 
     return text;
+  }
+
+  /**
+   * 解析粉丝数（支持中文单位格式）
+   * @param {string|number} count - 粉丝数（可能是 "6509万" 或 65090000）
+   * @returns {number} 粉丝数
+   * @private
+   */
+  static _parseFollowersCount(count) {
+    if (typeof count === 'number') {
+      return count;
+    }
+
+    if (typeof count === 'string') {
+      // 处理中文单位格式
+      if (count.includes('万')) {
+        const num = parseFloat(count.replace('万', ''));
+        return Math.floor(num * 10000);
+      }
+      if (count.includes('亿')) {
+        const num = parseFloat(count.replace('亿', ''));
+        return Math.floor(num * 100000000);
+      }
+      // 移除逗号等分隔符
+      const cleaned = count.replace(/,/g, '');
+      return parseInt(cleaned) || 0;
+    }
+
+    return 0;
   }
 
   /**
