@@ -21,7 +21,7 @@ ${twitterInfo ? `
 - 作者粉丝数：${twitterInfo.author_followers_count || '未知'}
 - 作者认证：${twitterInfo.author_verified ? '是' : '否'}
 - 推文内容：${twitterInfo.text || '无'}
-- 推文发布时间：${twitterInfo.created_at || '未知'}
+- 推文发布时间：${twitterInfo.formatted_created_at || twitterInfo.created_at || '未知'}
 - 推文点赞数：${twitterInfo.metrics?.favorite_count || 0}
 - 推文转发数：${twitterInfo.metrics?.retweet_count || 0}
 ${twitterInfo.media && twitterInfo.media.has_media ? `
@@ -31,6 +31,7 @@ ${twitterInfo.in_reply_to ? `
 - 【这是回复推文】
   原始推文作者：${twitterInfo.in_reply_to.author_name || '未知'}
   原始推文内容：${twitterInfo.in_reply_to.text || '无'}
+  原始推文发布时间：${twitterInfo.in_reply_to.formatted_created_at || twitterInfo.in_reply_to.created_at || '未知'}
 ` : ''}
 ${twitterInfo.article ? `
 - 【Twitter Article】
@@ -70,10 +71,11 @@ ${twitterInfo?.link_content ? `
 【评估步骤】
 
 第一步：判断推文时间（最高优先级）
-- **前提：必须明确知道推文发布时间（createdAt字段有值）**
-- **如果推文发布时间超过2周（14天）**：直接返回 low
-- 原因：老推文通常已被用于发过多个代币，叙事价值已耗尽
-- **当前日期：2026年3月22日**（用于判断推文时间是否过久）
+- **本推文发布时间：${twitterInfo?.formatted_created_at || twitterInfo?.created_at || '未知'}**
+- **当前日期：2026年3月23日**
+- **判断规则**：
+  - 如果推文发布时间超过2周（14天）→ **直接返回 low**
+  - 原因：老推文通常已被用于发过多个代币，叙事价值已耗尽
 - **注意**：如果createdAt为空/null，跳过时间判断
 
 第二步：判断推文语言

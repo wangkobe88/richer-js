@@ -23,6 +23,31 @@ function isUserBlacklisted(username) {
   return NARRATIVE_TWITTER_BLACKLIST.includes(username);
 }
 
+/**
+ * 格式化Twitter时间戳为易读格式
+ * 输入: "Wed Dec 10 19:26:28 +0000 2025"
+ * 输出: "2025年12月10日 19:26 (UTC)"
+ */
+function formatTwitterTime(timeStr) {
+  if (!timeStr) return null;
+
+  try {
+    const date = new Date(timeStr);
+    if (isNaN(date.getTime())) return timeStr;
+
+    // 使用UTC时间，避免本地时区转换
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth() + 1;
+    const day = date.getUTCDate();
+    const hours = date.getUTCHours().toString().padStart(2, '0');
+    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+
+    return `${year}年${month}月${day}日 ${hours}:${minutes} (UTC)`;
+  } catch (e) {
+    return timeStr;
+  }
+}
+
 export class TwitterFetcher {
 
   /**
@@ -59,6 +84,7 @@ export class TwitterFetcher {
         return null;
       }
 
+      const rawCreatedAt = tweetData.created_at || tweetData.createdTimeStamp || null;
       const result = {
         type: 'tweet',
         text: tweetData.text,
@@ -66,7 +92,8 @@ export class TwitterFetcher {
         author_screen_name: tweetData.user?.screen_name || tweetData.author_screen_name || null,
         author_followers_count: tweetData.user?.followers_count || null,
         author_verified: tweetData.user?.verified || tweetData.user?.is_blue_verified || false,
-        created_at: tweetData.created_at || tweetData.createdTimeStamp || null,
+        created_at: rawCreatedAt,
+        formatted_created_at: formatTwitterTime(rawCreatedAt),
         tweet_id: tweetId,
         twitter_url: twitterUrl,
         metrics: {
@@ -104,11 +131,13 @@ export class TwitterFetcher {
           const originalTweet = await getTweetDetailGraphQL(tweetData.reply_to_tweet_id);
           if (originalTweet && originalTweet.text) {
             console.log(`[TwitterFetcher] 成功获取原始推文`);
+            const rawCreatedAt = originalTweet.created_at || null;
             result.in_reply_to = {
               text: originalTweet.text,
               author_name: originalTweet.user?.name || null,
               author_screen_name: originalTweet.user?.screen_name || null,
-              created_at: originalTweet.created_at || null,
+              created_at: rawCreatedAt,
+              formatted_created_at: formatTwitterTime(rawCreatedAt),
               tweet_id: tweetData.reply_to_tweet_id,
               article: originalTweet.article || null
             };
@@ -151,6 +180,7 @@ export class TwitterFetcher {
         return null;
       }
 
+      const rawCreatedAt = userInfo.created_at || '';
       return {
         type: 'account',
         screen_name: userInfo.screen_name || '',
@@ -160,7 +190,8 @@ export class TwitterFetcher {
         verified: userInfo.verified || false,
         is_blue_verified: userInfo.is_blue_verified || false,
         statuses_count: userInfo.statuses_count || 0,
-        created_at: userInfo.created_at || '',
+        created_at: rawCreatedAt,
+        formatted_created_at: formatTwitterTime(rawCreatedAt),
         location: userInfo.location || '',
         url: userInfo.url || ''
       };

@@ -23,7 +23,7 @@ ${twitterInfo ? `
 - 粉丝数：${twitterInfo.followers_count || 0}
 - 认证状态：${twitterInfo.verified || twitterInfo.is_blue_verified ? '已认证' : '未认证'}
 - 推文数量：${twitterInfo.statuses_count || 0}
-- 注册时间：${twitterInfo.created_at || '未知'}
+- 注册时间：${twitterInfo.formatted_created_at || twitterInfo.created_at || '未知'}
 ` : '无账号信息'}
 
 【分析原则】
