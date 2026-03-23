@@ -3,6 +3,9 @@
  * 核心服务：协调各组件完成叙事分析
  */
 
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { NarrativeRepository } from '../db/NarrativeRepository.mjs';
 import { TwitterFetcher } from '../utils/twitter-fetcher.mjs';
 import { TwitterMediaExtractor } from '../utils/twitter-media-extractor.mjs';
@@ -17,6 +20,18 @@ import { LLMClient } from './llm-client.mjs';
 
 // 获取supabase客户端
 const getSupabase = () => NarrativeRepository.getSupabase();
+
+// 读取配置文件
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const configPath = join(__dirname, '../../../config/default.json');
+const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+
+// 叙事分析配置
+const NARRATIVE_CONFIG = config.narrative || {
+  enableImageAnalysis: false,
+  enableVideoAnalysis: false
+};
 
 export class NarrativeAnalyzer {
 
@@ -41,7 +56,17 @@ export class NarrativeAnalyzer {
       if (!ignoreCache) {
         // ===== 不设置重新分析（ignoreCache=false）=====
         // 直接使用已有的分析结果（任何实验的都可以）
-        return this.formatResult(cached);
+        return {
+          ...this.formatResult(cached),
+          meta: {
+            fromCache: true,
+            fromFallback: false,
+            analyzedAt: cached.analyzed_at,
+            sourceExperimentId: cached.experiment_id,
+            promptVersion: cached.prompt_version,
+            promptType: cached.prompt_type
+          }
+        };
       } else {
         // ===== 设置了重新分析（ignoreCache=true）=====
         // 检查缓存的 experiment_id 是否是当前实验
@@ -75,8 +100,8 @@ export class NarrativeAnalyzer {
       extractedInfo.website
     );
 
-    // 4.2 如果推文包含图片，进行图片分析
-    if (twitterInfo && twitterInfo.media && TwitterMediaExtractor.hasImages(twitterInfo)) {
+    // 4.2 如果推文包含图片，进行图片分析（需要配置启用）
+    if (NARRATIVE_CONFIG.enableImageAnalysis && twitterInfo && twitterInfo.media && TwitterMediaExtractor.hasImages(twitterInfo)) {
       console.log('[NarrativeAnalyzer] 推文包含图片，开始分析...');
       const imageUrls = TwitterMediaExtractor.extractImageUrls(twitterInfo);
 
@@ -98,6 +123,9 @@ export class NarrativeAnalyzer {
           // 图片分析失败不影响整体流程
         }
       }
+    } else if (twitterInfo && twitterInfo.media && TwitterMediaExtractor.hasImages(twitterInfo)) {
+      // 配置未启用图片分析，但记录有图片
+      console.log('[NarrativeAnalyzer] 推文包含图片，但图片分析功能已禁用（配置：enableImageAnalysis=false）');
     }
 
     // 4.3 如果成功获取推文且是非中英文，尝试翻译
@@ -238,9 +266,12 @@ export class NarrativeAnalyzer {
     // 7. 构建Prompt并调用LLM
     let llmResult;
     let promptUsed = '';
+    let promptType = '';
     let analysisFailed = false;
     try {
       promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo);
+      promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo);
+      console.log(`[NarrativeAnalyzer] 使用Prompt类型: ${promptType}`);
       llmResult = await LLMClient.analyze(promptUsed);
     } catch (error) {
       console.error('LLM分析失败:', error.message);
@@ -261,16 +292,18 @@ export class NarrativeAnalyzer {
           fromFallback: true, // 标记这是fallback缓存
           analyzedAt: cached.analyzed_at,
           sourceExperimentId: cached.experiment_id,
-          promptVersion: cached.prompt_version
+          promptVersion: cached.prompt_version,
+          promptType: cached.prompt_type
         },
         debugInfo: {
           promptUsed: cached.prompt_used,
-          promptVersion: cached.prompt_version
+          promptVersion: cached.prompt_version,
+          promptType: cached.prompt_type
         }
       };
     }
 
-    // 9. 保存结果（包含 experiment_id）- 只有在分析成功时才保存
+    // 9. 保存结果（包含 experiment_id 和 prompt_type）- 只有在分析成功时才保存
     // 注意：只保存 twitter_info，微博等背景信息不保存（已缓存到 external_resource_cache）
     const saveResult = await NarrativeRepository.save({
       token_address: normalizedAddress,
@@ -289,6 +322,7 @@ export class NarrativeAnalyzer {
       },
       prompt_used: promptUsed,
       prompt_version: PromptBuilder.getPromptVersion(),
+      prompt_type: promptType,  // 记录使用的Prompt类型
       experiment_id: experimentId,  // 记录来源实验
       analyzed_at: new Date().toISOString()
     });
@@ -300,11 +334,13 @@ export class NarrativeAnalyzer {
         fromCache: false,
         analyzedAt: saveResult.analyzed_at,
         sourceExperimentId: experimentId,
-        promptVersion: PromptBuilder.getPromptVersion()
+        promptVersion: PromptBuilder.getPromptVersion(),
+        promptType: promptType
       },
       debugInfo: {
         promptUsed: promptUsed,
-        promptVersion: PromptBuilder.getPromptVersion()
+        promptVersion: PromptBuilder.getPromptVersion(),
+        promptType: promptType
       }
     };
   }
@@ -477,7 +513,8 @@ export class NarrativeAnalyzer {
       },
       debugInfo: {
         promptUsed: record.prompt_used,
-        promptVersion: record.prompt_version
+        promptVersion: record.prompt_version,
+        promptType: record.prompt_type
       }
     };
   }

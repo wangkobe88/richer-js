@@ -195,7 +195,7 @@ ${text}`;
    * @param {string} prompt - 分析提示词
    * @param {Object} options - 选项
    * @param {string} options.model - 使用的模型，默认使用 VISION_MODEL
-   * @param {number} options.timeout - 请求超时（毫秒），默认 60000
+   * @param {number} options.timeout - 请求超时（毫秒），默认 120000
    * @param {number} options.maxTokens - 最大 token 数，默认 2000
    * @returns {Promise<Object>} 图片分析结果
    */
@@ -206,7 +206,7 @@ ${text}`;
 
     const config = {
       model: options.model || VISION_MODEL,
-      timeout: options.timeout || 60000,
+      timeout: options.timeout || 120000,  // 多模态 API 响应较慢，默认 2 分钟
       maxTokens: options.maxTokens || 2000
     };
 

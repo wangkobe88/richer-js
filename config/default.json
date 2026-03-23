@@ -31,6 +31,10 @@
     "takeProfit2Sell": 1.0,
     "stopLossMinutes": 5
   },
+  "narrative": {
+    "enableImageAnalysis": false,
+    "enableVideoAnalysis": false
+  },
   "preBuyCheck": {
     "holderCheckEnabled": true,
     "earlyParticipantFilterEnabled": true,

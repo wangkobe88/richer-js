@@ -62,6 +62,7 @@ export class NarrativeRepository {
       llm_raw_output: result.llm_raw_output,
       llm_summary: result.llm_summary,
       prompt_version: result.prompt_version || 'V5.13',
+      prompt_type: result.prompt_type || null,  // 记录使用的Prompt类型
       prompt_used: result.prompt_used,
       analysis_status: result.analysis_status || 'completed',
       error_message: result.error_message,
