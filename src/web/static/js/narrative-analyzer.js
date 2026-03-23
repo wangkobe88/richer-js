@@ -7,6 +7,7 @@ class NarrativeAnalyzer {
     this.addressInput = document.getElementById('addressInput');
     this.analyzeBtn = document.getElementById('analyzeBtn');
     this.reanalyzeBtn = document.getElementById('reanalyzeBtn');
+    this.ignoreExpiredCheckbox = document.getElementById('ignoreExpired');
     this.errorSection = document.getElementById('errorSection');
     this.loadingSection = document.getElementById('loadingSection');
     this.resultSection = document.getElementById('resultSection');
@@ -66,13 +67,15 @@ class NarrativeAnalyzer {
     this.showLoading();
     this.hideResult();
 
+    const ignoreExpired = this.ignoreExpiredCheckbox?.checked || false;
+
     try {
       const response = await fetch('/api/narrative/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ address })
+        body: JSON.stringify({ address, ignoreExpired })
       });
 
       const data = await response.json();
@@ -97,6 +100,8 @@ class NarrativeAnalyzer {
     this.hideError();
     this.showLoading();
 
+    const ignoreExpired = this.ignoreExpiredCheckbox?.checked || false;
+
     try {
       // 创建超时控制器（90秒超时）
       const controller = new AbortController();
@@ -104,6 +109,10 @@ class NarrativeAnalyzer {
 
       const response = await fetch(`/api/narrative/reanalyze/${this.currentAddress}`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ignoreExpired }),
         signal: controller.signal
       });
 

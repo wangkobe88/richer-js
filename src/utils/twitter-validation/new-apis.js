@@ -273,6 +273,14 @@ async function getTweetDetailGraphQL(tweetId) {
       throw new Error('推文详情获取失败');
     }
 
+    // 调试：检查是否有转发/引用信息
+    if (tweetResult.legacy?.retweeted_status || tweetResult.retweeted_status_result) {
+      console.log('[GraphQL] 检测到转发推文');
+    }
+    if (tweetResult.quoted_status_result || tweetResult.legacy?.quoted_status_id) {
+      console.log('[GraphQL] 检测到引用推文');
+    }
+
     // 解析推文数据
     const legacy = tweetResult.legacy || {};
     const core = tweetResult.core || {};
@@ -352,7 +360,10 @@ async function getTweetDetailGraphQL(tweetId) {
         title: articleResult.title,
         preview_text: articleResult.preview_text,
         cover_image_url: articleResult.cover_media?.media_info?.original_img_url
-      } : null
+      } : null,
+
+      // 引用推文数据（如果有）
+      quoted_status: tweetResult.quoted_status_result ? _parseQuotedTweet(tweetResult.quoted_status_result.result || tweetResult.quoted_status_result) : null
     };
 
     console.log(`✅ 成功获取推文详情 (GraphQL): ID=${tweetDetail.tweet_id}`);
@@ -362,6 +373,9 @@ async function getTweetDetailGraphQL(tweetId) {
     if (tweetDetail.media.has_media) {
       console.log(`   📷 媒体: ${tweetDetail.media.images.length} 张图片, ${tweetDetail.media.videos.length} 个视频`);
     }
+    if (tweetDetail.quoted_status) {
+      console.log(`   💬 引用推文: @${tweetDetail.quoted_status.user.screen_name} - ${tweetDetail.quoted_status.text.substring(0, 50)}...`);
+    }
 
     return tweetDetail;
 
@@ -369,6 +383,58 @@ async function getTweetDetailGraphQL(tweetId) {
     console.error(`❌ 获取推文详情失败 (GraphQL, ${tweetId}):`, error.message);
     throw error;
   }
+}
+
+/**
+ * 解析引用推文数据
+ * @param {Object} quotedResult - GraphQL返回的引用推文数据
+ * @returns {Object} 解析后的引用推文
+ */
+function _parseQuotedTweet(quotedResult) {
+  const legacy = quotedResult.legacy || {};
+  const core = quotedResult.core || {};
+  const userResult = core?.user_results?.result;
+  const userLegacy = userResult?.legacy || {};
+  const userCore = userResult?.core || {};
+
+  // 解析媒体
+  const mediaEntities = legacy.extended_entities?.media || legacy.entities?.media || [];
+  const images = [];
+  for (const media of mediaEntities) {
+    if (media.type === 'photo') {
+      images.push({
+        url: media.media_url_https,
+        media_key: media.media_key,
+        width: media.original_info?.width || 0,
+        height: media.original_info?.height || 0
+      });
+    }
+  }
+
+  return {
+    tweet_id: quotedResult.rest_id,
+    text: legacy.full_text || legacy.text || '',
+    created_at: legacy.created_at,
+    createdTimeStamp: legacy.created_at ? new Date(legacy.created_at).getTime() : null,
+    user: {
+      id: userResult?.rest_id,
+      name: userCore?.name || userLegacy?.name,
+      screen_name: userCore?.screen_name || userLegacy?.screen_name,
+      followers_count: userLegacy?.followers_count,
+      verified: userLegacy?.verified || false,
+      is_blue_verified: userResult?.is_blue_verified || false
+    },
+    likeCount: legacy.favorite_count || 0,
+    retweetCount: legacy.retweet_count || 0,
+    replyCount: legacy.reply_count || 0,
+    quoteCount: legacy.quote_count || 0,
+    viewCount: legacy.view_count || 0,
+    urls: legacy.entities?.urls?.map(u => u.expanded_url || u.url) || [],
+    media: {
+      images: images,
+      has_media: images.length > 0
+    }
+  };
 }
 
 module.exports = {

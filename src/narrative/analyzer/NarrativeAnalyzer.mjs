@@ -30,7 +30,9 @@ const config = JSON.parse(readFileSync(configPath, 'utf-8'));
 // 叙事分析配置
 const NARRATIVE_CONFIG = config.narrative || {
   enableImageAnalysis: false,
-  enableVideoAnalysis: false
+  enableVideoAnalysis: false,
+  twitterBlacklist: [],
+  expiredTweetDaysThreshold: 14
 };
 
 export class NarrativeAnalyzer {
@@ -40,10 +42,11 @@ export class NarrativeAnalyzer {
    * @param {string} address - 代币地址
    * @param {Object} options - 选项
    * @param {boolean} options.ignoreCache - 是否忽略缓存，强制重新分析
+   * @param {boolean} options.ignoreExpired - 是否忽略过期时间限制
    * @param {string} options.experimentId - 实验ID，用于标识数据来源
    */
   static async analyze(address, options = {}) {
-    const { ignoreCache = false, experimentId = null } = options;
+    const { ignoreCache = false, ignoreExpired = false, experimentId = null } = options;
 
     // 标准化地址
     const normalizedAddress = address.toLowerCase();
@@ -56,11 +59,15 @@ export class NarrativeAnalyzer {
       if (!ignoreCache) {
         // ===== 不设置重新分析（ignoreCache=false）=====
         // 直接使用已有的分析结果（任何实验的都可以）
+        // 检查是否是预检查触发的结果
+        const isCachedPreCheck = cached.llm_raw_output?.preCheckTriggered === true;
         return {
           ...this.formatResult(cached),
           meta: {
             fromCache: true,
             fromFallback: false,
+            preCheckTriggered: isCachedPreCheck,
+            preCheckReason: isCachedPreCheck ? cached.llm_raw_output?.preCheckReason : null,
             analyzedAt: cached.analyzed_at,
             sourceExperimentId: cached.experiment_id,
             promptVersion: cached.prompt_version,
@@ -167,13 +174,17 @@ export class NarrativeAnalyzer {
     if (extractedInfo.website && WeiboExtractor.isValidWeiboUrl(extractedInfo.website)) {
       console.log('[NarrativeAnalyzer] 检测到微博链接，获取作为背景信息');
       backgroundInfo = await WeiboFetcher.fetchFromUrl(extractedInfo.website);
-      backgroundInfo.source = 'weibo';
+      if (backgroundInfo) {
+        backgroundInfo.source = 'weibo';
+      }
     }
     // 检查 twitter_url 是否是微博链接
     else if (extractedInfo.twitter_url && WeiboExtractor.isValidWeiboUrl(extractedInfo.twitter_url)) {
       console.log('[NarrativeAnalyzer] 检测到微博链接，获取作为背景信息');
       backgroundInfo = await WeiboFetcher.fetchFromUrl(extractedInfo.twitter_url);
-      backgroundInfo.source = 'weibo';
+      if (backgroundInfo) {
+        backgroundInfo.source = 'weibo';
+      }
     }
 
     // 6. 如果没有Twitter信息且有网站，尝试获取网页内容
@@ -263,26 +274,42 @@ export class NarrativeAnalyzer {
       }
     }
 
-    // 7. 构建Prompt并调用LLM
+    // 7. 预检查规则（不调用LLM，直接返回结果）
+    const preCheckResult = this.performPreCheck(tokenData, twitterInfo, extractedInfo, { ignoreExpired });
+    let isPreCheckTriggered = preCheckResult !== null;
+
     let llmResult;
     let promptUsed = '';
     let promptType = '';
     let analysisFailed = false;
-    try {
-      promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo);
-      promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo);
-      console.log(`[NarrativeAnalyzer] 使用Prompt类型: ${promptType}`);
-      llmResult = await LLMClient.analyze(promptUsed);
-    } catch (error) {
-      console.error('LLM分析失败:', error.message);
+
+    if (isPreCheckTriggered) {
+      // 预检查触发，使用预设结果
+      console.log('[NarrativeAnalyzer] 预检查触发，跳过LLM分析');
       llmResult = {
-        category: 'unrated',
-        reasoning: `分析失败: ${error.message}`
+        ...preCheckResult,
+        raw: null // 预检查结果没有原始LLM输出
       };
-      analysisFailed = true;
+      // 预检查结果也记录prompt类型（用于后续判断）
+      promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo);
+    } else {
+      // 8. 正常流程：构建Prompt并调用LLM
+      try {
+        promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo);
+        promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo);
+        console.log(`[NarrativeAnalyzer] 使用Prompt类型: ${promptType}`);
+        llmResult = await LLMClient.analyze(promptUsed);
+      } catch (error) {
+        console.error('LLM分析失败:', error.message);
+        llmResult = {
+          category: 'unrated',
+          reasoning: `分析失败: ${error.message}`
+        };
+        analysisFailed = true;
+      }
     }
 
-    // 8. 如果分析失败且有缓存，使用缓存作为fallback
+    // 9. 如果分析失败且有缓存，使用缓存作为fallback
     if (analysisFailed && cached && cached.is_valid) {
       console.log(`分析失败，使用已有缓存作为fallback | address=${normalizedAddress}, cached_experiment=${cached.experiment_id}`);
       return {
@@ -332,6 +359,8 @@ export class NarrativeAnalyzer {
       backgroundInfo: backgroundInfo, // 返回背景信息供调试使用
       meta: {
         fromCache: false,
+        preCheckTriggered: isPreCheckTriggered,
+        preCheckReason: isPreCheckTriggered ? llmResult.preCheckReason : null,
         analyzedAt: saveResult.analyzed_at,
         sourceExperimentId: experimentId,
         promptVersion: PromptBuilder.getPromptVersion(),
@@ -343,6 +372,74 @@ export class NarrativeAnalyzer {
         promptType: promptType
       }
     };
+  }
+
+  /**
+   * 预检查规则（不调用LLM，直接返回结果）
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} twitterInfo - Twitter信息
+   * @param {Object} extractedInfo - 提取的结构化信息
+   * @param {Object} options - 预检查选项
+   * @param {boolean} options.ignoreExpired - 是否忽略过期时间限制
+   * @returns {Object|null} 如果触发预检查规则，返回预设结果；否则返回null
+   */
+  static performPreCheck(tokenData, twitterInfo, extractedInfo, options = {}) {
+    const { ignoreExpired = false } = options;
+
+    // 规则1：黑名单博主
+    // 1.1 从twitterInfo中获取用户名
+    let authorScreenName = twitterInfo?.author_screen_name;
+
+    // 1.2 如果twitterInfo为空，尝试从URL提取用户名
+    if (!authorScreenName && extractedInfo?.twitter_url) {
+      const urlMatch = extractedInfo.twitter_url.match(/x\.com\/([^\/]+)/);
+      if (urlMatch) {
+        authorScreenName = urlMatch[1];
+      }
+    }
+
+    if (authorScreenName && NARRATIVE_CONFIG.twitterBlacklist?.includes(authorScreenName)) {
+      console.log(`[NarrativeAnalyzer] 预检查触发: 推文作者 @${authorScreenName} 在黑名单中`);
+      return {
+        category: 'low',
+        reasoning: `推文作者@${authorScreenName}在黑名单中，该账号专门制造虚假叙事`,
+        scores: { credibility: 0, virality: 0 },
+        total_score: 0,
+        preCheckTriggered: true,
+        preCheckReason: 'blacklist'
+      };
+    }
+
+    // 规则2：过期推文（超过配置的天数阈值）
+    // 如果设置了ignoreExpired，跳过过期检查
+    if (!ignoreExpired) {
+      const expiredDaysThreshold = NARRATIVE_CONFIG.expiredTweetDaysThreshold || 14;
+      if (twitterInfo?.type === 'tweet' && twitterInfo?.created_at) {
+        try {
+          const tweetDate = new Date(twitterInfo.created_at);
+          const now = new Date();
+          const daysDiff = (now - tweetDate) / (1000 * 60 * 60 * 24);
+
+          if (daysDiff > expiredDaysThreshold) {
+            console.log(`[NarrativeAnalyzer] 预检查触发: 推文发布时间超过${expiredDaysThreshold}天 (${twitterInfo.formatted_created_at || twitterInfo.created_at})`);
+            return {
+              category: 'low',
+              reasoning: `推文发布时间超过${expiredDaysThreshold}天（${twitterInfo.formatted_created_at || twitterInfo.created_at}），叙事价值已耗尽`,
+              scores: { credibility: 10, virality: 10 },
+              total_score: 20,
+              preCheckTriggered: true,
+              preCheckReason: 'expired_tweet'
+            };
+          }
+        } catch (e) {
+          console.warn('[NarrativeAnalyzer] 解析推文时间失败:', e.message);
+        }
+      }
+    } else {
+      console.log('[NarrativeAnalyzer] 忽略过期时间限制（ignoreExpired=true）');
+    }
+
+    return null; // 通过预检查，继续LLM分析
   }
 
   /**

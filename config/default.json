@@ -33,7 +33,12 @@
   },
   "narrative": {
     "enableImageAnalysis": false,
-    "enableVideoAnalysis": false
+    "enableVideoAnalysis": false,
+    "twitterBlacklist": [
+      "Cortaviousloma1",
+      "goxpv32196782"
+    ],
+    "expiredTweetDaysThreshold": 14
   },
   "preBuyCheck": {
     "holderCheckEnabled": true,

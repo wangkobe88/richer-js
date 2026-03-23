@@ -376,6 +376,12 @@
                 <input type="text" class="search-input" id="addressInput" placeholder="请输入代币地址（如：0x86d9c065322b69ad6c0af025c2029436ec5e4444）">
                 <button class="search-btn" id="analyzeBtn">分析</button>
             </div>
+            <div style="margin-top: 12px; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="ignoreExpired" style="width: 16px; height: 16px; cursor: pointer;">
+                <label for="ignoreExpired" style="font-size: 13px; color: #666; cursor: user-select: none;">
+                    忽略过期时间限制（查看"如果不过期"的效果）
+                </label>
+            </div>
         </div>
 
         <div class="error" id="errorSection"></div>
@@ -451,7 +457,7 @@
         </div>
     </div>
 
-    <script src="/static/js/narrative-analyzer.js?v=20250322-3"></script>
+    <script src="/static/js/narrative-analyzer.js?v=20250323-1"></script>
     <script>
         // 调试信息：检查页面加载状态
         window.addEventListener('load', function() {

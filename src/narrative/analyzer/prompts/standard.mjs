@@ -33,6 +33,29 @@ ${twitterInfo.in_reply_to ? `
   原始推文内容：${twitterInfo.in_reply_to.text || '无'}
   原始推文发布时间：${twitterInfo.in_reply_to.formatted_created_at || twitterInfo.in_reply_to.created_at || '未知'}
 ` : ''}
+${twitterInfo.mentions_user ? `
+- 【提及关系】
+  推文@了用户：@${twitterInfo.mentions_user.screen_name}
+  **重要**：推文@了该用户，默认建立关联关系
+  评估时应该考虑：
+  - 如果被@的是知名用户/加密社区用户 → @本身就是一种背书和关联，即使没有具体内容也有关联
+  - 发布者本身的粉丝数和认证状态也会影响影响力
+  - 代币名称或intro如果与被@用户有关联 → 关联度更强
+` : ''}
+${twitterInfo.quoted_status ? `
+- 【这是引用推文】
+  被引用推文作者：${twitterInfo.quoted_status.author_screen_name || twitterInfo.quoted_status.author_name || '未知'} (粉丝数: ${twitterInfo.quoted_status.author_followers_count || '未知'})
+  被引用推文内容：${twitterInfo.quoted_status.text || '无'}
+  被引用推文发布时间：${twitterInfo.quoted_status.formatted_created_at || twitterInfo.quoted_status.created_at || '未知'}
+  被引用推文点赞数：${twitterInfo.quoted_status.metrics?.favorite_count || 0}
+  被引用推文转发数：${twitterInfo.quoted_status.metrics?.retweet_count || 0}
+` : ''}
+${twitterInfo.mentioned_user_tweets && twitterInfo.mentioned_user_tweets.length > 0 ? `
+- 【推文提及用户背景】
+  推文以@开头，获取被提及用户@${twitterInfo.mentioned_user_tweets[0].author_screen_name}的最近推文：
+${twitterInfo.mentioned_user_tweets.map((t, i) => `
+  [推文${i + 1}] ${t.text?.substring(0, 150) || '无内容'}...`).join('')}
+` : ''}
 ${twitterInfo.article ? `
 - 【Twitter Article】
   标题：${twitterInfo.article.title || '无'}
@@ -54,7 +77,7 @@ ${twitterInfo?.link_content ? `
 
 【重要概念识别】
 - **世界级人物**：Trump（特朗普）、Musk（马斯克）、Elon、拜登
-- **加密平台**：Binance、Coinbase、Trust Wallet
+- **加密平台**：Binance、Coinbase
 - **主流币**：Bitcoin、Ethereum、BNB、DOGE、SHIB
 - **重要**：如果代币名、Twitter账号名、或 intro 中包含这些 IP 的名称，需要特别关注
 - **加密相关账号识别**：
@@ -64,33 +87,24 @@ ${twitterInfo?.link_content ? `
     - 评级应至少为 **mid（40-60分）**，如果配图是热门梗图，可评 **high（70-90分）**
   - **@cz_binance** = CZ（币安创始人），世界级加密人物
   - **@heyibinance** = 何一（币安联合创始人），世界级加密人物
-  - **Trust Wallet** = 币安旗下钱包，平台级影响力
   - 如果推文涉及这些，应该加分
   - **特别注意**：币安CZ/何一等世界级加密人物的账号，推文内容**直接提及代币名称**，即使内容简单，也应给予中质量评级（至少mid）
 
 【评估步骤】
 
-第一步：判断推文时间（最高优先级）
-- **本推文发布时间：${twitterInfo?.formatted_created_at || twitterInfo?.created_at || '未知'}**
-- **当前日期：2026年3月23日**
-- **判断规则**：
-  - 如果推文发布时间超过2周（14天）→ **直接返回 low**
-  - 原因：老推文通常已被用于发过多个代币，叙事价值已耗尽
-- **注意**：如果createdAt为空/null，跳过时间判断
-
-第二步：判断推文语言
+第一步：判断推文语言
 - **如果有推文且不是中文/英文**：
   - 先检查影响力指标：
     1. 作者粉丝数 >= 10000
     2. 或作者是认证用户
     3. 或推文有高互动（点赞数 >= 1000 或 转发数 >= 500）
-  - **如果满足以上任意影响力条件**：跳过语言限制，继续评估第三步
+  - **如果满足以上任意影响力条件**：跳过语言限制，继续评估第二步
     - 原因：高影响力内容即使语言不同，也可能在全球范围传播（如表情包、视频内容等）
   - **如果不满足任何影响力条件**：返回 low
     - 原因：非中英文 + 低影响力，难以在主要市场形成有效传播
 - **注意**：如果推文内容显示为"True"/空/无法获取实际文本，返回 unrated
 
-第三步：判断核心信息是否缺失（**最高优先级判断**）
+第二步：判断核心信息是否缺失（**最高优先级判断**）
 
 **核心信息完全缺失 → 直接返回 unrated，跳过后续所有评估**
 
@@ -109,7 +123,7 @@ ${twitterInfo?.link_content ? `
 
 **重要：如果满足以上所有条件，直接返回 unrated，不要继续评估！**
 
-第五步：判断可理解性/关联度
+第三步：判断可理解性/关联度
 
 **重要前提：检查推文是否有媒体内容（图片/视频）**
 - **首先检查**：在分析代币与推文的关联度之前，先检查是否有【推文附带图片】或【推文附带视频】
@@ -151,13 +165,45 @@ ${twitterInfo?.link_content ? `
 - 获取了完整信息（推文、网页内容等），但与代币无明显关联
 - 通用描述/无意义内容：intro只是"Infinite Runner"、"This is Elon"、只有单词
 - 借用普通/小众概念但无知名度支撑
-- **重要例外：如果推文附带图片/视频**
+- **重要例外1：如果推文@了用户**
+  - **@了知名用户/加密相关用户** → @本身就是一种背书和关联，即使没有具体内容也有关联
+  - **@了认证用户且发布者本身有影响力** → 可以认为存在一定的关联度
+  - 例如：推文"@justkeys2 GM" + 发布者18万粉丝+认证 → @justkeys2是加密社区知名用户 → 建立了关联
+  - 最低评 mid-low（15-25分），如果发布者影响力强可评 mid（25-40分）
+- **重要例外2：如果推文附带图片/视频**
   - 即使推文文本不明确，有图片/视频也说明存在视觉关联
   - 配图的存在本身就是一种叙事信号：代币与配图内容相关联
   - 除非intro完全无意义（如单个字母、随机字符），否则至少评 mid-low（10-25分）
   - 如果intro有实际含义（如角色名、概念名）且推文有配图，应评 mid（25-45分）
 
-第六步：检测"低质量叙事"（以下情况直接返回low）
+**第四步：评估BSC链上"币安高管可能回复"的预期溢价**
+- **核心逻辑**：在BSC链上，如果出现近期事件且与CZ/何一强关联，用户会预期他们可能回复，这种预期会带来流量和炒作
+- **重要前提**：必须同时满足以下两个条件才触发溢价评估：
+  1. **有近期事件**（推文内容、引用推文、或背景信息显示）
+     - 新闻事件（如Netflix发布关于SBF的电视剧）
+     - 币安相关动态（如币安上线新功能、新产品发布）
+     - 加密行业重大事件（如监管消息、技术突破）
+     - 其他热点事件（时间范围：近期，通常2周内）
+  2. **事件与CZ/何一有强关联**
+     - 事件直接提及CZ/何一
+     - 事件涉及币安创始人、核心业务
+     - CZ/何一是事件的当事人或关键人物
+     - 引用推文来自@cz_binance或@heyibinance（他们本人发布的内容）
+- **溢价评估标准**：
+  - **强关联 + 近期热点**（如CZ/何一近期相关事件、他们本人发布的内容）：
+    - 在原评分基础上 **+20-35分**
+    - 可以将 mid-low 推至 mid 甚至 mid-high
+    - 理由应包含"近期事件与CZ/何一强关联，用户预期可能回复"
+  - **中等关联**（如事件间接相关、或话题他们可能关注）：
+    - 在原评分基础上 **+5-15分**
+    - 可以小幅提升评级
+  - **无近期事件或无强关联**：不加分
+- **重要说明**：
+  - 代币名字是否叫"CZ"/"何一"不重要，重要的是是否有与他们强关联的近期事件
+  - 例如：Netflix发布SBF电视剧（提到CZ角色）→ 近期事件 + CZ强关联 → 用户预期CZ可能回复 → 加分
+  - 例如：某项目在币安上线（不涉及CZ/何一） → 有事件但与CZ/何一无强关联 → 不加分
+
+第五步：检测"低质量叙事"（以下情况直接返回low）
 1. **纯谐音梗**：只有谐音关联（如"生菜=生财"、"Duck you=鸭你一拳"），无实质内容
 2. **热搜搬运**：纯报道热点事件（如"XX上热搜"），没有具体内容/事件
 3. **泛泛情感概念**：只是借用常见词/抽象概念（"遗憾"、"佛系"等），没有具体故事/文化符号
@@ -232,39 +278,56 @@ CZ相关(加密重大事件)+强传播力→{credibility:35,virality:40,total:75
 
 示例11(泰语推文-low):
 代币:卡穆
-内容:สวัสดีวันเสาร์ #hippo https://t.co/xxx
+内容:สวัสดีวันเสรียว #hippo https://t.co/xxx
 泰语推文→{category:"low",reason:"推文为泰语，非中英文"}
 
-示例14(老推文-low):
-代币:躺赢
-内容:CZ的推文（2025年5月）
-推文发布超过2周→{category:"low",reason:"推文发布时间过久"}
-
-示例17(限定范围影响力-low):
+示例14(限定范围影响力-low):
 代币:宽宽
 内容:深圳商场里的公益广告"愿手术台上没有下一个宽宽"
 商场广告牌(极低影响力)→{credibility:5,virality:12,total:17,category:"low"}
 
-示例18(情感叙事-high):
+示例15(情感叙事-high):
 代币:伞
 内容:伞字梗，避雨情感共鸣，加密社区文化符号
 社区级情感叙事(有文化符号+情感共鸣)→{credibility:28,virality:47,total:75,category:"high"}
 
-示例19(社区情感叙事-mid):
+示例16(社区情感叙事-mid):
 代币:尼采主义海豚
 内容:Jeremy这个尼采主义海豚逆流而上的故事
 社区级情感叙事(有趣+有文化符号但非加密社区)→{credibility:27,virality:38,total:65,category:"mid"}
 
-示例20(何一相关-mid):
+示例17(何一相关-mid):
 代币:币安VIP
 内容:何一(@heyibinance)发推文直接提及"币安VIP"
 币安何一直接提及代币名(世界级加密人物)→{credibility:35,virality:30,total:65,category:"mid"}
 
-示例22(回复推文-原始推文更重要-mid):
+示例18(回复推文-原始推文更重要-mid):
 代币:蛊
 回复推文内容:"From memes → to real agents 👀 BNB Chain is evolving fast"
 原始推文内容:"Special thanks to Goo's early co-contributors"
 回复推文原始推文提到"Goo"(与代币名"蛊"谐音)→{credibility:22,virality:35,total:57,category:"mid"}
+
+示例19(CZ回复预期溢价-mid):
+代币:CZ
+内容:Netflix发布关于SBF的电视剧《利他主义者》，选角中提到"CZ"角色
+Netflix发布SBF电视剧(近期热点) + CZ是剧中关键人物(强关联) → 用户预期CZ可能回复 → {credibility:25,virality:40,total:65,category:"mid",reason:"Netflix发布SBF相关电视剧是近期热点，CZ是关键人物，用户预期CZ可能回应，带来炒作溢价"}
+
+示例20(何一直接发布-high):
+代币:某代币
+内容:何一(@heyibinance)发推文讨论币安新产品
+何一本人的推文(强关联) + 币安新产品(近期事件) → {credibility:35,virality:45,total:80,category:"high",reason:"何一直接发布币安相关内容，用户预期会引发讨论和跟风"}
+
+示例21(币安上线但无CZ关联-mid-low):
+代币:某项目代币
+内容:币安上线某新代币
+币安上线(事件) + 与CZ/何一无直接关联(无强关联) → {credibility:15,virality:20,total:35,category:"mid-low",reason:"币安上线虽有影响力，但与CZ/何一无强关联，无回复预期溢价"}
+
+示例22(提及知名用户-mid):
+代币:钻石手pepe
+内容:@知名用户 GM (推文@了某个用户)
+推文@知名用户 + 发布者本身有影响力(18万粉丝+认证) → {credibility:18,virality:32,total:50,category:"mid",reason:"推文@了知名用户，发布者本身有影响力，建立了一定的关联度"}
+
+币安上线(事件) + 与CZ/何一无直接关联(无强关联) → {credibility:15,virality:20,total:35,category:"mid-low",reason:"币安上线虽有影响力，但与CZ/何一无强关联，无回复预期溢价"}
 
 ${CORE_FRAMEWORK}
 `;

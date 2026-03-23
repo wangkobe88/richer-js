@@ -23,7 +23,7 @@ async function loadAnalyzer() {
  */
 router.post('/analyze', async (req, res) => {
   try {
-    const { address } = req.body;
+    const { address, ignoreExpired = false } = req.body;
 
     if (!address) {
       return res.status(400).json({
@@ -33,7 +33,7 @@ router.post('/analyze', async (req, res) => {
     }
 
     const Analyzer = await loadAnalyzer();
-    const result = await Analyzer.analyze(address);
+    const result = await Analyzer.analyze(address, { ignoreExpired });
 
     res.json({
       success: true,
@@ -127,6 +127,7 @@ router.post('/reanalyze/:address', async (req, res) => {
 
   try {
     const { address } = req.params;
+    const { ignoreExpired = false } = req.body;
     const { NarrativeRepository } = await import('../../narrative/db/NarrativeRepository.mjs');
 
     // 先标记旧结果为无效
@@ -136,7 +137,7 @@ router.post('/reanalyze/:address', async (req, res) => {
     });
 
     const Analyzer = await loadAnalyzer();
-    const result = await Analyzer.analyze(address);
+    const result = await Analyzer.analyze(address, { ignoreExpired });
 
     clearTimeout(timeoutId);
 

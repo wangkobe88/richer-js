@@ -13,6 +13,7 @@ import { TwitterMediaExtractor } from './twitter-media-extractor.mjs';
  */
 const NARRATIVE_TWITTER_BLACKLIST = [
   'Cortaviousloma1',  // 制造虚假叙事
+  'goxpv32196782',    // 制造虚假叙事
 ];
 
 /**
@@ -115,6 +116,28 @@ export class TwitterFetcher {
         console.log(`[TwitterFetcher] 检测到 Twitter Article: "${tweetData.article.title}"`);
       }
 
+      // 处理引用推文数据
+      if (tweetData.quoted_status) {
+        const quoted = tweetData.quoted_status;
+        const rawCreatedAt = quoted.created_at || quoted.createdTimeStamp || null;
+        result.quoted_status = {
+          text: quoted.text,
+          author_name: quoted.user?.name || null,
+          author_screen_name: quoted.user?.screen_name || null,
+          author_followers_count: quoted.user?.followers_count || null,
+          author_verified: quoted.user?.verified || quoted.user?.is_blue_verified || false,
+          created_at: rawCreatedAt,
+          formatted_created_at: formatTwitterTime(rawCreatedAt),
+          tweet_id: quoted.tweet_id,
+          metrics: {
+            favorite_count: quoted.likeCount || 0,
+            retweet_count: quoted.retweetCount || 0
+          },
+          media: quoted.media || null
+        };
+        console.log(`[TwitterFetcher] 检测到引用推文: @${result.quoted_status.author_screen_name} - ${result.quoted_status.text.substring(0, 50)}...`);
+      }
+
       // 检查是否包含 Article 链接（作为备用）
       const articleUrl = (tweetData.urls || []).find(url =>
         url.includes('/x.com/i/article/') || url.includes('/twitter.com/i/article/')
@@ -144,6 +167,22 @@ export class TwitterFetcher {
           }
         } catch (err) {
           console.warn(`[TwitterFetcher] 获取原始推文失败: ${err.message}`);
+        }
+      }
+
+      // 检测"提及推文"关系：推文以@某人开头
+      // 简化逻辑：默认与被@的用户有关系
+      const mentionMatch = tweetData.text?.match(/^@(\w{1,15})/);
+      if (mentionMatch && !result.in_reply_to && !result.quoted_status) {
+        const mentionedScreenName = mentionMatch[1];
+        // 只有当被提及的用户不是当前作者时才建立关系
+        if (mentionedScreenName !== tweetData.user?.screen_name) {
+          console.log(`[TwitterFetcher] 推文@了@${mentionedScreenName}，建立提及关系`);
+          result.mentions_user = {
+            screen_name: mentionedScreenName,
+            // 注意：这里假设有关系，但不获取具体推文内容
+            // 评估时应该关注发布者和被@者的影响力
+          };
         }
       }
 
