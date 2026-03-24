@@ -111,9 +111,16 @@ export class TwitterFetcher {
           id: tweetData.article.id,
           title: tweetData.article.title,
           preview_text: tweetData.article.preview_text,
-          cover_image_url: tweetData.article.cover_image_url
+          cover_image_url: tweetData.article.cover_image_url,
+          // Article富文本内容（如果有）
+          rich_content_state: tweetData.article.rich_content_state || null,
+          // Article纯文本内容（如果有）
+          plain_text: tweetData.article.plain_text || null
         };
         console.log(`[TwitterFetcher] 检测到 Twitter Article: "${tweetData.article.title}"`);
+        if (tweetData.article.plain_text) {
+          console.log(`[TwitterFetcher] Article 纯文本内容长度: ${tweetData.article.plain_text.length} 字符`);
+        }
       }
 
       // 处理引用推文数据

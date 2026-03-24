@@ -21,6 +21,10 @@ export const ACCOUNT_BACKGROUNDS = {
   'BSCPad': 'BSCPad（BSC链项目发射平台）',
   'aster_dex': 'Aster（币安旗下第一去中心化合约交易平台，有较大影响力）',
 
+  // Solana生态
+  'moonshot': 'Moonshot（顶级meme交易平台，Jupiter旗下移动端App Dex Wallet）',
+  'worldlibertyfi': 'World Liberty（特朗普旗下顶级金融平台）',
+
   // 币安相关
   'nina_rong': '币安Executive Director of Growth（增长执行总监）',
   'GiggleAcademy': 'Giggle Academy（CZ创始的儿童教育平台）',
@@ -91,6 +95,32 @@ export function getMatchedAccountBackgrounds(twitterInfo) {
       matches.push({
         screen_name: asterKey,
         background: ACCOUNT_BACKGROUNDS[asterKey]
+      });
+    }
+  }
+
+  // 检测Moonshot相关关键词
+  if (tweetText.includes('moonshot') || quotedText.includes('moonshot')) {
+    const moonshotKey = Object.keys(ACCOUNT_BACKGROUNDS).find(key =>
+      key.toLowerCase().includes('moonshot')
+    );
+    if (moonshotKey && !matches.find(m => m.screen_name.toLowerCase() === moonshotKey.toLowerCase())) {
+      matches.push({
+        screen_name: moonshotKey,
+        background: ACCOUNT_BACKGROUNDS[moonshotKey]
+      });
+    }
+  }
+
+  // 检测World Liberty相关关键词
+  if (tweetText.includes('world liberty') || tweetText.includes('worldliberty') || quotedText.includes('world liberty') || quotedText.includes('worldliberty')) {
+    const worldLibertyKey = Object.keys(ACCOUNT_BACKGROUNDS).find(key =>
+      key.toLowerCase().includes('worldliberty')
+    );
+    if (worldLibertyKey && !matches.find(m => m.screen_name.toLowerCase() === worldLibertyKey.toLowerCase())) {
+      matches.push({
+        screen_name: worldLibertyKey,
+        background: ACCOUNT_BACKGROUNDS[worldLibertyKey]
       });
     }
   }

@@ -23,7 +23,7 @@ async function loadAnalyzer() {
  */
 router.post('/analyze', async (req, res) => {
   try {
-    const { address, ignoreExpired = false } = req.body;
+    const { address, ignoreExpired = false, ignoreCache = false } = req.body;
 
     if (!address) {
       return res.status(400).json({
@@ -33,7 +33,7 @@ router.post('/analyze', async (req, res) => {
     }
 
     const Analyzer = await loadAnalyzer();
-    const result = await Analyzer.analyze(address, { ignoreExpired });
+    const result = await Analyzer.analyze(address, { ignoreExpired, ignoreCache });
 
     res.json({
       success: true,

@@ -15,7 +15,7 @@ import { GithubFetcher } from '../utils/github-fetcher.mjs';
 import { YoutubeFetcher } from '../utils/youtube-fetcher.mjs';
 import { DouyinFetcher } from '../utils/douyin-fetcher.mjs';
 import { fetchTikTokVideoInfo, isTikTokUrl } from '../utils/tiktok-fetcher.mjs';
-import { fetchWebsiteContent, isFetchableUrl } from '../utils/web-fetcher.mjs';
+import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils/web-fetcher.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
 import { LLMClient } from './llm-client.mjs';
 
@@ -211,6 +211,21 @@ export class NarrativeAnalyzer {
       }
     }
 
+    // 6.3. 如果website是推文链接，获取该推文内容
+    let websiteTweetInfo = null;
+    if (extractedInfo.website && isTwitterTweetUrl(extractedInfo.website)) {
+      console.log('[NarrativeAnalyzer] website是推文链接，获取推文内容');
+      try {
+        const fetchedTweet = await TwitterFetcher.fetchFromUrls(extractedInfo.website, null);
+        if (fetchedTweet && fetchedTweet.type === 'tweet' && fetchedTweet.text) {
+          websiteTweetInfo = fetchedTweet;
+          console.log('[NarrativeAnalyzer] 成功获取website推文，内容长度:', fetchedTweet.text?.length || 0);
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] 获取website推文失败:', error.message);
+      }
+    }
+
     // 6.5. 获取 GitHub 仓库信息（如果有 GitHub 链接）
     let githubInfo = null;
     if (extractedInfo.website && GithubFetcher.isValidGithubUrl(extractedInfo.website)) {
@@ -315,10 +330,22 @@ export class NarrativeAnalyzer {
       };
       // 预检查结果也记录prompt类型（用于后续判断）
       promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
+      // 构建Prompt（用于保存到数据库）
+      promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
     } else {
       // 8. 正常流程：构建Prompt并调用LLM
       try {
-        promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
+        // 如果有website推文，附加到twitterInfo中
+        let enhancedTwitterInfo = twitterInfo;
+        if (websiteTweetInfo) {
+          enhancedTwitterInfo = {
+            ...twitterInfo,
+            website_tweet: websiteTweetInfo  // website指向的推文
+          };
+          console.log('[NarrativeAnalyzer] 包含website推文，使用complete prompt');
+        }
+
+        promptUsed = PromptBuilder.build(tokenData, enhancedTwitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
         promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
         console.log(`[NarrativeAnalyzer] 使用Prompt类型: ${promptType}`);
         llmResult = await LLMClient.analyze(promptUsed);

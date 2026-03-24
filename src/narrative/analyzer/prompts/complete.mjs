@@ -38,10 +38,35 @@ export const COMPLETE_PROMPT = (tokenData, twitterInfo, websiteInfo, extractedIn
         if (twitterInfo.media.images?.length > 0) contentParts.push(`【推文附带图片】${twitterInfo.media.images.length}张`);
         if (twitterInfo.media.videos?.length > 0) contentParts.push(`【推文附带视频】${twitterInfo.media.videos.length}个`);
       }
+
+      if (twitterInfo.article) {
+        contentParts.push(`【Twitter Article】（注意：Article即为此推文的完整内容，非转发）`);
+        contentParts.push(`标题：${twitterInfo.article.title || '无'}`);
+        contentParts.push(`摘要：${twitterInfo.article.preview_text || '无'}`);
+        if (twitterInfo.article.plain_text) {
+          const articleText = twitterInfo.article.plain_text.length > 3000
+            ? twitterInfo.article.plain_text.substring(0, 3000) + '...'
+            : twitterInfo.article.plain_text;
+          contentParts.push(`完整内容：${articleText}`);
+        }
+        if (twitterInfo.article.cover_image_url) contentParts.push(`封面图：${twitterInfo.article.cover_image_url}`);
+      }
     }
 
     if (twitterInfo.link_content?.content) {
       contentParts.push(`【推文链接内容】${twitterInfo.link_content.content}`);
+    }
+
+    // Website推文信息（如果website指向另一个推文）
+    if (twitterInfo.website_tweet && twitterInfo.website_tweet.text) {
+      const wt = twitterInfo.website_tweet;
+      contentParts.push(`【Website推文】`);
+      contentParts.push(`作者：@${wt.author_screen_name || '未知'}${wt.author_verified ? ' ✓' : ''}`);
+      contentParts.push(`内容：${wt.text}`);
+      if (wt.media && wt.media.has_media) {
+        if (wt.media.images?.length > 0) contentParts.push(`【Website推文图片】${wt.media.images.length}张`);
+        if (wt.media.videos?.length > 0) contentParts.push(`【Website推文视频】${wt.media.videos.length}个`);
+      }
     }
   }
 
@@ -137,15 +162,16 @@ ${generateAccountBackgroundsPrompt(twitterInfo)}${contentParts.join('\n')}
 - 特征：有影响力账号的内容本身就是meme币的来源/背景
 - 判断标准（满足至少2个）：
   1. 发布者是知名人物（Trump、Musk、CZ等）或有影响力账号（粉丝>10000）
-  2. 推文是原创内容/图片/视频（可能有引用推文，但引用的是相关补充内容）
-  3. 推文本身就是meme内容，而非解读其他事件
+  2. 推文是原创内容/Article/图片/视频（**Article是Twitter长文章功能，本身即为完整内容**）
+  3. 推文本身就是meme内容，而非解读其他事件（**有Article时直接满足此条件**）
   4. 代币名直接来自推文内容（如"基于这条推文发币"）
 - **评估原则**：
   - **直接关联发布者影响力**：发布者影响力 = 叙事背景评分
 
 **第四步：可理解性/关联度判断**
 
-**推文有配图/视频**：默认视觉关联，intro有实际含义→至少mid（25-45分）；intro完全无意义且文本不相关→可评low
+**推文有配图/视频**：
+- **有图片/视频** → 假设图片与代币有关
 
 **推文@了用户**：@知名/加密用户→建立背书关联，可评low或mid（根据影响力判断）；发布者有影响力→可评mid
 

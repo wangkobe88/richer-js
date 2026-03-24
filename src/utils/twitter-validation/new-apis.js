@@ -366,7 +366,11 @@ async function getTweetDetailGraphQL(tweetId) {
         id: articleResult.rest_id,
         title: articleResult.title,
         preview_text: articleResult.preview_text,
-        cover_image_url: articleResult.cover_media?.media_info?.original_img_url
+        cover_image_url: articleResult.cover_media?.media_info?.original_img_url,
+        // Article富文本内容（如果有）
+        rich_content_state: articleResult.rich_content_state || null,
+        // Article纯文本内容（如果有）
+        plain_text: articleResult.plain_text || null
       } : null,
 
       // 引用推文数据（如果有）

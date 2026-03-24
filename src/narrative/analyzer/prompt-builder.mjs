@@ -28,6 +28,11 @@ export class PromptBuilder {
    * @returns {string} Prompt类型：'standard', 'account-only', 'website-only', 'video-only', 'complete'
    */
   static determinePromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo) {
+    // 优先级0：有两个推文（website_tweet）→ 使用完整Prompt
+    if (twitterInfo && twitterInfo.website_tweet && twitterInfo.website_tweet.text) {
+      return 'complete';
+    }
+
     // 优先级1：有GitHub → 使用完整Prompt（GitHub需要完整评估框架）
     if (githubInfo) {
       return 'complete';

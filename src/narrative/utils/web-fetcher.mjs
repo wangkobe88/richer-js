@@ -113,14 +113,32 @@ export function isFetchableUrl(url) {
 
   // 排除一些不需要获取的URL
   const excludedPatterns = [
-    /^https?:\/\/(www\.)?(twitter|x)\.com/,  // Twitter链接单独处理
-    /^https?:\/\/t\.co/,                      // Twitter短链接
-    /^https?:\/\/(www\.)?youtube\.com/,       // 视频网站
-    /^https?:\/\/(www\.)?tiktok\.com/,        // 视频网站
-    /^https?:\/\/(www\.)?douyin\.com/,        // 视频网站
-    /^data:/,                                 // data URI
-    /^(javascript|mailto|tel):/               // 非http协议
+    /^https?:\/\/(www\.)?twitter\.com\/[^\/]+$/,     // Twitter主页链接（排除）
+    /^https?:\/\/(www\.)?x\.com\/[^\/]+$/,            // X主页链接（排除）
+    /^https?:\/\/t\.co/,                              // Twitter短链接
+    /^https?:\/\/(www\.)?youtube\.com/,           // 视频网站
+    /^https?:\/\/(www\.)?tiktok\.com/,            // 视频网站
+    /^https?:\/\/(www\.)?douyin\.com/,            // 视频网站
+    /^data:/,                                      // data URI
+    /^(javascript|mailto|tel):/                     // 非http协议
   ];
 
   return !excludedPatterns.some(pattern => pattern.test(url));
+}
+
+/**
+ * 检测URL是否是Twitter/X推文链接
+ * @param {string} url - URL
+ * @returns {boolean} 是否是推文链接
+ */
+export function isTwitterTweetUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+
+  // 匹配 Twitter/X 推文链接格式：
+  // https://x.com/username/status/123456
+  // https://twitter.com/username/status/123456
+  const tweetUrlPattern = /^https?:\/\/(www\.)?(twitter|x)\.com\/[\w-]+\/status\/\d+/;
+  return tweetUrlPattern.test(url);
 }
