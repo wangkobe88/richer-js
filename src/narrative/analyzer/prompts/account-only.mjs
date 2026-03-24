@@ -3,8 +3,25 @@
  */
 
 import { CORE_FRAMEWORK } from './core.mjs';
+import { getMatchedAccountBackgrounds } from './account-backgrounds.mjs';
 
-export const ACCOUNT_ONLY_PROMPT = (tokenData, twitterInfo, extractedInfo) => `
+export const ACCOUNT_ONLY_PROMPT = (tokenData, twitterInfo, extractedInfo) => {
+  // 生成账号背景信息
+  let accountBackgroundPrompt = '';
+  if (twitterInfo && twitterInfo.screen_name) {
+    const matches = getMatchedAccountBackgrounds({
+      author_screen_name: twitterInfo.screen_name
+    });
+    if (matches.length > 0) {
+      accountBackgroundPrompt = '\n【重要账号背景信息】\n';
+      for (const match of matches) {
+        accountBackgroundPrompt += `- @${match.screen_name}: ${match.background}\n`;
+      }
+      accountBackgroundPrompt += '\n';
+    }
+  }
+
+  return `
 你是代币叙事分析专家，负责评估meme代币的叙事质量。
 
 【代币信息】
@@ -15,6 +32,7 @@ export const ACCOUNT_ONLY_PROMPT = (tokenData, twitterInfo, extractedInfo) => `
 - 网站：${extractedInfo.website || '无'}
 - Twitter链接：${extractedInfo.twitter_url || '无'}
 
+${accountBackgroundPrompt}
 【Twitter账号信息】
 ${twitterInfo ? `
 - 账号名称：${twitterInfo.name || '未知'}
@@ -68,14 +86,13 @@ ${twitterInfo ? `
 **账号影响力分级标准**：
 - **世界级影响力**（粉丝数 > 1000万 或 认证的世界级名人）
   - 如：马斯克、特朗普、币安CZ等
-  - 评级至少为 **mid-high（30-50分）**
   - 如果账号名/简介与代币直接相关，可评 **high（50-75分）**
 - **平台级影响力**（粉丝数 10万-1000万 或 平台官方账号）
   - 如：@Four_FORM_（FourMeme官方）、知名项目官方账号
   - 评级至少为 **mid（25-45分）**
 - **社区级影响力**（粉丝数 1万-10万 或 认证用户）
   - 如：加密社区KOL、知名博主
-  - 评级至少为 **mid-low（10-25分）**
+  - 评级：**low到mid**（根据粉丝数和关联度判断）
 - **个人/小众影响力**（粉丝数 < 1万）
   - 除非有其他强支撑（如简介内容非常相关），通常为 **low（0-15分）**
 
@@ -90,7 +107,7 @@ ${twitterInfo ? `
 2. **弱关联**（账号名/简介与代币有一定关联但不直接）：
    - 账号名/简介包含相关关键词但不是直接匹配
    - 例如：代币"狗狗"，账号名"DogeLover"
-   - 评级：**mid-low（10-25分）**
+   - 评级：**low**
 3. **无明显关联**（账号与代币没有明显联系）：
    - 账号名/简介与代币完全无关
    - 例如：代币"猫咪"，账号名"TechNews"
@@ -108,29 +125,25 @@ ${twitterInfo ? `
 【评分示例】
 
 示例1(平台官方账号-mid):
-代币:某FourMeme代币
-Twitter账号:@Four_FORM_（FourMeme官方，蓝V认证）
-平台官方账号→{credibility:30,virality:35,total:65,category:"mid"}
+代币:某FourMeme代币，Twitter账号:@Four_FORM_（FourMeme官方，蓝V认证）
+→评mid，理由：平台官方账号
 
 示例2(世界级人物账号-high):
-代币:某Musk相关代币
-Twitter账号:Elon Musk（认证账号，粉丝数>1000万）
-世界级人物账号→{credibility:40,virality:40,total:80,category:"high"}
+代币:某Musk相关代币，Twitter账号:Elon Musk（认证账号，粉丝数>1000万）
+→评high，理由：世界级人物账号
 
-示例3(社区KOL账号-mid-low):
-代币:某加密代币
-Twitter账号:某加密KOL（认证，粉丝数5万）
-社区级影响力+弱关联→{credibility:15,virality:20,total:35,category:"mid-low"}
+示例3(社区KOL账号-low):
+代币:某加密代币，Twitter账号:某加密KOL（认证，粉丝数5万）
+→评low，理由：影响力有限且关联度较弱
 
 示例4(无关联账号-low):
-代币:猫咪
-Twitter账号:TechNews（科技新闻账号，粉丝数1万）
-无关联→{credibility:5,virality:8,total:13,category:"low"}
+代币:猫咪，Twitter账号:TechNews（科技新闻账号，粉丝数1万）
+→评low，理由：无关联
 
 示例5(个人小号-low):
-代币:某代币
-Twitter账号:个人账号（粉丝数<1000）
-低影响力账号→{credibility:2,virality:5,total:7,category:"low"}
+代币:某代币，Twitter账号:个人账号（粉丝数<1000）
+→评low，理由：低影响力账号
 
 ${CORE_FRAMEWORK}
 `;
+};

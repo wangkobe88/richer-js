@@ -2,18 +2,19 @@
  * Prompt构建器 - 入口点
  * 根据代币信息类型，选择合适的Prompt模板
  *
- * V6.0 - 拆分为多个场景专用Prompt，减少token数量
+ * V6.1 - 拆分为多个场景专用Prompt，增加video-only类型
  */
 
 import { STANDARD_PROMPT } from './prompts/standard.mjs';
 import { ACCOUNT_ONLY_PROMPT } from './prompts/account-only.mjs';
 import { WEBSITE_ONLY_PROMPT } from './prompts/website-only.mjs';
+import { VIDEO_ONLY_PROMPT } from './prompts/video-only.mjs';
 import { COMPLETE_PROMPT } from './prompts/complete.mjs';
 
 export class PromptBuilder {
 
   static getPromptVersion() {
-    return 'V6.0';
+    return 'V6.1';
   }
 
   /**
@@ -23,23 +24,45 @@ export class PromptBuilder {
    * @param {Object} githubInfo - GitHub信息
    * @param {Object} youtubeInfo - YouTube信息
    * @param {Object} douyinInfo - 抖音信息
-   * @returns {string} Prompt类型：'standard', 'account-only', 'website-only', 'complete'
+   * @param {Object} tiktokInfo - TikTok信息
+   * @returns {string} Prompt类型：'standard', 'account-only', 'website-only', 'video-only', 'complete'
    */
-  static determinePromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo) {
-    // 优先级1：有推文文本 → 使用标准Prompt
+  static determinePromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo) {
+    // 优先级1：有GitHub → 使用完整Prompt（GitHub需要完整评估框架）
+    if (githubInfo) {
+      return 'complete';
+    }
+
+    // 优先级2：有推文 + 有视频平台 → 使用完整Prompt（需要综合评估）
+    const hasTweet = twitterInfo && twitterInfo.type === 'tweet' && twitterInfo.text;
+    const hasVideo = youtubeInfo || douyinInfo || tiktokInfo;
+    if (hasTweet && hasVideo) {
+      return 'complete';
+    }
+
+    // 优先级3：有推文文本 → 使用标准Prompt
+    if (hasTweet) {
+      return 'standard';
+    }
+
+    // 优先级4：只有视频平台（TikTok/YouTube/抖音）且无其他复杂信息 → 使用视频专用Prompt
+    if (hasVideo && !twitterInfo && !githubInfo && !(websiteInfo && websiteInfo.content)) {
+      return 'video-only';
+    }
+
+    // 优先级5：有视频平台 + 其他信息 → 使用完整Prompt
+    if (hasVideo) {
+      return 'complete';
+    }
+
+    // 优先级2：有推文文本 → 使用标准Prompt
     if (twitterInfo && twitterInfo.type === 'tweet' && twitterInfo.text) {
       return 'standard';
     }
 
-    // 优先级2：只有Twitter账号（没有推文）→ 使用账号专用Prompt
+    // 优先级3：只有Twitter账号（没有推文）→ 使用账号专用Prompt
     if (twitterInfo && twitterInfo.type === 'account') {
       return 'account-only';
-    }
-
-    // 优先级3：有GitHub/YouTube/抖音等特殊平台 → 使用完整Prompt
-    // 这些场景比较复杂，需要完整的评估框架
-    if (githubInfo || youtubeInfo || douyinInfo) {
-      return 'complete';
     }
 
     // 优先级4：只有网站内容 → 使用网站专用Prompt
@@ -61,11 +84,12 @@ export class PromptBuilder {
    * @param {Object} githubInfo - GitHub仓库信息
    * @param {Object} youtubeInfo - YouTube视频信息
    * @param {Object} douyinInfo - 抖音视频信息
+   * @param {Object} tiktokInfo - TikTok视频信息
    * @returns {string} 构建好的Prompt字符串
    */
-  static build(tokenData, twitterInfo = null, websiteInfo = null, extractedInfo = null, backgroundInfo = null, githubInfo = null, youtubeInfo = null, douyinInfo = null) {
+  static build(tokenData, twitterInfo = null, websiteInfo = null, extractedInfo = null, backgroundInfo = null, githubInfo = null, youtubeInfo = null, douyinInfo = null, tiktokInfo = null) {
     // 判断应该使用哪种Prompt
-    const promptType = this.determinePromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo);
+    const promptType = this.determinePromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
 
     // 根据类型选择对应的Prompt构建器
     switch (promptType) {
@@ -78,9 +102,12 @@ export class PromptBuilder {
       case 'website-only':
         return WEBSITE_ONLY_PROMPT(tokenData, websiteInfo, extractedInfo);
 
+      case 'video-only':
+        return VIDEO_ONLY_PROMPT(tokenData, tiktokInfo, youtubeInfo, douyinInfo, extractedInfo);
+
       case 'complete':
       default:
-        return COMPLETE_PROMPT(tokenData, twitterInfo, websiteInfo, extractedInfo, githubInfo, youtubeInfo, douyinInfo);
+        return COMPLETE_PROMPT(tokenData, twitterInfo, websiteInfo, extractedInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
     }
   }
 
@@ -91,10 +118,11 @@ export class PromptBuilder {
    * @param {Object} githubInfo - GitHub信息
    * @param {Object} youtubeInfo - YouTube信息
    * @param {Object} douyinInfo - 抖音信息
+   * @param {Object} tiktokInfo - TikTok信息
    * @returns {string} Prompt类型
    */
-  static getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo) {
-    return this.determinePromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo);
+  static getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo) {
+    return this.determinePromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
   }
 
   /**

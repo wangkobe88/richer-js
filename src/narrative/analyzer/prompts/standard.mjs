@@ -3,6 +3,7 @@
  */
 
 import { CORE_FRAMEWORK } from './core.mjs';
+import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
 export const STANDARD_PROMPT = (tokenData, twitterInfo, extractedInfo) => `
 你是代币叙事分析专家，负责评估meme代币的叙事质量。
@@ -14,6 +15,8 @@ export const STANDARD_PROMPT = (tokenData, twitterInfo, extractedInfo) => `
 - 介绍（中文）：${extractedInfo.intro_cn || '无'}
 - 网站：${extractedInfo.website || '无'}
 - Twitter链接：${extractedInfo.twitter_url || '无'}
+
+${generateAccountBackgroundsPrompt(twitterInfo)}
 
 【推文信息】
 ${twitterInfo ? `
@@ -87,7 +90,7 @@ ${twitterInfo?.link_content ? `
 
 **推文有配图/视频**：默认视觉关联，intro有实际含义→至少mid（25-45分）；intro完全无意义且文本不相关→可评low
 
-**推文@了用户**：@知名/加密用户→建立背书关联，至少mid-low（15-25分）；发布者有影响力→可评mid（25-40分）
+**推文@了用户**：@知名/加密用户→建立背书关联，可评low或mid（根据影响力判断）；发布者有影响力→可评mid
 
 **信息在外部平台**（Telegram/Discord/小红书等）→unrated
 

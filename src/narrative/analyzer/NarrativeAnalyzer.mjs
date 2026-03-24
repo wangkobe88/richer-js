@@ -14,6 +14,7 @@ import { WeiboFetcher, WeiboExtractor } from '../utils/weibo-fetcher.mjs';
 import { GithubFetcher } from '../utils/github-fetcher.mjs';
 import { YoutubeFetcher } from '../utils/youtube-fetcher.mjs';
 import { DouyinFetcher } from '../utils/douyin-fetcher.mjs';
+import { fetchTikTokVideoInfo, isTikTokUrl } from '../utils/tiktok-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl } from '../utils/web-fetcher.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
 import { LLMClient } from './llm-client.mjs';
@@ -274,6 +275,28 @@ export class NarrativeAnalyzer {
       }
     }
 
+    // 6.8. 获取TikTok视频信息（如果有TikTok链接）
+    let tiktokInfo = null;
+    if (isTikTokUrl(extractedInfo.website) ||
+        isTikTokUrl(extractedInfo.twitter_url)) {
+      const tiktokUrl = extractedInfo.website && isTikTokUrl(extractedInfo.website)
+        ? extractedInfo.website
+        : extractedInfo.twitter_url;
+      console.log('[NarrativeAnalyzer] 检测到TikTok链接，获取视频信息');
+      try {
+        tiktokInfo = await fetchTikTokVideoInfo(tiktokUrl);
+        if (tiktokInfo) {
+          // 添加影响力等级信息
+          const influenceLevel = getTikTokInfluenceLevel(tiktokInfo);
+          tiktokInfo.influence_level = influenceLevel;
+          tiktokInfo.influence_description = getTikTokInfluenceDescription(influenceLevel);
+          console.log(`[NarrativeAnalyzer] TikTok信息: @${tiktokInfo.author_username}, ${influenceLevel}`);
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] TikTok信息获取失败:', error.message);
+      }
+    }
+
     // 7. 预检查规则（不调用LLM，直接返回结果）
     const preCheckResult = this.performPreCheck(tokenData, twitterInfo, extractedInfo, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
@@ -291,12 +314,12 @@ export class NarrativeAnalyzer {
         raw: null // 预检查结果没有原始LLM输出
       };
       // 预检查结果也记录prompt类型（用于后续判断）
-      promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo);
+      promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
     } else {
       // 8. 正常流程：构建Prompt并调用LLM
       try {
-        promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo);
-        promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo);
+        promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
+        promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
         console.log(`[NarrativeAnalyzer] 使用Prompt类型: ${promptType}`);
         llmResult = await LLMClient.analyze(promptUsed);
       } catch (error) {
@@ -631,4 +654,40 @@ export class NarrativeAnalyzer {
     }
     return results;
   }
+}
+
+/**
+ * 获取TikTok影响力等级
+ * @param {Object} tiktokInfo - TikTok视频信息
+ * @returns {string} 影响力等级
+ */
+function getTikTokInfluenceLevel(tiktokInfo) {
+  const viewCount = tiktokInfo.view_count || 0;
+  const likeCount = tiktokInfo.like_count || 0;
+
+  // 根据播放量和点赞数判断影响力
+  if (viewCount >= 1000000 || likeCount >= 100000) {
+    return 'world'; // 世界级：100万播放或10万点赞
+  } else if (viewCount >= 100000 || likeCount >= 10000) {
+    return 'platform'; // 平台级：10万播放或1万点赞
+  } else if (viewCount >= 10000 || likeCount >= 1000) {
+    return 'community'; // 社区级：1万播放或1000点赞
+  } else {
+    return 'niche'; // 小众：低于1万播放且1000点赞
+  }
+}
+
+/**
+ * 获取TikTok影响力等级描述
+ * @param {string} level - 影响力等级
+ * @returns {string} 描述
+ */
+function getTikTokInfluenceDescription(level) {
+  const descriptions = {
+    'world': '世界级影响力（100万+播放）',
+    'platform': '平台级影响力（10万+播放）',
+    'community': '社区级影响力（1万+播放）',
+    'niche': '小众影响力（1万以下播放）'
+  };
+  return descriptions[level] || '未知影响力';
 }
