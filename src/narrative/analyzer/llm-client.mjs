@@ -166,6 +166,7 @@ ${text}`;
     let jsonMatch = content.match(/\{[\s\S]*\}/);
 
     if (!jsonMatch) {
+      console.error('[LLMClient] 无法提取JSON，原始响应:', content);
       throw new Error('无法从LLM响应中提取JSON');
     }
 

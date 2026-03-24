@@ -113,7 +113,8 @@ export class NarrativeAnalyzer {
       githubInfo,
       youtubeInfo,
       douyinInfo,
-      tiktokInfo
+      tiktokInfo,
+      bilibiliInfo
     } = await this._fetchAllDataViaClassifier(tokenData, extractedInfo);
     console.log('[NarrativeAnalyzer] 数据获取完成');
 
@@ -134,7 +135,7 @@ export class NarrativeAnalyzer {
         raw: null // 预检查结果没有原始LLM输出
       };
       // 预检查结果也记录prompt类型（用于后续判断）
-      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo };
+      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo };
       promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
       // 构建Prompt（用于保存到数据库）
       promptUsed = PromptBuilder.build(tokenData, fetchResults);
@@ -142,7 +143,7 @@ export class NarrativeAnalyzer {
       // 8. 正常流程：构建Prompt并调用LLM
       try {
         // twitterInfo已包含website_tweet（如果有第二个推文）
-        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo };
+        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo };
         promptUsed = PromptBuilder.build(tokenData, fetchResults);
         promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
         console.log(`[NarrativeAnalyzer] 使用Prompt类型: ${promptType}`);
@@ -335,7 +336,8 @@ export class NarrativeAnalyzer {
         githubInfo: null,
         youtubeInfo: null,
         douyinInfo: null,
-        tiktokInfo: null
+        tiktokInfo: null,
+        bilibiliInfo: null
       };
     }
 
