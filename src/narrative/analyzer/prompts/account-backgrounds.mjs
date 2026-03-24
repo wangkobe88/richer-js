@@ -53,6 +53,11 @@ export function getMatchedAccountBackgrounds(twitterInfo) {
     screenNames.push(twitterInfo.author_screen_name.toLowerCase());
   }
 
+  // 检查Website推文作者（如果website指向另一个推文）
+  if (twitterInfo.website_tweet?.author_screen_name) {
+    screenNames.push(twitterInfo.website_tweet.author_screen_name.toLowerCase());
+  }
+
   // 检查引用推文作者
   if (twitterInfo.quoted_status?.author_screen_name) {
     screenNames.push(twitterInfo.quoted_status.author_screen_name.toLowerCase());
@@ -84,9 +89,10 @@ export function getMatchedAccountBackgrounds(twitterInfo) {
   // 检查推文内容中是否提到重要关键词
   const tweetText = (twitterInfo.text || '').toLowerCase();
   const quotedText = (twitterInfo.quoted_status?.text || '').toLowerCase();
+  const websiteTweetText = (twitterInfo.website_tweet?.text || '').toLowerCase();
 
   // 检测Aster相关关键词
-  if (tweetText.includes('aster') || quotedText.includes('aster')) {
+  if (tweetText.includes('aster') || quotedText.includes('aster') || websiteTweetText.includes('aster')) {
     // 查找Aster相关的账户背景
     const asterKey = Object.keys(ACCOUNT_BACKGROUNDS).find(key =>
       key.toLowerCase().includes('aster')
@@ -100,7 +106,7 @@ export function getMatchedAccountBackgrounds(twitterInfo) {
   }
 
   // 检测Moonshot相关关键词
-  if (tweetText.includes('moonshot') || quotedText.includes('moonshot')) {
+  if (tweetText.includes('moonshot') || quotedText.includes('moonshot') || websiteTweetText.includes('moonshot')) {
     const moonshotKey = Object.keys(ACCOUNT_BACKGROUNDS).find(key =>
       key.toLowerCase().includes('moonshot')
     );
@@ -113,7 +119,9 @@ export function getMatchedAccountBackgrounds(twitterInfo) {
   }
 
   // 检测World Liberty相关关键词
-  if (tweetText.includes('world liberty') || tweetText.includes('worldliberty') || quotedText.includes('world liberty') || quotedText.includes('worldliberty')) {
+  if (tweetText.includes('world liberty') || tweetText.includes('worldliberty') ||
+      quotedText.includes('world liberty') || quotedText.includes('worldliberty') ||
+      websiteTweetText.includes('world liberty') || websiteTweetText.includes('worldliberty')) {
     const worldLibertyKey = Object.keys(ACCOUNT_BACKGROUNDS).find(key =>
       key.toLowerCase().includes('worldliberty')
     );

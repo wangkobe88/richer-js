@@ -229,6 +229,9 @@ class NarrativeAnalyzer {
       if (meta.promptVersion) {
         metaInfo.push(`Prompt版本: ${meta.promptVersion}`);
       }
+      if (meta.promptType) {
+        metaInfo.push(`Prompt类型: ${meta.promptType}`);
+      }
     }
     // 确保 metaInfo 至少显示时间信息
     const metaText = metaInfo.length > 0 ? metaInfo.join(' | ') : `分析时间: ${this.formatDate(new Date().toISOString())}`;

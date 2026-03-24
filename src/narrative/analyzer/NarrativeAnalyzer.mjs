@@ -18,6 +18,7 @@ import { fetchTikTokVideoInfo, isTikTokUrl } from '../utils/tiktok-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils/web-fetcher.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
 import { LLMClient } from './llm-client.mjs';
+import { extractAllUrls, classifyAllUrls, selectBestUrls } from '../utils/url-classifier.mjs';
 
 // 获取supabase客户端
 const getSupabase = () => NarrativeRepository.getSupabase();
@@ -102,215 +103,18 @@ export class NarrativeAnalyzer {
     // 3. 提取结构化信息
     const extractedInfo = this.extractInfo(tokenData);
 
-    // 4. 获取Twitter内容
-    let twitterInfo = await TwitterFetcher.fetchFromUrls(
-      extractedInfo.twitter_url,
-      extractedInfo.website
-    );
-
-    // 4.2 如果推文包含图片，进行图片分析（需要配置启用）
-    if (NARRATIVE_CONFIG.enableImageAnalysis && twitterInfo && twitterInfo.media && TwitterMediaExtractor.hasImages(twitterInfo)) {
-      console.log('[NarrativeAnalyzer] 推文包含图片，开始分析...');
-      const imageUrls = TwitterMediaExtractor.extractImageUrls(twitterInfo);
-
-      // 只分析第一张图片（通常是主要图片）
-      const firstImage = imageUrls[0];
-      if (firstImage) {
-        try {
-          const imageData = await ImageDownloader.downloadAsBase64(firstImage.url);
-          if (imageData) {
-            const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
-            twitterInfo.image_analysis = {
-              url: firstImage.url,
-              analysis: imageAnalysis
-            };
-            console.log('[NarrativeAnalyzer] 图片分析完成');
-          }
-        } catch (error) {
-          console.warn('[NarrativeAnalyzer] 图片分析失败:', error.message);
-          // 图片分析失败不影响整体流程
-        }
-      }
-    } else if (twitterInfo && twitterInfo.media && TwitterMediaExtractor.hasImages(twitterInfo)) {
-      // 配置未启用图片分析，但记录有图片
-      console.log('[NarrativeAnalyzer] 推文包含图片，但图片分析功能已禁用（配置：enableImageAnalysis=false）');
-    }
-
-    // 4.3 如果成功获取推文且是非中英文，尝试翻译
-    if (twitterInfo && twitterInfo.text) {
-      const tweetLang = this.detectLanguage(twitterInfo.text);
-      if (tweetLang && tweetLang !== 'zh' && tweetLang !== 'en') {
-        console.log(`[NarrativeAnalyzer] 检测到非中英文推文 (${tweetLang})，尝试翻译...`);
-        try {
-          // 使用 LLM 翻译
-          const translated = await LLMClient.translate(twitterInfo.text, 'zh');
-
-          if (translated) {
-            // 标准化常见译名（如：卢菲 → 路飞，川普 → 特朗普）
-            const standardized = this.standardizeTranslatedNames(translated, tokenData.symbol);
-
-            twitterInfo.text_original = twitterInfo.text;
-            twitterInfo.text = standardized;
-            twitterInfo.text_translated = true;
-            twitterInfo.original_language = tweetLang;
-            console.log('[NarrativeAnalyzer] 推文翻译成功');
-          }
-        } catch (error) {
-          console.warn('[NarrativeAnalyzer] 推文翻译失败:', error.message);
-          // 翻译失败，继续使用原文
-        }
-      }
-    }
-
-    // 4.5 如果成功获取推文，尝试获取推文中的链接内容
-    if (twitterInfo && twitterInfo.text) {
-      console.log('[NarrativeAnalyzer] 推文已获取，尝试获取推文链接内容');
-      twitterInfo = await TwitterFetcher.enrichWithLinkContent(twitterInfo);
-    }
-
-    // 5. 获取背景信息（微博等外部资源）- 不存储到 token_narrative
-    let backgroundInfo = null;
-
-    // 检查是否是微博链接（作为背景信息）
-    if (extractedInfo.website && WeiboExtractor.isValidWeiboUrl(extractedInfo.website)) {
-      console.log('[NarrativeAnalyzer] 检测到微博链接，获取作为背景信息');
-      backgroundInfo = await WeiboFetcher.fetchFromUrl(extractedInfo.website);
-      if (backgroundInfo) {
-        backgroundInfo.source = 'weibo';
-      }
-    }
-    // 检查 twitter_url 是否是微博链接
-    else if (extractedInfo.twitter_url && WeiboExtractor.isValidWeiboUrl(extractedInfo.twitter_url)) {
-      console.log('[NarrativeAnalyzer] 检测到微博链接，获取作为背景信息');
-      backgroundInfo = await WeiboFetcher.fetchFromUrl(extractedInfo.twitter_url);
-      if (backgroundInfo) {
-        backgroundInfo.source = 'weibo';
-      }
-    }
-
-    // 6. 如果没有Twitter信息且有网站，尝试获取网页内容
-    // 注意：当Twitter获取失败时，即使网站是YouTube/TikTok等，也会尝试获取
-    let websiteInfo = null;
-    if (!twitterInfo && extractedInfo.website) {
-      // Twitter失败时，尝试获取任何类型的网站内容
-      websiteInfo = await fetchWebsiteContent(extractedInfo.website, { maxLength: 5000 });
-    } else if (!extractedInfo.twitter_url && extractedInfo.website && isFetchableUrl(extractedInfo.website)) {
-      // 没有Twitter URL时，只获取可安全获取的网站（排除视频平台等）
-      websiteInfo = await fetchWebsiteContent(extractedInfo.website, { maxLength: 5000 });
-    } else if (twitterInfo && extractedInfo.website && isFetchableUrl(extractedInfo.website)) {
-      // 有Twitter信息但也要获取网站内容的情况：
-      // 1. Twitter只是账号信息，没有推文内容
-      // 2. Twitter推文内容很少（少于50字符）
-      const shouldFetchWebsite =
-        (twitterInfo.type === 'account') ||  // 只是账号，没有推文
-        (twitterInfo.text && twitterInfo.text.length < 50);  // 推文太短
-
-      if (shouldFetchWebsite) {
-        console.log('[NarrativeAnalyzer] Twitter信息不完整，尝试获取网站内容作为补充');
-        websiteInfo = await fetchWebsiteContent(extractedInfo.website, { maxLength: 5000 });
-      }
-    }
-
-    // 6.3. 如果website是推文链接，获取该推文内容
-    let websiteTweetInfo = null;
-    if (extractedInfo.website && isTwitterTweetUrl(extractedInfo.website)) {
-      console.log('[NarrativeAnalyzer] website是推文链接，获取推文内容');
-      try {
-        const fetchedTweet = await TwitterFetcher.fetchFromUrls(extractedInfo.website, null);
-        if (fetchedTweet && fetchedTweet.type === 'tweet' && fetchedTweet.text) {
-          websiteTweetInfo = fetchedTweet;
-          console.log('[NarrativeAnalyzer] 成功获取website推文，内容长度:', fetchedTweet.text?.length || 0);
-        }
-      } catch (error) {
-        console.warn('[NarrativeAnalyzer] 获取website推文失败:', error.message);
-      }
-    }
-
-    // 6.5. 获取 GitHub 仓库信息（如果有 GitHub 链接）
-    let githubInfo = null;
-    if (extractedInfo.website && GithubFetcher.isValidGithubUrl(extractedInfo.website)) {
-      console.log('[NarrativeAnalyzer] 检测到 GitHub 链接，获取仓库信息');
-      try {
-        githubInfo = await GithubFetcher.fetchRepoInfo(extractedInfo.website);
-        if (githubInfo) {
-          // 添加影响力等级信息
-          const influenceLevel = GithubFetcher.getInfluenceLevel(githubInfo);
-          githubInfo.influence_level = influenceLevel;
-          githubInfo.influence_description = GithubFetcher.getInfluenceDescription(influenceLevel);
-          // 判断是否是官方代币
-          githubInfo.is_official_token = GithubFetcher.isOfficialToken(githubInfo, tokenData.symbol);
-          console.log(`[NarrativeAnalyzer] GitHub 信息: ${githubInfo.stargazers_count} stars, ${influenceLevel}`);
-        }
-      } catch (error) {
-        console.warn('[NarrativeAnalyzer] GitHub 信息获取失败:', error.message);
-      }
-    }
-
-    // 6.6. 获取 YouTube 视频信息（如果有 YouTube 链接）
-    let youtubeInfo = null;
-    if (YoutubeFetcher.isValidYoutubeUrl(extractedInfo.website) ||
-        YoutubeFetcher.isValidYoutubeUrl(extractedInfo.twitter_url)) {
-      const youtubeUrl = extractedInfo.website && YoutubeFetcher.isValidYoutubeUrl(extractedInfo.website)
-        ? extractedInfo.website
-        : extractedInfo.twitter_url;
-      console.log('[NarrativeAnalyzer] 检测到 YouTube 链接，获取视频信息');
-      try {
-        youtubeInfo = await YoutubeFetcher.fetchVideoInfo(youtubeUrl);
-        if (youtubeInfo) {
-          // 添加影响力等级信息
-          const influenceLevel = YoutubeFetcher.getInfluenceLevel(youtubeInfo);
-          youtubeInfo.influence_level = influenceLevel;
-          youtubeInfo.influence_description = YoutubeFetcher.getInfluenceDescription(influenceLevel);
-          console.log(`[NarrativeAnalyzer] YouTube 信息: "${youtubeInfo.title}", ${influenceLevel}`);
-        }
-      } catch (error) {
-        console.warn('[NarrativeAnalyzer] YouTube 信息获取失败:', error.message);
-      }
-    }
-
-    // 6.7. 获取抖音视频信息（如果有抖音链接）
-    let douyinInfo = null;
-    if (DouyinFetcher.isValidDouyinUrl(extractedInfo.website) ||
-        DouyinFetcher.isValidDouyinUrl(extractedInfo.twitter_url)) {
-      const douyinUrl = extractedInfo.website && DouyinFetcher.isValidDouyinUrl(extractedInfo.website)
-        ? extractedInfo.website
-        : extractedInfo.twitter_url;
-      console.log('[NarrativeAnalyzer] 检测到抖音链接，获取视频信息');
-      try {
-        douyinInfo = await DouyinFetcher.fetchVideoInfo(douyinUrl);
-        if (douyinInfo) {
-          // 添加影响力等级信息
-          const influenceLevel = DouyinFetcher.getInfluenceLevel(douyinInfo);
-          douyinInfo.influence_level = influenceLevel;
-          douyinInfo.influence_description = DouyinFetcher.getInfluenceDescription(influenceLevel);
-          console.log(`[NarrativeAnalyzer] 抖音信息: "${douyinInfo.title}", ${influenceLevel}`);
-        }
-      } catch (error) {
-        console.warn('[NarrativeAnalyzer] 抖音信息获取失败:', error.message);
-      }
-    }
-
-    // 6.8. 获取TikTok视频信息（如果有TikTok链接）
-    let tiktokInfo = null;
-    if (isTikTokUrl(extractedInfo.website) ||
-        isTikTokUrl(extractedInfo.twitter_url)) {
-      const tiktokUrl = extractedInfo.website && isTikTokUrl(extractedInfo.website)
-        ? extractedInfo.website
-        : extractedInfo.twitter_url;
-      console.log('[NarrativeAnalyzer] 检测到TikTok链接，获取视频信息');
-      try {
-        tiktokInfo = await fetchTikTokVideoInfo(tiktokUrl);
-        if (tiktokInfo) {
-          // 添加影响力等级信息
-          const influenceLevel = getTikTokInfluenceLevel(tiktokInfo);
-          tiktokInfo.influence_level = influenceLevel;
-          tiktokInfo.influence_description = getTikTokInfluenceDescription(influenceLevel);
-          console.log(`[NarrativeAnalyzer] TikTok信息: @${tiktokInfo.author_username}, ${influenceLevel}`);
-        }
-      } catch (error) {
-        console.warn('[NarrativeAnalyzer] TikTok信息获取失败:', error.message);
-      }
-    }
+    // 4. 使用URL分类器统一获取所有数据
+    console.log('[NarrativeAnalyzer] 开始使用URL分类器获取数据...');
+    const {
+      twitterInfo,
+      websiteInfo,
+      backgroundInfo,
+      githubInfo,
+      youtubeInfo,
+      douyinInfo,
+      tiktokInfo
+    } = await this._fetchAllDataViaClassifier(tokenData, extractedInfo);
+    console.log('[NarrativeAnalyzer] 数据获取完成');
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
     const preCheckResult = this.performPreCheck(tokenData, twitterInfo, extractedInfo, { ignoreExpired });
@@ -329,24 +133,17 @@ export class NarrativeAnalyzer {
         raw: null // 预检查结果没有原始LLM输出
       };
       // 预检查结果也记录prompt类型（用于后续判断）
-      promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
+      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo };
+      promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
       // 构建Prompt（用于保存到数据库）
-      promptUsed = PromptBuilder.build(tokenData, twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
+      promptUsed = PromptBuilder.build(tokenData, fetchResults);
     } else {
       // 8. 正常流程：构建Prompt并调用LLM
       try {
-        // 如果有website推文，附加到twitterInfo中
-        let enhancedTwitterInfo = twitterInfo;
-        if (websiteTweetInfo) {
-          enhancedTwitterInfo = {
-            ...twitterInfo,
-            website_tweet: websiteTweetInfo  // website指向的推文
-          };
-          console.log('[NarrativeAnalyzer] 包含website推文，使用complete prompt');
-        }
-
-        promptUsed = PromptBuilder.build(tokenData, enhancedTwitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
-        promptType = PromptBuilder.getPromptType(twitterInfo, websiteInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo);
+        // twitterInfo已包含website_tweet（如果有第二个推文）
+        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo };
+        promptUsed = PromptBuilder.build(tokenData, fetchResults);
+        promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
         console.log(`[NarrativeAnalyzer] 使用Prompt类型: ${promptType}`);
         llmResult = await LLMClient.analyze(promptUsed);
       } catch (error) {
@@ -493,6 +290,296 @@ export class NarrativeAnalyzer {
   }
 
   /**
+   * 基于URL分类器的统一数据获取流程
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} extractedInfo - 提取的结构化信息
+   * @returns {Object} 所有获取到的数据
+   */
+  static async _fetchAllDataViaClassifier(tokenData, extractedInfo) {
+    // 1. 从appendix和raw_api_data中提取所有URL
+    const rawData = tokenData.raw_api_data || {};
+    let appendix = {};
+    if (rawData.appendix && typeof rawData.appendix === 'string') {
+      try {
+        appendix = JSON.parse(rawData.appendix);
+      } catch (e) {
+        console.warn('[NarrativeAnalyzer] 解析appendix失败:', e.message);
+      }
+    } else if (rawData.appendix && typeof rawData.appendix === 'object') {
+      appendix = rawData.appendix;
+    }
+
+    // 构建完整的数据对象用于URL提取
+    const fullData = {
+      ...rawData,
+      ...extractedInfo,
+      appendix
+    };
+
+    // 2. 提取所有URL
+    const allUrls = extractAllUrls(fullData);
+    console.log(`[NarrativeAnalyzer] 从数据中提取到 ${allUrls.length} 个URL`);
+
+    if (allUrls.length === 0) {
+      console.log('[NarrativeAnalyzer] 未找到任何URL，返回空数据');
+      return {
+        twitterInfo: null,
+        websiteInfo: null,
+        backgroundInfo: null,
+        githubInfo: null,
+        youtubeInfo: null,
+        douyinInfo: null,
+        tiktokInfo: null
+      };
+    }
+
+    // 3. 分类所有URL
+    const classifiedUrls = classifyAllUrls(allUrls);
+    console.log('[NarrativeAnalyzer] URL分类结果:', {
+      twitter: classifiedUrls.twitter.length,
+      weibo: classifiedUrls.weibo.length,
+      youtube: classifiedUrls.youtube.length,
+      tiktok: classifiedUrls.tiktok.length,
+      douyin: classifiedUrls.douyin.length,
+      github: classifiedUrls.github.length,
+      websites: classifiedUrls.websites.length
+    });
+
+    // 4. 选择每个平台的最佳URL
+    const bestUrls = selectBestUrls(classifiedUrls);
+    console.log('[NarrativeAnalyzer] 选中的最佳URL:', {
+      twitter: bestUrls.twitter?.url || null,
+      weibo: classifiedUrls.weibo[0]?.url || null,
+      youtube: bestUrls.youtube?.url || null,
+      tiktok: bestUrls.tiktok?.url || null,
+      douyin: bestUrls.douyin?.url || null,
+      github: bestUrls.github?.url || null,
+      website: bestUrls.website?.url || null
+    });
+
+    // 5. 顺序获取数据（按优先级）
+    return await this._fetchDataSequentially(bestUrls, classifiedUrls, tokenData);
+  }
+
+  /**
+   * 顺序获取各平台数据
+   * @param {Object} bestUrls - 选中的最佳URL
+   * @param {Object} classifiedUrls - 分类后的所有URL
+   * @param {Object} tokenData - 代币数据
+   * @returns {Object} 获取到的所有数据
+   */
+  static async _fetchDataSequentially(bestUrls, classifiedUrls, tokenData) {
+    const results = {
+      twitterInfo: null,
+      websiteInfo: null,
+      backgroundInfo: null,
+      githubInfo: null,
+      youtubeInfo: null,
+      douyinInfo: null,
+      tiktokInfo: null
+    };
+
+    // === 1. Twitter数据（最高优先级）===
+    if (bestUrls.twitter) {
+      console.log(`[NarrativeAnalyzer] 获取Twitter数据: ${bestUrls.twitter.url}`);
+      try {
+        results.twitterInfo = await TwitterFetcher.fetchFromUrls(bestUrls.twitter.url, null);
+
+        // 如果成功获取推文，尝试获取推文中的链接内容
+        if (results.twitterInfo && results.twitterInfo.text) {
+          console.log('[NarrativeAnalyzer] 推文已获取，尝试获取推文链接内容');
+          results.twitterInfo = await TwitterFetcher.enrichWithLinkContent(results.twitterInfo);
+        }
+
+        // 图片分析（如果启用）
+        if (NARRATIVE_CONFIG.enableImageAnalysis && results.twitterInfo?.media && TwitterMediaExtractor.hasImages(results.twitterInfo)) {
+          console.log('[NarrativeAnalyzer] 推文包含图片，开始分析...');
+          const imageUrls = TwitterMediaExtractor.extractImageUrls(results.twitterInfo);
+          const firstImage = imageUrls[0];
+          if (firstImage) {
+            try {
+              const imageData = await ImageDownloader.downloadAsBase64(firstImage.url);
+              if (imageData) {
+                const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
+                results.twitterInfo.image_analysis = {
+                  url: firstImage.url,
+                  analysis: imageAnalysis
+                };
+                console.log('[NarrativeAnalyzer] 图片分析完成');
+              }
+            } catch (error) {
+              console.warn('[NarrativeAnalyzer] 图片分析失败:', error.message);
+            }
+          }
+        }
+
+        // 非中英文推文翻译
+        if (results.twitterInfo && results.twitterInfo.text) {
+          const tweetLang = this.detectLanguage(results.twitterInfo.text);
+          if (tweetLang && tweetLang !== 'zh' && tweetLang !== 'en') {
+            console.log(`[NarrativeAnalyzer] 检测到非中英文推文 (${tweetLang})，尝试翻译...`);
+            try {
+              const translated = await LLMClient.translate(results.twitterInfo.text, 'zh');
+              if (translated) {
+                const standardized = this.standardizeTranslatedNames(translated, tokenData.symbol);
+                results.twitterInfo.text_original = results.twitterInfo.text;
+                results.twitterInfo.text = standardized;
+                results.twitterInfo.text_translated = true;
+                results.twitterInfo.original_language = tweetLang;
+                console.log('[NarrativeAnalyzer] 推文翻译成功');
+              }
+            } catch (error) {
+              console.warn('[NarrativeAnalyzer] 推文翻译失败:', error.message);
+            }
+          }
+        }
+
+        // 检查是否有第二个推文（可能来自website URL或classifiedUrls中的第二个twitter URL）
+        let secondTweetUrl = null;
+
+        // 首先检查bestUrls.website是否指向另一个推文
+        if (bestUrls.website && bestUrls.website.type === 'tweet' && bestUrls.website.platform === 'twitter') {
+          const websiteUrl = bestUrls.website.url;
+          if (websiteUrl !== bestUrls.twitter.url) {
+            secondTweetUrl = websiteUrl;
+          }
+        }
+
+        // 如果website没有第二个推文，检查classifiedUrls.twitter中是否有多个推文
+        if (!secondTweetUrl && classifiedUrls.twitter.length > 1) {
+          // classifiedUrls.twitter[0] 是主推文，检查 [1] 是否是不同的推文
+          const secondTweetInfo = classifiedUrls.twitter.find(t => t.url !== bestUrls.twitter.url);
+          if (secondTweetInfo) {
+            secondTweetUrl = secondTweetInfo.url;
+          }
+        }
+
+        // 获取第二个推文
+        if (secondTweetUrl) {
+          console.log('[NarrativeAnalyzer] 检测到第二个推文链接，获取中...');
+          try {
+            const websiteTweet = await TwitterFetcher.fetchFromUrls(secondTweetUrl, null);
+            if (websiteTweet && websiteTweet.type === 'tweet' && websiteTweet.text) {
+              results.twitterInfo.website_tweet = websiteTweet;
+              console.log('[NarrativeAnalyzer] 成功获取第二个推文');
+            }
+          } catch (error) {
+            console.warn('[NarrativeAnalyzer] 获取第二个推文失败:', error.message);
+          }
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] Twitter数据获取失败:', error.message);
+      }
+    }
+
+    // === 2. 微博数据（作为背景信息）===
+    if (classifiedUrls.weibo.length > 0) {
+      const weiboUrl = classifiedUrls.weibo[0].url;
+      console.log(`[NarrativeAnalyzer] 获取微博数据作为背景信息: ${weiboUrl}`);
+      try {
+        results.backgroundInfo = await WeiboFetcher.fetchFromUrl(weiboUrl);
+        if (results.backgroundInfo) {
+          results.backgroundInfo.source = 'weibo';
+          console.log('[NarrativeAnalyzer] 微博数据获取成功');
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] 微博数据获取失败:', error.message);
+      }
+    }
+
+    // === 3. GitHub数据 ===
+    if (bestUrls.github) {
+      console.log(`[NarrativeAnalyzer] 获取GitHub数据: ${bestUrls.github.url}`);
+      try {
+        results.githubInfo = await GithubFetcher.fetchRepoInfo(bestUrls.github.url);
+        if (results.githubInfo) {
+          const influenceLevel = GithubFetcher.getInfluenceLevel(results.githubInfo);
+          results.githubInfo.influence_level = influenceLevel;
+          results.githubInfo.influence_description = GithubFetcher.getInfluenceDescription(influenceLevel);
+          results.githubInfo.is_official_token = GithubFetcher.isOfficialToken(results.githubInfo, tokenData.symbol);
+          console.log(`[NarrativeAnalyzer] GitHub信息: ${results.githubInfo.stargazers_count} stars`);
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] GitHub数据获取失败:', error.message);
+      }
+    }
+
+    // === 4. YouTube数据 ===
+    if (bestUrls.youtube) {
+      console.log(`[NarrativeAnalyzer] 获取YouTube数据: ${bestUrls.youtube.url}`);
+      try {
+        results.youtubeInfo = await YoutubeFetcher.fetchVideoInfo(bestUrls.youtube.url);
+        if (results.youtubeInfo) {
+          const influenceLevel = YoutubeFetcher.getInfluenceLevel(results.youtubeInfo);
+          results.youtubeInfo.influence_level = influenceLevel;
+          results.youtubeInfo.influence_description = YoutubeFetcher.getInfluenceDescription(influenceLevel);
+          console.log(`[NarrativeAnalyzer] YouTube信息: "${results.youtubeInfo.title}"`);
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] YouTube数据获取失败:', error.message);
+      }
+    }
+
+    // === 5. 抖音数据 ===
+    if (bestUrls.douyin) {
+      console.log(`[NarrativeAnalyzer] 获取抖音数据: ${bestUrls.douyin.url}`);
+      try {
+        results.douyinInfo = await DouyinFetcher.fetchVideoInfo(bestUrls.douyin.url);
+        if (results.douyinInfo) {
+          const influenceLevel = DouyinFetcher.getInfluenceLevel(results.douyinInfo);
+          results.douyinInfo.influence_level = influenceLevel;
+          results.douyinInfo.influence_description = DouyinFetcher.getInfluenceDescription(influenceLevel);
+          console.log(`[NarrativeAnalyzer] 抖音信息: "${results.douyinInfo.title}"`);
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] 抖音数据获取失败:', error.message);
+      }
+    }
+
+    // === 6. TikTok数据 ===
+    if (bestUrls.tiktok) {
+      console.log(`[NarrativeAnalyzer] 获取TikTok数据: ${bestUrls.tiktok.url}`);
+      try {
+        results.tiktokInfo = await fetchTikTokVideoInfo(bestUrls.tiktok.url);
+        if (results.tiktokInfo) {
+          const influenceLevel = getTikTokInfluenceLevel(results.tiktokInfo);
+          results.tiktokInfo.influence_level = influenceLevel;
+          results.tiktokInfo.influence_description = getTikTokInfluenceDescription(influenceLevel);
+          console.log(`[NarrativeAnalyzer] TikTok信息: @${results.tiktokInfo.author_username}`);
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] TikTok数据获取失败:', error.message);
+      }
+    }
+
+    // === 7. 普通网站数据 ===
+    // 只有在没有Twitter信息或Twitter信息不完整时才获取
+    const shouldFetchWebsite =
+      !results.twitterInfo ||
+      results.twitterInfo.type === 'account' ||
+      (results.twitterInfo.text && results.twitterInfo.text.length < 50);
+
+    if (bestUrls.website && shouldFetchWebsite) {
+      const websiteUrl = bestUrls.website.url;
+      // 排除视频平台和GitHub（已经处理过）
+      const isVideoPlatform = /youtube|youtu\.be|tiktok|douyin/i.test(websiteUrl);
+      const isGithub = /github\.com/i.test(websiteUrl);
+
+      if (!isVideoPlatform && !isGithub && isFetchableUrl(websiteUrl)) {
+        console.log(`[NarrativeAnalyzer] 获取网站内容: ${websiteUrl}`);
+        try {
+          results.websiteInfo = await fetchWebsiteContent(websiteUrl, { maxLength: 5000 });
+          console.log('[NarrativeAnalyzer] 网站内容获取成功');
+        } catch (error) {
+          console.warn('[NarrativeAnalyzer] 网站内容获取失败:', error.message);
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * 从数据库获取代币数据
    */
   static async fetchTokenData(address) {
@@ -557,11 +644,15 @@ export class NarrativeAnalyzer {
     // 提取website（appendix.website > rawData.website）
     let website = appendix.website || rawData.website || rawData.websiteUrl || '';
 
+    // 提取weibo_url（appendix.weibo > rawData.weibo）
+    let weiboUrl = appendix.weibo || rawData.weibo || rawData.weiboUrl || '';
+
     return {
       intro_en: rawData.intro_en || rawData.introduction || '',
       intro_cn: rawData.intro_cn || '',
       website: website,
       twitter_url: twitterUrl,
+      weibo_url: weiboUrl,
       description: rawData.description || ''
     };
   }

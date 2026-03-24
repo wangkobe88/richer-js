@@ -6,7 +6,7 @@
 import { CORE_FRAMEWORK } from './core.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
-export const COMPLETE_PROMPT = (tokenData, twitterInfo, websiteInfo, extractedInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo) => {
+export const COMPLETE_PROMPT = (tokenData, twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo) => {
   const tokenName = tokenData.symbol;
   const introEn = extractedInfo.intro_en || '';
   const introCn = extractedInfo.intro_cn || '';
@@ -62,6 +62,8 @@ export const COMPLETE_PROMPT = (tokenData, twitterInfo, websiteInfo, extractedIn
       const wt = twitterInfo.website_tweet;
       contentParts.push(`【Website推文】`);
       contentParts.push(`作者：@${wt.author_screen_name || '未知'}${wt.author_verified ? ' ✓' : ''}`);
+      contentParts.push(`【作者粉丝数】${wt.author_followers_count || 0}`);
+      contentParts.push(`【推文互动】点赞 ${wt.metrics?.favorite_count || 0} / 转发 ${wt.metrics?.retweet_count || 0}`);
       contentParts.push(`内容：${wt.text}`);
       if (wt.media && wt.media.has_media) {
         if (wt.media.images?.length > 0) contentParts.push(`【Website推文图片】${wt.media.images.length}张`);
@@ -102,6 +104,15 @@ export const COMPLETE_PROMPT = (tokenData, twitterInfo, websiteInfo, extractedIn
   // 网站信息
   if (websiteInfo?.content) {
     contentParts.push(`【网页内容】${websiteInfo.content}`);
+  }
+
+  // 背景信息（微博等）
+  if (backgroundInfo && (backgroundInfo.source === 'weibo' || backgroundInfo.type === 'weibo')) {
+    contentParts.push(`【微博信息】`);
+    contentParts.push(`- 微博内容：${backgroundInfo.text?.substring(0, 300) || '无'}...`);
+    contentParts.push(`- 作者：${backgroundInfo.author_name || backgroundInfo.author || '无'}`);
+    if (backgroundInfo.author_followers_count) contentParts.push(`- 粉丝数：${backgroundInfo.author_followers_count}`);
+    if (backgroundInfo.created_at) contentParts.push(`- 发布时间：${backgroundInfo.created_at}`);
   }
 
   // 基础信息
@@ -170,8 +181,14 @@ ${generateAccountBackgroundsPrompt(twitterInfo)}${contentParts.join('\n')}
 
 **第四步：可理解性/关联度判断**
 
-**推文有配图/视频**：
-- **有图片/视频** → 假设图片与代币有关
+**重要：如果有两个推文（主推文 + Website推文）**：
+- **影响力判断：以影响力高的推文为准**（粉丝数多、互动量高的那个）
+- 例如：主推文粉丝3千，Website推文粉丝18万 → 以Website推文的影响力为准
+
+**推文有配图/视频（重要）**：
+- **有图片/视频** → 假设图片与代币有关，**代币名即为图片内容的描述**
+- **不需要**推文文字中明确提及代币名
+- **重点评估**：推文的互动量 + 图片的传播潜力（而不是文字内容）
 
 **推文@了用户**：@知名/加密用户→建立背书关联，可评low或mid（根据影响力判断）；发布者有影响力→可评mid
 
