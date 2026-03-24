@@ -45,32 +45,27 @@ export class PromptBuilder {
       return 'standard';
     }
 
-    // 优先级4：只有视频平台（TikTok/YouTube/抖音）且无其他复杂信息 → 使用视频专用Prompt
-    if (hasVideo && !twitterInfo && !githubInfo && !(websiteInfo && websiteInfo.content)) {
-      return 'video-only';
-    }
-
-    // 优先级5：有视频平台 + 其他信息 → 使用完整Prompt
-    if (hasVideo) {
-      return 'complete';
-    }
-
-    // 优先级2：有推文文本 → 使用标准Prompt
-    if (twitterInfo && twitterInfo.type === 'tweet' && twitterInfo.text) {
-      return 'standard';
-    }
-
-    // 优先级3：只有Twitter账号（没有推文）→ 使用账号专用Prompt
+    // 优先级4：只有Twitter账号（没有推文）→ 使用账号专用Prompt
     if (twitterInfo && twitterInfo.type === 'account') {
       return 'account-only';
     }
 
-    // 优先级4：只有网站内容 → 使用网站专用Prompt
+    // 优先级5：只有视频平台（TikTok/YouTube/抖音）且无其他复杂信息 → 使用视频专用Prompt
+    if (hasVideo && !twitterInfo && !githubInfo && !(websiteInfo && websiteInfo.content)) {
+      return 'video-only';
+    }
+
+    // 优先级6：有视频平台 + 其他信息 → 使用完整Prompt
+    if (hasVideo) {
+      return 'complete';
+    }
+
+    // 优先级7：只有网站内容（成功获取）→ 使用网站专用Prompt
     if (websiteInfo && websiteInfo.content) {
       return 'website-only';
     }
 
-    // 默认：使用完整Prompt作为兜底
+    // 默认：使用完整Prompt作为兜底（处理无信息或信息不全的情况）
     return 'complete';
   }
 

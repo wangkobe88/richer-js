@@ -19,7 +19,7 @@ export const ACCOUNT_BACKGROUNDS = {
   // BSC生态
   'bsc_daily': 'BSCDaily（BSC链资讯平台）',
   'BSCPad': 'BSCPad（BSC链项目发射平台）',
-  'aster_dex': 'Aster（DeFi衍生品合约Dex）',
+  'aster_dex': 'Aster（币安旗下第一去中心化合约交易平台，有较大影响力）',
 
   // 币安相关
   'nina_rong': '币安Executive Director of Growth（增长执行总监）',
@@ -74,6 +74,24 @@ export function getMatchedAccountBackgrounds(twitterInfo) {
         });
         break;
       }
+    }
+  }
+
+  // 检查推文内容中是否提到重要关键词
+  const tweetText = (twitterInfo.text || '').toLowerCase();
+  const quotedText = (twitterInfo.quoted_status?.text || '').toLowerCase();
+
+  // 检测Aster相关关键词
+  if (tweetText.includes('aster') || quotedText.includes('aster')) {
+    // 查找Aster相关的账户背景
+    const asterKey = Object.keys(ACCOUNT_BACKGROUNDS).find(key =>
+      key.toLowerCase().includes('aster')
+    );
+    if (asterKey && !matches.find(m => m.screen_name.toLowerCase() === asterKey.toLowerCase())) {
+      matches.push({
+        screen_name: asterKey,
+        background: ACCOUNT_BACKGROUNDS[asterKey]
+      });
     }
   }
 

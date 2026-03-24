@@ -288,6 +288,13 @@ async function getTweetDetailGraphQL(tweetId) {
     const userLegacy = userResult?.legacy || {};
     const userCore = userResult?.core || {};
 
+    // 检查是否有 Note Tweet（长推文）
+    const noteTweetResult = tweetResult.note_tweet?.note_tweet_results?.result;
+    const noteTweetText = noteTweetResult?.text || '';
+
+    // 推文内容：优先使用 Note Tweet，其次 full_text，最后 text
+    const tweetText = noteTweetText || legacy.full_text || legacy.text || '';
+
     // 检查是否有 Article
     const articleResult = tweetResult.article?.article_results?.result;
 
@@ -317,7 +324,7 @@ async function getTweetDetailGraphQL(tweetId) {
 
     const tweetDetail = {
       tweet_id: tweetResult.rest_id,
-      text: legacy.full_text || legacy.text || '',
+      text: tweetText,
       created_at: legacy.created_at,
       createdTimeStamp: legacy.created_at ? new Date(legacy.created_at).getTime() : null,
 

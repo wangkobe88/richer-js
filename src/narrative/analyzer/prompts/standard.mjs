@@ -5,7 +5,31 @@
 import { CORE_FRAMEWORK } from './core.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
-export const STANDARD_PROMPT = (tokenData, twitterInfo, extractedInfo) => `
+export const STANDARD_PROMPT = (tokenData, twitterInfo, extractedInfo) => {
+  // 计算推文时间距离
+  let tweetDaysAgo = '';
+  let quotedTweetDaysAgo = '';
+  let isCZReplyExpectation = false;
+
+  if (twitterInfo && twitterInfo.created_at) {
+    const tweetDate = new Date(twitterInfo.created_at);
+    const daysDiff = Math.floor((Date.now() - tweetDate.getTime()) / (1000 * 60 * 60 * 24));
+    tweetDaysAgo = `（距今${daysDiff}天）`;
+
+    // 检测是否是CZ回复预期
+    const tweetText = (twitterInfo.text || '').toLowerCase();
+    if (tweetText.includes('cz') && (tweetText.includes('回应') || tweetText.includes('回复') || tweetText.includes('react') || tweetText.includes('respond'))) {
+      isCZReplyExpectation = true;
+    }
+  }
+
+  if (twitterInfo?.quoted_status?.created_at) {
+    const quotedDate = new Date(twitterInfo.quoted_status.created_at);
+    const daysDiff = Math.floor((Date.now() - quotedDate.getTime()) / (1000 * 60 * 60 * 24));
+    quotedTweetDaysAgo = `（距今${daysDiff}天）`;
+  }
+
+  return `
 你是代币叙事分析专家，负责评估meme代币的叙事质量。
 
 【代币信息】
@@ -24,9 +48,10 @@ ${twitterInfo ? `
 - 作者粉丝数：${twitterInfo.author_followers_count || '未知'}
 - 作者认证：${twitterInfo.author_verified ? '是' : '否'}
 - 推文内容：${twitterInfo.text || '无'}
-- 推文发布时间：${twitterInfo.formatted_created_at || twitterInfo.created_at || '未知'}
+- 推文发布时间：${twitterInfo.formatted_created_at || twitterInfo.created_at || '未知'}${tweetDaysAgo}
 - 推文点赞数：${twitterInfo.metrics?.favorite_count || 0}
 - 推文转发数：${twitterInfo.metrics?.retweet_count || 0}
+${isCZReplyExpectation ? `- **【重要】此推文明确询问CZ/何一的回应，属于"回复预期"溢价场景**` : ''}
 ${twitterInfo.media && twitterInfo.media.has_media ? `
 - 【推文附带媒体】${twitterInfo.media.images?.length || 0}张图片${twitterInfo.media.videos?.length || 0}个视频
 ` : ''}
@@ -43,7 +68,7 @@ ${twitterInfo.quoted_status ? `
 - 【这是引用推文】
   被引用推文作者：${twitterInfo.quoted_status.author_screen_name || twitterInfo.quoted_status.author_name || '未知'} (粉丝数: ${twitterInfo.quoted_status.author_followers_count || '未知'})
   被引用推文内容：${twitterInfo.quoted_status.text || '无'}
-  被引用推文发布时间：${twitterInfo.quoted_status.formatted_created_at || twitterInfo.quoted_status.created_at || '未知'}
+  被引用推文发布时间：${twitterInfo.quoted_status.formatted_created_at || twitterInfo.quoted_status.created_at || '未知'}${quotedTweetDaysAgo}
   被引用推文点赞数：${twitterInfo.quoted_status.metrics?.favorite_count || 0}
   被引用推文转发数：${twitterInfo.quoted_status.metrics?.retweet_count || 0}
 ` : ''}
@@ -68,11 +93,19 @@ ${twitterInfo?.link_content ? `
 
 【重要概念识别】
 - **世界级人物**：Trump（特朗普）、Musk（马斯克）、Elon、拜登
-- **加密平台**：Binance、Coinbase
+- **政府机构/世界级组织**：
+  - White House（白宫）= 美国总统府，世界最高权力机构之一
+  - 其他政府机构：国会、议会、央行等
+  - 国际组织：UN（联合国）、NATO（北约）等
+- **加密平台**：Binance、Coinbase、Trust Wallet（币安旗下钱包）
 - **主流币**：Bitcoin、Ethereum、BNB、DOGE、SHIB
 - **加密相关账号**：
   - @Four_FORM_ = FourMeme平台官方账号（BSC链），平台官方推文应至少评mid
   - @cz_binance = CZ（币安创始人），@heyibinance = 何一（币安联合创始人）
+  - **提及CZ的关系强度判断**：
+    - "我的导师@cz_binance"、"CZ支持" → 直接导师/被指导关系，**强关联**（至少mid）
+    - "CZ回复了"、"CZ提到" → 互动关系，中等关联（可能mid）
+    - 仅在推文中@cz_binance（无上下文） → 弱关联（不一定加分）
 - **重要**：代币名/账号名/intro包含这些IP名称时需特别关注
 
 【评估步骤】
@@ -86,15 +119,83 @@ ${twitterInfo?.link_content ? `
 同时满足以下条件→unrated：
 1. 无推文 2. 无website 3. 无Twitter账号 4. intro仅简单描述（名字/单词/短语）
 
-**第三步：可理解性/关联度判断**
+**第三步：推文类型判断（重要）**
+
+代币推文分为两类，需优先判断：
+
+**类型A：找角度**
+- 特征：发币人解读当前事件，说明为什么可以作为meme币
+- 判断标准（满足至少2个）：
+  1. 推文中有"front-run"、"people talking about"、"news coming"等前瞻性表述
+  2. 有引用推文（引用原始事件）或包含网站链接
+  3. 推文内容是"解读/分析"而非"原创声明"本身
+  4. intro是解读性描述（如"The Meme House"、"Money Without Masters"）
+  5. 发布者影响力较低（粉丝<10000，即使认证）
+- **评估原则**：
+  - **默认叙事为真**（因为无法验证，发现虚假由黑名单处理）
+  - **不要求发布者影响力**，发币人影响力低是正常的
+  - **重点评估：事件本身的热度 + 叙事的合理性**
+  - 事件热度高（如政府meme、Netflix剧集）→ mid或mid-high
+  - 事件热度中等 + 叙事合理 → mid
+  - 事件热度低或叙事牵强 → low
+
+**类型B：由来**
+- 特征：有影响力账号的内容本身就是meme币的来源/背景
+- 判断标准（满足至少2个）：
+  1. 发布者是知名人物（Trump、Musk、CZ等）或有影响力账号（粉丝>10000）
+  2. 推文是原创内容/图片/视频（可能有引用推文，但引用的是相关补充内容）
+  3. 推文本身就是meme内容，而非解读其他事件
+  4. 代币名直接来自推文内容（如"基于这条推文发币"）
+- **评估原则**：
+  - **直接关联发布者影响力**：发布者影响力 = 叙事背景评分
+  - 知名人物直接发帖 → mid或high
+  - 有影响力账号（高粉丝/认证+高互动）→ 可评mid
+  - 普通用户发帖 → low（除非内容极具传播性）
+
+**第四步：可理解性/关联度判断**
+
+**核心概念识别（重要）**：
+- **判断标准**：代币名称在推文中是否作为核心概念/隐喻贯穿全文
+- **强关联**：代币名称在推文中多次出现，有完整的故事线
+  - 示例："青蛙"在推文中作为核心隐喻（童年卖青蛙→创业→Trust Wallet业务中的"selling frogs"）
+  - 这种情况下，即使没有明确的meme内容，也建立了有效关联
+  - **叙事背景评分：15-30分**（有故事但可能缺乏传播性）
+- **弱关联**：代币名称只在推文中顺便提及一次
+  - 示例：推文讲述个人故事，仅在开头提到"8岁时在宝可梦热潮期间卖青蛙"
+  - 这种情况视为伪关联或弱关联
+- **CZ导师关系（强关联）**：
+  - 推文中提到"我的导师@cz_binance"、"CZ支持我"等表述
+  - 表示发布者与CZ有直接关系（导师/被指导/支持）
+  - **这是非常强的背书关系**，即使推文作者本人不是世界级人物
+  - **叙事背景评分：30-45分**（CZ直接关联 + Trust Wallet CEO身份）
 
 **推文有配图/视频**：默认视觉关联，intro有实际含义→至少mid（25-45分）；intro完全无意义且文本不相关→可评low
 
 **推文@了用户**：@知名/加密用户→建立背书关联，可评low或mid（根据影响力判断）；发布者有影响力→可评mid
 
+**政府机构/世界级组织meme（适用于类型A-找角度）**：
+- **情况**：推文内容提到政府机构或世界级组织发布meme内容（如"White House is posting video memes"）
+- **叙事背景评分：30-45分**（世界级影响力）
+- **传播力评分：30-45分**（官方机构发布meme具有病毒传播潜力）
+- **即使发布者影响力低，也应至少评mid或mid-high**
+- 原因：政府/世界级组织的meme行为本身就是重大社会现象，具有极高的传播和讨论价值
+
+**知名品牌背书（适用于类型A-找角度）**：
+- **情况1**：推文内容明确提到是"XX市场营销/官方发布"的内容（如"aster市场营销发的logo"）
+- **情况2**：推文提到币安旗下平台/知名项目（Aster、Trust Wallet、Binance等）
+- **情况3**：代币名称与知名品牌匹配（如ASTERCLAN与Aster）
+- **满足以上任一情况 + 有具体命名/Logo/配图 → 至少评mid**（25-40分）
+- **重要：品牌背书的价值不取决于发布者粉丝数或互动量，即使互动低也应评mid**
+- 原因：知名品牌本身具有影响力和信任背书
+
 **信息在外部平台**（Telegram/Discord/小红书等）→unrated
 
-**第四步：BSC链CZ/何一回复预期溢价**
+**第五步：类型B-由来推文的影响力评估（仅适用于类型B）**
+- **知名人物直接发帖**：Trump、Musk、CZ等世界级人物 → mid或high
+- **认证用户+高互动**：点赞>1000或转发>500 → 可评mid
+- **普通用户**：影响力低 → 通常low（除非内容极具传播性）
+
+**第六步：BSC链CZ/何一回复预期溢价**
 同时满足才加分：
 1. **有近期事件**（2周内）：新闻/币安动态/加密事件/热点
 2. **与CZ/何一强关联**：直接提及/涉及币安创始人/引用@cz_binance或@heyibinance
@@ -102,7 +203,7 @@ ${twitterInfo?.link_content ? `
 - 中等关联→+5-15分
 - 无事件或无强关联→不加分
 
-**第五步：低质量叙事检测（直接返回low）**
+**第七步：低质量叙事检测（直接返回low）**
 1. **纯谐音梗**：只有谐音关联（如"生菜=生财"、"Duck you=鸭你一拳"），无实质内容
 2. **热搜搬运**：纯报道热点事件（如"XX上热搜"），没有具体内容/事件
 3. **泛泛情感概念**：只是借用常见词/抽象概念（"遗憾"、"佛系"等），没有具体故事/文化符号
@@ -126,57 +227,72 @@ ${twitterInfo?.link_content ? `
 
 【评分示例】
 
-示例1(币安官方-high):
-介绍:币安演示狗币MOONDOGECOIN
-→评high，理由：币安官方+强传播力
+**类型A示例（找角度）：**
 
-示例2(纯谐音梗-low):
+示例1(找角度-政府meme-mid):
+代币:Memehouse，内容:"Big front-run here. The White House is posting multiple video memes about war."
+→评mid，理由：类型A-找角度，白宫meme是世界级事件，发币人影响力低是正常的，默认叙事为真
+
+示例2(找角度-品牌背书-mid):
+代币:ASTERCLAN，内容:"aster市场营销发的忍者的logo，有名字叫'asterclan'"
+→评mid，理由：类型A-找角度，Aster是币安旗下平台，品牌背书有价值
+
+**类型B示例（由来）：**
+
+示例3(币安官方-high):
+介绍:币安演示狗币MOONDOGECOIN
+→评high，理由：类型B-由来，币安官方+强传播力
+
+**其他示例：**
+
+示例4(纯谐音梗-low):
 代币:生菜，内容:支付宝热搜"生菜=生财"，顶级谐音梗
 →评low，理由：纯谐音梗，无实质内容
 
-示例3(热搜搬运-low):
+示例5(热搜搬运-low):
 代币:火鸡面，内容:81岁爷爷误食火鸡面被辣到，微博热搜事件
 →评low，理由：纯热搜事件搬运，无具体内容
 
-示例4(伪关联-low):
+示例6(伪关联-low):
 代币:宝可梦，内容:个人创业故事，仅在开头提到"8岁时在宝可梦热潮期间卖青蛙"
 →评low，理由：代币名称只在背景中顺便提及
 
-示例5(CZ相关-high):
+示例7(CZ相关-high):
 代币:MWM，内容:CZ的书籍《Money Without Masters》泄露草稿
 →评high，理由：CZ相关(加密重大事件)+强传播力
 
-示例6(无信息-unrated):
+示例8(无信息-unrated):
 代币:1%，内容:【推文】https://t.co/xxx，【介绍英文】1%
 →评unrated，理由：无法理解代币性质
 
-示例7(平台级热点-mid):
+示例9(平台级热点-mid):
 代币:大狗大狗，内容:抖音爆火的"大狗"声音，已有上千万话题热度
 →评mid，理由：平台级热点(抖音千万话题)
 
-示例8(社区级加密-mid):
+示例10(社区级加密-mid):
 代币:BONKRot，内容:基于Solana链知名代币$bonk的嘲讽版本
 →评mid，理由：社区级影响力(加密社区)
 
-示例9(币安平台级-high):
+示例11(币安平台级-high):
 代币:天使—COCO，内容:币安Openclaw聊群的群主 天使 COCO在广场发了贴
 →评high，理由：平台级影响力(币安广场)
 
-示例10(泰语推文-low):
+示例12(泰语推文-low):
 代币:卡穆，内容:สวัสดีวันเสรียว #hippo
 →评low，理由：推文为泰语，非中英文
 
-示例11(情感叙事-high):
+示例13(情感叙事-high):
 代币:伞，内容:伞字梗，避雨情感共鸣，加密社区文化符号
 →评high，理由：社区级情感叙事(有文化符号+情感共鸣)
 
-示例12(CZ回复预期溢价-mid):
+示例14(CZ回复预期溢价-mid):
 代币:CZ，内容:Netflix发布关于SBF的电视剧《利他主义者》，选角中提到"CZ"角色
 →评mid，理由：Netflix发布SBF相关电视剧是近期热点，CZ是关键人物，用户预期CZ可能回应，带来炒作溢价
 
-示例13(提及知名用户-mid):
+示例15(提及知名用户-mid):
 代币:钻石手pepe，内容:@知名用户 GM
 →评mid，理由：推文@了知名用户，发布者本身有影响力(18万粉丝+认证)，建立了一定的关联度
 
 ${CORE_FRAMEWORK}
 `;
+};
