@@ -14,6 +14,7 @@ import { WeiboFetcher, WeiboExtractor } from '../utils/weibo-fetcher.mjs';
 import { GithubFetcher } from '../utils/github-fetcher.mjs';
 import { YoutubeFetcher } from '../utils/youtube-fetcher.mjs';
 import { DouyinFetcher } from '../utils/douyin-fetcher.mjs';
+import { BilibiliFetcher } from '../utils/bilibili-fetcher.mjs';
 import { fetchTikTokVideoInfo, isTikTokUrl } from '../utils/tiktok-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils/web-fetcher.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
@@ -179,12 +180,17 @@ export class NarrativeAnalyzer {
 
     // 9. 保存结果（包含 experiment_id 和 prompt_type）- 只有在分析成功时才保存
     // 注意：只保存 twitter_info，微博等背景信息不保存（已缓存到 external_resource_cache）
+
+    // 清理数据中的空字符和控制字符（PostgreSQL不支持）
+    const cleanedTwitterInfo = this._cleanDataForDB(twitterInfo);
+    const cleanedPromptUsed = this._cleanDataForDB(promptUsed);
+
     const saveResult = await NarrativeRepository.save({
       token_address: normalizedAddress,
       token_symbol: tokenData.symbol,
       raw_api_data: tokenData.raw_api_data,
       extracted_info: extractedInfo,
-      twitter_info: twitterInfo,
+      twitter_info: cleanedTwitterInfo,
       llm_category: llmResult.category,
       llm_raw_output: llmResult.raw || llmResult,
       llm_summary: {
@@ -194,7 +200,7 @@ export class NarrativeAnalyzer {
         reasoning: llmResult.reasoning,
         category: llmResult.category
       },
-      prompt_used: promptUsed,
+      prompt_used: cleanedPromptUsed,
       prompt_version: PromptBuilder.getPromptVersion(),
       prompt_type: promptType,  // 记录使用的Prompt类型
       experiment_id: experimentId,  // 记录来源实验
@@ -341,6 +347,7 @@ export class NarrativeAnalyzer {
       youtube: classifiedUrls.youtube.length,
       tiktok: classifiedUrls.tiktok.length,
       douyin: classifiedUrls.douyin.length,
+      bilibili: classifiedUrls.bilibili.length,
       github: classifiedUrls.github.length,
       websites: classifiedUrls.websites.length
     });
@@ -353,6 +360,7 @@ export class NarrativeAnalyzer {
       youtube: bestUrls.youtube?.url || null,
       tiktok: bestUrls.tiktok?.url || null,
       douyin: bestUrls.douyin?.url || null,
+      bilibili: bestUrls.bilibili?.url || null,
       github: bestUrls.github?.url || null,
       website: bestUrls.website?.url || null
     });
@@ -376,7 +384,8 @@ export class NarrativeAnalyzer {
       githubInfo: null,
       youtubeInfo: null,
       douyinInfo: null,
-      tiktokInfo: null
+      tiktokInfo: null,
+      bilibiliInfo: null
     };
 
     // === 1. Twitter数据（最高优先级）===
@@ -552,17 +561,27 @@ export class NarrativeAnalyzer {
       }
     }
 
-    // === 7. 普通网站数据 ===
-    // 只有在没有Twitter信息或Twitter信息不完整时才获取
-    const shouldFetchWebsite =
-      !results.twitterInfo ||
-      results.twitterInfo.type === 'account' ||
-      (results.twitterInfo.text && results.twitterInfo.text.length < 50);
+    // === 7. Bilibili数据 ===
+    if (bestUrls.bilibili) {
+      console.log(`[NarrativeAnalyzer] 获取Bilibili数据: ${bestUrls.bilibili.url}`);
+      try {
+        results.bilibiliInfo = await BilibiliFetcher.fetchVideoInfo(bestUrls.bilibili.url);
+        if (results.bilibiliInfo) {
+          const influenceLevel = BilibiliFetcher.getInfluenceLevel(results.bilibiliInfo);
+          results.bilibiliInfo.influence_level = influenceLevel;
+          results.bilibiliInfo.influence_description = BilibiliFetcher.getInfluenceDescription(influenceLevel);
+          console.log(`[NarrativeAnalyzer] Bilibili信息: "${results.bilibiliInfo.title}"`);
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] Bilibili数据获取失败:', error.message);
+      }
+    }
 
-    if (bestUrls.website && shouldFetchWebsite) {
+    // === 8. 普通网站数据 ===
+    if (bestUrls.website) {
       const websiteUrl = bestUrls.website.url;
       // 排除视频平台和GitHub（已经处理过）
-      const isVideoPlatform = /youtube|youtu\.be|tiktok|douyin/i.test(websiteUrl);
+      const isVideoPlatform = /youtube|youtu\.be|tiktok|douyin|bilibili|b23\.tv/i.test(websiteUrl);
       const isGithub = /github\.com/i.test(websiteUrl);
 
       if (!isVideoPlatform && !isGithub && isFetchableUrl(websiteUrl)) {
@@ -730,6 +749,36 @@ export class NarrativeAnalyzer {
     // 可以继续添加其他常见译名的标准化规则
 
     return standardized;
+  }
+
+  /**
+   * 清理数据以便保存到数据库（移除PostgreSQL不支持的控制字符）
+   * @param {*} data - 要清理的数据
+   * @returns {*} 清理后的数据
+   */
+  static _cleanDataForDB(data) {
+    if (!data) return null;
+
+    // 处理字符串
+    if (typeof data === 'string') {
+      // 移除空字符和其他控制字符（0x00-0x1F）
+      return data.replace(/[\x00-\x1F\x7F]/g, '');
+    }
+
+    // 处理对象
+    if (Array.isArray(data)) {
+      return data.map(item => this._cleanDataForDB(item));
+    }
+
+    if (typeof data === 'object') {
+      const cleaned = {};
+      for (const [key, value] of Object.entries(data)) {
+        cleaned[key] = this._cleanDataForDB(value);
+      }
+      return cleaned;
+    }
+
+    return data;
   }
 
   /**

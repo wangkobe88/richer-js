@@ -119,6 +119,11 @@ export function isFetchableUrl(url) {
     /^https?:\/\/(www\.)?youtube\.com/,           // 视频网站
     /^https?:\/\/(www\.)?tiktok\.com/,            // 视频网站
     /^https?:\/\/(www\.)?douyin\.com/,            // 视频网站
+    /^https?:\/\/(www\.)?bilibili\.com/,          // 视频网站
+    /^https?:\/\/(www\.)?b23\.tv/,                // B站短链接
+    /\.(png|jpe?g|gif|bmp|webp|svg|ico)$/i,       // 图片文件
+    /\.(mp4|mov|avi|mkv|webm|flv)$/i,             // 视频文件
+    /\.(mp3|wav|ogg|flac|aac)$/i,                  // 音频文件
     /^data:/,                                      // data URI
     /^(javascript|mailto|tel):/                     // 非http协议
   ];

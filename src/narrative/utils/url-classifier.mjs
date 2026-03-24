@@ -76,6 +76,11 @@ export function classifyUrl(url) {
     return { type: 'video', platform: 'douyin', priority: 1, url };
   }
 
+  // Bilibili
+  if (_isBilibiliUrl(url)) {
+    return { type: 'video', platform: 'bilibili', priority: 1, url };
+  }
+
   // GitHub
   if (_isGitHubUrl(url)) {
     return { type: 'repository', platform: 'github', priority: 1, url };
@@ -97,6 +102,7 @@ export function classifyAllUrls(urls) {
     youtube: [],
     tiktok: [],
     douyin: [],
+    bilibili: [],
     github: [],
     websites: []
   };
@@ -125,6 +131,9 @@ export function classifyAllUrls(urls) {
       case 'douyin':
         result.douyin.push(info);
         break;
+      case 'bilibili':
+        result.bilibili.push(info);
+        break;
       case 'github':
         result.github.push(info);
         break;
@@ -149,6 +158,7 @@ export function selectBestUrls(classifiedUrls) {
       youtube: null,
       tiktok: null,
       douyin: null,
+      bilibili: null,
       github: null,
       website: null
     };
@@ -160,6 +170,7 @@ export function selectBestUrls(classifiedUrls) {
     youtube: classifiedUrls.youtube[0] || null,
     tiktok: classifiedUrls.tiktok[0] || null,
     douyin: classifiedUrls.douyin[0] || null,
+    bilibili: classifiedUrls.bilibili[0] || null,
     github: classifiedUrls.github[0] || null,
     website: classifiedUrls.websites[0] || null
   };
@@ -195,6 +206,11 @@ function _isTikTokUrl(url) {
 function _isDouyinUrl(url) {
   // 匹配 douyin.com
   return /douyin\.com/i.test(url);
+}
+
+function _isBilibiliUrl(url) {
+  // 匹配 bilibili.com 或 b23.tv
+  return /bilibili\.com|b23\.tv/i.test(url);
 }
 
 function _isGitHubUrl(url) {
