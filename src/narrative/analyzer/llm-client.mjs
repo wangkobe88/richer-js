@@ -124,8 +124,9 @@ ${text}`;
               content: prompt
             }
           ],
-          temperature: 0.3,
-          max_tokens: 1000
+          temperature: 0,
+          max_tokens: 2000,
+          top_p: 0.9
         }),
         signal: controller.signal
       });

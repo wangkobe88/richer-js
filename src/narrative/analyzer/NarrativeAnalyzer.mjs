@@ -119,7 +119,7 @@ export class NarrativeAnalyzer {
     console.log('[NarrativeAnalyzer] 数据获取完成');
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
-    const preCheckResult = this.performPreCheck(tokenData, twitterInfo, extractedInfo, { ignoreExpired });
+    const preCheckResult = this.performPreCheck(tokenData, twitterInfo, extractedInfo, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo }, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;
@@ -233,12 +233,14 @@ export class NarrativeAnalyzer {
    * @param {Object} tokenData - 代币数据
    * @param {Object} twitterInfo - Twitter信息
    * @param {Object} extractedInfo - 提取的结构化信息
+   * @param {Object} videoInfos - 视频信息对象
    * @param {Object} options - 预检查选项
    * @param {boolean} options.ignoreExpired - 是否忽略过期时间限制
    * @returns {Object|null} 如果触发预检查规则，返回预设结果；否则返回null
    */
-  static performPreCheck(tokenData, twitterInfo, extractedInfo, options = {}) {
+  static performPreCheck(tokenData, twitterInfo, extractedInfo, videoInfos = {}, options = {}) {
     const { ignoreExpired = false } = options;
+    const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo } = videoInfos;
 
     // 规则1：黑名单博主
     // 1.1 从twitterInfo中获取用户名
@@ -264,10 +266,12 @@ export class NarrativeAnalyzer {
       };
     }
 
-    // 规则2：过期推文（超过配置的天数阈值）
+    // 规则2：过期内容检查（推文或视频超过配置的天数阈值）
     // 如果设置了ignoreExpired，跳过过期检查
     if (!ignoreExpired) {
       const expiredDaysThreshold = NARRATIVE_CONFIG.expiredTweetDaysThreshold || 14;
+
+      // 2.1 检查推文过期
       if (twitterInfo?.type === 'tweet' && twitterInfo?.created_at) {
         try {
           const tweetDate = new Date(twitterInfo.created_at);
@@ -287,6 +291,41 @@ export class NarrativeAnalyzer {
           }
         } catch (e) {
           console.warn('[NarrativeAnalyzer] 解析推文时间失败:', e.message);
+        }
+      }
+
+      // 2.2 检查视频过期（抖音、YouTube、TikTok、Bilibili）
+      // 视频过期阈值：180天（6个月）
+      const expiredVideoDaysThreshold = 180;
+
+      const videos = [
+        { name: '抖音', info: douyinInfo },
+        { name: 'YouTube', info: youtubeInfo },
+        { name: 'TikTok', info: tiktokInfo },
+        { name: 'Bilibili', info: bilibiliInfo }
+      ];
+
+      for (const video of videos) {
+        if (video.info?.create_time) {
+          try {
+            const videoDate = new Date(video.info.create_time);
+            const now = new Date();
+            const daysDiff = (now - videoDate) / (1000 * 60 * 60 * 24);
+
+            if (daysDiff > expiredVideoDaysThreshold) {
+              console.log(`[NarrativeAnalyzer] 预检查触发: ${video.name}视频发布时间超过${expiredVideoDaysThreshold}天 (${video.info.create_time})`);
+              return {
+                category: 'low',
+                reasoning: `${video.name}视频发布时间超过${expiredVideoDaysThreshold}天（${Math.floor(daysDiff)}天前），叙事价值已耗尽`,
+                scores: { credibility: 10, virality: 10 },
+                total_score: 20,
+                preCheckTriggered: true,
+                preCheckReason: 'expired_video'
+              };
+            }
+          } catch (e) {
+            console.warn(`[NarrativeAnalyzer] 解析${video.name}视频时间失败:`, e.message);
+          }
         }
       }
     } else {
