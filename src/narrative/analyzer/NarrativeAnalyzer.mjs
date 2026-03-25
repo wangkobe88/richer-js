@@ -20,6 +20,7 @@ import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils
 import { PromptBuilder } from './prompt-builder.mjs';
 import { LLMClient } from './llm-client.mjs';
 import { extractAllUrls, classifyAllUrls, selectBestUrls } from '../utils/url-classifier.mjs';
+import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from './prompts/account-backgrounds.mjs';
 
 // 获取supabase客户端
 const getSupabase = () => NarrativeRepository.getSupabase();
@@ -379,6 +380,66 @@ export class NarrativeAnalyzer {
             preCheckReason: 'video_low_views'
           };
         }
+      }
+    }
+
+    // 规则4：高影响力推文 + 媒体 → unrated（保护可能的好叙事）
+    // 检查条件：
+    // 1. 推文作者属于高影响力账号（Elon、Trump等）
+    // 2. 或者推文交互数据高（点赞>5000 或 转发>2000）
+    // 3. 并且推文带有图片/视频
+
+    // 收集所有可能的推文信息
+    const allTweets = [];
+    if (twitterInfo?.type === 'tweet') {
+      allTweets.push(twitterInfo);
+    }
+    if (twitterInfo?.website_tweet?.type === 'tweet') {
+      allTweets.push(twitterInfo.website_tweet);
+    }
+    if (twitterInfo?.quoted_status?.type === 'tweet') {
+      allTweets.push(twitterInfo.quoted_status);
+    }
+
+    for (const tweet of allTweets) {
+      // 检查是否有媒体
+      const hasMedia = tweet?.media?.has_media ||
+                       (tweet?.media?.images && tweet.media.images.length > 0) ||
+                       (tweet?.media?.videos && tweet.media.videos.length > 0);
+
+      if (!hasMedia) continue;
+
+      // 检查作者是否是高影响力账号
+      const authorScreenName = tweet?.author_screen_name;
+      const isHighInfluence = isHighInfluenceAccount(authorScreenName);
+
+      // 检查交互数据是否高
+      const metrics = tweet?.metrics || {};
+      const likeCount = metrics.like_count || 0;
+      const retweetCount = metrics.retweet_count || 0;
+      const isHighEngagement = likeCount > 5000 || retweetCount > 2000;
+
+      // 如果满足任一条件 + 有媒体 → unrated
+      if (isHighInfluence || isHighEngagement) {
+        const reasons = [];
+        if (isHighInfluence) {
+          const background = getHighInfluenceAccountBackground(authorScreenName);
+          reasons.push(`推文作者@${authorScreenName}是高影响力账号（${background}）`);
+        }
+        if (isHighEngagement) {
+          reasons.push(`推文交互数据高（点赞${likeCount}，转发${retweetCount}）`);
+        }
+        reasons.push('推文带有媒体内容');
+
+        console.log(`[NarrativeAnalyzer] 规则4触发: ${reasons.join('，')}，返回unrated`);
+        return {
+          category: 'unrated',
+          reasoning: `${reasons.join('，')}，无法解析媒体内容进行完整叙事评估`,
+          scores: null,
+          total_score: null,
+          preCheckTriggered: true,
+          preCheckReason: 'high_influence_with_media'
+        };
       }
     }
 
