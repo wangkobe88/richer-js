@@ -233,6 +233,14 @@ class NarrativeAnalyzer {
         metaInfo.push(`Prompt类型: ${meta.promptType}`);
       }
     }
+    // 显示分析阶段（从 debugInfo 获取）
+    const debugInfo = data.debugInfo || {};
+    if (debugInfo.analysisStage !== undefined) {
+      const stageText = debugInfo.analysisStage === 1 ? 'Stage 1 (低质量检测)' :
+                       debugInfo.analysisStage === 2 ? 'Stage 2 (详细评分)' :
+                       debugInfo.analysisStage === 0 ? '单阶段模式 (V7.23)' : `Stage ${debugInfo.analysisStage}`;
+      metaInfo.push(`阶段: ${stageText}`);
+    }
     // 确保 metaInfo 至少显示时间信息
     const metaText = metaInfo.length > 0 ? metaInfo.join(' | ') : `分析时间: ${this.formatDate(new Date().toISOString())}`;
     console.log('[NarrativeAnalyzer] metaInfo text:', metaText);

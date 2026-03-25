@@ -133,27 +133,70 @@ export class NarrativeAnalyzer {
       console.log('[NarrativeAnalyzer] 预检查触发，跳过LLM分析');
       llmResult = {
         ...preCheckResult,
-        raw: null // 预检查结果没有原始LLM输出
+        raw: null, // 预检查结果没有原始LLM输出
+        analysis_stage: 0 // 预检查不属于任何阶段，标记为0
       };
       // 预检查结果也记录prompt类型（用于后续判断）
       const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo };
       promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
-      // 构建Prompt（用于保存到数据库）
-      promptUsed = PromptBuilder.build(tokenData, fetchResults);
+      // 预检查时不构建Prompt（不需要）
+      promptUsed = null;
     } else {
-      // 8. 正常流程：构建Prompt并调用LLM
+      // 8. 正常流程：两阶段分析
       try {
         // twitterInfo已包含website_tweet（如果有第二个推文）
         const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo };
-        promptUsed = PromptBuilder.build(tokenData, fetchResults);
-        promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
-        console.log(`[NarrativeAnalyzer] 使用Prompt类型: ${promptType}`);
-        llmResult = await LLMClient.analyze(promptUsed);
+
+        console.log('[NarrativeAnalyzer] 使用两阶段分析模式');
+
+        // Stage 1: 低质量检测
+        console.log('[NarrativeAnalyzer] Stage 1: 低质量检测');
+        const stage1Prompt = PromptBuilder.buildStage1(tokenData, fetchResults);
+        const stage1PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 1);
+        console.log(`[NarrativeAnalyzer] Stage 1 Prompt类型: ${stage1PromptType}`);
+
+        // Stage 1: 直接调用API获取原始响应（不使用analyze方法，因为它期望category字段）
+        const stage1RawResponse = await this._callLLMAPI(stage1Prompt);
+        const stage1Data = this._parseStage1Response(stage1RawResponse);
+
+        if (!stage1Data.pass) {
+          // Stage 1检测到低质量，直接返回
+          console.log(`[NarrativeAnalyzer] Stage 1: 检测到低质量 - ${stage1Data.reason}`);
+          llmResult = {
+            category: 'low',
+            reasoning: stage1Data.reason,
+            scores: null,
+            total_score: null,
+            analysis_stage: 1,
+            raw: stage1RawResponse
+          };
+          promptUsed = stage1Prompt;
+          promptType = stage1PromptType;
+        } else {
+          // Stage 1通过，进入Stage 2
+          console.log('[NarrativeAnalyzer] Stage 1: 通过，进入Stage 2');
+          const stage2Prompt = PromptBuilder.buildStage2(tokenData, fetchResults);
+          const stage2PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
+          console.log(`[NarrativeAnalyzer] Stage 2 Prompt类型: ${stage2PromptType}`);
+
+          const stage2Result = await LLMClient.analyze(stage2Prompt);
+
+          llmResult = {
+            ...stage2Result,
+            analysis_stage: 2,
+            raw: stage2Result.raw
+          };
+          promptUsed = stage2Prompt;
+          promptType = stage2PromptType;
+        }
       } catch (error) {
         console.error('LLM分析失败:', error.message);
         llmResult = {
           category: 'unrated',
-          reasoning: `分析失败: ${error.message}`
+          reasoning: `分析失败: ${error.message}`,
+          scores: null,
+          total_score: null,
+          analysis_stage: 0
         };
         analysisFailed = true;
       }
@@ -205,6 +248,7 @@ export class NarrativeAnalyzer {
       prompt_used: cleanedPromptUsed,
       prompt_version: PromptBuilder.getPromptVersion(),
       prompt_type: promptType,  // 记录使用的Prompt类型
+      analysis_stage: llmResult.analysis_stage || 2,  // 分析阶段单独保存
       experiment_id: experimentId,  // 记录来源实验
       analyzed_at: new Date().toISOString()
     });
@@ -340,7 +384,7 @@ export class NarrativeAnalyzer {
     const videoPriority = [
       { name: 'Bilibili', info: bilibiliInfo, viewField: 'view_count', likeField: 'like_count' },
       { name: '抖音', info: douyinInfo, viewField: 'stat_count', likeField: 'like_count' },
-      { name: 'TikTok', info: tiktokInfo, viewField: 'play_count', likeField: 'digg_count' },
+      { name: 'TikTok', info: tiktokInfo, viewField: 'view_count', likeField: 'like_count' },
       { name: 'YouTube', info: youtubeInfo, viewField: 'view_count', likeField: 'like_count' }
     ];
 
@@ -383,7 +427,29 @@ export class NarrativeAnalyzer {
       }
     }
 
-    // 规则4：高影响力推文 + 媒体 → unrated（保护可能的好叙事）
+    // 规则4：数据不足 → unrated
+    // 同时满足以下条件时，没有足够的信息进行评估
+    const hasTwitterInfo = twitterInfo && (twitterInfo.text || twitterInfo.type === 'account');
+    const hasWebsite = extractedInfo && extractedInfo.website;
+    const hasIntro = extractedInfo && (extractedInfo.intro_en || extractedInfo.intro_cn);
+    const isIntroSimple = !hasIntro || (
+      (extractedInfo.intro_en || '').length < 20 &&
+      (extractedInfo.intro_cn || '').length < 20
+    );
+
+    if (!hasTwitterInfo && !hasWebsite && isIntroSimple) {
+      console.log('[NarrativeAnalyzer] 规则4触发: 数据不足（无推文、无website、intro简单）');
+      return {
+        category: 'unrated',
+        reasoning: '数据不足，无法评估叙事质量（缺少推文、网站等核心信息）',
+        scores: null,
+        total_score: null,
+        preCheckTriggered: true,
+        preCheckReason: 'insufficient_data'
+      };
+    }
+
+    // 规则5：高影响力推文 + 媒体 → unrated（保护可能的好叙事）
     // 检查条件：
     // 1. 推文作者属于高影响力账号（Elon、Trump等）
     // 2. 或者推文交互数据高（点赞>5000 或 转发>2000）
@@ -953,9 +1019,108 @@ export class NarrativeAnalyzer {
       debugInfo: {
         promptUsed: record.prompt_used,
         promptVersion: record.prompt_version,
-        promptType: record.prompt_type
+        promptType: record.prompt_type,
+        analysisStage: record.analysis_stage  // 添加分析阶段
       }
     };
+  }
+
+  /**
+   * 解析Stage 1响应
+   * @param {string} content - LLM响应内容
+   * @returns {Object} 解析结果 { pass: boolean, reason: string }
+   * @private
+   */
+  static _parseStage1Response(content) {
+    // 直接解析JSON（不依赖外部导入，避免循环依赖）
+    let jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Stage 1: 无法提取JSON');
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    if (typeof result.pass !== 'boolean') {
+      throw new Error('Stage 1: pass字段必须是boolean');
+    }
+
+    return {
+      pass: result.pass,
+      reason: result.reason || ''
+    };
+  }
+
+  /**
+   * 直接调用LLM API并返回原始响应
+   * 用于Stage 1等需要自定义响应格式的场景
+   * @param {string} prompt - Prompt内容
+   * @returns {Promise<string>} LLM原始响应内容
+   * @private
+   */
+  static async _callLLMAPI(prompt) {
+    // 从 LLMClient 获取配置
+    const { SILICONFLOW_API_URL, SILICONFLOW_API_KEY, SILICONFLOW_MODEL } = process.env;
+
+    const apiUrl = SILICONFLOW_API_URL || 'https://api.siliconflow.cn/v1';
+    const apiKey = SILICONFLOW_API_KEY;
+    const model = SILICONFLOW_MODEL || 'deepseek-ai/DeepSeek-V3';
+
+    if (!apiKey) {
+      throw new Error('SILICONFLOW_API_KEY 未配置');
+    }
+
+    const timeout = 60000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    console.log('[NarrativeAnalyzer] 开始调用LLM API...');
+
+    try {
+      const response = await fetch(`${apiUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0,
+          max_tokens: 2000,
+          top_p: 0.9
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`LLM API 调用失败: ${response.status} ${errorText}`);
+      }
+
+      console.log('[NarrativeAnalyzer] API响应成功');
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+
+      if (!content) {
+        throw new Error('LLM 返回内容为空');
+      }
+
+      console.log('[NarrativeAnalyzer] API调用完成');
+      return content;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.error('[NarrativeAnalyzer] 请求超时');
+        throw new Error(`LLM API 调用超时（${timeout/1000}秒）`);
+      }
+      throw error;
+    }
   }
 
   /**

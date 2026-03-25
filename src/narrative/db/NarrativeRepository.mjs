@@ -61,9 +61,10 @@ export class NarrativeRepository {
       llm_category: result.llm_category,
       llm_raw_output: result.llm_raw_output,
       llm_summary: result.llm_summary,
-      prompt_version: result.prompt_version || 'V5.13',
+      prompt_version: result.prompt_version || 'V8.0',
       prompt_type: result.prompt_type || null,  // 记录使用的Prompt类型
       prompt_used: result.prompt_used,
+      analysis_stage: result.analysis_stage || 2,  // 分析阶段: 1=Stage1检测出低质量, 2=Stage2详细评分
       analysis_status: result.analysis_status || 'completed',
       error_message: result.error_message,
       is_valid: result.is_valid !== undefined ? result.is_valid : true,
