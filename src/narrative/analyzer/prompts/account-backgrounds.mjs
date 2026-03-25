@@ -12,6 +12,7 @@ export const HIGH_INFLUENCE_ACCOUNTS = {
   // 世界级人物
   'elonmusk': 'Elon Musk（特斯拉CEO、X平台 owner，世界顶级影响力）',
   'realDonaldTrump': 'Donald Trump（美国前总统，世界顶级影响力）',
+  'TrumpWarRoom': 'TrumpWarRoom（特朗普官方账号，世界顶级影响力）',
   'realDonaldTrump2': 'Donald Trump备份账号',
   'Trump': 'Trump官方账号',
   'DonaldTrump': 'Donald Trump官方账号',
@@ -63,7 +64,14 @@ export const HIGH_INFLUENCE_ACCOUNTS = {
 export function isHighInfluenceAccount(screenName) {
   if (!screenName) return false;
   const normalized = screenName.toLowerCase().replace('@', '');
-  return HIGH_INFLUENCE_ACCOUNTS.hasOwnProperty(normalized);
+
+  // 大小写不敏感查找
+  const lowerCaseKeys = Object.keys(HIGH_INFLUENCE_ACCOUNTS).reduce((acc, key) => {
+    acc[key.toLowerCase()] = HIGH_INFLUENCE_ACCOUNTS[key];
+    return acc;
+  }, {});
+
+  return normalized in lowerCaseKeys;
 }
 
 /**
@@ -74,7 +82,14 @@ export function isHighInfluenceAccount(screenName) {
 export function getHighInfluenceAccountBackground(screenName) {
   if (!screenName) return null;
   const normalized = screenName.toLowerCase().replace('@', '');
-  return HIGH_INFLUENCE_ACCOUNTS[normalized] || null;
+
+  // 大小写不敏感查找
+  const lowerCaseKeys = Object.keys(HIGH_INFLUENCE_ACCOUNTS).reduce((acc, key) => {
+    acc[key.toLowerCase()] = HIGH_INFLUENCE_ACCOUNTS[key];
+    return acc;
+  }, {});
+
+  return lowerCaseKeys[normalized] || null;
 }
 
 export const ACCOUNT_BACKGROUNDS = {
