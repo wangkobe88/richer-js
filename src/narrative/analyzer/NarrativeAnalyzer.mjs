@@ -306,14 +306,16 @@ export class NarrativeAnalyzer {
       ];
 
       for (const video of videos) {
-        if (video.info?.create_time) {
+        // 获取视频发布时间（不同平台字段名不同）
+        const videoTime = video.info?.create_time || video.info?.publish_date || video.info?.create;
+        if (videoTime) {
           try {
-            const videoDate = new Date(video.info.create_time);
+            const videoDate = new Date(videoTime);
             const now = new Date();
             const daysDiff = (now - videoDate) / (1000 * 60 * 60 * 24);
 
             if (daysDiff > expiredVideoDaysThreshold) {
-              console.log(`[NarrativeAnalyzer] 预检查触发: ${video.name}视频发布时间超过${expiredVideoDaysThreshold}天 (${video.info.create_time})`);
+              console.log(`[NarrativeAnalyzer] 预检查触发: ${video.name}视频发布时间超过${expiredVideoDaysThreshold}天 (${videoTime})`);
               return {
                 category: 'low',
                 reasoning: `${video.name}视频发布时间超过${expiredVideoDaysThreshold}天（${Math.floor(daysDiff)}天前），叙事价值已耗尽`,
@@ -330,6 +332,54 @@ export class NarrativeAnalyzer {
       }
     } else {
       console.log('[NarrativeAnalyzer] 忽略过期时间限制（ignoreExpired=true）');
+    }
+
+    // 规则3：视频传播力检查（有视频时直接判断，不走LLM）
+    // 优先级：Bilibili > 抖音 > TikTok > YouTube
+    const videoPriority = [
+      { name: 'Bilibili', info: bilibiliInfo, viewField: 'view_count', likeField: 'like_count' },
+      { name: '抖音', info: douyinInfo, viewField: 'stat_count', likeField: 'like_count' },
+      { name: 'TikTok', info: tiktokInfo, viewField: 'play_count', likeField: 'digg_count' },
+      { name: 'YouTube', info: youtubeInfo, viewField: 'view_count', likeField: 'like_count' }
+    ];
+
+    for (const video of videoPriority) {
+      if (!video.info) continue;
+
+      // 检查是否有有效的播放量数据
+      const viewCount = video.info[video.viewField];
+      const likeCount = video.info[video.likeField];
+
+      if (viewCount !== undefined && viewCount !== null) {
+        console.log(`[NarrativeAnalyzer] 规则3触发: 发现${video.name}视频，播放量=${viewCount}`);
+
+        // 根据播放量判断
+        // Bilibili: >500播放 → unrated, <500 → low
+        // 抖音: >1000播放 → unrated, <1000 → low
+        const unratedThreshold = video.name === 'Bilibili' ? 500 : 1000;
+
+        if (viewCount >= unratedThreshold) {
+          console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频播放量(${viewCount})达到阈值，返回unrated`);
+          return {
+            category: 'unrated',
+            reasoning: `${video.name}视频播放量${viewCount}，无法解析视频内容进行完整叙事评估`,
+            scores: null,
+            total_score: null,
+            preCheckTriggered: true,
+            preCheckReason: 'video_unrated'
+          };
+        } else {
+          console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频播放量(${viewCount})过低，返回low`);
+          return {
+            category: 'low',
+            reasoning: `${video.name}视频播放量仅${viewCount}，传播力不足`,
+            scores: { credibility: 10, virality: 10 },
+            total_score: 20,
+            preCheckTriggered: true,
+            preCheckReason: 'video_low_views'
+          };
+        }
+      }
     }
 
     return null; // 通过预检查，继续LLM分析
