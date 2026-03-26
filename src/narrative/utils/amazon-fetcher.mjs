@@ -61,11 +61,22 @@ export async function fetchProductInfo(url) {
       return null;
     }
 
+    // 解析出版日期
+    let publicationDate = null;
+    if (product.book_publication_date) {
+      publicationDate = product.book_publication_date;
+    } else if (product.product_information?.['Publication date']) {
+      publicationDate = product.product_information['Publication date'];
+    } else if (product.product_details?.['Publication date']) {
+      publicationDate = product.product_details['Publication date'];
+    }
+
     // 构建返回结果
     const result = {
       type: 'amazon',
       asin: product.asin,
       title: product.product_title,
+      publication_date: publicationDate,
       brand: product.product_byline?.replace('Visit the ', '').replace(' Store', '').replace('by ', '').split(' (')[0] || null,
       price: product.product_price || null,
       original_price: product.product_original_price || null,
@@ -84,7 +95,8 @@ export async function fetchProductInfo(url) {
       has_video: product.has_video || false,
       description: (product.about_product && product.about_product.length > 0)
         ? product.about_product.join('\n').substring(0, 500)
-        : (product.product_description || null)?.substring(0, 500) || null
+        : (product.product_description || null)?.substring(0, 500) || null,
+      raw: product // 保留原始数据
     };
 
     console.log(`[AmazonFetcher] 成功获取产品: ${result.title}`);

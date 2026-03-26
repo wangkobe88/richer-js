@@ -121,6 +121,17 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 - ⚠️ **中文名称必须列出**：如果语料中同时出现中英文名称，两者都要列出
   - 示例：推文有"东莞崇英学校"和"Dongguan Chongying School"，两个都要列出
   - 示例：推文有"CZ"和"Changpeng Zhao"，两个都要列出
+- ⚠️ **Amazon书籍的实体识别规则**（必须严格执行）：
+  - **书的全称**：完整书名必须作为实体列出
+    - 示例：书名"FREEDOM OF MONEY: Fight For Freedom" → 实体包括"FREEDOM OF MONEY: Fight For Freedom"
+  - **主标题**：冒号或副标题符号之前的部分必须作为实体列出
+    - 示例：书名"FREEDOM OF MONEY: Fight For Freedom" → 主标题实体"FREEDOM OF MONEY"
+  - **副标题**：冒号或副标题符号之后的部分必须作为实体列出
+    - 示例：书名"FREEDOM OF MONEY: Fight For Freedom" → 副标题实体"Fight For Freedom"
+  - **作者**：作者名称必须作为实体列出
+    - 示例：作者"Changpeng Zhao" → 实体"Changpeng Zhao"
+    - 示例：作者"CZ" → 实体"CZ"
+  - ⚠️ **注意**：副标题匹配也算强关联，代币名匹配副标题 = 匹配实体
 
 步骤2：检查代币名是否在**任何语料（推文/Website/Amazon）**的核心实体中
 - ⚠️ **只做精确字符串匹配，不做推理或联想**

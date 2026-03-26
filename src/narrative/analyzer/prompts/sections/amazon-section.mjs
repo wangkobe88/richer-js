@@ -16,6 +16,10 @@ export function buildAmazonSection(amazonInfo) {
 
   parts.push(`【Amazon】${amazonInfo.title || '未知产品'}`);
 
+  if (amazonInfo.publication_date) {
+    parts.push(`出版日期: ${amazonInfo.publication_date}`);
+  }
+
   if (amazonInfo.brand) {
     parts.push(`品牌: ${amazonInfo.brand}`);
   }
