@@ -17,6 +17,7 @@ import { DouyinFetcher } from '../utils/douyin-fetcher.mjs';
 import { BilibiliFetcher } from '../utils/bilibili-fetcher.mjs';
 import { fetchTikTokVideoInfo, isTikTokUrl } from '../utils/tiktok-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils/web-fetcher.mjs';
+import { fetchProductInfo, getInfluenceLevel, getInfluenceDescription } from '../utils/amazon-fetcher.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
 import { LLMClient } from './llm-client.mjs';
 import { extractAllUrls, classifyAllUrls, selectBestUrls } from '../utils/url-classifier.mjs';
@@ -115,12 +116,13 @@ export class NarrativeAnalyzer {
       youtubeInfo,
       douyinInfo,
       tiktokInfo,
-      bilibiliInfo
+      bilibiliInfo,
+      amazonInfo
     } = await this._fetchAllDataViaClassifier(tokenData, extractedInfo);
     console.log('[NarrativeAnalyzer] 数据获取完成');
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
-    const preCheckResult = this.performPreCheck(tokenData, twitterInfo, extractedInfo, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo }, { ignoreExpired });
+    const preCheckResult = this.performPreCheck(tokenData, twitterInfo, extractedInfo, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo }, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;
@@ -137,7 +139,7 @@ export class NarrativeAnalyzer {
         analysis_stage: 0 // 预检查不属于任何阶段，标记为0
       };
       // 预检查结果也记录prompt类型（用于后续判断）
-      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo };
+      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo };
       promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
       // 预检查时不构建Prompt（不需要）
       promptUsed = null;
@@ -145,7 +147,7 @@ export class NarrativeAnalyzer {
       // 8. 正常流程：两阶段分析
       try {
         // twitterInfo已包含website_tweet（如果有第二个推文）
-        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo };
+        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo };
 
         console.log('[NarrativeAnalyzer] 使用两阶段分析模式');
 
@@ -161,13 +163,18 @@ export class NarrativeAnalyzer {
 
         if (!stage1Data.pass) {
           // Stage 1检测到低质量，直接返回
-          console.log(`[NarrativeAnalyzer] Stage 1: 检测到低质量 - ${stage1Data.reason}`);
+          const scenarioNum = stage1Data.scenario || 0;
+          const reasonText = scenarioNum > 0
+            ? `场景${scenarioNum}: ${stage1Data.reason}`
+            : stage1Data.reason;
+          console.log(`[NarrativeAnalyzer] Stage 1: 检测到低质量 - 场景${scenarioNum}: ${stage1Data.reason}`);
           llmResult = {
             category: 'low',
-            reasoning: stage1Data.reason,
+            reasoning: reasonText,
             scores: null,
             total_score: null,
             analysis_stage: 1,
+            scenario: scenarioNum,
             raw: stage1RawResponse
           };
           promptUsed = stage1Prompt;
@@ -243,7 +250,8 @@ export class NarrativeAnalyzer {
         credibility_score: llmResult.scores?.credibility,
         virality_score: llmResult.scores?.virality,
         reasoning: llmResult.reasoning,
-        category: llmResult.category
+        category: llmResult.category,
+        scenario: llmResult.scenario || null  // Stage 1 低质量场景编号
       },
       prompt_used: cleanedPromptUsed,
       prompt_version: PromptBuilder.getPromptVersion(),
@@ -285,7 +293,7 @@ export class NarrativeAnalyzer {
    */
   static performPreCheck(tokenData, twitterInfo, extractedInfo, videoInfos = {}, options = {}) {
     const { ignoreExpired = false } = options;
-    const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo } = videoInfos;
+    const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo } = videoInfos;
 
     // 规则1：黑名单博主
     // 1.1 从twitterInfo中获取用户名
@@ -553,7 +561,8 @@ export class NarrativeAnalyzer {
         youtubeInfo: null,
         douyinInfo: null,
         tiktokInfo: null,
-        bilibiliInfo: null
+        bilibiliInfo: null,
+        amazonInfo: null
       };
     }
 
@@ -567,6 +576,7 @@ export class NarrativeAnalyzer {
       douyin: classifiedUrls.douyin.length,
       bilibili: classifiedUrls.bilibili.length,
       github: classifiedUrls.github.length,
+      amazon: classifiedUrls.amazon.length,
       websites: classifiedUrls.websites.length
     });
 
@@ -580,6 +590,7 @@ export class NarrativeAnalyzer {
       douyin: bestUrls.douyin?.url || null,
       bilibili: bestUrls.bilibili?.url || null,
       github: bestUrls.github?.url || null,
+      amazon: bestUrls.amazon?.url || null,
       website: bestUrls.website?.url || null
     });
 
@@ -603,7 +614,8 @@ export class NarrativeAnalyzer {
       youtubeInfo: null,
       douyinInfo: null,
       tiktokInfo: null,
-      bilibiliInfo: null
+      bilibiliInfo: null,
+      amazonInfo: null
     };
 
     // === 1. Twitter数据（最高优先级）===
@@ -795,14 +807,31 @@ export class NarrativeAnalyzer {
       }
     }
 
-    // === 8. 普通网站数据 ===
+    // === 8. Amazon数据 ===
+    if (bestUrls.amazon) {
+      console.log(`[NarrativeAnalyzer] 获取Amazon数据: ${bestUrls.amazon.url}`);
+      try {
+        results.amazonInfo = await fetchProductInfo(bestUrls.amazon.url);
+        if (results.amazonInfo) {
+          const influenceLevel = getInfluenceLevel(results.amazonInfo);
+          results.amazonInfo.influence_level = influenceLevel;
+          results.amazonInfo.influence_description = getInfluenceDescription(influenceLevel);
+          console.log(`[NarrativeAnalyzer] Amazon信息: "${results.amazonInfo.title}"`);
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] Amazon数据获取失败:', error.message);
+      }
+    }
+
+    // === 9. 普通网站数据 ===
     if (bestUrls.website) {
       const websiteUrl = bestUrls.website.url;
-      // 排除视频平台和GitHub（已经处理过）
+      // 排除视频平台、GitHub和Amazon（已经处理过）
       const isVideoPlatform = /youtube|youtu\.be|tiktok|douyin|bilibili|b23\.tv/i.test(websiteUrl);
       const isGithub = /github\.com/i.test(websiteUrl);
+      const isAmazon = /amazon\.com/i.test(websiteUrl);
 
-      if (!isVideoPlatform && !isGithub && isFetchableUrl(websiteUrl)) {
+      if (!isVideoPlatform && !isGithub && !isAmazon && isFetchableUrl(websiteUrl)) {
         console.log(`[NarrativeAnalyzer] 获取网站内容: ${websiteUrl}`);
         try {
           results.websiteInfo = await fetchWebsiteContent(websiteUrl, { maxLength: 5000 });
@@ -1045,7 +1074,8 @@ export class NarrativeAnalyzer {
 
     return {
       pass: result.pass,
-      reason: result.reason || ''
+      reason: result.reason || '',
+      scenario: result.scenario || 0
     };
   }
 
@@ -1057,22 +1087,22 @@ export class NarrativeAnalyzer {
    * @private
    */
   static async _callLLMAPI(prompt) {
-    // 从 LLMClient 获取配置
-    const { SILICONFLOW_API_URL, SILICONFLOW_API_KEY, SILICONFLOW_MODEL } = process.env;
+    // 从环境变量获取配置
+    const { SILICONFLOW_API_URL, SILICONFLOW_API_KEY, LLM_MODEL } = process.env;
 
     const apiUrl = SILICONFLOW_API_URL || 'https://api.siliconflow.cn/v1';
     const apiKey = SILICONFLOW_API_KEY;
-    const model = SILICONFLOW_MODEL || 'deepseek-ai/DeepSeek-V3';
+    const model = LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
 
     if (!apiKey) {
       throw new Error('SILICONFLOW_API_KEY 未配置');
     }
 
-    const timeout = 60000;
+    const timeout = 120000;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    console.log('[NarrativeAnalyzer] 开始调用LLM API...');
+    console.log(`[NarrativeAnalyzer] 开始调用LLM API... 模型: ${model}`);
 
     try {
       const response = await fetch(`${apiUrl}/chat/completions`, {
@@ -1091,7 +1121,10 @@ export class NarrativeAnalyzer {
           ],
           temperature: 0,
           max_tokens: 2000,
-          top_p: 0.9
+          top_p: 1,
+          presence_penalty: 0,
+          frequency_penalty: 0,
+          seed: 42
         }),
         signal: controller.signal
       });

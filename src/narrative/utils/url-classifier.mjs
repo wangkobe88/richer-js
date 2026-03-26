@@ -86,6 +86,11 @@ export function classifyUrl(url) {
     return { type: 'repository', platform: 'github', priority: 1, url };
   }
 
+  // Amazon产品页面
+  if (_isAmazonProductUrl(url)) {
+    return { type: 'product', platform: 'amazon', priority: 1, url };
+  }
+
   // 默认为普通网站
   return { type: 'website', platform: 'web', priority: 3, url };
 }
@@ -104,6 +109,7 @@ export function classifyAllUrls(urls) {
     douyin: [],
     bilibili: [],
     github: [],
+    amazon: [],
     websites: []
   };
 
@@ -137,6 +143,9 @@ export function classifyAllUrls(urls) {
       case 'github':
         result.github.push(info);
         break;
+      case 'amazon':
+        result.amazon.push(info);
+        break;
       default:
         result.websites.push(info);
     }
@@ -160,6 +169,7 @@ export function selectBestUrls(classifiedUrls) {
       douyin: null,
       bilibili: null,
       github: null,
+      amazon: null,
       website: null
     };
   }
@@ -172,6 +182,7 @@ export function selectBestUrls(classifiedUrls) {
     douyin: classifiedUrls.douyin[0] || null,
     bilibili: classifiedUrls.bilibili[0] || null,
     github: classifiedUrls.github[0] || null,
+    amazon: classifiedUrls.amazon[0] || null,
     website: classifiedUrls.websites[0] || null
   };
 }
@@ -216,6 +227,23 @@ function _isBilibiliUrl(url) {
 function _isGitHubUrl(url) {
   // 匹配 github.com
   return /github\.com/i.test(url);
+}
+
+function _isAmazonProductUrl(url) {
+  // 匹配 Amazon 产品页面（包含 /dp/ 或 /gp/product/）
+  const amazonDomains = [
+    'amazon.com',
+    'www.amazon.com',
+    'smile.amazon.com'
+  ];
+
+  try {
+    const urlObj = new URL(url);
+    return amazonDomains.includes(urlObj.hostname) &&
+           (urlObj.pathname.includes('/dp/') || urlObj.pathname.includes('/gp/product/'));
+  } catch {
+    return false;
+  }
 }
 
 function _selectBestUrlForPlatform(urls, preferType) {

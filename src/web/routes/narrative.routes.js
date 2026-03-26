@@ -114,8 +114,8 @@ router.get('/list', async (req, res) => {
  * 重新分析代币（忽略缓存）
  */
 router.post('/reanalyze/:address', async (req, res) => {
-  // 设置服务器端超时（90秒）
-  const timeout = 90000;
+  // 设置服务器端超时（180秒，适应GLM-5等慢速模型）
+  const timeout = 180000;
   const timeoutId = setTimeout(() => {
     if (!res.headersSent) {
       res.status(408).json({

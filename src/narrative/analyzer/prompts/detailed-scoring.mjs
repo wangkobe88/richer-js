@@ -12,6 +12,7 @@ import { buildWebsiteSection } from './sections/website-section.mjs';
 import { buildVideoSection } from './sections/video-section.mjs';
 import { buildGithubSection } from './sections/github-section.mjs';
 import { buildWeiboSection } from './sections/weibo-section.mjs';
+import { buildAmazonSection } from './sections/amazon-section.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
 /**
@@ -30,7 +31,8 @@ export function buildDetailedScoringPrompt(tokenData, fetchResults) {
     youtubeInfo = null,
     douyinInfo = null,
     tiktokInfo = null,
-    bilibiliInfo = null
+    bilibiliInfo = null,
+    amazonInfo = null
   } = fetchResults;
 
   // 判断有哪些数据类型
@@ -71,6 +73,9 @@ export function buildDetailedScoringPrompt(tokenData, fetchResults) {
 
   const websiteSection = buildWebsiteSection(websiteInfo);
   if (websiteSection) sections.push(websiteSection);
+
+  const amazonSection = buildAmazonSection(amazonInfo);
+  if (amazonSection) sections.push(amazonSection);
 
   // 4. 评分框架
   sections.push(buildEvaluationFramework(hasGithub, hasVideo, hasTwitter));

@@ -15,7 +15,7 @@ dotenv.config({ path: join(__dirname, '../../../config/.env') });
 
 const API_URL = process.env.SILICONFLOW_API_URL || 'https://api.siliconflow.cn/v1';
 const API_KEY = process.env.SILICONFLOW_API_KEY;
-const MODEL = process.env.SILICONFLOW_MODEL || 'deepseek-ai/DeepSeek-V3';
+const MODEL = process.env.LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
 const VISION_MODEL = process.env.SILICONFLOW_VISION_MODEL || 'Pro/moonshotai/Kimi-K2.5';
 
 export class LLMClient {
@@ -103,7 +103,7 @@ ${text}`;
     }
 
     // 创建超时控制器
-    const timeout = 60000; // 60秒超时
+    const timeout = 120000; // 120秒超时（DeepSeek-R1较慢）
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -126,7 +126,10 @@ ${text}`;
           ],
           temperature: 0,
           max_tokens: 2000,
-          top_p: 0.9
+          top_p: 1,
+          presence_penalty: 0,
+          frequency_penalty: 0,
+          seed: 42
         }),
         signal: controller.signal
       });

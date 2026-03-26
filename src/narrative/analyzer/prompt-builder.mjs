@@ -18,6 +18,7 @@ import { buildWebsiteSection } from './prompts/sections/website-section.mjs';
 import { buildVideoSection } from './prompts/sections/video-section.mjs';
 import { buildGithubSection } from './prompts/sections/github-section.mjs';
 import { buildWeiboSection } from './prompts/sections/weibo-section.mjs';
+import { buildAmazonSection } from './prompts/sections/amazon-section.mjs';
 import { generateAccountBackgroundsPrompt } from './prompts/account-backgrounds.mjs';
 
 // Stage 1: 低质量检测
@@ -59,6 +60,7 @@ export class PromptBuilder {
     if (fetchResults.douyinInfo) types.push('douyin');
     if (fetchResults.tiktokInfo) types.push('tiktok');
     if (fetchResults.bilibiliInfo) types.push('bilibili');
+    if (fetchResults.amazonInfo) types.push('amazon');
     if (fetchResults.backgroundInfo?.source === 'weibo') types.push('weibo');
 
     if (fetchResults.twitterInfo?.website_tweet) types.push('+website_tweet');
