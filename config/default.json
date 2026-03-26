@@ -36,7 +36,8 @@
     "enableVideoAnalysis": false,
     "twitterBlacklist": [
       "Cortaviousloma1",
-      "goxpv32196782"
+      "goxpv32196782",
+      "heyi1f"
     ],
     "expiredTweetDaysThreshold": 14
   },

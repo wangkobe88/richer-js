@@ -346,6 +346,44 @@ export class NarrativeAnalyzer {
       };
     }
 
+    // 规则1.5：应用商店链接检查
+    // 应用商店App不适合构建meme币（产品而非事件，缺乏传播属性）
+    const appStoreDomains = [
+      'apps.apple.com',           // Apple App Store
+      'play.google.com',          // Google Play Store
+      'appgallery.huawei.com',    // Huawei AppGallery
+      'store.steampowered.com',   // Steam Store
+      'apps.microsoft.com',       // Microsoft Store
+      'www.amazon.com/appstore',  // Amazon Appstore
+      'apkcombo.com',             // APK下载站
+      'apkpure.com',              // APK下载站
+      'apkmirror.com'             // APK下载站
+    ];
+
+    // 检查website URL
+    const websiteUrl = extractedInfo?.website;
+    if (websiteUrl) {
+      try {
+        const urlObj = new URL(websiteUrl);
+        const hostname = urlObj.hostname.toLowerCase();
+
+        if (appStoreDomains.some(domain => hostname === domain || hostname.endsWith('.' + domain))) {
+          console.log(`[NarrativeAnalyzer] 预检查触发: 检测到应用商店链接 (${websiteUrl})`);
+          return {
+            category: 'low',
+            reasoning: `检测到应用商店链接，App产品不适合构建meme币（缺乏事件驱动和病毒传播属性）`,
+            scores: { credibility: 5, virality: 5 },
+            total_score: 10,
+            preCheckTriggered: true,
+            preCheckReason: 'app_store_link'
+          };
+        }
+      } catch (e) {
+        // URL解析失败，继续后续检查
+        console.warn('[NarrativeAnalyzer] 解析URL失败:', websiteUrl, e.message);
+      }
+    }
+
     // 规则2：过期内容检查（推文或视频超过配置的天数阈值）
     // 如果设置了ignoreExpired，跳过过期检查
     if (!ignoreExpired) {
