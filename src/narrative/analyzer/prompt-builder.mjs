@@ -82,7 +82,7 @@ export class PromptBuilder {
    * @returns {string} Prompt版本号
    */
   static getPromptVersion() {
-    return 'V8.9';
+    return 'V9.0';
   }
 
   /**

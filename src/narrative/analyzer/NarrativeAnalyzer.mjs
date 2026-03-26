@@ -375,8 +375,8 @@ export class NarrativeAnalyzer {
       }
 
       // 2.2 检查视频过期（抖音、YouTube、TikTok、Bilibili）
-      // 视频过期阈值：180天（6个月）
-      const expiredVideoDaysThreshold = 180;
+      // 视频过期阈值：30天（1个月）
+      const expiredVideoDaysThreshold = 30;
 
       const videos = [
         { name: '抖音', info: douyinInfo },
@@ -430,39 +430,64 @@ export class NarrativeAnalyzer {
     for (const video of videoPriority) {
       if (!video.info) continue;
 
-      // 检查是否有有效的播放量数据
+      // 检查播放量和点赞数
       const viewCount = video.info[video.viewField];
       const likeCount = video.info[video.likeField];
 
-      if (viewCount !== undefined && viewCount !== null) {
-        console.log(`[NarrativeAnalyzer] 规则3触发: 发现${video.name}视频，播放量=${viewCount}`);
+      // 优先检查播放量，如果没有播放量则检查点赞数
+      const hasViewData = viewCount !== undefined && viewCount !== null;
+      const hasLikeData = likeCount !== undefined && likeCount !== null;
 
-        // 根据播放量判断
-        // Bilibili: >500播放 → unrated, <500 → low
-        // 抖音: >1000播放 → unrated, <1000 → low
-        const unratedThreshold = video.name === 'Bilibili' ? 500 : 1000;
+      if (!hasViewData && !hasLikeData) continue;
 
-        if (viewCount >= unratedThreshold) {
-          console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频播放量(${viewCount})达到阈值，返回unrated`);
-          return {
-            category: 'unrated',
-            reasoning: `${video.name}视频播放量${viewCount}，无法解析视频内容进行完整叙事评估`,
-            scores: null,
-            total_score: null,
-            preCheckTriggered: true,
-            preCheckReason: 'video_unrated'
-          };
-        } else {
-          console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频播放量(${viewCount})过低，返回low`);
-          return {
-            category: 'low',
-            reasoning: `${video.name}视频播放量仅${viewCount}，传播力不足`,
-            scores: { credibility: 10, virality: 10 },
-            total_score: 20,
-            preCheckTriggered: true,
-            preCheckReason: 'video_low_views'
-          };
-        }
+      // 设置阈值（播放量或点赞数任一达到即可）
+      const unratedViewThreshold = video.name === 'Bilibili' ? 500 : 1000;
+      const unratedLikeThreshold = 100000; // 10万点赞
+
+      // 判断是否达到 unrated 阈值
+      const viewMeetsThreshold = hasViewData && viewCount >= unratedViewThreshold;
+      const likeMeetsThreshold = hasLikeData && likeCount >= unratedLikeThreshold;
+
+      // 获取用于显示的数据
+      const displayValue = hasViewData ? viewCount : likeCount;
+      const displayType = hasViewData ? '播放量' : '点赞数';
+
+      if (viewMeetsThreshold || likeMeetsThreshold) {
+        console.log(`[NarrativeAnalyzer] 规则3触发: ${video.name}视频${displayType}=${displayValue}，达到unrated阈值`);
+        return {
+          category: 'unrated',
+          reasoning: `${video.name}视频${displayType}${displayValue}，无法解析视频内容进行完整叙事评估`,
+          scores: null,
+          total_score: null,
+          preCheckTriggered: true,
+          preCheckReason: 'video_unrated'
+        };
+      }
+
+      // 播放量/点赞数过低 → low
+      if (hasViewData && viewCount < unratedViewThreshold) {
+        console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频播放量(${viewCount})过低，返回low`);
+        return {
+          category: 'low',
+          reasoning: `${video.name}视频播放量仅${viewCount}，传播力不足`,
+          scores: { credibility: 10, virality: 10 },
+          total_score: 20,
+          preCheckTriggered: true,
+          preCheckReason: 'video_low_views'
+        };
+      }
+
+      // 点赞数过低（如果没有播放量数据）
+      if (!hasViewData && hasLikeData && likeCount < 1000) {
+        console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频点赞数(${likeCount})过低，返回low`);
+        return {
+          category: 'low',
+          reasoning: `${video.name}视频点赞数仅${likeCount}，传播力不足`,
+          scores: { credibility: 10, virality: 10 },
+          total_score: 20,
+          preCheckTriggered: true,
+          preCheckReason: 'video_low_likes'
+        };
       }
     }
 
@@ -1074,11 +1099,16 @@ export class NarrativeAnalyzer {
       },
       extracted_info: record.extracted_info,
       twitter: record.twitter_info,
+      // 添加顶层字段方便前端访问
+      llm_category: record.llm_category,
+      llm_summary: record.llm_summary,
+      is_valid: !!record.llm_category,  // 有category就算有效
+      // 保留原有的嵌套结构
       llmAnalysis: {
         category: record.llm_category,
         rawOutput: rawOutput,
         summary: record.llm_summary,
-        entities: rawOutput.entities || null  // 明确提取entities字段
+        entities: rawOutput.entities || null
       },
       debugInfo: {
         promptUsed: record.prompt_used,

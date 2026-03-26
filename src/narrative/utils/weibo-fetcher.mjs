@@ -22,7 +22,13 @@ export class WeiboExtractor {
     if (!url) return null;
 
     // 匹配 weibo.com/uid/weiboid 格式
-    const match = url.match(/weibo\.com\/\d+\/([a-zA-Z0-9]+)/);
+    let match = url.match(/weibo\.com\/\d+\/([a-zA-Z0-9]+)/);
+    if (match) {
+      return match[1];
+    }
+
+    // 匹配 vveibo.com/uid/weiboid 格式（微博变体域名）
+    match = url.match(/vveibo\.com\/\d+\/([a-zA-Z0-9]+)/);
     if (match) {
       return match[1];
     }
@@ -31,6 +37,12 @@ export class WeiboExtractor {
     const detailMatch = url.match(/weibo\.com\/detail\/([a-zA-Z0-9]+)/);
     if (detailMatch) {
       return detailMatch[1];
+    }
+
+    // 匹配 vveibo.com/detail/xxx 格式
+    const vveiboDetailMatch = url.match(/vveibo\.com\/detail\/([a-zA-Z0-9]+)/);
+    if (vveiboDetailMatch) {
+      return vveiboDetailMatch[1];
     }
 
     // 匹配 m.weibo.cn/detail/xxx 格式
@@ -51,7 +63,13 @@ export class WeiboExtractor {
     if (!url) return null;
 
     // 匹配 weibo.com/uid/weiboid 或 weibo.com/u/uid 格式
-    const match = url.match(/weibo\.com\/(\d+)/);
+    let match = url.match(/weibo\.com\/(\d+)/);
+    if (match) {
+      return match[1];
+    }
+
+    // 匹配 vveibo.com/uid/weiboid 格式
+    match = url.match(/vveibo\.com\/(\d+)/);
     if (match) {
       return match[1];
     }
@@ -76,7 +94,8 @@ export class WeiboExtractor {
     // - weibo.com/uid/weiboid (用户微博)
     // - weibo.com/detail/weiboid (详情页)
     // - m.weibo.cn/detail/weiboid (移动端)
-    const isWeiboDomain = /weibo\.(com|cn)/.test(url);
+    // - vveibo.com/uid/weiboid (微博变体域名)
+    const isWeiboDomain = /weibo\.(com|cn)|vveibo\.com/.test(url);
 
     if (!isWeiboDomain) return false;
 

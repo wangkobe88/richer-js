@@ -141,8 +141,7 @@ class WalletClusterService {
       // 最大区块买入金额占比（检测第一区块集中购买）
       walletClusterMaxBlockBuyRatio: blockBuyStats.maxBlockBuyRatio,
       walletClusterMaxBlockNumber: blockBuyStats.maxBlockNumber,
-      walletClusterMaxBlockBuyAmount: blockBuyStats.maxBlockBuyAmount,
-      walletClusterTotalBuyAmount: blockBuyStats.totalBuyAmount
+      walletClusterMaxBlockBuyAmount: blockBuyStats.maxBlockBuyTokenAmount
     };
 
     this.logger.debug('[WalletClusterService] 钱包簇分析完成', {
@@ -378,8 +377,7 @@ class WalletClusterService {
 
       walletClusterMaxBlockBuyRatio: 0,
       walletClusterMaxBlockNumber: null,
-      walletClusterMaxBlockBuyAmount: 0,
-      walletClusterTotalBuyAmount: 0
+      walletClusterMaxBlockBuyAmount: 0
     };
   }
 
@@ -411,8 +409,7 @@ class WalletClusterService {
 
       walletClusterMaxBlockBuyRatio: 0,
       walletClusterMaxBlockNumber: null,
-      walletClusterMaxBlockBuyAmount: 0,
-      walletClusterTotalBuyAmount: 0
+      walletClusterMaxBlockBuyAmount: 0
     };
   }
 }

@@ -200,8 +200,8 @@ function _isTwitterAccountUrl(url) {
 }
 
 function _isWeiboUrl(url) {
-  // 匹配 weibo.com 的任意链接
-  return /weibo\.com/i.test(url);
+  // 匹配 weibo.com, vveibo.com（微博变体域名）等
+  return /weibo\.com|vveibo\.com/i.test(url);
 }
 
 function _isYouTubeUrl(url) {

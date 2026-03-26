@@ -1486,7 +1486,7 @@ class RicherJsWebServer {
 
         if (data && data.trades_data && data.trades_data.length > 0) {
           const clusterService = new WalletClusterService(console, { mode: 'block', clusterBlockThreshold: 7 });
-          clusterAnalysis = clusterService.performClusterAnalysis(data.trades_data);
+          clusterAnalysis = clusterService.performClusterAnalysis(data.trades_data, signalData?.token_address);
 
           // 构建带交易的簇数据
           const trades = data.trades_data;

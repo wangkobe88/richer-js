@@ -154,6 +154,10 @@
             color: #fbbf24;
         }
 
+        .text-purple {
+            color: #a78bfa;
+        }
+
         .mono {
             font-family: 'JetBrains Mono', monospace;
         }
@@ -297,6 +301,12 @@
 
         th:nth-child(8),
         td:nth-child(8) {
+            text-align: right;
+            width: 140px;
+        }
+
+        th:nth-child(9),
+        td:nth-child(9) {
             width: 80px;
         }
 
@@ -516,6 +526,7 @@
                                 </td>
                                 <td class="text-green text-right">${fromUsd}</td>
                                 <td class="text-blue text-right">${toUsd}</td>
+                                <td class="text-right text-purple">${trade.to_amount ? (trade.to_amount >= 1000000 ? (trade.to_amount / 1000000).toFixed(2) + 'M' : trade.to_amount >= 1000 ? (trade.to_amount / 1000).toFixed(2) + 'K' : trade.to_amount.toFixed(2)) : '-'}</td>
                                 <td class="text-right text-gray">${trade.pair_liquidity_usd ? '$' + trade.pair_liquidity_usd.toFixed(0) : '-'}</td>
                                 <td class="mono">${trade.tx_id ? `<span title="${trade.tx_id}">${trade.tx_id.substring(0, 10)}...</span>` : '<span class="text-gray-500">-</span>'}</td>
                             </tr>
@@ -616,6 +627,7 @@
                                             <th>买入地址 / 标记<br><span class="text-xs font-normal text-gray-500">点击查看 GMGN</span></th>
                                             <th class="text-right">卖出金额</th>
                                             <th class="text-right">买入金额</th>
+                                            <th class="text-right">代币数量</th>
                                             <th class="text-right">流动性池</th>
                                             <th>交易ID</th>
                                         </tr>
@@ -697,6 +709,7 @@
                                         </td>
                                         <td class="text-green text-right">${fromUsd}</td>
                                         <td class="text-blue text-right">${toUsd}</td>
+                                        <td class="text-right text-purple">${trade.to_amount ? (trade.to_amount >= 1000000 ? (trade.to_amount / 1000000).toFixed(2) + 'M' : trade.to_amount >= 1000 ? (trade.to_amount / 1000).toFixed(2) + 'K' : trade.to_amount.toFixed(2)) : '-'}</td>
                                         <td class="text-right text-gray">${trade.pair_liquidity_usd ? '$' + trade.pair_liquidity_usd.toFixed(0) : '-'}</td>
                                         <td class="mono">${trade.tx_id ? `<span title="${trade.tx_id}">${trade.tx_id.substring(0, 10)}...</span>` : '<span class="text-gray-500">-</span>'}</td>
                                     </tr>
@@ -730,6 +743,7 @@
                                                         <th>买入地址 / 标记</th>
                                                         <th class="text-right">卖出金额</th>
                                                         <th class="text-right">买入金额</th>
+                                                        <th class="text-right">代币数量</th>
                                                         <th class="text-right">流动性池</th>
                                                         <th>交易ID</th>
                                                     </tr>
