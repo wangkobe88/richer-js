@@ -43,6 +43,21 @@ const NARRATIVE_CONFIG = config.narrative || {
 export class NarrativeAnalyzer {
 
   /**
+   * 清洗代币名称，去除不可见字符和组合字符
+   * @param {string} symbol - 原始代币名称
+   * @returns {string} 清洗后的代币名称
+   */
+  static cleanSymbol(symbol) {
+    if (!symbol) return symbol;
+    // 去除组合字符（U+0300-U+036F）和其他不可见字符
+    // 使用normalize('NFC')然后过滤组合字符
+    return symbol
+      .normalize('NFC')
+      .replace(/[\u0300-\u036f\u200b-\u200d\ufeff\u034f]/g, '')
+      .trim();
+  }
+
+  /**
    * 分析代币叙事（带缓存）
    * @param {string} address - 代币地址
    * @param {Object} options - 选项
@@ -168,6 +183,7 @@ export class NarrativeAnalyzer {
             ? `场景${scenarioNum}: ${stage1Data.reason}`
             : stage1Data.reason;
           console.log(`[NarrativeAnalyzer] Stage 1: 检测到低质量 - 场景${scenarioNum}: ${stage1Data.reason}`);
+          console.log(`[NarrativeAnalyzer] Stage 1: 识别的实体:`, JSON.stringify(stage1Data.entities));
           llmResult = {
             category: 'low',
             reasoning: reasonText,
@@ -175,6 +191,7 @@ export class NarrativeAnalyzer {
             total_score: null,
             analysis_stage: 1,
             scenario: scenarioNum,
+            entities: stage1Data.entities,  // 保存实体列表
             raw: stage1RawResponse
           };
           promptUsed = stage1Prompt;
@@ -182,6 +199,7 @@ export class NarrativeAnalyzer {
         } else {
           // Stage 1通过，进入Stage 2
           console.log('[NarrativeAnalyzer] Stage 1: 通过，进入Stage 2');
+          console.log('[NarrativeAnalyzer] Stage 1: 识别的实体:', JSON.stringify(stage1Data.entities));
           const stage2Prompt = PromptBuilder.buildStage2(tokenData, fetchResults);
           const stage2PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
           console.log(`[NarrativeAnalyzer] Stage 2 Prompt类型: ${stage2PromptType}`);
@@ -191,6 +209,7 @@ export class NarrativeAnalyzer {
           llmResult = {
             ...stage2Result,
             analysis_stage: 2,
+            entities: stage1Data.entities,  // 保存Stage 1的entities
             raw: stage2Result.raw
           };
           promptUsed = stage2Prompt;
@@ -237,6 +256,13 @@ export class NarrativeAnalyzer {
     const cleanedTwitterInfo = this._cleanDataForDB(twitterInfo);
     const cleanedPromptUsed = this._cleanDataForDB(promptUsed);
 
+    // 准备llm_raw_output：Stage 1的entities需要合并到rawOutput中
+    let rawOutputToSave = llmResult.raw || llmResult;
+    if (llmResult.entities && typeof rawOutputToSave === 'object') {
+      // 有entities（Stage 1或Stage 2都可能携带），合并到保存的数据中
+      rawOutputToSave = { ...rawOutputToSave, entities: llmResult.entities };
+    }
+
     const saveResult = await NarrativeRepository.save({
       token_address: normalizedAddress,
       token_symbol: tokenData.symbol,
@@ -244,14 +270,15 @@ export class NarrativeAnalyzer {
       extracted_info: extractedInfo,
       twitter_info: cleanedTwitterInfo,
       llm_category: llmResult.category,
-      llm_raw_output: llmResult.raw || llmResult,
+      llm_raw_output: rawOutputToSave,
       llm_summary: {
         total_score: llmResult.total_score,
         credibility_score: llmResult.scores?.credibility,
         virality_score: llmResult.scores?.virality,
         reasoning: llmResult.reasoning,
         category: llmResult.category,
-        scenario: llmResult.scenario || null  // Stage 1 低质量场景编号
+        scenario: llmResult.scenario || null,  // Stage 1 低质量场景编号
+        entities: llmResult.entities || null  // 仅Stage 1有entities
       },
       prompt_used: cleanedPromptUsed,
       prompt_version: PromptBuilder.getPromptVersion(),
@@ -381,6 +408,10 @@ export class NarrativeAnalyzer {
           } catch (e) {
             console.warn(`[NarrativeAnalyzer] 解析${video.name}视频时间失败:`, e.message);
           }
+        } else if (video.info) {
+          // 有视频数据但无发布时间：记录日志用于调试
+          console.log(`[NarrativeAnalyzer] ${video.name}视频无发布时间数据，跳过过期检查`);
+          console.log(`[NarrativeAnalyzer] ${video.name}视频数据:`, JSON.stringify(video.info).substring(0, 200));
         }
       }
     } else {
@@ -852,7 +883,7 @@ export class NarrativeAnalyzer {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('experiment_tokens')
-      .select('token_symbol, raw_api_data')
+      .select('token_symbol, raw_api_data, blockchain, platform')
       .eq('token_address', address)
       .maybeSingle();
 
@@ -866,7 +897,9 @@ export class NarrativeAnalyzer {
 
     return {
       address: address,
-      symbol: data.token_symbol,
+      symbol: this.cleanSymbol(data.token_symbol),  // 清洗代币名
+      blockchain: data.blockchain,
+      platform: data.platform,
       raw_api_data: data.raw_api_data
     };
   }
@@ -1032,6 +1065,7 @@ export class NarrativeAnalyzer {
    * 格式化返回结果
    */
   static formatResult(record) {
+    const rawOutput = record.llm_raw_output || {};
     return {
       token: {
         address: record.token_address,
@@ -1042,14 +1076,15 @@ export class NarrativeAnalyzer {
       twitter: record.twitter_info,
       llmAnalysis: {
         category: record.llm_category,
-        rawOutput: record.llm_raw_output,
-        summary: record.llm_summary
+        rawOutput: rawOutput,
+        summary: record.llm_summary,
+        entities: rawOutput.entities || null  // 明确提取entities字段
       },
       debugInfo: {
         promptUsed: record.prompt_used,
         promptVersion: record.prompt_version,
         promptType: record.prompt_type,
-        analysisStage: record.analysis_stage  // 添加分析阶段
+        analysisStage: record.analysis_stage
       }
     };
   }
@@ -1057,26 +1092,70 @@ export class NarrativeAnalyzer {
   /**
    * 解析Stage 1响应
    * @param {string} content - LLM响应内容
-   * @returns {Object} 解析结果 { pass: boolean, reason: string }
+   * @returns {Object} 解析结果 { pass: boolean, reason: string, entities: Object }
    * @private
    */
   static _parseStage1Response(content) {
-    // 直接解析JSON（不依赖外部导入，避免循环依赖）
-    let jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    // 多种策略尝试提取JSON
+    let jsonStr = null;
+
+    // 策略1: 尝试提取markdown代码块中的JSON
+    const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1];
+      console.log('[NarrativeAnalyzer] Stage 1: 使用代码块策略提取JSON');
+    }
+
+    // 策略2: 尝试提取第一个完整的JSON对象（使用括号匹配）
+    if (!jsonStr) {
+      let depth = 0;
+      let start = -1;
+      for (let i = 0; i < content.length; i++) {
+        if (content[i] === '{') {
+          if (depth === 0) start = i;
+          depth++;
+        } else if (content[i] === '}') {
+          depth--;
+          if (depth === 0 && start >= 0) {
+            jsonStr = content.substring(start, i + 1);
+            console.log('[NarrativeAnalyzer] Stage 1: 使用括号匹配策略提取JSON');
+            break;
+          }
+        }
+      }
+    }
+
+    // 策略3: 使用正则表达式匹配（兼容性后备方案）
+    if (!jsonStr) {
+      const regexMatch = content.match(/\{[\s\S]*\}/);
+      if (regexMatch) {
+        jsonStr = regexMatch[0];
+        console.log('[NarrativeAnalyzer] Stage 1: 使用正则策略提取JSON');
+      }
+    }
+
+    // 如果所有策略都失败，打印原始响应并抛出错误
+    if (!jsonStr) {
+      console.error('[NarrativeAnalyzer] Stage 1: 无法提取JSON，原始响应:', content);
       throw new Error('Stage 1: 无法提取JSON');
     }
 
-    const result = JSON.parse(jsonMatch[0]);
-    if (typeof result.pass !== 'boolean') {
-      throw new Error('Stage 1: pass字段必须是boolean');
-    }
+    try {
+      const result = JSON.parse(jsonStr);
+      if (typeof result.pass !== 'boolean') {
+        throw new Error('Stage 1: pass字段必须是boolean');
+      }
 
-    return {
-      pass: result.pass,
-      reason: result.reason || '',
-      scenario: result.scenario || 0
-    };
+      return {
+        pass: result.pass,
+        reason: result.reason || '',
+        scenario: result.scenario || 0,
+        entities: result.entities || {}  // 保存实体列表用于调试
+      };
+    } catch (parseError) {
+      console.error('[NarrativeAnalyzer] Stage 1: JSON解析失败，提取的字符串:', jsonStr);
+      throw new Error(`Stage 1: JSON解析失败 - ${parseError.message}`);
+    }
   }
 
   /**

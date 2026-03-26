@@ -15,19 +15,54 @@ export class DouyinFetcher {
    * 从抖音 URL 中提取视频 ID
    * 支持格式：
    * - douyin.com/video/ID
-   * - v.douyin.com/ID (分享链接)
+   * - v.douyin.com/ID (分享链接，需解析)
    * - www.iesdouyin.com/share/video/ID
    * @param {string} url - 抖音 URL
-   * @returns {string|null} 视频 ID
+   * @returns {Promise<string|null>} 视频 ID
    */
-  static extractVideoId(url) {
+  static async extractVideoId(url) {
     if (!url) return null;
 
+    // 检查是否是短链接（v.douyin.com）
+    if (url.includes('v.douyin.com') || url.includes('v.douyin.com')) {
+      try {
+        // 跟随重定向获取真实URL
+        console.log('[DouyinFetcher] 检测到短链接，尝试解析...');
+        const response = await fetch(url, {
+          redirect: 'follow',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        // 获取重定向后的真实URL
+        const realUrl = response.url || response.redirected ? response.url : url;
+        console.log('[DouyinFetcher] 短链接解析为:', realUrl);
+
+        // 从真实URL中提取视频ID
+        const modalIdMatch = realUrl.match(/modal_id=([^&]+)/);
+        if (modalIdMatch) {
+          console.log('[DouyinFetcher] 提取到modal_id:', modalIdMatch[1]);
+          return modalIdMatch[1];
+        }
+
+        // 尝试其他模式
+        const videoIdMatch = realUrl.match(/\/video\/(\d+)/);
+        if (videoIdMatch) {
+          console.log('[DouyinFetcher] 提取到video_id:', videoIdMatch[1]);
+          return videoIdMatch[1];
+        }
+      } catch (error) {
+        console.warn('[DouyinFetcher] 短链接解析失败，使用原始ID:', error.message);
+      }
+    }
+
+    // 常规模式（非短链接或短链接解析失败时）
     const patterns = [
-      /douyin\.com\/video\/([^/?]+)/,
-      /v\.douyin\.com\/([^/?]+)/,
+      /douyin\.com\/video\/(\d+)/,
+      /douyin\.com\/.*\/modal_id=([^&]+)/,
       /iesdouyin\.com\/share\/video\/([^/?]+)/,
-      /douyin\.com\/.*\/video\/([^/?]+)/
+      /v\.douyin\.com\/([^/?]+)/  // 最后尝试直接提取短链接中的ID
     ];
 
     for (const pattern of patterns) {
@@ -127,7 +162,7 @@ export class DouyinFetcher {
       return null;
     }
 
-    const videoId = this.extractVideoId(url);
+    const videoId = await this.extractVideoId(url);
     if (!videoId) {
       console.warn('[DouyinFetcher] 无法提取视频 ID:', url);
       return null;

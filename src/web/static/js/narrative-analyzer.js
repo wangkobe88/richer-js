@@ -137,11 +137,39 @@ class NarrativeAnalyzer {
   }
 
   displayResult(data) {
-    const { token, twitter, llmAnalysis, meta } = data;
+    const { token, twitter, llmAnalysis, meta, debugInfo } = data;
 
     // 调试日志
     console.log('[NarrativeAnalyzer] displayResult called');
     console.log('[NarrativeAnalyzer] meta:', meta);
+    console.log('[NarrativeAnalyzer] llmAnalysis:', llmAnalysis);
+
+    // 显示识别的实体（如果有）
+    const entitiesDiv = document.getElementById('entitiesInfo');
+    if (entitiesDiv) {
+      // 优先从llmAnalysis.entities读取（Stage 1的entities），其次从rawOutput读取
+      const entities = llmAnalysis.entities || llmAnalysis.rawOutput?.entities;
+      console.log('[NarrativeAnalyzer] entities:', entities);  // 调试日志
+      console.log('[NarrativeAnalyzer] llmAnalysis:', llmAnalysis);  // 调试日志
+      if (entities && Object.keys(entities).length > 0) {
+        const analysisStage = debugInfo?.analysisStage;
+        let entitiesHtml = '<div style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 10px;">';
+        entitiesHtml += `<strong>📋 LLM识别的实体${analysisStage === 1 ? ' (Stage 1)' : ''}：</strong><br>`;
+        for (const [tweetType, entityList] of Object.entries(entities)) {
+          const label = tweetType === 'tweet1' ? '主推文' :
+                       tweetType === 'quoted_tweet' ? '引用推文' :
+                       tweetType === 'website_tweet' ? 'Website推文' :
+                       tweetType === 'website' ? 'Website' :
+                       tweetType === 'amazon' ? 'Amazon' : tweetType;
+          entitiesHtml += `<div style="margin-left: 10px; margin-top: 5px;"><span style="color: #666;">${label}:</span> ${Array.isArray(entityList) ? entityList.join(', ') : entityList}</div>`;
+        }
+        entitiesHtml += '</div>';
+        entitiesDiv.innerHTML = entitiesHtml;
+      } else {
+        // 没有entities时显示提示
+        entitiesDiv.innerHTML = '<div style="color: #999; font-size: 12px; margin-top: 5px;">无实体数据（可能需要重新分析）</div>';
+      }
+    }
 
     // 显示代币信息
     document.getElementById('tokenSymbol').textContent = token.symbol || '-';
@@ -234,8 +262,7 @@ class NarrativeAnalyzer {
       }
     }
     // 显示分析阶段（从 debugInfo 获取）
-    const debugInfo = data.debugInfo || {};
-    if (debugInfo.analysisStage !== undefined) {
+    if (debugInfo && debugInfo.analysisStage !== undefined) {
       const stageText = debugInfo.analysisStage === 1 ? 'Stage 1 (低质量检测)' :
                        debugInfo.analysisStage === 2 ? 'Stage 2 (详细评分)' :
                        debugInfo.analysisStage === 0 ? '单阶段模式 (V7.23)' : `Stage ${debugInfo.analysisStage}`;

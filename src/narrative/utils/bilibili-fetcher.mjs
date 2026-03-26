@@ -16,12 +16,35 @@ export class BilibiliFetcher {
    * 支持格式：
    * - bilibili.com/video/BVID (bvid)
    * - bilibili.com/video/avID (aid)
-   * - b23.tv/ID (短链接)
+   * - b23.tv/ID (短链接，需解析)
    * @param {string} url - Bilibili URL
-   * @returns {Object|null} { bvid: string, aid: string } 或 null
+   * @returns {Promise<Object|null>} { bvid: string, aid: string } 或 null
    */
-  static extractVideoId(url) {
+  static async extractVideoId(url) {
     if (!url) return null;
+
+    // 检查是否是短链接（b23.tv）
+    if (url.includes('b23.tv')) {
+      try {
+        console.log('[BilibiliFetcher] 检测到短链接，尝试解析...');
+        const response = await fetch(url, {
+          redirect: 'follow',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        // 获取重定向后的真实URL
+        const realUrl = response.url || url;
+        console.log('[BilibiliFetcher] 短链接解析为:', realUrl);
+
+        // 从真实URL中提取视频ID（递归调用）
+        return await this.extractVideoId(realUrl);
+      } catch (error) {
+        console.warn('[BilibiliFetcher] 短链接解析失败:', error.message);
+        return null;
+      }
+    }
 
     // BV 号格式: BVxxxxxx
     const bvMatch = url.match(/bilibili\.com\/video\/(BV[\w]+)/);
@@ -33,13 +56,6 @@ export class BilibiliFetcher {
     const avMatch = url.match(/bilibili\.com\/video\/av(\d+)/);
     if (avMatch) {
       return { bvid: null, aid: avMatch[1] };
-    }
-
-    // 短链接 b23.tv (需要重定向后才能获取真实 ID，暂不支持)
-    const b23Match = url.match(/b23\.tv\/([\w]+)/);
-    if (b23Match) {
-      console.warn('[BilibiliFetcher] 短链接暂不支持:', url);
-      return null;
     }
 
     return null;
@@ -144,7 +160,7 @@ export class BilibiliFetcher {
       return null;
     }
 
-    const videoId = this.extractVideoId(url);
+    const videoId = await this.extractVideoId(url);
     if (!videoId) {
       console.warn('[BilibiliFetcher] 无法提取视频 ID:', url);
       return null;

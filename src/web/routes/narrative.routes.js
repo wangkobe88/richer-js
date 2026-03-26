@@ -56,6 +56,7 @@ router.get('/result/:address', async (req, res) => {
   try {
     const { address } = req.params;
     const { NarrativeRepository } = await import('../../narrative/db/NarrativeRepository.mjs');
+    const Analyzer = await loadAnalyzer();
 
     const result = await NarrativeRepository.findByAddress(address);
 
@@ -66,11 +67,12 @@ router.get('/result/:address', async (req, res) => {
       });
     }
 
-    // 直接返回数据库记录，保持原始结构
-    // 前端需要 is_valid, llm_category 等字段
+    // 使用formatResult格式化数据，与analyze接口保持一致
+    const formattedResult = Analyzer.formatResult(result);
+
     res.json({
       success: true,
-      data: result
+      data: formattedResult
     });
   } catch (error) {
     console.error('获取结果失败:', error);

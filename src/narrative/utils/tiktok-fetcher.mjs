@@ -11,11 +11,35 @@ const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/tiktok/get-post-detail/v1
  * 支持格式：
  * - https://www.tiktok.com/@username/video/1234567890
  * - https://tiktok.com/@username/video/1234567890
+ * - https://vm.tiktok.com/CODE (短链接，需解析)
  * @param {string} url - TikTok URL
- * @returns {string|null} 视频ID
+ * @returns {Promise<string|null>} 视频ID
  */
-function extractTikTokVideoId(url) {
+async function extractTikTokVideoId(url) {
   if (!url) return null;
+
+  // 检查是否是短链接（vm.tiktok.com）
+  if (url.includes('vm.tiktok.com')) {
+    try {
+      console.log('[TikTokFetcher] 检测到短链接，尝试解析...');
+      const response = await fetch(url, {
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      // 获取重定向后的真实URL
+      const realUrl = response.url || url;
+      console.log('[TikTokFetcher] 短链接解析为:', realUrl);
+
+      // 从真实URL中提取视频ID（递归调用）
+      return await extractTikTokVideoId(realUrl);
+    } catch (error) {
+      console.warn('[TikTokFetcher] 短链接解析失败:', error.message);
+      return null;
+    }
+  }
 
   // 标准格式：/@username/video/1234567890
   const standardMatch = url.match(/tiktok\.com\/@[\w.-]+\/video\/(\d+)/);
@@ -65,7 +89,7 @@ export async function fetchTikTokVideoInfo(url) {
 
   try {
     // 提取视频ID
-    const videoId = extractTikTokVideoId(url);
+    const videoId = await extractTikTokVideoId(url);
 
     if (!videoId) {
       console.warn('[TikTokFetcher] 无法提取视频ID:', url);
