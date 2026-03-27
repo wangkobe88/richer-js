@@ -1446,8 +1446,11 @@ export class NarrativeAnalyzer {
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     console.log(`[NarrativeAnalyzer] 开始调用LLM API... 模型: ${model}`);
+    console.log(`[NarrativeAnalyzer] Prompt 长度: ${prompt.length} 字符`);
+    console.log(`[NarrativeAnalyzer] Prompt 前500字符: ${prompt.substring(0, 500)}`);
 
     try {
+      console.log('[NarrativeAnalyzer] 发送 fetch 请求...');
       const response = await fetch(`${apiUrl}/chat/completions`, {
         method: 'POST',
         headers: {
