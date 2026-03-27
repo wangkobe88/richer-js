@@ -138,7 +138,7 @@ export class NarrativeAnalyzer {
     console.log('[NarrativeAnalyzer] 数据获取完成');
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
-    const preCheckResult = await this.performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo }, { ignoreExpired });
+    const preCheckResult = await this.performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo }, githubInfo, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;
@@ -336,7 +336,7 @@ export class NarrativeAnalyzer {
    * @param {boolean} options.ignoreExpired - 是否忽略过期时间限制
    * @returns {Object|null} 如果触发预检查规则，返回预设结果；否则返回null
    */
-  static async performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls = {}, videoInfos = {}, options = {}) {
+  static async performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls = {}, videoInfos = {}, githubInfo = null, options = {}) {
     const { ignoreExpired = false } = options;
     const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo } = videoInfos;
 
@@ -365,7 +365,9 @@ export class NarrativeAnalyzer {
     }
 
     // 规则1.1：通过账号发币且粉丝数/发帖数过少检查
+    // 【已注释】出现反例：小粉丝账号也可能有潜力
     // 如果只是账号链接（无推文内容），且粉丝数少于100或发帖数少于10，缺乏传播基础
+    /*
     const isAccountOnly = twitterInfo?.type === 'account' && !twitterInfo?.text;
     const followersCount = twitterInfo?.followers_count || twitterInfo?.author_followers_count || 0;
     const statusesCount = twitterInfo?.statuses_count || 0;
@@ -423,8 +425,43 @@ export class NarrativeAnalyzer {
         };
       }
     }
+    */
 
-    // 规则1.5：应用商店链接检查
+    // 规则1.5：项目币-账号名匹配检查
+    // 如果是账号类型，说明是项目币，发展情况不明
+    // 如果账号名与代币名匹配，返回 unrated（无法评估项目发展潜力）
+    if (twitterInfo?.type === 'account') {
+      const tokenSymbol = (tokenData.symbol || '').toLowerCase().trim();
+      const accountScreenName = (twitterInfo.screen_name || '').toLowerCase().trim();
+      const accountName = (twitterInfo.name || '').toLowerCase().trim();
+
+      // 匹配函数：检查两个字符串是否匹配（包含/被包含/去掉空格匹配）
+      const isMatch = (str1, str2) => {
+        if (!str1 || !str2) return false;
+        // 直接包含
+        if (str1.includes(str2) || str2.includes(str1)) return true;
+        // 去掉空格、下划线、横线后匹配
+        const clean1 = str1.replace(/[\s_\-]/g, '');
+        const clean2 = str2.replace(/[\s_\-]/g, '');
+        return clean1.includes(clean2) || clean2.includes(clean1);
+      };
+
+      // 检查代币名与账号名是否匹配
+      if (isMatch(tokenSymbol, accountScreenName) || isMatch(tokenSymbol, accountName)) {
+        const screenName = twitterInfo.screen_name || accountScreenName;
+        console.log(`[NarrativeAnalyzer] 预检查触发: 项目币账号名匹配 (代币:${tokenSymbol}, 账号:@${screenName})`);
+        return {
+          category: 'unrated',
+          reasoning: `项目币账号名匹配（@${screenName}），发展情况不明，无法评估meme潜力`,
+          scores: null,
+          total_score: null,
+          preCheckTriggered: true,
+          preCheckReason: 'project_account_match'
+        };
+      }
+    }
+
+    // 规则1.6：应用商店链接检查
     // 应用商店App不适合构建meme币（产品而非事件，缺乏传播属性）
     const appStoreDomains = [
       'apps.apple.com',           // Apple App Store
@@ -457,7 +494,7 @@ export class NarrativeAnalyzer {
           };
         }
 
-        // 规则1.6：微信链接检查（已注释，存在反例）
+        // 规则1.7：微信链接检查（已注释，存在反例）
         // 微信文章无法在Web3良好传播（封闭生态，无法分享到外网）
         // const wechatPatterns = [
         //   'mp.weixin.qq.com',      // 微信公众号文章
@@ -554,6 +591,27 @@ export class NarrativeAnalyzer {
       console.log('[NarrativeAnalyzer] 忽略过期时间限制（ignoreExpired=true）');
     }
 
+    // 规则2.5：币安相关检查
+    // 如果代币名 + 任何语料都包含币安关键词，返回unrated（项目币，发展情况不明）
+    const binanceCheck = this._checkBinanceRelated(tokenData, {
+      twitterInfo,
+      websiteInfo,
+      classifiedUrls,
+      extractedInfo
+    });
+
+    if (binanceCheck.isBinanceRelated) {
+      console.log(`[NarrativeAnalyzer] 币安相关，返回unrated: ${binanceCheck.reason}`);
+      return {
+        category: 'unrated',
+        reasoning: `${binanceCheck.reason}，项目币发展情况不明，无法评估meme潜力`,
+        scores: null,
+        total_score: null,
+        preCheckTriggered: true,
+        preCheckReason: 'binance_related'
+      };
+    }
+
     // 规则3：视频传播力检查（有视频时直接判断，不走LLM）
     // 优先级：Bilibili > 抖音 > TikTok > YouTube
     const videoPriority = [
@@ -627,57 +685,54 @@ export class NarrativeAnalyzer {
       }
     }
 
-    // 规则4：数据不足 → unrated
-    // 同时满足以下条件时，没有足够的信息进行评估
-    const hasTwitterInfo = twitterInfo && (twitterInfo.text || twitterInfo.type === 'account');
-    const hasWebsite = extractedInfo && extractedInfo.website;
-    const hasIntro = extractedInfo && (extractedInfo.intro_en || extractedInfo.intro_cn);
-    const isIntroSimple = !hasIntro || (
-      (extractedInfo.intro_en || '').length < 20 &&
-      (extractedInfo.intro_cn || '').length < 20
+    // 规则4：公开信息检查（基于 classifiedUrls）
+    // 区分两种情况：没有公开信息（unrated） vs 有信息但失效（low）
+
+    // 公开信息平台（排除 Telegram/Discord 通讯应用）
+    const publicUrlPlatforms = ['twitter', 'weibo', 'youtube', 'tiktok', 'douyin', 'bilibili', 'github', 'amazon', 'websites'];
+
+    // 检查是否有任何公开URL
+    const hasAnyPublicUrl = publicUrlPlatforms.some(platform =>
+      classifiedUrls[platform] && classifiedUrls[platform].length > 0
     );
 
-    if (!hasTwitterInfo && !hasWebsite && isIntroSimple) {
-      console.log('[NarrativeAnalyzer] 规则4触发: 数据不足（无推文、无website、intro简单）');
-      return {
-        category: 'unrated',
-        reasoning: '数据不足，无法评估叙事质量（缺少推文、网站等核心信息）',
-        scores: null,
-        total_score: null,
-        preCheckTriggered: true,
-        preCheckReason: 'insufficient_data'
-      };
-    }
-
-    // 规则4.5：没有有效公开信息 → unrated
-    // 没有普通网站、Twitter、微博、推文、视频、Amazon等公开信息来源
-    // （Telegram/Discord等通讯应用链接不计入有效公开信息）
-
-    // 检查是否有有效公开信息来源
-    const hasValidPublicInfo = !!extractedInfo?.website ||
-                               !!extractedInfo?.twitter_url ||
-                               !!extractedInfo?.weibo_url ||
-                               (twitterInfo?.text || twitterInfo?.type === 'tweet') ||
-                               youtubeInfo || douyinInfo || bilibiliInfo || tiktokInfo || amazonInfo;
-
-    // 如果没有任何有效公开信息来源 → unrated
-    if (!hasValidPublicInfo) {
+    // 情况A：没有公开URL → unrated
+    if (!hasAnyPublicUrl) {
       const hasTelegram = !!(classifiedUrls.telegram && classifiedUrls.telegram.length > 0);
       const hasDiscord = !!(classifiedUrls.discord && classifiedUrls.discord.length > 0);
       const reason = (hasTelegram || hasDiscord)
-        ? '仅有通讯应用链接（如电报/Discord），缺少公开可验证的信息来源'
-        : '缺少任何有效的公开信息来源（网站、社交媒体、视频等）';
+        ? '仅有通讯应用链接（Telegram/Discord），缺少公开可验证的叙事信息'
+        : '缺少任何有效的公开信息来源（网站、社交媒体、视频等），无法评估叙事';
 
-      console.log(`[NarrativeAnalyzer] 规则4.5触发: ${reason}`);
+      console.log(`[NarrativeAnalyzer] 规则4触发: ${reason}`);
       return {
         category: 'unrated',
         reasoning: reason,
         scores: null,
         total_score: null,
         preCheckTriggered: true,
-        preCheckReason: 'no_valid_public_info'
+        preCheckReason: 'no_public_info'
       };
     }
+
+    // 情况B：有公开URL，检查数据是否获取成功
+    const fetchResults = { twitterInfo, websiteInfo, extractedInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo };
+    const hasValidData = this._hasValidDataForAnalysis(fetchResults);
+
+    if (!hasValidData) {
+      // 有URL但都没获取到数据 → low
+      console.log(`[NarrativeAnalyzer] 规则4触发: 有公开信息但内容获取失败或已失效`);
+      return {
+        category: 'low',
+        reasoning: '有公开信息链接但内容获取失败或已失效（推文删除、网站无法访问、视频下架等），叙事价值已耗尽',
+        scores: { credibility: 5, virality: 5 },
+        total_score: 10,
+        preCheckTriggered: true,
+        preCheckReason: 'public_info_fetch_failed'
+      };
+    }
+
+    // 有有效数据，继续后续规则检查
 
     // 规则5：高影响力推文 + 媒体 → unrated（保护可能的好叙事）
     // 检查条件：
@@ -1157,6 +1212,80 @@ export class NarrativeAnalyzer {
   }
 
   /**
+   * 检查是否是币安相关（代币名 + 任何语料都包含币安关键词）
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {Object} { isBinanceRelated: boolean, reason: string }
+   */
+  static _checkBinanceRelated(tokenData, fetchResults) {
+    const binanceKeywords = [
+      'binance', '币安', 'bnb', 'bsc',
+      'cz', '何一'  // 币安创始人
+    ];
+
+    const tokenSymbol = (tokenData.symbol || '').toLowerCase();
+
+    // 1. 检查代币名是否包含币安关键词
+    const tokenMatch = binanceKeywords.some(kw =>
+      tokenSymbol.includes(kw.toLowerCase())
+    );
+
+    if (!tokenMatch) {
+      return { isBinanceRelated: false };
+    }
+
+    // 2. 检查任何语料是否包含币安关键词（且数据获取成功）
+    const { twitterInfo, websiteInfo, classifiedUrls, extractedInfo } = fetchResults;
+
+    // 2.1 检查推文内容（必须有实际获取到的内容）
+    if (twitterInfo?.text && twitterInfo.text.trim().length > 0) {
+      const text = twitterInfo.text.toLowerCase();
+      if (binanceKeywords.some(kw => text.includes(kw.toLowerCase()))) {
+        return {
+          isBinanceRelated: true,
+          reason: `代币名"${tokenSymbol}" + 推文内容包含币安关键词`
+        };
+      }
+    }
+
+    // 2.2 检查推特账号信息（必须有实际获取到的账号数据）
+    if (twitterInfo?.type === 'account' && twitterInfo.screen_name) {
+      const screenName = twitterInfo.screen_name.toLowerCase();
+      const name = (twitterInfo.name || '').toLowerCase();
+      const description = (twitterInfo.description || '').toLowerCase();
+
+      // 检查账号名、显示名、简介
+      if (binanceKeywords.some(kw =>
+        screenName.includes(kw.toLowerCase()) ||
+        name.includes(kw.toLowerCase()) ||
+        description.includes(kw.toLowerCase())
+      )) {
+        return {
+          isBinanceRelated: true,
+          reason: `代币名"${tokenSymbol}" + 推特账号信息包含币安关键词`
+        };
+      }
+    }
+
+    // 2.3 检查网站内容（必须有实际获取到的内容）
+    if (websiteInfo?.content && websiteInfo.content.trim().length > 50) {
+      const content = websiteInfo.content.toLowerCase();
+      if (binanceKeywords.some(kw => content.includes(kw.toLowerCase()))) {
+        return {
+          isBinanceRelated: true,
+          reason: `代币名"${tokenSymbol}" + 网站内容包含币安关键词`
+        };
+      }
+    }
+
+    // 注意：介绍信息（extractedInfo）不算外部数据，不检查
+    // 注意：不检查 classifiedUrls 中的URL字符串，因为URL存在不代表数据获取成功
+    // 必须有实际获取到的外部内容才算
+
+    return { isBinanceRelated: false };
+  }
+
+  /**
    * 检查是否有有效数据可供分析
    * @param {Object} fetchResults - 获取的数据结果
    * @returns {boolean} 是否有有效数据
@@ -1180,16 +1309,10 @@ export class NarrativeAnalyzer {
       if (twitterInfo.text && twitterInfo.text.trim().length > 0) {
         return true; // 有推文内容
       }
-      // 检查账号信息（即使是账号链接，账号名/粉丝数也是有效信息）
+      // 检查账号信息（只要有账号信息就算有效数据，让 LLM 来判断质量）
       if (twitterInfo.type === 'account') {
-        // 有账号描述 → 有效数据
-        if (twitterInfo.description && twitterInfo.description.trim().length > 0) {
-          return true;
-        }
-        // 粉丝数 >= 1000 → 账号有影响力，算有效数据
-        if (twitterInfo.followers_count && twitterInfo.followers_count >= 1000) {
-          return true;
-        }
+        // 只要是账号类型就算有效数据（账号名、粉丝数、发帖数都是信息）
+        return true;
       }
     }
 

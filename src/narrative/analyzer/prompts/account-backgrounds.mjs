@@ -54,6 +54,7 @@ export const HIGH_INFLUENCE_ACCOUNTS = {
   'Microsoft': 'Microsoft官方账号',
   'Google': 'Google官方账号',
   'NASA': 'NASA官方账号',
+  'NASAWallops': 'NASA Wallops（美国宇航局沃洛普斯飞行设施）',
 };
 
 /**
