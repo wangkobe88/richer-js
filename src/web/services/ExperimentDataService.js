@@ -421,10 +421,14 @@ class ExperimentDataService {
    */
   async clearExperimentData(experimentId) {
     try {
-      const tables = ['experiment_time_series_data', 'trades', 'strategy_signals', 'portfolio_snapshots', 'experiment_tokens', 'token_holders', 'early_participant_trades'];
-      const results = [];
+      // 时序数据表使用分批删除（数据量大）
+      const timeSeriesResult = await this._deleteTableInBatches(experimentId, 'experiment_time_series_data', 500);
 
-      for (const table of tables) {
+      // 其他表直接删除（数据量小）
+      const smallTables = ['trades', 'strategy_signals', 'portfolio_snapshots', 'experiment_tokens', 'token_holders', 'early_participant_trades'];
+      const results = [timeSeriesResult];
+
+      for (const table of smallTables) {
         const { error } = await this.supabase
           .from(table)
           .delete()
@@ -438,14 +442,85 @@ class ExperimentDataService {
       }
 
       const successCount = results.filter(r => r.success).length;
-      console.log(`清理实验数据完成: ${successCount}/${tables.length} 个表成功`);
+      console.log(`清理实验数据完成: ${successCount}/${results.length} 个表成功`);
 
-      return successCount === tables.length;
+      return successCount === results.length;
 
     } catch (error) {
       console.error('清理实验数据失败:', error);
       return false;
     }
+  }
+
+  /**
+   * 分批删除表数据（避免超时）
+   * @private
+   * @param {string} experimentId - 实验ID
+   * @param {string} table - 表名
+   * @param {number} batchSize - 批次大小
+   * @returns {Promise<Object>} 删除结果
+   */
+  async _deleteTableInBatches(experimentId, table, batchSize = 500) {
+    const maxAttempts = 3;
+    let attempt = 0;
+    let totalDeleted = 0;
+
+    while (attempt < maxAttempts) {
+      attempt++;
+
+      try {
+        // 检查剩余数据
+        const { count, error: countError } = await this.supabase
+          .from(table)
+          .select('*', { count: 'exact', head: true })
+          .eq('experiment_id', experimentId);
+
+        if (countError) {
+          console.warn(`   检查 ${table} 剩余数据失败: ${countError.message}`);
+        }
+
+        const remaining = count || 0;
+
+        if (remaining === 0) {
+          console.log(`✅ ${table}: 全部删除完成 (${totalDeleted} 条)`);
+          return { table, success: true, deletedCount: totalDeleted };
+        }
+
+        // 删除一批数据（必须指定 order）
+        const { error } = await this.supabase
+          .from(table)
+          .delete()
+          .eq('experiment_id', experimentId)
+          .order('id', { ascending: true })
+          .limit(batchSize);
+
+        if (error) {
+          console.warn(`   ${table} 批次删除失败: ${error.message}`);
+          if (attempt >= maxAttempts) {
+            return { table, success: false, error: error.message };
+          }
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+
+        totalDeleted += batchSize;
+        if (totalDeleted > remaining) totalDeleted = remaining;
+
+        console.log(`   ${table}: 进度 ${totalDeleted}/${remaining}`);
+
+        // 重置尝试次数
+        attempt = 0;
+
+      } catch (err) {
+        console.error(`   ${table} 删除异常: ${err.message}`);
+        if (attempt >= maxAttempts) {
+          return { table, success: false, error: err.message };
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    return { table, success: false, error: '超过最大尝试次数' };
   }
 
   /**

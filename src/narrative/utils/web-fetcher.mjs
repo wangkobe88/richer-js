@@ -121,6 +121,16 @@ export function isFetchableUrl(url) {
     /^https?:\/\/(www\.)?douyin\.com/,            // 视频网站
     /^https?:\/\/(www\.)?bilibili\.com/,          // 视频网站
     /^https?:\/\/(www\.)?b23\.tv/,                // B站短链接
+    // DEX（去中心化交易所）交易页面
+    /^https?:\/\/(www\.)?pancakeswap\.finance/,   // PancakeSwap
+    /^https?:\/\/(www\.)?pancakeswap\.com/,       // PancakeSwap
+    /^https?:\/\/(www\.)?uniswap\.org/,           // Uniswap
+    /^https?:\/\/(www\.)?sushiswap\.com/,         // SushiSwap
+    /^https?:\/\/(www\.)?curve\.fi/,              // Curve
+    /^https?:\/\/(www\.)?1inch\.io/,              // 1inch
+    /^https?:\/\/(www\.)?raydium\.io/,            // Raydium (Solana)
+    /^https?:\/\/(www\.)?jupiter\.ag/,            // Jupiter (Solana)
+    /^https?:\/\/(www\.)?orca\.so/,               // Orca (Solana)
     /\.(png|jpe?g|gif|bmp|webp|svg|ico)$/i,       // 图片文件
     /\.(mp4|mov|avi|mkv|webm|flv)$/i,             // 视频文件
     /\.(mp3|wav|ogg|flac|aac)$/i,                  // 音频文件

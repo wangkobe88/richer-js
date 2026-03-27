@@ -41,6 +41,8 @@ export const HIGH_INFLUENCE_ACCOUNTS = {
   'BinanceResearch': 'Binance Research（币安研究）',
 
   // 顶级交易平台
+  'pumpfun': 'Pump.fun官方账号（Solana最大meme币发行平台，64万+粉丝，极高影响力）',
+  'pump.fun': 'Pump.fun官方账号（Solana最大meme币发行平台）',
   'moonshot': 'Moonshot（顶级meme交易平台，Jupiter旗下移动端App）',
   'Four_FORM_': 'FourMeme平台官方账号（BSC链发币平台）',
 

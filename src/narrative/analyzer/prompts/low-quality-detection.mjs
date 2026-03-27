@@ -163,9 +163,15 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
      - 示例："链上 Binance"、"XX牛逼"、"buy XX"、"🚀 XX"
      - 这些内容去掉代币名后没有任何信息价值
    - **⛔ 豁免：以下情况不算空洞**：
-     - **知名机构/品牌的官方公告**：Binance/Apple/Google等官方账号发布产品/功能公告
+     - **知名meme币发行平台的官方账号背书**：Pump.fun、pump.fun、Four.meme等官方账号的推文
+       - 示例：Pump.fun官方账号（@Pumpfun）发推 → 非空洞（平台背书本身就是事件）
+       - 理由：这些平台是meme币发行的核心阵地，官方账号推文代表平台认可
+     - **知名机构/品牌的官方公告**：Binance/Coinbase/Apple/Google等官方账号发布产品/功能公告
        - 示例：Binance官方推文"Binance Ai Pro. Coming soon!" → 非空洞（官方产品公告）
        - 理由：知名机构的产品发布本身就是有信息价值的事件
+     - **粉丝团口号式情感表达**：使用可复用模板表达强烈支持/情感认同
+       - 示例："if XX have a million fans, then I am one of them..." → 非空洞（经典粉丝口号）
+       - 理由：这是粉丝文化中常见的情感表达方式，有独立的传播价值
      - **具体事件描述**：谁做了什么、发生了什么
      - **故事/情节**：角色、情节、故事发展
      - **数据/分析**：具体数据、分析、观点

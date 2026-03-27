@@ -49,6 +49,11 @@ export function classifyUrl(url) {
     return null; // 图片链接不计入任何分类
   }
 
+  // 验证必须是有效的URL格式（必须以 http:// 或 https:// 开头）
+  if (!/^https?:\/\//i.test(url)) {
+    return null; // 非URL格式（如 "pancake"）不作为网站处理
+  }
+
   const normalizedUrl = url.toLowerCase();
 
   // Twitter/X (推文) - 优先级最高
@@ -104,6 +109,11 @@ export function classifyUrl(url) {
   // Discord
   if (_isDiscordUrl(url)) {
     return { type: 'server', platform: 'discord', priority: 2, url };
+  }
+
+  // PancakeSwap 交易页面（DEX链接，不需要作为网站内容获取）
+  if (_isDexUrl(url)) {
+    return null; // 过滤掉DEX交易链接
   }
 
   // 默认为普通网站
@@ -283,6 +293,17 @@ function _isTelegramUrl(url) {
 function _isDiscordUrl(url) {
   // 匹配 discord.com 或 discord.gg
   return /discord\.com|discord\.gg/i.test(url);
+}
+
+function _isPancakeSwapUrl(url) {
+  // 匹配 PancakeSwap 交易页面
+  return /pancakeswap\.finance|pancakeswap\.com/i.test(url);
+}
+
+function _isDexUrl(url) {
+  // 匹配常见DEX（去中心化交易所）交易页面
+  // 这些链接不需要作为网站内容获取，只是交易入口
+  return /pancakeswap\.finance|pancakeswap\.com|uniswap\.org|sushiswap\.com|curve\.fi|1inch\.io|raydium\.io|jupiter\.ag|orca\.so/i.test(url);
 }
 
 function _selectBestUrlForPlatform(urls, preferType) {
