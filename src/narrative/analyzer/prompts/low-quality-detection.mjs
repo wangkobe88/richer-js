@@ -60,7 +60,8 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
     twitterInfo = null,
     websiteInfo = null,
     amazonInfo = null,
-    extractedInfo = null
+    extractedInfo = null,
+    classifiedUrls = null
   } = fetchResults;
 
   const sections = [];
@@ -72,8 +73,63 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 - 代币名称：${tokenData.symbol}
 - 代币地址：${tokenData.address}`);
 
-  if (extractedInfo.website) sections[0] += `\n- 网站：${extractedInfo.website}`;
-  // 不显示intro，避免LLM被intro内容误导判断关联性
+  // 显示介绍信息
+  if (extractedInfo?.intro_en) sections[0] += `\n- 介绍（英文）：${extractedInfo.intro_en}`;
+  if (extractedInfo?.intro_cn) sections[0] += `\n- 介绍（中文）：${extractedInfo.intro_cn}`;
+
+  // 显示所有分类的URL（从 classifiedUrls 获取）
+  if (classifiedUrls) {
+    // Twitter 推文
+    const tweets = classifiedUrls.twitter?.filter(u => u.type === 'tweet') || [];
+    if (tweets.length > 0) {
+      sections[0] += `\n- Twitter推文：${tweets.map(u => u.url).join(', ')}`;
+    }
+    // Twitter 账号
+    const accounts = classifiedUrls.twitter?.filter(u => u.type === 'account') || [];
+    if (accounts.length > 0) {
+      sections[0] += `\n- Twitter账号：${accounts.map(u => u.url).join(', ')}`;
+    }
+    // 微博
+    if (classifiedUrls.weibo?.length > 0) {
+      sections[0] += `\n- 微博：${classifiedUrls.weibo.map(u => u.url).join(', ')}`;
+    }
+    // YouTube
+    if (classifiedUrls.youtube?.length > 0) {
+      sections[0] += `\n- YouTube：${classifiedUrls.youtube.map(u => u.url).join(', ')}`;
+    }
+    // TikTok
+    if (classifiedUrls.tiktok?.length > 0) {
+      sections[0] += `\n- TikTok：${classifiedUrls.tiktok.map(u => u.url).join(', ')}`;
+    }
+    // 抖音
+    if (classifiedUrls.douyin?.length > 0) {
+      sections[0] += `\n- 抖音：${classifiedUrls.douyin.map(u => u.url).join(', ')}`;
+    }
+    // Bilibili
+    if (classifiedUrls.bilibili?.length > 0) {
+      sections[0] += `\n- Bilibili：${classifiedUrls.bilibili.map(u => u.url).join(', ')}`;
+    }
+    // GitHub
+    if (classifiedUrls.github?.length > 0) {
+      sections[0] += `\n- GitHub：${classifiedUrls.github.map(u => u.url).join(', ')}`;
+    }
+    // Amazon
+    if (classifiedUrls.amazon?.length > 0) {
+      sections[0] += `\n- Amazon：${classifiedUrls.amazon.map(u => u.url).join(', ')}`;
+    }
+    // 普通网站
+    if (classifiedUrls.websites?.length > 0) {
+      sections[0] += `\n- 网站：${classifiedUrls.websites.map(u => u.url).join(', ')}`;
+    }
+    // Telegram
+    if (classifiedUrls.telegram?.length > 0) {
+      sections[0] += `\n- Telegram：${classifiedUrls.telegram.map(u => u.url).join(', ')}`;
+    }
+    // Discord
+    if (classifiedUrls.discord?.length > 0) {
+      sections[0] += `\n- Discord：${classifiedUrls.discord.map(u => u.url).join(', ')}`;
+    }
+  }
 
   // 2. 账号背景信息
   const backgrounds = generateAccountBackgroundsPrompt(twitterInfo);
@@ -94,32 +150,41 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
   // 6. 低质量场景判断标准
   sections.push(`【🚨 低质量场景判断标准】
 
-🛑 **步骤0：内容空洞检查（最先执行）**
+🛑 **步骤0：内容空洞/无意义事件检查（最先执行）**
 
-⚠️ **如果所有语料内容都是空洞的，直接返回low，无需继续判断！**
+⚠️ **如果所有语料都空洞或事件无意义，直接返回low，无需继续判断！**
 
 **0. 空洞内容/无实质内容**：所有语料都是空洞的，缺乏具体事件/故事/观点
    - ⚠️ **核心判断：去掉代币名后，语料是否还有独立的信息价值？**
    - 如果所有语料都空洞 → **立即返回pass=false, scenario=0**
-   - 如果有任何语料不空洞 → **继续执行步骤1**
+   - 如果有任何语料不空洞 → **继续执行0.1检查**
    - **空洞语料的特征**：
      - 只是提到某个名称 + 简单修饰词/表情，无具体内容
-     - 示例："链上 Binance"、"XX上线"、"XX来了"、"XX is live"
-     - 示例："XX牛逼"、"buy XX"、"🚀 XX"
+     - 示例："链上 Binance"、"XX牛逼"、"buy XX"、"🚀 XX"
      - 这些内容去掉代币名后没有任何信息价值
-   - **非空洞语料的特征**：
-     - 有具体事件描述：谁做了什么、发生了什么
-     - 有故事/情节：角色、情节、故事发展
-     - 有数据/分析：具体数据、分析、观点
-     - 示例："Netflix宣布开拍CZ传记电影" → 有具体事件
-     - 示例："XX的新功能让交易速度提升10倍" → 有数据和分析
-     - 示例："CZ回应了关于XXX的争议" → 有具体事件
+   - **⛔ 豁免：以下情况不算空洞**：
+     - **知名机构/品牌的官方公告**：Binance/Apple/Google等官方账号发布产品/功能公告
+       - 示例：Binance官方推文"Binance Ai Pro. Coming soon!" → 非空洞（官方产品公告）
+       - 理由：知名机构的产品发布本身就是有信息价值的事件
+     - **具体事件描述**：谁做了什么、发生了什么
+     - **故事/情节**：角色、情节、故事发展
+     - **数据/分析**：具体数据、分析、观点
    - **判断标准（所有语料都满足才算空洞）**：
      1. **无具体事件**：没有事件描述（谁做了什么、发生了什么）
      2. **无故事/情节**：没有角色、情节、故事发展
      3. **无数据/分析**：没有具体数据、分析、观点
      4. **独立测试失败**：去掉代币名后，语料无信息价值
-   - 理由：内容空洞 = 无法形成meme传播 = 直接low，不需要判断是否硬蹭
+     5. **⛔ 非知名机构公告**：不是Binance/Coinbase/Apple/Google等知名机构的官方公告
+
+**0.1 无意义事件检查**：
+   - ⚠️ **如果所有语料的事件都没有新闻价值或传播价值 → 立即返回pass=false, scenario=0**
+   - **无意义事件的类型**：
+     - **平台日常运营**：新池子、上架新币、常规功能更新 → 无意义
+     - **强行关联的弱逻辑**：仅凭首字母相同、谐音等弱关联 → 无意义
+     - **琐碎小事**：日常操作、无意义的巧合 → 无意义
+   - **示例**："aster新池子alien"、"都是a开头所以alien应该在aster上" → 触发
+   - **排除：真正有意义的平台事件**（重大发布、战略升级、大人物动态）
+   - 理由：事件无意义 = 无法形成meme传播 = 直接low
 
 🛑 **前置检查（步骤0通过后执行）：**
 
@@ -162,6 +227,10 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 
 步骤2：检查代币名是否在**任何语料（推文/Website/Amazon）**的核心实体中
 - ⚠️ **只做精确字符串匹配，不做推理或联想**
+- ⚠️ **必须是完整匹配**：代币名必须**完整地**出现在实体列表中才算匹配
+  - 示例：代币名"BNB Memoirs" → 实体必须包含"BNB Memoirs"才算匹配
+  - 示例：实体只有"BNB" → **不算匹配**（只是部分包含）
+  - 示例：代币名"Trump2024" → 实体包含"Trump" → **不算匹配**（必须完整包含"Trump2024"）
 - **名称匹配不分大小写**：代币名"MEMEFATHER"与语料中的"Memefather"匹配
 - **中英文对应也算匹配**：
   - **地名对应**：代币名"东莞崇英学校"与语料中的"Dongguan Chongying School"匹配
@@ -195,6 +264,8 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 步骤3：根据检查结果执行
 
 **情况A：代币名在核心实体中（不分大小写）**
+- ⚠️ **必须是完整匹配**：代币名必须**完整地**出现在实体列表中
+- ⚠️ **部分匹配不算**：代币名"BNB Memoirs"只匹配到实体"BNB" → **不算在核心实体中**
 
 **A1. 判断代币名本身是否是超大IP**
 - ⚠️ **只判断代币名本身，不看关联实体！**
@@ -223,11 +294,14 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 
 ⛔ **禁止行为**：
 - 一旦发现代币名在核心实体中且满足事件要求，**立即停止分析，直接返回pass=true**
-- **绝对不允许**在发现匹配后继续推理或判断场景1-8
+- **绝对不允许**在发现匹配后继续推理或判断场景1-10
+- **完整匹配规则**：代币名必须完整出现在实体中，部分匹配不算
+  - ❌ 错误：代币名"BNB Memoirs"只匹配到实体"BNB" → 算部分匹配，需继续判断场景
+  - ❌ 错误：代币名"Trump2024"只匹配到实体"Trump" → 算部分匹配，需继续判断场景
+  - ✅ 正确：代币名"CZ助手"匹配到实体"CZ助手" → 完整匹配，立即通过
 - 不允许因为"只是logo名字"、"被提及"等理由而忽略匹配结果
-- **任何匹配都是有效匹配**，不论代币名在语料中是如何出现的
-- **书籍标题匹配代币名 = 强关联**，属于前置检查通过，不是"硬蹭"
-- **中英文对应也算匹配**：代币名"东莞崇英学校"与"Dongguan Chongying School"是匹配的
+- **书籍标题完整匹配代币名 = 强关联**，属于前置检查通过，不是"硬蹭"
+- **中英文对应也算完整匹配**：代币名"东莞崇英学校"与"Dongguan Chongying School"是匹配的
 - ⚠️ **超大IP必须有具体事件**：CZ/Elon/Trump等必须有事件描述，只是账号/网站不算
 - 前置检查通过即pass=true，这是最终结论，不可推翻
 
@@ -235,9 +309,10 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 
 **1. 硬蹭/弱关联**：代币名借用语料中的词汇，但语料主体与代币主体不相关
    - **前提条件**：
-     - 代币名（不分大小写）不在任何语料（推文/Website/Amazon）的核心实体中
+     - 代币名（不分大小写）**完整地**不在任何语料（推文/Website/Amazon）的核心实体中
+     - ⚠️ **部分匹配不算**：代币名"BNB Memoirs"只匹配到实体"BNB" → 仍算不在核心实体中
      - **或者**：代币名是超大IP（CZ/Elon/Trump等）但**没有具体事件描述**
-   - **如果前置检查已通过（代币名在核心实体中且有具体事件），绝对不能触发此场景**
+   - **如果前置检查已通过（代币名完整匹配且有具体事件），绝对不能触发此场景**
    - **超大IP硬蹭判定**：
      - 示例：代币名"CZ"，语料只有@cz_binance账号或CZ官网链接 → 硬蹭（无具体事件）
      - 示例：代币名"Elon"，语料只有@elonmusk账号或Tesla官网 → 硬蹭（无具体事件）
@@ -248,41 +323,58 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 **2. 纯谐音梗**：只有谐音关联无实质内容
    - 示例："生菜=生财"、"Duck you=鸭你一拳" → 触发场景2
 
-**3. 泛泛情感概念**：只是借用常见词，且推文**没有具体故事/角色/情节**
+**3. 账号信息与代币无明显关联**：只有账号链接（无推文内容），且账号与代币无明显关联
+   - ⚠️ **关键判断：账号名/品牌名与代币名是否有直接或间接关联？**
+   - ❌ **无明显关联**（触发场景3）：
+     - 示例：代币名"Trump"，账号@FoxNews（Fox News是媒体，非Trump本人）
+     - 示例：代币名"AI助手"，账号@NBA（体育联盟与AI产品无关）
+     - 示例：代币名"比特币"，账号@Tesla（Tesla公司≠比特币）
+     - 理由：只是借用账号的影响力，代币与账号没有实质关系
+   - ✅ **有明显关联**（不触发场景3）：
+     - 示例：代币名"FoxNews"，账号@FoxNews → 直接关联
+     - 示例：代币名"SpaceX"，账号@Tesla → 间接关联（Elon Musk关联）
+     - 示例：代币名包含账号名的主要部分 → 直接关联
+   - **判断标准**：
+     1. 代币名是否包含账号名/品牌名？包含 → 有关联
+     2. 账号简介是否提及代币相关的实体？提及 → 有关联
+     3. 账号所属机构与代币实体是否有业务/品牌关系？有关系 → 有关联
+     4. 如果以上都不满足，且代币名包含其他知名实体（如Trump、Bitcoin）→ 无明显关联
+
+**4. 泛泛情感概念**：只是借用常见词，且推文**没有具体故事/角色/情节**
    - ⚠️ **关键判断：推文是否有具体的内容？**
    - ✅ **不是泛泛概念**：即使代币名是常见词（如"海豚"、"狗"、"伞"），如果推文有具体角色、情节、故事，则不是泛泛概念
      - 示例：推文"Jeremy the dolphin left the ocean to hunt"，代币名"海豚" → 不是泛泛概念（有具体角色和情节）
      - 示例：推文"THIS NARRATIVE IS INSANELY GOOD..."，代币名"海豚" → 不是泛泛概念（有具体故事描述）
      - 示例：推文"Doge meme viral"，代币名"狗" → 不是泛泛概念（有具体事件）
    - ❌ **是泛泛概念**：推文内容空洞或极少，只有代币名而无其他实质内容
-     - 示例：推文只有"遗憾"或"佛系"二字，无其他内容 → 触发场景3
-     - 示例：推文只是表达某种情感态度，无具体事件或故事 → 触发场景3
+     - 示例：推文只有"遗憾"或"佛系"二字，无其他内容 → 触发场景4
+     - 示例：推文只是表达某种情感态度，无具体事件或故事 → 触发场景4
    - **判断标准：推文是否有具体的角色、情节、事件、数据？如果没有，才是泛泛概念**
 
-**4. 大IP蹭热度**：代币名是世界级大IP但缺乏强关联证据
-   - 示例：代币名是"特朗普"，但推文只是同名，无本人提及/官方发布 → 触发场景4
+**5. 大IP蹭热度**：代币名是世界级大IP但缺乏强关联证据
+   - 示例：代币名是"特朗普"，但推文只是同名，无本人提及/官方发布 → 触发场景5
 
-**5. 功能性符号/标志**：传播力极弱的符号
-   - 示例：紧急出口标志、交通标志等 → 触发场景5
+**6. 功能性符号/标志**：传播力极弱的符号
+   - 示例：紧急出口标志、交通标志等 → 触发场景6
 
-**6. 纯报道热搜**：只报道"XX上热搜/爆火"，无具体叙事内容
-   - 示例：推文只是"这个上热搜了"，无具体内容 → 触发场景6
+**7. 纯报道热搜**：只报道"XX上热搜/爆火"，无具体叙事内容
+   - 示例：推文只是"这个上热搜了"，无具体内容 → 触发场景7
 
-**7. 语言不匹配**：推文语言与代币名称语言不匹配
-   - ⚠️ **这是底线问题：语言不匹配 = 无法传播 = 触发场景7**
-   - 示例：推文是英语（含"surprise"），代币名是日文"驚き" → 触发场景7
-   - 示例：推文是中文，代币名是泰语/韩语等非中英语言 → 触发场景7
+**8. 语言不匹配**：推文语言与代币名称语言不匹配
+   - ⚠️ **这是底线问题：语言不匹配 = 无法传播 = 触发场景8**
+   - 示例：推文是英语（含"surprise"），代币名是日文"驚き" → 触发场景8
+   - 示例：推文是中文，代币名是泰语/韩语等非中英语言 → 触发场景8
    - 理由：目标受众无法理解、无法记住、无法传播不同语言的代币名
    - ⛔ **豁免：中文⇄英文不算语言不匹配**（主体用户中英文都会，可互译）
 
-**8. 纯负面概念**：代币名是纯负面概念，缺乏meme属性
+**9. 纯负面概念**：代币名是纯负面概念，缺乏meme属性
    - ⚠️ **负面概念缺乏正向情感共鸣，用户不愿意传播持有**
-   - 示例："失业"、"破产"、"倒闭"、"经济衰退"、"裁员"等 → 触发场景8
-   - 示例："暴跌"、"崩盘"、"亏损"等 → 触发场景8
+   - 示例："失业"、"破产"、"倒闭"、"经济衰退"、"裁员"等 → 触发场景9
+   - 示例："暴跌"、"崩盘"、"亏损"等 → 触发场景9
    - 理由：纯粹负面的概念缺乏幽默、讽刺或正向的情感驱动
    - 例外：有讽刺/幽默元素的负面概念（如"躺平"、"佛系"等可自嘲的概念）
 
-**9. 纯通识知识/百科内容**：内容是历史/通识知识科普，无近期事件驱动，缺乏meme属性
+**10. 纯通识知识/百科内容**：内容是历史/通识知识科普，无近期事件驱动，缺乏meme属性
    - ⚠️ **这类内容虽然真实且关联性强，但缺乏meme的核心要素**
    - **判断标准（必须同时满足）**：
      1. **内容类型**：历史科普、百科介绍、知识讲解类内容
@@ -295,7 +387,7 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
    - **反面示例（触发场景9）**：
      - 示例：代币名"皮特托先生"，内容是"紧急出口标志起源的科普文章" → 触发场景9
      - 示例：代币名"某某发明家"，内容是"某某人物的生平百科介绍" → 触发场景9
-     - 示例：代币名"某某定律"，内容是"科学定律的知识讲解" → 触发场景9
+     - 示例：代币名"某某定律"，内容是"科学定律的知识讲解" → 触发场景10
    - **正面示例（不触发）**：
      - ✅ 如果有大IP近期喊单：CZ发推讨论安全标志 → 不触发（有事件驱动）
      - ✅ 如果有近期热点：某安全标志因新闻事件火了 → 不触发（有近期事件）
@@ -306,17 +398,17 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 
 只返回JSON，不要其他内容：
 
-**步骤0触发：内容空洞**
-{"pass": false, "scenario": 0, "reason": "所有语料内容空洞，无实质内容", "entities": {...}}
+**步骤0触发：内容空洞/无意义事件**
+{"pass": false, "scenario": 0, "reason": "所有语料内容空洞/事件无意义", "entities": {...}}
 
 **情况A：前置检查通过（代币名在核心实体中）**
 {"pass": true, "scenario": 0, "reason": "代币名在核心实体中", "entities": {"tweet1": ["实体1", ...], "quoted_tweet": [...], "website": [...], "amazon": [...]}}
 
-**情况B：前置检查未通过，但场景1-9都没触发**
+**情况B：前置检查未通过，但场景1-10都没触发**
 {"pass": true, "scenario": 0, "reason": "无上述低质量场景", "entities": {...}}
 
-**情况C：触发低质量场景（scenario必须是1-9）**
-{"pass": false, "scenario": 1-9, "reason": "说明理由", "entities": {...}}
+**情况C：触发低质量场景（scenario必须是1-10）**
+{"pass": false, "scenario": 1-10, "reason": "说明理由", "entities": {...}}
 
 ⚠️ **entities字段必须包含每条语料的核心实体列表**：
 - "tweet1": 主推文的实体列表
@@ -335,7 +427,7 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 
 - 如果选择其他场景，reason简短说明即可
 
-⚠️ **注意：scenario必须是1-9的数字**`);
+⚠️ **注意：scenario必须是1-10的数字**`);
 
   return sections.filter(s => s).join('\n\n');
 }

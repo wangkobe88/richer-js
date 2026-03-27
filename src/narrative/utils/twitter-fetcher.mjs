@@ -229,6 +229,7 @@ export class TwitterFetcher {
       const rawCreatedAt = userInfo.created_at || '';
       return {
         type: 'account',
+        id: userInfo.id || '',
         screen_name: userInfo.screen_name || '',
         name: userInfo.name || '',
         description: userInfo.description || '',

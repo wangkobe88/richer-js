@@ -44,6 +44,11 @@ export function classifyUrl(url) {
     return null;
   }
 
+  // 过滤图片链接（代币logo等）
+  if (_isImageUrl(url)) {
+    return null; // 图片链接不计入任何分类
+  }
+
   const normalizedUrl = url.toLowerCase();
 
   // Twitter/X (推文) - 优先级最高
@@ -91,6 +96,16 @@ export function classifyUrl(url) {
     return { type: 'product', platform: 'amazon', priority: 1, url };
   }
 
+  // Telegram
+  if (_isTelegramUrl(url)) {
+    return { type: 'channel', platform: 'telegram', priority: 2, url };
+  }
+
+  // Discord
+  if (_isDiscordUrl(url)) {
+    return { type: 'server', platform: 'discord', priority: 2, url };
+  }
+
   // 默认为普通网站
   return { type: 'website', platform: 'web', priority: 3, url };
 }
@@ -110,6 +125,8 @@ export function classifyAllUrls(urls) {
     bilibili: [],
     github: [],
     amazon: [],
+    telegram: [],     // 新增：Telegram频道/群组
+    discord: [],      // 新增：Discord服务器
     websites: []
   };
 
@@ -146,6 +163,12 @@ export function classifyAllUrls(urls) {
       case 'amazon':
         result.amazon.push(info);
         break;
+      case 'telegram':
+        result.telegram.push(info);
+        break;
+      case 'discord':
+        result.discord.push(info);
+        break;
       default:
         result.websites.push(info);
     }
@@ -170,6 +193,8 @@ export function selectBestUrls(classifiedUrls) {
       bilibili: null,
       github: null,
       amazon: null,
+      telegram: null,
+      discord: null,
       website: null
     };
   }
@@ -183,6 +208,8 @@ export function selectBestUrls(classifiedUrls) {
     bilibili: classifiedUrls.bilibili[0] || null,
     github: classifiedUrls.github[0] || null,
     amazon: classifiedUrls.amazon[0] || null,
+    telegram: classifiedUrls.telegram[0] || null,
+    discord: classifiedUrls.discord[0] || null,
     website: classifiedUrls.websites[0] || null
   };
 }
@@ -200,8 +227,10 @@ function _isTwitterAccountUrl(url) {
 }
 
 function _isWeiboUrl(url) {
-  // 匹配 weibo.com, vveibo.com（微博变体域名）等
-  return /weibo\.com|vveibo\.com/i.test(url);
+  // 匹配 weibo.com, vveibo.com, vveib0.com 等微博变体域名
+  // vveib[o0].com 匹配 vveibo.com 和 vveib0.com
+  // vveibo\d*.com 匹配 vveibo0.com, vveibo1.com 等
+  return /weibo\.com|vveib[o0]\.com|vveibo\d*\.com/i.test(url);
 }
 
 function _isYouTubeUrl(url) {
@@ -246,6 +275,16 @@ function _isAmazonProductUrl(url) {
   }
 }
 
+function _isTelegramUrl(url) {
+  // 匹配 t.me 或 telegram.org
+  return /t\.me|telegram\.org/i.test(url);
+}
+
+function _isDiscordUrl(url) {
+  // 匹配 discord.com 或 discord.gg
+  return /discord\.com|discord\.gg/i.test(url);
+}
+
 function _selectBestUrlForPlatform(urls, preferType) {
   if (!urls || urls.length === 0) return null;
 
@@ -255,4 +294,27 @@ function _selectBestUrlForPlatform(urls, preferType) {
 
   // 否则返回第一个
   return urls[0];
+}
+
+function _isImageUrl(url) {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+
+  const lowerUrl = url.toLowerCase();
+
+  // 检查URL路径是否包含图片扩展名
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico'];
+  if (imageExtensions.some(ext => lowerUrl.includes(ext))) {
+    return true;
+  }
+
+  // 检查常见图片CDN/存储路径
+  const imagePatterns = [
+    '/images/', '/img/', '/assets/', '/static/', '/photos/', '/avatars/',
+    'static.four.meme', // four.meme的静态资源
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico'
+  ];
+
+  return imagePatterns.some(pattern => lowerUrl.includes(pattern));
 }

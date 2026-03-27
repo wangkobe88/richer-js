@@ -3,6 +3,18 @@
  */
 
 /**
+ * 清理推文文本中的URL
+ * 移除http/https链接，保留文本内容
+ * @param {string} text - 原始推文文本
+ * @returns {string} 清理后的文本
+ */
+function cleanTweetText(text) {
+  if (!text) return '';
+  // 移除所有http/https开头的URL（包括连在单词后面的）
+  return text.replace(/https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi, '');
+}
+
+/**
  * 构建推文部分
  */
 function buildTweetPart(tweet, label = '推文') {
@@ -27,12 +39,14 @@ function buildTweetPart(tweet, label = '推文') {
   const retweetCount = tweet.metrics?.retweet_count || 0;
   parts.push(`【推文互动】点赞 ${favoriteCount} / 转发 ${retweetCount}`);
 
-  // 推文内容
-  parts.push(`内容：${tweet.text}`);
+  // 推文内容（清理URL）
+  const cleanedText = cleanTweetText(tweet.text);
+  parts.push(`内容：${cleanedText}`);
 
   // 回复的推文
   if (tweet.in_reply_to) {
-    parts.push(`【回复的推文】${tweet.in_reply_to.text}`);
+    const cleanedReplyText = cleanTweetText(tweet.in_reply_to.text);
+    parts.push(`【回复的推文】${cleanedReplyText}`);
   }
 
   // 媒体内容
@@ -119,7 +133,8 @@ export function buildTwitterSection(twitterInfo) {
     if (quoted.author_followers_count) {
       parts.push(`粉丝数: ${quoted.author_followers_count}`);
     }
-    parts.push(`内容：${quoted.text}`);
+    const cleanedQuotedText = cleanTweetText(quoted.text);
+    parts.push(`内容：${cleanedQuotedText}`);
   }
 
   // 推文链接内容

@@ -132,12 +132,13 @@ export class NarrativeAnalyzer {
       douyinInfo,
       tiktokInfo,
       bilibiliInfo,
-      amazonInfo
+      amazonInfo,
+      classifiedUrls
     } = await this._fetchAllDataViaClassifier(tokenData, extractedInfo);
     console.log('[NarrativeAnalyzer] 数据获取完成');
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
-    const preCheckResult = this.performPreCheck(tokenData, twitterInfo, extractedInfo, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo }, { ignoreExpired });
+    const preCheckResult = await this.performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo }, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;
@@ -162,9 +163,25 @@ export class NarrativeAnalyzer {
       // 8. 正常流程：两阶段分析
       try {
         // twitterInfo已包含website_tweet（如果有第二个推文）
-        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo };
+        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo, classifiedUrls };
 
-        console.log('[NarrativeAnalyzer] 使用两阶段分析模式');
+        // 检查是否有任何有效数据供分析
+        const hasAnyData = this._hasValidDataForAnalysis(fetchResults);
+        if (!hasAnyData) {
+          console.log('[NarrativeAnalyzer] 没有有效数据可供分析，返回unrated');
+          llmResult = {
+            category: 'unrated',
+            reasoning: '没有可用的数据进行分析（所有推文/内容获取失败）',
+            scores: null,
+            total_score: null,
+            raw: null,
+            analysis_stage: 0
+          };
+          promptUsed = null;
+          promptType = 'no_data';
+          analysisFailed = false;
+        } else {
+          console.log('[NarrativeAnalyzer] 使用两阶段分析模式');
 
         // Stage 1: 低质量检测
         console.log('[NarrativeAnalyzer] Stage 1: 低质量检测');
@@ -215,6 +232,7 @@ export class NarrativeAnalyzer {
           promptUsed = stage2Prompt;
           promptType = stage2PromptType;
         }
+        } // 关闭 hasAnyData 检查的 else 分支
       } catch (error) {
         console.error('LLM分析失败:', error.message);
         llmResult = {
@@ -318,7 +336,7 @@ export class NarrativeAnalyzer {
    * @param {boolean} options.ignoreExpired - 是否忽略过期时间限制
    * @returns {Object|null} 如果触发预检查规则，返回预设结果；否则返回null
    */
-  static performPreCheck(tokenData, twitterInfo, extractedInfo, videoInfos = {}, options = {}) {
+  static async performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls = {}, videoInfos = {}, options = {}) {
     const { ignoreExpired = false } = options;
     const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo } = videoInfos;
 
@@ -344,6 +362,66 @@ export class NarrativeAnalyzer {
         preCheckTriggered: true,
         preCheckReason: 'blacklist'
       };
+    }
+
+    // 规则1.1：通过账号发币且粉丝数/发帖数过少检查
+    // 如果只是账号链接（无推文内容），且粉丝数少于100或发帖数少于10，缺乏传播基础
+    const isAccountOnly = twitterInfo?.type === 'account' && !twitterInfo?.text;
+    const followersCount = twitterInfo?.followers_count || twitterInfo?.author_followers_count || 0;
+    const statusesCount = twitterInfo?.statuses_count || 0;
+
+    if (isAccountOnly) {
+      const reasons = [];
+      if (followersCount < 100) {
+        reasons.push(`粉丝数仅${followersCount}`);
+      }
+      if (statusesCount < 10) {
+        reasons.push(`发帖数仅${statusesCount}`);
+      }
+
+      // 首次发帖时间检查（仅在发帖数少时执行，避免额外API调用）
+      let firstTweetAgeDays = null;
+      if (statusesCount > 0 && statusesCount < 10) {
+        try {
+          const twitterValidationModule = await import('../../utils/twitter-validation/new-apis.js');
+          const { getUserTweets } = twitterValidationModule;
+
+          const userId = twitterInfo?.id;
+          if (userId) {
+            const tweets = await getUserTweets(userId, { count: '50' });
+            if (tweets && tweets.length > 0) {
+              // 最后一条是最早的推文
+              const oldestTweet = tweets[tweets.length - 1];
+              const tweetDate = new Date(oldestTweet.created_at);
+              const now = new Date();
+              firstTweetAgeDays = (now - tweetDate) / (1000 * 60 * 60 * 24);
+
+              console.log(`[NarrativeAnalyzer] 检查首次发帖时间: ${Math.floor(firstTweetAgeDays)}天前`);
+
+              // 首次发帖时间在2周内（14天）
+              if (firstTweetAgeDays < 14) {
+                reasons.push(`首次发帖仅${Math.floor(firstTweetAgeDays)}天（新账号）`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('[NarrativeAnalyzer] 获取首次发帖时间失败:', err.message);
+          // 失败时继续，不影响其他检查
+        }
+      }
+
+      if (reasons.length > 0) {
+        const screenName = twitterInfo?.screen_name || authorScreenName;
+        console.log(`[NarrativeAnalyzer] 预检查触发: 账号发币且数据过少 (@${screenName}, ${followersCount}粉丝, ${statusesCount}推文)`);
+        return {
+          category: 'low',
+          reasoning: `通过账号发币但${reasons.join('、')}，缺乏传播基础和社区支持（买的老号无历史内容）`,
+          scores: { credibility: 5, virality: 5 },
+          total_score: 10,
+          preCheckTriggered: true,
+          preCheckReason: 'account_low_stats'
+        };
+      }
     }
 
     // 规则1.5：应用商店链接检查
@@ -378,6 +456,26 @@ export class NarrativeAnalyzer {
             preCheckReason: 'app_store_link'
           };
         }
+
+        // 规则1.6：微信链接检查（已注释，存在反例）
+        // 微信文章无法在Web3良好传播（封闭生态，无法分享到外网）
+        // const wechatPatterns = [
+        //   'mp.weixin.qq.com',      // 微信公众号文章
+        //   'wx.',                    // 微信相关域名（如 wx.tech-melon.top）
+        //   'weixin.qq.com',          // 微信其他链接
+        // ];
+
+        // if (wechatPatterns.some(pattern => hostname === pattern || hostname.includes(pattern))) {
+        //   console.log(`[NarrativeAnalyzer] 预检查触发: 检测到微信链接 (${websiteUrl})`);
+        //   return {
+        //     category: 'low',
+        //     reasoning: `检测到微信链接，微信文章无法在Web3良好传播（封闭生态，无法分享到外网）`,
+        //     scores: { credibility: 5, virality: 5 },
+        //     total_score: 10,
+        //     preCheckTriggered: true,
+        //     preCheckReason: 'wechat_link'
+        //   };
+        // }
       } catch (e) {
         // URL解析失败，继续后续检查
         console.warn('[NarrativeAnalyzer] 解析URL失败:', websiteUrl, e.message);
@@ -551,6 +649,36 @@ export class NarrativeAnalyzer {
       };
     }
 
+    // 规则4.5：没有有效公开信息 → unrated
+    // 没有普通网站、Twitter、微博、推文、视频、Amazon等公开信息来源
+    // （Telegram/Discord等通讯应用链接不计入有效公开信息）
+
+    // 检查是否有有效公开信息来源
+    const hasValidPublicInfo = !!extractedInfo?.website ||
+                               !!extractedInfo?.twitter_url ||
+                               !!extractedInfo?.weibo_url ||
+                               (twitterInfo?.text || twitterInfo?.type === 'tweet') ||
+                               youtubeInfo || douyinInfo || bilibiliInfo || tiktokInfo || amazonInfo;
+
+    // 如果没有任何有效公开信息来源 → unrated
+    if (!hasValidPublicInfo) {
+      const hasTelegram = !!(classifiedUrls.telegram && classifiedUrls.telegram.length > 0);
+      const hasDiscord = !!(classifiedUrls.discord && classifiedUrls.discord.length > 0);
+      const reason = (hasTelegram || hasDiscord)
+        ? '仅有通讯应用链接（如电报/Discord），缺少公开可验证的信息来源'
+        : '缺少任何有效的公开信息来源（网站、社交媒体、视频等）';
+
+      console.log(`[NarrativeAnalyzer] 规则4.5触发: ${reason}`);
+      return {
+        category: 'unrated',
+        reasoning: reason,
+        scores: null,
+        total_score: null,
+        preCheckTriggered: true,
+        preCheckReason: 'no_valid_public_info'
+      };
+    }
+
     // 规则5：高影响力推文 + 媒体 → unrated（保护可能的好叙事）
     // 检查条件：
     // 1. 推文作者属于高影响力账号（Elon、Trump等）
@@ -656,7 +784,8 @@ export class NarrativeAnalyzer {
         douyinInfo: null,
         tiktokInfo: null,
         bilibiliInfo: null,
-        amazonInfo: null
+        amazonInfo: null,
+        bestUrls: null
       };
     }
 
@@ -671,35 +800,23 @@ export class NarrativeAnalyzer {
       bilibili: classifiedUrls.bilibili.length,
       github: classifiedUrls.github.length,
       amazon: classifiedUrls.amazon.length,
+      telegram: classifiedUrls.telegram.length,
+      discord: classifiedUrls.discord.length,
       websites: classifiedUrls.websites.length
     });
 
-    // 4. 选择每个平台的最佳URL
-    const bestUrls = selectBestUrls(classifiedUrls);
-    console.log('[NarrativeAnalyzer] 选中的最佳URL:', {
-      twitter: bestUrls.twitter?.url || null,
-      weibo: classifiedUrls.weibo[0]?.url || null,
-      youtube: bestUrls.youtube?.url || null,
-      tiktok: bestUrls.tiktok?.url || null,
-      douyin: bestUrls.douyin?.url || null,
-      bilibili: bestUrls.bilibili?.url || null,
-      github: bestUrls.github?.url || null,
-      amazon: bestUrls.amazon?.url || null,
-      website: bestUrls.website?.url || null
-    });
-
-    // 5. 顺序获取数据（按优先级）
-    return await this._fetchDataSequentially(bestUrls, classifiedUrls, tokenData);
+    // 4. 顺序获取数据（按优先级）
+    return await this._fetchDataSequentially(classifiedUrls, tokenData, extractedInfo);
   }
 
   /**
    * 顺序获取各平台数据
-   * @param {Object} bestUrls - 选中的最佳URL
    * @param {Object} classifiedUrls - 分类后的所有URL
    * @param {Object} tokenData - 代币数据
+   * @param {Object} extractedInfo - 提取的结构化信息
    * @returns {Object} 获取到的所有数据
    */
-  static async _fetchDataSequentially(bestUrls, classifiedUrls, tokenData) {
+  static async _fetchDataSequentially(classifiedUrls, tokenData, extractedInfo) {
     const results = {
       twitterInfo: null,
       websiteInfo: null,
@@ -712,11 +829,28 @@ export class NarrativeAnalyzer {
       amazonInfo: null
     };
 
+    // === 辅助函数：从 classifiedUrls 中选择 URL ===
+    const selectTwitterUrl = () => {
+      if (!classifiedUrls.twitter || classifiedUrls.twitter.length === 0) return null;
+      // 优先选择 tweet 类型
+      const tweet = classifiedUrls.twitter.find(u => u.type === 'tweet');
+      if (tweet) return tweet;
+      // 否则返回第一个（可能是 account）
+      return classifiedUrls.twitter[0];
+    };
+
+    const selectFirstUrl = (platform) => {
+      const urls = classifiedUrls[platform];
+      if (!urls || urls.length === 0) return null;
+      return urls[0];
+    };
+
     // === 1. Twitter数据（最高优先级）===
-    if (bestUrls.twitter) {
-      console.log(`[NarrativeAnalyzer] 获取Twitter数据: ${bestUrls.twitter.url}`);
+    const twitterUrlInfo = selectTwitterUrl();
+    if (twitterUrlInfo) {
+      console.log(`[NarrativeAnalyzer] 获取Twitter数据: ${twitterUrlInfo.url}`);
       try {
-        results.twitterInfo = await TwitterFetcher.fetchFromUrls(bestUrls.twitter.url, null);
+        results.twitterInfo = await TwitterFetcher.fetchFromUrls(twitterUrlInfo.url, null);
 
         // 如果成功获取推文，尝试获取推文中的链接内容
         if (results.twitterInfo && results.twitterInfo.text) {
@@ -767,23 +901,18 @@ export class NarrativeAnalyzer {
           }
         }
 
-        // 检查是否有第二个推文（可能来自website URL或classifiedUrls中的第二个twitter URL）
+        // 检查是否有第二个推文（classifiedUrls中的第二个twitter URL）
         let secondTweetUrl = null;
 
-        // 首先检查bestUrls.website是否指向另一个推文
-        if (bestUrls.website && bestUrls.website.type === 'tweet' && bestUrls.website.platform === 'twitter') {
-          const websiteUrl = bestUrls.website.url;
-          if (websiteUrl !== bestUrls.twitter.url) {
-            secondTweetUrl = websiteUrl;
-          }
-        }
-
-        // 如果website没有第二个推文，检查classifiedUrls.twitter中是否有多个推文
-        if (!secondTweetUrl && classifiedUrls.twitter.length > 1) {
-          // classifiedUrls.twitter[0] 是主推文，检查 [1] 是否是不同的推文
-          const secondTweetInfo = classifiedUrls.twitter.find(t => t.url !== bestUrls.twitter.url);
-          if (secondTweetInfo) {
-            secondTweetUrl = secondTweetInfo.url;
+        // 检查classifiedUrls.twitter中是否有多个推文
+        if (classifiedUrls.twitter && classifiedUrls.twitter.length > 1) {
+          // 第一个是主推文，查找第二个不同的推文
+          const mainUrl = twitterUrlInfo.url;
+          const secondTweetInfo = classifiedUrls.twitter.find(t => t.url !== mainUrl && t.type === 'tweet');
+          // 如果没有第二个推文，查找第二个账号（作为补充）
+          const secondInfo = secondTweetInfo || classifiedUrls.twitter.find(t => t.url !== mainUrl);
+          if (secondInfo) {
+            secondTweetUrl = secondInfo.url;
           }
         }
 
@@ -821,10 +950,11 @@ export class NarrativeAnalyzer {
     }
 
     // === 3. GitHub数据 ===
-    if (bestUrls.github) {
-      console.log(`[NarrativeAnalyzer] 获取GitHub数据: ${bestUrls.github.url}`);
+    const githubUrlInfo = selectFirstUrl('github');
+    if (githubUrlInfo) {
+      console.log(`[NarrativeAnalyzer] 获取GitHub数据: ${githubUrlInfo.url}`);
       try {
-        results.githubInfo = await GithubFetcher.fetchRepoInfo(bestUrls.github.url);
+        results.githubInfo = await GithubFetcher.fetchRepoInfo(githubUrlInfo.url);
         if (results.githubInfo) {
           const influenceLevel = GithubFetcher.getInfluenceLevel(results.githubInfo);
           results.githubInfo.influence_level = influenceLevel;
@@ -838,10 +968,11 @@ export class NarrativeAnalyzer {
     }
 
     // === 4. YouTube数据 ===
-    if (bestUrls.youtube) {
-      console.log(`[NarrativeAnalyzer] 获取YouTube数据: ${bestUrls.youtube.url}`);
+    const youtubeUrlInfo = selectFirstUrl('youtube');
+    if (youtubeUrlInfo) {
+      console.log(`[NarrativeAnalyzer] 获取YouTube数据: ${youtubeUrlInfo.url}`);
       try {
-        results.youtubeInfo = await YoutubeFetcher.fetchVideoInfo(bestUrls.youtube.url);
+        results.youtubeInfo = await YoutubeFetcher.fetchVideoInfo(youtubeUrlInfo.url);
         if (results.youtubeInfo) {
           const influenceLevel = YoutubeFetcher.getInfluenceLevel(results.youtubeInfo);
           results.youtubeInfo.influence_level = influenceLevel;
@@ -854,10 +985,11 @@ export class NarrativeAnalyzer {
     }
 
     // === 5. 抖音数据 ===
-    if (bestUrls.douyin) {
-      console.log(`[NarrativeAnalyzer] 获取抖音数据: ${bestUrls.douyin.url}`);
+    const douyinUrlInfo = selectFirstUrl('douyin');
+    if (douyinUrlInfo) {
+      console.log(`[NarrativeAnalyzer] 获取抖音数据: ${douyinUrlInfo.url}`);
       try {
-        results.douyinInfo = await DouyinFetcher.fetchVideoInfo(bestUrls.douyin.url);
+        results.douyinInfo = await DouyinFetcher.fetchVideoInfo(douyinUrlInfo.url);
         if (results.douyinInfo) {
           const influenceLevel = DouyinFetcher.getInfluenceLevel(results.douyinInfo);
           results.douyinInfo.influence_level = influenceLevel;
@@ -870,10 +1002,11 @@ export class NarrativeAnalyzer {
     }
 
     // === 6. TikTok数据 ===
-    if (bestUrls.tiktok) {
-      console.log(`[NarrativeAnalyzer] 获取TikTok数据: ${bestUrls.tiktok.url}`);
+    const tiktokUrlInfo = selectFirstUrl('tiktok');
+    if (tiktokUrlInfo) {
+      console.log(`[NarrativeAnalyzer] 获取TikTok数据: ${tiktokUrlInfo.url}`);
       try {
-        results.tiktokInfo = await fetchTikTokVideoInfo(bestUrls.tiktok.url);
+        results.tiktokInfo = await fetchTikTokVideoInfo(tiktokUrlInfo.url);
         if (results.tiktokInfo) {
           const influenceLevel = getTikTokInfluenceLevel(results.tiktokInfo);
           results.tiktokInfo.influence_level = influenceLevel;
@@ -886,10 +1019,11 @@ export class NarrativeAnalyzer {
     }
 
     // === 7. Bilibili数据 ===
-    if (bestUrls.bilibili) {
-      console.log(`[NarrativeAnalyzer] 获取Bilibili数据: ${bestUrls.bilibili.url}`);
+    const bilibiliUrlInfo = selectFirstUrl('bilibili');
+    if (bilibiliUrlInfo) {
+      console.log(`[NarrativeAnalyzer] 获取Bilibili数据: ${bilibiliUrlInfo.url}`);
       try {
-        results.bilibiliInfo = await BilibiliFetcher.fetchVideoInfo(bestUrls.bilibili.url);
+        results.bilibiliInfo = await BilibiliFetcher.fetchVideoInfo(bilibiliUrlInfo.url);
         if (results.bilibiliInfo) {
           const influenceLevel = BilibiliFetcher.getInfluenceLevel(results.bilibiliInfo);
           results.bilibiliInfo.influence_level = influenceLevel;
@@ -902,10 +1036,11 @@ export class NarrativeAnalyzer {
     }
 
     // === 8. Amazon数据 ===
-    if (bestUrls.amazon) {
-      console.log(`[NarrativeAnalyzer] 获取Amazon数据: ${bestUrls.amazon.url}`);
+    const amazonUrlInfo = selectFirstUrl('amazon');
+    if (amazonUrlInfo) {
+      console.log(`[NarrativeAnalyzer] 获取Amazon数据: ${amazonUrlInfo.url}`);
       try {
-        results.amazonInfo = await fetchProductInfo(bestUrls.amazon.url);
+        results.amazonInfo = await fetchProductInfo(amazonUrlInfo.url);
         if (results.amazonInfo) {
           const influenceLevel = getInfluenceLevel(results.amazonInfo);
           results.amazonInfo.influence_level = influenceLevel;
@@ -918,8 +1053,9 @@ export class NarrativeAnalyzer {
     }
 
     // === 9. 普通网站数据 ===
-    if (bestUrls.website) {
-      const websiteUrl = bestUrls.website.url;
+    const websiteUrlInfo = selectFirstUrl('websites');
+    if (websiteUrlInfo) {
+      const websiteUrl = websiteUrlInfo.url;
       // 排除视频平台、GitHub和Amazon（已经处理过）
       const isVideoPlatform = /youtube|youtu\.be|tiktok|douyin|bilibili|b23\.tv/i.test(websiteUrl);
       const isGithub = /github\.com/i.test(websiteUrl);
@@ -936,8 +1072,9 @@ export class NarrativeAnalyzer {
       }
     }
 
-    return results;
+    return { ...results, classifiedUrls };
   }
+
 
   /**
    * 从数据库获取代币数据
@@ -1017,6 +1154,65 @@ export class NarrativeAnalyzer {
       weibo_url: weiboUrl,
       description: rawData.description || ''
     };
+  }
+
+  /**
+   * 检查是否有有效数据可供分析
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {boolean} 是否有有效数据
+   */
+  static _hasValidDataForAnalysis(fetchResults) {
+    const {
+      twitterInfo,
+      websiteInfo,
+      extractedInfo,
+      backgroundInfo,
+      githubInfo,
+      youtubeInfo,
+      douyinInfo,
+      tiktokInfo,
+      bilibiliInfo,
+      amazonInfo
+    } = fetchResults;
+
+    // 检查推文数据
+    if (twitterInfo) {
+      if (twitterInfo.text && twitterInfo.text.trim().length > 0) {
+        return true; // 有推文内容
+      }
+      // 检查账号信息（即使是账号链接，账号名/粉丝数也是有效信息）
+      if (twitterInfo.type === 'account') {
+        // 有账号描述 → 有效数据
+        if (twitterInfo.description && twitterInfo.description.trim().length > 0) {
+          return true;
+        }
+        // 粉丝数 >= 1000 → 账号有影响力，算有效数据
+        if (twitterInfo.followers_count && twitterInfo.followers_count >= 1000) {
+          return true;
+        }
+      }
+    }
+
+    // 检查网站内容
+    if (websiteInfo && websiteInfo.content && websiteInfo.content.trim().length > 50) {
+      return true; // 有足够的网站内容
+    }
+
+    // 检查介绍
+    if (extractedInfo) {
+      const intro = extractedInfo.intro_en || extractedInfo.intro_cn || '';
+      if (intro.trim().length >= 20) {
+        return true; // 有足够的介绍
+      }
+    }
+
+    // 检查其他数据源
+    if (backgroundInfo?.text) return true;
+    if (githubInfo?.readme) return true;
+    if (youtubeInfo || douyinInfo || tiktokInfo || bilibiliInfo) return true;
+    if (amazonInfo) return true;
+
+    return false; // 没有任何有效数据
   }
 
   /**
@@ -1245,7 +1441,7 @@ export class NarrativeAnalyzer {
       throw new Error('SILICONFLOW_API_KEY 未配置');
     }
 
-    const timeout = 120000;
+    const timeout = 180000; // 180秒超时（3分钟，复杂case需要更多时间）
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 

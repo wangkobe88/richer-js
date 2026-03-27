@@ -34,7 +34,8 @@ export function buildDetailedScoringPrompt(tokenData, fetchResults) {
     douyinInfo = null,
     tiktokInfo = null,
     bilibiliInfo = null,
-    amazonInfo = null
+    amazonInfo = null,
+    classifiedUrls = null
   } = fetchResults;
 
   // 判断有哪些数据类型
@@ -69,8 +70,60 @@ export function buildDetailedScoringPrompt(tokenData, fetchResults) {
 
   if (extractedInfo.intro_en) sections[0] += `\n- 介绍（英文）：${extractedInfo.intro_en}`;
   if (extractedInfo.intro_cn) sections[0] += `\n- 介绍（中文）：${extractedInfo.intro_cn}`;
-  if (extractedInfo.website) sections[0] += `\n- 网站：${extractedInfo.website}`;
-  if (extractedInfo.twitter_url) sections[0] += `\n- Twitter链接：${extractedInfo.twitter_url}`;
+
+  // 显示所有分类的URL（从 classifiedUrls 获取）
+  if (classifiedUrls) {
+    // Twitter 推文
+    const tweets = classifiedUrls.twitter?.filter(u => u.type === 'tweet') || [];
+    if (tweets.length > 0) {
+      sections[0] += `\n- Twitter推文：${tweets.map(u => u.url).join(', ')}`;
+    }
+    // Twitter 账号
+    const accounts = classifiedUrls.twitter?.filter(u => u.type === 'account') || [];
+    if (accounts.length > 0) {
+      sections[0] += `\n- Twitter账号：${accounts.map(u => u.url).join(', ')}`;
+    }
+    // 微博
+    if (classifiedUrls.weibo?.length > 0) {
+      sections[0] += `\n- 微博：${classifiedUrls.weibo.map(u => u.url).join(', ')}`;
+    }
+    // YouTube
+    if (classifiedUrls.youtube?.length > 0) {
+      sections[0] += `\n- YouTube：${classifiedUrls.youtube.map(u => u.url).join(', ')}`;
+    }
+    // TikTok
+    if (classifiedUrls.tiktok?.length > 0) {
+      sections[0] += `\n- TikTok：${classifiedUrls.tiktok.map(u => u.url).join(', ')}`;
+    }
+    // 抖音
+    if (classifiedUrls.douyin?.length > 0) {
+      sections[0] += `\n- 抖音：${classifiedUrls.douyin.map(u => u.url).join(', ')}`;
+    }
+    // Bilibili
+    if (classifiedUrls.bilibili?.length > 0) {
+      sections[0] += `\n- Bilibili：${classifiedUrls.bilibili.map(u => u.url).join(', ')}`;
+    }
+    // GitHub
+    if (classifiedUrls.github?.length > 0) {
+      sections[0] += `\n- GitHub：${classifiedUrls.github.map(u => u.url).join(', ')}`;
+    }
+    // Amazon
+    if (classifiedUrls.amazon?.length > 0) {
+      sections[0] += `\n- Amazon：${classifiedUrls.amazon.map(u => u.url).join(', ')}`;
+    }
+    // 普通网站
+    if (classifiedUrls.websites?.length > 0) {
+      sections[0] += `\n- 网站：${classifiedUrls.websites.map(u => u.url).join(', ')}`;
+    }
+    // Telegram
+    if (classifiedUrls.telegram?.length > 0) {
+      sections[0] += `\n- Telegram：${classifiedUrls.telegram.map(u => u.url).join(', ')}`;
+    }
+    // Discord
+    if (classifiedUrls.discord?.length > 0) {
+      sections[0] += `\n- Discord：${classifiedUrls.discord.map(u => u.url).join(', ')}`;
+    }
+  }
 
   // 2. 账号背景信息
   const backgrounds = generateAccountBackgroundsPrompt(twitterInfo);
@@ -153,9 +206,9 @@ function buildEvaluationFramework(hasGithub, hasVideo, hasTwitter) {
 - 特征：有引用推文（引用原始事件）或推文内容是"解读/分析"
 
 **如何评估找角度推文？**
-- **叙事影响力**：评估**被引用的事件/对象**的影响力，而不是推文作者
-- ⚠️ **不要看推文作者的粉丝数、互动量**
-- 评估重点是：事件本身的热度 + 代币与事件的关联度
+- **找角度推文的所有评分维度（叙事影响力、内容传播力）都应该评估被引用的事件/对象**，而不是主推文作者
+- ⚠️ **不要看主推文作者的粉丝数、互动量**，这些数据与找角度推文的质量无关
+- 评估重点是：被引用事件本身的热度 + 代币与事件的关联度 + 引用内容本身的传播属性
 
 **其他推文（默认情况）**：
 - 推文作者影响力是叙事影响力的组成部分
@@ -176,9 +229,20 @@ function buildEvaluationFramework(hasGithub, hasVideo, hasTwitter) {
 
 **叙事影响力（0-25分）**：叙事本身的影响力、热度
 
-⚠️ **BSC链CZ/何一相关**：
-- 如果代币名是CZ/何一且推文提及CZ/何一 → 叙事影响力应给20分以上
-- 理由：市场预期CZ/何一会回应，形成叙事爆发力
+⚠️ **BSC链CZ/何一近期强相关事件**：
+- **CZ/何一的近期强相关事件**（自传出版、重大声明、新动态等）→ 22-25分
+- 理由：Web3垂直领域但CZ影响力顶级，且是近期事件，市场预期CZ会回应
+- 示例：CZ自传/回忆录出版、CZ近期重大声明 → 22-25分
+- ⚠️ 非近期事件或弱相关事件 → 按常规标准评分，不适用此溢价
+
+⚠️ **Web3领域事件分级（代币交易者视角）**：
+- **所有Web3相关事件/项目，必须按Web3领域影响力评分，不按大众影响力评分**
+- **理由**：代币交易者都是Web3用户，Web3项目在该群体中的影响力才是关键，而非大众知名度
+- **Web3平台级项目**（头部DEX、公链、L2、知名协议）→ 20-24分
+  - 示例：Aster/Astherus、Uniswap、币安相关项目、主流L2
+  - 判断依据：认证项目账号+粉丝数>5万 或 知名Web3品牌
+- **Web3知名项目/KOL**（认证账号+粉丝>1万）→ 15-19分
+- **社区级讨论**→ 5-14分
 
 ⚠️ **地域限制**：
 - **地方性话题**（地方球队、地方新闻、地方活动）即使有地方媒体报道 → **最高15分**

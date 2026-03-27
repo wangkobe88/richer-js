@@ -103,7 +103,7 @@ ${text}`;
     }
 
     // 创建超时控制器
-    const timeout = 120000; // 120秒超时（DeepSeek-R1较慢）
+    const timeout = 180000; // 180秒超时（3分钟，复杂case需要更多时间）
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -211,7 +211,7 @@ ${text}`;
 
     const config = {
       model: options.model || VISION_MODEL,
-      timeout: options.timeout || 120000,  // 多模态 API 响应较慢，默认 2 分钟
+      timeout: options.timeout || 180000,  // 多模态 API 响应较慢，默认 3 分钟
       maxTokens: options.maxTokens || 2000
     };
 

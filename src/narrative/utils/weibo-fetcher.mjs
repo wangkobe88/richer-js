@@ -27,8 +27,15 @@ export class WeiboExtractor {
       return match[1];
     }
 
-    // 匹配 vveibo.com/uid/weiboid 格式（微博变体域名）
-    match = url.match(/vveibo\.com\/\d+\/([a-zA-Z0-9]+)/);
+    // 匹配 vveibo.com/uid/weiboid 和 vveib0.com/uid/weiboid 格式（微博变体域名）
+    // vveib[o0] 匹配 vveibo 和 vveib0
+    match = url.match(/vveib[o0]\.com\/\d+\/([a-zA-Z0-9]+)/);
+    if (match) {
+      return match[1];
+    }
+
+    // 匹配 vveibo\d*.com/uid/weiboid 格式（其他数字变体）
+    match = url.match(/vveibo\d+\.\w+\/\d+\/([a-zA-Z0-9]+)/);
     if (match) {
       return match[1];
     }
@@ -39,8 +46,8 @@ export class WeiboExtractor {
       return detailMatch[1];
     }
 
-    // 匹配 vveibo.com/detail/xxx 格式
-    const vveiboDetailMatch = url.match(/vveibo\.com\/detail\/([a-zA-Z0-9]+)/);
+    // 匹配 vveibo.com/detail/xxx 和 vveib0.com/detail/xxx 格式
+    const vveiboDetailMatch = url.match(/vveib[o0]\.com\/detail\/([a-zA-Z0-9]+)/);
     if (vveiboDetailMatch) {
       return vveiboDetailMatch[1];
     }
@@ -68,8 +75,15 @@ export class WeiboExtractor {
       return match[1];
     }
 
-    // 匹配 vveibo.com/uid/weiboid 格式
-    match = url.match(/vveibo\.com\/(\d+)/);
+    // 匹配 vveibo.com/uid/weiboid 和 vveib0.com/uid/weiboid 格式
+    // vveib[o0] 匹配 vveibo 和 vveib0
+    match = url.match(/vveib[o0]\.com\/(\d+)/);
+    if (match) {
+      return match[1];
+    }
+
+    // 匹配 vveibo\d*.com/uid/weiboid 格式（其他数字变体）
+    match = url.match(/vveibo\d+\.\w+\/(\d+)/);
     if (match) {
       return match[1];
     }
@@ -95,7 +109,8 @@ export class WeiboExtractor {
     // - weibo.com/detail/weiboid (详情页)
     // - m.weibo.cn/detail/weiboid (移动端)
     // - vveibo.com/uid/weiboid (微博变体域名)
-    const isWeiboDomain = /weibo\.(com|cn)|vveibo\.com/.test(url);
+    // - vveib0.com/uid/weiboid (数字0变体域名)
+    const isWeiboDomain = /weibo\.(com|cn)|vveib[o0]\.com|vveibo\d+\.\w+/.test(url);
 
     if (!isWeiboDomain) return false;
 
