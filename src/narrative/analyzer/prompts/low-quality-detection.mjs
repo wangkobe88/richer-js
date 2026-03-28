@@ -1,6 +1,15 @@
 /**
  * Stage 1: 低质量检测Prompt
- * 聚焦3种低质量场景的判断
+ * 三阶段低质量检测流程
+ *
+ * V11.0 - 重大重构：三阶段检测流程
+ * - 将原有结构重构为三个清晰的阶段
+ * - 第一阶段：内容空洞/无意义事件检查
+ * - 第二阶段：代币/语料核心实体匹配检查
+ * - 第三阶段：低传播能力代币检查
+ * - 保留所有已有的规则和判断标准
+ * - 优化命名和结构，提高可读性和可维护性
+ * - 输出格式增加stage字段，明确标识触发阶段
  *
  * V10.6 - 合并"功能性符号/标志"到"纯通识知识/百科内容"
  * - 两者高度重叠：功能性符号/标志属于通识知识/百科内容的范畴
@@ -180,16 +189,61 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
   if (amazonSection) sections.push(amazonSection);
 
   // 6. 低质量场景判断标准
-  sections.push(`【🚨 低质量场景判断标准】
+  const stage2Rules = [];
 
-🛑 **步骤0：内容空洞/无意义事件检查（最先执行）**
+  // 步骤2.1的规则：根据实际语料类型动态添加
+  // 基础规则（总是包含）
+  stage2Rules.push(`- **书籍标题/产品名称是核心实体的一部分**，必须列出`);
+  stage2Rules.push(`- ⚠️ **中文名称必须列出**：如果语料中同时出现中英文名称，两者都要列出`);
+  stage2Rules.push(`  - 示例：推文有"东莞崇英学校"和"Dongguan Chongying School"，两个都要列出`);
+  stage2Rules.push(`  - 示例：推文有"CZ"和"Changpeng Zhao"，两个都要列出`);
 
+  // Twitter账号实体识别规则（条件性：如果有Twitter账号信息）
+  if (twitterInfo && twitterInfo.type === 'account') {
+    stage2Rules.push(``);
+    stage2Rules.push(`⚠️ **Twitter账号的实体识别规则**（检测到Twitter账号，必须严格执行）：`);
+    stage2Rules.push(`  - **账号名/账号品牌名**：账号的screen_name或品牌名必须作为实体列出`);
+    stage2Rules.push(`    - 示例：账号@FoxNews → 实体包括"FoxNews"、"Fox News"`);
+    stage2Rules.push(`    - 示例：账号@Tesla → 实体包括"Tesla"`);
+    stage2Rules.push(`    - 示例：账号@realDonald_Trump → 实体包括"realDonald_Trump"、"Donald Trump"`);
+    stage2Rules.push(`  - **账号所属机构/公司名**：如果账号简介或背景中提及所属机构，必须作为实体列出`);
+    stage2Rules.push(`    - 示例：账号@NBA（NBA官方账号）→ 实体包括"NBA"、"National Basketball Association"`);
+    stage2Rules.push(`  - **账号关联人物/品牌**：如果账号与知名人物或品牌关联，必须作为实体列出`);
+    stage2Rules.push(`    - 示例：账号@Tesla（特斯拉官方账号）→ 实体包括"Tesla"、"Elon Musk"`);
+  }
+
+  // Amazon书籍实体识别规则（条件性：如果有Amazon信息）
+  if (amazonInfo) {
+    stage2Rules.push(``);
+    stage2Rules.push(`⚠️ **Amazon书籍的实体识别规则**（检测到Amazon内容，必须严格执行）：`);
+    stage2Rules.push(`  - **书的全称**：完整书名必须作为实体列出`);
+    stage2Rules.push(`    - 示例：书名"FREEDOM OF MONEY: Fight For Freedom" → 实体包括"FREEDOM OF MONEY: Fight For Freedom"`);
+    stage2Rules.push(`  - **主标题**：冒号或副标题符号之前的部分必须作为实体列出`);
+    stage2Rules.push(`    - 示例：书名"FREEDOM OF MONEY: Fight For Freedom" → 主标题实体"FREEDOM OF MONEY"`);
+    stage2Rules.push(`  - **副标题**：冒号或副标题符号之后的部分必须作为实体列出`);
+    stage2Rules.push(`    - 示例：书名"FREEDOM OF MONEY: Fight For Freedom" → 副标题实体"Fight For Freedom"`);
+    stage2Rules.push(`  - **作者**：作者名称必须作为实体列出`);
+    stage2Rules.push(`    - 示例：作者"Changpeng Zhao" → 实体"Changpeng Zhao"`);
+    stage2Rules.push(`    - 示例：作者"CZ" → 实体"CZ"`);
+    stage2Rules.push(`  - ⚠️ **注意**：副标题匹配也算强关联，代币名匹配副标题 = 匹配实体`);
+  }
+
+  sections.push(`【🚨 三阶段低质量检测流程】
+
+⚠️ **请按顺序依次执行以下三个阶段的检查，一旦某个阶段触发结果，立即返回对应JSON！**
+
+═══════════════════════════════════════════════════════════════
+
+📋 **第一阶段：内容空洞/无意义事件检查**
+
+🎯 **目的**：判断语料是否有基本的信息价值
+📌 **执行时机**：最先执行
 ⚠️ **如果所有语料都空洞或事件无意义，直接返回low，无需继续判断！**
 
-**0. 空洞内容/无实质内容**：所有语料都是空洞的，缺乏具体事件/故事/观点
+**1.1 空洞内容/无实质内容检查**：所有语料都是空洞的，缺乏具体事件/故事/观点
    - ⚠️ **核心判断：去掉代币名后，语料是否还有独立的信息价值？**
-   - 如果所有语料都空洞 → **立即返回pass=false, scenario=0**
-   - 如果有任何语料不空洞 → **继续执行0.1检查**
+   - 如果所有语料都空洞 → **立即返回pass=false, stage=1**
+   - 如果有任何语料不空洞 → **继续执行1.2检查**
    - **空洞语料的特征**：
      - 只是提到某个名称 + 简单修饰词/表情，无具体内容
      - 示例："链上 Binance"、"XX牛逼"、"buy XX"、"🚀 XX"
@@ -214,8 +268,8 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
      4. **独立测试失败**：去掉代币名后，语料无信息价值
      5. **⛔ 非知名机构公告**：不是Binance/Coinbase/Apple/Google等知名机构的官方公告
 
-**0.1 无意义事件检查**：
-   - ⚠️ **如果所有语料的事件都没有新闻价值或传播价值 → 立即返回pass=false, scenario=0**
+**1.2 无意义事件检查**：
+   - ⚠️ **如果所有语料的事件都没有新闻价值或传播价值 → 立即返回pass=false, stage=1**
    - **无意义事件的类型**：
      - **平台日常运营**：新池子、上架新币、常规功能更新 → 无意义
      - **强行关联的弱逻辑**：仅凭首字母相同、谐音等弱关联 → 无意义
@@ -224,7 +278,13 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
    - **排除：真正有意义的平台事件**（重大发布、战略升级、大人物动态）
    - 理由：事件无意义 = 无法形成meme传播 = 直接low
 
-🛑 **前置检查（步骤0通过后执行）：**
+═══════════════════════════════════════════════════════════════
+
+📋 **第二阶段：代币/语料核心实体匹配检查**
+
+🎯 **目的**：判断代币名与语料是否有关联
+📌 **执行时机**：第一阶段通过后执行
+⚠️ **如果代币名不在核心实体中，说明无相关性，直接返回pass=false！**
 
 ⚠️ **加密圈常见缩写（必须识别为核心实体）**：
 - **CZ** = Changpeng Zhao（币安创始人）
@@ -241,38 +301,15 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 
 ⚠️ **这是第二道关卡，必须严格按照执行：**
 
-步骤1：**分别列出每条语料的核心实体**（人名、组织名、产品名、事件名、昵称、称号、概念、书籍名、缩写等）
+**步骤2.1：列出每条语料的核心实体**（人名、组织名、产品名、事件名、昵称、称号、概念、书籍名、缩写等）
 - ⚠️ **必须输出完整的实体列表**，用于验证是否正确识别加密圈实体
 - ⚠️ **实体列表必须去重**：相同的实体只列出一次
   - 示例：推文中多次出现"Billy"，entities中只需列出一个"Billy"
   - 示例：推文中多次出现"Billy the Cat"，entities中只需列一个"Billy the Cat"
 - 推文、Website、Amazon、Twitter账号要**分别列出**
-- **Twitter账号的实体识别规则**（必须严格执行）：
-  - **账号名/账号品牌名**：账号的screen_name或品牌名必须作为实体列出
-    - 示例：账号@FoxNews → 实体包括"FoxNews"、"Fox News"
-    - 示例：账号@Tesla → 实体包括"Tesla"
-    - 示例：账号@realDonald_Trump → 实体包括"realDonald_Trump"、"Donald Trump"
-  - **账号所属机构/公司名**：如果账号简介或背景中提及所属机构，必须作为实体列出
-    - 示例：账号@NBA（NBA官方账号）→ 实体包括"NBA"、"National Basketball Association"
-  - **账号关联人物/品牌**：如果账号与知名人物或品牌关联，必须作为实体列出
-    - 示例：账号@Tesla（特斯拉官方账号）→ 实体包括"Tesla"、"Elon Musk"
-- **书籍标题/产品名称是核心实体的一部分**，必须列出
-- ⚠️ **中文名称必须列出**：如果语料中同时出现中英文名称，两者都要列出
-  - 示例：推文有"东莞崇英学校"和"Dongguan Chongying School"，两个都要列出
-  - 示例：推文有"CZ"和"Changpeng Zhao"，两个都要列出
-- ⚠️ **Amazon书籍的实体识别规则**（必须严格执行）：
-  - **书的全称**：完整书名必须作为实体列出
-    - 示例：书名"FREEDOM OF MONEY: Fight For Freedom" → 实体包括"FREEDOM OF MONEY: Fight For Freedom"
-  - **主标题**：冒号或副标题符号之前的部分必须作为实体列出
-    - 示例：书名"FREEDOM OF MONEY: Fight For Freedom" → 主标题实体"FREEDOM OF MONEY"
-  - **副标题**：冒号或副标题符号之后的部分必须作为实体列出
-    - 示例：书名"FREEDOM OF MONEY: Fight For Freedom" → 副标题实体"Fight For Freedom"
-  - **作者**：作者名称必须作为实体列出
-    - 示例：作者"Changpeng Zhao" → 实体"Changpeng Zhao"
-    - 示例：作者"CZ" → 实体"CZ"
-  - ⚠️ **注意**：副标题匹配也算强关联，代币名匹配副标题 = 匹配实体
+${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 
-步骤2：检查代币名是否在**任何语料（推文/Website/Amazon）**的核心实体中
+**步骤2.2：检查代币名是否在核心实体中**（推文/Website/Amazon/Twitter账号）
 - ⚠️ **只做精确字符串匹配，不做推理或联想**
 - ⚠️ **必须是完整匹配**：代币名必须**完整地**出现在实体列表中才算匹配
   - 示例：代币名"BNB Memoirs" → 实体必须包含"BNB Memoirs"才算匹配
@@ -309,34 +346,42 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
   - 示例："币安VIP"与"Binance VIP"匹配（去掉空格差异后是同一词的翻译）
   - 示例："币安VIP"与"BinanceVIP"也匹配（空格不影响）
 
-步骤3：根据检查结果执行
+**步骤2.3：根据匹配结果执行**
 
-- ⚠️ **如果代币名在核心实体中（满足步骤2的匹配规则）** → **立即返回pass=true**
-- ⚠️ **如果代币名不在核心实体中** → 继续检查场景1-3
+- ⚠️ **如果代币名不在核心实体中（未满足步骤2.2的匹配规则）** → **立即返回pass=false, stage=2**
+  - 理由：代币名不在核心实体中 = 无相关性 = 无法形成meme传播
+- ⚠️ **如果代币名在核心实体中（满足步骤2.2的匹配规则）** → 继续执行第三阶段
+  - 理由：代币名在核心实体中 = 有相关性 = 需要进一步检查质量
 
 ⛔ **禁止行为**：
-- 一旦发现代币名在核心实体中，**立即停止分析，直接返回pass=true**
-- **绝对不允许**在发现匹配后继续推理或判断场景1-3
-- 前置检查通过即pass=true，这是最终结论，不可推翻
+- 一旦发现代币名不在核心实体中，**立即停止分析，直接返回pass=false**
+- **绝对不允许**在发现不匹配后继续推理或判断第三阶段的场景
+- 第二阶段未通过即pass=false，这是最终结论，不可推翻
 
-【低质量场景列表】
+═══════════════════════════════════════════════════════════════
 
-**1. 语言不匹配**：推文语言与代币名称语言不匹配
-   - ⚠️ **这是底线问题：语言不匹配 = 无法传播 = 触发场景1**
-   - 示例：推文是英语（含"surprise"），代币名是日文"驚き" → 触发场景1
-   - 示例：推文是中文，代币名是泰语/韩语等非中英语言 → 触发场景1
+📋 **第三阶段：低质量/低传播能力检查**
+
+🎯 **目的**：判断有相关性的代币是否具备足够的传播潜力
+📌 **执行时机**：第二阶段通过（代币名在核心实体中）后执行
+⚠️ **即使有相关性，如果触发以下场景，仍返回low**
+
+**3.1 语言不匹配**：推文语言与代币名称语言不匹配
+   - ⚠️ **这是底线问题：语言不匹配 = 无法传播 = 返回pass=false, stage=3, scenario=1**
+   - 示例：推文是英语（含"surprise"），代币名是日文"驚き" → 触发
+   - 示例：推文是中文，代币名是泰语/韩语等非中英语言 → 触发
    - 理由：目标受众无法理解、无法记住、无法传播不同语言的代币名
    - ⛔ **豁免：中文⇄英文不算语言不匹配**（主体用户中英文都会，可互译）
 
-**2. 纯负面概念**：代币名是纯负面概念，缺乏meme属性
-   - ⚠️ **负面概念缺乏正向情感共鸣，用户不愿意传播持有**
-   - 示例："失业"、"破产"、"倒闭"、"经济衰退"、"裁员"等 → 触发场景2
-   - 示例："暴跌"、"崩盘"、"亏损"等 → 触发场景2
+**3.2 纯负面概念**：代币名是纯负面概念，缺乏meme属性
+   - ⚠️ **负面概念缺乏正向情感共鸣，用户不愿意传播持有 = 返回pass=false, stage=3, scenario=2**
+   - 示例："失业"、"破产"、"倒闭"、"经济衰退"、"裁员"等 → 触发
+   - 示例："暴跌"、"崩盘"、"亏损"等 → 触发
    - 理由：纯粹负面的概念缺乏幽默、讽刺或正向的情感驱动
    - 例外：有讽刺/幽默元素的负面概念（如"躺平"、"佛系"等可自嘲的概念）
 
-**3. 纯通识知识/百科内容**：内容是历史/通识知识科普，无近期事件驱动，缺乏meme属性
-   - ⚠️ **这类内容虽然真实且关联性强，但缺乏meme的核心要素**
+**3.3 纯通识知识/百科内容**：内容是历史/通识知识科普，无近期事件驱动，缺乏meme属性
+   - ⚠️ **这类内容虽然真实且关联性强，但缺乏meme的核心要素 = 返回pass=false, stage=3, scenario=3**
    - **包括内容类型**：
      - 历史科普、百科介绍、知识讲解类内容
      - 功能性符号/标志（紧急出口标志、交通标志等）
@@ -350,31 +395,33 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
      3. **无meme属性**：内容严肃、缺乏幽默/讽刺/情感共鸣
        - 示例：安全标志设计流程、技术标准制定过程 → 严肃科普
      4. **无大IP喊单**：没有CZ/Elon/Trump等超大IP的近期推荐或讨论
-   - **反面示例（触发场景3）**：
-     - 示例：代币名"皮特托先生"，内容是"紧急出口标志起源的科普文章" → 触发场景3
-     - 示例：代币名"某某发明家"，内容是"某某人物的生平百科介绍" → 触发场景3
-     - 示例：代币名"某某定律"，内容是"科学定律的知识讲解" → 触发场景3
+   - **反面示例（触发）**：
+     - 示例：代币名"皮特托先生"，内容是"紧急出口标志起源的科普文章" → 触发
+     - 示例：代币名"某某发明家"，内容是"某某人物的生平百科介绍" → 触发
+     - 示例：代币名"某某定律"，内容是"科学定律的知识讲解" → 触发
    - **正面示例（不触发）**：
      - ✅ 如果有大IP近期喊单：CZ发推讨论安全标志 → 不触发（有事件驱动）
      - ✅ 如果有近期热点：某安全标志因新闻事件火了 → 不触发（有近期事件）
      - ✅ 如果内容有meme属性：用幽默方式讲述历史 → 不触发（有情感驱动）
    - 理由：meme币需要"热点事件 + 情感驱动 + 传播动力"，纯知识科普即使强关联也成不了meme
 
+═══════════════════════════════════════════════════════════════
+
 【输出格式】
 
 只返回JSON，不要其他内容：
 
-**步骤0触发：内容空洞/无意义事件**
-{"pass": false, "scenario": 0, "reason": "所有语料内容空洞/事件无意义", "entities": {...}}
+**第一阶段触发：内容空洞/无意义事件**
+{"pass": false, "stage": 1, "reason": "所有语料内容空洞/事件无意义", "entities": {...}}
 
-**情况A：前置检查通过（代币名在核心实体中）**
-{"pass": true, "scenario": 0, "reason": "代币名在核心实体中", "entities": {"tweet1": ["实体1", ...], "quoted_tweet": [...], "website": [...], "amazon": [...]}}
+**第二阶段触发：无相关性（代币名不在核心实体中）**
+{"pass": false, "stage": 2, "reason": "代币名不在核心实体中，无相关性", "entities": {...}}
 
-**情况B：前置检查未通过，但场景1-3都没触发**
-{"pass": true, "scenario": 0, "reason": "无上述低质量场景", "entities": {...}}
+**第三阶段触发：有相关性但质量低**
+{"pass": false, "stage": 3, "scenario": 1-3, "reason": "说明理由", "entities": {...}}
 
-**情况C：触发低质量场景（scenario必须是1-3）**
-{"pass": false, "scenario": 1-3, "reason": "说明理由", "entities": {...}}
+**最终通过：有相关性且质量过关**
+{"pass": true, "stage": 0, "reason": "代币名在核心实体中，且无低质量问题", "entities": {"tweet1": ["实体1", ...], "quoted_tweet": [...], "website": [...], "amazon": [...], "twitter_account": [...]}}
 
 ⚠️ **entities字段必须包含每条语料的核心实体列表**：
 - "tweet1": 主推文的实体列表
@@ -384,13 +431,23 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 - "amazon": Amazon内容的实体列表（如果有）
 - "twitter_account": Twitter账号的实体列表（如果有，包括账号名、品牌名、所属机构等）
 
-⚠️ **注意：scenario必须是1-3的数字**`);
+⚠️ **注意**：
+- stage: 0 表示通过（有相关性且质量过关）
+- stage: 1 表示第一阶段触发（内容空洞，pass=false）
+- stage: 2 表示第二阶段触发（无相关性，pass=false）
+- stage: 3 表示第三阶段触发（有相关性但质量低，pass=false）
+- 当stage=3时，scenario字段必须是1-3的数字，对应三个场景`);
 
   return sections.filter(s => s).join('\n\n');
 }
 
 /**
  * 解析Stage 1响应
+ *
+ * 注意：此函数已弃用，请使用 NarrativeAnalyzer._parseStage1Response
+ * NarrativeAnalyzer中的版本支持stage字段和entities字段
+ *
+ * @deprecated
  * @param {string} content - LLM响应内容
  * @returns {Object} 解析结果 { pass: boolean, reason: string }
  */

@@ -195,11 +195,20 @@ export class NarrativeAnalyzer {
 
         if (!stage1Data.pass) {
           // Stage 1检测到低质量，直接返回
+          const stageNum = stage1Data.stage || 0;
           const scenarioNum = stage1Data.scenario || 0;
-          const reasonText = scenarioNum > 0
-            ? `场景${scenarioNum}: ${stage1Data.reason}`
-            : stage1Data.reason;
-          console.log(`[NarrativeAnalyzer] Stage 1: 检测到低质量 - 场景${scenarioNum}: ${stage1Data.reason}`);
+
+          // 构建原因文本
+          let reasonText = stage1Data.reason;
+          if (stageNum === 1) {
+            reasonText = `第一阶段（内容空洞）: ${stage1Data.reason}`;
+          } else if (stageNum === 2) {
+            reasonText = `第二阶段（无相关性）: ${stage1Data.reason}`;
+          } else if (stageNum === 3 && scenarioNum > 0) {
+            reasonText = `第三阶段（场景${scenarioNum}）: ${stage1Data.reason}`;
+          }
+
+          console.log(`[NarrativeAnalyzer] Stage 1: 检测到低质量 - 阶段${stageNum}${scenarioNum > 0 ? ', 场景' + scenarioNum : ''}: ${stage1Data.reason}`);
           console.log(`[NarrativeAnalyzer] Stage 1: 识别的实体:`, JSON.stringify(stage1Data.entities));
           llmResult = {
             category: 'low',
@@ -207,6 +216,7 @@ export class NarrativeAnalyzer {
             scores: null,
             total_score: null,
             analysis_stage: 1,
+            stage: stageNum,
             scenario: scenarioNum,
             entities: stage1Data.entities,  // 保存实体列表
             raw: stage1RawResponse
@@ -1533,11 +1543,17 @@ export class NarrativeAnalyzer {
         throw new Error('Stage 1: pass字段必须是boolean');
       }
 
+      // 必须包含stage字段：0=通过，1=第一阶段触发，2=第二阶段触发，3=第三阶段触发
+      if (result.stage === undefined) {
+        throw new Error('Stage 1: stage字段缺失');
+      }
+
       return {
         pass: result.pass,
         reason: result.reason || '',
-        scenario: result.scenario || 0,
-        entities: result.entities || {}  // 保存实体列表用于调试
+        stage: result.stage,
+        scenario: result.scenario || 0,  // stage=3时对应的场景编号
+        entities: result.entities || {}
       };
     } catch (parseError) {
       console.error('[NarrativeAnalyzer] Stage 1: JSON解析失败，提取的字符串:', jsonStr);
