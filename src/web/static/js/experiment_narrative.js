@@ -368,6 +368,10 @@ class ExperimentNarrative {
     // 平台标签
     const platformLabel = item.platform === 'fourmeme' ? '4meme' : item.platform;
 
+    // 使用 judgeExperimentId（回测时为源实验ID，否则为当前实验ID）
+    const targetExperimentId = this.judgeExperimentId || this.experimentId;
+    const blockchain = this.experimentData?.blockchain || 'bsc';
+
     return `
       <tr class="table-row">
         <td class="px-4 py-3">
@@ -389,10 +393,23 @@ class ExperimentNarrative {
         <td class="px-4 py-3 text-center text-gray-500 text-xs">${sourceExpId}</td>
         <td class="px-4 py-3 text-center text-gray-400 text-xs">${analyzedAt}</td>
         <td class="px-4 py-3 text-center">
-          <a href="/narrative-analyzer?address=${item.token_address}" target="_blank"
-             class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs text-white transition-colors">
-            查看
-          </a>
+          <div class="action-links">
+            <a href="/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${item.token_address}" target="_blank" class="action-link text-pink-400 hover:text-pink-300">
+              策略分析
+            </a>
+            <a href="/experiment/${targetExperimentId}/observer#token=${item.token_address}" target="_blank" class="action-link text-emerald-400 hover:text-emerald-300">
+              时序数据
+            </a>
+            <a href="/token-holders?experiment=${this.experimentId}&token=${item.token_address}" target="_blank" class="action-link text-cyan-400 hover:text-cyan-300">
+              持有者
+            </a>
+            <a href="/token-early-trades?token=${item.token_address}&chain=${blockchain}" target="_blank" class="action-link text-amber-400 hover:text-amber-300">
+              早期交易
+            </a>
+            <a href="/token-detail?experiment=${this.experimentId}&address=${item.token_address}" target="_blank" class="action-link text-indigo-400 hover:text-indigo-300">
+              代币详情
+            </a>
+          </div>
         </td>
       </tr>
     `;
