@@ -362,6 +362,81 @@
         .reanalyze-btn:hover {
             background: #d35400;
         }
+
+        /* URL列表样式 */
+        .urls-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 12px;
+        }
+
+        .url-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .url-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .url-item.twitter { border-left-color: #1DA1F2; }
+        .url-item.weibo { border-left-color: #E6162D; }
+        .url-item.youtube { border-left-color: #FF0000; }
+        .url-item.tiktok { border-left-color: #000000; }
+        .url-item.douyin { border-left-color: #000000; }
+        .url-item.bilibili { border-left-color: #00A1D6; }
+        .url-item.github { border-left-color: #333; }
+        .url-item.amazon { border-left-color: #FF9900; }
+        .url-item.telegram { border-left-color: #0088cc; }
+        .url-item.discord { border-left-color: #5865F2; }
+        .url-item.website { border-left-color: #95a5a6; }
+
+        .url-platform {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .url-link {
+            font-size: 13px;
+            word-break: break-all;
+            line-height: 1.5;
+        }
+
+        .url-link a {
+            color: #3498db;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .url-link a:hover {
+            color: #2980b9;
+            text-decoration: underline;
+        }
+
+        .url-type {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            color: #6c757d;
+            margin-left: 6px;
+        }
+
+        .no-urls {
+            color: #999;
+            font-size: 13px;
+            padding: 20px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -403,6 +478,11 @@
                         <div class="info-value" id="tokenAddress">-</div>
                     </div>
                 </div>
+            </div>
+
+            <div class="result-card" id="urlsCard">
+                <h2>发现的所有链接</h2>
+                <div id="urlsContent">等待分析结果...</div>
             </div>
 
             <div class="result-card" id="llmCard">
@@ -458,7 +538,7 @@
         </div>
     </div>
 
-    <script src="/static/js/narrative-analyzer.js?v=20250323-1"></script>
+    <script src="/static/js/narrative-analyzer.js?v=20250328-1"></script>
     <script>
         // 调试信息：检查页面加载状态
         window.addEventListener('load', function() {

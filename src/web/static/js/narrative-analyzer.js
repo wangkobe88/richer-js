@@ -175,6 +175,9 @@ class NarrativeAnalyzer {
     document.getElementById('tokenSymbol').textContent = token.symbol || '-';
     document.getElementById('tokenAddress').textContent = token.address || '-';
 
+    // 显示URL列表
+    this.displayUrls(data.classifiedUrls);
+
     // 显示LLM结果
     const llmResultDiv = document.getElementById('llmResult');
     llmResultDiv.className = 'llm-result ' + (llmAnalysis.category || 'unrated');
@@ -328,6 +331,8 @@ class NarrativeAnalyzer {
     // 显示推文数据
     if (data.twitter) {
       this.twitterDataContent.textContent = JSON.stringify(data.twitter, null, 2);
+    } else if (data.fetchErrors?.twitterError) {
+      this.twitterDataContent.textContent = `❌ ${data.fetchErrors.twitterError}\n\n请查看服务器日志获取详细错误信息。`;
     } else {
       this.twitterDataContent.textContent = '无推文数据';
     }
@@ -370,6 +375,84 @@ class NarrativeAnalyzer {
     } catch {
       return dateStr;
     }
+  }
+
+  /**
+   * 显示URL列表
+   */
+  displayUrls(classifiedUrls) {
+    const urlsContent = document.getElementById('urlsContent');
+
+    if (!classifiedUrls || this.isEmptyUrls(classifiedUrls)) {
+      urlsContent.innerHTML = '<div class="no-urls">未发现任何链接</div>';
+      return;
+    }
+
+    urlsContent.innerHTML = this.buildUrlsHtml(classifiedUrls);
+  }
+
+  /**
+   * 检查URL对象是否为空
+   */
+  isEmptyUrls(classifiedUrls) {
+    if (!classifiedUrls) return true;
+    return Object.values(classifiedUrls).every(arr => !arr || arr.length === 0);
+  }
+
+  /**
+   * 构建URL列表HTML
+   */
+  buildUrlsHtml(classifiedUrls) {
+    const platformConfig = {
+      twitter: { label: 'Twitter/X', class: 'twitter', icon: '🐦' },
+      weibo: { label: '微博', class: 'weibo', icon: '📱' },
+      youtube: { label: 'YouTube', class: 'youtube', icon: '▶️' },
+      tiktok: { label: 'TikTok', class: 'tiktok', icon: '🎵' },
+      douyin: { label: '抖音', class: 'douyin', icon: '🎵' },
+      bilibili: { label: 'Bilibili', class: 'bilibili', icon: '📺' },
+      github: { label: 'GitHub', class: 'github', icon: '💻' },
+      amazon: { label: 'Amazon', class: 'amazon', icon: '📦' },
+      telegram: { label: 'Telegram', class: 'telegram', icon: '✈️' },
+      discord: { label: 'Discord', class: 'discord', icon: '💬' },
+      websites: { label: '网站', class: 'website', icon: '🌐' }
+    };
+
+    const typeLabelMap = {
+      'tweet': '推文',
+      'account': '账号',
+      'post': '帖子',
+      'video': '视频',
+      'repository': '仓库',
+      'product': '商品',
+      'channel': '频道',
+      'server': '服务器',
+      'website': '网页'
+    };
+
+    let html = '<div class="urls-list">';
+
+    for (const [platform, urls] of Object.entries(classifiedUrls)) {
+      if (!urls || urls.length === 0) continue;
+
+      const config = platformConfig[platform] || platformConfig.websites;
+
+      urls.forEach(urlInfo => {
+        const typeLabel = typeLabelMap[urlInfo.type] || urlInfo.type || '';
+        html += `
+          <div class="url-item ${config.class}">
+            <div class="url-platform">${config.icon} ${config.label}${typeLabel ? `<span class="url-type">${typeLabel}</span>` : ''}</div>
+            <div class="url-link">
+              <a href="${urlInfo.url}" target="_blank" rel="noopener noreferrer">
+                ${urlInfo.url}
+              </a>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    html += '</div>';
+    return html;
   }
 }
 

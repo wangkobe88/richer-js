@@ -133,7 +133,8 @@ export class NarrativeAnalyzer {
       tiktokInfo,
       bilibiliInfo,
       amazonInfo,
-      classifiedUrls
+      classifiedUrls,
+      fetchErrors  // 获取数据收集的错误信息
     } = await this._fetchAllDataViaClassifier(tokenData, extractedInfo);
     console.log('[NarrativeAnalyzer] 数据获取完成');
 
@@ -297,6 +298,7 @@ export class NarrativeAnalyzer {
       raw_api_data: tokenData.raw_api_data,
       extracted_info: extractedInfo,
       twitter_info: cleanedTwitterInfo,
+      classified_urls: classifiedUrls, // 保存分类后的URL
       llm_category: llmResult.category,
       llm_raw_output: rawOutputToSave,
       llm_summary: {
@@ -319,6 +321,8 @@ export class NarrativeAnalyzer {
     return {
       ...this.formatResult(saveResult),
       backgroundInfo: backgroundInfo, // 返回背景信息供调试使用
+      classifiedUrls: classifiedUrls, // 返回分类后的URL供前端展示
+      fetchErrors: fetchErrors, // 添加数据获取错误信息（来自_fetchDataSequentially）
       meta: {
         fromCache: false,
         preCheckTriggered: isPreCheckTriggered,
@@ -837,6 +841,25 @@ export class NarrativeAnalyzer {
     // 2. 提取所有URL
     const allUrls = extractAllUrls(fullData);
     console.log(`[NarrativeAnalyzer] 从数据中提取到 ${allUrls.length} 个URL`);
+    if (allUrls.length > 0) {
+      console.log('[NarrativeAnalyzer] 提取到的URL:', allUrls.join(', '));
+    } else {
+      // 调试：输出关键字段帮助排查
+      console.log('[NarrativeAnalyzer] URL提取失败，调试信息:');
+      console.log('  - rawData.keys:', Object.keys(rawData).join(', '));
+      console.log('  - rawData部分字段:', JSON.stringify({
+        socials: rawData.socials,
+        socialLinks: rawData.socialLinks,
+        links: rawData.links,
+        website: rawData.website,
+        webUrl: rawData.webUrl,
+        twitter: rawData.twitter,
+        telegram: rawData.telegram,
+        discord: rawData.discord
+      }, null, 2));
+      console.log('  - extractedInfo:', JSON.stringify(extractedInfo, null, 2));
+      console.log('  - appendix:', JSON.stringify(appendix, null, 2));
+    }
 
     if (allUrls.length === 0) {
       console.log('[NarrativeAnalyzer] 未找到任何URL，返回空数据');
@@ -850,6 +873,25 @@ export class NarrativeAnalyzer {
         tiktokInfo: null,
         bilibiliInfo: null,
         amazonInfo: null,
+        classifiedUrls: {  // 空的分类URL对象
+          twitter: [],
+          weibo: [],
+          youtube: [],
+          tiktok: [],
+          douyin: [],
+          bilibili: [],
+          github: [],
+          amazon: [],
+          telegram: [],
+          discord: [],
+          websites: []
+        },
+        fetchErrors: {  // 空的错误对象
+          twitterError: null,
+          websiteError: null,
+          githubError: null,
+          videoErrors: {}
+        },
         bestUrls: null
       };
     }
@@ -891,7 +933,14 @@ export class NarrativeAnalyzer {
       douyinInfo: null,
       tiktokInfo: null,
       bilibiliInfo: null,
-      amazonInfo: null
+      amazonInfo: null,
+      // 存储数据获取错误信息
+      fetchErrors: {
+        twitterError: null,
+        websiteError: null,
+        githubError: null,
+        videoErrors: {}
+      }
     };
 
     // === 辅助函数：从 classifiedUrls 中选择 URL ===
@@ -995,7 +1044,9 @@ export class NarrativeAnalyzer {
           }
         }
       } catch (error) {
-        console.warn('[NarrativeAnalyzer] Twitter数据获取失败:', error.message);
+        const errorMsg = `Twitter数据获取失败: ${error.message}`;
+        console.warn('[NarrativeAnalyzer]', errorMsg);
+        results.fetchErrors.twitterError = errorMsg;
       }
     }
 
@@ -1028,7 +1079,9 @@ export class NarrativeAnalyzer {
           console.log(`[NarrativeAnalyzer] GitHub信息: ${results.githubInfo.stargazers_count} stars`);
         }
       } catch (error) {
-        console.warn('[NarrativeAnalyzer] GitHub数据获取失败:', error.message);
+        const errorMsg = `GitHub数据获取失败: ${error.message}`;
+        console.warn('[NarrativeAnalyzer]', errorMsg);
+        results.fetchErrors.githubError = errorMsg;
       }
     }
 
@@ -1045,7 +1098,9 @@ export class NarrativeAnalyzer {
           console.log(`[NarrativeAnalyzer] YouTube信息: "${results.youtubeInfo.title}"`);
         }
       } catch (error) {
-        console.warn('[NarrativeAnalyzer] YouTube数据获取失败:', error.message);
+        const errorMsg = `YouTube数据获取失败: ${error.message}`;
+        console.warn('[NarrativeAnalyzer]', errorMsg);
+        results.fetchErrors.videoErrors.youtube = errorMsg;
       }
     }
 
@@ -1062,7 +1117,9 @@ export class NarrativeAnalyzer {
           console.log(`[NarrativeAnalyzer] 抖音信息: "${results.douyinInfo.title}"`);
         }
       } catch (error) {
-        console.warn('[NarrativeAnalyzer] 抖音数据获取失败:', error.message);
+        const errorMsg = `抖音数据获取失败: ${error.message}`;
+        console.warn('[NarrativeAnalyzer]', errorMsg);
+        results.fetchErrors.videoErrors.douyin = errorMsg;
       }
     }
 
@@ -1079,7 +1136,9 @@ export class NarrativeAnalyzer {
           console.log(`[NarrativeAnalyzer] TikTok信息: @${results.tiktokInfo.author_username}`);
         }
       } catch (error) {
-        console.warn('[NarrativeAnalyzer] TikTok数据获取失败:', error.message);
+        const errorMsg = `TikTok数据获取失败: ${error.message}`;
+        console.warn('[NarrativeAnalyzer]', errorMsg);
+        results.fetchErrors.videoErrors.tiktok = errorMsg;
       }
     }
 
@@ -1096,7 +1155,9 @@ export class NarrativeAnalyzer {
           console.log(`[NarrativeAnalyzer] Bilibili信息: "${results.bilibiliInfo.title}"`);
         }
       } catch (error) {
-        console.warn('[NarrativeAnalyzer] Bilibili数据获取失败:', error.message);
+        const errorMsg = `Bilibili数据获取失败: ${error.message}`;
+        console.warn('[NarrativeAnalyzer]', errorMsg);
+        results.fetchErrors.videoErrors.bilibili = errorMsg;
       }
     }
 
@@ -1113,7 +1174,9 @@ export class NarrativeAnalyzer {
           console.log(`[NarrativeAnalyzer] Amazon信息: "${results.amazonInfo.title}"`);
         }
       } catch (error) {
-        console.warn('[NarrativeAnalyzer] Amazon数据获取失败:', error.message);
+        const errorMsg = `Amazon数据获取失败: ${error.message}`;
+        console.warn('[NarrativeAnalyzer]', errorMsg);
+        results.fetchErrors.videoErrors.amazon = errorMsg;
       }
     }
 
@@ -1132,7 +1195,9 @@ export class NarrativeAnalyzer {
           results.websiteInfo = await fetchWebsiteContent(websiteUrl, { maxLength: 5000 });
           console.log('[NarrativeAnalyzer] 网站内容获取成功');
         } catch (error) {
-          console.warn('[NarrativeAnalyzer] 网站内容获取失败:', error.message);
+          const errorMsg = `网站数据获取失败: ${error.message}`;
+          console.warn('[NarrativeAnalyzer]', errorMsg);
+          results.fetchErrors.websiteError = errorMsg;
         }
       }
     }
@@ -1458,6 +1523,65 @@ export class NarrativeAnalyzer {
    */
   static formatResult(record) {
     const rawOutput = record.llm_raw_output || {};
+
+    // 检查 classified_urls 是否有内容（辅助函数）
+    const isClassifiedUrlsEmpty = (urls) => {
+      if (!urls) return true;
+      const values = Object.values(urls);
+      return values.length === 0 || values.every(arr => !arr || arr.length === 0);
+    };
+
+    // 如果没有 classified_urls 或为空，从 raw_api_data 重新提取
+    let classifiedUrls = record.classified_urls;
+    if (!classifiedUrls || isClassifiedUrlsEmpty(classifiedUrls)) {
+      console.log('[NarrativeAnalyzer] 缓存数据缺少 classified_urls 或为空，重新提取URL');
+      try {
+        const rawData = record.raw_api_data || {};
+        let appendix = {};
+        if (rawData.appendix && typeof rawData.appendix === 'string') {
+          try {
+            appendix = JSON.parse(rawData.appendix);
+          } catch (e) {}
+        } else if (rawData.appendix && typeof rawData.appendix === 'object') {
+          appendix = rawData.appendix;
+        }
+
+        // 重新构建提取信息
+        const extractedInfo = {
+          twitter_url: appendix.twitter || rawData.webUrl || rawData.twitterUrl || '',
+          website: appendix.website || rawData.website || rawData.websiteUrl || '',
+          weibo_url: appendix.weibo || rawData.weibo || rawData.weiboUrl || '',
+          intro_en: rawData.intro_en || rawData.introduction || '',
+          intro_cn: rawData.intro_cn || '',
+          description: rawData.description || ''
+        };
+
+        const fullData = { ...rawData, ...extractedInfo, appendix };
+        const allUrls = extractAllUrls(fullData);
+        classifiedUrls = classifyAllUrls(allUrls);
+        console.log('[NarrativeAnalyzer] 重新提取到URL:', {
+          total: allUrls.length,
+          twitter: classifiedUrls.twitter.length,
+          websites: classifiedUrls.websites.length
+        });
+      } catch (e) {
+        console.warn('[NarrativeAnalyzer] 重新提取URL失败:', e.message);
+        classifiedUrls = {
+          twitter: [],
+          weibo: [],
+          youtube: [],
+          tiktok: [],
+          douyin: [],
+          bilibili: [],
+          github: [],
+          amazon: [],
+          telegram: [],
+          discord: [],
+          websites: []
+        };
+      }
+    }
+
     return {
       token: {
         address: record.token_address,
@@ -1466,6 +1590,7 @@ export class NarrativeAnalyzer {
       },
       extracted_info: record.extracted_info,
       twitter: record.twitter_info,
+      classifiedUrls: classifiedUrls, // 添加分类后的URL
       // 添加顶层字段方便前端访问
       llm_category: record.llm_category,
       llm_summary: record.llm_summary,
@@ -1482,7 +1607,39 @@ export class NarrativeAnalyzer {
         promptVersion: record.prompt_version,
         promptType: record.prompt_type,
         analysisStage: record.analysis_stage
-      }
+      },
+      // 生成数据获取错误信息（用于调试）
+      fetchErrors: (() => {
+        const errors = {};
+        const classifiedUrls = record.classified_urls || {};
+        // Twitter错误
+        if (!record.twitter_info && classifiedUrls.twitter?.length > 0) {
+          errors.twitterError = 'Twitter数据获取失败';
+        }
+        // 网站错误
+        if (!record.website_info && classifiedUrls.websites?.length > 0) {
+          errors.websiteError = '网站数据获取失败';
+        }
+        // GitHub错误
+        if (!record.github_info && classifiedUrls.github?.length > 0) {
+          errors.githubError = 'GitHub数据获取失败';
+        }
+        // 视频平台错误
+        const videoPlatforms = ['youtube', 'douyin', 'tiktok', 'bilibili'];
+        errors.videoErrors = {};
+        for (const platform of videoPlatforms) {
+          const infoField = platform + '_info';
+          if (!record[infoField] && classifiedUrls[platform]?.length > 0) {
+            errors.videoErrors[platform] = `${platform}数据获取失败`;
+          }
+        }
+        // 如果没有任何错误，返回null
+        if (Object.keys(errors).length === 0 ||
+            (Object.keys(errors).length === 1 && Object.keys(errors.videoErrors).length === 0)) {
+          return null;
+        }
+        return errors;
+      })()
     };
   }
 

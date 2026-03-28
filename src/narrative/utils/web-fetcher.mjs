@@ -67,6 +67,67 @@ export async function fetchWebsiteContent(url, options = {}) {
 }
 
 /**
+ * 检测是否是错误页面（如JavaScript disabled、页面错误等）
+ * @param {string} content - 提取的文本内容
+ * @returns {boolean} 是否是错误页面
+ */
+function isErrorPage(content) {
+  if (!content || content.length < 50) {
+    return false;
+  }
+
+  const lowerContent = content.toLowerCase();
+
+  // 错误页面的特征关键词组合
+  const errorPatterns = [
+    // JavaScript is not available 相关
+    'javascript is not available',
+    'javascript is disabled',
+    "we've detected that javascript",
+    'detected that javascript',
+
+    // 页面错误相关
+    "something went wrong",
+    "but don't fret",
+    "let's give it another shot",
+    'try again',
+
+    // 隐私/扩展相关错误提示
+    'some privacy related extensions',
+    'may cause issues',
+    'please disable',
+
+    // X.com/Twitter特定错误
+    'supported browsers',
+    'help center',
+    'terms of service',
+    'privacy policy',
+    'cookie policy',
+    'imprint',
+    'ads info',
+    '© 2026 x corp'
+  ];
+
+  // 检查是否包含多个错误特征（避免误判正常页面）
+  let matchCount = 0;
+  for (const pattern of errorPatterns) {
+    if (lowerContent.includes(pattern)) {
+      matchCount++;
+      if (matchCount >= 2) {
+        return true; // 至少匹配2个特征才认为是错误页面
+      }
+    }
+  }
+
+  // 特殊情况：如果内容很短且包含"javascript is not available"，直接判定为错误页面
+  if (content.length < 500 && lowerContent.includes('javascript is not available')) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * 从HTML中提取正文内容
  * @param {string} html - HTML内容
  * @param {string} url - 原始URL（用于判断）
@@ -97,6 +158,12 @@ function extractMainContent(html, url) {
   content = content
     .replace(/\s+/g, ' ')
     .trim();
+
+  // 检测是否是"JavaScript is not available"等错误页面
+  if (isErrorPage(content)) {
+    console.warn('[WebFetcher] 检测到错误页面（JavaScript disabled/页面错误），视为未获取到内容');
+    return '';
+  }
 
   return content;
 }

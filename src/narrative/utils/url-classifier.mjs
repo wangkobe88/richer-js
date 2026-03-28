@@ -10,9 +10,15 @@
  */
 export function extractAllUrls(data) {
   const urls = new Set();
+  let stringCount = 0;
+  let objectCount = 0;
 
-  const traverse = (obj) => {
+  const traverse = (obj, depth = 0) => {
+    // 限制递归深度，防止无限循环
+    if (depth > 20) return;
+
     if (typeof obj === 'string') {
+      stringCount++;
       // 查找URL模式
       const urlPattern = /https?:\/\/[^\s<>"]+/gi;
       const found = obj.match(urlPattern);
@@ -24,13 +30,16 @@ export function extractAllUrls(data) {
         });
       }
     } else if (Array.isArray(obj)) {
-      obj.forEach(traverse);
+      objectCount++;
+      obj.forEach(item => traverse(item, depth + 1));
     } else if (obj && typeof obj === 'object') {
-      Object.values(obj).forEach(traverse);
+      objectCount++;
+      Object.values(obj).forEach(value => traverse(value, depth + 1));
     }
   };
 
   traverse(data);
+  console.log(`[UrlClassifier] extractAllUrls: 扫描了${stringCount}个字符串、${objectCount}个对象/数组，提取到${urls.size}个URL`);
   return Array.from(urls);
 }
 
@@ -46,11 +55,13 @@ export function classifyUrl(url) {
 
   // 过滤图片链接（代币logo等）
   if (_isImageUrl(url)) {
+    console.log(`[UrlClassifier] URL被识别为图片，跳过: ${url}`);
     return null; // 图片链接不计入任何分类
   }
 
   // 验证必须是有效的URL格式（必须以 http:// 或 https:// 开头）
   if (!/^https?:\/\//i.test(url)) {
+    console.log(`[UrlClassifier] URL格式无效（非http/https）: ${url}`);
     return null; // 非URL格式（如 "pancake"）不作为网站处理
   }
 
@@ -58,11 +69,13 @@ export function classifyUrl(url) {
 
   // Twitter/X (推文) - 优先级最高
   if (_isTwitterTweetUrl(url)) {
+    console.log(`[UrlClassifier] URL识别为Twitter推文: ${url}`);
     return { type: 'tweet', platform: 'twitter', priority: 1, url };
   }
 
   // Twitter/X (账号)
   if (_isTwitterAccountUrl(url)) {
+    console.log(`[UrlClassifier] URL识别为Twitter账号: ${url}`);
     return { type: 'account', platform: 'twitter', priority: 2, url };
   }
 
@@ -103,20 +116,24 @@ export function classifyUrl(url) {
 
   // Telegram
   if (_isTelegramUrl(url)) {
+    console.log(`[UrlClassifier] URL识别为Telegram: ${url}`);
     return { type: 'channel', platform: 'telegram', priority: 2, url };
   }
 
   // Discord
   if (_isDiscordUrl(url)) {
+    console.log(`[UrlClassifier] URL识别为Discord: ${url}`);
     return { type: 'server', platform: 'discord', priority: 2, url };
   }
 
   // PancakeSwap 交易页面（DEX链接，不需要作为网站内容获取）
   if (_isDexUrl(url)) {
+    console.log(`[UrlClassifier] URL被识别为DEX链接，跳过: ${url}`);
     return null; // 过滤掉DEX交易链接
   }
 
   // 默认为普通网站
+  console.log(`[UrlClassifier] URL识别为普通网站: ${url}`);
   return { type: 'website', platform: 'web', priority: 3, url };
 }
 
@@ -228,7 +245,10 @@ export function selectBestUrls(classifiedUrls) {
 
 function _isTwitterTweetUrl(url) {
   // 匹配 twitter.com or x.com 的推文链接
-  return /^https?:\/\/(www\.)?(twitter|x)\.com\/[\w-]+\/status\/\d+/.test(url);
+  // 支持两种格式：
+  // 1. https://x.com/username/status/123456 (标准格式)
+  // 2. https://x.com/i/web/status/123456 (i/web格式)
+  return /^https?:\/\/(www\.)?(twitter|x)\.com\/(i\/web\/|[\w-]+\/)status\/\d+/.test(url);
 }
 
 function _isTwitterAccountUrl(url) {
@@ -324,18 +344,28 @@ function _isImageUrl(url) {
 
   const lowerUrl = url.toLowerCase();
 
-  // 检查URL路径是否包含图片扩展名
+  // 检查URL路径是否以图片扩展名结尾
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico'];
-  if (imageExtensions.some(ext => lowerUrl.includes(ext))) {
+  if (imageExtensions.some(ext => lowerUrl.endsWith(ext))) {
     return true;
   }
 
-  // 检查常见图片CDN/存储路径
-  const imagePatterns = [
-    '/images/', '/img/', '/assets/', '/static/', '/photos/', '/avatars/',
-    'static.four.meme', // four.meme的静态资源
-    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.ico'
+  // 检查URL路径中是否包含图片扩展名后跟查询参数
+  // 例如: image.jpg?v=123, photo.png?size=large
+  const imageWithQueryPattern = /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico)\?/;
+  if (imageWithQueryPattern.test(lowerUrl)) {
+    return true;
+  }
+
+  // 检查明确的图片路径
+  const imagePathPatterns = [
+    '/images/',    // 专门的图片目录
+    '/img/',       // 专门的图片目录
+    '/photos/',    // 专门的照片目录
+    '/avatars/',   // 专门的头像目录
+    '/icons/',     // 专门的图标目录
+    'static.four.meme'  // four.meme的静态资源
   ];
 
-  return imagePatterns.some(pattern => lowerUrl.includes(pattern));
+  return imagePathPatterns.some(pattern => lowerUrl.includes(pattern));
 }
