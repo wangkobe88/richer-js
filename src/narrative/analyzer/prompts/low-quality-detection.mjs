@@ -2,6 +2,11 @@
  * Stage 1: 低质量检测Prompt
  * 三阶段低质量检测流程
  *
+ * V11.1 - 新增"学术圈事件"检测场景
+ * - 第三阶段增加scenario 4：学术圈事件检测
+ * - 学术圈的绝大多数事件都不适合构建meme币
+ * - 豁免条件：与Web3有交集、世界性大事件、大IP参与、有meme属性
+ *
  * V11.0 - 重大重构：三阶段检测流程
  * - 将原有结构重构为三个清晰的阶段
  * - 第一阶段：内容空洞/无意义事件检查
@@ -88,6 +93,7 @@
 import { buildTwitterSection } from './sections/twitter-section.mjs';
 import { buildWebsiteSection } from './sections/website-section.mjs';
 import { buildAmazonSection } from './sections/amazon-section.mjs';
+import { buildWeiboSection } from './sections/weibo-section.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
 /**
@@ -102,6 +108,7 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
     websiteInfo = null,
     amazonInfo = null,
     extractedInfo = null,
+    backgroundInfo = null,
     classifiedUrls = null
   } = fetchResults;
 
@@ -179,6 +186,10 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
   // 3. 推文内容
   const twitterSection = buildTwitterSection(twitterInfo);
   if (twitterSection) sections.push(twitterSection);
+
+  // 3.5 微博内容
+  const weiboSection = buildWeiboSection(backgroundInfo);
+  if (weiboSection) sections.push(weiboSection);
 
   // 4. 网站内容
   const websiteSection = buildWebsiteSection(websiteInfo);
@@ -367,11 +378,16 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 ⚠️ **即使有相关性，如果触发以下场景，仍返回low**
 
 **3.1 语言不匹配**：推文语言与代币名称语言不匹配
+   - ✅ **✅✅✅ 重要豁免：中文⇄英文不算语言不匹配 ✅✅✅**
+     - **中文和英文共存是正常现象，不算语言不匹配！**
+     - 示例：推文含中英文双语（中英混用）→ 不触发
+     - 示例：推文是中文，代币名是英文 → 不触发
+     - 示例：推文是英文，代币名是中文 → 不触发
+     - 理由：加密圈主体用户中英文都会，中英互译是常见现象
    - ⚠️ **这是底线问题：语言不匹配 = 无法传播 = 返回pass=false, stage=3, scenario=1**
    - 示例：推文是英语（含"surprise"），代币名是日文"驚き" → 触发
    - 示例：推文是中文，代币名是泰语/韩语等非中英语言 → 触发
-   - 理由：目标受众无法理解、无法记住、无法传播不同语言的代币名
-   - ⛔ **豁免：中文⇄英文不算语言不匹配**（主体用户中英文都会，可互译）
+   - 理由：目标受众无法理解、无法记住、无法传播不同语言的代币名（除中英文互译外）
 
 **3.2 纯负面概念**：代币名是纯负面概念，缺乏meme属性
    - ⚠️ **负面概念缺乏正向情感共鸣，用户不愿意传播持有 = 返回pass=false, stage=3, scenario=2**
@@ -418,7 +434,7 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 {"pass": false, "stage": 2, "reason": "代币名不在核心实体中，无相关性", "entities": {...}}
 
 **第三阶段触发：有相关性但质量低**
-{"pass": false, "stage": 3, "scenario": 1-3, "reason": "说明理由", "entities": {...}}
+{"pass": false, "stage": 3, "scenario": 1-4, "reason": "说明理由", "entities": {...}}
 
 **最终通过：有相关性且质量过关**
 {"pass": true, "stage": 0, "reason": "代币名在核心实体中，且无低质量问题", "entities": {"tweet1": ["实体1", ...], "quoted_tweet": [...], "website": [...], "amazon": [...], "twitter_account": [...]}}

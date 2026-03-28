@@ -51,6 +51,7 @@ export class NarrativeRepository {
   static async save(result) {
     const supabase = this.getSupabase();
     const record = {
+      // === 基础字段 ===
       token_address: result.token_address.toLowerCase(),
       token_symbol: result.token_symbol,
       platform: result.platform || 'fourmeme',
@@ -58,18 +59,41 @@ export class NarrativeRepository {
       raw_api_data: result.raw_api_data,
       extracted_info: result.extracted_info,
       twitter_info: result.twitter_info,
-      llm_category: result.llm_category,
-      llm_raw_output: result.llm_raw_output,
-      llm_summary: result.llm_summary,
-      prompt_version: result.prompt_version || 'V8.0',
-      prompt_type: result.prompt_type || null,  // 记录使用的Prompt类型
-      prompt_used: result.prompt_used,
-      analysis_stage: result.analysis_stage || 2,  // 分析阶段: 1=Stage1检测出低质量, 2=Stage2详细评分
-      analysis_status: result.analysis_status || 'completed',
-      error_message: result.error_message,
+      classified_urls: result.classified_urls || null,
+      experiment_id: result.experiment_id || null,
+      analyzed_at: result.analyzed_at || new Date().toISOString(),
       is_valid: result.is_valid !== undefined ? result.is_valid : true,
-      experiment_id: result.experiment_id || null,  // 标识来源实验
-      analyzed_at: result.analyzed_at || new Date().toISOString()
+
+      // === 预检查字段（3个）===
+      pre_check_category: result.pre_check_category || null,
+      pre_check_reason: result.pre_check_reason || null,
+      pre_check_result: result.pre_check_result || null,
+
+      // === Stage 1 字段（9个）===
+      llm_stage1_category: result.llm_stage1_category || null,
+      llm_stage1_model: result.llm_stage1_model || null,
+      llm_stage1_prompt: result.llm_stage1_prompt || null,
+      llm_stage1_raw_output: result.llm_stage1_raw_output || null,
+      llm_stage1_parsed_output: result.llm_stage1_parsed_output || null,
+      llm_stage1_started_at: result.llm_stage1_started_at || null,
+      llm_stage1_finished_at: result.llm_stage1_finished_at || null,
+      llm_stage1_success: result.llm_stage1_success ?? null,
+      llm_stage1_error: result.llm_stage1_error || null,
+
+      // === Stage 2 字段（9个）===
+      llm_stage2_category: result.llm_stage2_category || null,
+      llm_stage2_model: result.llm_stage2_model || null,
+      llm_stage2_prompt: result.llm_stage2_prompt || null,
+      llm_stage2_raw_output: result.llm_stage2_raw_output || null,
+      llm_stage2_parsed_output: result.llm_stage2_parsed_output || null,
+      llm_stage2_started_at: result.llm_stage2_started_at || null,
+      llm_stage2_finished_at: result.llm_stage2_finished_at || null,
+      llm_stage2_success: result.llm_stage2_success ?? null,
+      llm_stage2_error: result.llm_stage2_error || null,
+
+      // === Debug字段（2个）===
+      url_extraction_result: result.url_extraction_result || null,
+      data_fetch_results: result.data_fetch_results || null
     };
 
     // 使用 upsert (insert or update)
@@ -86,22 +110,36 @@ export class NarrativeRepository {
   }
 
   /**
-   * 更新分析状态
+   * 更新分析状态（已废弃，保留用于兼容）
+   * @deprecated 新的数据库结构不再使用 analysis_status 和 error_message
    */
   static async updateStatus(address, status, errorMessage = null) {
     const supabase = this.getSupabase();
     const updateData = {
-      analysis_status: status,
-      updated_at: new Date().toISOString()
+      is_valid: status === 'completed'
     };
-
-    if (errorMessage) {
-      updateData.error_message = errorMessage;
-    }
 
     const { data, error } = await supabase
       .from('token_narrative')
       .update(updateData)
+      .eq('token_address', address.toLowerCase())
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * 仅更新 is_valid 字段（用于使缓存失效）
+   * @param {string} address - 代币地址
+   * @param {boolean} isValid - 是否有效
+   */
+  static async updateIsValid(address, isValid) {
+    const supabase = this.getSupabase();
+    const { data, error } = await supabase
+      .from('token_narrative')
+      .update({ is_valid: isValid })
       .eq('token_address', address.toLowerCase())
       .select()
       .single();
@@ -128,21 +166,6 @@ export class NarrativeRepository {
     }
 
     const { data, error } = await query;
-
-    if (error) throw error;
-    return data;
-  }
-
-  /**
-   * 批量标记为无效（用于Prompt版本更新后重新分析）
-   */
-  static async invalidateByPromptVersion(oldVersion) {
-    const supabase = this.getSupabase();
-    const { data, error } = await supabase
-      .from('token_narrative')
-      .update({ is_valid: false })
-      .eq('prompt_version', oldVersion)
-      .select();
 
     if (error) throw error;
     return data;

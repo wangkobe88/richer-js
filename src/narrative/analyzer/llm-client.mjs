@@ -98,9 +98,22 @@ ${text}`;
    * 调用LLM进行叙事分析
    */
   static async analyze(prompt) {
+    const result = await this.analyzeWithMetadata(prompt);
+    return result.parsed;
+  }
+
+  /**
+   * 调用LLM进行叙事分析（带元数据）
+   * @param {string} prompt - Prompt内容
+   * @returns {Promise<Object>} 包含解析结果和元数据 { parsed, raw, model, startedAt, finishedAt, success, error }
+   */
+  static async analyzeWithMetadata(prompt) {
     if (!API_KEY) {
       throw new Error('SILICONFLOW_API_KEY 未配置');
     }
+
+    const model = MODEL;
+    const startedAt = new Date().toISOString();
 
     // 创建超时控制器
     const timeout = 180000; // 180秒超时（3分钟，复杂case需要更多时间）
@@ -108,6 +121,9 @@ ${text}`;
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     console.log('[LLMClient] 开始调用LLM API...');
+    console.log(`[LLMClient] 模型: ${model}`);
+
+    let raw, content, error, success;
 
     try {
       const response = await fetch(`${API_URL}/chat/completions`, {
@@ -117,7 +133,7 @@ ${text}`;
           'Authorization': `Bearer ${API_KEY}`
         },
         body: JSON.stringify({
-          model: MODEL,
+          model: model,
           messages: [
             {
               role: 'user',
@@ -142,23 +158,49 @@ ${text}`;
       }
 
       console.log('[LLMClient] API响应成功，解析中...');
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content;
+      raw = await response.json();
+      content = raw.choices[0]?.message?.content;
 
       if (!content) {
         throw new Error('LLM 返回内容为空');
       }
 
       console.log('[LLMClient] 解析响应完成');
-      // 解析JSON响应
-      return this.parseResponse(content);
-    } catch (error) {
+      const parsed = this.parseResponse(content);
+      success = true;
+      error = null;
+
+      return {
+        parsed,
+        raw: {
+          raw: raw,
+          ...parsed
+        },
+        model,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        success: true,
+        error: null
+      };
+    } catch (e) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
+      success = false;
+      error = e.message;
+
+      if (e.name === 'AbortError') {
         console.error('[LLMClient] 请求超时');
-        throw new Error(`LLM API 调用超时（${timeout/1000}秒）`);
+        error = `LLM API 调用超时（${timeout/1000}秒）`;
       }
-      throw error;
+
+      return {
+        parsed: null,
+        raw: null,
+        model,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        success: false,
+        error
+      };
     }
   }
 

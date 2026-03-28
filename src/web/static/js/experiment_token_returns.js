@@ -1435,8 +1435,9 @@ class ExperimentTokenReturns {
     const rating = categoryToRating[narrative.llm_category] ?? 9;
     const ratingInfo = NARRATIVE_RATING_MAP[rating] || NARRATIVE_RATING_MAP[9];
 
-    // 检查是否有摘要
-    const summaryStr = narrative.llm_summary && typeof narrative.llm_summary === 'string' ? narrative.llm_summary : '';
+    // 检查是否有摘要（reasoning字段）
+    const summaryObj = narrative.llm_summary;
+    const summaryStr = summaryObj?.reasoning || '';
     const hasSummary = summaryStr.trim() !== '';
     const summaryTitle = hasSummary ? summaryStr.slice(0, 200) + (summaryStr.length > 200 ? '...' : '') : '';
 

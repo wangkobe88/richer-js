@@ -344,10 +344,12 @@ class ExperimentNarrative {
       : '-';
 
     // 叙事摘要（截断）
-    const summary = item.narrative.llm_summary
-      ? (item.narrative.llm_summary.length > 80
-          ? item.narrative.llm_summary.substring(0, 80) + '...'
-          : item.narrative.llm_summary)
+    const summaryObj = item.narrative.llm_summary;
+    const reasoning = summaryObj?.reasoning || '';
+    const summary = reasoning
+      ? (reasoning.length > 80
+          ? reasoning.substring(0, 80) + '...'
+          : reasoning)
       : '-';
 
     // 来源实验ID

@@ -80,18 +80,16 @@ export class NarrativeAnalyzer {
         // ===== 不设置重新分析（ignoreCache=false）=====
         // 直接使用已有的分析结果（任何实验的都可以）
         // 检查是否是预检查触发的结果
-        const isCachedPreCheck = cached.llm_raw_output?.preCheckTriggered === true;
+        const isCachedPreCheck = !!cached.pre_check_result;
         return {
           ...this.formatResult(cached),
           meta: {
             fromCache: true,
             fromFallback: false,
             preCheckTriggered: isCachedPreCheck,
-            preCheckReason: isCachedPreCheck ? cached.llm_raw_output?.preCheckReason : null,
+            preCheckReason: isCachedPreCheck ? cached.pre_check_reason : null,
             analyzedAt: cached.analyzed_at,
-            sourceExperimentId: cached.experiment_id,
-            promptVersion: cached.prompt_version,
-            promptType: cached.prompt_type
+            sourceExperimentId: cached.experiment_id
           }
         };
       } else {
@@ -121,6 +119,13 @@ export class NarrativeAnalyzer {
     // 3. 提取结构化信息
     const extractedInfo = this.extractInfo(tokenData);
 
+    // 准备数据收集变量
+    let stage1DataToSave = null;
+    let stage2DataToSave = null;
+    let preCheckDataToSave = null;
+    let urlExtractionResult = null;
+    let dataFetchResults = null;
+
     // 4. 使用URL分类器统一获取所有数据
     console.log('[NarrativeAnalyzer] 开始使用URL分类器获取数据...');
     const {
@@ -134,12 +139,19 @@ export class NarrativeAnalyzer {
       bilibiliInfo,
       amazonInfo,
       classifiedUrls,
-      fetchErrors  // 获取数据收集的错误信息
+      fetchErrors,  // 获取数据收集的错误信息
+      url_extraction_result,  // URL提取结果
+      data_fetch_results  // 数据获取结果
     } = await this._fetchAllDataViaClassifier(tokenData, extractedInfo);
+
+    // 保存URL提取和数据获取结果
+    urlExtractionResult = url_extraction_result;
+    dataFetchResults = data_fetch_results;
+
     console.log('[NarrativeAnalyzer] 数据获取完成');
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
-    const preCheckResult = await this.performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo }, githubInfo, { ignoreExpired });
+    const preCheckResult = await this.performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo }, githubInfo, backgroundInfo, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;
@@ -150,10 +162,17 @@ export class NarrativeAnalyzer {
     if (isPreCheckTriggered) {
       // 预检查触发，使用预设结果
       console.log('[NarrativeAnalyzer] 预检查触发，跳过LLM分析');
+
+      // 收集预检查数据
+      preCheckDataToSave = {
+        category: preCheckResult.category,
+        reason: preCheckResult.preCheckReason,
+        result: preCheckResult
+      };
+
       llmResult = {
         ...preCheckResult,
-        raw: null, // 预检查结果没有原始LLM输出
-        analysis_stage: 0 // 预检查不属于任何阶段，标记为0
+        raw: null // 预检查结果没有原始LLM输出
       };
       // 预检查结果也记录prompt类型（用于后续判断）
       const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo };
@@ -175,8 +194,7 @@ export class NarrativeAnalyzer {
             reasoning: '没有可用的数据进行分析（所有推文/内容获取失败）',
             scores: null,
             total_score: null,
-            raw: null,
-            analysis_stage: 0
+            raw: null
           };
           promptUsed = null;
           promptType = 'no_data';
@@ -190,9 +208,15 @@ export class NarrativeAnalyzer {
         const stage1PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 1);
         console.log(`[NarrativeAnalyzer] Stage 1 Prompt类型: ${stage1PromptType}`);
 
-        // Stage 1: 直接调用API获取原始响应（不使用analyze方法，因为它期望category字段）
-        const stage1RawResponse = await this._callLLMAPI(stage1Prompt);
-        const stage1Data = this._parseStage1Response(stage1RawResponse);
+        // Stage 1: 调用API获取原始响应（带元数据）
+        const stage1CallResult = await this._callLLMAPI(stage1Prompt);
+
+        // 检查Stage 1是否成功
+        if (!stage1CallResult.success) {
+          throw new Error(`Stage 1 LLM调用失败: ${stage1CallResult.error}`);
+        }
+
+        const stage1Data = this._parseStage1Response(stage1CallResult.content);
 
         if (!stage1Data.pass) {
           // Stage 1检测到低质量，直接返回
@@ -211,18 +235,27 @@ export class NarrativeAnalyzer {
 
           console.log(`[NarrativeAnalyzer] Stage 1: 检测到低质量 - 阶段${stageNum}${scenarioNum > 0 ? ', 场景' + scenarioNum : ''}: ${stage1Data.reason}`);
           console.log(`[NarrativeAnalyzer] Stage 1: 识别的实体:`, JSON.stringify(stage1Data.entities));
+
           llmResult = {
             category: 'low',
             reasoning: reasonText,
             scores: null,
-            total_score: null,
-            analysis_stage: 1,
-            stage: stageNum,
-            scenario: scenarioNum,
-            entities: stage1Data.entities,  // 保存实体列表
-            raw: stage1RawResponse
+            total_score: null
           };
-          promptUsed = stage1Prompt;
+
+          // 收集Stage 1数据
+          stage1DataToSave = {
+            category: 'low',
+            model: stage1CallResult.model,
+            prompt: stage1Prompt,
+            raw_output: stage1CallResult.content,
+            parsed_output: stage1Data,
+            started_at: stage1CallResult.startedAt,
+            finished_at: stage1CallResult.finishedAt,
+            success: stage1CallResult.success,
+            error: stage1CallResult.error
+          };
+
           promptType = stage1PromptType;
         } else {
           // Stage 1通过，进入Stage 2
@@ -232,15 +265,44 @@ export class NarrativeAnalyzer {
           const stage2PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
           console.log(`[NarrativeAnalyzer] Stage 2 Prompt类型: ${stage2PromptType}`);
 
-          const stage2Result = await LLMClient.analyze(stage2Prompt);
+          // Stage 2: 调用API（带元数据）
+          const stage2CallResult = await LLMClient.analyzeWithMetadata(stage2Prompt);
+
+          // 检查Stage 2是否成功
+          if (!stage2CallResult.success) {
+            throw new Error(`Stage 2 LLM调用失败: ${stage2CallResult.error}`);
+          }
 
           llmResult = {
-            ...stage2Result,
-            analysis_stage: 2,
-            entities: stage1Data.entities,  // 保存Stage 1的entities
-            raw: stage2Result.raw
+            ...stage2CallResult.parsed
           };
-          promptUsed = stage2Prompt;
+
+          // 收集Stage 2数据
+          stage2DataToSave = {
+            category: stage2CallResult.parsed.category,
+            model: stage2CallResult.model,
+            prompt: stage2Prompt,
+            raw_output: stage2CallResult.raw.raw,
+            parsed_output: stage2CallResult.parsed,
+            started_at: stage2CallResult.startedAt,
+            finished_at: stage2CallResult.finishedAt,
+            success: stage2CallResult.success,
+            error: stage2CallResult.error
+          };
+
+          // Stage 1通过，也需要记录
+          stage1DataToSave = {
+            category: null,  // 通过，所以category为null
+            model: stage1CallResult.model,
+            prompt: stage1Prompt,
+            raw_output: stage1CallResult.content,
+            parsed_output: stage1Data,
+            started_at: stage1CallResult.startedAt,
+            finished_at: stage1CallResult.finishedAt,
+            success: stage1CallResult.success,
+            error: stage1CallResult.error
+          };
+
           promptType = stage2PromptType;
         }
         } // 关闭 hasAnyData 检查的 else 分支
@@ -266,14 +328,7 @@ export class NarrativeAnalyzer {
           fromCache: true,
           fromFallback: true, // 标记这是fallback缓存
           analyzedAt: cached.analyzed_at,
-          sourceExperimentId: cached.experiment_id,
-          promptVersion: cached.prompt_version,
-          promptType: cached.prompt_type
-        },
-        debugInfo: {
-          promptUsed: cached.prompt_used,
-          promptVersion: cached.prompt_version,
-          promptType: cached.prompt_type
+          sourceExperimentId: cached.experiment_id
         }
       };
     }
@@ -283,39 +338,48 @@ export class NarrativeAnalyzer {
 
     // 清理数据中的空字符和控制字符（PostgreSQL不支持）
     const cleanedTwitterInfo = this._cleanDataForDB(twitterInfo);
-    const cleanedPromptUsed = this._cleanDataForDB(promptUsed);
-
-    // 准备llm_raw_output：Stage 1的entities需要合并到rawOutput中
-    let rawOutputToSave = llmResult.raw || llmResult;
-    if (llmResult.entities && typeof rawOutputToSave === 'object') {
-      // 有entities（Stage 1或Stage 2都可能携带），合并到保存的数据中
-      rawOutputToSave = { ...rawOutputToSave, entities: llmResult.entities };
-    }
 
     const saveResult = await NarrativeRepository.save({
+      // === 基础字段 ===
       token_address: normalizedAddress,
       token_symbol: tokenData.symbol,
       raw_api_data: tokenData.raw_api_data,
       extracted_info: extractedInfo,
       twitter_info: cleanedTwitterInfo,
-      classified_urls: classifiedUrls, // 保存分类后的URL
-      llm_category: llmResult.category,
-      llm_raw_output: rawOutputToSave,
-      llm_summary: {
-        total_score: llmResult.total_score,
-        credibility_score: llmResult.scores?.credibility,
-        virality_score: llmResult.scores?.virality,
-        reasoning: llmResult.reasoning,
-        category: llmResult.category,
-        scenario: llmResult.scenario || null,  // Stage 1 低质量场景编号
-        entities: llmResult.entities || null  // 仅Stage 1有entities
-      },
-      prompt_used: cleanedPromptUsed,
-      prompt_version: PromptBuilder.getPromptVersion(),
-      prompt_type: promptType,  // 记录使用的Prompt类型
-      analysis_stage: llmResult.analysis_stage || 2,  // 分析阶段单独保存
-      experiment_id: experimentId,  // 记录来源实验
-      analyzed_at: new Date().toISOString()
+      classified_urls: classifiedUrls,
+      analyzed_at: new Date().toISOString(),
+      experiment_id: experimentId,
+
+      // === 预检查字段（3个）===
+      pre_check_category: preCheckDataToSave?.category || null,
+      pre_check_reason: preCheckDataToSave?.reason || null,
+      pre_check_result: preCheckDataToSave?.result || null,
+
+      // === Stage 1 字段（9个）===
+      llm_stage1_category: stage1DataToSave?.category || null,
+      llm_stage1_model: stage1DataToSave?.model || null,
+      llm_stage1_prompt: stage1DataToSave?.prompt || null,
+      llm_stage1_raw_output: stage1DataToSave?.raw_output || null,
+      llm_stage1_parsed_output: stage1DataToSave?.parsed_output || null,
+      llm_stage1_started_at: stage1DataToSave?.started_at || null,
+      llm_stage1_finished_at: stage1DataToSave?.finished_at || null,
+      llm_stage1_success: stage1DataToSave?.success ?? null,
+      llm_stage1_error: stage1DataToSave?.error || null,
+
+      // === Stage 2 字段（9个）===
+      llm_stage2_category: stage2DataToSave?.category || null,
+      llm_stage2_model: stage2DataToSave?.model || null,
+      llm_stage2_prompt: stage2DataToSave?.prompt || null,
+      llm_stage2_raw_output: stage2DataToSave?.raw_output || null,
+      llm_stage2_parsed_output: stage2DataToSave?.parsed_output || null,
+      llm_stage2_started_at: stage2DataToSave?.started_at || null,
+      llm_stage2_finished_at: stage2DataToSave?.finished_at || null,
+      llm_stage2_success: stage2DataToSave?.success ?? null,
+      llm_stage2_error: stage2DataToSave?.error || null,
+
+      // === Debug字段（2个）===
+      url_extraction_result: urlExtractionResult || null,
+      data_fetch_results: dataFetchResults || null
     });
 
     return {
@@ -335,7 +399,16 @@ export class NarrativeAnalyzer {
       debugInfo: {
         promptUsed: promptUsed,
         promptVersion: PromptBuilder.getPromptVersion(),
-        promptType: promptType
+        promptType: promptType,
+        // 根据执行的stage确定analysisStage
+        analysisStage: stage2DataToSave ? 2 : stage1DataToSave ? 1 : 0,
+        // 新增：Stage 1/2 数据
+        stage1Data: stage1DataToSave,
+        stage2Data: stage2DataToSave,
+        preCheckData: preCheckDataToSave,
+        // 新增：URL提取和数据获取结果
+        urlExtractionResult: urlExtractionResult,
+        dataFetchResults: dataFetchResults
       }
     };
   }
@@ -345,12 +418,16 @@ export class NarrativeAnalyzer {
    * @param {Object} tokenData - 代币数据
    * @param {Object} twitterInfo - Twitter信息
    * @param {Object} extractedInfo - 提取的结构化信息
+   * @param {Object} websiteInfo - Website信息
+   * @param {Object} classifiedUrls - 分类URLs
    * @param {Object} videoInfos - 视频信息对象
+   * @param {Object} githubInfo - GitHub信息
+   * @param {Object} backgroundInfo - 背景信息（微博等）
    * @param {Object} options - 预检查选项
    * @param {boolean} options.ignoreExpired - 是否忽略过期时间限制
    * @returns {Object|null} 如果触发预检查规则，返回预设结果；否则返回null
    */
-  static async performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls = {}, videoInfos = {}, githubInfo = null, options = {}) {
+  static async performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls = {}, videoInfos = {}, githubInfo = null, backgroundInfo = null, options = {}) {
     const { ignoreExpired = false } = options;
     const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo } = videoInfos;
 
@@ -730,7 +807,7 @@ export class NarrativeAnalyzer {
     }
 
     // 情况B：有公开URL，检查数据是否获取成功
-    const fetchResults = { twitterInfo, websiteInfo, extractedInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo };
+    const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo };
     const hasValidData = this._hasValidDataForAnalysis(fetchResults);
 
     if (!hasValidData) {
@@ -912,8 +989,20 @@ export class NarrativeAnalyzer {
       websites: classifiedUrls.websites.length
     });
 
+    // 准备URL提取结果
+    const url_extraction_result = {
+      total_urls: allUrls.length,
+      classified_urls: classifiedUrls,
+      extraction_errors: []
+    };
+
     // 4. 顺序获取数据（按优先级）
-    return await this._fetchDataSequentially(classifiedUrls, tokenData, extractedInfo);
+    const fetchData = await this._fetchDataSequentially(classifiedUrls, tokenData, extractedInfo);
+
+    return {
+      ...fetchData,
+      url_extraction_result
+    };
   }
 
   /**
@@ -943,6 +1032,9 @@ export class NarrativeAnalyzer {
       }
     };
 
+    // 新增：数据获取结果记录
+    const dataFetchResults = {};
+
     // === 辅助函数：从 classifiedUrls 中选择 URL ===
     const selectTwitterUrl = () => {
       if (!classifiedUrls.twitter || classifiedUrls.twitter.length === 0) return null;
@@ -962,91 +1054,97 @@ export class NarrativeAnalyzer {
     // === 1. Twitter数据（最高优先级）===
     const twitterUrlInfo = selectTwitterUrl();
     if (twitterUrlInfo) {
-      console.log(`[NarrativeAnalyzer] 获取Twitter数据: ${twitterUrlInfo.url}`);
-      try {
-        results.twitterInfo = await TwitterFetcher.fetchFromUrls(twitterUrlInfo.url, null);
+      const twitterFetch = await this._recordDataFetch(
+        async () => {
+          let info = await TwitterFetcher.fetchFromUrls(twitterUrlInfo.url, null);
 
-        // 如果成功获取推文，尝试获取推文中的链接内容
-        if (results.twitterInfo && results.twitterInfo.text) {
-          console.log('[NarrativeAnalyzer] 推文已获取，尝试获取推文链接内容');
-          results.twitterInfo = await TwitterFetcher.enrichWithLinkContent(results.twitterInfo);
-        }
+          // 如果成功获取推文，尝试获取推文中的链接内容
+          if (info && info.text) {
+            console.log('[NarrativeAnalyzer] 推文已获取，尝试获取推文链接内容');
+            info = await TwitterFetcher.enrichWithLinkContent(info);
+          }
 
-        // 图片分析（如果启用）
-        if (NARRATIVE_CONFIG.enableImageAnalysis && results.twitterInfo?.media && TwitterMediaExtractor.hasImages(results.twitterInfo)) {
-          console.log('[NarrativeAnalyzer] 推文包含图片，开始分析...');
-          const imageUrls = TwitterMediaExtractor.extractImageUrls(results.twitterInfo);
-          const firstImage = imageUrls[0];
-          if (firstImage) {
+          // 图片分析（如果启用）
+          if (NARRATIVE_CONFIG.enableImageAnalysis && info?.media && TwitterMediaExtractor.hasImages(info)) {
+            console.log('[NarrativeAnalyzer] 推文包含图片，开始分析...');
+            const imageUrls = TwitterMediaExtractor.extractImageUrls(info);
+            const firstImage = imageUrls[0];
+            if (firstImage) {
+              try {
+                const imageData = await ImageDownloader.downloadAsBase64(firstImage.url);
+                if (imageData) {
+                  const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
+                  info.image_analysis = {
+                    url: firstImage.url,
+                    analysis: imageAnalysis
+                  };
+                  console.log('[NarrativeAnalyzer] 图片分析完成');
+                }
+              } catch (error) {
+                console.warn('[NarrativeAnalyzer] 图片分析失败:', error.message);
+              }
+            }
+          }
+
+          // 非中英文推文翻译
+          if (info && info.text) {
+            const tweetLang = this.detectLanguage(info.text);
+            if (tweetLang && tweetLang !== 'zh' && tweetLang !== 'en') {
+              console.log(`[NarrativeAnalyzer] 检测到非中英文推文 (${tweetLang})，尝试翻译...`);
+              try {
+                const translated = await LLMClient.translate(info.text, 'zh');
+                if (translated) {
+                  const standardized = this.standardizeTranslatedNames(translated, tokenData.symbol);
+                  info.text_original = info.text;
+                  info.text = standardized;
+                  info.text_translated = true;
+                  info.original_language = tweetLang;
+                  console.log('[NarrativeAnalyzer] 推文翻译成功');
+                }
+              } catch (error) {
+                console.warn('[NarrativeAnalyzer] 推文翻译失败:', error.message);
+              }
+            }
+          }
+
+          // 检查是否有第二个推文（classifiedUrls中的第二个twitter URL）
+          let secondTweetUrl = null;
+
+          // 检查classifiedUrls.twitter中是否有多个推文
+          if (classifiedUrls.twitter && classifiedUrls.twitter.length > 1) {
+            // 第一个是主推文，查找第二个不同的推文
+            const mainUrl = twitterUrlInfo.url;
+            const secondTweetInfo = classifiedUrls.twitter.find(t => t.url !== mainUrl && t.type === 'tweet');
+            // 如果没有第二个推文，查找第二个账号（作为补充）
+            const secondInfo = secondTweetInfo || classifiedUrls.twitter.find(t => t.url !== mainUrl);
+            if (secondInfo) {
+              secondTweetUrl = secondInfo.url;
+            }
+          }
+
+          // 获取第二个推文
+          if (secondTweetUrl) {
+            console.log('[NarrativeAnalyzer] 检测到第二个推文链接，获取中...');
             try {
-              const imageData = await ImageDownloader.downloadAsBase64(firstImage.url);
-              if (imageData) {
-                const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
-                results.twitterInfo.image_analysis = {
-                  url: firstImage.url,
-                  analysis: imageAnalysis
-                };
-                console.log('[NarrativeAnalyzer] 图片分析完成');
+              const websiteTweet = await TwitterFetcher.fetchFromUrls(secondTweetUrl, null);
+              if (websiteTweet && websiteTweet.type === 'tweet' && websiteTweet.text) {
+                info.website_tweet = websiteTweet;
+                console.log('[NarrativeAnalyzer] 成功获取第二个推文');
               }
             } catch (error) {
-              console.warn('[NarrativeAnalyzer] 图片分析失败:', error.message);
+              console.warn('[NarrativeAnalyzer] 获取第二个推文失败:', error.message);
             }
           }
-        }
 
-        // 非中英文推文翻译
-        if (results.twitterInfo && results.twitterInfo.text) {
-          const tweetLang = this.detectLanguage(results.twitterInfo.text);
-          if (tweetLang && tweetLang !== 'zh' && tweetLang !== 'en') {
-            console.log(`[NarrativeAnalyzer] 检测到非中英文推文 (${tweetLang})，尝试翻译...`);
-            try {
-              const translated = await LLMClient.translate(results.twitterInfo.text, 'zh');
-              if (translated) {
-                const standardized = this.standardizeTranslatedNames(translated, tokenData.symbol);
-                results.twitterInfo.text_original = results.twitterInfo.text;
-                results.twitterInfo.text = standardized;
-                results.twitterInfo.text_translated = true;
-                results.twitterInfo.original_language = tweetLang;
-                console.log('[NarrativeAnalyzer] 推文翻译成功');
-              }
-            } catch (error) {
-              console.warn('[NarrativeAnalyzer] 推文翻译失败:', error.message);
-            }
-          }
-        }
-
-        // 检查是否有第二个推文（classifiedUrls中的第二个twitter URL）
-        let secondTweetUrl = null;
-
-        // 检查classifiedUrls.twitter中是否有多个推文
-        if (classifiedUrls.twitter && classifiedUrls.twitter.length > 1) {
-          // 第一个是主推文，查找第二个不同的推文
-          const mainUrl = twitterUrlInfo.url;
-          const secondTweetInfo = classifiedUrls.twitter.find(t => t.url !== mainUrl && t.type === 'tweet');
-          // 如果没有第二个推文，查找第二个账号（作为补充）
-          const secondInfo = secondTweetInfo || classifiedUrls.twitter.find(t => t.url !== mainUrl);
-          if (secondInfo) {
-            secondTweetUrl = secondInfo.url;
-          }
-        }
-
-        // 获取第二个推文
-        if (secondTweetUrl) {
-          console.log('[NarrativeAnalyzer] 检测到第二个推文链接，获取中...');
-          try {
-            const websiteTweet = await TwitterFetcher.fetchFromUrls(secondTweetUrl, null);
-            if (websiteTweet && websiteTweet.type === 'tweet' && websiteTweet.text) {
-              results.twitterInfo.website_tweet = websiteTweet;
-              console.log('[NarrativeAnalyzer] 成功获取第二个推文');
-            }
-          } catch (error) {
-            console.warn('[NarrativeAnalyzer] 获取第二个推文失败:', error.message);
-          }
-        }
-      } catch (error) {
-        const errorMsg = `Twitter数据获取失败: ${error.message}`;
-        console.warn('[NarrativeAnalyzer]', errorMsg);
-        results.fetchErrors.twitterError = errorMsg;
+          return info;
+        },
+        'twitter',
+        twitterUrlInfo.url
+      );
+      results.twitterInfo = twitterFetch.data;
+      dataFetchResults.twitter = twitterFetch.record;
+      if (!twitterFetch.record.success) {
+        results.fetchErrors.twitterError = twitterFetch.record.error;
       }
     }
 
@@ -1068,115 +1166,142 @@ export class NarrativeAnalyzer {
     // === 3. GitHub数据 ===
     const githubUrlInfo = selectFirstUrl('github');
     if (githubUrlInfo) {
-      console.log(`[NarrativeAnalyzer] 获取GitHub数据: ${githubUrlInfo.url}`);
-      try {
-        results.githubInfo = await GithubFetcher.fetchRepoInfo(githubUrlInfo.url);
-        if (results.githubInfo) {
-          const influenceLevel = GithubFetcher.getInfluenceLevel(results.githubInfo);
-          results.githubInfo.influence_level = influenceLevel;
-          results.githubInfo.influence_description = GithubFetcher.getInfluenceDescription(influenceLevel);
-          results.githubInfo.is_official_token = GithubFetcher.isOfficialToken(results.githubInfo, tokenData.symbol);
-          console.log(`[NarrativeAnalyzer] GitHub信息: ${results.githubInfo.stargazers_count} stars`);
-        }
-      } catch (error) {
-        const errorMsg = `GitHub数据获取失败: ${error.message}`;
-        console.warn('[NarrativeAnalyzer]', errorMsg);
-        results.fetchErrors.githubError = errorMsg;
-      }
+      const githubFetch = await this._recordDataFetch(
+        async () => {
+          const info = await GithubFetcher.fetchRepoInfo(githubUrlInfo.url);
+          if (info) {
+            const influenceLevel = GithubFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = GithubFetcher.getInfluenceDescription(influenceLevel);
+            info.is_official_token = GithubFetcher.isOfficialToken(info, tokenData.symbol);
+            console.log(`[NarrativeAnalyzer] GitHub信息: ${info.stargazers_count} stars`);
+          }
+          return info;
+        },
+        'github',
+        githubUrlInfo.url
+      );
+      results.githubInfo = githubFetch.data;
+      dataFetchResults.github = githubFetch.record;
     }
 
     // === 4. YouTube数据 ===
     const youtubeUrlInfo = selectFirstUrl('youtube');
     if (youtubeUrlInfo) {
-      console.log(`[NarrativeAnalyzer] 获取YouTube数据: ${youtubeUrlInfo.url}`);
-      try {
-        results.youtubeInfo = await YoutubeFetcher.fetchVideoInfo(youtubeUrlInfo.url);
-        if (results.youtubeInfo) {
-          const influenceLevel = YoutubeFetcher.getInfluenceLevel(results.youtubeInfo);
-          results.youtubeInfo.influence_level = influenceLevel;
-          results.youtubeInfo.influence_description = YoutubeFetcher.getInfluenceDescription(influenceLevel);
-          console.log(`[NarrativeAnalyzer] YouTube信息: "${results.youtubeInfo.title}"`);
-        }
-      } catch (error) {
-        const errorMsg = `YouTube数据获取失败: ${error.message}`;
-        console.warn('[NarrativeAnalyzer]', errorMsg);
-        results.fetchErrors.videoErrors.youtube = errorMsg;
+      const youtubeFetch = await this._recordDataFetch(
+        async () => {
+          const info = await YoutubeFetcher.fetchVideoInfo(youtubeUrlInfo.url);
+          if (info) {
+            const influenceLevel = YoutubeFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = YoutubeFetcher.getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] YouTube信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'youtube',
+        youtubeUrlInfo.url
+      );
+      results.youtubeInfo = youtubeFetch.data;
+      dataFetchResults.youtube = youtubeFetch.record;
+      if (!youtubeFetch.record.success) {
+        results.fetchErrors.videoErrors.youtube = youtubeFetch.record.error;
       }
     }
 
     // === 5. 抖音数据 ===
     const douyinUrlInfo = selectFirstUrl('douyin');
     if (douyinUrlInfo) {
-      console.log(`[NarrativeAnalyzer] 获取抖音数据: ${douyinUrlInfo.url}`);
-      try {
-        results.douyinInfo = await DouyinFetcher.fetchVideoInfo(douyinUrlInfo.url);
-        if (results.douyinInfo) {
-          const influenceLevel = DouyinFetcher.getInfluenceLevel(results.douyinInfo);
-          results.douyinInfo.influence_level = influenceLevel;
-          results.douyinInfo.influence_description = DouyinFetcher.getInfluenceDescription(influenceLevel);
-          console.log(`[NarrativeAnalyzer] 抖音信息: "${results.douyinInfo.title}"`);
-        }
-      } catch (error) {
-        const errorMsg = `抖音数据获取失败: ${error.message}`;
-        console.warn('[NarrativeAnalyzer]', errorMsg);
-        results.fetchErrors.videoErrors.douyin = errorMsg;
+      const douyinFetch = await this._recordDataFetch(
+        async () => {
+          const info = await DouyinFetcher.fetchVideoInfo(douyinUrlInfo.url);
+          if (info) {
+            const influenceLevel = DouyinFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = DouyinFetcher.getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] 抖音信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'douyin',
+        douyinUrlInfo.url
+      );
+      results.douyinInfo = douyinFetch.data;
+      dataFetchResults.douyin = douyinFetch.record;
+      if (!douyinFetch.record.success) {
+        results.fetchErrors.videoErrors.douyin = douyinFetch.record.error;
       }
     }
 
     // === 6. TikTok数据 ===
     const tiktokUrlInfo = selectFirstUrl('tiktok');
     if (tiktokUrlInfo) {
-      console.log(`[NarrativeAnalyzer] 获取TikTok数据: ${tiktokUrlInfo.url}`);
-      try {
-        results.tiktokInfo = await fetchTikTokVideoInfo(tiktokUrlInfo.url);
-        if (results.tiktokInfo) {
-          const influenceLevel = getTikTokInfluenceLevel(results.tiktokInfo);
-          results.tiktokInfo.influence_level = influenceLevel;
-          results.tiktokInfo.influence_description = getTikTokInfluenceDescription(influenceLevel);
-          console.log(`[NarrativeAnalyzer] TikTok信息: @${results.tiktokInfo.author_username}`);
-        }
-      } catch (error) {
-        const errorMsg = `TikTok数据获取失败: ${error.message}`;
-        console.warn('[NarrativeAnalyzer]', errorMsg);
-        results.fetchErrors.videoErrors.tiktok = errorMsg;
+      const tiktokFetch = await this._recordDataFetch(
+        async () => {
+          const info = await fetchTikTokVideoInfo(tiktokUrlInfo.url);
+          if (info) {
+            const influenceLevel = getTikTokInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = getTikTokInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] TikTok信息: @${info.author_username}`);
+          }
+          return info;
+        },
+        'tiktok',
+        tiktokUrlInfo.url
+      );
+      results.tiktokInfo = tiktokFetch.data;
+      dataFetchResults.tiktok = tiktokFetch.record;
+      if (!tiktokFetch.record.success) {
+        results.fetchErrors.videoErrors.tiktok = tiktokFetch.record.error;
       }
     }
 
     // === 7. Bilibili数据 ===
     const bilibiliUrlInfo = selectFirstUrl('bilibili');
     if (bilibiliUrlInfo) {
-      console.log(`[NarrativeAnalyzer] 获取Bilibili数据: ${bilibiliUrlInfo.url}`);
-      try {
-        results.bilibiliInfo = await BilibiliFetcher.fetchVideoInfo(bilibiliUrlInfo.url);
-        if (results.bilibiliInfo) {
-          const influenceLevel = BilibiliFetcher.getInfluenceLevel(results.bilibiliInfo);
-          results.bilibiliInfo.influence_level = influenceLevel;
-          results.bilibiliInfo.influence_description = BilibiliFetcher.getInfluenceDescription(influenceLevel);
-          console.log(`[NarrativeAnalyzer] Bilibili信息: "${results.bilibiliInfo.title}"`);
-        }
-      } catch (error) {
-        const errorMsg = `Bilibili数据获取失败: ${error.message}`;
-        console.warn('[NarrativeAnalyzer]', errorMsg);
-        results.fetchErrors.videoErrors.bilibili = errorMsg;
+      const bilibiliFetch = await this._recordDataFetch(
+        async () => {
+          const info = await BilibiliFetcher.fetchVideoInfo(bilibiliUrlInfo.url);
+          if (info) {
+            const influenceLevel = BilibiliFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = BilibiliFetcher.getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] Bilibili信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'bilibili',
+        bilibiliUrlInfo.url
+      );
+      results.bilibiliInfo = bilibiliFetch.data;
+      dataFetchResults.bilibili = bilibiliFetch.record;
+      if (!bilibiliFetch.record.success) {
+        results.fetchErrors.videoErrors.bilibili = bilibiliFetch.record.error;
       }
     }
 
     // === 8. Amazon数据 ===
     const amazonUrlInfo = selectFirstUrl('amazon');
     if (amazonUrlInfo) {
-      console.log(`[NarrativeAnalyzer] 获取Amazon数据: ${amazonUrlInfo.url}`);
-      try {
-        results.amazonInfo = await fetchProductInfo(amazonUrlInfo.url);
-        if (results.amazonInfo) {
-          const influenceLevel = getInfluenceLevel(results.amazonInfo);
-          results.amazonInfo.influence_level = influenceLevel;
-          results.amazonInfo.influence_description = getInfluenceDescription(influenceLevel);
-          console.log(`[NarrativeAnalyzer] Amazon信息: "${results.amazonInfo.title}"`);
-        }
-      } catch (error) {
-        const errorMsg = `Amazon数据获取失败: ${error.message}`;
-        console.warn('[NarrativeAnalyzer]', errorMsg);
-        results.fetchErrors.videoErrors.amazon = errorMsg;
+      const amazonFetch = await this._recordDataFetch(
+        async () => {
+          const info = await fetchProductInfo(amazonUrlInfo.url);
+          if (info) {
+            const influenceLevel = getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] Amazon信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'amazon',
+        amazonUrlInfo.url
+      );
+      results.amazonInfo = amazonFetch.data;
+      dataFetchResults.amazon = amazonFetch.record;
+      if (!amazonFetch.record.success) {
+        results.fetchErrors.videoErrors.amazon = amazonFetch.record.error;
       }
     }
 
@@ -1190,21 +1315,65 @@ export class NarrativeAnalyzer {
       const isAmazon = /amazon\.com/i.test(websiteUrl);
 
       if (!isVideoPlatform && !isGithub && !isAmazon && isFetchableUrl(websiteUrl)) {
-        console.log(`[NarrativeAnalyzer] 获取网站内容: ${websiteUrl}`);
-        try {
-          results.websiteInfo = await fetchWebsiteContent(websiteUrl, { maxLength: 5000 });
-          console.log('[NarrativeAnalyzer] 网站内容获取成功');
-        } catch (error) {
-          const errorMsg = `网站数据获取失败: ${error.message}`;
-          console.warn('[NarrativeAnalyzer]', errorMsg);
-          results.fetchErrors.websiteError = errorMsg;
+        const websiteFetch = await this._recordDataFetch(
+          () => fetchWebsiteContent(websiteUrl, { maxLength: 5000 }),
+          'website',
+          websiteUrl
+        );
+        results.websiteInfo = websiteFetch.data;
+        dataFetchResults.website = websiteFetch.record;
+        if (!websiteFetch.record.success) {
+          results.fetchErrors.websiteError = websiteFetch.record.error;
         }
       }
     }
 
-    return { ...results, classifiedUrls };
+    return { ...results, classifiedUrls, dataFetchResults };
   }
 
+
+  /**
+   * 记录数据获取的元数据
+   * @param {Function} fetcherFn - 数据获取函数
+   * @param {string} platform - 平台名称
+   * @param {string} url - 请求的URL
+   * @returns {Promise<Object>} { data, record } - data是获取的数据，record是元数据
+   * @private
+   */
+  static async _recordDataFetch(fetcherFn, platform, url) {
+    if (!url) {
+      return { data: null, record: null };
+    }
+
+    const startedAt = new Date().toISOString();
+    let data, error;
+
+    try {
+      data = await fetcherFn();
+      return {
+        data,
+        record: {
+          success: true,
+          url,
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          error: null
+        }
+      };
+    } catch (e) {
+      error = e.message;
+      return {
+        data: null,
+        record: {
+          success: false,
+          url,
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          error
+        }
+      };
+    }
+  }
 
   /**
    * 从数据库获取代币数据
@@ -1391,6 +1560,23 @@ export class NarrativeAnalyzer {
       }
     }
 
+    // 检查背景信息（微博等）
+    if (backgroundInfo) {
+      // 微博数据检查
+      if (backgroundInfo.source === 'weibo') {
+        if (backgroundInfo.text && backgroundInfo.text.trim().length > 0) {
+          return true; // 有微博内容
+        }
+        if (backgroundInfo.title || backgroundInfo.author_name || backgroundInfo.screen_name) {
+          return true; // 有微博基本信息（账号名等）
+        }
+      }
+      // 其他背景信息（视频平台账号、网站抓取等）
+      if (backgroundInfo.content || backgroundInfo.description || backgroundInfo.title) {
+        return true;
+      }
+    }
+
     // 检查网站内容
     if (websiteInfo && websiteInfo.content && websiteInfo.content.trim().length > 50) {
       return true; // 有足够的网站内容
@@ -1405,10 +1591,45 @@ export class NarrativeAnalyzer {
     }
 
     // 检查其他数据源
-    if (backgroundInfo?.text) return true;
-    if (githubInfo?.readme) return true;
-    if (youtubeInfo || douyinInfo || tiktokInfo || bilibiliInfo) return true;
-    if (amazonInfo) return true;
+
+    // GitHub: 检查是否有仓库信息（readme、name、description等）
+    if (githubInfo) {
+      if (githubInfo.readme) return true;
+      if (githubInfo.name || githubInfo.description || githubInfo.topics) {
+        return true; // 有基本仓库信息就算有效数据
+      }
+    }
+
+    // 视频平台: 检查是否有实际内容（title、description、view_count等）
+    const videoPlatforms = [
+      { info: youtubeInfo, name: 'YouTube' },
+      { info: douyinInfo, name: '抖音' },
+      { info: tiktokInfo, name: 'TikTok' },
+      { info: bilibiliInfo, name: 'Bilibili' }
+    ];
+
+    for (const platform of videoPlatforms) {
+      if (platform.info) {
+        // 检查是否有视频标题或描述（至少有一个非空）
+        const hasContent = (platform.info.title && platform.info.title.trim().length > 0) ||
+                          (platform.info.description && platform.info.description.trim().length > 0);
+        if (hasContent) {
+          return true; // 有视频内容
+        }
+      }
+    }
+
+    // Amazon: 检查是否有商品信息（title、price等）
+    if (amazonInfo) {
+      if (amazonInfo.title || amazonInfo.price || amazonInfo.features) {
+        return true; // 有商品信息
+      }
+    }
+
+    // 其他背景信息文本
+    if (backgroundInfo?.text && backgroundInfo.text.trim().length > 0) {
+      return true;
+    }
 
     return false; // 没有任何有效数据
   }
@@ -1522,16 +1743,13 @@ export class NarrativeAnalyzer {
    * 格式化返回结果
    */
   static formatResult(record) {
-    const rawOutput = record.llm_raw_output || {};
-
-    // 检查 classified_urls 是否有内容（辅助函数）
+    // 处理 classified_urls（如果缺失则重新提取）
     const isClassifiedUrlsEmpty = (urls) => {
       if (!urls) return true;
       const values = Object.values(urls);
       return values.length === 0 || values.every(arr => !arr || arr.length === 0);
     };
 
-    // 如果没有 classified_urls 或为空，从 raw_api_data 重新提取
     let classifiedUrls = record.classified_urls;
     if (!classifiedUrls || isClassifiedUrlsEmpty(classifiedUrls)) {
       console.log('[NarrativeAnalyzer] 缓存数据缺少 classified_urls 或为空，重新提取URL');
@@ -1582,6 +1800,18 @@ export class NarrativeAnalyzer {
       }
     }
 
+    // 确定分析阶段
+    let analysisStage = 0;  // 0=预检查, 1=Stage1低质量, 2=Stage2详细评分
+    if (record.llm_stage2_parsed_output) {
+      analysisStage = 2;
+    } else if (record.llm_stage1_parsed_output) {
+      analysisStage = 1;
+    }
+
+    // 计算最终分类（用于快速访问）
+    const llm_category = record.llm_stage2_category || record.llm_stage1_category || record.pre_check_category || null;
+
+    // 构建返回结果（直接使用新字段）
     return {
       token: {
         address: record.token_address,
@@ -1590,52 +1820,120 @@ export class NarrativeAnalyzer {
       },
       extracted_info: record.extracted_info,
       twitter: record.twitter_info,
-      classifiedUrls: classifiedUrls, // 添加分类后的URL
-      // 添加顶层字段方便前端访问
-      llm_category: record.llm_category,
-      llm_summary: record.llm_summary,
-      is_valid: !!record.llm_category,  // 有category就算有效
-      // 保留原有的嵌套结构
+      classifiedUrls: classifiedUrls,
+      is_valid: record.is_valid,
+
+      // 顶层字段（用于兼容）
+      llm_category: llm_category,
+
+      // LLM分析结果
       llmAnalysis: {
-        category: record.llm_category,
-        rawOutput: rawOutput,
-        summary: record.llm_summary,
-        entities: rawOutput.entities || null
+        // 预检查数据
+        preCheck: record.pre_check_result ? {
+          category: record.pre_check_category,
+          reason: record.pre_check_reason,
+          result: record.pre_check_result
+        } : null,
+        // Stage 1 数据
+        stage1: record.llm_stage1_parsed_output ? {
+          category: record.llm_stage1_category,
+          model: record.llm_stage1_model,
+          prompt: record.llm_stage1_prompt,
+          rawOutput: record.llm_stage1_raw_output,
+          parsedOutput: record.llm_stage1_parsed_output,
+          startedAt: record.llm_stage1_started_at,
+          finishedAt: record.llm_stage1_finished_at,
+          success: record.llm_stage1_success,
+          error: record.llm_stage1_error
+        } : null,
+        // Stage 2 数据
+        stage2: record.llm_stage2_parsed_output ? {
+          category: record.llm_stage2_category,
+          model: record.llm_stage2_model,
+          prompt: record.llm_stage2_prompt,
+          rawOutput: record.llm_stage2_raw_output,
+          parsedOutput: record.llm_stage2_parsed_output,
+          startedAt: record.llm_stage2_started_at,
+          finishedAt: record.llm_stage2_finished_at,
+          success: record.llm_stage2_success,
+          error: record.llm_stage2_error
+        } : null,
+        // 当前结果（根据分析阶段决定使用哪个stage的数据）
+        category: llm_category,
+        summary: record.llm_stage2_parsed_output ? {
+          total_score: record.llm_stage2_parsed_output.total_score,
+          credibility_score: record.llm_stage2_parsed_output.scores?.credibility,
+          virality_score: record.llm_stage2_parsed_output.scores?.virality,
+          reasoning: record.llm_stage2_parsed_output.reasoning
+        } : record.llm_stage1_parsed_output ? {
+          reasoning: record.llm_stage1_parsed_output.reason,
+          scenario: record.llm_stage1_parsed_output.scenario,
+          stage: record.llm_stage1_parsed_output.stage,
+          entities: record.llm_stage1_parsed_output.entities
+        } : record.pre_check_result ? {
+          total_score: record.pre_check_result.total_score,
+          credibility_score: record.pre_check_result.scores?.credibility,
+          virality_score: record.pre_check_result.scores?.virality,
+          reasoning: record.pre_check_result.reasoning
+        } : null
       },
+
+      // 顶层字段（用于兼容）
+      llm_summary: record.llm_stage2_parsed_output ? {
+        total_score: record.llm_stage2_parsed_output.total_score,
+        credibility_score: record.llm_stage2_parsed_output.scores?.credibility,
+        virality_score: record.llm_stage2_parsed_output.scores?.virality,
+        reasoning: record.llm_stage2_parsed_output.reasoning
+      } : record.llm_stage1_parsed_output ? {
+        reasoning: record.llm_stage1_parsed_output.reason,
+        scenario: record.llm_stage1_parsed_output.scenario,
+        stage: record.llm_stage1_parsed_output.stage,
+        entities: record.llm_stage1_parsed_output.entities
+      } : record.pre_check_result ? {
+        total_score: record.pre_check_result.total_score,
+        credibility_score: record.pre_check_result.scores?.credibility,
+        virality_score: record.pre_check_result.scores?.virality,
+        reasoning: record.pre_check_result.reasoning
+      } : null,
+
+      // Debug信息
       debugInfo: {
-        promptUsed: record.prompt_used,
-        promptVersion: record.prompt_version,
-        promptType: record.prompt_type,
-        analysisStage: record.analysis_stage
+        analysisStage: analysisStage,
+        urlExtractionResult: record.url_extraction_result,
+        dataFetchResults: record.data_fetch_results
       },
-      // 生成数据获取错误信息（用于调试）
+
+      // 元数据
+      meta: {
+        analyzedAt: record.analyzed_at,
+        sourceExperimentId: record.experiment_id
+      },
+
+      // 生成数据获取错误信息
       fetchErrors: (() => {
         const errors = {};
-        const classifiedUrls = record.classified_urls || {};
-        // Twitter错误
-        if (!record.twitter_info && classifiedUrls.twitter?.length > 0) {
-          errors.twitterError = 'Twitter数据获取失败';
-        }
-        // 网站错误
-        if (!record.website_info && classifiedUrls.websites?.length > 0) {
-          errors.websiteError = '网站数据获取失败';
-        }
-        // GitHub错误
-        if (!record.github_info && classifiedUrls.github?.length > 0) {
-          errors.githubError = 'GitHub数据获取失败';
-        }
-        // 视频平台错误
-        const videoPlatforms = ['youtube', 'douyin', 'tiktok', 'bilibili'];
-        errors.videoErrors = {};
-        for (const platform of videoPlatforms) {
-          const infoField = platform + '_info';
-          if (!record[infoField] && classifiedUrls[platform]?.length > 0) {
-            errors.videoErrors[platform] = `${platform}数据获取失败`;
+        const dataFetch = record.data_fetch_results || {};
+
+        // 从 data_fetch_results 提取错误信息
+        for (const [platform, result] of Object.entries(dataFetch)) {
+          if (result && !result.success && result.error) {
+            if (platform === 'website') {
+              errors.websiteError = result.error;
+            } else if (platform === 'twitter') {
+              errors.twitterError = result.error;
+            } else if (platform === 'github') {
+              errors.githubError = result.error;
+            } else {
+              // 视频平台
+              if (!errors.videoErrors) errors.videoErrors = {};
+              errors.videoErrors[platform] = result.error;
+            }
           }
         }
+
         // 如果没有任何错误，返回null
         if (Object.keys(errors).length === 0 ||
-            (Object.keys(errors).length === 1 && Object.keys(errors.videoErrors).length === 0)) {
+            (Object.keys(errors).length === 1 && Object.keys(errors.videoErrors || {}).length === 0)) {
           return null;
         }
         return errors;
@@ -1719,10 +2017,10 @@ export class NarrativeAnalyzer {
   }
 
   /**
-   * 直接调用LLM API并返回原始响应
+   * 直接调用LLM API并返回原始响应（带元数据）
    * 用于Stage 1等需要自定义响应格式的场景
    * @param {string} prompt - Prompt内容
-   * @returns {Promise<string>} LLM原始响应内容
+   * @returns {Promise<Object>} 包含响应内容和元数据 { content, model, startedAt, finishedAt, success, error }
    * @private
    */
   static async _callLLMAPI(prompt) {
@@ -1732,6 +2030,7 @@ export class NarrativeAnalyzer {
     const apiUrl = SILICONFLOW_API_URL || 'https://api.siliconflow.cn/v1';
     const apiKey = SILICONFLOW_API_KEY;
     const model = LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
+    const startedAt = new Date().toISOString();
 
     if (!apiKey) {
       throw new Error('SILICONFLOW_API_KEY 未配置');
@@ -1744,6 +2043,8 @@ export class NarrativeAnalyzer {
     console.log(`[NarrativeAnalyzer] 开始调用LLM API... 模型: ${model}`);
     console.log(`[NarrativeAnalyzer] Prompt 长度: ${prompt.length} 字符`);
     console.log(`[NarrativeAnalyzer] Prompt 前500字符: ${prompt.substring(0, 500)}`);
+
+    let content, error, success;
 
     try {
       console.log('[NarrativeAnalyzer] 发送 fetch 请求...');
@@ -1780,21 +2081,36 @@ export class NarrativeAnalyzer {
 
       console.log('[NarrativeAnalyzer] API响应成功');
       const data = await response.json();
-      const content = data.choices[0]?.message?.content;
+      content = data.choices[0]?.message?.content;
 
       if (!content) {
         throw new Error('LLM 返回内容为空');
       }
 
+      const finishedAt = new Date().toISOString();
+      success = true;
+      error = null;
+
       console.log('[NarrativeAnalyzer] API调用完成');
-      return content;
-    } catch (error) {
+      return { content, model, startedAt, finishedAt, success: true, error: null };
+    } catch (e) {
       clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
+      success = false;
+      error = e.message;
+
+      if (e.name === 'AbortError') {
         console.error('[NarrativeAnalyzer] 请求超时');
-        throw new Error(`LLM API 调用超时（${timeout/1000}秒）`);
+        error = `LLM API 调用超时（${timeout/1000}秒）`;
       }
-      throw error;
+
+      return {
+        content: null,
+        model,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        success: false,
+        error
+      };
     }
   }
 

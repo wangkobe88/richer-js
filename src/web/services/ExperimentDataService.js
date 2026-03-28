@@ -1209,10 +1209,15 @@ class ExperimentDataService {
       const narratives = allNarratives;
       console.log(`[getExperimentNarratives] narratives.length=${narratives.length}`);
 
-      // 构建叙事数据映射（键使用小写地址）
+      // 构建叙事数据映射（键使用小写地址，保留最新的记录）
       const narrativeMap = new Map();
       for (const narrative of (narratives || [])) {
-        narrativeMap.set(narrative.token_address.toLowerCase(), narrative);
+        const addr = narrative.token_address.toLowerCase();
+        const existing = narrativeMap.get(addr);
+        // 如果没有记录，或者新记录的 analyzed_at 更新，则替换
+        if (!existing || new Date(narrative.analyzed_at) > new Date(existing.analyzed_at)) {
+          narrativeMap.set(addr, narrative);
+        }
       }
 
       console.log(`[getExperimentNarratives] narrativeMap.size=${narrativeMap.size}`);
@@ -1230,18 +1235,21 @@ class ExperimentDataService {
         .map(token => {
           const narrative = narrativeMap.get(token.token_address.toLowerCase());
 
-          // 调试日志：检查 human_judges 和 analysis_results
-          const hasHumanJudges = !!token.human_judges;
-          const hasAnalysisResults = !!token.analysis_results;
-          const hasMaxChange = token.analysis_results?.max_change_percent !== null && token.analysis_results?.max_change_percent !== undefined;
-          if (hasHumanJudges || hasAnalysisResults) {
-            console.log(`[Narrative] token=${token.token_symbol}, hasHumanJudges=${hasHumanJudges}, hasAnalysisResults=${hasAnalysisResults}, hasMaxChange=${hasMaxChange}`);
-          }
+          // 调试日志：检查叙事数据字段
+          console.log(`[Narrative] token=${token.token_symbol}, address=${token.token_address}`);
+          console.log(`[Narrative] narrative keys:`, Object.keys(narrative));
+          console.log(`[Narrative] llm_stage1_category:`, narrative.llm_stage1_category);
+          console.log(`[Narrative] llm_stage2_category:`, narrative.llm_stage2_category);
+          console.log(`[Narrative] pre_check_category:`, narrative.pre_check_category);
+
+          // 从新字段读取 category
+          const llm_category = narrative.llm_stage2_category || narrative.llm_stage1_category || narrative.pre_check_category || null;
+          console.log(`[Narrative] 最终 llm_category:`, llm_category);
 
           // 从 llm_category 推导 rating
           let rating = 9; // 默认未评级
-          if (narrative.llm_category) {
-            const category = narrative.llm_category.toLowerCase();
+          if (llm_category) {
+            const category = llm_category.toLowerCase();
             if (category === 'high' || category === '高质量') {
               rating = 3;
             } else if (category === 'mid' || category === '中质量') {
@@ -1250,6 +1258,7 @@ class ExperimentDataService {
               rating = 1;
             }
           }
+          console.log(`[Narrative] rating:`, rating);
 
           return {
             token_address: token.token_address,
@@ -1258,12 +1267,25 @@ class ExperimentDataService {
             blockchain: token.blockchain || 'bsc',
             discovered_at: token.discovered_at,
             narrative: {
-              llm_category: narrative.llm_category,
-              llm_summary: narrative.llm_summary,
+              llm_category: llm_category,
+              // 从新字段读取summary
+              llm_summary: narrative.llm_stage2_parsed_output ? {
+                total_score: narrative.llm_stage2_parsed_output.total_score,
+                credibility_score: narrative.llm_stage2_parsed_output.scores?.credibility,
+                virality_score: narrative.llm_stage2_parsed_output.scores?.virality,
+                reasoning: narrative.llm_stage2_parsed_output.reasoning
+              } : narrative.llm_stage1_parsed_output ? {
+                reasoning: narrative.llm_stage1_parsed_output.reason,
+                scenario: narrative.llm_stage1_parsed_output.scenario
+              } : narrative.pre_check_result ? {
+                total_score: narrative.pre_check_result.total_score,
+                credibility_score: narrative.pre_check_result.scores?.credibility,
+                virality_score: narrative.pre_check_result.scores?.virality,
+                reasoning: narrative.pre_check_result.reasoning
+              } : null,
               rating: rating,
               experiment_id: narrative.experiment_id,
-              analyzed_at: narrative.analyzed_at,
-              prompt_version: narrative.prompt_version
+              analyzed_at: narrative.analyzed_at
             },
             human_judge: token.human_judges || null,
             max_change_percent: token.analysis_results?.max_change_percent || null

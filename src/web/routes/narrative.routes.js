@@ -112,6 +112,47 @@ router.get('/list', async (req, res) => {
 });
 
 /**
+ * GET /api/narrative/token/:address
+ * 获取代币基础信息
+ */
+router.get('/token/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
+
+    // 使用静态方法 fetchTokenData 获取代币数据
+    const tokenData = await NarrativeAnalyzer.fetchTokenData(address);
+
+    if (!tokenData) {
+      return res.status(404).json({
+        success: false,
+        error: '代币不存在'
+      });
+    }
+
+    // 从 raw_api_data 提取更多信息
+    const rawData = tokenData.raw_api_data || {};
+    const name = rawData.name || rawData.token_name || tokenData.symbol;
+
+    res.json({
+      success: true,
+      data: {
+        symbol: tokenData.token_symbol,
+        name: name,
+        address: address,
+        icon: (name || tokenData.token_symbol || '?')[0]?.toUpperCase()
+      }
+    });
+  } catch (error) {
+    console.error('获取代币信息失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * POST /api/narrative/reanalyze/:address
  * 重新分析代币（忽略缓存）
  */
@@ -132,11 +173,8 @@ router.post('/reanalyze/:address', async (req, res) => {
     const { ignoreExpired = false } = req.body;
     const { NarrativeRepository } = await import('../../narrative/db/NarrativeRepository.mjs');
 
-    // 先标记旧结果为无效
-    await NarrativeRepository.save({
-      token_address: address,
-      is_valid: false
-    });
+    // 先标记旧结果为无效（仅更新 is_valid 字段）
+    await NarrativeRepository.updateIsValid(address, false);
 
     const Analyzer = await loadAnalyzer();
     const result = await Analyzer.analyze(address, { ignoreExpired });
