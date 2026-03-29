@@ -722,7 +722,28 @@ class NarrativeAnalyzer {
       `;
     }
 
+    // 显示被回复的推文
+    let inReplyToHtml = '';
+    if (twitter.in_reply_to && twitter.in_reply_to.text) {
+      const replyAuthorInitial = (twitter.in_reply_to.author_name || twitter.in_reply_to.author_screen_name || 'U')[0].toUpperCase();
+      inReplyToHtml = `
+        <div style="margin-bottom: 16px; padding: 12px; background: #f0f0f0; border-left: 3px solid #3498db; border-radius: 6px;">
+          <div style="font-size: 11px; color: #7f8c8d; margin-bottom: 8px;">↩️ 回复的推文</div>
+          <div class="tweet-author" style="margin-bottom: 8px;">
+            <div class="tweet-author-avatar" style="width: 24px; height: 24px; font-size: 10px;">${replyAuthorInitial}</div>
+            <div>
+              <div style="font-weight: 600; font-size: 13px;">${twitter.in_reply_to.author_name || twitter.in_reply_to.author_screen_name || '未知'}</div>
+              <div style="font-size: 11px; color: #7f8c8d;">@${twitter.in_reply_to.author_screen_name || ''}</div>
+            </div>
+          </div>
+          <div style="font-size: 13px; line-height: 1.5; color: #555;">${this.escapeHtml(twitter.in_reply_to.text)}</div>
+          ${twitter.in_reply_to.formatted_created_at ? `<div style="font-size: 11px; color: #999; margin-top: 6px;">📅 ${twitter.in_reply_to.formatted_created_at}</div>` : ''}
+        </div>
+      `;
+    }
+
     this.tweetCardBody.innerHTML = `
+      ${inReplyToHtml}
       <div class="tweet-author">
         <div class="tweet-author-avatar">${authorInitial}</div>
         <div>

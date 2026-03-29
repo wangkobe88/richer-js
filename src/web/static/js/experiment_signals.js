@@ -337,30 +337,58 @@ class ExperimentSignals {
   }
 
   /**
-   * 🔥 解析URL hash参数，自动选择代币
-   * 支持 #token=0x... 格式
+   * 🔥 解析URL参数，自动选择代币
+   * 支持 #token=0x... 和 ?token=0x... 两种格式
+   * ?token= 用于从统计页面跳转，#token= 用于直接分享链接
    */
   async parseHashToken() {
     try {
-      const hash = window.location.hash;
-      if (!hash) return;
+      let tokenAddress = null;
 
-      console.log('🔍 检测 URL hash参数:', hash);
+      // 优先检查 query 参数 ?token=xxx（从统计页面跳转）
+      const urlParams = new URLSearchParams(window.location.search);
+      tokenAddress = urlParams.get('token');
 
-      // 解析 #token=0x...
-      const tokenMatch = hash.match(/#token=([^&]+)/);
-      if (tokenMatch) {
-        const tokenAddress = tokenMatch[1];
-        console.log('🔍 发现token参数，设置selectedToken:', tokenAddress);
+      if (tokenAddress) {
+        console.log('🔍 检测 URL query参数 token:', tokenAddress);
+      } else {
+        // 其次检查 hash 参数 #token=xxx（直接分享链接）
+        const hash = window.location.hash;
+        if (hash) {
+          console.log('🔍 检测 URL hash参数:', hash);
+          const tokenMatch = hash.match(/#token=([^&]+)/);
+          if (tokenMatch) {
+            tokenAddress = tokenMatch[1];
+            console.log('🔍 发现hash token参数:', tokenAddress);
+          }
+        }
+      }
+
+      if (tokenAddress) {
+        console.log('🔍 设置selectedToken:', tokenAddress);
 
         // 直接设置 selectedToken（用于API过滤）
         // 此时 availableTokens 还未填充，所以先不检查
         this.selectedToken = tokenAddress;
 
+        // 隐藏代币选择下拉框（因为已经通过 URL 指定了代币）
+        this.hideTokenSelector();
+
         // 注意：时序图表加载和选择器更新会在 extractTokensFromExperiment 之后进行
       }
     } catch (error) {
-      console.error('❌ 解析URL hash参数失败:', error);
+      console.error('❌ 解析URL参数失败:', error);
+    }
+  }
+
+  /**
+   * 隐藏代币选择下拉框（详情页模式）
+   */
+  hideTokenSelector() {
+    const tokenSelectorContainer = document.getElementById('token-selector-container');
+    if (tokenSelectorContainer) {
+      tokenSelectorContainer.style.display = 'none';
+      console.log('✅ 已隐藏代币选择下拉框（详情页模式）');
     }
   }
 

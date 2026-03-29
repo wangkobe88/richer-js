@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代币信号统计 - Richer-js Fourmeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.0" rel="stylesheet">
+    <style>
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-size: 1.2rem;
+            background: rgba(0,0,0,0.9);
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .sort-btn {
+            cursor: pointer;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .sort-btn:hover {
+            color: #3b82f6;
+        }
+
+        .sort-btn.active {
+            color: #3b82f6;
+        }
+
+        .table-row:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        .narrative-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .narrative-1 {
+            background-color: #f97316;
+            color: white;
+        }
+
+        .narrative-2 {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .narrative-3 {
+            background-color: #10b981;
+            color: white;
+        }
+
+        .narrative-9 {
+            background-color: #6b7280;
+            color: white;
+        }
+
+        .signal-count {
+            font-weight: 600;
+        }
+
+        .signal-count-buy {
+            color: #10b981;
+        }
+
+        .signal-count-sell {
+            color: #ef4444;
+        }
+
+        .executed-count {
+            color: #fbbf24;
+        }
+
+        .max-change-positive {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        .max-change-negative {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .max-change-neutral {
+            color: #6b7280;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-green-400">
+                            <a href="/" class="hover:text-green-300 transition-colors">
+                                Richer-js Fourmeme Trading
+                            </a>
+                        </h1>
+                        <div class="hidden md:block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                实验列表
+                            </a>
+                            <a id="link-detail" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                实验详情
+                            </a>
+                            <a id="link-signal-stats" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">
+                                信号统计
+                            </a>
+                            <a id="link-signals" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                交易信号
+                            </a>
+                            <a id="link-trades" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                                交易记录
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="refresh-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
+                            🔄 刷新
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 加载指示器 -->
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <span class="ml-4 text-white">正在加载代币信号统计...</span>
+            </div>
+
+            <!-- 错误信息 -->
+            <div id="error-message" class="hidden bg-red-900 border border-red-700 text-red-200 px-4 py-3 rounded-lg mb-6">
+                <div class="flex items-center">
+                    <span class="text-red-400">⚠️</span>
+                    <span class="ml-2" id="error-text">加载失败</span>
+                    <button id="retry-btn" class="ml-4 px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-sm">
+                        重试
+                    </button>
+                </div>
+            </div>
+
+            <!-- 统计内容 -->
+            <div id="stats-content" class="hidden">
+                <!-- 实验信息头部 -->
+                <div id="experiment-header" class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-2xl font-bold text-white mb-2" id="experiment-name">实验名称</h1>
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                <span id="experiment-id">ID: --</span>
+                                <span id="experiment-blockchain">区块链: --</span>
+                                <span id="token-count">代币数量: 0</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <a id="link-back" href="#" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-sm font-medium text-white transition-colors">
+                                ← 返回实验详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 汇总统计 -->
+                <div class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
+                    <h2 class="text-lg font-semibold text-white mb-4">汇总统计</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">代币总数</div>
+                            <div class="text-2xl font-bold text-gray-100" id="stat-total-tokens">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">有信号代币</div>
+                            <div class="text-2xl font-bold text-blue-400" id="stat-tokens-with-signals">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">买入信号总数</div>
+                            <div class="text-2xl font-bold text-green-400" id="stat-total-buy-signals">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">卖出信号总数</div>
+                            <div class="text-2xl font-bold text-red-400" id="stat-total-sell-signals">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">已执行买入</div>
+                            <div class="text-2xl font-bold text-yellow-400" id="stat-executed-buy-signals">0</div>
+                        </div>
+                        <div class="bg-gray-700 p-4 rounded-lg border border-gray-600">
+                            <div class="text-sm text-gray-400 mb-1">已执行卖出</div>
+                            <div class="text-2xl font-bold text-yellow-400" id="stat-executed-sell-signals">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 筛选 -->
+                <div class="bg-gray-800 rounded-lg p-4 mb-8 border border-gray-700">
+                    <div class="flex flex-wrap gap-4 items-center justify-between">
+                        <div class="flex flex-wrap gap-4 items-center">
+                            <div>
+                                <label for="signal-filter" class="block text-sm font-medium text-gray-300 mb-2">信号筛选</label>
+                                <select id="signal-filter" class="px-3 py-2 bg-gray-700 border border-gray-700 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="all">全部代币</option>
+                                    <option value="with-buy">有买入信号</option>
+                                    <option value="with-sell">有卖出信号</option>
+                                    <option value="with-signals">有任意信号</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="narrative-filter" class="block text-sm font-medium text-gray-300 mb-2">叙事评级</label>
+                                <select id="narrative-filter" class="px-3 py-2 bg-gray-700 border border-gray-700 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="all">全部</option>
+                                    <option value="3">高质量 🚀</option>
+                                    <option value="2">中质量 📊</option>
+                                    <option value="1">低质量 📉</option>
+                                    <option value="9">未评级 ❓</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 代币信号统计表格 -->
+                <div class="bg-gray-800 rounded-lg border border-gray-700">
+                    <div class="p-4 border-b border-gray-700">
+                        <h2 class="text-lg font-semibold text-white">代币信号统计明细</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-700">
+                                <tr>
+                                    <th class="px-4 py-3 text-left">
+                                        <span class="sort-btn" data-sort="symbol">代币</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center">
+                                        <span class="sort-btn" data-sort="buySignals">买入信号</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center">
+                                        <span class="sort-btn" data-sort="sellSignals">卖出信号</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center">
+                                        <span class="sort-btn" data-sort="executedBuy">已执行买入</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center">
+                                        <span class="sort-btn" data-sort="executedSell">已执行卖出</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center">叙事评级</th>
+                                    <th class="px-4 py-3 text-center">人工评级</th>
+                                    <th class="px-4 py-3 text-center">
+                                        <span class="sort-btn" data-sort="maxChange">最高涨幅</span>
+                                    </th>
+                                    <th class="px-4 py-3 text-center">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stats-table-body" class="divide-y divide-gray-700">
+                                <!-- 表格行将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- 分页控制 -->
+                    <div id="pagination-container"></div>
+                </div>
+
+                <!-- 空状态 -->
+                <div id="empty-state" class="hidden text-center py-12">
+                    <div class="text-gray-400 mb-4">
+                        <svg class="w-24 h-24 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-400 mb-2">暂无信号数据</h3>
+                    <p class="text-gray-500">该实验尚未产生任何交易信号</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 人工评级弹窗 -->
+    <div id="judge-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 border border-gray-700">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-white mb-4">🏷️ 代币标注</h3>
+                <div class="mb-4">
+                    <div class="text-sm text-gray-400 mb-2">代币符号</div>
+                    <div id="modal-token-symbol" class="text-white font-medium">-</div>
+                </div>
+                <div class="mb-4">
+                    <div class="text-sm text-gray-400 mb-2">代币地址</div>
+                    <div id="modal-token-address" class="text-gray-300 text-xs break-all">-</div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-white mb-2">选择分类</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+                            <input type="radio" name="judge-category" value="fake_pump" class="mr-2">
+                            <span class="text-red-400 mr-2">🎭</span>
+                            <span class="text-gray-300">流水盘 (fake_pump)</span>
+                        </label>
+                        <label class="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+                            <input type="radio" name="judge-category" value="no_user" class="mr-2">
+                            <span class="text-gray-400 mr-2">👻</span>
+                            <span class="text-gray-300">无人玩 (no_user)</span>
+                        </label>
+                        <label class="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+                            <input type="radio" name="judge-category" value="low_quality" class="mr-2">
+                            <span class="text-orange-400 mr-2">📉</span>
+                            <span class="text-gray-300">低质量 (low_quality)</span>
+                        </label>
+                        <label class="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+                            <input type="radio" name="judge-category" value="mid_quality" class="mr-2">
+                            <span class="text-blue-400 mr-2">📊</span>
+                            <span class="text-gray-300">中质量 (mid_quality)</span>
+                        </label>
+                        <label class="flex items-center p-2 rounded hover:bg-gray-700 cursor-pointer">
+                            <input type="radio" name="judge-category" value="high_quality" class="mr-2">
+                            <span class="text-green-400 mr-2">🚀</span>
+                            <span class="text-gray-300">高质量 (high_quality)</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="judge-note" class="block text-sm font-medium text-white mb-2">备注（可选）</label>
+                    <textarea id="judge-note" rows="3" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="输入备注信息..."></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button id="judge-cancel-btn" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-md text-sm font-medium text-white transition-colors">
+                        取消
+                    </button>
+                    <button id="judge-save-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">
+                        保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <script src="/static/js/simple-init.js?v=4.0"></script>
+    <script src="/static/js/experiment_signal_stats.js?v=4.8"></script>
+</body>
+</html>

@@ -67,11 +67,18 @@ export class TwitterFetcher {
         return null;
       }
 
-      // 检查是否是 Article URL，如果是使用 GraphQL API
+      // 检查是否是 Article URL
       const isArticleUrl = twitterUrl.includes('/article/') || twitterUrl.includes('/i/article/');
 
-      // 使用 GraphQL API 获取推文详情（支持 Article）
-      const tweetData = await getTweetDetailGraphQL(tweetId);
+      let tweetData;
+      if (isArticleUrl) {
+        // Article URL 使用 GraphQL API（获取 Article 详细内容）
+        console.log('[TwitterFetcher] 检测到 Article URL，使用 GraphQL API');
+        tweetData = await getTweetDetailGraphQL(tweetId);
+      } else {
+        // 普通推文使用 TweetDetail API（支持获取 related_tweet_id）
+        tweetData = await getTweetDetail(tweetId);
+      }
 
       if (!tweetData || !tweetData.text) {
         console.warn('[TwitterFetcher] 推文数据为空:', tweetData);
@@ -155,12 +162,16 @@ export class TwitterFetcher {
       }
 
       // 如果是回复推文，获取原始推文
-      if (tweetData.is_reply && tweetData.reply_to_tweet_id) {
-        console.log(`[TwitterFetcher] 这是回复推文，尝试获取原始推文: ${tweetData.reply_to_tweet_id}`);
+      // getTweetDetail API 使用 related_tweet_id
+      // getTweetDetailGraphQL API 使用 reply_to_tweet_id
+      const replyToTweetId = tweetData.related_tweet_id || tweetData.reply_to_tweet_id;
+      if (tweetData.is_reply && replyToTweetId) {
+        console.log(`[TwitterFetcher] 这是回复推文，尝试获取原始推文: ${replyToTweetId}`);
         try {
-          const originalTweet = await getTweetDetailGraphQL(tweetData.reply_to_tweet_id);
+          // 使用 getTweetDetail 获取被回复的推文（即使原推文来自 GraphQL API）
+          const originalTweet = await getTweetDetail(replyToTweetId);
           if (originalTweet && originalTweet.text) {
-            console.log(`[TwitterFetcher] 成功获取原始推文`);
+            console.log(`[TwitterFetcher] 成功获取原始推文: ${originalTweet.text.substring(0, 50)}...`);
             const rawCreatedAt = originalTweet.created_at || null;
             result.in_reply_to = {
               text: originalTweet.text,
@@ -168,8 +179,7 @@ export class TwitterFetcher {
               author_screen_name: originalTweet.user?.screen_name || null,
               created_at: rawCreatedAt,
               formatted_created_at: formatTwitterTime(rawCreatedAt),
-              tweet_id: tweetData.reply_to_tweet_id,
-              article: originalTweet.article || null
+              tweet_id: replyToTweetId
             };
           }
         } catch (err) {

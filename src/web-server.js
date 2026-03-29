@@ -173,7 +173,12 @@ class RicherJsWebServer {
     });
 
     // 实验子页面（必须在 /experiment/:id 之前定义）
-    // 信号页面
+    // 信号统计页面（新增）
+    this.app.get('/experiment/:id/signal-stats', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_signal_stats.html'));
+    });
+
+    // 信号页面（详情页，支持 ?token=xxx 参数）
     this.app.get('/experiment/:id/signals', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_signals.html'));
     });
@@ -2054,6 +2059,79 @@ class RicherJsWebServer {
         });
       } catch (error) {
         console.error('获取代币标注失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ 叙事人工标注 API ============
+
+    // 保存/更新叙事人工标注（token_address在请求体中）
+    this.app.post('/api/experiment/:experimentId/narrative/judge', async (req, res) => {
+      try {
+        const { experimentId } = req.params;
+        const { token_address, category, note } = req.body;
+
+        if (!token_address) {
+          return res.status(400).json({ success: false, error: '缺少token_address参数' });
+        }
+
+        // 验证 category
+        const validCategories = ['fake_pump', 'no_user', 'low_quality', 'mid_quality', 'high_quality'];
+        if (!category || !validCategories.includes(category)) {
+          return res.status(400).json({ success: false, error: '无效的类别' });
+        }
+
+        const judgeData = {
+          category,
+          note: note || null,
+          judge_at: new Date().toISOString()
+        };
+
+        const { error } = await this.dataService.supabase
+          .from('experiment_tokens')
+          .update({ human_judges: judgeData })
+          .eq('experiment_id', experimentId)
+          .eq('token_address', token_address);
+
+        if (error) throw error;
+
+        res.json({
+          success: true,
+          data: {
+            token_address: token_address,
+            human_judges: judgeData
+          }
+        });
+      } catch (error) {
+        console.error('保存叙事人工标注失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 删除叙事人工标注（token_address在请求体中）
+    this.app.delete('/api/experiment/:experimentId/narrative/judge', async (req, res) => {
+      try {
+        const { experimentId } = req.params;
+        const { token_address } = req.body;
+
+        if (!token_address) {
+          return res.status(400).json({ success: false, error: '缺少token_address参数' });
+        }
+
+        const { error } = await this.dataService.supabase
+          .from('experiment_tokens')
+          .update({ human_judges: null })
+          .eq('experiment_id', experimentId)
+          .eq('token_address', token_address);
+
+        if (error) throw error;
+
+        res.json({
+          success: true,
+          message: '标注已删除'
+        });
+      } catch (error) {
+        console.error('删除叙事人工标注失败:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

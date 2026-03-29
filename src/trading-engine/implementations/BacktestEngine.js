@@ -1055,7 +1055,7 @@ class BacktestEngine extends AbstractTradingEngine {
       if (this._narrativeAnalysisEnabled) {
         const satisfaction = this._calculateTrendFactorSatisfaction(factorResults);
         if (satisfaction >= this._narrativeTriggerThreshold) {
-          await this._createOrUpdateNarrativeTask(token, satisfaction);
+          await this._createOrUpdateNarrativeTask(tokenState, satisfaction);
         }
       }
 

@@ -3,10 +3,16 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 import dotenv from 'dotenv';
 
-// 加载环境变量
-dotenv.config({ path: '../../config/.env' });
+// 获取当前模块的目录（ESM 中没有 __dirname）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// 加载环境变量（使用相对于当前模块的路径）
+dotenv.config({ path: resolve(__dirname, '../../../config/.env') });
 
 // 创建supabase客户端
 const supabaseUrl = process.env.SUPABASE_URL;

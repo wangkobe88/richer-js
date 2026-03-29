@@ -260,12 +260,16 @@ class ExperimentDetail {
     }
 
     // 设置快速操作导航链接
+    const linkSignalStats = document.getElementById('link-signal-stats');
     const linkSignals = document.getElementById('link-signals');
     const linkTokens = document.getElementById('link-tokens');
     const linkTrades = document.getElementById('link-trades');
     const linkObserver = document.getElementById('link-observer');
     const linkReturns = document.getElementById('link-returns');
 
+    if (linkSignalStats) {
+      linkSignalStats.href = `/experiment/${this.experimentId}/signal-stats`;
+    }
     if (linkSignals) {
       linkSignals.href = `/experiment/${this.experimentId}/signals`;
     }

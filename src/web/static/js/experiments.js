@@ -440,6 +440,7 @@ class ExperimentMonitor {
               <button data-action="copy-id" data-id="${exp.id}" class="text-xs px-1.5 py-0.5 text-yellow-400 hover:bg-yellow-900 rounded transition-colors" title="复制ID">📋ID</button>
               <a href="/experiment/${exp.id}" target="_blank" class="text-xs px-1.5 py-0.5 text-blue-400 hover:bg-blue-900 rounded transition-colors">详情</a>
               <a href="/experiment/${exp.id}/signals" target="_blank" class="text-xs px-1.5 py-0.5 text-green-400 hover:bg-green-900 rounded transition-colors">信号</a>
+              <a href="/experiment/${exp.id}/signal-stats" target="_blank" class="text-xs px-1.5 py-0.5 text-lime-400 hover:bg-lime-900 rounded transition-colors">信号统计</a>
               <a href="/experiment/${exp.id}/tokens" target="_blank" class="text-xs px-1.5 py-0.5 text-teal-400 hover:bg-teal-900 rounded transition-colors">代币</a>
               <a href="/experiment/${exp.id}/trades" target="_blank" class="text-xs px-1.5 py-0.5 text-purple-400 hover:bg-purple-900 rounded transition-colors">交易</a>
             </div>

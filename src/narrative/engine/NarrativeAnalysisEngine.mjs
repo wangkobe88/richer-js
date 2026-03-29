@@ -7,12 +7,20 @@
  *   await engine.start();
  */
 
-import { createClient } from '@supabase/supabase-js';
+// 先加载环境变量（必须在导入其他模块之前）
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 import dotenv from 'dotenv';
-import { NarrativeAnalyzer } from '../analyzer/NarrativeAnalyzer.mjs';
 
-// 加载环境变量
-dotenv.config({ path: '../../config/.env' });
+// 获取当前模块的目录（ESM 中没有 __dirname）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// 使用绝对路径加载环境变量
+dotenv.config({ path: resolve(__dirname, '../../../config/.env') });
+
+import { createClient } from '@supabase/supabase-js';
+import { NarrativeAnalyzer } from '../analyzer/NarrativeAnalyzer.mjs';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY;

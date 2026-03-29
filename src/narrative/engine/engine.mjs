@@ -1,15 +1,9 @@
 /**
- * 叙事分析引擎启动脚本
- * 用法: node src/narrative/engine/index.mjs
- * 环境变量:
- *   NARRATIVE_POLLING_INTERVAL - 轮询间隔（毫秒），默认5000
- *   NARRATIVE_MAX_CONCURRENT - 最大并发任务数，默认1
- *   NARRATIVE_TASK_TIMEOUT - 任务超时时间（毫秒），默认180000
+ * 叙事分析引擎主模块
+ *
+ * 注意：此文件假设环境变量已在 start.mjs 中预先加载
+ * 不要直接运行此文件，请使用 start.mjs
  */
-
-// 先加载环境变量（必须在导入其他模块之前）
-import dotenv from 'dotenv';
-dotenv.config({ path: '../../config/.env' });
 
 import { NarrativeAnalysisEngine } from './NarrativeAnalysisEngine.mjs';
 
