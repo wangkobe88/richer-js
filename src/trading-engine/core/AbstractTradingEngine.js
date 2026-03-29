@@ -986,6 +986,154 @@ class AbstractTradingEngine extends ITradingEngine {
       }))
     };
   }
+
+  // ==================== 叙事评级相关方法 ====================
+
+  /**
+   * 获取叙事评级（带轮询等待）- 抽象方法，由子类实现
+   * @protected
+   * @param {string} tokenAddress - 代币地址
+   * @param {Object} options - 选项
+   * @returns {Promise<number>} 叙事评级
+   */
+  async _getNarrativeRating(tokenAddress, options = {}) {
+    throw new Error('_getNarrativeRating 必须由子类实现');
+  }
+
+  /**
+   * 轮询获取叙事评级的通用逻辑
+   * @protected
+   * @param {string} experimentId - 实验ID（用于日志）
+   * @param {string} tokenAddress - 代币地址
+   * @param {Object} options - 选项
+   * @param {number} options.maxWaitSeconds - 最大等待秒数（默认10秒）
+   * @param {number} options.pollIntervalMs - 轮询间隔毫秒（默认2000ms）
+   * @returns {Promise<number>} 叙事评级
+   */
+  async _pollNarrativeRating(experimentId, tokenAddress, options = {}) {
+    const {
+      maxWaitSeconds = 10,
+      pollIntervalMs = 2000
+    } = options;
+
+    const maxAttempts = Math.ceil((maxWaitSeconds * 1000) / pollIntervalMs);
+
+    this._logger.info(experimentId, '_pollNarrativeRating',
+      `开始轮询叙事评级 | token=${tokenAddress}, maxWait=${maxWaitSeconds}s, interval=${pollIntervalMs}ms`);
+
+    const supabase = dbManager.getClient();
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // 1. 检查任务状态
+      const { data: task } = await supabase
+        .from('narrative_analysis_tasks')
+        .select('id, status, current_stage')
+        .eq('token_address', tokenAddress)
+        .maybeSingle();
+
+      if (!task) {
+        this._logger.debug(experimentId, '_pollNarrativeRating',
+          `尝试 ${attempt + 1}/${maxAttempts}: 无任务`);
+        return 0;
+      }
+
+      // 2. 根据任务状态返回
+      if (task.status === 'stage1_completed' || task.status === 'stage2_processing') {
+        this._logger.info(experimentId, '_pollNarrativeRating',
+          `Stage 1 完成 | token=${tokenAddress}, status=${task.status}`);
+        return 8;
+      }
+
+      if (task.status === 'completed') {
+        // 3. 从叙事表读取最终评级
+        const { data: narrative } = await supabase
+          .from('token_narrative')
+          .select('llm_stage2_category, llm_stage1_category, pre_check_category')
+          .eq('token_address', tokenAddress)
+          .single();
+
+        if (narrative) {
+          const category = narrative.llm_stage2_category ||
+                           narrative.llm_stage1_category ||
+                           narrative.pre_check_category;
+          const rating = this._mapCategoryToRating(category);
+          this._logger.info(experimentId, '_pollNarrativeRating',
+            `分析完成 | token=${tokenAddress}, category=${category}, rating=${rating}`);
+          return rating;
+        }
+      }
+
+      // 4. 如果不是最后一次尝试，等待后重试
+      if (attempt < maxAttempts - 1) {
+        this._logger.debug(experimentId, '_pollNarrativeRating',
+          `尝试 ${attempt + 1}/${maxAttempts}: 未完成，${pollIntervalMs}ms 后重试 | status=${task.status}`);
+        await this._sleep(pollIntervalMs);
+      } else {
+        this._logger.warn(experimentId, '_pollNarrativeRating',
+          `尝试 ${attempt + 1}/${maxAttempts}: 超时，放弃等待 | status=${task.status}`);
+      }
+    }
+
+    return 0;
+  }
+
+  /**
+   * 映射叙事类别到评级
+   * @protected
+   * @param {string} category - 叙事类别
+   * @returns {number} 评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级, 0=默认)
+   */
+  _mapCategoryToRating(category) {
+    const mapping = {
+      'high': 3,
+      'mid': 2,
+      'low': 1,
+      'unrated': 9
+    };
+    return mapping[category] || 0;
+  }
+
+  /**
+   * 睡眠指定毫秒数
+   * @protected
+   * @param {number} ms - 毫秒数
+   * @returns {Promise<void>}
+   */
+  _sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 创建或更新叙事分析任务
+   * @protected
+   * @param {Object} token - 代币对象
+   * @param {number} satisfaction - 因子满足比例（0-100）
+   * @returns {Promise<void>}
+   */
+  async _createOrUpdateNarrativeTask(token, satisfaction) {
+    const supabase = dbManager.getClient();
+
+    const { error } = await supabase
+      .from('narrative_analysis_tasks')
+      .upsert({
+        token_address: token.token,
+        token_symbol: token.symbol,
+        triggered_by_experiment_id: this._experimentId,
+        priority: Math.floor(satisfaction),
+        status: 'pending',
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'token_address'
+      });
+
+    if (error) {
+      this._logger.warn(this._experimentId, '_createOrUpdateNarrativeTask',
+        `任务创建失败 | symbol=${token.symbol}, error=${error.message}`);
+    } else {
+      this._logger.info(this._experimentId, '_createOrUpdateNarrativeTask',
+        `任务已创建 | symbol=${token.symbol}, priority=${Math.floor(satisfaction)}`);
+    }
+  }
 }
 
 module.exports = { AbstractTradingEngine };

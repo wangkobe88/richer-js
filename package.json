@@ -11,7 +11,8 @@
     "web:dev": "node src/web-server.js",
     "experiment": "node main.js",
     "cleanup:holders": "node scripts/cleanup_orphaned_token_holders.js --dry-run",
-    "cleanup:holders:exec": "node scripts/cleanup_orphaned_token_holders.js --execute"
+    "cleanup:holders:exec": "node scripts/cleanup_orphaned_token_holders.js --execute",
+    "narrative-engine": "node src/narrative/engine/index.mjs"
   },
   "keywords": [
     "trading",

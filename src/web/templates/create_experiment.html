@@ -437,17 +437,40 @@
                             </label>
                         </div>
                     </div>
+
+                    <!-- 触发阈值配置 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            触发阈值（第一阶段因子满足比例 %）
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <input
+                                type="number"
+                                name="narrative_analysis_trigger_threshold"
+                                id="na-trigger-threshold"
+                                min="0"
+                                max="100"
+                                value="80"
+                                class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                            <span class="text-xs text-gray-500">
+                                当因子满足比例达到此值时，触发叙事分析任务（0-100）
+                            </span>
+                        </div>
+                    </div>
+
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <div class="flex items-start">
                             <span class="text-lg mr-2">💡</span>
                             <div class="text-sm text-blue-800">
                                 <p class="font-semibold mb-1">说明</p>
                                 <ul class="list-disc list-inside space-y-1">
-                                    <li>当代币满足触发条件时，自动进行叙事分析</li>
-                                    <li>分析结果生成"代币评级"因子：1=低质量，2=中质量，3=高质量，9=未评级</li>
-                                    <li>该因子可用于购买前检查条件中，例如：<code>narrativeRating >= 2</code></li>
-                                    <li>默认情况下，每个代币只分析一次，结果永久缓存</li>
-                                    <li>勾选"重新分析"将强制使用 LLM 重新分析，覆盖已有缓存（较慢但数据最新）</li>
+                                    <li><strong>独立引擎异步执行：</strong>叙事分析由独立引擎处理，不阻塞实验引擎主循环</li>
+                                    <li><strong>分阶段输出：</strong>Stage 1 完成时 narrativeRating=8（中间值），Stage 2 完成时返回最终评级 1/2/3</li>
+                                    <li><strong>轮询等待机制：</strong>实验引擎会轮询等待分析结果（虚拟/实盘默认10秒，回测5分钟）</li>
+                                    <li><strong>使用建议：</strong>使用条件 <code>narrativeRating > 1</code> 确保只购买已评级的代币，或 <code>narrativeRating >= 2</code> 只要评分完成就购买</li>
+                                    <li><strong>优先级：</strong>因子满足比例越高，任务优先级越高，优先被分析</li>
+                                    <li><strong>缓存复用：</strong>同一代币只分析一次，结果跨实验共享</li>
                                 </ul>
                             </div>
                         </div>
@@ -1464,7 +1487,10 @@
                     // 叙事分析配置
                     narrativeAnalysis: {
                         enabled: document.getElementById('na-enabled')?.checked || false,
-                        reanalyze: document.getElementById('na-reanalyze')?.checked || false
+                        reanalyze: document.getElementById('na-reanalyze')?.checked || false,
+                        triggerThreshold: parseInt(document.getElementById('na-trigger-threshold')?.value) || 80,
+                        maxWaitSeconds: 10,
+                        pollIntervalMs: 2000
                     }
                 }
             };

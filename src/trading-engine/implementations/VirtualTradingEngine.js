@@ -82,6 +82,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 叙事分析配置
     this._narrativeAnalysisEnabled = false;
     this._narrativeReanalyze = false;
+    this._narrativeTriggerThreshold = 80; // 默认80%
+    this._narrativeMaxWaitSeconds = 10; // 默认等待10秒
+    this._narrativePollIntervalMs = 2000; // 默认每2秒检查一次
 
     // 代币追踪：记录已处理过的代币
     this._seenTokens = new Set();
@@ -743,9 +746,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     const narrativeAnalysisConfig = experimentConfig.strategiesConfig?.narrativeAnalysis || experimentConfig.narrativeAnalysis || {};
     this._narrativeAnalysisEnabled = narrativeAnalysisConfig.enabled === true;
     this._narrativeReanalyze = narrativeAnalysisConfig.reanalyze === true;
+    this._narrativeTriggerThreshold = narrativeAnalysisConfig.triggerThreshold || 80;
+    this._narrativeMaxWaitSeconds = narrativeAnalysisConfig.maxWaitSeconds || 10;
+    this._narrativePollIntervalMs = narrativeAnalysisConfig.pollIntervalMs || 2000;
 
     if (this._narrativeAnalysisEnabled) {
-      console.log(`✅ 叙事分析已启用 (重新分析: ${this._narrativeReanalyze ? '是' : '否'})`);
+      console.log(`✅ 叙事分析已启用 (阈值: ${this._narrativeTriggerThreshold}%, 等待: ${this._narrativeMaxWaitSeconds}s)`);
     } else {
       console.log(`⚠️ 叙事分析未启用`);
     }
@@ -967,6 +973,14 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             platform: token.platform
           }
         );
+      }
+
+      // 叙事分析触发检测
+      if (this._narrativeAnalysisEnabled) {
+        const satisfaction = this._calculateTrendFactorSatisfaction(factorResults);
+        if (satisfaction >= this._narrativeTriggerThreshold) {
+          await this._createOrUpdateNarrativeTask(token, satisfaction);
+        }
       }
 
       const strategy = this._strategyEngine.evaluate(
@@ -1547,10 +1561,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         return false;
       }
 
-      // ========== 叙事分析步骤 ==========
-      let narrativeRating = 9; // 默认未评级
+      // ========== 叙事分析步骤（轮询获取结果） ==========
+      let narrativeRating = 0; // 默认未完成
       if (this._narrativeAnalysisEnabled) {
-        narrativeRating = await this._executeNarrativeAnalysis(token.token);
+        narrativeRating = await this._getNarrativeRating(token.token);
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `叙事评级 | symbol=${token.symbol}, rating=${narrativeRating}`);
       }
       // ========== 叙事分析步骤结束 ==========
 
@@ -2007,6 +2023,47 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       'unrated': 9   // 未评级
     };
     return mapping[category] || 9;
+  }
+
+  /**
+   * 获取叙事评级（带轮询等待）
+   * @protected
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<number>} 叙事评级
+   */
+  async _getNarrativeRating(tokenAddress) {
+    return this._pollNarrativeRating(this._experimentId, tokenAddress, {
+      maxWaitSeconds: this._narrativeMaxWaitSeconds,
+      pollIntervalMs: this._narrativePollIntervalMs
+    });
+  }
+
+  /**
+   * 计算趋势因子满足比例
+   * @protected
+   * @param {Object} factorResults - 因子结果
+   * @returns {number} 满足比例（0-100）
+   */
+  _calculateTrendFactorSatisfaction(factorResults) {
+    let satisfiedCount = 0;
+    let totalCount = 3;
+
+    // 条件1: earlyReturn 在范围内
+    if (factorResults.earlyReturn >= 80 && factorResults.earlyReturn <= 120) {
+      satisfiedCount++;
+    }
+
+    // 条件2: 有趋势数据且向上
+    if (factorResults.trendDataPoints >= 4 && factorResults.trendPriceUp === true) {
+      satisfiedCount++;
+    }
+
+    // 条件3: 价格上涨占比
+    if (factorResults.trendRiseRatio >= 0.6) {
+      satisfiedCount++;
+    }
+
+    return (satisfiedCount / totalCount) * 100;
   }
 
   /**
