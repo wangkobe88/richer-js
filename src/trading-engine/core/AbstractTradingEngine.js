@@ -1147,16 +1147,35 @@ class AbstractTradingEngine extends ITradingEngine {
     // 2. 检查当前实验是否已创建过任务（避免重复创建，使用小写地址）
     const { data: existingTask, error: taskQueryError } = await supabase
       .from('narrative_analysis_tasks')
-      .select('id, status')
+      .select('id, status, priority')
       .eq('token_address', normalizedAddress)
       .eq('triggered_by_experiment_id', this._experimentId)
       .maybeSingle();
 
     if (!taskQueryError && existingTask) {
-      // 任务已存在，不重复创建（避免覆盖已完成任务的状态）
-      this._logger.debug(this._experimentId, '_createOrUpdateNarrativeTask',
-        `任务已存在 | symbol=${token.symbol}, status=${existingTask.status}, ` +
-        `reanalyze=${reanalyze}, 满足度=${satisfaction.toFixed(0)}%`);
+      // 任务已存在，如果是 pending 状态且新优先级更高，更新优先级
+      const newPriority = Math.floor(satisfaction);
+      if (existingTask.status === 'pending' && existingTask.priority < newPriority) {
+        const { error: updateError } = await supabase
+          .from('narrative_analysis_tasks')
+          .update({
+            priority: newPriority,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingTask.id);
+
+        if (!updateError) {
+          this._logger.debug(this._experimentId, '_createOrUpdateNarrativeTask',
+            `任务优先级已更新 | symbol=${token.symbol}, oldPriority=${existingTask.priority}, newPriority=${newPriority}`);
+        } else {
+          this._logger.warn(this._experimentId, '_createOrUpdateNarrativeTask',
+            `更新任务优先级失败 | symbol=${token.symbol}, error=${updateError.message}`);
+        }
+      } else {
+        this._logger.debug(this._experimentId, '_createOrUpdateNarrativeTask',
+          `任务已存在 | symbol=${token.symbol}, status=${existingTask.status}, priority=${existingTask.priority}, ` +
+          `reanalyze=${reanalyze}, 满足度=${satisfaction.toFixed(0)}%`);
+      }
       return;
     }
 
