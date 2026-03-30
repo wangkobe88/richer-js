@@ -910,9 +910,69 @@
         .empty-state-text {
             font-size: 14px;
         }
+
+        /* 导航栏样式 */
+        .navbar {
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0 20px;
+            margin: -20px -20px 20px -20px;
+        }
+        .navbar-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            height: 60px;
+        }
+        .navbar a {
+            padding: 8px 14px;
+            margin-right: 8px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .navbar a.nav-default {
+            color: #6b7280;
+        }
+        .navbar a.nav-default:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        .navbar a.nav-active {
+            background: #3b82f6;
+            color: white;
+        }
+        .navbar a.nav-btn {
+            background: #10b981;
+            color: white;
+        }
+        .navbar a.nav-btn:hover {
+            background: #059669;
+        }
+        .navbar a.nav-purple {
+            background: #8b5cf6;
+            color: white;
+        }
+        .navbar a.nav-purple:hover {
+            background: #7c3aed;
+        }
     </style>
 </head>
 <body>
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <a href="/experiments" class="nav-default">实验监控</a>
+            <a href="/wallets" class="nav-default">钱包管理</a>
+            <a href="/wallet-analysis" class="nav-default">钱包分析</a>
+            <a href="/token-holders" class="nav-default">代币持有者</a>
+            <a href="/narrative-analyzer" class="nav-active">叙事分析</a>
+            <a href="/narrative-tasks" class="nav-default">叙事任务</a>
+            <a href="/create-experiment" class="nav-btn">创建实验</a>
+        </div>
+    </nav>
     <div class="container">
         <div class="header">
             <h1>代币叙事分析</h1>
