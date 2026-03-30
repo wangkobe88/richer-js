@@ -1035,8 +1035,25 @@ class AbstractTradingEngine extends ITradingEngine {
         .maybeSingle();
 
       if (!task) {
+        // 2. 无任务时，检查叙事数据是否已存在（多实验公用叙事数据）
+        const { data: narrative } = await supabase
+          .from('token_narrative')
+          .select('llm_stage2_category, llm_stage1_category, pre_check_category, analyzed_at')
+          .eq('token_address', normalizedAddress)
+          .maybeSingle();
+
+        if (narrative) {
+          const category = narrative.llm_stage2_category ||
+                           narrative.llm_stage1_category ||
+                           narrative.pre_check_category;
+          const rating = this._mapCategoryToRating(category);
+          this._logger.info(experimentId, '_pollNarrativeRating',
+            `使用已存在的叙事数据 | token=${tokenAddress}, category=${category}, rating=${rating}, analyzed_at=${narrative.analyzed_at}`);
+          return rating;
+        }
+
         this._logger.debug(experimentId, '_pollNarrativeRating',
-          `尝试 ${attempt + 1}/${maxAttempts}: 无任务`);
+          `尝试 ${attempt + 1}/${maxAttempts}: 无任务且无叙事数据`);
         return 0;
       }
 
