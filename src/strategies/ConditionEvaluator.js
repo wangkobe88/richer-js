@@ -311,6 +311,65 @@ class ConditionEvaluator {
     }
 
     /**
+     * 评估条件表达式并返回满足比例
+     * 适用于 AND 连接的多个条件，计算满足条件的百分比
+     * @param {string} condition - 条件表达式
+     * @param {Map<string, number>|Object} factorResults - 因子计算结果
+     * @returns {number} 满足比例（0-100）
+     */
+    evaluateWithScore(condition, factorResults) {
+        const ast = this.parseCondition(condition);
+        const leafConditions = this._extractLeafConditions(ast);
+
+        if (leafConditions.length === 0) {
+            return 0;
+        }
+
+        let satisfiedCount = 0;
+        for (const cond of leafConditions) {
+            try {
+                if (this._evaluateComparison(cond, factorResults)) {
+                    satisfiedCount++;
+                }
+            } catch (e) {
+                // 条件评估失败（例如字段不存在），视为不满足
+            }
+        }
+
+        return (satisfiedCount / leafConditions.length) * 100;
+    }
+
+    /**
+     * 提取AST中的所有叶子条件（COMPARISON节点）
+     * @private
+     * @param {Object} node - AST节点
+     * @returns {Array} 叶子条件数组
+     */
+    _extractLeafConditions(node) {
+        const conditions = [];
+
+        if (!node) {
+            return conditions;
+        }
+
+        switch (node.type) {
+            case 'AND':
+            case 'OR':
+                // 递归提取左右子树的叶子条件
+                conditions.push(...this._extractLeafConditions(node.left));
+                conditions.push(...this._extractLeafConditions(node.right));
+                break;
+
+            case 'COMPARISON':
+                // 叶子节点，直接添加
+                conditions.push(node);
+                break;
+        }
+
+        return conditions;
+    }
+
+    /**
      * 清除缓存
      */
     clearCache() {

@@ -2040,30 +2040,34 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
   /**
    * 计算趋势因子满足比例
+   * 使用买入策略的条件表达式计算满足条件的百分比
    * @protected
    * @param {Object} factorResults - 因子结果
    * @returns {number} 满足比例（0-100）
    */
   _calculateTrendFactorSatisfaction(factorResults) {
-    let satisfiedCount = 0;
-    let totalCount = 3;
+    // 获取买入策略的条件表达式
+    const strategiesConfig = this._experiment?.config?.strategiesConfig || {};
+    const buyStrategies = strategiesConfig.buyStrategies || [];
 
-    // 条件1: earlyReturn 在范围内
-    if (factorResults.earlyReturn >= 80 && factorResults.earlyReturn <= 120) {
-      satisfiedCount++;
+    // 使用第一个买入策略的条件（通常优先级最高）
+    if (buyStrategies.length > 0 && buyStrategies[0].condition) {
+      const condition = buyStrategies[0].condition;
+
+      try {
+        // 使用 ConditionEvaluator 计算满足比例
+        const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
+        const evaluator = new ConditionEvaluator();
+        return evaluator.evaluateWithScore(condition, factorResults);
+      } catch (error) {
+        this.logger.warn(this._experimentId, '_calculateTrendFactorSatisfaction',
+          `条件评估失败 | error=${error.message}`);
+        return 0;
+      }
     }
 
-    // 条件2: 有趋势数据且向上
-    if (factorResults.trendDataPoints >= 4 && factorResults.trendPriceUp === true) {
-      satisfiedCount++;
-    }
-
-    // 条件3: 价格上涨占比
-    if (factorResults.trendRiseRatio >= 0.6) {
-      satisfiedCount++;
-    }
-
-    return (satisfiedCount / totalCount) * 100;
+    // 降级方案：如果没有配置买入策略，返回 0
+    return 0;
   }
 
   /**
