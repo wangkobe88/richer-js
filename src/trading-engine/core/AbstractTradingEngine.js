@@ -1105,6 +1105,14 @@ class AbstractTradingEngine extends ITradingEngine {
 
   /**
    * 创建或更新叙事分析任务
+   *
+   * 逻辑：
+   * 1. 如果不重新分析（reanalyze=false）：
+   *    - 检查叙事结果是否已存在，存在则不创建任务（直接用缓存）
+   * 2. 如果重新分析（reanalyze=true）：
+   *    - 检查当前实验是否已创建过任务，避免重复创建
+   * 3. 使用 INSERT 而不是 UPSERT，避免覆盖已完成任务的状态
+   *
    * @protected
    * @param {Object} token - 代币对象
    * @param {number} satisfaction - 因子满足比例（0-100）
@@ -1112,26 +1120,65 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   async _createOrUpdateNarrativeTask(token, satisfaction) {
     const supabase = dbManager.getClient();
+    const reanalyze = this._narrativeReanalyze || false;
 
-    const { error } = await supabase
+    // 1. 如果不重新分析，检查叙事结果是否已存在
+    if (!reanalyze) {
+      const { data: existingNarrative, error: queryError } = await supabase
+        .from('token_narrative')
+        .select('id, analyzed_at, experiment_id')
+        .eq('token_address', token.token)
+        .maybeSingle();
+
+      if (!queryError && existingNarrative) {
+        this._logger.info(this._experimentId, '_createOrUpdateNarrativeTask',
+          `叙事结果已存在，不创建任务 | symbol=${token.symbol}, ` +
+          `analyzed_at=${existingNarrative.analyzed_at}, source_experiment=${existingNarrative.experiment_id || 'N/A'}`);
+        return; // 不创建任务，NarrativeAnalyzer 会直接使用缓存
+      }
+    }
+
+    // 2. 检查当前实验是否已创建过任务（避免重复创建）
+    const { data: existingTask, error: taskQueryError } = await supabase
       .from('narrative_analysis_tasks')
-      .upsert({
+      .select('id, status')
+      .eq('token_address', token.token)
+      .eq('triggered_by_experiment_id', this._experimentId)
+      .maybeSingle();
+
+    if (!taskQueryError && existingTask) {
+      // 任务已存在，不重复创建（避免覆盖已完成任务的状态）
+      this._logger.debug(this._experimentId, '_createOrUpdateNarrativeTask',
+        `任务已存在 | symbol=${token.symbol}, status=${existingTask.status}, ` +
+        `reanalyze=${reanalyze}, 满足度=${satisfaction.toFixed(0)}%`);
+      return;
+    }
+
+    // 3. 创建新任务（使用 INSERT 而不是 UPSERT，避免覆盖已完成任务的状态）
+    const { error: insertError } = await supabase
+      .from('narrative_analysis_tasks')
+      .insert({
         token_address: token.token,
         token_symbol: token.symbol,
         triggered_by_experiment_id: this._experimentId,
         priority: Math.floor(satisfaction),
         status: 'pending',
+        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'token_address'
       });
 
-    if (error) {
-      this._logger.warn(this._experimentId, '_createOrUpdateNarrativeTask',
-        `任务创建失败 | symbol=${token.symbol}, error=${error.message}`);
+    if (insertError) {
+      // 忽略唯一约束冲突（并发情况下可能多次尝试创建）
+      if (insertError.code === '23505') {
+        this._logger.debug(this._experimentId, '_createOrUpdateNarrativeTask',
+          `任务已存在（并发） | symbol=${token.symbol}`);
+      } else {
+        this._logger.warn(this._experimentId, '_createOrUpdateNarrativeTask',
+          `任务创建失败 | symbol=${token.symbol}, error=${insertError.message}`);
+      }
     } else {
       this._logger.info(this._experimentId, '_createOrUpdateNarrativeTask',
-        `任务已创建 | symbol=${token.symbol}, priority=${Math.floor(satisfaction)}`);
+        `任务已创建 | symbol=${token.symbol}, priority=${Math.floor(satisfaction)}, reanalyze=${reanalyze}`);
     }
   }
 }
