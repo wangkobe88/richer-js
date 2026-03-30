@@ -1018,17 +1018,20 @@ class AbstractTradingEngine extends ITradingEngine {
 
     const maxAttempts = Math.ceil((maxWaitSeconds * 1000) / pollIntervalMs);
 
+    // 叙事分析表使用小写地址存储
+    const normalizedAddress = tokenAddress.toLowerCase();
+
     this._logger.info(experimentId, '_pollNarrativeRating',
       `开始轮询叙事评级 | token=${tokenAddress}, maxWait=${maxWaitSeconds}s, interval=${pollIntervalMs}ms`);
 
     const supabase = dbManager.getClient();
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // 1. 检查任务状态
+      // 1. 检查任务状态（使用小写地址）
       const { data: task } = await supabase
         .from('narrative_analysis_tasks')
         .select('id, status, current_stage')
-        .eq('token_address', tokenAddress)
+        .eq('token_address', normalizedAddress)
         .maybeSingle();
 
       if (!task) {
@@ -1045,11 +1048,11 @@ class AbstractTradingEngine extends ITradingEngine {
       }
 
       if (task.status === 'completed') {
-        // 3. 从叙事表读取最终评级
+        // 3. 从叙事表读取最终评级（使用小写地址）
         const { data: narrative } = await supabase
           .from('token_narrative')
           .select('llm_stage2_category, llm_stage1_category, pre_check_category')
-          .eq('token_address', tokenAddress)
+          .eq('token_address', normalizedAddress)
           .single();
 
         if (narrative) {
@@ -1122,12 +1125,15 @@ class AbstractTradingEngine extends ITradingEngine {
     const supabase = dbManager.getClient();
     const reanalyze = this._narrativeReanalyze || false;
 
-    // 1. 如果不重新分析，检查叙事结果是否已存在
+    // 叙事分析表使用小写地址存储
+    const normalizedAddress = token.token.toLowerCase();
+
+    // 1. 如果不重新分析，检查叙事结果是否已存在（使用小写地址）
     if (!reanalyze) {
       const { data: existingNarrative, error: queryError } = await supabase
         .from('token_narrative')
         .select('id, analyzed_at, experiment_id')
-        .eq('token_address', token.token)
+        .eq('token_address', normalizedAddress)
         .maybeSingle();
 
       if (!queryError && existingNarrative) {
@@ -1138,11 +1144,11 @@ class AbstractTradingEngine extends ITradingEngine {
       }
     }
 
-    // 2. 检查当前实验是否已创建过任务（避免重复创建）
+    // 2. 检查当前实验是否已创建过任务（避免重复创建，使用小写地址）
     const { data: existingTask, error: taskQueryError } = await supabase
       .from('narrative_analysis_tasks')
       .select('id, status')
-      .eq('token_address', token.token)
+      .eq('token_address', normalizedAddress)
       .eq('triggered_by_experiment_id', this._experimentId)
       .maybeSingle();
 
@@ -1154,11 +1160,11 @@ class AbstractTradingEngine extends ITradingEngine {
       return;
     }
 
-    // 3. 创建新任务（使用 INSERT 而不是 UPSERT，避免覆盖已完成任务的状态）
+    // 3. 创建新任务（使用 INSERT 而不是 UPSERT，避免覆盖已完成任务的状态，使用小写地址）
     const { error: insertError } = await supabase
       .from('narrative_analysis_tasks')
       .insert({
-        token_address: token.token,
+        token_address: normalizedAddress,
         token_symbol: token.symbol,
         triggered_by_experiment_id: this._experimentId,
         priority: Math.floor(satisfaction),

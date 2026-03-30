@@ -459,6 +459,49 @@
                         </div>
                     </div>
 
+                    <!-- 等待时间配置 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            最大等待时间（秒）
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <input
+                                type="number"
+                                name="narrative_analysis_max_wait_seconds"
+                                id="na-max-wait-seconds"
+                                min="1"
+                                max="600"
+                                value="10"
+                                class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                            <span class="text-xs text-gray-500">
+                                虚拟/实盘模式等待叙事分析完成的最长时间（秒）
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 轮询间隔配置 -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            轮询间隔（毫秒）
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <input
+                                type="number"
+                                name="narrative_analysis_poll_interval_ms"
+                                id="na-poll-interval-ms"
+                                min="100"
+                                max="30000"
+                                step="100"
+                                value="2000"
+                                class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                            <span class="text-xs text-gray-500">
+                                轮询叙事分析结果的间隔时间（毫秒）
+                            </span>
+                        </div>
+                    </div>
+
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <div class="flex items-start">
                             <span class="text-lg mr-2">💡</span>
@@ -880,11 +923,24 @@
                 // 填充叙事分析配置
                 const naEnabled = document.getElementById('na-enabled');
                 const naReanalyze = document.getElementById('na-reanalyze');
+                const naTriggerThreshold = document.getElementById('na-trigger-threshold');
+                const naMaxWaitSeconds = document.getElementById('na-max-wait-seconds');
+                const naPollIntervalMs = document.getElementById('na-poll-interval-ms');
+
                 if (copyData.strategy?.narrativeAnalysis?.enabled && naEnabled) {
                     naEnabled.checked = true;
                 }
                 if (copyData.strategy?.narrativeAnalysis?.reanalyze && naReanalyze) {
                     naReanalyze.checked = true;
+                }
+                if (copyData.strategy?.narrativeAnalysis?.triggerThreshold !== undefined && naTriggerThreshold) {
+                    naTriggerThreshold.value = copyData.strategy.narrativeAnalysis.triggerThreshold;
+                }
+                if (copyData.strategy?.narrativeAnalysis?.maxWaitSeconds !== undefined && naMaxWaitSeconds) {
+                    naMaxWaitSeconds.value = copyData.strategy.narrativeAnalysis.maxWaitSeconds;
+                }
+                if (copyData.strategy?.narrativeAnalysis?.pollIntervalMs !== undefined && naPollIntervalMs) {
+                    naPollIntervalMs.value = copyData.strategy.narrativeAnalysis.pollIntervalMs;
                 }
 
                 // 填充策略配置
@@ -1489,8 +1545,8 @@
                         enabled: document.getElementById('na-enabled')?.checked || false,
                         reanalyze: document.getElementById('na-reanalyze')?.checked || false,
                         triggerThreshold: parseInt(document.getElementById('na-trigger-threshold')?.value) || 80,
-                        maxWaitSeconds: 10,
-                        pollIntervalMs: 2000
+                        maxWaitSeconds: parseInt(document.getElementById('na-max-wait-seconds')?.value) || 10,
+                        pollIntervalMs: parseInt(document.getElementById('na-poll-interval-ms')?.value) || 2000
                     }
                 }
             };
