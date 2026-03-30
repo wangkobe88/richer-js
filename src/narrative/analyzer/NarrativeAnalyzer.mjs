@@ -22,9 +22,13 @@ import { PromptBuilder } from './prompt-builder.mjs';
 import { LLMClient } from './llm-client.mjs';
 import { extractAllUrls, classifyAllUrls, selectBestUrls } from '../utils/url-classifier.mjs';
 import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from './prompts/account-backgrounds.mjs';
+import { getLogger } from '../core/logger.mjs';
 
 // 获取supabase客户端
 const getSupabase = () => NarrativeRepository.getSupabase();
+
+// 获取日志实例
+const logger = getLogger();
 
 // 读取配置文件
 const __filename = fileURLToPath(import.meta.url);
@@ -127,7 +131,7 @@ export class NarrativeAnalyzer {
     let dataFetchResults = null;
 
     // 4. 使用URL分类器统一获取所有数据
-    console.log('[NarrativeAnalyzer] 开始使用URL分类器获取数据...');
+    logger.info('NarrativeAnalyzer', '开始使用URL分类器获取数据');
     const {
       twitterInfo,
       websiteInfo,
@@ -148,7 +152,7 @@ export class NarrativeAnalyzer {
     urlExtractionResult = url_extraction_result;
     dataFetchResults = data_fetch_results;
 
-    console.log('[NarrativeAnalyzer] 数据获取完成');
+    logger.info('NarrativeAnalyzer', '数据获取完成');
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
     const preCheckResult = await this.performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo }, githubInfo, backgroundInfo, { ignoreExpired });
@@ -161,7 +165,7 @@ export class NarrativeAnalyzer {
 
     if (isPreCheckTriggered) {
       // 预检查触发，使用预设结果
-      console.log('[NarrativeAnalyzer] 预检查触发，跳过LLM分析');
+      logger.info('NarrativeAnalyzer', '预检查触发，跳过LLM分析');
 
       // 收集预检查数据
       preCheckDataToSave = {
@@ -188,7 +192,7 @@ export class NarrativeAnalyzer {
         // 检查是否有任何有效数据供分析
         const hasAnyData = this._hasValidDataForAnalysis(fetchResults);
         if (!hasAnyData) {
-          console.log('[NarrativeAnalyzer] 没有有效数据可供分析，返回unrated');
+          logger.warn('NarrativeAnalyzer', '没有有效数据可供分析，返回unrated');
           llmResult = {
             category: 'unrated',
             reasoning: '没有可用的数据进行分析（所有推文/内容获取失败）',
@@ -200,13 +204,13 @@ export class NarrativeAnalyzer {
           promptType = 'no_data';
           analysisFailed = false;
         } else {
-          console.log('[NarrativeAnalyzer] 使用两阶段分析模式');
+          logger.info('NarrativeAnalyzer', '使用两阶段分析模式');
 
         // Stage 1: 低质量检测
-        console.log('[NarrativeAnalyzer] Stage 1: 低质量检测');
+        logger.debug('NarrativeAnalyzer', 'Stage 1: 低质量检测');
         const stage1Prompt = PromptBuilder.buildStage1(tokenData, fetchResults);
         const stage1PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 1);
-        console.log(`[NarrativeAnalyzer] Stage 1 Prompt类型: ${stage1PromptType}`);
+        logger.debug('NarrativeAnalyzer', `Stage 1 Prompt类型: ${stage1PromptType}`);
 
         // Stage 1: 调用API获取原始响应（带元数据）
         const stage1CallResult = await this._callLLMAPI(stage1Prompt);
@@ -233,8 +237,12 @@ export class NarrativeAnalyzer {
             reasonText = `第三阶段（场景${scenarioNum}）: ${stage1Data.reason}`;
           }
 
-          console.log(`[NarrativeAnalyzer] Stage 1: 检测到低质量 - 阶段${stageNum}${scenarioNum > 0 ? ', 场景' + scenarioNum : ''}: ${stage1Data.reason}`);
-          console.log(`[NarrativeAnalyzer] Stage 1: 识别的实体:`, JSON.stringify(stage1Data.entities));
+          logger.info('Stage1', '检测到低质量', {
+            stage: stageNum,
+            scenario: scenarioNum,
+            reason: stage1Data.reason,
+            entities: stage1Data.entities
+          });
 
           llmResult = {
             category: 'low',
@@ -259,11 +267,10 @@ export class NarrativeAnalyzer {
           promptType = stage1PromptType;
         } else {
           // Stage 1通过，进入Stage 2
-          console.log('[NarrativeAnalyzer] Stage 1: 通过，进入Stage 2');
-          console.log('[NarrativeAnalyzer] Stage 1: 识别的实体:', JSON.stringify(stage1Data.entities));
+          logger.info('Stage1', '通过，进入Stage 2', { entities: stage1Data.entities });
           const stage2Prompt = PromptBuilder.buildStage2(tokenData, fetchResults);
           const stage2PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
-          console.log(`[NarrativeAnalyzer] Stage 2 Prompt类型: ${stage2PromptType}`);
+          logger.debug('NarrativeAnalyzer', `Stage 2 Prompt类型: ${stage2PromptType}`);
 
           // Stage 2: 调用API（带元数据）
           const stage2CallResult = await LLMClient.analyzeWithMetadata(stage2Prompt);
@@ -307,7 +314,7 @@ export class NarrativeAnalyzer {
         }
         } // 关闭 hasAnyData 检查的 else 分支
       } catch (error) {
-        console.error('LLM分析失败:', error.message);
+        logger.error('NarrativeAnalyzer', 'LLM分析失败', { error: error.message });
         llmResult = {
           category: 'unrated',
           reasoning: `分析失败: ${error.message}`,
@@ -2040,14 +2047,12 @@ export class NarrativeAnalyzer {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    console.log(`[NarrativeAnalyzer] 开始调用LLM API... 模型: ${model}`);
-    console.log(`[NarrativeAnalyzer] Prompt 长度: ${prompt.length} 字符`);
-    console.log(`[NarrativeAnalyzer] Prompt 前500字符: ${prompt.substring(0, 500)}`);
+    logger.debug('LLMClient', '开始调用LLM API', { model, promptLength: prompt.length });
 
     let content, error, success;
 
     try {
-      console.log('[NarrativeAnalyzer] 发送 fetch 请求...');
+      logger.debug('LLMClient', '发送 fetch 请求');
       const response = await fetch(`${apiUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -2079,7 +2084,7 @@ export class NarrativeAnalyzer {
         throw new Error(`LLM API 调用失败: ${response.status} ${errorText}`);
       }
 
-      console.log('[NarrativeAnalyzer] API响应成功');
+      logger.debug('LLMClient', 'API响应成功');
       const data = await response.json();
       content = data.choices[0]?.message?.content;
 
@@ -2091,7 +2096,7 @@ export class NarrativeAnalyzer {
       success = true;
       error = null;
 
-      console.log('[NarrativeAnalyzer] API调用完成');
+      logger.debug('LLMClient', 'API调用完成');
       return { content, model, startedAt, finishedAt, success: true, error: null };
     } catch (e) {
       clearTimeout(timeoutId);
@@ -2127,13 +2132,13 @@ export class NarrativeAnalyzer {
     const { ignoreCache = false, experimentId = null } = options;
     const normalizedAddress = address.toLowerCase();
 
-    console.log(`[NarrativeAnalyzer] Stage 1 分析开始 | address=${normalizedAddress}, experimentId=${experimentId}`);
+    logger.info('Stage1', '分析开始', { address: normalizedAddress, experimentId });
 
     // 1. 检查缓存
     const cached = await NarrativeRepository.findByAddress(normalizedAddress);
     if (cached && cached.is_valid && !ignoreCache) {
       if (cached.llm_stage1_parsed_output) {
-        console.log(`[NarrativeAnalyzer] Stage 1 使用缓存 | address=${normalizedAddress}`);
+        logger.debug('Stage1', '使用缓存', { address: normalizedAddress });
         return {
           pass: cached.llm_stage1_category !== 'low',
           category: cached.llm_stage1_category || null,
@@ -2174,7 +2179,7 @@ export class NarrativeAnalyzer {
       data_fetch_results
     } = await this._fetchAllDataViaClassifier(tokenData, extractedInfo);
 
-    console.log('[NarrativeAnalyzer] Stage 1: 数据获取完成');
+    logger.debug('Stage1', '数据获取完成');
 
     // 4. 预检查
     const preCheckResult = await this.performPreCheck(
@@ -2184,7 +2189,7 @@ export class NarrativeAnalyzer {
     );
 
     if (preCheckResult) {
-      console.log('[NarrativeAnalyzer] Stage 1: 预检查触发');
+      logger.debug('Stage1', '预检查触发');
       // 预检查触发，保存并返回
       const preCheckData = {
         category: preCheckResult.category,
@@ -2207,7 +2212,7 @@ export class NarrativeAnalyzer {
     const hasAnyData = this._hasValidDataForAnalysis(fetchResults);
 
     if (!hasAnyData) {
-      console.log('[NarrativeAnalyzer] Stage 1: 没有有效数据');
+      logger.warn('Stage1', '没有有效数据');
       const noDataResult = {
         pass: false,
         category: 'unrated',
@@ -2225,7 +2230,7 @@ export class NarrativeAnalyzer {
     }
 
     // 6. Stage 1 LLM 检测
-    console.log('[NarrativeAnalyzer] Stage 1: 执行 LLM 低质量检测');
+    logger.debug('Stage1', '执行 LLM 低质量检测');
     const stage1Prompt = PromptBuilder.buildStage1(tokenData, fetchResults);
     const stage1CallResult = await this._callLLMAPI(stage1Prompt);
 
@@ -2248,10 +2253,24 @@ export class NarrativeAnalyzer {
       error: stage1CallResult.error || null
     };
 
-    console.log(`[NarrativeAnalyzer] Stage 1 完成 | pass=${stage1Result.pass}, category=${stage1Result.category}`);
+    logger.info('Stage1', '完成', {
+      pass: stage1Result.pass,
+      category: stage1Result.category,
+      reason: stage1Result.reason
+    });
 
     // 7. 保存 Stage 1 结果
-    await this._saveStage1Data(normalizedAddress, tokenData, extractedInfo, twitterInfo, classifiedUrls, experimentId, stage1Result, url_extraction_result, data_fetch_results);
+    await this._saveStage1Data(normalizedAddress, tokenData, extractedInfo, twitterInfo, classifiedUrls, experimentId, stage1Result, url_extraction_result, data_fetch_results, {
+      category: stage1CallResult.model ? (stage1Data.pass ? null : (stage1Data.category || 'low')) : null,
+      model: stage1CallResult.model,
+      prompt: stage1Prompt,
+      raw_output: stage1CallResult.content,
+      parsed_output: stage1Data,
+      started_at: stage1CallResult.startedAt,
+      finished_at: stage1CallResult.finishedAt,
+      success: stage1CallResult.success,
+      error: stage1CallResult.error
+    });
 
     return stage1Result;
   }
@@ -2268,7 +2287,7 @@ export class NarrativeAnalyzer {
     const { experimentId = null } = options;
     const normalizedAddress = address.toLowerCase();
 
-    console.log(`[NarrativeAnalyzer] Stage 2 分析开始 | address=${normalizedAddress}, experimentId=${experimentId}`);
+    logger.info('Stage2', '分析开始', { address: normalizedAddress, experimentId });
 
     // 1. 获取代币数据（复用已有的数据，或重新获取）
     const tokenData = await this.fetchTokenData(normalizedAddress);
@@ -2293,7 +2312,7 @@ export class NarrativeAnalyzer {
       classifiedUrls
     } = await this._fetchAllDataViaClassifier(tokenData, extractedInfo);
 
-    console.log('[NarrativeAnalyzer] Stage 2: 数据获取完成');
+    logger.debug('Stage2', '数据获取完成');
 
     const fetchResults = {
       twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo,
@@ -2303,7 +2322,7 @@ export class NarrativeAnalyzer {
     // 3. 检查是否有有效数据
     const hasAnyData = this._hasValidDataForAnalysis(fetchResults);
     if (!hasAnyData) {
-      console.log('[NarrativeAnalyzer] Stage 2: 没有有效数据');
+      logger.warn('Stage2', '没有有效数据');
       const noDataResult = {
         category: 'unrated',
         reasoning: '没有可用的数据进行分析',
@@ -2319,7 +2338,7 @@ export class NarrativeAnalyzer {
     }
 
     // 4. Stage 2 LLM 评分
-    console.log('[NarrativeAnalyzer] Stage 2: 执行 LLM 详细评分');
+    logger.debug('Stage2', '执行 LLM 详细评分');
     const stage2Prompt = PromptBuilder.buildStage2(tokenData, fetchResults);
     const stage2CallResult = await LLMClient.analyzeWithMetadata(stage2Prompt);
 
@@ -2335,10 +2354,23 @@ export class NarrativeAnalyzer {
       error: stage2CallResult.error || null
     };
 
-    console.log(`[NarrativeAnalyzer] Stage 2 完成 | category=${stage2Result.category}, total_score=${stage2Result.total_score}`);
+    logger.info('Stage2', '完成', {
+      category: stage2Result.category,
+      totalScore: stage2Result.total_score
+    });
 
-    // 5. 保存 Stage 2 结果
-    await this._saveStage2Data(normalizedAddress, experimentId, stage2Result);
+    // 5. 保存 Stage 2 结果（传递完整的调用结果，包含 raw 数据）
+    await this._saveStage2Data(normalizedAddress, experimentId, stage2Result, {
+      category: stage2CallResult.parsed.category,
+      model: stage2CallResult.model,
+      prompt: stage2Prompt,
+      raw_output: stage2CallResult.raw.raw,
+      parsed_output: stage2CallResult.parsed,
+      started_at: stage2CallResult.startedAt,
+      finished_at: stage2CallResult.finishedAt,
+      success: stage2CallResult.success,
+      error: stage2CallResult.error
+    });
 
     return stage2Result;
   }
@@ -2346,11 +2378,21 @@ export class NarrativeAnalyzer {
   /**
    * 保存 Stage 1 数据到数据库
    * @private
+   * @param {string} normalizedAddress - 代币地址
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} extractedInfo - 提取的信息
+   * @param {Object} twitterInfo - Twitter信息
+   * @param {Object} classifiedUrls - 分类URLs
+   * @param {string} experimentId - 实验ID
+   * @param {Object} stage1Result - Stage 1 结果（简化版，用于返回）
+   * @param {Object} urlExtractionResult - URL提取结果
+   * @param {Object} dataFetchResults - 数据获取结果
+   * @param {Object} stage1DataToSave - Stage 1 完整数据（包含 model, raw_output 等）
    */
-  static async _saveStage1Data(normalizedAddress, tokenData, extractedInfo, twitterInfo, classifiedUrls, experimentId, stage1Result, urlExtractionResult, dataFetchResults) {
+  static async _saveStage1Data(normalizedAddress, tokenData, extractedInfo, twitterInfo, classifiedUrls, experimentId, stage1Result, urlExtractionResult, dataFetchResults, stage1DataToSave = null) {
     const cleanedTwitterInfo = this._cleanDataForDB(twitterInfo);
 
-    await NarrativeRepository.save({
+    const saveData = {
       token_address: normalizedAddress,
       token_symbol: tokenData.symbol,
       raw_api_data: tokenData.raw_api_data,
@@ -2360,32 +2402,68 @@ export class NarrativeAnalyzer {
       analyzed_at: new Date().toISOString(),
       experiment_id: experimentId,
       url_extraction_result: urlExtractionResult,
-      data_fetch_results: dataFetchResults,
-      // Stage 1 数据
-      llm_stage1_category: stage1Result.category,
-      llm_stage1_started_at: stage1Result.started_at,
-      llm_stage1_finished_at: stage1Result.finished_at,
-      llm_stage1_success: stage1Result.success,
-      llm_stage1_error: stage1Result.error
-    });
+      data_fetch_results: dataFetchResults
+    };
+
+    // 如果提供了完整的 Stage 1 数据，保存所有字段
+    if (stage1DataToSave) {
+      saveData.llm_stage1_category = stage1DataToSave.category;
+      saveData.llm_stage1_model = stage1DataToSave.model;
+      saveData.llm_stage1_prompt = stage1DataToSave.prompt;
+      saveData.llm_stage1_raw_output = stage1DataToSave.raw_output;
+      saveData.llm_stage1_parsed_output = stage1DataToSave.parsed_output;
+      saveData.llm_stage1_started_at = stage1DataToSave.started_at;
+      saveData.llm_stage1_finished_at = stage1DataToSave.finished_at;
+      saveData.llm_stage1_success = stage1DataToSave.success;
+      saveData.llm_stage1_error = stage1DataToSave.error;
+    } else {
+      // 兼容旧逻辑：只保存 stage1Result 中的字段
+      saveData.llm_stage1_category = stage1Result.category;
+      saveData.llm_stage1_started_at = stage1Result.started_at;
+      saveData.llm_stage1_finished_at = stage1Result.finished_at;
+      saveData.llm_stage1_success = stage1Result.success;
+      saveData.llm_stage1_error = stage1Result.error;
+    }
+
+    await NarrativeRepository.save(saveData);
   }
 
   /**
    * 保存 Stage 2 数据到数据库
    * @private
+   * @param {string} normalizedAddress - 代币地址
+   * @param {string} experimentId - 实验ID
+   * @param {Object} stage2Result - Stage 2 结果（简化版，用于返回）
+   * @param {Object} stage2DataToSave - Stage 2 完整数据（包含 model, raw_output 等）
    */
-  static async _saveStage2Data(normalizedAddress, experimentId, stage2Result) {
-    await NarrativeRepository.save({
+  static async _saveStage2Data(normalizedAddress, experimentId, stage2Result, stage2DataToSave = null) {
+    const saveData = {
       token_address: normalizedAddress,
       experiment_id: experimentId,
-      analyzed_at: new Date().toISOString(),
-      // Stage 2 数据
-      llm_stage2_category: stage2Result.category,
-      llm_stage2_started_at: stage2Result.started_at,
-      llm_stage2_finished_at: stage2Result.finished_at,
-      llm_stage2_success: stage2Result.success,
-      llm_stage2_error: stage2Result.error
-    });
+      analyzed_at: new Date().toISOString()
+    };
+
+    // 如果提供了完整的 Stage 2 数据，保存所有字段
+    if (stage2DataToSave) {
+      saveData.llm_stage2_category = stage2DataToSave.category;
+      saveData.llm_stage2_model = stage2DataToSave.model;
+      saveData.llm_stage2_prompt = stage2DataToSave.prompt;
+      saveData.llm_stage2_raw_output = stage2DataToSave.raw_output;
+      saveData.llm_stage2_parsed_output = stage2DataToSave.parsed_output;
+      saveData.llm_stage2_started_at = stage2DataToSave.started_at;
+      saveData.llm_stage2_finished_at = stage2DataToSave.finished_at;
+      saveData.llm_stage2_success = stage2DataToSave.success;
+      saveData.llm_stage2_error = stage2DataToSave.error;
+    } else {
+      // 兼容旧逻辑：只保存 stage2Result 中的字段
+      saveData.llm_stage2_category = stage2Result.category;
+      saveData.llm_stage2_started_at = stage2Result.started_at;
+      saveData.llm_stage2_finished_at = stage2Result.finished_at;
+      saveData.llm_stage2_success = stage2Result.success;
+      saveData.llm_stage2_error = stage2Result.error;
+    }
+
+    await NarrativeRepository.save(saveData);
   }
 
   /**
