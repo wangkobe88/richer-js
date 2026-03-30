@@ -2191,8 +2191,11 @@ export class NarrativeAnalyzer {
     if (preCheckResult) {
       logger.debug('Stage1', '预检查触发');
       // 预检查触发，保存并返回
+      // 注意：不设置 category 字段，避免被保存到 llm_stage1_category
+      // 预检查结果应该只保存在 pre_check_* 字段中
       const preCheckData = {
-        category: preCheckResult.category,
+        pass: false,
+        // category: preCheckResult.category,  // 不设置，避免与 llm_stage1_category 混淆
         reason: preCheckResult.reasoning,
         stage: 0,
         scenario: 0,
@@ -2200,10 +2203,20 @@ export class NarrativeAnalyzer {
         started_at: new Date().toISOString(),
         finished_at: new Date().toISOString(),
         success: true,
-        error: null
+        error: null,
+        // 额外添加预检查元数据
+        preCheckCategory: preCheckResult.category,
+        preCheckTriggered: true
       };
 
-      await this._saveStage1Data(normalizedAddress, tokenData, extractedInfo, twitterInfo, classifiedUrls, experimentId, preCheckData, url_extraction_result, data_fetch_results);
+      // 准备预检查数据用于保存（与 analyze() 方法保持一致）
+      const preCheckDataToSave = {
+        category: preCheckResult.category,
+        reason: preCheckResult.preCheckReason,
+        result: preCheckResult
+      };
+
+      await this._saveStage1Data(normalizedAddress, tokenData, extractedInfo, twitterInfo, classifiedUrls, experimentId, preCheckData, url_extraction_result, data_fetch_results, null, preCheckDataToSave);
       return preCheckData;
     }
 
@@ -2388,8 +2401,9 @@ export class NarrativeAnalyzer {
    * @param {Object} urlExtractionResult - URL提取结果
    * @param {Object} dataFetchResults - 数据获取结果
    * @param {Object} stage1DataToSave - Stage 1 完整数据（包含 model, raw_output 等）
+   * @param {Object} preCheckDataToSave - 预检查数据（包含 category, reason, result）
    */
-  static async _saveStage1Data(normalizedAddress, tokenData, extractedInfo, twitterInfo, classifiedUrls, experimentId, stage1Result, urlExtractionResult, dataFetchResults, stage1DataToSave = null) {
+  static async _saveStage1Data(normalizedAddress, tokenData, extractedInfo, twitterInfo, classifiedUrls, experimentId, stage1Result, urlExtractionResult, dataFetchResults, stage1DataToSave = null, preCheckDataToSave = null) {
     const cleanedTwitterInfo = this._cleanDataForDB(twitterInfo);
 
     const saveData = {
@@ -2402,7 +2416,12 @@ export class NarrativeAnalyzer {
       analyzed_at: new Date().toISOString(),
       experiment_id: experimentId,
       url_extraction_result: urlExtractionResult,
-      data_fetch_results: dataFetchResults
+      data_fetch_results: dataFetchResults,
+
+      // === 预检查字段（3个）===
+      pre_check_category: preCheckDataToSave?.category || null,
+      pre_check_reason: preCheckDataToSave?.reason || null,
+      pre_check_result: preCheckDataToSave?.result || null
     };
 
     // 如果提供了完整的 Stage 1 数据，保存所有字段

@@ -303,7 +303,7 @@ class ExperimentTokens {
     if (linkDetail) linkDetail.href = basePath;
     if (linkSignals) linkSignals.href = `${basePath}/signals`;
     if (linkTrades) linkTrades.href = `${basePath}/trades`;
-    if (linkBack) linkBack.href = basePath;
+    if (linkBack) linkBack.href = '/experiments';
   }
 
   /**

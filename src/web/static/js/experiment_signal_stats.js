@@ -485,7 +485,7 @@ class ExperimentSignalStats {
     const exp = this.experimentData;
     if (!exp) return;
 
-    document.getElementById('experiment-name').textContent = exp.name || '未命名实验';
+    document.getElementById('experiment-name').textContent = exp.experimentName || '未命名实验';
     document.getElementById('experiment-id').textContent = `ID: ${this.experimentId.slice(0, 8)}...`;
     document.getElementById('experiment-blockchain').textContent = `区块链: ${exp.config?.blockchain || 'BSC'}`;
     document.getElementById('token-count').textContent = `代币数量: ${this.tokenStats.length}`;
@@ -517,8 +517,7 @@ class ExperimentSignalStats {
 
     const linkBack = document.getElementById('link-back');
     if (linkBack) {
-      linkBack.href = `/experiment/${this.experimentId}`;
-      linkBack.target = '_blank';
+      linkBack.href = '/experiments';
     }
   }
 

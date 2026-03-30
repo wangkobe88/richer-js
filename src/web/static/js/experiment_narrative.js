@@ -195,7 +195,7 @@ class ExperimentNarrative {
       detailLink.href = `/experiment/${this.experimentId}`;
     }
     if (backLink) {
-      backLink.href = `/experiment/${this.experimentId}`;
+      backLink.href = '/experiments';
     }
   }
 

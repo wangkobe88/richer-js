@@ -851,7 +851,7 @@ class ExperimentTokenReturns {
     if (linkDetail) linkDetail.href = `${baseUrl}`;
     if (linkSignals) linkSignals.href = `${baseUrl}/signals`;
     if (linkTrades) linkTrades.href = `${baseUrl}/trades`;
-    if (linkBack) linkBack.href = `${baseUrl}`;
+    if (linkBack) linkBack.href = '/experiments';
   }
 
   updateStats() {

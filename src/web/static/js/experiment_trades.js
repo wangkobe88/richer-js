@@ -389,7 +389,7 @@ class ExperimentTrades {
     if (linkDetail) linkDetail.href = `/experiment/${this.experimentId}`;
     if (linkSignals) linkSignals.href = `/experiment/${this.experimentId}/signals`;
     if (linkReturns) linkReturns.href = `/experiment/${this.experimentId}/token-returns`;
-    if (linkBack) linkBack.href = `/experiment/${this.experimentId}`;
+    if (linkBack) linkBack.href = '/experiments';
 
     // 更新页面标题
     document.title = `交易记录 - ${name} - 2025-2026 Become Rich Baby!`;

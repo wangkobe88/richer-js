@@ -158,8 +158,6 @@ class NarrativeAnalyzer {
   displayResult(data) {
     const { token, llmAnalysis, debugInfo, meta, twitter, classifiedUrls, fetchErrors } = data;
 
-    console.log('[NarrativeAnalyzer] displayResult:', { llmAnalysis, debugInfo });
-
     // 保存数据用于调试信息切换
     this.lastData = { llmAnalysis, debugInfo, fetchErrors };
 
@@ -217,6 +215,7 @@ class NarrativeAnalyzer {
     // 更新分数显示
     const scoresDisplay = document.getElementById('scoresDisplay');
     const summary = llmAnalysis.summary || {};
+
     if (summary.total_score !== undefined) {
       scoresDisplay.innerHTML = `
         <div class="score-bar">
@@ -271,12 +270,19 @@ class NarrativeAnalyzer {
              (i < pathSteps.length - 1 ? '<span class="path-arrow">→</span>' : '');
     }).join('');
 
-    // 更新理由
+    // 更新理由（Stage 1 使用 reason 字段，Stage 2 和预检查使用 reasoning 字段）
     const overviewReasoning = document.getElementById('overviewReasoning');
-    if (summary.reasoning) {
+    if (summary?.reasoning) {
       overviewReasoning.textContent = summary.reasoning;
+    } else if (summary?.reason) {
+      // Stage 1 低质量检测使用 reason 字段
+      overviewReasoning.textContent = summary.reason;
     } else if (llmAnalysis.preCheck?.result?.reasoning) {
       overviewReasoning.textContent = llmAnalysis.preCheck.result.reasoning;
+    } else if (!summary && !llmAnalysis.preCheck && !llmAnalysis.stage1 && !llmAnalysis.stage2) {
+      // 旧数据格式，没有分析详情
+      overviewReasoning.textContent = '此为旧版分析结果，缺少分析理由。点击右上角"重新分析"获取完整数据。';
+      overviewReasoning.style.color = '#e67e22';
     } else {
       overviewReasoning.textContent = '暂无分析理由';
     }
@@ -295,11 +301,6 @@ class NarrativeAnalyzer {
 
   updateStage1Card(llmAnalysis) {
     const stage1 = llmAnalysis.stage1;
-
-    // 调试：检查 stage1 数据
-    console.log('[updateStage1Card] stage1 data:', stage1);
-    console.log('[updateStage1Card] stage1.prompt:', stage1?.prompt);
-    console.log('[updateStage1Card] llmAnalysis:', llmAnalysis);
 
     if (!stage1) {
       this.stage1CardBody.innerHTML = `

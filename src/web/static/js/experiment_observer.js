@@ -24,7 +24,6 @@ class ExperimentObserver {
     this.tokenSelect2 = document.getElementById('tokenSelect2');
     this.factorSelect = document.getElementById('factorSelect');
     this.refreshBtn = document.getElementById('refreshBtn');
-    this.backToDetailBtn = document.getElementById('backToDetailBtn');
     this.backToExperimentsBtn = document.getElementById('backToExperimentsBtn');
     this.errorContainer = document.getElementById('errorContainer');
     this.priceChartContainer = document.getElementById('priceChartContainer');
@@ -43,7 +42,6 @@ class ExperimentObserver {
     this.tokenSelect2?.addEventListener('change', () => this.onTokenChange());
     this.factorSelect?.addEventListener('change', () => this.onFactorChange());
     this.refreshBtn?.addEventListener('click', () => this.refreshData());
-    this.backToDetailBtn?.addEventListener('click', () => this.backToDetail());
     this.backToExperimentsBtn?.addEventListener('click', () => this.backToExperiments());
 
     // 绑定备用按钮（选择器模式下的按钮）
@@ -861,17 +859,6 @@ class ExperimentObserver {
     }
     if (this.factorChartContainer) {
       this.factorChartContainer.innerHTML = '<div class="empty-state"><p>选择因子以查看趋势</p></div>';
-    }
-  }
-
-  /**
-   * 返回实验详情页
-   */
-  backToDetail() {
-    if (this.currentExperiment) {
-      window.location.href = `/experiment/${this.currentExperiment}`;
-    } else {
-      this.showError('请先选择一个实验');
     }
   }
 
