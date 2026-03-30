@@ -277,6 +277,53 @@ export class NarrativeAnalysisEngine {
         duration: `${duration}ms`
       });
 
+      // 尝试保存失败信息到数据库，避免数据完全丢失
+      try {
+        const { fetchTokenData, extractInfo } = NarrativeAnalyzer;
+        const tokenData = await fetchTokenData(task.token_address);
+        if (tokenData) {
+          const extractedInfo = extractInfo(tokenData);
+          const errorResult = {
+            pass: false,
+            category: 'low',
+            reason: `Stage 1 失败: ${error.message}`,
+            stage: 0,
+            scenario: 0,
+            entities: {},
+            started_at: new Date(Date.now() - duration).toISOString(),
+            finished_at: new Date().toISOString(),
+            success: false,
+            error: error.message
+          };
+
+          // 保存失败结果（只保存基本信息）
+          await NarrativeAnalyzer._saveStage1Data(
+            task.token_address.toLowerCase(),
+            tokenData,
+            extractedInfo,
+            {}, // twitterInfo
+            {}, // classifiedUrls
+            task.triggered_by_experiment_id,
+            errorResult,
+            null, // urlExtractionResult
+            {}, // dataFetchResults
+            null  // stage1DataToSave
+          );
+
+          this._log('INFO', 'Stage 1 失败信息已保存', {
+            taskId: task.id,
+            token: task.token_symbol
+          });
+        }
+      } catch (saveError) {
+        this._log('ERROR', '保存 Stage 1 失败信息时出错', {
+          taskId: task.id,
+          token: task.token_symbol,
+          saveError: saveError.message,
+          originalError: error.message
+        });
+      }
+
       return {
         pass: false,
         category: 'low',
@@ -349,7 +396,36 @@ export class NarrativeAnalysisEngine {
    * @private
    */
   async _completeAnalysis(task, stage1Data, stage2Data) {
-    // 1. 更新 token_narrative 表
+    // 1. 先检查 token_narrative 表中是否存在记录
+    const { data: existingNarrative } = await this.supabase
+      .from('token_narrative')
+      .select('id')
+      .eq('token_address', task.token_address)
+      .maybeSingle();
+
+    if (!existingNarrative) {
+      // 没有记录，记录错误并重置任务状态以便重新处理
+      this._log('ERROR', '完成分析时发现叙事数据不存在，重置任务状态', {
+        taskId: task.id,
+        token: task.token_symbol,
+        tokenAddress: task.token_address
+      });
+
+      // 重置任务状态为 pending，让系统重新处理
+      await this._updateTaskStatus(task.id, 'pending', {
+        current_stage: 0,
+        updated_at: new Date().toISOString()
+      });
+
+      this._log('WARN', '任务已重置为 pending 状态，等待重新处理', {
+        taskId: task.id,
+        token: task.token_symbol
+      });
+
+      return;
+    }
+
+    // 2. 更新 token_narrative 表
     const { data: narrative } = await this.supabase
       .from('token_narrative')
       .update({
@@ -361,7 +437,7 @@ export class NarrativeAnalysisEngine {
       .select('id')
       .single();
 
-    // 2. 更新任务状态为完成
+    // 3. 更新任务状态为完成
     await this._updateTaskStatus(task.id, 'completed', {
       current_stage: stage2Data ? 2 : 1,
       narrative_id: narrative?.id || null,
