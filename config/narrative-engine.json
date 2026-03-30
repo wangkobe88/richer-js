@@ -1,0 +1,20 @@
+{
+  "engine": {
+    "maxConcurrency": 30,
+    "pollingInterval": 1000,
+    "taskTimeout": 180000,
+    "maxRetries": 3
+  },
+  "models": {
+    "primary": {
+      "name": "Pro/MiniMaxAI/MiniMax-M2.5",
+      "stage1Timeout": 60000,
+      "stage2Timeout": 60000
+    },
+    "fallback": {
+      "name": "deepseek-ai/DeepSeek-V3",
+      "stage1Timeout": 30000,
+      "stage2Timeout": 30000
+    }
+  }
+}

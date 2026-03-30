@@ -704,3 +704,9 @@ function showError(message) {
     // 简单实现，可以改成 toast
     alert(message);
 }
+
+// 将 onclick 事件处理器函数暴露到全局作用域
+window.deleteTask = deleteTask;
+window.resetTask = resetTask;
+window.viewTaskDetail = viewTaskDetail;
+window.goToPage = goToPage;

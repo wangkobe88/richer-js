@@ -15,9 +15,10 @@ import { NarrativeAnalysisEngine } from './NarrativeAnalysisEngine.mjs';
 
 // 从环境变量读取配置
 const config = {
-  pollingInterval: parseInt(process.env.NARRATIVE_POLLING_INTERVAL || '5000'),
-  maxConcurrentTasks: parseInt(process.env.NARRATIVE_MAX_CONCURRENT || '1'),
-  taskTimeout: parseInt(process.env.NARRATIVE_TASK_TIMEOUT || '180000')
+  pollingInterval: parseInt(process.env.NARRATIVE_POLLING_INTERVAL || '1000'),
+  maxConcurrency: parseInt(process.env.NARRATIVE_MAX_CONCURRENCY || '30'),
+  taskTimeout: parseInt(process.env.NARRATIVE_TASK_TIMEOUT || '180000'),
+  maxRetries: parseInt(process.env.NARRATIVE_MAX_RETRIES || '3')
 };
 
 console.log('叙事分析引擎配置:', config);
