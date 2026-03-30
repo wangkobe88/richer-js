@@ -83,6 +83,9 @@ async function fetchNarrativeData(address) {
     } catch (e) { console.log('Website: 失败 -', e.message); }
   }
 
+  // 添加 extractedInfo（PromptBuilder 需要）
+  fetchResults.extractedInfo = NarrativeAnalyzer.extractInfo(tokenData);
+
   return { tokenData, fetchResults };
 }
 

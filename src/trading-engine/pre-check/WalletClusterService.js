@@ -85,9 +85,12 @@ class WalletClusterService {
     const megaClusters = clusterSizes.filter(s => s >= megaClusterThreshold);
     const megaClusterTradeCount = megaClusters.reduce((sum, s) => sum + s, 0);
 
+    // 计算第二簇与第一簇的比例
+    // - 当有2个或更多簇时：第二簇大小 / 第一簇大小
+    // - 当只有1个簇时：设为1，表示所有交易集中在一个簇（100%集中）
     const secondToFirstRatio = sortedSizes.length >= 2
       ? sortedSizes[1] / sortedSizes[0]
-      : 0;
+      : 1;
 
     const top2ClusterRatio = sortedSizes.length >= 2
       ? (sortedSizes[0] + sortedSizes[1]) / trades.length

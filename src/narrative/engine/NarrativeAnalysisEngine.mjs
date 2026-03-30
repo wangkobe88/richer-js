@@ -285,11 +285,24 @@ export class NarrativeAnalysisEngine {
       stage2Category: result.stage2?.category || 'N/A'
     });
 
-    // 检查 token_narrative 表中是否存在记录
+    // 先获取任务信息（获取 token_address）
+    const { data: task } = await this.supabase
+      .from('narrative_analysis_tasks')
+      .select('token_address')
+      .eq('id', taskId)
+      .maybeSingle();
+
+    if (!task) {
+      this._log('ERROR', '任务不存在', { taskId });
+      await this._handleError(taskId, '任务不存在');
+      return;
+    }
+
+    // 检查 token_narrative 表中是否存在记录（使用 token_address）
     const { data: existingNarrative } = await this.supabase
       .from('token_narrative')
       .select('id')
-      .eq('task_id', taskId)
+      .eq('token_address', task.token_address)
       .maybeSingle();
 
     if (!existingNarrative) {
@@ -298,13 +311,14 @@ export class NarrativeAnalysisEngine {
       return;
     }
 
-    // 更新 narrative 和任务状态
+    // 更新 narrative（设置 task_id 和 analyzed_at）
     const { error } = await this.supabase
       .from('token_narrative')
       .update({
+        task_id: taskId,
         analyzed_at: new Date().toISOString()
       })
-      .eq('task_id', taskId);
+      .eq('token_address', task.token_address);
 
     if (error) {
       this._log('ERROR', '更新叙事表失败', { taskId, error: error.message });
@@ -312,6 +326,7 @@ export class NarrativeAnalysisEngine {
 
     await this._updateTaskStatus(taskId, 'completed', {
       current_stage: result.stage2 ? 2 : 1,
+      narrative_id: existingNarrative.id || null,
       completed_at: new Date().toISOString()
     });
   }

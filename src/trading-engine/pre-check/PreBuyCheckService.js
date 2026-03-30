@@ -917,20 +917,39 @@ class PreBuyCheckService {
     const conditionList = [];
 
     for (const expr of atomicConditions) {
-      // 跳过括号包裹的复杂表达式
+      // 处理括号包裹的复杂表达式
       if (expr.startsWith('(') && expr.endsWith(')')) {
-        conditionList.push({
-          id: `complex_${conditionList.length}`,
-          name: '复杂条件',
-          expression: expr,
-          expected: expr,
-          actualValue: null,
-          actualFormatted: '(复杂表达式)',
-          satisfied: null,
-          severity: 'info',
-          margin: null,
-          factorName: null
-        });
+        // 尝试评估复杂条件，而不是跳过
+        try {
+          const satisfied = this._safeEvaluate(expr, context);
+          conditionList.push({
+            id: `complex_${conditionList.length}`,
+            name: '复杂条件',
+            expression: expr,
+            expected: expr,
+            actualValue: null,
+            actualFormatted: satisfied ? '✓ 满足' : '✗ 不满足',
+            satisfied: satisfied,
+            severity: satisfied ? 'info' : 'warning',
+            margin: null,
+            factorName: null
+          });
+        } catch (e) {
+          // 如果评估失败，保持原来的行为
+          conditionList.push({
+            id: `complex_${conditionList.length}`,
+            name: '复杂条件',
+            expression: expr,
+            expected: expr,
+            actualValue: null,
+            actualFormatted: '(无法评估)',
+            satisfied: null,
+            severity: 'info',
+            margin: null,
+            factorName: null,
+            error: e.message
+          });
+        }
         continue;
       }
 
