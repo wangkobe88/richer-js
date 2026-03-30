@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>叙事分析任务管理 - Richer-js FourMeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+            font-size: 1.2rem;
+            background: #f8fafc;
+            color: #374151;
+        }
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .status-pending { background: #f3f4f6; color: #374151; }
+        .status-stage1_processing { background: #dbeafe; color: #1e40af; }
+        .status-stage1_completed { background: #cffafe; color: #0e7490; }
+        .status-stage2_processing { background: #f3e8ff; color: #7e22ce; }
+        .status-completed { background: #dcfce7; color: #166534; }
+        .status-failed { background: #fee2e2; color: #991b1b; }
+        .priority-input {
+            width: 60px;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.25rem;
+            text-align: center;
+        }
+        .task-row:hover {
+            background: #f9fafb;
+        }
+        .checkbox-cell {
+            width: 40px;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 0.5rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-900">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-white border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-blue-600">
+                            <a href="/" class="hover:text-blue-700 transition-colors">
+                                Richer-js FourMeme Trading
+                            </a>
+                        </h1>
+                        <div class="block">
+                            <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                                实验监控
+                            </a>
+                            <a href="/narrative-tasks" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors bg-blue-100">
+                                叙事任务
+                            </a>
+                            <a href="/narrative-analyzer" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                                叙事分析
+                            </a>
+                            <a href="/wallets" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-black hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                                钱包管理
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- 页面标题和操作栏 -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">叙事分析任务管理</h1>
+                    <p class="mt-1 text-sm text-gray-500">管理代币叙事分析任务的创建、优先级和执行状态</p>
+                </div>
+                <div class="mt-4 sm:mt-0 flex space-x-3">
+                    <button id="refresh-btn" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        🔄 刷新
+                    </button>
+                    <button id="add-task-btn" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors">
+                        ➕ 添加任务
+                    </button>
+                    <button id="batch-delete-btn" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors hidden">
+                        🗑️ 批量删除
+                    </button>
+                </div>
+            </div>
+
+            <!-- 统计信息卡片 -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 mb-6">
+                <div class="bg-white border border-gray-200 rounded-lg p-4">
+                    <div class="text-2xl font-bold text-gray-900" id="stat-total">-</div>
+                    <div class="text-sm text-gray-500">总任务数</div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-lg p-4">
+                    <div class="text-2xl font-bold text-gray-600" id="stat-pending">-</div>
+                    <div class="text-sm text-gray-500">待处理</div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-lg p-4">
+                    <div class="text-2xl font-bold text-blue-600" id="stat-processing">-</div>
+                    <div class="text-sm text-gray-500">处理中</div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-lg p-4">
+                    <div class="text-2xl font-bold text-green-600" id="stat-completed">-</div>
+                    <div class="text-sm text-gray-500">已完成</div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-lg p-4">
+                    <div class="text-2xl font-bold text-red-600" id="stat-failed">-</div>
+                    <div class="text-sm text-gray-500">失败</div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-lg p-4">
+                    <div class="text-2xl font-bold text-purple-600" id="stat-rate">-</div>
+                    <div class="text-sm text-gray-500">成功率</div>
+                </div>
+            </div>
+
+            <!-- 筛选和搜索栏 -->
+            <div class="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                    <div class="flex items-center space-x-4">
+                        <div>
+                            <label for="status-filter" class="block text-sm font-medium text-gray-700 mb-1">状态筛选</label>
+                            <select id="status-filter" class="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 border focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                <option value="">全部</option>
+                                <option value="pending">待处理</option>
+                                <option value="stage1_processing">Stage 1 处理中</option>
+                                <option value="stage1_completed">Stage 1 已完成</option>
+                                <option value="stage2_processing">Stage 2 处理中</option>
+                                <option value="completed">已完成</option>
+                                <option value="failed">失败</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="sort-select" class="block text-sm font-medium text-gray-700 mb-1">排序方式</label>
+                            <select id="sort-select" class="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 border focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                                <option value="created_at-desc">创建时间 ↓</option>
+                                <option value="created_at-asc">创建时间 ↑</option>
+                                <option value="priority-desc">优先级 ↓</option>
+                                <option value="priority-asc">优先级 ↑</option>
+                                <option value="updated_at-desc">更新时间 ↓</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex-1 max-w-md">
+                        <label for="search-input" class="block text-sm font-medium text-gray-700 mb-1">搜索</label>
+                        <input type="text" id="search-input" placeholder="搜索代币符号或地址..." class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 任务列表 -->
+            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="checkbox-cell px-4 py-3 text-left">
+                                    <input type="checkbox" id="select-all-checkbox" class="rounded border-gray-300">
+                                </th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">代币</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">地址</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">优先级</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">触发实验</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasks-tbody" class="bg-white divide-y divide-gray-200">
+                            <!-- 任务列表将通过 JS 渲染 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 加载状态 -->
+                <div id="loading-container" class="loading">
+                    <div class="loading-spinner"></div>
+                </div>
+
+                <!-- 空状态 -->
+                <div id="empty-container" class="hidden p-12 text-center">
+                    <div class="text-gray-400 text-5xl mb-4">📋</div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">暂无任务</h3>
+                    <p class="text-gray-500">点击"添加任务"按钮创建新的叙事分析任务</p>
+                </div>
+
+                <!-- 分页 -->
+                <div class="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200">
+                    <div class="flex-1 flex justify-between sm:hidden">
+                        <button id="prev-page-mobile" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            上一页
+                        </button>
+                        <button id="next-page-mobile" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                            下一页
+                        </button>
+                    </div>
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-gray-700">
+                                显示第 <span class="font-medium" id="page-start">0</span> 到 <span class="font-medium" id="page-end">0</span> 条，
+                                共 <span class="font-medium" id="page-total">0</span> 条
+                            </p>
+                        </div>
+                        <div>
+                            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" id="pagination-nav">
+                                <!-- 分页按钮将通过 JS 渲染 -->
+                            </nav>
+                        </div>
+                    </div>
+                    <div class="sm:hidden ml-4">
+                        <select id="page-size-select" class="block w-24 pl-3 pr-10 py-2 text-base border-gray-300 border focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                            <option value="20">20条/页</option>
+                            <option value="50">50条/页</option>
+                            <option value="100">100条/页</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 添加任务弹窗 -->
+    <div id="add-task-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">添加叙事分析任务</h3>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="add-task-form" class="space-y-4">
+                <div>
+                    <label for="task-token-address" class="block text-sm font-medium text-gray-700 mb-1">代币地址 *</label>
+                    <input type="text" id="task-token-address" required placeholder="0x..." class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="task-token-symbol" class="block text-sm font-medium text-gray-700 mb-1">代币符号（可选）</label>
+                    <input type="text" id="task-token-symbol" placeholder="如: DOGE" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="task-experiment-id" class="block text-sm font-medium text-gray-700 mb-1">关联实验ID（可选）</label>
+                    <input type="text" id="task-experiment-id" placeholder="实验 UUID" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="task-priority" class="block text-sm font-medium text-gray-700 mb-1">优先级</label>
+                    <input type="number" id="task-priority" value="50" min="0" max="100" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                    <p class="mt-1 text-xs text-gray-500">数值越大优先级越高，范围 0-100</p>
+                </div>
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" id="cancel-add-btn" class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" class="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                        创建任务
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 任务详情弹窗 -->
+    <div id="task-detail-modal" class="modal-overlay hidden">
+        <div class="modal-content p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">任务详情</h3>
+                <button id="close-detail-btn" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="task-detail-content" class="space-y-4">
+                <!-- 详情内容将通过 JS 渲染 -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/static/js/narrative-tasks.js"></script>
+</body>
+</html>

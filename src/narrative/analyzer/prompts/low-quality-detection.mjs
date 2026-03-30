@@ -425,11 +425,6 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 
 【输出格式】
 
-⚠️ **重要：只返回JSON格式，不要使用工具调用/函数调用！**
-- ❌ 不要返回：{tool => "fetch_url", args => {...}}
-- ❌ 不要返回：{function: "fetch_url", parameters: {...}}
-- ✅ 必须返回：{"tool": "fetch_url", "args": {...}}
-
 **只返回JSON，不要其他内容**：
 
 **第一阶段触发：内容空洞/无意义事件**

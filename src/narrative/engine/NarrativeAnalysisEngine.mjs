@@ -40,12 +40,14 @@ export class NarrativeAnalysisEngine {
    * @param {number} config.pollingInterval - 轮询间隔（毫秒），默认5000
    * @param {number} config.maxConcurrentTasks - 最大并发任务数，默认1（串行）
    * @param {number} config.taskTimeout - 单个任务超时时间（毫秒），默认180000（3分钟）
+   * @param {number} config.maxRetries - 最大重试次数，默认3
    */
   constructor(config = {}) {
     this.supabase = supabase;
     this.pollingInterval = config.pollingInterval || 5000;
     this.maxConcurrentTasks = config.maxConcurrentTasks || 1;
     this.taskTimeout = config.taskTimeout || 180000; // 3分钟超时
+    this.maxRetries = config.maxRetries || 3; // 最大重试次数
     this.isRunning = false;
     this.currentTask = null;
     this.stats = {
@@ -70,6 +72,7 @@ export class NarrativeAnalysisEngine {
     console.log(`  轮询间隔: ${this.pollingInterval}ms`);
     console.log(`  最大并发任务: ${this.maxConcurrentTasks}`);
     console.log(`  任务超时: ${this.taskTimeout}ms`);
+    console.log(`  最大重试次数: ${this.maxRetries}`);
     console.log('='.repeat(60));
 
     while (this.isRunning) {
@@ -277,65 +280,12 @@ export class NarrativeAnalysisEngine {
         duration: `${duration}ms`
       });
 
-      // 尝试保存失败信息到数据库，避免数据完全丢失
-      try {
-        const { fetchTokenData, extractInfo } = NarrativeAnalyzer;
-        const tokenData = await fetchTokenData(task.token_address);
-        if (tokenData) {
-          const extractedInfo = extractInfo(tokenData);
-          const errorResult = {
-            pass: false,
-            category: 'low',
-            reason: `Stage 1 失败: ${error.message}`,
-            stage: 0,
-            scenario: 0,
-            entities: {},
-            started_at: new Date(Date.now() - duration).toISOString(),
-            finished_at: new Date().toISOString(),
-            success: false,
-            error: error.message
-          };
-
-          // 保存失败结果（只保存基本信息）
-          await NarrativeAnalyzer._saveStage1Data(
-            task.token_address.toLowerCase(),
-            tokenData,
-            extractedInfo,
-            {}, // twitterInfo
-            {}, // classifiedUrls
-            task.triggered_by_experiment_id,
-            errorResult,
-            null, // urlExtractionResult
-            {}, // dataFetchResults
-            null  // stage1DataToSave
-          );
-
-          this._log('INFO', 'Stage 1 失败信息已保存', {
-            taskId: task.id,
-            token: task.token_symbol
-          });
-        }
-      } catch (saveError) {
-        this._log('ERROR', '保存 Stage 1 失败信息时出错', {
-          taskId: task.id,
-          token: task.token_symbol,
-          saveError: saveError.message,
-          originalError: error.message
-        });
-      }
-
-      return {
-        pass: false,
-        category: 'low',
-        reason: `Stage 1 失败: ${error.message}`,
-        stage: 0,
-        scenario: 0,
-        entities: {},
-        started_at: new Date(Date.now() - duration).toISOString(),
-        finished_at: new Date().toISOString(),
-        success: false,
-        error: error.message
-      };
+      // 直接抛出错误，让上层处理（标记任务为失败）
+      // 不再尝试保存失败信息，因为：
+      // 1. 代币可能不在 experiment_tokens 表中，无法获取完整数据
+      // 2. 保存不完整的数据没有意义
+      // 3. 避免因保存失败导致的无限循环
+      throw error;
     }
   }
 
@@ -404,23 +354,41 @@ export class NarrativeAnalysisEngine {
       .maybeSingle();
 
     if (!existingNarrative) {
-      // 没有记录，记录错误并重置任务状态以便重新处理
-      this._log('ERROR', '完成分析时发现叙事数据不存在，重置任务状态', {
-        taskId: task.id,
-        token: task.token_symbol,
-        tokenAddress: task.token_address
-      });
+      // 没有记录，说明分析过程中未能成功保存数据
+      // 检查重试次数，决定是重试还是放弃
+      const currentRetryCount = task.retry_count || 0;
 
-      // 重置任务状态为 pending，让系统重新处理
-      await this._updateTaskStatus(task.id, 'pending', {
-        current_stage: 0,
-        updated_at: new Date().toISOString()
-      });
+      if (currentRetryCount < this.maxRetries) {
+        // 还可以重试，重置任务状态
+        this._log('WARN', '叙事数据未成功保存，重置任务状态以便重试', {
+          taskId: task.id,
+          token: task.token_symbol,
+          tokenAddress: task.token_address,
+          retryCount: currentRetryCount,
+          maxRetries: this.maxRetries
+        });
 
-      this._log('WARN', '任务已重置为 pending 状态，等待重新处理', {
-        taskId: task.id,
-        token: task.token_symbol
-      });
+        await this._updateTaskStatus(task.id, 'pending', {
+          retry_count: currentRetryCount + 1,
+          current_stage: 0,
+          updated_at: new Date().toISOString()
+        });
+      } else {
+        // 已达最大重试次数，标记为失败
+        this._log('ERROR', '叙事数据保存失败且已达最大重试次数，标记任务为失败', {
+          taskId: task.id,
+          token: task.token_symbol,
+          tokenAddress: task.token_address,
+          retryCount: currentRetryCount,
+          maxRetries: this.maxRetries
+        });
+
+        await this._updateTaskStatus(task.id, 'failed', {
+          error_message: '叙事数据保存失败且已达最大重试次数',
+          retry_count: currentRetryCount + 1,
+          current_stage: 0
+        });
+      }
 
       return;
     }

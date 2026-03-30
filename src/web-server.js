@@ -223,6 +223,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/narrative-analyzer.html'));
     });
 
+    // 叙事分析任务管理页面
+    this.app.get('/narrative-tasks', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/narrative_tasks.html'));
+    });
+
     // 信号早期交易数据页面
     this.app.get('/signal/:id/early-trades', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/signal_early_trades.html'));
