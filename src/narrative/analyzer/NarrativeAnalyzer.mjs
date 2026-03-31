@@ -733,8 +733,26 @@ export class NarrativeAnalyzer {
       if (!hasViewData && !hasLikeData) continue;
 
       // 设置阈值（播放量或点赞数任一达到即可）
-      const unratedViewThreshold = video.name === 'Bilibili' ? 500 : 1000;
-      const unratedLikeThreshold = 100000; // 10万点赞
+      // 各平台的"爆款"门槛：达到此播放量时，内容过于流行无法准确分析
+      const unratedViewThresholdMap = {
+        'Bilibili': 500000,     // 50万播放量
+        'YouTube': 1000000,     // 100万播放量
+        'Twitter': 100000,      // 10万播放量
+        'TikTok': 500000,       // 50万播放量（流量大，提高门槛）
+        '抖音': 500000          // 50万播放量（流量大，提高门槛）
+      };
+      const unratedViewThreshold = unratedViewThresholdMap[video.name] || 100000; // 默认10万
+      const unratedLikeThreshold = 100000; // 10万点赞（保持不变）
+
+      // 播放量过低的阈值：低于此值认为传播力不足
+      const lowViewThresholdMap = {
+        'Bilibili': 30000,      // 3万播放量
+        'YouTube': 10000,       // 1万播放量
+        'Twitter': 2500,        // 2500播放量
+        'TikTok': 30000,        // 3万播放量
+        '抖音': 30000           // 3万播放量
+      };
+      const lowViewThreshold = lowViewThresholdMap[video.name] || 10000; // 默认1万
 
       // 判断是否达到 unrated 阈值
       const viewMeetsThreshold = hasViewData && viewCount >= unratedViewThreshold;
@@ -757,7 +775,7 @@ export class NarrativeAnalyzer {
       }
 
       // 播放量/点赞数过低 → low
-      if (hasViewData && viewCount < unratedViewThreshold) {
+      if (hasViewData && viewCount < lowViewThreshold) {
         console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频播放量(${viewCount})过低，返回low`);
         return {
           category: 'low',
