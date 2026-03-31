@@ -140,7 +140,11 @@ export function buildTwitterSection(twitterInfo) {
   // 推文链接内容
   if (twitterInfo.link_content?.content) {
     parts.push('');
-    parts.push(`【推文链接内容】${twitterInfo.link_content.content}`);
+    const linkContent = twitterInfo.link_content.content;
+    const truncated = linkContent.length > 2000
+      ? linkContent.substring(0, 2000) + '...(内容已截断)'
+      : linkContent;
+    parts.push(`【推文链接内容】${truncated}`);
   }
 
   return parts.length > 0 ? parts.join('\n') : '';

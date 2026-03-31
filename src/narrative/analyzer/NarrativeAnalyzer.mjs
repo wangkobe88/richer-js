@@ -735,7 +735,7 @@ export class NarrativeAnalyzer {
     // 优先级：Bilibili > 抖音 > TikTok > YouTube
     const videoPriority = [
       { name: 'Bilibili', info: bilibiliInfo, viewField: 'view_count', likeField: 'like_count' },
-      { name: '抖音', info: douyinInfo, viewField: 'stat_count', likeField: 'like_count' },
+      { name: '抖音', info: douyinInfo, viewField: 'view_count', likeField: 'like_count' },
       { name: 'TikTok', info: tiktokInfo, viewField: 'view_count', likeField: 'like_count' },
       { name: 'YouTube', info: youtubeInfo, viewField: 'view_count', likeField: 'like_count' }
     ];
@@ -796,7 +796,12 @@ export class NarrativeAnalyzer {
       }
 
       // 播放量/点赞数过低 → low
-      if (hasViewData && viewCount < lowViewThreshold) {
+      // ⚠️ 特殊处理：当播放量为0（被隐藏）且点赞数较高时，不触发low
+      // 抖音等平台可能隐藏播放量，此时用点赞数/分享数判断传播力
+      const isViewCountHidden = hasViewData && viewCount === 0;
+      const hasHighEngagement = hasLikeData && likeCount >= 10000; // 1万点赞以上
+
+      if (hasViewData && viewCount < lowViewThreshold && !(isViewCountHidden && hasHighEngagement)) {
         console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频播放量(${viewCount})过低，返回low`);
         return {
           category: 'low',

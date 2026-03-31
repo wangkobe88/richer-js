@@ -2,6 +2,16 @@
  * Video Section - 视频平台信息（YouTube/抖音/TikTok/Bilibili）
  */
 
+const MAX_VIDEO_DESC_LENGTH = 500;
+
+/**
+ * 截断过长的文本
+ */
+function truncateText(text, maxLength) {
+  if (!text || text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...(已截断)';
+}
+
 /**
  * 构建视频平台section
  * @param {Object} youtubeInfo - YouTube信息
@@ -40,7 +50,7 @@ export function buildVideoSection(youtubeInfo, douyinInfo, tiktokInfo, bilibiliI
   if (tiktokInfo) {
     if (parts.length > 0) parts.push('');
     const author = tiktokInfo.author_username || tiktokInfo.author_name || '未知';
-    const desc = tiktokInfo.description || '无描述';
+    const desc = truncateText(tiktokInfo.description || '无描述', MAX_VIDEO_DESC_LENGTH);
     parts.push(`【TikTok】@${author} - ${desc}`);
     parts.push(`播放数: ${tiktokInfo.view_count || 0}, 点赞数: ${tiktokInfo.like_count || 0}`);
     if (tiktokInfo.influence_level) {
