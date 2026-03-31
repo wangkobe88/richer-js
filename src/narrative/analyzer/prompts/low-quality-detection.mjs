@@ -2,6 +2,12 @@
  * Stage 1: 低质量检测Prompt
  * 三阶段低质量检测流程
  *
+ * V11.3 - 新增"官方纪录片/严肃内容"检测场景
+ * - 第三阶段增加scenario 4：官方纪录片/严肃内容检测
+ * - 官方纪录片、教育节目、严肃新闻等内容不适合构建meme币
+ * - 即使有权威品牌背书（如央视），也缺乏病毒传播属性
+ * - 示例：代币名"货币的故事"匹配央视纪录片 → 触发low
+ *
  * V11.2 - 修复日语⇄英文未触发语言不匹配的问题
  * - 删除代币信息中的URL显示（冗余信息）
  * - 第二阶段增加"什么是语料"的说明
@@ -234,6 +240,9 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
      - **知名机构/品牌的官方公告**：Binance/Coinbase/Apple/Google等官方账号发布产品/功能公告
        - 示例：Binance官方推文"Binance Ai Pro. Coming soon!" → 非空洞（官方产品公告）
        - 理由：知名机构的产品发布本身就是有信息价值的事件
+     - **加密圈超大IP互动推文**：CZ/Elon/Trump等超大IP与其他用户的互动（回复、引用推文等）
+       - 示例：CZ回复粉丝推文、Elon回复用户推文 → 非空洞（名人互动本身就是社交信号）
+       - 理由：超大IP的互动具有社交影响力，能吸引社区关注和传播
      - **粉丝团口号式情感表达**：使用可复用模板表达强烈支持/情感认同
        - 示例："if XX have a million fans, then I am one of them..." → 非空洞（经典粉丝口号）
        - 理由：这是粉丝文化中常见的情感表达方式，有独立的传播价值
@@ -294,6 +303,9 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
   - 示例：推文中多次出现"Billy"，entities中只需列出一个"Billy"
   - 示例：推文中多次出现"Billy the Cat"，entities中只需列一个"Billy the Cat"
 - 推文、Website、Amazon、Twitter账号要**分别列出**
+- ⚠️ **语料中反复出现的关键短语/概念也是实体**：
+  - 示例：推文中反复出现"changed my life" → 实体包括"changed my life"
+  - 示例：推文中反复出现"to the moon" → 实体包括"to the moon"
 ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 
 **步骤2.2：检查代币名是否在核心实体中**（推文/Website/Amazon/Twitter账号）
@@ -329,6 +341,9 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 - **通用的品牌/产品名**：如果是知名品牌/产品的标准翻译，算对应
   - 示例："苹果"vs "Apple"（品牌）→ 匹配
   - 示例："币安"vs "Binance"（品牌）→ 匹配
+- **事件/概念的描述**：对同一事件或概念的中英文描述算对应
+  - 示例："改变人生"（中文）vs "changed my life"（英文）→ 匹配
+  - 示例："飞向月球"（中文）vs "to the moon"（英文）→ 匹配
 - ⚠️ **注意**：空格、大小写不影响匹配判断
   - 示例："币安VIP"与"Binance VIP"匹配（去掉空格差异后是同一词的翻译）
   - 示例："币安VIP"与"BinanceVIP"也匹配（空格不影响）
@@ -402,6 +417,19 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
      - ✅ 如果内容有meme属性：用幽默方式讲述历史 → 不触发（有情感驱动）
    - 理由：meme币需要"热点事件 + 情感驱动 + 传播动力"，纯知识科普即使强关联也成不了meme
 
+**3.4 官方纪录片/严肃内容**：官方纪录片、教育节目、严肃新闻等缺乏病毒传播属性
+   - ⚠️ **权威品牌≠适合meme，本质严肃/教育性内容 = 返回pass=false, stage=3, scenario=4**
+   - **判断标准（满足2项即触发）**：
+     1. 来源官方媒体（央视、新华社、政府网站等）
+     2. 性质教育/科普（标题含"纪录片"、"教育"、"课堂"等）
+     3. 风格严肃（无娱乐/幽默/话题性）
+     4. 无社交传播（官方网站、教育平台）
+   - **示例（触发）**：
+     - 代币名"货币的故事"，内容央视纪录片《货币的故事》 → 触发
+     - 代币名"量子力学"，内容某大学物理课程 → 触发
+   - **豁免**：内容有娱乐化处理/社交爆火/meme元素 → 不触发
+   - 理由：meme需要病毒传播+娱乐属性，官方纪录片即使权威也成不了meme
+
 ═══════════════════════════════════════════════════════════════
 
 【输出格式】
@@ -433,7 +461,7 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 - stage: 1 表示第一阶段触发（内容空洞，pass=false）
 - stage: 2 表示第二阶段触发（无相关性，pass=false）
 - stage: 3 表示第三阶段触发（有相关性但质量低，pass=false）
-- 当stage=3时，scenario字段必须是1-3的数字，对应三个场景`);
+- 当stage=3时，scenario字段必须是1-4的数字，对应四个场景`);
 
   return sections.filter(s => s).join('\n\n');
 }

@@ -412,16 +412,28 @@ export class TwitterExtractor {
   static extractUsername(url) {
     if (!url) return null;
 
-    // 匹配 x.com/username 或 twitter.com/username 格式
+    // 先移除查询参数，只保留路径部分
+    let pathOnly = url;
+    try {
+      const urlObj = new URL(url);
+      pathOnly = urlObj.pathname; // 只获取路径部分，如 /username
+    } catch {
+      // URL解析失败，使用原URL
+    }
+
     // 排除包含 status 的推文链接
+    if (url.includes('/status')) {
+      return null;
+    }
+
+    // 匹配 x.com/username 或 twitter.com/username 格式
     const patterns = [
-      /x\.com\/([\w-]+)$/,
-      /twitter\.com\/([\w-]+)$/
+      /\/([\w-]+)$/,  // 匹配路径末尾的用户名
     ];
 
     for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match && !url.includes('/status')) {
+      const match = pathOnly.match(pattern);
+      if (match) {
         return match[1];
       }
     }
@@ -443,8 +455,15 @@ export class TwitterExtractor {
     }
 
     // 账号链接：x.com/username 或 twitter.com/username
-    if (/^https?:\/\/(x\.com|twitter\.com)\/[\w-]+$/.test(url)) {
-      return 'account';
+    // 先移除查询参数再判断
+    try {
+      const urlObj = new URL(url);
+      const pathOnly = `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
+      if (/^https?:\/\/(x\.com|twitter\.com)\/[\w-]+\/?$/.test(pathOnly)) {
+        return 'account';
+      }
+    } catch {
+      // URL解析失败，继续
     }
 
     return null;

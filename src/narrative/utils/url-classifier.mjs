@@ -264,7 +264,14 @@ function _isTwitterTweetUrl(url) {
 
 function _isTwitterAccountUrl(url) {
   // 匹配 twitter.com or x.com 的账号链接（不含/status/）
-  return /^https?:\/\/(www\.)?(twitter|x)\.com\/[\w-]+\/?$/.test(url);
+  // 先移除查询参数和哈希，再进行匹配
+  try {
+    const urlObj = new URL(url);
+    const pathOnly = `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`;
+    return /^https?:\/\/(www\.)?(twitter|x)\.com\/[\w-]+\/?$/.test(pathOnly);
+  } catch {
+    return false;
+  }
 }
 
 function _isWeiboUrl(url) {

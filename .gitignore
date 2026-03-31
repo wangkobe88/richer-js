@@ -21,3 +21,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Playwright MCP
+.playwright-mcp/
