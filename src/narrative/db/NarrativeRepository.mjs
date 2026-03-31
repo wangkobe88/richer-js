@@ -56,9 +56,19 @@ export class NarrativeRepository {
    */
   static async save(result) {
     const supabase = this.getSupabase();
+    const tokenAddress = result.token_address.toLowerCase();
+
+    // 检查是否已存在记录
+    const { data: existing } = await supabase
+      .from('token_narrative')
+      .select('*')
+      .eq('token_address', tokenAddress)
+      .maybeSingle();
+
+    // 构建记录对象，如果存在则保留未更新的字段
     const record = {
       // === 基础字段 ===
-      token_address: result.token_address.toLowerCase(),
+      token_address: tokenAddress,
       token_symbol: result.token_symbol,
       platform: result.platform || 'fourmeme',
       blockchain: result.blockchain || 'bsc',
@@ -71,35 +81,35 @@ export class NarrativeRepository {
       is_valid: result.is_valid !== undefined ? result.is_valid : true,
 
       // === 预检查字段（3个）===
-      pre_check_category: result.pre_check_category || null,
-      pre_check_reason: result.pre_check_reason || null,
-      pre_check_result: result.pre_check_result || null,
+      pre_check_category: result.pre_check_category !== undefined ? result.pre_check_category : (existing?.pre_check_category || null),
+      pre_check_reason: result.pre_check_reason !== undefined ? result.pre_check_reason : (existing?.pre_check_reason || null),
+      pre_check_result: result.pre_check_result !== undefined ? result.pre_check_result : (existing?.pre_check_result || null),
 
       // === Stage 1 字段（9个）===
-      llm_stage1_category: result.llm_stage1_category || null,
-      llm_stage1_model: result.llm_stage1_model || null,
-      llm_stage1_prompt: result.llm_stage1_prompt || null,
-      llm_stage1_raw_output: result.llm_stage1_raw_output || null,
-      llm_stage1_parsed_output: result.llm_stage1_parsed_output || null,
-      llm_stage1_started_at: result.llm_stage1_started_at || null,
-      llm_stage1_finished_at: result.llm_stage1_finished_at || null,
-      llm_stage1_success: result.llm_stage1_success ?? null,
-      llm_stage1_error: result.llm_stage1_error || null,
+      llm_stage1_category: result.llm_stage1_category !== undefined ? result.llm_stage1_category : (existing?.llm_stage1_category || null),
+      llm_stage1_model: result.llm_stage1_model !== undefined ? result.llm_stage1_model : (existing?.llm_stage1_model || null),
+      llm_stage1_prompt: result.llm_stage1_prompt !== undefined ? result.llm_stage1_prompt : (existing?.llm_stage1_prompt || null),
+      llm_stage1_raw_output: result.llm_stage1_raw_output !== undefined ? result.llm_stage1_raw_output : (existing?.llm_stage1_raw_output || null),
+      llm_stage1_parsed_output: result.llm_stage1_parsed_output !== undefined ? result.llm_stage1_parsed_output : (existing?.llm_stage1_parsed_output || null),
+      llm_stage1_started_at: result.llm_stage1_started_at !== undefined ? result.llm_stage1_started_at : (existing?.llm_stage1_started_at || null),
+      llm_stage1_finished_at: result.llm_stage1_finished_at !== undefined ? result.llm_stage1_finished_at : (existing?.llm_stage1_finished_at || null),
+      llm_stage1_success: result.llm_stage1_success !== undefined ? result.llm_stage1_success : (existing?.llm_stage1_success ?? null),
+      llm_stage1_error: result.llm_stage1_error !== undefined ? result.llm_stage1_error : (existing?.llm_stage1_error || null),
 
       // === Stage 2 字段（9个）===
-      llm_stage2_category: result.llm_stage2_category || null,
-      llm_stage2_model: result.llm_stage2_model || null,
-      llm_stage2_prompt: result.llm_stage2_prompt || null,
-      llm_stage2_raw_output: result.llm_stage2_raw_output || null,
-      llm_stage2_parsed_output: result.llm_stage2_parsed_output || null,
-      llm_stage2_started_at: result.llm_stage2_started_at || null,
-      llm_stage2_finished_at: result.llm_stage2_finished_at || null,
-      llm_stage2_success: result.llm_stage2_success ?? null,
-      llm_stage2_error: result.llm_stage2_error || null,
+      llm_stage2_category: result.llm_stage2_category !== undefined ? result.llm_stage2_category : (existing?.llm_stage2_category || null),
+      llm_stage2_model: result.llm_stage2_model !== undefined ? result.llm_stage2_model : (existing?.llm_stage2_model || null),
+      llm_stage2_prompt: result.llm_stage2_prompt !== undefined ? result.llm_stage2_prompt : (existing?.llm_stage2_prompt || null),
+      llm_stage2_raw_output: result.llm_stage2_raw_output !== undefined ? result.llm_stage2_raw_output : (existing?.llm_stage2_raw_output || null),
+      llm_stage2_parsed_output: result.llm_stage2_parsed_output !== undefined ? result.llm_stage2_parsed_output : (existing?.llm_stage2_parsed_output || null),
+      llm_stage2_started_at: result.llm_stage2_started_at !== undefined ? result.llm_stage2_started_at : (existing?.llm_stage2_started_at || null),
+      llm_stage2_finished_at: result.llm_stage2_finished_at !== undefined ? result.llm_stage2_finished_at : (existing?.llm_stage2_finished_at || null),
+      llm_stage2_success: result.llm_stage2_success !== undefined ? result.llm_stage2_success : (existing?.llm_stage2_success ?? null),
+      llm_stage2_error: result.llm_stage2_error !== undefined ? result.llm_stage2_error : (existing?.llm_stage2_error || null),
 
       // === Debug字段（2个）===
-      url_extraction_result: result.url_extraction_result || null,
-      data_fetch_results: result.data_fetch_results || null
+      url_extraction_result: result.url_extraction_result !== undefined ? result.url_extraction_result : (existing?.url_extraction_result || null),
+      data_fetch_results: result.data_fetch_results !== undefined ? result.data_fetch_results : (existing?.data_fetch_results || null)
     };
 
     // 使用 upsert (insert or update)

@@ -33,6 +33,9 @@ const __dirname = dirname(__filename);
 // 加载环境变量
 dotenv.config({ path: resolve(__dirname, '../../../../config/.env') });
 
+// 导入配置模块
+import { getPrimaryModelConfig, getFallbackModelConfig } from './config.mjs';
+
 // 动态导入 NarrativeAnalyzer
 let NarrativeAnalyzer;
 
@@ -163,17 +166,22 @@ parentPort.on('message', async (task) => {
   try {
     console.log(`[WORKER] 收到任务 ${task.id} (${task.token_symbol})`);
 
-    // 读取模型配置
+    // 从配置文件读取模型配置
+    const primaryConfig = getPrimaryModelConfig();
+    const fallbackConfig = getFallbackModelConfig();
+
     const modelConfig = {
       primary: {
-        name: process.env.NARRATIVE_PRIMARY_MODEL || 'Pro/MiniMaxAI/MiniMax-M2.5',
-        stage1Timeout: parseInt(process.env.NARRATIVE_PRIMARY_STAGE1_TIMEOUT) || 60000,
-        stage2Timeout: parseInt(process.env.NARRATIVE_PRIMARY_STAGE2_TIMEOUT) || 60000
+        name: primaryConfig?.name || 'Pro/MiniMaxAI/MiniMax-M2.5',
+        stage1Timeout: primaryConfig?.stage1Timeout || 60000,
+        stage2Timeout: primaryConfig?.stage2Timeout || 60000,
+        parameters: primaryConfig?.parameters || {}
       },
       fallback: {
-        name: process.env.NARRATIVE_FALLBACK_MODEL || 'deepseek-ai/DeepSeek-V3',
-        stage1Timeout: parseInt(process.env.NARRATIVE_FALLBACK_STAGE1_TIMEOUT) || 30000,
-        stage2Timeout: parseInt(process.env.NARRATIVE_FALLBACK_STAGE2_TIMEOUT) || 30000
+        name: fallbackConfig?.name || 'deepseek-ai/DeepSeek-V3',
+        stage1Timeout: fallbackConfig?.stage1Timeout || 30000,
+        stage2Timeout: fallbackConfig?.stage2Timeout || 30000,
+        parameters: fallbackConfig?.parameters || {}
       }
     };
 

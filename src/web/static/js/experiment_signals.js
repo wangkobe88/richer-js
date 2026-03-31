@@ -2237,9 +2237,30 @@ class ExperimentSignals {
       let failedConditionsHtml = '';
       if (pr.failedConditions && pr.failedConditions.length > 0) {
         const failedItems = pr.failedConditions.map(fc => {
+          const severityIcon = fc.severity === 'critical' ? '🔴' : fc.severity === 'warning' ? '⚠️' : 'ℹ️';
+
+          // 子因子（复杂条件中的组成因子）的显示逻辑
+          if (fc.isSubFactor) {
+            return `
+              <div class="flex items-start justify-between py-1 border-b border-amber-100 last:border-0 bg-amber-50">
+                <div class="flex-1 pl-4">
+                  <div class="text-xs text-amber-800">
+                    <span class="font-medium">${fc.name}</span>
+                  </div>
+                  <div class="text-xs text-amber-600 ml-4">
+                    <span class="text-gray-500">表达式:</span> <code class="text-xs bg-amber-100 px-1 rounded">${this._escapeHtml(fc.expression)}</code>
+                  </div>
+                </div>
+                <div class="ml-2 text-right">
+                  <div class="text-xs text-gray-600 font-medium">${this._escapeHtml(fc.actualFormatted)}</div>
+                </div>
+              </div>
+            `;
+          }
+
+          // 正常条件的显示逻辑
           const statusIcon = fc.satisfied ? '✅' : '❌';
           const statusClass = fc.satisfied ? 'text-green-700' : 'text-red-700';
-          const severityIcon = fc.severity === 'critical' ? '🔴' : fc.severity === 'warning' ? '⚠️' : 'ℹ️';
 
           // 风险指示：宽松/边缘
           let marginBadge = '';
@@ -2250,7 +2271,7 @@ class ExperimentSignals {
           }
 
           return `
-            <div class="flex items-start justify-between py-1 border-b border-amber-200 last:border-0">
+            <div class="flex items-start justify-between py-1 border-b border-amber-200 last:border-0 ${fc.isComplex ? 'bg-amber-50' : ''}">
               <div class="flex-1">
                 <div class="text-xs text-amber-900">
                   <span class="mr-1">${severityIcon}</span>
@@ -2262,7 +2283,7 @@ class ExperimentSignals {
                 </div>
               </div>
               <div class="ml-2 text-right">
-                <div class="text-xs ${statusClass} font-semibold">${statusIcon} ${fc.satisfied ? '满足' : '不满足'}</div>
+                <div class="text-xs ${statusClass} font-semibold">${statusIcon} ${fc.satisfied === null ? '-' : (fc.satisfied ? '满足' : '不满足')}</div>
                 <div class="text-xs text-gray-600">实际: ${this._escapeHtml(fc.actualFormatted)}</div>
               </div>
             </div>

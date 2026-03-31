@@ -6,6 +6,7 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { getModelConfig } from '../engine/config.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,6 +18,49 @@ const API_URL = process.env.SILICONFLOW_API_URL || 'https://api.siliconflow.cn/v
 const API_KEY = process.env.SILICONFLOW_API_KEY;
 const MODEL = process.env.LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
 const VISION_MODEL = process.env.SILICONFLOW_VISION_MODEL || 'Pro/moonshotai/Kimi-K2.5';
+
+/**
+ * 获取当前使用的模型配置
+ * 优先使用环境变量 LLM_MODEL，否则使用配置文件中的主模型
+ * @returns {Object} { name, parameters }
+ */
+function getCurrentModelConfig() {
+  const modelName = process.env.LLM_MODEL;
+
+  // 如果环境变量指定了模型，尝试从配置文件查找参数
+  if (modelName) {
+    // 检查是否是主模型
+    const primaryConfig = getModelConfig('primary');
+    if (primaryConfig && primaryConfig.name === modelName) {
+      return {
+        name: modelName,
+        parameters: primaryConfig.parameters || {}
+      };
+    }
+
+    // 检查是否是备用模型
+    const fallbackConfig = getModelConfig('fallback');
+    if (fallbackConfig && fallbackConfig.name === modelName) {
+      return {
+        name: modelName,
+        parameters: fallbackConfig.parameters || {}
+      };
+    }
+
+    // 模型不在配置文件中，使用默认参数
+    return {
+      name: modelName,
+      parameters: {}
+    };
+  }
+
+  // 没有环境变量，使用配置文件的主模型
+  const primaryConfig = getModelConfig('primary');
+  return {
+    name: primaryConfig?.name || MODEL,
+    parameters: primaryConfig?.parameters || {}
+  };
+}
 
 export class LLMClient {
 
@@ -112,7 +156,7 @@ ${text}`;
       throw new Error('SILICONFLOW_API_KEY 未配置');
     }
 
-    const model = MODEL;
+    const modelConfig = getCurrentModelConfig();
     const startedAt = new Date().toISOString();
 
     // 创建超时控制器
@@ -121,11 +165,23 @@ ${text}`;
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     console.log('[LLMClient] 开始调用LLM API...');
-    console.log(`[LLMClient] 模型: ${model}`);
+    console.log(`[LLMClient] 模型: ${modelConfig.name}`);
 
     let raw, content, error, success;
 
     try {
+      // 合并默认参数和配置文件中的参数
+      const defaultParams = {
+        temperature: 0,
+        max_tokens: 2000,
+        top_p: 1,
+        presence_penalty: 0,
+        frequency_penalty: 0,
+        seed: 42
+      };
+
+      const parameters = { ...defaultParams, ...modelConfig.parameters };
+
       const response = await fetch(`${API_URL}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -133,19 +189,14 @@ ${text}`;
           'Authorization': `Bearer ${API_KEY}`
         },
         body: JSON.stringify({
-          model: model,
+          model: modelConfig.name,
           messages: [
             {
               role: 'user',
               content: prompt
             }
           ],
-          temperature: 0,
-          max_tokens: 2000,
-          top_p: 1,
-          presence_penalty: 0,
-          frequency_penalty: 0,
-          seed: 42
+          ...parameters
         }),
         signal: controller.signal
       });
@@ -176,7 +227,7 @@ ${text}`;
           raw: raw,
           ...parsed
         },
-        model,
+        model: modelConfig.name,
         startedAt,
         finishedAt: new Date().toISOString(),
         success: true,
@@ -195,7 +246,7 @@ ${text}`;
       return {
         parsed: null,
         raw: null,
-        model,
+        model: modelConfig.name,
         startedAt,
         finishedAt: new Date().toISOString(),
         success: false,

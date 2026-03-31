@@ -853,6 +853,32 @@ class PreBuyCheckService {
   }
 
   /**
+   * 从表达式中提取所有因子名
+   * 例如: "(walletClusterCount < 4 || walletClusterTop2Ratio <= 0.85)"
+   * -> ["walletClusterCount", "walletClusterTop2Ratio"]
+   * @private
+   */
+  _extractAllFactorNames(expression) {
+    // 去除外层括号
+    let expr = expression.trim();
+    if (expr.startsWith('(') && expr.endsWith(')')) {
+      expr = expr.slice(1, -1).trim();
+    }
+
+    // 匹配所有变量名模式：变量名后跟操作符
+    // 支持: variable === value, variable !== value, variable > value, variable < value, etc.
+    const regex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:===|!==|==|!=|>=|<=|>|<)/g;
+    const factorNames = new Set();
+    let match;
+
+    while ((match = regex.exec(expr)) !== null) {
+      factorNames.add(match[1]);
+    }
+
+    return Array.from(factorNames);
+  }
+
+  /**
    * 解析条件表达式，提取所有原子条件
    * 例如: "holderBlacklistCount === 0 && devHoldingRatio < 15"
    * -> ["holderBlacklistCount === 0", "devHoldingRatio < 15"]
@@ -919,12 +945,17 @@ class PreBuyCheckService {
     for (const expr of atomicConditions) {
       // 处理括号包裹的复杂表达式
       if (expr.startsWith('(') && expr.endsWith(')')) {
-        // 尝试评估复杂条件，而不是跳过
+        // 尝试评估复杂条件
         try {
           const satisfied = this._safeEvaluate(expr, context);
+
+          // 提取复杂条件中的所有因子
+          const factorNames = this._extractAllFactorNames(expr);
+
+          // 首先添加复杂条件的整体状态
           conditionList.push({
             id: `complex_${conditionList.length}`,
-            name: '复杂条件',
+            name: '⚠️ 复杂条件',
             expression: expr,
             expected: expr,
             actualValue: null,
@@ -932,13 +963,34 @@ class PreBuyCheckService {
             satisfied: satisfied,
             severity: satisfied ? 'info' : 'warning',
             margin: null,
-            factorName: null
+            factorName: null,
+            isComplex: true  // 标记为复杂条件
           });
+
+          // 为复杂条件中的每个因子添加单独的显示条目
+          for (const factorName of factorNames) {
+            const metadata = FACTOR_METADATA[factorName];
+            const actualValue = context[factorName];
+
+            conditionList.push({
+              id: `${factorName}_in_complex`,
+              name: `  └─ ${metadata?.name || factorName}`,
+              expression: `${factorName} = ${actualValue ?? 'N/A'}`,
+              expected: '-',
+              actualValue,
+              actualFormatted: metadata ? metadata.format(actualValue ?? 0) : (actualValue ?? 'N/A'),
+              satisfied: null,  // 因子本身没有满足/不满足的概念
+              severity: 'info',
+              margin: null,
+              factorName,
+              isSubFactor: true  // 标记为子因子
+            });
+          }
         } catch (e) {
           // 如果评估失败，保持原来的行为
           conditionList.push({
             id: `complex_${conditionList.length}`,
-            name: '复杂条件',
+            name: '⚠️ 复杂条件',
             expression: expr,
             expected: expr,
             actualValue: null,
@@ -947,7 +999,8 @@ class PreBuyCheckService {
             severity: 'info',
             margin: null,
             factorName: null,
-            error: e.message
+            error: e.message,
+            isComplex: true
           });
         }
         continue;

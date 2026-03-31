@@ -5,16 +5,36 @@
     "taskTimeout": 180000,
     "maxRetries": 3
   },
+  "api": {
+    "baseUrl": "https://api.siliconflow.cn/v1",
+    "envKeyName": "SILICONFLOW_API_KEY"
+  },
   "models": {
     "primary": {
       "name": "Pro/MiniMaxAI/MiniMax-M2.5",
       "stage1Timeout": 60000,
-      "stage2Timeout": 60000
+      "stage2Timeout": 60000,
+      "parameters": {
+        "temperature": 0,
+        "max_tokens": 2000,
+        "top_p": 1,
+        "presence_penalty": 0,
+        "frequency_penalty": 0,
+        "seed": 42
+      }
     },
     "fallback": {
       "name": "deepseek-ai/DeepSeek-V3",
       "stage1Timeout": 30000,
-      "stage2Timeout": 30000
+      "stage2Timeout": 30000,
+      "parameters": {
+        "temperature": 0,
+        "max_tokens": 2000,
+        "top_p": 1,
+        "presence_penalty": 0,
+        "frequency_penalty": 0,
+        "seed": 42
+      }
     }
   }
 }
