@@ -188,6 +188,7 @@ export function isFetchableUrl(url) {
     /^https?:\/\/(www\.)?douyin\.com/,            // 视频网站
     /^https?:\/\/(www\.)?bilibili\.com/,          // 视频网站
     /^https?:\/\/(www\.)?b23\.tv/,                // B站短链接
+    /^https?:\/\/mp\.weixin\.qq\.com/,            // 微信公众号文章（有专门fetcher）
     // DEX（去中心化交易所）交易页面
     /^https?:\/\/(www\.)?pancakeswap\.finance/,   // PancakeSwap
     /^https?:\/\/(www\.)?pancakeswap\.com/,       // PancakeSwap

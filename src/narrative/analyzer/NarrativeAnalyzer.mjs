@@ -16,6 +16,7 @@ import { YoutubeFetcher } from '../utils/youtube-fetcher.mjs';
 import { DouyinFetcher } from '../utils/douyin-fetcher.mjs';
 import { BilibiliFetcher } from '../utils/bilibili-fetcher.mjs';
 import { fetchTikTokVideoInfo, isTikTokUrl } from '../utils/tiktok-fetcher.mjs';
+import { WeixinFetcher } from '../utils/weixin-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils/web-fetcher.mjs';
 import { fetchProductInfo, getInfluenceLevel, getInfluenceDescription } from '../utils/amazon-fetcher.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
@@ -141,6 +142,7 @@ export class NarrativeAnalyzer {
       douyinInfo,
       tiktokInfo,
       bilibiliInfo,
+      weixinInfo,
       amazonInfo,
       classifiedUrls,
       fetchErrors,  // 获取数据收集的错误信息
@@ -155,7 +157,7 @@ export class NarrativeAnalyzer {
     logger.info('NarrativeAnalyzer', '数据获取完成');
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
-    const preCheckResult = await this.performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo }, githubInfo, backgroundInfo, { ignoreExpired });
+    const preCheckResult = await this.performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo }, githubInfo, backgroundInfo, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;
@@ -179,7 +181,7 @@ export class NarrativeAnalyzer {
         raw: null // 预检查结果没有原始LLM输出
       };
       // 预检查结果也记录prompt类型（用于后续判断）
-      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo };
+      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo };
       promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
       // 预检查时不构建Prompt（不需要）
       promptUsed = null;
@@ -187,7 +189,7 @@ export class NarrativeAnalyzer {
       // 8. 正常流程：两阶段分析
       try {
         // twitterInfo已包含website_tweet（如果有第二个推文）
-        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo, classifiedUrls };
+        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls };
 
         // 检查是否有任何有效数据供分析
         const hasAnyData = this._hasValidDataForAnalysis(fetchResults);
@@ -436,7 +438,7 @@ export class NarrativeAnalyzer {
    */
   static async performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls = {}, videoInfos = {}, githubInfo = null, backgroundInfo = null, options = {}) {
     const { ignoreExpired = false } = options;
-    const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo } = videoInfos;
+    const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo } = videoInfos;
 
     // 规则1：黑名单博主
     // 1.1 从twitterInfo中获取用户名
@@ -653,7 +655,8 @@ export class NarrativeAnalyzer {
         { name: '抖音', info: douyinInfo },
         { name: 'YouTube', info: youtubeInfo },
         { name: 'TikTok', info: tiktokInfo },
-        { name: 'Bilibili', info: bilibiliInfo }
+        { name: 'Bilibili', info: bilibiliInfo },
+        { name: '微信', info: weixinInfo }
       ];
 
       for (const video of videos) {
@@ -746,11 +749,11 @@ export class NarrativeAnalyzer {
 
       // 播放量过低的阈值：低于此值认为传播力不足
       const lowViewThresholdMap = {
-        'Bilibili': 30000,      // 3万播放量
-        'YouTube': 10000,       // 1万播放量
+        'Bilibili': 500000,     // 50万播放量（娱乐平台，低于爆款即为low）
+        'YouTube': 10000,       // 1万播放量（说明性视频平台）
         'Twitter': 2500,        // 2500播放量
-        'TikTok': 30000,        // 3万播放量
-        '抖音': 30000           // 3万播放量
+        'TikTok': 500000,       // 50万播放量（娱乐平台，低于爆款即为low）
+        '抖音': 500000          // 50万播放量（娱乐平台，低于爆款即为low）
       };
       const lowViewThreshold = lowViewThresholdMap[video.name] || 10000; // 默认1万
 
@@ -801,11 +804,43 @@ export class NarrativeAnalyzer {
       }
     }
 
+    // 规则3.5：微信文章传播力检查
+    if (weixinInfo) {
+      const readCount = weixinInfo.read_num || 0;
+      const likeCount = weixinInfo.like_num || 0;
+
+      // 阅读数低于1000 → low
+      if (readCount > 0 && readCount < 1000) {
+        console.log(`[NarrativeAnalyzer] 规则3.5触发: 微信文章阅读数(${readCount})低于1000，返回low`);
+        return {
+          category: 'low',
+          reasoning: `微信文章阅读数仅${readCount}，传播力不足（阈值：1000）`,
+          scores: { credibility: 10, virality: 10 },
+          total_score: 20,
+          preCheckTriggered: true,
+          preCheckReason: 'weixin_low_reads'
+        };
+      }
+
+      // 阅读数为0但有文章内容 → 说明文章存在但无法获取统计数据，视为传播力不足
+      if (readCount === 0 && weixinInfo.title) {
+        console.log(`[NarrativeAnalyzer] 规则3.5触发: 微信文章无法获取阅读数，返回low`);
+        return {
+          category: 'low',
+          reasoning: `微信文章无法获取阅读统计数据，视为传播力不足`,
+          scores: { credibility: 10, virality: 10 },
+          total_score: 20,
+          preCheckTriggered: true,
+          preCheckReason: 'weixin_no_stats'
+        };
+      }
+    }
+
     // 规则4：公开信息检查（基于 classifiedUrls）
     // 区分两种情况：没有公开信息（unrated） vs 有信息但失效（low）
 
     // 公开信息平台（排除 Telegram/Discord 通讯应用）
-    const publicUrlPlatforms = ['twitter', 'weibo', 'youtube', 'tiktok', 'douyin', 'bilibili', 'github', 'amazon', 'websites'];
+    const publicUrlPlatforms = ['twitter', 'weibo', 'youtube', 'tiktok', 'douyin', 'bilibili', 'weixin', 'github', 'amazon', 'websites'];
 
     // 检查是否有任何公开URL
     const hasAnyPublicUrl = publicUrlPlatforms.some(platform =>
@@ -832,7 +867,7 @@ export class NarrativeAnalyzer {
     }
 
     // 情况B：有公开URL，检查数据是否获取成功
-    const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo };
+    const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo };
     const hasValidData = this._hasValidDataForAnalysis(fetchResults);
 
     if (!hasValidData) {
@@ -974,6 +1009,7 @@ export class NarrativeAnalyzer {
         douyinInfo: null,
         tiktokInfo: null,
         bilibiliInfo: null,
+        weixinInfo: null,
         amazonInfo: null,
         classifiedUrls: {  // 空的分类URL对象
           twitter: [],
@@ -982,6 +1018,7 @@ export class NarrativeAnalyzer {
           tiktok: [],
           douyin: [],
           bilibili: [],
+          weixin: [],
           github: [],
           amazon: [],
           telegram: [],
@@ -1007,6 +1044,7 @@ export class NarrativeAnalyzer {
       tiktok: classifiedUrls.tiktok.length,
       douyin: classifiedUrls.douyin.length,
       bilibili: classifiedUrls.bilibili.length,
+      weixin: classifiedUrls.weixin?.length || 0,
       github: classifiedUrls.github.length,
       amazon: classifiedUrls.amazon.length,
       telegram: classifiedUrls.telegram.length,
@@ -1047,6 +1085,7 @@ export class NarrativeAnalyzer {
       douyinInfo: null,
       tiktokInfo: null,
       bilibiliInfo: null,
+      weixinInfo: null,
       amazonInfo: null,
       // 存储数据获取错误信息
       fetchErrors: {
@@ -1306,7 +1345,28 @@ export class NarrativeAnalyzer {
       }
     }
 
-    // === 8. Amazon数据 ===
+    // === 8. 微信文章数据 ===
+    const weixinUrlInfo = selectFirstUrl('weixin');
+    if (weixinUrlInfo) {
+      const weixinFetch = await this._recordDataFetch(
+        async () => {
+          const info = await WeixinFetcher.fetchArticleInfo(weixinUrlInfo.url);
+          if (info) {
+            console.log(`[NarrativeAnalyzer] 微信文章信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'weixin',
+        weixinUrlInfo.url
+      );
+      results.weixinInfo = weixinFetch.data;
+      dataFetchResults.weixin = weixinFetch.record;
+      if (!weixinFetch.record.success) {
+        results.fetchErrors.videoErrors.weixin = weixinFetch.record.error;
+      }
+    }
+
+    // === 9. Amazon数据 ===
     const amazonUrlInfo = selectFirstUrl('amazon');
     if (amazonUrlInfo) {
       const amazonFetch = await this._recordDataFetch(
@@ -1570,6 +1630,7 @@ export class NarrativeAnalyzer {
       douyinInfo,
       tiktokInfo,
       bilibiliInfo,
+      weixinInfo,
       amazonInfo
     } = fetchResults;
 
@@ -1622,6 +1683,13 @@ export class NarrativeAnalyzer {
       if (githubInfo.readme) return true;
       if (githubInfo.name || githubInfo.description || githubInfo.topics) {
         return true; // 有基本仓库信息就算有效数据
+      }
+    }
+
+    // 微信文章: 检查是否有实际内容（title、content等）
+    if (weixinInfo) {
+      if (weixinInfo.title && weixinInfo.title.trim().length > 0) {
+        return true; // 有微信文章内容
       }
     }
 
@@ -2191,6 +2259,7 @@ export class NarrativeAnalyzer {
       douyinInfo,
       tiktokInfo,
       bilibiliInfo,
+      weixinInfo,
       amazonInfo,
       classifiedUrls,
       url_extraction_result,
@@ -2239,7 +2308,7 @@ export class NarrativeAnalyzer {
     }
 
     // 5. 检查是否有有效数据
-    const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo, classifiedUrls };
+    const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls };
     const hasAnyData = this._hasValidDataForAnalysis(fetchResults);
 
     if (!hasAnyData) {
@@ -2339,6 +2408,7 @@ export class NarrativeAnalyzer {
       douyinInfo,
       tiktokInfo,
       bilibiliInfo,
+      weixinInfo,
       amazonInfo,
       classifiedUrls
     } = await this._fetchAllDataViaClassifier(tokenData, extractedInfo);
@@ -2347,7 +2417,7 @@ export class NarrativeAnalyzer {
 
     const fetchResults = {
       twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo,
-      youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, amazonInfo, classifiedUrls
+      youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls
     };
 
     // 3. 检查是否有有效数据

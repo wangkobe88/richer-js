@@ -104,6 +104,11 @@ export function classifyUrl(url) {
     return { type: 'video', platform: 'bilibili', priority: 1, url };
   }
 
+  // 微信公众号文章
+  if (_isWeixinUrl(url)) {
+    return { type: 'article', platform: 'weixin', priority: 1, url };
+  }
+
   // GitHub
   if (_isGitHubUrl(url)) {
     return { type: 'repository', platform: 'github', priority: 1, url };
@@ -150,6 +155,7 @@ export function classifyAllUrls(urls) {
     tiktok: [],
     douyin: [],
     bilibili: [],
+    weixin: [],       // 微信公众号文章
     github: [],
     amazon: [],
     telegram: [],     // 新增：Telegram频道/群组
@@ -183,6 +189,9 @@ export function classifyAllUrls(urls) {
         break;
       case 'bilibili':
         result.bilibili.push(info);
+        break;
+      case 'weixin':
+        result.weixin.push(info);
         break;
       case 'github':
         result.github.push(info);
@@ -218,6 +227,7 @@ export function selectBestUrls(classifiedUrls) {
       tiktok: null,
       douyin: null,
       bilibili: null,
+      weixin: null,
       github: null,
       amazon: null,
       telegram: null,
@@ -233,6 +243,7 @@ export function selectBestUrls(classifiedUrls) {
     tiktok: classifiedUrls.tiktok[0] || null,
     douyin: classifiedUrls.douyin[0] || null,
     bilibili: classifiedUrls.bilibili[0] || null,
+    weixin: classifiedUrls.weixin[0] || null,
     github: classifiedUrls.github[0] || null,
     amazon: classifiedUrls.amazon[0] || null,
     telegram: classifiedUrls.telegram[0] || null,
@@ -281,6 +292,11 @@ function _isDouyinUrl(url) {
 function _isBilibiliUrl(url) {
   // 匹配 bilibili.com 或 b23.tv
   return /bilibili\.com|b23\.tv/i.test(url);
+}
+
+function _isWeixinUrl(url) {
+  // 匹配微信公众号文章 mp.weixin.qq.com
+  return /mp\.weixin\.qq\.com/i.test(url);
 }
 
 function _isGitHubUrl(url) {

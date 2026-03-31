@@ -94,6 +94,8 @@ import { buildTwitterSection } from './sections/twitter-section.mjs';
 import { buildWebsiteSection } from './sections/website-section.mjs';
 import { buildAmazonSection } from './sections/amazon-section.mjs';
 import { buildWeiboSection } from './sections/weibo-section.mjs';
+import { buildVideoSection } from './sections/video-section.mjs';
+import { buildWeixinSection } from './sections/weixin-section.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
 /**
@@ -109,6 +111,11 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
     amazonInfo = null,
     extractedInfo = null,
     backgroundInfo = null,
+    youtubeInfo = null,
+    douyinInfo = null,
+    tiktokInfo = null,
+    bilibiliInfo = null,
+    weixinInfo = null,
     classifiedUrls = null
   } = fetchResults;
 
@@ -157,6 +164,10 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
     if (classifiedUrls.bilibili?.length > 0) {
       sections[0] += `\n- Bilibili：${classifiedUrls.bilibili.map(u => u.url).join(', ')}`;
     }
+    // 微信公众号文章
+    if (classifiedUrls.weixin?.length > 0) {
+      sections[0] += `\n- 微信文章：${classifiedUrls.weixin.map(u => u.url).join(', ')}`;
+    }
     // GitHub
     if (classifiedUrls.github?.length > 0) {
       sections[0] += `\n- GitHub：${classifiedUrls.github.map(u => u.url).join(', ')}`;
@@ -190,6 +201,14 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
   // 3.5 微博内容
   const weiboSection = buildWeiboSection(backgroundInfo);
   if (weiboSection) sections.push(weiboSection);
+
+  // 3.6 视频平台内容（YouTube/抖音/TikTok/Bilibili）
+  const videoSection = buildVideoSection(youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo);
+  if (videoSection) sections.push(videoSection);
+
+  // 3.7 微信公众号文章内容
+  const weixinSection = buildWeixinSection(weixinInfo);
+  if (weixinSection) sections.push(weixinSection);
 
   // 4. 网站内容
   const websiteSection = buildWebsiteSection(websiteInfo);

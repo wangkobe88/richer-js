@@ -108,6 +108,7 @@ export class PromptBuilder {
     if (fetchResults.douyinInfo) types.push('douyin');
     if (fetchResults.tiktokInfo) types.push('tiktok');
     if (fetchResults.bilibiliInfo) types.push('bilibili');
+    if (fetchResults.weixinInfo) types.push('weixin');
     if (fetchResults.amazonInfo) types.push('amazon');
     if (fetchResults.backgroundInfo?.source === 'weibo') types.push('weibo');
 

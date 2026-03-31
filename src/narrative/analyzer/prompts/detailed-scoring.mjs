@@ -14,6 +14,7 @@ import { buildWebsiteSection } from './sections/website-section.mjs';
 import { buildVideoSection } from './sections/video-section.mjs';
 import { buildGithubSection } from './sections/github-section.mjs';
 import { buildWeiboSection } from './sections/weibo-section.mjs';
+import { buildWeixinSection } from './sections/weixin-section.mjs';
 import { buildAmazonSection } from './sections/amazon-section.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
@@ -34,6 +35,7 @@ export function buildDetailedScoringPrompt(tokenData, fetchResults) {
     douyinInfo = null,
     tiktokInfo = null,
     bilibiliInfo = null,
+    weixinInfo = null,
     amazonInfo = null,
     classifiedUrls = null
   } = fetchResults;
@@ -109,6 +111,10 @@ export function buildDetailedScoringPrompt(tokenData, fetchResults) {
     if (classifiedUrls.bilibili?.length > 0) {
       sections[0] += `\n- Bilibili：${classifiedUrls.bilibili.map(u => u.url).join(', ')}`;
     }
+    // 微信公众号文章
+    if (classifiedUrls.weixin?.length > 0) {
+      sections[0] += `\n- 微信文章：${classifiedUrls.weixin.map(u => u.url).join(', ')}`;
+    }
     // GitHub
     if (classifiedUrls.github?.length > 0) {
       sections[0] += `\n- GitHub：${classifiedUrls.github.map(u => u.url).join(', ')}`;
@@ -147,6 +153,9 @@ export function buildDetailedScoringPrompt(tokenData, fetchResults) {
 
   const videoSection = buildVideoSection(youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo);
   if (videoSection) sections.push(videoSection);
+
+  const weixinSection = buildWeixinSection(weixinInfo);
+  if (weixinSection) sections.push(weixinSection);
 
   const websiteSection = buildWebsiteSection(websiteInfo);
   if (websiteSection) sections.push(websiteSection);
