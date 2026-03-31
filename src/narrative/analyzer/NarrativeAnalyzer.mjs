@@ -527,7 +527,25 @@ export class NarrativeAnalyzer {
     }
     */
 
-    // 规则1.5：项目币-账号名匹配检查
+    // 规则1.5：Twitter账号粉丝数量检查
+    // 粉丝数量太少（<60）说明缺乏社区基础和传播能力，优先级高于账号名匹配检查
+    if (twitterInfo?.type === 'account' && twitterInfo.followers_count !== undefined) {
+      const followersCount = twitterInfo.followers_count || 0;
+      if (followersCount < 60) {
+        const screenName = twitterInfo.screen_name || '未知';
+        console.log(`[NarrativeAnalyzer] 预检查触发: Twitter账号粉丝数过低 (@${screenName}, ${followersCount}粉丝)`);
+        return {
+          category: 'low',
+          reasoning: `Twitter账号@${screenName}粉丝数仅${followersCount}，缺乏社区基础和传播能力（阈值：60）`,
+          scores: { credibility: 5, virality: 5 },
+          total_score: 10,
+          preCheckTriggered: true,
+          preCheckReason: 'account_low_followers'
+        };
+      }
+    }
+
+    // 规则1.6：项目币-账号名匹配检查
     // 如果是账号类型，说明是项目币，发展情况不明
     // 如果账号名与代币名匹配，返回 unrated（无法评估项目发展潜力）
     if (twitterInfo?.type === 'account') {
@@ -561,7 +579,7 @@ export class NarrativeAnalyzer {
       }
     }
 
-    // 规则1.6：应用商店链接检查
+    // 规则1.7：应用商店链接检查
     // 应用商店App不适合构建meme币（产品而非事件，缺乏传播属性）
     const appStoreDomains = [
       'apps.apple.com',           // Apple App Store

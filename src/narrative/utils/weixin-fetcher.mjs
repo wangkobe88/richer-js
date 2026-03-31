@@ -24,11 +24,8 @@ export class WeixinFetcher {
 
   /**
    * 从微信文章 URL 中提取文章标识
-   * 支持格式：
-   * - mp.weixin.qq.com/s/xxxxx
-   * - mp.weixin.qq.com/s?__biz=...&mid=...&sn=...
    * @param {string} url - 微信文章 URL
-   * @returns {string} 文章URL（直接使用原URL，因为API需要完整URL）
+   * @returns {string} 文章URL
    */
   static extractArticleUrl(url) {
     if (!url) return null;
@@ -44,6 +41,72 @@ export class WeixinFetcher {
     }
 
     return url;
+  }
+
+  /**
+   * 获取微信文章信息（顺序请求，避免并发限流）
+   * @param {string} url - 微信文章 URL
+   * @returns {Promise<Object|null>} 文章信息
+   */
+  static async fetchArticleInfo(url) {
+    if (!url) {
+      return null;
+    }
+
+    if (!this.isValidWeixinUrl(url)) {
+      console.warn('[WeixinFetcher] 不是有效的微信文章URL:', url);
+      return null;
+    }
+
+    const articleUrl = this.extractArticleUrl(url);
+    if (!articleUrl) {
+      console.warn('[WeixinFetcher] 无法提取文章URL:', url);
+      return null;
+    }
+
+    console.log(`[WeixinFetcher] 获取微信文章信息: ${articleUrl}`);
+
+    // 先获取文章详情
+    const detailData = await this.fetchArticleDetail(articleUrl);
+
+    // 再获取反馈数据
+    const feedbackData = await this.fetchArticleFeedback(articleUrl);
+
+    if (!detailData && !feedbackData) {
+      console.warn('[WeixinFetcher] 文章详情和反馈数据均为空');
+      return null;
+    }
+
+    // 合并数据
+    const userInfo = detailData?.user_info || {};
+    const result = {
+      article_url: articleUrl,
+      title: detailData?.title || '',
+      content: detailData?.content || '',
+      digest: detailData?.digest || detailData?.desc || '',
+      publish_time: detailData?.publish_time || '',
+      // 作者信息
+      author: userInfo.author || '',
+      nickname: userInfo.nickname || userInfo.name || '',
+      // 反馈数据（阅读数、点赞等）- 兼容多种字段名
+      read_num: feedbackData?.read_num ?? feedbackData?.readNum ?? feedbackData?.watch_num ?? 0,
+      like_num: feedbackData?.like_num ?? feedbackData?.likeNum ?? 0,
+      comment_num: feedbackData?.comment_num ?? feedbackData?.commentNum ?? feedbackData?.comment_count ?? 0,
+      reward_num: feedbackData?.reward_num ?? feedbackData?.rewardNum ?? 0,
+      share_num: feedbackData?.share_num ?? feedbackData?.shareNum ?? 0,
+      // 封面图
+      cover_url: detailData?.cover || detailData?.cover_url || '',
+      // 来源标记
+      fetched_via: 'justoneapi'
+    };
+
+    // 计算影响力等级
+    result.influence_level = this.getInfluenceLevel(result);
+    result.influence_description = this.getInfluenceDescription(result.influence_level);
+
+    console.log(`[WeixinFetcher] 成功获取: "${result.title}" (${result.read_num} 阅读, ${result.like_num} 点赞)`);
+
+    return result;
   }
 
   /**
@@ -116,71 +179,6 @@ export class WeixinFetcher {
       console.error('[WeixinFetcher] 文章反馈API获取失败:', error.message);
       return null;
     }
-  }
-
-  /**
-   * 获取微信文章信息（包含详情和反馈）
-   * @param {string} url - 微信文章 URL
-   * @returns {Promise<Object|null>} 文章信息
-   */
-  static async fetchArticleInfo(url) {
-    if (!url) {
-      return null;
-    }
-
-    if (!this.isValidWeixinUrl(url)) {
-      console.warn('[WeixinFetcher] 不是有效的微信文章URL:', url);
-      return null;
-    }
-
-    const articleUrl = this.extractArticleUrl(url);
-    if (!articleUrl) {
-      console.warn('[WeixinFetcher] 无法提取文章URL:', url);
-      return null;
-    }
-
-    console.log(`[WeixinFetcher] 获取微信文章信息: ${articleUrl}`);
-
-    // 并行获取文章详情和反馈数据
-    const [detailData, feedbackData] = await Promise.all([
-      this.fetchArticleDetail(articleUrl),
-      this.fetchArticleFeedback(articleUrl)
-    ]);
-
-    if (!detailData && !feedbackData) {
-      console.warn('[WeixinFetcher] 文章详情和反馈数据均为空');
-      return null;
-    }
-
-    // 合并数据
-    const userInfo = detailData?.user_info || {};
-    const result = {
-      article_url: articleUrl,
-      title: detailData?.title || '',
-      content: detailData?.content || '',
-      digest: detailData?.digest || detailData?.desc || '',
-      publish_time: detailData?.publish_time || '',
-      // 作者信息
-      author: userInfo.author || '',
-      nickname: userInfo.nickname || userInfo.name || '',
-      // 反馈数据（阅读数、点赞等）
-      read_num: feedbackData?.read_num || feedbackData?.readNum || 0,
-      like_num: feedbackData?.like_num || feedbackData?.likeNum || 0,
-      comment_num: feedbackData?.comment_num || feedbackData?.commentNum || 0,
-      reward_num: feedbackData?.reward_num || feedbackData?.rewardNum || 0,
-      // 封面图
-      cover_url: detailData?.cover || detailData?.cover_url || '',
-      // 来源标记
-      fetched_via: 'justoneapi'
-    };
-
-    // 计算影响力等级
-    result.influence_level = this.getInfluenceLevel(result);
-    result.influence_description = this.getInfluenceDescription(result.influence_level);
-
-    console.log(`[WeixinFetcher] 成功获取: "${result.title}" (${result.read_num} 阅读, ${result.like_num} 点赞)`);
-
-    return result;
   }
 
   /**

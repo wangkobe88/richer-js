@@ -2,6 +2,13 @@
  * Stage 1: 低质量检测Prompt
  * 三阶段低质量检测流程
  *
+ * V11.2 - 修复日语⇄英文未触发语言不匹配的问题
+ * - 删除代币信息中的URL显示（冗余信息）
+ * - 第二阶段增加"什么是语料"的说明
+ * - 强化语言不匹配规则：只有中文⇄英文互译豁免
+ * - 明确日文/韩语/泰语等非中英语言与英文/中文混用均触发语言不匹配
+ * - 示例：推文含"モッフィー"（日文片假名），代币名"Moffyify"（英文）→ 触发
+ *
  * V11.1 - 新增"学术圈事件"检测场景
  * - 第三阶段增加scenario 4：学术圈事件检测
  * - 学术圈的绝大多数事件都不适合构建meme币
@@ -132,64 +139,6 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
   if (extractedInfo?.intro_en) sections[0] += `\n- 介绍（英文）：${extractedInfo.intro_en}`;
   if (extractedInfo?.intro_cn) sections[0] += `\n- 介绍（中文）：${extractedInfo.intro_cn}`;
 
-  // 显示所有分类的URL（从 classifiedUrls 获取）
-  if (classifiedUrls) {
-    // Twitter 推文
-    const tweets = classifiedUrls.twitter?.filter(u => u.type === 'tweet') || [];
-    if (tweets.length > 0) {
-      sections[0] += `\n- Twitter推文：${tweets.map(u => u.url).join(', ')}`;
-    }
-    // Twitter 账号
-    const accounts = classifiedUrls.twitter?.filter(u => u.type === 'account') || [];
-    if (accounts.length > 0) {
-      sections[0] += `\n- Twitter账号：${accounts.map(u => u.url).join(', ')}`;
-    }
-    // 微博
-    if (classifiedUrls.weibo?.length > 0) {
-      sections[0] += `\n- 微博：${classifiedUrls.weibo.map(u => u.url).join(', ')}`;
-    }
-    // YouTube
-    if (classifiedUrls.youtube?.length > 0) {
-      sections[0] += `\n- YouTube：${classifiedUrls.youtube.map(u => u.url).join(', ')}`;
-    }
-    // TikTok
-    if (classifiedUrls.tiktok?.length > 0) {
-      sections[0] += `\n- TikTok：${classifiedUrls.tiktok.map(u => u.url).join(', ')}`;
-    }
-    // 抖音
-    if (classifiedUrls.douyin?.length > 0) {
-      sections[0] += `\n- 抖音：${classifiedUrls.douyin.map(u => u.url).join(', ')}`;
-    }
-    // Bilibili
-    if (classifiedUrls.bilibili?.length > 0) {
-      sections[0] += `\n- Bilibili：${classifiedUrls.bilibili.map(u => u.url).join(', ')}`;
-    }
-    // 微信公众号文章
-    if (classifiedUrls.weixin?.length > 0) {
-      sections[0] += `\n- 微信文章：${classifiedUrls.weixin.map(u => u.url).join(', ')}`;
-    }
-    // GitHub
-    if (classifiedUrls.github?.length > 0) {
-      sections[0] += `\n- GitHub：${classifiedUrls.github.map(u => u.url).join(', ')}`;
-    }
-    // Amazon
-    if (classifiedUrls.amazon?.length > 0) {
-      sections[0] += `\n- Amazon：${classifiedUrls.amazon.map(u => u.url).join(', ')}`;
-    }
-    // 普通网站
-    if (classifiedUrls.websites?.length > 0) {
-      sections[0] += `\n- 网站：${classifiedUrls.websites.map(u => u.url).join(', ')}`;
-    }
-    // Telegram
-    if (classifiedUrls.telegram?.length > 0) {
-      sections[0] += `\n- Telegram：${classifiedUrls.telegram.map(u => u.url).join(', ')}`;
-    }
-    // Discord
-    if (classifiedUrls.discord?.length > 0) {
-      sections[0] += `\n- Discord：${classifiedUrls.discord.map(u => u.url).join(', ')}`;
-    }
-  }
-
   // 2. 账号背景信息
   const backgrounds = generateAccountBackgroundsPrompt(twitterInfo);
   if (backgrounds) sections.push(backgrounds);
@@ -316,6 +265,14 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
 📌 **执行时机**：第一阶段通过后执行
 ⚠️ **如果代币名不在核心实体中，说明无相关性，直接返回pass=false！**
 
+⚠️ **什么是语料？**
+- **语料** = 后面列出的所有内容载体：推文、Website、Amazon、微博、微信文章、视频等
+- 语料中的**核心实体** = 人名、组织名、产品名、事件名、昵称、称号、概念、书籍名等
+- ⚠️ **代币的名字、介绍等原始信息不属于语料**
+  - 代币信息只是用来做匹配的"目标"，不是用来提取实体的"来源"
+  - 示例：代币名"GOOGLE JUST CREATED"不能作为语料实体，只有推文/Website中提到的才算
+- 代币名必须**在语料的核心实体中**才算有关联，否则无法形成meme传播
+
 ⚠️ **加密圈常见缩写（必须识别为核心实体）**：
 - **CZ** = Changpeng Zhao（币安创始人）
 - **SBF** = Sam Bankman-Fried（FTX创始人）
@@ -396,17 +353,22 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 📌 **执行时机**：第二阶段通过（代币名在核心实体中）后执行
 ⚠️ **即使有相关性，如果触发以下场景，仍返回low**
 
-**3.1 语言不匹配**：推文语言与代币名称语言不匹配
-   - ✅ **✅✅✅ 重要豁免：中文⇄英文不算语言不匹配 ✅✅✅**
-     - **中文和英文共存是正常现象，不算语言不匹配！**
+**3.1 语言不匹配**：语料语言与代币名称语言不匹配
+   - ✅ **✅✅✅ 唯一豁免：中文⇄英文互译不算语言不匹配 ✅✅✅**
+     - **只有中文和英文互译才豁免**，其他语言组合均触发语言不匹配
      - 示例：推文含中英文双语（中英混用）→ 不触发
      - 示例：推文是中文，代币名是英文 → 不触发
      - 示例：推文是英文，代币名是中文 → 不触发
      - 理由：加密圈主体用户中英文都会，中英互译是常见现象
+   - ⚠️ **⚠️⚠️ 以下情况触发语言不匹配 ⚠️⚠️⚠️**
+     - **日文⇄英文/中文**：推文是日文（片假名/平假名/汉字），代币名是英文/中文 → 触发
+       - 示例：推文含"モッフィー"（日文片假名），代币名是"Moffyify"（英文）→ 触发
+       - 示例：推文含"驚き"（日文），代币名是"Surprise"（英文）→ 触发
+     - **韩语⇄英文/中文**：推文是韩语，代币名是英文/中文 → 触发
+     - **泰语⇄英文/中文**：推文是泰语，代币名是英文/中文 → 触发
+     - **其他非中英语言**：越南语、印尼语、阿拉伯语等与英文/中文混用 → 触发
    - ⚠️ **这是底线问题：语言不匹配 = 无法传播 = 返回pass=false, stage=3, scenario=1**
-   - 示例：推文是英语（含"surprise"），代币名是日文"驚き" → 触发
-   - 示例：推文是中文，代币名是泰语/韩语等非中英语言 → 触发
-   - 理由：目标受众无法理解、无法记住、无法传播不同语言的代币名（除中英文互译外）
+   - 理由：目标受众无法理解、无法记住、无法传播不同语言的代币名（除中英互译外）
 
 **3.2 纯负面概念**：代币名是纯负面概念，缺乏meme属性
    - ⚠️ **负面概念缺乏正向情感共鸣，用户不愿意传播持有 = 返回pass=false, stage=3, scenario=2**

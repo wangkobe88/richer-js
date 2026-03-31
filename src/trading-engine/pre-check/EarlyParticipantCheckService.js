@@ -16,7 +16,7 @@ const config = require('../../../config/default.json');
 const DEFAULT_CONFIG = {
   fixedWindowSeconds: 90,         // 固定回溯窗口（90秒）
   lowValueThreshold: 10,          // 低价值阈值（USD）
-  highValueThreshold: 100,        // 高价值阈值（USD）
+  highValueThreshold: 80,         // 高价值阈值（USD）
   calculateGrowthScore: false,    // 是否计算增长评分
   accelerationSegments: 3,        // 加速度计算分段数（已废弃，保留配置兼容性）
   calculateGrowthMetrics: false,  // 是否计算增长特征（分析显示无效，默认关闭）
