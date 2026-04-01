@@ -41,7 +41,7 @@ class TelegramNotifier {
 
     try {
       // 获取代币发现信息
-      const tokenInfo = await this.getTokenDiscoveryInfo(signal.tokenAddress, signal.experimentId);
+      const tokenInfo = await this.getTokenDiscoveryInfo(signal.token_address, signal.experiment_id);
 
       // 格式化消息
       const message = this.formatSignalMessage(signal, tokenInfo, experimentInfo);
@@ -49,7 +49,7 @@ class TelegramNotifier {
       // 发送消息（带重试）
       await this.sendWithRetry(message);
 
-      console.log(`📱 Telegram通知发送成功: ${signal.tokenSymbol} ${signal.action}`);
+      console.log(`📱 Telegram通知发送成功: ${signal.token_symbol} ${signal.action}`);
 
     } catch (error) {
       console.error(`📱 Telegram通知发送失败:`, error.message);
@@ -71,9 +71,9 @@ class TelegramNotifier {
     const statusIcon = executed ? '✅' : '🚫';
     const statusText = executed ? '已执行' : '被拒绝';
 
-    // 代币符号（添加fallback）
-    const tokenSymbol = signal.tokenSymbol || metadata.symbol || metadata.tokenSymbol || 'UNKNOWN';
-    const shortAddress = this.shortenAddress(signal.tokenAddress);
+    // 代币符号（直接从信号数据获取，数据库字段是 token_symbol）
+    const tokenSymbol = signal.token_symbol || 'UNKNOWN';
+    const shortAddress = this.shortenAddress(signal.token_address);
 
     // 消息头部（紧凑格式）
     let message = `${statusIcon} *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}
@@ -97,7 +97,7 @@ class TelegramNotifier {
       priceParts.push(`最高: \`${this.formatPercent(highestReturn)}\``);
     }
     if (priceParts.length > 0) {
-      message += `💵 ${priceParts.join(' | ')}\n\n`;
+      message += `💵 ${priceParts.join(' | ')}\n`;
     }
 
     // 趋势因子（紧凑一行）
@@ -113,7 +113,7 @@ class TelegramNotifier {
         trendParts.push(`回撤: \`${this.formatPercent(tf.drawdownFromHighest)}\``);
       }
       if (trendParts.length > 0) {
-        message += `📊 ${trendParts.join(' | ')}\n\n`;
+        message += `📊 ${trendParts.join(' | ')}\n`;
       }
     }
 
@@ -130,7 +130,7 @@ class TelegramNotifier {
         holderParts.push(`Dev: \`${this.formatPercent(pf.devHoldingRatio)}\``);
       }
       if (holderParts.length > 0) {
-        message += `👥 ${holderParts.join(' | ')}\n\n`;
+        message += `👥 ${holderParts.join(' | ')}\n`;
       }
     }
 
@@ -147,7 +147,7 @@ class TelegramNotifier {
         tradeParts.push(`2/1比: \`${this.formatNumber(pf.walletClusterSecondToFirstRatio)}\``);
       }
       if (tradeParts.length > 0) {
-        message += `💪 ${tradeParts.join(' | ')}\n\n`;
+        message += `💪 ${tradeParts.join(' | ')}\n`;
       }
     }
 
@@ -161,19 +161,19 @@ class TelegramNotifier {
         traderParts.push(`钱包: \`${pf.strongTraderWalletCount}个\``);
       }
       if (traderParts.length > 0) {
-        message += `💎 ${traderParts.join(' | ')}\n\n`;
+        message += `💎 ${traderParts.join(' | ')}\n`;
       }
     }
 
     // 拒绝原因
     if (!executed) {
       const executionReason = metadata.execution_reason || signal.execution_reason || pr.canBuy === false ? '预检查失败' : '未知原因';
-      message += `🚫 ${executionReason}\n\n`;
+      message += `🚫 ${executionReason}\n`;
     }
 
     // 链接
-    const gmgnUrl = this.buildGMGNUrl(signal.tokenAddress, signal.chain);
-    const expId = signal.experimentId || signal.experiment_id || metadata.experimentId || metadata.experiment_id;
+    const gmgnUrl = this.buildGMGNUrl(signal.token_address, signal.chain);
+    const expId = signal.experiment_id || metadata.experiment_id;
     const signalsUrl = `${this.webBaseUrl}/experiment/${expId}/signals`;
 
     message += `🔗 [GMGN](${gmgnUrl}) | [信号](${signalsUrl})`;
