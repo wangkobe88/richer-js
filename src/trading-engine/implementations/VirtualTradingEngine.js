@@ -875,6 +875,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       this.logger.error(this._experimentId, 'MonitoringCycle',
         `监控循环失败: ${error.message}`, { error: error.stack });
     }
+
+    // 检查并计算统计数据
+    await this._checkAndCalculateStats();
   }
 
   /**

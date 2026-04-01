@@ -1130,6 +1130,10 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.error(this._experimentId, 'BacktestEngine',
         `处理时间点失败: ${error.message}`);
     }
+
+    // 检查并计算统计数据（基于虚拟时间）
+    const virtualTime = new Date(dataPoint.timestamp).getTime();
+    await this._checkAndCalculateStatsForBacktest(virtualTime);
   }
 
   /**

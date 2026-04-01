@@ -10,6 +10,7 @@ const { Experiment } = require('../entities/Experiment');
 const { dbManager } = require('../../services/dbManager');
 const { BlockchainConfig } = require('../../utils/BlockchainConfig');
 const Logger = require('../../services/logger');
+const TelegramNotifier = require('../../services/TelegramNotifier');
 
 // 延迟导入以避免循环依赖
 let TokenPool = null;
@@ -74,6 +75,14 @@ class AbstractTradingEngine extends ITradingEngine {
 
     // 配置
     this._config = config;
+
+    // Telegram 通知器（延迟初始化，需要实验配置）
+    this._telegramNotifier = null;
+
+    // 统计相关
+    this._statsInterval = null;      // 统计间隔（毫秒）
+    this._lastStatsTime = null;      // 上次统计时间
+    this._statsEnabled = true;       // 是否启用定期统计
   }
 
   // ==================== Getter 方法 ====================
@@ -195,6 +204,12 @@ class AbstractTradingEngine extends ITradingEngine {
     this._portfolioManager = new PortfolioManager();
     await this._portfolioManager.initialize();
 
+    // TelegramNotifier - 电报通知（根据实验配置初始化）
+    await this._initializeTelegramNotifier();
+
+    // 统计配置
+    await this._initializeStatsConfig();
+
     // 创建实验投资组合
     // 优先使用子类设置的 initialBalance，再回退到实验配置中的 initial_capital
     const initialBalance = this.initialBalance || this._experiment.initial_capital || 10;
@@ -277,6 +292,66 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   async _initializeDataSources() {
     throw new Error('_initializeDataSources() 必须由子类实现');
+  }
+
+  /**
+   * 初始化 Telegram 通知器
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _initializeTelegramNotifier() {
+    if (!this._experiment || !this._experiment.config) {
+      // 没有实验配置，不初始化通知器
+      return;
+    }
+
+    // 获取通知配置（从实验配置中读取）
+    const telegramConfig = this._experiment.config.telegramNotifications || {};
+
+    // 获取引擎类型的默认配置
+    const mode = this._mode;
+    if (telegramConfig.enabled === undefined) {
+      // 如果没有显式设置，根据引擎类型设置默认值
+      if (mode === TradingMode.BACKTEST) {
+        telegramConfig.enabled = false; // 回测默认关闭
+      } else {
+        telegramConfig.enabled = true; // 虚拟和实盘默认开启
+      }
+    }
+
+    // 创建通知器实例
+    this._telegramNotifier = new TelegramNotifier(telegramConfig);
+    this._telegramNotifier.setDbManager(dbManager);
+
+    if (telegramConfig.enabled) {
+      this._logger.info('Telegram 通知已启用');
+    } else {
+      this._logger.debug('Telegram 通知已禁用');
+    }
+  }
+
+  /**
+   * 初始化统计配置
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _initializeStatsConfig() {
+    if (!this._experiment || !this._experiment.config) {
+      // 没有实验配置，使用默认值
+      this._statsInterval = 30 * 60 * 1000; // 默认30分钟
+      this._statsEnabled = true;
+      return;
+    }
+
+    // 从实验配置读取统计间隔
+    const config = this._experiment.config;
+    this._statsInterval = config.statsInterval || 30 * 60 * 1000; // 默认30分钟
+    this._statsEnabled = config.statsEnabled !== false; // 默认启用
+
+    this._logger.info('统计配置已初始化', {
+      interval: `${this._statsInterval / 60000}分钟`,
+      enabled: this._statsEnabled
+    });
   }
 
   /**
@@ -575,6 +650,146 @@ class AbstractTradingEngine extends ITradingEngine {
 
     if (error) {
       this._logger.error('更新信号状态失败', { signalId, error: error.message });
+      return;
+    }
+
+    // 数据库更新成功后，发送 Telegram 通知
+    await this._sendSignalNotification(signalId, newMetadata);
+  }
+
+  /**
+   * 发送信号通知到 Telegram
+   * @private
+   * @param {string} signalId - 信号ID
+   * @param {Object} metadata - 信号元数据
+   * @returns {Promise<void>}
+   */
+  async _sendSignalNotification(signalId, metadata) {
+    if (!this._telegramNotifier) {
+      // 通知器未初始化
+      return;
+    }
+
+    try {
+      // 获取完整信号数据
+      const supabase = dbManager.getClient();
+      const { data: signal, error } = await supabase
+        .from('strategy_signals')
+        .select('*')
+        .eq('id', signalId)
+        .single();
+
+      if (error || !signal) {
+        this._logger.warn('获取信号数据失败，跳过通知', { signalId, error: error?.message });
+        return;
+      }
+
+      // 构建实验信息
+      const experimentInfo = {
+        id: this._experimentId,
+        mode: this._mode
+      };
+
+      // 发送通知
+      await this._telegramNotifier.sendSignalNotification(signal, experimentInfo);
+
+    } catch (notifyError) {
+      // 通知失败只记录日志，不影响交易流程
+      this._logger.warn('发送信号通知失败', {
+        signalId,
+        error: notifyError.message
+      });
+    }
+  }
+
+  /**
+   * 计算并保存统计数据
+   * @private
+   * @returns {Promise<void>}
+   */
+  async _calculateAndSaveStats() {
+    if (!this._statsEnabled) return;
+
+    try {
+      const { ExperimentStatsService } = require('../../web/services/ExperimentStatsService');
+      const statsService = new ExperimentStatsService();
+
+      // 计算统计数据
+      const stats = await statsService.calculateExperimentStats(this._experimentId);
+
+      // 保存到数据库
+      const supabase = dbManager.getClient();
+      const { error } = await supabase
+        .from('experiments')
+        .update({ stats })
+        .eq('id', this._experimentId);
+
+      if (error) {
+        throw new Error(`保存统计数据失败: ${error.message}`);
+      }
+
+      this._logger.info(this._experimentId, 'Stats', '统计数据已更新', {
+        tokenCount: stats.tokenCount,
+        totalReturn: stats.totalReturn,
+        winRate: stats.winRate
+      });
+
+      // 发送电报通知（如果启用）
+      await this._sendStatsNotification(stats);
+
+    } catch (error) {
+      this._logger.error('计算统计数据失败', { error: error.message });
+    }
+  }
+
+  /**
+   * 发送统计数据通知
+   * @private
+   * @param {Object} stats - 统计数据
+   * @returns {Promise<void>}
+   */
+  async _sendStatsNotification(stats) {
+    if (!this._telegramNotifier) return;
+
+    try {
+      await this._telegramNotifier.sendStatsNotification(
+        this._experimentId,
+        this._experiment.experimentName,
+        stats,
+        this._mode
+      );
+    } catch (error) {
+      this._logger.warn('发送统计通知失败', { error: error.message });
+    }
+  }
+
+  /**
+   * 检查是否需要统计（虚拟/实盘用）
+   * @protected
+   * @returns {Promise<void>}
+   */
+  async _checkAndCalculateStats() {
+    if (!this._statsEnabled || !this._statsInterval) return;
+
+    const now = Date.now();
+    if (!this._lastStatsTime || now - this._lastStatsTime >= this._statsInterval) {
+      await this._calculateAndSaveStats();
+      this._lastStatsTime = now;
+    }
+  }
+
+  /**
+   * 检查是否需要统计（回测用）
+   * @protected
+   * @param {number} virtualTime - 当前虚拟时间戳
+   * @returns {Promise<void>}
+   */
+  async _checkAndCalculateStatsForBacktest(virtualTime) {
+    if (!this._statsEnabled || !this._statsInterval) return;
+
+    if (!this._lastStatsTime || virtualTime - this._lastStatsTime >= this._statsInterval) {
+      await this._calculateAndSaveStats();
+      this._lastStatsTime = virtualTime;
     }
   }
 
