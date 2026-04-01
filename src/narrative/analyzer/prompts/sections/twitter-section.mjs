@@ -45,8 +45,15 @@ function buildTweetPart(tweet, label = '推文') {
 
   // 回复的推文
   if (tweet.in_reply_to) {
-    const cleanedReplyText = cleanTweetText(tweet.in_reply_to.text);
-    parts.push(`【回复的推文】${cleanedReplyText}`);
+    const inReplyTo = tweet.in_reply_to;
+    parts.push('');
+    parts.push(`【回复的推文】`);
+    parts.push(`作者：@${inReplyTo.author_screen_name || '未知'}`);
+    if (inReplyTo.author_followers_count) {
+      parts.push(`粉丝数: ${inReplyTo.author_followers_count}`);
+    }
+    const cleanedReplyText = cleanTweetText(inReplyTo.text);
+    parts.push(`内容：${cleanedReplyText}`);
   }
 
   // 媒体内容
@@ -135,6 +142,19 @@ export function buildTwitterSection(twitterInfo) {
     }
     const cleanedQuotedText = cleanTweetText(quoted.text);
     parts.push(`内容：${cleanedQuotedText}`);
+  }
+
+  // 转发推文
+  if (twitterInfo.retweeted_status) {
+    const retweeted = twitterInfo.retweeted_status;
+    parts.push('');
+    parts.push(`【转发推文】`);
+    parts.push(`作者：@${retweeted.author_screen_name || retweeted.author_name || '未知'}`);
+    if (retweeted.author_followers_count) {
+      parts.push(`粉丝数: ${retweeted.author_followers_count}`);
+    }
+    const cleanedRetweetedText = cleanTweetText(retweeted.text);
+    parts.push(`内容：${cleanedRetweetedText}`);
   }
 
   // 推文链接内容

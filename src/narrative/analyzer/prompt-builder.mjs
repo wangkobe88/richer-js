@@ -1,8 +1,14 @@
 /**
- * Prompt构建器 - V9.3 两阶段架构（Symbol/Name分别匹配）
+ * Prompt构建器 - V9.5 两阶段架构（Symbol/Name分别匹配）
  * 根据实际获取的数据动态组装Prompt
  *
- * V9.3变更（2026-04-01）：
+ * V9.5变更（2026-04-01）：
+ * - 豁免规则扩展：Binance/币安官方相关账号（包括Binance、BinanceAcademy、BinanceLabs、币安学院等）
+ * - 豁免规则扩展：回复/引用/转发知名机构推文不算空洞
+ * - 实体识别规则明确：必须列出所有依赖语料（in_reply_to、quoted_tweet、retweeted_tweet）
+ * - 强调依赖语料的重要性：回复/引用/转发的推文往往包含更重要的上下文信息
+ *
+ * V9.4变更（2026-04-01）：
  * - Prompt增加代币Name字段显示（Symbol和Name分开显示）
  * - 第二阶段匹配规则：Symbol或Name满足一个即可匹配
  * - 示例：Symbol="B4", Name="BUILD4" → 实体包含"BUILD4" → 匹配
@@ -106,7 +112,7 @@ export class PromptBuilder {
    * @returns {string} Prompt版本号
    */
   static getPromptVersion() {
-    return 'V9.3';
+    return 'V9.5';
   }
 
   /**

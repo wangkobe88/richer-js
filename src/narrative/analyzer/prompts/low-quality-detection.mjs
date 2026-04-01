@@ -250,9 +250,13 @@ ${tokenName ? `- 代币Name：${tokenName}` : ''}
      - **知名meme币发行平台的官方账号背书**：Pump.fun、pump.fun、Four.meme等官方账号的推文
        - 示例：Pump.fun官方账号（@Pumpfun）发推 → 非空洞（平台背书本身就是事件）
        - 理由：这些平台是meme币发行的核心阵地，官方账号推文代表平台认可
-     - **知名机构/品牌的官方公告**：Binance/Coinbase/Apple/Google等官方账号发布产品/功能公告
+     - **知名机构/品牌的官方公告**：Binance/币安官方相关账号（Binance、BinanceAcademy、BinanceLabs、币安学院等）、Coinbase、Apple、Google等官方账号发布产品/功能公告
        - 示例：Binance官方推文"Binance Ai Pro. Coming soon!" → 非空洞（官方产品公告）
+       - 示例：BinanceAcademy推文介绍课程 → 非空洞（币安学院官方内容）
        - 理由：知名机构的产品发布本身就是有信息价值的事件
+     - **回复/引用/转发知名机构推文**：回复、引用或转发Binance/币安、Coinbase等知名机构相关账号的推文
+       - 示例：回复BinanceAcademy的推文 → 非空洞（与官方内容互动）
+       - 理由：与知名机构内容的互动具有社交信号价值
      - **加密圈超大IP互动推文**：CZ/Elon/Trump等超大IP与其他用户的互动（回复、引用推文等）
        - 示例：CZ回复粉丝推文、Elon回复用户推文 → 非空洞（名人互动本身就是社交信号）
        - 理由：超大IP的互动具有社交影响力，能吸引社区关注和传播
@@ -316,6 +320,15 @@ ${tokenName ? `- 代币Name：${tokenName}` : ''}
   - 示例：推文中多次出现"Billy"，entities中只需列出一个"Billy"
   - 示例：推文中多次出现"Billy the Cat"，entities中只需列一个"Billy the Cat"
 - 推文、Website、Amazon、Twitter账号要**分别列出**
+- ⚠️ **必须列出所有依赖语料的实体**：
+  - 主推文（tweet1）：必须列出
+  - 回复的推文（in_reply_to）：如果有，必须列出
+  - 引用的推文（quoted_tweet）：如果有，必须列出
+  - 转发的推文（retweeted_tweet）：如果有，必须列出
+  - Website、Amazon、Twitter账号等：如果有，必须列出
+- ⚠️ **依赖语料的重要性**：回复/引用/转发的推文往往包含更重要的上下文信息
+  - 示例：回复BinanceAcademy推文 → 必须列出BinanceAcademy实体
+  - 示例：引用Elon推文 → 必须列出Elon实体
 - ⚠️ **语料中反复出现的关键短语/概念也是实体**：
   - 示例：推文中反复出现"changed my life" → 实体包括"changed my life"
   - 示例：推文中反复出现"to the moon" → 实体包括"to the moon"
@@ -513,11 +526,13 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 {"pass": false, "stage": 3, "scenario": 1-6, "reason": "说明理由", "entities": {...}}
 
 **最终通过：有相关性且质量过关**
-{"pass": true, "stage": 0, "reason": "Symbol或Name在核心实体中，且无低质量问题", "entities": {"tweet1": ["实体1", ...], "quoted_tweet": [...], "website": [...], "amazon": [...], "twitter_account": [...]}}
+{"pass": true, "stage": 0, "reason": "Symbol或Name在核心实体中，且无低质量问题", "entities": {"tweet1": ["实体1", ...], "in_reply_to": [...], "quoted_tweet": [...], "retweeted_tweet": [...], "website": [...], "amazon": [...], "twitter_account": [...]}}
 
 ⚠️ **entities字段必须包含每条语料的核心实体列表**：
 - "tweet1": 主推文的实体列表
+- "in_reply_to": 回复的推文的实体列表（如果有）
 - "quoted_tweet": 引用推文的实体列表（如果有）
+- "retweeted_tweet": 转发推文的实体列表（如果有）
 - "website_tweet": Website推文的实体列表（如果有）
 - "website": Website内容的实体列表（如果有）
 - "amazon": Amazon内容的实体列表（如果有）

@@ -161,6 +161,29 @@ export class TwitterFetcher {
         console.log(`[TwitterFetcher] 检测到引用推文: @${result.quoted_status.author_screen_name} - ${result.quoted_status.text.substring(0, 50)}...`);
       }
 
+      // 处理转发推文数据
+      if (tweetData.retweeted_status) {
+        const retweeted = tweetData.retweeted_status;
+        const rawCreatedAt = retweeted.created_at || retweeted.createdTimeStamp || null;
+        const retweetedMedia = TwitterFetcher.normalizeMediaData(retweeted);
+        result.retweeted_status = {
+          text: retweeted.text,
+          author_name: retweeted.user?.name || null,
+          author_screen_name: retweeted.user?.screen_name || null,
+          author_followers_count: retweeted.user?.followers_count || null,
+          author_verified: retweeted.user?.verified || retweeted.user?.is_blue_verified || false,
+          created_at: rawCreatedAt,
+          formatted_created_at: formatTwitterTime(rawCreatedAt),
+          tweet_id: retweeted.tweet_id,
+          metrics: {
+            favorite_count: retweeted.likeCount || 0,
+            retweet_count: retweeted.retweetCount || 0
+          },
+          media: retweetedMedia
+        };
+        console.log(`[TwitterFetcher] 检测到转发推文: @${result.retweeted_status.author_screen_name} - ${result.retweeted_status.text.substring(0, 50)}...`);
+      }
+
       // 检查是否包含 Article 链接（作为备用）
       const articleUrl = (tweetData.urls || []).find(url =>
         url.includes('/x.com/i/article/') || url.includes('/twitter.com/i/article/')
@@ -171,11 +194,13 @@ export class TwitterFetcher {
       }
 
       // 如果是回复推文，获取原始推文
-      // getTweetDetail API 使用 related_tweet_id
+      // getTweetDetail API 使用 related_tweet_id（conversation_id）
       // getTweetDetailGraphQL API 使用 reply_to_tweet_id
+      // 注意：即使 is_reply=false，只要有 related_tweet_id 就尝试获取
+      // 这是因为API有时返回 is_reply=false 但实际有 conversation 关系
       const replyToTweetId = tweetData.related_tweet_id || tweetData.reply_to_tweet_id;
-      if (tweetData.is_reply && replyToTweetId) {
-        console.log(`[TwitterFetcher] 这是回复推文，尝试获取原始推文: ${replyToTweetId}`);
+      if (replyToTweetId && replyToTweetId !== tweetId) {
+        console.log(`[TwitterFetcher] 检测到相关推文，尝试获取: ${replyToTweetId}`);
         try {
           // 使用 getTweetDetail 获取被回复的推文（即使原推文来自 GraphQL API）
           const originalTweet = await getTweetDetail(replyToTweetId);
@@ -187,6 +212,7 @@ export class TwitterFetcher {
               text: originalTweet.text,
               author_name: originalTweet.user?.name || null,
               author_screen_name: originalTweet.user?.screen_name || null,
+              author_followers_count: originalTweet.user?.followers_count || null,
               created_at: rawCreatedAt,
               formatted_created_at: formatTwitterTime(rawCreatedAt),
               tweet_id: replyToTweetId,

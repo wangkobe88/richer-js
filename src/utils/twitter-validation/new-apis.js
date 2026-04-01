@@ -360,6 +360,7 @@ async function getTweetDetailGraphQL(tweetId) {
       is_reply: !!legacy.in_reply_to_status_id,
       reply_to_tweet_id: legacy.in_reply_to_status_id || null,
       related_tweet_id: legacy.conversation_id || null,
+      is_retweet: !!legacy.retweeted_status,
 
       // Article 数据（如果有）
       article: articleResult ? {
@@ -377,7 +378,29 @@ async function getTweetDetailGraphQL(tweetId) {
       community_results: tweetResult.community_results || null,
 
       // 引用推文数据（如果有）
-      quoted_status: tweetResult.quoted_status_result ? _parseQuotedTweet(tweetResult.quoted_status_result.result || tweetResult.quoted_status_result) : null
+      quoted_status: tweetResult.quoted_status_result ? _parseQuotedTweet(tweetResult.quoted_status_result.result || tweetResult.quoted_status_result) : null,
+
+      // 转发推文数据（如果有）
+      retweeted_status: legacy.retweeted_status ? {
+        tweet_id: legacy.retweeted_status.id_str,
+        text: legacy.retweeted_status.full_text || legacy.retweeted_status.text || '',
+        created_at: legacy.retweeted_status.created_at,
+        createdTimeStamp: legacy.retweeted_status.created_at ? new Date(legacy.retweeted_status.created_at).getTime() : null,
+        user: {
+          id: legacy.retweeted_status.user?.id_str,
+          name: legacy.retweeted_status.user?.name,
+          screen_name: legacy.retweeted_status.user?.screen_name,
+          followers_count: legacy.retweeted_status.user?.followers_count,
+          verified: legacy.retweeted_status.user?.verified || false,
+          is_blue_verified: legacy.retweeted_status.user?.is_blue_verified || false
+        },
+        likeCount: legacy.retweeted_status.favorite_count || 0,
+        retweetCount: legacy.retweeted_status.retweet_count || 0,
+        replyCount: legacy.retweeted_status.reply_count || 0,
+        quoteCount: legacy.retweeted_status.quote_count || 0,
+        viewCount: legacy.retweeted_status.view_count || 0,
+        urls: legacy.retweeted_status.entities?.urls?.map(u => u.expanded_url || u.url) || []
+      } : null
     };
 
     console.log(`✅ 成功获取推文详情 (GraphQL): ID=${tweetDetail.tweet_id}`);
@@ -389,6 +412,9 @@ async function getTweetDetailGraphQL(tweetId) {
     }
     if (tweetDetail.quoted_status) {
       console.log(`   💬 引用推文: @${tweetDetail.quoted_status.user.screen_name} - ${tweetDetail.quoted_status.text.substring(0, 50)}...`);
+    }
+    if (tweetDetail.retweeted_status) {
+      console.log(`   🔄 转发推文: @${tweetDetail.retweeted_status.user.screen_name} - ${tweetDetail.retweeted_status.text.substring(0, 50)}...`);
     }
 
     return tweetDetail;
