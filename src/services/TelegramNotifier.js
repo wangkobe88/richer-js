@@ -126,16 +126,16 @@ class TelegramNotifier {
       const statusIcon = holderStatus === 'pass' ? '✅' : holderStatus === 'fail' ? '❌' : '';
       const holderParts = [];
       if (pf.holderWhitelistCount !== undefined) {
-        holderParts.push(`白: \`${pf.holderWhitelistCount}\``);
+        holderParts.push(`白名单: \`${pf.holderWhitelistCount}\``);
       }
       if (pf.holderBlacklistCount !== undefined) {
-        holderParts.push(`黑: \`${pf.holderBlacklistCount}\``);
+        holderParts.push(`黑名单: \`${pf.holderBlacklistCount}\``);
       }
       if (pf.devHoldingRatio !== undefined && pf.devHoldingRatio !== null) {
-        holderParts.push(`Dev: \`${this.formatPercent(pf.devHoldingRatio)}\``);
+        holderParts.push(`Dev持仓: \`${this.formatPercent(pf.devHoldingRatio)}\``);
       }
       if (pf.maxHoldingRatio !== undefined && pf.maxHoldingRatio !== null) {
-        holderParts.push(`最大: \`${this.formatPercent(pf.maxHoldingRatio)}\``);
+        holderParts.push(`最大持仓: \`${this.formatPercent(pf.maxHoldingRatio)}\``);
       }
       if (holderParts.length > 0) {
         message += `👥 ${statusIcon}${holderParts.join(' | ')}\n`;
@@ -148,19 +148,19 @@ class TelegramNotifier {
       const statusIcon = tradeStatus === 'pass' ? '✅' : tradeStatus === 'fail' ? '❌' : '';
       const tradeParts = [];
       if (pf.earlyTradesCountPerMin !== undefined && pf.earlyTradesCountPerMin !== null) {
-        tradeParts.push(`笔/分: \`${this.formatNumber(pf.earlyTradesCountPerMin)}\``);
+        tradeParts.push(`交易笔/分: \`${this.formatNumber(pf.earlyTradesCountPerMin)}\``);
       }
       if (pf.earlyTradesVolumePerMin !== undefined && pf.earlyTradesVolumePerMin !== null) {
-        tradeParts.push(`量/分: \`${this.formatNumber(pf.earlyTradesVolumePerMin)}\``);
+        tradeParts.push(`交易量/分: \`${this.formatNumber(pf.earlyTradesVolumePerMin)}\``);
       }
       if (pf.earlyTradesWalletsPerMin !== undefined && pf.earlyTradesWalletsPerMin !== null) {
-        tradeParts.push(`钱包/分: \`${this.formatNumber(pf.earlyTradesWalletsPerMin)}\``);
+        tradeParts.push(`钱包数/分: \`${this.formatNumber(pf.earlyTradesWalletsPerMin)}\``);
       }
       if (pf.earlyTradesFinalLiquidity !== undefined && pf.earlyTradesFinalLiquidity !== null) {
         tradeParts.push(`流动性: \`$${this.formatNumber(pf.earlyTradesFinalLiquidity)}\``);
       }
       if (pf.earlyTradesDrawdownFromHighest !== undefined && pf.earlyTradesDrawdownFromHighest !== null) {
-        tradeParts.push(`回撤: \`${this.formatPercent(pf.earlyTradesDrawdownFromHighest)}\``);
+        tradeParts.push(`最高回撤: \`${this.formatPercent(pf.earlyTradesDrawdownFromHighest)}\``);
       }
       if (tradeParts.length > 0) {
         message += `💪 ${statusIcon}${tradeParts.join(' | ')}\n`;
@@ -173,19 +173,19 @@ class TelegramNotifier {
       const statusIcon = clusterStatus === 'pass' ? '✅' : clusterStatus === 'fail' ? '❌' : '';
       const clusterParts = [];
       if (pf.walletClusterCount !== undefined) {
-        clusterParts.push(`簇数: \`${pf.walletClusterCount}\``);
+        clusterParts.push(`簇数量: \`${pf.walletClusterCount}\``);
       }
       if (pf.walletClusterSecondToFirstRatio !== undefined && pf.walletClusterSecondToFirstRatio !== null) {
-        clusterParts.push(`2/1比: \`${this.formatPercent(pf.walletClusterSecondToFirstRatio)}\``);
+        clusterParts.push(`2大/1大比: \`${this.formatPercent(pf.walletClusterSecondToFirstRatio)}\``);
       }
       if (pf.walletClusterMegaRatio !== undefined && pf.walletClusterMegaRatio !== null) {
-        clusterParts.push(`Mega: \`${this.formatNumber(pf.walletClusterMegaRatio)}\``);
+        clusterParts.push(`Mega簇比: \`${this.formatNumber(pf.walletClusterMegaRatio)}\``);
       }
       if (pf.walletClusterTop2Ratio !== undefined && pf.walletClusterTop2Ratio !== null) {
-        clusterParts.push(`Top2: \`${this.formatPercent(pf.walletClusterTop2Ratio)}\``);
+        clusterParts.push(`前2簇占比: \`${this.formatPercent(pf.walletClusterTop2Ratio)}\``);
       }
       if (pf.walletClusterMaxBlockBuyRatio !== undefined && pf.walletClusterMaxBlockBuyRatio !== null) {
-        clusterParts.push(`区块买入: \`${this.formatPercent(pf.walletClusterMaxBlockBuyRatio)}\``);
+        clusterParts.push(`区块买入比: \`${this.formatPercent(pf.walletClusterMaxBlockBuyRatio)}\``);
       }
       if (clusterParts.length > 0) {
         message += `🔗 ${statusIcon}${clusterParts.join(' | ')}\n`;
@@ -196,13 +196,13 @@ class TelegramNotifier {
     if (pf.twitterTotalResults !== undefined && pf.twitterTotalResults > 0) {
       const twitterParts = [];
       if (pf.twitterTotalResults !== undefined) {
-        twitterParts.push(`结果: \`${pf.twitterTotalResults}\``);
+        twitterParts.push(`搜索结果: \`${pf.twitterTotalResults}\``);
       }
       if (pf.twitterQualityTweets !== undefined) {
-        twitterParts.push(`优质: \`${pf.twitterQualityTweets}\``);
+        twitterParts.push(`优质推文: \`${pf.twitterQualityTweets}\``);
       }
       if (pf.twitterTotalEngagement !== undefined) {
-        twitterParts.push(`互动: \`${this.formatNumber(pf.twitterTotalEngagement)}\``);
+        twitterParts.push(`总互动量: \`${this.formatNumber(pf.twitterTotalEngagement)}\``);
       }
       if (twitterParts.length > 0) {
         message += `🐦 ${twitterParts.join(' | ')}\n`;
@@ -215,13 +215,13 @@ class TelegramNotifier {
       const statusIcon = traderStatus === 'pass' ? '✅' : traderStatus === 'fail' ? '❌' : '';
       const traderParts = [];
       if (pf.strongTraderNetPositionRatio !== undefined && pf.strongTraderNetPositionRatio !== null) {
-        traderParts.push(`净持仓: \`${this.formatPercent(pf.strongTraderNetPositionRatio)}\``);
+        traderParts.push(`净持仓比: \`${this.formatPercent(pf.strongTraderNetPositionRatio)}\``);
       }
       if (pf.strongTraderWalletCount !== undefined) {
-        traderParts.push(`钱包: \`${pf.strongTraderWalletCount}个\``);
+        traderParts.push(`钱包数: \`${pf.strongTraderWalletCount}个\``);
       }
       if (pf.strongTraderTradeCount !== undefined) {
-        traderParts.push(`交易: \`${pf.strongTraderTradeCount}笔\``);
+        traderParts.push(`交易笔数: \`${pf.strongTraderTradeCount}笔\``);
       }
       if (pf.strongTraderSellIntensity !== undefined && pf.strongTraderSellIntensity !== null) {
         traderParts.push(`卖出强度: \`${this.formatNumber(pf.strongTraderSellIntensity)}\``);
@@ -243,9 +243,9 @@ class TelegramNotifier {
     // 多次交易因子（紧凑一行）
     if (pf.buyRound !== undefined && pf.buyRound > 1) {
       const tradeParts = [];
-      tradeParts.push(`轮次: \`第${pf.buyRound}轮\``);
+      tradeParts.push(`购买轮次: \`第${pf.buyRound}轮\``);
       if (pf.lastPairReturnRate !== undefined && pf.lastPairReturnRate !== null) {
-        tradeParts.push(`上一对: \`${this.formatPercent(pf.lastPairReturnRate)}\``);
+        tradeParts.push(`上对收益率: \`${this.formatPercent(pf.lastPairReturnRate)}\``);
       }
       if (tradeParts.length > 0) {
         message += `🔄 ${tradeParts.join(' | ')}\n`;
