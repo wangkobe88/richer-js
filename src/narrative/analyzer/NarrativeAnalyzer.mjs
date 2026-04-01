@@ -441,6 +441,40 @@ export class NarrativeAnalyzer {
     const { ignoreExpired = false } = options;
     const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo } = videoInfos;
 
+    // 规则0：代币名称长度检查（优先级最高）
+    // 过滤名称过长的代币，通常是为了博眼球而故意使用长名称，缺乏真实叙事价值
+    const tokenSymbol = (tokenData.symbol || '').trim();
+    const tokenName = (tokenData.name || tokenData.raw_api_data?.name || '').trim();
+
+    const MAX_SYMBOL_LENGTH = 12;  // Symbol最大长度（>=触发）
+    const MAX_NAME_LENGTH = 30;     // Name最大长度（>=触发）
+
+    // 检查Symbol长度
+    if (tokenSymbol && tokenSymbol.length > MAX_SYMBOL_LENGTH) {
+      console.log(`[NarrativeAnalyzer] 预检查触发: 代币Symbol过长 (${tokenSymbol.length}字符)`);
+      return {
+        category: 'low',
+        reasoning: `代币Symbol"${tokenSymbol}"长度为${tokenSymbol.length}字符，明显超出正常范围（阈值：${MAX_SYMBOL_LENGTH}），疑似博眼球而无真实叙事价值`,
+        scores: { credibility: 0, virality: 0 },
+        total_score: 0,
+        preCheckTriggered: true,
+        preCheckReason: 'symbol_too_long'
+      };
+    }
+
+    // 检查Name长度
+    if (tokenName && tokenName.length > MAX_NAME_LENGTH) {
+      console.log(`[NarrativeAnalyzer] 预检查触发: 代币Name过长 (${tokenName.length}字符)`);
+      return {
+        category: 'low',
+        reasoning: `代币名称"${tokenName}"长度为${tokenName.length}字符，明显超出正常范围（阈值：${MAX_NAME_LENGTH}），疑似博眼球而无真实叙事价值`,
+        scores: { credibility: 0, virality: 0 },
+        total_score: 0,
+        preCheckTriggered: true,
+        preCheckReason: 'name_too_long'
+      };
+    }
+
     // 规则1：黑名单博主
     // 1.1 从twitterInfo中获取用户名
     let authorScreenName = twitterInfo?.author_screen_name;

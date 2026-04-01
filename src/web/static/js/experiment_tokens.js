@@ -531,7 +531,7 @@ class ExperimentTokens {
 
     return `
       <tr class="token-row ${rowClass}" data-token-address="${token.token_address}">
-        <td class="px-1 py-1 overflow-hidden" style="width: 130px;">
+        <td class="px-1 py-1 overflow-hidden" style="width: 180px;">
           <div class="flex flex-col gap-0.5">
             <div class="flex items-center gap-0.5 truncate">
               <img src="${rawData?.logo_url || ''}" alt="" class="w-3.5 h-3.5 rounded-full flex-shrink-0 ${!rawData?.logo_url ? 'hidden' : ''}" onerror="this.style.display='none'">
@@ -542,7 +542,7 @@ class ExperimentTokens {
             <div class="flex items-center gap-0.5 text-[10px] text-gray-400 truncate">
               <code class="text-gray-500 truncate text-[9px]">${shortAddress}</code>
             </div>
-            <div class="flex items-center gap-1 text-[9px] text-gray-500 truncate">
+            <div class="flex items-center gap-1 text-[9px] text-gray-500 flex-wrap">
               <a href="${gmgnUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">GMGN</a>
               <span class="text-gray-600">|</span>
               <a href="${observerUrl}" target="_blank" class="hover:text-green-400 flex-shrink-0">时序</a>
@@ -554,6 +554,8 @@ class ExperimentTokens {
               <a href="${earlyTradesUrl}" target="_blank" class="hover:text-amber-400 flex-shrink-0" title="早期交易">早期</a>
               <span class="text-gray-600">|</span>
               <a href="${tokenDetailUrl}" target="_blank" class="hover:text-cyan-400 flex-shrink-0" title="代币详情">详情</a>
+              <span class="text-gray-600">|</span>
+              <a href="${holdersUrl}" target="_blank" class="hover:text-indigo-400 flex-shrink-0" title="持有者">持有者</a>
               <span class="text-gray-600">|</span>
               <button class="copy-address-btn hover:text-blue-400 flex-shrink-0" data-address="${token.token_address}">复制</button>
             </div>
