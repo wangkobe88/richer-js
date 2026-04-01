@@ -125,6 +125,9 @@ class TelegramNotifier {
       const holderStatus = factorStatus.get('holderBlacklistCount');
       const statusIcon = holderStatus === 'pass' ? '✅' : holderStatus === 'fail' ? '❌' : '';
       const holderParts = [];
+      if (pf.holderTotalCount !== undefined) {
+        holderParts.push(`总数: \`${pf.holderTotalCount}\``);
+      }
       if (pf.holderWhitelistCount !== undefined) {
         holderParts.push(`白名单: \`${pf.holderWhitelistCount}\``);
       }
@@ -137,75 +140,98 @@ class TelegramNotifier {
       if (pf.maxHoldingRatio !== undefined && pf.maxHoldingRatio !== null) {
         holderParts.push(`最大持仓: \`${this.formatPercent(pf.maxHoldingRatio)}\``);
       }
+      if (pf.creatorIsNotBadDevWallet !== undefined) {
+        holderParts.push(`创建者非坏Dev: \`${pf.creatorIsNotBadDevWallet === 1 ? '是' : '否'}\``);
+      }
       if (holderParts.length > 0) {
         message += `👥 ${statusIcon}${holderParts.join(' | ')}\n`;
       }
     }
 
-    // 早期交易（紧凑一行，带状态）
+    // 早期交易（分两行显示，带状态）
     if (pf.earlyTradesChecked === 1 && pf.earlyTradesCountPerMin !== undefined) {
       const tradeStatus = factorStatus.get('earlyTradesCountPerMin') || factorStatus.get('earlyTradesVolumePerMin');
       const statusIcon = tradeStatus === 'pass' ? '✅' : tradeStatus === 'fail' ? '❌' : '';
-      const tradeParts = [];
+
+      // 第一行：速率指标
+      const rateParts = [];
       if (pf.earlyTradesCountPerMin !== undefined && pf.earlyTradesCountPerMin !== null) {
-        tradeParts.push(`交易笔/分: \`${this.formatNumber(pf.earlyTradesCountPerMin)}\``);
+        rateParts.push(`交易速率: \`${this.formatNumber(pf.earlyTradesCountPerMin)}\``);
       }
       if (pf.earlyTradesVolumePerMin !== undefined && pf.earlyTradesVolumePerMin !== null) {
-        tradeParts.push(`交易量/分: \`${this.formatNumber(pf.earlyTradesVolumePerMin)}\``);
+        rateParts.push(`交易量速率: \`${this.formatNumber(pf.earlyTradesVolumePerMin)}\``);
       }
       if (pf.earlyTradesWalletsPerMin !== undefined && pf.earlyTradesWalletsPerMin !== null) {
-        tradeParts.push(`钱包数/分: \`${this.formatNumber(pf.earlyTradesWalletsPerMin)}\``);
+        rateParts.push(`钱包速率: \`${this.formatNumber(pf.earlyTradesWalletsPerMin)}\``);
+      }
+      if (pf.earlyTradesHighValuePerMin !== undefined && pf.earlyTradesHighValuePerMin !== null) {
+        rateParts.push(`大额交易速率: \`${this.formatNumber(pf.earlyTradesHighValuePerMin)}\``);
+      }
+      if (rateParts.length > 0) {
+        message += `💪 ${statusIcon}${rateParts.join(' | ')}\n`;
+      }
+
+      // 第二行：总量和其他指标
+      const totalParts = [];
+      if (pf.earlyTradesTotalCount !== undefined) {
+        totalParts.push(`总笔数: \`${pf.earlyTradesTotalCount}\``);
+      }
+      if (pf.earlyTradesVolume !== undefined) {
+        totalParts.push(`总交易量: \`${this.formatNumber(pf.earlyTradesVolume)}\``);
+      }
+      if (pf.earlyTradesUniqueWallets !== undefined) {
+        totalParts.push(`唯一钱包: \`${pf.earlyTradesUniqueWallets}\``);
       }
       if (pf.earlyTradesFinalLiquidity !== undefined && pf.earlyTradesFinalLiquidity !== null) {
-        tradeParts.push(`流动性: \`$${this.formatNumber(pf.earlyTradesFinalLiquidity)}\``);
+        totalParts.push(`末流动性: \`$${this.formatNumber(pf.earlyTradesFinalLiquidity)}\``);
       }
       if (pf.earlyTradesDrawdownFromHighest !== undefined && pf.earlyTradesDrawdownFromHighest !== null) {
-        tradeParts.push(`最高回撤: \`${this.formatPercent(pf.earlyTradesDrawdownFromHighest)}\``);
+        totalParts.push(`最高跌幅: \`${this.formatPercent(pf.earlyTradesDrawdownFromHighest)}\``);
       }
-      if (tradeParts.length > 0) {
-        message += `💪 ${statusIcon}${tradeParts.join(' | ')}\n`;
+      if (totalParts.length > 0) {
+        message += `   ${totalParts.join(' | ')}\n`;
       }
     }
 
-    // 钱包簇（紧凑一行，带状态）
+    // 钱包簇（分两行显示，带状态）
     if (pf.walletClusterCount !== undefined) {
       const clusterStatus = factorStatus.get('walletClusterSecondToFirstRatio') || factorStatus.get('walletClusterMegaRatio');
       const statusIcon = clusterStatus === 'pass' ? '✅' : clusterStatus === 'fail' ? '❌' : '';
-      const clusterParts = [];
-      if (pf.walletClusterCount !== undefined) {
-        clusterParts.push(`簇数量: \`${pf.walletClusterCount}\``);
-      }
+
+      // 第一行：比例指标
+      const ratioParts = [];
       if (pf.walletClusterSecondToFirstRatio !== undefined && pf.walletClusterSecondToFirstRatio !== null) {
-        clusterParts.push(`2大/1大比: \`${this.formatPercent(pf.walletClusterSecondToFirstRatio)}\``);
+        ratioParts.push(`2大/1大比: \`${this.formatPercent(pf.walletClusterSecondToFirstRatio)}\``);
       }
       if (pf.walletClusterMegaRatio !== undefined && pf.walletClusterMegaRatio !== null) {
-        clusterParts.push(`Mega簇比: \`${this.formatNumber(pf.walletClusterMegaRatio)}\``);
+        ratioParts.push(`Mega簇比: \`${this.formatNumber(pf.walletClusterMegaRatio)}\``);
       }
       if (pf.walletClusterTop2Ratio !== undefined && pf.walletClusterTop2Ratio !== null) {
-        clusterParts.push(`前2簇占比: \`${this.formatPercent(pf.walletClusterTop2Ratio)}\``);
+        ratioParts.push(`前2簇占比: \`${this.formatPercent(pf.walletClusterTop2Ratio)}\``);
       }
       if (pf.walletClusterMaxBlockBuyRatio !== undefined && pf.walletClusterMaxBlockBuyRatio !== null) {
-        clusterParts.push(`区块买入比: \`${this.formatPercent(pf.walletClusterMaxBlockBuyRatio)}\``);
+        ratioParts.push(`区块买入比: \`${this.formatPercent(pf.walletClusterMaxBlockBuyRatio)}\``);
       }
-      if (clusterParts.length > 0) {
-        message += `🔗 ${statusIcon}${clusterParts.join(' | ')}\n`;
+      if (ratioParts.length > 0) {
+        message += `🔗 ${statusIcon}${ratioParts.join(' | ')}\n`;
       }
-    }
 
-    // Twitter（紧凑一行）
-    if (pf.twitterTotalResults !== undefined && pf.twitterTotalResults > 0) {
-      const twitterParts = [];
-      if (pf.twitterTotalResults !== undefined) {
-        twitterParts.push(`搜索结果: \`${pf.twitterTotalResults}\``);
+      // 第二行：簇大小指标
+      const sizeParts = [];
+      if (pf.walletClusterCount !== undefined) {
+        sizeParts.push(`簇数量: \`${pf.walletClusterCount}\``);
       }
-      if (pf.twitterQualityTweets !== undefined) {
-        twitterParts.push(`优质推文: \`${pf.twitterQualityTweets}\``);
+      if (pf.walletClusterMaxSize !== undefined && pf.walletClusterMaxSize !== null) {
+        sizeParts.push(`最大簇大小: \`${pf.walletClusterMaxSize}\``);
       }
-      if (pf.twitterTotalEngagement !== undefined) {
-        twitterParts.push(`总互动量: \`${this.formatNumber(pf.twitterTotalEngagement)}\``);
+      if (pf.walletClusterAvgSize !== undefined && pf.walletClusterAvgSize !== null) {
+        sizeParts.push(`平均簇大小: \`${this.formatNumber(pf.walletClusterAvgSize)}\``);
       }
-      if (twitterParts.length > 0) {
-        message += `🐦 ${twitterParts.join(' | ')}\n`;
+      if (pf.walletClusterTotalBuyAmount !== undefined && pf.walletClusterTotalBuyAmount !== null) {
+        sizeParts.push(`总买入: \`$${this.formatNumber(pf.walletClusterTotalBuyAmount)}\``);
+      }
+      if (sizeParts.length > 0) {
+        message += `   ${sizeParts.join(' | ')}\n`;
       }
     }
 
@@ -216,6 +242,12 @@ class TelegramNotifier {
       const traderParts = [];
       if (pf.strongTraderNetPositionRatio !== undefined && pf.strongTraderNetPositionRatio !== null) {
         traderParts.push(`净持仓比: \`${this.formatPercent(pf.strongTraderNetPositionRatio)}\``);
+      }
+      if (pf.strongTraderBuyRatio !== undefined && pf.strongTraderBuyRatio !== null) {
+        traderParts.push(`买入占比: \`${this.formatPercent(pf.strongTraderBuyRatio)}\``);
+      }
+      if (pf.strongTraderSellRatio !== undefined && pf.strongTraderSellRatio !== null) {
+        traderParts.push(`卖出占比: \`${this.formatPercent(pf.strongTraderSellRatio)}\``);
       }
       if (pf.strongTraderWalletCount !== undefined) {
         traderParts.push(`钱包数: \`${pf.strongTraderWalletCount}个\``);
