@@ -146,10 +146,12 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
   const sections = [];
 
   // 1. 代币基本信息
+  const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
   sections.push(`你是代币叙事质量检测器。请判断以下代币是否存在低质量问题。
 
 【代币信息】
-- 代币名称：${tokenData.symbol}
+- 代币Symbol：${tokenData.symbol}
+${tokenName ? `- 代币Name：${tokenName}` : ''}
 - 代币地址：${tokenData.address}`);
 
   // 显示介绍信息
@@ -319,23 +321,35 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
   - 示例：推文中反复出现"to the moon" → 实体包括"to the moon"
 ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 
-**步骤2.2：检查代币名是否在核心实体中**（推文/Website/Amazon/Twitter账号）
+**步骤2.2：检查代币Symbol/Name是否在核心实体中**（推文/Website/Amazon/Twitter账号）
+
+⚠️ **核心规则：Symbol或Name满足一个即可算匹配！**
+
+- ⚠️ **分别检查Symbol和Name**：
+  - 如果代币有Symbol（如"B4"）和Name（如"BUILD4"），需要**分别**检查两者是否在实体中
+  - 只要Symbol或Name中**有一个**在实体中 → 算匹配，继续执行第三阶段
+  - 只有Symbol和Name都**不在**实体中 → 算不匹配，返回pass=false, stage=2
+
 - ⚠️ **只做精确字符串匹配，不做推理或联想**
-- ⚠️ **必须是完整匹配**：代币名必须**完整地**出现在实体列表中才算匹配
-  - 示例：代币名"BNB Memoirs" → 实体必须包含"BNB Memoirs"才算匹配
-  - 示例：实体只有"BNB" → **不算匹配**（只是部分包含）
-  - 示例：代币名"Trump2024" → 实体包含"Trump" → **不算匹配**（必须完整包含"Trump2024"）
-- **名称匹配不分大小写**：代币名"MEMEFATHER"与语料中的"Memefather"匹配
+- ⚠️ **必须是完整匹配**：Symbol或Name必须**完整地**出现在实体列表中才算匹配
+  - 示例：Symbol="B4", Name="BUILD4" → 实体包含"BUILD4" → **匹配**（Name匹配）
+  - 示例：Symbol="B4", Name="BUILD4" → 实体只包含"B" → **不算匹配**（只是部分包含）
+  - 示例：Symbol="Trump2024", Name="Trump2024" → 实体包含"Trump" → **不算匹配**（必须完整包含）
+  - 示例：Symbol="B4", Name="BUILD4" → 实体包含"Build4" → **匹配**（Name大小写不敏感）
+  - 示例：Symbol="B4", Name="BUILD4" → 实体包含"B4" → **匹配**（Symbol匹配）
+
+- **名称匹配不分大小写**：代币Name"MEMEFATHER"与语料中的"Memefather"匹配
 - **中英文对应也算匹配**：
-  - **地名对应**：代币名"东莞崇英学校"与语料中的"Dongguan Chongying School"匹配
-  - **产品/服务名称对应**：代币名"币安VIP"与语料中的"Binance VIP"匹配
-  - **品牌名称对应**：代币名"特斯拉"与语料中的"Tesla"匹配
+  - **地名对应**：代币Name"东莞崇英学校"与语料中的"Dongguan Chongying School"匹配
+  - **产品/服务名称对应**：代币Name"币安VIP"与语料中的"Binance VIP"匹配
+  - **品牌名称对应**：代币Name"特斯拉"与语料中的"Tesla"匹配
+
 - **meme币的本质**：meme币就是借助语料中的实体/概念来传播的
-  - 示例：推文称Elon Musk为"Memefather"，代币名"MEMEFATHER" → 匹配
-  - 示例：Amazon书籍标题"Freedom of speech"，代币名"Freedom of speech" → 匹配
-  - 示例：Website核心实体是"Binance VIP"，代币名"币安VIP" → 匹配（中英文对应）
-  - 示例：Website核心实体是"Duck"，代币名"DUCK" → 匹配
-  - 示例：推文说"饰演CZ"，代币名"CZ" → 匹配（CZ是加密圈核心人物）
+  - 示例：Symbol="MEME", Name="MEMEFATHER" → 实体包含"Memefather" → 匹配（Name匹配）
+  - 示例：Amazon书籍标题"Freedom of speech"，代币Name"Freedom of speech" → 匹配
+  - 示例：Website核心实体是"Binance VIP"，代币Name"币安VIP" → 匹配（中英文对应）
+  - 示例：Website核心实体是"Duck"，代币Name"DUCK" → 匹配
+  - 示例：推文说"饰演CZ"，代币Name"CZ" → 匹配（CZ是加密圈核心人物）
 
 ⛔ **以下情况不算匹配**：
 - **拼音首字母缩写**：代币名"HY"（何一拼音首字母）vs 实体"CZ" → 不匹配
@@ -361,10 +375,10 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 
 **步骤2.3：根据匹配结果执行**
 
-- ⚠️ **如果代币名不在核心实体中（未满足步骤2.2的匹配规则）** → **立即返回pass=false, stage=2**
-  - 理由：代币名不在核心实体中 = 无相关性 = 无法形成meme传播
-- ⚠️ **如果代币名在核心实体中（满足步骤2.2的匹配规则）** → 继续执行第三阶段
-  - 理由：代币名在核心实体中 = 有相关性 = 需要进一步检查质量
+- ⚠️ **如果Symbol和Name都不在核心实体中（未满足步骤2.2的匹配规则）** → **立即返回pass=false, stage=2**
+  - 理由：Symbol和Name都不在核心实体中 = 无相关性 = 无法形成meme传播
+- ⚠️ **如果Symbol或Name在核心实体中（满足步骤2.2的匹配规则）** → 继续执行第三阶段
+  - 理由：有名称匹配 = 有相关性 = 需要进一步检查质量
 
 ⛔ **禁止行为**：
 - 一旦发现代币名不在核心实体中，**立即停止分析，直接返回pass=false**
@@ -492,14 +506,14 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 **第一阶段触发：内容空洞/无意义事件**
 {"pass": false, "stage": 1, "reason": "所有语料内容空洞/事件无意义", "entities": {...}}
 
-**第二阶段触发：无相关性（代币名不在核心实体中）**
-{"pass": false, "stage": 2, "reason": "代币名不在核心实体中，无相关性", "entities": {...}}
+**第二阶段触发：无相关性（Symbol和Name都不在核心实体中）**
+{"pass": false, "stage": 2, "reason": "Symbol和Name都不在核心实体中，无相关性", "entities": {...}}
 
 **第三阶段触发：有相关性但质量低**
 {"pass": false, "stage": 3, "scenario": 1-6, "reason": "说明理由", "entities": {...}}
 
 **最终通过：有相关性且质量过关**
-{"pass": true, "stage": 0, "reason": "代币名在核心实体中，且无低质量问题", "entities": {"tweet1": ["实体1", ...], "quoted_tweet": [...], "website": [...], "amazon": [...], "twitter_account": [...]}}
+{"pass": true, "stage": 0, "reason": "Symbol或Name在核心实体中，且无低质量问题", "entities": {"tweet1": ["实体1", ...], "quoted_tweet": [...], "website": [...], "amazon": [...], "twitter_account": [...]}}
 
 ⚠️ **entities字段必须包含每条语料的核心实体列表**：
 - "tweet1": 主推文的实体列表

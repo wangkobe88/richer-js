@@ -52,6 +52,7 @@ export function buildDetailedScoringPrompt(tokenData, fetchResults) {
 
   // 计算代币名称的字数（用于评分参考）
   const symbol = tokenData.symbol || '';
+  const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
   // 简单计算：中文字符+所有其他字符都算（包含空格、标点）
   const charCount = symbol.length;
 
@@ -72,7 +73,7 @@ export function buildDetailedScoringPrompt(tokenData, fetchResults) {
 - ❌ 对于找角度的推文，不要因"推文作者粉丝少/互动少"而减分
 
 【代币信息】
-- 代币名称：${tokenData.symbol}（${charCount}字符）
+- 代币Symbol：${tokenData.symbol}${tokenName ? ` (${tokenName})` : ''}（${charCount}字符）
 - 代币地址：${tokenData.address}
 - 所属链：${chainName}${chainName === 'BSC' ? '（币安智能链，CZ/何一相关叙事适用溢价规则）' : ''}`);
 

@@ -373,6 +373,9 @@ async function getTweetDetailGraphQL(tweetId) {
         plain_text: articleResult.plain_text || null
       } : null,
 
+      // Community 数据（如果有）
+      community_results: tweetResult.community_results || null,
+
       // 引用推文数据（如果有）
       quoted_status: tweetResult.quoted_status_result ? _parseQuotedTweet(tweetResult.quoted_status_result.result || tweetResult.quoted_status_result) : null
     };

@@ -23,6 +23,7 @@ import { PromptBuilder } from './prompt-builder.mjs';
 import { LLMClient } from './llm-client.mjs';
 import { extractAllUrls, classifyAllUrls, selectBestUrls } from '../utils/url-classifier.mjs';
 import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from './prompts/account-backgrounds.mjs';
+import { fetchCommunityForTweet } from '../../utils/twitter-validation/communities-api.js';
 import { getLogger } from '../core/logger.mjs';
 
 // 获取supabase客户端
@@ -968,6 +969,70 @@ export class NarrativeAnalyzer {
       }
     }
 
+    // 规则6：Twitter社区名称匹配（成员数>15）→ unrated
+    // 检查条件：
+    // 1. 推文属于某个Twitter Community，或URL本身就是社区链接
+    // 2. 社区名称与代币名称匹配
+    // 3. 社区成员数 > 15
+
+    // 名称匹配函数
+    const isNameMatch = (token, community) => {
+      if (!token || !community) return false;
+      // 精确匹配
+      if (token === community) return true;
+      // 包含匹配（代币名包含社区名 或 社区名包含代币名）
+      if (community.includes(token) || token.includes(community)) return true;
+      return false;
+    };
+
+    // 情况1: twitterInfo本身就是community类型（直接从社区链接获取）
+    if (twitterInfo?.type === 'community' && twitterInfo.community_results) {
+      const communityData = twitterInfo.community_results;
+      const tokenName = (tokenData.symbol || tokenData.name || '').toLowerCase().trim();
+      const communityName = (communityData.name || '').toLowerCase().trim();
+      const memberCount = communityData.members_count || 0;
+
+      if (isNameMatch(tokenName, communityName) && memberCount > 15) {
+        console.log(`[NarrativeAnalyzer] 规则6触发: Twitter社区匹配 (代币:${tokenName}, 社区:${communityName}, 成员:${memberCount})`);
+        return {
+          category: 'unrated',
+          reasoning: `代币属于Twitter社区"${communityData.name}"(${memberCount.toLocaleString()}成员)，与代币名"${tokenData.symbol || tokenData.name}"匹配，无法评估社区叙事潜力`,
+          scores: null,
+          total_score: null,
+          preCheckTriggered: true,
+          preCheckReason: 'community_match'
+        };
+      }
+    }
+
+    // 情况2: twitterInfo是tweet类型，包含community_results（从推文获取）
+    if (twitterInfo?.type === 'tweet') {
+      try {
+        const communityData = await fetchCommunityForTweet(twitterInfo);
+
+        if (communityData) {
+          const tokenName = (tokenData.symbol || tokenData.name || '').toLowerCase().trim();
+          const communityName = (communityData.name || '').toLowerCase().trim();
+          const memberCount = communityData.members_count || 0;
+
+          if (isNameMatch(tokenName, communityName) && memberCount > 15) {
+            console.log(`[NarrativeAnalyzer] 规则6触发: Twitter社区匹配 (代币:${tokenName}, 社区:${communityName}, 成员:${memberCount})`);
+            return {
+              category: 'unrated',
+              reasoning: `推文属于Twitter社区"${communityData.name}"(${memberCount.toLocaleString()}成员)，与代币名"${tokenData.symbol || tokenData.name}"匹配，无法评估社区叙事潜力`,
+              scores: null,
+              total_score: null,
+              preCheckTriggered: true,
+              preCheckReason: 'community_match'
+            };
+          }
+        }
+      } catch (err) {
+        // 获取社区信息失败，记录警告但不阻断流程
+        console.warn('[NarrativeAnalyzer] 获取Twitter社区信息失败:', err.message);
+      }
+    }
+
     return null; // 通过预检查，继续LLM分析
   }
 
@@ -1128,6 +1193,9 @@ export class NarrativeAnalyzer {
       // 优先选择 tweet 类型
       const tweet = classifiedUrls.twitter.find(u => u.type === 'tweet');
       if (tweet) return tweet;
+      // 其次选择 community 类型
+      const community = classifiedUrls.twitter.find(u => u.type === 'community');
+      if (community) return community;
       // 否则返回第一个（可能是 account）
       return classifiedUrls.twitter[0];
     };
@@ -1143,7 +1211,44 @@ export class NarrativeAnalyzer {
     if (twitterUrlInfo) {
       const twitterFetch = await this._recordDataFetch(
         async () => {
-          let info = await TwitterFetcher.fetchFromUrls(twitterUrlInfo.url, null);
+          let info;
+
+          // 特殊处理：Twitter Community 链接
+          if (twitterUrlInfo.type === 'community') {
+            console.log('[NarrativeAnalyzer] 检测到Twitter Community链接，获取社区信息');
+            try {
+              // 从URL中提取community ID
+              const communityIdMatch = twitterUrlInfo.url.match(/\/communities\/(\d+)/);
+              if (communityIdMatch) {
+                const communityId = communityIdMatch[1];
+                const { fetchCommunityById } = await import('../../utils/twitter-validation/communities-api.js');
+                info = await fetchCommunityById(communityId);
+
+                if (info) {
+                  // 将社区信息转换为twitter_info兼容格式
+                  info = {
+                    type: 'community',
+                    name: info.name,
+                    description: info.description,
+                    members_count: info.members_count,
+                    moderators_count: info.moderators_count,
+                    rules: info.rules,
+                    avatar_image_url: info.avatar_image_url,
+                    banner_image_url: info.banner_image_url,
+                    created_at: info.created_at,
+                    // 保留原始community数据用于后续分析
+                    community_results: info
+                  };
+                  console.log(`[NarrativeAnalyzer] 成功获取Twitter社区: "${info.name}" (${info.members_count}成员)`);
+                }
+              }
+            } catch (err) {
+              console.warn('[NarrativeAnalyzer] 获取Twitter社区信息失败:', err.message);
+            }
+          } else {
+            // 常规推文/账号获取
+            info = await TwitterFetcher.fetchFromUrls(twitterUrlInfo.url, null);
+          }
 
           // 如果成功获取推文，尝试获取推文中的链接内容
           if (info && info.text) {
@@ -1665,6 +1770,11 @@ export class NarrativeAnalyzer {
       // 检查账号信息（只要有账号信息就算有效数据，让 LLM 来判断质量）
       if (twitterInfo.type === 'account') {
         // 只要是账号类型就算有效数据（账号名、粉丝数、发帖数都是信息）
+        return true;
+      }
+      // 检查社区信息（社区数据也算有效数据）
+      if (twitterInfo.type === 'community') {
+        // 社区名称、成员数、描述都是信息
         return true;
       }
     }

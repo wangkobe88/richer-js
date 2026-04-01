@@ -95,6 +95,10 @@ export class TwitterFetcher {
       }
 
       const rawCreatedAt = tweetData.created_at || tweetData.createdTimeStamp || null;
+
+      // 统一处理媒体数据格式
+      const normalizedMedia = TwitterFetcher.normalizeMediaData(tweetData);
+
       const result = {
         type: 'tweet',
         text: tweetData.text,
@@ -110,8 +114,10 @@ export class TwitterFetcher {
           favorite_count: tweetData.favorite_count || tweetData.likeCount || 0,
           retweet_count: tweetData.retweet_count || tweetData.retweetCount || 0
         },
-        // 媒体信息
-        media: tweetData.media || null
+        // 媒体信息（统一格式）
+        media: normalizedMedia,
+        // Community数据（保留原始格式用于后续分析）
+        community_results: tweetData.community_results || null
       };
 
       // 处理 Article 数据
@@ -136,6 +142,7 @@ export class TwitterFetcher {
       if (tweetData.quoted_status) {
         const quoted = tweetData.quoted_status;
         const rawCreatedAt = quoted.created_at || quoted.createdTimeStamp || null;
+        const quotedMedia = TwitterFetcher.normalizeMediaData(quoted);
         result.quoted_status = {
           text: quoted.text,
           author_name: quoted.user?.name || null,
@@ -149,7 +156,7 @@ export class TwitterFetcher {
             favorite_count: quoted.likeCount || 0,
             retweet_count: quoted.retweetCount || 0
           },
-          media: quoted.media || null
+          media: quotedMedia
         };
         console.log(`[TwitterFetcher] 检测到引用推文: @${result.quoted_status.author_screen_name} - ${result.quoted_status.text.substring(0, 50)}...`);
       }
@@ -175,13 +182,15 @@ export class TwitterFetcher {
           if (originalTweet && originalTweet.text) {
             console.log(`[TwitterFetcher] 成功获取原始推文: ${originalTweet.text.substring(0, 50)}...`);
             const rawCreatedAt = originalTweet.created_at || null;
+            const originalMedia = TwitterFetcher.normalizeMediaData(originalTweet);
             result.in_reply_to = {
               text: originalTweet.text,
               author_name: originalTweet.user?.name || null,
               author_screen_name: originalTweet.user?.screen_name || null,
               created_at: rawCreatedAt,
               formatted_created_at: formatTwitterTime(rawCreatedAt),
-              tweet_id: replyToTweetId
+              tweet_id: replyToTweetId,
+              media: originalMedia
             };
           }
         } catch (err) {
@@ -371,6 +380,39 @@ export class TwitterFetcher {
       ...tweetInfo,
       link_content: linkContent
     };
+  }
+
+  /**
+   * 统一处理媒体数据格式
+   * getTweetDetail 返回 medias (字符串数组)
+   * getTweetDetailGraphQL 返回 media (对象，包含images/videos/has_media)
+   *
+   * @param {Object} tweetData - 原始推文数据
+   * @returns {Object|null} 统一格式的媒体对象
+   */
+  static normalizeMediaData(tweetData) {
+    if (!tweetData) return null;
+
+    // 情况1: GraphQL API 返回的 media 对象（已有正确格式）
+    if (tweetData.media && typeof tweetData.media === 'object') {
+      return tweetData.media;
+    }
+
+    // 情况2: getTweetDetail 返回的 medias 数组（字符串数组）
+    if (tweetData.medias && Array.isArray(tweetData.medias) && tweetData.medias.length > 0) {
+      const images = tweetData.medias
+        .filter(url => typeof url === 'string' && url.length > 0)
+        .map(url => ({ url }));
+
+      return {
+        images: images,
+        videos: [],
+        has_media: images.length > 0
+      };
+    }
+
+    // 没有媒体
+    return null;
   }
 }
 

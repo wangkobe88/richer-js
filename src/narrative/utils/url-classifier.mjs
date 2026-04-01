@@ -79,6 +79,12 @@ export function classifyUrl(url) {
     return { type: 'account', platform: 'twitter', priority: 2, url };
   }
 
+  // Twitter/X (社区)
+  if (_isTwitterCommunityUrl(url)) {
+    console.log(`[UrlClassifier] URL识别为Twitter社区: ${url}`);
+    return { type: 'community', platform: 'twitter', priority: 1, url };
+  }
+
   // 微博
   if (_isWeiboUrl(url)) {
     return { type: 'post', platform: 'weibo', priority: 1, url };
@@ -272,6 +278,12 @@ function _isTwitterAccountUrl(url) {
   } catch {
     return false;
   }
+}
+
+function _isTwitterCommunityUrl(url) {
+  // 匹配 Twitter Community 链接
+  // 格式：https://x.com/i/communities/123456789
+  return /^https?:\/\/(www\.)?(twitter|x)\.com\/i\/communities\/\d+/.test(url);
 }
 
 function _isWeiboUrl(url) {

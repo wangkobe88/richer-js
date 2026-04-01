@@ -83,22 +83,24 @@ async function fetchCommunityById(communityId, options = {}) {
     const core = communityResult.core || {};
 
     // 解析 Community 信息
+    // 优先从 communityResult 直接获取字段，如果没有再从 legacy 获取
     const communityInfo = {
       // 基本信息
-      id: communityResult.rest_id || communityId,
-      name: legacy.name || '',
-      description: legacy.description || '',
-      created_at: legacy.created_at || '',
+      id: communityResult.rest_id || communityResult.id_str || communityId,
+      name: communityResult.name || legacy.name || '',
+      description: communityResult.description || legacy.description || '',
+      created_at: communityResult.created_at || legacy.created_at || '',
 
       // 管理员信息
       admins: communityResult.admins || [],
+      admin_results: communityResult.admin_results || null,
 
       // 成员统计
-      members_count: legacy.members_count || 0,
-      moderators_count: legacy.moderators_count || 0,
+      members_count: communityResult.member_count || legacy.members_count || 0,
+      moderators_count: communityResult.moderator_count || legacy.moderators_count || 0,
 
       // 规则
-      rules: legacy.rules || [],
+      rules: communityResult.rules || legacy.rules || [],
 
       // 时间线信息
       timeline: {
@@ -107,15 +109,21 @@ async function fetchCommunityById(communityId, options = {}) {
 
       // 主题标签
       hashtags: communityResult.hashtags || [],
+      search_tags: communityResult.search_tags || [],
 
       // 图片
-      avatar_image_url: legacy.avatar_image_url || '',
-      banner_image_url: legacy.banner_image_url || '',
+      avatar_image_url: communityResult.avatar_image_url || legacy.avatar_image_url || '',
+      banner_image_url: communityResult.banner_image_url || legacy.banner_image_url || '',
+
+      // 自定义banner媒体
+      custom_banner_media: communityResult.custom_banner_media || null,
 
       // 其他信息
-      is_member: legacy.is_member || false,
-      is_admin: legacy.is_admin || false,
-      can_join: legacy.can_join || false
+      is_member: communityResult.is_member ?? legacy.is_member ?? false,
+      is_admin: communityResult.is_admin ?? legacy.is_admin ?? false,
+      can_join: communityResult.can_join ?? legacy.can_join ?? false,
+      role: communityResult.role || null,
+      viewer_relationship: communityResult.viewer_relationship || null
     };
 
     console.log(`[CommunitiesAPI] 成功获取 Community: "${communityInfo.name}"`);

@@ -1,6 +1,12 @@
 /**
- * Prompt构建器 - V9.2 两阶段架构（新增地区性事件检测）
+ * Prompt构建器 - V9.3 两阶段架构（Symbol/Name分别匹配）
  * 根据实际获取的数据动态组装Prompt
+ *
+ * V9.3变更（2026-04-01）：
+ * - Prompt增加代币Name字段显示（Symbol和Name分开显示）
+ * - 第二阶段匹配规则：Symbol或Name满足一个即可匹配
+ * - 示例：Symbol="B4", Name="BUILD4" → 实体包含"BUILD4" → 匹配
+ * - 保持严格匹配：Symbol或Name必须完整匹配实体，不允许缩写/部分匹配
  *
  * V9.2变更（2026-04-01）：
  * - Stage 1 低质量检测新增场景6：地区性/本地化事件
@@ -100,7 +106,7 @@ export class PromptBuilder {
    * @returns {string} Prompt版本号
    */
   static getPromptVersion() {
-    return 'V9.2';
+    return 'V9.3';
   }
 
   /**
