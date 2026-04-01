@@ -814,13 +814,26 @@ class AbstractTradingEngine extends ITradingEngine {
 
       const result = await analysisService.analyzeToken(this._experimentId, tokenAddress);
 
-      this._logger.info(this._experimentId, 'TokenAnalysis', '代币涨幅分析完成', {
-        tokenAddress,
-        maxChangePercent: result.max_change_percent,
-        finalChangePercent: result.final_change_percent
-      });
+      // TokenAnalysisService.analyzeToken 返回 { success, data: { max_change_percent, ... } }
+      // 我们需要提取 data 部分，以便正确保存到数据库
+      const analysisData = result.success ? result.data : null;
 
-      return result;
+      if (analysisData) {
+        this._logger.info(this._experimentId, 'TokenAnalysis', '代币涨幅分析完成', {
+          tokenAddress,
+          maxChangePercent: analysisData.max_change_percent,
+          finalChangePercent: analysisData.final_change_percent,
+          dataPoints: analysisData.data_points
+        });
+
+        return analysisData;
+      } else {
+        this._logger.warn(this._experimentId, 'TokenAnalysis', '代币涨幅分析失败', {
+          tokenAddress,
+          reason: result.reason || 'unknown'
+        });
+        return null;
+      }
     } catch (error) {
       this._logger.error('计算代币涨幅分析失败', {
         tokenAddress,

@@ -858,7 +858,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           `清理过期代币: ${removed.length} 个`);
 
         // 计算被移除代币的涨幅分析
-        const removedAddresses = removed.map(t => t.token || t.address);
+        // cleanup() 返回的是字符串数组，格式为 "address-chain"，需要提取地址部分
+        const removedAddresses = removed.map(key => {
+          if (typeof key === 'string') {
+            return key.split('-')[0]; // 提取地址部分
+          }
+          return key.token || key.address || key;
+        });
         await this._calculateTokensAnalysis(removedAddresses);
       }
 
