@@ -551,6 +551,7 @@ export class NarrativeAnalyzer {
     // 如果账号名与代币名匹配，返回 unrated（无法评估项目发展潜力）
     if (twitterInfo?.type === 'account') {
       const tokenSymbol = (tokenData.symbol || '').toLowerCase().trim();
+      const tokenName = (tokenData.name || tokenData.raw_api_data?.name || '').toLowerCase().trim();
       const accountScreenName = (twitterInfo.screen_name || '').toLowerCase().trim();
       const accountName = (twitterInfo.name || '').toLowerCase().trim();
 
@@ -565,10 +566,14 @@ export class NarrativeAnalyzer {
         return clean1.includes(clean2) || clean2.includes(clean1);
       };
 
-      // 检查代币名与账号名是否匹配
-      if (isMatch(tokenSymbol, accountScreenName) || isMatch(tokenSymbol, accountName)) {
+      // 检查代币Symbol或Name与账号名是否匹配（满足一个即可）
+      const symbolMatch = isMatch(tokenSymbol, accountScreenName) || isMatch(tokenSymbol, accountName);
+      const nameMatch = tokenName && (isMatch(tokenName, accountScreenName) || isMatch(tokenName, accountName));
+
+      if (symbolMatch || nameMatch) {
         const screenName = twitterInfo.screen_name || accountScreenName;
-        console.log(`[NarrativeAnalyzer] 预检查触发: 项目币账号名匹配 (代币:${tokenSymbol}, 账号:@${screenName})`);
+        const matchedTokenName = symbolMatch ? tokenSymbol : tokenName;
+        console.log(`[NarrativeAnalyzer] 预检查触发: 项目币账号名匹配 (代币:${matchedTokenName}, 账号:@${screenName})`);
         return {
           category: 'unrated',
           reasoning: `项目币账号名匹配（@${screenName}），发展情况不明，无法评估meme潜力`,
