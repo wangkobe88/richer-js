@@ -75,6 +75,9 @@ class TelegramNotifier {
     const tokenSymbol = signal.token_symbol || 'UNKNOWN';
     const shortAddress = this.shortenAddress(signal.token_address);
 
+    // 构建因子状态映射（用于颜色编码）
+    const factorStatus = this._buildFactorStatusMap(pr.failedConditions || [], pr.canBuy);
+
     // 消息头部（紧凑格式）
     let message = `${statusIcon} *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}
 
@@ -117,8 +120,10 @@ class TelegramNotifier {
       }
     }
 
-    // 持有者检查（紧凑一行）
+    // 持有者检查（紧凑一行，带状态）
     if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined) {
+      const holderStatus = factorStatus.get('holderBlacklistCount');
+      const statusIcon = holderStatus === 'pass' ? '✅' : holderStatus === 'fail' ? '❌' : '';
       const holderParts = [];
       if (pf.holderWhitelistCount !== undefined) {
         holderParts.push(`白: \`${pf.holderWhitelistCount}\``);
@@ -129,30 +134,85 @@ class TelegramNotifier {
       if (pf.devHoldingRatio !== undefined && pf.devHoldingRatio !== null) {
         holderParts.push(`Dev: \`${this.formatPercent(pf.devHoldingRatio)}\``);
       }
+      if (pf.maxHoldingRatio !== undefined && pf.maxHoldingRatio !== null) {
+        holderParts.push(`最大: \`${this.formatPercent(pf.maxHoldingRatio)}\``);
+      }
       if (holderParts.length > 0) {
-        message += `👥 ${holderParts.join(' | ')}\n`;
+        message += `👥 ${statusIcon}${holderParts.join(' | ')}\n`;
       }
     }
 
-    // 早期交易（紧凑一行）
+    // 早期交易（紧凑一行，带状态）
     if (pf.earlyTradesChecked === 1 && pf.earlyTradesCountPerMin !== undefined) {
+      const tradeStatus = factorStatus.get('earlyTradesCountPerMin') || factorStatus.get('earlyTradesVolumePerMin');
+      const statusIcon = tradeStatus === 'pass' ? '✅' : tradeStatus === 'fail' ? '❌' : '';
       const tradeParts = [];
       if (pf.earlyTradesCountPerMin !== undefined && pf.earlyTradesCountPerMin !== null) {
         tradeParts.push(`笔/分: \`${this.formatNumber(pf.earlyTradesCountPerMin)}\``);
       }
-      if (pf.walletClusterMegaRatio !== undefined && pf.walletClusterMegaRatio !== null) {
-        tradeParts.push(`Mega比: \`${this.formatNumber(pf.walletClusterMegaRatio)}\``);
+      if (pf.earlyTradesVolumePerMin !== undefined && pf.earlyTradesVolumePerMin !== null) {
+        tradeParts.push(`量/分: \`${this.formatNumber(pf.earlyTradesVolumePerMin)}\``);
       }
-      if (pf.walletClusterSecondToFirstRatio !== undefined && pf.walletClusterSecondToFirstRatio !== null) {
-        tradeParts.push(`2/1比: \`${this.formatNumber(pf.walletClusterSecondToFirstRatio)}\``);
+      if (pf.earlyTradesWalletsPerMin !== undefined && pf.earlyTradesWalletsPerMin !== null) {
+        tradeParts.push(`钱包/分: \`${this.formatNumber(pf.earlyTradesWalletsPerMin)}\``);
+      }
+      if (pf.earlyTradesFinalLiquidity !== undefined && pf.earlyTradesFinalLiquidity !== null) {
+        tradeParts.push(`流动性: \`$${this.formatNumber(pf.earlyTradesFinalLiquidity)}\``);
+      }
+      if (pf.earlyTradesDrawdownFromHighest !== undefined && pf.earlyTradesDrawdownFromHighest !== null) {
+        tradeParts.push(`回撤: \`${this.formatPercent(pf.earlyTradesDrawdownFromHighest)}\``);
       }
       if (tradeParts.length > 0) {
-        message += `💪 ${tradeParts.join(' | ')}\n`;
+        message += `💪 ${statusIcon}${tradeParts.join(' | ')}\n`;
       }
     }
 
-    // 强势交易者（紧凑一行）
+    // 钱包簇（紧凑一行，带状态）
+    if (pf.walletClusterCount !== undefined) {
+      const clusterStatus = factorStatus.get('walletClusterSecondToFirstRatio') || factorStatus.get('walletClusterMegaRatio');
+      const statusIcon = clusterStatus === 'pass' ? '✅' : clusterStatus === 'fail' ? '❌' : '';
+      const clusterParts = [];
+      if (pf.walletClusterCount !== undefined) {
+        clusterParts.push(`簇数: \`${pf.walletClusterCount}\``);
+      }
+      if (pf.walletClusterSecondToFirstRatio !== undefined && pf.walletClusterSecondToFirstRatio !== null) {
+        clusterParts.push(`2/1比: \`${this.formatPercent(pf.walletClusterSecondToFirstRatio)}\``);
+      }
+      if (pf.walletClusterMegaRatio !== undefined && pf.walletClusterMegaRatio !== null) {
+        clusterParts.push(`Mega: \`${this.formatNumber(pf.walletClusterMegaRatio)}\``);
+      }
+      if (pf.walletClusterTop2Ratio !== undefined && pf.walletClusterTop2Ratio !== null) {
+        clusterParts.push(`Top2: \`${this.formatPercent(pf.walletClusterTop2Ratio)}\``);
+      }
+      if (pf.walletClusterMaxBlockBuyRatio !== undefined && pf.walletClusterMaxBlockBuyRatio !== null) {
+        clusterParts.push(`区块买入: \`${this.formatPercent(pf.walletClusterMaxBlockBuyRatio)}\``);
+      }
+      if (clusterParts.length > 0) {
+        message += `🔗 ${statusIcon}${clusterParts.join(' | ')}\n`;
+      }
+    }
+
+    // Twitter（紧凑一行）
+    if (pf.twitterTotalResults !== undefined && pf.twitterTotalResults > 0) {
+      const twitterParts = [];
+      if (pf.twitterTotalResults !== undefined) {
+        twitterParts.push(`结果: \`${pf.twitterTotalResults}\``);
+      }
+      if (pf.twitterQualityTweets !== undefined) {
+        twitterParts.push(`优质: \`${pf.twitterQualityTweets}\``);
+      }
+      if (pf.twitterTotalEngagement !== undefined) {
+        twitterParts.push(`互动: \`${this.formatNumber(pf.twitterTotalEngagement)}\``);
+      }
+      if (twitterParts.length > 0) {
+        message += `🐦 ${twitterParts.join(' | ')}\n`;
+      }
+    }
+
+    // 强势交易者（紧凑一行，带状态）
     if (pf.strongTraderTradeCount !== undefined && pf.strongTraderTradeCount > 0) {
+      const traderStatus = factorStatus.get('strongTraderNetPositionRatio');
+      const statusIcon = traderStatus === 'pass' ? '✅' : traderStatus === 'fail' ? '❌' : '';
       const traderParts = [];
       if (pf.strongTraderNetPositionRatio !== undefined && pf.strongTraderNetPositionRatio !== null) {
         traderParts.push(`净持仓: \`${this.formatPercent(pf.strongTraderNetPositionRatio)}\``);
@@ -160,14 +220,41 @@ class TelegramNotifier {
       if (pf.strongTraderWalletCount !== undefined) {
         traderParts.push(`钱包: \`${pf.strongTraderWalletCount}个\``);
       }
+      if (pf.strongTraderTradeCount !== undefined) {
+        traderParts.push(`交易: \`${pf.strongTraderTradeCount}笔\``);
+      }
+      if (pf.strongTraderSellIntensity !== undefined && pf.strongTraderSellIntensity !== null) {
+        traderParts.push(`卖出强度: \`${this.formatNumber(pf.strongTraderSellIntensity)}\``);
+      }
       if (traderParts.length > 0) {
-        message += `💎 ${traderParts.join(' | ')}\n`;
+        message += `💎 ${statusIcon}${traderParts.join(' | ')}\n`;
+      }
+    }
+
+    // 叙事评级（紧凑一行，带状态）
+    if (pf.narrativeRating !== undefined && pf.narrativeRating !== 9) {
+      const narrativeStatus = factorStatus.get('narrativeRating');
+      const statusIcon = narrativeStatus === 'pass' ? '✅' : narrativeStatus === 'fail' ? '❌' : '';
+      const ratingLabels = { 1: '低', 2: '中', 3: '高', 9: '未评级' };
+      const ratingText = ratingLabels[pf.narrativeRating] || `${pf.narrativeRating}`;
+      message += `📖 ${statusIcon}叙事: \`${ratingText}\`\n`;
+    }
+
+    // 多次交易因子（紧凑一行）
+    if (pf.buyRound !== undefined && pf.buyRound > 1) {
+      const tradeParts = [];
+      tradeParts.push(`轮次: \`第${pf.buyRound}轮\``);
+      if (pf.lastPairReturnRate !== undefined && pf.lastPairReturnRate !== null) {
+        tradeParts.push(`上一对: \`${this.formatPercent(pf.lastPairReturnRate)}\``);
+      }
+      if (tradeParts.length > 0) {
+        message += `🔄 ${tradeParts.join(' | ')}\n`;
       }
     }
 
     // 拒绝原因
     if (!executed) {
-      const executionReason = metadata.execution_reason || signal.execution_reason || pr.canBuy === false ? '预检查失败' : '未知原因';
+      const executionReason = metadata.execution_reason || signal.execution_reason || pr.checkReason || '未知原因';
       message += `🚫 ${executionReason}\n`;
     }
 
@@ -179,6 +266,53 @@ class TelegramNotifier {
     message += `🔗 [GMGN](${gmgnUrl}) | [信号](${signalsUrl})`;
 
     return message;
+  }
+
+  /**
+   * 构建因子状态映射（用于颜色编码）
+   * @param {Array} failedConditions - 失败的条件列表
+   * @param {boolean} canBuy - 是否可以购买
+   * @returns {Map} 因子名 -> 状态 ('pass' | 'fail' | 'unknown')
+   * @private
+   */
+  _buildFactorStatusMap(failedConditions, canBuy) {
+    const statusMap = new Map();
+
+    // 如果可以购买，所有条件都通过
+    if (canBuy) {
+      for (const condition of failedConditions) {
+        if (condition.factorName && !condition.isSubFactor) {
+          statusMap.set(condition.factorName, 'pass');
+        }
+      }
+      return statusMap;
+    }
+
+    // 如果不能购买，根据failedConditions判断每个因子的状态
+    for (const condition of failedConditions) {
+      if (condition.isComplex) {
+        // 复杂条件：检查其子因子
+        continue;
+      }
+
+      if (condition.isSubFactor) {
+        // 子因子：不设置状态（只有复杂条件才有状态）
+        continue;
+      }
+
+      if (condition.factorName) {
+        // 根据satisfied字段设置状态
+        if (condition.satisfied === true) {
+          statusMap.set(condition.factorName, 'pass');
+        } else if (condition.satisfied === false) {
+          statusMap.set(condition.factorName, 'fail');
+        } else {
+          statusMap.set(condition.factorName, 'unknown');
+        }
+      }
+    }
+
+    return statusMap;
   }
 
   /**

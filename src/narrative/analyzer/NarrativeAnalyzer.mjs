@@ -2294,9 +2294,8 @@ export class NarrativeAnalyzer {
           temperature: 0,
           max_tokens: 2000,
           top_p: 1,
-          presence_penalty: 0,
-          frequency_penalty: 0,
-          seed: 42
+          top_k: 50,
+          frequency_penalty: 0
         }),
         signal: controller.signal
       });

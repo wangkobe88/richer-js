@@ -123,6 +123,11 @@ import { buildWeixinSection } from './sections/weixin-section.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
 /**
+ * Prompt版本号（集中管理，修改时请同步更新文件顶部的版本注释）
+ */
+export const STAGE1_PROMPT_VERSION = 'V11.6';
+
+/**
  * 构建Stage 1低质量检测Prompt
  * @param {Object} tokenData - 代币数据
  * @param {Object} fetchResults - 获取的数据结果

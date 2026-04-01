@@ -100,7 +100,7 @@ import { buildAmazonSection } from './prompts/sections/amazon-section.mjs';
 import { generateAccountBackgroundsPrompt } from './prompts/account-backgrounds.mjs';
 
 // Stage 1: 低质量检测
-import { buildLowQualityDetectionPrompt } from './prompts/low-quality-detection.mjs';
+import { buildLowQualityDetectionPrompt, STAGE1_PROMPT_VERSION } from './prompts/low-quality-detection.mjs';
 
 // Stage 2: 详细评分
 import { buildDetailedScoringPrompt } from './prompts/detailed-scoring.mjs';
@@ -108,11 +108,11 @@ import { buildDetailedScoringPrompt } from './prompts/detailed-scoring.mjs';
 export class PromptBuilder {
 
   /**
-   * 获取Prompt版本
+   * 获取Prompt版本（从 low-quality-detection.mjs 集中管理）
    * @returns {string} Prompt版本号
    */
   static getPromptVersion() {
-    return 'V9.5';
+    return STAGE1_PROMPT_VERSION;
   }
 
   /**

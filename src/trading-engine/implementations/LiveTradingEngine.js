@@ -1138,6 +1138,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
         for (const t of removedInactive) {
           await this._updateTokenStatus(t.address, t.chain, 'inactive');
         }
+        // 计算被清理代币的涨幅分析
+        const inactiveAddresses = removedInactive.map(t => t.token || t.address);
+        await this._calculateTokensAnalysis(inactiveAddresses);
       }
 
       // 清理过期代币
