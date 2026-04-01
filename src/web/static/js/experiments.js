@@ -719,12 +719,42 @@ class ExperimentMonitor {
         backtest: config.backtest || config.backtestConfig,
 
         // 虚拟交易配置
-        virtual: config.virtual || config.virtualConfig
+        virtual: config.virtual || config.virtualConfig,
+
+        // 平台选择
+        platform: config.platform || 'fourmeme'
       };
 
       // 添加 initial_balance 从 virtual 配置中获取
       if (config.virtual) {
         copyData.initial_balance = config.virtual.initialBalance || config.virtual.initial_balance || 100;
+      }
+
+      // 添加 strategiesConfig 中的高级配置
+      if (config.strategiesConfig) {
+        const sc = config.strategiesConfig;
+
+        // 叙事分析配置
+        if (sc.narrativeAnalysis) {
+          copyData.narrativeAnalysis = sc.narrativeAnalysis;
+        }
+
+        // 统计配置
+        if (sc.stats) {
+          copyData.stats = sc.stats;
+        }
+
+        // 电报通知配置
+        if (sc.telegramNotifications) {
+          copyData.telegramNotifications = sc.telegramNotifications;
+        }
+      }
+
+      // 实盘配置（不复制私钥，需要用户重新输入）
+      if (config.wallet && config.wallet.address) {
+        copyData.wallet_address = config.wallet.address;
+        // 不复制私钥，出于安全考虑
+        copyData.reserve_amount = config.reserveNative || 0.1;
       }
 
       console.log('📋 准备复制的配置数据:', copyData);

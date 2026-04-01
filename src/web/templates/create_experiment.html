@@ -520,6 +520,59 @@
                     </div>
                 </div>
 
+                <!-- 统计与通知配置 -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">📊 统计与通知配置</h2>
+
+                    <!-- 统计配置 -->
+                    <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-medium text-gray-900">定期统计</h3>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" id="stats-enabled" class="w-4 h-4" checked>
+                                <span class="text-sm font-medium text-gray-900">启用定期统计</span>
+                            </label>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <label class="block text-sm font-medium text-gray-900 mb-2">
+                                统计间隔（分钟）
+                            </label>
+                            <input
+                                type="number"
+                                id="stats-interval"
+                                min="1"
+                                max="1440"
+                                value="30"
+                                class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                            <span class="text-xs text-gray-700">
+                                每隔指定时间计算并保存实验统计数据（默认30分钟）
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 电报通知配置 -->
+                    <div class="p-4 bg-purple-50 rounded-lg">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-medium text-purple-900">📱 电报通知</h3>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" id="telegram-enabled" class="w-4 h-4">
+                                <span class="text-sm font-medium text-purple-900">启用电报通知</span>
+                            </label>
+                        </div>
+                        <div class="text-sm text-purple-800">
+                            <p class="mb-2">启用后将发送以下通知到电报群：</p>
+                            <ul class="list-disc list-inside space-y-1 text-purple-700">
+                                <li>交易信号通知（买入/卖出信号及执行状态）</li>
+                                <li>统计数据通知（定期统计报告）</li>
+                            </ul>
+                            <p class="mt-2 text-xs text-purple-600">
+                                注意：回测模式默认关闭通知，虚拟/实盘模式默认开启
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 买入策略配置 -->
                 <div class="border border-gray-200 rounded-lg p-4">
                     <div class="flex items-center justify-between mb-4">
@@ -878,6 +931,14 @@
                 setFieldValue('trading_mode', copyData.trading_mode);
                 setFieldValue('blockchain', copyData.blockchain);
 
+                // 设置平台选择
+                if (copyData.platform) {
+                    const platformSelect = document.getElementById('platform_select');
+                    if (platformSelect) {
+                        platformSelect.value = copyData.platform;
+                    }
+                }
+
                 // 🔥 重要：设置 trading_mode 后需要手动调用 handleTradingModeChange
                 // 来移除 backtest_source_experiment 的 required 属性
                 setTimeout(() => handleTradingModeChange(), 0);
@@ -927,20 +988,50 @@
                 const naMaxWaitSeconds = document.getElementById('na-max-wait-seconds');
                 const naPollIntervalMs = document.getElementById('na-poll-interval-ms');
 
-                if (copyData.strategy?.narrativeAnalysis?.enabled && naEnabled) {
+                if (copyData.narrativeAnalysis?.enabled && naEnabled) {
                     naEnabled.checked = true;
                 }
-                if (copyData.strategy?.narrativeAnalysis?.reanalyze && naReanalyze) {
+                if (copyData.narrativeAnalysis?.reanalyze && naReanalyze) {
                     naReanalyze.checked = true;
                 }
-                if (copyData.strategy?.narrativeAnalysis?.triggerThreshold !== undefined && naTriggerThreshold) {
-                    naTriggerThreshold.value = copyData.strategy.narrativeAnalysis.triggerThreshold;
+                if (copyData.narrativeAnalysis?.triggerThreshold !== undefined && naTriggerThreshold) {
+                    naTriggerThreshold.value = copyData.narrativeAnalysis.triggerThreshold;
                 }
-                if (copyData.strategy?.narrativeAnalysis?.maxWaitSeconds !== undefined && naMaxWaitSeconds) {
-                    naMaxWaitSeconds.value = copyData.strategy.narrativeAnalysis.maxWaitSeconds;
+                if (copyData.narrativeAnalysis?.maxWaitSeconds !== undefined && naMaxWaitSeconds) {
+                    naMaxWaitSeconds.value = copyData.narrativeAnalysis.maxWaitSeconds;
                 }
-                if (copyData.strategy?.narrativeAnalysis?.pollIntervalMs !== undefined && naPollIntervalMs) {
-                    naPollIntervalMs.value = copyData.strategy.narrativeAnalysis.pollIntervalMs;
+                if (copyData.narrativeAnalysis?.pollIntervalMs !== undefined && naPollIntervalMs) {
+                    naPollIntervalMs.value = copyData.narrativeAnalysis.pollIntervalMs;
+                }
+
+                // 填充统计配置
+                const statsEnabled = document.getElementById('stats-enabled');
+                const statsInterval = document.getElementById('stats-interval');
+                if (copyData.stats?.enabled !== undefined && statsEnabled) {
+                    statsEnabled.checked = copyData.stats.enabled;
+                }
+                if (copyData.stats?.interval !== undefined && statsInterval) {
+                    statsInterval.value = Math.round((copyData.stats.interval || 30 * 60 * 1000) / 60000);
+                }
+
+                // 填充电报通知配置
+                const telegramEnabled = document.getElementById('telegram-enabled');
+                if (copyData.telegramNotifications?.enabled !== undefined && telegramEnabled) {
+                    telegramEnabled.checked = copyData.telegramNotifications.enabled;
+                }
+
+                // 填充实盘钱包地址（如果有）
+                if (copyData.wallet_address) {
+                    const walletAddressField = document.getElementById('wallet_address');
+                    if (walletAddressField) {
+                        walletAddressField.value = copyData.wallet_address;
+                    }
+                }
+                if (copyData.reserve_amount !== undefined) {
+                    const reserveAmountField = document.getElementById('reserve_amount');
+                    if (reserveAmountField) {
+                        reserveAmountField.value = copyData.reserve_amount;
+                    }
                 }
 
                 // 填充策略配置
@@ -1547,6 +1638,15 @@
                         triggerThreshold: parseInt(document.getElementById('na-trigger-threshold')?.value) || 80,
                         maxWaitSeconds: parseInt(document.getElementById('na-max-wait-seconds')?.value) || 10,
                         pollIntervalMs: parseInt(document.getElementById('na-poll-interval-ms')?.value) || 2000
+                    },
+                    // 统计配置
+                    stats: {
+                        enabled: document.getElementById('stats-enabled')?.checked !== false,
+                        interval: (parseInt(document.getElementById('stats-interval')?.value) || 30) * 60 * 1000 // 转换为毫秒
+                    },
+                    // 电报通知配置
+                    telegramNotifications: {
+                        enabled: document.getElementById('telegram-enabled')?.checked || false
                     }
                 }
             };

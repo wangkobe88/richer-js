@@ -71,163 +71,112 @@ class TelegramNotifier {
     const statusIcon = executed ? '✅' : '🚫';
     const statusText = executed ? '已执行' : '被拒绝';
 
-    // 代币地址（缩短显示）
+    // 代币符号（添加fallback）
+    const tokenSymbol = signal.tokenSymbol || metadata.symbol || metadata.tokenSymbol || 'UNKNOWN';
     const shortAddress = this.shortenAddress(signal.tokenAddress);
 
-    // 消息头部
-    let message = `📊 *交易信号通知*
-
-${statusIcon} *${statusText}*
-
-💰 代币: ${signal.tokenSymbol} (\`${shortAddress}\`)
-⛓️ 链: \`${(signal.chain || 'bsc').toUpperCase()}\`
-📈 策略: ${metadata.strategyName || signal.reason || '策略信号'}
-
-━━━━━━━━━━━━━━━
+    // 消息头部（紧凑格式）
+    let message = `${statusIcon} *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}
 
 `;
 
-    // 价格信息
-    message += `💵 *价格信息:*
-`;
+    // 价格信息（紧凑一行）
+    const priceParts = [];
     const currentPrice = tf.currentPrice || metadata.price;
     if (currentPrice !== undefined && currentPrice !== null) {
-      message += `  • 当前价格: \`${this.formatNumber(currentPrice, 8)}\`\n`;
-    }
-    if (tf.launchPrice !== undefined && tf.launchPrice !== null) {
-      message += `  • 发行价格: \`${this.formatNumber(tf.launchPrice, 8)}\`\n`;
+      priceParts.push(`现价: \`${this.formatNumber(currentPrice, 6)}\``);
     }
     if (tf.collectionPrice !== undefined && tf.collectionPrice !== null) {
-      message += `  • 收集价格: \`${this.formatNumber(tf.collectionPrice, 8)}\`\n`;
+      priceParts.push(`收集价: \`${this.formatNumber(tf.collectionPrice, 6)}\``);
     }
     if (tf.earlyReturn !== undefined && tf.earlyReturn !== null) {
-      message += `  • 早期收益率: \`${this.formatPercent(tf.earlyReturn)}\`\n`;
+      priceParts.push(`涨幅: \`${this.formatPercent(tf.earlyReturn)}\``);
     }
-    if (tf.buyPrice !== undefined && tf.buyPrice !== null) {
-      message += `  • 买入价格: \`${this.formatNumber(tf.buyPrice, 8)}\`\n`;
+    if (tf.highestPrice !== undefined && tf.highestPrice !== null && currentPrice) {
+      const highestReturn = ((tf.highestPrice - tf.collectionPrice) / tf.collectionPrice * 100);
+      priceParts.push(`最高: \`${this.formatPercent(highestReturn)}\``);
     }
-    if (tf.highestPrice !== undefined && tf.highestPrice !== null) {
-      message += `  • 最高价格: \`${this.formatNumber(tf.highestPrice, 8)}\`\n`;
+    if (priceParts.length > 0) {
+      message += `💵 ${priceParts.join(' | ')}\n\n`;
     }
-    message += '\n';
 
-    // 趋势因子
+    // 趋势因子（紧凑一行）
     if (tf.age !== undefined || tf.trendStrengthScore !== undefined) {
-      message += `📊 *趋势因子:*
-`;
+      const trendParts = [];
       if (tf.age !== undefined && tf.age !== null) {
-        message += `  • 代币年龄: \`${this.formatNumber(tf.age)}分\`\n`;
+        trendParts.push(`年龄: \`${this.formatNumber(tf.age)}分\``);
       }
       if (tf.trendStrengthScore !== undefined && tf.trendStrengthScore !== null) {
-        message += `  • 趋势强度: \`${this.formatNumber(tf.trendStrengthScore)}\`\n`;
-      }
-      if (tf.trendCV !== undefined && tf.trendCV !== null) {
-        message += `  • 趋势CV: \`${this.formatNumber(tf.trendCV)}\`\n`;
-      }
-      if (tf.trendTotalReturn !== undefined && tf.trendTotalReturn !== null) {
-        message += `  • 总回报: \`${this.formatPercent(tf.trendTotalReturn)}\`\n`;
+        trendParts.push(`强度: \`${this.formatNumber(tf.trendStrengthScore)}\``);
       }
       if (tf.drawdownFromHighest !== undefined && tf.drawdownFromHighest !== null) {
-        message += `  • 距最高跌幅: \`${this.formatPercent(tf.drawdownFromHighest)}\`\n`;
+        trendParts.push(`回撤: \`${this.formatPercent(tf.drawdownFromHighest)}\``);
       }
-      if (tf.riseSpeed !== undefined && tf.riseSpeed !== null) {
-        message += `  • 上升速度: \`${this.formatNumber(tf.riseSpeed)}\`\n`;
+      if (trendParts.length > 0) {
+        message += `📊 ${trendParts.join(' | ')}\n\n`;
       }
-      message += '\n';
     }
 
-    // 持有者检查
+    // 持有者检查（紧凑一行）
     if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined) {
-      message += `👥 *持有者检查:*
-`;
+      const holderParts = [];
       if (pf.holderWhitelistCount !== undefined) {
-        message += `  • 白名单: \`${pf.holderWhitelistCount}人\`\n`;
+        holderParts.push(`白: \`${pf.holderWhitelistCount}\``);
       }
       if (pf.holderBlacklistCount !== undefined) {
-        message += `  • 黑名单: \`${pf.holderBlacklistCount}人\`\n`;
-      }
-      if (pf.holdersCount !== undefined) {
-        message += `  • 持有人数: \`${pf.holdersCount}人\`\n`;
+        holderParts.push(`黑: \`${pf.holderBlacklistCount}\``);
       }
       if (pf.devHoldingRatio !== undefined && pf.devHoldingRatio !== null) {
-        message += `  • Dev持有: \`${this.formatPercent(pf.devHoldingRatio)}\`\n`;
+        holderParts.push(`Dev: \`${this.formatPercent(pf.devHoldingRatio)}\``);
       }
-      if (pf.maxHoldingRatio !== undefined && pf.maxHoldingRatio !== null) {
-        message += `  • 最大持仓: \`${this.formatPercent(pf.maxHoldingRatio)}\`\n`;
+      if (holderParts.length > 0) {
+        message += `👥 ${holderParts.join(' | ')}\n\n`;
       }
-      if (pf.holderCanBuy !== undefined) {
-        message += `  • 持有者检查: \`${pf.holderCanBuy ? '✅ 通过' : '❌ 失败'}\`\n`;
-      }
-      message += '\n';
     }
 
-    // 早期交易检查
+    // 早期交易（紧凑一行）
     if (pf.earlyTradesChecked === 1 && pf.earlyTradesCountPerMin !== undefined) {
-      message += `💪 *早期交易:*
-`;
+      const tradeParts = [];
       if (pf.earlyTradesCountPerMin !== undefined && pf.earlyTradesCountPerMin !== null) {
-        message += `  • 交易/分: \`${this.formatNumber(pf.earlyTradesCountPerMin)}笔\`\n`;
-      }
-      if (pf.earlyTradesVolumePerMin !== undefined && pf.earlyTradesVolumePerMin !== null) {
-        message += `  • 交易量/分: \`$${this.formatNumber(pf.earlyTradesVolumePerMin)}\`\n`;
-      }
-      if (pf.earlyTradesUniqueWallets !== undefined && pf.earlyTradesUniqueWallets !== null) {
-        message += `  • 独立钱包: \`${pf.earlyTradesUniqueWallets}个\`\n`;
-      }
-      if (pf.walletClusterCount !== undefined && pf.walletClusterCount !== null) {
-        message += `  • 聚簇数: \`${pf.walletClusterCount}个\`\n`;
+        tradeParts.push(`笔/分: \`${this.formatNumber(pf.earlyTradesCountPerMin)}\``);
       }
       if (pf.walletClusterMegaRatio !== undefined && pf.walletClusterMegaRatio !== null) {
-        message += `  • Mega聚簇比: \`${this.formatNumber(pf.walletClusterMegaRatio)}\`\n`;
+        tradeParts.push(`Mega比: \`${this.formatNumber(pf.walletClusterMegaRatio)}\``);
       }
       if (pf.walletClusterSecondToFirstRatio !== undefined && pf.walletClusterSecondToFirstRatio !== null) {
-        message += `  • 第二/第一比: \`${this.formatNumber(pf.walletClusterSecondToFirstRatio)}\`\n`;
+        tradeParts.push(`2/1比: \`${this.formatNumber(pf.walletClusterSecondToFirstRatio)}\``);
       }
-      message += '\n';
+      if (tradeParts.length > 0) {
+        message += `💪 ${tradeParts.join(' | ')}\n\n`;
+      }
     }
 
-    // 强势交易者检查
+    // 强势交易者（紧凑一行）
     if (pf.strongTraderTradeCount !== undefined && pf.strongTraderTradeCount > 0) {
-      message += `💎 *强势交易者:*
-`;
+      const traderParts = [];
       if (pf.strongTraderNetPositionRatio !== undefined && pf.strongTraderNetPositionRatio !== null) {
-        message += `  • 净持仓比: \`${this.formatPercent(pf.strongTraderNetPositionRatio)}\`\n`;
-      }
-      if (pf.strongTraderTotalBuyRatio !== undefined && pf.strongTraderTotalBuyRatio !== null) {
-        message += `  • 总买入比: \`${this.formatPercent(pf.strongTraderTotalBuyRatio)}\`\n`;
-      }
-      if (pf.strongTraderTotalSellRatio !== undefined && pf.strongTraderTotalSellRatio !== null) {
-        message += `  • 总卖出比: \`${this.formatPercent(pf.strongTraderTotalSellRatio)}\`\n`;
+        traderParts.push(`净持仓: \`${this.formatPercent(pf.strongTraderNetPositionRatio)}\``);
       }
       if (pf.strongTraderWalletCount !== undefined) {
-        message += `  • 钱包数: \`${pf.strongTraderWalletCount}个\`\n`;
+        traderParts.push(`钱包: \`${pf.strongTraderWalletCount}个\``);
       }
-      message += '\n';
+      if (traderParts.length > 0) {
+        message += `💎 ${traderParts.join(' | ')}\n\n`;
+      }
     }
 
     // 拒绝原因
     if (!executed) {
       const executionReason = metadata.execution_reason || signal.execution_reason || pr.canBuy === false ? '预检查失败' : '未知原因';
-      message += `🚫 *拒绝原因:*
-  ${executionReason}
-
-`;
+      message += `🚫 ${executionReason}\n\n`;
     }
 
     // 链接
     const gmgnUrl = this.buildGMGNUrl(signal.tokenAddress, signal.chain);
-    const signalsUrl = `${this.webBaseUrl}/experiment/${signal.experimentId}/signals`;
+    const expId = signal.experimentId || signal.experiment_id || metadata.experimentId || metadata.experiment_id;
+    const signalsUrl = `${this.webBaseUrl}/experiment/${expId}/signals`;
 
-    message += `🔗 *查看详情:*
-  [📊 GMGN分析](${gmgnUrl})
-  [📋 信号页面](${signalsUrl})
-
-`;
-
-    // 时间
-    const timestamp = signal.createdAt || new Date();
-    const timeStr = this.formatDate(timestamp);
-    message += `🕐 时间: \`${timeStr}\``;
+    message += `🔗 [GMGN](${gmgnUrl}) | [信号](${signalsUrl})`;
 
     return message;
   }
@@ -441,9 +390,15 @@ ${statusIcon} *${statusText}*
     const modeEmoji = mode === 'live' ? '🔴' : mode === 'backtest' ? '📊' : '🟢';
     const modeText = mode === 'live' ? '实盘' : mode === 'backtest' ? '回测' : '虚拟';
 
+    // 处理实验名称为空的情况
+    const displayName = experimentName || `实验 ${experimentId ? experimentId.substring(0, 8) : ''}`;
+
+    // 处理计算时间为空的情况
+    const calculatedAt = stats.calculatedAt || new Date().toISOString();
+
     let message = `${modeEmoji} *实验统计报告*
 
-📊 *${experimentName}* (${modeText})
+📊 *${displayName}* (${modeText})
 
 ━━━━━━━━━━━━━━━
 
@@ -462,7 +417,7 @@ ${statusIcon} *${statusText}*
 🔗 *查看详情:*
   [📋 实验页面](${this.webBaseUrl}/experiment/${experimentId})
 
-🕐 计算时间: \`${this.formatDate(stats.calculatedAt)}\`
+🕐 计算时间: \`${this.formatDate(calculatedAt)}\`
 `;
 
     return message;

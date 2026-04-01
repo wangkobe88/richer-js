@@ -29,7 +29,8 @@ class ExperimentStatsService {
           totalReturn: 0,
           bnbChange: 0,
           totalSpent: 0,
-          totalReceived: 0
+          totalReceived: 0,
+          calculatedAt: new Date().toISOString()
         };
       }
 

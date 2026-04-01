@@ -305,8 +305,9 @@ class AbstractTradingEngine extends ITradingEngine {
       return;
     }
 
-    // 获取通知配置（从实验配置中读取）
-    const telegramConfig = this._experiment.config.telegramNotifications || {};
+    // 获取通知配置（从实验配置的 strategiesConfig 中读取）
+    const strategiesConfig = this._experiment.config.strategiesConfig || {};
+    const telegramConfig = strategiesConfig.telegramNotifications || {};
 
     // 获取引擎类型的默认配置
     const mode = this._mode;
@@ -343,10 +344,12 @@ class AbstractTradingEngine extends ITradingEngine {
       return;
     }
 
-    // 从实验配置读取统计间隔
-    const config = this._experiment.config;
-    this._statsInterval = config.statsInterval || 30 * 60 * 1000; // 默认30分钟
-    this._statsEnabled = config.statsEnabled !== false; // 默认启用
+    // 从实验配置的 strategiesConfig 中读取统计配置
+    const strategiesConfig = this._experiment.config.strategiesConfig || {};
+    const statsConfig = strategiesConfig.stats || {};
+
+    this._statsInterval = statsConfig.interval || 30 * 60 * 1000; // 默认30分钟
+    this._statsEnabled = statsConfig.enabled !== false; // 默认启用
 
     this._logger.info('统计配置已初始化', {
       interval: `${this._statsInterval / 60000}分钟`,
@@ -752,9 +755,14 @@ class AbstractTradingEngine extends ITradingEngine {
     if (!this._telegramNotifier) return;
 
     try {
+      // 获取实验名称，提供多个后备选项
+      const experimentName = this._experiment?.experimentName ||
+                             this._experiment?.config?.name ||
+                             `实验 ${this._experimentId?.substring(0, 8)}`;
+
       await this._telegramNotifier.sendStatsNotification(
         this._experimentId,
-        this._experiment.experimentName,
+        experimentName,
         stats,
         this._mode
       );
