@@ -794,6 +794,93 @@ class AbstractTradingEngine extends ITradingEngine {
   }
 
   /**
+   * 计算代币涨幅分析
+   * @protected
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<Object|null>} 分析结果
+   */
+  async _calculateTokenAnalysis(tokenAddress) {
+    try {
+      const { TokenAnalysisService } = require('../../web/services/TokenAnalysisService');
+      const analysisService = new TokenAnalysisService();
+
+      const result = await analysisService.analyzeToken(this._experimentId, tokenAddress);
+
+      this._logger.info(this._experimentId, 'TokenAnalysis', '代币涨幅分析完成', {
+        tokenAddress,
+        maxChangePercent: result.max_change_percent,
+        finalChangePercent: result.final_change_percent
+      });
+
+      return result;
+    } catch (error) {
+      this._logger.error('计算代币涨幅分析失败', {
+        tokenAddress,
+        error: error.message
+      });
+      return null;
+    }
+  }
+
+  /**
+   * 保存代币涨幅分析结果
+   * @protected
+   * @param {string} tokenAddress - 代币地址
+   * @param {Object} analysisResult - 分析结果
+   * @returns {Promise<boolean>} 是否保存成功
+   */
+  async _saveTokenAnalysis(tokenAddress, analysisResult) {
+    try {
+      const supabase = dbManager.getClient();
+
+      const { error } = await supabase
+        .from('experiment_tokens')
+        .update({ analysis_results: analysisResult })
+        .eq('token_address', tokenAddress)
+        .eq('experiment_id', this._experimentId);
+
+      if (error) {
+        throw new Error(`保存分析结果失败: ${error.message}`);
+      }
+
+      return true;
+    } catch (error) {
+      this._logger.error('保存代币涨幅分析失败', {
+        tokenAddress,
+        error: error.message
+      });
+      return false;
+    }
+  }
+
+  /**
+   * 批量计算代币涨幅分析
+   * @protected
+   * @param {Array<string>} tokenAddresses - 代币地址列表
+   * @returns {Promise<void>}
+   */
+  async _calculateTokensAnalysis(tokenAddresses) {
+    if (!tokenAddresses || tokenAddresses.length === 0) {
+      return;
+    }
+
+    this._logger.info(this._experimentId, 'TokenAnalysis',
+      `开始计算 ${tokenAddresses.length} 个代币的涨幅分析`);
+
+    // 逐个计算（避免并发压力）
+    for (const tokenAddress of tokenAddresses) {
+      const result = await this._calculateTokenAnalysis(tokenAddress);
+      if (result) {
+        await this._saveTokenAnalysis(tokenAddress, result);
+      }
+      // 短暂延迟，避免请求过快
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    this._logger.info(this._experimentId, 'TokenAnalysis', '涨幅分析计算完成');
+  }
+
+  /**
    * 更新信号元数据（用于添加预检查因子等）
    * @private
    * @param {string} signalId - 信号ID

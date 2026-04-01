@@ -853,6 +853,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       if (removed.length > 0) {
         this.logger.info(this._experimentId, 'MonitoringCycle',
           `清理过期代币: ${removed.length} 个`);
+
+        // 计算被移除代币的涨幅分析
+        const removedAddresses = removed.map(t => t.token || t.address);
+        await this._calculateTokensAnalysis(removedAddresses);
       }
 
       if (this._roundSummary) {
