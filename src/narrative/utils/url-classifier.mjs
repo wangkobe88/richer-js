@@ -302,8 +302,8 @@ function _isBilibiliUrl(url) {
 }
 
 function _isWeixinUrl(url) {
-  // 匹配微信公众号文章 mp.weixin.qq.com
-  return /mp\.weixin\.qq\.com/i.test(url);
+  // 匹配微信公众号文章 mp.weixin.qq.com 和镜像域名 wx.*
+  return /mp\.weixin\.qq\.com|wx\./i.test(url);
 }
 
 function _isGitHubUrl(url) {

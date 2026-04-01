@@ -14,12 +14,14 @@ export class WeixinFetcher {
 
   /**
    * 判断是否是有效的微信文章 URL
+   * 支持官方域名和常见镜像域名
    * @param {string} url - URL
    * @returns {boolean}
    */
   static isValidWeixinUrl(url) {
     if (!url) return false;
-    return /mp\.weixin\.qq\.com/i.test(url);
+    // 支持官方域名和镜像域名（wx.开头的域名）
+    return /mp\.weixin\.qq\.com|wx\./i.test(url);
   }
 
   /**
