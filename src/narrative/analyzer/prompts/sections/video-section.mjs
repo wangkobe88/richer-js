@@ -38,8 +38,22 @@ export function buildVideoSection(youtubeInfo, douyinInfo, tiktokInfo, bilibiliI
   if (douyinInfo) {
     if (parts.length > 0) parts.push('');
     parts.push(`【抖音】${douyinInfo.title || '未知'}`);
-    const stats = [`点赞数: ${douyinInfo.like_count || 0}`];
-    if (douyinInfo.view_count) stats.push(`观看数: ${douyinInfo.view_count}`);
+    const stats = [];
+    // 点赞数
+    const likeCount = douyinInfo.like_count || 0;
+    stats.push(`点赞数: ${likeCount}`);
+    // 观看数（如果为0说明被隐藏，不显示）
+    const viewCount = douyinInfo.view_count || 0;
+    if (viewCount > 0) {
+      stats.push(`观看数: ${viewCount}`);
+    } else {
+      stats.push(`观看数: 隐藏`);
+    }
+    // 分享数（作为传播力补充指标）
+    const shareCount = douyinInfo.share_count || 0;
+    if (shareCount > 0) {
+      stats.push(`分享数: ${shareCount}`);
+    }
     parts.push(stats.join(', '));
     if (douyinInfo.influence_level) {
       parts.push(`影响力: ${douyinInfo.influence_description}`);

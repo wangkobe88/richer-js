@@ -43,6 +43,14 @@ function buildTweetPart(tweet, label = '推文') {
   const cleanedText = cleanTweetText(tweet.text);
   parts.push(`内容：${cleanedText}`);
 
+  // 展开后的URL（如果有）
+  if (tweet.expanded_urls && tweet.expanded_urls.length > 0) {
+    parts.push(`【推文链接（展开后）】`);
+    for (const urlInfo of tweet.expanded_urls) {
+      parts.push(`- ${urlInfo.expanded}`);
+    }
+  }
+
   // 回复的推文
   if (tweet.in_reply_to) {
     const inReplyTo = tweet.in_reply_to;
@@ -76,6 +84,9 @@ function buildTweetPart(tweet, label = '推文') {
         ? tweet.article.plain_text.substring(0, 3000) + '...'
         : tweet.article.plain_text;
       parts.push(`完整内容：${articleText}`);
+    } else {
+      // 如果没有完整内容，添加说明
+      parts.push(`（注：此Article的完整内容暂不可获取，请基于标题和摘要进行分析）`);
     }
     if (tweet.article.cover_image_url) {
       parts.push(`封面图：${tweet.article.cover_image_url}`);

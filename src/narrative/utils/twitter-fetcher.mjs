@@ -69,17 +69,38 @@ export class TwitterFetcher {
         return null;
       }
 
-      // 检查是否是 Article URL
-      const isArticleUrl = twitterUrl.includes('/article/') || twitterUrl.includes('/i/article/');
+      // 检查是否是 Article URL（直接的Article链接）
+      const isDirectArticleUrl = twitterUrl.includes('/article/') || twitterUrl.includes('/i/article/');
 
       let tweetData;
-      if (isArticleUrl) {
-        // Article URL 使用 GraphQL API（获取 Article 详细内容）
+      if (isDirectArticleUrl) {
+        // 直接的 Article URL 使用 GraphQL API（获取 Article 详细内容）
         console.log('[TwitterFetcher] 检测到 Article URL，使用 GraphQL API');
         tweetData = await getTweetDetailGraphQL(tweetId);
       } else {
         // 普通推文使用 TweetDetail API（支持获取 related_tweet_id）
         tweetData = await getTweetDetail(tweetId);
+
+        // 检查是否是 Article 推文（有 article_url 但无 article 内容）
+        // Article 推文的特征：推文urls中包含 /i/article/ 链接
+        const hasArticleUrl = (tweetData.urls || []).some(url =>
+          url.includes('/x.com/i/article/') || url.includes('/twitter.com/i/article/')
+        );
+
+        if (tweetData && hasArticleUrl && !tweetData.article) {
+          console.log('[TwitterFetcher] 检测到 Article 推文（URLs中有article链接但无article内容），使用 GraphQL API 获取完整内容');
+          try {
+            const graphqlData = await getTweetDetailGraphQL(tweetId);
+            if (graphqlData && graphqlData.article) {
+              // 将 GraphQL 返回的 article 内容合并到 tweetData
+              tweetData.article = graphqlData.article;
+              console.log(`[TwitterFetcher] 成功获取 Article 内容: "${graphqlData.article.title}"`);
+            }
+          } catch (err) {
+            console.warn(`[TwitterFetcher] 获取 Article 内容失败，保留基本数据: ${err.message}`);
+            // 继续使用已有的基本数据，不抛出错误
+          }
+        }
       }
 
       if (!tweetData || !tweetData.text) {
@@ -366,8 +387,26 @@ export class TwitterFetcher {
 
     // 只获取第一个有效的URL内容（避免耗时过长）
     for (const url of urls) {
-      // 跳过Twitter/X自身的链接（包括Article，因为需要JS渲染）
-      if (url.includes('x.com') || url.includes('twitter.com') || url.includes('t.co/')) {
+      // 跳过Twitter/X自身的链接（但需要展开t.co短链接）
+      if (url.includes('x.com') || url.includes('twitter.com')) {
+        continue;
+      }
+      // 对于t.co短链接，展开后再判断
+      if (url.includes('t.co/')) {
+        try {
+          console.log(`[TwitterFetcher] 展开t.co短链接: ${url}`);
+          const expandedUrl = await this.expandShortUrl(url);
+          if (expandedUrl) {
+            console.log(`[TwitterFetcher] 短链接展开为: ${expandedUrl}`);
+            // 将展开后的URL添加到推文文本中（用于实体提取）
+            if (!tweetInfo.expanded_urls) {
+              tweetInfo.expanded_urls = [];
+            }
+            tweetInfo.expanded_urls.push({ short: url, expanded: expandedUrl });
+          }
+        } catch (e) {
+          console.log(`[TwitterFetcher] 展开短链接失败: ${e.message}`);
+        }
         continue;
       }
 
@@ -391,6 +430,42 @@ export class TwitterFetcher {
   }
 
   /**
+   * 展开短链接（t.co等）
+   * @param {string} shortUrl - 短链接
+   * @returns {Promise<string>} 展开后的URL
+   */
+  static async expandShortUrl(shortUrl) {
+    try {
+      const response = await fetch(shortUrl, {
+        method: 'HEAD',
+        redirect: 'manual', // 手动处理重定向
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      // 获取重定向后的URL
+      const location = response.headers.get('location');
+      if (location) {
+        return location;
+      }
+
+      // 如果HEAD请求没有返回location，尝试GET请求
+      const getResponse = await fetch(shortUrl, {
+        redirect: 'manual',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      return getResponse.headers.get('location') || shortUrl;
+    } catch (error) {
+      console.log(`[TwitterFetcher] 展开短链接失败: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * 增强推文信息，包含链接内容
    * @param {Object} tweetInfo - 原始推文信息
    * @returns {Promise<Object>} 增强后的推文信息
@@ -402,9 +477,11 @@ export class TwitterFetcher {
 
     const linkContent = await this.fetchTweetLinks(tweetInfo);
 
+    // 返回增强后的推文信息，包括链接内容和展开的URL
     return {
       ...tweetInfo,
-      link_content: linkContent
+      link_content: linkContent,
+      expanded_urls: tweetInfo.expanded_urls || null
     };
   }
 

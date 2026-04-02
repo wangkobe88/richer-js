@@ -822,6 +822,9 @@ export class NarrativeAnalyzer {
       const viewCount = video.info[video.viewField];
       const likeCount = video.info[video.likeField];
 
+      // 调试日志：输出播放量和点赞数的值
+      console.log(`[NarrativeAnalyzer] ${video.name}视频数据 - 播放量: ${viewCount}, 点赞数: ${likeCount}`);
+
       // 优先检查播放量，如果没有播放量则检查点赞数
       const hasViewData = viewCount !== undefined && viewCount !== null;
       const hasLikeData = likeCount !== undefined && likeCount !== null;
@@ -853,6 +856,9 @@ export class NarrativeAnalyzer {
       // 判断是否达到 unrated 阈值
       const viewMeetsThreshold = hasViewData && viewCount >= unratedViewThreshold;
       const likeMeetsThreshold = hasLikeData && likeCount >= unratedLikeThreshold;
+
+      // 调试日志：输出阈值判断结果
+      console.log(`[NarrativeAnalyzer] ${video.name}阈值判断 - viewMeetsThreshold: ${viewMeetsThreshold} (${viewCount}>=${unratedViewThreshold}), likeMeetsThreshold: ${likeMeetsThreshold} (${likeCount}>=${unratedLikeThreshold})`);
 
       // 获取用于显示的数据
       const displayValue = hasViewData ? viewCount : likeCount;

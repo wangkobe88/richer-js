@@ -296,7 +296,85 @@ async function getTweetDetailGraphQL(tweetId) {
     const tweetText = noteTweetText || legacy.full_text || legacy.text || '';
 
     // 检查是否有 Article
-    const articleResult = tweetResult.article?.article_results?.result;
+    let articleResultRaw = tweetResult.article?.article_results?.result;
+
+    // 调试：检查articleResultRaw
+    if (articleResultRaw) {
+      console.log('[GraphQL] articleResultRaw keys:', Object.keys(articleResultRaw));
+      console.log('[GraphQL] articleResultRaw has rich_content_state:', 'rich_content_state' in articleResultRaw);
+    } else {
+      console.log('[GraphQL] articleResultRaw is null/undefined');
+    }
+
+    // 如果有article数据，尝试从多个路径获取plain_text
+    if (articleResultRaw) {
+      // 尝试多个可能的路径获取plain_text
+      let plainText =
+        articleResultRaw.plain_text ||  // 直接路径
+        articleResultRaw.text ||  // 备用路径1
+        articleResultRaw.legacy?.text ||  // 备用路径2
+        articleResultRaw.note_tweet?.note_tweet_results?.result?.text ||  // Note Tweet路径
+        null;
+
+      // 尝试从 rich_content_state 提取文本
+      if (!plainText && articleResultRaw.rich_content_state) {
+        try {
+          const rcs = articleResultRaw.rich_content_state;
+          console.log('[GraphQL] rich_content_state type:', typeof rcs);
+          console.log('[GraphQL] rich_content_state preview:', typeof rcs === 'string' ? rcs.substring(0, 200) : JSON.stringify(rcs).substring(0, 200));
+
+          if (typeof rcs === 'string') {
+            const parsed = JSON.parse(rcs);
+            console.log('[GraphQL] rich_content_state parsed keys:', Object.keys(parsed));
+            // rich_content_state 通常包含 paragraphs 数组
+            if (parsed.paragraphs && Array.isArray(parsed.paragraphs)) {
+              console.log('[GraphQL] paragraphs count:', parsed.paragraphs.length);
+              plainText = parsed.paragraphs
+                .map(p => p.text || '')
+                .filter(text => text)
+                .join('\n\n');
+              console.log('[GraphQL] 从 rich_content_state.paragraphs 提取文本，长度:', plainText.length);
+            } else {
+              console.log('[GraphQL] No paragraphs array in rich_content_state');
+            }
+          }
+        } catch (e) {
+          console.log('[GraphQL] 解析 rich_content_state 失败:', e.message);
+        }
+      }
+
+      // 如果找到了plain_text，更新articleResultRaw
+      if (plainText) {
+        articleResultRaw = { ...articleResultRaw, plain_text: plainText };
+        console.log('[GraphQL] 成功提取Article plain_text，长度:', plainText.length);
+      } else {
+        console.log('[GraphQL] Article plain_text未找到，尝试的路径: plain_text, text, legacy.text, note_tweet, rich_content_state');
+      }
+    }
+
+    const articleResult = articleResultRaw;
+
+    // 调试：打印article结构
+    if (tweetResult.article) {
+      console.log('[GraphQL] 检测到 article 字段');
+      console.log('[GraphQL] article keys:', Object.keys(tweetResult.article));
+      if (tweetResult.article.article_results) {
+        console.log('[GraphQL] article_results type:', typeof tweetResult.article.article_results);
+        const ar = tweetResult.article.article_results;
+        if (typeof ar === 'object') {
+          console.log('[GraphQL] article_results keys:', Object.keys(ar));
+          if (ar.result) {
+            console.log('[GraphQL] article_results.result keys:', Object.keys(ar.result));
+            console.log('[GraphQL] article_results.result has plain_text:', 'plain_text' in ar.result);
+            // 检查是否有 note_tweet（Article可能使用Note Tweet存储内容）
+            if (ar.result.note_tweet) {
+              console.log('[GraphQL] 检测到 note_tweet 字段');
+              console.log('[GraphQL] note_tweet keys:', Object.keys(ar.result.note_tweet));
+            }
+          }
+        }
+      }
+    }
 
     // 检查是否有媒体（图片、视频等）
     const mediaEntities = legacy.extended_entities?.media || legacy.entities?.media || [];
