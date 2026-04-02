@@ -479,35 +479,116 @@ export class NarrativeAnalyzer {
 
     const MAX_SYMBOL_LENGTH = 12;  // Symbol最大视觉长度（>=触发）
     const MAX_NAME_LENGTH = 30;     // Name最大视觉长度（>=触发）
+    const MAX_ENGLISH_WORDS = 4;   // 英文最大单词数（>触发）
 
     // 使用视觉长度计算（中文字符算2个单位）
     const symbolVisualLength = this.getVisualLength(tokenSymbol);
     const nameVisualLength = this.getVisualLength(tokenName);
 
+    /**
+     * 检查字符串是否主要为英文（按单词数判断）
+     * @param {string} str - 要检查的字符串
+     * @returns {boolean} true表示主要为英文
+     */
+    const isMostlyEnglish = (str) => {
+      if (!str) return false;
+      // 计算非CJK字符的比例
+      let nonCJKChars = 0;
+      for (const char of str) {
+        const code = char.codePointAt(0);
+        const isCJK = (
+          (code >= 0x4E00 && code <= 0x9FFF) ||
+          (code >= 0x3400 && code <= 0x4DBF) ||
+          (code >= 0x20000 && code <= 0x2A6DF) ||
+          (code >= 0x2A700 && code <= 0x2B73F) ||
+          (code >= 0x2B740 && code <= 0x2B81F) ||
+          (code >= 0x2B820 && code <= 0x2CEAF) ||
+          (code >= 0x2CEB0 && code <= 0x2EBEF) ||
+          (code >= 0xF900 && code <= 0xFAFF) ||
+          (code >= 0x2F800 && code <= 0x2FA1F)
+        );
+        if (!isCJK && /[a-zA-Z]/.test(char)) {
+          nonCJKChars++;
+        }
+      }
+      // 如果英文字符占多数，认为是英文
+      return nonCJKChars > str.length / 2;
+    };
+
+    /**
+     * 计算英文单词数
+     * @param {string} str - 英文字符串
+     * @returns {number} 单词数
+     */
+    const countEnglishWords = (str) => {
+      if (!str) return 0;
+      // 按空格和常见分隔符分割单词
+      const words = str.trim().split(/[\s\-_]+/).filter(w => w.length > 0 && /[a-zA-Z]/.test(w));
+      return words.length;
+    };
+
     // 检查Symbol长度
     if (tokenSymbol && symbolVisualLength > MAX_SYMBOL_LENGTH) {
-      console.log(`[NarrativeAnalyzer] 预检查触发: 代币Symbol过长 (视觉长度: ${symbolVisualLength}, 实际字符: ${tokenSymbol.length})`);
-      return {
-        category: 'low',
-        reasoning: `代币Symbol"${tokenSymbol}"视觉长度为${symbolVisualLength}（实际${tokenSymbol.length}字符），超出正常范围（阈值：${MAX_SYMBOL_LENGTH}），疑似博眼球而无真实叙事价值`,
-        scores: { credibility: 0, virality: 0 },
-        total_score: 0,
-        preCheckTriggered: true,
-        preCheckReason: 'symbol_too_long'
-      };
+      // 对于英文，检查单词数而非字符数
+      if (isMostlyEnglish(tokenSymbol)) {
+        const wordCount = countEnglishWords(tokenSymbol);
+        if (wordCount > MAX_ENGLISH_WORDS) {
+          console.log(`[NarrativeAnalyzer] 预检查触发: 代币Symbol过长 (英文单词数: ${wordCount}, 阈值: ${MAX_ENGLISH_WORDS})`);
+          return {
+            category: 'low',
+            reasoning: `代币Symbol"${tokenSymbol}"包含${wordCount}个英文单词，超出正常范围（阈值：${MAX_ENGLISH_WORDS}），疑似博眼球而无真实叙事价值`,
+            scores: { credibility: 0, virality: 0 },
+            total_score: 0,
+            preCheckTriggered: true,
+            preCheckReason: 'symbol_too_long'
+          };
+        }
+        // 英文单词数在合理范围内，通过检查
+        console.log(`[NarrativeAnalyzer] Symbol长度检查通过: "${tokenSymbol}" (${wordCount}个英文单词 ≤ ${MAX_ENGLISH_WORDS})`);
+      } else {
+        // 非英文（如中文），使用视觉长度检查
+        console.log(`[NarrativeAnalyzer] 预检查触发: 代币Symbol过长 (视觉长度: ${symbolVisualLength}, 实际字符: ${tokenSymbol.length})`);
+        return {
+          category: 'low',
+          reasoning: `代币Symbol"${tokenSymbol}"视觉长度为${symbolVisualLength}（实际${tokenSymbol.length}字符），超出正常范围（阈值：${MAX_SYMBOL_LENGTH}），疑似博眼球而无真实叙事价值`,
+          scores: { credibility: 0, virality: 0 },
+          total_score: 0,
+          preCheckTriggered: true,
+          preCheckReason: 'symbol_too_long'
+        };
+      }
     }
 
     // 检查Name长度
     if (tokenName && nameVisualLength > MAX_NAME_LENGTH) {
-      console.log(`[NarrativeAnalyzer] 预检查触发: 代币Name过长 (视觉长度: ${nameVisualLength}, 实际字符: ${tokenName.length})`);
-      return {
-        category: 'low',
-        reasoning: `代币名称"${tokenName}"视觉长度为${nameVisualLength}（实际${tokenName.length}字符），超出正常范围（阈值：${MAX_NAME_LENGTH}），疑似博眼球而无真实叙事价值`,
-        scores: { credibility: 0, virality: 0 },
-        total_score: 0,
-        preCheckTriggered: true,
-        preCheckReason: 'name_too_long'
-      };
+      // 对于英文，检查单词数而非字符数
+      if (isMostlyEnglish(tokenName)) {
+        const wordCount = countEnglishWords(tokenName);
+        if (wordCount > MAX_ENGLISH_WORDS * 2) {  // Name的单词数阈值是Symbol的2倍
+          console.log(`[NarrativeAnalyzer] 预检查触发: 代币Name过长 (英文单词数: ${wordCount}, 阈值: ${MAX_ENGLISH_WORDS * 2})`);
+          return {
+            category: 'low',
+            reasoning: `代币名称"${tokenName}"包含${wordCount}个英文单词，超出正常范围（阈值：${MAX_ENGLISH_WORDS * 2}），疑似博眼球而无真实叙事价值`,
+            scores: { credibility: 0, virality: 0 },
+            total_score: 0,
+            preCheckTriggered: true,
+            preCheckReason: 'name_too_long'
+          };
+        }
+        // 英文单词数在合理范围内，通过检查
+        console.log(`[NarrativeAnalyzer] Name长度检查通过: "${tokenName}" (${wordCount}个英文单词 ≤ ${MAX_ENGLISH_WORDS * 2})`);
+      } else {
+        // 非英文（如中文），使用视觉长度检查
+        console.log(`[NarrativeAnalyzer] 预检查触发: 代币Name过长 (视觉长度: ${nameVisualLength}, 实际字符: ${tokenName.length})`);
+        return {
+          category: 'low',
+          reasoning: `代币名称"${tokenName}"视觉长度为${nameVisualLength}（实际${tokenName.length}字符），超出正常范围（阈值：${MAX_NAME_LENGTH}），疑似博眼球而无真实叙事价值`,
+          scores: { credibility: 0, virality: 0 },
+          total_score: 0,
+          preCheckTriggered: true,
+          preCheckReason: 'name_too_long'
+        };
+      }
     }
 
     // 规则1：黑名单博主
