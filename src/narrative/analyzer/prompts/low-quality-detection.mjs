@@ -2,6 +2,11 @@
  * Stage 1: 低质量检测Prompt
  * 三阶段低质量检测流程
  *
+ * V11.7 - 简化中英文对应规则
+ * - 核心原则：只要能互译就算对应，不穷举具体词汇
+ * - 删除冗余的分类列表（地名/产品名/品牌名/俚语等）
+ * - 相信LLM的语言理解能力
+ *
  * V11.6 - 新增"地区性/本地化事件"检测场景
  * - 第三阶段增加scenario 6：地区性/本地化事件检测
  * - 地区性事件（某个城市/地区）缺乏全国/全球影响力，不适合构建meme币
@@ -125,7 +130,7 @@ import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 /**
  * Prompt版本号（集中管理，修改时请同步更新文件顶部的版本注释）
  */
-export const STAGE1_PROMPT_VERSION = 'V11.6';
+export const STAGE1_PROMPT_VERSION = 'V11.7';
 
 /**
  * 构建Stage 1低质量检测Prompt
@@ -357,16 +362,15 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
   - 示例：Symbol="B4", Name="BUILD4" → 实体包含"B4" → **匹配**（Symbol匹配）
 
 - **名称匹配不分大小写**：代币Name"MEMEFATHER"与语料中的"Memefather"匹配
-- **中英文对应也算匹配**：
-  - **地名对应**：代币Name"东莞崇英学校"与语料中的"Dongguan Chongying School"匹配
-  - **产品/服务名称对应**：代币Name"币安VIP"与语料中的"Binance VIP"匹配
-  - **品牌名称对应**：代币Name"特斯拉"与语料中的"Tesla"匹配
+- **中英文对应也算匹配**：只要中文和英文表达的是同一个意思（能互译），就算匹配
+  - 示例：代币Name"小老弟"与语料中的"lil bro"匹配
+  - 示例：代币Name"币安VIP"与语料中的"Binance VIP"匹配
 
 - **meme币的本质**：meme币就是借助语料中的实体/概念来传播的
-  - 示例：Symbol="MEME", Name="MEMEFATHER" → 实体包含"Memefather" → 匹配（Name匹配）
+  - 示例：Symbol="MEME", Name="MEMEFATHER" → 实体包含"Memefather" → 匹配
   - 示例：Amazon书籍标题"Freedom of speech"，代币Name"Freedom of speech" → 匹配
   - 示例：Website核心实体是"Binance VIP"，代币Name"币安VIP" → 匹配（中英文对应）
-  - 示例：Website核心实体是"Duck"，代币Name"DUCK" → 匹配
+  - 示例：推文说"proud of your growth lil bro"，代币Name"小老弟" → 匹配（中英文对应）
   - 示例：推文说"饰演CZ"，代币Name"CZ" → 匹配（CZ是加密圈核心人物）
 
 ⛔ **以下情况不算匹配**：
@@ -377,19 +381,14 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 - **行业关联**：代币名"Crypto"vs 实体"Bitcoin" → 不是精确匹配，不匹配
 
 ⚠️ **中英文对应的判断标准**：
-- **专有名词翻译**：同一个专有名词的中英文版本算对应
-  - 示例："币安VIP"（中文）vs "Binance VIP"（英文）→ 匹配
-  - 示例："特斯拉"（中文）vs "Tesla"（英文）→ 匹配
-  - 示例："东莞崇英学校"（中文）vs "Dongguan Chongying School"（英文）→ 匹配
-- **通用的品牌/产品名**：如果是知名品牌/产品的标准翻译，算对应
-  - 示例："苹果"vs "Apple"（品牌）→ 匹配
-  - 示例："币安"vs "Binance"（品牌）→ 匹配
-- **事件/概念的描述**：对同一事件或概念的中英文描述算对应
-  - 示例："改变人生"（中文）vs "changed my life"（英文）→ 匹配
-  - 示例："飞向月球"（中文）vs "to the moon"（英文）→ 匹配
+- **核心原则**：只要中文和英文表达的是**同一个意思**（能互译），就算对应
+  - 示例："小老弟"（中文）vs "lil bro"（英文）→ 匹配（口语互译）
+  - 示例："币安VIP"（中文）vs "Binance VIP"（英文）→ 匹配（产品名互译）
+  - 示例："东莞崇英学校"（中文）vs "Dongguan Chongying School"（英文）→ 匹配（地名互译）
+  - 示例："特斯拉"（中文）vs "Tesla"（英文）→ 匹配（品牌互译）
+  - 示例："改变人生"（中文）vs "changed my life"（英文）→ 匹配（概念互译）
+  - 示例："飞向月球"（中文）vs "to the moon"（英文）→ 匹配（概念互译）
 - ⚠️ **注意**：空格、大小写不影响匹配判断
-  - 示例："币安VIP"与"Binance VIP"匹配（去掉空格差异后是同一词的翻译）
-  - 示例："币安VIP"与"BinanceVIP"也匹配（空格不影响）
 
 **步骤2.3：根据匹配结果执行**
 

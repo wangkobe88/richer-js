@@ -1861,6 +1861,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         }
       }
 
+      // 使用统一的 FactorBuilder 序列化因子（与买入信号保持一致）
+      const { buildFactorValuesForTimeSeries } = require('../core/FactorBuilder');
+      const trendFactors = buildFactorValuesForTimeSeries(factorResults);
+
       const signal = {
         action: 'sell',
         symbol: token.symbol,
@@ -1880,42 +1884,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.25
         } : null,
         sellCalculatedRatio: sellCalculatedRatio,
-        factors: factorResults ? {
-          // 趋势/技术指标 factors
-          trendFactors: {
-            age: factorResults.age,
-            currentPrice: factorResults.currentPrice,
-            collectionPrice: factorResults.collectionPrice,
-            earlyReturn: factorResults.earlyReturn,
-            riseSpeed: factorResults.riseSpeed,
-            buyPrice: factorResults.buyPrice,
-            holdDuration: factorResults.holdDuration,
-            profitPercent: factorResults.profitPercent,
-            highestPrice: factorResults.highestPrice,
-            highestPriceTimestamp: factorResults.highestPriceTimestamp,
-            drawdownFromHighest: factorResults.drawdownFromHighest,
-            // 最近一次购买后的最高价相关因子（用于止损/止盈）
-            highestPriceSinceLastBuy: factorResults.highestPriceSinceLastBuy,
-            drawdownFromHighestSinceLastBuy: factorResults.drawdownFromHighestSinceLastBuy,
-            txVolumeU24h: factorResults.txVolumeU24h,
-            holders: factorResults.holders,
-            tvl: factorResults.tvl,
-            fdv: factorResults.fdv,
-            marketCap: factorResults.marketCap,
-            // 趋势检测因子
-            trendDataPoints: factorResults.trendDataPoints,
-            trendCV: factorResults.trendCV,
-            trendPriceUp: factorResults.trendPriceUp,
-            trendMedianUp: factorResults.trendMedianUp,
-            trendSlope: factorResults.trendSlope,
-            trendStrengthScore: factorResults.trendStrengthScore,
-            trendTotalReturn: factorResults.trendTotalReturn,
-            trendRiseRatio: factorResults.trendRiseRatio,
-            trendRecentDownCount: factorResults.trendRecentDownCount,
-            trendRecentDownRatio: factorResults.trendRecentDownRatio,
-            trendConsecutiveDowns: factorResults.trendConsecutiveDowns
-          }
-        } : null
+        factors: {
+          trendFactors: trendFactors
+        }
       };
 
       const result = await this.processSignal(signal);

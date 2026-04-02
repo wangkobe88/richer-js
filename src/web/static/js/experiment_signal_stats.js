@@ -352,7 +352,7 @@ class ExperimentSignalStats {
     // 代币显示（symbol + 地址前8位）
     const shortAddress = stat.tokenAddress.slice(0, 8) + '...';
 
-    // 区块链（用于 GMGN 链接）
+    // 区块链（用于 GMGN 链接和其他链接）
     const blockchain = this.experimentData?.config?.blockchain || 'bsc';
     // GMGN 链接根据不同链使用不同格式
     const gmgnChainMap = {
@@ -363,6 +363,14 @@ class ExperimentSignalStats {
     };
     const gmgnChain = gmgnChainMap[blockchain] || 'bsc';
     const gmgnUrl = `https://gmgn.ai/${gmgnChain}/token/${stat.tokenAddress}`;
+
+    // 各个页面链接
+    const observerUrl = `/experiment/${this.experimentId}/observer#token=${stat.tokenAddress}`;
+    const signalsUrl = `/experiment/${this.experimentId}/signals#token=${stat.tokenAddress}`;
+    const strategyUrl = `/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${stat.tokenAddress}`;
+    const earlyTradesUrl = `/token-early-trades?token=${stat.tokenAddress}&chain=${blockchain}`;
+    const tokenDetailUrl = `/token-detail?experiment=${this.experimentId}&address=${stat.tokenAddress}`;
+    const holdersUrl = `/token-holders?experiment=${this.experimentId}&token=${stat.tokenAddress}`;
 
     return `
       <tr class="table-row">
@@ -387,17 +395,26 @@ class ExperimentSignalStats {
         <td class="px-4 py-3 text-center">${ratingBadge}</td>
         <td class="px-4 py-3 text-center">${humanJudgeBadge}</td>
         <td class="px-4 py-3 text-center">${maxChangeDisplay}</td>
-        <td class="px-4 py-3 text-center">
-          <div class="flex items-center justify-center gap-1">
-            <button onclick="window.experimentSignalStats.copyAddress('${stat.tokenAddress}')" class="px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded text-xs text-white transition-colors" title="复制地址">
-              📋
-            </button>
-            <a href="${gmgnUrl}" target="_blank" class="px-2 py-1 bg-purple-600 hover:bg-purple-700 rounded text-xs text-white transition-colors" title="GMGN">
-              GMGN
-            </a>
-            <a href="/experiment/${this.experimentId}/signals?token=${stat.tokenAddress}" target="_blank" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs text-white transition-colors" title="查看详情">
-              详情
-            </a>
+        <td class="px-2 py-3">
+          <div class="flex flex-col gap-1 text-xs text-gray-400">
+            <div class="flex items-center gap-1">
+              <a href="${gmgnUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">GMGN</a>
+              <span class="text-gray-600">|</span>
+              <a href="${observerUrl}" target="_blank" class="hover:text-green-400 flex-shrink-0">时序</a>
+              <span class="text-gray-600">|</span>
+              <a href="${signalsUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">信号</a>
+              <span class="text-gray-600">|</span>
+              <a href="${strategyUrl}" target="_blank" class="hover:text-pink-400 flex-shrink-0">策略</a>
+            </div>
+            <div class="flex items-center gap-1">
+              <a href="${earlyTradesUrl}" target="_blank" class="hover:text-amber-400 flex-shrink-0" title="早期交易">早期</a>
+              <span class="text-gray-600">|</span>
+              <a href="${tokenDetailUrl}" target="_blank" class="hover:text-cyan-400 flex-shrink-0" title="代币详情">详情</a>
+              <span class="text-gray-600">|</span>
+              <a href="${holdersUrl}" target="_blank" class="hover:text-indigo-400 flex-shrink-0" title="持有者">持有者</a>
+              <span class="text-gray-600">|</span>
+              <button onclick="window.experimentSignalStats.copyAddress('${stat.tokenAddress}')" class="hover:text-blue-400 flex-shrink-0">复制</button>
+            </div>
           </div>
         </td>
       </tr>

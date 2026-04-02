@@ -78,8 +78,10 @@ class TelegramNotifier {
     // 构建因子状态映射（用于颜色编码）
     const factorStatus = this._buildFactorStatusMap(pr.failedConditions || [], pr.canBuy);
 
-    // 消息头部（紧凑格式）
-    let message = `${statusIcon} *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}
+    // 消息头部（紧凑格式，包含信号类型标识）
+    const actionEmoji = signal.action === 'buy' ? '🟢' : '🔴';
+    const actionText = signal.action === 'buy' ? '买入' : '卖出';
+    let message = `${statusIcon} ${actionEmoji} ${actionText} | *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}
 
 `;
 
@@ -101,6 +103,25 @@ class TelegramNotifier {
     }
     if (priceParts.length > 0) {
       message += `💵 ${priceParts.join(' | ')}\n`;
+    }
+
+    // 卖出特定信息（买入价、利润、持仓时间）
+    if (signal.action === 'sell') {
+      const sellParts = [];
+      if (metadata.buyPrice !== undefined && metadata.buyPrice !== null) {
+        sellParts.push(`买入价: \`${this.formatNumber(metadata.buyPrice, 6)}\``);
+      }
+      if (metadata.profitPercent !== undefined && metadata.profitPercent !== null) {
+        const profitIcon = metadata.profitPercent >= 0 ? '📈' : '📉';
+        sellParts.push(`利润: ${profitIcon}\`${this.formatPercent(metadata.profitPercent)}\``);
+      }
+      if (metadata.holdDuration !== undefined && metadata.holdDuration !== null) {
+        const durationMinutes = Math.floor(metadata.holdDuration / 60000);
+        sellParts.push(`持仓: \`${durationMinutes}分\``);
+      }
+      if (sellParts.length > 0) {
+        message += `💰 ${sellParts.join(' | ')}\n`;
+      }
     }
 
     // 趋势因子（紧凑一行）

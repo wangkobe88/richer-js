@@ -270,6 +270,11 @@ class ConditionEvaluator {
         const leftValue = this._getOperandValue(node.left, factorResults);
         const rightValue = this._getOperandValue(node.right, factorResults);
 
+        // 如果任何一边是 undefined，条件无法评估，返回 false
+        if (leftValue === undefined || rightValue === undefined) {
+            return false;
+        }
+
         switch (node.operator) {
             case '>':
                 return leftValue > rightValue;
@@ -294,7 +299,7 @@ class ConditionEvaluator {
      * @private
      * @param {string} operand - 操作数
      * @param {Map<string, number>|Object} factorResults - 因子计算结果
-     * @returns {number} 值
+     * @returns {number|undefined} 值，如果不存在则返回 undefined
      */
     _getOperandValue(operand, factorResults) {
         // 尝试解析为数字
@@ -304,10 +309,12 @@ class ConditionEvaluator {
 
         // 从因子结果中获取
         if (factorResults instanceof Map) {
-            return factorResults.get(operand) || 0;
+            const value = factorResults.get(operand);
+            return value !== undefined ? value : undefined;
         }
 
-        return factorResults[operand] || 0;
+        const value = factorResults[operand];
+        return value !== undefined ? value : undefined;
     }
 
     /**
