@@ -2,6 +2,11 @@
  * Stage 1: 低质量检测Prompt
  * 三阶段低质量检测流程
  *
+ * V11.8 - 新增"政治/地缘政治事件"检测场景
+ * - 第三阶段增加scenario 7：政治/地缘政治事件检测
+ * - 政治选举、地缘冲突、政策法规等内容不适合构建meme币
+ * - 示例：代币名"HORMUZ"，内容是"伊朗霍尔木兹海峡支付要求" → 触发low
+ *
  * V11.7 - 简化中英文对应规则
  * - 核心原则：只要能互译就算对应，不穷举具体词汇
  * - 删除冗余的分类列表（地名/产品名/品牌名/俚语等）
@@ -130,7 +135,7 @@ import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 /**
  * Prompt版本号（集中管理，修改时请同步更新文件顶部的版本注释）
  */
-export const STAGE1_PROMPT_VERSION = 'V11.7';
+export const STAGE1_PROMPT_VERSION = 'V11.8';
 
 /**
  * 构建Stage 1低质量检测Prompt
@@ -514,6 +519,29 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
      - 地区名称只是比喻/象征用法，非实际地理事件
    - 理由：meme需要病毒式传播和跨文化共鸣，地区性事件受众太局限
 
+**3.7 政治/地缘政治事件**：政治选举、地缘冲突、政策法规等内容不适合构建meme币
+   - ⚠️ **政治内容严肃敏感，缺乏meme的娱乐属性 = 返回pass=false, stage=3, scenario=7**
+   - **判断标准（满足1项即触发）**：
+     1. **政治选举/候选人**：总统大选、议员选举、候选人相关
+     2. **地缘政治冲突**：战争、制裁、领土争端、外交冲突
+     3. **政策法规**：政府政策、法律法规、监管措施
+     4. **国际关系**：国家间关系、外交事件、国际组织决议
+   - **判断关键词**：选举、总统、战争、制裁、法案、政策、外交、国际关系、条约、边境
+   - **反面示例（触发）**：
+     - 代币名"HORMUZ"，内容"伊朗要求霍尔木兹海峡船只用人民币支付" → 触发（地缘政治）
+     - 代币名"ELECTION"，内容"某国总统大选投票" → 触发（政治选举）
+     - 代币名"SANCTION"，内容"对某国实施经济制裁" → 触发（地缘政治）
+     - 代币名"TARIFF"，内容"中美贸易战关税政策" → 触发（政策法规）
+   - **正面示例（不触发）**：
+     - ✅ 有明显幽默/讽刺元素的政治meme → 不触发（有meme属性）
+     - ✅ 大IP（如CZ、Musk）发表政治观点引发社区玩梗 → 不触发（有社交传播）
+     - ✅ 政治人物的非政治事件（如Trump被捕meme） → 不触发（非严肃政治内容）
+   - **豁免条件**：
+     - 内容有明显的幽默/讽刺/玩梗元素
+     - 有大IP参与引发社区传播和讨论
+     - 非严肃的政治讨论（娱乐化、轻松化处理）
+   - 理由：meme币需要轻松娱乐属性，严肃政治内容缺乏病毒传播潜力
+
 ═══════════════════════════════════════════════════════════════
 
 【输出格式】
@@ -527,7 +555,7 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 {"pass": false, "stage": 2, "reason": "Symbol和Name都不在核心实体中，无相关性", "entities": {...}}
 
 **第三阶段触发：有相关性但质量低**
-{"pass": false, "stage": 3, "scenario": 1-6, "reason": "说明理由", "entities": {...}}
+{"pass": false, "stage": 3, "scenario": 1-7, "reason": "说明理由", "entities": {...}}
 
 **最终通过：有相关性且质量过关**
 {"pass": true, "stage": 0, "reason": "Symbol或Name在核心实体中，且无低质量问题", "entities": {"tweet1": ["实体1", ...], "in_reply_to": [...], "quoted_tweet": [...], "retweeted_tweet": [...], "website": [...], "amazon": [...], "twitter_account": [...]}}
@@ -547,7 +575,7 @@ ${stage2Rules.length > 0 ? '\n' + stage2Rules.join('\n') : ''}
 - stage: 1 表示第一阶段触发（内容空洞，pass=false）
 - stage: 2 表示第二阶段触发（无相关性，pass=false）
 - stage: 3 表示第三阶段触发（有相关性但质量低，pass=false）
-- 当stage=3时，scenario字段必须是1-6的数字，对应六个场景`);
+- 当stage=3时，scenario字段必须是1-7的数字，对应七个场景`);
 
   return sections.filter(s => s).join('\n\n');
 }
