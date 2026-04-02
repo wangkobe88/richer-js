@@ -2848,10 +2848,21 @@ class ExperimentSignals {
       return null;
     }
 
+    // 动态构建策略数组，添加 id 和 name 字段（因为数据库保存的是原始配置）
+    const enrichedStrategies = strategies.map((s, idx) => ({
+      ...s,
+      id: s.id || `${action}_${idx}_${s.priority || 0}`,
+      name: s.name || `${action === 'buy' ? '买入' : '卖出'}策略 P${s.priority || 0}`
+    }));
+
     // 如果提供了 strategyId，查找对应的策略
     if (strategyId) {
-      const strategy = strategies.find(s => s.id === strategyId);
+      console.log(`[ExperimentSignals] 查找策略: action=${action}, strategyId=${strategyId}`);
+      console.log(`[ExperimentSignals] 可用策略列表:`, enrichedStrategies.map(s => ({ id: s.id, name: s.name })));
+
+      const strategy = enrichedStrategies.find(s => s.id === strategyId);
       if (strategy && strategy.condition) {
+        console.log(`[ExperimentSignals] 找到匹配策略: ${strategy.name}, condition=${strategy.condition}`);
         return strategy.condition;
       }
       // 如果找不到对应策略，回退到第一个策略
@@ -2859,7 +2870,9 @@ class ExperimentSignals {
     }
 
     // 获取第一个策略的触发条件
-    return strategies[0].condition || null;
+    const firstStrategy = enrichedStrategies[0];
+    console.log(`[ExperimentSignals] 使用第一个策略: ${firstStrategy?.id} - ${firstStrategy?.name}`);
+    return firstStrategy?.condition || null;
   }
 
   /**

@@ -966,8 +966,8 @@ export class NarrativeAnalyzer {
       // 总交互数 = 转发 + 评论 + 点赞
       const totalEngagement = repostsCount + commentsCount + attitudesCount;
 
-      // 阈值：总交互数 < 1000 认为传播力不足
-      const LOW_ENGAGEMENT_THRESHOLD = 1000;
+      // 阈值：总交互数 < 150 认为传播力不足
+      const LOW_ENGAGEMENT_THRESHOLD = 150;
 
       if (totalEngagement < LOW_ENGAGEMENT_THRESHOLD) {
         const authorName = backgroundInfo.author_name || '未知';
