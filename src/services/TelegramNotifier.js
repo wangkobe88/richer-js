@@ -84,7 +84,8 @@ class TelegramNotifier {
     // 消息头部（紧凑格式，包含信号类型标识）
     const actionEmoji = signal.action === 'buy' ? '🟢' : '🔴';
     const actionText = signal.action === 'buy' ? '买入' : '卖出';
-    let message = `${statusIcon} ${actionEmoji} ${actionText} | *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}
+    const executionStatus = executed ? '✅接受' : '🚫拒绝';
+    let message = `${actionEmoji} ${actionText}【${executionStatus}】 | *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}
 
 `;
 
