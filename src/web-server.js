@@ -1875,7 +1875,9 @@ class RicherJsWebServer {
         const { TokenAnalysisService } = require('./web/services/TokenAnalysisService');
         const analysisService = new TokenAnalysisService();
 
-        console.log(`[代币分析] 开始分析实验 ${req.params.id} 的代币涨幅...`);
+        const { skipAnalyzed = false } = req.body;
+        const skipText = skipAnalyzed ? '（跳过已分析）' : '';
+        console.log(`[代币分析] 开始分析实验 ${req.params.id} 的代币涨幅${skipText}...`);
 
         let progress = 0;
         const totalTokens = await analysisService.getAllTokens(req.params.id);
@@ -1885,9 +1887,10 @@ class RicherJsWebServer {
           progress = current;
           const percent = ((current / total) * 100).toFixed(1);
           console.log(`[代币分析] 进度: ${current}/${total} (${percent}%)`);
-        });
+        }, { skipAnalyzed });
 
-        console.log(`[代币分析] 分析完成: ${result.analyzed} 成功, ${result.failed} 失败`);
+        const skippedText = result.skipped > 0 ? `, ${result.skipped} 跳过` : '';
+        console.log(`[代币分析] 分析完成: ${result.analyzed} 成功, ${result.failed} 失败${skippedText}`);
 
         res.json({
           success: true,

@@ -14,25 +14,41 @@ class TokenAnalysisService {
    * 分析实验的所有代币
    * @param {string} experimentId - 实验ID
    * @param {Function} progressCallback - 进度回调 (current, total)
+   * @param {Object} options - 选项
+   * @param {boolean} options.skipAnalyzed - 是否跳过已分析的代币
    * @returns {Promise<Object>} 分析结果
    */
-  async analyzeExperimentTokens(experimentId, progressCallback = null) {
+  async analyzeExperimentTokens(experimentId, progressCallback = null, options = {}) {
     try {
+      const { skipAnalyzed = false } = options;
+
       // 获取所有代币
       const tokens = await this.getAllTokens(experimentId);
 
+      // 如果需要跳过已分析的代币，先获取已分析的代币列表
+      let analyzedAddresses = new Set();
+      if (skipAnalyzed) {
+        analyzedAddresses = await this.getAnalyzedTokenAddresses(experimentId);
+      }
+
+      // 过滤出需要分析的代币
+      const tokensToAnalyze = skipAnalyzed
+        ? tokens.filter(t => !analyzedAddresses.has(t.token_address))
+        : tokens;
+
       let analyzed = 0;
       let failed = 0;
+      let skipped = 0;
       const results = [];
 
-      for (const token of tokens) {
+      for (const token of tokensToAnalyze) {
         try {
           const analysis = await this.analyzeToken(experimentId, token.token_address);
           results.push(analysis);
           analyzed++;
 
           if (progressCallback) {
-            progressCallback(analyzed, tokens.length);
+            progressCallback(analyzed, tokensToAnalyze.length);
           }
         } catch (error) {
           console.error(`分析代币失败 ${token.token_address}:`, error.message);
@@ -40,17 +56,42 @@ class TokenAnalysisService {
         }
       }
 
+      if (skipAnalyzed) {
+        skipped = tokens.length - tokensToAnalyze.length;
+      }
+
       return {
         success: true,
         total: tokens.length,
         analyzed,
         failed,
+        skipped,
         results
       };
     } catch (error) {
       console.error('分析实验代币失败:', error);
       throw error;
     }
+  }
+
+  /**
+   * 获取已分析的代币地址列表
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<Set<string>>} 已分析的代币地址集合
+   */
+  async getAnalyzedTokenAddresses(experimentId) {
+    const { data, error } = await this.supabase
+      .from('experiment_tokens')
+      .select('token_address')
+      .eq('experiment_id', experimentId)
+      .not('analysis_results', 'is', null);
+
+    if (error) {
+      console.error('获取已分析代币列表失败:', error);
+      return new Set();
+    }
+
+    return new Set(data?.map(t => t.token_address) || []);
   }
 
   /**

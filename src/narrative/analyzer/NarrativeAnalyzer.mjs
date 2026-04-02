@@ -64,6 +64,37 @@ export class NarrativeAnalyzer {
   }
 
   /**
+   * 计算字符串的"视觉长度"
+   * 中文字符（CJK）按2个单位计算，英文/数字/符号按1个单位计算
+   * 这样可以更准确地反映字符串在显示时的实际占用空间
+   * @param {string} str - 要计算的字符串
+   * @returns {number} 视觉长度
+   */
+  static getVisualLength(str) {
+    if (!str) return 0;
+    let length = 0;
+    for (const char of str) {
+      // 判断是否为中日韩（CJK）统一表意文字
+      // 范围包括：基本区、扩展A区、扩展B区、扩展C区、扩展D区、扩展E区、扩展F区
+      const code = char.codePointAt(0);
+      const isCJK = (
+        (code >= 0x4E00 && code <= 0x9FFF) ||     // 基本区
+        (code >= 0x3400 && code <= 0x4DBF) ||     // 扩展A区
+        (code >= 0x20000 && code <= 0x2A6DF) ||   // 扩展B区
+        (code >= 0x2A700 && code <= 0x2B73F) ||   // 扩展C区
+        (code >= 0x2B740 && code <= 0x2B81F) ||   // 扩展D区
+        (code >= 0x2B820 && code <= 0x2CEAF) ||   // 扩展E区
+        (code >= 0x2CEB0 && code <= 0x2EBEF) ||   // 扩展F区
+        (code >= 0xF900 && code <= 0xFAFF) ||     // 兼容汉字
+        (code >= 0x2F800 && code <= 0x2FA1F)      // 兼容汉字补充
+      );
+      // CJK字符算2个单位，其他算1个单位
+      length += isCJK ? 2 : 1;
+    }
+    return length;
+  }
+
+  /**
    * 分析代币叙事（带缓存）
    * @param {string} address - 代币地址
    * @param {Object} options - 选项
@@ -446,15 +477,19 @@ export class NarrativeAnalyzer {
     const tokenSymbol = (tokenData.symbol || '').trim();
     const tokenName = (tokenData.name || tokenData.raw_api_data?.name || '').trim();
 
-    const MAX_SYMBOL_LENGTH = 12;  // Symbol最大长度（>=触发）
-    const MAX_NAME_LENGTH = 30;     // Name最大长度（>=触发）
+    const MAX_SYMBOL_LENGTH = 12;  // Symbol最大视觉长度（>=触发）
+    const MAX_NAME_LENGTH = 30;     // Name最大视觉长度（>=触发）
+
+    // 使用视觉长度计算（中文字符算2个单位）
+    const symbolVisualLength = this.getVisualLength(tokenSymbol);
+    const nameVisualLength = this.getVisualLength(tokenName);
 
     // 检查Symbol长度
-    if (tokenSymbol && tokenSymbol.length > MAX_SYMBOL_LENGTH) {
-      console.log(`[NarrativeAnalyzer] 预检查触发: 代币Symbol过长 (${tokenSymbol.length}字符)`);
+    if (tokenSymbol && symbolVisualLength > MAX_SYMBOL_LENGTH) {
+      console.log(`[NarrativeAnalyzer] 预检查触发: 代币Symbol过长 (视觉长度: ${symbolVisualLength}, 实际字符: ${tokenSymbol.length})`);
       return {
         category: 'low',
-        reasoning: `代币Symbol"${tokenSymbol}"长度为${tokenSymbol.length}字符，明显超出正常范围（阈值：${MAX_SYMBOL_LENGTH}），疑似博眼球而无真实叙事价值`,
+        reasoning: `代币Symbol"${tokenSymbol}"视觉长度为${symbolVisualLength}（实际${tokenSymbol.length}字符），超出正常范围（阈值：${MAX_SYMBOL_LENGTH}），疑似博眼球而无真实叙事价值`,
         scores: { credibility: 0, virality: 0 },
         total_score: 0,
         preCheckTriggered: true,
@@ -463,11 +498,11 @@ export class NarrativeAnalyzer {
     }
 
     // 检查Name长度
-    if (tokenName && tokenName.length > MAX_NAME_LENGTH) {
-      console.log(`[NarrativeAnalyzer] 预检查触发: 代币Name过长 (${tokenName.length}字符)`);
+    if (tokenName && nameVisualLength > MAX_NAME_LENGTH) {
+      console.log(`[NarrativeAnalyzer] 预检查触发: 代币Name过长 (视觉长度: ${nameVisualLength}, 实际字符: ${tokenName.length})`);
       return {
         category: 'low',
-        reasoning: `代币名称"${tokenName}"长度为${tokenName.length}字符，明显超出正常范围（阈值：${MAX_NAME_LENGTH}），疑似博眼球而无真实叙事价值`,
+        reasoning: `代币名称"${tokenName}"视觉长度为${nameVisualLength}（实际${tokenName.length}字符），超出正常范围（阈值：${MAX_NAME_LENGTH}），疑似博眼球而无真实叙事价值`,
         scores: { credibility: 0, virality: 0 },
         total_score: 0,
         preCheckTriggered: true,
@@ -840,12 +875,28 @@ export class NarrativeAnalyzer {
       // 抖音等平台可能隐藏播放量，此时用点赞数/分享数判断传播力
       const isViewCountHidden = hasViewData && viewCount === 0;
       const hasHighEngagement = hasLikeData && likeCount >= 10000; // 1万点赞以上
+      const shareCount = video.info.share_count || 0;
 
       if (hasViewData && viewCount < lowViewThreshold && !(isViewCountHidden && hasHighEngagement)) {
         console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频播放量(${viewCount})过低，返回low`);
+
+        // 根据播放量是否被隐藏，生成不同的提示语
+        let reasoning;
+        if (viewCount === 0) {
+          // 播放量被平台隐藏
+          const engagementInfo = [];
+          if (hasLikeData) engagementInfo.push(`点赞数${likeCount}`);
+          if (shareCount > 0) engagementInfo.push(`分享数${shareCount}`);
+          const engagementStr = engagementInfo.join('、');
+          reasoning = `${video.name}视频播放量不可见（平台隐藏），${engagementStr}未达到传播阈值（需10000+点赞），传播力不足`;
+        } else {
+          // 播放量可见但低于阈值
+          reasoning = `${video.name}视频播放量${viewCount}低于阈值${lowViewThreshold}，传播力不足`;
+        }
+
         return {
           category: 'low',
-          reasoning: `${video.name}视频播放量仅${viewCount}，传播力不足`,
+          reasoning,
           scores: { credibility: 10, virality: 10 },
           total_score: 20,
           preCheckTriggered: true,

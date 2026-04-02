@@ -43,8 +43,11 @@ class TelegramNotifier {
       // 获取代币发现信息
       const tokenInfo = await this.getTokenDiscoveryInfo(signal.token_address, signal.experiment_id);
 
+      // 获取叙事数据
+      const narrativeInfo = await this.getNarrativeInfo(signal.token_address);
+
       // 格式化消息
-      const message = this.formatSignalMessage(signal, tokenInfo, experimentInfo);
+      const message = this.formatSignalMessage(signal, tokenInfo, narrativeInfo, experimentInfo);
 
       // 发送消息（带重试）
       await this.sendWithRetry(message);
@@ -60,7 +63,7 @@ class TelegramNotifier {
   /**
    * 格式化信号通知消息
    */
-  formatSignalMessage(signal, tokenInfo, experimentInfo) {
+  formatSignalMessage(signal, tokenInfo, narrativeInfo, experimentInfo) {
     const metadata = signal.metadata || {};
     const tf = metadata.trendFactors || {};
     const pf = metadata.preBuyCheckFactors || {};
@@ -284,13 +287,23 @@ class TelegramNotifier {
       }
     }
 
-    // 叙事评级（紧凑一行，带状态）
+    // 叙事评级和摘要
     if (pf.narrativeRating !== undefined && pf.narrativeRating !== 9) {
       const narrativeStatus = factorStatus.get('narrativeRating');
       const statusIcon = narrativeStatus === 'pass' ? '✅' : narrativeStatus === 'fail' ? '❌' : '';
       const ratingLabels = { 1: '低', 2: '中', 3: '高', 9: '未评级' };
       const ratingText = ratingLabels[pf.narrativeRating] || `${pf.narrativeRating}`;
       message += `📖 ${statusIcon}叙事: \`${ratingText}\`\n`;
+    }
+
+    // 叙事摘要（如果有的话）
+    if (narrativeInfo && narrativeInfo.reasoning) {
+      const summary = narrativeInfo.reasoning.trim();
+      if (summary) {
+        // 截取前200个字符
+        const truncatedSummary = summary.length > 200 ? summary.substring(0, 200) + '...' : summary;
+        message += `   ${truncatedSummary}\n`;
+      }
     }
 
     // 多次交易因子（紧凑一行）
@@ -395,6 +408,50 @@ class TelegramNotifier {
       };
     } catch (error) {
       console.error('获取代币发现信息失败:', error.message);
+      return {};
+    }
+  }
+
+  /**
+   * 获取叙事分析信息（摘要）
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Object} 叙事信息
+   */
+  async getNarrativeInfo(tokenAddress) {
+    if (!this.dbManager) {
+      return {};
+    }
+
+    try {
+      const supabase = this.dbManager.getClient();
+      // 获取最新的叙事分析结果
+      const { data, error } = await supabase
+        .from('token_narrative')
+        .select('llm_stage2_parsed_output, llm_stage1_parsed_output, pre_check_result')
+        .eq('token_address', tokenAddress.toLowerCase())
+        .order('analyzed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) {
+        return {};
+      }
+
+      // 从 stage2 或 stage1 或 pre_check 中提取 reasoning
+      let reasoning = null;
+      if (data.llm_stage2_parsed_output?.reasoning) {
+        reasoning = data.llm_stage2_parsed_output.reasoning;
+      } else if (data.llm_stage1_parsed_output?.reason) {
+        reasoning = data.llm_stage1_parsed_output.reason;
+      } else if (data.pre_check_result?.reasoning) {
+        reasoning = data.pre_check_result.reasoning;
+      }
+
+      return {
+        reasoning: reasoning || null
+      };
+    } catch (error) {
+      console.error('获取叙事信息失败:', error.message);
       return {};
     }
   }
