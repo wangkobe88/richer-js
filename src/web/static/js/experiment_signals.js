@@ -1967,7 +1967,7 @@ class ExperimentSignals {
       const pr = metadata.preBuyCheckResult || {};
 
       // 🔥 获取策略条件并解析阈值
-      const buyCondition = this._getBuyCondition('buy');
+      const buyCondition = this._getBuyCondition('buy', strategyId);
       const buyThresholds = buyCondition ? this._parseBuyCondition(buyCondition) : {};
       // 获取购买轮次，用于显示对应的预检查条件
       const buyRound = pf.buyRound || 1;
@@ -2331,7 +2331,7 @@ class ExperimentSignals {
       const buyPrice = tf.buyPrice || metadata.buyPrice || 0;
 
       // 🔥 获取卖出策略条件并解析阈值
-      const sellCondition = this._getBuyCondition('sell');
+      const sellCondition = this._getBuyCondition('sell', strategyId);
       const sellThresholds = sellCondition ? this._parseBuyCondition(sellCondition) : {};
 
       // 辅助函数：格式化数值
@@ -2833,9 +2833,10 @@ class ExperimentSignals {
    * 从实验配置中获取买入条件（触发条件）
    * @private
    * @param {string} action - 交易动作 ('buy' 或 'sell')
+   * @param {string} strategyId - 策略ID (可选，如 'sell_3_4' 或 'buy_0_1')
    * @returns {string|null} 条件表达式
    */
-  _getBuyCondition(action) {
+  _getBuyCondition(action, strategyId = null) {
     if (!this.experimentConfig || !this.experimentConfig.strategiesConfig) {
       return null;
     }
@@ -2845,6 +2846,16 @@ class ExperimentSignals {
 
     if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
       return null;
+    }
+
+    // 如果提供了 strategyId，查找对应的策略
+    if (strategyId) {
+      const strategy = strategies.find(s => s.id === strategyId);
+      if (strategy && strategy.condition) {
+        return strategy.condition;
+      }
+      // 如果找不到对应策略，回退到第一个策略
+      console.warn(`[ExperimentSignals] 未找到策略ID ${strategyId}，使用第一个策略的条件`);
     }
 
     // 获取第一个策略的触发条件

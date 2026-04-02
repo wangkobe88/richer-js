@@ -956,6 +956,44 @@ export class NarrativeAnalyzer {
       }
     }
 
+    // 规则3.6：微博交互数据检查
+    // 如果引用微博且微博交互数据不高，直接返回 low
+    if (backgroundInfo && backgroundInfo.source === 'weibo' && backgroundInfo.metrics) {
+      const repostsCount = backgroundInfo.metrics.reposts_count || 0;
+      const commentsCount = backgroundInfo.metrics.comments_count || 0;
+      const attitudesCount = backgroundInfo.metrics.attitudes_count || 0;
+
+      // 总交互数 = 转发 + 评论 + 点赞
+      const totalEngagement = repostsCount + commentsCount + attitudesCount;
+
+      // 阈值：总交互数 < 1000 认为传播力不足
+      const LOW_ENGAGEMENT_THRESHOLD = 1000;
+
+      if (totalEngagement < LOW_ENGAGEMENT_THRESHOLD) {
+        const authorName = backgroundInfo.author_name || '未知';
+        const engagementDetails = [];
+        if (repostsCount > 0) engagementDetails.push(`转发${repostsCount}`);
+        if (commentsCount > 0) engagementDetails.push(`评论${commentsCount}`);
+        if (attitudesCount > 0) engagementDetails.push(`点赞${attitudesCount}`);
+
+        const engagementStr = engagementDetails.length > 0
+          ? engagementDetails.join('、')
+          : '无交互数据';
+
+        console.log(`[NarrativeAnalyzer] 规则3.6触发: 微博总交互数(${totalEngagement})低于阈值(${LOW_ENGAGEMENT_THRESHOLD})，返回low`);
+        return {
+          category: 'low',
+          reasoning: `微博作者"${authorName}"的交互数据过低（${engagementStr}，总交互${totalEngagement}），传播力不足（阈值：${LOW_ENGAGEMENT_THRESHOLD}）`,
+          scores: { credibility: 10, virality: 10 },
+          total_score: 20,
+          preCheckTriggered: true,
+          preCheckReason: 'weibo_low_engagement'
+        };
+      }
+
+      console.log(`[NarrativeAnalyzer] 微博交互数据检查通过: 总交互数=${totalEngagement}（转发${repostsCount}+评论${commentsCount}+点赞${attitudesCount}）`);
+    }
+
     // 规则4：公开信息检查（基于 classifiedUrls）
     // 区分两种情况：没有公开信息（unrated） vs 有信息但失效（low）
 
