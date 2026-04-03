@@ -99,7 +99,11 @@ ${accountSummary}`);
   const amazonSection = buildAmazonSection(amazonInfo);
   if (amazonSection) sections.push(amazonSection);
 
-  // 5. 事件分析框架
+  // 5. 高影响力账号图片分析（如果存在）
+  const imageAnalysisSection = buildImageAnalysisSection(twitterInfo);
+  if (imageAnalysisSection) sections.push(imageAnalysisSection);
+
+  // 6. 事件分析框架
   sections.push(buildEventAnalysisFramework());
 
   return sections.filter(s => s).join('\n\n');
@@ -437,17 +441,16 @@ function buildEventAnalysisFramework() {
 **只返回JSON，不要其他内容**：
 
 **事件不存在或无意义**：
-{"pass": false, "stage": 1, "reason": "说明原因", "entities": {...}, "eventAnalysis": {"eventExists": false, "blockReason": "原因"}}
+{"pass": false, "stage": 1, "reason": "说明原因", "eventAnalysis": {"eventExists": false, "blockReason": "原因"}}
 
 **事件存在但触发阻断性场景**：
-{"pass": false, "stage": 1, "reason": "说明原因", "entities": {...}, "eventAnalysis": {"eventExists": true, "blockReason": "场景名称"}}
+{"pass": false, "stage": 1, "reason": "说明原因", "eventAnalysis": {"eventExists": true, "blockReason": "场景名称"}}
 
 **事件通过（有传播潜力）**：
 {
   "pass": true,
   "stage": 1,
   "reason": "事件完整且有传播潜力",
-  "entities": {"tweet1": [...], "website": [...], ...},
   "eventAnalysis": {
     "eventExists": true,
     "eventDescription": {
@@ -471,6 +474,56 @@ function buildEventAnalysisFramework() {
 - pass: true 表示事件分析通过，可以进入代币分析
 - pass: false 表示事件不存在、无意义或无传播潜力，直接返回low
 - eventAnalysis.propagationScore ≥ 60 建议通过，< 60 建议返回low
-- entities字段必须包含每条语料的核心实体列表（保持与Stage 1第二阶段步骤2.1相同的格式）
 `;
+}
+
+/**
+ * 构建高影响力账号图片分析 Section
+ * @param {Object} twitterInfo - Twitter 信息
+ * @returns {string|null} 图片分析 Section
+ */
+function buildImageAnalysisSection(twitterInfo) {
+  if (!twitterInfo?._imageAnalysis || twitterInfo._imageAnalysis.length === 0) {
+    return null;
+  }
+
+  const lines = [
+    '╔══════════════════════════════════════════════════════════════════════════════╗',
+    '║                    高影响力账号推文图片分析                                     ║',
+    '╚══════════════════════════════════════════════════════════════════════════════╝'
+  ];
+
+  for (const item of twitterInfo._imageAnalysis) {
+    lines.push(`\n【@${item.account} 的推文配图分析】（${item.accountBackground || ''}）`);
+    lines.push(`分析完成：${item.images_analyzed}张图片，耗时${item.total_time_ms}ms\n`);
+
+    for (const img of item.results) {
+      const analysis = img.analysis;
+      const timing = img.timing || {};
+
+      lines.push(`📷 **图片内容**：${analysis.description}`);
+      lines.push(``);
+      lines.push(`**代币关联度**：${analysis.token_relevance?.is_related ? '✓ 相关' : '✗ 无关'}`);
+      lines.push(`- 原因：${analysis.token_relevance?.reason || '无'}`);
+      if (analysis.token_relevance?.is_related && analysis.token_relevance.match_type) {
+        lines.push(`- 匹配类型：${analysis.token_relevance.match_type}`);
+      }
+      if (analysis.meme_info?.is_meme) {
+        lines.push(``);
+        lines.push(`**Meme信息**：${analysis.meme_info.name}`);
+      }
+      if (analysis.marketing_signals?.length > 0) {
+        lines.push(``);
+        lines.push(`**营销信号**：`);
+        analysis.marketing_signals.forEach(s => lines.push(`  - ${s}`));
+      }
+      if (timing.total) {
+        lines.push(``);
+        lines.push(`（分析耗时：下载${timing.download}ms + 识别${timing.analysis}ms）`);
+      }
+    }
+  }
+
+  lines.push('');
+  return lines.join('\n');
 }

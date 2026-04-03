@@ -246,7 +246,12 @@ class NarrativeAnalyzer {
 
     // Stage 1
     if (stage >= 1) {
-      if (llmAnalysis.stage1?.category === 'low') {
+      const stage1Parsed = llmAnalysis.stage1?.parsedOutput || {};
+      // 兼容新旧框架
+      const isFail = stage1Parsed.hasOwnProperty('pass')
+        ? (stage1Parsed.pass === false)
+        : (llmAnalysis.stage1?.category === 'low');
+      if (isFail) {
         pathSteps.push({ label: 'Stage 1', status: 'fail', icon: '⛔' });
       } else {
         pathSteps.push({ label: 'Stage 1', status: 'completed', icon: '✅' });
@@ -315,23 +320,50 @@ class NarrativeAnalyzer {
       return;
     }
 
-    const isLowQuality = stage1.category === 'low';
-    const statusClass = isLowQuality ? 'fail' : 'pass';
-    const statusText = isLowQuality ? '检测到低质量' : '通过';
-    const statusIcon = isLowQuality ? '⚠️' : '✅';
+    const parsed = stage1.parsedOutput || {};
+
+    // 兼容新旧框架：
+    // 旧框架：category === 'low' 表示低质量
+    // 新框架：parsed.pass === false 表示事件分析未通过
+    const isOldFramework = !parsed.hasOwnProperty('pass');
+    const isFail = isOldFramework ? (stage1.category === 'low') : (parsed.pass === false);
+
+    const statusClass = isFail ? 'fail' : 'pass';
+    const statusText = isFail ? '未通过' : '通过';
+    const statusIcon = isFail ? '⚠️' : '✅';
 
     let resultHtml = '';
-    if (isLowQuality && stage1.parsedOutput) {
-      const parsed = stage1.parsedOutput;
+    if (isFail && parsed) {
+      // 事件分析未通过或低质量检测触发
+      const eventAnalysis = parsed.eventAnalysis || {};
       resultHtml = `
         <div class="stage-result-box">
-          <strong>检测结果：</strong>
-          ${parsed.stage ? `第${parsed.stage}阶段` : ''} ${parsed.scenario ? `场景${parsed.scenario}` : ''}
-          <br><br>
-          ${parsed.reason || ''}
+          <strong>失败原因：</strong>
+          ${parsed.reason || (eventAnalysis.blockReason || '未知原因')}
         </div>
       `;
-    } else if (!isLowQuality) {
+    } else if (!isFail && parsed.eventAnalysis) {
+      // 事件分析通过 - 显示事件详情和评分
+      const eventDesc = parsed.eventAnalysis.eventDescription || {};
+      const score = parsed.eventAnalysis.propagationScore;
+      const breakdown = parsed.eventAnalysis.scoreBreakdown || {};
+
+      resultHtml = `
+        <div class="stage-result-box">
+          <strong>✅ 事件完整且有传播潜力</strong><br><br>
+          <strong>事件主题：</strong>${eventDesc.主题 || '-'}<br>
+          <strong>事件主体：</strong>${eventDesc.主体 || '-'}<br>
+          <strong>事件类别：</strong>${eventDesc.类别 || '-'}<br>
+          <strong>时效性：</strong>${eventDesc.时效性 || '-'}<br><br>
+          <strong>传播潜力评分：</strong>${score || 0}/100 分
+          ${breakdown.sourceWeight !== undefined ? `<br><span style="font-size: 12px; color: #666;">
+            信息源 ${breakdown.sourceWeight} + 事件影响 ${breakdown.eventImpact} +
+            时效加分 ${breakdown.timelinessBonus} + 类别权重 ${breakdown.categoryWeight}
+          </span>` : ''}
+        </div>
+      `;
+    } else if (!isFail) {
+      // 旧框架 - 未触发低质量场景
       resultHtml = `
         <div class="stage-result-box">
           ✅ 未触发8种低质量场景，内容通过初步检查
@@ -339,10 +371,10 @@ class NarrativeAnalyzer {
       `;
     }
 
-    // 识别的实体
+    // 识别的实体（保留用于兼容旧数据）
     let entitiesHtml = '';
-    if (stage1.parsedOutput?.entities) {
-      const entities = stage1.parsedOutput.entities;
+    if (parsed.entities && !parsed.eventAnalysis) {
+      const entities = parsed.entities;
       const entityEntries = Object.entries(entities);
       if (entityEntries.length > 0) {
         entitiesHtml = '<div class="entities-list">';

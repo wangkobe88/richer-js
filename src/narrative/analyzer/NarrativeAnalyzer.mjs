@@ -1174,8 +1174,38 @@ export class NarrativeAnalyzer {
       const retweetCount = metrics.retweet_count || 0;
       const isHighEngagement = likeCount > 5000 || retweetCount > 2000;
 
-      // 如果满足任一条件 + 有媒体 → unrated
+      // 如果满足任一条件 + 有媒体 → 进行图片识别或返回unrated
       if (isHighInfluence || isHighEngagement) {
+        const hasImages = tweet?.media?.images && tweet.media.images.length > 0;
+        const hasVideos = tweet?.media?.videos && tweet.media.videos.length > 0;
+
+        // 高影响力账号 + 有图片 → 进行图片识别
+        if (isHighInfluence && hasImages) {
+          console.log(`[NarrativeAnalyzer] 高影响力账号 @${authorScreenName} 的推文包含图片，启动图片识别...`);
+
+          const imageAnalysisResult = await this._analyzeImagesForHighInfluenceAccount(
+            tweet.media.images,
+            tokenData
+          );
+
+          if (imageAnalysisResult) {
+            // 将图片分析结果附加到 twitterInfo
+            if (!twitterInfo._imageAnalysis) {
+              twitterInfo._imageAnalysis = [];
+            }
+            twitterInfo._imageAnalysis.push({
+              account: authorScreenName,
+              accountBackground: getHighInfluenceAccountBackground(authorScreenName),
+              ...imageAnalysisResult
+            });
+
+            console.log(`[NarrativeAnalyzer] 图片识别完成（${imageAnalysisResult.images_analyzed}张），继续LLM分析`);
+            // 不返回unrated，继续后续分析
+            continue;
+          }
+        }
+
+        // 有视频或高交互数据（非高影响力账号）→ 仍然返回 unrated
         const reasons = [];
         if (isHighInfluence) {
           const background = getHighInfluenceAccountBackground(authorScreenName);
@@ -1184,7 +1214,7 @@ export class NarrativeAnalyzer {
         if (isHighEngagement) {
           reasons.push(`推文交互数据高（点赞${likeCount}，转发${retweetCount}）`);
         }
-        reasons.push('推文带有媒体内容');
+        reasons.push(hasVideos ? '推文带有视频内容（暂不支持分析）' : '推文带有媒体内容');
 
         console.log(`[NarrativeAnalyzer] 规则4触发: ${reasons.join('，')}，返回unrated`);
         return {
@@ -2996,7 +3026,7 @@ export class NarrativeAnalyzer {
 
     const stage1Result = {
       pass: stage1Data.pass,
-      category: stage1Data.pass ? null : (stage1Data.category || 'low'),
+      category: stage1Data.pass ? 'pass' : (stage1Data.category || 'low'),
       reason: stage1Data.reason || '',
       stage: stage1Data.stage || 0,
       scenario: stage1Data.scenario || 0,
@@ -3015,7 +3045,7 @@ export class NarrativeAnalyzer {
 
     // 7. 保存 Stage 1 结果
     await this._saveStage1Data(normalizedAddress, tokenData, extractedInfo, twitterInfo, classifiedUrls, experimentId, stage1Result, url_extraction_result, data_fetch_results, {
-      category: stage1CallResult.model ? (stage1Data.pass ? null : (stage1Data.category || 'low')) : null,
+      category: stage1CallResult.model ? (stage1Data.pass ? 'pass' : (stage1Data.category || 'low')) : null,
       model: stage1CallResult.model,
       prompt: stage1Prompt,
       raw_output: stage1CallResult.content,
@@ -3225,6 +3255,142 @@ export class NarrativeAnalyzer {
     }
 
     await NarrativeRepository.save(saveData);
+  }
+
+  /**
+   * 为高影响力账号的推文图片进行分析
+   * @private
+   * @param {Array} images - 图片列表 [{url, width, height, media_key}]
+   * @param {Object} tokenData - 代币数据
+   * @returns {Promise<Object|null>} 图片分析结果
+   */
+  static async _analyzeImagesForHighInfluenceAccount(images, tokenData) {
+    const tokenSymbol = tokenData.symbol || '';
+    const tokenName = tokenData.raw_api_data?.name || tokenData.name || '';
+    const tokenIntro = tokenData.raw_api_data?.intro_en || tokenData.raw_api_data?.intro_cn || '';
+    const tokenAddress = tokenData.address || '';
+
+    // 最多分析3张图片
+    const maxImages = Math.min(images.length, 3);
+    const analysisResults = [];
+    const startTime = Date.now();
+
+    console.log(`[NarrativeAnalyzer] 开始分析 ${maxImages}/${images.length} 张图片（代币: ${tokenSymbol}）`);
+
+    for (let i = 0; i < maxImages; i++) {
+      const imageUrl = images[i].url;
+      const imageStartTime = Date.now();
+
+      console.log(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 下载图片: ${imageUrl}`);
+
+      try {
+        // 下载图片
+        const imageData = await ImageDownloader.downloadAsBase64(imageUrl, {
+          maxSize: 5 * 1024 * 1024,  // 5MB
+          timeout: 15000  // 15秒下载超时
+        });
+
+        if (!imageData) {
+          console.warn(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 图片下载失败: ${imageUrl}`);
+          continue;
+        }
+
+        const downloadTime = Date.now() - imageStartTime;
+        console.log(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 下载完成 (${downloadTime}ms, ${imageData.size}字节)`);
+
+        // 构建分析 prompt
+        const prompt = `你是代币叙事分析专家。请分析这张图片与代币"${tokenSymbol}"的关系。
+
+【代币信息】
+- Symbol: ${tokenSymbol}
+${tokenName ? `- Name: ${tokenName}` : ''}
+${tokenIntro ? `- 简介: ${tokenIntro}` : ''}
+- 地址: ${tokenAddress.substring(0, 8)}...
+
+【分析任务】
+1. **图片内容描述**：详细描述图片中的主体、人物、动物、文字、符号等
+2. **代币关联度评估**：图片内容与代币名称/Symbol是否有关联？说明关联方式
+3. **meme/梗图识别**：是否是流行meme图？指出名称和含义
+4. **营销信号**：图片是否呈现明显的营销设计风格？
+
+【输出格式】（JSON）
+{
+  "description": "图片内容详细描述",
+  "token_relevance": {
+    "is_related": true/false,
+    "reason": "关联/无关联的原因",
+    "match_type": "symbol|name|concept|visual|none"
+  },
+  "meme_info": {
+    "is_meme": true/false,
+    "name": "meme名称（如果是）"
+  },
+  "marketing_signals": ["信号1", "信号2"]
+}`;
+
+        // 调用视觉模型分析图片
+        const analysisStartTime = Date.now();
+        const result = await LLMClient.analyzeImage(imageData.dataUrl, prompt, {
+          model: 'Qwen/Qwen3-Omni-30B-A3B-Captioner',  // 使用快速模型 (约5秒)
+          timeout: 20000,  // 20秒超时
+          maxTokens: 2000
+        });
+
+        const analysisTime = Date.now() - analysisStartTime;
+
+        // 解析结果
+        let jsonMatch = result.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            analysisResults.push({
+              image_url: imageUrl,
+              analysis: parsed,
+              timing: {
+                download: downloadTime,
+                analysis: analysisTime,
+                total: downloadTime + analysisTime
+              }
+            });
+            console.log(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 分析成功 (${analysisTime}ms): ${parsed.description?.substring(0, 40)}...`);
+          } catch (e) {
+            console.warn(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] JSON解析失败: ${e.message}`);
+            // 尝试使用原始内容
+            analysisResults.push({
+              image_url: imageUrl,
+              analysis: {
+                description: result.content.substring(0, 200),
+                token_relevance: { is_related: false, reason: '解析失败' }
+              },
+              timing: {
+                download: downloadTime,
+                analysis: analysisTime,
+                total: downloadTime + analysisTime
+              }
+            });
+          }
+        }
+
+      } catch (error) {
+        const errorTime = Date.now() - imageStartTime;
+        console.error(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 分析失败 (${errorTime}ms): ${error.message}`);
+      }
+    }
+
+    const totalTime = Date.now() - startTime;
+
+    if (analysisResults.length === 0) {
+      console.log(`[NarrativeAnalyzer] 所有图片分析失败（总耗时: ${totalTime}ms）`);
+      return null;
+    }
+
+    console.log(`[NarrativeAnalyzer] 图片分析完成: 成功 ${analysisResults.length}/${maxImages}张，总耗时 ${totalTime}ms`);
+
+    return {
+      images_analyzed: analysisResults.length,
+      total_time_ms: totalTime,
+      results: analysisResults
+    };
   }
 
   /**
