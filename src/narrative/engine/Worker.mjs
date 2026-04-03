@@ -60,12 +60,15 @@ function withTimeout(promise, timeoutMs) {
 }
 
 /**
- * 执行单阶段分析（带模型容错）
+ * 执行叙事分析任务（使用新框架）
+ * 新框架：事件分析 + 代币分析 + 账号/社区子LLM
  */
-async function executeStage(stage, task, modelConfig) {
+async function executeTask(task, modelConfig) {
   const Analyzer = await loadAnalyzer();
-  const startTime = Date.now();
+  const taskStartTime = Date.now();
   let lastError = null;
+
+  console.log(`[INFO] Task ${task.id} 开始分析（新框架）`);
 
   // 先尝试主模型
   for (const modelType of ['primary', 'fallback']) {
@@ -74,89 +77,49 @@ async function executeStage(stage, task, modelConfig) {
     // 设置当前模型
     process.env.LLM_MODEL = model.name;
 
-    const timeout = stage === 1 ? model.stage1Timeout : model.stage2Timeout;
+    // 合并超时时间（stage1 + stage2）
+    const timeout = model.stage1Timeout + model.stage2Timeout;
 
     try {
-      let result;
-      if (stage === 1) {
-        result = await withTimeout(
-          Analyzer.analyzeStage1(task.token_address, {
-            experimentId: task.triggered_by_experiment_id,
-            ignoreCache: false
-          }),
-          timeout
-        );
-      } else {
-        result = await withTimeout(
-          Analyzer.analyzeStage2(task.token_address, {
-            experimentId: task.triggered_by_experiment_id
-          }),
-          timeout
-        );
-      }
+      const result = await withTimeout(
+        Analyzer.analyze(task.token_address, {
+          experimentId: task.triggered_by_experiment_id,
+          ignoreCache: false
+        }),
+        timeout
+      );
 
-      const duration = Date.now() - startTime;
+      const duration = Date.now() - taskStartTime;
 
       // 记录日志
       if (modelType === 'fallback') {
-        console.log(`[FALLBACK] Task ${task.id} Stage ${stage} 使用备用模型 ${model.name} 成功 (${duration}ms)`);
+        console.log(`[FALLBACK] Task ${task.id} 使用备用模型 ${model.name} 成功 (${duration}ms)`);
       } else {
-        console.log(`[SUCCESS] Task ${task.id} Stage ${stage} 使用模型 ${model.name} 成功 (${duration}ms)`);
+        console.log(`[SUCCESS] Task ${task.id} 使用模型 ${model.name} 成功 (${duration}ms)`);
       }
 
-      return { success: true, data: result, model: model.name, duration };
+      return {
+        ...result,
+        totalDuration: duration
+      };
 
     } catch (error) {
       lastError = error;
-      const duration = Date.now() - startTime;
+      const duration = Date.now() - taskStartTime;
 
       if (error.message === 'TIMEOUT') {
-        console.log(`[TIMEOUT] Task ${task.id} Stage ${stage} 模型 ${model.name} 超时 (${timeout}ms)`);
+        console.log(`[TIMEOUT] Task ${task.id} 模型 ${model.name} 超时 (${timeout}ms)`);
         continue; // 尝试下一个模型
       }
 
       // 非超时错误，记录并抛出
-      console.log(`[ERROR] Task ${task.id} Stage ${stage} 模型 ${model.name} 失败: ${error.message}`);
+      console.log(`[ERROR] Task ${task.id} 模型 ${model.name} 失败: ${error.message}`);
       throw error;
     }
   }
 
   // 两个模型都失败
-  throw new Error(`Stage ${stage} 所有模型均失败: ${lastError?.message || 'Unknown error'}`);
-}
-
-/**
- * 执行完整的两阶段分析
- */
-async function executeTask(task, modelConfig) {
-  const taskStartTime = Date.now();
-
-  // Stage 1
-  console.log(`[INFO] Task ${task.id} 开始 Stage 1 分析`);
-  const stage1Result = await executeStage(1, task, modelConfig);
-
-  if (!stage1Result.data.pass) {
-    // Stage 1 未通过，直接完成
-    console.log(`[INFO] Task ${task.id} Stage 1 未通过，分析完成`);
-    return {
-      stage1: stage1Result.data,
-      stage2: null,
-      totalDuration: Date.now() - taskStartTime
-    };
-  }
-
-  // Stage 2
-  console.log(`[INFO] Task ${task.id} Stage 1 通过，开始 Stage 2 分析`);
-  const stage2Result = await executeStage(2, task, modelConfig);
-
-  const totalDuration = Date.now() - taskStartTime;
-  console.log(`[INFO] Task ${task.id} 分析完成，总耗时 ${totalDuration}ms，评级: ${stage2Result.data.category}`);
-
-  return {
-    stage1: stage1Result.data,
-    stage2: stage2Result.data,
-    totalDuration
-  };
+  throw new Error(`所有模型均失败: ${lastError?.message || 'Unknown error'}`);
 }
 
 /**

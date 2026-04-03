@@ -170,7 +170,8 @@ router.post('/reanalyze/:address', async (req, res) => {
 
   try {
     const { address } = req.params;
-    const { ignoreExpired = false } = req.body;
+    const body = req.body || {};
+    const { ignoreExpired = false } = body;
     const { NarrativeRepository } = await import('../../narrative/db/NarrativeRepository.mjs');
 
     // 先标记旧结果为无效（仅更新 is_valid 字段）

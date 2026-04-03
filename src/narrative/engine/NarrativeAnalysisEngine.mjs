@@ -282,7 +282,7 @@ export class NarrativeAnalysisEngine {
     this._log('INFO', '任务完成', {
       taskId,
       duration: `${duration}ms`,
-      stage2Category: result.stage2?.category || 'N/A'
+      category: result.category || 'N/A'
     });
 
     // 先获取任务信息（获取 token_address）
@@ -325,7 +325,7 @@ export class NarrativeAnalysisEngine {
     }
 
     await this._updateTaskStatus(taskId, 'completed', {
-      current_stage: result.stage2 ? 2 : 1,
+      current_stage: 2, // 新框架完整分析，标记为阶段2完成
       narrative_id: existingNarrative.id || null,
       completed_at: new Date().toISOString()
     });
