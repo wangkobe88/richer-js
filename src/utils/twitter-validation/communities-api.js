@@ -13,6 +13,7 @@ const API_CONFIG = {
 };
 
 const COMMUNITIES_ENDPOINT = `${API_CONFIG.baseUrl}/graphql/CommunitiesFetchOneQuery`;
+const COMMUNITY_TWEETS_ENDPOINT = `${API_CONFIG.baseUrl}/graphql/CommunityTweetsTimeline`;
 
 /**
  * HTTP 请求工具函数
@@ -244,9 +245,85 @@ function isValidCommunityId(communityId) {
   return /^\d{10,}$/.test(communityId.trim());
 }
 
+/**
+ * 获取 Community 推文时间线
+ * @param {string} communityId - Community ID
+ * @param {Object} options - 选项
+ * @param {number} options.count - 获取推文数量，默认20
+ * @param {string} options.cursor - 分页游标
+ * @returns {Promise<Array>} 推文列表
+ */
+async function fetchCommunityTweets(communityId, options = {}) {
+  console.log(`[CommunitiesAPI] 获取 Community 推文: ${communityId}`);
+
+  try {
+    const variables = {
+      communityId: communityId,
+      count: options.count || 20,
+      withCommunityFeaturedTweets: true
+    };
+
+    if (options.cursor) {
+      variables.cursor = options.cursor;
+    }
+
+    const params = new URLSearchParams({
+      variables: JSON.stringify(variables)
+    });
+
+    const response = await makeRequest(`${COMMUNITY_TWEETS_ENDPOINT}?${params}`);
+
+    // 解析推文列表
+    const instructions = response?.data?.communityResults?.result?.timeline_v2?.timeline?.instructions || [];
+
+    const tweets = [];
+    for (const inst of instructions) {
+      if (inst.entries) {
+        for (const entry of inst.entries) {
+          const content = entry.content;
+          if (content.itemContent && content.itemContent.tweet_results) {
+            const tweetResult = content.itemContent.tweet_results.result;
+            if (tweetResult) {
+              const legacy = tweetResult.legacy || {};
+              const core = tweetResult.core || {};
+              const userResult = core.user_results?.result;
+              const userLegacy = userResult?.legacy || {};
+              const userCore = userResult?.core || {};
+
+              tweets.push({
+                tweet_id: tweetResult.rest_id,
+                text: legacy.full_text || legacy.text || '',
+                created_at: legacy.created_at,
+                user: {
+                  id: userResult?.rest_id,
+                  screen_name: userCore?.screen_name || userLegacy?.screen_name,
+                  name: userCore?.name || userLegacy?.name,
+                  followers_count: userLegacy?.followers_count || 0
+                },
+                likeCount: legacy.favorite_count || 0,
+                retweetCount: legacy.retweet_count || 0,
+                replyCount: legacy.reply_count || 0
+              });
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`[CommunitiesAPI] 成功获取 ${tweets.length} 条推文`);
+
+    return tweets;
+
+  } catch (error) {
+    console.error(`[CommunitiesAPI] 获取 Community 推文失败 (${communityId}):`, error.message);
+    return [];
+  }
+}
+
 module.exports = {
   fetchCommunityById,
   fetchCommunityForTweet,
+  fetchCommunityTweets,
   extractCommunityIdFromTweet,
   getCommunityInfluenceLevel,
   getCommunityInfluenceDescription,

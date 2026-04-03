@@ -914,6 +914,7 @@ const { getUserByScreenName, getUserTweets, getTweetDetail, getTweetDetailGraphQ
 const {
   fetchCommunityById,
   fetchCommunityForTweet,
+  fetchCommunityTweets,
   extractCommunityIdFromTweet,
   getCommunityInfluenceLevel,
   getCommunityInfluenceDescription,
@@ -940,6 +941,7 @@ module.exports = {
   getUserTweets,
   getTweetDetail,
   getTweetDetailGraphQL,
+  fetchCommunityTweets,
 
   // 类（高级用法）
   TwitterTokenValidator,

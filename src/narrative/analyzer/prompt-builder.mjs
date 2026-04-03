@@ -105,14 +105,52 @@ import { buildLowQualityDetectionPrompt, STAGE1_PROMPT_VERSION } from './prompts
 // Stage 2: 详细评分
 import { buildDetailedScoringPrompt } from './prompts/detailed-scoring.mjs';
 
+// V12.0 新框架：事件分析 + 代币分析
+import { buildEventAnalysisPrompt, EVENT_ANALYSIS_PROMPT_VERSION } from './prompts/event-analysis.mjs';
+import { buildTokenAnalysisPrompt, TOKEN_ANALYSIS_PROMPT_VERSION } from './prompts/token-analysis.mjs';
+
 export class PromptBuilder {
 
   /**
-   * 获取Prompt版本（从 low-quality-detection.mjs 集中管理）
+   * 获取Prompt版本
+   * V12.0 新框架：返回 'V12.0'
    * @returns {string} Prompt版本号
    */
   static getPromptVersion() {
-    return STAGE1_PROMPT_VERSION;
+    return EVENT_ANALYSIS_PROMPT_VERSION; // V12.0
+  }
+
+  /**
+   * 构建事件分析Prompt（新框架第一阶段）
+   * 对应原 Stage 1（低质量检测），重构为"事件分析"
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {string} 事件分析Prompt
+   */
+  static buildEventAnalysis(tokenData, fetchResults) {
+    return buildEventAnalysisPrompt(tokenData, fetchResults);
+  }
+
+  /**
+   * 构建代币分析Prompt（新框架第二阶段）
+   * 对应原 Stage 2（详细评分），重构为"代币分析"
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} fetchResults - 获取的数据结果
+   * @param {Object} eventAnalysis - 事件分析结果
+   * @returns {string} 代币分析Prompt
+   */
+  static buildTokenAnalysis(tokenData, fetchResults, eventAnalysis) {
+    return buildTokenAnalysisPrompt(tokenData, fetchResults, eventAnalysis);
+  }
+
+  /**
+   * 构建Stage 1 Prompt（低质量检测）
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {string} Stage 1 Prompt
+   */
+  static buildStage1(tokenData, fetchResults) {
+    return buildLowQualityDetectionPrompt(tokenData, fetchResults);
   }
 
   /**
@@ -129,6 +167,7 @@ export class PromptBuilder {
       types.push(`stage${stage}`);
     }
 
+    // Prompt类型描述
     if (fetchResults.twitterInfo?.text) types.push('tweet');
     else if (fetchResults.twitterInfo?.type === 'account') types.push('account');
 
@@ -147,15 +186,7 @@ export class PromptBuilder {
     return types.length > 0 ? types.join('+') : 'minimal';
   }
 
-  /**
-   * 构建Stage 1 Prompt（低质量检测）
-   * @param {Object} tokenData - 代币数据
-   * @param {Object} fetchResults - 获取的数据结果
-   * @returns {string} Stage 1 Prompt
-   */
-  static buildStage1(tokenData, fetchResults) {
-    return buildLowQualityDetectionPrompt(tokenData, fetchResults);
-  }
+  // buildStage1方法已在第139-146行定义（包含视频专用Prompt路由逻辑）
 
   /**
    * 构建Stage 2 Prompt（详细评分）

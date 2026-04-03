@@ -238,115 +238,115 @@ export class NarrativeAnalyzer {
           promptType = 'no_data';
           analysisFailed = false;
         } else {
-          logger.info('NarrativeAnalyzer', '使用两阶段分析模式');
+          // 检查是否应该使用账号/社区分析流程
+          const shouldUseAccountCommunity = this._shouldUseAccountCommunityAnalysis(fetchResults);
 
-        // Stage 1: 低质量检测
-        logger.debug('NarrativeAnalyzer', 'Stage 1: 低质量检测');
-        const stage1Prompt = PromptBuilder.buildStage1(tokenData, fetchResults);
-        const stage1PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 1);
-        logger.debug('NarrativeAnalyzer', `Stage 1 Prompt类型: ${stage1PromptType}`);
+          if (shouldUseAccountCommunity) {
+            logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');
+            llmResult = await this._analyzeAccountCommunityToken(tokenData, fetchResults);
+            promptUsed = 'account_community_analysis';
+            promptType = 'account_community';
+            analysisFailed = false;
+          } else {
+            logger.info('NarrativeAnalyzer', '使用新框架：事件分析 + 代币分析');
 
-        // Stage 1: 调用API获取原始响应（带元数据）
-        const stage1CallResult = await this._callLLMAPI(stage1Prompt);
+        // 事件分析（对应原Stage 1）
+        logger.debug('NarrativeAnalyzer', '开始事件分析');
+        const eventPrompt = PromptBuilder.buildEventAnalysis(tokenData, fetchResults);
+        const eventPromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 1);
+        logger.debug('NarrativeAnalyzer', `事件分析Prompt类型: ${eventPromptType}`);
 
-        // 检查Stage 1是否成功
-        if (!stage1CallResult.success) {
-          throw new Error(`Stage 1 LLM调用失败: ${stage1CallResult.error}`);
+        // 事件分析：调用API获取原始响应（带元数据）
+        const eventCallResult = await this._callLLMAPI(eventPrompt);
+
+        // 检查事件分析是否成功
+        if (!eventCallResult.success) {
+          throw new Error(`事件分析LLM调用失败: ${eventCallResult.error}`);
         }
 
-        const stage1Data = this._parseStage1Response(stage1CallResult.content);
+        const eventData = this._parseEventResponse(eventCallResult.content);
 
-        if (!stage1Data.pass) {
-          // Stage 1检测到低质量，直接返回
-          const stageNum = stage1Data.stage || 0;
-          const scenarioNum = stage1Data.scenario || 0;
-
-          // 构建原因文本
-          let reasonText = stage1Data.reason;
-          if (stageNum === 1) {
-            reasonText = `第一阶段（内容空洞）: ${stage1Data.reason}`;
-          } else if (stageNum === 2) {
-            reasonText = `第二阶段（无相关性）: ${stage1Data.reason}`;
-          } else if (stageNum === 3 && scenarioNum > 0) {
-            reasonText = `第三阶段（场景${scenarioNum}）: ${stage1Data.reason}`;
-          }
-
-          logger.info('Stage1', '检测到低质量', {
-            stage: stageNum,
-            scenario: scenarioNum,
-            reason: stage1Data.reason,
-            entities: stage1Data.entities
+        if (!eventData.pass) {
+          // 事件分析未通过，直接返回
+          logger.info('EventAnalysis', '事件分析未通过', {
+            reason: eventData.reason,
+            eventExists: eventData.eventAnalysis?.eventExists,
+            blockReason: eventData.eventAnalysis?.blockReason
           });
 
           llmResult = {
             category: 'low',
-            reasoning: reasonText,
+            reasoning: eventData.reason,
             scores: null,
             total_score: null
           };
 
-          // 收集Stage 1数据
+          // 收集事件分析数据（存储到stage1字段）
           stage1DataToSave = {
             category: 'low',
-            model: stage1CallResult.model,
-            prompt: stage1Prompt,
-            raw_output: stage1CallResult.content,
-            parsed_output: stage1Data,
-            started_at: stage1CallResult.startedAt,
-            finished_at: stage1CallResult.finishedAt,
-            success: stage1CallResult.success,
-            error: stage1CallResult.error
+            model: eventCallResult.model,
+            prompt: eventPrompt,
+            raw_output: eventCallResult.content,
+            parsed_output: eventData,
+            started_at: eventCallResult.startedAt,
+            finished_at: eventCallResult.finishedAt,
+            success: eventCallResult.success,
+            error: eventCallResult.error
           };
 
-          promptType = stage1PromptType;
+          promptType = eventPromptType;
         } else {
-          // Stage 1通过，进入Stage 2
-          logger.info('Stage1', '通过，进入Stage 2', { entities: stage1Data.entities });
-          const stage2Prompt = PromptBuilder.buildStage2(tokenData, fetchResults);
-          const stage2PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
-          logger.debug('NarrativeAnalyzer', `Stage 2 Prompt类型: ${stage2PromptType}`);
+          // 事件分析通过，进入代币分析
+          logger.info('EventAnalysis', '事件分析通过，进入代币分析', {
+            eventDescription: eventData.eventAnalysis?.eventDescription,
+            propagationScore: eventData.eventAnalysis?.propagationScore
+          });
+          const tokenPrompt = PromptBuilder.buildTokenAnalysis(tokenData, fetchResults, eventData.eventAnalysis);
+          const tokenPromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
+          logger.debug('NarrativeAnalyzer', `代币分析Prompt类型: ${tokenPromptType}`);
 
-          // Stage 2: 调用API（带元数据）
-          const stage2CallResult = await LLMClient.analyzeWithMetadata(stage2Prompt);
+          // 代币分析：调用API（带元数据）
+          const tokenCallResult = await LLMClient.analyzeWithMetadata(tokenPrompt);
 
-          // 检查Stage 2是否成功
-          if (!stage2CallResult.success) {
-            throw new Error(`Stage 2 LLM调用失败: ${stage2CallResult.error}`);
+          // 检查代币分析是否成功
+          if (!tokenCallResult.success) {
+            throw new Error(`代币分析LLM调用失败: ${tokenCallResult.error}`);
           }
 
           llmResult = {
-            ...stage2CallResult.parsed
+            ...tokenCallResult.parsed
           };
 
-          // 收集Stage 2数据
+          // 收集代币分析数据（存储到stage2字段）
           stage2DataToSave = {
-            category: stage2CallResult.parsed.category,
-            model: stage2CallResult.model,
-            prompt: stage2Prompt,
-            raw_output: stage2CallResult.raw.raw,
-            parsed_output: stage2CallResult.parsed,
-            started_at: stage2CallResult.startedAt,
-            finished_at: stage2CallResult.finishedAt,
-            success: stage2CallResult.success,
-            error: stage2CallResult.error
+            category: tokenCallResult.parsed.category,
+            model: tokenCallResult.model,
+            prompt: tokenPrompt,
+            raw_output: tokenCallResult.raw.raw,
+            parsed_output: tokenCallResult.parsed,
+            started_at: tokenCallResult.startedAt,
+            finished_at: tokenCallResult.finishedAt,
+            success: tokenCallResult.success,
+            error: tokenCallResult.error
           };
 
-          // Stage 1通过，也需要记录
+          // 事件分析通过，也需要记录（存储到stage1字段）
           stage1DataToSave = {
             category: null,  // 通过，所以category为null
-            model: stage1CallResult.model,
-            prompt: stage1Prompt,
-            raw_output: stage1CallResult.content,
-            parsed_output: stage1Data,
-            started_at: stage1CallResult.startedAt,
-            finished_at: stage1CallResult.finishedAt,
-            success: stage1CallResult.success,
-            error: stage1CallResult.error
+            model: eventCallResult.model,
+            prompt: eventPrompt,
+            raw_output: eventCallResult.content,
+            parsed_output: eventData,
+            started_at: eventCallResult.startedAt,
+            finished_at: eventCallResult.finishedAt,
+            success: eventCallResult.success,
+            error: eventCallResult.error
           };
 
-          promptType = stage2PromptType;
+          promptType = tokenPromptType;
         }
-        } // 关闭 hasAnyData 检查的 else 分支
+        } // 关闭新框架 else 分支
+        } // 关闭账号/社区检查的 else 分支
       } catch (error) {
         logger.error('NarrativeAnalyzer', 'LLM分析失败', { error: error.message });
         llmResult = {
@@ -822,8 +822,8 @@ export class NarrativeAnalyzer {
       }
 
       // 2.2 检查视频过期（抖音、YouTube、TikTok、Bilibili）
-      // 视频过期阈值：30天（1个月）
-      const expiredVideoDaysThreshold = 30;
+      // 视频过期阈值：365天（一年）
+      const expiredVideoDaysThreshold = 365;
 
       const videos = [
         { name: '抖音', info: douyinInfo },
@@ -866,26 +866,26 @@ export class NarrativeAnalyzer {
       console.log('[NarrativeAnalyzer] 忽略过期时间限制（ignoreExpired=true）');
     }
 
-    // 规则2.5：币安相关检查
+    // 规则2.5：币安相关检查 - 已禁用
     // 如果代币名 + 任何语料都包含币安关键词，返回unrated（项目币，发展情况不明）
-    const binanceCheck = this._checkBinanceRelated(tokenData, {
-      twitterInfo,
-      websiteInfo,
-      classifiedUrls,
-      extractedInfo
-    });
-
-    if (binanceCheck.isBinanceRelated) {
-      console.log(`[NarrativeAnalyzer] 币安相关，返回unrated: ${binanceCheck.reason}`);
-      return {
-        category: 'unrated',
-        reasoning: `${binanceCheck.reason}，项目币发展情况不明，无法评估meme潜力`,
-        scores: null,
-        total_score: null,
-        preCheckTriggered: true,
-        preCheckReason: 'binance_related'
-      };
-    }
+    // const binanceCheck = this._checkBinanceRelated(tokenData, {
+    //   twitterInfo,
+    //   websiteInfo,
+    //   classifiedUrls,
+    //   extractedInfo
+    // });
+    //
+    // if (binanceCheck.isBinanceRelated) {
+    //   console.log(`[NarrativeAnalyzer] 币安相关，返回unrated: ${binanceCheck.reason}`);
+    //   return {
+    //     category: 'unrated',
+    //     reasoning: `${binanceCheck.reason}，项目币发展情况不明，无法评估meme潜力`,
+    //     scores: null,
+    //     total_score: null,
+    //     preCheckTriggered: true,
+    //     preCheckReason: 'binance_related'
+    //   };
+    // }
 
     // 规则3：视频传播力检查（有视频时直接判断，不走LLM）
     // 优先级：Bilibili > 抖音 > TikTok > YouTube
@@ -924,15 +924,15 @@ export class NarrativeAnalyzer {
       const unratedViewThreshold = unratedViewThresholdMap[video.name] || 100000; // 默认10万
       const unratedLikeThreshold = 100000; // 10万点赞（保持不变）
 
-      // 播放量过低的阈值：低于此值认为传播力不足
-      const lowViewThresholdMap = {
-        'Bilibili': 500000,     // 50万播放量（娱乐平台，低于爆款即为low）
-        'YouTube': 10000,       // 1万播放量（说明性视频平台）
-        'Twitter': 2500,        // 2500播放量
-        'TikTok': 500000,       // 50万播放量（娱乐平台，低于爆款即为low）
-        '抖音': 500000          // 50万播放量（娱乐平台，低于爆款即为low）
-      };
-      const lowViewThreshold = lowViewThresholdMap[video.name] || 10000; // 默认1万
+      // ============ 播放量过低阈值（已禁用，交给LLM判断）============
+      // const lowViewThresholdMap = {
+      //   'Bilibili': 500000,     // 50万播放量（娱乐平台，低于爆款即为low）
+      //   'YouTube': 10000,       // 1万播放量（说明性视频平台）
+      //   'Twitter': 2500,        // 2500播放量
+      //   'TikTok': 500000,       // 50万播放量（娱乐平台，低于爆款即为low）
+      //   '抖音': 500000          // 50万播放量（娱乐平台，低于爆款即为low）
+      // };
+      // const lowViewThreshold = lowViewThresholdMap[video.name] || 10000; // 默认1万
 
       // 判断是否达到 unrated 阈值
       const viewMeetsThreshold = hasViewData && viewCount >= unratedViewThreshold;
@@ -957,52 +957,56 @@ export class NarrativeAnalyzer {
         };
       }
 
+      // ============ 播放量/点赞数过低判断（已禁用，交给LLM判断）============
       // 播放量/点赞数过低 → low
       // ⚠️ 特殊处理：当播放量为0（被隐藏）且点赞数较高时，不触发low
       // 抖音等平台可能隐藏播放量，此时用点赞数/分享数判断传播力
-      const isViewCountHidden = hasViewData && viewCount === 0;
-      const hasHighEngagement = hasLikeData && likeCount >= 10000; // 1万点赞以上
-      const shareCount = video.info.share_count || 0;
+      // const isViewCountHidden = hasViewData && viewCount === 0;
+      // const hasHighEngagement = hasLikeData && likeCount >= 10000; // 1万点赞以上
+      // const shareCount = video.info.share_count || 0;
 
-      if (hasViewData && viewCount < lowViewThreshold && !(isViewCountHidden && hasHighEngagement)) {
-        console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频播放量(${viewCount})过低，返回low`);
-
-        // 根据播放量是否被隐藏，生成不同的提示语
-        let reasoning;
-        if (viewCount === 0) {
-          // 播放量被平台隐藏
-          const engagementInfo = [];
-          if (hasLikeData) engagementInfo.push(`点赞数${likeCount}`);
-          if (shareCount > 0) engagementInfo.push(`分享数${shareCount}`);
-          const engagementStr = engagementInfo.join('、');
-          reasoning = `${video.name}视频播放量不可见（平台隐藏），${engagementStr}未达到传播阈值（需10000+点赞），传播力不足`;
-        } else {
-          // 播放量可见但低于阈值
-          reasoning = `${video.name}视频播放量${viewCount}低于阈值${lowViewThreshold}，传播力不足`;
-        }
-
-        return {
-          category: 'low',
-          reasoning,
-          scores: { credibility: 10, virality: 10 },
-          total_score: 20,
-          preCheckTriggered: true,
-          preCheckReason: 'video_low_views'
-        };
-      }
+      // if (hasViewData && viewCount < lowViewThreshold && !(isViewCountHidden && hasHighEngagement)) {
+      //   console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频播放量(${viewCount})过低，返回low`);
+      //
+      //   // 根据播放量是否被隐藏，生成不同的提示语
+      //   let reasoning;
+      //   if (viewCount === 0) {
+      //     // 播放量被平台隐藏
+      //     const engagementInfo = [];
+      //     if (hasLikeData) engagementInfo.push(`点赞数${likeCount}`);
+      //     if (shareCount > 0) engagementInfo.push(`分享数${shareCount}`);
+      //     const engagementStr = engagementInfo.join('、');
+      //     reasoning = `${video.name}视频播放量不可见（平台隐藏），${engagementStr}未达到传播阈值（需10000+点赞），传播力不足`;
+      //   } else {
+      //     // 播放量可见但低于阈值
+      //     reasoning = `${video.name}视频播放量${viewCount}低于阈值${lowViewThreshold}，传播力不足`;
+      //   }
+      //
+      //   return {
+      //     category: 'low',
+      //     reasoning,
+      //     scores: { credibility: 10, virality: 10 },
+      //     total_score: 20,
+      //     preCheckTriggered: true,
+      //     preCheckReason: 'video_low_views'
+      //   };
+      // }
 
       // 点赞数过低（如果没有播放量数据）
-      if (!hasViewData && hasLikeData && likeCount < 1000) {
-        console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频点赞数(${likeCount})过低，返回low`);
-        return {
-          category: 'low',
-          reasoning: `${video.name}视频点赞数仅${likeCount}，传播力不足`,
-          scores: { credibility: 10, virality: 10 },
-          total_score: 20,
-          preCheckTriggered: true,
-          preCheckReason: 'video_low_likes'
-        };
-      }
+      // if (!hasViewData && hasLikeData && likeCount < 1000) {
+      //   console.log(`[NarrativeAnalyzer] 规则3结果: ${video.name}视频点赞数(${likeCount})过低，返回low`);
+      //   return {
+      //     category: 'low',
+      //     reasoning: `${video.name}视频点赞数仅${likeCount}，传播力不足`,
+      //     scores: { credibility: 10, virality: 10 },
+      //     total_score: 20,
+      //     preCheckTriggered: true,
+      //     preCheckReason: 'video_low_likes'
+      //   };
+      // }
+
+      // ⚠️ 播放量/点赞数低的情况不再自动返回low，交给LLM判断
+      console.log(`[NarrativeAnalyzer] ${video.name}视频未达到unrated阈值，将进入LLM分析`);
     }
 
     // 规则3.5：微信文章传播力检查
@@ -2076,6 +2080,120 @@ export class NarrativeAnalyzer {
   }
 
   /**
+   * 检查是否应该使用账号/社区分析流程
+   * 条件：只有账号/社区信息，没有其他可用信息（推文、网站、电报、discord等）
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {boolean} 是否应该使用账号/社区分析
+   */
+  static _shouldUseAccountCommunityAnalysis(fetchResults) {
+    const {
+      twitterInfo,
+      websiteInfo,
+      classifiedUrls
+    } = fetchResults;
+
+    // 必须有账号或社区类型的twitterInfo
+    if (!twitterInfo || (twitterInfo.type !== 'account' && twitterInfo.type !== 'community')) {
+      return false;
+    }
+
+    // 检查是否有其他可用信息
+    // 有推文内容 → 走正常流程
+    if (twitterInfo.text && twitterInfo.text.trim().length > 0) {
+      return false;
+    }
+
+    // 有有效网站内容 → 走正常流程
+    if (websiteInfo && websiteInfo.content && websiteInfo.content.trim().length > 50) {
+      return false;
+    }
+
+    // 有电报或discord链接 → 走正常流程（这些通常意味着有社区信息）
+    if (classifiedUrls) {
+      const hasTelegram = classifiedUrls.telegram && classifiedUrls.telegram.length > 0;
+      const hasDiscord = classifiedUrls.discord && classifiedUrls.discord.length > 0;
+      if (hasTelegram || hasDiscord) {
+        return false;
+      }
+    }
+
+    // 只有账号/社区信息，没有其他内容 → 使用账号/社区分析流程
+    return true;
+  }
+
+  /**
+   * 执行账号/社区代币分析
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {Promise<Object>} 分析结果
+   */
+  static async _analyzeAccountCommunityToken(tokenData, fetchResults) {
+    const { buildAccountCommunityAnalysisPrompt } = await import('./prompts/account-community-analysis.mjs');
+
+    const twitterInfo = fetchResults.twitterInfo;
+    const accountOrCommunityData = twitterInfo.type === 'account'
+      ? { type: 'account', screen_name: twitterInfo.screen_name }
+      : { type: 'community', community_id: twitterInfo.id };
+
+    logger.info('AccountCommunityAnalysis', `开始${twitterInfo.type === 'account' ? '账号' : '社区'}代币分析`, {
+      type: twitterInfo.type,
+      identifier: twitterInfo.type === 'account' ? twitterInfo.screen_name : twitterInfo.id
+    });
+
+    const prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityData);
+
+    if (!prompt) {
+      return {
+        category: 'low',
+        reasoning: '无法构建账号/社区分析Prompt（数据获取失败）',
+        scores: null,
+        total_score: null
+      };
+    }
+
+    const callResult = await this._callLLMAPI(prompt);
+
+    if (!callResult.success) {
+      throw new Error(`账号/社区分析LLM调用失败: ${callResult.error}`);
+    }
+
+    // 解析响应
+    let parsed;
+    try {
+      parsed = JSON.parse(callResult.content);
+    } catch (e) {
+      logger.error('AccountCommunityAnalysis', '解析LLM响应失败', { error: e.message, content: callResult.content });
+      return {
+        category: 'low',
+        reasoning: '分析响应解析失败',
+        scores: null,
+        total_score: null
+      };
+    }
+
+    // 根据rating返回对应结果
+    const rating = parsed.rating || 'low';
+    const reason = parsed.reason || '';
+
+    // 映射到现有category
+    const categoryMap = {
+      'high': 'high',
+      'mid': 'mid',
+      'low': 'low'
+    };
+
+    return {
+      category: categoryMap[rating] || 'low',
+      reasoning: reason,
+      scores: null, // 简化流程不返回详细评分
+      total_score: null,
+      addressVerified: parsed.addressVerified,
+      baselineMet: parsed.baselineMet,
+      details: parsed.details
+    };
+  }
+
+  /**
    * 简单检测文本语言
    * @param {string} text - 要检测的文本
    * @returns {string|null} 语言代码（zh, en, th, ja, ko 等）
@@ -2454,6 +2572,83 @@ export class NarrativeAnalyzer {
     } catch (parseError) {
       console.error('[NarrativeAnalyzer] Stage 1: JSON解析失败，提取的字符串:', jsonStr);
       throw new Error(`Stage 1: JSON解析失败 - ${parseError.message}`);
+    }
+  }
+
+  /**
+   * 解析事件分析响应（新框架第一阶段）
+   * 与_parseStage1Response类似，但支持eventAnalysis字段
+   * @param {string} content - LLM响应内容
+   * @returns {Object} 解析结果
+   * @private
+   */
+  static _parseEventResponse(content) {
+    // 多种策略尝试提取JSON
+    let jsonStr = null;
+
+    // 策略1: 尝试提取markdown代码块中的JSON
+    const codeBlockMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1];
+      console.log('[NarrativeAnalyzer] EventAnalysis: 使用代码块策略提取JSON');
+    }
+
+    // 策略2: 尝试提取第一个完整的JSON对象（使用括号匹配）
+    if (!jsonStr) {
+      let depth = 0;
+      let start = -1;
+      for (let i = 0; i < content.length; i++) {
+        if (content[i] === '{') {
+          if (depth === 0) start = i;
+          depth++;
+        } else if (content[i] === '}') {
+          depth--;
+          if (depth === 0 && start >= 0) {
+            jsonStr = content.substring(start, i + 1);
+            console.log('[NarrativeAnalyzer] EventAnalysis: 使用括号匹配策略提取JSON');
+            break;
+          }
+        }
+      }
+    }
+
+    // 策略3: 使用正则表达式匹配（兼容性后备方案）
+    if (!jsonStr) {
+      const regexMatch = content.match(/\{[\s\S]*\}/);
+      if (regexMatch) {
+        jsonStr = regexMatch[0];
+        console.log('[NarrativeAnalyzer] EventAnalysis: 使用正则策略提取JSON');
+      }
+    }
+
+    // 如果所有策略都失败，打印原始响应并抛出错误
+    if (!jsonStr) {
+      console.error('[NarrativeAnalyzer] EventAnalysis: 无法提取JSON，原始响应:', content);
+      throw new Error('EventAnalysis: 无法提取JSON');
+    }
+
+    try {
+      const result = JSON.parse(jsonStr);
+      if (typeof result.pass !== 'boolean') {
+        throw new Error('EventAnalysis: pass字段必须是boolean');
+      }
+
+      // 必须包含stage字段：0=通过，1=事件分析触发
+      if (result.stage === undefined) {
+        throw new Error('EventAnalysis: stage字段缺失');
+      }
+
+      return {
+        pass: result.pass,
+        reason: result.reason || '',
+        stage: result.stage,
+        scenario: result.scenario || 0,  // 保留兼容性
+        entities: result.entities || {},
+        eventAnalysis: result.eventAnalysis || null  // 新字段：事件分析结果
+      };
+    } catch (parseError) {
+      console.error('[NarrativeAnalyzer] EventAnalysis: JSON解析失败，提取的字符串:', jsonStr);
+      throw new Error(`EventAnalysis: JSON解析失败 - ${parseError.message}`);
     }
   }
 

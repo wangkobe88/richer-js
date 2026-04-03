@@ -197,13 +197,7 @@ export class DouyinFetcher {
         return null;
       }
 
-        // 搜索API返回路径: data.business_data[].data.aweme_info
-        if (!data.data || !data.data.business_data || data.data.business_data.length === 0) {
-          console.warn('[DouyinFetcher] 搜索结果为空');
-          return null;
-        }
-
-        // 获取第一个搜索结果
+      // 获取第一个搜索结果
         const firstResult = data.data.business_data[0];
         const awemeInfo = firstResult.data?.aweme_info;
 

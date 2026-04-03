@@ -976,7 +976,7 @@
     <div class="container">
         <div class="header">
             <h1>代币叙事分析</h1>
-            <p>输入代币地址，使用两阶段LLM分析代币的叙事质量</p>
+            <p>输入代币地址，使用新框架（事件分析 + 代币分析）评估代币的叙事质量</p>
         </div>
 
         <div class="search-section">
@@ -1046,11 +1046,11 @@
                     </div>
                 </div>
 
-                <!-- Stage 1 卡片 -->
+                <!-- Stage 1 卡片（事件分析） -->
                 <div class="card">
                     <div class="card-header">
                         <span class="card-icon">🔍</span>
-                        <h2>Stage 1: 低质量检测</h2>
+                        <h2>Stage 1: 事件分析</h2>
                     </div>
                     <div class="card-body" id="stage1CardBody">
                         <div class="empty-state">
@@ -1060,11 +1060,11 @@
                     </div>
                 </div>
 
-                <!-- Stage 2 卡片 -->
+                <!-- Stage 2 卡片（代币分析） -->
                 <div class="card">
                     <div class="card-header">
                         <span class="card-icon">📋</span>
-                        <h2>Stage 2: 详细评分</h2>
+                        <h2>Stage 2: 代币分析</h2>
                     </div>
                     <div class="card-body" id="stage2CardBody">
                         <div class="empty-state">
