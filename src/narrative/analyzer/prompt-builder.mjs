@@ -113,11 +113,11 @@ export class PromptBuilder {
 
   /**
    * 获取Prompt版本
-   * V12.0 新框架：返回 'V12.0'
+   * V13.2 新框架：返回 'V13.2'
    * @returns {string} Prompt版本号
    */
   static getPromptVersion() {
-    return EVENT_ANALYSIS_PROMPT_VERSION; // V12.0
+    return EVENT_ANALYSIS_PROMPT_VERSION; // V13.2
   }
 
   /**

@@ -275,16 +275,42 @@ export class NarrativeAnalyzer {
 
               // 保存账号/社区分析数据到stage1字段
               if (analysisResult.llmCallInfo) {
+                // LLM分析结果
                 stage1DataToSave = {
                   category: analysisResult.category,
                   model: analysisResult.llmCallInfo.model,
                   prompt: analysisResult.llmCallInfo.prompt,
                   raw_output: analysisResult.llmCallInfo.raw_output,
-                  parsed_output: analysisResult.llmCallInfo.parsed_output,
+                  parsed_output: {
+                    ...analysisResult.llmCallInfo.parsed_output,
+                    // 添加规则验证结果到parsed_output
+                    addressVerified: analysisResult.addressVerified,
+                    nameMatch: analysisResult.nameMatch,
+                    details: analysisResult.details
+                  },
                   started_at: analysisResult.llmCallInfo.started_at,
                   finished_at: analysisResult.llmCallInfo.finished_at,
                   success: analysisResult.llmCallInfo.success,
                   error: analysisResult.llmCallInfo.error
+                };
+              } else if (analysisResult.rulesValidation) {
+                // 规则验证结果（没有LLM调用）
+                stage1DataToSave = {
+                  category: analysisResult.category,
+                  model: 'rules',
+                  prompt: null,
+                  raw_output: null,
+                  parsed_output: {
+                    reason: analysisResult.reasoning,
+                    addressVerified: analysisResult.addressVerified,
+                    nameMatch: analysisResult.nameMatch,
+                    details: analysisResult.details,
+                    rulesValidation: true
+                  },
+                  started_at: new Date().toISOString(),
+                  finished_at: new Date().toISOString(),
+                  success: true,
+                  error: null
                 };
               }
             }
@@ -2094,9 +2120,14 @@ export class NarrativeAnalyzer {
    */
   static async _analyzeAccountCommunityToken(tokenData, fetchResults) {
     const { buildAccountCommunityAnalysisPrompt } = await import('./prompts/account-community-analysis.mjs');
+    const {
+      getAccountWithFullTweets,
+      getCommunityWithFullTweets,
+      performRulesValidation
+    } = await import('./prompts/account-community-rules.mjs');
 
     const twitterInfo = fetchResults.twitterInfo;
-    const accountOrCommunityData = twitterInfo.type === 'account'
+    const accountOrCommunityRef = twitterInfo.type === 'account'
       ? { type: 'account', screen_name: twitterInfo.screen_name }
       : { type: 'community', community_id: twitterInfo.id };
 
@@ -2105,7 +2136,62 @@ export class NarrativeAnalyzer {
       identifier: twitterInfo.type === 'account' ? twitterInfo.screen_name : twitterInfo.id
     });
 
-    const prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityData);
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 第一步：规则验证（地址验证 + 名称匹配）- 不使用LLM
+    // ═══════════════════════════════════════════════════════════════════════════
+    logger.info('AccountCommunityAnalysis', '执行规则验证（地址 + 名称）');
+
+    // 获取完整的账号/社区数据（含完整推文，用于规则验证）
+    const fullAccountOrCommunityData = accountOrCommunityRef.type === 'account'
+      ? await getAccountWithFullTweets(accountOrCommunityRef.screen_name, 20)
+      : await getCommunityWithFullTweets(accountOrCommunityRef.community_id, 20);
+
+    if (!fullAccountOrCommunityData) {
+      return {
+        category: 'low',
+        reasoning: '无法获取账号/社区完整数据（用于规则验证）',
+        scores: null,
+        total_score: null
+      };
+    }
+
+    // 执行规则验证
+    const tokenAddress = tokenData.address;
+    const tokenSymbol = tokenData.symbol || '';
+    const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
+
+    const rulesResult = performRulesValidation(
+      tokenAddress,
+      tokenSymbol,
+      tokenName,
+      fullAccountOrCommunityData
+    );
+
+    logger.info('AccountCommunityAnalysis', '规则验证结果', {
+      passed: rulesResult.passed,
+      stage: rulesResult.stage,
+      addressVerified: rulesResult.addressVerified,
+      nameMatch: rulesResult.nameMatch
+    });
+
+    // 规则验证未通过，直接返回low
+    if (!rulesResult.passed) {
+      return {
+        category: 'low',
+        reasoning: rulesResult.reason,
+        scores: null,
+        total_score: null,
+        addressVerified: rulesResult.addressVerified,
+        nameMatch: rulesResult.nameMatch,
+        details: rulesResult.details,
+        rulesValidation: true // 标记这是规则验证的结果
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 第二步：LLM分析（币种类型判断 + 评级）
+    // ═══════════════════════════════════════════════════════════════════════════
+    const prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityRef);
 
     if (!prompt) {
       return {
@@ -2140,50 +2226,7 @@ export class NarrativeAnalyzer {
       };
     }
 
-    // 检查地址验证和名称匹配（阻断性）
-    if (!parsed.addressVerified) {
-      return {
-        category: 'low',
-        reasoning: parsed.reason || '地址验证失败',
-        scores: null,
-        total_score: null,
-        addressVerified: false,
-        nameMatch: parsed.nameMatch,
-        details: parsed.details,
-        llmCallInfo: {
-          prompt: prompt,
-          raw_output: callResult.content,
-          parsed_output: parsed,
-          model: callResult.model,
-          started_at: callResult.startedAt,
-          finished_at: callResult.finishedAt,
-          success: callResult.success,
-          error: callResult.error
-        }
-      };
-    }
-
-    if (!parsed.nameMatch) {
-      return {
-        category: 'low',
-        reasoning: parsed.reason || '代币名称与账号名称不匹配',
-        scores: null,
-        total_score: null,
-        addressVerified: parsed.addressVerified,
-        nameMatch: false,
-        details: parsed.details,
-        llmCallInfo: {
-          prompt: prompt,
-          raw_output: callResult.content,
-          parsed_output: parsed,
-          model: callResult.model,
-          started_at: callResult.startedAt,
-          finished_at: callResult.finishedAt,
-          success: callResult.success,
-          error: callResult.error
-        }
-      };
-    }
+    // 注意：地址验证和名称匹配已在规则验证阶段完成，无需再检查LLM返回的这些字段
 
     // 判断币种类型并分流处理
     const tokenType = parsed.tokenType || 'project'; // 默认为项目币
@@ -2200,11 +2243,12 @@ export class NarrativeAnalyzer {
         accountSummary: parsed.accountSummary || '' // 将账号摘要传入
       };
 
-      // 调用meme币两阶段分析流程
+      // 调用meme币两阶段分析流程，传递规则验证结果
       return await this._analyzeMemeTokenTwoStage(tokenData, memeFetchResults, {
         stage1Prompt: prompt,
         stage1CallResult: callResult,
-        stage1Parsed: parsed
+        stage1Parsed: parsed,
+        rulesResult: rulesResult // 传递规则验证结果
       });
     } else {
       // 项目币：直接返回评级结果
@@ -2223,10 +2267,16 @@ export class NarrativeAnalyzer {
         reasoning: reason,
         scores: null, // 简化流程不返回详细评分
         total_score: null,
-        addressVerified: parsed.addressVerified,
-        nameMatch: parsed.nameMatch,
+        // 使用规则验证的结果
+        addressVerified: rulesResult.addressVerified,
+        nameMatch: rulesResult.nameMatch,
         baselineMet: parsed.baselineMet,
-        details: parsed.details,
+        // 合并details（规则验证的 + LLM的）
+        details: {
+          ...rulesResult.details,
+          projectReason: parsed.details?.projectReason,
+          memeReason: parsed.details?.memeReason
+        },
         // LLM调用信息（用于保存到stage1字段）
         llmCallInfo: {
           prompt: prompt,
@@ -2276,6 +2326,9 @@ export class NarrativeAnalyzer {
         reasoning: eventData.reason,
         scores: null,
         total_score: null,
+        // 添加规则验证结果
+        addressVerified: stage1Info.rulesResult?.addressVerified,
+        nameMatch: stage1Info.rulesResult?.nameMatch,
         // 只保存事件分析到stage1，不保存账号分析
         stage1Data: {
           category: 'low', // 事件分析未通过
@@ -2308,6 +2361,9 @@ export class NarrativeAnalyzer {
     // 返回最终结果
     return {
       ...tokenCallResult.parsed,
+      // 添加规则验证结果
+      addressVerified: stage1Info.rulesResult?.addressVerified,
+      nameMatch: stage1Info.rulesResult?.nameMatch,
       // 保存事件分析到stage1，代币分析到stage2
       // 账号分析不保存（stage1Info中的数据不使用）
       stage1Data: {
@@ -2561,6 +2617,10 @@ export class NarrativeAnalyzer {
         } : null,
         // 当前结果（根据分析阶段决定使用哪个stage的数据）
         category: llm_category,
+        // 规则验证结果（从stage1 parsed_output中提取）
+        addressVerified: record.llm_stage1_parsed_output?.addressVerified ?? null,
+        nameMatch: record.llm_stage1_parsed_output?.nameMatch ?? null,
+        details: record.llm_stage1_parsed_output?.details ?? null,
         summary: record.llm_stage2_parsed_output ? {
           total_score: record.llm_stage2_parsed_output.total_score,
           credibility_score: record.llm_stage2_parsed_output.scores?.credibility,

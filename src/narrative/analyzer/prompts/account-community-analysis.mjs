@@ -134,7 +134,7 @@ export async function buildAccountCommunityAnalysisPrompt(tokenData, accountOrCo
     if (introEn) introSection += `\n- 英文介绍：${introEn}`;
   }
 
-  return `你是${typeLabel}代币分析专家。请验证代币地址的合法性并评估影响力。
+  return `你是${typeLabel}代币分析专家。请判断代币类型并评估影响力。
 
 【代币信息】
 - 代币地址：${tokenAddress}
@@ -165,55 +165,11 @@ ${tweetsSummary}
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 【分析目标】
-判断代币是否：
-1. 真实关联（地址在${typeLabel}中明确出现）
-2. 名称匹配（代币名与${typeLabel}名匹配）
-3. 满足底线指标
-4. 具有传播潜力
+判断代币类型（项目币 vs meme币），并根据类型进行评估：
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-📋 **第一步：代币地址验证（阻断性检查）**
-
-🎯 **核心判断**：代币地址是否在${typeLabel}中明确出现？
-
-**检查位置**：
-${data.type === 'account' ? `
-1. 账号简介（bio/description）
-2. 近20条推文内容
-` : `
-1. 社区简介（description）
-2. 近20条推文内容
-`}
-
-**验证标准**：
-- 必须找到完整匹配的代币地址（${tokenAddress}）
-- 缩写、部分匹配、相似地址都不算
-
-**⚠️ 如果未找到完整地址**：直接返回 rating = "low"，reason = "地址验证失败"
-
-═══════════════════════════════════════════════════════════════════════════════
-
-📋 **第二步：名称匹配检查（阻断性检查）**
-
-🎯 **核心判断**：代币名称与${typeLabel}名称是否匹配？
-
-**匹配标准**：
-${data.type === 'account' ? `
-- 代币Symbol 或 Name 与 账号名（screen_name）或 显示名（name）匹配
-- 匹配方式：精确匹配、包含匹配、去掉空格/下划线/横线后匹配
-- 示例：代币"ABC"与账号@ABC_Official匹配 ✓
-` : `
-- 代币Symbol 或 Name 与 社区名称 匹配
-- 匹配方式：精确匹配、包含匹配、去掉空格/下划线/横线后匹配
-- 示例：代币"ABC"与社区"ABC Community"匹配 ✓
-`}
-
-**⚠️ 如果名称不匹配**：直接返回 rating = "low"，reason = "代币名称与${typeLabel}名称不匹配"
-
-═══════════════════════════════════════════════════════════════════════════════
-
-📋 **第二步+: 币种类型判断（分流检查）**
+📋 **第一步：币种类型判断（分流检查）**
 
 🎯 **核心判断**：这是项目币还是meme币？
 
@@ -247,7 +203,7 @@ ${data.type === 'account' ? `
 
 **⚠️ 如果判断为meme币**：
 - 需要额外生成账号摘要（用于后续meme币分析流程）
-- 跳过第三、四步，转入meme币两阶段分析流程
+- 跳过第二、三步，转入meme币两阶段分析流程
 - **重要**：账号摘要必须包含具体事件信息！
   - 提取代币依托的具体"事件"是什么
   - **必须从代币介绍、账号简介、推文中提取所有相关信息**：
@@ -262,12 +218,12 @@ ${data.type === 'account' ? `
   - 不要只说"营销账号"，要详细说明营销的是什么IP/事件/梗，包含所有关键数据
 
 **⚠️ 如果判断为项目币**：
-- 继续第三、四步，完成影响力评级
+- 继续第二、三步，完成影响力评级
 - 直接返回评级结果
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-📋 **第三步：底线指标检查（仅项目币执行）**
+📋 **第二步：底线指标检查（仅项目币执行）**
 
 🎯 **底线要求**（低于此值将被过滤）：
 ${data.type === 'account' ? `
@@ -280,9 +236,9 @@ ${data.type === 'account' ? `
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-📋 **第四步：影响力评级（仅项目币执行）**
+📋 **第三步：影响力评级（仅项目币执行）**
 
-**⚠️ 只有通过前两步+且判断为项目币才执行评级**
+**⚠️ 只有通过第一步且判断为项目币才执行评级**
 
 ${data.type === 'account' ? `
 **账号评级标准**（仅对满足底线≥60的账号）：
@@ -317,27 +273,18 @@ ${data.type === 'account' ? `
 **只返回JSON，不要其他内容**：
 
 {
-  "addressVerified": true/false,
-  "nameMatch": true/false,
   "tokenType": "project" | "meme",
   "baselineMet": true/false,  // 仅当tokenType="project"时需要填写
   "rating": "low" | "mid" | "high",  // 仅当tokenType="project"时需要填写
   "reason": "原因说明",
   "accountSummary": "账号摘要（仅当tokenType='meme'时需要）",
   "details": {
-    "addressLocations": ["简介", "推文3"],
-    "nameMatchType": "symbol" | "name" | "none",
     "followers": ${data.type === 'account' ? data.followers_count : 'null'},
     "members": ${data.type === 'community' ? data.members_count : 'null'},
-    "tweetsWithAddress": 2,
     "projectReason": "判断为项目币的原因",
     "memeReason": "判断为meme币的原因"
   }
 }
-
-⚠️ **注意**：
-- addressVerified: false → 直接返回 low，无需继续
-- nameMatch: false → 直接返回 low，无需继续
 
 **当 tokenType = "meme" 时**：
 - accountSummary: 必填，生成账号摘要（200-300字）

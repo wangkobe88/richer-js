@@ -138,6 +138,13 @@ async function getUserTweets(userId, options = {}) {
     const response = await makeRequest(`${NEW_ENDPOINTS.userTweets}?${params}`);
 
     const tweets = response?.tweets || [];
+    const pinnedTweet = response?.pinned_tweet;
+
+    // 如果有置顶推文，将其合并到结果中
+    if (pinnedTweet) {
+      tweets.unshift(pinnedTweet);
+      console.log(`📌 发现置顶推文: ${pinnedTweet.tweet_id}`);
+    }
 
     console.log(`✅ 成功获取 ${tweets.length} 条推文`);
 
