@@ -243,10 +243,31 @@ export class NarrativeAnalyzer {
 
           if (shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');
-            llmResult = await this._analyzeAccountCommunityToken(tokenData, fetchResults);
-            promptUsed = 'account_community_analysis';
+            const analysisResult = await this._analyzeAccountCommunityToken(tokenData, fetchResults);
+            llmResult = {
+              category: analysisResult.category,
+              reasoning: analysisResult.reasoning,
+              scores: analysisResult.scores,
+              total_score: analysisResult.total_score
+            };
+            promptUsed = analysisResult.llmCallInfo?.prompt || 'account_community_analysis';
             promptType = 'account_community';
             analysisFailed = false;
+
+            // 保存账号/社区分析数据到stage1字段
+            if (analysisResult.llmCallInfo) {
+              stage1DataToSave = {
+                category: analysisResult.category,
+                model: analysisResult.llmCallInfo.model,
+                prompt: analysisResult.llmCallInfo.prompt,
+                raw_output: analysisResult.llmCallInfo.raw_output,
+                parsed_output: analysisResult.llmCallInfo.parsed_output,
+                started_at: analysisResult.llmCallInfo.started_at,
+                finished_at: analysisResult.llmCallInfo.finished_at,
+                success: analysisResult.llmCallInfo.success,
+                error: analysisResult.llmCallInfo.error
+              };
+            }
           } else {
             logger.info('NarrativeAnalyzer', '使用新框架：事件分析 + 代币分析');
 
@@ -696,44 +717,9 @@ export class NarrativeAnalyzer {
       }
     }
 
-    // 规则1.6：项目币-账号名匹配检查
-    // 如果是账号类型，说明是项目币，发展情况不明
-    // 如果账号名与代币名匹配，返回 unrated（无法评估项目发展潜力）
-    if (twitterInfo?.type === 'account') {
-      const tokenSymbol = (tokenData.symbol || '').toLowerCase().trim();
-      const tokenName = (tokenData.name || tokenData.raw_api_data?.name || '').toLowerCase().trim();
-      const accountScreenName = (twitterInfo.screen_name || '').toLowerCase().trim();
-      const accountName = (twitterInfo.name || '').toLowerCase().trim();
-
-      // 匹配函数：检查两个字符串是否匹配（包含/被包含/去掉空格匹配）
-      const isMatch = (str1, str2) => {
-        if (!str1 || !str2) return false;
-        // 直接包含
-        if (str1.includes(str2) || str2.includes(str1)) return true;
-        // 去掉空格、下划线、横线后匹配
-        const clean1 = str1.replace(/[\s_\-]/g, '');
-        const clean2 = str2.replace(/[\s_\-]/g, '');
-        return clean1.includes(clean2) || clean2.includes(clean1);
-      };
-
-      // 检查代币Symbol或Name与账号名是否匹配（满足一个即可）
-      const symbolMatch = isMatch(tokenSymbol, accountScreenName) || isMatch(tokenSymbol, accountName);
-      const nameMatch = tokenName && (isMatch(tokenName, accountScreenName) || isMatch(tokenName, accountName));
-
-      if (symbolMatch || nameMatch) {
-        const screenName = twitterInfo.screen_name || accountScreenName;
-        const matchedTokenName = symbolMatch ? tokenSymbol : tokenName;
-        console.log(`[NarrativeAnalyzer] 预检查触发: 项目币账号名匹配 (代币:${matchedTokenName}, 账号:@${screenName})`);
-        return {
-          category: 'unrated',
-          reasoning: `项目币账号名匹配（@${screenName}），发展情况不明，无法评估meme潜力`,
-          scores: null,
-          total_score: null,
-          preCheckTriggered: true,
-          preCheckReason: 'project_account_match'
-        };
-      }
-    }
+    // 规则1.6：已移除 - 项目币账号名匹配不再直接返回unrated
+    // 账号/社区代币将通过LLM流程进行分析（见_shouldUseAccountCommunityAnalysis）
+    // 如果只有账号/社区信息且无其他内容，会走账号/社区分析流程
 
     // 规则1.7：应用商店链接检查
     // 应用商店App不适合构建meme币（产品而非事件，缺乏传播属性）
@@ -1188,69 +1174,9 @@ export class NarrativeAnalyzer {
       }
     }
 
-    // 规则6：Twitter社区名称匹配（成员数>15）→ unrated
-    // 检查条件：
-    // 1. 推文属于某个Twitter Community，或URL本身就是社区链接
-    // 2. 社区名称与代币名称匹配
-    // 3. 社区成员数 > 15
-
-    // 名称匹配函数
-    const isNameMatch = (token, community) => {
-      if (!token || !community) return false;
-      // 精确匹配
-      if (token === community) return true;
-      // 包含匹配（代币名包含社区名 或 社区名包含代币名）
-      if (community.includes(token) || token.includes(community)) return true;
-      return false;
-    };
-
-    // 情况1: twitterInfo本身就是community类型（直接从社区链接获取）
-    if (twitterInfo?.type === 'community' && twitterInfo.community_results) {
-      const communityData = twitterInfo.community_results;
-      const tokenName = (tokenData.symbol || tokenData.name || '').toLowerCase().trim();
-      const communityName = (communityData.name || '').toLowerCase().trim();
-      const memberCount = communityData.members_count || 0;
-
-      if (isNameMatch(tokenName, communityName) && memberCount > 15) {
-        console.log(`[NarrativeAnalyzer] 规则6触发: Twitter社区匹配 (代币:${tokenName}, 社区:${communityName}, 成员:${memberCount})`);
-        return {
-          category: 'unrated',
-          reasoning: `代币属于Twitter社区"${communityData.name}"(${memberCount.toLocaleString()}成员)，与代币名"${tokenData.symbol || tokenData.name}"匹配，无法评估社区叙事潜力`,
-          scores: null,
-          total_score: null,
-          preCheckTriggered: true,
-          preCheckReason: 'community_match'
-        };
-      }
-    }
-
-    // 情况2: twitterInfo是tweet类型，包含community_results（从推文获取）
-    if (twitterInfo?.type === 'tweet') {
-      try {
-        const communityData = await fetchCommunityForTweet(twitterInfo);
-
-        if (communityData) {
-          const tokenName = (tokenData.symbol || tokenData.name || '').toLowerCase().trim();
-          const communityName = (communityData.name || '').toLowerCase().trim();
-          const memberCount = communityData.members_count || 0;
-
-          if (isNameMatch(tokenName, communityName) && memberCount > 15) {
-            console.log(`[NarrativeAnalyzer] 规则6触发: Twitter社区匹配 (代币:${tokenName}, 社区:${communityName}, 成员:${memberCount})`);
-            return {
-              category: 'unrated',
-              reasoning: `推文属于Twitter社区"${communityData.name}"(${memberCount.toLocaleString()}成员)，与代币名"${tokenData.symbol || tokenData.name}"匹配，无法评估社区叙事潜力`,
-              scores: null,
-              total_score: null,
-              preCheckTriggered: true,
-              preCheckReason: 'community_match'
-            };
-          }
-        }
-      } catch (err) {
-        // 获取社区信息失败，记录警告但不阻断流程
-        console.warn('[NarrativeAnalyzer] 获取Twitter社区信息失败:', err.message);
-      }
-    }
+    // 规则6：已移除 - Twitter社区名称匹配不再直接返回unrated
+    // 社区代币将通过LLM流程进行分析（见_shouldUseAccountCommunityAnalysis）
+    // 如果只有社区信息且无其他内容，会走账号/社区分析流程
 
     return null; // 通过预检查，继续LLM分析
   }
@@ -2081,15 +2007,13 @@ export class NarrativeAnalyzer {
 
   /**
    * 检查是否应该使用账号/社区分析流程
-   * 条件：只有账号/社区信息，没有其他可用信息（推文、网站、电报、discord等）
+   * 条件：有账号/社区信息且无推文（网站、电报、Discord都不阻断）
    * @param {Object} fetchResults - 获取的数据结果
    * @returns {boolean} 是否应该使用账号/社区分析
    */
   static _shouldUseAccountCommunityAnalysis(fetchResults) {
     const {
-      twitterInfo,
-      websiteInfo,
-      classifiedUrls
+      twitterInfo
     } = fetchResults;
 
     // 必须有账号或社区类型的twitterInfo
@@ -2103,21 +2027,8 @@ export class NarrativeAnalyzer {
       return false;
     }
 
-    // 有有效网站内容 → 走正常流程
-    if (websiteInfo && websiteInfo.content && websiteInfo.content.trim().length > 50) {
-      return false;
-    }
-
-    // 有电报或discord链接 → 走正常流程（这些通常意味着有社区信息）
-    if (classifiedUrls) {
-      const hasTelegram = classifiedUrls.telegram && classifiedUrls.telegram.length > 0;
-      const hasDiscord = classifiedUrls.discord && classifiedUrls.discord.length > 0;
-      if (hasTelegram || hasDiscord) {
-        return false;
-      }
-    }
-
-    // 只有账号/社区信息，没有其他内容 → 使用账号/社区分析流程
+    // 有账号/社区信息且无推文 → 使用账号/社区分析流程
+    // 注意：网站、电报、Discord都不阻断，只要有账号/社区且无推文就走账号分析
     return true;
   }
 
@@ -2160,7 +2071,11 @@ export class NarrativeAnalyzer {
     // 解析响应
     let parsed;
     try {
-      parsed = JSON.parse(callResult.content);
+      // 清理markdown代码块标记
+      let content = callResult.content.trim();
+      // 移除 ```json 和 ``` 标记
+      content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+      parsed = JSON.parse(content);
     } catch (e) {
       logger.error('AccountCommunityAnalysis', '解析LLM响应失败', { error: e.message, content: callResult.content });
       return {
@@ -2188,8 +2103,20 @@ export class NarrativeAnalyzer {
       scores: null, // 简化流程不返回详细评分
       total_score: null,
       addressVerified: parsed.addressVerified,
+      nameMatch: parsed.nameMatch,
       baselineMet: parsed.baselineMet,
-      details: parsed.details
+      details: parsed.details,
+      // LLM调用信息（用于保存到stage1字段）
+      llmCallInfo: {
+        prompt: prompt,
+        raw_output: callResult.content,
+        parsed_output: parsed,
+        model: callResult.model,
+        started_at: callResult.startedAt,
+        finished_at: callResult.finishedAt,
+        success: callResult.success,
+        error: callResult.error
+      }
     };
   }
 

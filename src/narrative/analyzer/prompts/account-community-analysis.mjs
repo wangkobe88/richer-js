@@ -155,8 +155,9 @@ ${tweetsSummary}
 【分析目标】
 判断代币是否：
 1. 真实关联（地址在${typeLabel}中明确出现）
-2. 满足底线指标
-3. 具有传播潜力
+2. 名称匹配（代币名与${typeLabel}名匹配）
+3. 满足底线指标
+4. 具有传播潜力
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -181,7 +182,26 @@ ${data.type === 'account' ? `
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-📋 **第二步：底线指标检查（阻断性检查）**
+📋 **第二步：名称匹配检查（阻断性检查）**
+
+🎯 **核心判断**：代币名称与${typeLabel}名称是否匹配？
+
+**匹配标准**：
+${data.type === 'account' ? `
+- 代币Symbol 或 Name 与 账号名（screen_name）或 显示名（name）匹配
+- 匹配方式：精确匹配、包含匹配、去掉空格/下划线/横线后匹配
+- 示例：代币"ABC"与账号@ABC_Official匹配 ✓
+` : `
+- 代币Symbol 或 Name 与 社区名称 匹配
+- 匹配方式：精确匹配、包含匹配、去掉空格/下划线/横线后匹配
+- 示例：代币"ABC"与社区"ABC Community"匹配 ✓
+`}
+
+**⚠️ 如果名称不匹配**：直接返回 rating = "low"，reason = "代币名称与${typeLabel}名称不匹配"
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 **第三步：底线指标检查（阻断性检查）**
 
 🎯 **底线要求**（低于此值将被过滤）：
 ${data.type === 'account' ? `
@@ -194,9 +214,9 @@ ${data.type === 'account' ? `
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-📋 **第三步：影响力评级**
+📋 **第四步：影响力评级**
 
-**⚠️ 只有通过前两步才执行评级**
+**⚠️ 只有通过前三步才执行评级**
 
 ${data.type === 'account' ? `
 **账号评级标准**（仅对满足底线≥60的账号）：
@@ -232,11 +252,13 @@ ${data.type === 'account' ? `
 
 {
   "addressVerified": true/false,
+  "nameMatch": true/false,
   "baselineMet": true/false,
   "rating": "low" | "mid" | "high",
   "reason": "原因说明",
   "details": {
     "addressLocations": ["简介", "推文3"],
+    "nameMatchType": "symbol" 或 "name" 或 "none",
     "followers": ${data.type === 'account' ? data.followers_count : 'null'},
     "members": ${data.type === 'community' ? data.members_count : 'null'},
     "tweetsWithAddress": 2
@@ -245,6 +267,7 @@ ${data.type === 'account' ? `
 
 ⚠️ **注意**：
 - addressVerified: false → 直接返回 low，无需继续
+- nameMatch: false → 直接返回 low，无需继续
 - baselineMet: false → 直接返回 low，无需继续
 - rating: 最终评级（low/mid/high）
 - reason: 简洁说明评级原因
