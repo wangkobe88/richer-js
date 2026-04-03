@@ -43,7 +43,8 @@ export function buildTokenAnalysisPrompt(tokenData, fetchResults, eventAnalysis)
     bilibiliInfo = null,
     weixinInfo = null,
     amazonInfo = null,
-    classifiedUrls = null
+    classifiedUrls = null,
+    accountSummary = null  // 账号摘要（来自账号/社区分析分流）
   } = fetchResults;
 
   const sections = [];
@@ -116,11 +117,17 @@ export function buildTokenAnalysisPrompt(tokenData, fetchResults, eventAnalysis)
 事件传播潜力：${eventAnalysis.propagationScore || 0}/100分`);
   }
 
-  // 3. 账号背景信息
+  // 3. 账号摘要（如果存在，来自账号/社区分析分流）
+  if (accountSummary) {
+    sections.push(`【账号摘要】
+${accountSummary}`);
+  }
+
+  // 4. 账号背景信息
   const backgrounds = generateAccountBackgroundsPrompt(twitterInfo);
   if (backgrounds) sections.push(backgrounds);
 
-  // 4. 各类语料sections
+  // 5. 各类语料sections
   const twitterSection = buildTwitterSection(twitterInfo);
   if (twitterSection) sections.push(twitterSection);
 
@@ -142,7 +149,7 @@ export function buildTokenAnalysisPrompt(tokenData, fetchResults, eventAnalysis)
   const amazonSection = buildAmazonSection(amazonInfo);
   if (amazonSection) sections.push(amazonSection);
 
-  // 5. 代币分析框架
+  // 6. 代币分析框架
   sections.push(buildTokenAnalysisFramework(twitterInfo));
 
   return sections.filter(s => s).join('\n\n');

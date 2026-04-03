@@ -244,29 +244,49 @@ export class NarrativeAnalyzer {
           if (shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');
             const analysisResult = await this._analyzeAccountCommunityToken(tokenData, fetchResults);
-            llmResult = {
-              category: analysisResult.category,
-              reasoning: analysisResult.reasoning,
-              scores: analysisResult.scores,
-              total_score: analysisResult.total_score
-            };
-            promptUsed = analysisResult.llmCallInfo?.prompt || 'account_community_analysis';
-            promptType = 'account_community';
-            analysisFailed = false;
 
-            // 保存账号/社区分析数据到stage1字段
-            if (analysisResult.llmCallInfo) {
-              stage1DataToSave = {
+            // 检查是否是meme币分流结果（包含stage1Data和stage2Data）
+            if (analysisResult.stage1Data && analysisResult.stage2Data) {
+              // meme币分流：使用stage2Data作为最终结果
+              llmResult = {
                 category: analysisResult.category,
-                model: analysisResult.llmCallInfo.model,
-                prompt: analysisResult.llmCallInfo.prompt,
-                raw_output: analysisResult.llmCallInfo.raw_output,
-                parsed_output: analysisResult.llmCallInfo.parsed_output,
-                started_at: analysisResult.llmCallInfo.started_at,
-                finished_at: analysisResult.llmCallInfo.finished_at,
-                success: analysisResult.llmCallInfo.success,
-                error: analysisResult.llmCallInfo.error
+                reasoning: analysisResult.reasoning,
+                scores: analysisResult.scores,
+                total_score: analysisResult.total_score
               };
+              promptUsed = analysisResult.stage2Data.prompt || 'meme_two_stage';
+              promptType = 'meme_two_stage';
+              analysisFailed = false;
+
+              // 保存两阶段数据到stage1和stage2字段
+              stage1DataToSave = analysisResult.stage1Data;
+              stage2DataToSave = analysisResult.stage2Data;
+            } else {
+              // 项目币：原有逻辑
+              llmResult = {
+                category: analysisResult.category,
+                reasoning: analysisResult.reasoning,
+                scores: analysisResult.scores,
+                total_score: analysisResult.total_score
+              };
+              promptUsed = analysisResult.llmCallInfo?.prompt || 'account_community_analysis';
+              promptType = 'account_community';
+              analysisFailed = false;
+
+              // 保存账号/社区分析数据到stage1字段
+              if (analysisResult.llmCallInfo) {
+                stage1DataToSave = {
+                  category: analysisResult.category,
+                  model: analysisResult.llmCallInfo.model,
+                  prompt: analysisResult.llmCallInfo.prompt,
+                  raw_output: analysisResult.llmCallInfo.raw_output,
+                  parsed_output: analysisResult.llmCallInfo.parsed_output,
+                  started_at: analysisResult.llmCallInfo.started_at,
+                  finished_at: analysisResult.llmCallInfo.finished_at,
+                  success: analysisResult.llmCallInfo.success,
+                  error: analysisResult.llmCallInfo.error
+                };
+              }
             }
           } else {
             logger.info('NarrativeAnalyzer', '使用新框架：事件分析 + 代币分析');
@@ -700,6 +720,13 @@ export class NarrativeAnalyzer {
     */
 
     // 规则1.5：Twitter账号粉丝数量检查
+    // 规则1.6：已移除 - 项目币账号名匹配不再直接返回unrated
+    // 账号/社区代币将通过LLM流程进行分析（见_shouldUseAccountCommunityAnalysis）
+    // 如果只有账号/社区信息且无其他内容，会走账号/社区分析流程
+
+    // 粉丝数检查也已移除 - 统一由LLM流程来判断
+    // 因为meme币可能有特殊原因（如新账号、营销活动等）导致粉丝少，但仍可能有价值
+    /*
     // 粉丝数量太少（<60）说明缺乏社区基础和传播能力，优先级高于账号名匹配检查
     if (twitterInfo?.type === 'account' && twitterInfo.followers_count !== undefined) {
       const followersCount = twitterInfo.followers_count || 0;
@@ -716,10 +743,7 @@ export class NarrativeAnalyzer {
         };
       }
     }
-
-    // 规则1.6：已移除 - 项目币账号名匹配不再直接返回unrated
-    // 账号/社区代币将通过LLM流程进行分析（见_shouldUseAccountCommunityAnalysis）
-    // 如果只有账号/社区信息且无其他内容，会走账号/社区分析流程
+    */
 
     // 规则1.7：应用商店链接检查
     // 应用商店App不适合构建meme币（产品而非事件，缺乏传播属性）
@@ -2086,36 +2110,197 @@ export class NarrativeAnalyzer {
       };
     }
 
-    // 根据rating返回对应结果
-    const rating = parsed.rating || 'low';
-    const reason = parsed.reason || '';
+    // 检查地址验证和名称匹配（阻断性）
+    if (!parsed.addressVerified) {
+      return {
+        category: 'low',
+        reasoning: parsed.reason || '地址验证失败',
+        scores: null,
+        total_score: null,
+        addressVerified: false,
+        nameMatch: parsed.nameMatch,
+        details: parsed.details,
+        llmCallInfo: {
+          prompt: prompt,
+          raw_output: callResult.content,
+          parsed_output: parsed,
+          model: callResult.model,
+          started_at: callResult.startedAt,
+          finished_at: callResult.finishedAt,
+          success: callResult.success,
+          error: callResult.error
+        }
+      };
+    }
 
-    // 映射到现有category
-    const categoryMap = {
-      'high': 'high',
-      'mid': 'mid',
-      'low': 'low'
-    };
+    if (!parsed.nameMatch) {
+      return {
+        category: 'low',
+        reasoning: parsed.reason || '代币名称与账号名称不匹配',
+        scores: null,
+        total_score: null,
+        addressVerified: parsed.addressVerified,
+        nameMatch: false,
+        details: parsed.details,
+        llmCallInfo: {
+          prompt: prompt,
+          raw_output: callResult.content,
+          parsed_output: parsed,
+          model: callResult.model,
+          started_at: callResult.startedAt,
+          finished_at: callResult.finishedAt,
+          success: callResult.success,
+          error: callResult.error
+        }
+      };
+    }
 
+    // 判断币种类型并分流处理
+    const tokenType = parsed.tokenType || 'project'; // 默认为项目币
+
+    if (tokenType === 'meme') {
+      // meme币：转入两阶段分析流程
+      logger.info('AccountCommunityAnalysis', '判断为meme币，转入两阶段分析流程', {
+        accountSummary: parsed.accountSummary?.substring(0, 100)
+      });
+
+      // 构建带账号摘要的fetchResults
+      const memeFetchResults = {
+        ...fetchResults,
+        accountSummary: parsed.accountSummary || '' // 将账号摘要传入
+      };
+
+      // 调用meme币两阶段分析流程
+      return await this._analyzeMemeTokenTwoStage(tokenData, memeFetchResults, {
+        stage1Prompt: prompt,
+        stage1CallResult: callResult,
+        stage1Parsed: parsed
+      });
+    } else {
+      // 项目币：直接返回评级结果
+      const rating = parsed.rating || 'low';
+      const reason = parsed.reason || '';
+
+      // 映射到现有category
+      const categoryMap = {
+        'high': 'high',
+        'mid': 'mid',
+        'low': 'low'
+      };
+
+      return {
+        category: categoryMap[rating] || 'low',
+        reasoning: reason,
+        scores: null, // 简化流程不返回详细评分
+        total_score: null,
+        addressVerified: parsed.addressVerified,
+        nameMatch: parsed.nameMatch,
+        baselineMet: parsed.baselineMet,
+        details: parsed.details,
+        // LLM调用信息（用于保存到stage1字段）
+        llmCallInfo: {
+          prompt: prompt,
+          raw_output: callResult.content,
+          parsed_output: parsed,
+          model: callResult.model,
+          started_at: callResult.startedAt,
+          finished_at: callResult.finishedAt,
+          success: callResult.success,
+          error: callResult.error
+        }
+      };
+    }
+  }
+
+  /**
+   * 执行meme币两阶段分析（用于账号/社区分析判断为meme币后的分流）
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} fetchResults - 获取的数据结果（包含accountSummary）
+   * @param {Object} stage1Info - 第一阶段信息（账号分析，不保存）
+   * @returns {Promise<Object>} 分析结果
+   */
+  static async _analyzeMemeTokenTwoStage(tokenData, fetchResults, stage1Info) {
+    logger.info('MemeTokenAnalysis', '开始meme币两阶段分析');
+
+    // 事件分析（对应代币的第一阶段）
+    logger.debug('MemeTokenAnalysis', '开始事件分析');
+    const eventPrompt = PromptBuilder.buildEventAnalysis(tokenData, fetchResults);
+    const eventPromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 1);
+
+    const eventCallResult = await this._callLLMAPI(eventPrompt);
+
+    if (!eventCallResult.success) {
+      throw new Error(`事件分析LLM调用失败: ${eventCallResult.error}`);
+    }
+
+    const eventData = this._parseEventResponse(eventCallResult.content);
+
+    if (!eventData.pass) {
+      // 事件分析未通过，直接返回
+      logger.info('MemeTokenAnalysis', '事件分析未通过', {
+        reason: eventData.reason
+      });
+
+      return {
+        category: 'low',
+        reasoning: eventData.reason,
+        scores: null,
+        total_score: null,
+        // 只保存事件分析到stage1，不保存账号分析
+        stage1Data: {
+          category: 'low', // 事件分析未通过
+          prompt: eventPrompt,
+          raw_output: eventCallResult.content,
+          parsed_output: eventData,
+          model: eventCallResult.model,
+          started_at: eventCallResult.startedAt,
+          finished_at: eventCallResult.finishedAt,
+          success: eventCallResult.success,
+          error: eventCallResult.error
+        },
+        // 事件分析未通过，没有stage2
+        stage2Data: null
+      };
+    }
+
+    // 事件分析通过，进入代币分析（对应代币的第二阶段）
+    logger.info('MemeTokenAnalysis', '事件分析通过，进入代币分析');
+
+    const tokenPrompt = PromptBuilder.buildTokenAnalysis(tokenData, fetchResults, eventData.eventAnalysis);
+    const tokenPromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
+
+    const tokenCallResult = await LLMClient.analyzeWithMetadata(tokenPrompt);
+
+    if (!tokenCallResult.success) {
+      throw new Error(`代币分析LLM调用失败: ${tokenCallResult.error}`);
+    }
+
+    // 返回最终结果
     return {
-      category: categoryMap[rating] || 'low',
-      reasoning: reason,
-      scores: null, // 简化流程不返回详细评分
-      total_score: null,
-      addressVerified: parsed.addressVerified,
-      nameMatch: parsed.nameMatch,
-      baselineMet: parsed.baselineMet,
-      details: parsed.details,
-      // LLM调用信息（用于保存到stage1字段）
-      llmCallInfo: {
-        prompt: prompt,
-        raw_output: callResult.content,
-        parsed_output: parsed,
-        model: callResult.model,
-        started_at: callResult.startedAt,
-        finished_at: callResult.finishedAt,
-        success: callResult.success,
-        error: callResult.error
+      ...tokenCallResult.parsed,
+      // 保存事件分析到stage1，代币分析到stage2
+      // 账号分析不保存（stage1Info中的数据不使用）
+      stage1Data: {
+        category: 'pass', // 事件分析通过，标记为pass
+        prompt: eventPrompt,
+        raw_output: eventCallResult.content,
+        parsed_output: eventData,
+        model: eventCallResult.model,
+        started_at: eventCallResult.startedAt,
+        finished_at: eventCallResult.finishedAt,
+        success: eventCallResult.success,
+        error: eventCallResult.error
+      },
+      stage2Data: {
+        category: tokenCallResult.parsed.category,
+        prompt: tokenPrompt,
+        raw_output: tokenCallResult.raw.raw,
+        parsed_output: tokenCallResult.parsed,
+        model: tokenCallResult.model,
+        started_at: tokenCallResult.startedAt,
+        finished_at: tokenCallResult.finishedAt,
+        success: tokenCallResult.success,
+        error: tokenCallResult.error
       }
     };
   }
