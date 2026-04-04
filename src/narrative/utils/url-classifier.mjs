@@ -110,6 +110,11 @@ export function classifyUrl(url) {
     return { type: 'video', platform: 'bilibili', priority: 1, url };
   }
 
+  // 小红书
+  if (_isXiaohongshuUrl(url)) {
+    return { type: 'note', platform: 'xiaohongshu', priority: 1, url };
+  }
+
   // 微信公众号文章
   if (_isWeixinUrl(url)) {
     return { type: 'article', platform: 'weixin', priority: 1, url };
@@ -161,6 +166,7 @@ export function classifyAllUrls(urls) {
     tiktok: [],
     douyin: [],
     bilibili: [],
+    xiaohongshu: [],  // 新增：小红书笔记
     weixin: [],       // 微信公众号文章
     github: [],
     amazon: [],
@@ -195,6 +201,9 @@ export function classifyAllUrls(urls) {
         break;
       case 'bilibili':
         result.bilibili.push(info);
+        break;
+      case 'xiaohongshu':
+        result.xiaohongshu.push(info);
         break;
       case 'weixin':
         result.weixin.push(info);
@@ -249,6 +258,7 @@ export function selectBestUrls(classifiedUrls) {
     tiktok: classifiedUrls.tiktok[0] || null,
     douyin: classifiedUrls.douyin[0] || null,
     bilibili: classifiedUrls.bilibili[0] || null,
+    xiaohongshu: classifiedUrls.xiaohongshu[0] || null,
     weixin: classifiedUrls.weixin[0] || null,
     github: classifiedUrls.github[0] || null,
     amazon: classifiedUrls.amazon[0] || null,
@@ -311,6 +321,11 @@ function _isDouyinUrl(url) {
 function _isBilibiliUrl(url) {
   // 匹配 bilibili.com 或 b23.tv
   return /bilibili\.com|b23\.tv/i.test(url);
+}
+
+function _isXiaohongshuUrl(url) {
+  // 匹配 xiaohongshu.com 或 xhslink.com
+  return /xiaohongshu\.com|xhslink\.com/i.test(url);
 }
 
 function _isWeixinUrl(url) {

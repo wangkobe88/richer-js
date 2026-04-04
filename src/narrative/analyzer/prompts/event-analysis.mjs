@@ -18,6 +18,7 @@ import { buildAmazonSection } from './sections/amazon-section.mjs';
 import { buildWeiboSection } from './sections/weibo-section.mjs';
 import { buildVideoSection } from './sections/video-section.mjs';
 import { buildWeixinSection } from './sections/weixin-section.mjs';
+import { buildXiaohongshuSection } from './sections/xiaohongshu-section.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
 /**
@@ -42,6 +43,7 @@ export function buildEventAnalysisPrompt(tokenData, fetchResults) {
     douyinInfo = null,
     tiktokInfo = null,
     bilibiliInfo = null,
+    xiaohongshuInfo = null,
     weixinInfo = null,
     accountSummary = null  // 账号摘要（来自账号/社区分析分流）
   } = fetchResults;
@@ -95,6 +97,9 @@ ${accountSummary}`);
 
   const weixinSection = buildWeixinSection(weixinInfo);
   if (weixinSection) sections.push(weixinSection);
+
+  const xiaohongshuSection = buildXiaohongshuSection(xiaohongshuInfo);
+  if (xiaohongshuSection) sections.push(xiaohongshuSection);
 
   const websiteSection = buildWebsiteSection(websiteInfo);
   if (websiteSection) sections.push(websiteSection);

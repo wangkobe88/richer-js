@@ -143,6 +143,7 @@ import { buildAmazonSection } from './sections/amazon-section.mjs';
 import { buildWeiboSection } from './sections/weibo-section.mjs';
 import { buildVideoSection } from './sections/video-section.mjs';
 import { buildWeixinSection } from './sections/weixin-section.mjs';
+import { buildXiaohongshuSection } from './sections/xiaohongshu-section.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
 /**
@@ -167,6 +168,7 @@ export function buildLowQualityDetectionPrompt(tokenData, fetchResults) {
     douyinInfo = null,
     tiktokInfo = null,
     bilibiliInfo = null,
+    xiaohongshuInfo = null,
     weixinInfo = null,
     classifiedUrls = null
   } = fetchResults;
@@ -205,6 +207,10 @@ ${tokenName ? `- 代币Name：${tokenName}` : ''}
   // 3.7 微信公众号文章内容
   const weixinSection = buildWeixinSection(weixinInfo);
   if (weixinSection) sections.push(weixinSection);
+
+  // 3.8 小红书笔记内容
+  const xiaohongshuSection = buildXiaohongshuSection(xiaohongshuInfo);
+  if (xiaohongshuSection) sections.push(xiaohongshuSection);
 
   // 4. 网站内容
   const websiteSection = buildWebsiteSection(websiteInfo);

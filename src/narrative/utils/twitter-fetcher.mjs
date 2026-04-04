@@ -403,6 +403,16 @@ export class TwitterFetcher {
               tweetInfo.expanded_urls = [];
             }
             tweetInfo.expanded_urls.push({ short: url, expanded: expandedUrl });
+
+            // 如果展开后的URL是另一个推文，标记它以便后续获取
+            if (expandedUrl.includes('x.com') || expandedUrl.includes('twitter.com')) {
+              const tweetIdMatch = expandedUrl.match(/status\/(\d+)/);
+              if (tweetIdMatch) {
+                tweetInfo.expanded_tweet_url = expandedUrl;
+                console.log(`[TwitterFetcher] 短链接展开为推文，标记待获取: ${expandedUrl}`);
+                // 不要continue，让后续逻辑处理这个推文链接
+              }
+            }
           }
         } catch (e) {
           console.log(`[TwitterFetcher] 展开短链接失败: ${e.message}`);

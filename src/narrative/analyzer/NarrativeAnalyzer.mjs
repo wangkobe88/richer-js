@@ -15,6 +15,7 @@ import { GithubFetcher } from '../utils/github-fetcher.mjs';
 import { YoutubeFetcher } from '../utils/youtube-fetcher.mjs';
 import { DouyinFetcher } from '../utils/douyin-fetcher.mjs';
 import { BilibiliFetcher } from '../utils/bilibili-fetcher.mjs';
+import { XiaohongshuFetcher } from '../utils/xiaohongshu-fetcher.mjs';
 import { fetchTikTokVideoInfo, isTikTokUrl } from '../utils/tiktok-fetcher.mjs';
 import { WeixinFetcher } from '../utils/weixin-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils/web-fetcher.mjs';
@@ -1322,6 +1323,7 @@ export class NarrativeAnalyzer {
         douyinInfo: null,
         tiktokInfo: null,
         bilibiliInfo: null,
+        xiaohongshuInfo: null,
         weixinInfo: null,
         amazonInfo: null,
         classifiedUrls: {  // 空的分类URL对象
@@ -1331,6 +1333,7 @@ export class NarrativeAnalyzer {
           tiktok: [],
           douyin: [],
           bilibili: [],
+          xiaohongshu: [],
           weixin: [],
           github: [],
           amazon: [],
@@ -1357,6 +1360,7 @@ export class NarrativeAnalyzer {
       tiktok: classifiedUrls.tiktok.length,
       douyin: classifiedUrls.douyin.length,
       bilibili: classifiedUrls.bilibili.length,
+      xiaohongshu: classifiedUrls.xiaohongshu?.length || 0,
       weixin: classifiedUrls.weixin?.length || 0,
       github: classifiedUrls.github.length,
       amazon: classifiedUrls.amazon.length,
@@ -1398,6 +1402,7 @@ export class NarrativeAnalyzer {
       douyinInfo: null,
       tiktokInfo: null,
       bilibiliInfo: null,
+      xiaohongshuInfo: null,
       weixinInfo: null,
       amazonInfo: null,
       // 存储数据获取错误信息
@@ -1743,7 +1748,31 @@ export class NarrativeAnalyzer {
       }
     }
 
-    // === 9. 普通网站数据 ===
+    // === 10. 小红书数据 ===
+    const xiaohongshuUrlInfo = selectFirstUrl('xiaohongshu');
+    if (xiaohongshuUrlInfo) {
+      const xiaohongshuFetch = await this._recordDataFetch(
+        async () => {
+          const info = await XiaohongshuFetcher.fetchNoteInfo(xiaohongshuUrlInfo.url);
+          if (info) {
+            const influenceLevel = XiaohongshuFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = XiaohongshuFetcher.getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] 小红书信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'xiaohongshu',
+        xiaohongshuUrlInfo.url
+      );
+      results.xiaohongshuInfo = xiaohongshuFetch.data;
+      dataFetchResults.xiaohongshu = xiaohongshuFetch.record;
+      if (!xiaohongshuFetch.record.success) {
+        results.fetchErrors.videoErrors.xiaohongshu = xiaohongshuFetch.record.error;
+      }
+    }
+
+    // === 11. 普通网站数据 ===
     const websiteUrlInfo = selectFirstUrl('websites');
     if (websiteUrlInfo) {
       const websiteUrl = websiteUrlInfo.url;
