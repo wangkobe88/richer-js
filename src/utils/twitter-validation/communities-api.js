@@ -73,7 +73,6 @@ async function fetchCommunityById(communityId, options = {}) {
     const response = await makeRequest(`${COMMUNITIES_ENDPOINT}?${params}`);
 
     const communityResult = response?.data?.communityResults?.result;
-
     if (!communityResult) {
       console.warn('[CommunitiesAPI] Community 数据为空');
       return null;
@@ -127,10 +126,6 @@ async function fetchCommunityById(communityId, options = {}) {
       viewer_relationship: communityResult.viewer_relationship || null
     };
 
-    console.log(`[CommunitiesAPI] 成功获取 Community: "${communityInfo.name}"`);
-    console.log(`   成员数: ${communityInfo.members_count.toLocaleString()}`);
-    console.log(`   推文数: ${communityInfo.timeline.tweet_count.toLocaleString()}`);
-
     return communityInfo;
 
   } catch (error) {
@@ -156,7 +151,6 @@ function extractCommunityIdFromTweet(tweetData) {
   if (communityResults) {
     const communityId = communityResults.rest_id || communityResults.id_str;
     if (communityId) {
-      console.log(`[CommunitiesAPI] 从推文中提取到 Community ID: ${communityId}`);
       return communityId;
     }
   }
@@ -165,7 +159,6 @@ function extractCommunityIdFromTweet(tweetData) {
   if (tweetData.core && tweetData.core.community_results) {
     const communityId = tweetData.core.community_results.rest_id || tweetData.core.community_results.id_str;
     if (communityId) {
-      console.log(`[CommunitiesAPI] 从 core 中提取到 Community ID: ${communityId}`);
       return communityId;
     }
   }
@@ -182,7 +175,6 @@ async function fetchCommunityForTweet(tweetData) {
   const communityId = extractCommunityIdFromTweet(tweetData);
 
   if (!communityId) {
-    console.log('[CommunitiesAPI] 推文不属于任何 Community');
     return null;
   }
 
@@ -254,7 +246,6 @@ function isValidCommunityId(communityId) {
  * @returns {Promise<Array>} 推文列表
  */
 async function fetchCommunityTweets(communityId, options = {}) {
-  console.log(`[CommunitiesAPI] 获取 Community 推文: ${communityId}`);
 
   try {
     const variables = {
@@ -273,44 +264,123 @@ async function fetchCommunityTweets(communityId, options = {}) {
 
     const response = await makeRequest(`${COMMUNITY_TWEETS_ENDPOINT}?${params}`);
 
-    // 解析推文列表
-    const instructions = response?.data?.communityResults?.result?.timeline_v2?.timeline?.instructions || [];
+    // 调试：打印完整响应结构
+    const result = response?.data?.communityResults?.result;
+    const rankedTimeline = result?.ranked_community_timeline;
 
+
+    // 解析推文列表 - 优先使用 ranked_community_timeline
     const tweets = [];
-    for (const inst of instructions) {
-      if (inst.entries) {
-        for (const entry of inst.entries) {
-          const content = entry.content;
-          if (content.itemContent && content.itemContent.tweet_results) {
-            const tweetResult = content.itemContent.tweet_results.result;
-            if (tweetResult) {
-              const legacy = tweetResult.legacy || {};
-              const core = tweetResult.core || {};
-              const userResult = core.user_results?.result;
-              const userLegacy = userResult?.legacy || {};
-              const userCore = userResult?.core || {};
 
-              tweets.push({
-                tweet_id: tweetResult.rest_id,
-                text: legacy.full_text || legacy.text || '',
-                created_at: legacy.created_at,
-                user: {
-                  id: userResult?.rest_id,
-                  screen_name: userCore?.screen_name || userLegacy?.screen_name,
-                  name: userCore?.name || userLegacy?.name,
-                  followers_count: userLegacy?.followers_count || 0
-                },
-                likeCount: legacy.favorite_count || 0,
-                retweetCount: legacy.retweet_count || 0,
-                replyCount: legacy.reply_count || 0
-              });
+    // 尝试从 ranked_community_timeline 解析
+    if (rankedTimeline) {
+      // 如果是数组，直接遍历
+      if (Array.isArray(rankedTimeline)) {
+        for (const item of rankedTimeline) {
+          // ranked_timeline 的结构可能是 { tweet: {...} } 或直接是推文对象
+          const tweetResult = item.tweet || item;
+          if (tweetResult) {
+            const legacy = tweetResult.legacy || tweetResult;
+            const core = tweetResult.core || {};
+            const userResult = core.user_results?.result || tweetResult.user_results?.result;
+            const userLegacy = userResult?.legacy || {};
+            const userCore = userResult?.core || {};
+
+            tweets.push({
+              tweet_id: tweetResult.rest_id || tweetResult.id,
+              text: legacy.full_text || legacy.text || '',
+              created_at: legacy.created_at,
+              user: {
+                id: userResult?.rest_id,
+                screen_name: userCore?.screen_name || userLegacy?.screen_name,
+                name: userCore?.name || userLegacy?.name,
+                followers_count: userLegacy?.followers_count || 0
+              },
+              likeCount: legacy.favorite_count || 0,
+              retweetCount: legacy.retweet_count || 0,
+              replyCount: legacy.reply_count || 0
+            });
+          }
+        }
+      }
+      // 如果是对象，查看是否有 timeline 或 instructions 等字段
+      else if (typeof rankedTimeline === 'object') {
+        // 检查是否有 instructions 字段
+        const instructions = rankedTimeline.instructions || rankedTimeline.timeline?.instructions;
+        if (Array.isArray(instructions)) {
+          for (const inst of instructions) {
+            if (inst.entries) {
+              for (const entry of inst.entries) {
+                const content = entry.content;
+                if (content.itemContent && content.itemContent.tweet_results) {
+                  const tweetResult = content.itemContent.tweet_results.result;
+                  if (tweetResult) {
+                    const legacy = tweetResult.legacy || {};
+                    const core = tweetResult.core || {};
+                    const userResult = core.user_results?.result;
+                    const userLegacy = userResult?.legacy || {};
+                    const userCore = userResult?.core || {};
+
+                    tweets.push({
+                      tweet_id: tweetResult.rest_id,
+                      text: legacy.full_text || legacy.text || '',
+                      created_at: legacy.created_at,
+                      user: {
+                        id: userResult?.rest_id,
+                        screen_name: userCore?.screen_name || userLegacy?.screen_name,
+                        name: userCore?.name || userLegacy?.name,
+                        followers_count: userLegacy?.followers_count || 0
+                      },
+                      likeCount: legacy.favorite_count || 0,
+                      retweetCount: legacy.retweet_count || 0,
+                      replyCount: legacy.reply_count || 0
+                    });
+                  }
+                }
+              }
             }
           }
         }
       }
     }
 
-    console.log(`[CommunitiesAPI] 成功获取 ${tweets.length} 条推文`);
+    // 如果 ranked_timeline 没有数据，尝试旧的 timeline_v2 路径（兼容）
+    if (tweets.length === 0) {
+      const instructions = response?.data?.communityResults?.result?.timeline_v2?.timeline?.instructions || [];
+
+      for (const inst of instructions) {
+        if (inst.entries) {
+          for (const entry of inst.entries) {
+            const content = entry.content;
+            if (content.itemContent && content.itemContent.tweet_results) {
+              const tweetResult = content.itemContent.tweet_results.result;
+              if (tweetResult) {
+                const legacy = tweetResult.legacy || {};
+                const core = tweetResult.core || {};
+                const userResult = core.user_results?.result;
+                const userLegacy = userResult?.legacy || {};
+                const userCore = userResult?.core || {};
+
+                tweets.push({
+                  tweet_id: tweetResult.rest_id,
+                  text: legacy.full_text || legacy.text || '',
+                  created_at: legacy.created_at,
+                  user: {
+                    id: userResult?.rest_id,
+                    screen_name: userCore?.screen_name || userLegacy?.screen_name,
+                    name: userCore?.name || userLegacy?.name,
+                    followers_count: userLegacy?.followers_count || 0
+                  },
+                  likeCount: legacy.favorite_count || 0,
+                  retweetCount: legacy.retweet_count || 0,
+                  replyCount: legacy.reply_count || 0
+                });
+              }
+            }
+          }
+        }
+      }
+    }
 
     return tweets;
 

@@ -169,13 +169,23 @@
         /* 网格布局 */
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             margin-bottom: 20px;
         }
 
+        .cards-grid.three-cols {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
         .cards-grid.two-cols {
             grid-template-columns: repeat(2, 1fr);
+        }
+
+        @media (max-width: 1400px) {
+            .cards-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
 
         @media (max-width: 1024px) {
@@ -1015,7 +1025,7 @@
         </div>
 
         <div class="result-section" id="resultSection">
-            <!-- 第一行：分析概览 + Stage 1 + Stage 2 -->
+            <!-- 第一行：分析概览 + PreStage + Stage 1 + Stage 2 -->
             <div class="cards-grid">
                 <!-- 分析概览卡片 -->
                 <div class="card overview-card">
@@ -1042,6 +1052,34 @@
                             <div class="overview-meta" id="overviewMeta">
                                 <!-- 元数据将动态插入 -->
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 预检查卡片 -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-icon">🚦</span>
+                        <h2>预检查</h2>
+                    </div>
+                    <div class="card-body" id="precheckCardBody">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">⏳</div>
+                            <div class="empty-state-text">等待分析结果...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PreStage 卡片（前置LLM - 账号/社区分析） -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-icon">🎯</span>
+                        <h2>PreStage: 币种判断</h2>
+                    </div>
+                    <div class="card-body" id="prestageCardBody">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">⏳</div>
+                            <div class="empty-state-text">等待分析结果...</div>
                         </div>
                     </div>
                 </div>

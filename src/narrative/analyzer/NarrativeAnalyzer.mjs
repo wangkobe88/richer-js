@@ -158,6 +158,7 @@ export class NarrativeAnalyzer {
     const extractedInfo = this.extractInfo(tokenData);
 
     // 准备数据收集变量
+    let prestageDataToSave = null;  // 前置LLM阶段（账号/社区分析判断币种类型）
     let stage1DataToSave = null;
     let stage2DataToSave = null;
     let preCheckDataToSave = null;
@@ -246,73 +247,63 @@ export class NarrativeAnalyzer {
             logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');
             const analysisResult = await this._analyzeAccountCommunityToken(tokenData, fetchResults);
 
-            // 检查是否是meme币分流结果（包含stage1Data和stage2Data）
-            if (analysisResult.stage1Data && analysisResult.stage2Data) {
-              // meme币分流：使用stage2Data作为最终结果
+            // 检查是否是规则验证失败（返回preCheckData）
+            if (analysisResult.preCheckData) {
+              // 规则验证失败，按预检查处理
               llmResult = {
                 category: analysisResult.category,
                 reasoning: analysisResult.reasoning,
                 scores: analysisResult.scores,
                 total_score: analysisResult.total_score
               };
-              promptUsed = analysisResult.stage2Data.prompt || 'meme_two_stage';
+              promptUsed = 'rules_validation';
+              promptType = 'precheck';
+              analysisFailed = false;
+              isPreCheckTriggered = true;
+
+              // 保存到预检查字段
+              preCheckDataToSave = {
+                category: analysisResult.preCheckData.category,
+                reason: analysisResult.preCheckData.reason,
+                result: analysisResult.preCheckData.result
+              };
+            } else if (analysisResult.stage1Data) {
+              // meme币分流：使用stage2Data作为最终结果（如果有）
+              llmResult = {
+                category: analysisResult.category,
+                reasoning: analysisResult.reasoning,
+                scores: analysisResult.scores,
+                total_score: analysisResult.total_score
+              };
+              promptUsed = analysisResult.stage2Data?.prompt || analysisResult.stage1Data.prompt || 'meme_two_stage';
               promptType = 'meme_two_stage';
               analysisFailed = false;
 
-              // 保存两阶段数据到stage1和stage2字段
+              // 保存前置LLM数据（账号/社区分析判断币种类型）
+              prestageDataToSave = analysisResult.prestageData;
+              // 保存两阶段数据到stage1和stage2字段（stage2Data可能为null）
               stage1DataToSave = analysisResult.stage1Data;
               stage2DataToSave = analysisResult.stage2Data;
             } else {
-              // 项目币：原有逻辑
+              // 项目币或Web3原生IP早期：前置LLM判断结果
               llmResult = {
                 category: analysisResult.category,
                 reasoning: analysisResult.reasoning,
                 scores: analysisResult.scores,
                 total_score: analysisResult.total_score
               };
-              promptUsed = analysisResult.llmCallInfo?.prompt || 'account_community_analysis';
+              promptUsed = analysisResult.prestageData?.prompt || 'account_community_analysis';
               promptType = 'account_community';
               analysisFailed = false;
 
-              // 保存账号/社区分析数据到stage1字段
-              if (analysisResult.llmCallInfo) {
-                // LLM分析结果
-                stage1DataToSave = {
-                  category: analysisResult.category,
-                  model: analysisResult.llmCallInfo.model,
-                  prompt: analysisResult.llmCallInfo.prompt,
-                  raw_output: analysisResult.llmCallInfo.raw_output,
-                  parsed_output: {
-                    ...analysisResult.llmCallInfo.parsed_output,
-                    // 添加规则验证结果到parsed_output
-                    addressVerified: analysisResult.addressVerified,
-                    nameMatch: analysisResult.nameMatch,
-                    details: analysisResult.details
-                  },
-                  started_at: analysisResult.llmCallInfo.started_at,
-                  finished_at: analysisResult.llmCallInfo.finished_at,
-                  success: analysisResult.llmCallInfo.success,
-                  error: analysisResult.llmCallInfo.error
-                };
-              } else if (analysisResult.rulesValidation) {
-                // 规则验证结果（没有LLM调用）
-                stage1DataToSave = {
-                  category: analysisResult.category,
-                  model: 'rules',
-                  prompt: null,
-                  raw_output: null,
-                  parsed_output: {
-                    reason: analysisResult.reasoning,
-                    addressVerified: analysisResult.addressVerified,
-                    nameMatch: analysisResult.nameMatch,
-                    details: analysisResult.details,
-                    rulesValidation: true
-                  },
-                  started_at: new Date().toISOString(),
-                  finished_at: new Date().toISOString(),
-                  success: true,
-                  error: null
-                };
+              // 保存前置LLM数据（账号/社区分析判断币种类型）
+              prestageDataToSave = analysisResult.prestageData;
+
+              // 对于 unrated 类别（如 Web3 原生 IP 早期），显式清除旧的 stage1/stage2 数据
+              if (analysisResult.category === 'unrated') {
+                // 使用特殊标记对象指示需要清除旧数据
+                stage1DataToSave = { __clear: true };
+                stage2DataToSave = { __clear: true };
               }
             }
           } else {
@@ -369,36 +360,8 @@ export class NarrativeAnalyzer {
             eventDescription: eventData.eventAnalysis?.eventDescription,
             propagationScore: eventData.eventAnalysis?.propagationScore
           });
-          const tokenPrompt = PromptBuilder.buildTokenAnalysis(tokenData, fetchResults, eventData.eventAnalysis);
-          const tokenPromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
-          logger.debug('NarrativeAnalyzer', `代币分析Prompt类型: ${tokenPromptType}`);
 
-          // 代币分析：调用API（带元数据）
-          const tokenCallResult = await LLMClient.analyzeWithMetadata(tokenPrompt);
-
-          // 检查代币分析是否成功
-          if (!tokenCallResult.success) {
-            throw new Error(`代币分析LLM调用失败: ${tokenCallResult.error}`);
-          }
-
-          llmResult = {
-            ...tokenCallResult.parsed
-          };
-
-          // 收集代币分析数据（存储到stage2字段）
-          stage2DataToSave = {
-            category: tokenCallResult.parsed.category,
-            model: tokenCallResult.model,
-            prompt: tokenPrompt,
-            raw_output: tokenCallResult.raw.raw,
-            parsed_output: tokenCallResult.parsed,
-            started_at: tokenCallResult.startedAt,
-            finished_at: tokenCallResult.finishedAt,
-            success: tokenCallResult.success,
-            error: tokenCallResult.error
-          };
-
-          // 事件分析通过，也需要记录（存储到stage1字段）
+          // 先保存Stage1数据（即使Stage2失败，Stage1数据也应该被保存）
           stage1DataToSave = {
             category: null,  // 通过，所以category为null
             model: eventCallResult.model,
@@ -410,6 +373,45 @@ export class NarrativeAnalyzer {
             success: eventCallResult.success,
             error: eventCallResult.error
           };
+
+          const tokenPrompt = PromptBuilder.buildTokenAnalysis(tokenData, fetchResults, eventData.eventAnalysis);
+          const tokenPromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
+          logger.debug('NarrativeAnalyzer', `代币分析Prompt类型: ${tokenPromptType}`);
+
+          // 代币分析：调用API（带元数据）
+          const tokenCallResult = await LLMClient.analyzeWithMetadata(tokenPrompt);
+
+          // 收集代币分析数据（无论成功还是失败都要记录）
+          stage2DataToSave = {
+            category: tokenCallResult.parsed?.category || null,
+            model: tokenCallResult.model,
+            prompt: tokenPrompt,
+            raw_output: tokenCallResult.raw?.raw || tokenCallResult.raw || null,
+            parsed_output: tokenCallResult.parsed,
+            started_at: tokenCallResult.startedAt,
+            finished_at: tokenCallResult.finishedAt,
+            success: tokenCallResult.success,
+            error: tokenCallResult.error
+          };
+
+          // 检查代币分析是否成功
+          if (!tokenCallResult.success) {
+            // Stage2失败，但不抛出错误，而是设置llmResult为Stage1的结果
+            logger.warn('NarrativeAnalyzer', `代币分析失败，仅保存Stage1数据: ${tokenCallResult.error}`);
+            llmResult = {
+              category: 'unrated',
+              reasoning: `事件分析通过，但代币分析失败: ${tokenCallResult.error}`,
+              scores: null,
+              total_score: null,
+              analysis_stage: 1,
+              eventAnalysis: eventData.eventAnalysis
+            };
+          } else {
+            // Stage2成功，使用完整的分析结果
+            llmResult = {
+              ...tokenCallResult.parsed
+            };
+          }
 
           promptType = tokenPromptType;
         }
@@ -458,29 +460,44 @@ export class NarrativeAnalyzer {
       classified_urls: classifiedUrls,
       analyzed_at: new Date().toISOString(),
       experiment_id: experimentId,
+      is_valid: true, // 显式设置为true（分析成功后）
+      prompt_version: PromptBuilder.getPromptVersion(), // 保存当前prompt版本
 
       // === 预检查字段（3个）===
       pre_check_category: preCheckDataToSave?.category || null,
       pre_check_reason: preCheckDataToSave?.reason || null,
       pre_check_result: preCheckDataToSave?.result || null,
 
+      // === 前置LLM阶段字段（9个）- 账号/社区分析判断币种类型 ===
+      llm_prestage_category: prestageDataToSave?.category || null,
+      llm_prestage_model: prestageDataToSave?.model || null,
+      llm_prestage_prompt: prestageDataToSave?.prompt || null,
+      llm_prestage_raw_output: prestageDataToSave?.raw_output || null,
+      llm_prestage_parsed_output: prestageDataToSave?.parsed_output || null,
+      llm_prestage_started_at: prestageDataToSave?.started_at || null,
+      llm_prestage_finished_at: prestageDataToSave?.finished_at || null,
+      llm_prestage_success: prestageDataToSave?.success ?? null,
+      llm_prestage_error: prestageDataToSave?.error || null,
+
       // === Stage 1 字段（9个）===
+      // 检查是否是清除标记
+      llm_stage1_parsed_output: (stage1DataToSave && stage1DataToSave.__clear) ? stage1DataToSave : (stage1DataToSave?.parsed_output || null),
       llm_stage1_category: stage1DataToSave?.category || null,
       llm_stage1_model: stage1DataToSave?.model || null,
       llm_stage1_prompt: stage1DataToSave?.prompt || null,
       llm_stage1_raw_output: stage1DataToSave?.raw_output || null,
-      llm_stage1_parsed_output: stage1DataToSave?.parsed_output || null,
       llm_stage1_started_at: stage1DataToSave?.started_at || null,
       llm_stage1_finished_at: stage1DataToSave?.finished_at || null,
       llm_stage1_success: stage1DataToSave?.success ?? null,
       llm_stage1_error: stage1DataToSave?.error || null,
 
       // === Stage 2 字段（9个）===
+      // 检查是否是清除标记
+      llm_stage2_parsed_output: (stage2DataToSave && stage2DataToSave.__clear) ? stage2DataToSave : (stage2DataToSave?.parsed_output || null),
       llm_stage2_category: stage2DataToSave?.category || null,
       llm_stage2_model: stage2DataToSave?.model || null,
       llm_stage2_prompt: stage2DataToSave?.prompt || null,
       llm_stage2_raw_output: stage2DataToSave?.raw_output || null,
-      llm_stage2_parsed_output: stage2DataToSave?.parsed_output || null,
       llm_stage2_started_at: stage2DataToSave?.started_at || null,
       llm_stage2_finished_at: stage2DataToSave?.finished_at || null,
       llm_stage2_success: stage2DataToSave?.success ?? null,
@@ -511,7 +528,8 @@ export class NarrativeAnalyzer {
         promptType: promptType,
         // 根据执行的stage确定analysisStage
         analysisStage: stage2DataToSave ? 2 : stage1DataToSave ? 1 : 0,
-        // 新增：Stage 1/2 数据
+        // 新增：PreStage/Stage 1/2 数据
+        prestageData: prestageDataToSave,
         stage1Data: stage1DataToSave,
         stage2Data: stage2DataToSave,
         preCheckData: preCheckDataToSave,
@@ -1457,6 +1475,7 @@ export class NarrativeAnalyzer {
                 if (info) {
                   // 将社区信息转换为twitter_info兼容格式
                   info = {
+                    id: info.id,  // 保留community_id，供后续规则验证使用
                     type: 'community',
                     name: info.name,
                     description: info.description,
@@ -2213,7 +2232,18 @@ export class NarrativeAnalyzer {
         addressVerified: rulesResult.addressVerified,
         nameMatch: rulesResult.nameMatch,
         details: rulesResult.details,
-        rulesValidation: true // 标记这是规则验证的结果
+        rulesValidation: true, // 标记这是规则验证的结果
+        // 规则验证失败返回preCheckData，在"预检查"卡片展示
+        preCheckData: {
+          category: 'low',
+          reason: rulesResult.reason,
+          result: {
+            addressVerified: rulesResult.addressVerified,
+            nameMatch: rulesResult.nameMatch,
+            details: rulesResult.details,
+            validationStage: rulesResult.stage
+          }
+        }
       };
     }
 
@@ -2227,7 +2257,18 @@ export class NarrativeAnalyzer {
         category: 'low',
         reasoning: '无法构建账号/社区分析Prompt（数据获取失败）',
         scores: null,
-        total_score: null
+        total_score: null,
+        // prompt构建失败也返回preCheckData
+        preCheckData: {
+          category: 'low',
+          reason: '无法构建账号/社区分析Prompt（数据获取失败）',
+          result: {
+            addressVerified: rulesResult.addressVerified,
+            nameMatch: rulesResult.nameMatch,
+            details: rulesResult.details,
+            error: '无法构建Prompt'
+          }
+        }
       };
     }
 
@@ -2260,6 +2301,44 @@ export class NarrativeAnalyzer {
     // 判断币种类型并分流处理
     const tokenType = parsed.tokenType || 'project'; // 默认为项目币
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 新增：Web3 原生 IP 早期判断
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if (tokenType === 'web3_native_ip_early') {
+      // Web3 原生 IP 处于早期发展阶段，直接返回 unrated
+      logger.info('AccountCommunityAnalysis', '判断为Web3原生IP早期，返回unrated', {
+        ipConcept: parsed.ipConcept?.substring(0, 100)
+      });
+
+      return {
+        category: 'unrated',
+        reasoning: parsed.reason || 'Web3原生IP处于早期发展阶段，需等待社区成长后再评估',
+        scores: null,
+        total_score: null,
+        // 使用规则验证的结果
+        addressVerified: rulesResult.addressVerified,
+        nameMatch: rulesResult.nameMatch,
+        // 前置LLM阶段数据（账号/社区分析判断币种类型）
+        prestageData: {
+          category: 'unrated', // Web3原生IP早期
+          prompt: prompt,
+          raw_output: callResult.content,
+          parsed_output: {
+            ...parsed,
+            // 添加规则验证结果
+            addressVerified: rulesResult.addressVerified,
+            nameMatch: rulesResult.nameMatch,
+            details: rulesResult.details
+          },
+          model: callResult.model,
+          started_at: callResult.startedAt,
+          finished_at: callResult.finishedAt,
+          success: callResult.success,
+          error: callResult.error
+        }
+      };
+    }
+
     if (tokenType === 'meme') {
       // meme币：转入两阶段分析流程
       logger.info('AccountCommunityAnalysis', '判断为meme币，转入两阶段分析流程', {
@@ -2272,13 +2351,34 @@ export class NarrativeAnalyzer {
         accountSummary: parsed.accountSummary || '' // 将账号摘要传入
       };
 
-      // 调用meme币两阶段分析流程，传递规则验证结果
-      return await this._analyzeMemeTokenTwoStage(tokenData, memeFetchResults, {
+      // 调用meme币两阶段分析流程，传递规则验证结果和前置LLM数据
+      const memeResult = await this._analyzeMemeTokenTwoStage(tokenData, memeFetchResults, {
         stage1Prompt: prompt,
         stage1CallResult: callResult,
         stage1Parsed: parsed,
         rulesResult: rulesResult // 传递规则验证结果
       });
+
+      // 添加前置LLM阶段数据（账号/社区分析判断币种类型）
+      memeResult.prestageData = {
+        category: 'meme', // 前置LLM判断为meme币
+        prompt: prompt,
+        raw_output: callResult.content,
+        parsed_output: {
+          ...parsed,
+          // 添加规则验证结果
+          addressVerified: rulesResult.addressVerified,
+          nameMatch: rulesResult.nameMatch,
+          details: rulesResult.details
+        },
+        model: callResult.model,
+        started_at: callResult.startedAt,
+        finished_at: callResult.finishedAt,
+        success: callResult.success,
+        error: callResult.error
+      };
+
+      return memeResult;
     } else {
       // 项目币：直接返回评级结果
       const rating = parsed.rating || 'low';
@@ -2306,11 +2406,22 @@ export class NarrativeAnalyzer {
           projectReason: parsed.details?.projectReason,
           memeReason: parsed.details?.memeReason
         },
-        // LLM调用信息（用于保存到stage1字段）
-        llmCallInfo: {
+        // 前置LLM阶段数据（账号/社区分析判断币种类型）
+        prestageData: {
+          category: categoryMap[rating] || 'low',
           prompt: prompt,
           raw_output: callResult.content,
-          parsed_output: parsed,
+          parsed_output: {
+            ...parsed,
+            // 添加规则验证结果
+            addressVerified: rulesResult.addressVerified,
+            nameMatch: rulesResult.nameMatch,
+            details: {
+              ...rulesResult.details,
+              projectReason: parsed.details?.projectReason,
+              memeReason: parsed.details?.memeReason
+            }
+          },
           model: callResult.model,
           started_at: callResult.startedAt,
           finished_at: callResult.finishedAt,
@@ -2363,7 +2474,13 @@ export class NarrativeAnalyzer {
           category: 'low', // 事件分析未通过
           prompt: eventPrompt,
           raw_output: eventCallResult.content,
-          parsed_output: eventData,
+          parsed_output: {
+            ...eventData,
+            // 添加规则验证结果到parsed_output
+            addressVerified: stage1Info.rulesResult?.addressVerified,
+            nameMatch: stage1Info.rulesResult?.nameMatch,
+            details: stage1Info.rulesResult?.details
+          },
           model: eventCallResult.model,
           started_at: eventCallResult.startedAt,
           finished_at: eventCallResult.finishedAt,
@@ -2378,13 +2495,60 @@ export class NarrativeAnalyzer {
     // 事件分析通过，进入代币分析（对应代币的第二阶段）
     logger.info('MemeTokenAnalysis', '事件分析通过，进入代币分析');
 
+    // 先准备Stage1数据（即使Stage2失败也要保存Stage1）
+    const stage1Data = {
+      category: 'pass', // 事件分析通过，标记为pass
+      prompt: eventPrompt,
+      raw_output: eventCallResult.content,
+      parsed_output: {
+        ...eventData,
+        // 添加规则验证结果到parsed_output
+        addressVerified: stage1Info.rulesResult?.addressVerified,
+        nameMatch: stage1Info.rulesResult?.nameMatch,
+        details: stage1Info.rulesResult?.details
+      },
+      model: eventCallResult.model,
+      started_at: eventCallResult.startedAt,
+      finished_at: eventCallResult.finishedAt,
+      success: eventCallResult.success,
+      error: eventCallResult.error
+    };
+
     const tokenPrompt = PromptBuilder.buildTokenAnalysis(tokenData, fetchResults, eventData.eventAnalysis);
     const tokenPromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
 
     const tokenCallResult = await LLMClient.analyzeWithMetadata(tokenPrompt);
 
+    // 准备Stage2数据（无论成功还是失败）
+    const stage2Data = {
+      category: tokenCallResult.parsed?.category || null,
+      prompt: tokenPrompt,
+      raw_output: tokenCallResult.raw?.raw || tokenCallResult.raw || null,
+      parsed_output: tokenCallResult.parsed,
+      model: tokenCallResult.model,
+      started_at: tokenCallResult.startedAt,
+      finished_at: tokenCallResult.finishedAt,
+      success: tokenCallResult.success,
+      error: tokenCallResult.error
+    };
+
     if (!tokenCallResult.success) {
-      throw new Error(`代币分析LLM调用失败: ${tokenCallResult.error}`);
+      // Stage2失败，返回Stage1的结果
+      logger.warn('MemeTokenAnalysis', `代币分析失败，仅返回Stage1结果: ${tokenCallResult.error}`);
+      return {
+        category: 'unrated',
+        reasoning: `事件分析通过，但代币分析失败: ${tokenCallResult.error}`,
+        scores: null,
+        total_score: null,
+        analysis_stage: 1,
+        // 添加规则验证结果
+        addressVerified: stage1Info.rulesResult?.addressVerified,
+        nameMatch: stage1Info.rulesResult?.nameMatch,
+        // 保存事件分析到stage1
+        stage1Data: stage1Data,
+        // Stage2失败，记录失败信息
+        stage2Data: stage2Data
+      };
     }
 
     // 返回最终结果
@@ -2395,28 +2559,8 @@ export class NarrativeAnalyzer {
       nameMatch: stage1Info.rulesResult?.nameMatch,
       // 保存事件分析到stage1，代币分析到stage2
       // 账号分析不保存（stage1Info中的数据不使用）
-      stage1Data: {
-        category: 'pass', // 事件分析通过，标记为pass
-        prompt: eventPrompt,
-        raw_output: eventCallResult.content,
-        parsed_output: eventData,
-        model: eventCallResult.model,
-        started_at: eventCallResult.startedAt,
-        finished_at: eventCallResult.finishedAt,
-        success: eventCallResult.success,
-        error: eventCallResult.error
-      },
-      stage2Data: {
-        category: tokenCallResult.parsed.category,
-        prompt: tokenPrompt,
-        raw_output: tokenCallResult.raw.raw,
-        parsed_output: tokenCallResult.parsed,
-        model: tokenCallResult.model,
-        started_at: tokenCallResult.startedAt,
-        finished_at: tokenCallResult.finishedAt,
-        success: tokenCallResult.success,
-        error: tokenCallResult.error
-      }
+      stage1Data: stage1Data,
+      stage2Data: stage2Data
     };
   }
 
@@ -2595,7 +2739,8 @@ export class NarrativeAnalyzer {
     }
 
     // 计算最终分类（用于快速访问）
-    const llm_category = record.llm_stage2_category || record.llm_stage1_category || record.pre_check_category || null;
+    // 优先级: prestage > stage2 > stage1 > pre_check
+    const llm_category = record.llm_prestage_category || record.llm_stage2_category || record.llm_stage1_category || record.pre_check_category || null;
 
     // 构建返回结果（直接使用新字段）
     return {
@@ -2619,6 +2764,18 @@ export class NarrativeAnalyzer {
           category: record.pre_check_category,
           reason: record.pre_check_reason,
           result: record.pre_check_result
+        } : null,
+        // 前置LLM阶段数据（账号/社区分析判断币种类型）
+        prestage: record.llm_prestage_parsed_output ? {
+          category: record.llm_prestage_category,
+          model: record.llm_prestage_model,
+          prompt: record.llm_prestage_prompt,
+          rawOutput: record.llm_prestage_raw_output,
+          parsedOutput: record.llm_prestage_parsed_output,
+          startedAt: record.llm_prestage_started_at,
+          finishedAt: record.llm_prestage_finished_at,
+          success: record.llm_prestage_success,
+          error: record.llm_prestage_error
         } : null,
         // Stage 1 数据
         stage1: record.llm_stage1_parsed_output ? {
@@ -2646,10 +2803,10 @@ export class NarrativeAnalyzer {
         } : null,
         // 当前结果（根据分析阶段决定使用哪个stage的数据）
         category: llm_category,
-        // 规则验证结果（从stage1 parsed_output中提取）
-        addressVerified: record.llm_stage1_parsed_output?.addressVerified ?? null,
-        nameMatch: record.llm_stage1_parsed_output?.nameMatch ?? null,
-        details: record.llm_stage1_parsed_output?.details ?? null,
+        // 规则验证结果（优先从prestage获取，因为规则验证在前置LLM阶段执行）
+        addressVerified: record.llm_prestage_parsed_output?.addressVerified ?? record.llm_stage1_parsed_output?.addressVerified ?? null,
+        nameMatch: record.llm_prestage_parsed_output?.nameMatch ?? record.llm_stage1_parsed_output?.nameMatch ?? null,
+        details: record.llm_prestage_parsed_output?.details ?? record.llm_stage1_parsed_output?.details ?? null,
         summary: record.llm_stage2_parsed_output ? {
           total_score: record.llm_stage2_parsed_output.total_score,
           credibility_score: record.llm_stage2_parsed_output.scores?.credibility,
@@ -3216,17 +3373,35 @@ export class NarrativeAnalyzer {
     const stage2Prompt = PromptBuilder.buildStage2(tokenData, fetchResults);
     const stage2CallResult = await LLMClient.analyzeWithMetadata(stage2Prompt);
 
-    if (!stage2CallResult.success) {
-      throw new Error(`Stage 2 LLM调用失败: ${stage2CallResult.error}`);
-    }
-
+    // 准备Stage2数据（无论成功还是失败）
     const stage2Result = {
-      ...stage2CallResult.parsed,
+      category: stage2CallResult.parsed?.category || null,
+      total_score: stage2CallResult.parsed?.total_score || null,
+      reasoning: stage2CallResult.parsed?.reasoning || '',
+      scores: stage2CallResult.parsed?.scores || {},
       started_at: stage2CallResult.startedAt,
       finished_at: stage2CallResult.finishedAt,
       success: stage2CallResult.success,
       error: stage2CallResult.error || null
     };
+
+    if (!stage2CallResult.success) {
+      // Stage2失败，记录警告并返回失败结果
+      logger.warn('Stage2', `LLM调用失败: ${stage2CallResult.error}`);
+      // 仍然保存失败的结果
+      await this._saveStage2Data(normalizedAddress, experimentId, stage2Result, {
+        category: null,
+        model: stage2CallResult.model,
+        prompt: stage2Prompt,
+        raw_output: stage2CallResult.raw?.raw || null,
+        parsed_output: null,
+        started_at: stage2CallResult.startedAt,
+        finished_at: stage2CallResult.finishedAt,
+        success: stage2CallResult.success,
+        error: stage2CallResult.error
+      });
+      return stage2Result;
+    }
 
     logger.info('Stage2', '完成', {
       category: stage2Result.category,

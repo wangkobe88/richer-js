@@ -20,6 +20,8 @@ class NarrativeAnalyzer {
     this.debugToggleBtn.addEventListener('click', () => this.toggleDebugInfo());
 
     // 卡片body元素
+    this.precheckCardBody = document.getElementById('precheckCardBody');
+    this.prestageCardBody = document.getElementById('prestageCardBody');
     this.stage1CardBody = document.getElementById('stage1CardBody');
     this.stage2CardBody = document.getElementById('stage2CardBody');
     this.dataSourceCardBody = document.getElementById('dataSourceCardBody');
@@ -164,25 +166,321 @@ class NarrativeAnalyzer {
     // 1. 更新分析概览卡片
     this.updateOverviewCard(token, llmAnalysis, debugInfo, meta);
 
-    // 2. 更新 Stage 1 卡片
+    // 2. 更新预检查卡片
+    this.updatePrecheckCard(llmAnalysis);
+
+    // 3. 更新 PreStage 卡片
+    this.updatePrestageCard(llmAnalysis);
+
+    // 4. 更新 Stage 1 卡片
     this.updateStage1Card(llmAnalysis);
 
-    // 3. 更新 Stage 2 卡片
+    // 5. 更新 Stage 2 卡片
     this.updateStage2Card(llmAnalysis);
 
-    // 4. 更新数据源卡片
+    // 6. 更新数据源卡片
     this.updateDataSourceCard(debugInfo, classifiedUrls);
 
-    // 5. 更新推文卡片
+    // 7. 更新推文卡片
     this.updateTweetCard(twitter);
 
-    // 6. 更新原始数据卡片
+    // 8. 更新原始数据卡片
     this.updateRawDataCard(token);
 
-    // 7. 更新调试信息卡片
+    // 9. 更新调试信息卡片
     this.updateDebugCard(llmAnalysis, debugInfo, fetchErrors);
 
     this.showResult();
+  }
+
+  updatePrecheckCard(llmAnalysis) {
+    const precheck = llmAnalysis.preCheck;
+
+    if (!precheck) {
+      this.precheckCardBody.innerHTML = `
+        <div class="stage-status skip">
+          <span>⏭️</span>
+          <span>未触发</span>
+        </div>
+        <div class="stage-result-box empty">
+          预检查规则未触发，进入正常分析流程
+        </div>
+      `;
+      return;
+    }
+
+    const category = precheck.category || 'unknown';
+    const categoryConfig = {
+      'low': { icon: '🚫', text: '不通过', statusClass: 'fail' },
+      'high': { icon: '✅', text: '直接通过', statusClass: 'pass' },
+      'unknown': { icon: '❓', text: '未知', statusClass: 'skip' }
+    };
+
+    const config = categoryConfig[category] || categoryConfig.unknown;
+
+    let resultHtml = '';
+    if (category === 'low') {
+      resultHtml = `
+        <div class="stage-result-box">
+          <strong>🚫 预检查规则触发</strong><br>
+          <span style="font-size: 13px; color: #666;">
+            ${precheck.reason || '符合预检查阻断规则'}
+          </span>
+        </div>
+      `;
+    } else if (category === 'high') {
+      resultHtml = `
+        <div class="stage-result-box">
+          <strong>✅ 预检查直接通过</strong><br>
+          <span style="font-size: 13px; color: #666;">
+            ${precheck.reason || '符合预检查通过规则'}
+          </span>
+        </div>
+      `;
+    }
+
+    // 规则验证详情（地址验证、名称匹配等）
+    let rulesHtml = '';
+    if (precheck.result) {
+      const result = precheck.result;
+      const details = [];
+
+      // 地址验证状态
+      if (result.addressVerified !== undefined) {
+        details.push({
+          label: '地址验证',
+          value: result.addressVerified ? '✅ 通过' : '❌ 未通过',
+          pass: result.addressVerified
+        });
+      }
+
+      // 名称匹配状态
+      if (result.nameMatch !== undefined && result.nameMatch !== null) {
+        details.push({
+          label: '名称匹配',
+          value: result.nameMatch ? '✅ 匹配' : '❌ 不匹配',
+          pass: result.nameMatch
+        });
+      }
+
+      // 验证阶段
+      if (result.validationStage) {
+        const stageMap = {
+          'address': '地址验证阶段',
+          'name': '名称验证阶段',
+          'both': '完整验证'
+        };
+        details.push({
+          label: '验证阶段',
+          value: stageMap[result.validationStage] || result.validationStage,
+          pass: null
+        });
+      }
+
+      // 额外详情
+      if (result.details) {
+        if (result.details.addressReason) {
+          details.push({
+            label: '地址原因',
+            value: result.details.addressReason,
+            pass: null
+          });
+        }
+        if (result.details.nameReason) {
+          details.push({
+            label: '名称原因',
+            value: result.details.nameReason,
+            pass: null
+          });
+        }
+      }
+
+      if (details.length > 0) {
+        rulesHtml = '<div style="margin-top: 12px;">';
+        details.forEach(d => {
+          const color = d.pass === false ? '#e74c3c' : d.pass === true ? '#27ae60' : '#666';
+          rulesHtml += `
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 12px;">
+              <span style="color: #666;">${d.label}:</span>
+              <span style="color: ${color}; font-weight: ${d.pass !== null ? 'bold' : 'normal'};">${d.value}</span>
+            </div>
+          `;
+        });
+        rulesHtml += '</div>';
+      }
+    }
+
+    // 如果有评分结果，显示分数
+    let scoresHtml = '';
+    if (precheck.result && precheck.result.scores) {
+      const scores = precheck.result.scores;
+      scoresHtml = `
+        <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 12px;">
+          <strong>预检查评分：</strong><br>
+          可信度: ${scores.credibility || 0} | 传播力: ${scores.virality || 0}
+        </div>
+      `;
+    }
+
+    this.precheckCardBody.innerHTML = `
+      <div class="stage-status ${config.statusClass}">
+        <span>${config.icon}</span>
+        <span>${config.text}</span>
+      </div>
+      ${resultHtml}
+      ${rulesHtml}
+      ${scoresHtml}
+    `;
+  }
+
+  updatePrestageCard(llmAnalysis) {
+    const prestage = llmAnalysis.prestage;
+
+    if (!prestage) {
+      this.prestageCardBody.innerHTML = `
+        <div class="stage-status skip">
+          <span>⏭️</span>
+          <span>未执行</span>
+        </div>
+        <div class="stage-result-box empty">
+          非账号/社区代币，无需前置LLM判断
+        </div>
+      `;
+      return;
+    }
+
+    const parsed = prestage.parsedOutput || {};
+    const tokenType = parsed.tokenType || 'unknown';
+
+    // 根据币种类型显示不同状态
+    const typeConfig = {
+      'meme': { icon: '🎭', text: 'Meme币', statusClass: 'pass' },
+      'project': { icon: '🏗️', text: '项目币', statusClass: 'pass' },
+      'unknown': { icon: '❓', text: '未知类型', statusClass: 'skip' }
+    };
+
+    const config = typeConfig[tokenType] || typeConfig.unknown;
+
+    // 币种类型判断详情
+    let resultHtml = '';
+    if (tokenType === 'meme') {
+      resultHtml = `
+        <div class="stage-result-box">
+          <strong>✅ 判断为 Meme 币</strong><br>
+          <span style="font-size: 13px; color: #666;">
+            将进入两阶段分析流程（事件分析 → 代币分析）
+          </span>
+        </div>
+      `;
+    } else if (tokenType === 'project') {
+      resultHtml = `
+        <div class="stage-result-box">
+          <strong>✅ 判断为项目币</strong><br>
+          <span style="font-size: 13px; color: #666;">
+            使用简化流程分析（不进行事件分析）
+          </span>
+        </div>
+      `;
+    }
+
+    // 账号摘要（如果有）
+    let summaryHtml = '';
+    if (parsed.accountSummary) {
+      summaryHtml = `
+        <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 12px;">
+          <strong>账号摘要：</strong><br>
+          ${parsed.accountSummary.substring(0, 150)}...
+        </div>
+      `;
+    }
+
+    // 规则验证结果
+    let rulesHtml = '';
+    if (parsed.addressVerified !== undefined || parsed.nameMatch !== undefined) {
+      rulesHtml = `
+        <div style="margin-top: 12px;">
+          <div style="font-size: 12px; color: #666; margin-bottom: 6px;">规则验证结果：</div>
+          ${parsed.addressVerified ? '<span style="font-size: 11px; padding: 4px 8px; background: #d4edda; color: #155724; border-radius: 4px;">✅ 地址验证通过</span>' : ''}
+          ${parsed.nameMatch ? '<span style="font-size: 11px; padding: 4px 8px; background: #d4edda; color: #155724; border-radius: 4px; margin-left: 4px;">✅ 名称匹配通过</span>' : ''}
+        </div>
+      `;
+    }
+
+    // 耗时
+    let timingHtml = '';
+    if (prestage.startedAt && prestage.finishedAt) {
+      const duration = this.calculateDuration(prestage.startedAt, prestage.finishedAt);
+      timingHtml = `
+        <div class="stage-timing">
+          <div class="timing-item">
+            <span>⏱️</span>
+            <span>耗时: ${duration}</span>
+          </div>
+          <div class="timing-item">
+            <span>🤖</span>
+            <span>${prestage.model || 'Unknown'}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // LLM详情区域（prompt和raw output）
+    let llmDetailsHtml = '';
+    if (prestage.prompt || prestage.rawOutput) {
+      const hasPrompt = !!prestage.prompt;
+      const hasRawOutput = !!prestage.rawOutput;
+
+      let promptSection = '';
+      if (hasPrompt) {
+        promptSection = `
+          <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起 Prompt' : '展开 Prompt'">
+            ▼ 展开 Prompt
+          </button>
+          <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
+            ${this.escapeHtml(prestage.prompt)}
+          </div>
+        `;
+      }
+
+      let rawOutputSection = '';
+      if (hasRawOutput) {
+        rawOutputSection = `
+          <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起原始响应' : '展开原始响应'">
+            ▼ 展开原始响应
+          </button>
+          <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
+            ${JSON.stringify(prestage.rawOutput, null, 2)}
+          </div>
+        `;
+      }
+
+      if (hasPrompt || hasRawOutput) {
+        llmDetailsHtml = `
+          <div style="margin-top: 16px; border-top: 1px solid #ecf0f1; padding-top: 16px;">
+            <div style="font-size: 14px; font-weight: 600; color: #2c3e50; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+              <span>🤖</span>
+              <span>LLM 调用详情</span>
+            </div>
+            <div style="display: grid; gap: 8px;">
+              ${promptSection}
+              ${rawOutputSection}
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    this.prestageCardBody.innerHTML = `
+      <div class="stage-status ${config.statusClass}">
+        <span>${config.icon}</span>
+        <span>${config.text}</span>
+      </div>
+      ${resultHtml}
+      ${summaryHtml}
+      ${rulesHtml}
+      ${timingHtml}
+      ${llmDetailsHtml}
+    `;
   }
 
   updateOverviewCard(token, llmAnalysis, debugInfo, meta) {
@@ -241,7 +539,17 @@ class NarrativeAnalyzer {
     if (llmAnalysis.preCheck) {
       pathSteps.push({ label: '预检查', status: 'completed', icon: '⚡' });
     } else {
-      pathSteps.push({ label: '预检查', status: 'completed', icon: '⚡' });
+      pathSteps.push({ label: '预检查', status: 'skip', icon: '○' });
+    }
+
+    // PreStage（币种类型判断）
+    if (llmAnalysis.prestage) {
+      const prestageParsed = llmAnalysis.prestage.parsedOutput || {};
+      const tokenType = prestageParsed.tokenType || 'unknown';
+      const icon = tokenType === 'meme' ? '🎭' : tokenType === 'project' ? '🏗️' : '🎯';
+      pathSteps.push({ label: 'PreStage', status: 'completed', icon: icon });
+    } else {
+      pathSteps.push({ label: 'PreStage', status: 'skip', icon: '○' });
     }
 
     // Stage 1
@@ -275,16 +583,22 @@ class NarrativeAnalyzer {
              (i < pathSteps.length - 1 ? '<span class="path-arrow">→</span>' : '');
     }).join('');
 
-    // 更新理由（Stage 1 使用 reason 字段，Stage 2 和预检查使用 reasoning 字段）
+    // 更新理由（优先级：summary > prestage > stage1 > preCheck）
     const overviewReasoning = document.getElementById('overviewReasoning');
     if (summary?.reasoning) {
       overviewReasoning.textContent = summary.reasoning;
     } else if (summary?.reason) {
       // Stage 1 低质量检测使用 reason 字段
       overviewReasoning.textContent = summary.reason;
+    } else if (llmAnalysis.prestage?.parsedOutput?.reason) {
+      // Web3原生IP早期的理由
+      overviewReasoning.textContent = llmAnalysis.prestage.parsedOutput.reason;
+    } else if (llmAnalysis.stage1?.parsedOutput?.reason) {
+      // Stage 1 的理由
+      overviewReasoning.textContent = llmAnalysis.stage1.parsedOutput.reason;
     } else if (llmAnalysis.preCheck?.result?.reasoning) {
       overviewReasoning.textContent = llmAnalysis.preCheck.result.reasoning;
-    } else if (!summary && !llmAnalysis.preCheck && !llmAnalysis.stage1 && !llmAnalysis.stage2) {
+    } else if (!summary && !llmAnalysis.prestage && !llmAnalysis.stage1 && !llmAnalysis.stage2) {
       // 旧数据格式，没有分析详情
       overviewReasoning.textContent = '此为旧版分析结果，缺少分析理由。点击右上角"重新分析"获取完整数据。';
       overviewReasoning.style.color = '#e67e22';
@@ -520,39 +834,80 @@ class NarrativeAnalyzer {
       scoresHtml = `
         <div class="score-detail">
           <div class="score-detail-header">
-            <label>总分</label>
-            <value>${parsed.total_score || 0}/100</value>
+            <label>综合得分</label>
+            <value>${scores.total_score || 0}/100</value>
           </div>
           <div class="score-bar">
-            <div class="score-bar-fill ${category}" style="width: ${parsed.total_score || 0}%"></div>
+            <div class="score-bar-fill ${category}" style="width: ${scores.total_score || 0}%"></div>
           </div>
         </div>
       `;
 
-      // 子维度分数
-      if (scores.credibility !== undefined) {
+      // 子维度分数 - 新格式
+      if (scores.event_propagation_score !== undefined) {
         scoresHtml += `
           <div class="sub-scores">
             <div class="sub-score-item">
-              <span class="sub-score-label">叙事背景</span>
+              <span class="sub-score-label">事件传播 (60%)</span>
               <div class="sub-score-bar">
-                <div class="sub-score-fill" style="width: ${scores.credibility}%"></div>
+                <div class="sub-score-fill" style="width: ${scores.event_propagation_score}%"></div>
               </div>
-              <span class="sub-score-value">${scores.credibility}</span>
+              <span class="sub-score-value">${scores.event_propagation_score}</span>
             </div>
           </div>
         `;
       }
-      if (scores.virality !== undefined) {
+      if (scores.relevance_score !== undefined) {
         scoresHtml += `
           <div class="sub-scores">
             <div class="sub-score-item">
-              <span class="sub-score-label">传播力</span>
+              <span class="sub-score-label">关联强度 (20%)</span>
               <div class="sub-score-bar">
-                <div class="sub-score-fill" style="width: ${scores.virality}%"></div>
+                <div class="sub-score-fill" style="width: ${(scores.relevance_score / 20 * 100)}%"></div>
               </div>
-              <span class="sub-score-value">${scores.virality}</span>
+              <span class="sub-score-value">${scores.relevance_score}/20</span>
             </div>
+          </div>
+        `;
+      }
+      if (scores.token_name_quality_score !== undefined) {
+        scoresHtml += `
+          <div class="sub-scores">
+            <div class="sub-score-item">
+              <span class="sub-score-label">名称质量 (20%)</span>
+              <div class="sub-score-bar">
+                <div class="sub-score-fill" style="width: ${(scores.token_name_quality_score / 20 * 100)}%"></div>
+              </div>
+              <span class="sub-score-value">${scores.token_name_quality_score}/20</span>
+            </div>
+          </div>
+        `;
+      }
+
+      // 代币名称分析详情
+      if (parsed.token_name_analysis) {
+        const tna = parsed.token_name_analysis;
+        scoresHtml += `
+          <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 12px;">
+            <strong>名称质量详情：</strong><br>
+            长度: ${tna.length_score || 0}/8 |
+            meme适配: ${tna.meme_fit_score || 0}/8 |
+            传播性: ${tna.virality_score || 0}/4 |
+            总分: ${tna.total || 0}/20
+            ${tna.triggered_floor_limit ? ' <span style="color: #dc3545;">(触碰底线)</span>' : ''}
+            ${tna.notes ? `<br><span style="color: #666;">${tna.notes}</span>` : ''}
+          </div>
+        `;
+      }
+
+      // 事件信息
+      if (parsed.event_info) {
+        const ei = parsed.event_info;
+        scoresHtml += `
+          <div style="margin-top: 8px; padding: 10px; background: #e7f3ff; border-radius: 6px; font-size: 12px;">
+            <strong>事件信息：</strong><br>
+            类别: ${ei.event_category || '未知'}
+            ${ei.timeliness ? `| 时效: ${ei.timeliness}` : ''}
           </div>
         `;
       }

@@ -27,6 +27,34 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 export class NarrativeRepository {
 
   /**
+   * 辅助函数：智能合并字段值
+   * - 如果新值显式传递（存在于result对象中），使用新值
+   * - 如果新值是null但旧值存在，保留旧值（避免覆盖有效数据）
+   * - 只有在新值是非null值时，才会覆盖旧值
+   * - 如果新值是清除标记对象（{__clear: true}），返回 null
+   * @param {*} newValue - 新值
+   * @param {*} oldValue - 旧值
+   * @param {boolean} allowNullOverride - 是否允许null覆盖旧值（默认false）
+   * @returns {*} 合并后的值
+   */
+  static _mergeField(newValue, oldValue, allowNullOverride = false) {
+    // 检查是否是清除标记
+    if (newValue && typeof newValue === 'object' && newValue.__clear === true) {
+      return null; // 显式清除，返回 null
+    }
+    // 如果新值未定义，使用旧值
+    if (newValue === undefined) {
+      return oldValue ?? null;
+    }
+    // 如果新值是null且不允许覆盖，使用旧值
+    if (newValue === null && !allowNullOverride && oldValue !== null) {
+      return oldValue;
+    }
+    // 否则使用新值
+    return newValue;
+  }
+
+  /**
    * 获取supabase客户端
    */
   static getSupabase() {
@@ -65,7 +93,12 @@ export class NarrativeRepository {
       .eq('token_address', tokenAddress)
       .maybeSingle();
 
+    // 检查清除标记，如果存在则需要清除旧数据
+    const hasStage1ClearFlag = result.llm_stage1_parsed_output?.__clear === true;
+    const hasStage2ClearFlag = result.llm_stage2_parsed_output?.__clear === true;
+
     // 构建记录对象，如果存在则保留未更新的字段
+    // 对于分析数据（stage1/stage2/prestage），null不会覆盖旧的有效数据
     const record = {
       // === 基础字段 ===
       token_address: tokenAddress,
@@ -78,38 +111,50 @@ export class NarrativeRepository {
       classified_urls: result.classified_urls || null,
       experiment_id: result.experiment_id || null,
       analyzed_at: result.analyzed_at || new Date().toISOString(),
-      is_valid: result.is_valid !== undefined ? result.is_valid : true,
+      is_valid: this._mergeField(result.is_valid, existing?.is_valid),
+      prompt_version: result.prompt_version || existing?.prompt_version || null,
 
-      // === 预检查字段（3个）===
-      pre_check_category: result.pre_check_category !== undefined ? result.pre_check_category : (existing?.pre_check_category || null),
-      pre_check_reason: result.pre_check_reason !== undefined ? result.pre_check_reason : (existing?.pre_check_reason || null),
-      pre_check_result: result.pre_check_result !== undefined ? result.pre_check_result : (existing?.pre_check_result || null),
+      // === 预检查字段（3个）- 允许覆盖 ===
+      pre_check_category: result.pre_check_category ?? existing?.pre_check_category ?? null,
+      pre_check_reason: result.pre_check_reason ?? existing?.pre_check_reason ?? null,
+      pre_check_result: result.pre_check_result ?? existing?.pre_check_result ?? null,
 
-      // === Stage 1 字段（9个）===
-      llm_stage1_category: result.llm_stage1_category !== undefined ? result.llm_stage1_category : (existing?.llm_stage1_category || null),
-      llm_stage1_model: result.llm_stage1_model !== undefined ? result.llm_stage1_model : (existing?.llm_stage1_model || null),
-      llm_stage1_prompt: result.llm_stage1_prompt !== undefined ? result.llm_stage1_prompt : (existing?.llm_stage1_prompt || null),
-      llm_stage1_raw_output: result.llm_stage1_raw_output !== undefined ? result.llm_stage1_raw_output : (existing?.llm_stage1_raw_output || null),
-      llm_stage1_parsed_output: result.llm_stage1_parsed_output !== undefined ? result.llm_stage1_parsed_output : (existing?.llm_stage1_parsed_output || null),
-      llm_stage1_started_at: result.llm_stage1_started_at !== undefined ? result.llm_stage1_started_at : (existing?.llm_stage1_started_at || null),
-      llm_stage1_finished_at: result.llm_stage1_finished_at !== undefined ? result.llm_stage1_finished_at : (existing?.llm_stage1_finished_at || null),
-      llm_stage1_success: result.llm_stage1_success !== undefined ? result.llm_stage1_success : (existing?.llm_stage1_success ?? null),
-      llm_stage1_error: result.llm_stage1_error !== undefined ? result.llm_stage1_error : (existing?.llm_stage1_error || null),
+      // === 前置LLM阶段字段（9个）- null不覆盖旧数据 ===
+      llm_prestage_category: this._mergeField(result.llm_prestage_category, existing?.llm_prestage_category),
+      llm_prestage_model: this._mergeField(result.llm_prestage_model, existing?.llm_prestage_model),
+      llm_prestage_prompt: this._mergeField(result.llm_prestage_prompt, existing?.llm_prestage_prompt),
+      llm_prestage_raw_output: this._mergeField(result.llm_prestage_raw_output, existing?.llm_prestage_raw_output),
+      llm_prestage_parsed_output: this._mergeField(result.llm_prestage_parsed_output, existing?.llm_prestage_parsed_output),
+      llm_prestage_started_at: this._mergeField(result.llm_prestage_started_at, existing?.llm_prestage_started_at),
+      llm_prestage_finished_at: this._mergeField(result.llm_prestage_finished_at, existing?.llm_prestage_finished_at),
+      llm_prestage_success: this._mergeField(result.llm_prestage_success, existing?.llm_prestage_success),
+      llm_prestage_error: this._mergeField(result.llm_prestage_error, existing?.llm_prestage_error),
 
-      // === Stage 2 字段（9个）===
-      llm_stage2_category: result.llm_stage2_category !== undefined ? result.llm_stage2_category : (existing?.llm_stage2_category || null),
-      llm_stage2_model: result.llm_stage2_model !== undefined ? result.llm_stage2_model : (existing?.llm_stage2_model || null),
-      llm_stage2_prompt: result.llm_stage2_prompt !== undefined ? result.llm_stage2_prompt : (existing?.llm_stage2_prompt || null),
-      llm_stage2_raw_output: result.llm_stage2_raw_output !== undefined ? result.llm_stage2_raw_output : (existing?.llm_stage2_raw_output || null),
-      llm_stage2_parsed_output: result.llm_stage2_parsed_output !== undefined ? result.llm_stage2_parsed_output : (existing?.llm_stage2_parsed_output || null),
-      llm_stage2_started_at: result.llm_stage2_started_at !== undefined ? result.llm_stage2_started_at : (existing?.llm_stage2_started_at || null),
-      llm_stage2_finished_at: result.llm_stage2_finished_at !== undefined ? result.llm_stage2_finished_at : (existing?.llm_stage2_finished_at || null),
-      llm_stage2_success: result.llm_stage2_success !== undefined ? result.llm_stage2_success : (existing?.llm_stage2_success ?? null),
-      llm_stage2_error: result.llm_stage2_error !== undefined ? result.llm_stage2_error : (existing?.llm_stage2_error || null),
+      // === Stage 1 字段（9个）- null不覆盖旧数据（除非有清除标记）===
+      llm_stage1_category: hasStage1ClearFlag ? null : this._mergeField(result.llm_stage1_category, existing?.llm_stage1_category),
+      llm_stage1_model: hasStage1ClearFlag ? null : this._mergeField(result.llm_stage1_model, existing?.llm_stage1_model),
+      llm_stage1_prompt: hasStage1ClearFlag ? null : this._mergeField(result.llm_stage1_prompt, existing?.llm_stage1_prompt),
+      llm_stage1_raw_output: hasStage1ClearFlag ? null : this._mergeField(result.llm_stage1_raw_output, existing?.llm_stage1_raw_output),
+      llm_stage1_parsed_output: hasStage1ClearFlag ? null : this._mergeField(result.llm_stage1_parsed_output, existing?.llm_stage1_parsed_output),
+      llm_stage1_started_at: hasStage1ClearFlag ? null : this._mergeField(result.llm_stage1_started_at, existing?.llm_stage1_started_at),
+      llm_stage1_finished_at: hasStage1ClearFlag ? null : this._mergeField(result.llm_stage1_finished_at, existing?.llm_stage1_finished_at),
+      llm_stage1_success: hasStage1ClearFlag ? null : this._mergeField(result.llm_stage1_success, existing?.llm_stage1_success),
+      llm_stage1_error: hasStage1ClearFlag ? null : this._mergeField(result.llm_stage1_error, existing?.llm_stage1_error),
 
-      // === Debug字段（2个）===
-      url_extraction_result: result.url_extraction_result !== undefined ? result.url_extraction_result : (existing?.url_extraction_result || null),
-      data_fetch_results: result.data_fetch_results !== undefined ? result.data_fetch_results : (existing?.data_fetch_results || null)
+      // === Stage 2 字段（9个）- null不覆盖旧数据（除非有清除标记）===
+      llm_stage2_category: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_category, existing?.llm_stage2_category),
+      llm_stage2_model: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_model, existing?.llm_stage2_model),
+      llm_stage2_prompt: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_prompt, existing?.llm_stage2_prompt),
+      llm_stage2_raw_output: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_raw_output, existing?.llm_stage2_raw_output),
+      llm_stage2_parsed_output: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_parsed_output, existing?.llm_stage2_parsed_output),
+      llm_stage2_started_at: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_started_at, existing?.llm_stage2_started_at),
+      llm_stage2_finished_at: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_finished_at, existing?.llm_stage2_finished_at),
+      llm_stage2_success: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_success, existing?.llm_stage2_success),
+      llm_stage2_error: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_error, existing?.llm_stage2_error),
+
+      // === Debug字段（2个）- 允许覆盖 ===
+      url_extraction_result: result.url_extraction_result ?? existing?.url_extraction_result ?? null,
+      data_fetch_results: result.data_fetch_results ?? existing?.data_fetch_results ?? null
     };
 
     // 使用 upsert (insert or update)
