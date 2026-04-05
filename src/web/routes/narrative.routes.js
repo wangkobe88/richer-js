@@ -154,7 +154,7 @@ router.get('/token/:address', async (req, res) => {
 
 /**
  * POST /api/narrative/reanalyze/:address
- * 重新分析代币（忽略缓存）
+ * 重新分析代币（清除旧数据后重新分析）
  */
 router.post('/reanalyze/:address', async (req, res) => {
   // 设置服务器端超时（180秒，适应GLM-5等慢速模型）
@@ -174,11 +174,46 @@ router.post('/reanalyze/:address', async (req, res) => {
     const { ignoreExpired = false } = body;
     const { NarrativeRepository } = await import('../../narrative/db/NarrativeRepository.mjs');
 
-    // 先标记旧结果为无效（仅更新 is_valid 字段）
-    await NarrativeRepository.updateIsValid(address, false);
+    // 1. 先清除旧的 LLM 分析数据（使用 {__clear: true} 标记）
+    await NarrativeRepository.save({
+      token_address: address,
+      // 清除 Stage 1 数据
+      llm_stage1_parsed_output: { __clear: true },
+      llm_stage1_category: null,
+      llm_stage1_model: null,
+      llm_stage1_prompt: null,
+      llm_stage1_raw_output: null,
+      llm_stage1_started_at: null,
+      llm_stage1_finished_at: null,
+      llm_stage1_success: null,
+      llm_stage1_error: null,
+      // 清除 Stage 2 数据
+      llm_stage2_parsed_output: { __clear: true },
+      llm_stage2_category: null,
+      llm_stage2_model: null,
+      llm_stage2_prompt: null,
+      llm_stage2_raw_output: null,
+      llm_stage2_started_at: null,
+      llm_stage2_finished_at: null,
+      llm_stage2_success: null,
+      llm_stage2_error: null,
+      // 清除 PreStage 数据
+      llm_prestage_parsed_output: null,
+      llm_prestage_category: null,
+      llm_prestage_model: null,
+      llm_prestage_prompt: null,
+      llm_prestage_raw_output: null,
+      llm_prestage_started_at: null,
+      llm_prestage_finished_at: null,
+      llm_prestage_success: null,
+      llm_prestage_error: null,
+      // 标记为无效
+      is_valid: false
+    });
 
+    // 2. 执行新的分析（ignoreCache=true 强制重新分析）
     const Analyzer = await loadAnalyzer();
-    const result = await Analyzer.analyze(address, { ignoreExpired });
+    const result = await Analyzer.analyze(address, { ignoreCache: true, ignoreExpired });
 
     clearTimeout(timeoutId);
 

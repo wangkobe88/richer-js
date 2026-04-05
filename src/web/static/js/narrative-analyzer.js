@@ -104,7 +104,16 @@ class NarrativeAnalyzer {
         const tokenBasicInfo = document.getElementById('tokenBasicInfo');
 
         tokenIcon.textContent = token.icon || (token.symbol || '?')[0].toUpperCase();
-        loadingTokenSymbol.textContent = token.name || token.symbol || '未知代币';
+        // 始终显示 symbol，如果有 name 则一起显示
+        const name = token.name || '';
+        const symbol = token.symbol || '';
+        if (name && symbol) {
+          loadingTokenSymbol.innerHTML = `${name} <span style="color: #666;">(${symbol})</span>`;
+        } else if (symbol) {
+          loadingTokenSymbol.textContent = symbol;
+        } else {
+          loadingTokenSymbol.textContent = name || '未知代币';
+        }
         loadingTokenAddress.textContent = `${address.slice(0, 8)}...`;
         tokenBasicInfo.style.display = 'block';
       }
@@ -120,6 +129,7 @@ class NarrativeAnalyzer {
     }
 
     this.hideError();
+    this.hideResult();  // 重置旧的显示结果
     this.showLoading();
 
     const ignoreExpired = this.ignoreExpiredCheckbox?.checked || false;
@@ -484,12 +494,21 @@ class NarrativeAnalyzer {
   }
 
   updateOverviewCard(token, llmAnalysis, debugInfo, meta) {
-    // 更新代币名字显示
+    // 更新代币名字显示 - 始终显示 symbol
     const tokenNameElement = document.getElementById('tokenName');
     if (tokenNameElement && token) {
       const rawApiData = token.raw_api_data || {};
-      const name = rawApiData.name || rawApiData.token_name || token.symbol || '未知代币';
-      tokenNameElement.textContent = name;
+      const name = rawApiData.name || rawApiData.token_name || '';
+      const symbol = token.symbol || rawApiData.symbol || rawApiData.token_symbol || '';
+
+      // 始终显示 symbol，如果有 name 则一起显示
+      if (name && symbol) {
+        tokenNameElement.innerHTML = `${name} <span style="color: #666; font-size: 0.9em;">(${symbol})</span>`;
+      } else if (symbol) {
+        tokenNameElement.textContent = symbol;
+      } else {
+        tokenNameElement.textContent = name || '未知代币';
+      }
     }
     // 更新评级徽章
     const ratingBadge = document.getElementById('ratingBadge');
