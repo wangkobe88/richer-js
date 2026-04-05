@@ -1,6 +1,11 @@
 /**
  * 代币分析Prompt
- * V14.0 - 新框架第二阶段：代币分析（重构版）
+ * V14.2 - 删除冗余的"长度底线"规则
+ *
+ * 修改理由：预检查（NarrativeAnalyzer.mjs）已有阻断性的代币长度检查
+ * - Symbol视觉长度≥12或Name视觉长度≥30 → 直接返回low
+ * - 能走到LLM评分的代币，一定已通过预检查的长度限制
+ * - 因此LLM评分中的"长度底线"是冗余的，已删除
  *
  * 分析重点：
  * 1. 代币-事件关联性检查
@@ -23,7 +28,7 @@ import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 /**
  * Prompt版本号
  */
-export const TOKEN_ANALYSIS_PROMPT_VERSION = 'V14.1';
+export const TOKEN_ANALYSIS_PROMPT_VERSION = 'V14.2';
 
 /**
  * 构建代币分析Prompt
@@ -455,9 +460,6 @@ ${hasTwitter ? `
 - 2词：5-7分（两个单词，如"MoonShot"）
 - 3词：2-4分（三个单词，如"Just Do It"）
 - >3词：0-1分（过长）
-
-⚠️ **长度底线**：
-- 中文>8字或英文>4词 → 强制总分≤2分
 
 **4.2 meme适配度（0-8分）**
 
