@@ -588,9 +588,9 @@ export class NarrativeAnalyzer {
     const tokenSymbol = (tokenData.symbol || '').trim();
     const tokenName = (tokenData.name || tokenData.raw_api_data?.name || '').trim();
 
-    const MAX_SYMBOL_LENGTH = 12;  // Symbol最大视觉长度（>=触发）
-    const MAX_NAME_LENGTH = 30;     // Name最大视觉长度（>=触发）
-    const MAX_ENGLISH_WORDS = 4;   // 英文最大单词数（>触发）
+    const MAX_SYMBOL_LENGTH = 20;  // Symbol最大视觉长度（>=触发）
+    const MAX_NAME_LENGTH = 50;     // Name最大视觉长度（>=触发）
+    const MAX_ENGLISH_WORDS = 8;   // 英文最大单词数（>触发）
 
     // 使用视觉长度计算（中文字符算2个单位）
     const symbolVisualLength = this.getVisualLength(tokenSymbol);
