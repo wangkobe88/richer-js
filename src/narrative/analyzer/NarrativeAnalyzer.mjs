@@ -190,6 +190,31 @@ export class NarrativeAnalyzer {
 
     logger.info('NarrativeAnalyzer', '数据获取完成');
 
+    // 新增：如果有独立网站，收集所有相关账号的完整信息
+    let relatedAccounts = [];
+    const hasIndependentWebsite = this._hasIndependentWebsite(classifiedUrls);
+    logger.info('NarrativeAnalyzer', '独立网站检测结果', { hasIndependentWebsite, classifiedUrls: classifiedUrls?.websites?.length });
+    logger.info('NarrativeAnalyzer', 'twitterInfo 信息', {
+      hasTwitterInfo: !!twitterInfo,
+      twitterType: twitterInfo?.type,
+      twitterScreenName: twitterInfo?.screen_name,
+      hasInReplyTo: !!twitterInfo?.in_reply_to
+    });
+
+    // 检查是否应该收集账号信息：有独立网站 且 有Twitter相关信息（account/community/tweet）
+    const shouldCollectAccounts = hasIndependentWebsite && twitterInfo &&
+      (twitterInfo.type === 'account' || twitterInfo.type === 'community' || twitterInfo.type === 'tweet');
+
+    if (shouldCollectAccounts) {
+      logger.info('NarrativeAnalyzer', '检测到独立网站，开始收集所有账号信息', {
+        twitterType: twitterInfo.type,
+        twitterScreenName: twitterInfo.screen_name,
+        hasInReplyTo: !!twitterInfo.in_reply_to
+      });
+      relatedAccounts = await this._collectAllAccountsWithFullInfo(twitterInfo);
+      logger.info('NarrativeAnalyzer', '账号信息收集完成', { count: relatedAccounts.length });
+    }
+
     // 7. 预检查规则（不调用LLM，直接返回结果）
     const preCheckResult = await this.performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo }, githubInfo, backgroundInfo, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
@@ -215,7 +240,7 @@ export class NarrativeAnalyzer {
         raw: null // 预检查结果没有原始LLM输出
       };
       // 预检查结果也记录prompt类型（用于后续判断）
-      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo };
+      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls, relatedAccounts };
       promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
       // 预检查时不构建Prompt（不需要）
       promptUsed = null;
@@ -223,7 +248,7 @@ export class NarrativeAnalyzer {
       // 8. 正常流程：两阶段分析
       try {
         // twitterInfo已包含website_tweet（如果有第二个推文）
-        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls };
+        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls, relatedAccounts };
 
         // 检查是否有任何有效数据供分析
         const hasAnyData = this._hasValidDataForAnalysis(fetchResults);
@@ -2134,8 +2159,118 @@ export class NarrativeAnalyzer {
   }
 
   /**
+   * 收集所有相关账号的完整信息
+   * 当检测到独立网站时，收集所有相关账号（主账号、原始作者等）的完整信息
+   * @param {Object} twitterInfo - Twitter信息
+   * @returns {Promise<Array>} 账号信息列表
+   */
+  static async _collectAllAccountsWithFullInfo(twitterInfo) {
+    const accounts = [];
+    const screenNames = new Set(); // 用于去重
+
+    // 1. 添加主账号（根据类型获取）
+    let primaryScreenName = null;
+    if (twitterInfo.type === 'account' && twitterInfo.screen_name) {
+      primaryScreenName = twitterInfo.screen_name;
+    } else if (twitterInfo.type === 'tweet' || twitterInfo.type === 'community') {
+      // 对于推文类型，从 author_screen_name 获取主账号
+      if (twitterInfo.author_screen_name) {
+        primaryScreenName = twitterInfo.author_screen_name;
+      }
+    }
+
+    if (primaryScreenName && !screenNames.has(primaryScreenName)) {
+      const fullAccount = await this._getFullAccountInfo(primaryScreenName);
+      if (fullAccount) {
+        accounts.push({ ...fullAccount, role: 'primary' });
+        screenNames.add(primaryScreenName);
+      }
+    }
+
+    // 2. 添加原始作者账号（in_reply_to）
+    if (twitterInfo.in_reply_to && twitterInfo.in_reply_to.author_screen_name) {
+      const originalAuthor = twitterInfo.in_reply_to.author_screen_name;
+      if (!screenNames.has(originalAuthor)) {
+        const fullAccount = await this._getFullAccountInfo(originalAuthor);
+        if (fullAccount) {
+          accounts.push({ ...fullAccount, role: 'original_author' });
+          screenNames.add(originalAuthor);
+        }
+      }
+    }
+
+    // 3. 未来可以添加更多账号类型（如 retweeted_status 等）
+
+    logger.info('NarrativeAnalyzer', `账号信息收集完成，共${accounts.length}个账号`, {
+      accounts: accounts.map(a => ({ screen_name: a.screen_name, role: a.role }))
+    });
+
+    return accounts;
+  }
+
+  /**
+   * 获取单个账号的完整信息（含推文历史）
+   * @param {string} screenName - Twitter用户名
+   * @returns {Promise<Object|null>} 账号完整信息
+   */
+  static async _getFullAccountInfo(screenName) {
+    try {
+      const { getAccountWithFullTweets } = await import('./prompts/account-community-rules.mjs');
+      const accountInfo = await getAccountWithFullTweets(screenName, 20); // 获取20条推文
+      if (accountInfo) {
+        return accountInfo;
+      } else {
+        logger.warn('NarrativeAnalyzer', `获取账号信息失败: @${screenName}（返回null）`);
+        return null;
+      }
+    } catch (error) {
+      logger.error('NarrativeAnalyzer', `获取账号信息异常: @${screenName}`, { error: error.message });
+      return null;
+    }
+  }
+
+  /**
+   * 检测是否有独立网站（非第三方平台域名）
+   * @param {Object} classifiedUrls - 分类后的URL列表
+   * @returns {boolean} 是否有独立网站
+   */
+  static _hasIndependentWebsite(classifiedUrls) {
+    if (!classifiedUrls || !classifiedUrls.websites) {
+      return false;
+    }
+
+    // 第三方平台域名列表（不算独立网站）
+    const thirdPartyDomains = [
+      'medium.xyz', 'linktr.ee', 'linktree.co', 'linkz.st',
+      'about.me', 'mikit.io', 'carrd.co', 'trello.me',
+      'notion.site', 'notion.so', 'forms.office.com',
+      'typeform.com', 'google.com', 'docs.google.com',
+      // 可以添加更多
+    ];
+
+    return classifiedUrls.websites.some(website => {
+      try {
+        const url = new URL(website.url);
+        const domain = url.hostname.toLowerCase();
+
+        // 检查是否在第三方域名列表中
+        const isThirdParty = thirdPartyDomains.some(d =>
+          domain === d || domain.endsWith(`.${d}`)
+        );
+
+        // 有网站且不是第三方平台 → 算独立网站
+        return !isThirdParty;
+      } catch {
+        return false;
+      }
+    });
+  }
+
+  /**
    * 检查是否应该使用账号/社区分析流程
-   * 条件：有账号/社区信息且无推文（网站、电报、Discord都不阻断）
+   * 条件：
+   * 1. 有账号/社区信息且无推文（原有逻辑）
+   * 2. 或者有独立网站且成功获取了账号信息（新增）
    * @param {Object} fetchResults - 获取的数据结果
    * @returns {boolean} 是否应该使用账号/社区分析
    */
@@ -2149,8 +2284,7 @@ export class NarrativeAnalyzer {
       return false;
     }
 
-    // 检查是否有其他可用信息
-    // 有推文内容 → 走正常流程
+    // 原有逻辑：有推文内容 → 走正常流程
     if (twitterInfo.text && twitterInfo.text.trim().length > 0) {
       return false;
     }
@@ -2175,13 +2309,39 @@ export class NarrativeAnalyzer {
     } = await import('./prompts/account-community-rules.mjs');
 
     const twitterInfo = fetchResults.twitterInfo;
-    const accountOrCommunityRef = twitterInfo.type === 'account'
-      ? { type: 'account', screen_name: twitterInfo.screen_name }
-      : { type: 'community', community_id: twitterInfo.id };
+    const relatedAccounts = fetchResults.relatedAccounts || [];
 
-    logger.info('AccountCommunityAnalysis', `开始${twitterInfo.type === 'account' ? '账号' : '社区'}代币分析`, {
-      type: twitterInfo.type,
-      identifier: twitterInfo.type === 'account' ? twitterInfo.screen_name : twitterInfo.id
+    // 新增：如果有多个账号，选择主要账号进行分析
+    let accountOrCommunityRef;
+    if (relatedAccounts.length > 0) {
+      // 优先选择 original_author（通常是项目官方账号）
+      const originalAuthorAccount = relatedAccounts.find(a => a.role === 'original_author');
+      if (originalAuthorAccount) {
+        accountOrCommunityRef = { type: 'account', screen_name: originalAuthorAccount.screen_name };
+        logger.info('AccountCommunityAnalysis', `使用原始作者账号进行分析: @${originalAuthorAccount.screen_name}`);
+      } else {
+        // 其次选择 primary（主推文作者）
+        const primaryAccount = relatedAccounts.find(a => a.role === 'primary');
+        if (primaryAccount) {
+          accountOrCommunityRef = { type: 'account', screen_name: primaryAccount.screen_name };
+          logger.info('AccountCommunityAnalysis', `使用主账号进行分析: @${primaryAccount.screen_name}`);
+        } else {
+          // 使用第一个账号
+          accountOrCommunityRef = { type: 'account', screen_name: relatedAccounts[0].screen_name };
+          logger.info('AccountCommunityAnalysis', `使用第一个账号进行分析: @${relatedAccounts[0].screen_name}`);
+        }
+      }
+    } else {
+      // 原有逻辑：使用 twitterInfo 中的账号
+      accountOrCommunityRef = twitterInfo.type === 'account'
+        ? { type: 'account', screen_name: twitterInfo.screen_name }
+        : { type: 'community', community_id: twitterInfo.id };
+    }
+
+    logger.info('AccountCommunityAnalysis', `开始${accountOrCommunityRef.type === 'account' ? '账号' : '社区'}代币分析`, {
+      type: accountOrCommunityRef.type,
+      identifier: accountOrCommunityRef.type === 'account' ? accountOrCommunityRef.screen_name : accountOrCommunityRef.id,
+      relatedAccountsCount: relatedAccounts.length
     });
 
     // ═══════════════════════════════════════════════════════════════════════════
