@@ -97,6 +97,11 @@ export class NarrativeRepository {
     const hasStage1ClearFlag = result.llm_stage1_parsed_output?.__clear === true;
     const hasStage2ClearFlag = result.llm_stage2_parsed_output?.__clear === true;
 
+    // 检查预检查字段是否显式传入（用于清除旧数据）
+    const hasPreCheckCategory = Object.prototype.hasOwnProperty.call(result, 'pre_check_category');
+    const hasPreCheckReason = Object.prototype.hasOwnProperty.call(result, 'pre_check_reason');
+    const hasPreCheckResult = Object.prototype.hasOwnProperty.call(result, 'pre_check_result');
+
     // 构建记录对象，如果存在则保留未更新的字段
     // 对于分析数据（stage1/stage2/prestage），null不会覆盖旧的有效数据
     const record = {
@@ -114,10 +119,10 @@ export class NarrativeRepository {
       is_valid: this._mergeField(result.is_valid, existing?.is_valid),
       prompt_version: result.prompt_version || existing?.prompt_version || null,
 
-      // === 预检查字段（3个）- 允许覆盖 ===
-      pre_check_category: result.pre_check_category ?? existing?.pre_check_category ?? null,
-      pre_check_reason: result.pre_check_reason ?? existing?.pre_check_reason ?? null,
-      pre_check_result: result.pre_check_result ?? existing?.pre_check_result ?? null,
+      // === 预检查字段（3个）- 允许null覆盖（用于清除旧的预检查数据）===
+      pre_check_category: hasPreCheckCategory ? result.pre_check_category : (existing?.pre_check_category ?? null),
+      pre_check_reason: hasPreCheckReason ? result.pre_check_reason : (existing?.pre_check_reason ?? null),
+      pre_check_result: hasPreCheckResult ? result.pre_check_result : (existing?.pre_check_result ?? null),
 
       // === 前置LLM阶段字段（9个）- null不覆盖旧数据 ===
       llm_prestage_category: this._mergeField(result.llm_prestage_category, existing?.llm_prestage_category),

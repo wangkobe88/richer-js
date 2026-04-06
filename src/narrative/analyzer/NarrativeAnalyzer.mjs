@@ -2285,7 +2285,26 @@ export class NarrativeAnalyzer {
       let content = callResult.content.trim();
       // 移除 ```json 和 ``` 标记
       content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
-      parsed = JSON.parse(content);
+
+      // 尝试解析JSON，处理中文引号问题
+      const tryParse = (str) => {
+        try {
+          return JSON.parse(str);
+        } catch (_) {
+          return null;
+        }
+      };
+
+      parsed = tryParse(content);
+      if (!parsed) {
+        // 尝试修复中文引号 - 替换为英文单引号
+        const fixedContent = content.replace(/"/g, "'").replace(/"/g, "'");
+        parsed = tryParse(fixedContent);
+      }
+
+      if (!parsed) {
+        throw new Error('JSON解析失败');
+      }
     } catch (e) {
       logger.error('AccountCommunityAnalysis', '解析LLM响应失败', { error: e.message, content: callResult.content });
       return {
@@ -2315,9 +2334,6 @@ export class NarrativeAnalyzer {
         reasoning: parsed.reason || 'Web3原生IP处于早期发展阶段，需等待社区成长后再评估',
         scores: null,
         total_score: null,
-        // 使用规则验证的结果
-        addressVerified: rulesResult.addressVerified,
-        nameMatch: rulesResult.nameMatch,
         // 前置LLM阶段数据（账号/社区分析判断币种类型）
         prestageData: {
           category: 'unrated', // Web3原生IP早期
@@ -2325,10 +2341,8 @@ export class NarrativeAnalyzer {
           raw_output: callResult.content,
           parsed_output: {
             ...parsed,
-            // 添加规则验证结果
-            addressVerified: rulesResult.addressVerified,
-            nameMatch: rulesResult.nameMatch,
-            details: rulesResult.details
+            // 只添加一个简洁的规则验证通过标记，不重复详细结果
+            rulesValidationPassed: true
           },
           model: callResult.model,
           started_at: callResult.startedAt,
@@ -2366,10 +2380,8 @@ export class NarrativeAnalyzer {
         raw_output: callResult.content,
         parsed_output: {
           ...parsed,
-          // 添加规则验证结果
-          addressVerified: rulesResult.addressVerified,
-          nameMatch: rulesResult.nameMatch,
-          details: rulesResult.details
+          // 只添加一个简洁的规则验证通过标记，不重复详细结果
+          rulesValidationPassed: true
         },
         model: callResult.model,
         started_at: callResult.startedAt,
@@ -2396,16 +2408,7 @@ export class NarrativeAnalyzer {
         reasoning: reason,
         scores: null, // 简化流程不返回详细评分
         total_score: null,
-        // 使用规则验证的结果
-        addressVerified: rulesResult.addressVerified,
-        nameMatch: rulesResult.nameMatch,
         baselineMet: parsed.baselineMet,
-        // 合并details（规则验证的 + LLM的）
-        details: {
-          ...rulesResult.details,
-          projectReason: parsed.details?.projectReason,
-          memeReason: parsed.details?.memeReason
-        },
         // 前置LLM阶段数据（账号/社区分析判断币种类型）
         prestageData: {
           category: categoryMap[rating] || 'low',
@@ -2413,14 +2416,10 @@ export class NarrativeAnalyzer {
           raw_output: callResult.content,
           parsed_output: {
             ...parsed,
-            // 添加规则验证结果
-            addressVerified: rulesResult.addressVerified,
-            nameMatch: rulesResult.nameMatch,
-            details: {
-              ...rulesResult.details,
-              projectReason: parsed.details?.projectReason,
-              memeReason: parsed.details?.memeReason
-            }
+            // 只添加一个简洁的规则验证通过标记，不重复详细结果
+            rulesValidationPassed: true,
+            // 保留LLM返回的details
+            details: parsed.details
           },
           model: callResult.model,
           started_at: callResult.startedAt,
@@ -2739,8 +2738,13 @@ export class NarrativeAnalyzer {
     }
 
     // 计算最终分类（用于快速访问）
-    // 优先级: prestage > stage2 > stage1 > pre_check
-    const llm_category = record.llm_prestage_category || record.llm_stage2_category || record.llm_stage1_category || record.pre_check_category || null;
+    // 优先级: stage2 > stage1 > prestage(非meme) > pre_check
+    // 注意：prestage的"meme"只是币种类型，不是最终评级，应该跳过
+    const llm_category = record.llm_stage2_category
+      || record.llm_stage1_category
+      || (record.llm_prestage_category && record.llm_prestage_category !== 'meme' ? record.llm_prestage_category : null)
+      || record.pre_check_category
+      || null;
 
     // 构建返回结果（直接使用新字段）
     return {
@@ -2939,28 +2943,48 @@ export class NarrativeAnalyzer {
       throw new Error('Stage 1: 无法提取JSON');
     }
 
-    try {
-      const result = JSON.parse(jsonStr);
-      if (typeof result.pass !== 'boolean') {
-        throw new Error('Stage 1: pass字段必须是boolean');
+    /**
+     * 尝试解析JSON，处理中文引号问题
+     */
+    const tryParseJSON = (str) => {
+      try {
+        return JSON.parse(str);
+      } catch (e) {
+        return null;
       }
+    };
 
-      // 必须包含stage字段：0=通过，1=第一阶段触发，2=第二阶段触发，3=第三阶段触发
-      if (result.stage === undefined) {
-        throw new Error('Stage 1: stage字段缺失');
-      }
+    // 首先尝试直接解析
+    let result = tryParseJSON(jsonStr);
 
-      return {
-        pass: result.pass,
-        reason: result.reason || '',
-        stage: result.stage,
-        scenario: result.scenario || 0,  // stage=3时对应的场景编号
-        entities: result.entities || {}
-      };
-    } catch (parseError) {
-      console.error('[NarrativeAnalyzer] Stage 1: JSON解析失败，提取的字符串:', jsonStr);
-      throw new Error(`Stage 1: JSON解析失败 - ${parseError.message}`);
+    // 如果失败，尝试修复中文引号问题
+    if (!result) {
+      console.log('[NarrativeAnalyzer] Stage 1: 直接解析失败，尝试修复中文引号');
+      const fixedJsonStr = jsonStr.replace(/"/g, "'").replace(/"/g, "'");
+      result = tryParseJSON(fixedJsonStr);
     }
+
+    if (!result) {
+      console.error('[NarrativeAnalyzer] Stage 1: JSON解析失败，提取的字符串:', jsonStr);
+      throw new Error('Stage 1: JSON解析失败 - 无法修复格式错误');
+    }
+
+    if (typeof result.pass !== 'boolean') {
+      throw new Error('Stage 1: pass字段必须是boolean');
+    }
+
+    // 必须包含stage字段：0=通过，1=第一阶段触发，2=第二阶段触发，3=第三阶段触发
+    if (result.stage === undefined) {
+      throw new Error('Stage 1: stage字段缺失');
+    }
+
+    return {
+      pass: result.pass,
+      reason: result.reason || '',
+      stage: result.stage,
+      scenario: result.scenario || 0,  // stage=3时对应的场景编号
+      entities: result.entities || {}
+    };
   }
 
   /**
@@ -3015,29 +3039,50 @@ export class NarrativeAnalyzer {
       throw new Error('EventAnalysis: 无法提取JSON');
     }
 
-    try {
-      const result = JSON.parse(jsonStr);
-      if (typeof result.pass !== 'boolean') {
-        throw new Error('EventAnalysis: pass字段必须是boolean');
+    /**
+     * 尝试解析JSON，处理中文引号问题
+     */
+    const tryParseJSON = (str) => {
+      try {
+        return JSON.parse(str);
+      } catch (e) {
+        return null;
       }
+    };
 
-      // 必须包含stage字段：0=通过，1=事件分析触发
-      if (result.stage === undefined) {
-        throw new Error('EventAnalysis: stage字段缺失');
-      }
+    // 首先尝试直接解析
+    let result = tryParseJSON(jsonStr);
 
-      return {
-        pass: result.pass,
-        reason: result.reason || '',
-        stage: result.stage,
-        scenario: result.scenario || 0,  // 保留兼容性
-        entities: result.entities || {},
-        eventAnalysis: result.eventAnalysis || null  // 新字段：事件分析结果
-      };
-    } catch (parseError) {
-      console.error('[NarrativeAnalyzer] EventAnalysis: JSON解析失败，提取的字符串:', jsonStr);
-      throw new Error(`EventAnalysis: JSON解析失败 - ${parseError.message}`);
+    // 如果失败，尝试修复中文引号问题
+    if (!result) {
+      console.log('[NarrativeAnalyzer] EventAnalysis: 直接解析失败，尝试修复中文引号');
+      // 将中文引号替换为英文单引号（在JSON字符串中是合法的）
+      const fixedJsonStr = jsonStr.replace(/"/g, "'").replace(/"/g, "'");
+      result = tryParseJSON(fixedJsonStr);
     }
+
+    if (!result) {
+      console.error('[NarrativeAnalyzer] EventAnalysis: JSON解析失败，提取的字符串:', jsonStr);
+      throw new Error(`EventAnalysis: JSON解析失败 - 无法修复格式错误`);
+    }
+
+    if (typeof result.pass !== 'boolean') {
+      throw new Error('EventAnalysis: pass字段必须是boolean');
+    }
+
+    // 必须包含stage字段：0=通过，1=事件分析触发
+    if (result.stage === undefined) {
+      throw new Error('EventAnalysis: stage字段缺失');
+    }
+
+    return {
+      pass: result.pass,
+      reason: result.reason || '',
+      stage: result.stage,
+      scenario: result.scenario || 0,  // 保留兼容性
+      entities: result.entities || {},
+      eventAnalysis: result.eventAnalysis || null  // 新字段：事件分析结果
+    };
   }
 
   /**

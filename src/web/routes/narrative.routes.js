@@ -174,9 +174,13 @@ router.post('/reanalyze/:address', async (req, res) => {
     const { ignoreExpired = false } = body;
     const { NarrativeRepository } = await import('../../narrative/db/NarrativeRepository.mjs');
 
-    // 1. 先清除旧的 LLM 分析数据（使用 {__clear: true} 标记）
+    // 1. 先清除旧的 LLM 分析数据和预检查数据（使用 {__clear: true} 标记）
     await NarrativeRepository.save({
       token_address: address,
+      // 清除预检查数据
+      pre_check_category: null,
+      pre_check_reason: null,
+      pre_check_result: null,
       // 清除 Stage 1 数据
       llm_stage1_parsed_output: { __clear: true },
       llm_stage1_category: null,

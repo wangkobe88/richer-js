@@ -102,6 +102,7 @@ class NarrativeAnalyzer {
         const loadingTokenSymbol = document.getElementById('loadingTokenSymbol');
         const loadingTokenAddress = document.getElementById('loadingTokenAddress');
         const tokenBasicInfo = document.getElementById('tokenBasicInfo');
+        const gmgnLink = document.getElementById('gmgnLink');
 
         tokenIcon.textContent = token.icon || (token.symbol || '?')[0].toUpperCase();
         // 始终显示 symbol，如果有 name 则一起显示
@@ -114,8 +115,18 @@ class NarrativeAnalyzer {
         } else {
           loadingTokenSymbol.textContent = name || '未知代币';
         }
-        loadingTokenAddress.textContent = `${address.slice(0, 8)}...`;
+        loadingTokenAddress.innerHTML = `<a href="#" onclick="navigator.clipboard.writeText('${address}').then(() => { this.textContent = '✅ 已复制'; setTimeout(() => { this.textContent = '${address.slice(0, 8)}...${address.slice(-6)}'; }, 2000); }); return false;" style="color: #7f8c8d; text-decoration: none; cursor: pointer;" title="点击复制完整地址">${address.slice(0, 8)}...${address.slice(-6)}</a>`;
         tokenBasicInfo.style.display = 'block';
+
+        // 生成 GMGN 链接 - 根据地址格式自动判断链类型
+        let chain = (token.chain || 'bsc').toLowerCase();
+        // 如果地址以 0x 开头（EVM 链），且 chain 是 sol，则修正为 bsc
+        if (address.startsWith('0x') && chain === 'sol') {
+          chain = 'bsc';
+        }
+        const gmgnUrl = `https://gmgn.ai/${chain}/token/${address}`;
+        gmgnLink.querySelector('a').href = gmgnUrl;
+        gmgnLink.style.display = 'block';
       }
     } catch (error) {
       console.warn('获取代币信息失败:', error);
@@ -404,14 +415,13 @@ class NarrativeAnalyzer {
       `;
     }
 
-    // 规则验证结果
+    // 规则验证结果（简洁显示，详细结果在"预检查"卡片）
     let rulesHtml = '';
-    if (parsed.addressVerified !== undefined || parsed.nameMatch !== undefined) {
+    if (parsed.rulesValidationPassed) {
       rulesHtml = `
         <div style="margin-top: 12px;">
-          <div style="font-size: 12px; color: #666; margin-bottom: 6px;">规则验证结果：</div>
-          ${parsed.addressVerified ? '<span style="font-size: 11px; padding: 4px 8px; background: #d4edda; color: #155724; border-radius: 4px;">✅ 地址验证通过</span>' : ''}
-          ${parsed.nameMatch ? '<span style="font-size: 11px; padding: 4px 8px; background: #d4edda; color: #155724; border-radius: 4px; margin-left: 4px;">✅ 名称匹配通过</span>' : ''}
+          <span style="font-size: 11px; padding: 4px 8px; background: #d4edda; color: #155724; border-radius: 4px;">✅ 规则验证通过</span>
+          <span style="font-size: 11px; color: #999; margin-left: 6px;">（地址验证 + 名称匹配）</span>
         </div>
       `;
     }
@@ -625,7 +635,7 @@ class NarrativeAnalyzer {
       overviewReasoning.textContent = '暂无分析理由';
     }
 
-    // 更新元数据
+    // 更新元数据 - 第二行：日期和实验ID
     const overviewMeta = document.getElementById('overviewMeta');
     const metaItems = [];
     if (meta?.analyzedAt) {
@@ -634,7 +644,23 @@ class NarrativeAnalyzer {
     if (meta?.sourceExperimentId) {
       metaItems.push(`🏷️ ${meta.sourceExperimentId.slice(0, 8)}`);
     }
-    overviewMeta.textContent = metaItems.join('  |  ');
+    overviewMeta.innerHTML = metaItems.join('  |  ');
+
+    // 更新链接区域 - 第一行：地址 + GMGN 链接
+    const overviewMetaLinks = document.getElementById('overviewMetaLinks');
+    let chain = (token?.chain || 'bsc').toLowerCase();
+    // 如果地址以 0x 开头（EVM 链），且 chain 是 sol，则修正为 bsc
+    if (this.currentAddress.startsWith('0x') && chain === 'sol') {
+      chain = 'bsc';
+    }
+    const gmgnUrl = `https://gmgn.ai/${chain}/token/${this.currentAddress}`;
+    const shortAddr = `${this.currentAddress.slice(0, 8)}...${this.currentAddress.slice(-6)}`;
+    overviewMetaLinks.innerHTML = `
+      <span style="display: inline-flex; align-items: center; gap: 12px;">
+        <span>🔗 <a href="#" onclick="navigator.clipboard.writeText('${this.currentAddress}').then(() => { this.textContent = '✅ 已复制'; setTimeout(() => { this.textContent = '${shortAddr}'; }, 1500); }); return false;" style="color: inherit; text-decoration: none; cursor: pointer;" title="${this.currentAddress}">${shortAddr}</a></span>
+        <span><a href="${gmgnUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: rgba(255,255,255,0.3); border-radius: 6px; text-decoration: none; font-size: 11px; color: white;"><img src="/static/gmgn.png" style="width: 14px; height: 14px;" alt="GMGN"> GMGN</a></span>
+      </span>
+    `;
   }
 
   updateStage1Card(llmAnalysis) {

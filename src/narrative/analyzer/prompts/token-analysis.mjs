@@ -535,9 +535,9 @@ ${hasTwitter ? `
 验证：当E=100, R=20, T=20时，综合得分=60+20+20=100 ✓
 
 最终分类：
-- 综合得分 ≥ 70：category = "high"
-- 综合得分 40-69：category = "mid"
-- 综合得分 < 40：category = "low"
+- 综合得分 ≥ 75：category = "high"
+- 综合得分 50-74：category = "mid"
+- 综合得分 < 50：category = "low"
 
 ⚠️ **特殊调整**：
 - 如果Stage 1事件类别是"D类无热点" → 直接返回 category="low"

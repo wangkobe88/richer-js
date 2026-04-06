@@ -21,7 +21,7 @@ import {
 /**
  * Prompt版本号
  */
-export const ACCOUNT_COMMUNITY_ANALYSIS_PROMPT_VERSION = 'V1.2';  // 修正Web3原生IP判断：是否创造新称号/名称
+export const ACCOUNT_COMMUNITY_ANALYSIS_PROMPT_VERSION = 'V1.3';  // 加强边界case判断：明确"币安女英雄"等创造新称号的属于Web3原生IP早期
 
 /**
  * 获取账号信息（含推文）
@@ -186,6 +186,11 @@ ${data.type === 'account' ? `
 - 依托现实中**已有、成熟**的IP/热点/事件（如特朗普当选、PEPE青蛙、Doge狗、SpaceX等）
 - 这些IP在代币创建前就已经存在并有一定知名度
 - 代币**直接使用现成的IP名称**（如"Trump"、"PEPE"、"Doge"）
+- **特别说明**：如果是基于真实人物，**必须直接使用人物原名**才算传统meme币
+  - ✅ "CZ" - 直接使用CZ原名 → 传统meme币
+  - ✅ "Yihe" - 直接使用Yihe原名 → 传统meme币
+  - ❌ "币安女英雄" - 创造了新称号"女英雄" → Web3原生IP早期
+  - ❌ "币安之王" - 创造了新称号"之王" → Web3原生IP早期
 - **例子**：
   - "Trump" - 直接使用特朗普的名字
   - "PEPE" - 直接使用PEPE青蛙梗的名称
@@ -205,6 +210,11 @@ ${data.type === 'account' ? `
   - ✅ "ETH之神" - 创造了新称号"ETH之神"，这是Web3原生IP早期
   - ❌ "Musk" - 直接使用马斯克的名字，这是传统meme币
   - ✅ "火星CEO" - 创造了新概念，可能是Web3原生IP早期
+  - ❌ "Yihe" - 直接使用Yihe的名字，这是传统meme币
+  - ✅ "币安女英雄" / "Heroine of Binance" - 创造了新称号"女英雄"，这是Web3原生IP早期
+- **判断要点**：
+  - 即使是基于真实人物，只要**创造了新的称号/角色定位**（如"女英雄"、"之王"、"之神"），就应该判断为Web3原生IP早期
+  - 只有**直接使用人物原名**（如"CZ"、"Yihe"、"Trump"）才是传统meme币
 - **基础设施特点**：
   - 至少有账号/网站/社区中的1个
   - 如果有网站，通常是独立站点（不是第三方平台）
