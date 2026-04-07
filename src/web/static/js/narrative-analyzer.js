@@ -1243,12 +1243,15 @@ class NarrativeAnalyzer {
       }
     }
 
+    // Stage 2 状态显示：通过/未通过
+    const statusClass = pass === true ? 'pass' : 'skip';
+    const statusIcon = pass === true ? '✅' : '○';
+    const statusText = pass === true ? '通过' : '未知状态';
+
     this.stage2CardBody.innerHTML = `
-      <div style="text-align: center; margin-bottom: 16px;">
-        <span style="font-size: 36px;">${config.icon}</span>
-        <div style="font-size: 20px; font-weight: bold; color: #2c3e50; margin-top: 8px;">
-          ${config.text}
-        </div>
+      <div class="stage-status ${statusClass}">
+        <span>${statusIcon}</span>
+        <span>${statusText}</span>
       </div>
       ${scoresHtml}
       ${reasoningHtml}
