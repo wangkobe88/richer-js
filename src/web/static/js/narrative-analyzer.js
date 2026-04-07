@@ -634,7 +634,9 @@ class NarrativeAnalyzer {
     const ratingIcon = document.getElementById('ratingIcon');
     const ratingText = document.getElementById('ratingText');
 
-    const category = llmAnalysis.category || 'unrated';
+    // 从 summary 获取最终评级
+    const summary = llmAnalysis.summary || {};
+    const category = summary.category || 'unrated';
     ratingBadge.className = 'rating-badge ' + category;
 
     const categoryConfig = {
@@ -650,7 +652,6 @@ class NarrativeAnalyzer {
 
     // 更新分数显示
     const scoresDisplay = document.getElementById('scoresDisplay');
-    const summary = llmAnalysis.summary || {};
 
     if (summary.total_score !== undefined) {
       scoresDisplay.innerHTML = `
@@ -1016,6 +1017,49 @@ class NarrativeAnalyzer {
     }
 
     const parsed = stage2.parsedOutput || {};
+
+    // 检查是否通过/失败
+    const pass = parsed.raw?.pass;
+    const blockReason = parsed.raw?.blockReason;
+
+    // 如果未通过，显示阻断原因
+    if (pass === false) {
+      const categoryConfig = {
+        'high': { icon: '🟢', text: '高质量' },
+        'mid': { icon: '🟡', text: '中质量' },
+        'low': { icon: '🔴', text: '低质量' },
+        'fail': { icon: '⛔', text: '未通过' }
+      };
+
+      // 获取分量等级来确定显示文本
+      const magnitudeLevel = parsed.raw?.magnitudeLevel || '-';
+      const magnitudeText = {
+        'S': 'S级（超大IP）',
+        'A': 'A级（知名KOL/公众人物）',
+        'B': 'B级（普通KOL）',
+        'C': 'C级（普通人）',
+        'D': 'D级（低热度）',
+        'E': 'E级（极低热度）'
+      };
+
+      this.stage2CardBody.innerHTML = `
+        <div class="stage-status fail">
+          <span>⛔</span>
+          <span>未通过</span>
+        </div>
+        <div class="stage-result-box">
+          <strong>🚫 Stage 2 阻断</strong><br>
+          <span style="font-size: 13px; color: #666;">
+            ${blockReason || '未达到评分标准'}
+          </span><br><br>
+          <span style="font-size: 12px; color: #999;">
+            分量等级：${magnitudeText[magnitudeLevel] || magnitudeLevel}
+          </span>
+        </div>
+      `;
+      return;
+    }
+
     const category = stage2.category || parsed.category || 'unrated';
 
     // 适配新框架：数据在 raw.categoryAnalysis 下
