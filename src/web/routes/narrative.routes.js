@@ -181,9 +181,9 @@ router.post('/reanalyze/:address', async (req, res) => {
       pre_check_category: null,
       pre_check_reason: null,
       pre_check_result: null,
-      // 清除 Stage 1 数据
+      // 清除 Stage 1 数据（所有字段都显式设置为 null）
       llm_stage1_parsed_output: { __clear: true },
-      llm_stage1_category: null,
+      llm_stage1_category: { __clear: true },
       llm_stage1_model: null,
       llm_stage1_prompt: null,
       llm_stage1_raw_output: null,
@@ -191,9 +191,9 @@ router.post('/reanalyze/:address', async (req, res) => {
       llm_stage1_finished_at: null,
       llm_stage1_success: null,
       llm_stage1_error: null,
-      // 清除 Stage 2 数据
+      // 清除 Stage 2 数据（所有字段都显式设置为 null）
       llm_stage2_parsed_output: { __clear: true },
-      llm_stage2_category: null,
+      llm_stage2_category: { __clear: true },
       llm_stage2_model: null,
       llm_stage2_prompt: null,
       llm_stage2_raw_output: null,
@@ -201,9 +201,9 @@ router.post('/reanalyze/:address', async (req, res) => {
       llm_stage2_finished_at: null,
       llm_stage2_success: null,
       llm_stage2_error: null,
-      // 清除 Stage 3 数据
+      // 清除 Stage 3 数据（所有字段都显式设置为 null）
       llm_stage3_parsed_output: { __clear: true },
-      llm_stage3_category: null,
+      llm_stage3_category: { __clear: true },
       llm_stage3_model: null,
       llm_stage3_prompt: null,
       llm_stage3_raw_output: null,
@@ -211,6 +211,8 @@ router.post('/reanalyze/:address', async (req, res) => {
       llm_stage3_finished_at: null,
       llm_stage3_success: null,
       llm_stage3_error: null,
+      // 清除 Stage 字段
+      analysis_stage: { __clear: true },
       // 清除 PreStage 数据
       llm_prestage_parsed_output: null,
       llm_prestage_category: null,

@@ -100,12 +100,6 @@ import { buildAmazonSection } from './prompts/sections/amazon-section.mjs';
 import { buildXiaohongshuSection } from './prompts/sections/xiaohongshu-section.mjs';
 import { generateAccountBackgroundsPrompt } from './prompts/account-backgrounds.mjs';
 
-// Stage 1: 低质量检测
-import { buildLowQualityDetectionPrompt, STAGE1_PROMPT_VERSION } from './prompts/low-quality-detection.mjs';
-
-// Stage 2: 详细评分
-import { buildDetailedScoringPrompt } from './prompts/detailed-scoring.mjs';
-
 // V12.0 新框架：事件分析 + 代币分析
 import { buildEventAnalysisPrompt, EVENT_ANALYSIS_PROMPT_VERSION } from './prompts/event-analysis.mjs';
 import { buildTokenAnalysisPrompt, TOKEN_ANALYSIS_PROMPT_VERSION } from './prompts/token-analysis.mjs';
@@ -197,16 +191,6 @@ export class PromptBuilder {
   }
 
   /**
-   * 构建Stage 1 Prompt（低质量检测）- 保留兼容
-   * @param {Object} tokenData - 代币数据
-   * @param {Object} fetchResults - 获取的数据结果
-   * @returns {string} Stage 1 Prompt
-   */
-  static buildStage1(tokenData, fetchResults) {
-    return buildLowQualityDetectionPrompt(tokenData, fetchResults);
-  }
-
-  /**
    * 获取Prompt类型描述（用于记录和调试）
    * @param {Object} fetchResults - 获取的数据结果
    * @param {number} stage - 阶段（1或2）
@@ -238,18 +222,6 @@ export class PromptBuilder {
     if (fetchResults.twitterInfo?.website_tweet) types.push('+website_tweet');
 
     return types.length > 0 ? types.join('+') : 'minimal';
-  }
-
-  // buildStage1方法已在第139-146行定义（包含视频专用Prompt路由逻辑）
-
-  /**
-   * 构建Stage 2 Prompt（详细评分）
-   * @param {Object} tokenData - 代币数据
-   * @param {Object} fetchResults - 获取的数据结果
-   * @returns {string} Stage 2 Prompt
-   */
-  static buildStage2(tokenData, fetchResults) {
-    return buildDetailedScoringPrompt(tokenData, fetchResults);
   }
 
   /**

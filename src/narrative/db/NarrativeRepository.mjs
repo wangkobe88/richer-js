@@ -119,6 +119,9 @@ export class NarrativeRepository {
       analyzed_at: result.analyzed_at || new Date().toISOString(),
       is_valid: this._mergeField(result.is_valid, existing?.is_valid),
       prompt_version: result.prompt_version || existing?.prompt_version || null,
+      analysis_stage: (result.analysis_stage && typeof result.analysis_stage === 'object' && result.analysis_stage.__clear === true)
+        ? null  // 清除标记
+        : (result.analysis_stage ?? existing?.analysis_stage ?? null), // 否则使用新值或保留旧值
 
       // === 预检查字段（3个）- 允许null覆盖（用于清除旧的预检查数据）===
       pre_check_category: hasPreCheckCategory ? result.pre_check_category : (existing?.pre_check_category ?? null),
