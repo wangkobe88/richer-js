@@ -96,6 +96,7 @@ export class NarrativeRepository {
     // 检查清除标记，如果存在则需要清除旧数据
     const hasStage1ClearFlag = result.llm_stage1_parsed_output?.__clear === true;
     const hasStage2ClearFlag = result.llm_stage2_parsed_output?.__clear === true;
+    const hasStage3ClearFlag = result.llm_stage3_parsed_output?.__clear === true;
 
     // 检查预检查字段是否显式传入（用于清除旧数据）
     const hasPreCheckCategory = Object.prototype.hasOwnProperty.call(result, 'pre_check_category');
@@ -156,6 +157,17 @@ export class NarrativeRepository {
       llm_stage2_finished_at: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_finished_at, existing?.llm_stage2_finished_at),
       llm_stage2_success: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_success, existing?.llm_stage2_success),
       llm_stage2_error: hasStage2ClearFlag ? null : this._mergeField(result.llm_stage2_error, existing?.llm_stage2_error),
+
+      // === Stage 3 字段（9个）- null不覆盖旧数据（除非有清除标记）===
+      llm_stage3_category: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_category, existing?.llm_stage3_category),
+      llm_stage3_model: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_model, existing?.llm_stage3_model),
+      llm_stage3_prompt: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_prompt, existing?.llm_stage3_prompt),
+      llm_stage3_raw_output: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_raw_output, existing?.llm_stage3_raw_output),
+      llm_stage3_parsed_output: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_parsed_output, existing?.llm_stage3_parsed_output),
+      llm_stage3_started_at: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_started_at, existing?.llm_stage3_started_at),
+      llm_stage3_finished_at: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_finished_at, existing?.llm_stage3_finished_at),
+      llm_stage3_success: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_success, existing?.llm_stage3_success),
+      llm_stage3_error: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_error, existing?.llm_stage3_error),
 
       // === Debug字段（2个）- 允许覆盖 ===
       url_extraction_result: result.url_extraction_result ?? existing?.url_extraction_result ?? null,

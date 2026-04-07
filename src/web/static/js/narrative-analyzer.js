@@ -24,6 +24,7 @@ class NarrativeAnalyzer {
     this.prestageCardBody = document.getElementById('prestageCardBody');
     this.stage1CardBody = document.getElementById('stage1CardBody');
     this.stage2CardBody = document.getElementById('stage2CardBody');
+    this.stage3CardBody = document.getElementById('stage3CardBody');
     this.dataSourceCardBody = document.getElementById('dataSourceCardBody');
     this.tweetCard = document.getElementById('tweetCard');
     this.tweetCardBody = document.getElementById('tweetCardBody');
@@ -199,7 +200,10 @@ class NarrativeAnalyzer {
     // 5. 更新 Stage 2 卡片
     this.updateStage2Card(llmAnalysis);
 
-    // 6. 更新数据源卡片
+    // 6. 更新 Stage 3 卡片
+    this.updateStage3Card(llmAnalysis);
+
+    // 7. 更新数据源卡片
     this.updateDataSourceCard(debugInfo, classifiedUrls);
 
     // 7. 更新推文卡片
@@ -1045,6 +1049,173 @@ class NarrativeAnalyzer {
         </div>
       </div>
       ${scoresHtml}
+      ${reasoningHtml}
+      ${timingHtml}
+      ${llmDetailsHtml}
+    `;
+  }
+
+  updateStage3Card(llmAnalysis) {
+    const stage3 = llmAnalysis.stage3;
+
+    if (!stage3) {
+      this.stage3CardBody.innerHTML = `
+        <div class="stage-status skip">
+          <span>⏭️</span>
+          <span>未执行</span>
+        </div>
+        <div class="stage-result-box empty">
+          ${llmAnalysis.stage2?.category === 'low' ? 'Stage 2 检测到低质量，跳过代币分析' : 'Stage 3 未执行'}
+        </div>
+      `;
+      return;
+    }
+
+    const parsed = stage3.parsedOutput || {};
+    const category = stage3.category || 'unrated';
+
+    // 评级显示
+    const categoryConfig = {
+      'high': { icon: '🟢', text: '高质量' },
+      'mid': { icon: '🟡', text: '中质量' },
+      'low': { icon: '🔴', text: '低质量' }
+    };
+    const config = categoryConfig[category] || { icon: '⚪', text: '未评级' };
+
+    // 分数详情
+    let scoresHtml = '';
+    if (parsed.scores) {
+      const scores = parsed.scores;
+      scoresHtml = `
+        <div class="score-detail">
+          <div class="score-detail-header">
+            <label>综合得分</label>
+            <value>${scores.total_score || 0}/100</value>
+          </div>
+          <div class="score-bar">
+            <div class="score-bar-fill ${category}" style="width: ${scores.total_score || 0}%"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 详细分解
+    let breakdownHtml = '';
+    if (parsed.breakdown) {
+      const bd = parsed.breakdown;
+      breakdownHtml = `
+        <div class="sub-scores">
+          <div class="sub-score-item">
+            <span class="sub-score-label">事件传播 (${(bd.eventWeight * 100).toFixed(0)}%)</span>
+            <div class="sub-score-bar">
+              <div class="sub-score-fill" style="width: ${(bd.eventScore / 60 * 100)}%"></div>
+            </div>
+            <span class="sub-score-value">${bd.eventScore?.toFixed(1) || 0}/60</span>
+          </div>
+          <div class="sub-score-item">
+            <span class="sub-score-label">关联强度 (${(bd.relevanceWeight * 100).toFixed(0)}%)</span>
+            <div class="sub-score-bar">
+              <div class="sub-score-fill" style="width: ${(bd.relevanceScore / 20 * 100)}%"></div>
+            </div>
+            <span class="sub-score-value">${bd.relevanceScore?.toFixed(1) || 0}/20</span>
+          </div>
+          <div class="sub-score-item">
+            <span class="sub-score-label">名称质量 (${(bd.qualityWeight * 100).toFixed(0)}%)</span>
+            <div class="sub-score-bar">
+              <div class="sub-score-fill" style="width: ${(bd.qualityScore / 20 * 100)}%"></div>
+            </div>
+            <span class="sub-score-value">${bd.qualityScore?.toFixed(1) || 0}/20</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // 理由
+    const reasoningHtml = parsed.reasoning ? `
+      <div style="margin-top: 16px; padding: 14px; background: #f8f9fa; border-radius: 8px; font-size: 14px; line-height: 1.6;">
+        <strong>分析理由：</strong><br>
+        ${parsed.reasoning}
+      </div>
+    ` : '';
+
+    // 耗时
+    let timingHtml = '';
+    if (stage3.startedAt && stage3.finishedAt) {
+      const duration = this.calculateDuration(stage3.startedAt, stage3.finishedAt);
+      timingHtml = `
+        <div class="stage-timing">
+          <div class="timing-item">
+            <span>⏱️</span>
+            <span>耗时: ${duration}</span>
+          </div>
+          <div class="timing-item">
+            <span>🤖</span>
+            <span>${stage3.model || 'Unknown'}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // LLM详情区域
+    let llmDetailsHtml = '';
+    if (stage3.prompt || stage3.rawOutput || !stage3.prompt) {
+      const hasPrompt = !!stage3.prompt;
+      const hasRawOutput = !!stage3.rawOutput;
+      const needsReanalyze = !hasPrompt && !hasRawOutput;
+
+      let promptSection = '';
+      if (hasPrompt) {
+        promptSection = `
+          <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起 Prompt' : '展开 Prompt'">
+            ▼ 展开 Prompt
+          </button>
+          <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
+            ${this.escapeHtml(stage3.prompt)}
+          </div>
+        `;
+      } else {
+        promptSection = `
+          <div style="padding: 10px; background: #fff3cd; border-radius: 6px; font-size: 12px; color: #856404;">
+            ⚠️ Prompt 未保存（旧数据），请点击右上角"重新分析"按钮获取完整数据
+          </div>
+        `;
+      }
+
+      let rawOutputSection = '';
+      if (hasRawOutput) {
+        rawOutputSection = `
+          <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起原始响应' : '展开原始响应'">
+            ▼ 展开原始响应
+          </button>
+          <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
+            ${JSON.stringify(stage3.rawOutput, null, 2)}
+          </div>
+        `;
+      }
+
+      if (hasPrompt || hasRawOutput || needsReanalyze) {
+        llmDetailsHtml = `
+          <div style="margin-top: 16px; border-top: 1px solid #ecf0f1; padding-top: 16px;">
+            <div style="font-size: 14px; font-weight: 600; color: #2c3e50; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+              <span>🤖</span>
+              <span>LLM 调用详情</span>
+            </div>
+            ${promptSection}
+            ${rawOutputSection}
+          </div>
+        `;
+      }
+    }
+
+    this.stage3CardBody.innerHTML = `
+      <div style="text-align: center; margin-bottom: 16px;">
+        <span style="font-size: 36px;">${config.icon}</span>
+        <div style="font-size: 20px; font-weight: bold; color: #2c3e50; margin-top: 8px;">
+          ${config.text}
+        </div>
+      </div>
+      ${scoresHtml}
+      ${breakdownHtml}
       ${reasoningHtml}
       ${timingHtml}
       ${llmDetailsHtml}

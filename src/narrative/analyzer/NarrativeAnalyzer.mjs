@@ -2890,17 +2890,20 @@ export class NarrativeAnalyzer {
     }
 
     // 确定分析阶段
-    let analysisStage = 0;  // 0=预检查, 1=Stage1低质量, 2=Stage2详细评分
-    if (record.llm_stage2_parsed_output) {
+    let analysisStage = 0;  // 0=预检查, 1=Stage1低质量, 2=Stage2详细评分, 3=Stage3代币分析
+    if (record.llm_stage3_parsed_output) {
+      analysisStage = 3;
+    } else if (record.llm_stage2_parsed_output) {
       analysisStage = 2;
     } else if (record.llm_stage1_parsed_output) {
       analysisStage = 1;
     }
 
     // 计算最终分类（用于快速访问）
-    // 优先级: stage2 > stage1 > prestage(非meme) > pre_check
+    // 优先级: stage3 > stage2 > stage1 > prestage(非meme) > pre_check
     // 注意：prestage的"meme"只是币种类型，不是最终评级，应该跳过
-    const llm_category = record.llm_stage2_category
+    const llm_category = record.llm_stage3_category
+      || record.llm_stage2_category
       || record.llm_stage1_category
       || (record.llm_prestage_category && record.llm_prestage_category !== 'meme' ? record.llm_prestage_category : null)
       || record.pre_check_category
@@ -2965,13 +2968,30 @@ export class NarrativeAnalyzer {
           success: record.llm_stage2_success,
           error: record.llm_stage2_error
         } : null,
+        // Stage 3 数据
+        stage3: record.llm_stage3_parsed_output ? {
+          category: record.llm_stage3_category,
+          model: record.llm_stage3_model,
+          prompt: record.llm_stage3_prompt,
+          rawOutput: record.llm_stage3_raw_output,
+          parsedOutput: record.llm_stage3_parsed_output,
+          startedAt: record.llm_stage3_started_at,
+          finishedAt: record.llm_stage3_finished_at,
+          success: record.llm_stage3_success,
+          error: record.llm_stage3_error
+        } : null,
         // 当前结果（根据分析阶段决定使用哪个stage的数据）
         category: llm_category,
         // 规则验证结果（优先从prestage获取，因为规则验证在前置LLM阶段执行）
         addressVerified: record.llm_prestage_parsed_output?.addressVerified ?? record.llm_stage1_parsed_output?.addressVerified ?? null,
         nameMatch: record.llm_prestage_parsed_output?.nameMatch ?? record.llm_stage1_parsed_output?.nameMatch ?? null,
         details: record.llm_prestage_parsed_output?.details ?? record.llm_stage1_parsed_output?.details ?? null,
-        summary: record.llm_stage2_parsed_output ? {
+        summary: record.llm_stage3_parsed_output ? {
+          total_score: record.llm_stage3_parsed_output.total_score,
+          credibility_score: record.llm_stage3_parsed_output.scores?.credibility,
+          virality_score: record.llm_stage3_parsed_output.scores?.virality,
+          reasoning: record.llm_stage3_parsed_output.reasoning
+        } : record.llm_stage2_parsed_output ? {
           total_score: record.llm_stage2_parsed_output.total_score,
           credibility_score: record.llm_stage2_parsed_output.scores?.credibility,
           virality_score: record.llm_stage2_parsed_output.scores?.virality,

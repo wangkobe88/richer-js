@@ -110,6 +110,11 @@ import { buildDetailedScoringPrompt } from './prompts/detailed-scoring.mjs';
 import { buildEventAnalysisPrompt, EVENT_ANALYSIS_PROMPT_VERSION } from './prompts/event-analysis.mjs';
 import { buildTokenAnalysisPrompt, TOKEN_ANALYSIS_PROMPT_VERSION } from './prompts/token-analysis.mjs';
 
+// V17.0 3阶段架构：Stage 1事件预处理 + Stage 2分类评分 + Stage 3代币分析
+import { buildStage1EventPreprocessingPrompt, STAGE1_EVENT_PREPROCESSING_VERSION } from './prompts/stage1-event-preprocessing.mjs';
+import { buildStage3TokenAnalysisPrompt, STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION } from './prompts/stage3-token-analysis.mjs';
+import { buildStage2Prompt, getSupportedCategories } from './prompt-loader.mjs';
+
 export class PromptBuilder {
 
   /**
@@ -145,7 +150,54 @@ export class PromptBuilder {
   }
 
   /**
-   * 构建Stage 1 Prompt（低质量检测）
+   * 构建Stage 1 Prompt（3阶段架构：事件预处理）
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {string} Stage 1 Prompt
+   */
+  static buildStage1Preprocessing(tokenData, fetchResults) {
+    return buildStage1EventPreprocessingPrompt(tokenData, fetchResults);
+  }
+
+  /**
+   * 构建Stage 2 Prompt（3阶段架构：分类特定分析）
+   * @param {Object} eventDescription - Stage 1输出的事件描述
+   * @param {Object} eventClassification - Stage 1输出的分类结果
+   * @returns {Promise<string>} Stage 2 Prompt
+   */
+  static async buildStage2Scoring(eventDescription, eventClassification) {
+    return buildStage2Prompt(eventDescription, eventClassification);
+  }
+
+  /**
+   * 构建Stage 3 Prompt（3阶段架构：代币分析）
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} stage1Output - Stage 1输出
+   * @param {Object} stage2Output - Stage 2输出
+   * @returns {string} Stage 3 Prompt
+   */
+  static buildStage3TokenAnalysis(tokenData, stage1Output, stage2Output) {
+    return buildStage3TokenAnalysisPrompt(tokenData, stage1Output, stage2Output);
+  }
+
+  /**
+   * 获取3阶段架构的Prompt版本号
+   * @returns {string} Prompt版本号
+   */
+  static getThreeStagePromptVersion() {
+    return STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION; // V17.0
+  }
+
+  /**
+   * 获取支持的类别列表
+   * @returns {Array<string>} 类别列表
+   */
+  static getSupportedCategories() {
+    return getSupportedCategories();
+  }
+
+  /**
+   * 构建Stage 1 Prompt（低质量检测）- 保留兼容
    * @param {Object} tokenData - 代币数据
    * @param {Object} fetchResults - 获取的数据结果
    * @returns {string} Stage 1 Prompt

@@ -201,6 +201,16 @@ router.post('/reanalyze/:address', async (req, res) => {
       llm_stage2_finished_at: null,
       llm_stage2_success: null,
       llm_stage2_error: null,
+      // 清除 Stage 3 数据
+      llm_stage3_parsed_output: { __clear: true },
+      llm_stage3_category: null,
+      llm_stage3_model: null,
+      llm_stage3_prompt: null,
+      llm_stage3_raw_output: null,
+      llm_stage3_started_at: null,
+      llm_stage3_finished_at: null,
+      llm_stage3_success: null,
+      llm_stage3_error: null,
       // 清除 PreStage 数据
       llm_prestage_parsed_output: null,
       llm_prestage_category: null,
