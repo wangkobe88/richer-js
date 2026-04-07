@@ -66,30 +66,130 @@ class NarrativeAnalyzer {
 
     const ignoreExpired = this.ignoreExpiredCheckbox?.checked || false;
 
+    // 用于跟踪已完成的阶段，避免重复更新
+    this.completedStages = new Set();
+
     try {
       // 先获取代币基础信息
       await this.fetchAndShowTokenInfo(address);
 
-      const response = await fetch('/api/narrative/analyze', {
+      // 启动分析请求
+      fetch('/api/narrative/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ address, ignoreExpired })
+      }).then(async response => {
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error || '分析失败');
+        }
+        // 分析完成，最终更新一次确保所有数据正确
+        this.displayResult(data.data);
+        this.hideLoading();
+      }).catch(error => {
+        this.showError(error.message);
+        this.hideLoading();
       });
 
-      const data = await response.json();
+      // 启动轮询获取渐进式结果
+      this.startProgressivePolling(address);
 
-      if (!data.success) {
-        throw new Error(data.error || '分析失败');
-      }
-
-      this.displayResult(data.data);
     } catch (error) {
       this.showError(error.message);
-    } finally {
       this.hideLoading();
     }
+  }
+
+  /**
+   * 启动渐进式轮询，每阶段完成后立即显示
+   */
+  startProgressivePolling(address) {
+    const maxPolls = 120; // 最多轮询120次（2分钟，每秒一次）
+    let pollCount = 0;
+
+    const poll = async () => {
+      pollCount++;
+
+      try {
+        const response = await fetch(`/api/narrative/result/${address}`);
+        const data = await response.json();
+
+        if (data.success && data.data && data.data.llmAnalysis) {
+          const llmAnalysis = data.data.llmAnalysis;
+
+          // 检查并更新预检查
+          if (llmAnalysis.preCheck && !this.completedStages.has('precheck')) {
+            this.completedStages.add('precheck');
+            this.updatePrecheckCard(llmAnalysis);
+            this.showResult(); // 显示结果区域
+          }
+
+          // 检查并更新 PreStage
+          if (llmAnalysis.prestage && !this.completedStages.has('prestage')) {
+            this.completedStages.add('prestage');
+            this.updatePrestageCard(llmAnalysis);
+            this.showResult();
+          }
+
+          // 检查并更新 Stage 1
+          if (llmAnalysis.stage1 && !this.completedStages.has('stage1')) {
+            this.completedStages.add('stage1');
+            this.updateStage1Card(llmAnalysis);
+            this.updateOverviewCard(data.data.token, llmAnalysis, data.data.debugInfo, data.data.meta);
+            this.showResult();
+          }
+
+          // 检查并更新 Stage 2
+          if (llmAnalysis.stage2 && !this.completedStages.has('stage2')) {
+            this.completedStages.add('stage2');
+            this.updateStage2Card(llmAnalysis);
+            this.showResult();
+          }
+
+          // 检查并更新 Stage 3
+          if (llmAnalysis.stage3 && !this.completedStages.has('stage3')) {
+            console.log('[NarrativeAnalyzer] Updating Stage 3 card...');
+            this.completedStages.add('stage3');
+            this.updateStage3Card(llmAnalysis);
+            this.updateOverviewCard(data.data.token, llmAnalysis, data.data.debugInfo, data.data.meta);
+            this.showResult();
+          }
+
+          // 检查是否所有阶段都完成
+          // 判断标准：Stage 1 必须存在且成功，然后根据 Stage 1 的结果决定是否需要后续阶段
+          const stage1Complete = llmAnalysis.stage1 && llmAnalysis.stage1.success !== false;
+          const stage1LowQuality = stage1Complete && llmAnalysis.stage1.category === 'low';
+          const stage2Complete = llmAnalysis.stage2 && llmAnalysis.stage2.success !== false;
+          const stage3Complete = llmAnalysis.stage3 && llmAnalysis.stage3.success !== false;
+
+          // 如果 Stage 1 是低质量，则不需要 Stage 2/3
+          // 否则需要 Stage 2 或 Stage 3 至少有一个完成
+          const allStagesComplete = stage1Complete && (stage1LowQuality || stage2Complete || stage3Complete);
+
+          if (allStagesComplete) {
+            // 所有阶段完成，停止轮询
+            return;
+          }
+        }
+
+        // 继续轮询
+        if (pollCount < maxPolls) {
+          setTimeout(poll, 1000); // 每秒轮询一次
+        }
+
+      } catch (error) {
+        console.warn('轮询失败:', error);
+        // 继续轮询
+        if (pollCount < maxPolls) {
+          setTimeout(poll, 1000);
+        }
+      }
+    };
+
+    // 开始轮询
+    setTimeout(poll, 500); // 延迟500ms开始第一次轮询
   }
 
   async fetchAndShowTokenInfo(address) {
@@ -182,6 +282,10 @@ class NarrativeAnalyzer {
   displayResult(data) {
     const { token, llmAnalysis, debugInfo, meta, twitter, classifiedUrls, fetchErrors } = data;
 
+    console.log('[NarrativeAnalyzer] displayResult called');
+    console.log('[NarrativeAnalyzer] llmAnalysis:', llmAnalysis ? 'exists' : 'null');
+    console.log('[NarrativeAnalyzer] stage3:', llmAnalysis?.stage3 ? 'exists' : 'null');
+
     // 保存数据用于调试信息切换
     this.lastData = { llmAnalysis, debugInfo, fetchErrors };
 
@@ -201,6 +305,7 @@ class NarrativeAnalyzer {
     this.updateStage2Card(llmAnalysis);
 
     // 6. 更新 Stage 3 卡片
+    console.log('[NarrativeAnalyzer] About to call updateStage3Card');
     this.updateStage3Card(llmAnalysis);
 
     // 7. 更新数据源卡片
@@ -565,7 +670,7 @@ class NarrativeAnalyzer {
 
     // 更新分析路径
     const analysisPath = document.getElementById('analysisPath');
-    const stage = debugInfo?.analysisStage || 0;
+    // 根据 llmAnalysis 中实际存在的阶段来判断，而不是依赖 debugInfo.analysisStage
     const pathSteps = [];
 
     // 预检查
@@ -586,7 +691,7 @@ class NarrativeAnalyzer {
     }
 
     // Stage 1
-    if (stage >= 1) {
+    if (llmAnalysis.stage1) {
       const stage1Parsed = llmAnalysis.stage1?.parsedOutput || {};
       // 兼容新旧框架
       const isFail = stage1Parsed.hasOwnProperty('pass')
@@ -602,10 +707,17 @@ class NarrativeAnalyzer {
     }
 
     // Stage 2
-    if (stage >= 2) {
+    if (llmAnalysis.stage2) {
       pathSteps.push({ label: 'Stage 2', status: 'completed', icon: '✅' });
     } else {
       pathSteps.push({ label: 'Stage 2', status: 'skip', icon: '○' });
+    }
+
+    // Stage 3
+    if (llmAnalysis.stage3) {
+      pathSteps.push({ label: 'Stage 3', status: 'completed', icon: '✅' });
+    } else {
+      pathSteps.push({ label: 'Stage 3', status: 'skip', icon: '○' });
     }
 
     analysisPath.innerHTML = pathSteps.map((step, i) => {
@@ -705,33 +817,71 @@ class NarrativeAnalyzer {
           ${parsed.reason || (eventAnalysis.blockReason || '未知原因')}
         </div>
       `;
-    } else if (!isFail && parsed.eventAnalysis) {
-      // 事件分析通过 - 显示事件详情和评分
-      const eventDesc = parsed.eventAnalysis.eventDescription || {};
-      const score = parsed.eventAnalysis.propagationScore;
-      const breakdown = parsed.eventAnalysis.scoreBreakdown || {};
-
-      resultHtml = `
-        <div class="stage-result-box">
-          <strong>✅ 事件完整且有传播潜力</strong><br><br>
-          <strong>事件主题：</strong>${eventDesc.主题 || '-'}<br>
-          <strong>事件主体：</strong>${eventDesc.主体 || '-'}<br>
-          <strong>事件类别：</strong>${eventDesc.类别 || '-'}<br>
-          <strong>时效性：</strong>${eventDesc.时效性 || '-'}<br><br>
-          <strong>传播潜力评分：</strong>${score || 0}/100 分
-          ${breakdown.sourceWeight !== undefined ? `<br><span style="font-size: 12px; color: #666;">
-            信息源 ${breakdown.sourceWeight} + 事件影响 ${breakdown.eventImpact} +
-            时效加分 ${breakdown.timelinessBonus} + 类别权重 ${breakdown.categoryWeight}
-          </span>` : ''}
-        </div>
-      `;
     } else if (!isFail) {
-      // 旧框架 - 未触发低质量场景
+      // 事件分析通过 - 显示事件详情
+      // 适配新框架：数据直接在parsedOutput下
+      // 旧框架：parsed.eventAnalysis.eventDescription
+      // 新框架：parsed.eventDescription
+      const eventDesc = parsed.eventDescription || parsed.eventAnalysis?.eventDescription || {};
+      const eventClass = parsed.eventClassification || parsed.eventAnalysis?.eventClassification || {};
+      const propMarkers = parsed.propertyMarkers || parsed.eventAnalysis?.propertyMarkers || {};
+
+      // 获取事件类别名称
+      const categoryName = eventClass.primaryCategoryName || eventDesc.类别 || eventClass.primaryCategory || '-';
+      const confidence = eventClass.confidence || '-';
+
+      // 构建显示内容
       resultHtml = `
         <div class="stage-result-box">
-          ✅ 未触发8种低质量场景，内容通过初步检查
+          <strong>✅ 事件定义成功</strong><br><br>
+          <strong>事件主题：</strong>${eventDesc.eventTheme || eventDesc.主题 || '-'}<br>
+          <strong>事件主体：</strong>${eventDesc.eventSubject || eventDesc.主体 || '-'}<br>
+          <strong>事件类别：</strong>${categoryName}<br>
+          <strong>置信度：</strong>${confidence}<br>
+          <strong>时效性：</strong>${eventDesc.eventTiming || eventDesc.时效性 || '-'}<br>
+          ${eventDesc.isLargeIP ? '<strong>🔥 超大IP事件</strong><br>' : ''}
         </div>
       `;
+
+      // 如果有性质标记，显示出来
+      if (propMarkers.discovery || propMarkers.marketing || propMarkers.speculative) {
+        const markers = [];
+        if (propMarkers.discovery) markers.push('发现型');
+        if (propMarkers.marketing) markers.push('营销性');
+        if (propMarkers.speculative) markers.push('推测性');
+        if (markers.length > 0) {
+          resultHtml += `
+            <div class="stage-result-box" style="margin-top: 8px;">
+              <strong>性质标记：</strong>${markers.join('、')}
+            </div>
+          `;
+        }
+      }
+
+      // 显示关键实体
+      if (eventDesc.keyEntities && Array.isArray(eventDesc.keyEntities)) {
+        resultHtml += `
+          <div class="stage-result-box" style="margin-top: 8px;">
+            <strong>关键实体：</strong>${eventDesc.keyEntities.join('、')}
+          </div>
+        `;
+      }
+
+      // 显示关键数据
+      if (eventDesc.keyData) {
+        const keyData = eventDesc.keyData;
+        const dataItems = [];
+        if (keyData.heatLevel) dataItems.push(`热度：${keyData.heatLevel}`);
+        if (keyData.spreadData) dataItems.push(`传播：${keyData.spreadData}`);
+        if (keyData.anySpecificNumbers) dataItems.push(`数据：${keyData.anySpecificNumbers}`);
+        if (dataItems.length > 0) {
+          resultHtml += `
+            <div class="stage-result-box" style="margin-top: 8px;">
+              <strong>关键数据：</strong>${dataItems.join(' | ')}
+            </div>
+          `;
+        }
+      }
     }
 
     // 识别的实体（保留用于兼容旧数据）
@@ -866,7 +1016,30 @@ class NarrativeAnalyzer {
     }
 
     const parsed = stage2.parsedOutput || {};
-    const category = stage2.category || 'unrated';
+    const category = stage2.category || parsed.category || 'unrated';
+
+    // 适配新框架：数据在 raw.categoryAnalysis 下
+    const categoryAnalysis = parsed.raw?.categoryAnalysis || {};
+    const totalScore = categoryAnalysis.totalScore || 0;
+    const categoryName = categoryAnalysis.categoryName || '未知类别';
+    const magnitudeLevel = categoryAnalysis.magnitudeLevel || '-';
+    const magnitudeScore = categoryAnalysis.magnitudeScore || 0;
+    const weightScore = categoryAnalysis.weightScore || 0;
+    const timelinessScore = categoryAnalysis.timelinessScore || 0;
+    const meaningfulness = categoryAnalysis.meaningfulness || '';
+    const meaningfulnessReason = categoryAnalysis.meaningfulnessReason || '';
+
+    // 阻断检查信息
+    const blockChecks = parsed.raw?.blockChecks || {};
+    const passedChecks = blockChecks.passedChecks || [];
+    const hardBlocks = blockChecks.hardBlocks || [];
+    const softBlocks = blockChecks.softBlocks || [];
+
+    // 将A-F类转换为质量评级
+    let qualityCategory = 'unrated';
+    if (category === 'A' && totalScore >= 70) qualityCategory = 'high';
+    else if (category === 'A' || category === 'B') qualityCategory = 'mid';
+    else if (category === 'low') qualityCategory = 'low';
 
     // 评级显示
     const categoryConfig = {
@@ -874,95 +1047,80 @@ class NarrativeAnalyzer {
       'mid': { icon: '🟡', text: '中质量' },
       'low': { icon: '🔴', text: '低质量' }
     };
-    const config = categoryConfig[category] || { icon: '⚪', text: '未评级' };
+    const config = categoryConfig[qualityCategory] || { icon: '⚪', text: '未评级' };
 
     // 分数详情
     let scoresHtml = '';
-    if (parsed.scores) {
-      const scores = parsed.scores;
-      scoresHtml = `
-        <div class="score-detail">
-          <div class="score-detail-header">
-            <label>综合得分</label>
-            <value>${scores.total_score || 0}/100</value>
+    scoresHtml = `
+      <div class="score-detail">
+        <div class="score-detail-header">
+          <label>综合得分</label>
+          <value>${totalScore}/100</value>
+        </div>
+        <div class="score-bar">
+          <div class="score-bar-fill ${qualityCategory}" style="width: ${totalScore}%"></div>
+        </div>
+      </div>
+    `;
+
+    // 子维度分数（量级、权重、时效性）
+    scoresHtml += `
+      <div class="sub-scores">
+        <div class="sub-score-item">
+          <span class="sub-score-label">量级评分 (${magnitudeLevel}级)</span>
+          <div class="sub-score-bar">
+            <div class="sub-score-fill" style="width: ${magnitudeScore}%"></div>
           </div>
-          <div class="score-bar">
-            <div class="score-bar-fill ${category}" style="width: ${scores.total_score || 0}%"></div>
+          <span class="sub-score-value">${magnitudeScore}</span>
+        </div>
+      </div>
+      <div class="sub-scores">
+        <div class="sub-score-item">
+          <span class="sub-score-label">权重评分</span>
+          <div class="sub-score-bar">
+            <div class="sub-score-fill" style="width: ${weightScore}%"></div>
           </div>
+          <span class="sub-score-value">${weightScore}</span>
+        </div>
+      </div>
+      <div class="sub-scores">
+        <div class="sub-score-item">
+          <span class="sub-score-label">时效评分</span>
+          <div class="sub-score-bar">
+            <div class="sub-score-fill" style="width: ${timelinessScore}%"></div>
+          </div>
+          <span class="sub-score-value">${timelinessScore}</span>
+        </div>
+      </div>
+    `;
+
+    // 意义性分析
+    if (meaningfulness || meaningfulnessReason) {
+      scoresHtml += `
+        <div style="margin-top: 12px; padding: 12px; background: ${meaningfulness === '有意义' ? '#d4edda' : '#f8f9fa'}; border-radius: 6px; font-size: 13px;">
+          <strong>意义性判断：</strong>${meaningfulness || '未知'}
+          ${meaningfulnessReason ? `<br><span style="color: #555;">${meaningfulnessReason}</span>` : ''}
         </div>
       `;
-
-      // 子维度分数 - 新格式
-      if (scores.event_propagation_score !== undefined) {
-        scoresHtml += `
-          <div class="sub-scores">
-            <div class="sub-score-item">
-              <span class="sub-score-label">事件传播 (60%)</span>
-              <div class="sub-score-bar">
-                <div class="sub-score-fill" style="width: ${scores.event_propagation_score}%"></div>
-              </div>
-              <span class="sub-score-value">${scores.event_propagation_score}</span>
-            </div>
-          </div>
-        `;
-      }
-      if (scores.relevance_score !== undefined) {
-        scoresHtml += `
-          <div class="sub-scores">
-            <div class="sub-score-item">
-              <span class="sub-score-label">关联强度 (20%)</span>
-              <div class="sub-score-bar">
-                <div class="sub-score-fill" style="width: ${(scores.relevance_score / 20 * 100)}%"></div>
-              </div>
-              <span class="sub-score-value">${scores.relevance_score}/20</span>
-            </div>
-          </div>
-        `;
-      }
-      if (scores.token_name_quality_score !== undefined) {
-        scoresHtml += `
-          <div class="sub-scores">
-            <div class="sub-score-item">
-              <span class="sub-score-label">名称质量 (20%)</span>
-              <div class="sub-score-bar">
-                <div class="sub-score-fill" style="width: ${(scores.token_name_quality_score / 20 * 100)}%"></div>
-              </div>
-              <span class="sub-score-value">${scores.token_name_quality_score}/20</span>
-            </div>
-          </div>
-        `;
-      }
-
-      // 代币名称分析详情
-      if (parsed.token_name_analysis) {
-        const tna = parsed.token_name_analysis;
-        scoresHtml += `
-          <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 12px;">
-            <strong>名称质量详情：</strong><br>
-            长度: ${tna.length_score || 0}/8 |
-            meme适配: ${tna.meme_fit_score || 0}/8 |
-            传播性: ${tna.virality_score || 0}/4 |
-            总分: ${tna.total || 0}/20
-            ${tna.triggered_floor_limit ? ' <span style="color: #dc3545;">(触碰底线)</span>' : ''}
-            ${tna.notes ? `<br><span style="color: #666;">${tna.notes}</span>` : ''}
-          </div>
-        `;
-      }
-
-      // 事件信息
-      if (parsed.event_info) {
-        const ei = parsed.event_info;
-        scoresHtml += `
-          <div style="margin-top: 8px; padding: 10px; background: #e7f3ff; border-radius: 6px; font-size: 12px;">
-            <strong>事件信息：</strong><br>
-            类别: ${ei.event_category || '未知'}
-            ${ei.timeliness ? `| 时效: ${ei.timeliness}` : ''}
-          </div>
-        `;
-      }
     }
 
-    // 理由
+    // 阻断检查信息
+    if (hardBlocks.length > 0 || softBlocks.length > 0 || passedChecks.length > 0) {
+      let checksHtml = '<div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px; font-size: 12px;"><strong>阻断检查：</strong>';
+      if (hardBlocks.length > 0) {
+        checksHtml += `<br><span style="color: #dc3545;">❌ 硬性阻断：${hardBlocks.join(', ')}</span>`;
+      }
+      if (softBlocks.length > 0) {
+        checksHtml += `<br><span style="color: #ffc107;">⚠️ 软性阻断：${softBlocks.join(', ')}</span>`;
+      }
+      if (passedChecks.length > 0) {
+        checksHtml += `<br><span style="color: #28a745;">✅ 通过检查：${passedChecks.join(', ')}</span>`;
+      }
+      checksHtml += '</div>';
+      scoresHtml += checksHtml;
+    }
+
+    // 理由（如果有额外reasoning）
     const reasoningHtml = parsed.reasoning ? `
       <div style="margin-top: 16px; padding: 14px; background: #f8f9fa; border-radius: 8px; font-size: 14px; line-height: 1.6;">
         <strong>分析理由：</strong><br>
@@ -1056,23 +1214,35 @@ class NarrativeAnalyzer {
   }
 
   updateStage3Card(llmAnalysis) {
-    const stage3 = llmAnalysis.stage3;
+    try {
+      const stage3 = llmAnalysis.stage3;
 
-    if (!stage3) {
-      this.stage3CardBody.innerHTML = `
-        <div class="stage-status skip">
-          <span>⏭️</span>
-          <span>未执行</span>
-        </div>
-        <div class="stage-result-box empty">
-          ${llmAnalysis.stage2?.category === 'low' ? 'Stage 2 检测到低质量，跳过代币分析' : 'Stage 3 未执行'}
-        </div>
-      `;
-      return;
-    }
+      console.log('[NarrativeAnalyzer] updateStage3Card called, stage3:', stage3 ? 'exists' : 'null');
+      console.log('[NarrativeAnalyzer] stage3CardBody element:', this.stage3CardBody);
 
-    const parsed = stage3.parsedOutput || {};
-    const category = stage3.category || 'unrated';
+      if (!stage3) {
+        this.stage3CardBody.innerHTML = `
+          <div class="stage-status skip">
+            <span>⏭️</span>
+            <span>未执行</span>
+          </div>
+          <div class="stage-result-box empty">
+            ${llmAnalysis.stage2?.category === 'low' ? 'Stage 2 检测到低质量，跳过代币分析' : 'Stage 3 未执行'}
+          </div>
+        `;
+        return;
+      }
+
+      const parsed = stage3.parsedOutput || {};
+      const category = stage3.category || parsed.category || 'unrated';
+
+      // 适配新框架：数据在 raw 下
+      const rawData = parsed.raw || {};
+      const totalScore = rawData.total_score || parsed.total_score || 0;
+      const breakdown = rawData.breakdown || parsed.breakdown || {};
+      const reasoning = rawData.reasoning || parsed.reasoning || '';
+
+      console.log('[NarrativeAnalyzer] Stage 3 data:', { category, totalScore, breakdownKeys: Object.keys(breakdown) });
 
     // 评级显示
     const categoryConfig = {
@@ -1084,59 +1254,93 @@ class NarrativeAnalyzer {
 
     // 分数详情
     let scoresHtml = '';
-    if (parsed.scores) {
-      const scores = parsed.scores;
-      scoresHtml = `
-        <div class="score-detail">
-          <div class="score-detail-header">
-            <label>综合得分</label>
-            <value>${scores.total_score || 0}/100</value>
-          </div>
-          <div class="score-bar">
-            <div class="score-bar-fill ${category}" style="width: ${scores.total_score || 0}%"></div>
-          </div>
+    scoresHtml = `
+      <div class="score-detail">
+        <div class="score-detail-header">
+          <label>综合得分</label>
+          <value>${totalScore}/100</value>
         </div>
-      `;
+        <div class="score-bar">
+          <div class="score-bar-fill ${category}" style="width: ${totalScore}%"></div>
+        </div>
+      </div>
+    `;
+
+    // 详细分解（事件、关联、质量）
+    if (breakdown.eventScore !== undefined || breakdown.relevanceScore !== undefined || breakdown.qualityScore !== undefined) {
+      scoresHtml += '<div class="sub-scores">';
+
+      if (breakdown.eventScore !== undefined) {
+        const eventWeight = (breakdown.eventWeight || 0.6) * 100;
+        scoresHtml += `
+          <div class="sub-score-item">
+            <span class="sub-score-label">事件传播 (${eventWeight.toFixed(0)}%)</span>
+            <div class="sub-score-bar">
+              <div class="sub-score-fill" style="width: ${(breakdown.eventScore / 60 * 100)}%"></div>
+            </div>
+            <span class="sub-score-value">${breakdown.eventScore?.toFixed(1) || 0}</span>
+          </div>
+        `;
+      }
+
+      if (breakdown.relevanceScore !== undefined) {
+        const relevanceWeight = (breakdown.relevanceWeight || 0.2) * 100;
+        scoresHtml += `
+          <div class="sub-score-item">
+            <span class="sub-score-label">关联强度 (${relevanceWeight.toFixed(0)}%)</span>
+            <div class="sub-score-bar">
+              <div class="sub-score-fill" style="width: ${(breakdown.relevanceScore / 20 * 100)}%"></div>
+            </div>
+            <span class="sub-score-value">${breakdown.relevanceScore?.toFixed(1) || 0}/20</span>
+          </div>
+        `;
+      }
+
+      if (breakdown.qualityScore !== undefined) {
+        const qualityWeight = (breakdown.qualityWeight || 0.2) * 100;
+        scoresHtml += `
+          <div class="sub-score-item">
+            <span class="sub-score-label">名称质量 (${qualityWeight.toFixed(0)}%)</span>
+            <div class="sub-score-bar">
+              <div class="sub-score-fill" style="width: ${(breakdown.qualityScore / 20 * 100)}%"></div>
+            </div>
+            <span class="sub-score-value">${breakdown.qualityScore?.toFixed(1) || 0}/20</span>
+          </div>
+        `;
+      }
+
+      scoresHtml += '</div>';
     }
 
-    // 详细分解
-    let breakdownHtml = '';
-    if (parsed.breakdown) {
-      const bd = parsed.breakdown;
-      breakdownHtml = `
-        <div class="sub-scores">
-          <div class="sub-score-item">
-            <span class="sub-score-label">事件传播 (${(bd.eventWeight * 100).toFixed(0)}%)</span>
-            <div class="sub-score-bar">
-              <div class="sub-score-fill" style="width: ${(bd.eventScore / 60 * 100)}%"></div>
-            </div>
-            <span class="sub-score-value">${bd.eventScore?.toFixed(1) || 0}/60</span>
-          </div>
-          <div class="sub-score-item">
-            <span class="sub-score-label">关联强度 (${(bd.relevanceWeight * 100).toFixed(0)}%)</span>
-            <div class="sub-score-bar">
-              <div class="sub-score-fill" style="width: ${(bd.relevanceScore / 20 * 100)}%"></div>
-            </div>
-            <span class="sub-score-value">${bd.relevanceScore?.toFixed(1) || 0}/20</span>
-          </div>
-          <div class="sub-score-item">
-            <span class="sub-score-label">名称质量 (${(bd.qualityWeight * 100).toFixed(0)}%)</span>
-            <div class="sub-score-bar">
-              <div class="sub-score-fill" style="width: ${(bd.qualityScore / 20 * 100)}%"></div>
-            </div>
-            <span class="sub-score-value">${bd.qualityScore?.toFixed(1) || 0}/20</span>
-          </div>
+    // 计算说明
+    if (breakdown.eventScore !== undefined && breakdown.relevanceScore !== undefined && breakdown.qualityScore !== undefined) {
+      // 新格式：eventScore 是 Stage 2 原始分，需要乘以权重
+      // relevanceScore 和 qualityScore 是最终得分（满分20），直接使用
+      const eventPart = (breakdown.eventScore * (breakdown.eventWeight || 0.6)).toFixed(1);
+      const relevancePart = breakdown.relevanceScore.toFixed(1);
+      const qualityPart = breakdown.qualityScore.toFixed(1);
+
+      scoresHtml += `
+        <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 12px; text-align: center;">
+          <strong>综合计算：</strong>事件分${breakdown.eventScore}×0.6=${eventPart} + 关联分${relevancePart} + 质量分${qualityPart} = 总分${totalScore}分
         </div>
       `;
     }
 
     // 理由
-    const reasoningHtml = parsed.reasoning ? `
+    const reasoningHtml = reasoning ? `
       <div style="margin-top: 16px; padding: 14px; background: #f8f9fa; border-radius: 8px; font-size: 14px; line-height: 1.6;">
         <strong>分析理由：</strong><br>
-        ${parsed.reasoning}
+        ${reasoning}
       </div>
     ` : '';
+
+    console.log('[NarrativeAnalyzer] Stage 3 HTML parts:', {
+      hasScoresHtml: scoresHtml.length > 0,
+      hasReasoningHtml: reasoningHtml.length > 0,
+      scoresLength: scoresHtml.length,
+      reasoningLength: reasoningHtml.length
+    });
 
     // 耗时
     let timingHtml = '';
@@ -1207,6 +1411,8 @@ class NarrativeAnalyzer {
       }
     }
 
+    console.log('[NarrativeAnalyzer] About to set stage3CardBody.innerHTML, element:', this.stage3CardBody);
+
     this.stage3CardBody.innerHTML = `
       <div style="text-align: center; margin-bottom: 16px;">
         <span style="font-size: 36px;">${config.icon}</span>
@@ -1215,11 +1421,16 @@ class NarrativeAnalyzer {
         </div>
       </div>
       ${scoresHtml}
-      ${breakdownHtml}
       ${reasoningHtml}
       ${timingHtml}
       ${llmDetailsHtml}
     `;
+
+    console.log('[NarrativeAnalyzer] stage3CardBody.innerHTML set, length:', this.stage3CardBody.innerHTML.length);
+  } catch (error) {
+    console.error('[NarrativeAnalyzer] Error in updateStage3Card:', error);
+    console.error('[NarrativeAnalyzer] Error stack:', error.stack);
+  }
   }
 
   updateDataSourceCard(debugInfo, classifiedUrls) {

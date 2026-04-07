@@ -534,7 +534,7 @@ export class NarrativeAnalyzer {
     // 注意：只保存 twitter_info，微博等背景信息不保存（已缓存到 external_resource_cache）
 
     // 清理数据中的空字符和控制字符（PostgreSQL不支持）
-    const cleanedTwitterInfo = cleanDataForDB(twitterInfo);
+    const cleanedTwitterInfo = this._cleanDataForDB(twitterInfo);
 
     const saveResult = await NarrativeRepository.save({
       // === 基础字段 ===
@@ -700,25 +700,6 @@ export class NarrativeAnalyzer {
       }
     };
   }
-
-  /**
-   * 格式化返回结果（静态方法，供路由使用）
-   * @param {Object} record - 数据库记录
-   * @returns {Object} 格式化后的结果
-   */
-  static formatResult(record) {
-    return formatResult(record);
-  }
-
-  /**
-   * 构建 LLM 分析对象（静态方法，供路由使用）
-   * @param {Object} record - 数据库记录
-   * @returns {Object} LLM 分析对象
-   */
-  static buildLLMAnalysis(record) {
-    return buildLLMAnalysis(record);
-  }
-
   static async analyzeBatch(addresses) {
     const results = [];
     for (const address of addresses) {
@@ -731,4 +712,27 @@ export class NarrativeAnalyzer {
     }
     return results;
   }
+}
+
+/**
+ * 获取TikTok影响力等级
+ * @param {Object} tiktokInfo - TikTok视频信息
+ * @returns {string} 影响力等级
+ */
+  } else if (viewCount >= 100000 || likeCount >= 10000) {
+    return 'platform'; // 平台级：10万播放或1万点赞
+  } else if (viewCount >= 10000 || likeCount >= 1000) {
+    return 'community'; // 社区级：1万播放或1000点赞
+  } else {
+    return 'niche'; // 小众：低于1万播放且1000点赞
+  }
+}
+
+/**
+ * 获取TikTok影响力等级描述
+ * @param {string} level - 影响力等级
+ * @returns {string} 描述
+ */
+  };
+  return descriptions[level] || '未知影响力';
 }

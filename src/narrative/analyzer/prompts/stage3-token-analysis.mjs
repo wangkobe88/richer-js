@@ -69,20 +69,20 @@ ${stage1Output?.propertyMarkers ? `
 
 📋 **Stage 2：分类评分结果**
 
-${stage2Output?.pass ? '✅ 通过' : '❌ 未通过'}
-${stage2Output?.blockReason ? `阻断原因：${stage2Output.blockReason}` : ''}
+${stage2Output?.raw?.pass ? '✅ 通过' : '❌ 未通过'}
+${stage2Output?.raw?.blockReason ? `阻断原因：${stage2Output.raw.blockReason}` : ''}
 
 【分类分析】
-- 类别：${stage2Output?.categoryAnalysis?.category || '未知'}（${stage2Output?.categoryAnalysis?.categoryName || ''}）
-- 分量等级：${stage2Output?.categoryAnalysis?.magnitudeLevel || '未知'}
-- 基础分数：${stage2Output?.categoryAnalysis?.magnitudeScore || 0}
-- 权重分数：${stage2Output?.categoryAnalysis?.weightScore || 0}
-- 时效性分数：${stage2Output?.categoryAnalysis?.timelinessScore || 0}
-- **总分**：${stage2Output?.categoryAnalysis?.totalScore || 0}/100
+- 类别：${stage2Output?.raw?.categoryAnalysis?.category || '未知'}（${stage2Output?.raw?.categoryAnalysis?.categoryName || ''}）
+- 分量等级：${stage2Output?.raw?.categoryAnalysis?.magnitudeLevel || '未知'}
+- 基础分数：${stage2Output?.raw?.categoryAnalysis?.magnitudeScore || 0}
+- 权重分数：${stage2Output?.raw?.categoryAnalysis?.weightScore || 0}
+- 时效性分数：${stage2Output?.raw?.categoryAnalysis?.timelinessScore || 0}
+- **总分**：${stage2Output?.raw?.categoryAnalysis?.totalScore || 0}/100
 
 【阻断检查】
-- 触发的阻断：${stage2Output?.blockChecks?.hardBlocks?.join(', ') || '无'}
-- 通过的检查：${stage2Output?.blockChecks?.passedChecks?.join(', ') || '无'}
+- 触发的阻断：${stage2Output?.raw?.blockChecks?.hardBlocks?.join(', ') || '无'}
+- 通过的检查：${stage2Output?.raw?.blockChecks?.passedChecks?.join(', ') || '无'}
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                           Stage 3：代币分析框架                                ║
@@ -174,16 +174,20 @@ ${stage2Output?.blockReason ? `阻断原因：${stage2Output.blockReason}` : ''}
 📋 **第三步：综合评分**
 
 **计算公式**：
-- 事件分 = Stage 2总分 × 60%
-- 关联分 = 第一步关联性得分 × 20%
-- 质量分 = 第二步质量得分 × 20%
+- 事件分 = Stage 2总分 × 60%（权重0.6）
+- 关联分 = 第一步关联性得分（满分20，直接计入）
+- 质量分 = 第二步质量得分（满分20，直接计入）
 - **总分 = 事件分 + 关联分 + 质量分**
 
 **示例**：
 - 事件分：85 × 0.6 = 51
-- 关联分：20 × 0.2 = 4
-- 质量分：15 × 0.2 = 3
-- **总分 = 51 + 4 + 3 = 58**
+- 关联分：20（精确匹配，满分直接计入）
+- 质量分：15（质量较高）
+- **总分 = 51 + 20 + 15 = 86**
+
+⚠️ **重要提示**：
+- 关联分和质量分已经是最终得分（满分20），不要乘以权重
+- breakdown 中填写的 relevanceScore 和 qualityScore 应该是最终得分（如20、15等），不是乘以权重后的值
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -202,11 +206,11 @@ ${stage2Output?.blockReason ? `阻断原因：${stage2Output.blockReason}` : ''}
   "relevanceScore": 关联分,
   "qualityScore": 质量分,
   "breakdown": {
-    "eventScore": 事件分,
+    "eventScore": Stage2原始总分（未乘权重，如85）,
     "eventWeight": 0.6,
-    "relevanceScore": 关联分,
+    "relevanceScore": 关联分最终得分（满分20，如20、18、15等，不要乘以权重）,
     "relevanceWeight": 0.2,
-    "qualityScore": 质量分,
+    "qualityScore": 质量分最终得分（满分20，如18、15、12等，不要乘以权重）,
     "qualityWeight": 0.2
   }
 }

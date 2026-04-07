@@ -69,6 +69,8 @@ router.get('/result/:address', async (req, res) => {
 
     // 使用formatResult格式化数据，与analyze接口保持一致
     const formattedResult = Analyzer.formatResult(result);
+    // 添加llmAnalysis字段供前端使用
+    formattedResult.llmAnalysis = Analyzer.buildLLMAnalysis(result);
 
     res.json({
       success: true,
@@ -118,10 +120,10 @@ router.get('/list', async (req, res) => {
 router.get('/token/:address', async (req, res) => {
   try {
     const { address } = req.params;
-    const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
+    const { fetchTokenData } = await import('../../narrative/analyzer/services/token-info-service.mjs');
 
-    // 使用静态方法 fetchTokenData 获取代币数据
-    const tokenData = await NarrativeAnalyzer.fetchTokenData(address);
+    // 使用 fetchTokenData 获取代币数据
+    const tokenData = await fetchTokenData(address);
 
     if (!tokenData) {
       return res.status(404).json({

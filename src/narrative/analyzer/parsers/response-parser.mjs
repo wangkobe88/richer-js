@@ -274,6 +274,110 @@ export function parseJSONResponse(content) {
 }
 
 /**
+ * 从数据库记录构造 llmAnalysis 对象
+ * @param {Object} record - 数据库记录
+ * @returns {Object} llmAnalysis 对象
+ */
+export function buildLLMAnalysis(record) {
+  if (!record) return null;
+
+  // 预检查数据
+  const preCheck = record.pre_check_category ? {
+    category: record.pre_check_category,
+    reason: record.pre_check_reason,
+    result: record.pre_check_result
+  } : null;
+
+  // PreStage 数据
+  const prestage = record.llm_prestage_category ? {
+    category: record.llm_prestage_category,
+    parsedOutput: record.llm_prestage_parsed_output,
+    model: record.llm_prestage_model,
+    prompt: record.llm_prestage_prompt,
+    rawOutput: record.llm_prestage_raw_output,
+    startedAt: record.llm_prestage_started_at,
+    finishedAt: record.llm_prestage_finished_at,
+    success: record.llm_prestage_success,
+    error: record.llm_prestage_error
+  } : null;
+
+  // Stage 1 数据
+  const stage1 = (record.llm_stage1_parsed_output || record.llm_stage1_category) ? {
+    category: record.llm_stage1_category || record.llm_stage1_parsed_output?.eventClassification?.primaryCategory || record.llm_stage1_parsed_output?.category,
+    parsedOutput: record.llm_stage1_parsed_output,
+    model: record.llm_stage1_model,
+    prompt: record.llm_stage1_prompt,
+    rawOutput: record.llm_stage1_raw_output,
+    startedAt: record.llm_stage1_started_at,
+    finishedAt: record.llm_stage1_finished_at,
+    success: record.llm_stage1_success,
+    error: record.llm_stage1_error
+  } : null;
+
+  // Stage 2 数据
+  const stage2 = (record.llm_stage2_parsed_output || record.llm_stage2_category) ? {
+    category: record.llm_stage2_category || record.llm_stage2_parsed_output?.raw?.categoryAnalysis?.category || record.llm_stage2_parsed_output?.category,
+    parsedOutput: record.llm_stage2_parsed_output,
+    model: record.llm_stage2_model,
+    prompt: record.llm_stage2_prompt,
+    rawOutput: record.llm_stage2_raw_output,
+    startedAt: record.llm_stage2_started_at,
+    finishedAt: record.llm_stage2_finished_at,
+    success: record.llm_stage2_success,
+    error: record.llm_stage2_error
+  } : null;
+
+  // Stage 3 数据 - 只要有 parsed_output 就认为 stage3 存在
+  const stage3 = (record.llm_stage3_parsed_output || record.llm_stage3_category) ? {
+    category: record.llm_stage3_category || record.llm_stage3_parsed_output?.raw?.category || record.llm_stage3_parsed_output?.category,
+    parsedOutput: record.llm_stage3_parsed_output,
+    model: record.llm_stage3_model,
+    prompt: record.llm_stage3_prompt,
+    rawOutput: record.llm_stage3_raw_output,
+    startedAt: record.llm_stage3_started_at,
+    finishedAt: record.llm_stage3_finished_at,
+    success: record.llm_stage3_success,
+    error: record.llm_stage3_error
+  } : null;
+
+  // 获取最终评级和评分 - 优先使用最后执行的阶段
+  // 三阶段架构：优先级应该是 stage3 > stage2 > stage1 > prestage
+  // 注意：需要从 parsed_output.raw 中获取正确的 category
+  const stage3Category = record.llm_stage3_parsed_output?.raw?.category || record.llm_stage3_category;
+  const stage2Category = record.llm_stage2_parsed_output?.raw?.categoryAnalysis?.category || record.llm_stage2_category;
+  const stage1Category = record.llm_stage1_parsed_output?.eventClassification?.primaryCategory || record.llm_stage1_category;
+  const prestageCategory = record.llm_prestage_parsed_output?.tokenType || record.llm_prestage_category;
+
+  const category = stage3Category || stage2Category || stage1Category || prestageCategory || 'unrated';
+  const parsedOutput = record.llm_stage3_parsed_output || record.llm_stage2_parsed_output || record.llm_stage1_parsed_output || record.llm_prestage_parsed_output;
+
+  let reasoning = '';
+  if (parsedOutput) {
+    if (parsedOutput.reasoning) {
+      reasoning = parsedOutput.reasoning;
+    } else if (parsedOutput.reason) {
+      reasoning = parsedOutput.reason;
+    }
+  }
+
+  const summary = {
+    category: category,
+    reasoning: reasoning,
+    total_score: parsedOutput?.total_score,
+    scores: parsedOutput?.scores
+  };
+
+  return {
+    preCheck,
+    prestage,
+    stage1,
+    stage2,
+    stage3,
+    summary
+  };
+}
+
+/**
  * 格式化返回结果
  * @param {Object} record - 数据库记录
  * @returns {Object} 格式化后的结果
@@ -289,7 +393,7 @@ export function formatResult(record) {
       name: record.raw_api_data?.name || record.token_symbol || '',
       icon: (record.raw_api_data?.name || record.token_symbol || '?')[0]?.toUpperCase()
     },
-    category: record.llm_prestage_category || record.llm_stage1_category || record.llm_stage2_category || record.llm_stage3_category || 'unrated',
+    category: record.llm_stage3_category || record.llm_stage2_category || record.llm_stage1_category || record.llm_prestage_category || 'unrated',
     reasoning: '',
     scores: null,
     total_score: null,

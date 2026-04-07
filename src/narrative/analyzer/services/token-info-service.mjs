@@ -3,7 +3,7 @@
  * 处理代币数据获取和信息提取
  */
 
-import dbManager from '../../../services/dbManager.js';
+import { dbManager } from '../../../services/dbManager.js';
 import { cleanSymbol } from '../utils/narrative-utils.mjs';
 
 /**

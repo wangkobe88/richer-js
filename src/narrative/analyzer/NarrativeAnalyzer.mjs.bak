@@ -1,0 +1,2698 @@
+/**
+ * 叙事分析器
+ * 核心服务：协调各组件完成叙事分析
+ */
+
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { NarrativeRepository } from '../db/NarrativeRepository.mjs';
+import { TwitterFetcher } from '../utils/twitter-fetcher.mjs';
+import { TwitterMediaExtractor } from '../utils/twitter-media-extractor.mjs';
+import { ImageDownloader } from '../utils/image-downloader.mjs';
+import { WeiboFetcher, WeiboExtractor } from '../utils/weibo-fetcher.mjs';
+import { GithubFetcher } from '../utils/github-fetcher.mjs';
+import { YoutubeFetcher } from '../utils/youtube-fetcher.mjs';
+import { DouyinFetcher } from '../utils/douyin-fetcher.mjs';
+import { BilibiliFetcher } from '../utils/bilibili-fetcher.mjs';
+import { XiaohongshuFetcher } from '../utils/xiaohongshu-fetcher.mjs';
+import { fetchTikTokVideoInfo, isTikTokUrl } from '../utils/tiktok-fetcher.mjs';
+import { WeixinFetcher } from '../utils/weixin-fetcher.mjs';
+import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils/web-fetcher.mjs';
+import { fetchProductInfo, getInfluenceLevel, getInfluenceDescription } from '../utils/amazon-fetcher.mjs';
+import { PromptBuilder } from './prompt-builder.mjs';
+import { LLMClient } from './llm-client.mjs';
+import { extractAllUrls, classifyAllUrls, selectBestUrls } from '../utils/url-classifier.mjs';
+import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from './prompts/account-backgrounds.mjs';
+import { fetchCommunityForTweet } from '../../utils/twitter-validation/communities-api.js';
+import { getLogger } from '../core/logger.mjs';
+
+// 新增：从拆分的模块导入
+import { cleanSymbol, getVisualLength, hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis } from './utils/narrative-utils.mjs';
+import { detectLanguage, standardizeTranslatedNames } from './utils/language-utils.mjs';
+import { cleanDataForDB } from './utils/data-cleaner.mjs';
+import { parseStage1Response, parseEventResponse, parseJSONResponse, formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
+import { performPreCheck } from './services/pre-check-service.mjs';
+import { fetchAllDataViaClassifier, fetchDataSequentially, recordDataFetch } from './services/data-fetch-service.mjs';
+import { fetchTokenData, extractInfo, checkBinanceRelated } from './services/token-info-service.mjs';
+import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken } from './services/account-analysis-service.mjs';
+import { analyzeMemeTokenTwoStage, analyzeImagesForHighInfluenceAccount } from './services/meme-analysis-service.mjs';
+import { saveStage1Data, saveStage2Data } from './services/stage-data-service.mjs';
+import { callLLMAPI } from './llm/llm-api-client.mjs';
+
+// 获取supabase客户端
+const getSupabase = () => NarrativeRepository.getSupabase();
+
+// 获取日志实例
+const logger = getLogger();
+
+// 读取配置文件
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const configPath = join(__dirname, '../../../config/default.json');
+const config = JSON.parse(readFileSync(configPath, 'utf-8'));
+
+// 叙事分析配置
+const NARRATIVE_CONFIG = config.narrative || {
+  enableImageAnalysis: false,
+  enableVideoAnalysis: false,
+  twitterBlacklist: [],
+  expiredTweetDaysThreshold: 14
+};
+
+export class NarrativeAnalyzer {
+
+  /**
+   * 分析代币叙事（带缓存）
+   * @param {string} address - 代币地址
+   * @param {Object} options - 选项
+   * @param {boolean} options.ignoreCache - 是否忽略缓存，强制重新分析
+   * @param {boolean} options.ignoreExpired - 是否忽略过期时间限制
+   * @param {string} options.experimentId - 实验ID，用于标识数据来源
+   */
+  static async analyze(address, options = {}) {
+    const { ignoreCache = false, ignoreExpired = false, experimentId = null } = options;
+
+    // 标准化地址
+    const normalizedAddress = address.toLowerCase();
+
+    // 1. 检查缓存（查询最新的记录，任何实验的都可以）
+    const cached = await NarrativeRepository.findByAddress(normalizedAddress);
+
+    // 2. 判断是否可以使用缓存
+    if (cached && cached.is_valid) {
+      if (!ignoreCache) {
+        // ===== 不设置重新分析（ignoreCache=false）=====
+        // 直接使用已有的分析结果（任何实验的都可以）
+        // 检查是否是预检查触发的结果
+        const isCachedPreCheck = !!cached.pre_check_result;
+        const llmAnalysis = buildLLMAnalysis(cached);
+        return {
+          ...formatResult(cached),
+          llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段
+          meta: {
+            fromCache: true,
+            fromFallback: false,
+            preCheckTriggered: isCachedPreCheck,
+            preCheckReason: isCachedPreCheck ? cached.pre_check_reason : null,
+            analyzedAt: cached.analyzed_at,
+            sourceExperimentId: cached.experiment_id
+          }
+        };
+      } else {
+        // ===== 设置了重新分析（ignoreCache=true）=====
+        // 检查缓存的 experiment_id 是否是当前实验
+        // 只有当 experimentId 明确指定且与缓存的 experiment_id 匹配时，才使用缓存
+        if (experimentId && cached.experiment_id === experimentId) {
+          // 缓存是当前实验的 → 说明本实验已经分析过这个代币了
+          // 直接使用缓存，不再重复分析
+          const llmAnalysis = buildLLMAnalysis(cached);
+          return {
+            ...formatResult(cached),
+            llmAnalysis: llmAnalysis  // 添加 llmAnalysis 字段
+          };
+        }
+        // 缓存是别的实验的（或 experiment_id 为空）或 experimentId 未指定
+        // → 需要重新分析，保存时带上当前 experiment_id
+        // 这样后续再遇到这个代币时，就会命中本实验的缓存
+      }
+    }
+
+    // 3. 执行叙事分析（缓存未命中 或 需要重新分析）
+    // 分析结果会保存时带上当前 experiment_id，用于后续缓存判断
+
+    // 2. 从数据库获取代币数据
+    const tokenData = await fetchTokenData(normalizedAddress);
+    if (!tokenData) {
+      throw new Error('代币不存在');
+    }
+
+    // 3. 提取结构化信息
+    const extractedInfo = extractInfo(tokenData);
+
+    // 准备数据收集变量
+    let prestageDataToSave = null;  // 前置LLM阶段（账号/社区分析判断币种类型）
+    let preCheckDataToSave = null;
+    let urlExtractionResult = null;
+    let dataFetchResults = null;
+
+    // 4. 使用URL分类器统一获取所有数据
+    logger.info('NarrativeAnalyzer', '开始使用URL分类器获取数据');
+    const {
+      twitterInfo,
+      websiteInfo,
+      backgroundInfo,
+      githubInfo,
+      youtubeInfo,
+      douyinInfo,
+      tiktokInfo,
+      bilibiliInfo,
+      weixinInfo,
+      amazonInfo,
+      classifiedUrls,
+      fetchErrors,  // 获取数据收集的错误信息
+      url_extraction_result,  // URL提取结果
+      data_fetch_results  // 数据获取结果
+    } = await fetchAllDataViaClassifier(tokenData, extractedInfo);
+
+    // 保存URL提取和数据获取结果
+    urlExtractionResult = url_extraction_result;
+    dataFetchResults = data_fetch_results;
+
+    logger.info('NarrativeAnalyzer', '数据获取完成');
+
+    // 新增：如果有独立网站，收集所有相关账号的完整信息
+    let relatedAccounts = [];
+    const hasIndependentWebsiteResult = hasIndependentWebsite(classifiedUrls);
+    logger.info('NarrativeAnalyzer', '独立网站检测结果', { hasIndependentWebsite: hasIndependentWebsiteResult, classifiedUrls: classifiedUrls?.websites?.length });
+    logger.info('NarrativeAnalyzer', 'twitterInfo 信息', {
+      hasTwitterInfo: !!twitterInfo,
+      twitterType: twitterInfo?.type,
+      twitterScreenName: twitterInfo?.screen_name,
+      hasInReplyTo: !!twitterInfo?.in_reply_to
+    });
+
+    // 检查是否应该收集账号信息：有独立网站 且 有Twitter相关信息（account/community/tweet）
+    const shouldCollectAccounts = hasIndependentWebsiteResult && twitterInfo &&
+      (twitterInfo.type === 'account' || twitterInfo.type === 'community' || twitterInfo.type === 'tweet');
+
+    if (shouldCollectAccounts) {
+      logger.info('NarrativeAnalyzer', '检测到独立网站，开始收集所有账号信息', {
+        twitterType: twitterInfo.type,
+        twitterScreenName: twitterInfo.screen_name,
+        hasInReplyTo: !!twitterInfo.in_reply_to
+      });
+      relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo);
+      logger.info('NarrativeAnalyzer', '账号信息收集完成', { count: relatedAccounts.length });
+    }
+
+    // 7. 预检查规则（不调用LLM，直接返回结果）
+    const preCheckResult = await performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo }, githubInfo, backgroundInfo, { ignoreExpired });
+    let isPreCheckTriggered = preCheckResult !== null;
+
+    let llmResult;
+    let promptUsed = '';
+    let promptType = '';
+    let analysisFailed = false;
+    let stage1DataToSave = null;
+    let stage2DataToSave = null;
+    let stage3DataToSave = null;
+
+    if (isPreCheckTriggered) {
+      // 预检查触发，使用预设结果
+      logger.info('NarrativeAnalyzer', '预检查触发，跳过LLM分析');
+
+      // 收集预检查数据
+      preCheckDataToSave = {
+        category: preCheckResult.category,
+        reason: preCheckResult.preCheckReason,
+        result: preCheckResult
+      };
+
+      llmResult = {
+        ...preCheckResult,
+        raw: null // 预检查结果没有原始LLM输出
+      };
+      // 预检查结果也记录prompt类型（用于后续判断）
+      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls, relatedAccounts };
+      promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
+      // 预检查时不构建Prompt（不需要）
+      promptUsed = null;
+    } else {
+      // 8. 正常流程：两阶段分析
+      try {
+        // twitterInfo已包含website_tweet（如果有第二个推文）
+        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls, relatedAccounts };
+
+        // 检查是否有任何有效数据供分析
+        const hasAnyData = hasValidDataForAnalysis(fetchResults);
+        if (!hasAnyData) {
+          logger.warn('NarrativeAnalyzer', '没有有效数据可供分析，返回unrated');
+          llmResult = {
+            category: 'unrated',
+            reasoning: '没有可用的数据进行分析（所有推文/内容获取失败）',
+            scores: null,
+            total_score: null,
+            raw: null
+          };
+          promptUsed = null;
+          promptType = 'no_data';
+          analysisFailed = false;
+        } else {
+          // 检查是否应该使用账号/社区分析流程
+          const shouldUseAccountCommunity = shouldUseAccountCommunityAnalysis(fetchResults);
+
+          if (shouldUseAccountCommunity) {
+            logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');
+            const analysisResult = await analyzeAccountCommunityToken(tokenData, fetchResults, {
+              callLLMAPI,
+              analyzeMemeTokenTwoStage
+            });
+
+            // 检查是否是规则验证失败（返回preCheckData）
+            if (analysisResult.preCheckData) {
+              // 规则验证失败，按预检查处理
+              llmResult = {
+                category: analysisResult.category,
+                reasoning: analysisResult.reasoning,
+                scores: analysisResult.scores,
+                total_score: analysisResult.total_score
+              };
+              promptUsed = 'rules_validation';
+              promptType = 'precheck';
+              analysisFailed = false;
+              isPreCheckTriggered = true;
+
+              // 保存到预检查字段
+              preCheckDataToSave = {
+                category: analysisResult.preCheckData.category,
+                reason: analysisResult.preCheckData.reason,
+                result: analysisResult.preCheckData.result
+              };
+            } else if (analysisResult.stage1Data) {
+              // meme币分流：使用stage2Data作为最终结果（如果有）
+              llmResult = {
+                category: analysisResult.category,
+                reasoning: analysisResult.reasoning,
+                scores: analysisResult.scores,
+                total_score: analysisResult.total_score
+              };
+              promptUsed = analysisResult.stage2Data?.prompt || analysisResult.stage1Data.prompt || 'meme_two_stage';
+              promptType = 'meme_two_stage';
+              analysisFailed = false;
+
+              // 保存前置LLM数据（账号/社区分析判断币种类型）
+              prestageDataToSave = analysisResult.prestageData;
+              // 保存两阶段数据到stage1和stage2字段（stage2Data可能为null）
+              stage1DataToSave = analysisResult.stage1Data;
+              stage2DataToSave = analysisResult.stage2Data;
+            } else {
+              // 项目币或Web3原生IP早期：前置LLM判断结果
+              llmResult = {
+                category: analysisResult.category,
+                reasoning: analysisResult.reasoning,
+                scores: analysisResult.scores,
+                total_score: analysisResult.total_score
+              };
+              promptUsed = analysisResult.prestageData?.prompt || 'account_community_analysis';
+              promptType = 'account_community';
+              analysisFailed = false;
+
+              // 保存前置LLM数据（账号/社区分析判断币种类型）
+              prestageDataToSave = analysisResult.prestageData;
+
+              // 对于 unrated 类别（如 Web3 原生 IP 早期），显式清除旧的 stage1/stage2 数据
+              if (analysisResult.category === 'unrated') {
+                // 使用特殊标记对象指示需要清除旧数据
+                stage1DataToSave = { __clear: true };
+                stage2DataToSave = { __clear: true };
+              }
+            }
+          } else {
+            logger.info('NarrativeAnalyzer', '使用3阶段架构：Stage1事件预处理 + Stage2分类评分 + Stage3代币分析');
+
+            // ========== Stage 1: 事件预处理 ==========
+            logger.debug('NarrativeAnalyzer', '开始Stage 1：事件预处理');
+            const stage1Prompt = PromptBuilder.buildStage1Preprocessing(tokenData, fetchResults);
+            const stage1PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 1);
+            logger.debug('NarrativeAnalyzer', `Stage 1 Prompt类型: ${stage1PromptType}`);
+
+            // Stage 1：调用API获取原始响应（带元数据）
+            const stage1CallResult = await callLLMAPI(stage1Prompt);
+
+            // 检查Stage 1是否成功
+            if (!stage1CallResult.success) {
+              throw new Error(`Stage 1 LLM调用失败: ${stage1CallResult.error}`);
+            }
+
+            const stage1Data = parseJSONResponse(stage1CallResult.content);
+
+            if (!stage1Data.pass) {
+              // Stage 1未通过，直接返回
+              logger.info('Stage1', '事件预处理未通过', {
+                reason: stage1Data.reason
+              });
+
+              llmResult = {
+                category: 'low',
+                reasoning: stage1Data.reason,
+                scores: null,
+                total_score: null
+              };
+
+              // 收集Stage 1数据（存储到stage1字段）
+              stage1DataToSave = {
+                category: 'low',
+                model: stage1CallResult.model,
+                prompt: stage1Prompt,
+                raw_output: stage1CallResult.content,
+                parsed_output: stage1Data,
+                started_at: stage1CallResult.startedAt,
+                finished_at: stage1CallResult.finishedAt,
+                success: stage1CallResult.success,
+                error: stage1CallResult.error
+              };
+
+              promptType = stage1PromptType;
+            } else {
+              // Stage 1通过，进入Stage 2
+              logger.info('Stage1', '事件预处理通过', {
+                eventTheme: stage1Data.eventDescription?.eventTheme,
+                primaryCategory: stage1Data.eventClassification?.primaryCategory
+              });
+
+              // 保存Stage 1数据（即使后续Stage失败，Stage1数据也应该被保存）
+              stage1DataToSave = {
+                category: stage1Data.eventClassification?.primaryCategory || null,
+                model: stage1CallResult.model,
+                prompt: stage1Prompt,
+                raw_output: stage1CallResult.content,
+                parsed_output: stage1Data,
+                started_at: stage1CallResult.startedAt,
+                finished_at: stage1CallResult.finishedAt,
+                success: stage1CallResult.success,
+                error: stage1CallResult.error
+              };
+
+              // ========== Stage 2: 分类评分 ==========
+              logger.debug('NarrativeAnalyzer', '开始Stage 2：分类评分');
+              const stage2Prompt = await PromptBuilder.buildStage2Scoring(
+                stage1Data.eventDescription,
+                stage1Data.eventClassification
+              );
+              logger.debug('NarrativeAnalyzer', `Stage 2 Prompt类型: 分类特定（${stage1Data.eventClassification?.primaryCategory}类）`);
+
+              // Stage 2：调用API（带元数据）
+              const stage2CallResult = await LLMClient.analyzeWithMetadata(stage2Prompt);
+
+              // 检查 Stage 2 调用是否成功
+              if (!stage2CallResult.success) {
+                throw new Error(`Stage 2 LLM调用失败: ${stage2CallResult.error}`);
+              }
+
+              // 收集Stage 2数据
+              // analyzeWithMetadata 返回的 raw 包含 { raw: 原始响应, ...parsed }
+              const stage2RawContent = stage2CallResult.raw?.raw?.raw || stage2CallResult.raw?.raw;
+              if (!stage2RawContent) {
+                throw new Error('Stage 2 LLM返回数据为空');
+              }
+
+              // 使用 parseResponse 的结果（已支持新格式）
+              const stage2Data = stage2CallResult.parsed || {};
+              // 调试日志：打印 stage2Data 的关键信息
+              console.log('[NarrativeAnalyzer] Stage 2 解析结果:', JSON.stringify({
+                hasPass: typeof stage2Data.pass !== 'undefined',
+                pass: stage2Data.pass,
+                hasCategory: !!stage2Data.category,
+                category: stage2Data.category,
+                hasTotalScore: !!stage2Data.total_score,
+                totalScore: stage2Data.total_score,
+                hasBlockReason: !!stage2Data.blockReason,
+                blockReason: stage2Data.blockReason
+              }));
+              stage2DataToSave = {
+                category: stage2Data.categoryAnalysis?.category || stage2CallResult.parsed?.category || null,
+                model: stage2CallResult.model,
+                prompt: stage2Prompt,
+                raw_output: stage2RawContent,
+                parsed_output: stage2Data,
+                started_at: stage2CallResult.startedAt,
+                finished_at: stage2CallResult.finishedAt,
+                success: stage2CallResult.success,
+                error: stage2CallResult.error
+              };
+
+              // 检查Stage 2是否成功
+              if (!stage2CallResult.success || !stage2Data.pass) {
+                // Stage 2失败或未通过
+                const failReason = !stage2CallResult.success ? stage2CallResult.error : stage2Data.blockReason;
+                logger.warn('NarrativeAnalyzer', `Stage 2 ${!stage2CallResult.success ? '失败' : '未通过'}: ${failReason}`);
+
+                llmResult = {
+                  category: stage2Data.categoryAnalysis?.category || 'unrated',
+                  reasoning: `Stage 1通过，但Stage 2${!stage2CallResult.success ? '失败' : '未通过'}: ${failReason}`,
+                  scores: stage2Data.categoryAnalysis ? { total_score: stage2Data.categoryAnalysis.totalScore } : null,
+                  total_score: stage2Data.categoryAnalysis?.totalScore || null,
+                  analysis_stage: 2
+                };
+
+                promptType = `stage1+stage2(${stage1Data.eventClassification?.primaryCategory}类)`;
+              } else {
+                // Stage 2通过，进入Stage 3
+                logger.info('Stage2', '分类评分通过', {
+                  category: stage2Data.categoryAnalysis?.category,
+                  totalScore: stage2Data.categoryAnalysis?.totalScore
+                });
+
+                // ========== Stage 3: 代币分析 ==========
+                logger.debug('NarrativeAnalyzer', '开始Stage 3：代币分析');
+                const stage3Prompt = PromptBuilder.buildStage3TokenAnalysis(
+                  tokenData,
+                  stage1Data,
+                  stage2Data
+                );
+                logger.debug('NarrativeAnalyzer', `Stage 3 Prompt类型: 代币分析（使用Stage1+2输出）`);
+
+                // Stage 3：调用API（带元数据）
+                const stage3CallResult = await LLMClient.analyzeWithMetadata(stage3Prompt);
+
+                // 检查 Stage 3 调用是否成功
+                if (!stage3CallResult.success) {
+                  throw new Error(`Stage 3 LLM调用失败: ${stage3CallResult.error}`);
+                }
+
+                // 收集Stage 3数据
+                // analyzeWithMetadata 返回的 raw 包含 { raw: 原始响应, ...parsed }
+                const stage3RawContent = stage3CallResult.raw?.raw?.raw || stage3CallResult.raw?.raw;
+
+                // 使用 parseResponse 的结果（已支持新格式）
+                const stage3Data = stage3CallResult.parsed || {};
+                stage3DataToSave = {
+                  category: stage3Data.category || stage3CallResult.parsed?.category || null,
+                  model: stage3CallResult.model,
+                  prompt: stage3Prompt,
+                  raw_output: stage3RawContent || stage3CallResult.raw?.raw || null,
+                  parsed_output: stage3Data,
+                  started_at: stage3CallResult.startedAt,
+                  finished_at: stage3CallResult.finishedAt,
+                  success: stage3CallResult.success,
+                  error: stage3CallResult.error
+                };
+
+                // 检查Stage 3是否成功
+                if (!stage3CallResult.success) {
+                  // Stage 3失败，但不抛出错误，而是设置llmResult为Stage 2的结果
+                  logger.warn('NarrativeAnalyzer', `Stage 3失败，使用Stage 2结果: ${stage3CallResult.error}`);
+                  llmResult = {
+                    category: stage2Data.categoryAnalysis?.category || 'unrated',
+                    reasoning: `Stage 1和Stage 2通过，但Stage 3失败: ${stage3CallResult.error}`,
+                    scores: stage2Data.categoryAnalysis ? { total_score: stage2Data.categoryAnalysis.totalScore } : null,
+                    total_score: stage2Data.categoryAnalysis?.totalScore || null,
+                    analysis_stage: 2
+                  };
+                } else {
+                  // Stage 3成功，使用完整的分析结果
+                  llmResult = {
+                    ...stage3Data,
+                    analysis_stage: 3
+                  };
+                }
+
+                promptType = `stage1+stage2(${stage1Data.eventClassification?.primaryCategory}类)+stage3`;
+              }
+            } // 关闭3阶段架构 else 分支（第334行的else）
+          } // 关闭hasAnyData的else分支（第267行的else）
+          }
+        } catch (error) {  // 关闭try块（第249行）
+        logger.error('NarrativeAnalyzer', 'LLM分析失败', { error: error.message });
+        llmResult = {
+          category: 'unrated',
+          reasoning: `分析失败: ${error.message}`,
+          scores: null,
+          total_score: null,
+          analysis_stage: 0
+        };
+        analysisFailed = true;
+      }
+    }
+
+    // 9. 如果分析失败且有缓存，使用缓存作为fallback
+    if (analysisFailed && cached && cached.is_valid) {
+      console.log(`分析失败，使用已有缓存作为fallback | address=${normalizedAddress}, cached_experiment=${cached.experiment_id}`);
+      return {
+        ...formatResult(cached),
+        meta: {
+          fromCache: true,
+          fromFallback: true, // 标记这是fallback缓存
+          analyzedAt: cached.analyzed_at,
+          sourceExperimentId: cached.experiment_id
+        }
+      };
+    }
+
+    // 9. 保存结果（包含 experiment_id 和 prompt_type）- 只有在分析成功时才保存
+    // 注意：只保存 twitter_info，微博等背景信息不保存（已缓存到 external_resource_cache）
+
+    // 清理数据中的空字符和控制字符（PostgreSQL不支持）
+    const cleanedTwitterInfo = this._cleanDataForDB(twitterInfo);
+
+    const saveResult = await NarrativeRepository.save({
+      // === 基础字段 ===
+      token_address: normalizedAddress,
+      token_symbol: tokenData.symbol,
+      raw_api_data: tokenData.raw_api_data,
+      extracted_info: extractedInfo,
+      twitter_info: cleanedTwitterInfo,
+      classified_urls: classifiedUrls,
+      analyzed_at: new Date().toISOString(),
+      experiment_id: experimentId,
+      is_valid: true, // 显式设置为true（分析成功后）
+      prompt_version: PromptBuilder.getPromptVersion(), // 保存当前prompt版本
+      analysis_stage: llmResult?.analysis_stage || null, // 添加分析阶段字段
+
+      // === 预检查字段（3个）===
+      pre_check_category: preCheckDataToSave?.category || null,
+      pre_check_reason: preCheckDataToSave?.reason || null,
+      pre_check_result: preCheckDataToSave?.result || null,
+
+      // === 前置LLM阶段字段（9个）- 账号/社区分析判断币种类型 ===
+      llm_prestage_category: prestageDataToSave?.category || null,
+      llm_prestage_model: prestageDataToSave?.model || null,
+      llm_prestage_prompt: prestageDataToSave?.prompt || null,
+      llm_prestage_raw_output: prestageDataToSave?.raw_output || null,
+      llm_prestage_parsed_output: prestageDataToSave?.parsed_output || null,
+      llm_prestage_started_at: prestageDataToSave?.started_at || null,
+      llm_prestage_finished_at: prestageDataToSave?.finished_at || null,
+      llm_prestage_success: prestageDataToSave?.success ?? null,
+      llm_prestage_error: prestageDataToSave?.error || null,
+
+      // === Stage 1 字段（9个）===
+      // 检查是否是清除标记
+      llm_stage1_parsed_output: (stage1DataToSave && stage1DataToSave.__clear) ? stage1DataToSave : (stage1DataToSave?.parsed_output || null),
+      llm_stage1_category: stage1DataToSave?.category || null,
+      llm_stage1_model: stage1DataToSave?.model || null,
+      llm_stage1_prompt: stage1DataToSave?.prompt || null,
+      llm_stage1_raw_output: stage1DataToSave?.raw_output || null,
+      llm_stage1_started_at: stage1DataToSave?.started_at || null,
+      llm_stage1_finished_at: stage1DataToSave?.finished_at || null,
+      llm_stage1_success: stage1DataToSave?.success ?? null,
+      llm_stage1_error: stage1DataToSave?.error || null,
+
+      // === Stage 2 字段（9个）===
+      // 检查是否是清除标记
+      llm_stage2_parsed_output: (stage2DataToSave && stage2DataToSave.__clear) ? stage2DataToSave : (stage2DataToSave?.parsed_output || null),
+      llm_stage2_category: stage2DataToSave?.category || null,
+      llm_stage2_model: stage2DataToSave?.model || null,
+      llm_stage2_prompt: stage2DataToSave?.prompt || null,
+      llm_stage2_raw_output: stage2DataToSave?.raw_output || null,
+      llm_stage2_started_at: stage2DataToSave?.started_at || null,
+      llm_stage2_finished_at: stage2DataToSave?.finished_at || null,
+      llm_stage2_success: stage2DataToSave?.success ?? null,
+      llm_stage2_error: stage2DataToSave?.error || null,
+
+      // === Stage 3 字段（9个）===
+      llm_stage3_parsed_output: stage3DataToSave?.parsed_output || null,
+      llm_stage3_category: stage3DataToSave?.category || null,
+      llm_stage3_model: stage3DataToSave?.model || null,
+      llm_stage3_prompt: stage3DataToSave?.prompt || null,
+      llm_stage3_raw_output: stage3DataToSave?.raw_output || null,
+      llm_stage3_started_at: stage3DataToSave?.started_at || null,
+      llm_stage3_finished_at: stage3DataToSave?.finished_at || null,
+      llm_stage3_success: stage3DataToSave?.success ?? null,
+      llm_stage3_error: stage3DataToSave?.error || null,
+
+      // === Debug字段（2个）===
+      url_extraction_result: urlExtractionResult || null,
+      data_fetch_results: dataFetchResults || null
+    });
+
+    // 构造 llmAnalysis 对象供前端使用
+    const llmAnalysis = {
+      preCheck: preCheckDataToSave ? {
+        category: preCheckDataToSave.category,
+        reason: preCheckDataToSave.reason,
+        result: preCheckDataToSave.result
+      } : null,
+      prestage: prestageDataToSave ? {
+        category: prestageDataToSave.category,
+        parsedOutput: prestageDataToSave.parsed_output,
+        model: prestageDataToSave.model,
+        prompt: prestageDataToSave.prompt,
+        rawOutput: prestageDataToSave.raw_output,
+        startedAt: prestageDataToSave.started_at,
+        finishedAt: prestageDataToSave.finished_at,
+        success: prestageDataToSave.success,
+        error: prestageDataToSave.error
+      } : null,
+      stage1: stage1DataToSave && !stage1DataToSave.__clear ? {
+        category: stage1DataToSave.category,
+        parsedOutput: stage1DataToSave.parsed_output,
+        model: stage1DataToSave.model,
+        prompt: stage1DataToSave.prompt,
+        rawOutput: stage1DataToSave.raw_output,
+        startedAt: stage1DataToSave.started_at,
+        finishedAt: stage1DataToSave.finished_at,
+        success: stage1DataToSave.success,
+        error: stage1DataToSave.error
+      } : null,
+      stage2: stage2DataToSave && !stage2DataToSave.__clear ? {
+        category: stage2DataToSave.category,
+        parsedOutput: stage2DataToSave.parsed_output,
+        model: stage2DataToSave.model,
+        prompt: stage2DataToSave.prompt,
+        rawOutput: stage2DataToSave.raw_output,
+        startedAt: stage2DataToSave.started_at,
+        finishedAt: stage2DataToSave.finished_at,
+        success: stage2DataToSave.success,
+        error: stage2DataToSave.error
+      } : null,
+      stage3: stage3DataToSave ? {
+        category: stage3DataToSave.category,
+        parsedOutput: stage3DataToSave.parsed_output,
+        model: stage3DataToSave.model,
+        prompt: stage3DataToSave.prompt,
+        rawOutput: stage3DataToSave.raw_output,
+        startedAt: stage3DataToSave.started_at,
+        finishedAt: stage3DataToSave.finished_at,
+        success: stage3DataToSave.success,
+        error: stage3DataToSave.error
+      } : null,
+      // 评分和理由（用于概览卡片）
+      summary: {
+        category: llmResult.category,
+        reasoning: llmResult.reasoning,
+        total_score: llmResult.total_score,
+        scores: llmResult.scores
+      }
+    };
+
+    return {
+      ...formatResult(saveResult),
+      llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段供前端使用
+      twitter: twitterInfo,  // 添加 twitter 字段供前端使用
+      backgroundInfo: backgroundInfo, // 返回背景信息供调试使用
+      classifiedUrls: classifiedUrls, // 返回分类后的URL供前端展示
+      fetchErrors: fetchErrors, // 添加数据获取错误信息（来自_fetchDataSequentially）
+      meta: {
+        fromCache: false,
+        preCheckTriggered: isPreCheckTriggered,
+        preCheckReason: isPreCheckTriggered ? llmResult.preCheckReason : null,
+        analyzedAt: saveResult.analyzed_at,
+        sourceExperimentId: experimentId,
+        promptVersion: PromptBuilder.getPromptVersion(),
+        promptType: promptType
+      },
+      debugInfo: {
+        promptUsed: promptUsed,
+        promptVersion: PromptBuilder.getPromptVersion(),
+        promptType: promptType,
+        // 根据执行的stage确定analysisStage
+        analysisStage: stage3DataToSave ? 3 : stage2DataToSave ? 2 : stage1DataToSave ? 1 : 0,
+        // 新增：PreStage/Stage 1/2/3 数据
+        prestageData: prestageDataToSave,
+        stage1Data: stage1DataToSave,
+        stage2Data: stage2DataToSave,
+        stage3Data: stage3DataToSave,
+        preCheckData: preCheckDataToSave,
+        // 新增：URL提取和数据获取结果
+        urlExtractionResult: urlExtractionResult,
+        dataFetchResults: dataFetchResults
+      }
+    };
+  }
+
+  /**
+   * 基于URL分类器的统一数据获取流程
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} extractedInfo - 提取的结构化信息
+   * @returns {Object} 所有获取到的数据
+   */
+      } catch (e) {
+        console.warn('[NarrativeAnalyzer] 解析appendix失败:', e.message);
+      }
+    } else if (rawData.appendix && typeof rawData.appendix === 'object') {
+      appendix = rawData.appendix;
+    }
+
+    // 构建完整的数据对象用于URL提取
+    const fullData = {
+      ...rawData,
+      ...extractedInfo,
+      appendix
+    };
+
+    // 2. 提取所有URL
+    const allUrls = extractAllUrls(fullData);
+    console.log(`[NarrativeAnalyzer] 从数据中提取到 ${allUrls.length} 个URL`);
+    if (allUrls.length > 0) {
+      console.log('[NarrativeAnalyzer] 提取到的URL:', allUrls.join(', '));
+    } else {
+      // 调试：输出关键字段帮助排查
+      console.log('[NarrativeAnalyzer] URL提取失败，调试信息:');
+      console.log('  - rawData.keys:', Object.keys(rawData).join(', '));
+      console.log('  - rawData部分字段:', JSON.stringify({
+        socials: rawData.socials,
+        socialLinks: rawData.socialLinks,
+        links: rawData.links,
+        website: rawData.website,
+        webUrl: rawData.webUrl,
+        twitter: rawData.twitter,
+        telegram: rawData.telegram,
+        discord: rawData.discord
+      }, null, 2));
+      console.log('  - extractedInfo:', JSON.stringify(extractedInfo, null, 2));
+      console.log('  - appendix:', JSON.stringify(appendix, null, 2));
+    }
+
+    if (allUrls.length === 0) {
+      console.log('[NarrativeAnalyzer] 未找到任何URL，返回空数据');
+      return {
+        twitterInfo: null,
+        websiteInfo: null,
+        backgroundInfo: null,
+        githubInfo: null,
+        youtubeInfo: null,
+        douyinInfo: null,
+        tiktokInfo: null,
+        bilibiliInfo: null,
+        xiaohongshuInfo: null,
+        weixinInfo: null,
+        amazonInfo: null,
+        classifiedUrls: {  // 空的分类URL对象
+          twitter: [],
+          weibo: [],
+          youtube: [],
+          tiktok: [],
+          douyin: [],
+          bilibili: [],
+          xiaohongshu: [],
+          weixin: [],
+          github: [],
+          amazon: [],
+          telegram: [],
+          discord: [],
+          websites: []
+        },
+        fetchErrors: {  // 空的错误对象
+          twitterError: null,
+          websiteError: null,
+          githubError: null,
+          videoErrors: {}
+        },
+        bestUrls: null
+      };
+    }
+
+    // 3. 分类所有URL
+    const classifiedUrls = classifyAllUrls(allUrls);
+    console.log('[NarrativeAnalyzer] URL分类结果:', {
+      twitter: classifiedUrls.twitter.length,
+      weibo: classifiedUrls.weibo.length,
+      youtube: classifiedUrls.youtube.length,
+      tiktok: classifiedUrls.tiktok.length,
+      douyin: classifiedUrls.douyin.length,
+      bilibili: classifiedUrls.bilibili.length,
+      xiaohongshu: classifiedUrls.xiaohongshu?.length || 0,
+      weixin: classifiedUrls.weixin?.length || 0,
+      github: classifiedUrls.github.length,
+      amazon: classifiedUrls.amazon.length,
+      telegram: classifiedUrls.telegram.length,
+      discord: classifiedUrls.discord.length,
+      websites: classifiedUrls.websites.length
+    });
+
+    // 准备URL提取结果
+    const url_extraction_result = {
+      total_urls: allUrls.length,
+      classified_urls: classifiedUrls,
+      extraction_errors: []
+    };
+
+    // 4. 顺序获取数据（按优先级）
+    const fetchData = await this._fetchDataSequentially(classifiedUrls, tokenData, extractedInfo);
+
+    return {
+      ...fetchData,
+      url_extraction_result
+    };
+  }
+
+  /**
+   * 顺序获取各平台数据
+   * @param {Object} classifiedUrls - 分类后的所有URL
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} extractedInfo - 提取的结构化信息
+   * @returns {Object} 获取到的所有数据
+   */
+    };
+
+    // 新增：数据获取结果记录
+    const dataFetchResults = {};
+
+    // === 辅助函数：从 classifiedUrls 中选择 URL ===
+    const selectTwitterUrl = () => {
+      if (!classifiedUrls.twitter || classifiedUrls.twitter.length === 0) return null;
+      // 优先选择 tweet 类型
+      const tweet = classifiedUrls.twitter.find(u => u.type === 'tweet');
+      if (tweet) return tweet;
+      // 其次选择 community 类型
+      const community = classifiedUrls.twitter.find(u => u.type === 'community');
+      if (community) return community;
+      // 否则返回第一个（可能是 account）
+      return classifiedUrls.twitter[0];
+    };
+
+    const selectFirstUrl = (platform) => {
+      const urls = classifiedUrls[platform];
+      if (!urls || urls.length === 0) return null;
+      return urls[0];
+    };
+
+    // === 1. Twitter数据（最高优先级）===
+    const twitterUrlInfo = selectTwitterUrl();
+    if (twitterUrlInfo) {
+      const twitterFetch = await this._recordDataFetch(
+        async () => {
+          let info;
+
+          // 特殊处理：Twitter Community 链接
+          if (twitterUrlInfo.type === 'community') {
+            console.log('[NarrativeAnalyzer] 检测到Twitter Community链接，获取社区信息');
+            try {
+              // 从URL中提取community ID
+              const communityIdMatch = twitterUrlInfo.url.match(/\/communities\/(\d+)/);
+              if (communityIdMatch) {
+                const communityId = communityIdMatch[1];
+                const { fetchCommunityById } = await import('../../utils/twitter-validation/communities-api.js');
+                info = await fetchCommunityById(communityId);
+
+                if (info) {
+                  // 将社区信息转换为twitter_info兼容格式
+                  info = {
+                    id: info.id,  // 保留community_id，供后续规则验证使用
+                    type: 'community',
+                    name: info.name,
+                    description: info.description,
+                    members_count: info.members_count,
+                    moderators_count: info.moderators_count,
+                    rules: info.rules,
+                    avatar_image_url: info.avatar_image_url,
+                    banner_image_url: info.banner_image_url,
+                    created_at: info.created_at,
+                    // 保留原始community数据用于后续分析
+                    community_results: info
+                  };
+                  console.log(`[NarrativeAnalyzer] 成功获取Twitter社区: "${info.name}" (${info.members_count}成员)`);
+                }
+              }
+            } catch (err) {
+              console.warn('[NarrativeAnalyzer] 获取Twitter社区信息失败:', err.message);
+            }
+          } else {
+            // 常规推文/账号获取
+            info = await TwitterFetcher.fetchFromUrls(twitterUrlInfo.url, null);
+          }
+
+          // 如果成功获取推文，尝试获取推文中的链接内容
+          if (info && info.text) {
+            console.log('[NarrativeAnalyzer] 推文已获取，尝试获取推文链接内容');
+            info = await TwitterFetcher.enrichWithLinkContent(info);
+          }
+
+          // 图片分析（如果启用）
+          if (NARRATIVE_CONFIG.enableImageAnalysis && info?.media && TwitterMediaExtractor.hasImages(info)) {
+            console.log('[NarrativeAnalyzer] 推文包含图片，开始分析...');
+            const imageUrls = TwitterMediaExtractor.extractImageUrls(info);
+            const firstImage = imageUrls[0];
+            if (firstImage) {
+              try {
+                const imageData = await ImageDownloader.downloadAsBase64(firstImage.url);
+                if (imageData) {
+                  const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
+                  info.image_analysis = {
+                    url: firstImage.url,
+                    analysis: imageAnalysis
+                  };
+                  console.log('[NarrativeAnalyzer] 图片分析完成');
+                }
+              } catch (error) {
+                console.warn('[NarrativeAnalyzer] 图片分析失败:', error.message);
+              }
+            }
+          }
+
+          // 非中英文推文翻译
+          if (info && info.text) {
+            const tweetLang = this.detectLanguage(info.text);
+            if (tweetLang && tweetLang !== 'zh' && tweetLang !== 'en') {
+              console.log(`[NarrativeAnalyzer] 检测到非中英文推文 (${tweetLang})，尝试翻译...`);
+              try {
+                const translated = await LLMClient.translate(info.text, 'zh');
+                if (translated) {
+                  const standardized = this.standardizeTranslatedNames(translated, tokenData.symbol);
+                  info.text_original = info.text;
+                  info.text = standardized;
+                  info.text_translated = true;
+                  info.original_language = tweetLang;
+                  console.log('[NarrativeAnalyzer] 推文翻译成功');
+                }
+              } catch (error) {
+                console.warn('[NarrativeAnalyzer] 推文翻译失败:', error.message);
+              }
+            }
+          }
+
+          // 检查是否有第二个推文（classifiedUrls中的第二个twitter URL）
+          let secondTweetUrl = null;
+
+          // 检查classifiedUrls.twitter中是否有多个推文
+          if (classifiedUrls.twitter && classifiedUrls.twitter.length > 1) {
+            // 第一个是主推文，查找第二个不同的推文
+            const mainUrl = twitterUrlInfo.url;
+            const secondTweetInfo = classifiedUrls.twitter.find(t => t.url !== mainUrl && t.type === 'tweet');
+            // 如果没有第二个推文，查找第二个账号（作为补充）
+            const secondInfo = secondTweetInfo || classifiedUrls.twitter.find(t => t.url !== mainUrl);
+            if (secondInfo) {
+              secondTweetUrl = secondInfo.url;
+            }
+          }
+
+          // 获取第二个推文
+          if (secondTweetUrl) {
+            console.log('[NarrativeAnalyzer] 检测到第二个推文链接，获取中...');
+            try {
+              const websiteTweet = await TwitterFetcher.fetchFromUrls(secondTweetUrl, null);
+              if (websiteTweet && websiteTweet.type === 'tweet' && websiteTweet.text) {
+                info.website_tweet = websiteTweet;
+                console.log('[NarrativeAnalyzer] 成功获取第二个推文');
+              }
+            } catch (error) {
+              console.warn('[NarrativeAnalyzer] 获取第二个推文失败:', error.message);
+            }
+          }
+
+          return info;
+        },
+        'twitter',
+        twitterUrlInfo.url
+      );
+      results.twitterInfo = twitterFetch.data;
+      dataFetchResults.twitter = twitterFetch.record;
+      if (!twitterFetch.record.success) {
+        results.fetchErrors.twitterError = twitterFetch.record.error;
+      }
+    }
+
+    // === 2. 微博数据（作为背景信息）===
+    if (classifiedUrls.weibo.length > 0) {
+      const weiboUrl = classifiedUrls.weibo[0].url;
+      console.log(`[NarrativeAnalyzer] 获取微博数据作为背景信息: ${weiboUrl}`);
+      try {
+        results.backgroundInfo = await WeiboFetcher.fetchFromUrl(weiboUrl);
+        if (results.backgroundInfo) {
+          results.backgroundInfo.source = 'weibo';
+          console.log('[NarrativeAnalyzer] 微博数据获取成功');
+        }
+      } catch (error) {
+        console.warn('[NarrativeAnalyzer] 微博数据获取失败:', error.message);
+      }
+    }
+
+    // === 3. GitHub数据 ===
+    const githubUrlInfo = selectFirstUrl('github');
+    if (githubUrlInfo) {
+      const githubFetch = await this._recordDataFetch(
+        async () => {
+          const info = await GithubFetcher.fetchRepoInfo(githubUrlInfo.url);
+          if (info) {
+            const influenceLevel = GithubFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = GithubFetcher.getInfluenceDescription(influenceLevel);
+            info.is_official_token = GithubFetcher.isOfficialToken(info, tokenData.symbol);
+            console.log(`[NarrativeAnalyzer] GitHub信息: ${info.stargazers_count} stars`);
+          }
+          return info;
+        },
+        'github',
+        githubUrlInfo.url
+      );
+      results.githubInfo = githubFetch.data;
+      dataFetchResults.github = githubFetch.record;
+    }
+
+    // === 4. YouTube数据 ===
+    const youtubeUrlInfo = selectFirstUrl('youtube');
+    if (youtubeUrlInfo) {
+      const youtubeFetch = await this._recordDataFetch(
+        async () => {
+          const info = await YoutubeFetcher.fetchVideoInfo(youtubeUrlInfo.url);
+          if (info) {
+            const influenceLevel = YoutubeFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = YoutubeFetcher.getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] YouTube信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'youtube',
+        youtubeUrlInfo.url
+      );
+      results.youtubeInfo = youtubeFetch.data;
+      dataFetchResults.youtube = youtubeFetch.record;
+      if (!youtubeFetch.record.success) {
+        results.fetchErrors.videoErrors.youtube = youtubeFetch.record.error;
+      }
+    }
+
+    // === 5. 抖音数据 ===
+    const douyinUrlInfo = selectFirstUrl('douyin');
+    if (douyinUrlInfo) {
+      const douyinFetch = await this._recordDataFetch(
+        async () => {
+          const info = await DouyinFetcher.fetchVideoInfo(douyinUrlInfo.url);
+          if (info) {
+            const influenceLevel = DouyinFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = DouyinFetcher.getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] 抖音信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'douyin',
+        douyinUrlInfo.url
+      );
+      results.douyinInfo = douyinFetch.data;
+      dataFetchResults.douyin = douyinFetch.record;
+      if (!douyinFetch.record.success) {
+        results.fetchErrors.videoErrors.douyin = douyinFetch.record.error;
+      }
+    }
+
+    // === 6. TikTok数据 ===
+    const tiktokUrlInfo = selectFirstUrl('tiktok');
+    if (tiktokUrlInfo) {
+      const tiktokFetch = await this._recordDataFetch(
+        async () => {
+          const info = await fetchTikTokVideoInfo(tiktokUrlInfo.url);
+          if (info) {
+            const influenceLevel = getTikTokInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = getTikTokInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] TikTok信息: @${info.author_username}`);
+          }
+          return info;
+        },
+        'tiktok',
+        tiktokUrlInfo.url
+      );
+      results.tiktokInfo = tiktokFetch.data;
+      dataFetchResults.tiktok = tiktokFetch.record;
+      if (!tiktokFetch.record.success) {
+        results.fetchErrors.videoErrors.tiktok = tiktokFetch.record.error;
+      }
+    }
+
+    // === 7. Bilibili数据 ===
+    const bilibiliUrlInfo = selectFirstUrl('bilibili');
+    if (bilibiliUrlInfo) {
+      const bilibiliFetch = await this._recordDataFetch(
+        async () => {
+          const info = await BilibiliFetcher.fetchVideoInfo(bilibiliUrlInfo.url);
+          if (info) {
+            const influenceLevel = BilibiliFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = BilibiliFetcher.getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] Bilibili信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'bilibili',
+        bilibiliUrlInfo.url
+      );
+      results.bilibiliInfo = bilibiliFetch.data;
+      dataFetchResults.bilibili = bilibiliFetch.record;
+      if (!bilibiliFetch.record.success) {
+        results.fetchErrors.videoErrors.bilibili = bilibiliFetch.record.error;
+      }
+    }
+
+    // === 8. 微信文章数据 ===
+    const weixinUrlInfo = selectFirstUrl('weixin');
+    if (weixinUrlInfo) {
+      const weixinFetch = await this._recordDataFetch(
+        async () => {
+          const info = await WeixinFetcher.fetchArticleInfo(weixinUrlInfo.url);
+          if (info) {
+            console.log(`[NarrativeAnalyzer] 微信文章信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'weixin',
+        weixinUrlInfo.url
+      );
+      results.weixinInfo = weixinFetch.data;
+      dataFetchResults.weixin = weixinFetch.record;
+      if (!weixinFetch.record.success) {
+        results.fetchErrors.videoErrors.weixin = weixinFetch.record.error;
+      }
+    }
+
+    // === 9. Amazon数据 ===
+    const amazonUrlInfo = selectFirstUrl('amazon');
+    if (amazonUrlInfo) {
+      const amazonFetch = await this._recordDataFetch(
+        async () => {
+          const info = await fetchProductInfo(amazonUrlInfo.url);
+          if (info) {
+            const influenceLevel = getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] Amazon信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'amazon',
+        amazonUrlInfo.url
+      );
+      results.amazonInfo = amazonFetch.data;
+      dataFetchResults.amazon = amazonFetch.record;
+      if (!amazonFetch.record.success) {
+        results.fetchErrors.videoErrors.amazon = amazonFetch.record.error;
+      }
+    }
+
+    // === 10. 小红书数据 ===
+    const xiaohongshuUrlInfo = selectFirstUrl('xiaohongshu');
+    if (xiaohongshuUrlInfo) {
+      const xiaohongshuFetch = await this._recordDataFetch(
+        async () => {
+          const info = await XiaohongshuFetcher.fetchNoteInfo(xiaohongshuUrlInfo.url);
+          if (info) {
+            const influenceLevel = XiaohongshuFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = XiaohongshuFetcher.getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] 小红书信息: "${info.title}"`);
+          }
+          return info;
+        },
+        'xiaohongshu',
+        xiaohongshuUrlInfo.url
+      );
+      results.xiaohongshuInfo = xiaohongshuFetch.data;
+      dataFetchResults.xiaohongshu = xiaohongshuFetch.record;
+      if (!xiaohongshuFetch.record.success) {
+        results.fetchErrors.videoErrors.xiaohongshu = xiaohongshuFetch.record.error;
+      }
+    }
+
+    // === 11. 普通网站数据 ===
+    const websiteUrlInfo = selectFirstUrl('websites');
+    if (websiteUrlInfo) {
+      const websiteUrl = websiteUrlInfo.url;
+      // 排除视频平台、GitHub和Amazon（已经处理过）
+      const isVideoPlatform = /youtube|youtu\.be|tiktok|douyin|bilibili|b23\.tv/i.test(websiteUrl);
+      const isGithub = /github\.com/i.test(websiteUrl);
+      const isAmazon = /amazon\.com/i.test(websiteUrl);
+
+      if (!isVideoPlatform && !isGithub && !isAmazon && isFetchableUrl(websiteUrl)) {
+        const websiteFetch = await this._recordDataFetch(
+          () => fetchWebsiteContent(websiteUrl, { maxLength: 5000 }),
+          'website',
+          websiteUrl
+        );
+        results.websiteInfo = websiteFetch.data;
+        dataFetchResults.website = websiteFetch.record;
+        if (!websiteFetch.record.success) {
+          results.fetchErrors.websiteError = websiteFetch.record.error;
+        }
+      }
+    }
+
+    return { ...results, classifiedUrls, dataFetchResults };
+  }
+
+
+  /**
+   * 记录数据获取的元数据
+   * @param {Function} fetcherFn - 数据获取函数
+   * @param {string} platform - 平台名称
+   * @param {string} url - 请求的URL
+   * @returns {Promise<Object>} { data, record } - data是获取的数据，record是元数据
+   * @private
+   */
+  static async _recordDataFetch(fetcherFn, platform, url) {
+    if (!url) {
+      return { data: null, record: null };
+    }
+
+    const startedAt = new Date().toISOString();
+    let data, error;
+
+    try {
+      data = await fetcherFn();
+      return {
+        data,
+        record: {
+          success: true,
+          url,
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          error: null
+        }
+      };
+    } catch (e) {
+      error = e.message;
+      return {
+        data: null,
+        record: {
+          success: false,
+          url,
+          started_at: startedAt,
+          finished_at: new Date().toISOString(),
+          error
+        }
+      };
+    }
+  }
+
+  /**
+   * 从数据库获取代币数据
+   */
+    };
+  }
+
+  /**
+   * 提取结构化信息
+   */
+      } catch (e) {
+        console.warn('[NarrativeAnalyzer] 解析appendix失败:', e.message);
+      }
+    } else if (rawData.appendix && typeof rawData.appendix === 'object') {
+      appendix = rawData.appendix;
+    }
+
+    // 提取twitter_url（按优先级）：
+    // 1. appendix.twitter
+    // 2. rawData.webUrl
+    // 3. rawData.twitterUrl
+    // 4. fourmeme_creator_info.full_info.raw.twitterUrl
+    // 5. fourmeme_creator_info.full_info.twitterUrl
+    let twitterUrl = appendix.twitter || rawData.webUrl || rawData.twitterUrl || '';
+
+    // 尝试从 fourmeme_creator_info 获取
+    if (!twitterUrl && rawData.fourmeme_creator_info) {
+      const creatorInfo = rawData.fourmeme_creator_info;
+      if (creatorInfo.full_info && creatorInfo.full_info.raw && creatorInfo.full_info.raw.twitterUrl) {
+        twitterUrl = creatorInfo.full_info.raw.twitterUrl;
+      } else if (creatorInfo.full_info && creatorInfo.full_info.twitterUrl) {
+        twitterUrl = creatorInfo.full_info.twitterUrl;
+      }
+    }
+
+    // 提取website（appendix.website > rawData.website）
+    let website = appendix.website || rawData.website || rawData.websiteUrl || '';
+
+    // 提取weibo_url（appendix.weibo > rawData.weibo）
+    let weiboUrl = appendix.weibo || rawData.weibo || rawData.weiboUrl || '';
+
+    return {
+      intro_en: rawData.intro_en || rawData.introduction || '',
+      intro_cn: rawData.intro_cn || '',
+      website: website,
+      twitter_url: twitterUrl,
+      weibo_url: weiboUrl,
+      description: rawData.description || ''
+    };
+  }
+
+  /**
+   * 检查是否是币安相关（代币名 + 任何语料都包含币安关键词）
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {Object} { isBinanceRelated: boolean, reason: string }
+   */
+        };
+      }
+    }
+
+    // 2.2 检查推特账号信息（必须有实际获取到的账号数据）
+    if (twitterInfo?.type === 'account' && twitterInfo.screen_name) {
+      const screenName = twitterInfo.screen_name.toLowerCase();
+      const name = (twitterInfo.name || '').toLowerCase();
+      const description = (twitterInfo.description || '').toLowerCase();
+
+      // 检查账号名、显示名、简介
+      if (binanceKeywords.some(kw =>
+        screenName.includes(kw.toLowerCase()) ||
+        name.includes(kw.toLowerCase()) ||
+        description.includes(kw.toLowerCase())
+      )) {
+        return {
+          isBinanceRelated: true,
+          reason: `代币名"${tokenSymbol}" + 推特账号信息包含币安关键词`
+        };
+      }
+    }
+
+    // 2.3 检查网站内容（必须有实际获取到的内容）
+    if (websiteInfo?.content && websiteInfo.content.trim().length > 50) {
+      const content = websiteInfo.content.toLowerCase();
+      if (binanceKeywords.some(kw => content.includes(kw.toLowerCase()))) {
+        return {
+          isBinanceRelated: true,
+          reason: `代币名"${tokenSymbol}" + 网站内容包含币安关键词`
+        };
+      }
+    }
+
+    // 注意：介绍信息（extractedInfo）不算外部数据，不检查
+    // 注意：不检查 classifiedUrls 中的URL字符串，因为URL存在不代表数据获取成功
+    // 必须有实际获取到的外部内容才算
+
+    return { isBinanceRelated: false };
+  }
+
+  /**
+   * 检查是否有有效数据可供分析
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {boolean} 是否有有效数据
+   */
+    } = fetchResults;
+
+    // 检查推文数据
+    if (twitterInfo) {
+      if (twitterInfo.text && twitterInfo.text.trim().length > 0) {
+        return true; // 有推文内容
+      }
+      // 检查账号信息（只要有账号信息就算有效数据，让 LLM 来判断质量）
+      if (twitterInfo.type === 'account') {
+        // 只要是账号类型就算有效数据（账号名、粉丝数、发帖数都是信息）
+        return true;
+      }
+      // 检查社区信息（社区数据也算有效数据）
+      if (twitterInfo.type === 'community') {
+        // 社区名称、成员数、描述都是信息
+        return true;
+      }
+    }
+
+    // 检查背景信息（微博等）
+    if (backgroundInfo) {
+      // 微博数据检查
+      if (backgroundInfo.source === 'weibo') {
+        if (backgroundInfo.text && backgroundInfo.text.trim().length > 0) {
+          return true; // 有微博内容
+        }
+        if (backgroundInfo.title || backgroundInfo.author_name || backgroundInfo.screen_name) {
+          return true; // 有微博基本信息（账号名等）
+        }
+      }
+      // 其他背景信息（视频平台账号、网站抓取等）
+      if (backgroundInfo.content || backgroundInfo.description || backgroundInfo.title) {
+        return true;
+      }
+    }
+
+    // 检查网站内容
+    if (websiteInfo && websiteInfo.content && websiteInfo.content.trim().length > 50) {
+      return true; // 有足够的网站内容
+    }
+
+    // 检查介绍
+    if (extractedInfo) {
+      const intro = extractedInfo.intro_en || extractedInfo.intro_cn || '';
+      if (intro.trim().length >= 20) {
+        return true; // 有足够的介绍
+      }
+    }
+
+    // 检查其他数据源
+
+    // GitHub: 检查是否有仓库信息（readme、name、description等）
+    if (githubInfo) {
+      if (githubInfo.readme) return true;
+      if (githubInfo.name || githubInfo.description || githubInfo.topics) {
+        return true; // 有基本仓库信息就算有效数据
+      }
+    }
+
+    // 微信文章: 检查是否有实际内容（title、content等）
+    if (weixinInfo) {
+      if (weixinInfo.title && weixinInfo.title.trim().length > 0) {
+        return true; // 有微信文章内容
+      }
+    }
+
+    // 视频平台: 检查是否有实际内容（title、description、view_count等）
+    const videoPlatforms = [
+      { info: youtubeInfo, name: 'YouTube' },
+      { info: douyinInfo, name: '抖音' },
+      { info: tiktokInfo, name: 'TikTok' },
+      { info: bilibiliInfo, name: 'Bilibili' }
+    ];
+
+    for (const platform of videoPlatforms) {
+      if (platform.info) {
+        // 检查是否有视频标题或描述（至少有一个非空）
+        const hasContent = (platform.info.title && platform.info.title.trim().length > 0) ||
+                          (platform.info.description && platform.info.description.trim().length > 0);
+        if (hasContent) {
+          return true; // 有视频内容
+        }
+      }
+    }
+
+    // Amazon: 检查是否有商品信息（title、price等）
+    if (amazonInfo) {
+      if (amazonInfo.title || amazonInfo.price || amazonInfo.features) {
+        return true; // 有商品信息
+      }
+    }
+
+    // 其他背景信息文本
+    if (backgroundInfo?.text && backgroundInfo.text.trim().length > 0) {
+      return true;
+    }
+
+    return false; // 没有任何有效数据
+  }
+
+  /**
+   * 收集所有相关账号的完整信息
+   * 当检测到独立网站时，收集所有相关账号（主账号、原始作者等）的完整信息
+   * @param {Object} twitterInfo - Twitter信息
+   * @returns {Promise<Array>} 账号信息列表
+   */
+    } else if (twitterInfo.type === 'tweet' || twitterInfo.type === 'community') {
+      // 对于推文类型，从 author_screen_name 获取主账号
+      if (twitterInfo.author_screen_name) {
+        primaryScreenName = twitterInfo.author_screen_name;
+      }
+    }
+
+    if (primaryScreenName && !screenNames.has(primaryScreenName)) {
+      const fullAccount = await this._getFullAccountInfo(primaryScreenName);
+      if (fullAccount) {
+        accounts.push({ ...fullAccount, role: 'primary' });
+        screenNames.add(primaryScreenName);
+      }
+    }
+
+    // 2. 添加原始作者账号（in_reply_to）
+    if (twitterInfo.in_reply_to && twitterInfo.in_reply_to.author_screen_name) {
+      const originalAuthor = twitterInfo.in_reply_to.author_screen_name;
+      if (!screenNames.has(originalAuthor)) {
+        const fullAccount = await this._getFullAccountInfo(originalAuthor);
+        if (fullAccount) {
+          accounts.push({ ...fullAccount, role: 'original_author' });
+          screenNames.add(originalAuthor);
+        }
+      }
+    }
+
+    // 3. 未来可以添加更多账号类型（如 retweeted_status 等）
+
+    logger.info('NarrativeAnalyzer', `账号信息收集完成，共${accounts.length}个账号`, {
+      accounts: accounts.map(a => ({ screen_name: a.screen_name, role: a.role }))
+    });
+
+    return accounts;
+  }
+
+  /**
+   * 获取单个账号的完整信息（含推文历史）
+   * @param {string} screenName - Twitter用户名
+   * @returns {Promise<Object|null>} 账号完整信息
+   */
+      } else {
+        logger.warn('NarrativeAnalyzer', `获取账号信息失败: @${screenName}（返回null）`);
+        return null;
+      }
+    } catch (error) {
+      logger.error('NarrativeAnalyzer', `获取账号信息异常: @${screenName}`, { error: error.message });
+      return null;
+    }
+  }
+
+  /**
+   * 检测是否有独立网站（非第三方平台域名）
+   * @param {Object} classifiedUrls - 分类后的URL列表
+   * @returns {boolean} 是否有独立网站
+   */
+      } catch {
+        return false;
+      }
+    });
+  }
+
+  /**
+   * 检查是否应该使用账号/社区分析流程
+   * 条件：
+   * 1. 有账号/社区信息且无推文（原有逻辑）
+   * 2. 或者有独立网站且成功获取了账号信息（新增）
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {boolean} 是否应该使用账号/社区分析
+   */
+    } = fetchResults;
+
+    // 必须有账号或社区类型的twitterInfo
+    if (!twitterInfo || (twitterInfo.type !== 'account' && twitterInfo.type !== 'community')) {
+      return false;
+    }
+
+    // 原有逻辑：有推文内容 → 走正常流程
+    if (twitterInfo.text && twitterInfo.text.trim().length > 0) {
+      return false;
+    }
+
+    // 有账号/社区信息且无推文 → 使用账号/社区分析流程
+    // 注意：网站、电报、Discord都不阻断，只要有账号/社区且无推文就走账号分析
+    return true;
+  }
+
+  /**
+   * 执行账号/社区代币分析
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} fetchResults - 获取的数据结果
+   * @returns {Promise<Object>} 分析结果
+   */
+    } = await import('./prompts/account-community-rules.mjs');
+
+    const twitterInfo = fetchResults.twitterInfo;
+    const relatedAccounts = fetchResults.relatedAccounts || [];
+
+    // 新增：如果有多个账号，选择主要账号进行分析
+    let accountOrCommunityRef;
+    if (relatedAccounts.length > 0) {
+      // 优先选择 original_author（通常是项目官方账号）
+      const originalAuthorAccount = relatedAccounts.find(a => a.role === 'original_author');
+      if (originalAuthorAccount) {
+        accountOrCommunityRef = { type: 'account', screen_name: originalAuthorAccount.screen_name };
+        logger.info('AccountCommunityAnalysis', `使用原始作者账号进行分析: @${originalAuthorAccount.screen_name}`);
+      } else {
+        // 其次选择 primary（主推文作者）
+        const primaryAccount = relatedAccounts.find(a => a.role === 'primary');
+        if (primaryAccount) {
+          accountOrCommunityRef = { type: 'account', screen_name: primaryAccount.screen_name };
+          logger.info('AccountCommunityAnalysis', `使用主账号进行分析: @${primaryAccount.screen_name}`);
+        } else {
+          // 使用第一个账号
+          accountOrCommunityRef = { type: 'account', screen_name: relatedAccounts[0].screen_name };
+          logger.info('AccountCommunityAnalysis', `使用第一个账号进行分析: @${relatedAccounts[0].screen_name}`);
+        }
+      }
+    } else {
+      // 原有逻辑：使用 twitterInfo 中的账号
+      accountOrCommunityRef = twitterInfo.type === 'account'
+        ? { type: 'account', screen_name: twitterInfo.screen_name }
+        : { type: 'community', community_id: twitterInfo.id };
+    }
+
+    logger.info('AccountCommunityAnalysis', `开始${accountOrCommunityRef.type === 'account' ? '账号' : '社区'}代币分析`, {
+      type: accountOrCommunityRef.type,
+      identifier: accountOrCommunityRef.type === 'account' ? accountOrCommunityRef.screen_name : accountOrCommunityRef.id,
+      relatedAccountsCount: relatedAccounts.length
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 第一步：规则验证（地址验证 + 名称匹配）- 不使用LLM
+    // ═══════════════════════════════════════════════════════════════════════════
+    logger.info('AccountCommunityAnalysis', '执行规则验证（地址 + 名称）');
+
+    // 获取完整的账号/社区数据（含完整推文，用于规则验证）
+    const fullAccountOrCommunityData = accountOrCommunityRef.type === 'account'
+      ? await getAccountWithFullTweets(accountOrCommunityRef.screen_name, 20)
+      : await getCommunityWithFullTweets(accountOrCommunityRef.community_id, 20);
+
+    if (!fullAccountOrCommunityData) {
+      return {
+        category: 'low',
+        reasoning: '无法获取账号/社区完整数据（用于规则验证）',
+        scores: null,
+        total_score: null
+      };
+    }
+
+    // 执行规则验证
+    const tokenAddress = tokenData.address;
+    const tokenSymbol = tokenData.symbol || '';
+    const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
+
+    const rulesResult = performRulesValidation(
+      tokenAddress,
+      tokenSymbol,
+      tokenName,
+      fullAccountOrCommunityData
+    );
+
+    logger.info('AccountCommunityAnalysis', '规则验证结果', {
+      passed: rulesResult.passed,
+      stage: rulesResult.stage,
+      addressVerified: rulesResult.addressVerified,
+      nameMatch: rulesResult.nameMatch
+    });
+
+    // 规则验证未通过，直接返回low
+    if (!rulesResult.passed) {
+      return {
+        category: 'low',
+        reasoning: rulesResult.reason,
+        scores: null,
+        total_score: null,
+        addressVerified: rulesResult.addressVerified,
+        nameMatch: rulesResult.nameMatch,
+        details: rulesResult.details,
+        rulesValidation: true, // 标记这是规则验证的结果
+        // 规则验证失败返回preCheckData，在"预检查"卡片展示
+        preCheckData: {
+          category: 'low',
+          reason: rulesResult.reason,
+          result: {
+            addressVerified: rulesResult.addressVerified,
+            nameMatch: rulesResult.nameMatch,
+            details: rulesResult.details,
+            validationStage: rulesResult.stage
+          }
+        }
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 第二步：LLM分析（币种类型判断 + 评级）
+    // ═══════════════════════════════════════════════════════════════════════════
+    const prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityRef);
+
+    if (!prompt) {
+      return {
+        category: 'low',
+        reasoning: '无法构建账号/社区分析Prompt（数据获取失败）',
+        scores: null,
+        total_score: null,
+        // prompt构建失败也返回preCheckData
+        preCheckData: {
+          category: 'low',
+          reason: '无法构建账号/社区分析Prompt（数据获取失败）',
+          result: {
+            addressVerified: rulesResult.addressVerified,
+            nameMatch: rulesResult.nameMatch,
+            details: rulesResult.details,
+            error: '无法构建Prompt'
+          }
+        }
+      };
+    }
+
+    const callResult = await this._callLLMAPI(prompt);
+
+    if (!callResult.success) {
+      throw new Error(`账号/社区分析LLM调用失败: ${callResult.error}`);
+    }
+
+    // 解析响应
+    let parsed;
+    try {
+      // 清理markdown代码块标记
+      let content = callResult.content.trim();
+      // 移除 ```json 和 ``` 标记
+      content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
+
+      // 尝试解析JSON，处理中文引号问题
+      const tryParse = (str) => {
+        try {
+          return JSON.parse(str);
+        } catch (_) {
+          return null;
+        }
+      };
+
+      parsed = tryParse(content);
+      if (!parsed) {
+        // 尝试修复中文引号 - 替换为英文单引号
+        const fixedContent = content.replace(/"/g, "'").replace(/"/g, "'");
+        parsed = tryParse(fixedContent);
+      }
+
+      if (!parsed) {
+        throw new Error('JSON解析失败');
+      }
+    } catch (e) {
+      logger.error('AccountCommunityAnalysis', '解析LLM响应失败', { error: e.message, content: callResult.content });
+      return {
+        category: 'low',
+        reasoning: '分析响应解析失败',
+        scores: null,
+        total_score: null
+      };
+    }
+
+    // 注意：地址验证和名称匹配已在规则验证阶段完成，无需再检查LLM返回的这些字段
+
+    // 判断币种类型并分流处理
+    const tokenType = parsed.tokenType || 'project'; // 默认为项目币
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 新增：Web3 原生 IP 早期判断
+    // ═══════════════════════════════════════════════════════════════════════════════
+    if (tokenType === 'web3_native_ip_early') {
+      // Web3 原生 IP 处于早期发展阶段，直接返回 unrated
+      logger.info('AccountCommunityAnalysis', '判断为Web3原生IP早期，返回unrated', {
+        ipConcept: parsed.ipConcept?.substring(0, 100)
+      });
+
+      return {
+        category: 'unrated',
+        reasoning: parsed.reason || 'Web3原生IP处于早期发展阶段，需等待社区成长后再评估',
+        scores: null,
+        total_score: null,
+        // 前置LLM阶段数据（账号/社区分析判断币种类型）
+        prestageData: {
+          category: 'unrated', // Web3原生IP早期
+          prompt: prompt,
+          raw_output: callResult.content,
+          parsed_output: {
+            ...parsed,
+            // 只添加一个简洁的规则验证通过标记，不重复详细结果
+            rulesValidationPassed: true
+          },
+          model: callResult.model,
+          started_at: callResult.startedAt,
+          finished_at: callResult.finishedAt,
+          success: callResult.success,
+          error: callResult.error
+        }
+      };
+    }
+
+    if (tokenType === 'meme') {
+      // meme币：转入两阶段分析流程
+      logger.info('AccountCommunityAnalysis', '判断为meme币，转入两阶段分析流程', {
+        accountSummary: parsed.accountSummary?.substring(0, 100)
+      });
+
+      // 构建带账号摘要的fetchResults
+      const memeFetchResults = {
+        ...fetchResults,
+        accountSummary: parsed.accountSummary || '' // 将账号摘要传入
+      };
+
+      // 调用meme币两阶段分析流程，传递规则验证结果和前置LLM数据
+      const memeResult = await this._analyzeMemeTokenTwoStage(tokenData, memeFetchResults, {
+        stage1Prompt: prompt,
+        stage1CallResult: callResult,
+        stage1Parsed: parsed,
+        rulesResult: rulesResult // 传递规则验证结果
+      });
+
+      // 添加前置LLM阶段数据（账号/社区分析判断币种类型）
+      memeResult.prestageData = {
+        category: 'meme', // 前置LLM判断为meme币
+        prompt: prompt,
+        raw_output: callResult.content,
+        parsed_output: {
+          ...parsed,
+          // 只添加一个简洁的规则验证通过标记，不重复详细结果
+          rulesValidationPassed: true
+        },
+        model: callResult.model,
+        started_at: callResult.startedAt,
+        finished_at: callResult.finishedAt,
+        success: callResult.success,
+        error: callResult.error
+      };
+
+      return memeResult;
+    } else {
+      // 项目币：直接返回评级结果
+      const rating = parsed.rating || 'low';
+      const reason = parsed.reason || '';
+
+      // 映射到现有category
+      const categoryMap = {
+        'high': 'high',
+        'mid': 'mid',
+        'low': 'low'
+      };
+
+      return {
+        category: categoryMap[rating] || 'low',
+        reasoning: reason,
+        scores: null, // 简化流程不返回详细评分
+        total_score: null,
+        baselineMet: parsed.baselineMet,
+        // 前置LLM阶段数据（账号/社区分析判断币种类型）
+        prestageData: {
+          category: categoryMap[rating] || 'low',
+          prompt: prompt,
+          raw_output: callResult.content,
+          parsed_output: {
+            ...parsed,
+            // 只添加一个简洁的规则验证通过标记，不重复详细结果
+            rulesValidationPassed: true,
+            // 保留LLM返回的details
+            details: parsed.details
+          },
+          model: callResult.model,
+          started_at: callResult.startedAt,
+          finished_at: callResult.finishedAt,
+          success: callResult.success,
+          error: callResult.error
+        }
+      };
+    }
+  }
+
+  /**
+   * 执行meme币两阶段分析（用于账号/社区分析判断为meme币后的分流）
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} fetchResults - 获取的数据结果（包含accountSummary）
+   * @param {Object} stage1Info - 第一阶段信息（账号分析，不保存）
+   * @returns {Promise<Object>} 分析结果
+   */
+      });
+
+      return {
+        category: 'low',
+        reasoning: eventData.reason,
+        scores: null,
+        total_score: null,
+        // 添加规则验证结果
+        addressVerified: stage1Info.rulesResult?.addressVerified,
+        nameMatch: stage1Info.rulesResult?.nameMatch,
+        // 只保存事件分析到stage1，不保存账号分析
+        stage1Data: {
+          category: 'low', // 事件分析未通过
+          prompt: eventPrompt,
+          raw_output: eventCallResult.content,
+          parsed_output: {
+            ...eventData,
+            // 添加规则验证结果到parsed_output
+            addressVerified: stage1Info.rulesResult?.addressVerified,
+            nameMatch: stage1Info.rulesResult?.nameMatch,
+            details: stage1Info.rulesResult?.details
+          },
+          model: eventCallResult.model,
+          started_at: eventCallResult.startedAt,
+          finished_at: eventCallResult.finishedAt,
+          success: eventCallResult.success,
+          error: eventCallResult.error
+        },
+        // 事件分析未通过，没有stage2
+        stage2Data: null
+      };
+    }
+
+    // 事件分析通过，进入代币分析（对应代币的第二阶段）
+    logger.info('MemeTokenAnalysis', '事件分析通过，进入代币分析');
+
+    // 先准备Stage1数据（即使Stage2失败也要保存Stage1）
+    const stage1Data = {
+      category: 'pass', // 事件分析通过，标记为pass
+      prompt: eventPrompt,
+      raw_output: eventCallResult.content,
+      parsed_output: {
+        ...eventData,
+        // 添加规则验证结果到parsed_output
+        addressVerified: stage1Info.rulesResult?.addressVerified,
+        nameMatch: stage1Info.rulesResult?.nameMatch,
+        details: stage1Info.rulesResult?.details
+      },
+      model: eventCallResult.model,
+      started_at: eventCallResult.startedAt,
+      finished_at: eventCallResult.finishedAt,
+      success: eventCallResult.success,
+      error: eventCallResult.error
+    };
+
+    const tokenPrompt = PromptBuilder.buildTokenAnalysis(tokenData, fetchResults, eventData.eventAnalysis);
+    const tokenPromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 2);
+
+    const tokenCallResult = await LLMClient.analyzeWithMetadata(tokenPrompt);
+
+    // 准备Stage2数据（无论成功还是失败）
+    const stage2Data = {
+      category: tokenCallResult.parsed?.category || null,
+      prompt: tokenPrompt,
+      raw_output: tokenCallResult.raw?.raw || tokenCallResult.raw || null,
+      parsed_output: tokenCallResult.parsed,
+      model: tokenCallResult.model,
+      started_at: tokenCallResult.startedAt,
+      finished_at: tokenCallResult.finishedAt,
+      success: tokenCallResult.success,
+      error: tokenCallResult.error
+    };
+
+    if (!tokenCallResult.success) {
+      // Stage2失败，返回Stage1的结果
+      logger.warn('MemeTokenAnalysis', `代币分析失败，仅返回Stage1结果: ${tokenCallResult.error}`);
+      return {
+        category: 'unrated',
+        reasoning: `事件分析通过，但代币分析失败: ${tokenCallResult.error}`,
+        scores: null,
+        total_score: null,
+        analysis_stage: 1,
+        // 添加规则验证结果
+        addressVerified: stage1Info.rulesResult?.addressVerified,
+        nameMatch: stage1Info.rulesResult?.nameMatch,
+        // 保存事件分析到stage1
+        stage1Data: stage1Data,
+        // Stage2失败，记录失败信息
+        stage2Data: stage2Data
+      };
+    }
+
+    // 返回最终结果
+    return {
+      ...tokenCallResult.parsed,
+      // 添加规则验证结果
+      addressVerified: stage1Info.rulesResult?.addressVerified,
+      nameMatch: stage1Info.rulesResult?.nameMatch,
+      // 保存事件分析到stage1，代币分析到stage2
+      // 账号分析不保存（stage1Info中的数据不使用）
+      stage1Data: stage1Data,
+      stage2Data: stage2Data
+    };
+  }
+
+  /**
+   * 简单检测文本语言
+   * @param {string} text - 要检测的文本
+   * @returns {string|null} 语言代码（zh, en, th, ja, ko 等）
+   */
+    };
+
+    let classifiedUrls = record.classified_urls;
+    if (!classifiedUrls || isClassifiedUrlsEmpty(classifiedUrls)) {
+      console.log('[NarrativeAnalyzer] 缓存数据缺少 classified_urls 或为空，重新提取URL');
+      try {
+        const rawData = record.raw_api_data || {};
+        let appendix = {};
+        if (rawData.appendix && typeof rawData.appendix === 'string') {
+          try {
+            appendix = JSON.parse(rawData.appendix);
+          } catch (e) {}
+        } else if (rawData.appendix && typeof rawData.appendix === 'object') {
+          appendix = rawData.appendix;
+        }
+
+        // 重新构建提取信息
+        const extractedInfo = {
+          twitter_url: appendix.twitter || rawData.webUrl || rawData.twitterUrl || '',
+          website: appendix.website || rawData.website || rawData.websiteUrl || '',
+          weibo_url: appendix.weibo || rawData.weibo || rawData.weiboUrl || '',
+          intro_en: rawData.intro_en || rawData.introduction || '',
+          intro_cn: rawData.intro_cn || '',
+          description: rawData.description || ''
+        };
+
+        const fullData = { ...rawData, ...extractedInfo, appendix };
+        const allUrls = extractAllUrls(fullData);
+        classifiedUrls = classifyAllUrls(allUrls);
+        console.log('[NarrativeAnalyzer] 重新提取到URL:', {
+          total: allUrls.length,
+          twitter: classifiedUrls.twitter.length,
+          websites: classifiedUrls.websites.length
+        });
+      } catch (e) {
+        console.warn('[NarrativeAnalyzer] 重新提取URL失败:', e.message);
+        classifiedUrls = {
+          twitter: [],
+          weibo: [],
+          youtube: [],
+          tiktok: [],
+          douyin: [],
+          bilibili: [],
+          github: [],
+          amazon: [],
+          telegram: [],
+          discord: [],
+          websites: []
+        };
+      }
+    }
+
+    // 确定分析阶段
+    let analysisStage = 0;  // 0=预检查, 1=Stage1低质量, 2=Stage2详细评分, 3=Stage3代币分析
+    if (record.llm_stage3_parsed_output) {
+      analysisStage = 3;
+    } else if (record.llm_stage2_parsed_output) {
+      analysisStage = 2;
+    } else if (record.llm_stage1_parsed_output) {
+      analysisStage = 1;
+    }
+
+    // 计算最终分类（用于快速访问）
+    // 优先级: stage3 > stage2 > stage1 > prestage(非meme) > pre_check
+    // 注意：prestage的"meme"只是币种类型，不是最终评级，应该跳过
+    const llm_category = record.llm_stage3_category
+      || record.llm_stage2_category
+      || record.llm_stage1_category
+      || (record.llm_prestage_category && record.llm_prestage_category !== 'meme' ? record.llm_prestage_category : null)
+      || record.pre_check_category
+      || null;
+
+    // 构建返回结果（直接使用新字段）
+    return {
+      token: {
+        address: record.token_address,
+        symbol: record.token_symbol,
+        raw_api_data: record.raw_api_data
+      },
+      extracted_info: record.extracted_info,
+      twitter: record.twitter_info,
+      classifiedUrls: classifiedUrls,
+      is_valid: record.is_valid,
+
+      // 顶层字段（用于兼容）
+      llm_category: llm_category,
+
+      // LLM分析结果
+      llmAnalysis: {
+        // 预检查数据
+        preCheck: record.pre_check_result ? {
+          category: record.pre_check_category,
+          reason: record.pre_check_reason,
+          result: record.pre_check_result
+        } : null,
+        // 前置LLM阶段数据（账号/社区分析判断币种类型）
+        prestage: record.llm_prestage_parsed_output ? {
+          category: record.llm_prestage_category,
+          model: record.llm_prestage_model,
+          prompt: record.llm_prestage_prompt,
+          rawOutput: record.llm_prestage_raw_output,
+          parsedOutput: record.llm_prestage_parsed_output,
+          startedAt: record.llm_prestage_started_at,
+          finishedAt: record.llm_prestage_finished_at,
+          success: record.llm_prestage_success,
+          error: record.llm_prestage_error
+        } : null,
+        // Stage 1 数据
+        stage1: record.llm_stage1_parsed_output ? {
+          category: record.llm_stage1_category,
+          model: record.llm_stage1_model,
+          prompt: record.llm_stage1_prompt,
+          rawOutput: record.llm_stage1_raw_output,
+          parsedOutput: record.llm_stage1_parsed_output,
+          startedAt: record.llm_stage1_started_at,
+          finishedAt: record.llm_stage1_finished_at,
+          success: record.llm_stage1_success,
+          error: record.llm_stage1_error
+        } : null,
+        // Stage 2 数据
+        stage2: record.llm_stage2_parsed_output ? {
+          category: record.llm_stage2_category,
+          model: record.llm_stage2_model,
+          prompt: record.llm_stage2_prompt,
+          rawOutput: record.llm_stage2_raw_output,
+          parsedOutput: record.llm_stage2_parsed_output,
+          startedAt: record.llm_stage2_started_at,
+          finishedAt: record.llm_stage2_finished_at,
+          success: record.llm_stage2_success,
+          error: record.llm_stage2_error
+        } : null,
+        // Stage 3 数据
+        stage3: record.llm_stage3_parsed_output ? {
+          category: record.llm_stage3_category,
+          model: record.llm_stage3_model,
+          prompt: record.llm_stage3_prompt,
+          rawOutput: record.llm_stage3_raw_output,
+          parsedOutput: record.llm_stage3_parsed_output,
+          startedAt: record.llm_stage3_started_at,
+          finishedAt: record.llm_stage3_finished_at,
+          success: record.llm_stage3_success,
+          error: record.llm_stage3_error
+        } : null,
+        // 当前结果（根据分析阶段决定使用哪个stage的数据）
+        category: llm_category,
+        // 规则验证结果（优先从prestage获取，因为规则验证在前置LLM阶段执行）
+        addressVerified: record.llm_prestage_parsed_output?.addressVerified ?? record.llm_stage1_parsed_output?.addressVerified ?? null,
+        nameMatch: record.llm_prestage_parsed_output?.nameMatch ?? record.llm_stage1_parsed_output?.nameMatch ?? null,
+        details: record.llm_prestage_parsed_output?.details ?? record.llm_stage1_parsed_output?.details ?? null,
+        summary: record.llm_stage3_parsed_output ? {
+          total_score: record.llm_stage3_parsed_output.total_score,
+          credibility_score: record.llm_stage3_parsed_output.scores?.credibility,
+          virality_score: record.llm_stage3_parsed_output.scores?.virality,
+          reasoning: record.llm_stage3_parsed_output.reasoning
+        } : record.llm_stage2_parsed_output ? {
+          total_score: record.llm_stage2_parsed_output.total_score,
+          credibility_score: record.llm_stage2_parsed_output.scores?.credibility,
+          virality_score: record.llm_stage2_parsed_output.scores?.virality,
+          reasoning: record.llm_stage2_parsed_output.reasoning
+        } : record.llm_stage1_parsed_output ? {
+          reasoning: record.llm_stage1_parsed_output.reason,
+          scenario: record.llm_stage1_parsed_output.scenario,
+          stage: record.llm_stage1_parsed_output.stage,
+          entities: record.llm_stage1_parsed_output.entities
+        } : record.pre_check_result ? {
+          total_score: record.pre_check_result.total_score,
+          credibility_score: record.pre_check_result.scores?.credibility,
+          virality_score: record.pre_check_result.scores?.virality,
+          reasoning: record.pre_check_result.reasoning
+        } : null
+      },
+
+      // 顶层字段（用于兼容）
+      llm_summary: record.llm_stage2_parsed_output ? {
+        total_score: record.llm_stage2_parsed_output.total_score,
+        credibility_score: record.llm_stage2_parsed_output.scores?.credibility,
+        virality_score: record.llm_stage2_parsed_output.scores?.virality,
+        reasoning: record.llm_stage2_parsed_output.reasoning
+      } : record.llm_stage1_parsed_output ? {
+        reasoning: record.llm_stage1_parsed_output.reason,
+        scenario: record.llm_stage1_parsed_output.scenario,
+        stage: record.llm_stage1_parsed_output.stage,
+        entities: record.llm_stage1_parsed_output.entities
+      } : record.pre_check_result ? {
+        total_score: record.pre_check_result.total_score,
+        credibility_score: record.pre_check_result.scores?.credibility,
+        virality_score: record.pre_check_result.scores?.virality,
+        reasoning: record.pre_check_result.reasoning
+      } : null,
+
+      // Debug信息
+      debugInfo: {
+        analysisStage: analysisStage,
+        urlExtractionResult: record.url_extraction_result,
+        dataFetchResults: record.data_fetch_results
+      },
+
+      // 元数据
+      meta: {
+        analyzedAt: record.analyzed_at,
+        sourceExperimentId: record.experiment_id
+      },
+
+      // 生成数据获取错误信息
+      fetchErrors: (() => {
+        const errors = {};
+        const dataFetch = record.data_fetch_results || {};
+
+        // 从 data_fetch_results 提取错误信息
+        for (const [platform, result] of Object.entries(dataFetch)) {
+          if (result && !result.success && result.error) {
+            if (platform === 'website') {
+              errors.websiteError = result.error;
+            } else if (platform === 'twitter') {
+              errors.twitterError = result.error;
+            } else if (platform === 'github') {
+              errors.githubError = result.error;
+            } else {
+              // 视频平台
+              if (!errors.videoErrors) errors.videoErrors = {};
+              errors.videoErrors[platform] = result.error;
+            }
+          }
+        }
+
+        // 如果没有任何错误，返回null
+        if (Object.keys(errors).length === 0 ||
+            (Object.keys(errors).length === 1 && Object.keys(errors.videoErrors || {}).length === 0)) {
+          return null;
+        }
+        return errors;
+      })()
+    };
+  }
+
+  /**
+   * 解析Stage 1响应
+   * @param {string} content - LLM响应内容
+   * @returns {Object} 解析结果 { pass: boolean, reason: string, entities: Object }
+   * @private
+   */
+        } else if (content[i] === '}') {
+          depth--;
+          if (depth === 0 && start >= 0) {
+            jsonStr = content.substring(start, i + 1);
+            console.log('[NarrativeAnalyzer] Stage 1: 使用括号匹配策略提取JSON');
+            break;
+          }
+        }
+      }
+    }
+
+    // 策略3: 使用正则表达式匹配（兼容性后备方案）
+    if (!jsonStr) {
+      const regexMatch = content.match(/\{[\s\S]*\}/);
+      if (regexMatch) {
+        jsonStr = regexMatch[0];
+        console.log('[NarrativeAnalyzer] Stage 1: 使用正则策略提取JSON');
+      }
+    }
+
+    // 如果所有策略都失败，打印原始响应并抛出错误
+    if (!jsonStr) {
+      console.error('[NarrativeAnalyzer] Stage 1: 无法提取JSON，原始响应:', content);
+      throw new Error('Stage 1: 无法提取JSON');
+    }
+
+    /**
+     * 尝试解析JSON，处理中文引号问题
+     */
+    const tryParseJSON = (str) => {
+      try {
+        return JSON.parse(str);
+      } catch (e) {
+        return null;
+      }
+    };
+
+    // 首先尝试直接解析
+    let result = tryParseJSON(jsonStr);
+
+    // 如果失败，尝试修复中文引号问题
+    if (!result) {
+      console.log('[NarrativeAnalyzer] Stage 1: 直接解析失败，尝试修复中文引号');
+      const fixedJsonStr = jsonStr.replace(/"/g, "'").replace(/"/g, "'");
+      result = tryParseJSON(fixedJsonStr);
+    }
+
+    if (!result) {
+      console.error('[NarrativeAnalyzer] Stage 1: JSON解析失败，提取的字符串:', jsonStr);
+      throw new Error('Stage 1: JSON解析失败 - 无法修复格式错误');
+    }
+
+    if (typeof result.pass !== 'boolean') {
+      throw new Error('Stage 1: pass字段必须是boolean');
+    }
+
+    // 必须包含stage字段：0=通过，1=第一阶段触发，2=第二阶段触发，3=第三阶段触发
+    if (result.stage === undefined) {
+      throw new Error('Stage 1: stage字段缺失');
+    }
+
+    return {
+      pass: result.pass,
+      reason: result.reason || '',
+      stage: result.stage,
+      scenario: result.scenario || 0,  // stage=3时对应的场景编号
+      entities: result.entities || {}
+    };
+  }
+
+  /**
+   * 解析事件分析响应（新框架第一阶段）
+   * 与_parseStage1Response类似，但支持eventAnalysis字段
+   * @param {string} content - LLM响应内容
+   * @returns {Object} 解析结果
+   * @private
+   */
+        } else if (content[i] === '}') {
+          depth--;
+          if (depth === 0 && start >= 0) {
+            jsonStr = content.substring(start, i + 1);
+            console.log('[NarrativeAnalyzer] EventAnalysis: 使用括号匹配策略提取JSON');
+            break;
+          }
+        }
+      }
+    }
+
+    // 策略3: 使用正则表达式匹配（兼容性后备方案）
+    if (!jsonStr) {
+      const regexMatch = content.match(/\{[\s\S]*\}/);
+      if (regexMatch) {
+        jsonStr = regexMatch[0];
+        console.log('[NarrativeAnalyzer] EventAnalysis: 使用正则策略提取JSON');
+      }
+    }
+
+    // 如果所有策略都失败，打印原始响应并抛出错误
+    if (!jsonStr) {
+      console.error('[NarrativeAnalyzer] EventAnalysis: 无法提取JSON，原始响应:', content);
+      throw new Error('EventAnalysis: 无法提取JSON');
+    }
+
+    /**
+     * 尝试解析JSON，处理中文引号问题
+     */
+    const tryParseJSON = (str) => {
+      try {
+        return JSON.parse(str);
+      } catch (e) {
+        return null;
+      }
+    };
+
+    // 首先尝试直接解析
+    let result = tryParseJSON(jsonStr);
+
+    // 如果失败，尝试修复中文引号问题
+    if (!result) {
+      console.log('[NarrativeAnalyzer] EventAnalysis: 直接解析失败，尝试修复中文引号');
+      // 将中文引号替换为英文单引号（在JSON字符串中是合法的）
+      const fixedJsonStr = jsonStr.replace(/"/g, "'").replace(/"/g, "'");
+      result = tryParseJSON(fixedJsonStr);
+    }
+
+    if (!result) {
+      console.error('[NarrativeAnalyzer] EventAnalysis: JSON解析失败，提取的字符串:', jsonStr);
+      throw new Error(`EventAnalysis: JSON解析失败 - 无法修复格式错误`);
+    }
+
+    if (typeof result.pass !== 'boolean') {
+      throw new Error('EventAnalysis: pass字段必须是boolean');
+    }
+
+    // 必须包含stage字段：0=通过，1=事件分析触发
+    if (result.stage === undefined) {
+      throw new Error('EventAnalysis: stage字段缺失');
+    }
+
+    return {
+      pass: result.pass,
+      reason: result.reason || '',
+      stage: result.stage,
+      scenario: result.scenario || 0,  // 保留兼容性
+      entities: result.entities || {},
+      eventAnalysis: result.eventAnalysis || null  // 新字段：事件分析结果
+    };
+  }
+
+  /**
+   * 解析JSON响应（通用方法，用于Stage 2和Stage 3）
+   * @private
+   */
+        } else if (content[i] === '}') {
+          depth--;
+          if (depth === 0 && start >= 0) {
+            jsonStr = content.substring(start, i + 1);
+            break;
+          }
+        }
+      }
+    }
+
+    // 策略3: 使用正则表达式匹配（兼容性后备方案）
+    if (!jsonStr) {
+      const regexMatch = content.match(/\{[\s\S]*\}/);
+      if (regexMatch) {
+        jsonStr = regexMatch[0];
+      }
+    }
+
+    // 如果所有策略都失败，抛出错误
+    if (!jsonStr) {
+      console.error('[NarrativeAnalyzer] JSON解析: 无法提取JSON，原始响应:', content);
+      throw new Error('JSON解析: 无法提取JSON');
+    }
+
+    /**
+     * 尝试解析JSON，处理中文引号问题
+     */
+    const tryParseJSON = (str) => {
+      try {
+        return JSON.parse(str);
+      } catch (e) {
+        return null;
+      }
+    };
+
+    // 首先尝试直接解析
+    let result = tryParseJSON(jsonStr);
+
+    // 如果失败，尝试修复中文引号问题
+    if (!result) {
+      const fixedJsonStr = jsonStr.replace(/"/g, "'").replace(/"/g, "'");
+      result = tryParseJSON(fixedJsonStr);
+    }
+
+    if (!result) {
+      console.error('[NarrativeAnalyzer] JSON解析: 解析失败，提取的字符串:', jsonStr);
+      throw new Error('JSON解析: 解析失败');
+    }
+
+    return result;
+  }
+
+  /**
+   * 直接调用LLM API并返回原始响应（带元数据）
+   * 用于Stage 1等需要自定义响应格式的场景
+   * @param {string} prompt - Prompt内容
+   * @returns {Promise<Object>} 包含响应内容和元数据 { content, model, startedAt, finishedAt, success, error }
+   * @private
+   */
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0,
+          max_tokens: 2000,
+          top_p: 1,
+          top_k: 50,
+          frequency_penalty: 0
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`LLM API 调用失败: ${response.status} ${errorText}`);
+      }
+
+      logger.debug('LLMClient', 'API响应成功');
+      const data = await response.json();
+      content = data.choices[0]?.message?.content;
+
+      if (!content) {
+        throw new Error('LLM 返回内容为空');
+      }
+
+      const finishedAt = new Date().toISOString();
+      success = true;
+      error = null;
+
+      logger.debug('LLMClient', 'API调用完成');
+      return { content, model, startedAt, finishedAt, success: true, error: null };
+    } catch (e) {
+      clearTimeout(timeoutId);
+      success = false;
+      error = e.message;
+
+      if (e.name === 'AbortError') {
+        console.error('[NarrativeAnalyzer] 请求超时');
+        error = `LLM API 调用超时（${timeout/1000}秒）`;
+      }
+
+      return {
+        content: null,
+        model,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        success: false,
+        error
+      };
+    }
+  }
+
+
+  /**
+   * 保存 Stage 1 数据到数据库
+   * @private
+   * @param {string} normalizedAddress - 代币地址
+   * @param {Object} tokenData - 代币数据
+   * @param {Object} extractedInfo - 提取的信息
+   * @param {Object} twitterInfo - Twitter信息
+   * @param {Object} classifiedUrls - 分类URLs
+   * @param {string} experimentId - 实验ID
+   * @param {Object} stage1Result - Stage 1 结果（简化版，用于返回）
+   * @param {Object} urlExtractionResult - URL提取结果
+   * @param {Object} dataFetchResults - 数据获取结果
+   * @param {Object} stage1DataToSave - Stage 1 完整数据（包含 model, raw_output 等）
+   * @param {Object} preCheckDataToSave - 预检查数据（包含 category, reason, result）
+   */
+    };
+
+    // 如果提供了完整的 Stage 1 数据，保存所有字段
+    if (stage1DataToSave) {
+      saveData.llm_stage1_category = stage1DataToSave.category;
+      saveData.llm_stage1_model = stage1DataToSave.model;
+      saveData.llm_stage1_prompt = stage1DataToSave.prompt;
+      saveData.llm_stage1_raw_output = stage1DataToSave.raw_output;
+      saveData.llm_stage1_parsed_output = stage1DataToSave.parsed_output;
+      saveData.llm_stage1_started_at = stage1DataToSave.started_at;
+      saveData.llm_stage1_finished_at = stage1DataToSave.finished_at;
+      saveData.llm_stage1_success = stage1DataToSave.success;
+      saveData.llm_stage1_error = stage1DataToSave.error;
+    } else {
+      // 兼容旧逻辑：只保存 stage1Result 中的字段
+      saveData.llm_stage1_category = stage1Result.category;
+      saveData.llm_stage1_started_at = stage1Result.started_at;
+      saveData.llm_stage1_finished_at = stage1Result.finished_at;
+      saveData.llm_stage1_success = stage1Result.success;
+      saveData.llm_stage1_error = stage1Result.error;
+    }
+
+    await NarrativeRepository.save(saveData);
+  }
+
+  /**
+   * 保存 Stage 2 数据到数据库
+   * @private
+   * @param {string} normalizedAddress - 代币地址
+   * @param {string} experimentId - 实验ID
+   * @param {Object} stage2Result - Stage 2 结果（简化版，用于返回）
+   * @param {Object} stage2DataToSave - Stage 2 完整数据（包含 model, raw_output 等）
+   */
+    };
+
+    // 如果提供了完整的 Stage 2 数据，保存所有字段
+    if (stage2DataToSave) {
+      saveData.llm_stage2_category = stage2DataToSave.category;
+      saveData.llm_stage2_model = stage2DataToSave.model;
+      saveData.llm_stage2_prompt = stage2DataToSave.prompt;
+      saveData.llm_stage2_raw_output = stage2DataToSave.raw_output;
+      saveData.llm_stage2_parsed_output = stage2DataToSave.parsed_output;
+      saveData.llm_stage2_started_at = stage2DataToSave.started_at;
+      saveData.llm_stage2_finished_at = stage2DataToSave.finished_at;
+      saveData.llm_stage2_success = stage2DataToSave.success;
+      saveData.llm_stage2_error = stage2DataToSave.error;
+    } else {
+      // 兼容旧逻辑：只保存 stage2Result 中的字段
+      saveData.llm_stage2_category = stage2Result.category;
+      saveData.llm_stage2_started_at = stage2Result.started_at;
+      saveData.llm_stage2_finished_at = stage2Result.finished_at;
+      saveData.llm_stage2_success = stage2Result.success;
+      saveData.llm_stage2_error = stage2Result.error;
+    }
+
+    await NarrativeRepository.save(saveData);
+  }
+
+  /**
+   * 为高影响力账号的推文图片进行分析
+   * @private
+   * @param {Array} images - 图片列表 [{url, width, height, media_key}]
+   * @param {Object} tokenData - 代币数据
+   * @returns {Promise<Object|null>} 图片分析结果
+   */
+        });
+
+        if (!imageData) {
+          console.warn(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 图片下载失败: ${imageUrl}`);
+          continue;
+        }
+
+        const downloadTime = Date.now() - imageStartTime;
+        console.log(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 下载完成 (${downloadTime}ms, ${imageData.size}字节)`);
+
+        // 构建分析 prompt
+        const prompt = `你是代币叙事分析专家。请分析这张图片与代币"${tokenSymbol}"的关系。
+
+【代币信息】
+- Symbol: ${tokenSymbol}
+${tokenName ? `- Name: ${tokenName}` : ''}
+${tokenIntro ? `- 简介: ${tokenIntro}` : ''}
+- 地址: ${tokenAddress.substring(0, 8)}...
+
+【分析任务】
+1. **图片内容描述**：详细描述图片中的主体、人物、动物、文字、符号等
+2. **代币关联度评估**：图片内容与代币名称/Symbol是否有关联？说明关联方式
+3. **meme/梗图识别**：是否是流行meme图？指出名称和含义
+4. **营销信号**：图片是否呈现明显的营销设计风格？
+
+【输出格式】（JSON）
+{
+  "description": "图片内容详细描述",
+  "token_relevance": {
+    "is_related": true/false,
+    "reason": "关联/无关联的原因",
+    "match_type": "symbol|name|concept|visual|none"
+  },
+  "meme_info": {
+    "is_meme": true/false,
+    "name": "meme名称（如果是）"
+  },
+  "marketing_signals": ["信号1", "信号2"]
+}`;
+
+        // 调用视觉模型分析图片
+        const analysisStartTime = Date.now();
+        const result = await LLMClient.analyzeImage(imageData.dataUrl, prompt, {
+          model: 'Qwen/Qwen3-Omni-30B-A3B-Captioner',  // 使用快速模型 (约5秒)
+          timeout: 20000,  // 20秒超时
+          maxTokens: 2000
+        });
+
+        const analysisTime = Date.now() - analysisStartTime;
+
+        // 解析结果
+        let jsonMatch = result.content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            analysisResults.push({
+              image_url: imageUrl,
+              analysis: parsed,
+              timing: {
+                download: downloadTime,
+                analysis: analysisTime,
+                total: downloadTime + analysisTime
+              }
+            });
+            console.log(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 分析成功 (${analysisTime}ms): ${parsed.description?.substring(0, 40)}...`);
+          } catch (e) {
+            console.warn(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] JSON解析失败: ${e.message}`);
+            // 尝试使用原始内容
+            analysisResults.push({
+              image_url: imageUrl,
+              analysis: {
+                description: result.content.substring(0, 200),
+                token_relevance: { is_related: false, reason: '解析失败' }
+              },
+              timing: {
+                download: downloadTime,
+                analysis: analysisTime,
+                total: downloadTime + analysisTime
+              }
+            });
+          }
+        }
+
+      } catch (error) {
+        const errorTime = Date.now() - imageStartTime;
+        console.error(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 分析失败 (${errorTime}ms): ${error.message}`);
+      }
+    }
+
+    const totalTime = Date.now() - startTime;
+
+    if (analysisResults.length === 0) {
+      console.log(`[NarrativeAnalyzer] 所有图片分析失败（总耗时: ${totalTime}ms）`);
+      return null;
+    }
+
+    console.log(`[NarrativeAnalyzer] 图片分析完成: 成功 ${analysisResults.length}/${maxImages}张，总耗时 ${totalTime}ms`);
+
+    return {
+      images_analyzed: analysisResults.length,
+      total_time_ms: totalTime,
+      results: analysisResults
+    };
+  }
+
+  /**
+   * 批量分析（可选功能）
+   */
+  static async analyzeBatch(addresses) {
+    const results = [];
+    for (const address of addresses) {
+      try {
+        const result = await this.analyze(address);
+        results.push({ success: true, data: result });
+      } catch (error) {
+        results.push({ success: false, address, error: error.message });
+      }
+    }
+    return results;
+  }
+}
+
+/**
+ * 获取TikTok影响力等级
+ * @param {Object} tiktokInfo - TikTok视频信息
+ * @returns {string} 影响力等级
+ */
+  } else if (viewCount >= 100000 || likeCount >= 10000) {
+    return 'platform'; // 平台级：10万播放或1万点赞
+  } else if (viewCount >= 10000 || likeCount >= 1000) {
+    return 'community'; // 社区级：1万播放或1000点赞
+  } else {
+    return 'niche'; // 小众：低于1万播放且1000点赞
+  }
+}
+
+/**
+ * 获取TikTok影响力等级描述
+ * @param {string} level - 影响力等级
+ * @returns {string} 描述
+ */
+  };
+  return descriptions[level] || '未知影响力';
+}
