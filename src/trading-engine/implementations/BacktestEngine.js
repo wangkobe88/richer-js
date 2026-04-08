@@ -1907,7 +1907,7 @@ class BacktestEngine extends AbstractTradingEngine {
       });
       const fromCache = result.meta?.fromCache ? '缓存' : 'LLM';
       const sourceExp = result.meta?.sourceExperimentId || 'N/A';
-      const rating = this._mapCategoryToRating(result.llmAnalysis?.category);
+      const rating = this._mapCategoryToRating(result.llmAnalysis?.summary?.category);
 
       this.logger.info(this._experimentId, '_executeNarrativeAnalysis',
         `叙事分析完成 | token=${tokenAddress.slice(0, 10)}..., rating=${rating}, source=${fromCache}, sourceExp=${sourceExp}, duration=${Date.now() - startTime}ms`);

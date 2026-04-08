@@ -1981,10 +1981,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       const fromCache = result.meta?.fromCache ? '缓存' : 'LLM';
       const sourceExp = result.meta?.sourceExperimentId || 'N/A';
       this.logger.info(this._experimentId, 'NarrativeAnalysis',
-        `分析完成 | address=${tokenAddress}, category=${result.llmAnalysis?.category}, source=${fromCache}, sourceExp=${sourceExp}, duration=${duration}ms`);
+        `分析完成 | address=${tokenAddress}, category=${result.llmAnalysis?.summary?.category}, source=${fromCache}, sourceExp=${sourceExp}, duration=${duration}ms`);
 
       // 映射 category 到 rating
-      return this._mapCategoryToRating(result.llmAnalysis?.category);
+      return this._mapCategoryToRating(result.llmAnalysis?.summary?.category);
 
     } catch (error) {
       const duration = Date.now() - startTime;

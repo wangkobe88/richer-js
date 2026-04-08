@@ -578,7 +578,14 @@ export function buildLLMAnalysis(record) {
   const stage1Category = record.llm_stage1_parsed_output?.eventClassification?.primaryCategory || record.llm_stage1_category;
   const prestageCategory = record.llm_prestage_parsed_output?.tokenType || record.llm_prestage_category;
 
-  const category = stage3Category || stage2Category || stage1Category || prestageCategory || 'unrated';
+  // 如果Stage 2存在但未通过（pass=false），则评级为low
+  const stage2Pass = record.llm_stage2_parsed_output?.raw?.pass;
+  let category;
+  if (stage2 !== null && stage2Pass === false) {
+    category = 'low';
+  } else {
+    category = stage3Category || stage2Category || stage1Category || prestageCategory || 'unrated';
+  }
   const parsedOutput = record.llm_stage3_parsed_output || record.llm_stage2_parsed_output || record.llm_stage1_parsed_output || record.llm_prestage_parsed_output;
 
   let reasoning = '';

@@ -1243,11 +1243,15 @@ class ExperimentDataService {
           console.log(`[Narrative] pre_check_category:`, narrative.pre_check_category);
 
           // 从3阶段分析结果读取 category（优先级：stage3 > stage2 > stage1 > pre_check）
-          const llm_category = narrative.llm_stage3_category || narrative.llm_stage2_category || narrative.llm_stage1_category || narrative.pre_check_category || null;
+          let llm_category = narrative.llm_stage3_category || narrative.llm_stage2_category || narrative.llm_stage1_category || narrative.pre_check_category || null;
+          // 如果Stage 2存在（有parsed_output）但未通过（pass=false），评级应为low
+          const stage2Pass = narrative.llm_stage2_parsed_output?.raw?.pass;
+          if (narrative.llm_stage2_parsed_output && !narrative.llm_stage3_category && stage2Pass === false) {
+            llm_category = 'low';
+          }
           console.log(`[Narrative] 最终 llm_category:`, llm_category);
 
           // 从 llm_category 推导 rating
-          // stage3 输出 high/mid/low；stage2/stage1 输出 A-F 字母分类
           let rating = 9; // 默认未评级
           if (llm_category) {
             const category = llm_category.toLowerCase();

@@ -455,8 +455,11 @@ export class NarrativeAnalyzer {
                 const failReason = !stage2CallResult.success ? stage2CallResult.error : stage2Data.blockReason;
                 logger.warn('NarrativeAnalyzer', `Stage 2 ${!stage2CallResult.success ? '失败' : '未通过'}: ${failReason}`);
 
+                // Stage 2未通过，category设为low（保证概览卡片正确显示）
+                stage2DataToSave.category = 'low';
+
                 llmResult = {
-                  category: stage2Data.categoryAnalysis?.category || 'unrated',
+                  category: 'low',
                   reasoning: `Stage 1通过，但Stage 2${!stage2CallResult.success ? '失败' : '未通过'}: ${failReason}`,
                   scores: stage2Data.categoryAnalysis ? { total_score: stage2Data.categoryAnalysis.totalScore } : null,
                   total_score: stage2Data.categoryAnalysis?.totalScore || null,
