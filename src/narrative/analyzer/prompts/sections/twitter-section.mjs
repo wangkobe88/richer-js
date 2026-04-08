@@ -86,6 +86,19 @@ function buildTweetPart(tweet, label = '推文') {
     }
   }
 
+  // 图片分析结果
+  if (tweet.image_analysis) {
+    const analysis = tweet.image_analysis.analysis;
+    if (analysis) {
+      parts.push(`【图片内容分析】`);
+      if (analysis.description) parts.push(`描述：${analysis.description}`);
+      if (analysis.key_elements?.length > 0) parts.push(`关键元素：${analysis.key_elements.join(', ')}`);
+      if (analysis.meme_type) parts.push(`梗图类型：${analysis.meme_type}`);
+      if (analysis.meme_meaning) parts.push(`梗图含义：${analysis.meme_meaning}`);
+      if (analysis.token_relevance) parts.push(`代币关联：${analysis.token_relevance}`);
+    }
+  }
+
   // Article
   if (tweet.article) {
     parts.push(`【Twitter Article】（注意：Article即为此推文的完整内容，非转发）`);

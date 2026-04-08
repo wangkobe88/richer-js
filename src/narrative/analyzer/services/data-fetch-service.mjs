@@ -9,6 +9,7 @@ import { WeiboFetcher } from '../../utils/weibo-fetcher.mjs';
 import { GithubFetcher } from '../../utils/github-fetcher.mjs';
 import { YoutubeFetcher } from '../../utils/youtube-fetcher.mjs';
 import { DouyinFetcher } from '../../utils/douyin-fetcher.mjs';
+import { isHighInfluenceAccount } from '../prompts/account-backgrounds.mjs';
 import { fetchTikTokVideoInfo } from '../../utils/tiktok-fetcher.mjs';
 
 // TikTok 影响力等级函数（从原始 NarrativeAnalyzer.mjs 中提取）
@@ -285,9 +286,11 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
           info = await TwitterFetcher.enrichWithLinkContent(info);
         }
 
-        // 图片分析（如果启用）
-        if (NARRATIVE_CONFIG.enableImageAnalysis && info?.media && TwitterMediaExtractor.hasImages(info)) {
-          console.log('[NarrativeAnalyzer] 推文包含图片，开始分析...');
+        // 图片分析（仅对高影响力账号启用）
+        const screenName = info?.author_screen_name || info?.screen_name;
+        const isHighInfluence = isHighInfluenceAccount(screenName);
+        if (NARRATIVE_CONFIG.enableImageAnalysis && isHighInfluence && info?.media && TwitterMediaExtractor.hasImages(info)) {
+          console.log(`[NarrativeAnalyzer] 高影响力账号 @${screenName} 推文包含图片，开始分析...`);
           const imageUrls = TwitterMediaExtractor.extractImageUrls(info);
           const firstImage = imageUrls[0];
           if (firstImage) {
@@ -305,6 +308,8 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
               console.warn('[NarrativeAnalyzer] 图片分析失败:', error.message);
             }
           }
+        } else if (NARRATIVE_CONFIG.enableImageAnalysis && !isHighInfluence && info?.media && TwitterMediaExtractor.hasImages(info)) {
+          console.log(`[NarrativeAnalyzer] 非高影响力账号 @${screenName}，跳过图片分析`);
         }
 
         // 非中英文推文翻译

@@ -66,138 +66,30 @@ class NarrativeAnalyzer {
 
     const ignoreExpired = this.ignoreExpiredCheckbox?.checked || false;
 
-    // 用于跟踪已完成的阶段，避免重复更新
-    this.completedStages = new Set();
-
     try {
       // 先获取代币基础信息
       await this.fetchAndShowTokenInfo(address);
 
-      // 启动分析请求
-      fetch('/api/narrative/analyze', {
+      // 发起分析请求，等待完成后一次性展示
+      const response = await fetch('/api/narrative/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ address, ignoreExpired })
-      }).then(async response => {
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || '分析失败');
-        }
-        // 分析完成，最终更新一次确保所有数据正确
-        this.displayResult(data.data);
-        this.hideLoading();
-      }).catch(error => {
-        this.showError(error.message);
-        this.hideLoading();
       });
 
-      // 启动轮询获取渐进式结果
-      this.startProgressivePolling(address);
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || '分析失败');
+      }
 
+      this.displayResult(data.data);
     } catch (error) {
       this.showError(error.message);
+    } finally {
       this.hideLoading();
     }
-  }
-
-  /**
-   * 启动渐进式轮询，每阶段完成后立即显示
-   */
-  startProgressivePolling(address) {
-    const maxPolls = 120; // 最多轮询120次（2分钟，每秒一次）
-    let pollCount = 0;
-
-    const poll = async () => {
-      pollCount++;
-
-      try {
-        const response = await fetch(`/api/narrative/result/${address}`);
-        const data = await response.json();
-
-        if (data.success && data.data && data.data.llmAnalysis) {
-          const llmAnalysis = data.data.llmAnalysis;
-
-          // 检查并更新预检查
-          if (llmAnalysis.preCheck && !this.completedStages.has('precheck')) {
-            this.completedStages.add('precheck');
-            this.updatePrecheckCard(llmAnalysis);
-            this.showResult(); // 显示结果区域
-          }
-
-          // 检查并更新 PreStage
-          if (llmAnalysis.prestage && !this.completedStages.has('prestage')) {
-            this.completedStages.add('prestage');
-            this.updatePrestageCard(llmAnalysis);
-            this.showResult();
-          }
-
-          // 检查并更新 Stage 1
-          if (llmAnalysis.stage1 && !this.completedStages.has('stage1')) {
-            this.completedStages.add('stage1');
-            this.updateStage1Card(llmAnalysis);
-            this.updateOverviewCard(data.data.token, llmAnalysis, data.data.debugInfo, data.data.meta);
-            // 同时更新数据源、推文、原始数据卡片
-            this.updateDataSourceCard(data.data.debugInfo, data.data.classifiedUrls);
-            this.updateTweetCard(data.data.twitter);
-            this.updateRawDataCard(data.data.token);
-            this.showResult();
-          }
-
-          // 检查并更新 Stage 2
-          if (llmAnalysis.stage2 && !this.completedStages.has('stage2')) {
-            this.completedStages.add('stage2');
-            this.updateStage2Card(llmAnalysis);
-            this.showResult();
-          }
-
-          // 检查并更新 Stage 3
-          if (llmAnalysis.stage3 && !this.completedStages.has('stage3')) {
-            console.log('[NarrativeAnalyzer] Updating Stage 3 card...');
-            this.completedStages.add('stage3');
-            this.updateStage3Card(llmAnalysis);
-            this.updateOverviewCard(data.data.token, llmAnalysis, data.data.debugInfo, data.data.meta);
-            // 同时更新数据源、推文、原始数据卡片
-            this.updateDataSourceCard(data.data.debugInfo, data.data.classifiedUrls);
-            this.updateTweetCard(data.data.twitter);
-            this.updateRawDataCard(data.data.token);
-            this.showResult();
-          }
-
-          // 检查是否所有阶段都完成
-          // 判断标准：Stage 1 必须存在且成功，然后根据 Stage 1 的结果决定是否需要后续阶段
-          const stage1Complete = llmAnalysis.stage1 && llmAnalysis.stage1.success !== false;
-          const stage1LowQuality = stage1Complete && llmAnalysis.stage1.category === 'low';
-          const stage2Complete = llmAnalysis.stage2 && llmAnalysis.stage2.success !== false;
-          const stage3Complete = llmAnalysis.stage3 && llmAnalysis.stage3.success !== false;
-
-          // 如果 Stage 1 是低质量，则不需要 Stage 2/3
-          // 否则需要 Stage 2 或 Stage 3 至少有一个完成
-          const allStagesComplete = stage1Complete && (stage1LowQuality || stage2Complete || stage3Complete);
-
-          if (allStagesComplete) {
-            // 所有阶段完成，停止轮询
-            return;
-          }
-        }
-
-        // 继续轮询
-        if (pollCount < maxPolls) {
-          setTimeout(poll, 1000); // 每秒轮询一次
-        }
-
-      } catch (error) {
-        console.warn('轮询失败:', error);
-        // 继续轮询
-        if (pollCount < maxPolls) {
-          setTimeout(poll, 1000);
-        }
-      }
-    };
-
-    // 开始轮询
-    setTimeout(poll, 500); // 延迟500ms开始第一次轮询
   }
 
   async fetchAndShowTokenInfo(address) {

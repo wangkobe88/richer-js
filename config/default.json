@@ -32,7 +32,7 @@
     "stopLossMinutes": 5
   },
   "narrative": {
-    "enableImageAnalysis": false,
+    "enableImageAnalysis": true,
     "enableVideoAnalysis": false,
     "twitterBlacklist": [
       "Cortaviousloma1",
