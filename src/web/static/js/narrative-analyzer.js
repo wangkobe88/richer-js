@@ -138,6 +138,10 @@ class NarrativeAnalyzer {
             this.completedStages.add('stage1');
             this.updateStage1Card(llmAnalysis);
             this.updateOverviewCard(data.data.token, llmAnalysis, data.data.debugInfo, data.data.meta);
+            // 同时更新数据源、推文、原始数据卡片
+            this.updateDataSourceCard(data.data.debugInfo, data.data.classifiedUrls);
+            this.updateTweetCard(data.data.twitter);
+            this.updateRawDataCard(data.data.token);
             this.showResult();
           }
 
@@ -154,6 +158,10 @@ class NarrativeAnalyzer {
             this.completedStages.add('stage3');
             this.updateStage3Card(llmAnalysis);
             this.updateOverviewCard(data.data.token, llmAnalysis, data.data.debugInfo, data.data.meta);
+            // 同时更新数据源、推文、原始数据卡片
+            this.updateDataSourceCard(data.data.debugInfo, data.data.classifiedUrls);
+            this.updateTweetCard(data.data.twitter);
+            this.updateRawDataCard(data.data.token);
             this.showResult();
           }
 
@@ -1023,7 +1031,9 @@ class NarrativeAnalyzer {
     const blockReason = parsed.raw?.blockReason;
 
     // 如果未通过，显示阻断原因
-    if (pass === false) {
+    let isFailed = pass === false;
+    let failHtml = '';
+    if (isFailed) {
       const categoryConfig = {
         'high': { icon: '🟢', text: '高质量' },
         'mid': { icon: '🟡', text: '中质量' },
@@ -1042,11 +1052,7 @@ class NarrativeAnalyzer {
         'E': 'E级（极低热度）'
       };
 
-      this.stage2CardBody.innerHTML = `
-        <div class="stage-status fail">
-          <span>⛔</span>
-          <span>未通过</span>
-        </div>
+      failHtml = `
         <div class="stage-result-box">
           <strong>🚫 Stage 2 阻断</strong><br>
           <span style="font-size: 13px; color: #666;">
@@ -1057,7 +1063,6 @@ class NarrativeAnalyzer {
           </span>
         </div>
       `;
-      return;
     }
 
     const category = stage2.category || parsed.category || 'unrated';
@@ -1244,15 +1249,27 @@ class NarrativeAnalyzer {
     }
 
     // Stage 2 状态显示：通过/未通过
-    const statusClass = pass === true ? 'pass' : 'skip';
-    const statusIcon = pass === true ? '✅' : '○';
-    const statusText = pass === true ? '通过' : '未知状态';
+    let statusClass, statusIcon, statusText;
+    if (isFailed) {
+      statusClass = 'fail';
+      statusIcon = '⛔';
+      statusText = '未通过';
+    } else if (pass === true) {
+      statusClass = 'pass';
+      statusIcon = '✅';
+      statusText = '通过';
+    } else {
+      statusClass = 'skip';
+      statusIcon = '○';
+      statusText = '未知状态';
+    }
 
     this.stage2CardBody.innerHTML = `
       <div class="stage-status ${statusClass}">
         <span>${statusIcon}</span>
         <span>${statusText}</span>
       </div>
+      ${failHtml}
       ${scoresHtml}
       ${reasoningHtml}
       ${timingHtml}

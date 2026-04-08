@@ -51,7 +51,13 @@ export async function buildStage2Prompt(eventDescription, eventClassification) {
   const buildCategoryPrompt = await promptBuilderGetter();
 
   // 构建Prompt
-  return buildCategoryPrompt(eventDescription, eventClassification);
+  const categoryPrompt = buildCategoryPrompt(eventDescription, eventClassification);
+
+  // 拼接当前时间信息，让 LLM 能判断预期事件的具体距离
+  const currentDate = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric' });
+  const currentTimePrefix = `【当前时间】${currentDate}\n\n`;
+
+  return currentTimePrefix + categoryPrompt;
 }
 
 /**

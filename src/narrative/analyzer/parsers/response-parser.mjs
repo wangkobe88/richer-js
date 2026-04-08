@@ -54,29 +54,99 @@ export function parseStage1Response(content) {
   }
 
   /**
-   * 尝试解析JSON，处理中文引号问题
+   * 清理JSON字符串中的潜在问题
+   */
+  const cleanJSONString = (str) => {
+    let cleaned = str;
+
+    // 移除BOM标记
+    cleaned = cleaned.replace(/^\uFEFF/, '');
+
+    // 移除控制字符（除了换行、制表符等常用字符）
+    cleaned = cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+    return cleaned;
+  };
+
+  /**
+   * 修复JSON字符串中的常见问题
+   */
+  const fixCommonJSONIssues = (str) => {
+    let fixed = str;
+    const stringValueRegex = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+    fixed = fixed.replace(stringValueRegex, (match, content) => {
+      if (content.includes('\n') || content.includes('\r')) {
+        const escaped = content
+          .replace(/\\/g, '\\\\')
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '\\r')
+          .replace(/\t/g, '\\t');
+        return '"' + escaped + '"';
+      }
+      return match;
+    });
+    return fixed;
+  };
+
+  // 先清理JSON字符串
+  jsonStr = cleanJSONString(jsonStr);
+
+  /**
+   * 尝试解析JSON，处理各种格式问题
    */
   const tryParseJSON = (str) => {
     try {
-      return JSON.parse(str);
+      return { success: true, data: JSON.parse(str) };
     } catch (e) {
-      return null;
+      return { success: false, error: e.message, errorObj: e };
     }
   };
 
   // 首先尝试直接解析
-  let result = tryParseJSON(jsonStr);
+  let parseResult = tryParseJSON(jsonStr);
+  let result = parseResult.success ? parseResult.data : null;
+  let parseError = parseResult.success ? null : parseResult.error;
 
-  // 如果失败，尝试修复中文引号问题
+  // 如果失败，尝试修复常见的JSON问题
   if (!result) {
-    console.log('[NarrativeAnalyzer] Stage 1: 直接解析失败，尝试修复中文引号');
+    console.log('[NarrativeAnalyzer] Stage 1: 直接解析失败，尝试修复常见问题');
+    const fixedJsonStr = fixCommonJSONIssues(jsonStr);
+    parseResult = tryParseJSON(fixedJsonStr);
+    result = parseResult.success ? parseResult.data : null;
+    if (result) {
+      console.log('[NarrativeAnalyzer] Stage 1: 修复常见问题后成功');
+    } else {
+      parseError = parseResult.error;
+    }
+  }
+
+  // 如果仍然失败，尝试修复中文引号问题
+  if (!result) {
+    console.log('[NarrativeAnalyzer] Stage 1: 仍然失败，尝试修复中文引号');
     const fixedJsonStr = jsonStr.replace(/"/g, "'").replace(/"/g, "'");
-    result = tryParseJSON(fixedJsonStr);
+    parseResult = tryParseJSON(fixedJsonStr);
+    result = parseResult.success ? parseResult.data : null;
+    if (!result) parseError = parseResult.error;
+  }
+
+  // 如果仍然失败，尝试使用Function构造器
+  if (!result) {
+    console.log('[NarrativeAnalyzer] Stage 1: 仍然失败，尝试Function构造器');
+    try {
+      const jsonFunc = new Function('return ' + jsonStr);
+      result = jsonFunc();
+      console.log('[NarrativeAnalyzer] Stage 1: Function构造器方式成功');
+    } catch (e) {
+      console.log('[NarrativeAnalyzer] Stage 1: Function构造器方式也失败:', e.message);
+      if (!parseError) parseError = e.message;
+    }
   }
 
   if (!result) {
-    console.error('[NarrativeAnalyzer] Stage 1: JSON解析失败，提取的字符串:', jsonStr);
-    throw new Error('Stage 1: JSON解析失败 - 无法修复格式错误');
+    console.error('[NarrativeAnalyzer] Stage 1: JSON解析失败');
+    console.error('[NarrativeAnalyzer] 解析错误:', parseError);
+    console.error('[NarrativeAnalyzer] 提取的JSON字符串前500字符:', jsonStr.substring(0, 500));
+    throw new Error(`Stage 1: JSON解析失败 - ${parseError || '未知错误'}`);
   }
 
   if (typeof result.pass !== 'boolean') {
@@ -148,30 +218,99 @@ export function parseEventResponse(content) {
   }
 
   /**
-   * 尝试解析JSON，处理中文引号问题
+   * 清理JSON字符串中的潜在问题
+   */
+  const cleanJSONString = (str) => {
+    let cleaned = str;
+
+    // 移除BOM标记
+    cleaned = cleaned.replace(/^\uFEFF/, '');
+
+    // 移除控制字符（除了换行、制表符等常用字符）
+    cleaned = cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+    return cleaned;
+  };
+
+  /**
+   * 修复JSON字符串中的常见问题
+   */
+  const fixCommonJSONIssues = (str) => {
+    let fixed = str;
+    const stringValueRegex = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+    fixed = fixed.replace(stringValueRegex, (match, content) => {
+      if (content.includes('\n') || content.includes('\r')) {
+        const escaped = content
+          .replace(/\\/g, '\\\\')
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '\\r')
+          .replace(/\t/g, '\\t');
+        return '"' + escaped + '"';
+      }
+      return match;
+    });
+    return fixed;
+  };
+
+  // 先清理JSON字符串
+  jsonStr = cleanJSONString(jsonStr);
+
+  /**
+   * 尝试解析JSON，处理各种格式问题
    */
   const tryParseJSON = (str) => {
     try {
-      return JSON.parse(str);
+      return { success: true, data: JSON.parse(str) };
     } catch (e) {
-      return null;
+      return { success: false, error: e.message, errorObj: e };
     }
   };
 
   // 首先尝试直接解析
-  let result = tryParseJSON(jsonStr);
+  let parseResult = tryParseJSON(jsonStr);
+  let result = parseResult.success ? parseResult.data : null;
+  let parseError = parseResult.success ? null : parseResult.error;
 
-  // 如果失败，尝试修复中文引号问题
+  // 如果失败，尝试修复常见的JSON问题
   if (!result) {
-    console.log('[NarrativeAnalyzer] EventAnalysis: 直接解析失败，尝试修复中文引号');
-    // 将中文引号替换为英文单引号（在JSON字符串中是合法的）
+    console.log('[NarrativeAnalyzer] EventAnalysis: 直接解析失败，尝试修复常见问题');
+    const fixedJsonStr = fixCommonJSONIssues(jsonStr);
+    parseResult = tryParseJSON(fixedJsonStr);
+    result = parseResult.success ? parseResult.data : null;
+    if (result) {
+      console.log('[NarrativeAnalyzer] EventAnalysis: 修复常见问题后成功');
+    } else {
+      parseError = parseResult.error;
+    }
+  }
+
+  // 如果仍然失败，尝试修复中文引号问题
+  if (!result) {
+    console.log('[NarrativeAnalyzer] EventAnalysis: 仍然失败，尝试修复中文引号');
     const fixedJsonStr = jsonStr.replace(/"/g, "'").replace(/"/g, "'");
-    result = tryParseJSON(fixedJsonStr);
+    parseResult = tryParseJSON(fixedJsonStr);
+    result = parseResult.success ? parseResult.data : null;
+    if (!result) parseError = parseResult.error;
+  }
+
+  // 如果仍然失败，尝试使用Function构造器
+  if (!result) {
+    console.log('[NarrativeAnalyzer] EventAnalysis: 仍然失败，尝试Function构造器');
+    try {
+      const jsonFunc = new Function('return ' + jsonStr);
+      result = jsonFunc();
+      console.log('[NarrativeAnalyzer] EventAnalysis: Function构造器方式成功');
+    } catch (e) {
+      console.log('[NarrativeAnalyzer] EventAnalysis: Function构造器方式也失败:', e.message);
+      if (!parseError) parseError = e.message;
+    }
   }
 
   if (!result) {
-    console.error('[NarrativeAnalyzer] EventAnalysis: JSON解析失败，提取的字符串:', jsonStr);
-    throw new Error(`EventAnalysis: JSON解析失败 - 无法修复格式错误`);
+    console.error('[NarrativeAnalyzer] EventAnalysis: JSON解析失败');
+    console.error('[NarrativeAnalyzer] 解析错误:', parseError);
+    console.error('[NarrativeAnalyzer] 提取的JSON字符串前500字符:', jsonStr.substring(0, 500));
+    throw new Error(`EventAnalysis: JSON解析失败 - ${parseError || '未知错误'}`);
   }
 
   if (typeof result.pass !== 'boolean') {
@@ -246,28 +385,119 @@ export function parseJSONResponse(content) {
   }
 
   /**
-   * 尝试解析JSON，处理中文引号问题
+   * 清理JSON字符串中的潜在问题
+   */
+  const cleanJSONString = (str) => {
+    let cleaned = str;
+
+    // 移除BOM标记
+    cleaned = cleaned.replace(/^\uFEFF/, '');
+
+    // 移除控制字符（除了换行、制表符等常用字符）
+    cleaned = cleaned.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+    return cleaned;
+  };
+
+  /**
+   * 修复JSON字符串中的常见问题
+   * 主要是处理LLM可能返回的未正确转义的换行符
+   */
+  const fixCommonJSONIssues = (str) => {
+    let fixed = str;
+
+    // 尝试修复JSON字符串值中的未转义换行符
+    // 这个正则匹配JSON字符串值内部的多行内容
+    // 策略：找到所有字符串值，检查其中是否有未转义的换行符
+    const stringValueRegex = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+
+    fixed = fixed.replace(stringValueRegex, (match, content) => {
+      // 检查内容中是否有未转义的换行符（\n不是实际换行，\\n才是转义的）
+      // 实际换行符是\n（一个字符），转义的是\\n（两个字符）
+      if (content.includes('\n') || content.includes('\r')) {
+        // 将实际的换行符替换为\\n
+        const escaped = content
+          .replace(/\\/g, '\\\\')  // 先转义已有的反斜杠
+          .replace(/\n/g, '\\n')    // 转义换行符
+          .replace(/\r/g, '\\r')    // 转义回车符
+          .replace(/\t/g, '\\t');   // 转义制表符
+        return '"' + escaped + '"';
+      }
+      return match;
+    });
+
+    return fixed;
+  };
+
+  // 先清理JSON字符串
+  jsonStr = cleanJSONString(jsonStr);
+
+  /**
+   * 尝试解析JSON，处理各种格式问题
    */
   const tryParseJSON = (str) => {
     try {
-      return JSON.parse(str);
+      return { success: true, data: JSON.parse(str) };
     } catch (e) {
-      return null;
+      return { success: false, error: e.message, errorObj: e };
     }
   };
 
   // 首先尝试直接解析
-  let result = tryParseJSON(jsonStr);
+  let parseResult = tryParseJSON(jsonStr);
+  let result = parseResult.success ? parseResult.data : null;
+  let parseError = parseResult.success ? null : parseResult.error;
+  let errorObj = parseResult.errorObj || null;
 
-  // 如果失败，尝试修复中文引号问题
+  // 如果失败，尝试修复常见的JSON问题（未转义的换行符等）
   if (!result) {
+    console.log('[NarrativeAnalyzer] JSON解析: 直接解析失败，尝试修复常见问题');
+    const fixedJsonStr = fixCommonJSONIssues(jsonStr);
+    parseResult = tryParseJSON(fixedJsonStr);
+    result = parseResult.success ? parseResult.data : null;
+    if (result) {
+      console.log('[NarrativeAnalyzer] JSON解析: 修复常见问题后成功');
+    } else {
+      parseError = parseResult.error;
+      errorObj = parseResult.errorObj;
+    }
+  }
+
+  // 如果仍然失败，尝试修复中文引号问题
+  if (!result) {
+    console.log('[NarrativeAnalyzer] JSON解析: 直接解析失败，尝试修复中文引号');
     const fixedJsonStr = jsonStr.replace(/"/g, "'").replace(/"/g, "'");
-    result = tryParseJSON(fixedJsonStr);
+    parseResult = tryParseJSON(fixedJsonStr);
+    result = parseResult.success ? parseResult.data : null;
+    if (!result && !parseError) parseError = parseResult.error;
+  }
+
+  // 如果仍然失败，尝试使用eval方式（作为最后手段）
+  if (!result) {
+    console.log('[NarrativeAnalyzer] JSON解析: 仍然失败，尝试使用Function构造器方式');
+    try {
+      // 使用Function构造器作为eval的替代方案
+      // 这比eval稍微安全一些，但仍然需要注意安全问题
+      // 由于LLM返回的内容是受控的，这里使用是相对安全的
+      const jsonFunc = new Function('return ' + jsonStr);
+      result = jsonFunc();
+      console.log('[NarrativeAnalyzer] JSON解析: Function构造器方式成功');
+    } catch (e) {
+      console.log('[NarrativeAnalyzer] JSON解析: Function构造器方式也失败:', e.message);
+      if (!parseError) parseError = e.message;
+    }
   }
 
   if (!result) {
-    console.error('[NarrativeAnalyzer] JSON解析: 解析失败，提取的字符串:', jsonStr);
-    throw new Error('JSON解析: 解析失败');
+    console.error('[NarrativeAnalyzer] JSON解析: 解析失败');
+    console.error('[NarrativeAnalyzer] 解析错误:', parseError);
+    if (errorObj) {
+      console.error('[NarrativeAnalyzer] 错误堆栈:', errorObj.stack);
+    }
+    console.error('[NarrativeAnalyzer] 提取的JSON字符串长度:', jsonStr.length);
+    console.error('[NarrativeAnalyzer] JSON字符串前500字符:', jsonStr.substring(0, 500));
+    console.error('[NarrativeAnalyzer] JSON字符串后500字符:', jsonStr.substring(Math.max(0, jsonStr.length - 500)));
+    throw new Error(`JSON解析: 解析失败 - ${parseError || '未知错误'}`);
   }
 
   return result;
@@ -391,7 +621,9 @@ export function formatResult(record) {
       address: record.token_address,
       symbol: record.token_symbol,
       name: record.raw_api_data?.name || record.token_symbol || '',
-      icon: (record.raw_api_data?.name || record.token_symbol || '?')[0]?.toUpperCase()
+      icon: (record.raw_api_data?.name || record.token_symbol || '?')[0]?.toUpperCase(),
+      raw_api_data: record.raw_api_data || null,  // 添加原始代币数据
+      chain: record.raw_api_data?.chain || null  // 添加链信息
     },
     category: record.llm_stage3_category || record.llm_stage2_category || record.llm_stage1_category || record.llm_prestage_category || 'unrated',
     reasoning: '',

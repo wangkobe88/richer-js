@@ -1242,11 +1242,12 @@ class ExperimentDataService {
           console.log(`[Narrative] llm_stage2_category:`, narrative.llm_stage2_category);
           console.log(`[Narrative] pre_check_category:`, narrative.pre_check_category);
 
-          // 从新字段读取 category
-          const llm_category = narrative.llm_stage2_category || narrative.llm_stage1_category || narrative.pre_check_category || null;
+          // 从3阶段分析结果读取 category（优先级：stage3 > stage2 > stage1 > pre_check）
+          const llm_category = narrative.llm_stage3_category || narrative.llm_stage2_category || narrative.llm_stage1_category || narrative.pre_check_category || null;
           console.log(`[Narrative] 最终 llm_category:`, llm_category);
 
           // 从 llm_category 推导 rating
+          // stage3 输出 high/mid/low；stage2/stage1 输出 A-F 字母分类
           let rating = 9; // 默认未评级
           if (llm_category) {
             const category = llm_category.toLowerCase();
@@ -1260,6 +1261,29 @@ class ExperimentDataService {
           }
           console.log(`[Narrative] rating:`, rating);
 
+          // 从3阶段分析结果读取 summary（优先级：stage3 > stage2 > stage1 > pre_check）
+          const llm_summary = narrative.llm_stage3_parsed_output ? {
+            total_score: narrative.llm_stage3_parsed_output.total_score,
+            credibility_score: narrative.llm_stage3_parsed_output.scores?.credibility,
+            virality_score: narrative.llm_stage3_parsed_output.scores?.virality,
+            reasoning: narrative.llm_stage3_parsed_output.reasoning,
+            relevance_score: narrative.llm_stage3_parsed_output.relevanceScore,
+            quality_score: narrative.llm_stage3_parsed_output.qualityScore
+          } : narrative.llm_stage2_parsed_output ? {
+            total_score: narrative.llm_stage2_parsed_output.categoryAnalysis?.totalScore || narrative.llm_stage2_parsed_output.total_score,
+            credibility_score: narrative.llm_stage2_parsed_output.scores?.credibility,
+            virality_score: narrative.llm_stage2_parsed_output.scores?.virality,
+            reasoning: narrative.llm_stage2_parsed_output.reasoning
+          } : narrative.llm_stage1_parsed_output ? {
+            reasoning: narrative.llm_stage1_parsed_output.reason,
+            scenario: narrative.llm_stage1_parsed_output.scenario
+          } : narrative.pre_check_result ? {
+            total_score: narrative.pre_check_result.total_score,
+            credibility_score: narrative.pre_check_result.scores?.credibility,
+            virality_score: narrative.pre_check_result.scores?.virality,
+            reasoning: narrative.pre_check_result.reasoning
+          } : null;
+
           return {
             token_address: token.token_address,
             token_symbol: token.token_symbol || 'Unknown',
@@ -1268,21 +1292,7 @@ class ExperimentDataService {
             discovered_at: token.discovered_at,
             narrative: {
               llm_category: llm_category,
-              // 从新字段读取summary
-              llm_summary: narrative.llm_stage2_parsed_output ? {
-                total_score: narrative.llm_stage2_parsed_output.total_score,
-                credibility_score: narrative.llm_stage2_parsed_output.scores?.credibility,
-                virality_score: narrative.llm_stage2_parsed_output.scores?.virality,
-                reasoning: narrative.llm_stage2_parsed_output.reasoning
-              } : narrative.llm_stage1_parsed_output ? {
-                reasoning: narrative.llm_stage1_parsed_output.reason,
-                scenario: narrative.llm_stage1_parsed_output.scenario
-              } : narrative.pre_check_result ? {
-                total_score: narrative.pre_check_result.total_score,
-                credibility_score: narrative.pre_check_result.scores?.credibility,
-                virality_score: narrative.pre_check_result.scores?.virality,
-                reasoning: narrative.pre_check_result.reasoning
-              } : null,
+              llm_summary: llm_summary,
               rating: rating,
               experiment_id: narrative.experiment_id,
               analyzed_at: narrative.analyzed_at

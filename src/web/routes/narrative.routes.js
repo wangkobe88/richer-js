@@ -72,6 +72,27 @@ router.get('/result/:address', async (req, res) => {
     // 添加llmAnalysis字段供前端使用
     formattedResult.llmAnalysis = Analyzer.buildLLMAnalysis(result);
 
+    // 添加前端需要的额外字段
+    formattedResult.classifiedUrls = result.classified_urls || null;
+    formattedResult.twitter = result.twitter_info || null;
+
+    // 添加debugInfo（包含URL提取和数据获取结果）
+    formattedResult.debugInfo = {
+      urlExtractionResult: result.url_extraction_result || null,
+      dataFetchResults: result.data_fetch_results || null,
+      promptVersion: result.prompt_version || null,
+      analysisStage: result.analysis_stage || null
+    };
+
+    // 添加元数据
+    formattedResult.meta = {
+      analyzedAt: result.analyzed_at,
+      sourceExperimentId: result.experiment_id,
+      promptVersion: result.prompt_version,
+      isValid: result.is_valid,
+      preCheckTriggered: !!result.pre_check_category
+    };
+
     res.json({
       success: true,
       data: formattedResult

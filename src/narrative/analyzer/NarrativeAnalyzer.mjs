@@ -90,6 +90,15 @@ export class NarrativeAnalyzer {
         return {
           ...formatResult(cached),
           llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段
+          classifiedUrls: cached.classified_urls || null,
+          twitter: cached.twitter_info || null,
+          fetchErrors: null,
+          debugInfo: {
+            urlExtractionResult: cached.url_extraction_result || null,
+            dataFetchResults: cached.data_fetch_results || null,
+            promptVersion: cached.prompt_version || null,
+            analysisStage: cached.analysis_stage || null
+          },
           meta: {
             fromCache: true,
             fromFallback: false,
@@ -109,7 +118,16 @@ export class NarrativeAnalyzer {
           const llmAnalysis = buildLLMAnalysis(cached);
           return {
             ...formatResult(cached),
-            llmAnalysis: llmAnalysis  // 添加 llmAnalysis 字段
+            llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段
+            classifiedUrls: cached.classified_urls || null,
+            twitter: cached.twitter_info || null,
+            fetchErrors: null,
+            debugInfo: {
+              urlExtractionResult: cached.url_extraction_result || null,
+              dataFetchResults: cached.data_fetch_results || null,
+              promptVersion: cached.prompt_version || null,
+              analysisStage: cached.analysis_stage || null
+            }
           };
         }
         // 缓存是别的实验的（或 experiment_id 为空）或 experimentId 未指定
@@ -158,6 +176,15 @@ export class NarrativeAnalyzer {
     // 保存URL提取和数据获取结果
     urlExtractionResult = url_extraction_result;
     dataFetchResults = data_fetch_results;
+
+    // 立即保存URL提取结果到数据库，供前端轮询使用
+    await NarrativeRepository.save({
+      token_address: tokenData.address,
+      url_extraction_result: url_extraction_result,
+      classified_urls: classifiedUrls
+    });
+
+    logger.info('NarrativeAnalyzer', 'URL提取结果已保存到数据库');
 
     logger.info('NarrativeAnalyzer', '数据获取完成');
 
@@ -521,6 +548,15 @@ export class NarrativeAnalyzer {
       console.log(`分析失败，使用已有缓存作为fallback | address=${normalizedAddress}, cached_experiment=${cached.experiment_id}`);
       return {
         ...formatResult(cached),
+        classifiedUrls: cached.classified_urls || null,
+        twitter: cached.twitter_info || null,
+        fetchErrors: null,
+        debugInfo: {
+          urlExtractionResult: cached.url_extraction_result || null,
+          dataFetchResults: cached.data_fetch_results || null,
+          promptVersion: cached.prompt_version || null,
+          analysisStage: cached.analysis_stage || null
+        },
         meta: {
           fromCache: true,
           fromFallback: true, // 标记这是fallback缓存
