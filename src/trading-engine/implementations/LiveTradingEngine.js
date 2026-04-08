@@ -1895,7 +1895,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
 
       // ========== 叙事分析步骤（轮询获取结果） ==========
-      let narrativeRating = 0; // 默认未完成
+      let narrativeRating = 9; // 默认未评级（未启用叙事分析时通过预检查）
       if (this._narrativeAnalysisEnabled) {
         narrativeRating = await this._getNarrativeRating(token.token);
         this.logger.info(this._experimentId, '_executeStrategy',
