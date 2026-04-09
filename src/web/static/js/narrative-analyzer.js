@@ -727,8 +727,9 @@ class NarrativeAnalyzer {
       const eventClass = parsed.eventClassification || parsed.eventAnalysis?.eventClassification || {};
       const propMarkers = parsed.propertyMarkers || parsed.eventAnalysis?.propertyMarkers || {};
 
-      // 获取事件类别名称
+      // 获取事件类别名称和分类编码
       const categoryName = eventClass.primaryCategoryName || eventDesc.类别 || eventClass.primaryCategory || '-';
+      const categoryCode = eventClass.primaryCategory || eventClass.分类编码 || '-';
       const confidence = eventClass.confidence || '-';
 
       // 构建显示内容
@@ -738,6 +739,7 @@ class NarrativeAnalyzer {
           <strong>事件主题：</strong>${eventDesc.eventTheme || eventDesc.主题 || '-'}<br>
           <strong>事件主体：</strong>${eventDesc.eventSubject || eventDesc.主体 || '-'}<br>
           <strong>事件类别：</strong>${categoryName}<br>
+          <strong>分类编码：</strong><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${categoryCode}</code><br>
           <strong>置信度：</strong>${confidence}<br>
           <strong>时效性：</strong>${eventDesc.eventTiming || eventDesc.时效性 || '-'}<br>
           ${eventDesc.isLargeIP ? '<strong>🔥 超大IP事件</strong><br>' : ''}

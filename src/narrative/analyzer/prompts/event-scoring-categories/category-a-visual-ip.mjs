@@ -23,7 +23,7 @@
 /**
  * Prompt版本号
  */
-export const CATEGORY_A_PROMPT_VERSION = 'V2.0';
+export const CATEGORY_A_PROMPT_VERSION = 'V2.1';
 
 /**
  * 构建A类（IP概念推出类）评分Prompt
@@ -126,7 +126,19 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 - **推出型**：新IP的首次发布/推出（如Trump发布Baby Trump形象）
 - **发现型**：发现已有IP的隐藏形象元素（如发现CZ推文背景中的隐藏青蛙图案）
 - **描述型**：描述/介绍一个形象化IP（如"全网爆火网红小鸟 BSC版Moodeng"）
-- 三种类型评分规则相同，分量等级基于IP本身的价值
+
+⚠️ **描述型事件必须区分两种情况**：
+
+- **情况1：IP本身就是事件**（IP正在爆火、IP有新动态、IP被大IP/大机构引用）
+  → 分量基于**IP本身**的价值和传播力
+  → 示例："全网爆火网红小鸟 BSC版Moodeng" → IP本身在全网传播 → A级
+  → 示例："Binance推出Pepe联名NFT" → 世界级机构引用IP → S/A级
+
+- **情况2：IP被用在别人的活动中**（某机构/个人在自己的活动中使用/展示/提及已有IP）
+  → ⚠️ 分量基于**活动举办者**（eventSubject）的影响力，**不基于**被使用的IP
+  → 理由：任何人都可以使用已有知名IP，这不构成该IP本身有新事件
+  → 示例：小画廊办Pepe艺术展 → 画廊不知名 → C级(12分)
+  → 示例：Binance推出Pepe联名产品 → Binance是世界级 → S级
 
 **【IP类型判断】**：
 
@@ -150,6 +162,11 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 📋 **第三步：分量评估**（S-E级）
 
 🎯 **关键**：发起者身份**只影响权重上限**，不影响分量等级判断
+
+⚠️ **例外：描述型-情况2（IP被用在别人的活动中）**：
+- 此类事件的分量等级**必须基于eventSubject**（活动举办者），而非被使用的IP
+- 任何人都可以办Pepe展、做Pepe周边，这不等于Pepe本身有新闻价值
+- **如果eventSubject不知名 → 最高C级(12分)**，总分自然<60 → pass=false
 
 **【S级分量】**：世界级知名IP/大厂推出，或发现世界级IP的重大形象元素
 - 示例：Binance推出新IP、Disney发布新角色、字节推出新虚拟形象、发现CZ背景中隐藏的青蛙形象
@@ -184,6 +201,10 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 **2. 纯营销包装**：给普通内容加IP标签，无实际设定 → pass=false
 **3. 无具体设定**：没有角色设定/玩法/故事/世界观 → pass=false
 **4. 抄袭/模仿**：小改动知名IP，缺乏原创性 → pass=false
+**5. IP二次利用**：事件主体仅仅是在自己的活动中使用/展示/提及已有知名IP（非IP原创方/官方），且事件主体本身不知名（非世界级/知名机构）→ pass=false
+   - 示例：小画廊办Pepe艺术展 → pass=false（画廊不知名，只是借用Pepe，不是Pepe本身有新事件）
+   - 示例：某人做Pepe周边 → pass=false（个人不知名，只是借用Pepe）
+   - 豁免：如果活动本身有重大传播力（如全网热议、千万播放）→ 不触发此阻断
 
 ⚠️ **触发任一阻断条件 → pass=false**
 
