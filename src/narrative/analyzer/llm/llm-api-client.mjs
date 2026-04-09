@@ -1,112 +1,76 @@
 /**
- * LLM API Client - LLM API调用客户端
- * 提供统一的LLM API调用接口
+ * LLM API Client - LLM API调用便捷接口
+ * 提供与旧版兼容的 callLLMAPI 函数，内部委托给 LLMClient
  */
 
 import logger from '../../core/logger.mjs';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// 加载环境变量
-dotenv.config({ path: join(__dirname, '../../../../config/.env') });
+import { LLMClient } from './LLMClient.mjs';
 
 /**
- * 调用 LLM API（通用方法）
- * 与 NarrativeAnalyzer._callLLMAPI 保持一致的接口
+ * 执行单次LLM调用（内部方法，返回原始响应）
  * @param {string} prompt - Prompt内容
- * @returns {Promise<Object>} { content, model, startedAt, finishedAt, success, error }
+ * @param {Object} modelConfig - 模型配置 { name, parameters }
+ * @param {number} timeout - 超时时间（毫秒）
+ * @returns {Promise<Object>} { success, error, content (原始字符串), raw }
  */
-export async function callLLMAPI(prompt) {
-  // 从环境变量获取配置
-  const { SILICONFLOW_API_URL, SILICONFLOW_API_KEY, LLM_MODEL } = process.env;
-
-  const apiUrl = SILICONFLOW_API_URL || 'https://api.siliconflow.cn/v1';
-  const apiKey = SILICONFLOW_API_KEY;
-  const model = LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
-  const startedAt = new Date().toISOString();
-
-  if (!apiKey) {
-    throw new Error('SILICONFLOW_API_KEY 未配置');
-  }
-
-  const timeout = 180000; // 180秒超时（3分钟，复杂case需要更多时间）
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  logger.debug('LLMClient', '开始调用LLM API', { model, promptLength: prompt.length });
-
-  let content, error, success;
-
-  try {
-    logger.debug('LLMClient', '发送 fetch 请求');
-    const response = await fetch(`${apiUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0,
-        max_tokens: 2000,
-        top_p: 1,
-        top_k: 50,
-        frequency_penalty: 0
-      }),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`LLM API 调用失败: ${response.status} ${errorText}`);
-    }
-
-    logger.debug('LLMClient', 'API响应成功');
-    const data = await response.json();
-    content = data.choices[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('LLM 返回内容为空');
-    }
-
-    const finishedAt = new Date().toISOString();
-    success = true;
-    error = null;
-
-    logger.debug('LLMClient', 'API调用完成');
-    return { content, model, startedAt, finishedAt, success: true, error: null };
-  } catch (e) {
-    clearTimeout(timeoutId);
-    success = false;
-    error = e.message;
-
-    if (e.name === 'AbortError') {
-      console.error('[NarrativeAnalyzer] 请求超时');
-      error = `LLM API 调用超时（${timeout/1000}秒）`;
-    }
-
-    return {
-      content: null,
-      model,
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      success: false,
-      error
-    };
-  }
+async function _callLLM(prompt, modelConfig, timeout) {
+  const result = await LLMClient._callLLM(prompt, modelConfig, timeout);
+  return result;
 }
 
-// 重新导出 LLMClient 中的所有方法，保持向后兼容
-export { LLMClient } from './LLMClient.mjs';
+/**
+ * 调用 LLM API（便捷函数，兼容旧接口）
+ * 支持自动故障转移，返回原始响应字符串
+ *
+ * @param {string} prompt - Prompt内容
+ * @returns {Promise<Object>} { content (原始字符串), model, startedAt, finishedAt, success, error, fallbackFrom }
+ */
+export async function callLLMAPI(prompt) {
+  const startedAt = new Date().toISOString();
+
+  // 获取主/备模型配置
+  const primaryConfig = LLMClient._getCurrentModelConfig();
+  const fallbackConfig = LLMClient._getFallbackModelConfig();
+
+  logger.debug('LLMClient', '开始调用LLM API', {
+    primaryModel: primaryConfig.name,
+    fallbackModel: fallbackConfig?.name,
+    promptLength: prompt.length
+  });
+
+  const timeout = 180000; // 180秒超时
+
+  // 尝试主模型
+  let result = await _callLLM(prompt, primaryConfig, timeout);
+
+  let finalModel = primaryConfig.name;
+  let fallbackFrom = null;
+
+  // 如果主模型失败且存在备用模型，尝试故障转移
+  if (!result.success && fallbackConfig && fallbackConfig.name !== primaryConfig.name) {
+    logger.warn('LLMClient', `主模型失败: ${result.error}，切换到备用模型: ${fallbackConfig.name}`);
+
+    fallbackFrom = primaryConfig.name;
+    result = await _callLLM(prompt, fallbackConfig, timeout);
+    finalModel = fallbackConfig.name;
+
+    if (result.success) {
+      logger.info('LLMClient', `备用模型调用成功`);
+    } else {
+      logger.error('LLMClient', `备用模型也失败: ${result.error}`);
+    }
+  }
+
+  return {
+    content: result.content, // 原始字符串
+    model: finalModel,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    success: result.success,
+    error: result.error,
+    fallbackFrom
+  };
+}
+
+// 导出 LLMClient 类，供需要使用更多方法的模块
+export { LLMClient };

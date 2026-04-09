@@ -19,50 +19,66 @@ const API_KEY = process.env.SILICONFLOW_API_KEY;
 const MODEL = process.env.LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
 const VISION_MODEL = process.env.SILICONFLOW_VISION_MODEL || 'Qwen/Qwen3-Omni-30B-A3B-Captioner';
 
-/**
- * 获取当前使用的模型配置
- * 优先使用环境变量 LLM_MODEL，否则使用配置文件中的主模型
- * @returns {Object} { name, parameters }
- */
-function getCurrentModelConfig() {
-  const modelName = process.env.LLM_MODEL;
+export class LLMClient {
 
-  // 如果环境变量指定了模型，尝试从配置文件查找参数
-  if (modelName) {
-    // 检查是否是主模型
+  /**
+   * 获取当前使用的模型配置
+   * 优先使用环境变量 LLM_MODEL，否则使用配置文件中的主模型
+   * @returns {Object} { name, parameters }
+   */
+  static _getCurrentModelConfig() {
+    const modelName = process.env.LLM_MODEL;
+
+    // 如果环境变量指定了模型，尝试从配置文件查找参数
+    if (modelName) {
+      // 检查是否是主模型
+      const primaryConfig = getModelConfig('primary');
+      if (primaryConfig && primaryConfig.name === modelName) {
+        return {
+          name: modelName,
+          parameters: primaryConfig.parameters || {}
+        };
+      }
+
+      // 检查是否是备用模型
+      const fallbackConfig = getModelConfig('fallback');
+      if (fallbackConfig && fallbackConfig.name === modelName) {
+        return {
+          name: modelName,
+          parameters: fallbackConfig.parameters || {}
+        };
+      }
+
+      // 模型不在配置文件中，使用默认参数
+      return {
+        name: modelName,
+        parameters: {}
+      };
+    }
+
+    // 没有环境变量，使用配置文件的主模型
     const primaryConfig = getModelConfig('primary');
-    if (primaryConfig && primaryConfig.name === modelName) {
-      return {
-        name: modelName,
-        parameters: primaryConfig.parameters || {}
-      };
-    }
-
-    // 检查是否是备用模型
-    const fallbackConfig = getModelConfig('fallback');
-    if (fallbackConfig && fallbackConfig.name === modelName) {
-      return {
-        name: modelName,
-        parameters: fallbackConfig.parameters || {}
-      };
-    }
-
-    // 模型不在配置文件中，使用默认参数
     return {
-      name: modelName,
-      parameters: {}
+      name: primaryConfig?.name || MODEL,
+      parameters: primaryConfig?.parameters || {}
     };
   }
 
-  // 没有环境变量，使用配置文件的主模型
-  const primaryConfig = getModelConfig('primary');
-  return {
-    name: primaryConfig?.name || MODEL,
-    parameters: primaryConfig?.parameters || {}
-  };
-}
+  /**
+   * 获取备用模型配置
+   * @returns {Object|null} { name, parameters } 或 null
+   */
+  static _getFallbackModelConfig() {
+    const fallbackConfig = getModelConfig('fallback');
+    if (!fallbackConfig) {
+      return null;
+    }
 
-export class LLMClient {
+    return {
+      name: fallbackConfig.name,
+      parameters: fallbackConfig.parameters || {}
+    };
+  }
 
   /**
    * 翻译文本到中文/英文
@@ -147,27 +163,17 @@ ${text}`;
   }
 
   /**
-   * 调用LLM进行叙事分析（带元数据）
+   * 执行单次LLM调用
    * @param {string} prompt - Prompt内容
-   * @returns {Promise<Object>} 包含解析结果和元数据 { parsed, raw, model, startedAt, finishedAt, success, error }
+   * @param {Object} modelConfig - 模型配置 { name, parameters }
+   * @param {number} timeout - 超时时间（毫秒）
+   * @returns {Promise<Object>} { success, error, raw, content }
    */
-  static async analyzeWithMetadata(prompt) {
-    if (!API_KEY) {
-      throw new Error('SILICONFLOW_API_KEY 未配置');
-    }
-
-    const modelConfig = getCurrentModelConfig();
-    const startedAt = new Date().toISOString();
-
-    // 创建超时控制器
-    const timeout = 180000; // 180秒超时（3分钟，复杂case需要更多时间）
+  static async _callLLM(prompt, modelConfig, timeout) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    console.log('[LLMClient] 开始调用LLM API...');
-    console.log(`[LLMClient] 模型: ${modelConfig.name}`);
-
-    let raw, content, error, success;
+    console.log(`[LLMClient] 调用模型: ${modelConfig.name} (超时: ${timeout/1000}秒)`);
 
     try {
       // 合并默认参数和配置文件中的参数
@@ -204,66 +210,124 @@ ${text}`;
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`LLM API 调用失败: ${response.status} ${errorText}`);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      console.log('[LLMClient] API响应成功，解析中...');
-      raw = await response.json();
-
-      // 调试日志：打印原始响应结构
-      console.log('[LLMClient] 原始响应结构:', JSON.stringify({
-        hasChoices: !!raw.choices,
-        choicesLength: raw.choices?.length,
-        firstChoice: raw.choices?.[0] ? 'exists' : 'null',
-        hasMessage: !!raw.choices?.[0]?.message,
-        hasContent: !!raw.choices?.[0]?.message?.content
-      }));
-
-      content = raw.choices?.[0]?.message?.content;
+      const raw = await response.json();
+      const content = raw.choices?.[0]?.message?.content;
 
       if (!content) {
-        console.error('[LLMClient] LLM 返回数据异常:', JSON.stringify(raw));
         throw new Error(`LLM 返回内容为空。响应结构: ${JSON.stringify({
           hasChoices: !!raw.choices,
           choicesLength: raw.choices?.length
         })}`);
       }
 
+      return { success: true, error: null, raw, content };
+    } catch (e) {
+      clearTimeout(timeoutId);
+      return {
+        success: false,
+        error: e.name === 'AbortError' ? `请求超时（${timeout/1000}秒）` : e.message,
+        raw: null,
+        content: null
+      };
+    }
+  }
+
+  /**
+   * 调用LLM进行叙事分析（带元数据和自动故障转移）
+   * @param {string} prompt - Prompt内容
+   * @returns {Promise<Object>} 包含解析结果和元数据 { parsed, raw, model, startedAt, finishedAt, success, error, fallbackFrom }
+   */
+  static async analyzeWithMetadata(prompt) {
+    if (!API_KEY) {
+      throw new Error('SILICONFLOW_API_KEY 未配置');
+    }
+
+    const startedAt = new Date().toISOString();
+    const primaryConfig = this._getCurrentModelConfig();
+    const fallbackConfig = this._getFallbackModelConfig();
+
+    console.log('[LLMClient] 开始调用LLM API...');
+    console.log(`[LLMClient] 主模型: ${primaryConfig.name}`);
+    if (fallbackConfig) {
+      console.log(`[LLMClient] 备用模型: ${fallbackConfig.name}`);
+    }
+
+    // 尝试主模型
+    const primaryTimeout = 180000; // 180秒超时
+    let result = await this._callLLM(prompt, primaryConfig, primaryTimeout);
+
+    let finalModel = primaryConfig.name;
+    let fallbackFrom = null;
+
+    // 如果主模型失败且存在备用模型，尝试故障转移
+    if (!result.success && fallbackConfig && fallbackConfig.name !== primaryConfig.name) {
+      console.warn(`[LLMClient] 主模型失败: ${result.error}`);
+      console.log(`[LLMClient] 切换到备用模型: ${fallbackConfig.name}`);
+
+      fallbackFrom = primaryConfig.name;
+      const fallbackTimeout = 180000; // 备用模型也使用相同超时
+      result = await this._callLLM(prompt, fallbackConfig, fallbackTimeout);
+      finalModel = fallbackConfig.name;
+
+      if (result.success) {
+        console.log(`[LLMClient] 备用模型调用成功`);
+      } else {
+        console.error(`[LLMClient] 备用模型也失败: ${result.error}`);
+      }
+    }
+
+    if (!result.success) {
+      return {
+        parsed: null,
+        raw: null,
+        model: finalModel,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        success: false,
+        error: result.error,
+        fallbackFrom
+      };
+    }
+
+    console.log('[LLMClient] API响应成功，解析中...');
+    console.log('[LLMClient] 原始响应结构:', JSON.stringify({
+      hasChoices: !!result.raw.choices,
+      choicesLength: result.raw.choices?.length,
+      firstChoice: result.raw.choices?.[0] ? 'exists' : 'null',
+      hasMessage: !!result.raw.choices?.[0]?.message,
+      hasContent: !!result.raw.choices?.[0]?.message?.content
+    }));
+
+    try {
+      const parsed = this.parseResponse(result.content);
       console.log('[LLMClient] 解析响应完成');
-      const parsed = this.parseResponse(content);
-      success = true;
-      error = null;
 
       return {
         parsed,
         raw: {
-          raw: raw,
+          raw: result.raw,
           ...parsed
         },
-        model: modelConfig.name,
+        model: finalModel,
         startedAt,
         finishedAt: new Date().toISOString(),
         success: true,
-        error: null
+        error: null,
+        fallbackFrom
       };
     } catch (e) {
-      clearTimeout(timeoutId);
-      success = false;
-      error = e.message;
-
-      if (e.name === 'AbortError') {
-        console.error('[LLMClient] 请求超时');
-        error = `LLM API 调用超时（${timeout/1000}秒）`;
-      }
-
       return {
         parsed: null,
         raw: null,
-        model: modelConfig.name,
+        model: finalModel,
         startedAt,
         finishedAt: new Date().toISOString(),
         success: false,
-        error
+        error: `解析响应失败: ${e.message}`,
+        fallbackFrom
       };
     }
   }

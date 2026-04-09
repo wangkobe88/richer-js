@@ -21,7 +21,6 @@ import { WeixinFetcher } from '../utils/weixin-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils/web-fetcher.mjs';
 import { fetchProductInfo, getInfluenceLevel, getInfluenceDescription } from '../utils/amazon-fetcher.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
-import { LLMClient } from './llm-client.mjs';
 import { extractAllUrls, classifyAllUrls, selectBestUrls } from '../utils/url-classifier.mjs';
 import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from './prompts/account-backgrounds.mjs';
 import { fetchCommunityForTweet } from '../../utils/twitter-validation/communities-api.js';
@@ -38,7 +37,7 @@ import { fetchTokenData, extractInfo, checkBinanceRelated } from './services/tok
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken } from './services/account-analysis-service.mjs';
 import { analyzeMemeTokenTwoStage } from './services/meme-analysis-service.mjs';
 import { saveStage1Data, saveStage2Data } from './services/stage-data-service.mjs';
-import { callLLMAPI } from './llm/llm-api-client.mjs';
+import { callLLMAPI, LLMClient } from './llm/llm-api-client.mjs';
 
 // 获取supabase客户端
 const getSupabase = () => NarrativeRepository.getSupabase();
