@@ -1,21 +1,26 @@
 /**
- * Stage 2：D类（机构动作类）评分 Prompt
- * V1.2 - 3阶段架构的第二阶段
+ * Stage 2：D类（机构言论/动作及相关事件类）评分 Prompt
+ * V2.0 - 3阶段架构的第二阶段
+ *
+ * V2.0 修改：
+ * - 分类体系重构：从"机构动作类"扩展为"机构言论/动作及相关事件类"
+ * - 加入"言论"类事件评分（机构官方账号的发言、表态等）
+ * - 吸收原F类（互动/传播类）的机构互动评分规则
+ * - 加入机构互动类型判断
  *
  * V1.2 修改：
  * - 营销阻断豁免改为硬性前置判断（世界级机构直接跳过营销阻断）
  * - 世界级机构官方动作magnitude最低B级
- * - 第三步明确基础分来源（来自第一步分量等级）
- * - 硬性规则：totalScore < 60 → pass=false
- *
- * V1.1 修改：
- * - 添加核心评估原则：不要求信息"可验证"或"真实"
  */
 
-export const CATEGORY_D_PROMPT_VERSION = 'V1.2';
+export const CATEGORY_D_PROMPT_VERSION = 'V2.0';
 
 export function buildCategoryDPrompt(eventDescription, eventClassification) {
-  return `你是D类（机构动作类）事件评分专家。
+  return `你是D类（机构言论/动作及相关事件类）事件评分专家。
+
+⚠️ **D类范围**：机构/公司/平台**官方账号**的言论、动作、互动及相关事件。
+- 包括：官方言论表态、商业动作、战略举措、官方互动（回复/转发/点赞）
+- 不包括：个人账号的言论（归A类），产品的发布（归C类）
 
 【事件描述】
 主题：${eventDescription.eventTheme}
@@ -26,11 +31,12 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 关键实体：${eventDescription.keyEntities?.join(', ') || '无'}
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                   D类：机构动作类评分框架                                    ║
+║             D类：机构言论/动作及相关事件类评分框架                             ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 【分析目标】
-评估有组织实体的机构的战略级动作、重大公告、重要合作、并购重组的传播潜力。
+评估机构/公司/平台**官方账号**的言论、动作、互动及相关事件的传播潜力。
+包括：战略级动作、重大公告、官方言论表态、官方互动（回复/转发/点赞）等。
 
 **什么算"机构"？**
 - 公司/企业：Binance、Tesla、Apple、字节跳动
@@ -39,12 +45,14 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 - 投资机构：VC基金、投资公司、孵化器
 - DAO组织、行业协会/联盟
 
-**什么算"机构动作"？**
+**什么算"机构言论/动作"？**
+- 官方言论：官方账号的发言、表态、观点表达（如@binance发推）
 - 战略级动作：并购、重组、战略合作、重大转型
 - 重大公告：政策变更、重要声明、战略方向调整
 - 融资/投资：大额融资、重要投资、孵化项目
 - 人事变动：CEO/C级别人事变动、团队重组
 - 新业务线：进入新领域、推出新业务板块
+- 官方互动：机构官方账号的回复/转发/点赞等
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -141,6 +149,7 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 **示例**：
 - "Binance宣布新产品线" → A级(32) + 世界级机构(28) + 近期(15) = 75分
 - "Binance发复活节主题推文" → B级(24) + 世界级机构(28) + 近期(15) = 67分（世界级机构官方动作最低B级）
+- "@binance回复了某推文" → B级(24) + 世界级机构(28) + 近期(15) = 67分（机构互动，与机构动作相同评分）
 - "某公司部门调整" → C级(12) + 普通公司(15) + 近期(15) = 42分
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -158,7 +167,7 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
   "blockReason": null,
   "categoryAnalysis": {
     "category": "D",
-    "categoryName": "机构动作类",
+    "categoryName": "机构言论/动作及相关事件类",
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 24,
     "weightScore": 28,

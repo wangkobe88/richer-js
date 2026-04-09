@@ -111,7 +111,7 @@ ${stage2Output?.raw?.blockReason ? `阻断原因：${stage2Output.raw.blockReaso
   - 示例：代币" ELON "，事件主体"Elon Musk"
 
 ⚠️ **代币即产品匹配**：
-如果事件分类为C类（产品发布）或D类（机构动作），且代币名（Symbol/Name）与eventContent中描述的产品名/项目名一致 → 视为"完全匹配"（20分）
+如果事件分类为B类（产品发布）或D类（机构动作），且代币名（Symbol/Name）与eventContent中描述的产品名/项目名一致 → 视为"完全匹配"（20分）
   - 示例：代币Symbol"Gift"，eventContent描述"Gift是首个链上支持支付捐赠的合约" → 完全匹配（20分）
   - 示例：代币Name"Giftily"，eventContent描述"Giftily项目上线" → 完全匹配（20分）
 

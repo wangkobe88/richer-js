@@ -1,6 +1,6 @@
 /**
- * Stage 2：A类（人物言论类）评分 Prompt
- * V1.2 - 3阶段架构的第二阶段
+ * Stage 2：C类（人物言论/动作及相关事件类）评分 Prompt
+ * V2.0 - 3阶段架构的第二阶段
  *
  * 功能：
  * 1. 主体评估优先规则（优先看eventSubject，而非传播数据）
@@ -10,18 +10,21 @@
  * 5. 综合评分（基础分 + 权重分 + 时效性分）
  * 6. 推测性质量评估（如存在）
  *
+ * V2.0 修改：
+ * - 分类体系重构：从"人物言论类"扩展为"人物言论/动作及相关事件类"
+ * - 吸收原F类（互动/传播类）的人物互动评分规则
+ * - 加入互动类型判断（真实互动/单向提及/解读型回复）
+ * - 加入单向提及保护规则
+ *
  * V1.3 修改：
  * - 添加影响力证据要求：A级/B级分量需要语料中有具体影响力证据
  * - 添加日常安排类阻断：非超大IP的日常安排/行程类言论直接阻断
- *
- * V1.2 修改：
- * - 添加核心评估原则：不要求信息"可验证"或"真实"
  */
 
 /**
  * Prompt版本号
  */
-export const CATEGORY_A_PROMPT_VERSION = 'V1.3';
+export const CATEGORY_C_PROMPT_VERSION = 'V2.0';
 
 /**
  * 构建A类（人物言论类）评分Prompt
@@ -29,8 +32,8 @@ export const CATEGORY_A_PROMPT_VERSION = 'V1.3';
  * @param {Object} eventClassification - Stage 1输出的分类结果
  * @returns {string} A类评分Prompt
  */
-export function buildCategoryAPrompt(eventDescription, eventClassification) {
-  return `你是A类（人物言论类）事件评分专家。
+export function buildCategoryCPrompt(eventDescription, eventClassification) {
+  return `你是C类（人物言论/动作及相关事件类）事件评分专家。
 
 【事件描述】
 主题：${eventDescription.eventTheme}
@@ -48,11 +51,12 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 置信度：${eventClassification.confidence}
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                     A类：人物言论类评分框架                                    ║
+║              C类：人物言论/动作及相关事件类评分框架                             ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 【分析目标】
-基于Stage 1的事件描述，评估A类（人物言论类）事件的传播潜力。
+基于Stage 1的事件描述，评估C类（人物言论/动作及相关事件类）事件的传播潜力。
+包括：个人言论、个人动作（改头像、出席活动等）、个人互动（回复/转发/提及）、解读型回复等。
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -103,6 +107,32 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
    - 此时事件主体的分量等级**最高为C级**
 
 ⚠️ **重要**：世界级人物的任何言论都具有新闻级传播力，不需要传播数据证明
+
+📋 **第一步-B：互动类型判断**（当事件涉及互动/回复/提及时执行）
+
+🎯 **判断事件的互动类型**：
+
+**【类型1：原创言论/动作】**
+- eventSubject独立发表的言论或做出的动作
+- 示例：CZ发推、何一改头像、Elon出席活动
+- 评分规则：按正常规则评分，权重基于eventSubject本人
+
+**【类型2：真实互动】**
+- eventSubject与另一方有实际互动（回复、转发、引用、点赞）
+- 示例：CZ回复了某人的推文、何一转发了某推文
+- 评分规则：权重基于eventSubject本人（与原创言论相同评分）
+
+**【类型3：单向提及/解读型回复】**
+- eventSubject单方面@/提及了大IP，或eventSubject回复了大IP的推文但概念来自eventSubject自己的解读
+- 示例：某KOL@CZ请来看、某KOL回复CZ推文并总结出自己的概念
+- 评分规则：⚠️ 权重**严格基于eventSubject本人**，不能因为提及/回复了大IP就使用大IP的权重
+
+⚠️ **单向提及保护规则**：
+- 如果eventSubject只是单向提及了大IP（大IP未参与）→ 权重只能按eventSubject本人计算
+- 如果eventSubject回复了大IP但概念是eventSubject自己的解读 → 权重按eventSubject本人计算
+- 理由：代币概念不是大IP说的，事件价值取决于eventSubject本人的影响力
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📋 **第二步：分量等级评估**（S-E级）
 
@@ -176,6 +206,10 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 - 纯负面/愤怒言论（无幽默/讽刺/自嘲元素）
 - 豁免：同情/保护类言论（动物保护、弱势群体关怀）
 
+**4. 互动性质阻断**：
+- 单向蹭热度：影响力极低的账号单向@大IP，无任何自身传播数据 → pass=false
+- 纯解读无内容：解读型回复但解读内容空洞、无实质观点 → pass=false
+
 ⚠️ **触发任一阻断条件 → pass=false**
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -184,7 +218,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 
 总分 = 基础分 + 信息源权重 + 时效性加分
 
-**【A-3 基础分数】**（基于第二步分量等级）：
+**【C-3 基础分数】**（基于第二步分量等级）：
 - S级 → 40分
 - A级 → 32分
 - B级 → 24分
@@ -192,22 +226,25 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 - D级 → 5分
 - E级 → 0分
 
-**【A-4 信息源权重】**（0-30分）：
+**【C-4 信息源权重】**（0-30分）：
 - 世界级IP（何一、CZ、Elon、Trump）：30分
 - 知名KOL/认证大V（粉丝>100万）：25-28分
 - 普通KOL（粉丝>10万）：15-20分
 - 普通账号（有具体内容）：10-15分
 - 新账号/小号（粉丝<1000）：8-12分（⚠️不因粉丝少而过度扣分，看内容质量）
 
-**【A-5 时效性加分】**（0-20分）：
+**【C-5 时效性加分】**（0-20分）：
 - 近期事件（7天内）：+15分
 - 中期事件（30天内）：+10分
 - 远期事件（超过30天）：0分
 - 预期事件（未来）：30天内+10分，超过30天+5分
 
-**【A-6 示例】**：
+**【C-6 示例】**：
 - "何一发推'hi'" → S级(40) + 世界级IP(30) + 近期(15) = 85分
+- "CZ回复了某人的推文" → S级(40) + 世界级IP(30) + 近期(15) = 85分（CZ的动作，与原创言论相同评分）
 - "某普通KOL发推'hi'" → C级(12) + 普通KOL(15) + 近期(15) = 42分（有意义性：无额外支撑 → 可能无意义）
+- "某KOL@CZ请来看" → C级(12) + 普通KOL(15) + 近期(15) = 42分（单向提及，权重基于KOL，不能按CZ权重）
+- "3万粉丝KOL回复CZ推文并总结出'conviction'概念" → C级(12) + 普通KOL(15-20) + 近期(15) = 42-47分 → pass=false（解读型回复，权重基于回复者本人）
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -236,8 +273,8 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
   "pass": true,
   "blockReason": null,
   "categoryAnalysis": {
-    "category": "A",
-    "categoryName": "人物言论类",
+    "category": "C",
+    "categoryName": "人物言论/动作及相关事件类",
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 40,
     "weightScore": 30,

@@ -12,12 +12,11 @@ import { buildStage1EventPreprocessingPrompt } from './prompts/stage1-event-prep
 
 // Stage 2 分类特定Prompt映射
 const CATEGORY_PROMPT_BUILDERS = {
-  'A': async () => (await import('./prompts/event-scoring-categories/category-a-personal-statement.mjs')).buildCategoryAPrompt,
-  'B': async () => (await import('./prompts/event-scoring-categories/category-b-ip-concept.mjs')).buildCategoryBPrompt,
-  'C': async () => (await import('./prompts/event-scoring-categories/category-c-product-launch.mjs')).buildCategoryCPrompt,
+  'A': async () => (await import('./prompts/event-scoring-categories/category-a-visual-ip.mjs')).buildCategoryAPrompt,
+  'B': async () => (await import('./prompts/event-scoring-categories/category-b-product-event.mjs')).buildCategoryBPrompt,
+  'C': async () => (await import('./prompts/event-scoring-categories/category-c-personal-statement.mjs')).buildCategoryCPrompt,
   'D': async () => (await import('./prompts/event-scoring-categories/category-d-institutional-action.mjs')).buildCategoryDPrompt,
-  'E': async () => (await import('./prompts/event-scoring-categories/category-e-social-hotspot.mjs')).buildCategoryEPrompt,
-  'F': async () => (await import('./prompts/event-scoring-categories/category-f-interaction.mjs')).buildCategoryFPrompt
+  'E': async () => (await import('./prompts/event-scoring-categories/category-e-social-hotspot.mjs')).buildCategoryEPrompt
 };
 
 /**
@@ -89,7 +88,7 @@ export function getStage1PromptVersion() {
 
 /**
  * 获取Stage 2 Prompt版本号（根据类别）
- * @param {string} category - 类别（A-F）
+ * @param {string} category - 类别（A-E）
  * @returns {Promise<string>} 版本号
  */
 export async function getStage2PromptVersion(category) {
@@ -98,8 +97,7 @@ export async function getStage2PromptVersion(category) {
     'B': 'CATEGORY_B_PROMPT_VERSION',
     'C': 'CATEGORY_C_PROMPT_VERSION',
     'D': 'CATEGORY_D_PROMPT_VERSION',
-    'E': 'CATEGORY_E_PROMPT_VERSION',
-    'F': 'CATEGORY_F_PROMPT_VERSION'
+    'E': 'CATEGORY_E_PROMPT_VERSION'
   };
 
   const promptBuilderGetter = CATEGORY_PROMPT_BUILDERS[category];
@@ -118,12 +116,11 @@ export async function getStage2PromptVersion(category) {
  */
 function getCategoryFileName(category) {
   const fileNames = {
-    'A': 'category-a-personal-statement',
-    'B': 'category-b-ip-concept',
-    'C': 'category-c-product-launch',
+    'A': 'category-a-visual-ip',
+    'B': 'category-b-product-event',
+    'C': 'category-c-personal-statement',
     'D': 'category-d-institutional-action',
-    'E': 'category-e-social-hotspot',
-    'F': 'category-f-interaction'
+    'E': 'category-e-social-hotspot'
   };
   return fileNames[category] || '';
 }

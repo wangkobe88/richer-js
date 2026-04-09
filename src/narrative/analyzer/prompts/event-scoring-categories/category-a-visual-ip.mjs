@@ -1,6 +1,6 @@
 /**
- * Stage 2：B类（IP概念推出类）评分 Prompt
- * V1.2 - 3阶段架构的第二阶段
+ * Stage 2：A类（形象化IP相关事件类）评分 Prompt
+ * V2.0 - 3阶段架构的第二阶段
  *
  * 功能：
  * 1. 主体评估优先规则（优先看eventSubject，而非传播数据）
@@ -10,6 +10,12 @@
  * 5. 阻断条件检查
  * 6. 综合评分
  *
+ * V2.0 修改：
+ * - 分类体系重构：从"IP概念推出类"扩展为"形象化IP相关事件类"
+ * - 范围扩展：从"推出"扩展到"推出/发现/描述"
+ * - 加入"形象化"限定：只有有具体形象的角色/吉祥物/虚拟形象等
+ * - 非形象化IP内容（口号、概念、数字叙事）不归此类
+ *
  * V1.2 修改：
  * - 添加核心评估原则：不要求信息"可验证"或"真实"
  */
@@ -17,16 +23,22 @@
 /**
  * Prompt版本号
  */
-export const CATEGORY_B_PROMPT_VERSION = 'V1.2';
+export const CATEGORY_A_PROMPT_VERSION = 'V2.0';
 
 /**
- * 构建B类（IP概念推出类）评分Prompt
+ * 构建A类（IP概念推出类）评分Prompt
  * @param {Object} eventDescription - Stage 1输出的事件描述
  * @param {Object} eventClassification - Stage 1输出的分类结果
- * @returns {string} B类评分Prompt
+ * @returns {string} A类评分Prompt
  */
-export function buildCategoryBPrompt(eventDescription, eventClassification) {
-  return `你是B类（IP概念推出类）事件评分专家。这是meme币的重要叙事来源。
+export function buildCategoryAPrompt(eventDescription, eventClassification) {
+  return `你是A类（形象化IP相关事件类）事件评分专家。这是meme币的重要叙事来源。
+
+⚠️ **A类限定"形象化IP"**：
+- 只有有具体视觉形象的角色、吉祥物、虚拟形象、动物IP、人物形象等
+- 不包括：口号（"WE MAKE IMPACT"）、概念（"conviction"）、数字叙事（"48小时"）等抽象内容
+- 示例：Moodeng小鸟、Pepe、Baby Trump、电子宠物、VTuber → 形象化IP ✅
+- 反例：口号、概念、数字 → 不归A类，归E类或其他
 
 【事件描述】
 主题：${eventDescription.eventTheme}
@@ -43,11 +55,13 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 置信度：${eventClassification.confidence}
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                   B类：IP概念推出类评分框架                                  ║
+║                A类：形象化IP相关事件类评分框架                                 ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 【分析目标】
-基于Stage 1的事件描述，评估B类（IP概念推出类）事件的传播潜力。
+基于Stage 1的事件描述，评估A类（形象化IP相关事件类）事件的传播潜力。
+包括：形象化IP的推出、发现、描述等。
+⚠️ 范围限定：只有有具体视觉形象的IP（角色、吉祥物、虚拟形象、动物IP、人物形象等）。
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -106,7 +120,15 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 
 📋 **第二步：IP性质判断**（决定后续评分标准）
 
-🎯 **目的**：判断IP是借用已有IP还是自创IP，决定权重上限规则
+🎯 **目的**：判断IP是借用已有IP还是自创IP，以及事件类型（推出/发现/描述），决定权重上限规则
+
+**【事件类型判断】**：
+- **推出型**：新IP的首次发布/推出（如Trump发布Baby Trump形象）
+- **发现型**：发现已有IP的隐藏形象元素（如发现CZ推文背景中的隐藏青蛙图案）
+- **描述型**：描述/介绍一个形象化IP（如"全网爆火网红小鸟 BSC版Moodeng"）
+- 三种类型评分规则相同，分量等级基于IP本身的价值
+
+**【IP类型判断】**：
 
 **【类型1：借用已有知名IP】**
 - 判断标准：IP是CZ、Binance、Pepe、Trump、Elon等已有知名IP
@@ -129,15 +151,15 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 
 🎯 **关键**：发起者身份**只影响权重上限**，不影响分量等级判断
 
-**【S级分量】**：知名IP/大厂推出
-- 示例：Binance推出新IP、Disney发布新角色、字节推出新虚拟形象
+**【S级分量】**：世界级知名IP/大厂推出，或发现世界级IP的重大形象元素
+- 示例：Binance推出新IP、Disney发布新角色、字节推出新虚拟形象、发现CZ背景中隐藏的青蛙形象
 - 基础分数：40分
 
-**【A级分量】**：知名KOL/机构参与
-- 示例：知名KOL（粉丝>100万）推出的新IP、认证机构发布的概念
+**【A级分量】**：知名IP/KOL/机构参与，或发现知名IP的有趣形象元素
+- 示例：知名KOL推出的新IP、发现Yzi Labs海报中的隐藏形象元素、全网爆火的网红动物IP（Moodeng小鸟等）
 - 基础分数：32分
 
-**【B级分量】**：有创意的IP概念
+**【B级分量】**：有创意的IP概念，或发现普通IP的形象元素
 - 示例：有详细设定、玩法、故事、世界观的有创意IP
 - 基础分数：24分
 
@@ -171,14 +193,14 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 
 总分 = 基础分 + IP方权重 + 时效性
 
-**【B-3 基础分数】**（基于第三步分量等级）：
+**【A-3 基础分数】**（基于第三步分量等级）：
 - S级 → 40分
 - A级 → 32分
 - B级 → 24分
 - C级 → 12分
 - D/E级 → 已阻断
 
-**【B-4 IP方权重】**（0-30分）⚠️ 关键
+**【A-4 IP方权重】**（0-30分）⚠️ 关键
 
 **首先看eventSubject（事件主体）**：
 - 世界级IP/人物（Trump、CZ、Elon、何一、Binance等）：**30分**
@@ -199,16 +221,18 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
   - 发起者粉丝1-10万 → 权重最高17分
   - 发起者粉丝≥10万或官方机构认证 → **无上限**
 
-**【B-5 时效性加分】**（0-20分）：
+**【A-5 时效性加分】**（0-20分）：
 - 近期推出（7天内）：+15分
 - 中期推出（30天内）：+10分
 - 远期推出（超过30天）：0分
 - 预期推出（未来）：30天内+10分，超过30天+5分
 
-**【B-6 示例】**：
-- 借用知名IP："借用CZ形象的电子宠物" → C级(12) + CZ权重(30) + 近期(15) = 57分
+**【A-6 示例】**：
+- 借用知名IP推出："借用CZ形象的电子宠物" → C级(12) + CZ权重(30) + 近期(15) = 57分
 - 自创IP（普通用户）："普通用户自创虚拟形象" → C级(12) + 权重上限11 + 近期(15) = 38分
 - 自创IP（知名KOL）："知名KOL推出新IP" → B级(24) + KOL权重(22) + 近期(15) = 61分
+- 形象化IP描述："全网爆火网红小鸟BSC版Moodeng" → A级(32) + 知名IP(20-25) + 近期(15) = 67-72分
+- 形象化IP发现："发现CZ推文背景隐藏的青蛙图案" → A级(32) + CZ世界级IP(28-30) + 近期(15) = 75-77分
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -251,8 +275,8 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
   "pass": true,
   "blockReason": null,
   "categoryAnalysis": {
-    "category": "B",
-    "categoryName": "IP概念推出类",
+    "category": "A",
+    "categoryName": "形象化IP相关事件类",
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 40,
     "ipType": "借用已有知名IP/自创IP概念",

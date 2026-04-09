@@ -1,20 +1,22 @@
 /**
- * Stage 2：C类（产品/内容发布类）评分 Prompt
- * V1.2 - 3阶段架构的第二阶段
+ * Stage 2：B类（产品发布/改进/营销等产品相关事件类）评分 Prompt
+ * V2.0 - 3阶段架构的第二阶段
+ *
+ * V2.0 修改：
+ * - 分类体系重构：从"产品/内容发布类"聚焦为"产品相关事件类"
+ * - 去掉"内容发布"，聚焦产品发布/改进/营销
+ * - 非产品的内容发布（机构文章、视频等）归D类（机构言论）
  *
  * V1.2 修改：
- * - 添加"发布方身份确认"前置步骤，强制LLM先确认发布方是谁
- * - 区分"发布方"和"内容涉及方"，权重必须基于发布方
+ * - 添加"发布方身份确认"前置步骤
+ * - 区分"发布方"和"内容涉及方"
  * - 添加第三方创作 vs 官方发布的区分规则
- *
- * V1.1 修改：
- * - 添加核心评估原则：不要求信息"可验证"或"真实"
  */
 
-export const CATEGORY_C_PROMPT_VERSION = 'V1.2';
+export const CATEGORY_B_PROMPT_VERSION = 'V2.0';
 
-export function buildCategoryCPrompt(eventDescription, eventClassification) {
-  return `你是C类（产品/内容发布类）事件评分专家。
+export function buildCategoryBPrompt(eventDescription, eventClassification) {
+  return `你是B类（产品发布/改进/营销等产品相关事件类）事件评分专家。
 
 【事件描述】
 主题：${eventDescription.eventTheme}
@@ -26,11 +28,12 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
 关键数据：${JSON.stringify(eventDescription.keyData || {})}
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                 C类：产品/内容发布类评分框架                                  ║
+║            B类：产品发布/改进/营销等产品相关事件类评分框架                      ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 【分析目标】
-评估产品、APP、视频、文章、功能等内容的发布/上线/推广的传播潜力。
+评估产品（APP、合约、功能、工具等）的发布/改进/营销等事件。
+⚠️ 聚焦"产品"本身，非产品的内容发布（如机构的文章、视频）不归此类。
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -189,8 +192,8 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
     "reasoning": "为什么这样判断"
   },
   "categoryAnalysis": {
-    "category": "C",
-    "categoryName": "产品/内容发布类",
+    "category": "B",
+    "categoryName": "产品发布/改进/营销等产品相关事件类",
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 40,
     "weightScore": 30,

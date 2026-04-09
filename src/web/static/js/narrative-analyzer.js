@@ -976,7 +976,7 @@ class NarrativeAnalyzer {
     const hardBlocks = blockChecks.hardBlocks || [];
     const softBlocks = blockChecks.softBlocks || [];
 
-    // 将A-F类转换为质量评级
+    // 将A-E类转换为质量评级
     let qualityCategory = 'unrated';
     if (category === 'A' && totalScore >= 70) qualityCategory = 'high';
     else if (category === 'A' || category === 'B') qualityCategory = 'mid';
