@@ -17,7 +17,7 @@ dotenv.config({ path: join(__dirname, '../../../config/.env') });
 const API_URL = process.env.SILICONFLOW_API_URL || 'https://api.siliconflow.cn/v1';
 const API_KEY = process.env.SILICONFLOW_API_KEY;
 const MODEL = process.env.LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
-const VISION_MODEL = process.env.SILICONFLOW_VISION_MODEL || 'Pro/moonshotai/Kimi-K2.5';
+const VISION_MODEL = process.env.SILICONFLOW_VISION_MODEL || 'Qwen/Qwen3-Omni-30B-A3B-Captioner';
 
 /**
  * 获取当前使用的模型配置
@@ -340,7 +340,7 @@ ${text}`;
 
     const config = {
       model: options.model || VISION_MODEL,
-      timeout: options.timeout || 180000,  // 多模态 API 响应较慢，默认 3 分钟
+      timeout: options.timeout || 30000,  // 30秒超时（Qwen3-Omni 响应约5秒）
       maxTokens: options.maxTokens || 2000
     };
 

@@ -1503,32 +1503,23 @@ function buildImageAnalysisSection(twitterInfo) {
   ];
 
   for (const item of twitterInfo._imageAnalysis) {
-    lines.push(`\n【@${item.account} 的推文配图分析】（${item.accountBackground || ''}）`);
-    lines.push(`分析完成：${item.images_analyzed}张图片，耗时${item.total_time_ms}ms\n`);
+    lines.push(`\n【@${item.account} 的推文配图】（${item.accountBackground || ''}）`);
 
     for (const img of item.results) {
       const analysis = img.analysis;
-      const timing = img.timing || {};
 
-      lines.push(`📷 **图片内容**：${analysis.description}`);
-      lines.push(``);
-      lines.push(`**代币关联度**：${analysis.token_relevance?.is_related ? '✓ 相关' : '✗ 无关'}`);
-      lines.push(`- 原因：${analysis.token_relevance?.reason || '无'}`);
-      if (analysis.token_relevance?.is_related && analysis.token_relevance.match_type) {
-        lines.push(`- 匹配类型：${analysis.token_relevance.match_type}`);
+      lines.push(`📷 图片描述：${analysis.description}`);
+      if (analysis.meme_type) {
+        lines.push(`   梗图类型：${analysis.meme_type}`);
       }
-      if (analysis.meme_info?.is_meme) {
-        lines.push(``);
-        lines.push(`**Meme信息**：${analysis.meme_info.name}`);
+      if (analysis.meme_meaning) {
+        lines.push(`   梗图含义：${analysis.meme_meaning}`);
       }
-      if (analysis.marketing_signals?.length > 0) {
-        lines.push(``);
-        lines.push(`**营销信号**：`);
-        analysis.marketing_signals.forEach(s => lines.push(`  - ${s}`));
+      if (analysis.key_elements?.length > 0) {
+        lines.push(`   关键元素：${analysis.key_elements.join(', ')}`);
       }
-      if (timing.total) {
-        lines.push(``);
-        lines.push(`（分析耗时：下载${timing.download}ms + 识别${timing.analysis}ms）`);
+      if (analysis.emotion) {
+        lines.push(`   情感基调：${analysis.emotion}`);
       }
     }
   }

@@ -4,8 +4,9 @@
  */
 
 import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
-import { analyzeImagesForHighInfluenceAccount } from './meme-analysis-service.mjs';
 import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../prompts/account-backgrounds.mjs';
+import { LLMClient } from '../llm/llm-api-client.mjs';
+import { ImageDownloader } from '../../utils/image-downloader.mjs';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -522,23 +523,54 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       if (isHighInfluence && hasImages) {
         console.log(`[NarrativeAnalyzer] 高影响力账号 @${authorScreenName} 的推文包含图片，启动图片识别...`);
 
-        const imageAnalysisResult = await analyzeImagesForHighInfluenceAccount(
-          tweet.media.images,
-          tokenData
-        );
+        const images = tweet.media.images;
+        const analysisResults = [];
 
-        if (imageAnalysisResult) {
-          // 将图片分析结果附加到 twitterInfo
+        // 最多分析3张图片
+        const maxImages = Math.min(images.length, 3);
+
+        for (let i = 0; i < maxImages; i++) {
+          const imageUrl = images[i].url;
+          try {
+            // 下载图片
+            const imageData = await ImageDownloader.downloadAsBase64(imageUrl, {
+              maxSize: 5 * 1024 * 1024,  // 5MB
+              timeout: 15000  // 15秒下载超时
+            });
+
+            if (!imageData) {
+              console.warn(`[NarrativeAnalyzer] 图片下载失败: ${imageUrl}`);
+              continue;
+            }
+
+            // 使用 LLM 分析图片（只生成描述信息）
+            const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
+
+            analysisResults.push({
+              image_url: imageUrl,
+              analysis: imageAnalysis
+            });
+
+            console.log(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 图片分析成功`);
+
+          } catch (error) {
+            console.warn(`[NarrativeAnalyzer] 图片分析失败: ${error.message}`);
+          }
+        }
+
+        // 将分析结果附加到 twitterInfo
+        if (analysisResults.length > 0) {
           if (!twitterInfo._imageAnalysis) {
             twitterInfo._imageAnalysis = [];
           }
           twitterInfo._imageAnalysis.push({
             account: authorScreenName,
             accountBackground: getHighInfluenceAccountBackground(authorScreenName),
-            ...imageAnalysisResult
+            images_analyzed: analysisResults.length,
+            results: analysisResults
           });
 
-          console.log(`[NarrativeAnalyzer] 图片识别完成（${imageAnalysisResult.images_analyzed}张），继续LLM分析`);
+          console.log(`[NarrativeAnalyzer] 图片识别完成（${analysisResults.length}张），继续LLM分析`);
           // 不返回unrated，继续后续分析
           continue;
         }
