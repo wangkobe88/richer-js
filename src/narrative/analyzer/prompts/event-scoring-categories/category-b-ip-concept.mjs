@@ -31,7 +31,6 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 【事件描述】
 主题：${eventDescription.eventTheme}
 主体：${eventDescription.eventSubject}
-是否超大IP：${eventDescription.isLargeIP}
 是否找角度推文：${eventDescription.isAngleFindingTweet || false}
 事件内容：${eventDescription.eventContent}
 时效性：${eventDescription.eventTiming}
@@ -270,8 +269,8 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
   }
 }
 
-⚠️ **评分建议**：
-- totalScore ≥ 60 → 建议通过
-- totalScore < 60 → 建议返回low
+⚠️ **硬性规则**：
+- totalScore ≥ 60 → pass=true
+- totalScore < 60 → pass必须为false，blockReason填写具体原因
 `;
 }

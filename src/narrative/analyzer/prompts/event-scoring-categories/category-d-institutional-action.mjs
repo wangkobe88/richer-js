@@ -1,12 +1,18 @@
 /**
  * Stage 2：D类（机构动作类）评分 Prompt
- * V1.1 - 3阶段架构的第二阶段
+ * V1.2 - 3阶段架构的第二阶段
+ *
+ * V1.2 修改：
+ * - 营销阻断豁免改为硬性前置判断（世界级机构直接跳过营销阻断）
+ * - 世界级机构官方动作magnitude最低B级
+ * - 第三步明确基础分来源（来自第一步分量等级）
+ * - 硬性规则：totalScore < 60 → pass=false
  *
  * V1.1 修改：
  * - 添加核心评估原则：不要求信息"可验证"或"真实"
  */
 
-export const CATEGORY_D_PROMPT_VERSION = 'V1.1';
+export const CATEGORY_D_PROMPT_VERSION = 'V1.2';
 
 export function buildCategoryDPrompt(eventDescription, eventClassification) {
   return `你是D类（机构动作类）事件评分专家。
@@ -14,7 +20,7 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 【事件描述】
 主题：${eventDescription.eventTheme}
 主体：${eventDescription.eventSubject}
-是否超大IP：${eventDescription.isLargeIP}
+
 事件内容：${eventDescription.eventContent}
 时效性：${eventDescription.eventTiming}
 关键实体：${eventDescription.keyEntities?.join(', ') || '无'}
@@ -57,7 +63,22 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-📋 **第一步：分量等级评估**（S-E级）
+📋 **第一步：前置判断 — 是否世界级机构**
+
+🎯 **判断eventSubject是否为世界级机构**：
+- 世界级机构（Binance、Tesla、Apple、字节跳动等有全球影响力的机构）→ **是世界级机构**
+- 知名但非世界级 → **非世界级机构**
+- 普通公司/团队 → **非世界级机构**
+
+⚠️ **如果"是世界级机构"**，以下规则**必须**同时生效：
+1. **跳过营销性质阻断**（第二步第2项）：直接标记为"已豁免"，不触发任何营销相关阻断
+2. **分量等级最低B级**：世界级机构的官方动作本身就是行业新闻，magnitudeLevel最低为B级（24分），不得评为C级及以下
+
+**理由**：世界级机构的任何官方动作本身就是行业新闻，具有独立的传播价值，与普通公司/项目的营销推广完全不同。示例：Binance官方账号发推宣布新AI intern → 不触发营销阻断。
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 **第二步：分量等级评估**（S-E级）
 
 **S级分量**：影响全球/行业格局的重大动作（40分）
 **A级分量**：行业级的重要动作、知名机构的重大举措（32分）
@@ -66,11 +87,13 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 **D级分量**：琐碎的内部调整（5分）
 **E级分量**：完全无意义的动作（0分）
 
+⚠️ **第一步判定为"世界级机构"时**：magnitudeLevel**不得低于B级**（24分）
+
 ⚠️ **D/E级分量直接阻断**
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-📋 **第二步：硬性阻断条件检查**
+📋 **第三步：硬性阻断条件检查**
 
 **1. 运营性质阻断**：
    - 平台日常运营（新池子、上架新币、常规功能更新）→ pass=false
@@ -84,16 +107,24 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
      * 话题封闭无延展
      * 缺乏情感内核
 
+   ⚠️ **如果第一步判定为"世界级机构"→ 直接跳过本项（营销性质阻断），标记passedChecks: "世界级机构营销豁免"**
+
 **3. 影响范围阻断**：
    - 极度小众的机构动作（只在特定圈子/行业内传播）→ pass=false
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-📋 **第三步：综合评分**
+📋 **第四步：综合评分**
 
 总分 = 基础分 + 机构权重 + 时效性
 
-**基础分数**：S级40分、A级32分、B级24分、C级12分、D级5分、E级0分
+**基础分数**（来自第二步分量等级）：
+- S级 → 40分
+- A级 → 32分
+- B级 → 24分
+- C级 → 12分
+- D级 → 5分
+- E级 → 0分
 
 **机构权重**（0-30分）：
 - 世界级机构（Binance、Tesla、Apple等）：25-30分
@@ -109,6 +140,7 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 
 **示例**：
 - "Binance宣布新产品线" → A级(32) + 世界级机构(28) + 近期(15) = 75分
+- "Binance发复活节主题推文" → B级(24) + 世界级机构(28) + 近期(15) = 67分（世界级机构官方动作最低B级）
 - "某公司部门调整" → C级(12) + 普通公司(15) + 近期(15) = 42分
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -128,14 +160,15 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
     "category": "D",
     "categoryName": "机构动作类",
     "magnitudeLevel": "S/A/B/C",
-    "magnitudeScore": 32,
+    "magnitudeScore": 24,
     "weightScore": 28,
     "timelinessScore": 15,
-    "totalScore": 75
+    "totalScore": 67,
+    "isWorldClassInstitution": true
   },
-  "blockChecks": {"hardBlocks": [], "passedChecks": ["检查1", "检查2"]}
+  "blockChecks": {"hardBlocks": [], "passedChecks": ["运营性质检查", "世界级机构营销豁免", "影响范围检查"]}
 }
 
-⚠️ totalScore ≥ 60 建议通过
+⚠️ **硬性规则**：totalScore < 60 → pass必须为false，blockReason填写具体原因
 `;
 }

@@ -16,7 +16,6 @@ export function buildCategoryFPrompt(eventDescription, eventClassification) {
 【事件描述】
 主题：${eventDescription.eventTheme}
 主体：${eventDescription.eventSubject}
-是否超大IP：${eventDescription.isLargeIP}
 事件内容：${eventDescription.eventContent}
 时效性：${eventDescription.eventTiming}
 关键实体：${eventDescription.keyEntities?.join(', ') || '无'}
@@ -194,6 +193,6 @@ export function buildCategoryFPrompt(eventDescription, eventClassification) {
   "blockChecks": {"hardBlocks": [], "passedChecks": ["检查1", "检查2"]}
 }
 
-⚠️ totalScore ≥ 60 建议通过
+⚠️ **硬性规则**：totalScore < 60 → pass必须为false，blockReason填写具体原因
 `;
 }

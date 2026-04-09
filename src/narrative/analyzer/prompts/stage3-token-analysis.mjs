@@ -1,11 +1,15 @@
 /**
  * Stage 3：代币分析 Prompt
- * V17.0 - 3阶段架构的第三阶段
+ * V17.1 - 3阶段架构的第三阶段
  *
  * 功能：
  * 1. 代币-事件关联性评估
  * 2. 代币质量评估
  * 3. 综合评分（事件60% + 关联20% + 质量20%）
+ *
+ * V17.1 修改：
+ * - 添加关联性底线：关联性得分≤10分（弱语义/弱文化）直接返回low
+ * - 添加泛化概念规则：极度泛化的概念（金钱、自由、成功等）不构成有效关联
  *
  * 输入：
  * - Stage 1 的事件描述和分类结果
@@ -16,7 +20,7 @@
 /**
  * Prompt版本号
  */
-export const STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION = 'V17.0';
+export const STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION = 'V17.1';
 
 /**
  * 构建Stage 3代币分析Prompt
@@ -47,7 +51,6 @@ ${stage1Output?.reason ? `原因：${stage1Output.reason}` : ''}
 【事件描述】
 - 主题：${stage1Output?.eventDescription?.eventTheme || '未知'}
 - 主体：${stage1Output?.eventDescription?.eventSubject || '未知'}
-- 是否超大IP：${stage1Output?.eventDescription?.isLargeIP ? '是' : '否'}
 - 事件内容：${stage1Output?.eventDescription?.eventContent || '无详细描述'}
 - 时效性：${stage1Output?.eventDescription?.eventTiming || '未知'}
 - 关键实体：${stage1Output?.eventDescription?.keyEntities?.join(', ') || '无'}
@@ -107,6 +110,11 @@ ${stage2Output?.raw?.blockReason ? `阻断原因：${stage2Output.raw.blockReaso
   - 示例：代币" BINANCE "，事件主体"Binance"
   - 示例：代币" ELON "，事件主体"Elon Musk"
 
+⚠️ **代币即产品匹配**：
+如果事件分类为C类（产品发布）或D类（机构动作），且代币名（Symbol/Name）与eventContent中描述的产品名/项目名一致 → 视为"完全匹配"（20分）
+  - 示例：代币Symbol"Gift"，eventContent描述"Gift是首个链上支持支付捐赠的合约" → 完全匹配（20分）
+  - 示例：代币Name"Giftily"，eventContent描述"Giftily项目上线" → 完全匹配（20分）
+
 - **中英文对应**（18分）：代币名与核心实体是中英文对应
   - 示例：代币" 币安 "，事件主体"Binance"
   - 示例：代币" 赵长鹏 "，事件主体"CZ"
@@ -142,9 +150,12 @@ ${stage2Output?.raw?.blockReason ? `阻断原因：${stage2Output.raw.blockReaso
 - **弱文化关联**（3分）：代币名与事件关联较弱
   - 示例：代币" MEME "，事件"某个网络梗"
 
-⚠️ **阻断条件**：
-- 如果三层检查都失败（关联性 = 0分）→ 直接返回low
-- 理由：代币与事件无关联
+⚠️ **关联性底线（最高优先级规则，覆盖下方所有分类标准）**：
+- **如果关联性得分 ≤ 10分**（弱语义关联或以下）→ **category必须填"low"**，即使总分计算结果落入mid或high区间
+- 这条规则优先级最高，不可被总分覆盖
+- **泛化概念不构成有效关联**：如果代币名是"金钱"、"自由"、"成功"、"赚钱"、"好运"等极度泛化的概念，这些词几乎可以关联到任何加密货币事件，不构成有效关联
+  - 示例：代币"金钱自由"，事件"CZ分享《Go Live》书中BNB上线经历" → "金钱"与"BNB交易"的关系太泛化，不构成有效关联 → 应判为弱语义关联或无关联 → 返回low
+  - 示例：代币"自由"，事件"CZ出狱" → "自由"与"出狱"的语义关联明确且具体 → 可判为强语义关联（15分），不触发底线
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -215,9 +226,13 @@ ${stage2Output?.raw?.blockReason ? `阻断原因：${stage2Output.raw.blockReaso
   }
 }
 
-**分类标准**：
-- total_score ≥ 70 → "high"
-- 50 ≤ total_score < 70 → "mid"
-- total_score < 50 → "low"
+**分类标准（按优先级从高到低）**：
+1. **关联性底线（最高优先级）**：如果第一步关联性得分 ≤ 10分 → category必须为"low"，无视总分
+2. 然后才按总分分类：
+   - total_score ≥ 70 → "high"
+   - 50 ≤ total_score < 70 → "mid"
+   - total_score < 50 → "low"
+
+⚠️ **常见错误**：关联性=0分但category填"mid"——这是错误的！关联性≤10分时category必须是"low"。
 `;
 }

@@ -10,6 +10,10 @@
  * 5. 综合评分（基础分 + 权重分 + 时效性分）
  * 6. 推测性质量评估（如存在）
  *
+ * V1.3 修改：
+ * - 添加影响力证据要求：A级/B级分量需要语料中有具体影响力证据
+ * - 添加日常安排类阻断：非超大IP的日常安排/行程类言论直接阻断
+ *
  * V1.2 修改：
  * - 添加核心评估原则：不要求信息"可验证"或"真实"
  */
@@ -17,7 +21,7 @@
 /**
  * Prompt版本号
  */
-export const CATEGORY_A_PROMPT_VERSION = 'V1.2';
+export const CATEGORY_A_PROMPT_VERSION = 'V1.3';
 
 /**
  * 构建A类（人物言论类）评分Prompt
@@ -31,7 +35,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 【事件描述】
 主题：${eventDescription.eventTheme}
 主体：${eventDescription.eventSubject}
-是否超大IP：${eventDescription.isLargeIP}
+
 是否找角度推文：${eventDescription.isAngleFindingTweet || false}
 事件内容：${eventDescription.eventContent}
 时效性：${eventDescription.eventTiming}
@@ -92,6 +96,12 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
    - 检查dataSource：如果是"事件主体影响力"则使用，如果是"推文传播数据（仅供参考）"则忽略
    - 根据粉丝数、互动数判断分量等级
 
+⚠️ **无法确认主体影响力时**：
+   - 如果语料中没有关于事件主体影响力的任何数据（粉丝数、认证、头衔等）
+   - 不能假设此人"可能有影响力"
+   - 不能因为"有新闻账号报道了此人"就推断此人重要（新闻账号报道很多人和事，不代表被报道者本身有影响力）
+   - 此时事件主体的分量等级**最高为C级**
+
 ⚠️ **重要**：世界级人物的任何言论都具有新闻级传播力，不需要传播数据证明
 
 📋 **第二步：分量等级评估**（S-E级）
@@ -114,6 +124,23 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 **【E级分量】**：完全无内容的表达
 - 基础分数：0分
 
+⚠️ **分量等级的证据要求**：
+- 给**A级/B级分量**时，必须能从语料中找到**事件主体本人**的具体影响力证据（粉丝数、认证、已知头衔等）
+- 如果事件主体不是超大IP，且语料中**没有任何影响力数据** → **最高C级**
+- ❌ 不能因为"有知名新闻账号报道了此人"就给A级（新闻账号报道不代表被报道者有影响力）
+
+⚠️ **关键陷阱：推文作者 ≠ 事件主体**：
+- keyData中的"作者粉丝数"、"点赞"、"转发"是**推文发布者**的数据，不是**事件主体**的数据
+- 当推文作者是新闻账号（如@AutismCapital），事件主体是被报道的人（如Professor Jiang）时：
+  - ❌ "作者粉丝数115万" → 这不是Professor Jiang的粉丝，是AutismCapital的粉丝 → 不能作为A级证据
+  - ❌ "点赞1186" → 这是AutismCapital推文的互动数据，不代表Professor Jiang有影响力
+- **只有事件主体本人的粉丝数、认证、头衔等才能作为其影响力证据**
+
+- 示例：
+  - ✅ 语料中明确提到"事件主体@xxx有100万粉丝" → 可给A级
+  - ✅ 语料中提到"事件主体是XX公司CEO" → 可给B级或以上
+  - ❌ 语料中"作者粉丝数115万"，但事件主体是另一个人 → 这是推文作者的粉丝，不能作为事件主体的A级证据 → 最高C级
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📋 **第三步：有意义性判断**
@@ -131,9 +158,15 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 
 **1. 言论性质阻断**：
 - 纯营销/喊单（推广、广告、买币建议）
+  - ⚠️ **超大IP豁免**：如果事件主体是超大IP（Binance、CZ、Elon等世界级人物/机构），其官方发布的营销/推广言论**不触发此阻断**
+  - 理由：超大IP的任何官方动作本身就是行业新闻，具有独立的传播价值
+  - 示例：Binance官方账号发推宣布新AI intern → 不触发营销阻断
 - 日常废话/流水账（今天天气好、早上好、吃了饭）
 - 纯转发/搬运（只是转发别人内容，无原创观点）
 - 无观点的互动（只是"赞"、"转了"、表情）
+- 日常安排/行程类（上播客、出席活动、改头像、换签名等），且事件主体不是超大IP
+  - 理由：非超大IP的日常安排不具有传播价值，不会引发社区讨论
+  - 豁免：超大IP的日常安排（如何一宣布出席活动 → 仍为A类事件，不阻断）
 
 **2. 内容性质阻断**：
 - 纯通识知识/百科内容（只是讲述已有知识/事实，无个人观点）
@@ -221,7 +254,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 }
 
 ⚠️ **评分建议**：
-- totalScore ≥ 60 → 建议通过
-- totalScore < 60 → 建议返回low
+- totalScore ≥ 60 → pass=true
+- totalScore < 60 → pass必须为false，blockReason填写具体原因
 `;
 }

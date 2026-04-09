@@ -230,8 +230,16 @@ function buildStage1Framework() {
   - 示例：推文说"Tesla发布新车" → 事件主体是"Tesla"
 - ❌ **推文发布者不是事件主体**（只是借用者/评论者）
 
-**2.2 事件主体**：谁/什么组织参与其中？
-- 示例：何一（币安联合创始人）、CZ、Tesla、Binance、当代年轻人
+**2.2 事件主体**：**谁发起了/做了这件事？**
+- eventSubject = 事件的**主动发起者/创造者**（做了这件事的人/组织）
+- ⚠️ **区分"发起者"和"被涉及者"**：
+  - 发起者：主动做了这件事的人/组织 → 放入eventSubject
+  - 被涉及者：被提及、被作为内容对象、被涉及的人/组织 → 放入keyEntities，不放eventSubject
+- 示例：IPFLOW_FUN给CZ做AI短剧 → 发起者=IPFLOW_FUN → eventSubject="IPFLOW_FUN"，CZ是被涉及者→放入keyEntities
+- 示例：某KOL采访CZ → 发起者=该KOL → eventSubject="该KOL"，CZ是被采访者→放入keyEntities
+- 示例：CZ发推"hi" → 发起者=CZ → eventSubject="CZ"
+- 示例：CZ和Binance联合发布产品 → 两者都是发起者 → eventSubject="CZ、Binance"
+- 示例：何一（币安联合创始人）、Tesla、当代年轻人
 - ⚠️ **先判断是否为找角度推文或解读型回复**，再决定事件主体是谁
   - 找角度推文：事件主体 = 被引用事件中的参与者（不是推文发布者）
   - 解读型回复：事件主体 = 回复者（不是被回复的大IP），因为代币概念来自回复者的解读
@@ -242,12 +250,30 @@ function buildStage1Framework() {
 - 包括：发生了什么、有什么关键细节、数据如何、有什么亮点
 - **这个描述将作为Stage 2的输入，请尽量详细**
 
+⚠️ **eventContent必须基于语料事实，不得添加无根据的描述**：
+- ❌ 不得凭空给人物添加"知名"、"意见领袖"、"著名"等影响力定语
+- ❌ 不得编造人物的身份、头衔、粉丝数等语料中不存在的信息
+- ✅ 只描述语料中明确提到的内容
+- 示例：
+  - ✅ 推文说"Professor Jiang says that he will be on the podcast" → "Professor Jiang宣布将参加播客节目"
+  - ❌ 推文说"Professor Jiang says that he will be on the podcast" → "知名加密货币评论者/意见领袖Professor Jiang宣布..."（"知名加密货币评论者"是编造的，推文中没有这个信息）
+
 **2.4 事件时效性**：
 - 近期事件（7天内）、中期事件（30天内）、远期事件（超过30天）、预期事件（未来）
 - 如果可以确定具体日期，请提供
 
 **2.5 关键实体**：列出所有相关的重要实体
-- 示例：["何一", "Binance", "CZ", "Yzi Labs"]
+
+⚠️ **必须包含产品名/项目名/品牌名**：
+- 如果事件涉及产品发布、项目上线、品牌推出等，产品名/项目名/品牌名必须列入keyEntities
+- 这是Stage 3进行代币-事件关联匹配的关键依据，遗漏会导致匹配失败
+- 产品名/项目名通常出现在事件内容描述中
+
+- 示例：事件"Gift是首个链上支持支付捐赠的合约" → keyEntities必须包含"Gift"、"Giftily"
+- 示例：事件"Giggle Academy推出新产品XYZ" → keyEntities必须包含"XYZ"和"Giggle Academy"
+- 示例：事件"CZ发推提到48小时" → keyEntities包含"CZ"、"48小时"
+
+除了产品名，还应包括：人物、机构、平台、技术、关键概念等实体
 
 **2.6 关键数据**：提取所有重要的数据
 
@@ -292,8 +318,13 @@ function buildStage1Framework() {
 - ✅ 提取：推文的点赞、转发、粉丝数、浏览量
 
 **2.7 是否超大IP**：
-- 判断事件主体是否为超大IP（何一、CZ、Elon、Trump等）
+- 判断eventSubject（事件发起者）是否为超大IP（何一、CZ、Elon、Trump等）
 - 超大IP的定义：有全球影响力，其任何动作都可能成为新闻
+- ⚠️ isLargeIP严格基于eventSubject本身的影响力，**不是基于事件内容涉及的人物**
+  - eventSubject = IPFLOW_FUN（小号）→ isLargeIP = false（即使内容涉及CZ）
+  - eventSubject = CZ → isLargeIP = true
+  - eventSubject = CZ、Binance → isLargeIP = true（发起者本身是大IP）
+  - eventSubject = 某KOL（普通账号）→ isLargeIP = false（即使采访了CZ）
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -302,10 +333,14 @@ function buildStage1Framework() {
 🎯 **基于第二步输出**，判断事件属于哪个类别（6个核心类别，互斥且完备）
 
 **【A类：人物言论类】**
-- 个人/账号的公开发言、表态、观点、动态
+- **个人账号**的公开发言、表态、观点、动态
 - 包括：原创言论、回复互动（回复内容即为大IP原话）、转发言论
 - 示例：何一发推"Everything is number"
 - ⚠️ 如果回复中代币概念来自回复者自己的解读（非大IP原话）→ 归为F类（解读型回复），不归A类
+- ⚠️ **机构/公司官方账号的发言不归A类**：如果发言账号是机构/公司的官方账号（如@binance、@Tesla、@Binance），应按内容本质归入C类（产品发布）或D类（机构动作），不归A类
+  - 示例：@binance发推宣布新AI intern → D类（机构动作，推出新产品）或C类（产品发布）
+  - 示例：@Tesla发推宣布新车 → C类（产品发布）
+  - 示例：何一个人账号@heyibinance发推 → A类（个人言论）
 
 **【B类：IP概念推出类】**
 - IP概念、角色设定、虚拟形象、文化符号、电子宠物的推出或发布
@@ -381,8 +416,8 @@ function buildStage1Framework() {
 
 📊 **内容本质优先级**（从高到低）：
 1️⃣ B类（IP概念推出） - 新概念/新IP的诞生
-2️⃣ A类（个人言论） - 观点/表态的表达
-3️⃣ C类（产品发布） - 实体内容的推出
+2️⃣ C类（产品发布） - 实体内容的推出
+3️⃣ A类（个人言论） - 个人账号的观点/表态表达（机构官方账号不归此类）
 4️⃣ D类（机构动作） - 组织的商业行为
 5️⃣ E类（社会现象） - 群体性的热点
 6️⃣ F类（互动传播） - 内容的二次传播 + 解读型回复（回复大IP但概念来自回复者）

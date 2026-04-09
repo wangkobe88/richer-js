@@ -18,7 +18,6 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 【事件描述】
 主题：${eventDescription.eventTheme}
 主体：${eventDescription.eventSubject}
-是否超大IP：${eventDescription.isLargeIP}
 事件内容：${eventDescription.eventContent}
 时效性：${eventDescription.eventTiming}
 关键实体：${eventDescription.keyEntities?.join(', ') || '无'}
@@ -55,8 +54,12 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 **【常规热点/现象类】**：
 - S级分量：世界级热点（全球热搜、亿级传播）→ 40分
 - A级分量：全国级热点（全国热搜、千万级传播）→ 32分
-- B级分量：平台级热点（抖音/B站爆款、百万级传播）→ 24分
-- C级分量：社区级讨论（有一定热度但非平台级）→ 12分
+- B级分量：平台级热点（抖音/B站爆款、**百万级**传播）→ 24分
+  - ⚠️ 门槛：播放/观看**至少100万+**，或点赞**至少50万+**。低于此标准不算B级
+  - 示例：抖音视频500万播放、30万点赞 → B级 ✅
+  - 示例：抖音视频10万+观看、8万点赞 → **不是B级**，应评C级 ❌
+- C级分量：社区级讨论（有一定热度但非平台级，**十万级**传播）→ 12分
+  - 示例：抖音视频10万观看、8万点赞 → C级 ✅
 - D级分量：地区性/本地化事件（仅限于某个城市/地区）→ 5分
 - E级分量：完全无热度的小范围讨论 → 0分
 
@@ -149,9 +152,17 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 - 预期热点（发现型/叙事关联型中引用的未来事件）：30天内+10分，超过30天+5分
 
 **示例**：
-- "抖音爆款视频千万播放" → B级(24) + 百万级(18) + 正在发酵(15) = 57分
-- "发现Yzi Labs海报的真正口号是WE MAKE IMPACT" → A级(32) + Yzi Labs知名IP(20) + 正在发酵(15) = 67分
-- "发现CZ推文背景中的隐藏图案" → A级(32) + CZ世界级IP(28) + 正在发酵(15) = 75分
+- "抖音爆款视频千万播放" → B级(24) + 百万级(18) + 正在发酵(15) = 57分 → **pass=false**（<60）
+- "发现Yzi Labs海报的真正口号是WE MAKE IMPACT" → A级(32) + Yzi Labs知名IP(20) + 正在发酵(15) = 67分 → pass=true
+- "发现CZ推文背景中的隐藏图案" → A级(32) + CZ世界级IP(28) + 正在发酵(15) = 75分 → pass=true
+- "抖音祝福视频8万点赞10万+观看" → C级(12) + 十万级(12) + 正在发酵(15) = 39分 → **pass=false**（<60）
+
+⚠️ **第四步：pass判定自检**（必须在填写pass前执行）
+
+算出totalScore后，**必须按以下逻辑判定pass**：
+1. totalScore ≥ 60 → pass=true
+2. totalScore < 60 → **pass=false**，blockReason填写"totalScore < 60 (XX分)，[分量/权重/时效性不足以通过]"
+3. **禁止出现totalScore < 60但pass=true的情况**
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -180,6 +191,8 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
   "blockChecks": {"hardBlocks": [], "passedChecks": ["检查1", "检查2"]}
 }
 
-⚠️ totalScore ≥ 60 建议通过
+⚠️ **硬性规则**（必须严格遵守，无例外）：
+- totalScore < 60 → pass**必须**为false，blockReason填写具体原因
+- **自检**：输出JSON前，确认pass值与totalScore一致。如果totalScore < 60但pass=true，这是**严重错误**
 `;
 }
