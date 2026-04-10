@@ -41,7 +41,16 @@
       "IsuzkaAruna",
       "CDaneliak56999"
     ],
-    "expiredTweetDaysThreshold": 14
+    "expiredTweetDaysThreshold": 14,
+    "sameNameCheck": {
+      "enabled": true,
+      "rules": {
+        "oneDayThreshold": 3,
+        "oneWeekThreshold": 10,
+        "combinedWeekThreshold": 5,
+        "combinedDayThreshold": 2
+      }
+    }
   },
   "preBuyCheck": {
     "holderCheckEnabled": true,
