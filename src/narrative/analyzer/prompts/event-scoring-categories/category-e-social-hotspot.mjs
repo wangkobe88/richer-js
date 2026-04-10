@@ -21,7 +21,7 @@
  * - 添加重要原则说明：评估重点是事件/IP本身的价值
  */
 
-export const CATEGORY_E_PROMPT_VERSION = 'V1.4';
+export const CATEGORY_E_PROMPT_VERSION = 'V1.5';
 
 export function buildCategoryEPrompt(eventDescription, eventClassification) {
   return `你是E类（社会热点/现象类）事件评分专家。包括发现型meme和娱乐热点。
@@ -140,8 +140,12 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 
 **3. 内容性质阻断**：
    - 政治/地缘政治事件（满足1项即触发）→ pass=false
+     * 涉及战争、军事冲突、恐怖主义、制裁对抗
+     * 涉及国家间对抗、地缘政治威胁、核威胁
+     * 政府或政治实体的威胁性/敌对性言论和动作
      * 豁免：有明显幽默/讽刺元素的政治meme
      * 豁免：大IP（如CZ、Musk）发表政治观点引发社区玩梗
+     * 豁免：和平协议、国际合作、人道主义援助等正面政治事件
    - 纯负面/愤怒事件（无正向情感）→ pass=false
      * 豁免：同情/保护事件（动物保护、弱势群体关怀）
 

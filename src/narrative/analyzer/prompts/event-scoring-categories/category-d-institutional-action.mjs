@@ -13,7 +13,7 @@
  * - 世界级机构官方动作magnitude最低B级
  */
 
-export const CATEGORY_D_PROMPT_VERSION = 'V2.0';
+export const CATEGORY_D_PROMPT_VERSION = 'V2.1';
 
 export function buildCategoryDPrompt(eventDescription, eventClassification) {
   return `你是D类（机构言论/动作及相关事件类）事件评分专家。
@@ -117,7 +117,16 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 
    ⚠️ **如果第一步判定为"世界级机构"→ 直接跳过本项（营销性质阻断），标记passedChecks: "世界级机构营销豁免"**
 
-**3. 影响范围阻断**：
+**3. 政治/冲突性质阻断**：
+   - 涉及战争、军事冲突、恐怖主义、制裁对抗的事件 → pass=false
+   - 涉及国家间对抗、地缘政治威胁、核威胁等负面政治事件 → pass=false
+   - 政府或政治实体的威胁性/敌对性言论和动作 → pass=false
+   - ⚠️ **豁免**：和平协议、国际合作、人道主义援助等正面政治事件不触发此阻断
+   - ⚠️ **豁免**：大IP/知名机构对政治事件发表的个人观点引发社区玩梗（如Musk发推评论政治），不触发此阻断
+   - 示例：伊朗宣布对霍尔木兹海峡石油收费并要求加密货币支付 → ❌ 触发阻断（地缘政治威胁+制裁对抗）
+   - 示例：某国宣布发动军事打击 → ❌ 触发阻断（军事冲突）
+
+**4. 影响范围阻断**：
    - 极度小众的机构动作（只在特定圈子/行业内传播）→ pass=false
 
 ═══════════════════════════════════════════════════════════════════════════════
