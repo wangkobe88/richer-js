@@ -196,7 +196,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   // ═══════════════════════════════════════════════════════════════════════════
   // 第二步：LLM分析（币种类型判断 + 评级）
   // ═══════════════════════════════════════════════════════════════════════════
-  const prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityRef);
+  const prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityRef, rulesResult.addressVerified);
 
   if (!prompt) {
     return {
@@ -313,24 +313,25 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   // 新增：以账号为背景的meme币判断
   // ═══════════════════════════════════════════════════════════════════════════════
   if (tokenType === 'account_based_meme') {
-    // 以账号为背景的meme币：账号本身构成叙事价值，但无法进行完整的3阶段分析
-    logger.info('AccountCommunityAnalysis', '判断为以账号为背景的meme币，返回unrated', {
-      accountMatchDetails: parsed.details?.accountMatchDetails?.substring(0, 100)
+    const abmRating = parsed.rating || 'unrated';
+    const abmReason = parsed.reason || '这是以账号为背景的meme币';
+
+    logger.info('AccountCommunityAnalysis', `判断为以账号为背景的meme币，返回${abmRating}`, {
+      accountMatchDetails: parsed.details?.accountMatchDetails?.substring(0, 100),
+      web3Interaction: parsed.details?.web3Interaction?.substring(0, 100)
     });
 
     return {
-      category: 'unrated',
-      reasoning: parsed.reason || '这是以账号为背景的meme币，账号本身构成叙事价值，但无法进行完整的3阶段分析',
+      category: abmRating,
+      reasoning: abmReason,
       scores: null,
       total_score: null,
-      // 前置LLM阶段数据（账号/社区分析判断币种类型）
       prestageData: {
-        category: 'unrated', // 以账号为背景的meme币
+        category: abmRating,
         prompt: prompt,
         raw_output: callResult.content,
         parsed_output: {
           ...parsed,
-          // 只添加一个简洁的规则验证通过标记，不重复详细结果
           rulesValidationPassed: true
         },
         model: callResult.model,

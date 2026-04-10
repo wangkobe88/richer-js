@@ -1361,18 +1361,17 @@ class AbstractTradingEngine extends ITradingEngine {
         // 2. 无任务时，检查叙事数据是否已存在（多实验公用叙事数据）
         const { data: narrative } = await supabase
           .from('token_narrative')
-          .select('llm_stage3_category, llm_stage2_category, llm_stage1_category, pre_check_category, analyzed_at')
+          .select('*')
           .eq('token_address', normalizedAddress)
           .maybeSingle();
 
         if (narrative) {
-          const category = narrative.llm_stage3_category ||
-                           narrative.llm_stage2_category ||
-                           narrative.llm_stage1_category ||
-                           narrative.pre_check_category;
-          const rating = this._mapCategoryToRating(category);
+          // 通过 NarrativeAnalyzer 统一获取 rating，不直接操作列名
+          const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
+          const llmAnalysis = NarrativeAnalyzer.buildLLMAnalysis(narrative);
+          const rating = llmAnalysis?.summary?.rating ?? 0;
           this._logger.info(experimentId, '_pollNarrativeRating',
-            `使用已存在的叙事数据 | token=${tokenAddress}, category=${category}, rating=${rating}, analyzed_at=${narrative.analyzed_at}`);
+            `使用已存在的叙事数据 | token=${tokenAddress}, category=${llmAnalysis?.summary?.category}, rating=${rating}, analyzed_at=${narrative.analyzed_at}`);
           return rating;
         }
 
@@ -1392,18 +1391,17 @@ class AbstractTradingEngine extends ITradingEngine {
         // 3. 从叙事表读取最终评级（使用小写地址）
         const { data: narrative } = await supabase
           .from('token_narrative')
-          .select('llm_stage3_category, llm_stage2_category, llm_stage1_category, pre_check_category')
+          .select('*')
           .eq('token_address', normalizedAddress)
           .single();
 
         if (narrative) {
-          const category = narrative.llm_stage3_category ||
-                           narrative.llm_stage2_category ||
-                           narrative.llm_stage1_category ||
-                           narrative.pre_check_category;
-          const rating = this._mapCategoryToRating(category);
+          // 通过 NarrativeAnalyzer 统一获取 rating，不直接操作列名
+          const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
+          const llmAnalysis = NarrativeAnalyzer.buildLLMAnalysis(narrative);
+          const rating = llmAnalysis?.summary?.rating ?? 0;
           this._logger.info(experimentId, '_pollNarrativeRating',
-            `分析完成 | token=${tokenAddress}, category=${category}, rating=${rating}`);
+            `分析完成 | token=${tokenAddress}, category=${llmAnalysis?.summary?.category}, rating=${rating}`);
           return rating;
         }
       }
@@ -1422,21 +1420,7 @@ class AbstractTradingEngine extends ITradingEngine {
     return 0;
   }
 
-  /**
-   * 映射叙事类别到评级
-   * @protected
-   * @param {string} category - 叙事类别
-   * @returns {number} 评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级, 0=默认)
-   */
-  _mapCategoryToRating(category) {
-    const mapping = {
-      'high': 3,
-      'mid': 2,
-      'low': 1,
-      'unrated': 9
-    };
-    return mapping[category] || 0;
-  }
+
 
   /**
    * 睡眠指定毫秒数

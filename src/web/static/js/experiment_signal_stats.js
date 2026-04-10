@@ -154,17 +154,11 @@ class ExperimentSignalStats {
             // 支持新旧两种数据格式
             let rating = 9; // 默认 unrated
 
-            // 新格式：从 llmAnalysis.summary.category 获取
-            if (item.narrative?.llmAnalysis?.summary?.category) {
-              const categoryToRating = {
-                'high': 3,
-                'mid': 2,
-                'low': 1,
-                'unrated': 9
-              };
-              rating = categoryToRating[item.narrative.llmAnalysis.summary.category] ?? 9;
+            // 新格式：从 llmAnalysis.summary.rating 获取（后端统一计算）
+            if (item.narrative?.llmAnalysis?.summary?.rating !== undefined) {
+              rating = item.narrative.llmAnalysis.summary.rating;
             }
-            // 旧格式：直接从 rating 字段获取
+            // 兼容旧格式：直接从 rating 字段获取
             else if (item.narrative?.rating !== undefined) {
               rating = item.narrative.rating;
             }

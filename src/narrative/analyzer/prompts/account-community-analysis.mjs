@@ -21,7 +21,7 @@ import {
 /**
  * Prompt版本号
  */
-export const ACCOUNT_COMMUNITY_ANALYSIS_PROMPT_VERSION = 'V1.4';  // 新增"以账号为背景的meme币"类型：账号无地址但质量达标时判断
+export const ACCOUNT_COMMUNITY_ANALYSIS_PROMPT_VERSION = 'V1.5';  // V1.5: 合约地址未命中时硬性限制只能返回account_based_meme
 
 /**
  * 获取账号信息（含推文）
@@ -101,7 +101,7 @@ async function getCommunityWithTweets(communityId, tweetCount = 20) {
  * @param {Object} accountOrCommunityData - 账号或社区数据
  * @returns {Promise<string>} 分析 Prompt
  */
-export async function buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityData) {
+export async function buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityData, addressVerified = true) {
   const tokenAddress = tokenData.address;
   const tokenSymbol = tokenData.symbol || '';
   const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
@@ -134,12 +134,19 @@ export async function buildAccountCommunityAnalysisPrompt(tokenData, accountOrCo
     if (introEn) introSection += `\n- 英文介绍：${introEn}`;
   }
 
+  // 构建合约地址验证信息
+  const addressVerifiedSection = addressVerified
+    ? '✅ 已命中（账号的简介或推文中找到了代币合约地址）'
+    : '❌ 未命中（账号的简介和推文中都没有找到代币合约地址）';
+
   return `你是${typeLabel}代币分析专家。请判断代币类型并评估影响力。
 
 【代币信息】
 - 代币地址：${tokenAddress}
 - 代币Symbol：${tokenSymbol}
 ${tokenName ? `- 代币Name：${tokenName}` : ''}${introSection}
+
+⚠️ **合约地址验证结果：${addressVerifiedSection}**
 
 【${typeLabel}信息】
 ${data.type === 'account' ? `
@@ -175,7 +182,17 @@ ${tweetsSummary}
 
 **判断标准**：
 
-${data.type === 'account' ? `
+${!addressVerified ? `
+🔴🔴🔴 **硬性规则：合约地址未命中，tokenType 必须为 "account_based_meme"** 🔴🔴🔴
+
+**禁止返回以下类型**：
+- ❌ tokenType = "project"：真项目方会在账号中公示合约地址，没有地址说明这不是项目方官方代币
+- ❌ tokenType = "meme"：传统meme币依托已有成熟IP（Trump、PEPE、Doge等），依托账号的必然是改造过的新IP，不是传统meme
+- ❌ tokenType = "web3_native_ip_early"：Web3原生IP早期要求合约名在账号中命中，否则任何人都可以随意命名一个"新IP概念"来作弊
+
+**必须返回**：tokenType = "account_based_meme"
+
+` : ''}${data.type === 'account' ? `
 **项目币特征**：
 - 账号简介介绍具体产品、技术、服务、开发计划
 - 推文内容涉及技术更新、产品发布、开发进展、商务合作
@@ -209,12 +226,24 @@ ${data.type === 'account' ? `
   - **精确匹配**：代币Symbol/Name = 账号名/显示名（如 "PP" = "Prison Professors"）
   - **缩写匹配**：代币Symbol是账号名的常见缩写（如 "MS" = "Michael Santos"）
   - **语义关联**：代币名与账号简介/内容有明确的语义关联（如 "Prison Professors" 与监狱教育相关）
-- **Web3交互判断**：
-  - 账号简介或推文中提及加密货币、区块链、Web3相关内容
-  - 或提及知名加密人物/机构（CZ、币安、Binance、Binance Charity等）
-  - 或提及加密相关事件（捐赠、直播、上币等）
-- **处理方式**：如果满足以上条件 → 返回 tokenType = "account_based_meme" 和 rating = "unrated"
-  - 原因：这是以账号为背景的meme币，账号本身构成叙事价值，但无法进行完整的3阶段分析
+- **Web3流量事件判断**：
+  - 流量事件 = 账号**自身**产生了实际的Web3相关关注度/互动量
+  - ✅ 有流量事件（满足任一）：
+    - 账号被知名加密KOL/机构（CZ、Binance、a16z等）**主动提及或互动**（不是账号自己@对方）
+    - 账号的原创加密内容获得了**显著互动数据**（大量点赞/转发/评论，而非个位数）
+    - 账号与Web3大IP有**真实的双向互动**（双方都有回应，非单向@）
+  - ❌ 不算流量事件（常见误判）：
+    - 简介中的自我声明（如"Backed by XX"、"Partnered with XX"）→ 无证据支撑，不算
+    - 转发别人的内容（无论转发的是谁）→ 不代表账号自身有流量
+    - 账号主动@了大IP但没有得到回应 → 单方面行为，不算
+    - 发了一条营销推文但没有互动数据 → 无流量证据
+  - 必须是近期的（30天内）
+- **通过条件**（必须同时满足以下2项）：
+  1. **名称关联**：代币名称与账号名称/简介存在明确关联（精确匹配、缩写、或语义关联）
+  2. **Web3流量事件**：账号近期有真实的Web3流量事件（按上述标准判断）
+- **处理方式**：
+  - 满足通过条件 → tokenType = "account_based_meme"，rating = "unrated"
+  - 不满足通过条件 → tokenType = "account_based_meme"，rating = "low"，reason 说明不满足的具体条件
 
 **Web3原生IP早期特征**：
 - **创造了一个全新的IP概念/称号/角色**（这个概念在代币创建前并不存在）
@@ -299,12 +328,15 @@ ${data.type === 'account' ? `
   - 不要只说"营销账号"，要详细说明营销的是什么IP/事件/梗，包含所有关键数据
 
 **情况2.5：tokenType = "account_based_meme"（以账号为背景的meme币）**
-- 直接返回 rating = "unrated"
-- 原因：这是以账号为背景的meme币，账号本身构成叙事价值，但无法进行完整的3阶段分析
+- **通过条件检查**：必须同时满足以下2项
+  1. **名称关联**：代币名称与账号名称/简介存在明确关联（精确匹配、缩写、或语义关联）
+  2. **Web3流量事件**：账号自身产生了实际的Web3相关关注度（被大IP主动互动、原创内容获显著互动等；简介声明/RT别人不算）
+- 满足通过条件 → rating = "unrated"
+- 不满足通过条件 → rating = "low"，reason 说明不满足的具体条件
 - **必须填写以下字段**：
-  - accountMatchDetails：代币名称与账号的匹配情况（精确匹配/缩写匹配/语义关联）
+  - accountMatchDetails：代币名称与账号的匹配情况（精确匹配/缩写匹配/语义关联/无关联）
   - accountActivity：账号近期活跃情况（最近推文时间、推文频率等）
-  - web3Interaction：与Web3圈子的交互事件（提及的加密相关内容）
+  - web3Interaction：与Web3圈子的交互事件（提及的加密相关内容/无Web3交互）
 - **不生成账号摘要，不进入两阶段分析**
 
 **情况3：tokenType = "web3_native_ip_early"（Web3原生IP早期）**
@@ -366,7 +398,7 @@ ${data.type === 'account' ? `
 {
   "tokenType": "project" | "meme" | "account_based_meme" | "web3_native_ip_early",
   "baselineMet": true/false,  // 仅当tokenType="project"时需要填写
-  "rating": "low" | "mid" | "high" | "unrated",  // tokenType="project"时为low/mid/high，其他为unrated
+  "rating": "low" | "mid" | "high" | "unrated",  // tokenType="project"时为low/mid/high；account_based_meme满足条件为unrated不满足为low；其他为unrated
   "reason": "原因说明",
   "accountSummary": "账号摘要（仅当tokenType='meme'时需要）",
   "details": {
@@ -376,7 +408,7 @@ ${data.type === 'account' ? `
     "memeReason": "判断为meme币的原因",
     "accountMatchDetails": "代币名称与账号的匹配情况（仅当tokenType='account_based_meme'时需要）",
     "accountActivity": "账号近期活跃情况（仅当tokenType='account_based_meme'时需要）",
-    "web3Interaction": "与Web3圈子的交互事件（仅当tokenType='account_based_meme'时需要）",
+    "web3Interaction": "Web3流量事件（仅当tokenType='account_based_meme'时需要。必须有证据：被大IP主动互动/原创内容获显著互动。简介声明和RT不算）",
     "ipConcept": "Web3原生IP的概念描述（仅当tokenType='web3_native_ip_early'时需要）"
   }
 }
@@ -401,17 +433,17 @@ ${data.type === 'account' ? `
 - baselineMet, rating: 留空或null
 
 **当 tokenType = "account_based_meme" 时**：
-- rating: 必填，固定为 "unrated"
-- reason: 必填，说明判断为以账号为背景的meme币的原因
+- rating: 必填，满足通过条件为 "unrated"，不满足为 "low"
+- reason: 必填，说明判断原因；如果rating为low，需说明不满足的具体条件
 - accountMatchDetails: 必填，描述代币名称与账号的匹配情况
   - 匹配类型：精确匹配/缩写匹配/语义关联
   - 具体说明：如"代币Symbol 'PP' 与账号名 'Prison Professors' 精确匹配"
 - accountActivity: 必填，描述账号近期活跃情况
   - 最近推文时间：如"最后一条推文发布于2天前"
   - 推文频率：如"平均每天发布2-3条推文"
-- web3Interaction: 必填，描述与Web3圈子的交互事件
-  - 提及的加密内容：如"账号简介提及CZ的慈善捐赠"
-  - 相关推文内容：如"推文中提及Binance Charity、加密货币捐赠等"
+- web3Interaction: 必填，描述与Web3圈子的流量事件
+  - 有流量事件：描述具体事件，如"近期与CZ互动"、"原创加密内容获得大量传播"
+  - 无流量事件：明确说明"无近期Web3流量事件，仅RT他人内容"
 - accountSummary: 留空或null
 - baselineMet: 留空或null
 

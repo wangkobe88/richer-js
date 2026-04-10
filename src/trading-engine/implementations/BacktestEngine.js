@@ -7,6 +7,7 @@
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
+const { categoryToRating } = require('../../narrative/utils/rating-utils.mjs');
 const Logger = require('../../services/logger');
 const Decimal = require('decimal.js');
 
@@ -1907,7 +1908,7 @@ class BacktestEngine extends AbstractTradingEngine {
       });
       const fromCache = result.meta?.fromCache ? '缓存' : 'LLM';
       const sourceExp = result.meta?.sourceExperimentId || 'N/A';
-      const rating = this._mapCategoryToRating(result.llmAnalysis?.summary?.category);
+      const rating = categoryToRating(result.llmAnalysis?.summary?.category);
 
       this.logger.info(this._experimentId, '_executeNarrativeAnalysis',
         `叙事分析完成 | token=${tokenAddress.slice(0, 10)}..., rating=${rating}, source=${fromCache}, sourceExp=${sourceExp}, duration=${Date.now() - startTime}ms`);
@@ -1963,22 +1964,6 @@ class BacktestEngine extends AbstractTradingEngine {
 
     // 降级方案：如果没有配置买入策略，返回 0
     return 0;
-  }
-
-  /**
-   * 将叙事分析类别映射到评级
-   * @private
-   * @param {string} category - 叙事类别 (high/mid/low/unrated)
-   * @returns {number} 评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级)
-   */
-  _mapCategoryToRating(category) {
-    const mapping = {
-      'high': 3,
-      'mid': 2,
-      'low': 1,
-      'unrated': 9
-    };
-    return mapping[category] || 9;
   }
 
 

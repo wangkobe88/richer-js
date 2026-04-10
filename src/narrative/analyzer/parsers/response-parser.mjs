@@ -3,6 +3,8 @@
  * 包含各种LLM响应的解析方法
  */
 
+import { resolveFinalCategory, categoryToRating } from '../../utils/rating-utils.mjs';
+
 /**
  * 解析 Stage 1 响应
  * @param {string} content - LLM响应内容
@@ -570,26 +572,8 @@ export function buildLLMAnalysis(record) {
     error: record.llm_stage3_error
   } : null;
 
-  // 获取最终评级和评分 - 优先使用最后执行的阶段
-  // 三阶段架构：优先级应该是 stage3 > stage2 > stage1 > prestage
-  // 注意：需要从 parsed_output.raw 中获取正确的 category
-  const stage3Category = record.llm_stage3_parsed_output?.raw?.category || record.llm_stage3_category;
-  const stage2Category = record.llm_stage2_parsed_output?.raw?.categoryAnalysis?.category || record.llm_stage2_category;
-  const stage1Category = record.llm_stage1_parsed_output?.eventClassification?.primaryCategory || record.llm_stage1_category;
-  const prestageCategory = record.llm_prestage_parsed_output?.tokenType || record.llm_prestage_category;
-
-  // 如果预检查触发且有明确分类（low/high），直接使用预检查分类
-  const preCheckCategory = record.pre_check_category;
-  // 如果Stage 2存在但未通过（pass=false），则评级为low
-  const stage2Pass = record.llm_stage2_parsed_output?.raw?.pass;
-  let category;
-  if (preCheckCategory && preCheckCategory !== 'unrated') {
-    category = preCheckCategory;
-  } else if (stage2 !== null && stage2Pass === false) {
-    category = 'low';
-  } else {
-    category = stage3Category || stage2Category || stage1Category || prestageCategory || 'unrated';
-  }
+  // 获取最终评级和评分 - 使用统一模块
+  const category = resolveFinalCategory(record);
   const parsedOutput = record.llm_stage3_parsed_output || record.llm_stage2_parsed_output || record.llm_stage1_parsed_output || record.llm_prestage_parsed_output;
 
   let reasoning = '';
@@ -607,6 +591,7 @@ export function buildLLMAnalysis(record) {
 
   const summary = {
     category: category,
+    rating: categoryToRating(category),
     reasoning: reasoning,
     total_score: parsedOutput?.total_score ?? record.pre_check_result?.total_score,
     scores: parsedOutput?.scores ?? record.pre_check_result?.scores

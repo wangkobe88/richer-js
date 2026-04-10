@@ -1424,18 +1424,9 @@ class ExperimentTokenReturns {
       `;
     }
 
-    // 三阶段架构：从 llmAnalysis.summary 获取最终结果
+    // 三阶段架构：从 llmAnalysis.summary 获取最终结果（rating 由后端统一计算）
     const summary = narrative.llmAnalysis?.summary;
-    const finalCategory = summary?.category || 'unrated';
-
-    const categoryToRating = {
-      'high': 3,
-      'mid': 2,
-      'low': 1,
-      'unrated': 9
-    };
-
-    const rating = categoryToRating[finalCategory] ?? 9;
+    const rating = summary?.rating ?? 9;
     const ratingInfo = NARRATIVE_RATING_MAP[rating] || NARRATIVE_RATING_MAP[9];
 
     // 获取摘要和总分

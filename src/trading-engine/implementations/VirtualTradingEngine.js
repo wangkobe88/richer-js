@@ -7,6 +7,7 @@
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
+const { categoryToRating } = require('../../narrative/utils/rating-utils.mjs');
 const Logger = require('../../services/logger');
 const Decimal = require('decimal.js');
 
@@ -1984,7 +1985,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         `分析完成 | address=${tokenAddress}, category=${result.llmAnalysis?.summary?.category}, source=${fromCache}, sourceExp=${sourceExp}, duration=${duration}ms`);
 
       // 映射 category 到 rating
-      return this._mapCategoryToRating(result.llmAnalysis?.summary?.category);
+      return categoryToRating(result.llmAnalysis?.summary?.category);
 
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -1996,21 +1997,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     }
   }
 
-  /**
-   * 映射叙事类别到评级
-   * @private
-   * @param {string} category - 叙事类别 (high/mid/low/unrated)
-   * @returns {number} 评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级)
-   */
-  _mapCategoryToRating(category) {
-    const mapping = {
-      'high': 3,     // 高质量
-      'mid': 2,      // 中质量
-      'low': 1,      // 低质量
-      'unrated': 9   // 未评级
-    };
-    return mapping[category] || 9;
-  }
 
   /**
    * 获取叙事评级（带轮询等待）
