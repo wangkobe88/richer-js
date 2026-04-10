@@ -60,9 +60,10 @@ class SameNameCheckService {
    * @param {string} tokenSymbol - 代币符号
    * @param {string} tokenName - 代币名称
    * @param {number} tokenCreatedAt - 代币创建时间（秒级时间戳）
+   * @param {Object} targetTokenData - 目标代币的完整数据（包含 appendix）
    * @returns {Promise<Object>} 检查结果
    */
-  async checkIfCopycatToken(tokenSymbol, tokenName, tokenCreatedAt) {
+  async checkIfCopycatToken(tokenSymbol, tokenName, tokenCreatedAt, targetTokenData = null) {
     try {
       this.logger.debug('SameNameCheck', '开始检查同名代币', {
         symbol: tokenSymbol,
@@ -91,15 +92,52 @@ class SameNameCheckService {
         t.created_at < tokenCreatedAt && t.created_at > 0
       );
 
-      // 分析时间窗口
+      // 解析目标代币的 appendix（用于叙事对比）
+      let targetAppendix = null;
+      if (targetTokenData && targetTokenData.raw_api_data) {
+        const rawData = targetTokenData.raw_api_data;
+        if (rawData.appendix) {
+          try {
+            targetAppendix = typeof rawData.appendix === 'string'
+              ? JSON.parse(rawData.appendix)
+              : rawData.appendix;
+          } catch (e) {
+            this.logger.debug('SameNameCheck', '解析目标代币appendix失败', { error: e.message });
+          }
+        }
+      }
+
+      // 检查每个同名代币是否与目标代币共享同一叙事（appendix字段对比）
+      const duplicateNarrativeTokens = olderTokens.filter(t => {
+        if (!t.appendix) return false;
+
+        let tokenAppendix = null;
+        try {
+          tokenAppendix = typeof t.appendix === 'string' ? JSON.parse(t.appendix) : t.appendix;
+        } catch (e) {
+          return false;
+        }
+
+        // 如果没有目标代币的appendix，无法进行精确对比，使用保守策略：
+        // 只要同名就认为是潜在重复
+        if (!targetAppendix) {
+          return true;
+        }
+
+        // 比较 appendix 所有字段，只要有任意一个相同就认为是重复
+        return this._hasSameNarrative(targetAppendix, tokenAppendix);
+      });
+
+      // 分析时间窗口（只计入重复叙事的代币）
       const oneDayBefore = tokenCreatedAt - 24 * 60 * 60;
       const oneWeekBefore = tokenCreatedAt - 7 * 24 * 60 * 60;
 
-      const withinOneDay = olderTokens.filter(t => t.created_at >= oneDayBefore);
-      const withinOneWeek = olderTokens.filter(t => t.created_at >= oneWeekBefore);
+      const withinOneDay = duplicateNarrativeTokens.filter(t => t.created_at >= oneDayBefore);
+      const withinOneWeek = duplicateNarrativeTokens.filter(t => t.created_at >= oneWeekBefore);
 
-      this.logger.debug('SameNameCheck', '时间窗口分析', {
+      this.logger.debug('SameNameCheck', '时间窗口分析（仅重复叙事）', {
         totalOlder: olderTokens.length,
+        duplicateNarrative: duplicateNarrativeTokens.length,
         withinOneDay: withinOneDay.length,
         withinOneWeek: withinOneWeek.length
       });
@@ -108,7 +146,7 @@ class SameNameCheckService {
       const isCopycat = this._evaluateCopycatRules(
         withinOneDay,
         withinOneWeek,
-        olderTokens
+        duplicateNarrativeTokens
       );
 
       const result = {
@@ -116,15 +154,18 @@ class SameNameCheckService {
         isCopycat,
         details: {
           totalOlder: olderTokens.length,
+          duplicateNarrativeCount: duplicateNarrativeTokens.length,
           withinOneDay: withinOneDay.length,
           withinOneWeek: withinOneWeek.length,
+          targetAppendix: targetAppendix,
           withinOneDayTokens: withinOneDay.map(t => ({
             address: t.token,
             name: t.name,
             symbol: t.symbol,
             createdAt: t.created_at,
             hoursBefore: Math.round((tokenCreatedAt - t.created_at) / 3600),
-            fdv: t.fdv
+            fdv: t.fdv,
+            appendix: t.appendix
           }))
         }
       };
@@ -235,6 +276,123 @@ class SameNameCheckService {
     }
 
     return false;
+  }
+
+  /**
+   * 判断两个代币是否共享同一叙事（基于appendix字段对比）
+   *
+   * 规则：只要任意一个非空字段相同，就认为是同一叙事
+   * 比较字段包括：twitter, website, telegram, blog, discord 等
+   *
+   * @param {Object} appendix1 - 代币1的appendix
+   * @param {Object} appendix2 - 代币2的appendix
+   * @returns {boolean} 是否共享同一叙事
+   * @private
+   */
+  _hasSameNarrative(appendix1, appendix2) {
+    if (!appendix1 || !appendix2) {
+      return false;
+    }
+
+    // 需要比较的字段列表（排除一些明显不相关的字段）
+    const compareFields = [
+      'twitter',
+      'website',
+      'telegram',
+      'blog',
+      'discord',
+      'github',
+      'whitepaper',
+      'email',
+      'reddit',
+      'slack',
+      'facebook',
+      'linkedin',
+      'wechat',
+      'qq'
+    ];
+
+    // 检查每个字段，只要有任意一个相同就认为是同一叙事
+    for (const field of compareFields) {
+      const value1 = this._normalizeField(appendix1[field]);
+      const value2 = this._normalizeField(appendix2[field]);
+
+      // 两个都有值且相同
+      if (value1 && value2 && value1 === value2) {
+        this.logger.debug('SameNameCheck', '发现相同叙事字段', {
+          field,
+          value: value1
+        });
+        return true;
+      }
+    }
+
+    // 特殊处理：推特URL可能格式不同，需要提取用户名或推文ID进行比较
+    const twitter1 = this._extractTwitterId(appendix1.twitter);
+    const twitter2 = this._extractTwitterId(appendix2.twitter);
+    if (twitter1 && twitter2 && twitter1 === twitter2) {
+      this.logger.debug('SameNameCheck', '发现相同推特ID', {
+        twitterId: twitter1
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * 标准化字段值（去除空白、转换为小写）
+   * @param {*} value - 原始值
+   * @returns {string|null} 标准化后的值
+   * @private
+   */
+  _normalizeField(value) {
+    if (!value || typeof value !== 'string') {
+      return null;
+    }
+    return value.toLowerCase().trim();
+  }
+
+  /**
+   * 从推特URL中提取用户名或推文ID
+   * 支持格式：
+   * - https://x.com/username
+   * - https://twitter.com/username
+   * - https://x.com/username/status/123456
+   * - @username
+   *
+   * @param {string} twitterUrl - 推特URL或用户名
+   * @returns {string|null} 提取的标识符
+   * @private
+   */
+  _extractTwitterId(twitterUrl) {
+    if (!twitterUrl || typeof twitterUrl !== 'string') {
+      return null;
+    }
+
+    let url = twitterUrl.toLowerCase().trim();
+
+    // 去除前缀 @
+    if (url.startsWith('@')) {
+      return url.substring(1);
+    }
+
+    // 提取 x.com 或 twitter.com 中的用户名或推文ID
+    const patterns = [
+      /x\.com\/([^\/]+)/,
+      /twitter\.com\/([^\/]+)/,
+      /mobile\.twitter\.com\/([^\/]+)/
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        // 返回用户名或推文ID
+        return match[1];
+      }
+    }
+
+    return null;
   }
 }
 

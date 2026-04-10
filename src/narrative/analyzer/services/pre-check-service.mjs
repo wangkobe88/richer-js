@@ -173,16 +173,17 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       const sameNameCheck = await sameNameService.checkIfCopycatToken(
         tokenSymbol,
         tokenName,
-        Math.floor(tokenCreatedAt)
+        Math.floor(tokenCreatedAt),
+        tokenData  // 传入完整代币数据，用于 appendix 对比
       );
 
       if (sameNameCheck.success && sameNameCheck.isCopycat) {
         const { details } = sameNameCheck;
-        console.log(`[NarrativeAnalyzer] 预检查触发: 检测到蹭热度同名代币 (一周内${details.withinOneWeek}个, 24小时内${details.withinOneDay}个)`);
+        console.log(`[NarrativeAnalyzer] 预检查触发: 检测到蹭热度同名代币 (重复叙事: ${details.duplicateNarrativeCount}个, 一周内${details.withinOneWeek}个, 24小时内${details.withinOneDay}个)`);
 
         return {
           category: 'low',
-          reasoning: `检测到蹭热度行为：在代币发布前一周内有${details.withinOneWeek}个同名代币，其中24小时内${details.withinOneDay}个，疑似批量发布同名代币误导投资者`,
+          reasoning: `检测到蹭热度行为：在代币发布前一周内有${details.withinOneWeek}个共享相同叙事的同名代币，其中24小时内${details.withinOneDay}个，疑似批量发布同名代币误导投资者`,
           scores: { credibility: 0, virality: 0 },
           total_score: 0,
           preCheckTriggered: true,
@@ -190,12 +191,13 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
           preCheckDetails: {
             sameNameTokens: details.withinOneDayTokens,
             totalOlder: details.totalOlder,
+            duplicateNarrativeCount: details.duplicateNarrativeCount,
             withinOneWeek: details.withinOneWeek,
             withinOneDay: details.withinOneDay
           }
         };
       } else if (sameNameCheck.success) {
-        console.log(`[NarrativeAnalyzer] 同名代币检查通过 (一周内${sameNameCheck.details.withinOneWeek}个, 24小时内${sameNameCheck.details.withinOneDay}个)`);
+        console.log(`[NarrativeAnalyzer] 同名代币检查通过 (同名总数: ${sameNameCheck.details.totalOlder}, 重复叙事: ${sameNameCheck.details.duplicateNarrativeCount}, 一周内${sameNameCheck.details.withinOneWeek}个, 24小时内${sameNameCheck.details.withinOneDay}个)`);
       } else {
         console.warn(`[NarrativeAnalyzer] 同名代币检查失败: ${sameNameCheck.error || '未知错误'}，跳过此项检查`);
       }

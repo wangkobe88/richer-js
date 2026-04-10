@@ -279,11 +279,58 @@ class NarrativeAnalyzer {
       `;
     }
 
-    // 规则验证详情（地址验证、名称匹配等）
+    // 规则验证详情（地址验证、名称匹配、同名代币检查等）
     let rulesHtml = '';
     if (precheck.result) {
       const result = precheck.result;
       const details = [];
+
+      // 蹭热度代币检查（copycat_token）
+      if (precheck.reason === 'copycat_token' && result.preCheckDetails) {
+        const copycatDetails = result.preCheckDetails;
+        details.push({
+          label: '🚨 检测类型',
+          value: '蹭热度代币',
+          pass: false
+        });
+        details.push({
+          label: '同名代币总数',
+          value: copycatDetails.totalOlder || 0,
+          pass: null
+        });
+        details.push({
+          label: '重复叙事数量',
+          value: copycatDetails.duplicateNarrativeCount || 0,
+          pass: null,
+          hint: '相同叙事指依托相同推文/网站的代币'
+        });
+        details.push({
+          label: '一周内重复叙事',
+          value: copycatDetails.withinOneWeek || 0,
+          pass: null
+        });
+        details.push({
+          label: '24小时内重复叙事',
+          value: copycatDetails.withinOneDay || 0,
+          pass: null
+        });
+
+        // 如果有24小时内的同名代币列表，展示详情
+        if (copycatDetails.sameNameTokens && copycatDetails.sameNameTokens.length > 0) {
+          const tokensList = copycatDetails.sameNameTokens
+            .slice(0, 5) // 最多显示5个
+            .map(t => {
+              const gmgnUrl = `https://gmgn.ai/bsc/token/${t.address}`;
+              return `• <a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${t.symbol || t.name}</a> (${Math.round(t.hoursBefore)}小时前)`;
+            })
+            .join('<br>');
+          details.push({
+            label: '近期重复叙事代币',
+            value: tokensList,
+            pass: null
+          });
+        }
+      }
 
       // 地址验证状态
       if (result.addressVerified !== undefined) {
@@ -339,10 +386,15 @@ class NarrativeAnalyzer {
         rulesHtml = '<div style="margin-top: 12px;">';
         details.forEach(d => {
           const color = d.pass === false ? '#e74c3c' : d.pass === true ? '#27ae60' : '#666';
+          const fontSize = (d.label === '近期重复叙事代币' || d.label === '近期同名代币') ? '11px' : '12px';
+          const padding = (d.label === '近期重复叙事代币' || d.label === '近期同名代币') ? '8px 0' : '6px 0';
+          const labelHtml = d.hint
+            ? `<span style="color: #666; cursor: help;" title="${d.hint}">${d.label} ℹ️</span>`
+            : `<span style="color: #666;">${d.label}</span>`;
           rulesHtml += `
-            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee; font-size: 12px;">
-              <span style="color: #666;">${d.label}:</span>
-              <span style="color: ${color}; font-weight: ${d.pass !== null ? 'bold' : 'normal'};">${d.value}</span>
+            <div style="display: flex; justify-content: space-between; padding: ${padding}; border-bottom: 1px solid #eee; font-size: ${fontSize};">
+              ${labelHtml}
+              <span style="color: ${color}; font-weight: ${d.pass !== null ? 'bold' : 'normal'}; text-align: right; flex: 1; margin-left: 12px;">${d.value}</span>
             </div>
           `;
         });
