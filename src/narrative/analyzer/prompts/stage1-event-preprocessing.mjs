@@ -1,13 +1,18 @@
 /**
  * Stage 1：事件预处理 Prompt
- * V1.5 - 3阶段架构的第一阶段
+ * V2.1 - 3阶段架构的第一阶段
  *
  * 功能：
  * 1. 空洞内容检查
  * 2. 详细事件描述提取
- * 3. 初步分类判断（A-F类）- 采用"内容本质优先级"
+ * 3. 初步分类判断（A-E类）- 采用"内容本质优先级"
  * 4. 性质标记识别（推测性/发现型/营销性）
  * 5. 找角度推文识别（内部规则，不输出）
+ *
+ * V2.1 修改：
+ * - 增强keyEntities提取规则：明确要求提取被明确讨论的概念/关键词
+ * - 书名/文章标题中的核心概念词必须提取
+ * - 被强调的词汇（加引号、重复提及）必须提取
  *
  * V2.0 修改：
  * - 分类体系从6类(A-F)重构为5类(A-E)
@@ -39,7 +44,7 @@ import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 /**
  * Prompt版本号
  */
-export const STAGE1_EVENT_PREPROCESSING_VERSION = 'V2.0';
+export const STAGE1_EVENT_PREPROCESSING_VERSION = 'V2.1';
 
 /**
  * 构建Stage 1事件预处理Prompt
@@ -281,7 +286,17 @@ function buildStage1Framework() {
 - 示例：事件"Giggle Academy推出新产品XYZ" → keyEntities必须包含"XYZ"和"Giggle Academy"
 - 示例：事件"CZ发推提到48小时" → keyEntities包含"CZ"、"48小时"
 
-除了产品名，还应包括：人物、机构、平台、技术、关键概念等实体
+⚠️ **必须包含被明确讨论的概念/关键词**：
+- 如果推文明确提到某个概念、关键词（如书名、文章标题中的关键词），必须列入keyEntities
+- 这些概念是事件的核心讨论对象，即使只有2-3个字也要提取
+- **书名/文章标题**：如果推文提到书名或文章标题，标题中的核心概念词必须提取
+- **被强调的词汇**：如果推文强调某个词（如加引号、重复提及），必须提取
+
+- 示例：事件"CZ分享新书《Freedom of Money》，强调'运气'的重要性" → keyEntities必须包含"CZ"、"Freedom of Money"、"运气"
+- 示例：事件"CZ发推'自由'" → keyEntities必须包含"CZ"、"自由"
+- 示例：事件"马斯克发推'DOGE'" → keyEntities必须包含"马斯克"、"DOGE"
+
+除了产品名和概念，还应包括：人物、机构、平台、技术等实体
 
 **2.6 关键数据**：提取所有重要的数据
 

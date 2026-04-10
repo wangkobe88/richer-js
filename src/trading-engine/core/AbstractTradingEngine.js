@@ -1361,12 +1361,13 @@ class AbstractTradingEngine extends ITradingEngine {
         // 2. 无任务时，检查叙事数据是否已存在（多实验公用叙事数据）
         const { data: narrative } = await supabase
           .from('token_narrative')
-          .select('llm_stage2_category, llm_stage1_category, pre_check_category, analyzed_at')
+          .select('llm_stage3_category, llm_stage2_category, llm_stage1_category, pre_check_category, analyzed_at')
           .eq('token_address', normalizedAddress)
           .maybeSingle();
 
         if (narrative) {
-          const category = narrative.llm_stage2_category ||
+          const category = narrative.llm_stage3_category ||
+                           narrative.llm_stage2_category ||
                            narrative.llm_stage1_category ||
                            narrative.pre_check_category;
           const rating = this._mapCategoryToRating(category);
@@ -1391,12 +1392,13 @@ class AbstractTradingEngine extends ITradingEngine {
         // 3. 从叙事表读取最终评级（使用小写地址）
         const { data: narrative } = await supabase
           .from('token_narrative')
-          .select('llm_stage2_category, llm_stage1_category, pre_check_category')
+          .select('llm_stage3_category, llm_stage2_category, llm_stage1_category, pre_check_category')
           .eq('token_address', normalizedAddress)
           .single();
 
         if (narrative) {
-          const category = narrative.llm_stage2_category ||
+          const category = narrative.llm_stage3_category ||
+                           narrative.llm_stage2_category ||
                            narrative.llm_stage1_category ||
                            narrative.pre_check_category;
           const rating = this._mapCategoryToRating(category);

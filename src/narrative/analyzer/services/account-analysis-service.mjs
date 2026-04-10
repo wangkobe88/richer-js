@@ -233,6 +233,11 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
     // 移除 ```json 和 ``` 标记
     content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
 
+    // 尝试提取tokenType（作为fallback）
+    const tokenTypeMatch = content.match(/"tokenType"\s*:\s*"([^"]+)"/);
+    const ratingMatch = content.match(/"rating"\s*:\s*"([^"]+)"/);
+    const reasonMatch = content.match(/"reason"\s*:\s*"([^"]+(?:"[^"]*)*?)"/);
+
     // 尝试解析JSON，处理中文引号问题
     const tryParse = (str) => {
       try {
@@ -245,15 +250,52 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
     parsed = tryParse(content);
     if (!parsed) {
       // 尝试修复中文引号 - 替换为英文单引号
-      const fixedContent = content.replace(/"/g, "'").replace(/"/g, "'");
+      let fixedContent = content.replace(/"/g, "'").replace(/"/g, "'");
       parsed = tryParse(fixedContent);
     }
 
     if (!parsed) {
-      throw new Error('JSON解析失败');
+      // 尝试使用eval方式解析（更宽松，但需要注意安全性）
+      // 由于内容来自LLM，相对安全，但仍需谨慎
+      try {
+        // 移除所有换行符，但保留JSON结构中的换行
+        const compactContent = content.replace(/\n/g, ' ').replace(/\r/g, '');
+        parsed = eval(`(${compactContent})`);
+      } catch (_) {
+        // eval也失败，尝试最后一次清理
+        // 移除所有可能导致问题的字符
+        let cleanContent = content
+          .replace(/[\u2018\u2019]/g, "'")  // 左右单引号
+          .replace(/[\u201C\u201D]/g, '"')  // 左右双引号
+          .replace(/\n/g, '\\n')           // 转义换行
+          .replace(/\r/g, '\\r')           // 转义回车
+          .replace(/\t/g, '\\t');          // 转义制表符
+
+        parsed = tryParse(cleanContent);
+      }
+    }
+
+    // 如果所有解析方式都失败，尝试从内容中提取关键字段作为fallback
+    if (!parsed && tokenTypeMatch && ratingMatch) {
+      logger.warn('AccountCommunityAnalysis', 'JSON解析失败，使用正则提取作为fallback', {
+        tokenType: tokenTypeMatch[1],
+        rating: ratingMatch[1]
+      });
+
+      // 构造最小可用的parsed对象
+      parsed = {
+        tokenType: tokenTypeMatch[1],
+        rating: ratingMatch[1],
+        reason: reasonMatch ? reasonMatch[1].substring(0, 200) : '解析失败但提取到关键字段',
+        details: {}
+      };
+    }
+
+    if (!parsed) {
+      throw new Error('JSON解析失败，已尝试多种修复方式');
     }
   } catch (e) {
-    logger.error('AccountCommunityAnalysis', '解析LLM响应失败', { error: e.message, content: callResult.content });
+    logger.error('AccountCommunityAnalysis', '解析LLM响应失败', { error: e.message, content: callResult.content.substring(0, 500) });
     return {
       category: 'low',
       reasoning: '分析响应解析失败',
@@ -266,6 +308,39 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
 
   // 判断币种类型并分流处理
   const tokenType = parsed.tokenType || 'project'; // 默认为项目币
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // 新增：以账号为背景的meme币判断
+  // ═══════════════════════════════════════════════════════════════════════════════
+  if (tokenType === 'account_based_meme') {
+    // 以账号为背景的meme币：账号本身构成叙事价值，但无法进行完整的3阶段分析
+    logger.info('AccountCommunityAnalysis', '判断为以账号为背景的meme币，返回unrated', {
+      accountMatchDetails: parsed.details?.accountMatchDetails?.substring(0, 100)
+    });
+
+    return {
+      category: 'unrated',
+      reasoning: parsed.reason || '这是以账号为背景的meme币，账号本身构成叙事价值，但无法进行完整的3阶段分析',
+      scores: null,
+      total_score: null,
+      // 前置LLM阶段数据（账号/社区分析判断币种类型）
+      prestageData: {
+        category: 'unrated', // 以账号为背景的meme币
+        prompt: prompt,
+        raw_output: callResult.content,
+        parsed_output: {
+          ...parsed,
+          // 只添加一个简洁的规则验证通过标记，不重复详细结果
+          rulesValidationPassed: true
+        },
+        model: callResult.model,
+        started_at: callResult.startedAt,
+        finished_at: callResult.finishedAt,
+        success: callResult.success,
+        error: callResult.error
+      }
+    };
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════════
   // 新增：Web3 原生 IP 早期判断

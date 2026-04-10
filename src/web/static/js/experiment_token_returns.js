@@ -1410,7 +1410,7 @@ class ExperimentTokenReturns {
   renderNarrativeRating(tokenAddress) {
     const narrative = this.narrativeDataMap.get(tokenAddress);
 
-    if (!narrative || !narrative.is_valid) {
+    if (!narrative || !narrative.meta?.isValid) {
       // 没有数据时，显示可点击的链接去分析
       return `
         <div class="flex items-center justify-center">
@@ -1424,7 +1424,10 @@ class ExperimentTokenReturns {
       `;
     }
 
-    // 从 llm_category 映射到评级
+    // 三阶段架构：从 llmAnalysis.summary 获取最终结果
+    const summary = narrative.llmAnalysis?.summary;
+    const finalCategory = summary?.category || 'unrated';
+
     const categoryToRating = {
       'high': 3,
       'mid': 2,
@@ -1432,14 +1435,16 @@ class ExperimentTokenReturns {
       'unrated': 9
     };
 
-    const rating = categoryToRating[narrative.llm_category] ?? 9;
+    const rating = categoryToRating[finalCategory] ?? 9;
     const ratingInfo = NARRATIVE_RATING_MAP[rating] || NARRATIVE_RATING_MAP[9];
 
-    // 检查是否有摘要（reasoning字段）
-    const summaryObj = narrative.llm_summary;
-    const summaryStr = summaryObj?.reasoning || '';
+    // 获取摘要和总分
+    const summaryStr = summary?.reasoning || '';
     const hasSummary = summaryStr.trim() !== '';
     const summaryTitle = hasSummary ? summaryStr.slice(0, 200) + (summaryStr.length > 200 ? '...' : '') : '';
+
+    const totalScore = summary?.total_score;
+    const scoreText = totalScore !== undefined && totalScore !== null ? ` (${totalScore.toFixed(0)}分)` : '';
 
     return `
       <div class="flex items-center justify-center">
@@ -1448,7 +1453,7 @@ class ExperimentTokenReturns {
            class="px-2 py-1 rounded text-xs ${ratingInfo.bgClass} ${ratingInfo.colorClass} border ${ratingInfo.borderClass} hover:opacity-80 transition-opacity"
            title="${summaryTitle || ratingInfo.label + '，点击查看详情'}"
            style="cursor: pointer; text-decoration: none;">
-          ${ratingInfo.emoji} ${rating}
+          ${ratingInfo.emoji} ${rating}${scoreText}
         </a>
       </div>
     `;

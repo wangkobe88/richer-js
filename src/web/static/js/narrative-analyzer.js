@@ -243,6 +243,7 @@ class NarrativeAnalyzer {
     const categoryConfig = {
       'low': { icon: '🚫', text: '不通过', statusClass: 'fail' },
       'high': { icon: '✅', text: '直接通过', statusClass: 'pass' },
+      'unrated': { icon: '⚪', text: '无法评级', statusClass: 'skip' },
       'unknown': { icon: '❓', text: '未知', statusClass: 'skip' }
     };
 
@@ -264,6 +265,15 @@ class NarrativeAnalyzer {
           <strong>✅ 预检查直接通过</strong><br>
           <span style="font-size: 13px; color: #666;">
             ${precheck.reason || '符合预检查通过规则'}
+          </span>
+        </div>
+      `;
+    } else if (category === 'unrated') {
+      resultHtml = `
+        <div class="stage-result-box">
+          <strong>⚪ 无法评级</strong><br>
+          <span style="font-size: 13px; color: #666;">
+            ${precheck.result?.reasoning || precheck.reason || '数据不足以进行评级'}
           </span>
         </div>
       `;

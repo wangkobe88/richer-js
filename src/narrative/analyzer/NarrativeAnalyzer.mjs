@@ -334,7 +334,15 @@ export class NarrativeAnalyzer {
                 stage2DataToSave = { __clear: true };
               }
             }
-          } else {
+          }
+
+          // ═══════════════════════════════════════════════════════════════════════════
+          // 3阶段架构：Stage 1事件预处理 + Stage 2分类评分 + Stage 3代币分析
+          // 进入条件：
+          // 1. 原本不使用账号/社区分析流程（!shouldUseAccountCommunity）
+          // 2. 或者账号质量检查通过，跳过Prestage LLM（skipToThreeStageFromAccountCheck）
+          // ═══════════════════════════════════════════════════════════════════════════
+          if (!shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用3阶段架构：Stage1事件预处理 + Stage2分类评分 + Stage3代币分析');
 
             // ========== Stage 1: 事件预处理 ==========

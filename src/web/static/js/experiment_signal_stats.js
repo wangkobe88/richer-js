@@ -150,9 +150,26 @@ class ExperimentSignalStats {
               human_judge: item.human_judge,
               max_change_percent: item.max_change_percent
             });
-            if (item.narrative?.rating !== undefined) {
-              this.narrativeRatingMap.set(addr, item.narrative.rating);
+
+            // 支持新旧两种数据格式
+            let rating = 9; // 默认 unrated
+
+            // 新格式：从 llmAnalysis.summary.category 获取
+            if (item.narrative?.llmAnalysis?.summary?.category) {
+              const categoryToRating = {
+                'high': 3,
+                'mid': 2,
+                'low': 1,
+                'unrated': 9
+              };
+              rating = categoryToRating[item.narrative.llmAnalysis.summary.category] ?? 9;
             }
+            // 旧格式：直接从 rating 字段获取
+            else if (item.narrative?.rating !== undefined) {
+              rating = item.narrative.rating;
+            }
+
+            this.narrativeRatingMap.set(addr, rating);
           }
         }
       }
@@ -308,14 +325,21 @@ class ExperimentSignalStats {
   }
 
   renderTableRow(stat) {
-    // 叙事评级徽章（带链接）
+    // 叙事评级徽章（带链接和分数）
     const ratingInfo = NARRATIVE_RATING_MAP[stat.narrativeRating] || NARRATIVE_RATING_MAP[9];
     const analyzerUrl = `http://localhost:3010/narrative-analyzer?address=${stat.tokenAddress}`;
-    const ratingBadge = `<a href="${analyzerUrl}" target="_blank" class="narrative-badge ${ratingInfo.class} hover:opacity-80 transition-opacity">${ratingInfo.emoji} ${ratingInfo.label}</a>`;
+
+    // 尝试获取总分（从叙事数据中）
+    const narrativeData = this.narrativeDataMap.get(stat.tokenAddress);
+    let scoreText = '';
+    if (narrativeData?.narrative?.llmAnalysis?.summary?.total_score !== undefined) {
+      scoreText = ` (${narrativeData.narrative.llmAnalysis.summary.total_score.toFixed(0)}分)`;
+    }
+
+    const ratingBadge = `<a href="${analyzerUrl}" target="_blank" class="narrative-badge ${ratingInfo.class} hover:opacity-80 transition-opacity" title="点击查看详情">${ratingInfo.emoji} ${stat.narrativeRating}${scoreText}</a>`;
 
     // 人工评级徽章
     let humanJudgeBadge = '';
-    const narrativeData = this.narrativeDataMap.get(stat.tokenAddress);
     if (narrativeData?.human_judge?.category) {
       const judgeInfo = HUMAN_JUDGE_MAP[narrativeData.human_judge.category];
       if (judgeInfo) {

@@ -440,7 +440,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     classifiedUrls[platform] && classifiedUrls[platform].length > 0
   );
 
-  // 情况A：没有公开URL → unrated
+  // 情况A：没有公开URL → low（无法评估叙事，直接不通过）
   if (!hasAnyPublicUrl) {
     const hasTelegram = !!(classifiedUrls.telegram && classifiedUrls.telegram.length > 0);
     const hasDiscord = !!(classifiedUrls.discord && classifiedUrls.discord.length > 0);
@@ -450,7 +450,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
     console.log(`[NarrativeAnalyzer] 规则4触发: ${reason}`);
     return {
-      category: 'unrated',
+      category: 'low',
       reasoning: reason,
       scores: null,
       total_score: null,

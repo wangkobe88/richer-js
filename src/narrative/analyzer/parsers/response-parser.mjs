@@ -578,10 +578,14 @@ export function buildLLMAnalysis(record) {
   const stage1Category = record.llm_stage1_parsed_output?.eventClassification?.primaryCategory || record.llm_stage1_category;
   const prestageCategory = record.llm_prestage_parsed_output?.tokenType || record.llm_prestage_category;
 
+  // 如果预检查触发且有明确分类（low/high），直接使用预检查分类
+  const preCheckCategory = record.pre_check_category;
   // 如果Stage 2存在但未通过（pass=false），则评级为low
   const stage2Pass = record.llm_stage2_parsed_output?.raw?.pass;
   let category;
-  if (stage2 !== null && stage2Pass === false) {
+  if (preCheckCategory && preCheckCategory !== 'unrated') {
+    category = preCheckCategory;
+  } else if (stage2 !== null && stage2Pass === false) {
     category = 'low';
   } else {
     category = stage3Category || stage2Category || stage1Category || prestageCategory || 'unrated';
@@ -596,12 +600,16 @@ export function buildLLMAnalysis(record) {
       reasoning = parsedOutput.reason;
     }
   }
+  // 预检查触发时，从预检查结果中获取reasoning
+  if (!reasoning && record.pre_check_result) {
+    reasoning = record.pre_check_result.reasoning || record.pre_check_reason || '';
+  }
 
   const summary = {
     category: category,
     reasoning: reasoning,
-    total_score: parsedOutput?.total_score,
-    scores: parsedOutput?.scores
+    total_score: parsedOutput?.total_score ?? record.pre_check_result?.total_score,
+    scores: parsedOutput?.scores ?? record.pre_check_result?.scores
   };
 
   return {
@@ -632,7 +640,9 @@ export function formatResult(record) {
       raw_api_data: record.raw_api_data || null,  // 添加原始代币数据
       chain: record.raw_api_data?.chain || null  // 添加链信息
     },
-    category: record.llm_stage3_category || record.llm_stage2_category || record.llm_stage1_category || record.llm_prestage_category || 'unrated',
+    category: (record.pre_check_category && record.pre_check_category !== 'unrated')
+      ? record.pre_check_category
+      : (record.llm_stage3_category || record.llm_stage2_category || record.llm_stage1_category || record.llm_prestage_category || 'unrated'),
     reasoning: '',
     scores: null,
     total_score: null,
@@ -648,15 +658,27 @@ export function formatResult(record) {
       result.reasoning = parsedOutput.reason;
     }
   }
+  // 预检查触发时，从预检查结果中获取reasoning
+  if (!result.reasoning && record.pre_check_result) {
+    result.reasoning = record.pre_check_result.reasoning || record.pre_check_reason || '';
+  }
 
   // 解析 scores
   if (parsedOutput && parsedOutput.scores) {
     result.scores = parsedOutput.scores;
   }
+  // 预检查的scores
+  if (!result.scores && record.pre_check_result?.scores) {
+    result.scores = record.pre_check_result.scores;
+  }
 
   // 解析 total_score
   if (parsedOutput && parsedOutput.total_score !== undefined) {
     result.total_score = parsedOutput.total_score;
+  }
+  // 预检查的total_score
+  if (result.total_score === null && record.pre_check_result?.total_score !== undefined) {
+    result.total_score = record.pre_check_result.total_score;
   }
 
   // 添加元数据

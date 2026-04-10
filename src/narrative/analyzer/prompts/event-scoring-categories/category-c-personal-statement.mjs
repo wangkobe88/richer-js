@@ -15,6 +15,11 @@
  * - 有据型解读：概念可追溯到大IP原话中提及的内容，允许通过Stage 2
  * - 空洞型解读：概念为回复者凭空创造，维持阻断
  *
+ * V2.2 修改：
+ * - A级分量加入加密行业高影响力人物（OKX Star Xu/徐明星等头部交易所创始人）
+ * - 权重部分加入加密行业高影响力人物的权重档位（25-28分）
+ * - 新增示例：徐明星回应CZ的评分案例（A级）
+ *
  * V2.0 修改：
  * - 分类体系重构：从"人物言论类"扩展为"人物言论/动作及相关事件类"
  * - 吸收原F类（互动/传播类）的人物互动评分规则
@@ -29,7 +34,7 @@
 /**
  * Prompt版本号
  */
-export const CATEGORY_C_PROMPT_VERSION = 'V2.1';
+export const CATEGORY_C_PROMPT_VERSION = 'V2.2';
 
 /**
  * 构建A类（人物言论类）评分Prompt
@@ -97,6 +102,7 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
 
 1️⃣ **首先看主体**（eventSubject）：
    - 如果是世界级人物（Trump、CZ、何一、Elon等）→ S级分量
+   - 如果是加密行业高影响力人物（OKX Star Xu/徐明星、Coinbase Brian Armstrong等头部交易所/平台创始人，Web3垂直领域影响力极大）→ A级分量
    - 如果是知名KOL/公众人物 → A级分量
    - 直接按主体身份评估，**忽略keyData中的传播数据**（如果dataSource不是"事件主体影响力"）
 
@@ -175,10 +181,13 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
 
 📋 **第二步：分量等级评估**（S-E级）
 
-**【S级分量】**：何一、CZ、Elon、Trump等世界级人物的公开发言
+**【S级分量】**：世界级人物的公开发言
+- 政商界：Elon、Trump、何一、CZ等
 - 基础分数：40分
 
-**【A级分量】**：知名KOL（粉丝>100万）或知名公众人物的言论
+**【A级分量】**：加密行业高影响力人物或知名KOL/公众人物
+- 加密行业高影响力人物：OKX创始人Star Xu/徐明星、Coinbase CEO Brian Armstrong等头部交易所/平台创始人（⚠️ Web3垂直领域影响力极大，不因粉丝数不高而低估，比CZ/何一低一档）
+- 知名KOL（粉丝>100万）或知名公众人物
 - 基础分数：32分
 
 **【B级分量】**：普通KOL（粉丝>10万）的言论
@@ -270,6 +279,7 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
 
 **常规情况**（类型1/2/3/4-B）：
 - 世界级IP（何一、CZ、Elon、Trump）：30分
+- 加密行业高影响力人物（OKX Star Xu/徐明星等头部交易所创始人）：25-28分
 - 知名KOL/认证大V（粉丝>100万）：25-28分
 - 普通KOL（粉丝>10万）：15-20分
 - 普通账号（有具体内容）：10-15分
@@ -292,6 +302,7 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
 **【C-6 示例】**：
 - "何一发推'hi'" → S级(40) + 世界级IP(30) + 近期(15) = 85分
 - "CZ回复了某人的推文" → S级(40) + 世界级IP(30) + 近期(15) = 85分（CZ的动作，与原创言论相同评分）
+- "徐明星/Star Xu发推回应CZ" → A级(32) + 加密行业高影响力人物(27) + 近期(15) = 74分
 - "某普通KOL发推'hi'" → C级(12) + 普通KOL(15) + 近期(15) = 42分（有意义性：无额外支撑 → 可能无意义）
 - "某KOL@CZ请来看" → C级(12) + 普通KOL(15) + 近期(15) = 42分（单向提及，权重基于KOL，不能按CZ权重）
 - "3万粉丝KOL回复CZ推文并总结出'conviction'概念"（空洞型解读，CZ没说这个词）→ C级(12) + 普通KOL(15-20) + 近期(15) = 42-47分 → pass=false

@@ -274,7 +274,86 @@ export async function getCommunityWithFullTweets(communityId, tweetCount = 50) {
  * @returns {Object} 验证结果
  */
 export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, accountOrCommunityData) {
-  // 1. 地址验证
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 账号质量检查（优先级最高）
+  // 如果账号数据质量达到阈值，跳过地址验证，传递到下游LLM分析
+  // 原因：这可能是meme币的背景性说明（类似一篇推文），账号本身可能是一个IP形象
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  const type = accountOrCommunityData.type;
+  let accountQuality = null;
+
+  if (type === 'account') {
+    const followersCount = accountOrCommunityData.followers_count || 0;
+    const statusesCount = accountOrCommunityData.statuses_count || 0;
+    const verified = accountOrCommunityData.verified || false;
+    const isBlueVerified = accountOrCommunityData.is_blue_verified || false;
+
+    accountQuality = {
+      followersCount,
+      statusesCount,
+      verified,
+      isBlueVerified,
+      meetsThreshold: false
+    };
+
+    // 账号质量阈值设定（满足任一条件即可传递到下游）：
+    // 条件1：粉丝数 >= 500 + 发推数 >= 20 → 说明账号有一定影响力和基本活动
+    // 条件2：粉丝数 >= 1000 + 有认证（蓝V或官方认证）→ 高影响力认证账号
+    // 条件3：粉丝数 >= 3000 → 即使没有认证，粉丝数足够高说明有一定影响力
+    const FOLLOWERS_THRESHOLD = 500;
+    const STATUSES_THRESHOLD = 20;
+    const FOLLOWERS_HIGH_THRESHOLD = 1000;
+    const FOLLOWERS_VERY_HIGH_THRESHOLD = 3000;
+
+    const meetsCondition1 = followersCount >= FOLLOWERS_THRESHOLD && statusesCount >= STATUSES_THRESHOLD;
+    const meetsCondition2 = followersCount >= FOLLOWERS_HIGH_THRESHOLD && (verified || isBlueVerified);
+    const meetsCondition3 = followersCount >= FOLLOWERS_VERY_HIGH_THRESHOLD;
+
+    if (meetsCondition1 || meetsCondition2 || meetsCondition3) {
+      accountQuality.meetsThreshold = true;
+
+      const matchedConditions = [];
+      if (meetsCondition1) matchedConditions.push(`条件1(粉丝≥${FOLLOWERS_THRESHOLD}且发推≥${STATUSES_THRESHOLD})`);
+      if (meetsCondition2) matchedConditions.push(`条件2(粉丝≥${FOLLOWERS_HIGH_THRESHOLD}且有认证)`);
+      if (meetsCondition3) matchedConditions.push(`条件3(粉丝≥${FOLLOWERS_VERY_HIGH_THRESHOLD})`);
+
+      console.log(`[AccountCommunityRules] 账号质量检查通过，地址未命中但账号质量达标，传递到Prestage LLM判断`, {
+        screenName: accountOrCommunityData.screen_name,
+        followersCount,
+        statusesCount,
+        verified,
+        isBlueVerified,
+        matchedConditions
+      });
+
+      // 返回特殊标记：账号质量检查通过，但地址未验证
+      // 这种情况需要传递到Prestage LLM，让LLM判断是否是"以账号为背景的meme币"
+      return {
+        passed: true,
+        stage: 'account_quality_no_address',
+        addressVerified: false,  // 地址未验证
+        nameMatch: null,          // 名称未检查（交给Prestage LLM判断）
+        reason: `账号质量达到阈值（粉丝${followersCount}，发推${statusesCount}，认证：${verified || isBlueVerified ? '是' : '否'}），匹配${matchedConditions.join(' + ')}，地址未命中但账号质量达标，传递到Prestage LLM判断`,
+        details: {
+          accountQuality: {
+            followersCount,
+            statusesCount,
+            verified,
+            isBlueVerified,
+            matchedConditions
+          },
+          addressLocations: [],
+          skipReason: 'account_quality_meets_threshold_no_address'
+        }
+      };
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 1. 地址验证（账号质量未达标时执行）
+  // ═══════════════════════════════════════════════════════════════════════════
+
   const addressResult = verifyTokenAddress(tokenAddress, accountOrCommunityData);
 
   if (!addressResult.found) {
@@ -285,7 +364,8 @@ export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, acc
       nameMatch: null,
       reason: addressResult.reason,
       details: {
-        addressLocations: []
+        addressLocations: [],
+        accountQuality  // 包含账号质量信息，便于调试
       }
     };
   }

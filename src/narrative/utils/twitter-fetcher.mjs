@@ -15,8 +15,7 @@ const NARRATIVE_TWITTER_BLACKLIST = [
   'Cortaviousloma1',  // 制造虚假叙事
   'goxpv32196782',    // 制造虚假叙事
   'Rajeeva_K',        // 制造虚假叙事
-  'wagjp75362222',    // 制造虚假叙事
-  'MGGA_BSC',         // 制造虚假叙事
+  'wagjp75362222'     // 制造虚假叙事
 ];
 
 /**
