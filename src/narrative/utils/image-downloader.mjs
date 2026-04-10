@@ -4,7 +4,20 @@
  * 支持自动压缩以优化 LLM 处理效率和成本
  */
 
-import sharp from 'sharp';
+// sharp 延迟导入，避免未安装时阻塞整个模块加载
+let sharp = null;
+async function getSharp() {
+  if (sharp === null) {
+    try {
+      const mod = await import('sharp');
+      sharp = mod.default || mod;
+    } catch (e) {
+      console.warn('[ImageDownloader] sharp 未安装，图片压缩功能不可用:', e.message);
+      sharp = false;
+    }
+  }
+  return sharp || null;
+}
 
 /**
  * 图片下载器
@@ -155,11 +168,17 @@ export class ImageDownloader {
    */
   static async _compressImage(imageResult, config) {
     try {
+      const sharpLib = await getSharp();
+      if (!sharpLib) {
+        console.warn('[ImageDownloader] sharp 不可用，跳过压缩');
+        return imageResult;
+      }
+
       // 将 base64 转换为 Buffer
       const imageBuffer = Buffer.from(imageResult.base64, 'base64');
 
       // 创建 sharp 实例
-      let sharpInstance = sharp(imageBuffer);
+      let sharpInstance = sharpLib(imageBuffer);
 
       // 获取原始图片信息
       const metadata = await sharpInstance.metadata();
