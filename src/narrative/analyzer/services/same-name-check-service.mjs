@@ -191,10 +191,9 @@ class SameNameCheckService {
   /**
    * 评估是否为蹭热度代币
    *
-   * 判定规则（满足任一即判定为蹭热度）：
-   * 1. 发布前24小时内 >= 3个同名代币 → 极度可疑
-   * 2. 发布前一周内 >= 10个同名代币 → 高度可疑
-   * 3. 发布前一周内 >= 5个同名代币，且24小时内 >= 2个 → 可疑
+   * 判定规则：
+   * 1. 一周内的同名代币中，是否有任何一个"起来过"
+   * 2. "起来过"的判断：24h涨幅 > 阈值 或 24h交易量 > 阈值 或 24h交易笔数 > 阈值
    *
    * @param {Array} withinOneDay - 24小时内的同名代币
    * @param {Array} withinOneWeek - 一周内的同名代币
@@ -203,38 +202,65 @@ class SameNameCheckService {
    * @private
    */
   _evaluateCopycatRules(withinOneDay, withinOneWeek, allOlder) {
-    const { oneDayThreshold, oneWeekThreshold, combinedWeekThreshold, combinedDayThreshold } =
-      SAME_NAME_CONFIG.rules;
+    const {
+      priceChangeThreshold,
+      txVolumeThreshold,
+      txCountThreshold
+    } = SAME_NAME_CONFIG.rules;
 
-    // 规则1：24小时内密集发布（最明显的蹭热度信号）
-    if (withinOneDay.length >= oneDayThreshold) {
-      this.logger.debug('SameNameCheck', '触发规则1: 24小时内密集发布', {
-        count: withinOneDay.length,
-        threshold: oneDayThreshold
+    // 检查一周内的同名代币是否"起来过"
+    const hasSuccessfulToken = this._hasSuccessfulTokenInWeek(
+      withinOneWeek,
+      priceChangeThreshold,
+      txVolumeThreshold,
+      txCountThreshold
+    );
+
+    if (hasSuccessfulToken) {
+      this.logger.debug('SameNameCheck', '一周内存在已"起来过"的同名代币，判定为蹭热度', {
+        withinOneWeek: withinOneWeek.length
       });
       return true;
     }
 
-    // 规则2：一周内大量同名代币
-    if (withinOneWeek.length >= oneWeekThreshold) {
-      this.logger.debug('SameNameCheck', '触发规则2: 一周内大量同名代币', {
-        count: withinOneWeek.length,
-        threshold: oneWeekThreshold
-      });
-      return true;
-    }
+    this.logger.debug('SameNameCheck', '一周内未发现"起来过"的同名代币，新代币有机会', {
+      withinOneWeek: withinOneWeek.length
+    });
+    return false;
+  }
 
-    // 规则3：中等数量但有近期密集发布
-    if (withinOneWeek.length >= combinedWeekThreshold && withinOneDay.length >= combinedDayThreshold) {
-      this.logger.debug('SameNameCheck', '触发规则3: 中等数量且近期密集发布', {
-        weekCount: withinOneWeek.length,
-        dayCount: withinOneDay.length,
-        weekThreshold: combinedWeekThreshold,
-        dayThreshold: combinedDayThreshold
-      });
-      return true;
-    }
+  /**
+   * 检查一周内的同名代币是否有"起来过"的
+   *
+   * @param {Array} tokens - 一周内的同名代币
+   * @param {number} priceChangeThreshold - 24h涨幅阈值（百分比）
+   * @param {number} txVolumeThreshold - 24h交易量阈值
+   * @param {number} txCountThreshold - 24h交易笔数阈值
+   * @returns {boolean} 是否有"起来过"的代币
+   * @private
+   */
+  _hasSuccessfulTokenInWeek(tokens, priceChangeThreshold, txVolumeThreshold, txCountThreshold) {
+    for (const token of tokens) {
+      const priceChange = parseFloat(token.price_change_24h) || 0;
+      const txVolume = parseFloat(token.tx_volume_u_24h) || 0;
+      const txCount = parseInt(token.tx_count_24h) || 0;
 
+      // 只要有一个指标超过阈值，就认为"起来过"
+      if (
+        priceChange >= priceChangeThreshold ||
+        txVolume >= txVolumeThreshold ||
+        txCount >= txCountThreshold
+      ) {
+        this.logger.debug('SameNameCheck', '发现已"起来过"的同名代币', {
+          address: token.token,
+          name: token.name,
+          priceChange: priceChange,
+          txVolume: txVolume,
+          txCount: txCount
+        });
+        return true;
+      }
+    }
     return false;
   }
 

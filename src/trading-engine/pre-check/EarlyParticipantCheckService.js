@@ -500,23 +500,27 @@ class EarlyParticipantCheckService {
       earlyTradesDataFirstTime: null,
       earlyTradesDataLastTime: null,
       earlyTradesDataCoverage: 0,
-      earlyTradesActualSpan: 0,
+      earlyTradesActualSpan: 9999,
       earlyTradesRateCalcWindow: 1,
 
-      earlyTradesVolumePerMin: 0,
-      earlyTradesCountPerMin: 0,
-      earlyTradesWalletsPerMin: 0,
-      earlyTradesHighValuePerMin: 0,
+      // 内盘无数据时给通过值（可能已出内盘），Ratio 类保持 0 自然通过
+      earlyTradesVolumePerMin: 9999,
+      earlyTradesCountPerMin: 100,
+      earlyTradesWalletsPerMin: 9999,
+      earlyTradesHighValuePerMin: 9999,
 
-      earlyTradesTotalCount: 0,
-      earlyTradesVolume: 0,
-      earlyTradesUniqueWallets: 0,
-      earlyTradesHighValueCount: 0,
-      earlyTradesFilteredCount: 0,
+      earlyTradesTotalCount: 9999,
+      earlyTradesVolume: 9999,
+      earlyTradesUniqueWallets: 9999,
+      earlyTradesHighValueCount: 9999,
+      earlyTradesFilteredCount: 9999,
 
       // 新增因子
-      earlyTradesFinalLiquidity: null,
-      earlyTradesDrawdownFromHighest: null,
+      earlyTradesFinalLiquidity: 9999,
+      earlyTradesDrawdownFromHighest: 0,
+
+      // 标记内盘无交易数据（可能已出内盘）
+      earlyTradesNoInnerData: 1,
 
       // 内部数据（供钱包簇检查复用）
       _trades: []

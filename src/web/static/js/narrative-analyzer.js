@@ -310,9 +310,9 @@ class NarrativeAnalyzer {
           pass: null
         });
         details.push({
-          label: '24小时内重复叙事',
-          value: copycatDetails.withinOneDay || 0,
-          pass: null
+          label: '检测说明',
+          value: '一周内存在已"起来过"的同名代币',
+          pass: false
         });
 
         // 如果有24小时内的同名代币列表，展示详情
