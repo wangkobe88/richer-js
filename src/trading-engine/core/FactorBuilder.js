@@ -104,6 +104,7 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     earlyTradesDataCoverage: preBuyCheckResult.earlyTradesDataCoverage || 0,
     earlyTradesActualSpan: preBuyCheckResult.earlyTradesActualSpan || 0,
     earlyTradesRateCalcWindow: preBuyCheckResult.earlyTradesRateCalcWindow || 1,
+    earlyTradesNoInnerData: preBuyCheckResult.earlyTradesNoInnerData || 0,
     earlyTradesVolumePerMin: preBuyCheckResult.earlyTradesVolumePerMin || 0,
     earlyTradesCountPerMin: preBuyCheckResult.earlyTradesCountPerMin || 0,
     earlyTradesWalletsPerMin: preBuyCheckResult.earlyTradesWalletsPerMin || 0,

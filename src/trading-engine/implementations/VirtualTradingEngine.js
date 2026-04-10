@@ -1506,6 +1506,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             earlyTradesDataCoverage: factorResults.earlyTradesDataCoverage || 0,
             earlyTradesActualSpan: factorResults.earlyTradesActualSpan || 0,
             earlyTradesRateCalcWindow: factorResults.earlyTradesRateCalcWindow || 1,
+            earlyTradesNoInnerData: factorResults.earlyTradesNoInnerData || 0,
             earlyTradesVolumePerMin: factorResults.earlyTradesVolumePerMin || 0,
             earlyTradesCountPerMin: factorResults.earlyTradesCountPerMin || 0,
             earlyTradesWalletsPerMin: factorResults.earlyTradesWalletsPerMin || 0,

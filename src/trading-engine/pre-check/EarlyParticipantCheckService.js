@@ -561,6 +561,9 @@ class EarlyParticipantCheckService {
       earlyTradesFinalLiquidity: null,
       earlyTradesDrawdownFromHighest: null,
 
+      // 内盘无数据标记
+      earlyTradesNoInnerData: 0,
+
       // 内部数据（供钱包簇检查复用）
       _trades: []
     };

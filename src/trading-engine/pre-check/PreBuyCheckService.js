@@ -648,6 +648,8 @@ class PreBuyCheckService {
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,
+        // 内盘无数据标记（可能已出内盘）
+        earlyTradesNoInnerData: earlyParticipantCheck.earlyTradesNoInnerData || 0,
         // 钱包簇因子
         walletClusterSecondToFirstRatio: walletClusterCheck.walletClusterSecondToFirstRatio || 0,
         walletClusterMegaRatio: walletClusterCheck.walletClusterMegaRatio || 0,
@@ -1196,12 +1198,13 @@ class PreBuyCheckService {
     }
 
     // 早期参与者检查只需要 innerPair，不再需要 launchAt
+    // 没有 innerPair 时返回通过值（可能已出内盘），而不是0值阻止购买
     if (!tokenInfo || !tokenInfo.innerPair) {
-      this.logger.warn('[PreBuyCheckService] 缺少代币信息，跳过早期参与者检查', {
+      this.logger.info('[PreBuyCheckService] 缺少内盘交易对信息，使用通过默认值（可能已出内盘）', {
         token_address: tokenAddress,
         has_inner_pair: !!tokenInfo?.innerPair
       });
-      return this.earlyParticipantService.getEmptyFactorValues();
+      return this.earlyParticipantService._getEmptyResult();
     }
 
     // 使用传入的 checkTime，如果没有则使用当前时间
