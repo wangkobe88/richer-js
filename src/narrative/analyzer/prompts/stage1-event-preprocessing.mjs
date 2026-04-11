@@ -1,6 +1,6 @@
 /**
  * Stage 1：事件预处理 Prompt
- * V2.1 - 3阶段架构的第一阶段
+ * V2.2 - 3阶段架构的第一阶段
  *
  * 功能：
  * 1. 空洞内容检查
@@ -8,6 +8,10 @@
  * 3. 初步分类判断（A-E类）- 采用"内容本质优先级"
  * 4. 性质标记识别（推测性/发现型/营销性）
  * 5. 找角度推文识别（内部规则，不输出）
+ *
+ * V2.2 修改：
+ * - W类定义扩展：明确涵盖面向Web3用户的AI工具、知识库、教育工具等
+ * - 新增W类分类示例
  *
  * V2.1 修改：
  * - 增强keyEntities提取规则：明确要求提取被明确讨论的概念/关键词
@@ -44,7 +48,7 @@ import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 /**
  * Prompt版本号
  */
-export const STAGE1_EVENT_PREPROCESSING_VERSION = 'V2.1';
+export const STAGE1_EVENT_PREPROCESSING_VERSION = 'V2.2';
 
 /**
  * 构建Stage 1事件预处理Prompt
@@ -373,9 +377,13 @@ function buildStage1Framework() {
 
 **【W类：Web3项目发布/上线事件类】**
 - Web3/Crypto领域项目（链上智能合约、DeFi协议、链上机制、Web3工具/应用、加密货币相关AI工具、链上游戏等）的发布、上线、发现事件
-- 判断标准：产品是否以Web3/Crypto用户为目标受众，是否解决Web3领域的需求
+- **判断标准：产品是否以Web3/Crypto用户为目标受众，是否解决Web3领域的需求**
 - ⚠️ **无论发布方是谁**，只要产品面向Web3用户群体就归W类（包括币安官方发布的Web3产品）
-- 示例：Gift链上税收转捐赠合约上线、加密AI漫画生成器发布、链上游戏上线、DeFi协议发布、币安发布BinanceSmartCaptcha
+- ⚠️ **不仅限于链上协议**：以下类型只要面向Web3用户群体，也归W类：
+  - 围绕Web3人物/文化/事件的AI工具（如围绕CZ新书构建的开源AI知识库）
+  - 加密社区的教育/研究工具（如Web3知识库、加密课程平台）
+  - 服务Web3用户的Web2工具（如加密货币AI漫画生成器、Web3数据分析平台）
+- 示例：Gift链上税收转捐赠合约上线、加密AI漫画生成器发布、链上游戏上线、DeFi协议发布、币安发布BinanceSmartCaptcha、围绕CZ新书的开源AI知识库上线
 - ⚠️ BSC链上的meme币所依托的Web3项目，都归W类
 - ❌ 不属于W类：传统Web2产品（如普通APP、传统电商）→ 归B类
 
@@ -480,6 +488,8 @@ function buildStage1Framework() {
 - "Gift链上税收转捐赠合约上线" → W类（Web3项目发布）
 - "币安发布BinanceSmartCaptcha" → W类（币安官方Web3产品，面向Web3用户）
 - "孙哥的AI产品BAIclaw上线" → W类（Web3项目发布）
+- "围绕CZ新书《币安人生》的开源AI知识库上线GitHub" → W类（面向Web3用户的知识库产品，服务加密社区）
+- "社区成员制作的Web3数据分析平台上线" → W类（面向Web3用户的工具产品）
 - "Binance发推'Happy New Year'" → D类（机构言论）
 - "@binance转发推文" → D类（机构动作）
 - "@TCryptochicks回复CZ推文并总结出'conviction'概念（CZ没说这个词）" → C类（解读型回复）
