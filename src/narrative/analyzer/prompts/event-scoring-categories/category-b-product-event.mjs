@@ -1,13 +1,17 @@
 /**
  * Stage 2：B类（产品发布/改进/营销等产品相关事件类）评分 Prompt
- * V3.0 - 非Web3产品评分
+ * V3.1 - 非Web3产品评分
+ *
+ * V3.1 修改：
+ * - 新增第5条硬性阻断：在Web3/meme币社区缺乏传播潜力的产品发布/更新
+ * - 解决非加密公司的小产品/B2B产品被误评为高分的问题
  *
  * V3.0 修改：
  * - Web3项目拆分到W类，B类只处理非Web3产品
  * - 去掉所有Web3项目豁免/加分相关逻辑，回归纯粹的发布方影响力评分
  */
 
-export const CATEGORY_B_PROMPT_VERSION = 'V3.0';
+export const CATEGORY_B_PROMPT_VERSION = 'V3.1';
 
 export function buildCategoryBPrompt(eventDescription, eventClassification) {
   return `你是B类（产品发布/改进/营销等产品相关事件类）事件评分专家。
@@ -76,6 +80,19 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 **2. 标题党/诱导点击**：名称夸张但内容空洞 → pass=false
 **3. 无实质内容更新**：只是UI调整、换皮更新 → pass=false
 **4. 第三方蹭热度**：影响力极低的第三方创作关于大IP的内容，无任何自身传播数据 → pass=false
+**5. 在Web3/meme币社区缺乏传播潜力**：
+⚠️ B类本就是非Web3产品，但并非所有非Web3产品都适合成为meme币叙事。以下类型直接阻断：
+- B2B/企业级产品（AI框架、云服务API、企业软件、开发工具等）
+- 技术性/专业性产品（无大众文化影响力，普通用户无感知）
+- 常规版本更新（v2.0迭代升级，非颠覆性新品首发）
+- 示例：百度发布AI Agent框架v2.0 → B2B技术产品，Web3社区零感知 → 阻断
+- 示例：Google发布搜索算法更新 → 技术更新，无meme潜力 → 阻断
+- 示例：Microsoft发布Azure云服务API更新 → 企业级产品 → 阻断
+⚠️ **不触发此阻断**：具有广泛文化影响力的消费级产品发布
+- Apple发布全新iPhone → 全球文化事件，有meme潜力 → 不阻断
+- Tesla发布Cybertruck → 现象级消费产品 → 不阻断
+- 任天堂发布新游戏机 → 大众消费级产品 → 不阻断
+→ pass=false
 
 ═══════════════════════════════════════════════════════════════════════════════
 
