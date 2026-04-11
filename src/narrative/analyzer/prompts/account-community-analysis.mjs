@@ -101,7 +101,7 @@ async function getCommunityWithTweets(communityId, tweetCount = 20) {
  * @param {Object} accountOrCommunityData - 账号或社区数据
  * @returns {Promise<string>} 分析 Prompt
  */
-export async function buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityData, addressVerified = true) {
+export async function buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityData, addressVerified = true, extraOptions = {}) {
   const tokenAddress = tokenData.address;
   const tokenSymbol = tokenData.symbol || '';
   const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
@@ -135,9 +135,15 @@ export async function buildAccountCommunityAnalysisPrompt(tokenData, accountOrCo
   }
 
   // 构建合约地址验证信息
-  const addressVerifiedSection = addressVerified
-    ? '✅ 已命中（账号的简介或推文中找到了代币合约地址）'
-    : '❌ 未命中（账号的简介和推文中都没有找到代币合约地址）';
+  let addressVerifiedSection;
+  if (extraOptions.projectCoinFromWebsite) {
+    const websiteUrl = extraOptions.websiteInfo?.url || '';
+    addressVerifiedSection = `✅ 已命中（项目官方网站 ${websiteUrl} 的HTML中包含代币合约地址，确认为项目方发行的代币）`;
+  } else {
+    addressVerifiedSection = addressVerified
+      ? '✅ 已命中（账号的简介或推文中找到了代币合约地址）'
+      : '❌ 未命中（账号的简介和推文中都没有找到代币合约地址）';
+  }
 
   return `你是${typeLabel}代币分析专家。请判断代币类型并评估影响力。
 
@@ -166,6 +172,10 @@ ${data.type === 'account' ? `
 
 【近期推文（${data.tweets.length}条）】
 ${tweetsSummary}
+${extraOptions.projectCoinFromWebsite && extraOptions.websiteInfo?.content ? `
+【项目网站内容】（来源：${extraOptions.websiteInfo.url}）
+${extraOptions.websiteInfo.content.substring(0, 2000)}
+` : ''}
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                    ${typeLabel}代币分析框架                                            ║

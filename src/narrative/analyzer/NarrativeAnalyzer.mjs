@@ -27,7 +27,7 @@ import { fetchCommunityForTweet } from '../../utils/twitter-validation/communiti
 import { getLogger } from '../core/logger.mjs';
 
 // 新增：从拆分的模块导入
-import { cleanSymbol, getVisualLength, hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis } from './utils/narrative-utils.mjs';
+import { cleanSymbol, getVisualLength, hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, isProjectCoin, extractScreenNameFromTwitterUrl } from './utils/narrative-utils.mjs';
 import { detectLanguage, standardizeTranslatedNames } from './utils/language-utils.mjs';
 import { cleanDataForDB } from './utils/data-cleaner.mjs';
 import { parseStage1Response, parseEventResponse, parseJSONResponse, formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
@@ -212,6 +212,35 @@ export class NarrativeAnalyzer {
       logger.info('NarrativeAnalyzer', '账号信息收集完成', { count: relatedAccounts.length });
     }
 
+    // 项目币检测（代币地址出现在推文/网站/账号内容中 → 项目方自己发的币）
+    const isProjectCoinResult = isProjectCoin(normalizedAddress, { twitterInfo, websiteInfo, classifiedUrls });
+    if (isProjectCoinResult) {
+      logger.info('NarrativeAnalyzer', '检测到项目币（地址出现在内容中）');
+    }
+
+    // 如果是项目币但还没收集过账号，尝试收集
+    if (isProjectCoinResult && relatedAccounts.length === 0) {
+      if (twitterInfo) {
+        // 有twitterInfo，从推文作者收集
+        logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过twitterInfo）');
+        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo);
+      } else if (classifiedUrls?.twitter?.length > 0) {
+        // 推文被删/获取失败，但URL中有screen_name，直接获取账号信息
+        for (const tw of classifiedUrls.twitter) {
+          const screenName = extractScreenNameFromTwitterUrl(tw.url);
+          if (screenName) {
+            logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过URL提取）', { screenName });
+            const accountInfo = await getFullAccountInfo(screenName);
+            if (accountInfo) {
+              relatedAccounts.push({ ...accountInfo, role: 'primary' });
+            }
+            break; // 只需取第一个有效的
+          }
+        }
+      }
+      logger.info('NarrativeAnalyzer', '项目币账号信息收集完成', { count: relatedAccounts.length });
+    }
+
     // 7. 预检查规则（不调用LLM，直接返回结果）
     const preCheckResult = await performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo }, githubInfo, backgroundInfo, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
@@ -266,13 +295,16 @@ export class NarrativeAnalyzer {
           analysisFailed = false;
         } else {
           // 检查是否应该使用账号/社区分析流程
-          const shouldUseAccountCommunity = shouldUseAccountCommunityAnalysis(fetchResults);
+          const shouldUseAccountCommunity = shouldUseAccountCommunityAnalysis(fetchResults)
+            || (isProjectCoinResult && fetchResults.relatedAccounts?.length > 0);
 
           if (shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');
             const analysisResult = await analyzeAccountCommunityToken(tokenData, fetchResults, {
               callLLMAPI,
               analyzeMemeTokenTwoStage
+            }, {
+              skipAddressValidation: isProjectCoinResult
             });
 
             // 检查是否是规则验证失败（返回preCheckData）
@@ -507,6 +539,19 @@ export class NarrativeAnalyzer {
 
                 // 使用 parseResponse 的结果（已支持新格式）
                 const stage3Data = stage3CallResult.parsed || {};
+
+                // 关联性底线规则：如果关联性得分 ≤ 10分，强制category为low
+                // 这是代码层面的强制执行，防止LLM忽略prompt中的规则
+                const relevanceScore = stage3Data.relevanceScore ?? stage3Data.breakdown?.relevanceScore;
+                if (relevanceScore !== undefined && relevanceScore <= 10) {
+                  logger.info('NarrativeAnalyzer', '关联性底线规则触发，强制category为low', {
+                    originalCategory: stage3Data.category,
+                    relevanceScore: relevanceScore,
+                    totalScore: stage3Data.total_score
+                  });
+                  stage3Data.category = 'low';
+                }
+
                 stage3DataToSave = {
                   category: stage3Data.category || stage3CallResult.parsed?.category || null,
                   model: stage3CallResult.model,

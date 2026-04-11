@@ -86,7 +86,7 @@ export async function getFullAccountInfo(screenName) {
  * @param {Object} dependencies - 依赖的方法（用于循环依赖问题）
  * @returns {Promise<Object>} 分析结果
  */
-export async function analyzeAccountCommunityToken(tokenData, fetchResults, dependencies = {}) {
+export async function analyzeAccountCommunityToken(tokenData, fetchResults, dependencies = {}, options = {}) {
   const { buildAccountCommunityAnalysisPrompt } = await import('../prompts/account-community-analysis.mjs');
   const {
     getAccountWithFullTweets,
@@ -154,11 +154,15 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   const tokenSymbol = tokenData.symbol || '';
   const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
 
+  // 项目币已通过网站验证地址，跳过地址验证
+  const skipAddressValidation = options.skipAddressValidation || false;
+
   const rulesResult = performRulesValidation(
     tokenAddress,
     tokenSymbol,
     tokenName,
-    fullAccountOrCommunityData
+    fullAccountOrCommunityData,
+    { skipAddressValidation }
   );
 
   logger.info('AccountCommunityAnalysis', '规则验证结果', {
@@ -196,7 +200,10 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   // ═══════════════════════════════════════════════════════════════════════════
   // 第二步：LLM分析（币种类型判断 + 评级）
   // ═══════════════════════════════════════════════════════════════════════════
-  const prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityRef, rulesResult.addressVerified);
+  const prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityRef, rulesResult.addressVerified, {
+    projectCoinFromWebsite: options.skipAddressValidation || false,
+    websiteInfo: fetchResults.websiteInfo
+  });
 
   if (!prompt) {
     return {

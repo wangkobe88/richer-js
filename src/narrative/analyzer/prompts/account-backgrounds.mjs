@@ -29,6 +29,7 @@ export const HIGH_INFLUENCE_ACCOUNTS = {
   'binance': 'Binance官方账号',
   'binancecom': 'Binance.com官方账号',
   'BinanceAnnounce': 'Binance官方公告账号',
+  'BinanceUS': 'Binance US（币安美国站官方账号）',
   'okx': 'OKX官方账号（全球顶级加密货币交易所）',
   'VitalikButerin': 'Vitalik Buterin（以太坊创始人）',
   'saylor': 'Michael Saylor（MicroStrategy CEO，比特币最大持有者之一）',

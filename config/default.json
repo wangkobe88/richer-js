@@ -45,9 +45,9 @@
     "sameNameCheck": {
       "enabled": true,
       "rules": {
-        "priceChangeThreshold": 150,
-        "txVolumeThreshold": 15000,
-        "txCountThreshold": 100
+        "priceChangeThreshold": 300,
+        "txVolumeThreshold": 30000,
+        "txCountThreshold": 300
       }
     }
   },

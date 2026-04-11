@@ -273,7 +273,7 @@ export async function getCommunityWithFullTweets(communityId, tweetCount = 50) {
  * @param {Object} accountOrCommunityData - 账号或社区数据
  * @returns {Object} 验证结果
  */
-export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, accountOrCommunityData) {
+export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, accountOrCommunityData, options = {}) {
   // ═══════════════════════════════════════════════════════════════════════════
   // 账号质量检查（优先级最高）
   // 如果账号数据质量达到阈值，跳过地址验证，传递到下游LLM分析
@@ -348,6 +348,27 @@ export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, acc
         }
       };
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 项目币跳过地址验证（已通过网站内容验证地址）
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (options.skipAddressValidation) {
+    console.log(`[AccountCommunityRules] 项目币跳过地址验证（网站已验证地址）`, {
+      screenName: accountOrCommunityData.screen_name
+    });
+    return {
+      passed: true,
+      stage: 'project_coin_website_verified',
+      addressVerified: true,
+      nameMatch: null,
+      reason: '项目币：网站内容中包含代币合约地址，已验证项目归属',
+      details: {
+        addressLocations: ['website_content'],
+        accountQuality,
+        skipReason: 'project_coin_website_verified'
+      }
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

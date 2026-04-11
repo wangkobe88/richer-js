@@ -380,15 +380,18 @@ class SameNameCheckService {
   }
 
   /**
-   * 从推特URL中提取用户名或推文ID
+   * 从推特URL中提取标识符用于比较
+   * 优先提取推文ID（/status/数字），同一推文视为同一叙事
+   * 对于纯用户主页URL，提取用户名
    * 支持格式：
-   * - https://x.com/username
-   * - https://twitter.com/username
-   * - https://x.com/username/status/123456
-   * - @username
+   * - https://x.com/username/status/123456 → "status:123456"
+   * - https://x.com/i/status/123456 → "status:123456"
+   * - https://twitter.com/username/status/123456 → "status:123456"
+   * - https://x.com/username → "user:username"
+   * - @username → "user:username"
    *
    * @param {string} twitterUrl - 推特URL或用户名
-   * @returns {string|null} 提取的标识符
+   * @returns {string|null} 提取的标识符（格式: "status:ID" 或 "user:NAME"）
    * @private
    */
   _extractTwitterId(twitterUrl) {
@@ -400,21 +403,34 @@ class SameNameCheckService {
 
     // 去除前缀 @
     if (url.startsWith('@')) {
-      return url.substring(1);
+      return 'user:' + url.substring(1);
     }
 
-    // 提取 x.com 或 twitter.com 中的用户名或推文ID
-    const patterns = [
+    // 优先提取推文ID（/status/数字）
+    const statusPatterns = [
+      /x\.com\/[^\/]+\/status\/(\d+)/,
+      /twitter\.com\/[^\/]+\/status\/(\d+)/,
+      /mobile\.twitter\.com\/[^\/]+\/status\/(\d+)/
+    ];
+
+    for (const pattern of statusPatterns) {
+      const match = url.match(pattern);
+      if (match) {
+        return 'status:' + match[1];
+      }
+    }
+
+    // 非推文URL，提取用户名
+    const userPatterns = [
       /x\.com\/([^\/]+)/,
       /twitter\.com\/([^\/]+)/,
       /mobile\.twitter\.com\/([^\/]+)/
     ];
 
-    for (const pattern of patterns) {
+    for (const pattern of userPatterns) {
       const match = url.match(pattern);
       if (match) {
-        // 返回用户名或推文ID
-        return match[1];
+        return 'user:' + match[1];
       }
     }
 

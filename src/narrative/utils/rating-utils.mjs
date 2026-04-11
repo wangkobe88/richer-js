@@ -38,6 +38,10 @@ function resolvePrestageCategory(record) {
   if (tokenType === 'account_based_meme') {
     return parsedOutput.rating || 'low';
   }
+  // project 类型：category 使用 rating 字段（mid/high/low），不是 tokenType
+  if (tokenType === 'project') {
+    return parsedOutput.rating || record.llm_prestage_category || null;
+  }
   return tokenType || record.llm_prestage_category || null;
 }
 

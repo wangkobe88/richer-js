@@ -57,7 +57,8 @@ export async function fetchWebsiteContent(url, options = {}) {
       type: 'website',
       url: url,
       content: truncatedContent,
-      original_length: content.length
+      original_length: content.length,
+      rawHtml: html.length > 10000 ? html.substring(0, 10000) : html
     };
 
   } catch (error) {

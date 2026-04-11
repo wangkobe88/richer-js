@@ -231,3 +231,85 @@ export function shouldUseAccountCommunityAnalysis(fetchResults) {
   // 注意：网站、电报、Discord都不阻断，只要有账号/社区且无推文就走账号分析
   return true;
 }
+
+/**
+ * 从Twitter URL中提取screen_name
+ * 支持格式：
+ * - https://x.com/username/status/123456 → username
+ * - https://x.com/username → username
+ * @param {string} url - Twitter URL
+ * @returns {string|null} screen_name 或 null
+ */
+export function extractScreenNameFromTwitterUrl(url) {
+  if (!url) return null;
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+    if (!hostname.includes('x.com') && !hostname.includes('twitter.com')) return null;
+    // 提取路径第一段作为screen_name
+    const match = urlObj.pathname.match(/^\/([\w.]+)(?:\/|$)/);
+    if (match && match[1] !== 'i' && match[1] !== 'status') {
+      return match[1];
+    }
+  } catch {
+    // URL解析失败
+  }
+  return null;
+}
+
+/**
+ * 检测是否为项目币（代币自身的合约地址出现在推文/网站/账号信息中）
+ * 如果地址出现在内容中，说明是项目方自己发的币，不是蹭项目的meme币
+ * @param {string} tokenAddress - 代币地址（小写）
+ * @param {Object} fetchResults - 获取的数据结果
+ * @returns {boolean} 是否为项目币
+ */
+export function isProjectCoin(tokenAddress, fetchResults) {
+  const address = tokenAddress.toLowerCase();
+  const { twitterInfo, websiteInfo, classifiedUrls } = fetchResults;
+
+  // 检查推文文本
+  if (twitterInfo?.text && twitterInfo.text.toLowerCase().includes(address)) {
+    return true;
+  }
+
+  // 检查回复推文
+  if (twitterInfo?.in_reply_to?.text && twitterInfo.in_reply_to.text.toLowerCase().includes(address)) {
+    return true;
+  }
+
+  // 检查引用推文
+  if (twitterInfo?.quoted_tweet?.text && twitterInfo.quoted_tweet.text.toLowerCase().includes(address)) {
+    return true;
+  }
+
+  // 检查Website推文（第二个推文）
+  if (twitterInfo?.website_tweet?.text && twitterInfo.website_tweet.text.toLowerCase().includes(address)) {
+    return true;
+  }
+
+  // 检查网站内容
+  if (websiteInfo?.content && websiteInfo.content.toLowerCase().includes(address)) {
+    return true;
+  }
+
+  // 检查账号简介（account类型）
+  if (twitterInfo?.description && twitterInfo.description.toLowerCase().includes(address)) {
+    return true;
+  }
+
+  // 检查网站原始HTML中是否包含地址（extractMainContent会去掉标签属性中的地址）
+  if (websiteInfo?.rawHtml && websiteInfo.rawHtml.toLowerCase().includes(address)) {
+    return true;
+  }
+
+  // 检查classifiedUrls中所有URL是否包含地址（项目币网站链接中常包含合约地址）
+  if (classifiedUrls) {
+    const allUrls = Object.values(classifiedUrls).flat().map(u => u?.url).filter(Boolean);
+    if (allUrls.some(url => url.toLowerCase().includes(address))) {
+      return true;
+    }
+  }
+
+  return false;
+}
