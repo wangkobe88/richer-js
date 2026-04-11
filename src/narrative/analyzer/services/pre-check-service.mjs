@@ -630,12 +630,12 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       if (isHighEngagement) {
         reasons.push(`推文交互数据高（点赞${likeCount}，转发${retweetCount}）`);
       }
-      reasons.push(hasVideos ? '推文带有视频内容（暂不支持分析）' : '推文带有媒体内容');
+      reasons.push(hasVideos ? '推文带有视频内容' : '推文带有其他类型媒体内容（非图片）');
 
       console.log(`[NarrativeAnalyzer] 规则4触发: ${reasons.join('，')}，返回unrated`);
       return {
         category: 'unrated',
-        reasoning: `${reasons.join('，')}，无法解析媒体内容进行完整叙事评估`,
+        reasoning: `${reasons.join('，')}，暂不支持解析该类型媒体`,
         scores: null,
         total_score: null,
         preCheckTriggered: true,

@@ -45,10 +45,9 @@
     "sameNameCheck": {
       "enabled": true,
       "rules": {
-        "oneDayThreshold": 3,
-        "oneWeekThreshold": 10,
-        "combinedWeekThreshold": 5,
-        "combinedDayThreshold": 2
+        "priceChangeThreshold": 150,
+        "txVolumeThreshold": 15000,
+        "txCountThreshold": 100
       }
     }
   },
