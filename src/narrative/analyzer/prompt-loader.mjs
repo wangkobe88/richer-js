@@ -13,6 +13,7 @@ import { buildStage1EventPreprocessingPrompt } from './prompts/stage1-event-prep
 // Stage 2 分类特定Prompt映射
 const CATEGORY_PROMPT_BUILDERS = {
   'A': async () => (await import('./prompts/event-scoring-categories/category-a-visual-ip.mjs')).buildCategoryAPrompt,
+  'W': async () => (await import('./prompts/event-scoring-categories/category-w-web3-project.mjs')).buildCategoryWPrompt,
   'B': async () => (await import('./prompts/event-scoring-categories/category-b-product-event.mjs')).buildCategoryBPrompt,
   'C': async () => (await import('./prompts/event-scoring-categories/category-c-personal-statement.mjs')).buildCategoryCPrompt,
   'D': async () => (await import('./prompts/event-scoring-categories/category-d-institutional-action.mjs')).buildCategoryDPrompt,
@@ -94,6 +95,7 @@ export function getStage1PromptVersion() {
 export async function getStage2PromptVersion(category) {
   const versionExports = {
     'A': 'CATEGORY_A_PROMPT_VERSION',
+    'W': 'CATEGORY_W_PROMPT_VERSION',
     'B': 'CATEGORY_B_PROMPT_VERSION',
     'C': 'CATEGORY_C_PROMPT_VERSION',
     'D': 'CATEGORY_D_PROMPT_VERSION',
@@ -117,6 +119,7 @@ export async function getStage2PromptVersion(category) {
 function getCategoryFileName(category) {
   const fileNames = {
     'A': 'category-a-visual-ip',
+    'W': 'category-w-web3-project',
     'B': 'category-b-product-event',
     'C': 'category-c-personal-statement',
     'D': 'category-d-institutional-action',

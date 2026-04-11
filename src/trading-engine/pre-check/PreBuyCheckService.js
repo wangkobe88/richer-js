@@ -261,19 +261,19 @@ const FACTOR_METADATA = {
   // 强势交易者持仓因子
   strongTraderNetPositionRatio: {
     name: '强势交易者净持仓比',
-    format: v => (v * 100).toFixed(1) + '%',
+    format: v => v.toFixed(1) + '%',
     unit: '',
     severity: 'warning'
   },
   strongTraderTotalBuyRatio: {
     name: '强势交易者买入占比',
-    format: v => (v * 100).toFixed(1) + '%',
+    format: v => v.toFixed(1) + '%',
     unit: '',
     severity: 'warning'
   },
   strongTraderTotalSellRatio: {
     name: '强势交易者卖出占比',
-    format: v => (v * 100).toFixed(1) + '%',
+    format: v => v.toFixed(1) + '%',
     unit: '',
     severity: 'warning'
   },

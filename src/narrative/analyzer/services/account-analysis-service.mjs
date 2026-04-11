@@ -332,7 +332,9 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
         raw_output: callResult.content,
         parsed_output: {
           ...parsed,
-          rulesValidationPassed: true
+          rulesValidationPassed: true,
+          addressVerified: rulesResult.addressVerified,
+          nameMatch: rulesResult.nameMatch
         },
         model: callResult.model,
         started_at: callResult.startedAt,
@@ -364,8 +366,9 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
         raw_output: callResult.content,
         parsed_output: {
           ...parsed,
-          // 只添加一个简洁的规则验证通过标记，不重复详细结果
-          rulesValidationPassed: true
+          rulesValidationPassed: true,
+          addressVerified: rulesResult.addressVerified,
+          nameMatch: rulesResult.nameMatch
         },
         model: callResult.model,
         started_at: callResult.startedAt,
@@ -407,8 +410,9 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
       raw_output: callResult.content,
       parsed_output: {
         ...parsed,
-        // 只添加一个简洁的规则验证通过标记，不重复详细结果
-        rulesValidationPassed: true
+        rulesValidationPassed: true,
+        addressVerified: rulesResult.addressVerified,
+        nameMatch: rulesResult.nameMatch
       },
       model: callResult.model,
       started_at: callResult.startedAt,
@@ -443,9 +447,9 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
         raw_output: callResult.content,
         parsed_output: {
           ...parsed,
-          // 只添加一个简洁的规则验证通过标记，不重复详细结果
           rulesValidationPassed: true,
-          // 保留LLM返回的details
+          addressVerified: rulesResult.addressVerified,
+          nameMatch: rulesResult.nameMatch,
           details: parsed.details
         },
         model: callResult.model,

@@ -1117,12 +1117,12 @@ class ExperimentMonitor {
    */
   async cleanupTokens(experimentId, experimentName) {
     const confirmed = confirm(
-      `🧹 确定要清理实验 "${experimentName}" 中的无数据代币吗？\n\n` +
-      '此操作将：\n' +
-      '🗑️ 删除无价格数据的代币记录\n' +
-      '📊 保留有时序数据的代币\n' +
-      '⚠️ 被删除的数据无法恢复！\n\n' +
-      '注意：仅删除代币元数据，不影响信号和交易记录。'
+      `⚠️ 请先运行 "📊涨幅" 分析后再清理！\n\n` +
+      '未分析涨幅的代币可能包含高涨幅数据，直接清理会丢失这些时序数据。\n\n' +
+      '操作步骤：\n' +
+      '1️⃣ 先点击 "📊涨幅" 运行涨幅分析\n' +
+      '2️⃣ 分析完成后再进行清理\n\n' +
+      '是否已运行过涨幅分析，确认继续清理？'
     );
 
     if (!confirmed) return;

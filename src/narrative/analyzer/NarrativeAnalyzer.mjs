@@ -465,6 +465,9 @@ export class NarrativeAnalyzer {
                 // Stage 2未通过，category设为low（保证概览卡片正确显示）
                 stage2DataToSave.category = 'low';
 
+                // Stage 3被跳过，清除旧的Stage 3数据（防止重新分析时残留旧结果）
+                stage3DataToSave = { __clear: true };
+
                 llmResult = {
                   category: 'low',
                   reasoning: `Stage 1通过，但Stage 2${!stage2CallResult.success ? '失败' : '未通过'}: ${failReason}`,
@@ -637,11 +640,11 @@ export class NarrativeAnalyzer {
       llm_stage2_error: stage2DataToSave?.error || null,
 
       // === Stage 3 字段（9个）===
-      llm_stage3_parsed_output: stage3DataToSave?.parsed_output || null,
-      llm_stage3_category: stage3DataToSave?.category || null,
-      llm_stage3_model: stage3DataToSave?.model || null,
-      llm_stage3_prompt: stage3DataToSave?.prompt || null,
-      llm_stage3_raw_output: stage3DataToSave?.raw_output || null,
+      llm_stage3_parsed_output: (stage3DataToSave && stage3DataToSave.__clear) ? stage3DataToSave : (stage3DataToSave?.parsed_output || null),
+      llm_stage3_category: (stage3DataToSave && stage3DataToSave.__clear) ? stage3DataToSave : (stage3DataToSave?.category || null),
+      llm_stage3_model: (stage3DataToSave && stage3DataToSave.__clear) ? stage3DataToSave : (stage3DataToSave?.model || null),
+      llm_stage3_prompt: (stage3DataToSave && stage3DataToSave.__clear) ? stage3DataToSave : (stage3DataToSave?.prompt || null),
+      llm_stage3_raw_output: (stage3DataToSave && stage3DataToSave.__clear) ? stage3DataToSave : (stage3DataToSave?.raw_output || null),
       llm_stage3_started_at: stage3DataToSave?.started_at || null,
       llm_stage3_finished_at: stage3DataToSave?.finished_at || null,
       llm_stage3_success: stage3DataToSave?.success ?? null,

@@ -365,10 +365,19 @@ function buildStage1Framework() {
 - ❌ 不属于A类：口号（"WE MAKE IMPACT"）、数字叙事（"48小时"）、概念（"conviction"）→ 这些归E类或其他
 
 **【B类：产品发布/改进/营销等产品相关事件类】**
-- 产品（APP、合约、功能、工具等）的发布、升级、改进、营销等**产品相关**事件
+- **非Web3**产品（APP、功能、工具等）的发布、升级、改进、营销等产品相关事件
 - ⚠️ 聚焦"产品"本身，非产品的内容发布不归此类
-- 示例：Gift合约上线、Binance发布新产品、APP功能更新、产品营销活动
+- 示例：Apple发布新款iPhone、APP功能更新、传统产品营销活动
 - ❌ 不属于B类：机构非产品的言论（Binance发"Happy New Year"）→ D类
+- ❌ 不属于B类：**面向Web3/Crypto用户的产品**（即使发布方是币安）→ 归W类
+
+**【W类：Web3项目发布/上线事件类】**
+- Web3/Crypto领域项目（链上智能合约、DeFi协议、链上机制、Web3工具/应用、加密货币相关AI工具、链上游戏等）的发布、上线、发现事件
+- 判断标准：产品是否以Web3/Crypto用户为目标受众，是否解决Web3领域的需求
+- ⚠️ **无论发布方是谁**，只要产品面向Web3用户群体就归W类（包括币安官方发布的Web3产品）
+- 示例：Gift链上税收转捐赠合约上线、加密AI漫画生成器发布、链上游戏上线、DeFi协议发布、币安发布BinanceSmartCaptcha
+- ⚠️ BSC链上的meme币所依托的Web3项目，都归W类
+- ❌ 不属于W类：传统Web2产品（如普通APP、传统电商）→ 归B类
 
 **【C类：人物言论/动作及相关事件类】**
 - **个人账号**的公开言论、动作、互动及相关事件
@@ -447,12 +456,13 @@ function buildStage1Framework() {
 
 🎯 **核心原则**：按"内容本质"判断，问自己"这个事件的核心内容是什么？"
 
-📊 **内容本质优先级**（从高到低，即A到E）：
+📊 **内容本质优先级**（从高到低）：
 1️⃣ A类（形象化IP） - 有具体形象的IP的推出/发现/描述
-2️⃣ B类（产品相关） - 产品的发布/改进/营销
-3️⃣ C类（人物相关） - 个人账号的言论/动作/互动（机构官方账号不归此类）
-4️⃣ D类（机构相关） - 机构官方账号的言论/动作/互动
-5️⃣ E类（社会现象） - 群体性的热点、非形象化发现型meme
+2️⃣ W类（Web3项目） - Web3/Crypto项目的发布/上线/发现
+3️⃣ B类（产品相关） - 非Web3产品的发布/改进/营销
+4️⃣ C类（人物相关） - 个人账号的言论/动作/互动（机构官方账号不归此类）
+5️⃣ D类（机构相关） - 机构官方账号的言论/动作/互动
+6️⃣ E类（社会现象） - 群体性的热点、非形象化发现型meme
 
 ⚠️ **重要说明**：
 - 如果回复中有具体内容，且币的概念来自大IP原话 → 按内容本身归类（C类等）
@@ -467,6 +477,9 @@ function buildStage1Framework() {
 - "何一发推'Everything is number'" → C类（核心是人物言论）
 - "CZ回复推文" → C类（人物动作，看回复内容评分）
 - "Tesla发布新车" → B类（核心是产品发布）
+- "Gift链上税收转捐赠合约上线" → W类（Web3项目发布）
+- "币安发布BinanceSmartCaptcha" → W类（币安官方Web3产品，面向Web3用户）
+- "孙哥的AI产品BAIclaw上线" → W类（Web3项目发布）
 - "Binance发推'Happy New Year'" → D类（机构言论）
 - "@binance转发推文" → D类（机构动作）
 - "@TCryptochicks回复CZ推文并总结出'conviction'概念（CZ没说这个词）" → C类（解读型回复）
@@ -529,8 +542,8 @@ function buildStage1Framework() {
     }
   },
   "eventClassification": {
-    "primaryCategory": "A/B/C/D/E",
-    "primaryCategoryName": "形象化IP/产品相关/人物言论动作/机构言论动作/社会热点现象",
+    "primaryCategory": "A/W/B/C/D/E",
+    "primaryCategoryName": "形象化IP/Web3项目/产品相关/人物言论动作/机构言论动作/社会热点现象",
     "possibleCategories": ["A", "B"],
     "confidence": "high/medium/low",
     "reason": "分类判断的理由"

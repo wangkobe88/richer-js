@@ -486,15 +486,36 @@ class NarrativeAnalyzer {
       `;
     }
 
-    // 规则验证结果（简洁显示，详细结果在"预检查"卡片）
+    // 规则验证结果（根据实际的 addressVerified 和 nameMatch 判断）
     let rulesHtml = '';
     if (parsed.rulesValidationPassed) {
-      rulesHtml = `
-        <div style="margin-top: 12px;">
-          <span style="font-size: 11px; padding: 4px 8px; background: #d4edda; color: #155724; border-radius: 4px;">✅ 规则验证通过</span>
-          <span style="font-size: 11px; color: #999; margin-left: 6px;">（地址验证 + 名称匹配）</span>
-        </div>
-      `;
+      const addrOk = parsed.addressVerified === true;
+      const nameOk = parsed.nameMatch === true;
+
+      if (addrOk && nameOk) {
+        // 真正的地址验证 + 名称匹配都通过
+        rulesHtml = `
+          <div style="margin-top: 12px;">
+            <span style="font-size: 11px; padding: 4px 8px; background: #d4edda; color: #155724; border-radius: 4px;">✅ 规则验证通过</span>
+            <span style="font-size: 11px; color: #999; margin-left: 6px;">（地址验证 + 名称匹配）</span>
+          </div>
+        `;
+      } else if (!addrOk) {
+        // 地址未验证（账号质量达标跳过了地址验证）
+        rulesHtml = `
+          <div style="margin-top: 12px;">
+            <span style="font-size: 11px; padding: 4px 8px; background: #fff3cd; color: #856404; border-radius: 4px;">⚠️ 账号质量达标（地址未验证）</span>
+            <span style="font-size: 11px; color: #999; margin-left: 6px;">（跳过地址验证，传递到LLM判断）</span>
+          </div>
+        `;
+      } else {
+        // 地址验证通过但名称不匹配
+        rulesHtml = `
+          <div style="margin-top: 12px;">
+            <span style="font-size: 11px; padding: 4px 8px; background: #fff3cd; color: #856404; border-radius: 4px;">⚠️ 地址验证通过（名称未匹配）</span>
+          </div>
+        `;
+      }
     }
 
     // 耗时
