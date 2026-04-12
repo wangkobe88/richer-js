@@ -7,6 +7,10 @@
  * 2. 代币质量评估
  * 3. 综合评分（事件60% + 关联20% + 质量20%）
  *
+ * V18.3 修改：
+ * - C类品牌劫持新增区分规则：区分"机构名"和"包含机构名的专有名词"（书名等）
+ * - 解决"币安人生"等书名/作品名被误判为机构品牌劫持的问题
+ *
  * V18.2 修改：
  * - 品牌劫持新增C类：著名机构及其部门/产品/服务名称
  * - 新增1.0.1拼写错误无背景检查（独立于品牌劫持）
@@ -33,7 +37,7 @@
 /**
  * Prompt版本号
  */
-export const STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION = 'V18.2';
+export const STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION = 'V18.3';
 
 /**
  * 构建Stage 3代币分析Prompt
@@ -133,6 +137,14 @@ ${stage2Output?.raw?.blockReason ? `阻断原因：${stage2Output.raw.blockReaso
   - ❌ 事件主体"Binance Research"，代币Name"Binance Researc"（拼写变体）→ 品牌劫持 → low
   - ❌ 事件主体"Binance"，代币Symbol"BR"/Name"Binance Researc" → Name复制机构部门拼写变体 → 品牌劫持 → low
 
+⚠️ **区分"机构名"和"包含机构名的专有名词"**（容易混淆，务必仔细判断）：
+- **机构名本身**：代币名 = 机构名（如"Binance"、"币安"、"Coinbase"）→ 属于C类
+- **机构官方产品线/部门**：代币名 = 机构的官方产品或部门（如"Binance Research"、"Binance Smart Chain"）→ 属于C类
+- **包含机构名的独立作品/概念**：代币名是书名、节目名、绰号等**独立专有名词**，只是恰好包含机构名 → **不属于C类**
+  - "币安人生" → 这是CZ的**书名**，不是币安机构的部门/产品 → 代币引用的是书 → 不触发C类
+  - "币安一姐" → 这是何一的**绰号**，不是币安机构的正式称谓 → 不触发C类
+  - 判断方法：把机构名去掉，剩余部分是否构成独立意义？"人生"有意义（书的核心主题）→ 独立作品 → 不属于C类
+
 **判断规则**：
 
 如果代币名（Symbol或Name，去除emoji、数字、特殊字符后）与上述A/B/C类名称**完全匹配或高度相似**（包括：完全匹配、以品牌名开头并附加后缀如"BNBARMY"、品牌名的轻微变体如"BTCC"、拼写变体），则：
@@ -182,6 +194,8 @@ ${stage2Output?.raw?.blockReason ? `阻断原因：${stage2Output.raw.blockReaso
 - 代币Name"Binance Research"，事件主体"Binance Research" → C类机构部门名 → 品牌劫持 → low
 - 代币Symbol"BR"/Name"Binance Researc"，事件主体"Binance Research" → C类机构部门名拼写变体 → 品牌劫持 → low
 - 代币"Binance"，事件"Binance被SEC起诉" → C类机构名，但事件重大 → 豁免 → 正常评估
+- 代币"币安人生有声书"，事件"CZ推荐《币安人生》并制作有声书" → "币安人生"是书名，不是机构名 → 不触发C类 → 正常评估
+- 代币"币安"，事件"CZ发推" → 直接用机构名 → C类 → 品牌劫持 → low
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

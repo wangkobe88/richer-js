@@ -43,7 +43,6 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 【事件描述】
 主题：${eventDescription.eventTheme}
 主体：${eventDescription.eventSubject}
-是否找角度推文：${eventDescription.isAngleFindingTweet || false}
 事件内容：${eventDescription.eventContent}
 时效性：${eventDescription.eventTiming}
 关键实体：${eventDescription.keyEntities?.join(', ') || '无'}
@@ -84,15 +83,6 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 
 🎯 **核心原则**：优先评估事件主体的价值，传播数据仅作补充
 
-**【检查是否为找角度推文】**：
-
-⚠️ **如果isAngleFindingTweet=true**：
-- 这意味着推文发布者只是借用外部事件来发币
-- 事件的真正价值在于**eventSubject**（被引用的事件主体）
-- **完全忽略推文的传播数据**（点赞、转发、作者粉丝数）
-- 只评估**eventSubject**的影响力和IP价值
-- 示例：找角度推文"Trump posted this baby" → 评估Trump的影响力，忽略推文的268点赞
-
 **【评估顺序】**：
 
 1️⃣ **首先看主体**（eventSubject）：
@@ -108,7 +98,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 
 ⚠️ **重要**：
 - 知名IP的任何动作都具有世界级传播力，不需要推文数据证明
-- 找角度推文的传播数据与事件价值无关，不要使用
+- 推文的传播数据与事件价值无关，不要使用
 
 **【主体资格检查】**（仅当主体不可评估时执行）：
 
@@ -226,7 +216,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 **首先看eventSubject（事件主体）**：
 - 世界级IP/人物（Trump、CZ、Elon、何一、Binance等）：**30分**
 - 知名IP/工作室/大厂：20-25分
-- 有潜力IP的知名KOL（粉丝>10万）：18-22分
+- 有潜力IP的知名KOL（粉丝>4万）：18-22分
 
 **如果eventSubject不可评估，才看传播数据**：
 - 普通KOL（粉丝1-10万）：12-17分
