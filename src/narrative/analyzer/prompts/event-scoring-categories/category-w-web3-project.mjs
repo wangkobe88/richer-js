@@ -8,7 +8,7 @@
  * - 注意：所有代币都通过Four.meme发射，Four.meme发射不算交互
  */
 
-export const CATEGORY_W_PROMPT_VERSION = 'V1.1';
+export const CATEGORY_W_PROMPT_VERSION = 'V2.0';
 
 export function buildCategoryWPrompt(eventDescription, eventClassification) {
   return `你是W类（Web3项目发布/上线事件类）事件评分专家。
@@ -27,8 +27,17 @@ export function buildCategoryWPrompt(eventDescription, eventClassification) {
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 【分析目标】
-评估Web3项目（链上合约、DeFi协议、Web3工具、链上游戏等）的发布/上线事件。
-这些项目所依托的meme币是BSC链上的，核心看与币安生态的关系。
+评估Web3项目的发布/上线事件。这些项目所依托的meme币是BSC链上的，核心看与币安生态的关系。
+
+⚠️ **什么算Web3项目？**
+- Web3/Crypto领域项目（链上智能合约、DeFi协议、链上机制、Web3工具/应用、加密货币相关AI工具、链上游戏等）
+- **判断标准：产品/行为是否以Web3/Crypto用户为目标受众，是否解决Web3领域的需求**
+- ⚠️ **不仅限于有产品实体的"项目"**，以下类型都算Web3项目：
+  - 链上行为/链上应用（如在BSC链上镌刻数据、链上铭刻等利用区块链特性的行为）
+  - 围绕Web3人物/文化/事件的AI工具（如围绕CZ新书构建的开源AI知识库）
+  - 加密社区的教育/研究工具（如Web3知识库、加密课程平台）
+  - 服务Web3用户的Web2工具（如加密货币AI漫画生成器、Web3数据分析平台）
+- ❌ 不算Web3项目：传统Web2产品（如普通APP、传统电商）
 
 ⚠️ 注意：
 - 代币都是极为早期的，找角度推文的传播数据（点赞、转发等）不作为判断依据

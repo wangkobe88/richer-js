@@ -71,11 +71,48 @@ class SameNameCheckService {
         createdAt: new Date(tokenCreatedAt * 1000).toISOString()
       });
 
-      // 搜索同名代币
-      const results = await this.api.searchTokens(tokenSymbol, 'bsc', 300, 'fdv');
+      // 搜索同名代币（BSC链）
+      const bscResults = await this.api.searchTokens(tokenSymbol, 'bsc', 300, 'fdv');
 
-      this.logger.debug('SameNameCheck', '搜索完成', {
-        totalResults: results.length
+      this.logger.debug('SameNameCheck', 'BSC搜索完成', {
+        totalResults: bscResults.length
+      });
+
+      // Solana链搜索：用停用词过滤后所有英文单词分别搜索，合并结果
+      // AVE API搜索匹配的是Symbol而非Name，所以需要每个词都搜一遍避免遗漏
+      let solanaResults = [];
+      const solanaKeywords = this._getSolanaSearchKeywords(tokenName, tokenSymbol);
+      if (solanaKeywords.length > 0) {
+        for (const kw of solanaKeywords) {
+          try {
+            const kwResults = await this.api.searchTokens(kw, 'solana', 300);
+            this.logger.debug('SameNameCheck', 'Solana搜索完成', {
+              keyword: kw,
+              totalResults: kwResults.length
+            });
+            solanaResults.push(...kwResults);
+          } catch (error) {
+            this.logger.error('SameNameCheck', `Solana搜索失败 (keyword: ${kw})`, { error: error.message });
+          }
+        }
+      } else {
+        this.logger.debug('SameNameCheck', '代币名称全为中文，跳过Solana搜索');
+      }
+
+      // 合并去重（按token地址去重）
+      const seenAddresses = new Set();
+      const results = [];
+      for (const token of [...bscResults, ...solanaResults]) {
+        if (token.token && !seenAddresses.has(token.token)) {
+          seenAddresses.add(token.token);
+          results.push(token);
+        }
+      }
+
+      this.logger.debug('SameNameCheck', '合并搜索完成', {
+        bsc: bscResults.length,
+        solana: solanaResults.length,
+        merged: results.length
       });
 
       // 严格名称匹配
@@ -262,6 +299,54 @@ class SameNameCheckService {
       }
     }
     return false;
+  }
+
+  /**
+   * 获取Solana链搜索关键词列表
+   *
+   * 规则：从name/symbol中提取英文单词，过滤停用词后返回全部
+   * AVE API搜索匹配的是Symbol而非Name，且只支持单词搜索
+   * 所以需要每个词都搜一遍，合并结果避免遗漏
+   * 如果name全是中文则跳过Solana搜索（返回空数组）
+   *
+   * @param {string} name - 代币名称
+   * @param {string} symbol - 代币符号
+   * @returns {string[]} 搜索关键词列表
+   * @private
+   */
+  _getSolanaSearchKeywords(name, symbol) {
+    // 常见英文停用词（高频无意义词，用于过滤）
+    const STOP_WORDS = new Set([
+      'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+      'of', 'with', 'by', 'from', 'is', 'it', 'as', 'be', 'was', 'are',
+      'been', 'has', 'had', 'have', 'do', 'did', 'will', 'would', 'could',
+      'should', 'may', 'might', 'can', 'not', 'no', 'all', 'so', 'if',
+      'up', 'out', 'about', 'into', 'than', 'then', 'also', 'just', 'more',
+      'some', 'any', 'each', 'every', 'both', 'few', 'most', 'other',
+      'such', 'only', 'own', 'same', 'very', 'too', 'its', 'my', 'your',
+      'his', 'her', 'our', 'their', 'this', 'that', 'these', 'those'
+    ]);
+
+    // 优先使用name，如果name全中文则尝试symbol
+    const candidates = [name, symbol].filter(Boolean);
+    for (const candidate of candidates) {
+      const trimmed = candidate.trim();
+      if (!trimmed) continue;
+      // 检查是否包含英文字母
+      if (/[a-zA-Z]/.test(trimmed)) {
+        // 提取英文部分（去掉中文、emoji等）
+        const englishPart = trimmed.replace(/[^\x00-\x7F]/g, '').trim();
+        if (!englishPart) continue;
+        // 提取所有≥2字符的英文单词
+        const words = englishPart.split(/\s+/).filter(w => w.length >= 2);
+        if (words.length === 0) continue;
+        // 过滤停用词，去重
+        const filtered = words.filter(w => !STOP_WORDS.has(w.toLowerCase()));
+        const pool = filtered.length > 0 ? filtered : words;
+        return [...new Set(pool.map(w => w.toLowerCase()))];
+      }
+    }
+    return [];
   }
 
   /**
