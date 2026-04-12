@@ -537,6 +537,110 @@ class TokenHolderService {
   }
 
   /**
+   * 检查早期交易者的黑白名单风险
+   * 从交易数据中提取所有参与者地址（买方+卖方），与黑白名单缓存匹配
+   *
+   * @param {Array} trades - 早期交易数据数组（来自 EarlyParticipantCheckService._trades）
+   * @returns {Promise<Object>} { earlyTraderBlacklistCount, earlyTraderWhitelistCount, earlyTraderUniqueParticipants, earlyTraderCanBuy, reason }
+   */
+  async checkEarlyTradersRisk(trades) {
+    try {
+      // 确保缓存已加载
+      await this._ensureCacheLoaded();
+
+      // 边界情况：无交易数据
+      if (!trades || trades.length === 0) {
+        return {
+          earlyTraderBlacklistCount: 0,
+          earlyTraderWhitelistCount: 0,
+          earlyTraderUniqueParticipants: 0,
+          earlyTraderCanBuy: true,
+          reason: '无早期交易数据'
+        };
+      }
+
+      // 提取所有唯一参与者地址（买方 + 卖方）
+      const participants = new Set();
+      for (const trade of trades) {
+        if (trade.from_address) participants.add(trade.from_address.toLowerCase());
+        if (trade.to_address) participants.add(trade.to_address.toLowerCase());
+      }
+
+      // 与黑白名单匹配
+      let blacklistCount = 0;
+      let whitelistCount = 0;
+
+      for (const addr of participants) {
+        // 白名单优先（与持有者检查逻辑一致）
+        if (this._whitelistAddresses.has(addr)) {
+          whitelistCount++;
+        } else if (this._blacklistAddresses.has(addr)) {
+          blacklistCount++;
+        }
+      }
+
+      const canBuy = this._evaluateCanBuy(whitelistCount, blacklistCount);
+      const reason = this._getEarlyTraderReason(whitelistCount, blacklistCount, canBuy);
+
+      this.logger.info('[TokenHolderService] 早期交易者黑白名单检查结果', {
+        unique_participants: participants.size,
+        blacklist_count: blacklistCount,
+        whitelist_count: whitelistCount,
+        canBuy,
+        reason
+      });
+
+      return {
+        earlyTraderBlacklistCount: blacklistCount,
+        earlyTraderWhitelistCount: whitelistCount,
+        earlyTraderUniqueParticipants: participants.size,
+        earlyTraderCanBuy: canBuy,
+        reason
+      };
+
+    } catch (error) {
+      this.logger.error('[TokenHolderService] 早期交易者黑白名单检查失败', {
+        error: _safeGetErrorMessage(error)
+      });
+      return {
+        earlyTraderBlacklistCount: 0,
+        earlyTraderWhitelistCount: 0,
+        earlyTraderUniqueParticipants: 0,
+        earlyTraderCanBuy: false,
+        reason: `检查失败: ${_safeGetErrorMessage(error)}`
+      };
+    }
+  }
+
+  /**
+   * 生成早期交易者黑白名单原因说明
+   * @private
+   * @param {number} whitelistCount - 白名单数量
+   * @param {number} blacklistCount - 黑名单数量
+   * @param {boolean} canBuy - 是否可以购买
+   * @returns {string}
+   */
+  _getEarlyTraderReason(whitelistCount, blacklistCount, canBuy) {
+    if (canBuy) {
+      if (whitelistCount === 0 && blacklistCount === 0) {
+        return '早期交易者无黑白名单命中';
+      }
+      return `白名单${whitelistCount}个 >= 黑名单${blacklistCount}个 × 2，且黑名单 ≤ 10`;
+    }
+
+    if (blacklistCount > 10) {
+      return `早期交易者黑名单过多(${blacklistCount}个 > 10)`;
+    }
+    if (blacklistCount > 0 && whitelistCount < blacklistCount * 2) {
+      return `早期交易者白名单不足(${whitelistCount}个 < 黑名单${blacklistCount}个 × 2)`;
+    }
+    if (blacklistCount > 0 && whitelistCount === 0) {
+      return `早期交易者命中黑名单但无白名单抵消(${blacklistCount}个黑名单)`;
+    }
+    return '未知原因';
+  }
+
+  /**
    * 检查Dev持仓比例是否超过阈值
    * @param {string} tokenAddress - 代币地址
    * @param {string} creatorAddress - 创建者地址

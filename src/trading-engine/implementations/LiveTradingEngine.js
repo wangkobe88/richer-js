@@ -1817,12 +1817,15 @@ class LiveTradingEngine extends AbstractTradingEngine {
             preBuyCheck: factorResults.preBuyCheck || 0,
             checkTimestamp: factorResults.checkTimestamp || null,
             checkDuration: factorResults.checkDuration || null,
-            holderWhitelistCount: factorResults.holderWhitelistCount || 0,
-            holderBlacklistCount: factorResults.holderBlacklistCount || 0,
             holdersCount: factorResults.holdersCount || 0,
             devHoldingRatio: factorResults.devHoldingRatio || 0,
             maxHoldingRatio: factorResults.maxHoldingRatio || 0,
             holderCanBuy: factorResults.holderCanBuy ?? null,
+            // 早期交易者黑白名单因子
+            earlyTraderBlacklistCount: factorResults.earlyTraderBlacklistCount || 0,
+            earlyTraderWhitelistCount: factorResults.earlyTraderWhitelistCount || 0,
+            earlyTraderUniqueParticipants: factorResults.earlyTraderUniqueParticipants || 0,
+            earlyTraderCanBuy: factorResults.earlyTraderCanBuy ?? null,
             preTraderCanBuy: factorResults.preTraderCanBuy ?? null,
             preTraderCheckReason: factorResults.preTraderCheckReason ?? null,
             // 早期参与者检查因子
@@ -1968,7 +1971,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
             this.logger.warn(this._experimentId, '_executeStrategy',
               `购买前检查失败 | symbol=${token.symbol}, holderCanBuy=${preBuyCheckResult.holderCanBuy}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
               `reason=${preBuyCheckResult.checkReason}, ` +
-              `whitelist=${preBuyCheckResult.holderWhitelistCount}, blacklist=${preBuyCheckResult.holderBlacklistCount}, ` +
+              `whitelist=${preBuyCheckResult.earlyTraderWhitelistCount}, blacklist=${preBuyCheckResult.earlyTraderBlacklistCount}, ` +
               `devHoldingRatio=${(isNaN(preBuyCheckResult.devHoldingRatio) ? 'N/A' : preBuyCheckResult.devHoldingRatio.toFixed(1))}%, maxHoldingRatio=${(isNaN(preBuyCheckResult.maxHoldingRatio) ? 'N/A' : preBuyCheckResult.maxHoldingRatio.toFixed(1))}%`);
             preCheckPassed = false;
             blockReason = preBuyCheckResult.checkReason || 'pre_buy_check_failed';

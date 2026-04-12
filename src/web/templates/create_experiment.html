@@ -750,7 +750,7 @@
                 <div class="param-group pre-buy-check-group" style="grid-column: 1 / span 2;">
                     <label>🔍 首次购买检查条件（第1次买入）：</label>
                     <input type="text" name="buy_preCheck_condition_{INDEX}"
-                           placeholder="例如: holderBlacklistCount < 5 AND devHoldingRatio < 15 AND earlyTradesHighValueCount >= 8"
+                           placeholder="例如: earlyTraderBlacklistCount < 5 AND devHoldingRatio < 15 AND earlyTradesHighValueCount >= 8"
                            value=""
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <div class="text-xs text-gray-500 mt-1">
@@ -760,7 +760,8 @@
                         <details>
                             <summary class="cursor-pointer">📋 可用因子</summary>
                             <div class="mt-2 p-2 bg-gray-50 rounded text-xs">
-                                <strong>持有者检查:</strong> holderWhitelistCount, holderBlacklistCount, holdersCount, devHoldingRatio, maxHoldingRatio<br>
+                                <strong>早期交易者黑白名单:</strong> earlyTraderBlacklistCount, earlyTraderWhitelistCount, earlyTraderUniqueParticipants, earlyTraderCanBuy<br>
+                                <strong>持有者检查:</strong> holdersCount, devHoldingRatio, maxHoldingRatio<br>
                                 <strong>早期参与者:</strong> earlyTradesHighValueCount, earlyTradesHighValuePerMin, earlyTradesCountPerMin, earlyTradesVolumePerMin, earlyTradesWalletsPerMin, earlyTradesTotalCount, earlyTradesVolume, earlyTradesUniqueWallets, earlyTradesDataCoverage, earlyTradesFilteredCount<br>
                                 <strong>钱包簇:</strong> walletClusterSecondToFirstRatio, walletClusterMegaRatio, walletClusterTop2Ratio, walletClusterConcentration<br>
                                 <strong>叙事分析:</strong> narrativeRating (1=低质量, 2=中质量, 3=高质量, 9=未评级)

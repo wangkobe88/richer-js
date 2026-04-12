@@ -84,13 +84,16 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
   }
 
   return {
-    // 持有者检查因子
-    holderWhitelistCount: preBuyCheckResult.holderWhitelistCount || 0,
-    holderBlacklistCount: preBuyCheckResult.holderBlacklistCount || 0,
+    // 持有者检查因子（dev持仓、大额持仓仍基于持有者）
     holdersCount: preBuyCheckResult.holdersCount || 0,
     devHoldingRatio: preBuyCheckResult.devHoldingRatio || 0,
     maxHoldingRatio: preBuyCheckResult.maxHoldingRatio || 0,
     holderCanBuy: preBuyCheckResult.holderCanBuy ?? null,
+    // 早期交易者黑白名单因子（替代旧的持有者黑白名单）
+    earlyTraderBlacklistCount: preBuyCheckResult.earlyTraderBlacklistCount || 0,
+    earlyTraderWhitelistCount: preBuyCheckResult.earlyTraderWhitelistCount || 0,
+    earlyTraderUniqueParticipants: preBuyCheckResult.earlyTraderUniqueParticipants || 0,
+    earlyTraderCanBuy: preBuyCheckResult.earlyTraderCanBuy ?? null,
     // 早期参与者检查因子
     earlyTradesChecked: preBuyCheckResult.earlyTradesChecked || 0,
     earlyTradesCheckTimestamp: preBuyCheckResult.earlyTradesCheckTimestamp || null,

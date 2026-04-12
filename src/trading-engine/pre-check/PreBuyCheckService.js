@@ -20,19 +20,32 @@ const StrongTraderPositionService = require('./StrongTraderPositionService');
  * 用于诊断失败条件时显示友好的名称和格式化
  */
 const FACTOR_METADATA = {
-  // 持有者检查因子
-  holderWhitelistCount: {
-    name: '白名单持有者数量',
+  // 早期交易者黑白名单因子
+  earlyTraderWhitelistCount: {
+    name: '白名单早期交易者数量',
     format: v => v.toString(),
     unit: '',
     severity: 'info'
   },
-  holderBlacklistCount: {
-    name: '黑名单持有者数量',
+  earlyTraderBlacklistCount: {
+    name: '黑名单早期交易者数量',
     format: v => v.toString(),
     unit: '',
     severity: 'critical'
   },
+  earlyTraderUniqueParticipants: {
+    name: '早期交易唯一参与者数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
+  earlyTraderCanBuy: {
+    name: '早期交易者购买资格',
+    format: v => v ? '通过' : '未通过',
+    unit: '',
+    severity: 'critical'
+  },
+  // 持有者检查因子
   holdersCount: {
     name: '持有者总数',
     format: v => v.toString(),
@@ -480,6 +493,9 @@ class PreBuyCheckService {
         });
       }
 
+      // 早期交易者黑白名单检查（基于交易参与者，而非持有者）
+      const earlyTraderCheck = await this.holderService.checkEarlyTradersRisk(earlyParticipantCheck._trades);
+
       // 使用条件表达式评估
       return this._evaluateWithCondition(
         holderCheck,
@@ -488,6 +504,7 @@ class PreBuyCheckService {
         creatorDevCheck,
         twitterCheck,
         strongTraderCheck,
+        earlyTraderCheck,
         preBuyCheckCondition,
         startTime,
         options.drawdownFromHighest,  // 传入 drawdownFromHighest
@@ -512,12 +529,16 @@ class PreBuyCheckService {
         checkTimestamp: Date.now(),
         checkDuration: Date.now() - startTime,
 
-        holderWhitelistCount: 0,
-        holderBlacklistCount: 0,
         holdersCount: 0,
         devHoldingRatio: 0,
         maxHoldingRatio: 0,
         holderCanBuy: false,
+
+        // 早期交易者黑白名单因子
+        earlyTraderBlacklistCount: 0,
+        earlyTraderWhitelistCount: 0,
+        earlyTraderUniqueParticipants: 0,
+        earlyTraderCanBuy: false,
 
         holderCheckReason: `检查失败: ${errorMessage}`,
         blacklistReason: `检查失败: ${errorMessage}`,
@@ -563,12 +584,13 @@ class PreBuyCheckService {
    * @param {Object} creatorDevCheck - 创建者Dev检查结果
    * @param {Object} twitterCheck - Twitter检查结果
    * @param {Object} strongTraderCheck - 强势交易者持仓检查结果
+   * @param {Object} earlyTraderCheck - 早期交易者黑白名单检查结果
    * @param {string} condition - 条件表达式
    * @param {number} startTime - 开始时间戳
    * @param {number} drawdownFromHighest - 从最高价跌幅
    * @param {Object} extraContext - 额外上下文 { buyRound, lastPairReturnRate, narrativeRating }
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, twitterCheck, strongTraderCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, twitterCheck, strongTraderCheck, earlyTraderCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -576,9 +598,7 @@ class PreBuyCheckService {
       checkTimestamp: Date.now(),
       checkDuration: Date.now() - startTime,
 
-      // 持有者检查结果
-      holderWhitelistCount: holderCheck.whitelistCount || 0,
-      holderBlacklistCount: holderCheck.blacklistCount || 0,
+      // 持有者检查结果（dev持仓、大额持仓仍基于持有者）
       holdersCount: holderCheck.holdersCount || 0,
       devHoldingRatio: holderCheck.devHoldingRatio || 0,
       maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
@@ -586,8 +606,14 @@ class PreBuyCheckService {
 
       // 持有者检查详细原因
       holderCheckReason: holderCheck.reason,
-      blacklistReason: holderCheck.blacklistReason,
       devCheckReason: holderCheck.devReason,
+
+      // 早期交易者黑白名单检查结果
+      earlyTraderBlacklistCount: earlyTraderCheck.earlyTraderBlacklistCount || 0,
+      earlyTraderWhitelistCount: earlyTraderCheck.earlyTraderWhitelistCount || 0,
+      earlyTraderUniqueParticipants: earlyTraderCheck.earlyTraderUniqueParticipants || 0,
+      earlyTraderCanBuy: earlyTraderCheck.earlyTraderCanBuy ?? false,
+      earlyTraderBlacklistReason: earlyTraderCheck.reason || '',
 
       // 创建者Dev钱包检查（1=不在Dev列表中, 0=在Dev列表中）
       creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
@@ -624,9 +650,12 @@ class PreBuyCheckService {
     try {
       // 构建评估上下文
       const context = {
-        // 持有者因子
-        holderWhitelistCount: holderCheck.whitelistCount || 0,
-        holderBlacklistCount: holderCheck.blacklistCount || 0,
+        // 早期交易者黑白名单因子（替代旧的持有者黑白名单因子）
+        earlyTraderBlacklistCount: earlyTraderCheck.earlyTraderBlacklistCount || 0,
+        earlyTraderWhitelistCount: earlyTraderCheck.earlyTraderWhitelistCount || 0,
+        earlyTraderUniqueParticipants: earlyTraderCheck.earlyTraderUniqueParticipants || 0,
+        earlyTraderCanBuy: earlyTraderCheck.earlyTraderCanBuy ? 1 : 0,
+        // 持有者因子（dev持仓、大额持仓仍基于持有者）
         holdersCount: holderCheck.holdersCount || 0,
         devHoldingRatio: holderCheck.devHoldingRatio || 0,
         maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
@@ -707,7 +736,8 @@ class PreBuyCheckService {
         condition,
         canBuy,
         context: {
-          holderBlacklistCount: context.holderBlacklistCount,
+          earlyTraderBlacklistCount: context.earlyTraderBlacklistCount,
+          earlyTraderWhitelistCount: context.earlyTraderWhitelistCount,
           devHoldingRatio: context.devHoldingRatio,
           maxHoldingRatio: context.maxHoldingRatio,
           earlyTradesHighValueCount: context.earlyTradesHighValueCount,
@@ -761,16 +791,13 @@ class PreBuyCheckService {
       checkTimestamp: Date.now(),
       checkDuration: Date.now() - startTime,
 
-      // 持有者检查结果
-      holderWhitelistCount: holderCheck.whitelistCount,
-      holderBlacklistCount: holderCheck.blacklistCount,
+      // 持有者检查结果（dev持仓、大额持仓仍基于持有者）
       holdersCount: holderCheck.holdersCount,
       devHoldingRatio: holderCheck.devHoldingRatio,
       holderCanBuy: holderCheck.canBuy,
 
       // 持有者检查详细原因
       holderCheckReason: holderCheck.reason,
-      blacklistReason: holderCheck.blacklistReason,
       devCheckReason: holderCheck.devReason,
 
       // 早期参与者检查结果
@@ -809,8 +836,6 @@ class PreBuyCheckService {
       preTraderCanBuy: result.preTraderCanBuy,
       canBuy: result.canBuy,
       checkReason: result.checkReason,
-      blacklistCount: result.holderBlacklistCount,
-      whitelistCount: result.holderWhitelistCount,
       devHoldingRatio: result.devHoldingRatio,
       earlyTradesTotalCount: result.earlyTradesTotalCount || 0,
       earlyTradesVolumePerMin: result.earlyTradesVolumePerMin || 0,
@@ -841,7 +866,7 @@ class PreBuyCheckService {
 
   /**
    * 从条件表达式中提取因子名称
-   * 例如: "holderBlacklistCount === 0" -> "holderBlacklistCount"
+   * 例如: "earlyTraderBlacklistCount === 0" -> "earlyTraderBlacklistCount"
    * @private
    */
   _extractFactorName(expression) {
@@ -882,8 +907,8 @@ class PreBuyCheckService {
 
   /**
    * 解析条件表达式，提取所有原子条件
-   * 例如: "holderBlacklistCount === 0 && devHoldingRatio < 15"
-   * -> ["holderBlacklistCount === 0", "devHoldingRatio < 15"]
+   * 例如: "earlyTraderBlacklistCount === 0 && devHoldingRatio < 15"
+   * -> ["earlyTraderBlacklistCount === 0", "devHoldingRatio < 15"]
    * @private
    */
   _parseCondition(condition) {
@@ -924,7 +949,7 @@ class PreBuyCheckService {
 
   /**
    * 提取条件的期望部分（用于显示）
-   * 例如: "holderBlacklistCount === 0" -> "=== 0"
+   * 例如: "earlyTraderBlacklistCount === 0" -> "=== 0"
    * @private
    */
   _extractExpectedPart(expression) {
@@ -1390,12 +1415,15 @@ class PreBuyCheckService {
       preBuyCheck: 0,
       checkTimestamp: null,
       checkDuration: null,
-      holderWhitelistCount: 0,
-      holderBlacklistCount: 0,
       holdersCount: 0,
       devHoldingRatio: 0,
       maxHoldingRatio: 0,
       holderCanBuy: null,
+      // 早期交易者黑白名单因子
+      earlyTraderBlacklistCount: 0,
+      earlyTraderWhitelistCount: 0,
+      earlyTraderUniqueParticipants: 0,
+      earlyTraderCanBuy: null,
       preTraderCanBuy: null,
       preTraderCheckReason: null,
       // 创建者Dev钱包检查（默认值：null 表示未检查）

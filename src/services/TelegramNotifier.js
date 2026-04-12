@@ -145,19 +145,19 @@ class TelegramNotifier {
       }
     }
 
-    // 持有者检查（紧凑一行，带状态）
-    if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined) {
-      const holderStatus = factorStatus.get('holderBlacklistCount');
-      const statusIcon = holderStatus === 'pass' ? '✅' : holderStatus === 'fail' ? '❌' : '';
+    // 早期交易者黑白名单 + 持有者检查（紧凑一行，带状态）
+    if (pf.earlyTraderBlacklistCount !== undefined || pf.holdersCount !== undefined) {
+      const traderStatus = factorStatus.get('earlyTraderBlacklistCount');
+      const statusIcon = traderStatus === 'pass' ? '✅' : traderStatus === 'fail' ? '❌' : '';
       const holderParts = [];
-      if (pf.holderTotalCount !== undefined) {
-        holderParts.push(`总数: \`${pf.holderTotalCount}\``);
+      if (pf.earlyTraderWhitelistCount !== undefined) {
+        holderParts.push(`白名单: \`${pf.earlyTraderWhitelistCount}\``);
       }
-      if (pf.holderWhitelistCount !== undefined) {
-        holderParts.push(`白名单: \`${pf.holderWhitelistCount}\``);
+      if (pf.earlyTraderBlacklistCount !== undefined) {
+        holderParts.push(`黑名单: \`${pf.earlyTraderBlacklistCount}\``);
       }
-      if (pf.holderBlacklistCount !== undefined) {
-        holderParts.push(`黑名单: \`${pf.holderBlacklistCount}\``);
+      if (pf.earlyTraderUniqueParticipants !== undefined) {
+        holderParts.push(`参与者: \`${pf.earlyTraderUniqueParticipants}\``);
       }
       if (pf.devHoldingRatio !== undefined && pf.devHoldingRatio !== null) {
         holderParts.push(`Dev持仓: \`${this.formatPercent(pf.devHoldingRatio)}\``);

@@ -2058,23 +2058,25 @@ class ExperimentSignals {
         `;
       }
 
-      // 第二阶段：持有者检查信息
+      // 第二阶段：早期交易者黑白名单 + 持有者检查信息
       let holderCheckHtml = '';
-      if (pf.holderWhitelistCount !== undefined || pf.holderBlacklistCount !== undefined || pf.holdersCount !== undefined) {
-        const whitelistClass = this._getFactorClass('holderWhitelistCount', pf.holderWhitelistCount || 0, preCheckThresholds);
-        const blacklistClass = this._getFactorClass('holderBlacklistCount', pf.holderBlacklistCount || 0, preCheckThresholds);
+      if (pf.earlyTraderBlacklistCount !== undefined || pf.holdersCount !== undefined) {
+        const traderWhitelistClass = this._getFactorClass('earlyTraderWhitelistCount', pf.earlyTraderWhitelistCount || 0, preCheckThresholds);
+        const traderBlacklistClass = this._getFactorClass('earlyTraderBlacklistCount', pf.earlyTraderBlacklistCount || 0, preCheckThresholds);
         const devClass = this._getFactorClass('devHoldingRatio', pf.devHoldingRatio || 0, preCheckThresholds);
         const maxClass = this._getFactorClass('maxHoldingRatio', pf.maxHoldingRatio || 0, preCheckThresholds);
 
         holderCheckHtml = `
           <div class="mt-2 pt-2 border-t border-amber-300">
-            <div class="text-xs font-semibold text-amber-900 mb-1">👥 持有者检查因子</div>
+            <div class="text-xs font-semibold text-amber-900 mb-1">👥 黑白名单 & 持有者检查因子</div>
             <div class="grid grid-cols-2 gap-2 text-xs">
-              <div><span class="text-amber-800">白名单数:</span> <span class="${whitelistClass}">${pf.holderWhitelistCount || 0}</span></div>
-              <div><span class="text-amber-800">黑名单数:</span> <span class="${blacklistClass}">${pf.holderBlacklistCount || 0}</span></div>
+              <div><span class="text-amber-800">交易者白名单:</span> <span class="${traderWhitelistClass}">${pf.earlyTraderWhitelistCount || 0}</span></div>
+              <div><span class="text-amber-800">交易者黑名单:</span> <span class="${traderBlacklistClass}">${pf.earlyTraderBlacklistCount || 0}</span></div>
+              <div><span class="text-amber-800">交易参与者:</span> <span class="text-gray-900">${pf.earlyTraderUniqueParticipants || 0}</span></div>
               <div><span class="text-amber-800">持有人数:</span> <span class="text-gray-900">${pf.holdersCount || 0}</span></div>
               <div><span class="text-amber-800">Dev持有:</span> <span class="${devClass}">${formatPercent(pf.devHoldingRatio)}</span></div>
               <div><span class="text-amber-800">最大持仓:</span> <span class="${maxClass}">${formatPercent(pf.maxHoldingRatio)}</span></div>
+              ${pf.earlyTraderCanBuy !== undefined ? `<div><span class="text-amber-800">交易者检查:</span> <span class="${pf.earlyTraderCanBuy ? 'text-green-600' : 'text-red-600'}">${pf.earlyTraderCanBuy ? '✅ 通过' : '❌ 失败'}</span></div>` : ''}
               ${pf.holderCanBuy !== undefined ? `<div><span class="text-amber-800">持有者检查:</span> <span class="${pf.holderCanBuy ? 'text-green-600' : 'text-red-600'}">${pf.holderCanBuy ? '✅ 通过' : '❌ 失败'}</span></div>` : ''}
             </div>
           </div>
