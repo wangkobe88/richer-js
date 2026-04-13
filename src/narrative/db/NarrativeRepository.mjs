@@ -172,6 +172,9 @@ export class NarrativeRepository {
       llm_stage3_success: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_success, existing?.llm_stage3_success),
       llm_stage3_error: hasStage3ClearFlag ? null : this._mergeField(result.llm_stage3_error, existing?.llm_stage3_error),
 
+      // === Stage Final 字段（代码聚合结果）- 允许覆盖 ===
+      llm_stage_final_result: result.llm_stage_final_result ?? existing?.llm_stage_final_result ?? null,
+
       // === Debug字段（2个）- 允许覆盖 ===
       url_extraction_result: result.url_extraction_result ?? existing?.url_extraction_result ?? null,
       data_fetch_results: result.data_fetch_results ?? existing?.data_fetch_results ?? null

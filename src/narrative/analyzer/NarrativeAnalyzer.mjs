@@ -252,6 +252,7 @@ export class NarrativeAnalyzer {
     let stage1DataToSave = null;
     let stage2DataToSave = null;
     let stage3DataToSave = null;
+    let stageFinalData = null;
 
     if (isPreCheckTriggered) {
       // 预检查触发，使用预设结果
@@ -520,10 +521,9 @@ export class NarrativeAnalyzer {
                 logger.debug('NarrativeAnalyzer', '开始Stage 3：代币分析');
                 const stage3Prompt = PromptBuilder.buildStage3TokenAnalysis(
                   tokenData,
-                  stage1Data,
-                  stage2Data
+                  stage1Data
                 );
-                logger.debug('NarrativeAnalyzer', `Stage 3 Prompt类型: 代币分析（使用Stage1+2输出）`);
+                logger.debug('NarrativeAnalyzer', `Stage 3 Prompt类型: 代币分析（使用Stage1输出）`);
 
                 // Stage 3：调用API（带元数据）
                 const stage3CallResult = await LLMClient.analyzeWithMetadata(stage3Prompt);
@@ -540,57 +540,66 @@ export class NarrativeAnalyzer {
                 // 使用 parseResponse 的结果（已支持新格式）
                 const stage3Data = stage3CallResult.parsed || {};
 
-                // 关联性底线规则：如果关联性得分 ≤ 10分，强制category为low
-                // 这是代码层面的强制执行，防止LLM忽略prompt中的规则
+                // ========== 分数聚合：Stage 2（事件分）+ Stage 3（代币分） ==========
+                // Stage 3 输出 pass/fail + 分数，Stage 2 输出事件分，最终 category 由代码聚合
+                const stage3Pass = stage3Data.pass;
                 const relevanceScore = stage3Data.relevanceScore ?? stage3Data.breakdown?.relevanceScore;
-                if (relevanceScore !== undefined && relevanceScore <= 10) {
-                  logger.info('NarrativeAnalyzer', '关联性底线规则触发，强制category为low', {
-                    originalCategory: stage3Data.category,
-                    relevanceScore: relevanceScore,
-                    totalScore: stage3Data.total_score
-                  });
-                  stage3Data.category = 'low';
-                }
-
-                // 质量底线规则：如果质量得分 ≤ 4分，强制category为low
-                // 仅在关联性 > 10（关联性底线未触发）时检查
                 const qualityScore = stage3Data.qualityScore ?? stage3Data.breakdown?.qualityScore;
-                if ((relevanceScore === undefined || relevanceScore > 10) && qualityScore !== undefined && qualityScore <= 4) {
-                  logger.info('NarrativeAnalyzer', '质量底线规则触发，强制category为low', {
-                    originalCategory: stage3Data.category,
-                    qualityScore: qualityScore,
+
+                let aggregatedCategory;
+                let aggregatedTotalScore;
+                let eventScore = null;
+                const stage2TotalScore = stage2Data.categoryAnalysis?.totalScore;
+
+                if (stage3Pass === false) {
+                  // Stage 3 截断触发（品牌劫持/拼写错误/关联性不足/质量过低）
+                  aggregatedCategory = 'low';
+                  aggregatedTotalScore = null;
+                  logger.info('NarrativeAnalyzer', 'Stage 3截断触发', {
+                    blockReason: stage3Data.blockReason,
                     relevanceScore: relevanceScore,
-                    totalScore: stage3Data.total_score
+                    qualityScore: qualityScore
                   });
-                  stage3Data.category = 'low';
-                }
-
-                // 总分→category 映射规则：代码级强制，防止LLM不遵守决策树
-                // 仅在关联性 > 10（底线规则未触发）且 质量 > 4（质量底线未触发）时执行
-                const passedAllFloors = (relevanceScore === undefined || relevanceScore > 10) && (qualityScore === undefined || qualityScore > 4);
-                if (passedAllFloors) {
-                  const totalScore = stage3Data.total_score;
-                  if (totalScore !== undefined) {
-                    let enforcedCategory;
-                    if (totalScore >= 70) enforcedCategory = 'high';
-                    else if (totalScore >= 50) enforcedCategory = 'mid';
-                    else enforcedCategory = 'low';
-
-                    if (stage3Data.category !== enforcedCategory) {
-                      logger.info('NarrativeAnalyzer', '总分→category映射纠正', {
-                        originalCategory: stage3Data.category,
-                        enforcedCategory: enforcedCategory,
-                        totalScore: totalScore,
-                        relevanceScore: relevanceScore
-                      });
-                      stage3Data.category = enforcedCategory;
-                    }
+                } else {
+                  // Stage 3 通过，计算加权总分
+                  if (stage2TotalScore !== undefined) {
+                    eventScore = Math.round(stage2TotalScore * 0.6 * 100) / 100;
                   }
+                  aggregatedTotalScore = (eventScore || 0) + (relevanceScore || 0) + (qualityScore || 0);
+
+                  if (aggregatedTotalScore >= 70) aggregatedCategory = 'high';
+                  else if (aggregatedTotalScore >= 50) aggregatedCategory = 'mid';
+                  else aggregatedCategory = 'low';
+
+                  logger.info('NarrativeAnalyzer', '分数聚合结果', {
+                    stage2TotalScore: stage2TotalScore,
+                    eventScore: eventScore,
+                    relevanceScore: relevanceScore,
+                    qualityScore: qualityScore,
+                    aggregatedTotalScore: aggregatedTotalScore,
+                    aggregatedCategory: aggregatedCategory
+                  });
                 }
 
-                // 同步 raw.category，确保 resolveFinalCategory 读取到纠正后的值
-                if (stage3Data.raw && stage3Data.raw.category !== stage3Data.category) {
-                  stage3Data.raw.category = stage3Data.category;
+                // ========== Stage Final：聚合结果 ==========
+                stageFinalData = {
+                  category: aggregatedCategory,
+                  totalScore: aggregatedTotalScore,
+                  eventScore: eventScore,
+                  relevanceScore: relevanceScore,
+                  qualityScore: qualityScore,
+                  eventWeight: 0.6,
+                  stage2TotalScore: stage2TotalScore || null,
+                  blockReason: stage3Pass === false ? stage3Data.blockReason : null
+                };
+
+                // 将聚合结果写入 stage3Data，供 resolveFinalCategory 和后续代码使用
+                stage3Data.category = aggregatedCategory;
+                stage3Data.total_score = aggregatedTotalScore;
+
+                // 同步 raw.category，确保 resolveFinalCategory 读取到聚合后的值
+                if (stage3Data.raw && stage3Data.raw.category !== aggregatedCategory) {
+                  stage3Data.raw.category = aggregatedCategory;
                 }
 
                 stage3DataToSave = {
@@ -736,6 +745,9 @@ export class NarrativeAnalyzer {
       llm_stage3_success: stage3DataToSave?.success ?? null,
       llm_stage3_error: stage3DataToSave?.error || null,
 
+      // === Stage Final 字段（代码聚合结果）===
+      llm_stage_final_result: stageFinalData || null,
+
       // === Debug字段（2个）===
       url_extraction_result: urlExtractionResult || null,
       data_fetch_results: dataFetchResults || null
@@ -792,11 +804,12 @@ export class NarrativeAnalyzer {
         success: stage3DataToSave.success,
         error: stage3DataToSave.error
       } : null,
+      stageFinal: stageFinalData || null,
       // 评分和理由（用于概览卡片）
       summary: {
-        category: llmResult.category,
+        category: stageFinalData?.category || llmResult.category,
         reasoning: llmResult.reasoning,
-        total_score: llmResult.total_score,
+        total_score: stageFinalData?.totalScore ?? llmResult.total_score,
         scores: llmResult.scores
       }
     };

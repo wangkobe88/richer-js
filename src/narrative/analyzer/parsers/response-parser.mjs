@@ -712,7 +712,7 @@ export function formatResult(record) {
     },
     category: (record.pre_check_category && record.pre_check_category !== 'unrated')
       ? record.pre_check_category
-      : (record.llm_stage3_category || record.llm_stage2_category || record.llm_stage1_category || record.llm_prestage_category || 'unrated'),
+      : (record.llm_stage_final_result?.category || record.llm_stage3_category || record.llm_stage2_category || record.llm_stage1_category || record.llm_prestage_category || 'unrated'),
     reasoning: '',
     scores: null,
     total_score: null,
@@ -742,8 +742,10 @@ export function formatResult(record) {
     result.scores = record.pre_check_result.scores;
   }
 
-  // 解析 total_score
-  if (parsedOutput && parsedOutput.total_score !== undefined) {
+  // 解析 total_score（优先使用 Stage Final 聚合结果）
+  if (record.llm_stage_final_result?.totalScore !== undefined) {
+    result.total_score = record.llm_stage_final_result.totalScore;
+  } else if (parsedOutput && parsedOutput.total_score !== undefined) {
     result.total_score = parsedOutput.total_score;
   }
   // 预检查的total_score

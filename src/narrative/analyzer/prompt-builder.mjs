@@ -167,11 +167,10 @@ export class PromptBuilder {
    * 构建Stage 3 Prompt（3阶段架构：代币分析）
    * @param {Object} tokenData - 代币数据
    * @param {Object} stage1Output - Stage 1输出
-   * @param {Object} stage2Output - Stage 2输出
    * @returns {string} Stage 3 Prompt
    */
-  static buildStage3TokenAnalysis(tokenData, stage1Output, stage2Output) {
-    return buildStage3TokenAnalysisPrompt(tokenData, stage1Output, stage2Output);
+  static buildStage3TokenAnalysis(tokenData, stage1Output) {
+    return buildStage3TokenAnalysisPrompt(tokenData, stage1Output);
   }
 
   /**
