@@ -56,7 +56,47 @@
 /**
  * Prompt版本号
  */
-export const STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION = 'V19.0';
+export const STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION = 'V19.1';
+
+/**
+ * 品牌劫持关键词预检表
+ * 仅包含影响力极大的知名品牌，用于快速判断是否需要在Prompt中包含品牌劫持检查章节。
+ * 代币Symbol/Name（去除emoji、数字、特殊字符后）如果包含词表中任何一项，
+ * 则在Prompt中包含品牌劫持检查章节，否则省略以节省token和推理时间。
+ */
+const BRAND_HIJACK_KEYWORDS = [
+  // A类：头部知名代币
+  'btc', 'bitcoin', '比特币', 'eth', 'ethereum', '以太坊', 'bnb', 'sol', 'solana',
+  'xrp', 'doge', 'dogecoin', 'pepe', 'shib', 'usdt', 'usdc', 'link', 'uni', 'aave', 'floki',
+  // B类：全球级名人
+  'cz', '赵长鹏', 'elon', 'musk', '马斯克', 'trump', '特朗普',
+  'vitalik', '何一', '孙宇晨', 'sbf',
+  // C类：头部知名机构
+  'binance', '币安', 'coinbase', 'openai', 'google', '谷歌',
+];
+
+/**
+ * 检查代币名是否可能命中品牌劫持规则
+ * @param {string} symbol - 代币Symbol
+ * @param {string} name - 代币Name
+ * @returns {boolean} 是否需要在Prompt中包含品牌劫持检查
+ */
+function shouldIncludeBrandHijackCheck(symbol, name) {
+  const normalize = (str) => {
+    if (!str) return '';
+    return str.toLowerCase()
+      .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '') // 移除emoji
+      .replace(/\d/g, '')                     // 移除数字
+      .replace(/[^a-z\u4e00-\u9fff]/g, '');   // 只保留小写字母和中文
+  };
+
+  const normalizedSymbol = normalize(symbol);
+  const normalizedName = normalize(name);
+
+  return BRAND_HIJACK_KEYWORDS.some(kw =>
+    normalizedSymbol.includes(kw) || normalizedName.includes(kw)
+  );
+}
 
 /**
  * 构建Stage 3代币分析Prompt
@@ -69,54 +109,11 @@ export function buildStage3TokenAnalysisPrompt(tokenData, stage1Output) {
   const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
   const chainName = (tokenData.blockchain || tokenData.platform || 'BSC').toUpperCase();
 
-  return `你是代币分析专家。请基于前两个阶段的分析结果，评估代币与事件的关联性及其传播潜力。
+  // 品牌劫持预检：仅当代币名可能命中品牌时，才在Prompt中包含1.0节
+  const includeBrandCheck = shouldIncludeBrandHijackCheck(symbol, tokenName);
 
-【代币信息】
-- 代币Symbol：${symbol}${tokenName ? ` (${tokenName})` : ''}
-- 代币地址：${tokenData.address}
-- 所属链：${chainName}${chainName === 'BSC' ? '（币安智能链）' : ''}
-
-═══════════════════════════════════════════════════════════════════════════════
-
-📋 **Stage 1：事件预处理结果**
-
-${stage1Output?.pass ? '✅ 通过' : '❌ 未通过'}
-${stage1Output?.reason ? `原因：${stage1Output.reason}` : ''}
-
-【事件描述】
-- 主题：${stage1Output?.eventDescription?.eventTheme || '未知'}
-- 主体：${stage1Output?.eventDescription?.eventSubject || '未知'}
-- 事件内容：${stage1Output?.eventDescription?.eventContent || '无详细描述'}
-- 时效性：${stage1Output?.eventDescription?.eventTiming || '未知'}
-- 关键实体：${stage1Output?.eventDescription?.keyEntities?.join(', ') || '无'}
-- 关键数据：${JSON.stringify(stage1Output?.eventDescription?.keyData || {})}
-
-【事件分类】
-- 主类别：${stage1Output?.eventClassification?.primaryCategory || '未知'}（${stage1Output?.eventClassification?.primaryCategoryName || ''}）
-- 可能类别：${stage1Output?.eventClassification?.possibleCategories?.join(', ') || '无'}
-- 置信度：${stage1Output?.eventClassification?.confidence || '未知'}
-
-【性质标记】
-${stage1Output?.propertyMarkers ? `
-- 推测性：${stage1Output.propertyMarkers.speculative ? '是' : '否'}${stage1Output.propertyMarkers.speculativeReason ? `（${stage1Output.propertyMarkers.speculativeReason}）` : ''}
-- 发现型：${stage1Output.propertyMarkers.discovery ? '是' : '否'}${stage1Output.propertyMarkers.discoveryReason ? `（${stage1Output.propertyMarkers.discoveryReason}）` : ''}
-- 营销性：${stage1Output.propertyMarkers.marketing ? '是' : '否'}${stage1Output.propertyMarkers.marketingReason ? `（${stage1Output.propertyMarkers.marketingReason}）` : ''}
-` : '- 无性质标记'}
-
-═══════════════════════════════════════════════════════════════════════════════
-
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                           Stage 3：代币分析框架                                ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
-【分析目标】
-1. 判断代币与事件是否存在有效关联
-2. 评估代币质量
-
-═══════════════════════════════════════════════════════════════════════════════
-
-📋 **第一步：代币-事件关联性检查**
-
+  // 条件化：品牌劫持检查节 + 门控逻辑
+  const brandHijackSection = includeBrandCheck ? `
 **1.0 品牌劫持风险检查**（最高优先级，必须在所有其他匹配规则之前执行）
 
 ⚠️ **核心事实**：此代币来自meme代币发行平台，平台上只能创建meme代币，不可能存在真正的知名代币。
@@ -125,14 +122,14 @@ ${stage1Output?.propertyMarkers ? `
 
 **判断规则**：
 
-如果代币名（Symbol或Name，去除emoji、数字、特殊字符后）与下面A/B/C类名称**完全匹配或高度相似**（包括：完全匹配、以品牌名开头并附加后缀如"BNBARMY"、品牌名的轻微变体如"BTCC"、拼写变体），则：
+如果代币名（Symbol或Name，去除emoji、数字、特殊字符后）与下面A/B/C类名称均没有**完全匹配或高度相似**，可以直接跳过这一节
+
+如果代币名（Symbol或Name，去除emoji、数字、特殊字符后）与下面A/B/C类名称**完全匹配或高度相似**，并且不满足**豁免条件**，则：
 
 1. **关联性得分必须设为0-5分**（品牌劫持，非真正关联）
 2. **名称合理性必须降到1-2分**（直接复制/模仿知名名称，缺乏原创性）
 3. **pass = false**，blockReason注明品牌劫持
 4. 理由：这种代币的"关联"只是蹭品牌热度，不是基于事件内容建立的真正叙事关联
-
-⚠️ 下面A/B/C三类各有豁免条件，满足豁免的不触发品牌劫持，进入正常评估。
 
 **A. 知名代币名称**（代表示例）：
 - BTC/Bitcoin, ETH/Ethereum, BNB, SOL/Solana, XRP, DOGE/Dogecoin, PEPE, SHIB, USDT, USDC, LINK, UNI, AAVE
@@ -204,7 +201,71 @@ ${stage1Output?.propertyMarkers ? `
 ⚠️ **品牌劫持的门控逻辑**：
 - 如果品牌劫持检查（1.0）触发且**不满足豁免条件** → pass = false，**跳过** 1.1-1.3 评分
 - 如果品牌劫持检查未触发，或触发但**满足豁免条件** → 进入 1.1-1.3 正常评分流程
+` : '';
 
+  // 条件化：截断规则（命中品牌时多一条规则）
+  const truncationRules = includeBrandCheck
+    ? `1. **品牌劫持触发且不满足豁免** → pass = false，blockReason注明品牌劫持类型（A/B/C类）
+2. **无背景拼写错误触发** → pass = false，blockReason注明"无背景拼写错误"
+3. **关联性得分 ≤ 10分** → pass = false，blockReason注明"关联性不足"
+4. **质量得分 ≤ 4分** → pass = false，blockReason注明"质量过低"`
+    : `1. **无背景拼写错误触发** → pass = false，blockReason注明"无背景拼写错误"
+2. **关联性得分 ≤ 10分** → pass = false，blockReason注明"关联性不足"
+3. **质量得分 ≤ 4分** → pass = false，blockReason注明"质量过低"`;
+
+  // 条件化：输出格式中blockReason示例
+  const blockReasonExamples = includeBrandCheck
+    ? "如'品牌劫持-A类'、'无背景拼写错误'、'关联性不足'、'质量过低'"
+    : "如'无背景拼写错误'、'关联性不足'、'质量过低'";
+
+  return `你是代币分析专家。请基于前两个阶段的分析结果，评估代币与事件的关联性及其传播潜力。
+
+【代币信息】
+- 代币Symbol：${symbol}${tokenName ? ` (${tokenName})` : ''}
+- 代币地址：${tokenData.address}
+- 所属链：${chainName}${chainName === 'BSC' ? '（币安智能链）' : ''}
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 **Stage 1：事件预处理结果**
+
+${stage1Output?.pass ? '✅ 通过' : '❌ 未通过'}
+${stage1Output?.reason ? `原因：${stage1Output.reason}` : ''}
+
+【事件描述】
+- 主题：${stage1Output?.eventDescription?.eventTheme || '未知'}
+- 主体：${stage1Output?.eventDescription?.eventSubject || '未知'}
+- 事件内容：${stage1Output?.eventDescription?.eventContent || '无详细描述'}
+- 时效性：${stage1Output?.eventDescription?.eventTiming || '未知'}
+- 关键实体：${stage1Output?.eventDescription?.keyEntities?.join(', ') || '无'}
+- 关键数据：${JSON.stringify(stage1Output?.eventDescription?.keyData || {})}
+
+【事件分类】
+- 主类别：${stage1Output?.eventClassification?.primaryCategory || '未知'}（${stage1Output?.eventClassification?.primaryCategoryName || ''}）
+- 可能类别：${stage1Output?.eventClassification?.possibleCategories?.join(', ') || '无'}
+- 置信度：${stage1Output?.eventClassification?.confidence || '未知'}
+
+【性质标记】
+${stage1Output?.propertyMarkers ? `
+- 推测性：${stage1Output.propertyMarkers.speculative ? '是' : '否'}${stage1Output.propertyMarkers.speculativeReason ? `（${stage1Output.propertyMarkers.speculativeReason}）` : ''}
+- 发现型：${stage1Output.propertyMarkers.discovery ? '是' : '否'}${stage1Output.propertyMarkers.discoveryReason ? `（${stage1Output.propertyMarkers.discoveryReason}）` : ''}
+- 营销性：${stage1Output.propertyMarkers.marketing ? '是' : '否'}${stage1Output.propertyMarkers.marketingReason ? `（${stage1Output.propertyMarkers.marketingReason}）` : ''}
+` : '- 无性质标记'}
+
+═══════════════════════════════════════════════════════════════════════════════
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                           Stage 3：代币分析框架                                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+【分析目标】
+1. 判断代币与事件是否存在有效关联
+2. 评估代币质量
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 **第一步：代币-事件关联性检查**
+${brandHijackSection}
 **1.1 精确匹配检查**（16-20分）
 
 判断代币名（Symbol/Name）是否与事件中的核心实体精确匹配：
@@ -347,12 +408,9 @@ ${stage1Output?.propertyMarkers ? `
 
 ⚠️ **必须按以下顺序逐条检查，触发任一条即停止，后续不再检查：**
 
-1. **品牌劫持触发且不满足豁免** → pass = false，blockReason注明品牌劫持类型（A/B/C类）
-2. **无背景拼写错误触发** → pass = false，blockReason注明"无背景拼写错误"
-3. **关联性得分 ≤ 10分** → pass = false，blockReason注明"关联性不足"
-4. **质量得分 ≤ 4分** → pass = false，blockReason注明"质量过低"
+${truncationRules}
 
-只有以上四条均未触发时，pass = true。
+只有以上${includeBrandCheck ? '四' : '三'}条均未触发时，pass = true。
 
 ⚠️ **关键原则：关联性得分在截断规则中不可重新评估**：
 - 第一步确定的关联性得分是最终值
@@ -367,7 +425,7 @@ ${stage1Output?.propertyMarkers ? `
 
 {
   "pass": true/false,
-  "blockReason": "阻断原因（pass为false时必填，如'品牌劫持-A类'、'无背景拼写错误'、'关联性不足'、'质量过低'；pass为true时为null）",
+  "blockReason": "阻断原因（pass为false时必填，${blockReasonExamples}；pass为true时为null）",
   "reasoning": "详细推理过程（必须明确说明：关联性得分是多少，质量得分是多少，是否触发截断，如果触发则说明'关联性N分≤10，触发截断规则'）",
   "relevanceScore": 关联性得分（满分20），
   "qualityScore": 质量得分（满分20），
