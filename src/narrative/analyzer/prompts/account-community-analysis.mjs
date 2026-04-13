@@ -17,6 +17,7 @@ import {
   getUserTweets,
   fetchCommunityTweets
 } from '../../../utils/twitter-validation/index.js';
+import { safeSubstring } from '../utils/data-cleaner.mjs';
 
 /**
  * Prompt版本号
@@ -123,7 +124,7 @@ export async function buildAccountCommunityAnalysisPrompt(tokenData, accountOrCo
 
   // 构建推文摘要
   const tweetsSummary = data.tweets.map((t, i) => {
-    return `${i + 1}. [${t.created_at}] ${t.text.substring(0, 100)}${t.text.length > 100 ? '...' : ''}`;
+    return `${i + 1}. [${t.created_at}] ${safeSubstring(t.text, 100)}`;
   }).join('\n');
 
   // 构建介绍信息部分
@@ -174,7 +175,7 @@ ${data.type === 'account' ? `
 ${tweetsSummary}
 ${extraOptions.projectCoinFromWebsite && extraOptions.websiteInfo?.content ? `
 【项目网站内容】（来源：${extraOptions.websiteInfo.url}）
-${extraOptions.websiteInfo.content.substring(0, 2000)}
+${safeSubstring(extraOptions.websiteInfo.content, 2000)}
 ` : ''}
 
 ╔══════════════════════════════════════════════════════════════════════════════╗

@@ -3,6 +3,8 @@
  * 用于获取网站正文内容，供叙事分析使用
  */
 
+import { safeSubstring } from '../analyzer/utils/data-cleaner.mjs';
+
 /**
  * 获取网页内容
  * @param {string} url - 网站URL
@@ -47,9 +49,7 @@ export async function fetchWebsiteContent(url, options = {}) {
     }
 
     // 截取内容
-    const truncatedContent = content.length > maxLength
-      ? content.substring(0, maxLength) + '...'
-      : content;
+    const truncatedContent = safeSubstring(content, maxLength);
 
     console.log(`[WebFetcher] 成功获取内容，长度: ${content.length} 字符`);
 
@@ -58,7 +58,7 @@ export async function fetchWebsiteContent(url, options = {}) {
       url: url,
       content: truncatedContent,
       original_length: content.length,
-      rawHtml: html.length > 10000 ? html.substring(0, 10000) : html
+      rawHtml: safeSubstring(html, 10000, '')
     };
 
   } catch (error) {

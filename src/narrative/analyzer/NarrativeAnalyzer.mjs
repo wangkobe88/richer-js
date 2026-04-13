@@ -552,6 +552,47 @@ export class NarrativeAnalyzer {
                   stage3Data.category = 'low';
                 }
 
+                // 质量底线规则：如果质量得分 ≤ 4分，强制category为low
+                // 仅在关联性 > 10（关联性底线未触发）时检查
+                const qualityScore = stage3Data.qualityScore ?? stage3Data.breakdown?.qualityScore;
+                if ((relevanceScore === undefined || relevanceScore > 10) && qualityScore !== undefined && qualityScore <= 4) {
+                  logger.info('NarrativeAnalyzer', '质量底线规则触发，强制category为low', {
+                    originalCategory: stage3Data.category,
+                    qualityScore: qualityScore,
+                    relevanceScore: relevanceScore,
+                    totalScore: stage3Data.total_score
+                  });
+                  stage3Data.category = 'low';
+                }
+
+                // 总分→category 映射规则：代码级强制，防止LLM不遵守决策树
+                // 仅在关联性 > 10（底线规则未触发）且 质量 > 4（质量底线未触发）时执行
+                const passedAllFloors = (relevanceScore === undefined || relevanceScore > 10) && (qualityScore === undefined || qualityScore > 4);
+                if (passedAllFloors) {
+                  const totalScore = stage3Data.total_score;
+                  if (totalScore !== undefined) {
+                    let enforcedCategory;
+                    if (totalScore >= 70) enforcedCategory = 'high';
+                    else if (totalScore >= 50) enforcedCategory = 'mid';
+                    else enforcedCategory = 'low';
+
+                    if (stage3Data.category !== enforcedCategory) {
+                      logger.info('NarrativeAnalyzer', '总分→category映射纠正', {
+                        originalCategory: stage3Data.category,
+                        enforcedCategory: enforcedCategory,
+                        totalScore: totalScore,
+                        relevanceScore: relevanceScore
+                      });
+                      stage3Data.category = enforcedCategory;
+                    }
+                  }
+                }
+
+                // 同步 raw.category，确保 resolveFinalCategory 读取到纠正后的值
+                if (stage3Data.raw && stage3Data.raw.category !== stage3Data.category) {
+                  stage3Data.raw.category = stage3Data.category;
+                }
+
                 stage3DataToSave = {
                   category: stage3Data.category || stage3CallResult.parsed?.category || null,
                   model: stage3CallResult.model,

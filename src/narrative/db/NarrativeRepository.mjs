@@ -186,7 +186,10 @@ export class NarrativeRepository {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[NarrativeRepository] save upsert失败:', JSON.stringify(error));
+      throw error;
+    }
     return data;
   }
 

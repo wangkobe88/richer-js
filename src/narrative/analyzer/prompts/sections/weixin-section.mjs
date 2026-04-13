@@ -2,6 +2,8 @@
  * 微信公众号文章 Section
  */
 
+import { safeSubstring } from '../../utils/data-cleaner.mjs';
+
 /**
  * 构建微信文章内容 section
  * @param {Object} weixinInfo - 微信文章信息
@@ -41,9 +43,7 @@ export function buildWeixinSection(weixinInfo) {
   // 正文内容（截取到合适长度）
   if (weixinInfo.content) {
     const maxLength = 2000;
-    const content = weixinInfo.content.length > maxLength
-      ? weixinInfo.content.substring(0, maxLength) + '...'
-      : weixinInfo.content;
+    const content = safeSubstring(weixinInfo.content, maxLength);
     section += `正文:\n${content}\n`;
   }
 

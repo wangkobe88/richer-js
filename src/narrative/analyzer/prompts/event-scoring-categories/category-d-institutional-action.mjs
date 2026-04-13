@@ -81,7 +81,7 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 
 📋 **第一步：前置判断 — 是否世界级机构**
 
-🎯 **判断eventSubject是否为世界级机构**：
+🎯 **判断上方【事件描述】中的主体是否为世界级机构**：
 - 世界级机构（Binance、Tesla、Apple、字节跳动等有全球影响力的机构）→ **是世界级机构**
 - 知名但非世界级 → **非世界级机构**
 - 普通公司/团队 → **非世界级机构**

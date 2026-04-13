@@ -2,6 +2,8 @@
  * Weibo Section - 微博信息（背景信息）
  */
 
+import { safeSubstring } from '../../utils/data-cleaner.mjs';
+
 /**
  * 构建微博信息section
  * @param {Object} backgroundInfo - 背景信息（微博）
@@ -15,7 +17,7 @@ export function buildWeiboSection(backgroundInfo) {
   const parts = [];
 
   parts.push(`【微博信息】`);
-  parts.push(`- 微博内容：${backgroundInfo.text?.substring(0, 300) || '无'}...`);
+  parts.push(`- 微博内容：${safeSubstring(backgroundInfo.text || '', 300) || '无'}`);
   parts.push(`- 作者：${backgroundInfo.author_name || backgroundInfo.author || '无'}`);
 
   if (backgroundInfo.author_followers_count) {

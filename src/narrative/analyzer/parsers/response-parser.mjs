@@ -431,6 +431,77 @@ export function parseJSONResponse(content) {
     return fixed;
   };
 
+  /**
+   * 修复JSON字符串值中未转义的双引号
+   * LLM可能在JSON字符串值内嵌入双引号，导致JSON解析失败
+   * 策略：逐字符遍历，追踪字符串边界，判断每个"是字符串结束符还是内容中的引号
+   */
+  const fixUnescapedQuotesInJSON = (str) => {
+    let result = '';
+    let inString = false;
+    let i = 0;
+
+    while (i < str.length) {
+      const ch = str[i];
+
+      if (inString) {
+        if (ch === '\\') {
+          // 转义字符，保留原文（包括下一个字符）
+          result += ch;
+          if (i + 1 < str.length) {
+            result += str[i + 1];
+            i += 2;
+            continue;
+          }
+          i++;
+          continue;
+        }
+
+        if (ch === '"') {
+          // 遇到双引号，判断是字符串结束还是内容中的引号
+          // 看后面的非空白字符：如果是JSON结构字符，认为是字符串结束
+          const nextNonSpace = skipSpaces(str, i + 1);
+          if (nextNonSpace === null || ']}:, '.includes(str[nextNonSpace])) {
+            // 这是字符串结束符
+            result += '"';
+            inString = false;
+          } else {
+            // 这是内容中的未转义引号，需要转义
+            result += '\\"';
+          }
+          i++;
+          continue;
+        }
+
+        // 普通字符
+        result += ch;
+        i++;
+      } else {
+        // 不在字符串中
+        if (ch === '"') {
+          inString = true;
+          result += '"';
+        } else {
+          result += ch;
+        }
+        i++;
+      }
+    }
+
+    return result;
+  };
+
+  /**
+   * 跳过空白字符，返回下一个非空白字符的索引
+   */
+  const skipSpaces = (str, start) => {
+    let j = start;
+    while (j < str.length && (str[j] === ' ' || str[j] === '\t' || str[j] === '\n' || str[j] === '\r')) {
+      j++;
+    }
+    return j < str.length ? j : null;
+  };
+
   // 先清理JSON字符串
   jsonStr = cleanJSONString(jsonStr);
 
@@ -459,6 +530,20 @@ export function parseJSONResponse(content) {
     result = parseResult.success ? parseResult.data : null;
     if (result) {
       console.log('[NarrativeAnalyzer] JSON解析: 修复常见问题后成功');
+    } else {
+      parseError = parseResult.error;
+      errorObj = parseResult.errorObj;
+    }
+  }
+
+  // 如果仍然失败，尝试修复字符串值中的未转义双引号
+  if (!result) {
+    console.log('[NarrativeAnalyzer] JSON解析: 尝试修复未转义双引号');
+    const fixedJsonStr = fixUnescapedQuotesInJSON(jsonStr);
+    parseResult = tryParseJSON(fixedJsonStr);
+    result = parseResult.success ? parseResult.data : null;
+    if (result) {
+      console.log('[NarrativeAnalyzer] JSON解析: 修复未转义双引号后成功');
     } else {
       parseError = parseResult.error;
       errorObj = parseResult.errorObj;

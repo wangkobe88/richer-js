@@ -3,6 +3,8 @@
  * 使用 JustOneAPI 获取 Amazon 产品详情
  */
 
+import { safeSubstring } from '../analyzer/utils/data-cleaner.mjs';
+
 const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/amazon/get-product-detail/v1';
 
@@ -94,8 +96,8 @@ export async function fetchProductInfo(url) {
       is_prime: product.is_prime || false,
       has_video: product.has_video || false,
       description: (product.about_product && product.about_product.length > 0)
-        ? product.about_product.join('\n').substring(0, 500)
-        : (product.product_description || null)?.substring(0, 500) || null,
+        ? safeSubstring(product.about_product.join('\n'), 500)
+        : safeSubstring(product.product_description || null, 500) || null,
       raw: product // 保留原始数据
     };
 

@@ -21,7 +21,7 @@
  * - 添加重要原则说明：评估重点是事件/IP本身的价值
  */
 
-export const CATEGORY_E_PROMPT_VERSION = 'V1.5';
+export const CATEGORY_E_PROMPT_VERSION = 'V1.6';
 
 export function buildCategoryEPrompt(eventDescription, eventClassification) {
   return `你是E类（社会热点/现象类）事件评分专家。包括发现型meme和娱乐热点。
@@ -148,6 +148,13 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
      * 豁免：和平协议、国际合作、人道主义援助等正面政治事件
    - 纯负面/愤怒事件（无正向情感）→ pass=false
      * 豁免：同情/保护事件（动物保护、弱势群体关怀）
+   - ⚠️ **骗局曝光/负面定性阻断**（高频漏洞，必须严格执行）：
+     * 如果事件的核心定性是**曝光/揭露/批评某概念为骗局、诈骗、陷阱、欺诈** → pass=false
+     * 判断标准：事件内容中是否包含"骗局"、"诈骗"、"陷阱"、"欺诈"、"曝光"等负面定性，且被否定的概念与代币概念直接相关
+     * 注意：即使事件对社会有"警示价值"，但对于**基于该被曝光概念发币的meme**来说，权威媒体说这个概念是骗局，代币就是负面事件
+     * 示例：央视曝光"Token就是数字石油"是骗局 → 代币"数字石油"应被阻断 → pass=false
+     * 示例：人民日报揭露"词元暴富"是陷阱 → 相关代币应被阻断 → pass=false
+     * ⚠️ 不要被"警示价值"迷惑：对一个骗局概念发币来说，"被曝光是骗局"就是最致命的负面
 
 **4. 娱乐热点阻断**：
    - 营销号八卦（无可信来源、可能编造）→ pass=false

@@ -124,9 +124,19 @@ class SameNameCheckService {
         strictMatchCount: strictSameNameTokens.length
       });
 
+      // 过滤掉无发布平台信息的代币（排除非平台发行的作弊币）
+      const platformTokens = strictSameNameTokens.filter(t => t.issue_platform);
+
+      this.logger.debug('SameNameCheck', '发布平台过滤完成', {
+        beforeFilter: strictSameNameTokens.length,
+        afterFilter: platformTokens.length
+      });
+
       // 筛选目标代币之前创建的（排除异常数据）
-      const olderTokens = strictSameNameTokens.filter(t =>
-        t.created_at < tokenCreatedAt && t.created_at > 0
+      // 豁免2分钟内的代币：同一叙事可能同时发布在两个链上，不算蹭热度
+      const MIN_COPYCAT_GAP_SECONDS = 2 * 60;
+      const olderTokens = platformTokens.filter(t =>
+        tokenCreatedAt - t.created_at > MIN_COPYCAT_GAP_SECONDS && t.created_at > 0
       );
 
       // 解析目标代币的 appendix（用于叙事对比）
@@ -200,8 +210,12 @@ class SameNameCheckService {
             name: t.name,
             symbol: t.symbol,
             createdAt: t.created_at,
-            hoursBefore: Math.round((tokenCreatedAt - t.created_at) / 3600),
+            minutesBefore: Math.round((tokenCreatedAt - t.created_at) / 60),
             fdv: t.fdv,
+            txVolume: t.tx_volume_u_24h,
+            txCount: t.tx_count_24h,
+            priceChange: t.price_change_24h,
+            chain: t.chain,
             appendix: t.appendix
           }))
         }
@@ -327,8 +341,9 @@ class SameNameCheckService {
       'his', 'her', 'our', 'their', 'this', 'that', 'these', 'those'
     ]);
 
-    // 优先使用name，如果name全中文则尝试symbol
+    // 从 name 和 symbol 中都提取关键词，合并去重
     const candidates = [name, symbol].filter(Boolean);
+    const allKeywords = new Set();
     for (const candidate of candidates) {
       const trimmed = candidate.trim();
       if (!trimmed) continue;
@@ -340,13 +355,15 @@ class SameNameCheckService {
         // 提取所有≥2字符的英文单词
         const words = englishPart.split(/\s+/).filter(w => w.length >= 2);
         if (words.length === 0) continue;
-        // 过滤停用词，去重
+        // 过滤停用词
         const filtered = words.filter(w => !STOP_WORDS.has(w.toLowerCase()));
         const pool = filtered.length > 0 ? filtered : words;
-        return [...new Set(pool.map(w => w.toLowerCase()))];
+        for (const w of pool) {
+          allKeywords.add(w.toLowerCase());
+        }
       }
     }
-    return [];
+    return [...allKeywords];
   }
 
   /**

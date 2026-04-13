@@ -38,7 +38,7 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 📋 **前置步骤：确认发布方身份**
 
 **Q1：这个产品/内容是谁发布/制作的？**
-- 答案就是eventSubject（事件主体）
+- 答案就是上方【事件描述】中的主体
 - ⚠️ 不是内容"关于谁"，而是"谁做的"
 
 **Q2：这个发布方是"官方"还是"第三方"？**
@@ -46,14 +46,14 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 - **第三方**：发布方 ≠ 产品/IP的拥有者，是外部个人/团队
 
 **Q3：发布方本身的影响力如何？**
-- 基于eventSubject本身的粉丝数、认证、知名度判断
+- 基于上方【事件描述】中的主体本身的粉丝数、认证、知名度判断
 - ⚠️ **不能因为内容涉及CZ/Binance等大IP就认为发布方有影响力**
 
 ═══════════════════════════════════════════════════════════════════════════════
 
 📋 **第一步：分量等级评估**（S-E级）
 
-⚠️ **分量等级基于发布方（eventSubject）的地位 + 产品本身的影响力**
+⚠️ **分量等级基于发布方（上方【事件描述】中的主体）的地位 + 产品本身的影响力**
 
 **S级分量**：世界级公司官方发布新产品、行业内具有颠覆性的产品（40分）
 **A级分量**：知名公司/机构发布产品、行业内有影响力的产品（32分）
@@ -104,7 +104,7 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 
 **发布方权重**（0-30分）：
 
-⚠️ **权重必须基于发布方（eventSubject）本身的影响力，不是内容涉及的名人/大IP**
+⚠️ **权重必须基于发布方（上方【事件描述】中的主体）本身的影响力，不是内容涉及的名人/大IP**
 
 | 发布方类型 | 权重范围 | 说明 |
 |-----------|---------|------|
@@ -139,7 +139,7 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
   "pass": true,
   "blockReason": null,
   "publisherIdentity": {
-    "publisher": "发布方名称（必须=eventSubject）",
+    "publisher": "发布方名称（必须=上方事件描述中的主体）",
     "isOfficial": true/false,
     "publisherInfluence": "世界级/知名/普通/低",
     "reasoning": "为什么这样判断"

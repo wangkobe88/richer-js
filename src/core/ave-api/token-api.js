@@ -594,7 +594,8 @@ class AveTokenAPI extends BaseAveAPI {
             has_not_open_source: token_data.has_not_open_source || 0,
             is_in_blacklist: token_data.is_in_blacklist || 0,
             is_honeypot: token_data.is_honeypot || 0,
-            ave_risk_level: token_data.ave_risk_level || 0
+            ave_risk_level: token_data.ave_risk_level || 0,
+            issue_platform: token_data.issue_platform || ''
         }));
     }
 }

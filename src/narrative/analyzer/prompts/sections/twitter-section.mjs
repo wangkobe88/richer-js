@@ -2,6 +2,8 @@
  * Twitter Section - 推文/账号信息
  */
 
+import { safeSubstring } from '../../utils/data-cleaner.mjs';
+
 /**
  * 清理推文文本中的URL
  * 移除http/https链接，保留文本内容
@@ -105,9 +107,7 @@ function buildTweetPart(tweet, label = '推文') {
     parts.push(`标题：${tweet.article.title || '无'}`);
     parts.push(`摘要：${tweet.article.preview_text || '无'}`);
     if (tweet.article.plain_text) {
-      const articleText = tweet.article.plain_text.length > 3000
-        ? tweet.article.plain_text.substring(0, 3000) + '...'
-        : tweet.article.plain_text;
+      const articleText = safeSubstring(tweet.article.plain_text, 3000);
       parts.push(`完整内容：${articleText}`);
     } else {
       // 如果没有完整内容，添加说明
@@ -207,9 +207,7 @@ export function buildTwitterSection(twitterInfo) {
   if (twitterInfo.link_content?.content) {
     parts.push('');
     const linkContent = twitterInfo.link_content.content;
-    const truncated = linkContent.length > 2000
-      ? linkContent.substring(0, 2000) + '...(内容已截断)'
-      : linkContent;
+    const truncated = safeSubstring(linkContent, 2000, '...(内容已截断)');
     parts.push(`【推文链接内容】${truncated}`);
   }
 

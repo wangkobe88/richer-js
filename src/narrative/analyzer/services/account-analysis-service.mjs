@@ -5,6 +5,7 @@
 
 import logger from '../../core/logger.mjs';
 import { hasIndependentWebsite, shouldUseAccountCommunityAnalysis } from '../utils/narrative-utils.mjs';
+import { safeSubstring } from '../utils/data-cleaner.mjs';
 
 /**
  * 收集所有相关账号的完整信息
@@ -293,7 +294,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
       parsed = {
         tokenType: tokenTypeMatch[1],
         rating: ratingMatch[1],
-        reason: reasonMatch ? reasonMatch[1].substring(0, 200) : '解析失败但提取到关键字段',
+        reason: reasonMatch ? safeSubstring(reasonMatch[1], 200) : '解析失败但提取到关键字段',
         details: {}
       };
     }
@@ -324,8 +325,8 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
     const abmReason = parsed.reason || '这是以账号为背景的meme币';
 
     logger.info('AccountCommunityAnalysis', `判断为以账号为背景的meme币，返回${abmRating}`, {
-      accountMatchDetails: parsed.details?.accountMatchDetails?.substring(0, 100),
-      web3Interaction: parsed.details?.web3Interaction?.substring(0, 100)
+      accountMatchDetails: safeSubstring(parsed.details?.accountMatchDetails, 100),
+      web3Interaction: safeSubstring(parsed.details?.web3Interaction, 100)
     });
 
     return {
@@ -358,7 +359,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   if (tokenType === 'web3_native_ip_early') {
     // Web3 原生 IP 处于早期发展阶段，直接返回 unrated
     logger.info('AccountCommunityAnalysis', '判断为Web3原生IP早期，返回unrated', {
-      ipConcept: parsed.ipConcept?.substring(0, 100)
+      ipConcept: safeSubstring(parsed.ipConcept, 100)
     });
 
     return {
@@ -389,7 +390,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   if (tokenType === 'meme') {
     // meme币：转入两阶段分析流程
     logger.info('AccountCommunityAnalysis', '判断为meme币，转入两阶段分析流程', {
-      accountSummary: parsed.accountSummary?.substring(0, 100)
+      accountSummary: safeSubstring(parsed.accountSummary, 100)
     });
 
     // 构建带账号摘要的fetchResults

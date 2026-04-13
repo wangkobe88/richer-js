@@ -2,14 +2,15 @@
  * Video Section - 视频平台信息（YouTube/抖音/TikTok/Bilibili）
  */
 
+import { safeSubstring } from '../../utils/data-cleaner.mjs';
+
 const MAX_VIDEO_DESC_LENGTH = 500;
 
 /**
  * 截断过长的文本
  */
 function truncateText(text, maxLength) {
-  if (!text || text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...(已截断)';
+  return safeSubstring(text, maxLength, '...(已截断)');
 }
 
 /**

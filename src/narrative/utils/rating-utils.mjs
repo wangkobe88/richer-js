@@ -55,7 +55,7 @@ export function resolveFinalCategory(record) {
   if (!record) return 'unrated';
 
   // 各阶段的 category
-  const stage3Category = record.llm_stage3_parsed_output?.raw?.category || record.llm_stage3_category;
+  const stage3Category = record.llm_stage3_category || record.llm_stage3_parsed_output?.raw?.category;
   const stage2Category = record.llm_stage2_parsed_output?.raw?.categoryAnalysis?.category || record.llm_stage2_category;
   const stage1Category = record.llm_stage1_parsed_output?.eventClassification?.primaryCategory || record.llm_stage1_category;
   const prestageCategory = resolvePrestageCategory(record);

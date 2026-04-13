@@ -85,7 +85,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 
 **【评估顺序】**：
 
-1️⃣ **首先看主体**（eventSubject）：
+1️⃣ **首先看主体**（上方【事件描述】中的主体）：
    - 如果是知名IP/人物（Trump、CZ、何一、Elon、Binance等）
    - → 直接用主体的世界级影响力评分
    - → **忽略keyData中的传播数据**（如果dataSource不是"事件主体影响力"）
@@ -125,7 +125,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
   → 示例："Binance推出Pepe联名NFT" → 世界级机构引用IP → S/A级
 
 - **情况2：IP被用在别人的活动中**（某机构/个人在自己的活动中使用/展示/提及已有IP）
-  → ⚠️ 分量基于**活动举办者**（eventSubject）的影响力，**不基于**被使用的IP
+  → ⚠️ 分量基于**活动举办者**（上方【事件描述】中的主体）的影响力，**不基于**被使用的IP
   → 理由：任何人都可以使用已有知名IP，这不构成该IP本身有新事件
   → 示例：小画廊办Pepe艺术展 → 画廊不知名 → C级(12分)
   → 示例：Binance推出Pepe联名产品 → Binance是世界级 → S级
@@ -154,9 +154,9 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 🎯 **关键**：发起者身份**只影响权重上限**，不影响分量等级判断
 
 ⚠️ **例外：描述型-情况2（IP被用在别人的活动中）**：
-- 此类事件的分量等级**必须基于eventSubject**（活动举办者），而非被使用的IP
+- 此类事件的分量等级**必须基于上方【事件描述】中的主体**（活动举办者），而非被使用的IP
 - 任何人都可以办Pepe展、做Pepe周边，这不等于Pepe本身有新闻价值
-- **如果eventSubject不知名 → 最高C级(12分)**，总分自然<60 → pass=false
+- **如果上方【事件描述】中的主体不知名 → 最高C级(12分)**，总分自然<60 → pass=false
 
 **【S级分量】**：世界级知名IP/大厂推出，或发现世界级IP的重大形象元素
 - 示例：Binance推出新IP、Disney发布新角色、字节推出新虚拟形象、发现CZ背景中隐藏的青蛙形象
@@ -213,17 +213,17 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 
 **【A-4 IP方权重】**（0-30分）⚠️ 关键
 
-**首先看eventSubject（事件主体）**：
+**首先看上方【事件描述】中的主体**：
 - 世界级IP/人物（Trump、CZ、Elon、何一、Binance等）：**30分**
 - 知名IP/工作室/大厂：20-25分
 - 有潜力IP的知名KOL（粉丝>4万）：18-22分
 
-**如果eventSubject不可评估，才看传播数据**：
+**如果主体不可评估，才看传播数据**：
 - 普通KOL（粉丝1-10万）：12-17分
 - 普通创作者（粉丝<1万）：8-11分
 - 新账号/小团队：5-8分
 
-⚠️ **重要**：eventSubject是Trump、CZ、Elon、何一等世界级IP时，直接给30分，不需要看传播数据！
+⚠️ **重要**：主体是Trump、CZ、Elon、何一等世界级IP时，直接给30分，不需要看传播数据！
 
 ⚠️ **权重上限规则**（仅在自创IP概念时生效）：
 - 如果IP是**【借用已有知名IP】** → **无上限限制**

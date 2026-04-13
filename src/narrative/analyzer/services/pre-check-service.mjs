@@ -8,6 +8,7 @@ import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../pr
 import { LLMClient } from '../llm/llm-api-client.mjs';
 import { ImageDownloader } from '../../utils/image-downloader.mjs';
 import { SameNameCheckService } from './same-name-check-service.mjs';
+import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -203,6 +204,73 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     } else {
       console.log('[NarrativeAnalyzer] 代币无创建时间数据，跳过同名代币检查');
     }
+  }
+
+  // 规则0.6：近期重复叙事检查
+  // 查询近期被 copycat_token 阻断的代币，如果当前代币共享相同的 Twitter Status ID，也阻断
+  // 解决全中文名代币无法通过 Solana 搜索发现蹭热度的问题
+  try {
+    const currentAppendix = tokenData.raw_api_data?.appendix;
+    if (currentAppendix) {
+      const parsedCurrentAppendix = typeof currentAppendix === 'string'
+        ? JSON.parse(currentAppendix)
+        : currentAppendix;
+      const currentTwitterId = extractTwitterStatusId(parsedCurrentAppendix?.twitter);
+
+      if (currentTwitterId) {
+        const normalizedAddress = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
+        const supabase = NarrativeRepository.getSupabase();
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+        const { data: recentBlocked, error: queryError } = await supabase
+          .from('token_narrative')
+          .select('token_address, token_symbol, raw_api_data')
+          .eq('pre_check_reason', 'copycat_token')
+          .gte('analyzed_at', oneDayAgo);
+
+        if (!queryError && recentBlocked && recentBlocked.length > 0) {
+          for (const blocked of recentBlocked) {
+            // 跳过自身
+            if (blocked.token_address === normalizedAddress) continue;
+
+            const blockedAppendix = blocked.raw_api_data?.appendix;
+            if (!blockedAppendix) continue;
+            const parsedBlockedAppendix = typeof blockedAppendix === 'string'
+              ? JSON.parse(blockedAppendix)
+              : blockedAppendix;
+            const blockedTwitterId = extractTwitterStatusId(parsedBlockedAppendix?.twitter);
+
+            if (currentTwitterId === blockedTwitterId) {
+              // 只在匹配代币创建更早时才阻断（当前代币是后来者）
+              const blockedCreatedAt = blocked.raw_api_data?.created_at;
+              const currentCreatedAt = tokenData.raw_api_data?.created_at;
+              if (blockedCreatedAt && currentCreatedAt && blockedCreatedAt >= currentCreatedAt) {
+                continue; // 匹配代币创建更晚或同时，不能用它阻断当前代币
+              }
+              const timeDiff = currentCreatedAt && blockedCreatedAt
+                ? `当前代币创建于 ${new Date(currentCreatedAt * 1000).toISOString()}, 匹配代币创建于 ${new Date(blockedCreatedAt * 1000).toISOString()}`
+                : '';
+              console.log(`[NarrativeAnalyzer] 预检查触发: 近期重复叙事 (Twitter Status: ${currentTwitterId}, 匹配代币: ${blocked.token_symbol || ''} ${blocked.token_address}, ${timeDiff})`);
+              return {
+                category: 'low',
+                reasoning: `近期已有代币 ${blocked.token_symbol || ''}(${blocked.token_address.slice(0, 10)}...) 因蹭热度被阻断，且共享同一推特链接，判定为重复叙事`,
+                scores: { credibility: 0, virality: 0 },
+                total_score: 0,
+                preCheckTriggered: true,
+                preCheckReason: 'recent_duplicate_narrative',
+                preCheckDetails: {
+                  matchedTokenAddress: blocked.token_address,
+                  matchedTokenSymbol: blocked.token_symbol,
+                  matchedTwitterId: currentTwitterId
+                }
+              };
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[NarrativeAnalyzer] 近期重复叙事检查失败:', err.message);
   }
 
   // 规则1：黑名单博主
@@ -649,4 +717,15 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 如果只有社区信息且无其他内容，会走账号/社区分析流程
 
   return null; // 通过预检查，继续LLM分析
+}
+
+/**
+ * 从 Twitter URL 中提取 Status ID
+ * @param {string} url - Twitter URL
+ * @returns {string|null} Status ID，提取失败返回 null
+ */
+function extractTwitterStatusId(url) {
+  if (!url || typeof url !== 'string') return null;
+  const match = url.match(/(?:x\.com|twitter\.com)\/[^/]+\/status\/(\d+)/i);
+  return match ? match[1] : null;
 }

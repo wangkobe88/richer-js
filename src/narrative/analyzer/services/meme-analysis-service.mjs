@@ -8,6 +8,7 @@ import { LLMClient } from '../llm/llm-api-client.mjs';
 import { PromptBuilder } from '../prompt-builder.mjs';
 import { parseEventResponse } from '../parsers/response-parser.mjs';
 import { ImageDownloader } from '../../utils/image-downloader.mjs';
+import { safeSubstring } from '../utils/data-cleaner.mjs';
 
 /**
  * 执行meme币两阶段分析（用于账号/社区分析判断为meme币后的分流）
@@ -242,7 +243,7 @@ ${tokenIntro ? `- 简介: ${tokenIntro}` : ''}
           analysisResults.push({
             image_url: imageUrl,
             analysis: {
-              description: result.content.substring(0, 200),
+              description: safeSubstring(result.content, 200),
               token_relevance: { is_related: false, reason: '解析失败' }
             },
             timing: {
