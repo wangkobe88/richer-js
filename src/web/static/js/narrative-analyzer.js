@@ -336,6 +336,41 @@ class NarrativeAnalyzer {
         }
       }
 
+      // 叙事语料复用检查（narrative_material_reuse）
+      if (precheck.details?.ruleName === 'narrative_material_reuse') {
+        details.push({
+          label: '🚨 检测类型',
+          value: '叙事语料复用',
+          pass: false
+        });
+        details.push({
+          label: '语料标识',
+          value: result.materialId || '-',
+          pass: null
+        });
+        details.push({
+          label: '复用次数',
+          value: result.reuseCount || 0,
+          pass: false
+        });
+
+        // 展示被匹配到的更早代币列表
+        if (result.earlierTokens && result.earlierTokens.length > 0) {
+          const tokensList = result.earlierTokens
+            .map(t => {
+              const gmgnUrl = `https://gmgn.ai/bsc/token/${t.address}`;
+              const date = t.discoveredAt ? new Date(t.discoveredAt).toLocaleDateString() : '';
+              return `• <a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${t.symbol || '?'}</a> <span style="font-size:11px;color:#999;">${t.address.slice(0, 14)}...</span> (${date})`;
+            })
+            .join('<br>');
+          details.push({
+            label: '已使用该语料的代币',
+            value: tokensList,
+            pass: null
+          });
+        }
+      }
+
       // 地址验证状态
       if (result.addressVerified !== undefined) {
         details.push({

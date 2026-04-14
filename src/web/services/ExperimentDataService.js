@@ -6,8 +6,8 @@
 const { Trade } = require('../../trading-engine/entities/Trade');
 const { TradeSignal } = require('../../trading-engine/entities/TradeSignal');
 const { dbManager } = require('../../services/dbManager');
-const { resolveFinalRating, categoryToRating } = require('../../narrative/utils/rating-utils.mjs');
 const { extractNarrativeMaterialId } = require('../../narrative/utils/material-id-extractor.mjs');
+const { buildLLMAnalysis } = require('../../narrative/analyzer/parsers/response-parser.mjs');
 
 /**
  * 实验数据服务类
@@ -1328,38 +1328,9 @@ class ExperimentDataService {
         .map(token => {
           const narrative = narrativeMap.get(token.token_address.toLowerCase());
 
-          // 调试日志：检查叙事数据字段
-          console.log(`[Narrative] token=${token.token_symbol}, address=${token.token_address}`);
-          console.log(`[Narrative] narrative keys:`, Object.keys(narrative));
-          console.log(`[Narrative] stage_final_result:`, narrative.stage_final_result);
-          console.log(`[Narrative] stage3_result:`, narrative.stage3_result);
-
-          // 使用统一模块解析最终 rating
-          const llm_category = resolveFinalRating(narrative);
-          const rating = categoryToRating(llm_category);
-          console.log(`[Narrative] 最终 llm_category:`, llm_category, `rating:`, rating);
-
-          // 从统一 result 结构提取 summary（优先级：stage_final > stage3 > stage2 > stage1 > pre_check）
-          const llm_summary = narrative.stage_final_result ? {
-            total_score: narrative.stage_final_result.score,
-            reasoning: narrative.stage_final_result.reason,
-            ...narrative.stage_final_result.details
-          } : narrative.stage3_result ? {
-            total_score: narrative.stage3_result.score,
-            reasoning: narrative.stage3_result.reason,
-            ...narrative.stage3_result.details
-          } : narrative.stage2_result ? {
-            total_score: narrative.stage2_result.score,
-            reasoning: narrative.stage2_result.reason,
-            ...narrative.stage2_result.details
-          } : narrative.stage1_result ? {
-            reasoning: narrative.stage1_result.reason,
-            ...narrative.stage1_result.details
-          } : narrative.pre_check_result ? {
-            total_score: narrative.pre_check_result.score,
-            reasoning: narrative.pre_check_result.reason,
-            ...narrative.pre_check_result.details
-          } : null;
+          // 使用统一结果生成模块构建 llmAnalysis
+          const llmAnalysis = buildLLMAnalysis(narrative);
+          const rating = llmAnalysis?.summary?.numericRating ?? null;
 
           return {
             token_address: token.token_address,
@@ -1368,11 +1339,10 @@ class ExperimentDataService {
             blockchain: token.blockchain || 'bsc',
             discovered_at: token.discovered_at,
             narrative: {
-              llm_category: llm_category,
-              llm_summary: llm_summary,
               rating: rating,
               experiment_id: narrative.experiment_id,
-              analyzed_at: narrative.analyzed_at
+              analyzed_at: narrative.analyzed_at,
+              llmAnalysis: llmAnalysis
             },
             human_judge: token.human_judges || null,
             max_change_percent: token.analysis_results?.max_change_percent || null

@@ -8,7 +8,8 @@ const NARRATIVE_RATING_MAP = {
   1: { label: '低质量', emoji: '📉', class: 'narrative-1' },
   2: { label: '中质量', emoji: '📊', class: 'narrative-2' },
   3: { label: '高质量', emoji: '🚀', class: 'narrative-3' },
-  9: { label: '未评级', emoji: '❓', class: 'narrative-9' }
+  9: { label: '未评级', emoji: '❓', class: 'narrative-9' },
+  null: { label: '无结果', emoji: '⬜', class: 'narrative-null' }
 };
 
 // 人工评级映射
@@ -151,16 +152,14 @@ class ExperimentSignalStats {
               max_change_percent: item.max_change_percent
             });
 
-            // 支持新旧两种数据格式
-            let rating = 9; // 默认 unrated
+            // 区分"无分析结果"(null)和"有结果"(1/2/3/9)
+            // 只读新格式 llmAnalysis.summary.numericRating
+            // summary 为 null → 无结果
+            let rating = null;
 
-            // 新格式：从 llmAnalysis.summary.rating 获取（后端统一计算）
-            if (item.narrative?.llmAnalysis?.summary?.rating !== undefined) {
-              rating = item.narrative.llmAnalysis.summary.rating;
-            }
-            // 兼容旧格式：直接从 rating 字段获取
-            else if (item.narrative?.rating !== undefined) {
-              rating = item.narrative.rating;
+            const summary = item.narrative?.llmAnalysis?.summary;
+            if (summary && summary.numericRating !== undefined && summary.numericRating !== null) {
+              rating = summary.numericRating;
             }
 
             this.narrativeRatingMap.set(addr, rating);
@@ -233,7 +232,7 @@ class ExperimentSignalStats {
           ...signalStats,
           symbol: token.token_symbol || token.raw_api_data?.symbol || 'Unknown',
           name: token.raw_api_data?.name || '',
-          narrativeRating: this.narrativeRatingMap.get(signalStats.tokenAddress) ?? 9, // 从叙事分析数据获取
+          narrativeRating: this.narrativeRatingMap.get(signalStats.tokenAddress) ?? null, // 从叙事分析数据获取
           maxChange: token.analysis_results?.max_change_percent ?? null
         };
       }
@@ -243,7 +242,7 @@ class ExperimentSignalStats {
         ...signalStats,
         symbol: 'Unknown',
         name: '',
-        narrativeRating: this.narrativeRatingMap.get(signalStats.tokenAddress) ?? 9,
+        narrativeRating: this.narrativeRatingMap.get(signalStats.tokenAddress) ?? null,
         maxChange: null
       };
     });
@@ -261,8 +260,12 @@ class ExperimentSignalStats {
       if (this.currentFilter === 'with-signals' && stat.buySignals === 0 && stat.sellSignals === 0) return false;
 
       // 叙事评级筛选
-      if (this.currentNarrativeFilter !== 'all' && stat.narrativeRating !== parseInt(this.currentNarrativeFilter)) {
-        return false;
+      if (this.currentNarrativeFilter !== 'all') {
+        if (this.currentNarrativeFilter === 'null') {
+          if (stat.narrativeRating !== null) return false;
+        } else if (stat.narrativeRating !== parseInt(this.currentNarrativeFilter)) {
+          return false;
+        }
       }
 
       return true;
@@ -320,17 +323,22 @@ class ExperimentSignalStats {
 
   renderTableRow(stat) {
     // 叙事评级徽章（带链接和分数）
-    const ratingInfo = NARRATIVE_RATING_MAP[stat.narrativeRating] || NARRATIVE_RATING_MAP[9];
+    const ratingInfo = NARRATIVE_RATING_MAP[stat.narrativeRating] || NARRATIVE_RATING_MAP[null];
     const analyzerUrl = `http://localhost:3010/narrative-analyzer?address=${stat.tokenAddress}`;
 
     // 尝试获取总分（从叙事数据中）
     const narrativeData = this.narrativeDataMap.get(stat.tokenAddress);
     let scoreText = '';
-    if (narrativeData?.narrative?.llmAnalysis?.summary?.total_score !== undefined) {
-      scoreText = ` (${narrativeData.narrative.llmAnalysis.summary.total_score.toFixed(0)}分)`;
+    const scoreVal = narrativeData?.narrative?.llmAnalysis?.summary?.score;
+    if (typeof scoreVal === 'number') {
+      scoreText = ` (${scoreVal.toFixed(0)}分)`;
     }
 
-    const ratingBadge = `<a href="${analyzerUrl}" target="_blank" class="narrative-badge ${ratingInfo.class} hover:opacity-80 transition-opacity" title="点击查看详情">${ratingInfo.emoji} ${stat.narrativeRating}${scoreText}</a>`;
+    // 无结果(rating=null)只显示label，不显示数字
+    const ratingDisplay = stat.narrativeRating === null
+      ? `${ratingInfo.emoji} ${ratingInfo.label}`
+      : `${ratingInfo.emoji} ${stat.narrativeRating}${scoreText}`;
+    const ratingBadge = `<a href="${analyzerUrl}" target="_blank" class="narrative-badge ${ratingInfo.class} hover:opacity-80 transition-opacity" title="点击查看详情">${ratingDisplay}</a>`;
 
     // 人工评级徽章
     let humanJudgeBadge = '';

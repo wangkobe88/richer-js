@@ -19,8 +19,8 @@ const CATEGORY_TO_RATING = {
  * @returns {number} 评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级)
  */
 export function categoryToRating(rating) {
-  if (!rating) return 9;
-  return CATEGORY_TO_RATING[rating] ?? 9;
+  if (rating === null || rating === undefined) return null;
+  return CATEGORY_TO_RATING[rating] ?? null;
 }
 
 /**
@@ -31,13 +31,13 @@ export function categoryToRating(rating) {
  * 2. rating = "high"/"mid"/"low" → 直接返回（最终结果）
  * 3. pass = false → rating 必须是 low → 直接返回
  * 4. pass = true → 还没出最终结果，继续往后看
- * 5. 所有阶段都无结果 → "unrated"
+ * 5. 所有阶段都无结果 → null（无结果，与 unrated 区分）
  *
  * @param {Object} record - 数据库记录
- * @returns {string} 最终 rating (high/mid/low/unrated)
+ * @returns {string|null} 最终 rating (high/mid/low/unrated) 或 null（无结果）
  */
 export function resolveFinalRating(record) {
-  if (!record) return 'unrated';
+  if (!record) return null;
 
   const stages = [
     'pre_check_result',
@@ -48,9 +48,13 @@ export function resolveFinalRating(record) {
     'stage_final_result'
   ];
 
+  let hasAnyStage = false;
+
   for (const field of stages) {
     const result = record[field];
     if (!result) continue;
+
+    hasAnyStage = true;
 
     // 规则1: unrated → 立即返回
     if (result.rating === 'unrated') return 'unrated';
@@ -68,7 +72,8 @@ export function resolveFinalRating(record) {
     if (result.pass === true) continue;
   }
 
-  return 'unrated';
+  // 有阶段数据但无法确定评级 → unrated；没有任何阶段数据 → null（无结果）
+  return hasAnyStage ? 'unrated' : null;
 }
 
 /**
