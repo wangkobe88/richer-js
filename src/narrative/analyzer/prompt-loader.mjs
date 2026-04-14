@@ -16,6 +16,7 @@ const CATEGORY_PROMPT_BUILDERS = {
   'W': async () => (await import('./prompts/event-scoring-categories/category-w-web3-project.mjs')).buildCategoryWPrompt,
   'B': async () => (await import('./prompts/event-scoring-categories/category-b-product-event.mjs')).buildCategoryBPrompt,
   'F': async () => (await import('./prompts/event-scoring-categories/category-f-discovery.mjs')).buildCategoryFPrompt,
+  'G': async () => (await import('./prompts/event-scoring-categories/category-g-speculative.mjs')).buildCategoryGPrompt,
   'C': async () => (await import('./prompts/event-scoring-categories/category-c-personal-statement.mjs')).buildCategoryCPrompt,
   'D': async () => (await import('./prompts/event-scoring-categories/category-d-institutional-action.mjs')).buildCategoryDPrompt,
   'E': async () => (await import('./prompts/event-scoring-categories/category-e-social-hotspot.mjs')).buildCategoryEPrompt
@@ -99,6 +100,7 @@ export async function getStage2PromptVersion(category) {
     'W': 'CATEGORY_W_PROMPT_VERSION',
     'B': 'CATEGORY_B_PROMPT_VERSION',
     'F': 'CATEGORY_F_PROMPT_VERSION',
+    'G': 'CATEGORY_G_PROMPT_VERSION',
     'C': 'CATEGORY_C_PROMPT_VERSION',
     'D': 'CATEGORY_D_PROMPT_VERSION',
     'E': 'CATEGORY_E_PROMPT_VERSION'
@@ -120,13 +122,14 @@ export async function getStage2PromptVersion(category) {
  */
 function getCategoryFileName(category) {
   const fileNames = {
-    'A': 'category-a-visual-ip',
-    'W': 'category-w-web3-project',
-    'B': 'category-b-product-event',
-    'F': 'category-f-discovery',
-    'C': 'category-c-personal-statement',
-    'D': 'category-d-institutional-action',
-    'E': 'category-e-social-hotspot'
+    'A': 'a-visual-ip',
+    'W': 'w-web3-project',
+    'B': 'b-product-event',
+    'F': 'f-discovery',
+    'G': 'g-speculative',
+    'C': 'c-personal-statement',
+    'D': 'd-institutional-action',
+    'E': 'e-social-hotspot'
   };
   return fileNames[category] || '';
 }
