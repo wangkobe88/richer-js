@@ -45,6 +45,50 @@ const getSupabase = () => NarrativeRepository.getSupabase();
 // 获取日志实例
 const logger = getLogger();
 
+/**
+ * 将旧格式的阶段数据转换为新的统一 result 格式
+ * 旧格式: { category, model, prompt, raw_output, parsed_output, started_at, finished_at, success, error }
+ * 新格式: { prestage_result, prestage_prompt, prestage_raw_output }
+ *
+ * @param {string} stageName - 阶段名称 (prestage/stage1/stage2/stage3)
+ * @param {Object} stageData - 旧格式的阶段数据
+ * @param {Object} overrides - 覆盖字段（如 rating, pass, reason, category, score, details）
+ * @returns {Object} 新格式的保存数据 { [stageName]_result, [stageName]_prompt, [stageName]_raw_output }
+ */
+function buildStageSaveData(stageName, stageData, overrides = {}) {
+  if (!stageData || stageData.__clear) {
+    return { [`${stageName}_result`]: { __clear: true } };
+  }
+
+  // 从 parsed_output 中提取 score（支持 raw 嵌套和扁平结构）
+  const po = stageData.parsed_output;
+  const extractedScore = overrides.score
+    ?? po?.raw?.categoryAnalysis?.totalScore
+    ?? po?.categoryAnalysis?.totalScore
+    ?? po?.total_score
+    ?? null;
+
+  const result = {
+    rating: overrides.rating ?? null,
+    pass: overrides.pass ?? po?.pass ?? null,
+    reason: overrides.reason ?? po?.reason ?? po?.blockReason ?? po?.raw?.blockReason ?? null,
+    category: overrides.category ?? stageData.category ?? null,
+    score: extractedScore,
+    model: stageData.model || null,
+    startedAt: stageData.started_at || null,
+    finishedAt: stageData.finished_at || null,
+    success: stageData.success ?? null,
+    error: stageData.error || null,
+    details: overrides.details ?? po ?? null,
+  };
+
+  return {
+    [`${stageName}_result`]: result,
+    [`${stageName}_prompt`]: stageData.prompt || null,
+    [`${stageName}_raw_output`]: stageData.raw_output || null,
+  };
+}
+
 // 读取配置文件
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -102,7 +146,7 @@ export class NarrativeAnalyzer {
             fromCache: true,
             fromFallback: false,
             preCheckTriggered: isCachedPreCheck,
-            preCheckReason: isCachedPreCheck ? cached.pre_check_reason : null,
+            preCheckReason: isCachedPreCheck ? cached.pre_check_result?.details?.ruleName : null,
             analyzedAt: cached.analyzed_at,
             sourceExperimentId: cached.experiment_id
           }
@@ -258,16 +302,15 @@ export class NarrativeAnalyzer {
       // 预检查触发，使用预设结果
       logger.info('NarrativeAnalyzer', '预检查触发，跳过LLM分析');
 
-      // 收集预检查数据
-      preCheckDataToSave = {
-        category: preCheckResult.category,
-        reason: preCheckResult.preCheckReason,
-        result: preCheckResult
-      };
+      // preCheckResult 已经是统一的 { rating, pass, reason, details } 格式
+      // 直接作为 pre_check_result 存储
+      preCheckDataToSave = preCheckResult;
 
       llmResult = {
-        ...preCheckResult,
-        raw: null // 预检查结果没有原始LLM输出
+        rating: preCheckResult.rating,
+        reason: preCheckResult.reason,
+        score: preCheckResult.score,
+        pass: preCheckResult.pass
       };
       // 预检查结果也记录prompt类型（用于后续判断）
       const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls, relatedAccounts };
@@ -285,11 +328,10 @@ export class NarrativeAnalyzer {
         if (!hasAnyData) {
           logger.warn('NarrativeAnalyzer', '没有有效数据可供分析，返回unrated');
           llmResult = {
-            category: 'unrated',
-            reasoning: '没有可用的数据进行分析（所有推文/内容获取失败）',
-            scores: null,
-            total_score: null,
-            raw: null
+            rating: 'unrated',
+            reason: '没有可用的数据进行分析（所有推文/内容获取失败）',
+            score: null,
+            pass: null
           };
           promptUsed = null;
           promptType = 'no_data';
@@ -312,29 +354,33 @@ export class NarrativeAnalyzer {
             if (analysisResult.preCheckData) {
               // 规则验证失败，按预检查处理
               llmResult = {
-                category: analysisResult.category,
-                reasoning: analysisResult.reasoning,
-                scores: analysisResult.scores,
-                total_score: analysisResult.total_score
+                rating: analysisResult.category,
+                reason: analysisResult.reasoning,
+                score: analysisResult.total_score,
+                pass: false
               };
               promptUsed = 'rules_validation';
               promptType = 'precheck';
               analysisFailed = false;
               isPreCheckTriggered = true;
 
-              // 保存到预检查字段
+              // preCheckData 格式来自 account-analysis-service，需要转换为统一格式
+              const pcd = analysisResult.preCheckData;
               preCheckDataToSave = {
-                category: analysisResult.preCheckData.category,
-                reason: analysisResult.preCheckData.reason,
-                result: analysisResult.preCheckData.result
+                rating: pcd.category || 'low',
+                pass: false,
+                reason: pcd.reason || analysisResult.reasoning,
+                category: null,
+                score: analysisResult.total_score || null,
+                details: pcd.result || {}
               };
             } else if (analysisResult.stage1Data) {
               // meme币分流：使用stage2Data作为最终结果（如果有）
               llmResult = {
-                category: analysisResult.category,
-                reasoning: analysisResult.reasoning,
-                scores: analysisResult.scores,
-                total_score: analysisResult.total_score
+                rating: analysisResult.category,
+                reason: analysisResult.reasoning,
+                score: analysisResult.total_score,
+                pass: true
               };
               promptUsed = analysisResult.stage2Data?.prompt || analysisResult.stage1Data.prompt || 'meme_two_stage';
               promptType = 'meme_two_stage';
@@ -348,10 +394,10 @@ export class NarrativeAnalyzer {
             } else {
               // 项目币或Web3原生IP早期：前置LLM判断结果
               llmResult = {
-                category: analysisResult.category,
-                reasoning: analysisResult.reasoning,
-                scores: analysisResult.scores,
-                total_score: analysisResult.total_score
+                rating: analysisResult.category,
+                reason: analysisResult.reasoning,
+                score: analysisResult.total_score,
+                pass: analysisResult.category !== 'unrated'
               };
               promptUsed = analysisResult.prestageData?.prompt || 'account_community_analysis';
               promptType = 'account_community';
@@ -401,13 +447,13 @@ export class NarrativeAnalyzer {
               });
 
               llmResult = {
-                category: 'low',
-                reasoning: stage1Data.reason,
-                scores: null,
-                total_score: null
+                rating: 'low',
+                reason: stage1Data.reason,
+                score: null,
+                pass: false
               };
 
-              // 收集Stage 1数据（存储到stage1字段）
+              // 收集Stage 1数据（旧格式，会在 save 时通过 buildStageSaveData 转换）
               stage1DataToSave = {
                 category: 'low',
                 model: stage1CallResult.model,
@@ -502,10 +548,10 @@ export class NarrativeAnalyzer {
                 stage3DataToSave = { __clear: true };
 
                 llmResult = {
-                  category: 'low',
-                  reasoning: `Stage 1通过，但Stage 2${!stage2CallResult.success ? '失败' : '未通过'}: ${failReason}`,
-                  scores: stage2Data.categoryAnalysis ? { total_score: stage2Data.categoryAnalysis.totalScore } : null,
-                  total_score: stage2Data.categoryAnalysis?.totalScore || null,
+                  rating: 'low',
+                  reason: `Stage 1通过，但Stage 2${!stage2CallResult.success ? '失败' : '未通过'}: ${failReason}`,
+                  score: stage2Data.categoryAnalysis?.totalScore || null,
+                  pass: false,
                   analysis_stage: 2
                 };
 
@@ -542,14 +588,16 @@ export class NarrativeAnalyzer {
 
                 // ========== 分数聚合：Stage 2（事件分）+ Stage 3（代币分） ==========
                 // Stage 3 输出 pass/fail + 分数，Stage 2 输出事件分，最终 category 由代码聚合
-                const stage3Pass = stage3Data.pass;
-                const relevanceScore = stage3Data.relevanceScore ?? stage3Data.breakdown?.relevanceScore;
-                const qualityScore = stage3Data.qualityScore ?? stage3Data.breakdown?.qualityScore;
+                // 注意：LLMClient.analyzeWithMetadata() 返回的 parsed 中，原始响应被包在 raw 里
+                // 外层有扁平字段（total_score, category, pass 等），内层 raw 有详细结构
+                const stage3Pass = stage3Data.pass ?? stage3Data.raw?.pass;
+                const relevanceScore = stage3Data.relevanceScore ?? stage3Data.raw?.relevanceScore ?? stage3Data.breakdown?.relevanceScore;
+                const qualityScore = stage3Data.qualityScore ?? stage3Data.raw?.qualityScore ?? stage3Data.breakdown?.qualityScore;
 
                 let aggregatedCategory;
                 let aggregatedTotalScore;
                 let eventScore = null;
-                const stage2TotalScore = stage2Data.categoryAnalysis?.totalScore;
+                const stage2TotalScore = stage2Data.categoryAnalysis?.totalScore ?? stage2Data.raw?.categoryAnalysis?.totalScore ?? stage2Data.total_score;
 
                 if (stage3Pass === false) {
                   // Stage 3 截断触发（品牌劫持/拼写错误/关联性不足/质量过低）
@@ -593,11 +641,11 @@ export class NarrativeAnalyzer {
                   blockReason: stage3Pass === false ? stage3Data.blockReason : null
                 };
 
-                // 将聚合结果写入 stage3Data，供 resolveFinalCategory 和后续代码使用
+                // 将聚合结果写入 stage3Data，供 resolveFinalRating 和后续代码使用
                 stage3Data.category = aggregatedCategory;
                 stage3Data.total_score = aggregatedTotalScore;
 
-                // 同步 raw.category，确保 resolveFinalCategory 读取到聚合后的值
+                // 同步 raw.category，确保 resolveFinalRating 读取到聚合后的值
                 if (stage3Data.raw && stage3Data.raw.category !== aggregatedCategory) {
                   stage3Data.raw.category = aggregatedCategory;
                 }
@@ -619,10 +667,10 @@ export class NarrativeAnalyzer {
                   // Stage 3失败，但不抛出错误，而是设置llmResult为Stage 2的结果
                   logger.warn('NarrativeAnalyzer', `Stage 3失败，使用Stage 2结果: ${stage3CallResult.error}`);
                   llmResult = {
-                    category: stage2Data.categoryAnalysis?.category || 'unrated',
-                    reasoning: `Stage 1和Stage 2通过，但Stage 3失败: ${stage3CallResult.error}`,
-                    scores: stage2Data.categoryAnalysis ? { total_score: stage2Data.categoryAnalysis.totalScore } : null,
-                    total_score: stage2Data.categoryAnalysis?.totalScore || null,
+                    rating: stage2Data.categoryAnalysis?.category || 'unrated',
+                    reason: `Stage 1和Stage 2通过，但Stage 3失败: ${stage3CallResult.error}`,
+                    score: stage2Data.categoryAnalysis?.totalScore || null,
+                    pass: true,
                     analysis_stage: 2
                   };
                 } else {
@@ -641,10 +689,10 @@ export class NarrativeAnalyzer {
         } catch (error) {  // 关闭try块（第249行）
         logger.error('NarrativeAnalyzer', 'LLM分析失败', { error: error.message });
         llmResult = {
-          category: 'unrated',
-          reasoning: `分析失败: ${error.message}`,
-          scores: null,
-          total_score: null,
+          rating: 'unrated',
+          reason: `分析失败: ${error.message}`,
+          score: null,
+          pass: null,
           analysis_stage: 0
         };
         analysisFailed = true;
@@ -680,6 +728,31 @@ export class NarrativeAnalyzer {
     // 清理数据中的空字符和控制字符（PostgreSQL不支持）
     const cleanedTwitterInfo = cleanDataForDB(twitterInfo);
 
+    // 构建各阶段的新格式保存数据
+    const prestageSaveData = buildStageSaveData('prestage', prestageDataToSave);
+    const stage1SaveData = buildStageSaveData('stage1', stage1DataToSave);
+    const stage2SaveData = buildStageSaveData('stage2', stage2DataToSave);
+    const stage3SaveData = buildStageSaveData('stage3', stage3DataToSave);
+
+    // 构建 stage_final_result
+    const stageFinalSaveData = stageFinalData ? {
+      stage_final_result: {
+        rating: stageFinalData.category, // high/mid/low
+        pass: true,
+        reason: null,
+        category: stageFinalData.category,
+        score: stageFinalData.totalScore,
+        details: {
+          eventScore: stageFinalData.eventScore,
+          eventWeight: stageFinalData.eventWeight,
+          relevanceScore: stageFinalData.relevanceScore,
+          qualityScore: stageFinalData.qualityScore,
+          stage2TotalScore: stageFinalData.stage2TotalScore,
+          blockReason: stageFinalData.blockReason
+        }
+      }
+    } : {};
+
     const saveResult = await NarrativeRepository.save({
       // === 基础字段 ===
       token_address: normalizedAddress,
@@ -690,126 +763,39 @@ export class NarrativeAnalyzer {
       classified_urls: classifiedUrls,
       analyzed_at: new Date().toISOString(),
       experiment_id: experimentId,
-      is_valid: true, // 显式设置为true（分析成功后）
-      prompt_version: PromptBuilder.getPromptVersion(), // 保存当前prompt版本
-      analysis_stage: llmResult?.analysis_stage || null, // 添加分析阶段字段
+      is_valid: true,
+      prompt_version: PromptBuilder.getPromptVersion(),
+      analysis_stage: llmResult?.analysis_stage || null,
+      prompt_type: promptType || null,
 
-      // === 预检查字段（3个）===
-      pre_check_category: preCheckDataToSave?.category || null,
-      pre_check_reason: preCheckDataToSave?.reason || null,
-      pre_check_result: preCheckDataToSave?.result || null,
+      // === 预检查结果 ===
+      pre_check_result: preCheckDataToSave || null,
 
-      // === 前置LLM阶段字段（9个）- 账号/社区分析判断币种类型 ===
-      llm_prestage_category: prestageDataToSave?.category || null,
-      llm_prestage_model: prestageDataToSave?.model || null,
-      llm_prestage_prompt: prestageDataToSave?.prompt || null,
-      llm_prestage_raw_output: prestageDataToSave?.raw_output || null,
-      llm_prestage_parsed_output: prestageDataToSave?.parsed_output || null,
-      llm_prestage_started_at: prestageDataToSave?.started_at || null,
-      llm_prestage_finished_at: prestageDataToSave?.finished_at || null,
-      llm_prestage_success: prestageDataToSave?.success ?? null,
-      llm_prestage_error: prestageDataToSave?.error || null,
+      // === 各阶段结果 ===
+      ...prestageSaveData,
+      ...stage1SaveData,
+      ...stage2SaveData,
+      ...stage3SaveData,
+      ...stageFinalSaveData,
 
-      // === Stage 1 字段（9个）===
-      // 检查是否是清除标记
-      llm_stage1_parsed_output: (stage1DataToSave && stage1DataToSave.__clear) ? stage1DataToSave : (stage1DataToSave?.parsed_output || null),
-      llm_stage1_category: stage1DataToSave?.category || null,
-      llm_stage1_model: stage1DataToSave?.model || null,
-      llm_stage1_prompt: stage1DataToSave?.prompt || null,
-      llm_stage1_raw_output: stage1DataToSave?.raw_output || null,
-      llm_stage1_started_at: stage1DataToSave?.started_at || null,
-      llm_stage1_finished_at: stage1DataToSave?.finished_at || null,
-      llm_stage1_success: stage1DataToSave?.success ?? null,
-      llm_stage1_error: stage1DataToSave?.error || null,
-
-      // === Stage 2 字段（9个）===
-      // 检查是否是清除标记
-      llm_stage2_parsed_output: (stage2DataToSave && stage2DataToSave.__clear) ? stage2DataToSave : (stage2DataToSave?.parsed_output || null),
-      llm_stage2_category: stage2DataToSave?.category || null,
-      llm_stage2_model: stage2DataToSave?.model || null,
-      llm_stage2_prompt: stage2DataToSave?.prompt || null,
-      llm_stage2_raw_output: stage2DataToSave?.raw_output || null,
-      llm_stage2_started_at: stage2DataToSave?.started_at || null,
-      llm_stage2_finished_at: stage2DataToSave?.finished_at || null,
-      llm_stage2_success: stage2DataToSave?.success ?? null,
-      llm_stage2_error: stage2DataToSave?.error || null,
-
-      // === Stage 3 字段（9个）===
-      llm_stage3_parsed_output: (stage3DataToSave && stage3DataToSave.__clear) ? stage3DataToSave : (stage3DataToSave?.parsed_output || null),
-      llm_stage3_category: (stage3DataToSave && stage3DataToSave.__clear) ? stage3DataToSave : (stage3DataToSave?.category || null),
-      llm_stage3_model: (stage3DataToSave && stage3DataToSave.__clear) ? stage3DataToSave : (stage3DataToSave?.model || null),
-      llm_stage3_prompt: (stage3DataToSave && stage3DataToSave.__clear) ? stage3DataToSave : (stage3DataToSave?.prompt || null),
-      llm_stage3_raw_output: (stage3DataToSave && stage3DataToSave.__clear) ? stage3DataToSave : (stage3DataToSave?.raw_output || null),
-      llm_stage3_started_at: stage3DataToSave?.started_at || null,
-      llm_stage3_finished_at: stage3DataToSave?.finished_at || null,
-      llm_stage3_success: stage3DataToSave?.success ?? null,
-      llm_stage3_error: stage3DataToSave?.error || null,
-
-      // === Stage Final 字段（代码聚合结果）===
-      llm_stage_final_result: stageFinalData || null,
-
-      // === Debug字段（2个）===
+      // === Debug字段 ===
       url_extraction_result: urlExtractionResult || null,
       data_fetch_results: dataFetchResults || null
     });
 
-    // 构造 llmAnalysis 对象供前端使用
+    // 构造 llmAnalysis 对象供前端使用（使用新格式）
     const llmAnalysis = {
-      preCheck: preCheckDataToSave ? {
-        category: preCheckDataToSave.category,
-        reason: preCheckDataToSave.reason,
-        result: preCheckDataToSave.result
-      } : null,
-      prestage: prestageDataToSave ? {
-        category: prestageDataToSave.category,
-        parsedOutput: prestageDataToSave.parsed_output,
-        model: prestageDataToSave.model,
-        prompt: prestageDataToSave.prompt,
-        rawOutput: prestageDataToSave.raw_output,
-        startedAt: prestageDataToSave.started_at,
-        finishedAt: prestageDataToSave.finished_at,
-        success: prestageDataToSave.success,
-        error: prestageDataToSave.error
-      } : null,
-      stage1: stage1DataToSave && !stage1DataToSave.__clear ? {
-        category: stage1DataToSave.category,
-        parsedOutput: stage1DataToSave.parsed_output,
-        model: stage1DataToSave.model,
-        prompt: stage1DataToSave.prompt,
-        rawOutput: stage1DataToSave.raw_output,
-        startedAt: stage1DataToSave.started_at,
-        finishedAt: stage1DataToSave.finished_at,
-        success: stage1DataToSave.success,
-        error: stage1DataToSave.error
-      } : null,
-      stage2: stage2DataToSave && !stage2DataToSave.__clear ? {
-        category: stage2DataToSave.category,
-        parsedOutput: stage2DataToSave.parsed_output,
-        model: stage2DataToSave.model,
-        prompt: stage2DataToSave.prompt,
-        rawOutput: stage2DataToSave.raw_output,
-        startedAt: stage2DataToSave.started_at,
-        finishedAt: stage2DataToSave.finished_at,
-        success: stage2DataToSave.success,
-        error: stage2DataToSave.error
-      } : null,
-      stage3: stage3DataToSave ? {
-        category: stage3DataToSave.category,
-        parsedOutput: stage3DataToSave.parsed_output,
-        model: stage3DataToSave.model,
-        prompt: stage3DataToSave.prompt,
-        rawOutput: stage3DataToSave.raw_output,
-        startedAt: stage3DataToSave.started_at,
-        finishedAt: stage3DataToSave.finished_at,
-        success: stage3DataToSave.success,
-        error: stage3DataToSave.error
-      } : null,
-      stageFinal: stageFinalData || null,
+      preCheck: preCheckDataToSave || null,
+      prestage: prestageSaveData?.prestage_result || null,
+      stage1: stage1SaveData?.stage1_result || null,
+      stage2: stage2SaveData?.stage2_result || null,
+      stage3: stage3SaveData?.stage3_result || null,
+      stageFinal: stageFinalSaveData?.stage_final_result || null,
       // 评分和理由（用于概览卡片）
       summary: {
-        category: stageFinalData?.category || llmResult.category,
-        reasoning: llmResult.reasoning,
-        total_score: stageFinalData?.totalScore ?? llmResult.total_score,
+        rating: stageFinalData?.category || llmResult.rating,
+        reason: llmResult.reason || llmResult.reasoning,
+        score: stageFinalData?.totalScore ?? llmResult.score ?? llmResult.total_score,
         scores: llmResult.scores
       }
     };
@@ -824,7 +810,7 @@ export class NarrativeAnalyzer {
       meta: {
         fromCache: false,
         preCheckTriggered: isPreCheckTriggered,
-        preCheckReason: isPreCheckTriggered ? llmResult.preCheckReason : null,
+        preCheckReason: isPreCheckTriggered ? preCheckDataToSave?.details?.ruleName : null,
         analyzedAt: saveResult.analyzed_at,
         sourceExperimentId: experimentId,
         promptVersion: PromptBuilder.getPromptVersion(),

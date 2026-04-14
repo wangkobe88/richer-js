@@ -829,7 +829,6 @@ class NarrativeAnalyzer {
           <strong>分类编码：</strong><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 4px; font-size: 12px;">${categoryCode}</code><br>
           <strong>置信度：</strong>${confidence}<br>
           <strong>时效性：</strong>${eventDesc.eventTiming || eventDesc.时效性 || '-'}<br>
-          ${eventDesc.isLargeIP ? '<strong>🔥 超大IP事件</strong><br>' : ''}
         </div>
       `;
 

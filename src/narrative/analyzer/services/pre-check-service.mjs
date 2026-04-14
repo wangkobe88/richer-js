@@ -27,6 +27,28 @@ const NARRATIVE_CONFIG = config.narrative || {
 };
 
 /**
+ * 构建统一的预检查返回结果
+ * @param {string} rating - "low" | "unrated"
+ * @param {string} reason - 原因描述
+ * @param {string} ruleName - 规则名称（如 "symbol_too_long"）
+ * @param {Object} [extra] - 额外的 details 字段
+ * @returns {Object} 统一格式的预检查结果
+ */
+function buildPreCheckResult(rating, reason, ruleName, extra = {}) {
+  return {
+    rating,
+    pass: false,
+    reason,
+    category: null,
+    score: extra.total_score ?? null,
+    details: {
+      ruleName,
+      ...extra,
+    }
+  };
+}
+
+/**
  * 执行预检查规则（不调用LLM，直接返回结果）
  * @param {Object} tokenData - 代币数据
  * @param {Object} twitterInfo - Twitter信息
@@ -105,28 +127,14 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       const wordCount = countEnglishWords(tokenSymbol);
       if (wordCount > MAX_ENGLISH_WORDS) {
         console.log(`[NarrativeAnalyzer] 预检查触发: 代币Symbol过长 (英文单词数: ${wordCount}, 阈值: ${MAX_ENGLISH_WORDS})`);
-        return {
-          category: 'low',
-          reasoning: `代币Symbol"${tokenSymbol}"包含${wordCount}个英文单词，超出正常范围（阈值：${MAX_ENGLISH_WORDS}），疑似博眼球而无真实叙事价值`,
-          scores: { credibility: 0, virality: 0 },
-          total_score: 0,
-          preCheckTriggered: true,
-          preCheckReason: 'symbol_too_long'
-        };
+        return buildPreCheckResult('low', `代币Symbol"${tokenSymbol}"包含${wordCount}个英文单词，超出正常范围（阈值：${MAX_ENGLISH_WORDS}），疑似博眼球而无真实叙事价值`, 'symbol_too_long', { scores: { credibility: 0, virality: 0 }, total_score: 0 });
       }
       // 英文单词数在合理范围内，通过检查
       console.log(`[NarrativeAnalyzer] Symbol长度检查通过: "${tokenSymbol}" (${wordCount}个英文单词 ≤ ${MAX_ENGLISH_WORDS})`);
     } else {
       // 非英文（如中文），使用视觉长度检查
       console.log(`[NarrativeAnalyzer] 预检查触发: 代币Symbol过长 (视觉长度: ${symbolVisualLength}, 实际字符: ${tokenSymbol.length})`);
-      return {
-        category: 'low',
-        reasoning: `代币Symbol"${tokenSymbol}"视觉长度为${symbolVisualLength}（实际${tokenSymbol.length}字符），超出正常范围（阈值：${MAX_SYMBOL_LENGTH}），疑似博眼球而无真实叙事价值`,
-        scores: { credibility: 0, virality: 0 },
-        total_score: 0,
-        preCheckTriggered: true,
-        preCheckReason: 'symbol_too_long'
-      };
+      return buildPreCheckResult('low', `代币Symbol"${tokenSymbol}"视觉长度为${symbolVisualLength}（实际${tokenSymbol.length}字符），超出正常范围（阈值：${MAX_SYMBOL_LENGTH}），疑似博眼球而无真实叙事价值`, 'symbol_too_long', { scores: { credibility: 0, virality: 0 }, total_score: 0 });
     }
   }
 
@@ -137,28 +145,14 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       const wordCount = countEnglishWords(tokenName);
       if (wordCount > MAX_ENGLISH_WORDS * 2) {  // Name的单词数阈值是Symbol的2倍
         console.log(`[NarrativeAnalyzer] 预检查触发: 代币Name过长 (英文单词数: ${wordCount}, 阈值: ${MAX_ENGLISH_WORDS * 2})`);
-        return {
-          category: 'low',
-          reasoning: `代币名称"${tokenName}"包含${wordCount}个英文单词，超出正常范围（阈值：${MAX_ENGLISH_WORDS * 2}），疑似博眼球而无真实叙事价值`,
-          scores: { credibility: 0, virality: 0 },
-          total_score: 0,
-          preCheckTriggered: true,
-          preCheckReason: 'name_too_long'
-        };
+        return buildPreCheckResult('low', `代币名称"${tokenName}"包含${wordCount}个英文单词，超出正常范围（阈值：${MAX_ENGLISH_WORDS * 2}），疑似博眼球而无真实叙事价值`, 'name_too_long', { scores: { credibility: 0, virality: 0 }, total_score: 0 });
       }
       // 英文单词数在合理范围内，通过检查
       console.log(`[NarrativeAnalyzer] Name长度检查通过: "${tokenName}" (${wordCount}个英文单词 ≤ ${MAX_ENGLISH_WORDS * 2})`);
     } else {
       // 非英文（如中文），使用视觉长度检查
       console.log(`[NarrativeAnalyzer] 预检查触发: 代币Name过长 (视觉长度: ${nameVisualLength}, 实际字符: ${tokenName.length})`);
-      return {
-        category: 'low',
-        reasoning: `代币名称"${tokenName}"视觉长度为${nameVisualLength}（实际${tokenName.length}字符），超出正常范围（阈值：${MAX_NAME_LENGTH}），疑似博眼球而无真实叙事价值`,
-        scores: { credibility: 0, virality: 0 },
-        total_score: 0,
-        preCheckTriggered: true,
-        preCheckReason: 'name_too_long'
-      };
+      return buildPreCheckResult('low', `代币名称"${tokenName}"视觉长度为${nameVisualLength}（实际${tokenName.length}字符），超出正常范围（阈值：${MAX_NAME_LENGTH}），疑似博眼球而无真实叙事价值`, 'name_too_long', { scores: { credibility: 0, virality: 0 }, total_score: 0 });
     }
   }
 
@@ -182,20 +176,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         const { details } = sameNameCheck;
         console.log(`[NarrativeAnalyzer] 预检查触发: 检测到蹭热度同名代币 (一周内${details.withinOneWeek}个, 其中已"起来过")`);
 
-        return {
-          category: 'low',
-          reasoning: `检测到蹭热度行为：在代币发布前一周内有${details.withinOneWeek}个共享相同叙事的同名代币，且其中已有代币"起来过"（有过明显涨幅/活跃），说明这个叙事已经被市场验证过`,
-          scores: { credibility: 0, virality: 0 },
-          total_score: 0,
-          preCheckTriggered: true,
-          preCheckReason: 'copycat_token',
-          preCheckDetails: {
-            sameNameTokens: details.withinOneDayTokens || [],
-            totalOlder: details.totalOlder,
-            duplicateNarrativeCount: details.duplicateNarrativeCount,
-            withinOneWeek: details.withinOneWeek
-          }
-        };
+        return buildPreCheckResult('low', `检测到蹭热度行为：在代币发布前一周内有${details.withinOneWeek}个共享相同叙事的同名代币，且其中已有代币"起来过"（有过明显涨幅/活跃），说明这个叙事已经被市场验证过`, 'copycat_token', { scores: { credibility: 0, virality: 0 }, total_score: 0, sameNameTokens: details.withinOneDayTokens || [], totalOlder: details.totalOlder, duplicateNarrativeCount: details.duplicateNarrativeCount, withinOneWeek: details.withinOneWeek });
       } else if (sameNameCheck.success) {
         console.log(`[NarrativeAnalyzer] 同名代币检查通过 (同名总数: ${sameNameCheck.details.totalOlder}, 重复叙事: ${sameNameCheck.details.duplicateNarrativeCount}, 一周内${sameNameCheck.details.withinOneWeek}个)`);
       } else {
@@ -225,7 +206,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         const { data: recentBlocked, error: queryError } = await supabase
           .from('token_narrative')
           .select('token_address, token_symbol, raw_api_data')
-          .eq('pre_check_reason', 'copycat_token')
+          .contains('pre_check_result', { details: { ruleName: 'copycat_token' } })
           .gte('analyzed_at', oneDayAgo);
 
         if (!queryError && recentBlocked && recentBlocked.length > 0) {
@@ -251,19 +232,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
                 ? `当前代币创建于 ${new Date(currentCreatedAt * 1000).toISOString()}, 匹配代币创建于 ${new Date(blockedCreatedAt * 1000).toISOString()}`
                 : '';
               console.log(`[NarrativeAnalyzer] 预检查触发: 近期重复叙事 (Twitter Status: ${currentTwitterId}, 匹配代币: ${blocked.token_symbol || ''} ${blocked.token_address}, ${timeDiff})`);
-              return {
-                category: 'low',
-                reasoning: `近期已有代币 ${blocked.token_symbol || ''}(${blocked.token_address.slice(0, 10)}...) 因蹭热度被阻断，且共享同一推特链接，判定为重复叙事`,
-                scores: { credibility: 0, virality: 0 },
-                total_score: 0,
-                preCheckTriggered: true,
-                preCheckReason: 'recent_duplicate_narrative',
-                preCheckDetails: {
-                  matchedTokenAddress: blocked.token_address,
-                  matchedTokenSymbol: blocked.token_symbol,
-                  matchedTwitterId: currentTwitterId
-                }
-              };
+              return buildPreCheckResult('low', `近期已有代币 ${blocked.token_symbol || ''}(${blocked.token_address.slice(0, 10)}...) 因蹭热度被阻断，且共享同一推特链接，判定为重复叙事`, 'recent_duplicate_narrative', { scores: { credibility: 0, virality: 0 }, total_score: 0, matchedTokenAddress: blocked.token_address, matchedTokenSymbol: blocked.token_symbol, matchedTwitterId: currentTwitterId });
             }
           }
         }
@@ -287,14 +256,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
   if (authorScreenName && NARRATIVE_CONFIG.twitterBlacklist?.includes(authorScreenName)) {
     console.log(`[NarrativeAnalyzer] 预检查触发: 推文作者 @${authorScreenName} 在黑名单中`);
-    return {
-      category: 'low',
-      reasoning: `推文作者@${authorScreenName}在黑名单中，该账号专门制造虚假叙事`,
-      scores: { credibility: 0, virality: 0 },
-      total_score: 0,
-      preCheckTriggered: true,
-      preCheckReason: 'blacklist'
-    };
+    return buildPreCheckResult('low', `推文作者@${authorScreenName}在黑名单中，该账号专门制造虚假叙事`, 'blacklist', { scores: { credibility: 0, virality: 0 }, total_score: 0 });
   }
 
   // 规则1.7：应用商店链接检查
@@ -320,14 +282,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
       if (appStoreDomains.some(domain => hostname === domain || hostname.endsWith('.' + domain))) {
         console.log(`[NarrativeAnalyzer] 预检查触发: 检测到应用商店链接 (${websiteUrl})`);
-        return {
-          category: 'low',
-          reasoning: `检测到应用商店链接，App产品不适合构建meme币（缺乏事件驱动和病毒传播属性）`,
-          scores: { credibility: 5, virality: 5 },
-          total_score: 10,
-          preCheckTriggered: true,
-          preCheckReason: 'app_store_link'
-        };
+        return buildPreCheckResult('low', `检测到应用商店链接，App产品不适合构建meme币（缺乏事件驱动和病毒传播属性）`, 'app_store_link', { scores: { credibility: 5, virality: 5 }, total_score: 10 });
       }
     } catch (e) {
       // URL解析失败，继续后续检查
@@ -349,14 +304,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
         if (daysDiff > expiredDaysThreshold) {
           console.log(`[NarrativeAnalyzer] 预检查触发: 推文发布时间超过${expiredDaysThreshold}天 (${twitterInfo.formatted_created_at || twitterInfo.created_at})`);
-          return {
-            category: 'low',
-            reasoning: `推文发布时间超过${expiredDaysThreshold}天（${twitterInfo.formatted_created_at || twitterInfo.created_at}），叙事价值已耗尽`,
-            scores: { credibility: 10, virality: 10 },
-            total_score: 20,
-            preCheckTriggered: true,
-            preCheckReason: 'expired_tweet'
-          };
+          return buildPreCheckResult('low', `推文发布时间超过${expiredDaysThreshold}天（${twitterInfo.formatted_created_at || twitterInfo.created_at}），叙事价值已耗尽`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
         }
       } catch (e) {
         console.warn('[NarrativeAnalyzer] 解析推文时间失败:', e.message);
@@ -386,14 +334,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
           if (daysDiff > expiredVideoDaysThreshold) {
             console.log(`[NarrativeAnalyzer] 预检查触发: ${video.name}视频发布时间超过${expiredVideoDaysThreshold}天 (${videoTime})`);
-            return {
-              category: 'low',
-              reasoning: `${video.name}视频发布时间超过${expiredVideoDaysThreshold}天（${Math.floor(daysDiff)}天前），叙事价值已耗尽`,
-              scores: { credibility: 10, virality: 10 },
-              total_score: 20,
-              preCheckTriggered: true,
-              preCheckReason: 'expired_video'
-            };
+            return buildPreCheckResult('low', `${video.name}视频发布时间超过${expiredVideoDaysThreshold}天（${Math.floor(daysDiff)}天前），叙事价值已耗尽`, 'expired_video', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
           }
         } catch (e) {
           console.warn(`[NarrativeAnalyzer] 解析${video.name}视频时间失败:`, e.message);
@@ -458,14 +399,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
     if (viewMeetsThreshold || likeMeetsThreshold) {
       console.log(`[NarrativeAnalyzer] 规则3触发: ${video.name}视频${displayType}=${displayValue}，达到unrated阈值`);
-      return {
-        category: 'unrated',
-        reasoning: `${video.name}视频${displayType}${displayValue}，无法解析视频内容进行完整叙事评估`,
-        scores: null,
-        total_score: null,
-        preCheckTriggered: true,
-        preCheckReason: 'video_unrated'
-      };
+      return buildPreCheckResult('unrated', `${video.name}视频${displayType}${displayValue}，无法解析视频内容进行完整叙事评估`, 'video_unrated');
     }
 
     // ⚠️ 播放量/点赞数低的情况不再自动返回low，交给LLM判断
@@ -480,27 +414,13 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     // 阅读数低于1000 → low
     if (readCount > 0 && readCount < 1000) {
       console.log(`[NarrativeAnalyzer] 规则3.5触发: 微信文章阅读数(${readCount})低于1000，返回low`);
-      return {
-        category: 'low',
-        reasoning: `微信文章阅读数仅${readCount}，传播力不足（阈值：1000）`,
-        scores: { credibility: 10, virality: 10 },
-        total_score: 20,
-        preCheckTriggered: true,
-        preCheckReason: 'weixin_low_reads'
-      };
+      return buildPreCheckResult('low', `微信文章阅读数仅${readCount}，传播力不足（阈值：1000）`, 'weixin_low_reads', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
     }
 
     // 阅读数为0但有文章内容 → 说明文章存在但无法获取统计数据，视为传播力不足
     if (readCount === 0 && weixinInfo.title) {
       console.log(`[NarrativeAnalyzer] 规则3.5触发: 微信文章无法获取阅读数，返回low`);
-      return {
-        category: 'low',
-        reasoning: `微信文章无法获取阅读统计数据，视为传播力不足`,
-        scores: { credibility: 10, virality: 10 },
-        total_score: 20,
-        preCheckTriggered: true,
-        preCheckReason: 'weixin_no_stats'
-      };
+      return buildPreCheckResult('low', `微信文章无法获取阅读统计数据，视为传播力不足`, 'weixin_no_stats', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
     }
   }
 
@@ -529,14 +449,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         : '无交互数据';
 
       console.log(`[NarrativeAnalyzer] 规则3.6触发: 微博总交互数(${totalEngagement})低于阈值(${LOW_ENGAGEMENT_THRESHOLD})，返回low`);
-      return {
-        category: 'low',
-        reasoning: `微博作者"${authorName}"的交互数据过低（${engagementStr}，总交互${totalEngagement}），传播力不足（阈值：${LOW_ENGAGEMENT_THRESHOLD}）`,
-        scores: { credibility: 10, virality: 10 },
-        total_score: 20,
-        preCheckTriggered: true,
-        preCheckReason: 'weibo_low_engagement'
-      };
+      return buildPreCheckResult('low', `微博作者"${authorName}"的交互数据过低（${engagementStr}，总交互${totalEngagement}），传播力不足（阈值：${LOW_ENGAGEMENT_THRESHOLD}）`, 'weibo_low_engagement', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
 
       console.log(`[NarrativeAnalyzer] 微博交互数据检查通过: 总交互数=${totalEngagement}（转发${repostsCount}+评论${commentsCount}+点赞${attitudesCount}）`);
     }
@@ -562,14 +475,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       : '缺少任何有效的公开信息来源（网站、社交媒体、视频等），无法评估叙事';
 
     console.log(`[NarrativeAnalyzer] 规则4触发: ${reason}`);
-    return {
-      category: 'low',
-      reasoning: reason,
-      scores: null,
-      total_score: null,
-      preCheckTriggered: true,
-      preCheckReason: 'no_public_info'
-    };
+    return buildPreCheckResult('low', reason, 'no_public_info');
   }
 
   // 情况B：有公开URL，检查数据是否获取成功
@@ -579,14 +485,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   if (!hasValidData) {
     // 有URL但都没获取到数据 → low
     console.log(`[NarrativeAnalyzer] 规则4触发: 有公开信息但内容获取失败或已失效`);
-    return {
-      category: 'low',
-      reasoning: '有公开信息链接但内容获取失败或已失效（推文删除、网站无法访问、视频下架等），叙事价值已耗尽',
-      scores: { credibility: 5, virality: 5 },
-      total_score: 10,
-      preCheckTriggered: true,
-      preCheckReason: 'public_info_fetch_failed'
-    };
+    return buildPreCheckResult('low', '有公开信息链接但内容获取失败或已失效（推文删除、网站无法访问、视频下架等），叙事价值已耗尽', 'public_info_fetch_failed', { scores: { credibility: 5, virality: 5 }, total_score: 10 });
   }
 
   // 有有效数据，继续后续规则检查
@@ -701,14 +600,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       reasons.push(hasVideos ? '推文带有视频内容' : '推文带有其他类型媒体内容（非图片）');
 
       console.log(`[NarrativeAnalyzer] 规则4触发: ${reasons.join('，')}，返回unrated`);
-      return {
-        category: 'unrated',
-        reasoning: `${reasons.join('，')}，暂不支持解析该类型媒体`,
-        scores: null,
-        total_score: null,
-        preCheckTriggered: true,
-        preCheckReason: 'high_influence_with_media'
-      };
+      return buildPreCheckResult('unrated', `${reasons.join('，')}，暂不支持解析该类型媒体`, 'high_influence_with_media');
     }
   }
 

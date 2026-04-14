@@ -60,7 +60,7 @@
  * 2. 代币质量检查与评分
  * 3. 综合评分（事件60% + 关联20% + 质量20%）
  *
- * 存储位置：llm_stage2_* 字段
+ * 存储位置：stage2_result / stage2_prompt / stage2_raw_output 字段
  */
 
 import { buildTwitterSection } from './sections/twitter-section.mjs';

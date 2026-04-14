@@ -428,7 +428,7 @@ class TelegramNotifier {
       // 获取最新的叙事分析结果
       const { data, error } = await supabase
         .from('token_narrative')
-        .select('llm_stage2_parsed_output, llm_stage1_parsed_output, pre_check_result')
+        .select('stage2_result, stage1_result, pre_check_result, stage3_result, stage_final_result')
         .eq('token_address', tokenAddress.toLowerCase())
         .order('analyzed_at', { ascending: false })
         .limit(1)
@@ -438,14 +438,19 @@ class TelegramNotifier {
         return {};
       }
 
-      // 从 stage2 或 stage1 或 pre_check 中提取 reasoning
+      // 从统一 result 中提取 reason（优先级：final > stage3 > stage2 > stage1 > pre_check）
       let reasoning = null;
-      if (data.llm_stage2_parsed_output?.reasoning) {
-        reasoning = data.llm_stage2_parsed_output.reasoning;
-      } else if (data.llm_stage1_parsed_output?.reason) {
-        reasoning = data.llm_stage1_parsed_output.reason;
-      } else if (data.pre_check_result?.reasoning) {
-        reasoning = data.pre_check_result.reasoning;
+      for (const stageResult of [
+        data.stage_final_result,
+        data.stage3_result,
+        data.stage2_result,
+        data.stage1_result,
+        data.pre_check_result
+      ]) {
+        if (stageResult?.reason) {
+          reasoning = stageResult.reason;
+          break;
+        }
       }
 
       return {

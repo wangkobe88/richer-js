@@ -6,7 +6,7 @@
 const { Trade } = require('../../trading-engine/entities/Trade');
 const { TradeSignal } = require('../../trading-engine/entities/TradeSignal');
 const { dbManager } = require('../../services/dbManager');
-const { resolveFinalCategory, categoryToRating } = require('../../narrative/utils/rating-utils.mjs');
+const { resolveFinalRating, categoryToRating } = require('../../narrative/utils/rating-utils.mjs');
 
 /**
  * 实验数据服务类
@@ -1239,36 +1239,34 @@ class ExperimentDataService {
           // 调试日志：检查叙事数据字段
           console.log(`[Narrative] token=${token.token_symbol}, address=${token.token_address}`);
           console.log(`[Narrative] narrative keys:`, Object.keys(narrative));
-          console.log(`[Narrative] llm_stage1_category:`, narrative.llm_stage1_category);
-          console.log(`[Narrative] llm_stage2_category:`, narrative.llm_stage2_category);
-          console.log(`[Narrative] pre_check_category:`, narrative.pre_check_category);
+          console.log(`[Narrative] stage_final_result:`, narrative.stage_final_result);
+          console.log(`[Narrative] stage3_result:`, narrative.stage3_result);
 
-          // 使用统一模块解析最终 category 和 rating
-          const llm_category = resolveFinalCategory(narrative);
+          // 使用统一模块解析最终 rating
+          const llm_category = resolveFinalRating(narrative);
           const rating = categoryToRating(llm_category);
           console.log(`[Narrative] 最终 llm_category:`, llm_category, `rating:`, rating);
 
-          // 从3阶段分析结果读取 summary（优先级：stage3 > stage2 > stage1 > pre_check）
-          const llm_summary = narrative.llm_stage3_parsed_output ? {
-            total_score: narrative.llm_stage3_parsed_output.total_score,
-            credibility_score: narrative.llm_stage3_parsed_output.scores?.credibility,
-            virality_score: narrative.llm_stage3_parsed_output.scores?.virality,
-            reasoning: narrative.llm_stage3_parsed_output.reasoning,
-            relevance_score: narrative.llm_stage3_parsed_output.relevanceScore,
-            quality_score: narrative.llm_stage3_parsed_output.qualityScore
-          } : narrative.llm_stage2_parsed_output ? {
-            total_score: narrative.llm_stage2_parsed_output.categoryAnalysis?.totalScore || narrative.llm_stage2_parsed_output.total_score,
-            credibility_score: narrative.llm_stage2_parsed_output.scores?.credibility,
-            virality_score: narrative.llm_stage2_parsed_output.scores?.virality,
-            reasoning: narrative.llm_stage2_parsed_output.reasoning
-          } : narrative.llm_stage1_parsed_output ? {
-            reasoning: narrative.llm_stage1_parsed_output.reason,
-            scenario: narrative.llm_stage1_parsed_output.scenario
+          // 从统一 result 结构提取 summary（优先级：stage_final > stage3 > stage2 > stage1 > pre_check）
+          const llm_summary = narrative.stage_final_result ? {
+            total_score: narrative.stage_final_result.score,
+            reasoning: narrative.stage_final_result.reason,
+            ...narrative.stage_final_result.details
+          } : narrative.stage3_result ? {
+            total_score: narrative.stage3_result.score,
+            reasoning: narrative.stage3_result.reason,
+            ...narrative.stage3_result.details
+          } : narrative.stage2_result ? {
+            total_score: narrative.stage2_result.score,
+            reasoning: narrative.stage2_result.reason,
+            ...narrative.stage2_result.details
+          } : narrative.stage1_result ? {
+            reasoning: narrative.stage1_result.reason,
+            ...narrative.stage1_result.details
           } : narrative.pre_check_result ? {
-            total_score: narrative.pre_check_result.total_score,
-            credibility_score: narrative.pre_check_result.scores?.credibility,
-            virality_score: narrative.pre_check_result.scores?.virality,
-            reasoning: narrative.pre_check_result.reasoning
+            total_score: narrative.pre_check_result.score,
+            reasoning: narrative.pre_check_result.reason,
+            ...narrative.pre_check_result.details
           } : null;
 
           return {

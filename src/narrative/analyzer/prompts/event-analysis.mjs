@@ -188,7 +188,7 @@
  * - 第四步精简：从9个阻断场景减少到6个硬性阻断场景，作为底线重新检测
  * - 执行流程：第一步（空洞检查）→ 第二步（描述提取）→ 第三步（分类评分）→ 第四步（阻断检查）
  *
- * 存储位置：llm_stage1_* 字段
+ * 存储位置：stage1_result / stage1_prompt / stage1_raw_output 字段
  */
 
 import { buildTwitterSection } from './sections/twitter-section.mjs';

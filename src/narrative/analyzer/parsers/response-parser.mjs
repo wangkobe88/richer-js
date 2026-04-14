@@ -3,7 +3,7 @@
  * 包含各种LLM响应的解析方法
  */
 
-import { resolveFinalCategory, categoryToRating } from '../../utils/rating-utils.mjs';
+import { resolveFinalRating, categoryToRating } from '../../utils/rating-utils.mjs';
 
 /**
  * 解析 Stage 1 响应
@@ -592,6 +592,7 @@ export function parseJSONResponse(content) {
 
 /**
  * 从数据库记录构造 llmAnalysis 对象
+ * 适配新 schema：每个阶段有 *_result JSONB + *_prompt text + *_raw_output text
  * @param {Object} record - 数据库记录
  * @returns {Object} llmAnalysis 对象
  */
@@ -599,87 +600,66 @@ export function buildLLMAnalysis(record) {
   if (!record) return null;
 
   // 预检查数据
-  const preCheck = record.pre_check_category ? {
-    category: record.pre_check_category,
-    reason: record.pre_check_reason,
+  const preCheck = record.pre_check_result ? {
     result: record.pre_check_result
   } : null;
 
-  // PreStage 数据
-  const prestage = record.llm_prestage_category ? {
-    category: record.llm_prestage_category,
-    parsedOutput: record.llm_prestage_parsed_output,
-    model: record.llm_prestage_model,
-    prompt: record.llm_prestage_prompt,
-    rawOutput: record.llm_prestage_raw_output,
-    startedAt: record.llm_prestage_started_at,
-    finishedAt: record.llm_prestage_finished_at,
-    success: record.llm_prestage_success,
-    error: record.llm_prestage_error
-  } : null;
+  // 辅助函数：从 *_result JSONB 构造阶段对象
+  const buildStage = (stageName) => {
+    const result = record[`${stageName}_result`];
+    if (!result) return null;
+    return {
+      result: result,
+      prompt: record[`${stageName}_prompt`] || null,
+      rawOutput: record[`${stageName}_raw_output`] || null,
+    };
+  };
 
-  // Stage 1 数据
-  const stage1 = (record.llm_stage1_parsed_output || record.llm_stage1_category) ? {
-    category: record.llm_stage1_category || record.llm_stage1_parsed_output?.eventClassification?.primaryCategory || record.llm_stage1_parsed_output?.category,
-    parsedOutput: record.llm_stage1_parsed_output,
-    model: record.llm_stage1_model,
-    prompt: record.llm_stage1_prompt,
-    rawOutput: record.llm_stage1_raw_output,
-    startedAt: record.llm_stage1_started_at,
-    finishedAt: record.llm_stage1_finished_at,
-    success: record.llm_stage1_success,
-    error: record.llm_stage1_error
-  } : null;
+  const prestage = buildStage('prestage');
+  const stage1 = buildStage('stage1');
+  const stage2 = buildStage('stage2');
+  const stage3 = buildStage('stage3');
 
-  // Stage 2 数据
-  const stage2 = (record.llm_stage2_parsed_output || record.llm_stage2_category) ? {
-    category: record.llm_stage2_category || record.llm_stage2_parsed_output?.raw?.categoryAnalysis?.category || record.llm_stage2_parsed_output?.category,
-    parsedOutput: record.llm_stage2_parsed_output,
-    model: record.llm_stage2_model,
-    prompt: record.llm_stage2_prompt,
-    rawOutput: record.llm_stage2_raw_output,
-    startedAt: record.llm_stage2_started_at,
-    finishedAt: record.llm_stage2_finished_at,
-    success: record.llm_stage2_success,
-    error: record.llm_stage2_error
-  } : null;
+  // 获取最终评级 - 使用统一解析算法
+  const rating = resolveFinalRating(record);
 
-  // Stage 3 数据 - 只要有 parsed_output 就认为 stage3 存在
-  const stage3 = (record.llm_stage3_parsed_output || record.llm_stage3_category) ? {
-    category: record.llm_stage3_category || record.llm_stage3_parsed_output?.raw?.category || record.llm_stage3_parsed_output?.category,
-    parsedOutput: record.llm_stage3_parsed_output,
-    model: record.llm_stage3_model,
-    prompt: record.llm_stage3_prompt,
-    rawOutput: record.llm_stage3_raw_output,
-    startedAt: record.llm_stage3_started_at,
-    finishedAt: record.llm_stage3_finished_at,
-    success: record.llm_stage3_success,
-    error: record.llm_stage3_error
-  } : null;
-
-  // 获取最终评级和评分 - 使用统一模块
-  const category = resolveFinalCategory(record);
-  const parsedOutput = record.llm_stage3_parsed_output || record.llm_stage2_parsed_output || record.llm_stage1_parsed_output || record.llm_prestage_parsed_output;
-
+  // 从最近的阶段获取 reasoning
   let reasoning = '';
-  if (parsedOutput) {
-    if (parsedOutput.reasoning) {
-      reasoning = parsedOutput.reasoning;
-    } else if (parsedOutput.reason) {
-      reasoning = parsedOutput.reason;
+  for (const stageResult of [
+    record.stage_final_result,
+    record.stage3_result,
+    record.stage2_result,
+    record.stage1_result,
+    record.prestage_result,
+    record.pre_check_result
+  ]) {
+    if (stageResult?.reason) {
+      reasoning = stageResult.reason;
+      break;
     }
   }
-  // 预检查触发时，从预检查结果中获取reasoning
-  if (!reasoning && record.pre_check_result) {
-    reasoning = record.pre_check_result.reasoning || record.pre_check_reason || '';
-  }
+
+  // 获取 score
+  const finalScore = record.stage_final_result?.score
+    ?? record.stage3_result?.score
+    ?? record.stage2_result?.score
+    ?? record.prestage_result?.score
+    ?? record.pre_check_result?.details?.scores
+    ?? null;
+
+  // 获取 scores（详细评分）
+  const scores = record.stage_final_result?.details
+    ?? record.stage3_result?.details
+    ?? record.stage2_result?.details?.categoryAnalysis
+    ?? record.pre_check_result?.details?.scores
+    ?? null;
 
   const summary = {
-    category: category,
-    rating: categoryToRating(category),
-    reasoning: reasoning,
-    total_score: parsedOutput?.total_score ?? record.pre_check_result?.total_score,
-    scores: parsedOutput?.scores ?? record.pre_check_result?.scores
+    rating: rating,
+    numericRating: categoryToRating(rating),
+    reason: reasoning,
+    score: finalScore,
+    scores: scores
   };
 
   return {
@@ -688,79 +668,73 @@ export function buildLLMAnalysis(record) {
     stage1,
     stage2,
     stage3,
+    stageFinal: record.stage_final_result || null,
     summary
   };
 }
 
 /**
  * 格式化返回结果
+ * 适配新 schema：使用 resolveFinalRating 和统一的 result 结构
  * @param {Object} record - 数据库记录
  * @returns {Object} 格式化后的结果
  */
 export function formatResult(record) {
   if (!record) return null;
 
-  // 构建基础结果
-  const result = {
+  const rating = resolveFinalRating(record);
+
+  // 从最近的阶段获取 reason
+  let reason = '';
+  for (const stageResult of [
+    record.stage_final_result,
+    record.stage3_result,
+    record.stage2_result,
+    record.stage1_result,
+    record.prestage_result,
+    record.pre_check_result
+  ]) {
+    if (stageResult?.reason) {
+      reason = stageResult.reason;
+      break;
+    }
+  }
+
+  // 获取 score
+  const score = record.stage_final_result?.score
+    ?? record.stage3_result?.score
+    ?? record.stage2_result?.score
+    ?? record.prestage_result?.score
+    ?? record.pre_check_result?.score
+    ?? null;
+
+  // 获取 scores（详细评分）
+  const scores = record.stage_final_result?.details
+    ?? record.stage3_result?.details
+    ?? record.stage2_result?.details?.categoryAnalysis
+    ?? record.pre_check_result?.details?.scores
+    ?? null;
+
+  return {
     token: {
       address: record.token_address,
       symbol: record.token_symbol,
       name: record.raw_api_data?.name || record.token_symbol || '',
       icon: (record.raw_api_data?.name || record.token_symbol || '?')[0]?.toUpperCase(),
-      raw_api_data: record.raw_api_data || null,  // 添加原始代币数据
-      chain: record.raw_api_data?.chain || null  // 添加链信息
+      raw_api_data: record.raw_api_data || null,
+      chain: record.raw_api_data?.chain || null
     },
-    category: (record.pre_check_category && record.pre_check_category !== 'unrated')
-      ? record.pre_check_category
-      : (record.llm_stage_final_result?.category || record.llm_stage3_category || record.llm_stage2_category || record.llm_stage1_category || record.llm_prestage_category || 'unrated'),
-    reasoning: '',
-    scores: null,
-    total_score: null,
-    metadata: {}
-  };
-
-  // 解析 reasoning
-  const parsedOutput = record.llm_stage3_parsed_output || record.llm_stage2_parsed_output || record.llm_stage1_parsed_output || record.llm_prestage_parsed_output;
-  if (parsedOutput) {
-    if (parsedOutput.reasoning) {
-      result.reasoning = parsedOutput.reasoning;
-    } else if (parsedOutput.reason) {
-      result.reasoning = parsedOutput.reason;
+    rating: rating,
+    numericRating: categoryToRating(rating),
+    reason: reason,
+    score: score,
+    scores: scores,
+    metadata: {
+      analyzedAt: record.analyzed_at,
+      experimentId: record.experiment_id,
+      promptVersion: record.prompt_version,
+      isValid: record.is_valid,
+      preCheckTriggered: !!record.pre_check_result
     }
-  }
-  // 预检查触发时，从预检查结果中获取reasoning
-  if (!result.reasoning && record.pre_check_result) {
-    result.reasoning = record.pre_check_result.reasoning || record.pre_check_reason || '';
-  }
-
-  // 解析 scores
-  if (parsedOutput && parsedOutput.scores) {
-    result.scores = parsedOutput.scores;
-  }
-  // 预检查的scores
-  if (!result.scores && record.pre_check_result?.scores) {
-    result.scores = record.pre_check_result.scores;
-  }
-
-  // 解析 total_score（优先使用 Stage Final 聚合结果）
-  if (record.llm_stage_final_result?.totalScore !== undefined) {
-    result.total_score = record.llm_stage_final_result.totalScore;
-  } else if (parsedOutput && parsedOutput.total_score !== undefined) {
-    result.total_score = parsedOutput.total_score;
-  }
-  // 预检查的total_score
-  if (result.total_score === null && record.pre_check_result?.total_score !== undefined) {
-    result.total_score = record.pre_check_result.total_score;
-  }
-
-  // 添加元数据
-  result.metadata = {
-    analyzedAt: record.analyzed_at,
-    experimentId: record.experiment_id,
-    promptVersion: record.prompt_version,
-    isValid: record.is_valid,
-    preCheckTriggered: !!record.pre_check_category
   };
-
-  return result;
 }

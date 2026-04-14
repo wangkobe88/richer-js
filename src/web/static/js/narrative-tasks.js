@@ -601,12 +601,12 @@ function renderTaskDetail(task) {
                 <h4 class="font-medium text-gray-900 mb-3">叙事分析结果</h4>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <div class="text-sm text-gray-500">LLM Stage 1 分类</div>
-                        <div class="text-sm">${n.llm_stage1_category || '-'}</div>
+                        <div class="text-sm text-gray-500">Stage 1 分类</div>
+                        <div class="text-sm">${n.stage1_result?.category || '-'}</div>
                     </div>
                     <div>
-                        <div class="text-sm text-gray-500">LLM Stage 2 分类</div>
-                        <div class="text-sm">${n.llm_stage2_category || '-'}</div>
+                        <div class="text-sm text-gray-500">Stage 2 分类</div>
+                        <div class="text-sm">${n.stage2_result?.category || '-'}</div>
                     </div>
                     <div class="col-span-2">
                         <div class="text-sm text-gray-500">分析时间</div>

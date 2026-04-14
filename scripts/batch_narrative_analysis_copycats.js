@@ -56,10 +56,10 @@ async function triggerNarrativeAnalysis() {
       const result = await response.json();
 
       if (result.success) {
-        const category = result.data?.llm_stage3_category || result.data?.pre_check_category || 'unknown';
-        const reason = result.data?.pre_check_reason || result.data?.reasoning || 'N/A';
+        const rating = result.data?.rating || result.data?.llmAnalysis?.summary?.rating || 'unknown';
+        const reason = result.data?.reason || result.data?.llmAnalysis?.summary?.reason || 'N/A';
 
-        console.log(`  ✓ 成功 - Category: ${category}, Reason: ${reason.substring(0, 50)}...`);
+        console.log(`  ✓ 成功 - Rating: ${rating}, Reason: ${reason.substring(0, 50)}...`);
         successCount++;
       } else {
         console.log(`  ✗ 失败 - ${result.error}`);

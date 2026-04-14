@@ -90,7 +90,7 @@ router.get('/result/:address', async (req, res) => {
       sourceExperimentId: result.experiment_id,
       promptVersion: result.prompt_version,
       isValid: result.is_valid,
-      preCheckTriggered: !!result.pre_check_category
+      preCheckTriggered: !!result.pre_check_result
     };
 
     res.json({
@@ -201,51 +201,19 @@ router.post('/reanalyze/:address', async (req, res) => {
     await NarrativeRepository.save({
       token_address: address,
       // 清除预检查数据
-      pre_check_category: null,
-      pre_check_reason: null,
       pre_check_result: null,
-      // 清除 Stage 1 数据（所有字段都显式设置为 null）
-      llm_stage1_parsed_output: { __clear: true },
-      llm_stage1_category: { __clear: true },
-      llm_stage1_model: null,
-      llm_stage1_prompt: null,
-      llm_stage1_raw_output: null,
-      llm_stage1_started_at: null,
-      llm_stage1_finished_at: null,
-      llm_stage1_success: null,
-      llm_stage1_error: null,
-      // 清除 Stage 2 数据（所有字段都显式设置为 null）
-      llm_stage2_parsed_output: { __clear: true },
-      llm_stage2_category: { __clear: true },
-      llm_stage2_model: null,
-      llm_stage2_prompt: null,
-      llm_stage2_raw_output: null,
-      llm_stage2_started_at: null,
-      llm_stage2_finished_at: null,
-      llm_stage2_success: null,
-      llm_stage2_error: null,
-      // 清除 Stage 3 数据（所有字段都显式设置为 null）
-      llm_stage3_parsed_output: { __clear: true },
-      llm_stage3_category: { __clear: true },
-      llm_stage3_model: null,
-      llm_stage3_prompt: null,
-      llm_stage3_raw_output: null,
-      llm_stage3_started_at: null,
-      llm_stage3_finished_at: null,
-      llm_stage3_success: null,
-      llm_stage3_error: null,
+      // 清除 Stage 1 数据
+      stage1_result: { __clear: true },
+      // 清除 Stage 2 数据
+      stage2_result: { __clear: true },
+      // 清除 Stage 3 数据
+      stage3_result: { __clear: true },
+      // 清除 Stage Final 数据
+      stage_final_result: null,
+      // 清除 PreStage 数据
+      prestage_result: { __clear: true },
       // 清除 Stage 字段
       analysis_stage: { __clear: true },
-      // 清除 PreStage 数据
-      llm_prestage_parsed_output: null,
-      llm_prestage_category: null,
-      llm_prestage_model: null,
-      llm_prestage_prompt: null,
-      llm_prestage_raw_output: null,
-      llm_prestage_started_at: null,
-      llm_prestage_finished_at: null,
-      llm_prestage_success: null,
-      llm_prestage_error: null,
       // 标记为无效
       is_valid: false
     });

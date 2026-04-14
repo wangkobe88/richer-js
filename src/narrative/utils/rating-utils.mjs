@@ -1,6 +1,6 @@
 /**
  * 叙事评级统一工具模块
- * 所有 category ↔ rating 的映射逻辑都在这里，消费方统一调用
+ * 所有 rating 解析逻辑都在这里，消费方统一调用
  */
 
 /**
@@ -14,67 +14,58 @@ const CATEGORY_TO_RATING = {
 };
 
 /**
- * 从 category 获取 numeric rating
- * @param {string} category - 叙事类别 (high/mid/low/unrated/account_based_meme 等)
+ * 从 rating 字符串获取 numeric rating
+ * @param {string} rating - 叙事评级 (high/mid/low/unrated)
  * @returns {number} 评级 (1=低质量, 2=中质量, 3=高质量, 9=未评级)
  */
-export function categoryToRating(category) {
-  if (!category) return 9;
-  return CATEGORY_TO_RATING[category] ?? 9;
+export function categoryToRating(rating) {
+  if (!rating) return 9;
+  return CATEGORY_TO_RATING[rating] ?? 9;
 }
 
 /**
- * 从数据库记录中提取 prestage 的 category
- * 特殊处理 account_based_meme：用 rating 而不是 tokenType
+ * 从数据库记录中解析最终 rating
+ *
+ * 解析算法（从最早的阶段往后找）：
+ * 1. rating = "unrated" → 立即返回（流程无法判断）
+ * 2. rating = "high"/"mid"/"low" → 直接返回（最终结果）
+ * 3. pass = false → rating 必须是 low → 直接返回
+ * 4. pass = true → 还没出最终结果，继续往后看
+ * 5. 所有阶段都无结果 → "unrated"
+ *
  * @param {Object} record - 数据库记录
- * @returns {string} category
+ * @returns {string} 最终 rating (high/mid/low/unrated)
  */
-function resolvePrestageCategory(record) {
-  const parsedOutput = record.llm_prestage_parsed_output;
-  if (!parsedOutput) return record.llm_prestage_category || null;
-
-  const tokenType = parsedOutput.tokenType;
-  // account_based_meme 的 category 取 rating（low/unrated），不是 tokenType
-  if (tokenType === 'account_based_meme') {
-    return parsedOutput.rating || 'low';
-  }
-  // project 类型：category 使用 rating 字段（mid/high/low），不是 tokenType
-  if (tokenType === 'project') {
-    return parsedOutput.rating || record.llm_prestage_category || null;
-  }
-  return tokenType || record.llm_prestage_category || null;
-}
-
-/**
- * 从数据库记录或 llmAnalysis 对象中解析最终 category
- * 优先级：preCheck > stage3 > stage2(pass检查) > stage1 > prestage
- * @param {Object} record - 数据库记录
- * @returns {string} 最终 category (high/mid/low/unrated)
- */
-export function resolveFinalCategory(record) {
+export function resolveFinalRating(record) {
   if (!record) return 'unrated';
 
-  // 各阶段的 category
-  const stageFinalCategory = record.llm_stage_final_result?.category;
-  const stage3Category = record.llm_stage3_category || record.llm_stage3_parsed_output?.raw?.category;
-  const stage2Category = record.llm_stage2_parsed_output?.raw?.categoryAnalysis?.category || record.llm_stage2_category;
-  const stage1Category = record.llm_stage1_parsed_output?.eventClassification?.primaryCategory || record.llm_stage1_category;
-  const prestageCategory = resolvePrestageCategory(record);
-  const preCheckCategory = record.pre_check_category;
+  const stages = [
+    'pre_check_result',
+    'prestage_result',
+    'stage1_result',
+    'stage2_result',
+    'stage3_result',
+    'stage_final_result'
+  ];
 
-  // Stage 2 是否未通过
-  const stage2Pass = record.llm_stage2_parsed_output?.raw?.pass;
+  for (const field of stages) {
+    const result = record[field];
+    if (!result) continue;
 
-  // 优先级判断
-  if (preCheckCategory && preCheckCategory !== 'unrated') {
-    return preCheckCategory;
+    // 规则1: unrated → 立即返回
+    if (result.rating === 'unrated') return 'unrated';
+
+    // 规则2: low/mid/high → 直接返回（最终结果）
+    if (['high', 'mid', 'low'].includes(result.rating)) return result.rating;
+
+    // 规则3: pass=false → rating 必须是 low → 直接返回
+    if (result.pass === false) return 'low';
+
+    // 规则4: pass=true → 继续往后看
+    if (result.pass === true) continue;
   }
-  if (record.llm_stage2_parsed_output || record.llm_stage2_category) {
-    if (stage2Pass === false) {
-      return 'low';
-    }
-  }
-  return stageFinalCategory || stage3Category || stage2Category || stage1Category || prestageCategory || 'unrated';
+
+  return 'unrated';
 }
 
 /**
