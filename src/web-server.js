@@ -655,6 +655,25 @@ class RicherJsWebServer {
       }
     });
 
+    // 批量补充代币的叙事表征语料ID
+    this.app.post('/api/experiment/:id/backfill-material-id', async (req, res) => {
+      try {
+        const { id: experimentId } = req.params;
+        console.log(`[MaterialID补全] 开始为实验 ${experimentId} 补全 narrative_material_id...`);
+
+        const result = await this.dataService.backfillNarrativeMaterialId(experimentId);
+
+        if (result.success) {
+          res.json(result);
+        } else {
+          res.status(500).json(result);
+        }
+      } catch (error) {
+        console.error('[MaterialID补全] 失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 分析所有实验的统计数据
     this.app.post('/api/experiments/analyze-all', async (req, res) => {
       try {

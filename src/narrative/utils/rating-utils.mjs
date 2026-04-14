@@ -61,6 +61,9 @@ export function resolveFinalRating(record) {
     // 规则3: pass=false → rating 必须是 low → 直接返回
     if (result.pass === false) return 'low';
 
+    // 规则3.5: pass=null 但 category='low' → 兼容旧数据（pass 未正确从 raw 提取）
+    if (result.pass === null && result.category === 'low') return 'low';
+
     // 规则4: pass=true → 继续往后看
     if (result.pass === true) continue;
   }

@@ -286,31 +286,31 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
           info = await TwitterFetcher.enrichWithLinkContent(info);
         }
 
-        // 图片分析（仅对高影响力账号启用）
-        const screenName = info?.author_screen_name || info?.screen_name;
-        const isHighInfluence = isHighInfluenceAccount(screenName);
-        if (NARRATIVE_CONFIG.enableImageAnalysis && isHighInfluence && info?.media && TwitterMediaExtractor.hasImages(info)) {
-          console.log(`[NarrativeAnalyzer] 高影响力账号 @${screenName} 推文包含图片，开始分析...`);
-          const imageUrls = TwitterMediaExtractor.extractImageUrls(info);
-          const firstImage = imageUrls[0];
-          if (firstImage) {
-            try {
-              const imageData = await ImageDownloader.downloadAsBase64(firstImage.url);
-              if (imageData) {
-                const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
-                info.image_analysis = {
-                  url: firstImage.url,
-                  analysis: imageAnalysis
-                };
-                console.log('[NarrativeAnalyzer] 图片分析完成');
-              }
-            } catch (error) {
-              console.warn('[NarrativeAnalyzer] 图片分析失败:', error.message);
-            }
-          }
-        } else if (NARRATIVE_CONFIG.enableImageAnalysis && !isHighInfluence && info?.media && TwitterMediaExtractor.hasImages(info)) {
-          console.log(`[NarrativeAnalyzer] 非高影响力账号 @${screenName}，跳过图片分析`);
-        }
+        // 图片分析已禁用 — 推文图片分析结果对叙事判断贡献有限，节省下载+压缩+LLM开销
+        // const screenName = info?.author_screen_name || info?.screen_name;
+        // const isHighInfluence = isHighInfluenceAccount(screenName);
+        // if (NARRATIVE_CONFIG.enableImageAnalysis && isHighInfluence && info?.media && TwitterMediaExtractor.hasImages(info)) {
+        //   console.log(`[NarrativeAnalyzer] 高影响力账号 @${screenName} 推文包含图片，开始分析...`);
+        //   const imageUrls = TwitterMediaExtractor.extractImageUrls(info);
+        //   const firstImage = imageUrls[0];
+        //   if (firstImage) {
+        //     try {
+        //       const imageData = await ImageDownloader.downloadAsBase64(firstImage.url);
+        //       if (imageData) {
+        //         const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
+        //         info.image_analysis = {
+        //           url: firstImage.url,
+        //           analysis: imageAnalysis
+        //         };
+        //         console.log('[NarrativeAnalyzer] 图片分析完成');
+        //       }
+        //     } catch (error) {
+        //       console.warn('[NarrativeAnalyzer] 图片分析失败:', error.message);
+        //     }
+        //   }
+        // } else if (NARRATIVE_CONFIG.enableImageAnalysis && !isHighInfluence && info?.media && TwitterMediaExtractor.hasImages(info)) {
+        //   console.log(`[NarrativeAnalyzer] 非高影响力账号 @${screenName}，跳过图片分析`);
+        // }
 
         // 非中英文推文翻译
         if (info && info.text) {

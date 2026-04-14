@@ -5,10 +5,11 @@
 
 import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
 import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../prompts/account-backgrounds.mjs';
-import { LLMClient } from '../llm/llm-api-client.mjs';
-import { ImageDownloader } from '../../utils/image-downloader.mjs';
 import { SameNameCheckService } from './same-name-check-service.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
+import { extractNarrativeMaterialId } from '../../utils/material-id-extractor.mjs';
+// import { LLMClient } from '../llm/llm-api-client.mjs';
+// import { ImageDownloader } from '../../utils/image-downloader.mjs';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -240,6 +241,60 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     }
   } catch (err) {
     console.warn('[NarrativeAnalyzer] 近期重复叙事检查失败:', err.message);
+  }
+
+  // 规则0.7：叙事表征语料去重检查
+  // 基于 narrative_material_id 检测同一叙事素材被反复使用的"叙事复用"行为
+  try {
+    const currentRawApiData = tokenData.raw_api_data;
+    if (currentRawApiData) {
+      const currentMaterialId = extractNarrativeMaterialId(currentRawApiData);
+
+      if (currentMaterialId) {
+        const normalizedAddress = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
+        const supabase = NarrativeRepository.getSupabase();
+
+        const currentCreatedAt = tokenData.raw_api_data?.created_at;
+        if (currentCreatedAt) {
+          // 当前代币创建前一周
+          const oneWeekBeforeToken = new Date((currentCreatedAt - 7 * 24 * 3600) * 1000).toISOString();
+          // 豁免5分钟内的同时使用
+          const fiveMinAfterToken = new Date((currentCreatedAt + 5 * 60) * 1000).toISOString();
+
+          const { data: earlierTokens, error: queryError } = await supabase
+            .from('experiment_tokens')
+            .select('token_address, token_symbol, discovered_at')
+            .eq('narrative_material_id', currentMaterialId)
+            .neq('token_address', normalizedAddress)
+            .lt('discovered_at', fiveMinAfterToken)
+            .gte('discovered_at', oneWeekBeforeToken)
+            .order('discovered_at', { ascending: true })
+            .limit(5);
+
+          if (!queryError && earlierTokens && earlierTokens.length > 0) {
+            const matchedInfo = earlierTokens.map(t =>
+              `${t.token_symbol || '?'}(${t.token_address.slice(0, 10)}...)`
+            ).join(', ');
+
+            console.log(`[NarrativeAnalyzer] 预检查触发: 叙事语料复用 (material_id: ${currentMaterialId}, 匹配${earlierTokens.length}个更早代币: ${matchedInfo})`);
+
+            return buildPreCheckResult('low',
+              `检测到叙事语料复用：当前代币使用的叙事素材（${currentMaterialId}）在一周内已被${earlierTokens.length}个代币使用过（${matchedInfo}），该叙事已被反复使用`,
+              'narrative_material_reuse',
+              {
+                scores: { credibility: 0, virality: 0 },
+                total_score: 0,
+                materialId: currentMaterialId,
+                reuseCount: earlierTokens.length,
+                earlierTokens: earlierTokens.map(t => ({ address: t.token_address, symbol: t.token_symbol, discoveredAt: t.discovered_at }))
+              }
+            );
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[NarrativeAnalyzer] 叙事语料去重检查失败:', err.message);
   }
 
   // 规则1：黑名单博主
@@ -526,69 +581,53 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     const retweetCount = metrics.retweet_count || 0;
     const isHighEngagement = likeCount > 5000 || retweetCount > 2000;
 
-    // 如果满足任一条件 + 有媒体 → 进行图片识别或返回unrated
+    // [旧逻辑] 高影响力账号 + 图片 → 下载图片 + LLM识别 → 继续分析
+    // 已弃用：图片下载耗时久，识别准确率不稳定，改为直接返回 unrated 抢最早的筹码
+    // if (isHighInfluence || isHighEngagement) {
+    //   const hasImages = tweet?.media?.images && tweet.media.images.length > 0;
+    //   const hasVideos = tweet?.media?.videos && tweet.media.videos.length > 0;
+    //
+    //   if (isHighInfluence && hasImages) {
+    //     console.log(`[NarrativeAnalyzer] 高影响力账号 @${authorScreenName} 的推文包含图片，启动图片识别...`);
+    //     const images = tweet.media.images;
+    //     const analysisResults = [];
+    //     const maxImages = Math.min(images.length, 3);
+    //     for (let i = 0; i < maxImages; i++) {
+    //       const imageUrl = images[i].url;
+    //       try {
+    //         const imageData = await ImageDownloader.downloadAsBase64(imageUrl, {
+    //           maxSize: 5 * 1024 * 1024, timeout: 15000
+    //         });
+    //         if (!imageData) { console.warn(`[NarrativeAnalyzer] 图片下载失败: ${imageUrl}`); continue; }
+    //         const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
+    //         analysisResults.push({ image_url: imageUrl, analysis: imageAnalysis });
+    //         console.log(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 图片分析成功`);
+    //       } catch (error) {
+    //         console.warn(`[NarrativeAnalyzer] 图片分析失败: ${error.message}`);
+    //       }
+    //     }
+    //     if (analysisResults.length > 0) {
+    //       if (!twitterInfo._imageAnalysis) twitterInfo._imageAnalysis = [];
+    //       twitterInfo._imageAnalysis.push({
+    //         account: authorScreenName,
+    //         accountBackground: getHighInfluenceAccountBackground(authorScreenName),
+    //         images_analyzed: analysisResults.length,
+    //         results: analysisResults
+    //       });
+    //       console.log(`[NarrativeAnalyzer] 图片识别完成（${analysisResults.length}张），继续LLM分析`);
+    //       continue;
+    //     }
+    //   }
+    //   // 有视频或高交互数据（非高影响力账号）→ 返回 unrated
+    //   const reasons = [];
+    //   if (isHighInfluence) { ... }
+    //   if (isHighEngagement) { ... }
+    //   reasons.push(hasVideos ? '推文带有视频内容' : '推文带有其他类型媒体内容（非图片）');
+    //   return buildPreCheckResult('unrated', `${reasons.join('，')}，暂不支持解析该类型媒体`, 'high_influence_with_media');
+    // }
+
+    // [新逻辑] 高影响力账号 + 任何媒体 → 直接返回 unrated，跳过图片识别
     if (isHighInfluence || isHighEngagement) {
-      const hasImages = tweet?.media?.images && tweet.media.images.length > 0;
-      const hasVideos = tweet?.media?.videos && tweet.media.videos.length > 0;
-
-      // 高影响力账号 + 有图片 → 进行图片识别
-      if (isHighInfluence && hasImages) {
-        console.log(`[NarrativeAnalyzer] 高影响力账号 @${authorScreenName} 的推文包含图片，启动图片识别...`);
-
-        const images = tweet.media.images;
-        const analysisResults = [];
-
-        // 最多分析3张图片
-        const maxImages = Math.min(images.length, 3);
-
-        for (let i = 0; i < maxImages; i++) {
-          const imageUrl = images[i].url;
-          try {
-            // 下载图片
-            const imageData = await ImageDownloader.downloadAsBase64(imageUrl, {
-              maxSize: 5 * 1024 * 1024,  // 5MB
-              timeout: 15000  // 15秒下载超时
-            });
-
-            if (!imageData) {
-              console.warn(`[NarrativeAnalyzer] 图片下载失败: ${imageUrl}`);
-              continue;
-            }
-
-            // 使用 LLM 分析图片（只生成描述信息）
-            const imageAnalysis = await LLMClient.analyzeTwitterImage(imageData.dataUrl);
-
-            analysisResults.push({
-              image_url: imageUrl,
-              analysis: imageAnalysis
-            });
-
-            console.log(`[NarrativeAnalyzer] [${i + 1}/${maxImages}] 图片分析成功`);
-
-          } catch (error) {
-            console.warn(`[NarrativeAnalyzer] 图片分析失败: ${error.message}`);
-          }
-        }
-
-        // 将分析结果附加到 twitterInfo
-        if (analysisResults.length > 0) {
-          if (!twitterInfo._imageAnalysis) {
-            twitterInfo._imageAnalysis = [];
-          }
-          twitterInfo._imageAnalysis.push({
-            account: authorScreenName,
-            accountBackground: getHighInfluenceAccountBackground(authorScreenName),
-            images_analyzed: analysisResults.length,
-            results: analysisResults
-          });
-
-          console.log(`[NarrativeAnalyzer] 图片识别完成（${analysisResults.length}张），继续LLM分析`);
-          // 不返回unrated，继续后续分析
-          continue;
-        }
-      }
-
-      // 有视频或高交互数据（非高影响力账号）→ 仍然返回 unrated
       const reasons = [];
       if (isHighInfluence) {
         const background = getHighInfluenceAccountBackground(authorScreenName);
@@ -597,10 +636,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       if (isHighEngagement) {
         reasons.push(`推文交互数据高（点赞${likeCount}，转发${retweetCount}）`);
       }
-      reasons.push(hasVideos ? '推文带有视频内容' : '推文带有其他类型媒体内容（非图片）');
+      reasons.push('推文带有图片/视频媒体内容');
 
-      console.log(`[NarrativeAnalyzer] 规则4触发: ${reasons.join('，')}，返回unrated`);
-      return buildPreCheckResult('unrated', `${reasons.join('，')}，暂不支持解析该类型媒体`, 'high_influence_with_media');
+      console.log(`[NarrativeAnalyzer] 规则5触发: ${reasons.join('，')}，返回unrated`);
+      return buildPreCheckResult('unrated', `${reasons.join('，')}，跳过图片/视频识别以加速分析`, 'high_influence_with_media');
     }
   }
 

@@ -7,6 +7,7 @@ const { Trade } = require('../../trading-engine/entities/Trade');
 const { TradeSignal } = require('../../trading-engine/entities/TradeSignal');
 const { dbManager } = require('../../services/dbManager');
 const { resolveFinalRating, categoryToRating } = require('../../narrative/utils/rating-utils.mjs');
+const { extractNarrativeMaterialId } = require('../../narrative/utils/material-id-extractor.mjs');
 
 /**
  * 实验数据服务类
@@ -651,6 +652,18 @@ class ExperimentDataService {
         insertData.creator_address = token.creator_address;
       }
 
+      // 自动提取叙事表征语料ID
+      if (token.raw_api_data) {
+        try {
+          const materialId = extractNarrativeMaterialId(token.raw_api_data);
+          if (materialId) {
+            insertData.narrative_material_id = materialId;
+          }
+        } catch (err) {
+          console.warn('[ExperimentDataService] 提取narrative_material_id失败:', err.message);
+        }
+      }
+
       const { error } = await this.supabase
         .from('experiment_tokens')
         .insert(insertData);
@@ -716,6 +729,85 @@ class ExperimentDataService {
     } catch (error) {
       console.error('更新代币 creator_address 失败:', error);
       return false;
+    }
+  }
+
+  /**
+   * 批量补充代币的叙事表征语料ID
+   * 增量更新：跳过已有 narrative_material_id 的 token
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<Object>} 补充结果统计
+   */
+  async backfillNarrativeMaterialId(experimentId) {
+    try {
+      const pageSize = 1000;
+      let offset = 0;
+      let hasMore = true;
+      let allTokens = [];
+
+      // 分页查询所有缺少 material_id 的代币
+      while (hasMore) {
+        const { data, error } = await this.supabase
+          .from('experiment_tokens')
+          .select('id, token_address, token_symbol, raw_api_data')
+          .eq('experiment_id', experimentId)
+          .is('narrative_material_id', null)
+          .range(offset, offset + pageSize - 1);
+
+        if (error) throw new Error(`查询代币失败: ${error.message}`);
+        if (data && data.length > 0) {
+          allTokens = allTokens.concat(data);
+          offset += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`[MaterialID补全] 实验下共 ${allTokens.length} 个代币缺少 material_id`);
+
+      let updated = 0;
+      let skipped = 0;
+      let failed = 0;
+
+      for (const token of allTokens) {
+        if (!token.raw_api_data) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          const materialId = extractNarrativeMaterialId(token.raw_api_data);
+          if (materialId) {
+            const { error: updateError } = await this.supabase
+              .from('experiment_tokens')
+              .update({ narrative_material_id: materialId })
+              .eq('id', token.id);
+
+            if (updateError) {
+              failed++;
+              console.warn(`[MaterialID补全] 更新失败 ${token.token_symbol}: ${updateError.message}`);
+            } else {
+              updated++;
+            }
+          } else {
+            skipped++;
+          }
+        } catch (err) {
+          failed++;
+          console.warn(`[MaterialID补全] 提取失败 ${token.token_symbol}: ${err.message}`);
+        }
+      }
+
+      console.log(`[MaterialID补全] 完成: 更新${updated}, 跳过${skipped}, 失败${failed}`);
+
+      return {
+        success: true,
+        data: { total: allTokens.length, updated, skipped, failed }
+      };
+    } catch (error) {
+      console.error('[MaterialID补全] 失败:', error);
+      return { success: false, error: error.message };
     }
   }
 

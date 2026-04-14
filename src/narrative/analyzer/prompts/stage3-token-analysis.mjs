@@ -245,13 +245,6 @@ ${stage1Output?.reason ? `原因：${stage1Output.reason}` : ''}
 - 可能类别：${stage1Output?.eventClassification?.possibleCategories?.join(', ') || '无'}
 - 置信度：${stage1Output?.eventClassification?.confidence || '未知'}
 
-【性质标记】
-${stage1Output?.propertyMarkers ? `
-- 推测性：${stage1Output.propertyMarkers.speculative ? '是' : '否'}${stage1Output.propertyMarkers.speculativeReason ? `（${stage1Output.propertyMarkers.speculativeReason}）` : ''}
-- 发现型：${stage1Output.propertyMarkers.discovery ? '是' : '否'}${stage1Output.propertyMarkers.discoveryReason ? `（${stage1Output.propertyMarkers.discoveryReason}）` : ''}
-- 营销性：${stage1Output.propertyMarkers.marketing ? '是' : '否'}${stage1Output.propertyMarkers.marketingReason ? `（${stage1Output.propertyMarkers.marketingReason}）` : ''}
-` : '- 无性质标记'}
-
 ═══════════════════════════════════════════════════════════════════════════════
 
 ╔══════════════════════════════════════════════════════════════════════════════╗

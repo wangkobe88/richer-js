@@ -802,7 +802,6 @@ class NarrativeAnalyzer {
       // 新格式：parsed.eventDescription
       const eventDesc = parsed.eventDescription || parsed.eventAnalysis?.eventDescription || {};
       const eventClass = parsed.eventClassification || parsed.eventAnalysis?.eventClassification || {};
-      const propMarkers = parsed.propertyMarkers || parsed.eventAnalysis?.propertyMarkers || {};
 
       // 获取事件类别名称和分类编码
       const categoryName = eventClass.primaryCategoryName || eventDesc.类别 || eventClass.primaryCategory || '-';
@@ -821,21 +820,6 @@ class NarrativeAnalyzer {
           <strong>时效性：</strong>${eventDesc.eventTiming || eventDesc.时效性 || '-'}<br>
         </div>
       `;
-
-      // 如果有性质标记，显示出来
-      if (propMarkers.discovery || propMarkers.marketing || propMarkers.speculative) {
-        const markers = [];
-        if (propMarkers.discovery) markers.push('发现型');
-        if (propMarkers.marketing) markers.push('营销性');
-        if (propMarkers.speculative) markers.push('推测性');
-        if (markers.length > 0) {
-          resultHtml += `
-            <div class="stage-result-box" style="margin-top: 8px;">
-              <strong>性质标记：</strong>${markers.join('、')}
-            </div>
-          `;
-        }
-      }
 
       // 显示关键实体
       if (eventDesc.keyEntities && Array.isArray(eventDesc.keyEntities)) {

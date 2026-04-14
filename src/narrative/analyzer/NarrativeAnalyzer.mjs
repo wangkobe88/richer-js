@@ -70,7 +70,7 @@ function buildStageSaveData(stageName, stageData, overrides = {}) {
 
   const result = {
     rating: overrides.rating ?? null,
-    pass: overrides.pass ?? po?.pass ?? null,
+    pass: overrides.pass ?? po?.pass ?? po?.raw?.pass ?? null,
     reason: overrides.reason ?? po?.reason ?? po?.blockReason ?? po?.raw?.blockReason ?? null,
     category: overrides.category ?? stageData.category ?? null,
     score: extractedScore,

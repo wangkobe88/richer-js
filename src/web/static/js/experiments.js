@@ -112,6 +112,14 @@ class ExperimentMonitor {
           return;
         }
 
+        const backfillBtn = e.target.closest('[data-action="backfill-material-id"]');
+        if (backfillBtn) {
+          const id = backfillBtn.getAttribute('data-id');
+          const name = backfillBtn.getAttribute('data-name');
+          this.backfillMaterialId(id, name);
+          return;
+        }
+
         const tokenAnalysisBtn = e.target.closest('[data-action="token-analysis"]');
         if (tokenAnalysisBtn) {
           const id = tokenAnalysisBtn.getAttribute('data-id');
@@ -470,6 +478,7 @@ class ExperimentMonitor {
               ${exp.tradingMode !== 'backtest' ? `<button data-action="token-analysis" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-blue-400 hover:bg-blue-900 rounded transition-colors" title="分析代币涨幅">📊涨幅</button>` : ''}
               ${exp.tradingMode !== 'backtest' ? `<button data-action="compress" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-amber-400 hover:bg-amber-900 rounded transition-colors" title="压缩时序数据">🗜️压缩</button>` : ''}
               ${exp.tradingMode !== 'backtest' ? `<button data-action="cleanup" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-red-400 hover:bg-red-900 rounded transition-colors" title="清理无价格数据的代币">🧹清理</button>` : ''}
+              ${exp.tradingMode !== 'backtest' ? `<button data-action="backfill-material-id" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-violet-400 hover:bg-violet-900 rounded transition-colors" title="补充叙事语料ID">🔗语料ID</button>` : ''}
               <button data-action="delete" data-id="${exp.id}" data-name="${this._escapeHtml(exp.experimentName)}" class="text-xs px-1.5 py-0.5 text-red-400 hover:bg-red-900 rounded transition-colors" title="删除">🗑️删除</button>
             </div>
           </div>
@@ -1168,6 +1177,49 @@ class ExperimentMonitor {
       if (cleanupBtn) {
         cleanupBtn.disabled = false;
         cleanupBtn.textContent = '🧹清理';
+      }
+    }
+  }
+
+  /**
+   * 批量补充叙事表征语料ID
+   */
+  async backfillMaterialId(experimentId, experimentName) {
+    const confirmed = confirm(
+      `将为实验"${experimentName}"下所有缺少语料ID的代币补充 narrative_material_id。\n\n` +
+      '此操作会扫描每个代币的 raw_api_data 提取URL并生成唯一标识，已有语料ID的代币将被跳过。\n\n' +
+      '确认继续？'
+    );
+    if (!confirmed) return;
+
+    const btn = document.querySelector(`[data-action="backfill-material-id"][data-id="${experimentId}"]`);
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '...补全中';
+    }
+
+    try {
+      const response = await fetch(`/api/experiment/${experimentId}/backfill-material-id`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const result = await response.json();
+      if (result.success) {
+        const d = result.data;
+        alert(`语料ID补全完成！\n\n扫描: ${d.total} 个代币\n更新: ${d.updated} 个\n跳过: ${d.skipped} 个（无URL或无raw_api_data）\n失败: ${d.failed} 个`);
+      } else {
+        alert('补全失败: ' + (result.error || '未知错误'));
+      }
+    } catch (error) {
+      console.error('语料ID补全失败:', error);
+      alert('补全失败: ' + error.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🔗语料ID';
       }
     }
   }

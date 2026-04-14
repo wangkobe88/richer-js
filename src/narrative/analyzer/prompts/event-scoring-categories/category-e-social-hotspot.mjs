@@ -27,7 +27,6 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 时效性：${eventDescription.eventTiming}
 关键实体：${eventDescription.keyEntities?.join(', ') || '无'}
 关键数据：${JSON.stringify(eventDescription.keyData || {})}
-性质标记：${eventClassification?.propertyMarkers ? JSON.stringify(eventClassification.propertyMarkers) : '无'}
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                E类：社会热点/现象类评分框架                                  ║
@@ -127,6 +126,7 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
      * 豁免：有明显幽默/讽刺元素的政治meme
      * 豁免：大IP（如CZ、Musk）发表政治观点引发社区玩梗
      * 豁免：和平协议、国际合作、人道主义援助等正面政治事件
+     * 豁免：政治实体的非严肃/娱乐性动作（如推出吉祥物、使用meme、发表有趣/接地气的内容引发社区玩梗），即使主体是政治实体，只要事件本身有meme传播潜力，就不触发此阻断
    - 纯负面/愤怒事件（无正向情感）→ pass=false
      * 豁免：同情/保护事件（动物保护、弱势群体关怀）
    - ⚠️ **骗局曝光/负面定性阻断**（高频漏洞，必须严格执行）：
