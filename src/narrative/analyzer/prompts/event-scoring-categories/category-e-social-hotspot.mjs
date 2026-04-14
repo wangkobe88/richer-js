@@ -1,30 +1,24 @@
 /**
  * Stage 2：E类（社会热点/现象类）评分 Prompt
- * V1.2 - 3阶段架构的第二阶段
+ * V2.0 - 3阶段架构的第二阶段
  *
- * 修改：
- * V1.3：
+ * V2.0 修改：
+ * - 移除"发现型meme"评分规则（已独立为F类：发现型叙事类）
+ * - E类聚焦纯社会热点/现象评分
+ * - 移除 discoveryType 输出字段
+ *
+ * V1.6 修改：
  * - 修复硬编码示例数字被LLM当成实际数据的问题
- * - 去掉所有硬编码的具体传播数字（如"3转发19赞"），改用泛化表述
+ * - 去掉所有硬编码的具体传播数字，改用泛化表述
  * - 加入明确规则：keyData是事件传播数据的唯一来源
  * - 加入权重评分的"无量化数据时基于定性描述评估"规则
- *
- * V1.4：
- * - 加入"无量化数据时的分量升级规则"：强定性描述+传播证据可升至B级
- * - 升级定性描述的权重映射：'非常火爆'+传播证据→千万级(20-25分)
- * - 修复C级(12分)+最高权重(30分)+时效(15分)=57<60的数学不可通过问题
- *
- * V1.2：
- * - 添加核心评估原则：不要求信息"可验证"或"真实"
- * V1.1：
- * - 移除"热度真实性阻断"条件（不要因为传播数据少而否定事件价值）
- * - 添加重要原则说明：评估重点是事件/IP本身的价值
+ * - 加入"无量化数据时的分量升级规则"
  */
 
-export const CATEGORY_E_PROMPT_VERSION = 'V1.6';
+export const CATEGORY_E_PROMPT_VERSION = 'V2.0';
 
 export function buildCategoryEPrompt(eventDescription, eventClassification) {
-  return `你是E类（社会热点/现象类）事件评分专家。包括发现型meme和娱乐热点。
+  return `你是E类（社会热点/现象类）事件评分专家。
 
 【事件描述】
 主题：${eventDescription.eventTheme}
@@ -41,7 +35,6 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 
 【分析目标】
 评估引发全网讨论的事件、病毒传播的内容、文化现象、社会热点的传播潜力。
-⚠️ 包括发现型meme（发现IP的隐藏元素、彩蛋、口号、设计细节等）
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -84,18 +77,6 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
   5. 被KOL/大V主动报道/评论（非广告合作）
 - 仅满足1项 → C级（12分）
 - 1项都不满足 → D级或以下
-
-**【发现型meme类】**（基于发现内容的价值，而非发现者粉丝数）：
-- S级分量：发现世界级IP的**重大隐藏信息**（品牌真正口号、核心概念）→ 40分
-- A级分量：发现知名IP/项目的**有趣彩蛋/设计细节**（Yzi Labs海报口号、CZ推文背景图案）→ 32分
-- B级分量：发现IP的**一般性隐藏元素**（logo设计巧思、网站彩蛋）→ 24分
-- C级分量：发现较次要的细节（趣味性有限）→ 12分
-- D/E级分量：发现内容无价值或过于牵强 → 0分
-
-⚠️ **发现型meme的评分关键**：
-- **不关注发现者的粉丝数**（14粉丝的小账号也可以发现高价值内容）
-- **关注发现内容本身的价值**（口号、彩蛋、设计细节的有趣程度）
-- **关注被发现的IP影响力**（Yzi Labs、CZ、Binance等知名IP）
 
 ⚠️ **D/E级分量直接阻断**
 
@@ -190,16 +171,6 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 - 十万级传播/社区热点：10-15分
 - 万级以下：5-10分
 
-**【发现型meme类】**（基于被发现的IP影响力）：
-- 世界级IP（CZ、Binance、Tesla、Apple等）：25-30分
-- 知名IP/项目（Yzi Labs等知名项目、知名KOL的IP）：20-25分
-- 普通IP/项目：12-18分
-- 小众IP：5-10分
-
-⚠️ **关键区别**：
-- 常规热点看**传播数据**（播放量、转发量）
-- 发现型meme看**IP影响力**（被发现的IP本身有多知名）
-
 **时效性加分**（0-20分）：
 - 正在发酵（7天内）：+15分
 - 持续热点（30天内）：+10分
@@ -208,8 +179,7 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 
 **示例**：
 - "抖音爆款视频千万播放" → B级(24) + 百万级(18) + 正在发酵(15) = 57分 → **pass=false**（<60）
-- "发现Yzi Labs海报的真正口号是WE MAKE IMPACT" → A级(32) + Yzi Labs知名IP(20) + 正在发酵(15) = 67分 → pass=true
-- "发现CZ推文背景中的隐藏图案" → A级(32) + CZ世界级IP(28) + 正在发酵(15) = 75分 → pass=true
+- "全网爆火的日本拍照姿势潮流" → B级(24) + 千万级(22) + 正在发酵(15) = 61分 → pass=true
 - "抖音祝福视频8万点赞10万+观看" → C级(12) + 十万级(12) + 正在发酵(15) = 39分 → **pass=false**（<60）
 
 ⚠️ **第四步：pass判定自检**（必须在填写pass前执行）
@@ -235,13 +205,11 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
   "categoryAnalysis": {
     "category": "E",
     "categoryName": "社会热点/现象类",
-    "eventType": "常规热点/发现型meme",
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 32,
     "weightScore": 20,
     "timelinessScore": 15,
-    "totalScore": 67,
-    "discoveryType": "发现型meme"  // 如果是发现型
+    "totalScore": 67
   },
   "blockChecks": {"hardBlocks": [], "passedChecks": ["检查1", "检查2"]}
 }

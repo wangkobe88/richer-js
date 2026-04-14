@@ -243,7 +243,7 @@ class NarrativeAnalyzer {
       return;
     }
 
-    const category = precheck.category || 'unknown';
+    const category = precheck.rating || 'unknown';
     const categoryConfig = {
       'low': { icon: '🚫', text: '不通过', statusClass: 'fail' },
       'high': { icon: '✅', text: '直接通过', statusClass: 'pass' },
@@ -277,7 +277,7 @@ class NarrativeAnalyzer {
         <div class="stage-result-box">
           <strong>⚪ 无法评级</strong><br>
           <span style="font-size: 13px; color: #666;">
-            ${precheck.result?.reasoning || precheck.reason || '数据不足以进行评级'}
+            ${precheck.reason || '数据不足以进行评级'}
           </span>
         </div>
       `;
@@ -285,12 +285,12 @@ class NarrativeAnalyzer {
 
     // 规则验证详情（地址验证、名称匹配、同名代币检查等）
     let rulesHtml = '';
-    if (precheck.result) {
-      const result = precheck.result;
+    if (precheck.details) {
+      const result = precheck.details;
       const details = [];
 
       // 蹭热度代币检查（copycat_token）
-      if (precheck.reason === 'copycat_token' && result.preCheckDetails) {
+      if (precheck.details?.ruleName === 'copycat_token' && result.preCheckDetails) {
         const copycatDetails = result.preCheckDetails;
         details.push({
           label: '🚨 检测类型',
@@ -408,8 +408,8 @@ class NarrativeAnalyzer {
 
     // 如果有评分结果，显示分数
     let scoresHtml = '';
-    if (precheck.result && precheck.result.scores) {
-      const scores = precheck.result.scores;
+    if (precheck.details && precheck.details.scores) {
+      const scores = precheck.details.scores;
       scoresHtml = `
         <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 12px;">
           <strong>预检查评分：</strong><br>
@@ -445,7 +445,7 @@ class NarrativeAnalyzer {
       return;
     }
 
-    const parsed = prestage.parsedOutput || {};
+    const parsed = prestage.details || {};
     const tokenType = parsed.tokenType || 'unknown';
 
     // 根据币种类型显示不同状态
@@ -623,7 +623,7 @@ class NarrativeAnalyzer {
 
     // 从 summary 获取最终评级
     const summary = llmAnalysis.summary || {};
-    const category = summary.category || 'unrated';
+    const category = summary.rating || 'unrated';
     ratingBadge.className = 'rating-badge ' + category;
 
     const categoryConfig = {
@@ -640,15 +640,15 @@ class NarrativeAnalyzer {
     // 更新分数显示
     const scoresDisplay = document.getElementById('scoresDisplay');
 
-    if (summary.total_score !== undefined) {
+    if (summary.score !== null && summary.score !== undefined) {
       scoresDisplay.innerHTML = `
         <div class="score-bar">
           <div class="score-bar-label">
             <span>总分</span>
-            <span>${summary.total_score}/100</span>
+            <span>${summary.score}/100</span>
           </div>
           <div class="score-bar-track">
-            <div class="score-bar-fill" style="width: ${summary.total_score}%"></div>
+            <div class="score-bar-fill" style="width: ${summary.score}%"></div>
           </div>
         </div>
       `;
@@ -670,8 +670,8 @@ class NarrativeAnalyzer {
 
     // PreStage（币种类型判断）
     if (llmAnalysis.prestage) {
-      const prestageParsed = llmAnalysis.prestage.parsedOutput || {};
-      const tokenType = prestageParsed.tokenType || 'unknown';
+      const prestageDetails = llmAnalysis.prestage.details || {};
+      const tokenType = prestageDetails.tokenType || 'unknown';
       const icon = tokenType === 'meme' ? '🎭' : tokenType === 'project' ? '🏗️' : '🎯';
       pathSteps.push({ label: 'PreStage', status: 'completed', icon: icon });
     } else {
@@ -680,11 +680,7 @@ class NarrativeAnalyzer {
 
     // Stage 1
     if (llmAnalysis.stage1) {
-      const stage1Parsed = llmAnalysis.stage1?.parsedOutput || {};
-      // 兼容新旧框架
-      const isFail = stage1Parsed.hasOwnProperty('pass')
-        ? (stage1Parsed.pass === false)
-        : (llmAnalysis.stage1?.category === 'low');
+      const isFail = llmAnalysis.stage1?.pass === false;
       if (isFail) {
         pathSteps.push({ label: 'Stage 1', status: 'fail', icon: '⛔' });
       } else {
@@ -718,19 +714,16 @@ class NarrativeAnalyzer {
 
     // 更新理由（优先级：summary > prestage > stage1 > preCheck）
     const overviewReasoning = document.getElementById('overviewReasoning');
-    if (summary?.reasoning) {
-      overviewReasoning.textContent = summary.reasoning;
-    } else if (summary?.reason) {
-      // Stage 1 低质量检测使用 reason 字段
+    if (summary?.reason) {
       overviewReasoning.textContent = summary.reason;
-    } else if (llmAnalysis.prestage?.parsedOutput?.reason) {
+    } else if (llmAnalysis.prestage?.reason) {
       // Web3原生IP早期的理由
-      overviewReasoning.textContent = llmAnalysis.prestage.parsedOutput.reason;
-    } else if (llmAnalysis.stage1?.parsedOutput?.reason) {
+      overviewReasoning.textContent = llmAnalysis.prestage.reason;
+    } else if (llmAnalysis.stage1?.reason) {
       // Stage 1 的理由
-      overviewReasoning.textContent = llmAnalysis.stage1.parsedOutput.reason;
-    } else if (llmAnalysis.preCheck?.result?.reasoning) {
-      overviewReasoning.textContent = llmAnalysis.preCheck.result.reasoning;
+      overviewReasoning.textContent = llmAnalysis.stage1.reason;
+    } else if (llmAnalysis.preCheck?.reason) {
+      overviewReasoning.textContent = llmAnalysis.preCheck.reason;
     } else if (!summary && !llmAnalysis.prestage && !llmAnalysis.stage1 && !llmAnalysis.stage2) {
       // 旧数据格式，没有分析详情
       overviewReasoning.textContent = '此为旧版分析结果，缺少分析理由。点击右上角"重新分析"获取完整数据。';
@@ -783,13 +776,10 @@ class NarrativeAnalyzer {
       return;
     }
 
-    const parsed = stage1.parsedOutput || {};
+    const parsed = stage1.details || {};
 
-    // 兼容新旧框架：
-    // 旧框架：category === 'low' 表示低质量
-    // 新框架：parsed.pass === false 表示事件分析未通过
-    const isOldFramework = !parsed.hasOwnProperty('pass');
-    const isFail = isOldFramework ? (stage1.category === 'low') : (parsed.pass === false);
+    // 统一格式：pass === false 表示事件分析未通过
+    const isFail = stage1.pass === false;
 
     const statusClass = isFail ? 'fail' : 'pass';
     const statusText = isFail ? '未通过' : '通过';
@@ -802,14 +792,14 @@ class NarrativeAnalyzer {
       resultHtml = `
         <div class="stage-result-box">
           <strong>失败原因：</strong>
-          ${parsed.reason || (eventAnalysis.blockReason || '未知原因')}
+          ${stage1.reason || parsed.reason || (eventAnalysis.blockReason || '未知原因')}
         </div>
       `;
     } else if (!isFail) {
       // 事件分析通过 - 显示事件详情
-      // 适配新框架：数据直接在parsedOutput下
-      // 旧框架：parsed.eventAnalysis.eventDescription
-      // 新框架：parsed.eventDescription
+      // 数据在 details (旧 parsed_output) 中
+      // 旧格式：parsed.eventAnalysis.eventDescription
+      // 新格式：parsed.eventDescription
       const eventDesc = parsed.eventDescription || parsed.eventAnalysis?.eventDescription || {};
       const eventClass = parsed.eventClassification || parsed.eventAnalysis?.eventClassification || {};
       const propMarkers = parsed.propertyMarkers || parsed.eventAnalysis?.propertyMarkers || {};
@@ -1004,11 +994,11 @@ class NarrativeAnalyzer {
       return;
     }
 
-    const parsed = stage2.parsedOutput || {};
+    const parsed = stage2.details || {};
 
-    // 检查是否通过/失败
-    const pass = parsed.raw?.pass;
-    const blockReason = parsed.raw?.blockReason;
+    // 检查是否通过/失败（pass 在顶层）
+    const pass = stage2.pass;
+    const blockReason = stage2.reason;
 
     // 如果未通过，显示阻断原因
     let isFailed = pass === false;
@@ -1022,7 +1012,7 @@ class NarrativeAnalyzer {
       };
 
       // 获取分量等级来确定显示文本
-      const magnitudeLevel = parsed.raw?.magnitudeLevel || '-';
+      const magnitudeLevel = parsed.raw?.magnitudeLevel || parsed.magnitudeLevel || '-';
       const magnitudeText = {
         'S': 'S级（超大IP）',
         'A': 'A级（知名KOL/公众人物）',
@@ -1047,8 +1037,8 @@ class NarrativeAnalyzer {
 
     const category = stage2.category || parsed.category || 'unrated';
 
-    // 适配新框架：数据在 raw.categoryAnalysis 下
-    const categoryAnalysis = parsed.raw?.categoryAnalysis || {};
+    // 适配新框架：数据在 details.raw.categoryAnalysis 下
+    const categoryAnalysis = parsed.raw?.categoryAnalysis || parsed.categoryAnalysis || {};
     const totalScore = categoryAnalysis.totalScore || 0;
     const categoryName = categoryAnalysis.categoryName || '未知类别';
     const magnitudeLevel = categoryAnalysis.magnitudeLevel || '-';
@@ -1059,7 +1049,7 @@ class NarrativeAnalyzer {
     const meaningfulnessReason = categoryAnalysis.meaningfulnessReason || '';
 
     // 阻断检查信息
-    const blockChecks = parsed.raw?.blockChecks || {};
+    const blockChecks = parsed.raw?.blockChecks || parsed.blockChecks || {};
     const passedChecks = blockChecks.passedChecks || [];
     const hardBlocks = blockChecks.hardBlocks || [];
     const softBlocks = blockChecks.softBlocks || [];
@@ -1150,10 +1140,11 @@ class NarrativeAnalyzer {
     }
 
     // 理由（如果有额外reasoning）
-    const reasoningHtml = parsed.reasoning ? `
+    const reasoningText = parsed.reasoning || parsed.raw?.reasoning || stage2.reason;
+    const reasoningHtml = reasoningText ? `
       <div style="margin-top: 16px; padding: 14px; background: #f8f9fa; border-radius: 8px; font-size: 14px; line-height: 1.6;">
         <strong>分析理由：</strong><br>
-        ${parsed.reasoning}
+        ${reasoningText}
       </div>
     ` : '';
 
@@ -1276,16 +1267,16 @@ class NarrativeAnalyzer {
         return;
       }
 
-      const parsed = stage3.parsedOutput || {};
+      const parsed = stage3.details || {};
       const rawData = parsed.raw || parsed;
 
-      // Stage 3 新格式：pass/fail + 分数
-      const pass = rawData.pass ?? parsed.pass;
-      const blockReason = rawData.blockReason ?? parsed.blockReason;
+      // Stage 3 统一格式：pass/reason 在顶层，分数在 details.raw 或 details 下
+      const pass = stage3.pass;
+      const blockReason = stage3.reason;
       const relevanceScore = rawData.relevanceScore ?? parsed.relevanceScore ?? 0;
       const qualityScore = rawData.qualityScore ?? parsed.qualityScore ?? 0;
       const breakdown = rawData.breakdown ?? parsed.breakdown ?? {};
-      const reasoning = rawData.reasoning ?? parsed.reasoning ?? '';
+      const reasoning = rawData.reasoning ?? parsed.reasoning ?? stage3.reason ?? '';
 
       // Pass/Fail 状态
       const passConfig = pass === false
@@ -1447,11 +1438,11 @@ class NarrativeAnalyzer {
         return;
       }
 
-      const category = stageFinal.category || 'unrated';
-      const totalScore = stageFinal.totalScore;
-      const eventScore = stageFinal.eventScore;
-      const relevanceScore = stageFinal.relevanceScore;
-      const qualityScore = stageFinal.qualityScore;
+      const category = stageFinal.rating || 'unrated';
+      const totalScore = stageFinal.score;
+      const eventScore = stageFinal.details?.eventScore;
+      const relevanceScore = stageFinal.details?.relevanceScore;
+      const qualityScore = stageFinal.details?.qualityScore;
 
       const categoryConfig = {
         'high': { icon: '🟢', text: '高质量', color: '#27ae60' },
@@ -1462,10 +1453,10 @@ class NarrativeAnalyzer {
 
       // 阻断原因
       let blockReasonHtml = '';
-      if (stageFinal.blockReason) {
+      if (stageFinal.details?.blockReason) {
         blockReasonHtml = `
           <div style="margin-top: 12px; padding: 10px; background: #fdedec; border-radius: 6px; font-size: 13px; color: #c0392b;">
-            <strong>截断原因：</strong>${this.escapeHtml(stageFinal.blockReason)}
+            <strong>截断原因：</strong>${this.escapeHtml(stageFinal.details.blockReason)}
           </div>
         `;
       }
@@ -1488,11 +1479,13 @@ class NarrativeAnalyzer {
 
       // 分数明细
       let breakdownHtml = '';
+      const eventWeight = stageFinal.details?.eventWeight || 0.6;
+      const stage2TotalScore = stageFinal.details?.stage2TotalScore;
       if (eventScore !== null && eventScore !== undefined && relevanceScore !== undefined && qualityScore !== undefined) {
         breakdownHtml = `
           <div class="sub-scores">
             <div class="sub-score-item">
-              <span class="sub-score-label">事件分 (${(stageFinal.eventWeight || 0.6) * 100}%)</span>
+              <span class="sub-score-label">事件分 (${eventWeight * 100}%)</span>
               <div class="sub-score-bar">
                 <div class="sub-score-fill" style="width: ${(eventScore / 60 * 100)}%"></div>
               </div>
@@ -1514,7 +1507,7 @@ class NarrativeAnalyzer {
             </div>
           </div>
           <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px; font-size: 12px; text-align: center;">
-            <strong>计算：</strong>事件分 ${stageFinal.stage2TotalScore}×${stageFinal.eventWeight || 0.6}=${eventScore.toFixed(1)} + 关联分 ${relevanceScore} + 质量分 ${qualityScore} = ${totalScore.toFixed(1)}
+            <strong>计算：</strong>事件分 ${stage2TotalScore ?? '-'}×${eventWeight}=${eventScore.toFixed(1)} + 关联分 ${relevanceScore} + 质量分 ${qualityScore} = ${totalScore.toFixed(1)}
           </div>
         `;
       }

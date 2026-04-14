@@ -599,17 +599,18 @@ export function parseJSONResponse(content) {
 export function buildLLMAnalysis(record) {
   if (!record) return null;
 
-  // 预检查数据
+  // 预检查数据（扁平格式，与实时分析一致）
   const preCheck = record.pre_check_result ? {
-    result: record.pre_check_result
+    ...record.pre_check_result
   } : null;
 
-  // 辅助函数：从 *_result JSONB 构造阶段对象
+  // 辅助函数：从 *_result JSONB 构造阶段对象（扁平格式）
+  // 展开核心字段 + 附加 prompt/rawOutput，与实时分析路径返回格式一致
   const buildStage = (stageName) => {
     const result = record[`${stageName}_result`];
     if (!result) return null;
     return {
-      result: result,
+      ...result,
       prompt: record[`${stageName}_prompt`] || null,
       rawOutput: record[`${stageName}_raw_output`] || null,
     };

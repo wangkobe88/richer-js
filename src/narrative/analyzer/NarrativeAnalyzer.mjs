@@ -89,6 +89,23 @@ function buildStageSaveData(stageName, stageData, overrides = {}) {
   };
 }
 
+/**
+ * 将 buildStageSaveData 的输出扁平化为前端可用的格式
+ * 合并 result + prompt + rawOutput 到同一层级
+ * @param {Object} saveData - buildStageSaveData 的返回值
+ * @param {string} stageName - 阶段名称
+ * @returns {Object|null} 扁平化的阶段对象
+ */
+function flattenStageForLLMAnalysis(saveData, stageName) {
+  const result = saveData?.[`${stageName}_result`];
+  if (!result) return null;
+  return {
+    ...result,
+    prompt: saveData[`${stageName}_prompt`] || null,
+    rawOutput: saveData[`${stageName}_raw_output`] || null,
+  };
+}
+
 // 读取配置文件
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -783,13 +800,13 @@ export class NarrativeAnalyzer {
       data_fetch_results: dataFetchResults || null
     });
 
-    // 构造 llmAnalysis 对象供前端使用（使用新格式）
+    // 构造 llmAnalysis 对象供前端使用（扁平格式，与缓存路径 buildLLMAnalysis 一致）
     const llmAnalysis = {
       preCheck: preCheckDataToSave || null,
-      prestage: prestageSaveData?.prestage_result || null,
-      stage1: stage1SaveData?.stage1_result || null,
-      stage2: stage2SaveData?.stage2_result || null,
-      stage3: stage3SaveData?.stage3_result || null,
+      prestage: flattenStageForLLMAnalysis(prestageSaveData, 'prestage'),
+      stage1: flattenStageForLLMAnalysis(stage1SaveData, 'stage1'),
+      stage2: flattenStageForLLMAnalysis(stage2SaveData, 'stage2'),
+      stage3: flattenStageForLLMAnalysis(stage3SaveData, 'stage3'),
       stageFinal: stageFinalSaveData?.stage_final_result || null,
       // 评分和理由（用于概览卡片）
       summary: {
