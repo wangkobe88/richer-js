@@ -74,7 +74,7 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
 **【D/E级】**：无影响力实体的推测 → 0分
 - 被推测对象影响力极弱或无关紧要
 
-⚠️ **D/E级直接阻断**
+⚠️ **D/E级直接阻断**：判定为D/E级后，不再继续评分，直接输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}`
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -121,12 +121,14 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
 
 ⚠️ **阻断条件**：
 
+⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，直接输出 `{"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}`
+
 **1. 推理过于牵强**：
-- 关联缺乏合理依据，纯属强行拼凑 → pass=false
+- 关联缺乏合理依据，纯属强行拼凑
 - 示例：将两个完全无关的数字强行关联后预测未来
 
 **2. 无推理依据**：
-- 纯猜测，没有任何事实基础，无法形成推理链条 → pass=false
+- 纯猜测，没有任何事实基础，无法形成推理链条
 - 示例："我觉得明天会XX"（无任何依据）
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -157,7 +159,7 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
 - **无意义 / 无法验证**（0-5分）：预测的事件无实际意义，或永远无法验证
   - 示例：预测某人的内心想法 → 无法验证
 
-⚠️ **硬性规则**：totalScore < 60 → pass必须为false，blockReason填写具体原因
+**pass判定**：totalScore ≥ 60 → pass=true；totalScore < 60 → pass=false，blockReason填写原因
 
 **示例**：
 - "CZ近一周3次提到conviction，新书即将发布，预计会重点阐述这个概念" → S级(40) + 强推理(26) + 近期可验证(15) = 81分 → pass=true ✅
@@ -177,16 +179,14 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
   "pass": false,
   "blockReason": "原因",
   "magnitudeLevel": "D/E",
-  "categoryAnalysis": null
+  "scoringResult": null
 }
 
 **通过评分**：
 {
   "pass": true,
   "blockReason": null,
-  "categoryAnalysis": {
-    "category": "G",
-    "categoryName": "推测型叙事类",
+  "scoringResult": {
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 40,
     "reasoningQualityScore": 26,
@@ -195,16 +195,10 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
     "reasoningQuality": "强推理/中等推理/弱推理/牵强推理",
     "reasoningQualityReason": "推理质量的判断理由",
     "evidencePoints": 3,
-    "expectedEvent": "预测的具体事件描述"
-  },
-  "blockChecks": {
-    "hardBlocks": [],
-    "passedChecks": ["被推测对象影响力检查", "推理质量检查", "预期事件价值检查"]
+    "expectedEvent": "预测的具体事件描述",
+    "meaningfulness": "有意义/条件性有意义/无意义",
+    "meaningfulnessReason": "有意义性的判断理由"
   }
 }
-
-⚠️ **硬性规则**（必须严格遵守）：
-- totalScore < 60 → pass**必须**为false，blockReason填写具体原因
-- **自检**：输出JSON前，确认pass值与totalScore一致
 `;
 }

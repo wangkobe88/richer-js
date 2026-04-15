@@ -334,7 +334,7 @@ ${text}`;
 
   /**
    * 解析LLM响应
-   * 支持多种格式：新版 Stage 2/3 (categoryAnalysis.category) 和旧版 (顶层 category)
+   * 支持多种格式：新版 Stage 2/3 (scoringResult.totalScore) 和旧版 (顶层 category)
    */
   static parseResponse(content) {
     // 尝试提取JSON
@@ -349,28 +349,28 @@ ${text}`;
       const result = JSON.parse(jsonMatch[0]);
 
       // 支持多种格式
-      // 新版 Stage 2/3: { categoryAnalysis: { category: "A/B/C..." }, ... }
+      // 新版 Stage 2/3: { scoringResult: { totalScore: 100, ... }, ... }
       // 旧版: { category: "high/mid/low", ... }
-      const category = result.categoryAnalysis?.category || result.category || null;
+      // 兼容旧字段名 categoryAnalysis
+      const scoring = result.scoringResult || result.categoryAnalysis || {};
+      const category = scoring.category || result.category || null;
 
       // 支持多种评分格式
-      // 新版 Stage 2: { categoryAnalysis: { totalScore: 100, ... } }
-      // 旧版: { total_score: 100, ... }
-      const totalScore = result.categoryAnalysis?.totalScore || result.total_score || result.total_score || null;
+      const totalScore = scoring.totalScore || result.total_score || null;
 
       // 支持多种 reasoning 格式
-      const reasoning = result.categoryAnalysis?.reason || result.reasoning || result.reason || '';
+      const reasoning = scoring.reason || result.reasoning || result.reason || '';
 
       const parsed = {
         raw: result,
         category: category,
         total_score: totalScore,
-        scores: result.scores || result.categoryAnalysis?.scores || {},
+        scores: result.scores || scoring.scores || {},
         reasoning: reasoning,
         // 添加 pass 字段（Stage 2/3 需要）
-        pass: result.pass || result.categoryAnalysis?.pass || null,
+        pass: result.pass || scoring.pass || null,
         // 添加 blockReason 字段
-        blockReason: result.blockReason || result.categoryAnalysis?.blockReason || null
+        blockReason: result.blockReason || scoring.blockReason || null
       };
       // 调试日志：打印解析结果
       console.log('[LLMClient] parseResponse 返回值:', JSON.stringify({

@@ -103,7 +103,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 **【主体资格检查】**（仅当主体不可评估时执行）：
 
 - 粉丝数 ≥ 1万 或 有官方认证 → 有资格继续
-- 粉丝 < 1万 且 无认证 且 非知名IP → **pass=false**
+- 粉丝 < 1万 且 无认证 且 非知名IP → **直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "主体资格不足（粉丝<1万且无认证且非知名IP/机构）", "scoringResult": null}`
 - 理由：普通用户无公信力，无法自创有传播力的IP概念
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -142,10 +142,9 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 - 评分规则：受"权重上限规则"约束（见第四步）
 - 示例：全新的虚拟形象、原创的电子宠物概念
 
-**【类型3：小圈子亚文化】** → **直接阻断**
+**【类型3：小圈子亚文化】** → **直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "小圈子亚文化（大众无法理解）", "scoringResult": null}`
 - 判断标准：只有特定圈子的人才知道，大众无法理解
 - 触发条件：小圈子术语、圈内黑话、需要特定背景知识
-- 处理：→ **pass=false**
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -174,8 +173,8 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 - 示例：简单的人设、基础的角色设定、有一定表达但不突出
 - 基础分数：12分
 
-**【D级分量】**：缺乏特色的小IP概念 → **pass=false**
-**【E级分量】**：完全无IP概念的空壳 → **pass=false**
+**【D级分量】**：缺乏特色的小IP概念 → **直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "D", "scoringResult": null}`
+**【E级分量】**：完全无IP概念的空壳 → **直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "E", "scoringResult": null}`
 
 **有意义性判断**：
 - S/A级 → ✓✓✓有意义（IP概念是meme币的核心叙事）
@@ -187,16 +186,16 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 
 📋 **第四步：硬性阻断条件检查**
 
-**1. 简单替换/拼贴**：只是换个颜色/名字，无创意 → pass=false
-**2. 纯营销包装**：给普通内容加IP标签，无实际设定 → pass=false
-**3. 无具体设定**：没有角色设定/玩法/故事/世界观 → pass=false
-**4. 抄袭/模仿**：小改动知名IP，缺乏原创性 → pass=false
-**5. IP二次利用**：事件主体仅仅是在自己的活动中使用/展示/提及已有知名IP（非IP原创方/官方），且事件主体本身不知名（非世界级/知名机构）→ pass=false
-   - 示例：小画廊办Pepe艺术展 → pass=false（画廊不知名，只是借用Pepe，不是Pepe本身有新事件）
-   - 示例：某人做Pepe周边 → pass=false（个人不知名，只是借用Pepe）
-   - 豁免：如果活动本身有重大传播力（如全网热议、千万播放）→ 不触发此阻断
+⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}`
 
-⚠️ **触发任一阻断条件 → pass=false**
+**1. 简单替换/拼贴**：只是换个颜色/名字，无创意
+**2. 纯营销包装**：给普通内容加IP标签，无实际设定
+**3. 无具体设定**：没有角色设定/玩法/故事/世界观
+**4. 抄袭/模仿**：小改动知名IP，缺乏原创性
+**5. IP二次利用**：事件主体仅仅是在自己的活动中使用/展示/提及已有知名IP（非IP原创方/官方），且事件主体本身不知名（非世界级/知名机构）
+   - 示例：小画廊办Pepe艺术展（画廊不知名，只是借用Pepe，不是Pepe本身有新事件）
+   - 示例：某人做Pepe周边（个人不知名，只是借用Pepe）
+   - 豁免：如果活动本身有重大传播力（如全网热议、千万播放）→ 不触发此阻断
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -251,43 +250,14 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 
 **只返回JSON，不要其他内容**：
 
-**无资格主体**：
-{
-  "pass": false,
-  "blockReason": "主体资格不足（粉丝<1万且无认证且非知名IP/机构）",
-  "categoryAnalysis": null
-}
-
-**小圈子亚文化**：
-{
-  "pass": false,
-  "blockReason": "小圈子亚文化（大众无法理解）",
-  "categoryAnalysis": null
-}
-
-**D/E级分量**：
-{
-  "pass": false,
-  "blockReason": "IP概念无价值（D/E级分量）",
-  "magnitudeLevel": "D/E",
-  "categoryAnalysis": null
-}
-
-**触发阻断条件**：
-{
-  "pass": false,
-  "blockReason": "具体阻断条件（如：简单替换/拼贴）",
-  "magnitudeLevel": "分量等级",
-  "categoryAnalysis": null
-}
+**阻断**：
+{"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级（如适用）", "scoringResult": null}
 
 **通过评分**：
 {
   "pass": true,
   "blockReason": null,
-  "categoryAnalysis": {
-    "category": "A",
-    "categoryName": "形象化IP相关事件类",
+  "scoringResult": {
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 40,
     "ipType": "借用已有知名IP/自创IP概念",
@@ -296,16 +266,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
     "totalScore": 85,
     "meaningfulness": "有意义/条件性有意义/无意义",
     "ipConcept": "IP概念的描述"
-  },
-  "blockChecks": {
-    "hardBlocks": [],
-    "softBlocks": [],
-    "passedChecks": ["主体资格检查", "IP性质判断", "硬性阻断检查"]
   }
 }
-
-⚠️ **硬性规则**：
-- totalScore ≥ 60 → pass=true
-- totalScore < 60 → pass必须为false，blockReason填写具体原因
 `;
 }

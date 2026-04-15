@@ -249,7 +249,7 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
 
 ⚠️ **维度二阻断条件**：
 
-**以下情况直接阻断，pass=false**：
+**以下情况直接阻断，不再继续往下走，直接输出 `{"pass": false, "blockReason": "原因（注明哪个维度阻断）", "magnitudeLevel": "分量等级", "scoringResult": null}`**：
 
 **1. 内容完全无意义**：
 - 纯表情/纯符号："🚀🚀🚀"、"❤️"、纯点赞
@@ -293,7 +293,7 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
 - 远期事件（超过30天）：0分
 - 预期事件（未来）：30天内+10分，超过30天+5分
 
-⚠️ **硬性规则**：totalScore < 60 → pass必须为false，blockReason填写具体原因
+**pass判定**：totalScore ≥ 60 → pass=true；totalScore < 60 → pass=false，blockReason填写原因
 
 **示例**：
 - "何一发推'Everything is number'" → S级(40) + 强meme潜力(27，简洁有力的口号) + 近期(15) = 82分
@@ -319,16 +319,14 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
   "pass": false,
   "blockReason": "原因（注明哪个维度阻断）",
   "magnitudeLevel": "S/A/B/C",
-  "categoryAnalysis": null
+  "scoringResult": null
 }
 
 **通过评分**：
 {
   "pass": true,
   "blockReason": null,
-  "categoryAnalysis": {
-    "category": "C",
-    "categoryName": "人物言论/动作及相关事件类",
+  "scoringResult": {
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 40,
     "weightScore": 28,
@@ -336,15 +334,7 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
     "totalScore": 83,
     "meaningfulness": "有意义/条件性有意义/无意义",
     "meaningfulnessReason": "有意义性的判断理由"
-  },
-  "blockChecks": {
-    "hardBlocks": [],
-    "passedChecks": ["发言者影响力检查", "内容meme潜力检查"]
   }
 }
-
-⚠️ **评分建议**：
-- totalScore ≥ 60 → pass=true
-- totalScore < 60 → pass必须为false，blockReason填写具体原因
 `;
 }

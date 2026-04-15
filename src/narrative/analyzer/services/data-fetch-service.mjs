@@ -362,6 +362,40 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
           }
         }
 
+        // 回退检查：如果主推文获取失败且存在社区URL，回退获取社区数据
+        if ((!info || !info.text) && twitterUrlInfo.type !== 'community') {
+          const communityUrlInfo = classifiedUrls.twitter.find(t => t.type === 'community' && t.url !== twitterUrlInfo.url);
+          if (communityUrlInfo) {
+            console.log('[NarrativeAnalyzer] 主推文获取失败，回退获取社区数据:', communityUrlInfo.url);
+            try {
+              const communityIdMatch = communityUrlInfo.url.match(/\/communities\/(\d+)/);
+              if (communityIdMatch) {
+                const communityId = communityIdMatch[1];
+                const { fetchCommunityById } = await import('../../../utils/twitter-validation/communities-api.js');
+                const communityData = await fetchCommunityById(communityId);
+                if (communityData) {
+                  info = {
+                    id: communityData.id,
+                    type: 'community',
+                    name: communityData.name,
+                    description: communityData.description,
+                    members_count: communityData.members_count,
+                    moderators_count: communityData.moderators_count,
+                    rules: communityData.rules,
+                    avatar_image_url: communityData.avatar_image_url,
+                    banner_image_url: communityData.banner_image_url,
+                    created_at: communityData.created_at,
+                    community_results: communityData
+                  };
+                  console.log(`[NarrativeAnalyzer] 回退成功，获取到社区: "${communityData.name}" (${communityData.members_count}成员)`);
+                }
+              }
+            } catch (err) {
+              console.warn('[NarrativeAnalyzer] 回退获取社区数据失败:', err.message);
+            }
+          }
+        }
+
         return info;
       },
       'twitter',

@@ -214,11 +214,19 @@ export function hasIndependentWebsite(classifiedUrls) {
  */
 export function shouldUseAccountCommunityAnalysis(fetchResults) {
   const {
-    twitterInfo
+    twitterInfo,
+    classifiedUrls
   } = fetchResults;
 
   // 必须有账号或社区类型的twitterInfo
   if (!twitterInfo || (twitterInfo.type !== 'account' && twitterInfo.type !== 'community')) {
+    // 回退检查：如果twitterInfo是推文但内容为空，且存在社区URL → 使用社区路径
+    if (twitterInfo?.type === 'tweet' && (!twitterInfo.text || !twitterInfo.text.trim())) {
+      const hasCommunityUrl = classifiedUrls?.twitter?.some(u => u.type === 'community');
+      if (hasCommunityUrl) {
+        return true;
+      }
+    }
     return false;
   }
 

@@ -77,7 +77,7 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 - 仅满足1项 → C级（12分）
 - 1项都不满足 → D级或以下
 
-⚠️ **D/E级分量直接阻断**
+⚠️ **D/E级分量直接阻断**：判定为D/E级后，不再继续评分，直接输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}`
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -99,9 +99,11 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 - 【关键数据】已经提取了事件本身的热度信息，这就是唯一可信的传播数据
 - 混淆"推文的互动数据"和"事件的传播数据"是**最常见的评分错误**
 
+⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，直接输出 `{"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}`
+
 **1. 传播价值阻断**：
-   - 短暂猎奇话题（一时猎奇但无持续传播价值）→ pass=false
-   - 缺乏meme元素（满足0项即触发）→ pass=false
+   - 短暂猎奇话题（一时猎奇但无持续传播价值）
+   - 缺乏meme元素（满足0项即触发）
      * 无可重复/衍生/变形的元素
      * 无用户自发二创（模仿、玩梗、恶搞）
      * 无法脱离原生语境独立传播
@@ -111,15 +113,9 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 - 只要事件本身有meme元素，就不应该阻断
 - 例如：某个拍照姿势潮流，即使没有具体传播数字，这个姿势本身有可模仿性、有情感内核（有趣/性感），就应该认为有价值
 - 不要用"没有二创数据"来判断"无用户自发二创"，这是两回事
-   - 短暂猎奇话题（一时猎奇但无持续传播价值）→ pass=false
-   - 缺乏meme元素（满足0项即触发）→ pass=false
-     * 无可重复/衍生/变形的元素
-     * 无用户自发二创（模仿、玩梗、恶搞）
-     * 无法脱离原生语境独立传播
-     * 无情感内核（愤怒/崇拜/同情/共鸣等）
 
 **3. 内容性质阻断**：
-   - 政治/地缘政治事件（满足1项即触发）→ pass=false
+   - 政治/地缘政治事件（满足1项即触发）
      * 涉及战争、军事冲突、恐怖主义、制裁对抗
      * 涉及国家间对抗、地缘政治威胁、核威胁
      * 政府或政治实体的威胁性/敌对性言论和动作
@@ -127,20 +123,20 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
      * 豁免：大IP（如CZ、Musk）发表政治观点引发社区玩梗
      * 豁免：和平协议、国际合作、人道主义援助等正面政治事件
      * 豁免：政治实体的非严肃/娱乐性动作（如推出吉祥物、使用meme、发表有趣/接地气的内容引发社区玩梗），即使主体是政治实体，只要事件本身有meme传播潜力，就不触发此阻断
-   - 纯负面/愤怒事件（无正向情感）→ pass=false
+   - 纯负面/愤怒事件（无正向情感）
      * 豁免：同情/保护事件（动物保护、弱势群体关怀）
    - ⚠️ **骗局曝光/负面定性阻断**（高频漏洞，必须严格执行）：
-     * 如果事件的核心定性是**曝光/揭露/批评某概念为骗局、诈骗、陷阱、欺诈** → pass=false
+     * 如果事件的核心定性是**曝光/揭露/批评某概念为骗局、诈骗、陷阱、欺诈**
      * 判断标准：事件内容中是否包含"骗局"、"诈骗"、"陷阱"、"欺诈"、"曝光"等负面定性，且被否定的概念与代币概念直接相关
      * 注意：即使事件对社会有"警示价值"，但对于**基于该被曝光概念发币的meme**来说，权威媒体说这个概念是骗局，代币就是负面事件
-     * 示例：央视曝光"Token就是数字石油"是骗局 → 代币"数字石油"应被阻断 → pass=false
-     * 示例：人民日报揭露"词元暴富"是陷阱 → 相关代币应被阻断 → pass=false
+     * 示例：央视曝光"Token就是数字石油"是骗局 → 代币"数字石油"应被阻断
+     * 示例：人民日报揭露"词元暴富"是陷阱 → 相关代币应被阻断
      * ⚠️ 不要被"警示价值"迷惑：对一个骗局概念发币来说，"被曝光是骗局"就是最致命的负面
 
 **4. 娱乐热点阻断**：
-   - 营销号八卦（无可信来源、可能编造）→ pass=false
-   - 配合营销的"八卦"（明星配合新片/专辑发布的营销）→ pass=false
-   - 无争议/无爆点的日常（明星吃喝拉撒）→ pass=false
+   - 营销号八卦（无可信来源、可能编造）
+   - 配合营销的"八卦"（明星配合新片/专辑发布的营销）
+   - 无争议/无爆点的日常（明星吃喝拉撒）
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -182,12 +178,7 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 - "全网爆火的日本拍照姿势潮流" → B级(24) + 千万级(22) + 正在发酵(15) = 61分 → pass=true
 - "抖音祝福视频8万点赞10万+观看" → C级(12) + 十万级(12) + 正在发酵(15) = 39分 → **pass=false**（<60）
 
-⚠️ **第四步：pass判定自检**（必须在填写pass前执行）
-
-算出totalScore后，**必须按以下逻辑判定pass**：
-1. totalScore ≥ 60 → pass=true
-2. totalScore < 60 → **pass=false**，blockReason填写"totalScore < 60 (XX分)，[分量/权重/时效性不足以通过]"
-3. **禁止出现totalScore < 60但pass=true的情况**
+**pass判定**：totalScore ≥ 60 → pass=true；totalScore < 60 → pass=false，blockReason填写原因
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -196,26 +187,21 @@ export function buildCategoryEPrompt(eventDescription, eventClassification) {
 **只返回JSON**：
 
 **D/E级或阻断**：
-{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "categoryAnalysis": null}
+{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}
 
 **通过**：
 {
   "pass": true,
   "blockReason": null,
-  "categoryAnalysis": {
-    "category": "E",
-    "categoryName": "社会热点/现象类",
+  "scoringResult": {
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 32,
     "weightScore": 20,
     "timelinessScore": 15,
-    "totalScore": 67
-  },
-  "blockChecks": {"hardBlocks": [], "passedChecks": ["检查1", "检查2"]}
+    "totalScore": 67,
+    "meaningfulness": "有意义/条件性有意义/无意义",
+    "meaningfulnessReason": "有意义性的判断理由"
+  }
 }
-
-⚠️ **硬性规则**（必须严格遵守，无例外）：
-- totalScore < 60 → pass**必须**为false，blockReason填写具体原因
-- **自检**：输出JSON前，确认pass值与totalScore一致。如果totalScore < 60但pass=true，这是**严重错误**
 `;
 }

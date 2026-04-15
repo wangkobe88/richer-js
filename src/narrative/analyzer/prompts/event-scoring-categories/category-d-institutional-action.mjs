@@ -131,16 +131,16 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 
 ⚠️ **维度二阻断条件**：
 
-**以下情况直接阻断，pass=false**：
+**以下情况直接阻断，不再继续往下走，直接输出 `{"pass": false, "blockReason": "原因（注明哪个维度阻断）", "magnitudeLevel": "分量等级", "scoringResult": null}`**：
 
 **1. 运营性质阻断**：
 - 平台日常运营（新池子、上架新币、常规功能更新）
 - 理由：日常操作，不构成"事件"
 
 **2. 政治/冲突性质阻断**：
-- 涉及战争、军事冲突、恐怖主义、制裁对抗的事件 → pass=false
-- 涉及国家间对抗、地缘政治威胁、核威胁等负面政治事件 → pass=false
-- 政府或政治实体的威胁性/敌对性言论和动作 → pass=false
+- 涉及战争、军事冲突、恐怖主义、制裁对抗的事件
+- 涉及国家间对抗、地缘政治威胁、核威胁等负面政治事件
+- 政府或政治实体的威胁性/敌对性言论和动作
 - ⚠️ **豁免**：和平协议、国际合作、人道主义援助等正面政治事件不触发此阻断
 - ⚠️ **豁免**：大IP/知名机构对政治事件发表的个人观点引发社区玩梗（如Musk发推评论政治），不触发此阻断
 - ⚠️ **豁免**：政治实体的非严肃/娱乐性动作（如推出吉祥物、使用meme、发表有趣/接地气的内容引发社区玩梗），即使主体是政治实体，只要事件本身有meme传播潜力，就不触发此阻断
@@ -167,7 +167,7 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 - 远期动作（超过30天）：0分
 - 预期动作（未来）：30天内+10分，超过30天+5分
 
-⚠️ **硬性规则**：totalScore < 60 → pass必须为false，blockReason填写具体原因
+**pass判定**：totalScore ≥ 60 → pass=true；totalScore < 60 → pass=false，blockReason填写原因
 
 **示例**：
 - "Binance宣布新产品线" → A级(32) + 中meme潜力(20) + 近期(15) = 67分
@@ -183,25 +183,22 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 **只返回JSON**：
 
 **维度阻断**：
-{"pass": false, "blockReason": "原因（注明哪个维度阻断）", "magnitudeLevel": "S/A/B/C", "categoryAnalysis": null}
+{"pass": false, "blockReason": "原因（注明哪个维度阻断）", "magnitudeLevel": "S/A/B/C", "scoringResult": null}
 
 **通过**：
 {
   "pass": true,
   "blockReason": null,
-  "categoryAnalysis": {
-    "category": "D",
-    "categoryName": "机构言论/动作及相关事件类",
+  "scoringResult": {
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 24,
     "weightScore": 28,
     "timelinessScore": 15,
     "totalScore": 67,
-    "isWorldClassInstitution": true
-  },
-  "blockChecks": {"hardBlocks": [], "passedChecks": ["机构影响力检查", "内容meme潜力检查"]}
+    "isWorldClassInstitution": true,
+    "meaningfulness": "有意义/条件性有意义/无意义",
+    "meaningfulnessReason": "有意义性的判断理由"
+  }
 }
-
-⚠️ **硬性规则**：totalScore < 60 → pass必须为false，blockReason填写具体原因
 `;
 }

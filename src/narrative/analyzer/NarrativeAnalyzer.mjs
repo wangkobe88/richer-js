@@ -63,8 +63,8 @@ function buildStageSaveData(stageName, stageData, overrides = {}) {
   // 从 parsed_output 中提取 score（支持 raw 嵌套和扁平结构）
   const po = stageData.parsed_output;
   const extractedScore = overrides.score
-    ?? po?.raw?.categoryAnalysis?.totalScore
-    ?? po?.categoryAnalysis?.totalScore
+    ?? po?.raw?.scoringResult?.totalScore
+    ?? po?.scoringResult?.totalScore
     ?? po?.total_score
     ?? null;
 
@@ -541,7 +541,7 @@ export class NarrativeAnalyzer {
                 blockReason: stage2Data.blockReason
               }));
               stage2DataToSave = {
-                category: stage2Data.categoryAnalysis?.category || stage2CallResult.parsed?.category || null,
+                category: stage2Data.scoringResult?.category || stage2CallResult.parsed?.category || null,
                 model: stage2CallResult.model,
                 prompt: stage2Prompt,
                 raw_output: stage2RawContent,
@@ -567,7 +567,7 @@ export class NarrativeAnalyzer {
                 llmResult = {
                   rating: 'low',
                   reason: `Stage 1通过，但Stage 2${!stage2CallResult.success ? '失败' : '未通过'}: ${failReason}`,
-                  score: stage2Data.categoryAnalysis?.totalScore || null,
+                  score: stage2Data.scoringResult?.totalScore || null,
                   pass: false,
                   analysis_stage: 2
                 };
@@ -576,8 +576,8 @@ export class NarrativeAnalyzer {
               } else {
                 // Stage 2通过，进入Stage 3
                 logger.info('Stage2', '分类评分通过', {
-                  category: stage2Data.categoryAnalysis?.category,
-                  totalScore: stage2Data.categoryAnalysis?.totalScore
+                  category: stage2Data.scoringResult?.category,
+                  totalScore: stage2Data.scoringResult?.totalScore
                 });
 
                 // ========== Stage 3: 代币分析 ==========
@@ -614,7 +614,7 @@ export class NarrativeAnalyzer {
                 let aggregatedCategory;
                 let aggregatedTotalScore;
                 let eventScore = null;
-                const stage2TotalScore = stage2Data.categoryAnalysis?.totalScore ?? stage2Data.raw?.categoryAnalysis?.totalScore ?? stage2Data.total_score;
+                const stage2TotalScore = stage2Data.scoringResult?.totalScore ?? stage2Data.raw?.scoringResult?.totalScore ?? stage2Data.total_score;
 
                 if (stage3Pass === false) {
                   // Stage 3 截断触发（品牌劫持/拼写错误/关联性不足/质量过低）
@@ -684,9 +684,9 @@ export class NarrativeAnalyzer {
                   // Stage 3失败，但不抛出错误，而是设置llmResult为Stage 2的结果
                   logger.warn('NarrativeAnalyzer', `Stage 3失败，使用Stage 2结果: ${stage3CallResult.error}`);
                   llmResult = {
-                    rating: stage2Data.categoryAnalysis?.category || 'unrated',
+                    rating: stage2Data.scoringResult?.category || 'unrated',
                     reason: `Stage 1和Stage 2通过，但Stage 3失败: ${stage3CallResult.error}`,
-                    score: stage2Data.categoryAnalysis?.totalScore || null,
+                    score: stage2Data.scoringResult?.totalScore || null,
                     pass: true,
                     analysis_stage: 2
                   };

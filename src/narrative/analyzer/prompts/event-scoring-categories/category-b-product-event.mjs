@@ -70,16 +70,18 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 - S/A级 → ✓✓✓有意义
 - B级 → ✓✓有意义
 - C级 → 条件性有意义
-- D/E级 → ✗无意义 → 直接阻断
+- D/E级 → ✗无意义 → 直接阻断（不再继续评分，直接输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}`）
 
 ═══════════════════════════════════════════════════════════════════════════════
 
 📋 **第二步：硬性阻断条件检查**
 
-**1. 纯营销噱头**：奇葩产品、奇特但无意义 → pass=false
-**2. 标题党/诱导点击**：名称夸张但内容空洞 → pass=false
-**3. 无实质内容更新**：只是UI调整、换皮更新 → pass=false
-**4. 第三方蹭热度**：影响力极低的第三方创作关于大IP的内容，无任何自身传播数据 → pass=false
+⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}`
+
+**1. 纯营销噱头**：奇葩产品、奇特但无意义
+**2. 标题党/诱导点击**：名称夸张但内容空洞
+**3. 无实质内容更新**：只是UI调整、换皮更新
+**4. 第三方蹭热度**：影响力极低的第三方创作关于大IP的内容，无任何自身传播数据
 **5. 在Web3/meme币社区缺乏传播潜力**：
 ⚠️ B类本就是非Web3产品，但并非所有非Web3产品都适合成为meme币叙事。以下类型直接阻断：
 - B2B/企业级产品（AI框架、云服务API、企业软件、开发工具等）
@@ -92,7 +94,6 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 - Apple发布全新iPhone → 全球文化事件，有meme潜力 → 不阻断
 - Tesla发布Cybertruck → 现象级消费产品 → 不阻断
 - 任天堂发布新游戏机 → 大众消费级产品 → 不阻断
-→ pass=false
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -132,7 +133,7 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 **只返回JSON**：
 
 **D/E级或阻断**：
-{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "categoryAnalysis": null}
+{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}
 
 **通过**：
 {
@@ -144,18 +145,15 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
     "publisherInfluence": "世界级/知名/普通/低",
     "reasoning": "为什么这样判断"
   },
-  "categoryAnalysis": {
-    "category": "B",
-    "categoryName": "产品发布/改进/营销等产品相关事件类",
+  "scoringResult": {
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 40,
     "weightScore": 30,
     "timelinessScore": 15,
-    "totalScore": 85
-  },
-  "blockChecks": {"hardBlocks": [], "passedChecks": ["检查1", "检查2"]}
+    "totalScore": 85,
+    "meaningfulness": "有意义/条件性有意义/无意义",
+    "meaningfulnessReason": "有意义性的判断理由"
+  }
 }
-
-⚠️ **硬性规则**：totalScore < 60 → pass必须为false，blockReason填写具体原因
 `;
 }

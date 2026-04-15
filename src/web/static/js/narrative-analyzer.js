@@ -1056,22 +1056,16 @@ class NarrativeAnalyzer {
 
     const category = stage2.category || parsed.category || 'unrated';
 
-    // 适配新框架：数据在 details.raw.categoryAnalysis 下
-    const categoryAnalysis = parsed.raw?.categoryAnalysis || parsed.categoryAnalysis || {};
-    const totalScore = categoryAnalysis.totalScore || 0;
-    const categoryName = categoryAnalysis.categoryName || '未知类别';
-    const magnitudeLevel = categoryAnalysis.magnitudeLevel || '-';
-    const magnitudeScore = categoryAnalysis.magnitudeScore || 0;
-    const weightScore = categoryAnalysis.weightScore || 0;
-    const timelinessScore = categoryAnalysis.timelinessScore || 0;
-    const meaningfulness = categoryAnalysis.meaningfulness || '';
-    const meaningfulnessReason = categoryAnalysis.meaningfulnessReason || '';
-
-    // 阻断检查信息
-    const blockChecks = parsed.raw?.blockChecks || parsed.blockChecks || {};
-    const passedChecks = blockChecks.passedChecks || [];
-    const hardBlocks = blockChecks.hardBlocks || [];
-    const softBlocks = blockChecks.softBlocks || [];
+    // 适配新框架：数据在 details.raw.scoringResult 下（兼容旧字段 categoryAnalysis）
+    const scoringResult = parsed.raw?.scoringResult || parsed.raw?.categoryAnalysis || parsed.scoringResult || parsed.categoryAnalysis || {};
+    const totalScore = scoringResult.totalScore || 0;
+    const categoryName = scoringResult.categoryName || '未知类别';
+    const magnitudeLevel = scoringResult.magnitudeLevel || '-';
+    const magnitudeScore = scoringResult.magnitudeScore || 0;
+    const weightScore = scoringResult.weightScore || 0;
+    const timelinessScore = scoringResult.timelinessScore || 0;
+    const meaningfulness = scoringResult.meaningfulness || '';
+    const meaningfulnessReason = scoringResult.meaningfulnessReason || '';
 
     // 将A-E类转换为质量评级
     let qualityCategory = 'unrated';
@@ -1140,22 +1134,6 @@ class NarrativeAnalyzer {
           ${meaningfulnessReason ? `<br><span style="color: #555;">${meaningfulnessReason}</span>` : ''}
         </div>
       `;
-    }
-
-    // 阻断检查信息
-    if (hardBlocks.length > 0 || softBlocks.length > 0 || passedChecks.length > 0) {
-      let checksHtml = '<div style="margin-top: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px; font-size: 12px;"><strong>阻断检查：</strong>';
-      if (hardBlocks.length > 0) {
-        checksHtml += `<br><span style="color: #dc3545;">❌ 硬性阻断：${hardBlocks.join(', ')}</span>`;
-      }
-      if (softBlocks.length > 0) {
-        checksHtml += `<br><span style="color: #ffc107;">⚠️ 软性阻断：${softBlocks.join(', ')}</span>`;
-      }
-      if (passedChecks.length > 0) {
-        checksHtml += `<br><span style="color: #28a745;">✅ 通过检查：${passedChecks.join(', ')}</span>`;
-      }
-      checksHtml += '</div>';
-      scoresHtml += checksHtml;
     }
 
     // 理由（如果有额外reasoning）

@@ -651,7 +651,7 @@ export function buildLLMAnalysis(record) {
   // 获取 scores（详细评分）
   const scores = record.stage_final_result?.details
     ?? record.stage3_result?.details
-    ?? record.stage2_result?.details?.categoryAnalysis
+    ?? record.stage2_result?.details?.scoringResult
     ?? record.pre_check_result?.details?.scores
     ?? null;
 
@@ -712,7 +712,7 @@ export function formatResult(record) {
   // 获取 scores（详细评分）
   const scores = record.stage_final_result?.details
     ?? record.stage3_result?.details
-    ?? record.stage2_result?.details?.categoryAnalysis
+    ?? record.stage2_result?.details?.scoringResult
     ?? record.pre_check_result?.details?.scores
     ?? null;
 

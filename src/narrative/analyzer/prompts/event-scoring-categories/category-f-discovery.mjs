@@ -77,7 +77,7 @@ export function buildCategoryFPrompt(eventDescription, eventClassification) {
 - 关联过于牵强，缺乏合理依据
 - 示例：将随机数字强行关联为"数字叙事"
 
-⚠️ **D/E级直接阻断**
+⚠️ **D/E级直接阻断**：判定为D/E级后，不再进入第二步评分，直接输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}`
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -109,12 +109,14 @@ export function buildCategoryFPrompt(eventDescription, eventClassification) {
 
 ⚠️ **阻断条件**：
 
+⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，直接输出 `{"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}`
+
 **1. 发现过于牵强**：
-- 关联缺乏合理依据，纯属强行拼凑 → pass=false
+- 关联缺乏合理依据，纯属强行拼凑
 - 示例：将两个完全无关的数字强行关联
 
 **2. 发现内容无实际意义**：
-- 发现的信息没有任何讨论价值和传播空间 → pass=false
+- 发现的信息没有任何讨论价值和传播空间
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -137,7 +139,7 @@ export function buildCategoryFPrompt(eventDescription, eventClassification) {
 - 远期发现（超过30天）：0分
 - 预期发现（引用未来事件）：30天内+10分，超过30天+5分
 
-⚠️ **硬性规则**：totalScore < 60 → pass必须为false，blockReason填写具体原因
+**pass判定**：totalScore ≥ 60 → pass=true；totalScore < 60 → pass=false，blockReason填写原因
 
 **示例**：
 - "发现Yzi Labs海报的真正口号是WE MAKE IMPACT" → A级(32) + 隐藏口号(28) + 近期(15) = 75分 → pass=true ✅
@@ -157,16 +159,14 @@ export function buildCategoryFPrompt(eventDescription, eventClassification) {
   "pass": false,
   "blockReason": "原因",
   "magnitudeLevel": "D/E",
-  "categoryAnalysis": null
+  "scoringResult": null
 }
 
 **通过评分**：
 {
   "pass": true,
   "blockReason": null,
-  "categoryAnalysis": {
-    "category": "F",
-    "categoryName": "发现型叙事类",
+  "scoringResult": {
     "discoveryType": "数字叙事/隐藏口号/概念关联/设计彩蛋",
     "magnitudeLevel": "S/A/B/C",
     "magnitudeScore": 32,
@@ -175,15 +175,7 @@ export function buildCategoryFPrompt(eventDescription, eventClassification) {
     "totalScore": 75,
     "meaningfulness": "有意义/条件性有意义/无意义",
     "meaningfulnessReason": "有意义性的判断理由"
-  },
-  "blockChecks": {
-    "hardBlocks": [],
-    "passedChecks": ["被发现对象影响力检查", "发现内容传播价值检查"]
   }
 }
-
-⚠️ **硬性规则**（必须严格遵守）：
-- totalScore < 60 → pass**必须**为false，blockReason填写具体原因
-- **自检**：输出JSON前，确认pass值与totalScore一致
 `;
 }
