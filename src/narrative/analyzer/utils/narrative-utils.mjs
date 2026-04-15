@@ -93,6 +93,12 @@ export function hasValidDataForAnalysis(fetchResults) {
   if (backgroundInfo) {
     // 微博数据检查
     if (backgroundInfo.source === 'weibo') {
+      // 微博用户主页
+      if (backgroundInfo.type === 'user_profile') {
+        if (backgroundInfo.screen_name || backgroundInfo.followers_count !== undefined) {
+          return true; // 有微博用户主页数据
+        }
+      }
       if (backgroundInfo.text && backgroundInfo.text.trim().length > 0) {
         return true; // 有微博内容
       }
@@ -146,6 +152,10 @@ export function hasValidDataForAnalysis(fetchResults) {
 
   for (const platform of videoPlatforms) {
     if (platform.info) {
+      // 用户主页/频道类型
+      if (platform.info.type === 'user_profile' || platform.info.type === 'channel') {
+        return true;
+      }
       // 检查是否有视频标题或描述（至少有一个非空）
       const hasContent = (platform.info.title && platform.info.title.trim().length > 0) ||
                         (platform.info.description && platform.info.description.trim().length > 0);

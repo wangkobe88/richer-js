@@ -549,6 +549,97 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     }
   }
 
+  // 规则3.5.6：抖音用户主页影响力检查
+  if (douyinInfo && douyinInfo.type === 'user_profile') {
+    const followers = douyinInfo.follower_count || 0;
+    const awemeCount = douyinInfo.aweme_count || 0;
+
+    if (followers >= 100000) {
+      console.log(`[NarrativeAnalyzer] 规则3.5.6触发: 抖音用户"${douyinInfo.nickname}"粉丝${followers}，影响力较高，返回unrated`);
+      return buildPreCheckResult('unrated',
+        `抖音用户"${douyinInfo.nickname}"粉丝${followers}，影响力较高`,
+        'douyin_high_influence_user');
+    }
+
+    if (followers < 100 && awemeCount < 5) {
+      console.log(`[NarrativeAnalyzer] 规则3.5.6触发: 抖音用户"${douyinInfo.nickname}"粉丝仅${followers}，作品仅${awemeCount}，影响力不足，返回low`);
+      return buildPreCheckResult('low',
+        `抖音用户"${douyinInfo.nickname}"粉丝仅${followers}，作品仅${awemeCount}，影响力不足`,
+        'douyin_low_influence_user',
+        { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+    }
+
+    console.log(`[NarrativeAnalyzer] 抖音用户"${douyinInfo.nickname}"影响力中等（粉丝${followers}，作品${awemeCount}），进入LLM分析`);
+  }
+
+  // 规则3.5.7：微博用户主页影响力检查
+  if (backgroundInfo && backgroundInfo.source === 'weibo' && backgroundInfo.type === 'user_profile') {
+    const followers = backgroundInfo.followers_count || 0;
+    const statusesCount = backgroundInfo.statuses_count || 0;
+
+    if (followers >= 100000) {
+      console.log(`[NarrativeAnalyzer] 规则3.5.7触发: 微博用户"${backgroundInfo.screen_name}"粉丝${followers}，影响力较高，返回unrated`);
+      return buildPreCheckResult('unrated',
+        `微博用户"${backgroundInfo.screen_name}"粉丝${followers}，影响力较高`,
+        'weibo_high_influence_user');
+    }
+
+    if (followers < 100 && statusesCount < 10) {
+      console.log(`[NarrativeAnalyzer] 规则3.5.7触发: 微博用户"${backgroundInfo.screen_name}"粉丝仅${followers}，微博仅${statusesCount}条，影响力不足，返回low`);
+      return buildPreCheckResult('low',
+        `微博用户"${backgroundInfo.screen_name}"粉丝仅${followers}，微博仅${statusesCount}条，影响力不足`,
+        'weibo_low_influence_user',
+        { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+    }
+
+    console.log(`[NarrativeAnalyzer] 微博用户"${backgroundInfo.screen_name}"影响力中等（粉丝${followers}，微博${statusesCount}条），进入LLM分析`);
+  }
+
+  // 规则3.5.8：YouTube频道影响力检查
+  if (youtubeInfo && youtubeInfo.type === 'channel') {
+    const recentViews = youtubeInfo.recent_videos?.reduce((sum, v) => sum + (v.view_count || 0), 0) || 0;
+
+    if (recentViews >= 1000000) {
+      console.log(`[NarrativeAnalyzer] 规则3.5.8触发: YouTube频道"${youtubeInfo.channel_title}"最近视频总播放${recentViews}，影响力较高，返回unrated`);
+      return buildPreCheckResult('unrated',
+        `YouTube频道"${youtubeInfo.channel_title}"最近视频总播放${recentViews}，影响力较高`,
+        'youtube_high_influence_channel');
+    }
+
+    if (!youtubeInfo.recent_videos?.length || recentViews < 1000) {
+      console.log(`[NarrativeAnalyzer] 规则3.5.8触发: YouTube频道"${youtubeInfo.channel_title}"视频播放量极低（${recentViews}），返回low`);
+      return buildPreCheckResult('low',
+        `YouTube频道"${youtubeInfo.channel_title}"视频播放量极低（${recentViews}），传播力不足`,
+        'youtube_low_influence_channel',
+        { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+    }
+
+    console.log(`[NarrativeAnalyzer] YouTube频道"${youtubeInfo.channel_title}"影响力中等（最近视频总播放${recentViews}），进入LLM分析`);
+  }
+
+  // 规则3.5.9：TikTok用户主页影响力检查
+  if (tiktokInfo && tiktokInfo.type === 'user_profile') {
+    const followers = tiktokInfo.follower_count || 0;
+    const videoCount = tiktokInfo.video_count || 0;
+
+    if (followers >= 100000) {
+      console.log(`[NarrativeAnalyzer] 规则3.5.9触发: TikTok用户"@${tiktokInfo.unique_id}"粉丝${followers}，影响力较高，返回unrated`);
+      return buildPreCheckResult('unrated',
+        `TikTok用户"@${tiktokInfo.unique_id}"粉丝${followers}，影响力较高`,
+        'tiktok_high_influence_user');
+    }
+
+    if (followers < 100 && videoCount < 5) {
+      console.log(`[NarrativeAnalyzer] 规则3.5.9触发: TikTok用户"@${tiktokInfo.unique_id}"粉丝仅${followers}，视频仅${videoCount}，影响力不足，返回low`);
+      return buildPreCheckResult('low',
+        `TikTok用户"@${tiktokInfo.unique_id}"粉丝仅${followers}，视频仅${videoCount}，影响力不足`,
+        'tiktok_low_influence_user',
+        { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+    }
+
+    console.log(`[NarrativeAnalyzer] TikTok用户"@${tiktokInfo.unique_id}"影响力中等（粉丝${followers}，视频${videoCount}），进入LLM分析`);
+  }
+
   // 规则3.6：微信文章传播力检查
   if (weixinInfo) {
     const readCount = weixinInfo.read_num || 0;

@@ -6,6 +6,7 @@
 const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/douyin/get-video-detail/v2';
 const DOUYIN_SEARCH_URL = 'https://api.justoneapi.com/api/douyin/search-video/v4';
+const DOUYIN_USER_PROFILE_URL = 'https://api.justoneapi.com/api/douyin/get-user-detail/v3';
 
 /**
  * 抖音视频信息提取器
@@ -457,5 +458,98 @@ export class DouyinFetcher {
       'unknown': '无明确影响力'
     };
     return descriptions[level] || '未知';
+  }
+
+  // ========== 用户主页方法 ==========
+
+  /**
+   * 从抖音用户主页 URL 中提取 sec_uid
+   * 支持格式：douyin.com/user/MS4wLjABAAAA...
+   * @param {string} url - 抖音用户主页 URL
+   * @returns {string|null} sec_uid
+   */
+  static extractSecUid(url) {
+    if (!url) return null;
+    const match = url.match(/douyin\.com\/user\/([\w-]+)/);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * 判断是否是抖音用户主页 URL
+   * @param {string} url - URL
+   * @returns {boolean}
+   */
+  static isDouyinUserProfileUrl(url) {
+    if (!url) return false;
+    return /douyin\.com\/user\//i.test(url);
+  }
+
+  /**
+   * 获取抖音用户主页信息
+   * @param {string} url - 抖音用户主页 URL
+   * @returns {Promise<Object|null>} 用户信息
+   */
+  static async fetchUserProfile(url) {
+    const secUid = this.extractSecUid(url);
+    if (!secUid) {
+      console.warn('[DouyinFetcher] 无法提取 sec_uid:', url);
+      return null;
+    }
+
+    console.log(`[DouyinFetcher] 获取抖音用户主页: sec_uid=${secUid.substring(0, 20)}...`);
+
+    try {
+      const apiUrl = `${DOUYIN_USER_PROFILE_URL}?token=${JUSTONEAPI_KEY}&secUid=${encodeURIComponent(secUid)}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      const response = await fetch(apiUrl, {
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.warn('[DouyinFetcher] 用户主页API请求失败:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+
+      if (data.code !== 0) {
+        console.warn('[DouyinFetcher] 用户主页API返回错误:', data.message);
+        return null;
+      }
+
+      const user = data.data?.user;
+      if (!user) {
+        console.warn('[DouyinFetcher] 用户主页数据为空');
+        return null;
+      }
+
+      return {
+        type: 'user_profile',
+        nickname: user.nickname || '',
+        sec_uid: user.sec_uid || secUid,
+        signature: user.signature || '',
+        ip_location: user.ip_location || '',
+        follower_count: user.follower_count || 0,
+        following_count: user.following_count || 0,
+        aweme_count: user.aweme_count || 0,
+        total_favorited: user.total_favorited || 0,
+        avatar_url: user.avatar_larger?.url_list?.[0] || user.avatar_thumb?.url_list?.[0] || '',
+        verified: user.is_verified || false,
+        fetched_via: 'justoneapi'
+      };
+
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.error('[DouyinFetcher] 用户主页请求超时（30秒）');
+      } else {
+        console.error('[DouyinFetcher] 用户主页获取失败:', error.message);
+      }
+      return null;
+    }
   }
 }

@@ -85,22 +85,34 @@ export function classifyUrl(url) {
     return { type: 'community', platform: 'twitter', priority: 1, url };
   }
 
-  // 微博
+  // 微博（用户主页优先于帖子）
+  if (_isWeiboUserProfileUrl(url)) {
+    return { type: 'user_profile', platform: 'weibo', priority: 1, url };
+  }
   if (_isWeiboUrl(url)) {
     return { type: 'post', platform: 'weibo', priority: 1, url };
   }
 
-  // YouTube
+  // YouTube（频道优先于视频）
+  if (_isYouTubeChannelUrl(url)) {
+    return { type: 'channel', platform: 'youtube', priority: 1, url };
+  }
   if (_isYouTubeUrl(url)) {
     return { type: 'video', platform: 'youtube', priority: 1, url };
   }
 
-  // TikTok
+  // TikTok（用户主页优先于视频）
+  if (_isTikTokUserProfileUrl(url)) {
+    return { type: 'user_profile', platform: 'tiktok', priority: 1, url };
+  }
   if (_isTikTokUrl(url)) {
     return { type: 'video', platform: 'tiktok', priority: 1, url };
   }
 
-  // 抖音
+  // 抖音（用户主页优先于视频）
+  if (_isDouyinUserProfileUrl(url)) {
+    return { type: 'user_profile', platform: 'douyin', priority: 1, url };
+  }
   if (_isDouyinUrl(url)) {
     return { type: 'video', platform: 'douyin', priority: 1, url };
   }
@@ -341,9 +353,19 @@ function _isWeiboUrl(url) {
   return /weibo\.com|vveib[o0]\.com|vveibo\d*\.com/i.test(url);
 }
 
+function _isWeiboUserProfileUrl(url) {
+  // 匹配微博用户主页：weibo.com/u/1234567890
+  return /weibo\.com\/u\/\d+/i.test(url);
+}
+
 function _isYouTubeUrl(url) {
   // 匹配 youtube.com 或 youtu.be
   return /youtube\.com|youtu\.be/i.test(url);
+}
+
+function _isYouTubeChannelUrl(url) {
+  // 匹配 YouTube 频道：youtube.com/channel/UCxxxxx 或 youtube.com/@handle
+  return /youtube\.com\/(channel\/UC|@)/i.test(url);
 }
 
 function _isTikTokUrl(url) {
@@ -351,9 +373,19 @@ function _isTikTokUrl(url) {
   return /tiktok\.com/i.test(url);
 }
 
+function _isTikTokUserProfileUrl(url) {
+  // 匹配 TikTok 用户主页：tiktok.com/@username（不含 /video/）
+  return /tiktok\.com\/@[\w.-]+\/?$/i.test(url) && !/\/video\//i.test(url);
+}
+
 function _isDouyinUrl(url) {
   // 匹配 douyin.com
   return /douyin\.com/i.test(url);
+}
+
+function _isDouyinUserProfileUrl(url) {
+  // 匹配抖音用户主页：douyin.com/user/xxx
+  return /douyin\.com\/user\//i.test(url);
 }
 
 function _isBilibiliUrl(url) {

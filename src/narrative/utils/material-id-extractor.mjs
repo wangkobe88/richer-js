@@ -199,6 +199,23 @@ function _extractFromVideos(classified) {
     if (!urls || urls.length === 0) continue;
 
     for (const item of urls) {
+      // 用户主页/频道类型优先处理
+      if (platform.key === 'douyin' && item.type === 'user_profile') {
+        const secUidMatch = item.url.match(/douyin\.com\/user\/([\w-]+)/);
+        if (secUidMatch) return `dy:user:${secUidMatch[1]}`;
+      }
+      if (platform.key === 'tiktok' && item.type === 'user_profile') {
+        const usernameMatch = item.url.match(/tiktok\.com\/@([\w.-]+)/);
+        if (usernameMatch) return `tt:user:${usernameMatch[1].toLowerCase()}`;
+      }
+      if (platform.key === 'youtube' && item.type === 'channel') {
+        const channelMatch = item.url.match(/youtube\.com\/channel\/(UC[\w-]+)/);
+        if (channelMatch) return `yt:ch:${channelMatch[1]}`;
+        const handleMatch = item.url.match(/youtube\.com\/@([\w.-]+)/);
+        if (handleMatch) return `yt:ch:@${handleMatch[1].toLowerCase()}`;
+      }
+
+      // 视频类型
       for (const extractor of platform.extractors) {
         const match = extractor(item.url);
         if (match) return `video:${platform.prefix}:${match[1]}`;
@@ -217,6 +234,12 @@ function _extractFromOtherPlatforms(classified) {
   // 微博
   if (classified.weibo && classified.weibo.length > 0) {
     for (const item of classified.weibo) {
+      // 微博用户主页
+      if (item.type === 'user_profile') {
+        const uidMatch = item.url.match(/weibo\.com\/u\/(\d+)/);
+        if (uidMatch) return `wb:user:${uidMatch[1]}`;
+      }
+      // 微博帖子
       const match = item.url.match(/weibo\.com\/\d+\/(\w+)/) ||
                     item.url.match(/weibo\.com\/detail\/(\d+)/) ||
                     item.url.match(/weibo\.com\/status\/(\d+)/);

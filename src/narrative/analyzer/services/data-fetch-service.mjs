@@ -10,7 +10,7 @@ import { GithubFetcher } from '../../utils/github-fetcher.mjs';
 import { YoutubeFetcher } from '../../utils/youtube-fetcher.mjs';
 import { DouyinFetcher } from '../../utils/douyin-fetcher.mjs';
 import { isHighInfluenceAccount } from '../prompts/account-backgrounds.mjs';
-import { fetchTikTokVideoInfo } from '../../utils/tiktok-fetcher.mjs';
+import { fetchTikTokVideoInfo, fetchTikTokUserProfile } from '../../utils/tiktok-fetcher.mjs';
 
 // TikTok 影响力等级函数（从原始 NarrativeAnalyzer.mjs 中提取）
 function getTikTokInfluenceLevel(tiktokInfo) {
@@ -419,13 +419,23 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
 
   // === 2. 微博数据（作为背景信息）===
   if (classifiedUrls.weibo.length > 0) {
-    const weiboUrl = classifiedUrls.weibo[0].url;
-    console.log(`[NarrativeAnalyzer] 获取微博数据作为背景信息: ${weiboUrl}`);
+    const weiboUrlInfo = classifiedUrls.weibo[0];
+    console.log(`[NarrativeAnalyzer] 获取微博数据作为背景信息: ${weiboUrlInfo.url}`);
     try {
-      results.backgroundInfo = await WeiboFetcher.fetchFromUrl(weiboUrl);
-      if (results.backgroundInfo) {
-        results.backgroundInfo.source = 'weibo';
-        console.log('[NarrativeAnalyzer] 微博数据获取成功');
+      if (weiboUrlInfo.type === 'user_profile') {
+        // 用户主页
+        results.backgroundInfo = await WeiboFetcher.fetchUserProfile(weiboUrlInfo.url);
+        if (results.backgroundInfo) {
+          results.backgroundInfo.source = 'weibo';
+          console.log(`[NarrativeAnalyzer] 微博用户主页获取成功: ${results.backgroundInfo.screen_name}`);
+        }
+      } else {
+        // 微博帖子
+        results.backgroundInfo = await WeiboFetcher.fetchFromUrl(weiboUrlInfo.url);
+        if (results.backgroundInfo) {
+          results.backgroundInfo.source = 'weibo';
+          console.log('[NarrativeAnalyzer] 微博数据获取成功');
+        }
       }
     } catch (error) {
       console.warn('[NarrativeAnalyzer] 微博数据获取失败:', error.message);
@@ -459,6 +469,15 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
   if (youtubeUrlInfo) {
     const youtubeFetch = await recordDataFetch(
       async () => {
+        if (youtubeUrlInfo.type === 'channel') {
+          // 频道
+          const info = await YoutubeFetcher.fetchChannelInfo(youtubeUrlInfo.url);
+          if (info) {
+            console.log(`[NarrativeAnalyzer] YouTube频道: "${info.channel_title}"`);
+          }
+          return info;
+        }
+        // 视频
         const info = await YoutubeFetcher.fetchVideoInfo(youtubeUrlInfo.url);
         if (info) {
           const influenceLevel = YoutubeFetcher.getInfluenceLevel(info);
@@ -483,6 +502,15 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
   if (douyinUrlInfo) {
     const douyinFetch = await recordDataFetch(
       async () => {
+        if (douyinUrlInfo.type === 'user_profile') {
+          // 用户主页
+          const info = await DouyinFetcher.fetchUserProfile(douyinUrlInfo.url);
+          if (info) {
+            console.log(`[NarrativeAnalyzer] 抖音用户主页: "${info.nickname}" (粉丝${info.follower_count})`);
+          }
+          return info;
+        }
+        // 视频
         const info = await DouyinFetcher.fetchVideoInfo(douyinUrlInfo.url);
         if (info) {
           const influenceLevel = DouyinFetcher.getInfluenceLevel(info);
@@ -507,6 +535,15 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
   if (tiktokUrlInfo) {
     const tiktokFetch = await recordDataFetch(
       async () => {
+        if (tiktokUrlInfo.type === 'user_profile') {
+          // 用户主页
+          const info = await fetchTikTokUserProfile(tiktokUrlInfo.url);
+          if (info) {
+            console.log(`[NarrativeAnalyzer] TikTok用户: @${info.unique_id} (粉丝${info.follower_count})`);
+          }
+          return info;
+        }
+        // 视频
         const info = await fetchTikTokVideoInfo(tiktokUrlInfo.url);
         if (info) {
           const influenceLevel = getTikTokInfluenceLevel(info);

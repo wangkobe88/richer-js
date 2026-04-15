@@ -7,6 +7,7 @@ import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
 
 const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/weibo/get-weibo-detail/v1';
+const WEIBO_USER_PROFILE_URL = 'https://api.justoneapi.com/api/weibo/get-user-detail/v3';
 
 /**
  * 微博URL工具类
@@ -378,6 +379,101 @@ export class WeiboFetcher {
     } catch (error) {
       console.error('[WeiboFetcher] 获取用户信息失败:', error.message);
       throw error;
+    }
+  }
+
+  // ========== 用户主页方法（JustOneAPI） ==========
+
+  /**
+   * 从微博用户主页 URL 中提取 uid
+   * 支持格式：weibo.com/u/1234567890
+   * @param {string} url - 微博用户主页 URL
+   * @returns {string|null} uid
+   */
+  static extractUid(url) {
+    if (!url) return null;
+    const match = url.match(/weibo\.com\/u\/(\d+)/);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * 判断是否是微博用户主页 URL
+   * @param {string} url - URL
+   * @returns {boolean}
+   */
+  static isWeiboUserProfileUrl(url) {
+    if (!url) return false;
+    return /weibo\.com\/u\/\d+/i.test(url);
+  }
+
+  /**
+   * 获取微博用户主页信息（使用 JustOneAPI）
+   * @param {string} url - 微博用户主页 URL
+   * @returns {Promise<Object|null>} 用户信息
+   */
+  static async fetchUserProfile(url) {
+    const uid = this.extractUid(url);
+    if (!uid) {
+      console.warn('[WeiboFetcher] 无法提取 uid:', url);
+      return null;
+    }
+
+    console.log(`[WeiboFetcher] 获取微博用户主页: uid=${uid}`);
+
+    try {
+      const apiUrl = `${WEIBO_USER_PROFILE_URL}?token=${JUSTONEAPI_KEY}&uid=${encodeURIComponent(uid)}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      const response = await fetch(apiUrl, {
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.warn('[WeiboFetcher] 用户主页API请求失败:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+
+      if (data.code !== 0) {
+        console.warn('[WeiboFetcher] 用户主页API返回错误:', data.message);
+        return null;
+      }
+
+      const user = data.data?.user;
+      if (!user) {
+        console.warn('[WeiboFetcher] 用户主页数据为空');
+        return null;
+      }
+
+      return {
+        type: 'user_profile',
+        source: 'weibo',
+        screen_name: user.screen_name || '',
+        uid: uid,
+        description: user.description || '',
+        location: user.location || '',
+        followers_count: parseInt(user.followers_count) || 0,
+        friends_count: user.friends_count || 0,
+        statuses_count: user.statuses_count || 0,
+        verified: user.verified || false,
+        verified_reason: user.verified_reason || '',
+        gender: user.gender === 'm' ? 'male' : user.gender === 'f' ? 'female' : 'unknown',
+        profile_image_url: user.profile_image_url || '',
+        fetched_via: 'justoneapi'
+      };
+
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.error('[WeiboFetcher] 用户主页请求超时（30秒）');
+      } else {
+        console.error('[WeiboFetcher] 用户主页获取失败:', error.message);
+      }
+      return null;
     }
   }
 }

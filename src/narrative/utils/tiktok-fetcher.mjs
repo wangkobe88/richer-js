@@ -5,6 +5,7 @@
 
 const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/tiktok/get-post-detail/v1';
+const TIKTOK_USER_PROFILE_URL = 'https://api.justoneapi.com/api/tiktok/get-user-detail/v1';
 
 /**
  * 从TikTok URL中提取视频ID
@@ -153,4 +154,101 @@ export function isTikTokUrl(url) {
   }
 
   return /tiktok\.com/i.test(url);
+}
+
+// ========== 用户主页方法 ==========
+
+/**
+ * 从 TikTok 用户主页 URL 中提取用户名
+ * 支持格式：tiktok.com/@username
+ * @param {string} url - TikTok 用户主页 URL
+ * @returns {string|null} 用户名（不含@）
+ */
+export function extractTikTokUsername(url) {
+  if (!url) return null;
+  const match = url.match(/tiktok\.com\/@([\w.-]+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * 判断是否是 TikTok 用户主页 URL
+ * 区别于视频链接：tiktok.com/@username（无 /video/ 路径）
+ * @param {string} url - URL
+ * @returns {boolean}
+ */
+export function isTikTokUserProfileUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  // 匹配 tiktok.com/@username 但不含 /video/
+  return /tiktok\.com\/@[\w.-]+\/?$/i.test(url) && !/\/video\//i.test(url);
+}
+
+/**
+ * 获取 TikTok 用户主页信息
+ * @param {string} url - TikTok 用户主页 URL
+ * @returns {Promise<Object|null>} 用户信息
+ */
+export async function fetchTikTokUserProfile(url) {
+  const uniqueId = extractTikTokUsername(url);
+  if (!uniqueId) {
+    console.warn('[TikTokFetcher] 无法提取用户名:', url);
+    return null;
+  }
+
+  console.log(`[TikTokFetcher] 获取TikTok用户主页: @${uniqueId}`);
+
+  try {
+    const apiUrl = `${TIKTOK_USER_PROFILE_URL}?token=${JUSTONEAPI_KEY}&uniqueId=${encodeURIComponent(uniqueId)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch(apiUrl, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.warn('[TikTokFetcher] 用户主页API请求失败:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (data.code !== 0) {
+      console.warn('[TikTokFetcher] 用户主页API返回错误:', data.message || data.msg);
+      return null;
+    }
+
+    const userInfo = data.data?.userInfo;
+    if (!userInfo) {
+      console.warn('[TikTokFetcher] 用户主页数据为空');
+      return null;
+    }
+
+    const user = userInfo.user || {};
+    const stats = userInfo.stats || {};
+
+    return {
+      type: 'user_profile',
+      nickname: user.nickname || '',
+      unique_id: user.uniqueId || uniqueId,
+      signature: user.signature || '',
+      follower_count: stats.followerCount || 0,
+      following_count: stats.followingCount || 0,
+      heart_count: stats.heartCount || 0,
+      video_count: stats.videoCount || 0,
+      verified: user.verified || false,
+      avatar_url: user.avatarMedium || user.avatarThumb || '',
+      fetched_via: 'justoneapi'
+    };
+
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.error('[TikTokFetcher] 用户主页请求超时（30秒）');
+    } else {
+      console.error('[TikTokFetcher] 用户主页获取失败:', error.message);
+    }
+    return null;
+  }
 }
