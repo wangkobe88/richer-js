@@ -336,6 +336,59 @@ class NarrativeAnalyzer {
         }
       }
 
+      // 同名代币活跃跟风（same_name_active_copycat）
+      if (precheck.details?.ruleName === 'same_name_active_copycat') {
+        details.push({
+          label: '🚨 检测类型',
+          value: '同名代币活跃跟风',
+          pass: false
+        });
+        if (result.matchedTokenAddress) {
+          const gmgnUrl = `https://gmgn.ai/bsc/token/${result.matchedTokenAddress}`;
+          details.push({
+            label: '匹配代币',
+            value: `<a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${result.matchedTokenSymbol || '?'}</a> <span style="font-size:11px;color:#999;">${result.matchedTokenAddress.slice(0, 14)}...</span>`,
+            pass: null
+          });
+        }
+        if (result.matchedTxCount !== undefined) {
+          details.push({
+            label: '交易笔数',
+            value: result.matchedTxCount,
+            pass: null
+          });
+        }
+        if (result.matchedTxVolume !== undefined) {
+          details.push({
+            label: '交易量',
+            value: '$' + (result.matchedTxVolume || 0).toFixed(0),
+            pass: null
+          });
+        }
+      }
+
+      // 同名+同推文重复叙事（same_name_same_tweet_duplicate）
+      if (precheck.details?.ruleName === 'same_name_same_tweet_duplicate') {
+        details.push({
+          label: '🚨 检测类型',
+          value: '同名+同推文重复叙事',
+          pass: false
+        });
+        details.push({
+          label: '推文ID',
+          value: result.matchedTwitterId || '-',
+          pass: null
+        });
+        if (result.matchedTokenAddress) {
+          const gmgnUrl = `https://gmgn.ai/bsc/token/${result.matchedTokenAddress}`;
+          details.push({
+            label: '匹配代币',
+            value: `<a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${result.matchedTokenSymbol || '?'}</a> <span style="font-size:11px;color:#999;">${result.matchedTokenAddress.slice(0, 14)}...</span>`,
+            pass: null
+          });
+        }
+      }
+
       // 叙事语料复用检查（narrative_material_reuse）
       if (precheck.details?.ruleName === 'narrative_material_reuse') {
         details.push({

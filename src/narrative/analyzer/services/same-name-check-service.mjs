@@ -338,7 +338,7 @@ class SameNameCheckService {
       'up', 'out', 'about', 'into', 'than', 'then', 'also', 'just', 'more',
       'some', 'any', 'each', 'every', 'both', 'few', 'most', 'other',
       'such', 'only', 'own', 'same', 'very', 'too', 'its', 'my', 'your',
-      'his', 'her', 'our', 'their', 'this', 'that', 'these', 'those'
+      'his', 'her', 'our', 'their', 'this', 'that', 'these', 'those', 'coin'
     ]);
 
     // 从 name 和 symbol 中都提取关键词，合并去重

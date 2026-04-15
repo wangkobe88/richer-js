@@ -444,7 +444,7 @@ export class WeiboFetcher {
         return null;
       }
 
-      const user = data.data?.user;
+      const user = data.data?.data?.user || data.data?.user;
       if (!user) {
         console.warn('[WeiboFetcher] 用户主页数据为空');
         return null;

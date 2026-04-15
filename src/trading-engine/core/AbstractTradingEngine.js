@@ -1369,7 +1369,7 @@ class AbstractTradingEngine extends ITradingEngine {
           // 通过 NarrativeAnalyzer 统一获取 rating，不直接操作列名
           const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
           const llmAnalysis = NarrativeAnalyzer.buildLLMAnalysis(narrative);
-          const rating = llmAnalysis?.summary?.rating ?? 0;
+          const rating = llmAnalysis?.summary?.numericRating ?? 0;
           this._logger.info(experimentId, '_pollNarrativeRating',
             `使用已存在的叙事数据 | token=${tokenAddress}, category=${llmAnalysis?.summary?.category}, rating=${rating}, analyzed_at=${narrative.analyzed_at}`);
           return rating;
@@ -1399,7 +1399,7 @@ class AbstractTradingEngine extends ITradingEngine {
           // 通过 NarrativeAnalyzer 统一获取 rating，不直接操作列名
           const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
           const llmAnalysis = NarrativeAnalyzer.buildLLMAnalysis(narrative);
-          const rating = llmAnalysis?.summary?.rating ?? 0;
+          const rating = llmAnalysis?.summary?.numericRating ?? 0;
           this._logger.info(experimentId, '_pollNarrativeRating',
             `分析完成 | token=${tokenAddress}, category=${llmAnalysis?.summary?.category}, rating=${rating}`);
           return rating;

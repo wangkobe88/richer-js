@@ -188,6 +188,113 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     }
   }
 
+  // 规则0.55：同名+同推文重复叙事检查
+  // 当两个代币使用相同推文（相同Twitter Status ID）且代币Symbol相同时，后者应被阻断为重复叙事
+  // 与规则0.5（同名检查，需"起来过"）和规则0.7（语料复用，3分钟豁免）互补
+  // 豁免窗口：2分钟（同一叙事素材在2分钟内的多个代币视为同时发现，不阻断）
+  try {
+    const currentAppendix = tokenData.raw_api_data?.appendix;
+    if (currentAppendix && tokenSymbol) {
+      const parsedCurrentAppendix = typeof currentAppendix === 'string'
+        ? JSON.parse(currentAppendix)
+        : currentAppendix;
+      const currentTwitterId = extractTwitterStatusId(parsedCurrentAppendix?.twitter);
+
+      if (currentTwitterId) {
+        const normalizedAddress = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
+        const currentCreatedAt = tokenData.raw_api_data?.created_at;
+
+        if (currentCreatedAt) {
+          const twoMinBeforeToken = new Date((currentCreatedAt - 2 * 60) * 1000).toISOString();
+          const oneWeekBeforeToken = new Date((currentCreatedAt - 7 * 24 * 3600) * 1000).toISOString();
+
+          const supabase = NarrativeRepository.getSupabase();
+          const { data: earlierTokens, error: queryError } = await supabase
+            .from('experiment_tokens')
+            .select('token_address, token_symbol, discovered_at')
+            .eq('token_symbol', tokenSymbol)
+            .eq('narrative_material_id', currentTwitterId)
+            .neq('token_address', normalizedAddress)
+            .lt('discovered_at', twoMinBeforeToken)
+            .gte('discovered_at', oneWeekBeforeToken)
+            .order('discovered_at', { ascending: true })
+            .limit(1);
+
+          if (!queryError && earlierTokens && earlierTokens.length > 0) {
+            const matched = earlierTokens[0];
+            console.log(`[NarrativeAnalyzer] 预检查触发: 同名+同推文重复叙事 (symbol: ${tokenSymbol}, Twitter Status: ${currentTwitterId}, 匹配代币: ${matched.token_symbol || ''} ${matched.token_address})`);
+
+            return buildPreCheckResult('low',
+              `检测到同名+同推文重复叙事：代币"${tokenSymbol}"使用的推文(${currentTwitterId})在一周内已被同名代币${matched.token_symbol || ''}(${matched.token_address.slice(0, 10)}...)使用过，判定为重复叙事`,
+              'same_name_same_tweet_duplicate',
+              {
+                scores: { credibility: 0, virality: 0 },
+                total_score: 0,
+                matchedTokenAddress: matched.token_address,
+                matchedTokenSymbol: matched.token_symbol,
+                matchedTwitterId: currentTwitterId
+              });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[NarrativeAnalyzer] 同名+同推文重复叙事检查失败:', err.message);
+  }
+
+  // 规则0.58：同名代币活跃跟风检查
+  // 当一个同名代币在10分钟-2小时前发布且有一定交易活跃度，当前代币判定为跟风作弊
+  // 与规则0.5（需"起来过"，1周窗口，高阈值）互补：此规则用更短时间窗口+更低阈值捕捉早期跟风者
+  // 活跃度阈值低于"起来过"：txCount>=30 或 txVolume>=3000 即视为有基础活跃度
+  try {
+    const currentCreatedAt58 = tokenData.raw_api_data?.created_at;
+    if (tokenSymbol && currentCreatedAt58) {
+      const normalizedAddress58 = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
+      const tenMinBefore = new Date((currentCreatedAt58 - 10 * 60) * 1000).toISOString();
+      const twoHoursBefore = new Date((currentCreatedAt58 - 2 * 60 * 60) * 1000).toISOString();
+
+      const supabase58 = NarrativeRepository.getSupabase();
+      const { data: earlierSameNameTokens, error: queryError58 } = await supabase58
+        .from('experiment_tokens')
+        .select('token_address, token_symbol, discovered_at, raw_api_data')
+        .eq('token_symbol', tokenSymbol)
+        .neq('token_address', normalizedAddress58)
+        .lt('discovered_at', tenMinBefore)
+        .gte('discovered_at', twoHoursBefore)
+        .order('discovered_at', { ascending: true })
+        .limit(5);
+
+      if (!queryError58 && earlierSameNameTokens && earlierSameNameTokens.length > 0) {
+        const BASIC_TX_COUNT_THRESHOLD = 30;
+        const BASIC_TX_VOLUME_THRESHOLD = 3000;
+
+        for (const earlier of earlierSameNameTokens) {
+          const raw = earlier.raw_api_data || {};
+          const txCount = parseInt(raw.tx_count_24h) || 0;
+          const txVolume = parseFloat(raw.tx_volume_u_24h) || 0;
+
+          if (txCount >= BASIC_TX_COUNT_THRESHOLD || txVolume >= BASIC_TX_VOLUME_THRESHOLD) {
+            console.log(`[NarrativeAnalyzer] 预检查触发: 同名代币活跃跟风 (symbol: ${tokenSymbol}, 匹配: ${earlier.token_symbol} ${earlier.token_address}, txCount: ${txCount}, txVolume: ${txVolume})`);
+
+            return buildPreCheckResult('low',
+              `检测到同名代币活跃跟风：代币"${tokenSymbol}"在10分钟-2小时前已有活跃同名代币${earlier.token_symbol || ''}(${earlier.token_address.slice(0, 10)}..., ${txCount}笔交易/$${txVolume.toFixed(0)}交易量)，判定为跟风作弊`,
+              'same_name_active_copycat',
+              {
+                scores: { credibility: 0, virality: 0 },
+                total_score: 0,
+                matchedTokenAddress: earlier.token_address,
+                matchedTokenSymbol: earlier.token_symbol,
+                matchedTxCount: txCount,
+                matchedTxVolume: txVolume
+              });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[NarrativeAnalyzer] 同名代币活跃跟风检查失败:', err.message);
+  }
+
   // 规则0.6：近期重复叙事检查
   // 查询近期被 copycat_token 阻断的代币，如果当前代币共享相同的 Twitter Status ID，也阻断
   // 解决全中文名代币无法通过 Solana 搜索发现蹭热度的问题
