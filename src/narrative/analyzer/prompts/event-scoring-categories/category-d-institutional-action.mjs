@@ -2,6 +2,13 @@
  * Stage 2：D类（机构言论/动作及相关事件类）评分 Prompt
  * V3.0 - 3阶段架构的第二阶段
  *
+ * V4.0 修改：
+ * - 移除"前置判断"步骤，将机构层级定义融入维度一的S/A/B/C分级
+ * - 维度一每个级别增加具体示例（Web3+Web2），消除模糊判断
+ * - S级机构的任何内容在维度二最低5分（社区高度关注天然传播力）
+ * - 步骤从3步精简为2步（双维度评估 → 综合评分）
+ * - 移除isWorldClassInstitution输出字段
+ *
  * V3.0 修改：
  * - 将"机构权重"维度替换为"内容meme潜力分"维度
  * - 机构影响力（基础分）和内容传播价值（meme潜力分）作为两个独立维度
@@ -19,9 +26,10 @@
  * V1.2 修改：
  * - 营销阻断豁免改为硬性前置判断（世界级机构直接跳过营销阻断）
  * - 世界级机构官方动作magnitude最低B级
+ * （注：V4.0已移除前置判断，相关逻辑融入维度一分级定义）
  */
 
-export const CATEGORY_D_PROMPT_VERSION = 'V3.0';
+export const CATEGORY_D_PROMPT_VERSION = 'V4.0';
 
 export function buildCategoryDPrompt(eventDescription, eventClassification) {
   return `你是D类（机构言论/动作及相关事件类）事件评分专家。
@@ -79,22 +87,9 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-📋 **第一步：前置判断 — 是否世界级机构**
+📋 **第一步：双维度评估**
 
-🎯 **判断上方【事件描述】中的主体是否为世界级机构**：
-- 世界级机构（Binance、Tesla、Apple、字节跳动等有全球影响力的机构）→ **是世界级机构**
-- 知名但非世界级 → **非世界级机构**
-- 普通公司/团队 → **非世界级机构**
-
-⚠️ **如果"是世界级机构"**，以下规则**必须**生效：
-1. **维度一最低B级**：世界级机构的官方动作，机构影响力最低为B级（24分），不得评为C级及以下
-2. **理由**：世界级机构的任何官方动作本身就是行业新闻，具有独立的传播价值，与普通公司/项目的营销推广完全不同。示例：Binance官方账号发推宣布新AI intern → 不触发营销阻断。
-
-═══════════════════════════════════════════════════════════════════════════════
-
-📋 **第二步：双维度评估**
-
-⚠️ **核心设计**：两个维度独立评估——维度一衡量"哪个机构"（机构影响力），维度二衡量"做了什么/说了什么"（内容传播价值）。两个维度各自包含评分和阻断条件，只有都不阻断时才进入第三步计算总分。
+⚠️ **核心设计**：两个维度独立评估——维度一衡量"哪个机构"（机构影响力），维度二衡量"做了什么/说了什么"（内容传播价值）。两个维度各自包含评分和阻断条件，只有都不阻断时才进入第二步计算总分。
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -102,12 +97,24 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 
 ⚠️ **评估对象**：上方【事件描述】中的**主体**是哪个机构？主体的影响力就是维度一的评分依据。
 
-**S级**：影响全球/行业格局的机构 → 40分
-**A级**：知名机构的重要举措 → 32分
-**B级**：公司级的重要动作 → 24分
-**C级**：部门级/业务线的常规动作 → 12分
+**S级**（40分）：世界级机构 — 具有全球影响力和大众认知度
+- Web3：Binance、Coinbase
+- Web2：Apple、Tesla、Microsoft、Google、Amazon
+- 判断标准：几乎所有人都知道的顶级机构
 
-⚠️ **第一步判定为"世界级机构"时**：机构影响力**不得低于B级**（24分）
+**A级**（32分）：知名机构 — 在行业内具有广泛认知度
+- Web3：OKX、Bybit、Uniswap Labs、Chainlink、Yzi Labs、a16z
+- Web2：Netflix、Spotify、Uber、Airbnb、腾讯、阿里巴巴、字节跳动、Stripe、PayPal
+- 判断标准：行业从业者普遍知晓的机构
+
+**B级**（24分）：有一定行业影响力的机构
+- Web3：PancakeSwap、Four.meme、中等知名DeFi/GameFi项目
+- Web2：Discord、Figma、Notion、Canva、Shopify、B站
+- 判断标准：在细分领域或区域内有知名度
+
+**C级**（12分）：小机构/不知名公司
+- 知名度低，社区对其无认知
+- 示例：刚起步的项目、小团队、不知名公司
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -129,9 +136,11 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 
 **不满足以上任何维度**（0-7分）：日常运营、礼节性表达
 
+⚠️ **S级机构的内容天然传播力**：维度一评为S级（世界级机构）时，其任何内容都天然具有传播力（维度二最低5分），因为社区高度关注世界级机构的一切动态。
+
 ⚠️ **维度二阻断条件**：
 
-**以下情况直接阻断，不再继续往下走，直接输出 `{"pass": false, "blockReason": "原因（注明哪个维度阻断）", "magnitudeLevel": "分量等级", "scoringResult": null}`**：
+**以下情况直接阻断，不再继续往下走，直接输出 {"pass": false, "blockReason": "原因（注明哪个维度阻断）", "magnitudeLevel": "分量等级", "scoringResult": null}**：
 
 **1. 运营性质阻断**：
 - 平台日常运营（新池子、上架新币、常规功能更新）
@@ -149,7 +158,7 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 
 ═══════════════════════════════════════════════════════════════════════════════
 
-📋 **第三步：综合评分**
+📋 **第二步：综合评分**
 
 总分 = 机构影响力分（维度一） + 内容meme潜力分（维度二） + 时效性加分
 
@@ -159,7 +168,7 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 - B级 → 24分
 - C级 → 12分
 
-**内容meme潜力分**（来自维度二）：0-30分
+**内容meme潜力分**（来自维度二）：0-30分（⚠️ S级机构最低5分）
 
 **时效性加分**（0-20分）：
 - 近期动作（7天内）：+15分
@@ -170,11 +179,12 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
 **pass判定**：totalScore ≥ 60 → pass=true；totalScore < 60 → pass=false，blockReason填写原因
 
 **示例**：
-- "Binance宣布新产品线" → A级(32) + 中meme潜力(20) + 近期(15) = 67分
-- "Binance被SEC起诉" → S级(40) + 强meme潜力(28) + 近期(15) = 83分
-- "@binance回复了某推文（有实质内容）" → B级(24) + 弱meme潜力(10) + 近期(15) = 49分 → pass=false
-- "Binance发复活节主题推文'Happy Easter'" → B级(24) + 无meme潜力(2) + 近期(15) = 41分 → pass=false
-- "某公司部门调整" → C级(12) + 弱meme潜力(5) + 近期(15) = 32分
+- "Binance宣布新产品线" → S级(40) + 中meme潜力(20) + 近期(15) = 75分 → pass=true ✅
+- "Binance被SEC起诉" → S级(40) + 强meme潜力(28) + 近期(15) = 83分 → pass=true ✅
+- "Binance发推'Happy Easter'" → S级(40) + 世界级最低(5) + 近期(15) = 60分 → pass=true ✅
+- "OKX上线新交易对" → A级(32) + 低meme潜力(8) + 近期(15) = 55分 → pass=false ❌
+- "某知名DeFi项目发布新功能" → B级(24) + 中meme潜力(15) + 近期(15) = 54分 → pass=false ❌
+- "某小公司部门调整" → C级(12) + 弱meme潜力(5) + 近期(15) = 32分 → pass=false ❌
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -195,7 +205,6 @@ export function buildCategoryDPrompt(eventDescription, eventClassification) {
     "weightScore": 28,
     "timelinessScore": 15,
     "totalScore": 67,
-    "isWorldClassInstitution": true,
     "meaningfulness": "有意义/条件性有意义/无意义",
     "meaningfulnessReason": "有意义性的判断理由"
   }

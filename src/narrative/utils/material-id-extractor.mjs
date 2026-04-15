@@ -13,7 +13,7 @@ const NON_STANDALONE_DOMAINS = [
   'dexscreener.com', 'dextools.io', 'geckoterminal.com',
   'ave.ai', 'birdeye.so', 'jupiter.ag', 'raydium.io',
   'google.com', 'bing.com', 'baidu.com',
-  'facebook.com', 'instagram.com', 'linkedin.com',
+  'facebook.com', 'linkedin.com',
   'tinyurl.com', 'bit.ly', 't.co', 'lnkd.in',
   'four.meme', 'pump.fun', 'moonshot.money'
 ];
@@ -50,6 +50,10 @@ export function extractNarrativeMaterialId(rawApiData) {
   // 优先级2：Twitter 账号名
   const accountId = _extractFromTwitterAccounts(classified.twitter);
   if (accountId) return accountId;
+
+  // 优先级2.5：币安广场文章ID（必须在website之前，因为URL已从websites移到binanceSquare）
+  const bsId = _extractFromBinanceSquare(classified.binanceSquare);
+  if (bsId) return bsId;
 
   // 优先级3：独立网站域名
   const websiteId = _extractFromWebsites(classified.websites);
@@ -110,8 +114,25 @@ function _extractFromTwitterAccounts(twitterUrls) {
 }
 
 /**
- * 从独立网站 URL 中提取域名
- * 返回格式："web:example.com"
+ * 从币安广场 URL 中提取文章 ID
+ * 返回格式："bs:数字ID"
+ */
+function _extractFromBinanceSquare(binanceSquareUrls) {
+  if (!binanceSquareUrls || binanceSquareUrls.length === 0) return null;
+  for (const item of binanceSquareUrls) {
+    if (item.type === 'post') {
+      const match = item.url.match(/\/square\/post\/(\d+)/i);
+      if (match) return `bs:${match[1]}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * 从独立网站 URL 中提取标识
+ * - 有具体内容路径的（如文章、帖子），保留路径以区分不同内容
+ * - 仅首页的（如个人主页），只用域名
+ * 返回格式："web:example.com" 或 "web:example.com/path/to/content"
  */
 function _extractFromWebsites(websiteUrls) {
   if (!websiteUrls || websiteUrls.length === 0) return null;
@@ -126,6 +147,16 @@ function _extractFromWebsites(websiteUrls) {
 
       // 排除非独立网站
       if (_isNonStandaloneDomain(hostname)) continue;
+
+      // 归一化路径：去掉 locale 前缀、尾部斜杠
+      let path = urlObj.pathname
+        .replace(/^\/(zh-CN|zh-TW|zh-HK|en-US|en|zh|ja|ko|fr|de|es|pt|ru|ar)\//i, '/')
+        .replace(/\/+$/, '');
+
+      // 有具体内容路径的，保留路径
+      if (path && path !== '/') {
+        return `web:${hostname}${path}`;
+      }
 
       return `web:${hostname}`;
     } catch {
@@ -200,6 +231,20 @@ function _extractFromOtherPlatforms(classified) {
                     item.url.match(/xiaohongshu\.com\/discovery\/item\/([\w]+)/) ||
                     item.url.match(/xhslink\.com\/([\w]+)/);
       if (match) return `xhs:${match[1]}`;
+    }
+  }
+
+  // Instagram
+  if (classified.instagram && classified.instagram.length > 0) {
+    for (const item of classified.instagram) {
+      if (item.type === 'post' || item.type === 'reel') {
+        const match = item.url.match(/(?:instagram\.com|instagr\.am)\/(?:p|reel|reels)\/([\w-]+)/i);
+        if (match) return `ig:${match[1]}`;
+      }
+      if (item.type === 'user_profile') {
+        const match = item.url.match(/instagram\.com\/([\w.]+)\/?$/i);
+        if (match) return `ig:user:${match[1].toLowerCase()}`;
+      }
     }
   }
 

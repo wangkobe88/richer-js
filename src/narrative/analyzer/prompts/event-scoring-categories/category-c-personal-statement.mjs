@@ -249,7 +249,7 @@ export function buildCategoryCPrompt(eventDescription, eventClassification) {
 
 ⚠️ **维度二阻断条件**：
 
-**以下情况直接阻断，不再继续往下走，直接输出 `{"pass": false, "blockReason": "原因（注明哪个维度阻断）", "magnitudeLevel": "分量等级", "scoringResult": null}`**：
+**以下情况直接阻断，不再继续往下走，直接输出 {"pass": false, "blockReason": "原因（注明哪个维度阻断）", "magnitudeLevel": "分量等级", "scoringResult": null}**：
 
 **1. 内容完全无意义**：
 - 纯表情/纯符号："🚀🚀🚀"、"❤️"、纯点赞

@@ -70,13 +70,13 @@ export function buildCategoryBPrompt(eventDescription, eventClassification) {
 - S/A级 → ✓✓✓有意义
 - B级 → ✓✓有意义
 - C级 → 条件性有意义
-- D/E级 → ✗无意义 → 直接阻断（不再继续评分，直接输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}`）
+- D/E级 → ✗无意义 → 直接阻断（不再继续评分，直接输出 {"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}）
 
 ═══════════════════════════════════════════════════════════════════════════════
 
 📋 **第二步：硬性阻断条件检查**
 
-⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}`
+⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，输出 {"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}
 
 **1. 纯营销噱头**：奇葩产品、奇特但无意义
 **2. 标题党/诱导点击**：名称夸张但内容空洞

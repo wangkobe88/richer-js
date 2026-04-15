@@ -71,6 +71,7 @@ import { buildWeiboSection } from './sections/weibo-section.mjs';
 import { buildWeixinSection } from './sections/weixin-section.mjs';
 import { buildAmazonSection } from './sections/amazon-section.mjs';
 import { buildXiaohongshuSection } from './sections/xiaohongshu-section.mjs';
+import { buildInstagramSection } from './sections/instagram-section.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
 /**
@@ -97,6 +98,7 @@ export function buildTokenAnalysisPrompt(tokenData, fetchResults, eventAnalysis)
     tiktokInfo = null,
     bilibiliInfo = null,
     xiaohongshuInfo = null,
+    instagramInfo = null,
     weixinInfo = null,
     amazonInfo = null,
     classifiedUrls = null,
@@ -201,6 +203,9 @@ ${accountSummary}`);
 
   const xiaohongshuSection = buildXiaohongshuSection(xiaohongshuInfo);
   if (xiaohongshuSection) sections.push(xiaohongshuSection);
+
+  const instagramSection = buildInstagramSection(instagramInfo);
+  if (instagramSection) sections.push(instagramSection);
 
   const websiteSection = buildWebsiteSection(websiteInfo);
   if (websiteSection) sections.push(websiteSection);

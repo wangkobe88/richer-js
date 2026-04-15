@@ -66,7 +66,10 @@ export function hasValidDataForAnalysis(fetchResults) {
     tiktokInfo,
     bilibiliInfo,
     weixinInfo,
-    amazonInfo
+    amazonInfo,
+    xiaohongshuInfo,
+    instagramInfo,
+    binanceSquareInfo
   } = fetchResults;
 
   // 检查推文数据
@@ -152,10 +155,41 @@ export function hasValidDataForAnalysis(fetchResults) {
     }
   }
 
+  // 小红书: 检查用户主页或笔记数据
+  if (xiaohongshuInfo) {
+    if (xiaohongshuInfo.type === 'user_profile') {
+      if (xiaohongshuInfo.nickname || xiaohongshuInfo.fans !== undefined) {
+        return true; // 有用户主页数据
+      }
+    }
+    if (xiaohongshuInfo.title || xiaohongshuInfo.desc) {
+      return true; // 有笔记数据
+    }
+  }
+
+  // Instagram: 检查帖子或用户数据
+  if (instagramInfo) {
+    if (instagramInfo.type === 'user_profile') {
+      if (instagramInfo.username || instagramInfo.follower_count !== undefined) {
+        return true; // 有用户主页数据
+      }
+    }
+    if (instagramInfo.caption || instagramInfo.metrics) {
+      return true; // 有帖子数据
+    }
+  }
+
   // Amazon: 检查是否有商品信息（title、price等）
   if (amazonInfo) {
     if (amazonInfo.title || amazonInfo.price || amazonInfo.features) {
       return true; // 有商品信息
+    }
+  }
+
+  // 币安广场: 有文章内容算有效，或者仅有postId也算有效（WAF拦截时无法获取内容，但URL本身是有效公开信息）
+  if (binanceSquareInfo) {
+    if (binanceSquareInfo.title || binanceSquareInfo.content || binanceSquareInfo.postId) {
+      return true;
     }
   }
 

@@ -103,7 +103,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 **【主体资格检查】**（仅当主体不可评估时执行）：
 
 - 粉丝数 ≥ 1万 或 有官方认证 → 有资格继续
-- 粉丝 < 1万 且 无认证 且 非知名IP → **直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "主体资格不足（粉丝<1万且无认证且非知名IP/机构）", "scoringResult": null}`
+- 粉丝 < 1万 且 无认证 且 非知名IP → **直接阻断**，不再继续评分，输出 {"pass": false, "blockReason": "主体资格不足（粉丝<1万且无认证且非知名IP/机构）", "scoringResult": null}
 - 理由：普通用户无公信力，无法自创有传播力的IP概念
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -142,7 +142,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 - 评分规则：受"权重上限规则"约束（见第四步）
 - 示例：全新的虚拟形象、原创的电子宠物概念
 
-**【类型3：小圈子亚文化】** → **直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "小圈子亚文化（大众无法理解）", "scoringResult": null}`
+**【类型3：小圈子亚文化】** → **直接阻断**，不再继续评分，输出 {"pass": false, "blockReason": "小圈子亚文化（大众无法理解）", "scoringResult": null}
 - 判断标准：只有特定圈子的人才知道，大众无法理解
 - 触发条件：小圈子术语、圈内黑话、需要特定背景知识
 
@@ -173,8 +173,8 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 - 示例：简单的人设、基础的角色设定、有一定表达但不突出
 - 基础分数：12分
 
-**【D级分量】**：缺乏特色的小IP概念 → **直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "D", "scoringResult": null}`
-**【E级分量】**：完全无IP概念的空壳 → **直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "E", "scoringResult": null}`
+**【D级分量】**：缺乏特色的小IP概念 → **直接阻断**，不再继续评分，输出 {"pass": false, "blockReason": "原因", "magnitudeLevel": "D", "scoringResult": null}
+**【E级分量】**：完全无IP概念的空壳 → **直接阻断**，不再继续评分，输出 {"pass": false, "blockReason": "原因", "magnitudeLevel": "E", "scoringResult": null}
 
 **有意义性判断**：
 - S/A级 → ✓✓✓有意义（IP概念是meme币的核心叙事）
@@ -186,7 +186,7 @@ export function buildCategoryAPrompt(eventDescription, eventClassification) {
 
 📋 **第四步：硬性阻断条件检查**
 
-⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，输出 `{"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}`
+⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，输出 {"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}
 
 **1. 简单替换/拼贴**：只是换个颜色/名字，无创意
 **2. 纯营销包装**：给普通内容加IP标签，无实际设定

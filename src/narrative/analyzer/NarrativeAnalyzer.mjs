@@ -16,6 +16,7 @@ import { YoutubeFetcher } from '../utils/youtube-fetcher.mjs';
 import { DouyinFetcher } from '../utils/douyin-fetcher.mjs';
 import { BilibiliFetcher } from '../utils/bilibili-fetcher.mjs';
 import { XiaohongshuFetcher } from '../utils/xiaohongshu-fetcher.mjs';
+import { InstagramFetcher } from '../utils/instagram-fetcher.mjs';
 import { fetchTikTokVideoInfo, isTikTokUrl } from '../utils/tiktok-fetcher.mjs';
 import { WeixinFetcher } from '../utils/weixin-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils/web-fetcher.mjs';
@@ -227,10 +228,13 @@ export class NarrativeAnalyzer {
       bilibiliInfo,
       weixinInfo,
       amazonInfo,
+      xiaohongshuInfo,
+      instagramInfo,
       classifiedUrls,
       fetchErrors,  // 获取数据收集的错误信息
       url_extraction_result,  // URL提取结果
-      data_fetch_results  // 数据获取结果
+      data_fetch_results,  // 数据获取结果
+      binanceSquareInfo
     } = await fetchAllDataViaClassifier(tokenData, extractedInfo);
 
     // 保存URL提取和数据获取结果
@@ -303,7 +307,7 @@ export class NarrativeAnalyzer {
     }
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
-    const preCheckResult = await performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo }, githubInfo, backgroundInfo, { ignoreExpired });
+    const preCheckResult = await performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo }, githubInfo, backgroundInfo, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;
@@ -330,7 +334,7 @@ export class NarrativeAnalyzer {
         pass: preCheckResult.pass
       };
       // 预检查结果也记录prompt类型（用于后续判断）
-      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls, relatedAccounts };
+      const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo, classifiedUrls, relatedAccounts };
       promptType = PromptBuilder.getPromptTypeDesc(fetchResults);
       // 预检查时不构建Prompt（不需要）
       promptUsed = null;
@@ -338,7 +342,7 @@ export class NarrativeAnalyzer {
       // 8. 正常流程：两阶段分析
       try {
         // twitterInfo已包含website_tweet（如果有第二个推文）
-        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, classifiedUrls, relatedAccounts };
+        const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo, classifiedUrls, relatedAccounts };
 
         // 检查是否有任何有效数据供分析
         const hasAnyData = hasValidDataForAnalysis(fetchResults);

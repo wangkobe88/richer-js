@@ -42,6 +42,8 @@ import { BilibiliFetcher } from '../../utils/bilibili-fetcher.mjs';
 import { WeixinFetcher } from '../../utils/weixin-fetcher.mjs';
 import { fetchProductInfo, getInfluenceLevel, getInfluenceDescription } from '../../utils/amazon-fetcher.mjs';
 import { XiaohongshuFetcher } from '../../utils/xiaohongshu-fetcher.mjs';
+import { InstagramFetcher } from '../../utils/instagram-fetcher.mjs';
+import { BinanceSquareFetcher } from '../../utils/binance-square-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl } from '../../utils/web-fetcher.mjs';
 import { TwitterMediaExtractor } from '../../utils/twitter-media-extractor.mjs';
 import { ImageDownloader } from '../../utils/image-downloader.mjs';
@@ -122,6 +124,7 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo) {
       douyinInfo: null,
       tiktokInfo: null,
       bilibiliInfo: null,
+      instagramInfo: null,
       xiaohongshuInfo: null,
       weixinInfo: null,
       amazonInfo: null,
@@ -132,12 +135,14 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo) {
         tiktok: [],
         douyin: [],
         bilibili: [],
+        instagram: [],
         xiaohongshu: [],
         weixin: [],
         github: [],
         amazon: [],
         telegram: [],
         discord: [],
+        binanceSquare: [],
         websites: []
       },
       fetchErrors: {  // 空的错误对象
@@ -160,11 +165,13 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo) {
     douyin: classifiedUrls.douyin.length,
     bilibili: classifiedUrls.bilibili.length,
     xiaohongshu: classifiedUrls.xiaohongshu?.length || 0,
+    instagram: classifiedUrls.instagram?.length || 0,
     weixin: classifiedUrls.weixin?.length || 0,
     github: classifiedUrls.github.length,
     amazon: classifiedUrls.amazon.length,
     telegram: classifiedUrls.telegram.length,
     discord: classifiedUrls.discord.length,
+    binanceSquare: classifiedUrls.binanceSquare?.length || 0,
     websites: classifiedUrls.websites.length
   });
 
@@ -201,9 +208,11 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
     douyinInfo: null,
     tiktokInfo: null,
     bilibiliInfo: null,
+    instagramInfo: null,
     xiaohongshuInfo: null,
     weixinInfo: null,
     amazonInfo: null,
+    binanceSquareInfo: null,
     // 存储数据获取错误信息
     fetchErrors: {
       twitterError: null,
@@ -541,7 +550,28 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
     }
   }
 
-  // === 8. 微信文章数据 ===
+  // === 8. 币安广场数据 ===
+  const binanceSquareUrlInfo = selectFirstUrl('binanceSquare');
+  if (binanceSquareUrlInfo) {
+    const bsFetch = await recordDataFetch(
+      async () => {
+        const info = await BinanceSquareFetcher.fetchPostInfo(binanceSquareUrlInfo.url);
+        if (info) {
+          const influenceLevel = BinanceSquareFetcher.getInfluenceLevel(info);
+          info.influence_level = influenceLevel;
+          info.influence_description = BinanceSquareFetcher.getInfluenceDescription(influenceLevel);
+          console.log(`[NarrativeAnalyzer] 币安广场信息: "${info.title || '无标题'}" (方法: ${info.fetchMethod})`);
+        }
+        return info;
+      },
+      'binanceSquare',
+      binanceSquareUrlInfo.url
+    );
+    results.binanceSquareInfo = bsFetch.data;
+    dataFetchResults.binanceSquare = bsFetch.record;
+  }
+
+  // === 9. 微信文章数据 ===
   const weixinUrlInfo = selectFirstUrl('weixin');
   if (weixinUrlInfo) {
     const weixinFetch = await recordDataFetch(
@@ -591,14 +621,24 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
   if (xiaohongshuUrlInfo) {
     const xiaohongshuFetch = await recordDataFetch(
       async () => {
-        const info = await XiaohongshuFetcher.fetchNoteInfo(xiaohongshuUrlInfo.url);
-        if (info) {
-          const influenceLevel = XiaohongshuFetcher.getInfluenceLevel(info);
-          info.influence_level = influenceLevel;
-          info.influence_description = XiaohongshuFetcher.getInfluenceDescription(influenceLevel);
-          console.log(`[NarrativeAnalyzer] 小红书信息: "${info.title}"`);
+        if (xiaohongshuUrlInfo.type === 'user_profile') {
+          // 用户主页
+          const info = await XiaohongshuFetcher.fetchUserProfile(xiaohongshuUrlInfo.url);
+          if (info) {
+            console.log(`[NarrativeAnalyzer] 小红书用户主页: "${info.nickname}" (粉丝${info.fans})`);
+          }
+          return info;
+        } else {
+          // 笔记
+          const info = await XiaohongshuFetcher.fetchNoteInfo(xiaohongshuUrlInfo.url);
+          if (info) {
+            const influenceLevel = XiaohongshuFetcher.getInfluenceLevel(info);
+            info.influence_level = influenceLevel;
+            info.influence_description = XiaohongshuFetcher.getInfluenceDescription(influenceLevel);
+            console.log(`[NarrativeAnalyzer] 小红书信息: "${info.title}"`);
+          }
+          return info;
         }
-        return info;
       },
       'xiaohongshu',
       xiaohongshuUrlInfo.url
@@ -610,6 +650,35 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
     }
   }
 
+  // === 10.5. Instagram 数据 ===
+  const instagramUrlInfo = selectFirstUrl('instagram');
+  if (instagramUrlInfo) {
+    const instagramFetch = await recordDataFetch(
+      async () => {
+        if (instagramUrlInfo.type === 'user_profile') {
+          const info = await InstagramFetcher.fetchProfileInfo(instagramUrlInfo.url);
+          if (info) {
+            console.log(`[NarrativeAnalyzer] Instagram用户: @${info.username} (粉丝${info.follower_count})`);
+          }
+          return info;
+        } else {
+          const info = await InstagramFetcher.fetchPostInfo(instagramUrlInfo.url);
+          if (info) {
+            console.log(`[NarrativeAnalyzer] Instagram${info.type === 'reel' ? ' Reel' : '帖子'}: @${info.user.username} (${info.metrics.like_count}赞)`);
+          }
+          return info;
+        }
+      },
+      'instagram',
+      instagramUrlInfo.url
+    );
+    results.instagramInfo = instagramFetch.data;
+    dataFetchResults.instagram = instagramFetch.record;
+    if (!instagramFetch.record.success) {
+      results.fetchErrors.videoErrors.instagram = instagramFetch.record.error;
+    }
+  }
+
   // === 11. 普通网站数据 ===
   const websiteUrlInfo = selectFirstUrl('websites');
   if (websiteUrlInfo) {
@@ -618,8 +687,9 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
     const isVideoPlatform = /youtube|youtu\.be|tiktok|douyin|bilibili|b23\.tv/i.test(websiteUrl);
     const isGithub = /github\.com/i.test(websiteUrl);
     const isAmazon = /amazon\.com/i.test(websiteUrl);
+    const isBinanceSquare = /binance\.com\/.*\/square\//i.test(websiteUrl);
 
-    if (!isVideoPlatform && !isGithub && !isAmazon && isFetchableUrl(websiteUrl)) {
+    if (!isVideoPlatform && !isGithub && !isAmazon && !isBinanceSquare && isFetchableUrl(websiteUrl)) {
       const websiteFetch = await recordDataFetch(
         () => fetchWebsiteContent(websiteUrl, { maxLength: 5000 }),
         'website',

@@ -110,7 +110,24 @@ export function classifyUrl(url) {
     return { type: 'video', platform: 'bilibili', priority: 1, url };
   }
 
-  // 小红书
+  // Instagram 帖子/Reel（优先于用户主页）
+  if (_isInstagramPostUrl(url)) {
+    console.log(`[UrlClassifier] URL识别为Instagram帖子/Reel: ${url}`);
+    return { type: 'post', platform: 'instagram', priority: 1, url };
+  }
+
+  // Instagram 用户主页
+  if (_isInstagramProfileUrl(url)) {
+    console.log(`[UrlClassifier] URL识别为Instagram用户主页: ${url}`);
+    return { type: 'user_profile', platform: 'instagram', priority: 1, url };
+  }
+
+  // 小红书用户主页（优先检查）
+  if (_isXiaohongshuUserProfileUrl(url)) {
+    return { type: 'user_profile', platform: 'xiaohongshu', priority: 1, url };
+  }
+
+  // 小红书笔记
   if (_isXiaohongshuUrl(url)) {
     return { type: 'note', platform: 'xiaohongshu', priority: 1, url };
   }
@@ -142,6 +159,22 @@ export function classifyUrl(url) {
     return { type: 'server', platform: 'discord', priority: 2, url };
   }
 
+  // 币安广场（Binance Square）
+  if (_isBinanceSquareUrl(url)) {
+    const postMatch = url.match(/\/square\/post\/(\d+)/i);
+    const profileMatch = url.match(/\/square\/profile\/([\w-]+)/i);
+    if (postMatch) {
+      console.log(`[UrlClassifier] URL识别为币安广场文章: ${url}`);
+      return { type: 'post', platform: 'binanceSquare', priority: 1, url };
+    }
+    if (profileMatch) {
+      console.log(`[UrlClassifier] URL识别为币安广场主页: ${url}`);
+      return { type: 'profile', platform: 'binanceSquare', priority: 2, url };
+    }
+    console.log(`[UrlClassifier] URL识别为币安广场页面: ${url}`);
+    return { type: 'page', platform: 'binanceSquare', priority: 3, url };
+  }
+
   // PancakeSwap 交易页面（DEX链接，不需要作为网站内容获取）
   if (_isDexUrl(url)) {
     console.log(`[UrlClassifier] URL被识别为DEX链接，跳过: ${url}`);
@@ -166,12 +199,14 @@ export function classifyAllUrls(urls) {
     tiktok: [],
     douyin: [],
     bilibili: [],
+    instagram: [],    // Instagram 帖子/用户
     xiaohongshu: [],  // 新增：小红书笔记
     weixin: [],       // 微信公众号文章
     github: [],
     amazon: [],
     telegram: [],     // 新增：Telegram频道/群组
     discord: [],      // 新增：Discord服务器
+    binanceSquare: [], // 币安广场（Binance Square）
     websites: []
   };
 
@@ -219,6 +254,9 @@ export function classifyAllUrls(urls) {
         break;
       case 'discord':
         result.discord.push(info);
+        break;
+      case 'binanceSquare':
+        result.binanceSquare.push(info);
         break;
       default:
         result.websites.push(info);
@@ -323,9 +361,26 @@ function _isBilibiliUrl(url) {
   return /bilibili\.com|b23\.tv/i.test(url);
 }
 
+function _isInstagramPostUrl(url) {
+  // 匹配 Instagram 帖子/Reel：instagram.com/p/xxx, instagram.com/reel/xxx, instagram.com/reels/xxx, instagr.am/p/xxx
+  return /(?:instagram\.com|instagr\.am)\/(p|reel|reels)\/[\w-]+/i.test(url);
+}
+
+function _isInstagramProfileUrl(url) {
+  // 匹配 Instagram 用户主页：instagram.com/{username}
+  // 排除系统路径和帖子/Reel URL
+  if (_isInstagramPostUrl(url)) return false;
+  return /instagram\.com\/(?!explore|accounts|direct|stories|reels|p|reel|login|signup|legal|about|developer|help|api|static|cdn|graphql|query)[\w.]+\/?$/i.test(url);
+}
+
 function _isXiaohongshuUrl(url) {
   // 匹配 xiaohongshu.com 或 xhslink.com
   return /xiaohongshu\.com|xhslink\.com/i.test(url);
+}
+
+function _isXiaohongshuUserProfileUrl(url) {
+  // 匹配小红书用户主页 URL：xiaohongshu.com/user/profile/{userId}
+  return /xiaohongshu\.com\/user\/profile\//i.test(url);
 }
 
 function _isWeixinUrl(url) {
@@ -363,6 +418,11 @@ function _isTelegramUrl(url) {
 function _isDiscordUrl(url) {
   // 匹配 discord.com 或 discord.gg
   return /discord\.com|discord\.gg/i.test(url);
+}
+
+function _isBinanceSquareUrl(url) {
+  // 匹配币安广场URL：binance.com/*/square/
+  return /binance\.com\/.*\/square\//i.test(url);
 }
 
 function _isPancakeSwapUrl(url) {

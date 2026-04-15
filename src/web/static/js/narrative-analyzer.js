@@ -1820,6 +1820,7 @@ class NarrativeAnalyzer {
       amazon: { label: 'Amazon', icon: '📦' },
       telegram: { label: 'Telegram', icon: '✈️' },
       discord: { label: 'Discord', icon: '💬' },
+      binanceSquare: { label: '币安广场', icon: '📰' },
       websites: { label: '网站', icon: '🌐' }
     };
 
@@ -1832,7 +1833,10 @@ class NarrativeAnalyzer {
       'product': '商品',
       'channel': '频道',
       'server': '服务器',
-      'website': '网页'
+      'website': '网页',
+      'post': '文章',
+      'profile': '主页',
+      'page': '页面'
     };
 
     const items = [];

@@ -98,6 +98,8 @@ import { buildGithubSection } from './prompts/sections/github-section.mjs';
 import { buildWeiboSection } from './prompts/sections/weibo-section.mjs';
 import { buildAmazonSection } from './prompts/sections/amazon-section.mjs';
 import { buildXiaohongshuSection } from './prompts/sections/xiaohongshu-section.mjs';
+import { buildInstagramSection } from './prompts/sections/instagram-section.mjs';
+import { buildBinanceSquareSection } from './prompts/sections/binance-square-section.mjs';
 import { generateAccountBackgroundsPrompt } from './prompts/account-backgrounds.mjs';
 
 // V12.0 新框架：事件分析 + 代币分析
@@ -214,8 +216,10 @@ export class PromptBuilder {
     if (fetchResults.tiktokInfo) types.push('tiktok');
     if (fetchResults.bilibiliInfo) types.push('bilibili');
     if (fetchResults.xiaohongshuInfo) types.push('xiaohongshu');
+    if (fetchResults.instagramInfo) types.push('instagram');
     if (fetchResults.weixinInfo) types.push('weixin');
     if (fetchResults.amazonInfo) types.push('amazon');
+    if (fetchResults.binanceSquareInfo) types.push('binanceSquare');
     if (fetchResults.backgroundInfo?.source === 'weibo') types.push('weibo');
 
     if (fetchResults.twitterInfo?.website_tweet) types.push('+website_tweet');

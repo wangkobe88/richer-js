@@ -56,7 +56,7 @@ function buildPreCheckResult(rating, reason, ruleName, extra = {}) {
  * @param {Object} extractedInfo - 提取的结构化信息
  * @param {Object} websiteInfo - 网站信息
  * @param {Object} classifiedUrls - 分类后的URL列表
- * @param {Object} videoInfos - 视频平台信息 { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo }
+ * @param {Object} videoInfos - 视频平台及其他平台信息 { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo }
  * @param {Object} githubInfo - GitHub信息
  * @param {Object} backgroundInfo - 背景信息（如微博）
  * @param {Object} options - 选项 { ignoreExpired }
@@ -64,7 +64,7 @@ function buildPreCheckResult(rating, reason, ruleName, extra = {}) {
  */
 export async function performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls = {}, videoInfos = {}, githubInfo = null, backgroundInfo = null, options = {}) {
   const { ignoreExpired = false } = options;
-  const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo } = videoInfos;
+  const { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo } = videoInfos;
 
   // 规则0：代币名称长度检查（优先级最高）
   // 过滤名称过长的代币，通常是为了博眼球而故意使用长名称，缺乏真实叙事价值
@@ -461,25 +461,113 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     console.log(`[NarrativeAnalyzer] ${video.name}视频未达到unrated阈值，将进入LLM分析`);
   }
 
-  // 规则3.5：微信文章传播力检查
+  // 规则3.5：小红书用户主页影响力检查
+  if (xiaohongshuInfo && xiaohongshuInfo.type === 'user_profile') {
+    const fans = xiaohongshuInfo.fans || 0;
+    const liked = xiaohongshuInfo.liked || 0;
+
+    // 高影响力阈值：粉丝≥3万 或 获赞≥10万 → unrated
+    const UNRATED_FANS_THRESHOLD = 30000;
+    const UNRATED_LIKED_THRESHOLD = 100000;
+
+    const fansMeetsThreshold = fans >= UNRATED_FANS_THRESHOLD;
+    const likedMeetsThreshold = liked >= UNRATED_LIKED_THRESHOLD;
+
+    if (fansMeetsThreshold || likedMeetsThreshold) {
+      console.log(`[NarrativeAnalyzer] 规则3.5触发: 小红书用户"${xiaohongshuInfo.nickname}"粉丝${fans}，获赞${liked}，影响力较高，返回unrated`);
+      return buildPreCheckResult('unrated',
+        `小红书用户"${xiaohongshuInfo.nickname}"粉丝${fans}，获赞${liked}，影响力较高`,
+        'xiaohongshu_high_influence_user');
+    }
+
+    // 低影响力阈值：粉丝<100 且 获赞<1000 → low
+    const LOW_FANS_THRESHOLD = 100;
+    const LOW_LIKED_THRESHOLD = 1000;
+
+    if (fans < LOW_FANS_THRESHOLD && liked < LOW_LIKED_THRESHOLD) {
+      console.log(`[NarrativeAnalyzer] 规则3.5触发: 小红书用户"${xiaohongshuInfo.nickname}"粉丝仅${fans}，获赞仅${liked}，影响力不足，返回low`);
+      return buildPreCheckResult('low',
+        `小红书用户"${xiaohongshuInfo.nickname}"粉丝仅${fans}，获赞仅${liked}，影响力不足`,
+        'xiaohongshu_low_influence_user',
+        { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+    }
+
+    console.log(`[NarrativeAnalyzer] 小红书用户"${xiaohongshuInfo.nickname}"影响力中等（粉丝${fans}，获赞${liked}），进入LLM分析`);
+  }
+
+  // 规则3.5.5：Instagram 影响力检查
+  if (instagramInfo) {
+    if (instagramInfo.type === 'user_profile') {
+      const followers = instagramInfo.follower_count || 0;
+      const mediaCount = instagramInfo.media_count || 0;
+
+      // 高影响力：粉丝≥10万 → unrated
+      const UNRATED_IG_FOLLOWERS_THRESHOLD = 100000;
+      if (followers >= UNRATED_IG_FOLLOWERS_THRESHOLD) {
+        console.log(`[NarrativeAnalyzer] 规则3.5.5触发: Instagram用户"@${instagramInfo.username}"拥有${followers}粉丝，影响力较高，返回unrated`);
+        return buildPreCheckResult('unrated',
+          `Instagram用户"@${instagramInfo.username}"拥有${followers}粉丝，影响力较高`,
+          'instagram_high_influence_user');
+      }
+
+      // 低影响力：粉丝<100 且 帖子<10 → low
+      const LOW_IG_FOLLOWERS_THRESHOLD = 100;
+      const LOW_IG_MEDIA_THRESHOLD = 10;
+      if (followers < LOW_IG_FOLLOWERS_THRESHOLD && mediaCount < LOW_IG_MEDIA_THRESHOLD) {
+        console.log(`[NarrativeAnalyzer] 规则3.5.5触发: Instagram用户"@${instagramInfo.username}"仅${followers}粉丝、${mediaCount}帖子，影响力不足，返回low`);
+        return buildPreCheckResult('low',
+          `Instagram用户"@${instagramInfo.username}"仅${followers}粉丝、${mediaCount}帖子，影响力不足`,
+          'instagram_low_influence_user',
+          { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+      }
+
+      console.log(`[NarrativeAnalyzer] Instagram用户"@${instagramInfo.username}"影响力中等（粉丝${followers}，帖子${mediaCount}），进入LLM分析`);
+    } else if (instagramInfo.type === 'post' || instagramInfo.type === 'reel') {
+      const likeCount = instagramInfo.metrics?.like_count || 0;
+      const commentCount = instagramInfo.metrics?.comment_count || 0;
+      const typeLabel = instagramInfo.type === 'reel' ? ' Reel' : '帖子';
+
+      // 高传播帖子：点赞>50万 → unrated
+      const UNRATED_IG_LIKE_THRESHOLD = 500000;
+      if (likeCount >= UNRATED_IG_LIKE_THRESHOLD) {
+        console.log(`[NarrativeAnalyzer] 规则3.5.5触发: Instagram${typeLabel}点赞${likeCount}，传播力极强，返回unrated`);
+        return buildPreCheckResult('unrated',
+          `Instagram${typeLabel}点赞${likeCount}，传播力极强`,
+          'instagram_viral_post');
+      }
+
+      // 低传播帖子：点赞<50 且 评论<10 → low
+      if (likeCount < 50 && commentCount < 10) {
+        console.log(`[NarrativeAnalyzer] 规则3.5.5触发: Instagram${typeLabel}互动数据极低（点赞${likeCount}，评论${commentCount}），返回low`);
+        return buildPreCheckResult('low',
+          `Instagram${typeLabel}互动数据极低（点赞${likeCount}，评论${commentCount}），传播力不足`,
+          'instagram_low_engagement_post',
+          { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+      }
+
+      console.log(`[NarrativeAnalyzer] Instagram${typeLabel}互动数据中等（点赞${likeCount}，评论${commentCount}），进入LLM分析`);
+    }
+  }
+
+  // 规则3.6：微信文章传播力检查
   if (weixinInfo) {
     const readCount = weixinInfo.read_num || 0;
     const likeCount = weixinInfo.like_num || 0;
 
     // 阅读数低于1000 → low
     if (readCount > 0 && readCount < 1000) {
-      console.log(`[NarrativeAnalyzer] 规则3.5触发: 微信文章阅读数(${readCount})低于1000，返回low`);
+      console.log(`[NarrativeAnalyzer] 规则3.6触发: 微信文章阅读数(${readCount})低于1000，返回low`);
       return buildPreCheckResult('low', `微信文章阅读数仅${readCount}，传播力不足（阈值：1000）`, 'weixin_low_reads', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
     }
 
     // 阅读数为0但有文章内容 → 说明文章存在但无法获取统计数据，视为传播力不足
     if (readCount === 0 && weixinInfo.title) {
-      console.log(`[NarrativeAnalyzer] 规则3.5触发: 微信文章无法获取阅读数，返回low`);
+      console.log(`[NarrativeAnalyzer] 规则3.6触发: 微信文章无法获取阅读数，返回low`);
       return buildPreCheckResult('low', `微信文章无法获取阅读统计数据，视为传播力不足`, 'weixin_no_stats', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
     }
   }
 
-  // 规则3.6：微博交互数据检查
+  // 规则3.7：微博交互数据检查
   // 如果引用微博且微博交互数据不高，直接返回 low
   if (backgroundInfo && backgroundInfo.source === 'weibo' && backgroundInfo.metrics) {
     const repostsCount = backgroundInfo.metrics.reposts_count || 0;
@@ -503,7 +591,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         ? engagementDetails.join('、')
         : '无交互数据';
 
-      console.log(`[NarrativeAnalyzer] 规则3.6触发: 微博总交互数(${totalEngagement})低于阈值(${LOW_ENGAGEMENT_THRESHOLD})，返回low`);
+      console.log(`[NarrativeAnalyzer] 规则3.7触发: 微博总交互数(${totalEngagement})低于阈值(${LOW_ENGAGEMENT_THRESHOLD})，返回low`);
       return buildPreCheckResult('low', `微博作者"${authorName}"的交互数据过低（${engagementStr}，总交互${totalEngagement}），传播力不足（阈值：${LOW_ENGAGEMENT_THRESHOLD}）`, 'weibo_low_engagement', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
 
       console.log(`[NarrativeAnalyzer] 微博交互数据检查通过: 总交互数=${totalEngagement}（转发${repostsCount}+评论${commentsCount}+点赞${attitudesCount}）`);
@@ -514,7 +602,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 区分两种情况：没有公开信息（unrated） vs 有信息但失效（low）
 
   // 公开信息平台（排除 Telegram/Discord 通讯应用）
-  const publicUrlPlatforms = ['twitter', 'weibo', 'youtube', 'tiktok', 'douyin', 'bilibili', 'weixin', 'github', 'amazon', 'websites'];
+  const publicUrlPlatforms = ['twitter', 'weibo', 'youtube', 'tiktok', 'douyin', 'bilibili', 'xiaohongshu', 'instagram', 'weixin', 'github', 'amazon', 'binanceSquare', 'websites'];
 
   // 检查是否有任何公开URL
   const hasAnyPublicUrl = publicUrlPlatforms.some(platform =>
@@ -534,7 +622,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   }
 
   // 情况B：有公开URL，检查数据是否获取成功
-  const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo };
+  const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo };
   const hasValidData = hasValidDataForAnalysis(fetchResults);
 
   if (!hasValidData) {

@@ -74,7 +74,7 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
 **【D/E级】**：无影响力实体的推测 → 0分
 - 被推测对象影响力极弱或无关紧要
 
-⚠️ **D/E级直接阻断**：判定为D/E级后，不再继续评分，直接输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}`
+⚠️ **D/E级直接阻断**：判定为D/E级后，不再继续评分，直接输出 {"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -121,7 +121,7 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
 
 ⚠️ **阻断条件**：
 
-⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，直接输出 `{"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}`
+⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，直接输出 {"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}
 
 **1. 推理过于牵强**：
 - 关联缺乏合理依据，纯属强行拼凑

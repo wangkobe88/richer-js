@@ -4,7 +4,8 @@
  */
 
 const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
-const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/xiaohongshu/get-note-detail/v1';
+const JUSTONEAPI_NOTE_URL = 'https://api.justoneapi.com/api/xiaohongshu/get-note-detail/v1';
+const JUSTONEAPI_USER_URL = 'https://api.justoneapi.com/api/xiaohongshu/get-user/v3';
 
 /**
  * 小红书笔记信息提取器
@@ -100,7 +101,7 @@ export class XiaohongshuFetcher {
    * @returns {Promise<Object|null>} 笔记信息
    */
   static async fetchViaJustOneAPI(noteId) {
-    const url = `${JUSTONEAPI_URL}?token=${JUSTONEAPI_KEY}&noteId=${noteId}`;
+    const url = `${JUSTONEAPI_NOTE_URL}?token=${JUSTONEAPI_KEY}&noteId=${noteId}`;
     const REQUEST_TIMEOUT = 30000; // 30秒超时
 
     try {
@@ -249,6 +250,98 @@ export class XiaohongshuFetcher {
     }
 
     return result;
+  }
+
+  /**
+   * 从小红书用户主页 URL 中提取 userId
+   * 支持格式：xiaohongshu.com/user/profile/{userId}
+   * @param {string} url - 小红书用户主页 URL
+   * @returns {string|null} userId
+   */
+  static extractUserId(url) {
+    if (!url) return null;
+    const match = url.match(/xiaohongshu\.com\/user\/profile\/([a-f0-9]+)/i);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * 使用 JustOneAPI User Profile V3 获取用户主页信息
+   * @param {string} url - 小红书用户主页 URL
+   * @returns {Promise<Object|null>} 用户主页信息
+   */
+  static async fetchUserProfile(url) {
+    if (!url) return null;
+
+    const userId = this.extractUserId(url);
+    if (!userId) {
+      console.warn('[XiaohongshuFetcher] 无法从URL中提取userId:', url);
+      return null;
+    }
+
+    const apiUrl = `${JUSTONEAPI_USER_URL}?token=${JUSTONEAPI_KEY}&userId=${userId}`;
+    const REQUEST_TIMEOUT = 30000;
+
+    try {
+      console.log(`[XiaohongshuFetcher] 请求用户主页API: userId=${userId}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+      const response = await fetch(apiUrl, {
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.warn('[XiaohongshuFetcher] 用户主页API HTTP错误:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('[XiaohongshuFetcher] 用户主页API响应:', JSON.stringify({ code: data.code, message: data.message, hasData: !!data.data, dataType: typeof data.data, dataKeys: data.data ? Object.keys(data.data) : null }));
+
+      if (data.code !== 0) {
+        console.warn('[XiaohongshuFetcher] 用户主页API返回错误:', data.code, data.message);
+        return null;
+      }
+
+      if (!data.data || typeof data.data !== 'object') {
+        console.warn('[XiaohongshuFetcher] 用户主页数据为空或格式错误');
+        return null;
+      }
+
+      // User Profile V3 返回 data 是对象（非数组）
+      const userData = data.data;
+
+      const result = {
+        type: 'user_profile',
+        user_id: userId,
+        nickname: userData.nickname || '',
+        desc: userData.desc || '',
+        fans: userData.fans || 0,
+        follows: userData.follows || 0,
+        liked: userData.liked || 0,
+        collected: userData.collected || 0,
+        note_count: userData.ndiscovery || 0,
+        red_official_verified: userData.red_official_verified || false,
+        ip_location: userData.ip_location || '',
+        avatar: userData.images || '',
+        note_num_stat: userData.note_num_stat || null,
+        fetched_via: 'justoneapi'
+      };
+
+      console.log(`[XiaohongshuFetcher] 成功获取用户: "${result.nickname}" (粉丝${result.fans}, 获赞${result.liked})`);
+      return result;
+
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        console.error('[XiaohongshuFetcher] 用户主页API请求超时（30秒）');
+      } else {
+        console.error('[XiaohongshuFetcher] 用户主页API获取失败:', error.message);
+      }
+      return null;
+    }
   }
 
   /**

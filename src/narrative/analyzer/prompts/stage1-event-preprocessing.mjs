@@ -27,7 +27,9 @@ import { buildGithubSection } from './sections/github-section.mjs';
 import { buildWeiboSection } from './sections/weibo-section.mjs';
 import { buildAmazonSection } from './sections/amazon-section.mjs';
 import { buildXiaohongshuSection } from './sections/xiaohongshu-section.mjs';
+import { buildInstagramSection } from './sections/instagram-section.mjs';
 import { buildWeixinSection } from './sections/weixin-section.mjs';
+import { buildBinanceSquareSection } from './sections/binance-square-section.mjs';
 import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
 
 /**
@@ -53,7 +55,9 @@ export function buildStage1EventPreprocessingPrompt(tokenData, fetchResults) {
     tiktokInfo = null,
     bilibiliInfo = null,
     xiaohongshuInfo = null,
+    instagramInfo = null,
     weixinInfo = null,
+    binanceSquareInfo = null,
     accountSummary = null
   } = fetchResults;
 
@@ -110,11 +114,17 @@ ${accountSummary}`);
   const xiaohongshuSection = buildXiaohongshuSection(xiaohongshuInfo);
   if (xiaohongshuSection) sections.push(xiaohongshuSection);
 
+  const instagramSection = buildInstagramSection(instagramInfo);
+  if (instagramSection) sections.push(instagramSection);
+
   const websiteSection = buildWebsiteSection(websiteInfo);
   if (websiteSection) sections.push(websiteSection);
 
   const amazonSection = buildAmazonSection(amazonInfo);
   if (amazonSection) sections.push(amazonSection);
+
+  const binanceSquareSection = buildBinanceSquareSection(binanceSquareInfo);
+  if (binanceSquareSection) sections.push(binanceSquareSection);
 
   // Stage 1分析框架
   sections.push(buildStage1Framework());
@@ -324,9 +334,9 @@ function buildStage1Framework() {
 **【规则：如果推文本身就是事件，提取推文的传播数据】**
 
 **什么情况是"推文本身就是事件"？**
-- 原创言论、个人动态、首次发布内容
+- 原创言论、个人动态
 - 不是在描述外部事件，而是推文本身构成事件
-- 示例：何一发推"hi"、用户原创观点、个人分享
+- 示例：何一发推"hi"、用户原创观点、个人原创分享
 
 **【上述情况的处理】**：
 - ✅ 提取：推文的点赞、转发、粉丝数、浏览量

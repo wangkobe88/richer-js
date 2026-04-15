@@ -77,7 +77,7 @@ export function buildCategoryFPrompt(eventDescription, eventClassification) {
 - 关联过于牵强，缺乏合理依据
 - 示例：将随机数字强行关联为"数字叙事"
 
-⚠️ **D/E级直接阻断**：判定为D/E级后，不再进入第二步评分，直接输出 `{"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}`
+⚠️ **D/E级直接阻断**：判定为D/E级后，不再进入第二步评分，直接输出 {"pass": false, "blockReason": "原因", "magnitudeLevel": "D/E", "scoringResult": null}
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -109,7 +109,7 @@ export function buildCategoryFPrompt(eventDescription, eventClassification) {
 
 ⚠️ **阻断条件**：
 
-⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，直接输出 `{"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}`
+⚠️ **触发任一阻断条件 → 直接阻断**，不再继续评分，直接输出 {"pass": false, "blockReason": "具体阻断原因", "magnitudeLevel": "分量等级", "scoringResult": null}
 
 **1. 发现过于牵强**：
 - 关联缺乏合理依据，纯属强行拼凑
