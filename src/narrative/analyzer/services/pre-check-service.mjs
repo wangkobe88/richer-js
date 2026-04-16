@@ -382,15 +382,15 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         if (currentCreatedAt) {
           // 当前代币创建前一周
           const oneWeekBeforeToken = new Date((currentCreatedAt - 7 * 24 * 3600) * 1000).toISOString();
-          // 豁免3分钟内的同时使用：只匹配当前代币创建前3分钟以上的
-          const threeMinBeforeToken = new Date((currentCreatedAt - 3 * 60) * 1000).toISOString();
+          // 豁免5分钟内的同时使用：只匹配当前代币创建前5分钟以上的
+          const fiveMinBeforeToken = new Date((currentCreatedAt - 5 * 60) * 1000).toISOString();
 
           const { data: earlierTokens, error: queryError } = await supabase
             .from('experiment_tokens')
             .select('token_address, token_symbol, discovered_at')
             .eq('narrative_material_id', currentMaterialId)
             .neq('token_address', normalizedAddress)
-            .lt('discovered_at', threeMinBeforeToken)
+            .lt('discovered_at', fiveMinBeforeToken)
             .gte('discovered_at', oneWeekBeforeToken)
             .order('discovered_at', { ascending: true })
             .limit(5);
@@ -410,7 +410,26 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
                 total_score: 0,
                 materialId: currentMaterialId,
                 reuseCount: earlierTokens.length,
-                earlierTokens: earlierTokens.map(t => ({ address: t.token_address, symbol: t.token_symbol, discoveredAt: t.discovered_at }))
+                currentTokenCreatedAt: currentCreatedAt ? new Date(currentCreatedAt * 1000).toISOString() : null,
+                earlierTokens: earlierTokens.map(t => {
+                  const discoveredAtDate = new Date(t.discovered_at);
+                  const currentCreatedAtDate = currentCreatedAt ? new Date(currentCreatedAt * 1000) : null;
+                  let timeDiffText = '';
+                  if (currentCreatedAtDate) {
+                    const diffMs = currentCreatedAtDate - discoveredAtDate;
+                    const diffMin = Math.floor(diffMs / 60000);
+                    const diffHours = Math.floor(diffMin / 60);
+                    const diffDays = Math.floor(diffHours / 24);
+                    if (diffDays > 0) {
+                      timeDiffText = `${diffDays}天${diffHours % 24}小时前`;
+                    } else if (diffHours > 0) {
+                      timeDiffText = `${diffHours}小时${diffMin % 60}分钟前`;
+                    } else {
+                      timeDiffText = `${diffMin}分钟前`;
+                    }
+                  }
+                  return { address: t.token_address, symbol: t.token_symbol, discoveredAt: t.discovered_at, timeDiffText };
+                })
               }
             );
           }

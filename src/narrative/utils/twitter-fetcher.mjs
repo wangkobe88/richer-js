@@ -606,6 +606,9 @@ export class TwitterExtractor {
       // URL解析失败，使用原URL
     }
 
+    // 去除尾部斜杠（如 /Livermore_AI/ → /Livermore_AI）
+    pathOnly = pathOnly.replace(/\/+$/, '');
+
     // 排除包含 status 的推文链接
     if (url.includes('/status')) {
       return null;

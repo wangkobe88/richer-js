@@ -127,7 +127,16 @@ ${accountSummary}`);
   if (binanceSquareSection) sections.push(binanceSquareSection);
 
   // Stage 1分析框架
-  sections.push(buildStage1Framework());
+  // 检测是否有回复/转发/引用推文（用于条件性包含"解读型回复的识别"）
+  const hasReplyOrRetweet = !!(twitterInfo && (
+    twitterInfo.in_reply_to ||
+    twitterInfo.quoted_status ||
+    twitterInfo.retweeted_status ||
+    twitterInfo.website_tweet?.in_reply_to ||
+    twitterInfo.website_tweet?.quoted_status ||
+    twitterInfo.website_tweet?.retweeted_status
+  ));
+  sections.push(buildStage1Framework(hasReplyOrRetweet));
 
   return sections.filter(s => s).join('\n\n');
 }
@@ -135,7 +144,7 @@ ${accountSummary}`);
 /**
  * 构建Stage 1分析框架
  */
-function buildStage1Framework() {
+function buildStage1Framework(hasReplyOrRetweet = true) {
   return `
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                      Stage 1：事件预处理框架                                  ║
@@ -187,24 +196,40 @@ function buildStage1Framework() {
 8. 推文讨论的是社会现象/文化概念（如"当代年轻人的XXX"、"网络热梗XXX"）
 
 **找角度推文的"事件"定义**：
-- ✅ **事件 = 推文陈述的事情**（被引用的外部事件）
+- ✅ **事件 = 推文陈述的事情**（被引用的外部事件/现象）
 - ❌ **事件 ≠ 某人发推**（推文发布动作本身不重要）
+- ❌ **事件 ≠ 有人借助XX发币/某人借XX概念发币**（所有meme币都是发币，这不是事件）
+
+⚠️ **核心禁止规则：事件描述中禁止出现"发币"视角的表述**：
+- ❌ 禁止："用户借CZ被称'老登'的网络热梗在BSC发币"
+- ❌ 禁止："某人利用XX概念发行代币"
+- ❌ 禁止："某用户在BSC链上创建了一个名为XX的代币"
+- ✅ 正确："网络热梗'老登'与CZ的关联"（描述被依托的现象本身）
+- ✅ 正确："CZ被称为'老登'的网络文化现象"
+- ✅ 正确："XX概念在加密社区的传播"
+- **原因**：所有分析的代币都是meme币，"发币"是前提而不是事件。事件是"代币基于什么事件/现象/叙事"，这个事件/现象/叙事本身才是分析对象。
 
 **示例**：
 - 推文："Trump posted this baby... CA below"
   - ✅ 事件：Trump发布Baby Trump形象（陈述的事情）
   - ❌ 事件：@NikolaiHauckx发推（不是这个）
+  - ❌ 事件：有人借助Trump的Baby Trump形象发币（禁止）
 - 推文："Tesla发布新车XXX... CA below"
   - ✅ 事件：Tesla发布新车（陈述的事情）
   - ❌ 事件：某账号发推（不是这个）
+  - ❌ 事件：有人借助Tesla新车发布发币（禁止）
+- 推文："老登是对CZ的称呼... CA below"
+  - ✅ 事件："老登"作为网络热梗与CZ的关联
+  - ❌ 事件：有人借助"老登"热梗发币（禁止）
 
 **找角度推文的"事件主体"提取规则**：
-- ✅ **事件主体 = 被引用事件中的参与者**（推文陈述的事情里的主体）
+- ✅ **事件主体 = 被引用事件中的参与者/被依托现象的核心对象**（推文陈述的事情里的主体）
   - 示例：推文说"Trump posted this baby" → 事件主体是"Trump"
   - 示例：推文说"Tesla发布新车" → 事件主体是"Tesla"
+  - 示例：推文说"老登是对CZ的称呼" → 事件主体是"CZ"或"老登（网络热梗）"
 - ❌ **推文发布者不是事件主体**（只是借用者/评论者）
 
-**⚠️ 【解读型回复的识别】**
+${hasReplyOrRetweet ? `**⚠️ 【解读型回复的识别】**
 
 当主推文是回复大IP(如CZ/何一/Trump/Mask/币安官方/Tesla等著名人士与机构)的推文时，需要判断代币概念来源于哪条推文：
 
@@ -239,7 +264,7 @@ function buildStage1Framework() {
 - 两者的共同点：代币概念都不是大IP直接说的
 - 两者的区别：解读型回复有真实的互动关系（在推文线程中）
 
-**1.1 事件主体**：**谁发起了/做了这件事？**
+` : ''}**1.1 事件主体**：**谁发起了/做了这件事？**
 - 事件主体 = 事件的**主动发起者/创造者**（做了这件事的人/组织）
 - ⚠️ **区分"发起者"和"被涉及者"**：
   - 发起者：主动做了这件事的人/组织 → 放入事件主体
@@ -249,10 +274,10 @@ function buildStage1Framework() {
 - 示例：CZ发推"hi" → 发起者=CZ
 - 示例：CZ和Binance联合发布产品 → 两者都是发起者
 - 示例：何一（币安联合创始人）、Tesla、当代年轻人
-- ⚠️ **先判断是否为找角度推文或解读型回复**，再决定事件主体是谁
+- ⚠️ **先判断是否为找角度推文${hasReplyOrRetweet ? '或解读型回复' : ''}**，再决定事件主体是谁
   - 找角度推文：事件主体 = 被引用事件中的参与者（不是推文发布者）
-  - 解读型回复：事件主体 = 回复者（不是被回复的大IP），因为代币概念来自回复者的解读
-  - 非找角度且非解读型回复：事件主体 = 正常判断
+${hasReplyOrRetweet ? `  - 解读型回复：事件主体 = 回复者（不是被回复的大IP），因为代币概念来自回复者的解读
+` : ''}  - 非找角度${hasReplyOrRetweet ? '且非解读型回复' : ''}：事件主体 = 正常判断
 
 **1.2 事件内容（详细描述）**：
 - **请详细描述事件的具体内容（200-500字）**
@@ -544,5 +569,6 @@ function buildStage1Framework() {
 ⚠️ **注意**：
 - eventContent（事件内容）将作为Stage 2的输入，请尽量详细
 - eventContent应包含：发生了什么、有什么关键细节、数据如何、有什么亮点
+- ⚠️ **eventTheme和eventContent中禁止使用"发币"视角**：不要写"有人借助XX发币"、"用户借XX概念在BSC发币"等表述。应描述事件/现象本身（如"XX网络热梗与CZ的关联"、"XX概念在加密社区的传播"）
 `;
 }

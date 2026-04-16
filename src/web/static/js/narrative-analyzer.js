@@ -413,7 +413,8 @@ class NarrativeAnalyzer {
             .map(t => {
               const gmgnUrl = `https://gmgn.ai/bsc/token/${t.address}`;
               const date = t.discoveredAt ? new Date(t.discoveredAt).toLocaleDateString() : '';
-              return `• <a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${t.symbol || '?'}</a> <span style="font-size:11px;color:#999;">${t.address.slice(0, 14)}...</span> (${date})`;
+              const timeDiff = t.timeDiffText ? ` <span style="font-size:11px;color:#e67e22;font-weight:bold;">⏱ ${t.timeDiffText}</span>` : '';
+              return `• <a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${t.symbol || '?'}</a> <span style="font-size:11px;color:#999;">${t.address.slice(0, 14)}...</span> (${date})${timeDiff}`;
             })
             .join('<br>');
           details.push({

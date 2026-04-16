@@ -169,10 +169,9 @@ class SameNameCheckService {
           return false;
         }
 
-        // 如果没有目标代币的appendix，无法进行精确对比，使用保守策略：
-        // 只要同名就认为是潜在重复
+        // 如果目标代币没有appendix，无法进行叙事对比，跳过（不参与过滤）
         if (!targetAppendix) {
-          return true;
+          return false;
         }
 
         // 比较 appendix 所有字段，只要有任意一个相同就认为是重复

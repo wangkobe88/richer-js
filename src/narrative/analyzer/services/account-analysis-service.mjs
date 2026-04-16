@@ -200,11 +200,19 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
 
   // ═══════════════════════════════════════════════════════════════════════════
   // 第二步：LLM分析（币种类型判断 + 评级）
+  // 根据地址验证结果选择不同的 prompt
   // ═══════════════════════════════════════════════════════════════════════════
-  const prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityRef, rulesResult.addressVerified, {
-    projectCoinFromWebsite: options.skipAddressValidation || false,
-    websiteInfo: fetchResults.websiteInfo
-  });
+  let prompt;
+  if (!rulesResult.addressVerified) {
+    // 地址未命中：使用专用 prompt，只判断 account_based_meme
+    const { buildUnverifiedPrompt } = await import('../prompts/account-community-unverified.mjs');
+    prompt = await buildUnverifiedPrompt(tokenData, accountOrCommunityRef);
+  } else {
+    // 地址命中：使用标准 prompt，判断 project / web3_native_ip_early
+    prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityRef, {
+      websiteInfo: options.skipAddressValidation ? fetchResults.websiteInfo : null
+    });
+  }
 
   if (!prompt) {
     return {
