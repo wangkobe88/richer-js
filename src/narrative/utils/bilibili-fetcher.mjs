@@ -6,6 +6,9 @@
 const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/bilibili/get-video-detail/v2';
 
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
+
 /**
  * Bilibili 视频信息提取器
  */
@@ -156,6 +159,13 @@ export class BilibiliFetcher {
    * @returns {Promise<Object|null>} 视频信息
    */
   static async fetchVideoInfo(url) {
+    return CachedFetcher.fetchWithCache(url, 'bilibili', async () => this._fetchVideoInfoInternal(url), getCacheTTL('bilibili'));
+  }
+
+  /**
+   * fetchVideoInfo 的内部实现
+   */
+  static async _fetchVideoInfoInternal(url) {
     if (!url) {
       return null;
     }

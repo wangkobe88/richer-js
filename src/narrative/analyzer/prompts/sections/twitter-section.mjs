@@ -211,5 +211,21 @@ export function buildTwitterSection(twitterInfo) {
     parts.push(`【推文链接内容】${truncated}`);
   }
 
+  // 检测推文中是否出现"广场"，添加币安广场语境提示
+  const allText = [
+    twitterInfo.text,
+    twitterInfo.in_reply_to?.text,
+    twitterInfo.website_tweet?.text,
+    twitterInfo.website_tweet?.in_reply_to?.text,
+    twitterInfo.quoted_status?.text,
+    twitterInfo.retweeted_status?.text,
+    twitterInfo.link_content?.content
+  ].filter(Boolean).join(' ');
+
+  if (allText.includes('广场')) {
+    parts.push('');
+    parts.push(`💡 语境提示：推文中提到的「广场」在Web3/加密货币语境下通常指「币安广场」(Binance Square)，是币安官方的内容社交平台`);
+  }
+
   return parts.length > 0 ? parts.join('\n') : '';
 }

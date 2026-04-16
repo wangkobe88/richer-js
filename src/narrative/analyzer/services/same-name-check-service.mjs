@@ -72,7 +72,11 @@ class SameNameCheckService {
       });
 
       // 搜索同名代币（BSC链）
-      const bscResults = await this.api.searchTokens(tokenSymbol, 'bsc', 300, 'fdv');
+      // 归一化 symbol 搜索，避免隐形字符导致搜不到同名代币
+      const normalizedSearchSymbol = SameNameCheckService._normalizeName(tokenSymbol);
+      const bscResults = await this.api.searchTokens(
+        normalizedSearchSymbol || tokenSymbol, 'bsc', 300, 'fdv'
+      );
 
       this.logger.debug('SameNameCheck', 'BSC搜索完成', {
         totalResults: bscResults.length
@@ -380,22 +384,43 @@ class SameNameCheckService {
    * @returns {boolean} 是否认为是同名
    * @private
    */
+  /**
+   * 归一化名称：去除不可见/零宽字符后再 toLowerCase + trim
+   * 防止用隐形字符（如韩文填充符 U+3164）规避同名检测
+   * @param {string} str - 原始字符串
+   * @returns {string} 归一化后的字符串
+   * @private
+   */
+  static _normalizeName(str) {
+    if (!str) return '';
+    return str
+      // 去除零宽字符和不可见Unicode字符
+      .replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202F\u2060-\u206F\u3164\uFEFF\uFE00-\uFE0F]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
   _isSameName(name1, symbol1, name2, symbol2) {
     if (!name1 || !name2) {
       return false;
     }
 
-    const n1 = name1.toLowerCase().trim();
-    const n2 = name2.toLowerCase().trim();
-    const s1 = symbol1.toLowerCase().trim();
-    const s2 = symbol2.toLowerCase().trim();
+    const n1 = SameNameCheckService._normalizeName(name1);
+    const n2 = SameNameCheckService._normalizeName(name2);
+    const s1 = SameNameCheckService._normalizeName(symbol1);
+    const s2 = SameNameCheckService._normalizeName(symbol2);
 
-    // 规则1: name 完全相同
+    // 规则1: name 完全相同（归一化后）
     if (n1 === n2) {
       return true;
     }
 
-    // 规则2: name 互相包含（处理 "Leo" vs "Leo Token" 的情况）
+    // 规则2: symbol 完全相同（归一化后）
+    if (s1 === s2 && s1.length >= 2) {
+      return true;
+    }
+
+    // 规则3: name 互相包含（处理 "Leo" vs "Leo Token" 的情况）
     const shorter = n1.length < n2.length ? n1 : n2;
     const longer = n1.length < n2.length ? n2 : n1;
 

@@ -536,6 +536,73 @@ class NarrativeAnalyzer {
     const parsed = prestage.details || {};
     const tokenType = parsed.tokenType || 'unknown';
 
+    // 超大IP快速通道特殊处理
+    if (prestage.category === 'super_ip_fast') {
+      const ipInfo = parsed.ipInfo || {};
+      const ipName = ipInfo.name || '超大IP';
+      const ipTier = ipInfo.tier || '?';
+      const ipType = ipInfo.type === 'person' ? '人物' : '机构';
+      const isFail = prestage.pass === false;
+
+      let fastResultHtml = '';
+      if (isFail) {
+        fastResultHtml = `
+          <div class="stage-result-box">
+            <strong>⛔ 快速通道阻断</strong><br>
+            <span style="font-size: 13px; color: #e53e3e;">${this.escapeHtml(prestage.reason || '未知原因')}</span>
+          </div>
+        `;
+      } else {
+        const scores = {
+          tierScore: parsed.tierScore || 0,
+          timeliness: parsed.timeliness || 0,
+          dimension2Score: parsed.dimension2Score || 0,
+          relevanceScore: parsed.relevanceScore || 0,
+          qualityScore: parsed.qualityScore || 0,
+        };
+        const eventTotal = (scores.tierScore + scores.timeliness + scores.dimension2Score);
+        const eventWeighted = Math.round(eventTotal * 0.6 * 100) / 100;
+        const totalScore = eventWeighted + scores.relevanceScore + scores.qualityScore;
+
+        fastResultHtml = `
+          <div class="stage-result-box">
+            <strong>🚀 ${ipName} ${ipTier}级${ipType} — 快速通道</strong><br>
+            <span style="font-size: 13px; color: #666;">
+              维度一(影响力): ${scores.tierScore}分 | 时效性: ${scores.timeliness}分 |
+              内容meme: ${scores.dimension2Score}分 | 关联性: ${scores.relevanceScore}分 | 质量: ${scores.qualityScore}分
+            </span><br>
+            <span style="font-size: 13px; color: #666;">
+              事件加权: ${eventWeighted}分 | 总分: ${totalScore}分
+            </span>
+          </div>
+        `;
+      }
+
+      // 时长和模型
+      let durationHtml = '';
+      if (prestage.startedAt && prestage.finishedAt) {
+        const duration = this.calculateDuration(prestage.startedAt, prestage.finishedAt);
+        durationHtml = `
+          <div style="margin-top: 8px; font-size: 12px; color: #888;">
+            <span>⏱️ ${duration}ms</span>
+            <span style="margin-left: 12px;">${prestage.model || 'Unknown'}</span>
+          </div>
+        `;
+      }
+
+      this.prestageCardBody.innerHTML = `
+        <div class="stage-status pass">
+          <span>🚀</span>
+          <span>超大IP快速通道</span>
+        </div>
+        ${fastResultHtml}
+        ${durationHtml}
+      `;
+      return;
+    }
+
+    // 正常PreStage逻辑
+
     // 根据币种类型显示不同状态
     const typeConfig = {
       'meme': { icon: '🎭', text: 'Meme币', statusClass: 'pass' },
@@ -756,40 +823,75 @@ class NarrativeAnalyzer {
       pathSteps.push({ label: '预检查', status: 'skip', icon: '○' });
     }
 
-    // PreStage（币种类型判断）
+    // PreStage（币种类型判断 / 超大IP快速通道）
     if (llmAnalysis.prestage) {
       const prestageDetails = llmAnalysis.prestage.details || {};
       const tokenType = prestageDetails.tokenType || 'unknown';
-      const icon = tokenType === 'meme' ? '🎭' : tokenType === 'project' ? '🏗️' : '🎯';
-      pathSteps.push({ label: 'PreStage', status: 'completed', icon: icon });
-    } else {
-      pathSteps.push({ label: 'PreStage', status: 'skip', icon: '○' });
-    }
-
-    // Stage 1
-    if (llmAnalysis.stage1) {
-      const isFail = llmAnalysis.stage1?.pass === false;
-      if (isFail) {
-        pathSteps.push({ label: 'Stage 1', status: 'fail', icon: '⛔' });
+      // 检测是否为超大IP快速通道
+      if (llmAnalysis.prestage.category === 'super_ip_fast') {
+        const ipName = prestageDetails.ipInfo?.name || '超大IP';
+        const isFail = llmAnalysis.prestage.pass === false;
+        pathSteps.push({ label: '快速通道', status: isFail ? 'fail' : 'completed', icon: '🚀' });
+        // 快速通道跳过Stage 1/2/3
+        pathSteps.push({ label: `${ipName}`, status: 'completed', icon: '⚡' });
       } else {
-        pathSteps.push({ label: 'Stage 1', status: 'completed', icon: '✅' });
+        const icon = tokenType === 'meme' ? '🎭' : tokenType === 'project' ? '🏗️' : '🎯';
+        pathSteps.push({ label: 'PreStage', status: 'completed', icon: icon });
+
+        // Stage 1
+        if (llmAnalysis.stage1) {
+          const isFail = llmAnalysis.stage1?.pass === false;
+          if (isFail) {
+            pathSteps.push({ label: 'Stage 1', status: 'fail', icon: '⛔' });
+          } else {
+            pathSteps.push({ label: 'Stage 1', status: 'completed', icon: '✅' });
+          }
+        } else {
+          pathSteps.push({ label: 'Stage 1', status: 'skip', icon: '○' });
+        }
+
+        // Stage 2
+        if (llmAnalysis.stage2) {
+          pathSteps.push({ label: 'Stage 2', status: 'completed', icon: '✅' });
+        } else {
+          pathSteps.push({ label: 'Stage 2', status: 'skip', icon: '○' });
+        }
+
+        // Stage 3
+        if (llmAnalysis.stage3) {
+          pathSteps.push({ label: 'Stage 3', status: 'completed', icon: '✅' });
+        } else {
+          pathSteps.push({ label: 'Stage 3', status: 'skip', icon: '○' });
+        }
       }
     } else {
-      pathSteps.push({ label: 'Stage 1', status: 'skip', icon: '○' });
-    }
+      pathSteps.push({ label: 'PreStage', status: 'skip', icon: '○' });
 
-    // Stage 2
-    if (llmAnalysis.stage2) {
-      pathSteps.push({ label: 'Stage 2', status: 'completed', icon: '✅' });
-    } else {
-      pathSteps.push({ label: 'Stage 2', status: 'skip', icon: '○' });
-    }
+      // Stage 1
+      if (llmAnalysis.stage1) {
+        const isFail = llmAnalysis.stage1?.pass === false;
+        if (isFail) {
+          pathSteps.push({ label: 'Stage 1', status: 'fail', icon: '⛔' });
+        } else {
+          pathSteps.push({ label: 'Stage 1', status: 'completed', icon: '✅' });
+        }
+      } else {
+        pathSteps.push({ label: 'Stage 1', status: 'skip', icon: '○' });
+      }
 
-    // Stage 3
-    if (llmAnalysis.stage3) {
-      pathSteps.push({ label: 'Stage 3', status: 'completed', icon: '✅' });
-    } else {
-      pathSteps.push({ label: 'Stage 3', status: 'skip', icon: '○' });
+      // Stage 2
+      if (llmAnalysis.stage2) {
+        pathSteps.push({ label: 'Stage 2', status: 'completed', icon: '✅' });
+      } else {
+        pathSteps.push({ label: 'Stage 2', status: 'skip', icon: '○' });
+      }
+
+      // Stage 3
+      if (llmAnalysis.stage3) {
+        pathSteps.push({ label: 'Stage 3', status: 'completed', icon: '✅' });
+      } else {
+        pathSteps.push({ label: 'Stage 3', status: 'skip', icon: '○' });
+      }
     }
 
     analysisPath.innerHTML = pathSteps.map((step, i) => {

@@ -45,6 +45,8 @@ import { XiaohongshuFetcher } from '../../utils/xiaohongshu-fetcher.mjs';
 import { InstagramFetcher } from '../../utils/instagram-fetcher.mjs';
 import { BinanceSquareFetcher } from '../../utils/binance-square-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl } from '../../utils/web-fetcher.mjs';
+import { CachedFetcher } from '../../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../../db/cache-ttl-config.mjs';
 import { TwitterMediaExtractor } from '../../utils/twitter-media-extractor.mjs';
 import { ImageDownloader } from '../../utils/image-downloader.mjs';
 import { detectLanguage, standardizeTranslatedNames } from '../utils/language-utils.mjs';
@@ -259,13 +261,20 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
             const communityIdMatch = twitterUrlInfo.url.match(/\/communities\/(\d+)/);
             if (communityIdMatch) {
               const communityId = communityIdMatch[1];
-              const { fetchCommunityById } = await import('../../utils/twitter-validation/communities-api.js');
-              info = await fetchCommunityById(communityId);
+              const communityCacheKey = `https://x.com/i/communities/${communityId}`;
+              info = await CachedFetcher.fetchWithCache(
+                communityCacheKey, 'twitter_community',
+                async () => {
+                  const { fetchCommunityById } = await import('../../utils/twitter-validation/communities-api.js');
+                  return fetchCommunityById(communityId);
+                },
+                getCacheTTL('twitter_community')
+              );
 
               if (info) {
                 // 将社区信息转换为twitter_info兼容格式
                 info = {
-                  id: info.id,  // 保留community_id，供后续规则验证使用
+                  id: info.id,
                   type: 'community',
                   name: info.name,
                   description: info.description,
@@ -275,7 +284,6 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
                   avatar_image_url: info.avatar_image_url,
                   banner_image_url: info.banner_image_url,
                   created_at: info.created_at,
-                  // 保留原始community数据用于后续分析
                   community_results: info
                 };
                 console.log(`[NarrativeAnalyzer] 成功获取Twitter社区: "${info.name}" (${info.members_count}成员)`);
@@ -380,8 +388,15 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
               const communityIdMatch = communityUrlInfo.url.match(/\/communities\/(\d+)/);
               if (communityIdMatch) {
                 const communityId = communityIdMatch[1];
-                const { fetchCommunityById } = await import('../../../utils/twitter-validation/communities-api.js');
-                const communityData = await fetchCommunityById(communityId);
+                const communityCacheKey = `https://x.com/i/communities/${communityId}`;
+                const communityData = await CachedFetcher.fetchWithCache(
+                  communityCacheKey, 'twitter_community',
+                  async () => {
+                    const { fetchCommunityById } = await import('../../../utils/twitter-validation/communities-api.js');
+                    return fetchCommunityById(communityId);
+                  },
+                  getCacheTTL('twitter_community')
+                );
                 if (communityData) {
                   info = {
                     id: communityData.id,

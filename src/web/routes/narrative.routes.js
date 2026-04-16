@@ -74,7 +74,9 @@ router.get('/result/:address', async (req, res) => {
 
     // 添加前端需要的额外字段
     formattedResult.classifiedUrls = result.classified_urls || null;
-    formattedResult.twitter = result.twitter_info || null;
+    // 从缓存表组装 twitter 数据（替代直接读 token_narrative.twitter_info）
+    const { ExternalResourceCache } = await import('../../narrative/db/ExternalResourceCache.mjs');
+    formattedResult.twitter = await ExternalResourceCache.reassembleTwitterInfo(result.classified_urls?.twitter);
 
     // 添加debugInfo（包含URL提取和数据获取结果）
     formattedResult.debugInfo = {

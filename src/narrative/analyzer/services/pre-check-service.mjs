@@ -209,20 +209,27 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
           const oneWeekBeforeToken = new Date((currentCreatedAt - 7 * 24 * 3600) * 1000).toISOString();
 
           const supabase = NarrativeRepository.getSupabase();
-          const { data: earlierTokens, error: queryError } = await supabase
+          // 查询同 narrative_material_id 的更早代币，再用归一化 symbol 过滤同名
+          // 归一化处理隐形字符（如韩文填充符 U+3164）规避同名检测的情况
+          const normalizedCurrentSymbol = SameNameCheckService._normalizeName(tokenSymbol);
+          const { data: earlierTokensRaw, error: queryError } = await supabase
             .from('experiment_tokens')
             .select('token_address, token_symbol, discovered_at')
-            .eq('token_symbol', tokenSymbol)
             .eq('narrative_material_id', currentTwitterId)
             .neq('token_address', normalizedAddress)
             .lt('discovered_at', twoMinBeforeToken)
             .gte('discovered_at', oneWeekBeforeToken)
             .order('discovered_at', { ascending: true })
-            .limit(1);
+            .limit(10);
 
-          if (!queryError && earlierTokens && earlierTokens.length > 0) {
+          // 在 JS 中用归一化后的 symbol 过滤同名代币
+          const earlierTokens = (earlierTokensRaw || []).filter(t =>
+            SameNameCheckService._normalizeName(t.token_symbol) === normalizedCurrentSymbol
+          );
+
+          if (!queryError && earlierTokens.length > 0) {
             const matched = earlierTokens[0];
-            console.log(`[NarrativeAnalyzer] 预检查触发: 同名+同推文重复叙事 (symbol: ${tokenSymbol}, Twitter Status: ${currentTwitterId}, 匹配代币: ${matched.token_symbol || ''} ${matched.token_address})`);
+            console.log(`[NarrativeAnalyzer] 预检查触发: 同名+同推文重复叙事 (symbol: ${tokenSymbol}, normalized: ${normalizedCurrentSymbol}, Twitter Status: ${currentTwitterId}, 匹配代币: ${matched.token_symbol || ''} ${matched.token_address})`);
 
             return buildPreCheckResult('low',
               `检测到同名+同推文重复叙事：代币"${tokenSymbol}"使用的推文(${currentTwitterId})在一周内已被同名代币${matched.token_symbol || ''}(${matched.token_address.slice(0, 10)}...)使用过，判定为重复叙事`,
@@ -254,15 +261,25 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       const twoHoursBefore = new Date((currentCreatedAt58 - 2 * 60 * 60) * 1000).toISOString();
 
       const supabase58 = NarrativeRepository.getSupabase();
-      const { data: earlierSameNameTokens, error: queryError58 } = await supabase58
+      // 同时查询原始 symbol 和归一化后的 symbol（处理隐形字符规避）
+      const normalizedSymbol58 = SameNameCheckService._normalizeName(tokenSymbol);
+      const querySymbols58 = normalizedSymbol58 !== tokenSymbol
+        ? [tokenSymbol, normalizedSymbol58]
+        : [tokenSymbol];
+      const { data: earlierSameNameTokensRaw, error: queryError58 } = await supabase58
         .from('experiment_tokens')
         .select('token_address, token_symbol, discovered_at, raw_api_data')
-        .eq('token_symbol', tokenSymbol)
+        .in('token_symbol', querySymbols58)
         .neq('token_address', normalizedAddress58)
         .lt('discovered_at', tenMinBefore)
         .gte('discovered_at', twoHoursBefore)
         .order('discovered_at', { ascending: true })
-        .limit(5);
+        .limit(10);
+
+      // 用归一化后的 symbol 二次过滤
+      const earlierSameNameTokens = (earlierSameNameTokensRaw || []).filter(t =>
+        SameNameCheckService._normalizeName(t.token_symbol) === normalizedSymbol58
+      );
 
       if (!queryError58 && earlierSameNameTokens && earlierSameNameTokens.length > 0) {
         const BASIC_TX_COUNT_THRESHOLD = 30;
@@ -758,10 +775,9 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       return buildPreCheckResult('low', `微信文章阅读数仅${readCount}，传播力不足（阈值：1000）`, 'weixin_low_reads', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
     }
 
-    // 阅读数为0但有文章内容 → 说明文章存在但无法获取统计数据，视为传播力不足
+    // 阅读数为0但有文章内容 → 无法获取统计数据，跳过此检查，交给LLM评估
     if (readCount === 0 && weixinInfo.title) {
-      console.log(`[NarrativeAnalyzer] 规则3.6触发: 微信文章无法获取阅读数，返回low`);
-      return buildPreCheckResult('low', `微信文章无法获取阅读统计数据，视为传播力不足`, 'weixin_no_stats', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+      console.log(`[NarrativeAnalyzer] 微信文章无法获取阅读统计数据，跳过微信传播力检查`);
     }
   }
 
@@ -807,7 +823,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     classifiedUrls[platform] && classifiedUrls[platform].length > 0
   );
 
-  // 情况A：没有公开URL → low（无法评估叙事，直接不通过）
+  // 情况A：没有公开URL → unrated（无法评估叙事，但可能是纯meme币有交易价值）
   if (!hasAnyPublicUrl) {
     const hasTelegram = !!(classifiedUrls.telegram && classifiedUrls.telegram.length > 0);
     const hasDiscord = !!(classifiedUrls.discord && classifiedUrls.discord.length > 0);
@@ -816,7 +832,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       : '缺少任何有效的公开信息来源（网站、社交媒体、视频等），无法评估叙事';
 
     console.log(`[NarrativeAnalyzer] 规则4触发: ${reason}`);
-    return buildPreCheckResult('low', reason, 'no_public_info');
+    return buildPreCheckResult('unrated', reason, 'no_public_info');
   }
 
   // 情况B：有公开URL，检查数据是否获取成功

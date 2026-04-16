@@ -39,6 +39,12 @@ const FACTOR_METADATA = {
     unit: '个',
     severity: 'info'
   },
+  earlyTraderBlacklistRatio: {
+    name: '早期交易者黑名单占比',
+    format: v => (v * 100).toFixed(1),
+    unit: '%',
+    severity: 'critical'
+  },
   earlyTraderCanBuy: {
     name: '早期交易者购买资格',
     format: v => v ? '通过' : '未通过',
@@ -538,6 +544,7 @@ class PreBuyCheckService {
         earlyTraderBlacklistCount: 0,
         earlyTraderWhitelistCount: 0,
         earlyTraderUniqueParticipants: 0,
+        earlyTraderBlacklistRatio: 0,
         earlyTraderCanBuy: false,
 
         holderCheckReason: `检查失败: ${errorMessage}`,
@@ -612,6 +619,7 @@ class PreBuyCheckService {
       earlyTraderBlacklistCount: earlyTraderCheck.earlyTraderBlacklistCount || 0,
       earlyTraderWhitelistCount: earlyTraderCheck.earlyTraderWhitelistCount || 0,
       earlyTraderUniqueParticipants: earlyTraderCheck.earlyTraderUniqueParticipants || 0,
+      earlyTraderBlacklistRatio: earlyTraderCheck.earlyTraderBlacklistRatio || 0,
       earlyTraderCanBuy: earlyTraderCheck.earlyTraderCanBuy ?? false,
       earlyTraderBlacklistReason: earlyTraderCheck.reason || '',
 
@@ -654,6 +662,7 @@ class PreBuyCheckService {
         earlyTraderBlacklistCount: earlyTraderCheck.earlyTraderBlacklistCount || 0,
         earlyTraderWhitelistCount: earlyTraderCheck.earlyTraderWhitelistCount || 0,
         earlyTraderUniqueParticipants: earlyTraderCheck.earlyTraderUniqueParticipants || 0,
+        earlyTraderBlacklistRatio: earlyTraderCheck.earlyTraderBlacklistRatio || 0,
         earlyTraderCanBuy: earlyTraderCheck.earlyTraderCanBuy ? 1 : 0,
         // 持有者因子（dev持仓、大额持仓仍基于持有者）
         holdersCount: holderCheck.holdersCount || 0,
@@ -1423,6 +1432,7 @@ class PreBuyCheckService {
       earlyTraderBlacklistCount: 0,
       earlyTraderWhitelistCount: 0,
       earlyTraderUniqueParticipants: 0,
+      earlyTraderBlacklistRatio: 0,
       earlyTraderCanBuy: null,
       preTraderCanBuy: null,
       preTraderCheckReason: null,

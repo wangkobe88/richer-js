@@ -7,6 +7,9 @@ const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_NOTE_URL = 'https://api.justoneapi.com/api/xiaohongshu/get-note-detail/v1';
 const JUSTONEAPI_USER_URL = 'https://api.justoneapi.com/api/xiaohongshu/get-user/v3';
 
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
+
 /**
  * 小红书笔记信息提取器
  */
@@ -221,14 +224,24 @@ export class XiaohongshuFetcher {
   }
 
   /**
-   * 获取小红书笔记信息
+   * 获取小红书笔记信息（带缓存）
    * @param {string} url - 小红书 URL
    * @returns {Promise<Object|null>} 笔记信息
    */
   static async fetchNoteInfo(url) {
-    if (!url) {
-      return null;
-    }
+    if (!url) return null;
+
+    return CachedFetcher.fetchWithCache(
+      url, 'xiaohongshu',
+      async () => this._fetchNoteInfoInternal(url),
+      getCacheTTL('xiaohongshu')
+    );
+  }
+
+  /**
+   * 获取小红书笔记信息（实际API调用）
+   */
+  static async _fetchNoteInfoInternal(url) {
 
     const noteId = await this.extractNoteId(url);
 
@@ -265,12 +278,24 @@ export class XiaohongshuFetcher {
   }
 
   /**
-   * 使用 JustOneAPI User Profile V3 获取用户主页信息
+   * 获取小红书用户主页信息（带缓存）
    * @param {string} url - 小红书用户主页 URL
    * @returns {Promise<Object|null>} 用户主页信息
    */
   static async fetchUserProfile(url) {
     if (!url) return null;
+
+    return CachedFetcher.fetchWithCache(
+      url, 'xiaohongshu_user',
+      async () => this._fetchUserProfileInternal(url),
+      getCacheTTL('xiaohongshu_user')
+    );
+  }
+
+  /**
+   * 获取小红书用户主页信息（实际API调用）
+   */
+  static async _fetchUserProfileInternal(url) {
 
     const userId = this.extractUserId(url);
     if (!userId) {

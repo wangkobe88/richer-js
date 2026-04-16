@@ -4,6 +4,8 @@
  */
 
 import { safeSubstring } from '../analyzer/utils/data-cleaner.mjs';
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
 
 const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/amazon/get-product-detail/v1';
@@ -28,11 +30,24 @@ export function extractASIN(url) {
 }
 
 /**
- * 获取 Amazon 产品详情
+ * 获取 Amazon 产品详情（带缓存）
  * @param {string} url - Amazon 产品 URL
  * @returns {Promise<Object>} 产品信息
  */
 export async function fetchProductInfo(url) {
+  if (!url) return null;
+
+  return CachedFetcher.fetchWithCache(
+    url, 'amazon',
+    async () => _fetchProductInfoInternal(url),
+    getCacheTTL('amazon')
+  );
+}
+
+/**
+ * 获取 Amazon 产品详情（实际API调用）
+ */
+async function _fetchProductInfoInternal(url) {
   const asin = extractASIN(url);
   if (!asin) {
     console.log('[AmazonFetcher] 无法从URL提取ASIN:', url);

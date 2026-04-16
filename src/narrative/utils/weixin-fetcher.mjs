@@ -7,6 +7,9 @@ const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const ARTICLE_DETAIL_URL = 'https://api.justoneapi.com/api/weixin/get-article-detail/v1';
 const ARTICLE_FEEDBACK_URL = 'https://api.justoneapi.com/api/weixin/get-article-feedback/v1';
 
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
+
 /**
  * 微信文章信息提取器
  */
@@ -46,14 +49,24 @@ export class WeixinFetcher {
   }
 
   /**
-   * 获取微信文章信息（顺序请求，避免并发限流）
+   * 获取微信文章信息（带缓存）
    * @param {string} url - 微信文章 URL
    * @returns {Promise<Object|null>} 文章信息
    */
   static async fetchArticleInfo(url) {
-    if (!url) {
-      return null;
-    }
+    if (!url) return null;
+
+    return CachedFetcher.fetchWithCache(
+      url, 'weixin',
+      async () => this._fetchArticleInfoInternal(url),
+      getCacheTTL('weixin')
+    );
+  }
+
+  /**
+   * 获取微信文章信息（实际API调用，顺序请求避免并发限流）
+   */
+  static async _fetchArticleInfoInternal(url) {
 
     if (!this.isValidWeixinUrl(url)) {
       console.warn('[WeixinFetcher] 不是有效的微信文章URL:', url);

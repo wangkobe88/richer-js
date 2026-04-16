@@ -7,6 +7,9 @@ const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/youtube/get-video-detail/v1';
 const YOUTUBE_CHANNEL_VIDEOS_URL = 'https://api.justoneapi.com/api/youtube/get-channel-videos/v1';
 
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
+
 /**
  * YouTube 视频信息提取器
  */
@@ -112,6 +115,13 @@ export class YoutubeFetcher {
    * @returns {Promise<Object|null>} 视频信息
    */
   static async fetchVideoInfo(url) {
+    return CachedFetcher.fetchWithCache(url, 'youtube', async () => this._fetchVideoInfoInternal(url), getCacheTTL('youtube'));
+  }
+
+  /**
+   * fetchVideoInfo 的内部实现
+   */
+  static async _fetchVideoInfoInternal(url) {
     if (!url) {
       return null;
     }
@@ -224,6 +234,13 @@ export class YoutubeFetcher {
    * @returns {Promise<Object|null>} 频道信息
    */
   static async fetchChannelInfo(url) {
+    return CachedFetcher.fetchWithCache(url, 'youtube_channel', async () => this._fetchChannelInfoInternal(url), getCacheTTL('youtube_channel'));
+  }
+
+  /**
+   * fetchChannelInfo 的内部实现
+   */
+  static async _fetchChannelInfoInternal(url) {
     // 提取 channelId 或 handle
     const channelId = this.extractChannelId(url);
     const handle = this.extractHandle(url);

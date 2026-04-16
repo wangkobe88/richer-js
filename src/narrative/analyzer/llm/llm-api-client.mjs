@@ -38,7 +38,7 @@ export async function callLLMAPI(prompt) {
     promptLength: prompt.length
   });
 
-  const timeout = 180000; // 180秒超时
+  const timeout = 60000; // 60秒超时
 
   // 尝试主模型
   let result = await _callLLM(prompt, primaryConfig, timeout);

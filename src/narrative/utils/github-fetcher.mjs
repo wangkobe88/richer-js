@@ -3,6 +3,9 @@
  * 用于评估 GitHub 项目的知名度
  */
 
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
+
 /**
  * GitHub 仓库信息提取器
  */
@@ -52,6 +55,13 @@ export class GithubFetcher {
    * @returns {Promise<Object|null>} 仓库信息
    */
   static async fetchRepoInfo(url) {
+    return CachedFetcher.fetchWithCache(url, 'github', async () => this._fetchRepoInfoInternal(url), getCacheTTL('github'));
+  }
+
+  /**
+   * fetchRepoInfo 的内部实现
+   */
+  static async _fetchRepoInfoInternal(url) {
     if (!url) {
       return null;
     }

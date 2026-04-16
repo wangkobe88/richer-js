@@ -4,6 +4,7 @@
  */
 
 import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
 
 const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/weibo/get-weibo-detail/v1';
@@ -138,7 +139,7 @@ export class WeiboFetcher {
       async (url) => {
         return this._fetchWeiboContent(url);
       },
-      { maxAge: 7 * 24 * 60 * 60, ttl: 30 * 24 * 60 * 60 } // 缓存7天，保存30天
+      getCacheTTL('weibo')
     );
   }
 
@@ -296,7 +297,7 @@ export class WeiboFetcher {
       async (url) => {
         return this._fetchUserInfo(url);
       },
-      { maxAge: 7 * 24 * 60 * 60, ttl: 30 * 24 * 60 * 60 }
+      getCacheTTL('weibo_user')
     );
   }
 
@@ -407,11 +408,24 @@ export class WeiboFetcher {
   }
 
   /**
-   * 获取微博用户主页信息（使用 JustOneAPI）
+   * 获取微博用户主页信息（带缓存）
    * @param {string} url - 微博用户主页 URL
    * @returns {Promise<Object|null>} 用户信息
    */
   static async fetchUserProfile(url) {
+    if (!url) return null;
+
+    return CachedFetcher.fetchWithCache(
+      url, 'weibo_user',
+      async () => this._fetchUserProfileInternal(url),
+      getCacheTTL('weibo_user')
+    );
+  }
+
+  /**
+   * 获取微博用户主页信息（实际API调用）
+   */
+  static async _fetchUserProfileInternal(url) {
     const uid = this.extractUid(url);
     if (!uid) {
       console.warn('[WeiboFetcher] 无法提取 uid:', url);

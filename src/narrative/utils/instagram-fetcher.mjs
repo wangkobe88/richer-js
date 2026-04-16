@@ -7,6 +7,9 @@ const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_POST_URL = 'https://api.justoneapi.com/api/instagram/post-details/v1';
 const JUSTONEAPI_USER_URL = 'https://api.justoneapi.com/api/instagram/user-profile/v1';
 
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
+
 /**
  * Instagram 信息提取器
  */
@@ -240,13 +243,24 @@ export class InstagramFetcher {
   }
 
   /**
-   * 获取 Instagram 帖子信息（入口方法）
+   * 获取 Instagram 帖子信息（带缓存）
    * @param {string} url - Instagram 帖子 URL
    * @returns {Promise<Object|null>} 帖子信息
    */
   static async fetchPostInfo(url) {
     if (!url) return null;
 
+    return CachedFetcher.fetchWithCache(
+      url, 'instagram',
+      async () => this._fetchPostInfoInternal(url),
+      getCacheTTL('instagram')
+    );
+  }
+
+  /**
+   * 获取 Instagram 帖子信息（实际API调用）
+   */
+  static async _fetchPostInfoInternal(url) {
     const shortcode = this.extractShortcode(url);
     if (!shortcode) {
       console.warn('[InstagramFetcher] 无法从URL中提取shortcode:', url);
@@ -258,13 +272,24 @@ export class InstagramFetcher {
   }
 
   /**
-   * 获取 Instagram 用户信息（入口方法）
+   * 获取 Instagram 用户信息（带缓存）
    * @param {string} url - Instagram 用户主页 URL
    * @returns {Promise<Object|null>} 用户信息
    */
   static async fetchProfileInfo(url) {
     if (!url) return null;
 
+    return CachedFetcher.fetchWithCache(
+      url, 'instagram_user',
+      async () => this._fetchProfileInfoInternal(url),
+      getCacheTTL('instagram_user')
+    );
+  }
+
+  /**
+   * 获取 Instagram 用户信息（实际API调用）
+   */
+  static async _fetchProfileInfoInternal(url) {
     const username = this.extractUsername(url);
     if (!username) {
       console.warn('[InstagramFetcher] 无法从URL中提取username:', url);

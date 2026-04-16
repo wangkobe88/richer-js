@@ -1825,6 +1825,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
             earlyTraderBlacklistCount: factorResults.earlyTraderBlacklistCount || 0,
             earlyTraderWhitelistCount: factorResults.earlyTraderWhitelistCount || 0,
             earlyTraderUniqueParticipants: factorResults.earlyTraderUniqueParticipants || 0,
+            earlyTraderBlacklistRatio: factorResults.earlyTraderBlacklistRatio || 0,
             earlyTraderCanBuy: factorResults.earlyTraderCanBuy ?? null,
             preTraderCanBuy: factorResults.preTraderCanBuy ?? null,
             preTraderCheckReason: factorResults.preTraderCheckReason ?? null,

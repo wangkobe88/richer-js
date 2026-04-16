@@ -4,14 +4,30 @@
  */
 
 import { safeSubstring } from '../analyzer/utils/data-cleaner.mjs';
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
 
 /**
- * 获取网页内容
+ * 获取网页内容（带缓存）
  * @param {string} url - 网站URL
  * @param {Object} options - 选项
  * @returns {Promise<Object>} 网页内容
  */
 export async function fetchWebsiteContent(url, options = {}) {
+  if (!url) return null;
+
+  return CachedFetcher.fetchWithCache(
+    url,
+    'website',
+    async () => _fetchWebsiteContentInternal(url, options),
+    getCacheTTL('website')
+  );
+}
+
+/**
+ * 获取网页内容（实际HTTP请求）
+ */
+async function _fetchWebsiteContentInternal(url, options = {}) {
   const { maxLength = 5000, timeout = 15000 } = options;
 
   if (!url) {

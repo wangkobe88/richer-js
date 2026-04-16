@@ -12,6 +12,9 @@
 const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_HTML_URL = 'https://api.justoneapi.com/api/web/html/v1';
 
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
+
 const FETCH_TIMEOUT = 30000; // JustOneAPI 可能较慢，给 30 秒
 
 /**
@@ -25,6 +28,13 @@ export class BinanceSquareFetcher {
    * @returns {Promise<Object|null>} 文章信息，获取失败时返回最小元数据
    */
   static async fetchPostInfo(url) {
+    return CachedFetcher.fetchWithCache(url, 'binance_square', async () => this._fetchPostInfoInternal(url), getCacheTTL('binance_square'));
+  }
+
+  /**
+   * fetchPostInfo 的内部实现
+   */
+  static async _fetchPostInfoInternal(url) {
     if (!url) return null;
 
     const postId = this._extractPostId(url);

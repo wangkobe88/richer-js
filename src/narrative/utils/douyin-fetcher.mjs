@@ -8,6 +8,9 @@ const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/douyin/get-video-detail/v
 const DOUYIN_SEARCH_URL = 'https://api.justoneapi.com/api/douyin/search-video/v4';
 const DOUYIN_USER_PROFILE_URL = 'https://api.justoneapi.com/api/douyin/get-user-detail/v3';
 
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
+
 /**
  * 抖音视频信息提取器
  */
@@ -363,6 +366,13 @@ export class DouyinFetcher {
    * @returns {Promise<Object|null>} 视频信息
    */
   static async fetchVideoInfo(url) {
+    return CachedFetcher.fetchWithCache(url, 'douyin', async () => this._fetchVideoInfoInternal(url), getCacheTTL('douyin'));
+  }
+
+  /**
+   * fetchVideoInfo 的内部实现
+   */
+  static async _fetchVideoInfoInternal(url) {
     if (!url) {
       return null;
     }
@@ -490,6 +500,13 @@ export class DouyinFetcher {
    * @returns {Promise<Object|null>} 用户信息
    */
   static async fetchUserProfile(url) {
+    return CachedFetcher.fetchWithCache(url, 'douyin_user', async () => this._fetchUserProfileInternal(url), getCacheTTL('douyin_user'));
+  }
+
+  /**
+   * fetchUserProfile 的内部实现
+   */
+  static async _fetchUserProfileInternal(url) {
     const secUid = this.extractSecUid(url);
     if (!secUid) {
       console.warn('[DouyinFetcher] 无法提取 sec_uid:', url);

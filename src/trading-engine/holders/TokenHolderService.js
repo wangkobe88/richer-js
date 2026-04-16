@@ -554,6 +554,7 @@ class TokenHolderService {
           earlyTraderBlacklistCount: 0,
           earlyTraderWhitelistCount: 0,
           earlyTraderUniqueParticipants: 0,
+          earlyTraderBlacklistRatio: 0,
           earlyTraderCanBuy: true,
           reason: '无早期交易数据'
         };
@@ -590,10 +591,13 @@ class TokenHolderService {
         reason
       });
 
+      const earlyTraderBlacklistRatio = participants.size > 0 ? blacklistCount / participants.size : 0;
+
       return {
         earlyTraderBlacklistCount: blacklistCount,
         earlyTraderWhitelistCount: whitelistCount,
         earlyTraderUniqueParticipants: participants.size,
+        earlyTraderBlacklistRatio,
         earlyTraderCanBuy: canBuy,
         reason
       };
@@ -606,6 +610,7 @@ class TokenHolderService {
         earlyTraderBlacklistCount: 0,
         earlyTraderWhitelistCount: 0,
         earlyTraderUniqueParticipants: 0,
+        earlyTraderBlacklistRatio: 0,
         earlyTraderCanBuy: false,
         reason: `检查失败: ${_safeGetErrorMessage(error)}`
       };

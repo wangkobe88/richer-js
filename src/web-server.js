@@ -852,6 +852,29 @@ class RicherJsWebServer {
       }
     });
 
+    // 批量根据地址删除钱包
+    this.app.post('/api/wallets/batch-delete', async (req, res) => {
+      try {
+        const { addresses } = req.body;
+
+        if (!addresses || !Array.isArray(addresses) || addresses.length === 0) {
+          return res.status(400).json({ success: false, error: '钱包地址列表不能为空' });
+        }
+
+        console.log(`🗑️ 批量删除钱包请求: ${addresses.length} 个`);
+        const results = await this.walletService.deleteWalletsByAddresses(addresses);
+        console.log('✅ 批量删除结果:', results);
+        res.json({
+          success: true,
+          message: `已删除 ${results.deleted} 个钱包${results.notFound > 0 ? `，${results.notFound} 个未找到` : ''}`,
+          data: results
+        });
+      } catch (error) {
+        console.error('批量删除钱包失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 根据地址删除钱包（必须在 /api/wallets/:id 之前定义）
     this.app.delete('/api/wallets/address/:address', async (req, res) => {
       try {

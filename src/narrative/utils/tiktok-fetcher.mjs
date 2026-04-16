@@ -7,6 +7,9 @@ const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
 const JUSTONEAPI_URL = 'https://api.justoneapi.com/api/tiktok/get-post-detail/v1';
 const TIKTOK_USER_PROFILE_URL = 'https://api.justoneapi.com/api/tiktok/get-user-detail/v1';
 
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
+
 /**
  * 从TikTok URL中提取视频ID
  * 支持格式：
@@ -82,6 +85,13 @@ async function fetchViaJustOneAPI(videoId) {
  * @returns {Promise<Object>} 视频信息
  */
 export async function fetchTikTokVideoInfo(url) {
+  return CachedFetcher.fetchWithCache(url, 'tiktok', async () => _fetchTikTokVideoInfoInternal(url), getCacheTTL('tiktok'));
+}
+
+/**
+ * fetchTikTokVideoInfo 的内部实现
+ */
+async function _fetchTikTokVideoInfoInternal(url) {
   if (!url) {
     return null;
   }
@@ -188,6 +198,13 @@ export function isTikTokUserProfileUrl(url) {
  * @returns {Promise<Object|null>} 用户信息
  */
 export async function fetchTikTokUserProfile(url) {
+  return CachedFetcher.fetchWithCache(url, 'tiktok_user', async () => _fetchTikTokUserProfileInternal(url), getCacheTTL('tiktok_user'));
+}
+
+/**
+ * fetchTikTokUserProfile 的内部实现
+ */
+async function _fetchTikTokUserProfileInternal(url) {
   const uniqueId = extractTikTokUsername(url);
   if (!uniqueId) {
     console.warn('[TikTokFetcher] 无法提取用户名:', url);

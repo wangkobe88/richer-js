@@ -629,6 +629,10 @@
                                 class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium transition-colors">
                             ⚠️ 全部添加到流水盘黑名单
                         </button>
+                        <button onclick="batchDeleteBlacklist()"
+                                class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium transition-colors">
+                            🗑️ 从黑名单删除所有钱包
+                        </button>
                     </div>
                 </div>
 
@@ -1066,6 +1070,54 @@
             } catch (error) {
                 console.error('批量添加流水盘钱包失败:', error);
                 alert(`❌ 添加失败: ${error.message}`);
+            }
+        }
+
+        // 批量从黑名单删除所有钱包
+        async function batchDeleteBlacklist() {
+            try {
+                // 收集当前页面所有在黑名单中的钱包地址
+                const uniqueWallets = new Set();
+                currentEarlyTrades.forEach(tx => {
+                    if (tx.from_address) uniqueWallets.add(tx.from_address.toLowerCase());
+                    if (tx.to_address) uniqueWallets.add(tx.to_address.toLowerCase());
+                });
+
+                const blacklistAddresses = Array.from(uniqueWallets).filter(addr => walletBlacklist.has(addr));
+
+                if (blacklistAddresses.length === 0) {
+                    alert('当前页面没有在黑名单中的钱包');
+                    return;
+                }
+
+                const confirmed = confirm(
+                    `🗑️ 确定要将以下钱包从黑名单中删除吗？\n\n` +
+                    `黑名单钱包数量: ${blacklistAddresses.length}\n\n` +
+                    `注意：删除后这些钱包将不再被识别为黑名单钱包。`
+                );
+
+                if (!confirmed) return;
+
+                const response = await fetch('/api/wallets/batch-delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ addresses: blacklistAddresses })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`✅ ${result.message}`);
+                    // 重新加载钱包列表
+                    await loadWalletLists();
+                    // 重新渲染表格
+                    renderEarlyTrades(currentEarlyTrades, null);
+                } else {
+                    alert(`❌ 删除失败: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('批量删除黑名单钱包失败:', error);
+                alert(`❌ 删除失败: ${error.message}`);
             }
         }
 

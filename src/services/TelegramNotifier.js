@@ -159,6 +159,9 @@ class TelegramNotifier {
       if (pf.earlyTraderUniqueParticipants !== undefined) {
         holderParts.push(`参与者: \`${pf.earlyTraderUniqueParticipants}\``);
       }
+      if (pf.earlyTraderBlacklistRatio !== undefined) {
+        holderParts.push(`黑名单占比: \`${(pf.earlyTraderBlacklistRatio * 100).toFixed(1)}%\``);
+      }
       if (pf.devHoldingRatio !== undefined && pf.devHoldingRatio !== null) {
         holderParts.push(`Dev持仓: \`${this.formatPercent(pf.devHoldingRatio)}\``);
       }

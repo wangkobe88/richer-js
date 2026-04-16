@@ -156,6 +156,37 @@ class WalletDataService {
   }
 
   /**
+   * 批量根据地址删除钱包
+   * @param {string[]} addresses - 钱包地址数组
+   * @return {Promise<Object>} { deleted: 数量, notFound: 数量 }
+   */
+  async deleteWalletsByAddresses(addresses) {
+    const results = { deleted: 0, notFound: 0 };
+
+    for (const address of addresses) {
+      try {
+        const existing = await this.getWalletByAddress(address);
+        if (!existing) {
+          results.notFound++;
+          continue;
+        }
+
+        const { error } = await this.supabase
+          .from('wallets')
+          .delete()
+          .ilike('address', address);
+
+        if (error) throw error;
+        results.deleted++;
+      } catch (error) {
+        console.error('批量删除钱包失败:', address, error);
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * 根据地址获取钱包
    * @param {string} address - 钱包地址
    * @return {Promise<Object>} 钱包对象

@@ -93,6 +93,7 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     earlyTraderBlacklistCount: preBuyCheckResult.earlyTraderBlacklistCount || 0,
     earlyTraderWhitelistCount: preBuyCheckResult.earlyTraderWhitelistCount || 0,
     earlyTraderUniqueParticipants: preBuyCheckResult.earlyTraderUniqueParticipants || 0,
+    earlyTraderBlacklistRatio: preBuyCheckResult.earlyTraderBlacklistRatio || 0,
     earlyTraderCanBuy: preBuyCheckResult.earlyTraderCanBuy ?? null,
     // 早期参与者检查因子
     earlyTradesChecked: preBuyCheckResult.earlyTradesChecked || 0,

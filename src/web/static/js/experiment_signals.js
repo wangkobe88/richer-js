@@ -2063,6 +2063,7 @@ class ExperimentSignals {
       if (pf.earlyTraderBlacklistCount !== undefined || pf.holdersCount !== undefined) {
         const traderWhitelistClass = this._getFactorClass('earlyTraderWhitelistCount', pf.earlyTraderWhitelistCount || 0, preCheckThresholds);
         const traderBlacklistClass = this._getFactorClass('earlyTraderBlacklistCount', pf.earlyTraderBlacklistCount || 0, preCheckThresholds);
+        const traderBlacklistRatioClass = this._getFactorClass('earlyTraderBlacklistRatio', pf.earlyTraderBlacklistRatio || 0, preCheckThresholds);
         const devClass = this._getFactorClass('devHoldingRatio', pf.devHoldingRatio || 0, preCheckThresholds);
         const maxClass = this._getFactorClass('maxHoldingRatio', pf.maxHoldingRatio || 0, preCheckThresholds);
 
@@ -2073,6 +2074,7 @@ class ExperimentSignals {
               <div><span class="text-amber-800">交易者白名单:</span> <span class="${traderWhitelistClass}">${pf.earlyTraderWhitelistCount || 0}</span></div>
               <div><span class="text-amber-800">交易者黑名单:</span> <span class="${traderBlacklistClass}">${pf.earlyTraderBlacklistCount || 0}</span></div>
               <div><span class="text-amber-800">交易参与者:</span> <span class="text-gray-900">${pf.earlyTraderUniqueParticipants || 0}</span></div>
+              <div><span class="text-amber-800">黑名单占比:</span> <span class="${traderBlacklistRatioClass}">${((pf.earlyTraderBlacklistRatio || 0) * 100).toFixed(1)}%</span></div>
               <div><span class="text-amber-800">持有人数:</span> <span class="text-gray-900">${pf.holdersCount || 0}</span></div>
               <div><span class="text-amber-800">Dev持有:</span> <span class="${devClass}">${formatPercent(pf.devHoldingRatio)}</span></div>
               <div><span class="text-amber-800">最大持仓:</span> <span class="${maxClass}">${formatPercent(pf.maxHoldingRatio)}</span></div>

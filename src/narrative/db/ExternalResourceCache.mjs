@@ -6,8 +6,6 @@
 
 import { dbManager } from '../../services/dbManager.js';
 
-const RAPIDAPI_KEY = 'b2d183d4cbmshe79b303f1de4b64p18e56ejsna95529b3f9ef';
-
 export class ExternalResourceCache {
 
   /**
@@ -169,6 +167,75 @@ export class ExternalResourceCache {
     } catch (error) {
       return false;
     }
+  }
+
+  /**
+   * 删除指定缓存条目
+   * @param {string} url - 资源URL
+   * @param {string} resourceType - 资源类型
+   * @returns {Promise<boolean>}
+   */
+  static async invalidate(url, resourceType) {
+    try {
+      const supabase = dbManager.getSupabase();
+      const { error } = await supabase
+        .from('external_resource_cache')
+        .delete()
+        .eq('url', url)
+        .eq('resource_type', resourceType);
+
+      if (error) {
+        console.error('[ExternalResourceCache] 删除缓存失败:', error.message);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('[ExternalResourceCache] 删除缓存异常:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * 从缓存表组装完整的 twitterInfo
+   * 用于替代 token_narrative.twitter_info 的读取
+   *
+   * @param {Array} classifiedTwitterUrls - classified_urls.twitter 数组
+   * @returns {Promise<Object|null>} 组装后的 twitterInfo
+   */
+  static async reassembleTwitterInfo(classifiedTwitterUrls) {
+    if (!classifiedTwitterUrls || classifiedTwitterUrls.length === 0) return null;
+
+    // 选择主推文 URL（优先级：tweet > community > 其他）
+    const mainUrlInfo = classifiedTwitterUrls.find(u => u.type === 'tweet')
+                     || classifiedTwitterUrls.find(u => u.type === 'community')
+                     || classifiedTwitterUrls[0];
+
+    if (!mainUrlInfo) return null;
+
+    const resourceType = mainUrlInfo.type === 'community' ? 'twitter_community' : 'tweet';
+    const mainInfo = await ExternalResourceCache.get(mainUrlInfo.url, resourceType, {
+      maxAge: 365 * 24 * 60 * 60 // 推文缓存有效期1年
+    });
+
+    if (!mainInfo) return null;
+
+    // 检查是否有第二推文（website_tweet）
+    if (classifiedTwitterUrls.length > 1) {
+      const mainUrl = mainUrlInfo.url;
+      const secondUrlInfo = classifiedTwitterUrls.find(
+        t => t.url !== mainUrl && t.type === 'tweet'
+      );
+      if (secondUrlInfo && !mainInfo.website_tweet) {
+        const secondTweet = await ExternalResourceCache.get(secondUrlInfo.url, 'tweet', {
+          maxAge: 365 * 24 * 60 * 60
+        });
+        if (secondTweet) {
+          mainInfo.website_tweet = secondTweet;
+        }
+      }
+    }
+
+    return mainInfo;
   }
 
   /**

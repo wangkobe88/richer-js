@@ -6,6 +6,8 @@ import twitterValidationModule from '../../utils/twitter-validation/index.js';
 const { getTweetDetail, getTweetDetailGraphQL, getUserByScreenName } = twitterValidationModule;
 import { fetchWebsiteContent, isFetchableUrl } from './web-fetcher.mjs';
 import { TwitterMediaExtractor } from './twitter-media-extractor.mjs';
+import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../db/cache-ttl-config.mjs';
 
 /**
  * 叙事分析Twitter用户黑名单
@@ -54,9 +56,23 @@ function formatTwitterTime(timeStr) {
 export class TwitterFetcher {
 
   /**
-   * 从推特URL获取推文内容
+   * 从推特URL获取推文内容（带缓存）
    */
   static async fetchFromUrl(twitterUrl) {
+    if (!twitterUrl) return null;
+
+    return CachedFetcher.fetchWithCache(
+      twitterUrl,
+      'tweet',
+      async () => this._fetchTweetInternal(twitterUrl),
+      getCacheTTL('tweet')
+    );
+  }
+
+  /**
+   * 从推特URL获取推文内容（实际API调用）
+   */
+  static async _fetchTweetInternal(twitterUrl) {
     if (!twitterUrl) {
       return null;
     }
@@ -269,14 +285,26 @@ export class TwitterFetcher {
   }
 
   /**
-   * 从推特账号链接获取账号信息
+   * 从推特账号链接获取账号信息（带缓存）
    * @param {string} username - Twitter用户名（不含@）
    * @returns {Promise<Object>} 账号信息
    */
   static async fetchAccountInfo(username) {
-    if (!username) {
-      return null;
-    }
+    if (!username) return null;
+
+    const cacheKey = `https://x.com/${username.toLowerCase()}`;
+    return CachedFetcher.fetchWithCache(
+      cacheKey,
+      'twitter_account',
+      async () => this._fetchAccountInternal(username),
+      getCacheTTL('twitter_account')
+    );
+  }
+
+  /**
+   * 从推特账号链接获取账号信息（实际API调用）
+   */
+  static async _fetchAccountInternal(username) {
 
     try {
       console.log(`[TwitterFetcher] 获取账号信息: @${username}`);
