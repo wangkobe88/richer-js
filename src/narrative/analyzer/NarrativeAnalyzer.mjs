@@ -24,7 +24,7 @@ import { fetchProductInfo, getInfluenceLevel, getInfluenceDescription } from '..
 import { ExternalResourceCache } from '../db/ExternalResourceCache.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
 import { extractAllUrls, classifyAllUrls, selectBestUrls } from '../utils/url-classifier.mjs';
-import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from './prompts/account-backgrounds.mjs';
+import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from './prompts/account/account-backgrounds.mjs';
 import { fetchCommunityForTweet } from '../../utils/twitter-validation/communities-api.js';
 import { getLogger } from '../core/logger.mjs';
 
@@ -40,9 +40,9 @@ import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommu
 import { analyzeMemeTokenTwoStage } from './services/meme-analysis-service.mjs';
 import { saveStage1Data, saveStage2Data } from './services/stage-data-service.mjs';
 import { callLLMAPI, LLMClient } from './llm/llm-api-client.mjs';
-import { detectSuperIP, calculatePreScores, TIER_SCORES } from './prompts/super-ip-registry.mjs';
-import { buildPersonFastPrompt } from './prompts/super-ip-fast-person.mjs';
-import { buildInstitutionFastPrompt } from './prompts/super-ip-fast-institution.mjs';
+import { detectSuperIP, calculatePreScores, TIER_SCORES } from './prompts/super-ip/super-ip-registry.mjs';
+import { buildPersonFastPrompt } from './prompts/super-ip/super-ip-fast-person.mjs';
+import { buildInstitutionFastPrompt } from './prompts/super-ip/super-ip-fast-institution.mjs';
 
 // 获取supabase客户端
 const getSupabase = () => NarrativeRepository.getSupabase();
@@ -531,7 +531,12 @@ export class NarrativeAnalyzer {
             logger.debug('NarrativeAnalyzer', '开始Stage 1：事件预处理');
             const stage1Prompt = PromptBuilder.buildStage1Preprocessing(tokenData, fetchResults);
             const stage1PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 1);
-            logger.debug('NarrativeAnalyzer', `Stage 1 Prompt类型: ${stage1PromptType}`);
+            const tweetClassification = PromptBuilder.getLastTweetClassification();
+            logger.debug('NarrativeAnalyzer', `Stage 1 Prompt类型: ${stage1PromptType}`, {
+              tweetType: tweetClassification?.type,
+              tweetConfidence: tweetClassification?.confidence,
+              tweetReason: tweetClassification?.reason
+            });
 
             // Stage 1：调用API获取原始响应（带元数据）
             const stage1CallResult = await callLLMAPI(stage1Prompt);

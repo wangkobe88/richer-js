@@ -8,7 +8,7 @@
  * 3. 统一Prompt格式
  */
 
-import { buildStage1EventPreprocessingPrompt } from './prompts/stage1-event-preprocessing.mjs';
+import { buildStage1EventPreprocessingPrompt } from './prompts/stage1/stage1-event-preprocessing.mjs';
 
 // Stage 2 分类特定Prompt映射
 const CATEGORY_PROMPT_BUILDERS = {

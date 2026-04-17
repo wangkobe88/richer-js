@@ -7,7 +7,7 @@ import {
   getUserByScreenName,
   getUserTweets,
   fetchCommunityTweets
-} from '../../../utils/twitter-validation/index.js';
+} from '../../../../utils/twitter-validation/index.js';
 
 /**
  * 清理字符串用于匹配
@@ -357,16 +357,23 @@ export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, acc
     console.log(`[AccountCommunityRules] 项目币跳过地址验证（网站已验证地址）`, {
       screenName: accountOrCommunityData.screen_name
     });
+
+    // 仍然做名称匹配检查
+    const nameResult = verifyTokenName(tokenSymbol, tokenName, accountOrCommunityData);
+
     return {
       passed: true,
       stage: 'project_coin_website_verified',
       addressVerified: true,
-      nameMatch: null,
-      reason: '项目币：网站内容中包含代币合约地址，已验证项目归属',
+      nameMatch: nameResult.matched,
+      reason: nameResult.matched
+        ? `项目币：网站内容中包含代币合约地址，已验证项目归属（${nameResult.matchDetails}）`
+        : '项目币：网站内容中包含代币合约地址，已验证项目归属',
       details: {
         addressLocations: ['website_content'],
         accountQuality,
-        skipReason: 'project_coin_website_verified'
+        skipReason: 'project_coin_website_verified',
+        nameMatchType: nameResult.matchType
       }
     };
   }

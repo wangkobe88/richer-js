@@ -100,18 +100,27 @@ import { buildAmazonSection } from './prompts/sections/amazon-section.mjs';
 import { buildXiaohongshuSection } from './prompts/sections/xiaohongshu-section.mjs';
 import { buildInstagramSection } from './prompts/sections/instagram-section.mjs';
 import { buildBinanceSquareSection } from './prompts/sections/binance-square-section.mjs';
-import { generateAccountBackgroundsPrompt } from './prompts/account-backgrounds.mjs';
+import { generateAccountBackgroundsPrompt } from './prompts/account/account-backgrounds.mjs';
 
 // V12.0 新框架：事件分析 + 代币分析
 import { buildEventAnalysisPrompt, EVENT_ANALYSIS_PROMPT_VERSION } from './prompts/event-analysis.mjs';
 import { buildTokenAnalysisPrompt, TOKEN_ANALYSIS_PROMPT_VERSION } from './prompts/token-analysis.mjs';
 
 // V17.0 3阶段架构：Stage 1事件预处理 + Stage 2分类评分 + Stage 3代币分析
-import { buildStage1EventPreprocessingPrompt, STAGE1_EVENT_PREPROCESSING_VERSION } from './prompts/stage1-event-preprocessing.mjs';
+import { buildStage1EventPreprocessingPrompt, STAGE1_EVENT_PREPROCESSING_VERSION } from './prompts/stage1/stage1-event-preprocessing.mjs';
 import { buildStage3TokenAnalysisPrompt, STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION } from './prompts/stage3-token-analysis.mjs';
 import { buildStage2Prompt, getSupportedCategories } from './prompt-loader.mjs';
 
+// 推文类型预分类
+import { classifyTweetType } from './services/tweet-type-classifier.mjs';
+import { buildStage1AngleSeekingPrompt } from './prompts/stage1/stage1-angle-seeking.mjs';
+import { buildStage1DirectTweetPrompt } from './prompts/stage1/stage1-direct-tweet.mjs';
+import { buildStage1InterpretiveReplyPrompt } from './prompts/stage1/stage1-interpretive-reply.mjs';
+
 export class PromptBuilder {
+
+  /** 最后一次推文分类结果 */
+  static _lastTweetClassification = null;
 
   /**
    * 获取Prompt版本
@@ -152,7 +161,23 @@ export class PromptBuilder {
    * @returns {string} Stage 1 Prompt
    */
   static buildStage1Preprocessing(tokenData, fetchResults) {
-    return buildStage1EventPreprocessingPrompt(tokenData, fetchResults);
+    // 推文类型预分类
+    const { twitterInfo } = fetchResults;
+    const classification = classifyTweetType(twitterInfo);
+    PromptBuilder._lastTweetClassification = classification;
+
+    // 根据分类结果路由到对应 prompt
+    switch (classification.type) {
+      case 'angle_seeking':
+        return buildStage1AngleSeekingPrompt(tokenData, fetchResults);
+      case 'direct_tweet':
+        return buildStage1DirectTweetPrompt(tokenData, fetchResults);
+      case 'interpretive_reply':
+        return buildStage1InterpretiveReplyPrompt(tokenData, fetchResults);
+      default:
+        // unknown → 使用原始 stage1 兜底
+        return buildStage1EventPreprocessingPrompt(tokenData, fetchResults);
+    }
   }
 
   /**
@@ -189,6 +214,14 @@ export class PromptBuilder {
    */
   static getSupportedCategories() {
     return getSupportedCategories();
+  }
+
+  /**
+   * 获取最后一次推文分类结果
+   * @returns {Object|null} { type, confidence, reason }
+   */
+  static getLastTweetClassification() {
+    return PromptBuilder._lastTweetClassification;
   }
 
   /**

@@ -18,8 +18,12 @@ function cleanTweetText(text) {
 
 /**
  * 构建推文部分
+ * @param {Object} tweet - 推文数据
+ * @param {string} label - 标签
+ * @param {Object} options - 选项
+ * @param {boolean} options.excludeEngagement - 是否排除推文互动数据（点赞、转发等）
  */
-function buildTweetPart(tweet, label = '推文') {
+function buildTweetPart(tweet, label = '推文', options = {}) {
   const parts = [];
 
   if (label) {
@@ -32,7 +36,7 @@ function buildTweetPart(tweet, label = '推文') {
   parts.push(`作者：@${authorScreenName}${verified}`);
 
   // 粉丝数
-  if (tweet.author_followers_count !== undefined) {
+  if (!options.excludeEngagement && tweet.author_followers_count !== undefined) {
     parts.push(`【作者粉丝数】${tweet.author_followers_count}`);
   }
 
@@ -44,9 +48,11 @@ function buildTweetPart(tweet, label = '推文') {
   }
 
   // 互动数据
-  const favoriteCount = tweet.metrics?.favorite_count || 0;
-  const retweetCount = tweet.metrics?.retweet_count || 0;
-  parts.push(`【推文互动】点赞 ${favoriteCount} / 转发 ${retweetCount}`);
+  if (!options.excludeEngagement) {
+    const favoriteCount = tweet.metrics?.favorite_count || 0;
+    const retweetCount = tweet.metrics?.retweet_count || 0;
+    parts.push(`【推文互动】点赞 ${favoriteCount} / 转发 ${retweetCount}`);
+  }
 
   // 推文内容（清理URL）
   const cleanedText = cleanTweetText(tweet.text);
@@ -145,9 +151,11 @@ function buildAccountPart(account) {
 /**
  * 构建Twitter信息section
  * @param {Object} twitterInfo - Twitter信息
+ * @param {Object} options - 选项
+ * @param {boolean} options.excludeEngagement - 是否排除推文互动数据（点赞、转发等）
  * @returns {string} Twitter section或空字符串
  */
-export function buildTwitterSection(twitterInfo) {
+export function buildTwitterSection(twitterInfo, options = {}) {
   if (!twitterInfo) {
     return '';
   }
@@ -158,13 +166,13 @@ export function buildTwitterSection(twitterInfo) {
   if (twitterInfo.type === 'account') {
     parts.push(buildAccountPart(twitterInfo));
   } else if (twitterInfo.text) {
-    parts.push(buildTweetPart(twitterInfo, '主推文'));
+    parts.push(buildTweetPart(twitterInfo, '主推文', options));
   }
 
   // Website推文（第二个推文）
   if (twitterInfo.website_tweet && twitterInfo.website_tweet.text) {
     parts.push('');
-    parts.push(buildTweetPart(twitterInfo.website_tweet, 'Website推文'));
+    parts.push(buildTweetPart(twitterInfo.website_tweet, 'Website推文', options));
   }
 
   // 引用推文

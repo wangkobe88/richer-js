@@ -16,8 +16,8 @@ import {
   getUserByScreenName,
   getUserTweets,
   fetchCommunityTweets
-} from '../../../utils/twitter-validation/index.js';
-import { safeSubstring } from '../utils/data-cleaner.mjs';
+} from '../../../../utils/twitter-validation/index.js';
+import { safeSubstring } from '../../utils/data-cleaner.mjs';
 
 /**
  * Prompt版本号

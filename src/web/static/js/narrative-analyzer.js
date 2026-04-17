@@ -290,8 +290,7 @@ class NarrativeAnalyzer {
       const details = [];
 
       // 蹭热度代币检查（copycat_token）
-      if (precheck.details?.ruleName === 'copycat_token' && result.preCheckDetails) {
-        const copycatDetails = result.preCheckDetails;
+      if (precheck.details?.ruleName === 'copycat_token') {
         details.push({
           label: '🚨 检测类型',
           value: '蹭热度代币',
@@ -299,18 +298,18 @@ class NarrativeAnalyzer {
         });
         details.push({
           label: '同名代币总数',
-          value: copycatDetails.totalOlder || 0,
+          value: result.totalOlder || 0,
           pass: null
         });
         details.push({
           label: '重复叙事数量',
-          value: copycatDetails.duplicateNarrativeCount || 0,
+          value: result.duplicateNarrativeCount || 0,
           pass: null,
           hint: '相同叙事指依托相同推文/网站的代币'
         });
         details.push({
           label: '一周内重复叙事',
-          value: copycatDetails.withinOneWeek || 0,
+          value: result.withinOneWeek || 0,
           pass: null
         });
         details.push({
@@ -319,17 +318,37 @@ class NarrativeAnalyzer {
           pass: false
         });
 
-        // 如果有24小时内的同名代币列表，展示详情
-        if (copycatDetails.sameNameTokens && copycatDetails.sameNameTokens.length > 0) {
-          const tokensList = copycatDetails.sameNameTokens
+        // 展示相同叙事的匹配代币列表
+        if (result.sameNameTokens && result.sameNameTokens.length > 0) {
+          const tokensList = result.sameNameTokens
             .slice(0, 5) // 最多显示5个
             .map(t => {
-              const gmgnUrl = `https://gmgn.ai/bsc/token/${t.address}`;
-              return `• <a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${t.symbol || t.name}</a> (${Math.round(t.hoursBefore)}小时前)`;
+              const chain = t.chain || 'bsc';
+              const gmgnUrl = `https://gmgn.ai/${chain}/token/${t.address}`;
+              const minutesBefore = t.minutesBefore || 0;
+              let timeInfo;
+              if (minutesBefore < 60) {
+                timeInfo = `${minutesBefore}分钟前`;
+              } else if (minutesBefore < 1440) {
+                timeInfo = `${Math.round(minutesBefore / 60 * 10) / 10}小时前`;
+              } else {
+                timeInfo = `${Math.round(minutesBefore / 1440 * 10) / 10}天前`;
+              }
+              // 交易量和价格变化信息
+              let extraInfo = '';
+              if (t.txCount > 0) {
+                extraInfo += ` · ${t.txCount}笔交易`;
+              }
+              if (t.priceChange && t.priceChange !== '0') {
+                const pct = parseFloat(t.priceChange);
+                const color = pct >= 0 ? '#27ae60' : '#e74c3c';
+                extraInfo += ` · <span style="color:${color}">${pct >= 0 ? '+' : ''}${pct}%</span>`;
+              }
+              return `• <a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${t.symbol || t.name || '?'}</a> <span style="font-size:11px;color:#999;">(${timeInfo})</span>${extraInfo}`;
             })
             .join('<br>');
           details.push({
-            label: '近期重复叙事代币',
+            label: '相同叙事的匹配代币',
             value: tokensList,
             pass: null
           });
