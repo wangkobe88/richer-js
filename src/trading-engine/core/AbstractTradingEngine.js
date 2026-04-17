@@ -83,6 +83,10 @@ class AbstractTradingEngine extends ITradingEngine {
     this._statsInterval = null;      // 统计间隔（毫秒）
     this._lastStatsTime = null;      // 上次统计时间
     this._statsEnabled = true;       // 是否启用定期统计
+
+    // Per-token 买入通知追踪
+    // key: tokenAddress(lowercase), value: { buySignalCount, notificationSent, hasAnyExecuted }
+    this._tokenBuyNotificationState = new Map();
   }
 
   // ==================== Getter 方法 ====================
@@ -656,20 +660,21 @@ class AbstractTradingEngine extends ITradingEngine {
       return;
     }
 
-    // 数据库更新成功后，发送 Telegram 通知
-    await this._sendSignalNotification(signalId, newMetadata);
+    // 数据库更新成功后，发送 Telegram 通知（带过滤逻辑）
+    await this._sendSignalNotificationWithFilter(signalId, newMetadata);
   }
 
   /**
-   * 发送信号通知到 Telegram
+   * 带过滤条件的信号通知
+   * - 买入信号：仅在该代币第一个被执行的信号时通知，或第3个信号（如果均未执行）
+   * - 卖出信号：每次都通知
    * @private
    * @param {string} signalId - 信号ID
    * @param {Object} metadata - 信号元数据
    * @returns {Promise<void>}
    */
-  async _sendSignalNotification(signalId, metadata) {
+  async _sendSignalNotificationWithFilter(signalId, metadata) {
     if (!this._telegramNotifier) {
-      // 通知器未初始化
       return;
     }
 
@@ -687,6 +692,20 @@ class AbstractTradingEngine extends ITradingEngine {
         return;
       }
 
+      // === 通知过滤逻辑 ===
+      if (signal.action === 'buy') {
+        const isExecuted = metadata.execution_status === 'executed';
+        const shouldNotify = await this._shouldSendBuyNotification(signal, isExecuted);
+        if (!shouldNotify) {
+          this._logger.debug('买入信号跳过通知', {
+            signalId,
+            tokenAddress: signal.token_address
+          });
+          return;
+        }
+      }
+      // 卖出信号：每次都通知，不添加过滤
+
       // 构建实验信息
       const experimentInfo = {
         id: this._experimentId,
@@ -697,12 +716,88 @@ class AbstractTradingEngine extends ITradingEngine {
       await this._telegramNotifier.sendSignalNotification(signal, experimentInfo);
 
     } catch (notifyError) {
-      // 通知失败只记录日志，不影响交易流程
       this._logger.warn('发送信号通知失败', {
         signalId,
         error: notifyError.message
       });
     }
+  }
+
+  /**
+   * 检查买入信号是否应触发通知
+   * 规则：第一个被执行的买入信号触发，若无执行则第3个买入信号触发
+   * @private
+   * @param {Object} signal - 完整信号数据
+   * @param {boolean} isExecuted - 信号是否执行成功
+   * @returns {Promise<boolean>} 是否应发送通知
+   */
+  async _shouldSendBuyNotification(signal, isExecuted) {
+    const tokenAddress = (signal.token_address || '').toLowerCase();
+    if (!tokenAddress) return false;
+
+    // 从内存状态获取，没有则从数据库初始化
+    let state = this._tokenBuyNotificationState.get(tokenAddress);
+    if (!state) {
+      state = await this._initTokenNotificationState(tokenAddress, signal.experiment_id);
+    }
+
+    // 已经发送过通知，不再发送
+    if (state.notificationSent) {
+      return false;
+    }
+
+    // 递增买入信号计数
+    state.buySignalCount += 1;
+
+    // 规则1: 第一个被执行的买入信号 → 触发
+    if (isExecuted) {
+      state.notificationSent = true;
+      state.hasAnyExecuted = true;
+      return true;
+    }
+
+    // 规则2: 如果没有任何 executed 的信号，第3个买入信号也触发
+    if (state.buySignalCount >= 3 && !state.hasAnyExecuted) {
+      state.notificationSent = true;
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * 从数据库初始化 token 通知状态（处理引擎重启的情况）
+   * @private
+   * @param {string} tokenAddress - 代币地址（小写）
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<Object>} 通知状态对象
+   */
+  async _initTokenNotificationState(tokenAddress, experimentId) {
+    const state = {
+      buySignalCount: 0,
+      notificationSent: false,
+      hasAnyExecuted: false
+    };
+
+    try {
+      const supabase = dbManager.getClient();
+      const { data: signals, error } = await supabase
+        .from('strategy_signals')
+        .select('action, executed')
+        .eq('token_address', tokenAddress)
+        .eq('experiment_id', experimentId)
+        .eq('action', 'buy');
+
+      if (!error && signals) {
+        state.buySignalCount = signals.length;
+        state.hasAnyExecuted = signals.some(s => s.executed === true);
+      }
+    } catch (err) {
+      this._logger.warn('初始化token通知状态失败', { tokenAddress, error: err.message });
+    }
+
+    this._tokenBuyNotificationState.set(tokenAddress, state);
+    return state;
   }
 
   /**
