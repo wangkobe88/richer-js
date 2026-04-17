@@ -64,7 +64,7 @@ export async function collectAllAccountsWithFullInfo(twitterInfo) {
  */
 export async function getFullAccountInfo(screenName) {
   try {
-    const { getAccountWithFullTweets } = await import('../prompts/account-community-rules.mjs');
+    const { getAccountWithFullTweets } = await import('../prompts/account/account-community-rules.mjs');
     const accountInfo = await getAccountWithFullTweets(screenName, 20); // 获取20条推文
     if (accountInfo) {
       return accountInfo;
@@ -88,12 +88,12 @@ export async function getFullAccountInfo(screenName) {
  * @returns {Promise<Object>} 分析结果
  */
 export async function analyzeAccountCommunityToken(tokenData, fetchResults, dependencies = {}, options = {}) {
-  const { buildAccountCommunityAnalysisPrompt } = await import('../prompts/account-community-analysis.mjs');
+  const { buildAccountCommunityAnalysisPrompt } = await import('../prompts/account/account-community-analysis.mjs');
   const {
     getAccountWithFullTweets,
     getCommunityWithFullTweets,
     performRulesValidation
-  } = await import('../prompts/account-community-rules.mjs');
+  } = await import('../prompts/account/account-community-rules.mjs');
 
   const twitterInfo = fetchResults.twitterInfo;
   const relatedAccounts = fetchResults.relatedAccounts || [];
@@ -143,7 +143,8 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
 
   if (!fullAccountOrCommunityData) {
     return {
-      category: 'low',
+      rating: 'low',
+      category: 'data_fetch_failed',
       reasoning: '无法获取账号/社区完整数据（用于规则验证）',
       scores: null,
       total_score: null
@@ -176,7 +177,8 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   // 规则验证未通过，直接返回low
   if (!rulesResult.passed) {
     return {
-      category: 'low',
+      rating: 'low',
+      category: 'rules_validation',
       reasoning: rulesResult.reason,
       scores: null,
       total_score: null,
@@ -186,7 +188,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
       rulesValidation: true, // 标记这是规则验证的结果
       // 规则验证失败返回preCheckData，在"预检查"卡片展示
       preCheckData: {
-        category: 'low',
+        rating: 'low',
         reason: rulesResult.reason,
         result: {
           addressVerified: rulesResult.addressVerified,
@@ -205,7 +207,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   let prompt;
   if (!rulesResult.addressVerified) {
     // 地址未命中：使用专用 prompt，只判断 account_based_meme
-    const { buildUnverifiedPrompt } = await import('../prompts/account-community-unverified.mjs');
+    const { buildUnverifiedPrompt } = await import('../prompts/account/account-community-unverified.mjs');
     prompt = await buildUnverifiedPrompt(tokenData, accountOrCommunityRef);
   } else {
     // 地址命中：使用标准 prompt，判断 project / web3_native_ip_early
@@ -216,7 +218,8 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
 
   if (!prompt) {
     return {
-      category: 'low',
+      rating: 'low',
+      category: 'prompt_build_failed',
       reasoning: '无法构建账号/社区分析Prompt（数据获取失败）',
       scores: null,
       total_score: null,
@@ -313,7 +316,8 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   } catch (e) {
     logger.error('AccountCommunityAnalysis', '解析LLM响应失败', { error: e.message, content: callResult.content.substring(0, 500) });
     return {
-      category: 'low',
+      rating: 'low',
+      category: 'parse_failed',
       reasoning: '分析响应解析失败',
       scores: null,
       total_score: null
@@ -329,21 +333,28 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   // 新增：以账号为背景的meme币判断
   // ═══════════════════════════════════════════════════════════════════════════════
   if (tokenType === 'account_based_meme') {
-    const abmRating = parsed.rating || 'unrated';
-    const abmReason = parsed.reason || '这是以账号为背景的meme币';
+    const abmRating = parsed.rating || null;
+    const abmReason = parsed.reason || '';
 
     logger.info('AccountCommunityAnalysis', `判断为以账号为背景的meme币，返回${abmRating}`, {
       accountMatchDetails: safeSubstring(parsed.details?.accountMatchDetails, 100),
       web3Interaction: safeSubstring(parsed.details?.web3Interaction, 100)
     });
 
+    if (!abmRating) {
+      throw new Error(`account_based_meme 判断成功但LLM未返回rating字段`);
+    }
+
     return {
-      category: abmRating,
+      rating: abmRating,
+      category: 'account_based_meme',
       reasoning: abmReason,
       scores: null,
       total_score: null,
       prestageData: {
-        category: abmRating,
+        rating: abmRating,
+        pass: true,
+        category: 'account_based_meme',
         prompt: prompt,
         raw_output: callResult.content,
         parsed_output: {
@@ -371,13 +382,16 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
     });
 
     return {
-      category: 'unrated',
+      rating: 'unrated',
+      category: 'web3_native_ip_early',
       reasoning: parsed.reason || 'Web3原生IP处于早期发展阶段，需等待社区成长后再评估',
       scores: null,
       total_score: null,
       // 前置LLM阶段数据（账号/社区分析判断币种类型）
       prestageData: {
-        category: 'unrated', // Web3原生IP早期
+        rating: 'unrated',
+        pass: null,
+        category: 'web3_native_ip_early',
         prompt: prompt,
         raw_output: callResult.content,
         parsed_output: {
@@ -421,6 +435,8 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
 
     // 添加前置LLM阶段数据（账号/社区分析判断币种类型）
     memeResult.prestageData = {
+      rating: null,
+      pass: true,
       category: 'meme', // 前置LLM判断为meme币
       prompt: prompt,
       raw_output: callResult.content,
@@ -440,25 +456,25 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
     return memeResult;
   } else {
     // 项目币：直接返回评级结果
-    const rating = parsed.rating || 'low';
+    const rating = parsed.rating || null;
     const reason = parsed.reason || '';
 
-    // 映射到现有category
-    const categoryMap = {
-      'high': 'high',
-      'mid': 'mid',
-      'low': 'low'
-    };
+    if (!rating) {
+      throw new Error(`项目币判断成功但LLM未返回rating字段`);
+    }
 
     return {
-      category: categoryMap[rating] || 'low',
+      rating: rating,
+      category: 'project',
       reasoning: reason,
       scores: null, // 简化流程不返回详细评分
       total_score: null,
       baselineMet: parsed.baselineMet,
       // 前置LLM阶段数据（账号/社区分析判断币种类型）
       prestageData: {
-        category: categoryMap[rating] || 'low',
+        rating: rating,
+        pass: true,
+        category: 'project',
         prompt: prompt,
         raw_output: callResult.content,
         parsed_output: {

@@ -4,7 +4,7 @@
  */
 
 import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
-import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../prompts/account-backgrounds.mjs';
+import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../prompts/account/account-backgrounds.mjs';
 import { SameNameCheckService } from './same-name-check-service.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
 import { extractNarrativeMaterialId } from '../../utils/material-id-extractor.mjs';

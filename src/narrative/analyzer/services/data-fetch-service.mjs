@@ -9,7 +9,7 @@ import { WeiboFetcher } from '../../utils/weibo-fetcher.mjs';
 import { GithubFetcher } from '../../utils/github-fetcher.mjs';
 import { YoutubeFetcher } from '../../utils/youtube-fetcher.mjs';
 import { DouyinFetcher } from '../../utils/douyin-fetcher.mjs';
-import { isHighInfluenceAccount } from '../prompts/account-backgrounds.mjs';
+import { isHighInfluenceAccount } from '../prompts/account/account-backgrounds.mjs';
 import { fetchTikTokVideoInfo, fetchTikTokUserProfile } from '../../utils/tiktok-fetcher.mjs';
 
 // TikTok 影响力等级函数（从原始 NarrativeAnalyzer.mjs 中提取）

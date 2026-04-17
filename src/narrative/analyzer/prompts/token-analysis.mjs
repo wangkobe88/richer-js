@@ -72,7 +72,7 @@ import { buildWeixinSection } from './sections/weixin-section.mjs';
 import { buildAmazonSection } from './sections/amazon-section.mjs';
 import { buildXiaohongshuSection } from './sections/xiaohongshu-section.mjs';
 import { buildInstagramSection } from './sections/instagram-section.mjs';
-import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
+import { generateAccountBackgroundsPrompt } from './account/account-backgrounds.mjs';
 
 /**
  * Prompt版本号
@@ -345,7 +345,7 @@ ${hasTwitter ? `
 
 **评分与阻断**：
 
-- **如果触发日期阻断** → **立即返回** category="low"，理由：代币只是日期标记，不是事件主体
+- **如果触发日期阻断** → **立即返回** rating="low"，理由：代币只是日期标记，不是事件主体
 - **如果精确匹配（且未触发日期阻断）** → 关联强度 = 16-20分，继续执行第二步
 - **如果不精确匹配** → 进入1.2语义关联
 
@@ -400,9 +400,9 @@ ${hasTwitter ? `
   4. **用户能否快速get到**：是/否
 
 - **评分与阻断**：
-  - **用户无法快速get到** → **立即返回** category="low"，理由：语义关联无法快速理解
+  - **用户无法快速get到** → **立即返回** rating="low"，理由：语义关联无法快速理解
   - **用户能快速get到且置信度 ≥ 0.8** → 关联强度 = 10-15分，继续执行第二步
-  - **用户能快速get到但置信度 < 0.8** → **立即返回** category="low"，理由：语义关联置信度不足
+  - **用户能快速get到但置信度 < 0.8** → **立即返回** rating="low"，理由：语义关联置信度不足
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -450,7 +450,7 @@ ${hasTwitter ? `
   5. **是否广为人知**：是/否
 
 - **评分与阻断**：
-  - **用户无法快速get到或不够广为人知** → **立即返回** category="low"，理由：文化关联不够广为人知
+  - **用户无法快速get到或不够广为人知** → **立即返回** rating="low"，理由：文化关联不够广为人知
   - **用户能快速get到且广为人知且置信度 ≥ 0.9** → 关联强度 = 0-9分，继续执行第二步
   - **策略**：宁可误杀，不要误判
 
@@ -464,7 +464,7 @@ ${hasTwitter ? `
 
 **2.1 语言不当性检查（阻断性）**
 
-⚠️ **以下情况直接返回category="low"**
+⚠️ **以下情况直接返回rating="low"**
 
 - ✅ 唯一豁免：中文⇄英文互译不算语言不匹配
 - ⚠️ 触发语言不匹配：
@@ -472,13 +472,13 @@ ${hasTwitter ? `
   - 韩语⇄英文/中文
   - 泰语⇄英文/中文
   - 其他非中英语言与英文/中文混用
-- 触发 → category="low"，理由：语言不匹配 = 无法传播
+- 触发 → rating="low"，理由：语言不匹配 = 无法传播
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 **2.2 内容不当性检查（阻断性）**
 
-⚠️ **以下情况直接返回category="low"**
+⚠️ **以下情况直接返回rating="low"**
 
 - 检查代币名是否适合作为meme币的标识
 - 判断标准（满足任一即触发low）：
@@ -579,7 +579,7 @@ ${hasTwitter ? `
 
 ⚠️ **检查质量是否达标**
 
-- 如果质量总分 < 4分 → **立即返回** category="low"，不再继续
+- 如果质量总分 < 4分 → **立即返回** rating="low"，不再继续
 - 理由：代币名称质量X/20分 < 4分底线
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -602,12 +602,12 @@ ${hasTwitter ? `
 验证：当E=100, R=20, T=20时，综合得分=60+20+20=100 ✓
 
 最终分类：
-- 综合得分 ≥ 75：category = "high"
-- 综合得分 50-74：category = "mid"
-- 综合得分 < 50：category = "low"
+- 综合得分 ≥ 75：rating = "high"
+- 综合得分 50-74：rating = "mid"
+- 综合得分 < 50：rating = "low"
 
 ⚠️ **特殊调整**：
-- 如果Stage 1事件类别是"D类无热点" → 直接返回 category="low"
+- 如果Stage 1事件类别是"D类无热点" → 直接返回 rating="low"
 
 ═══════════════════════════════════════════════════════════════════════════════
 
@@ -615,7 +615,7 @@ ${hasTwitter ? `
 
 **底线场景（日期阻断）**：
 {
-  "category": "low",
+  "rating": "low",
   "reasoning": "日期阻断：代币只是日期/时间标记，不是事件主体",
   "scores": {
     "total_score": null,
@@ -627,7 +627,7 @@ ${hasTwitter ? `
 
 **底线场景（语义关联阻断）**：
 {
-  "category": "low",
+  "rating": "low",
   "reasoning": "语义关联：用户无法快速get到 / 置信度不足",
   "scores": {
     "total_score": null,
@@ -639,7 +639,7 @@ ${hasTwitter ? `
 
 **底线场景（文化关联阻断）**：
 {
-  "category": "low",
+  "rating": "low",
   "reasoning": "文化关联：不够广为人知 / 用户无法快速get到",
   "scores": {
     "total_score": null,
@@ -651,7 +651,7 @@ ${hasTwitter ? `
 
 **底线场景（代币质量不达标）**：
 {
-  "category": "low",
+  "rating": "low",
   "reasoning": "代币名称质量X/20分 < 4分底线",
   "scores": {
     "total_score": null,
@@ -670,7 +670,7 @@ ${hasTwitter ? `
 
 **正常评分输出**：
 {
-  "category": "high/mid/low",
+  "rating": "high/mid/low",
   "reasoning": "综合评分：事件E分×0.6 + 关联R分×1.0 + 质量T分×1.0 = XX分",
   "scores": {
     "total_score": XX,

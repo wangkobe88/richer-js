@@ -40,7 +40,8 @@ export async function analyzeMemeTokenTwoStage(tokenData, fetchResults, stage1In
     });
 
     return {
-      category: 'low',
+      rating: 'low',
+      category: 'meme',
       reasoning: eventData.reason,
       scores: null,
       total_score: null,
@@ -49,7 +50,8 @@ export async function analyzeMemeTokenTwoStage(tokenData, fetchResults, stage1In
       nameMatch: stage1Info.rulesResult?.nameMatch,
       // 只保存事件分析到stage1，不保存账号分析
       stage1Data: {
-        category: 'low', // 事件分析未通过
+        rating: 'low',
+        category: 'meme',
         prompt: eventPrompt,
         raw_output: eventCallResult.raw.raw,
         parsed_output: {
@@ -75,7 +77,8 @@ export async function analyzeMemeTokenTwoStage(tokenData, fetchResults, stage1In
 
   // 先准备Stage1数据（即使Stage2失败也要保存Stage1）
   const stage1Data = {
-    category: 'pass', // 事件分析通过，标记为pass
+    rating: null,
+    category: 'meme',
     prompt: eventPrompt,
     raw_output: eventCallResult.raw.raw,
     parsed_output: {
@@ -99,7 +102,8 @@ export async function analyzeMemeTokenTwoStage(tokenData, fetchResults, stage1In
 
   // 准备Stage2数据（无论成功还是失败）
   const stage2Data = {
-    category: tokenCallResult.parsed?.category || null,
+    rating: tokenCallResult.parsed?.rating || null,
+    category: 'meme',
     prompt: tokenPrompt,
     raw_output: tokenCallResult.raw?.raw || tokenCallResult.raw || null,
     parsed_output: tokenCallResult.parsed,
@@ -114,7 +118,8 @@ export async function analyzeMemeTokenTwoStage(tokenData, fetchResults, stage1In
     // Stage2失败，返回Stage1的结果
     logger.warn('MemeTokenAnalysis', `代币分析失败，仅返回Stage1结果: ${tokenCallResult.error}`);
     return {
-      category: 'unrated',
+      rating: 'unrated',
+      category: 'meme',
       reasoning: `事件分析通过，但代币分析失败: ${tokenCallResult.error}`,
       scores: null,
       total_score: null,
@@ -132,6 +137,7 @@ export async function analyzeMemeTokenTwoStage(tokenData, fetchResults, stage1In
   // 返回最终结果
   return {
     ...tokenCallResult.parsed,
+    category: 'meme',
     // 添加规则验证结果
     addressVerified: stage1Info.rulesResult?.addressVerified,
     nameMatch: stage1Info.rulesResult?.nameMatch,

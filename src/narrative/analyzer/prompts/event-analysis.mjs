@@ -199,7 +199,7 @@ import { buildVideoSection } from './sections/video-section.mjs';
 import { buildWeixinSection } from './sections/weixin-section.mjs';
 import { buildXiaohongshuSection } from './sections/xiaohongshu-section.mjs';
 import { buildInstagramSection } from './sections/instagram-section.mjs';
-import { generateAccountBackgroundsPrompt } from './account-backgrounds.mjs';
+import { generateAccountBackgroundsPrompt } from './account/account-backgrounds.mjs';
 
 /**
  * Prompt版本号

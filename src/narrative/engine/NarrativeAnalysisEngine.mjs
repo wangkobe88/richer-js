@@ -180,8 +180,8 @@ export class NarrativeAnalysisEngine {
    */
   async _spawnWorker(task) {
     try {
-      // 先更新任务状态为 stage1_processing
-      await this._updateTaskStatus(task.id, 'stage1_processing', {
+      // 先更新任务状态为 processing
+      await this._updateTaskStatus(task.id, 'processing', {
         started_at: new Date().toISOString()
       });
 
@@ -325,7 +325,6 @@ export class NarrativeAnalysisEngine {
     }
 
     await this._updateTaskStatus(taskId, 'completed', {
-      current_stage: 2, // 新框架完整分析，标记为阶段2完成
       narrative_id: existingNarrative.id || null,
       completed_at: new Date().toISOString()
     });
@@ -370,7 +369,6 @@ export class NarrativeAnalysisEngine {
 
       await this._updateTaskStatus(taskId, 'pending', {
         retry_count: currentRetryCount + 1,
-        current_stage: 0,
         error_message: errorMessage,
         updated_at: new Date().toISOString()
       });
@@ -422,7 +420,6 @@ export class NarrativeAnalysisEngine {
 
       await this._updateTaskStatus(taskId, 'pending', {
         retry_count: currentRetryCount + 1,
-        current_stage: 0,
         updated_at: new Date().toISOString()
       });
     } else {

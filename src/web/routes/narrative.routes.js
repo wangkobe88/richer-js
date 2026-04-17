@@ -330,9 +330,7 @@ router.get('/tasks/stats', async (req, res) => {
     const stats = {
       total: statusCounts.length,
       pending: 0,
-      stage1_processing: 0,
-      stage1_completed: 0,
-      stage2_processing: 0,
+      processing: 0,
       completed: 0,
       failed: 0
     };
@@ -433,7 +431,7 @@ router.put('/tasks/:id', async (req, res) => {
     }
 
     if (status !== undefined) {
-      const validStatuses = ['pending', 'stage1_processing', 'stage1_completed', 'stage2_processing', 'completed', 'failed'];
+      const validStatuses = ['pending', 'processing', 'completed', 'failed'];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({
           success: false,
@@ -487,7 +485,6 @@ router.post('/tasks/:id/reset', async (req, res) => {
       .from('narrative_analysis_tasks')
       .update({
         status: 'pending',
-        current_stage: 0,
         retry_count: 0,
         error_message: null,
         updated_at: new Date().toISOString()
@@ -576,7 +573,6 @@ router.post('/tasks', async (req, res) => {
         status: 'pending',
         priority: parseInt(priority),
         triggered_by_experiment_id: experimentId || null,
-        current_stage: 0,
         retry_count: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()

@@ -419,6 +419,246 @@
             color: #999;
         }
 
+        /* ===== 超大IP快速通道专用样式 ===== */
+
+        .fast-track-header {
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            margin-bottom: 16px;
+            color: white;
+        }
+
+        .fast-track-ip-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .fast-track-tier {
+            font-size: 13px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 12px;
+            letter-spacing: 1px;
+        }
+
+        .fast-track-ip-name {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .fast-track-ip-type {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.25);
+            color: rgba(255,255,255,0.9);
+        }
+
+        .fast-track-desc {
+            margin-top: 6px;
+            font-size: 13px;
+            opacity: 0.85;
+        }
+
+        .fast-track-block {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px;
+            background: #fff5f5;
+            border: 1px solid #feb2b2;
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+
+        .fast-track-block-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .fast-track-block-content strong {
+            color: #c53030;
+            font-size: 15px;
+        }
+
+        .fast-track-block-reason {
+            margin-top: 6px;
+            font-size: 13px;
+            color: #e53e3e;
+            line-height: 1.5;
+        }
+
+        .fast-track-score-overview {
+            margin-bottom: 16px;
+        }
+
+        .fast-track-score-overview .score-bar {
+            margin-top: 8px;
+        }
+
+        .fast-track-score-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .fast-track-score-header label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .fast-track-score-header value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .fast-track-rating-tag {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .fast-track-section {
+            margin-bottom: 16px;
+        }
+
+        .fast-track-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .fast-track-score-formula {
+            font-size: 11px;
+            color: #95a5a6;
+            margin-bottom: 10px;
+            font-family: monospace;
+        }
+
+        .fast-track-scores {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .fast-track-score-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .fast-track-score-row.derived {
+            padding-top: 4px;
+        }
+
+        .fast-track-score-label {
+            flex: 0 0 130px;
+            font-size: 12px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        .fast-track-score-bar-wrap {
+            flex: 1;
+        }
+
+        .fast-track-score-bar {
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .fast-track-score-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .fast-track-score-val {
+            flex: 0 0 32px;
+            text-align: right;
+            font-size: 13px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .fast-track-score-divider {
+            height: 1px;
+            background: #ecf0f1;
+            margin: 4px 0;
+        }
+
+        .fast-track-quality-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .fast-track-quality-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .fast-track-quality-label {
+            flex: 0 0 80px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .fast-track-quality-bar {
+            flex: 1;
+            height: 6px;
+            background: #ecf0f1;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .fast-track-quality-fill {
+            height: 100%;
+            background: #3498db;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        .fast-track-quality-val {
+            flex: 0 0 40px;
+            text-align: right;
+            font-size: 12px;
+            color: #555;
+        }
+
+        .fast-track-event-desc {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .fast-track-reasoning {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        /* ===== 超大IP快速通道样式结束 ===== */
+
         .entities-list {
             margin-top: 12px;
         }

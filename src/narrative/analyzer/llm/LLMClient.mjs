@@ -350,10 +350,9 @@ ${text}`;
 
       // 支持多种格式
       // 新版 Stage 2/3: { scoringResult: { totalScore: 100, ... }, ... }
-      // 旧版: { category: "high/mid/low", ... }
-      // 兼容旧字段名 categoryAnalysis
-      const scoring = result.scoringResult || result.categoryAnalysis || {};
-      const category = scoring.category || result.category || null;
+      // rating: 质量评级 (high/mid/low)
+      const scoring = result.scoringResult || {};
+      const rating = scoring.rating || result.rating || null;
 
       // 支持多种评分格式
       const totalScore = scoring.totalScore || result.total_score || null;
@@ -363,7 +362,7 @@ ${text}`;
 
       const parsed = {
         raw: result,
-        category: category,
+        rating: rating,
         total_score: totalScore,
         scores: result.scores || scoring.scores || {},
         reasoning: reasoning,
@@ -376,8 +375,8 @@ ${text}`;
       console.log('[LLMClient] parseResponse 返回值:', JSON.stringify({
         hasPass: !!parsed.pass,
         pass: parsed.pass,
-        hasCategory: !!parsed.category,
-        category: parsed.category,
+        hasRating: !!parsed.rating,
+        rating: parsed.rating,
         hasTotalScore: !!parsed.total_score,
         totalScore: parsed.total_score
       }));

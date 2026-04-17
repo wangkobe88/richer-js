@@ -51,6 +51,28 @@ const getSupabase = () => NarrativeRepository.getSupabase();
 const logger = getLogger();
 
 /**
+ * 检查URL是否使用免费托管平台（无自定义域名）
+ * 只有Web3项目类（W类）需要此项检查
+ */
+const FREE_HOSTING_DOMAINS = [
+  'github.io',     // GitHub Pages
+  'glitch.me',     // Glitch
+  'repl.co',       // Replit
+  'onrender.com',  // Render
+  'surge.sh',      // Surge
+  '000webhostapp.com', // 000webhost
+];
+
+function _isFreeHostingUrl(url) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return FREE_HOSTING_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+  } catch {
+    return false;
+  }
+}
+
+/**
  * 将旧格式的阶段数据转换为新的统一 result 格式
  * 旧格式: { category, model, prompt, raw_output, parsed_output, started_at, finished_at, success, error }
  * 新格式: { prestage_result, prestage_prompt, prestage_raw_output }
@@ -74,8 +96,8 @@ function buildStageSaveData(stageName, stageData, overrides = {}) {
     ?? null;
 
   const result = {
-    rating: overrides.rating ?? null,
-    pass: overrides.pass ?? po?.pass ?? po?.raw?.pass ?? null,
+    rating: overrides.rating ?? stageData.rating ?? null,
+    pass: overrides.pass ?? stageData.pass ?? po?.pass ?? po?.raw?.pass ?? null,
     reason: overrides.reason ?? po?.reason ?? po?.blockReason ?? po?.raw?.blockReason ?? null,
     category: overrides.category ?? stageData.category ?? null,
     score: extractedScore,
@@ -388,7 +410,7 @@ export class NarrativeAnalyzer {
             if (analysisResult.preCheckData) {
               // 规则验证失败，按预检查处理
               llmResult = {
-                rating: analysisResult.category,
+                rating: analysisResult.rating,
                 reason: analysisResult.reasoning,
                 score: analysisResult.total_score,
                 pass: false
@@ -401,7 +423,7 @@ export class NarrativeAnalyzer {
               // preCheckData 格式来自 account-analysis-service，需要转换为统一格式
               const pcd = analysisResult.preCheckData;
               preCheckDataToSave = {
-                rating: pcd.category || 'low',
+                rating: pcd.rating || 'low',
                 pass: false,
                 reason: pcd.reason || analysisResult.reasoning,
                 category: null,
@@ -411,7 +433,7 @@ export class NarrativeAnalyzer {
             } else if (analysisResult.stage1Data) {
               // meme币分流：使用stage2Data作为最终结果（如果有）
               llmResult = {
-                rating: analysisResult.category,
+                rating: analysisResult.rating,
                 reason: analysisResult.reasoning,
                 score: analysisResult.total_score,
                 pass: true
@@ -428,10 +450,10 @@ export class NarrativeAnalyzer {
             } else {
               // 项目币或Web3原生IP早期：前置LLM判断结果
               llmResult = {
-                rating: analysisResult.category,
+                rating: analysisResult.rating,
                 reason: analysisResult.reasoning,
                 score: analysisResult.total_score,
-                pass: analysisResult.category !== 'unrated'
+                pass: analysisResult.rating !== 'unrated'
               };
               promptUsed = analysisResult.prestageData?.prompt || 'account_community_analysis';
               promptType = 'account_community';
@@ -441,7 +463,7 @@ export class NarrativeAnalyzer {
               prestageDataToSave = analysisResult.prestageData;
 
               // 对于 unrated 类别（如 Web3 原生 IP 早期），显式清除旧的 stage1/stage2 数据
-              if (analysisResult.category === 'unrated') {
+              if (analysisResult.rating === 'unrated') {
                 // 使用特殊标记对象指示需要清除旧数据
                 stage1DataToSave = { __clear: true };
                 stage2DataToSave = { __clear: true };
@@ -490,6 +512,19 @@ export class NarrativeAnalyzer {
               const rating = totalScore >= 70 ? 'high' : totalScore >= 50 ? 'mid' : 'low';
 
               llmResult = { rating, score: totalScore, pass: true };
+
+              // 构建最终聚合结果（与3阶段流程的 stageFinalData 对齐）
+              stageFinalData = {
+                category: rating,
+                totalScore,
+                eventScore: eventWeighted,
+                eventWeight: 0.6,
+                relevanceScore: fastParsed.relevanceScore || 0,
+                qualityScore: fastParsed.qualityScore || 0,
+                stage2TotalScore: eventTotal,
+                blockReason: null
+              };
+
               logger.info('NarrativeAnalyzer', '超大IP快速通道评分', {
                 eventTotal, eventWeighted, totalScore, rating,
                 dimension2Score: fastParsed.dimension2Score,
@@ -497,6 +532,12 @@ export class NarrativeAnalyzer {
                 qualityScore: fastParsed.qualityScore
               });
             }
+
+            // 注入预计算数据供前端展示
+            fastParsed.ipInfo = superIPInfo;
+            fastParsed.tierScore = preScores.tierScore;
+            fastParsed.timeliness = preScores.timeliness;
+            fastParsed.baseEventScore = preScores.baseEventScore;
 
             // 保存到prestage（与账号/社区分析一致）
             prestageDataToSave = {
@@ -671,6 +712,33 @@ export class NarrativeAnalyzer {
                   totalScore: stage2Data.scoringResult?.totalScore
                 });
 
+                // ========== W类 + 免费托管网站检查 ==========
+                // Web3项目声称自己是平台/产品，但主站用免费托管（github.io等），说明项目不可信
+                if (stage1Data.eventClassification?.primaryCategory === 'W') {
+                  const websiteUrl = classifiedUrls?.websites?.[0]?.url;
+                  if (websiteUrl && _isFreeHostingUrl(websiteUrl)) {
+                    const reason = `Web3项目主站使用免费托管平台（${websiteUrl}），连域名都不买，项目不可信`;
+                    logger.info('NarrativeAnalyzer', `W类免费托管检查触发: ${reason}`);
+
+                    stage2DataToSave.category = 'low';
+                    stage3DataToSave = { __clear: true };
+
+                    llmResult = {
+                      rating: 'low',
+                      reason,
+                      score: stage2Data.scoringResult?.totalScore || null,
+                      pass: false,
+                      analysis_stage: 2
+                    };
+                    promptType = `stage1+stage2(W类-免费托管阻断)`;
+
+                    // 跳过Stage 3，直接到保存
+                    logger.info('NarrativeAnalyzer', `W类免费托管阻断，跳过Stage 3`);
+                  }
+                }
+
+                // 只有未被免费托管检查阻断时，才进入Stage 3
+                if (!llmResult || llmResult.pass !== false) {
                 // ========== Stage 3: 代币分析 ==========
                 logger.debug('NarrativeAnalyzer', '开始Stage 3：代币分析');
                 const stage3Prompt = PromptBuilder.buildStage3TokenAnalysis(
@@ -790,6 +858,7 @@ export class NarrativeAnalyzer {
                 }
 
                 promptType = `stage1+stage2(${stage1Data.eventClassification?.primaryCategory}类)+stage3`;
+                } // 关闭免费托管检查的 if (!llmResult || ...) 块
               }
             } // 关闭3阶段架构 else 分支（第334行的else）
           } // 关闭hasAnyData的else分支（第267行的else）

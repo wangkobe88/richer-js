@@ -65,15 +65,13 @@ export function resolveFinalRating(record) {
     // 规则3: pass=false → rating 必须是 low → 直接返回
     if (result.pass === false) return 'low';
 
-    // 规则3.5: pass=null 但 category='low' → 兼容旧数据（pass 未正确从 raw 提取）
-    if (result.pass === null && result.category === 'low') return 'low';
-
     // 规则4: pass=true → 继续往后看
     if (result.pass === true) continue;
   }
 
-  // 有阶段数据但无法确定评级 → unrated；没有任何阶段数据 → null（无结果）
-  return hasAnyStage ? 'unrated' : null;
+  // 到达此处说明没有任何阶段显式返回 rating='unrated'（否则规则1已返回）
+  // 流程未走到终点（如 prestage pass=true 但后续阶段不存在）或阶段无有效结论 → null（无结果）
+  return null;
 }
 
 /**

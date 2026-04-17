@@ -11,7 +11,7 @@
  */
 
 import { SUPER_IP_REGISTRY } from '../prompts/super-ip/super-ip-registry.mjs';
-import { isHighInfluenceAccount } from '../prompts/account-backgrounds.mjs';
+import { isHighInfluenceAccount } from '../prompts/account/account-backgrounds.mjs';
 import { isFrequentIssuer } from './frequent-issuers.mjs';
 
 /**

@@ -1324,7 +1324,7 @@ class AbstractTradingEngine extends ITradingEngine {
   }
 
   /**
-   * 轮询获取叙事评级的通用逻辑
+   * 轮询获取叙事评级：直接查询 token_narrative 表，不依赖 narrative_analysis_tasks 状态
    * @protected
    * @param {string} experimentId - 实验ID（用于日志）
    * @param {string} tokenAddress - 代币地址
@@ -1350,70 +1350,31 @@ class AbstractTradingEngine extends ITradingEngine {
     const supabase = dbManager.getClient();
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // 1. 检查任务状态（使用小写地址）
-      const { data: task } = await supabase
-        .from('narrative_analysis_tasks')
-        .select('id, status, current_stage')
+      // 直接查询 token_narrative 表获取结果
+      const { data: narrative } = await supabase
+        .from('token_narrative')
+        .select('*')
         .eq('token_address', normalizedAddress)
         .maybeSingle();
 
-      if (!task) {
-        // 2. 无任务时，检查叙事数据是否已存在（多实验公用叙事数据）
-        const { data: narrative } = await supabase
-          .from('token_narrative')
-          .select('*')
-          .eq('token_address', normalizedAddress)
-          .maybeSingle();
-
-        if (narrative) {
-          // 通过 NarrativeAnalyzer 统一获取 rating，不直接操作列名
-          const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
-          const llmAnalysis = NarrativeAnalyzer.buildLLMAnalysis(narrative);
-          const rating = llmAnalysis?.summary?.numericRating ?? 0;
-          this._logger.info(experimentId, '_pollNarrativeRating',
-            `使用已存在的叙事数据 | token=${tokenAddress}, category=${llmAnalysis?.summary?.category}, rating=${rating}, analyzed_at=${narrative.analyzed_at}`);
-          return rating;
-        }
-
-        this._logger.debug(experimentId, '_pollNarrativeRating',
-          `尝试 ${attempt + 1}/${maxAttempts}: 无任务且无叙事数据`);
-        return 0;
-      }
-
-      // 2. 根据任务状态返回
-      if (task.status === 'stage1_completed' || task.status === 'stage2_processing') {
+      if (narrative) {
+        // 通过 NarrativeAnalyzer 统一获取 rating，不直接操作列名
+        const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
+        const llmAnalysis = NarrativeAnalyzer.buildLLMAnalysis(narrative);
+        const rating = llmAnalysis?.summary?.numericRating ?? 0;
         this._logger.info(experimentId, '_pollNarrativeRating',
-          `Stage 1 完成 | token=${tokenAddress}, status=${task.status}`);
-        return 8;
+          `叙事评级获取成功 | token=${tokenAddress}, category=${llmAnalysis?.summary?.category}, rating=${rating}, attempt=${attempt + 1}/${maxAttempts}`);
+        return rating;
       }
 
-      if (task.status === 'completed') {
-        // 3. 从叙事表读取最终评级（使用小写地址）
-        const { data: narrative } = await supabase
-          .from('token_narrative')
-          .select('*')
-          .eq('token_address', normalizedAddress)
-          .single();
-
-        if (narrative) {
-          // 通过 NarrativeAnalyzer 统一获取 rating，不直接操作列名
-          const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
-          const llmAnalysis = NarrativeAnalyzer.buildLLMAnalysis(narrative);
-          const rating = llmAnalysis?.summary?.numericRating ?? 0;
-          this._logger.info(experimentId, '_pollNarrativeRating',
-            `分析完成 | token=${tokenAddress}, category=${llmAnalysis?.summary?.category}, rating=${rating}`);
-          return rating;
-        }
-      }
-
-      // 4. 如果不是最后一次尝试，等待后重试
+      // 未就绪，等待后重试
       if (attempt < maxAttempts - 1) {
         this._logger.debug(experimentId, '_pollNarrativeRating',
-          `尝试 ${attempt + 1}/${maxAttempts}: 未完成，${pollIntervalMs}ms 后重试 | status=${task.status}`);
+          `尝试 ${attempt + 1}/${maxAttempts}: 叙事数据未就绪, ${pollIntervalMs}ms 后重试`);
         await this._sleep(pollIntervalMs);
       } else {
         this._logger.warn(experimentId, '_pollNarrativeRating',
-          `尝试 ${attempt + 1}/${maxAttempts}: 超时，放弃等待 | status=${task.status}`);
+          `尝试 ${attempt + 1}/${maxAttempts}: 超时, 无叙事数据 | token=${tokenAddress}`);
       }
     }
 

@@ -41,9 +41,7 @@
             font-weight: 500;
         }
         .status-pending { background: #f3f4f6; color: #374151; }
-        .status-stage1_processing { background: #dbeafe; color: #1e40af; }
-        .status-stage1_completed { background: #cffafe; color: #0e7490; }
-        .status-stage2_processing { background: #f3e8ff; color: #7e22ce; }
+        .status-processing { background: #dbeafe; color: #1e40af; }
         .status-completed { background: #dcfce7; color: #166534; }
         .status-failed { background: #fee2e2; color: #991b1b; }
         .priority-input {
@@ -174,9 +172,7 @@
                             <select id="status-filter" class="block w-40 pl-3 pr-10 py-2 text-base border-gray-300 border focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
                                 <option value="">全部</option>
                                 <option value="pending">待处理</option>
-                                <option value="stage1_processing">Stage 1 处理中</option>
-                                <option value="stage1_completed">Stage 1 已完成</option>
-                                <option value="stage2_processing">Stage 2 处理中</option>
+                                <option value="processing">处理中</option>
                                 <option value="completed">已完成</option>
                                 <option value="failed">失败</option>
                             </select>

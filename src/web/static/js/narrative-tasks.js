@@ -5,9 +5,7 @@
 // 状态配置
 const STATUS_CONFIG = {
     pending: { label: '待处理', class: 'status-pending' },
-    stage1_processing: { label: 'Stage 1 处理中', class: 'status-stage1_processing' },
-    stage1_completed: { label: 'Stage 1 已完成', class: 'status-stage1_completed' },
-    stage2_processing: { label: 'Stage 2 处理中', class: 'status-stage2_processing' },
+    processing: { label: '处理中', class: 'status-processing' },
     completed: { label: '已完成', class: 'status-completed' },
     failed: { label: '失败', class: 'status-failed' }
 };
@@ -172,7 +170,7 @@ async function loadStats() {
         const stats = result.data;
         document.getElementById('stat-total').textContent = stats.total;
         document.getElementById('stat-pending').textContent = stats.pending;
-        document.getElementById('stat-processing').textContent = stats.stage1_processing + stats.stage1_completed + stats.stage2_processing;
+        document.getElementById('stat-processing').textContent = stats.processing || 0;
         document.getElementById('stat-completed').textContent = stats.completed;
         document.getElementById('stat-failed').textContent = stats.failed;
 
@@ -544,10 +542,6 @@ function renderTaskDetail(task) {
             <div>
                 <div class="text-sm text-gray-500">优先级</div>
                 <div class="font-medium">${task.priority}</div>
-            </div>
-            <div>
-                <div class="text-sm text-gray-500">当前阶段</div>
-                <div class="font-medium">${task.current_stage || 0}</div>
             </div>
             <div>
                 <div class="text-sm text-gray-500">重试次数</div>

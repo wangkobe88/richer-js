@@ -559,64 +559,224 @@ class NarrativeAnalyzer {
     // 超大IP快速通道特殊处理
     if (prestage.category === 'super_ip_fast') {
       const ipInfo = parsed.ipInfo || {};
-      const ipName = ipInfo.name || '超大IP';
+      // 回退：旧缓存数据可能没有 ipInfo，尝试从 eventSubject 提取
+      const eventSubject = parsed.eventDescription?.eventSubject || '';
+      const ipName = ipInfo.name || eventSubject || '超大IP';
       const ipTier = ipInfo.tier || '?';
-      const ipType = ipInfo.type === 'person' ? '人物' : '机构';
+      const ipType = ipInfo.type === 'person' ? '人物' : (ipInfo.type === 'institution' ? '机构' : (eventSubject ? '人物' : '机构'));
+      const ipDesc = ipInfo.desc || '';
       const isFail = prestage.pass === false;
 
-      let fastResultHtml = '';
-      if (isFail) {
-        fastResultHtml = `
-          <div class="stage-result-box">
-            <strong>⛔ 快速通道阻断</strong><br>
-            <span style="font-size: 13px; color: #e53e3e;">${this.escapeHtml(prestage.reason || '未知原因')}</span>
-          </div>
-        `;
-      } else {
-        const scores = {
-          tierScore: parsed.tierScore || 0,
-          timeliness: parsed.timeliness || 0,
-          dimension2Score: parsed.dimension2Score || 0,
-          relevanceScore: parsed.relevanceScore || 0,
-          qualityScore: parsed.qualityScore || 0,
-        };
-        const eventTotal = (scores.tierScore + scores.timeliness + scores.dimension2Score);
-        const eventWeighted = Math.round(eventTotal * 0.6 * 100) / 100;
-        const totalScore = eventWeighted + scores.relevanceScore + scores.qualityScore;
+      // Tier 配色
+      const tierConfig = {
+        'S': { bg: '#ff6b35', color: '#fff', glow: 'rgba(255,107,53,0.3)' },
+        'A': { bg: '#3498db', color: '#fff', glow: 'rgba(52,152,219,0.3)' },
+        'B': { bg: '#95a5a6', color: '#fff', glow: 'rgba(149,165,166,0.3)' },
+        'C': { bg: '#7f8c8d', color: '#fff', glow: 'rgba(127,140,141,0.3)' },
+      };
+      const tc = tierConfig[ipTier] || tierConfig['B'];
 
-        fastResultHtml = `
-          <div class="stage-result-box">
-            <strong>🚀 ${ipName} ${ipTier}级${ipType} — 快速通道</strong><br>
-            <span style="font-size: 13px; color: #666;">
-              维度一(影响力): ${scores.tierScore}分 | 时效性: ${scores.timeliness}分 |
-              内容meme: ${scores.dimension2Score}分 | 关联性: ${scores.relevanceScore}分 | 质量: ${scores.qualityScore}分
-            </span><br>
-            <span style="font-size: 13px; color: #666;">
-              事件加权: ${eventWeighted}分 | 总分: ${totalScore}分
-            </span>
+      // 分数 - 从 details 获取，兜底从 prompt 文本提取
+      let tierScore = parsed.tierScore || 0;
+      let timeliness = parsed.timeliness || 0;
+      if ((!tierScore || !timeliness) && prestage.prompt) {
+        const tierMatch = prestage.prompt.match(/维度一得分：(\d+)分/);
+        if (tierMatch && !tierScore) tierScore = parseInt(tierMatch[1]);
+        const timelinessMatch = prestage.prompt.match(/时效性加分：(\d+)分/);
+        if (timelinessMatch && !timeliness) timeliness = parseInt(timelinessMatch[1]);
+      }
+      const baseEventScore = parsed.baseEventScore || (tierScore + timeliness);
+      const dimension2Score = parsed.dimension2Score || 0;
+      const relevanceScore = parsed.relevanceScore || 0;
+      const qualityScore = parsed.qualityScore || 0;
+      const eventTotal = baseEventScore + dimension2Score;
+      const eventWeighted = Math.round(eventTotal * 0.6 * 100) / 100;
+      const totalScore = eventWeighted + relevanceScore + qualityScore;
+      const rating = totalScore >= 70 ? 'high' : totalScore >= 50 ? 'mid' : 'low';
+
+      // 质量分解
+      const qb = parsed.qualityBreakdown || {};
+
+      // 事件描述
+      const eventDesc = parsed.eventDescription || {};
+
+      // IP 头部徽章
+      const ipBadgeHtml = `
+        <div class="fast-track-header">
+          <div class="fast-track-ip-badge">
+            <span class="fast-track-tier" style="background:${tc.bg}; color:${tc.color}; box-shadow: 0 2px 8px ${tc.glow};">${ipTier}级</span>
+            <span class="fast-track-ip-name">${this.escapeHtml(ipName)}</span>
+            <span class="fast-track-ip-type">${ipType}</span>
+          </div>
+          <div class="fast-track-desc">${this.escapeHtml(ipDesc)}</div>
+        </div>
+      `;
+
+      let bodyHtml = '';
+
+      if (isFail) {
+        // === 阻断 ===
+        bodyHtml = `
+          <div class="fast-track-block">
+            <div class="fast-track-block-icon">⛔</div>
+            <div class="fast-track-block-content">
+              <strong>快速通道阻断</strong>
+              <div class="fast-track-block-reason">${this.escapeHtml(prestage.reason || '未知原因')}</div>
+            </div>
           </div>
         `;
+
+        // 仍有部分评分时展示
+        if (dimension2Score > 0 || relevanceScore > 0 || qualityScore > 0) {
+          bodyHtml += this._buildFastTrackScoresHtml({
+            tierScore, timeliness, baseEventScore, dimension2Score,
+            relevanceScore, qualityScore, eventTotal, eventWeighted, totalScore, rating
+          });
+        }
+      } else {
+        // === 通过 ===
+
+        // 总分进度条
+        const totalPct = Math.min(totalScore, 100);
+        const ratingConfig = {
+          'high': { label: '高质量', color: '#11998e', gradient: 'linear-gradient(90deg, #11998e, #38ef7d)' },
+          'mid':  { label: '中质量', color: '#f39c12', gradient: 'linear-gradient(90deg, #f093fb, #f5576c)' },
+          'low':  { label: '低质量', color: '#e74c3c', gradient: 'linear-gradient(90deg, #eb3349, #f45c43)' },
+        };
+        const rc = ratingConfig[rating] || ratingConfig['low'];
+
+        bodyHtml += `
+          <div class="fast-track-score-overview">
+            <div class="fast-track-score-header">
+              <label>综合得分</label>
+              <value style="color: ${rc.color};">${totalScore}</value>
+            </div>
+            <div class="score-bar">
+              <div class="score-bar-fill" style="width: ${totalPct}%; background: ${rc.gradient};"></div>
+            </div>
+            <div class="fast-track-rating-tag" style="background: ${rc.color}20; color: ${rc.color}; border: 1px solid ${rc.color}40;">${rc.label}</div>
+          </div>
+        `;
+
+        // 分数明细
+        bodyHtml += this._buildFastTrackScoresHtml({
+          tierScore, timeliness, baseEventScore, dimension2Score,
+          relevanceScore, qualityScore, eventTotal, eventWeighted, totalScore, rating
+        });
+
+        // 质量分解
+        if (qb.length !== undefined || qb.spelling !== undefined || qb.nameReasonability !== undefined) {
+          bodyHtml += `
+            <div class="fast-track-section">
+              <div class="fast-track-section-title">质量分解</div>
+              <div class="fast-track-quality-grid">
+                ${this._buildQualityItem('名称长度', qb.length || 0, 8)}
+                ${this._buildQualityItem('拼写可读', qb.spelling || 0, 7)}
+                ${this._buildQualityItem('名称合理性', qb.nameReasonability || 0, 5)}
+              </div>
+            </div>
+          `;
+        }
+
+        // 事件描述
+        if (eventDesc.eventTheme || eventDesc.eventContent) {
+          bodyHtml += `
+            <div class="fast-track-section">
+              <div class="fast-track-section-title">事件描述</div>
+              <div class="fast-track-event-desc">
+                ${eventDesc.eventTheme ? `<div><strong>主题：</strong>${this.escapeHtml(eventDesc.eventTheme)}</div>` : ''}
+                ${eventDesc.eventSubject ? `<div><strong>主体：</strong>${this.escapeHtml(eventDesc.eventSubject)}</div>` : ''}
+                ${eventDesc.eventContent ? `<div style="margin-top:6px; color:#555;">${this.escapeHtml(eventDesc.eventContent)}</div>` : ''}
+              </div>
+            </div>
+          `;
+        }
+
+        // 推理过程
+        const reasoning = parsed.reasoning || prestage.reason;
+        if (reasoning) {
+          bodyHtml += `
+            <div class="fast-track-section">
+              <div class="fast-track-section-title">分析推理</div>
+              <div class="fast-track-reasoning">${this.escapeHtml(reasoning)}</div>
+            </div>
+          `;
+        }
       }
 
       // 时长和模型
-      let durationHtml = '';
+      let timingHtml = '';
       if (prestage.startedAt && prestage.finishedAt) {
         const duration = this.calculateDuration(prestage.startedAt, prestage.finishedAt);
-        durationHtml = `
-          <div style="margin-top: 8px; font-size: 12px; color: #888;">
-            <span>⏱️ ${duration}ms</span>
-            <span style="margin-left: 12px;">${prestage.model || 'Unknown'}</span>
+        timingHtml = `
+          <div class="stage-timing">
+            <div class="timing-item">
+              <span>⏱️</span>
+              <span>${duration}ms</span>
+            </div>
+            <div class="timing-item">
+              <span>🤖</span>
+              <span>${prestage.model || 'Unknown'}</span>
+            </div>
           </div>
         `;
       }
 
+      // LLM 输入输出展开区（与其他卡片风格一致）
+      let promptOutputHtml = '';
+      if (prestage.prompt || prestage.rawOutput) {
+        const hasPrompt = !!prestage.prompt;
+        const hasRawOutput = !!prestage.rawOutput;
+
+        let promptSection = '';
+        if (hasPrompt) {
+          promptSection = `
+            <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起 Prompt' : '展开 Prompt'">
+              ▼ 展开 Prompt
+            </button>
+            <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
+              ${this.escapeHtml(prestage.prompt)}
+            </div>
+          `;
+        }
+
+        let rawOutputSection = '';
+        if (hasRawOutput) {
+          rawOutputSection = `
+            <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起原始响应' : '展开原始响应'">
+              ▼ 展开原始响应
+            </button>
+            <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
+              ${typeof prestage.rawOutput === 'string' ? this.escapeHtml(prestage.rawOutput) : this.escapeHtml(JSON.stringify(prestage.rawOutput, null, 2))}
+            </div>
+          `;
+        }
+
+        if (hasPrompt || hasRawOutput) {
+          promptOutputHtml = `
+            <div style="margin-top: 16px; border-top: 1px solid #ecf0f1; padding-top: 16px;">
+              <div style="font-size: 14px; font-weight: 600; color: #2c3e50; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                <span>🤖</span>
+                <span>LLM 调用详情</span>
+              </div>
+              <div style="display: grid; gap: 8px;">
+                ${promptSection}
+                ${rawOutputSection}
+              </div>
+            </div>
+          `;
+        }
+      }
+
       this.prestageCardBody.innerHTML = `
-        <div class="stage-status pass">
-          <span>🚀</span>
+        <div class="stage-status ${isFail ? 'fail' : 'pass'}">
+          <span>${isFail ? '⛔' : '🚀'}</span>
           <span>超大IP快速通道</span>
         </div>
-        ${fastResultHtml}
-        ${durationHtml}
+        ${ipBadgeHtml}
+        ${bodyHtml}
+        ${timingHtml}
+        ${promptOutputHtml}
       `;
       return;
     }
@@ -2135,6 +2295,65 @@ class NarrativeAnalyzer {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * 构建快速通道分数明细HTML
+   */
+  _buildFastTrackScoresHtml({ tierScore, timeliness, baseEventScore, dimension2Score,
+    relevanceScore, qualityScore, eventTotal, eventWeighted, totalScore, rating }) {
+    return `
+      <div class="fast-track-section">
+        <div class="fast-track-section-title">评分明细</div>
+        <div class="fast-track-score-formula">
+          总分 = (维度一 + 时效 + 维度二) × 0.6 + 关联性 + 质量
+        </div>
+        <div class="fast-track-scores">
+          ${this._buildScoreRow('维度一 (影响力)', tierScore, 40)}
+          ${this._buildScoreRow('时效性', timeliness, 15)}
+          ${this._buildScoreRow('维度二 (内容)', dimension2Score, 40)}
+          <div class="fast-track-score-divider"></div>
+          ${this._buildScoreRow('事件加权 (×0.6)', eventWeighted, 60, true)}
+          ${this._buildScoreRow('关联性', relevanceScore, 20)}
+          ${this._buildScoreRow('质量', qualityScore, 20)}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * 构建单项评分行HTML
+   */
+  _buildScoreRow(label, value, max, isDerived = false) {
+    const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+    const barColor = pct >= 70 ? '#11998e' : pct >= 40 ? '#f39c12' : '#e74c3c';
+    return `
+      <div class="fast-track-score-row${isDerived ? ' derived' : ''}">
+        <span class="fast-track-score-label">${label}</span>
+        <div class="fast-track-score-bar-wrap">
+          <div class="fast-track-score-bar">
+            <div class="fast-track-score-fill" style="width:${pct}%; background:${barColor};"></div>
+          </div>
+        </div>
+        <span class="fast-track-score-val">${value}</span>
+      </div>
+    `;
+  }
+
+  /**
+   * 构建质量分解单项HTML
+   */
+  _buildQualityItem(label, value, max) {
+    const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+    return `
+      <div class="fast-track-quality-item">
+        <div class="fast-track-quality-label">${label}</div>
+        <div class="fast-track-quality-bar">
+          <div class="fast-track-quality-fill" style="width:${pct}%;"></div>
+        </div>
+        <span class="fast-track-quality-val">${value}/${max}</span>
+      </div>
+    `;
   }
 }
 
