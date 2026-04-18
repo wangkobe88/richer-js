@@ -12,7 +12,7 @@
  * - 与F类对称：F类回溯已知信息发现隐藏模式，G类基于已知信息预测未来事件
  */
 
-export const CATEGORY_G_PROMPT_VERSION = 'V1.0';
+export const CATEGORY_G_PROMPT_VERSION = 'V1.1';
 
 export function buildCategoryGPrompt(eventDescription, eventClassification) {
   return `你是G类（推测型叙事类）事件评分专家。
@@ -49,6 +49,17 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
 - **核心评估维度是推理质量**（证据是否充分？逻辑是否自洽？是否非显而易见？）
 - **推测性事件不等于无效事件**：推理合理的推测具有叙事价值，社区会围绕预期形成共识
 
+⚠️ **不要求证据"可验证"或"真实"**：
+- **不要求信息"可验证"或"真实"**，只要求有具体内容描述
+- 推文中给出的数据（热度、播放量、二创人数等）都是有效信息
+- 即使是营销包装，只要描述了具体的事件/数据/概念，就不算空洞
+
+**为什么不要求可验证/真实？**
+1. **分析者的角色限制**：你是一个内容分析者，不是事实核查员。你的任务是判断内容是否有价值，而不是验证数据是否真实。
+2. **验证成本太高**：要求第三方验证或独立来源会大幅增加分析成本，而且很多热点事件本身就是从营销开始的。
+3. **营销描述也是事件**：即使数据是营销话术，它也描述了一个"IP声称有XX热度"的事件。这个"宣称"本身就是事件的一部分。
+4. **Meme币的特性**：Meme币的价值很大程度上来源于社区共识和传播现象，营销热度数据是这种共识的体现，即使夸张也有参考价值。
+
 ═══════════════════════════════════════════════════════════════════════════════
 
 📋 **第一步：被推测对象的影响力评估**（S-E级，决定基础分）
@@ -84,10 +95,10 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
 
 🎯 **三个子要素**：
 
-**1. 证据充分性**：推测基于多少独立信息点？
-- 3+个独立证据点 → 强
-- 1-2个证据点 → 中
-- 纯感觉/无证据 → 弱
+**1. 信息充分性**：推测基于多少具体信息点？（不要求独立验证，只看内容具体性）
+- 3+个具体信息点（数据、事实描述、具体细节等） → 强
+- 1-2个信息点 → 中
+- 纯感觉/无具体内容描述 → 弱
 
 **2. 逻辑自洽性**：从证据到结论的推理链条是否合理？
 - 清晰、自洽的推理链 → 强
@@ -102,15 +113,15 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
 🎯 **推理质量评分**（综合三个子要素）：
 
 **强推理**（25-30分）：
-- 3+个独立证据点支撑 + 逻辑链条清晰自洽 + 非显而易见的洞察
+- 3+个具体信息点支撑 + 逻辑链条清晰自洽 + 非显而易见的洞察
 - 示例：CZ近一周3次在推文中提到conviction概念 + 新书即将发布 + 书的简介中暗示了坚持理念 → 推测书中会重点阐述conviction → 强推理
 
 **中等推理**（18-24分）：
-- 1-2个证据点 + 逻辑基本合理
+- 1-2个具体信息点 + 逻辑基本合理
 - 示例：Binance多次在公告中提到"48" + CZ发推暗示 → 推测即将推出与48相关的产品 → 中等推理
 
 **弱推理**（10-17分）：
-- 证据薄弱但有一定道理
+- 信息点较少但有一定道理
 - 示例：某KOL最近活跃度增加 → 推测他即将发布新产品 → 弱推理（单一证据，逻辑跳跃）
 
 **牵强/无推理**（0-9分）：
@@ -194,7 +205,7 @@ export function buildCategoryGPrompt(eventDescription, eventClassification) {
     "totalScore": 81,
     "reasoningQuality": "强推理/中等推理/弱推理/牵强推理",
     "reasoningQualityReason": "推理质量的判断理由",
-    "evidencePoints": 3,
+    "informationPoints": 3,
     "expectedEvent": "预测的具体事件描述",
     "meaningfulness": "有意义/条件性有意义/无意义",
     "meaningfulnessReason": "有意义性的判断理由"

@@ -134,14 +134,22 @@ export function buildStage3TokenAnalysisPrompt(tokenData, stage1Output) {
 **A. 知名代币名称**（代表示例）：
 - BTC/Bitcoin, ETH/Ethereum, BNB, SOL/Solana, XRP, DOGE/Dogecoin, PEPE, SHIB, USDT, USDC, LINK, UNI, AAVE
 
-⚠️ **豁免条件**（仅适用于A类）：
-知名代币名称（A类）默认触发品牌劫持，但如果满足以下条件可以豁免：
+⚠️ **豁免条件**（仅适用于A类，满足任一即可）：
 
+**豁免路径1：同名但完全不相关**
 代币名虽然与知名代币重名，但事件中的核心实体是一个**完全不同的东西**（不同领域的概念、产品、人物、事件等），且事件内容中**没有提及或暗示**该知名代币/其所在领域：
 - ✅ 豁免：代币"LINK"，事件"某游戏角色Link推出" → Link是游戏角色，与Chainlink代币完全无关，事件未提及区块链/Chainlink → 不触发品牌劫持
 - ✅ 豁免：代币"ATOM"，事件"原子能研究新突破" → ATOM指原子，与Cosmos代币无关 → 不触发品牌劫持
-- ❌ 不豁免：代币"DOGE"，事件"马斯克发DOGE梗图" → DOGE梗图直接关联Dogecoin文化 → 仍触发品牌劫持
-- ❌ 不豁免：代币"PEPE"，事件"Pepe青蛙梗图热议" → Pepe直接关联知名meme代币 → 仍触发品牌劫持
+
+**豁免路径2：品牌衍生 + 真实重大事件驱动**
+如果代币名是知名代币的衍生/变体（如"Dogecoin Gold"、"PEPE 2.0"），但背后有**该代币相关的真实重大事件**直接驱动，且满足以下**全部条件**，可以豁免：
+1. 事件确实是该代币/其生态的**重大动作或里程碑**（如重大合作、上所、重大技术升级、知名人物/机构发布相关声明等），而非日常小事或简单提及
+2. 事件来源**可信且有影响力**（如来自官方、权威媒体、头部交易所/平台）
+3. 存在**社区可预期的meme发酵空间**（事件能激发社区创作和传播）
+- ✅ 豁免：代币"Dogecoin Gold"，事件"币安广场发布Dogecoin Gold相关内容" → 头部平台发布，有实质内容，有发酵空间 → 不触发品牌劫持，正常评估
+- ✅ 豁免：代币"SHIB Army"，事件"Shiba Inu官方宣布重大生态合作" → 官方重大事件，有影响力 → 不触发品牌劫持，正常评估
+- ❌ 不豁免：代币"PEPE 2.0"，事件"某KOL发推提及Pepe" → 非重大事件，仅日常提及 → 仍触发品牌劫持
+- ❌ 不豁免：代币"DOGE MOON"，事件"某社区发DOGE梗图" → 非重大事件，无影响力来源 → 仍触发品牌劫持
 
 **B. 知名人物名称**（CZ、Elon Musk、Trump等全球级名人）：
 - CZ, Elon/Musk, Trump, 何一, V神/Vitalik 等
@@ -187,6 +195,7 @@ export function buildStage3TokenAnalysisPrompt(tokenData, stage1Output) {
 **综合示例**：
 - 代币"BNB🔥"，事件"CZ转发币安历史视频" → A类知名代币 → 品牌劫持 → pass = false
 - 代币"ETHKING"，事件"V神发言" → A类知名代币变体 → 品牌劫持 → pass = false
+- 代币"Dogecoin Gold"，事件"币安广场发布Dogecoin Gold" → A类知名代币衍生，但满足豁免路径2（头部平台重大事件） → 豁免，正常评估
 - 代币"CZ"，事件"CZ发布新书" → B类人名，满足豁免条件 → 正常评估
 - 代币"MUSK"，事件"某KOL评论Musk" → B类人名，不满足豁免 → 品牌劫持 → pass = false
 - 代币"LINK"，事件"游戏角色Link发布新皮肤" → A类豁免 → 正常评估

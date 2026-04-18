@@ -32,6 +32,11 @@ export const SUPER_IP_REGISTRY = {
   'vitalikbuterin':  { name: 'Vitalik Buterin',  type: 'person',  tier: 'S', desc: '以太坊创始人' },
   'star_okx':        { name: 'Star Xu',          type: 'person',  tier: 'A', desc: 'OKX创始人徐明星' },
   'darkfarms1':      { name: 'Darkfarms',         type: 'person',  tier: 'A', desc: 'Pepe创建者' },
+  'jackyi_ld':       { name: '易理华',             type: 'person',  tier: 'A', desc: 'Web3知名KOL/投资人' },
+  'marionawfal':     { name: 'Mariwan Nawfal',     type: 'person',  tier: 'A', desc: 'Web3知名KOL' },
+  'bitcoin':         { name: 'Bitcoin',            type: 'institution', tier: 'A', desc: 'Bitcoin官方' },
+  'earthcurated':    { name: 'Earth Curated',      type: 'person',  tier: 'A', desc: 'Web3知名KOL' },
+  'haze0x':          { name: 'haze0x',              type: 'person',  tier: 'A', desc: 'GMGN创始人' },
 
   // ═══ 机构类（D类：机构言论/动作）═══
   'binance':          { name: '币安官方',         type: 'institution', tier: 'S', desc: '全球最大加密交易所' },

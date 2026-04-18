@@ -833,7 +833,7 @@ class AbstractTradingEngine extends ITradingEngine {
       });
 
       // 发送电报通知（如果启用）
-      await this._sendStatsNotification(stats);
+      // await this._sendStatsNotification(stats); // 暂时关闭统计报告通知
 
     } catch (error) {
       this._logger.error('计算统计数据失败', { error: error.message });
