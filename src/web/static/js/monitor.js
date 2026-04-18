@@ -23,8 +23,11 @@ let filterRating = '';
 
 // ============ 初始化 ============
 async function init() {
+  console.log('[Monitor] init() called');
   setupEventListeners();
+  console.log('[Monitor] setupEventListeners done, calling loadHistory');
   await loadHistory();
+  console.log('[Monitor] loadHistory done, allEvents:', allEvents.length);
   await initRealtime();
 }
 
@@ -148,6 +151,7 @@ async function loadHistory() {
 
     const resp = await fetch(`/api/events?${params}`);
     const result = await resp.json();
+    console.log('[Monitor] loadHistory response:', result.success, 'data:', result.data?.length);
 
     if (result.success) {
       allEvents = result.data || [];
