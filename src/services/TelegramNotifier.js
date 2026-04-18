@@ -202,15 +202,13 @@ class TelegramNotifier {
 
     // === 持仓/收益信息 ===
     const holdingParts = [];
+    const rf = metadata.regularFactors || {};
 
-    if (metadata.buyPrice != null) {
-      holdingParts.push(`买入价: \`${this.formatNumber(metadata.buyPrice, 6)}\``);
+    if (rf.fdv != null || tf.fdv != null) {
+      holdingParts.push(`市值: \`${this.formatNumber(rf.fdv ?? tf.fdv, 1)}\``);
     }
 
-    const currentPrice = tf.currentPrice || metadata.price;
-    if (currentPrice != null) {
-      holdingParts.push(`现价: \`${this.formatNumber(currentPrice, 6)}\``);
-    }
+    if (metadata.profitPercent != null) {
 
     if (metadata.profitPercent != null) {
       const profitIcon = metadata.profitPercent >= 0 ? '📈' : '📉';
