@@ -787,27 +787,6 @@ class AbstractTradingEngine extends ITradingEngine {
       hasAnyExecuted: false
     };
 
-    try {
-      const supabase = dbManager.getClient();
-      const { data: signals, error } = await supabase
-        .from('strategy_signals')
-        .select('action, executed')
-        .eq('token_address', tokenAddress)
-        .eq('experiment_id', experimentId)
-        .eq('action', 'buy');
-
-      if (!error && signals) {
-        state.buySignalCount = signals.length;
-        state.hasAnyExecuted = signals.some(s => s.executed === true);
-        // 已有历史信号说明第1个已错过，标记已通知避免重复触发规则0
-        if (signals.length > 0) {
-          state.notificationSent = true;
-        }
-      }
-    } catch (err) {
-      this._logger.warn('初始化token通知状态失败', { tokenAddress, error: err.message });
-    }
-
     this._tokenBuyNotificationState.set(tokenAddress, state);
     return state;
   }
