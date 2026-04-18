@@ -20,6 +20,7 @@ let currentOffset = 0;
 // 筛选状态
 let filterAction = '';
 let filterRating = '';
+let filterToken = '';
 
 // ============ 初始化 ============
 async function init() {
@@ -153,6 +154,7 @@ async function loadHistory() {
       allEvents = result.data || [];
       hasMoreEvents = allEvents.length >= PAGE_SIZE;
       currentOffset = allEvents.length;
+      renderTokenNav();
       renderEvents();
       updateEventCount();
       toggleLoadMore();
@@ -284,6 +286,42 @@ function renderEventCard(event) {
     expandContent += `<div class="mt-2 text-sm text-red-600"><strong>拒绝原因:</strong> ${escapeHtml(d.executionReason)}</div>`;
   }
 
+  // 语料来源（买入事件）
+  if (d.sourceUrls) {
+    const allUrls = [];
+    const labels = { twitter: '推特', websites: '网站', telegram: 'Telegram', discord: 'Discord', youtube: 'YouTube' };
+    for (const [platform, urls] of Object.entries(d.sourceUrls)) {
+      const label = labels[platform] || platform;
+      for (const u of urls) {
+        allUrls.push(`<a href="${escapeHtml(u.url)}" target="_blank" class="text-blue-500 hover:text-blue-700">${label}</a>`);
+      }
+    }
+    if (allUrls.length > 0) {
+      expandContent += `<div class="mt-2 text-sm"><strong>语料来源:</strong> ${allUrls.join(' ')}</div>`;
+    }
+  }
+
+  // 推文内容
+  if (d.tweetContents && d.tweetContents.length > 0) {
+    for (const tw of d.tweetContents) {
+      const authorStr = tw.author ? `@${escapeHtml(tw.author)}` : '';
+      expandContent += `<div class="mt-2 p-2 bg-gray-50 rounded text-sm">
+        <div class="text-gray-500 text-xs mb-1">${authorStr} <a href="${escapeHtml(tw.url)}" target="_blank" class="text-blue-400">原文</a></div>
+        <div class="text-gray-700">${escapeHtml(tw.text)}</div>
+      </div>`;
+    }
+  }
+
+  // 卖出收益详情
+  if (d.buyPrice != null || d.sellPrice != null) {
+    const priceParts = [];
+    if (d.buyPrice != null) priceParts.push(`买入价: ${d.buyPrice}`);
+    if (d.sellPrice != null) priceParts.push(`卖出价: ${d.sellPrice}`);
+    if (d.highestPrice != null) priceParts.push(`最高价: ${d.highestPrice}`);
+    if (d.drawdownFromHighest != null) priceParts.push(`回撤: ${d.drawdownFromHighest.toFixed(1)}%`);
+    expandContent += `<div class="mt-2 text-sm"><strong>价格详情:</strong> ${priceParts.join(' | ')}</div>`;
+  }
+
   return `
     <div class="event-card" id="card-${event.id}" data-action="${event.action}" data-rating="${s.narrativeRating || ''}">
       <!-- 头部 -->
@@ -337,6 +375,7 @@ function getFilteredEvents() {
     const s = event.summary || {};
     if (filterAction && event.action !== filterAction) return false;
     if (filterRating && (s.narrativeRating || '') !== filterRating) return false;
+    if (filterToken && event.token_symbol !== filterToken) return false;
     return true;
   });
 }
@@ -352,7 +391,41 @@ function clearFilters() {
   document.getElementById('rating-filter').value = '';
   filterAction = '';
   filterRating = '';
+  filterToken = '';
+  renderTokenNav();
   renderEvents();
+}
+
+// ============ 代币导航栏 ============
+function renderTokenNav() {
+  const nav = document.getElementById('token-nav');
+  if (!nav) return;
+
+  // 聚合代币统计
+  const tokenStats = {};
+  for (const e of allEvents) {
+    const sym = e.token_symbol || '???';
+    if (!tokenStats[sym]) tokenStats[sym] = { buy: 0, sell: 0, symbol: sym };
+    if (e.action === 'buy') tokenStats[sym].buy++;
+    if (e.action === 'sell') tokenStats[sym].sell++;
+  }
+
+  const tokens = Object.values(tokenStats);
+  if (tokens.length === 0) { nav.innerHTML = ''; return; }
+
+  // 全部按钮
+  const allActive = !filterToken;
+  let html = `<button class="token-nav-btn ${allActive ? 'active' : ''}" data-token="">全部 (${allEvents.length})</button>`;
+
+  for (const t of tokens) {
+    const parts = [];
+    if (t.buy > 0) parts.push(`买${t.buy}`);
+    if (t.sell > 0) parts.push(`卖${t.sell}`);
+    const active = filterToken === t.symbol;
+    html += `<button class="token-nav-btn ${active ? 'active' : ''}" data-token="${escapeHtml(t.symbol)}">${escapeHtml(t.symbol)} (${parts.join(' ')})</button>`;
+  }
+
+  nav.innerHTML = html;
 }
 
 // ============ UI 辅助 ============
@@ -439,6 +512,20 @@ function setupEventListeners() {
 
   // 加载更多
   document.getElementById('load-more-btn').addEventListener('click', loadMore);
+
+  // 代币导航点击（事件委托）
+  document.getElementById('token-nav').addEventListener('click', (e) => {
+    const btn = e.target.closest('.token-nav-btn');
+    if (!btn) return;
+    const token = btn.dataset.token;
+    if (filterToken === token) {
+      filterToken = ''; // 再次点击取消选中
+    } else {
+      filterToken = token;
+    }
+    renderTokenNav();
+    renderEvents();
+  });
 
   // 展开/折叠（事件委托）
   document.getElementById('events-container').addEventListener('click', (e) => {

@@ -44,7 +44,7 @@ class ExperimentEventService {
 
       if (action === 'buy') {
         const buySignalIndex = await this._getBuySignalIndex(signal);
-        const result = this._buildBuyEventData(signal, metadata, tf, rf, narrativeInfo, buySignalIndex, experimentInfo);
+        const result = await this._buildBuyEventData(signal, metadata, tf, rf, narrativeInfo, buySignalIndex, experimentInfo);
         summary = result.summary;
         details = result.details;
       } else {
@@ -82,7 +82,7 @@ class ExperimentEventService {
    * 构建买入事件数据
    * @private
    */
-  _buildBuyEventData(signal, metadata, tf, rf, narrativeInfo, buySignalIndex, experimentInfo) {
+  async _buildBuyEventData(signal, metadata, tf, rf, narrativeInfo, buySignalIndex, experimentInfo) {
     const fdv = rf.fdv ?? tf.fdv ?? null;
 
     // 摘要（数字/布尔，便于筛选和展示）
@@ -134,6 +134,35 @@ class ExperimentEventService {
       if (executionReason) details.executionReason = executionReason;
     }
 
+    // 语料来源（classified_urls）
+    if (narrativeInfo?._classifiedUrls) {
+      const classifiedUrls = narrativeInfo._classifiedUrls;
+      const sourceUrls = {};
+
+      // 收集各类来源URL
+      for (const [platform, urls] of Object.entries(classifiedUrls)) {
+        if (Array.isArray(urls) && urls.length > 0) {
+          sourceUrls[platform] = urls.map(u => ({ url: u.url, type: u.type }));
+        }
+      }
+
+      if (Object.keys(sourceUrls).length > 0) {
+        details.sourceUrls = sourceUrls;
+      }
+
+      // 获取推文内容
+      const tweetUrls = (classifiedUrls.twitter || [])
+        .filter(u => u.type === 'tweet')
+        .map(u => u.url);
+
+      if (tweetUrls.length > 0) {
+        const tweetContents = await this._fetchTweetContents(tweetUrls);
+        if (tweetContents.length > 0) {
+          details.tweetContents = tweetContents;
+        }
+      }
+    }
+
     // 链接
     details.gmgnUrl = this._buildGMGNUrl(signal.token_address, signal.chain);
     const expId = signal.experiment_id || metadata.experiment_id || experimentInfo.id;
@@ -151,11 +180,20 @@ class ExperimentEventService {
 
     const summary = {};
     if (fdv != null) summary.marketCap = fdv;
-    if (metadata.profitPercent != null) summary.profitPercent = metadata.profitPercent;
-    if (metadata.holdDuration != null) summary.holdDuration = metadata.holdDuration;
+
+    // 收益数据（从 trendFactors 中读取）
+    if (tf.profitPercent != null) summary.profitPercent = tf.profitPercent;
+    if (tf.earlyReturn != null) summary.earlyReturn = tf.earlyReturn;
+    if (tf.holdDuration != null) summary.holdDuration = tf.holdDuration;
     if (metadata.cards) summary.cards = metadata.cards === 'all' ? 'all' : metadata.cards;
 
     const details = {};
+    // 价格详情
+    if (tf.buyPrice != null) details.buyPrice = tf.buyPrice;
+    if (tf.currentPrice != null) details.sellPrice = tf.currentPrice;
+    if (tf.highestPrice != null) details.highestPrice = tf.highestPrice;
+    if (tf.drawdownFromHighest != null) details.drawdownFromHighest = tf.drawdownFromHighest;
+
     if (!signal.executed) {
       const executionReason = metadata.execution_reason || null;
       if (executionReason) details.executionReason = executionReason;
@@ -190,7 +228,7 @@ class ExperimentEventService {
   }
 
   /**
-   * 获取叙事分析信息
+   * 获取叙事分析信息（包含 classified_urls）
    * @private
    */
   async _getNarrativeInfo(tokenAddress) {
@@ -198,7 +236,7 @@ class ExperimentEventService {
       const supabase = this._getSupabase();
       const { data, error } = await supabase
         .from('token_narrative')
-        .select('pre_check_result, prestage_result, stage1_result, stage2_result, stage3_result, stage_final_result, analyzed_at')
+        .select('pre_check_result, prestage_result, stage1_result, stage2_result, stage3_result, stage_final_result, analyzed_at, classified_urls')
         .eq('token_address', tokenAddress.toLowerCase())
         .order('analyzed_at', { ascending: false })
         .limit(1)
@@ -207,10 +245,40 @@ class ExperimentEventService {
       if (error || !data) return null;
 
       const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
-      return NarrativeAnalyzer.buildLLMAnalysis(data);
+      const result = NarrativeAnalyzer.buildLLMAnalysis(data);
+      // 附加 classified_urls
+      result._classifiedUrls = data.classified_urls || null;
+      return result;
     } catch (err) {
       console.error('[EventService] 获取叙事信息失败:', err.message);
       return null;
+    }
+  }
+
+  /**
+   * 获取推文内容
+   * @private
+   */
+  async _fetchTweetContents(urls) {
+    try {
+      const supabase = this._getSupabase();
+      const { data, error } = await supabase
+        .from('external_resource_cache')
+        .select('url, content')
+        .in('url', urls);
+
+      if (error || !data) return [];
+
+      return data
+        .filter(d => d.content && (d.content.text || d.content.full_text))
+        .map(d => ({
+          url: d.url,
+          text: (d.content.text || d.content.full_text || '').substring(0, 500),
+          author: d.content.author_name || d.content.author_screen_name || null,
+          authorFollowers: d.content.author_followers_count || null
+        }));
+    } catch (err) {
+      return [];
     }
   }
 

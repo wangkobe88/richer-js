@@ -91,6 +91,29 @@
             display: none;
         }
 
+        /* 代币导航按钮 */
+        .token-nav-btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: #f3f4f6;
+            color: #374151;
+            border: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .token-nav-btn:hover {
+            background: #e5e7eb;
+        }
+        .token-nav-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
         /* 空状态 */
         .empty-state {
             text-align: center;
@@ -183,6 +206,9 @@
                 </div>
             </div>
 
+            <!-- 代币导航栏 -->
+            <div id="token-nav" class="flex flex-wrap gap-2 mb-4"></div>
+
             <!-- 事件流 -->
             <div id="events-container">
                 <!-- 初始加载 -->
@@ -200,6 +226,6 @@
         </main>
     </div>
 
-    <script type="module" src="/static/js/monitor.js?v=1.5"></script>
+    <script type="module" src="/static/js/monitor.js?v=2.0"></script>
 </body>
 </html>

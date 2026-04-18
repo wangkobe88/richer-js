@@ -750,6 +750,13 @@ class AbstractTradingEngine extends ITradingEngine {
     // 递增买入信号计数
     state.buySignalCount += 1;
 
+    // 规则0: 第一个买入信号必定触发（无论执行与否）
+    if (state.buySignalCount === 1) {
+      state.notificationSent = true;
+      if (isExecuted) state.hasAnyExecuted = true;
+      return true;
+    }
+
     // 规则1: 第一个被执行的买入信号 → 触发
     if (isExecuted) {
       state.notificationSent = true;
@@ -792,6 +799,10 @@ class AbstractTradingEngine extends ITradingEngine {
       if (!error && signals) {
         state.buySignalCount = signals.length;
         state.hasAnyExecuted = signals.some(s => s.executed === true);
+        // 已有历史信号说明第1个已错过，标记已通知避免重复触发规则0
+        if (signals.length > 0) {
+          state.notificationSent = true;
+        }
       }
     } catch (err) {
       this._logger.warn('初始化token通知状态失败', { tokenAddress, error: err.message });
