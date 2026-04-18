@@ -461,6 +461,57 @@ function showNewEventAnimation(eventId) {
   }, 50);
 }
 
+// ============ 清空数据 ============
+function closePurgeModal() {
+  document.getElementById('purge-modal').classList.add('hidden');
+}
+
+function updatePurgePreview() {
+  const hours = parseInt(document.getElementById('purge-hours').value) || 0;
+  const preview = document.getElementById('purge-preview');
+  if (hours <= 0) {
+    preview.textContent = '';
+    return;
+  }
+  const cutoff = new Date(Date.now() - hours * 3600000);
+  const olderCount = allEvents.filter(e => new Date(e.created_at) < cutoff).length;
+  preview.textContent = `将删除 ${cutoff.toLocaleString('zh-CN')} 之前的 ${olderCount} 条事件（当前页面统计，实际以数据库为准）`;
+}
+
+async function executePurge() {
+  const hours = parseInt(document.getElementById('purge-hours').value) || 0;
+  if (hours <= 0) return;
+
+  const btn = document.getElementById('confirm-purge-btn');
+  btn.disabled = true;
+  btn.textContent = '清空中...';
+
+  try {
+    const resp = await fetch('/api/events/purge', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keepHours: hours })
+    });
+    const result = await resp.json();
+
+    if (result.success) {
+      closePurgeModal();
+      // 刷新页面数据
+      allEvents = [];
+      currentOffset = 0;
+      await loadHistory();
+      renderTokenNav();
+    } else {
+      alert('清空失败: ' + result.error);
+    }
+  } catch (err) {
+    alert('清空失败: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '确认清空';
+  }
+}
+
 // ============ 格式化工具 ============
 function formatTime(isoStr) {
   if (!isoStr) return '';
@@ -512,6 +563,16 @@ function setupEventListeners() {
 
   // 加载更多
   document.getElementById('load-more-btn').addEventListener('click', loadMore);
+
+  // 清空数据
+  document.getElementById('purge-btn').addEventListener('click', () => {
+    document.getElementById('purge-modal').classList.remove('hidden');
+    updatePurgePreview();
+  });
+  document.getElementById('close-purge-btn').addEventListener('click', closePurgeModal);
+  document.getElementById('cancel-purge-btn').addEventListener('click', closePurgeModal);
+  document.getElementById('purge-hours').addEventListener('input', updatePurgePreview);
+  document.getElementById('confirm-purge-btn').addEventListener('click', executePurge);
 
   // 代币导航点击（事件委托）
   document.getElementById('token-nav').addEventListener('click', (e) => {

@@ -294,6 +294,34 @@ class RicherJsWebServer {
       }
     });
 
+    // 清空指定时间段外的事件
+    this.app.delete('/api/events/purge', async (req, res) => {
+      try {
+        const { keepHours } = req.body;
+        if (!keepHours || keepHours <= 0) {
+          return res.status(400).json({ success: false, error: '请提供有效的保留小时数' });
+        }
+
+        const cutoff = new Date(Date.now() - keepHours * 3600000).toISOString();
+        const { count, error } = await this.dataService.supabase
+          .from('experiment_events')
+          .delete()
+          .lt('created_at', cutoff)
+          .select('id');
+
+        if (error) throw error;
+
+        res.json({
+          success: true,
+          deleted: count || 0,
+          cutoff
+        });
+      } catch (error) {
+        console.error('清空事件失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // ============ API路由：实验管理 ============
 
     // 获取可回测的实验列表（必须在 /api/experiments 之前定义，避免路由冲突）
