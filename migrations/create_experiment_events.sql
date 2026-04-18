@@ -52,7 +52,8 @@ create index idx_experiment_events_summary on public.experiment_events using gin
 -- === Supabase Realtime 配置 ===
 -- 1. 开启 RLS（Postgres Changes 要求）
 alter table public.experiment_events enable row level security;
--- 2. 允许 anon 角色读取
+-- 2. 允许 anon 角色读取和写入
 create policy "Allow anonymous read" on public.experiment_events for select to anon using (true);
+create policy "Allow anonymous insert" on public.experiment_events for insert to anon with check (true);
 -- 3. 将表加入 Realtime 发布
 alter publication supabase_realtime add table public.experiment_events;
