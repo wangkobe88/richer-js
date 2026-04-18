@@ -93,27 +93,28 @@ class TelegramNotifier {
 
     // === 叙事分析核心内容 ===
     if (narrativeInfo) {
+      const summary = narrativeInfo.summary || {};
+
       // 评级行
       const ratingLabels = { high: '高质量', mid: '中等', low: '低质量', unrated: '未评级' };
       const ratingEmojis = { high: '🚀', mid: '📊', low: '📉', unrated: '❓' };
-      const ratingLabel = ratingLabels[narrativeInfo.rating] || '未知';
-      const ratingEmoji = ratingEmojis[narrativeInfo.rating] || '❓';
-      const scoreStr = narrativeInfo.score != null
-        ? ` | 分数: \`${narrativeInfo.score.toFixed(1)}\``
+      const ratingLabel = ratingLabels[summary.rating] || '未知';
+      const ratingEmoji = ratingEmojis[summary.rating] || '❓';
+      const scoreStr = summary.score != null
+        ? ` | 分数: \`${summary.score.toFixed(1)}\``
         : '';
 
       message += `\n${ratingEmoji} *叙事评级: ${ratingLabel}*${scoreStr}\n`;
 
       // 综合原因（截取前300字）
-      if (narrativeInfo.reason) {
-        const truncatedReason = narrativeInfo.reason.length > 300
-          ? narrativeInfo.reason.substring(0, 300) + '...'
-          : narrativeInfo.reason;
+      if (summary.reason) {
+        const truncatedReason = summary.reason.length > 300
+          ? summary.reason.substring(0, 300) + '...'
+          : summary.reason;
         message += `${truncatedReason}\n`;
       }
 
       // 各阶段摘要
-      const stages = narrativeInfo.stageSummaries || {};
       const stageOrder = ['prestage', 'stage1', 'stage2', 'stage3'];
       const stageLabels = {
         prestage: '预处理',
@@ -123,7 +124,7 @@ class TelegramNotifier {
       };
 
       for (const stageName of stageOrder) {
-        const stage = stages[stageName];
+        const stage = narrativeInfo[stageName];
         if (!stage) continue;
 
         const label = stageLabels[stageName];
@@ -280,98 +281,13 @@ class TelegramNotifier {
         return null;
       }
 
-      return this._buildNarrativeSummary(data);
+      // 使用 NarrativeAnalyzer.buildLLMAnalysis 统一解析，与实验引擎/前端保持一致
+      const { NarrativeAnalyzer } = await import('../narrative/analyzer/NarrativeAnalyzer.mjs');
+      return NarrativeAnalyzer.buildLLMAnalysis(data);
     } catch (error) {
       console.error('获取叙事信息失败:', error.message);
       return null;
     }
-  }
-
-  /**
-   * 从数据库记录构建叙事摘要
-   * @private
-   * @param {Object} record - token_narrative 数据库记录
-   * @returns {Object|null} 结构化叙事摘要
-   */
-  _buildNarrativeSummary(record) {
-    if (!record) return null;
-
-    // 逐层获取 reason、score、rating
-    let reason = null;
-    let score = null;
-    let rating = null;
-
-    if (record.stage_final_result) {
-      reason = record.stage_final_result.reason || null;
-      score = record.stage_final_result.score ?? null;
-      rating = record.stage_final_result.rating || null;
-    }
-    if (!reason && record.stage3_result) {
-      reason = record.stage3_result.reason || null;
-      score = record.stage3_result.score ?? score;
-      rating = record.stage3_result.rating || rating;
-    }
-    if (!reason && record.stage2_result) {
-      reason = record.stage2_result.reason || null;
-      score = record.stage2_result.score ?? score;
-    }
-    if (!reason && record.stage1_result) {
-      reason = record.stage1_result.reason || null;
-    }
-    if (!reason && record.prestage_result) {
-      reason = record.prestage_result.reason || null;
-    }
-
-    // 获取详细评分
-    const details = record.stage_final_result?.details
-      || record.stage3_result?.details
-      || record.stage2_result?.details?.scoringResult
-      || null;
-
-    // 各阶段摘要
-    const stageSummaries = {};
-    if (record.prestage_result) {
-      stageSummaries.prestage = {
-        pass: record.prestage_result.pass ?? null,
-        reason: record.prestage_result.reason || null,
-        score: record.prestage_result.score ?? null
-      };
-    }
-    if (record.stage1_result) {
-      stageSummaries.stage1 = {
-        pass: record.stage1_result.pass ?? null,
-        reason: record.stage1_result.reason || null,
-        category: record.stage1_result.category || null,
-        rating: record.stage1_result.rating || null
-      };
-    }
-    if (record.stage2_result) {
-      stageSummaries.stage2 = {
-        pass: record.stage2_result.pass ?? null,
-        reason: record.stage2_result.reason || null,
-        score: record.stage2_result.score ?? null
-      };
-    }
-    if (record.stage3_result) {
-      stageSummaries.stage3 = {
-        pass: record.stage3_result.pass ?? null,
-        reason: record.stage3_result.reason || null,
-        score: record.stage3_result.score ?? null
-      };
-    }
-
-    // 评级映射
-    const RATING_MAP = { high: 3, mid: 2, low: 1, unrated: 9 };
-
-    return {
-      rating: rating || 'unrated',
-      numericRating: RATING_MAP[rating] ?? 9,
-      reason: reason || '',
-      score,
-      details,
-      stageSummaries,
-      analyzedAt: record.analyzed_at
-    };
   }
 
   /**
