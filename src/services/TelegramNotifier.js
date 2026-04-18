@@ -209,8 +209,6 @@ class TelegramNotifier {
     }
 
     if (metadata.profitPercent != null) {
-
-    if (metadata.profitPercent != null) {
       const profitIcon = metadata.profitPercent >= 0 ? '📈' : '📉';
       holdingParts.push(`利润: ${profitIcon}\`${this.formatPercent(metadata.profitPercent)}\``);
     }
