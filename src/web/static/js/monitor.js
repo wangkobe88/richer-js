@@ -297,7 +297,7 @@ function renderEventCard(event) {
         </div>
         <div class="flex items-center space-x-2 text-xs text-gray-400">
           <span>${timeStr}</span>
-          ${expandContent ? `<button class="expand-btn text-blue-500 hover:text-blue-700" data-target="${expandId}">展开</button>` : ''}
+          ${expandContent ? `<button class="expand-btn text-blue-500 hover:text-blue-700" data-target="${expandId}">收起</button>` : ''}
         </div>
       </div>
 
@@ -447,8 +447,8 @@ function setupEventListeners() {
     const targetId = btn.dataset.target;
     const content = document.getElementById(targetId);
     if (content) {
-      content.classList.toggle('expanded');
-      btn.textContent = content.classList.contains('expanded') ? '收起' : '展开';
+      content.classList.toggle('collapsed');
+      btn.textContent = content.classList.contains('collapsed') ? '展开' : '收起';
     }
   });
 }
