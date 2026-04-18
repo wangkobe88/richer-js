@@ -52,8 +52,16 @@ export async function buildStage2Prompt(eventDescription, eventClassification) {
 
   const buildCategoryPrompt = await promptBuilderGetter();
 
+  // 清理 keyData 中的 null/undefined 字段，避免对 LLM 产生"没有数据"的负信号
+  const cleanedDescription = { ...eventDescription };
+  if (cleanedDescription.keyData) {
+    cleanedDescription.keyData = Object.fromEntries(
+      Object.entries(cleanedDescription.keyData).filter(([, v]) => v != null && v !== '')
+    );
+  }
+
   // 构建Prompt
-  const categoryPrompt = buildCategoryPrompt(eventDescription, eventClassification);
+  const categoryPrompt = buildCategoryPrompt(cleanedDescription, eventClassification);
 
   // 拼接当前时间信息，让 LLM 能判断预期事件的具体距离
   const currentDate = new Date().toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric' });

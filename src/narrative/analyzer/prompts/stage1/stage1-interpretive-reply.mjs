@@ -253,6 +253,9 @@ function buildInterpretiveReplyFramework(replyTargetInfo) {
   - 错误：推文说"I know a coin" + 链接 → 事件描述写"推出了名为WOW的代币"（"WOW"来自代币信息，推文中没有）
   - 正确：推文说"I know a coin" + 链接 → 事件描述写"回复推文并附带一个代币链接"（只基于推文语料）
 - ✅ 只描述语料（推文、视频、网站等）中明确提到的内容
+- ⚠️ **语料中明确提及的代币概念 ≠ 混入代币信息**：
+  - 如果推文中明确写了代币名（如"我觉得发布BNB（Big New Bull）"），这是推文语料的一部分，必须如实描述
+  - 只有当推文没提代币名，但LLM从【代币信息】区块"知道"了名字并强行写入事件描述时，才算是"混入代币信息"
 - 示例：
   - ✅ 推文说"Professor Jiang says that he will be on the podcast" → "Professor Jiang宣布将参加播客节目"
   - ❌ 推文说"Professor Jiang says that he will be on the podcast" → "知名加密货币评论者/意见领袖Professor Jiang宣布..."（"知名加密货币评论者"是编造的）

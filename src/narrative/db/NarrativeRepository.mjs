@@ -93,11 +93,15 @@ export class NarrativeRepository {
     const tokenAddress = result.token_address.toLowerCase();
 
     // 检查是否已存在记录
-    const { data: existing } = await supabase
+    const { data: existing, error: existError } = await supabase
       .from('token_narrative')
       .select('*')
       .eq('token_address', tokenAddress)
       .maybeSingle();
+
+    if (existError) {
+      console.error('[NarrativeRepository] save 查询已有记录失败:', JSON.stringify(existError));
+    }
 
     // 构建记录对象
     const record = {

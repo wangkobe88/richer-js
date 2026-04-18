@@ -100,7 +100,7 @@ class TelegramNotifier {
 
     // 头部（含信号序号）
     const indexStr = buySignalIndex ? `#${buySignalIndex} ` : '';
-    let message = `🟢 买入 ${indexStr}【${executionStatus}】 | *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}\n\n`;
+    let message = `――――――――――――――\n🟢 买入 ${indexStr}【${executionStatus}】 | *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}\n\n`;
 
     // 市值信息（紧凑一行）
     const priceParts = [];
@@ -198,7 +198,7 @@ class TelegramNotifier {
     const tf = metadata.trendFactors || {};
 
     // 头部
-    let message = `🔴 卖出【${executionStatus}】 | *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}\n\n`;
+    let message = `――――――――――――――\n🔴 卖出【${executionStatus}】 | *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}\n\n`;
 
     // === 持仓/收益信息 ===
     const holdingParts = [];
