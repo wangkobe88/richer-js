@@ -454,4 +454,5 @@ function setupEventListeners() {
 }
 
 // ============ 启动 ============
-document.addEventListener('DOMContentLoaded', init);
+// type="module" 脚本默认 defer，DOMContentLoaded 可能已触发，直接调用 init
+init();
