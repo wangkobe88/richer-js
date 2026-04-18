@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>事件监控 - Richer-js FourMeme Trading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* 连接状态指示 */
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .connection-dot.connected { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+        .connection-dot.polling { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+        .connection-dot.disconnected { background: #ef4444; }
+
+        /* 事件卡片 */
+        .event-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            background: white;
+            transition: border-color 0.2s;
+        }
+        .event-card:hover { border-color: #93c5fd; }
+        .event-card.event-new {
+            animation: cardFadeIn 0.5s ease-out;
+            border-color: #3b82f6;
+        }
+        @keyframes cardFadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 评级徽章 */
+        .rating-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .rating-high { background: #dcfce7; color: #166534; }
+        .rating-mid { background: #dbeafe; color: #1e40af; }
+        .rating-low { background: #fee2e2; color: #991b1b; }
+        .rating-unrated { background: #f3f4f6; color: #6b7280; }
+
+        /* 动作标签 */
+        .action-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .action-buy { background: #dcfce7; color: #166534; }
+        .action-sell { background: #fee2e2; color: #991b1b; }
+
+        /* 执行状态 */
+        .exec-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .exec-ok { background: #d1fae5; color: #065f46; }
+        .exec-rejected { background: #fef3c7; color: #92400e; }
+
+        /* 展开区域 */
+        .expand-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .expand-content.expanded {
+            max-height: 600px;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #9ca3af;
+        }
+
+        /* 加载 */
+        .loading-spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    <div class="min-h-screen">
+        <!-- 导航栏 -->
+        <nav class="bg-white border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="block">
+                            <a href="/experiments" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                                实验监控
+                            </a>
+                            <a href="/wallets" class="ml-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                                钱包管理
+                            </a>
+                            <a href="/wallet-analysis" class="ml-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                                钱包分析
+                            </a>
+                            <a href="/token-holders" class="ml-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                                代币持有者
+                            </a>
+                            <a href="/narrative-analyzer" class="ml-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                                叙事分析
+                            </a>
+                            <a href="/narrative-tasks" class="ml-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                                叙事任务
+                            </a>
+                            <a href="/monitor" class="ml-2 px-3 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                                事件监控
+                            </a>
+                            <a href="/create-experiment" class="ml-2 px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors">
+                                创建实验
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主内容区 -->
+        <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <!-- 标题栏 -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">事件监控</h1>
+                    <div class="mt-1 flex items-center text-sm text-gray-500">
+                        <span class="connection-dot disconnected" id="connection-dot"></span>
+                        <span id="connection-status">连接中...</span>
+                        <span class="ml-3" id="event-count-display"></span>
+                    </div>
+                </div>
+                <div class="mt-4 sm:mt-0 flex items-center space-x-3">
+                    <!-- 筛选 -->
+                    <select id="action-filter" class="block w-32 pl-3 pr-10 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">全部动作</option>
+                        <option value="buy">买入</option>
+                        <option value="sell">卖出</option>
+                    </select>
+                    <select id="rating-filter" class="block w-32 pl-3 pr-10 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">全部评级</option>
+                        <option value="high">高质量</option>
+                        <option value="mid">中等</option>
+                        <option value="low">低质量</option>
+                        <option value="unrated">未评级</option>
+                    </select>
+                    <button id="clear-filter-btn" class="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                        重置
+                    </button>
+                </div>
+            </div>
+
+            <!-- 事件流 -->
+            <div id="events-container">
+                <!-- 初始加载 -->
+                <div id="loading-indicator" class="flex justify-center py-12">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+
+            <!-- 加载更多 -->
+            <div id="load-more-container" class="hidden text-center py-4">
+                <button id="load-more-btn" class="px-6 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors">
+                    加载更多
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="/static/js/monitor.js?v=1.0"></script>
+</body>
+</html>

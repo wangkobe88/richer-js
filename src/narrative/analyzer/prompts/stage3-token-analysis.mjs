@@ -56,7 +56,7 @@
 /**
  * Prompt版本号
  */
-export const STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION = 'V20.0';
+export const STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION = 'V21.0';
 
 /**
  * 品牌劫持关键词预检表
@@ -151,6 +151,15 @@ export function buildStage3TokenAnalysisPrompt(tokenData, stage1Output) {
 - ❌ 不豁免：代币"PEPE 2.0"，事件"某KOL发推提及Pepe" → 非重大事件，仅日常提及 → 仍触发品牌劫持
 - ❌ 不豁免：代币"DOGE MOON"，事件"某社区发DOGE梗图" → 非重大事件，无影响力来源 → 仍触发品牌劫持
 
+**豁免路径3：显式meme化创作**
+如果代币Symbol与A类知名代币完全匹配，但满足以下**全部条件**，可以豁免：
+1. 代币Name（非Symbol）与知名代币名**明显不同**，包含独立的创意内容（如中文梗名、戏谑描述等），普通人不会将其混淆为知名代币本身
+2. 事件内容/推文中**明确表明**代币是在创作某知名代币的meme版本（如"没有meme版本"、"做第一个meme版"、"可能是第一个"等表述），而非试图冒充
+- ✅ 豁免：代币Symbol"DOGE"/Name"狗狗币二哈版"，事件"DOGE还没有搞怪衍生版，我来做一个" → Name明显是创意meme名，事件显式声明在做meme版本 → 不触发品牌劫持，正常评估
+- ✅ 豁免：代币Symbol"PEPE"/Name"悲伤青蛙日记"，事件"PEPE都是开心的，来做一个悲伤版的" → Name明显是meme化创作，事件明确在做meme版本 → 不触发品牌劫持，正常评估
+- ❌ 不豁免：代币Symbol"BNB"/Name"BNB Token"，事件提及BNB → Name只是简单添加"Token"后缀，缺乏独立创意 → 仍触发品牌劫持
+- ❌ 不豁免：代币Symbol"ETH"/Name"Ethereum Classic 2.0"，事件"某KOL提及ETH" → Name只是知名代币的简单衍生变体，缺乏独立创意 → 仍触发品牌劫持
+
 **B. 知名人物名称**（CZ、Elon Musk、Trump等全球级名人）：
 - CZ, Elon/Musk, Trump, 何一, V神/Vitalik 等
 
@@ -193,7 +202,8 @@ export function buildStage3TokenAnalysisPrompt(tokenData, stage1Output) {
 - ❌ 不豁免：代币"Binance Researc"，事件"Binance Research发布报告" → 日常运营 + 拼写变体 → 品牌劫持 → pass = false
 
 **综合示例**：
-- 代币"BNB🔥"，事件"CZ转发币安历史视频" → A类知名代币 → 品牌劫持 → pass = false
+- 代币Symbol"DOGE"/Name"狗狗币二哈版"，事件"DOGE还没有搞怪衍生版" → A类，满足豁免路径3（Name有独立创意，事件显式meme化创作） → 豁免，正常评估
+- 代币"BNB🔥"，事件"CZ转发币安历史视频" → A类知名代币，Name无独立创意 → 品牌劫持 → pass = false
 - 代币"ETHKING"，事件"V神发言" → A类知名代币变体 → 品牌劫持 → pass = false
 - 代币"Dogecoin Gold"，事件"币安广场发布Dogecoin Gold" → A类知名代币衍生，但满足豁免路径2（头部平台重大事件） → 豁免，正常评估
 - 代币"CZ"，事件"CZ发布新书" → B类人名，满足豁免条件 → 正常评估

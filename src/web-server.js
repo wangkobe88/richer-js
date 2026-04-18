@@ -228,6 +228,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/narrative_tasks.html'));
     });
 
+    // 事件监控页面
+    this.app.get('/monitor', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/monitor.html'));
+    });
+
     // 信号早期交易数据页面
     this.app.get('/signal/:id/early-trades', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/signal_early_trades.html'));
@@ -240,6 +245,54 @@ class RicherJsWebServer {
 
     // ============ API路由：叙事分析 ============
     this.app.use('/api/narrative', narrativeRoutes);
+
+    // ============ API路由：事件监控 ============
+
+    // 获取 Supabase 前端配置（用于 Realtime 订阅）
+    this.app.get('/api/supabase-config', (req, res) => {
+      res.json({
+        supabaseUrl: process.env.SUPABASE_URL,
+        supabaseAnonKey: process.env.SUPABASE_ANON_KEY
+      });
+    });
+
+    // 获取事件列表
+    this.app.get('/api/events', async (req, res) => {
+      try {
+        const { experiment_id, action, limit = 50, offset = 0 } = req.query;
+
+        let query = this.dataService.supabase
+          .from('experiment_events')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false });
+
+        if (experiment_id) {
+          query = query.eq('experiment_id', experiment_id);
+        }
+        if (action) {
+          query = query.eq('action', action);
+        }
+
+        query = query.range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+        const { data, error, count } = await query;
+
+        if (error) throw error;
+
+        res.json({
+          success: true,
+          data: data || [],
+          pagination: {
+            total: count || 0,
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+          }
+        });
+      } catch (error) {
+        console.error('获取事件列表失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
 
     // ============ API路由：实验管理 ============
 

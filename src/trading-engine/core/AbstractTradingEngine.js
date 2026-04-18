@@ -11,6 +11,7 @@ const { dbManager } = require('../../services/dbManager');
 const { BlockchainConfig } = require('../../utils/BlockchainConfig');
 const Logger = require('../../services/logger');
 const TelegramNotifier = require('../../services/TelegramNotifier');
+const ExperimentEventService = require('../../web/services/ExperimentEventService');
 
 // 延迟导入以避免循环依赖
 let TokenPool = null;
@@ -87,6 +88,9 @@ class AbstractTradingEngine extends ITradingEngine {
     // Per-token 买入通知追踪
     // key: tokenAddress(lowercase), value: { buySignalCount, notificationSent, hasAnyExecuted }
     this._tokenBuyNotificationState = new Map();
+
+    // 事件写入服务
+    this._eventService = new ExperimentEventService();
   }
 
   // ==================== Getter 方法 ====================
@@ -674,10 +678,6 @@ class AbstractTradingEngine extends ITradingEngine {
    * @returns {Promise<void>}
    */
   async _sendSignalNotificationWithFilter(signalId, metadata) {
-    if (!this._telegramNotifier) {
-      return;
-    }
-
     try {
       // 获取完整信号数据
       const supabase = dbManager.getClient();
@@ -709,11 +709,12 @@ class AbstractTradingEngine extends ITradingEngine {
       // 构建实验信息
       const experimentInfo = {
         id: this._experimentId,
-        mode: this._mode
+        mode: this._mode,
+        name: this._experiment?.experimentName || this._experiment?.config?.name || null
       };
 
-      // 发送通知
-      await this._telegramNotifier.sendSignalNotification(signal, experimentInfo);
+      // 写入事件表
+      await this._eventService.createEvent(signal, experimentInfo);
 
     } catch (notifyError) {
       this._logger.warn('发送信号通知失败', {
