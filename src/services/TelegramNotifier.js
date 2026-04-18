@@ -45,9 +45,10 @@ class TelegramNotifier {
 
       let message;
       if (signal.action === 'buy') {
-        // 买入信号：获取叙事分析数据
+        // 买入信号：获取叙事分析数据和信号序号
         const narrativeInfo = await this.getNarrativeInfo(signal.token_address);
-        message = this.formatBuySignalMessage(signal, tokenInfo, narrativeInfo, experimentInfo);
+        const buySignalIndex = await this._getBuySignalIndex(signal);
+        message = this.formatBuySignalMessage(signal, tokenInfo, narrativeInfo, experimentInfo, buySignalIndex);
       } else {
         // 卖出信号：仅持仓/收益
         message = this.formatSellSignalMessage(signal, tokenInfo, experimentInfo);
@@ -65,9 +66,31 @@ class TelegramNotifier {
   }
 
   /**
+   * 获取该代币在当前实验中的买入信号序号
+   * @private
+   */
+  async _getBuySignalIndex(signal) {
+    if (!this.dbManager) return null;
+    try {
+      const supabase = this.dbManager.getClient();
+      const { count, error } = await supabase
+        .from('strategy_signals')
+        .select('*', { count: 'exact', head: true })
+        .eq('token_address', signal.token_address)
+        .eq('experiment_id', signal.experiment_id)
+        .eq('action', 'buy')
+        .lte('created_at', signal.created_at);
+      if (error || count == null) return null;
+      return count;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * 格式化买入信号通知消息（叙事分析内容）
    */
-  formatBuySignalMessage(signal, tokenInfo, narrativeInfo, experimentInfo) {
+  formatBuySignalMessage(signal, tokenInfo, narrativeInfo, experimentInfo, buySignalIndex) {
     const metadata = signal.metadata || {};
     const tf = metadata.trendFactors || {};
     const executed = signal.executed === true;
@@ -75,14 +98,16 @@ class TelegramNotifier {
     const tokenSymbol = signal.token_symbol || 'UNKNOWN';
     const shortAddress = this.shortenAddress(signal.token_address);
 
-    // 头部
-    let message = `🟢 买入【${executionStatus}】 | *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}\n\n`;
+    // 头部（含信号序号）
+    const indexStr = buySignalIndex ? `#${buySignalIndex} ` : '';
+    let message = `🟢 买入 ${indexStr}【${executionStatus}】 | *${tokenSymbol}* | \`${shortAddress}\` | ${(signal.chain || 'bsc').toUpperCase()}\n\n`;
 
-    // 价格信息（紧凑一行）
+    // 市值信息（紧凑一行）
     const priceParts = [];
-    const currentPrice = tf.currentPrice || metadata.price;
-    if (currentPrice != null) {
-      priceParts.push(`现价: \`${this.formatNumber(currentPrice, 6)}\``);
+    const rf = metadata.regularFactors || {};
+    const fdv = rf.fdv ?? tf.fdv ?? null;
+    if (fdv != null) {
+      priceParts.push(`市值: \`${this.formatNumber(fdv, 1)}\``);
     }
     if (tf.earlyReturn != null) {
       priceParts.push(`涨幅: \`${this.formatPercent(tf.earlyReturn)}\``);
