@@ -320,7 +320,7 @@ class TelegramNotifier {
       chat_id: this.channelId,
       text: message,
       parse_mode: 'Markdown',
-      disable_web_page_preview: false
+      disable_web_page_preview: true
     };
 
     const response = await fetch(url, {
