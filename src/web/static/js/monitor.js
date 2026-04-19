@@ -79,6 +79,7 @@ function onNewEvent(event) {
   if (allEvents.some(e => e.id === event.id)) return;
 
   allEvents.unshift(event);
+  renderTokenNav();
   renderEvents();
   showNewEventAnimation(event.id);
   updateEventCount();
@@ -130,6 +131,7 @@ async function pollNewEvents() {
     // 按时间排序后插入
     allEvents = [...newEvents, ...allEvents];
     allEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    renderTokenNav();
     renderEvents();
     newEvents.forEach(e => showNewEventAnimation(e.id));
     updateEventCount();
