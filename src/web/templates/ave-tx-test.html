@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AVE 交易API测试 - Richer-js</title>
+    <title>AVE API 测试 - Richer-js</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="/static/css/light-theme.css" rel="stylesheet">
     <link href="/static/css/style.css" rel="stylesheet">
@@ -123,6 +123,38 @@
             text-align: center;
             color: #9ca3af;
         }
+        /* 导航标签 */
+        .api-nav {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+        .api-nav a {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .api-nav .nav-tx { background: #dbeafe; color: #1d4ed8; }
+        .api-nav .nav-token { background: #d1fae5; color: #065f46; }
+        .api-nav .nav-kline { background: #fef3c7; color: #92400e; }
+        .api-nav .nav-wallet { background: #ede9fe; color: #5b21b6; }
+        .api-nav a:hover { opacity: 0.8; }
+        /* 分组标题 */
+        .group-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            padding: 0.75rem 0;
+            margin-bottom: 0.5rem;
+            border-bottom: 2px solid;
+        }
+        .group-tx { color: #1d4ed8; border-color: #1d4ed8; }
+        .group-token { color: #065f46; border-color: #065f46; }
+        .group-kline { color: #92400e; border-color: #92400e; }
+        .group-wallet { color: #5b21b6; border-color: #5b21b6; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen py-8">
@@ -131,8 +163,8 @@
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">AVE 交易API测试</h1>
-                    <p class="text-gray-600 mt-2">测试 AveTxAPI 的各种方法</p>
+                    <h1 class="text-3xl font-bold text-gray-800">AVE API 测试</h1>
+                    <p class="text-gray-600 mt-2">测试所有 AVE API 方法（共15个）</p>
                 </div>
                 <a href="/" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md">
                     ← 返回首页
@@ -146,7 +178,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">AVE API Key</label>
-                    <input type="text" id="apiKey" placeholder="输入 AVE API Key（可选）"
+                    <input type="text" id="apiKey" placeholder="输入 AVE API Key（可选，留空使用服务端配置）"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md">
                 </div>
                 <div>
@@ -157,14 +189,24 @@
             </div>
         </div>
 
-        <!-- 交换交易记录 -->
+        <!-- 快速导航 -->
+        <div class="api-nav">
+            <a href="#group-tx" class="nav-tx">交易 API (4)</a>
+            <a href="#group-token" class="nav-token">代币 API (6)</a>
+            <a href="#group-kline" class="nav-kline">K线 API (2)</a>
+            <a href="#group-wallet" class="nav-wallet">钱包 API (4)</a>
+        </div>
+
+        <!-- ==================== 交易 API ==================== -->
+        <div id="group-tx" class="group-title group-tx">交易 API (AveTxAPI)</div>
+
+        <!-- 1. 交换交易记录 -->
         <div class="test-section">
             <h3>1. 获取交换交易记录 (getSwapTransactions)</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">交易对ID</label>
-                    <input type="text" id="swapPairId" value="0x1234...abcd-bsc"
-                           placeholder="格式: {pair-address}-{chain}"
+                    <label class="block text-sm font-medium text-gray-700 mb-2">交易对ID (pairId)</label>
+                    <input type="text" id="swapPairId" placeholder="格式: {pair-address}-{chain}"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md">
                 </div>
                 <div>
@@ -198,8 +240,8 @@
             </div>
             <div id="swapResultContainer" class="tab-container" style="display:none;">
                 <div class="tab-header">
-                    <button class="tab-button active" onclick="switchSwapTab('table')">📊 表格视图</button>
-                    <button class="tab-button" onclick="switchSwapTab('json')">📝 JSON视图</button>
+                    <button class="tab-button active" onclick="switchTab('swap','table')">表格视图</button>
+                    <button class="tab-button" onclick="switchTab('swap','json')">JSON视图</button>
                 </div>
                 <div id="swapTabTable" class="tab-content active">
                     <div id="swapTableContainer" class="table-container"></div>
@@ -210,14 +252,13 @@
             </div>
         </div>
 
-        <!-- 流动性变化记录 -->
+        <!-- 2. 流动性变化记录 -->
         <div class="test-section">
             <h3>2. 获取流动性变化记录 (getLiquidityTransactions)</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">交易对ID</label>
-                    <input type="text" id="liqPairId" value="0x1234...abcd-bsc"
-                           placeholder="格式: {pair-address}-{chain}"
+                    <label class="block text-sm font-medium text-gray-700 mb-2">交易对ID (pairId)</label>
+                    <input type="text" id="liqPairId" placeholder="格式: {pair-address}-{chain}"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md">
                 </div>
                 <div>
@@ -236,7 +277,7 @@
                 </div>
             </div>
             <div class="flex justify-end">
-                <button onclick="testGetLiquidityTransactions()"
+                <button onclick="testApi('/api/ave-tx/liquidity',{pairId:gv('liqPairId'),limit:gv('liqLimit',10),type:gv('liqType')},'liqResult')"
                         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
                     测试
                 </button>
@@ -244,13 +285,13 @@
             <div id="liqResult" class="result-box mt-4" style="display:none;"></div>
         </div>
 
-        <!-- 搜索代币 -->
+        <!-- 3. 搜索代币 -->
         <div class="test-section">
-            <h3>4. 搜索代币 (searchTokens)</h3>
+            <h3>3. 搜索代币 (searchTokens)</h3>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">关键词</label>
-                    <input type="text" id="searchKeyword" value="LEO" placeholder="输入 symbol 或代币地址"
+                    <input type="text" id="searchKeyword" value="" placeholder="输入 symbol 或代币地址"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md">
                 </div>
                 <div>
@@ -283,13 +324,13 @@
             <div class="flex justify-end mb-4">
                 <button onclick="testSearchTokens()"
                         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
-                    🔍 搜索
+                    搜索
                 </button>
             </div>
             <div id="searchResultContainer" class="tab-container" style="display:none;">
                 <div class="tab-header">
-                    <button class="tab-button active" onclick="switchSearchTab('table')">📊 表格视图</button>
-                    <button class="tab-button" onclick="switchSearchTab('json')">📝 JSON视图</button>
+                    <button class="tab-button active" onclick="switchTab('search','table')">表格视图</button>
+                    <button class="tab-button" onclick="switchTab('search','json')">JSON视图</button>
                 </div>
                 <div id="searchTabTable" class="tab-content active">
                     <div id="searchTableContainer" class="table-container"></div>
@@ -300,10 +341,10 @@
             </div>
         </div>
 
-        <!-- 地址交易记录 -->
+        <!-- 4. 地址交易记录 -->
         <div class="test-section">
-            <h3>5. 获取地址交易记录 (getAddressTransactions)</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <h3>4. 获取地址交易记录 (getAddressTransactions)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">钱包地址</label>
                     <input type="text" id="addrWallet" placeholder="0x..."
@@ -329,188 +370,489 @@
                 </div>
             </div>
             <div class="flex justify-end">
-                <button onclick="testGetAddressTransactions()"
+                <button onclick="testApi('/api/ave-tx/address',{walletAddress:gv('addrWallet'),chain:gv('addrChain','bsc'),tokenAddress:gv('addrToken'),pageSize:gv('addrPageSize',50)},'addrResult')"
                         class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md">
                     测试
                 </button>
             </div>
             <div id="addrResult" class="result-box mt-4" style="display:none;"></div>
         </div>
+
+        <!-- ==================== 代币 API ==================== -->
+        <div id="group-token" class="group-title group-token">代币 API (AveTokenAPI)</div>
+
+        <!-- 5. 平台代币列表 -->
+        <div class="test-section">
+            <h3>5. 获取平台代币列表 (getPlatformTokens)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">平台标签 (tag)</label>
+                    <select id="platformTag" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="fourmeme_in_new">fourmeme_in_new</option>
+                        <option value="pump_in_new">pump_in_new</option>
+                        <option value="base_in_new">base_in_new</option>
+                        <option value="flap_in_new">flap_in_new</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">区块链</label>
+                    <select id="platformChain" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="bsc">BSC</option>
+                        <option value="eth">ETH</option>
+                        <option value="solana">Solana</option>
+                        <option value="base">Base</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">返回数量</label>
+                    <input type="number" id="platformLimit" value="20" min="1" max="100"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">排序</label>
+                    <select id="platformOrderby" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="created_at">创建时间</option>
+                        <option value="tx_volume_u_24h">24H交易量</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end mb-4">
+                <button onclick="testPlatformTokens()"
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="platformResultContainer" class="tab-container" style="display:none;">
+                <div class="tab-header">
+                    <button class="tab-button active" onclick="switchTab('platform','table')">表格视图</button>
+                    <button class="tab-button" onclick="switchTab('platform','json')">JSON视图</button>
+                </div>
+                <div id="platformTabTable" class="tab-content active">
+                    <div id="platformTableContainer" class="table-container"></div>
+                </div>
+                <div id="platformTabJson" class="tab-content">
+                    <div id="platformResult" class="result-box m-0 rounded-none border-0"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. 代币详情 -->
+        <div class="test-section">
+            <h3>6. 获取代币详情 (getTokenDetail)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">代币ID (tokenId)</label>
+                    <input type="text" id="detailTokenId" placeholder="格式: {token-address}-{chain}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="testApi('/api/ave-token/detail',{tokenId:gv('detailTokenId')},'detailResult')"
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="detailResult" class="result-box mt-4" style="display:none;"></div>
+        </div>
+
+        <!-- 7. 批量获取代币价格 -->
+        <div class="test-section">
+            <h3>7. 批量获取代币价格 (getTokenPrices)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">代币ID列表 (每行一个，最多200个)</label>
+                    <textarea id="priceTokenIds" rows="4" placeholder="0xabc...-bsc&#10;0xdef...-bsc"
+                              class="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">最小TVL</label>
+                    <input type="number" id="priceTvlMin" value="1000"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    <label class="block text-sm font-medium text-gray-700 mb-2 mt-4">最小24H交易量</label>
+                    <input type="number" id="priceTxMin" value="0"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="testTokenPrices()"
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="pricesResult" class="result-box mt-4" style="display:none;"></div>
+        </div>
+
+        <!-- 8. TOP100持有者 -->
+        <div class="test-section">
+            <h3>8. 获取TOP100持有者 (getTokenTop100Holders)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">代币ID (tokenId)</label>
+                    <input type="text" id="holdersTokenId" placeholder="格式: {token-address}-{chain}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">返回数量</label>
+                    <input type="number" id="holdersLimit" value="20" min="1" max="100"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end mb-4">
+                <button onclick="testTopHolders()"
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="holdersResultContainer" class="tab-container" style="display:none;">
+                <div class="tab-header">
+                    <button class="tab-button active" onclick="switchTab('holders','table')">表格视图</button>
+                    <button class="tab-button" onclick="switchTab('holders','json')">JSON视图</button>
+                </div>
+                <div id="holdersTabTable" class="tab-content active">
+                    <div id="holdersTableContainer" class="table-container"></div>
+                </div>
+                <div id="holdersTabJson" class="tab-content">
+                    <div id="holdersResult" class="result-box m-0 rounded-none border-0"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 9. 合约风险信息 -->
+        <div class="test-section">
+            <h3>9. 获取合约风险信息 (getContractRisk)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">代币ID (tokenId)</label>
+                    <input type="text" id="riskTokenId" placeholder="格式: {token-address}-{chain}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="testApi('/api/ave-token/contract-risk',{tokenId:gv('riskTokenId')},'riskResult')"
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="riskResult" class="result-box mt-4" style="display:none;"></div>
+        </div>
+
+        <!-- ==================== K线 API ==================== -->
+        <div id="group-kline" class="group-title group-kline">K线 API (AveKlineAPI)</div>
+
+        <!-- 10. K线数据 -->
+        <div class="test-section">
+            <h3>10. 获取K线数据 (getKlineDataByToken)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">代币ID (tokenId)</label>
+                    <input type="text" id="klineTokenId" placeholder="格式: {token-address}-{chain}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">时间间隔 (分钟)</label>
+                    <select id="klineInterval" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="1">1分钟</option>
+                        <option value="5">5分钟</option>
+                        <option value="15">15分钟</option>
+                        <option value="30">30分钟</option>
+                        <option value="60">60分钟</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">返回数量</label>
+                    <input type="number" id="klineLimit" value="30" min="1" max="1000"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end mb-4">
+                <button onclick="testKlineData()"
+                        class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="klineResultContainer" class="tab-container" style="display:none;">
+                <div class="tab-header">
+                    <button class="tab-button active" onclick="switchTab('kline','table')">表格视图</button>
+                    <button class="tab-button" onclick="switchTab('kline','json')">JSON视图</button>
+                </div>
+                <div id="klineTabTable" class="tab-content active">
+                    <div id="klineTableContainer" class="table-container"></div>
+                </div>
+                <div id="klineTabJson" class="tab-content">
+                    <div id="klineResult" class="result-box m-0 rounded-none border-0"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 11. 最新价格 -->
+        <div class="test-section">
+            <h3>11. 获取最新价格 (getLatestPriceByToken)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">代币ID (tokenId)</label>
+                    <input type="text" id="priceTokenId" placeholder="格式: {token-address}-{chain}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="testApi('/api/ave-kline/latest-price',{tokenId:gv('priceTokenId')},'latestPriceResult')"
+                        class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="latestPriceResult" class="result-box mt-4" style="display:none;"></div>
+        </div>
+
+        <!-- ==================== 钱包 API ==================== -->
+        <div id="group-wallet" class="group-title group-wallet">钱包 API (AveWalletAPI)</div>
+
+        <!-- 12. 钱包盈亏 -->
+        <div class="test-section">
+            <h3>12. 获取钱包盈亏 (getWalletPnL)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">钱包地址</label>
+                    <input type="text" id="pnlWallet" placeholder="0x..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">区块链</label>
+                    <select id="pnlChain" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="bsc">BSC</option>
+                        <option value="eth">ETH</option>
+                        <option value="solana">Solana</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">代币地址</label>
+                    <input type="text" id="pnlToken" placeholder="0x..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">每页数量</label>
+                    <input type="number" id="pnlPageSize" value="100" min="1" max="100"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="testApi('/api/ave-wallet/pnl',{walletAddress:gv('pnlWallet'),chain:gv('pnlChain','bsc'),tokenAddress:gv('pnlToken'),pageSize:gv('pnlPageSize',100)},'pnlResult')"
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="pnlResult" class="result-box mt-4" style="display:none;"></div>
+        </div>
+
+        <!-- 13. 钱包信息 -->
+        <div class="test-section">
+            <h3>13. 获取钱包信息 (getWalletInfo)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">钱包地址</label>
+                    <input type="text" id="infoWallet" placeholder="0x..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">区块链</label>
+                    <select id="infoChain" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="bsc">BSC</option>
+                        <option value="eth">ETH</option>
+                        <option value="solana">Solana</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="testApi('/api/ave-wallet/info',{walletAddress:gv('infoWallet'),chain:gv('infoChain','bsc')},'walletInfoResult')"
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="walletInfoResult" class="result-box mt-4" style="display:none;"></div>
+        </div>
+
+        <!-- 14. 钱包持仓代币 -->
+        <div class="test-section">
+            <h3>14. 获取钱包持仓代币 (getWalletTokens)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">钱包地址</label>
+                    <input type="text" id="wtWallet" placeholder="0x..."
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">区块链</label>
+                    <select id="wtChain" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="bsc">BSC</option>
+                        <option value="eth">ETH</option>
+                        <option value="solana">Solana</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">排序字段</label>
+                    <select id="wtSort" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="profit_usd">盈亏金额</option>
+                        <option value="balance_usd">持仓金额</option>
+                        <option value="profit_ratio">盈亏比例</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">每页数量</label>
+                    <input type="number" id="wtPageSize" value="20" min="1" max="100"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+            <div class="flex justify-end mb-4">
+                <button onclick="testWalletTokens()"
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="wtResultContainer" class="tab-container" style="display:none;">
+                <div class="tab-header">
+                    <button class="tab-button active" onclick="switchTab('wt','table')">表格视图</button>
+                    <button class="tab-button" onclick="switchTab('wt','json')">JSON视图</button>
+                </div>
+                <div id="wtTabTable" class="tab-content active">
+                    <div id="wtTableContainer" class="table-container"></div>
+                </div>
+                <div id="wtTabJson" class="tab-content">
+                    <div id="wtResult" class="result-box m-0 rounded-none border-0"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 15. 智能钱包列表 -->
+        <div class="test-section">
+            <h3>15. 获取智能钱包列表 (getSmartWallets)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">区块链</label>
+                    <select id="swChain" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="bsc">BSC</option>
+                        <option value="eth">ETH</option>
+                        <option value="solana">Solana</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">排序字段</label>
+                    <select id="swSort" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="total_profit">总盈利</option>
+                        <option value="win_rate">胜率</option>
+                        <option value="total_volume">总交易量</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">排序方向</label>
+                    <select id="swSortDir" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <option value="desc">降序</option>
+                        <option value="asc">升序</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end mb-4">
+                <button onclick="testSmartWallets()"
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md">
+                    测试
+                </button>
+            </div>
+            <div id="swResultContainer" class="tab-container" style="display:none;">
+                <div class="tab-header">
+                    <button class="tab-button active" onclick="switchTab('sw','table')">表格视图</button>
+                    <button class="tab-button" onclick="switchTab('sw','json')">JSON视图</button>
+                </div>
+                <div id="swTabTable" class="tab-content active">
+                    <div id="swTableContainer" class="table-container"></div>
+                </div>
+                <div id="swTabJson" class="tab-content">
+                    <div id="swResult" class="result-box m-0 rounded-none border-0"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        // 存储交换交易数据
-        let swapTransactions = [];
-        // 存储搜索代币数据
-        let searchTokens = [];
+        // ============ 工具函数 ============
 
-        // 工具函数：转换为北京时间
+        // 获取输入框的值
+        function gv(id, defaultVal) {
+            const el = document.getElementById(id);
+            if (!el) return defaultVal;
+            if (el.type === 'number') {
+                const v = el.value.trim();
+                return v === '' ? defaultVal : (parseInt(v) || parseFloat(v) || defaultVal);
+            }
+            const v = el.value.trim();
+            return v === '' ? defaultVal : v;
+        }
+
+        // 获取API配置
+        function getApiConfig() {
+            return {
+                apiKey: document.getElementById('apiKey').value.trim() || undefined,
+                baseURL: document.getElementById('apiBaseUrl').value.trim() || undefined
+            };
+        }
+
+        // 时间戳转北京时间
         function toBeijingTime(timestamp) {
             if (!timestamp) return '-';
-            const date = new Date(timestamp * 1000);
+            const ts = typeof timestamp === 'number' ? timestamp : parseInt(timestamp);
+            if (isNaN(ts)) return String(timestamp);
+            const date = new Date(ts * 1000);
             const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
             return beijingTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '').substring(0, 19);
         }
 
-        // TAB 切换
-        function switchSwapTab(tab) {
-            const buttons = document.querySelectorAll('#swapResultContainer .tab-button');
-            const contents = document.querySelectorAll('#swapResultContainer .tab-content');
-
-            buttons.forEach(btn => btn.classList.remove('active'));
-            contents.forEach(content => content.classList.remove('active'));
-
-            if (tab === 'table') {
-                buttons[0].classList.add('active');
-                document.getElementById('swapTabTable').classList.add('active');
-            } else {
-                buttons[1].classList.add('active');
-                document.getElementById('swapTabJson').classList.add('active');
-            }
+        // 格式化数字
+        function fmtNum(v, decimals = 2) {
+            if (v === null || v === undefined || v === '' || v === '--') return '-';
+            const n = parseFloat(v);
+            if (isNaN(n)) return String(v);
+            return n.toFixed(decimals);
         }
 
-        // 搜索代币 TAB 切换
-        function switchSearchTab(tab) {
-            const buttons = document.querySelectorAll('#searchResultContainer .tab-button');
-            const contents = document.querySelectorAll('#searchResultContainer .tab-content');
-
-            buttons.forEach(btn => btn.classList.remove('active'));
-            contents.forEach(content => content.classList.remove('active'));
-
-            if (tab === 'table') {
-                buttons[0].classList.add('active');
-                document.getElementById('searchTabTable').classList.add('active');
-            } else {
-                buttons[1].classList.add('active');
-                document.getElementById('searchTabJson').classList.add('active');
-            }
+        // 格式化USD
+        function fmtUsd(v) {
+            if (v === null || v === undefined || v === '' || v === '--') return '-';
+            const n = parseFloat(v);
+            if (isNaN(n)) return String(v);
+            if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+            if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(2) + 'K';
+            return '$' + n.toFixed(4);
         }
 
-        // 渲染交换交易表格
-        function renderSwapTable(transactions) {
-            const buttons = document.querySelectorAll('#swapResultContainer .tab-button');
-            const contents = document.querySelectorAll('#swapResultContainer .tab-content');
-
-            buttons.forEach(btn => btn.classList.remove('active'));
-            contents.forEach(content => content.classList.remove('active'));
-
-            if (tab === 'table') {
-                buttons[0].classList.add('active');
-                document.getElementById('swapTabTable').classList.add('active');
-            } else {
-                buttons[1].classList.add('active');
-                document.getElementById('swapTabJson').classList.add('active');
-            }
+        // 格式化百分比
+        function fmtPct(v) {
+            if (v === null || v === undefined || v === '' || v === '--') return '-';
+            const n = parseFloat(v);
+            if (isNaN(n)) return String(v);
+            const color = n >= 0 ? 'text-green' : 'text-red';
+            return `<span class="${color}">${n >= 0 ? '+' : ''}${n.toFixed(2)}%</span>`;
         }
 
-        // 渲染交换交易表格
-        function renderSwapTable(transactions) {
-            const container = document.getElementById('swapTableContainer');
-
-            if (!transactions || transactions.length === 0) {
-                container.innerHTML = '<div class="empty-state">暂无数据</div>';
-                return;
-            }
-
-            const html = `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>时间 (北京)</th>
-                            <th>交易ID</th>
-                            <th>区块链</th>
-                            <th>发送地址</th>
-                            <th>from</th>
-                            <th>from数量</th>
-                            <th>to</th>
-                            <th>to数量</th>
-                            <th>USD价值</th>
-                            <th>区块</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${transactions.map(tx => `
-                            <tr>
-                                <td>${toBeijingTime(tx.time)}</td>
-                                <td class="monospace" title="${tx.tx_id}">${tx.tx_id.substring(0, 10)}...</td>
-                                <td>${tx.chain || '-'}</td>
-                                <td class="monospace" title="${tx.from_address}">${tx.from_address.substring(0, 8)}...</td>
-                                <td>${tx.from_token_symbol || '-'}</td>
-                                <td>${tx.from_amount ? tx.from_amount.toFixed(6) : '-'}</td>
-                                <td>${tx.to_token_symbol || '-'}</td>
-                                <td>${tx.to_amount ? tx.to_amount.toFixed(6) : '-'}</td>
-                                <td>${tx.from_usd ? '$' + tx.from_usd.toFixed(2) : '-'}</td>
-                                <td>${tx.block_number || '-'}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-
-            container.innerHTML = html;
+        // 截断地址
+        function truncAddr(addr, len = 8) {
+            if (!addr) return '-';
+            if (addr.length <= len * 2) return addr;
+            return addr.substring(0, len) + '...' + addr.substring(addr.length - 4);
         }
 
-        // 渲染搜索代币表格
-        function renderSearchTable(tokens) {
-            const container = document.getElementById('searchTableContainer');
+        // ============ 显示函数 ============
 
-            if (!tokens || tokens.length === 0) {
-                container.innerHTML = '<div class="empty-state">暂无数据</div>';
-                return;
-            }
-
-            const html = `
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Symbol</th>
-                            <th>Name</th>
-                            <th>代币地址</th>
-                            <th>链</th>
-                            <th>创建时间 (北京)</th>
-                            <th>FDV</th>
-                            <th>市值</th>
-                            <th>当前价格</th>
-                            <th>24H交易量</th>
-                            <th>持有者</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${tokens.map(t => `
-                            <tr>
-                                <td class="font-medium">${t.symbol || '-'}</td>
-                                <td>${t.name || '-'}</td>
-                                <td class="monospace" title="${t.token}">${t.token ? t.token.substring(0, 10) + '...' : '-'}</td>
-                                <td>${t.chain || '-'}</td>
-                                <td>${t.launch_at || t.created_at ? toBeijingTime(t.launch_at || t.created_at) : '-'}</td>
-                                <td>${t.fdv || '-'}</td>
-                                <td>${t.market_cap || '-'}</td>
-                                <td>${t.current_price_usd || '-'}</td>
-                                <td>${t.tx_volume_u_24h || '-'}</td>
-                                <td>${t.holders || '-'}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-
-            container.innerHTML = html;
-        }
-
-        // 工具函数：显示结果
+        // 显示结果
         function showResult(elementId, data, error = null) {
             const el = document.getElementById(elementId);
             el.style.display = 'block';
             if (error) {
                 el.style.color = '#ef4444';
-                el.textContent = '❌ 错误: ' + error;
+                el.textContent = '错误: ' + error;
             } else {
                 el.style.color = '#10b981';
-                el.textContent = '✅ 成功:\n' + JSON.stringify(data, null, 2);
+                el.textContent = '成功 (' + new Date().toLocaleTimeString() + '):\n' + JSON.stringify(data, null, 2);
             }
         }
 
-        // 工具函数：显示加载中
+        // 显示加载中
         function showLoading(elementId) {
             const el = document.getElementById(elementId);
             el.style.display = 'block';
@@ -518,60 +860,77 @@
             el.innerHTML = '<span class="loading"></span> 请求中...';
         }
 
-        // 获取API配置
-        function getApiConfig() {
-            return {
-                apiKey: document.getElementById('apiKey').value || null,
-                baseURL: document.getElementById('apiBaseUrl').value || 'https://prod.ave-api.com'
-            };
+        // TAB切换（通用）
+        function switchTab(prefix, tab) {
+            const container = document.getElementById(prefix + 'ResultContainer');
+            if (!container) return;
+            const buttons = container.querySelectorAll('.tab-button');
+            const contents = container.querySelectorAll('.tab-content');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+            if (tab === 'table') {
+                buttons[0].classList.add('active');
+                document.getElementById(prefix + 'TabTable').classList.add('active');
+            } else {
+                buttons[1].classList.add('active');
+                document.getElementById(prefix + 'TabJson').classList.add('active');
+            }
         }
 
-        // 测试获取交换交易记录
-        async function testGetSwapTransactions() {
-            const pairId = document.getElementById('swapPairId').value;
-            const limit = parseInt(document.getElementById('swapLimit').value) || 10;
-            const sort = document.getElementById('swapSort').value || 'asc';
-            const fromTimeInput = document.getElementById('swapFromTime').value;
-            const toTimeInput = document.getElementById('swapToTime').value;
+        // ============ 通用API调用 ============
 
-            const fromTime = fromTimeInput ? parseInt(fromTimeInput) : null;
-            const toTime = toTimeInput ? parseInt(toTimeInput) : null;
-
-            if (!pairId) {
-                document.getElementById('swapResultContainer').style.display = 'block';
-                showResult('swapResult', null, '请输入交易对ID');
-                return;
+        async function testApi(endpoint, params, resultId) {
+            showLoading(resultId);
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...getApiConfig(), ...params })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showResult(resultId, result.data);
+                } else {
+                    showResult(resultId, null, result.error);
+                }
+            } catch (error) {
+                showResult(resultId, null, error.message);
             }
+        }
+
+        // ============ 交易 API 测试函数 ============
+
+        // 1. 交换交易记录
+        async function testGetSwapTransactions() {
+            const pairId = gv('swapPairId');
+            if (!pairId) { showResult('swapResult', null, '请输入交易对ID'); document.getElementById('swapResultContainer').style.display = 'block'; return; }
 
             document.getElementById('swapResultContainer').style.display = 'block';
-            showResult('swapResult', null, '请求中...');
+            showLoading('swapResult');
 
             try {
+                const params = {
+                    ...getApiConfig(),
+                    pairId,
+                    limit: gv('swapLimit', 10),
+                    sort: gv('swapSort', 'asc'),
+                    fromTime: gv('swapFromTime', null),
+                    toTime: gv('swapToTime', null)
+                };
+                if (params.fromTime === null) delete params.fromTime;
+                if (params.toTime === null) delete params.toTime;
+
                 const response = await fetch('/api/ave-tx/swap', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        ...getApiConfig(),
-                        pairId,
-                        limit,
-                        sort,
-                        fromTime,
-                        toTime
-                    })
+                    body: JSON.stringify(params)
                 });
-
                 const result = await response.json();
                 if (result.success) {
-                    swapTransactions = result.data.transactions || [];
-
-                    // 渲染表格
-                    renderSwapTable(swapTransactions);
-
-                    // 显示 JSON
+                    const txs = result.data.transactions || [];
+                    renderSwapTable(txs);
                     showResult('swapResult', result.data);
-
-                    // 默认显示表格视图
-                    switchSwapTab('table');
+                    switchTab('swap', 'table');
                 } else {
                     showResult('swapResult', null, result.error);
                 }
@@ -580,58 +939,32 @@
             }
         }
 
-        // 测试获取流动性变化记录
-        async function testGetLiquidityTransactions() {
-            const resultId = 'liqResult';
-            const pairId = document.getElementById('liqPairId').value;
-            const type = document.getElementById('liqType').value || 'all';
-            const limit = parseInt(document.getElementById('liqLimit').value) || 10;
-
-            if (!pairId) {
-                showResult(resultId, null, '请输入交易对ID');
-                return;
-            }
-
-            showLoading(resultId);
-
-            try {
-                const response = await fetch('/api/ave-tx/liquidity', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        ...getApiConfig(),
-                        pairId,
-                        limit,
-                        type
-                    })
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    showResult(resultId, result.data);
-                } else {
-                    showResult(resultId, null, result.error);
-                }
-            } catch (error) {
-                showResult(resultId, null, error.message);
-            }
+        function renderSwapTable(transactions) {
+            const container = document.getElementById('swapTableContainer');
+            if (!transactions || transactions.length === 0) { container.innerHTML = '<div class="empty-state">暂无数据</div>'; return; }
+            container.innerHTML = `<table class="data-table"><thead><tr>
+                <th>时间</th><th>交易ID</th><th>链</th><th>发送地址</th><th>from</th><th>from数量</th><th>to</th><th>to数量</th><th>USD</th><th>区块</th>
+            </tr></thead><tbody>${transactions.map(tx => `<tr>
+                <td>${toBeijingTime(tx.time)}</td>
+                <td class="monospace" title="${tx.tx_id}">${truncAddr(tx.tx_id, 10)}</td>
+                <td>${tx.chain || '-'}</td>
+                <td class="monospace" title="${tx.from_address}">${truncAddr(tx.from_address)}</td>
+                <td>${tx.from_token_symbol || '-'}</td>
+                <td>${fmtNum(tx.from_amount, 6)}</td>
+                <td>${tx.to_token_symbol || '-'}</td>
+                <td>${fmtNum(tx.to_amount, 6)}</td>
+                <td>${fmtUsd(tx.from_usd)}</td>
+                <td>${tx.block_number || '-'}</td>
+            </tr>`).join('')}</tbody></table>`;
         }
 
-        // 测试搜索代币
+        // 3. 搜索代币
         async function testSearchTokens() {
-            const keyword = document.getElementById('searchKeyword').value;
-            const chain = document.getElementById('searchChain').value || null;
-            const limit = parseInt(document.getElementById('searchLimit').value) || 50;
-            const orderby = document.getElementById('searchOrderby').value || null;
-
-            if (!keyword) {
-                document.getElementById('searchResultContainer').style.display = 'block';
-                showResult('searchResult', null, '请输入搜索关键词');
-                return;
-            }
+            const keyword = gv('searchKeyword');
+            if (!keyword) { document.getElementById('searchResultContainer').style.display = 'block'; showResult('searchResult', null, '请输入搜索关键词'); return; }
 
             document.getElementById('searchResultContainer').style.display = 'block';
-            showResult('searchResult', null, '请求中...');
+            showLoading('searchResult');
 
             try {
                 const response = await fetch('/api/ave-token/search', {
@@ -640,24 +973,16 @@
                     body: JSON.stringify({
                         ...getApiConfig(),
                         keyword,
-                        chain,
-                        limit,
-                        orderby
+                        chain: gv('searchChain') || null,
+                        limit: gv('searchLimit', 50),
+                        orderby: gv('searchOrderby') || null
                     })
                 });
-
                 const result = await response.json();
                 if (result.success) {
-                    searchTokens = result.data.tokens || [];
-
-                    // 渲染表格
-                    renderSearchTable(searchTokens);
-
-                    // 显示 JSON
+                    renderSearchTable(result.data.tokens || []);
                     showResult('searchResult', result.data);
-
-                    // 默认显示表格视图
-                    switchSearchTab('table');
+                    switchTab('search', 'table');
                 } else {
                     showResult('searchResult', null, result.error);
                 }
@@ -666,47 +991,319 @@
             }
         }
 
-        // 测试获取地址交易记录
-        async function testGetAddressTransactions() {
-            const resultId = 'addrResult';
-            const walletAddress = document.getElementById('addrWallet').value;
-            const chain = document.getElementById('addrChain').value || 'bsc';
-            const tokenAddress = document.getElementById('addrToken').value;
-            const pageSize = parseInt(document.getElementById('addrPageSize').value) || 50;
+        function renderSearchTable(tokens) {
+            const container = document.getElementById('searchTableContainer');
+            if (!tokens || tokens.length === 0) { container.innerHTML = '<div class="empty-state">暂无数据</div>'; return; }
+            container.innerHTML = `<table class="data-table"><thead><tr>
+                <th>Symbol</th><th>Name</th><th>代币地址</th><th>链</th><th>创建时间</th><th>FDV</th><th>市值</th><th>价格</th><th>24H量</th><th>持有者</th>
+            </tr></thead><tbody>${tokens.map(t => `<tr>
+                <td class="font-medium">${t.symbol || '-'}</td>
+                <td>${t.name || '-'}</td>
+                <td class="monospace" title="${t.token}">${truncAddr(t.token, 10)}</td>
+                <td>${t.chain || '-'}</td>
+                <td>${t.launch_at || t.created_at ? toBeijingTime(t.launch_at || t.created_at) : '-'}</td>
+                <td>${fmtUsd(t.fdv)}</td>
+                <td>${fmtUsd(t.market_cap)}</td>
+                <td>${fmtNum(t.current_price_usd, 8)}</td>
+                <td>${fmtUsd(t.tx_volume_u_24h)}</td>
+                <td>${t.holders || '-'}</td>
+            </tr>`).join('')}</tbody></table>`;
+        }
 
-            if (!walletAddress) {
-                showResult(resultId, null, '请输入钱包地址');
-                return;
-            }
-            if (!tokenAddress) {
-                showResult(resultId, null, '请输入代币地址');
-                return;
-            }
+        // ============ 代币 API 测试函数 ============
 
-            showLoading(resultId);
+        // 5. 平台代币列表
+        async function testPlatformTokens() {
+            const tag = gv('platformTag');
+            if (!tag) { showResult('platformResult', null, '请选择平台标签'); return; }
+
+            document.getElementById('platformResultContainer').style.display = 'block';
+            showLoading('platformResult');
 
             try {
-                const response = await fetch('/api/ave-tx/address', {
+                const response = await fetch('/api/ave-token/platform', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...getApiConfig(),
+                        tag,
+                        chain: gv('platformChain', 'bsc'),
+                        limit: gv('platformLimit', 20),
+                        orderby: gv('platformOrderby', 'created_at')
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    renderPlatformTable(result.data.tokens || []);
+                    showResult('platformResult', result.data);
+                    switchTab('platform', 'table');
+                } else {
+                    showResult('platformResult', null, result.error);
+                }
+            } catch (error) {
+                showResult('platformResult', null, error.message);
+            }
+        }
+
+        function renderPlatformTable(tokens) {
+            const container = document.getElementById('platformTableContainer');
+            if (!tokens || tokens.length === 0) { container.innerHTML = '<div class="empty-state">暂无数据</div>'; return; }
+            container.innerHTML = `<table class="data-table"><thead><tr>
+                <th>Symbol</th><th>Name</th><th>代币地址</th><th>链</th><th>创建时间</th><th>价格</th><th>24H变化</th><th>FDV</th><th>24H量</th><th>持有者</th><th>蜜罐</th>
+            </tr></thead><tbody>${tokens.map(t => `<tr>
+                <td class="font-medium">${t.symbol || '-'}</td>
+                <td>${(t.name || '-').substring(0, 20)}</td>
+                <td class="monospace" title="${t.token}">${truncAddr(t.token, 10)}</td>
+                <td>${t.chain || '-'}</td>
+                <td>${t.launch_at || t.created_at ? toBeijingTime(t.launch_at || t.created_at) : '-'}</td>
+                <td>${fmtNum(t.current_price_usd, 8)}</td>
+                <td>${fmtPct(t.price_change_24h)}</td>
+                <td>${fmtUsd(t.fdv)}</td>
+                <td>${fmtUsd(t.tx_volume_u_24h)}</td>
+                <td>${t.holders || '-'}</td>
+                <td>${t.is_honeypot ? '<span class="text-red">是</span>' : '<span class="text-green">否</span>'}</td>
+            </tr>`).join('')}</tbody></table>`;
+        }
+
+        // 7. 批量获取代币价格
+        async function testTokenPrices() {
+            const rawIds = document.getElementById('priceTokenIds').value.trim();
+            if (!rawIds) { showResult('pricesResult', null, '请输入代币ID列表'); return; }
+            const tokenIds = rawIds.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+            if (tokenIds.length === 0) { showResult('pricesResult', null, '请输入代币ID列表'); return; }
+
+            showLoading('pricesResult');
+            try {
+                const response = await fetch('/api/ave-token/prices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...getApiConfig(),
+                        tokenIds,
+                        tvlMin: gv('priceTvlMin', 1000),
+                        tx24hVolumeMin: gv('priceTxMin', 0)
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showResult('pricesResult', result.data);
+                } else {
+                    showResult('pricesResult', null, result.error);
+                }
+            } catch (error) {
+                showResult('pricesResult', null, error.message);
+            }
+        }
+
+        // 8. TOP100持有者
+        async function testTopHolders() {
+            const tokenId = gv('holdersTokenId');
+            if (!tokenId) { showResult('holdersResult', null, '请输入代币ID'); return; }
+
+            document.getElementById('holdersResultContainer').style.display = 'block';
+            showLoading('holdersResult');
+
+            try {
+                const response = await fetch('/api/ave-token/top-holders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...getApiConfig(), tokenId, limit: gv('holdersLimit', 20) })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    renderHoldersTable(result.data.holders || []);
+                    showResult('holdersResult', result.data);
+                    switchTab('holders', 'table');
+                } else {
+                    showResult('holdersResult', null, result.error);
+                }
+            } catch (error) {
+                showResult('holdersResult', null, error.message);
+            }
+        }
+
+        function renderHoldersTable(holders) {
+            const container = document.getElementById('holdersTableContainer');
+            if (!holders || holders.length === 0) { container.innerHTML = '<div class="empty-state">暂无数据</div>'; return; }
+            container.innerHTML = `<table class="data-table"><thead><tr>
+                <th>地址</th><th>备注</th><th>占比</th><th>持仓USD</th><th>已实现盈亏</th><th>未实现盈亏</th><th>总盈亏</th><th>盈亏比</th><th>买入次数</th><th>卖出次数</th>
+            </tr></thead><tbody>${holders.map(h => `<tr>
+                <td class="monospace" title="${h.holder || h.address}">${truncAddr(h.holder || h.address)}</td>
+                <td>${h.remark || h.addr_alias || '-'}</td>
+                <td>${fmtNum(h.balance_ratio, 2)}%</td>
+                <td>${fmtUsd(h.balance_usd)}</td>
+                <td>${fmtUsd(h.realized_profit)}</td>
+                <td>${fmtUsd(h.unrealized_profit)}</td>
+                <td>${fmtUsd(h.total_profit)}</td>
+                <td>${fmtPct(h.total_profit_ratio)}</td>
+                <td>${h.buy_tx_count_cur || '-'}</td>
+                <td>${h.sell_tx_count_cur || '-'}</td>
+            </tr>`).join('')}</tbody></table>`;
+        }
+
+        // ============ K线 API 测试函数 ============
+
+        // 10. K线数据
+        async function testKlineData() {
+            const tokenId = gv('klineTokenId');
+            if (!tokenId) { showResult('klineResult', null, '请输入代币ID'); return; }
+
+            document.getElementById('klineResultContainer').style.display = 'block';
+            showLoading('klineResult');
+
+            try {
+                const response = await fetch('/api/ave-kline/data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...getApiConfig(),
+                        tokenId,
+                        interval: gv('klineInterval', 1),
+                        limit: gv('klineLimit', 30)
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    renderKlineTable(result.data.points || []);
+                    showResult('klineResult', result.data);
+                    switchTab('kline', 'table');
+                } else {
+                    showResult('klineResult', null, result.error);
+                }
+            } catch (error) {
+                showResult('klineResult', null, error.message);
+            }
+        }
+
+        function renderKlineTable(points) {
+            const container = document.getElementById('klineTableContainer');
+            if (!points || points.length === 0) { container.innerHTML = '<div class="empty-state">暂无数据</div>'; return; }
+
+            // 解析K线数据点
+            const parsed = points.map(p => {
+                if (Array.isArray(p)) {
+                    return { time: p[0], open: p[1], high: p[2], low: p[3], close: p[4], volume: p[5] };
+                }
+                return p;
+            });
+
+            container.innerHTML = `<table class="data-table"><thead><tr>
+                <th>时间</th><th>开盘</th><th>最高</th><th>最低</th><th>收盘</th><th>成交量</th>
+            </tr></thead><tbody>${parsed.map(p => `<tr>
+                <td>${toBeijingTime(p.time || p.timestamp)}</td>
+                <td>${fmtNum(p.open, 10)}</td>
+                <td>${fmtNum(p.high, 10)}</td>
+                <td>${fmtNum(p.low, 10)}</td>
+                <td>${fmtNum(p.close, 10)}</td>
+                <td>${fmtNum(p.volume, 2)}</td>
+            </tr>`).join('')}</tbody></table>`;
+        }
+
+        // ============ 钱包 API 测试函数 ============
+
+        // 14. 钱包持仓代币
+        async function testWalletTokens() {
+            const walletAddress = gv('wtWallet');
+            const chain = gv('wtChain', 'bsc');
+            if (!walletAddress) { showResult('wtResult', null, '请输入钱包地址'); return; }
+
+            document.getElementById('wtResultContainer').style.display = 'block';
+            showLoading('wtResult');
+
+            try {
+                const response = await fetch('/api/ave-wallet/tokens', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         ...getApiConfig(),
                         walletAddress,
                         chain,
-                        tokenAddress,
-                        pageSize
+                        sort: gv('wtSort', 'profit_usd'),
+                        sortDir: 'desc',
+                        pageSize: gv('wtPageSize', 20),
+                        pageNo: 1
                     })
                 });
-
                 const result = await response.json();
                 if (result.success) {
-                    showResult(resultId, result.data);
+                    renderWalletTokensTable(result.data.tokens || []);
+                    showResult('wtResult', result.data);
+                    switchTab('wt', 'table');
                 } else {
-                    showResult(resultId, null, result.error);
+                    showResult('wtResult', null, result.error);
                 }
             } catch (error) {
-                showResult(resultId, null, error.message);
+                showResult('wtResult', null, error.message);
             }
+        }
+
+        function renderWalletTokensTable(tokens) {
+            const container = document.getElementById('wtTableContainer');
+            if (!tokens || tokens.length === 0) { container.innerHTML = '<div class="empty-state">暂无数据</div>'; return; }
+            container.innerHTML = `<table class="data-table"><thead><tr>
+                <th>Symbol</th><th>代币地址</th><th>链</th><th>持仓USD</th><th>持仓数量</th><th>总盈亏</th><th>盈亏比</th><th>已实现</th><th>未实现</th><th>买入总额</th><th>风险</th>
+            </tr></thead><tbody>${tokens.map(t => `<tr>
+                <td class="font-medium">${t.symbol || '-'}</td>
+                <td class="monospace" title="${t.token}">${truncAddr(t.token)}</td>
+                <td>${t.chain || '-'}</td>
+                <td>${fmtUsd(t.balance_usd)}</td>
+                <td>${fmtNum(t.balance_amount, 4)}</td>
+                <td>${fmtUsd(t.total_profit)}</td>
+                <td>${fmtPct(t.total_profit_ratio)}</td>
+                <td>${fmtUsd(t.realized_profit)}</td>
+                <td>${fmtUsd(t.unrealized_profit)}</td>
+                <td>${fmtUsd(t.total_purchase_usd)}</td>
+                <td>${t.risk_level || '-'}</td>
+            </tr>`).join('')}</tbody></table>`;
+        }
+
+        // 15. 智能钱包列表
+        async function testSmartWallets() {
+            const chain = gv('swChain', 'bsc');
+
+            document.getElementById('swResultContainer').style.display = 'block';
+            showLoading('swResult');
+
+            try {
+                const response = await fetch('/api/ave-wallet/smart-wallets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...getApiConfig(),
+                        chain,
+                        sort: gv('swSort', 'total_profit'),
+                        sortDir: gv('swSortDir', 'desc')
+                    })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    renderSmartWalletsTable(result.data.wallets || []);
+                    showResult('swResult', result.data);
+                    switchTab('sw', 'table');
+                } else {
+                    showResult('swResult', null, result.error);
+                }
+            } catch (error) {
+                showResult('swResult', null, error.message);
+            }
+        }
+
+        function renderSmartWalletsTable(wallets) {
+            const container = document.getElementById('swTableContainer');
+            if (!wallets || wallets.length === 0) { container.innerHTML = '<div class="empty-state">暂无数据</div>'; return; }
+            container.innerHTML = `<table class="data-table"><thead><tr>
+                <th>钱包地址</th><th>标签</th><th>总交易数</th><th>买入</th><th>卖出</th><th>总盈利</th><th>盈利率</th><th>总交易量</th><th>最近交易</th>
+            </tr></thead><tbody>${wallets.map(w => `<tr>
+                <td class="monospace" title="${w.wallet_address}">${truncAddr(w.wallet_address)}</td>
+                <td>${w.tag || w.remark || '-'}</td>
+                <td>${w.total_trades || '-'}</td>
+                <td>${w.buy_trades || '-'}</td>
+                <td>${w.sell_trades || '-'}</td>
+                <td>${w.total_profit || '-'}</td>
+                <td>${w.total_profit_rate || '-'}</td>
+                <td>${w.total_volume || '-'}</td>
+                <td>${w.last_trade_time || '-'}</td>
+            </tr>`).join('')}</tbody></table>`;
         }
     </script>
 </body>

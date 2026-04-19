@@ -86,7 +86,7 @@ class AbstractTradingEngine extends ITradingEngine {
     this._statsEnabled = true;       // 是否启用定期统计
 
     // Per-token 买入通知追踪
-    // key: tokenAddress(lowercase), value: { buySignalCount, notificationSent, hasAnyExecuted }
+    // key: tokenAddress(lowercase), value: { buySignalCount }
     this._tokenBuyNotificationState = new Map();
 
     // 事件写入服务
@@ -736,37 +736,22 @@ class AbstractTradingEngine extends ITradingEngine {
     const tokenAddress = (signal.token_address || '').toLowerCase();
     if (!tokenAddress) return false;
 
-    // 从内存状态获取，没有则从数据库初始化
+    // 从内存状态获取，没有则初始化
     let state = this._tokenBuyNotificationState.get(tokenAddress);
     if (!state) {
       state = await this._initTokenNotificationState(tokenAddress, signal.experiment_id);
     }
 
-    // 已经发送过通知，不再发送
-    if (state.notificationSent) {
+    // 第3个信号之后不再发送
+    if (state.buySignalCount >= 3) {
       return false;
     }
 
     // 递增买入信号计数
     state.buySignalCount += 1;
 
-    // 规则0: 第一个买入信号必定触发（无论执行与否）
-    if (state.buySignalCount === 1) {
-      state.notificationSent = true;
-      if (isExecuted) state.hasAnyExecuted = true;
-      return true;
-    }
-
-    // 规则1: 第一个被执行的买入信号 → 触发
-    if (isExecuted) {
-      state.notificationSent = true;
-      state.hasAnyExecuted = true;
-      return true;
-    }
-
-    // 规则2: 如果没有任何 executed 的信号，第3个买入信号也触发
-    if (state.buySignalCount >= 3 && !state.hasAnyExecuted) {
-      state.notificationSent = true;
+    // 只有第1和第3个买入信号触发事件（无论执行与否）
+    if (state.buySignalCount === 1 || state.buySignalCount === 3) {
       return true;
     }
 
@@ -782,9 +767,7 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   async _initTokenNotificationState(tokenAddress, experimentId) {
     const state = {
-      buySignalCount: 0,
-      notificationSent: false,
-      hasAnyExecuted: false
+      buySignalCount: 0
     };
 
     this._tokenBuyNotificationState.set(tokenAddress, state);

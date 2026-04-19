@@ -2771,6 +2771,321 @@ class RicherJsWebServer {
       }
     });
 
+    // ============ AVE Token API 测试端点 ============
+
+    // 获取平台代币列表
+    this.app.post('/api/ave-token/platform', async (req, res) => {
+      try {
+        const { AveTokenAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, tag, chain = 'bsc', limit = 100, orderby = 'created_at' } = req.body;
+
+        if (!tag) {
+          return res.status(400).json({ success: false, error: 'tag不能为空' });
+        }
+
+        const tokenAPI = new AveTokenAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const tokens = await tokenAPI.getPlatformTokens(tag, chain, limit, orderby);
+
+        res.json({ success: true, data: { tag, chain, count: tokens.length, tokens } });
+      } catch (error) {
+        console.error('获取平台代币列表失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取代币详情
+    this.app.post('/api/ave-token/detail', async (req, res) => {
+      try {
+        const { AveTokenAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, tokenId } = req.body;
+
+        if (!tokenId) {
+          return res.status(400).json({ success: false, error: 'tokenId不能为空' });
+        }
+
+        const tokenAPI = new AveTokenAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const detail = await tokenAPI.getTokenDetail(tokenId);
+
+        res.json({ success: true, data: detail });
+      } catch (error) {
+        console.error('获取代币详情失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 批量获取代币价格
+    this.app.post('/api/ave-token/prices', async (req, res) => {
+      try {
+        const { AveTokenAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, tokenIds, tvlMin = 1000, tx24hVolumeMin = 0 } = req.body;
+
+        if (!tokenIds || !Array.isArray(tokenIds) || tokenIds.length === 0) {
+          return res.status(400).json({ success: false, error: 'tokenIds必须是非空数组' });
+        }
+
+        const tokenAPI = new AveTokenAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const prices = await tokenAPI.getTokenPrices(tokenIds, tvlMin, tx24hVolumeMin);
+
+        res.json({ success: true, data: { count: Object.keys(prices).length, prices } });
+      } catch (error) {
+        console.error('批量获取代币价格失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取TOP100持有者
+    this.app.post('/api/ave-token/top-holders', async (req, res) => {
+      try {
+        const { AveTokenAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, tokenId, limit = 100 } = req.body;
+
+        if (!tokenId) {
+          return res.status(400).json({ success: false, error: 'tokenId不能为空' });
+        }
+
+        const tokenAPI = new AveTokenAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const holders = await tokenAPI.getTokenTop100Holders(tokenId, limit);
+
+        res.json({ success: true, data: { count: holders.length, holders } });
+      } catch (error) {
+        console.error('获取TOP100持有者失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取合约风险信息
+    this.app.post('/api/ave-token/contract-risk', async (req, res) => {
+      try {
+        const { AveTokenAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, tokenId } = req.body;
+
+        if (!tokenId) {
+          return res.status(400).json({ success: false, error: 'tokenId不能为空' });
+        }
+
+        const tokenAPI = new AveTokenAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const risk = await tokenAPI.getContractRisk(tokenId);
+
+        res.json({ success: true, data: risk });
+      } catch (error) {
+        console.error('获取合约风险信息失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ AVE Kline API 测试端点 ============
+
+    // 获取K线数据
+    this.app.post('/api/ave-kline/data', async (req, res) => {
+      try {
+        const { AveKlineAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, tokenId, interval = 1, limit = 100 } = req.body;
+
+        if (!tokenId) {
+          return res.status(400).json({ success: false, error: 'tokenId不能为空' });
+        }
+
+        const klineAPI = new AveKlineAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const klineData = await klineAPI.getKlineDataByToken(tokenId, interval, limit);
+
+        res.json({ success: true, data: klineData });
+      } catch (error) {
+        console.error('获取K线数据失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取最新价格
+    this.app.post('/api/ave-kline/latest-price', async (req, res) => {
+      try {
+        const { AveKlineAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, tokenId } = req.body;
+
+        if (!tokenId) {
+          return res.status(400).json({ success: false, error: 'tokenId不能为空' });
+        }
+
+        const klineAPI = new AveKlineAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const priceInfo = await klineAPI.getLatestPriceByToken(tokenId);
+
+        res.json({ success: true, data: priceInfo });
+      } catch (error) {
+        console.error('获取最新价格失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ AVE Wallet API 测试端点 ============
+
+    // 获取钱包盈亏
+    this.app.post('/api/ave-wallet/pnl', async (req, res) => {
+      try {
+        const { AveWalletAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, walletAddress, chain, tokenAddress, fromTime = -1, toTime = -1, pageSize = 100, lastId = null } = req.body;
+
+        if (!walletAddress) {
+          return res.status(400).json({ success: false, error: 'walletAddress不能为空' });
+        }
+        if (!chain) {
+          return res.status(400).json({ success: false, error: 'chain不能为空' });
+        }
+        if (!tokenAddress) {
+          return res.status(400).json({ success: false, error: 'tokenAddress不能为空' });
+        }
+
+        const walletAPI = new AveWalletAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const pnl = await walletAPI.getWalletPnL(walletAddress, chain, tokenAddress, fromTime, toTime, pageSize, lastId);
+
+        res.json({ success: true, data: pnl });
+      } catch (error) {
+        console.error('获取钱包盈亏失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取钱包信息
+    this.app.post('/api/ave-wallet/info', async (req, res) => {
+      try {
+        const { AveWalletAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, walletAddress, chain } = req.body;
+
+        if (!walletAddress) {
+          return res.status(400).json({ success: false, error: 'walletAddress不能为空' });
+        }
+        if (!chain) {
+          return res.status(400).json({ success: false, error: 'chain不能为空' });
+        }
+
+        const walletAPI = new AveWalletAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const walletInfo = await walletAPI.getWalletInfo(walletAddress, chain);
+
+        res.json({ success: true, data: walletInfo });
+      } catch (error) {
+        console.error('获取钱包信息失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取钱包持仓代币
+    this.app.post('/api/ave-wallet/tokens', async (req, res) => {
+      try {
+        const { AveWalletAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, walletAddress, chain, sort = 'profit_usd', sortDir = 'desc', hideSold = false, hideSmall = false, pageSize = 100, pageNo = 1 } = req.body;
+
+        if (!walletAddress) {
+          return res.status(400).json({ success: false, error: 'walletAddress不能为空' });
+        }
+        if (!chain) {
+          return res.status(400).json({ success: false, error: 'chain不能为空' });
+        }
+
+        const walletAPI = new AveWalletAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const tokens = await walletAPI.getWalletTokens(walletAddress, chain, sort, sortDir, hideSold, hideSmall, pageSize, pageNo);
+
+        res.json({ success: true, data: { count: tokens.length, tokens } });
+      } catch (error) {
+        console.error('获取钱包持仓代币失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取智能钱包列表
+    this.app.post('/api/ave-wallet/smart-wallets', async (req, res) => {
+      try {
+        const { AveWalletAPI } = require('./core/ave-api');
+        const config = require('../config/default.json');
+
+        const { apiKey, baseURL, chain, sort = 'total_profit', sortDir = 'desc' } = req.body;
+
+        if (!chain) {
+          return res.status(400).json({ success: false, error: 'chain不能为空' });
+        }
+
+        const walletAPI = new AveWalletAPI(
+          baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
+          config.ave?.timeout || 30000,
+          apiKey || process.env.AVE_API_KEY
+        );
+
+        const wallets = await walletAPI.getSmartWallets(chain, sort, sortDir);
+
+        res.json({ success: true, data: { count: wallets.length, wallets } });
+      } catch (error) {
+        console.error('获取智能钱包列表失败:', error);
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // AVE TX 测试页面
     this.app.get('/ave-tx-test', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/ave-tx-test.html'));

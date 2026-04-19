@@ -186,10 +186,11 @@ async function detectOrphanData() {
  */
 async function deleteOrphanData(orphanExperimentIds) {
   console.log('\n🗑️  开始删除孤儿数据...\n');
-  console.log('💡 使用原生 SQL 删除（服务器端执行，避免分批超时）\n');
+  console.log('💡 使用分批删除（每批 500 条），避免超时\n');
 
   const supabase = dbManager.getClient();
-  let totalDeleted = 0;
+  const BATCH_SIZE = 500;
+  let totalExperimentsDeleted = 0;
   let failedCount = 0;
   const failedList = [];
 
@@ -200,65 +201,44 @@ async function deleteOrphanData(orphanExperimentIds) {
 
     console.log(`\n[${i + 1}/${orphanExperimentIds.length}] 删除实验 ${shortId} 的数据...`);
 
-    // 先统计该实验的记录数
-    let count = 0;
     try {
-      const countResult = await queryWithRetry(
-        async () => await supabase
-          .from('experiment_time_series_data')
-          .select('*', { count: 'exact', head: true })
-          .eq('experiment_id', expId),
-        `统计实验 ${shortId} 记录数`,
-        2
-      );
-      count = countResult.count || 0;
-      console.log(`   检测到 ${count} 条记录`);
-    } catch (e) {
-      console.warn(`   ⚠️  无法统计记录数: ${e.message}`);
-    }
+      let batchNum = 0;
+      let totalDeletedForExp = 0;
 
-    // 使用原生 SQL 删除（在服务器端执行，避免多次往返）
-    try {
-      const sql = `DELETE FROM experiment_time_series_data WHERE experiment_id = '${expId}'`;
+      while (true) {
+        batchNum++;
+        // 先查出一批记录的 id
+        const { data: rows, error: selectError } = await queryWithRetry(
+          async () => await supabase
+            .from('experiment_time_series_data')
+            .select('id')
+            .eq('experiment_id', expId)
+            .limit(BATCH_SIZE),
+          `查询实验 ${shortId} 第 ${batchNum} 批`
+        );
 
-      const { data, error } = await supabase.rpc('exec_sql', { sql_query: sql });
+        if (selectError) throw selectError;
+        if (!rows || rows.length === 0) break;
 
-      if (error) {
-        // 如果 RPC 不可用，尝试使用直接删除
-        console.log(`   ⚠️  RPC 不可用，尝试直接删除...`);
+        const ids = rows.map(r => r.id);
 
-        // 直接删除整个实验的数据（服务器端一次性删除）
-        const directResult = await queryWithRetry(
+        // 按 id 批量删除
+        const { error: deleteError } = await queryWithRetry(
           async () => await supabase
             .from('experiment_time_series_data')
             .delete()
-            .eq('experiment_id', expId),
-          `删除实验 ${shortId}`,
-          3  // 增加重试次数
+            .in('id', ids),
+          `删除实验 ${shortId} 第 ${batchNum} 批`
         );
 
-        if (directResult.error) {
-          throw directResult.error;
-        }
+        if (deleteError) throw deleteError;
 
-        // 验证删除结果
-        const checkResult = await supabase
-          .from('experiment_time_series_data')
-          .select('*', { count: 'exact', head: true })
-          .eq('experiment_id', expId);
-
-        const remaining = checkResult.count || 0;
-        if (remaining === 0) {
-          totalDeleted++;
-          console.log(`   ✅ 实验 ${shortId} 的数据已全部删除`);
-        } else {
-          throw new Error(`删除后仍有 ${remaining} 条记录`);
-        }
-      } else {
-        totalDeleted++;
-        console.log(`   ✅ 实验 ${shortId} 的数据已全部删除`);
+        totalDeletedForExp += ids.length;
+        console.log(`   第 ${batchNum} 批: 删除 ${ids.length} 条，累计 ${totalDeletedForExp} 条`);
       }
 
+      totalExperimentsDeleted++;
+      console.log(`   ✅ 实验 ${shortId} 的数据已全部删除 (共 ${totalDeletedForExp} 条)`);
     } catch (err) {
       console.error(`   ❌ 删除失败: ${err.message}`);
       failedCount++;
@@ -267,7 +247,7 @@ async function deleteOrphanData(orphanExperimentIds) {
   }
 
   return {
-    totalDeleted,
+    totalDeleted: totalExperimentsDeleted,
     failedCount,
     failedList
   };

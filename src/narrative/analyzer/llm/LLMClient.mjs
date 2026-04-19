@@ -18,6 +18,8 @@ const API_URL = process.env.SILICONFLOW_API_URL || 'https://api.siliconflow.cn/v
 const API_KEY = process.env.SILICONFLOW_API_KEY;
 const MODEL = process.env.LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
 const VISION_MODEL = process.env.SILICONFLOW_VISION_MODEL || 'Qwen/Qwen3-Omni-30B-A3B-Captioner';
+const VISION_API_URL = process.env.VISION_API_URL || 'https://api.siliconflow.cn/v1';
+const VISION_API_KEY = process.env.VISION_API_KEY || API_KEY;
 
 export class LLMClient {
 
@@ -36,7 +38,9 @@ export class LLMClient {
       if (primaryConfig && primaryConfig.name === modelName) {
         return {
           name: modelName,
-          parameters: primaryConfig.parameters || {}
+          parameters: primaryConfig.parameters || {},
+          apiBaseUrl: primaryConfig.apiBaseUrl || API_URL,
+          apiKey: primaryConfig.apiKeyEnv ? process.env[primaryConfig.apiKeyEnv] : API_KEY
         };
       }
 
@@ -45,14 +49,18 @@ export class LLMClient {
       if (fallbackConfig && fallbackConfig.name === modelName) {
         return {
           name: modelName,
-          parameters: fallbackConfig.parameters || {}
+          parameters: fallbackConfig.parameters || {},
+          apiBaseUrl: fallbackConfig.apiBaseUrl || API_URL,
+          apiKey: fallbackConfig.apiKeyEnv ? process.env[fallbackConfig.apiKeyEnv] : API_KEY
         };
       }
 
       // 模型不在配置文件中，使用默认参数
       return {
         name: modelName,
-        parameters: {}
+        parameters: {},
+        apiBaseUrl: API_URL,
+        apiKey: API_KEY
       };
     }
 
@@ -60,7 +68,9 @@ export class LLMClient {
     const primaryConfig = getModelConfig('primary');
     return {
       name: primaryConfig?.name || MODEL,
-      parameters: primaryConfig?.parameters || {}
+      parameters: primaryConfig?.parameters || {},
+      apiBaseUrl: primaryConfig?.apiBaseUrl || API_URL,
+      apiKey: primaryConfig?.apiKeyEnv ? process.env[primaryConfig.apiKeyEnv] : API_KEY
     };
   }
 
@@ -76,7 +86,9 @@ export class LLMClient {
 
     return {
       name: fallbackConfig.name,
-      parameters: fallbackConfig.parameters || {}
+      parameters: fallbackConfig.parameters || {},
+      apiBaseUrl: fallbackConfig.apiBaseUrl || API_URL,
+      apiKey: fallbackConfig.apiKeyEnv ? process.env[fallbackConfig.apiKeyEnv] : API_KEY
     };
   }
 
@@ -173,7 +185,10 @@ ${text}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    console.log(`[LLMClient] 调用模型: ${modelConfig.name} (超时: ${timeout/1000}秒)`);
+    const apiUrl = modelConfig.apiBaseUrl || API_URL;
+    const apiKey = modelConfig.apiKey || API_KEY;
+
+    console.log(`[LLMClient] 调用模型: ${modelConfig.name} (超时: ${timeout/1000}秒, API: ${apiUrl})`);
 
     try {
       // 合并默认参数和配置文件中的参数
@@ -187,11 +202,11 @@ ${text}`;
 
       const parameters = { ...defaultParams, ...modelConfig.parameters };
 
-      const response = await fetch(`${API_URL}/chat/completions`, {
+      const response = await fetch(`${apiUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`
+          'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
           model: modelConfig.name,
@@ -420,11 +435,11 @@ ${text}`;
     console.log(`[LLMClient] 开始分析图片（模型: ${config.model}）...`);
 
     try {
-      const response = await fetch(`${API_URL}/chat/completions`, {
+      const response = await fetch(`${VISION_API_URL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`
+          'Authorization': `Bearer ${VISION_API_KEY}`
         },
         body: JSON.stringify({
           model: config.model,
