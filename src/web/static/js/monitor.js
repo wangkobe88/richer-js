@@ -332,6 +332,8 @@ function renderEventCard(event) {
           <span class="font-semibold text-gray-900">${escapeHtml(event.token_symbol || '???')}</span>
           <span class="mono text-xs text-gray-500">${shortAddr}</span>
           <span class="text-xs text-gray-400 uppercase">${event.chain || 'BSC'}</span>
+          ${d.gmgnUrl ? `<a href="${d.gmgnUrl}" target="_blank" title="在GMGN中查看" class="inline-flex items-center ml-1"><img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity"></a>` : ''}
+          ${d.signalsUrl ? `<a href="${d.signalsUrl}" target="_blank" title="查看信号详情" class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors">信号</a>` : ''}
         </div>
         <div class="flex items-center space-x-2 text-xs text-gray-400">
           <span>${timeStr}</span>
@@ -347,12 +349,6 @@ function renderEventCard(event) {
         ${profitStr ? `<span>利润: ${profitStr}</span>` : ''}
         ${holdStr ? `<span class="text-gray-600">⏱ ${holdStr}</span>` : ''}
         ${cardsStr ? `<span class="text-gray-600">卖出: ${cardsStr}</span>` : ''}
-      </div>
-
-      <!-- 链接 -->
-      <div class="flex items-center space-x-3 mt-2 text-xs">
-        ${d.gmgnUrl ? `<a href="${d.gmgnUrl}" target="_blank" class="text-blue-500 hover:text-blue-700">GMGN</a>` : ''}
-        ${d.signalsUrl ? `<a href="${d.signalsUrl}" target="_blank" class="text-blue-500 hover:text-blue-700">信号</a>` : ''}
       </div>
 
       <!-- 展开区域 -->
