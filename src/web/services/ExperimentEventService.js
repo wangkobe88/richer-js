@@ -113,12 +113,17 @@ class ExperimentEventService {
       for (const stageName of stageOrder) {
         const stage = narrativeInfo[stageName];
         if (stage) {
-          stageSummaries[stageName] = {
+          const stageEntry = {
             pass: stage.pass,
             score: stage.score ?? null,
             category: stage.category || null,
             reason: stage.reason || null
           };
+          // preCheck 阶段携带 details（同名代币、语料复用等具体信息）
+          if (stageName === 'preCheck' && stage.details) {
+            stageEntry.details = stage.details;
+          }
+          stageSummaries[stageName] = stageEntry;
         }
       }
       if (Object.keys(stageSummaries).length > 0) {

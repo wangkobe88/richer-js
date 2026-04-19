@@ -279,6 +279,37 @@ function renderEventCard(event) {
       const catPart = st.category ? ` [${st.category}]` : '';
       const reasonPart = st.reason ? ` — ${escapeHtml(st.reason.substring(0, 150))}${st.reason.length > 150 ? '...' : ''}` : '';
       stageHtml += `<div class="ml-2 text-gray-600">${passIcon} ${stageLabels[name] || name}${catPart}${scorePart}${reasonPart}</div>`;
+
+      // 预检查具体信息：同名代币 / 语料复用 / 重复叙事
+      if (name === 'preCheck' && st.details) {
+        const det = st.details;
+        // 同名代币
+        if (det.sameNameTokens && det.sameNameTokens.length > 0) {
+          stageHtml += '<div class="ml-6 text-xs text-orange-700 mt-1">同名代币:';
+          for (const t of det.sameNameTokens) {
+            const addr = t.address ? shortenAddress(t.address) : '';
+            const fdvStr = t.fdv ? ` FDV:${formatMarketCap(parseFloat(t.fdv))}` : '';
+            const txStr = t.txCount ? ` 交易:${t.txCount}` : '';
+            stageHtml += `<div class="ml-2">• ${escapeHtml(t.symbol || t.name || '???')} <span class="mono">${addr}</span>${fdvStr}${txStr}</div>`;
+          }
+          stageHtml += '</div>';
+        }
+        // 语料复用的早期代币
+        if (det.earlierTokens && det.earlierTokens.length > 0) {
+          stageHtml += '<div class="ml-6 text-xs text-orange-700 mt-1">语料复用代币:';
+          for (const t of det.earlierTokens) {
+            const addr = t.address ? shortenAddress(t.address) : '';
+            const timeStr2 = t.timeDiffText ? ` (${t.timeDiffText}前)` : '';
+            stageHtml += `<div class="ml-2">• ${escapeHtml(t.symbol || '???')} <span class="mono">${addr}</span>${timeStr2}</div>`;
+          }
+          stageHtml += '</div>';
+        }
+        // 同名+同推文重复
+        if (det.matchedTokenSymbol && det.matchedTokenAddress) {
+          const addr = shortenAddress(det.matchedTokenAddress);
+          stageHtml += `<div class="ml-6 text-xs text-orange-700 mt-1">重复叙事: ${escapeHtml(det.matchedTokenSymbol)} <span class="mono">${addr}</span></div>`;
+        }
+      }
     }
     expandContent += stageHtml;
   }
