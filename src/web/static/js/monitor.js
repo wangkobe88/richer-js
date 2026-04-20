@@ -16,6 +16,7 @@ let isRealtime = false;
 let isLoadingHistory = false;
 let hasMoreEvents = false;
 let currentOffset = 0;
+let soundEnabled = true;
 
 // 筛选状态
 let filterAction = '';
@@ -82,6 +83,7 @@ function onNewEvent(event) {
   renderTokenNav();
   renderEvents();
   showNewEventAnimation(event.id);
+  playNotificationSound();
   updateEventCount();
 }
 
@@ -134,6 +136,7 @@ async function pollNewEvents() {
     renderTokenNav();
     renderEvents();
     newEvents.forEach(e => showNewEventAnimation(e.id));
+    playNotificationSound();
     updateEventCount();
   }
 }
@@ -235,6 +238,7 @@ function renderEventCard(event) {
 
   // 信号序号
   const indexStr = s.signalIndex ? `#${s.signalIndex} ` : '';
+  const isThirdBuy = isBuy && s.signalIndex === 3;
 
   // 市值
   const marketCapStr = s.marketCap != null ? formatMarketCap(s.marketCap) : '';
@@ -356,7 +360,7 @@ function renderEventCard(event) {
   }
 
   return `
-    <div class="event-card" id="card-${event.id}" data-action="${event.action}" data-rating="${s.narrativeRating || ''}">
+    <div class="event-card ${isThirdBuy ? 'event-third-buy' : ''}" id="card-${event.id}" data-action="${event.action}" data-rating="${s.narrativeRating || ''}">
       <!-- 头部 -->
       <div class="flex items-center justify-between">
         <div class="flex items-center space-x-2 flex-wrap">
@@ -490,6 +494,36 @@ function showNewEventAnimation(eventId) {
   }, 50);
 }
 
+/**
+ * 播放新事件提示音
+ */
+function playNotificationSound() {
+  if (!soundEnabled) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+  } catch {
+    // 浏览器可能阻止自动播放，忽略
+  }
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  const btn = document.getElementById('sound-toggle-btn');
+  btn.textContent = soundEnabled ? '🔔' : '🔕';
+  btn.title = soundEnabled ? '声音已开启，点击静音' : '声音已关闭，点击开启';
+}
+
 // ============ 清空数据 ============
 function closePurgeModal() {
   document.getElementById('purge-modal').classList.add('hidden');
@@ -608,6 +642,9 @@ function setupEventListeners() {
 
   // 加载更多
   document.getElementById('load-more-btn').addEventListener('click', loadMore);
+
+  // 声音开关
+  document.getElementById('sound-toggle-btn').addEventListener('click', toggleSound);
 
   // 清空数据
   document.getElementById('purge-btn').addEventListener('click', () => {
