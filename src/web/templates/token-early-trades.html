@@ -666,6 +666,7 @@
 
         // 渲染单行交易
         function renderTradeRow(tx, index, prevTx, nextTx) {
+            const gmgnChain = ({bsc:'bsc',eth:'eth',ethereum:'eth',solana:'sol',sol:'sol',base:'base'})[(document.getElementById('chain')?.value||'bsc').toLowerCase()]||'bsc';
             const fromAddr = tx.from_address || '';
             const toAddr = tx.to_address || '';
 
@@ -773,12 +774,12 @@
                     <td class="text-xs">${typeMark}</td>
                     <td class="monospace text-xs" title="${isBuy ? '买家' : '卖家'}: ${fromAddr}">
                         ${fromShort}
-                        <a href="https://gmgn.ai/bsc/address/${fromAddr}" target="_blank" class="gmgn-link ml-1">GMGN</a>
+                        <a href="https://gmgn.ai/${gmgnChain}/address/${fromAddr}" target="_blank" class="gmgn-link ml-1">GMGN</a>
                         ${fromAddr ? renderWalletActions(fromAddr, fromInBlacklist, fromInWhitelist) : ''}
                     </td>
                     <td class="monospace text-xs text-gray-400" title="${isBuy ? '池子' : '买家'}: ${toAddr || '池子'}">
                         ${toShort || '池子'}
-                        ${toAddr ? `<a href="https://gmgn.ai/bsc/address/${toAddr}" target="_blank" class="gmgn-link ml-1">GMGN</a>` : ''}
+                        ${toAddr ? `<a href="https://gmgn.ai/${gmgnChain}/address/${toAddr}" target="_blank" class="gmgn-link ml-1">GMGN</a>` : ''}
                         ${toAddr ? renderWalletActions(toAddr, toInBlacklist, toInWhitelist) : ''}
                     </td>
                     <td class="text-xs" title="${tradeInfo}">${tradeInfo}</td>

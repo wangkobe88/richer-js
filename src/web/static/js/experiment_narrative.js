@@ -373,13 +373,14 @@ class ExperimentNarrative {
     // 使用 judgeExperimentId（回测时为源实验ID，否则为当前实验ID）
     const targetExperimentId = this.judgeExperimentId || this.experimentId;
     const blockchain = this.experimentData?.blockchain || 'bsc';
+    const gmgnChain = ({bsc:'bsc',eth:'eth',ethereum:'eth',solana:'sol',sol:'sol',base:'base'})[blockchain.toLowerCase()]||'bsc';
 
     return `
       <tr class="table-row">
         <td class="px-4 py-3">
           <div class="flex items-center">
             <span class="font-medium text-white">${item.token_symbol}</span>
-            <a href="https://gmgn.ai/bsc/token/${item.token_address}" target="_blank" rel="noopener noreferrer"
+            <a href="https://gmgn.ai/${gmgnChain}/token/${item.token_address}" target="_blank" rel="noopener noreferrer"
                class="ml-2 text-gray-400 hover:text-purple-400 transition-colors"
                title="在 GMGN 查看">
               <img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3">

@@ -464,6 +464,7 @@
                     // 构建交易数据表格
                     const tokenAddress = result.token_address?.toLowerCase() || '';
                     const strongTraders = new Set((result.strong_traders || []).map(addr => addr.toLowerCase()));
+                    const gmgnChain = ({bsc:'bsc',eth:'eth',ethereum:'eth',solana:'sol',sol:'sol',base:'base'})[(result.data.chain||'bsc').toLowerCase()]||'bsc';
 
                     // 统计
                     let buyCount = 0;
@@ -517,11 +518,11 @@
                                 <td class="mono">${time}</td>
                                 <td class="mono">${trade.block_number || '-'}</td>
                                 <td>
-                                    ${trade.from_address ? `<a href="https://gmgn.ai/bsc/address/${trade.from_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.from_address}">${trade.from_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
+                                    ${trade.from_address ? `<a href="https://gmgn.ai/${gmgnChain}/address/${trade.from_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.from_address}">${trade.from_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
                                     ${direction ? `<br><span class="direction-badge ${directionClass}">${direction}</span>` : ''}
                                 </td>
                                 <td>
-                                    ${trade.to_address ? `<a href="https://gmgn.ai/bsc/address/${trade.to_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.to_address}">${trade.to_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
+                                    ${trade.to_address ? `<a href="https://gmgn.ai/${gmgnChain}/address/${trade.to_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.to_address}">${trade.to_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
                                     ${strongTraderBadge ? `<br>${strongTraderBadge}` : ''}
                                 </td>
                                 <td class="text-green text-right">${fromUsd}</td>
@@ -700,11 +701,11 @@
                                         <td class="mono">${time}</td>
                                         <td class="mono">${trade.block_number || '-'}</td>
                                         <td>
-                                            ${trade.from_address ? `<a href="https://gmgn.ai/bsc/address/${trade.from_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.from_address}">${trade.from_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
+                                            ${trade.from_address ? `<a href="https://gmgn.ai/${gmgnChain}/address/${trade.from_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.from_address}">${trade.from_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
                                             ${direction ? `<br><span class="direction-badge ${directionClass}">${direction}</span>` : ''}
                                         </td>
                                         <td>
-                                            ${trade.to_address ? `<a href="https://gmgn.ai/bsc/address/${trade.to_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.to_address}">${trade.to_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
+                                            ${trade.to_address ? `<a href="https://gmgn.ai/${gmgnChain}/address/${trade.to_address}" target="_blank" class="mono text-blue hover:underline" title="${trade.to_address}">${trade.to_address.substring(0, 10)}...</a>` : '<span class="text-gray-500">-</span>'}
                                             ${strongTraderBadge ? `<br>${strongTraderBadge}` : ''}
                                         </td>
                                         <td class="text-green text-right">${fromUsd}</td>

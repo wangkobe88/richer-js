@@ -486,11 +486,13 @@ class ExperimentTokens {
     const platformLabel = platform === 'flap' ? 'Flap' : 'Four.meme';
     const platformClass = platform === 'flap' ? 'bg-purple-600' : 'bg-blue-600';
     const symbol = token.token_symbol || rawData?.symbol || '-';
-    const gmgnUrl = `https://gmgn.ai/bsc/token/${token.token_address}`;
+    const chain = this.experiment?.blockchain || 'bsc';
+    const gmgnChainMap = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
+    const gmgnChain = gmgnChainMap[chain.toLowerCase()] || 'bsc';
+    const gmgnUrl = `https://gmgn.ai/${gmgnChain}/token/${token.token_address}`;
     const signalsUrl = `/experiment/${this.experimentId}/signals#token=${token.token_address}`;
     const observerUrl = `/experiment/${this.experimentId}/observer#token=${token.token_address}`;
     const holdersUrl = `/token-holders?experiment=${this.experimentId}&token=${token.token_address}`;
-    const chain = this.experiment?.blockchain || 'bsc';
     const earlyTradesUrl = `/token-early-trades?token=${token.token_address}&chain=${chain}`;
     const strategyUrl = `/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${token.token_address}`;
     const tokenDetailUrl = `/token-detail?experiment=${this.experimentId}&address=${token.token_address}`;

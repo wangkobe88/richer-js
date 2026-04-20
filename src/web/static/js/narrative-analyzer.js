@@ -61,6 +61,7 @@ class NarrativeAnalyzer {
     }
 
     this.currentAddress = address;
+    this.currentChain = null;
     this.hideError();
     this.showLoading();
     this.hideResult();
@@ -182,6 +183,13 @@ class NarrativeAnalyzer {
 
   displayResult(data) {
     const { token, llmAnalysis, debugInfo, meta, twitter, classifiedUrls, fetchErrors } = data;
+
+    // 保存 chain 信息供各组件使用
+    this.currentChain = (token?.chain || 'bsc').toLowerCase();
+    // 如果地址以 0x 开头（EVM 链），且 chain 是 sol，则修正为 bsc
+    if (this.currentAddress?.startsWith('0x') && this.currentChain === 'sol') {
+      this.currentChain = 'bsc';
+    }
 
     console.log('[NarrativeAnalyzer] displayResult called');
     console.log('[NarrativeAnalyzer] llmAnalysis:', llmAnalysis ? 'exists' : 'null');
@@ -363,7 +371,7 @@ class NarrativeAnalyzer {
           pass: false
         });
         if (result.matchedTokenAddress) {
-          const gmgnUrl = `https://gmgn.ai/bsc/token/${result.matchedTokenAddress}`;
+          const gmgnUrl = `https://gmgn.ai/${this._gmgnChain()}/token/${result.matchedTokenAddress}`;
           details.push({
             label: '匹配代币',
             value: `<a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${result.matchedTokenSymbol || '?'}</a> <span style="font-size:11px;color:#999;">${result.matchedTokenAddress.slice(0, 14)}...</span>`,
@@ -399,7 +407,7 @@ class NarrativeAnalyzer {
           pass: null
         });
         if (result.matchedTokenAddress) {
-          const gmgnUrl = `https://gmgn.ai/bsc/token/${result.matchedTokenAddress}`;
+          const gmgnUrl = `https://gmgn.ai/${this._gmgnChain()}/token/${result.matchedTokenAddress}`;
           details.push({
             label: '匹配代币',
             value: `<a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${result.matchedTokenSymbol || '?'}</a> <span style="font-size:11px;color:#999;">${result.matchedTokenAddress.slice(0, 14)}...</span>`,
@@ -430,7 +438,7 @@ class NarrativeAnalyzer {
         if (result.earlierTokens && result.earlierTokens.length > 0) {
           const tokensList = result.earlierTokens
             .map(t => {
-              const gmgnUrl = `https://gmgn.ai/bsc/token/${t.address}`;
+              const gmgnUrl = `https://gmgn.ai/${this._gmgnChain()}/token/${t.address}`;
               const date = t.discoveredAt ? new Date(t.discoveredAt).toLocaleDateString() : '';
               const timeDiff = t.timeDiffText ? ` <span style="font-size:11px;color:#e67e22;font-weight:bold;">⏱ ${t.timeDiffText}</span>` : '';
               return `• <a href="${gmgnUrl}" target="_blank" style="color: #3498db; text-decoration: none;">${t.symbol || '?'}</a> <span style="font-size:11px;color:#999;">${t.address.slice(0, 14)}...</span> (${date})${timeDiff}`;
@@ -2354,6 +2362,11 @@ class NarrativeAnalyzer {
         <span class="fast-track-quality-val">${value}/${max}</span>
       </div>
     `;
+  }
+
+  _gmgnChain() {
+    const map = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
+    return map[(this.currentChain || 'bsc').toLowerCase()] || 'bsc';
   }
 }
 

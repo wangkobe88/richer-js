@@ -688,7 +688,7 @@ class ExperimentTrades {
           }
           // 更新 GMGN 链接
           if (gmgnLinkBtn) {
-            const gmgnUrl = `https://gmgn.ai/bsc/token/${token.address}`;
+            const gmgnUrl = `https://gmgn.ai/${this._gmgnChain()}/token/${token.address}`;
             gmgnLinkBtn.href = gmgnUrl;
           }
           // 绑定复制按钮事件
@@ -2217,6 +2217,11 @@ class ExperimentTrades {
       'ethereum': 'Ethereum'
     };
     return blockchainMap[blockchain?.toLowerCase()] || blockchain || 'Unknown';
+  }
+
+  _gmgnChain() {
+    const map = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
+    return map[(this.experiment?.blockchain || 'bsc').toLowerCase()] || 'bsc';
   }
 }
 

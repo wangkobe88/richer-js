@@ -41,6 +41,7 @@ class TokenHoldersManager {
       if (result.success) {
         const experiment = result.data.find(e => e.id === this.experimentId);
         if (experiment) {
+          this.experiment = experiment;
           const infoDiv = document.getElementById('experiment-info');
           const nameSpan = document.getElementById('experiment-name');
           nameSpan.textContent = `${experiment.experimentName || experiment.experiment_name} (${this.experimentId.substring(0, 8)}...)`;
@@ -313,7 +314,7 @@ class TokenHoldersManager {
           <span class="font-mono text-gray-900">${holder.address}</span>
           ${isCreator ? '<span class="ml-2 text-xs font-bold text-orange-600">👑 Dev</span>' : ''}
           ${holder.wallet_name ? `<span class="ml-2 text-xs text-gray-500">(${holder.wallet_name})</span>` : ''}
-          <a href="https://gmgn.ai/bsc/address/${holder.address}" target="_blank" class="ml-2 text-xs text-blue-500 hover:text-blue-700" title="在 GMGN 查看">
+          <a href="https://gmgn.ai/${this._gmgnChain()}/address/${holder.address}" target="_blank" class="ml-2 text-xs text-blue-500 hover:text-blue-700" title="在 GMGN 查看">
             GMGN
           </a>
         </td>
@@ -352,6 +353,11 @@ class TokenHoldersManager {
         </td>
       </tr>
     `;
+  }
+
+  _gmgnChain() {
+    const map = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
+    return map[(this.experiment?.blockchain || 'bsc').toLowerCase()] || 'bsc';
   }
 
   copyAddress(address) {
