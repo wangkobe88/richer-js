@@ -516,6 +516,7 @@ class AbstractTradingEngine extends ITradingEngine {
       action: signal.action.toLowerCase(),
       confidence: signal.confidence || 0.5,
       reason: signal.reason || '',
+      chain: this._blockchain,
       metadata: signalMetadata,
       createdAt: signal.timestamp || new Date()  // 使用信号中的时间戳（回测使用历史时间）
     });

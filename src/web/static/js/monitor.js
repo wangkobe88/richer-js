@@ -368,7 +368,7 @@ function renderEventCard(event) {
           <span class="exec-status ${execClass}">${execText}</span>
           <span class="font-semibold text-gray-900">${escapeHtml(event.token_symbol || '???')}</span>
           <span class="mono text-xs text-gray-500">${shortAddr}</span>
-          <span class="text-xs text-gray-400 uppercase">${event.chain || 'BSC'}</span>
+          <span class="text-xs text-gray-400 uppercase">${formatChain(event.chain)}</span>
           ${d.gmgnUrl ? `<a href="${d.gmgnUrl}" target="_blank" title="在GMGN中查看" class="inline-flex items-center ml-1"><img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity"></a>` : ''}
           ${d.signalsUrl ? `<a href="${d.signalsUrl}" target="_blank" title="查看信号详情" class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors">信号</a>` : ''}
         </div>
@@ -626,6 +626,11 @@ function formatDuration(ms) {
   const hours = Math.floor(minutes / 60);
   if (hours > 0) return `${hours}时${minutes % 60}分`;
   return `${minutes}分`;
+}
+
+function formatChain(chain) {
+  const map = { bsc: 'BSC', eth: 'ETH', ethereum: 'ETH', solana: 'SOL', sol: 'SOL', base: 'BASE' };
+  return map[(chain || 'bsc').toLowerCase()] || (chain || 'BSC').toUpperCase();
 }
 
 function escapeHtml(str) {
