@@ -617,7 +617,11 @@ export class NarrativeAnalyzer {
 
               promptType = stage1PromptType;
             } else {
-              // Stage 1通过，进入Stage 2
+              // Stage 1通过，校验必要字段
+              if (!stage1Data.eventClassification) {
+                throw new Error(`Stage 1 通过但缺少 eventClassification 字段，LLM 输出格式异常。原始响应前500字符: ${stage1CallResult.content?.substring(0, 500)}`);
+              }
+
               logger.info('Stage1', '事件预处理通过', {
                 eventTheme: stage1Data.eventDescription?.eventTheme,
                 primaryCategory: stage1Data.eventClassification?.primaryCategory
@@ -635,6 +639,17 @@ export class NarrativeAnalyzer {
                 success: stage1CallResult.success,
                 error: stage1CallResult.error
               };
+
+              // === 增量保存 Stage 1 数据 ===
+              try {
+                await NarrativeRepository.save({
+                  token_address: tokenData.address,
+                  ...buildStageSaveData('stage1', stage1DataToSave)
+                });
+                logger.info('NarrativeAnalyzer', 'Stage 1数据已增量保存');
+              } catch (e) {
+                logger.warn('NarrativeAnalyzer', 'Stage 1增量保存失败', { error: e.message });
+              }
 
               // ========== Stage 2: 分类评分 ==========
               logger.debug('NarrativeAnalyzer', '开始Stage 2：分类评分');
@@ -737,6 +752,17 @@ export class NarrativeAnalyzer {
                   }
                 }
 
+                // === 增量保存 Stage 2 数据（Stage 2通过，即将进入Stage 3）===
+                try {
+                  await NarrativeRepository.save({
+                    token_address: tokenData.address,
+                    ...buildStageSaveData('stage2', stage2DataToSave)
+                  });
+                  logger.info('NarrativeAnalyzer', 'Stage 2数据已增量保存');
+                } catch (e) {
+                  logger.warn('NarrativeAnalyzer', 'Stage 2增量保存失败', { error: e.message });
+                }
+
                 // 只有未被免费托管检查阻断时，才进入Stage 3
                 if (!llmResult || llmResult.pass !== false) {
                 // ========== Stage 3: 代币分析 ==========
@@ -837,6 +863,17 @@ export class NarrativeAnalyzer {
                   success: stage3CallResult.success,
                   error: stage3CallResult.error
                 };
+
+                // === 增量保存 Stage 3 数据 ===
+                try {
+                  await NarrativeRepository.save({
+                    token_address: tokenData.address,
+                    ...buildStageSaveData('stage3', stage3DataToSave)
+                  });
+                  logger.info('NarrativeAnalyzer', 'Stage 3数据已增量保存');
+                } catch (e) {
+                  logger.warn('NarrativeAnalyzer', 'Stage 3增量保存失败', { error: e.message });
+                }
 
                 // 检查Stage 3是否成功
                 if (!stage3CallResult.success) {

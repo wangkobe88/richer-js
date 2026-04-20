@@ -127,7 +127,7 @@ async function executeTask(task, modelConfig) {
  */
 parentPort.on('message', async (task) => {
   try {
-    console.log(`[WORKER] 收到任务 ${task.id} (${task.token_symbol})`);
+    console.log(`[WORKER] 收到任务 ${task.id} (${task.token_symbol}) 地址: ${task.token_address}`);
 
     // 从配置文件读取模型配置
     const primaryConfig = getPrimaryModelConfig();

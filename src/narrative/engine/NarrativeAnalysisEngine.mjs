@@ -202,6 +202,7 @@ export class NarrativeAnalysisEngine {
       this._log('INFO', '启动 Worker', {
         taskId: task.id,
         token: task.token_symbol,
+        tokenAddress: task.token_address,
         activeWorkers: this.activeWorkers.size
       });
 

@@ -4,33 +4,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Richer-js is an automated trading engine for four.meme platform tokens. The system collects new tokens, monitors their K-line data, and executes buy/sell decisions based on data-driven strategies. It supports virtual trading (simulation), backtesting, and live trading modes.
+Richer-js is an automated trading engine for four.meme platform tokens. The system collects new tokens, monitors their K-line data, and executes buy/sell decisions based on data-driven strategies. It supports virtual trading (simulation), backtesting, and live trading modes. It also includes a **narrative analysis engine** that evaluates meme coin events using a 3-stage LLM pipeline.
 
 ## Common Commands
 
 ```bash
-# Start the trading engine (virtual mode by default)
+# Trading engine (virtual mode by default)
 npm start
 
-# Start in development mode
+# Trading engine (dev mode)
 npm run dev
 
-# Start the web server (runs on port 3010 by default)
+# Web server (port 3010)
 npm run web
 
-# Run an experiment (interactive CLI for creating experiments)
+# Experiment runner (interactive CLI)
 npm run experiment
+
+# Narrative analysis engine (standalone worker)
+npm run narrative-engine
 ```
+
+No test framework or CI is configured.
 
 ## Architecture Overview
 
 ### Main Entry Points
 
-- **`src/index.js`** - Trading engine main entry (virtual trading)
-- **`src/web-server.js`** - Web interface server (Express.js, port 3010)
-- **`main.js`** - Experiment runner entry point (CLI for creating experiments)
+- **`src/index.js`** - Trading engine (virtual trading)
+- **`src/web-server.js`** - Web interface (Express.js, port 3010)
+- **`main.js`** - Experiment runner (CLI)
+- **`src/narrative/engine/start.mjs`** - Narrative analysis engine
 
-### Core Architecture Flow
+### Trading Engine Flow
 
 ```
 PlatformCollector → TokenPool → KlineMonitor → DecisionMaker → StrategyEngine
@@ -39,142 +45,95 @@ PlatformCollector → TokenPool → KlineMonitor → DecisionMaker → StrategyE
   tokens (20s)     tokens         prices         decisions      strategy
 ```
 
-### Trading Engine Implementations
+Three trading modes via `src/trading-engine/implementations/`:
+- **VirtualTradingEngine** - Simulation with real data, no actual trades
+- **BacktestEngine** - Historical backtesting from `experiment_time_series_data`
+- **LiveTradingEngine** - Real blockchain trade execution
 
-The system supports three trading modes via `src/trading-engine/implementations/`:
+### Narrative Analyzer (3-Stage LLM Pipeline)
 
-- **`VirtualTradingEngine.js`** - Live simulation trading (default)
-  - Collects real-time data from four.meme API
-  - Performs all pre-buy checks but doesn't execute real trades
-  - Records signals and virtual trades to database
+**Location**: `src/narrative/`
 
-- **`BacktestEngine.js`** - Historical backtesting
-  - Uses historical data from `experiment_time_series_data` table
-  - Reconstructs token states at each timestamp
-  - Skips holder checks (historical holder data not available)
-  - Updates signal metadata with backtest results
+The narrative analyzer evaluates whether a meme coin's underlying event has narrative value. It's a multi-stage LLM pipeline:
 
-- **`LiveTradingEngine.js`** - Real trading execution
-  - Executes actual trades on blockchain
-  - Same pre-buy checks as virtual mode
+```
+Token URL → URL Classification → Data Fetching → Pre-Check
+                                                        ↓
+                                              Tweet Type Classification
+                                              (interpretive_reply / angle_seeking / direct_tweet)
+                                                        ↓
+                                              Stage 1: Event Preprocessing
+                                              (event description + category classification)
+                                                        ↓
+                                              Stage 2: Category Scoring
+                                              (8 categories, each with scoring rules)
+                                                        ↓
+                                              Stage 3: Token Analysis
+                                              (relevance + quality + brand hijacking check)
+```
+
+**Stage 1** (`prompts/stage1/`): Extracts event description (theme, subject, content, timing, key entities) and classifies into one of 8 categories. Different prompts for different tweet types (angle-seeking, interpretive reply, direct tweet).
+
+**Stage 2** (`prompts/event-scoring-categories/`): Category-specific scoring with hard blocking conditions:
+- **A类** (Visual IP): Characters, mascots, virtual images
+- **W类** (Web3 Project): Blockchain/crypto project launches
+- **B类** (Product Event): Non-Web3 product launches/updates
+- **F类** (Discovery): Hidden pattern/narrative discoveries
+- **G类** (Speculative): Future predictions with reasoning
+- **C类** (Personal Statement): Person statements/actions
+- **D类** (Institutional Action): Institution announcements
+- **E类** (Social Hotspot): Social media trends/viral content
+
+**Stage 3** (`prompts/stage3-token-analysis.mjs`): Token-event relevance, token quality, brand hijacking detection (3 layers:知名代币名/知名人物名/著名机构名).
+
+**Super IP Fast Track** (`prompts/super-ip/`): Known high-influence accounts (CZ, Elon Musk, Binance official, etc.) bypass the 3-stage pipeline and get evaluated in a single LLM call. Tier system: S (world-class) and A (known).
+
+**Key supporting services** (`analyzer/services/`):
+- `tweet-type-classifier.mjs` - Pre-classifies tweets before Stage 1
+- `frequent-issuers.mjs` - Registry of ~94 accounts that frequently create tokens
+- `pre-check-service.mjs` - Validates data quality before analysis
+- `data-fetch-service.mjs` - Coordinates multi-platform data fetching
+- `account-analysis-service.mjs` - Community and account background analysis
+
+**Platform data fetchers** (`utils/`): twitter, weibo, github, youtube, douyin, bilibili, xiaohongshu, instagram, tiktok, weixin, amazon, binance-square, web
+
+**Narrative Analysis Engine** (`engine/`): Multi-threaded worker architecture with task queue, polling from DB, configurable concurrency (default 30). Config in `config/narrative-engine.json`.
+
+**Prompt loading**: `analyzer/prompt-loader.mjs` dynamically loads Stage 2 prompts based on Stage 1's classification result.
 
 ### Pre-Buy Check System
 
-The pre-buy check system (`src/trading-engine/pre-check/`) is responsible for evaluating token risk before purchase. All checks are coordinated by `PreBuyCheckService`:
+`src/trading-engine/pre-check/` — evaluates token risk before purchase:
 
 ```
 PreBuyCheckService.performAllChecks()
-    ├── EarlyParticipantCheckService (trades analysis)
+    ├── EarlyParticipantCheckService (first 90 seconds trades analysis)
     │   └── WalletClusterService (cluster detection, reuses trades data)
-    └── TokenHolderService (holder blacklist check)
+    └── TokenHolderService (holder blacklist via AVE API)
 ```
 
-**Key Services:**
-
-- **`PreBuyCheckService.js`** - Main coordinator, evaluates condition expressions
-  - Always executes all checks (no enable/disable config)
-  - Accepts condition expressions like: `walletClusterSecondToFirstRatio > 0.3 && walletClusterMegaRatio < 0.4`
-  - Returns structured factor values for signal metadata
-
-- **`EarlyParticipantCheckService.js`** - Analyzes early trading activity (first 90 seconds)
-  - Factors: `earlyTradesVolumePerMin`, `earlyTradesCountPerMin`, `earlyTradesWalletsPerMin`, etc.
-  - Stores raw trades data in `_trades` field for reuse by WalletClusterService
-
-- **`WalletClusterService.js`** - Detects "wallet clusters" (groups of simultaneous trades)
-  - Identifies pump-and-dump patterns: few large clusters with small 2nd cluster
-  - Core factors: `walletClusterSecondToFirstRatio`, `walletClusterMegaRatio`, `walletClusterTop2Ratio`
-  - Reuses trades from EarlyParticipantCheckService (no extra API calls)
-
-- **`TokenHolderService.js`** - Checks holder blacklist via AVE API
-  - Categories: `pump_group`, `negative_holder`, `dev`
-
-**Factor Metadata Structure:**
-
-All pre-buy factors are stored in signal metadata under `preBuyCheckFactors`:
-```javascript
-metadata: {
-  preBuyCheckFactors: {
-    // Holder check
-    holderWhitelistCount, holderBlacklistCount, devHoldingRatio, ...
-    // Early participant (19 factors)
-    earlyTradesVolumePerMin, earlyTradesCountPerMin, ...
-    // Wallet cluster (12 factors)
-    walletClusterSecondToFirstRatio, walletClusterMegaRatio, ...
-  }
-}
-```
-
-See `src/trading-engine/core/FactorBuilder.js` for factor building logic used by BacktestEngine.
+All pre-buy factors stored in signal metadata under `preBuyCheckFactors`.
 
 ### Multi-Chain Support
 
-The system supports multiple blockchains via `src/utils/BlockchainConfig`:
+`src/utils/BlockchainConfig`: BSC, Ethereum, Solana, Base, Flap, Bankr — each with native symbol, API endpoints, explorer URLs.
 
-- **BSC** (BNB)
-- **Ethereum** (ETH)
-- **Solana** (SOL)
-- **Base** (ETH)
-- **Flap** (FLAP)
-- **Bankr** (BANKR)
+### Web Interface
 
-Each chain has:
-- Native token symbol
-- Platform-specific API endpoints
-- Transaction explorer URLs
-
-### Signal System
-
-Signals are stored in `strategy_signals` table with metadata containing:
-
-- **Trend factors** - Age, price, earlyReturn, trend indicators (stored in `trendFactors`)
-- **Pre-buy check factors** - Holder, early participant, wallet cluster (stored in `preBuyCheckFactors`)
-- **Execution status** - `executed`, `execution_status`, `execution_reason`
-
-Signals are created by `TradeSignal` entity class (`src/trading-engine/entities/TradeSignal.js`).
-
-### Key Modules
-
-#### Core Components (`src/core/`)
-
-- **`token-pool.js`** - Manages the pool of tokens being monitored (max 30 min window)
-- **`strategy-engine.js`** - Calculates earlyReturn indicator, executes buy conditions (80-120% range)
-- **`ave-api/`** - AVE API client for token data and risk information
-- **`PlatformPairResolver.js`** - Resolves inner/outer trading pairs for cross-chain tokens
-
-#### Data Collection (`src/collectors/`)
-
-- **`platform-collector.js`** - Polls platforms for new tokens every 20 seconds
-  - Supports multiple platforms: fourmeme, pumpfun, flap, base, bankr
-  - Implements holder blacklist detection before adding tokens to monitoring pool
-
-#### Monitors (`src/monitors/`)
-
-- **`kline-monitor.js`** - Monitors K-line data updates (20s interval, 35 K-lines history)
-
-#### Web Interface (`src/web/`)
-
-- **`web-server.js`** - Express.js server with RESTful API
-- **`services/ExperimentDataService.js`** - Database operations for experiments, signals, trades
-- **`templates/`** - HTML templates for web UI
-- **`static/js/`** - Frontend JavaScript modules
+`src/web/` + `src/web-server.js`:
+- Trading engine dashboard
+- Narrative analyzer UI (`/narrative-analyzer`, `/narrative-tasks`)
+- API: `/api/narrative/analyze`, `/api/narrative/tasks`, `/api/narrative/result/:address`
 
 ### Database
 
-- **Supabase** backend database via `src/services/dbManager.js`
-- Key tables:
-  - `experiments` - Experiment configurations and results
-  - `strategy_signals` - Trading signals with full factor metadata
-  - `trades` - Executed trades (virtual or live)
-  - `token_holders` - Holder data for blacklist detection
-  - `wallets` - Wallet classifications (pump_group, negative_holder, etc.)
-  - `experiment_tokens` - Tokens discovered during experiments
-  - `experiment_time_series_data` - Historical factor values for backtesting
-  - `token_monitoring_pool` - Tokens currently being monitored
+Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
 
-## Important Configuration
+## Configuration
 
 - **`config/default.json`** - Strategy parameters (buyTimeMinutes: 1.33, earlyReturnMin: 80, earlyReturnMax: 120)
-- **`config/.env`** - Environment variables (AVE_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY)
+- **`config/narrative-engine.json`** - LLM models (MiniMax-M2.5 primary, DeepSeek-V3 fallback), concurrency, timeouts
+- **`config/.env`** - Environment variables (AVE_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, MINIMAX_API_KEY, etc.)
 
 ## Strategy Parameters
 
@@ -192,14 +151,20 @@ Signals are created by `TradeSignal` entity class (`src/trading-engine/entities/
 - **Snapshot ID format**: `{token_address}_{timestamp}`
 - **Case sensitivity**: Wallet addresses are case-sensitive when querying database
 - **Factor building**: Use `FactorBuilder.buildPreBuyCheckFactorValues()` when adding new pre-buy factors
+- **Narrative prompts are ESM** (`.mjs`) while trading engine is CommonJS (`.js`) — don't mix import styles
 
 ## Adding New Pre-Buy Factors
-
-When adding new pre-buy check factors:
 
 1. Add factor calculation to appropriate service (e.g., `WalletClusterService`)
 2. Add factor to `getEmptyFactorValues()` in the service
 3. Add factor to `PreBuyCheckService._evaluateWithCondition()` context
 4. Add factor to `FactorBuilder.buildPreBuyCheckFactorValues()` (for backtest compatibility)
 5. Add factor to `VirtualTradingEngine.js` preBuyCheckFactors construction (for virtual trading)
-6. Update documentation in `docs/`
+
+## Adding New Narrative Category Rules
+
+Category scoring prompts are in `src/narrative/analyzer/prompts/event-scoring-categories/category-{letter}-{name}.mjs`. Each exports:
+- `{CATEGORY_X_PROMPT_VERSION}` - version string
+- `buildCategoryXPrompt(eventDescription, eventClassification)` - returns prompt string
+
+After modifying a category prompt, bump its `CATEGORY_X_PROMPT_VERSION` constant.

@@ -98,6 +98,10 @@ class ExperimentEventService {
       if (ns.rating) summary.narrativeRating = ns.rating;
       if (ns.numericRating != null) summary.narrativeNumericRating = ns.numericRating;
       if (ns.score != null) summary.narrativeScore = ns.score;
+      // 叙事分析未完成标记
+      if (narrativeInfo._incomplete) {
+        summary.narrativeIncomplete = true;
+      }
     }
 
     // 详情（文本/结构化）
@@ -106,6 +110,14 @@ class ExperimentEventService {
     if (narrativeInfo) {
       const ns = narrativeInfo.summary || {};
       if (ns.reason) details.narrativeReason = ns.reason;
+
+      // 叙事分析未完成原因
+      if (narrativeInfo._incomplete) {
+        details.narrativeIncompleteReason = narrativeInfo._incompleteReason;
+        if (!details.narrativeReason) {
+          details.narrativeReason = narrativeInfo._incompleteReason;
+        }
+      }
 
       // 各阶段摘要
       const stageSummaries = {};
@@ -241,7 +253,7 @@ class ExperimentEventService {
       const supabase = this._getSupabase();
       const { data, error } = await supabase
         .from('token_narrative')
-        .select('pre_check_result, prestage_result, stage1_result, stage2_result, stage3_result, stage_final_result, analyzed_at, classified_urls')
+        .select('pre_check_result, prestage_result, stage1_result, stage2_result, stage3_result, stage_final_result, analyzed_at, classified_urls, analysis_stage')
         .eq('token_address', tokenAddress.toLowerCase())
         .order('analyzed_at', { ascending: false })
         .limit(1)
@@ -253,6 +265,22 @@ class ExperimentEventService {
       const result = NarrativeAnalyzer.buildLLMAnalysis(data);
       // 附加 classified_urls
       result._classifiedUrls = data.classified_urls || null;
+
+      // 判断叙事分析是否不完整（没有最终结果，但有部分阶段数据）
+      const hasAnyStageData = data.pre_check_result || data.prestage_result || data.stage1_result || data.stage2_result || data.stage3_result;
+      if (!data.stage_final_result && hasAnyStageData && !data.prestage_result?.category?.includes('super_ip_fast')) {
+        result._incomplete = true;
+        const completedStages = [];
+        if (data.pre_check_result) completedStages.push('preCheck');
+        if (data.prestage_result) completedStages.push('prestage');
+        if (data.stage1_result) completedStages.push('stage1');
+        if (data.stage2_result) completedStages.push('stage2');
+        if (data.stage3_result) completedStages.push('stage3');
+        result._incompleteReason = completedStages.length > 0
+          ? `叙事分析进行到 ${completedStages.join(' → ')} 后中断，等待重试完成`
+          : '叙事分析尚未开始';
+      }
+
       return result;
     } catch (err) {
       console.error('[EventService] 获取叙事信息失败:', err.message);
