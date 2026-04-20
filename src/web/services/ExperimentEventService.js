@@ -1,6 +1,7 @@
 /**
  * 实验事件写入服务
- * 将实验引擎产生的重要事件写入 experiment_events 表，替代 Telegram 通知
+ * 将实验引擎产生的重要事件写入 experiment_events 表
+ * 叙事数据不再嵌入事件，由 /api/events 动态查询 token_narrative 表获取
  */
 
 const { dbManager } = require('../../services/dbManager');
@@ -35,16 +36,13 @@ class ExperimentEventService {
       const action = signal.action || 'unknown';
       const executed = signal.executed === true;
 
-      // 获取叙事分析数据
-      const narrativeInfo = await this._getNarrativeInfo(signal.token_address);
-
-      // 构建 summary 和 details
+      // 构建 summary 和 details（不含叙事数据）
       let summary = {};
       let details = {};
 
       if (action === 'buy') {
         const buySignalIndex = await this._getBuySignalIndex(signal);
-        const result = await this._buildBuyEventData(signal, metadata, tf, rf, narrativeInfo, buySignalIndex, experimentInfo);
+        const result = this._buildBuyEventData(signal, metadata, tf, rf, buySignalIndex, experimentInfo);
         summary = result.summary;
         details = result.details;
       } else {
@@ -79,69 +77,18 @@ class ExperimentEventService {
   }
 
   /**
-   * 构建买入事件数据
+   * 构建买入事件数据（不含叙事数据）
    * @private
    */
-  async _buildBuyEventData(signal, metadata, tf, rf, narrativeInfo, buySignalIndex, experimentInfo) {
+  _buildBuyEventData(signal, metadata, tf, rf, buySignalIndex, experimentInfo) {
     const fdv = rf.fdv ?? tf.fdv ?? null;
 
-    // 摘要（数字/布尔，便于筛选和展示）
     const summary = {};
-
     if (buySignalIndex != null) summary.signalIndex = buySignalIndex;
     if (fdv != null) summary.marketCap = fdv;
     if (tf.earlyReturn != null) summary.earlyReturn = tf.earlyReturn;
 
-    // 叙事评级
-    if (narrativeInfo) {
-      const ns = narrativeInfo.summary || {};
-      if (ns.rating) summary.narrativeRating = ns.rating;
-      if (ns.numericRating != null) summary.narrativeNumericRating = ns.numericRating;
-      if (ns.score != null) summary.narrativeScore = ns.score;
-      // 叙事分析未完成标记
-      if (narrativeInfo._incomplete) {
-        summary.narrativeIncomplete = true;
-      }
-    }
-
-    // 详情（文本/结构化）
     const details = {};
-
-    if (narrativeInfo) {
-      const ns = narrativeInfo.summary || {};
-      if (ns.reason) details.narrativeReason = ns.reason;
-
-      // 叙事分析未完成原因
-      if (narrativeInfo._incomplete) {
-        details.narrativeIncompleteReason = narrativeInfo._incompleteReason;
-        if (!details.narrativeReason) {
-          details.narrativeReason = narrativeInfo._incompleteReason;
-        }
-      }
-
-      // 各阶段摘要
-      const stageSummaries = {};
-      const stageOrder = ['preCheck', 'prestage', 'stage1', 'stage2', 'stage3'];
-      for (const stageName of stageOrder) {
-        const stage = narrativeInfo[stageName];
-        if (stage) {
-          const stageEntry = {
-            pass: stage.pass,
-            score: stage.score ?? null,
-            category: stage.category || null,
-            reason: stage.reason || null
-          };
-          // preCheck 阶段携带 details（同名代币、语料复用等具体信息）
-          if (stageName === 'preCheck' && stage.details) {
-            stageEntry.details = stage.details;
-          }
-          stageSummaries[stageName] = stageEntry;
-        }
-      }
-      if (Object.keys(stageSummaries).length > 0) {
-        details.stageSummaries = stageSummaries;
-      }
-    }
 
     // 拒绝原因
     if (!signal.executed) {
@@ -149,35 +96,6 @@ class ExperimentEventService {
       const executionReason = metadata.execution_reason || signal.execution_reason
         || pr.reason || pr.checkReason || null;
       if (executionReason) details.executionReason = executionReason;
-    }
-
-    // 语料来源（classified_urls）
-    if (narrativeInfo?._classifiedUrls) {
-      const classifiedUrls = narrativeInfo._classifiedUrls;
-      const sourceUrls = {};
-
-      // 收集各类来源URL
-      for (const [platform, urls] of Object.entries(classifiedUrls)) {
-        if (Array.isArray(urls) && urls.length > 0) {
-          sourceUrls[platform] = urls.map(u => ({ url: u.url, type: u.type }));
-        }
-      }
-
-      if (Object.keys(sourceUrls).length > 0) {
-        details.sourceUrls = sourceUrls;
-      }
-
-      // 获取推文内容
-      const tweetUrls = (classifiedUrls.twitter || [])
-        .filter(u => u.type === 'tweet')
-        .map(u => u.url);
-
-      if (tweetUrls.length > 0) {
-        const tweetContents = await this._fetchTweetContents(tweetUrls);
-        if (tweetContents.length > 0) {
-          details.tweetContents = tweetContents;
-        }
-      }
     }
 
     // 链接
@@ -198,14 +116,13 @@ class ExperimentEventService {
     const summary = {};
     if (fdv != null) summary.marketCap = fdv;
 
-    // 收益数据（从 trendFactors 中读取）
+    // 收益数据
     if (tf.profitPercent != null) summary.profitPercent = tf.profitPercent;
     if (tf.earlyReturn != null) summary.earlyReturn = tf.earlyReturn;
     if (tf.holdDuration != null) summary.holdDuration = tf.holdDuration;
     if (metadata.cards) summary.cards = metadata.cards === 'all' ? 'all' : metadata.cards;
 
     const details = {};
-    // 价格详情
     if (tf.buyPrice != null) details.buyPrice = tf.buyPrice;
     if (tf.currentPrice != null) details.sellPrice = tf.currentPrice;
     if (tf.highestPrice != null) details.highestPrice = tf.highestPrice;
@@ -241,77 +158,6 @@ class ExperimentEventService {
       return count;
     } catch {
       return null;
-    }
-  }
-
-  /**
-   * 获取叙事分析信息（包含 classified_urls）
-   * @private
-   */
-  async _getNarrativeInfo(tokenAddress) {
-    try {
-      const supabase = this._getSupabase();
-      const { data, error } = await supabase
-        .from('token_narrative')
-        .select('pre_check_result, prestage_result, stage1_result, stage2_result, stage3_result, stage_final_result, analyzed_at, classified_urls, analysis_stage')
-        .eq('token_address', tokenAddress.toLowerCase())
-        .order('analyzed_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error || !data) return null;
-
-      const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
-      const result = NarrativeAnalyzer.buildLLMAnalysis(data);
-      // 附加 classified_urls
-      result._classifiedUrls = data.classified_urls || null;
-
-      // 判断叙事分析是否不完整（没有最终结果，但有部分阶段数据）
-      const hasAnyStageData = data.pre_check_result || data.prestage_result || data.stage1_result || data.stage2_result || data.stage3_result;
-      if (!data.stage_final_result && hasAnyStageData && !data.prestage_result?.category?.includes('super_ip_fast')) {
-        result._incomplete = true;
-        const completedStages = [];
-        if (data.pre_check_result) completedStages.push('preCheck');
-        if (data.prestage_result) completedStages.push('prestage');
-        if (data.stage1_result) completedStages.push('stage1');
-        if (data.stage2_result) completedStages.push('stage2');
-        if (data.stage3_result) completedStages.push('stage3');
-        result._incompleteReason = completedStages.length > 0
-          ? `叙事分析进行到 ${completedStages.join(' → ')} 后中断，等待重试完成`
-          : '叙事分析尚未开始';
-      }
-
-      return result;
-    } catch (err) {
-      console.error('[EventService] 获取叙事信息失败:', err.message);
-      return null;
-    }
-  }
-
-  /**
-   * 获取推文内容
-   * @private
-   */
-  async _fetchTweetContents(urls) {
-    try {
-      const supabase = this._getSupabase();
-      const { data, error } = await supabase
-        .from('external_resource_cache')
-        .select('url, content')
-        .in('url', urls);
-
-      if (error || !data) return [];
-
-      return data
-        .filter(d => d.content && (d.content.text || d.content.full_text))
-        .map(d => ({
-          url: d.url,
-          text: (d.content.text || d.content.full_text || '').substring(0, 500),
-          author: d.content.author_name || d.content.author_screen_name || null,
-          authorFollowers: d.content.author_followers_count || null
-        }));
-    } catch (err) {
-      return [];
     }
   }
 

@@ -22,6 +22,16 @@ const PriceRefreshService = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 const narrativeRoutes = require('./web/routes/narrative.routes');
 
+// buildLLMAnalysis 是 ESM 模块，首次使用时动态导入并缓存
+let _buildLLMAnalysis = null;
+async function getBuildLLMAnalysis() {
+  if (!_buildLLMAnalysis) {
+    const mod = await import('./narrative/analyzer/parsers/response-parser.mjs');
+    _buildLLMAnalysis = mod.buildLLMAnalysis;
+  }
+  return _buildLLMAnalysis;
+}
+
 /**
  * Web服务器类
  */
@@ -279,9 +289,14 @@ class RicherJsWebServer {
 
         if (error) throw error;
 
+        const events = data || [];
+
+        // 动态填充叙事数据
+        await this._enrichEventsWithNarrative(events);
+
         res.json({
           success: true,
-          data: data || [],
+          data: events,
           pagination: {
             total: count || 0,
             limit: parseInt(limit),
@@ -3402,6 +3417,173 @@ class RicherJsWebServer {
       console.error('服务器错误:', err);
       res.status(500).json({ success: false, error: err.message });
     });
+  }
+
+  /**
+   * 动态填充事件的叙事数据
+   * 从 token_narrative 表批量查询，用 buildLLMAnalysis() 构建前端展示格式
+   * @private
+   */
+  async _enrichEventsWithNarrative(events) {
+    if (!events || events.length === 0) return;
+
+    // 收集买入事件的唯一 token_address
+    const buyEvents = events.filter(e => e.action === 'buy');
+    if (buyEvents.length === 0) return;
+
+    const tokenAddresses = [...new Set(buyEvents.map(e => e.token_address).filter(Boolean))];
+    if (tokenAddresses.length === 0) return;
+
+    try {
+      const supabase = this.dataService.supabase;
+      const buildLLMAnalysis = await getBuildLLMAnalysis();
+
+      // 批量查询 token_narrative（取每个 token 最新的记录）
+      const { data: narratives, error } = await supabase
+        .from('token_narrative')
+        .select('*')
+        .in('token_address', tokenAddresses)
+        .order('analyzed_at', { ascending: false });
+
+      if (error || !narratives || narratives.length === 0) return;
+
+      // 构建 token_address → 最新叙事记录 的映射
+      const narrativeMap = {};
+      for (const n of narratives) {
+        if (!narrativeMap[n.token_address]) {
+          narrativeMap[n.token_address] = n;
+        }
+      }
+
+      // 收集需要查询的 tweet URL（用于 tweetContents）
+      const allTweetUrls = [];
+      for (const n of Object.values(narrativeMap)) {
+        if (n.classified_urls?.twitter) {
+          for (const u of n.classified_urls.twitter) {
+            if (u.type === 'tweet' && u.url) {
+              allTweetUrls.push(u.url);
+            }
+          }
+        }
+      }
+
+      // 批量查询推文内容
+      let tweetContentMap = {};
+      if (allTweetUrls.length > 0) {
+        const { data: tweetData } = await supabase
+          .from('external_resource_cache')
+          .select('url, content')
+          .in('url', allTweetUrls);
+
+        if (tweetData) {
+          for (const d of tweetData) {
+            if (d.content && (d.content.text || d.content.full_text)) {
+              tweetContentMap[d.url] = {
+                url: d.url,
+                text: (d.content.text || d.content.full_text || '').substring(0, 500),
+                author: d.content.author_name || d.content.author_screen_name || null,
+                authorFollowers: d.content.author_followers_count || null
+              };
+            }
+          }
+        }
+      }
+
+      // 为每个买入事件填充叙事数据
+      for (const event of buyEvents) {
+        const narrative = narrativeMap[event.token_address];
+        if (!narrative) continue;
+
+        const analysis = buildLLMAnalysis(narrative);
+        if (!analysis) continue;
+
+        if (!event.summary) event.summary = {};
+        if (!event.details) event.details = {};
+
+        const ns = analysis.summary || {};
+
+        // 叙事评级
+        if (ns.rating) event.summary.narrativeRating = ns.rating;
+        if (ns.numericRating != null) event.summary.narrativeNumericRating = ns.numericRating;
+        if (ns.score != null) event.summary.narrativeScore = ns.score;
+
+        // 不完整检测
+        const hasAnyStageData = narrative.pre_check_result || narrative.prestage_result
+          || narrative.stage1_result || narrative.stage2_result || narrative.stage3_result;
+        if (!narrative.stage_final_result && hasAnyStageData && !narrative.prestage_result?.category?.includes('super_ip_fast')) {
+          event.summary.narrativeIncomplete = true;
+          const completedStages = [];
+          if (narrative.pre_check_result) completedStages.push('preCheck');
+          if (narrative.prestage_result) completedStages.push('prestage');
+          if (narrative.stage1_result) completedStages.push('stage1');
+          if (narrative.stage2_result) completedStages.push('stage2');
+          if (narrative.stage3_result) completedStages.push('stage3');
+          const incompleteReason = completedStages.length > 0
+            ? `叙事分析进行到 ${completedStages.join(' → ')} 后中断，等待重试完成`
+            : '叙事分析尚未开始';
+          event.details.narrativeIncompleteReason = incompleteReason;
+          if (!event.details.narrativeReason) {
+            event.details.narrativeReason = incompleteReason;
+          }
+        }
+
+        // 叙事原因
+        if (ns.reason) {
+          event.details.narrativeReason = ns.reason;
+        }
+
+        // 阶段摘要
+        const stageOrder = ['preCheck', 'prestage', 'stage1', 'stage2', 'stage3'];
+        const stageSummaries = {};
+        for (const name of stageOrder) {
+          const stage = analysis[name];
+          if (stage) {
+            const stageEntry = {
+              pass: stage.pass,
+              score: stage.score ?? null,
+              category: stage.category || null,
+              reason: stage.reason || null
+            };
+            if (name === 'preCheck' && stage.details) {
+              stageEntry.details = stage.details;
+            }
+            stageSummaries[name] = stageEntry;
+          }
+        }
+        if (Object.keys(stageSummaries).length > 0) {
+          event.details.stageSummaries = stageSummaries;
+        }
+
+        // 语料来源
+        if (narrative.classified_urls) {
+          const sourceUrls = {};
+          for (const [platform, urls] of Object.entries(narrative.classified_urls)) {
+            if (Array.isArray(urls) && urls.length > 0) {
+              sourceUrls[platform] = urls.map(u => ({ url: u.url, type: u.type }));
+            }
+          }
+          if (Object.keys(sourceUrls).length > 0) {
+            event.details.sourceUrls = sourceUrls;
+          }
+        }
+
+        // 推文内容
+        if (narrative.classified_urls?.twitter) {
+          const tweetUrls = narrative.classified_urls.twitter
+            .filter(u => u.type === 'tweet' && u.url)
+            .map(u => u.url);
+          const tweetContents = tweetUrls
+            .map(url => tweetContentMap[url])
+            .filter(Boolean);
+          if (tweetContents.length > 0) {
+            event.details.tweetContents = tweetContents;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[Events API] 叙事数据填充失败:', err.message);
+      // 填充失败不影响事件列表返回，只是缺少叙事数据
+    }
   }
 
   /**
