@@ -12,6 +12,7 @@ let allEvents = [];
 let supabaseClient = null;
 let channel = null;
 let pollingTimer = null;
+let narrativeRefreshTimer = null;
 let isRealtime = false;
 let isLoadingHistory = false;
 let hasMoreEvents = false;
@@ -60,6 +61,7 @@ async function initRealtime() {
         if (status === 'SUBSCRIBED') {
           isRealtime = true;
           updateConnectionStatus('connected', '实时连接');
+          startNarrativeRefresh();
           console.log('[Monitor] Supabase Realtime 已连接');
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.warn('[Monitor] Realtime 连接失败，切换到轮询模式');
@@ -90,6 +92,7 @@ function onNewEvent(event) {
 // ============ 轮询 ============
 function startPolling() {
   if (pollingTimer) return;
+  stopNarrativeRefresh();
   isRealtime = false;
   updateConnectionStatus('polling', '轮询模式');
 
@@ -109,12 +112,56 @@ function stopPolling() {
   }
 }
 
-async function pollNewEvents() {
-  // 只拉取最新的一条之后的事件
-  const latestCreatedAt = allEvents.length > 0
-    ? allEvents[0].created_at
-    : new Date().toISOString();
+// ============ 叙事数据定期刷新（Realtime 模式） ============
+function startNarrativeRefresh() {
+  if (pollingTimer || narrativeRefreshTimer) return;
+  narrativeRefreshTimer = setInterval(async () => {
+    try {
+      await refreshExistingEvents();
+    } catch (err) {
+      console.error('[Monitor] 叙事数据刷新失败:', err.message);
+    }
+  }, 15000);
+}
 
+function stopNarrativeRefresh() {
+  if (narrativeRefreshTimer) {
+    clearInterval(narrativeRefreshTimer);
+    narrativeRefreshTimer = null;
+  }
+}
+
+async function refreshExistingEvents() {
+  if (allEvents.length === 0) return;
+
+  const params = new URLSearchParams({
+    limit: String(Math.min(allEvents.length, PAGE_SIZE)),
+    offset: '0'
+  });
+
+  const resp = await fetch(`/api/events?${params}`);
+  const result = await resp.json();
+  if (!result.success) return;
+
+  let hasUpdates = false;
+  for (const apiEvent of result.data) {
+    const existing = allEvents.find(e => e.id === apiEvent.id);
+    if (existing) {
+      if (JSON.stringify(existing.summary) !== JSON.stringify(apiEvent.summary) ||
+          JSON.stringify(existing.details) !== JSON.stringify(apiEvent.details)) {
+        existing.summary = apiEvent.summary;
+        existing.details = apiEvent.details;
+        hasUpdates = true;
+      }
+    }
+  }
+
+  if (hasUpdates) {
+    renderEvents();
+  }
+}
+
+async function pollNewEvents() {
   const params = new URLSearchParams({
     limit: '20',
     offset: '0'
@@ -125,18 +172,38 @@ async function pollNewEvents() {
 
   if (!result.success) return;
 
-  const newEvents = result.data.filter(e =>
+  const apiEvents = result.data;
+  let hasUpdates = false;
+
+  // 更新已有事件的叙事数据（叙事分析可能已完成）
+  for (const apiEvent of apiEvents) {
+    const existing = allEvents.find(e => e.id === apiEvent.id);
+    if (existing) {
+      if (JSON.stringify(existing.summary) !== JSON.stringify(apiEvent.summary) ||
+          JSON.stringify(existing.details) !== JSON.stringify(apiEvent.details)) {
+        existing.summary = apiEvent.summary;
+        existing.details = apiEvent.details;
+        hasUpdates = true;
+      }
+    }
+  }
+
+  // 添加新事件
+  const newEvents = apiEvents.filter(e =>
     !allEvents.some(existing => existing.id === e.id)
   );
 
   if (newEvents.length > 0) {
-    // 按时间排序后插入
     allEvents = [...newEvents, ...allEvents];
     allEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    renderTokenNav();
-    renderEvents();
+    hasUpdates = true;
     newEvents.forEach(e => showNewEventAnimation(e.id));
     playNotificationSound();
+  }
+
+  if (hasUpdates) {
+    renderTokenNav();
+    renderEvents();
     updateEventCount();
   }
 }
