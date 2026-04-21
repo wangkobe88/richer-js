@@ -509,6 +509,23 @@ class ExperimentRenderer {
       }
     }
 
+    // 提取 strategiesConfig 中的高级配置
+    if (config.strategiesConfig) {
+      const sc = config.strategiesConfig;
+      if (sc.narrativeAnalysis) {
+        formData.narrativeAnalysis = sc.narrativeAnalysis;
+      }
+      if (sc.superIpFastTrack) {
+        formData.superIpFastTrack = sc.superIpFastTrack;
+      }
+      if (sc.stats) {
+        formData.stats = sc.stats;
+      }
+      if (sc.telegramNotifications) {
+        formData.telegramNotifications = sc.telegramNotifications;
+      }
+    }
+
     return formData;
   }
 
