@@ -424,7 +424,7 @@ class ExperimentSignalStats {
         <td class="px-2 py-3">
           <div class="flex flex-col gap-1 text-xs text-gray-400">
             <div class="flex items-center gap-1">
-              <a href="${gmgnUrl}" target="_blank" class="hover:text-purple-400 flex-shrink-0">GMGN</a>
+              <a href="${gmgnUrl}" target="_blank" class="inline-flex items-center p-0.5 rounded bg-gray-600 hover:bg-blue-700 transition-colors flex-shrink-0" title="在GMGN中查看"><img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4"></a>
               <span class="text-gray-600">|</span>
               <a href="${observerUrl}" target="_blank" class="hover:text-green-400 flex-shrink-0">时序</a>
               <span class="text-gray-600">|</span>

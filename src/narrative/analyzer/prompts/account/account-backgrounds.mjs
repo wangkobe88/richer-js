@@ -52,6 +52,9 @@ export const HIGH_INFLUENCE_ACCOUNTS = {
   // 知名项目创建者
   'Darkfarms1': 'Darkfarms（Pepe创建者，币圈极具影响力）',
 
+  // 政府机构
+  'MND_China': '中国国防部官方账号',
+
   // 世界级品牌/机构
   'Tesla': 'Tesla官方账号',
   'SpaceX': 'SpaceX官方账号',

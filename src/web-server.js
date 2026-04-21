@@ -568,6 +568,12 @@ class RicherJsWebServer {
             config.strategiesConfig.narrativeAnalysis = strategy.narrativeAnalysis;
           }
 
+          // Super IP 快速通道配置
+          if (strategy.superIpFastTrack) {
+            config.strategiesConfig = config.strategiesConfig || {};
+            config.strategiesConfig.superIpFastTrack = strategy.superIpFastTrack;
+          }
+
           // 统计配置
           if (strategy.stats) {
             config.strategiesConfig = config.strategiesConfig || {};

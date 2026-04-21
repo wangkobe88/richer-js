@@ -101,7 +101,7 @@ class ExperimentEventService {
     // 链接
     details.gmgnUrl = this._buildGMGNUrl(signal.token_address, signal.chain);
     const expId = signal.experiment_id || metadata.experiment_id || experimentInfo.id;
-    details.signalsUrl = `${this._webBaseUrl}/experiment/${expId}/signals`;
+    details.signalsUrl = `${this._webBaseUrl}/experiment/${expId}/signals#token=${signal.token_address}`;
 
     return { summary, details };
   }
@@ -135,7 +135,7 @@ class ExperimentEventService {
 
     details.gmgnUrl = this._buildGMGNUrl(signal.token_address, signal.chain);
     const expId = signal.experiment_id || metadata.experiment_id || experimentInfo.id;
-    details.signalsUrl = `${this._webBaseUrl}/experiment/${expId}/signals`;
+    details.signalsUrl = `${this._webBaseUrl}/experiment/${expId}/signals#token=${signal.token_address}`;
 
     return { summary, details };
   }

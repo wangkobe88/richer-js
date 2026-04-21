@@ -29,6 +29,19 @@ function getLazyModules() {
   return { TokenPool, PlatformCollector, StrategyEngine, CardPositionManager };
 }
 
+// Super IP 快速通道模块（懒加载，ESM 动态导入）
+let superIpModules = null;
+async function getSuperIpModules() {
+  if (!superIpModules) {
+    const mod = await import('../../narrative/analyzer/prompts/super-ip/super-ip-registry.mjs');
+    superIpModules = {
+      detectSuperIP: mod.detectSuperIP,
+      extractScreenNameFromUrl: mod.extractScreenNameFromUrl
+    };
+  }
+  return superIpModules;
+}
+
 // 加载配置
 const config = require('../../../config/default.json');
 
@@ -86,6 +99,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._narrativeTriggerThreshold = 80; // 默认80%
     this._narrativeMaxWaitSeconds = 10; // 默认等待10秒
     this._narrativePollIntervalMs = 2000; // 默认每2秒检查一次
+
+    // Super IP 快速通道配置
+    this._superIpFastTrackEnabled = false;
 
     // 代币追踪：记录已处理过的代币
     this._seenTokens = new Set();
@@ -757,6 +773,16 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       console.log(`⚠️ 叙事分析未启用`);
     }
 
+    // 6.2 初始化 Super IP 快速通道配置
+    const superIpConfig = experimentConfig.strategiesConfig?.superIpFastTrack || experimentConfig.superIpFastTrack || {};
+    this._superIpFastTrackEnabled = superIpConfig.enabled === true;
+
+    if (this._superIpFastTrackEnabled) {
+      console.log(`✅ Super IP 快速通道已启用`);
+    } else {
+      console.log(`⚠️ Super IP 快速通道未启用`);
+    }
+
     // 7. 初始化时序数据服务
     const { ExperimentTimeSeriesService } = require('../../web/services/ExperimentTimeSeriesService');
     this.timeSeriesService = new ExperimentTimeSeriesService();
@@ -895,6 +921,49 @@ class VirtualTradingEngine extends AbstractTradingEngine {
   }
 
   /**
+   * 检查 Super IP 快速通道
+   * 如果代币推文作者为大IP，跳过第一阶段检测直接进入购买前检查
+   * @private
+   * @param {Object} token - 代币数据
+   * @returns {Promise<Object|null>} IP信息或null
+   */
+  async _checkSuperIpFastTrack(token) {
+    if (!this._superIpFastTrackEnabled) return null;
+    if (token.status !== 'monitoring') return null;
+
+    // 缓存：已检测过的 token 不再重复检测
+    if (token._superIpDetected !== undefined) {
+      return token._superIpDetected;
+    }
+
+    try {
+      const twitterUrl = token.rawApiData?.fourmeme_creator_info?.full_info?.twitterUrl;
+      if (!twitterUrl) {
+        token._superIpDetected = null;
+        return null;
+      }
+
+      const { detectSuperIP } = await getSuperIpModules();
+      const ipInfo = detectSuperIP(twitterUrl, null);
+
+      if (ipInfo) {
+        this.logger.info(this._experimentId, 'SuperIpFastTrack',
+          `检测到大IP推文 | symbol=${token.symbol}, ip=${ipInfo.name}, tier=${ipInfo.tier}, url=${twitterUrl}`);
+        token._superIpDetected = ipInfo;
+        return ipInfo;
+      }
+
+      token._superIpDetected = null;
+      return null;
+    } catch (error) {
+      this.logger.error(this._experimentId, 'SuperIpFastTrack',
+        `检测失败 | symbol=${token.symbol}, error=${error.message}`);
+      token._superIpDetected = null;
+      return null;
+    }
+  }
+
+  /**
    * 处理单个代币
    * @private
    * @param {Object} token - 代币数据
@@ -944,6 +1013,67 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
 
       const factorResults = this._buildFactors(token);
+
+      // Super IP 快速通道检测
+      const superIpInfo = await this._checkSuperIpFastTrack(token);
+      if (superIpInfo) {
+        // 保存时序数据（保持正常的数据记录）
+        console.log(`📊 [时序数据-SuperIP] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
+
+        const { buildFactorValuesForTimeSeries: buildTS } = require('../core/FactorBuilder');
+        await this.timeSeriesService.recordRoundData({
+          experimentId: this._experimentId,
+          tokenAddress: token.token,
+          tokenSymbol: token.symbol,
+          timestamp: new Date(),
+          loopCount: this._loopCount,
+          priceUsd: factorResults.currentPrice,
+          priceNative: null,
+          factorValues: buildTS(factorResults),
+          blockchain: this._experiment.blockchain || 'bsc'
+        });
+
+        // 创建合成买入策略，继承实验配置的 preBuyCheckCondition
+        const firstBuyStrategy = this._experiment?.config?.strategiesConfig?.buyStrategies?.[0] || {};
+        const syntheticStrategy = {
+          id: 'super_ip_fast_track',
+          name: `Super IP 快速通道: ${superIpInfo.name} (${superIpInfo.tier}级)`,
+          action: 'buy',
+          priority: 1,
+          cooldown: 60,
+          maxExecutions: 1,
+          preBuyCheckCondition: firstBuyStrategy.preBuyCheckCondition || null
+        };
+
+        this.logger.info(this._experimentId, 'ProcessToken',
+          `${token.symbol} 触发Super IP快速通道: ${superIpInfo.name} (${superIpInfo.tier}级)`);
+
+        if (this._roundSummary) {
+          this._roundSummary.recordSignal(token.token, {
+            direction: 'BUY',
+            action: 'buy',
+            confidence: 95,
+            reason: syntheticStrategy.name
+          });
+        }
+
+        const executionResult = await this._executeStrategy(syntheticStrategy, token, factorResults);
+
+        if (this._roundSummary) {
+          this._roundSummary.recordSignalExecution(
+            token.token,
+            executionResult.success,
+            executionResult.success ? null : (executionResult.reason || '执行失败')
+          );
+        }
+
+        // Super IP 快速通道仍需创建叙事分析任务（大IP事件本身值得分析）
+        if (this._narrativeAnalysisEnabled) {
+          await this._createOrUpdateNarrativeTask(token, 100);
+        }
+
+        return;
+      }
 
       console.log(`📊 [时序数据] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
 

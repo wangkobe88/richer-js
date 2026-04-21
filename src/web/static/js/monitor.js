@@ -287,12 +287,35 @@ function renderEvents() {
   container.innerHTML = html;
 }
 
+function buildActionLinks(event) {
+  const expId = event.experiment_id;
+  const addr = event.token_address;
+  const chain = (event.chain || 'bsc').toLowerCase();
+  if (!expId || !addr) return '';
+
+  const chainMap = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
+  const gmgnChain = chainMap[chain] || 'bsc';
+
+  const links = [
+    `<a href="/experiment/${expId}/signals#token=${addr}" target="_blank" class="hover:text-blue-600">信号</a>`,
+    `<a href="/experiment/${expId}/strategy-analysis?tokenAddress=${addr}" target="_blank" class="hover:text-pink-500">策略</a>`,
+    `<a href="/experiment/${expId}/observer#token=${addr}" target="_blank" class="hover:text-emerald-500">时序</a>`,
+    `<a href="/token-early-trades?token=${addr}&chain=${chain}" target="_blank" class="hover:text-amber-500">早期</a>`,
+    `<a href="/token-holders?experiment=${expId}&token=${addr}" target="_blank" class="hover:text-cyan-500">持有者</a>`,
+    `<a href="/token-detail?experiment=${expId}&address=${addr}" target="_blank" class="hover:text-indigo-500">详情</a>`
+  ];
+
+  return links.join('<span class="text-gray-300">|</span>');
+}
+
 function renderEventCard(event) {
   const s = event.summary || {};
   const d = event.details || {};
   const isBuy = event.action === 'buy';
   const timeStr = formatTime(event.created_at);
   const shortAddr = shortenAddress(event.token_address);
+  const _chainMap = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
+  const _gmgnChain = _chainMap[(event.chain || 'bsc').toLowerCase()] || 'bsc';
 
   // 动作标签
   const actionClass = isBuy ? 'action-buy' : 'action-sell';
@@ -361,7 +384,8 @@ function renderEventCard(event) {
             const addr = t.address ? shortenAddress(t.address) : '';
             const fdvStr = t.fdv ? ` FDV:${formatMarketCap(parseFloat(t.fdv))}` : '';
             const txStr = t.txCount ? ` 交易:${t.txCount}` : '';
-            stageHtml += `<div class="ml-2">• ${escapeHtml(t.symbol || t.name || '???')} <span class="mono">${addr}</span>${fdvStr}${txStr}</div>`;
+            const gmgnLink = t.address ? ` <a href="https://gmgn.ai/${_gmgnChain}/token/${t.address}" target="_blank" class="inline-flex items-center"><img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3"></a>` : '';
+            stageHtml += `<div class="ml-2">• ${escapeHtml(t.symbol || t.name || '???')} <span class="mono">${addr}</span>${fdvStr}${txStr}${gmgnLink}</div>`;
           }
           stageHtml += '</div>';
         }
@@ -371,14 +395,16 @@ function renderEventCard(event) {
           for (const t of det.earlierTokens) {
             const addr = t.address ? shortenAddress(t.address) : '';
             const timeStr2 = t.timeDiffText ? ` (${t.timeDiffText}前)` : '';
-            stageHtml += `<div class="ml-2">• ${escapeHtml(t.symbol || '???')} <span class="mono">${addr}</span>${timeStr2}</div>`;
+            const gmgnLink = t.address ? ` <a href="https://gmgn.ai/${_gmgnChain}/token/${t.address}" target="_blank" class="inline-flex items-center"><img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3"></a>` : '';
+            stageHtml += `<div class="ml-2">• ${escapeHtml(t.symbol || '???')} <span class="mono">${addr}</span>${timeStr2}${gmgnLink}</div>`;
           }
           stageHtml += '</div>';
         }
         // 同名+同推文重复
         if (det.matchedTokenSymbol && det.matchedTokenAddress) {
           const addr = shortenAddress(det.matchedTokenAddress);
-          stageHtml += `<div class="ml-6 text-xs text-orange-700 mt-1">重复叙事: ${escapeHtml(det.matchedTokenSymbol)} <span class="mono">${addr}</span></div>`;
+          const gmgnLink = `<a href="https://gmgn.ai/${_gmgnChain}/token/${det.matchedTokenAddress}" target="_blank" class="inline-flex items-center"><img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3"></a>`;
+          stageHtml += `<div class="ml-6 text-xs text-orange-700 mt-1">重复叙事: ${escapeHtml(det.matchedTokenSymbol)} <span class="mono">${addr}</span> ${gmgnLink}</div>`;
         }
       }
     }
@@ -436,8 +462,7 @@ function renderEventCard(event) {
           <span class="font-semibold text-gray-900">${escapeHtml(event.token_symbol || '???')}</span>
           <span class="mono text-xs text-gray-500">${shortAddr}</span>
           <span class="text-xs text-gray-400 uppercase">${formatChain(event.chain)}</span>
-          ${d.gmgnUrl ? `<a href="${d.gmgnUrl}" target="_blank" title="在GMGN中查看" class="inline-flex items-center ml-1"><img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity"></a>` : ''}
-          ${d.signalsUrl ? `<a href="${d.signalsUrl}" target="_blank" title="查看信号详情" class="inline-flex items-center px-1.5 py-0.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors">信号</a>` : ''}
+          ${d.gmgnUrl ? `<a href="${d.gmgnUrl}" target="_blank" title="在GMGN中查看" class="inline-flex items-center p-1 rounded bg-gray-100 hover:bg-blue-100 transition-colors"><img src="/static/gmgn.png" alt="GMGN" class="w-5 h-5"></a>` : ''}
         </div>
         <div class="flex items-center space-x-2 text-xs text-gray-400">
           <span>${timeStr}</span>
@@ -453,6 +478,11 @@ function renderEventCard(event) {
         ${profitStr ? `<span>利润: ${profitStr}</span>` : ''}
         ${holdStr ? `<span class="text-gray-600">⏱ ${holdStr}</span>` : ''}
         ${cardsStr ? `<span class="text-gray-600">卖出: ${cardsStr}</span>` : ''}
+      </div>
+
+      <!-- 操作链接 -->
+      <div class="flex items-center gap-2 mt-2 text-xs text-gray-500 flex-wrap">
+        ${buildActionLinks(event)}
       </div>
 
       <!-- 展开区域 -->
