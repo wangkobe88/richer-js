@@ -444,6 +444,7 @@ export class NarrativeAnalysisEngine {
   _cleanupWorker(taskId) {
     const worker = this.activeWorkers.get(taskId);
     if (worker) {
+      worker.terminate();  // 终止 Worker 线程，释放所有资源
       this.activeWorkers.delete(taskId);
       this.workerStartTime.delete(taskId);
       this.stats.currentActive = this.activeWorkers.size;
