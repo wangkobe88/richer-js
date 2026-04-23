@@ -1,6 +1,6 @@
 {
   "engine": {
-    "maxConcurrency": 30,
+    "maxConcurrency": 6,
     "pollingInterval": 1000,
     "taskTimeout": 180000,
     "maxRetries": 3

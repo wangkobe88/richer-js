@@ -26,12 +26,16 @@
         .connection-dot.polling { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
         .connection-dot.disconnected { background: #ef4444; }
 
-        /* 事件卡片 */
+        /* 事件卡片 — 2列网格 */
+        #events-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
         .event-card {
             border: 1px solid #e5e7eb;
             border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 0.75rem;
+            padding: 0.875rem;
             background: white;
             transition: border-color 0.2s;
         }
@@ -216,7 +220,7 @@
         </nav>
 
         <!-- 主内容区 -->
-        <main class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <!-- 标题栏 -->
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div>
@@ -255,10 +259,10 @@
             <!-- 代币导航栏 -->
             <div id="token-nav" class="flex flex-wrap gap-2 mb-4"></div>
 
-            <!-- 事件流 -->
+            <!-- 事件流（2列网格） -->
             <div id="events-container">
                 <!-- 初始加载 -->
-                <div id="loading-indicator" class="flex justify-center py-12">
+                <div id="loading-indicator" class="flex justify-center py-12" style="grid-column: 1 / -1;">
                     <div class="loading-spinner"></div>
                 </div>
             </div>
@@ -301,6 +305,6 @@
         </div>
     </div>
 
-    <script type="module" src="/static/js/monitor.js?v=2.6"></script>
+    <script type="module" src="/static/js/monitor.js?v=3.0"></script>
 </body>
 </html>

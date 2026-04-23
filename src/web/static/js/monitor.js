@@ -1,6 +1,7 @@
 /**
  * 事件监控页面 JS
  * 使用 Supabase Realtime 实时推送，回退到轮询
+ * 按代币聚合：一个代币一张卡片
  */
 
 // ============ 配置 ============
@@ -8,7 +9,8 @@ const POLLING_INTERVAL = 5000; // 轮询间隔（毫秒）
 const PAGE_SIZE = 50;
 
 // ============ 状态 ============
-let allEvents = [];
+let allEvents = [];           // 原始事件列表（用于去重和清空预览）
+let tokenCardsMap = new Map(); // tokenAddress → TokenCard
 let supabaseClient = null;
 let channel = null;
 let pollingTimer = null;
@@ -24,6 +26,84 @@ let filterAction = '';
 let filterRating = '';
 let filterToken = '';
 
+// ============ 数据模型 ============
+
+/**
+ * 添加或更新事件到 tokenCardsMap
+ * @param {Object} event - 事件数据
+ * @returns {boolean} 数据是否有变化（新事件或叙事数据更新）
+ */
+function addOrUpdateEvent(event) {
+  const addr = event.token_address;
+  if (!addr) return false;
+
+  const existing = tokenCardsMap.get(addr);
+
+  if (!existing) {
+    // 创建新 TokenCard
+    const s = event.summary || {};
+    const card = {
+      tokenAddress: addr,
+      tokenSymbol: event.token_symbol || '???',
+      chain: event.chain || 'bsc',
+      experimentId: event.experiment_id,
+      events: [event],
+      latestEvent: event,
+      buyCount: event.action === 'buy' ? 1 : 0,
+      sellCount: event.action === 'sell' ? 1 : 0,
+      totalProfit: event.action === 'sell' && s.profitPercent != null ? s.profitPercent : 0,
+      lastUpdatedAt: new Date(event.created_at)
+    };
+    tokenCardsMap.set(addr, card);
+    return true;
+  }
+
+  // 已有该代币的卡片 — 检查事件是否已存在于卡片中
+  const eventIndex = existing.events.findIndex(e => e.id === event.id);
+
+  if (eventIndex >= 0) {
+    // 更新已有事件的数据（叙事分析刷新场景）
+    const oldEvent = existing.events[eventIndex];
+    if (JSON.stringify(oldEvent.summary) !== JSON.stringify(event.summary) ||
+        JSON.stringify(oldEvent.details) !== JSON.stringify(event.details)) {
+      existing.events[eventIndex] = event;
+      if (existing.latestEvent.id === event.id) {
+        existing.latestEvent = event;
+      }
+      return true;
+    }
+    return false; // 无变化
+  }
+
+  // 新事件 — 追加并排序
+  existing.events.push(event);
+  existing.events.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  existing.latestEvent = existing.events[0]; // 始终取最新的
+
+  // 累加统计
+  const s = event.summary || {};
+  if (event.action === 'buy') existing.buyCount++;
+  if (event.action === 'sell') {
+    existing.sellCount++;
+    if (s.profitPercent != null) existing.totalProfit += s.profitPercent;
+  }
+
+  // 只有更新的时间才刷新排序时间戳
+  const eventTime = new Date(event.created_at);
+  if (eventTime > existing.lastUpdatedAt) {
+    existing.lastUpdatedAt = eventTime;
+  }
+
+  return true;
+}
+
+/**
+ * 获取排序后的 tokenCards 列表（按 lastUpdatedAt 倒序）
+ */
+function getSortedTokenCards() {
+  return [...tokenCardsMap.values()].sort((a, b) => b.lastUpdatedAt - a.lastUpdatedAt);
+}
+
 // ============ 初始化 ============
 async function init() {
   setupEventListeners();
@@ -34,7 +114,6 @@ async function init() {
 // ============ Supabase Realtime ============
 async function initRealtime() {
   try {
-    // 获取 Supabase 配置
     const configResp = await fetch('/api/supabase-config');
     const config = await configResp.json();
 
@@ -44,11 +123,9 @@ async function initRealtime() {
       return;
     }
 
-    // 动态加载 Supabase JS 客户端
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     supabaseClient = createClient(config.supabaseUrl, config.supabaseAnonKey);
 
-    // 订阅 experiment_events 的 INSERT 事件
     channel = supabaseClient
       .channel('experiment-events-monitor')
       .on('postgres_changes',
@@ -78,13 +155,14 @@ async function initRealtime() {
  * Realtime 新事件回调
  */
 function onNewEvent(event) {
-  // 避免重复（轮询也可能拉到同一条）
   if (allEvents.some(e => e.id === event.id)) return;
 
   allEvents.unshift(event);
+  addOrUpdateEvent(event);
+
   renderTokenNav();
-  renderEvents();
-  showNewEventAnimation(event.id);
+  renderTokenCards();
+  showNewTokenAnimation(event.token_address);
   playNotificationSound();
   updateEventCount();
 }
@@ -132,10 +210,13 @@ function stopNarrativeRefresh() {
 }
 
 async function refreshExistingEvents() {
-  if (allEvents.length === 0) return;
+  if (tokenCardsMap.size === 0) return;
+
+  let totalEvents = 0;
+  for (const card of tokenCardsMap.values()) totalEvents += card.events.length;
 
   const params = new URLSearchParams({
-    limit: String(Math.min(allEvents.length, PAGE_SIZE)),
+    limit: String(Math.min(totalEvents, PAGE_SIZE)),
     offset: '0'
   });
 
@@ -145,19 +226,25 @@ async function refreshExistingEvents() {
 
   let hasUpdates = false;
   for (const apiEvent of result.data) {
-    const existing = allEvents.find(e => e.id === apiEvent.id);
-    if (existing) {
-      if (JSON.stringify(existing.summary) !== JSON.stringify(apiEvent.summary) ||
-          JSON.stringify(existing.details) !== JSON.stringify(apiEvent.details)) {
-        existing.summary = apiEvent.summary;
-        existing.details = apiEvent.details;
-        hasUpdates = true;
+    const card = tokenCardsMap.get(apiEvent.token_address);
+    if (!card) continue;
+
+    const idx = card.events.findIndex(e => e.id === apiEvent.id);
+    if (idx < 0) continue;
+
+    const oldEvent = card.events[idx];
+    if (JSON.stringify(oldEvent.summary) !== JSON.stringify(apiEvent.summary) ||
+        JSON.stringify(oldEvent.details) !== JSON.stringify(apiEvent.details)) {
+      card.events[idx] = apiEvent;
+      if (card.latestEvent.id === apiEvent.id) {
+        card.latestEvent = apiEvent;
       }
+      hasUpdates = true;
     }
   }
 
   if (hasUpdates) {
-    renderEvents();
+    renderTokenCards();
   }
 }
 
@@ -169,42 +256,29 @@ async function pollNewEvents() {
 
   const resp = await fetch(`/api/events?${params}`);
   const result = await resp.json();
-
   if (!result.success) return;
 
   const apiEvents = result.data;
-  let hasUpdates = false;
+  let hasChanges = false;
+  let newTokenAddresses = [];
 
-  // 更新已有事件的叙事数据（叙事分析可能已完成）
   for (const apiEvent of apiEvents) {
-    const existing = allEvents.find(e => e.id === apiEvent.id);
-    if (existing) {
-      if (JSON.stringify(existing.summary) !== JSON.stringify(apiEvent.summary) ||
-          JSON.stringify(existing.details) !== JSON.stringify(apiEvent.details)) {
-        existing.summary = apiEvent.summary;
-        existing.details = apiEvent.details;
-        hasUpdates = true;
-      }
+    const isNew = !allEvents.some(e => e.id === apiEvent.id);
+    if (isNew) {
+      allEvents.push(apiEvent);
+      newTokenAddresses.push(apiEvent.token_address);
+    }
+    if (addOrUpdateEvent(apiEvent)) {
+      hasChanges = true;
     }
   }
 
-  // 添加新事件
-  const newEvents = apiEvents.filter(e =>
-    !allEvents.some(existing => existing.id === e.id)
-  );
-
-  if (newEvents.length > 0) {
-    allEvents = [...newEvents, ...allEvents];
-    allEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    hasUpdates = true;
-    newEvents.forEach(e => showNewEventAnimation(e.id));
-    playNotificationSound();
-  }
-
-  if (hasUpdates) {
+  if (hasChanges) {
     renderTokenNav();
-    renderEvents();
+    renderTokenCards();
     updateEventCount();
+    newTokenAddresses.forEach(addr => showNewTokenAnimation(addr));
+    if (newTokenAddresses.length > 0) playNotificationSound();
   }
 }
 
@@ -223,11 +297,17 @@ async function loadHistory() {
     const result = await resp.json();
 
     if (result.success) {
-      allEvents = result.data || [];
-      hasMoreEvents = allEvents.length >= PAGE_SIZE;
+      const events = result.data || [];
+      // 按时间正序处理（先旧后新），确保统计累加正确
+      events.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      for (const event of events) {
+        allEvents.push(event);
+        addOrUpdateEvent(event);
+      }
+      hasMoreEvents = events.length >= PAGE_SIZE;
       currentOffset = allEvents.length;
       renderTokenNav();
-      renderEvents();
+      renderTokenCards();
       updateEventCount();
       toggleLoadMore();
     }
@@ -254,10 +334,13 @@ async function loadMore() {
 
     if (result.success) {
       const olderEvents = result.data || [];
-      allEvents = [...allEvents, ...olderEvents];
+      for (const event of olderEvents) {
+        allEvents.push(event);
+        addOrUpdateEvent(event);
+      }
       hasMoreEvents = olderEvents.length >= PAGE_SIZE;
       currentOffset = allEvents.length;
-      renderEvents();
+      renderTokenCards();
       toggleLoadMore();
     }
   } catch (err) {
@@ -268,13 +351,14 @@ async function loadMore() {
 }
 
 // ============ 渲染 ============
-function renderEvents() {
+
+function renderTokenCards() {
   const container = document.getElementById('events-container');
-  const filtered = getFilteredEvents();
+  const filtered = getFilteredTokenCards();
 
   if (filtered.length === 0 && !isLoadingHistory) {
     container.innerHTML = `
-      <div class="empty-state">
+      <div class="empty-state" style="grid-column: 1 / -1;">
         <div class="text-5xl mb-4">📡</div>
         <h3 class="text-lg font-medium text-gray-900 mb-2">暂无事件</h3>
         <p class="text-gray-500">等待实验引擎产生信号事件...</p>
@@ -283,7 +367,7 @@ function renderEvents() {
     return;
   }
 
-  const html = filtered.map(event => renderEventCard(event)).join('');
+  const html = filtered.map(card => renderTokenCard(card)).join('');
   container.innerHTML = html;
 }
 
@@ -308,14 +392,125 @@ function buildActionLinks(event) {
   return links.join('<span class="text-gray-300">|</span>');
 }
 
-function renderEventCard(event) {
+/**
+ * 构建展开区域内容（基于最新事件）
+ */
+function buildExpandContent(event) {
+  const d = event.details || {};
+  const s = event.summary || {};
+  const chain = (event.chain || 'bsc').toLowerCase();
+  const chainMap = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
+  const gmgnChain = chainMap[chain] || 'bsc';
+
+  let content = '';
+
+  // 叙事原因
+  if (d.narrativeReason) {
+    content += `<div class="text-sm text-gray-600 mt-2"><strong>叙事原因:</strong> ${escapeHtml(d.narrativeReason)}</div>`;
+  }
+
+  // 阶段摘要
+  if (d.stageSummaries) {
+    const stages = d.stageSummaries;
+    const stageOrder = ['preCheck', 'prestage', 'stage1', 'stage2', 'stage3'];
+    const stageLabels = { preCheck: '预检查', prestage: '预处理', stage1: '事件分析', stage2: '关联性', stage3: '质量评估' };
+    let stageHtml = '<div class="mt-2 text-sm"><strong>阶段详情:</strong></div>';
+    for (const name of stageOrder) {
+      const st = stages[name];
+      if (!st) continue;
+      const passIcon = st.pass === true ? '✅' : st.pass === false ? '❌' : '⚪';
+      const scorePart = st.score != null ? ` ${st.score.toFixed(1)}` : '';
+      const catPart = st.category ? ` [${st.category}]` : '';
+      const reasonPart = st.reason ? ` — ${escapeHtml(st.reason.substring(0, 150))}${st.reason.length > 150 ? '...' : ''}` : '';
+      stageHtml += `<div class="ml-2 text-gray-600">${passIcon} ${stageLabels[name] || name}${catPart}${scorePart}${reasonPart}</div>`;
+
+      // 预检查具体信息
+      if (name === 'preCheck' && st.details) {
+        const det = st.details;
+        if (det.sameNameTokens && det.sameNameTokens.length > 0) {
+          stageHtml += '<div class="ml-6 text-xs text-orange-700 mt-1">同名代币:';
+          for (const t of det.sameNameTokens) {
+            const addr = t.address ? shortenAddress(t.address) : '';
+            const fdvStr = t.fdv ? ` FDV:${formatMarketCap(parseFloat(t.fdv))}` : '';
+            const txStr = t.txCount ? ` 交易:${t.txCount}` : '';
+            const gmgnLink = t.address ? ` <a href="https://gmgn.ai/${gmgnChain}/token/${t.address}" target="_blank" class="inline-flex items-center"><img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3"></a>` : '';
+            stageHtml += `<div class="ml-2">• ${escapeHtml(t.symbol || t.name || '???')} <span class="mono">${addr}</span>${fdvStr}${txStr}${gmgnLink}</div>`;
+          }
+          stageHtml += '</div>';
+        }
+        if (det.earlierTokens && det.earlierTokens.length > 0) {
+          stageHtml += '<div class="ml-6 text-xs text-orange-700 mt-1">语料复用代币:';
+          for (const t of det.earlierTokens) {
+            const addr = t.address ? shortenAddress(t.address) : '';
+            const timeStr2 = t.timeDiffText ? ` (${t.timeDiffText}前)` : '';
+            const gmgnLink = t.address ? ` <a href="https://gmgn.ai/${gmgnChain}/token/${t.address}" target="_blank" class="inline-flex items-center"><img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3"></a>` : '';
+            stageHtml += `<div class="ml-2">• ${escapeHtml(t.symbol || '???')} <span class="mono">${addr}</span>${timeStr2}${gmgnLink}</div>`;
+          }
+          stageHtml += '</div>';
+        }
+        if (det.matchedTokenSymbol && det.matchedTokenAddress) {
+          const addr = shortenAddress(det.matchedTokenAddress);
+          const gmgnLink = `<a href="https://gmgn.ai/${gmgnChain}/token/${det.matchedTokenAddress}" target="_blank" class="inline-flex items-center"><img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3"></a>`;
+          stageHtml += `<div class="ml-6 text-xs text-orange-700 mt-1">重复叙事: ${escapeHtml(det.matchedTokenSymbol)} <span class="mono">${addr}</span> ${gmgnLink}</div>`;
+        }
+      }
+    }
+    content += stageHtml;
+  }
+
+  // 拒绝原因
+  if (d.executionReason) {
+    content += `<div class="mt-2 text-sm text-red-600"><strong>拒绝原因:</strong> ${escapeHtml(d.executionReason)}</div>`;
+  }
+
+  // 语料来源
+  if (d.sourceUrls) {
+    const allUrls = [];
+    const labels = { twitter: '推特', websites: '网站', telegram: 'Telegram', discord: 'Discord', youtube: 'YouTube' };
+    for (const [platform, urls] of Object.entries(d.sourceUrls)) {
+      const label = labels[platform] || platform;
+      for (const u of urls) {
+        allUrls.push(`<a href="${escapeHtml(u.url)}" target="_blank" class="text-blue-500 hover:text-blue-700">${label}</a>`);
+      }
+    }
+    if (allUrls.length > 0) {
+      content += `<div class="mt-2 text-sm"><strong>语料来源:</strong> ${allUrls.join(' ')}</div>`;
+    }
+  }
+
+  // 推文内容
+  if (d.tweetContents && d.tweetContents.length > 0) {
+    for (const tw of d.tweetContents) {
+      const authorStr = tw.author ? `@${escapeHtml(tw.author)}` : '';
+      content += `<div class="mt-2 p-2 bg-gray-50 rounded text-sm">
+        <div class="text-gray-500 text-xs mb-1">${authorStr} <a href="${escapeHtml(tw.url)}" target="_blank" class="text-blue-400">原文</a></div>
+        <div class="text-gray-700">${escapeHtml(tw.text)}</div>
+      </div>`;
+    }
+  }
+
+  // 卖出收益详情
+  if (d.buyPrice != null || d.sellPrice != null) {
+    const priceParts = [];
+    if (d.buyPrice != null) priceParts.push(`买入价: ${d.buyPrice}`);
+    if (d.sellPrice != null) priceParts.push(`卖出价: ${d.sellPrice}`);
+    if (d.highestPrice != null) priceParts.push(`最高价: ${d.highestPrice}`);
+    if (d.drawdownFromHighest != null) priceParts.push(`回撤: ${d.drawdownFromHighest.toFixed(1)}%`);
+    content += `<div class="mt-2 text-sm"><strong>价格详情:</strong> ${priceParts.join(' | ')}</div>`;
+  }
+
+  return content;
+}
+
+function renderTokenCard(card) {
+  const event = card.latestEvent;
   const s = event.summary || {};
   const d = event.details || {};
   const isBuy = event.action === 'buy';
   const timeStr = formatTime(event.created_at);
-  const shortAddr = shortenAddress(event.token_address);
-  const _chainMap = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
-  const _gmgnChain = _chainMap[(event.chain || 'bsc').toLowerCase()] || 'bsc';
+  const shortAddr = shortenAddress(card.tokenAddress);
+  const chainMap = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
+  const gmgnChain = chainMap[(card.chain || 'bsc').toLowerCase()] || 'bsc';
 
   // 动作标签
   const actionClass = isBuy ? 'action-buy' : 'action-sell';
@@ -339,7 +534,7 @@ function renderEventCard(event) {
   // 叙事评级
   const ratingHtml = renderRatingBadge(s.narrativeRating, s.narrativeScore);
 
-  // 利润（卖出时）
+  // 最新事件利润（卖出时）
   const profitStr = s.profitPercent != null
     ? `<span class="${s.profitPercent >= 0 ? 'text-green-600' : 'text-red-600'}">${s.profitPercent >= 0 ? '+' : ''}${s.profitPercent.toFixed(1)}%</span>`
     : '';
@@ -350,143 +545,70 @@ function renderEventCard(event) {
   // 卖出卡数
   const cardsStr = s.cards ? (s.cards === 'all' ? '全部' : `${s.cards}卡`) : '';
 
-  // 展开区域内容
-  const expandId = `expand-${event.id}`;
-  let expandContent = '';
+  // GMGN 链接
+  const gmgnUrl = d.gmgnUrl || `https://gmgn.ai/${gmgnChain}/token/${card.tokenAddress}`;
 
-  // 叙事原因
-  if (d.narrativeReason) {
-    expandContent += `<div class="text-sm text-gray-600 mt-2"><strong>叙事原因:</strong> ${escapeHtml(d.narrativeReason)}</div>`;
+  // 累计统计
+  const statsParts = [];
+  if (card.buyCount > 0) statsParts.push(`买入 ${card.buyCount} 次`);
+  if (card.sellCount > 0) statsParts.push(`卖出 ${card.sellCount} 次`);
+  if (card.totalProfit !== 0) {
+    const profitColor = card.totalProfit >= 0 ? 'text-green-600' : 'text-red-600';
+    statsParts.push(`<span class="${profitColor}">利润 ${card.totalProfit >= 0 ? '+' : ''}${card.totalProfit.toFixed(1)}%</span>`);
   }
 
-  // 阶段摘要
-  if (d.stageSummaries) {
-    const stages = d.stageSummaries;
-    const stageOrder = ['preCheck', 'prestage', 'stage1', 'stage2', 'stage3'];
-    const stageLabels = { preCheck: '预检查', prestage: '预处理', stage1: '事件分析', stage2: '关联性', stage3: '质量评估' };
-    let stageHtml = '<div class="mt-2 text-sm"><strong>阶段详情:</strong></div>';
-    for (const name of stageOrder) {
-      const st = stages[name];
-      if (!st) continue;
-      const passIcon = st.pass === true ? '✅' : st.pass === false ? '❌' : '⚪';
-      const scorePart = st.score != null ? ` ${st.score.toFixed(1)}` : '';
-      const catPart = st.category ? ` [${st.category}]` : '';
-      const reasonPart = st.reason ? ` — ${escapeHtml(st.reason.substring(0, 150))}${st.reason.length > 150 ? '...' : ''}` : '';
-      stageHtml += `<div class="ml-2 text-gray-600">${passIcon} ${stageLabels[name] || name}${catPart}${scorePart}${reasonPart}</div>`;
-
-      // 预检查具体信息：同名代币 / 语料复用 / 重复叙事
-      if (name === 'preCheck' && st.details) {
-        const det = st.details;
-        // 同名代币
-        if (det.sameNameTokens && det.sameNameTokens.length > 0) {
-          stageHtml += '<div class="ml-6 text-xs text-orange-700 mt-1">同名代币:';
-          for (const t of det.sameNameTokens) {
-            const addr = t.address ? shortenAddress(t.address) : '';
-            const fdvStr = t.fdv ? ` FDV:${formatMarketCap(parseFloat(t.fdv))}` : '';
-            const txStr = t.txCount ? ` 交易:${t.txCount}` : '';
-            const gmgnLink = t.address ? ` <a href="https://gmgn.ai/${_gmgnChain}/token/${t.address}" target="_blank" class="inline-flex items-center"><img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3"></a>` : '';
-            stageHtml += `<div class="ml-2">• ${escapeHtml(t.symbol || t.name || '???')} <span class="mono">${addr}</span>${fdvStr}${txStr}${gmgnLink}</div>`;
-          }
-          stageHtml += '</div>';
-        }
-        // 语料复用的早期代币
-        if (det.earlierTokens && det.earlierTokens.length > 0) {
-          stageHtml += '<div class="ml-6 text-xs text-orange-700 mt-1">语料复用代币:';
-          for (const t of det.earlierTokens) {
-            const addr = t.address ? shortenAddress(t.address) : '';
-            const timeStr2 = t.timeDiffText ? ` (${t.timeDiffText}前)` : '';
-            const gmgnLink = t.address ? ` <a href="https://gmgn.ai/${_gmgnChain}/token/${t.address}" target="_blank" class="inline-flex items-center"><img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3"></a>` : '';
-            stageHtml += `<div class="ml-2">• ${escapeHtml(t.symbol || '???')} <span class="mono">${addr}</span>${timeStr2}${gmgnLink}</div>`;
-          }
-          stageHtml += '</div>';
-        }
-        // 同名+同推文重复
-        if (det.matchedTokenSymbol && det.matchedTokenAddress) {
-          const addr = shortenAddress(det.matchedTokenAddress);
-          const gmgnLink = `<a href="https://gmgn.ai/${_gmgnChain}/token/${det.matchedTokenAddress}" target="_blank" class="inline-flex items-center"><img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3"></a>`;
-          stageHtml += `<div class="ml-6 text-xs text-orange-700 mt-1">重复叙事: ${escapeHtml(det.matchedTokenSymbol)} <span class="mono">${addr}</span> ${gmgnLink}</div>`;
-        }
-      }
-    }
-    expandContent += stageHtml;
-  }
-
-  // 拒绝原因
-  if (d.executionReason) {
-    expandContent += `<div class="mt-2 text-sm text-red-600"><strong>拒绝原因:</strong> ${escapeHtml(d.executionReason)}</div>`;
-  }
-
-  // 语料来源（买入事件）
-  if (d.sourceUrls) {
-    const allUrls = [];
-    const labels = { twitter: '推特', websites: '网站', telegram: 'Telegram', discord: 'Discord', youtube: 'YouTube' };
-    for (const [platform, urls] of Object.entries(d.sourceUrls)) {
-      const label = labels[platform] || platform;
-      for (const u of urls) {
-        allUrls.push(`<a href="${escapeHtml(u.url)}" target="_blank" class="text-blue-500 hover:text-blue-700">${label}</a>`);
-      }
-    }
-    if (allUrls.length > 0) {
-      expandContent += `<div class="mt-2 text-sm"><strong>语料来源:</strong> ${allUrls.join(' ')}</div>`;
-    }
-  }
-
-  // 推文内容
-  if (d.tweetContents && d.tweetContents.length > 0) {
-    for (const tw of d.tweetContents) {
-      const authorStr = tw.author ? `@${escapeHtml(tw.author)}` : '';
-      expandContent += `<div class="mt-2 p-2 bg-gray-50 rounded text-sm">
-        <div class="text-gray-500 text-xs mb-1">${authorStr} <a href="${escapeHtml(tw.url)}" target="_blank" class="text-blue-400">原文</a></div>
-        <div class="text-gray-700">${escapeHtml(tw.text)}</div>
-      </div>`;
-    }
-  }
-
-  // 卖出收益详情
-  if (d.buyPrice != null || d.sellPrice != null) {
-    const priceParts = [];
-    if (d.buyPrice != null) priceParts.push(`买入价: ${d.buyPrice}`);
-    if (d.sellPrice != null) priceParts.push(`卖出价: ${d.sellPrice}`);
-    if (d.highestPrice != null) priceParts.push(`最高价: ${d.highestPrice}`);
-    if (d.drawdownFromHighest != null) priceParts.push(`回撤: ${d.drawdownFromHighest.toFixed(1)}%`);
-    expandContent += `<div class="mt-2 text-sm"><strong>价格详情:</strong> ${priceParts.join(' | ')}</div>`;
-  }
+  // 展开区域
+  const expandId = `expand-${card.tokenAddress}`;
+  const expandContent = buildExpandContent(event);
 
   return `
-    <div class="event-card ${isThirdBuy ? 'event-third-buy' : ''}" id="card-${event.id}" data-action="${event.action}" data-rating="${s.narrativeRating || ''}">
-      <!-- 头部 -->
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-2 flex-wrap">
-          <span class="action-tag ${actionClass}">${actionIcon} ${indexStr}${actionText}</span>
-          <span class="exec-status ${execClass}">${execText}</span>
-          <span class="font-semibold text-gray-900">${escapeHtml(event.token_symbol || '???')}</span>
-          <span class="mono text-xs text-gray-500">${shortAddr}</span>
-          <span class="text-xs text-gray-400 uppercase">${formatChain(event.chain)}</span>
-          ${d.gmgnUrl ? `<a href="${d.gmgnUrl}" target="_blank" title="在GMGN中查看" class="inline-flex items-center p-1 rounded bg-gray-100 hover:bg-blue-100 transition-colors"><img src="/static/gmgn.png" alt="GMGN" class="w-5 h-5"></a>` : ''}
+    <div class="event-card ${isThirdBuy ? 'event-third-buy' : ''}" id="card-${card.tokenAddress}">
+      <!-- 代币标识 + 时间 -->
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="font-semibold text-gray-900 truncate">${escapeHtml(card.tokenSymbol)}</span>
+          <span class="mono text-xs text-gray-500 shrink-0">${shortAddr}</span>
+          <span class="text-xs text-gray-400 uppercase shrink-0">${formatChain(card.chain)}</span>
+          <a href="${gmgnUrl}" target="_blank" title="在GMGN中查看" class="inline-flex items-center p-0.5 rounded bg-gray-100 hover:bg-blue-100 transition-colors shrink-0">
+            <img src="/static/gmgn.png" alt="GMGN" class="w-4 h-4">
+          </a>
         </div>
-        <div class="flex items-center space-x-2 text-xs text-gray-400">
-          <span>${timeStr}</span>
-          ${expandContent ? `<button class="expand-btn text-blue-500 hover:text-blue-700" data-target="${expandId}">收起</button>` : ''}
-        </div>
+        <span class="text-xs text-gray-400 whitespace-nowrap shrink-0">${timeStr}</span>
       </div>
 
-      <!-- 摘要行 -->
-      <div class="flex items-center flex-wrap gap-3 mt-2 text-sm">
-        ${marketCapStr ? `<span class="text-gray-700">💰 \`${formatMarketCap(s.marketCap)}\`</span>` : ''}
-        ${returnStr ? `<span class="text-gray-700">📈 \`${returnStr}\`</span>` : ''}
+      <!-- 最新事件 -->
+      <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+        <span class="action-tag ${actionClass}">${actionIcon} ${indexStr}${actionText}</span>
+        <span class="exec-status ${execClass}">${execText}</span>
         ${ratingHtml}
+      </div>
+
+      <!-- 最新事件数据 -->
+      <div class="flex items-center flex-wrap gap-2 mt-1 text-sm">
+        ${marketCapStr ? `<span class="text-gray-700">💰 ${marketCapStr}</span>` : ''}
+        ${returnStr ? `<span class="text-gray-700">📈 ${returnStr}</span>` : ''}
         ${profitStr ? `<span>利润: ${profitStr}</span>` : ''}
         ${holdStr ? `<span class="text-gray-600">⏱ ${holdStr}</span>` : ''}
         ${cardsStr ? `<span class="text-gray-600">卖出: ${cardsStr}</span>` : ''}
       </div>
 
+      <!-- 累计统计 -->
+      ${statsParts.length > 0 ? `<div class="flex items-center gap-2 mt-1 text-xs text-gray-500">${statsParts.join('<span class="text-gray-300">|</span>')}</div>` : ''}
+
       <!-- 操作链接 -->
-      <div class="flex items-center gap-2 mt-2 text-xs text-gray-500 flex-wrap">
+      <div class="flex items-center gap-1.5 mt-1.5 text-xs text-gray-500 flex-wrap">
         ${buildActionLinks(event)}
       </div>
 
-      <!-- 展开区域 -->
-      ${expandContent ? `<div class="expand-content" id="${expandId}"><div class="border-t border-gray-100 mt-2 pt-2">${expandContent}</div></div>` : ''}
+      <!-- 展开详情 -->
+      ${expandContent ? `
+        <div class="mt-1.5">
+          <button class="expand-btn text-xs text-blue-500 hover:text-blue-700" data-target="${expandId}">收起详情</button>
+        </div>
+        <div class="expand-content" id="${expandId}">
+          <div class="border-t border-gray-100 mt-1.5 pt-1.5">${expandContent}</div>
+        </div>
+      ` : ''}
     </div>
   `;
 }
@@ -500,12 +622,13 @@ function renderRatingBadge(rating, score) {
 }
 
 // ============ 筛选 ============
-function getFilteredEvents() {
-  return allEvents.filter(event => {
-    const s = event.summary || {};
-    if (filterAction && event.action !== filterAction) return false;
-    if (filterRating && (s.narrativeRating || '') !== filterRating) return false;
-    if (filterToken && event.token_symbol !== filterToken) return false;
+
+function getFilteredTokenCards() {
+  const sorted = getSortedTokenCards();
+  return sorted.filter(card => {
+    if (filterAction && !card.events.some(e => e.action === filterAction)) return false;
+    if (filterRating && (card.latestEvent.summary?.narrativeRating || '') !== filterRating) return false;
+    if (filterToken && card.tokenSymbol !== filterToken) return false;
     return true;
   });
 }
@@ -513,7 +636,7 @@ function getFilteredEvents() {
 function applyFilters() {
   filterAction = document.getElementById('action-filter').value;
   filterRating = document.getElementById('rating-filter').value;
-  renderEvents();
+  renderTokenCards();
 }
 
 function clearFilters() {
@@ -523,7 +646,7 @@ function clearFilters() {
   filterRating = '';
   filterToken = '';
   renderTokenNav();
-  renderEvents();
+  renderTokenCards();
 }
 
 // ============ 代币导航栏 ============
@@ -531,28 +654,21 @@ function renderTokenNav() {
   const nav = document.getElementById('token-nav');
   if (!nav) return;
 
-  // 聚合代币统计
-  const tokenStats = {};
-  for (const e of allEvents) {
-    const sym = e.token_symbol || '???';
-    if (!tokenStats[sym]) tokenStats[sym] = { buy: 0, sell: 0, symbol: sym };
-    if (e.action === 'buy') tokenStats[sym].buy++;
-    if (e.action === 'sell') tokenStats[sym].sell++;
-  }
+  const cards = getSortedTokenCards();
+  if (cards.length === 0) { nav.innerHTML = ''; return; }
 
-  const tokens = Object.values(tokenStats);
-  if (tokens.length === 0) { nav.innerHTML = ''; return; }
+  let totalEvents = 0;
+  cards.forEach(c => totalEvents += c.events.length);
 
-  // 全部按钮
   const allActive = !filterToken;
-  let html = `<button class="token-nav-btn ${allActive ? 'active' : ''}" data-token="">全部 (${allEvents.length})</button>`;
+  let html = `<button class="token-nav-btn ${allActive ? 'active' : ''}" data-token="">全部 (${totalEvents})</button>`;
 
-  for (const t of tokens) {
+  for (const card of cards) {
     const parts = [];
-    if (t.buy > 0) parts.push(`买${t.buy}`);
-    if (t.sell > 0) parts.push(`卖${t.sell}`);
-    const active = filterToken === t.symbol;
-    html += `<button class="token-nav-btn ${active ? 'active' : ''}" data-token="${escapeHtml(t.symbol)}">${escapeHtml(t.symbol)} (${parts.join(' ')})</button>`;
+    if (card.buyCount > 0) parts.push(`买${card.buyCount}`);
+    if (card.sellCount > 0) parts.push(`卖${card.sellCount}`);
+    const active = filterToken === card.tokenSymbol;
+    html += `<button class="token-nav-btn ${active ? 'active' : ''}" data-token="${escapeHtml(card.tokenSymbol)}">${escapeHtml(card.tokenSymbol)} (${parts.join(' ')})</button>`;
   }
 
   nav.innerHTML = html;
@@ -568,8 +684,8 @@ function updateConnectionStatus(type, text) {
 
 function updateEventCount() {
   const display = document.getElementById('event-count-display');
-  const filtered = getFilteredEvents();
-  display.textContent = `共 ${allEvents.length} 条事件`;
+  const totalEvents = [...tokenCardsMap.values()].reduce((sum, c) => sum + c.events.length, 0);
+  display.textContent = `共 ${tokenCardsMap.size} 个代币 / ${totalEvents} 条事件`;
 }
 
 function toggleLoadMore() {
@@ -581,9 +697,9 @@ function toggleLoadMore() {
   }
 }
 
-function showNewEventAnimation(eventId) {
+function showNewTokenAnimation(tokenAddress) {
   setTimeout(() => {
-    const card = document.getElementById(`card-${eventId}`);
+    const card = document.getElementById(`card-${tokenAddress}`);
     if (card) {
       card.classList.add('event-new');
       setTimeout(() => card.classList.remove('event-new'), 2000);
@@ -658,6 +774,7 @@ async function executePurge() {
       closePurgeModal();
       // 刷新页面数据
       allEvents = [];
+      tokenCardsMap.clear();
       currentOffset = 0;
       await loadHistory();
       renderTokenNav();
@@ -769,7 +886,7 @@ function setupEventListeners() {
       filterToken = token;
     }
     renderTokenNav();
-    renderEvents();
+    renderTokenCards();
   });
 
   // 展开/折叠（事件委托）
@@ -780,7 +897,8 @@ function setupEventListeners() {
     const content = document.getElementById(targetId);
     if (content) {
       content.classList.toggle('collapsed');
-      btn.textContent = content.classList.contains('collapsed') ? '展开' : '收起';
+      btn.textContent = content.classList.contains('collapsed') ? '展开详情' : '收起';
+
     }
   });
 }
