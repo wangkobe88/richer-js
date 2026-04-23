@@ -68,7 +68,11 @@ function buildFactorValuesForTimeSeries(factorResults) {
     holderTrendDataPoints: factorResults.holderTrendDataPoints,
     holderTrendRecentDecreaseCount: factorResults.holderTrendRecentDecreaseCount,
     holderTrendRecentDecreaseRatio: factorResults.holderTrendRecentDecreaseRatio,
-    holderTrendConsecutiveDecreases: factorResults.holderTrendConsecutiveDecreases
+    holderTrendConsecutiveDecreases: factorResults.holderTrendConsecutiveDecreases,
+    // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
+    tweetAuthorType: factorResults.tweetAuthorType ?? 0,
+    // 数据采集轮数因子
+    dataCollectionRound: factorResults.dataCollectionRound ?? 1,
   };
 }
 
@@ -166,7 +170,11 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     strongTraderTradeCount: preBuyCheckResult.strongTraderTradeCount ?? 0,
     strongTraderSellIntensity: preBuyCheckResult.strongTraderSellIntensity ?? 0,
     // 叙事分析评级因子
-    narrativeRating: preBuyCheckResult.narrativeRating ?? 9
+    narrativeRating: preBuyCheckResult.narrativeRating ?? 9,
+    // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
+    tweetAuthorType: preBuyCheckResult.tweetAuthorType ?? 0,
+    // 数据采集轮数因子
+    dataCollectionRound: preBuyCheckResult.dataCollectionRound ?? 0,
   };
 }
 

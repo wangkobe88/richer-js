@@ -13,14 +13,13 @@ const { categoryToRating } = require('../../narrative/utils/rating-utils.mjs');
 const traderFactory = require('../traders');
 const Logger = require('../../services/logger');
 
-// Super IP 快速通道模块（懒加载，ESM 动态导入）
+// Super IP 检测模块（懒加载，ESM 动态导入，用于 tweetAuthorType 因子）
 let superIpModules = null;
 async function getSuperIpModules() {
   if (!superIpModules) {
     const mod = await import('../../narrative/analyzer/prompts/super-ip/super-ip-registry.mjs');
     superIpModules = {
-      detectSuperIP: mod.detectSuperIP,
-      extractScreenNameFromUrl: mod.extractScreenNameFromUrl
+      detectSuperIP: mod.detectSuperIP
     };
   }
   return superIpModules;
@@ -80,9 +79,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this._narrativeTriggerThreshold = 80; // 默认80%
     this._narrativeMaxWaitSeconds = 10; // 默认等待10秒
     this._narrativePollIntervalMs = 2000; // 默认每2秒检查一次
-
-    // Super IP 快速通道配置
-    this._superIpFastTrackEnabled = false;
 
     // 统计信息
     this.metrics = {
@@ -1006,16 +1002,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
       this.logger.info('LiveTradingEngine', 'Initialize', `⚠️ 叙事分析未启用`);
     }
 
-    // 初始化 Super IP 快速通道配置
-    const superIpConfig = this._experiment.config?.strategiesConfig?.superIpFastTrack || this._experiment.config?.superIpFastTrack || {};
-    this._superIpFastTrackEnabled = superIpConfig.enabled === true;
-
-    if (this._superIpFastTrackEnabled) {
-      this.logger.info('LiveTradingEngine', 'Initialize', `✅ Super IP 快速通道已启用`);
-      console.log(`✅ Super IP 快速通道已启用`);
-    } else {
-      this.logger.info('LiveTradingEngine', 'Initialize', `⚠️ Super IP 快速通道未启用`);
-    }
+    // 提前加载 Super IP 检测模块（用于 tweetAuthorType 因子）
+    getSuperIpModules().catch(err => console.warn('Super IP 模块加载失败:', err.message));
 
     // 初始化时序数据服务
     const { ExperimentTimeSeriesService } = require('../../web/services/ExperimentTimeSeriesService');
@@ -1306,49 +1294,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 检查 Super IP 快速通道
-   * 如果代币推文作者为大IP，跳过第一阶段检测直接进入购买前检查
-   * @private
-   * @param {Object} token - 代币数据
-   * @returns {Promise<Object|null>} IP信息或null
-   */
-  async _checkSuperIpFastTrack(token) {
-    if (!this._superIpFastTrackEnabled) return null;
-    if (token.status !== 'monitoring') return null;
-
-    // 缓存：已检测过的 token 不再重复检测
-    if (token._superIpDetected !== undefined) {
-      return token._superIpDetected;
-    }
-
-    try {
-      const twitterUrl = token.rawApiData?.fourmeme_creator_info?.full_info?.twitterUrl;
-      if (!twitterUrl) {
-        token._superIpDetected = null;
-        return null;
-      }
-
-      const { detectSuperIP } = await getSuperIpModules();
-      const ipInfo = detectSuperIP(twitterUrl, null);
-
-      if (ipInfo) {
-        this.logger.info(this._experimentId, 'SuperIpFastTrack',
-          `检测到大IP推文 | symbol=${token.symbol}, ip=${ipInfo.name}, tier=${ipInfo.tier}, url=${twitterUrl}`);
-        token._superIpDetected = ipInfo;
-        return ipInfo;
-      }
-
-      token._superIpDetected = null;
-      return null;
-    } catch (error) {
-      this.logger.error(this._experimentId, 'SuperIpFastTrack',
-        `检测失败 | symbol=${token.symbol}, error=${error.message}`);
-      token._superIpDetected = null;
-      return null;
-    }
-  }
-
-  /**
    * 处理单个代币（与虚拟盘一致）
    * @private
    * @param {Object} token - 代币数据
@@ -1400,69 +1345,10 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
 
       // 构建因子
+      // 累加数据采集轮数（每次进入因子计算循环时 +1）
+      token._dataCollectionRound = (token._dataCollectionRound || 0) + 1;
+
       const factorResults = this._buildFactors(token);
-
-      // Super IP 快速通道检测
-      const superIpInfo = await this._checkSuperIpFastTrack(token);
-      if (superIpInfo) {
-        // 保存时序数据（保持正常的数据记录）
-        console.log(`📊 [时序数据-SuperIP] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
-        if (this.timeSeriesService) {
-          const { buildFactorValuesForTimeSeries: buildTS } = require('../core/FactorBuilder');
-          await this.timeSeriesService.recordRoundData({
-            experimentId: this._experimentId,
-            tokenAddress: token.token,
-            tokenSymbol: token.symbol,
-            timestamp: new Date(),
-            loopCount: this._loopCount,
-            priceUsd: factorResults.currentPrice,
-            priceNative: null,
-            factorValues: buildTS(factorResults),
-            blockchain: this._blockchain
-          });
-        }
-
-        // 创建合成买入策略，继承实验配置的 preBuyCheckCondition
-        const firstBuyStrategy = this._experiment?.config?.strategiesConfig?.buyStrategies?.[0] || {};
-        const syntheticStrategy = {
-          id: 'super_ip_fast_track',
-          name: `Super IP 快速通道: ${superIpInfo.name} (${superIpInfo.tier}级)`,
-          action: 'buy',
-          priority: 1,
-          cooldown: 60,
-          maxExecutions: 1,
-          preBuyCheckCondition: firstBuyStrategy.preBuyCheckCondition || null
-        };
-
-        this.logger.info(this._experimentId, 'ProcessToken',
-          `${token.symbol} 触发Super IP快速通道: ${superIpInfo.name} (${superIpInfo.tier}级)`);
-
-        if (this._roundSummary) {
-          this._roundSummary.recordSignal(token.token, {
-            direction: 'BUY',
-            action: 'buy',
-            confidence: 95,
-            reason: syntheticStrategy.name
-          });
-        }
-
-        const executionResult = await this._executeStrategy(syntheticStrategy, token, factorResults);
-
-        if (this._roundSummary) {
-          this._roundSummary.recordSignalExecution(
-            token.token,
-            executionResult.success,
-            executionResult.success ? null : (executionResult.reason || '执行失败')
-          );
-        }
-
-        // Super IP 快速通道仍需创建叙事分析任务（大IP事件本身值得分析）
-        if (this._narrativeAnalysisEnabled) {
-          await this._createOrUpdateNarrativeTask(token, 100);
-        }
-
-        return;
-      }
 
       // 记录时序数据（与虚拟盘一致，添加日志）
       console.log(`📊 [时序数据] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
@@ -1691,7 +1577,11 @@ class LiveTradingEngine extends AbstractTradingEngine {
       holders: token.holders || 0,
       tvl: token.tvl || 0,
       fdv: token.fdv || 0,
-      marketCap: token.marketCap || 0
+      marketCap: token.marketCap || 0,
+      // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
+      tweetAuthorType: this._detectTweetAuthorType(token),
+      // 数据采集轮数因子（第几次进入因子计算循环）
+      dataCollectionRound: token._dataCollectionRound || 1,
     };
 
     // 价格趋势检测因子（使用固定窗口：最多8个点）
@@ -1825,6 +1715,24 @@ class LiveTradingEngine extends AbstractTradingEngine {
     }
 
     return factors;
+  }
+
+  /**
+   * 检测推文作者类型（Super IP 等级）
+   * @private
+   * @param {Object} token - 代币数据
+   * @returns {number} 0=普通, 1=A级SuperIP, 2=S级SuperIP
+   */
+  _detectTweetAuthorType(token) {
+    try {
+      const twitterUrl = token.rawApiData?.fourmeme_creator_info?.full_info?.twitterUrl;
+      if (!twitterUrl || !superIpModules) return 0;
+      const ipInfo = superIpModules.detectSuperIP(twitterUrl, null);
+      if (!ipInfo) return 0;
+      return ipInfo.tier === 'S' ? 2 : 1;
+    } catch {
+      return 0;
+    }
   }
 
   /**
@@ -2096,7 +2004,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
               buyRound: currentRound + 1,  // 即将进行的轮数
               lastPairReturnRate: lastPairReturnRate ?? 0,
               skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false,
-              narrativeRating: narrativeRating  // 叙事评级
+              narrativeRating: narrativeRating,  // 叙事评级
+              tweetAuthorType: factorResults.tweetAuthorType ?? 0,  // 推文作者类型
+              dataCollectionRound: factorResults.dataCollectionRound ?? 0,  // 数据采集轮数
             }
           );
 

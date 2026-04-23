@@ -436,7 +436,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -517,7 +517,9 @@ class PreBuyCheckService {
         {
           buyRound: options.buyRound,
           lastPairReturnRate: options.lastPairReturnRate,
-          narrativeRating: narrativeRating
+          narrativeRating: narrativeRating,
+          tweetAuthorType: tweetAuthorType,
+          dataCollectionRound: dataCollectionRound
         }
       );
     } catch (error) {
@@ -557,6 +559,10 @@ class PreBuyCheckService {
         // 多次交易因子（默认值）
         buyRound: options.buyRound || 1,
         lastPairReturnRate: options.lastPairReturnRate ?? 0,
+        // 推文作者类型因子
+        tweetAuthorType: options.tweetAuthorType ?? 0,
+        // 数据采集轮数因子
+        dataCollectionRound: options.dataCollectionRound ?? 0,
 
         // 早期参与者检查失败时的空值
         ...this.earlyParticipantService.getEmptyFactorValues(),
@@ -635,6 +641,10 @@ class PreBuyCheckService {
 
       // 叙事分析因子
       narrativeRating: extraContext.narrativeRating ?? 9,
+      // 推文作者类型因子
+      tweetAuthorType: extraContext.tweetAuthorType ?? 0,
+      // 数据采集轮数因子
+      dataCollectionRound: extraContext.dataCollectionRound ?? 0,
 
       // 早期参与者检查结果
       ...earlyParticipantCheck,
@@ -729,7 +739,11 @@ class PreBuyCheckService {
         buyRound: extraContext.buyRound || 1,
         lastPairReturnRate: extraContext.lastPairReturnRate ?? 0,
         // 叙事分析因子（允许在条件表达式中使用）
-        narrativeRating: extraContext.narrativeRating ?? 9
+        narrativeRating: extraContext.narrativeRating ?? 9,
+        // 推文作者类型因子（允许在条件表达式中使用）
+        tweetAuthorType: extraContext.tweetAuthorType ?? 0,
+        // 数据采集轮数因子（允许在条件表达式中使用）
+        dataCollectionRound: extraContext.dataCollectionRound ?? 0
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
@@ -1443,6 +1457,10 @@ class PreBuyCheckService {
       lastPairReturnRate: 0,
       // 叙事分析因子（默认值）
       narrativeRating: 9,
+      // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
+      tweetAuthorType: 0,
+      // 数据采集轮数因子
+      dataCollectionRound: 0,
       ...this.earlyParticipantService.getEmptyFactorValues(),
       ...this.walletClusterService.getEmptyFactorValues(),
       // Twitter因子

@@ -515,9 +515,6 @@ class ExperimentRenderer {
       if (sc.narrativeAnalysis) {
         formData.narrativeAnalysis = sc.narrativeAnalysis;
       }
-      if (sc.superIpFastTrack) {
-        formData.superIpFastTrack = sc.superIpFastTrack;
-      }
       if (sc.stats) {
         formData.stats = sc.stats;
       }

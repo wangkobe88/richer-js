@@ -766,11 +766,6 @@ class ExperimentMonitor {
           copyData.narrativeAnalysis = sc.narrativeAnalysis;
         }
 
-        // Super IP 快速通道配置
-        if (sc.superIpFastTrack) {
-          copyData.superIpFastTrack = sc.superIpFastTrack;
-        }
-
         // 统计配置
         if (sc.stats) {
           copyData.stats = sc.stats;

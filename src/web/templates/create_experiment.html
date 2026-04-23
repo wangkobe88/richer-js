@@ -520,20 +520,6 @@
                     </div>
                 </div>
 
-                <!-- Super IP 快速通道配置 -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">🚀 Super IP 快速通道</h2>
-                        <label class="flex items-center gap-2">
-                            <input type="checkbox" name="super_ip_fast_track_enabled" id="super-ip-enabled" class="w-4 h-4">
-                            <span class="text-sm font-medium text-gray-700">启用大IP快速买入通道</span>
-                        </label>
-                    </div>
-                    <p class="text-xs text-gray-500">
-                        当代币推文作者为超大IP（CZ、Elon Musk、币安官方等）时，跳过第一阶段因子检测，直接进入购买前检查。
-                        适用于应对大IP推文发酵过快的场景。
-                    </p>
-                </div>
 
                 <!-- 统计与通知配置 -->
                 <div class="border border-gray-200 rounded-lg p-4">
@@ -1020,11 +1006,7 @@
                     naPollIntervalMs.value = copyData.narrativeAnalysis.pollIntervalMs;
                 }
 
-                // 填充 Super IP 快速通道配置
-                if (copyData.superIpFastTrack?.enabled) {
-                    const siEnabled = document.getElementById('super-ip-enabled');
-                    if (siEnabled) siEnabled.checked = true;
-                }
+
 
                 // 填充统计配置
                 const statsEnabled = document.getElementById('stats-enabled');
@@ -1660,10 +1642,6 @@
                         triggerThreshold: parseInt(document.getElementById('na-trigger-threshold')?.value) || 80,
                         maxWaitSeconds: parseInt(document.getElementById('na-max-wait-seconds')?.value) || 10,
                         pollIntervalMs: parseInt(document.getElementById('na-poll-interval-ms')?.value) || 2000
-                    },
-                    // Super IP 快速通道配置
-                    superIpFastTrack: {
-                        enabled: document.getElementById('super-ip-enabled')?.checked || false
                     },
                     // 统计配置
                     stats: {
