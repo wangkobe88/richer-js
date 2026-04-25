@@ -350,6 +350,43 @@ const FACTOR_METADATA = {
     },
     unit: '',
     severity: 'warning'
+  },
+  // 合约审计风控因子
+  contractRiskAvailable: {
+    name: '合约审计数据可用',
+    format: v => v === 1 ? '有数据' : '无数据',
+    unit: '',
+    severity: 'info'
+  },
+  contractRiskPairLockPercent: {
+    name: 'LP锁定百分比',
+    format: v => v.toFixed(2) + '%',
+    unit: '%',
+    severity: 'critical'
+  },
+  contractRiskTopLpHolderPercent: {
+    name: 'Top1 LP持有人百分比',
+    format: v => v.toFixed(1) + '%',
+    unit: '%',
+    severity: 'critical'
+  },
+  contractRiskLpHolders: {
+    name: 'LP持有人数量',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
+  contractRiskScore: {
+    name: 'AVE风险评分',
+    format: v => v.toString(),
+    unit: '分',
+    severity: 'warning'
+  },
+  contractRiskIsHoneypot: {
+    name: '蜜罐标记',
+    format: v => v === 1 ? '是蜜罐' : v === -1 ? '未知' : '否',
+    unit: '',
+    severity: 'critical'
   }
 };
 
@@ -436,7 +473,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, contractRiskData } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -519,7 +556,8 @@ class PreBuyCheckService {
           lastPairReturnRate: options.lastPairReturnRate,
           narrativeRating: narrativeRating,
           tweetAuthorType: tweetAuthorType,
-          dataCollectionRound: dataCollectionRound
+          dataCollectionRound: dataCollectionRound,
+          contractRiskData: contractRiskData  // 合约审计风控数据
         }
       );
     } catch (error) {
@@ -583,7 +621,14 @@ class PreBuyCheckService {
         twitterSearchDuration: 0,
         twitterSearchError: errorMessage,
         // 强势交易者持仓检查失败时的空值
-        ...this.strongTraderPositionService.getEmptyFactorValues()
+        ...this.strongTraderPositionService.getEmptyFactorValues(),
+        // 合约审计风控因子（失败时使用传入的数据或空值）
+        contractRiskAvailable: options.contractRiskData?.contractRiskAvailable ?? 0,
+        contractRiskPairLockPercent: options.contractRiskData?.contractRiskPairLockPercent ?? 0,
+        contractRiskTopLpHolderPercent: options.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
+        contractRiskLpHolders: options.contractRiskData?.contractRiskLpHolders ?? 0,
+        contractRiskScore: options.contractRiskData?.contractRiskScore ?? 0,
+        contractRiskIsHoneypot: options.contractRiskData?.contractRiskIsHoneypot ?? 0
       };
     }
   }
@@ -645,6 +690,14 @@ class PreBuyCheckService {
       tweetAuthorType: extraContext.tweetAuthorType ?? 0,
       // 数据采集轮数因子
       dataCollectionRound: extraContext.dataCollectionRound ?? 0,
+
+      // 合约审计风控因子
+      contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
+      contractRiskPairLockPercent: extraContext.contractRiskData?.contractRiskPairLockPercent ?? 0,
+      contractRiskTopLpHolderPercent: extraContext.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
+      contractRiskLpHolders: extraContext.contractRiskData?.contractRiskLpHolders ?? 0,
+      contractRiskScore: extraContext.contractRiskData?.contractRiskScore ?? 0,
+      contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0,
 
       // 早期参与者检查结果
       ...earlyParticipantCheck,
@@ -743,7 +796,14 @@ class PreBuyCheckService {
         // 推文作者类型因子（允许在条件表达式中使用）
         tweetAuthorType: extraContext.tweetAuthorType ?? 0,
         // 数据采集轮数因子（允许在条件表达式中使用）
-        dataCollectionRound: extraContext.dataCollectionRound ?? 0
+        dataCollectionRound: extraContext.dataCollectionRound ?? 0,
+        // 合约审计风控因子（允许在条件表达式中使用）
+        contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
+        contractRiskPairLockPercent: extraContext.contractRiskData?.contractRiskPairLockPercent ?? 0,
+        contractRiskTopLpHolderPercent: extraContext.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
+        contractRiskLpHolders: extraContext.contractRiskData?.contractRiskLpHolders ?? 0,
+        contractRiskScore: extraContext.contractRiskData?.contractRiskScore ?? 0,
+        contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
@@ -1461,6 +1521,13 @@ class PreBuyCheckService {
       tweetAuthorType: 0,
       // 数据采集轮数因子
       dataCollectionRound: 0,
+      // 合约审计风控因子
+      contractRiskAvailable: 0,
+      contractRiskPairLockPercent: 0,
+      contractRiskTopLpHolderPercent: 0,
+      contractRiskLpHolders: 0,
+      contractRiskScore: 0,
+      contractRiskIsHoneypot: 0,
       ...this.earlyParticipantService.getEmptyFactorValues(),
       ...this.walletClusterService.getEmptyFactorValues(),
       // Twitter因子

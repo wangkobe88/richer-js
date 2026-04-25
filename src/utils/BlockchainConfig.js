@@ -246,9 +246,7 @@ class BlockchainConfig {
         maxSlippage: 0.05       // 5%
       },
       availableTraders: [
-        // Base DEX traders - 未来实现
-        // 'uniswap-v3-base',
-        // 'baseswap'
+        'uniswap-v4'
       ]
     },
     ethereum: {
@@ -271,7 +269,7 @@ class BlockchainConfig {
       },
       availableTraders: [
         'uniswap-v2',
-        'uniswap-v3'
+        'uniswap-v4'
       ]
     }
   };
@@ -298,7 +296,7 @@ class BlockchainConfig {
    * @type {string[]}
    * @readonly
    */
-  static SUPPORTED_BLOCKCHAINS = ['bsc', 'solana', 'base'];
+  static SUPPORTED_BLOCKCHAINS = ['bsc', 'solana', 'base', 'ethereum'];
 
   // ========== 公共方法 ==========
 

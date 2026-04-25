@@ -7,6 +7,8 @@ const TraderFactory = require('./TraderFactory');
 const ITrader = require('./ITrader');
 const FourMemeDirectTrader = require('./implementations/FourMemeDirectTrader');
 const PancakeSwapV2Trader = require('./implementations/PancakeSwapV2Trader');
+const UniswapV2Trader = require('./implementations/UniswapV2Trader');
+const UniswapV4Trader = require('./implementations/UniswapV4Trader');
 
 // 注册 FourMeme 交易器
 TraderFactory.registerTrader('fourmeme', FourMemeDirectTrader, {
@@ -23,6 +25,24 @@ TraderFactory.registerTrader('pancakeswap-v2', PancakeSwapV2Trader, {
     description: 'PancakeSwap V2 AMM 交易器 - 用于已出盘代币的外部交易',
     riskLevel: 2,
     priority: 20,
+    enabled: true
+});
+
+// 注册 Uniswap V2 交易器（Ethereum）
+TraderFactory.registerTrader('uniswap-v2', UniswapV2Trader, {
+    name: 'Uniswap V2 Trader',
+    description: 'Uniswap V2 AMM 交易器 - Ethereum 链恒定乘积做市商',
+    riskLevel: 2,
+    priority: 20,
+    enabled: true
+});
+
+// 注册 Uniswap V4 交易器（Ethereum + Base）
+TraderFactory.registerTrader('uniswap-v4', UniswapV4Trader, {
+    name: 'Uniswap V4 Trader',
+    description: 'Uniswap V4 PoolManager 交易器 - 支持 Ethereum 和 Base 链',
+    riskLevel: 2,
+    priority: 25,
     enabled: true
 });
 
@@ -74,5 +94,7 @@ module.exports = {
     ITrader,
     FourMemeDirectTrader,
     PancakeSwapV2Trader,
+    UniswapV2Trader,
+    UniswapV4Trader,
     BaseTrader: require('./core/BaseTrader')
 };

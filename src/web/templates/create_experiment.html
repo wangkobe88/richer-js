@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>创建实验 - Richer-js Fourmeme Trading</title>
+    <title>Richer 交易系统 - 创建实验</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="/static/css/light-theme.css" rel="stylesheet">
     <link href="/static/css/style.css" rel="stylesheet">
@@ -227,6 +227,7 @@
                                 <option value="bsc" selected>BSC (Binance Smart Chain)</option>
                                 <option value="base">Base</option>
                                 <option value="solana">Solana</option>
+                                <option value="ethereum">Ethereum (Mainnet)</option>
                             </select>
                         </div>
                         <div>
@@ -257,6 +258,39 @@
                                    min="0.001"
                                    value="100"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 代币收集配置 -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">📡 代币收集配置</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                收集频率（秒）
+                            </label>
+                            <input type="number"
+                                   name="collector_interval"
+                                   id="collector-interval"
+                                   min="5"
+                                   step="1"
+                                   value="10"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-500 mt-1">多久请求一次API获取新代币。ETH链建议20-30秒，BSC/Solana建议10秒</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                代币最大年龄（秒）
+                            </label>
+                            <input type="number"
+                                   name="collector_max_age"
+                                   id="collector-max-age"
+                                   min="10"
+                                   step="10"
+                                   value="60"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-500 mt-1">只收集创建时间在此范围内的代币。ETH链建议300-600秒，BSC/Solana建议60秒</p>
                         </div>
                     </div>
                 </div>
@@ -520,6 +554,36 @@
                     </div>
                 </div>
 
+                <!-- 合约审计风控配置 -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">🛡️ 合约审计风控</h2>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" name="contract_risk_check_enabled" id="crc-enabled" class="w-4 h-4">
+                            <span class="text-sm font-medium text-gray-700">启用LP锁定检查</span>
+                        </label>
+                    </div>
+
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                        <div class="flex items-start">
+                            <span class="text-lg mr-2">💡</span>
+                            <div class="text-sm text-yellow-800">
+                                <p class="font-semibold mb-1">说明</p>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li><strong>LP锁定检查：</strong>通过 AVE API 获取合约审计数据，检测LP是否锁定</li>
+                                    <li><strong>适用场景：</strong>适用于 ETH、BSC 等链上DEX交易的代币，fourmeme 等发币平台的代币无需开启</li>
+                                    <li><strong>因子说明：</strong>
+                                        <code>contractRiskPairLockPercent</code> LP锁定百分比、
+                                        <code>contractRiskTopLpHolderPercent</code> Top1 LP持有人百分比、
+                                        <code>contractRiskAvailable</code> 是否获取到数据
+                                    </li>
+                                    <li><strong>使用示例：</strong>条件表达式中使用 <code>contractRiskPairLockPercent > 0</code> 确保只购买LP已锁定的代币</li>
+                                    <li><strong>数据缓存：</strong>每个代币只获取一次审计数据，后续信号复用缓存</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 统计与通知配置 -->
                 <div class="border border-gray-200 rounded-lg p-4">
@@ -765,7 +829,8 @@
                                 <strong>持有者检查:</strong> holdersCount, devHoldingRatio, maxHoldingRatio<br>
                                 <strong>早期参与者:</strong> earlyTradesHighValueCount, earlyTradesHighValuePerMin, earlyTradesCountPerMin, earlyTradesVolumePerMin, earlyTradesWalletsPerMin, earlyTradesTotalCount, earlyTradesVolume, earlyTradesUniqueWallets, earlyTradesDataCoverage, earlyTradesFilteredCount<br>
                                 <strong>钱包簇:</strong> walletClusterSecondToFirstRatio, walletClusterMegaRatio, walletClusterTop2Ratio, walletClusterConcentration<br>
-                                <strong>叙事分析:</strong> narrativeRating (1=低质量, 2=中质量, 3=高质量, 9=未评级)
+                                <strong>叙事分析:</strong> narrativeRating (1=低质量, 2=中质量, 3=高质量, 9=未评级)<br>
+                                <strong>合约审计:</strong> contractRiskPairLockPercent, contractRiskTopLpHolderPercent, contractRiskAvailable, contractRiskScore, contractRiskIsHoneypot, contractRiskLpHolders
                             </div>
                         </details>
                     </div>
@@ -968,6 +1033,18 @@
                                      100;
                 setFieldValue('initial_balance', initialBalance);
 
+                // 填充收集配置
+                if (copyData.collector) {
+                    const intervalInput = document.getElementById('collector-interval');
+                    const maxAgeInput = document.getElementById('collector-max-age');
+                    if (intervalInput && copyData.collector.interval) {
+                        intervalInput.value = Math.round(copyData.collector.interval / 1000);
+                    }
+                    if (maxAgeInput && copyData.collector.maxAgeSeconds) {
+                        maxAgeInput.value = copyData.collector.maxAgeSeconds;
+                    }
+                }
+
                 // 填充仓位管理配置
                 if (copyData.positionManagement) {
                     const pm = copyData.positionManagement;
@@ -1006,7 +1083,11 @@
                     naPollIntervalMs.value = copyData.narrativeAnalysis.pollIntervalMs;
                 }
 
-
+                // 填充合约审计风控配置
+                const crcEnabled = document.getElementById('crc-enabled');
+                if (copyData.contractRiskCheck?.enabled && crcEnabled) {
+                    crcEnabled.checked = true;
+                }
 
                 // 填充统计配置
                 const statsEnabled = document.getElementById('stats-enabled');
@@ -1182,6 +1263,9 @@
             ],
             solana: [
                 { value: 'pumpfun', name: 'Pump.fun', logo: '/static/pumpfun-logo.png' }
+            ],
+            ethereum: [
+                { value: 'uniswap', name: 'Uniswap (DEX)', logo: '/static/uniswap-logo.png' }
             ]
         };
 
@@ -1189,14 +1273,24 @@
         const BLOCKCHAIN_LOGOS = {
             bsc: '/static/bsc-logo.png',
             base: '/static/base-logo.png',
-            solana: '/static/solana-logo.png'
+            solana: '/static/solana-logo.png',
+            ethereum: '/static/ethereum-logo.png'
         };
 
         // 区块链原生币映射
         const BLOCKCHAIN_NATIVE_CURRENCY = {
             bsc: 'BNB',
             base: 'ETH',
-            solana: 'SOL'
+            solana: 'SOL',
+            ethereum: 'ETH'
+        };
+
+        // 区块链收集配置默认值
+        const BLOCKCHAIN_COLLECTOR_DEFAULTS = {
+            bsc: { interval: 10, maxAge: 60 },
+            base: { interval: 10, maxAge: 60 },
+            solana: { interval: 10, maxAge: 60 },
+            ethereum: { interval: 20, maxAge: 300 }
         };
 
         // 区块链变化处理
@@ -1238,6 +1332,13 @@
 
             // 更新logo显示
             updateLogoDisplay();
+
+            // 更新收集配置默认值
+            const collectorDefaults = BLOCKCHAIN_COLLECTOR_DEFAULTS[selectedBlockchain] || BLOCKCHAIN_COLLECTOR_DEFAULTS.bsc;
+            const intervalInput = document.getElementById('collector-interval');
+            const maxAgeInput = document.getElementById('collector-max-age');
+            if (intervalInput) intervalInput.value = collectorDefaults.interval;
+            if (maxAgeInput) maxAgeInput.value = collectorDefaults.maxAge;
         }
 
         // 更新logo显示
@@ -1620,6 +1721,11 @@
                 blockchain: formData.get('blockchain'),
                 platform: formData.get('platform'),
                 initial_balance: parseFloat(formData.get('initial_balance')),
+                // 收集配置
+                collector: {
+                    interval: parseInt(formData.get('collector_interval')) * 1000 || 10000,
+                    maxAgeSeconds: parseInt(formData.get('collector_max_age')) || 60
+                },
                 // 策略配置
                 strategy: {
                     buyStrategies: buyStrategies,
@@ -1642,6 +1748,10 @@
                         triggerThreshold: parseInt(document.getElementById('na-trigger-threshold')?.value) || 80,
                         maxWaitSeconds: parseInt(document.getElementById('na-max-wait-seconds')?.value) || 10,
                         pollIntervalMs: parseInt(document.getElementById('na-poll-interval-ms')?.value) || 2000
+                    },
+                    // 合约审计风控配置
+                    contractRiskCheck: {
+                        enabled: document.getElementById('crc-enabled')?.checked || false
                     },
                     // 统计配置
                     stats: {

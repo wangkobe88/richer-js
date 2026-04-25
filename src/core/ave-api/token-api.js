@@ -527,6 +527,88 @@ class AveTokenAPI extends BaseAveAPI {
     }
 
     /**
+     * 按链获取新代币（无需特定平台标签）
+     * 用于 ETH 等无单一发行平台的链，使用 tag=new + chain 参数获取
+     *
+     * @param {string} chain - 区块链名称（如 'eth', 'bsc'）
+     * @param {number} limit - 返回数量，默认100
+     * @param {string} orderby - 排序字段，默认 'created_at'
+     * @returns {Promise<Array>} 代币列表（仅返回指定链的代币）
+     */
+    async getChainNewTokens(chain, limit = 100, orderby = 'created_at') {
+        if (!chain) {
+            throw new Error('chain不能为空');
+        }
+
+        const params = { tag: 'new', chain, orderby };
+        if (limit !== 100) params.limit = limit;
+
+        const result = await this._makeRequest('GET', '/v2/tokens/platform', { params });
+        const data = result.data || [];
+
+        // API 可能返回其他链的代币，过滤只保留目标链
+        return data
+            .filter(tokenData => tokenData.chain === chain)
+            .map(tokenData => {
+                const mapped = {
+                    total: tokenData.total || '',
+                    launch_price: tokenData.launch_price || '',
+                    current_price_eth: tokenData.current_price_eth || '',
+                    current_price_usd: tokenData.current_price_usd || '',
+                    price_change_1d: tokenData.price_change_1d || '',
+                    price_change_24h: tokenData.price_change_24h || '',
+                    lock_amount: tokenData.lock_amount || '',
+                    burn_amount: tokenData.burn_amount || '',
+                    other_amount: tokenData.other_amount || '',
+                    tx_amount_24h: tokenData.tx_amount_24h || '',
+                    tx_volume_u_24h: tokenData.tx_volume_u_24h || '',
+                    locked_percent: tokenData.locked_percent || '',
+                    market_cap: tokenData.market_cap || '',
+                    fdv: tokenData.fdv || '',
+                    tvl: tokenData.tvl || '',
+                    main_pair_tvl: tokenData.main_pair_tvl || '',
+                    token: tokenData.token || '',
+                    token_address: tokenData.token || '',
+                    chain: tokenData.chain || '',
+                    decimal: tokenData.decimal || 0,
+                    name: tokenData.name || '',
+                    symbol: tokenData.symbol || '',
+                    holders: tokenData.holders || 0,
+                    appendix: tokenData.appendix || '',
+                    logo_url: tokenData.logo_url || '',
+                    risk_score: tokenData.risk_score || '',
+                    created_at: tokenData.created_at || 0,
+                    tx_count_24h: tokenData.tx_count_24h || 0,
+                    lock_platform: tokenData.lock_platform || '',
+                    is_mintable: tokenData.is_mintable || '',
+                    updated_at: tokenData.updated_at || 0,
+                    main_pair: tokenData.main_pair || '',
+                    has_mint_method: tokenData.has_mint_method || 0,
+                    is_lp_not_locked: tokenData.is_lp_not_locked || 0,
+                    has_not_renounced: tokenData.has_not_renounced || 0,
+                    has_not_audited: tokenData.has_not_audited || 0,
+                    has_not_open_source: tokenData.has_not_open_source || 0,
+                    is_in_blacklist: tokenData.is_in_blacklist || 0,
+                    is_honeypot: tokenData.is_honeypot || 0,
+                    ave_risk_level: tokenData.ave_risk_level || 0,
+                    issue_platform: tokenData.issue_platform || '',
+                    intro_cn: tokenData.intro_cn || '',
+                    intro_en: tokenData.intro_en || '',
+                    launch_at: tokenData.launch_at || 0
+                };
+
+                // 复制所有其他字段
+                for (const [key, value] of Object.entries(tokenData)) {
+                    if (!(key in mapped)) {
+                        mapped[key] = value;
+                    }
+                }
+
+                return mapped;
+            });
+    }
+
+    /**
      * 搜索代币
      *
      * @param {string} keyword - 搜索关键词（符号或合约地址）

@@ -62,7 +62,7 @@ class DatabaseClientManager {
     getClient() {
         if (!this.isInitialized || !this.client) {
             const supabaseUrl = process.env.SUPABASE_URL;
-            const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY;
+            const supabaseKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
 
             if (!supabaseUrl) {
                 throw new Error('SUPABASE_URL 环境变量未设置');

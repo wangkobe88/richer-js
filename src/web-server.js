@@ -498,7 +498,8 @@ class RicherJsWebServer {
           virtual,
           backtest,
           wallet,
-          reserveNative
+          reserveNative,
+          collector
         } = req.body;
 
         // 构建实验配置
@@ -508,6 +509,11 @@ class RicherJsWebServer {
           blockchain: blockchain || 'bsc',
           kline_type: kline_type || '1m'
         };
+
+        // 收集器配置（收集频率、代币最大年龄等）
+        if (collector) {
+          config.collector = collector;
+        }
 
         // 根据交易模式添加特定配置
         if (trading_mode === 'virtual') {
@@ -584,6 +590,12 @@ class RicherJsWebServer {
           if (strategy.telegramNotifications) {
             config.strategiesConfig = config.strategiesConfig || {};
             config.strategiesConfig.telegramNotifications = strategy.telegramNotifications;
+          }
+
+          // 合约审计风控配置
+          if (strategy.contractRiskCheck) {
+            config.strategiesConfig = config.strategiesConfig || {};
+            config.strategiesConfig.contractRiskCheck = strategy.contractRiskCheck;
           }
 
           // 兼容旧格式的简单策略参数（用于 fourmeme_earlyreturn）
@@ -3242,25 +3254,35 @@ class RicherJsWebServer {
           }
         }
 
-        // 默认为 fourmeme
-        if (!platform) {
+        // 默认平台：BSC 为 fourmeme，其他链不设默认（走 AVE API pair 逻辑）
+        if (!platform && chain === 'bsc') {
           platform = 'fourmeme';
         }
 
         console.log(`📊 [最早交易] 最终确定的 platform: ${platform}`);
 
-        // 根据平台构造内盘 pair
+        // 根据 platform + chain 构造 pair 地址
         let innerPair;
         if (platform === 'fourmeme') {
           innerPair = `${tokenAddress}_fo`;
         } else if (platform === 'flap') {
           innerPair = `${tokenAddress}_iportal`;
         } else {
-          // 未知平台，使用 main_pair
+          // 非 BSC 内盘平台（ETH/Base/Solana 等），从 AVE API 获取主交易对
+          // 优先使用 main_pair，其次从 pairs 数组中找交易量最大的 WETH/原生代币交易对
           let mainPair = token.main_pair;
+
           if (!mainPair && pairs && pairs.length > 0) {
-            mainPair = pairs[0].pair;
+            // 按 24h 交易量排序，取交易量最大的交易对
+            const sortedPairs = [...pairs].sort((a, b) => {
+              const volA = parseFloat(a.volume_u) || 0;
+              const volB = parseFloat(b.volume_u) || 0;
+              return volB - volA;
+            });
+            mainPair = sortedPairs[0].pair;
+            console.log(`📊 [最早交易] 从 pairs 数组选取交易量最大的 pair: ${mainPair} (volume: ${sortedPairs[0].volume_u})`);
           }
+
           if (!mainPair) {
             return res.status(400).json({
               success: false,

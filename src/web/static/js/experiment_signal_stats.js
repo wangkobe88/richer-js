@@ -384,7 +384,9 @@ class ExperimentSignalStats {
     const gmgnChainMap = {
       'bsc': 'bsc',
       'eth': 'eth',
+      'ethereum': 'eth',
       'sol': 'sol',
+      'solana': 'sol',
       'base': 'base'
     };
     const gmgnChain = gmgnChainMap[blockchain] || 'bsc';

@@ -55,6 +55,11 @@ class BacktestEngine extends AbstractTradingEngine {
     this._groupedData = [];
     this._currentDataIndex = 0;
     this._currentLoopCount = 0;
+    this._tokenPlatformInfo = new Map(); // token_address → { platform, mainPair }
+
+    // 合约审计风控（LP锁定检查）
+    this._contractRiskCache = new Map(); // token_address → contract risk data
+    this._contractRiskCheckEnabled = false;
 
     // 虚拟资金管理（余额从 PortfolioManager 获取，不再单独维护）
     this.initialBalance = 100;
@@ -664,6 +669,25 @@ class BacktestEngine extends AbstractTradingEngine {
 
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
     this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, clusterBlockThreshold=${preBuyCheckConfig.clusterBlockThreshold || 7})`);
+
+    // 合约审计风控配置
+    const contractRiskConfig = experimentConfig.strategiesConfig?.contractRiskCheck || experimentConfig.contractRiskCheck || {};
+    this._contractRiskCheckEnabled = contractRiskConfig.enabled === true;
+    if (this._contractRiskCheckEnabled) {
+      this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 合约审计风控已启用（LP锁定检查）`);
+    }
+
+    // 初始化 AVE TokenAPI（用于合约审计检查）
+    if (this._contractRiskCheckEnabled) {
+      const { AveTokenAPI } = require('../../core/ave-api');
+      const config = require('../../../config/default.json');
+      const apiKey = process.env.AVE_API_KEY;
+      this._aveTokenApi = new AveTokenAPI(
+        config.ave.apiUrl,
+        config.ave.timeout,
+        apiKey
+      );
+    }
   }
 
   /**
@@ -784,7 +808,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
           const { data: pageData, error: pageError } = await supabase
             .from('experiment_tokens')
-            .select('token_address, discovered_at')
+            .select('token_address, discovered_at, platform, raw_api_data')
             .eq('experiment_id', this._sourceExperimentId)
             .range(start, end);
 
@@ -814,11 +838,17 @@ class BacktestEngine extends AbstractTradingEngine {
           }
         }
 
-        // 存储 token 创建时间到 Map（discovered_at 就是代币的 launch_at）
+        // 存储 token 创建时间和平台信息到 Map
         for (const row of allTokensData || []) {
           if (row.discovered_at) {
             this._tokenCreatedTimes.set(row.token_address, row.discovered_at);
           }
+          // 存储平台信息（用于构建正确的交易对）
+          const rawApiData = row.raw_api_data || {};
+          this._tokenPlatformInfo.set(row.token_address, {
+            platform: row.platform || null,
+            mainPair: rawApiData.main_pair || null
+          });
         }
 
         this.logger.info(this._experimentId, '_loadHistoricalData',
@@ -1025,7 +1055,7 @@ class BacktestEngine extends AbstractTradingEngine {
       const priceUsd = parseFloat(dataPoint.price_usd) || 0;
       tokenState.currentPrice = priceUsd;
 
-      this._tokenPool.updatePrice(tokenAddress, 'bsc', priceUsd, timestamp.getTime(), {
+      this._tokenPool.updatePrice(tokenAddress, tokenState.chain, priceUsd, timestamp.getTime(), {
         txVolumeU24h: dataPoint.factor_values?.txVolumeU24h || 0,
         holders: dataPoint.factor_values?.holders || 0,
         tvl: dataPoint.factor_values?.tvl || 0,
@@ -1148,14 +1178,22 @@ class BacktestEngine extends AbstractTradingEngine {
   _getOrCreateTokenState(tokenAddress, tokenSymbol, dataPoint) {
     if (!this._tokenStates.has(tokenAddress)) {
       const factorValues = dataPoint.factor_values || {};
+      const chain = dataPoint.blockchain || this._blockchain || 'bsc';
 
       // 从 Map 获取 token 创建时间
       const tokenCreatedAt = this._tokenCreatedTimes.get(tokenAddress) || null;
 
+      // 从 Map 获取平台信息
+      const platformInfo = this._tokenPlatformInfo.get(tokenAddress) || {};
+      const platform = platformInfo.platform || 'fourmeme';
+      const pairAddress = platformInfo.mainPair || null;
+
       this._tokenStates.set(tokenAddress, {
         token: tokenAddress,
         symbol: tokenSymbol,
-        chain: 'bsc',
+        chain: chain,
+        platform: platform,
+        pairAddress: pairAddress,
         status: 'monitoring',
         currentPrice: parseFloat(dataPoint.price_usd) || 0,
         collectionPrice: factorValues.collectionPrice || parseFloat(dataPoint.price_usd) || 0,
@@ -1171,7 +1209,7 @@ class BacktestEngine extends AbstractTradingEngine {
       this._tokenPool.addToken({
         token: tokenAddress,
         symbol: tokenSymbol,
-        chain: 'bsc',
+        chain: chain,
         current_price_usd: dataPoint.price_usd,
         created_at: new Date(dataPoint.timestamp).getTime() / 1000
       });
@@ -1216,7 +1254,7 @@ class BacktestEngine extends AbstractTradingEngine {
     }
 
     // 更新持有者历史缓存（包括 holders=0 的情况，以便累积足够数据点）
-    const tokenKey = `${tokenState.token}-bsc`;
+    const tokenKey = `${tokenState.token}-${tokenState.chain}`;
     const holderCount = factorValues.holders || 0;
     if (this._holderHistoryCache && holderCount >= 0) {
       this._holderHistoryCache.addHolderCount(tokenKey, holderCount, now);
@@ -1419,6 +1457,17 @@ class BacktestEngine extends AbstractTradingEngine {
       }
       // ========== 叙事分析步骤结束 ==========
 
+      // ========== 合约审计风控（LP锁定检查） ==========
+      let contractRiskData = { contractRiskAvailable: 0, contractRiskPairLockPercent: 0, contractRiskTopLpHolderPercent: 0, contractRiskLpHolders: 0, contractRiskScore: 0, contractRiskIsHoneypot: 0 };
+      if (this._contractRiskCheckEnabled) {
+        contractRiskData = await this._fetchContractRiskData(tokenState.token, tokenState.chain || this._blockchain || 'bsc');
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `合约审计数据 | symbol=${tokenState.symbol}, available=${contractRiskData.contractRiskAvailable}, ` +
+          `pairLock=${contractRiskData.contractRiskPairLockPercent}%, topLpHolder=${contractRiskData.contractRiskTopLpHolderPercent}%, ` +
+          `score=${contractRiskData.contractRiskScore}, honeypot=${contractRiskData.contractRiskIsHoneypot}`);
+      }
+      // ========== 合约审计风控结束 ==========
+
       // ========== 执行购买前检查 ==========
       let preCheckPassed = true;
       let preCheckReason = null;
@@ -1473,7 +1522,8 @@ class BacktestEngine extends AbstractTradingEngine {
               drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 从最高价跌幅
               buyRound: currentRound + 1,  // 即将进行的轮数
               lastPairReturnRate: lastPairReturnRate ?? 0,
-              narrativeRating: narrativeRating  // 叙事评级
+              narrativeRating: narrativeRating,  // 叙事评级
+              contractRiskData: contractRiskData  // 合约审计风控数据
             }
           );
 
@@ -1813,7 +1863,7 @@ class BacktestEngine extends AbstractTradingEngine {
           action: 'sell',
           symbol: tokenState.symbol,
           tokenAddress: address,
-          chain: 'bsc',
+          chain: tokenState.chain || this._blockchain || 'bsc',
           price: sellPrice,
           confidence: 100,
           reason: '回测结束强制卖出',
@@ -1932,6 +1982,80 @@ class BacktestEngine extends AbstractTradingEngine {
       maxWaitSeconds: this._narrativeMaxWaitSeconds,
       pollIntervalMs: this._narrativePollIntervalMs
     });
+  }
+
+  /**
+   * 获取空的合约审计数据（默认值）
+   * @returns {Object} 空的合约审计数据
+   */
+  _getEmptyContractRiskData() {
+    return {
+      contractRiskAvailable: 0,
+      contractRiskPairLockPercent: 0,
+      contractRiskTopLpHolderPercent: 0,
+      contractRiskLpHolders: 0,
+      contractRiskScore: 0,
+      contractRiskIsHoneypot: 0,
+    };
+  }
+
+  /**
+   * 获取代币的合约审计数据（带缓存）
+   * 每个代币最多获取一次，后续使用缓存
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} chain - 链名称
+   * @returns {Promise<Object>} 合约审计数据
+   */
+  async _fetchContractRiskData(tokenAddress, chain) {
+    // 检查缓存
+    if (this._contractRiskCache.has(tokenAddress)) {
+      this.logger.info(this._experimentId, '_fetchContractRiskData',
+        `使用缓存的合约审计数据 | token=${tokenAddress.slice(0, 10)}...`);
+      return this._contractRiskCache.get(tokenAddress);
+    }
+
+    try {
+      const { BlockchainConfig } = require('../../utils/BlockchainConfig');
+      const tokenId = BlockchainConfig.buildTokenId(tokenAddress, chain);
+
+      this.logger.info(this._experimentId, '_fetchContractRiskData',
+        `获取合约审计数据 | token=${tokenAddress.slice(0, 10)}..., tokenId=${tokenId}`);
+
+      const riskData = await this._aveTokenApi.getContractRisk(tokenId);
+
+      // 从 pair_holders_rank 提取 Top1 非黑洞 LP 持有人百分比
+      const phr = riskData.pair_holders_rank || [];
+      const nonBurnHolders = phr.filter(h => h.address !== '0x0000000000000000000000000000000000000000');
+      const topHolder = nonBurnHolders[0];
+      const topLpPercent = topHolder ? parseFloat(topHolder.percent) * 100 : 0;
+
+      const result = {
+        contractRiskAvailable: 1,
+        contractRiskPairLockPercent: (riskData.pair_lock_percent || 0) * 100,
+        contractRiskTopLpHolderPercent: topLpPercent,
+        contractRiskLpHolders: nonBurnHolders.length,
+        contractRiskScore: riskData.risk_score || 0,
+        contractRiskIsHoneypot: riskData.is_honeypot || 0,
+      };
+
+      // 缓存结果
+      this._contractRiskCache.set(tokenAddress, result);
+
+      this.logger.info(this._experimentId, '_fetchContractRiskData',
+        `合约审计数据获取成功 | token=${tokenAddress.slice(0, 10)}..., ` +
+        `pairLock=${result.contractRiskPairLockPercent}%, topLp=${result.contractRiskTopLpHolderPercent}%, ` +
+        `score=${result.contractRiskScore}, honeypot=${result.contractRiskIsHoneypot}`);
+
+      return result;
+    } catch (error) {
+      this.logger.warn(this._experimentId, '_fetchContractRiskData',
+        `获取合约审计数据失败 | token=${tokenAddress.slice(0, 10)}..., error=${error.message}`);
+
+      // 获取失败时返回空数据（不阻塞交易，让条件表达式自行判断）
+      const emptyResult = this._getEmptyContractRiskData();
+      this._contractRiskCache.set(tokenAddress, emptyResult);
+      return emptyResult;
+    }
   }
 
   /**

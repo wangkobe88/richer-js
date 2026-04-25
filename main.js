@@ -64,8 +64,9 @@ class VirtualTradingSystem {
   /**
    * 通过实验ID启动交易引擎
    * @param {string} experimentId - 实验ID
+   * @param {boolean} force - 强制重启，忽略当前状态
    */
-  async startByExperimentId(experimentId) {
+  async startByExperimentId(experimentId, force = false) {
     try {
       console.log(``);
       console.log(`========================================`);
@@ -90,14 +91,20 @@ class VirtualTradingSystem {
 
       // 2. 检查实验状态
       if (experiment.status !== 'initializing') {
-        const statusMap = {
-          'running': '已在运行中',
-          'completed': '已完成',
-          'failed': '启动失败',
-          'stopped': '已停止'
-        };
-        const reason = statusMap[experiment.status] || '状态异常';
-        throw new Error(`实验${reason}，不能启动。只有 initializing 状态的实验才能启动。`);
+        if (force) {
+          console.log(`⚠️  实验当前状态: ${experiment.status}，强制重启中...`);
+          await experimentFactory.updateStatus(experimentId, 'initializing');
+          experiment.status = 'initializing';
+        } else {
+          const statusMap = {
+            'running': '已在运行中',
+            'completed': '已完成',
+            'failed': '启动失败',
+            'stopped': '已停止'
+          };
+          const reason = statusMap[experiment.status] || '状态异常';
+          throw new Error(`实验${reason}，不能启动。只有 initializing 状态的实验才能启动。使用 --force 强制重启。`);
+        }
       }
 
       console.log(`✅ 实验状态检查通过`);
@@ -294,9 +301,10 @@ async function main() {
     .command('start-experiment')
     .description('通过实验ID启动虚拟交易引擎')
     .requiredOption('-e, --experiment-id <id>', '实验ID')
+    .option('-f, --force', '强制重启（忽略实验当前状态，重置为 initializing 后启动）')
     .action(async (options) => {
       const tradingSystem = new VirtualTradingSystem();
-      await tradingSystem.startByExperimentId(options.experimentId);
+      await tradingSystem.startByExperimentId(options.experimentId, options.force);
     });
 
   // 解析命令行参数

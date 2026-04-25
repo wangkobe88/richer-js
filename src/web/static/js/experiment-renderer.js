@@ -521,6 +521,9 @@ class ExperimentRenderer {
       if (sc.telegramNotifications) {
         formData.telegramNotifications = sc.telegramNotifications;
       }
+      if (sc.contractRiskCheck) {
+        formData.contractRiskCheck = sc.contractRiskCheck;
+      }
     }
 
     return formData;

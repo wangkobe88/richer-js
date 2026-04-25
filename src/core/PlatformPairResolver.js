@@ -16,6 +16,7 @@
  */
 
 const { AveTokenAPI } = require('./ave-api/token-api');
+const { BlockchainConfig } = require('../utils/BlockchainConfig');
 const config = require('../../config/default.json');
 
 /**
@@ -50,6 +51,12 @@ const PLATFORM_CONFIGS = {
     chain: 'solana',
     strategy: 'api',
     description: 'Solana 链上的 pumpfun 平台'
+  },
+  uniswap: {
+    name: 'Uniswap',
+    chain: 'ethereum',
+    strategy: 'api',
+    description: 'Ethereum 链上的 Uniswap DEX'
   }
 };
 
@@ -193,7 +200,10 @@ class PlatformPairResolver {
     });
 
     const aveApi = this._getAveApi();
-    const tokenId = `${tokenAddress}-${chain}`;
+    // 使用 BlockchainConfig 将链名映射为 AVE API 的 token ID 后缀
+    // 例如 'ethereum' -> 'eth', 'bsc' -> 'bsc', 'solana' -> 'solana'
+    const chainSuffix = BlockchainConfig.TOKEN_ID_SUFFIXES[chain] || chain;
+    const tokenId = `${tokenAddress}-${chainSuffix}`;
 
     let tokenDetail;
     try {

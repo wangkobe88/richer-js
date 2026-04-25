@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>代币最早交易 - Richer-js</title>
+    <title>Richer 交易系统 - 代币最早交易</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="/static/css/light-theme.css" rel="stylesheet">
     <link href="/static/css/style.css" rel="stylesheet">
@@ -1241,7 +1241,10 @@
                 // 设置表单值
                 document.getElementById('tokenAddress').value = params.token;
                 if (params.chain) {
-                    document.getElementById('chain').value = params.chain;
+                    // 标准化 chain 值，兼容 ethereum->eth 等别名
+                    const chainMap = { ethereum: 'eth', bsc: 'bsc', solana: 'solana', base: 'base' };
+                    const normalizedChain = chainMap[params.chain.toLowerCase()] || params.chain.toLowerCase();
+                    document.getElementById('chain').value = normalizedChain;
                 }
 
                 // 自动执行查询

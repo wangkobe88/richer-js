@@ -60,6 +60,11 @@ class PlatformCollector {
                 totalAdded: 0,
                 totalSkipped: 0
             },
+            eth: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0
+            },
             lastCollectionTime: null
         };
 
@@ -131,6 +136,10 @@ class PlatformCollector {
                 } else {
                     this.logger.info('Pumpfun平台数据采集已通过配置关闭 (config.collector.enablePumpfun = false)');
                 }
+
+            } else if (this.blockchain === 'ethereum') {
+                // ETH 链：通过 AVE API trending 端点获取热门新币
+                await this.collectEthNewTokens();
 
             } else {
                 this.logger.warn(`未知的区块链配置: ${this.blockchain}，跳过代币收集`);
@@ -752,6 +761,151 @@ class PlatformCollector {
     }
 
     /**
+     * Collect new tokens from ETH chain via AVE API (tag=new, chain=eth)
+     */
+    async collectEthNewTokens() {
+        try {
+            const startTime = Date.now();
+            this.logger.debug('开始收集ETH链新代币');
+
+            // 通过 AVE API 获取新币 (tag=new, chain=eth)
+            // ETH 新币在 API 返回中占比低，需要拉取更多数据才能获得足够的 ETH 代币
+            const ethFetchLimit = this.collectorConfig.ethFetchLimit || 300;
+            const tokens = await this.aveApi.getChainNewTokens('eth', ethFetchLimit);
+
+            this.stats.eth.totalCollected += tokens.length;
+
+            const now = Date.now();
+            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
+
+            this.logger.debug(`获取到 ${tokens.length} 个ETH新代币`);
+
+            let addedCount = 0;
+            let skippedCount = 0;
+            let alreadyInPoolCount = 0;
+
+            // 统计年龄分布
+            const ageRanges = {
+                '0-30s': 0,
+                '30-60s': 0,
+                '1-2m': 0,
+                '2-5m': 0,
+                '5m+': 0
+            };
+
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+
+                // 解析 created_at（可能是时间戳秒数或 ISO 字符串）
+                let createdAtMs;
+                if (typeof token.created_at === 'number') {
+                    createdAtMs = token.created_at * 1000;
+                } else if (typeof token.created_at === 'string' && token.created_at) {
+                    createdAtMs = new Date(token.created_at).getTime();
+                } else {
+                    createdAtMs = 0;
+                }
+                const tokenAge = now - createdAtMs;
+                const tokenAgeSeconds = tokenAge / 1000;
+
+                // 统计年龄分布
+                if (tokenAgeSeconds < 30) {
+                    ageRanges['0-30s']++;
+                } else if (tokenAgeSeconds < 60) {
+                    ageRanges['30-60s']++;
+                } else if (tokenAgeSeconds < 120) {
+                    ageRanges['1-2m']++;
+                } else if (tokenAgeSeconds < 300) {
+                    ageRanges['2-5m']++;
+                } else {
+                    ageRanges['5m+']++;
+                }
+
+                // Skip if already collected
+                if (this.collectedTokens.has(tokenKey)) {
+                    continue;
+                }
+
+                // 检查代币是否已在池中
+                const existingToken = this.tokenPool.getToken(token.token, token.chain);
+                if (existingToken) {
+                    alreadyInPoolCount++;
+                }
+
+                // 设置平台字段
+                token.platform = 'uniswap';
+                token.creator_address = null;
+
+                // Only add tokens younger than maxAgeSeconds
+                if (tokenAge < maxAgeMs) {
+                    // 在添加到池之前解析 pairAddress
+                    try {
+                        const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'uniswap', 'ethereum');
+                        token.pairAddress = pairResult.pairAddress;
+                        this.logger.debug('解析 ETH pair 地址成功', {
+                            token: token.token,
+                            symbol: token.symbol,
+                            pair_address: token.pairAddress
+                        });
+                    } catch (error) {
+                        this.logger.warn('解析 ETH pair 地址失败，跳过此代币', {
+                            token: token.token,
+                            symbol: token.symbol,
+                            error: error.message
+                        });
+                        skippedCount++;
+                        this.collectedTokens.add(tokenKey);
+                        continue;
+                    }
+
+                    const added = this.tokenPool.addToken(token);
+                    if (added) {
+                        addedCount++;
+                        this.collectedTokens.add(tokenKey);
+                    }
+                } else {
+                    skippedCount++;
+                }
+
+                // Always add to collected set to avoid reprocessing
+                this.collectedTokens.add(tokenKey);
+            }
+
+            // 为 ETH 平台的代币设置 platform 字段
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+                if (this.collectedTokens.has(tokenKey)) {
+                    const poolToken = this.tokenPool.getToken(token.token, token.chain);
+                    if (poolToken && !poolToken.platform) {
+                        poolToken.platform = 'uniswap';
+                    }
+                }
+            }
+
+            this.stats.eth.totalAdded += addedCount;
+            this.stats.eth.totalSkipped += skippedCount;
+
+            const duration = Date.now() - startTime;
+            this.logger.debug('ETH链代币收集完成', {
+                platform: 'uniswap',
+                fetched: tokens.length,
+                added: addedCount,
+                skipped: skippedCount,
+                alreadyInPool: alreadyInPoolCount,
+                ageRanges: ageRanges,
+                maxAgeSeconds: this.collectorConfig.maxAgeSeconds,
+                duration: `${duration}ms`
+            });
+
+        } catch (error) {
+            this.logger.error('收集ETH链代币失败', {
+                error: error.message,
+                stack: error.stack
+            });
+        }
+    }
+
+    /**
      * Get collector statistics
      * @returns {Object} Statistics
      */
@@ -785,6 +939,11 @@ class PlatformCollector {
                 totalSkipped: 0
             },
             pumpfun: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0
+            },
+            eth: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0

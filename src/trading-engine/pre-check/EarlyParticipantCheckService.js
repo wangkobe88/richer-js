@@ -237,7 +237,10 @@ class EarlyParticipantCheckService {
    */
   async _fetchEarlyTrades(innerPair, chain, checkTime) {
     const txApi = this._getTxApi();
-    const pairId = `${innerPair}-${chain}`;
+    // 使用 BlockchainConfig 的后缀映射（ethereum → eth）
+    const { BlockchainConfig } = require('../../utils/BlockchainConfig');
+    const suffix = BlockchainConfig.TOKEN_ID_SUFFIXES[chain] || chain;
+    const pairId = `${innerPair}-${suffix}`;
 
     // 固定回溯90秒
     const targetFromTime = checkTime - this.config.fixedWindowSeconds;

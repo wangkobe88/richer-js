@@ -56,6 +56,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this._trader = null;
     this._fourMemeTrader = null;
     this._pancakeSwapTrader = null;
+    this._uniswapV2Trader = null;
+    this._uniswapV4Trader = null;
     this._monitoringTimer = null;
 
     // 代币池相关（与虚拟盘一致）
@@ -156,26 +158,52 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
     };
 
-    // 初始化 FourMeme 交易器（用于内盘交易）
-    this._fourMemeTrader = traderFactory.createTrader('fourmeme', traderConfig);
-    await this._fourMemeTrader.setWallet(this._privateKey);
-    // 传递 logger 给交易器
-    if (this._fourMemeTrader.setLogger) {
-      this._fourMemeTrader.setLogger(this.logger);
-    }
-    console.log('✅ FourMeme 交易器初始化成功');
+    // 根据区块链类型初始化对应的交易器
+    const blockchain = this._blockchain;
+    const setLoggerIfAvailable = (trader) => {
+      if (trader.setLogger) trader.setLogger(this.logger);
+    };
 
-    // 初始化 PancakeSwap V2 交易器（用于出盘后代币的外部交易）
-    this._pancakeSwapTrader = traderFactory.createTrader('pancakeswap-v2', traderConfig);
-    await this._pancakeSwapTrader.setWallet(this._privateKey);
-    // 传递 logger 给交易器
-    if (this._pancakeSwapTrader.setLogger) {
-      this._pancakeSwapTrader.setLogger(this.logger);
-    }
-    console.log('✅ PancakeSwap V2 交易器初始化成功');
+    if (blockchain === 'bsc') {
+      // BSC 链：FourMeme（内盘） + PancakeSwap V2（外盘）
+      this._fourMemeTrader = traderFactory.createTrader('fourmeme', traderConfig);
+      await this._fourMemeTrader.setWallet(this._privateKey);
+      setLoggerIfAvailable(this._fourMemeTrader);
+      console.log('✅ FourMeme 交易器初始化成功');
 
-    // 设置默认交易器为 FourMeme（用于买入）
-    this._trader = this._fourMemeTrader;
+      this._pancakeSwapTrader = traderFactory.createTrader('pancakeswap-v2', traderConfig);
+      await this._pancakeSwapTrader.setWallet(this._privateKey);
+      setLoggerIfAvailable(this._pancakeSwapTrader);
+      console.log('✅ PancakeSwap V2 交易器初始化成功');
+
+      this._trader = this._fourMemeTrader;
+
+    } else if (blockchain === 'ethereum') {
+      // ETH 链：Uniswap V2 + V4
+      this._uniswapV2Trader = traderFactory.createTrader('uniswap-v2', traderConfig);
+      await this._uniswapV2Trader.setWallet(this._privateKey);
+      setLoggerIfAvailable(this._uniswapV2Trader);
+      console.log('✅ Uniswap V2 交易器初始化成功');
+
+      this._uniswapV4Trader = traderFactory.createTrader('uniswap-v4', traderConfig);
+      await this._uniswapV4Trader.setWallet(this._privateKey);
+      setLoggerIfAvailable(this._uniswapV4Trader);
+      console.log('✅ Uniswap V4 交易器初始化成功');
+
+      this._trader = this._uniswapV2Trader;
+
+    } else if (blockchain === 'base') {
+      // Base 链：Uniswap V4
+      this._uniswapV4Trader = traderFactory.createTrader('uniswap-v4', traderConfig);
+      await this._uniswapV4Trader.setWallet(this._privateKey);
+      setLoggerIfAvailable(this._uniswapV4Trader);
+      console.log('✅ Uniswap V4 交易器初始化成功');
+
+      this._trader = this._uniswapV4Trader;
+
+    } else {
+      throw new Error(`不支持的区块链: ${blockchain}，Live 模式当前支持 bsc/ethereum/base`);
+    }
 
     // 将 trader 的 provider 传递给 WalletService，用于获取原生代币余额
     if (this._trader.provider) {
@@ -571,89 +599,162 @@ class LiveTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: '计算卖出数量为0' };
       }
 
-      // 智能选择交易器：优先使用 FourMeme，失败则使用 PancakeSwap V2
+      // 智能选择交易器：根据链类型使用不同的交易器组合
       let sellResult;
       let traderUsed = 'unknown';
 
-      // 准备交易参数（两个交易器滑点格式不同）
-      const fourmemeOptions = {
-        slippageTolerance: this._maxSlippage * 100, // 转换为百分比格式
-        gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
-      };
-      const pancakeOptions = {
-        slippage: this._maxSlippage, // 小数格式
-        gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
-      };
-
       // 转换为 wei 格式（交易器期望 BigInt 格式，代币最小单位）
-      // amountToSell 已经是代币数量（decimal 格式），需要转换为 wei
-      // ERC20 代币通常是 18 位小数
       const ethers = require('ethers');
       const amountToSellBigInt = ethers.parseUnits(amountToSell.toFixed(18), 18);
 
-      // 1. 首先尝试使用 FourMeme 交易器（内盘）
-      try {
-        this.logger.info(this._experimentId, '_executeSell', `尝试使用 FourMeme 交易器卖出 ${signal.symbol}...`);
-        sellResult = await this._fourMemeTrader.sellToken(
-          signal.tokenAddress,
-          amountToSellBigInt,
-          fourmemeOptions
-        );
+      if (this._blockchain === 'bsc') {
+        // BSC: FourMeme(内盘) → PancakeSwap V2(外盘) fallback
+        const fourmemeOptions = {
+          slippageTolerance: this._maxSlippage * 100,
+          gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
+        };
+        const pancakeOptions = {
+          slippage: this._maxSlippage,
+          gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
+        };
 
-        if (sellResult.success) {
-          traderUsed = 'fourmeme';
-          this.logger.info(this._experimentId, '_executeSell', `FourMeme 交易器卖出成功`);
-        } else {
-          throw new Error(sellResult.error || 'FourMeme 交易失败');
-        }
-      } catch (fourmemeError) {
-        this.logger.warn(this._experimentId, '_executeSell', `FourMeme 交易器卖出失败: ${fourmemeError.message}`);
-
-        // 检查是否是 bonding curve 饱和错误
-        const isBondingCurveSaturated = fourmemeError.code === 'BONDING_CURVE_SATURATED' ||
-          fourmemeError.message?.includes('bonding curve') ||
-          fourmemeError.message?.includes('已饱和');
-
-        if (isBondingCurveSaturated) {
-          // Bonding curve 饱和，内盘无法卖出
-          // 这种情况下，尝试 PancakeSwap 可能也会失败（如果没有流动性池）
-          // 但为了完整性，仍然尝试一次，以便在确实有流动性时能够卖出
-          this.logger.warn(this._experimentId, '_executeSell',
-            `Bonding curve 已饱和，尝试通过 PancakeSwap 卖出（如果有流动性池）`);
-        }
-
-        this.logger.info(this._experimentId, '_executeSell', `尝试使用 PancakeSwap V2 交易器卖出 ${signal.symbol}...`);
-
-        // 2. FourMeme 失败，尝试使用 PancakeSwap V2（外盘）
         try {
-          sellResult = await this._pancakeSwapTrader.sellToken(
+          this.logger.info(this._experimentId, '_executeSell', `尝试使用 FourMeme 交易器卖出 ${signal.symbol}...`);
+          sellResult = await this._fourMemeTrader.sellToken(
             signal.tokenAddress,
             amountToSellBigInt,
-            pancakeOptions
+            fourmemeOptions
           );
 
           if (sellResult.success) {
-            traderUsed = 'pancakeswap-v2';
-            this.logger.info(this._experimentId, '_executeSell', `PancakeSwap V2 交易器卖出成功`);
+            traderUsed = 'fourmeme';
+            this.logger.info(this._experimentId, '_executeSell', `FourMeme 交易器卖出成功`);
           } else {
-            throw new Error(sellResult.error || 'PancakeSwap V2 交易失败');
+            throw new Error(sellResult.error || 'FourMeme 交易失败');
           }
-        } catch (pancakeError) {
-          this.logger.error(this._experimentId, '_executeSell', `PancakeSwap V2 交易器也失败: ${pancakeError.message}`);
+        } catch (fourmemeError) {
+          this.logger.warn(this._experimentId, '_executeSell', `FourMeme 交易器卖出失败: ${fourmemeError.message}`);
 
-          // 提供更友好的错误信息
-          if (isBondingCurveSaturated && pancakeError.message?.includes('交易对')) {
+          const isBondingCurveSaturated = fourmemeError.code === 'BONDING_CURVE_SATURATED' ||
+            fourmemeError.message?.includes('bonding curve') ||
+            fourmemeError.message?.includes('已饱和');
+
+          if (isBondingCurveSaturated) {
+            this.logger.warn(this._experimentId, '_executeSell',
+              `Bonding curve 已饱和，尝试通过 PancakeSwap 卖出（如果有流动性池）`);
+          }
+
+          this.logger.info(this._experimentId, '_executeSell', `尝试使用 PancakeSwap V2 交易器卖出 ${signal.symbol}...`);
+
+          try {
+            sellResult = await this._pancakeSwapTrader.sellToken(
+              signal.tokenAddress,
+              amountToSellBigInt,
+              pancakeOptions
+            );
+
+            if (sellResult.success) {
+              traderUsed = 'pancakeswap-v2';
+              this.logger.info(this._experimentId, '_executeSell', `PancakeSwap V2 交易器卖出成功`);
+            } else {
+              throw new Error(sellResult.error || 'PancakeSwap V2 交易失败');
+            }
+          } catch (pancakeError) {
+            this.logger.error(this._experimentId, '_executeSell', `PancakeSwap V2 交易器也失败: ${pancakeError.message}`);
+
+            if (isBondingCurveSaturated && pancakeError.message?.includes('交易对')) {
+              return {
+                success: false,
+                reason: `代币 bonding curve 已饱和且未在 DEX 创建流动性池，无法卖出。需等待流动性添加到 DEX 后才能卖出。`
+              };
+            }
+
             return {
               success: false,
-              reason: `代币 bonding curve 已饱和且未在 DEX 创建流动性池，无法卖出。需等待流动性添加到 DEX 后才能卖出。`
+              reason: `所有交易器均失败: FourMeme(${fourmemeError.message}), PancakeSwap V2(${pancakeError.message})`
             };
           }
+        }
 
+      } else if (this._blockchain === 'ethereum') {
+        // ETH: Uniswap V2 → Uniswap V4 fallback
+        const uniswapOptions = {
+          slippage: this._maxSlippage,
+          gasPrice: this._experiment.config?.trading?.maxGasPrice || 50
+        };
+
+        try {
+          this.logger.info(this._experimentId, '_executeSell', `尝试使用 Uniswap V2 交易器卖出 ${signal.symbol}...`);
+          sellResult = await this._uniswapV2Trader.sellToken(
+            signal.tokenAddress,
+            amountToSellBigInt,
+            uniswapOptions
+          );
+
+          if (sellResult.success) {
+            traderUsed = 'uniswap-v2';
+            this.logger.info(this._experimentId, '_executeSell', `Uniswap V2 交易器卖出成功`);
+          } else {
+            throw new Error(sellResult.error || 'Uniswap V2 交易失败');
+          }
+        } catch (v2Error) {
+          this.logger.warn(this._experimentId, '_executeSell', `Uniswap V2 交易器卖出失败: ${v2Error.message}`);
+
+          this.logger.info(this._experimentId, '_executeSell', `尝试使用 Uniswap V4 交易器卖出 ${signal.symbol}...`);
+
+          try {
+            sellResult = await this._uniswapV4Trader.sellToken(
+              signal.tokenAddress,
+              amountToSellBigInt,
+              uniswapOptions
+            );
+
+            if (sellResult.success) {
+              traderUsed = 'uniswap-v4';
+              this.logger.info(this._experimentId, '_executeSell', `Uniswap V4 交易器卖出成功`);
+            } else {
+              throw new Error(sellResult.error || 'Uniswap V4 交易失败');
+            }
+          } catch (v4Error) {
+            this.logger.error(this._experimentId, '_executeSell', `Uniswap V4 交易器也失败: ${v4Error.message}`);
+            return {
+              success: false,
+              reason: `所有交易器均失败: Uniswap V2(${v2Error.message}), Uniswap V4(${v4Error.message})`
+            };
+          }
+        }
+
+      } else if (this._blockchain === 'base') {
+        // Base: Uniswap V4
+        const uniswapOptions = {
+          slippage: this._maxSlippage,
+          gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
+        };
+
+        try {
+          this.logger.info(this._experimentId, '_executeSell', `使用 Uniswap V4 交易器卖出 ${signal.symbol}...`);
+          sellResult = await this._uniswapV4Trader.sellToken(
+            signal.tokenAddress,
+            amountToSellBigInt,
+            uniswapOptions
+          );
+
+          if (sellResult.success) {
+            traderUsed = 'uniswap-v4';
+            this.logger.info(this._experimentId, '_executeSell', `Uniswap V4 交易器卖出成功`);
+          } else {
+            throw new Error(sellResult.error || 'Uniswap V4 交易失败');
+          }
+        } catch (v4Error) {
+          this.logger.error(this._experimentId, '_executeSell', `Uniswap V4 交易器失败: ${v4Error.message}`);
           return {
             success: false,
-            reason: `所有交易器均失败: FourMeme(${fourmemeError.message}), PancakeSwap V2(${pancakeError.message})`
+            reason: `Uniswap V4 交易失败: ${v4Error.message}`
           };
         }
+
+      } else {
+        return { success: false, reason: `不支持的区块链: ${this._blockchain}` };
       }
 
       // 更新 metadata 记录使用的交易器

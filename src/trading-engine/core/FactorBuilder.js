@@ -175,6 +175,13 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     tweetAuthorType: preBuyCheckResult.tweetAuthorType ?? 0,
     // 数据采集轮数因子
     dataCollectionRound: preBuyCheckResult.dataCollectionRound ?? 0,
+    // 合约审计风控因子
+    contractRiskAvailable: preBuyCheckResult.contractRiskAvailable ?? 0,
+    contractRiskPairLockPercent: preBuyCheckResult.contractRiskPairLockPercent ?? 0,
+    contractRiskTopLpHolderPercent: preBuyCheckResult.contractRiskTopLpHolderPercent ?? 0,
+    contractRiskLpHolders: preBuyCheckResult.contractRiskLpHolders ?? 0,
+    contractRiskScore: preBuyCheckResult.contractRiskScore ?? 0,
+    contractRiskIsHoneypot: preBuyCheckResult.contractRiskIsHoneypot ?? 0,
   };
 }
 

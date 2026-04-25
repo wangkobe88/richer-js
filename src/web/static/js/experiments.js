@@ -775,6 +775,11 @@ class ExperimentMonitor {
         if (sc.telegramNotifications) {
           copyData.telegramNotifications = sc.telegramNotifications;
         }
+
+        // 合约审计风控配置
+        if (sc.contractRiskCheck) {
+          copyData.contractRiskCheck = sc.contractRiskCheck;
+        }
       }
 
       // 实盘配置（不复制私钥，需要用户重新输入）
