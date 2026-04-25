@@ -671,12 +671,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     );
     console.log(`✅ AVE TokenAPI初始化完成`);
 
-    // 2.0.1 读取合约审计风控配置
-    this._contractRiskCheckEnabled = experimentConfig?.strategiesConfig?.contractRiskCheck?.enabled ?? experimentConfig?.contractRiskCheck?.enabled ?? false;
-    if (this._contractRiskCheckEnabled) {
-      console.log(`✅ 合约审计风控已启用（LP锁定检查）`);
-    }
-
     // 2.1 初始化FourMeme API（用于获取创建者地址）
     const { FourMemeTokenAPI } = require('../../core/fourmeme-api');
     this._fourMemeApi = new FourMemeTokenAPI(
@@ -765,6 +759,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 6. 初始化卡牌仓位管理配置
     const experimentConfig = this._experiment?.config || {};
     this._positionManagement = experimentConfig.positionManagement || experimentConfig.strategy?.positionManagement || null;
+
+    // 6.0.1 读取合约审计风控配置
+    this._contractRiskCheckEnabled = experimentConfig.strategiesConfig?.contractRiskCheck?.enabled ?? experimentConfig.contractRiskCheck?.enabled ?? false;
+    if (this._contractRiskCheckEnabled) {
+      console.log(`✅ 合约审计风控已启用（LP锁定检查）`);
+    }
 
     console.log(`🔍 卡牌管理配置检查 | positionManagement=${JSON.stringify(this._positionManagement || 'null')}`);
 
