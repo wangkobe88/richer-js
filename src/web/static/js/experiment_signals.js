@@ -2199,6 +2199,9 @@ class ExperimentSignals {
                 <div><span class="text-amber-800">Mega聚簇:</span> <span class="${megaRatioClass}">${formatNum(pf.walletClusterMegaRatio)}</span></div>
                 <div><span class="text-amber-800">第二/第一比:</span> <span class="${secondToFirstRatioClass}">${formatNum(pf.walletClusterSecondToFirstRatio)}</span></div>
                 <div><span class="text-amber-800">Top2聚簇比:</span> <span class="text-gray-900">${formatNum(pf.walletClusterTop2Ratio)}</span></div>
+                <div><span class="text-amber-800">Top1买入占比:</span> <span class="${this._getFactorClass('earlyTradesTop1BuyRatio', pf.earlyTradesTop1BuyRatio || 0, preCheckThresholds)}">${formatPercent((pf.earlyTradesTop1BuyRatio || 0) * 100)}</span></div>
+                <div><span class="text-amber-800">Top3买入占比:</span> <span class="${this._getFactorClass('earlyTradesTop3BuyRatio', pf.earlyTradesTop3BuyRatio || 0, preCheckThresholds)}">${formatPercent((pf.earlyTradesTop3BuyRatio || 0) * 100)}</span></div>
+                <div><span class="text-amber-800">Top1净持仓:</span> <span class="${this._getFactorClass('earlyTradesTop1NetHoldingRatio', pf.earlyTradesTop1NetHoldingRatio || 0, preCheckThresholds)}">${formatPercent((pf.earlyTradesTop1NetHoldingRatio || 0) * 100)}</span></div>
               </div>
             </div>
           `;
