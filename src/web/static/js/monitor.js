@@ -843,8 +843,23 @@ function formatDuration(ms) {
 }
 
 function formatChain(chain) {
-  const map = { bsc: 'BSC', eth: 'ETH', ethereum: 'ETH', solana: 'SOL', sol: 'SOL', base: 'BASE' };
-  return map[(chain || 'bsc').toLowerCase()] || (chain || 'BSC').toUpperCase();
+  const logoMap = {
+    bsc: '/static/bsc-logo.png',
+    eth: '/static/ethereum-logo.png',
+    ethereum: '/static/ethereum-logo.png',
+    solana: '/static/solana-logo.png',
+    sol: '/static/solana-logo.png',
+    base: '/static/base-logo.png',
+    flap: '/static/flap-logo.png',
+    bankr: '/static/bankr-logo.png'
+  };
+  const labelMap = { bsc: 'BSC', eth: 'ETH', ethereum: 'ETH', solana: 'SOL', sol: 'SOL', base: 'BASE', flap: 'FLAP', bankr: 'BANKR' };
+  const key = (chain || 'bsc').toLowerCase();
+  const logo = logoMap[key];
+  const label = labelMap[key] || (chain || 'BSC').toUpperCase();
+  return logo
+    ? `<img src="${logo}" alt="${label}" class="inline-block w-4 h-4 align-middle" title="${label}">`
+    : `<span class="text-xs font-medium text-gray-500">${label}</span>`;
 }
 
 function escapeHtml(str) {

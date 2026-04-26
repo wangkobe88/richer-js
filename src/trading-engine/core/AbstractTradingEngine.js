@@ -711,7 +711,8 @@ class AbstractTradingEngine extends ITradingEngine {
       const experimentInfo = {
         id: this._experimentId,
         mode: this._mode,
-        name: this._experiment?.experimentName || this._experiment?.config?.name || null
+        name: this._experiment?.experimentName || this._experiment?.config?.name || null,
+        blockchain: this._blockchain || this._experiment?.blockchain || 'bsc'
       };
 
       // 写入事件表
