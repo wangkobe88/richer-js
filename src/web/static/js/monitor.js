@@ -21,7 +21,6 @@ let hasMoreEvents = false;
 let currentOffset = 0;
 let soundEnabled = true;
 let experimentChainMap = new Map(); // experimentId → blockchain（修正事件中的 chain 字段）
-let soundEnabled = true;
 
 // 筛选状态
 let filterAction = '';
