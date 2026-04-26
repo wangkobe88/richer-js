@@ -291,6 +291,20 @@ class RicherJsWebServer {
 
         const events = data || [];
 
+        // 用实验表的 blockchain 字段修正事件的 chain（历史数据可能不准确）
+        const expIds = [...new Set(events.map(e => e.experiment_id).filter(Boolean))];
+        if (expIds.length > 0) {
+          const { data: exps } = await this.dataService.supabase
+            .from('experiments')
+            .select('id, blockchain')
+            .in('id', expIds);
+          const expMap = new Map((exps || []).map(e => [e.id, e.blockchain]));
+          for (const ev of events) {
+            const expChain = expMap.get(ev.experiment_id);
+            if (expChain) ev.chain = expChain;
+          }
+        }
+
         // 动态填充叙事数据
         await this._enrichEventsWithNarrative(events);
 

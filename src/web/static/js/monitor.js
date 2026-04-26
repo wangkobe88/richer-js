@@ -20,6 +20,8 @@ let isLoadingHistory = false;
 let hasMoreEvents = false;
 let currentOffset = 0;
 let soundEnabled = true;
+let experimentChainMap = new Map(); // experimentId → blockchain（修正事件中的 chain 字段）
+let soundEnabled = true;
 
 // 筛选状态
 let filterAction = '';
@@ -36,6 +38,9 @@ let filterToken = '';
 function addOrUpdateEvent(event) {
   const addr = event.token_address;
   if (!addr) return false;
+
+  // 修正 chain 字段（历史事件可能不准确）
+  fixEventChain(event);
 
   const existing = tokenCardsMap.get(addr);
 
@@ -107,8 +112,36 @@ function getSortedTokenCards() {
 // ============ 初始化 ============
 async function init() {
   setupEventListeners();
+  await loadExperimentChainMap();
   await loadHistory();
   await initRealtime();
+}
+
+/**
+ * 加载实验 blockchain 映射，用于修正事件中的 chain 字段
+ */
+async function loadExperimentChainMap() {
+  try {
+    const resp = await fetch('/api/experiments?status=running&limit=100');
+    const result = await resp.json();
+    const experiments = result.data || result.experiments || [];
+    for (const exp of experiments) {
+      if (exp.id && exp.blockchain) {
+        experimentChainMap.set(exp.id, exp.blockchain);
+      }
+    }
+  } catch (err) {
+    console.warn('[Monitor] 加载实验 blockchain 映射失败:', err.message);
+  }
+}
+
+/**
+ * 修正事件的 chain 字段（使用实验表的 blockchain）
+ */
+function fixEventChain(event) {
+  if (event.experiment_id && experimentChainMap.has(event.experiment_id)) {
+    event.chain = experimentChainMap.get(event.experiment_id);
+  }
 }
 
 // ============ Supabase Realtime ============
