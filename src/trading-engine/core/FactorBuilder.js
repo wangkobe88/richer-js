@@ -125,6 +125,10 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     // 早期交易新增因子
     earlyTradesFinalLiquidity: preBuyCheckResult.earlyTradesFinalLiquidity ?? null,
     earlyTradesDrawdownFromHighest: preBuyCheckResult.earlyTradesDrawdownFromHighest ?? null,
+    // 钱包累积集中度因子
+    earlyTradesTop1BuyRatio: preBuyCheckResult.earlyTradesTop1BuyRatio || 0,
+    earlyTradesTop3BuyRatio: preBuyCheckResult.earlyTradesTop3BuyRatio || 0,
+    earlyTradesTop1NetHoldingRatio: preBuyCheckResult.earlyTradesTop1NetHoldingRatio || 0,
     // 钱包簇检查因子
     walletClusterBlockThreshold: preBuyCheckResult.walletClusterBlockThreshold || null,
     walletClusterMethod: preBuyCheckResult.walletClusterMethod || null,
@@ -182,6 +186,8 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     contractRiskLpHolders: preBuyCheckResult.contractRiskLpHolders ?? 0,
     contractRiskScore: preBuyCheckResult.contractRiskScore ?? 0,
     contractRiskIsHoneypot: preBuyCheckResult.contractRiskIsHoneypot ?? 0,
+    contractRiskDexAmmType: preBuyCheckResult.contractRiskDexAmmType ?? 'unknown',
+    contractRiskHasCode: preBuyCheckResult.contractRiskHasCode ?? 'unknown',
   };
 }
 

@@ -1582,6 +1582,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             // 早期交易新增因子
             earlyTradesFinalLiquidity: factorResults.earlyTradesFinalLiquidity || null,
             earlyTradesDrawdownFromHighest: factorResults.earlyTradesDrawdownFromHighest || null,
+            // 钱包累积集中度因子
+            earlyTradesTop1BuyRatio: factorResults.earlyTradesTop1BuyRatio || 0,
+            earlyTradesTop3BuyRatio: factorResults.earlyTradesTop3BuyRatio || 0,
+            earlyTradesTop1NetHoldingRatio: factorResults.earlyTradesTop1NetHoldingRatio || 0,
             // 钱包簇检查因子
             walletClusterBlockThreshold: factorResults.walletClusterBlockThreshold || null,
             walletClusterMethod: factorResults.walletClusterMethod || null,
@@ -1611,7 +1615,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             contractRiskTopLpHolderPercent: 0,
             contractRiskLpHolders: 0,
             contractRiskScore: 0,
-            contractRiskIsHoneypot: 0
+            contractRiskIsHoneypot: 0,
+            contractRiskDexAmmType: 'unknown',
+            contractRiskHasCode: 'unknown'
           }
         } : null
       };
@@ -1665,7 +1671,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         this.logger.info(this._experimentId, '_executeStrategy',
           `合约审计数据 | symbol=${token.symbol}, available=${contractRiskData.contractRiskAvailable}, ` +
           `pairLock=${contractRiskData.contractRiskPairLockPercent}%, topLpHolder=${contractRiskData.contractRiskTopLpHolderPercent}%, ` +
-          `score=${contractRiskData.contractRiskScore}, honeypot=${contractRiskData.contractRiskIsHoneypot}`);
+          `score=${contractRiskData.contractRiskScore}, honeypot=${contractRiskData.contractRiskIsHoneypot}, dexAmmType=${contractRiskData.contractRiskDexAmmType}, hasCode=${contractRiskData.contractRiskHasCode}`);
       }
       // ========== 合约审计风控结束 ==========
 
@@ -1727,6 +1733,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           // 获取上一对收益率
           const lastPairReturnRate = this._tokenPool.getLastPairReturnRate(token.token, token.chain || 'bsc');
 
+          // 计算代币总供应量（优先使用 token.total，兜底使用 fdv/price）
+          let totalSupply = parseFloat(token.total) || 0;
+          if (totalSupply <= 0 && factorResults.fdv > 0 && factorResults.currentPrice > 0) {
+            totalSupply = factorResults.fdv / factorResults.currentPrice;
+          }
+
           preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             token.token,
             token.creator_address || null,
@@ -1745,7 +1757,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,  // 推文作者类型
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,  // 数据采集轮数
               skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false,
-              contractRiskData: contractRiskData  // 合约审计风控数据
+              contractRiskData: contractRiskData,  // 合约审计风控数据
+              totalSupply: totalSupply  // 代币总供应量
             }
           );
 
@@ -2098,6 +2111,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       contractRiskLpHolders: 0,
       contractRiskScore: 0,
       contractRiskIsHoneypot: 0,
+      contractRiskDexAmmType: 'unknown',
+      contractRiskHasCode: 'unknown',
     };
   }
 
@@ -2132,13 +2147,37 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       const topHolder = nonBurnHolders[0];
       const topLpPercent = topHolder ? parseFloat(topHolder.percent) * 100 : 0;
 
+      // pair_lock_percent API 返回 0~1 小数，未锁定时可能返回极小浮点值（如 2.43e-20）
+      // 低于 0.01%（即原始值 < 0.0001）视为未锁定，规整为 0
+      const rawPairLock = riskData.pair_lock_percent || 0;
+      const pairLockPercent = rawPairLock < 0.0001 ? 0 : rawPairLock * 100;
+
+      // 从 dex 数组提取 AMM 类型（v4/v2/unknown）
+      const dexList = riskData.dex || [];
+      const primaryAmm = dexList.length > 0 ? dexList[0].amm || 'unknown' : 'unknown';
+      // 标准化 AMM 类型：uniswapv4 -> v4, uniswapv2 -> v2, 其他保持原样
+      let dexAmmType = 'unknown';
+      if (primaryAmm === 'uniswapv4') {
+        dexAmmType = 'v4';
+      } else if (primaryAmm === 'uniswapv2') {
+        dexAmmType = 'v2';
+      } else if (primaryAmm !== 'unknown') {
+        dexAmmType = primaryAmm;
+      }
+
+      // 合约开源状态：1 -> open, 0 -> closed, 其他 -> unknown
+      const rawHasCode = riskData.has_code;
+      const hasCodeLabel = rawHasCode === 1 ? 'open' : rawHasCode === 0 ? 'closed' : 'unknown';
+
       const result = {
         contractRiskAvailable: 1,
-        contractRiskPairLockPercent: (riskData.pair_lock_percent || 0) * 100,
+        contractRiskPairLockPercent: pairLockPercent,
         contractRiskTopLpHolderPercent: topLpPercent,
         contractRiskLpHolders: nonBurnHolders.length,
         contractRiskScore: riskData.risk_score || 0,
         contractRiskIsHoneypot: riskData.is_honeypot || 0,
+        contractRiskDexAmmType: dexAmmType,
+        contractRiskHasCode: hasCodeLabel,
       };
 
       // 缓存结果
@@ -2147,7 +2186,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, '_fetchContractRiskData',
         `合约审计数据获取成功 | token=${tokenAddress.slice(0, 10)}..., ` +
         `pairLock=${result.contractRiskPairLockPercent}%, topLp=${result.contractRiskTopLpHolderPercent}%, ` +
-        `score=${result.contractRiskScore}, honeypot=${result.contractRiskIsHoneypot}`);
+        `score=${result.contractRiskScore}, honeypot=${result.contractRiskIsHoneypot}, dexAmmType=${result.contractRiskDexAmmType}, hasCode=${result.contractRiskHasCode}`);
 
       return result;
     } catch (error) {

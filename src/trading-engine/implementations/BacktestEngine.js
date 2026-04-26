@@ -1464,7 +1464,7 @@ class BacktestEngine extends AbstractTradingEngine {
         this.logger.info(this._experimentId, '_executeStrategy',
           `合约审计数据 | symbol=${tokenState.symbol}, available=${contractRiskData.contractRiskAvailable}, ` +
           `pairLock=${contractRiskData.contractRiskPairLockPercent}%, topLpHolder=${contractRiskData.contractRiskTopLpHolderPercent}%, ` +
-          `score=${contractRiskData.contractRiskScore}, honeypot=${contractRiskData.contractRiskIsHoneypot}`);
+          `score=${contractRiskData.contractRiskScore}, honeypot=${contractRiskData.contractRiskIsHoneypot}, dexAmmType=${contractRiskData.contractRiskDexAmmType}, hasCode=${contractRiskData.contractRiskHasCode}`);
       }
       // ========== 合约审计风控结束 ==========
 
@@ -1506,6 +1506,12 @@ class BacktestEngine extends AbstractTradingEngine {
           this.logger.info(this._experimentId, '_executeStrategy',
             `执行购买前检查（回测） | symbol=${tokenState.symbol}, round=${currentRound + 1}, condition=${preBuyCheckCondition}`);
 
+          // 计算代币总供应量（从 fdv/price 推算）
+          let totalSupply = 0;
+          if (factorResults.fdv > 0 && factorResults.currentPrice > 0) {
+            totalSupply = factorResults.fdv / factorResults.currentPrice;
+          }
+
           preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             tokenState.token,                    // tokenAddress
             tokenState.creatorAddress || null,   // creatorAddress
@@ -1523,7 +1529,8 @@ class BacktestEngine extends AbstractTradingEngine {
               buyRound: currentRound + 1,  // 即将进行的轮数
               lastPairReturnRate: lastPairReturnRate ?? 0,
               narrativeRating: narrativeRating,  // 叙事评级
-              contractRiskData: contractRiskData  // 合约审计风控数据
+              contractRiskData: contractRiskData,  // 合约审计风控数据
+              totalSupply: totalSupply  // 代币总供应量
             }
           );
 
@@ -1996,6 +2003,8 @@ class BacktestEngine extends AbstractTradingEngine {
       contractRiskLpHolders: 0,
       contractRiskScore: 0,
       contractRiskIsHoneypot: 0,
+      contractRiskDexAmmType: 'unknown',
+      contractRiskHasCode: 'unknown',
     };
   }
 
@@ -2029,13 +2038,36 @@ class BacktestEngine extends AbstractTradingEngine {
       const topHolder = nonBurnHolders[0];
       const topLpPercent = topHolder ? parseFloat(topHolder.percent) * 100 : 0;
 
+      // pair_lock_percent API 返回 0~1 小数，未锁定时可能返回极小浮点值（如 2.43e-20）
+      // 低于 0.01%（即原始值 < 0.0001）视为未锁定，规整为 0
+      const rawPairLock = riskData.pair_lock_percent || 0;
+      const pairLockPercent = rawPairLock < 0.0001 ? 0 : rawPairLock * 100;
+
+      // 从 dex 数组提取 AMM 类型（v4/v2/unknown）
+      const dexList = riskData.dex || [];
+      const primaryAmm = dexList.length > 0 ? dexList[0].amm || 'unknown' : 'unknown';
+      let dexAmmType = 'unknown';
+      if (primaryAmm === 'uniswapv4') {
+        dexAmmType = 'v4';
+      } else if (primaryAmm === 'uniswapv2') {
+        dexAmmType = 'v2';
+      } else if (primaryAmm !== 'unknown') {
+        dexAmmType = primaryAmm;
+      }
+
+      // 合约开源状态：1 -> open, 0 -> closed, 其他 -> unknown
+      const rawHasCode = riskData.has_code;
+      const hasCodeLabel = rawHasCode === 1 ? 'open' : rawHasCode === 0 ? 'closed' : 'unknown';
+
       const result = {
         contractRiskAvailable: 1,
-        contractRiskPairLockPercent: (riskData.pair_lock_percent || 0) * 100,
+        contractRiskPairLockPercent: pairLockPercent,
         contractRiskTopLpHolderPercent: topLpPercent,
         contractRiskLpHolders: nonBurnHolders.length,
         contractRiskScore: riskData.risk_score || 0,
         contractRiskIsHoneypot: riskData.is_honeypot || 0,
+        contractRiskDexAmmType: dexAmmType,
+        contractRiskHasCode: hasCodeLabel,
       };
 
       // 缓存结果
@@ -2044,7 +2076,7 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, '_fetchContractRiskData',
         `合约审计数据获取成功 | token=${tokenAddress.slice(0, 10)}..., ` +
         `pairLock=${result.contractRiskPairLockPercent}%, topLp=${result.contractRiskTopLpHolderPercent}%, ` +
-        `score=${result.contractRiskScore}, honeypot=${result.contractRiskIsHoneypot}`);
+        `score=${result.contractRiskScore}, honeypot=${result.contractRiskIsHoneypot}, dexAmmType=${result.contractRiskDexAmmType}, hasCode=${result.contractRiskHasCode}`);
 
       return result;
     } catch (error) {

@@ -149,6 +149,24 @@ const FACTOR_METADATA = {
     unit: '%',
     severity: 'warning'
   },
+  earlyTradesTop1BuyRatio: {
+    name: 'Top1钱包买入占比',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'warning'
+  },
+  earlyTradesTop3BuyRatio: {
+    name: 'Top3钱包买入占比',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'warning'
+  },
+  earlyTradesTop1NetHoldingRatio: {
+    name: 'Top1钱包净持仓占比',
+    format: v => (v * 100).toFixed(2) + '%',
+    unit: '',
+    severity: 'warning'
+  },
   earlyTradesActualSpan: {
     name: '早期数据实际跨度',
     format: v => v.toFixed(1) + '秒',
@@ -387,6 +405,18 @@ const FACTOR_METADATA = {
     format: v => v === 1 ? '是蜜罐' : v === -1 ? '未知' : '否',
     unit: '',
     severity: 'critical'
+  },
+  contractRiskDexAmmType: {
+    name: 'DEX AMM类型',
+    format: v => v || 'unknown',
+    unit: '',
+    severity: 'info'
+  },
+  contractRiskHasCode: {
+    name: '合约开源状态',
+    format: v => v === 'open' ? '已开源' : v === 'closed' ? '未开源' : '无数据',
+    unit: '',
+    severity: 'info'
   }
 };
 
@@ -473,7 +503,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, contractRiskData } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, contractRiskData, totalSupply } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -494,7 +524,7 @@ class PreBuyCheckService {
     try {
       // 先执行早期参与者检查（获取交易数据）
       const earlyParticipantCheck = await this._performEarlyParticipantCheck(
-        tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant
+        tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant, totalSupply
       );
 
       // Twitter搜索：回测时跳过，使用默认因子
@@ -628,7 +658,9 @@ class PreBuyCheckService {
         contractRiskTopLpHolderPercent: options.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
         contractRiskLpHolders: options.contractRiskData?.contractRiskLpHolders ?? 0,
         contractRiskScore: options.contractRiskData?.contractRiskScore ?? 0,
-        contractRiskIsHoneypot: options.contractRiskData?.contractRiskIsHoneypot ?? 0
+        contractRiskIsHoneypot: options.contractRiskData?.contractRiskIsHoneypot ?? 0,
+        contractRiskDexAmmType: options.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
+        contractRiskHasCode: options.contractRiskData?.contractRiskHasCode ?? 'unknown'
       };
     }
   }
@@ -698,6 +730,8 @@ class PreBuyCheckService {
       contractRiskLpHolders: extraContext.contractRiskData?.contractRiskLpHolders ?? 0,
       contractRiskScore: extraContext.contractRiskData?.contractRiskScore ?? 0,
       contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0,
+      contractRiskDexAmmType: extraContext.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
+      contractRiskHasCode: extraContext.contractRiskData?.contractRiskHasCode ?? 'unknown',
 
       // 早期参与者检查结果
       ...earlyParticipantCheck,
@@ -751,6 +785,10 @@ class PreBuyCheckService {
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,
         // 内盘无数据标记（可能已出内盘）
         earlyTradesNoInnerData: earlyParticipantCheck.earlyTradesNoInnerData || 0,
+        // 钱包累积集中度因子
+        earlyTradesTop1BuyRatio: earlyParticipantCheck.earlyTradesTop1BuyRatio || 0,
+        earlyTradesTop3BuyRatio: earlyParticipantCheck.earlyTradesTop3BuyRatio || 0,
+        earlyTradesTop1NetHoldingRatio: earlyParticipantCheck.earlyTradesTop1NetHoldingRatio || 0,
         // 钱包簇因子
         walletClusterSecondToFirstRatio: walletClusterCheck.walletClusterSecondToFirstRatio || 0,
         walletClusterMegaRatio: walletClusterCheck.walletClusterMegaRatio || 0,
@@ -803,7 +841,10 @@ class PreBuyCheckService {
         contractRiskTopLpHolderPercent: extraContext.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
         contractRiskLpHolders: extraContext.contractRiskData?.contractRiskLpHolders ?? 0,
         contractRiskScore: extraContext.contractRiskData?.contractRiskScore ?? 0,
-        contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0
+        contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0,
+        contractRiskDexAmmType: extraContext.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
+      contractRiskHasCode: extraContext.contractRiskData?.contractRiskHasCode ?? 'unknown',
+        contractRiskHasCode: extraContext.contractRiskData?.contractRiskHasCode ?? 'unknown'
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
@@ -1300,7 +1341,7 @@ class PreBuyCheckService {
    * @param {number} checkTime - 检查时间戳（秒），用于回测时指定历史时间点
    * @param {boolean} skipEarlyParticipant - 是否跳过检查
    */
-  async _performEarlyParticipantCheck(tokenAddress, chain, tokenInfo, checkTime = null, skipEarlyParticipant = false) {
+  async _performEarlyParticipantCheck(tokenAddress, chain, tokenInfo, checkTime = null, skipEarlyParticipant = false, totalSupply = 0) {
     if (skipEarlyParticipant || !this.config.earlyParticipantCheckEnabled) {
       return this.earlyParticipantService.getEmptyFactorValues();
     }
@@ -1323,7 +1364,8 @@ class PreBuyCheckService {
       tokenInfo.innerPair,
       chain,
       null,  // launchAt 参数已不再使用
-      effectiveCheckTime
+      effectiveCheckTime,
+      totalSupply
     );
   }
 
@@ -1528,6 +1570,8 @@ class PreBuyCheckService {
       contractRiskLpHolders: 0,
       contractRiskScore: 0,
       contractRiskIsHoneypot: 0,
+      contractRiskDexAmmType: 'unknown',
+      contractRiskHasCode: 'unknown',
       ...this.earlyParticipantService.getEmptyFactorValues(),
       ...this.walletClusterService.getEmptyFactorValues(),
       // Twitter因子

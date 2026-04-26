@@ -127,9 +127,10 @@ class EarlyParticipantCheckService {
    * @param {string} chain - 区块链
    * @param {number} launchAt - 代币创建时间戳（秒）（保留参数兼容性，但不再使用）
    * @param {number} checkTime - 当前检查时间戳（秒）
+   * @param {number} totalSupply - 代币总供应量（可选，用于计算净持仓占比）
    * @returns {Promise<Object>} 检查结果
    */
-  async performCheck(tokenAddress, innerPair, chain, launchAt, checkTime) {
+  async performCheck(tokenAddress, innerPair, chain, launchAt, checkTime, totalSupply = 0) {
     const startTime = Date.now();
 
     this.logger.info('[EarlyParticipantCheckService] 开始早期参与者检查', {
@@ -198,6 +199,9 @@ class EarlyParticipantCheckService {
         // 新增因子
         earlyTradesFinalLiquidity: basicStats.earlyTradesFinalLiquidity,
         earlyTradesDrawdownFromHighest: basicStats.earlyTradesDrawdownFromHighest,
+
+        // 钱包累积集中度因子
+        ...this._calculateWalletAccumulation(trades, tokenAddress, totalSupply),
 
         // 内部数据（供钱包簇检查复用）
         _trades: trades
@@ -522,6 +526,11 @@ class EarlyParticipantCheckService {
       earlyTradesFinalLiquidity: 9999,
       earlyTradesDrawdownFromHighest: 0,
 
+      // 钱包累积集中度因子（无数据时默认0）
+      earlyTradesTop1BuyRatio: 0,
+      earlyTradesTop3BuyRatio: 0,
+      earlyTradesTop1NetHoldingRatio: 0,
+
       // 标记内盘无交易数据（可能已出内盘）
       earlyTradesNoInnerData: 1,
 
@@ -564,11 +573,69 @@ class EarlyParticipantCheckService {
       earlyTradesFinalLiquidity: null,
       earlyTradesDrawdownFromHighest: null,
 
+      // 钱包累积集中度因子
+      earlyTradesTop1BuyRatio: 0,
+      earlyTradesTop3BuyRatio: 0,
+      earlyTradesTop1NetHoldingRatio: 0,
+
       // 内盘无数据标记
       earlyTradesNoInnerData: 0,
 
       // 内部数据（供钱包簇检查复用）
       _trades: []
+    };
+  }
+
+  /**
+   * 计算钱包累积集中度因子
+   * 从早期交易数据中统计每个钱包的买入金额和代币数量，计算集中度指标
+   * @param {Array} trades - 交易数据
+   * @param {string} tokenAddress - 目标代币地址
+   * @param {number} totalSupply - 代币总供应量（0 表示未提供，使用总买入代币数兜底）
+   * @returns {Object} 集中度因子
+   */
+  _calculateWalletAccumulation(trades, tokenAddress, totalSupply = 0) {
+    const tokenLower = tokenAddress.toLowerCase();
+    const walletBuys = new Map(); // address → { usd, tokenBought, tokenSold }
+
+    for (const t of trades) {
+      const toToken = (t.to_token || '').toLowerCase();
+      const fromToken = (t.from_token || '').toLowerCase();
+      const buyUsd = t.from_usd || 0;
+
+      if (toToken === tokenLower) {
+        // 买入目标代币：to_address 是买方
+        const buyer = (t.to_address || '').toLowerCase();
+        if (!buyer) continue;
+        if (!walletBuys.has(buyer)) walletBuys.set(buyer, { usd: 0, tokenBought: 0, tokenSold: 0 });
+        const w = walletBuys.get(buyer);
+        w.usd += buyUsd;
+        w.tokenBought += (t.to_amount || 0);
+      } else if (fromToken === tokenLower) {
+        // 卖出目标代币：from_address 是卖方
+        const seller = (t.from_address || '').toLowerCase();
+        if (!seller) continue;
+        if (!walletBuys.has(seller)) walletBuys.set(seller, { usd: 0, tokenBought: 0, tokenSold: 0 });
+        walletBuys.get(seller).tokenSold += (t.from_amount || 0);
+      }
+    }
+
+    // 按买入金额降序排列
+    const sorted = [...walletBuys.entries()].sort((a, b) => b[1].usd - a[1].usd);
+    const totalBuyUsd = sorted.reduce((s, w) => s + w[1].usd, 0);
+    const totalBoughtTokens = sorted.reduce((s, w) => s + w[1].tokenBought, 0);
+
+    const top1Usd = sorted.length > 0 ? sorted[0][1].usd : 0;
+    const top3Usd = sorted.slice(0, 3).reduce((s, w) => s + w[1].usd, 0);
+    const top1NetTokens = sorted.length > 0 ? (sorted[0][1].tokenBought - sorted[0][1].tokenSold) : 0;
+
+    // 净持仓占比分母：优先使用总供应量，兜底使用总买入代币数
+    const holdingDenominator = (totalSupply > 0) ? totalSupply : totalBoughtTokens;
+
+    return {
+      earlyTradesTop1BuyRatio: totalBuyUsd > 0 ? parseFloat((top1Usd / totalBuyUsd).toFixed(4)) : 0,
+      earlyTradesTop3BuyRatio: totalBuyUsd > 0 ? parseFloat((top3Usd / totalBuyUsd).toFixed(4)) : 0,
+      earlyTradesTop1NetHoldingRatio: holdingDenominator > 0 ? parseFloat((top1NetTokens / holdingDenominator).toFixed(6)) : 0,
     };
   }
 

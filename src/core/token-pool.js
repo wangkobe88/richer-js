@@ -55,6 +55,7 @@ class TokenPool {
             name: tokenData.name,
             symbol: tokenData.symbol,
             platform: tokenData.platform || 'fourmeme',  // 平台标识: fourmeme, flap, etc.
+            pairAddress: tokenData.pairAddress || null,   // 交易对地址（由 Collector 解析）
             createdAt: tokenData.created_at || Date.now() / 1000,  // 代币创建时间（用于计算 age）
             addedAt: collectionTime,  // 添加到监控池的时间
             klineData: [],
