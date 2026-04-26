@@ -604,8 +604,8 @@ class EarlyParticipantCheckService {
       const buyUsd = t.from_usd || 0;
 
       if (toToken === tokenLower) {
-        // 买入目标代币：to_address 是买方
-        const buyer = (t.to_address || '').toLowerCase();
+        // 买入目标代币：from_address 是买方（ETH链to_address可能为空，统一使用from_address）
+        const buyer = (t.from_address || '').toLowerCase();
         if (!buyer) continue;
         if (!walletBuys.has(buyer)) walletBuys.set(buyer, { usd: 0, tokenBought: 0, tokenSold: 0 });
         const w = walletBuys.get(buyer);
