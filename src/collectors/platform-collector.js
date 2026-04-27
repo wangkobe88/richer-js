@@ -40,7 +40,7 @@ class PlatformCollector {
         const gmgnApiKey = process.env.GMGN_API_KEY;
         const gmgnProxy = process.env.GMGN_SOCKS_PROXY;
         if (gmgnApiKey) {
-            this.gmgnMarketApi = new GMGNMarketAPI(gmgnApiKey, gmgnProxy);
+            this.gmgnMarketApi = new GMGNMarketAPI({ apiKey: gmgnApiKey, socksProxy: gmgnProxy });
         } else {
             this.gmgnMarketApi = null;
         }
