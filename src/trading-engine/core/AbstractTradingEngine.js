@@ -167,16 +167,16 @@ class AbstractTradingEngine extends ITradingEngine {
       this._experiment = experimentOrId;
     }
 
-    // 调试：输出 config 内容
-    this._logger.info('实验 config 内容', { config: this._experiment.config });
-
     this._experimentId = this._experiment.id;
     this._portfolioId = `portfolio_${this._experimentId}`;
     this._blockchain = this._experiment.blockchain || 'bsc';
 
-    // 初始化日志记录器
+    // 初始化日志记录器（必须在 _logger 使用之前）
     this._logger = new Logger({ experimentId: this._experimentId });
     await this._logger.initialize();
+
+    // 调试：输出 config 内容
+    this._logger.info('实验 config 内容', { config: this._experiment.config });
 
     // 通知子类更新组件的 logger（如果有）
     if (typeof this._updateComponentLoggers === 'function') {
