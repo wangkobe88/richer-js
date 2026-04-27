@@ -7,6 +7,7 @@
 const { AveTokenAPI } = require('../core/ave-api');
 const { FourMemeTokenAPI } = require('../core/fourmeme-api');
 const { PlatformPairResolver } = require('../core/PlatformPairResolver');
+const { GMGNMarketAPI } = require('../core/gmgn-api/market-api');
 
 class PlatformCollector {
     constructor(config, logger, tokenPool, experimentId = null, blockchain = 'bsc') {
@@ -34,6 +35,15 @@ class PlatformCollector {
 
         // Initialize PlatformPairResolver for resolving pair addresses
         this.pairResolver = new PlatformPairResolver(this.logger);
+
+        // Initialize GMGN Market API client (for ETH trending tokens supplement)
+        const gmgnApiKey = process.env.GMGN_API_KEY;
+        const gmgnProxy = process.env.GMGN_SOCKS_PROXY;
+        if (gmgnApiKey) {
+            this.gmgnMarketApi = new GMGNMarketAPI(gmgnApiKey, gmgnProxy);
+        } else {
+            this.gmgnMarketApi = null;
+        }
 
         // Track collected tokens to avoid duplicates
         this.collectedTokens = new Set();
@@ -768,17 +778,67 @@ class PlatformCollector {
             const startTime = Date.now();
             this.logger.debug('开始收集ETH链新代币');
 
-            // 通过 AVE API 获取新币 (tag=new, chain=eth)
-            // ETH 新币在 API 返回中占比低，需要拉取更多数据才能获得足够的 ETH 代币
+            // === 数据源 1: AVE API ===
             const ethFetchLimit = this.collectorConfig.ethFetchLimit || 300;
-            const tokens = await this.aveApi.getChainNewTokens('eth', ethFetchLimit);
+            const aveTokens = await this.aveApi.getChainNewTokens('eth', ethFetchLimit);
+            this.logger.debug(`[AVE] 获取到 ${aveTokens.length} 个ETH新代币`);
+
+            // === 数据源 2: GMGN Trending（按创建时间倒序） ===
+            let gmgnTokens = [];
+            if (this.gmgnMarketApi) {
+                try {
+                    const result = await this.gmgnMarketApi.getTrendingSwaps('eth', '1m', {
+                        limit: 50,
+                        order_by: 'creation_timestamp',
+                        direction: 'desc'
+                    });
+                    const rankList = result?.data?.rank || [];
+                    gmgnTokens = rankList.map(t => ({
+                        token: t.address,
+                        chain: 'eth',
+                        name: t.name || '',
+                        symbol: t.symbol || '',
+                        current_price_usd: t.price || 0,
+                        created_at: t.creation_timestamp,  // Unix秒
+                        market_cap: t.market_cap || 0,
+                        tvl: t.liquidity || 0,
+                        tx_volume_u_24h: t.volume || 0,
+                        platform: 'uniswap',
+                        creator_address: null,
+                        _source: 'gmgn'
+                    }));
+                    this.logger.debug(`[GMGN] 获取到 ${gmgnTokens.length} 个ETH热门代币`);
+                } catch (gmgnError) {
+                    this.logger.warn('GMGN ETH trending 获取失败，继续使用 AVE 数据', {
+                        error: gmgnError.message
+                    });
+                }
+            }
+
+            // === 合并去重（按地址小写去重，AVE 优先） ===
+            const seenAddresses = new Set(aveTokens.map(t => (t.token || '').toLowerCase()));
+            const tokens = [...aveTokens];
+            let gmgnAdded = 0;
+            for (const t of gmgnTokens) {
+                const addr = (t.token || '').toLowerCase();
+                if (!seenAddresses.has(addr)) {
+                    seenAddresses.add(addr);
+                    tokens.push(t);
+                    gmgnAdded++;
+                }
+            }
 
             this.stats.eth.totalCollected += tokens.length;
 
             const now = Date.now();
             const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
 
-            this.logger.debug(`获取到 ${tokens.length} 个ETH新代币`);
+            this.logger.debug(`ETH代币合并完成`, {
+                ave: aveTokens.length,
+                gmgn: gmgnTokens.length,
+                gmgnNew: gmgnAdded,
+                total: tokens.length
+            });
 
             let addedCount = 0;
             let skippedCount = 0;
@@ -832,9 +892,9 @@ class PlatformCollector {
                     alreadyInPoolCount++;
                 }
 
-                // 设置平台字段
-                token.platform = 'uniswap';
-                token.creator_address = null;
+                // 设置平台字段（AVE 返回的 token 缺少这些字段，GMGN 映射时已设置）
+                if (!token.platform) token.platform = 'uniswap';
+                if (token.creator_address === undefined) token.creator_address = null;
 
                 // Only add tokens younger than maxAgeSeconds
                 if (tokenAge < maxAgeMs) {
@@ -889,6 +949,8 @@ class PlatformCollector {
             this.logger.debug('ETH链代币收集完成', {
                 platform: 'uniswap',
                 fetched: tokens.length,
+                aveCount: aveTokens.length,
+                gmgnNew: gmgnAdded,
                 added: addedCount,
                 skipped: skippedCount,
                 alreadyInPool: alreadyInPoolCount,

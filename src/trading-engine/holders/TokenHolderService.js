@@ -560,11 +560,11 @@ class TokenHolderService {
         };
       }
 
-      // 提取所有唯一参与者地址（买方 + 卖方）
+      // 提取所有唯一参与者地址（使用 wallet_address 识别真实用户，from_address 可能是路由合约）
       const participants = new Set();
       for (const trade of trades) {
-        if (trade.from_address) participants.add(trade.from_address.toLowerCase());
-        if (trade.to_address) participants.add(trade.to_address.toLowerCase());
+        const participant = trade.wallet_address || trade.from_address;
+        if (participant) participants.add(participant.toLowerCase());
       }
 
       // 与黑白名单匹配

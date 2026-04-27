@@ -14,6 +14,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const https = require('https');
 const dns = require('dns');
+const { SocksProxyAgent } = require('socks-proxy-agent');
 
 // 公共 DNS 服务器（用于预解析绕过 DNS 污染）
 const PUBLIC_DNS_SERVERS = ['8.8.8.8', '1.1.1.1'];
@@ -107,19 +108,33 @@ class BaseGMGNAPI {
      * @param {number} options.timeout - 请求超时时间(ms)
      * @param {string} options.apiKey - GMGN API Key
      * @param {string} [options.privateKeyPem] - PEM 格式私钥(用于 critical auth)
+     * @param {string} [options.socksProxy] - SOCKS5 代理地址 (如 socks5://127.0.0.1:1080)
      */
-    constructor({ baseURL = 'https://openapi.gmgn.ai', timeout = 30000, apiKey, privateKeyPem = null } = {}) {
+    constructor({ baseURL = 'https://openapi.gmgn.ai', timeout = 30000, apiKey, privateKeyPem = null, socksProxy = null } = {}) {
         this.baseURL = baseURL.replace(/\/$/, '');
         this.hostname = this.baseURL.replace(/^https?:\/\//, '');
         this.apiKey = apiKey;
         this.privateKeyPem = privateKeyPem;
+        this.socksProxy = socksProxy || process.env.GMGN_SOCKS_PROXY || null;
+        // socks5h:// 确保通过代理做 DNS 解析，避免本地 DNS 污染问题
+        if (this.socksProxy && this.socksProxy.startsWith('socks5://')) {
+            this.socksProxy = this.socksProxy.replace('socks5://', 'socks5h://');
+        }
 
-        this.client = axios.create({
+        const axiosOptions = {
             timeout,
             headers: { 'Content-Type': 'application/json' },
-            httpsAgent: createGMGNAgent(this.hostname),
             validateStatus: () => true,
-        });
+        };
+
+        if (this.socksProxy) {
+            axiosOptions.httpsAgent = new SocksProxyAgent(this.socksProxy);
+            axiosOptions.httpAgent = new SocksProxyAgent(this.socksProxy);
+        } else {
+            axiosOptions.httpsAgent = createGMGNAgent(this.hostname);
+        }
+
+        this.client = axios.create(axiosOptions);
     }
 
     /**

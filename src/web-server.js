@@ -606,10 +606,16 @@ class RicherJsWebServer {
             config.strategiesConfig.telegramNotifications = strategy.telegramNotifications;
           }
 
-          // 合约审计风控配置
+          // 合约审计风控配置（兼容旧数据）
           if (strategy.contractRiskCheck) {
             config.strategiesConfig = config.strategiesConfig || {};
             config.strategiesConfig.contractRiskCheck = strategy.contractRiskCheck;
+          }
+
+          // GMGN 安全检测配置
+          if (strategy.gmgnSecurityCheck !== undefined) {
+            config.strategiesConfig = config.strategiesConfig || {};
+            config.strategiesConfig.gmgnSecurityCheck = strategy.gmgnSecurityCheck;
           }
 
           // 兼容旧格式的简单策略参数（用于 fourmeme_earlyreturn）

@@ -35,7 +35,9 @@ const testFilter = process.argv.indexOf('--test');
 const testName = testFilter !== -1 ? process.argv[testFilter + 1] : 'all';
 
 function createApi(APIClass) {
-    return new APIClass({ apiKey });
+    const opts = { apiKey };
+    if (process.env.GMGN_SOCKS_PROXY) opts.socksProxy = process.env.GMGN_SOCKS_PROXY;
+    return new APIClass(opts);
 }
 
 function logResult(title, data) {

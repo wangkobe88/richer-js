@@ -780,6 +780,11 @@ class ExperimentMonitor {
         if (sc.contractRiskCheck) {
           copyData.contractRiskCheck = sc.contractRiskCheck;
         }
+
+        // GMGN 安全检测配置
+        if (sc.gmgnSecurityCheck !== undefined) {
+          copyData.gmgnSecurityCheck = sc.gmgnSecurityCheck;
+        }
       }
 
       // 实盘配置（不复制私钥，需要用户重新输入）

@@ -554,31 +554,35 @@
                     </div>
                 </div>
 
-                <!-- 合约审计风控配置 -->
+                <!-- GMGN 安全检测配置 -->
                 <div class="border border-gray-200 rounded-lg p-4">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">🛡️ 合约审计风控</h2>
+                        <h2 class="text-xl font-semibold text-gray-800">🛡️ GMGN 安全检测</h2>
                         <label class="flex items-center gap-2">
-                            <input type="checkbox" name="contract_risk_check_enabled" id="crc-enabled" class="w-4 h-4">
-                            <span class="text-sm font-medium text-gray-700">启用LP锁定检查</span>
+                            <input type="checkbox" id="gmgn-security-enabled" class="w-4 h-4">
+                            <span class="text-sm font-medium text-gray-700">启用安全检测</span>
                         </label>
                     </div>
 
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <div class="flex items-start">
                             <span class="text-lg mr-2">💡</span>
-                            <div class="text-sm text-yellow-800">
+                            <div class="text-sm text-blue-800">
                                 <p class="font-semibold mb-1">说明</p>
                                 <ul class="list-disc list-inside space-y-1">
-                                    <li><strong>LP锁定检查：</strong>通过 AVE API 获取合约审计数据，检测LP是否锁定</li>
-                                    <li><strong>适用场景：</strong>适用于 ETH、BSC 等链上DEX交易的代币，fourmeme 等发币平台的代币无需开启</li>
+                                    <li><strong>安全检测：</strong>通过 GMGN API 获取代币安全审计数据，检测蜜罐、买卖税、合约开源、LP锁仓等风险</li>
                                     <li><strong>因子说明：</strong>
-                                        <code>contractRiskPairLockPercent</code> LP锁定百分比、
-                                        <code>contractRiskTopLpHolderPercent</code> Top1 LP持有人百分比、
-                                        <code>contractRiskAvailable</code> 是否获取到数据
+                                        <code>gmgnIsHoneypot</code> 是否蜜罐、
+                                        <code>gmgnBuyTax</code>/<code>gmgnSellTax</code> 买卖税率、
+                                        <code>gmgnIsOpenSource</code> 是否开源、
+                                        <code>gmgnIsRenounced</code> 是否放弃权限、
+                                        <code>gmgnTop10HolderRate</code> Top10持仓占比、
+                                        <code>gmgnLpLocked</code>/<code>gmgnLpLockPercent</code> LP锁仓、
+                                        <code>gmgnHasAlert</code> GMGN风险警报、
+                                        <code>gmgnSecurityAvailable</code> 数据是否可用
                                     </li>
-                                    <li><strong>使用示例：</strong>条件表达式中使用 <code>contractRiskPairLockPercent > 0</code> 确保只购买LP已锁定的代币</li>
-                                    <li><strong>数据缓存：</strong>每个代币只获取一次审计数据，后续信号复用缓存</li>
+                                    <li><strong>使用示例：</strong>条件表达式中使用 <code>gmgnIsHoneypot === false AND gmgnSellTax < 0.05</code> 过滤蜜罐和高卖税代币</li>
+                                    <li><strong>数据缓存：</strong>安全数据持久化到数据库，同一代币不重复请求 API</li>
                                 </ul>
                             </div>
                         </div>
@@ -830,7 +834,7 @@
                                 <strong>早期参与者:</strong> earlyTradesHighValueCount, earlyTradesHighValuePerMin, earlyTradesCountPerMin, earlyTradesVolumePerMin, earlyTradesWalletsPerMin, earlyTradesTotalCount, earlyTradesVolume, earlyTradesUniqueWallets, earlyTradesDataCoverage, earlyTradesFilteredCount<br>
                                 <strong>钱包簇:</strong> walletClusterSecondToFirstRatio, walletClusterMegaRatio, walletClusterTop2Ratio, walletClusterConcentration<br>
                                 <strong>叙事分析:</strong> narrativeRating (1=低质量, 2=中质量, 3=高质量, 9=未评级)<br>
-                                <strong>合约审计:</strong> contractRiskPairLockPercent, contractRiskTopLpHolderPercent, contractRiskAvailable, contractRiskScore, contractRiskIsHoneypot, contractRiskLpHolders
+                                <strong>GMGN安全检测:</strong> gmgnIsHoneypot, gmgnIsOpenSource, gmgnIsRenounced, gmgnHasBlacklist, gmgnBuyTax, gmgnSellTax, gmgnTop10HolderRate, gmgnHasAlert, gmgnPrivilegeCount, gmgnLpLocked, gmgnLpLockPercent, gmgnHolderCount, gmgnLiquidity, gmgnSecurityAvailable
                             </div>
                         </details>
                     </div>
@@ -1083,10 +1087,10 @@
                     naPollIntervalMs.value = copyData.narrativeAnalysis.pollIntervalMs;
                 }
 
-                // 填充合约审计风控配置
-                const crcEnabled = document.getElementById('crc-enabled');
-                if (copyData.contractRiskCheck?.enabled && crcEnabled) {
-                    crcEnabled.checked = true;
+                // 填充 GMGN 安全检测配置
+                const gmgnSecurityEnabled = document.getElementById('gmgn-security-enabled');
+                if (gmgnSecurityEnabled && copyData.gmgnSecurityCheck !== undefined) {
+                    gmgnSecurityEnabled.checked = !!copyData.gmgnSecurityCheck.enabled;
                 }
 
                 // 填充统计配置
@@ -1749,9 +1753,9 @@
                         maxWaitSeconds: parseInt(document.getElementById('na-max-wait-seconds')?.value) || 10,
                         pollIntervalMs: parseInt(document.getElementById('na-poll-interval-ms')?.value) || 2000
                     },
-                    // 合约审计风控配置
-                    contractRiskCheck: {
-                        enabled: document.getElementById('crc-enabled')?.checked || false
+                    // GMGN 安全检测配置
+                    gmgnSecurityCheck: {
+                        enabled: document.getElementById('gmgn-security-enabled')?.checked || false
                     },
                     // 统计配置
                     stats: {

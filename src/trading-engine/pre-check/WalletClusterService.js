@@ -233,11 +233,11 @@ class WalletClusterService {
    * @private
    */
   _calculateWalletStats(trades, clusters) {
-    // 总钱包数
+    // 总钱包数（使用 wallet_address 识别真实用户，from_address 可能是路由合约）
     const allWallets = new Set();
     trades.forEach(t => {
-      if (t.from_address) allWallets.add(t.from_address.toLowerCase());
-      if (t.to_address) allWallets.add(t.to_address.toLowerCase());
+      const participant = t.wallet_address || t.from_address;
+      if (participant) allWallets.add(participant.toLowerCase());
     });
 
     // 最大簇的钱包数
@@ -247,8 +247,8 @@ class WalletClusterService {
     const maxClusterWallets = new Set();
     clusters[maxClusterIdx].forEach(idx => {
       const t = trades[idx];
-      if (t.from_address) maxClusterWallets.add(t.from_address.toLowerCase());
-      if (t.to_address) maxClusterWallets.add(t.to_address.toLowerCase());
+      const participant = t.wallet_address || t.from_address;
+      if (participant) maxClusterWallets.add(participant.toLowerCase());
     });
 
     return {

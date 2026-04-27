@@ -85,8 +85,8 @@ class TokenPool {
             tvl: parseFloat(tokenData.tvl) || 0,
             fdv: parseFloat(tokenData.fdv) || 0,
             marketCap: parseFloat(tokenData.market_cap) || 0,
-            // 新增：合约风险数据
-            contractRisk: tokenData.contract_risk_raw_ave_data || null,
+            // 新增：合约安全数据（GMGN）
+            contractSecurity: tokenData.contract_security_raw_data || null,
             creatorAddress: tokenData.creator_address || null,
             // 卡牌仓位管理
             cardPositionManager: null,

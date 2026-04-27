@@ -179,15 +179,30 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     tweetAuthorType: preBuyCheckResult.tweetAuthorType ?? 0,
     // 数据采集轮数因子
     dataCollectionRound: preBuyCheckResult.dataCollectionRound ?? 0,
-    // 合约审计风控因子
-    contractRiskAvailable: preBuyCheckResult.contractRiskAvailable ?? 0,
-    contractRiskPairLockPercent: preBuyCheckResult.contractRiskPairLockPercent ?? 0,
-    contractRiskTopLpHolderPercent: preBuyCheckResult.contractRiskTopLpHolderPercent ?? 0,
-    contractRiskLpHolders: preBuyCheckResult.contractRiskLpHolders ?? 0,
-    contractRiskScore: preBuyCheckResult.contractRiskScore ?? 0,
-    contractRiskIsHoneypot: preBuyCheckResult.contractRiskIsHoneypot ?? 0,
-    contractRiskDexAmmType: preBuyCheckResult.contractRiskDexAmmType ?? 'unknown',
-    contractRiskHasCode: preBuyCheckResult.contractRiskHasCode ?? 'unknown',
+    // 合约审计风控因子 [已停用 AVE，改用 GMGN]
+    // contractRiskAvailable: preBuyCheckResult.contractRiskAvailable ?? 0,
+    // contractRiskPairLockPercent: preBuyCheckResult.contractRiskPairLockPercent ?? 0,
+    // contractRiskTopLpHolderPercent: preBuyCheckResult.contractRiskTopLpHolderPercent ?? 0,
+    // contractRiskLpHolders: preBuyCheckResult.contractRiskLpHolders ?? 0,
+    // contractRiskScore: preBuyCheckResult.contractRiskScore ?? 0,
+    // contractRiskIsHoneypot: preBuyCheckResult.contractRiskIsHoneypot ?? 0,
+    // contractRiskDexAmmType: preBuyCheckResult.contractRiskDexAmmType ?? 'unknown',
+    // contractRiskHasCode: preBuyCheckResult.contractRiskHasCode ?? 'unknown',
+    // GMGN 安全检测因子
+    gmgnSecurityAvailable: preBuyCheckResult.gmgnSecurityAvailable ?? 0,
+    gmgnIsHoneypot: preBuyCheckResult.gmgnIsHoneypot ?? false,
+    gmgnIsOpenSource: preBuyCheckResult.gmgnIsOpenSource ?? false,
+    gmgnIsRenounced: preBuyCheckResult.gmgnIsRenounced ?? false,
+    gmgnHasBlacklist: preBuyCheckResult.gmgnHasBlacklist ?? -1,
+    gmgnBuyTax: preBuyCheckResult.gmgnBuyTax ?? 0,
+    gmgnSellTax: preBuyCheckResult.gmgnSellTax ?? 0,
+    gmgnTop10HolderRate: preBuyCheckResult.gmgnTop10HolderRate ?? 0,
+    gmgnHasAlert: preBuyCheckResult.gmgnHasAlert ?? false,
+    gmgnPrivilegeCount: preBuyCheckResult.gmgnPrivilegeCount ?? 0,
+    gmgnLpLocked: preBuyCheckResult.gmgnLpLocked ?? false,
+    gmgnLpLockPercent: preBuyCheckResult.gmgnLpLockPercent ?? 0,
+    gmgnHolderCount: preBuyCheckResult.gmgnHolderCount ?? 0,
+    gmgnLiquidity: preBuyCheckResult.gmgnLiquidity ?? 0,
   };
 }
 

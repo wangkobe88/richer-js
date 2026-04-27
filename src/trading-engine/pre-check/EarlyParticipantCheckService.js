@@ -414,8 +414,9 @@ class EarlyParticipantCheckService {
       const value = t.from_usd || t.to_usd || 0;
       totalVolume += value;
 
-      if (t.from_address) uniqueWallets.add(t.from_address.toLowerCase());
-      if (t.to_address) uniqueWallets.add(t.to_address.toLowerCase());
+      // 使用 wallet_address（真实用户地址），而非 from_address（可能是路由合约）
+      const participant = t.wallet_address || t.from_address;
+      if (participant) uniqueWallets.add(participant.toLowerCase());
 
       if (value >= this.config.lowValueThreshold) filteredCount++;
       if (value >= this.config.highValueThreshold) highValueCount++;
@@ -603,17 +604,20 @@ class EarlyParticipantCheckService {
       const fromToken = (t.from_token || '').toLowerCase();
       const buyUsd = t.from_usd || 0;
 
+      // 使用 wallet_address（真实用户EOA），from_address（sender_address）可能是路由合约
+      const userAddress = (t.wallet_address || t.from_address || '').toLowerCase();
+
       if (toToken === tokenLower) {
-        // 买入目标代币：from_address 是买方（ETH链to_address可能为空，统一使用from_address）
-        const buyer = (t.from_address || '').toLowerCase();
+        // 买入目标代币
+        const buyer = userAddress;
         if (!buyer) continue;
         if (!walletBuys.has(buyer)) walletBuys.set(buyer, { usd: 0, tokenBought: 0, tokenSold: 0 });
         const w = walletBuys.get(buyer);
         w.usd += buyUsd;
         w.tokenBought += (t.to_amount || 0);
       } else if (fromToken === tokenLower) {
-        // 卖出目标代币：from_address 是卖方
-        const seller = (t.from_address || '').toLowerCase();
+        // 卖出目标代币
+        const seller = userAddress;
         if (!seller) continue;
         if (!walletBuys.has(seller)) walletBuys.set(seller, { usd: 0, tokenBought: 0, tokenSold: 0 });
         walletBuys.get(seller).tokenSold += (t.from_amount || 0);
@@ -633,9 +637,13 @@ class EarlyParticipantCheckService {
     const holdingDenominator = (totalSupply > 0) ? totalSupply : totalBoughtTokens;
 
     return {
-      earlyTradesTop1BuyRatio: totalBuyUsd > 0 ? parseFloat((top1Usd / totalBuyUsd).toFixed(4)) : 0,
-      earlyTradesTop3BuyRatio: totalBuyUsd > 0 ? parseFloat((top3Usd / totalBuyUsd).toFixed(4)) : 0,
-      earlyTradesTop1NetHoldingRatio: holdingDenominator > 0 ? parseFloat((top1NetTokens / holdingDenominator).toFixed(6)) : 0,
+      // [已停用] Top 买入占比因子不再使用
+      // earlyTradesTop1BuyRatio: totalBuyUsd > 0 ? parseFloat((top1Usd / totalBuyUsd).toFixed(4)) : 0,
+      // earlyTradesTop3BuyRatio: totalBuyUsd > 0 ? parseFloat((top3Usd / totalBuyUsd).toFixed(4)) : 0,
+      // earlyTradesTop1NetHoldingRatio: holdingDenominator > 0 ? parseFloat((top1NetTokens / holdingDenominator).toFixed(6)) : 0,
+      earlyTradesTop1BuyRatio: 0,
+      earlyTradesTop3BuyRatio: 0,
+      earlyTradesTop1NetHoldingRatio: 0,
     };
   }
 

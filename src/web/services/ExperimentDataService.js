@@ -642,9 +642,9 @@ class ExperimentDataService {
         insertData.raw_api_data = token.raw_api_data;
       }
 
-      // 如果有合约风险数据，添加到插入数据中
-      if (token.contract_risk_raw_ave_data) {
-        insertData.contract_risk_raw_ave_data = token.contract_risk_raw_ave_data;
+      // 如果有合约安全数据，添加到插入数据中
+      if (token.contract_security_raw_data) {
+        insertData.contract_security_raw_data = token.contract_security_raw_data;
       }
 
       // 如果有创建者地址，添加到插入数据中

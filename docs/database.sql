@@ -95,7 +95,7 @@ CREATE TABLE public.experiment_tokens (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   raw_api_data jsonb,
-  contract_risk_raw_ave_data jsonb,
+  contract_security_raw_data jsonb,
   creator_address text,
   current_price_usd numeric,
   price_updated_at timestamp with time zone,

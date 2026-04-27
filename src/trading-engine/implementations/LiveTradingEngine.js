@@ -1412,7 +1412,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           platform: token.platform || 'fourmeme',
           created_at: token.createdAt,
           raw_api_data: token.rawApiData || null,
-          contract_risk_raw_ave_data: token.contractRisk || null,
+          contract_security_raw_data: token.contractSecurity || null,
           creator_address: token.creatorAddress || null,
           status: token.status || 'monitoring'
         });

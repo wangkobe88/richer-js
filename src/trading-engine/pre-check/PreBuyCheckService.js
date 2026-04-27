@@ -14,6 +14,7 @@ const { WalletClusterService } = require('./WalletClusterService');
 const { WalletDataService } = require('../../web/services/WalletDataService');
 const TwitterSearchService = require('./TwitterSearchService');
 const StrongTraderPositionService = require('./StrongTraderPositionService');
+const GMGNSecurityService = require('./GMGNSecurityService');
 
 /**
  * 因子元数据配置
@@ -149,24 +150,25 @@ const FACTOR_METADATA = {
     unit: '%',
     severity: 'warning'
   },
-  earlyTradesTop1BuyRatio: {
-    name: 'Top1钱包买入占比',
-    format: v => (v * 100).toFixed(1) + '%',
-    unit: '',
-    severity: 'warning'
-  },
-  earlyTradesTop3BuyRatio: {
-    name: 'Top3钱包买入占比',
-    format: v => (v * 100).toFixed(1) + '%',
-    unit: '',
-    severity: 'warning'
-  },
-  earlyTradesTop1NetHoldingRatio: {
-    name: 'Top1钱包净持仓占比',
-    format: v => (v * 100).toFixed(2) + '%',
-    unit: '',
-    severity: 'warning'
-  },
+  // [已停用] Top 买入占比因子不再使用
+  // earlyTradesTop1BuyRatio: {
+  //   name: 'Top1钱包买入占比',
+  //   format: v => (v * 100).toFixed(1) + '%',
+  //   unit: '',
+  //   severity: 'warning'
+  // },
+  // earlyTradesTop3BuyRatio: {
+  //   name: 'Top3钱包买入占比',
+  //   format: v => (v * 100).toFixed(1) + '%',
+  //   unit: '',
+  //   severity: 'warning'
+  // },
+  // earlyTradesTop1NetHoldingRatio: {
+  //   name: 'Top1钱包净持仓占比',
+  //   format: v => (v * 100).toFixed(2) + '%',
+  //   unit: '',
+  //   severity: 'warning'
+  // },
   earlyTradesActualSpan: {
     name: '早期数据实际跨度',
     format: v => v.toFixed(1) + '秒',
@@ -369,53 +371,139 @@ const FACTOR_METADATA = {
     unit: '',
     severity: 'warning'
   },
-  // 合约审计风控因子
-  contractRiskAvailable: {
-    name: '合约审计数据可用',
+  // [已停用] 合约审计风控因子（原 AVE API，改用 GMGN 安全检测）
+  // contractRiskAvailable: {
+  //   name: '合约审计数据可用',
+  //   format: v => v === 1 ? '有数据' : '无数据',
+  //   unit: '',
+  //   severity: 'info'
+  // },
+  // contractRiskPairLockPercent: {
+  //   name: 'LP锁定百分比',
+  //   format: v => v.toFixed(2) + '%',
+  //   unit: '%',
+  //   severity: 'critical'
+  // },
+  // contractRiskTopLpHolderPercent: {
+  //   name: 'Top1 LP持有人百分比',
+  //   format: v => v.toFixed(1) + '%',
+  //   unit: '%',
+  //   severity: 'critical'
+  // },
+  // contractRiskLpHolders: {
+  //   name: 'LP持有人数量',
+  //   format: v => v.toString(),
+  //   unit: '个',
+  //   severity: 'info'
+  // },
+  // contractRiskScore: {
+  //   name: 'AVE风险评分',
+  //   format: v => v.toString(),
+  //   unit: '分',
+  //   severity: 'warning'
+  // },
+  // contractRiskIsHoneypot: {
+  //   name: '蜜罐标记',
+  //   format: v => v === 1 ? '是蜜罐' : v === -1 ? '未知' : '否',
+  //   unit: '',
+  //   severity: 'critical'
+  // },
+  // contractRiskDexAmmType: {
+  //   name: 'DEX AMM类型',
+  //   format: v => v || 'unknown',
+  //   unit: '',
+  //   severity: 'info'
+  // },
+  // contractRiskHasCode: {
+  //   name: '合约开源状态',
+  //   format: v => v === 'open' ? '已开源' : v === 'closed' ? '未开源' : '无数据',
+  //   unit: '',
+  //   severity: 'info'
+  // },
+
+  // GMGN 安全检测因子
+  gmgnSecurityAvailable: {
+    name: 'GMGN安全数据可用',
     format: v => v === 1 ? '有数据' : '无数据',
     unit: '',
     severity: 'info'
   },
-  contractRiskPairLockPercent: {
-    name: 'LP锁定百分比',
-    format: v => v.toFixed(2) + '%',
+  gmgnIsHoneypot: {
+    name: 'GMGN蜜罐检测',
+    format: v => v ? '蜜罐' : '安全',
+    unit: '',
+    severity: 'critical'
+  },
+  gmgnIsOpenSource: {
+    name: '合约开源',
+    format: v => v ? '已开源' : '未开源',
+    unit: '',
+    severity: 'warning'
+  },
+  gmgnIsRenounced: {
+    name: '合约放弃权限',
+    format: v => v ? '已放弃' : '未放弃',
+    unit: '',
+    severity: 'warning'
+  },
+  gmgnHasBlacklist: {
+    name: '黑名单功能',
+    format: v => v === 1 ? '有黑名单' : v === -1 ? '未知' : '无',
+    unit: '',
+    severity: 'critical'
+  },
+  gmgnBuyTax: {
+    name: '买入税',
+    format: v => (v * 100).toFixed(1) + '%',
     unit: '%',
     severity: 'critical'
   },
-  contractRiskTopLpHolderPercent: {
-    name: 'Top1 LP持有人百分比',
-    format: v => v.toFixed(1) + '%',
+  gmgnSellTax: {
+    name: '卖出税',
+    format: v => (v * 100).toFixed(1) + '%',
     unit: '%',
     severity: 'critical'
   },
-  contractRiskLpHolders: {
-    name: 'LP持有人数量',
+  gmgnTop10HolderRate: {
+    name: 'Top10持仓占比',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '%',
+    severity: 'warning'
+  },
+  gmgnHasAlert: {
+    name: 'GMGN风险警报',
+    format: v => v ? '有警报' : '无',
+    unit: '',
+    severity: 'critical'
+  },
+  gmgnPrivilegeCount: {
+    name: '特权函数数量',
+    format: v => v + '个',
+    unit: '个',
+    severity: 'warning'
+  },
+  gmgnLpLocked: {
+    name: 'LP锁仓状态',
+    format: v => v ? '已锁仓' : '未锁仓',
+    unit: '',
+    severity: 'info'
+  },
+  gmgnLpLockPercent: {
+    name: 'LP锁仓比例',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '%',
+    severity: 'info'
+  },
+  gmgnHolderCount: {
+    name: 'GMGN持有人数',
     format: v => v.toString(),
     unit: '个',
     severity: 'info'
   },
-  contractRiskScore: {
-    name: 'AVE风险评分',
-    format: v => v.toString(),
-    unit: '分',
-    severity: 'warning'
-  },
-  contractRiskIsHoneypot: {
-    name: '蜜罐标记',
-    format: v => v === 1 ? '是蜜罐' : v === -1 ? '未知' : '否',
-    unit: '',
-    severity: 'critical'
-  },
-  contractRiskDexAmmType: {
-    name: 'DEX AMM类型',
-    format: v => v || 'unknown',
-    unit: '',
-    severity: 'info'
-  },
-  contractRiskHasCode: {
-    name: '合约开源状态',
-    format: v => v === 'open' ? '已开源' : v === 'closed' ? '未开源' : '无数据',
-    unit: '',
+  gmgnLiquidity: {
+    name: 'GMGN流动性',
+    format: v => '$' + (v >= 1000 ? (v / 1000).toFixed(1) + 'K' : v.toFixed(2)),
+    unit: 'USD',
     severity: 'info'
   }
 };
@@ -471,6 +559,9 @@ class PreBuyCheckService {
 
     // 初始化强势交易者持仓服务
     this.strongTraderPositionService = new StrongTraderPositionService();
+
+    // 初始化 GMGN 安全检测服务（传入 supabase 用于 DB 缓存读写，传入 logger 用于文件日志）
+    this.gmgnSecurityService = new GMGNSecurityService(supabase, logger);
   }
 
   /**
@@ -503,7 +594,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, contractRiskData, totalSupply } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, skipGmgnSecurity, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, contractRiskData, totalSupply } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -532,12 +623,16 @@ class PreBuyCheckService {
         ? this._getEmptyTwitterCheck()
         : await this._performTwitterSearch(tokenAddress);
 
-      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查
-      const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck] = await Promise.all([
+      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查、GMGN安全检测
+      const gmgnSecurityPromise = skipGmgnSecurity
+        ? Promise.resolve(this.gmgnSecurityService.getEmptyFactorValues())
+        : this.gmgnSecurityService.performSecurityCheck(tokenAddress, chain);
+      const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck, gmgnSecurityCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck, tokenAddress),
         this._checkCreatorIsNotBadDevWallet(creatorAddress),
-        this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck)
+        this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck),
+        gmgnSecurityPromise,
       ]);
 
       // 如果没有提供条件表达式，默认通过（不执行任何检查）
@@ -587,7 +682,8 @@ class PreBuyCheckService {
           narrativeRating: narrativeRating,
           tweetAuthorType: tweetAuthorType,
           dataCollectionRound: dataCollectionRound,
-          contractRiskData: contractRiskData  // 合约审计风控数据
+          // contractRiskData: contractRiskData  // [已停用] AVE 合约审计风控数据
+          gmgnSecurityCheck: gmgnSecurityCheck,  // GMGN 安全检测数据
         }
       );
     } catch (error) {
@@ -652,15 +748,17 @@ class PreBuyCheckService {
         twitterSearchError: errorMessage,
         // 强势交易者持仓检查失败时的空值
         ...this.strongTraderPositionService.getEmptyFactorValues(),
-        // 合约审计风控因子（失败时使用传入的数据或空值）
-        contractRiskAvailable: options.contractRiskData?.contractRiskAvailable ?? 0,
-        contractRiskPairLockPercent: options.contractRiskData?.contractRiskPairLockPercent ?? 0,
-        contractRiskTopLpHolderPercent: options.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
-        contractRiskLpHolders: options.contractRiskData?.contractRiskLpHolders ?? 0,
-        contractRiskScore: options.contractRiskData?.contractRiskScore ?? 0,
-        contractRiskIsHoneypot: options.contractRiskData?.contractRiskIsHoneypot ?? 0,
-        contractRiskDexAmmType: options.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
-        contractRiskHasCode: options.contractRiskData?.contractRiskHasCode ?? 'unknown'
+        // GMGN 安全检测（失败时使用空值）
+        ...this.gmgnSecurityService.getEmptyFactorValues(),
+        // [已停用] 合约审计风控因子（保留默认值以兼容已有数据）
+        // contractRiskAvailable: options.contractRiskData?.contractRiskAvailable ?? 0,
+        // contractRiskPairLockPercent: options.contractRiskData?.contractRiskPairLockPercent ?? 0,
+        // contractRiskTopLpHolderPercent: options.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
+        // contractRiskLpHolders: options.contractRiskData?.contractRiskLpHolders ?? 0,
+        // contractRiskScore: options.contractRiskData?.contractRiskScore ?? 0,
+        // contractRiskIsHoneypot: options.contractRiskData?.contractRiskIsHoneypot ?? 0,
+        // contractRiskDexAmmType: options.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
+        // contractRiskHasCode: options.contractRiskData?.contractRiskHasCode ?? 'unknown'
       };
     }
   }
@@ -723,15 +821,18 @@ class PreBuyCheckService {
       // 数据采集轮数因子
       dataCollectionRound: extraContext.dataCollectionRound ?? 0,
 
-      // 合约审计风控因子
-      contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
-      contractRiskPairLockPercent: extraContext.contractRiskData?.contractRiskPairLockPercent ?? 0,
-      contractRiskTopLpHolderPercent: extraContext.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
-      contractRiskLpHolders: extraContext.contractRiskData?.contractRiskLpHolders ?? 0,
-      contractRiskScore: extraContext.contractRiskData?.contractRiskScore ?? 0,
-      contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0,
-      contractRiskDexAmmType: extraContext.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
-      contractRiskHasCode: extraContext.contractRiskData?.contractRiskHasCode ?? 'unknown',
+      // GMGN 安全检测因子
+      ...(extraContext.gmgnSecurityCheck || this.gmgnSecurityService.getEmptyFactorValues()),
+
+      // [已停用] 合约审计风控因子（保留默认值以兼容已有数据）
+      // contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
+      // contractRiskPairLockPercent: extraContext.contractRiskData?.contractRiskPairLockPercent ?? 0,
+      // contractRiskTopLpHolderPercent: extraContext.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
+      // contractRiskLpHolders: extraContext.contractRiskData?.contractRiskLpHolders ?? 0,
+      // contractRiskScore: extraContext.contractRiskData?.contractRiskScore ?? 0,
+      // contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0,
+      // contractRiskDexAmmType: extraContext.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
+      // contractRiskHasCode: extraContext.contractRiskData?.contractRiskHasCode ?? 'unknown',
 
       // 早期参与者检查结果
       ...earlyParticipantCheck,
@@ -835,16 +936,17 @@ class PreBuyCheckService {
         tweetAuthorType: extraContext.tweetAuthorType ?? 0,
         // 数据采集轮数因子（允许在条件表达式中使用）
         dataCollectionRound: extraContext.dataCollectionRound ?? 0,
-        // 合约审计风控因子（允许在条件表达式中使用）
-        contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
-        contractRiskPairLockPercent: extraContext.contractRiskData?.contractRiskPairLockPercent ?? 0,
-        contractRiskTopLpHolderPercent: extraContext.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
-        contractRiskLpHolders: extraContext.contractRiskData?.contractRiskLpHolders ?? 0,
-        contractRiskScore: extraContext.contractRiskData?.contractRiskScore ?? 0,
-        contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0,
-        contractRiskDexAmmType: extraContext.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
-      contractRiskHasCode: extraContext.contractRiskData?.contractRiskHasCode ?? 'unknown',
-        contractRiskHasCode: extraContext.contractRiskData?.contractRiskHasCode ?? 'unknown'
+        // GMGN 安全检测因子（允许在条件表达式中使用）
+        ...this._extractGmgnFactors(extraContext.gmgnSecurityCheck),
+        // [已停用] AVE 合约审计风控因子
+        // contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
+        // contractRiskPairLockPercent: extraContext.contractRiskData?.contractRiskPairLockPercent ?? 0,
+        // contractRiskTopLpHolderPercent: extraContext.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
+        // contractRiskLpHolders: extraContext.contractRiskData?.contractRiskLpHolders ?? 0,
+        // contractRiskScore: extraContext.contractRiskData?.contractRiskScore ?? 0,
+        // contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0,
+        // contractRiskDexAmmType: extraContext.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
+        // contractRiskHasCode: extraContext.contractRiskData?.contractRiskHasCode ?? 'unknown',
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
@@ -869,7 +971,17 @@ class PreBuyCheckService {
           walletClusterSecondToFirstRatio: context.walletClusterSecondToFirstRatio,
           twitterTotalResults: context.twitterTotalResults,
           twitterSearchDuration: context.twitterSearchDuration,
-          narrativeRating: context.narrativeRating
+          narrativeRating: context.narrativeRating,
+          // GMGN 安全检测因子
+          gmgnSecurityAvailable: context.gmgnSecurityAvailable,
+          gmgnIsHoneypot: context.gmgnIsHoneypot,
+          gmgnIsOpenSource: context.gmgnIsOpenSource,
+          gmgnIsRenounced: context.gmgnIsRenounced,
+          gmgnBuyTax: context.gmgnBuyTax,
+          gmgnSellTax: context.gmgnSellTax,
+          gmgnLpLocked: context.gmgnLpLocked,
+          gmgnTop10HolderRate: context.gmgnTop10HolderRate,
+          gmgnHasAlert: context.gmgnHasAlert
         }
       });
 
@@ -968,6 +1080,31 @@ class PreBuyCheckService {
     });
 
     return result;
+  }
+
+  /**
+   * 从 GMGN 安全检测结果中提取因子用于条件表达式评估上下文
+   * @private
+   */
+  _extractGmgnFactors(gmgnSecurityCheck) {
+    const empty = this.gmgnSecurityService.getEmptyFactorValues();
+    if (!gmgnSecurityCheck) return empty;
+    return {
+      gmgnSecurityAvailable: gmgnSecurityCheck.gmgnSecurityAvailable ?? 0,
+      gmgnIsHoneypot: gmgnSecurityCheck.gmgnIsHoneypot ?? false,
+      gmgnIsOpenSource: gmgnSecurityCheck.gmgnIsOpenSource ?? false,
+      gmgnIsRenounced: gmgnSecurityCheck.gmgnIsRenounced ?? false,
+      gmgnHasBlacklist: gmgnSecurityCheck.gmgnHasBlacklist ?? -1,
+      gmgnBuyTax: gmgnSecurityCheck.gmgnBuyTax ?? 0,
+      gmgnSellTax: gmgnSecurityCheck.gmgnSellTax ?? 0,
+      gmgnTop10HolderRate: gmgnSecurityCheck.gmgnTop10HolderRate ?? 0,
+      gmgnHasAlert: gmgnSecurityCheck.gmgnHasAlert ?? false,
+      gmgnPrivilegeCount: gmgnSecurityCheck.gmgnPrivilegeCount ?? 0,
+      gmgnLpLocked: gmgnSecurityCheck.gmgnLpLocked ?? false,
+      gmgnLpLockPercent: gmgnSecurityCheck.gmgnLpLockPercent ?? 0,
+      gmgnHolderCount: gmgnSecurityCheck.gmgnHolderCount ?? 0,
+      gmgnLiquidity: gmgnSecurityCheck.gmgnLiquidity ?? 0,
+    };
   }
 
   /**
@@ -1563,15 +1700,16 @@ class PreBuyCheckService {
       tweetAuthorType: 0,
       // 数据采集轮数因子
       dataCollectionRound: 0,
-      // 合约审计风控因子
-      contractRiskAvailable: 0,
-      contractRiskPairLockPercent: 0,
-      contractRiskTopLpHolderPercent: 0,
-      contractRiskLpHolders: 0,
-      contractRiskScore: 0,
-      contractRiskIsHoneypot: 0,
-      contractRiskDexAmmType: 'unknown',
-      contractRiskHasCode: 'unknown',
+      // 合约审计风控因子 [已停用 AVE，改用 GMGN]
+      // contractRiskAvailable: 0,
+      // contractRiskPairLockPercent: 0,
+      // contractRiskTopLpHolderPercent: 0,
+      // contractRiskLpHolders: 0,
+      // contractRiskScore: 0,
+      // contractRiskIsHoneypot: 0,
+      // contractRiskDexAmmType: 'unknown',
+      // contractRiskHasCode: 'unknown',
+      ...this.gmgnSecurityService.getEmptyFactorValues(),
       ...this.earlyParticipantService.getEmptyFactorValues(),
       ...this.walletClusterService.getEmptyFactorValues(),
       // Twitter因子

@@ -1457,15 +1457,16 @@ class BacktestEngine extends AbstractTradingEngine {
       }
       // ========== 叙事分析步骤结束 ==========
 
-      // ========== 合约审计风控（LP锁定检查） ==========
-      let contractRiskData = { contractRiskAvailable: 0, contractRiskPairLockPercent: 0, contractRiskTopLpHolderPercent: 0, contractRiskLpHolders: 0, contractRiskScore: 0, contractRiskIsHoneypot: 0 };
-      if (this._contractRiskCheckEnabled) {
-        contractRiskData = await this._fetchContractRiskData(tokenState.token, tokenState.chain || this._blockchain || 'bsc');
-        this.logger.info(this._experimentId, '_executeStrategy',
-          `合约审计数据 | symbol=${tokenState.symbol}, available=${contractRiskData.contractRiskAvailable}, ` +
-          `pairLock=${contractRiskData.contractRiskPairLockPercent}%, topLpHolder=${contractRiskData.contractRiskTopLpHolderPercent}%, ` +
-          `score=${contractRiskData.contractRiskScore}, honeypot=${contractRiskData.contractRiskIsHoneypot}, dexAmmType=${contractRiskData.contractRiskDexAmmType}, hasCode=${contractRiskData.contractRiskHasCode}`);
-      }
+      // ========== 合约审计风控（LP锁定检查）[已停用 AVE，GMGN 安全检测已在 PreBuyCheckService 中执行] ==========
+      // let contractRiskData = { contractRiskAvailable: 0, contractRiskPairLockPercent: 0, contractRiskTopLpHolderPercent: 0, contractRiskLpHolders: 0, contractRiskScore: 0, contractRiskIsHoneypot: 0 };
+      // if (this._contractRiskCheckEnabled) {
+      //   contractRiskData = await this._fetchContractRiskData(tokenState.token, tokenState.chain || this._blockchain || 'bsc');
+      //   this.logger.info(this._experimentId, '_executeStrategy',
+      //     `合约审计数据 | symbol=${tokenState.symbol}, available=${contractRiskData.contractRiskAvailable}, ` +
+      //     `pairLock=${contractRiskData.contractRiskPairLockPercent}%, topLpHolder=${contractRiskData.contractRiskTopLpHolderPercent}%, ` +
+      //     `score=${contractRiskData.contractRiskScore}, honeypot=${contractRiskData.contractRiskIsHoneypot}, dexAmmType=${contractRiskData.contractRiskDexAmmType}, hasCode=${contractRiskData.contractRiskHasCode}`);
+      // }
+      let contractRiskData = { contractRiskAvailable: 0, contractRiskPairLockPercent: 0, contractRiskTopLpHolderPercent: 0, contractRiskLpHolders: 0, contractRiskScore: 0, contractRiskIsHoneypot: 0 };  // 固定返回空数据
       // ========== 合约审计风控结束 ==========
 
       // ========== 执行购买前检查 ==========
@@ -1524,6 +1525,7 @@ class BacktestEngine extends AbstractTradingEngine {
               checkTime: Math.floor(timestamp.getTime() / 1000),
               skipHolderCheck: true,
               skipTwitterSearch: true,  // 回测时跳过Twitter搜索，因子使用默认值
+              // GMGN安全检测不跳过：优先使用DB缓存（虚拟/实盘实验可能已有数据），无缓存时调用API并写入DB
               tokenBuyTime: tokenState.buyTime || null,  // 代币首次买入时间
               drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 从最高价跌幅
               buyRound: currentRound + 1,  // 即将进行的轮数
