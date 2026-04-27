@@ -106,7 +106,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 代币追踪：记录已处理过的代币
     this._seenTokens = new Set();
 
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', `🎮 虚拟交易引擎已创建: ${this.id}, 初始余额: ${this.initialBalance}`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `🎮 虚拟交易引擎已创建: ${this.id}, 初始余额: ${this.initialBalance}`);
   }
 
   // ==================== 抽象方法实现 ====================
@@ -481,10 +481,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    */
   async processSignal(signal, existingSignalId = null) {
     // 调试：记录 processSignal 被调用
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', `🔔 VirtualTradingEngine.processSignal 被调用: ${signal.symbol} ${signal.action} (${signal.tokenAddress}), existingSignalId=${existingSignalId}`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `🔔 VirtualTradingEngine.processSignal 被调用: ${signal.symbol} ${signal.action} (${signal.tokenAddress}), existingSignalId=${existingSignalId}`);
 
     if (!this._experiment) {
-      this._logger.error(this._experimentId, 'VirtualTradingEngine', '❌ processSignal: this._experiment 为 null');
+      this.logger.error(this._experimentId, 'VirtualTradingEngine', '❌ processSignal: this._experiment 为 null');
       throw new Error('引擎未初始化');
     }
 
@@ -524,9 +524,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       });
 
       signalId = await tradeSignal.save();
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', `✅ [卖出] 信号已保存: ${signal.symbol} ${signal.action}, signalId=${signalId}`);
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ [卖出] 信号已保存: ${signal.symbol} ${signal.action}, signalId=${signalId}`);
     } else {
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', `♻️  [买入] 使用已存在的信号: ${signal.symbol} ${signal.action}, signalId=${signalId}`);
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', `♻️  [买入] 使用已存在的信号: ${signal.symbol} ${signal.action}, signalId=${signalId}`);
     }
 
     // 执行交易
@@ -553,7 +553,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
 
     } catch (error) {
-      this._logger.error('信号执行失败', {
+      this.logger.error('信号执行失败', {
         signalId,
         error: error.message,
         stack: error.stack
@@ -602,7 +602,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 1. 初始化价格历史缓存（用于趋势检测）
     const PriceHistoryCache = require('../PriceHistoryCache');
     this._priceHistoryCache = new PriceHistoryCache(15 * 60 * 1000); // 15分钟
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 价格历史缓存初始化完成');
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 价格历史缓存初始化完成');
 
     // 2. 初始化趋势检测器
     const TrendDetector = require('../TrendDetector');
@@ -614,12 +614,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       totalReturnThreshold: 5,
       riseRatioThreshold: 0.5
     });
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 价格趋势检测器初始化完成');
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 价格趋势检测器初始化完成');
 
     // 2.5 初始化持有者历史缓存（用于持有者趋势检测）
     const HolderHistoryCache = require('../HolderHistoryCache');
     this._holderHistoryCache = new HolderHistoryCache(15 * 60 * 1000); // 15分钟
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 持有者历史缓存初始化完成');
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 持有者历史缓存初始化完成');
 
     // 2.6 初始化持有者趋势检测器
     const HolderTrendDetector = require('../HolderTrendDetector');
@@ -631,14 +631,14 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       growthRatioThreshold: 3, // 3%增长
       riseRatioThreshold: 0.5
     });
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 持有者趋势检测器初始化完成');
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 持有者趋势检测器初始化完成');
 
     // 2.1 初始化持有者服务
     const { TokenHolderService } = require('../holders/TokenHolderService');
     const { dbManager } = require('../../services/dbManager');
     const supabase = dbManager.getClient();
     this._tokenHolderService = new TokenHolderService(supabase, this.logger);
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 持有者服务初始化完成');
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 持有者服务初始化完成');
 
     // 2.2 初始化购买前检查服务
     const { PreBuyCheckService } = require('../pre-check/PreBuyCheckService');
@@ -655,11 +655,11 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._preBuyCheckConfig = preBuyCheckConfig;
 
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
 
     // 3. 初始化代币池（传入价格历史缓存和持有者历史缓存）
     this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache, this._holderHistoryCache);
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 代币池初始化完成');
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 代币池初始化完成');
 
     // 2. 初始化AVE TokenAPI（用于获取代币价格和因子数据）
     const { AveTokenAPI } = require('../../core/ave-api');
@@ -669,7 +669,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       config.ave.timeout,
       apiKey
     );
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', '✅ AVE TokenAPI初始化完成');
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ AVE TokenAPI初始化完成');
 
     // 2.1 初始化FourMeme API（用于获取创建者地址）
     const { FourMemeTokenAPI } = require('../../core/fourmeme-api');
@@ -677,7 +677,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       config.fourmeme?.apiUrl || 'https://four.meme',
       config.fourmeme?.timeout || 30000
     );
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', '✅ FourMeme API初始化完成');
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ FourMeme API初始化完成');
 
     // 3. 初始化收集器（传递实验ID和区块链配置）
     // 合并收集器配置：默认配置 + 实验级别覆盖
@@ -696,7 +696,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       this._experimentId,  // 传递实验ID
       this._blockchain    // 传递区块链配置，用于过滤平台
     );
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 收集器初始化完成 [实验ID: ${this._experimentId}, 区块链: ${this._blockchain}, 收集频率: ${mergedCollectorConfig.collector.interval}ms, 代币最大年龄: ${mergedCollectorConfig.collector.maxAgeSeconds}s]`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 收集器初始化完成 [实验ID: ${this._experimentId}, 区块链: ${this._blockchain}, 收集频率: ${mergedCollectorConfig.collector.interval}ms, 代币最大年龄: ${mergedCollectorConfig.collector.maxAgeSeconds}s]`);
 
     // 4. 初始化RSI指标
     const { RSIIndicator } = require('../../indicators/RSIIndicator');
@@ -705,7 +705,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       smoothingPeriod: 9,
       smoothingType: 'EMA'
     });
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', '✅ RSI指标初始化完成');
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ RSI指标初始化完成');
 
     // 5. 初始化策略引擎
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
@@ -754,7 +754,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     }
 
     this._strategyEngine.loadStrategies(strategyArray, availableFactorIds);
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
     // 6. 初始化卡牌仓位管理配置
     const experimentConfig = this._experiment?.config || {};
@@ -765,15 +765,15 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 6.0.2 读取 GMGN 安全检测配置
     this._gmgnSecurityCheckEnabled = experimentConfig.strategiesConfig?.gmgnSecurityCheck?.enabled ?? experimentConfig.gmgnSecurityCheck?.enabled ?? false;
     if (this._gmgnSecurityCheckEnabled) {
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', '✅ GMGN 安全检测已启用');
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ GMGN 安全检测已启用');
     }
 
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', `卡牌管理配置检查 | positionManagement=${JSON.stringify(this._positionManagement || 'null')}`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `卡牌管理配置检查 | positionManagement=${JSON.stringify(this._positionManagement || 'null')}`);
 
     if (this._positionManagement && this._positionManagement.enabled) {
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 卡牌仓位管理已启用: 总卡牌数=${this._positionManagement.totalCards || 4}, 单卡BNB=${this._positionManagement.perCardMaxBNB || 0.025}`);
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 卡牌仓位管理已启用: 总卡牌数=${this._positionManagement.totalCards || 4}, 单卡BNB=${this._positionManagement.perCardMaxBNB || 0.025}`);
     } else {
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', `⚠️ 卡牌仓位管理未启用: positionManagement=${!!this._positionManagement}, enabled=${this._positionManagement?.enabled}`);
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', `⚠️ 卡牌仓位管理未启用: positionManagement=${!!this._positionManagement}, enabled=${this._positionManagement?.enabled}`);
     }
 
     // 6.1 初始化叙事分析配置
@@ -785,13 +785,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._narrativePollIntervalMs = narrativeAnalysisConfig.pollIntervalMs || 2000;
 
     if (this._narrativeAnalysisEnabled) {
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 叙事分析已启用 (阈值: ${this._narrativeTriggerThreshold}%, 等待: ${this._narrativeMaxWaitSeconds}s)`);
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 叙事分析已启用 (阈值: ${this._narrativeTriggerThreshold}%, 等待: ${this._narrativeMaxWaitSeconds}s)`);
     } else {
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', '⚠️ 叙事分析未启用');
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', '⚠️ 叙事分析未启用');
     }
 
     // 6.2 提前加载 Super IP 检测模块（用于 tweetAuthorType 因子）
-    this._logger.warn(this._experimentId, 'VirtualTradingEngine', 'Super IP 模块加载失败:', { details: err.message });
+    this.logger.warn(this._experimentId, 'VirtualTradingEngine', 'Super IP 模块加载失败:', { details: err.message });
 
     // 7. 初始化时序数据服务
     const { ExperimentTimeSeriesService } = require('../../web/services/ExperimentTimeSeriesService');
@@ -812,7 +812,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       await this._monitoringCycle();
     }, interval);
 
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', `🔄 监控循环已启动，间隔: ${interval}ms`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `🔄 监控循环已启动，间隔: ${interval}ms`);
     this.logger.info(this._experimentId, 'VirtualTradingEngine', '监控循环已启动', {
       interval: interval
     });
@@ -984,7 +984,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       const factorResults = this._buildFactors(token);
 
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', `📊 [时序数据] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', `📊 [时序数据] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
 
       // 使用统一的 FactorBuilder 序列化因子
       const { buildFactorValuesForTimeSeries } = require('../core/FactorBuilder');
@@ -1002,7 +1002,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         blockchain: this._experiment.blockchain || 'bsc'
       });
 
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', `📊 [时序数据] 保存结果 | symbol=${token.symbol}, result=${recordResult}`);
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', `📊 [时序数据] 保存结果 | symbol=${token.symbol}, result=${recordResult}`);
       if (!recordResult) {
         this.logger.warn(this._experimentId, 'ProcessToken',
           `时序数据保存失败 | symbol=${token.symbol}, tokenAddress=${token.token}`);
@@ -2360,7 +2360,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           }
 
           if (tokenAmount <= 0 || tokenPrice <= 0) {
-            this._logger.warn(this._experimentId, 'VirtualTradingEngine', `跳过无效交易: ${trade.tokenSymbol}, amount=${tokenAmount}, price=${tokenPrice}`);
+            this.logger.warn(this._experimentId, 'VirtualTradingEngine', `跳过无效交易: ${trade.tokenSymbol}, amount=${tokenAmount}, price=${tokenPrice}`);
             continue;
           }
 
@@ -2373,16 +2373,16 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             0.001
           );
         } catch (error) {
-          this._logger.error(this._experimentId, 'VirtualTradingEngine', `重放交易失败: ${trade.tokenSymbol} - ${error.message}`);
+          this.logger.error(this._experimentId, 'VirtualTradingEngine', `重放交易失败: ${trade.tokenSymbol} - ${error.message}`);
         }
       }
 
       const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
       const holdingsCount = portfolio.positions.size;
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', `📦 持仓加载完成: ${holdingsCount} 个代币, 余额 $${portfolio.cashBalance.toFixed(2)}`);
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', `📦 持仓加载完成: ${holdingsCount} 个代币, 余额 $${portfolio.cashBalance.toFixed(2)}`);
 
     } catch (error) {
-      this._logger.error(this._experimentId, 'VirtualTradingEngine', '❌ 加载持仓失败:', { details: error.message });
+      this.logger.error(this._experimentId, 'VirtualTradingEngine', '❌ 加载持仓失败:', { details: error.message });
     }
   }
 
@@ -2392,7 +2392,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    */
   async start() {
     if (this._status === EngineStatus.RUNNING) {
-      this._logger.warn(this._experimentId, 'VirtualTradingEngine', '⚠️ 引擎已在运行');
+      this.logger.warn(this._experimentId, 'VirtualTradingEngine', '⚠️ 引擎已在运行');
       return;
     }
 
@@ -2400,18 +2400,18 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     await super.start();
 
     // 初始化钱包缓存（黑白名单）
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', '🔄 正在加载钱包缓存...');
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', '🔄 正在加载钱包缓存...');
     await this._preBuyCheckService.initialize();
 
     // 启动收集器
     this._fourmemeCollector.start();
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', `🔄 Fourmeme收集器已启动 (${config.collector.interval}ms间隔)`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `🔄 Fourmeme收集器已启动 (${config.collector.interval}ms间隔)`);
     this.logger.info(this._experimentId, 'VirtualTradingEngine', 'Fourmeme收集器已启动');
 
     // 启动监控循环
     this._startMonitoringLoop();
 
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', `🚀 虚拟交易引擎已启动: 实验 ${this._experimentId}`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `🚀 虚拟交易引擎已启动: 实验 ${this._experimentId}`);
     this.logger.info(this._experimentId, 'VirtualTradingEngine', '引擎已启动');
   }
 
@@ -2458,20 +2458,20 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 停止收集器
     if (this._fourmemeCollector) {
       this._fourmemeCollector.stop();
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', '⏹️ Fourmeme收集器已停止');
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', '⏹️ Fourmeme收集器已停止');
     }
 
     // 停止监控循环
     if (this._monitoringTimer) {
       clearInterval(this._monitoringTimer);
       this._monitoringTimer = null;
-      this._logger.info(this._experimentId, 'VirtualTradingEngine', '⏹️ 监控循环已停止');
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', '⏹️ 监控循环已停止');
     }
 
     // 调用基类 stop 方法
     await super.stop();
 
-    this._logger.info(this._experimentId, 'VirtualTradingEngine', `🛑 虚拟交易引擎已停止: 实验 ${this._experimentId}`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `🛑 虚拟交易引擎已停止: 实验 ${this._experimentId}`);
     this.logger.info(this._experimentId, 'VirtualTradingEngine', '引擎已停止', {
       metrics: this.metrics,
       loopCount: this._loopCount
