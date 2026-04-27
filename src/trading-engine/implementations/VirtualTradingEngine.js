@@ -791,7 +791,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     }
 
     // 6.2 提前加载 Super IP 检测模块（用于 tweetAuthorType 因子）
-    this.logger.warn(this._experimentId, 'VirtualTradingEngine', 'Super IP 模块加载失败:', { details: err.message });
+    getSuperIpModules().catch(err => this.logger.warn(this._experimentId, 'VirtualTradingEngine', 'Super IP 模块加载失败', { details: err.message }));
 
     // 7. 初始化时序数据服务
     const { ExperimentTimeSeriesService } = require('../../web/services/ExperimentTimeSeriesService');
