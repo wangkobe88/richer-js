@@ -211,7 +211,7 @@ class BacktestEngine extends AbstractTradingEngine {
     } catch (error) {
       this.logger.error(this._experimentId, 'BacktestEngine',
         `❌ 回测执行失败: ${error.message}`);
-      console.error(error.stack);
+      this._logger.error(this._experimentId, 'BacktestEngine', 'Stack trace', { stack: error.stack });
     } finally {
       // 使用基类的 _updateExperimentStatus 方法更新最终状态
       const finalStatus = completedSuccessfully ? 'completed' : 'failed';
@@ -226,7 +226,7 @@ class BacktestEngine extends AbstractTradingEngine {
           this.logger.warn(this._experimentId, '_updateExperimentStatus', `⚠️ 回测实验失败，状态已更新`);
         }
       } catch (updateError) {
-        console.error(`❌ 更新实验状态失败: ${updateError.message}`);
+        this._logger.error(this._experimentId, 'BacktestEngine', `更新实验状态失败: ${updateError.message}`);
       }
     }
   }
@@ -254,7 +254,7 @@ class BacktestEngine extends AbstractTradingEngine {
     try {
       const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
       if (!cardManager) {
-        console.error(`❌ 买入失败: ${signal.symbol} (${signal.tokenAddress}) - 卡牌管理器未初始化`);
+        this._logger.error(this._experimentId, 'BacktestEngine', `买入失败: ${signal.symbol} (${signal.tokenAddress}) - 卡牌管理器未初始化`);
         return { success: false, reason: '卡牌管理器未初始化' };
       }
 
@@ -266,7 +266,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
       const amountInBNB = this._calculateBuyAmount(signal);
       if (amountInBNB <= 0) {
-        console.error(`❌ 买入失败: ${signal.symbol} - 计算金额为0 (amountInBNB=${amountInBNB})`);
+        this._logger.error(this._experimentId, 'BacktestEngine', `买入失败: ${signal.symbol} - 计算金额为0 (amountInBNB=${amountInBNB})`);
         return { success: false, reason: '余额不足或计算金额为0' };
       }
 
@@ -295,9 +295,9 @@ class BacktestEngine extends AbstractTradingEngine {
 
       // 调试日志
       if (!result || !result.success) {
-        console.error(`❌ 买入执行失败: ${signal.symbol}`);
-        console.error(`   result:`, result);
-        console.error(`   reason: ${result?.reason || result?.message || '未知'}`);
+        this._logger.error(this._experimentId, 'BacktestEngine', `买入执行失败: ${signal.symbol}`);
+        this._logger.error(this._experimentId, 'BacktestEngine', 'result:', { details: result });
+        this._logger.error(this._experimentId, 'BacktestEngine', `reason: ${result?.reason || result?.message || '未知'}`);
       } else {
         this.logger.info(this._experimentId, '_executeBuy', `✅ 买入成功: ${signal.symbol}, 金额: ${amountInBNB} BNB`);
       }
@@ -337,7 +337,7 @@ class BacktestEngine extends AbstractTradingEngine {
       return result;
 
     } catch (error) {
-      console.error(`❌ 买入异常: ${signal.symbol}`, error.message);
+      this._logger.error(this._experimentId, 'BacktestEngine', '买入异常: ${signal.symbol}', { details: error.message });
       return { success: false, reason: error.message };
     }
   }
@@ -1746,9 +1746,9 @@ class BacktestEngine extends AbstractTradingEngine {
 
       // 执行失败，记录失败原因
       const failureReason = result?.message || result?.reason || '执行失败';
-      console.error(`❌ 卖出策略执行失败: ${tokenState.symbol} (${tokenState.token})`);
-      console.error(`   原因: ${failureReason}`);
-      console.error(`   result:`, result);
+      this._logger.error(this._experimentId, 'BacktestEngine', `卖出策略执行失败: ${tokenState.symbol} (${tokenState.token})`);
+      this._logger.error(this._experimentId, 'BacktestEngine', `原因: ${failureReason}`);
+      this._logger.error(this._experimentId, 'BacktestEngine', 'result:', { details: result });
 
       if (this._roundSummary) {
         this._roundSummary.recordSignalExecution(tokenState.token, false, failureReason);
@@ -1778,7 +1778,7 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.debug(this._experimentId, '_calculateBuyAmount', `💰 计算买入金额: ${signal.symbol}, 卡牌管理器存在, cards=${cards}, amount=${amount}`);
 
       if (amount <= 0) {
-        console.error(`❌ calculateBuyAmount 返回 0: ${signal.symbol}, cards=${cards}`);
+        this._logger.error(this._experimentId, 'BacktestEngine', `calculateBuyAmount 返回 0: ${signal.symbol}, cards=${cards}`);
         return 0;
       }
       // 转换 Decimal 为数字
@@ -1788,7 +1788,7 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.debug(this._experimentId, '_calculateBuyAmount', `💰 余额检查: amountValue=${amountValue}, balanceValue=${balanceValue}`);
 
       if (balanceValue < amountValue) {
-        console.error(`❌ 余额不足: 需要 ${amountValue}, 可用 ${balanceValue}`);
+        this._logger.error(this._experimentId, 'BacktestEngine', `余额不足: 需要 ${amountValue}, 可用 ${balanceValue}`);
         return 0;
       }
       return amountValue;
@@ -1798,7 +1798,7 @@ class BacktestEngine extends AbstractTradingEngine {
     const tradeAmount = this._experiment.config?.backtest?.tradeAmount || 0.1;
     const balanceValue = typeof cashBalance === 'number' ? cashBalance : cashBalance.toNumber();
     if (balanceValue < tradeAmount) {
-      console.error(`❌ 余额不足(默认): 需要 ${tradeAmount}, 可用 ${balanceValue}`);
+      this._logger.error(this._experimentId, 'BacktestEngine', `余额不足(默认): 需要 ${tradeAmount}, 可用 ${balanceValue}`);
       return 0;
     }
     return tradeAmount;
@@ -1926,7 +1926,7 @@ class BacktestEngine extends AbstractTradingEngine {
    */
   async start() {
     if (this._status === EngineStatus.RUNNING) {
-      console.warn('⚠️ 引擎已在运行');
+      this._logger.warn(this._experimentId, 'BacktestEngine', '引擎已在运行');
       return;
     }
 

@@ -5,12 +5,14 @@
  */
 
 const { dbManager } = require('../../services/dbManager');
+const Logger = require('../../services/logger');
 
 class ExperimentEventService {
   constructor() {
     this._supabase = null;
     this._webBaseUrl = process.env.WEB_BASE_URL || 'http://localhost:3010';
     this._gmgnBaseUrl = 'https://gmgn.ai';
+    this._logger = new Logger({ dir: './logs', experimentId: 'event-service' });
   }
 
   /**
@@ -69,10 +71,10 @@ class ExperimentEventService {
         });
 
       if (error) {
-        console.error(`[EventService] 写入事件失败:`, error.message);
+        this._logger.error('EventService', '写入事件失败', { error: error.message });
       }
     } catch (err) {
-      console.error(`[EventService] 创建事件异常:`, err.message);
+      this._logger.error('EventService', '创建事件异常', { error: err.message });
     }
   }
 

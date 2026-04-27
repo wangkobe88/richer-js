@@ -6,6 +6,7 @@
 const { Trade } = require('../../trading-engine/entities/Trade');
 const { TradeSignal } = require('../../trading-engine/entities/TradeSignal');
 const { dbManager } = require('../../services/dbManager');
+const Logger = require('../../services/logger');
 const { extractNarrativeMaterialId } = require('../../narrative/utils/material-id-extractor.mjs');
 const { buildLLMAnalysis } = require('../../narrative/analyzer/parsers/response-parser.mjs');
 
@@ -16,6 +17,7 @@ const { buildLLMAnalysis } = require('../../narrative/analyzer/parsers/response-
 class ExperimentDataService {
   constructor() {
     this.supabase = dbManager.getClient();
+    this.logger = new Logger({ dir: './logs', experimentId: 'data-service' });
   }
 
   /**
@@ -33,7 +35,7 @@ class ExperimentDataService {
 
       // 防止 limit 过大导致性能问题
       if (limit > maxLimit) {
-        console.warn(`[getTrades] 请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
+        this.logger.warn('DataService', `[getTrades] 请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
         limit = maxLimit;
       }
 
@@ -91,7 +93,7 @@ class ExperimentDataService {
       return allData.map(tradeData => Trade.fromDatabaseFormat(tradeData));
 
     } catch (error) {
-      console.error('获取交易数据失败:', error);
+      this.logger.error('DataService', '获取交易数据失败:', { details: error });
       return [];
     }
   }
@@ -116,7 +118,7 @@ class ExperimentDataService {
 
       // 防止 limit 过大导致性能问题
       if (limit > maxLimit) {
-        console.warn(`[getSignals] 请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
+        this.logger.warn('DataService', `[getSignals] 请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
         limit = maxLimit;
       }
 
@@ -181,7 +183,7 @@ class ExperimentDataService {
       return allData.map(signalData => TradeSignal.fromDatabaseFormat(signalData));
 
     } catch (error) {
-      console.error('获取信号数据失败:', error);
+      this.logger.error('DataService', '获取信号数据失败:', { details: error });
       return [];
     }
   }
@@ -282,7 +284,7 @@ class ExperimentDataService {
       };
 
     } catch (error) {
-      console.error('获取实验统计数据失败:', error);
+      this.logger.error('DataService', '获取实验统计数据失败:', { details: error });
       return {
         trades: { total: 0, successful: 0, failed: 0, successRate: 0, buy: 0, sell: 0, virtual: 0, live: 0 },
         signals: { total: 0, buy: 0, sell: 0 },
@@ -306,7 +308,7 @@ class ExperimentDataService {
       return true;
 
     } catch (error) {
-      console.error('保存信号失败:', error);
+      this.logger.error('DataService', '保存信号失败:', { details: error });
       return false;
     }
   }
@@ -327,7 +329,7 @@ class ExperimentDataService {
       return signals.length;
 
     } catch (error) {
-      console.error('批量保存信号失败:', error);
+      this.logger.error('DataService', '批量保存信号失败:', { details: error });
       return 0;
     }
   }
@@ -348,7 +350,7 @@ class ExperimentDataService {
       return true;
 
     } catch (error) {
-      console.error('更新信号失败:', error);
+      this.logger.error('DataService', '更新信号失败:', { details: error });
       return false;
     }
   }
@@ -368,7 +370,7 @@ class ExperimentDataService {
       return true;
 
     } catch (error) {
-      console.error('保存交易失败:', error);
+      this.logger.error('DataService', '保存交易失败:', { details: error });
       return false;
     }
   }
@@ -389,7 +391,7 @@ class ExperimentDataService {
       return trades.length;
 
     } catch (error) {
-      console.error('批量保存交易失败:', error);
+      this.logger.error('DataService', '批量保存交易失败:', { details: error });
       return 0;
     }
   }
@@ -411,7 +413,7 @@ class ExperimentDataService {
       return true;
 
     } catch (error) {
-      console.error('更新交易记录失败:', error);
+      this.logger.error('DataService', '更新交易记录失败:', { details: error });
       return false;
     }
   }
@@ -444,12 +446,12 @@ class ExperimentDataService {
       }
 
       const successCount = results.filter(r => r.success).length;
-      console.log(`清理实验数据完成: ${successCount}/${results.length} 个表成功`);
+      this.logger.info('DataService', `清理实验数据完成: ${successCount}/${results.length} 个表成功`);
 
       return successCount === results.length;
 
     } catch (error) {
-      console.error('清理实验数据失败:', error);
+      this.logger.error('DataService', '清理实验数据失败:', { details: error });
       return false;
     }
   }
@@ -478,13 +480,13 @@ class ExperimentDataService {
           .eq('experiment_id', experimentId);
 
         if (countError) {
-          console.warn(`   检查 ${table} 剩余数据失败: ${countError.message}`);
+          this.logger.warn('DataService', `   检查 ${table} 剩余数据失败: ${countError.message}`);
         }
 
         const remaining = count || 0;
 
         if (remaining === 0) {
-          console.log(`✅ ${table}: 全部删除完成 (${totalDeleted} 条)`);
+          this.logger.info('DataService', `✅ ${table}: 全部删除完成 (${totalDeleted} 条)`);
           return { table, success: true, deletedCount: totalDeleted };
         }
 
@@ -497,7 +499,7 @@ class ExperimentDataService {
           .limit(batchSize);
 
         if (error) {
-          console.warn(`   ${table} 批次删除失败: ${error.message}`);
+          this.logger.warn('DataService', `   ${table} 批次删除失败: ${error.message}`);
           if (attempt >= maxAttempts) {
             return { table, success: false, error: error.message };
           }
@@ -508,13 +510,13 @@ class ExperimentDataService {
         totalDeleted += batchSize;
         if (totalDeleted > remaining) totalDeleted = remaining;
 
-        console.log(`   ${table}: 进度 ${totalDeleted}/${remaining}`);
+        this.logger.info('DataService', `   ${table}: 进度 ${totalDeleted}/${remaining}`);
 
         // 重置尝试次数
         attempt = 0;
 
       } catch (err) {
-        console.error(`   ${table} 删除异常: ${err.message}`);
+        this.logger.error('DataService', `   ${table} 删除异常: ${err.message}`);
         if (attempt >= maxAttempts) {
           return { table, success: false, error: err.message };
         }
@@ -548,7 +550,7 @@ class ExperimentDataService {
       if (error) {
         // 如果表不存在，返回空数组
         if (error.code === '42P01') {
-          console.log('portfolio_snapshots 表不存在，返回空数据');
+          this.logger.info('DataService', 'portfolio_snapshots 表不存在，返回空数据');
           return {
             success: true,
             snapshots: [],
@@ -565,7 +567,7 @@ class ExperimentDataService {
       };
 
     } catch (error) {
-      console.error('获取投资组合快照失败:', error);
+      this.logger.error('DataService', '获取投资组合快照失败:', { details: error });
       return {
         success: false,
         error: error.message,
@@ -603,7 +605,7 @@ class ExperimentDataService {
       if (error) {
         // 如果表不存在，尝试创建
         if (error.code === '42P01') {
-          console.log('portfolio_snapshots 表不存在，跳过保存');
+          this.logger.info('DataService', 'portfolio_snapshots 表不存在，跳过保存');
           return false;
         }
         throw error;
@@ -612,7 +614,7 @@ class ExperimentDataService {
       return true;
 
     } catch (error) {
-      console.error('保存投资组合快照失败:', error);
+      this.logger.error('DataService', '保存投资组合快照失败:', { details: error });
       return false;
     }
   }
@@ -660,7 +662,7 @@ class ExperimentDataService {
             insertData.narrative_material_id = materialId;
           }
         } catch (err) {
-          console.warn('[ExperimentDataService] 提取narrative_material_id失败:', err.message);
+          this.logger.warn('DataService', '[ExperimentDataService] 提取narrative_material_id失败:', { details: err.message });
         }
       }
 
@@ -679,7 +681,7 @@ class ExperimentDataService {
       return true;
 
     } catch (error) {
-      console.error('保存代币失败:', error);
+      this.logger.error('DataService', '保存代币失败:', { details: error });
       return false;
     }
   }
@@ -703,7 +705,7 @@ class ExperimentDataService {
       return true;
 
     } catch (error) {
-      console.error('更新代币状态失败:', error);
+      this.logger.error('DataService', '更新代币状态失败:', { details: error });
       return false;
     }
   }
@@ -727,7 +729,7 @@ class ExperimentDataService {
       return true;
 
     } catch (error) {
-      console.error('更新代币 creator_address 失败:', error);
+      this.logger.error('DataService', '更新代币 creator_address 失败:', { details: error });
       return false;
     }
   }
@@ -764,7 +766,7 @@ class ExperimentDataService {
         }
       }
 
-      console.log(`[MaterialID补全] 实验下共 ${allTokens.length} 个代币缺少 material_id`);
+      this.logger.info('DataService', `[MaterialID补全] 实验下共 ${allTokens.length} 个代币缺少 material_id`);
 
       let updated = 0;
       let skipped = 0;
@@ -786,7 +788,7 @@ class ExperimentDataService {
 
             if (updateError) {
               failed++;
-              console.warn(`[MaterialID补全] 更新失败 ${token.token_symbol}: ${updateError.message}`);
+              this.logger.warn('DataService', `[MaterialID补全] 更新失败 ${token.token_symbol}: ${updateError.message}`);
             } else {
               updated++;
             }
@@ -795,18 +797,18 @@ class ExperimentDataService {
           }
         } catch (err) {
           failed++;
-          console.warn(`[MaterialID补全] 提取失败 ${token.token_symbol}: ${err.message}`);
+          this.logger.warn('DataService', `[MaterialID补全] 提取失败 ${token.token_symbol}: ${err.message}`);
         }
       }
 
-      console.log(`[MaterialID补全] 完成: 更新${updated}, 跳过${skipped}, 失败${failed}`);
+      this.logger.info('DataService', `[MaterialID补全] 完成: 更新${updated}, 跳过${skipped}, 失败${failed}`);
 
       return {
         success: true,
         data: { total: allTokens.length, updated, skipped, failed }
       };
     } catch (error) {
-      console.error('[MaterialID补全] 失败:', error);
+      this.logger.error('DataService', '[MaterialID补全] 失败:', { details: error });
       return { success: false, error: error.message };
     }
   }
@@ -830,7 +832,7 @@ class ExperimentDataService {
 
       // 防止 limit 过大导致性能问题
       if (limit > maxLimit) {
-        console.warn(`请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
+        this.logger.warn('DataService', `请求的 limit (${limit}) 超过最大限制 (${maxLimit})，已自动调整为 ${maxLimit}`);
         limit = maxLimit;
       }
 
@@ -862,7 +864,7 @@ class ExperimentDataService {
       return allTokens;
 
     } catch (error) {
-      console.error('获取代币列表失败:', error);
+      this.logger.error('DataService', '获取代币列表失败:', { details: error });
       return [];
     }
   }
@@ -875,7 +877,7 @@ class ExperimentDataService {
    */
   async _getTargetExperimentIdForTokens(experimentId) {
     try {
-      console.log(`[_getTargetExperimentIdForTokens] 开始查询实验信息: ${experimentId}`);
+      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] 开始查询实验信息: ${experimentId}`);
 
       // 查询实验信息
       const { data: expConfig, error } = await this.supabase
@@ -884,40 +886,40 @@ class ExperimentDataService {
         .eq('id', experimentId)
         .single();
 
-      console.log(`[_getTargetExperimentIdForTokens] 查询结果: error=${error}, expConfig=${!!expConfig}`);
+      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] 查询结果: error=${error}, expConfig=${!!expConfig}`);
 
       if (error || !expConfig) {
-        console.warn(`[getTokens] 无法获取实验信息: ${experimentId}, 使用原ID`);
+        this.logger.warn('DataService', `[getTokens] 无法获取实验信息: ${experimentId}, 使用原ID`);
         return experimentId;
       }
 
-      console.log(`[_getTargetExperimentIdForTokens] expConfig keys: ${Object.keys(expConfig)}`);
-      console.log(`[_getTargetExperimentIdForTokens] expConfig.config type: ${typeof expConfig.config}`);
+      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] expConfig keys: ${Object.keys(expConfig)}`);
+      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] expConfig.config type: ${typeof expConfig.config}`);
 
       // 处理 config 字段（Supabase返回的原始数据）
       let config = expConfig.config;
-      console.log(`[_getTargetExperimentIdForTokens] 原始config type: ${typeof config}, value: ${config}`);
+      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] 原始config type: ${typeof config}, value: ${config}`);
 
       if (typeof config === 'string') {
-        console.log(`[_getTargetExperimentIdForTokens] 解析 JSON config`);
+        this.logger.info('DataService', '[_getTargetExperimentIdForTokens] 解析 JSON config');
         config = JSON.parse(config);
       }
 
-      console.log(`[_getTargetExperimentIdForTokens] 解析后的config:`, config);
-      console.log(`[_getTargetExperimentIdForTokens] config.backtest:`, config?.backtest);
-      console.log(`[_getTargetExperimentIdForTokens] sourceExperimentId:`, config?.backtest?.sourceExperimentId);
+      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] 解析后的config:`, { details: config });
+      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] config.backtest:`, { details: config?.backtest });
+      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] sourceExperimentId:`, { details: config?.backtest?.sourceExperimentId });
 
       // 如果是回测实验且有源实验ID，使用源实验ID
       if (config?.backtest?.sourceExperimentId) {
         const sourceId = config.backtest.sourceExperimentId;
-        console.log(`[getTokens] 回测实验使用源实验代币数据: ${experimentId} -> ${sourceId}`);
+        this.logger.info('DataService', `[getTokens] 回测实验使用源实验代币数据: ${experimentId} -> ${sourceId}`);
         return sourceId;
       }
 
-      console.log(`[getTokens] 非回测实验或无源实验ID，使用原ID: ${experimentId}`);
+      this.logger.info('DataService', `[getTokens] 非回测实验或无源实验ID，使用原ID: ${experimentId}`);
       return experimentId;
     } catch (error) {
-      console.error(`[getTokens] 判断源实验ID失败: ${error.message}`, error);
+      this.logger.error('DataService', '[getTokens] 判断源实验ID失败: ${error.message}', { details: error });
       return experimentId;
     }
   }
@@ -959,7 +961,7 @@ class ExperimentDataService {
       return data || [];
 
     } catch (error) {
-      console.error('获取代币列表失败:', error);
+      this.logger.error('DataService', '获取代币列表失败:', { details: error });
       return [];
     }
   }
@@ -1023,7 +1025,7 @@ class ExperimentDataService {
       return data;
 
     } catch (error) {
-      console.error('获取代币详情失败:', error);
+      this.logger.error('DataService', '获取代币详情失败:', { details: error });
       return null;
     }
   }
@@ -1046,7 +1048,7 @@ class ExperimentDataService {
 
       if (experiment?.config?.backtest?.sourceExperimentId) {
         dataExperimentId = experiment.config.backtest.sourceExperimentId;
-        console.log(`getTokensWithSignals: 回测实验 ${experimentId}，使用源实验 ${dataExperimentId} 的代币列表`);
+        this.logger.info('DataService', `getTokensWithSignals: 回测实验 ${experimentId}，使用源实验 ${dataExperimentId} 的代币列表`);
       }
 
       // 获取所有代币
@@ -1101,7 +1103,7 @@ class ExperimentDataService {
       };
 
     } catch (error) {
-      console.error('获取代币列表（含信号）失败:', error);
+      this.logger.error('DataService', '获取代币列表（含信号）失败:', { details: error });
       return {
         success: false,
         error: error.message,
@@ -1155,7 +1157,7 @@ class ExperimentDataService {
       };
 
     } catch (error) {
-      console.error('获取代币统计失败:', error);
+      this.logger.error('DataService', '获取代币统计失败:', { details: error });
       return {
         total: 0,
         monitoring: 0,
@@ -1208,7 +1210,7 @@ class ExperimentDataService {
       };
 
     } catch (error) {
-      console.error('获取拒绝统计失败:', error);
+      this.logger.error('DataService', '获取拒绝统计失败:', { details: error });
       return {
         totalRejected: 0,
         byReason: {}
@@ -1249,15 +1251,15 @@ class ExperimentDataService {
    */
   async getExperimentNarratives(experimentId) {
     try {
-      console.log(`[getExperimentNarratives] experimentId=${experimentId}`);
+      this.logger.info('DataService', `[getExperimentNarratives] experimentId=${experimentId}`);
 
       // 对于回测实验，使用源实验的代币数据
       const targetExperimentId = await this._getTargetExperimentIdForTokens(experimentId);
-      console.log(`[getExperimentNarratives] targetExperimentId=${targetExperimentId}`);
+      this.logger.info('DataService', `[getExperimentNarratives] targetExperimentId=${targetExperimentId}`);
 
       // 获取目标实验的代币列表
       const tokens = await this.getTokens(targetExperimentId, { limit: 10000 });
-      console.log(`[getExperimentNarratives] tokens.length=${tokens.length}`);
+      this.logger.info('DataService', `[getExperimentNarratives] tokens.length=${tokens.length}`);
 
       if (tokens.length === 0) {
         return {
@@ -1290,7 +1292,7 @@ class ExperimentDataService {
           .in('token_address', batch);
 
         if (batchError) {
-          console.error(`获取叙事数据失败（批次 ${i / batchSize + 1}）:`, batchError);
+          this.logger.error('DataService', '获取叙事数据失败（批次 ${i / batchSize + 1}）:', { details: batchError });
           throw batchError;
         }
 
@@ -1300,7 +1302,7 @@ class ExperimentDataService {
       }
 
       const narratives = allNarratives;
-      console.log(`[getExperimentNarratives] narratives.length=${narratives.length}`);
+      this.logger.info('DataService', `[getExperimentNarratives] narratives.length=${narratives.length}`);
 
       // 构建叙事数据映射（键使用小写地址，保留最新的记录）
       const narrativeMap = new Map();
@@ -1313,13 +1315,13 @@ class ExperimentDataService {
         }
       }
 
-      console.log(`[getExperimentNarratives] narrativeMap.size=${narrativeMap.size}`);
+      this.logger.info('DataService', `[getExperimentNarratives] narrativeMap.size=${narrativeMap.size}`);
 
       // 调试：检查第一个 token 的字段
       if (tokens.length > 0) {
-        console.log(`[getExperimentNarratives] 第一个代币字段:`, Object.keys(tokens[0]));
-        console.log(`[getExperimentNarratives] 第一个代币的 human_judges:`, tokens[0].human_judges);
-        console.log(`[getExperimentNarratives] 第一个代币的 analysis_results:`, tokens[0].analysis_results);
+        this.logger.info('DataService', `[getExperimentNarratives] 第一个代币字段: ${Object.keys(tokens[0])}`);
+        this.logger.info('DataService', `[getExperimentNarratives] human_judges: ${JSON.stringify(tokens[0].human_judges)}`);
+        this.logger.info('DataService', `[getExperimentNarratives] analysis_results: ${JSON.stringify(tokens[0].analysis_results)}`);
       }
 
       // 组合数据：只返回有叙事数据的代币
@@ -1349,7 +1351,7 @@ class ExperimentDataService {
           };
         });
 
-      console.log(`[getExperimentNarratives] combinedData.length=${combinedData.length}`);
+      this.logger.info('DataService', `[getExperimentNarratives] combinedData.length=${combinedData.length}`);
 
       // 计算统计数据
       const stats = {
@@ -1377,7 +1379,7 @@ class ExperimentDataService {
       };
 
     } catch (error) {
-      console.error('获取实验叙事数据失败:', error);
+      this.logger.error('DataService', '获取实验叙事数据失败:', { details: error });
       return {
         success: false,
         error: error.message,

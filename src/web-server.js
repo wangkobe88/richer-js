@@ -9,6 +9,7 @@ require('dotenv').config({ path: '../config/.env' });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const Logger = require('./services/logger');
 
 // 导入实验管理组件
 const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
@@ -39,6 +40,7 @@ class RicherJsWebServer {
   constructor() {
     this.app = express();
     this.port = process.env.WEB_PORT || 3000;
+    this.logger = new Logger({ dir: './logs', experimentId: 'web-server' });
     this.setupMiddleware();
     this.initializeServices();
     this.setupRoutes();
@@ -75,7 +77,7 @@ class RicherJsWebServer {
 
     // 请求日志
     this.app.use((req, res, next) => {
-      console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+      this.logger.info('WebServer', `${new Date().toISOString()} ${req.method} ${req.path}`);
       next();
     });
   }
@@ -96,7 +98,7 @@ class RicherJsWebServer {
       this.dataService.supabase,
       require('../config/default.json')
     );
-    console.log('✅ Web服务初始化完成');
+    this.logger.info('WebServer', '✅ Web服务初始化完成');
   }
 
   /**
@@ -318,7 +320,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('获取事件列表失败:', error);
+        this.logger.error('WebServer', '获取事件列表失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -364,7 +366,7 @@ class RicherJsWebServer {
           });
         }
       } catch (error) {
-        console.error('清空事件失败:', error);
+        this.logger.error('WebServer', '清空事件失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -374,7 +376,7 @@ class RicherJsWebServer {
     // 获取可回测的实验列表（必须在 /api/experiments 之前定义，避免路由冲突）
     this.app.get('/api/experiments/backtestable', async (req, res) => {
       try {
-        console.log('📊 [API] 获取可回测实验列表...');
+        this.logger.info('WebServer', '📊 [API] 获取可回测实验列表...');
 
         // 直接获取虚拟交易模式的实验列表
         const experiments = await this.experimentFactory.list({
@@ -383,7 +385,7 @@ class RicherJsWebServer {
           // 不过滤状态，让用户可以选择
         });
 
-        console.log(`📊 [API] 找到 ${experiments.length} 个虚拟交易实验`);
+        this.logger.info('WebServer', `📊 [API] 找到 ${experiments.length} 个虚拟交易实验`);
 
         // 过滤出有足够运行时间的实验
         const backtestableExperiments = experiments
@@ -400,7 +402,7 @@ class RicherJsWebServer {
             created_at: exp.createdAt
           }));
 
-        console.log(`📊 [API] 返回 ${backtestableExperiments.length} 个可回测实验`);
+        this.logger.info('WebServer', `📊 [API] 返回 ${backtestableExperiments.length} 个可回测实验`);
 
         res.json({
           success: true,
@@ -408,7 +410,7 @@ class RicherJsWebServer {
           count: backtestableExperiments.length
         });
       } catch (error) {
-        console.error('❌ [API] 获取可回测实验列表失败:', error);
+        this.logger.error('WebServer', '❌ [API] 获取可回测实验列表失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -431,7 +433,7 @@ class RicherJsWebServer {
           count: experiments.length
         });
       } catch (error) {
-        console.error('获取实验列表失败:', error);
+        this.logger.error('WebServer', '获取实验列表失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -458,7 +460,7 @@ class RicherJsWebServer {
         res.json(result);
 
       } catch (error) {
-        console.error('获取策略列表失败:', error);
+        this.logger.error('WebServer', '获取策略列表失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -491,7 +493,7 @@ class RicherJsWebServer {
         res.json(result);
 
       } catch (error) {
-        console.error('策略分析失败:', error);
+        this.logger.error('WebServer', '策略分析失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -511,7 +513,7 @@ class RicherJsWebServer {
           data: experiment.toJSON()
         });
       } catch (error) {
-        console.error('获取实验详情失败:', error);
+        this.logger.error('WebServer', '获取实验详情失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -662,7 +664,7 @@ class RicherJsWebServer {
           data: experiment.toJSON()
         });
       } catch (error) {
-        console.error('创建实验失败:', error);
+        this.logger.error('WebServer', '创建实验失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -686,7 +688,7 @@ class RicherJsWebServer {
           res.status(500).json({ success: false, error: result.error });
         }
       } catch (error) {
-        console.error('更新实验失败:', error);
+        this.logger.error('WebServer', '更新实验失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -720,7 +722,7 @@ class RicherJsWebServer {
 
         res.json({ success: true });
       } catch (error) {
-        console.error('更新实验名字失败:', error);
+        this.logger.error('WebServer', '更新实验名字失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -737,7 +739,7 @@ class RicherJsWebServer {
           res.status(500).json({ success: false, error: '更新状态失败' });
         }
       } catch (error) {
-        console.error('更新实验状态失败:', error);
+        this.logger.error('WebServer', '更新实验状态失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -756,7 +758,7 @@ class RicherJsWebServer {
           res.status(500).json({ success: false, error: '删除实验失败' });
         }
       } catch (error) {
-        console.error('删除实验失败:', error);
+        this.logger.error('WebServer', '删除实验失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -787,7 +789,7 @@ class RicherJsWebServer {
           res.status(500).json(result);
         }
       } catch (error) {
-        console.error('压缩时序数据失败:', error);
+        this.logger.error('WebServer', '压缩时序数据失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -808,7 +810,7 @@ class RicherJsWebServer {
           res.status(500).json(result);
         }
       } catch (error) {
-        console.error('清理代币失败:', error);
+        this.logger.error('WebServer', '清理代币失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -817,7 +819,7 @@ class RicherJsWebServer {
     this.app.post('/api/experiment/:id/backfill-material-id', async (req, res) => {
       try {
         const { id: experimentId } = req.params;
-        console.log(`[MaterialID补全] 开始为实验 ${experimentId} 补全 narrative_material_id...`);
+        this.logger.info('WebServer', `[MaterialID补全] 开始为实验 ${experimentId} 补全 narrative_material_id...`);
 
         const result = await this.dataService.backfillNarrativeMaterialId(experimentId);
 
@@ -827,7 +829,7 @@ class RicherJsWebServer {
           res.status(500).json(result);
         }
       } catch (error) {
-        console.error('[MaterialID补全] 失败:', error);
+        this.logger.error('WebServer', '[MaterialID补全] 失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -845,7 +847,7 @@ class RicherJsWebServer {
         };
         const experiments = await this.experimentFactory.list(filters);
 
-        console.log(`📊 开始分析 ${experiments.length} 个实验的统计数据...`);
+        this.logger.info('WebServer', `📊 开始分析 ${experiments.length} 个实验的统计数据...`);
 
         const results = {
           total: experiments.length,
@@ -904,7 +906,7 @@ class RicherJsWebServer {
               stats
             });
 
-            console.log(`✅ 已分析实验: ${expData.experimentName}`);
+            this.logger.info('WebServer', `✅ 已分析实验: ${expData.experimentName}`);
 
           } catch (error) {
             results.failed++;
@@ -914,18 +916,18 @@ class RicherJsWebServer {
               status: 'failed',
               error: error.message
             });
-            console.error(`❌ 分析实验失败 ${experiment.id}:`, error.message);
+            this.logger.error('WebServer', `❌ 分析实验失败 ${experiment.id}:`, { details: error.message });
           }
         }
 
-        console.log(`📊 分析完成: 成功 ${results.processed}, 失败 ${results.failed}, 跳过 ${results.skipped}`);
+        this.logger.info('WebServer', `📊 分析完成: 成功 ${results.processed}, 失败 ${results.failed}, 跳过 ${results.skipped}`);
 
         res.json({
           success: true,
           data: results
         });
       } catch (error) {
-        console.error('分析实验统计数据失败:', error);
+        this.logger.error('WebServer', '分析实验统计数据失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -953,7 +955,7 @@ class RicherJsWebServer {
           data: stats
         });
       } catch (error) {
-        console.error('更新实验统计数据失败:', error);
+        this.logger.error('WebServer', '更新实验统计数据失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -969,7 +971,7 @@ class RicherJsWebServer {
           data: wallets
         });
       } catch (error) {
-        console.error('获取钱包列表失败:', error);
+        this.logger.error('WebServer', '获取钱包列表失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -977,7 +979,7 @@ class RicherJsWebServer {
     // 创建钱包
     this.app.post('/api/wallets', async (req, res) => {
       try {
-        console.log('创建钱包请求体:', req.body);
+        this.logger.info('WebServer', '创建钱包请求体:', { details: req.body });
         const { address, name, category } = req.body;
 
         if (!address) {
@@ -990,7 +992,7 @@ class RicherJsWebServer {
           data: wallet
         });
       } catch (error) {
-        console.error('创建钱包失败:', error);
+        this.logger.error('WebServer', '创建钱包失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1005,7 +1007,7 @@ class RicherJsWebServer {
           data: wallet
         });
       } catch (error) {
-        console.error('更新钱包失败:', error);
+        this.logger.error('WebServer', '更新钱包失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1019,16 +1021,16 @@ class RicherJsWebServer {
           return res.status(400).json({ success: false, error: '钱包地址列表不能为空' });
         }
 
-        console.log(`🗑️ 批量删除钱包请求: ${addresses.length} 个`);
+        this.logger.info('WebServer', `🗑️ 批量删除钱包请求: ${addresses.length} 个`);
         const results = await this.walletService.deleteWalletsByAddresses(addresses);
-        console.log('✅ 批量删除结果:', results);
+        this.logger.info('WebServer', '✅ 批量删除结果:', { details: results });
         res.json({
           success: true,
           message: `已删除 ${results.deleted} 个钱包${results.notFound > 0 ? `，${results.notFound} 个未找到` : ''}`,
           data: results
         });
       } catch (error) {
-        console.error('批量删除钱包失败:', error);
+        this.logger.error('WebServer', '批量删除钱包失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1038,7 +1040,7 @@ class RicherJsWebServer {
       try {
         const { address } = req.params;
 
-        console.log('🗑️ 删除钱包请求:', address);
+        this.logger.info('WebServer', '🗑️ 删除钱包请求:', { details: address });
 
         if (!address) {
           return res.status(400).json({ success: false, error: '钱包地址不能为空' });
@@ -1046,19 +1048,19 @@ class RicherJsWebServer {
 
         // 先检查钱包是否存在
         const existing = await this.walletService.getWalletByAddress(address);
-        console.log('🔍 查找结果:', existing);
+        this.logger.info('WebServer', '🔍 查找结果:', { details: existing });
         if (!existing) {
           return res.status(404).json({ success: false, error: '钱包不存在' });
         }
 
         const deleted = await this.walletService.deleteWalletByAddress(address);
-        console.log('✅ 删除结果:', deleted);
+        this.logger.info('WebServer', '✅ 删除结果:', { details: deleted });
         res.json({
           success: true,
           message: '钱包已从黑名单中删除'
         });
       } catch (error) {
-        console.error('❌ 删除钱包失败:', error);
+        this.logger.error('WebServer', '❌ 删除钱包失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1069,7 +1071,7 @@ class RicherJsWebServer {
         await this.walletService.deleteWallet(req.params.id);
         res.json({ success: true });
       } catch (error) {
-        console.error('删除钱包失败:', error);
+        this.logger.error('WebServer', '删除钱包失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1120,7 +1122,7 @@ class RicherJsWebServer {
           data: result.data
         });
       } catch (error) {
-        console.error('添加单个钱包失败:', error);
+        this.logger.error('WebServer', '添加单个钱包失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1133,7 +1135,7 @@ class RicherJsWebServer {
         const tokens = await this.walletAnalysisService.getAnnotatedTokens(null);
         res.json({ success: true, data: { count: tokens.length } });
       } catch (error) {
-        console.error('获取标注代币数量失败:', error);
+        this.logger.error('WebServer', '获取标注代币数量失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1144,7 +1146,7 @@ class RicherJsWebServer {
         const experiments = await this.walletAnalysisService.getAvailableExperiments();
         res.json({ success: true, data: experiments });
       } catch (error) {
-        console.error('获取实验列表失败:', error);
+        this.logger.error('WebServer', '获取实验列表失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1156,16 +1158,16 @@ class RicherJsWebServer {
 
         // 异步执行分析，传入 taskId
         this.walletAnalysisService.generateProfiles(taskId, (progress) => {
-          console.log(`[钱包分析] ${taskId}: ${progress.progress}% - ${progress.message}`);
+          this.logger.info('WebServer', `[钱包分析] ${taskId}: ${progress.progress}% - ${progress.message}`);
         }).then(result => {
-          console.log(`[钱包分析] ${taskId} 完成:`, result.stats);
+          this.logger.info('WebServer', `[钱包分析] ${taskId} 完成`, { stats: result.stats });
         }).catch(error => {
-          console.error(`[钱包分析] ${taskId} 失败:`, error);
+          this.logger.error('WebServer', `[钱包分析] ${taskId} 失败:`, { details: error });
         });
 
         res.json({ success: true, taskId });
       } catch (error) {
-        console.error('生成钱包画像失败:', error);
+        this.logger.error('WebServer', '生成钱包画像失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1198,7 +1200,7 @@ class RicherJsWebServer {
           });
         }
       } catch (error) {
-        console.error('获取任务状态失败:', error);
+        this.logger.error('WebServer', '获取任务状态失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1210,7 +1212,7 @@ class RicherJsWebServer {
         const result = await this.walletAnalysisService.generateLabels(algorithmConfig);
         res.json({ success: true, data: result });
       } catch (error) {
-        console.error('生成标签失败:', error);
+        this.logger.error('WebServer', '生成标签失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1222,7 +1224,7 @@ class RicherJsWebServer {
         const result = await this.walletAnalysisService.syncToWallets(mode);
         res.json({ success: true, data: result });
       } catch (error) {
-        console.error('同步失败:', error);
+        this.logger.error('WebServer', '同步失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1240,7 +1242,7 @@ class RicherJsWebServer {
         const result = await this.walletAnalysisService.getProfiles(filters);
         res.json({ success: true, data: result });
       } catch (error) {
-        console.error('获取钱包画像失败:', error);
+        this.logger.error('WebServer', '获取钱包画像失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1255,7 +1257,7 @@ class RicherJsWebServer {
         }
         res.json({ success: true, data: profile });
       } catch (error) {
-        console.error('获取钱包画像详情失败:', error);
+        this.logger.error('WebServer', '获取钱包画像详情失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1266,7 +1268,7 @@ class RicherJsWebServer {
         const stats = await this.walletAnalysisService.getStats();
         res.json({ success: true, data: stats });
       } catch (error) {
-        console.error('获取统计失败:', error);
+        this.logger.error('WebServer', '获取统计失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1280,16 +1282,16 @@ class RicherJsWebServer {
 
         // 异步执行训练
         this.bayesModelService.trainModel((progress) => {
-          console.log(`[贝叶斯训练] ${progress.progress}% - ${progress.message}`);
+          this.logger.info('WebServer', `[贝叶斯训练] ${progress.progress}% - ${progress.message}`);
         }).then(result => {
-          console.log(`[贝叶斯训练] 完成:`, result.stats);
+          this.logger.info('WebServer', `[贝叶斯训练] 完成`, { stats: result.stats });
         }).catch(error => {
-          console.error(`[贝叶斯训练] 失败:`, error);
+          this.logger.error('WebServer', '[贝叶斯训练] 失败:', { details: error });
         });
 
         res.json({ success: true, taskId });
       } catch (error) {
-        console.error('训练贝叶斯模型失败:', error);
+        this.logger.error('WebServer', '训练贝叶斯模型失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1306,7 +1308,7 @@ class RicherJsWebServer {
         const result = await this.bayesModelService.predictToken(tokenAddress, chain);
         res.json({ success: true, data: result });
       } catch (error) {
-        console.error('贝叶斯预测失败:', error);
+        this.logger.error('WebServer', '贝叶斯预测失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1317,7 +1319,7 @@ class RicherJsWebServer {
         const info = await this.bayesModelService.getModelInfo();
         res.json({ success: true, data: info });
       } catch (error) {
-        console.error('获取贝叶斯模型信息失败:', error);
+        this.logger.error('WebServer', '获取贝叶斯模型信息失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1328,7 +1330,7 @@ class RicherJsWebServer {
         const evaluation = await this.bayesModelService.evaluateTrainingSet();
         res.json({ success: true, data: evaluation });
       } catch (error) {
-        console.error('评估训练集失败:', error);
+        this.logger.error('WebServer', '评估训练集失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1345,7 +1347,7 @@ class RicherJsWebServer {
         const data = await this.tokenHolderService.getTokenHolders(tokenAddress);
         res.json({ success: true, data });
       } catch (error) {
-        console.error('获取代币持有者失败:', error);
+        this.logger.error('WebServer', '获取代币持有者失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1357,7 +1359,7 @@ class RicherJsWebServer {
         const tokens = await this.tokenHolderService.getTokenList(experiment || null);
         res.json({ success: true, data: tokens });
       } catch (error) {
-        console.error('获取代币列表失败:', error);
+        this.logger.error('WebServer', '获取代币列表失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1435,7 +1437,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('批量添加流水盘钱包失败:', error);
+        this.logger.error('WebServer', '批量添加流水盘钱包失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1498,7 +1500,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('批量添加好持有者失败:', error);
+        this.logger.error('WebServer', '批量添加好持有者失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1517,7 +1519,7 @@ class RicherJsWebServer {
 
         if (expConfig?.config?.backtest?.sourceExperimentId) {
           const sourceExperimentId = expConfig.config.backtest.sourceExperimentId;
-          console.log(`📊 [黑名单统计] 回测实验，使用源实验ID: ${sourceExperimentId}`);
+          this.logger.info('WebServer', `📊 [黑名单统计] 回测实验，使用源实验ID: ${sourceExperimentId}`);
           experimentId = sourceExperimentId;
         }
 
@@ -1637,7 +1639,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('获取黑名单统计失败:', error);
+        this.logger.error('WebServer', '获取黑名单统计失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1658,7 +1660,7 @@ class RicherJsWebServer {
         const data = await this.dataService.getFormattedSignals(req.params.id, options);
         res.json(data);
       } catch (error) {
-        console.error('获取信号失败:', error);
+        this.logger.error('WebServer', '获取信号失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1672,7 +1674,7 @@ class RicherJsWebServer {
           data: stats
         });
       } catch (error) {
-        console.error('获取拒绝统计失败:', error);
+        this.logger.error('WebServer', '获取拒绝统计失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1767,7 +1769,7 @@ class RicherJsWebServer {
           });
         }
       } catch (error) {
-        console.error('获取早期交易数据失败:', error);
+        this.logger.error('WebServer', '获取早期交易数据失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1786,7 +1788,7 @@ class RicherJsWebServer {
         const data = await this.dataService.getFormattedTrades(req.params.id, options);
         res.json(data);
       } catch (error) {
-        console.error('获取交易记录失败:', error);
+        this.logger.error('WebServer', '获取交易记录失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1807,7 +1809,7 @@ class RicherJsWebServer {
           count: metrics.length
         });
       } catch (error) {
-        console.error('获取运行时指标失败:', error);
+        this.logger.error('WebServer', '获取运行时指标失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1821,7 +1823,7 @@ class RicherJsWebServer {
           data: stats
         });
       } catch (error) {
-        console.error('获取实验统计失败:', error);
+        this.logger.error('WebServer', '获取实验统计失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -1836,7 +1838,7 @@ class RicherJsWebServer {
         const result = await this.dataService.getPortfolioSnapshots(req.params.id, options);
         res.json(result);
       } catch (error) {
-        console.error('获取投资组合数据失败:', error);
+        this.logger.error('WebServer', '获取投资组合数据失败:', { details: error });
         res.status(500).json({ success: false, error: error.message, snapshots: [] });
       }
     });
@@ -1862,7 +1864,7 @@ class RicherJsWebServer {
           }))
         });
       } catch (error) {
-        console.error('获取实验列表失败:', error);
+        this.logger.error('WebServer', '获取实验列表失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -1884,7 +1886,7 @@ class RicherJsWebServer {
           data: tokens
         });
       } catch (error) {
-        console.error('获取代币列表失败:', error);
+        this.logger.error('WebServer', '获取代币列表失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -1929,7 +1931,7 @@ class RicherJsWebServer {
           data: data
         });
       } catch (error) {
-        console.error('获取时序数据失败:', error);
+        this.logger.error('WebServer', '获取时序数据失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -1959,7 +1961,7 @@ class RicherJsWebServer {
           data: factors
         });
       } catch (error) {
-        console.error('获取因子列表失败:', error);
+        this.logger.error('WebServer', '获取因子列表失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -1993,7 +1995,7 @@ class RicherJsWebServer {
           data: data
         });
       } catch (error) {
-        console.error('获取因子时序数据失败:', error);
+        this.logger.error('WebServer', '获取因子时序数据失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -2030,7 +2032,7 @@ class RicherJsWebServer {
           data: result
         });
       } catch (error) {
-        console.error('分页查询失败:', error);
+        this.logger.error('WebServer', '分页查询失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -2047,7 +2049,7 @@ class RicherJsWebServer {
         const result = await this.dataService.getTokensWithSignals(req.params.id);
         res.json(result);
       } catch (error) {
-        console.error('获取代币列表（含信号）失败:', error);
+        this.logger.error('WebServer', '获取代币列表（含信号）失败:', { details: error });
         res.status(500).json({ success: false, error: error.message, data: [] });
       }
     });
@@ -2064,7 +2066,7 @@ class RicherJsWebServer {
         const result = await this.dataService.getFormattedTokens(req.params.id, options);
         res.json(result);
       } catch (error) {
-        console.error('获取代币列表失败:', error);
+        this.logger.error('WebServer', '获取代币列表失败:', { details: error });
         res.status(500).json({ success: false, error: error.message, tokens: [] });
       }
     });
@@ -2077,7 +2079,7 @@ class RicherJsWebServer {
 
         const { skipAnalyzed = false } = req.body;
         const skipText = skipAnalyzed ? '（跳过已分析）' : '';
-        console.log(`[代币分析] 开始分析实验 ${req.params.id} 的代币涨幅${skipText}...`);
+        this.logger.info('WebServer', `[代币分析] 开始分析实验 ${req.params.id} 的代币涨幅${skipText}...`);
 
         let progress = 0;
         const totalTokens = await analysisService.getAllTokens(req.params.id);
@@ -2086,18 +2088,18 @@ class RicherJsWebServer {
         const result = await analysisService.analyzeExperimentTokens(req.params.id, (current, total) => {
           progress = current;
           const percent = ((current / total) * 100).toFixed(1);
-          console.log(`[代币分析] 进度: ${current}/${total} (${percent}%)`);
+          this.logger.info('WebServer', `[代币分析] 进度: ${current}/${total} (${percent}%)`);
         }, { skipAnalyzed });
 
         const skippedText = result.skipped > 0 ? `, ${result.skipped} 跳过` : '';
-        console.log(`[代币分析] 分析完成: ${result.analyzed} 成功, ${result.failed} 失败${skippedText}`);
+        this.logger.info('WebServer', `[代币分析] 分析完成: ${result.analyzed} 成功, ${result.failed} 失败${skippedText}`);
 
         res.json({
           success: true,
           ...result
         });
       } catch (error) {
-        console.error('分析代币涨幅失败:', error);
+        this.logger.error('WebServer', '分析代币涨幅失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2111,7 +2113,7 @@ class RicherJsWebServer {
           data: stats
         });
       } catch (error) {
-        console.error('获取代币统计失败:', error);
+        this.logger.error('WebServer', '获取代币统计失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2122,7 +2124,7 @@ class RicherJsWebServer {
         const result = await this.dataService.getExperimentNarratives(req.params.id);
         res.json(result);
       } catch (error) {
-        console.error('获取实验叙事数据失败:', error);
+        this.logger.error('WebServer', '获取实验叙事数据失败:', { details: error });
         res.status(500).json({ success: false, error: error.message, data: [], count: 0 });
       }
     });
@@ -2147,7 +2149,7 @@ class RicherJsWebServer {
           });
         }
       } catch (error) {
-        console.error('刷新价格失败:', error);
+        this.logger.error('WebServer', '刷新价格失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2164,7 +2166,7 @@ class RicherJsWebServer {
           data: token
         });
       } catch (error) {
-        console.error('获取代币详情失败:', error);
+        this.logger.error('WebServer', '获取代币详情失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2184,7 +2186,7 @@ class RicherJsWebServer {
           res.status(500).json({ success: false, error: '更新失败' });
         }
       } catch (error) {
-        console.error('更新代币状态失败:', error);
+        this.logger.error('WebServer', '更新代币状态失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2225,7 +2227,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('保存代币标注失败:', error);
+        this.logger.error('WebServer', '保存代币标注失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2248,7 +2250,7 @@ class RicherJsWebServer {
           message: '标注已删除'
         });
       } catch (error) {
-        console.error('删除代币标注失败:', error);
+        this.logger.error('WebServer', '删除代币标注失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2278,7 +2280,7 @@ class RicherJsWebServer {
           data: data.human_judges
         });
       } catch (error) {
-        console.error('获取代币标注失败:', error);
+        this.logger.error('WebServer', '获取代币标注失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2323,7 +2325,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('保存叙事人工标注失败:', error);
+        this.logger.error('WebServer', '保存叙事人工标注失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2351,7 +2353,7 @@ class RicherJsWebServer {
           message: '标注已删除'
         });
       } catch (error) {
-        console.error('删除叙事人工标注失败:', error);
+        this.logger.error('WebServer', '删除叙事人工标注失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2372,7 +2374,7 @@ class RicherJsWebServer {
           data: tweets
         });
       } catch (error) {
-        console.error('从描述提取推文失败:', error);
+        this.logger.error('WebServer', '从描述提取推文失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2391,7 +2393,7 @@ class RicherJsWebServer {
           data: result
         });
       } catch (error) {
-        console.error('从描述提取推文详情失败:', error);
+        this.logger.error('WebServer', '从描述提取推文详情失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2409,7 +2411,7 @@ class RicherJsWebServer {
         const result = await this.twitterService.searchTokenAddress(address, options);
         res.json(result);
       } catch (error) {
-        console.error('搜索代币地址推文失败:', error);
+        this.logger.error('WebServer', '搜索代币地址推文失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2427,7 +2429,7 @@ class RicherJsWebServer {
         const result = await this.twitterService.extractTokenTwitterFeatures(address, options);
         res.json(result);
       } catch (error) {
-        console.error('提取代币Twitter特征失败:', error);
+        this.logger.error('WebServer', '提取代币Twitter特征失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2439,7 +2441,7 @@ class RicherJsWebServer {
         const result = await this.twitterService.getTweetDetail(id);
         res.json(result);
       } catch (error) {
-        console.error('获取推文详情失败:', error);
+        this.logger.error('WebServer', '获取推文详情失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2451,7 +2453,7 @@ class RicherJsWebServer {
         const result = await this.twitterService.getUserInfo(handle);
         res.json(result);
       } catch (error) {
-        console.error('获取用户信息失败:', error);
+        this.logger.error('WebServer', '获取用户信息失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2486,7 +2488,7 @@ class RicherJsWebServer {
           data: result
         });
       } catch (error) {
-        console.error('获取代币Twitter信息失败:', error);
+        this.logger.error('WebServer', '获取代币Twitter信息失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2502,7 +2504,7 @@ class RicherJsWebServer {
           data: stats
         });
       } catch (error) {
-        console.error('获取系统统计失败:', error);
+        this.logger.error('WebServer', '获取系统统计失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2524,7 +2526,7 @@ class RicherJsWebServer {
           message: `已清空 ${cleared} 个实验`
         });
       } catch (error) {
-        console.error('清空数据失败:', error);
+        this.logger.error('WebServer', '清空数据失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2655,7 +2657,7 @@ class RicherJsWebServer {
         });
 
       } catch (error) {
-        console.error('获取K线数据失败:', error);
+        this.logger.error('WebServer', '获取K线数据失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2700,7 +2702,7 @@ class RicherJsWebServer {
           requestParams: { tag, chain, limit, orderby }
         });
       } catch (error) {
-        console.error('获取平台标签代币失败:', error);
+        this.logger.error('WebServer', '获取平台标签代币失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -2734,7 +2736,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('获取交换交易记录失败:', error);
+        this.logger.error('WebServer', '获取交换交易记录失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -2766,7 +2768,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('获取流动性变化记录失败:', error);
+        this.logger.error('WebServer', '获取流动性变化记录失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -2800,7 +2802,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('获取地址交易记录失败:', error);
+        this.logger.error('WebServer', '获取地址交易记录失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -2840,7 +2842,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('搜索代币失败:', error);
+        this.logger.error('WebServer', '搜索代币失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -2872,7 +2874,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: { tag, chain, count: tokens.length, tokens } });
       } catch (error) {
-        console.error('获取平台代币列表失败:', error);
+        this.logger.error('WebServer', '获取平台代币列表失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2899,7 +2901,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: detail });
       } catch (error) {
-        console.error('获取代币详情失败:', error);
+        this.logger.error('WebServer', '获取代币详情失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2926,7 +2928,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: { count: Object.keys(prices).length, prices } });
       } catch (error) {
-        console.error('批量获取代币价格失败:', error);
+        this.logger.error('WebServer', '批量获取代币价格失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2953,7 +2955,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: { count: holders.length, holders } });
       } catch (error) {
-        console.error('获取TOP100持有者失败:', error);
+        this.logger.error('WebServer', '获取TOP100持有者失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -2980,7 +2982,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: risk });
       } catch (error) {
-        console.error('获取合约风险信息失败:', error);
+        this.logger.error('WebServer', '获取合约风险信息失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -3009,7 +3011,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: klineData });
       } catch (error) {
-        console.error('获取K线数据失败:', error);
+        this.logger.error('WebServer', '获取K线数据失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -3036,7 +3038,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: priceInfo });
       } catch (error) {
-        console.error('获取最新价格失败:', error);
+        this.logger.error('WebServer', '获取最新价格失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -3071,7 +3073,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: pnl });
       } catch (error) {
-        console.error('获取钱包盈亏失败:', error);
+        this.logger.error('WebServer', '获取钱包盈亏失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -3101,7 +3103,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: walletInfo });
       } catch (error) {
-        console.error('获取钱包信息失败:', error);
+        this.logger.error('WebServer', '获取钱包信息失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -3131,7 +3133,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: { count: tokens.length, tokens } });
       } catch (error) {
-        console.error('获取钱包持仓代币失败:', error);
+        this.logger.error('WebServer', '获取钱包持仓代币失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -3158,7 +3160,7 @@ class RicherJsWebServer {
 
         res.json({ success: true, data: { count: wallets.length, wallets } });
       } catch (error) {
-        console.error('获取智能钱包列表失败:', error);
+        this.logger.error('WebServer', '获取智能钱包列表失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
@@ -3213,7 +3215,7 @@ class RicherJsWebServer {
         });
 
       } catch (error) {
-        console.error('钱包查询失败:', error);
+        this.logger.error('WebServer', '钱包查询失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message || '查询失败'
@@ -3272,9 +3274,9 @@ class RicherJsWebServer {
             .maybeSingle();
 
           platform = tokenRecord?.platform || null;
-          console.log(`📊 [最早交易] 从数据库查询 platform: ${platform}`);
+          this.logger.info('WebServer', `📊 [最早交易] 从数据库查询 platform: ${platform}`);
         } catch (dbError) {
-          console.log(`📊 [最早交易] 数据库查询失败: ${dbError.message}`);
+          this.logger.info('WebServer', `📊 [最早交易] 数据库查询失败: ${dbError.message}`);
         }
 
         // 如果数据库中没有，从 token 对象获取（AVE API 可能返回）
@@ -3303,7 +3305,7 @@ class RicherJsWebServer {
           platform = 'fourmeme';
         }
 
-        console.log(`📊 [最早交易] 最终确定的 platform: ${platform}`);
+        this.logger.info('WebServer', `📊 [最早交易] 最终确定的 platform: ${platform}`);
 
         // 根据 platform + chain 构造 pair 地址
         let innerPair;
@@ -3324,7 +3326,7 @@ class RicherJsWebServer {
               return volB - volA;
             });
             mainPair = sortedPairs[0].pair;
-            console.log(`📊 [最早交易] 从 pairs 数组选取交易量最大的 pair: ${mainPair} (volume: ${sortedPairs[0].volume_u})`);
+            this.logger.info('WebServer', `📊 [最早交易] 从 pairs 数组选取交易量最大的 pair: ${mainPair} (volume: ${sortedPairs[0].volume_u})`);
           }
 
           if (!mainPair) {
@@ -3341,13 +3343,13 @@ class RicherJsWebServer {
         const fromTime = launchAt;
         const toTime = launchAt ? launchAt + (timeWindowMinutes * 60) : null;
 
-        console.log(`📊 [最早交易] token=${tokenAddress}, chain=${chain}`);
-        console.log(`   platform=${platform}`);
-        console.log(`   launch_at=${launchAt}, created_at=${token.created_at}`);
-        console.log(`   时间窗口: ${timeWindowMinutes}分钟`);
-        console.log(`   innerPair=${innerPair}`);
-        console.log(`   fromTime=${fromTime} (${fromTime ? toBeijingTime(fromTime) : 'null'})`);
-        console.log(`   toTime=${toTime} (${toTime ? toBeijingTime(toTime) : 'null'})`);
+        this.logger.info('WebServer', `📊 [最早交易] token=${tokenAddress}, chain=${chain}`);
+        this.logger.info('WebServer', `   platform=${platform}`);
+        this.logger.info('WebServer', `   launch_at=${launchAt}, created_at=${token.created_at}`);
+        this.logger.info('WebServer', `   时间窗口: ${timeWindowMinutes}分钟`);
+        this.logger.info('WebServer', `   innerPair=${innerPair}`);
+        this.logger.info('WebServer', `   fromTime=${fromTime} (${fromTime ? toBeijingTime(fromTime) : 'null'})`);
+        this.logger.info('WebServer', `   toTime=${toTime} (${toTime ? toBeijingTime(toTime) : 'null'})`);
 
         // 3. 获取最早交易记录（使用内盘 pair）
         const pairId = `${innerPair}-${chain}`;
@@ -3378,7 +3380,7 @@ class RicherJsWebServer {
             toTimeFormatted: currentToTime ? toBeijingTime(currentToTime) : 'null'
           };
           paginationLogs.push(logEntry);
-          console.log(`   第${pageCount}次查询: ${trades.length}条, toTime=${currentToTime} (${logEntry.toTimeFormatted})`);
+          this.logger.info('WebServer', `   第${pageCount}次查询: ${trades.length}条, toTime=${currentToTime} (${logEntry.toTimeFormatted})`);
 
           if (trades.length === 0) {
             // 没有更多数据了
@@ -3400,7 +3402,7 @@ class RicherJsWebServer {
 
           // 安全检查：如果 toTime 已经早于 fromTime，停止查询
           if (currentToTime < fromTime) {
-            console.log(`   ⚠️ 查询范围超出 fromTime，停止分页`);
+            this.logger.info('WebServer', '   ⚠️ 查询范围超出 fromTime，停止分页');
             break;
           }
         }
@@ -3409,17 +3411,17 @@ class RicherJsWebServer {
         allTrades.sort((a, b) => a.time - b.time);
 
         const earlyTrades = allTrades;
-        console.log(`   总共查询${pageCount}次，获取${earlyTrades.length}条交易记录`);
+        this.logger.info('WebServer', `   总共查询${pageCount}次，获取${earlyTrades.length}条交易记录`);
         if (earlyTrades.length > 0) {
           const firstTime = earlyTrades[0].time;
           const lastTime = earlyTrades[earlyTrades.length - 1].time;
-          console.log(`   最早交易时间: ${firstTime} (${toBeijingTime(firstTime)})`);
-          console.log(`   最晚交易时间: ${lastTime} (${toBeijingTime(lastTime)})`);
-          console.log(`   代币 launch_at: ${launchAt} (${launchAt ? toBeijingTime(launchAt) : 'null'})`);
-          console.log(`   代币 created_at: ${token.created_at} (${toBeijingTime(token.created_at)})`);
+          this.logger.info('WebServer', `   最早交易时间: ${firstTime} (${toBeijingTime(firstTime)})`);
+          this.logger.info('WebServer', `   最晚交易时间: ${lastTime} (${toBeijingTime(lastTime)})`);
+          this.logger.info('WebServer', `   代币 launch_at: ${launchAt} (${launchAt ? toBeijingTime(launchAt) : 'null'})`);
+          this.logger.info('WebServer', `   代币 created_at: ${token.created_at} (${toBeijingTime(token.created_at)})`);
         } else {
-          console.log(`   ⚠️ 没有查询到交易记录`);
-          console.log(`   代币 launch_at: ${launchAt} (${launchAt ? toBeijingTime(launchAt) : 'null'})`);
+          this.logger.info('WebServer', '   ⚠️ 没有查询到交易记录');
+          this.logger.info('WebServer', `   代币 launch_at: ${launchAt} (${launchAt ? toBeijingTime(launchAt) : 'null'})`);
         }
 
         // 如果进行了分页查询（多次API调用），返回所有获取的数据
@@ -3466,7 +3468,7 @@ class RicherJsWebServer {
           }
         });
       } catch (error) {
-        console.error('获取代币最早交易失败:', error);
+        this.logger.error('WebServer', '获取代币最早交易失败:', { details: error });
         res.status(500).json({
           success: false,
           error: error.message
@@ -3486,7 +3488,7 @@ class RicherJsWebServer {
 
     // 错误处理
     this.app.use((err, req, res, next) => {
-      console.error('服务器错误:', err);
+      this.logger.error('WebServer', '服务器错误:', { details: err });
       res.status(500).json({ success: false, error: err.message });
     });
   }
@@ -3653,7 +3655,7 @@ class RicherJsWebServer {
         }
       }
     } catch (err) {
-      console.error('[Events API] 叙事数据填充失败:', err.message);
+      this.logger.error('WebServer', '[Events API] 叙事数据填充失败:', { details: err.message });
       // 填充失败不影响事件列表返回，只是缺少叙事数据
     }
   }
@@ -3663,15 +3665,15 @@ class RicherJsWebServer {
    */
   start() {
     this.app.listen(this.port, () => {
-      console.log('');
-      console.log('========================================');
-      console.log('🚀 Richer-js Web服务器已启动');
-      console.log('========================================');
-      console.log(`📊 监控面板: http://localhost:${this.port}/experiments`);
-      console.log(`🔧 API文档: http://localhost:${this.port}/api`);
-      console.log(`💚 健康检查: http://localhost:${this.port}/health`);
-      console.log('========================================');
-      console.log('');
+      // separator line
+      this.logger.info('WebServer', '========================================');
+      this.logger.info('WebServer', '🚀 Richer-js Web服务器已启动');
+      this.logger.info('WebServer', '========================================');
+      this.logger.info('WebServer', `📊 监控面板: http://localhost:${this.port}/experiments`);
+      this.logger.info('WebServer', `🔧 API文档: http://localhost:${this.port}/api`);
+      this.logger.info('WebServer', `💚 健康检查: http://localhost:${this.port}/health`);
+      this.logger.info('WebServer', '========================================');
+      // separator line
     });
   }
 }
@@ -3683,12 +3685,12 @@ if (require.main === module) {
 
   // 优雅关闭
   process.on('SIGINT', () => {
-    console.log('\n👋 收到关闭信号，正在关闭服务器...');
+    this.logger.info('WebServer', '\n👋 收到关闭信号，正在关闭服务器...');
     process.exit(0);
   });
 
   process.on('SIGTERM', () => {
-    console.log('\n👋 收到关闭信号，正在关闭服务器...');
+    this.logger.info('WebServer', '\n👋 收到关闭信号，正在关闭服务器...');
     process.exit(0);
   });
 }

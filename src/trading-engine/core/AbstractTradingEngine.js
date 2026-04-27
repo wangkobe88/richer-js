@@ -168,7 +168,7 @@ class AbstractTradingEngine extends ITradingEngine {
     }
 
     // 调试：输出 config 内容
-    console.log(`🔍 实验 config 内容:`, JSON.stringify(this._experiment.config, null, 2));
+    this._logger.info('实验 config 内容', { config: this._experiment.config });
 
     this._experimentId = this._experiment.id;
     this._portfolioId = `portfolio_${this._experimentId}`;
@@ -492,10 +492,10 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   async processSignal(signal) {
     // 调试：记录 processSignal 被调用
-    console.log(`🔔 processSignal 被调用: ${signal.symbol} ${signal.action} (${signal.tokenAddress})`);
+    this._logger.info('processSignal 被调用', { symbol: signal.symbol, action: signal.action, token: signal.tokenAddress });
 
     if (!this._experiment) {
-      console.error(`❌ processSignal: this._experiment 为 null`);
+      this._logger.error('processSignal: this._experiment 为 null');
       throw new Error('引擎未初始化');
     }
 
@@ -532,7 +532,7 @@ class AbstractTradingEngine extends ITradingEngine {
 
     // 保存信号到数据库
     const signalId = await tradeSignal.save();
-    console.log(`✅ 信号已保存: ${signal.symbol} ${signal.action}, signalId=${signalId}`);
+    this._logger.info('信号已保存', { symbol: signal.symbol, action: signal.action, signalId });
     this._logger.info('信号已保存', {
       signalId,
       action: signal.action,
