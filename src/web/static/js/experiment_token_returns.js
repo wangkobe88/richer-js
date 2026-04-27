@@ -1127,9 +1127,16 @@ class ExperimentTokenReturns {
    */
   renderPlatformBadge(tokenAddress) {
     const platform = this.tokenPlatformMap.get(tokenAddress) || 'fourmeme';
-    const platformLabel = platform === 'flap' ? 'Flap' : 'Four.meme';
-    const platformClass = platform === 'flap' ? 'bg-purple-600' : 'bg-blue-600';
-    return `<span class="px-2 py-0.5 rounded text-xs font-medium ${platformClass} text-white">${platformLabel}</span>`;
+    const platformConfig = {
+        fourmeme: { label: 'Four.meme', cls: 'bg-blue-600' },
+        flap:     { label: 'Flap', cls: 'bg-purple-600' },
+        bankr:    { label: 'Bankr', cls: 'bg-orange-600' },
+        pumpfun:  { label: 'Pump.fun', cls: 'bg-green-600' },
+        ave:      { label: 'AVE', cls: 'bg-teal-600' },
+        gmgn:     { label: 'GMGN', cls: 'bg-yellow-600 text-black' },
+    };
+    const info = platformConfig[platform] || platformConfig.fourmeme;
+    return `<span class="px-2 py-0.5 rounded text-xs font-medium ${info.cls} text-white">${info.label}</span>`;
   }
 
   /**

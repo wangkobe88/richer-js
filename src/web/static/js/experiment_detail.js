@@ -2006,7 +2006,9 @@ class ExperimentDetail {
       'fourmeme': 'Four.meme',
       'flap': 'Flap',
       'bankr': 'Bankr',
-      'pumpfun': 'Pump.fun'
+      'pumpfun': 'Pump.fun',
+      'ave': 'AVE',
+      'gmgn': 'GMGN'
     };
 
     return labels[platform] || platform || 'Four.meme';

@@ -803,7 +803,7 @@ class PlatformCollector {
                         market_cap: t.market_cap || 0,
                         tvl: t.liquidity || 0,
                         tx_volume_u_24h: t.volume || 0,
-                        platform: 'uniswap',
+                        platform: 'gmgn',
                         creator_address: null,
                         _source: 'gmgn'
                     }));
@@ -893,7 +893,7 @@ class PlatformCollector {
                 }
 
                 // 设置平台字段（AVE 返回的 token 缺少这些字段，GMGN 映射时已设置）
-                if (!token.platform) token.platform = 'uniswap';
+                if (!token.platform) token.platform = 'ave';
                 if (token.creator_address === undefined) token.creator_address = null;
 
                 // Only add tokens younger than maxAgeSeconds
@@ -937,7 +937,7 @@ class PlatformCollector {
                 if (this.collectedTokens.has(tokenKey)) {
                     const poolToken = this.tokenPool.getToken(token.token, token.chain);
                     if (poolToken && !poolToken.platform) {
-                        poolToken.platform = 'uniswap';
+                        poolToken.platform = 'ave';
                     }
                 }
             }
@@ -947,7 +947,7 @@ class PlatformCollector {
 
             const duration = Date.now() - startTime;
             this.logger.debug('ETH链代币收集完成', {
-                platform: 'uniswap',
+                platform: 'ave',
                 fetched: tokens.length,
                 aveCount: aveTokens.length,
                 gmgnNew: gmgnAdded,

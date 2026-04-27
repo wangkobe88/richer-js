@@ -483,8 +483,17 @@ class ExperimentTokens {
     const creatorAddress = token.creator_address || null;
     const shortCreatorAddress = creatorAddress ? this.shortenAddress(creatorAddress) : '-';
     const platform = token.platform || 'fourmeme';
-    const platformLabel = platform === 'flap' ? 'Flap' : 'Four.meme';
-    const platformClass = platform === 'flap' ? 'bg-purple-600' : 'bg-blue-600';
+    const platformConfig = {
+        fourmeme: { label: 'Four.meme', cls: 'bg-blue-600' },
+        flap:     { label: 'Flap', cls: 'bg-purple-600' },
+        bankr:    { label: 'Bankr', cls: 'bg-orange-600' },
+        pumpfun:  { label: 'Pump.fun', cls: 'bg-green-600' },
+        ave:      { label: 'AVE', cls: 'bg-teal-600' },
+        gmgn:     { label: 'GMGN', cls: 'bg-yellow-600 text-black' },
+    };
+    const platformInfo = platformConfig[platform] || platformConfig.fourmeme;
+    const platformLabel = platformInfo.label;
+    const platformClass = platformInfo.cls;
     const symbol = token.token_symbol || rawData?.symbol || '-';
     const chain = this.experiment?.blockchain || 'bsc';
     const gmgnChainMap = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
