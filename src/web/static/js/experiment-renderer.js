@@ -527,6 +527,9 @@ class ExperimentRenderer {
       if (sc.gmgnSecurityCheck !== undefined) {
         formData.gmgnSecurityCheck = sc.gmgnSecurityCheck;
       }
+      if (sc.eventRecording !== undefined) {
+        formData.eventRecording = sc.eventRecording;
+      }
     }
 
     return formData;

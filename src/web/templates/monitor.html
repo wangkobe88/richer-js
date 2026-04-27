@@ -287,8 +287,18 @@
                     </svg>
                 </button>
             </div>
-            <p class="text-sm text-gray-600 mb-4">删除指定时间之前的事件数据，仅保留最近N小时内的记录。</p>
-            <div class="mb-4">
+            <p class="text-sm text-gray-600 mb-4">删除指定时间之前的事件数据，或全部清空。</p>
+            <div class="mb-4 flex items-center gap-4">
+                <label class="flex items-center gap-2">
+                    <input type="radio" name="purge-mode" value="keep" checked class="w-4 h-4 text-red-600 focus:ring-red-500">
+                    <span class="text-sm text-gray-700">保留最近N小时</span>
+                </label>
+                <label class="flex items-center gap-2">
+                    <input type="radio" name="purge-mode" value="all" class="w-4 h-4 text-red-600 focus:ring-red-500">
+                    <span class="text-sm text-gray-700">全部清空</span>
+                </label>
+            </div>
+            <div id="purge-hours-group" class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">保留最近多少小时的数据</label>
                 <input type="number" id="purge-hours" value="24" min="1" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                 <p class="mt-1 text-xs text-gray-500">例如：24 = 保留最近24小时，168 = 保留最近7天</p>

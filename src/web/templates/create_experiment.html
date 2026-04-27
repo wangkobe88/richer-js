@@ -640,6 +640,39 @@
                             </p>
                         </div>
                     </div>
+
+                    <!-- 事件记录配置 -->
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-medium text-blue-900">📋 事件记录策略</h3>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" id="event-recording-enabled" class="w-4 h-4" checked>
+                                <span class="text-sm font-medium text-blue-900">保存事件</span>
+                            </label>
+                        </div>
+                        <div id="event-recording-config" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-blue-900 mb-1">买入信号序号</label>
+                                <input type="text" id="event-buy-indices" value="1/3"
+                                    placeholder="如 1/3 或 1/5/10"
+                                    class="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <p class="text-xs text-blue-600 mt-1">记录第几个买入信号，斜杠分隔（从1开始）</p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-blue-900 mb-1">卖出信号</label>
+                                <select id="event-sell-signals" class="w-full px-3 py-2 border border-blue-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="all">全部记录</option>
+                                    <option value="none">不记录</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center">
+                                <label class="flex items-center gap-2">
+                                    <input type="checkbox" id="event-only-executed" class="w-4 h-4">
+                                    <span class="text-sm text-blue-900">仅记录已执行的信号</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 买入策略配置 -->
@@ -1107,6 +1140,18 @@
                 const telegramEnabled = document.getElementById('telegram-enabled');
                 if (copyData.telegramNotifications?.enabled !== undefined && telegramEnabled) {
                     telegramEnabled.checked = copyData.telegramNotifications.enabled;
+                }
+
+                // 填充事件记录配置
+                if (copyData.eventRecording !== undefined) {
+                    const erEnabled = document.getElementById('event-recording-enabled');
+                    const erBuyIndices = document.getElementById('event-buy-indices');
+                    const erSellSignals = document.getElementById('event-sell-signals');
+                    const erOnlyExecuted = document.getElementById('event-only-executed');
+                    if (erEnabled) erEnabled.checked = copyData.eventRecording.enabled !== false;
+                    if (erBuyIndices) erBuyIndices.value = copyData.eventRecording.buySignalIndices || '1/3';
+                    if (erSellSignals) erSellSignals.value = copyData.eventRecording.sellSignals || 'all';
+                    if (erOnlyExecuted) erOnlyExecuted.checked = !!copyData.eventRecording.onlyExecuted;
                 }
 
                 // 填充实盘钱包地址（如果有）
@@ -1765,6 +1810,13 @@
                     // 电报通知配置
                     telegramNotifications: {
                         enabled: document.getElementById('telegram-enabled')?.checked || false
+                    },
+                    // 事件记录配置
+                    eventRecording: {
+                        enabled: document.getElementById('event-recording-enabled')?.checked !== false,
+                        buySignalIndices: document.getElementById('event-buy-indices')?.value || '1/3',
+                        sellSignals: document.getElementById('event-sell-signals')?.value || 'all',
+                        onlyExecuted: document.getElementById('event-only-executed')?.checked || false
                     }
                 }
             };

@@ -91,6 +91,15 @@ class AbstractTradingEngine extends ITradingEngine {
 
     // 事件写入服务
     this._eventService = new ExperimentEventService();
+
+    // 事件记录配置
+    const eventConfig = this._config?.strategiesConfig?.eventRecording;
+    this._eventRecordingConfig = {
+      enabled: eventConfig?.enabled !== false,
+      buySignalIndices: this._parseSignalIndices(eventConfig?.buySignalIndices),
+      sellSignals: eventConfig?.sellSignals === 'none' ? 'none' : 'all',
+      onlyExecuted: eventConfig?.onlyExecuted === true
+    };
   }
 
   // ==================== Getter 方法 ====================
@@ -680,6 +689,11 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   async _sendSignalNotificationWithFilter(signalId, metadata) {
     try {
+      // 事件记录总开关
+      if (!this._eventRecordingConfig.enabled) {
+        return;
+      }
+
       // 获取完整信号数据
       const supabase = dbManager.getClient();
       const { data: signal, error } = await supabase
@@ -693,9 +707,16 @@ class AbstractTradingEngine extends ITradingEngine {
         return;
       }
 
+      const isExecuted = signal.executed === true;
+
+      // 仅记录已执行的信号
+      if (this._eventRecordingConfig.onlyExecuted && !isExecuted) {
+        this._logger.debug('信号未执行，跳过事件记录', { signalId, action: signal.action });
+        return;
+      }
+
       // === 通知过滤逻辑 ===
       if (signal.action === 'buy') {
-        const isExecuted = metadata.execution_status === 'executed';
         const shouldNotify = await this._shouldSendBuyNotification(signal, isExecuted);
         if (!shouldNotify) {
           this._logger.debug('买入信号跳过通知', {
@@ -704,8 +725,16 @@ class AbstractTradingEngine extends ITradingEngine {
           });
           return;
         }
+      } else if (signal.action === 'sell') {
+        // 卖出信号过滤
+        if (this._eventRecordingConfig.sellSignals === 'none') {
+          this._logger.debug('卖出信号已配置不记录，跳过', {
+            signalId,
+            tokenAddress: signal.token_address
+          });
+          return;
+        }
       }
-      // 卖出信号：每次都通知，不添加过滤
 
       // 构建实验信息
       const experimentInfo = {
@@ -728,7 +757,7 @@ class AbstractTradingEngine extends ITradingEngine {
 
   /**
    * 检查买入信号是否应触发通知
-   * 规则：第一个被执行的买入信号触发，若无执行则第3个买入信号触发
+   * 根据配置的 buySignalIndices 决定记录哪些序号的买入信号
    * @private
    * @param {Object} signal - 完整信号数据
    * @param {boolean} isExecuted - 信号是否执行成功
@@ -744,16 +773,16 @@ class AbstractTradingEngine extends ITradingEngine {
       state = await this._initTokenNotificationState(tokenAddress, signal.experiment_id);
     }
 
-    // 第3个信号之后不再发送
-    if (state.buySignalCount >= 3) {
+    // 安全上限：超过50个信号不再追踪（防内存膨胀）
+    if (state.buySignalCount >= 50) {
       return false;
     }
 
     // 递增买入信号计数
     state.buySignalCount += 1;
 
-    // 只有第1和第3个买入信号触发事件（无论执行与否）
-    if (state.buySignalCount === 1 || state.buySignalCount === 3) {
+    // 根据配置的序号集合判断是否记录
+    if (this._eventRecordingConfig.buySignalIndices.has(state.buySignalCount)) {
       return true;
     }
 
@@ -774,6 +803,22 @@ class AbstractTradingEngine extends ITradingEngine {
 
     this._tokenBuyNotificationState.set(tokenAddress, state);
     return state;
+  }
+
+  /**
+   * 解析信号序号字符串为 Set
+   * @param {string} str - 如 "1/3" 或 "1/5/10"
+   * @returns {Set<number>} 序号集合
+   * @private
+   */
+  _parseSignalIndices(str) {
+    if (!str || typeof str !== 'string') {
+      return new Set([1, 3]); // 默认值
+    }
+    const indices = str.split('/')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(n => !isNaN(n) && n > 0);
+    return indices.length > 0 ? new Set(indices) : new Set([1, 3]);
   }
 
   /**

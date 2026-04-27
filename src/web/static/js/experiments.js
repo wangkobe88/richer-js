@@ -785,6 +785,11 @@ class ExperimentMonitor {
         if (sc.gmgnSecurityCheck !== undefined) {
           copyData.gmgnSecurityCheck = sc.gmgnSecurityCheck;
         }
+
+        // 事件记录配置
+        if (sc.eventRecording !== undefined) {
+          copyData.eventRecording = sc.eventRecording;
+        }
       }
 
       // 实盘配置（不复制私钥，需要用户重新输入）

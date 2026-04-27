@@ -774,9 +774,24 @@ function closePurgeModal() {
   document.getElementById('purge-modal').classList.add('hidden');
 }
 
+function getPurgeMode() {
+  const checked = document.querySelector('input[name="purge-mode"]:checked');
+  return checked ? checked.value : 'keep';
+}
+
 function updatePurgePreview() {
-  const hours = parseInt(document.getElementById('purge-hours').value) || 0;
+  const mode = getPurgeMode();
   const preview = document.getElementById('purge-preview');
+  const hoursGroup = document.getElementById('purge-hours-group');
+
+  if (mode === 'all') {
+    hoursGroup.style.display = 'none';
+    preview.textContent = `将删除全部 ${allEvents.length} 条事件（当前页面统计，实际以数据库为准）`;
+    return;
+  }
+
+  hoursGroup.style.display = '';
+  const hours = parseInt(document.getElementById('purge-hours').value) || 0;
   if (hours <= 0) {
     preview.textContent = '';
     return;
@@ -787,18 +802,25 @@ function updatePurgePreview() {
 }
 
 async function executePurge() {
-  const hours = parseInt(document.getElementById('purge-hours').value) || 0;
-  if (hours <= 0) return;
-
+  const mode = getPurgeMode();
   const btn = document.getElementById('confirm-purge-btn');
   btn.disabled = true;
   btn.textContent = '清空中...';
 
   try {
+    const body = {};
+    if (mode === 'all') {
+      body.purgeAll = true;
+    } else {
+      const hours = parseInt(document.getElementById('purge-hours').value) || 0;
+      if (hours <= 0) return;
+      body.keepHours = hours;
+    }
+
     const resp = await fetch('/api/events/purge', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keepHours: hours })
+      body: JSON.stringify(body)
     });
     const result = await resp.json();
 
@@ -920,6 +942,9 @@ function setupEventListeners() {
   document.getElementById('close-purge-btn').addEventListener('click', closePurgeModal);
   document.getElementById('cancel-purge-btn').addEventListener('click', closePurgeModal);
   document.getElementById('purge-hours').addEventListener('input', updatePurgePreview);
+  document.querySelectorAll('input[name="purge-mode"]').forEach(r => {
+    r.addEventListener('change', updatePurgePreview);
+  });
   document.getElementById('confirm-purge-btn').addEventListener('click', executePurge);
 
   // 代币导航点击（事件委托）
