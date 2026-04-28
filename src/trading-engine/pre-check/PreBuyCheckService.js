@@ -594,7 +594,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, skipGmgnSecurity, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, contractRiskData, totalSupply } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, skipGmgnSecurity, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, contractRiskData, totalSupply, rawApiData } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -684,6 +684,7 @@ class PreBuyCheckService {
           dataCollectionRound: dataCollectionRound,
           // contractRiskData: contractRiskData  // [已停用] AVE 合约审计风控数据
           gmgnSecurityCheck: gmgnSecurityCheck,  // GMGN 安全检测数据
+          rawApiData: rawApiData,  // 原始API数据（用于社交因子融合）
         }
       );
     } catch (error) {
@@ -823,6 +824,8 @@ class PreBuyCheckService {
 
       // GMGN 安全检测因子
       ...(extraContext.gmgnSecurityCheck || this.gmgnSecurityService.getEmptyFactorValues()),
+      // 社交信息因子融合
+      ...this._mergeSocialFactors(extraContext.gmgnSecurityCheck, extraContext.rawApiData),
 
       // [已停用] 合约审计风控因子（保留默认值以兼容已有数据）
       // contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
@@ -938,6 +941,8 @@ class PreBuyCheckService {
         dataCollectionRound: extraContext.dataCollectionRound ?? 0,
         // GMGN 安全检测因子（允许在条件表达式中使用）
         ...this._extractGmgnFactors(extraContext.gmgnSecurityCheck),
+        // 社交信息因子融合：GMGN API 数据 + rawApiData（AVE 等收集时数据）
+        ...this._mergeSocialFactors(extraContext.gmgnSecurityCheck, extraContext.rawApiData),
         // [已停用] AVE 合约审计风控因子
         // contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
         // contractRiskPairLockPercent: extraContext.contractRiskData?.contractRiskPairLockPercent ?? 0,
@@ -1104,6 +1109,57 @@ class PreBuyCheckService {
       gmgnLpLockPercent: gmgnSecurityCheck.gmgnLpLockPercent ?? 0,
       gmgnHolderCount: gmgnSecurityCheck.gmgnHolderCount ?? 0,
       gmgnLiquidity: gmgnSecurityCheck.gmgnLiquidity ?? 0,
+      // 社交信息因子
+      hasTwitter: gmgnSecurityCheck.hasTwitter ?? false,
+      hasTelegram: gmgnSecurityCheck.hasTelegram ?? false,
+      hasWebsite: gmgnSecurityCheck.hasWebsite ?? false,
+      hasDiscord: gmgnSecurityCheck.hasDiscord ?? false,
+      socialLinkCount: gmgnSecurityCheck.socialLinkCount ?? 0,
+      hasAnySocial: gmgnSecurityCheck.hasAnySocial ?? false,
+      // stat 市场统计因子
+      gmgnMarketCap: gmgnSecurityCheck.gmgnMarketCap ?? 0,
+      gmgnFdv: gmgnSecurityCheck.gmgnFdv ?? 0,
+      gmgnVolume24h: gmgnSecurityCheck.gmgnVolume24h ?? 0,
+      gmgnVolume7d: gmgnSecurityCheck.gmgnVolume7d ?? 0,
+      gmgnPriceChange24h: gmgnSecurityCheck.gmgnPriceChange24h ?? 0,
+      gmgnAth: gmgnSecurityCheck.gmgnAth ?? 0,
+      // wallet_tags_stat 钱包标签因子
+      gmgnSmartMoneyCount: gmgnSecurityCheck.gmgnSmartMoneyCount ?? 0,
+      gmgnSmartMoneyPercent: gmgnSecurityCheck.gmgnSmartMoneyPercent ?? 0,
+      gmgnSniperCount: gmgnSecurityCheck.gmgnSniperCount ?? 0,
+      gmgnSniperPercent: gmgnSecurityCheck.gmgnSniperPercent ?? 0,
+      gmgnBotCount: gmgnSecurityCheck.gmgnBotCount ?? 0,
+      gmgnBotPercent: gmgnSecurityCheck.gmgnBotPercent ?? 0,
+      gmgnRetailCount: gmgnSecurityCheck.gmgnRetailCount ?? 0,
+      gmgnRetailPercent: gmgnSecurityCheck.gmgnRetailPercent ?? 0,
+    };
+  }
+
+  /**
+   * 融合 GMGN API 和 rawApiData（AVE 等）的社交信息
+   * 两个数据源取 OR 逻辑：任一来源有该社交链接即算有
+   * @private
+   * @param {Object} gmgnSecurityCheck - GMGN 安全检测结果（含社交因子）
+   * @param {Object} rawApiData - 原始 API 数据（AVE 等收集时数据）
+   * @returns {Object} 融合后的社交因子
+   */
+  _mergeSocialFactors(gmgnSecurityCheck, rawApiData) {
+    const gmgn = gmgnSecurityCheck || {};
+    const raw = rawApiData || {};
+
+    const hasTwitter = !!(gmgn.hasTwitter || raw.twitter || raw.twitter_username || raw.twitterUrl || raw.twitter_url);
+    const hasTelegram = !!(gmgn.hasTelegram || raw.telegram || raw.telegram_channel || raw.telegramUrl || raw.telegram_url);
+    const hasWebsite = !!(gmgn.hasWebsite || raw.website || raw.website_url || raw.homepage);
+    const hasDiscord = !!(gmgn.hasDiscord || raw.discord || raw.discord_url);
+    const socialLinkCount = [hasTwitter, hasTelegram, hasWebsite, hasDiscord].filter(Boolean).length;
+
+    return {
+      hasTwitter,
+      hasTelegram,
+      hasWebsite,
+      hasDiscord,
+      socialLinkCount,
+      hasAnySocial: socialLinkCount > 0,
     };
   }
 

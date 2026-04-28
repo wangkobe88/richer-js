@@ -21,6 +21,21 @@
  *   gmgnLpLockPercent       - LP 锁仓比例 (0~1)
  *   gmgnHolderCount         - 持有人数
  *   gmgnLiquidity           - 流动性 (USD)
+ *   社交信息因子：
+ *   hasTwitter / hasTelegram / hasWebsite / hasDiscord - 是否有社交链接
+ *   socialLinkCount         - 社交链接总数 (0-4)
+ *   hasAnySocial            - 是否有任何社交链接
+ *   stat 市场统计因子：
+ *   gmgnMarketCap           - 市值
+ *   gmgnFdv                 - 完全稀释估值
+ *   gmgnVolume24h / gmgnVolume7d - 24h/7d 交易量
+ *   gmgnPriceChange24h      - 24h 涨幅 (%)
+ *   gmgnAth                 - 历史最高价
+ *   wallet_tags_stat 钱包标签因子：
+ *   gmgnSmartMoneyCount/Percent - Smart Money 数量/占比
+ *   gmgnSniperCount/Percent     - Sniper 数量/占比
+ *   gmgnBotCount/Percent        - Bot 数量/占比
+ *   gmgnRetailCount/Percent     - 散户数量/占比
  */
 
 const { GMGNTokenAPI } = require('../../core/gmgn-api');
@@ -35,7 +50,7 @@ class GMGNSecurityService {
     this._logger = logger;
     this._api = null;
     this._cache = new Map();
-    this._cacheTTL = 30000; // 30秒内存缓存
+    this._cacheTTL = 30000; // security 内存缓存 30s（基本不变的数据）
   }
 
   /**
@@ -56,31 +71,13 @@ class GMGNSecurityService {
 
   /**
    * 执行代币安全检测
-   * 优先从 DB 缓存读取，无数据时调用 API 并写入 DB
+   * security 从 DB 缓存读取（基本不变），info 每次实时获取（市值等动态数据）
    * @param {string} tokenAddress - 代币地址
    * @param {string} chain - 链标识 (eth/bsc/sol/base)
    * @returns {Promise<Object>} 安全检测因子
    */
   async performSecurityCheck(tokenAddress, chain) {
-    // GMGN API 使用短链名: ethereum->eth, solana->sol
     const gmgnChain = this._normalizeChain(chain);
-    const cacheKey = `${gmgnChain}:${tokenAddress}`;
-    const cached = this._getCached(cacheKey);
-    if (cached) {
-      this._log('info', 'GMGN安全检测: 使用内存缓存', { token: tokenAddress?.slice(0, 10) + '...', chain: gmgnChain });
-      return cached;
-    }
-
-    // 1. 尝试从 DB 缓存读取
-    const dbData = await this._loadFromDB(tokenAddress, gmgnChain);
-    if (dbData) {
-      this._log('info', 'GMGN安全检测: 使用DB缓存', { token: tokenAddress?.slice(0, 10) + '...', chain: gmgnChain });
-      const result = this._extractFactors(dbData.security, dbData.info);
-      this._setCache(cacheKey, result);
-      return result;
-    }
-
-    // 2. DB 无数据，调用 API
     const api = this._getApi();
     if (!api) {
       this._log('warn', 'GMGN安全检测: API未初始化（缺少GMGN_API_KEY），返回空值', { token: tokenAddress?.slice(0, 10) + '...' });
@@ -90,21 +87,23 @@ class GMGNSecurityService {
     try {
       this._log('info', 'GMGN安全检测: 调用API', { token: tokenAddress?.slice(0, 10) + '...', chain: gmgnChain, hasProxy: !!process.env.GMGN_SOCKS_PROXY });
 
-      // 顺序调用，避免并行请求触发频率限制
-      const security = await api.getTokenSecurity(gmgnChain, tokenAddress);
+      // 1. 获取 security 数据：优先 DB 缓存（security 基本不变）
+      let security = await this._loadSecurityFromDB(tokenAddress, gmgnChain);
+      if (security) {
+        this._log('info', 'GMGN安全检测: security使用DB缓存，info实时获取', { token: tokenAddress?.slice(0, 10) + '...', chain: gmgnChain });
+      } else {
+        security = await api.getTokenSecurity(gmgnChain, tokenAddress);
+        await this._saveSecurityToDB(tokenAddress, gmgnChain, security);
+      }
 
-      // [暂不用] getTokenInfo 只提供 holderCount 和 liquidity，当前条件表达式未使用
-      // await new Promise(resolve => setTimeout(resolve, 500));
-      // let info = null;
-      // try {
-      //   info = await api.getTokenInfo(gmgnChain, tokenAddress);
-      // } catch (infoErr) {
-      //   this._log('warn', 'GMGN安全检测: getTokenInfo失败，使用部分数据', { token: tokenAddress?.slice(0, 10) + '...', error: infoErr.message });
-      // }
-      const info = null;
-
-      // 3. 将原始数据写入 DB 缓存
-      await this._saveToDB(tokenAddress, gmgnChain, security, info);
+      // 2. 获取 info 数据：每次实时获取（市值/交易量/钱包分布/社交链接等动态数据，不缓存）
+      await new Promise(resolve => setTimeout(resolve, 500));
+      let info = null;
+      try {
+        info = await api.getTokenInfo(gmgnChain, tokenAddress);
+      } catch (infoErr) {
+        this._log('warn', 'GMGN安全检测: getTokenInfo失败，使用部分数据', { token: tokenAddress?.slice(0, 10) + '...', error: infoErr.message });
+      }
 
       const result = this._extractFactors(security, info);
       this._log('info', 'GMGN安全检测: API调用成功', {
@@ -121,7 +120,6 @@ class GMGNSecurityService {
         gmgnHolderCount: result.gmgnHolderCount,
         gmgnLiquidity: result.gmgnLiquidity
       });
-      this._setCache(cacheKey, result);
       return result;
     } catch (err) {
       this._log('warn', 'GMGN安全检测: API调用失败', { token: tokenAddress?.slice(0, 10) + '...', error: err.message });
@@ -153,10 +151,10 @@ class GMGNSecurityService {
   }
 
   /**
-   * 从 DB 读取缓存的 GMGN 安全数据
+   * 从 DB 读取缓存的 GMGN security 数据（仅 security，不含 info）
    * @private
    */
-  async _loadFromDB(tokenAddress, chain) {
+  async _loadSecurityFromDB(tokenAddress, chain) {
     if (!this._supabase) return null;
     try {
       const { data, error } = await this._supabase
@@ -168,7 +166,7 @@ class GMGNSecurityService {
       if (error || !data || data.length === 0) return null;
       const raw = data[0].contract_security_raw_data;
       if (!raw || !raw.security) return null;
-      return raw;
+      return raw.security;
     } catch (err) {
       this._log('warn', 'GMGN安全检测: DB缓存读取失败', { token: tokenAddress?.slice(0, 10) + '...', error: err.message });
       return null;
@@ -176,13 +174,13 @@ class GMGNSecurityService {
   }
 
   /**
-   * 将 GMGN 安全原始数据写入 DB 缓存
+   * 将 GMGN security 数据写入 DB 缓存（仅 security）
    * @private
    */
-  async _saveToDB(tokenAddress, chain, security, info) {
+  async _saveSecurityToDB(tokenAddress, chain, security) {
     if (!this._supabase) return;
     try {
-      const rawData = { security, info, chain, savedAt: Date.now() };
+      const rawData = { security, chain, savedAt: Date.now() };
       const { error } = await this._supabase
         .from('experiment_tokens')
         .update({ contract_security_raw_data: rawData })
@@ -190,7 +188,7 @@ class GMGNSecurityService {
       if (error) {
         this._log('warn', 'GMGN安全检测: DB缓存写入失败', { token: tokenAddress?.slice(0, 10) + '...', error: error.message });
       } else {
-        this._log('info', 'GMGN安全检测: DB缓存写入成功', { token: tokenAddress?.slice(0, 10) + '...' });
+        this._log('info', 'GMGN安全检测: security DB缓存写入成功', { token: tokenAddress?.slice(0, 10) + '...' });
       }
     } catch (err) {
       this._log('warn', 'GMGN安全检测: DB缓存写入异常', { token: tokenAddress?.slice(0, 10) + '...', error: err.message });
@@ -207,6 +205,19 @@ class GMGNSecurityService {
     const lockSummary = sec.lock_summary || {};
     const privileges = sec.privileges;
 
+    // 社交信息提取
+    const link = inf.link || {};
+    const hasTwitter = !!(link.twitter_username);
+    const hasTelegram = !!(link.telegram);
+    const hasWebsite = !!(link.website);
+    const hasDiscord = !!(link.discord);
+    const socialLinkCount = [hasTwitter, hasTelegram, hasWebsite, hasDiscord].filter(Boolean).length;
+
+    // stat 统计数据提取
+    const stat = inf.stat || {};
+    // wallet_tags_stat 钱包标签统计提取
+    const walletTags = inf.wallet_tags_stat || {};
+
     return {
       gmgnSecurityAvailable: 1,
       gmgnIsHoneypot: sec.is_honeypot === true,
@@ -222,6 +233,29 @@ class GMGNSecurityService {
       gmgnLpLockPercent: this._parseTax(lockSummary.lock_percent),
       gmgnHolderCount: inf.holder_count || 0,
       gmgnLiquidity: parseFloat(inf.liquidity) || 0,
+      // 社交信息因子
+      hasTwitter,
+      hasTelegram,
+      hasWebsite,
+      hasDiscord,
+      socialLinkCount,
+      hasAnySocial: socialLinkCount > 0,
+      // stat 市场统计因子
+      gmgnMarketCap: parseFloat(stat.market_cap) || 0,
+      gmgnFdv: parseFloat(stat.fdv) || 0,
+      gmgnVolume24h: parseFloat(stat.volume_24h) || 0,
+      gmgnVolume7d: parseFloat(stat.volume_7d) || 0,
+      gmgnPriceChange24h: parseFloat(stat.price_change_24h) || 0,
+      gmgnAth: parseFloat(stat.ath) || 0,
+      // wallet_tags_stat 钱包标签因子
+      gmgnSmartMoneyCount: parseInt(walletTags.smart_money_count) || 0,
+      gmgnSmartMoneyPercent: this._parseTax(walletTags.smart_money_percent),
+      gmgnSniperCount: parseInt(walletTags.sniper_count) || 0,
+      gmgnSniperPercent: this._parseTax(walletTags.sniper_percent),
+      gmgnBotCount: parseInt(walletTags.bot_count) || 0,
+      gmgnBotPercent: this._parseTax(walletTags.bot_percent),
+      gmgnRetailCount: parseInt(walletTags.retail_count) || 0,
+      gmgnRetailPercent: this._parseTax(walletTags.retail_percent),
     };
   }
 
@@ -254,6 +288,29 @@ class GMGNSecurityService {
       gmgnLpLockPercent: 0,
       gmgnHolderCount: 0,
       gmgnLiquidity: 0,
+      // 社交信息因子
+      hasTwitter: false,
+      hasTelegram: false,
+      hasWebsite: false,
+      hasDiscord: false,
+      socialLinkCount: 0,
+      hasAnySocial: false,
+      // stat 市场统计因子
+      gmgnMarketCap: 0,
+      gmgnFdv: 0,
+      gmgnVolume24h: 0,
+      gmgnVolume7d: 0,
+      gmgnPriceChange24h: 0,
+      gmgnAth: 0,
+      // wallet_tags_stat 钱包标签因子
+      gmgnSmartMoneyCount: 0,
+      gmgnSmartMoneyPercent: 0,
+      gmgnSniperCount: 0,
+      gmgnSniperPercent: 0,
+      gmgnBotCount: 0,
+      gmgnBotPercent: 0,
+      gmgnRetailCount: 0,
+      gmgnRetailPercent: 0,
     };
   }
 

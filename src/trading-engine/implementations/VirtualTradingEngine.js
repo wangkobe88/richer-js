@@ -1777,7 +1777,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
               skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false,
               skipGmgnSecurity: !this._gmgnSecurityCheckEnabled,  // GMGN 安全检测开关
               contractRiskData: contractRiskData,  // 合约审计风控数据（已停用，保留兼容）
-              totalSupply: totalSupply  // 代币总供应量
+              totalSupply: totalSupply,  // 代币总供应量
+              rawApiData: token.rawApiData || null  // 原始API数据（用于社交因子融合）
             }
           );
 

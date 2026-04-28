@@ -203,6 +203,29 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     gmgnLpLockPercent: preBuyCheckResult.gmgnLpLockPercent ?? 0,
     gmgnHolderCount: preBuyCheckResult.gmgnHolderCount ?? 0,
     gmgnLiquidity: preBuyCheckResult.gmgnLiquidity ?? 0,
+    // 社交信息因子
+    hasTwitter: preBuyCheckResult.hasTwitter ?? false,
+    hasTelegram: preBuyCheckResult.hasTelegram ?? false,
+    hasWebsite: preBuyCheckResult.hasWebsite ?? false,
+    hasDiscord: preBuyCheckResult.hasDiscord ?? false,
+    socialLinkCount: preBuyCheckResult.socialLinkCount ?? 0,
+    hasAnySocial: preBuyCheckResult.hasAnySocial ?? false,
+    // stat 市场统计因子
+    gmgnMarketCap: preBuyCheckResult.gmgnMarketCap ?? 0,
+    gmgnFdv: preBuyCheckResult.gmgnFdv ?? 0,
+    gmgnVolume24h: preBuyCheckResult.gmgnVolume24h ?? 0,
+    gmgnVolume7d: preBuyCheckResult.gmgnVolume7d ?? 0,
+    gmgnPriceChange24h: preBuyCheckResult.gmgnPriceChange24h ?? 0,
+    gmgnAth: preBuyCheckResult.gmgnAth ?? 0,
+    // wallet_tags_stat 钱包标签因子
+    gmgnSmartMoneyCount: preBuyCheckResult.gmgnSmartMoneyCount ?? 0,
+    gmgnSmartMoneyPercent: preBuyCheckResult.gmgnSmartMoneyPercent ?? 0,
+    gmgnSniperCount: preBuyCheckResult.gmgnSniperCount ?? 0,
+    gmgnSniperPercent: preBuyCheckResult.gmgnSniperPercent ?? 0,
+    gmgnBotCount: preBuyCheckResult.gmgnBotCount ?? 0,
+    gmgnBotPercent: preBuyCheckResult.gmgnBotPercent ?? 0,
+    gmgnRetailCount: preBuyCheckResult.gmgnRetailCount ?? 0,
+    gmgnRetailPercent: preBuyCheckResult.gmgnRetailPercent ?? 0,
   };
 }
 
