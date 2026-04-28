@@ -317,6 +317,61 @@ class LiveTradingEngine extends AbstractTradingEngine {
    * @param {Object} metadata - 元数据
    * @returns {Promise<Object>} 交易结果
    */
+
+  /**
+   * 根据 AVE API 返回的 main pair 信息智能选择 trader
+   * 通过 getTokenDetail 获取 amm 字段，映射到对应的交易器
+   * @private
+   * @param {string} tokenAddress - 代币地址
+   * @param {string} chain - 链标识
+   * @returns {Promise<Object>} 选中的 trader 实例
+   */
+  async _selectTraderForToken(tokenAddress, chain) {
+    // BSC 链默认 fourmeme，Base 链默认 uniswap-v4
+    if (chain === 'bsc') return this._fourmemeTrader;
+    if (chain === 'base') return this._uniswapV4Trader;
+
+    // ETH 链：查询 AVE API 获取 main pair 的 amm
+    try {
+      const tokenId = `${tokenAddress}-${chain}`;
+      const detail = await this._aveTokenApi.getTokenDetail(tokenId);
+      const tokenData = detail.token || {};
+      const pairs = detail.pairs || [];
+      const mainPairAddr = tokenData.main_pair;
+
+      // 找到 main pair
+      const mainPair = mainPairAddr
+        ? pairs.find(p => p.pair === mainPairAddr)
+        : pairs[0];
+
+      if (mainPair && mainPair.amm) {
+        const amm = mainPair.amm.toLowerCase();
+        this.logger.info(this._experimentId, 'SmartTrader',
+          `AVE API 返回 main pair | token=${tokenAddress?.slice(0, 10)}..., amm=${amm}, pair=${mainPair.pair}`);
+
+        if (amm.includes('v4') && this._uniswapV4Trader) {
+          return this._uniswapV4Trader;
+        } else if (amm.includes('v3') && this._uniswapV4Trader) {
+          // V3 pool 也通过 V4 trader 的 hook 处理
+          return this._uniswapV4Trader;
+        } else if (amm.includes('uniswap') && this._uniswapV2Trader) {
+          return this._uniswapV2Trader;
+        } else if (amm.includes('pancake') && this._pancakeSwapTrader) {
+          return this._pancakeSwapTrader;
+        }
+        // amm 未匹配到已知 trader，fallback
+        this.logger.warn(this._experimentId, 'SmartTrader',
+          `未知 amm 类型: ${amm}，使用默认 trader`);
+      }
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'SmartTrader',
+        `AVE API 查询失败，使用默认 trader | error=${e.message}`);
+    }
+
+    // fallback: 按链返回默认 trader
+    return this._uniswapV2Trader;
+  }
+
   async _executeBuy(signal, signalId = null, metadata = {}) {
     this.logger.info(this._experimentId, '_executeBuy',
       `========== _executeBuy 被调用 ==========`);
@@ -391,7 +446,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, '_executeBuy',
         `Wei 转换 | amountInWei=${amountInWei}, typeof=${typeof amountInWei}`);
 
-      const buyResult = await this._trader.buyToken(
+      // 智能选择 trader：根据 main pair 的 amm 类型自动路由
+      const selectedTrader = await this._selectTraderForToken(signal.tokenAddress, signal.chain || this._blockchain);
+      this.logger.info(this._experimentId, '_executeBuy',
+        `选中 trader | type=${selectedTrader === this._uniswapV4Trader ? 'uniswap-v4' : selectedTrader === this._uniswapV2Trader ? 'uniswap-v2' : 'other'}`);
+
+      const buyResult = await selectedTrader.buyToken(
         signal.tokenAddress,
         amountInWei,
         buyOptions
@@ -677,49 +737,54 @@ class LiveTradingEngine extends AbstractTradingEngine {
         }
 
       } else if (this._blockchain === 'ethereum') {
-        // ETH: Uniswap V2 → Uniswap V4 fallback
+        // ETH: 智能选择 trader，失败后 fallback 到另一个
         const uniswapOptions = {
           slippage: this._maxSlippage,
           gasPrice: this._experiment.config?.trading?.maxGasPrice || 50
         };
 
+        const primaryTrader = await this._selectTraderForToken(signal.tokenAddress, signal.chain || this._blockchain);
+        const primaryName = primaryTrader === this._uniswapV4Trader ? 'uniswap-v4' : 'uniswap-v2';
+        const fallbackTrader = primaryTrader === this._uniswapV4Trader ? this._uniswapV2Trader : this._uniswapV4Trader;
+        const fallbackName = primaryTrader === this._uniswapV4Trader ? 'uniswap-v2' : 'uniswap-v4';
+
         try {
-          this.logger.info(this._experimentId, '_executeSell', `尝试使用 Uniswap V2 交易器卖出 ${signal.symbol}...`);
-          sellResult = await this._uniswapV2Trader.sellToken(
+          this.logger.info(this._experimentId, '_executeSell', `尝试使用 ${primaryName} 交易器卖出 ${signal.symbol}...`);
+          sellResult = await primaryTrader.sellToken(
             signal.tokenAddress,
             amountToSellBigInt,
             uniswapOptions
           );
 
           if (sellResult.success) {
-            traderUsed = 'uniswap-v2';
-            this.logger.info(this._experimentId, '_executeSell', `Uniswap V2 交易器卖出成功`);
+            traderUsed = primaryName;
+            this.logger.info(this._experimentId, '_executeSell', `${primaryName} 交易器卖出成功`);
           } else {
-            throw new Error(sellResult.error || 'Uniswap V2 交易失败');
+            throw new Error(sellResult.error || `${primaryName} 交易失败`);
           }
-        } catch (v2Error) {
-          this.logger.warn(this._experimentId, '_executeSell', `Uniswap V2 交易器卖出失败: ${v2Error.message}`);
+        } catch (primaryError) {
+          this.logger.warn(this._experimentId, '_executeSell', `${primaryName} 交易器卖出失败: ${primaryError.message}`);
 
-          this.logger.info(this._experimentId, '_executeSell', `尝试使用 Uniswap V4 交易器卖出 ${signal.symbol}...`);
+          this.logger.info(this._experimentId, '_executeSell', `尝试使用 ${fallbackName} 交易器卖出 ${signal.symbol}...`);
 
           try {
-            sellResult = await this._uniswapV4Trader.sellToken(
+            sellResult = await fallbackTrader.sellToken(
               signal.tokenAddress,
               amountToSellBigInt,
               uniswapOptions
             );
 
             if (sellResult.success) {
-              traderUsed = 'uniswap-v4';
-              this.logger.info(this._experimentId, '_executeSell', `Uniswap V4 交易器卖出成功`);
+              traderUsed = fallbackName;
+              this.logger.info(this._experimentId, '_executeSell', `${fallbackName} 交易器卖出成功`);
             } else {
-              throw new Error(sellResult.error || 'Uniswap V4 交易失败');
+              throw new Error(sellResult.error || `${fallbackName} 交易失败`);
             }
-          } catch (v4Error) {
-            this.logger.error(this._experimentId, '_executeSell', `Uniswap V4 交易器也失败: ${v4Error.message}`);
+          } catch (fallbackError) {
+            this.logger.error(this._experimentId, '_executeSell', `${fallbackName} 交易器也失败: ${fallbackError.message}`);
             return {
               success: false,
-              reason: `所有交易器均失败: Uniswap V2(${v2Error.message}), Uniswap V4(${v4Error.message})`
+              reason: `所有交易器均失败: ${primaryName}(${primaryError.message}), ${fallbackName}(${fallbackError.message})`
             };
           }
         }
