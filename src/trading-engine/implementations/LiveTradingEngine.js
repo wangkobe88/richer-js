@@ -1001,7 +1001,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
     // 5. 初始化 TokenPool（传入价格历史缓存和持有者历史缓存，与虚拟盘一致）
     this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache, this._holderHistoryCache);
-    await this._tokenPool.initialize();
     this.logger.info('LiveTradingEngine', 'Initialize', '代币池初始化完成');
     console.log(`✅ 代币池初始化完成`);
 
@@ -1025,14 +1024,24 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this.logger.info('LiveTradingEngine', 'Initialize', 'FourMeme API 初始化完成');
     console.log(`✅ FourMeme API 初始化完成`);
 
-    // 初始化 Platform 收集器（支持 fourmeme 和 flap）
+    // 初始化 Platform 收集器（合并实验配置 + 传入实验ID和区块链，与虚拟盘一致）
+    const experimentCollectorConfig = this._experiment?.config?.collector || {};
+    const mergedCollectorConfig = {
+      ...config,
+      collector: {
+        ...config.collector,
+        ...experimentCollectorConfig
+      }
+    };
     this._fourmemeCollector = new PlatformCollector(
-      config,
+      mergedCollectorConfig,
       this.logger,
-      this._tokenPool
+      this._tokenPool,
+      this._experimentId,
+      this._blockchain
     );
-    this.logger.info('LiveTradingEngine', 'Initialize', 'Platform 收集器初始化完成');
-    console.log(`✅ Fourmeme 收集器初始化完成`);
+    this.logger.info('LiveTradingEngine', 'Initialize', `Platform 收集器初始化完成 [实验ID: ${this._experimentId}, 区块链: ${this._blockchain}, 收集频率: ${mergedCollectorConfig.collector.interval}ms, 代币最大年龄: ${mergedCollectorConfig.collector.maxAgeSeconds}s]`);
+    console.log(`✅ Platform 收集器初始化完成 [区块链: ${this._blockchain}, 收集频率: ${mergedCollectorConfig.collector.interval}ms]`);
 
     // 初始化 RoundSummary（与虚拟盘一致）
     this._roundSummary = new RoundSummary(this._experimentId, this.logger, this._blockchain);
@@ -1088,8 +1097,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this.logger.info('LiveTradingEngine', 'Initialize', `策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
     console.log(`✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
-    // 初始化叙事分析配置
-    const narrativeAnalysisConfig = this._experiment.config?.strategiesConfig?.narrativeAnalysis || this._experiment.config?.narrativeAnalysis || {};
+    // 初始化叙事分析配置（与虚拟盘一致）
+    const experimentConfig = this._experiment?.config || {};
+    const narrativeAnalysisConfig = experimentConfig.strategiesConfig?.narrativeAnalysis || experimentConfig.narrativeAnalysis || {};
     this._narrativeAnalysisEnabled = narrativeAnalysisConfig.enabled === true;
     this._narrativeReanalyze = narrativeAnalysisConfig.reanalyze === true;
     this._narrativeTriggerThreshold = narrativeAnalysisConfig.triggerThreshold || 80;
@@ -1101,6 +1111,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
       console.log(`✅ 叙事分析已启用 (阈值: ${this._narrativeTriggerThreshold}%, 等待: ${this._narrativeMaxWaitSeconds}s)`);
     } else {
       this.logger.info('LiveTradingEngine', 'Initialize', `⚠️ 叙事分析未启用`);
+    }
+
+    // GMGN 安全检测配置（与虚拟盘一致）
+    this._gmgnSecurityCheckEnabled = experimentConfig.strategiesConfig?.gmgnSecurityCheck?.enabled ?? experimentConfig.gmgnSecurityCheck?.enabled ?? false;
+    if (this._gmgnSecurityCheckEnabled) {
+      this.logger.info('LiveTradingEngine', 'Initialize', '✅ GMGN 安全检测已启用');
+      console.log('✅ GMGN 安全检测已启用');
     }
 
     // 提前加载 Super IP 检测模块（用于 tweetAuthorType 因子）
@@ -1993,6 +2010,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
             earlyTradesUniqueWallets: factorResults.earlyTradesUniqueWallets || 0,
             earlyTradesHighValueCount: factorResults.earlyTradesHighValueCount || 0,
             earlyTradesFilteredCount: factorResults.earlyTradesFilteredCount || 0,
+            // 早期交易新增因子（与虚拟盘一致）
+            earlyTradesFinalLiquidity: factorResults.earlyTradesFinalLiquidity || null,
+            earlyTradesDrawdownFromHighest: factorResults.earlyTradesDrawdownFromHighest || null,
+            // 钱包累积集中度因子（与虚拟盘一致）
+            earlyTradesTop1BuyRatio: factorResults.earlyTradesTop1BuyRatio || 0,
+            earlyTradesTop3BuyRatio: factorResults.earlyTradesTop3BuyRatio || 0,
+            earlyTradesTop1NetHoldingRatio: factorResults.earlyTradesTop1NetHoldingRatio || 0,
             // 钱包簇检查因子
             walletClusterBlockThreshold: factorResults.walletClusterBlockThreshold || null,
             walletClusterMethod: factorResults.walletClusterMethod || null,
@@ -2002,8 +2026,35 @@ class LiveTradingEngine extends AbstractTradingEngine {
             walletClusterTop2Ratio: factorResults.walletClusterTop2Ratio || 0,
             walletClusterMegaRatio: factorResults.walletClusterMegaRatio || 0,
             walletClusterMaxClusterWallets: factorResults.walletClusterMaxClusterWallets || 0,
+            // 最大区块买入金额占比因子（与虚拟盘一致）
+            walletClusterMaxBlockBuyRatio: factorResults.walletClusterMaxBlockBuyRatio || 0,
+            walletClusterMaxBlockNumber: factorResults.walletClusterMaxBlockNumber || null,
+            walletClusterMaxBlockBuyAmount: factorResults.walletClusterMaxBlockBuyAmount || 0,
+            walletClusterTotalBuyAmount: factorResults.walletClusterTotalBuyAmount || 0,
+            // 强势交易者持仓因子（与虚拟盘一致）
+            strongTraderNetPositionRatio: factorResults.strongTraderNetPositionRatio || 0,
+            strongTraderTotalBuyRatio: factorResults.strongTraderTotalBuyRatio || 0,
+            strongTraderTotalSellRatio: factorResults.strongTraderTotalSellRatio || 0,
+            strongTraderWalletCount: factorResults.strongTraderWalletCount || 0,
+            strongTraderTradeCount: factorResults.strongTraderTradeCount || 0,
+            strongTraderSellIntensity: factorResults.strongTraderSellIntensity || 0,
             // 叙事分析评级因子
-            narrativeRating: factorResults.narrativeRating ?? 9
+            narrativeRating: factorResults.narrativeRating ?? 9,
+            // GMGN 安全检测因子（与虚拟盘一致）
+            gmgnSecurityAvailable: 0,
+            gmgnIsHoneypot: false,
+            gmgnIsOpenSource: false,
+            gmgnIsRenounced: false,
+            gmgnHasBlacklist: -1,
+            gmgnBuyTax: 0,
+            gmgnSellTax: 0,
+            gmgnTop10HolderRate: 0,
+            gmgnHasAlert: false,
+            gmgnPrivilegeCount: 0,
+            gmgnLpLocked: false,
+            gmgnLpLockPercent: 0,
+            gmgnHolderCount: 0,
+            gmgnLiquidity: 0,
           }
         } : null
       };
@@ -2050,6 +2101,10 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
       // ========== 叙事分析步骤结束 ==========
 
+      // ========== 合约审计风控（与虚拟盘一致，已停用 AVE，GMGN 安全检测已在 PreBuyCheckService 中执行）==========
+      let contractRiskData = this._getEmptyContractRiskData();  // 固定返回空数据
+      // ========== 合约审计风控结束 ==========
+
       // ========== 然后进行预检查（与虚拟盘一致）==========
       let preCheckPassed = true;
       let blockReason = null;
@@ -2090,6 +2145,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
           // 获取上一对收益率
           const lastPairReturnRate = this._tokenPool.getLastPairReturnRate(token.token, token.chain || 'bsc');
 
+          // 计算代币总供应量（与虚拟盘一致）
+          let totalSupply = parseFloat(token.total) || 0;
+          if (totalSupply <= 0 && factorResults.fdv > 0 && factorResults.currentPrice > 0) {
+            totalSupply = factorResults.fdv / factorResults.currentPrice;
+          }
+
           preBuyCheckResult = await this._preBuyCheckService.performAllChecks(
             token.token,
             token.creator_address || null,
@@ -2104,10 +2165,14 @@ class LiveTradingEngine extends AbstractTradingEngine {
               drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 趋势因子：最高价回撤
               buyRound: currentRound + 1,  // 即将进行的轮数
               lastPairReturnRate: lastPairReturnRate ?? 0,
-              skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false,
               narrativeRating: narrativeRating,  // 叙事评级
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,  // 推文作者类型
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,  // 数据采集轮数
+              skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false,
+              skipGmgnSecurity: !this._gmgnSecurityCheckEnabled,  // GMGN 安全检测开关（与虚拟盘一致）
+              contractRiskData: contractRiskData,  // 合约审计风控数据（与虚拟盘一致）
+              totalSupply: totalSupply,  // 代币总供应量（与虚拟盘一致）
+              rawApiData: token.rawApiData || null  // 原始API数据（用于社交因子融合，与虚拟盘一致）
             }
           );
 
@@ -2165,7 +2230,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
           };
 
           try {
-            await this._updateSignalMetadata(signalId, failedCheckMetadata);
+            // 传递Twitter数据（与虚拟盘一致）
+            const directFields = {
+              twitter_search_result: preBuyCheckResult._twitterRawResult || null,
+              twitter_search_duration: preBuyCheckResult._twitterDuration || null
+            };
+            await this._updateSignalMetadata(signalId, failedCheckMetadata, directFields);
             this.logger.info(this._experimentId, '_executeStrategy',
               `预检查失败，但已保存购买前置检查数据 | symbol=${token.symbol}, signalId=${signalId}`);
           } catch (updateError) {
@@ -2223,7 +2293,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
         };
 
         try {
-          await this._updateSignalMetadata(signalId, signalMetadata);
+          // 传递Twitter数据（与虚拟盘一致）
+          const directFields = {
+            twitter_search_result: preBuyCheckResult._twitterRawResult || null,
+            twitter_search_duration: preBuyCheckResult._twitterDuration || null
+          };
+          await this._updateSignalMetadata(signalId, signalMetadata, directFields);
           this.logger.info(this._experimentId, '_executeStrategy',
             `信号元数据已更新 | symbol=${token.symbol}, signalId=${signalId}`);
         } catch (updateError) {
@@ -2445,6 +2520,24 @@ class LiveTradingEngine extends AbstractTradingEngine {
   }
 
   /**
+   * 获取空的合约审计数据（已停用 AVE，GMGN 安全检测已在 PreBuyCheckService 中执行）
+   * @private
+   * @returns {Object} 空的合约审计数据
+   */
+  _getEmptyContractRiskData() {
+    return {
+      contractRiskAvailable: 0,
+      contractRiskPairLockPercent: 0,
+      contractRiskTopLpHolderPercent: 0,
+      contractRiskLpHolders: 0,
+      contractRiskScore: 0,
+      contractRiskIsHoneypot: 0,
+      contractRiskDexAmmType: 'unknown',
+      contractRiskHasCode: 'unknown',
+    };
+  }
+
+  /**
    * 构建代币信息（用于早期参与者检查）
    * @private
    * @param {Object} token - 代币数据
@@ -2564,24 +2657,14 @@ class LiveTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 更新信号元数据
+   * 更新信号元数据（使用基类实现，支持 directFields 参数）
    * @private
    * @param {string} signalId - 信号ID
    * @param {Object} metadata - 元数据
+   * @param {Object} [directFields] - 直接数据库字段（如 twitter_search_result）
    * @returns {Promise<void>}
    */
-  async _updateSignalMetadata(signalId, metadata) {
-    if (!signalId || !metadata) {
-      return;
-    }
 
-    try {
-      await this.dataService.updateSignalMetadata(signalId, metadata);
-    } catch (error) {
-      this.logger.error(this._experimentId, '_updateSignalMetadata',
-        `更新信号元数据失败 | signalId=${signalId}, error=${error.message}`);
-    }
-  }
 
   /**
    * 更新信号状态
