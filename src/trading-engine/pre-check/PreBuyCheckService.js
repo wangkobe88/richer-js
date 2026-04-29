@@ -995,8 +995,8 @@ class PreBuyCheckService {
         canBuy,
         preTraderCanBuy: canBuy,
         // 透传 GMGN 原始 API 数据，供上层存入 strategy_signals 表
-        gmgnSecurityRawData: gmgnSecurityCheck?._rawSecurity || null,
-        gmgnTokenInfoRawData: gmgnSecurityCheck?._rawInfo || null,
+        gmgnSecurityRawData: extraContext.gmgnSecurityCheck?._rawSecurity || null,
+        gmgnTokenInfoRawData: extraContext.gmgnSecurityCheck?._rawInfo || null,
       };
 
       // 无论成功失败，都执行详细诊断
