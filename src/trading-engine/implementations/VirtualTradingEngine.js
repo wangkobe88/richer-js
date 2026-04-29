@@ -955,7 +955,11 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
 
       const currentPrice = token.currentPrice || 0;
-      if (currentPrice === 0) {
+      const skipConfig = this._experiment?.config?.strategiesConfig;
+      const skipStrategyDetection = skipConfig?.skipStrategyDetection === true;
+      const skipMaxRounds = skipConfig?.skipStrategyDetectionMaxRounds ?? 1;
+
+      if (currentPrice === 0 && !(skipStrategyDetection && (token._dataCollectionRound || 0) < skipMaxRounds)) {
         if (this._roundSummary) {
           this._roundSummary.recordTokenIndicators(
             token.token,
@@ -1041,10 +1045,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       // 策略评估（支持跳过第一层检测）
       let strategy;
-
-      const skipConfig = this._experiment?.config?.strategiesConfig;
-      const skipStrategyDetection = skipConfig?.skipStrategyDetection === true;
-      const skipMaxRounds = skipConfig?.skipStrategyDetectionMaxRounds ?? 1;
 
       if (skipStrategyDetection && token.status !== 'bought'
           && (token._dataCollectionRound || 0) <= skipMaxRounds) {

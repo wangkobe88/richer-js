@@ -1503,7 +1503,11 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
 
       const currentPrice = token.currentPrice || 0;
-      if (currentPrice === 0) {
+      const skipConfig = this._experiment?.config?.strategiesConfig;
+      const skipStrategyDetection = skipConfig?.skipStrategyDetection === true;
+      const skipMaxRounds = skipConfig?.skipStrategyDetectionMaxRounds ?? 1;
+
+      if (currentPrice === 0 && !(skipStrategyDetection && (token._dataCollectionRound || 0) < skipMaxRounds)) {
         // 使用 RoundSummary 记录价格获取失败（与虚拟盘一致）
         if (this._roundSummary) {
           this._roundSummary.recordTokenIndicators(
@@ -1589,10 +1593,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       // 评估策略（支持跳过第一层检测）
       let strategy;
-
-      const skipConfig = this._experiment?.config?.strategiesConfig;
-      const skipStrategyDetection = skipConfig?.skipStrategyDetection === true;
-      const skipMaxRounds = skipConfig?.skipStrategyDetectionMaxRounds ?? 1;
 
       if (skipStrategyDetection && token.status !== 'bought'
           && (token._dataCollectionRound || 0) <= skipMaxRounds) {
