@@ -638,6 +638,13 @@ class RicherJsWebServer {
             config.strategiesConfig.gmgnSecurityCheck = strategy.gmgnSecurityCheck;
           }
 
+          // 跳过第一层策略检测配置
+          if (strategy.skipStrategyDetection !== undefined) {
+            config.strategiesConfig = config.strategiesConfig || {};
+            config.strategiesConfig.skipStrategyDetection = strategy.skipStrategyDetection;
+            config.strategiesConfig.skipStrategyDetectionMaxRounds = strategy.skipStrategyDetectionMaxRounds ?? 1;
+          }
+
           // 事件记录配置
           if (strategy.eventRecording !== undefined) {
             config.strategiesConfig = config.strategiesConfig || {};

@@ -589,6 +589,52 @@
                     </div>
                 </div>
 
+                <!-- 跳过第一层策略检测配置 -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">⚡ 跳过第一层策略检测</h2>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" id="skip-strategy-detection" class="w-4 h-4">
+                            <span class="text-sm font-medium text-gray-700">启用</span>
+                        </label>
+                    </div>
+
+                    <div id="skip-strategy-config" class="space-y-3">
+                        <div class="flex items-center gap-4">
+                            <label class="block text-sm font-medium text-gray-700 whitespace-nowrap">
+                                跳过轮数
+                            </label>
+                            <input
+                                type="number"
+                                id="skip-strategy-max-rounds"
+                                min="1"
+                                max="20"
+                                value="1"
+                                class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                            <span class="text-xs text-gray-500">
+                                代币被检测到后，前 N 轮跳过策略条件评估，直接进入购买前检查（默认 1 轮）
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
+                        <div class="flex items-start">
+                            <span class="text-lg mr-2">💡</span>
+                            <div class="text-sm text-yellow-800">
+                                <p class="font-semibold mb-1">说明</p>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li><strong>正常流程：</strong>收集 → 策略评估（第一层）→ 购买前检查（第二层）→ 执行买入</li>
+                                    <li><strong>跳过第一层：</strong>收集 → <s>策略评估</s> → 直接进入购买前检查 → 执行买入</li>
+                                    <li>跳过的是买入策略的条件表达式判断，购买前检查（GMGN 安全检测、早期参与者检查等）仍然正常执行</li>
+                                    <li>已买入代币的卖出策略不受影响，仍正常评估</li>
+                                    <li>适用于纯靠预检查筛选代币的场景，不需要等待趋势因子数据积累</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 统计与通知配置 -->
                 <div class="border border-gray-200 rounded-lg p-4">
                     <h2 class="text-xl font-semibold text-gray-800 mb-4">📊 统计与通知配置</h2>
@@ -1124,6 +1170,16 @@
                 const gmgnSecurityEnabled = document.getElementById('gmgn-security-enabled');
                 if (gmgnSecurityEnabled && copyData.gmgnSecurityCheck !== undefined) {
                     gmgnSecurityEnabled.checked = !!copyData.gmgnSecurityCheck.enabled;
+                }
+
+                // 填充跳过第一层策略检测配置
+                const skipStrategyDetection = document.getElementById('skip-strategy-detection');
+                const skipStrategyMaxRounds = document.getElementById('skip-strategy-max-rounds');
+                if (skipStrategyDetection && copyData.skipStrategyDetection !== undefined) {
+                    skipStrategyDetection.checked = !!copyData.skipStrategyDetection;
+                }
+                if (skipStrategyMaxRounds && copyData.skipStrategyDetectionMaxRounds !== undefined) {
+                    skipStrategyMaxRounds.value = copyData.skipStrategyDetectionMaxRounds;
                 }
 
                 // 填充统计配置
@@ -1802,6 +1858,9 @@
                     gmgnSecurityCheck: {
                         enabled: document.getElementById('gmgn-security-enabled')?.checked || false
                     },
+                    // 跳过第一层策略检测配置
+                    skipStrategyDetection: document.getElementById('skip-strategy-detection')?.checked || false,
+                    skipStrategyDetectionMaxRounds: parseInt(document.getElementById('skip-strategy-max-rounds')?.value) || 1,
                     // 统计配置
                     stats: {
                         enabled: document.getElementById('stats-enabled')?.checked !== false,

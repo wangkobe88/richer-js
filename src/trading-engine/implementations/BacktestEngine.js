@@ -1065,6 +1065,9 @@ class BacktestEngine extends AbstractTradingEngine {
 
       const factorResults = this._buildFactorsFromData(tokenState, dataPoint);
 
+      // 累加数据采集轮数
+      tokenState._dataCollectionRound = (tokenState._dataCollectionRound || 0) + 1;
+
       if (this._roundSummary) {
         this._roundSummary.recordTokenIndicators(
           tokenAddress,
@@ -1093,12 +1096,26 @@ class BacktestEngine extends AbstractTradingEngine {
         }
       }
 
-      const strategy = this._strategyEngine.evaluate(
-        factorResults,
-        tokenAddress,
-        timestamp.getTime(),
-        { strategyExecutions: tokenState.strategyExecutions }
-      );
+      // 策略评估（支持跳过第一层检测）
+      let strategy;
+
+      const skipConfig = this._experiment?.config?.strategiesConfig;
+      const skipStrategyDetection = skipConfig?.skipStrategyDetection === true;
+      const skipMaxRounds = skipConfig?.skipStrategyDetectionMaxRounds ?? 1;
+
+      if (skipStrategyDetection && tokenState.status !== 'bought'
+          && (tokenState._dataCollectionRound || 0) <= skipMaxRounds) {
+        // 跳过第一层策略条件评估，直接使用第一个买入策略的配置进入预检查
+        strategy = this._strategyEngine.getAllStrategies()
+          .find(s => s.enabled && s.action === 'buy');
+      } else {
+        strategy = this._strategyEngine.evaluate(
+          factorResults,
+          tokenAddress,
+          timestamp.getTime(),
+          { strategyExecutions: tokenState.strategyExecutions }
+        );
+      }
 
       if (strategy) {
         if (strategy.action === 'buy') {
