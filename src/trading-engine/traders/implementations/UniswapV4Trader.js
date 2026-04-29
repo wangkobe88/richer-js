@@ -53,20 +53,17 @@ const COMMAND = {
   V2_SWAP_EXACT_IN: 0x02,
   V2_SWAP_EXACT_OUT: 0x03,
   PERMIT2_PERMIT: 0x04,
+  SWEEP: 0x04,
   WRAP_ETH: 0x05,
   UNWRAP_ETH: 0x06,
   V4_SWAP: 0x10
 };
 
-// V4_SWAP 内部子操作
+// V4_SWAP 内部子操作（与链上部署的 Universal Router 一致）
 const V4_ACTION = {
-  SWAP_EXACT_IN: 0x00,
-  SWAP_EXACT_OUT: 0x01,
-  SETTLE: 0x0a,
-  SETTLE_ALL: 0x0b,
-  TAKE: 0x0c,
-  TAKE_ALL: 0x0d,
-  TAKE_PORTION: 0x0e
+  SWAP_EXACT_IN: 0x07,
+  SETTLE: 0x0b,
+  TAKE_ALL: 0x0f
 };
 
 // ============================================================
@@ -337,25 +334,57 @@ class UniswapV4Trader extends BaseTrader {
   }
 
   /**
-   * 通过 StateView 查找代币的 V4 池子
+   * 查找代币的 V4 池子（通用，自动发现 hooks）
+   *
+   * 查找策略:
+   * 1. 缓存命中 → 直接返回
+   * 2. StateView(hooks=0) → 标准无 hooks 池子
+   * 3. PoolManager Initialize 事件 → 自定义 hooks 池子（launchpad 代币）
    *
    * @param {string} tokenAddress - 代币地址
-   * @returns {Promise<Object|null>} 池子信息 { poolKey, sqrtPriceX96, liquidity }
+   * @returns {Promise<Object>} 池子信息 { poolKey, sqrtPriceX96, liquidity }
    */
   async discoverPool(tokenAddress) {
     if (this.poolKeyCache.has(tokenAddress)) {
       return this.poolKeyCache.get(tokenAddress);
     }
 
+    // 策略 1: 通过 StateView 查找标准池子（hooks=0）
+    try {
+      const poolInfo = await this._discoverPoolViaStateView(tokenAddress);
+      if (poolInfo) {
+        return poolInfo;
+      }
+    } catch (error) {
+      // StateView 查不到，继续尝试
+    }
+
+    // 策略 2: 通过 PoolManager Initialize 事件发现自定义 hooks 池子
+    try {
+      const poolInfo = await this.discoverPoolFromEvents(tokenAddress);
+      if (poolInfo) {
+        return poolInfo;
+      }
+    } catch (error) {
+      console.warn(`⚠️ 事件发现 hooks 失败: ${error.message}`);
+    }
+
+    throw new Error(`未找到代币 ${tokenAddress} 的 V4 池子`);
+  }
+
+  /**
+   * 通过 StateView 查找标准池子（无 hooks）
+   * @private
+   */
+  async _discoverPoolViaStateView(tokenAddress) {
     const stateView = new ethers.Contract(this.contracts.stateView, STATE_VIEW_ABI, this.provider);
 
-    // 尝试不同费率组合查找池子
     const feeConfigs = [
-      { fee: 10000, tickSpacing: 200 },  // 1%
-      { fee: 3000, tickSpacing: 60 },    // 0.3%
-      { fee: 500, tickSpacing: 10 },     // 0.05%
-      { fee: 100, tickSpacing: 1 },      // 0.01%
-      { fee: 0, tickSpacing: 0 }         // 0% (static fee)
+      { fee: 10000, tickSpacing: 200 },
+      { fee: 3000, tickSpacing: 60 },
+      { fee: 500, tickSpacing: 10 },
+      { fee: 100, tickSpacing: 1 },
+      { fee: 0, tickSpacing: 0 }
     ];
 
     for (const { fee, tickSpacing } of feeConfigs) {
@@ -370,54 +399,170 @@ class UniswapV4Trader extends BaseTrader {
           poolKey.hooks
         ]);
 
-        // 如果 sqrtPriceX96 > 0，说明池子存在且有流动性
         if (result.sqrtPriceX96 > 0n) {
-          const poolInfo = {
-            poolKey,
-            sqrtPriceX96: result.sqrtPriceX96,
-            liquidity: result.liquidity
-          };
-
+          const poolInfo = { poolKey, sqrtPriceX96: result.sqrtPriceX96, liquidity: result.liquidity };
           this.poolKeyCache.set(tokenAddress, poolInfo);
-          console.log(`🔍 发现 V4 池子: fee=${fee}, tickSpacing=${tickSpacing}, liquidity=${result.liquidity}`);
+          console.log(`🔍 [StateView] 发现 V4 池子: fee=${fee}, tickSpacing=${tickSpacing}, hooks=${poolKey.hooks}`);
           return poolInfo;
         }
       } catch (error) {
-        // 该费率组合不存在池子，继续尝试下一个
         continue;
       }
     }
+    return null;
+  }
 
-    throw new Error(`未找到代币 ${tokenAddress} 的 V4 池子`);
+  /**
+   * 通过 PoolManager Initialize 事件自动发现 hooks 地址
+   *
+   * 原理：代币创建交易中，launchpad 调用 PoolManager.initialize()，
+   * 该方法发出 Initialize 事件，包含完整的 hooks 地址。
+   *
+   * 步骤:
+   * 1. Blockscout API 获取代币创建交易哈希
+   * 2. 获取交易 receipt，在 logs 中查找 PoolManager 的 Initialize 事件
+   * 3. 匹配 tokenAddress 作为 currency0 或 currency1
+   * 4. 解码 hooks、fee、tickSpacing
+   *
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<Object|null>} 池子信息
+   */
+  async discoverPoolFromEvents(tokenAddress) {
+    const axios = require('axios');
+    const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+    // 1. 获取代币创建交易
+    const blockscoutUrl = this._getBlockscoutUrl();
+    const resp = await axios.get(`${blockscoutUrl}/api`, {
+      params: {
+        module: 'contract',
+        action: 'getcontractcreation',
+        contractaddresses: tokenAddress
+      },
+      timeout: 15000
+    });
+
+    const creationTxHash = resp.data?.result?.[0]?.txHash;
+    if (!creationTxHash) {
+      throw new Error('Blockscout 未找到创建交易');
+    }
+
+    // 2. 获取交易 receipt
+    const receipt = await this.provider.getTransactionReceipt(creationTxHash);
+    if (!receipt) {
+      throw new Error('无法获取创建交易 receipt');
+    }
+
+    // 3. 在 receipt logs 中查找 PoolManager Initialize 事件
+    // Initialize(bytes32 indexed id, address indexed currency0, address indexed currency1,
+    //            uint24 fee, int24 tickSpacing, address hooks, uint160 sqrtPriceX96, int24 tick)
+    const initTopic = ethers.id('Initialize(bytes32,address,address,uint24,int24,address,uint160,int24)');
+    const poolManagerLower = this.contracts.poolManager.toLowerCase();
+    const tokenLower = tokenAddress.toLowerCase();
+
+    for (const log of receipt.logs) {
+      if (log.topics[0] !== initTopic) continue;
+      if (log.address.toLowerCase() !== poolManagerLower) continue;
+
+      // 解码 indexed 参数
+      const currency0 = ethers.getAddress('0x' + log.topics[2].slice(26));
+      const currency1 = ethers.getAddress('0x' + log.topics[3].slice(26));
+
+      // 检查是否匹配当前代币（另一个 currency 应为原生 ETH 或 WETH）
+      const isMatch = currency0.toLowerCase() === tokenLower || currency1.toLowerCase() === tokenLower;
+      if (!isMatch) continue;
+
+      // 确认另一个 currency 是 ETH (address(0)) 或 WETH
+      const otherCurrency = currency0.toLowerCase() === tokenLower ? currency1 : currency0;
+      const wethLower = this.contracts.weth.toLowerCase();
+      if (otherCurrency.toLowerCase() !== ZERO_ADDRESS.toLowerCase() &&
+          otherCurrency.toLowerCase() !== wethLower) {
+        continue;
+      }
+
+      // 解码 non-indexed 参数
+      const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
+        ['uint24', 'int24', 'address', 'uint160', 'int24'],
+        log.data
+      );
+
+      const fee = Number(decoded[0]);
+      const tickSpacing = Number(decoded[1]);
+      const hooks = decoded[2];
+      const sqrtPriceX96 = decoded[3];
+
+      // 排序 currencies（currency0 < currency1）
+      const [sortedCurrency0, sortedCurrency1] = [currency0, currency1].sort((a, b) =>
+        a.toLowerCase().localeCompare(b.toLowerCase())
+      );
+
+      const poolKey = {
+        currency0: sortedCurrency0,
+        currency1: sortedCurrency1,
+        fee,
+        tickSpacing,
+        hooks
+      };
+
+      const poolInfo = {
+        poolKey,
+        sqrtPriceX96,
+        liquidity: 0n
+      };
+
+      this.poolKeyCache.set(tokenAddress, poolInfo);
+      console.log(`🔍 [Events] 发现 V4 池子: fee=${fee}, tickSpacing=${tickSpacing}, hooks=${hooks}`);
+      return poolInfo;
+    }
+
+    return null;
+  }
+
+  /**
+   * 获取当前链的 Blockscout URL
+   * @private
+   */
+  _getBlockscoutUrl() {
+    if (this._chainKey === 'base') return 'https://base.blockscout.com';
+    return 'https://eth.blockscout.com';
   }
 
   /**
    * 通过 Quoter 获取报价
    *
+   * 注意：自定义 hooks 池子可能 Quoter 调用会失败（hooks 在 staticCall 中 revert），
+   * 此时返回 null，由调用方决定如何处理。
+   *
    * @param {Object} poolKey - 池子 key
    * @param {boolean} zeroForOne - 是否 token0 → token1
    * @param {bigint} amountIn - 输入金额
-   * @returns {Promise<bigint>} 输出金额
+   * @returns {Promise<bigint|null>} 输出金额，失败返回 null
    */
   async getQuote(poolKey, zeroForOne, amountIn) {
-    const quoter = new ethers.Contract(this.contracts.quoter, QUOTER_ABI, this.provider);
+    try {
+      const signer = this.wallet || this.provider;
+      const quoter = new ethers.Contract(this.contracts.quoter, QUOTER_ABI, signer);
 
-    const result = await quoter.quoteExactInputSingle({
-      poolKey: [
-        poolKey.currency0,
-        poolKey.currency1,
-        poolKey.fee,
-        poolKey.tickSpacing,
-        poolKey.hooks
-      ],
-      zeroForOne,
-      exactAmount: amountIn,
-      sqrtPriceLimitX96: zeroForOne
-        ? 4295128739n + 1n   // MIN_SQRT_RATIO + 1
-        : 1461446703485210103287273052203988822378723970342n - 1n  // MAX_SQRT_RATIO - 1
-    });
+      const result = await quoter.quoteExactInputSingle.staticCall({
+        poolKey: [
+          poolKey.currency0,
+          poolKey.currency1,
+          poolKey.fee,
+          poolKey.tickSpacing,
+          poolKey.hooks
+        ],
+        zeroForOne,
+        exactAmount: amountIn,
+        sqrtPriceLimitX96: zeroForOne
+          ? 4295128739n + 1n
+          : 1461446703485210103287273052203988822378723970342n - 1n
+      });
 
-    return result.amountOut;
+      return result.amountOut;
+    } catch (error) {
+      console.warn(`⚠️ Quoter 报价失败 (hooks=${poolKey.hooks}): ${error.message?.slice(0, 150)}`);
+      return null;
+    }
   }
 
   /**
@@ -511,15 +656,16 @@ class UniswapV4Trader extends BaseTrader {
       );
 
       const now = Math.floor(Date.now() / 1000);
-      const maxExpiration = Math.pow(2, 48) - 1; // uint48 max
+      const maxExpiration = (2n ** 48n) - 1n; // uint48 max as BigInt
 
       if (BigInt(p2Amount) < amount || Number(p2Expiration) < now) {
         console.log(`🔐 授权 Permit2 → Universal Router: ${tokenAddress}`);
         const p2ApproveTx = await permit2Contract.approve(
           tokenAddress,
           this.contracts.universalRouter,
-          ethers.MaxUint160,
-          maxExpiration
+          2n ** 160n - 1n,  // uint160 max
+          maxExpiration,
+          { gasLimit: 100000n }
         );
         await p2ApproveTx.wait();
         console.log(`✅ Permit2 → Router 授权成功`);
@@ -533,13 +679,14 @@ class UniswapV4Trader extends BaseTrader {
   }
 
   // ============================================================
-  // Universal Router 编码
+  // Universal Router 编码（PathKey[] 格式 + 原生 ETH）
   // ============================================================
 
   /**
-   * 编码 V4_SWAP 子操作的 input data
+   * 编码 V4_SWAP 的 input（bytes actions, bytes[] params）
    *
-   * 格式: [numActions(1 byte)] [action1(1 byte)] ... [actionN(1 byte)] [encoded_params_concatenated]
+   * 格式与链上成功交易一致:
+   *   abi.encode(actions_bytes, [settleParams, swapParams, takeParams])
    *
    * @param {number[]} actions - 子操作码数组
    * @param {string[]} encodedParams - 每个子操作的 ABI 编码参数
@@ -547,138 +694,68 @@ class UniswapV4Trader extends BaseTrader {
    * @private
    */
   _encodeV4SwapInput(actions, encodedParams) {
-    const numActions = actions.length;
-
-    // 拼接: numActions + action codes + all params
-    const parts = [
-      ethers.solidityPacked(['uint8'], [numActions]),
-      ethers.solidityPacked(
-        actions.map(() => 'uint8'),
-        actions
-      )
-    ];
-
-    for (const param of encodedParams) {
-      parts.add ? null : parts.push(param);
-    }
-
-    return ethers.concat(parts);
+    const actionsBytes = ethers.hexlify(new Uint8Array(actions));
+    return ethers.AbiCoder.defaultAbiCoder().encode(
+      ['bytes', 'bytes[]'],
+      [actionsBytes, encodedParams]
+    );
   }
 
   /**
-   * 编码 SWAP_EXACT_IN 子操作参数
+   * 编码 SETTLE 参数: (address currency, uint256 amount, bool payerIsUser)
    *
-   * @param {Object} poolKey - 池子 key {currency0, currency1, fee, tickSpacing, hooks}
-   * @param {boolean} zeroForOne - 方向
-   * @param {bigint} amountIn - 输入金额
-   * @param {bigint} amountOutMin - 最小输出
-   * @returns {string} ABI 编码的 hex string
+   * 原生 ETH: currency=address(0), payerIsUser=true (从 msg.value 支付)
+   * ERC20 代币: currency=tokenAddress, payerIsUser=true (通过 Permit2 拉取)
+   *
    * @private
    */
-  _encodeSwapExactInParams(poolKey, zeroForOne, amountIn, amountOutMin) {
+  _encodeSettleParams(currency, amount, payerIsUser = true) {
     return ethers.AbiCoder.defaultAbiCoder().encode(
-      ['tuple(address,address,uint24,int24,address)', 'bool', 'uint128', 'uint128', 'bytes'],
-      [
-        [poolKey.currency0, poolKey.currency1, poolKey.fee, poolKey.tickSpacing, poolKey.hooks],
-        zeroForOne,
+      ['address', 'uint256', 'bool'],
+      [currency, amount, payerIsUser]
+    );
+  }
+
+  /**
+   * 编码 SWAP_EXACT_IN 参数（PathKey[] 格式）
+   *
+   * ExactInputParams: (address currencyIn, PathKey[] path, uint128 amountIn, uint128 amountOutMin)
+   * PathKey: (address intermediateCurrency, uint24 fee, int24 tickSpacing, address hooks, bytes hookData)
+   *
+   * @private
+   */
+  _encodeSwapExactInParams(currencyIn, tokenAddress, poolKey, amountIn, amountOutMin) {
+    return ethers.AbiCoder.defaultAbiCoder().encode(
+      ['(address,(address,uint24,int24,address,bytes)[],uint128,uint128)'],
+      [[
+        currencyIn,
+        [[tokenAddress, poolKey.fee, poolKey.tickSpacing, poolKey.hooks, '0x']],
         amountIn,
-        amountOutMin,
-        '0x' // 空 hookData
-      ]
+        amountOutMin
+      ]]
     );
   }
 
   /**
-   * 编码 SETTLE_ALL 子操作参数
-   * @param {string} currency - 币种地址（address(0) 表示原生代币）
-   * @param {bigint} amount - 金额
-   * @returns {string}
+   * 编码 TAKE_ALL 参数: (address currency, uint256 minAmount)
    * @private
    */
-  _encodeSettleAllParams(currency, amount) {
+  _encodeTakeAllParams(currency, minAmount) {
     return ethers.AbiCoder.defaultAbiCoder().encode(
       ['address', 'uint256'],
-      [currency, amount]
+      [currency, minAmount]
     );
   }
 
   /**
-   * 编码 TAKE_ALL 子操作参数
-   * @param {string} currency - 币种地址
-   * @param {bigint} amount - 金额
-   * @returns {string}
+   * 编码 SWEEP 参数: (address token, address recipient, uint256 amountMin)
    * @private
    */
-  _encodeTakeAllParams(currency, amount) {
+  _encodeSweepParams(token, recipient, amountMin) {
     return ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'uint256'],
-      [currency, amount]
+      ['address', 'address', 'uint256'],
+      [token, recipient, amountMin]
     );
-  }
-
-  /**
-   * 编码 WRAP_ETH 命令的 input
-   * @param {bigint} amount - ETH 数量
-   * @returns {string}
-   * @private
-   */
-  _encodeWrapEthInput(amount) {
-    // WRAP_ETH(receiver, amount)
-    return ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'uint256'],
-      [this.contracts.universalRouter, amount]
-    );
-  }
-
-  /**
-   * 编码 UNWRAP_ETH 命令的 input
-   * @param {bigint} amount - ETH 数量
-   * @returns {string}
-   * @private
-   */
-  _encodeUnwrapEthInput(amount) {
-    // UNWRAP_ETH(receiver, amount)
-    return ethers.AbiCoder.defaultAbiCoder().encode(
-      ['address', 'uint256'],
-      [this.wallet.address, amount]
-    );
-  }
-
-  /**
-   * 构建完整的 V4_SWAP input data
-   *
-   * @param {Object} poolKey - 池子 key
-   * @param {boolean} zeroForOne - 方向
-   * @param {bigint} amountIn - 输入金额
-   * @param {bigint} amountOutMin - 最小输出
-   * @param {string} settleCurrency - 要结算的币种
-   * @param {bigint} settleAmount - 要结算的金额
-   * @param {string} takeCurrency - 要提取的币种
-   * @param {bigint} takeAmount - 要提取的金额
-   * @returns {string}
-   * @private
-   */
-  _buildV4SwapInput(poolKey, zeroForOne, amountIn, amountOutMin, settleCurrency, settleAmount, takeCurrency, takeAmount) {
-    const actions = [
-      V4_ACTION.SWAP_EXACT_IN,
-      V4_ACTION.SETTLE_ALL,
-      V4_ACTION.TAKE_ALL
-    ];
-
-    const encodedParams = [
-      this._encodeSwapExactInParams(poolKey, zeroForOne, amountIn, amountOutMin),
-      this._encodeSettleAllParams(settleCurrency, settleAmount),
-      this._encodeTakeAllParams(takeCurrency, takeAmount)
-    ];
-
-    // 构建完整的 input: numActions(1 byte) + action codes + concatenated params
-    const numActionsBytes = ethers.solidityPacked(['uint8'], [actions.length]);
-    const actionCodesBytes = ethers.solidityPacked(
-      actions.map(() => 'uint8'),
-      actions
-    );
-
-    return ethers.concat([numActionsBytes, actionCodesBytes, ...encodedParams]);
   }
 
   // ============================================================
@@ -688,14 +765,16 @@ class UniswapV4Trader extends BaseTrader {
   /**
    * 买入代币 (ETH → Token)
    *
-   * 流程：
-   * 1. 发现 V4 池子（PoolKey）
-   * 2. 通过 Quoter 获取报价
-   * 3. 构建交易：WRAP_ETH + V4_SWAP
-   * 4. 发送交易
+   * 编码格式（与链上成功交易一致）:
+   *   Commands: V4_SWAP(0x10) + SWEEP(0x04)
+   *   V4_SWAP Actions: SETTLE(0x0b) + SWAP_EXACT_IN(0x07) + TAKE_ALL(0x0f)
+   *   SETTLE: (address(0), amount, payerIsUser=true) — 原生 ETH
+   *   SWAP_EXACT_IN: (currencyIn=address(0), PathKey[token], amountIn, amountOutMin)
+   *   TAKE_ALL: (tokenAddress, amountOutMin)
+   *   SWEEP: (address(0), walletAddress, 0) — 多余 ETH 返还
    *
    * @param {string} tokenAddress - 代币地址
-   * @param {string|bigint} ethAmount - ETH 数量（以 ETH 为单位的字符串或 wei 的 BigInt）
+   * @param {string|bigint} ethAmount - ETH 数量
    * @param {Object} options - 选项
    * @returns {Promise<Object>} 交易结果
    */
@@ -719,54 +798,59 @@ class UniswapV4Trader extends BaseTrader {
     if (!this.wallet) throw new Error('钱包未设置');
 
     const { slippage = this.defaultSlippage, deadline = this.defaultDeadline } = options;
+    const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
     try {
       console.log(`🛒 V4 买入: ${tokenAddress}, ETH: ${ethAmount}`);
 
-      // 1. 发现池子
+      // 1. 发现池子（自动发现 hooks）
       const poolInfo = await this.discoverPool(tokenAddress);
       const poolKey = poolInfo.poolKey;
 
-      // 2. 确定方向（WETH → Token）
-      const weth = this.contracts.weth;
-      const zeroForOne = poolKey.currency0.toLowerCase() === weth.toLowerCase();
+      // 2. 确定方向
+      const zeroForOne = poolKey.currency0.toLowerCase() === ZERO_ADDRESS.toLowerCase();
 
       // 3. 解析输入金额
       const amountIn = typeof ethAmount === 'bigint'
         ? ethAmount
         : ethers.parseEther(ethAmount);
 
-      // 4. 获取报价
+      // 4. 获取报价（Quoter 对自定义 hooks 池子可能失败）
       const quoteOut = await this.getQuote(poolKey, zeroForOne, amountIn);
-      const expectedOut = BigInt(quoteOut);
-      const slippageBps = Math.floor((1 - slippage) * 10000);
-      const amountOutMin = (expectedOut * BigInt(slippageBps)) / 10000n;
+      let expectedOut;
+      let amountOutMin;
 
-      console.log(`📊 预期输出: ${expectedOut}, 最小: ${amountOutMin}`);
+      if (quoteOut !== null) {
+        expectedOut = BigInt(quoteOut);
+        const slippageBps = Math.floor((1 - slippage) * 10000);
+        amountOutMin = (expectedOut * BigInt(slippageBps)) / 10000n;
+        console.log(`📊 预期输出: ${expectedOut}, 最小: ${amountOutMin}, hooks: ${poolKey.hooks}`);
+      } else {
+        // Quoter 失败，使用 amountOutMin=0（依赖 hooks 合约的内部价格计算）
+        expectedOut = 0n;
+        amountOutMin = 0n;
+        console.log(`📊 Quoter 不可用，amountOutMin=0, hooks: ${poolKey.hooks}`);
+      }
 
-      // 5. 构建 Universal Router 交易
-      // Commands: WRAP_ETH + V4_SWAP
-      const commands = ethers.hexlify([COMMAND.WRAP_ETH, COMMAND.V4_SWAP]);
-
-      // WRAP_ETH input
-      const wrapInput = this._encodeWrapEthInput(amountIn);
-
-      // V4_SWAP input: SWAP_EXACT_IN + SETTLE_ALL(WETH) + TAKE_ALL(token)
-      const v4Input = this._buildV4SwapInput(
-        poolKey,
-        zeroForOne,
-        amountIn,
-        amountOutMin,
-        weth,           // settle WETH
-        amountIn,       // settle amount = wrapped ETH
-        tokenAddress,   // take token
-        amountOutMin    // take at least amountOutMin
+      // 5. 构建 V4_SWAP input: SETTLE + SWAP_EXACT_IN + TAKE_ALL
+      const v4Input = this._encodeV4SwapInput(
+        [V4_ACTION.SETTLE, V4_ACTION.SWAP_EXACT_IN, V4_ACTION.TAKE_ALL],
+        [
+          this._encodeSettleParams(ZERO_ADDRESS, amountIn, true),       // SETTLE 原生 ETH
+          this._encodeSwapExactInParams(ZERO_ADDRESS, tokenAddress, poolKey, amountIn, amountOutMin),
+          this._encodeTakeAllParams(tokenAddress, amountOutMin)          // TAKE_ALL token
+        ]
       );
 
-      const inputs = [wrapInput, v4Input];
+      // SWEEP: 多余原生 ETH 返还给钱包
+      const sweepInput = this._encodeSweepParams(ZERO_ADDRESS, this.wallet.address, 0n);
+
+      // Commands: V4_SWAP + SWEEP
+      const commands = ethers.hexlify(new Uint8Array([COMMAND.V4_SWAP, COMMAND.SWEEP]));
+      const inputs = [v4Input, sweepInput];
       const deadlineTimestamp = Math.floor(Date.now() / 1000) + deadline;
 
-      // 6. 编码 execute 调用
+      // 6. 编码并发送交易
       const routerContract = new ethers.Contract(
         this.contracts.universalRouter,
         UNIVERSAL_ROUTER_ABI,
@@ -774,9 +858,7 @@ class UniswapV4Trader extends BaseTrader {
       );
 
       const txData = routerContract.interface.encodeFunctionData("execute", [
-        commands,
-        inputs,
-        deadlineTimestamp
+        commands, inputs, deadlineTimestamp
       ]);
 
       // 7. 估算 Gas
@@ -788,16 +870,14 @@ class UniswapV4Trader extends BaseTrader {
       });
 
       const gasPrice = await this._getOptimalGasPrice();
-      const bufferedGasLimit = (estimatedGas * 130n) / 100n; // V4 操作 Gas 消耗较高，加 30% buffer
+      const bufferedGasLimit = (estimatedGas * 130n) / 100n;
 
-      // 8. 发送交易
+      // 8. 发送交易（EIP-1559，不设 gasPrice）
       const tx = await this.wallet.sendTransaction({
         to: this.contracts.universalRouter,
         data: txData,
         value: amountIn,
         gasLimit: bufferedGasLimit,
-        gasPrice,
-        type: 2, // EIP-1559
         maxFeePerGas: gasPrice,
         maxPriorityFeePerGas: await this._getPriorityFee()
       });
@@ -831,12 +911,13 @@ class UniswapV4Trader extends BaseTrader {
   /**
    * 卖出代币 (Token → ETH)
    *
-   * 流程：
-   * 1. 发现 V4 池子
-   * 2. 通过 Quoter 获取报价
-   * 3. 设置 Permit2 授权
-   * 4. 构建交易：V4_SWAP + UNWRAP_ETH
-   * 5. 发送交易
+   * 编码格式:
+   *   Commands: V4_SWAP(0x10) + SWEEP(0x04)
+   *   V4_SWAP Actions: SETTLE(0x0b) + SWAP_EXACT_IN(0x07) + TAKE_ALL(0x0f)
+   *   SETTLE: (tokenAddress, amount, payerIsUser=true) — 通过 Permit2
+   *   SWAP_EXACT_IN: (currencyIn=token, PathKey[ETH], amountIn, amountOutMin)
+   *   TAKE_ALL: (address(0), amountOutMin) — 收原生 ETH
+   *   SWEEP: (tokenAddress, walletAddress, 0) — 多余代币返还
    *
    * @param {string} tokenAddress - 代币地址
    * @param {string|bigint} tokenAmount - 代币数量
@@ -863,16 +944,16 @@ class UniswapV4Trader extends BaseTrader {
     if (!this.wallet) throw new Error('钱包未设置');
 
     const { slippage = this.defaultSlippage, deadline = this.defaultDeadline } = options;
+    const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
     try {
       console.log(`💰 V4 卖出: ${tokenAddress}, 数量: ${tokenAmount}`);
 
-      // 1. 发现池子
+      // 1. 发现池子（自动发现 hooks）
       const poolInfo = await this.discoverPool(tokenAddress);
       const poolKey = poolInfo.poolKey;
 
-      // 2. 确定方向（Token → WETH）
-      const weth = this.contracts.weth;
+      // 2. 确定方向
       const zeroForOne = poolKey.currency0.toLowerCase() === tokenAddress.toLowerCase();
 
       // 3. 解析代币数量
@@ -881,13 +962,21 @@ class UniswapV4Trader extends BaseTrader {
         ? tokenAmount
         : ethers.parseUnits(tokenAmount.toString(), decimals);
 
-      // 4. 获取报价
+      // 4. 获取报价（Quoter 对自定义 hooks 池子可能失败）
       const quoteOut = await this.getQuote(poolKey, zeroForOne, amountIn);
-      const expectedOut = BigInt(quoteOut);
-      const slippageBps = Math.floor((1 - slippage) * 10000);
-      const amountOutMin = (expectedOut * BigInt(slippageBps)) / 10000n;
+      let expectedOut;
+      let amountOutMin;
 
-      console.log(`📊 预期 ETH 输出: ${ethers.formatEther(expectedOut)}, 最小: ${ethers.formatEther(amountOutMin)}`);
+      if (quoteOut !== null) {
+        expectedOut = BigInt(quoteOut);
+        const slippageBps = Math.floor((1 - slippage) * 10000);
+        amountOutMin = (expectedOut * BigInt(slippageBps)) / 10000n;
+        console.log(`📊 预期 ETH 输出: ${ethers.formatEther(expectedOut)}, 最小: ${ethers.formatEther(amountOutMin)}`);
+      } else {
+        expectedOut = 0n;
+        amountOutMin = 0n;
+        console.log(`📊 Quoter 不可用，amountOutMin=0, hooks: ${poolKey.hooks}`);
+      }
 
       // 5. 设置 Permit2 授权
       const allowanceOk = await this.ensurePermit2Allowance(tokenAddress, amountIn);
@@ -895,29 +984,25 @@ class UniswapV4Trader extends BaseTrader {
         throw new Error('Permit2 代币授权失败');
       }
 
-      // 6. 构建 Universal Router 交易
-      // Commands: V4_SWAP + UNWRAP_ETH
-      const commands = ethers.hexlify([COMMAND.V4_SWAP, COMMAND.UNWRAP_ETH]);
-
-      // V4_SWAP input: SWAP_EXACT_IN + SETTLE_ALL(token) + TAKE_ALL(WETH)
-      const v4Input = this._buildV4SwapInput(
-        poolKey,
-        zeroForOne,
-        amountIn,
-        amountOutMin,
-        tokenAddress,   // settle token
-        amountIn,       // settle token amount
-        weth,           // take WETH
-        amountOutMin    // take at least amountOutMin WETH
+      // 6. 构建 V4_SWAP input: SETTLE + SWAP_EXACT_IN + TAKE_ALL
+      const v4Input = this._encodeV4SwapInput(
+        [V4_ACTION.SETTLE, V4_ACTION.SWAP_EXACT_IN, V4_ACTION.TAKE_ALL],
+        [
+          this._encodeSettleParams(tokenAddress, amountIn, true),       // SETTLE token via Permit2
+          this._encodeSwapExactInParams(tokenAddress, ZERO_ADDRESS, poolKey, amountIn, amountOutMin),
+          this._encodeTakeAllParams(ZERO_ADDRESS, amountOutMin)          // TAKE_ALL 原生 ETH
+        ]
       );
 
-      // UNWRAP_ETH input
-      const unwrapInput = this._encodeUnwrapEthInput(amountOutMin);
+      // SWEEP: 多余代币返还给钱包
+      const sweepInput = this._encodeSweepParams(tokenAddress, this.wallet.address, 0n);
 
-      const inputs = [v4Input, unwrapInput];
+      // Commands: V4_SWAP + SWEEP
+      const commands = ethers.hexlify(new Uint8Array([COMMAND.V4_SWAP, COMMAND.SWEEP]));
+      const inputs = [v4Input, sweepInput];
       const deadlineTimestamp = Math.floor(Date.now() / 1000) + deadline;
 
-      // 7. 编码 execute 调用
+      // 7. 编码并发送交易
       const routerContract = new ethers.Contract(
         this.contracts.universalRouter,
         UNIVERSAL_ROUTER_ABI,
@@ -925,9 +1010,7 @@ class UniswapV4Trader extends BaseTrader {
       );
 
       const txData = routerContract.interface.encodeFunctionData("execute", [
-        commands,
-        inputs,
-        deadlineTimestamp
+        commands, inputs, deadlineTimestamp
       ]);
 
       // 8. 估算 Gas
@@ -941,12 +1024,11 @@ class UniswapV4Trader extends BaseTrader {
       const bufferedGasLimit = (estimatedGas * 130n) / 100n;
 
       // 9. 发送交易
+      // 9. 发送交易（EIP-1559，不设 gasPrice）
       const tx = await this.wallet.sendTransaction({
         to: this.contracts.universalRouter,
         data: txData,
         gasLimit: bufferedGasLimit,
-        gasPrice,
-        type: 2,
         maxFeePerGas: gasPrice,
         maxPriorityFeePerGas: await this._getPriorityFee()
       });
@@ -987,7 +1069,6 @@ class UniswapV4Trader extends BaseTrader {
     try {
       const poolInfo = await this.discoverPool(tokenAddress);
       const poolKey = poolInfo.poolKey;
-      const weth = this.contracts.weth;
 
       // 确定方向：1 个代币 → ? ETH
       const zeroForOne = poolKey.currency0.toLowerCase() === tokenAddress.toLowerCase();
@@ -996,6 +1077,10 @@ class UniswapV4Trader extends BaseTrader {
       const oneToken = ethers.parseUnits('1', decimals);
 
       const quoteOut = await this.getQuote(poolKey, zeroForOne, oneToken);
+      if (quoteOut === null) {
+        console.warn(`⚠️ 无法获取代币价格（Quoter 不支持 hooks: ${poolKey.hooks}）`);
+        return '0';
+      }
       return ethers.formatEther(BigInt(quoteOut));
     } catch (error) {
       console.error(`获取代币价格失败: ${error.message}`);
@@ -1014,8 +1099,6 @@ class UniswapV4Trader extends BaseTrader {
   async checkLiquidity(tokenAddress, amount, isBuy = true) {
     try {
       const poolInfo = await this.discoverPool(tokenAddress);
-      // V4 的 liquidity 是当前活跃流动性
-      // 简单检查：liquidity > 0
       return poolInfo.liquidity > 0n;
     } catch (error) {
       console.error(`检查流动性失败: ${error.message}`);
@@ -1065,9 +1148,20 @@ class UniswapV4Trader extends BaseTrader {
    * @private
    */
   async _getOptimalGasPrice() {
+    // Ethereum 最低 gas 价格保障（某些 RPC 返回值过低会导致交易卡住）
+    const MIN_GAS_PRICE = {
+      ethereum: ethers.parseUnits('2', 'gwei'),
+      bsc: ethers.parseUnits('1', 'gwei'),
+      base: ethers.parseUnits('0.01', 'gwei'),
+    };
+    const minPrice = MIN_GAS_PRICE[this._chainKey] || ethers.parseUnits('1', 'gwei');
+
     try {
       const feeData = await this.provider.getFeeData();
-      return feeData.gasPrice;
+      const price = feeData.gasPrice;
+      if (price && price >= minPrice) return price;
+      console.log(`⚠️ RPC 返回 gasPrice 过低 (${ethers.formatUnits(price || 0n, 'gwei')} Gwei)，使用最低保障值 ${ethers.formatUnits(minPrice, 'gwei')} Gwei`);
+      return minPrice;
     } catch (error) {
       const defaultGwei = this._chainKey === 'ethereum' ? '20' : '1';
       return ethers.parseUnits(defaultGwei, 'gwei');
@@ -1079,11 +1173,22 @@ class UniswapV4Trader extends BaseTrader {
    * @private
    */
   async _getPriorityFee() {
+    // Ethereum 最低 priority fee 保障
+    const MIN_PRIORITY_FEE = {
+      ethereum: ethers.parseUnits('0.1', 'gwei'),
+      bsc: ethers.parseUnits('1', 'gwei'),
+      base: ethers.parseUnits('0.01', 'gwei'),
+    };
+    const minFee = MIN_PRIORITY_FEE[this._chainKey] || ethers.parseUnits('1', 'gwei');
+
     try {
       const feeData = await this.provider.getFeeData();
-      return feeData.maxPriorityFeePerGas || ethers.parseUnits('1', 'gwei');
+      const fee = feeData.maxPriorityFeePerGas;
+      if (fee && fee >= minFee) return fee;
+      console.log(`⚠️ RPC 返回 maxPriorityFeePerGas 过低 (${ethers.formatUnits(fee || 0n, 'gwei')} Gwei)，使用最低保障值 ${ethers.formatUnits(minFee, 'gwei')} Gwei`);
+      return minFee;
     } catch (error) {
-      return ethers.parseUnits('1', 'gwei');
+      return minFee;
     }
   }
 
