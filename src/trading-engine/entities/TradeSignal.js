@@ -41,6 +41,10 @@ class TradeSignal {
     this.twitter_search_result = signalData.twitter_search_result || null;
     this.twitter_search_duration = signalData.twitter_search_duration || null;
 
+    // GMGN API 原始数据
+    this.gmgn_security_raw_data = signalData.gmgn_security_raw_data || null;
+    this.gmgn_token_info_raw_data = signalData.gmgn_token_info_raw_data || null;
+
     // 执行状态
     this.executed = signalData.executed || false;
 
@@ -67,6 +71,8 @@ class TradeSignal {
       metadata: this.metadata,
       twitter_search_result: this.twitter_search_result,
       twitter_search_duration: this.twitter_search_duration,
+      gmgn_security_raw_data: this.gmgn_security_raw_data,
+      gmgn_token_info_raw_data: this.gmgn_token_info_raw_data,
       executed: this.executed,
       created_at: this.createdAt.toISOString()
     };
@@ -91,6 +97,8 @@ class TradeSignal {
       metadata: dbRow.metadata || {},
       twitter_search_result: dbRow.twitter_search_result || null,
       twitter_search_duration: dbRow.twitter_search_duration || null,
+      gmgn_security_raw_data: dbRow.gmgn_security_raw_data || null,
+      gmgn_token_info_raw_data: dbRow.gmgn_token_info_raw_data || null,
       executed: dbRow.executed || false,
       createdAt: new Date(dbRow.created_at)
     };

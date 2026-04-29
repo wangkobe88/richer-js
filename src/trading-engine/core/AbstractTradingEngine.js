@@ -1059,6 +1059,12 @@ class AbstractTradingEngine extends ITradingEngine {
       if (directFields.twitter_search_duration !== undefined) {
         updateData.twitter_search_duration = directFields.twitter_search_duration;
       }
+      if (directFields.gmgn_security_raw_data !== undefined) {
+        updateData.gmgn_security_raw_data = directFields.gmgn_security_raw_data;
+      }
+      if (directFields.gmgn_token_info_raw_data !== undefined) {
+        updateData.gmgn_token_info_raw_data = directFields.gmgn_token_info_raw_data;
+      }
     }
 
     const { error } = await supabase

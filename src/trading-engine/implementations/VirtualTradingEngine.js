@@ -1919,10 +1919,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         };
 
         try {
-          // 传递Twitter数据
+          // 传递Twitter数据和GMGN原始API数据
           const directFields = {
             twitter_search_result: preBuyCheckResult._twitterRawResult || null,
-            twitter_search_duration: preBuyCheckResult._twitterDuration || null
+            twitter_search_duration: preBuyCheckResult._twitterDuration || null,
+            gmgn_security_raw_data: preBuyCheckResult.gmgnSecurityRawData || null,
+            gmgn_token_info_raw_data: preBuyCheckResult.gmgnTokenInfoRawData || null
           };
           await this._updateSignalMetadata(signalId, signalMetadata, directFields);
           this.logger.info(this._experimentId, '_executeStrategy',

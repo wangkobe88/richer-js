@@ -993,7 +993,10 @@ class PreBuyCheckService {
       const result = {
         ...baseResult,
         canBuy,
-        preTraderCanBuy: canBuy
+        preTraderCanBuy: canBuy,
+        // 透传 GMGN 原始 API 数据，供上层存入 strategy_signals 表
+        gmgnSecurityRawData: gmgnSecurityCheck?._rawSecurity || null,
+        gmgnTokenInfoRawData: gmgnSecurityCheck?._rawInfo || null,
       };
 
       // 无论成功失败，都执行详细诊断
