@@ -40,6 +40,9 @@ import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommu
 import { analyzeMemeTokenTwoStage } from './services/meme-analysis-service.mjs';
 import { saveStage1Data, saveStage2Data } from './services/stage-data-service.mjs';
 import { callLLMAPI, LLMClient } from './llm/llm-api-client.mjs';
+import { detectSuperIP, calculatePreScores, TIER_SCORES } from './prompts/super-ip/super-ip-registry.mjs';
+import { buildPersonFastPrompt } from './prompts/super-ip/super-ip-fast-person.mjs';
+import { buildInstitutionFastPrompt } from './prompts/super-ip/super-ip-fast-institution.mjs';
 
 // 获取supabase客户端
 const getSupabase = () => NarrativeRepository.getSupabase();
@@ -275,6 +278,15 @@ export class NarrativeAnalyzer {
 
     logger.info('NarrativeAnalyzer', '数据获取完成');
 
+    // 超大IP快速检测（在数据获取后检测，因为appendix可能把twitter URL放在website字段）
+    const superIPInfo = detectSuperIP(
+      extractedInfo.twitterUrl || classifiedUrls?.twitter?.[0]?.url,
+      twitterInfo
+    );
+    if (superIPInfo) {
+      logger.info('NarrativeAnalyzer', '检测到超大IP账号', { name: superIPInfo.name, tier: superIPInfo.tier, type: superIPInfo.type });
+    }
+
     // 新增：如果有独立网站，收集所有相关账号的完整信息
     let relatedAccounts = [];
     const hasIndependentWebsiteResult = hasIndependentWebsite(classifiedUrls);
@@ -460,9 +472,100 @@ export class NarrativeAnalyzer {
           }
 
           // ═══════════════════════════════════════════════════════════════════════════
-          // 3阶段架构：Stage 1事件预处理 + Stage 2分类评分 + Stage 3代币分析
+          // 超大IP快速通道：单次LLM调用完成所有评估
+          // 条件：推文来自注册表中的超大IP账号（CZ/何一/币安官方/Elon/Trump等）
           // ═══════════════════════════════════════════════════════════════════════════
-          if (!shouldUseAccountCommunity) {
+          if (superIPInfo && !shouldUseAccountCommunity) {
+            logger.info('NarrativeAnalyzer', `使用超大IP快速通道：${superIPInfo.name}（${superIPInfo.type}/${superIPInfo.tier}级）`);
+
+            // 预计算分数
+            const preScores = calculatePreScores(superIPInfo, twitterInfo?.created_at);
+            logger.info('NarrativeAnalyzer', '超大IP预评分', preScores);
+
+            // 构建Prompt（根据人物/机构分流）
+            const fastPrompt = superIPInfo.type === 'person'
+              ? buildPersonFastPrompt(tokenData, fetchResults, superIPInfo, preScores)
+              : buildInstitutionFastPrompt(tokenData, fetchResults, superIPInfo, preScores);
+
+            // 单次LLM调用
+            const fastCallResult = await callLLMAPI(fastPrompt);
+            if (!fastCallResult.success) {
+              throw new Error(`超大IP快速通道LLM调用失败: ${fastCallResult.error}`);
+            }
+
+            const fastParsed = parseJSONResponse(fastCallResult.content);
+
+            if (!fastParsed.pass) {
+              // 阻断
+              llmResult = {
+                rating: 'low',
+                reason: fastParsed.blockReason || fastParsed.reason || '超大IP快速通道阻断',
+                score: null,
+                pass: false
+              };
+              logger.info('NarrativeAnalyzer', '超大IP快速通道阻断', { blockReason: fastParsed.blockReason });
+            } else {
+              // 聚合分数
+              const eventTotal = preScores.baseEventScore + (fastParsed.dimension2Score || 0);
+              const eventWeighted = Math.round(eventTotal * 0.6 * 100) / 100;
+              const totalScore = eventWeighted + (fastParsed.relevanceScore || 0) + (fastParsed.qualityScore || 0);
+              const rating = totalScore >= 70 ? 'high' : totalScore >= 50 ? 'mid' : 'low';
+
+              llmResult = { rating, score: totalScore, pass: true };
+
+              // 构建最终聚合结果（与3阶段流程的 stageFinalData 对齐）
+              stageFinalData = {
+                category: rating,
+                totalScore,
+                eventScore: eventWeighted,
+                eventWeight: 0.6,
+                relevanceScore: fastParsed.relevanceScore || 0,
+                qualityScore: fastParsed.qualityScore || 0,
+                stage2TotalScore: eventTotal,
+                blockReason: null
+              };
+
+              logger.info('NarrativeAnalyzer', '超大IP快速通道评分', {
+                eventTotal, eventWeighted, totalScore, rating,
+                dimension2Score: fastParsed.dimension2Score,
+                relevanceScore: fastParsed.relevanceScore,
+                qualityScore: fastParsed.qualityScore
+              });
+            }
+
+            // 注入预计算数据供前端展示
+            fastParsed.ipInfo = superIPInfo;
+            fastParsed.tierScore = preScores.tierScore;
+            fastParsed.timeliness = preScores.timeliness;
+            fastParsed.baseEventScore = preScores.baseEventScore;
+
+            // 保存到prestage（与账号/社区分析一致）
+            prestageDataToSave = {
+              category: 'super_ip_fast',
+              model: fastCallResult.model,
+              prompt: fastPrompt,
+              raw_output: fastCallResult.content,
+              parsed_output: fastParsed,
+              started_at: fastCallResult.startedAt,
+              finished_at: fastCallResult.finishedAt,
+              success: fastCallResult.success,
+              error: fastCallResult.error
+            };
+
+            // 清除旧的stage数据（防止重新分析时残留）
+            stage1DataToSave = { __clear: true };
+            stage2DataToSave = { __clear: true };
+            stage3DataToSave = { __clear: true };
+
+            promptType = `super_ip_fast(${superIPInfo.name}/${superIPInfo.tier}级)`;
+
+          // ═══════════════════════════════════════════════════════════════════════════
+          // 3阶段架构：Stage 1事件预处理 + Stage 2分类评分 + Stage 3代币分析
+          // 进入条件：
+          // 1. 原本不使用账号/社区分析流程（!shouldUseAccountCommunity）
+          // 2. 且不是超大IP快速通道
+          // ═══════════════════════════════════════════════════════════════════════════
+          } else if (!shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用3阶段架构：Stage1事件预处理 + Stage2分类评分 + Stage3代币分析');
 
             // ========== Stage 1: 事件预处理 ==========
