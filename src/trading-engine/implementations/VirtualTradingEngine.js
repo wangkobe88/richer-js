@@ -99,6 +99,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._contractRiskCache = new Map(); // token_address → contract risk data
     this._contractRiskCheckEnabled = false;
     this._narrativeReanalyze = false;
+    this._narrativeSubmitImmediately = false;
     this._narrativeTriggerThreshold = 80; // 默认80%
     this._narrativeMaxWaitSeconds = 10; // 默认等待10秒
     this._narrativePollIntervalMs = 2000; // 默认每2秒检查一次
@@ -780,12 +781,14 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     const narrativeAnalysisConfig = experimentConfig.strategiesConfig?.narrativeAnalysis || experimentConfig.narrativeAnalysis || {};
     this._narrativeAnalysisEnabled = narrativeAnalysisConfig.enabled === true;
     this._narrativeReanalyze = narrativeAnalysisConfig.reanalyze === true;
+    this._narrativeSubmitImmediately = narrativeAnalysisConfig.submitImmediately === true;
     this._narrativeTriggerThreshold = narrativeAnalysisConfig.triggerThreshold || 80;
     this._narrativeMaxWaitSeconds = narrativeAnalysisConfig.maxWaitSeconds || 10;
     this._narrativePollIntervalMs = narrativeAnalysisConfig.pollIntervalMs || 2000;
 
     if (this._narrativeAnalysisEnabled) {
-      this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 叙事分析已启用 (阈值: ${this._narrativeTriggerThreshold}%, 等待: ${this._narrativeMaxWaitSeconds}s)`);
+      const mode = this._narrativeSubmitImmediately ? '立即提交' : `阈值: ${this._narrativeTriggerThreshold}%`;
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 叙事分析已启用 (${mode}, 等待: ${this._narrativeMaxWaitSeconds}s)`);
     } else {
       this.logger.info(this._experimentId, 'VirtualTradingEngine', '⚠️ 叙事分析未启用');
     }
@@ -1037,9 +1040,17 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       // 叙事分析触发检测
       if (this._narrativeAnalysisEnabled) {
-        const satisfaction = this._calculateTrendFactorSatisfaction(factorResults);
-        if (satisfaction >= this._narrativeTriggerThreshold) {
-          await this._createOrUpdateNarrativeTask(token, satisfaction);
+        if (this._narrativeSubmitImmediately) {
+          // 立即提交模式：第一轮直接提交任务，后续轮次由 _createOrUpdateNarrativeTask 内部防重
+          if ((token._dataCollectionRound || 0) <= 1) {
+            await this._createOrUpdateNarrativeTask(token, 100);
+          }
+        } else {
+          // 原有逻辑：因子满足比例触发
+          const satisfaction = this._calculateTrendFactorSatisfaction(factorResults);
+          if (satisfaction >= this._narrativeTriggerThreshold) {
+            await this._createOrUpdateNarrativeTask(token, satisfaction);
+          }
         }
       }
 

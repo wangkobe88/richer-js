@@ -69,6 +69,9 @@ export class NarrativeAnalysisEngine {
     this.isRunning = false;
     this.activeWorkers = new Map(); // taskId -> Worker
     this.workerStartTime = new Map(); // taskId -> startTime
+    this._realtimeChannel = null;
+    this._realtimeConnected = false;
+    this._fallbackTimer = null;
 
     this.stats = {
       totalProcessed: 0,
@@ -88,27 +91,27 @@ export class NarrativeAnalysisEngine {
     this.stats.startTime = new Date();
 
     console.log('='.repeat(60));
-    console.log('🚀 叙事分析引擎启动（多线程版本）');
+    console.log('🚀 叙事分析引擎启动（多线程版本 + Realtime）');
     console.log('='.repeat(60));
     console.log(`配置信息:`);
     console.log(`  最大并发任务: ${this.maxConcurrency}`);
-    console.log(`  轮询间隔: ${this.pollingInterval}ms`);
     console.log(`  任务超时: ${this.taskTimeout}ms`);
     console.log(`  最大重试次数: ${this.maxRetries}`);
+    console.log(`  模式: Supabase Realtime + 3秒兜底轮询`);
     console.log('='.repeat(60));
 
-    while (this.isRunning) {
-      try {
-        await this._pollAndDispatchTasks();
-      } catch (error) {
-        this._log('ERROR', '任务调度异常', {
-          error: error.message,
-          stack: error.stack
-        });
-      }
-
-      await this._sleep(this.pollingInterval);
+    // 1. 首次全量轮询：处理引擎离线期间积压的任务
+    try {
+      await this._pollAndDispatchTasks();
+    } catch (error) {
+      this._log('ERROR', '初始轮询异常', { error: error.message });
     }
+
+    // 2. 启动 Realtime 订阅
+    await this._initRealtime();
+
+    // 3. 启动 fallback 轮询（3秒间隔，防止 Realtime 事件丢失）
+    this._startFallbackPolling();
   }
 
   /**
@@ -116,6 +119,24 @@ export class NarrativeAnalysisEngine {
    */
   async stop() {
     this.isRunning = false;
+
+    // 清理 Realtime 订阅
+    if (this._realtimeChannel) {
+      try {
+        await this.supabase.removeChannel(this._realtimeChannel);
+      } catch (e) {
+        // 忽略清理错误
+      }
+      this._realtimeChannel = null;
+      this._realtimeConnected = false;
+    }
+
+    // 清理 fallback 轮询
+    if (this._fallbackTimer) {
+      clearInterval(this._fallbackTimer);
+      this._fallbackTimer = null;
+    }
+
     this._log('INFO', '收到停止信号，等待活跃任务完成...');
 
     // 等待所有活跃任务完成（最多等待60秒）
@@ -449,6 +470,12 @@ export class NarrativeAnalysisEngine {
       this.workerStartTime.delete(taskId);
       this.stats.currentActive = this.activeWorkers.size;
     }
+    // Worker 完成，主动轮询看是否有新 pending 任务
+    if (this.isRunning) {
+      this._pollAndDispatchTasks().catch(err => {
+        this._log('ERROR', 'Worker 完成后轮询失败', { error: err.message });
+      });
+    }
   }
 
   /**
@@ -518,5 +545,72 @@ export class NarrativeAnalysisEngine {
    */
   _sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 初始化 Supabase Realtime 订阅
+   * 监听 narrative_analysis_tasks 表的 INSERT 事件
+   * @private
+   */
+  async _initRealtime() {
+    try {
+      this._realtimeChannel = this.supabase
+        .channel('narrative-task-listener')
+        .on('postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'narrative_analysis_tasks',
+            filter: 'status=eq.pending'
+          },
+          (payload) => {
+            this._onNewTask(payload.new);
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            this._realtimeConnected = true;
+            this._log('INFO', '✅ Realtime 订阅已建立，新任务将即时推送');
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            this._log('WARN', '⚠️ Realtime 连接异常，使用 fallback 轮询');
+            this._realtimeConnected = false;
+          }
+        });
+    } catch (err) {
+      this._log('ERROR', `Realtime 初始化失败: ${err.message}，使用 fallback 轮询`);
+      this._realtimeConnected = false;
+    }
+  }
+
+  /**
+   * Realtime 新任务回调
+   * @private
+   * @param {Object} task - 新插入的任务数据
+   */
+  _onNewTask(task) {
+    const availableSlots = this.maxConcurrency - this.activeWorkers.size;
+    if (availableSlots <= 0) {
+      // 没有空闲槽位，不做处理（下次有任务完成时会轮询兜底）
+      return;
+    }
+    // 直接分发单个任务
+    this._spawnWorker(task);
+  }
+
+  /**
+   * 启动兜底轮询
+   * 防止 Realtime 事件丢失导致任务无法被拾取
+   * @private
+   */
+  _startFallbackPolling() {
+    const fallbackInterval = 3000; // 3秒兜底轮询
+    this._fallbackTimer = setInterval(async () => {
+      if (!this.isRunning) return;
+      try {
+        await this._pollAndDispatchTasks();
+      } catch (error) {
+        this._log('ERROR', 'Fallback 轮询异常', { error: error.message });
+      }
+    }, fallbackInterval);
   }
 }

@@ -460,10 +460,14 @@
                 <div class="border border-gray-200 rounded-lg p-4">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-xl font-semibold text-gray-800">📖 叙事分析</h2>
-                        <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-4 flex-wrap">
                             <label class="flex items-center gap-2">
                                 <input type="checkbox" name="narrative_analysis_enabled" id="na-enabled" class="w-4 h-4">
                                 <span class="text-sm font-medium text-gray-700">启用代币叙事分析</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" name="narrative_analysis_submit_immediately" id="na-submit-immediately" class="w-4 h-4">
+                                <span class="text-sm font-medium text-gray-700">发现新币立即提交</span>
                             </label>
                             <label class="flex items-center gap-2">
                                 <input type="checkbox" name="narrative_analysis_reanalyze" id="na-reanalyze" class="w-4 h-4">
@@ -473,7 +477,7 @@
                     </div>
 
                     <!-- 触发阈值配置 -->
-                    <div class="mb-4">
+                    <div class="mb-4" id="na-threshold-group">
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             触发阈值（第一阶段因子满足比例 %）
                         </label>
@@ -487,7 +491,7 @@
                                 value="80"
                                 class="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                            <span class="text-xs text-gray-500">
+                            <span class="text-xs text-gray-500" id="na-threshold-hint">
                                 当因子满足比例达到此值时，触发叙事分析任务（0-100）
                             </span>
                         </div>
@@ -547,6 +551,7 @@
                                     <li><strong>轮询等待机制：</strong>实验引擎会轮询等待分析结果（虚拟/实盘默认10秒，回测5分钟）</li>
                                     <li><strong>使用建议：</strong>使用条件 <code>narrativeRating > 1</code> 确保只购买已评级的代币，或 <code>narrativeRating >= 2</code> 只要评分完成就购买</li>
                                     <li><strong>优先级：</strong>因子满足比例越高，任务优先级越高，优先被分析</li>
+                                    <li><strong>立即提交：</strong>勾选"发现新币立即提交"后，新代币在第一轮数据采集时立即提交叙事分析任务，不再依赖因子满足比例触发</li>
                                     <li><strong>缓存复用：</strong>同一代币只分析一次，结果跨实验共享</li>
                                 </ul>
                             </div>
@@ -1030,6 +1035,24 @@
             console.error('❌ 策略模板未找到！');
         }
 
+        // 叙事分析：发现新币立即提交 - UI 联动
+        function updateNarrativeSubmitImmediatelyUI() {
+            const checked = document.getElementById('na-submit-immediately')?.checked;
+            const thresholdGroup = document.getElementById('na-threshold-group');
+            const thresholdInput = document.getElementById('na-trigger-threshold');
+            const thresholdHint = document.getElementById('na-threshold-hint');
+            if (checked) {
+                if (thresholdGroup) thresholdGroup.style.opacity = '0.4';
+                if (thresholdInput) thresholdInput.disabled = true;
+                if (thresholdHint) thresholdHint.textContent = '已启用"发现新币立即提交"，此配置不生效';
+            } else {
+                if (thresholdGroup) thresholdGroup.style.opacity = '1';
+                if (thresholdInput) thresholdInput.disabled = false;
+                if (thresholdHint) thresholdHint.textContent = '当因子满足比例达到此值时，触发叙事分析任务（0-100）';
+            }
+        }
+        document.getElementById('na-submit-immediately')?.addEventListener('change', updateNarrativeSubmitImmediatelyUI);
+
         // 🔥 检查是否是复制模式
         const urlParams = new URLSearchParams(window.location.search);
         const isCopyMode = urlParams.get('copy') === 'true';
@@ -1145,6 +1168,7 @@
 
                 // 填充叙事分析配置
                 const naEnabled = document.getElementById('na-enabled');
+                const naSubmitImmediately = document.getElementById('na-submit-immediately');
                 const naReanalyze = document.getElementById('na-reanalyze');
                 const naTriggerThreshold = document.getElementById('na-trigger-threshold');
                 const naMaxWaitSeconds = document.getElementById('na-max-wait-seconds');
@@ -1152,6 +1176,10 @@
 
                 if (copyData.narrativeAnalysis?.enabled && naEnabled) {
                     naEnabled.checked = true;
+                }
+                if (copyData.narrativeAnalysis?.submitImmediately && naSubmitImmediately) {
+                    naSubmitImmediately.checked = true;
+                    updateNarrativeSubmitImmediatelyUI();
                 }
                 if (copyData.narrativeAnalysis?.reanalyze && naReanalyze) {
                     naReanalyze.checked = true;
@@ -1849,6 +1877,7 @@
                     // 叙事分析配置
                     narrativeAnalysis: {
                         enabled: document.getElementById('na-enabled')?.checked || false,
+                        submitImmediately: document.getElementById('na-submit-immediately')?.checked || false,
                         reanalyze: document.getElementById('na-reanalyze')?.checked || false,
                         triggerThreshold: parseInt(document.getElementById('na-trigger-threshold')?.value) || 80,
                         maxWaitSeconds: parseInt(document.getElementById('na-max-wait-seconds')?.value) || 10,
