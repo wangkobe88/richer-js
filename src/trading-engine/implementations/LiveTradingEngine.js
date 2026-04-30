@@ -2164,6 +2164,10 @@ class LiveTradingEngine extends AbstractTradingEngine {
         signalId = await tradeSignal.save();
         this.logger.info(this._experimentId, '_executeStrategy',
           `信号已保存 | symbol=${token.symbol}, signalId=${signalId}`);
+
+        // 信号创建后立即记录策略执行次数（不管预检查是否通过）
+        // 这样 maxExecutions 限制才能正确生效
+        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
       } catch (saveError) {
         this.logger.error(this._experimentId, '_executeStrategy',
           `保存信号失败 | symbol=${token.symbol}, error=${saveError.message}`);
@@ -2399,8 +2403,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
           buyPrice: latestPrice,
           buyTime: Date.now()
         });
-
-        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
 
         // 更新代币状态到数据库（与虚拟盘一致）
         await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
