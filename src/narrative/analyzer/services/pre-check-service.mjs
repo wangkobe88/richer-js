@@ -24,7 +24,7 @@ const NARRATIVE_CONFIG = config.narrative || {
   enableImageAnalysis: false,
   enableVideoAnalysis: false,
   twitterBlacklist: [],
-  expiredTweetMinutesThreshold: 30
+  expiredTweetMinutesThreshold: 10
 };
 
 /**
@@ -491,7 +491,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 规则2：过期内容检查（推文或视频超过配置的时间阈值）
   // 如果设置了ignoreExpired，跳过过期检查
   if (!ignoreExpired) {
-    const expiredMinutesThreshold = NARRATIVE_CONFIG.expiredTweetMinutesThreshold || 30;
+    const expiredMinutesThreshold = NARRATIVE_CONFIG.expiredTweetMinutesThreshold || 10;
 
     // 2.1 检查推文过期（仅推文类型，不适用账号）
     // 多推文场景：主推文、website_tweet、quoted_tweet、retweeted_status 中任一满足即可
