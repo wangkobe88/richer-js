@@ -382,15 +382,15 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         if (currentCreatedAt) {
           // 当前代币创建前一周
           const oneWeekBeforeToken = new Date((currentCreatedAt - 7 * 24 * 3600) * 1000).toISOString();
-          // 豁免5分钟内的同时使用：只匹配当前代币创建前5分钟以上的
-          const fiveMinBeforeToken = new Date((currentCreatedAt - 5 * 60) * 1000).toISOString();
+          // 豁免1分钟内的同时使用：只匹配当前代币创建前1分钟以上的
+          const oneMinBeforeToken = new Date((currentCreatedAt - 1 * 60) * 1000).toISOString();
 
           const { data: earlierTokens, error: queryError } = await supabase
             .from('experiment_tokens')
             .select('token_address, token_symbol, discovered_at')
             .eq('narrative_material_id', currentMaterialId)
             .neq('token_address', normalizedAddress)
-            .lt('discovered_at', fiveMinBeforeToken)
+            .lt('discovered_at', oneMinBeforeToken)
             .gte('discovered_at', oneWeekBeforeToken)
             .order('discovered_at', { ascending: true })
             .limit(5);
