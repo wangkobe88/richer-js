@@ -24,7 +24,7 @@ const NARRATIVE_CONFIG = config.narrative || {
   enableImageAnalysis: false,
   enableVideoAnalysis: false,
   twitterBlacklist: [],
-  expiredTweetDaysThreshold: 14
+  expiredTweetMinutesThreshold: 30
 };
 
 /**
@@ -488,24 +488,42 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     }
   }
 
-  // 规则2：过期内容检查（推文或视频超过配置的天数阈值）
+  // 规则2：过期内容检查（推文或视频超过配置的时间阈值）
   // 如果设置了ignoreExpired，跳过过期检查
   if (!ignoreExpired) {
-    const expiredDaysThreshold = NARRATIVE_CONFIG.expiredTweetDaysThreshold || 14;
+    const expiredMinutesThreshold = NARRATIVE_CONFIG.expiredTweetMinutesThreshold || 30;
 
-    // 2.1 检查推文过期
-    if (twitterInfo?.type === 'tweet' && twitterInfo?.created_at) {
-      try {
-        const tweetDate = new Date(twitterInfo.created_at);
+    // 2.1 检查推文过期（仅推文类型，不适用账号）
+    // 多推文场景：主推文、website_tweet、quoted_tweet、retweeted_status 中任一满足即可
+    if (twitterInfo?.type === 'tweet') {
+      const tweetSources = [
+        twitterInfo,
+        twitterInfo.website_tweet,
+        twitterInfo.quoted_tweet,
+        twitterInfo.retweeted_status
+      ].filter(t => t?.created_at);
+
+      if (tweetSources.length > 0) {
         const now = new Date();
-        const daysDiff = (now - tweetDate) / (1000 * 60 * 60 * 24);
-
-        if (daysDiff > expiredDaysThreshold) {
-          console.log(`[NarrativeAnalyzer] 预检查触发: 推文发布时间超过${expiredDaysThreshold}天 (${twitterInfo.formatted_created_at || twitterInfo.created_at})`);
-          return buildPreCheckResult('low', `推文发布时间超过${expiredDaysThreshold}天（${twitterInfo.formatted_created_at || twitterInfo.created_at}），叙事价值已耗尽`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+        let allExpired = true;
+        for (const tweet of tweetSources) {
+          try {
+            const tweetDate = new Date(tweet.created_at);
+            const minutesDiff = (now - tweetDate) / (1000 * 60);
+            if (minutesDiff <= expiredMinutesThreshold) {
+              allExpired = false;
+              break;
+            }
+          } catch (e) {
+            // 解析失败不视为有效推文
+          }
         }
-      } catch (e) {
-        console.warn('[NarrativeAnalyzer] 解析推文时间失败:', e.message);
+
+        if (allExpired) {
+          const mainTweetDate = twitterInfo.formatted_created_at || twitterInfo.created_at;
+          console.log(`[NarrativeAnalyzer] 预检查触发: 所有推文发布时间均超过${expiredMinutesThreshold}分钟 (主推文: ${mainTweetDate})`);
+          return buildPreCheckResult('low', `所有推文发布时间均超过${expiredMinutesThreshold}分钟（主推文：${mainTweetDate}），叙事价值已耗尽`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+        }
       }
     }
 
@@ -842,16 +860,16 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     classifiedUrls[platform] && classifiedUrls[platform].length > 0
   );
 
-  // 情况A：没有公开URL → unrated（无法评估叙事，但可能是纯meme币有交易价值）
+  // 情况A：没有公开URL → low（缺少叙事信息，无叙事价值）
   if (!hasAnyPublicUrl) {
     const hasTelegram = !!(classifiedUrls.telegram && classifiedUrls.telegram.length > 0);
     const hasDiscord = !!(classifiedUrls.discord && classifiedUrls.discord.length > 0);
     const reason = (hasTelegram || hasDiscord)
-      ? '仅有通讯应用链接（Telegram/Discord），缺少公开可验证的叙事信息'
-      : '缺少任何有效的公开信息来源（网站、社交媒体、视频等），无法评估叙事';
+      ? '仅有通讯应用链接（Telegram/Discord），缺少公开可验证的叙事信息，无叙事价值'
+      : '缺少任何有效的公开信息来源（网站、社交媒体、视频等），无叙事价值';
 
     console.log(`[NarrativeAnalyzer] 规则4触发: ${reason}`);
-    return buildPreCheckResult('unrated', reason, 'no_public_info');
+    return buildPreCheckResult('low', reason, 'no_public_info', { scores: { credibility: 5, virality: 5 }, total_score: 10 });
   }
 
   // 情况B：有公开URL，检查数据是否获取成功

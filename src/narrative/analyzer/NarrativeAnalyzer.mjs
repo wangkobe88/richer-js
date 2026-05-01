@@ -144,7 +144,7 @@ const NARRATIVE_CONFIG = config.narrative || {
   enableImageAnalysis: false,
   enableVideoAnalysis: false,
   twitterBlacklist: [],
-  expiredTweetDaysThreshold: 14
+  expiredTweetMinutesThreshold: 30
 };
 
 export class NarrativeAnalyzer {
