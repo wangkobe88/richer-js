@@ -239,12 +239,20 @@ class Experiment {
    * @returns {Object} JSON对象
    */
   toJSON() {
+    // 深拷贝 config，避免修改原始数据
+    const safeConfig = this.config ? JSON.parse(JSON.stringify(this.config)) : this.config;
+    // 脱敏：移除私钥，只保留地址和状态标记
+    if (safeConfig?.wallet?.privateKey) {
+      delete safeConfig.wallet.privateKey;
+      safeConfig.wallet.hasPrivateKey = true;
+    }
+
     return {
       id: this.id,
       experimentName: this.experimentName,
       experimentDescription: this.experimentDescription,
       status: this.status,
-      config: this.config,
+      config: safeConfig,
       stats: this.stats,
       tradingMode: this.tradingMode,
       strategyType: this.strategyType,

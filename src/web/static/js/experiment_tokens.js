@@ -12,6 +12,14 @@ const CATEGORY_MAP = {
   high_quality: { label: '高质量', emoji: '🚀', colorClass: 'text-green-400', bgClass: 'bg-green-900', borderClass: 'border-green-700' }
 };
 
+// 叙事评级映射
+const NARRATIVE_RATING_MAP = {
+  1: { label: '低质量', emoji: '📉', colorClass: 'text-orange-400', bgClass: 'bg-orange-900', borderClass: 'border-orange-700' },
+  2: { label: '中质量', emoji: '📊', colorClass: 'text-blue-400', bgClass: 'bg-blue-900', borderClass: 'border-blue-700' },
+  3: { label: '高质量', emoji: '🚀', colorClass: 'text-green-400', bgClass: 'bg-green-900', borderClass: 'border-green-700' },
+  9: { label: '未评级', emoji: '❓', colorClass: 'text-gray-400', bgClass: 'bg-gray-700', borderClass: 'border-gray-600' }
+};
+
 class ExperimentTokens {
   constructor() {
     this.experimentId = this.extractExperimentId();
@@ -32,6 +40,8 @@ class ExperimentTokens {
     this.blacklistTokenMap = new Map();
     // 白名单统计
     this.whitelistTokenMap = new Map();
+    // 叙事分析数据
+    this.narrativeDataMap = new Map();
     // 当前编辑的代币地址（用于标注功能）
     this.currentEditingToken = null;
 
@@ -61,6 +71,9 @@ class ExperimentTokens {
 
       await this.loadTokens();
       console.log('✅ 代币数据加载完成');
+
+      // 异步加载叙事分析数据（不阻塞页面渲染）
+      this.loadNarrativeData();
 
       this.render();
 
@@ -585,6 +598,7 @@ class ExperimentTokens {
         <td class="px-1.5 py-1 text-center overflow-hidden"><span class="px-1 py-0.5 rounded text-[10px] font-medium ${platformClass} text-white">${platformLabel}</span></td>
         <td class="px-1.5 py-1 text-left text-[10px] text-gray-400 overflow-hidden truncate">${discoveredAt}</td>
         <td class="px-1.5 py-1 text-center text-[10px] text-gray-400 overflow-hidden">${dataPointsEl}</td>
+        <td class="px-1.5 py-1 text-center overflow-hidden narrative-cell">${this.renderNarrativeRating(token.token_address)}</td>
         <td class="px-1.5 py-1 text-center overflow-hidden">${this.renderJudgeColumn(token)}</td>
       </tr>
     `;
@@ -1296,6 +1310,77 @@ class ExperimentTokens {
       console.error('删除标注失败:', error);
       this.showToast('删除失败: ' + error.message);
     }
+  }
+
+  /**
+   * 异步加载叙事分析数据
+   */
+  async loadNarrativeData() {
+    try {
+      const tokenAddresses = this.tokens.map(t => t.token_address);
+      // 并发加载，每次最多 5 个请求
+      const batchSize = 5;
+      for (let i = 0; i < tokenAddresses.length; i += batchSize) {
+        const batch = tokenAddresses.slice(i, i + batchSize);
+        const promises = batch.map(async (address) => {
+          try {
+            const response = await fetch(`/api/narrative/result/${address}`);
+            if (response.ok) {
+              const result = await response.json();
+              if (result.success && result.data) {
+                this.narrativeDataMap.set(address, result.data);
+              }
+            }
+          } catch (e) {
+            // 单个加载失败不影响其他
+          }
+        });
+        await Promise.all(promises);
+      }
+
+      // 更新已渲染的叙事列
+      this.refreshNarrativeCells();
+      console.log(`✅ 加载了 ${this.narrativeDataMap.size} 条叙事分析数据`);
+    } catch (error) {
+      console.error('加载叙事分析数据失败:', error);
+    }
+  }
+
+  /**
+   * 刷新已渲染的叙事评级单元格
+   */
+  refreshNarrativeCells() {
+    const rows = document.querySelectorAll('tr[data-token-address]');
+    rows.forEach(row => {
+      const address = row.getAttribute('data-token-address');
+      const cell = row.querySelector('.narrative-cell');
+      if (cell) {
+        cell.innerHTML = this.renderNarrativeRating(address);
+      }
+    });
+  }
+
+  /**
+   * 渲染叙事评级
+   */
+  renderNarrativeRating(tokenAddress) {
+    const narrative = this.narrativeDataMap.get(tokenAddress);
+
+    if (!narrative || !narrative.meta?.isValid) {
+      return `<a href="/narrative-analyzer?address=${tokenAddress}" target="_blank" class="text-gray-500 text-[10px] hover:text-blue-400 transition-colors">-</a>`;
+    }
+
+    const summary = narrative.llmAnalysis?.summary;
+    const rating = summary?.rating ?? 9;
+    const ratingInfo = NARRATIVE_RATING_MAP[rating] || NARRATIVE_RATING_MAP[9];
+
+    const summaryStr = summary?.reasoning || '';
+    const summaryTitle = summaryStr ? summaryStr.slice(0, 200) + (summaryStr.length > 200 ? '...' : '') : '';
+
+    const totalScore = summary?.total_score;
+    const scoreText = totalScore != null ? ` ${totalScore.toFixed(0)}分` : '';
+
+    return `<a href="/narrative-analyzer?address=${tokenAddress}" target="_blank" class="px-1.5 py-0.5 rounded text-[10px] ${ratingInfo.bgClass} ${ratingInfo.colorClass} border ${ratingInfo.borderClass} hover:opacity-80 transition-opacity inline-block" title="${summaryTitle || ratingInfo.label}" style="cursor:pointer;text-decoration:none;">${ratingInfo.emoji} ${rating}${scoreText}</a>`;
   }
 }
 

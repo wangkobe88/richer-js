@@ -9,6 +9,7 @@ require('dotenv').config({ path: '../config/.env' });
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const cookieParser = require('cookie-parser');
 const Logger = require('./services/logger');
 
 // 导入实验管理组件
@@ -60,6 +61,12 @@ class RicherJsWebServer {
     this.app.use(express.json({ limit: '50mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+    // Cookie 解析
+    this.app.use(cookieParser());
+
+    // API Token 认证（如果配置了 API_TOKEN）
+    this._setupTokenAuth();
+
     // 静态文件服务（禁用缓存）
     this.app.use('/static', express.static(path.join(__dirname, 'web/static'), {
       maxAge: 0,
@@ -79,6 +86,47 @@ class RicherJsWebServer {
     this.app.use((req, res, next) => {
       this.logger.info('WebServer', `${new Date().toISOString()} ${req.method} ${req.path}`);
       next();
+    });
+  }
+
+  /**
+   * 设置 API Token 认证中间件
+   * 基于 cookie，前端零改动：首次通过 ?token=xxx 认证，之后自动 cookie 维持
+   * 不设置 API_TOKEN 时不启用认证（向后兼容）
+   */
+  _setupTokenAuth() {
+    const apiToken = process.env.API_TOKEN;
+    if (!apiToken) return;
+
+    this.app.use((req, res, next) => {
+      // 静态资源不需要认证
+      if (req.path.startsWith('/static')) {
+        return next();
+      }
+
+      const cookieToken = req.cookies?.api_token;
+      const queryToken = req.query?.token;
+
+      // URL 带 token 参数且有效 → 认证成功，设置 cookie
+      if (queryToken && queryToken === apiToken) {
+        res.cookie('api_token', queryToken, {
+          httpOnly: true,
+          maxAge: 7 * 24 * 3600 * 1000,
+          sameSite: 'strict'
+        });
+        return next();
+      }
+
+      // cookie 中的 token 有效 → 放行
+      if (cookieToken === apiToken) {
+        return next();
+      }
+
+      // 无有效认证
+      if (req.path.startsWith('/api/')) {
+        return res.status(401).json({ error: '未授权访问，请在 URL 中添加 ?token=xxx' });
+      }
+      return res.status(401).send('未授权访问，请在 URL 中添加 ?token=xxx');
     });
   }
 
@@ -2084,7 +2132,7 @@ class RicherJsWebServer {
         const { TokenAnalysisService } = require('./web/services/TokenAnalysisService');
         const analysisService = new TokenAnalysisService();
 
-        const { skipAnalyzed = false } = req.body;
+        const { skipAnalyzed = false } = req.body || {};
         const skipText = skipAnalyzed ? '（跳过已分析）' : '';
         this.logger.info('WebServer', `[代币分析] 开始分析实验 ${req.params.id} 的代币涨幅${skipText}...`);
 
@@ -2106,7 +2154,7 @@ class RicherJsWebServer {
           ...result
         });
       } catch (error) {
-        this.logger.error('WebServer', '分析代币涨幅失败:', { details: error });
+        this.logger.error('WebServer', `分析代币涨幅失败: ${error.message}`, error.stack);
         res.status(500).json({ success: false, error: error.message });
       }
     });

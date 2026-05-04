@@ -2809,6 +2809,16 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // 调用基类 stop 方法
     await super.stop();
 
+    // 清理内存中的私钥和钱包引用
+    this._privateKey = null;
+    [this._fourMemeTrader, this._pancakeSwapTrader, this._uniswapV2Trader, this._uniswapV4Trader]
+      .forEach(trader => {
+        if (trader) {
+          if (trader.wallet) trader.wallet = null;
+          if (trader.signer) trader.signer = null;
+        }
+      });
+
     console.log(`🛑 实盘交易引擎已停止`);
   }
 
