@@ -1011,7 +1011,8 @@ class PlatformCollector {
             this.logger.debug(`全链新代币过滤: ${tokens.length} 个 (总共 ${allTokens.length} 个, 过滤掉 ${allTokens.length - tokens.length} 个平台链代币)`);
 
             const now = Date.now();
-            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
+            // 全链模式使用更宽松的年龄限制（AVE API 返回的非平台链代币通常不是秒级新币）
+            const maxAgeMs = (this.collectorConfig.allChainMaxAgeSeconds || 300) * 1000;
 
             let addedCount = 0;
             let skippedCount = 0;
