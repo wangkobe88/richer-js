@@ -491,6 +491,7 @@ class BacktestEngine extends AbstractTradingEngine {
         action: signal.action.toLowerCase(),
         confidence: signal.confidence || 0.5,
         reason: signal.reason || '',
+        chain: signal.chain,
         metadata: signalMetadata,
         createdAt: signal.timestamp || new Date()
       });
@@ -1444,6 +1445,7 @@ class BacktestEngine extends AbstractTradingEngine {
           action: signal.action,
           confidence: signal.confidence,
           reason: signal.reason,
+          chain: signal.chain,
           metadata: {
             ...signal,
             price: signal.price,

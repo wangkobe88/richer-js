@@ -2915,10 +2915,6 @@ class RicherJsWebServer {
 
         const { apiKey, baseURL, tag, chain = 'bsc', limit = 100, orderby = 'created_at' } = req.body;
 
-        if (!tag) {
-          return res.status(400).json({ success: false, error: 'tag不能为空' });
-        }
-
         const tokenAPI = new AveTokenAPI(
           baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com',
           config.ave?.timeout || 30000,

@@ -139,7 +139,11 @@ async function loadExperimentChainMap() {
  */
 function fixEventChain(event) {
   if (event.experiment_id && experimentChainMap.has(event.experiment_id)) {
-    event.chain = experimentChainMap.get(event.experiment_id);
+    const expBlockchain = experimentChainMap.get(event.experiment_id);
+    // 多链实验 ('all') 不覆盖事件自身的 chain，只修正单链实验的历史数据
+    if (expBlockchain !== 'all') {
+      event.chain = expBlockchain;
+    }
   }
 }
 

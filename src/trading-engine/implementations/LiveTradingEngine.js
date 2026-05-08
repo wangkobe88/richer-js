@@ -2163,6 +2163,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           action: signal.action,
           confidence: signal.confidence,
           reason: signal.reason,
+          chain: signal.chain,
           metadata: {
             ...signal.cardConfig,
             price: signal.price,
