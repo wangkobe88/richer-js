@@ -205,10 +205,8 @@ class ExperimentTokens {
    */
   async loadTokens() {
     try {
-      const [tokensRes, blacklistRes] = await Promise.all([
-        fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`),
-        fetch(`/api/experiment/${this.experimentId}/holder-blacklist-stats`)
-      ]);
+      // 先加载代币列表（较快），不等待黑白名单统计
+      const tokensRes = await fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`);
 
       if (!tokensRes.ok) {
         throw new Error(`HTTP ${tokensRes.status}: ${tokensRes.statusText}`);
@@ -223,25 +221,41 @@ class ExperimentTokens {
       this.tokens = result.tokens || [];
       this.filteredTokens = [...this.tokens];
 
-      // 加载黑名单/白名单统计数据
-      if (blacklistRes.ok) {
-        const blacklistData = await blacklistRes.json();
-        if (blacklistData.success) {
-          this.blacklistStats = blacklistData.data;
-          // 建立代币到黑名单状态的映射
-          this.blacklistTokenMap = new Map(
-            (blacklistData.data.blacklistedTokenList || []).map(t => [t.token, t])
-          );
-          // 建立代币到白名单状态的映射
-          this.whitelistTokenMap = new Map(
-            (blacklistData.data.whitelistedTokenList || []).map(t => [t.token, t])
-          );
-        }
-      }
+      // 异步加载黑白名单统计（不阻塞页面渲染）
+      this.loadBlacklistStats();
 
     } catch (error) {
       console.error('❌ 加载代币数据失败:', error);
       throw error;
+    }
+  }
+
+  /**
+   * 异步加载黑白名单统计（不阻塞页面渲染）
+   */
+  async loadBlacklistStats() {
+    try {
+      const blacklistRes = await fetch(`/api/experiment/${this.experimentId}/holder-blacklist-stats`);
+      if (blacklistRes.ok) {
+        const blacklistData = await blacklistRes.json();
+        if (blacklistData.success) {
+          this.blacklistStats = blacklistData.data;
+          this.blacklistTokenMap = new Map(
+            (blacklistData.data.blacklistedTokenList || []).map(t => [t.token, t])
+          );
+          this.whitelistTokenMap = new Map(
+            (blacklistData.data.whitelistedTokenList || []).map(t => [t.token, t])
+          );
+          // 加载完成后刷新黑白名单统计区域
+          this.renderBlacklistStats();
+          // 如果当前有黑白名单筛选生效，重新应用
+          if (this.currentFilter === 'blacklist' || this.currentFilter === 'whitelist') {
+            this.applyFilters();
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ 黑白名单统计加载失败，不影响主功能:', error);
     }
   }
 
