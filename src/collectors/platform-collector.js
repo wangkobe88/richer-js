@@ -118,8 +118,30 @@ class PlatformCollector {
         try {
             const startTime = Date.now();
 
+            // 全链模式：并行收集所有链的代币
+            if (this.blockchain === 'all') {
+                const tasks = [];
+
+                // BSC 链（fourmeme + flap）
+                tasks.push(this.collectFourmemeTokens());
+                if (this.collectorConfig.enableFlap !== false) {
+                    tasks.push(this.collectFlapTokens());
+                }
+                // Base 链（bankr）
+                if (this.collectorConfig.enableBankr !== false) {
+                    tasks.push(this.collectBankrTokens());
+                }
+                // Solana 链（pumpfun）
+                if (this.collectorConfig.enablePumpfun !== false) {
+                    tasks.push(this.collectPumpfunTokens());
+                }
+                // ETH + 其他无特定平台的链
+                tasks.push(this.collectAllChainNewTokens());
+
+                await Promise.allSettled(tasks);
+
             // 根据 blockchain 配置决定收集哪些平台
-            if (this.blockchain === 'bsc') {
+            } else if (this.blockchain === 'bsc') {
                 // BSC 链：fourmeme 和 flap
                 await this.collectFourmemeTokens();
 
@@ -961,6 +983,107 @@ class PlatformCollector {
 
         } catch (error) {
             this.logger.error('收集ETH链代币失败', {
+                error: error.message,
+                stack: error.stack
+            });
+        }
+    }
+
+    /**
+     * 全链模式：收集所有链的新代币
+     * 通过 AVE API 不传 chain 参数获取所有链代币，过滤掉已有平台收集器处理的链避免重复
+     */
+    async collectAllChainNewTokens() {
+        try {
+            const startTime = Date.now();
+            this.logger.debug('开始收集全链新代币');
+
+            // 已有平台收集器处理的链，避免重复
+            const PLATFORM_CHAINS = new Set(['bsc', 'base', 'solana']);
+
+            const allTokens = await this.aveApi.getAllChainNewTokens(
+                this.collectorConfig.allChainFetchLimit || 1000,
+                'created_at'
+            );
+
+            // 过滤掉已有平台收集器处理的链
+            const tokens = allTokens.filter(t => !PLATFORM_CHAINS.has(t.chain));
+            this.logger.debug(`全链新代币过滤: ${tokens.length} 个 (总共 ${allTokens.length} 个, 过滤掉 ${allTokens.length - tokens.length} 个平台链代币)`);
+
+            const now = Date.now();
+            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
+
+            let addedCount = 0;
+            let skippedCount = 0;
+
+            // 链级平台映射（用于 pair 解析）
+            const CHAIN_PLATFORM_MAP = {
+                'eth': { platform: 'uniswap', chain: 'ethereum' },
+                'ethereum': { platform: 'uniswap', chain: 'ethereum' }
+            };
+
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+
+                // 解析 created_at
+                let createdAtMs;
+                if (typeof token.created_at === 'number') {
+                    createdAtMs = token.created_at * 1000;
+                } else if (typeof token.created_at === 'string' && token.created_at) {
+                    createdAtMs = new Date(token.created_at).getTime();
+                } else {
+                    createdAtMs = 0;
+                }
+                const tokenAge = now - createdAtMs;
+
+                if (this.collectedTokens.has(tokenKey)) {
+                    continue;
+                }
+
+                if (!token.platform) token.platform = 'ave';
+                if (token.creator_address === undefined) token.creator_address = null;
+
+                if (tokenAge < maxAgeMs) {
+                    // 解析 pairAddress
+                    const chainPlatform = CHAIN_PLATFORM_MAP[token.chain];
+                    if (chainPlatform) {
+                        try {
+                            const pairResult = await this.pairResolver.resolvePairAddress(
+                                token.token, chainPlatform.platform, chainPlatform.chain
+                            );
+                            token.pairAddress = pairResult.pairAddress;
+                        } catch (error) {
+                            this.logger.warn('全链模式: pair解析失败，跳过', {
+                                token: token.token, chain: token.chain, error: error.message
+                            });
+                            skippedCount++;
+                            this.collectedTokens.add(tokenKey);
+                            continue;
+                        }
+                    }
+
+                    const added = this.tokenPool.addToken(token);
+                    if (added) {
+                        addedCount++;
+                    }
+                } else {
+                    skippedCount++;
+                }
+
+                this.collectedTokens.add(tokenKey);
+            }
+
+            const duration = Date.now() - startTime;
+            this.logger.debug('全链新代币收集完成', {
+                fetched: tokens.length,
+                totalFromApi: allTokens.length,
+                added: addedCount,
+                skipped: skippedCount,
+                duration: `${duration}ms`
+            });
+
+        } catch (error) {
+            this.logger.error('收集全链新代币失败', {
                 error: error.message,
                 stack: error.stack
             });

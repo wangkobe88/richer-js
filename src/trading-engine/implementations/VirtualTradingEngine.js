@@ -1006,7 +1006,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         priceUsd: factorResults.currentPrice,
         priceNative: null,
         factorValues: buildFactorValuesForTimeSeries(factorResults),
-        blockchain: this._experiment.blockchain || 'bsc'
+        blockchain: token.chain || this._experiment.blockchain || 'bsc'
       });
 
       this.logger.info(this._experimentId, 'VirtualTradingEngine', `📊 [时序数据] 保存结果 | symbol=${token.symbol}, result=${recordResult}`);

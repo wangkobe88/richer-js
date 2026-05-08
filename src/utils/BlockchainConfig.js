@@ -825,6 +825,29 @@ class BlockchainConfig {
   }
 
   /**
+   * 检查是否为全链模式
+   *
+   * @static
+   * @param {string} blockchain - 区块链 ID
+   * @returns {boolean} 是否为全链模式
+   */
+  static isAllChainMode(blockchain) {
+    return blockchain === 'all';
+  }
+
+  /**
+   * 获取有交易器支持的链列表（可交易的链）
+   *
+   * @static
+   * @returns {string[]} 有可用 trader 的链列表
+   */
+  static getTradeableChains() {
+    return Object.entries(this.CHAIN_CONFIGS)
+      .filter(([_, config]) => config.availableTraders && config.availableTraders.length > 0)
+      .map(([chainId, _]) => chainId);
+  }
+
+  /**
    * 导出配置为 JSON（用于调试）
    *
    * @static
