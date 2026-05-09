@@ -727,23 +727,8 @@ class PlatformCollector {
                 token.creator_address = null;
 
                 if (tokenAge < maxAgeMs) {
-                    // 在添加到池之前解析 pairAddress（同步等待）
-                    try {
-                        const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'pumpfun', 'solana');
-                        token.pairAddress = pairResult.pairAddress;
-                        this.logger.debug('解析 pumpfun pair 地址成功', {
-                            token: token.token,
-                            pair_address: token.pairAddress
-                        });
-                    } catch (error) {
-                        this.logger.warn('解析 pumpfun pair 地址失败，跳过此代币', {
-                            token: token.token,
-                            error: error.message
-                        });
-                        skippedCount++;
-                        this.collectedTokens.add(tokenKey);
-                        continue;
-                    }
+                    // pumpfun 平台暂无真实交易，跳过 pair 解析以减少 API 调用
+                    token.pairAddress = null;
 
                     const added = this.tokenPool.addToken(token);
                     if (added) {
@@ -1045,23 +1030,8 @@ class PlatformCollector {
                 if (token.creator_address === undefined) token.creator_address = null;
 
                 if (tokenAge < maxAgeMs) {
-                    // 解析 pairAddress
-                    const chainPlatform = CHAIN_PLATFORM_MAP[token.chain];
-                    if (chainPlatform) {
-                        try {
-                            const pairResult = await this.pairResolver.resolvePairAddress(
-                                token.token, chainPlatform.platform, chainPlatform.chain
-                            );
-                            token.pairAddress = pairResult.pairAddress;
-                        } catch (error) {
-                            this.logger.warn('全链模式: pair解析失败，跳过', {
-                                token: token.token, chain: token.chain, error: error.message
-                            });
-                            skippedCount++;
-                            this.collectedTokens.add(tokenKey);
-                            continue;
-                        }
-                    }
+                    // 全链模式暂无真实交易，跳过 pair 解析以减少 API 调用
+                    token.pairAddress = null;
 
                     const added = this.tokenPool.addToken(token);
                     if (added) {

@@ -691,6 +691,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         ...experimentCollectorConfig
       }
     };
+
+    // 全链模式强制收集间隔 ≥ 40 秒，避免 API 限频
+    if (this._blockchain === 'all' && mergedCollectorConfig.collector.interval < 40000) {
+      this.logger.info(this._experimentId, 'VirtualTradingEngine',
+        `全链模式: 收集间隔从 ${mergedCollectorConfig.collector.interval}ms 调整为 40000ms`);
+      mergedCollectorConfig.collector.interval = 40000;
+    }
     this._fourmemeCollector = new PlatformCollector(
       mergedCollectorConfig,
       this.logger,
@@ -810,7 +817,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * @private
    */
   _startMonitoringLoop() {
-    const interval = config.monitor.interval || 10000;
+    let interval = config.monitor.interval || 10000;
+    // 全链模式强制 20 秒间隔，避免 API 限频
+    if (this._blockchain === 'all' && interval < 20000) {
+      this.logger.info(this._experimentId, 'VirtualTradingEngine',
+        `全链模式: 监控间隔从 ${interval}ms 调整为 20000ms`);
+      interval = 20000;
+    }
 
     this._monitoringTimer = setInterval(async () => {
       await this._monitoringCycle();
@@ -989,6 +1002,23 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       // 累加数据采集轮数（每次进入因子计算循环时 +1）
       token._dataCollectionRound = (token._dataCollectionRound || 0) + 1;
+
+      // Solana 代币快速淘汰：连续 6 轮价格无变化则标记为不活跃
+      if (token.chain === 'solana' && token.status === 'monitoring') {
+        if (currentPrice === (token._lastSeenPrice ?? -1)) {
+          token._priceUnchangedRounds = (token._priceUnchangedRounds || 0) + 1;
+        } else {
+          token._priceUnchangedRounds = 0;
+        }
+        token._lastSeenPrice = currentPrice;
+
+        if (token._priceUnchangedRounds >= 6) {
+          this.logger.info(this._experimentId, 'ProcessToken',
+            `Solana 代币连续 ${token._priceUnchangedRounds} 轮价格无变化，快速淘汰 | ${token.symbol} (${token.token})`);
+          this._tokenPool.markTokenStatus(token.token, token.chain, 'inactive');
+          return;
+        }
+      }
 
       const factorResults = this._buildFactors(token);
 

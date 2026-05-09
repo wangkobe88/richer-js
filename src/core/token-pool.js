@@ -279,6 +279,21 @@ class TokenPool {
     }
 
     /**
+     * 直接设置代币状态
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @param {string} status - Target status
+     */
+    markTokenStatus(tokenAddress, chain, status) {
+        const key = this.getTokenKey({ token: tokenAddress, chain });
+        const token = this.pool.get(key);
+
+        if (token) {
+            token.status = status;
+        }
+    }
+
+    /**
      * Mark token as sold (交易后观察状态)
      * 卖出后将状态设为 'sold'，继续收集价格信息30分钟后才移除
      * @param {string} tokenAddress - Token address
