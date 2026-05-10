@@ -123,18 +123,14 @@ class PlatformCollector {
         try {
             const startTime = Date.now();
 
-            // 全链模式：并行收集所有平台的代币
+            // 全链模式：串行收集所有平台（避免 429）
             // 监控5个平台的热门代币：fourmeme(BSC)、pumpfun(Solana)、bankr(Base)、bonk(Solana)、clanker(Base)
             if (this.blockchain === 'all') {
-                const tasks = [
-                    this.collectFourmemeTokens(),
-                    this.collectBankrTokens(),
-                    this.collectClankerTokens(),
-                    this.collectPumpfunTokens(),
-                    this.collectBonkTokens()
-                ];
-
-                await Promise.allSettled(tasks);
+                await this.collectFourmemeTokens();
+                await this.collectBankrTokens();
+                await this.collectClankerTokens();
+                await this.collectPumpfunTokens();
+                await this.collectBonkTokens();
 
             // 单链模式保留（兼容旧配置）
             } else if (this.blockchain === 'bsc') {
@@ -186,9 +182,13 @@ class PlatformCollector {
             const limit = this.collectorConfig.fetchLimit;
             const orderby = 'tx_volume_u_24h';
 
-            // 多 tag 并行获取
-            const results = await Promise.all(allTags.map(tag => this.aveApi.getPlatformTokens(tag, chain, limit, orderby)));
-            const allTokens = results.flat();
+            // 多 tag 串行获取（避免 429）
+            const allTokens = [];
+            for (const tag of allTags) {
+                const batch = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+                allTokens.push(...batch);
+                if (tag !== allTags[allTags.length - 1]) await new Promise(r => setTimeout(r, 1000));
+            }
             this.stats.fourmeme.totalCollected += allTokens.length;
 
             // 按 token 地址去重
@@ -421,8 +421,12 @@ class PlatformCollector {
             const limit = this.collectorConfig.fetchLimit;
             const orderby = 'tx_volume_u_24h';
 
-            const results = await Promise.all(tags.map(tag => this.aveApi.getPlatformTokens(tag, chain, limit, orderby)));
-            const allTokens = results.flat();
+            const allTokens = [];
+            for (const tag of tags) {
+                const batch = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+                allTokens.push(...batch);
+                if (tag !== tags[tags.length - 1]) await new Promise(r => setTimeout(r, 1000));
+            }
             this.stats.bankr.totalCollected += allTokens.length;
 
             const seen = new Set();
@@ -516,9 +520,13 @@ class PlatformCollector {
             const limit = this.collectorConfig.fetchLimit;
             const orderby = 'tx_volume_u_24h';
 
-            // 多 tag 并行获取
-            const results = await Promise.all(tags.map(tag => this.aveApi.getPlatformTokens(tag, chain, limit, orderby)));
-            const allTokens = results.flat();
+            // 多 tag 串行获取（避免 429）
+            const allTokens = [];
+            for (const tag of tags) {
+                const batch = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+                allTokens.push(...batch);
+                if (tag !== tags[tags.length - 1]) await new Promise(r => setTimeout(r, 1000));
+            }
             this.stats.pumpfun.totalCollected += allTokens.length;
 
             // 按 token 地址去重
@@ -602,8 +610,12 @@ class PlatformCollector {
             const limit = this.collectorConfig.fetchLimit;
             const orderby = 'tx_volume_u_24h';
 
-            const results = await Promise.all(tags.map(tag => this.aveApi.getPlatformTokens(tag, chain, limit, orderby)));
-            const allTokens = results.flat();
+            const allTokens = [];
+            for (const tag of tags) {
+                const batch = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+                allTokens.push(...batch);
+                if (tag !== tags[tags.length - 1]) await new Promise(r => setTimeout(r, 1000));
+            }
             this.stats.bonk.totalCollected += allTokens.length;
 
             const seen = new Set();
@@ -686,8 +698,12 @@ class PlatformCollector {
             const limit = this.collectorConfig.fetchLimit;
             const orderby = 'tx_volume_u_24h';
 
-            const results = await Promise.all(tags.map(tag => this.aveApi.getPlatformTokens(tag, chain, limit, orderby)));
-            const allTokens = results.flat();
+            const allTokens = [];
+            for (const tag of tags) {
+                const batch = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+                allTokens.push(...batch);
+                if (tag !== tags[tags.length - 1]) await new Promise(r => setTimeout(r, 1000));
+            }
             this.stats.clanker.totalCollected += allTokens.length;
 
             const seen = new Set();
