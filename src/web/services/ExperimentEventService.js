@@ -65,7 +65,7 @@ class ExperimentEventService {
           token_symbol: signal.token_symbol || null,
           action,
           executed,
-          chain: signal.chain || experimentInfo.blockchain || 'bsc',
+          chain: signal.chain || (experimentInfo.blockchain !== 'all' ? experimentInfo.blockchain : 'bsc') || 'bsc',
           summary,
           details
         });

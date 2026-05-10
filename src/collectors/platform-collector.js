@@ -55,12 +55,12 @@ class PlatformCollector {
                 totalAdded: 0,
                 totalSkipped: 0
             },
-            flap: {
+            bankr: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0
             },
-            bankr: {
+            clanker: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0
@@ -70,7 +70,12 @@ class PlatformCollector {
                 totalAdded: 0,
                 totalSkipped: 0
             },
-            eth: {
+            bonk: {
+                totalCollected: 0,
+                totalAdded: 0,
+                totalSkipped: 0
+            },
+            clanker: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0
@@ -118,60 +123,28 @@ class PlatformCollector {
         try {
             const startTime = Date.now();
 
-            // 全链模式：并行收集所有链的代币
+            // 全链模式：并行收集所有平台的代币
+            // 监控5个平台的热门代币：fourmeme(BSC)、pumpfun(Solana)、bankr(Base)、bonk(Solana)、clanker(Base)
             if (this.blockchain === 'all') {
-                const tasks = [];
-
-                // BSC 链（fourmeme + flap）
-                tasks.push(this.collectFourmemeTokens());
-                if (this.collectorConfig.enableFlap !== false) {
-                    tasks.push(this.collectFlapTokens());
-                }
-                // Base 链（bankr）
-                if (this.collectorConfig.enableBankr !== false) {
-                    tasks.push(this.collectBankrTokens());
-                }
-                // Solana 链（pumpfun）
-                if (this.collectorConfig.enablePumpfun !== false) {
-                    tasks.push(this.collectPumpfunTokens());
-                }
-                // ETH + 其他无特定平台的链
-                tasks.push(this.collectAllChainNewTokens());
+                const tasks = [
+                    this.collectFourmemeTokens(),
+                    this.collectBankrTokens(),
+                    this.collectClankerTokens(),
+                    this.collectPumpfunTokens(),
+                    this.collectBonkTokens()
+                ];
 
                 await Promise.allSettled(tasks);
 
-            // 根据 blockchain 配置决定收集哪些平台
+            // 单链模式保留（兼容旧配置）
             } else if (this.blockchain === 'bsc') {
-                // BSC 链：fourmeme 和 flap
                 await this.collectFourmemeTokens();
 
-                // === Flap平台暂时关闭 ===
-                if (this.collectorConfig.enableFlap !== false) {
-                    await this.collectFlapTokens();
-                } else {
-                    this.logger.info('Flap平台数据采集已通过配置关闭 (config.collector.enableFlap = false)');
-                }
-                // === Flap平台关闭结束 ===
-
             } else if (this.blockchain === 'base') {
-                // Base 链：bankr
-                if (this.collectorConfig.enableBankr !== false) {
-                    await this.collectBankrTokens();
-                } else {
-                    this.logger.info('Bankr平台数据采集已通过配置关闭 (config.collector.enableBankr = false)');
-                }
+                await this.collectBankrTokens();
 
             } else if (this.blockchain === 'solana') {
-                // Solana 链：pumpfun
-                if (this.collectorConfig.enablePumpfun !== false) {
-                    await this.collectPumpfunTokens();
-                } else {
-                    this.logger.info('Pumpfun平台数据采集已通过配置关闭 (config.collector.enablePumpfun = false)');
-                }
-
-            } else if (this.blockchain === 'ethereum') {
-                // ETH 链：通过 AVE API trending 端点获取热门新币
-                await this.collectEthNewTokens();
+                await this.collectPumpfunTokens();
 
             } else {
                 this.logger.warn(`未知的区块链配置: ${this.blockchain}，跳过代币收集`);
@@ -184,9 +157,10 @@ class PlatformCollector {
                 blockchain: this.blockchain,
                 duration: `${duration}ms`,
                 fourmeme: this.stats.fourmeme,
-                flap: this.stats.flap,
                 bankr: this.stats.bankr,
-                pumpfun: this.stats.pumpfun
+                clanker: this.stats.clanker,
+                pumpfun: this.stats.pumpfun,
+                bonk: this.stats.bonk
             });
 
         } catch (error) {
@@ -205,146 +179,77 @@ class PlatformCollector {
             const startTime = Date.now();
             this.logger.debug('开始收集four.meme新代币');
 
-            // Fetch new tokens from AVE API
-            const tag = 'fourmeme_in_new';
+            const fourmemeTags = ['fourmeme_in_almost', 'fourmeme_in_hot', 'fourmeme_out_hot', 'fourmeme_out_new'];
+            const binanceTags = ['bn_in_hot', 'bn_out_hot', 'bn_out_new'];
+            const allTags = [...fourmemeTags, ...binanceTags];
             const chain = this.collectorConfig.chain;
             const limit = this.collectorConfig.fetchLimit;
-            const orderby = 'created_at';
+            const orderby = 'tx_volume_u_24h';
 
-            const tokens = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+            // 多 tag 并行获取
+            const results = await Promise.all(allTags.map(tag => this.aveApi.getPlatformTokens(tag, chain, limit, orderby)));
+            const allTokens = results.flat();
+            this.stats.fourmeme.totalCollected += allTokens.length;
 
-            this.stats.fourmeme.totalCollected += tokens.length;
+            // 按 token 地址去重
+            const seen = new Set();
+            const tokens = allTokens.filter(t => {
+                if (seen.has(t.token)) return false;
+                seen.add(t.token);
+                return true;
+            });
 
-            // Filter and add new tokens
             const now = Date.now();
-            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
+            const maxAgeMs = 30 * 60 * 1000; // 30分钟
 
-            this.logger.debug(`获取到 ${tokens.length} 个four.meme代币`);
-
-            // 添加详细日志：显示 API 返回的最新代币创建时间
-            if (tokens.length > 0) {
-                const latestCreatedAt = Math.max(...tokens.map(t => t.created_at || 0));
-                const latestAgeSeconds = (now - latestCreatedAt * 1000) / 1000;
-                const oldestCreatedAt = Math.min(...tokens.map(t => t.created_at || 0));
-                const oldestAgeSeconds = (now - oldestCreatedAt * 1000) / 1000;
-                this.logger.debug(`API 返回代币时间范围 | 最新: ${latestAgeSeconds.toFixed(0)}秒前, 最旧: ${oldestAgeSeconds.toFixed(0)}秒前`);
-            }
+            this.logger.debug(`获取到 ${allTokens.length} 个代币（去重后 ${tokens.length}）`);
 
             let addedCount = 0;
             let skippedCount = 0;
             let alreadyInPoolCount = 0;
 
-            // 统计年龄分布
-            const ageRanges = {
-                '0-30s': 0,
-                '30-60s': 0,
-                '1-2m': 0,
-                '2-5m': 0,
-                '5m+': 0
-            };
-
             for (const token of tokens) {
                 const tokenKey = `${token.token}-${token.chain}`;
 
-                // 统计年龄分布（移到 continue 之前，确保所有代币都被统计）
-                const tokenAge = now - (token.created_at * 1000);
-                const tokenAgeSeconds = tokenAge / 1000;
-
-                if (tokenAgeSeconds < 30) {
-                    ageRanges['0-30s']++;
-                } else if (tokenAgeSeconds < 60) {
-                    ageRanges['30-60s']++;
-                } else if (tokenAgeSeconds < 120) {
-                    ageRanges['1-2m']++;
-                } else if (tokenAgeSeconds < 300) {
-                    ageRanges['2-5m']++;
-                } else {
-                    ageRanges['5m+']++;
-                }
-
-                // Skip if already collected
                 if (this.collectedTokens.has(tokenKey)) {
                     continue;
                 }
 
-                // 检查代币是否已在池中（用于统计）
                 const existingToken = this.tokenPool.getToken(token.token, token.chain);
                 if (existingToken) {
                     alreadyInPoolCount++;
                 }
 
-                // Only add tokens younger than maxAgeSeconds (1 minute)
+                const tokenAge = now - (token.created_at * 1000);
                 if (tokenAge < maxAgeMs) {
-                    // 调用 FourMeme API 获取创建者地址
-                    let creatorInfo = null;
-                    try {
-                        creatorInfo = await this.fourMemeApi.getCreatorAddress(token.token);
-
-                        // 详细日志：记录 API 返回的 creator_address
-                        const apiCreatorAddress = creatorInfo.creator_address || null;
-                        this.logger.debug('获取创建者地址成功', {
-                            token: token.token,
-                            symbol: token.symbol,
-                            creator_address: apiCreatorAddress,
-                            has_creator: !!apiCreatorAddress
-                        });
-
-                        // 提取创建者地址添加到 token 对象
-                        if (apiCreatorAddress) {
-                            token.creator_address = apiCreatorAddress;
-                            this.logger.debug('设置创建者地址', {
-                                token: token.token,
-                                symbol: token.symbol,
-                                creator_address: apiCreatorAddress
-                            });
-                        } else {
-                            this.logger.warn('FourMeme API 返回的创建者地址为空', {
-                                token: token.token,
-                                symbol: token.symbol
+                    // 仅 fourmeme 代币调用 FourMeme API 获取创建者地址
+                    if (token.platform !== 'bn') {
+                        try {
+                            const creatorInfo = await this.fourMemeApi.getCreatorAddress(token.token);
+                            if (creatorInfo?.creator_address) {
+                                token.creator_address = creatorInfo.creator_address;
+                            }
+                            if (creatorInfo) {
+                                token.fourmeme_creator_info = creatorInfo;
+                            }
+                        } catch (riskError) {
+                            this.logger.warn('获取创建者地址失败', {
+                                token: token.token, symbol: token.symbol, error: riskError.message
                             });
                         }
-                    } catch (riskError) {
-                        // 创建者地址获取失败不影响代币添加
-                        this.logger.warn('获取创建者地址失败', {
-                            token: token.token,
-                            symbol: token.symbol,
-                            error: riskError.message
-                        });
+                    } else {
+                        token.creator_address = null;
                     }
 
-                    // 将创建者信息添加到 token 对象（备用）
-                    if (creatorInfo) {
-                        token.fourmeme_creator_info = creatorInfo;
-                    }
-
-                    // 添加代币到监控池
                     const added = this.tokenPool.addToken(token);
                     if (added) {
                         addedCount++;
-                        this.collectedTokens.add(tokenKey);
-                    } else {
-                        skippedCount++;
                     }
                 } else {
                     skippedCount++;
                 }
 
-                // Always add to collected set to avoid reprocessing
                 this.collectedTokens.add(tokenKey);
-            }
-
-            // 为 fourmeme 平台的代币添加 platform 字段和 pairAddress
-            for (const token of tokens) {
-                const tokenKey = `${token.token}-${token.chain}`;
-                if (this.collectedTokens.has(tokenKey)) {
-                    const poolToken = this.tokenPool.getToken(token.token, token.chain);
-                    if (poolToken && !poolToken.platform) {
-                        poolToken.platform = 'fourmeme';
-                        // fourmeme 使用直接拼接策略
-                        const pairAddress = `${token.token}_fo`;
-                        poolToken.pairAddress = pairAddress;
-                    }
-                }
             }
 
             this.stats.fourmeme.totalAdded += addedCount;
@@ -353,12 +258,11 @@ class PlatformCollector {
             const duration = Date.now() - startTime;
             this.logger.debug('four.meme平台收集完成', {
                 platform: 'fourmeme',
-                fetched: tokens.length,
+                fetched: allTokens.length,
+                afterDedup: tokens.length,
                 added: addedCount,
                 skipped: skippedCount,
                 alreadyInPool: alreadyInPoolCount,
-                ageRanges: ageRanges,
-                maxAgeSeconds: this.collectorConfig.maxAgeSeconds,
                 duration: `${duration}ms`
             });
 
@@ -512,60 +416,33 @@ class PlatformCollector {
             const startTime = Date.now();
             this.logger.debug('开始收集bankr新代币');
 
-            // Fetch new tokens from AVE API
-            const tag = 'bankr_in_new';
+            const tags = ['bankr_in_almost', 'bankr_out_new'];
             const chain = 'base';
             const limit = this.collectorConfig.fetchLimit;
-            const orderby = 'created_at';
+            const orderby = 'tx_volume_u_24h';
 
-            const tokens = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+            const results = await Promise.all(tags.map(tag => this.aveApi.getPlatformTokens(tag, chain, limit, orderby)));
+            const allTokens = results.flat();
+            this.stats.bankr.totalCollected += allTokens.length;
 
-            this.stats.bankr.totalCollected += tokens.length;
+            const seen = new Set();
+            const tokens = allTokens.filter(t => {
+                if (seen.has(t.token)) return false;
+                seen.add(t.token);
+                return true;
+            });
 
-            // Filter and add new tokens
             const now = Date.now();
-            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
+            const maxAgeMs = 30 * 60 * 1000; // 30分钟
 
-            this.logger.debug(`获取到 ${tokens.length} 个bankr代币`);
-
-            if (tokens.length > 0) {
-                const latestCreatedAt = Math.max(...tokens.map(t => t.created_at || 0));
-                const latestAgeSeconds = (now - latestCreatedAt * 1000) / 1000;
-                const oldestCreatedAt = Math.min(...tokens.map(t => t.created_at || 0));
-                const oldestAgeSeconds = (now - oldestCreatedAt * 1000) / 1000;
-                this.logger.debug(`API 返回代币时间范围 | 最新: ${latestAgeSeconds.toFixed(0)}秒前, 最旧: ${oldestAgeSeconds.toFixed(0)}秒前`);
-            }
+            this.logger.debug(`获取到 ${allTokens.length} 个bankr代币（去重后 ${tokens.length}）`);
 
             let addedCount = 0;
             let skippedCount = 0;
             let alreadyInPoolCount = 0;
 
-            const ageRanges = {
-                '0-30s': 0,
-                '30-60s': 0,
-                '1-2m': 0,
-                '2-5m': 0,
-                '5m+': 0
-            };
-
             for (const token of tokens) {
                 const tokenKey = `${token.token}-${token.chain}`;
-
-                // 统计年龄分布
-                const tokenAge = now - (token.created_at * 1000);
-                const tokenAgeSeconds = tokenAge / 1000;
-
-                if (tokenAgeSeconds < 30) {
-                    ageRanges['0-30s']++;
-                } else if (tokenAgeSeconds < 60) {
-                    ageRanges['30-60s']++;
-                } else if (tokenAgeSeconds < 120) {
-                    ageRanges['1-2m']++;
-                } else if (tokenAgeSeconds < 300) {
-                    ageRanges['2-5m']++;
-                } else {
-                    ageRanges['5m+']++;
-                }
 
                 if (this.collectedTokens.has(tokenKey)) {
                     continue;
@@ -576,25 +453,17 @@ class PlatformCollector {
                     alreadyInPoolCount++;
                 }
 
-                // 设置平台字段
                 token.platform = 'bankr';
-
-                // Bankr 平台暂无创建者地址检测
                 token.creator_address = null;
 
+                const tokenAge = now - (token.created_at * 1000);
                 if (tokenAge < maxAgeMs) {
-                    // 在添加到池之前解析 pairAddress（同步等待）
                     try {
                         const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'bankr', 'base');
                         token.pairAddress = pairResult.pairAddress;
-                        this.logger.debug('解析 bankr pair 地址成功', {
-                            token: token.token,
-                            pair_address: token.pairAddress
-                        });
                     } catch (error) {
-                        this.logger.warn('解析 bankr pair 地址失败，跳过此代币', {
-                            token: token.token,
-                            error: error.message
+                        this.logger.warn('解析 bankr pair 地址失败，跳过', {
+                            token: token.token, error: error.message
                         });
                         skippedCount++;
                         this.collectedTokens.add(tokenKey);
@@ -604,7 +473,6 @@ class PlatformCollector {
                     const added = this.tokenPool.addToken(token);
                     if (added) {
                         addedCount++;
-                        this.collectedTokens.add(tokenKey);
                     }
                 } else {
                     skippedCount++;
@@ -613,30 +481,17 @@ class PlatformCollector {
                 this.collectedTokens.add(tokenKey);
             }
 
-            // 为 bankr 平台的代币添加 platform 字段
-            for (const token of tokens) {
-                const tokenKey = `${token.token}-${token.chain}`;
-                if (this.collectedTokens.has(tokenKey)) {
-                    const poolToken = this.tokenPool.getToken(token.token, token.chain);
-                    if (poolToken && !poolToken.platform) {
-                        poolToken.platform = 'bankr';
-                        // pairAddress 已在添加到池之前设置
-                    }
-                }
-            }
-
             this.stats.bankr.totalAdded += addedCount;
             this.stats.bankr.totalSkipped += skippedCount;
 
             const duration = Date.now() - startTime;
             this.logger.debug('bankr平台收集完成', {
                 platform: 'bankr',
-                fetched: tokens.length,
+                fetched: allTokens.length,
+                afterDedup: tokens.length,
                 added: addedCount,
                 skipped: skippedCount,
                 alreadyInPool: alreadyInPoolCount,
-                ageRanges: ageRanges,
-                maxAgeSeconds: this.collectorConfig.maxAgeSeconds,
                 duration: `${duration}ms`
             });
 
@@ -656,60 +511,35 @@ class PlatformCollector {
             const startTime = Date.now();
             this.logger.debug('开始收集pumpfun新代币');
 
-            // Fetch new tokens from AVE API
-            const tag = 'pump_in_new';
+            const tags = ['pump_in_almost', 'pump_in_hot', 'pump_out_hot'];
             const chain = 'solana';
             const limit = this.collectorConfig.fetchLimit;
-            const orderby = 'created_at';
+            const orderby = 'tx_volume_u_24h';
 
-            const tokens = await this.aveApi.getPlatformTokens(tag, chain, limit, orderby);
+            // 多 tag 并行获取
+            const results = await Promise.all(tags.map(tag => this.aveApi.getPlatformTokens(tag, chain, limit, orderby)));
+            const allTokens = results.flat();
+            this.stats.pumpfun.totalCollected += allTokens.length;
 
-            this.stats.pumpfun.totalCollected += tokens.length;
+            // 按 token 地址去重
+            const seen = new Set();
+            const tokens = allTokens.filter(t => {
+                if (seen.has(t.token)) return false;
+                seen.add(t.token);
+                return true;
+            });
 
-            // Filter and add new tokens
             const now = Date.now();
-            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
+            const maxAgeMs = 30 * 60 * 1000; // 30分钟
 
-            this.logger.debug(`获取到 ${tokens.length} 个pumpfun代币`);
-
-            if (tokens.length > 0) {
-                const latestCreatedAt = Math.max(...tokens.map(t => t.created_at || 0));
-                const latestAgeSeconds = (now - latestCreatedAt * 1000) / 1000;
-                const oldestCreatedAt = Math.min(...tokens.map(t => t.created_at || 0));
-                const oldestAgeSeconds = (now - oldestCreatedAt * 1000) / 1000;
-                this.logger.debug(`API 返回代币时间范围 | 最新: ${latestAgeSeconds.toFixed(0)}秒前, 最旧: ${oldestAgeSeconds.toFixed(0)}秒前`);
-            }
+            this.logger.debug(`获取到 ${allTokens.length} 个pumpfun代币（去重后 ${tokens.length}）`);
 
             let addedCount = 0;
             let skippedCount = 0;
             let alreadyInPoolCount = 0;
 
-            const ageRanges = {
-                '0-30s': 0,
-                '30-60s': 0,
-                '1-2m': 0,
-                '2-5m': 0,
-                '5m+': 0
-            };
-
             for (const token of tokens) {
                 const tokenKey = `${token.token}-${token.chain}`;
-
-                // 统计年龄分布
-                const tokenAge = now - (token.created_at * 1000);
-                const tokenAgeSeconds = tokenAge / 1000;
-
-                if (tokenAgeSeconds < 30) {
-                    ageRanges['0-30s']++;
-                } else if (tokenAgeSeconds < 60) {
-                    ageRanges['30-60s']++;
-                } else if (tokenAgeSeconds < 120) {
-                    ageRanges['1-2m']++;
-                } else if (tokenAgeSeconds < 300) {
-                    ageRanges['2-5m']++;
-                } else {
-                    ageRanges['5m+']++;
-                }
 
                 if (this.collectedTokens.has(tokenKey)) {
                     continue;
@@ -720,20 +550,15 @@ class PlatformCollector {
                     alreadyInPoolCount++;
                 }
 
-                // 设置平台字段
                 token.platform = 'pumpfun';
-
-                // Pumpfun 平台暂无创建者地址检测
                 token.creator_address = null;
 
+                const tokenAge = now - (token.created_at * 1000);
                 if (tokenAge < maxAgeMs) {
-                    // pumpfun 平台暂无真实交易，跳过 pair 解析以减少 API 调用
                     token.pairAddress = null;
-
                     const added = this.tokenPool.addToken(token);
                     if (added) {
                         addedCount++;
-                        this.collectedTokens.add(tokenKey);
                     }
                 } else {
                     skippedCount++;
@@ -742,35 +567,190 @@ class PlatformCollector {
                 this.collectedTokens.add(tokenKey);
             }
 
-            // 为 pumpfun 平台的代币添加 platform 字段
-            for (const token of tokens) {
-                const tokenKey = `${token.token}-${token.chain}`;
-                if (this.collectedTokens.has(tokenKey)) {
-                    const poolToken = this.tokenPool.getToken(token.token, token.chain);
-                    if (poolToken && !poolToken.platform) {
-                        poolToken.platform = 'pumpfun';
-                        // pairAddress 已在添加到池之前设置
-                    }
-                }
-            }
-
             this.stats.pumpfun.totalAdded += addedCount;
             this.stats.pumpfun.totalSkipped += skippedCount;
 
             const duration = Date.now() - startTime;
             this.logger.debug('pumpfun平台收集完成', {
                 platform: 'pumpfun',
-                fetched: tokens.length,
+                fetched: allTokens.length,
+                afterDedup: tokens.length,
                 added: addedCount,
                 skipped: skippedCount,
                 alreadyInPool: alreadyInPoolCount,
-                ageRanges: ageRanges,
-                maxAgeSeconds: this.collectorConfig.maxAgeSeconds,
                 duration: `${duration}ms`
             });
 
         } catch (error) {
             this.logger.error('收集pumpfun代币失败', {
+                error: error.message,
+                stack: error.stack
+            });
+        }
+    }
+
+    /**
+     * Collect new tokens from bonk platform (Solana chain)
+     */
+    async collectBonkTokens() {
+        try {
+            const startTime = Date.now();
+            this.logger.debug('开始收集bonk新代币');
+
+            const tags = ['bonk_in_almost', 'bonk_in_hot', 'bonk_out_hot', 'bonk_out_new'];
+            const chain = 'solana';
+            const limit = this.collectorConfig.fetchLimit;
+            const orderby = 'tx_volume_u_24h';
+
+            const results = await Promise.all(tags.map(tag => this.aveApi.getPlatformTokens(tag, chain, limit, orderby)));
+            const allTokens = results.flat();
+            this.stats.bonk.totalCollected += allTokens.length;
+
+            const seen = new Set();
+            const tokens = allTokens.filter(t => {
+                if (seen.has(t.token)) return false;
+                seen.add(t.token);
+                return true;
+            });
+
+            const now = Date.now();
+            const maxAgeMs = 30 * 60 * 1000; // 30分钟
+
+            this.logger.debug(`获取到 ${allTokens.length} 个bonk代币（去重后 ${tokens.length}）`);
+
+            let addedCount = 0;
+            let skippedCount = 0;
+            let alreadyInPoolCount = 0;
+
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+
+                if (this.collectedTokens.has(tokenKey)) {
+                    continue;
+                }
+
+                const existingToken = this.tokenPool.getToken(token.token, token.chain);
+                if (existingToken) {
+                    alreadyInPoolCount++;
+                }
+
+                token.platform = 'bonk';
+                token.creator_address = null;
+
+                const tokenAge = now - (token.created_at * 1000);
+                if (tokenAge < maxAgeMs) {
+                    token.pairAddress = null;
+                    const added = this.tokenPool.addToken(token);
+                    if (added) {
+                        addedCount++;
+                    }
+                } else {
+                    skippedCount++;
+                }
+
+                this.collectedTokens.add(tokenKey);
+            }
+
+            this.stats.bonk.totalAdded += addedCount;
+            this.stats.bonk.totalSkipped += skippedCount;
+
+            const duration = Date.now() - startTime;
+            this.logger.debug('bonk平台收集完成', {
+                platform: 'bonk',
+                fetched: allTokens.length,
+                afterDedup: tokens.length,
+                added: addedCount,
+                skipped: skippedCount,
+                alreadyInPool: alreadyInPoolCount,
+                duration: `${duration}ms`
+            });
+
+        } catch (error) {
+            this.logger.error('收集bonk代币失败', {
+                error: error.message,
+                stack: error.stack
+            });
+        }
+    }
+
+    /**
+     * Collect new tokens from clanker platform (Base chain)
+     */
+    async collectClankerTokens() {
+        try {
+            const startTime = Date.now();
+            this.logger.debug('开始收集clanker新代币');
+
+            const tags = ['clanker_in_almost', 'clanker_out_new'];
+            const chain = 'base';
+            const limit = this.collectorConfig.fetchLimit;
+            const orderby = 'tx_volume_u_24h';
+
+            const results = await Promise.all(tags.map(tag => this.aveApi.getPlatformTokens(tag, chain, limit, orderby)));
+            const allTokens = results.flat();
+            this.stats.clanker.totalCollected += allTokens.length;
+
+            const seen = new Set();
+            const tokens = allTokens.filter(t => {
+                if (seen.has(t.token)) return false;
+                seen.add(t.token);
+                return true;
+            });
+
+            const now = Date.now();
+            const maxAgeMs = 30 * 60 * 1000; // 30分钟
+
+            this.logger.debug(`获取到 ${allTokens.length} 个clanker代币（去重后 ${tokens.length}）`);
+
+            let addedCount = 0;
+            let skippedCount = 0;
+            let alreadyInPoolCount = 0;
+
+            for (const token of tokens) {
+                const tokenKey = `${token.token}-${token.chain}`;
+
+                if (this.collectedTokens.has(tokenKey)) {
+                    continue;
+                }
+
+                const existingToken = this.tokenPool.getToken(token.token, token.chain);
+                if (existingToken) {
+                    alreadyInPoolCount++;
+                }
+
+                token.platform = 'clanker';
+                token.creator_address = null;
+
+                const tokenAge = now - (token.created_at * 1000);
+                if (tokenAge < maxAgeMs) {
+                    token.pairAddress = null;
+                    const added = this.tokenPool.addToken(token);
+                    if (added) {
+                        addedCount++;
+                    }
+                } else {
+                    skippedCount++;
+                }
+
+                this.collectedTokens.add(tokenKey);
+            }
+
+            this.stats.clanker.totalAdded += addedCount;
+            this.stats.clanker.totalSkipped += skippedCount;
+
+            const duration = Date.now() - startTime;
+            this.logger.debug('clanker平台收集完成', {
+                platform: 'clanker',
+                fetched: allTokens.length,
+                afterDedup: tokens.length,
+                added: addedCount,
+                skipped: skippedCount,
+                alreadyInPool: alreadyInPoolCount,
+                duration: `${duration}ms`
+            });
+
+        } catch (error) {
+            this.logger.error('收集clanker代币失败', {
                 error: error.message,
                 stack: error.stack
             });
@@ -983,15 +963,15 @@ class PlatformCollector {
             const startTime = Date.now();
             this.logger.debug('开始收集全链新代币');
 
-            // 已有平台收集器处理的链，避免重复
-            const PLATFORM_CHAINS = new Set(['bsc', 'base', 'solana']);
+            // 已有平台收集器处理的链，避免重复；ETH 链暂时禁用（代币太多干扰分析）
+            const PLATFORM_CHAINS = new Set(['bsc', 'base', 'solana', 'eth', 'ethereum']);
 
             const allTokens = await this.aveApi.getAllChainNewTokens(
                 this.collectorConfig.allChainFetchLimit || 1000,
                 'created_at'
             );
 
-            // 过滤掉已有平台收集器处理的链
+            // 过滤掉已有平台收集器处理的链 + ETH
             const tokens = allTokens.filter(t => !PLATFORM_CHAINS.has(t.chain));
             this.logger.debug(`全链新代币过滤: ${tokens.length} 个 (总共 ${allTokens.length} 个, 过滤掉 ${allTokens.length - tokens.length} 个平台链代币)`);
 
@@ -1084,12 +1064,12 @@ class PlatformCollector {
                 totalAdded: 0,
                 totalSkipped: 0
             },
-            flap: {
+            bankr: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0
             },
-            bankr: {
+            clanker: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0
@@ -1099,7 +1079,7 @@ class PlatformCollector {
                 totalAdded: 0,
                 totalSkipped: 0
             },
-            eth: {
+            bonk: {
                 totalCollected: 0,
                 totalAdded: 0,
                 totalSkipped: 0

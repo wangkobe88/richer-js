@@ -97,7 +97,7 @@ class AveTokenAPI extends BaseAveAPI {
         if (tag) params.tag = tag;
         if (chain) params.chain = chain;
         if (limit !== 100) params.limit = limit;
-        if (orderby && orderby !== 'tx_volume_u_24h') params.orderby = orderby;
+        if (orderby) params.orderby = orderby;
 
         const result = await this._makeRequest('GET', '/v2/tokens/platform', { params });
         const data = result.data || [];
@@ -564,6 +564,43 @@ class AveTokenAPI extends BaseAveAPI {
         const data = result.data || [];
 
         return data.map(tokenData => this._mapTokenData(tokenData));
+    }
+
+    /**
+     * 获取趋势代币
+     *
+     * @param {string} chain - 区块链名称
+     * @param {number} page - 页码
+     * @param {number} pageSize - 每页数量
+     * @returns {Promise<Object>} 趋势代币列表
+     */
+    async getTrendingTokens(chain = 'bsc', page = 1, pageSize = 50) {
+        const params = {
+            chain: chain,
+            page: page,
+            page_size: pageSize
+        };
+
+        const result = await this._makeRequest('GET', '/v2/tokens/trending', { params });
+        const data = result.data || {};
+
+        const tokensData = data.tokens || [];
+        const convertedTokens = tokensData.map(tokenData => ({
+            token: tokenData.token || '',
+            chain: tokenData.chain || '',
+            symbol: tokenData.symbol || '',
+            name: tokenData.name || '',
+            logo_url: tokenData.logo_url || '',
+            current_price_usd: String(tokenData.current_price_usd || 0),
+            market_cap: String(tokenData.market_cap || 0)
+        }));
+
+        return {
+            current_page_size: data.current_page_size || 0,
+            next_page: data.next_page || 0,
+            tokens: convertedTokens,
+            total: data.total || 0
+        };
     }
 
     /**

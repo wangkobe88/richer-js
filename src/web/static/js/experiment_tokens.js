@@ -522,8 +522,16 @@ class ExperimentTokens {
     const platformLabel = platformInfo.label;
     const platformClass = platformInfo.cls;
     const symbol = token.token_symbol || rawData?.symbol || '-';
-    const chain = this.experiment?.blockchain || 'bsc';
-    const gmgnChainMap = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
+    const chain = token.blockchain || this.experiment?.blockchain || 'bsc';
+    const chainLabelMap = { bsc: 'BSC', eth: 'ETH', ethereum: 'ETH', solana: 'SOL', sol: 'SOL', base: 'BASE', flap: 'FLAP', bankr: 'BANKR', xlayer: 'XLayer' };
+    const chainLabel = chainLabelMap[chain.toLowerCase()] || (chain || 'BSC').toUpperCase();
+    const chainConfig = {
+      bsc: 'bg-yellow-800 text-yellow-300', eth: 'bg-blue-800 text-blue-300', ethereum: 'bg-blue-800 text-blue-300',
+      solana: 'bg-purple-800 text-purple-300', sol: 'bg-purple-800 text-purple-300', base: 'bg-blue-900 text-blue-300',
+      flap: 'bg-pink-800 text-pink-300', bankr: 'bg-orange-800 text-orange-300', xlayer: 'bg-gray-700 text-gray-300'
+    };
+    const chainClass = chainConfig[chain.toLowerCase()] || 'bg-gray-700 text-gray-300';
+    const gmgnChainMap = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base', flap: 'flap', bankr: 'bankr' };
     const gmgnChain = gmgnChainMap[chain.toLowerCase()] || 'bsc';
     const gmgnUrl = `https://gmgn.ai/${gmgnChain}/token/${token.token_address}`;
     const signalsUrl = `/experiment/${this.experimentId}/signals#token=${token.token_address}`;
@@ -610,6 +618,7 @@ class ExperimentTokens {
         <td class="px-1.5 py-1 text-right text-[10px] text-white overflow-hidden truncate">${tvl}</td>
         <td class="px-1.5 py-1 text-left text-[10px] text-gray-400 overflow-hidden truncate"><code class="text-gray-400 font-mono truncate">${shortCreatorAddress}</code></td>
         <td class="px-1.5 py-1 text-center overflow-hidden"><span class="px-1 py-0.5 rounded text-[10px] font-medium ${platformClass} text-white">${platformLabel}</span></td>
+        <td class="px-1.5 py-1 text-center overflow-hidden"><span class="px-1 py-0.5 rounded text-[10px] font-medium ${chainClass}">${chainLabel}</span></td>
         <td class="px-1.5 py-1 text-left text-[10px] text-gray-400 overflow-hidden truncate">${discoveredAt}</td>
         <td class="px-1.5 py-1 text-center text-[10px] text-gray-400 overflow-hidden">${dataPointsEl}</td>
         <td class="px-1.5 py-1 text-center overflow-hidden narrative-cell">${this.renderNarrativeRating(token.token_address)}</td>

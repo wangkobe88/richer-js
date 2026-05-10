@@ -351,7 +351,8 @@ class RicherJsWebServer {
           const expMap = new Map((exps || []).map(e => [e.id, e.blockchain]));
           for (const ev of events) {
             const expChain = expMap.get(ev.experiment_id);
-            if (expChain) ev.chain = expChain;
+            // 多链实验 ('all') 不覆盖事件自身的 chain，只修正单链实验的历史数据
+            if (expChain && expChain !== 'all') ev.chain = expChain;
           }
         }
 
