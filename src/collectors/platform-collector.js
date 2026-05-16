@@ -563,7 +563,17 @@ class PlatformCollector {
 
                 const tokenAge = now - (token.created_at * 1000);
                 if (tokenAge < maxAgeMs) {
-                    token.pairAddress = null;
+                    try {
+                        const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'pumpfun', 'solana');
+                        token.pairAddress = pairResult.pairAddress;
+                    } catch (error) {
+                        this.logger.warn('解析pumpfun pair地址失败，跳过', {
+                            token: token.token, symbol: token.symbol, error: error.message
+                        });
+                        skippedCount++;
+                        this.collectedTokens.add(tokenKey);
+                        continue;
+                    }
                     const added = this.tokenPool.addToken(token);
                     if (added) {
                         addedCount++;

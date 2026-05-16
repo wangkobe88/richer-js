@@ -2378,6 +2378,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       innerPair = token.main_pair;
     } else if (token.pair) {
       innerPair = token.pair;
+    } else if (platform === 'pumpfun' || platform === 'bonk' || platform === 'clanker') {
+      innerPair = null;
     } else {
       // 默认使用 fourmeme 格式
       innerPair = `${token.token}_fo`;
