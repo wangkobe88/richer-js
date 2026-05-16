@@ -515,10 +515,10 @@ class PlatformCollector {
             const startTime = Date.now();
             this.logger.debug('开始收集pumpfun新代币');
 
-            const tags = ['pump_in_almost', 'pump_in_hot', 'pump_out_hot'];
+            const tags = ['pump_in_new'];
             const chain = 'solana';
             const limit = this.collectorConfig.fetchLimit;
-            const orderby = 'tx_volume_u_24h';
+            const orderby = 'created_at';
 
             // 多 tag 串行获取（避免 429）
             const allTokens = [];
@@ -538,7 +538,7 @@ class PlatformCollector {
             });
 
             const now = Date.now();
-            const maxAgeMs = 30 * 60 * 1000; // 30分钟
+            const maxAgeMs = (this.collectorConfig.maxAgeSeconds || 1800) * 1000;
 
             this.logger.debug(`获取到 ${allTokens.length} 个pumpfun代币（去重后 ${tokens.length}）`);
 
