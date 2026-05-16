@@ -107,7 +107,9 @@ class ExperimentTrades {
         console.log('🔍 发现token参数，自动选择代币:', tokenAddress);
 
         // 检查该代币是否在可用列表中
-        const selectedToken = this.availableTokens.find(t => t.address.toLowerCase() === tokenAddress.toLowerCase());
+        const selectedToken = this.availableTokens.find(t =>
+          (this.experiment?.blockchain === 'solana') ? t.address === tokenAddress : t.address.toLowerCase() === tokenAddress.toLowerCase()
+        );
 
         if (selectedToken) {
           // 设置选择的代币

@@ -163,7 +163,9 @@ class ExperimentSignals {
 
       // 🔥 如果URL中有token参数且找到了对应的代币，加载其时序图表
       if (this.selectedToken && this.selectedToken !== 'all') {
-        const selectedToken = this.availableTokens.find(t => t.address.toLowerCase() === this.selectedToken.toLowerCase());
+        const selectedToken = this.availableTokens.find(t =>
+          this.blockchain === 'solana' ? t.address === this.selectedToken : t.address.toLowerCase() === this.selectedToken.toLowerCase()
+        );
         if (selectedToken) {
           // 更新选择器的值
           const selector = document.getElementById('token-selector');

@@ -44,6 +44,14 @@ class ExperimentSignalStats {
     this.init();
   }
 
+  // 根据区块链决定地址是否需要 lowerCase（Solana 用 base58，大小写敏感）
+  _normalizeAddress(addr) {
+    if (!addr) return addr;
+    const blockchain = this.experimentData?.config?.blockchain || 'bsc';
+    if (blockchain === 'solana') return addr;
+    return addr.toLowerCase();
+  }
+
   async init() {
     // 从 URL 获取实验 ID
     const pathParts = window.location.pathname.split('/');
@@ -144,7 +152,7 @@ class ExperimentSignalStats {
       this.narrativeRatingMap = new Map();
       if (narrativeData.success && narrativeData.data) {
         for (const item of narrativeData.data) {
-          const addr = item.token_address?.toLowerCase();
+          const addr = this._normalizeAddress(item.token_address);
           if (addr) {
             this.narrativeDataMap.set(addr, {
               narrative: item.narrative,
@@ -191,7 +199,7 @@ class ExperimentSignalStats {
     const signalMap = new Map();
 
     for (const signal of this.signalsData) {
-      const addr = signal.token_address?.toLowerCase();
+      const addr = this._normalizeAddress(signal.token_address);
       if (!addr) continue;
 
       if (!signalMap.has(addr)) {
@@ -224,7 +232,7 @@ class ExperimentSignalStats {
     this.tokenStats = Array.from(signalMap.values()).map(signalStats => {
       // 查找对应的代币数据
       const token = this.tokensData.find(t =>
-        t.token_address?.toLowerCase() === signalStats.tokenAddress
+        t.token_address?.toLowerCase() === signalStats.tokenAddress || t.token_address === signalStats.tokenAddress
       );
 
       if (token) {
