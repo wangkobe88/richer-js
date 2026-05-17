@@ -36,7 +36,7 @@ class WalletLabelService {
       while (true) {
         const { data, error } = await this.supabase
           .from('wallets')
-          .select('address, category, winrate, realized_profit, buy_count, details')
+          .select('address, category, winrate, realized_profit, buy_count, details->wallet_address')
           .eq('chain', chain)
           .range(offset, offset + pageSize - 1);
 
