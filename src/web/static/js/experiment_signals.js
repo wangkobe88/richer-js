@@ -2169,8 +2169,8 @@ class ExperimentSignals {
           const volumePerMinClass = this._getFactorClass('earlyTradesVolumePerMin', pf.earlyTradesVolumePerMin || 0, preCheckThresholds);
           const actualSpanClass = this._getFactorClass('earlyTradesActualSpan', pf.earlyTradesActualSpan || 0, preCheckThresholds);
           const uniqueWalletsClass = this._getFactorClass('earlyTradesUniqueWallets', pf.earlyTradesUniqueWallets || 0, preCheckThresholds);
-          const secondToFirstRatioClass = this._getFactorClass('walletClusterSecondToFirstRatio', pf.walletClusterSecondToFirstRatio || 0, preCheckThresholds);
-          const megaRatioClass = this._getFactorClass('walletClusterMegaRatio', pf.walletClusterMegaRatio || 0, preCheckThresholds);
+          const top3TradeRatioClass = this._getFactorClass('walletTop3TradeRatio', pf.walletTop3TradeRatio || 0, preCheckThresholds);
+          const top3VolumeRatioClass = this._getFactorClass('walletTop3VolumeRatio', pf.walletTop3VolumeRatio || 0, preCheckThresholds);
 
           earlyTradesHtml = `
             <div class="mt-2 pt-2 border-t border-amber-300">
@@ -2195,12 +2195,11 @@ class ExperimentSignals {
                 <div><span class="text-amber-800">过滤后交易:</span> <span class="text-gray-900">${pf.earlyTradesFilteredCount || 0}</span></div>
                 <div><span class="text-amber-800">检查耗时:</span> <span class="text-gray-900">${pf.earlyTradesCheckDuration || 0}ms</span></div>
 
-                <div><span class="text-amber-800">聚簇数:</span> <span class="text-gray-900">${pf.walletClusterCount || 0}</span></div>
-                <div><span class="text-amber-800">平均大小:</span> <span class="text-gray-900">${formatNum(pf.walletClusterAvgSize)}</span></div>
-                <div><span class="text-amber-800">最大聚簇:</span> <span class="text-gray-900">${pf.walletClusterMaxClusterWallets || 0}</span></div>
-                <div><span class="text-amber-800">Mega聚簇:</span> <span class="${megaRatioClass}">${formatNum(pf.walletClusterMegaRatio)}</span></div>
-                <div><span class="text-amber-800">第二/第一比:</span> <span class="${secondToFirstRatioClass}">${formatNum(pf.walletClusterSecondToFirstRatio)}</span></div>
-                <div><span class="text-amber-800">Top2聚簇比:</span> <span class="text-gray-900">${formatNum(pf.walletClusterTop2Ratio)}</span></div>
+                <div><span class="text-amber-800">Top3交易占比:</span> <span class="${top3TradeRatioClass}">${formatNum(pf.walletTop3TradeRatio)}%</span></div>
+                <div><span class="text-amber-800">Top3量占比:</span> <span class="${top3VolumeRatioClass}">${formatNum(pf.walletTop3VolumeRatio)}%</span></div>
+                <div><span class="text-amber-800">Top1交易占比:</span> <span class="text-gray-900">${formatNum(pf.walletTop1TradeRatio)}%</span></div>
+                <div><span class="text-amber-800">多样性指数:</span> <span class="text-gray-900">${formatNum(pf.walletDiversityIndex)}</span></div>
+                <div><span class="text-amber-800">一次性买家:</span> <span class="text-gray-900">${formatNum(pf.oneShotBuyerRatio)}%</span></div>
                 <div><span class="text-amber-800">Top1买入占比:</span> <span class="${this._getFactorClass('earlyTradesTop1BuyRatio', pf.earlyTradesTop1BuyRatio || 0, preCheckThresholds)}">${formatPercent((pf.earlyTradesTop1BuyRatio || 0) * 100)}</span></div>
                 <div><span class="text-amber-800">Top3买入占比:</span> <span class="${this._getFactorClass('earlyTradesTop3BuyRatio', pf.earlyTradesTop3BuyRatio || 0, preCheckThresholds)}">${formatPercent((pf.earlyTradesTop3BuyRatio || 0) * 100)}</span></div>
                 <div><span class="text-amber-800">Top1净持仓:</span> <span class="${this._getFactorClass('earlyTradesTop1NetHoldingRatio', pf.earlyTradesTop1NetHoldingRatio || 0, preCheckThresholds)}">${formatPercent((pf.earlyTradesTop1NetHoldingRatio || 0) * 100)}</span></div>

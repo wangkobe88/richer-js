@@ -2106,20 +2106,17 @@ class LiveTradingEngine extends AbstractTradingEngine {
             earlyTradesTop1BuyRatio: factorResults.earlyTradesTop1BuyRatio || 0,
             earlyTradesTop3BuyRatio: factorResults.earlyTradesTop3BuyRatio || 0,
             earlyTradesTop1NetHoldingRatio: factorResults.earlyTradesTop1NetHoldingRatio || 0,
-            // 钱包簇检查因子
-            walletClusterBlockThreshold: factorResults.walletClusterBlockThreshold || null,
-            walletClusterMethod: factorResults.walletClusterMethod || null,
-            walletClusterCount: factorResults.walletClusterCount || 0,
-            walletClusterMaxSize: factorResults.walletClusterMaxSize || 0,
-            walletClusterSecondToFirstRatio: factorResults.walletClusterSecondToFirstRatio || 0,
-            walletClusterTop2Ratio: factorResults.walletClusterTop2Ratio || 0,
-            walletClusterMegaRatio: factorResults.walletClusterMegaRatio || 0,
-            walletClusterMaxClusterWallets: factorResults.walletClusterMaxClusterWallets || 0,
-            // 最大区块买入金额占比因子（与虚拟盘一致）
-            walletClusterMaxBlockBuyRatio: factorResults.walletClusterMaxBlockBuyRatio || 0,
-            walletClusterMaxBlockNumber: factorResults.walletClusterMaxBlockNumber || null,
-            walletClusterMaxBlockBuyAmount: factorResults.walletClusterMaxBlockBuyAmount || 0,
-            walletClusterTotalBuyAmount: factorResults.walletClusterTotalBuyAmount || 0,
+            // 钱包集中度因子
+            walletTop3VolumeRatio: factorResults.walletTop3VolumeRatio || 0,
+            walletTop1VolumeRatio: factorResults.walletTop1VolumeRatio || 0,
+            walletTop3TradeRatio: factorResults.walletTop3TradeRatio || 0,
+            walletTop1TradeRatio: factorResults.walletTop1TradeRatio || 0,
+            walletDiversityIndex: factorResults.walletDiversityIndex || 0,
+            oneShotBuyerRatio: factorResults.oneShotBuyerRatio || 0,
+            // 区块集中买入因子
+            maxBlockBuyRatio: factorResults.maxBlockBuyRatio || 0,
+            maxBlockNumber: factorResults.maxBlockNumber || null,
+            maxBlockBuyAmount: factorResults.maxBlockBuyAmount || 0,
             // 强势交易者持仓因子（与虚拟盘一致）
             strongTraderNetPositionRatio: factorResults.strongTraderNetPositionRatio || 0,
             strongTraderTotalBuyRatio: factorResults.strongTraderTotalBuyRatio || 0,

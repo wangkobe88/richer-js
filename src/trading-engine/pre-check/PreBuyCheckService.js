@@ -181,60 +181,49 @@ const FACTOR_METADATA = {
     unit: '秒',
     severity: 'info'
   },
-  // 钱包簇因子
-  walletClusterSecondToFirstRatio: {
-    name: '第二大簇与第一大簇比例',
-    format: v => (v * 100).toFixed(1) + '%',
+  // 钱包集中度因子
+  walletTop3VolumeRatio: {
+    name: '前3钱包交易量占比',
+    format: v => v.toFixed(1) + '%',
     unit: '',
     severity: 'warning'
   },
-  walletClusterMegaRatio: {
-    name: 'Mega聚簇比例',
-    format: v => v.toFixed(2),
+  walletTop1VolumeRatio: {
+    name: '最大单钱包交易量占比',
+    format: v => v.toFixed(1) + '%',
     unit: '',
     severity: 'warning'
   },
-  walletClusterTop2Ratio: {
-    name: '前两大簇比例',
-    format: v => (v * 100).toFixed(1) + '%',
+  walletTop3TradeRatio: {
+    name: '前3钱包交易次数占比',
+    format: v => v.toFixed(1) + '%',
     unit: '',
     severity: 'warning'
   },
-  walletClusterCount: {
-    name: '聚簇数量',
-    format: v => v.toString(),
-    unit: '个',
+  walletTop1TradeRatio: {
+    name: '最大单钱包交易次数占比',
+    format: v => v.toFixed(1) + '%',
+    unit: '',
+    severity: 'warning'
+  },
+  walletDiversityIndex: {
+    name: '钱包多样性指数',
+    format: v => v.toFixed(3),
+    unit: '',
     severity: 'info'
   },
-  walletClusterMaxSize: {
-    name: '最大聚簇大小',
-    format: v => v.toString(),
-    unit: '笔',
+  oneShotBuyerRatio: {
+    name: '一次性买家占比',
+    format: v => v.toFixed(1) + '%',
+    unit: '',
     severity: 'info'
   },
-  walletClusterAvgSize: {
-    name: '平均聚簇大小',
-    format: v => v.toFixed(1),
-    unit: '笔',
-    severity: 'info'
-  },
-  walletClusterMaxClusterWallets: {
-    name: '最大聚簇钱包数',
-    format: v => v.toString(),
-    unit: '个',
-    severity: 'info'
-  },
-  walletClusterMaxBlockBuyRatio: {
+  maxBlockBuyRatio: {
     name: '最大区块买入占比',
     format: v => (v * 100).toFixed(1) + '%',
     unit: '',
     severity: 'warning'
   },
-  walletClusterTotalBuyAmount: {
-    name: '总买入金额',
-    format: v => v.toFixed(0),
-    unit: '',
-    severity: 'info'
   },
   // Twitter因子
   twitterTotalResults: {
@@ -893,19 +882,17 @@ class PreBuyCheckService {
         earlyTradesTop1BuyRatio: earlyParticipantCheck.earlyTradesTop1BuyRatio || 0,
         earlyTradesTop3BuyRatio: earlyParticipantCheck.earlyTradesTop3BuyRatio || 0,
         earlyTradesTop1NetHoldingRatio: earlyParticipantCheck.earlyTradesTop1NetHoldingRatio || 0,
-        // 钱包簇因子
-        walletClusterSecondToFirstRatio: walletClusterCheck.walletClusterSecondToFirstRatio || 0,
-        walletClusterMegaRatio: walletClusterCheck.walletClusterMegaRatio || 0,
-        walletClusterTop2Ratio: walletClusterCheck.walletClusterTop2Ratio || 0,
-        walletClusterCount: walletClusterCheck.walletClusterCount || 0,
-        walletClusterMaxSize: walletClusterCheck.walletClusterMaxSize || 0,
-        walletClusterAvgSize: walletClusterCheck.walletClusterAvgSize || 0,
-        walletClusterMaxClusterWallets: walletClusterCheck.walletClusterMaxClusterWallets || 0,
-        // 最大区块买入金额占比因子
-        walletClusterMaxBlockBuyRatio: walletClusterCheck.walletClusterMaxBlockBuyRatio || 0,
-        walletClusterMaxBlockNumber: walletClusterCheck.walletClusterMaxBlockNumber || null,
-        walletClusterMaxBlockBuyAmount: walletClusterCheck.walletClusterMaxBlockBuyAmount || 0,
-        walletClusterTotalBuyAmount: walletClusterCheck.walletClusterTotalBuyAmount || 0,
+        // 钱包集中度因子
+        walletTop3VolumeRatio: walletClusterCheck.walletTop3VolumeRatio || 0,
+        walletTop1VolumeRatio: walletClusterCheck.walletTop1VolumeRatio || 0,
+        walletTop3TradeRatio: walletClusterCheck.walletTop3TradeRatio || 0,
+        walletTop1TradeRatio: walletClusterCheck.walletTop1TradeRatio || 0,
+        walletDiversityIndex: walletClusterCheck.walletDiversityIndex || 0,
+        oneShotBuyerRatio: walletClusterCheck.oneShotBuyerRatio || 0,
+        // 区块集中买入因子
+        maxBlockBuyRatio: walletClusterCheck.maxBlockBuyRatio || 0,
+        maxBlockNumber: walletClusterCheck.maxBlockNumber || null,
+        maxBlockBuyAmount: walletClusterCheck.maxBlockBuyAmount || 0,
         // 创建者Dev钱包因子（1=不在Dev列表中, 0=在Dev列表中）
         creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
         // Twitter因子
@@ -973,7 +960,7 @@ class PreBuyCheckService {
           maxHoldingRatio: context.maxHoldingRatio,
           earlyTradesHighValueCount: context.earlyTradesHighValueCount,
           earlyTradesCountPerMin: context.earlyTradesCountPerMin,
-          walletClusterSecondToFirstRatio: context.walletClusterSecondToFirstRatio,
+          walletTop3TradeRatio: context.walletTop3TradeRatio,
           twitterTotalResults: context.twitterTotalResults,
           twitterSearchDuration: context.twitterSearchDuration,
           narrativeRating: context.narrativeRating,
@@ -1201,8 +1188,8 @@ class PreBuyCheckService {
 
   /**
    * 从表达式中提取所有因子名
-   * 例如: "(walletClusterCount < 4 || walletClusterTop2Ratio <= 0.85)"
-   * -> ["walletClusterCount", "walletClusterTop2Ratio"]
+   * 例如: "(walletTop3TradeRatio < 20 && walletDiversityIndex > 0.2)"
+   * -> ["walletTop3TradeRatio", "walletDiversityIndex"]
    * @private
    */
   _extractAllFactorNames(expression) {

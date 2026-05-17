@@ -129,20 +129,17 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     earlyTradesTop1BuyRatio: preBuyCheckResult.earlyTradesTop1BuyRatio || 0,
     earlyTradesTop3BuyRatio: preBuyCheckResult.earlyTradesTop3BuyRatio || 0,
     earlyTradesTop1NetHoldingRatio: preBuyCheckResult.earlyTradesTop1NetHoldingRatio || 0,
-    // 钱包簇检查因子
-    walletClusterBlockThreshold: preBuyCheckResult.walletClusterBlockThreshold || null,
-    walletClusterMethod: preBuyCheckResult.walletClusterMethod || null,
-    walletClusterCount: preBuyCheckResult.walletClusterCount || 0,
-    walletClusterMaxSize: preBuyCheckResult.walletClusterMaxSize || 0,
-    walletClusterSecondToFirstRatio: preBuyCheckResult.walletClusterSecondToFirstRatio || 0,
-    walletClusterTop2Ratio: preBuyCheckResult.walletClusterTop2Ratio || 0,
-    walletClusterMegaRatio: preBuyCheckResult.walletClusterMegaRatio || 0,
-    walletClusterMaxClusterWallets: preBuyCheckResult.walletClusterMaxClusterWallets || 0,
-    // 最大区块买入金额占比因子
-    walletClusterMaxBlockBuyRatio: preBuyCheckResult.walletClusterMaxBlockBuyRatio || 0,
-    walletClusterMaxBlockNumber: preBuyCheckResult.walletClusterMaxBlockNumber || null,
-    walletClusterMaxBlockBuyAmount: preBuyCheckResult.walletClusterMaxBlockBuyAmount || 0,
-    walletClusterTotalBuyAmount: preBuyCheckResult.walletClusterTotalBuyAmount || 0,
+    // 钱包集中度因子
+    walletTop3VolumeRatio: preBuyCheckResult.walletTop3VolumeRatio || 0,
+    walletTop1VolumeRatio: preBuyCheckResult.walletTop1VolumeRatio || 0,
+    walletTop3TradeRatio: preBuyCheckResult.walletTop3TradeRatio || 0,
+    walletTop1TradeRatio: preBuyCheckResult.walletTop1TradeRatio || 0,
+    walletDiversityIndex: preBuyCheckResult.walletDiversityIndex || 0,
+    oneShotBuyerRatio: preBuyCheckResult.oneShotBuyerRatio || 0,
+    // 区块集中买入因子
+    maxBlockBuyRatio: preBuyCheckResult.maxBlockBuyRatio || 0,
+    maxBlockNumber: preBuyCheckResult.maxBlockNumber || null,
+    maxBlockBuyAmount: preBuyCheckResult.maxBlockBuyAmount || 0,
     // 创建者Dev钱包检查因子
     creatorIsNotBadDevWallet: preBuyCheckResult.creatorIsNotBadDevWallet ?? null,
     // 趋势因子（允许在条件表达式中使用）
