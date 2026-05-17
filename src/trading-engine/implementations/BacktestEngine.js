@@ -1278,6 +1278,11 @@ class BacktestEngine extends AbstractTradingEngine {
       this._holderHistoryCache.addHolderCount(tokenKey, holderCount, now);
     }
 
+    // 维护价格历史缓存，用于重算 trendRiseRatio（使用 >= 逻辑）
+    if (!this._priceHistoryCache) this._priceHistoryCache = {};
+    if (!this._priceHistoryCache[tokenKey]) this._priceHistoryCache[tokenKey] = [];
+    this._priceHistoryCache[tokenKey].push(priceUsd);
+
     // 调试日志：在构建因子前检查 tokenState.buyTime
     if (tokenState.buyTime) {
       this.logger.info(this._experimentId, '_buildFactorsFromData_PRE',
@@ -1286,6 +1291,20 @@ class BacktestEngine extends AbstractTradingEngine {
 
     // 构建基础因子（FactorBuilder 会动态计算 drawdownFromHighestSinceLastBuy 等）
     let factors = buildFactorsFromTimeSeries(factorValues, tokenState, priceUsd, now);
+
+    // 重算 trendRiseRatio（使用 >= 而非存储的 > 值）
+    const priceHistory = this._priceHistoryCache[tokenKey] || [];
+    const dp = factors.trendDataPoints || 0;
+    if (dp >= 2 && priceHistory.length >= 2) {
+      const window = priceHistory.slice(-dp);
+      if (window.length >= 2) {
+        let riseCount = 0;
+        for (let i = 1; i < window.length; i++) {
+          if (window[i] >= window[i - 1]) riseCount++;
+        }
+        factors.trendRiseRatio = riseCount / (window.length - 1);
+      }
+    }
 
     // 调试日志：检查持有者回撤因子计算
     if (tokenState.buyTime) {

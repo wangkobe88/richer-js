@@ -65,7 +65,10 @@ class StrategyAnalysisService {
       const ast = evaluator.parseCondition(strategy.condition);
       const subConditions = this._extractSubConditions(ast);
 
-      // 5. 计算每个时间点的匹配结果（简化版，只保留图表需要的数据）
+      // 5. 重算 trendRiseRatio（使用 >= 而非 >）
+      this._recalculateRiseRatio(timeSeriesData);
+
+      // 6. 计算每个时间点的匹配结果（简化版，只保留图表需要的数据）
       const timePoints = timeSeriesData.map(point => {
         const matchResult = this._evaluateTimePoint(point, subConditions, ast, evaluator);
         return {
@@ -79,7 +82,7 @@ class StrategyAnalysisService {
         };
       });
 
-      // 6. 预计算第一个时间点的详情（用于初始展示）
+      // 7. 预计算第一个时间点的详情（用于初始展示）
       let firstPointDetails = null;
       if (timePoints.length > 0) {
         const firstPoint = timeSeriesData[0];
@@ -242,6 +245,48 @@ class StrategyAnalysisService {
       satisfied: overallSatisfied,
       subConditions: subConditionResults
     };
+  }
+
+  /**
+   * 重算 trendRiseRatio（使用 >= 而非原始的 >）
+   * 收集每个 token 的价格序列，用最近8个价格按 >= 逻辑重算
+   * @private
+   */
+  _recalculateRiseRatio(timeSeriesData) {
+    if (!timeSeriesData || timeSeriesData.length === 0) return;
+
+    // 按 factorIndex 排列价格（同一轮次内的价格点）
+    const prices = [];
+    for (const point of timeSeriesData) {
+      if (point.factor_values && point.price_usd) {
+        prices.push(point.price_usd);
+      }
+    }
+
+    // 对每个时间点，用其所在位置之前的最近8个价格重算 trendRiseRatio
+    let priceIdx = 0;
+    for (const point of timeSeriesData) {
+      if (!point.factor_values || !point.price_usd) continue;
+
+      const fv = point.factor_values;
+      const dp = fv.trendDataPoints;
+      if (!dp || dp < 2 || priceIdx === 0) {
+        priceIdx++;
+        continue;
+      }
+
+      // 取当前及之前的最近 dp 个价格
+      const start = Math.max(0, priceIdx - dp + 1);
+      const window = prices.slice(start, priceIdx + 1);
+      if (window.length >= 2) {
+        let riseCount = 0;
+        for (let i = 1; i < window.length; i++) {
+          if (window[i] >= window[i - 1]) riseCount++;
+        }
+        fv.trendRiseRatio = riseCount / (window.length - 1);
+      }
+      priceIdx++;
+    }
   }
 
   /**
