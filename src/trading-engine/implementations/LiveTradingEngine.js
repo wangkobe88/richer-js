@@ -1813,7 +1813,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
       // 计算上涨次数占比
       let riseCount = 0;
       for (let i = 1; i < _prices.length; i++) {
-        if (_prices[i] > _prices[i - 1]) riseCount++;
+        if (_prices[i] >= _prices[i - 1]) riseCount++;
       }
       factors.trendRiseRatio = riseCount / Math.max(1, _prices.length - 1);
 
