@@ -55,7 +55,7 @@ class WalletDataService {
 
   /**
    * 创建钱包
-   * @param {Object} walletData - 钱包数据 { address, name?, category? }
+   * @param {Object} walletData - 钱包数据 { address, name?, category?, chain? }
    * @return {Promise<Object>} { success, data?, alreadyExists? }
    */
   async createWallet(walletData) {
@@ -64,6 +64,7 @@ class WalletDataService {
         .from('wallets')
         .insert({
           address: walletData.address,
+          chain: walletData.chain || 'bsc',
           name: walletData.name || null,
           category: walletData.category || null
         })
@@ -75,15 +76,14 @@ class WalletDataService {
     } catch (error) {
       console.error('创建钱包失败:', error);
 
-      // 检查是否是唯一约束错误（重复）
       const errorMsg = error.message || '';
       const isDuplicate = errorMsg.includes('unique constraint') ||
                         errorMsg.includes('duplicate key') ||
                         error.code === '23505';
 
       if (isDuplicate) {
-        // 返回已存在标记，并获取现有钱包数据
-        const existing = await this.getWalletByAddress(walletData.address);
+        const chain = walletData.chain || 'bsc';
+        const existing = await this.getWalletByAddress(walletData.address, chain);
         return { success: false, alreadyExists: true, data: existing };
       }
 
@@ -189,20 +189,26 @@ class WalletDataService {
   /**
    * 根据地址获取钱包
    * @param {string} address - 钱包地址
+   * @param {string} [chain='bsc'] - 区块链
    * @return {Promise<Object>} 钱包对象
    */
-  async getWalletByAddress(address) {
+  async getWalletByAddress(address, chain = 'bsc') {
     try {
-      // 使用 ilike 进行不区分大小写的匹配
-      const { data, error } = await this.supabase
+      // EVM 链地址不区分大小写用 ilike，Solana 地址区分大小写用 eq
+      const isCaseSensitive = chain === 'solana' || chain === 'sol';
+      const addrFilter = isCaseSensitive ? 'eq' : 'ilike';
+      const addrValue = isCaseSensitive ? address : address;
+
+      const query = this.supabase
         .from('wallets')
         .select('*')
-        .ilike('address', address)
-        .single();
+        [addrFilter]('address', addrValue)
+        .eq('chain', chain);
+
+      const { data, error } = await query.single();
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // 没有找到记录
           return null;
         }
         throw error;

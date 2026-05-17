@@ -11,6 +11,7 @@
 const { TokenHolderService } = require('../holders/TokenHolderService');
 const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService');
 const { WalletClusterService } = require('./WalletClusterService');
+const { WalletLabelService } = require('./WalletLabelService');
 const { WalletDataService } = require('../../web/services/WalletDataService');
 const TwitterSearchService = require('./TwitterSearchService');
 const StrongTraderPositionService = require('./StrongTraderPositionService');
@@ -223,6 +224,37 @@ const FACTOR_METADATA = {
     format: v => (v * 100).toFixed(1) + '%',
     unit: '',
     severity: 'warning'
+  },
+  // 钱包标签因子
+  walletLabelHasFresh: {
+    name: '早期交易者中有新钱包',
+    format: v => v ? '是' : '否',
+    unit: '',
+    severity: 'warning'
+  },
+  walletLabelProfitableRatio: {
+    name: '标签钱包盈利占比',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'info'
+  },
+  walletLabelBuySellRatio: {
+    name: '标签钱包买卖比',
+    format: v => v.toFixed(2),
+    unit: '',
+    severity: 'info'
+  },
+  walletLabelMatchCount: {
+    name: '标签钱包匹配数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
+  walletLabelOnlyBuyRatio: {
+    name: '标签钱包只买不卖占比',
+    format: v => (v * 100).toFixed(1) + '%',
+    unit: '',
+    severity: 'info'
   },
   // Twitter因子
   twitterTotalResults: {
@@ -548,17 +580,22 @@ class PreBuyCheckService {
     // 初始化强势交易者持仓服务
     this.strongTraderPositionService = new StrongTraderPositionService();
 
+    // 初始化钱包标签因子服务
+    this.walletLabelService = new WalletLabelService(supabase, logger);
+
     // 初始化 GMGN 安全检测服务（传入 supabase 用于 DB 缓存读写，传入 logger 用于文件日志）
     this.gmgnSecurityService = new GMGNSecurityService(supabase, logger);
   }
 
   /**
    * 初始化服务（加载缓存等）
+   * @param {string} chain - 区块链标识，如 'solana', 'bsc'
    * @returns {Promise<void>}
    */
-  async initialize() {
-    await this.holderService.initWalletCache();
-    this.logger.info('[PreBuyCheckService] 服务初始化完成');
+  async initialize(chain = 'bsc') {
+    await this.holderService.initWalletCache(chain);
+    await this.walletLabelService.initLabelCache(chain);
+    this.logger.info('[PreBuyCheckService] 服务初始化完成', { chain });
   }
 
   /**
@@ -623,6 +660,9 @@ class PreBuyCheckService {
         gmgnSecurityPromise,
       ]);
 
+      // 钱包标签因子（纯内存计算，无 IO）
+      const walletLabelCheck = this.walletLabelService.calculateLabelFactors(earlyParticipantCheck._trades);
+
       // 如果没有提供条件表达式，默认通过（不执行任何检查）
       // 确保 preBuyCheckCondition 是字符串类型，防止 .trim() 调用失败
       if (!preBuyCheckCondition || String(preBuyCheckCondition).trim() === '') {
@@ -657,6 +697,7 @@ class PreBuyCheckService {
         holderCheck,
         earlyParticipantCheck,
         walletClusterCheck,
+        walletLabelCheck,
         creatorDevCheck,
         twitterCheck,
         strongTraderCheck,
@@ -767,7 +808,7 @@ class PreBuyCheckService {
    * @param {number} drawdownFromHighest - 从最高价跌幅
    * @param {Object} extraContext - 额外上下文 { buyRound, lastPairReturnRate, narrativeRating }
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, creatorDevCheck, twitterCheck, strongTraderCheck, earlyTraderCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, walletLabelCheck, creatorDevCheck, twitterCheck, strongTraderCheck, earlyTraderCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -831,6 +872,9 @@ class PreBuyCheckService {
       // 钱包簇检查结果
       ...walletClusterCheck,
 
+      // 钱包标签因子
+      ...walletLabelCheck,
+
       // Twitter搜索结果
       ...twitterCheck.factors,
       _twitterRawResult: twitterCheck.rawResult,
@@ -892,6 +936,12 @@ class PreBuyCheckService {
         maxBlockBuyRatio: walletClusterCheck.maxBlockBuyRatio || 0,
         maxBlockNumber: walletClusterCheck.maxBlockNumber || null,
         maxBlockBuyAmount: walletClusterCheck.maxBlockBuyAmount || 0,
+        // 钱包标签因子
+        walletLabelHasFresh: walletLabelCheck.walletLabelHasFresh,
+        walletLabelProfitableRatio: walletLabelCheck.walletLabelProfitableRatio,
+        walletLabelBuySellRatio: walletLabelCheck.walletLabelBuySellRatio,
+        walletLabelMatchCount: walletLabelCheck.walletLabelMatchCount,
+        walletLabelOnlyBuyRatio: walletLabelCheck.walletLabelOnlyBuyRatio,
         // 创建者Dev钱包因子（1=不在Dev列表中, 0=在Dev列表中）
         creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
         // Twitter因子

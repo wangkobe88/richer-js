@@ -140,6 +140,12 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     maxBlockBuyRatio: preBuyCheckResult.maxBlockBuyRatio || 0,
     maxBlockNumber: preBuyCheckResult.maxBlockNumber || null,
     maxBlockBuyAmount: preBuyCheckResult.maxBlockBuyAmount || 0,
+    // 钱包标签因子
+    walletLabelHasFresh: preBuyCheckResult.walletLabelHasFresh || 0,
+    walletLabelProfitableRatio: preBuyCheckResult.walletLabelProfitableRatio || 0,
+    walletLabelBuySellRatio: preBuyCheckResult.walletLabelBuySellRatio || 0,
+    walletLabelMatchCount: preBuyCheckResult.walletLabelMatchCount || 0,
+    walletLabelOnlyBuyRatio: preBuyCheckResult.walletLabelOnlyBuyRatio || 0,
     // 创建者Dev钱包检查因子
     creatorIsNotBadDevWallet: preBuyCheckResult.creatorIsNotBadDevWallet ?? null,
     // 趋势因子（允许在条件表达式中使用）

@@ -1062,6 +1062,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this._preBuyCheckConfig = preBuyCheckConfig;
 
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
+    // 初始化钱包缓存和钱包标签缓存
+    const initChain = this._blockchain === 'all' ? 'solana' : this._blockchain;
+    await this._preBuyCheckService.initialize(initChain);
     this.logger.info('LiveTradingEngine', 'Initialize', `购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
     console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
 

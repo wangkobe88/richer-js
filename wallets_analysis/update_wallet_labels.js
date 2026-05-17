@@ -84,6 +84,7 @@ async function main() {
     if (!supabaseWallet) {
       inserts.push({
         address: address,
+        chain: 'bsc',
         category: localLabel,
         name: `钱包画像-${localLabel}`
       });
@@ -162,7 +163,7 @@ async function main() {
       for (const insert of batch) {
         const { data, error } = await supabase
           .from('wallets')
-          .insert({ address: insert.address, category: insert.category, name: insert.name })
+          .insert({ address: insert.address, chain: insert.chain, category: insert.category, name: insert.name })
           .select();
 
         if (error) {

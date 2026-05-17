@@ -2462,9 +2462,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 调用基类 start 方法
     await super.start();
 
-    // 初始化钱包缓存（黑白名单）
+    // 初始化钱包缓存（黑白名单）+ 钱包标签缓存
     this.logger.info(this._experimentId, 'VirtualTradingEngine', '🔄 正在加载钱包缓存...');
-    await this._preBuyCheckService.initialize();
+    const initChain = this._blockchain === 'all' ? 'solana' : this._blockchain;
+    await this._preBuyCheckService.initialize(initChain);
 
     // 启动收集器
     this._fourmemeCollector.start();

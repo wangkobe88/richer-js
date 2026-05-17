@@ -669,6 +669,9 @@ class BacktestEngine extends AbstractTradingEngine {
     };
 
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
+    // 初始化钱包缓存和钱包标签缓存
+    const initChain = this._blockchain === 'all' ? 'solana' : this._blockchain;
+    await this._preBuyCheckService.initialize(initChain);
     this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, clusterBlockThreshold=${preBuyCheckConfig.clusterBlockThreshold || 7})`);
 
     // 合约审计风控配置

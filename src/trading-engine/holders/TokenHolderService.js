@@ -75,19 +75,19 @@ class TokenHolderService {
   /**
    * 初始化钱包缓存（在引擎启动时调用）
    */
-  async initWalletCache() {
+  async initWalletCache(chain = 'bsc') {
     if (this._cacheLoaded) {
       this.logger.info('[TokenHolderService] 钱包缓存已加载，跳过');
       return;
     }
 
     try {
-      this.logger.info('[TokenHolderService] 开始加载钱包缓存...');
+      this.logger.info('[TokenHolderService] 开始加载钱包缓存...', { chain });
 
       // 并行获取黑白名单
       const [blacklistResult, whitelistResult] = await Promise.all([
-        this._fetchWalletsByCategories(['pump_group', 'negative_holder', 'dev']),
-        this._fetchWalletsByCategories(['good_holder'])
+        this._fetchWalletsByCategories(['pump_group', 'negative_holder', 'dev'], chain),
+        this._fetchWalletsByCategories(['good_holder'], chain)
       ]);
 
       this._blacklistAddresses = new Set(blacklistResult.map(w => w.address.toLowerCase()));
@@ -99,6 +99,7 @@ class TokenHolderService {
       this._cacheLoaded = true;
 
       this.logger.info('[TokenHolderService] 钱包缓存加载完成', {
+        chain,
         blacklistCount: this._blacklistAddresses.size,
         whitelistCount: this._whitelistAddresses.size,
         lpCount: this._lpAddresses.size
@@ -114,7 +115,7 @@ class TokenHolderService {
    * @param {Array<string>} categories - 钱包分类
    * @returns {Promise<Array<{address: string}>>}
    */
-  async _fetchWalletsByCategories(categories) {
+  async _fetchWalletsByCategories(categories, chain = 'bsc') {
     const allWallets = [];
     let page = 0;
     const pageSize = 1000;
@@ -125,6 +126,7 @@ class TokenHolderService {
         .from('wallets')
         .select('address')
         .in('category', categories)
+        .eq('chain', chain)
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (error) {
