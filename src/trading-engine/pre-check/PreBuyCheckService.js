@@ -224,7 +224,6 @@ const FACTOR_METADATA = {
     unit: '',
     severity: 'warning'
   },
-  },
   // Twitter因子
   twitterTotalResults: {
     name: 'Twitter搜索结果数',
