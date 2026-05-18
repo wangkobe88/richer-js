@@ -33,36 +33,46 @@ const rsiMedium = new RSIIndicator({ period: 7, smoothingPeriod: 2, smoothingTyp
 const rsiSlow = new RSIIndicator({ period: 14, smoothingPeriod: 3, smoothingType: 'EMA', useLogPrices: true });
 
 // 6 组策略定义
+// 每个策略的卖出条件都包含三重保护：
+//   1. RSI 动量信号（主退出）
+//   2. 回撤保护（从最高价回撤过多时止损）
+//   3. 时间保护（持有过久强制退出）
 const STRATEGIES = [
   {
     name: 'Fast Only',
     buyCondition: 'rsiFast >= 60 AND earlyReturn >= 30 AND age >= 0.3',
-    sellCondition: 'rsiFast < 40 AND profitPercent >= 5',
+    // RSI快线跌破40+有利润 → 卖出；回撤>20%止损；持有>90s且有利润→落袋
+    sellCondition: '(rsiFast < 40 AND profitPercent >= 3) OR drawdownFromHighestSinceLastBuy <= -20 OR (holdDuration >= 90 AND profitPercent >= 5)',
   },
   {
     name: 'Crossover',
     buyCondition: 'rsiFast >= 55 AND rsiCrossover == 1 AND earlyReturn >= 30',
-    sellCondition: 'rsiCrossover == 0 AND rsiSlope < 0 AND profitPercent >= 3',
+    // 交叉反转+斜率向下 → 卖出；回撤>18%止损；持有>90s落袋
+    sellCondition: '(rsiCrossover == 0 AND rsiSlope < 0 AND profitPercent >= 3) OR drawdownFromHighestSinceLastBuy <= -18 OR (holdDuration >= 90 AND profitPercent >= 5)',
   },
   {
     name: 'Multi-Confirm',
     buyCondition: 'rsiFast >= 55 AND rsiMedium >= 50 AND rsiCrossover == 1 AND rsiSlope > 0 AND earlyReturn >= 30',
-    sellCondition: 'rsiFast < 40 AND rsiCrossover == 0 AND rsiSlope < 0',
+    // 多信号同时反转 → 卖出；回撤>15%止损；持有>120s落袋
+    sellCondition: '(rsiFast < 40 AND rsiCrossover == 0 AND rsiSlope < 0) OR drawdownFromHighestSinceLastBuy <= -15 OR (holdDuration >= 120 AND profitPercent >= 5)',
   },
   {
     name: 'Divergence Exit',
     buyCondition: 'rsiFast >= 55 AND rsiCrossover == 1 AND earlyReturn >= 30',
-    sellCondition: 'rsiDivergence == -1 OR (rsiFast < 35 AND rsiCrossover == 0)',
+    // 背离信号 → 卖出；RSI极弱+交叉反转 → 卖出；回撤>18%止损；持有>90s落袋
+    sellCondition: 'rsiDivergence == -1 OR (rsiFast < 35 AND rsiCrossover == 0) OR drawdownFromHighestSinceLastBuy <= -18 OR (holdDuration >= 90 AND profitPercent >= 5)',
   },
   {
     name: 'Trend Rider',
     buyCondition: 'rsiFast >= 50 AND rsiMedium >= 45 AND rsiCrossover == 1 AND earlyReturn >= 30',
+    // 趋势明确结束（RSI极弱+斜率负）→ 卖出；回撤>15%止损；高止盈80%→卖出
     sellCondition: '(rsiFast < 35 AND rsiSlope < 0) OR drawdownFromHighestSinceLastBuy <= -15 OR profitPercent >= 80',
   },
   {
     name: 'Scalper',
     buyCondition: 'rsiFast >= 65 AND rsiCrossover == 1 AND earlyReturn >= 20 AND age >= 0.3',
-    sellCondition: 'profitPercent >= 15 OR (rsiFast < 45 AND profitPercent >= 3) OR (holdDuration >= 120 AND profitPercent >= 3)',
+    // 快进快出：15%止盈、RSI弱+有利润就跑、2分钟超时+有利润就跑
+    sellCondition: 'profitPercent >= 15 OR (rsiFast < 45 AND profitPercent >= 3) OR (holdDuration >= 120 AND profitPercent >= 3) OR drawdownFromHighestSinceLastBuy <= -15',
   },
 ];
 
@@ -294,6 +304,32 @@ function runStrategyComparison(data, strategies) {
         }
       }
     }
+
+    // 代币数据遍历结束，强制平仓所有未平仓头寸（按最后一个价格结算）
+    const lastPrice = priceHistory.length > 0 ? priceHistory[priceHistory.length - 1] : 0;
+    const lastTime = points.length > 0 ? new Date(points[points.length - 1].timestamp).getTime() : 0;
+
+    if (lastPrice > 0) {
+      for (let i = 0; i < strategies.length; i++) {
+        const state = strategyStates[i];
+        const pos = state.positions[tokenKey];
+        if (pos) {
+          const profitPercent = ((lastPrice - pos.buyPrice) / pos.buyPrice) * 100;
+          const holdDuration = (lastTime - pos.buyTime) / 1000;
+          state.trades.push({
+            symbol: tokenInfo.symbol,
+            buyPrice: pos.buyPrice,
+            sellPrice: lastPrice,
+            buyTime: pos.buyTime,
+            sellTime: lastTime,
+            profitPercent,
+            holdDuration,
+            forcedClose: true,
+          });
+          delete state.positions[tokenKey];
+        }
+      }
+    }
   }
 
   // 汇总结果
@@ -313,9 +349,10 @@ function runStrategyComparison(data, strategies) {
     const maxWin = trades.length > 0
       ? Math.max(...trades.map(t => t.profitPercent))
       : 0;
-
-    // 未平仓数
-    const openPositions = Object.keys(state.positions).length;
+    // 强制平仓统计
+    const forcedTrades = trades.filter(t => t.forcedClose);
+    const forcedWin = forcedTrades.filter(t => t.profitPercent > 0).length;
+    const forcedProfit = forcedTrades.reduce((sum, t) => sum + t.profitPercent, 0);
 
     return {
       name: strategies[i].name,
@@ -326,7 +363,9 @@ function runStrategyComparison(data, strategies) {
       avgHoldDuration: avgHoldDuration.toFixed(0),
       maxLoss: maxLoss.toFixed(1),
       maxWin: maxWin.toFixed(1),
-      openPositions,
+      forcedCloses: forcedTrades.length,
+      forcedWinRate: forcedTrades.length > 0 ? (forcedWin / forcedTrades.length * 100).toFixed(0) : '-',
+      forcedProfit: forcedProfit.toFixed(1),
       trades,
     };
   });
@@ -349,10 +388,12 @@ function printResults(results, sourceName) {
     '最大赢%'.padStart(8),
     '最大亏%'.padStart(8),
     '平均持有(s)'.padStart(10),
-    '未平仓'.padStart(6),
+    '强制平仓'.padStart(8),
+    '强平胜率'.padStart(8),
+    '强平收益%'.padStart(9),
   ].join(' | ');
   console.log(header);
-  console.log('-'.repeat(100));
+  console.log('-'.repeat(110));
 
   for (const r of results) {
     const row = [
@@ -364,11 +405,13 @@ function printResults(results, sourceName) {
       ('+' + r.maxWin).padStart(8),
       r.maxLoss.padStart(8),
       r.avgHoldDuration.padStart(10),
-      String(r.openPositions).padStart(6),
+      String(r.forcedCloses).padStart(8),
+      (r.forcedWinRate + '%').padStart(8),
+      r.forcedProfit.padStart(9),
     ].join(' | ');
     console.log(row);
   }
-  console.log('-'.repeat(100));
+  console.log('-'.repeat(110));
 }
 
 // ============ 主流程 ============
