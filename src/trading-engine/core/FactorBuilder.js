@@ -161,8 +161,6 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     twitterVerifiedUsers: preBuyCheckResult.twitterVerifiedUsers ?? 0,
     twitterFollowers: preBuyCheckResult.twitterFollowers ?? 0,
     twitterUniqueUsers: preBuyCheckResult.twitterUniqueUsers ?? 0,
-    twitterMaxFollower: preBuyCheckResult.twitterMaxFollower ?? 0,
-    twitterMaxFollowerUser: preBuyCheckResult.twitterMaxFollowerUser ?? null,
     twitterSearchSuccess: preBuyCheckResult.twitterSearchSuccess ?? false,
     twitterSearchDuration: preBuyCheckResult.twitterSearchDuration ?? null,
     twitterSearchError: preBuyCheckResult.twitterSearchError ?? null,

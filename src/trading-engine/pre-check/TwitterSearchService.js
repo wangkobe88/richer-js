@@ -132,10 +132,6 @@ class TwitterSearchService {
       twitterFollowers: totalFollowers,
       twitterUniqueUsers: uniqueUsers.size,
 
-      // 最大粉丝数指标（过滤黑名单后）
-      twitterMaxFollower: maxFollower,
-      twitterMaxFollowerUser: maxFollowerUser,
-
       // 搜索状态
       twitterSearchSuccess: true,
       twitterSearchDuration: duration,
@@ -158,8 +154,6 @@ class TwitterSearchService {
       twitterVerifiedUsers: 0,
       twitterFollowers: 0,
       twitterUniqueUsers: 0,
-      twitterMaxFollower: 0,
-      twitterMaxFollowerUser: null,
       twitterSearchSuccess: false,
       twitterSearchDuration: duration,
       twitterSearchError: error
@@ -181,8 +175,7 @@ class TwitterSearchService {
       twitterVerifiedUsers: '认证用户数',
       twitterFollowers: '推文用户粉丝总数',
       twitterUniqueUsers: '独立用户数',
-      twitterMaxFollower: '最大推文发布者粉丝数(过滤黑名单后)',
-      twitterMaxFollowerUser: '最大粉丝数用户名',
+    };
       twitterSearchSuccess: 'Twitter搜索是否成功',
       twitterSearchDuration: 'Twitter搜索耗时(毫秒)',
       twitterSearchError: 'Twitter搜索错误信息'
