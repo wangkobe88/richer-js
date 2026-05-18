@@ -917,8 +917,8 @@ class RicherJsWebServer {
           try {
             const expData = experiment.toJSON();
 
-            // 如果已经有统计数据，跳过
-            if (expData.stats && Object.keys(expData.stats).length > 0) {
+            // 如果已经有统计数据（tokenCount > 0 表示有实际交易被分析过），跳过
+            if (expData.stats && expData.stats.tokenCount > 0) {
               results.skipped++;
               results.details.push({
                 id: experiment.id,

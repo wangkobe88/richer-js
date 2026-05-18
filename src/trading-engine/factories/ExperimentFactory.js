@@ -132,6 +132,11 @@ class ExperimentFactory {
         status: status
       };
 
+      // 切到 running 时设置开始时间
+      if (status === 'running') {
+        updateData.started_at = new Date().toISOString();
+      }
+
       // 如果是完成或停止状态，设置停止时间
       if (['completed', 'failed', 'stopped'].includes(status)) {
         updateData.stopped_at = new Date().toISOString();

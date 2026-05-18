@@ -32,169 +32,176 @@ async function queryWithRetry(queryFn, operation, maxRetries = 3) {
 }
 
 /**
- * 检测孤儿数据（使用 SQL 查询优化）
+ * 检测孤儿数据 — 使用 not.in 过滤让数据库端筛选，避免全表扫描
  */
 async function detectOrphanData() {
   console.log('🔍 开始检测孤儿数据...\n');
 
   const supabase = dbManager.getClient();
 
-  // 步骤1: 获取 experiments 表中所有的 experiment_id
+  // 步骤1: 获取所有有效的 experiment_id
   console.log('📊 步骤1: 获取所有有效的 experiment_id...');
-  let validExperimentIds = new Set();
-  let offset = 0;
-  const pageSize = 1000;
-  let hasMore = true;
+  const { data: expData, error: expError } = await queryWithRetry(
+    async () => await supabase
+      .from('experiments')
+      .select('id'),
+    '获取 experiments'
+  );
+  if (expError) {
+    console.error('❌ 获取 experiments 失败:', expError.message);
+    throw expError;
+  }
+  const validIds = expData.map(e => e.id);
+  console.log(`✅ 有效实验数量: ${validIds.length}\n`);
 
-  while (hasMore) {
-    const result = await queryWithRetry(
+  // 步骤2: 用 planned count 获取近似总数（exact count 在大表上会超时）
+  console.log('📊 步骤2: 获取时序数据总数...');
+  const { count: totalCount, error: totalError } = await queryWithRetry(
+    async () => await supabase
+      .from('experiment_time_series_data')
+      .select('*', { count: 'planned', head: true }),
+    '获取时序数据总数'
+  );
+  if (totalError) {
+    console.error('❌ 获取总数失败:', totalError.message);
+    throw totalError;
+  }
+  console.log(`✅ 时序数据总数（近似）: ${totalCount}\n`);
+
+  // 步骤3: 统计每个有效实验的记录数，同时收集孤儿 ID
+  console.log('📊 步骤3: 统计有效实验记录数...');
+  let validTotal = 0;
+  for (const id of validIds) {
+    const { count, error } = await queryWithRetry(
       async () => await supabase
-        .from('experiments')
-        .select('id')
-        .range(offset, offset + pageSize - 1),
-      '获取 experiments'
+        .from('experiment_time_series_data')
+        .select('*', { count: 'exact', head: true })
+        .eq('experiment_id', id),
+      `统计有效实验 ${id.substring(0, 8)}...`,
+      2
     );
-
-    const { data, error } = result;
-    if (error) {
-      console.error('❌ 获取 experiments 失败:', error.message);
-      throw error;
-    }
-
-    if (data && data.length > 0) {
-      data.forEach(exp => validExperimentIds.add(exp.id));
-      offset += pageSize;
-      hasMore = data.length === pageSize;
-    } else {
-      hasMore = false;
+    if (!error && count > 0) {
+      console.log(`   ✓ 有效 ${id.substring(0, 8)}... : ${count} 条`);
+      validTotal += count;
     }
   }
+  const approxOrphanTotal = totalCount - validTotal;
+  console.log(`\n✅ 有效数据: ${validTotal} 条，孤儿数据（近似）: ${approxOrphanTotal} 条\n`);
 
-  console.log(`✅ 有效实验数量: ${validExperimentIds.size}\n`);
+  if (approxOrphanTotal <= 0) {
+    console.log('🎉 没有发现孤儿数据！');
+    return { orphanExperimentIds: [], orphanRecordCount: 0, details: [] };
+  }
 
-  // 步骤2: 使用 RPC 或 SQL 获取时序数据中的唯一 experiment_id
-  // 由于数据量大，直接使用 SQL 查询会更快
-  console.log('📊 步骤2: 扫描时序数据中的唯一 experiment_id...');
-
-  // 方法：使用带 distinct 的查询，只获取 experiment_id
-  const allTimeSeriesExperiments = new Set();
-  hasMore = true;
-  offset = 0;
+  // 步骤4: 分页扫描收集所有唯一的 experiment_id（只取 experiment_id 列）
+  console.log('📊 步骤骤4: 扫描唯一 experiment_id...');
+  const validIdSet = new Set(validIds);
+  const orphanExperimentIds = new Set();
+  let offset = 0;
+  const pageSize = 10000;
+  let hasMore = true;
+  let lastNewAt = 0;
 
   while (hasMore) {
-    // 使用更大的页面大小来加速获取唯一值
-    const result = await queryWithRetry(
+    const { data, error } = await queryWithRetry(
       async () => await supabase
         .from('experiment_time_series_data')
         .select('experiment_id')
         .range(offset, offset + pageSize - 1),
-      '获取时序数据 experiment_id'
+      '扫描 experiment_id'
     );
-
-    const { data, error } = result;
     if (error) {
-      console.error('❌ 获取时序数据失败:', error.message);
+      console.error('❌ 扫描失败:', error.message);
       throw error;
     }
-
     if (data && data.length > 0) {
-      for (const record of data) {
-        allTimeSeriesExperiments.add(record.experiment_id);
+      const prevSize = orphanExperimentIds.size;
+      for (const r of data) {
+        if (!validIdSet.has(r.experiment_id)) {
+          orphanExperimentIds.add(r.experiment_id);
+        }
       }
+      if (orphanExperimentIds.size > prevSize) lastNewAt = offset;
       offset += pageSize;
       hasMore = data.length === pageSize;
+
+      if (offset % 100000 === 0) {
+        console.log(`   已扫描 ${offset} 条，发现 ${orphanExperimentIds.size} 个孤儿实验...`);
+      }
+
+      // 如果连续 50 万条都没发现新的孤儿 ID，提前停止
+      if (offset - lastNewAt > 500000) {
+        console.log(`   连续 50 万条无新孤儿 ID，提前停止扫描`);
+        hasMore = false;
+      }
     } else {
       hasMore = false;
     }
-
-    // 每处理 10000 条记录显示一次进度
-    if (offset % 10000 === 0 && allTimeSeriesExperiments.size > 0) {
-      console.log(`   已扫描 ${offset} 条记录，发现 ${allTimeSeriesExperiments.size} 个唯一实验...`);
-    }
   }
 
-  console.log(`✅ 时序数据中发现的实验数量: ${allTimeSeriesExperiments.size}\n`);
+  const orphanIds = Array.from(orphanExperimentIds);
+  console.log(`✅ 发现孤儿实验: ${orphanIds.length} 个\n`);
 
-  // 步骤3: 找出孤儿 experiment_id
-  console.log('📊 步骤3: 识别孤儿实验...');
-  const orphanExperimentIds = Array.from(allTimeSeriesExperiments).filter(
-    expId => !validExperimentIds.has(expId)
-  );
-
-  console.log(`✅ 发现孤儿实验数量: ${orphanExperimentIds.size}\n`);
-
-  if (orphanExperimentIds.length === 0) {
-    console.log('🎉 没有发现孤儿数据！');
-    return {
-      orphanExperimentIds: [],
-      orphanRecordCount: 0,
-      details: []
-    };
-  }
-
-  // 步骤4: 统计每个孤儿实验的记录数
-  console.log('📊 步骤4: 统计孤儿数据记录数...');
-  const orphanDataCounts = new Map();
-
-  for (const expId of orphanExperimentIds) {
-    // 使用 count 查询
-    const result = await queryWithRetry(
+  // 步骤5: 统计每个孤儿实验的记录数
+  console.log('📊 步骤5: 统计每个孤儿实验的记录数...');
+  const details = [];
+  for (const expId of orphanIds) {
+    let count = null;
+    // 先尝试精确计数
+    const { count: exactCount, error } = await queryWithRetry(
       async () => await supabase
         .from('experiment_time_series_data')
         .select('*', { count: 'exact', head: true })
         .eq('experiment_id', expId),
-      `统计实验 ${expId.substring(0, 8)}... 的记录数`,
-      2
+      `统计孤儿实验 ${expId.substring(0, 8)}... (exact)`,
+      1
     );
-
-    const { count, error } = result;
-    if (error) {
-      console.warn(`   ⚠️  统计实验 ${expId.substring(0, 8)}... 失败: ${error.message}`);
-      orphanDataCounts.set(expId, -1);
+    if (!error && exactCount !== null) {
+      count = exactCount;
     } else {
-      orphanDataCounts.set(expId, count);
-      console.log(`   ✓ 实验 ${expId.substring(0, 8)}... : ${count} 条记录`);
+      // 精确计数超时，改用 planned count
+      const { count: plannedCount, error: e2 } = await queryWithRetry(
+        async () => await supabase
+          .from('experiment_time_series_data')
+          .select('*', { count: 'planned', head: true })
+          .eq('experiment_id', expId),
+        `统计孤儿实验 ${expId.substring(0, 8)}... (planned)`,
+        2
+      );
+      if (!e2 && plannedCount !== null) {
+        count = plannedCount;
+        console.log(`   ⚠️  精确计数超时，使用近似值`);
+      }
+    }
+    if (count !== null) {
+      details.push({ experimentId: expId, recordCount: count });
+      console.log(`   ✓ ${expId.substring(0, 8)}... : ~${count} 条`);
+    } else {
+      console.warn(`   ⚠️  统计 ${expId.substring(0, 8)}... 失败`);
     }
   }
 
-  // 计算总记录数
-  let totalOrphanRecords = 0;
-  const details = [];
-
-  for (const [expId, count] of orphanDataCounts.entries()) {
-    if (count > 0) {
-      totalOrphanRecords += count;
-      details.push({
-        experimentId: expId,
-        recordCount: count
-      });
-    }
-  }
-
-  // 按记录数排序
   details.sort((a, b) => b.recordCount - a.recordCount);
+  const orphanRecordCount = details.reduce((sum, d) => sum + d.recordCount, 0);
 
   return {
-    orphanExperimentIds,
-    orphanRecordCount: totalOrphanRecords,
+    orphanExperimentIds: orphanIds,
+    orphanRecordCount,
     details
   };
 }
 
 /**
- * 使用原生 SQL 删除孤儿数据（服务器端执行，避免多次往返超时）
+ * 删除孤儿数据 — 先尝试直接按 experiment_id 删除，超时则按 id 范围分批
  */
 async function deleteOrphanData(orphanExperimentIds) {
   console.log('\n🗑️  开始删除孤儿数据...\n');
-  console.log('💡 使用分批删除（每批 500 条），避免超时\n');
 
   const supabase = dbManager.getClient();
-  const BATCH_SIZE = 500;
   let totalExperimentsDeleted = 0;
   let failedCount = 0;
   const failedList = [];
 
-  // 逐个删除孤儿实验的数据
   for (let i = 0; i < orphanExperimentIds.length; i++) {
     const expId = orphanExperimentIds[i];
     const shortId = expId.substring(0, 8) + '...';
@@ -202,43 +209,25 @@ async function deleteOrphanData(orphanExperimentIds) {
     console.log(`\n[${i + 1}/${orphanExperimentIds.length}] 删除实验 ${shortId} 的数据...`);
 
     try {
-      let batchNum = 0;
-      let totalDeletedForExp = 0;
+      // 策略1: 直接按 experiment_id 删除全部（单条 SQL，最快）
+      console.log(`   尝试直接删除...`);
+      const { error: deleteError } = await queryWithRetry(
+        async () => await supabase
+          .from('experiment_time_series_data')
+          .delete()
+          .eq('experiment_id', expId),
+        `直接删除 ${shortId}`,
+        2
+      );
 
-      while (true) {
-        batchNum++;
-        // 先查出一批记录的 id
-        const { data: rows, error: selectError } = await queryWithRetry(
-          async () => await supabase
-            .from('experiment_time_series_data')
-            .select('id')
-            .eq('experiment_id', expId)
-            .limit(BATCH_SIZE),
-          `查询实验 ${shortId} 第 ${batchNum} 批`
-        );
-
-        if (selectError) throw selectError;
-        if (!rows || rows.length === 0) break;
-
-        const ids = rows.map(r => r.id);
-
-        // 按 id 批量删除
-        const { error: deleteError } = await queryWithRetry(
-          async () => await supabase
-            .from('experiment_time_series_data')
-            .delete()
-            .in('id', ids),
-          `删除实验 ${shortId} 第 ${batchNum} 批`
-        );
-
-        if (deleteError) throw deleteError;
-
-        totalDeletedForExp += ids.length;
-        console.log(`   第 ${batchNum} 批: 删除 ${ids.length} 条，累计 ${totalDeletedForExp} 条`);
+      if (deleteError) {
+        // 直接删除超时，改用 id 范围分批删除
+        console.log(`   直接删除失败 (${deleteError.message || '超时'})，改用 id 范围分批删除...`);
+        await deleteByRange(supabase, expId, shortId);
       }
 
       totalExperimentsDeleted++;
-      console.log(`   ✅ 实验 ${shortId} 的数据已全部删除 (共 ${totalDeletedForExp} 条)`);
+      console.log(`   ✅ 实验 ${shortId} 的数据已删除`);
     } catch (err) {
       console.error(`   ❌ 删除失败: ${err.message}`);
       failedCount++;
@@ -251,6 +240,42 @@ async function deleteOrphanData(orphanExperimentIds) {
     failedCount,
     failedList
   };
+}
+
+/**
+ * 按 id 范围分批删除（兜底策略）
+ */
+async function deleteByRange(supabase, expId, shortId) {
+  const BATCH_SIZE = 10000;
+  let totalDeleted = 0;
+
+  while (true) {
+    // 查出一小批 id
+    const { data: rows, error: selectError } = await supabase
+      .from('experiment_time_series_data')
+      .select('id')
+      .eq('experiment_id', expId)
+      .limit(BATCH_SIZE);
+
+    if (selectError) throw selectError;
+    if (!rows || rows.length === 0) break;
+
+    const ids = rows.map(r => r.id);
+
+    const { error: deleteError } = await supabase
+      .from('experiment_time_series_data')
+      .delete()
+      .in('id', ids);
+
+    if (deleteError) throw deleteError;
+
+    totalDeleted += ids.length;
+    console.log(`   已删除 ${totalDeleted} 条...`);
+
+    if (rows.length < BATCH_SIZE) break;
+  }
+
+  console.log(`   累计删除 ${totalDeleted} 条`);
 }
 
 /**
