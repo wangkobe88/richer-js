@@ -577,6 +577,17 @@ class BacktestEngine extends AbstractTradingEngine {
       riseRatioThreshold: 0.5
     });
 
+    // 1.2 初始化价格趋势检测器（用于动态计算价格趋势因子）
+    const TrendDetector = require('../TrendDetector');
+    this._trendDetector = new TrendDetector({
+      minDataPoints: 6,
+      maxDataPoints: Infinity,
+      cvThreshold: 0.005,
+      scoreThreshold: 30,
+      totalReturnThreshold: 5,
+      riseRatioThreshold: 0.5
+    });
+
     // 2. 初始化代币池（简化版，用于状态管理，传入持有者历史缓存）
     this._tokenPool = new TokenPool(this.logger, null, this._holderHistoryCache);
     this.logger.info(this._experimentId, '_initializeBacktestComponents', '✅ 代币池初始化完成');
@@ -847,11 +858,12 @@ class BacktestEngine extends AbstractTradingEngine {
           if (row.discovered_at) {
             this._tokenCreatedTimes.set(row.token_address, row.discovered_at);
           }
-          // 存储平台信息（用于构建正确的交易对）
+          // 存储平台信息（用于构建正确的交易对）和 launchPrice
           const rawApiData = row.raw_api_data || {};
           this._tokenPlatformInfo.set(row.token_address, {
             platform: row.platform || null,
-            mainPair: rawApiData.main_pair || null
+            mainPair: rawApiData.main_pair || null,
+            launchPrice: rawApiData.launch_price || null
           });
         }
 
@@ -1204,10 +1216,11 @@ class BacktestEngine extends AbstractTradingEngine {
       // 从 Map 获取 token 创建时间
       const tokenCreatedAt = this._tokenCreatedTimes.get(tokenAddress) || null;
 
-      // 从 Map 获取平台信息
+      // 从 Map 获取平台信息和 launchPrice
       const platformInfo = this._tokenPlatformInfo.get(tokenAddress) || {};
       const platform = platformInfo.platform || 'fourmeme';
       const pairAddress = platformInfo.mainPair || null;
+      const launchPrice = platformInfo.launchPrice || factorValues.launchPrice || 0;
 
       this._tokenStates.set(tokenAddress, {
         token: tokenAddress,
@@ -1218,6 +1231,7 @@ class BacktestEngine extends AbstractTradingEngine {
         status: 'monitoring',
         currentPrice: parseFloat(dataPoint.price_usd) || 0,
         collectionPrice: factorValues.collectionPrice || parseFloat(dataPoint.price_usd) || 0,
+        launchPrice: launchPrice,
         collectionTime: new Date(dataPoint.timestamp).getTime(),
         buyPrice: 0,
         buyTime: null,
@@ -1295,17 +1309,63 @@ class BacktestEngine extends AbstractTradingEngine {
     // 构建基础因子（FactorBuilder 会动态计算 drawdownFromHighestSinceLastBuy 等）
     let factors = buildFactorsFromTimeSeries(factorValues, tokenState, priceUsd, now);
 
-    // 重算 trendRiseRatio（使用 >= 而非存储的 > 值）
-    const priceHistory = this._priceHistoryCache[tokenKey] || [];
-    const dp = factors.trendDataPoints || 0;
-    if (dp >= 2 && priceHistory.length >= 2) {
-      const window = priceHistory.slice(-dp);
-      if (window.length >= 2) {
+    // 动态计算价格趋势因子（如果时序数据中没有）
+    // 精简数据中不存储趋势因子，需要从价格历史完全重建
+    if (!factors.trendCV || factors.trendCV === null) {
+      const priceHistory = this._priceHistoryCache[tokenKey] || [];
+      const maxPoints = 8;
+      const _prices = priceHistory.slice(-maxPoints);
+
+      factors.trendDataPoints = _prices.length;
+
+      if (_prices.length >= 2) {
+        // 总收益率和上涨占比
+        const firstPrice = _prices[0];
+        const lastPrice = _prices[_prices.length - 1];
+        factors.trendTotalReturn = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
+
         let riseCount = 0;
-        for (let i = 1; i < window.length; i++) {
-          if (window[i] >= window[i - 1]) riseCount++;
+        for (let i = 1; i < _prices.length; i++) {
+          if (_prices[i] >= _prices[i - 1]) riseCount++;
         }
-        factors.trendRiseRatio = riseCount / (window.length - 1);
+        factors.trendRiseRatio = riseCount / Math.max(1, _prices.length - 1);
+
+        // 变异系数 CV
+        if (this._trendDetector) {
+          factors.trendCV = this._trendDetector._calculateCV(_prices);
+        }
+
+        // 最近的下跌统计
+        const _checkSize = Math.min(5, _prices.length);
+        const _recentPrices = _prices.slice(-_checkSize);
+        let _downCount = 0;
+        for (let i = 1; i < _recentPrices.length; i++) {
+          if (_recentPrices[i] < _recentPrices[i - 1]) _downCount++;
+        }
+        factors.trendRecentDownCount = _downCount;
+        factors.trendRecentDownRatio = _downCount / Math.max(1, _recentPrices.length - 1);
+
+        // 连续下跌次数
+        let _consecutiveDowns = 0;
+        for (let i = _prices.length - 1; i > 0; i--) {
+          if (_prices[i] < _prices[i - 1]) {
+            _consecutiveDowns++;
+          } else {
+            break;
+          }
+        }
+        factors.trendConsecutiveDowns = _consecutiveDowns;
+
+        // 需要至少 4 个数据点的指标
+        if (_prices.length >= 4 && this._trendDetector) {
+          const _direction = this._trendDetector._confirmDirection(_prices);
+          factors.trendPriceUp = _direction.trendPriceUp;
+          factors.trendMedianUp = _direction.trendMedianUp;
+          factors.trendSlope = _direction.relativeSlope || 0;
+
+          const _strength = this._trendDetector._calculateTrendStrength(_prices);
+          factors.trendStrengthScore = _strength.score;
+        }
       }
     }
 

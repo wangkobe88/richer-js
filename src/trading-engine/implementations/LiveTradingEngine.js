@@ -1546,8 +1546,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
       // 记录时序数据（与虚拟盘一致，添加日志）
       console.log(`📊 [时序数据] 准备保存 | symbol=${token.symbol}, tokenAddress=${token.token}, price=${factorResults.currentPrice}`);
       if (this.timeSeriesService) {
-        // 使用统一的 FactorBuilder 序列化因子
-        const { buildFactorValuesForTimeSeries } = require('../core/FactorBuilder');
+        // 使用统一的 FactorBuilder 序列化因子（精简版，仅保留基础数据）
+        const { buildSlimFactorValues } = require('../core/FactorBuilder');
 
         const recordResult = await this.timeSeriesService.recordRoundData({
           experimentId: this._experimentId,
@@ -1557,7 +1557,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           loopCount: this._loopCount,
           priceUsd: factorResults.currentPrice,
           priceNative: null,
-          factorValues: buildFactorValuesForTimeSeries(factorResults),
+          factorValues: buildSlimFactorValues(factorResults),
           blockchain: this._blockchain
         });
         console.log(`📊 [时序数据] 保存结果 | symbol=${token.symbol}, result=${recordResult}`);

@@ -4,8 +4,9 @@
  *
  * 职责：
  * 1. 构建常规因子（基础因子 + 趋势因子）用于时序数据
- * 2. 构建购买前置检查因子用于信号 metadata
- * 3. 从时序数据反序列化常规因子
+ * 2. 构建精简因子（仅基础数据）用于时序数据存储
+ * 3. 构建购买前置检查因子用于信号 metadata
+ * 4. 从时序数据反序列化常规因子
  */
 
 /**
@@ -243,11 +244,37 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
 function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0, timestamp = Date.now()) {
   const fv = factorValues || {};
 
+  // collectionPrice: 优先 tokenState，然后 factor_values（兼容旧数据），最后 fallback 到 priceUsd
+  const collectionPrice = tokenState.collectionPrice ?? fv.collectionPrice ?? priceUsd;
+
+  // launchPrice: 优先 tokenState，然后 factor_values（兼容旧数据）
+  const launchPrice = tokenState.launchPrice ?? fv.launchPrice ?? collectionPrice ?? 0;
+
   // 优先使用 factor_values 中的 age（基于代币创建时间），如果没有则重新计算
   let age = fv.age;
   if (age === undefined || age === null) {
-    const collectionTime = tokenState.collectionTime || timestamp;
-    age = (timestamp - collectionTime) / 1000 / 60;
+    // 优先使用代币创建时间，其次使用收集时间
+    const tokenCreatedAt = tokenState.tokenCreatedAt
+      ? new Date(tokenState.tokenCreatedAt).getTime()
+      : null;
+    const baseTime = tokenCreatedAt || tokenState.collectionTime || timestamp;
+    age = (timestamp - baseTime) / 1000 / 60;
+  }
+
+  // earlyReturn: 如果 factor_values 中没有，从价格重算
+  let earlyReturn = fv.earlyReturn;
+  if (earlyReturn === undefined || earlyReturn === null) {
+    if (launchPrice > 0 && priceUsd > 0) {
+      earlyReturn = ((priceUsd - launchPrice) / launchPrice) * 100;
+    } else {
+      earlyReturn = 0;
+    }
+  }
+
+  // riseSpeed: 如果 factor_values 中没有，从 earlyReturn 和 age 重算
+  let riseSpeed = fv.riseSpeed;
+  if (riseSpeed === undefined || riseSpeed === null) {
+    riseSpeed = age > 0 ? earlyReturn / age : 0;
   }
 
   // 持仓相关因子需要基于回测引擎的买入状态动态计算
@@ -256,6 +283,14 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
   let profitPercent = 0;
   if (tokenState.buyPrice && tokenState.buyPrice > 0 && priceUsd > 0) {
     profitPercent = ((priceUsd - tokenState.buyPrice) / tokenState.buyPrice) * 100;
+  }
+
+  // highestPrice: 优先 tokenState（回测引擎动态维护），然后 factor_values（兼容旧数据）
+  const highestPrice = tokenState.highestPrice ?? fv.highestPrice ?? priceUsd;
+  const highestPriceTimestamp = tokenState.highestPriceTimestamp ?? fv.highestPriceTimestamp ?? timestamp;
+  let drawdownFromHighest = fv.drawdownFromHighest;
+  if (drawdownFromHighest === undefined || drawdownFromHighest === null) {
+    drawdownFromHighest = highestPrice > 0 ? ((priceUsd - highestPrice) / highestPrice) * 100 : 0;
   }
 
   // 动态计算最近一次购买后的最高价回撤（类似 profitPercent 的处理方式）
@@ -306,17 +341,17 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     // 基础因子
     age: age,
     currentPrice: priceUsd,
-    collectionPrice: tokenState.collectionPrice || fv.collectionPrice || 0,
-    launchPrice: fv.launchPrice || 0,
-    earlyReturn: fv.earlyReturn || 0,
-    riseSpeed: fv.riseSpeed || 0,
+    collectionPrice: collectionPrice,
+    launchPrice: launchPrice,
+    earlyReturn: earlyReturn,
+    riseSpeed: riseSpeed,
     buyPrice: tokenState.buyPrice || 0,
     holdDuration: holdDuration,
     profitPercent: profitPercent,
-    // 直接使用 factor_values 中的最高价相关数据（虚拟引擎已动态维护）
-    highestPrice: fv.highestPrice || priceUsd,
-    highestPriceTimestamp: fv.highestPriceTimestamp || timestamp,
-    drawdownFromHighest: fv.drawdownFromHighest || 0,
+    // 最高价相关数据（优先使用 tokenState 动态维护值，兼容旧数据的 factor_values）
+    highestPrice: highestPrice,
+    highestPriceTimestamp: highestPriceTimestamp,
+    drawdownFromHighest: drawdownFromHighest,
     // 最近一次购买后的最高价相关因子（动态计算，类似 profitPercent）
     highestPriceSinceLastBuy: highestPriceSinceLastBuy,
     drawdownFromHighestSinceLastBuy: drawdownFromHighestSinceLastBuy,
@@ -328,7 +363,7 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     tvl: fv.tvl || 0,
     fdv: fv.fdv || 0,
     marketCap: fv.marketCap || 0,
-    // 趋势因子（从时序数据中读取，固定窗口8个点）
+    // 趋势因子（从时序数据中读取，固定窗口8个点；精简数据中无这些字段，由回测引擎重建）
     trendCV: fv.trendCV ?? null,
     trendPriceUp: fv.trendPriceUp ?? 0,
     trendMedianUp: fv.trendMedianUp ?? 0,
@@ -340,7 +375,7 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     trendRecentDownCount: fv.trendRecentDownCount ?? null,
     trendRecentDownRatio: fv.trendRecentDownRatio ?? null,
     trendConsecutiveDowns: fv.trendConsecutiveDowns ?? null,
-    // 持有者趋势因子（从时序数据中读取）
+    // 持有者趋势因子（从时序数据中读取；精简数据中无这些字段，由回测引擎重建）
     holderTrendCV: fv.holderTrendCV ?? null,
     holderTrendHolderCountUp: fv.holderTrendHolderCountUp ?? 0,
     holderTrendMedianUp: fv.holderTrendMedianUp ?? 0,
@@ -382,8 +417,31 @@ function getAvailableFactorIds() {
   ]);
 }
 
+/**
+ * 构建精简因子对象用于时序数据存储（仅保留不可推导的基础数据）
+ * 推导因子（趋势、回撤、收益率等）在回测时由 FactorReplayEngine 重建
+ * @param {Object} factorResults - _buildFactors() 返回的完整因子结果
+ * @returns {Object} 精简的因子对象
+ */
+function buildSlimFactorValues(factorResults) {
+  if (!factorResults) {
+    return {};
+  }
+
+  return {
+    currentPrice: factorResults.currentPrice,
+    txVolumeU24h: factorResults.txVolumeU24h,
+    holders: factorResults.holders,
+    tvl: factorResults.tvl,
+    fdv: factorResults.fdv,
+    marketCap: factorResults.marketCap,
+    dataCollectionRound: factorResults.dataCollectionRound ?? 1,
+  };
+}
+
 module.exports = {
   buildFactorValuesForTimeSeries,
+  buildSlimFactorValues,
   buildPreBuyCheckFactorValues,
   buildFactorsFromTimeSeries,
   getAvailableFactorIds

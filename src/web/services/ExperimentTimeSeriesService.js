@@ -348,6 +348,7 @@ class ExperimentTimeSeriesService {
 
   /**
    * 获取特定因子的时序数据
+   * 支持推导因子的重建：对于精简数据中不存在的因子，从基础数据重建
    * @param {string} experimentId - 实验ID
    * @param {string} tokenAddress - 代币地址
    * @param {string} factorName - 因子名称
@@ -356,16 +357,27 @@ class ExperimentTimeSeriesService {
   async getFactorTimeSeries(experimentId, tokenAddress, factorName) {
     try {
       const data = await this.getExperimentTimeSeries(experimentId, tokenAddress);
+      if (!data || data.length === 0) return [];
 
-      return data
-        .map(record => ({
-          timestamp: record.timestamp,
-          loopCount: record.loop_count,
-          value: record.factor_values?.[factorName] !== undefined
-            ? record.factor_values[factorName]
-            : null
-        }))
-        .filter(item => item.value !== null);
+      // 检查数据中是否直接包含该因子（兼容旧数据）
+      const firstRecord = data.find(r => r.factor_values && Object.keys(r.factor_values).length > 0);
+      const hasDirectFactor = firstRecord?.factor_values?.[factorName] !== undefined;
+
+      if (hasDirectFactor) {
+        // 旧数据格式：直接从 factor_values 读取
+        return data
+          .map(record => ({
+            timestamp: record.timestamp,
+            loopCount: record.loop_count,
+            value: record.factor_values?.[factorName] !== undefined
+              ? record.factor_values[factorName]
+              : null
+          }))
+          .filter(item => item.value !== null);
+      }
+
+      // 精简数据格式：需要重建推导因子
+      return this._rebuildFactorTimeSeries(data, factorName);
     } catch (error) {
       console.error('❌ [时序数据] 获取因子时序数据失败:', error.message);
       return [];
@@ -373,23 +385,228 @@ class ExperimentTimeSeriesService {
   }
 
   /**
+   * 从精简时序数据重建推导因子的时序值
+   * @private
+   * @param {Array} data - 时序数据数组（已按时间排序）
+   * @param {string} factorName - 目标因子名称
+   * @returns {Array} 因子值数组
+   */
+  _rebuildFactorTimeSeries(data, factorName) {
+    const { getAvailableFactorIds } = require('../../trading-engine/core/FactorBuilder');
+
+    // 如果不是已知因子，返回空
+    if (!getAvailableFactorIds().has(factorName)) return [];
+
+    const results = [];
+    const priceHistory = [];
+    const holderHistory = [];
+    let highestPrice = 0;
+    let launchPrice = 0;
+    let collectionPrice = 0;
+    let tokenCreatedAt = null;
+
+    for (const record of data) {
+      const priceUsd = parseFloat(record.price_usd) || 0;
+      const fv = record.factor_values || {};
+      const timestamp = new Date(record.timestamp).getTime();
+
+      // 初始化常量（从第一个有效数据点获取）
+      if (!collectionPrice && priceUsd > 0) {
+        collectionPrice = priceUsd;
+      }
+      if (!launchPrice && fv.launchPrice) {
+        launchPrice = fv.launchPrice;
+      }
+      if (!launchPrice) launchPrice = collectionPrice;
+
+      // 维护价格历史
+      if (priceUsd > 0) {
+        priceHistory.push(priceUsd);
+        if (priceUsd > highestPrice) highestPrice = priceUsd;
+      }
+
+      // 维护持有者历史
+      const holders = fv.holders ?? 0;
+      holderHistory.push(holders);
+
+      // 计算因子值
+      const age = tokenCreatedAt
+        ? (timestamp - new Date(tokenCreatedAt).getTime()) / 60000
+        : (timestamp - new Date(data[0].timestamp).getTime()) / 60000;
+      const earlyReturn = launchPrice > 0 && priceUsd > 0
+        ? ((priceUsd - launchPrice) / launchPrice) * 100
+        : 0;
+      const riseSpeed = age > 0 ? earlyReturn / age : 0;
+      const drawdownFromHighest = highestPrice > 0
+        ? ((priceUsd - highestPrice) / highestPrice) * 100
+        : 0;
+
+      // 价格趋势因子（固定窗口8个点）
+      const maxPoints = 8;
+      const _prices = priceHistory.slice(-maxPoints);
+      let trendTotalReturn = null, trendRiseRatio = null, trendCV = null;
+      let trendRecentDownCount = null, trendRecentDownRatio = null, trendConsecutiveDowns = null;
+      let trendPriceUp = 0, trendMedianUp = 0, trendSlope = null, trendStrengthScore = null;
+      const trendDataPoints = _prices.length;
+
+      if (_prices.length >= 2) {
+        const firstP = _prices[0], lastP = _prices[_prices.length - 1];
+        trendTotalReturn = firstP > 0 ? ((lastP - firstP) / firstP) * 100 : 0;
+
+        let riseCount = 0;
+        for (let i = 1; i < _prices.length; i++) {
+          if (_prices[i] >= _prices[i - 1]) riseCount++;
+        }
+        trendRiseRatio = riseCount / Math.max(1, _prices.length - 1);
+
+        // CV
+        const mean = _prices.reduce((a, b) => a + b, 0) / _prices.length;
+        if (mean > 0) {
+          const variance = _prices.reduce((sum, p) => sum + Math.pow(p - mean, 2), 0) / _prices.length;
+          trendCV = Math.sqrt(variance) / mean;
+        }
+
+        // 下跌统计
+        const _checkSize = Math.min(5, _prices.length);
+        const _recentPrices = _prices.slice(-_checkSize);
+        let _downCount = 0;
+        for (let i = 1; i < _recentPrices.length; i++) {
+          if (_recentPrices[i] < _recentPrices[i - 1]) _downCount++;
+        }
+        trendRecentDownCount = _downCount;
+        trendRecentDownRatio = _downCount / Math.max(1, _recentPrices.length - 1);
+
+        let _consecutiveDowns = 0;
+        for (let i = _prices.length - 1; i > 0; i--) {
+          if (_prices[i] < _prices[i - 1]) _consecutiveDowns++;
+          else break;
+        }
+        trendConsecutiveDowns = _consecutiveDowns;
+
+        if (_prices.length >= 4) {
+          // 简化的方向检测
+          const diffs = [];
+          for (let i = 1; i < _prices.length; i++) diffs.push(_prices[i] - _prices[i - 1]);
+          const upCount = diffs.filter(d => d > 0).length;
+          trendPriceUp = upCount > diffs.length / 2 ? 1 : 0;
+
+          const sorted = [..._prices].sort((a, b) => a - b);
+          const mid = Math.floor(sorted.length / 2);
+          const firstHalf = sorted.slice(0, mid);
+          const secondHalf = sorted.slice(mid + (sorted.length % 2 === 0 ? 0 : 1));
+          const firstMedian = firstHalf.reduce((a, b) => a + b, 0) / (firstHalf.length || 1);
+          const secondMedian = secondHalf.reduce((a, b) => a + b, 0) / (secondHalf.length || 1);
+          trendMedianUp = secondMedian >= firstMedian ? 1 : 0;
+
+          if (firstP > 0) {
+            trendSlope = ((_prices[_prices.length - 1] - _prices[0]) / firstP) * 100;
+          }
+
+          // 简化的趋势强度
+          const positives = diffs.filter(d => d > 0).length;
+          const negatives = diffs.filter(d => d < 0).length;
+          trendStrengthScore = Math.round((positives / Math.max(1, diffs.length)) * 100);
+        }
+      }
+
+      // 持有者趋势因子
+      const _holders = holderHistory.slice(-maxPoints);
+      let holderTrendGrowthRatio = null, holderTrendRiseRatio = null, holderTrendCV = null;
+      let holderTrendRecentDecreaseCount = null, holderTrendRecentDecreaseRatio = null;
+      let holderTrendConsecutiveDecreases = null;
+      let holderTrendHolderCountUp = 0, holderTrendMedianUp = 0, holderTrendSlope = null, holderTrendStrengthScore = null;
+      const holderTrendDataPoints = _holders.length;
+
+      if (_holders.length >= 2) {
+        const firstH = _holders[0], lastH = _holders[_holders.length - 1];
+        holderTrendGrowthRatio = firstH > 0 ? ((lastH - firstH) / firstH) * 100 : 0;
+
+        let hRiseCount = 0;
+        for (let i = 1; i < _holders.length; i++) {
+          if (_holders[i] > _holders[i - 1]) hRiseCount++;
+        }
+        holderTrendRiseRatio = hRiseCount / Math.max(1, _holders.length - 1);
+
+        const hMean = _holders.reduce((a, b) => a + b, 0) / _holders.length;
+        if (hMean > 0) {
+          const hVariance = _holders.reduce((sum, h) => sum + Math.pow(h - hMean, 2), 0) / _holders.length;
+          holderTrendCV = Math.sqrt(hVariance) / hMean;
+        }
+
+        const _hCheckSize = Math.min(5, _holders.length);
+        const _recentHolders = _holders.slice(-_hCheckSize);
+        let _decreaseCount = 0;
+        for (let i = 1; i < _recentHolders.length; i++) {
+          if (_recentHolders[i] < _recentHolders[i - 1]) _decreaseCount++;
+        }
+        holderTrendRecentDecreaseCount = _decreaseCount;
+        holderTrendRecentDecreaseRatio = _decreaseCount / Math.max(1, _recentHolders.length - 1);
+
+        let _hConsecutiveDecreases = 0;
+        for (let i = _holders.length - 1; i > 0; i--) {
+          if (_holders[i] < _holders[i - 1]) _hConsecutiveDecreases++;
+          else break;
+        }
+        holderTrendConsecutiveDecreases = _hConsecutiveDecreases;
+
+        if (_holders.length >= 4) {
+          const hDiffs = [];
+          for (let i = 1; i < _holders.length; i++) hDiffs.push(_holders[i] - _holders[i - 1]);
+          const hUpCount = hDiffs.filter(d => d > 0).length;
+          holderTrendHolderCountUp = hUpCount > hDiffs.length / 2 ? 1 : 0;
+          holderTrendStrengthScore = Math.round((hUpCount / Math.max(1, hDiffs.length)) * 100);
+
+          if (firstH > 0) {
+            holderTrendSlope = ((_holders[_holders.length - 1] - _holders[0]) / firstH) * 100;
+          }
+        }
+      }
+
+      // 因子映射表
+      const factorMap = {
+        age, currentPrice: priceUsd, collectionPrice, launchPrice,
+        earlyReturn, riseSpeed, highestPrice,
+        highestPriceTimestamp: priceUsd >= highestPrice ? new Date(record.timestamp).toISOString() : null,
+        drawdownFromHighest,
+        buyPrice: 0, holdDuration: 0, profitPercent: 0,
+        highestPriceSinceLastBuy: null, drawdownFromHighestSinceLastBuy: null,
+        highestHolderCountSinceLastBuy: null, holderDrawdownFromHighestSinceLastBuy: null,
+        txVolumeU24h: fv.txVolumeU24h || 0, holders: fv.holders || 0,
+        tvl: fv.tvl || 0, fdv: fv.fdv || 0, marketCap: fv.marketCap || 0,
+        // 趋势因子
+        trendCV, trendPriceUp, trendMedianUp, trendStrengthScore, trendTotalReturn,
+        trendRiseRatio, trendSlope, trendDataPoints,
+        trendRecentDownCount, trendRecentDownRatio, trendConsecutiveDowns,
+        // 持有者趋势因子
+        holderTrendCV, holderTrendHolderCountUp, holderTrendMedianUp, holderTrendStrengthScore,
+        holderTrendGrowthRatio, holderTrendRiseRatio, holderTrendSlope, holderTrendDataPoints,
+        holderTrendRecentDecreaseCount, holderTrendRecentDecreaseRatio, holderTrendConsecutiveDecreases,
+      };
+
+      const value = factorMap[factorName];
+      if (value !== null && value !== undefined) {
+        results.push({
+          timestamp: record.timestamp,
+          loopCount: record.loop_count,
+          value: value
+        });
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * 获取可用的因子列表
+   * 始终返回完整的因子集合（包括精简数据中不存在的推导因子）
    * @param {string} experimentId - 实验ID
    * @param {string} tokenAddress - 代币地址
    * @returns {Promise<Array>} 因子名称数组
    */
   async getAvailableFactors(experimentId, tokenAddress) {
     try {
-      const data = await this.getExperimentTimeSeries(experimentId, tokenAddress);
-
-      const factorSet = new Set();
-      for (const record of data) {
-        if (record.factor_values && typeof record.factor_values === 'object') {
-          Object.keys(record.factor_values).forEach(key => factorSet.add(key));
-        }
-      }
-
-      return Array.from(factorSet).sort();
+      const { getAvailableFactorIds } = require('../../trading-engine/core/FactorBuilder');
+      return Array.from(getAvailableFactorIds()).sort();
     } catch (error) {
       console.error('❌ [时序数据] 获取因子列表失败:', error.message);
       return [];
@@ -873,6 +1090,145 @@ class ExperimentTimeSeriesService {
         success: false,
         error: error.message
       };
+    }
+  }
+
+  /**
+   * 瘦身时序数据 — 移除可推导的因子，只保留基础数据
+   * 适用于已存储完整因子的存量实验数据
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<Object>} 瘦身结果统计
+   */
+  async slimDownTimeSeriesData(experimentId) {
+    try {
+      const supabase = dbManager.getClient();
+      console.log(`瘦身 [时序数据] 开始瘦身实验 ${experimentId}`);
+
+      const keysToRemove = [
+        'age', 'earlyReturn', 'riseSpeed',
+        'collectionPrice', 'launchPrice', 'tweetAuthorType',
+        'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
+        'buyPrice', 'holdDuration', 'profitPercent',
+        'highestPriceSinceLastBuy', 'drawdownFromHighestSinceLastBuy',
+        'highestHolderCountSinceLastBuy', 'holderDrawdownFromHighestSinceLastBuy',
+        'trendCV', 'trendPriceUp', 'trendMedianUp', 'trendStrengthScore',
+        'trendTotalReturn', 'trendRiseRatio', 'trendSlope', 'trendDataPoints',
+        'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns',
+        'holderTrendCV', 'holderTrendHolderCountUp', 'holderTrendMedianUp',
+        'holderTrendStrengthScore', 'holderTrendGrowthRatio', 'holderTrendRiseRatio',
+        'holderTrendSlope', 'holderTrendDataPoints', 'holderTrendRecentDecreaseCount',
+        'holderTrendRecentDecreaseRatio', 'holderTrendConsecutiveDecreases',
+      ];
+
+      // 构建 SQL: factor_values - 'key1' - 'key2' - ...
+      const removeExpr = keysToRemove.map(k => `- '${k}'`).join(' ');
+
+      // 统计瘦身前数据量
+      let beforeCount = null;
+      try {
+        const { count, error } = await supabase
+          .from('experiment_time_series_data')
+          .select('*', { count: 'estimated', head: true })
+          .eq('experiment_id', experimentId);
+        if (!error) beforeCount = count;
+      } catch (e) { /* ignore */ }
+
+      console.log(`瘦身 [时序数据] 移除 ${keysToRemove.length} 个推导因子，瘦身前约 ${beforeCount ?? '?'} 条`);
+
+      // 分批更新，避免超时
+      const BATCH_SIZE = 500;
+      let offset = 0;
+      let updatedTotal = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        // 获取当前批次的记录 ID
+        const { data: batch, error: batchError } = await supabase
+          .from('experiment_time_series_data')
+          .select('id')
+          .eq('experiment_id', experimentId)
+          .range(offset, offset + BATCH_SIZE - 1);
+
+        if (batchError) {
+          console.error(`瘦身 [时序数据] 查询批次失败: ${batchError.message}`);
+          break;
+        }
+
+        if (!batch || batch.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        const ids = batch.map(r => r.id);
+
+        // 使用 RPC 或直接 SQL 执行瘦身
+        // Supabase JS 不支持直接更新 JSONB 的 - 操作，需要用 rpc 或原始 SQL
+        // 这里使用分批删除再插入的替代方式：直接用 PostgreSQL JSONB 操作
+        const { error: updateError } = await supabase.rpc('slim_factor_values', {
+          target_experiment_id: experimentId,
+          target_ids: ids,
+        });
+
+        if (updateError) {
+          // RPC 可能不存在，尝试使用原始更新
+          console.warn(`瘦身 [时序数据] RPC 调用失败: ${updateError.message}，尝试直接更新`);
+
+          // 逐条更新（较慢但可靠）
+          for (const recordId of ids) {
+            const { data: record, error: fetchError } = await supabase
+              .from('experiment_time_series_data')
+              .select('id, factor_values')
+              .eq('id', recordId)
+              .single();
+
+            if (fetchError || !record) continue;
+
+            const fv = { ...record.factor_values };
+            for (const key of keysToRemove) {
+              delete fv[key];
+            }
+
+            await supabase
+              .from('experiment_time_series_data')
+              .update({ factor_values: fv })
+              .eq('id', recordId);
+          }
+        }
+
+        updatedTotal += ids.length;
+        offset += BATCH_SIZE;
+        hasMore = batch.length === BATCH_SIZE;
+
+        if (updatedTotal % 5000 === 0 || !hasMore) {
+          console.log(`瘦身 [时序数据] 已处理 ${updatedTotal} 条记录`);
+        }
+      }
+
+      // 统计瘦身后数据量
+      let afterCount = null;
+      try {
+        const { count, error } = await supabase
+          .from('experiment_time_series_data')
+          .select('*', { count: 'estimated', head: true })
+          .eq('experiment_id', experimentId);
+        if (!error) afterCount = count;
+      } catch (e) { /* ignore */ }
+
+      console.log(`✅ [时序数据瘦身] 完成! 处理了 ${updatedTotal} 条记录`);
+
+      return {
+        success: true,
+        data: {
+          experimentId,
+          recordsProcessed: updatedTotal,
+          keysRemoved: keysToRemove.length,
+          beforeCount,
+          afterCount
+        }
+      };
+    } catch (error) {
+      console.error('❌ [时序数据瘦身] 失败:', error.message);
+      return { success: false, error: error.message };
     }
   }
 }
