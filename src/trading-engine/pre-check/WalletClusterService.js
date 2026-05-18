@@ -244,10 +244,6 @@ class WalletClusterService {
       maxBlockBuyRatio: 0,
       maxBlockNumber: null,
       maxBlockBuyAmount: 0,
-      // 钱包累积集中度因子（与 EarlyParticipantCheckService 保持一致）
-      earlyTradesTop1BuyRatio: 0,
-      earlyTradesTop3BuyRatio: 0,
-      earlyTradesTop1NetHoldingRatio: 0,
     };
   }
 }

@@ -126,10 +126,6 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     // 早期交易新增因子
     earlyTradesFinalLiquidity: preBuyCheckResult.earlyTradesFinalLiquidity ?? null,
     earlyTradesDrawdownFromHighest: preBuyCheckResult.earlyTradesDrawdownFromHighest ?? null,
-    // 钱包累积集中度因子
-    earlyTradesTop1BuyRatio: preBuyCheckResult.earlyTradesTop1BuyRatio || 0,
-    earlyTradesTop3BuyRatio: preBuyCheckResult.earlyTradesTop3BuyRatio || 0,
-    earlyTradesTop1NetHoldingRatio: preBuyCheckResult.earlyTradesTop1NetHoldingRatio || 0,
     // 钱包集中度因子
     walletTop3VolumeRatio: preBuyCheckResult.walletTop3VolumeRatio || 0,
     walletTop1VolumeRatio: preBuyCheckResult.walletTop1VolumeRatio || 0,

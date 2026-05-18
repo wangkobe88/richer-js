@@ -1644,10 +1644,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             // 早期交易新增因子
             earlyTradesFinalLiquidity: factorResults.earlyTradesFinalLiquidity || null,
             earlyTradesDrawdownFromHighest: factorResults.earlyTradesDrawdownFromHighest || null,
-            // 钱包累积集中度因子
-            earlyTradesTop1BuyRatio: factorResults.earlyTradesTop1BuyRatio || 0,
-            earlyTradesTop3BuyRatio: factorResults.earlyTradesTop3BuyRatio || 0,
-            earlyTradesTop1NetHoldingRatio: factorResults.earlyTradesTop1NetHoldingRatio || 0,
             // 钱包集中度因子
             walletTop3VolumeRatio: factorResults.walletTop3VolumeRatio || 0,
             walletTop1VolumeRatio: factorResults.walletTop1VolumeRatio || 0,

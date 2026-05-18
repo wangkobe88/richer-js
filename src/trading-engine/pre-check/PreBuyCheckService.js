@@ -151,25 +151,6 @@ const FACTOR_METADATA = {
     unit: '%',
     severity: 'warning'
   },
-  // [已停用] Top 买入占比因子不再使用
-  // earlyTradesTop1BuyRatio: {
-  //   name: 'Top1钱包买入占比',
-  //   format: v => (v * 100).toFixed(1) + '%',
-  //   unit: '',
-  //   severity: 'warning'
-  // },
-  // earlyTradesTop3BuyRatio: {
-  //   name: 'Top3钱包买入占比',
-  //   format: v => (v * 100).toFixed(1) + '%',
-  //   unit: '',
-  //   severity: 'warning'
-  // },
-  // earlyTradesTop1NetHoldingRatio: {
-  //   name: 'Top1钱包净持仓占比',
-  //   format: v => (v * 100).toFixed(2) + '%',
-  //   unit: '',
-  //   severity: 'warning'
-  // },
   earlyTradesActualSpan: {
     name: '早期数据实际跨度',
     format: v => v.toFixed(1) + '秒',
@@ -921,10 +902,6 @@ class PreBuyCheckService {
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,
         // 内盘无数据标记（可能已出内盘）
         earlyTradesNoInnerData: earlyParticipantCheck.earlyTradesNoInnerData || 0,
-        // 钱包累积集中度因子
-        earlyTradesTop1BuyRatio: earlyParticipantCheck.earlyTradesTop1BuyRatio || 0,
-        earlyTradesTop3BuyRatio: earlyParticipantCheck.earlyTradesTop3BuyRatio || 0,
-        earlyTradesTop1NetHoldingRatio: earlyParticipantCheck.earlyTradesTop1NetHoldingRatio || 0,
         // 钱包集中度因子
         walletTop3VolumeRatio: walletClusterCheck.walletTop3VolumeRatio || 0,
         walletTop1VolumeRatio: walletClusterCheck.walletTop1VolumeRatio || 0,

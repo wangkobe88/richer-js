@@ -1940,7 +1940,7 @@ class ExperimentSignals {
     let extraInfoHtml = '';
     const extraInfo = [];
     if (metadata.profitPercent !== undefined && metadata.profitPercent !== null && !isNaN(metadata.profitPercent)) {
-      extraInfo.push(`收益率: ${metadata.profitPercent.toFixed(2)}%`);
+      extraInfo.push(`收益率: ${parseFloat(metadata.profitPercent).toFixed(2)}%`);
     }
     if (metadata.holdDuration !== undefined && metadata.holdDuration !== null && !isNaN(metadata.holdDuration)) {
       const holdSeconds = metadata.holdDuration;
@@ -2009,8 +2009,8 @@ class ExperimentSignals {
       }
 
       // 辅助函数：格式化数值
-      const formatNum = (val, decimals = 2) => val !== undefined && val !== null ? val.toFixed(decimals) : 'N/A';
-      const formatPercent = (val) => val !== undefined && val !== null ? val.toFixed(1) + '%' : 'N/A';
+      const formatNum = (val, decimals = 2) => val !== undefined && val !== null ? Number(val).toFixed(decimals) : 'N/A';
+      const formatPercent = (val) => val !== undefined && val !== null ? Number(val).toFixed(1) + '%' : 'N/A';
 
       // 第一阶段：买入策略条件（趋势因子）- 显示所有因子
       let trendFactorsHtml = '';
@@ -2200,9 +2200,6 @@ class ExperimentSignals {
                 <div><span class="text-amber-800">Top1交易占比:</span> <span class="text-gray-900">${formatNum(pf.walletTop1TradeRatio)}%</span></div>
                 <div><span class="text-amber-800">多样性指数:</span> <span class="text-gray-900">${formatNum(pf.walletDiversityIndex)}</span></div>
                 <div><span class="text-amber-800">一次性买家:</span> <span class="text-gray-900">${formatNum(pf.oneShotBuyerRatio)}%</span></div>
-                <div><span class="text-amber-800">Top1买入占比:</span> <span class="${this._getFactorClass('earlyTradesTop1BuyRatio', pf.earlyTradesTop1BuyRatio || 0, preCheckThresholds)}">${formatPercent((pf.earlyTradesTop1BuyRatio || 0) * 100)}</span></div>
-                <div><span class="text-amber-800">Top3买入占比:</span> <span class="${this._getFactorClass('earlyTradesTop3BuyRatio', pf.earlyTradesTop3BuyRatio || 0, preCheckThresholds)}">${formatPercent((pf.earlyTradesTop3BuyRatio || 0) * 100)}</span></div>
-                <div><span class="text-amber-800">Top1净持仓:</span> <span class="${this._getFactorClass('earlyTradesTop1NetHoldingRatio', pf.earlyTradesTop1NetHoldingRatio || 0, preCheckThresholds)}">${formatPercent((pf.earlyTradesTop1NetHoldingRatio || 0) * 100)}</span></div>
               </div>
             </div>
           `;
@@ -2343,8 +2340,8 @@ class ExperimentSignals {
       const sellThresholds = sellCondition ? this._parseBuyCondition(sellCondition) : {};
 
       // 辅助函数：格式化数值
-      const formatNum = (val, decimals = 2) => val !== undefined && val !== null ? val.toFixed(decimals) : 'N/A';
-      const formatPercent = (val) => val !== undefined && val !== null ? val.toFixed(1) + '%' : 'N/A';
+      const formatNum = (val, decimals = 2) => val !== undefined && val !== null ? Number(val).toFixed(decimals) : 'N/A';
+      const formatPercent = (val) => val !== undefined && val !== null ? Number(val).toFixed(1) + '%' : 'N/A';
 
       // 显示实验配置的卖出策略条件
       let sellStrategyConfigHtml = '';
@@ -2441,8 +2438,8 @@ class ExperimentSignals {
       const tokenBalanceChange = (after.tokenBalance || 0) - (before.tokenBalance || 0);
 
       // 格式化数字
-      const formatNum = (n) => n !== undefined ? n.toFixed(4) : 'N/A';
-      const formatChange = (n) => n !== undefined ? (n >= 0 ? '+' : '') + n.toFixed(4) : 'N/A';
+      const formatNum = (n) => n !== undefined && n !== null ? Number(n).toFixed(4) : 'N/A';
+      const formatChange = (n) => n !== undefined && n !== null ? (n >= 0 ? '+' : '') + Number(n).toFixed(4) : 'N/A';
 
       cardPositionHtml = `
         <div class="mt-2 p-2 bg-blue-50 rounded border border-blue-200">

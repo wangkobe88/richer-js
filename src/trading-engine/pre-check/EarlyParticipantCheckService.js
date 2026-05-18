@@ -200,9 +200,6 @@ class EarlyParticipantCheckService {
         earlyTradesFinalLiquidity: basicStats.earlyTradesFinalLiquidity,
         earlyTradesDrawdownFromHighest: basicStats.earlyTradesDrawdownFromHighest,
 
-        // 钱包累积集中度因子
-        ...this._calculateWalletAccumulation(trades, tokenAddress, totalSupply),
-
         // 内部数据（供钱包簇检查复用）
         _trades: trades
       };
@@ -527,11 +524,6 @@ class EarlyParticipantCheckService {
       earlyTradesFinalLiquidity: 9999,
       earlyTradesDrawdownFromHighest: 0,
 
-      // 钱包累积集中度因子（无数据时默认0）
-      earlyTradesTop1BuyRatio: 0,
-      earlyTradesTop3BuyRatio: 0,
-      earlyTradesTop1NetHoldingRatio: 0,
-
       // 标记内盘无交易数据（可能已出内盘）
       earlyTradesNoInnerData: 1,
 
@@ -574,11 +566,6 @@ class EarlyParticipantCheckService {
       earlyTradesFinalLiquidity: null,
       earlyTradesDrawdownFromHighest: null,
 
-      // 钱包累积集中度因子
-      earlyTradesTop1BuyRatio: 0,
-      earlyTradesTop3BuyRatio: 0,
-      earlyTradesTop1NetHoldingRatio: 0,
-
       // 内盘无数据标记
       earlyTradesNoInnerData: 0,
 
@@ -595,58 +582,6 @@ class EarlyParticipantCheckService {
    * @param {number} totalSupply - 代币总供应量（0 表示未提供，使用总买入代币数兜底）
    * @returns {Object} 集中度因子
    */
-  _calculateWalletAccumulation(trades, tokenAddress, totalSupply = 0) {
-    const tokenLower = tokenAddress.toLowerCase();
-    const walletBuys = new Map(); // address → { usd, tokenBought, tokenSold }
-
-    for (const t of trades) {
-      const toToken = (t.to_token || '').toLowerCase();
-      const fromToken = (t.from_token || '').toLowerCase();
-      const buyUsd = t.from_usd || 0;
-
-      // 使用 wallet_address（真实用户EOA），from_address（sender_address）可能是路由合约
-      const userAddress = (t.wallet_address || t.from_address || '').toLowerCase();
-
-      if (toToken === tokenLower) {
-        // 买入目标代币
-        const buyer = userAddress;
-        if (!buyer) continue;
-        if (!walletBuys.has(buyer)) walletBuys.set(buyer, { usd: 0, tokenBought: 0, tokenSold: 0 });
-        const w = walletBuys.get(buyer);
-        w.usd += buyUsd;
-        w.tokenBought += (t.to_amount || 0);
-      } else if (fromToken === tokenLower) {
-        // 卖出目标代币
-        const seller = userAddress;
-        if (!seller) continue;
-        if (!walletBuys.has(seller)) walletBuys.set(seller, { usd: 0, tokenBought: 0, tokenSold: 0 });
-        walletBuys.get(seller).tokenSold += (t.from_amount || 0);
-      }
-    }
-
-    // 按买入金额降序排列
-    const sorted = [...walletBuys.entries()].sort((a, b) => b[1].usd - a[1].usd);
-    const totalBuyUsd = sorted.reduce((s, w) => s + w[1].usd, 0);
-    const totalBoughtTokens = sorted.reduce((s, w) => s + w[1].tokenBought, 0);
-
-    const top1Usd = sorted.length > 0 ? sorted[0][1].usd : 0;
-    const top3Usd = sorted.slice(0, 3).reduce((s, w) => s + w[1].usd, 0);
-    const top1NetTokens = sorted.length > 0 ? (sorted[0][1].tokenBought - sorted[0][1].tokenSold) : 0;
-
-    // 净持仓占比分母：优先使用总供应量，兜底使用总买入代币数
-    const holdingDenominator = (totalSupply > 0) ? totalSupply : totalBoughtTokens;
-
-    return {
-      // [已停用] Top 买入占比因子不再使用
-      // earlyTradesTop1BuyRatio: totalBuyUsd > 0 ? parseFloat((top1Usd / totalBuyUsd).toFixed(4)) : 0,
-      // earlyTradesTop3BuyRatio: totalBuyUsd > 0 ? parseFloat((top3Usd / totalBuyUsd).toFixed(4)) : 0,
-      // earlyTradesTop1NetHoldingRatio: holdingDenominator > 0 ? parseFloat((top1NetTokens / holdingDenominator).toFixed(6)) : 0,
-      earlyTradesTop1BuyRatio: 0,
-      earlyTradesTop3BuyRatio: 0,
-      earlyTradesTop1NetHoldingRatio: 0,
-    };
-  }
-
   /**
    * 评估早期参与者数据是否满足购买条件
    *
