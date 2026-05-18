@@ -588,6 +588,14 @@ class BacktestEngine extends AbstractTradingEngine {
       riseRatioThreshold: 0.5
     });
 
+    // 1.3 初始化多周期 RSI 指标（与 VirtualTradingEngine 一致）
+    const { RSIIndicator } = require('../../indicators/RSIIndicator');
+    this._rsiFast = new RSIIndicator({ period: 3, smoothingPeriod: 1, smoothingType: 'EMA', useLogPrices: true });
+    this._rsiMedium = new RSIIndicator({ period: 7, smoothingPeriod: 2, smoothingType: 'EMA', useLogPrices: true });
+    this._rsiSlow = new RSIIndicator({ period: 14, smoothingPeriod: 3, smoothingType: 'EMA', useLogPrices: true });
+    this._rsiHistoryCache = {};
+    this.logger.info(this._experimentId, '_initializeBacktestComponents', '✅ 多周期RSI指标初始化完成 (fast=3, medium=7, slow=14, logPrices=true)');
+
     // 2. 初始化代币池（简化版，用于状态管理，传入持有者历史缓存）
     this._tokenPool = new TokenPool(this.logger, null, this._holderHistoryCache);
     this.logger.info(this._experimentId, '_initializeBacktestComponents', '✅ 代币池初始化完成');
@@ -1450,6 +1458,46 @@ class BacktestEngine extends AbstractTradingEngine {
 
           const _strength = this._holderTrendDetector._calculateTrendStrength(_holderCounts);
           factors.holderTrendStrengthScore = _strength.score;
+        }
+      }
+    }
+
+    // 动态计算 RSI 动量因子（如果时序数据中没有，从价格历史重建）
+    if ((!factors.rsiFast || factors.rsiFast === null) && this._rsiFast) {
+      const _rsiPrices = this._priceHistoryCache[tokenKey] || [];
+
+      if (_rsiPrices.length >= 4) {
+        factors.rsiFast = this._rsiFast.calculate(_rsiPrices);
+      }
+
+      if (_rsiPrices.length >= 8 && this._rsiMedium) {
+        factors.rsiMedium = this._rsiMedium.calculate(_rsiPrices);
+
+        if (factors.rsiFast !== undefined && factors.rsiFast !== null) {
+          factors.rsiCrossover = (factors.rsiFast > factors.rsiMedium) ? 1 : 0;
+        }
+
+        // 维护 rsiMedium 历史
+        if (!this._rsiHistoryCache[tokenKey]) this._rsiHistoryCache[tokenKey] = [];
+        this._rsiHistoryCache[tokenKey].push(factors.rsiMedium);
+        if (this._rsiHistoryCache[tokenKey].length > 20) {
+          this._rsiHistoryCache[tokenKey].shift();
+        }
+
+        const _rsiHistory = this._rsiHistoryCache[tokenKey];
+        if (_rsiHistory.length >= 2) {
+          factors.rsiSlope = this._rsiMedium.calculateSlope(_rsiHistory, 2);
+        }
+      }
+
+      if (_rsiPrices.length >= 15 && this._rsiSlow) {
+        factors.rsiSlow = this._rsiSlow.calculate(_rsiPrices);
+
+        if (this._rsiMedium) {
+          const _rsiSeries = this._rsiMedium.calculateSeries(_rsiPrices);
+          if (_rsiSeries.length >= 5) {
+            factors.rsiDivergence = this._rsiMedium.detectDivergence(_rsiPrices, _rsiSeries, 5);
+          }
         }
       }
     }
