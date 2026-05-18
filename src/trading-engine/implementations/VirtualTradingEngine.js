@@ -1673,21 +1673,21 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             // contractRiskIsHoneypot: 0,
             // contractRiskDexAmmType: 'unknown',
             // contractRiskHasCode: 'unknown'
-            // GMGN 安全检测因子（初始为空，预检查后更新）
-            gmgnSecurityAvailable: 0,
-            gmgnIsHoneypot: false,
-            gmgnIsOpenSource: false,
-            gmgnIsRenounced: false,
-            gmgnHasBlacklist: -1,
-            gmgnBuyTax: 0,
-            gmgnSellTax: 0,
-            gmgnTop10HolderRate: 0,
-            gmgnHasAlert: false,
-            gmgnPrivilegeCount: 0,
-            gmgnLpLocked: false,
-            gmgnLpLockPercent: 0,
-            gmgnHolderCount: 0,
-            gmgnLiquidity: 0,
+            // [已停用] GMGN 安全检测因子 — 无法回测验证
+            // gmgnSecurityAvailable: 0,
+            // gmgnIsHoneypot: false,
+            // gmgnIsOpenSource: false,
+            // gmgnIsRenounced: false,
+            // gmgnHasBlacklist: -1,
+            // gmgnBuyTax: 0,
+            // gmgnSellTax: 0,
+            // gmgnTop10HolderRate: 0,
+            // gmgnHasAlert: false,
+            // gmgnPrivilegeCount: 0,
+            // gmgnLpLocked: false,
+            // gmgnLpLockPercent: 0,
+            // gmgnHolderCount: 0,
+            // gmgnLiquidity: 0,
           }
         } : null
       };
@@ -1977,8 +1977,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           const directFields = {
             twitter_search_result: preBuyCheckResult._twitterRawResult || null,
             twitter_search_duration: preBuyCheckResult._twitterDuration || null,
-            gmgn_security_raw_data: preBuyCheckResult.gmgnSecurityRawData || null,
-            gmgn_token_info_raw_data: preBuyCheckResult.gmgnTokenInfoRawData || null
+            // [已停用] GMGN 原始数据
+            // gmgn_security_raw_data: preBuyCheckResult.gmgnSecurityRawData || null,
+            // gmgn_token_info_raw_data: preBuyCheckResult.gmgnTokenInfoRawData || null
           };
           await this._updateSignalMetadata(signalId, signalMetadata, directFields);
           this.logger.info(this._experimentId, '_executeStrategy',

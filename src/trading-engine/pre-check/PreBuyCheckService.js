@@ -422,91 +422,91 @@ const FACTOR_METADATA = {
   //   severity: 'info'
   // },
 
-  // GMGN 安全检测因子
-  gmgnSecurityAvailable: {
-    name: 'GMGN安全数据可用',
-    format: v => v === 1 ? '有数据' : '无数据',
-    unit: '',
-    severity: 'info'
-  },
-  gmgnIsHoneypot: {
-    name: 'GMGN蜜罐检测',
-    format: v => v ? '蜜罐' : '安全',
-    unit: '',
-    severity: 'critical'
-  },
-  gmgnIsOpenSource: {
-    name: '合约开源',
-    format: v => v ? '已开源' : '未开源',
-    unit: '',
-    severity: 'warning'
-  },
-  gmgnIsRenounced: {
-    name: '合约放弃权限',
-    format: v => v ? '已放弃' : '未放弃',
-    unit: '',
-    severity: 'warning'
-  },
-  gmgnHasBlacklist: {
-    name: '黑名单功能',
-    format: v => v === 1 ? '有黑名单' : v === -1 ? '未知' : '无',
-    unit: '',
-    severity: 'critical'
-  },
-  gmgnBuyTax: {
-    name: '买入税',
-    format: v => (v * 100).toFixed(1) + '%',
-    unit: '%',
-    severity: 'critical'
-  },
-  gmgnSellTax: {
-    name: '卖出税',
-    format: v => (v * 100).toFixed(1) + '%',
-    unit: '%',
-    severity: 'critical'
-  },
-  gmgnTop10HolderRate: {
-    name: 'Top10持仓占比',
-    format: v => (v * 100).toFixed(1) + '%',
-    unit: '%',
-    severity: 'warning'
-  },
-  gmgnHasAlert: {
-    name: 'GMGN风险警报',
-    format: v => v ? '有警报' : '无',
-    unit: '',
-    severity: 'critical'
-  },
-  gmgnPrivilegeCount: {
-    name: '特权函数数量',
-    format: v => v + '个',
-    unit: '个',
-    severity: 'warning'
-  },
-  gmgnLpLocked: {
-    name: 'LP锁仓状态',
-    format: v => v ? '已锁仓' : '未锁仓',
-    unit: '',
-    severity: 'info'
-  },
-  gmgnLpLockPercent: {
-    name: 'LP锁仓比例',
-    format: v => (v * 100).toFixed(1) + '%',
-    unit: '%',
-    severity: 'info'
-  },
-  gmgnHolderCount: {
-    name: 'GMGN持有人数',
-    format: v => v.toString(),
-    unit: '个',
-    severity: 'info'
-  },
-  gmgnLiquidity: {
-    name: 'GMGN流动性',
-    format: v => '$' + (v >= 1000 ? (v / 1000).toFixed(1) + 'K' : v.toFixed(2)),
-    unit: 'USD',
-    severity: 'info'
-  }
+  // [已停用] GMGN 安全检测因子 — 无法回测验证，暂时注释
+  // gmgnSecurityAvailable: {
+  //   name: 'GMGN安全数据可用',
+  //   format: v => v === 1 ? '有数据' : '无数据',
+  //   unit: '',
+  //   severity: 'info'
+  // },
+  // gmgnIsHoneypot: {
+  //   name: 'GMGN蜜罐检测',
+  //   format: v => v ? '蜜罐' : '安全',
+  //   unit: '',
+  //   severity: 'critical'
+  // },
+  // gmgnIsOpenSource: {
+  //   name: '合约开源',
+  //   format: v => v ? '已开源' : '未开源',
+  //   unit: '',
+  //   severity: 'warning'
+  // },
+  // gmgnIsRenounced: {
+  //   name: '合约放弃权限',
+  //   format: v => v ? '已放弃' : '未放弃',
+  //   unit: '',
+  //   severity: 'warning'
+  // },
+  // gmgnHasBlacklist: {
+  //   name: '黑名单功能',
+  //   format: v => v === 1 ? '有黑名单' : v === -1 ? '未知' : '无',
+  //   unit: '',
+  //   severity: 'critical'
+  // },
+  // gmgnBuyTax: {
+  //   name: '买入税',
+  //   format: v => (v * 100).toFixed(1) + '%',
+  //   unit: '%',
+  //   severity: 'critical'
+  // },
+  // gmgnSellTax: {
+  //   name: '卖出税',
+  //   format: v => (v * 100).toFixed(1) + '%',
+  //   unit: '%',
+  //   severity: 'critical'
+  // },
+  // gmgnTop10HolderRate: {
+  //   name: 'Top10持仓占比',
+  //   format: v => (v * 100).toFixed(1) + '%',
+  //   unit: '%',
+  //   severity: 'warning'
+  // },
+  // gmgnHasAlert: {
+  //   name: 'GMGN风险警报',
+  //   format: v => v ? '有警报' : '无',
+  //   unit: '',
+  //   severity: 'critical'
+  // },
+  // gmgnPrivilegeCount: {
+  //   name: '特权函数数量',
+  //   format: v => v + '个',
+  //   unit: '个',
+  //   severity: 'warning'
+  // },
+  // gmgnLpLocked: {
+  //   name: 'LP锁仓状态',
+  //   format: v => v ? '已锁仓' : '未锁仓',
+  //   unit: '',
+  //   severity: 'info'
+  // },
+  // gmgnLpLockPercent: {
+  //   name: 'LP锁仓比例',
+  //   format: v => (v * 100).toFixed(1) + '%',
+  //   unit: '%',
+  //   severity: 'info'
+  // },
+  // gmgnHolderCount: {
+  //   name: 'GMGN持有人数',
+  //   format: v => v.toString(),
+  //   unit: '个',
+  //   severity: 'info'
+  // },
+  // gmgnLiquidity: {
+  //   name: 'GMGN流动性',
+  //   format: v => '$' + (v >= 1000 ? (v / 1000).toFixed(1) + 'K' : v.toFixed(2)),
+  //   unit: 'USD',
+  //   severity: 'info'
+  // }
 };
 
 /**
@@ -629,17 +629,19 @@ class PreBuyCheckService {
         ? this._getEmptyTwitterCheck()
         : await this._performTwitterSearch(tokenAddress);
 
-      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查、GMGN安全检测
-      const gmgnSecurityPromise = skipGmgnSecurity
-        ? Promise.resolve(this.gmgnSecurityService.getEmptyFactorValues())
-        : this.gmgnSecurityService.performSecurityCheck(tokenAddress, chain);
-      const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck, gmgnSecurityCheck] = await Promise.all([
+      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查
+      // [已停用] GMGN 安全检测 — 无法回测验证，暂时跳过
+      // const gmgnSecurityPromise = skipGmgnSecurity
+      //   ? Promise.resolve(this.gmgnSecurityService.getEmptyFactorValues())
+      //   : this.gmgnSecurityService.performSecurityCheck(tokenAddress, chain);
+      const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck, tokenAddress),
         this._checkCreatorIsNotBadDevWallet(creatorAddress),
         this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck),
-        gmgnSecurityPromise,
+        // gmgnSecurityPromise,
       ]);
+      const gmgnSecurityCheck = this.gmgnSecurityService.getEmptyFactorValues();
 
       // 钱包标签因子（纯内存计算，无 IO）
       const walletLabelCheck = this.walletLabelService.calculateLabelFactors(earlyParticipantCheck._trades);
@@ -759,8 +761,8 @@ class PreBuyCheckService {
         twitterSearchError: errorMessage,
         // 强势交易者持仓检查失败时的空值
         ...this.strongTraderPositionService.getEmptyFactorValues(),
-        // GMGN 安全检测（失败时使用空值）
-        ...this.gmgnSecurityService.getEmptyFactorValues(),
+        // [已停用] GMGN 安全检测（失败时使用空值）
+        // ...this.gmgnSecurityService.getEmptyFactorValues(),
         // [已停用] 合约审计风控因子（保留默认值以兼容已有数据）
         // contractRiskAvailable: options.contractRiskData?.contractRiskAvailable ?? 0,
         // contractRiskPairLockPercent: options.contractRiskData?.contractRiskPairLockPercent ?? 0,
@@ -832,10 +834,10 @@ class PreBuyCheckService {
       // 数据采集轮数因子
       dataCollectionRound: extraContext.dataCollectionRound ?? 0,
 
-      // GMGN 安全检测因子
-      ...(extraContext.gmgnSecurityCheck || this.gmgnSecurityService.getEmptyFactorValues()),
-      // 社交信息因子融合
-      ...this._mergeSocialFactors(extraContext.gmgnSecurityCheck, extraContext.rawApiData),
+      // [已停用] GMGN 安全检测因子 — 无法回测验证
+      // ...(extraContext.gmgnSecurityCheck || this.gmgnSecurityService.getEmptyFactorValues()),
+      // // 社交信息因子融合
+      // ...this._mergeSocialFactors(extraContext.gmgnSecurityCheck, extraContext.rawApiData),
 
       // [已停用] 合约审计风控因子（保留默认值以兼容已有数据）
       // contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
@@ -952,10 +954,10 @@ class PreBuyCheckService {
         tweetAuthorType: extraContext.tweetAuthorType ?? 0,
         // 数据采集轮数因子（允许在条件表达式中使用）
         dataCollectionRound: extraContext.dataCollectionRound ?? 0,
-        // GMGN 安全检测因子（允许在条件表达式中使用）
-        ...this._extractGmgnFactors(extraContext.gmgnSecurityCheck),
-        // 社交信息因子融合：GMGN API 数据 + rawApiData（AVE 等收集时数据）
-        ...this._mergeSocialFactors(extraContext.gmgnSecurityCheck, extraContext.rawApiData),
+        // [已停用] GMGN 安全检测因子 — 无法回测验证
+        // ...this._extractGmgnFactors(extraContext.gmgnSecurityCheck),
+        // // 社交信息因子融合：GMGN API 数据 + rawApiData（AVE 等收集时数据）
+        // ...this._mergeSocialFactors(extraContext.gmgnSecurityCheck, extraContext.rawApiData),
         // [已停用] AVE 合约审计风控因子
         // contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
         // contractRiskPairLockPercent: extraContext.contractRiskData?.contractRiskPairLockPercent ?? 0,
@@ -990,16 +992,16 @@ class PreBuyCheckService {
           twitterTotalResults: context.twitterTotalResults,
           twitterSearchDuration: context.twitterSearchDuration,
           narrativeRating: context.narrativeRating,
-          // GMGN 安全检测因子
-          gmgnSecurityAvailable: context.gmgnSecurityAvailable,
-          gmgnIsHoneypot: context.gmgnIsHoneypot,
-          gmgnIsOpenSource: context.gmgnIsOpenSource,
-          gmgnIsRenounced: context.gmgnIsRenounced,
-          gmgnBuyTax: context.gmgnBuyTax,
-          gmgnSellTax: context.gmgnSellTax,
-          gmgnLpLocked: context.gmgnLpLocked,
-          gmgnTop10HolderRate: context.gmgnTop10HolderRate,
-          gmgnHasAlert: context.gmgnHasAlert
+          // [已停用] GMGN 安全检测因子
+          // gmgnSecurityAvailable: context.gmgnSecurityAvailable,
+          // gmgnIsHoneypot: context.gmgnIsHoneypot,
+          // gmgnIsOpenSource: context.gmgnIsOpenSource,
+          // gmgnIsRenounced: context.gmgnIsRenounced,
+          // gmgnBuyTax: context.gmgnBuyTax,
+          // gmgnSellTax: context.gmgnSellTax,
+          // gmgnLpLocked: context.gmgnLpLocked,
+          // gmgnTop10HolderRate: context.gmgnTop10HolderRate,
+          // gmgnHasAlert: context.gmgnHasAlert
         }
       });
 
@@ -1007,9 +1009,9 @@ class PreBuyCheckService {
         ...baseResult,
         canBuy,
         preTraderCanBuy: canBuy,
-        // 透传 GMGN 原始 API 数据，供上层存入 strategy_signals 表
-        gmgnSecurityRawData: extraContext.gmgnSecurityCheck?._rawSecurity || null,
-        gmgnTokenInfoRawData: extraContext.gmgnSecurityCheck?._rawInfo || null,
+        // [已停用] 透传 GMGN 原始 API 数据
+        // gmgnSecurityRawData: extraContext.gmgnSecurityCheck?._rawSecurity || null,
+        // gmgnTokenInfoRawData: extraContext.gmgnSecurityCheck?._rawInfo || null,
       };
 
       // 无论成功失败，都执行详细诊断
@@ -1781,7 +1783,8 @@ class PreBuyCheckService {
       // contractRiskIsHoneypot: 0,
       // contractRiskDexAmmType: 'unknown',
       // contractRiskHasCode: 'unknown',
-      ...this.gmgnSecurityService.getEmptyFactorValues(),
+      // [已停用] GMGN 安全检测因子
+      // ...this.gmgnSecurityService.getEmptyFactorValues(),
       ...this.earlyParticipantService.getEmptyFactorValues(),
       ...this.walletClusterService.getEmptyFactorValues(),
       // Twitter因子
