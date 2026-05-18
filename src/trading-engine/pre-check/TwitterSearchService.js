@@ -175,7 +175,6 @@ class TwitterSearchService {
       twitterVerifiedUsers: '认证用户数',
       twitterFollowers: '推文用户粉丝总数',
       twitterUniqueUsers: '独立用户数',
-    };
       twitterSearchSuccess: 'Twitter搜索是否成功',
       twitterSearchDuration: 'Twitter搜索耗时(毫秒)',
       twitterSearchError: 'Twitter搜索错误信息'
