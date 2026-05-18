@@ -68,14 +68,17 @@ const STRATEGIES = [
 
 // ============ 数据加载 ============
 
+// 每个代币最多取的数据点数（覆盖 ~2 分钟 @2s 间隔，足够 RSI 策略评估）
+const MAX_POINTS_PER_TOKEN = 60;
+
 async function loadTimeSeriesData(experimentId) {
   const supabase = dbManager.getClient();
-  const PAGE_SIZE = 2000;
-  let allData = [];
+  const PAGE_SIZE = 1000;
+  // tokenKey -> 数据点数组（每个最多 MAX_POINTS_PER_TOKEN 个）
+  const tokenDataMap = {};
   let page = 0;
-  let hasMore = true;
 
-  while (hasMore) {
+  while (true) {
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
@@ -87,21 +90,38 @@ async function loadTimeSeriesData(experimentId) {
       .range(from, to);
 
     if (error) {
-      console.error(`  数据加载错误: ${error.message}`);
+      console.error(`  数据加载错误 (page ${page}): ${error.message}`);
       break;
     }
 
-    if (!data || data.length === 0) {
-      hasMore = false;
-    } else {
-      allData = allData.concat(data);
-      if (data.length < PAGE_SIZE) {
-        hasMore = false;
+    if (!data || data.length === 0) break;
+
+    for (const row of data) {
+      const key = `${row.token_address}-${row.blockchain || 'bsc'}`;
+      if (!tokenDataMap[key]) tokenDataMap[key] = [];
+      if (tokenDataMap[key].length < MAX_POINTS_PER_TOKEN) {
+        tokenDataMap[key].push(row);
       }
-      page++;
+    }
+
+    // 检查是否所有已发现的代币都已有足够数据
+    const tokenKeys = Object.keys(tokenDataMap);
+    const allComplete = tokenKeys.length > 0 && tokenKeys.every(k => tokenDataMap[k].length >= MAX_POINTS_PER_TOKEN);
+
+    if (allComplete || data.length < PAGE_SIZE) break;
+
+    page++;
+    if (page % 5 === 0) {
+      const total = tokenKeys.reduce((s, k) => s + tokenDataMap[k].length, 0);
+      const complete = tokenKeys.filter(k => tokenDataMap[k].length >= MAX_POINTS_PER_TOKEN).length;
+      console.log(`  页 ${page}: ${tokenKeys.length} 代币, ${complete} 已满, ${total} 条数据`);
     }
   }
 
+  // 展平为数组
+  const allData = Object.values(tokenDataMap).flat();
+  const uniqueTokens = Object.keys(tokenDataMap).length;
+  console.log(`  加载完成: ${uniqueTokens} 个代币, ${allData.length} 条数据`);
   return allData;
 }
 
