@@ -1295,11 +1295,6 @@ class BacktestEngine extends AbstractTradingEngine {
       this._holderHistoryCache.addHolderCount(tokenKey, holderCount, now);
     }
 
-    // 维护价格历史缓存，用于重算 trendRiseRatio（使用 >= 逻辑）
-    if (!this._priceHistoryCache) this._priceHistoryCache = {};
-    if (!this._priceHistoryCache[tokenKey]) this._priceHistoryCache[tokenKey] = [];
-    this._priceHistoryCache[tokenKey].push(priceUsd);
-
     // 调试日志：在构建因子前检查 tokenState.buyTime
     if (tokenState.buyTime) {
       this.logger.info(this._experimentId, '_buildFactorsFromData_PRE',
@@ -1312,7 +1307,9 @@ class BacktestEngine extends AbstractTradingEngine {
     // 动态计算价格趋势因子（如果时序数据中没有）
     // 精简数据中不存储趋势因子，需要从价格历史完全重建
     if (!factors.trendCV || factors.trendCV === null) {
-      const priceHistory = this._priceHistoryCache[tokenKey] || [];
+      // 使用 tokenPool 的价格历史（包含 addToken 初始价格 + updatePrice 更新）
+      // 与虚拟引擎的 getTokenPrices() 保持一致
+      const priceHistory = this._tokenPool.getTokenPrices(tokenState.token, tokenState.chain);
       const maxPoints = 8;
       const _prices = priceHistory.slice(-maxPoints);
 
