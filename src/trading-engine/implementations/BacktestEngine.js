@@ -863,7 +863,7 @@ class BacktestEngine extends AbstractTradingEngine {
           this._tokenPlatformInfo.set(row.token_address, {
             platform: row.platform || null,
             mainPair: rawApiData.main_pair || null,
-            launchPrice: rawApiData.launch_price || null
+            launchPrice: rawApiData.launch_price ? parseFloat(rawApiData.launch_price) : null
           });
         }
 
@@ -1249,12 +1249,14 @@ class BacktestEngine extends AbstractTradingEngine {
         created_at: new Date(dataPoint.timestamp).getTime() / 1000
       });
 
-      // 初始化价格历史缓存：加入第一个数据点的价格（模拟虚拟引擎 addToken 时的初始价格）
-      // 虚拟引擎在 addToken 时会将初始价格加入 priceHistoryCache，回测需要保持一致
+      // 初始化价格历史缓存：使用 launchPrice 模拟虚拟引擎 addToken 时的初始价格
+      // 虚拟引擎在 addToken 时将发现价格（≈ launchPrice）加入 priceHistoryCache，
+      // 随后第一次 updatePrice 可能获取到不同的价格，导致价格历史首项与时序数据首点不同
       if (!this._priceHistoryCache) this._priceHistoryCache = {};
       const initTokenKey = `${tokenAddress}-${chain}`;
       if (!this._priceHistoryCache[initTokenKey]) this._priceHistoryCache[initTokenKey] = [];
-      this._priceHistoryCache[initTokenKey].push(parseFloat(dataPoint.price_usd) || 0);
+      const initPrice = launchPrice > 0 ? launchPrice : parseFloat(dataPoint.price_usd) || 0;
+      this._priceHistoryCache[initTokenKey].push(initPrice);
     }
     return this._tokenStates.get(tokenAddress);
   }
