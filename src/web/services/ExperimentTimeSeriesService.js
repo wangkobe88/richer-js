@@ -105,20 +105,22 @@ class ExperimentTimeSeriesService {
         : tokenAddress || '全部';
       console.log(`📊 [时序数据] 开始查询 (重试 ${retryAttempt}/${maxRetries}, 分页大小: ${PAGE_SIZE}, 超时: ${QUERY_TIMEOUT}ms, 代币: ${tokenFilterInfo})`);
 
-      let lastTimestamp = null; // 用于游标分页
+      let lastId = null; // 游标：上一页最后一条的 id
 
       while (hasMore && page < MAX_PAGES) {
-        const from = page * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
 
         try {
-          // 创建查询 - 使用游标分页避免 range() 的问题
+          // 使用游标分页：基于 id > lastId，避免 offset 分页的性能问题
           let query = supabase
             .from('experiment_time_series_data')
             .select('id, experiment_id, token_address, token_symbol, timestamp, loop_count, price_usd, price_native, factor_values, blockchain')
             .eq('experiment_id', experimentId)
-            .order('timestamp', { ascending: true })
-            .range(from, to);
+            .order('id', { ascending: true })
+            .limit(PAGE_SIZE);
+
+          if (lastId) {
+            query = query.gt('id', lastId);
+          }
 
           // 支持单个地址（字符串）或多个地址（数组）过滤
           if (tokenAddress) {
@@ -147,7 +149,8 @@ class ExperimentTimeSeriesService {
           const { data, error } = await Promise.race([query, timeoutPromise]);
 
           // 调试日志：每页都输出
-          console.log(`📊 [时序数据] 第 ${page + 1} 页 (range ${from}-${to}): ${data?.length || 0} 条, hasMore=${hasMore}`);
+          const cursorInfo = lastId ? `cursor>${lastId.substring(0, 8)}...` : 'start';
+          console.log(`📊 [时序数据] 第 ${page + 1} 页 (${cursorInfo}): ${data?.length || 0} 条, hasMore=${hasMore}`);
 
           if (error) {
             if (error.message === 'Query timeout' || error.message?.includes('timeout')) {
@@ -186,10 +189,8 @@ class ExperimentTimeSeriesService {
             allData = allData.concat(data);
             consecutiveEmptyPages = 0; // 重置空页计数
 
-            // 记录最后一个时间戳，用于后续查询
-            if (data.length > 0) {
-              lastTimestamp = data[data.length - 1].timestamp;
-            }
+            // 更新游标：记录本页最后一条的 id
+            lastId = data[data.length - 1].id;
 
             // 如果返回的数据少于PAGE_SIZE，说明已经是最后一页
             hasMore = data.length === PAGE_SIZE;
