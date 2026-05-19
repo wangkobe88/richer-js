@@ -2411,6 +2411,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
         });
 
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+        this._strategyEngine.recordExecution(strategy, token.token, Date.now());
 
         // 更新代币状态到数据库（与虚拟盘一致）
         await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
@@ -2472,6 +2473,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       if (result && result.success) {
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+        this._strategyEngine.recordExecution(strategy, token.token, Date.now());
         return successResult();
       }
 

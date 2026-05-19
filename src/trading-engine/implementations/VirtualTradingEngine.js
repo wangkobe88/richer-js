@@ -2052,6 +2052,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         });
 
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+        this._strategyEngine.recordExecution(strategy, token.token, Date.now());
 
         await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
 
@@ -2116,6 +2117,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
       if (result && result.success) {
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+        this._strategyEngine.recordExecution(strategy, token.token, Date.now());
         return successResult(true);
       }
 

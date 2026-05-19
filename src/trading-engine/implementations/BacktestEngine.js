@@ -1779,6 +1779,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
         tokenState.strategyExecutions[strategy.id].count++;
         tokenState.strategyExecutions[strategy.id].lastExecution = timestamp.getTime();
+        this._strategyEngine.recordExecution(strategy, tokenState.token, timestamp.getTime());
 
         if (this._roundSummary) {
           this._roundSummary.recordSignalExecution(tokenState.token, true, null);
@@ -1803,8 +1804,6 @@ class BacktestEngine extends AbstractTradingEngine {
     } else if (strategy.action === 'sell') {
       const cardManager = this._tokenPool.getCardPositionManager(tokenState.token, tokenState.chain);
       if (!cardManager) {
-        this.logger.warn(this._experimentId, '_executeStrategy',
-          `代币 ${tokenState.symbol} 没有卡牌管理器，跳过卖出`);
         return false;
       }
 
@@ -1852,6 +1851,7 @@ class BacktestEngine extends AbstractTradingEngine {
       if (result && result.success) {
         tokenState.strategyExecutions[strategy.id].count++;
         tokenState.strategyExecutions[strategy.id].lastExecution = timestamp.getTime();
+        this._strategyEngine.recordExecution(strategy, tokenState.token, timestamp.getTime());
 
         // 检查是否全部卖出，更新状态
         const holding = this._getHolding(tokenState.token);

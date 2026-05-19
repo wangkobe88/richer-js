@@ -151,8 +151,7 @@ class StrategyEngine {
         // 返回优先级最高的策略（数组已排序，第一个就是最高优先级）
         const selectedStrategy = triggeredStrategies[0];
 
-        // 记录执行时间
-        this.recordExecution(selectedStrategy, tokenAddress, timestamp);
+        // 注意：不在此处记录 cooldown，由调用方在策略实际执行成功后调用 recordExecution
 
         return selectedStrategy;
     }
