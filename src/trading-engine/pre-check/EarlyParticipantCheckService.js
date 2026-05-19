@@ -141,8 +141,22 @@ class EarlyParticipantCheckService {
     });
 
     try {
+      // 0. 尝试从数据库缓存获取（同一代币、相近时间差在几秒内的数据可直接复用）
+      let trades = null;
+      const cachedTrades = await this._loadTradesFromDB(tokenAddress, checkTime);
+      if (cachedTrades) {
+        trades = cachedTrades;
+        this.logger.info('[EarlyParticipantCheckService] 复用数据库缓存的交易数据', {
+          token_address: tokenAddress,
+          trades_count: trades.length,
+          cached_check_time: trades._cachedCheckTime
+        });
+      }
+
       // 1. 获取交易数据（固定90秒回溯窗口）
-      const trades = await this._fetchEarlyTrades(innerPair, chain, checkTime);
+      if (!trades) {
+        trades = await this._fetchEarlyTrades(innerPair, chain, checkTime);
+      }
 
       if (!trades || trades.length === 0) {
         this.logger.error('[EarlyParticipantCheckService] 未获取到交易数据，拒绝交易', {
@@ -228,6 +242,37 @@ class EarlyParticipantCheckService {
 
       // 出错时返回空结果，不影响整体购买流程
       return this._getEmptyResult();
+    }
+  }
+
+  /**
+   * 从数据库缓存加载交易数据
+   * 同一代币在相近时间（30秒内）已获取过的数据可直接复用
+   * @private
+   */
+  async _loadTradesFromDB(tokenAddress, checkTime) {
+    if (!this.supabase) return null;
+
+    try {
+      const { data, error } = await this.supabase
+        .from('early_participant_trades')
+        .select('trades_data, check_time')
+        .eq('token_address', tokenAddress)
+        .gte('check_time', checkTime - 30)
+        .lte('check_time', checkTime + 30)
+        .order('check_time', { ascending: false })
+        .limit(1);
+
+      if (error || !data || data.length === 0) return null;
+
+      const cached = data[0];
+      if (!cached.trades_data || cached.trades_data.length === 0) return null;
+
+      // 标记缓存来源的 checkTime，供日志使用
+      cached.trades_data._cachedCheckTime = cached.check_time;
+      return cached.trades_data;
+    } catch (e) {
+      return null;
     }
   }
 
