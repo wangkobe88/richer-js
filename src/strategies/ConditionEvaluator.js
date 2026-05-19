@@ -6,6 +6,7 @@
  *
  * 支持的条件语法:
  * - 比较运算: age < 1, profitPercent >= 30, currentPrice > 0
+ * - 空值检查: rsiSlow IS NULL, rsiSlow IS NOT NULL
  * - 逻辑运算: condition1 AND condition2, condition1 OR condition2
  * - 括号分组: (condition1 AND condition2) OR condition3
  */
@@ -123,6 +124,26 @@ class ConditionEvaluator {
             }
 
             skipWhitespace();
+
+            // 检查 IS NULL / IS NOT NULL
+            if (pos + 6 <= input.length && input.substr(pos, 6).toUpperCase() === 'IS NOT') {
+                pos += 6;
+                skipWhitespace();
+                if (pos + 4 <= input.length && input.substr(pos, 4).toUpperCase() === 'NULL') {
+                    pos += 4;
+                    return { type: 'IS_NOT_NULL', operand: leftOperand };
+                }
+                throw new Error('IS NOT 后期望 NULL');
+            }
+            if (pos + 2 <= input.length && input.substr(pos, 2).toUpperCase() === 'IS') {
+                pos += 2;
+                skipWhitespace();
+                if (pos + 4 <= input.length && input.substr(pos, 4).toUpperCase() === 'NULL') {
+                    pos += 4;
+                    return { type: 'IS_NULL', operand: leftOperand };
+                }
+                throw new Error('IS 后期望 NULL');
+            }
 
             // 解析比较运算符
             let operator = null;
@@ -250,6 +271,16 @@ class ConditionEvaluator {
             case 'OR':
                 return this._evaluateNode(node.left, factorResults) ||
                        this._evaluateNode(node.right, factorResults);
+
+            case 'IS_NULL': {
+                const val = this._getOperandValue(node.operand, factorResults);
+                return val == null;
+            }
+
+            case 'IS_NOT_NULL': {
+                const val = this._getOperandValue(node.operand, factorResults);
+                return val != null;
+            }
 
             case 'COMPARISON':
                 return this._evaluateComparison(node, factorResults);
