@@ -56,7 +56,7 @@ class Experiment {
       strategy_type: this.strategyType,
       blockchain: this.blockchain,
       kline_type: this.klineType,
-      started_at: this.startedAt.toISOString(),
+      started_at: this.startedAt ? this.startedAt.toISOString() : null,
       stopped_at: this.stoppedAt ? this.stoppedAt.toISOString() : null,
       created_at: this.createdAt.toISOString(),
       updated_at: this.updatedAt.toISOString()
@@ -80,7 +80,7 @@ class Experiment {
       strategyType: dbRow.strategy_type,
       blockchain: dbRow.blockchain,
       klineType: dbRow.kline_type,
-      startedAt: new Date(dbRow.started_at),
+      startedAt: dbRow.started_at ? new Date(dbRow.started_at) : null,
       stoppedAt: dbRow.stopped_at ? new Date(dbRow.stopped_at) : null,
       createdAt: new Date(dbRow.created_at),
       updatedAt: new Date(dbRow.updated_at || dbRow.created_at)
@@ -159,6 +159,7 @@ class Experiment {
    * @returns {number} 持续时间
    */
   getDuration() {
+    if (!this.startedAt) return 0;
     const endTime = this.stoppedAt || new Date();
     return endTime.getTime() - this.startedAt.getTime();
   }

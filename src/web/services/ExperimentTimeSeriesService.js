@@ -668,6 +668,52 @@ class ExperimentTimeSeriesService {
   }
 
   /**
+   * 获取受保护的代币地址集合（有 strategy_signals 的代币不可删除）
+   * @private
+   * @param {string} experimentId - 实验ID
+   * @returns {Promise<Set<string>>} 受保护的代币地址集合（小写）
+   */
+  async _getProtectedTokenAddresses(experimentId) {
+    const protectedSet = new Set();
+    try {
+      const supabase = dbManager.getClient();
+      const pageSize = 1000;
+      let offset = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('strategy_signals')
+          .select('token_address')
+          .eq('experiment_id', experimentId)
+          .range(offset, offset + pageSize - 1);
+
+        if (error) {
+          console.warn(`⚠️ [保护检查] 查询 strategy_signals 失败: ${error.message}`);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          for (const row of data) {
+            if (row.token_address) {
+              protectedSet.add(row.token_address.toLowerCase());
+            }
+          }
+          offset += pageSize;
+          hasMore = data.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`🛡️ [保护检查] 实验 ${experimentId} 有 ${protectedSet.size} 个受保护代币（有信号）`);
+    } catch (err) {
+      console.warn(`⚠️ [保护检查] 查询受保护代币失败: ${err.message}，跳过保护检查`);
+    }
+    return protectedSet;
+  }
+
+  /**
    * 压缩时序数据 - 删除低涨幅代币的数据
    * @param {string} experimentId - 实验ID
    * @param {number} threshold - 涨幅阈值百分比，默认20
@@ -739,6 +785,10 @@ class ExperimentTimeSeriesService {
         console.warn(`⚠️ [时序数据压缩] 统计数据量异常: ${err.message}, 跳过统计`);
       }
 
+      // 步骤2.5: 获取受保护的代币地址（有 strategy_signals 的不可删除）
+      console.log(`📊 [时序数据压缩] 步骤2.5: 查询受保护代币...`);
+      const protectedAddresses = await this._getProtectedTokenAddresses(experimentId);
+
       // 步骤3: 筛选需要删除的代币（max_change_percent < threshold）
       console.log(`📊 [时序数据压缩] 步骤3: 筛选低涨幅代币...`);
       const tokensToDelete = [];
@@ -769,17 +819,26 @@ class ExperimentTimeSeriesService {
           continue;
         }
 
-        // 低于阈值 -> 标记删除
+        // 低于阈值 -> 检查是否受保护
         if (maxChange < threshold) {
-          tokensToDelete.push({
-            address: token.token_address,
-            symbol: token.token_symbol,
-            maxChange: maxChange
-          });
+          if (protectedAddresses.has(token.token_address.toLowerCase())) {
+            skippedTokens.push({
+              address: token.token_address,
+              symbol: token.token_symbol,
+              reason: 'protected_has_signals'
+            });
+          } else {
+            tokensToDelete.push({
+              address: token.token_address,
+              symbol: token.token_symbol,
+              maxChange: maxChange
+            });
+          }
         }
       }
 
-      console.log(`📊 [时序数据压缩] 需要删除: ${tokensToDelete.length} 个代币, 跳过: ${skippedTokens.length} 个代币`);
+      const protectedCount = skippedTokens.filter(t => t.reason === 'protected_has_signals').length;
+      console.log(`📊 [时序数据压缩] 需要删除: ${tokensToDelete.length} 个代币, 跳过: ${skippedTokens.length} 个代币 (其中受保护: ${protectedCount})`);
 
       // 步骤4: 删除时序数据（分批处理避免超时）
       if (tokensToDelete.length > 0) {
@@ -831,6 +890,7 @@ class ExperimentTimeSeriesService {
       // 步骤4.5: 清理孤儿数据（代币表中不存在但时序数据中存在的记录）
       console.log(`📊 [时序数据压缩] 步骤4.5: 清理孤儿数据...`);
       let orphanCleanedCount = 0;
+      let protectedOrphanCount = 0;
       try {
         // 获取当前代币表中的所有代币地址
         const { data: currentTokens } = await supabase
@@ -874,8 +934,14 @@ class ExperimentTimeSeriesService {
         console.log(`   [孤儿清理] 时序数据中唯一代币: ${uniqueTokensInTimeSeries.size} 个`);
         console.log(`   [孤儿清理] 代币表中代币: ${currentTokenAddresses.size} 个`);
 
-        // 找出孤儿代币
-        const orphanAddresses = Array.from(uniqueTokensInTimeSeries).filter(addr => !currentTokenAddresses.has(addr));
+        // 找出孤儿代币（排除受保护的代币）
+        const allOrphanAddresses = Array.from(uniqueTokensInTimeSeries).filter(addr => !currentTokenAddresses.has(addr));
+        const orphanAddresses = allOrphanAddresses.filter(addr => !protectedAddresses.has(addr.toLowerCase()));
+        protectedOrphanCount = allOrphanAddresses.length - orphanAddresses.length;
+
+        if (protectedOrphanCount > 0) {
+          console.log(`📊 [时序数据压缩] 跳过 ${protectedOrphanCount} 个受保护的孤儿代币（有信号）`);
+        }
 
         if (orphanAddresses.length > 0) {
           console.log(`⚠️ [时序数据压缩] 发现 ${orphanAddresses.length} 个孤儿代币，开始清理...`);
@@ -952,6 +1018,9 @@ class ExperimentTimeSeriesService {
         console.log(`   时序数据: 统计失败 (数据量过大)`);
       }
       console.log(`   代币记录: ${allTokens.length} -> ${allTokens.length - deletedTokenCount} (删除 ${deletedTokenCount} 个, ${tokenCompressionRatio}%)`);
+      if (protectedCount > 0) {
+        console.log(`   受保护(有信号): ${protectedCount} 个代币`);
+      }
       if (orphanCleanedCount > 0) {
         console.log(`   孤儿清理: 删除了 ${orphanCleanedCount} 个孤儿代币的时序数据`);
       }
@@ -972,6 +1041,8 @@ class ExperimentTimeSeriesService {
           compressionRatio: compressionRatio !== null ? parseFloat(compressionRatio) : null,
           tokenCompressionRatio: parseFloat(tokenCompressionRatio),
           orphanCleanedCount: orphanCleanedCount,
+          protectedTokens: protectedCount,
+          protectedOrphanCount: protectedOrphanCount,
           deletedTokens: tokensToDelete.map(t => ({
             address: t.address,
             symbol: t.symbol,
@@ -1028,6 +1099,10 @@ class ExperimentTimeSeriesService {
 
       console.log(`📊 [清理代币] 共查询到 ${allTokens.length} 个代币`);
 
+      // 步骤1.5: 获取受保护的代币地址（有 strategy_signals 的不可删除）
+      console.log(`📊 [清理代币] 步骤1.5: 查询受保护代币...`);
+      const protectedAddresses = await this._getProtectedTokenAddresses(experimentId);
+
       // 步骤2: 筛选需要删除的代币（无 analysis_results 或 analysis_results 为空）
       console.log(`📊 [清理代币] 步骤2: 筛选无数据代币...`);
       const tokensToDelete = [];
@@ -1036,12 +1111,20 @@ class ExperimentTimeSeriesService {
       for (const token of allTokens) {
         const analysis = token.analysis_results;
 
-        // 无分析结果或分析结果为空对象 -> 标记删除
+        // 无分析结果或分析结果为空对象 -> 检查是否受保护
         if (!analysis || (typeof analysis === 'object' && Object.keys(analysis).length === 0)) {
-          tokensToDelete.push({
-            address: token.token_address,
-            symbol: token.token_symbol
-          });
+          if (protectedAddresses.has(token.token_address.toLowerCase())) {
+            tokensWithAnalysis.push({
+              address: token.token_address,
+              symbol: token.token_symbol,
+              protected: true
+            });
+          } else {
+            tokensToDelete.push({
+              address: token.token_address,
+              symbol: token.token_symbol
+            });
+          }
         } else {
           tokensWithAnalysis.push({
             address: token.token_address,
@@ -1050,7 +1133,8 @@ class ExperimentTimeSeriesService {
         }
       }
 
-      console.log(`📊 [清理代币] 需要删除: ${tokensToDelete.length} 个代币, 保留: ${tokensWithAnalysis.length} 个代币`);
+      const protectedCount = tokensWithAnalysis.filter(t => t.protected).length;
+      console.log(`📊 [清理代币] 需要删除: ${tokensToDelete.length} 个代币, 保留: ${tokensWithAnalysis.length} 个代币 (其中受保护: ${protectedCount})`);
 
       // 步骤3: 删除代币记录（分批处理避免超时）
       if (tokensToDelete.length > 0) {
@@ -1084,6 +1168,9 @@ class ExperimentTimeSeriesService {
       console.log(`   总代币数: ${allTokens.length}`);
       console.log(`   删除代币数: ${tokensToDelete.length} (无价格数据)`);
       console.log(`   保留代币数: ${tokensWithAnalysis.length} (有价格数据)`);
+      if (protectedCount > 0) {
+        console.log(`   受保护(有信号): ${protectedCount} 个代币`);
+      }
 
       return {
         success: true,
@@ -1092,6 +1179,7 @@ class ExperimentTimeSeriesService {
           totalTokens: allTokens.length,
           deletedTokens: tokensToDelete.length,
           remainingTokens: tokensWithAnalysis.length,
+          protectedTokens: protectedCount,
           deletedTokenList: tokensToDelete
         }
       };
