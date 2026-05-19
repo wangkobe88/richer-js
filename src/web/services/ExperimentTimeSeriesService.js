@@ -110,16 +110,27 @@ class ExperimentTimeSeriesService {
       while (hasMore && page < MAX_PAGES) {
 
         try {
-          // 使用游标分页：基于 id > lastId，避免 offset 分页的性能问题
-          let query = supabase
-            .from('experiment_time_series_data')
-            .select('id, experiment_id, token_address, token_symbol, timestamp, loop_count, price_usd, price_native, factor_values, blockchain')
-            .eq('experiment_id', experimentId)
-            .order('id', { ascending: true })
-            .limit(PAGE_SIZE);
+          let query;
 
-          if (lastId) {
-            query = query.gt('id', lastId);
+          if (lastId !== null) {
+            // 第二页起：游标分页（基于 id > lastId，O(1) 性能）
+            query = supabase
+              .from('experiment_time_series_data')
+              .select('id, experiment_id, token_address, token_symbol, timestamp, loop_count, price_usd, price_native, factor_values, blockchain')
+              .eq('experiment_id', experimentId)
+              .gt('id', lastId)
+              .order('id', { ascending: true })
+              .limit(PAGE_SIZE);
+          } else {
+            // 第一页：使用 range 分页（offset 小时性能足够）
+            const from = page * PAGE_SIZE;
+            const to = from + PAGE_SIZE - 1;
+            query = supabase
+              .from('experiment_time_series_data')
+              .select('id, experiment_id, token_address, token_symbol, timestamp, loop_count, price_usd, price_native, factor_values, blockchain')
+              .eq('experiment_id', experimentId)
+              .order('id', { ascending: true })
+              .range(from, to);
           }
 
           // 支持单个地址（字符串）或多个地址（数组）过滤
@@ -149,7 +160,7 @@ class ExperimentTimeSeriesService {
           const { data, error } = await Promise.race([query, timeoutPromise]);
 
           // 调试日志：每页都输出
-          const cursorInfo = lastId ? `cursor>${lastId.substring(0, 8)}...` : 'start';
+          const cursorInfo = lastId !== null ? `id>${lastId}` : 'start';
           console.log(`📊 [时序数据] 第 ${page + 1} 页 (${cursorInfo}): ${data?.length || 0} 条, hasMore=${hasMore}`);
 
           if (error) {
