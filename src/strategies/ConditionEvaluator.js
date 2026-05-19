@@ -270,8 +270,9 @@ class ConditionEvaluator {
         const leftValue = this._getOperandValue(node.left, factorResults);
         const rightValue = this._getOperandValue(node.right, factorResults);
 
-        // 如果任何一边是 undefined，条件无法评估，返回 false
-        if (leftValue === undefined || rightValue === undefined) {
+        // 如果任何一边是 undefined 或 null，条件无法评估，返回 false
+        // （JS 中 null < number 会隐式转换为 0 < number，导致误判）
+        if (leftValue == null || rightValue == null) {
             return false;
         }
 
