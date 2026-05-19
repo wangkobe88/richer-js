@@ -122,14 +122,14 @@ class ExperimentTimeSeriesService {
               .order('id', { ascending: true })
               .limit(PAGE_SIZE);
           } else {
-            // 第一页：使用 range 分页（offset 小时性能足够）
-            const from = page * PAGE_SIZE;
-            const to = from + PAGE_SIZE - 1;
+            // 第一页：使用 timestamp 排序 + range（有索引，offset 0 很快）
+            const from = 0;
+            const to = PAGE_SIZE - 1;
             query = supabase
               .from('experiment_time_series_data')
               .select('id, experiment_id, token_address, token_symbol, timestamp, loop_count, price_usd, price_native, factor_values, blockchain')
               .eq('experiment_id', experimentId)
-              .order('id', { ascending: true })
+              .order('timestamp', { ascending: true })
               .range(from, to);
           }
 
