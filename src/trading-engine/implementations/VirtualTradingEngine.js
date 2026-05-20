@@ -1855,7 +1855,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             `执行购买前检查 | symbol=${token.symbol}, round=${currentRound + 1}, creator=${token.creator_address || 'none'}`);
 
           // 构建代币信息（用于早期参与者检查）
-          const tokenInfo = this._buildTokenInfo(token);
+          const tokenInfo = await this._buildTokenInfo(token);
 
           let preBuyCheckCondition;
           if (currentRound === 0) {
@@ -2391,7 +2391,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * @param {Object} token - 代币对象
    * @returns {Object} tokenInfo
    */
-  _buildTokenInfo(token) {
+  async _buildTokenInfo(token) {
     // 获取 launchAt（代币创建时间戳）
     let launchAt = null;
 
@@ -2426,8 +2426,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 确定内盘交易对
     let innerPair = null;
     const platform = token.platform || 'fourmeme';
+    const chain = token.chain || 'bsc';
 
-    // 优先使用已设置的 pairAddress（由 PlatformCollector 设置）
+    // 优先使用已设置的 pairAddress（由 PlatformCollector 或 WS 补全设置）
     if (token.pairAddress) {
       innerPair = token.pairAddress;
     } else if (platform === 'fourmeme') {
@@ -2438,11 +2439,20 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       innerPair = token.main_pair;
     } else if (token.pair) {
       innerPair = token.pair;
-    } else if (platform === 'pumpfun' || platform === 'bonk' || platform === 'clanker') {
+    } else if (platform === 'pumpfun') {
+      // PumpFun 代币：pairAddress 需要从 AVE API 获取
+      // WS 补全可能因代币太新而获取不到 pair，这里实时尝试
+      innerPair = await this._resolvePumpfunPair(token.token, chain);
+    } else if (platform === 'bonk' || platform === 'clanker') {
       innerPair = null;
     } else {
       // 默认使用 fourmeme 格式
       innerPair = `${token.token}_fo`;
+    }
+
+    // 将解析到的 pairAddress 回写到 token 对象，避免重复解析
+    if (innerPair && !token.pairAddress) {
+      token.pairAddress = innerPair;
     }
 
     const result = {
@@ -2455,6 +2465,23 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       `代币信息构建 | symbol=${token.symbol}, launchAt=${launchAt}, innerPair=${innerPair}`);
 
     return result;
+  }
+
+  /**
+   * 实时解析 PumpFun 代币的 pairAddress
+   * @private
+   */
+  async _resolvePumpfunPair(tokenAddress, chain) {
+    try {
+      const { PlatformPairResolver } = require('../core/PlatformPairResolver');
+      if (!this._pairResolver) {
+        this._pairResolver = new PlatformPairResolver(this.logger);
+      }
+      const result = await this._pairResolver.resolvePairAddress(tokenAddress, 'pumpfun', chain);
+      return result.pairAddress || null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /**
