@@ -58,6 +58,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this._pancakeSwapTrader = null;
     this._uniswapV2Trader = null;
     this._uniswapV4Trader = null;
+    this._pumpFunTrader = null;
     this._monitoringTimer = null;
 
     // 代币池相关（与虚拟盘一致）
@@ -202,8 +203,17 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       this._trader = this._uniswapV4Trader;
 
+    } else if (blockchain === 'solana') {
+      // Solana 链：PumpFun（内外盘统一）
+      this._pumpFunTrader = traderFactory.createTrader('pumpfun', traderConfig);
+      await this._pumpFunTrader.setWallet(this._privateKey);
+      setLoggerIfAvailable(this._pumpFunTrader);
+      console.log('✅ PumpFun 交易器初始化成功');
+
+      this._trader = this._pumpFunTrader;
+
     } else {
-      throw new Error(`不支持的区块链: ${blockchain}，Live 模式当前支持 bsc/ethereum/base`);
+      throw new Error(`不支持的区块链: ${blockchain}，Live 模式当前支持 bsc/ethereum/base/solana`);
     }
 
     // 将 trader 的 provider 传递给 WalletService，用于获取原生代币余额
@@ -331,6 +341,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // BSC 链默认 fourmeme，Base 链默认 uniswap-v4
     if (chain === 'bsc') return this._fourmemeTrader;
     if (chain === 'base') return this._uniswapV4Trader;
+    if (chain === 'solana') return this._pumpFunTrader;
 
     // ETH 链：查询 AVE API 获取 main pair 的 amm
     try {
@@ -437,15 +448,18 @@ class LiveTradingEngine extends AbstractTradingEngine {
         gasPrice: this._experiment.config?.trading?.maxGasPrice || 10
       };
 
-      // 转换为 wei 格式（交易器期望 BigInt/BigNumber 格式）
-      const ethers = require('ethers');
-      this.logger.info(this._experimentId, '_executeBuy',
-        `类型检查 | amountInBNB=${amountInBNB}, typeof=${typeof amountInBNB}, string=${amountInBNB.toString()}`);
-
-      const amountInWei = ethers.parseEther(amountInBNB.toString());
-
-      this.logger.info(this._experimentId, '_executeBuy',
-        `Wei 转换 | amountInWei=${amountInWei}, typeof=${typeof amountInWei}`);
+      // 转换金额格式：EVM 用 wei（18位），Solana 直接传 SOL 数值
+      let amountForTrader;
+      if (this._blockchain === 'solana') {
+        amountForTrader = amountInBNB.toString();
+        this.logger.info(this._experimentId, '_executeBuy',
+          `SOL 金额 | amount=${amountForTrader}`);
+      } else {
+        const ethers = require('ethers');
+        amountForTrader = ethers.parseEther(amountInBNB.toString());
+        this.logger.info(this._experimentId, '_executeBuy',
+          `Wei 转换 | amountInWei=${amountForTrader}, typeof=${typeof amountForTrader}`);
+      }
 
       // 智能选择 trader：根据 main pair 的 amm 类型自动路由
       const selectedTrader = await this._selectTraderForToken(signal.tokenAddress, signal.chain || this._blockchain);
@@ -454,7 +468,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
       const buyResult = await selectedTrader.buyToken(
         signal.tokenAddress,
-        amountInWei,
+        amountForTrader,
         buyOptions
       );
 
@@ -523,8 +537,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
         tradeStatus: 'success',
         success: true,
         isVirtualTrade: false,
-        // 买入: BNB -> 代币
-        inputCurrency: 'BNB',
+        // 买入: 原生代币 -> 代币
+        inputCurrency: this._blockchain === 'solana' ? 'SOL' : 'BNB',
         outputCurrency: signal.symbol,
         inputAmount: String(amountInBNB),
         outputAmount: String(actualTokenAmount),
@@ -536,7 +550,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
         metadata: {
           ...metadata,
           txHash: buyResult.transactionHash || buyResult.txHash,
-          protocol: 'FourMeme',
+          protocol: this._blockchain === 'solana' ? 'PumpFun' : 'FourMeme',
           method: 'buyToken'
         }
       });
@@ -664,11 +678,37 @@ class LiveTradingEngine extends AbstractTradingEngine {
       let sellResult;
       let traderUsed = 'unknown';
 
-      // 转换为 wei 格式（交易器期望 BigInt 格式，代币最小单位）
-      const ethers = require('ethers');
-      const amountToSellBigInt = ethers.parseUnits(amountToSell.toFixed(18), 18);
+      // 转换金额格式：EVM 用 wei，Solana 直接传代币数量
+      let amountToSellForTrader;
+      if (this._blockchain === 'solana') {
+        amountToSellForTrader = amountToSell.toString();
+      } else {
+        const ethers = require('ethers');
+        amountToSellForTrader = ethers.parseUnits(amountToSell.toFixed(18), 18);
+      }
 
-      if (this._blockchain === 'bsc') {
+      if (this._blockchain === 'solana') {
+        // Solana: PumpFun 统一交易器（自动检测内外盘）
+        try {
+          this.logger.info(this._experimentId, '_executeSell', `使用 PumpFun 交易器卖出 ${signal.symbol}...`);
+          sellResult = await this._pumpFunTrader.sellToken(
+            signal.tokenAddress,
+            amountToSellForTrader,
+            { slippage: this._maxSlippage }
+          );
+
+          if (sellResult.success) {
+            traderUsed = 'pumpfun';
+            this.logger.info(this._experimentId, '_executeSell', `PumpFun 交易器卖出成功`);
+          } else {
+            throw new Error(sellResult.error || 'PumpFun 交易失败');
+          }
+        } catch (error) {
+          this.logger.error(this._experimentId, '_executeSell', `PumpFun 交易器卖出失败: ${error.message}`);
+          return { success: false, reason: error.message };
+        }
+
+      } else if (this._blockchain === 'bsc') {
         // BSC: FourMeme(内盘) → PancakeSwap V2(外盘) fallback
         const fourmemeOptions = {
           slippageTolerance: this._maxSlippage * 100,
@@ -683,7 +723,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           this.logger.info(this._experimentId, '_executeSell', `尝试使用 FourMeme 交易器卖出 ${signal.symbol}...`);
           sellResult = await this._fourMemeTrader.sellToken(
             signal.tokenAddress,
-            amountToSellBigInt,
+            amountToSellForTrader,
             fourmemeOptions
           );
 
@@ -710,7 +750,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           try {
             sellResult = await this._pancakeSwapTrader.sellToken(
               signal.tokenAddress,
-              amountToSellBigInt,
+              amountToSellForTrader,
               pancakeOptions
             );
 
@@ -753,7 +793,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           this.logger.info(this._experimentId, '_executeSell', `尝试使用 ${primaryName} 交易器卖出 ${signal.symbol}...`);
           sellResult = await primaryTrader.sellToken(
             signal.tokenAddress,
-            amountToSellBigInt,
+            amountToSellForTrader,
             uniswapOptions
           );
 
@@ -771,7 +811,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           try {
             sellResult = await fallbackTrader.sellToken(
               signal.tokenAddress,
-              amountToSellBigInt,
+              amountToSellForTrader,
               uniswapOptions
             );
 
@@ -801,7 +841,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           this.logger.info(this._experimentId, '_executeSell', `使用 Uniswap V4 交易器卖出 ${signal.symbol}...`);
           sellResult = await this._uniswapV4Trader.sellToken(
             signal.tokenAddress,
-            amountToSellBigInt,
+            amountToSellForTrader,
             uniswapOptions
           );
 

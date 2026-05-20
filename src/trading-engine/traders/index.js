@@ -9,6 +9,7 @@ const FourMemeDirectTrader = require('./implementations/FourMemeDirectTrader');
 const PancakeSwapV2Trader = require('./implementations/PancakeSwapV2Trader');
 const UniswapV2Trader = require('./implementations/UniswapV2Trader');
 const UniswapV4Trader = require('./implementations/UniswapV4Trader');
+const PumpFunTrader = require('./implementations/PumpFunTrader');
 
 // 注册 FourMeme 交易器
 TraderFactory.registerTrader('fourmeme', FourMemeDirectTrader, {
@@ -43,6 +44,15 @@ TraderFactory.registerTrader('uniswap-v4', UniswapV4Trader, {
     description: 'Uniswap V4 PoolManager 交易器 - 支持 Ethereum 和 Base 链',
     riskLevel: 2,
     priority: 25,
+    enabled: true
+});
+
+// 注册 PumpFun 交易器（Solana）
+TraderFactory.registerTrader('pumpfun', PumpFunTrader, {
+    name: 'PumpFun Trader',
+    description: 'Pump.fun 内外盘统一交易器 - 支持 bonding curve 和 PumpSwap AMM',
+    riskLevel: 2,
+    priority: 10,
     enabled: true
 });
 
@@ -96,5 +106,6 @@ module.exports = {
     PancakeSwapV2Trader,
     UniswapV2Trader,
     UniswapV4Trader,
+    PumpFunTrader,
     BaseTrader: require('./core/BaseTrader')
 };

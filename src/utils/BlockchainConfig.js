@@ -222,9 +222,7 @@ class BlockchainConfig {
         maxSlippage: 0.03       // 3%
       },
       availableTraders: [
-        // Solana DEX traders - 未来实现
-        // 'jupiter',
-        // 'raydium'
+        'pumpfun'
       ]
     },
     base: {
