@@ -19,11 +19,25 @@
  */
 
 const WebSocket = require('ws');
+const { PublicKey } = require('@solana/web3.js');
 const { AveTokenAPI } = require('../core/ave-api/token-api');
-const { PlatformPairResolver } = require('../core/PlatformPairResolver');
 const { BlockchainConfig } = require('../utils/BlockchainConfig');
 
 const PUMP_FUN_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
+const PUMP_FUN_PROGRAM_PK = new PublicKey(PUMP_FUN_PROGRAM);
+
+/**
+ * 通过 PDA 推导 PumpFun 代币的 bonding curve 地址（即 pairAddress）
+ * seed: ['bonding-curve', mint.toBuffer()]
+ */
+function deriveBondingCurveAddress(mintAddress) {
+    const mint = new PublicKey(mintAddress);
+    const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('bonding-curve'), mint.toBuffer()],
+        PUMP_FUN_PROGRAM_PK
+    );
+    return pda.toString();
+}
 
 class PumpFunWsCollector {
     constructor(config, logger, tokenPool) {
@@ -45,9 +59,6 @@ class PumpFunWsCollector {
             config.ave?.timeout || 30000,
             process.env.AVE_API_KEY
         );
-
-        // Pair 地址解析器
-        this.pairResolver = new PlatformPairResolver(logger);
 
         // 补全队列：mintAddress -> { retryCount, addedAt }
         this.pendingEnrichment = new Map();
@@ -325,6 +336,8 @@ class PumpFunWsCollector {
         this.stats.lastDetectedAt = now;
 
         // 创建最小 token 对象并加入池
+        // PumpFun pairAddress 是 mint 的 PDA（bonding-curve seed），可确定性推导
+        const pairAddress = deriveBondingCurveAddress(mintAddress);
         const minimalToken = {
             token: mintAddress,
             chain: 'solana',
@@ -333,7 +346,8 @@ class PumpFunWsCollector {
             symbol: '',
             created_at: Math.floor(now / 1000),
             current_price_usd: null,
-            creator_address: devWallet
+            creator_address: devWallet,
+            pairAddress
         };
 
         const added = this.tokenPool.addToken(minimalToken);
@@ -415,23 +429,13 @@ class PumpFunWsCollector {
             const detail = await this.aveApi.getTokenDetail(tokenId);
             const tokenData = detail.token || {};
 
-            // 2. 解析 pairAddress
-            let pairAddress = null;
-            try {
-                const pairResult = await this.pairResolver.resolvePairAddress(mintAddress, 'pumpfun', 'solana');
-                pairAddress = pairResult.pairAddress;
-            } catch (_) {
-                // pair 解析可能失败，新代币还没建池
-            }
-
-            // 3. 构建补全数据
+            // 2. 构建补全数据（pairAddress 已在入池时通过 PDA 推导设置）
             const enrichedData = {
                 ...tokenData,
-                pairAddress,
                 creator_address: state.devWallet || tokenData.creator_address
             };
 
-            // 4. 更新池中 token
+            // 3. 更新池中 token
             const enriched = this.tokenPool.enrichToken(mintAddress, 'solana', enrichedData);
 
             if (enriched) {

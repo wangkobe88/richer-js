@@ -1855,7 +1855,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             `执行购买前检查 | symbol=${token.symbol}, round=${currentRound + 1}, creator=${token.creator_address || 'none'}`);
 
           // 构建代币信息（用于早期参与者检查）
-          const tokenInfo = await this._buildTokenInfo(token);
+          const tokenInfo = this._buildTokenInfo(token);
 
           let preBuyCheckCondition;
           if (currentRound === 0) {
@@ -2391,7 +2391,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * @param {Object} token - 代币对象
    * @returns {Object} tokenInfo
    */
-  async _buildTokenInfo(token) {
+  _buildTokenInfo(token) {
     // 获取 launchAt（代币创建时间戳）
     let launchAt = null;
 
@@ -2440,9 +2440,8 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     } else if (token.pair) {
       innerPair = token.pair;
     } else if (platform === 'pumpfun') {
-      // PumpFun 代币：pairAddress 需要从 AVE API 获取
-      // WS 补全可能因代币太新而获取不到 pair，这里实时尝试
-      innerPair = await this._resolvePumpfunPair(token.token, chain);
+      // PumpFun pairAddress 是 mint 的 PDA（bonding-curve seed），确定性推导
+      innerPair = this._derivePumpfunPairAddress(token.token);
     } else if (platform === 'bonk' || platform === 'clanker') {
       innerPair = null;
     } else {
@@ -2468,17 +2467,19 @@ class VirtualTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 实时解析 PumpFun 代币的 pairAddress
+   * 通过 PDA 推导 PumpFun 代币的 pairAddress（bonding curve 地址）
    * @private
    */
-  async _resolvePumpfunPair(tokenAddress, chain) {
+  _derivePumpfunPairAddress(tokenAddress) {
     try {
-      const { PlatformPairResolver } = require('../core/PlatformPairResolver');
-      if (!this._pairResolver) {
-        this._pairResolver = new PlatformPairResolver(this.logger);
-      }
-      const result = await this._pairResolver.resolvePairAddress(tokenAddress, 'pumpfun', chain);
-      return result.pairAddress || null;
+      const { PublicKey } = require('@solana/web3.js');
+      const PUMP_FUN_PROGRAM = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
+      const mint = new PublicKey(tokenAddress);
+      const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('bonding-curve'), mint.toBuffer()],
+        PUMP_FUN_PROGRAM
+      );
+      return pda.toString();
     } catch (_) {
       return null;
     }
