@@ -14,7 +14,7 @@ async function main() {
   const { data: prev, error } = await supabase
     .from('experiments')
     .select('*')
-    .eq('id', '37183a1f-d08e-445e-88e6-b76fb9e5fe82')  // Pump018
+    .eq('id', 'a431c4b1-2b15-4dee-8868-adf61c305142')  // Pump019
     .single();
 
   if (error) {
@@ -25,13 +25,13 @@ async function main() {
   console.log('基于实验:', prev.experiment_name, '(' + prev.id + ')');
 
   // 基于 Pump018 配置创建新实验
-  const newConfig = { ...prev.config, name: 'Pump019-helius-txsubscribe' };
+  const newConfig = { ...prev.config, name: 'Pump020-helius-fixed-filter' };
 
   const { data: newExp, error: createError } = await supabase
     .from('experiments')
     .insert({
-      experiment_name: 'Pump019-helius-txsubscribe',
-      experiment_description: '使用 Helius transactionSubscribe 实时发现 PumpFun 新代币，完全基于新架构',
+      experiment_name: 'Pump020-helius-fixed-filter',
+      experiment_description: 'Helius transactionSubscribe + CreateV2+pump后缀双重过滤，纯净数据',
       status: 'initializing',
       trading_mode: 'virtual',
       config: newConfig
