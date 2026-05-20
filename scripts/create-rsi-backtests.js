@@ -68,16 +68,23 @@ async function main() {
 
   for (const source of SOURCE_EXPERIMENTS) {
     for (const strategy of STRATEGIES) {
-      const experimentName = `RSI ${strategy.name} [${source.name}]`;
+      const experimentName = `${strategy.name} [${source.name}]`;
 
       const config = {
         name: experimentName,
-        description: `RSI ${strategy.name} 策略回测，源实验 ${source.name} (${source.id})`,
+        description: `${strategy.name} 策略回测，源实验 ${source.name} (${source.id})`,
         blockchain: 'bsc',
         kline_type: '1m',
         backtest: {
           sourceExperimentId: source.id,
           initialBalance: 100,
+        },
+        positionManagement: {
+          enabled: true,
+          totalCards: 2,
+          perCardMaxBNB: 0.5,
+          minCardsForTrade: 1,
+          initialAllocation: { bnbCards: 2, tokenCards: 0 },
         },
         preBuyCheck: mergedPreBuyCheck,
         strategiesConfig: {
@@ -86,7 +93,7 @@ async function main() {
             condition: strategy.buyCondition,
             preBuyCheckCondition: refPreBuyCheckCondition,
             description: `${strategy.name} Buy`,
-            cards: 1,
+            cards: 2,
             cooldown: 300,
           }],
           sellStrategies: [{

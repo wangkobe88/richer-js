@@ -437,6 +437,26 @@ class LiveTradingEngine extends AbstractTradingEngine {
         }
       }
 
+      // 链上余额预检：防止 PortfolioManager 数据与链上不同步导致交易失败
+      try {
+        const actualBalanceStr = await this._trader.getNativeBalance();
+        const actualBalance = new Decimal(actualBalanceStr);
+        const totalNeeded = new Decimal(amountInBNB).plus(this._reserveNative);
+        if (actualBalance.lt(totalNeeded)) {
+          this.logger.error(this._experimentId, '_executeBuy',
+            `链上余额不足 | 实际余额=${actualBalanceStr}, 需要(含reserve)=${totalNeeded}, amountInBNB=${amountInBNB}, reserve=${this._reserveNative}`);
+          return {
+            success: false,
+            reason: `链上余额不足: 实际 ${actualBalanceStr}, 需要 ${totalNeeded}（含保留 ${this._reserveNative}）`
+          };
+        }
+        this.logger.info(this._experimentId, '_executeBuy',
+          `链上余额预检通过 | 实际余额=${actualBalanceStr}, 需要=${totalNeeded}`);
+      } catch (balanceError) {
+        this.logger.warn(this._experimentId, '_executeBuy',
+          `链上余额预检失败，继续执行 | error=${balanceError.message}`);
+      }
+
       // 使用真实交易器执行买入
       this.logger.info(this._experimentId, '_executeBuy',
         `执行交易 | symbol=${signal.symbol}, amount=${amountInBNB} BNB, tokenAddress=${signal.tokenAddress}`);
@@ -902,7 +922,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
         isVirtualTrade: false,
         // 卖出: 代币 -> BNB
         inputCurrency: signal.symbol,
-        outputCurrency: 'BNB',
+        outputCurrency: this._blockchain === 'solana' ? 'SOL' : 'BNB',
         inputAmount: String(amountToSell),
         outputAmount: String(actualBnbReceived),
         unitPrice: String(price),
@@ -1006,6 +1026,100 @@ class LiveTradingEngine extends AbstractTradingEngine {
     } catch (error) {
       return { success: false, reason: error.message };
     }
+  }
+
+  /**
+   * 覆盖 processSignal 方法，避免重复创建信号
+   * 在 LiveTradingEngine._executeStrategy() 中已经创建并保存了买入信号
+   *
+   * @param {Object} signal - 信号对象
+   * @param {string} existingSignalId - 已存在的信号ID（已在_executeStrategy中保存）
+   * @returns {Promise<Object>} 处理结果
+   */
+  async processSignal(signal, existingSignalId = null) {
+    this.logger.info(this._experimentId, 'LiveTradingEngine', `🔔 processSignal 被调用: ${signal.symbol} ${signal.action} (${signal.tokenAddress}), existingSignalId=${existingSignalId}`);
+
+    if (!this._experiment) {
+      this.logger.error(this._experimentId, 'LiveTradingEngine', '❌ processSignal: this._experiment 为 null');
+      throw new Error('引擎未初始化');
+    }
+
+    if (this._isStopped) {
+      return { success: false, message: '引擎已停止' };
+    }
+
+    let signalId = existingSignalId;
+    let result = { success: false, message: '交易未执行' };
+
+    // 如果没有预先保存的信号ID（卖出策略的情况），则创建并保存信号
+    if (!signalId) {
+      const { TradeSignal } = require('../entities');
+
+      const signalMetadata = {
+        ...signal.metadata,
+        ...(signal.factors || {}),
+        price: signal.price,
+        strategyId: signal.strategyId,
+        strategyName: signal.strategyName,
+        cards: signal.cards,
+        cardConfig: signal.cardConfig
+      };
+
+      const tradeSignal = new TradeSignal({
+        experimentId: this._experimentId,
+        tokenAddress: signal.tokenAddress,
+        tokenSymbol: signal.symbol,
+        signalType: signal.action.toUpperCase(),
+        action: signal.action.toLowerCase(),
+        confidence: signal.confidence || 0.5,
+        reason: signal.reason || '',
+        chain: signal.chain,
+        metadata: signalMetadata,
+        createdAt: signal.timestamp || new Date()
+      });
+
+      signalId = await tradeSignal.save();
+      this.logger.info(this._experimentId, 'LiveTradingEngine', `✅ [卖出] 信号已保存: ${signal.symbol} ${signal.action}, signalId=${signalId}`);
+    } else {
+      this.logger.info(this._experimentId, 'LiveTradingEngine', `♻️  [买入] 使用已存在的信号: ${signal.symbol} ${signal.action}, signalId=${signalId}`);
+    }
+
+    // 执行交易
+    const signalTime = signal.timestamp || new Date();
+    const metadata = {
+      signalId,
+      loopCount: this._loopCount,
+      timestamp: signalTime instanceof Date ? signalTime.toISOString() : signalTime,
+      factors: signal.factors || null
+    };
+
+    try {
+      if (signal.action.toLowerCase() === 'buy') {
+        result = await this._executeBuy(signal, signalId, metadata);
+      } else if (signal.action.toLowerCase() === 'sell') {
+        result = await this._executeSell(signal, signalId, metadata);
+      } else {
+        result = { success: false, message: `未知动作: ${signal.action}` };
+      }
+
+      if (signalId) {
+        await this._updateSignalStatus(signalId, result.success ? 'executed' : 'failed', result);
+      }
+
+    } catch (error) {
+      this.logger.error(this._experimentId, 'LiveTradingEngine', `信号执行失败 | signalId=${signalId}, error=${error.message}`);
+
+      if (signalId) {
+        await this._updateSignalStatus(signalId, 'failed', {
+          message: error.message,
+          error: error.stack
+        });
+      }
+
+      result = { success: false, message: error.message };
+    }
+
+    return result;
   }
 
   /**

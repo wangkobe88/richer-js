@@ -3284,7 +3284,7 @@ class RicherJsWebServer {
         const { AveTxAPI } = require('./core/ave-api');
         const config = require('../config/default.json');
 
-        const { apiKey, baseURL, tokenAddress, chain, limit = 300, timeWindowMinutes = 3 } = req.body;
+        const { apiKey, baseURL, tokenAddress, chain: rawChain, limit = 300, timeWindowMinutes = 3 } = req.body;
 
         if (!tokenAddress) {
           return res.status(400).json({
@@ -3292,6 +3292,20 @@ class RicherJsWebServer {
             error: '代币地址不能为空'
           });
         }
+
+        // 从数据库查真实 blockchain，修正前端可能传错的 chain
+        let chain = rawChain;
+        try {
+          const { data: chainRecord } = await this.dataService.supabase
+            .from('experiment_tokens')
+            .select('blockchain')
+            .eq('token_address', tokenAddress)
+            .limit(1)
+            .maybeSingle();
+          if (chainRecord?.blockchain) {
+            chain = chainRecord.blockchain;
+          }
+        } catch (_) { /* ignore */ }
 
         if (!chain) {
           return res.status(400).json({

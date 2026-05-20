@@ -45,15 +45,14 @@ class PumpFunTrader extends ITrader {
         super(config);
 
         let slippage = config.slippage || config.defaultSlippage || 3;
+        // 统一转换为百分比格式（如 0.05 → 5）
         if (slippage < 1) slippage = slippage * 100;
 
         this.config = {
-            slippage,
             priorityFee: config.priorityFee || 0.001,
             maxRetries: config.maxRetries || 3,
             rpcUrl: config.rpcUrl || 'https://api.mainnet-beta.solana.com',
             confirmTimeout: config.confirmTimeout || 30000,
-            ...config,
             slippage
         };
 
@@ -150,8 +149,7 @@ class PumpFunTrader extends ITrader {
         const solAmount = this._parseSolAmount(amountIn);
         const amountInLamports = new BN(Math.floor(solAmount * LAMPORTS_PER_SOL));
 
-        let slippage = options.slippage || this.config.slippage;
-        if (slippage < 1) slippage = slippage * 100;
+        let slippage = this._normalizeSlippage(options.slippage || this.config.slippage);
 
         const { mode } = await this._detectTokenMode(tokenMint);
 
@@ -179,8 +177,7 @@ class PumpFunTrader extends ITrader {
 
         const tokenMint = new PublicKey(tokenAddress);
 
-        let slippage = options.slippage || this.config.slippage;
-        if (slippage < 1) slippage = slippage * 100;
+        let slippage = this._normalizeSlippage(options.slippage || this.config.slippage);
 
         // 解析卖出数量
         const baseAmountIn = await this._resolveSellAmount(tokenMint, amountIn);
@@ -465,6 +462,11 @@ class PumpFunTrader extends ITrader {
 
     // ==================== 辅助方法 ====================
 
+    _normalizeSlippage(slippage) {
+        if (slippage < 1) slippage = slippage * 100;
+        return slippage;
+    }
+
     _parseSolAmount(amountIn) {
         if (typeof amountIn === 'number') return amountIn;
         if (typeof amountIn === 'string') return parseFloat(amountIn);
@@ -513,25 +515,74 @@ class PumpFunTrader extends ITrader {
     }
 
     async _sendTransaction(transaction) {
-        const { blockhash } = await this.connection.getLatestBlockhash();
+        const { blockhash, lastValidBlockHeight } = await this.connection.getLatestBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = this.wallet.publicKey;
         transaction.sign(this.wallet);
 
-        const signature = await this.connection.sendRawTransaction(
-            transaction.serialize(),
-            { skipPreflight: false, preflightCommitment: 'confirmed' }
-        );
+        const serialized = transaction.serialize();
 
-        const confirmation = await this.connection.confirmTransaction(
-            signature, 'confirmed'
-        );
+        const maxRetries = this.config.maxRetries || 3;
+        let lastError;
 
-        if (confirmation.value.err) {
-            throw new Error(`交易失败: ${JSON.stringify(confirmation.value.err)}`);
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                this.logger.info('PumpFun 发送交易', { attempt, maxRetries });
+
+                const signature = await this.connection.sendRawTransaction(
+                    serialized,
+                    { skipPreflight: true, preflightCommitment: 'confirmed' }
+                );
+
+                // 使用 lastValidBlockHeight 控制确认超时
+                const confirmation = await this.connection.confirmTransaction(
+                    {
+                        signature,
+                        blockhash,
+                        lastValidBlockHeight
+                    },
+                    'confirmed'
+                );
+
+                if (confirmation.value.err) {
+                    throw new Error(`交易失败: ${JSON.stringify(confirmation.value.err)}`);
+                }
+
+                if (attempt > 1) {
+                    this.logger.info('PumpFun 交易重试成功', { attempt, signature });
+                }
+
+                return signature;
+
+            } catch (error) {
+                lastError = error;
+                const errorMessage = error.message?.toLowerCase() || '';
+
+                // 不应重试的错误
+                const nonRetryable = [
+                    'transaction failed',
+                    'insufficient funds',
+                    'invalid signature',
+                    'already processed',
+                    'custom program error'
+                ];
+                if (nonRetryable.some(e => errorMessage.includes(e))) {
+                    this.logger.error('PumpFun 交易不可重试错误', { attempt, error: error.message });
+                    break;
+                }
+
+                this.logger.warn('PumpFun 交易尝试失败', { attempt, error: error.message });
+
+                if (attempt < maxRetries) {
+                    // 递增等待：1s, 2s, 3s
+                    const waitTime = attempt * 1000;
+                    this.logger.info('PumpFun 等待后重试', { waitMs: waitTime });
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                }
+            }
         }
 
-        return signature;
+        throw new Error(`交易在 ${maxRetries} 次尝试后仍失败: ${lastError?.message}`);
     }
 
     async checkLiquidity(tokenAddress) {

@@ -116,8 +116,23 @@ class TokenAnalysisService {
       // 按时间排序
       timeSeriesData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-      // 获取初始价格（第一条记录）
-      const initialPrice = parseFloat(timeSeriesData[0].price_usd) || 0;
+      // 获取初始价格：优先使用 launch_price，回退到时序数据第一条
+      let initialPrice = 0;
+      try {
+        const { data: tokenRecord } = await this.supabase
+          .from('experiment_tokens')
+          .select('raw_api_data')
+          .eq('experiment_id', experimentId)
+          .eq('token_address', tokenAddress)
+          .maybeSingle();
+        if (tokenRecord?.raw_api_data?.launch_price) {
+          initialPrice = parseFloat(tokenRecord.raw_api_data.launch_price) || 0;
+        }
+      } catch (_) { /* ignore */ }
+
+      if (initialPrice === 0) {
+        initialPrice = parseFloat(timeSeriesData[0].price_usd) || 0;
+      }
 
       if (initialPrice === 0) {
         return {

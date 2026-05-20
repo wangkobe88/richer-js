@@ -1240,11 +1240,13 @@
             if (params.token) {
                 // 设置表单值
                 document.getElementById('tokenAddress').value = params.token;
-                if (params.chain) {
-                    // 标准化 chain 值，兼容 ethereum->eth 等别名
-                    const chainMap = { ethereum: 'eth', bsc: 'bsc', solana: 'solana', base: 'base' };
-                    const normalizedChain = chainMap[params.chain.toLowerCase()] || params.chain.toLowerCase();
-                    document.getElementById('chain').value = normalizedChain;
+                {
+                    if (params.chain) {
+                        // 标准化 chain 值，兼容 ethereum->eth 等别名
+                        const chainMap = { ethereum: 'eth', bsc: 'bsc', solana: 'solana', base: 'base' };
+                        const normalizedChain = chainMap[params.chain.toLowerCase()] || params.chain.toLowerCase();
+                        document.getElementById('chain').value = normalizedChain;
+                    }
                 }
 
                 // 自动执行查询

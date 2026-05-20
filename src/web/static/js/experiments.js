@@ -1122,6 +1122,16 @@ class ExperimentMonitor {
           message += `   清理了 ${data.orphanCleanedCount} 个孤儿代币的时序数据\n`;
         }
 
+        if (data.protectedTokens > 0 || data.protectedOrphanCount > 0) {
+          message += `\n🛡️ 保护机制:\n`;
+          if (data.protectedTokens > 0) {
+            message += `   ${data.protectedTokens} 个代币因有信号未被删除\n`;
+          }
+          if (data.protectedOrphanCount > 0) {
+            message += `   ${data.protectedOrphanCount} 个孤儿代币因有信号未被删除\n`;
+          }
+        }
+
         alert(message);
 
         // 刷新实验列表
@@ -1183,6 +1193,10 @@ class ExperimentMonitor {
         message += `📊 总代币数: ${data.totalTokens}\n`;
         message += `🗑️ 删除代币数: ${data.deletedTokens} (无价格数据)\n`;
         message += `⏭️ 保留代币数: ${data.remainingTokens} (有价格数据)\n`;
+
+        if (data.protectedTokens > 0) {
+          message += `🛡️ 受保护: ${data.protectedTokens} 个代币因有信号未被删除\n`;
+        }
 
         alert(message);
 

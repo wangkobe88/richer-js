@@ -387,9 +387,9 @@ class ExperimentSignals {
    * 隐藏代币选择下拉框（详情页模式）
    */
   hideTokenSelector() {
-    const tokenSelectorContainer = document.getElementById('token-selector-container');
-    if (tokenSelectorContainer) {
-      tokenSelectorContainer.style.display = 'none';
+    const tokenSelectorDropdown = document.getElementById('token-selector-dropdown');
+    if (tokenSelectorDropdown) {
+      tokenSelectorDropdown.style.display = 'none';
       console.log('✅ 已隐藏代币选择下拉框（详情页模式）');
     }
   }

@@ -254,9 +254,12 @@ class ExperimentTokenReturns {
       const tokenTrades = this.tradesData.filter(t => t.token_address === tokenAddress);
       const symbol = tokenTrades[0]?.token_symbol || 'Unknown';
 
+      const chain = tokenTrades[0]?.chain || this.experimentData?.blockchain || 'bsc';
+
       return {
         tokenAddress,
         symbol,
+        chain,
         pnl
       };
     }).filter(item => item.pnl !== null); // 过滤掉没有有效数据的代币
@@ -621,7 +624,7 @@ class ExperimentTokenReturns {
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                 </svg>
               </button>
-              <a href="https://gmgn.ai/${this._gmgnChain()}/token/${item.tokenAddress}" target="_blank" rel="noopener noreferrer"
+              <a href="https://gmgn.ai/${this._gmgnChain(item.chain)}/token/${item.tokenAddress}" target="_blank" rel="noopener noreferrer"
                  class="text-gray-400 hover:text-purple-400 transition-colors p-0.5"
                  title="在 GMGN 查看">
                 <img src="/static/gmgn.png" alt="GMGN" class="w-3 h-3">
@@ -686,7 +689,7 @@ class ExperimentTokenReturns {
             <a href="/token-holders?experiment=${this.experimentId}&token=${item.tokenAddress}" target="_blank" class="action-link text-cyan-400 hover:text-cyan-300">
               持有者
             </a>
-            <a href="/token-early-trades?token=${item.tokenAddress}&chain=${this.experimentData?.blockchain || 'bsc'}" target="_blank" class="action-link text-amber-400 hover:text-amber-300">
+            <a href="/token-early-trades?token=${item.tokenAddress}&chain=${item.chain || this.experimentData?.blockchain || 'bsc'}" target="_blank" class="action-link text-amber-400 hover:text-amber-300">
               早期交易
             </a>
             <a href="/token-detail?experiment=${this.experimentId}&address=${item.tokenAddress}" target="_blank" class="action-link text-indigo-400 hover:text-indigo-300">
@@ -1457,9 +1460,9 @@ class ExperimentTokenReturns {
     `;
   }
 
-  _gmgnChain() {
+  _gmgnChain(tokenChain) {
     const map = { bsc: 'bsc', eth: 'eth', ethereum: 'eth', solana: 'sol', sol: 'sol', base: 'base' };
-    return map[(this.experimentData?.blockchain || 'bsc').toLowerCase()] || 'bsc';
+    return map[(tokenChain || this.experimentData?.blockchain || 'bsc').toLowerCase()] || 'bsc';
   }
 }
 
