@@ -262,14 +262,14 @@ class PumpFunWsCollector {
 
             const logs = meta.logMessages || [];
 
-            // 检测新代币创建：InitializeMint2 是 SPL Token 创建的标志
-            const isNewToken = logs.some(log =>
-                log.includes('Instruction: InitializeMint2') ||
-                log.includes('Instruction: CreateV2') ||
-                log.includes('Instruction: Create')
+            // 检测 PumpFun 新代币创建：只匹配 CreateV2（PumpFun 特有指令）
+            // 不使用 InitializeMint2 / Create，它们不是 PumpFun 特有的，
+            // 会导致误判非 pump 代币（如一笔交易同时涉及 PumpFun 买/卖和另一个代币创建）
+            const isPumpCreate = logs.some(log =>
+                log.includes('Instruction: CreateV2')
             );
 
-            if (!isNewToken) return;
+            if (!isPumpCreate) return;
 
             this.stats.createDetected++;
 
@@ -291,6 +291,12 @@ class PumpFunWsCollector {
 
             if (!mintAddress || !devWallet) {
                 this.stats.parseFailed++;
+                return;
+            }
+
+            // 二次验证：PumpFun 代币地址以 "pump" 结尾
+            if (!mintAddress.endsWith('pump')) {
+                this.stats.filteredNonPump = (this.stats.filteredNonPump || 0) + 1;
                 return;
             }
 
