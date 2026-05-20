@@ -254,7 +254,10 @@ class ExperimentTokenReturns {
       const tokenTrades = this.tradesData.filter(t => t.token_address === tokenAddress);
       const symbol = tokenTrades[0]?.token_symbol || 'Unknown';
 
-      const chain = tokenTrades[0]?.chain || this.experimentData?.blockchain || 'bsc';
+      const expChain = this.experimentData?.blockchain;
+      const chain = (expChain && expChain !== 'all')
+        ? expChain
+        : (tokenTrades[0]?.chain || 'bsc');
 
       return {
         tokenAddress,

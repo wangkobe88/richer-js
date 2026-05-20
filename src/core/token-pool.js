@@ -5,10 +5,24 @@
  */
 
 class TokenPool {
-    constructor(logger, priceHistoryCache = null, holderHistoryCache = null) {
+    constructor(logger, priceHistoryCache = null, holderHistoryCache = null, config = {}) {
         this.logger = logger;
         this.pool = new Map(); // tokenAddress -> TokenData
-        this.maxAge = 30 * 60 * 1000; // 30 minutes
+
+        // 从配置中读取观察窗口时长
+        const observationWindowMinutes = config.observationWindowMinutes || 20;
+        this.maxAge = observationWindowMinutes * 60 * 1000;
+        this.observationWindowMs = observationWindowMinutes * 60 * 1000;
+
+        // 价格停滞检测配置
+        const stagnation = config.stagnationCheck || {};
+        this.stagnationConfig = {
+            enabled: stagnation.enabled !== false,
+            minDurationMs: (stagnation.minDurationMinutes || 5) * 60 * 1000,
+            minDataPoints: stagnation.minDataPoints || 15,
+            priceChangeThreshold: stagnation.priceChangeThreshold !== undefined ? stagnation.priceChangeThreshold : 1.0
+        };
+
         this.priceHistoryCache = priceHistoryCache; // 价格历史缓存（用于趋势检测）
         this.holderHistoryCache = holderHistoryCache; // 持有者历史缓存（用于持有者趋势检测）
     }
@@ -122,6 +136,94 @@ class TokenPool {
     getToken(tokenAddress, chain) {
         const key = this.getTokenKey({ token: tokenAddress, chain });
         return this.pool.get(key) || null;
+    }
+
+    /**
+     * Enrich token with additional data (e.g., from AVE API after WS discovery)
+     * Only updates fields that have non-null/undefined values in enrichedData
+     * @param {string} tokenAddress - Token address
+     * @param {string} chain - Chain
+     * @param {Object} enrichedData - Data to merge into the token
+     * @returns {boolean} True if enrichment succeeded
+     */
+    enrichToken(tokenAddress, chain, enrichedData) {
+        const key = this.getTokenKey({ token: tokenAddress, chain });
+        const token = this.pool.get(key);
+        if (!token) return false;
+
+        // 字段映射：enrichedData 字段名 -> pool 内部字段名
+        const fieldMap = {
+            name: 'name',
+            symbol: 'symbol',
+            pairAddress: 'pairAddress',
+            creatorAddress: 'creator_address',
+            creator_address: 'creatorAddress',
+        };
+
+        // 直接映射的字段
+        for (const [srcKey, destKey] of Object.entries(fieldMap)) {
+            if (enrichedData[srcKey] != null && enrichedData[srcKey] !== '') {
+                token[destKey] = enrichedData[srcKey];
+            }
+        }
+
+        // 价格字段：需要解析
+        if (enrichedData.current_price_usd != null) {
+            const price = parseFloat(enrichedData.current_price_usd);
+            if (!isNaN(price) && price > 0) {
+                if (token.currentPrice === null) {
+                    token.currentPrice = price;
+                    token.collectionPrice = price;
+                    token.highestPrice = price;
+                    token.highestPriceTimestamp = Date.now();
+                }
+            }
+        }
+
+        if (enrichedData.launch_price != null) {
+            const price = parseFloat(enrichedData.launch_price);
+            if (!isNaN(price) && price > 0 && token.launchPrice === null) {
+                token.launchPrice = price;
+            }
+        }
+
+        // AVE API 因子
+        const numericFields = {
+            tx_volume_u_24h: 'txVolumeU24h',
+            txVolumeU24h: 'txVolumeU24h',
+            holders: 'holders',
+            tvl: 'tvl',
+            fdv: 'fdv',
+            market_cap: 'marketCap',
+            marketCap: 'marketCap',
+        };
+
+        for (const [srcKey, destKey] of Object.entries(numericFields)) {
+            if (enrichedData[srcKey] != null) {
+                const val = destKey === 'holders'
+                    ? parseInt(enrichedData[srcKey])
+                    : parseFloat(enrichedData[srcKey]);
+                if (!isNaN(val)) {
+                    token[destKey] = val;
+                }
+            }
+        }
+
+        // 合并 rawApiData
+        if (enrichedData.rawApiData || enrichedData.raw_api_data) {
+            const incoming = enrichedData.rawApiData || enrichedData.raw_api_data;
+            token.rawApiData = { ...token.rawApiData, ...incoming };
+        } else if (typeof enrichedData === 'object') {
+            // 如果传入的是 AVE API 原始数据，直接作为 rawApiData 保存
+            token.rawApiData = { ...token.rawApiData, ...enrichedData };
+        }
+
+        // 合约安全数据
+        if (enrichedData.contract_security_raw_data != null) {
+            token.contractSecurity = enrichedData.contract_security_raw_data;
+        }
+
+        return true;
     }
 
     /**
@@ -411,6 +513,54 @@ class TokenPool {
     }
 
     /**
+     * 检查已卖出代币的价格是否停滞
+     * 卖出后价格长时间不变或归零，可提前淘汰以节省资源
+     * @param {Object} token - Token data from pool
+     * @returns {boolean} True if price is stagnant
+     */
+    _isPriceStagnant(token) {
+        if (!token.soldAt) return false;
+
+        // 筛选卖出后的价格历史
+        const postSalePrices = token.priceHistory.filter(
+            entry => entry.timestamp >= token.soldAt
+        );
+
+        // 至少需要 minDataPoints 个数据点才判断
+        if (postSalePrices.length < this.stagnationConfig.minDataPoints) {
+            return false;
+        }
+
+        const firstPrice = postSalePrices[0].price;
+        const lastPrice = postSalePrices[postSalePrices.length - 1].price;
+
+        // 价格归零场景：卖出后所有价格都接近零
+        if (firstPrice === 0 || firstPrice < 1e-15) {
+            const allZero = postSalePrices.every(p => p.price === 0 || p.price < 1e-15);
+            if (allZero) return true;
+        }
+
+        // 常规场景：首个与末个价格变化幅度 <= threshold
+        if (firstPrice > 0) {
+            const pctChange = Math.abs((lastPrice - firstPrice) / firstPrice * 100);
+            if (pctChange <= this.stagnationConfig.priceChangeThreshold) {
+                return true;
+            }
+        }
+
+        // 额外检查：最近 10 个价格几乎一致（捕捉震荡回落的场景）
+        const recentN = postSalePrices.slice(-10);
+        if (recentN.length >= 10) {
+            const allSame = recentN.every(p =>
+                Math.abs(p.price - recentN[0].price) / Math.max(recentN[0].price, 1e-15) < 0.001
+            );
+            if (allSame) return true;
+        }
+
+        return false;
+    }
+
+    /**
      * 获取需要从池中移除的代币列表
      *
      * 移除条件：
@@ -429,7 +579,6 @@ class TokenPool {
     getTokensToRemove() {
         const toRemove = [];
         const now = Date.now();
-        const POST_SALE_OBSERVATION_TIME = 30 * 60 * 1000; // 30分钟
 
         for (const [key, token] of this.pool.entries()) {
             let shouldRemove = false;
@@ -444,10 +593,20 @@ class TokenPool {
                 shouldRemove = true;
                 reason = '低收益无交易';
             } else if (token.status === 'sold') {
-                // 已卖出的代币，30分钟观察期后才移除
-                if (token.soldAt && (now - token.soldAt) >= POST_SALE_OBSERVATION_TIME) {
+                const elapsed = token.soldAt ? (now - token.soldAt) : Infinity;
+
+                // 价格停滞提前淘汰
+                if (this.stagnationConfig.enabled && elapsed >= this.stagnationConfig.minDurationMs) {
+                    if (this._isPriceStagnant(token)) {
+                        shouldRemove = true;
+                        reason = `价格停滞提前结束(观察${(elapsed / 60000).toFixed(1)}分钟)`;
+                    }
+                }
+
+                // 标准超时：观察窗口到期
+                if (!shouldRemove && elapsed >= this.observationWindowMs) {
                     shouldRemove = true;
-                    reason = `交易后观察结束(${((now - token.soldAt) / 60000).toFixed(1)}分钟)`;
+                    reason = `交易后观察结束(${(elapsed / 60000).toFixed(1)}分钟)`;
                 }
             } else if (token.status === 'exited') {
                 // 已退出的代币立即移除（向后兼容）
@@ -456,8 +615,7 @@ class TokenPool {
             } else if (token.status === 'monitoring') {
                 // 只有未交易的监控中代币才按时间淘汰
                 const age = now - token.createdAt * 1000;
-                const MAX_AGE = 30 * 60 * 1000; // 30分钟
-                if (age > MAX_AGE) {
+                if (age > this.maxAge) {
                     shouldRemove = true;
                     reason = `监控超时(${(age / 60000).toFixed(1)}分钟)`;
                 }

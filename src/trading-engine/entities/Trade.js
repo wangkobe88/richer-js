@@ -84,6 +84,7 @@ class Trade {
       token_address: this.tokenAddress,
       token_symbol: this.tokenSymbol,
       token_id: this.tokenId,
+      chain: this.chain,
       trade_direction: this.tradeDirection,
       trade_status: this.tradeStatus,
       input_currency: this.inputCurrency,

@@ -25,6 +25,7 @@ const DecisionMaker = require('./core/decision-maker');
 
 // Initialize collectors and monitors
 const PlatformCollector = require('./collectors/platform-collector');
+const PumpFunWsCollector = require('./collectors/pumpfun-ws-collector');
 const KlineMonitor = require('./monitors/kline-monitor');
 
 class RicherJs {
@@ -75,6 +76,13 @@ class RicherJs {
             this.tokenPool
         );
 
+        // Initialize PumpFun WebSocket collector
+        this.pumpfunWsCollector = new PumpFunWsCollector(
+            this.config,
+            this.logger,
+            this.tokenPool
+        );
+
         // Initialize monitor
         this.monitor = new KlineMonitor(
             this.config,
@@ -98,6 +106,9 @@ class RicherJs {
 
         // Start collector
         this.collector.start();
+
+        // Start PumpFun WebSocket collector
+        this.pumpfunWsCollector.start();
 
         // Start monitor
         this.monitor.start();
@@ -183,6 +194,7 @@ class RicherJs {
                 totalAdded: collectorStats.totalAdded,
                 lastCollection: collectorStats.lastCollectionTime
             },
+            pumpfunWs: this.pumpfunWsCollector.getStats(),
             monitor: {
                 totalUpdates: monitorStats.totalUpdates,
                 successfulUpdates: monitorStats.successfulUpdates,
@@ -229,6 +241,9 @@ class RicherJs {
 
         // Stop collector
         this.collector.stop();
+
+        // Stop PumpFun WebSocket collector
+        this.pumpfunWsCollector.stop();
 
         // Stop monitor
         this.monitor.stop();

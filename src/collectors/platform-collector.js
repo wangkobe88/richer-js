@@ -509,8 +509,13 @@ class PlatformCollector {
 
     /**
      * Collect new tokens from pumpfun platform (Solana chain)
+     * 可通过 pumpfunCollectors.ave.enabled 配置开关
      */
     async collectPumpfunTokens() {
+        // AVE 轮询收集器开关
+        const aveEnabled = this.config.pumpfunCollectors?.ave?.enabled !== false;
+        if (!aveEnabled) return;
+
         try {
             const startTime = Date.now();
             this.logger.debug('开始收集pumpfun新代币');
@@ -545,6 +550,7 @@ class PlatformCollector {
             let addedCount = 0;
             let skippedCount = 0;
             let alreadyInPoolCount = 0;
+            let enrichedCount = 0;
 
             for (const token of tokens) {
                 const tokenKey = `${token.token}-${token.chain}`;
@@ -556,6 +562,19 @@ class PlatformCollector {
                 const existingToken = this.tokenPool.getToken(token.token, token.chain);
                 if (existingToken) {
                     alreadyInPoolCount++;
+                    // WS 收集器已发现的代币，用 AVE API 数据补全
+                    const tokenAge = now - (token.created_at * 1000);
+                    if (tokenAge < maxAgeMs) {
+                        try {
+                            const pairResult = await this.pairResolver.resolvePairAddress(token.token, 'pumpfun', 'solana');
+                            token.pairAddress = pairResult.pairAddress;
+                        } catch (_) {}
+                        token.platform = 'pumpfun';
+                        const enriched = this.tokenPool.enrichToken(token.token, token.chain, token);
+                        if (enriched) enrichedCount++;
+                    }
+                    this.collectedTokens.add(tokenKey);
+                    continue;
                 }
 
                 token.platform = 'pumpfun';
@@ -594,6 +613,7 @@ class PlatformCollector {
                 fetched: allTokens.length,
                 afterDedup: tokens.length,
                 added: addedCount,
+                enriched: enrichedCount,
                 skipped: skippedCount,
                 alreadyInPool: alreadyInPoolCount,
                 duration: `${duration}ms`

@@ -1223,8 +1223,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this.logger.info('LiveTradingEngine', 'Initialize', `购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
     console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
 
-    // 5. 初始化 TokenPool（传入价格历史缓存和持有者历史缓存，与虚拟盘一致）
-    this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache, this._holderHistoryCache);
+    // 5. 初始化 TokenPool（传入价格历史缓存、持有者历史缓存和监控配置，与虚拟盘一致）
+    const monitorConfig = {
+        ...defaultConfig.monitor,
+        ...(this._experiment?.config?.monitor || {})
+    };
+    this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache, this._holderHistoryCache, monitorConfig);
     this.logger.info('LiveTradingEngine', 'Initialize', '代币池初始化完成');
     console.log(`✅ 代币池初始化完成`);
 

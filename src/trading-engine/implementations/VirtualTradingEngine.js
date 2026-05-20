@@ -14,6 +14,7 @@ const Decimal = require('decimal.js');
 // 延迟导入以避免循环依赖
 let TokenPool = null;
 let PlatformCollector = null;
+let PumpFunWsCollector = null;
 let StrategyEngine = null;
 let CardPositionManager = null;
 
@@ -21,12 +22,13 @@ function getLazyModules() {
   if (!TokenPool) {
     TokenPool = require('../../core/token-pool');
     PlatformCollector = require('../../collectors/platform-collector');
+    PumpFunWsCollector = require('../../collectors/pumpfun-ws-collector');
     const SE = require('../../strategies/StrategyEngine');
     StrategyEngine = SE.StrategyEngine;
     const CPM = require('../../portfolio/CardPositionManager');
     CardPositionManager = CPM.CardPositionManager;
   }
-  return { TokenPool, PlatformCollector, StrategyEngine, CardPositionManager };
+  return { TokenPool, PlatformCollector, PumpFunWsCollector, StrategyEngine, CardPositionManager };
 }
 
 // Super IP 检测模块（懒加载，ESM 动态导入，用于 tweetAuthorType 因子）
@@ -663,8 +665,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
     this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
 
-    // 3. 初始化代币池（传入价格历史缓存和持有者历史缓存）
-    this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache, this._holderHistoryCache);
+    // 3. 初始化代币池（传入价格历史缓存、持有者历史缓存和监控配置）
+    const monitorConfig = {
+        ...config.monitor,
+        ...(this._experiment?.config?.monitor || {})
+    };
+    this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache, this._holderHistoryCache, monitorConfig);
     this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 代币池初始化完成');
 
     // 2. 初始化AVE TokenAPI（用于获取代币价格和因子数据）
@@ -710,6 +716,17 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       this._blockchain    // 传递区块链配置，用于过滤平台
     );
     this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 收集器初始化完成 [实验ID: ${this._experimentId}, 区块链: ${this._blockchain}, 收集频率: ${mergedCollectorConfig.collector.interval}ms, 代币最大年龄: ${mergedCollectorConfig.collector.maxAgeSeconds}s]`);
+
+    // 3.5 初始化 PumpFun WebSocket 收集器（仅 solana/all 模式）
+    const { PumpFunWsCollector } = getLazyModules();
+    this._pumpfunWsCollector = new PumpFunWsCollector(
+      mergedCollectorConfig,
+      this.logger,
+      this._tokenPool
+    );
+    const wsEnabled = this._pumpfunWsCollector.enabled;
+    const aveEnabled = mergedCollectorConfig.pumpfunCollectors?.ave?.enabled !== false;
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ PumpFun 收集器配置 [AVE轮询=${aveEnabled}, WS实时=${wsEnabled}]`);
 
     // 4. 初始化多周期 RSI 指标（pumpfun 优化版）
     const { RSIIndicator } = require('../../indicators/RSIIndicator');
@@ -2518,6 +2535,11 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'VirtualTradingEngine', `🔄 Fourmeme收集器已启动 (${config.collector.interval}ms间隔)`);
     this.logger.info(this._experimentId, 'VirtualTradingEngine', 'Fourmeme收集器已启动');
 
+    // 启动 PumpFun WebSocket 收集器
+    if (this._pumpfunWsCollector) {
+      this._pumpfunWsCollector.start();
+    }
+
     // 启动监控循环
     this._startMonitoringLoop();
 
@@ -2569,6 +2591,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     if (this._fourmemeCollector) {
       this._fourmemeCollector.stop();
       this.logger.info(this._experimentId, 'VirtualTradingEngine', '⏹️ Fourmeme收集器已停止');
+    }
+
+    // 停止 PumpFun WebSocket 收集器
+    if (this._pumpfunWsCollector) {
+      this._pumpfunWsCollector.stop();
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', '⏹️ PumpFun WS收集器已停止');
     }
 
     // 停止监控循环

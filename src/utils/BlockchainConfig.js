@@ -207,7 +207,7 @@ class BlockchainConfig {
       network: {
         name: 'Solana',
         chainId: null,
-        rpcUrl: 'https://rpc.ankr.com/solana/4d263b0f06e673f5ce9d0b826b5cbcfa779861447b04c1ecb263938506a8abb9',
+        rpcUrl: 'https://mainnet.helius-rpc.com/?api-key=7fb3ba97-0684-4e0c-8416-3a8fd44db217',
         fallbackRpcUrls: [
           'https://api.mainnet-beta.solana.com'
         ],
