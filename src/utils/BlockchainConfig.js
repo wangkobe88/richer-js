@@ -207,10 +207,9 @@ class BlockchainConfig {
       network: {
         name: 'Solana',
         chainId: null,
-        rpcUrl: 'https://api.mainnet-beta.solana.com',
+        rpcUrl: 'https://rpc.ankr.com/solana/4d263b0f06e673f5ce9d0b826b5cbcfa779861447b04c1ecb263938506a8abb9',
         fallbackRpcUrls: [
-          'https://solana-api.projectserum.com',
-          'https://rpc.ankr.com/solana'
+          'https://api.mainnet-beta.solana.com'
         ],
         blockExplorer: 'https://explorer.solana.com',
         confirmations: 1

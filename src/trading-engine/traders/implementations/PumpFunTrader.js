@@ -51,7 +51,7 @@ class PumpFunTrader extends ITrader {
         this.config = {
             priorityFee: config.priorityFee || 0.001,
             maxRetries: config.maxRetries || 3,
-            rpcUrl: config.rpcUrl || 'https://api.mainnet-beta.solana.com',
+            rpcUrl: config.rpcUrl || 'https://rpc.ankr.com/solana/4d263b0f06e673f5ce9d0b826b5cbcfa779861447b04c1ecb263938506a8abb9',
             confirmTimeout: config.confirmTimeout || 30000,
             slippage
         };

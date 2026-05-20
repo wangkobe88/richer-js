@@ -152,6 +152,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
       blockchain: this._blockchain,
       chain: this._blockchain,
       enabled: true,
+      rpcUrl: BlockchainConfig.getChainConfig(this._blockchain)?.network?.rpcUrl,
       trading: {
         maxGasPrice: this._experiment.config?.trading?.maxGasPrice || 10,
         maxGasLimit: this._experiment.config?.trading?.maxGasLimit || 500000,
