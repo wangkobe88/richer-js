@@ -360,6 +360,10 @@ class PumpFunWsCollector {
         // 去重检查
         const existingToken = this.tokenPool.getToken(mintAddress, 'solana');
         if (existingToken) {
+            // AVE 轮询可能先添加了该代币，WS 也检测到了，更新 data_source
+            if (existingToken.dataSource !== 'wss') {
+                existingToken.dataSource = 'wss';
+            }
             this.stats.duplicate++;
             return;
         }
