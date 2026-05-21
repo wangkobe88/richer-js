@@ -45,8 +45,9 @@ class VirtualTradingSystem {
     switch (tradingMode) {
       case 'virtual':
         const initialBalance = experiment.config?.virtual?.initialBalance || 100;
-        console.log(`🎮 创建虚拟交易引擎，初始余额: ${initialBalance}`);
-        return new VirtualTradingEngine({ initialBalance });
+        const blockchain = experiment.config?.blockchain || 'bsc';
+        console.log(`🎮 创建虚拟交易引擎，初始余额: ${initialBalance}, 区块链: ${blockchain}`);
+        return new VirtualTradingEngine({ initialBalance, blockchain });
 
       case 'live':
         console.log(`🔴 创建实盘交易引擎`);
