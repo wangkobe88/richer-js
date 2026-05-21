@@ -447,7 +447,7 @@ class PumpFunWsCollector {
                 this.logger.info('[PumpFunWsCollector] 代币数据补全成功', {
                     mint: mintAddress,
                     symbol: token?.symbol || '',
-                    pairAddress: pairAddress || 'N/A',
+                    pairAddress: token?.pairAddress || 'N/A',
                     price: token?.currentPrice || 'N/A'
                 });
             }
