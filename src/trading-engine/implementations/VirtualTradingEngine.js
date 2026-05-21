@@ -1044,16 +1044,20 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       token._dataCollectionRound = (token._dataCollectionRound || 0) + 1;
 
       // Solana 代币快速淘汰：连续 N 轮价格无变化则标记为不活跃
+      // 注意：从未获得过有效价格的代币不计入"无变化"，等待价格API首次返回数据
       const eliminationRounds = this._experiment?.config?.solana?.eliminationRounds || 6;
       if (token.chain === 'solana' && token.status === 'monitoring') {
-        if (currentPrice === (token._lastSeenPrice ?? -1)) {
-          token._priceUnchangedRounds = (token._priceUnchangedRounds || 0) + 1;
-        } else {
-          token._priceUnchangedRounds = 0;
+        const hasValidPrice = currentPrice && currentPrice > 0;
+        if (hasValidPrice) {
+          if (currentPrice === token._lastSeenPrice) {
+            token._priceUnchangedRounds = (token._priceUnchangedRounds || 0) + 1;
+          } else {
+            token._priceUnchangedRounds = 0;
+          }
+          token._lastSeenPrice = currentPrice;
         }
-        token._lastSeenPrice = currentPrice;
 
-        if (token._priceUnchangedRounds >= eliminationRounds) {
+        if ((token._priceUnchangedRounds || 0) >= eliminationRounds && token._lastSeenPrice != null) {
           this.logger.info(this._experimentId, 'ProcessToken',
             `Solana 代币连续 ${token._priceUnchangedRounds} 轮价格无变化，快速淘汰 | ${token.symbol} (${token.token})`);
           this._tokenPool.markTokenStatus(token.token, token.chain, 'inactive');
