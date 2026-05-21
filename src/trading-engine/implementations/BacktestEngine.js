@@ -1228,7 +1228,11 @@ class BacktestEngine extends AbstractTradingEngine {
       const platformInfo = this._tokenPlatformInfo.get(tokenAddress) || {};
       const platform = platformInfo.platform || 'fourmeme';
       const pairAddress = platformInfo.mainPair || null;
-      const launchPrice = platformInfo.launchPrice || factorValues.launchPrice || 0;
+      // collectionPrice: 第一个数据点的价格（与虚拟引擎的首次观察价格对齐）
+      const collectionPrice = factorValues.collectionPrice || parseFloat(dataPoint.price_usd) || 0;
+      // launchPrice: 优先 raw_api_data.launch_price，否则 fallback 到 collectionPrice
+      // （WS 收集器发现的代币没有 launch_price，需要 fallback 保证 earlyReturn 可计算）
+      const launchPrice = platformInfo.launchPrice || factorValues.launchPrice || collectionPrice || 0;
 
       this._tokenStates.set(tokenAddress, {
         token: tokenAddress,
@@ -1238,7 +1242,7 @@ class BacktestEngine extends AbstractTradingEngine {
         pairAddress: pairAddress,
         status: 'monitoring',
         currentPrice: parseFloat(dataPoint.price_usd) || 0,
-        collectionPrice: factorValues.collectionPrice || parseFloat(dataPoint.price_usd) || 0,
+        collectionPrice: collectionPrice,
         launchPrice: launchPrice,
         collectionTime: new Date(dataPoint.timestamp).getTime(),
         buyPrice: 0,

@@ -249,7 +249,8 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
   const collectionPrice = tokenState.collectionPrice ?? fv.collectionPrice ?? priceUsd;
 
   // launchPrice: 优先 tokenState，然后 factor_values（兼容旧数据）
-  const launchPrice = tokenState.launchPrice ?? fv.launchPrice ?? collectionPrice ?? 0;
+  // 使用 || 而非 ?? ，确保 launchPrice=0 时也能穿透到 collectionPrice fallback
+  const launchPrice = tokenState.launchPrice || fv.launchPrice || collectionPrice || 0;
 
   // 优先使用 factor_values 中的 age（基于代币创建时间），如果没有则重新计算
   let age = fv.age;
