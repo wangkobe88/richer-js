@@ -67,7 +67,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     // Virtual 特有属性
     this.initialBalance = config.initialBalance || 100;
-    this.currentBalance = this.initialBalance;
+    this._currentBalance = this.initialBalance;
 
     // 统计信息
     this.metrics = {
@@ -114,6 +114,22 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._seenTokens = new Set();
 
     this.logger.info(this._experimentId, 'VirtualTradingEngine', `🎮 虚拟交易引擎已创建: ${this.id}, 初始余额: ${this.initialBalance}`);
+  }
+
+  // ==================== 余额管理 ====================
+
+  /**
+   * 获取当前可用余额（从 PortfolioManager 获取真实余额）
+   */
+  get currentBalance() {
+    try {
+      const portfolio = this._portfolioManager?.getPortfolio(this._portfolioId);
+      if (portfolio) {
+        const cashBalance = portfolio.cashBalance;
+        return typeof cashBalance === 'number' ? cashBalance : cashBalance?.toNumber?.() ?? this._currentBalance;
+      }
+    } catch {}
+    return this._currentBalance;
   }
 
   // ==================== 抽象方法实现 ====================
@@ -985,6 +1001,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           symbol: token.symbol,
           chain: token.chain,
           platform: token.platform || 'fourmeme',
+          data_source: token.dataSource || token.data_source || null,
           created_at: token.createdAt,
           raw_api_data: token.rawApiData || null,
           contract_security_raw_data: token.contractSecurity || null,

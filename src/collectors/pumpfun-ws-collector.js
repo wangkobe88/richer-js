@@ -12,19 +12,46 @@
  *
  * 工作流程：
  * 1. 使用 Helius transactionSubscribe 订阅 PumpFun 程序交易
- * 2. 过滤包含 "InitializeMint2" 的日志（新代币创建标志）
+ * 2. 过滤包含 "Instruction: Create" 的日志（新代币创建标志）
  * 3. 从交易 accountKeys 直接提取 mint 地址和创建者钱包
- * 4. 立即以最小数据加入 TokenPool
- * 5. 异步从 AVE API 补全完整数据（价格、市值、pairAddress 等）
+ * 4. 从 Create/CreateV2 指令数据解码 name/symbol
+ * 5. 加入 TokenPool，价格由后续监控循环的批量价格 API 获取
  */
 
 const WebSocket = require('ws');
 const { PublicKey } = require('@solana/web3.js');
-const { AveTokenAPI } = require('../core/ave-api/token-api');
+const bs58 = require('bs58').default;
 const { BlockchainConfig } = require('../utils/BlockchainConfig');
 
 const PUMP_FUN_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
 const PUMP_FUN_PROGRAM_PK = new PublicKey(PUMP_FUN_PROGRAM);
+
+// Anchor instruction discriminators (from PumpFun IDL)
+const PUMP_CREATE_DISCRIMINATOR = Buffer.from([24, 30, 200, 40, 5, 28, 7, 119]);
+const PUMP_CREATE_V2_DISCRIMINATOR = Buffer.from([214, 144, 76, 236, 95, 139, 49, 180]);
+
+function readAnchorString(buf, offset) {
+    if (offset + 4 > buf.length) return { value: '', offset: buf.length };
+    const len = buf.readUInt32LE(offset);
+    offset += 4;
+    if (len > 1000 || offset + len > buf.length) return { value: '', offset: buf.length };
+    const value = buf.slice(offset, offset + len).toString('utf-8');
+    offset += len;
+    return { value, offset };
+}
+
+function decodePumpCreateInstruction(dataB58) {
+    try {
+        const data = Buffer.from(bs58.decode(dataB58));
+        if (data.length < 8) return null;
+        const disc = data.slice(0, 8);
+        if (!disc.equals(PUMP_CREATE_DISCRIMINATOR) && !disc.equals(PUMP_CREATE_V2_DISCRIMINATOR)) return null;
+        let offset = 8;
+        const nameResult = readAnchorString(data, offset);
+        const symbolResult = readAnchorString(data, nameResult.offset);
+        return { name: nameResult.value, symbol: symbolResult.value };
+    } catch { return null; }
+}
 
 /**
  * 通过 PDA 推导 PumpFun 代币的 bonding curve 地址（即 pairAddress）
@@ -53,17 +80,6 @@ class PumpFunWsCollector {
         this._ws = null;
         this.subId = null;
 
-        // AVE API（用于补全数据）
-        this.aveApi = new AveTokenAPI(
-            config.ave?.apiUrl || 'https://prod.ave-api.com',
-            config.ave?.timeout || 30000,
-            process.env.AVE_API_KEY
-        );
-
-        // 补全队列：mintAddress -> { retryCount, addedAt }
-        this.pendingEnrichment = new Map();
-        this.enrichmentIntervalId = null;
-
         // 心跳
         this.heartbeatIntervalId = null;
         this.pingIntervalId = null;
@@ -83,6 +99,8 @@ class PumpFunWsCollector {
             reconnects: 0,
             txReceived: 0,
             createDetected: 0,
+            decodeSuccess: 0,
+            decodeFailed: 0,
             lastDetectedAt: null,
             lastEnrichedAt: null,
             startTime: null
@@ -135,7 +153,6 @@ class PumpFunWsCollector {
 
         this.stats.startTime = Date.now();
         this._subscribe();
-        this._startEnrichmentWorker();
         this._startHeartbeat();
 
         this.logger.info('[PumpFunWsCollector] 已启动，通过 Helius transactionSubscribe 监控 PumpFun 新代币');
@@ -160,11 +177,6 @@ class PumpFunWsCollector {
             this._ws.removeAllListeners();
             this._ws.close();
             this._ws = null;
-        }
-
-        if (this.enrichmentIntervalId) {
-            clearInterval(this.enrichmentIntervalId);
-            this.enrichmentIntervalId = null;
         }
 
         if (this.heartbeatIntervalId) {
@@ -273,11 +285,9 @@ class PumpFunWsCollector {
 
             const logs = meta.logMessages || [];
 
-            // 检测 PumpFun 新代币创建：只匹配 CreateV2（PumpFun 特有指令）
-            // 不使用 InitializeMint2 / Create，它们不是 PumpFun 特有的，
-            // 会导致误判非 pump 代币（如一笔交易同时涉及 PumpFun 买/卖和另一个代币创建）
+            // 检测 PumpFun 新代币创建：匹配 Create 和 CreateV2
             const isPumpCreate = logs.some(log =>
-                log.includes('Instruction: CreateV2')
+                log.includes('Instruction: Create')
             );
 
             if (!isPumpCreate) return;
@@ -311,7 +321,29 @@ class PumpFunWsCollector {
                 return;
             }
 
-            this._handleNewToken(signature, mintAddress, devWallet);
+            // 从 PumpFun 指令数据中解码 name/symbol
+            let tokenName = '';
+            let tokenSymbol = '';
+            const instructions = txMessage.instructions || [];
+            for (const ix of instructions) {
+                const programId = typeof ix.programId === 'string' ? ix.programId : (ix.programId?.pubkey || '');
+                if (programId !== PUMP_FUN_PROGRAM) continue;
+                if (!ix.data) continue;
+
+                const decoded = decodePumpCreateInstruction(ix.data);
+                if (decoded) {
+                    tokenName = decoded.name || '';
+                    tokenSymbol = decoded.symbol || '';
+                    this.stats.decodeSuccess++;
+                    break;
+                }
+            }
+
+            if (!tokenName && !tokenSymbol) {
+                this.stats.decodeFailed++;
+            }
+
+            this._handleNewToken(signature, mintAddress, devWallet, tokenName, tokenSymbol);
 
         } catch (error) {
             this.logger.error('[PumpFunWsCollector] 解析交易失败', { error: error.message });
@@ -321,9 +353,10 @@ class PumpFunWsCollector {
 
     /**
      * 处理检测到的新代币
-     * 所有数据已从 WebSocket 消息中获取，无需额外 RPC 调用
+     * name/symbol 从 Create/CreateV2 指令数据中解码
+     * 价格由后续监控循环的批量价格 API 获取
      */
-    _handleNewToken(signature, mintAddress, devWallet) {
+    _handleNewToken(signature, mintAddress, devWallet, tokenName, tokenSymbol) {
         // 去重检查
         const existingToken = this.tokenPool.getToken(mintAddress, 'solana');
         if (existingToken) {
@@ -335,15 +368,16 @@ class PumpFunWsCollector {
         this.stats.detected++;
         this.stats.lastDetectedAt = now;
 
-        // 创建最小 token 对象并加入池
+        // 创建 token 对象并加入池
         // PumpFun pairAddress 是 mint 的 PDA（bonding-curve seed），可确定性推导
         const pairAddress = deriveBondingCurveAddress(mintAddress);
         const minimalToken = {
             token: mintAddress,
             chain: 'solana',
             platform: 'pumpfun',
-            name: '',
-            symbol: '',
+            data_source: 'wss',
+            name: tokenName || '',
+            symbol: tokenSymbol || '',
             created_at: Math.floor(now / 1000),
             current_price_usd: null,
             creator_address: devWallet,
@@ -354,110 +388,14 @@ class PumpFunWsCollector {
         if (added) {
             this.logger.info('[PumpFunWsCollector] 新代币入池', {
                 mint: mintAddress,
+                name: tokenName || '',
+                symbol: tokenSymbol || '',
                 dev: devWallet,
                 signature: signature?.slice(0, 20) + '...',
                 poolSize: this.tokenPool.getStats().total
             });
-
-            // 加入补全队列
-            this.pendingEnrichment.set(mintAddress, {
-                retryCount: 0,
-                addedAt: now,
-                devWallet,
-                signature
-            });
         } else {
             this.stats.duplicate++;
-        }
-    }
-
-    /**
-     * 启动补全工作线程
-     */
-    _startEnrichmentWorker() {
-        const interval = this.config.enrichmentInterval || 3000;
-        this.enrichmentIntervalId = setInterval(() => {
-            this._processEnrichmentQueue();
-        }, interval);
-    }
-
-    /**
-     * 处理补全队列
-     */
-    async _processEnrichmentQueue() {
-        if (this.pendingEnrichment.size === 0) return;
-
-        const maxRetries = this.config.enrichmentMaxRetries || 3;
-        const maxAge = this.config.enrichmentMaxAge || 60000;
-        const now = Date.now();
-        const toProcess = [];
-
-        for (const [mintAddress, state] of this.pendingEnrichment.entries()) {
-            // 超龄清理
-            if (now - state.addedAt > maxAge) {
-                this.pendingEnrichment.delete(mintAddress);
-                continue;
-            }
-            // 超过重试次数
-            if (state.retryCount >= maxRetries) {
-                this.pendingEnrichment.delete(mintAddress);
-                this.stats.enrichmentFailed++;
-                continue;
-            }
-            toProcess.push([mintAddress, state]);
-        }
-
-        // 串行处理，避免 AVE API 限流
-        for (const [mintAddress, state] of toProcess) {
-            try {
-                await this._enrichToken(mintAddress, state);
-            } catch (_) {
-                // _enrichToken 内部已处理
-            }
-        }
-    }
-
-    /**
-     * 补全单个代币数据
-     */
-    async _enrichToken(mintAddress, state) {
-        const tokenId = `${mintAddress}-solana`;
-        state.retryCount++;
-
-        try {
-            // 1. 从 AVE API 获取 token detail
-            const detail = await this.aveApi.getTokenDetail(tokenId);
-            const tokenData = detail.token || {};
-
-            // 2. 构建补全数据（pairAddress 已在入池时通过 PDA 推导设置）
-            const enrichedData = {
-                ...tokenData,
-                creator_address: state.devWallet || tokenData.creator_address
-            };
-
-            // 3. 更新池中 token
-            const enriched = this.tokenPool.enrichToken(mintAddress, 'solana', enrichedData);
-
-            if (enriched) {
-                this.pendingEnrichment.delete(mintAddress);
-                this.stats.enriched++;
-                this.stats.lastEnrichedAt = Date.now();
-
-                const token = this.tokenPool.getToken(mintAddress, 'solana');
-                this.logger.info('[PumpFunWsCollector] 代币数据补全成功', {
-                    mint: mintAddress,
-                    symbol: token?.symbol || '',
-                    pairAddress: token?.pairAddress || 'N/A',
-                    price: token?.currentPrice || 'N/A'
-                });
-            }
-
-        } catch (error) {
-            this.logger.debug('[PumpFunWsCollector] 补全失败，等待重试', {
-                mint: mintAddress,
-                retry: state.retryCount,
-                error: error.message
-            });
         }
     }
 
@@ -520,7 +458,6 @@ class PumpFunWsCollector {
         return {
             enabled: this.enabled,
             ...this.stats,
-            pendingEnrichment: this.pendingEnrichment.size,
             connected: this._ws?.readyState === WebSocket.OPEN,
             uptimeSeconds: this.stats.startTime
                 ? Math.floor((Date.now() - this.stats.startTime) / 1000)
