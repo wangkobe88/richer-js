@@ -502,17 +502,7 @@ class TokenHolderService {
    * @returns {boolean}
    */
   _evaluateCanBuy(whitelistCount, blacklistCount) {
-    // 条件1：黑白名单均没有命中
-    if (whitelistCount === 0 && blacklistCount === 0) {
-      return true;
-    }
-
-    // 条件2：白名单 >= 黑名单 * 2，且黑名单 <= 10
-    if (blacklistCount <= 10 && whitelistCount >= blacklistCount * 2) {
-      return true;
-    }
-
-    return false;
+    return true;
   }
 
   /**
@@ -637,23 +627,10 @@ class TokenHolderService {
    * @returns {string}
    */
   _getEarlyTraderReason(whitelistCount, blacklistCount, canBuy) {
-    if (canBuy) {
-      if (whitelistCount === 0 && blacklistCount === 0) {
-        return '早期交易者无黑白名单命中';
-      }
-      return `白名单${whitelistCount}个 >= 黑名单${blacklistCount}个 × 2，且黑名单 ≤ 10`;
+    if (whitelistCount === 0 && blacklistCount === 0) {
+      return '早期交易者无黑白名单命中';
     }
-
-    if (blacklistCount > 10) {
-      return `早期交易者黑名单过多(${blacklistCount}个 > 10)`;
-    }
-    if (blacklistCount > 0 && whitelistCount < blacklistCount * 2) {
-      return `早期交易者白名单不足(${whitelistCount}个 < 黑名单${blacklistCount}个 × 2)`;
-    }
-    if (blacklistCount > 0 && whitelistCount === 0) {
-      return `早期交易者命中黑名单但无白名单抵消(${blacklistCount}个黑名单)`;
-    }
-    return '未知原因';
+    return `早期交易者黑白名单: 白名单${whitelistCount}个, 黑名单${blacklistCount}个`;
   }
 
   /**
