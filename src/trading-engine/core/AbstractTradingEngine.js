@@ -169,7 +169,7 @@ class AbstractTradingEngine extends ITradingEngine {
 
     this._experimentId = this._experiment.id;
     this._portfolioId = `portfolio_${this._experimentId}`;
-    this._blockchain = this._experiment.blockchain || 'bsc';
+    this._blockchain = this._experiment.config?.blockchain || this._experiment.blockchain || 'bsc';
 
     // 初始化日志记录器（必须在 _logger 使用之前）
     this._logger = new Logger({ experimentId: this._experimentId });
