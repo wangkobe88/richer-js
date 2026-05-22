@@ -700,6 +700,12 @@ class RicherJsWebServer {
             config.strategiesConfig.eventRecording = strategy.eventRecording;
           }
 
+          // 永久阻断条件
+          if (strategy.permanentBlockCondition) {
+            config.strategiesConfig = config.strategiesConfig || {};
+            config.strategiesConfig.permanentBlockCondition = strategy.permanentBlockCondition;
+          }
+
           // 兼容旧格式的简单策略参数（用于 fourmeme_earlyreturn）
           // 如果没有提供新格式的策略，使用默认值
           if (!strategy.buyStrategies && !strategy.sellStrategies) {
