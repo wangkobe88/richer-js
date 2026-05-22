@@ -65,7 +65,7 @@ class RoundSummary {
      * @param {string} tokenSymbol - 代币符号
      * @param {Object} indicators - 指标数据
      * @param {number} currentPrice - 当前价格（USD）
-     * @param {Object} tokenInfo - 代币额外信息 { createdAt, addedAt, status, collectionPrice, launchPrice, platform }
+     * @param {Object} tokenInfo - 代币额外信息 { createdAt, addedAt, status, firstPrice, platform }
      */
     recordTokenIndicators(tokenAddress, tokenSymbol, indicators, currentPrice, tokenInfo = {}) {
         this.roundData.tokens.set(tokenAddress, {
@@ -74,8 +74,7 @@ class RoundSummary {
             platform: tokenInfo.platform || 'fourmeme',
             indicators,
             currentPrice,
-            collectionPrice: tokenInfo.collectionPrice || null,
-            launchPrice: tokenInfo.launchPrice || null,
+            firstPrice: tokenInfo.firstPrice || null,
             signal: null,
             signalExecuted: false,
             executionReason: null,
@@ -264,14 +263,9 @@ class RoundSummary {
             console.log(`   当前价格: N/A`);
         }
 
-        // 获取时价格（收集时价格）
-        if (tokenData.collectionPrice !== null && tokenData.collectionPrice !== undefined) {
-            console.log(`   获取时价格: $${tokenData.collectionPrice.toExponential(4)}`);
-        }
-
-        // 发行价格（earlyReturn 基准）
-        if (tokenData.launchPrice !== null && tokenData.launchPrice !== undefined && tokenData.launchPrice > 0) {
-            console.log(`   发行价格: $${tokenData.launchPrice.toExponential(4)}`);
+        // 初始价格
+        if (tokenData.firstPrice !== null && tokenData.firstPrice !== undefined) {
+            console.log(`   初始价格: $${tokenData.firstPrice.toExponential(4)}`);
         }
 
         // 技术指标
@@ -340,7 +334,7 @@ class RoundSummary {
                     let displayValue = value;
                     if (typeof value === 'number') {
                         // 价格类因子使用科学计数法
-                        if (factorId === 'currentPrice' || factorId === 'collectionPrice' ||
+                        if (factorId === 'currentPrice' || factorId === 'firstPrice' ||
                             factorId === 'buyPrice' || factorId === 'highestPrice') {
                             displayValue = value.toExponential(4);
                         } else if (factorId === 'age') {
@@ -489,14 +483,9 @@ class RoundSummary {
                 lines.push(`   当前价格: N/A`);
             }
 
-            // 获取时价格（收集时价格）
-            if (tokenData.collectionPrice !== null && tokenData.collectionPrice !== undefined) {
-                lines.push(`   获取时价格: $${tokenData.collectionPrice.toExponential(4)}`);
-            }
-
-            // 发行价格（earlyReturn 基准）
-            if (tokenData.launchPrice !== null && tokenData.launchPrice !== undefined && tokenData.launchPrice > 0) {
-                lines.push(`   发行价格: $${tokenData.launchPrice.toExponential(4)}`);
+            // 初始价格
+            if (tokenData.firstPrice !== null && tokenData.firstPrice !== undefined) {
+                lines.push(`   初始价格: $${tokenData.firstPrice.toExponential(4)}`);
             }
 
             // 技术指标
@@ -518,7 +507,7 @@ class RoundSummary {
                             let displayValue = value;
                             if (typeof value === 'number') {
                                 // 价格类因子使用科学计数法
-                                if (factorId === 'currentPrice' || factorId === 'collectionPrice' ||
+                                if (factorId === 'currentPrice' || factorId === 'firstPrice' ||
                                     factorId === 'buyPrice' || factorId === 'highestPrice') {
                                     displayValue = value.toExponential(4);
                                 } else if (factorId === 'age') {

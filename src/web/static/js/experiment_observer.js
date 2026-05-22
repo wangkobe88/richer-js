@@ -431,7 +431,7 @@ class ExperimentObserver {
         const displayNames = {
           age: '代币年龄',
           currentPrice: '当前价格',
-          collectionPrice: '获取时价格',
+          firstPrice: '首次价格',
           earlyReturn: '早期收益率',
           buyPrice: '买入价格',
           holdDuration: '持仓时长',

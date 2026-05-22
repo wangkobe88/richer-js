@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Richer 交易系统 - 代币最早交易</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <link href="/static/css/light-theme.css" rel="stylesheet">
     <link href="/static/css/style.css" rel="stylesheet">
     <style>
@@ -233,6 +235,17 @@
                     <!-- 最早交易内容 -->
                     <div id="tabTrades" class="tab-content p-6">
                         <div id="tradesContent"></div>
+
+                        <!-- 交易价格分布图表 -->
+                        <div id="tradeChartContainer" class="bg-white rounded-lg shadow-md mb-4 hidden">
+                            <div class="px-6 py-3 border-b border-gray-200 flex items-center justify-between cursor-pointer" onclick="toggleTradeChart()">
+                                <h3 class="text-sm font-semibold text-gray-700">交易价格分布</h3>
+                                <span id="tradeChartToggle" class="text-xs text-gray-400">收起 ▲</span>
+                            </div>
+                            <div id="tradeChartBody" class="p-4" style="height: 320px;">
+                                <canvas id="tradeChart"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -301,6 +314,10 @@
             } else {
                 buttons[1].classList.add('active');
                 document.getElementById('tabTrades').classList.add('active');
+                // 切换到交易 tab 时确保图表渲染
+                if (currentEarlyTrades?.length && !tradeChartInstance) {
+                    requestAnimationFrame(() => setTimeout(() => renderTradeChart(currentEarlyTrades), 50));
+                }
             }
         }
 
@@ -663,8 +680,6 @@
 
             container.innerHTML = html;
         }
-
-        // 渲染单行交易
         function renderTradeRow(tx, index, prevTx, nextTx) {
             const gmgnChain = ({bsc:'bsc',eth:'eth',ethereum:'eth',solana:'sol',sol:'sol',base:'base'})[(document.getElementById('chain')?.value||'bsc').toLowerCase()]||'bsc';
             const fromAddr = tx.from_address || '';
@@ -1253,6 +1268,162 @@
                 await queryTokenEarlyTrades();
             }
         });
+
+        // ============ 交易价格分布图表 ============
+
+        let tradeChartInstance = null;
+
+        function toggleTradeChart() {
+            const body = document.getElementById('tradeChartBody');
+            const toggle = document.getElementById('tradeChartToggle');
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                toggle.textContent = '收起 ▲';
+            } else {
+                body.style.display = 'none';
+                toggle.textContent = '展开 ▼';
+            }
+        }
+
+        function mapAmountToRadius(usd) {
+            if (!usd || usd <= 0) return 3;
+            const minR = 3, maxR = 15;
+            const logVal = Math.log10(Math.max(usd, 1));
+            const normalized = Math.min(logVal / 4, 1);
+            return minR + normalized * (maxR - minR);
+        }
+
+        function isBuyTrade(tx) {
+            const toToken = (tx.to_token || '').toLowerCase();
+            const fromToken = (tx.from_token || '').toLowerCase();
+            const targetAddr = targetTokenAddress.toLowerCase();
+            if (toToken && toToken === targetAddr) return true;
+            if (toToken && targetAddr.endsWith(toToken) && toToken.length >= 8) return true;
+            return false;
+        }
+
+        function renderTradeChart(trades) {
+            const container = document.getElementById('tradeChartContainer');
+            if (!trades || trades.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+
+            container.classList.remove('hidden');
+
+            const buys = [], sells = [];
+            for (const tx of trades) {
+                const buy = isBuyTrade(tx);
+                // 买入：to_token 是目标代币，用 to_token_price_usd
+                // 卖出：from_token 是目标代币，用 from_token_price_usd
+                const price = buy
+                    ? (tx.to_token_price_usd || 0)
+                    : (tx.from_token_price_usd || 0);
+                if (!price || price <= 0) continue;
+                const usd = tx.from_usd || tx.to_usd || 0;
+                const point = {
+                    x: tx.time * 1000,
+                    y: price,
+                    r: mapAmountToRadius(usd),
+                    _raw: tx
+                };
+                (buy ? buys : sells).push(point);
+            }
+
+            if (tradeChartInstance) {
+                tradeChartInstance.destroy();
+                tradeChartInstance = null;
+            }
+
+            const ctx = document.getElementById('tradeChart').getContext('2d');
+
+            const buyColor = 'rgba(34,197,94,0.65)';
+            const buyBorder = 'rgba(22,163,74,0.9)';
+            const sellColor = 'rgba(239,68,68,0.65)';
+            const sellBorder = 'rgba(220,38,38,0.9)';
+
+            tradeChartInstance = new Chart(ctx, {
+                type: 'bubble',
+                data: {
+                    datasets: [
+                        {
+                            label: '买入',
+                            data: buys,
+                            backgroundColor: buyColor,
+                            borderColor: buyBorder,
+                            borderWidth: 1,
+                            hoverRadius: 2,
+                            hoverBorderWidth: 2
+                        },
+                        {
+                            label: '卖出',
+                            data: sells,
+                            backgroundColor: sellColor,
+                            borderColor: sellBorder,
+                            borderWidth: 1,
+                            hoverRadius: 2,
+                            hoverBorderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 400 },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { boxWidth: 12, padding: 12, font: { size: 11 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(items) {
+                                    if (!items.length) return '';
+                                    const raw = items[0].raw._raw;
+                                    return toBeijingTime(raw.time);
+                                },
+                                label: function(item) {
+                                    const raw = item.raw._raw;
+                                    const usd = raw.from_usd || raw.to_usd || 0;
+                                    const type = isBuyTrade(raw) ? '买入' : '卖出';
+                                    const wallet = (raw.from_address || '').slice(0, 6) + '...' || '-';
+                                    const price = isBuyTrade(raw) ? raw.to_token_price_usd : raw.from_token_price_usd;
+                                    return [
+                                        `${type} | $${usd.toFixed(2)}`,
+                                        `价格: $${price?.toPrecision(4) || '-'}`,
+                                        `钱包: ${wallet}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                tooltipFormat: 'HH:mm:ss',
+                                displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm' }
+                            },
+                            ticks: { font: { size: 10 }, maxTicksLimit: 12 },
+                            title: { display: true, text: '时间', font: { size: 11 } }
+                        },
+                        y: {
+                            type: 'logarithmic',
+                            title: { display: true, text: '价格 (USD)', font: { size: 11 } },
+                            ticks: {
+                                font: { size: 10 },
+                                callback: function(value) {
+                                    if (value >= 1) return '$' + value.toFixed(0);
+                                    if (value >= 0.001) return '$' + value.toPrecision(2);
+                                    return '$' + value.toExponential(1);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
     </script>
 </body>
 </html>

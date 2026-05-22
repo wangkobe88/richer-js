@@ -116,7 +116,7 @@ class TokenAnalysisService {
       // 按时间排序
       timeSeriesData.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-      // 获取初始价格：优先使用 launch_price，回退到时序数据第一条
+      // 获取首次价格：优先使用时序数据第一条价格，raw_api_data.launch_price 仅作展示参考
       let initialPrice = 0;
       try {
         const { data: tokenRecord } = await this.supabase

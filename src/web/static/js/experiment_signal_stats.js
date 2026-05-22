@@ -44,11 +44,15 @@ class ExperimentSignalStats {
     this.init();
   }
 
+  _getBlockchain() {
+    return this.experimentData?.blockchain || this.experimentData?.config?.blockchain || 'bsc';
+  }
+
   // 根据区块链决定地址是否需要 lowerCase（Solana 用 base58，大小写敏感）
   _normalizeAddress(addr) {
     if (!addr) return addr;
-    const blockchain = this.experimentData?.config?.blockchain || 'bsc';
-    if (blockchain === 'solana') return addr;
+    const blockchain = this._getBlockchain();
+    if (blockchain === 'solana' || blockchain === 'sol') return addr;
     return addr.toLowerCase();
   }
 
@@ -232,7 +236,7 @@ class ExperimentSignalStats {
     this.tokenStats = Array.from(signalMap.values()).map(signalStats => {
       // 查找对应的代币数据
       const token = this.tokensData.find(t =>
-        t.token_address?.toLowerCase() === signalStats.tokenAddress || t.token_address === signalStats.tokenAddress
+        this._normalizeAddress(t.token_address) === signalStats.tokenAddress
       );
 
       if (token) {
@@ -240,6 +244,7 @@ class ExperimentSignalStats {
           ...signalStats,
           symbol: token.token_symbol || token.raw_api_data?.symbol || 'Unknown',
           name: token.raw_api_data?.name || '',
+          dataSource: token.raw_api_data?.data_source || token.data_source || null,
           narrativeRating: this.narrativeRatingMap.get(signalStats.tokenAddress) ?? null, // 从叙事分析数据获取
           maxChange: token.analysis_results?.max_change_percent ?? null
         };
@@ -387,7 +392,7 @@ class ExperimentSignalStats {
     const shortAddress = stat.tokenAddress.slice(0, 8) + '...';
 
     // 区块链（用于 GMGN 链接和其他链接）
-    const blockchain = this.experimentData?.config?.blockchain || 'bsc';
+    const blockchain = this._getBlockchain();
     // GMGN 链接根据不同链使用不同格式
     const gmgnChainMap = {
       'bsc': 'bsc',
@@ -408,11 +413,23 @@ class ExperimentSignalStats {
     const tokenDetailUrl = `/token-detail?experiment=${this.experimentId}&address=${stat.tokenAddress}`;
     const holdersUrl = `/token-holders?experiment=${this.experimentId}&token=${stat.tokenAddress}`;
 
+    // data_source badge
+    const DATA_SOURCE_MAP = {
+      wss: { label: 'WSS', cls: 'bg-cyan-700 text-cyan-200' },
+      ave_api: { label: 'AVE', cls: 'bg-gray-600 text-gray-200' },
+      gmgn_api: { label: 'GMGN', cls: 'bg-yellow-700 text-yellow-200' },
+    };
+    const dsInfo = stat.dataSource ? DATA_SOURCE_MAP[stat.dataSource] : null;
+    const dsBadge = dsInfo ? `<span class="px-1 rounded text-[9px] font-medium ${dsInfo.cls}">${dsInfo.label}</span>` : '';
+
     return `
       <tr class="table-row">
         <td class="px-4 py-3">
           <div class="flex flex-col">
-            <span class="font-medium text-white">${this.escapeHtml(stat.symbol)}</span>
+            <div class="flex items-center gap-1">
+              <span class="font-medium text-white">${this.escapeHtml(stat.symbol)}</span>
+              ${dsBadge}
+            </div>
             <span class="text-xs text-gray-400 font-mono">${this.escapeHtml(shortAddress)}</span>
           </div>
         </td>
@@ -540,7 +557,7 @@ class ExperimentSignalStats {
 
     document.getElementById('experiment-name').textContent = exp.experimentName || '未命名实验';
     document.getElementById('experiment-id').textContent = `ID: ${this.experimentId.slice(0, 8)}...`;
-    document.getElementById('experiment-blockchain').textContent = `区块链: ${exp.config?.blockchain || 'BSC'}`;
+    document.getElementById('experiment-blockchain').textContent = `区块链: ${this._getBlockchain().toUpperCase()}`;
     document.getElementById('token-count').textContent = `代币数量: ${this.tokenStats.length}`;
 
     // 更新导航链接（都打开新标签页）

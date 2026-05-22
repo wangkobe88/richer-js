@@ -413,8 +413,7 @@ class ExperimentTimeSeriesService {
     const priceHistory = [];
     const holderHistory = [];
     let highestPrice = 0;
-    let launchPrice = 0;
-    let collectionPrice = 0;
+    let firstPrice = 0;
     let tokenCreatedAt = null;
 
     for (const record of data) {
@@ -423,13 +422,9 @@ class ExperimentTimeSeriesService {
       const timestamp = new Date(record.timestamp).getTime();
 
       // 初始化常量（从第一个有效数据点获取）
-      if (!collectionPrice && priceUsd > 0) {
-        collectionPrice = priceUsd;
+      if (!firstPrice && priceUsd > 0) {
+        firstPrice = priceUsd;
       }
-      if (!launchPrice && fv.launchPrice) {
-        launchPrice = fv.launchPrice;
-      }
-      if (!launchPrice) launchPrice = collectionPrice;
 
       // 维护价格历史
       if (priceUsd > 0) {
@@ -445,8 +440,8 @@ class ExperimentTimeSeriesService {
       const age = tokenCreatedAt
         ? (timestamp - new Date(tokenCreatedAt).getTime()) / 60000
         : (timestamp - new Date(data[0].timestamp).getTime()) / 60000;
-      const earlyReturn = launchPrice > 0 && priceUsd > 0
-        ? ((priceUsd - launchPrice) / launchPrice) * 100
+      const earlyReturn = firstPrice > 0 && priceUsd > 0
+        ? ((priceUsd - firstPrice) / firstPrice) * 100
         : 0;
       const riseSpeed = age > 0 ? earlyReturn / age : 0;
       const drawdownFromHighest = highestPrice > 0
@@ -576,7 +571,7 @@ class ExperimentTimeSeriesService {
 
       // 因子映射表
       const factorMap = {
-        age, currentPrice: priceUsd, collectionPrice, launchPrice,
+        age, currentPrice: priceUsd, firstPrice,
         earlyReturn, riseSpeed, highestPrice,
         highestPriceTimestamp: priceUsd >= highestPrice ? new Date(record.timestamp).toISOString() : null,
         drawdownFromHighest,
@@ -1206,7 +1201,7 @@ class ExperimentTimeSeriesService {
 
       const keysToRemove = [
         'age', 'earlyReturn', 'riseSpeed',
-        'collectionPrice', 'launchPrice', 'tweetAuthorType',
+        'firstPrice', 'tweetAuthorType',
         'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
         'buyPrice', 'holdDuration', 'profitPercent',
         'highestPriceSinceLastBuy', 'drawdownFromHighestSinceLastBuy',

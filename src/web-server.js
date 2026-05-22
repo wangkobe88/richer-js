@@ -1768,9 +1768,23 @@ class RicherJsWebServer {
           const clusterService = new WalletClusterService(console, { mode: 'block', clusterBlockThreshold: 7 });
           clusterAnalysis = clusterService.performClusterAnalysis(data.trades_data, signalData?.token_address);
 
-          // 构建带交易的簇数据
+          // 构建带交易的簇数据（按区块窗口分组）
           const trades = data.trades_data;
-          const detectedClusters = clusterService._detectClusters(trades);
+          const BLOCK_WINDOW = 7;
+          const detectedClusters = [];
+          let currentCluster = [0];
+
+          for (let i = 1; i < trades.length; i++) {
+            const prevBlock = trades[i - 1].block_number || 0;
+            const curBlock = trades[i].block_number || 0;
+            if (curBlock - prevBlock <= BLOCK_WINDOW) {
+              currentCluster.push(i);
+            } else {
+              if (currentCluster.length > 1) detectedClusters.push(currentCluster);
+              currentCluster = [i];
+            }
+          }
+          if (currentCluster.length > 1) detectedClusters.push(currentCluster);
 
           clustersWithTrades = detectedClusters.map((clusterIndices, idx) => {
             const clusterTrades = clusterIndices.map(i => trades[i]);
@@ -3335,7 +3349,6 @@ class RicherJsWebServer {
             .from('experiment_tokens')
             .select('platform')
             .eq('token_address', tokenAddress)
-            .eq('chain', chain)
             .limit(1)
             .maybeSingle();
 
@@ -3379,6 +3392,22 @@ class RicherJsWebServer {
           innerPair = `${tokenAddress}_fo`;
         } else if (platform === 'flap') {
           innerPair = `${tokenAddress}_iportal`;
+        } else if (platform === 'pumpfun') {
+          // PumpFun 代币：通过 PDA 推导 bonding curve 地址作为 pair
+          try {
+            const { PublicKey } = require('@solana/web3.js');
+            const PUMP_FUN_PROGRAM_ID = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
+            const mint = new PublicKey(tokenAddress);
+            const [pda] = PublicKey.findProgramAddressSync(
+              [Buffer.from('bonding-curve'), mint.toBuffer()],
+              new PublicKey(PUMP_FUN_PROGRAM_ID)
+            );
+            innerPair = pda.toString();
+            this.logger.info('WebServer', `📊 [最早交易] PumpFun bonding curve PDA: ${innerPair}`);
+          } catch (e) {
+            this.logger.warn('WebServer', `📊 [最早交易] PumpFun PDA 推导失败: ${e.message}, 回退到 main_pair`);
+            innerPair = token.main_pair;
+          }
         } else {
           // 非 BSC 内盘平台（ETH/Base/Solana 等），从 AVE API 获取主交易对
           // 优先使用 main_pair，其次从 pairs 数组中找交易量最大的 WETH/原生代币交易对

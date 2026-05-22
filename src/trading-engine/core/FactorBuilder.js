@@ -24,8 +24,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 基础因子
     age: factorResults.age,
     currentPrice: factorResults.currentPrice,
-    collectionPrice: factorResults.collectionPrice,
-    launchPrice: factorResults.launchPrice,
+    collectionPrice: factorResults.firstPrice,  // 兼容旧前端
+    launchPrice: factorResults.firstPrice,      // 兼容旧前端
+    firstPrice: factorResults.firstPrice,
     earlyReturn: factorResults.earlyReturn,
     riseSpeed: factorResults.riseSpeed,
     buyPrice: factorResults.buyPrice,
@@ -245,12 +246,8 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
 function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0, timestamp = Date.now()) {
   const fv = factorValues || {};
 
-  // collectionPrice: 优先 tokenState，然后 factor_values（兼容旧数据），最后 fallback 到 priceUsd
-  const collectionPrice = tokenState.collectionPrice ?? fv.collectionPrice ?? priceUsd;
-
-  // launchPrice: 优先 tokenState，然后 factor_values（兼容旧数据）
-  // 使用 || 而非 ?? ，确保 launchPrice=0 时也能穿透到 collectionPrice fallback
-  const launchPrice = tokenState.launchPrice || fv.launchPrice || collectionPrice || 0;
+  // firstPrice: 首次获得的价格，作为 earlyReturn 的基准
+  const firstPrice = tokenState.firstPrice || 0;
 
   // 优先使用 factor_values 中的 age（基于代币创建时间），如果没有则重新计算
   let age = fv.age;
@@ -266,8 +263,8 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
   // earlyReturn: 如果 factor_values 中没有，从价格重算
   let earlyReturn = fv.earlyReturn;
   if (earlyReturn === undefined || earlyReturn === null) {
-    if (launchPrice > 0 && priceUsd > 0) {
-      earlyReturn = ((priceUsd - launchPrice) / launchPrice) * 100;
+    if (firstPrice > 0 && priceUsd > 0) {
+      earlyReturn = ((priceUsd - firstPrice) / firstPrice) * 100;
     } else {
       earlyReturn = 0;
     }
@@ -343,8 +340,9 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     // 基础因子
     age: age,
     currentPrice: priceUsd,
-    collectionPrice: collectionPrice,
-    launchPrice: launchPrice,
+    collectionPrice: firstPrice,  // 兼容旧前端
+    launchPrice: firstPrice,      // 兼容旧前端
+    firstPrice: firstPrice,
     earlyReturn: earlyReturn,
     riseSpeed: riseSpeed,
     buyPrice: tokenState.buyPrice || 0,
@@ -407,7 +405,7 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
 function getAvailableFactorIds() {
   return new Set([
     // 基础因子
-    'age', 'currentPrice', 'collectionPrice', 'earlyReturn', 'buyPrice',
+    'age', 'currentPrice', 'firstPrice', 'collectionPrice', 'launchPrice', 'earlyReturn', 'buyPrice',
     'holdDuration', 'profitPercent',
     'highestPrice', 'highestPriceTimestamp', 'drawdownFromHighest',
     // 最近一次购买后的最高价相关因子（用于止损/止盈）

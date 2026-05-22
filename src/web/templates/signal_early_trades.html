@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
     <link href="/static/css/style.css?v=4.0" rel="stylesheet">
     <link href="/static/css/main.css?v=4.0" rel="stylesheet">
@@ -641,6 +643,19 @@
                         </div>
                     `;
 
+                    // 交易价格分布图表
+                    const chartHtml = `
+                        <div class="card">
+                            <div class="card-title">
+                                <span>📈</span>
+                                <span>交易价格分布</span>
+                            </div>
+                            <div style="height: 320px; padding: 16px;">
+                                <canvas id="signalTradeChart"></canvas>
+                            </div>
+                        </div>
+                    `;
+
                     // 图例说明
                     const legendHtml = `
                         <div class="card">
@@ -855,7 +870,12 @@
                         `;
                     }
 
-                    contentDiv.innerHTML = infoHtml + statsHtml + clusterHtml + preBuyCheckHtml + tableHtml + legendHtml + clusterGroupHtml;
+                    contentDiv.innerHTML = infoHtml + statsHtml + clusterHtml + preBuyCheckHtml + tableHtml + chartHtml + legendHtml + clusterGroupHtml;
+
+                    // 延迟渲染图表
+                    requestAnimationFrame(() => {
+                        setTimeout(() => renderSignalTradeChart(trades, tokenAddress), 100);
+                    });
 
                 } else {
                     // 加载失败
@@ -879,6 +899,125 @@
 
         // 页面加载时执行
         loadEarlyTrades();
+
+        // ============ 交易价格分布图表 ============
+
+        let signalChartInstance = null;
+
+        function renderSignalTradeChart(trades, tokenAddress) {
+            const canvas = document.getElementById('signalTradeChart');
+            if (!canvas || !trades || trades.length === 0) return;
+
+            const targetAddr = (tokenAddress || '').toLowerCase();
+
+            const buys = [], sells = [];
+            for (const tx of trades) {
+                const toToken = (tx.to_token || '').toLowerCase();
+                const fromToken = (tx.from_token || '').toLowerCase();
+                const isBuy = toToken === targetAddr || (targetAddr.endsWith(toToken) && toToken.length >= 8);
+                const price = isBuy
+                    ? (tx.to_token_price_usd || 0)
+                    : (tx.from_token_price_usd || 0);
+                if (!price || price <= 0) continue;
+                const usd = tx.from_usd || tx.to_usd || 0;
+                const point = {
+                    x: tx.time * 1000,
+                    y: price,
+                    r: mapSignalRadius(usd),
+                    _raw: tx
+                };
+                (isBuy ? buys : sells).push(point);
+            }
+
+            if (signalChartInstance) {
+                signalChartInstance.destroy();
+                signalChartInstance = null;
+            }
+
+            const ctx = canvas.getContext('2d');
+
+            signalChartInstance = new Chart(ctx, {
+                type: 'bubble',
+                data: {
+                    datasets: [
+                        {
+                            label: '买入',
+                            data: buys,
+                            backgroundColor: 'rgba(34,197,94,0.65)',
+                            borderColor: 'rgba(22,163,74,0.9)',
+                            borderWidth: 1,
+                            hoverRadius: 2
+                        },
+                        {
+                            label: '卖出',
+                            data: sells,
+                            backgroundColor: 'rgba(239,68,68,0.65)',
+                            borderColor: 'rgba(220,38,38,0.9)',
+                            borderWidth: 1,
+                            hoverRadius: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 400 },
+                    plugins: {
+                        legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                title: function(items) {
+                                    if (!items.length) return '';
+                                    const t = new Date(items[0].raw.x).toLocaleString('zh-CN');
+                                    return t;
+                                },
+                                label: function(item) {
+                                    const raw = item.raw._raw;
+                                    const usd = raw.from_usd || raw.to_usd || 0;
+                                    const toToken = (raw.to_token || '').toLowerCase();
+                                    const isBuy = toToken === targetAddr || (targetAddr.endsWith(toToken) && toToken.length >= 8);
+                                    const price = isBuy ? raw.to_token_price_usd : raw.from_token_price_usd;
+                                    const wallet = (raw.from_address || '').slice(0, 6) + '...' || '-';
+                                    return [
+                                        (isBuy ? '买入' : '卖出') + ' | $' + usd.toFixed(2),
+                                        '价格: $' + (price?.toPrecision(4) || '-'),
+                                        '钱包: ' + wallet
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { tooltipFormat: 'HH:mm:ss', displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm' } },
+                            ticks: { font: { size: 10 }, maxTicksLimit: 12 },
+                            title: { display: true, text: '时间', font: { size: 11 } }
+                        },
+                        y: {
+                            type: 'logarithmic',
+                            title: { display: true, text: '价格 (USD)', font: { size: 11 } },
+                            ticks: {
+                                font: { size: 10 },
+                                callback: function(v) {
+                                    if (v >= 1) return '$' + v.toFixed(0);
+                                    if (v >= 0.001) return '$' + v.toPrecision(2);
+                                    return '$' + v.toExponential(1);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function mapSignalRadius(usd) {
+            if (!usd || usd <= 0) return 3;
+            const minR = 3, maxR = 15;
+            const logVal = Math.log10(Math.max(usd, 1));
+            const normalized = Math.min(logVal / 4, 1);
+            return minR + normalized * (maxR - minR);
+        }
     </script>
 </body>
 </html>

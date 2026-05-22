@@ -39,6 +39,8 @@ class ExperimentTokenReturns {
     this.judgesData = new Map();
     // 平台数据
     this.tokenPlatformMap = new Map();
+    // 数据来源
+    this.tokenDataSourceMap = new Map();
     // 最高涨幅数据
     this.tokenMaxChangeMap = new Map();
     // 叙事分析数据
@@ -166,6 +168,11 @@ class ExperimentTokenReturns {
             if (token.platform) {
               this.tokenPlatformMap.set(token.token_address, token.platform);
             }
+            // 保存数据来源（优先用 raw_api_data 原始值，fallback 到顶层字段）
+            const ds = token.raw_api_data?.data_source || token.data_source;
+            if (ds) {
+              this.tokenDataSourceMap.set(token.token_address, ds);
+            }
             // 保存最高涨幅
             if (token.analysis_results?.max_change_percent !== undefined) {
               this.tokenMaxChangeMap.set(token.token_address, token.analysis_results.max_change_percent);
@@ -191,6 +198,11 @@ class ExperimentTokenReturns {
                 // 同时加载平台数据
                 if (token.platform) {
                   this.tokenPlatformMap.set(token.token_address, token.platform);
+                }
+                // 同时加载数据来源（优先用 raw_api_data 原始值，fallback 到顶层字段）
+                const ds = token.raw_api_data?.data_source || token.data_source;
+                if (ds) {
+                  this.tokenDataSourceMap.set(token.token_address, ds);
                 }
                 // 同时加载最高涨幅数据
                 if (token.analysis_results?.max_change_percent !== undefined) {
@@ -1142,7 +1154,19 @@ class ExperimentTokenReturns {
         gmgn:     { label: 'GMGN', cls: 'bg-yellow-600 text-black' },
     };
     const info = platformConfig[platform] || platformConfig.fourmeme;
-    return `<span class="px-2 py-0.5 rounded text-xs font-medium ${info.cls} text-white">${info.label}</span>`;
+    const platformBadge = `<span class="px-2 py-0.5 rounded text-xs font-medium ${info.cls} text-white">${info.label}</span>`;
+
+    // data_source badge
+    const dsConfig = {
+      wss:      { label: 'WSS', cls: 'bg-cyan-700 text-cyan-200' },
+      ave_api:  { label: 'AVE', cls: 'bg-gray-600 text-gray-200' },
+      gmgn_api: { label: 'GMGN', cls: 'bg-yellow-700 text-yellow-200' },
+    };
+    const ds = this.tokenDataSourceMap.get(tokenAddress);
+    const dsInfo = ds ? dsConfig[ds] : null;
+    const dsBadge = dsInfo ? `<span class="px-1 py-0.5 rounded text-[9px] font-medium ${dsInfo.cls} ml-0.5">${dsInfo.label}</span>` : '';
+
+    return platformBadge + dsBadge;
   }
 
   /**

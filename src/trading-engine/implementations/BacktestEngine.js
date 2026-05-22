@@ -866,12 +866,11 @@ class BacktestEngine extends AbstractTradingEngine {
           if (row.discovered_at) {
             this._tokenCreatedTimes.set(row.token_address, row.discovered_at);
           }
-          // 存储平台信息（用于构建正确的交易对）和 launchPrice
+          // 存储平台信息（用于构建正确的交易对）
           const rawApiData = row.raw_api_data || {};
           this._tokenPlatformInfo.set(row.token_address, {
             platform: row.platform || null,
             mainPair: rawApiData.main_pair || null,
-            launchPrice: rawApiData.launch_price ? parseFloat(rawApiData.launch_price) : null
           });
         }
 
@@ -1224,15 +1223,12 @@ class BacktestEngine extends AbstractTradingEngine {
       // 从 Map 获取 token 创建时间
       const tokenCreatedAt = this._tokenCreatedTimes.get(tokenAddress) || null;
 
-      // 从 Map 获取平台信息和 launchPrice
+      // 从 Map 获取平台信息
       const platformInfo = this._tokenPlatformInfo.get(tokenAddress) || {};
       const platform = platformInfo.platform || 'fourmeme';
       const pairAddress = platformInfo.mainPair || null;
-      // collectionPrice: 第一个数据点的价格（与虚拟引擎的首次观察价格对齐）
-      const collectionPrice = factorValues.collectionPrice || parseFloat(dataPoint.price_usd) || 0;
-      // launchPrice: 优先 raw_api_data.launch_price，否则 fallback 到 collectionPrice
-      // （WS 收集器发现的代币没有 launch_price，需要 fallback 保证 earlyReturn 可计算）
-      const launchPrice = platformInfo.launchPrice || factorValues.launchPrice || collectionPrice || 0;
+      // firstPrice: 第一个数据点的价格（虚拟引擎中首次获得的价格）
+      const firstPrice = parseFloat(dataPoint.price_usd) || 0;
 
       this._tokenStates.set(tokenAddress, {
         token: tokenAddress,
@@ -1242,8 +1238,7 @@ class BacktestEngine extends AbstractTradingEngine {
         pairAddress: pairAddress,
         status: 'monitoring',
         currentPrice: parseFloat(dataPoint.price_usd) || 0,
-        collectionPrice: collectionPrice,
-        launchPrice: launchPrice,
+        firstPrice: firstPrice,
         collectionTime: new Date(dataPoint.timestamp).getTime(),
         buyPrice: 0,
         buyTime: null,
@@ -1261,13 +1256,11 @@ class BacktestEngine extends AbstractTradingEngine {
         created_at: new Date(dataPoint.timestamp).getTime() / 1000
       });
 
-      // 初始化价格历史缓存：使用 launchPrice 模拟虚拟引擎 addToken 时的初始价格
-      // 虚拟引擎在 addToken 时将发现价格（≈ launchPrice）加入 priceHistoryCache，
-      // 随后第一次 updatePrice 可能获取到不同的价格，导致价格历史首项与时序数据首点不同
+      // 初始化价格历史缓存
       if (!this._priceHistoryCache) this._priceHistoryCache = {};
       const initTokenKey = `${tokenAddress}-${chain}`;
       if (!this._priceHistoryCache[initTokenKey]) this._priceHistoryCache[initTokenKey] = [];
-      const initPrice = launchPrice > 0 ? launchPrice : parseFloat(dataPoint.price_usd) || 0;
+      const initPrice = firstPrice || parseFloat(dataPoint.price_usd) || 0;
       this._priceHistoryCache[initTokenKey].push(initPrice);
     }
     return this._tokenStates.get(tokenAddress);

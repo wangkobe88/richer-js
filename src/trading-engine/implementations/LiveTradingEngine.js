@@ -1688,8 +1688,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
               createdAt: token.createdAt,
               addedAt: token.addedAt,
               status: token.status,
-              collectionPrice: token.collectionPrice,
-              launchPrice: token.launchPrice
+              firstPrice: token.firstPrice
             }
           );
         }
@@ -1742,8 +1741,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
             createdAt: token.createdAt,
             addedAt: token.addedAt,
             status: token.status,
-            collectionPrice: token.collectionPrice,
-            launchPrice: token.launchPrice
+            firstPrice: token.firstPrice
           }
         );
       }
@@ -1849,16 +1847,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
     const now = Date.now();
     const currentPrice = token.currentPrice || 0;
 
-    // collectionPrice 保留用于兼容和调试
-    const collectionPrice = token.collectionPrice || currentPrice;
-
-    // 使用 launchPrice 作为基准，如果没有则使用 collectionPrice（收集价格）
-    // 这样可以确保即使 AVE API 没有返回 launch_price，earlyReturn 也能基于收集价格计算
-    const launchPrice = token.launchPrice || collectionPrice || 0;
+    // firstPrice: 首次获得的价格，作为 earlyReturn 的基准
+    const firstPrice = token.firstPrice || currentPrice;
 
     let earlyReturn = 0;
-    if (launchPrice > 0 && currentPrice > 0) {
-      earlyReturn = ((currentPrice - launchPrice) / launchPrice) * 100;
+    if (firstPrice > 0 && currentPrice > 0) {
+      earlyReturn = ((currentPrice - firstPrice) / firstPrice) * 100;
     }
 
     // age 基于代币创建时间（AVE API 的 created_at），而不是收集时间
@@ -1878,7 +1872,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
     }
 
     const collectionTime = token.collectionTime || token.addedAt || now;
-    const highestPrice = token.highestPrice || launchPrice || currentPrice;
+    const highestPrice = token.highestPrice || firstPrice || currentPrice;
     const highestPriceTimestamp = token.highestPriceTimestamp || collectionTime;
 
     let drawdownFromHighest = 0;
@@ -1928,8 +1922,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
     const factors = {
       age: age,
       currentPrice: currentPrice,
-      collectionPrice: collectionPrice,
-      launchPrice: launchPrice,
+      firstPrice: firstPrice,
+      collectionPrice: firstPrice,  // 兼容旧前端
+      launchPrice: firstPrice,      // 兼容旧前端
       earlyReturn: earlyReturn,
       riseSpeed: riseSpeed,
       buyPrice: token.buyPrice || 0,
@@ -2855,7 +2850,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
       createdAt: token.createdAt,
       collectionTime: token.collectionTime || token.addedAt || Date.now(),
       currentPrice: token.currentPrice || 0,
-      launchPrice: token.launchPrice || token.collectionPrice || token.currentPrice || 0,
+      firstPrice: token.firstPrice || token.currentPrice || 0,
       tokenCreatedAt: launchAt,  // PreBuyCheckService 需要这个字段
       innerPair: innerPair        // EarlyParticipantCheckService 需要这个字段
     };

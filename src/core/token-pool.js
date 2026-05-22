@@ -48,15 +48,6 @@ class TokenPool {
             }
         }
 
-        // 解析发行价格（作为 earlyReturn 的基准）
-        let launchPrice = null;
-        if (tokenData.launch_price) {
-            const price = parseFloat(tokenData.launch_price);
-            if (!isNaN(price) && price > 0) {
-                launchPrice = price;
-            }
-        }
-
         const collectionTime = Date.now();
 
         // 保存完整的原始 API 数据（用于后续分析）
@@ -69,6 +60,7 @@ class TokenPool {
             name: tokenData.name,
             symbol: tokenData.symbol,
             platform: tokenData.platform || 'fourmeme',  // 平台标识: fourmeme, flap, etc.
+            dataSource: tokenData.data_source || null,    // 数据来源: wss, ave_api, gmgn_api
             pairAddress: tokenData.pairAddress || null,   // 交易对地址（由 Collector 解析）
             createdAt: tokenData.created_at || Date.now() / 1000,  // 代币创建时间（用于计算 age）
             addedAt: collectionTime,  // 添加到监控池的时间
@@ -78,8 +70,7 @@ class TokenPool {
             buyPrice: null,
             buyTime: null,
             currentPrice: currentPrice, // AVE API 返回的当前价格（会实时更新）
-            launchPrice: launchPrice, // 发行价格（作为 earlyReturn 的基准）
-            collectionPrice: currentPrice, // 收集时的价格（保留用于兼容）
+            firstPrice: currentPrice, // 首次获得的价格（earlyReturn 的基准）
             collectionTime: collectionTime, // 收集时间
             priceHistory: [], // 价格历史记录
             // 历史最高价格追踪
@@ -173,7 +164,7 @@ class TokenPool {
             if (!isNaN(price) && price > 0) {
                 if (token.currentPrice === null) {
                     token.currentPrice = price;
-                    token.collectionPrice = price;
+                    token.firstPrice = price;
                     token.highestPrice = price;
                     token.highestPriceTimestamp = Date.now();
                 }
@@ -181,10 +172,7 @@ class TokenPool {
         }
 
         if (enrichedData.launch_price != null) {
-            const price = parseFloat(enrichedData.launch_price);
-            if (!isNaN(price) && price > 0 && token.launchPrice === null) {
-                token.launchPrice = price;
-            }
+            // AVE launch_price 保留在 rawApiData 中供参考，不参与计算
         }
 
         // AVE API 因子
@@ -300,6 +288,11 @@ class TokenPool {
 
         if (token) {
             token.currentPrice = price;
+
+            // 首次价格更新：设置 firstPrice
+            if (price > 0 && token.firstPrice === null) {
+                token.firstPrice = price;
+            }
 
             // 更新 AVE API 因子
             if (extraData.txVolumeU24h !== undefined) {

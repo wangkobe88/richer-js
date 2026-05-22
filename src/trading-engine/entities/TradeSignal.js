@@ -120,7 +120,7 @@ class TradeSignal {
       earlyReturn: strategySignal.earlyReturn,
       buyPrice: strategySignal.buyPrice,
       currentPrice: strategySignal.currentPrice,
-      collectionPrice: strategySignal.collectionPrice,
+      firstPrice: strategySignal.firstPrice,
       // 卖出相关
       sellRatio: strategySignal.sellRatio,
       profitPercent: strategySignal.profitPercent,

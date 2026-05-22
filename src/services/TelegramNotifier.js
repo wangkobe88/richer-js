@@ -270,7 +270,7 @@ class TelegramNotifier {
 
       return {
         discoveredAt: data.discovered_at,
-        launchPrice: data.raw_api_data?.launch_price || null
+        firstPrice: data.firstPrice || data.raw_api_data?.launch_price || null
       };
     } catch (error) {
       console.error('获取代币发现信息失败:', error.message);

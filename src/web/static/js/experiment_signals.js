@@ -592,42 +592,26 @@ class ExperimentSignals {
       // 🔥 价格乘以10亿得到市值
       const MARKET_CAP_MULTIPLIER = 1e9; // 10亿
 
-      // 🔥 准备扩展数据：在时序数据前面添加发布时价格和收集时价格
+      // 🔥 准备扩展数据：在时序数据前面添加首次价格参考点
       const extendedData = [];
 
-      // 从时序数据第一个点获取 launchPrice 和 collectionPrice
+      // 从时序数据第一个点获取 firstPrice
       const firstPoint = timeSeriesData[0];
       const factorValues = firstPoint?.factor_values || {};
-      const launchPrice = factorValues.launchPrice;
-      const collectionPrice = factorValues.collectionPrice;
+      const firstPrice = factorValues.firstPrice;
 
-      // 添加发布时价格点（如果有数据）
-      if (launchPrice && tokenInfo?.raw_api_data?.created_at) {
-        const createdAt = new Date(tokenInfo.raw_api_data.created_at * 1000); // 转换为毫秒
-        extendedData.push({
-          timestamp: createdAt.toISOString(),
-          price_usd: launchPrice,
-          isReferencePoint: true,
-          pointType: 'launch'
-        });
-        console.log('📊 添加发布时价格点:', {
-          time: createdAt.toISOString(),
-          price: launchPrice
-        });
-      }
-
-      // 添加收集时价格点（如果有数据）
-      if (collectionPrice && tokenInfo?.discovered_at) {
+      // 添加首次价格参考点（如果有数据）
+      if (firstPrice && tokenInfo?.discovered_at) {
         const discoveredAt = new Date(tokenInfo.discovered_at);
         extendedData.push({
           timestamp: discoveredAt.toISOString(),
-          price_usd: collectionPrice,
+          price_usd: firstPrice,
           isReferencePoint: true,
-          pointType: 'collection'
+          pointType: 'firstPrice'
         });
-        console.log('📊 添加收集时价格点:', {
+        console.log('📊 添加首次价格参考点:', {
           time: discoveredAt.toISOString(),
-          price: collectionPrice
+          price: firstPrice
         });
       }
 
@@ -2018,7 +2002,7 @@ class ExperimentSignals {
         const ageClass = this._getFactorClass('age', tf.age || 0, buyThresholds);
         const earlyReturnClass = this._getFactorClass('earlyReturn', tf.earlyReturn || 0, buyThresholds);
         const currentPriceClass = this._getFactorClass('currentPrice', tf.currentPrice || 0, buyThresholds);
-        const collectionPriceClass = this._getFactorClass('collectionPrice', tf.collectionPrice || 0, buyThresholds);
+        const firstPriceClass = this._getFactorClass('firstPrice', tf.firstPrice || 0, buyThresholds);
         const trendCVClass = this._getFactorClass('trendCV', tf.trendCV || 0, buyThresholds);
         const trendSlopeClass = this._getFactorClass('trendSlope', tf.trendSlope || 0, buyThresholds);
         const trendStrengthScoreClass = this._getFactorClass('trendStrengthScore', tf.trendStrengthScore || 0, buyThresholds);
@@ -2034,10 +2018,10 @@ class ExperimentSignals {
               <div><span class="text-amber-800">代币年龄:</span> <span class="${ageClass}">${formatNum(tf.age)}分</span></div>
               <div><span class="text-amber-800">早期收益率:</span> <span class="${earlyReturnClass}">${formatPercent(tf.earlyReturn)}</span></div>
               <div><span class="text-amber-800">当前价格:</span> <span class="${currentPriceClass}">${formatNum(tf.currentPrice, 8)}</span></div>
-              <div><span class="text-amber-800">获取价格:</span> <span class="${collectionPriceClass}">${formatNum(tf.collectionPrice, 8)}</span></div>
+              <div><span class="text-amber-800">首次价格:</span> <span class="${firstPriceClass}">${formatNum(tf.firstPrice, 8)}</span></div>
               ${tf.buyPrice !== undefined ? `<div><span class="text-amber-800">买入价格:</span> <span class="text-gray-900">${formatNum(tf.buyPrice, 8)}</span></div>` : ''}
               ${tf.highestPrice !== undefined ? `<div><span class="text-amber-800">最高价格:</span> <span class="text-gray-900">${formatNum(tf.highestPrice, 8)}</span></div>` : ''}
-              ${tf.launchPrice !== undefined ? `<div><span class="text-amber-800">发行价格:</span> <span class="text-gray-900">${formatNum(tf.launchPrice, 8)}</span></div>` : ''}
+              ${tf.firstPrice !== undefined ? `<div><span class="text-amber-800">首次价格:</span> <span class="text-gray-900">${formatNum(tf.firstPrice, 8)}</span></div>` : ''}
               <div><span class="text-amber-800">趋势CV:</span> <span class="${trendCVClass}">${formatNum(tf.trendCV)}</span></div>
               <div><span class="text-amber-800">趋势斜率:</span> <span class="${trendSlopeClass}">${formatNum(tf.trendSlope)}</span></div>
               <div><span class="text-amber-800">趋势强度:</span> <span class="${trendStrengthScoreClass}">${formatNum(tf.trendStrengthScore)}</span></div>

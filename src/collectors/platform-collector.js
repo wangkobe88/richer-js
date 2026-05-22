@@ -241,6 +241,7 @@ class PlatformCollector {
                         token.creator_address = null;
                     }
 
+                    token.data_source = 'ave_api';
                     const added = this.tokenPool.addToken(token);
                     if (added) {
                         addedCount++;
@@ -459,6 +460,7 @@ class PlatformCollector {
 
                 token.platform = 'bankr';
                 token.creator_address = null;
+                token.data_source = 'ave_api';
 
                 const tokenAge = now - (token.created_at * 1000);
                 if (tokenAge < maxAgeMs) {
@@ -579,6 +581,7 @@ class PlatformCollector {
 
                 token.platform = 'pumpfun';
                 token.creator_address = null;
+                token.data_source = 'ave_api';
 
                 const tokenAge = now - (token.created_at * 1000);
                 if (tokenAge < maxAgeMs) {
@@ -678,6 +681,7 @@ class PlatformCollector {
 
                 token.platform = 'bonk';
                 token.creator_address = null;
+                token.data_source = 'ave_api';
 
                 const tokenAge = now - (token.created_at * 1000);
                 if (tokenAge < maxAgeMs) {
@@ -766,6 +770,7 @@ class PlatformCollector {
 
                 token.platform = 'clanker';
                 token.creator_address = null;
+                token.data_source = 'ave_api';
 
                 const tokenAge = now - (token.created_at * 1000);
                 if (tokenAge < maxAgeMs) {
@@ -838,6 +843,7 @@ class PlatformCollector {
                         tx_volume_u_24h: t.volume || 0,
                         platform: 'gmgn',
                         creator_address: null,
+                        data_source: 'gmgn_api',
                         _source: 'gmgn'
                     }));
                     this.logger.debug(`[GMGN] 获取到 ${gmgnTokens.length} 个ETH热门代币`);
@@ -928,8 +934,7 @@ class PlatformCollector {
                 // 设置平台字段（AVE 返回的 token 缺少这些字段，GMGN 映射时已设置）
                 if (!token.platform) token.platform = 'ave';
                 if (token.creator_address === undefined) token.creator_address = null;
-
-                // Only add tokens younger than maxAgeSeconds
+                if (!token.data_source) token.data_source = 'ave_api';
                 if (tokenAge < maxAgeMs) {
                     // 在添加到池之前解析 pairAddress
                     try {
@@ -1054,6 +1059,7 @@ class PlatformCollector {
 
                 if (!token.platform) token.platform = 'ave';
                 if (token.creator_address === undefined) token.creator_address = null;
+                if (!token.data_source) token.data_source = 'ave_api';
 
                 if (tokenAge < maxAgeMs) {
                     // 全链模式暂无真实交易，跳过 pair 解析以减少 API 调用
