@@ -530,6 +530,9 @@ class ExperimentRenderer {
       if (sc.eventRecording !== undefined) {
         formData.eventRecording = sc.eventRecording;
       }
+      if (sc.permanentBlockCondition) {
+        formData.permanentBlockCondition = sc.permanentBlockCondition;
+      }
     }
 
     return formData;

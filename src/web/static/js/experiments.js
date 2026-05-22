@@ -796,6 +796,11 @@ class ExperimentMonitor {
         if (sc.eventRecording !== undefined) {
           copyData.eventRecording = sc.eventRecording;
         }
+
+        // 永久阻断条件
+        if (sc.permanentBlockCondition) {
+          copyData.permanentBlockCondition = sc.permanentBlockCondition;
+        }
       }
 
       // 实盘配置（不复制私钥，需要用户重新输入）

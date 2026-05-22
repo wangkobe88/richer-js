@@ -923,6 +923,16 @@
                         </details>
                     </div>
                 </div>
+                <div class="param-group" style="grid-column: 1 / span 2;">
+                    <label>🚫 永久阻断条件（触发后该代币永久不可交易）：</label>
+                    <input type="text" name="buy_permanent_block_condition_{INDEX}"
+                           placeholder="例如: earlyTraderBlacklistCount > 4"
+                           value=""
+                           class="w-full px-3 py-2 border border-red-200 rounded-md focus:outline-none focus:ring-2 focus:ring-red-400">
+                    <div class="text-xs text-gray-500 mt-1">
+                        条件为 true 时永久阻断该代币。独立于首次/再次检查条件，触发后该代币所有后续信号直接跳过。可用因子与首次检查相同。
+                    </div>
+                </div>
                 <div class="param-group repeat-buy-check-group" style="grid-column: 1 / span 2;">
                     <label>🔄 再次购买检查条件（第2次及以后）：</label>
                     <input type="text" name="buy_repeatCheck_condition_{INDEX}"
@@ -1276,6 +1286,7 @@
                             maxExecutions: strategy.maxExecutions,
                             preBuyCheckCondition: strategy.preBuyCheckCondition,
                             repeatBuyCheckCondition: strategy.repeatBuyCheckCondition,
+                            permanentBlockCondition: idx === 0 ? (copyData.permanentBlockCondition || strategy.permanentBlockCondition) : undefined,
                             description: strategy.description
                         });
                     });
@@ -1665,6 +1676,13 @@
                     console.warn(`[addBuyStrategy] 未找到再次购买检查条件输入框 #${index}`);
                 }
             }
+
+            if (config.permanentBlockCondition !== undefined) {
+                const input = buyContainer.querySelector(`input[name="buy_permanent_block_condition_${index}"]`);
+                if (input) {
+                    input.value = config.permanentBlockCondition || '';
+                }
+            }
         }
 
         // 添加卖出策略
@@ -1863,6 +1881,11 @@
                 strategy: {
                     buyStrategies: buyStrategies,
                     sellStrategies: sellStrategies,
+                    // 永久阻断条件（取第一个策略的值）
+                    permanentBlockCondition: (() => {
+                        const input = buyContainer.querySelector('input[name="buy_permanent_block_condition_0"]');
+                        return input ? input.value.trim() || null : null;
+                    })(),
                     // 卡牌管理配置
                     positionManagement: pmEnabled.checked ? {
                         enabled: true,

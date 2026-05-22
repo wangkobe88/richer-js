@@ -1569,9 +1569,11 @@ class RicherJsWebServer {
         // 🔥 如果是回测实验，使用源实验ID查询黑名单数据
         const { data: expConfig } = await this.dataService.supabase
           .from('experiments')
-          .select('config')
+          .select('config, blockchain')
           .eq('id', experimentId)
           .single();
+
+        const experimentChain = expConfig?.blockchain || 'bsc';
 
         if (expConfig?.config?.backtest?.sourceExperimentId) {
           const sourceExperimentId = expConfig.config.backtest.sourceExperimentId;
@@ -1579,17 +1581,23 @@ class RicherJsWebServer {
           experimentId = sourceExperimentId;
         }
 
-        // 获取黑名单钱包（使用分页获取全部）
+        // 获取黑名单钱包（使用分页获取全部，按链过滤）
         const pageSize = 1000;
         const blacklistSet = new Set();
         let offset = 0;
         let hasMore = true;
 
         while (hasMore) {
-          const { data: blacklistWallets } = await this.dataService.supabase
+          let blacklistQuery = this.dataService.supabase
             .from('wallets')
             .select('address')
-            .in('category', ['dev', 'pump_group', 'negative_holder'])
+            .in('category', ['dev', 'pump_group', 'negative_holder']);
+
+          if (experimentChain !== 'all') {
+            blacklistQuery = blacklistQuery.eq('chain', experimentChain);
+          }
+
+          const { data: blacklistWallets } = await blacklistQuery
             .range(offset, offset + pageSize - 1);
 
           if (blacklistWallets && blacklistWallets.length > 0) {
@@ -1601,16 +1609,22 @@ class RicherJsWebServer {
           }
         }
 
-        // 获取白名单钱包（使用分页获取全部）
+        // 获取白名单钱包（使用分页获取全部，按链过滤）
         offset = 0;
         hasMore = true;
         const whitelistSet = new Set();
 
         while (hasMore) {
-          const { data: whitelistWallets } = await this.dataService.supabase
+          let whitelistQuery = this.dataService.supabase
             .from('wallets')
             .select('address')
-            .eq('category', 'good_holder')
+            .eq('category', 'good_holder');
+
+          if (experimentChain !== 'all') {
+            whitelistQuery = whitelistQuery.eq('chain', experimentChain);
+          }
+
+          const { data: whitelistWallets } = await whitelistQuery
             .range(offset, offset + pageSize - 1);
 
           if (whitelistWallets && whitelistWallets.length > 0) {
@@ -1622,7 +1636,7 @@ class RicherJsWebServer {
           }
         }
 
-        // 获取该实验的所有持有者快照
+        // 获取该实验的所有持有者快照（按代币去重，避免多快照重复计数）
         offset = 0;
         hasMore = true;
         const tokenStats = new Map();
@@ -1642,7 +1656,9 @@ class RicherJsWebServer {
                   hasBlacklist: false,
                   blacklistedHolders: 0,
                   hasWhitelist: false,
-                  whitelistedHolders: 0
+                  whitelistedHolders: 0,
+                  _seenBlacklist: new Set(),
+                  _seenWhitelist: new Set()
                 });
               }
               const stats = tokenStats.get(tokenAddr);
@@ -1651,13 +1667,15 @@ class RicherJsWebServer {
                 for (const holder of snapshot.holder_data.holders) {
                   const addr = holder.address?.toLowerCase();
                   if (addr) {
-                    // 检查黑名单
-                    if (blacklistSet.has(addr)) {
+                    // 检查黑名单（去重）
+                    if (blacklistSet.has(addr) && !stats._seenBlacklist.has(addr)) {
+                      stats._seenBlacklist.add(addr);
                       stats.hasBlacklist = true;
                       stats.blacklistedHolders++;
                     }
-                    // 检查白名单
-                    if (whitelistSet.has(addr)) {
+                    // 检查白名单（去重）
+                    if (whitelistSet.has(addr) && !stats._seenWhitelist.has(addr)) {
+                      stats._seenWhitelist.add(addr);
                       stats.hasWhitelist = true;
                       stats.whitelistedHolders++;
                     }
@@ -1670,6 +1688,12 @@ class RicherJsWebServer {
           } else {
             hasMore = false;
           }
+        }
+
+        // 清理临时 Set
+        for (const stats of tokenStats.values()) {
+          delete stats._seenBlacklist;
+          delete stats._seenWhitelist;
         }
 
         const tokensWithBlacklist = Array.from(tokenStats.entries())

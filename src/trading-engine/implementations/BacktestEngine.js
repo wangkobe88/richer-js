@@ -1755,11 +1755,17 @@ class BacktestEngine extends AbstractTradingEngine {
         const signalMetadata = {
           tokenCreateTime: tokenCreateTime,
           trendFactors: buildFactorValuesForTimeSeries(factorResults),
-          preBuyCheckFactors: preBuyCheckResult ? buildPreBuyCheckFactorValues(preBuyCheckResult) : {},
+          preBuyCheckFactors: preBuyCheckResult ? {
+            ...buildPreBuyCheckFactorValues(preBuyCheckResult),
+            permanentBlockTriggered: this._tokenBlacklist.has(tokenState.token),
+            permanentBlockCondition: this._permanentBlockCondition || null
+          } : {},
           preBuyCheckResult: preBuyCheckResult ? {
             canBuy: preBuyCheckResult.canBuy,
             reason: preBuyCheckResult.checkReason || (preCheckPassed ? 'passed' : 'failed'),
-            failedConditions: preBuyCheckResult.failedConditions || null
+            failedConditions: preBuyCheckResult.failedConditions || null,
+            permanentBlockTriggered: this._tokenBlacklist.has(tokenState.token),
+            permanentBlockCondition: this._permanentBlockCondition || null
           } : null
         };
 

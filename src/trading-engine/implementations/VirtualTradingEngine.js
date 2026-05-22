@@ -2005,11 +2005,17 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           const failedCheckMetadata = {
             tokenCreateTime: tokenCreateTime,
             regularFactors: regularFactors,
-            preBuyCheckFactors: preBuyCheckFactors,
+            preBuyCheckFactors: {
+              ...preBuyCheckFactors,
+              permanentBlockTriggered: this._tokenBlacklist.has(token.token),
+              permanentBlockCondition: this._permanentBlockCondition || null
+            },
             preBuyCheckResult: {
               canBuy: preBuyCheckResult.canBuy,
               reason: preBuyCheckResult.checkReason || 'pre_buy_check_failed',
-              failedConditions: preBuyCheckResult.failedConditions || null
+              failedConditions: preBuyCheckResult.failedConditions || null,
+              permanentBlockTriggered: this._tokenBlacklist.has(token.token),
+              permanentBlockCondition: this._permanentBlockCondition || null
             }
           };
 

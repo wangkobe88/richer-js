@@ -1965,6 +1965,11 @@ class ExperimentSignals {
         '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">❌ 失败</span>' :
         '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 通过</span>';
 
+      // 永久阻断标识
+      const permanentBlockBadge = pf.permanentBlockTriggered
+        ? '<span class="ml-1 text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 永久阻断</span>'
+        : '';
+
       // 跳过条件匹配标识（代币已有交易记录）
       let skippedMatchBadge = '';
       if (pf.skippedConditionMatch === true) {
@@ -1973,7 +1978,7 @@ class ExperimentSignals {
 
       // 显示实验配置的策略条件
       let strategyConfigHtml = '';
-      if (buyCondition || preBuyCheckCondition) {
+      if (buyCondition || preBuyCheckCondition || pf.permanentBlockCondition) {
         strategyConfigHtml = `
           <div class="mb-2 pb-2 border-b border-amber-300">
             ${buyCondition ? `
@@ -1986,6 +1991,12 @@ class ExperimentSignals {
               <div class="text-xs">
                 <span class="font-semibold text-amber-900">🔍 预检查条件配置 (第${buyRound}轮${buyRound > 1 ? '购买' : ''}):</span>
                 <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(preBuyCheckCondition)}</code>
+              </div>
+            ` : ''}
+            ${pf.permanentBlockCondition ? `
+              <div class="text-xs mt-1">
+                <span class="font-semibold text-red-900">🚫 永久阻断条件:</span>
+                <code class="ml-2 px-2 py-0.5 bg-red-200 rounded text-xs text-red-900 break-all">${this._escapeHtml(pf.permanentBlockCondition)}</code>
               </div>
             ` : ''}
           </div>
@@ -2298,6 +2309,7 @@ class ExperimentSignals {
             <span class="text-amber-900 font-semibold text-sm">🔍 购买前置检查</span>
             <div class="flex items-center gap-1">
               ${checkResultBadge}
+              ${permanentBlockBadge}
               ${skippedMatchBadge}
             </div>
           </div>
