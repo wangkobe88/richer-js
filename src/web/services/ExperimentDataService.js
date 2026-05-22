@@ -878,49 +878,28 @@ class ExperimentDataService {
    */
   async _getTargetExperimentIdForTokens(experimentId) {
     try {
-      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] 开始查询实验信息: ${experimentId}`);
-
-      // 查询实验信息
       const { data: expConfig, error } = await this.supabase
         .from('experiments')
         .select('config')
         .eq('id', experimentId)
         .single();
 
-      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] 查询结果: error=${error}, expConfig=${!!expConfig}`);
-
       if (error || !expConfig) {
-        this.logger.warn('DataService', `[getTokens] 无法获取实验信息: ${experimentId}, 使用原ID`);
         return experimentId;
       }
 
-      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] expConfig keys: ${Object.keys(expConfig)}`);
-      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] expConfig.config type: ${typeof expConfig.config}`);
-
-      // 处理 config 字段（Supabase返回的原始数据）
       let config = expConfig.config;
-      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] 原始config type: ${typeof config}, value: ${config}`);
-
       if (typeof config === 'string') {
-        this.logger.info('DataService', '[_getTargetExperimentIdForTokens] 解析 JSON config');
         config = JSON.parse(config);
       }
 
-      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] 解析后的config:`, { details: config });
-      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] config.backtest:`, { details: config?.backtest });
-      this.logger.info('DataService', `[_getTargetExperimentIdForTokens] sourceExperimentId:`, { details: config?.backtest?.sourceExperimentId });
-
-      // 如果是回测实验且有源实验ID，使用源实验ID
       if (config?.backtest?.sourceExperimentId) {
-        const sourceId = config.backtest.sourceExperimentId;
-        this.logger.info('DataService', `[getTokens] 回测实验使用源实验代币数据: ${experimentId} -> ${sourceId}`);
-        return sourceId;
+        return config.backtest.sourceExperimentId;
       }
 
-      this.logger.info('DataService', `[getTokens] 非回测实验或无源实验ID，使用原ID: ${experimentId}`);
       return experimentId;
     } catch (error) {
-      this.logger.error('DataService', '[getTokens] 判断源实验ID失败: ${error.message}', { details: error });
+      this.logger.error('DataService', `[getTokens] 判断源实验ID失败: ${error.message}`, { details: error });
       return experimentId;
     }
   }
@@ -1252,15 +1231,11 @@ class ExperimentDataService {
    */
   async getExperimentNarratives(experimentId) {
     try {
-      this.logger.info('DataService', `[getExperimentNarratives] experimentId=${experimentId}`);
-
       // 对于回测实验，使用源实验的代币数据
       const targetExperimentId = await this._getTargetExperimentIdForTokens(experimentId);
-      this.logger.info('DataService', `[getExperimentNarratives] targetExperimentId=${targetExperimentId}`);
 
       // 获取目标实验的代币列表
       const tokens = await this.getTokens(targetExperimentId, { limit: 10000 });
-      this.logger.info('DataService', `[getExperimentNarratives] tokens.length=${tokens.length}`);
 
       if (tokens.length === 0) {
         return {
@@ -1303,7 +1278,6 @@ class ExperimentDataService {
       }
 
       const narratives = allNarratives;
-      this.logger.info('DataService', `[getExperimentNarratives] narratives.length=${narratives.length}`);
 
       // 构建叙事数据映射（键使用小写地址，保留最新的记录）
       const narrativeMap = new Map();
@@ -1317,13 +1291,6 @@ class ExperimentDataService {
       }
 
       this.logger.info('DataService', `[getExperimentNarratives] narrativeMap.size=${narrativeMap.size}`);
-
-      // 调试：检查第一个 token 的字段
-      if (tokens.length > 0) {
-        this.logger.info('DataService', `[getExperimentNarratives] 第一个代币字段: ${Object.keys(tokens[0])}`);
-        this.logger.info('DataService', `[getExperimentNarratives] human_judges: ${JSON.stringify(tokens[0].human_judges)}`);
-        this.logger.info('DataService', `[getExperimentNarratives] analysis_results: ${JSON.stringify(tokens[0].analysis_results)}`);
-      }
 
       // 组合数据：只返回有叙事数据的代币
       const combinedData = tokens
@@ -1351,8 +1318,6 @@ class ExperimentDataService {
             max_change_percent: token.analysis_results?.max_change_percent || null
           };
         });
-
-      this.logger.info('DataService', `[getExperimentNarratives] combinedData.length=${combinedData.length}`);
 
       // 计算统计数据
       const stats = {

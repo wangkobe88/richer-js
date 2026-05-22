@@ -477,6 +477,11 @@ class ExperimentRenderer {
       formData.end_date = config.backtest.end_date || '';
       formData.initial_balance = config.backtest.initial_balance || '100';
       formData.trading_fee = config.backtest.trading_fee || '0.5';
+      formData.backtest = {
+        initialBalance: config.backtest.initial_balance || 100,
+        sourceExperimentId: config.backtest.sourceExperimentId || '',
+        minMaxChangePercent: config.backtest.minMaxChangePercent || 0
+      };
     } else if (config.virtual) {
       formData.initial_balance = config.virtual.initial_balance || '100';
     }

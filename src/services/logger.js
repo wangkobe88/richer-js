@@ -67,9 +67,10 @@ class Logger {
             return { experimentId: experimentId || this.experimentId, module, message, data };
         }
 
-        // 默认：第一个参数作为消息
-        message = args[0];
-        return { experimentId: this.experimentId, module: '', message, data: null };
+        // 两个字符串参数：视为 (module, message)
+        module = args[0];
+        message = args[1];
+        return { experimentId: this.experimentId, module, message, data: null };
     }
 
     /**

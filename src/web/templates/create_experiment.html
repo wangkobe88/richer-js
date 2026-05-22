@@ -1124,11 +1124,11 @@
 
                 // 🔥 重要：设置 trading_mode 后需要手动调用 handleTradingModeChange
                 // 来移除 backtest_source_experiment 的 required 属性
-                setTimeout(() => handleTradingModeChange(), 0);
+                await handleTradingModeChange();
                 // kline_type 字段在当前表单中不存在，跳过
                 // setFieldValue('kline_type', copyData.kline_type);
 
-                // 填充回测配置
+                // 填充回测配置（在 handleTradingModeChange/loadBacktestableExperiments 完成后）
                 if (copyData.backtest) {
                     const bt = copyData.backtest;
                     const backtestSourceInput = document.getElementById('backtest_source_experiment');
@@ -1515,7 +1515,7 @@
         }
 
         // 交易模式切换处理
-        function handleTradingModeChange() {
+        async function handleTradingModeChange() {
             const tradingMode = document.getElementById('trading_mode').value;
             const backtestConfig = document.getElementById('backtest-config');
             const liveConfig = document.getElementById('live-config');
@@ -1552,7 +1552,7 @@
                     initialBalanceInput.value = '100';
                 }
                 // 加载可回测的实验列表
-                loadBacktestableExperiments();
+                await loadBacktestableExperiments();
             } else if (tradingMode === 'live') {
                 liveConfig.style.display = 'block';
                 // 添加实盘字段的必填属性

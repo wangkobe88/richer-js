@@ -24,3 +24,12 @@ Thumbs.db
 
 # Playwright MCP
 .playwright-mcp/
+
+# Data files & analysis output
+pump_dump_*.csv
+pump_dump_*.md
+analysis_*.md
+ccccqcrl6z-report.md
+output/
+*.png
+migrations/
