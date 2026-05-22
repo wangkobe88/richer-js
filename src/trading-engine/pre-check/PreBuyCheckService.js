@@ -53,25 +53,25 @@ const FACTOR_METADATA = {
     unit: '',
     severity: 'critical'
   },
-  // 持有者检查因子
-  holdersCount: {
-    name: '持有者总数',
-    format: v => v.toString(),
-    unit: '',
-    severity: 'info'
-  },
-  devHoldingRatio: {
-    name: 'Dev持仓比例',
-    format: v => v.toFixed(1) + '%',
-    unit: '%',
-    severity: 'critical'
-  },
-  maxHoldingRatio: {
-    name: '最大持仓比例',
-    format: v => v.toFixed(1) + '%',
-    unit: '%',
-    severity: 'critical'
-  },
+  // [已停用] 持有者检查因子 — 回测时获取的是最新数据而非历史快照
+  // holdersCount: {
+  //   name: '持有者总数',
+  //   format: v => v.toString(),
+  //   unit: '',
+  //   severity: 'info'
+  // },
+  // devHoldingRatio: {
+  //   name: 'Dev持仓比例',
+  //   format: v => v.toFixed(1) + '%',
+  //   unit: '%',
+  //   severity: 'critical'
+  // },
+  // maxHoldingRatio: {
+  //   name: '最大持仓比例',
+  //   format: v => v.toFixed(1) + '%',
+  //   unit: '%',
+  //   severity: 'critical'
+  // },
   // 早期参与者因子
   earlyTradesChecked: {
     name: '早期交易检查状态',
@@ -714,10 +714,11 @@ class PreBuyCheckService {
         checkTimestamp: Date.now(),
         checkDuration: Date.now() - startTime,
 
-        holdersCount: 0,
-        devHoldingRatio: 0,
-        maxHoldingRatio: 0,
-        holderCanBuy: false,
+        // [已停用] 持有者检查因子
+        // holdersCount: 0,
+        // devHoldingRatio: 0,
+        // maxHoldingRatio: 0,
+        // holderCanBuy: false,
 
         // 早期交易者黑白名单因子
         earlyTraderBlacklistCount: 0,
@@ -799,11 +800,11 @@ class PreBuyCheckService {
       checkTimestamp: Date.now(),
       checkDuration: Date.now() - startTime,
 
-      // 持有者检查结果（dev持仓、大额持仓仍基于持有者）
-      holdersCount: holderCheck.holdersCount || 0,
-      devHoldingRatio: holderCheck.devHoldingRatio || 0,
-      maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
-      holderCanBuy: holderCheck.canBuy,
+      // [已停用] 持有者检查结果 — 回测时获取的是最新数据而非历史快照
+      // holdersCount: holderCheck.holdersCount || 0,
+      // devHoldingRatio: holderCheck.devHoldingRatio || 0,
+      // maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
+      // holderCanBuy: holderCheck.canBuy,
 
       // 持有者检查详细原因
       holderCheckReason: holderCheck.reason,
@@ -880,10 +881,10 @@ class PreBuyCheckService {
         earlyTraderUniqueParticipants: earlyTraderCheck.earlyTraderUniqueParticipants || 0,
         earlyTraderBlacklistRatio: earlyTraderCheck.earlyTraderBlacklistRatio || 0,
         earlyTraderCanBuy: earlyTraderCheck.earlyTraderCanBuy ? 1 : 0,
-        // 持有者因子（dev持仓、大额持仓仍基于持有者）
-        holdersCount: holderCheck.holdersCount || 0,
-        devHoldingRatio: holderCheck.devHoldingRatio || 0,
-        maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
+        // [已停用] 持有者因子 — 回测时获取的是最新数据而非历史快照
+        // holdersCount: holderCheck.holdersCount || 0,
+        // devHoldingRatio: holderCheck.devHoldingRatio || 0,
+        // maxHoldingRatio: holderCheck.maxHoldingRatio || 0,
         // 早期参与者因子 - 速率指标
         earlyTradesChecked: earlyParticipantCheck.earlyTradesChecked || 0,
         earlyTradesHighValueCount: earlyParticipantCheck.earlyTradesHighValueCount || 0,
@@ -984,8 +985,8 @@ class PreBuyCheckService {
         context: {
           earlyTraderBlacklistCount: context.earlyTraderBlacklistCount,
           earlyTraderWhitelistCount: context.earlyTraderWhitelistCount,
-          devHoldingRatio: context.devHoldingRatio,
-          maxHoldingRatio: context.maxHoldingRatio,
+          // [已停用] devHoldingRatio: context.devHoldingRatio,
+          // [已停用] maxHoldingRatio: context.maxHoldingRatio,
           earlyTradesHighValueCount: context.earlyTradesHighValueCount,
           earlyTradesCountPerMin: context.earlyTradesCountPerMin,
           walletTop3TradeRatio: context.walletTop3TradeRatio,
@@ -1050,10 +1051,10 @@ class PreBuyCheckService {
       checkTimestamp: Date.now(),
       checkDuration: Date.now() - startTime,
 
-      // 持有者检查结果（dev持仓、大额持仓仍基于持有者）
-      holdersCount: holderCheck.holdersCount,
-      devHoldingRatio: holderCheck.devHoldingRatio,
-      holderCanBuy: holderCheck.canBuy,
+      // [已停用] 持有者检查结果 — 回测时获取的是最新数据而非历史快照
+      // holdersCount: holderCheck.holdersCount,
+      // devHoldingRatio: holderCheck.devHoldingRatio,
+      // holderCanBuy: holderCheck.canBuy,
 
       // 持有者检查详细原因
       holderCheckReason: holderCheck.reason,
@@ -1080,10 +1081,10 @@ class PreBuyCheckService {
       result.preTraderCanBuy = eligibility.canBuy;
       result.preTraderCheckReason = eligibility.reason;
 
-      // 综合决策：两个检查都必须通过
-      result.canBuy = result.holderCanBuy && result.preTraderCanBuy;
+      // 综合决策：持有者检查始终通过，仅依赖早期参与者检查
+      result.canBuy = /* result.holderCanBuy && */ result.preTraderCanBuy;
       result.checkReason = this._buildCombinedCheckReason(
-        result.holderCanBuy,
+        true, // result.holderCanBuy, // 持有者检查已停用，始终通过
         result.preTraderCanBuy,
         holderCheck.reason,
         eligibility.reason
@@ -1091,11 +1092,11 @@ class PreBuyCheckService {
     }
 
     this.logger.info('[PreBuyCheckService] 购买前检查完成', {
-      holderCanBuy: result.holderCanBuy,
+      // holderCanBuy: result.holderCanBuy, // [已停用] 持有者检查
       preTraderCanBuy: result.preTraderCanBuy,
       canBuy: result.canBuy,
       checkReason: result.checkReason,
-      devHoldingRatio: result.devHoldingRatio,
+      // devHoldingRatio: result.devHoldingRatio, // [已停用] 持有者检查
       earlyTradesTotalCount: result.earlyTradesTotalCount || 0,
       earlyTradesVolumePerMin: result.earlyTradesVolumePerMin || 0,
       earlyTradesCountPerMin: result.earlyTradesCountPerMin || 0,
@@ -1516,6 +1517,20 @@ class PreBuyCheckService {
    * @param {boolean} skipHolderCheck - 是否跳过检查（回测时为 true）
    */
   async _performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck = false) {
+    // [已停用] 持有者检查 — 回测时获取的是最新数据而非历史快照
+    return {
+      canBuy: true,
+      whitelistCount: 0,
+      blacklistCount: 0,
+      holdersCount: 0,
+      devHoldingRatio: 0,
+      maxHoldingRatio: 0,
+      reason: '持有者检查已停用',
+      blacklistReason: '检查已停用',
+      devReason: '检查已停用',
+      largeHoldingReason: '检查已停用'
+    };
+    /* 原始实现：
     if (skipHolderCheck || !this.config.holderCheckEnabled) {
       const reason = skipHolderCheck ? '持有者检查已跳过（回测模式）' : '持有者检查已禁用';
       return {
@@ -1541,6 +1556,7 @@ class PreBuyCheckService {
       this.config.devHoldingThreshold,
       this.config.largeHoldingThreshold
     );
+    */
   }
 
   /**
@@ -1751,10 +1767,11 @@ class PreBuyCheckService {
       preBuyCheck: 0,
       checkTimestamp: null,
       checkDuration: null,
-      holdersCount: 0,
-      devHoldingRatio: 0,
-      maxHoldingRatio: 0,
-      holderCanBuy: null,
+      // [已停用] 持有者因子 — 回测时获取的是最新数据而非历史快照
+      // holdersCount: 0,
+      // devHoldingRatio: 0,
+      // maxHoldingRatio: 0,
+      // holderCanBuy: null,
       // 早期交易者黑白名单因子
       earlyTraderBlacklistCount: 0,
       earlyTraderWhitelistCount: 0,

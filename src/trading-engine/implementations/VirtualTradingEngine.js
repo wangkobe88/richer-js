@@ -1686,10 +1686,11 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             preBuyCheck: factorResults.preBuyCheck || 0,
             checkTimestamp: factorResults.checkTimestamp || null,
             checkDuration: factorResults.checkDuration || null,
-            holdersCount: factorResults.holdersCount || 0,
-            devHoldingRatio: factorResults.devHoldingRatio || 0,
-            maxHoldingRatio: factorResults.maxHoldingRatio || 0,
-            holderCanBuy: factorResults.holderCanBuy ?? null,
+            // [已停用] 持有者检查因子
+            // holdersCount: factorResults.holdersCount || 0,
+            // devHoldingRatio: factorResults.devHoldingRatio || 0,
+            // maxHoldingRatio: factorResults.maxHoldingRatio || 0,
+            // holderCanBuy: factorResults.holderCanBuy ?? null,
             // 早期交易者黑白名单因子
             earlyTraderBlacklistCount: factorResults.earlyTraderBlacklistCount || 0,
             earlyTraderWhitelistCount: factorResults.earlyTraderWhitelistCount || 0,
@@ -1920,18 +1921,16 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
           if (!preBuyCheckResult.canBuy) {
             this.logger.warn(this._experimentId, '_executeStrategy',
-              `购买前检查失败 | symbol=${token.symbol}, holderCanBuy=${preBuyCheckResult.holderCanBuy}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
+              `购买前检查失败 | symbol=${token.symbol}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
               `reason=${preBuyCheckResult.checkReason}, ` +
-              `earlyTraderWhitelist=${preBuyCheckResult.earlyTraderWhitelistCount}, earlyTraderBlacklist=${preBuyCheckResult.earlyTraderBlacklistCount}, ` +
-              `devHoldingRatio=${(isNaN(preBuyCheckResult.devHoldingRatio) ? 'N/A' : preBuyCheckResult.devHoldingRatio.toFixed(1))}%, maxHoldingRatio=${(isNaN(preBuyCheckResult.maxHoldingRatio) ? 'N/A' : preBuyCheckResult.maxHoldingRatio.toFixed(1))}%`);
+              `earlyTraderWhitelist=${preBuyCheckResult.earlyTraderWhitelistCount}, earlyTraderBlacklist=${preBuyCheckResult.earlyTraderBlacklistCount}`);
             preCheckPassed = false;
             blockReason = preBuyCheckResult.checkReason || 'pre_buy_check_failed';
           } else {
             this.logger.info(this._experimentId, '_executeStrategy',
-              `购买前检查通过 | symbol=${token.symbol}, holderCanBuy=${preBuyCheckResult.holderCanBuy}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
+              `购买前检查通过 | symbol=${token.symbol}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
               `reason=${preBuyCheckResult.checkReason}, ` +
-              `earlyTraderWhitelist=${preBuyCheckResult.earlyTraderWhitelistCount}, earlyTraderBlacklist=${preBuyCheckResult.earlyTraderBlacklistCount}, ` +
-              `devHoldingRatio=${(isNaN(preBuyCheckResult.devHoldingRatio) ? 'N/A' : preBuyCheckResult.devHoldingRatio.toFixed(1))}%, maxHoldingRatio=${(isNaN(preBuyCheckResult.maxHoldingRatio) ? 'N/A' : preBuyCheckResult.maxHoldingRatio.toFixed(1))}%`);
+              `earlyTraderWhitelist=${preBuyCheckResult.earlyTraderWhitelistCount}, earlyTraderBlacklist=${preBuyCheckResult.earlyTraderBlacklistCount}`);
           }
         } catch (checkError) {
           const errorMsg = checkError?.message || String(checkError);

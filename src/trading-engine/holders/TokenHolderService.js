@@ -170,16 +170,13 @@ class TokenHolderService {
    * @returns {Promise<Object>} { snapshotId, holders }
    */
   async fetchAndStoreHolders(tokenAddress, experimentId, signalId, chain = 'bsc') {
+    // [已停用] 持有者数据获取 — 回测时获取的是最新数据而非历史快照
+    return { snapshotId: null, holders: [], token: tokenAddress };
+    /* 原始实现：
     try {
-      // 从AVE获取持有者数据
       const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
-
-      // 生成快照ID
       const snapshotId = `${tokenAddress}_${Date.now()}`;
-
-      // 存储到数据库
       await this._storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData);
-
       return {
         snapshotId,
         holders: holderData.holders || [],
@@ -190,6 +187,7 @@ class TokenHolderService {
         `获取持有者失败: ${tokenAddress} - ${_safeGetErrorMessage(error)}`);
       throw error;
     }
+    */
   }
 
   /**
@@ -201,23 +199,18 @@ class TokenHolderService {
    * @returns {Promise<Object>} { canBuy, whitelistCount, blacklistCount, reason }
    */
   async checkHolderRisk(tokenAddress, experimentId, signalId, chain = 'bsc') {
+    // [已停用] 持有者检查 — 回测时获取的是最新数据而非历史快照，不适合作为回测因子
+    return { canBuy: true, whitelistCount: 0, blacklistCount: 0, reason: '持有者检查已停用' };
+    /* 原始实现：
     try {
-      // 确保缓存已加载
       await this._ensureCacheLoaded();
-
-      // 获取持有者数据
       const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
-
-      // 存储到数据库
       const snapshotId = `${tokenAddress}_${Date.now()}`;
       await this._storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData);
-
-      // 使用缓存数据检查
       return this._checkHoldersWithCache(holderData.holders);
     } catch (error) {
       this.logger.error(null, 'TokenHolderService',
         `检查持有者风险失败: ${tokenAddress} - ${_safeGetErrorMessage(error)}`);
-      // 出错时默认返回不可购买，保守处理
       return {
         canBuy: false,
         whitelistCount: 0,
@@ -225,6 +218,7 @@ class TokenHolderService {
         reason: `检查失败: ${_safeGetErrorMessage(error)}`
       };
     }
+    */
   }
 
   /**
@@ -240,6 +234,9 @@ class TokenHolderService {
    * @returns {Promise<Object>} 综合检查结果
    */
   async checkAllHolderRisks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', devThreshold = 15, largeHoldingThreshold = 18) {
+    // [已停用] 持有者检查 — 回测时获取的是最新数据而非历史快照，不适合作为回测因子
+    return { canBuy: true, whitelistCount: 0, blacklistCount: 0, devHoldingRatio: 0, maxHoldingRatio: 0, reason: '持有者检查已停用', blacklistReason: '', devReason: '', largeHoldingReason: '', holdersCount: 0 };
+    /* 原始实现：
     try {
       // 确保缓存已加载
       await this._ensureCacheLoaded();
@@ -332,13 +329,17 @@ class TokenHolderService {
         holdersCount: 0
       };
     }
+    */
   }
 
   /**
-   * 私有方法：从AVE获取持有者
+   * 从AVE获取持有者数据
    * @private
    */
   async _getHoldersFromAVE(tokenAddress, chain = 'bsc') {
+    // [已停用] 不再获取持有者数据
+    return { holders: [], token: tokenAddress };
+    /* 原始实现：
     if (!this.aveApi) {
       const { AveTokenAPI } = require('../../core/ave-api');
       const apiKey = process.env.AVE_API_KEY;
@@ -350,22 +351,18 @@ class TokenHolderService {
       );
     }
 
-    // AVE API 需要 tokenId 格式为 {address}-{chain}
     const tokenId = `${tokenAddress}-${chain}`;
-
-    // 使用 AveTokenAPI 的 getTokenTop100Holders 方法
     const holders = await this.aveApi.getTokenTop100Holders(tokenId);
 
-    // getTokenTop100Holders 返回的是持有者数组
     if (!holders || !Array.isArray(holders)) {
       throw new Error('AVE API返回数据格式错误');
     }
 
-    // 包装成统一格式
     return {
       holders: holders,
       token: tokenAddress
     };
+    */
   }
 
   /**
@@ -373,7 +370,9 @@ class TokenHolderService {
    * @private
    */
   async _storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData) {
-    // 添加调试日志
+    // [已停用] 持有者数据存储
+    return;
+    /* 原始实现：
     this.logger.info('[TokenHolderService] 准备存储持有者数据', {
       token_address: tokenAddress,
       experiment_id: experimentId,
@@ -381,7 +380,6 @@ class TokenHolderService {
       holders_count: holderData.holders?.length || 0
     });
 
-    // 直接插入新记录（一个代币可以有多条持有者记录）
     const { error, data } = await this.supabase
       .from('token_holders')
       .insert({
@@ -411,6 +409,7 @@ class TokenHolderService {
       signal_id: signalId,
       inserted_id: data?.id
     });
+    */
   }
 
   /**
@@ -418,19 +417,23 @@ class TokenHolderService {
    * @private
    */
   async _getLatestHolders(tokenAddress) {
+    // [已停用] 持有者数据查询
+    return null;
+    /* 原始实现：
     const { data, error } = await this.supabase
       .from('token_holders')
       .select('holder_data')
       .eq('token_address', tokenAddress)
       .order('checked_at', { ascending: false })
       .limit(1)
-      .maybeSingle(); // 使用 maybeSingle 允许没有结果
+      .maybeSingle();
 
     if (error) {
       throw new Error(`查询持有者数据失败: ${_safeGetErrorMessage(error)}`);
     }
 
     return data?.holder_data;
+    */
   }
 
   /**
@@ -440,6 +443,9 @@ class TokenHolderService {
    * @returns {Object} { canBuy, whitelistCount, blacklistCount, reason }
    */
   _checkHoldersWithCache(holders) {
+    // [已停用] 持有者缓存检查
+    return { canBuy: true, whitelistCount: 0, blacklistCount: 0, reason: '持有者检查已停用' };
+    /* 原始实现：
     if (!holders || holders.length === 0) {
       return {
         canBuy: true,
@@ -458,7 +464,6 @@ class TokenHolderService {
       const addr = holder.address?.toLowerCase();
       if (!addr) return;
 
-      // 优先检查白名单（白名单会覆盖黑名单）
       if (this._whitelistAddresses.has(addr)) {
         whitelistCount++;
         matchedWhitelist.push(addr);
@@ -468,7 +473,6 @@ class TokenHolderService {
       }
     });
 
-    // 判断逻辑
     const canBuy = this._evaluateCanBuy(whitelistCount, blacklistCount);
     const reason = this._getReason(whitelistCount, blacklistCount, canBuy);
 
@@ -477,7 +481,7 @@ class TokenHolderService {
       blacklistCount,
       canBuy,
       reason,
-      matchedBlacklist: matchedBlacklist.slice(0, 5), // 只记录前5个
+      matchedBlacklist: matchedBlacklist.slice(0, 5),
       matchedWhitelist: matchedWhitelist.slice(0, 5)
     });
 
@@ -487,6 +491,7 @@ class TokenHolderService {
       blacklistCount,
       reason
     };
+    */
   }
 
   /**
@@ -519,6 +524,9 @@ class TokenHolderService {
    * @returns {string}
    */
   _getReason(whitelistCount, blacklistCount, canBuy) {
+    // [已停用] 持有者原因描述
+    return '持有者检查已停用';
+    /* 原始实现：
     if (canBuy) {
       if (whitelistCount === 0 && blacklistCount === 0) {
         return '无黑白名单命中';
@@ -536,6 +544,7 @@ class TokenHolderService {
       return `命中黑名单但无白名单抵消(${blacklistCount}个黑名单)`;
     }
     return '未知原因';
+    */
   }
 
   /**
@@ -656,6 +665,9 @@ class TokenHolderService {
    * @returns {Promise<Object>} { canBuy, devHoldingRatio, reason }
    */
   async checkDevHoldingRatio(tokenAddress, creatorAddress, chain = 'bsc', threshold = 15) {
+    // [已停用] Dev持仓检查 — 依赖持有者数据
+    return { canBuy: true, devHoldingRatio: 0, reason: 'Dev持仓检查已停用' };
+    /* 原始实现：
     try {
       this.logger.info('[TokenHolderService] 开始Dev持仓检查', {
         token_address: tokenAddress,
@@ -663,7 +675,6 @@ class TokenHolderService {
         threshold: `${threshold}%`
       });
 
-      // 如果没有创建者地址，无法检查，默认通过
       if (!creatorAddress) {
         return {
           canBuy: true,
@@ -672,7 +683,6 @@ class TokenHolderService {
         };
       }
 
-      // 获取持有者数据
       const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
 
       if (!holderData.holders || holderData.holders.length === 0) {
@@ -683,13 +693,11 @@ class TokenHolderService {
         };
       }
 
-      // 查找创建者在持有者中的数据
       const creator = holderData.holders.find(
         h => h.address && h.address.toLowerCase() === creatorAddress.toLowerCase()
       );
 
       if (!creator) {
-        // Dev不在持有者中，通过检查
         this.logger.info('[TokenHolderService] Dev不在持有者中', {
           token_address: tokenAddress,
           creator_address: creatorAddress
@@ -701,7 +709,6 @@ class TokenHolderService {
         };
       }
 
-      // 计算Dev持仓比例
       const devHoldingRatio = _parseBalanceRatio(creator.balance_ratio);
       const canBuy = devHoldingRatio < threshold;
 
@@ -729,13 +736,13 @@ class TokenHolderService {
         error: errorMessage,
         errorType: error?.constructor?.name || typeof error
       });
-      // 出错时保守处理，拒绝购买
       return {
         canBuy: false,
         devHoldingRatio: 0,
         reason: `Dev持仓检查失败: ${errorMessage}`
       };
     }
+    */
   }
 
   /**
@@ -745,6 +752,9 @@ class TokenHolderService {
    * @returns {Object} { canBuy, maxHoldingRatio, maxHolderAddress, reason }
    */
   _checkLargeHolding(holders, threshold = 18) {
+    // [已停用] 大额持仓检查 — 依赖持有者数据
+    return { canBuy: true, maxHoldingRatio: 0, maxHolderAddress: null, reason: '大额持仓检查已停用' };
+    /* 原始实现：
     if (!holders || holders.length === 0) {
       return {
         canBuy: true,
@@ -757,12 +767,10 @@ class TokenHolderService {
     let maxHoldingRatio = 0;
     let maxHolderAddress = null;
 
-    // 遍历所有持有者，排除LP地址
     holders.forEach(holder => {
       const addr = holder.address?.toLowerCase();
       if (!addr) return;
 
-      // 跳过LP地址
       if (this._lpAddresses.has(addr)) {
         return;
       }
@@ -792,6 +800,7 @@ class TokenHolderService {
       maxHolderAddress,
       reason
     };
+    */
   }
 }
 

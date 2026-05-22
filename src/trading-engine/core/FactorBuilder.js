@@ -97,11 +97,11 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
   }
 
   return {
-    // 持有者检查因子（dev持仓、大额持仓仍基于持有者）
-    holdersCount: preBuyCheckResult.holdersCount || 0,
-    devHoldingRatio: preBuyCheckResult.devHoldingRatio || 0,
-    maxHoldingRatio: preBuyCheckResult.maxHoldingRatio || 0,
-    holderCanBuy: preBuyCheckResult.holderCanBuy ?? null,
+    // [已停用] 持有者检查因子 — 回测时获取的是最新数据而非历史快照
+    // holdersCount: preBuyCheckResult.holdersCount || 0,
+    // devHoldingRatio: preBuyCheckResult.devHoldingRatio || 0,
+    // maxHoldingRatio: preBuyCheckResult.maxHoldingRatio || 0,
+    // holderCanBuy: preBuyCheckResult.holderCanBuy ?? null,
     // 早期交易者黑白名单因子（替代旧的持有者黑白名单）
     earlyTraderBlacklistCount: preBuyCheckResult.earlyTraderBlacklistCount || 0,
     earlyTraderWhitelistCount: preBuyCheckResult.earlyTraderWhitelistCount || 0,
