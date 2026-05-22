@@ -813,6 +813,13 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ GMGN 安全检测已启用');
     }
 
+    // 6.0.3 永久阻断条件
+    this._permanentBlockCondition = experimentConfig.strategiesConfig?.permanentBlockCondition || null;
+    this._tokenBlacklist = new Map();
+    if (this._permanentBlockCondition) {
+      this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 永久阻断条件已配置: ${this._permanentBlockCondition}`);
+    }
+
     this.logger.info(this._experimentId, 'VirtualTradingEngine', `卡牌管理配置检查 | positionManagement=${JSON.stringify(this._positionManagement || 'null')}`);
 
     if (this._positionManagement && this._positionManagement.enabled) {
@@ -1866,6 +1873,15 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         shouldPerformPreCheck = !!(strategy.repeatBuyCheckCondition && String(strategy.repeatBuyCheckCondition).trim() !== '');
       }
 
+      // 代币永久阻断检查：如果代币已被标记为永久不可交易，直接跳过
+      if (preCheckPassed && this._tokenBlacklist.has(token.token)) {
+        const blInfo = this._tokenBlacklist.get(token.token);
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `代币已被永久阻断 | symbol=${token.symbol}, reason=${blInfo.reason}`);
+        preCheckPassed = false;
+        blockReason = blInfo.reason;
+      }
+
       if (preCheckPassed && shouldPerformPreCheck && this._preBuyCheckService) {
         try {
           this.logger.info(this._experimentId, '_executeStrategy',
@@ -1931,6 +1947,23 @@ class VirtualTradingEngine extends AbstractTradingEngine {
               `购买前检查通过 | symbol=${token.symbol}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
               `reason=${preBuyCheckResult.checkReason}, ` +
               `earlyTraderWhitelist=${preBuyCheckResult.earlyTraderWhitelistCount}, earlyTraderBlacklist=${preBuyCheckResult.earlyTraderBlacklistCount}`);
+          }
+
+          // 评估永久阻断条件（独立于 preBuyCheckCondition 的通过/失败）
+          if (this._permanentBlockCondition && preBuyCheckResult) {
+            const blockResult = this._evaluatePermanentBlock(preBuyCheckResult, this._permanentBlockCondition);
+            if (blockResult.blocked) {
+              this._tokenBlacklist.set(token.token, {
+                reason: blockResult.reason,
+                timestamp: Date.now()
+              });
+              if (preCheckPassed) {
+                preCheckPassed = false;
+                blockReason = blockResult.reason;
+              }
+              this.logger.warn(this._experimentId, '_executeStrategy',
+                `永久阻断触发 | symbol=${token.symbol}, condition=${this._permanentBlockCondition}, reason=${blockResult.reason}`);
+            }
           }
         } catch (checkError) {
           const errorMsg = checkError?.message || String(checkError);
@@ -2661,6 +2694,42 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
   // 注意：不再允许使用硬编码策略
   // 策略必须在实验配置中通过 config.strategiesConfig 明确定义
+
+  /**
+   * 评估永久阻断条件
+   * 如果条件为 true，代币将被永久标记为不可交易
+   * @param {Object} preBuyCheckResult - 购买前检查结果（包含所有因子）
+   * @param {string} condition - 条件表达式
+   * @returns {{ blocked: boolean, reason: string }}
+   */
+  _evaluatePermanentBlock(preBuyCheckResult, condition) {
+    if (!condition || String(condition).trim() === '') {
+      return { blocked: false, reason: '' };
+    }
+    try {
+      const context = {};
+      for (const [key, value] of Object.entries(preBuyCheckResult)) {
+        if (typeof value !== 'object' && typeof value !== 'function') {
+          context[key] = value;
+        }
+      }
+      const jsExpr = String(condition)
+        .replace(/\bAND\b/gi, '&&')
+        .replace(/\bOR\b/gi, '||')
+        .replace(/\bNOT\b/gi, '!');
+      const keys = Object.keys(context);
+      const values = Object.values(context);
+      const fn = new Function(...keys, `return ${jsExpr};`);
+      const blocked = fn(...values);
+      return blocked
+        ? { blocked: true, reason: `永久阻断: ${condition}` }
+        : { blocked: false, reason: '' };
+    } catch (error) {
+      this.logger.error(this._experimentId, '_evaluatePermanentBlock',
+        `条件评估失败: ${error.message}`);
+      return { blocked: false, reason: '' };
+    }
+  }
 }
 
 module.exports = { VirtualTradingEngine };
