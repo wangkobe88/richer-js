@@ -775,7 +775,8 @@ class BacktestEngine extends AbstractTradingEngine {
             `📊 代币筛选: 总代币数=${this._backtestStats.totalTokens || 0}, 满足条件=${filteredAddresses.length}, 阈值=${minMaxChangePercent}%`);
         }
 
-        // 如果设置了数据来源过滤，进一步筛选代币地址
+        // 如果设置了数据来源过滤，记录允许交易的代币地址集合
+        // 数据全部加载，但在交易决策时只允许指定来源的代币参与
         // 优先使用 backtest.dataSource 显式配置，否则从 collector.pumpfunCollectors 推导
         let dataSourceFilter = this._experiment.config?.backtest?.dataSource;
         if (!dataSourceFilter) {
@@ -788,17 +789,19 @@ class BacktestEngine extends AbstractTradingEngine {
           }
         }
         if (dataSourceFilter) {
-          const beforeCount = filteredAddresses?.length || '全部';
-          filteredAddresses = await this._filterTokensByDataSource(filteredAddresses, dataSourceFilter);
+          const allowedAddresses = await this._filterTokensByDataSource(null, dataSourceFilter);
+          this._dataSourceAllowedTokens = new Set(allowedAddresses);
           this.logger.info(this._experimentId, 'BacktestEngine',
-            `📊 数据来源过滤: source=${dataSourceFilter}, 过滤前=${beforeCount}, 过滤后=${filteredAddresses.length}`);
+            `📊 数据来源过滤: source=${dataSourceFilter}, 允许交易代币数=${this._dataSourceAllowedTokens.size}`);
+        } else {
+          this._dataSourceAllowedTokens = null;
         }
 
         let data;
         try {
           data = await this.timeSeriesService.getExperimentTimeSeries(
             this._sourceExperimentId,
-            filteredAddresses,  // 传入筛选后的地址，null 表示不过滤
+            null,  // 加载全部时序数据，不过滤地址
             {
               retryAttempt: attempt,
               maxRetries: MAX_RETRIES
@@ -938,16 +941,25 @@ class BacktestEngine extends AbstractTradingEngine {
     const { dbManager } = require('../../services/dbManager');
     const supabase = dbManager.getClient();
 
-    // 查询源实验的所有代币
-    const { data: allTokens, error } = await supabase
-      .from('experiment_tokens')
-      .select('token_address, analysis_results')
-      .eq('experiment_id', this._sourceExperimentId);
-
-    if (error) {
-      this.logger.error(this._experimentId, '_filterTokensByMaxChange',
-        `查询代币失败: ${error.message}`);
-      throw new Error(`查询代币失败: ${error.message}`);
+    // 分页查询源实验的所有代币（避免 Supabase 默认 1000 行限制）
+    const PAGE_SIZE = 500;
+    let allTokens = [];
+    let offset = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('experiment_tokens')
+        .select('token_address, analysis_results')
+        .eq('experiment_id', this._sourceExperimentId)
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (error) {
+        this.logger.error(this._experimentId, '_filterTokensByMaxChange',
+          `查询代币失败: ${error.message}`);
+        throw new Error(`查询代币失败: ${error.message}`);
+      }
+      if (!data || data.length === 0) break;
+      allTokens.push(...data);
+      if (data.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
     }
 
     // 记录统计信息
@@ -980,23 +992,48 @@ class BacktestEngine extends AbstractTradingEngine {
     const { dbManager } = require('../../services/dbManager');
     const supabase = dbManager.getClient();
 
-    let query = supabase
-      .from('experiment_tokens')
-      .select('token_address, data_source')
-      .eq('experiment_id', this._sourceExperimentId);
+    const BATCH_SIZE = 500;
+    const targetAddresses = existingAddresses;
+    let allRows = [];
 
-    if (existingAddresses) {
-      query = query.in('token_address', existingAddresses);
+    if (targetAddresses) {
+      // 已有地址列表，分批查询
+      for (let i = 0; i < targetAddresses.length; i += BATCH_SIZE) {
+        const batch = targetAddresses.slice(i, i + BATCH_SIZE);
+        const { data, error } = await supabase
+          .from('experiment_tokens')
+          .select('token_address, data_source')
+          .eq('experiment_id', this._sourceExperimentId)
+          .in('token_address', batch);
+        if (error) {
+          this.logger.warn(this._experimentId, '_filterTokensByDataSource',
+            `查询代币数据来源失败: ${error.message}`);
+          return existingAddresses || [];
+        }
+        if (data) allRows.push(...data);
+      }
+    } else {
+      // 无已有地址列表，全量分页查询
+      let offset = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from('experiment_tokens')
+          .select('token_address, data_source')
+          .eq('experiment_id', this._sourceExperimentId)
+          .range(offset, offset + BATCH_SIZE - 1);
+        if (error) {
+          this.logger.warn(this._experimentId, '_filterTokensByDataSource',
+            `查询代币数据来源失败: ${error.message}`);
+          return [];
+        }
+        if (!data || data.length === 0) break;
+        allRows.push(...data);
+        if (data.length < BATCH_SIZE) break;
+        offset += BATCH_SIZE;
+      }
     }
 
-    const { data, error } = await query;
-    if (error) {
-      this.logger.warn(this._experimentId, '_filterTokensByDataSource',
-        `查询代币数据来源失败: ${error.message}`);
-      return existingAddresses || [];
-    }
-
-    return (data || [])
+    return allRows
       .filter(row => row.data_source === dataSource)
       .map(row => row.token_address);
   }
@@ -1130,6 +1167,11 @@ class BacktestEngine extends AbstractTradingEngine {
       const tokenAddress = dataPoint.token_address;
       const tokenSymbol = dataPoint.token_symbol || 'UNKNOWN';
       const timestamp = new Date(dataPoint.timestamp);
+
+      // 数据来源过滤：只处理指定来源的代币
+      if (this._dataSourceAllowedTokens && !this._dataSourceAllowedTokens.has(tokenAddress)) {
+        return;
+      }
 
       const tokenState = this._getOrCreateTokenState(tokenAddress, tokenSymbol, dataPoint);
 
