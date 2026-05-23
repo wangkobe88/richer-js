@@ -776,7 +776,17 @@ class BacktestEngine extends AbstractTradingEngine {
         }
 
         // 如果设置了数据来源过滤，进一步筛选代币地址
-        const dataSourceFilter = this._experiment.config?.backtest?.dataSource;
+        // 优先使用 backtest.dataSource 显式配置，否则从 collector.pumpfunCollectors 推导
+        let dataSourceFilter = this._experiment.config?.backtest?.dataSource;
+        if (!dataSourceFilter) {
+          const pumpfunCollectors = this._experiment.config?.collector?.pumpfunCollectors;
+          if (pumpfunCollectors) {
+            const wsEnabled = pumpfunCollectors.ws?.enabled !== false;
+            const aveEnabled = pumpfunCollectors.ave?.enabled !== false;
+            if (wsEnabled && !aveEnabled) dataSourceFilter = 'wss';
+            else if (aveEnabled && !wsEnabled) dataSourceFilter = 'ave_api';
+          }
+        }
         if (dataSourceFilter) {
           const beforeCount = filteredAddresses?.length || '全部';
           filteredAddresses = await this._filterTokensByDataSource(filteredAddresses, dataSourceFilter);
