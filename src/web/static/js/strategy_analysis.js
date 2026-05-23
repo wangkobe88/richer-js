@@ -241,7 +241,7 @@ class StrategyAnalysisPage {
     const timePoints = this.analysisData.timePoints;
     const labels = timePoints.map(tp => {
       const date = new Date(tp.timestamp);
-      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     });
 
     // 使用新的数据结构：直接使用 satisfiedCount
@@ -268,6 +268,9 @@ class StrategyAnalysisPage {
         animation: {
           duration: 0
         },
+        layout: {
+          padding: { left: 0 }
+        },
         scales: {
           y: {
             beginAtZero: true,
@@ -279,7 +282,8 @@ class StrategyAnalysisPage {
             title: {
               display: true,
               text: '满足条件数'
-            }
+            },
+            afterFit(axis) { axis.width = 60; }
           },
           x: {
             ticks: {
@@ -326,7 +330,7 @@ class StrategyAnalysisPage {
     // 提取价格数据
     const labels = timePoints.map(tp => {
       const date = new Date(tp.timestamp);
-      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     });
     const prices = timePoints.map(tp => tp.data.price_usd ? parseFloat(tp.data.price_usd) : null);
 
@@ -362,6 +366,9 @@ class StrategyAnalysisPage {
           mode: 'index',
           intersect: false
         },
+        layout: {
+          padding: { left: 0 }
+        },
         plugins: {
           tooltip: {
             callbacks: {
@@ -393,7 +400,8 @@ class StrategyAnalysisPage {
             title: {
               display: true,
               text: '价格 (USDT)'
-            }
+            },
+            afterFit(axis) { axis.width = 60; }
           }
         },
         onClick: (event, elements) => {

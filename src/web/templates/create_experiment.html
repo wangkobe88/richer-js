@@ -166,7 +166,7 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-3xl font-bold text-gray-800">创建新实验</h1>
-                    <p class="text-gray-600 mt-2">基于策略卡牌管理的 fourmeme 代币交易实验</p>
+                    <p class="text-gray-600 mt-2">基于策略的代币交易实验</p>
                 </div>
                 <a href="/experiments" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md">
                     ← 返回列表
@@ -188,8 +188,8 @@
                             <input type="text"
                                    name="experiment_name"
                                    required
-                                   placeholder="例如：Fourmeme 卡牌策略交易实验"
-                                   value="Fourmeme 卡牌策略交易实验"
+                                   placeholder="例如：Fourmeme 策略交易实验"
+                                   value="Fourmeme 策略交易实验"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div>
@@ -199,7 +199,7 @@
                             <input type="text"
                                    name="experiment_description"
                                    placeholder="实验的简要描述"
-                                   value="基于卡牌仓位管理的 fourmeme 代币自动交易"
+                                   value="基于策略的代币自动交易"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div>
@@ -439,60 +439,16 @@
                     </div>
                 </div>
 
-                <!-- 卡牌仓位管理配置 -->
+                <!-- 交易金额配置 -->
                 <div class="border border-gray-200 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">🃏 卡牌仓位管理</h2>
-                        <label class="flex items-center gap-2">
-                            <input type="checkbox" name="position_management_enabled" id="pm-enabled" class="w-4 h-4">
-                            <span class="text-sm font-medium text-gray-700">启用卡牌管理</span>
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">💰 交易金额</h2>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            单次买入金额 (SOL)
                         </label>
-                    </div>
-
-                    <div id="pm-config" style="display:none;" class="space-y-4">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    总卡牌数量
-                                </label>
-                                <input type="number" name="total_cards" value="4" min="2" max="36"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <span class="text-xs text-gray-500">建议4个，支持2-36个</span>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    单卡BNB数量
-                                </label>
-                                <input type="number" name="per_card_max_bnb" value="0.25" step="0.0001" min="0.0001"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <span class="text-xs text-gray-500">每个卡牌对应的最大BNB（最小 0.0001 BNB）</span>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    最小交易卡牌数
-                                </label>
-                                <input type="number" name="min_cards_for_trade" value="1" min="1"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                初始卡牌分配
-                            </label>
-                            <div class="initial-allocation">
-                                <label class="flex items-center gap-2">
-                                    <span>BNB卡牌:</span>
-                                    <input type="number" name="initial_bnb_cards" value="4" min="0" max="36"
-                                           class="w-20 px-3 py-1 border border-gray-300 rounded-md">
-                                </label>
-                                <label class="flex items-center gap-2">
-                                    <span>代币卡牌:</span>
-                                    <input type="number" name="initial_token_cards" value="0" min="0" max="36"
-                                           class="w-20 px-3 py-1 border border-gray-300 rounded-md">
-                                </label>
-                            </div>
-                            <span class="text-xs text-gray-500">总卡牌数必须等于 BNB卡牌 + 代币卡牌</span>
-                        </div>
+                        <input type="number" name="trade_amount" value="0.5" step="0.1" min="0.01"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span class="text-xs text-gray-500">每次买入使用的固定金额（全量卖出）</span>
                     </div>
                 </div>
 
@@ -997,21 +953,8 @@
                 </div>
                 <div class="strategy-params">
                     <div class="param-group">
-                        <label>卡牌数量</label>
-                        <select name="buy_cards_{INDEX}">
-                            <option value="1">1卡</option>
-                            <option value="2">2卡</option>
-                            <option value="3">3卡</option>
-                            <option value="4">4卡</option>
-                        </select>
-                    </div>
-                    <div class="param-group">
                         <label>优先级</label>
                         <input type="number" name="buy_priority_{INDEX}" value="1" min="1" max="100">
-                    </div>
-                    <div class="param-group">
-                        <label>冷却(秒)</label>
-                        <input type="number" name="buy_cooldown_{INDEX}" value="60" min="0">
                     </div>
                     <div class="param-group">
                         <label>最大执行次数</label>
@@ -1037,22 +980,8 @@
                 </div>
                 <div class="strategy-params">
                     <div class="param-group">
-                        <label>卡牌数量</label>
-                        <select name="sell_cards_{INDEX}">
-                            <option value="1">1卡</option>
-                            <option value="2">2卡</option>
-                            <option value="3">3卡</option>
-                            <option value="4">4卡</option>
-                            <option value="all" selected>全部</option>
-                        </select>
-                    </div>
-                    <div class="param-group">
                         <label>优先级</label>
                         <input type="number" name="sell_priority_{INDEX}" value="1" min="1" max="100">
-                    </div>
-                    <div class="param-group">
-                        <label>冷却(秒)</label>
-                        <input type="number" name="sell_cooldown_{INDEX}" value="30" min="0">
                     </div>
                     <div class="param-group">
                         <label>最大执行次数</label>
@@ -1073,8 +1002,6 @@
         const submitBtn = document.getElementById('submit-btn');
         const resultMessage = document.getElementById('result-message');
         const resultContent = document.getElementById('result-content');
-        const pmEnabled = document.getElementById('pm-enabled');
-        const pmConfig = document.getElementById('pm-config');
         const buyContainer = document.getElementById('buy-strategies-container');
         const sellContainer = document.getElementById('sell-strategies-container');
         const buyTemplate = document.getElementById('buy-strategy-template');
@@ -1219,19 +1146,9 @@
                     if (monitorInput) monitorInput.value = Math.round(copyData.monitor.interval / 1000);
                 }
 
-                // 填充仓位管理配置
-                if (copyData.positionManagement) {
-                    const pm = copyData.positionManagement;
-                    pmEnabled.checked = pm.enabled === true;
-                    pmConfig.style.display = pm.enabled ? 'block' : 'none';
-
-                    setFieldValue('total_cards', pm.totalCards);
-                    setFieldValue('per_card_max_bnb', pm.perCardMaxBNB);
-                    setFieldValue('min_cards_for_trade', pm.minCardsForTrade);
-                    if (pm.initialAllocation) {
-                        setFieldValue('initial_bnb_cards', pm.initialAllocation.bnbCards || 4);
-                        setFieldValue('initial_token_cards', pm.initialAllocation.tokenCards || 0);
-                    }
+                // 填充交易金额配置
+                if (copyData.tradeAmount !== undefined) {
+                    setFieldValue('trade_amount', copyData.tradeAmount);
                 }
 
                 // 填充叙事分析配置
@@ -1338,9 +1255,7 @@
                         console.log(`  添加买入策略 #${idx + 1}:`, strategy);
                         addBuyStrategy({
                             condition: strategy.condition,
-                            cards: strategy.cards,
                             priority: strategy.priority,
-                            cooldown: strategy.cooldown,
                             maxExecutions: strategy.maxExecutions,
                             preBuyCheckCondition: strategy.preBuyCheckCondition,
                             repeatBuyCheckCondition: strategy.repeatBuyCheckCondition,
@@ -1358,9 +1273,7 @@
                         console.log(`  添加卖出策略 #${idx + 1}:`, strategy);
                         addSellStrategy({
                             condition: strategy.condition,
-                            cards: strategy.cards,
                             priority: strategy.priority,
-                            cooldown: strategy.cooldown,
                             maxExecutions: strategy.maxExecutions,
                             description: strategy.description
                         });
@@ -1375,9 +1288,7 @@
                         if (strategy.action === 'buy') {
                             addBuyStrategy({
                                 condition: strategy.condition,
-                                cards: strategy.cards,
                                 priority: strategy.priority,
-                                cooldown: strategy.cooldown,
                                 maxExecutions: strategy.maxExecutions,
                                 preBuyCheckCondition: strategy.preBuyCheckCondition,
                                 repeatBuyCheckCondition: strategy.repeatBuyCheckCondition
@@ -1385,9 +1296,7 @@
                         } else if (strategy.action === 'sell') {
                             addSellStrategy({
                                 condition: strategy.condition,
-                                cards: strategy.cards,
                                 priority: strategy.priority,
-                                cooldown: strategy.cooldown,
                                 maxExecutions: strategy.maxExecutions
                             });
                         }
@@ -1447,11 +1356,6 @@
                 }, 300);
             }, 5000);
         }
-
-        // 卡牌管理启用/禁用
-        pmEnabled.addEventListener('change', () => {
-            pmConfig.style.display = pmEnabled.checked ? 'block' : 'none';
-        });
 
         // === 多链多平台配置 ===
         // 区块链和平台映射配置
@@ -1519,11 +1423,14 @@
                 nativeCurrencySpan.textContent = BLOCKCHAIN_NATIVE_CURRENCY[selectedBlockchain] || 'BNB';
             }
 
-            // 更新卡牌配置中的原生币引用（如果存在）
-            const perCardLabel = document.querySelector('label[for="per_card_max_bnb"]');
-            if (perCardLabel) {
-                const currency = BLOCKCHAIN_NATIVE_CURRENCY[selectedBlockchain] || 'BNB';
-                perCardLabel.innerHTML = `每卡最大持仓 (${currency}) <span class="text-red-500">*</span>`;
+            // 更新交易金额配置中的原生币引用
+            const tradeAmountLabel = document.querySelector('input[name="trade_amount"]');
+            if (tradeAmountLabel) {
+                const currency = BLOCKCHAIN_NATIVE_CURRENCY[selectedBlockchain] || 'SOL';
+                const label = tradeAmountLabel.closest('div')?.querySelector('label');
+                if (label) {
+                    label.innerHTML = `单次买入金额 (${currency})`;
+                }
             }
 
             const reserveLabel = document.querySelector('label[for="reserve_amount"]');
@@ -1696,36 +1603,8 @@
             if (config.condition) {
                 html = html.replace(`name="buy_condition_${index}"`, `name="buy_condition_${index}" value="${config.condition}"`);
             }
-            if (config.cards !== undefined && config.cards !== null) {
-                html = html.replace(`name="buy_cards_${index}"`, `name="buy_cards_${index}"`);
-                // 找到select并设置selected属性
-                const temp = document.createElement('div');
-                temp.innerHTML = html;
-                const select = temp.querySelector(`select[name="buy_cards_${index}"]`);
-                if (select) {
-                    // 设置select的值
-                    const cardValue = String(config.cards);
-                    select.value = cardValue;
-                    console.log(`设置买入策略 #${index} 卡牌数量: ${cardValue}`);
-                    // 手动设置对应option的selected属性
-                    const options = select.querySelectorAll('option');
-                    options.forEach(opt => {
-                        if (opt.value === cardValue) {
-                            opt.setAttribute('selected', 'selected');
-                        } else {
-                            opt.removeAttribute('selected');
-                        }
-                    });
-                } else {
-                    console.warn(`⚠️ 未找到买入策略 #${index} 的卡牌选择框`);
-                }
-                html = temp.innerHTML;
-            }
             if (config.priority) {
                 html = html.replace(`name="buy_priority_${index}" value="1"`, `name="buy_priority_${index}" value="${config.priority}"`);
-            }
-            if (config.cooldown) {
-                html = html.replace(`name="buy_cooldown_${index}" value="60"`, `name="buy_cooldown_${index}" value="${config.cooldown}"`);
             }
             if (config.maxExecutions !== undefined) {
                 const attr = config.maxExecutions ? `value="${config.maxExecutions}"` : 'placeholder="不限"';
@@ -1774,36 +1653,8 @@
             if (config.condition) {
                 html = html.replace(`name="sell_condition_${index}"`, `name="sell_condition_${index}" value="${config.condition}"`);
             }
-            if (config.cards !== undefined && config.cards !== null) {
-                html = html.replace(`name="sell_cards_${index}"`, `name="sell_cards_${index}"`);
-                // 找到select并设置selected属性
-                const temp = document.createElement('div');
-                temp.innerHTML = html;
-                const select = temp.querySelector(`select[name="sell_cards_${index}"]`);
-                if (select) {
-                    // 设置select的值
-                    const cardValue = String(config.cards);
-                    select.value = cardValue;
-                    console.log(`设置卖出策略 #${index} 卡牌数量: ${cardValue}`);
-                    // 手动设置对应option的selected属性
-                    const options = select.querySelectorAll('option');
-                    options.forEach(opt => {
-                        if (opt.value === cardValue) {
-                            opt.setAttribute('selected', 'selected');
-                        } else {
-                            opt.removeAttribute('selected');
-                        }
-                    });
-                } else {
-                    console.warn(`⚠️ 未找到卖出策略 #${index} 的卡牌选择框`);
-                }
-                html = temp.innerHTML;
-            }
             if (config.priority) {
                 html = html.replace(`name="sell_priority_${index}" value="1"`, `name="sell_priority_${index}" value="${config.priority}"`);
-            }
-            if (config.cooldown) {
-                html = html.replace(`name="sell_cooldown_${index}" value="30"`, `name="sell_cooldown_${index}" value="${config.cooldown}"`);
             }
             if (config.maxExecutions !== undefined) {
                 const attr = config.maxExecutions ? `value="${config.maxExecutions}"` : 'placeholder="不限"';
@@ -1848,51 +1699,39 @@
                 early_buy: {
                     action: 'buy',
                     condition: 'age < 1.33 AND earlyReturn >= 80 AND earlyReturn < 120 AND currentPrice > 0',
-                    cards: 1,
                     priority: 1,
-                    cooldown: 60,
                     maxExecutions: null
                 },
                 high_volume_buy: {
                     action: 'buy',
                     condition: 'age < 5 AND txVolumeU24h > 50000 AND holders >= 100 AND currentPrice > 0',
-                    cards: 1,
                     priority: 5,
-                    cooldown: 60,
                     maxExecutions: null,
                     description: '高交易量买入：24小时交易量>5万 且 持有者>=100'
                 },
                 tp1: {
                     action: 'sell',
                     condition: 'profitPercent >= 30 AND holdDuration > 0',
-                    cards: 1,
                     priority: 1,
-                    cooldown: 30,
                     maxExecutions: 1
                 },
                 tp2: {
                     action: 'sell',
                     condition: 'profitPercent >= 50 AND holdDuration > 0',
-                    cards: 'all',
                     priority: 2,
-                    cooldown: 30,
                     maxExecutions: 1
                 },
                 drawback_stop: {
                     action: 'sell',
                     condition: 'profitPercent >= 20 AND drawdownFromHighest <= -30',
-                    cards: 'all',
                     priority: 5,
-                    cooldown: 60,
                     maxExecutions: 1,
                     description: '盈利20%后，从最高点回落30%时止损'
                 },
                 stop_loss: {
                     action: 'sell',
                     condition: 'holdDuration >= 300 AND profitPercent <= 0',
-                    cards: 'all',
                     priority: 10,
-                    cooldown: 60,
                     maxExecutions: 1
                 }
             };
@@ -1921,9 +1760,7 @@
                 const repeatBuyCheckInput = card.querySelector(`input[name="buy_repeatCheck_condition_${index}"]`);
                 buyStrategies.push({
                     condition: card.querySelector(`input[name="buy_condition_${index}"]`).value,
-                    cards: card.querySelector(`select[name="buy_cards_${index}"]`).value,
                     priority: parseInt(card.querySelector(`input[name="buy_priority_${index}"]`).value),
-                    cooldown: parseInt(card.querySelector(`input[name="buy_cooldown_${index}"]`).value),
                     maxExecutions: maxExecutionsInput.value ? parseInt(maxExecutionsInput.value) : null,
                     preBuyCheckCondition: preBuyCheckInput ? preBuyCheckInput.value.trim() || null : null,
                     repeatBuyCheckCondition: repeatBuyCheckInput ? repeatBuyCheckInput.value.trim() || null : null
@@ -1937,9 +1774,7 @@
                 const maxExecutionsInput = card.querySelector(`input[name="sell_max_executions_${index}"]`);
                 sellStrategies.push({
                     condition: card.querySelector(`input[name="sell_condition_${index}"]`).value,
-                    cards: card.querySelector(`select[name="sell_cards_${index}"]`).value,
                     priority: parseInt(card.querySelector(`input[name="sell_priority_${index}"]`).value),
-                    cooldown: parseInt(card.querySelector(`input[name="sell_cooldown_${index}"]`).value),
                     maxExecutions: maxExecutionsInput.value ? parseInt(maxExecutionsInput.value) : null
                 });
             });
@@ -1984,17 +1819,8 @@
                         const input = buyContainer.querySelector('input[name="buy_permanent_block_condition_0"]');
                         return input ? input.value.trim() || null : null;
                     })(),
-                    // 卡牌管理配置
-                    positionManagement: pmEnabled.checked ? {
-                        enabled: true,
-                        totalCards: parseInt(formData.get('total_cards')) || 4,
-                        perCardMaxBNB: parseFloat(formData.get('per_card_max_bnb')) || 0.025,
-                        minCardsForTrade: parseInt(formData.get('min_cards_for_trade')) || 1,
-                        initialAllocation: {
-                            bnbCards: parseInt(formData.get('initial_bnb_cards')) || 4,
-                            tokenCards: parseInt(formData.get('initial_token_cards')) || 0
-                        }
-                    } : null,
+                    // 交易金额配置
+                    tradeAmount: parseFloat(formData.get('trade_amount')) || 0.5,
                     // 叙事分析配置
                     narrativeAnalysis: {
                         enabled: document.getElementById('na-enabled')?.checked || false,

@@ -447,28 +447,11 @@ class ExperimentRenderer {
         decimals: token.decimals || 18,
         enabled: token.enabled !== false,
         priority: token.priority || 999,
-        minTradeIntervalSeconds: token.minTradeIntervalSeconds || 300,  // 🔥 新增：默认5分钟
+        minTradeIntervalSeconds: token.minTradeIntervalSeconds || 300,
         trader: token.trader || 'v2',
         // 代币专属策略
-        strategies: token.strategies || [],
-        // 代币专属卡牌配置
-        positionManagement: token.positionManagement || null
+        strategies: token.strategies || []
       }));
-    }
-
-    // 提取仓位管理配置
-    if (config.positionManagement) {
-      formData.total_cards = config.positionManagement.totalCards || 4;
-      formData.min_cards_for_trade = config.positionManagement.minCardsForTrade || 1;
-      // 提取初始卡牌分配
-      if (config.positionManagement.initialAllocation) {
-        formData.bnb_cards = config.positionManagement.initialAllocation.bnbCards ?? formData.total_cards;
-        formData.token_cards = config.positionManagement.initialAllocation.tokenCards ?? 0;
-      } else {
-        // 默认所有卡牌在BNB
-        formData.bnb_cards = formData.total_cards;
-        formData.token_cards = 0;
-      }
     }
 
     // 提取回测/虚拟模式配置

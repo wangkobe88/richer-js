@@ -59,6 +59,7 @@ function buildFactorValuesForTimeSeries(factorResults) {
     trendRecentDownCount: factorResults.trendRecentDownCount,
     trendRecentDownRatio: factorResults.trendRecentDownRatio,
     trendConsecutiveDowns: factorResults.trendConsecutiveDowns,
+    trendDrawdownFromWindowHigh: factorResults.trendDrawdownFromWindowHigh,
     // 持有者趋势因子（固定窗口8个点）
     holderTrendCV: factorResults.holderTrendCV,
     holderTrendHolderCountUp: factorResults.holderTrendHolderCountUp,

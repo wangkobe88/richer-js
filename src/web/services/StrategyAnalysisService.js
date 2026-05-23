@@ -5,8 +5,21 @@
 
 const { dbManager } = require('../../services/dbManager');
 const ConditionEvaluator = require('../../strategies/ConditionEvaluator').ConditionEvaluator;
+const { buildFactorsFromTimeSeries } = require('../../trading-engine/core/FactorBuilder');
+const TrendDetector = require('../../trading-engine/TrendDetector');
 
 class StrategyAnalysisService {
+
+  constructor() {
+    this._trendDetector = new TrendDetector({
+      minDataPoints: 6,
+      maxDataPoints: Infinity,
+      cvThreshold: 0.005,
+      scoreThreshold: 30,
+      totalReturnThreshold: 5,
+      riseRatioThreshold: 0.5
+    });
+  }
   /**
    * 分析策略在代币时序数据上的匹配情况
    * @param {string} experimentId - 实验ID
@@ -60,15 +73,18 @@ class StrategyAnalysisService {
         };
       }
 
-      // 4. 解析条件表达式
+      // 4. 从精简时序数据重建完整因子
+      this._rebuildFactorsFromTimeSeries(timeSeriesData);
+
+      // 5. 解析条件表达式
       const evaluator = new ConditionEvaluator();
       const ast = evaluator.parseCondition(strategy.condition);
       const subConditions = this._extractSubConditions(ast);
 
-      // 5. 重算 trendRiseRatio（使用 >= 而非 >）
+      // 6. 重算 trendRiseRatio（使用 >= 而非 >）
       this._recalculateRiseRatio(timeSeriesData);
 
-      // 6. 计算每个时间点的匹配结果（简化版，只保留图表需要的数据）
+      // 7. 计算每个时间点的匹配结果（简化版，只保留图表需要的数据）
       const timePoints = timeSeriesData.map(point => {
         const matchResult = this._evaluateTimePoint(point, subConditions, ast, evaluator);
         return {
@@ -82,7 +98,7 @@ class StrategyAnalysisService {
         };
       });
 
-      // 7. 预计算第一个时间点的详情（用于初始展示）
+      // 8. 预计算第一个时间点的详情（用于初始展示）
       let firstPointDetails = null;
       if (timePoints.length > 0) {
         const firstPoint = timeSeriesData[0];
@@ -116,6 +132,120 @@ class StrategyAnalysisService {
         success: false,
         error: error.message
       };
+    }
+  }
+
+  /**
+   * 从精简时序数据重建完整因子
+   * 精简数据只存储 currentPrice/txVolumeU24h/holders/tvl/fdv/marketCap/dataCollectionRound
+   * 需要从价格历史推导趋势因子、earlyReturn 等
+   * @private
+   */
+  _rebuildFactorsFromTimeSeries(timeSeriesData) {
+    if (!timeSeriesData || timeSeriesData.length === 0) return;
+
+    // 第一轮：构建价格历史，计算 firstPrice、age、earlyReturn 等基础因子
+    const priceHistory = [];
+    const firstPrice = timeSeriesData[0].price_usd;
+    const tokenCreatedAt = timeSeriesData[0].created_at
+      ? new Date(timeSeriesData[0].created_at).getTime()
+      : null;
+
+    for (let i = 0; i < timeSeriesData.length; i++) {
+      const point = timeSeriesData[i];
+      const fv = point.factor_values || {};
+      const priceUsd = parseFloat(point.price_usd) || 0;
+      const now = new Date(point.timestamp).getTime();
+
+      // 累积价格历史
+      priceHistory.push(priceUsd);
+
+      // firstPrice: 使用第一个时序数据点的价格
+      fv.firstPrice = fv.firstPrice ?? firstPrice;
+      fv.collectionPrice = fv.collectionPrice ?? fv.firstPrice;
+      fv.launchPrice = fv.launchPrice ?? fv.firstPrice;
+
+      // earlyReturn
+      if (fv.earlyReturn === undefined || fv.earlyReturn === null) {
+        fv.earlyReturn = (fv.firstPrice > 0 && priceUsd > 0)
+          ? ((priceUsd - fv.firstPrice) / fv.firstPrice) * 100
+          : 0;
+      }
+
+      // age
+      if (fv.age === undefined || fv.age === null) {
+        if (tokenCreatedAt) {
+          fv.age = (now - tokenCreatedAt) / 1000 / 60;
+        }
+      }
+
+      // riseSpeed
+      if (fv.riseSpeed === undefined || fv.riseSpeed === null) {
+        fv.riseSpeed = (fv.age > 0) ? fv.earlyReturn / fv.age : 0;
+      }
+
+      // price_usd -> currentPrice 兼容
+      fv.currentPrice = fv.currentPrice ?? priceUsd;
+
+      // 趋势因子：从价格历史重建（与 BacktestEngine._buildFactorsFromData 逻辑一致）
+      if (!fv.trendCV || fv.trendCV === null) {
+        const maxPoints = 8;
+        const _prices = priceHistory.slice(-maxPoints);
+
+        fv.trendDataPoints = _prices.length;
+
+        if (_prices.length >= 2) {
+          const p0 = _prices[0];
+          const pLast = _prices[_prices.length - 1];
+          fv.trendTotalReturn = p0 > 0 ? ((pLast - p0) / p0) * 100 : 0;
+
+          let riseCount = 0;
+          for (let j = 1; j < _prices.length; j++) {
+            if (_prices[j] >= _prices[j - 1]) riseCount++;
+          }
+          fv.trendRiseRatio = riseCount / Math.max(1, _prices.length - 1);
+
+          fv.trendCV = this._trendDetector._calculateCV(_prices);
+
+          // 最近的下跌统计
+          const _checkSize = Math.min(5, _prices.length);
+          const _recentPrices = _prices.slice(-_checkSize);
+          let _downCount = 0;
+          for (let j = 1; j < _recentPrices.length; j++) {
+            if (_recentPrices[j] < _recentPrices[j - 1]) _downCount++;
+          }
+          fv.trendRecentDownCount = _downCount;
+          fv.trendRecentDownRatio = _downCount / Math.max(1, _recentPrices.length - 1);
+
+          // 连续下跌次数
+          let _consecutiveDowns = 0;
+          for (let j = _prices.length - 1; j > 0; j--) {
+            if (_prices[j] < _prices[j - 1]) {
+              _consecutiveDowns++;
+            } else {
+              break;
+            }
+          }
+          fv.trendConsecutiveDowns = _consecutiveDowns;
+
+          // 当前价格距离窗口最高价的回撤
+          const _windowMaxPrice = Math.max(..._prices);
+          fv.trendDrawdownFromWindowHigh = _windowMaxPrice > 0 ? ((_prices[_prices.length - 1] - _windowMaxPrice) / _windowMaxPrice) * 100 : 0;
+
+          // 至少 4 个数据点的指标
+          if (_prices.length >= 4) {
+            const _direction = this._trendDetector._confirmDirection(_prices);
+            fv.trendPriceUp = _direction.trendPriceUp;
+            fv.trendMedianUp = _direction.trendMedianUp;
+            fv.trendSlope = _direction.relativeSlope || 0;
+
+            const _strength = this._trendDetector._calculateTrendStrength(_prices);
+            fv.trendStrengthScore = _strength.score;
+          }
+        }
+      }
+
+      point.factor_values = fv;
     }
   }
 
@@ -322,9 +452,7 @@ class StrategyAnalysisService {
       index: strategyIndex,
       condition: strategy.condition,
       description: strategy.description || `策略${strategyIndex + 1}`,
-      cards: strategy.cards,
       priority: strategy.priority,
-      cooldown: strategy.cooldown,
       maxExecutions: strategy.maxExecutions
     };
   }

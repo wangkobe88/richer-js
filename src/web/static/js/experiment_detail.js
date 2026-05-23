@@ -855,9 +855,9 @@ class ExperimentDetail {
 
     const config = this.parseConfig(this.experiment.config);
 
-    // 优先检查新的卡牌策略格式 (strategiesConfig)
+    // 优先检查策略格式 (strategiesConfig)
     if (config.strategiesConfig) {
-      this.renderCardStrategies(container, config.strategiesConfig, config.positionManagement);
+      this.renderCardStrategies(container, config.strategiesConfig);
       return;
     }
 
@@ -924,17 +924,14 @@ class ExperimentDetail {
   }
 
   /**
-   * 渲染卡牌策略配置
+   * 渲染策略配置
    */
-  renderCardStrategies(container, strategiesConfig, positionManagement) {
+  renderCardStrategies(container, strategiesConfig) {
     const buyStrategies = strategiesConfig.buyStrategies || [];
     const sellStrategies = strategiesConfig.sellStrategies || [];
 
     container.innerHTML = `
       <div class="space-y-6">
-        <!-- 卡牌管理配置 -->
-        ${positionManagement ? this.renderPositionManagement(positionManagement) : ''}
-
         <!-- 买入策略 -->
         <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
           <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -965,39 +962,7 @@ class ExperimentDetail {
   }
 
   /**
-   * 渲染卡牌管理配置
-   */
-  renderPositionManagement(pm) {
-    return `
-      <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 border border-purple-200 shadow-sm">
-        <h4 class="text-lg font-semibold text-purple-900 mb-3 flex items-center">
-          🃏 卡牌管理配置
-          ${pm.enabled ? '<span class="ml-2 px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">已启用</span>' : '<span class="ml-2 px-2 py-0.5 bg-gray-400 text-white text-xs rounded-full">未启用</span>'}
-        </h4>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
-            <div class="text-xs text-gray-500 mb-1">总卡牌数</div>
-            <div class="font-bold text-purple-700">${pm.totalCards || 0}</div>
-          </div>
-          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
-            <div class="text-xs text-gray-500 mb-1">单卡最大BNB</div>
-            <div class="font-bold text-purple-700">${pm.perCardMaxBNB || 0}</div>
-          </div>
-          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
-            <div class="text-xs text-gray-500 mb-1">最小交易卡牌</div>
-            <div class="font-bold text-purple-700">${pm.minCardsForTrade || 1}</div>
-          </div>
-          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
-            <div class="text-xs text-gray-500 mb-1">初始BNB卡牌</div>
-            <div class="font-bold text-purple-700">${pm.initialAllocation?.bnbCards || 0}</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * 渲染单个卡牌策略
+   * 渲染单个策略
    */
   renderCardStrategy(strategy, index, type) {
     const isBuy = type === 'buy';
@@ -1014,7 +979,6 @@ class ExperimentDetail {
             <span class="font-semibold ${titleColor}">优先级: ${strategy.priority}</span>
             ${strategy.maxExecutions ? `<span class="text-xs text-gray-600">最多执行: ${strategy.maxExecutions}次</span>` : '<span class="text-xs text-gray-600">无限执行</span>'}
           </div>
-          <span class="text-xs text-gray-600">冷却: ${strategy.cooldown}s</span>
         </div>
         <div class="bg-white rounded-lg px-3 py-2 border ${borderColor} mb-2">
           <div class="text-xs text-gray-500 mb-1">触发条件</div>
@@ -1033,9 +997,6 @@ class ExperimentDetail {
         </div>
         ` : ''}
         <div class="flex items-center justify-between text-sm">
-          <span class="text-gray-600">
-            <span class="mr-3">🃏 卡牌: <strong>${strategy.cards === 'all' ? '全部' : strategy.cards}</strong></span>
-          </span>
           ${strategy.description ? `<span class="text-gray-500 text-xs">${this._escapeHtml(strategy.description)}</span>` : ''}
         </div>
       </div>
@@ -1143,14 +1104,6 @@ class ExperimentDetail {
                 </div>
                 <div class="text-center">
                   <div class="text-2xl font-bold text-green-700 mb-1">RSI &lt; ${level.rsi}</div>
-                  <div class="flex items-center justify-center space-x-4 text-sm text-green-600">
-                    <span class="flex items-center">
-                      <span class="mr-1">🃏</span>${level.cards}卡
-                    </span>
-                    <span class="flex items-center">
-                      <span class="mr-1">⏱</span>${level.cooldown}s
-                    </span>
-                  </div>
                 </div>
               </div>
             `).join('')}
@@ -1174,14 +1127,6 @@ class ExperimentDetail {
                 </div>
                 <div class="text-center">
                   <div class="text-2xl font-bold text-red-700 mb-1">RSI &gt; ${level.rsi}</div>
-                  <div class="flex items-center justify-center space-x-4 text-sm text-red-600">
-                    <span class="flex items-center">
-                      <span class="mr-1">🃏</span>${level.cards === 'all' ? '全部' : level.cards + '卡'}
-                    </span>
-                    <span class="flex items-center">
-                      <span class="mr-1">⏱</span>${level.cooldown}s
-                    </span>
-                  </div>
                 </div>
               </div>
             `).join('')}
@@ -1354,12 +1299,6 @@ class ExperimentDetail {
                         <span class="text-gray-500 font-medium">精度</span>
                         <span class="font-semibold text-gray-900">${token.decimals || 18}</span>
                       </div>
-                      ${token.positionManagement && token.positionManagement.perCardMaxBNB ? `
-                        <div class="flex items-center justify-between py-0.5">
-                          <span class="text-gray-500 font-medium">每卡片最大BNB</span>
-                          <span class="font-bold text-orange-600">${token.positionManagement.perCardMaxBNB} BNB</span>
-                        </div>
-                      ` : ''}
                       ${token.allocation ? `
                         <div class="flex items-center justify-between py-0.5">
                           <span class="text-gray-500 font-medium">分配权重</span>
@@ -1438,10 +1377,6 @@ class ExperimentDetail {
                                               <span class="text-green-700 font-bold text-xs">优先级 ${level.priority || (strategy.params.buyAtRSI.length - idx)}</span>
                                             </div>
                                             <div class="text-green-800 font-bold text-base mb-1">RSI &lt; ${level.rsi}</div>
-                                            <div class="flex items-center justify-between text-xs text-green-600">
-                                              <span>${level.cards} 卡</span>
-                                              <span>⏱ ${level.cooldown}s</span>
-                                            </div>
                                           </div>
                                         `).join('')}
                                       </div>
@@ -1465,10 +1400,6 @@ class ExperimentDetail {
                                               <span class="text-red-700 font-bold text-xs">优先级 ${level.priority || (strategy.params.sellAtRSI.length - idx)}</span>
                                             </div>
                                             <div class="text-red-800 font-bold text-base mb-1">RSI &gt; ${level.rsi}</div>
-                                            <div class="flex items-center justify-between text-xs text-red-600">
-                                              <span>${level.cards === 'all' ? '全部' : level.cards + ' 卡'}</span>
-                                              <span>⏱ ${level.cooldown}s</span>
-                                            </div>
                                           </div>
                                         `).join('')}
                                       </div>
@@ -1502,40 +1433,6 @@ class ExperimentDetail {
                               `;
                             }
                           }).join('')}
-                        </div>
-                      </div>
-                    ` : ''}
-
-                    <!-- 代币级别的卡牌配置 -->
-                    ${token.positionManagement && token.positionManagement.enabled ? `
-                      <div class="border-t border-dashed border-gray-300 pt-3">
-                        <div class="bg-gray-900 -mx-1 -mt-1 px-3 py-2 rounded-t-lg mb-2 flex items-center">
-                          <span class="text-xs font-bold text-white">🃏</span>
-                          <span class="ml-2 text-xs font-bold text-white">卡牌配置</span>
-                        </div>
-                        <div class="bg-gray-900 rounded-lg p-2.5 border border-gray-700 -mt-3">
-                          <div class="flex items-center justify-between mb-2 pb-2 border-b border-gray-700">
-                            <span class="text-xs font-bold text-white">总卡牌数</span>
-                            <span class="font-extrabold text-white text-base">${token.positionManagement.totalCards}</span>
-                          </div>
-                          <div class="grid grid-cols-2 gap-3">
-                            ${token.positionManagement.initialAllocation ? `
-                              <div class="bg-yellow-600 rounded-lg px-3 py-3 text-center shadow-md">
-                                <div class="text-white font-bold text-xs mb-1">BNB</div>
-                                <div class="font-extrabold text-white text-2xl leading-none">${token.positionManagement.initialAllocation.bnbCards}</div>
-                                <div class="text-white text-xs font-semibold mt-1">张卡牌</div>
-                              </div>
-                              <div class="bg-blue-600 rounded-lg px-3 py-3 text-center shadow-md">
-                                <div class="text-white font-bold text-xs mb-1">Token</div>
-                                <div class="font-extrabold text-white text-2xl leading-none">${token.positionManagement.initialAllocation.tokenCards}</div>
-                                <div class="text-white text-xs font-semibold mt-1">张卡牌</div>
-                              </div>
-                            ` : `
-                              <div class="text-white text-center text-xs py-2 bg-gray-800 rounded-lg border border-gray-600 font-bold">
-                                最少交易: <span class="font-extrabold text-white">${token.positionManagement.minCardsForTrade}</span>
-                              </div>
-                            `}
-                          </div>
                         </div>
                       </div>
                     ` : ''}
@@ -1610,10 +1507,8 @@ class ExperimentDetail {
                             <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border-2 border-green-300 shadow-sm hover:shadow-md transition-shadow">
                               <div class="flex items-center justify-between mb-1">
                                 <span class="text-green-700 font-bold text-xs">层级 ${idx + 1}</span>
-                                <span class="bg-green-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">${level.cards}卡</span>
                               </div>
                               <div class="text-green-800 font-bold text-lg mb-1">RSI < ${level.rsi}</div>
-                              <div class="text-green-600 text-xs">冷却: ${level.cooldown}秒</div>
                             </div>
                           `).join('')}
                         </div>
@@ -1632,10 +1527,8 @@ class ExperimentDetail {
                             <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border-2 border-red-300 shadow-sm hover:shadow-md transition-shadow">
                               <div class="flex items-center justify-between mb-1">
                                 <span class="text-red-700 font-bold text-xs">层级 ${idx + 1}</span>
-                                <span class="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">${level.cards === 'all' ? '全部' : level.cards + '卡'}</span>
                               </div>
                               <div class="text-red-800 font-bold text-lg mb-1">RSI > ${level.rsi}</div>
-                              <div class="text-red-600 text-xs">冷却: ${level.cooldown}秒</div>
                             </div>
                           `).join('')}
                         </div>
@@ -1672,39 +1565,6 @@ class ExperimentDetail {
             }).join('')}
           </div>
         ` : ''}
-
-        <!-- 全局仓位管理（向后兼容单代币模式） -->
-        ${config.positionManagement && (!config.targetTokens || config.targetTokens.length <= 1) ? `
-          <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-            <h4 class="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-              <span class="mr-2">🃏</span>仓位管理
-            </h4>
-            <div class="p-3 bg-white rounded border border-gray-200 text-sm space-y-2">
-              <div class="flex justify-between">
-                <span class="text-gray-600">总卡牌数:</span>
-                <span class="font-medium text-gray-900">${config.positionManagement.totalCards || 4}</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-600">最少交易卡牌:</span>
-                <span class="font-medium text-gray-900">${config.positionManagement.minCardsForTrade || 1}</span>
-              </div>
-              ${config.positionManagement.initialAllocation ? `
-                <div class="border-t border-gray-200 pt-2 mt-2">
-                  <div class="text-xs text-gray-600 mb-2">初始卡牌分配:</div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-600">BNB仓位:</span>
-                    <span class="font-medium text-yellow-600">${(config.positionManagement.initialAllocation.bnbCards ?? config.positionManagement.totalCards ?? 4)} 张</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span class="text-gray-600">代币仓位:</span>
-                    <span class="font-medium text-blue-600">${(config.positionManagement.initialAllocation.tokenCards ?? 0)} 张</span>
-                  </div>
-                </div>
-              ` : ''}
-            </div>
-          </div>
-        ` : ''}
-
         <!-- 钱包信息（仅实盘交易） -->
         ${this.experiment.tradingMode === 'live' && config.wallet ? `
           <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">

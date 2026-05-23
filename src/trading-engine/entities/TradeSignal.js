@@ -127,10 +127,7 @@ class TradeSignal {
       holdDuration: strategySignal.holdDuration,
       // 策略信息
       strategyId: strategySignal.strategyId || null,
-      strategyName: strategySignal.strategyName || null,
-      // 卡牌管理相关
-      cards: strategySignal.cards || null,
-      cardConfig: strategySignal.cardConfig || null
+      strategyName: strategySignal.strategyName || null
     };
 
     // 如果有因子信息，合并到 metadata 中（保留所有原有字段）

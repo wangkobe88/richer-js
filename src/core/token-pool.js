@@ -93,8 +93,6 @@ class TokenPool {
             // 新增：合约安全数据（GMGN）
             contractSecurity: tokenData.contract_security_raw_data || null,
             creatorAddress: tokenData.creator_address || null,
-            // 卡牌仓位管理
-            cardPositionManager: null,
             // 策略执行状态跟踪
             strategyExecutions: {},  // strategyId -> { count: number, lastExecuted: timestamp }
             // 多次交易轮数跟踪
@@ -696,35 +694,6 @@ class TokenPool {
     getKlineData(tokenAddress, chain) {
         const token = this.getToken(tokenAddress, chain);
         return token ? token.klineData : [];
-    }
-
-    /**
-     * Set card position manager for a token
-     * @param {string} tokenAddress - Token address
-     * @param {string} chain - Chain
-     * @param {Object} cardManager - CardPositionManager instance
-     */
-    setCardPositionManager(tokenAddress, chain, cardManager) {
-        const token = this.getToken(tokenAddress, chain);
-        if (token) {
-            token.cardPositionManager = cardManager;
-        } else {
-            console.error(`⚠️ TokenPool.setCardPositionManager: 代币不存在 ${tokenAddress}-${chain}, 无法设置卡牌管理器`);
-        }
-    }
-
-    /**
-     * Get card position manager for a token
-     * @param {string} tokenAddress - Token address
-     * @param {string} chain - Chain
-     * @returns {Object|null} CardPositionManager instance
-     */
-    getCardPositionManager(tokenAddress, chain) {
-        const token = this.getToken(tokenAddress, chain);
-        if (!token) {
-            console.error(`⚠️ TokenPool.getCardPositionManager: 代币不存在 ${tokenAddress}-${chain}`);
-        }
-        return token ? token.cardPositionManager : null;
     }
 
     /**

@@ -3,7 +3,6 @@
  *
  * 管理基于因子的交易策略
  * 评估策略条件并选择最优策略
- * 参考 rich-js strategies/core/StrategyEngine.js 的简化版本
  */
 
 const { ConditionEvaluator } = require('./ConditionEvaluator');
@@ -16,7 +15,6 @@ class StrategyEngine {
     constructor(config = {}) {
         this._strategies = [];
         this._evaluator = new ConditionEvaluator();
-        this._cooldownTrackers = new Map(); // strategyId -> tokenAddress -> lastExecuted
 
         // 初始化策略
         if (config.strategies) {
@@ -74,13 +72,11 @@ class StrategyEngine {
                     description: config.description || '',
                     action: config.action, // 'buy' | 'sell'
                     priority: config.priority,
-                    cooldown: config.cooldown || 300, // 默认5分钟
                     condition,
-                    enabled: config.enabled !== false, // 默认启用
-                    cards: config.cards || 1,  // 默认使用1卡
-                    maxExecutions: config.maxExecutions || null,  // 默认无限制
-                    preBuyCheckCondition: config.preBuyCheckCondition || null,  // 首次购买前检查条件
-                    repeatBuyCheckCondition: config.repeatBuyCheckCondition || null  // 再次购买前检查条件
+                    enabled: config.enabled !== false,
+                    maxExecutions: config.maxExecutions || null,
+                    preBuyCheckCondition: config.preBuyCheckCondition || null,
+                    repeatBuyCheckCondition: config.repeatBuyCheckCondition || null
                 };
 
                 this._strategies.push(strategy);
@@ -88,9 +84,8 @@ class StrategyEngine {
                 // 输出策略加载信息
                 const enabledText = strategy.enabled ? '启用' : '禁用';
                 const actionText = strategy.action === 'buy' ? '买入' : '卖出';
-                const cardsText = strategy.cards === 'all' ? '全部' : `${strategy.cards}卡`;
                 const maxExecText = strategy.maxExecutions ? ` ×${strategy.maxExecutions}` : '';
-                console.log(`✅ [${enabledText}] ${strategy.name}: ${actionText} ${cardsText}${maxExecText} | 优先级:${strategy.priority} | 冷却:${strategy.cooldown}秒`);
+                console.log(`✅ [${enabledText}] ${strategy.name}: ${actionText}${maxExecText} | 优先级:${strategy.priority}`);
                 console.log(`   条件: ${config.condition}`);
 
             } catch (error) {
@@ -108,7 +103,7 @@ class StrategyEngine {
     /**
      * 评估所有策略，返回触发的最优策略
      * @param {Map<string, Object>|Object} factorResults - 因子计算结果
-     * @param {string} tokenAddress - 代币地址（用于冷却追踪）
+     * @param {string} tokenAddress - 代币地址
      * @param {number} timestamp - 当前时间戳
      * @param {Object} tokenData - 代币数据（用于检查执行次数）
      * @returns {Object|null} 触发的策略对象，如果没有则返回null
@@ -119,11 +114,6 @@ class StrategyEngine {
         for (const strategy of this._strategies) {
             // 检查是否启用
             if (!strategy.enabled) {
-                continue;
-            }
-
-            // 检查冷却期
-            if (this.isInCooldown(strategy, tokenAddress, timestamp)) {
                 continue;
             }
 
@@ -149,53 +139,7 @@ class StrategyEngine {
         }
 
         // 返回优先级最高的策略（数组已排序，第一个就是最高优先级）
-        const selectedStrategy = triggeredStrategies[0];
-
-        // 注意：不在此处记录 cooldown，由调用方在策略实际执行成功后调用 recordExecution
-
-        return selectedStrategy;
-    }
-
-    /**
-     * 检查策略是否在冷却期
-     * @param {Object} strategy - 策略对象
-     * @param {string} tokenAddress - 代币地址
-     * @param {number} timestamp - 当前时间戳
-     * @returns {boolean}
-     */
-    isInCooldown(strategy, tokenAddress, timestamp) {
-        const key = this.getCooldownKey(strategy.id, tokenAddress);
-        const lastExecuted = this._cooldownTrackers.get(key);
-
-        if (!lastExecuted) {
-            return false;
-        }
-
-        const elapsed = (timestamp - lastExecuted) / 1000; // 转换为秒
-        return elapsed < strategy.cooldown;
-    }
-
-    /**
-     * 记录策略执行时间
-     * @param {Object} strategy - 策略对象
-     * @param {string} tokenAddress - 代币地址
-     * @param {number} timestamp - 执行时间戳
-     */
-    recordExecution(strategy, tokenAddress, timestamp = Date.now()) {
-        const key = this.getCooldownKey(strategy.id, tokenAddress);
-        this._cooldownTrackers.set(key, timestamp);
-    }
-
-    /**
-     * 生成冷却追踪key
-     * @param {string} strategyId - 策略ID
-     * @param {string} tokenAddress - 代币地址
-     * @returns {string}
-     */
-    getCooldownKey(strategyId, tokenAddress) {
-        // 使用代币地址前8位确保每个代币有独立的冷却期
-        const tokenPrefix = tokenAddress ? tokenAddress.substring(0, 8) : 'global';
-        return `${tokenPrefix}_${strategyId}`;
+        return triggeredStrategies[0];
     }
 
     /**
@@ -232,29 +176,6 @@ class StrategyEngine {
     }
 
     /**
-     * 清除冷却记录
-     * @param {string} strategyId - 策略ID（可选，不传则清除所有）
-     * @param {string} tokenAddress - 代币地址（可选）
-     */
-    clearCooldown(strategyId = null, tokenAddress = null) {
-        if (strategyId && tokenAddress) {
-            // 清除特定策略和代币的冷却
-            const key = this.getCooldownKey(strategyId, tokenAddress);
-            this._cooldownTrackers.delete(key);
-        } else if (strategyId) {
-            // 清除特定策略的所有代币冷却
-            for (const key of this._cooldownTrackers.keys()) {
-                if (key.endsWith(`_${strategyId}`)) {
-                    this._cooldownTrackers.delete(key);
-                }
-            }
-        } else {
-            // 清除所有冷却
-            this._cooldownTrackers.clear();
-        }
-    }
-
-    /**
      * 获取策略状态
      * @param {string} strategyId - 策略ID
      * @param {string} tokenAddress - 代币地址
@@ -267,21 +188,12 @@ class StrategyEngine {
             return null;
         }
 
-        const key = this.getCooldownKey(strategyId, tokenAddress);
-        const lastExecuted = this._cooldownTrackers.get(key);
-
         return {
             id: strategy.id,
             name: strategy.name,
             action: strategy.action,
             priority: strategy.priority,
-            cooldown: strategy.cooldown,
-            enabled: strategy.enabled,
-            lastExecuted,
-            remainingCooldown: lastExecuted
-                ? Math.max(0, strategy.cooldown - (timestamp - lastExecuted) / 1000)
-                : 0,
-            isInCooldown: this.isInCooldown(strategy, tokenAddress, timestamp)
+            enabled: strategy.enabled
         };
     }
 
@@ -317,10 +229,8 @@ class StrategyEngine {
                 id: s.id,
                 name: s.name,
                 action: s.action,
-                cards: s.cards,
                 maxExecutions: s.maxExecutions,
                 priority: s.priority,
-                cooldown: s.cooldown,
                 enabled: s.enabled
             }))
         };

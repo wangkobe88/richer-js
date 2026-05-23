@@ -739,9 +739,6 @@ class ExperimentMonitor {
         buyStrategies: buyStrategies,
         sellStrategies: sellStrategies,
 
-        // 仓位管理
-        positionManagement: config.positionManagement,
-
         // 回测配置
         backtest: config.backtest || config.backtestConfig,
 

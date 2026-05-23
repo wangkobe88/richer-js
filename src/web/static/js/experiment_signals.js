@@ -1328,6 +1328,12 @@ class ExperimentSignals {
           tokenInfoContainer.classList.remove('hidden');
           tokenAddressEl.textContent = token.address;
 
+          // 显示代币 Symbol
+          const tokenSymbolEl = document.getElementById('token-symbol');
+          if (tokenSymbolEl && token.symbol) {
+            tokenSymbolEl.textContent = token.symbol;
+          }
+
           // 🔥 生成GMGN链接
           // GMGN URL格式: https://gmgn.ai/{blockchain}/token/{address}
           const gmgnBlockchain = this.getGMGNBlockchain(this.blockchain);
@@ -1935,10 +1941,6 @@ class ExperimentSignals {
       const ratioPercent = (metadata.sellCalculatedRatio * 100).toFixed(0);
       extraInfo.push(`卖出比例: ${ratioPercent}%`);
     }
-    if (metadata.cards) {
-      const cardsText = metadata.cards === 'all' ? '全部' : `${metadata.cards}卡`;
-      extraInfo.push(`卡牌: ${cardsText}`);
-    }
     if (extraInfo.length > 0) {
       extraInfoHtml = `<div class="flex items-center space-x-3 text-xs text-gray-500 mt-1">
         ${extraInfo.map(info => `<span>• ${info}</span>`).join('')}
@@ -2042,6 +2044,7 @@ class ExperimentSignals {
               ${tf.trendPriceUp !== undefined ? `<div><span class="text-amber-800">价格上升:</span> <span class="text-gray-900">${tf.trendPriceUp >= 1 ? '✅' : '❌'}</span></div>` : ''}
               ${tf.trendMedianUp !== undefined ? `<div><span class="text-amber-800">中位数上升:</span> <span class="text-gray-900">${tf.trendMedianUp >= 1 ? '✅' : '❌'}</span></div>` : ''}
               ${tf.trendRecentDownRatio !== undefined ? `<div><span class="text-amber-800">近期下跌比:</span> <span class="text-gray-900">${formatNum(tf.trendRecentDownRatio)}</span></div>` : ''}
+              ${tf.trendDrawdownFromWindowHigh !== undefined ? `<div><span class="text-amber-800">窗口回撤:</span> <span class="${tf.trendDrawdownFromWindowHigh < -20 ? 'text-red-600' : 'text-gray-900'}">${formatPercent(tf.trendDrawdownFromWindowHigh)}</span></div>` : ''}
               <div><span class="text-amber-800">TVL:</span> <span class="${tvlClass}">$${formatNum(tf.tvl, 0)}</span></div>
               ${tf.fdv !== undefined ? `<div><span class="text-amber-800">FDV:</span> <span class="text-gray-900">$${formatNum(tf.fdv, 0)}</span></div>` : ''}
               ${tf.marketCap !== undefined ? `<div><span class="text-amber-800">市值:</span> <span class="text-gray-900">$${formatNum(tf.marketCap, 0)}</span></div>` : ''}
@@ -2376,6 +2379,7 @@ class ExperimentSignals {
               ${tf.holdDuration !== undefined ? `<div><span class="text-blue-800">买入后时长:</span> <span class="text-gray-900">${formatNum(tf.holdDuration / 60)}分</span></div>` : ''}
               ${tf.trendRecentDownRatio !== undefined ? `<div><span class="text-blue-800">近期下跌比:</span> <span class="text-gray-900">${formatNum(tf.trendRecentDownRatio)}</span></div>` : ''}
               ${tf.trendConsecutiveDowns !== undefined ? `<div><span class="text-blue-800">连跌次数:</span> <span class="text-gray-900">${tf.trendConsecutiveDowns}</span></div>` : ''}
+              ${tf.trendDrawdownFromWindowHigh !== undefined ? `<div><span class="text-blue-800">窗口回撤:</span> <span class="${tf.trendDrawdownFromWindowHigh < -20 ? 'text-red-600' : 'text-gray-900'}">${formatPercent(tf.trendDrawdownFromWindowHigh)}</span></div>` : ''}
               ${tf.txVolumeU24h !== undefined ? `<div><span class="text-blue-800">24h交易量:</span> <span class="text-gray-900">$${formatNum(tf.txVolumeU24h / 1000)}K</span></div>` : ''}
             </div>
           </div>
@@ -2388,7 +2392,11 @@ class ExperimentSignals {
         const trade = tradeResult.trade;
         const inputAmount = parseFloat(trade.inputAmount || 0);
         const outputAmount = parseFloat(trade.outputAmount || 0);
-        const actualProfitPercent = inputAmount > 0 ? ((outputAmount - inputAmount) / inputAmount * 100) : 0;
+        const unitPrice = parseFloat(trade.unitPrice || 0);
+        const buyPrice = parseFloat((metadata.trendFactors && metadata.trendFactors.buyPrice) || 0);
+        const actualProfitPercent = (buyPrice > 0 && unitPrice > 0)
+          ? ((unitPrice - buyPrice) / buyPrice * 100)
+          : 0;
 
         tradeResultHtml = `
           <div class="mt-2 pt-2 border-t border-blue-300">
@@ -2419,64 +2427,6 @@ class ExperimentSignals {
       `;
     }
 
-    // 构建卡牌位置变化信息
-    let cardPositionHtml = '';
-    if (metadata.cardPositionChange) {
-      const pos = metadata.cardPositionChange;
-      const before = pos.before || {};
-      const after = pos.after || {};
-      const transferred = pos.transferredCards;
-
-      // 计算变化
-      const bnbCardsChange = (after.bnbCards || 0) - (before.bnbCards || 0);
-      const tokenCardsChange = (after.tokenCards || 0) - (before.tokenCards || 0);
-      const bnbBalanceChange = (after.bnbBalance || 0) - (before.bnbBalance || 0);
-      const tokenBalanceChange = (after.tokenBalance || 0) - (before.tokenBalance || 0);
-
-      // 格式化数字
-      const formatNum = (n) => n !== undefined && n !== null ? Number(n).toFixed(4) : 'N/A';
-      const formatChange = (n) => n !== undefined && n !== null ? (n >= 0 ? '+' : '') + Number(n).toFixed(4) : 'N/A';
-
-      cardPositionHtml = `
-        <div class="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
-          <div class="flex items-center space-x-2 mb-1">
-            <span class="text-blue-700 font-medium text-sm">🃏 卡牌位置变化</span>
-            ${transferred !== undefined ? `<span class="text-blue-500 text-xs">(转移${transferred}卡)</span>` : ''}
-          </div>
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <span class="text-gray-600">BNB卡:</span>
-              <span class="text-gray-900">${before.bnbCards || 0}</span>
-              <span class="text-blue-600">→</span>
-              <span class="text-gray-900">${after.bnbCards || 0}</span>
-              <span class="${bnbCardsChange >= 0 ? 'text-green-600' : 'text-red-600'}">(${formatChange(bnbCardsChange)})</span>
-            </div>
-            <div>
-              <span class="text-gray-600">代币卡:</span>
-              <span class="text-gray-900">${before.tokenCards || 0}</span>
-              <span class="text-blue-600">→</span>
-              <span class="text-gray-900">${after.tokenCards || 0}</span>
-              <span class="${tokenCardsChange >= 0 ? 'text-green-600' : 'text-red-600'}">(${formatChange(tokenCardsChange)})</span>
-            </div>
-            <div>
-              <span class="text-gray-600">BNB余额:</span>
-              <span class="text-gray-900">${formatNum(before.bnbBalance)}</span>
-              <span class="text-blue-600">→</span>
-              <span class="text-gray-900">${formatNum(after.bnbBalance)}</span>
-              <span class="${bnbBalanceChange >= 0 ? 'text-green-600' : 'text-red-600'}">(${formatChange(bnbBalanceChange)})</span>
-            </div>
-            <div>
-              <span class="text-gray-600">代币余额:</span>
-              <span class="text-gray-900">${formatNum(before.tokenBalance)}</span>
-              <span class="text-blue-600">→</span>
-              <span class="text-gray-900">${formatNum(after.tokenBalance)}</span>
-              <span class="${tokenBalanceChange >= 0 ? 'text-green-600' : 'text-red-600'}">(${formatChange(tokenBalanceChange)})</span>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
     card.innerHTML = `
       <div class="flex items-center justify-between">
         <div class="flex-1">
@@ -2502,8 +2452,6 @@ class ExperimentSignals {
       ${preBuyCheckHtml}
 
       ${sellStrategyHtml}
-
-      ${cardPositionHtml}
 
       <details class="mt-3">
         <summary class="cursor-pointer text-xs text-blue-600 hover:text-blue-800">

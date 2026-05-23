@@ -512,9 +512,7 @@ class AbstractTradingEngine extends ITradingEngine {
       ...(signal.factors || {}),
       price: signal.price,
       strategyId: signal.strategyId,
-      strategyName: signal.strategyName,
-      cards: signal.cards,
-      cardConfig: signal.cardConfig
+      strategyName: signal.strategyName
     };
 
     const tradeSignal = new TradeSignal({

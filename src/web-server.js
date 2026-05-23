@@ -646,7 +646,7 @@ class RicherJsWebServer {
 
         // 如果提供了策略参数，添加到配置中
         if (strategy) {
-          // 新的卡牌策略系统
+          // 策略系统
           if (strategy.buyStrategies || strategy.sellStrategies) {
             config.strategiesConfig = {
               buyStrategies: strategy.buyStrategies || [],
@@ -654,9 +654,9 @@ class RicherJsWebServer {
             };
           }
 
-          // 卡牌管理配置
-          if (strategy.positionManagement) {
-            config.positionManagement = strategy.positionManagement;
+          // 交易金额配置
+          if (strategy.tradeAmount) {
+            config.tradeAmount = strategy.tradeAmount;
           }
 
           // 叙事分析配置

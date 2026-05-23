@@ -14,17 +14,13 @@ const Decimal = require('decimal.js');
 // 延迟导入以避免循环依赖
 let TokenPool = null;
 let StrategyEngine = null;
-let CardPositionManager = null;
-
 function getLazyModules() {
   if (!TokenPool) {
     TokenPool = require('../../core/token-pool');
     const SE = require('../../strategies/StrategyEngine');
     StrategyEngine = SE.StrategyEngine;
-    const CPM = require('../../portfolio/CardPositionManager');
-    CardPositionManager = CPM.CardPositionManager;
   }
-  return { TokenPool, StrategyEngine, CardPositionManager };
+  return { TokenPool, StrategyEngine };
 }
 
 // 加载配置
@@ -80,7 +76,7 @@ class BacktestEngine extends AbstractTradingEngine {
     this.logger = new Logger({ dir: './logs', experimentId: null });
 
     // Backtest 特有组件
-    this._positionManagement = null;
+    this._tradeAmount = 0.1;
 
     // 叙事分析配置
     this._narrativeAnalysisEnabled = false;
@@ -252,18 +248,6 @@ class BacktestEngine extends AbstractTradingEngine {
    */
   async _executeBuy(signal, signalId = null, metadata = {}, timestamp = null) {
     try {
-      const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
-      if (!cardManager) {
-        this.logger.error(this._experimentId, 'BacktestEngine', `买入失败: ${signal.symbol} (${signal.tokenAddress}) - 卡牌管理器未初始化`);
-        return { success: false, reason: '卡牌管理器未初始化' };
-      }
-
-      const beforeCardState = {
-        bnbCards: cardManager.bnbCards,
-        tokenCards: cardManager.tokenCards,
-        totalCards: cardManager.totalCards
-      };
-
       const amountInBNB = this._calculateBuyAmount(signal);
       if (amountInBNB <= 0) {
         this.logger.error(this._experimentId, 'BacktestEngine', `买入失败: ${signal.symbol} - 计算金额为0 (amountInBNB=${amountInBNB})`);
@@ -271,7 +255,6 @@ class BacktestEngine extends AbstractTradingEngine {
       }
 
       const price = signal.price || 0;
-      // 使用 Decimal 进行除法，避免浮点数精度问题
       const tokenAmount = price > 0 ? new Decimal(amountInBNB).div(price).toNumber() : 0;
 
       const tradeRequest = {
@@ -283,11 +266,7 @@ class BacktestEngine extends AbstractTradingEngine {
         signalId: signalId,
         timestamp: timestamp,
         metadata: {
-          ...metadata,
-          cards: signal.cards,
-          cardPositionChange: {
-            before: { ...beforeCardState }
-          }
+          ...metadata
         }
       };
 
@@ -306,30 +285,6 @@ class BacktestEngine extends AbstractTradingEngine {
       this.metrics.totalTrades++;
       if (result && result.success) {
         this.metrics.successfulTrades++;
-        const cards = parseInt(signal.cards) || 1;
-        cardManager.afterBuy(signal.symbol, cards);
-
-        const afterCardState = {
-          bnbCards: cardManager.bnbCards,
-          tokenCards: cardManager.tokenCards,
-          totalCards: cardManager.totalCards
-        };
-
-        if (!result.trade.metadata) {
-          result.trade.metadata = {};
-        }
-        result.trade.metadata.cardPositionChange = {
-          before: { ...beforeCardState },
-          after: { ...afterCardState },
-          transferredCards: cards
-        };
-
-        const tradeId = result.trade?.id;
-        if (tradeId) {
-          await this.dataService.updateTrade(tradeId, {
-            metadata: result.trade.metadata
-          });
-        }
       } else {
         this.metrics.failedTrades++;
       }
@@ -358,21 +313,7 @@ class BacktestEngine extends AbstractTradingEngine {
         return { success: false, reason: '无持仓' };
       }
 
-      const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
-      if (!cardManager) {
-        return { success: false, reason: '卡牌管理器未初始化' };
-      }
-
-      const beforeCardState = {
-        bnbCards: cardManager.bnbCards,
-        tokenCards: cardManager.tokenCards,
-        totalCards: cardManager.totalCards
-      };
-
-      const cards = signal.cards || 'all';
-      const sellAll = (cards === 'all');
-      const cardsToUse = sellAll ? null : parseInt(cards);
-      const amountToSell = cardManager.calculateSellAmount(holding.amount, signal.symbol, cardsToUse, sellAll);
+      const amountToSell = holding.amount;
 
       if (amountToSell <= 0) {
         return { success: false, reason: '计算卖出数量为0' };
@@ -392,11 +333,7 @@ class BacktestEngine extends AbstractTradingEngine {
           ...metadata,
           buyPrice: signal.buyPrice,
           profitPercent: signal.profitPercent,
-          holdDuration: signal.holdDuration,
-          cards: signal.cards,
-          cardPositionChange: {
-            before: { ...beforeCardState }
-          }
+          holdDuration: signal.holdDuration
         }
       };
 
@@ -406,30 +343,6 @@ class BacktestEngine extends AbstractTradingEngine {
       this.metrics.totalTrades++;
       if (result && result.success) {
         this.metrics.successfulTrades++;
-        const actualCards = sellAll ? beforeCardState.tokenCards : cardsToUse;
-        cardManager.afterSell(signal.symbol, actualCards, sellAll);
-
-        const afterCardState = {
-          bnbCards: cardManager.bnbCards,
-          tokenCards: cardManager.tokenCards,
-          totalCards: cardManager.totalCards
-        };
-
-        if (!result.trade.metadata) {
-          result.trade.metadata = {};
-        }
-        result.trade.metadata.cardPositionChange = {
-          before: { ...beforeCardState },
-          after: { ...afterCardState },
-          transferredCards: actualCards
-        };
-
-        const tradeId = result.trade?.id;
-        if (tradeId) {
-          await this.dataService.updateTrade(tradeId, {
-            metadata: result.trade.metadata
-          });
-        }
       } else {
         this.metrics.failedTrades++;
       }
@@ -479,8 +392,7 @@ class BacktestEngine extends AbstractTradingEngine {
         ...signal.factors,
         price: signal.price,
         strategyId: signal.strategyId,
-        strategyName: signal.strategyName,
-        cards: signal.cards
+        strategyName: signal.strategyName
       };
 
       const tradeSignal = new TradeSignal({
@@ -619,10 +531,8 @@ class BacktestEngine extends AbstractTradingEngine {
           action: 'buy',
           condition: s.condition,
           priority: s.priority || 0,
-          cooldown: s.cooldown || 300,
-          cards: s.cards || 1,
           maxExecutions: s.maxExecutions || null,
-          preBuyCheckCondition: s.preBuyCheckCondition || null,  // 购买前检查条件
+          preBuyCheckCondition: s.preBuyCheckCondition || null,
           enabled: true
         });
       });
@@ -636,8 +546,6 @@ class BacktestEngine extends AbstractTradingEngine {
           action: 'sell',
           condition: s.condition,
           priority: s.priority || 0,
-          cooldown: s.cooldown || 300,
-          cards: s.cards || 1,
           maxExecutions: s.maxExecutions || null,
           enabled: true
         });
@@ -647,12 +555,10 @@ class BacktestEngine extends AbstractTradingEngine {
     this._strategyEngine.loadStrategies(strategyArray, availableFactorIds);
     this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
-    // 3. 初始化卡牌仓位管理配置
+    // 3. 读取交易金额配置
     const experimentConfig = this._experiment?.config || {};
-    this._positionManagement = experimentConfig.positionManagement || experimentConfig.strategy?.positionManagement || null;
-    if (this._positionManagement && this._positionManagement.enabled) {
-      this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 卡牌仓位管理已启用: 总卡牌数=${this._positionManagement.totalCards || 4}, 单卡BNB=${this._positionManagement.perCardMaxBNB || 0.025}`);
-    }
+    this._tradeAmount = experimentConfig.tradeAmount || 0.1;
+    this.logger.info(this._experimentId, '_initializeBacktestComponents', `交易金额配置 | tradeAmount=${this._tradeAmount}`);
 
     // 3.1 初始化叙事分析配置
     const narrativeAnalysisConfig = experimentConfig.strategiesConfig?.narrativeAnalysis || experimentConfig.narrativeAnalysis || {};
@@ -1259,7 +1165,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
       if (strategy) {
         if (strategy.action === 'buy') {
-          // 买入行为完全由卡牌管理器控制，无需状态检查
+          // 买入行为
         } else if (strategy.action === 'sell' && tokenState.status !== 'bought') {
           return;
         }
@@ -1488,6 +1394,10 @@ class BacktestEngine extends AbstractTradingEngine {
         }
         factors.trendConsecutiveDowns = _consecutiveDowns;
 
+        // 当前价格距离窗口最高价的回撤
+        const _windowMaxPrice = Math.max(..._prices);
+        factors.trendDrawdownFromWindowHigh = _windowMaxPrice > 0 ? ((_prices[_prices.length - 1] - _windowMaxPrice) / _windowMaxPrice) * 100 : 0;
+
         // 需要至少 4 个数据点的指标
         if (_prices.length >= 4 && this._trendDetector) {
           const _direction = this._trendDetector._confirmDirection(_prices);
@@ -1629,7 +1539,6 @@ class BacktestEngine extends AbstractTradingEngine {
    * @returns {Promise<boolean>} 是否执行成功
    */
   async _executeStrategy(strategy, tokenState, factorResults, timestamp) {
-    const { CardPositionManager } = getLazyModules();
     const price = tokenState.currentPrice || 0;
 
     if (strategy.action === 'buy') {
@@ -1646,23 +1555,6 @@ class BacktestEngine extends AbstractTradingEngine {
       // 信号应该先被保存，然后再进行预检查
       // 这样即使预检查失败，信号记录也会被保存
 
-      // 初始化 CardPositionManager（如果启用）
-      if (this._positionManagement && this._positionManagement.enabled) {
-        let cardManager = this._tokenPool.getCardPositionManager(tokenState.token, tokenState.chain);
-        if (!cardManager) {
-          cardManager = new CardPositionManager({
-            totalCards: this._positionManagement.totalCards || 4,
-            perCardMaxBNB: this._positionManagement.perCardMaxBNB || 0.25,
-            minCardsForTrade: 1,
-            initialAllocation: {
-              bnbCards: this._positionManagement.totalCards || 4,
-              tokenCards: 0
-            }
-          });
-          this._tokenPool.setCardPositionManager(tokenState.token, tokenState.chain, cardManager);
-        }
-      }
-
       // 构建初始信号（只有 trendFactors，preBuyCheckFactors 稍后填充）
       const initialSignalFactors = {
         trendFactors: factorResults || {},
@@ -1677,7 +1569,6 @@ class BacktestEngine extends AbstractTradingEngine {
         price: price,
         confidence: 80,
         reason: strategy.name,
-        cards: strategy.cards || 1,
         strategyId: strategy.id,
         strategyName: strategy.name,
         factors: initialSignalFactors,
@@ -1704,8 +1595,7 @@ class BacktestEngine extends AbstractTradingEngine {
             ...signal,
             price: signal.price,
             strategyId: signal.strategyId,
-            strategyName: signal.strategyName,
-            cards: signal.cards
+            strategyName: signal.strategyName
           },
           createdAt: signal.timestamp || new Date()
         });
@@ -1926,7 +1816,6 @@ class BacktestEngine extends AbstractTradingEngine {
 
         tokenState.strategyExecutions[strategy.id].count++;
         tokenState.strategyExecutions[strategy.id].lastExecution = timestamp.getTime();
-        this._strategyEngine.recordExecution(strategy, tokenState.token, timestamp.getTime());
 
         if (this._roundSummary) {
           this._roundSummary.recordSignalExecution(tokenState.token, true, null);
@@ -1949,11 +1838,6 @@ class BacktestEngine extends AbstractTradingEngine {
       return false;
 
     } else if (strategy.action === 'sell') {
-      const cardManager = this._tokenPool.getCardPositionManager(tokenState.token, tokenState.chain);
-      if (!cardManager) {
-        return false;
-      }
-
       const holding = this._getHolding(tokenState.token);
       if (!holding || holding.amount <= 0) {
         return false;
@@ -1968,8 +1852,6 @@ class BacktestEngine extends AbstractTradingEngine {
         return false;
       }
 
-      const cards = strategy.cards || 'all';
-
       // 构建两层结构的 factors（卖出只需要 trendFactors）
       const signalFactors = {
         trendFactors: factorResults || {}
@@ -1983,7 +1865,6 @@ class BacktestEngine extends AbstractTradingEngine {
         price: price,
         confidence: 80,
         reason: strategy.name,
-        cards: cards,
         strategyId: strategy.id,
         strategyName: strategy.name,
         buyPrice: tokenState.buyPrice || null,
@@ -1998,11 +1879,10 @@ class BacktestEngine extends AbstractTradingEngine {
       if (result && result.success) {
         tokenState.strategyExecutions[strategy.id].count++;
         tokenState.strategyExecutions[strategy.id].lastExecution = timestamp.getTime();
-        this._strategyEngine.recordExecution(strategy, tokenState.token, timestamp.getTime());
 
-        // 检查是否全部卖出，更新状态
+        // 全量卖出，更新状态
         const holding = this._getHolding(tokenState.token);
-        const isAllSold = (cards === 'all') || !holding || holding.amount <= 0;
+        const isAllSold = !holding || holding.amount <= 0;
 
         if (isAllSold) {
           // 全部卖出，状态更新为 'sold'
@@ -2067,44 +1947,19 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 计算买入金额（Backtest 特有：使用卡牌管理器）
+   * 计算买入金额
    * @protected
    * @param {Object} signal - 信号
    * @returns {number} BNB金额
    */
   _calculateBuyAmount(signal) {
-    // 从 PortfolioManager 获取可用余额
     const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
     const cashBalance = portfolio?.cashBalance || 0;
 
-    const cardManager = this._tokenPool.getCardPositionManager(signal.tokenAddress, signal.chain);
-    if (cardManager) {
-      const cards = signal.cards || 1;
-      const amount = cardManager.calculateBuyAmount(cards);
-      this.logger.debug(this._experimentId, '_calculateBuyAmount', `💰 计算买入金额: ${signal.symbol}, 卡牌管理器存在, cards=${cards}, amount=${amount}`);
-
-      if (amount <= 0) {
-        this.logger.error(this._experimentId, 'BacktestEngine', `calculateBuyAmount 返回 0: ${signal.symbol}, cards=${cards}`);
-        return 0;
-      }
-      // 转换 Decimal 为数字
-      const amountValue = typeof amount === 'number' ? amount : amount.toNumber();
-      const balanceValue = typeof cashBalance === 'number' ? cashBalance : cashBalance.toNumber();
-
-      this.logger.debug(this._experimentId, '_calculateBuyAmount', `💰 余额检查: amountValue=${amountValue}, balanceValue=${balanceValue}`);
-
-      if (balanceValue < amountValue) {
-        this.logger.error(this._experimentId, 'BacktestEngine', `余额不足: 需要 ${amountValue}, 可用 ${balanceValue}`);
-        return 0;
-      }
-      return amountValue;
-    }
-
-    this.logger.debug(this._experimentId, '_calculateBuyAmount', `💰 卡牌管理器不存在，使用默认金额: ${signal.symbol}`);
-    const tradeAmount = this._experiment.config?.backtest?.tradeAmount || 0.1;
+    const tradeAmount = this._tradeAmount;
     const balanceValue = typeof cashBalance === 'number' ? cashBalance : cashBalance.toNumber();
     if (balanceValue < tradeAmount) {
-      this.logger.error(this._experimentId, 'BacktestEngine', `余额不足(默认): 需要 ${tradeAmount}, 可用 ${balanceValue}`);
+      this.logger.error(this._experimentId, 'BacktestEngine', `余额不足: 需要 ${tradeAmount}, 可用 ${balanceValue}`);
       return 0;
     }
     return tradeAmount;
@@ -2182,7 +2037,6 @@ class BacktestEngine extends AbstractTradingEngine {
           price: sellPrice,
           confidence: 100,
           reason: '回测结束强制卖出',
-          cards: 'all',
           buyPrice: buyPrice,
           profitPercent: parseFloat(profitPercent),
           holdDuration: holdDurationMinutes * 60,
