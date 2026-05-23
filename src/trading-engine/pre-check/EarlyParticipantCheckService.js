@@ -147,7 +147,7 @@ class EarlyParticipantCheckService {
       let trades = null;
       let fromCache = false;
       if (options.useCache) {
-        const cachedTrades = await this._loadTradesFromDB(tokenAddress, checkTime);
+        const cachedTrades = await this._loadTradesFromDB(tokenAddress, checkTime, options.sourceExperimentId);
         if (cachedTrades) {
           trades = cachedTrades;
           fromCache = true;
@@ -259,16 +259,19 @@ class EarlyParticipantCheckService {
    * 同一代币在相近时间（2秒内）已获取过的数据可直接复用（仅回测模式）
    * @private
    */
-  async _loadTradesFromDB(tokenAddress, checkTime) {
+  async _loadTradesFromDB(tokenAddress, checkTime, sourceExperimentId = null) {
     if (!this.supabase) return null;
 
     try {
-      const { data, error } = await this.supabase
+      let query = this.supabase
         .from('early_participant_trades')
         .select('trades_data, check_time')
         .eq('token_address', tokenAddress)
         .gte('check_time', checkTime - 2)
-        .lte('check_time', checkTime + 2)
+        .lte('check_time', checkTime + 2);
+      if (sourceExperimentId) {
+        query = query.eq('experiment_id', sourceExperimentId);
+      }
         .order('check_time', { ascending: false })
         .limit(1);
 
