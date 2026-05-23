@@ -14,7 +14,7 @@ const config = require('../../../config/default.json');
  * 默认配置
  */
 const DEFAULT_CONFIG = {
-  fixedWindowSeconds: 90,         // 固定回溯窗口（90秒）
+  fixedWindowSeconds: 30,         // 固定回溯窗口（30秒）
   lowValueThreshold: 10,          // 低价值阈值（USD）
   highValueThreshold: 80,         // 高价值阈值（USD）
   calculateGrowthScore: false,    // 是否计算增长评分
@@ -297,7 +297,7 @@ class EarlyParticipantCheckService {
     const suffix = BlockchainConfig.TOKEN_ID_SUFFIXES[chain] || chain;
     const pairId = `${innerPair}-${suffix}`;
 
-    // 固定回溯90秒
+    // 固定回溯窗口
     const targetFromTime = checkTime - this.config.fixedWindowSeconds;
     let currentToTime = checkTime;
 

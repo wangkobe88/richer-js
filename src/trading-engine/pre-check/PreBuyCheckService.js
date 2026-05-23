@@ -541,9 +541,14 @@ class PreBuyCheckService {
     this.holderService = new TokenHolderService(supabase, logger);
 
     // 初始化早期参与者检查服务（传入 supabase 用于存储数据）
-    this.earlyParticipantService = new EarlyParticipantCheckService(logger, {
+    // 初始化早期参与者检查服务（传入 supabase 用于存储数据）
+    const earlyParticipantConfig = {
       calculateGrowthScore: false  // 暂不计算增长评分
-    }, supabase);
+    };
+    if (this.config.earlyTradesLookbackSeconds !== undefined) {
+      earlyParticipantConfig.fixedWindowSeconds = this.config.earlyTradesLookbackSeconds;
+    }
+    this.earlyParticipantService = new EarlyParticipantCheckService(logger, earlyParticipantConfig, supabase);
 
     // 初始化钱包簇检查服务
     // 默认使用区块号聚簇（比时间戳更准确）
