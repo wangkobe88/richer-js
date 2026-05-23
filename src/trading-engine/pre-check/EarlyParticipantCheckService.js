@@ -145,10 +145,12 @@ class EarlyParticipantCheckService {
     try {
       // 0. 尝试从数据库缓存获取（仅回测模式，且时间戳差异不超过2秒时复用）
       let trades = null;
+      let fromCache = false;
       if (options.useCache) {
         const cachedTrades = await this._loadTradesFromDB(tokenAddress, checkTime);
         if (cachedTrades) {
           trades = cachedTrades;
+          fromCache = true;
           this.logger.info('[EarlyParticipantCheckService] 复用数据库缓存的交易数据', {
             token_address: tokenAddress,
             trades_count: trades.length,
@@ -219,7 +221,10 @@ class EarlyParticipantCheckService {
         earlyTradesDrawdownFromHighest: basicStats.earlyTradesDrawdownFromHighest,
 
         // 内部数据（供钱包簇检查复用）
-        _trades: trades
+        _trades: trades,
+
+        // 标记数据来源，缓存数据不重复存储（防止级联缓存）
+        _fromCache: fromCache
       };
 
       this.logger.info('[EarlyParticipantCheckService] 早期参与者检查完成', {

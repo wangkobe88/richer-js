@@ -655,8 +655,8 @@ class PreBuyCheckService {
         preBuyCheckCondition = String(preBuyCheckCondition).trim();
       }
 
-      // 存储早期交易者数据（如果有 signalId 和交易数据）
-      if (signalId && earlyParticipantCheck._trades && earlyParticipantCheck._trades.length > 0) {
+      // 存储早期交易者数据（如果有 signalId 和交易数据，且非缓存数据）
+      if (signalId && earlyParticipantCheck._trades && earlyParticipantCheck._trades.length > 0 && !earlyParticipantCheck._fromCache) {
         // 同步存储，确保数据保存完成
         const storeSuccess = await this.earlyParticipantService.storeEarlyParticipantTrades(
           tokenAddress,
