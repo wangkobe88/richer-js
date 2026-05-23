@@ -757,6 +757,11 @@ class ExperimentMonitor {
         copyData.initial_balance = config.virtual.initialBalance || config.virtual.initial_balance || 100;
       }
 
+      // 数据来源配置（Solana 链的 WSS/AVE API 开关）
+      if (config.collector?.pumpfunCollectors) {
+        copyData.collector = { ...copyData.collector, pumpfunCollectors: config.collector.pumpfunCollectors };
+      }
+
       // 添加 strategiesConfig 中的高级配置
       if (config.strategiesConfig) {
         const sc = config.strategiesConfig;

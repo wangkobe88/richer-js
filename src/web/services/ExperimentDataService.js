@@ -871,6 +871,42 @@ class ExperimentDataService {
   }
 
   /**
+   * 按代币地址批量查询元数据（platform, data_source 等）
+   * 用于 token-returns 页面，避免全量拉取所有代币
+   * @param {string} experimentId - 实验ID
+   * @param {string[]} addresses - 代币地址列表
+   * @returns {Promise<Object[]>} 代币元数据列表
+   */
+  async getTokenMetadataByAddresses(experimentId, addresses) {
+    if (!addresses || addresses.length === 0) return [];
+
+    try {
+      const targetExperimentId = await this._getTargetExperimentIdForTokens(experimentId);
+
+      // Supabase in() 最多支持数组长度有限，分批查询
+      const BATCH_SIZE = 500;
+      const allResults = [];
+
+      for (let i = 0; i < addresses.length; i += BATCH_SIZE) {
+        const batch = addresses.slice(i, i + BATCH_SIZE);
+        const { data, error } = await this.supabase
+          .from('experiment_tokens')
+          .select('token_address, platform, data_source, raw_api_data, analysis_results, human_judges')
+          .eq('experiment_id', targetExperimentId)
+          .in('token_address', batch);
+
+        if (error) throw error;
+        if (data) allResults.push(...data);
+      }
+
+      return allResults;
+    } catch (error) {
+      this.logger.error('DataService', '按地址查询代币元数据失败:', { details: error });
+      return [];
+    }
+  }
+
+  /**
    * 获取代币数据的实际实验ID（回测实验使用源实验ID）
    * @private
    * @param {string} experimentId - 实验ID

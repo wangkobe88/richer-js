@@ -2171,6 +2171,21 @@ class RicherJsWebServer {
       }
     });
 
+    // 按地址批量查询代币元数据（platform, data_source 等）
+    this.app.post('/api/experiment/:id/tokens/metadata', async (req, res) => {
+      try {
+        const { addresses } = req.body;
+        if (!Array.isArray(addresses) || addresses.length === 0) {
+          return res.json({ success: true, data: [] });
+        }
+        const result = await this.dataService.getTokenMetadataByAddresses(req.params.id, addresses);
+        res.json({ success: true, data: result });
+      } catch (error) {
+        this.logger.error('WebServer', '批量查询代币元数据失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message, data: [] });
+      }
+    });
+
     // 分析实验代币涨幅
     this.app.post('/api/experiment/:id/analyze-tokens', async (req, res) => {
       try {

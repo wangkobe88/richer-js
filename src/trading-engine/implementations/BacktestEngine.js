@@ -775,6 +775,15 @@ class BacktestEngine extends AbstractTradingEngine {
             `📊 代币筛选: 总代币数=${this._backtestStats.totalTokens || 0}, 满足条件=${filteredAddresses.length}, 阈值=${minMaxChangePercent}%`);
         }
 
+        // 如果设置了数据来源过滤，进一步筛选代币地址
+        const dataSourceFilter = this._experiment.config?.backtest?.dataSource;
+        if (dataSourceFilter) {
+          const beforeCount = filteredAddresses?.length || '全部';
+          filteredAddresses = await this._filterTokensByDataSource(filteredAddresses, dataSourceFilter);
+          this.logger.info(this._experimentId, 'BacktestEngine',
+            `📊 数据来源过滤: source=${dataSourceFilter}, 过滤前=${beforeCount}, 过滤后=${filteredAddresses.length}`);
+        }
+
         let data;
         try {
           data = await this.timeSeriesService.getExperimentTimeSeries(
@@ -948,6 +957,38 @@ class BacktestEngine extends AbstractTradingEngine {
     this._backtestStats.filteredTokens = filteredAddresses.length;
 
     return filteredAddresses;
+  }
+
+  /**
+   * 根据数据来源筛选代币地址
+   * @private
+   * @param {Array<string>|null} existingAddresses - 已筛选的代币地址数组（null 表示未筛选）
+   * @param {string} dataSource - 数据来源过滤 ('wss' | 'ave_api')
+   * @returns {Promise<Array<string>>} 筛选后的代币地址数组
+   */
+  async _filterTokensByDataSource(existingAddresses, dataSource) {
+    const { dbManager } = require('../../services/dbManager');
+    const supabase = dbManager.getClient();
+
+    let query = supabase
+      .from('experiment_tokens')
+      .select('token_address, data_source')
+      .eq('experiment_id', this._sourceExperimentId);
+
+    if (existingAddresses) {
+      query = query.in('token_address', existingAddresses);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      this.logger.warn(this._experimentId, '_filterTokensByDataSource',
+        `查询代币数据来源失败: ${error.message}`);
+      return existingAddresses || [];
+    }
+
+    return (data || [])
+      .filter(row => row.data_source === dataSource)
+      .map(row => row.token_address);
   }
 
   /**

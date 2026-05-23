@@ -156,7 +156,7 @@ class ExperimentTokenReturns {
         console.log(`回测实验，标注将保存到源实验: ${this.judgeExperimentId}`);
       }
 
-      // 加载标注数据和平台数据
+      // 加载标注数据和平台数据（全量加载，用于标注等）
       if (tokensRes.ok) {
         const tokensData = await tokensRes.json();
         if (tokensData.success && tokensData.tokens) {
@@ -178,6 +178,41 @@ class ExperimentTokenReturns {
               this.tokenMaxChangeMap.set(token.token_address, token.analysis_results.max_change_percent);
             }
           });
+        }
+      }
+
+      // 按交易代币地址精确查询元数据（补全全量加载可能遗漏的代币）
+      const tradeTokenAddresses = [...new Set(this.tradesData.map(t => t.token_address))];
+      const missingAddresses = tradeTokenAddresses.filter(addr => !this.tokenPlatformMap.has(addr));
+      if (missingAddresses.length > 0) {
+        try {
+          const metadataRes = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens/metadata`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ addresses: missingAddresses })
+          });
+          if (metadataRes.ok) {
+            const metadataResult = await metadataRes.json();
+            if (metadataResult.success && metadataResult.data) {
+              metadataResult.data.forEach(token => {
+                if (token.platform && !this.tokenPlatformMap.has(token.token_address)) {
+                  this.tokenPlatformMap.set(token.token_address, token.platform);
+                }
+                const ds = token.raw_api_data?.data_source || token.data_source;
+                if (ds && !this.tokenDataSourceMap.has(token.token_address)) {
+                  this.tokenDataSourceMap.set(token.token_address, ds);
+                }
+                if (token.analysis_results?.max_change_percent !== undefined && !this.tokenMaxChangeMap.has(token.token_address)) {
+                  this.tokenMaxChangeMap.set(token.token_address, token.analysis_results.max_change_percent);
+                }
+                if (token.human_judges && !this.judgesData.has(token.token_address)) {
+                  this.judgesData.set(token.token_address, token.human_judges);
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('按地址查询代币元数据失败，使用已有数据:', e);
         }
       }
 
@@ -1144,7 +1179,16 @@ class ExperimentTokenReturns {
    * @returns {string} 平台徽章 HTML
    */
   renderPlatformBadge(tokenAddress) {
-    const platform = this.tokenPlatformMap.get(tokenAddress) || 'fourmeme';
+    // 根据 experiment blockchain 配置推断默认平台
+    const blockchainDefaultPlatform = {
+      bsc: 'fourmeme',
+      base: 'bankr',
+      solana: 'pumpfun',
+      eth: 'ave',
+      all: 'fourmeme',
+    };
+    const defaultPlatform = blockchainDefaultPlatform[this.experimentData?.blockchain] || 'fourmeme';
+    const platform = this.tokenPlatformMap.get(tokenAddress) || defaultPlatform;
     const platformConfig = {
         fourmeme: { label: 'Four.meme', cls: 'bg-blue-600' },
         flap:     { label: 'Flap', cls: 'bg-purple-600' },

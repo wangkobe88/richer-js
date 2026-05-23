@@ -718,6 +718,16 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
     };
 
+    // 合并 pumpfunCollectors 配置到顶层（收集器从顶层读取）
+    const experimentPumpfunCollectors = experimentCollectorConfig.pumpfunCollectors;
+    if (experimentPumpfunCollectors) {
+      mergedCollectorConfig.pumpfunCollectors = {
+        ...config.pumpfunCollectors,
+        ave: { ...config.pumpfunCollectors?.ave, ...experimentPumpfunCollectors.ave },
+        ws: { ...config.pumpfunCollectors?.ws, ...experimentPumpfunCollectors.ws }
+      };
+    }
+
     // 全链模式强制收集间隔 ≥ 40 秒，避免 API 限频
     if (this._blockchain === 'all' && mergedCollectorConfig.collector.interval < 40000) {
       this.logger.info(this._experimentId, 'VirtualTradingEngine',
