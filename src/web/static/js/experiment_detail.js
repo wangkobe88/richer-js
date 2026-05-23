@@ -1815,6 +1815,176 @@ class ExperimentDetail {
             </div>
           </div>
         ` : ''}
+
+        <!-- 收集器配置 -->
+        ${config.collector ? `
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
+              <span class="mr-2">📡</span>收集器配置
+            </h4>
+            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
+              <div class="flex justify-between">
+                <span class="text-gray-300">收集频率:</span>
+                <span class="font-medium text-white">${config.collector.interval ? (config.collector.interval / 1000) + ' 秒' : '默认'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-300">代币最大年龄:</span>
+                <span class="font-medium text-white">${config.collector.maxAgeSeconds ? config.collector.maxAgeSeconds + ' 秒' : '默认'}</span>
+              </div>
+              ${config.collector.fetchLimit ? `
+                <div class="flex justify-between">
+                  <span class="text-gray-300">每次获取数量:</span>
+                  <span class="font-medium text-white">${config.collector.fetchLimit}</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- 监控配置 -->
+        ${config.monitor ? `
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
+              <span class="mr-2">🔄</span>监控配置
+            </h4>
+            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
+              <div class="flex justify-between">
+                <span class="text-gray-300">价格监控频率:</span>
+                <span class="font-medium text-white">${config.monitor.interval ? (config.monitor.interval / 1000) + ' 秒' : '默认 (10秒)'}</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- 数据来源配置（Solana 链） -->
+        ${this.experiment.blockchain === 'solana' ? `
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
+              <span class="mr-2">🔗</span>数据来源
+            </h4>
+            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
+              <div class="flex justify-between">
+                <span class="text-gray-300">WSS (WebSocket):</span>
+                <span class="font-medium ${config.collector?.pumpfunCollectors?.ws?.enabled !== false ? 'text-green-400' : 'text-red-400'}">${config.collector?.pumpfunCollectors?.ws?.enabled !== false ? '✅ 启用' : '❌ 禁用'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-300">AVE API (轮询):</span>
+                <span class="font-medium ${config.collector?.pumpfunCollectors?.ave?.enabled !== false ? 'text-green-400' : 'text-red-400'}">${config.collector?.pumpfunCollectors?.ave?.enabled !== false ? '✅ 启用' : '❌ 禁用'}</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- 叙事分析配置 -->
+        ${config.strategiesConfig?.narrativeAnalysis ? `
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
+              <span class="mr-2">📝</span>叙事分析
+            </h4>
+            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
+              <div class="flex justify-between">
+                <span class="text-gray-300">状态:</span>
+                <span class="font-medium ${config.strategiesConfig.narrativeAnalysis.enabled ? 'text-green-400' : 'text-gray-400'}">${config.strategiesConfig.narrativeAnalysis.enabled ? '✅ 启用' : '❌ 禁用'}</span>
+              </div>
+              ${config.strategiesConfig.narrativeAnalysis.triggerThreshold ? `
+                <div class="flex justify-between">
+                  <span class="text-gray-300">触发阈值:</span>
+                  <span class="font-medium text-white">${config.strategiesConfig.narrativeAnalysis.triggerThreshold}</span>
+                </div>
+              ` : ''}
+              ${config.strategiesConfig.narrativeAnalysis.maxWaitSeconds ? `
+                <div class="flex justify-between">
+                  <span class="text-gray-300">最大等待:</span>
+                  <span class="font-medium text-white">${config.strategiesConfig.narrativeAnalysis.maxWaitSeconds} 秒</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- GMGN 安全检测 -->
+        ${config.strategiesConfig?.gmgnSecurityCheck ? `
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
+              <span class="mr-2">🛡️</span>GMGN 安全检测
+            </h4>
+            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
+              <div class="flex justify-between">
+                <span class="text-gray-300">状态:</span>
+                <span class="font-medium ${config.strategiesConfig.gmgnSecurityCheck.enabled ? 'text-green-400' : 'text-gray-400'}">${config.strategiesConfig.gmgnSecurityCheck.enabled ? '✅ 启用' : '❌ 禁用'}</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- 跳过策略检测 -->
+        ${config.strategiesConfig?.skipStrategyDetection ? `
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
+              <span class="mr-2">⏭️</span>跳过策略检测
+            </h4>
+            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
+              <div class="flex justify-between">
+                <span class="text-gray-300">跳过前几轮:</span>
+                <span class="font-medium text-white">${config.strategiesConfig.skipStrategyDetectionMaxRounds || 1} 轮</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- 永久阻断条件 -->
+        ${config.strategiesConfig?.permanentBlockCondition ? `
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
+              <span class="mr-2">🚫</span>永久阻断条件
+            </h4>
+            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm">
+              <code class="text-xs text-yellow-300 bg-gray-900 px-2 py-1 rounded break-all">${config.strategiesConfig.permanentBlockCondition}</code>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- 通知与统计配置 -->
+        ${(config.strategiesConfig?.stats || config.strategiesConfig?.telegramNotifications || config.strategiesConfig?.eventRecording) ? `
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
+              <span class="mr-2">📊</span>通知与统计
+            </h4>
+            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
+              ${config.strategiesConfig.stats ? `
+                <div class="flex justify-between">
+                  <span class="text-gray-300">定期统计:</span>
+                  <span class="font-medium ${config.strategiesConfig.stats.enabled !== false ? 'text-green-400' : 'text-gray-400'}">${config.strategiesConfig.stats.enabled !== false ? '✅ ' + Math.round((config.strategiesConfig.stats.interval || 1800000) / 60000) + ' 分钟' : '❌ 禁用'}</span>
+                </div>
+              ` : ''}
+              ${config.strategiesConfig.telegramNotifications ? `
+                <div class="flex justify-between">
+                  <span class="text-gray-300">电报通知:</span>
+                  <span class="font-medium ${config.strategiesConfig.telegramNotifications.enabled ? 'text-green-400' : 'text-gray-400'}">${config.strategiesConfig.telegramNotifications.enabled ? '✅ 启用' : '❌ 禁用'}</span>
+                </div>
+              ` : ''}
+              ${config.strategiesConfig.eventRecording ? `
+                <div class="flex justify-between">
+                  <span class="text-gray-300">事件记录:</span>
+                  <span class="font-medium ${config.strategiesConfig.eventRecording.enabled !== false ? 'text-green-400' : 'text-gray-400'}">${config.strategiesConfig.eventRecording.enabled !== false ? '✅ 启用' : '❌ 禁用'}</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- 回测数据来源过滤 -->
+        ${config.backtest?.dataSource ? `
+          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
+              <span class="mr-2">🔗</span>回测数据来源过滤
+            </h4>
+            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm">
+              <span class="font-medium text-white">${config.backtest.dataSource === 'wss' ? '仅 WSS 数据' : '仅 AVE API 数据'}</span>
+            </div>
+          </div>
+        ` : ''}
+
       </div>
     `;
   }
