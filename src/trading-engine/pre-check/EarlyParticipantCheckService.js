@@ -128,9 +128,11 @@ class EarlyParticipantCheckService {
    * @param {number} launchAt - 代币创建时间戳（秒）（保留参数兼容性，但不再使用）
    * @param {number} checkTime - 当前检查时间戳（秒）
    * @param {number} totalSupply - 代币总供应量（可选，用于计算净持仓占比）
+   * @param {Object} options - 可选配置
+   * @param {boolean} options.useCache - 是否使用数据库缓存（仅回测使用，虚拟/实盘不缓存）
    * @returns {Promise<Object>} 检查结果
    */
-  async performCheck(tokenAddress, innerPair, chain, launchAt, checkTime, totalSupply = 0) {
+  async performCheck(tokenAddress, innerPair, chain, launchAt, checkTime, totalSupply = 0, options = {}) {
     const startTime = Date.now();
 
     this.logger.info('[EarlyParticipantCheckService] 开始早期参与者检查', {
@@ -141,16 +143,18 @@ class EarlyParticipantCheckService {
     });
 
     try {
-      // 0. 尝试从数据库缓存获取（同一代币、相近时间差在几秒内的数据可直接复用）
+      // 0. 尝试从数据库缓存获取（仅回测模式，且时间戳差异不超过2秒时复用）
       let trades = null;
-      const cachedTrades = await this._loadTradesFromDB(tokenAddress, checkTime);
-      if (cachedTrades) {
-        trades = cachedTrades;
-        this.logger.info('[EarlyParticipantCheckService] 复用数据库缓存的交易数据', {
-          token_address: tokenAddress,
-          trades_count: trades.length,
-          cached_check_time: trades._cachedCheckTime
-        });
+      if (options.useCache) {
+        const cachedTrades = await this._loadTradesFromDB(tokenAddress, checkTime);
+        if (cachedTrades) {
+          trades = cachedTrades;
+          this.logger.info('[EarlyParticipantCheckService] 复用数据库缓存的交易数据', {
+            token_address: tokenAddress,
+            trades_count: trades.length,
+            cached_check_time: trades._cachedCheckTime
+          });
+        }
       }
 
       // 1. 获取交易数据（固定90秒回溯窗口）
@@ -247,7 +251,7 @@ class EarlyParticipantCheckService {
 
   /**
    * 从数据库缓存加载交易数据
-   * 同一代币在相近时间（30秒内）已获取过的数据可直接复用
+   * 同一代币在相近时间（2秒内）已获取过的数据可直接复用（仅回测模式）
    * @private
    */
   async _loadTradesFromDB(tokenAddress, checkTime) {
@@ -258,8 +262,8 @@ class EarlyParticipantCheckService {
         .from('early_participant_trades')
         .select('trades_data, check_time')
         .eq('token_address', tokenAddress)
-        .gte('check_time', checkTime - 30)
-        .lte('check_time', checkTime + 30)
+        .gte('check_time', checkTime - 2)
+        .lte('check_time', checkTime + 2)
         .order('check_time', { ascending: false })
         .limit(1);
 

@@ -596,11 +596,12 @@ class PreBuyCheckService {
    * @param {boolean} options.skipTwitterSearch - 是否跳过Twitter搜索（回测时为 true，因子使用默认值）
    * @param {number} options.tokenBuyTime - 代币首次买入时间戳（毫秒），用于判断是否有历史交易记录
    * @param {number} options.drawdownFromHighest - 从最高价跌幅（%），负数表示下跌
+   * @param {boolean} options.useEarlyTradesCache - 是否使用早期交易者数据库缓存（仅回测使用）
    * @returns {Promise<Object>} 检查结果
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, skipGmgnSecurity, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, contractRiskData, totalSupply, rawApiData } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, skipGmgnSecurity, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, contractRiskData, totalSupply, rawApiData, useEarlyTradesCache } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -621,7 +622,7 @@ class PreBuyCheckService {
     try {
       // 先执行早期参与者检查（获取交易数据）
       const earlyParticipantCheck = await this._performEarlyParticipantCheck(
-        tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant, totalSupply
+        tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant, totalSupply, useEarlyTradesCache
       );
 
       // Twitter搜索：回测时跳过，使用默认因子
@@ -1568,7 +1569,7 @@ class PreBuyCheckService {
    * @param {number} checkTime - 检查时间戳（秒），用于回测时指定历史时间点
    * @param {boolean} skipEarlyParticipant - 是否跳过检查
    */
-  async _performEarlyParticipantCheck(tokenAddress, chain, tokenInfo, checkTime = null, skipEarlyParticipant = false, totalSupply = 0) {
+  async _performEarlyParticipantCheck(tokenAddress, chain, tokenInfo, checkTime = null, skipEarlyParticipant = false, totalSupply = 0, useCache = false) {
     if (skipEarlyParticipant || !this.config.earlyParticipantCheckEnabled) {
       return this.earlyParticipantService.getEmptyFactorValues();
     }
@@ -1592,7 +1593,8 @@ class PreBuyCheckService {
       chain,
       null,  // launchAt 参数已不再使用
       effectiveCheckTime,
-      totalSupply
+      totalSupply,
+      { useCache }
     );
   }
 

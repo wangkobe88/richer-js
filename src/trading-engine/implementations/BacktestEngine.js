@@ -1790,6 +1790,7 @@ class BacktestEngine extends AbstractTradingEngine {
               checkTime: Math.floor(timestamp.getTime() / 1000),
               skipHolderCheck: true,
               skipTwitterSearch: true,  // 回测时跳过Twitter搜索，因子使用默认值
+              useEarlyTradesCache: true,  // 回测使用早期交易者缓存（±2秒内复用）
               // GMGN安全检测不跳过：优先使用DB缓存（虚拟/实盘实验可能已有数据），无缓存时调用API并写入DB
               tokenBuyTime: tokenState.buyTime || null,  // 代币首次买入时间
               drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 从最高价跌幅
