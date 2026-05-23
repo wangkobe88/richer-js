@@ -272,6 +272,7 @@ class EarlyParticipantCheckService {
       if (sourceExperimentId) {
         query = query.eq('experiment_id', sourceExperimentId);
       }
+      const { data, error } = await query
         .order('check_time', { ascending: false })
         .limit(1);
 
