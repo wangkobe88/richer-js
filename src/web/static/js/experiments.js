@@ -758,18 +758,16 @@ class ExperimentMonitor {
       }
 
       // 收集器配置（收集频率、代币最大年龄、数据来源等）
-      if (config.collector) {
-        copyData.collector = {
-          interval: config.collector.interval,
-          maxAgeSeconds: config.collector.maxAgeSeconds,
-          ...(config.collector.pumpfunCollectors ? { pumpfunCollectors: config.collector.pumpfunCollectors } : {})
-        };
-      }
+      copyData.collector = {
+        interval: config.collector?.interval || 10000,
+        maxAgeSeconds: config.collector?.maxAgeSeconds || 60,
+        ...(config.collector?.pumpfunCollectors ? { pumpfunCollectors: config.collector.pumpfunCollectors } : {})
+      };
 
       // 监控配置（价格获取频率）
-      if (config.monitor) {
-        copyData.monitor = config.monitor;
-      }
+      copyData.monitor = {
+        interval: config.monitor?.interval || 10000
+      };
 
       // 添加 strategiesConfig 中的高级配置
       if (config.strategiesConfig) {

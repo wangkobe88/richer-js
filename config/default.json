@@ -11,41 +11,6 @@
     "apiUrl": "https://four.meme",
     "timeout": 30000
   },
-  "pumpfunCollectors": {
-    "ave": {
-      "enabled": true
-    },
-    "ws": {
-      "enabled": true,
-      "programId": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
-      "commitment": "processed",
-      "enrichmentInterval": 3000,
-      "enrichmentMaxRetries": 3,
-      "enrichmentMaxAge": 60000,
-      "reconnectBaseDelay": 2000,
-      "reconnectMaxDelay": 60000
-    }
-  },
-  "collector": {
-    "interval": 10000,
-    "platform": "fourmeme",
-    "chain": "bsc",
-    "maxAgeSeconds": 60,
-    "fetchLimit": 50,
-    "enableFlap": false
-  },
-  "monitor": {
-    "interval": 10000,
-    "klineLimit": 35,
-    "observationWindowMinutes": 20,
-    "decisionCheckInterval": 10000,
-    "stagnationCheck": {
-      "enabled": true,
-      "minDurationMinutes": 5,
-      "minDataPoints": 15,
-      "priceChangeThreshold": 1.0
-    }
-  },
   "strategy": {
     "buyTimeMinutes": 1.33,
     "earlyReturnMin": 80,

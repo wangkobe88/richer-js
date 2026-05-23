@@ -582,7 +582,8 @@ class RicherJsWebServer {
           backtest,
           wallet,
           reserveNative,
-          collector
+          collector,
+          monitor
         } = req.body;
 
         // 构建实验配置
@@ -598,6 +599,11 @@ class RicherJsWebServer {
           config.collector = collector;
         }
 
+        // 监控配置（价格获取频率）
+        if (monitor) {
+          config.monitor = monitor;
+        }
+
         // 根据交易模式添加特定配置
         if (trading_mode === 'virtual') {
           config.virtual = {
@@ -607,7 +613,9 @@ class RicherJsWebServer {
         } else if (trading_mode === 'backtest') {
           config.backtest = {
             initialBalance: backtest?.initialBalance || parseFloat(initial_balance) || 100,
-            sourceExperimentId: backtest?.sourceExperimentId
+            sourceExperimentId: backtest?.sourceExperimentId,
+            minMaxChangePercent: backtest?.minMaxChangePercent || 0,
+            dataSource: backtest?.dataSource || null
           };
         } else if (trading_mode === 'live') {
           // 实盘交易配置 - 必须加密私钥

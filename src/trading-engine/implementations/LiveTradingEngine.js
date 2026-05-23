@@ -13,6 +13,14 @@ const { categoryToRating } = require('../../narrative/utils/rating-utils.mjs');
 const traderFactory = require('../traders');
 const Logger = require('../../services/logger');
 
+// 实验级配置的内置默认值（collector/monitor/pumpfunCollectors 不再从 default.json 读取）
+const DEFAULT_COLLECTOR = { interval: 10000, maxAgeSeconds: 60, fetchLimit: 50 };
+const DEFAULT_MONITOR = {
+  interval: 10000,
+  observationWindowMinutes: 20,
+  stagnationCheck: { enabled: true, minDurationMinutes: 5, minDataPoints: 15, priceChangeThreshold: 1.0 }
+};
+
 // Super IP 检测模块（懒加载，ESM 动态导入，用于 tweetAuthorType 因子）
 let superIpModules = null;
 async function getSuperIpModules() {
@@ -1225,7 +1233,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
     // 5. 初始化 TokenPool（传入价格历史缓存、持有者历史缓存和监控配置，与虚拟盘一致）
     const monitorConfig = {
-        ...defaultConfig.monitor,
+        ...DEFAULT_MONITOR,
         ...(this._experiment?.config?.monitor || {})
     };
     this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache, this._holderHistoryCache, monitorConfig);
@@ -1257,7 +1265,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
     const mergedCollectorConfig = {
       ...config,
       collector: {
-        ...config.collector,
+        ...DEFAULT_COLLECTOR,
         ...experimentCollectorConfig
       }
     };
@@ -2704,8 +2712,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
     // 启动收集器
     this._fourmemeCollector.start();
-    const config = require('../../../config/default.json');
-    console.log(`🔄 Fourmeme 收集器已启动 (${config.collector.interval}ms 间隔)`);
+    console.log(`🔄 Fourmeme 收集器已启动 (${this._fourmemeCollector.collectorConfig.interval}ms 间隔)`);
 
     console.log(`🚀 实盘交易引擎已启动: 实验 ${this._experimentId}`);
   }

@@ -43,8 +43,31 @@ async function getSuperIpModules() {
   return superIpModules;
 }
 
-// 加载配置
+// 加载配置（collector/monitor/pumpfunCollectors 已迁移到实验层，此处仅保留基础 API 配置）
 const config = require('../../../config/default.json');
+
+// 实验级配置的内置默认值（collector/monitor/pumpfunCollectors 不再从 default.json 读取）
+const DEFAULT_COLLECTOR = { interval: 10000, maxAgeSeconds: 60, fetchLimit: 50 };
+const DEFAULT_MONITOR = {
+  interval: 10000,
+  klineLimit: 35,
+  observationWindowMinutes: 20,
+  decisionCheckInterval: 10000,
+  stagnationCheck: { enabled: true, minDurationMinutes: 5, minDataPoints: 15, priceChangeThreshold: 1.0 }
+};
+const DEFAULT_PUMPFUN_COLLECTORS = {
+  ave: { enabled: true },
+  ws: {
+    enabled: true,
+    programId: '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P',
+    commitment: 'processed',
+    enrichmentInterval: 3000,
+    enrichmentMaxRetries: 3,
+    enrichmentMaxAge: 60000,
+    reconnectBaseDelay: 2000,
+    reconnectMaxDelay: 60000
+  }
+};
 
 /**
  * 虚拟交易引擎
@@ -683,7 +706,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     // 3. 初始化代币池（传入价格历史缓存、持有者历史缓存和监控配置）
     const monitorConfig = {
-        ...config.monitor,
+        ...DEFAULT_MONITOR,
         ...(this._experiment?.config?.monitor || {})
     };
     this._tokenPool = new TokenPool(this.logger, this._priceHistoryCache, this._holderHistoryCache, monitorConfig);
@@ -708,12 +731,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ FourMeme API初始化完成');
 
     // 3. 初始化收集器（传递实验ID和区块链配置）
-    // 合并收集器配置：默认配置 + 实验级别覆盖
+    // 合并收集器配置：内置默认值 + 实验级别覆盖
     const experimentCollectorConfig = this._experiment?.config?.collector || {};
     const mergedCollectorConfig = {
       ...config,
       collector: {
-        ...config.collector,
+        ...DEFAULT_COLLECTOR,
         ...experimentCollectorConfig
       }
     };
@@ -722,10 +745,12 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     const experimentPumpfunCollectors = experimentCollectorConfig.pumpfunCollectors;
     if (experimentPumpfunCollectors) {
       mergedCollectorConfig.pumpfunCollectors = {
-        ...config.pumpfunCollectors,
-        ave: { ...config.pumpfunCollectors?.ave, ...experimentPumpfunCollectors.ave },
-        ws: { ...config.pumpfunCollectors?.ws, ...experimentPumpfunCollectors.ws }
+        ...DEFAULT_PUMPFUN_COLLECTORS,
+        ave: { ...DEFAULT_PUMPFUN_COLLECTORS.ave, ...experimentPumpfunCollectors.ave },
+        ws: { ...DEFAULT_PUMPFUN_COLLECTORS.ws, ...experimentPumpfunCollectors.ws }
       };
+    } else {
+      mergedCollectorConfig.pumpfunCollectors = DEFAULT_PUMPFUN_COLLECTORS;
     }
 
     // 全链模式强制收集间隔 ≥ 40 秒，避免 API 限频
@@ -870,7 +895,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * @private
    */
   _startMonitoringLoop() {
-    let interval = config.monitor.interval || 10000;
+    let interval = DEFAULT_MONITOR.interval;
     // 实验级覆盖
     const expMonitorConfig = this._experiment?.config?.monitor || {};
     if (expMonitorConfig.interval) interval = expMonitorConfig.interval;
@@ -2624,7 +2649,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
 
     // 启动收集器
     this._fourmemeCollector.start();
-    this.logger.info(this._experimentId, 'VirtualTradingEngine', `🔄 Fourmeme收集器已启动 (${config.collector.interval}ms间隔)`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `🔄 Fourmeme收集器已启动 (${this._fourmemeCollector.collectorConfig.interval}ms间隔)`);
     this.logger.info(this._experimentId, 'VirtualTradingEngine', 'Fourmeme收集器已启动');
 
     // 启动 PumpFun WebSocket 收集器

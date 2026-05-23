@@ -1817,7 +1817,6 @@ class ExperimentDetail {
         ` : ''}
 
         <!-- 收集器配置 -->
-        ${config.collector ? `
           <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
               <span class="mr-2">📡</span>收集器配置
@@ -1825,24 +1824,16 @@ class ExperimentDetail {
             <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
               <div class="flex justify-between">
                 <span class="text-gray-300">收集频率:</span>
-                <span class="font-medium text-white">${config.collector.interval ? (config.collector.interval / 1000) + ' 秒' : '默认'}</span>
+                <span class="font-medium text-white">${config.collector?.interval ? (config.collector.interval / 1000) + ' 秒' : '默认 (10秒)'}</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-300">代币最大年龄:</span>
-                <span class="font-medium text-white">${config.collector.maxAgeSeconds ? config.collector.maxAgeSeconds + ' 秒' : '默认'}</span>
+                <span class="font-medium text-white">${config.collector?.maxAgeSeconds ? config.collector.maxAgeSeconds + ' 秒' : '默认 (60秒)'}</span>
               </div>
-              ${config.collector.fetchLimit ? `
-                <div class="flex justify-between">
-                  <span class="text-gray-300">每次获取数量:</span>
-                  <span class="font-medium text-white">${config.collector.fetchLimit}</span>
-                </div>
-              ` : ''}
             </div>
           </div>
-        ` : ''}
 
         <!-- 监控配置 -->
-        ${config.monitor ? `
           <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
               <span class="mr-2">🔄</span>监控配置
@@ -1850,11 +1841,10 @@ class ExperimentDetail {
             <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
               <div class="flex justify-between">
                 <span class="text-gray-300">价格监控频率:</span>
-                <span class="font-medium text-white">${config.monitor.interval ? (config.monitor.interval / 1000) + ' 秒' : '默认 (10秒)'}</span>
+                <span class="font-medium text-white">${config.monitor?.interval ? (config.monitor.interval / 1000) + ' 秒' : '默认 (10秒)'}</span>
               </div>
             </div>
           </div>
-        ` : ''}
 
         <!-- 数据来源配置（Solana 链） -->
         ${this.experiment.blockchain === 'solana' ? `

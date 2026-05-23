@@ -200,7 +200,7 @@ class PlatformCollector {
             });
 
             const now = Date.now();
-            const maxAgeMs = 30 * 60 * 1000; // 30分钟
+            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
 
             this.logger.debug(`获取到 ${allTokens.length} 个代币（去重后 ${tokens.length}）`);
 
@@ -438,7 +438,7 @@ class PlatformCollector {
             });
 
             const now = Date.now();
-            const maxAgeMs = 30 * 60 * 1000; // 30分钟
+            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
 
             this.logger.debug(`获取到 ${allTokens.length} 个bankr代币（去重后 ${tokens.length}）`);
 
@@ -659,7 +659,7 @@ class PlatformCollector {
             });
 
             const now = Date.now();
-            const maxAgeMs = 30 * 60 * 1000; // 30分钟
+            const maxAgeMs = this.collectorConfig.maxAgeSeconds * 1000;
 
             this.logger.debug(`获取到 ${allTokens.length} 个bonk代币（去重后 ${tokens.length}）`);
 
