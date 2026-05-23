@@ -328,7 +328,7 @@ class RoundSummary {
                 const factorValues = [];
                 for (const [factorId, value] of Object.entries(indicators.factorValues)) {
                     // 跳过不需要显示的因子
-                    if (factorId === 'rsiIsDefault' || factorId === 'profitPercent') continue;
+                    if (factorId === 'profitPercent') continue;
 
                     // 格式化因子值
                     let displayValue = value;
@@ -348,11 +348,6 @@ class RoundSummary {
                         displayValue = '-';
                     }
 
-                    // RSI 特殊处理
-                    if (factorId === 'rsi' && indicators.factorValues.rsiIsDefault) {
-                        displayValue = `${value.toFixed(2)}(默认值,数据不足)`;
-                    }
-
                     factorValues.push(`${factorId}=${displayValue}`);
                 }
                 console.log(`      因子值: ${factorValues.join(', ')}`);
@@ -369,23 +364,9 @@ class RoundSummary {
             return;
         }
 
-        // RSI指标
-        if (indicators.rsi !== undefined) {
-            const rsi = indicators.rsi;
-            let trend = '->';
-            if (rsi < 30) trend = '(超卖)';
-            else if (rsi > 70) trend = '(超买)';
-
-            const extra = [];
-            if (indicators.period) extra.push(`周期:${indicators.period}`);
-
-            const extraStr = extra.length > 0 ? ` (${extra.join(', ')})` : '';
-            console.log(`      RSI: ${rsi.toFixed(1)} ${trend}${extraStr}`);
-        }
-
         // 其他指标
         for (const [key, value] of Object.entries(indicators)) {
-            if (!['type', 'factorValues', 'triggeredStrategy', 'factorCount', 'strategyCount', 'rsi', 'period'].includes(key)) {
+            if (!['type', 'factorValues', 'triggeredStrategy', 'factorCount', 'strategyCount'].includes(key)) {
                 if (typeof value === 'object' && value !== null) {
                     console.log(`      ${key}: ${JSON.stringify(value)}`);
                 } else {
@@ -501,7 +482,7 @@ class RoundSummary {
                         const factorValues = [];
                         for (const [factorId, value] of Object.entries(tokenData.indicators.factorValues)) {
                             // 跳过不需要显示的因子
-                            if (factorId === 'rsiIsDefault' || factorId === 'profitPercent') continue;
+                            if (factorId === 'profitPercent') continue;
 
                             // 格式化因子值
                             let displayValue = value;
@@ -519,11 +500,6 @@ class RoundSummary {
                                 displayValue = '-';
                             } else if (value === 0 && (factorId === 'buyPrice' || factorId === 'holdDuration')) {
                                 displayValue = '-';
-                            }
-
-                            // RSI 特殊处理
-                            if (factorId === 'rsi' && tokenData.indicators.factorValues.rsiIsDefault) {
-                                displayValue = `${value.toFixed(2)}(默认值,数据不足)`;
                             }
 
                             factorValues.push(`${factorId}=${displayValue}`);

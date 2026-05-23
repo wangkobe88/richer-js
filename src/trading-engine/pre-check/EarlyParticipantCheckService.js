@@ -14,7 +14,7 @@ const config = require('../../../config/default.json');
  * 默认配置
  */
 const DEFAULT_CONFIG = {
-  fixedWindowSeconds: 30,         // 固定回溯窗口（30秒）
+  fixedWindowSeconds: 90,         // 固定回溯窗口（90秒）
   lowValueThreshold: 10,          // 低价值阈值（USD）
   highValueThreshold: 80,         // 高价值阈值（USD）
   calculateGrowthScore: false,    // 是否计算增长评分

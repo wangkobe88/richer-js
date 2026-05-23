@@ -107,11 +107,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._fourmemeCollector = null;
     this._aveTokenApi = null;
     this._fourMemeApi = null;
-    this._rsiIndicator = null;
-    this._rsiFast = null;
-    this._rsiMedium = null;
-    this._rsiSlow = null;
-    this._rsiHistoryCache = {};
     this._monitoringTimer = null;
 
     // 交易金额配置
@@ -595,14 +590,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     const wsEnabled = this._pumpfunWsCollector.enabled;
     const aveEnabled = mergedCollectorConfig.pumpfunCollectors?.ave?.enabled !== false;
     this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ PumpFun 收集器配置 [AVE轮询=${aveEnabled}, WS实时=${wsEnabled}]`);
-
-    // 4. 初始化多周期 RSI 指标（pumpfun 优化版）
-    const { RSIIndicator } = require('../../indicators/RSIIndicator');
-    this._rsiFast = new RSIIndicator({ period: 3, smoothingPeriod: 1, smoothingType: 'EMA', useLogPrices: true });
-    this._rsiMedium = new RSIIndicator({ period: 7, smoothingPeriod: 2, smoothingType: 'EMA', useLogPrices: true });
-    this._rsiSlow = new RSIIndicator({ period: 14, smoothingPeriod: 3, smoothingType: 'EMA', useLogPrices: true });
-    this._rsiHistoryCache = {};
-    this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ 多周期RSI指标初始化完成 (fast=3, medium=7, slow=14, logPrices=true)');
 
     // 5. 初始化策略引擎
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
@@ -1351,50 +1338,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         // 趋势强度评分
         const _strength = this._holderTrendDetector._calculateTrendStrength(_holderCounts);
         factors.holderTrendStrengthScore = _strength.score;
-      }
-    }
-
-    // === RSI 动量指标因子 ===
-    // 复用已获取的 prices 数组（与趋势检测共享同一数据源）
-    if (prices.length >= 4 && this._rsiFast) {
-      // rsiFast: period=3, 需要 4 个数据点（8s@2s间隔）
-      factors.rsiFast = this._rsiFast.calculate(prices);
-    }
-
-    if (prices.length >= 8 && this._rsiMedium) {
-      // rsiMedium: period=7, 需要 8 个数据点（16s@2s间隔）
-      factors.rsiMedium = this._rsiMedium.calculate(prices);
-
-      // rsiCrossover: 快线是否在慢线上方
-      if (factors.rsiFast !== undefined) {
-        factors.rsiCrossover = (factors.rsiFast > factors.rsiMedium) ? 1 : 0;
-      }
-
-      // 维护 rsiMedium 历史用于 slope 计算
-      const _tokenKey = `${token.token}-${token.chain}`;
-      if (!this._rsiHistoryCache[_tokenKey]) this._rsiHistoryCache[_tokenKey] = [];
-      this._rsiHistoryCache[_tokenKey].push(factors.rsiMedium);
-      if (this._rsiHistoryCache[_tokenKey].length > 20) {
-        this._rsiHistoryCache[_tokenKey].shift();
-      }
-
-      // rsiSlope: 需要至少 2 个历史 RSI 值
-      const _rsiHistory = this._rsiHistoryCache[_tokenKey];
-      if (_rsiHistory.length >= 2) {
-        factors.rsiSlope = this._rsiMedium.calculateSlope(_rsiHistory, 2);
-      }
-    }
-
-    if (prices.length >= 15 && this._rsiSlow) {
-      // rsiSlow: period=14, 需要 15 个数据点（30s@2s间隔）
-      factors.rsiSlow = this._rsiSlow.calculate(prices);
-
-      // rsiDivergence: 需要 rsiMedium 序列
-      if (this._rsiMedium) {
-        const _rsiSeries = this._rsiMedium.calculateSeries(prices);
-        if (_rsiSeries.length >= 5) {
-          factors.rsiDivergence = this._rsiMedium.detectDivergence(prices, _rsiSeries, 5);
-        }
       }
     }
 

@@ -54,7 +54,7 @@
     "largeHoldingThreshold": 18,
     "clusterBlockThreshold": 7,
     "skipTwitterSearch": true,
-    "earlyTradesLookbackSeconds": 30
+    "earlyTradesLookbackSeconds": 90
   },
   "logging": {
     "level": "INFO",

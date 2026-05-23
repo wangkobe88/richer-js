@@ -76,13 +76,6 @@ function buildFactorValuesForTimeSeries(factorResults) {
     tweetAuthorType: factorResults.tweetAuthorType ?? 0,
     // 数据采集轮数因子
     dataCollectionRound: factorResults.dataCollectionRound ?? 1,
-    // RSI 动量因子（可从价格历史推导，此处存储用于审计/调试）
-    rsiFast: factorResults.rsiFast ?? null,
-    rsiMedium: factorResults.rsiMedium ?? null,
-    rsiSlow: factorResults.rsiSlow ?? null,
-    rsiSlope: factorResults.rsiSlope ?? null,
-    rsiCrossover: factorResults.rsiCrossover ?? null,
-    rsiDivergence: factorResults.rsiDivergence ?? null,
   };
 }
 
@@ -376,6 +369,7 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     trendRecentDownCount: fv.trendRecentDownCount ?? null,
     trendRecentDownRatio: fv.trendRecentDownRatio ?? null,
     trendConsecutiveDowns: fv.trendConsecutiveDowns ?? null,
+    trendDrawdownFromWindowHigh: fv.trendDrawdownFromWindowHigh ?? null,
     // 持有者趋势因子（从时序数据中读取；精简数据中无这些字段，由回测引擎重建）
     holderTrendCV: fv.holderTrendCV ?? null,
     holderTrendHolderCountUp: fv.holderTrendHolderCountUp ?? 0,
@@ -388,13 +382,6 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
     holderTrendRecentDecreaseCount: fv.holderTrendRecentDecreaseCount ?? null,
     holderTrendRecentDecreaseRatio: fv.holderTrendRecentDecreaseRatio ?? null,
     holderTrendConsecutiveDecreases: fv.holderTrendConsecutiveDecreases ?? null,
-    // RSI 动量因子（从时序数据读取；精简数据无此字段，由回测引擎从价格历史重建）
-    rsiFast: fv.rsiFast ?? null,
-    rsiMedium: fv.rsiMedium ?? null,
-    rsiSlow: fv.rsiSlow ?? null,
-    rsiSlope: fv.rsiSlope ?? null,
-    rsiCrossover: fv.rsiCrossover ?? null,
-    rsiDivergence: fv.rsiDivergence ?? null,
   };
 }
 
@@ -417,13 +404,11 @@ function getAvailableFactorIds() {
     // 价格趋势因子（固定窗口8个点）
     'trendCV', 'trendPriceUp', 'trendMedianUp', 'trendStrengthScore',
     'trendTotalReturn', 'trendRiseRatio', 'trendSlope', 'trendDataPoints',
-    'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns',
+    'trendRecentDownCount', 'trendRecentDownRatio', 'trendConsecutiveDowns', 'trendDrawdownFromWindowHigh',
     // 持有者趋势因子（固定窗口8个点）
     'holderTrendCV', 'holderTrendHolderCountUp', 'holderTrendMedianUp', 'holderTrendStrengthScore',
     'holderTrendGrowthRatio', 'holderTrendRiseRatio', 'holderTrendSlope', 'holderTrendDataPoints',
     'holderTrendRecentDecreaseCount', 'holderTrendRecentDecreaseRatio', 'holderTrendConsecutiveDecreases',
-    // RSI 动量因子
-    'rsiFast', 'rsiMedium', 'rsiSlow', 'rsiSlope', 'rsiCrossover', 'rsiDivergence',
   ]);
 }
 

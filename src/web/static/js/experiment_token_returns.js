@@ -1454,9 +1454,23 @@ class ExperimentTokenReturns {
   }
 
   /**
+   * 检查实验是否启用了叙事分析
+   */
+  isNarrativeAnalysisEnabled() {
+    const config = this.experimentData?.config || {};
+    const narrativeConfig = config.strategiesConfig?.narrativeAnalysis || config.narrativeAnalysis || {};
+    return narrativeConfig.enabled === true;
+  }
+
+  /**
    * 加载叙事分析数据
    */
   async loadNarrativeData() {
+    if (!this.isNarrativeAnalysisEnabled()) {
+      console.log('实验未启用叙事分析，跳过加载叙事数据');
+      return;
+    }
+
     try {
       // 获取所有代币地址
       const tokenAddresses = [...new Set(this.tradesData.map(t => t.token_address))];

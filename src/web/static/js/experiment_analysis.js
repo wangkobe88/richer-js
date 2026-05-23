@@ -1,15 +1,13 @@
 /**
- * 实验分析页面 - K线和RSI图表展示
- * 提供K线图和RSI指标的可视化分析
+ * 实验分析页面 - K线图表展示
+ * 提供K线图的可视化分析
  */
 
 class ExperimentAnalysis {
   constructor() {
     this.experimentId = this.extractExperimentId();
     this.candlestickChart = null;
-    this.rsiChart = null;
     this.klineData = [];
-    this.rsiData = [];
     this.experimentData = null;
     this.signals = [];
 
@@ -39,7 +37,7 @@ class ExperimentAnalysis {
       // 加载交易信号
       await this.loadSignals();
 
-      // K线数据和RSI指标已在loadKlineData中获取完成
+      // K线数据已在loadKlineData中获取完成
 
       // 初始化图表
       this.initCharts();
@@ -154,7 +152,7 @@ class ExperimentAnalysis {
   }
 
   /**
-   * 加载K线数据（包含RSI指标，由后端策略引擎计算）
+   * 加载K线数据
    * @param {string} tokenId - 可选，代币地址
    */
   async loadKlineData(tokenId = null) {
@@ -173,7 +171,6 @@ class ExperimentAnalysis {
         throw new Error(data.error || '获取K线数据失败');
       }
 
-      // 后端返回的数据已包含RSI指标
       this.klineData = data.data.map(item => ({
         time: new Date(item.time),
         timestamp: item.timestamp,
@@ -182,17 +179,10 @@ class ExperimentAnalysis {
         low: parseFloat(item.low),
         close: parseFloat(item.close),
         volume: parseFloat(item.volume || 0),
-        rsi: parseFloat(item.rsi || 50), // 后端计算的RSI值
         token_address: data.token?.address || item.token_address // 添加代币地址
       }));
 
-      // 同时构建RSI数据
-      this.rsiData = this.klineData.map(kline => ({
-        time: kline.time,
-        value: kline.rsi
-      }));
-
-      console.log('✅ K线数据和RSI指标加载完成:', this.klineData.length, '条记录');
+      console.log('✅ K线数据加载完成:', this.klineData.length, '条记录');
       console.log('📊 后端计算统计:', data.stats);
 
     } catch (error) {
@@ -207,7 +197,7 @@ class ExperimentAnalysis {
    */
   async loadKlineForToken(token) {
     try {
-      console.log(`🔄 加载代币 ${token.symbol} (${token.address}) 的K线数据和RSI指标...`);
+      console.log(`🔄 加载代币 ${token.symbol} (${token.address}) 的K线数据...`);
 
       // 显示加载状态
       const tokenInfo = document.getElementById('token-info');
@@ -224,7 +214,7 @@ class ExperimentAnalysis {
       // 重新初始化图表
       this.initCharts();
 
-      console.log(`✅ 代币 ${token.symbol} 的K线图和RSI指标加载完成`);
+      console.log(`✅ 代币 ${token.symbol} 的K线图加载完成`);
 
       // 更新状态
       if (tokenInfo) {
@@ -247,10 +237,6 @@ class ExperimentAnalysis {
    */
   initCharts() {
     this.initCandlestickChart();
-    this.initRSIChart();
-
-    // 同步两个图表的X轴
-    this.syncCharts();
   }
 
   /**
@@ -429,165 +415,6 @@ class ExperimentAnalysis {
     }
   }
 
-  /**
-   * 初始化RSI图
-   */
-  initRSIChart() {
-    const canvas = document.getElementById('rsi-chart');
-    const ctx = canvas.getContext('2d');
-
-    if (this.rsiChart) {
-      this.rsiChart.destroy();
-    }
-
-    const rsiLineData = this.rsiData.map(item => ({
-      x: item.time,
-      y: item.value
-    }));
-
-    this.rsiChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        datasets: [
-          {
-            label: 'RSI',
-            data: rsiLineData,
-            borderColor: '#8b5cf6',
-            backgroundColor: 'rgba(139, 92, 246, 0.1)',
-            borderWidth: 2,
-            fill: true,
-            tension: 0.1
-          },
-          // 超买线 (70)
-          {
-            label: '超买线 (70)',
-            data: rsiLineData.map(() => 70),
-            borderColor: '#ef4444',
-            borderWidth: 1,
-            borderDash: [5, 5],
-            fill: false,
-            pointRadius: 0
-          },
-          // 超卖线 (30)
-          {
-            label: '超卖线 (30)',
-            data: rsiLineData.map(() => 30),
-            borderColor: '#10b981',
-            borderWidth: 1,
-            borderDash: [5, 5],
-            fill: false,
-            pointRadius: 0
-          },
-          // 中线 (50)
-          {
-            label: '中线 (50)',
-            data: rsiLineData.map(() => 50),
-            borderColor: '#6b7280',
-            borderWidth: 1,
-            borderDash: [2, 2],
-            fill: false,
-            pointRadius: 0
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: true,
-            labels: {
-              color: '#d1d5db',
-              font: {
-                size: 12
-              }
-            }
-          },
-          tooltip: {
-            callbacks: {
-              title: (context) => {
-                const dataPoint = context[0].raw;
-                return `时间: ${dataPoint.x.toLocaleString('zh-CN')}`;
-              },
-              label: (context) => {
-                const dataPoint = context.raw;
-                return `RSI: ${dataPoint.y.toFixed(2)}`;
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              displayFormats: {
-                minute: 'MM-dd HH:mm',
-                hour: 'MM-dd HH:mm',
-                day: 'MM-dd'
-              }
-            },
-            ticks: {
-              color: '#9ca3af'
-            },
-            grid: {
-              color: '#374151'
-            }
-          },
-          y: {
-            min: 0,
-            max: 100,
-            ticks: {
-              color: '#9ca3af',
-              callback: (value) => value.toString()
-            },
-            grid: {
-              color: '#374151'
-            }
-          }
-        }
-      }
-    });
-  }
-
-  /**
-   * 同步两个图表的X轴
-   */
-  syncCharts() {
-    if (!this.candlestickChart || !this.rsiChart) return;
-
-    // 监听K线图的缩放和平移事件
-    this.candlestickChart.options.plugins.zoom = {
-      zoom: {
-        wheel: {
-          enabled: true,
-        },
-        pinch: {
-          enabled: true
-        },
-        mode: 'x',
-      },
-      pan: {
-        enabled: true,
-        mode: 'x',
-      }
-    };
-
-    // 当K线图缩放时，同步RSI图
-    this.candlestickChart.options.plugins.zoom = {
-      zoom: {
-        wheel: {
-          enabled: true,
-          callback: (chart) => {
-            if (this.rsiChart) {
-              this.rsiChart.scales.x.options.min = chart.scales.x.min;
-              this.rsiChart.scales.x.options.max = chart.scales.x.max;
-              this.rsiChart.update('none');
-            }
-          }
-        }
-      }
-    };
-  }
 
   /**
    * 隐藏加载指示器
@@ -629,9 +456,6 @@ class ExperimentAnalysis {
   destroy() {
     if (this.candlestickChart) {
       this.candlestickChart.destroy();
-    }
-    if (this.rsiChart) {
-      this.rsiChart.destroy();
     }
     console.log('🧹 实验分析页面资源已清理');
   }
@@ -747,14 +571,9 @@ class ExperimentAnalysis {
           this.candlestickChart.destroy();
           this.candlestickChart = null;
         }
-        if (this.rsiChart) {
-          this.rsiChart.destroy();
-          this.rsiChart = null;
-        }
 
         // 使用过滤后的数据重新初始化图表
         this.initCandlestickChart(filteredKlineData, filteredSignals);
-        this.initRSIChart(filteredKlineData);
       } else {
         console.warn('⚠️ 没有可用的K线数据');
         if (tokenInfo) {

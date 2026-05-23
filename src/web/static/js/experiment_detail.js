@@ -684,10 +684,7 @@ class ExperimentDetail {
         const completedTrades = this.tradesData.filter(trade => trade.trade_status === 'completed');
         const strategyType = config?.strategies?.[0]?.type || 'unknown';
 
-        if (strategyType === 'rsi' && completedTrades.length === 68) {
-          // RSI策略：68笔交易完成，实际数据
-          currentBalance = 142.47; // 使用实际最终余额
-        } else if (strategyType === 'bollinger' && completedTrades.length === 4) {
+        if (strategyType === 'bollinger' && completedTrades.length === 4) {
           // 布林带策略：4笔交易，最终余额约9.988
           currentBalance = 9.988;
         } else {
@@ -1009,15 +1006,11 @@ class ExperimentDetail {
   renderStrategyCard(strategy, index) {
     const strategyType = strategy.type || 'unknown';
     const strategyName = strategy.name || strategy.type || `策略${index + 1}`;
-    const isLayeredRSI = strategyType === 'rsi' && strategy.params &&
-                          (strategy.params.buyAtRSI || strategy.params.sellAtRSI);
-
     // 根据策略类型选择颜色主题
     const typeColors = {
       'fourmeme_earlyreturn': { bg: 'bg-emerald-50', border: 'border-emerald-200', title: 'text-emerald-700', accent: 'bg-emerald-600' },
       'early_return': { bg: 'bg-emerald-50', border: 'border-emerald-200', title: 'text-emerald-700', accent: 'bg-emerald-600' },
       'earlyreturn': { bg: 'bg-emerald-50', border: 'border-emerald-200', title: 'text-emerald-700', accent: 'bg-emerald-600' },
-      'rsi': { bg: 'bg-purple-50', border: 'border-purple-200', title: 'text-purple-700', accent: 'bg-purple-600' },
       'bollinger': { bg: 'bg-blue-50', border: 'border-blue-200', title: 'text-blue-700', accent: 'bg-blue-600' },
       'macd': { bg: 'bg-green-50', border: 'border-green-200', title: 'text-green-700', accent: 'bg-green-600' },
       'ema': { bg: 'bg-yellow-50', border: 'border-yellow-200', title: 'text-yellow-700', accent: 'bg-yellow-600' },
@@ -1041,98 +1034,14 @@ class ExperimentDetail {
             <span class="px-3 py-1 bg-white bg-opacity-20 text-white text-xs font-bold rounded-full uppercase">
               ${strategyType}
             </span>
-            ${isLayeredRSI ? '<span class="px-3 py-1 bg-yellow-400 text-yellow-900 text-xs font-bold rounded-full">分层模式</span>' : ''}
           </div>
         </div>
 
         <!-- 策略内容 -->
         <div class="p-4">
-          ${isLayeredRSI ? this.renderLayeredRSIStrategy(strategy) : this.renderRegularStrategy(strategy)}
+          ${this.renderRegularStrategy(strategy)}
         </div>
       </div>
-    `;
-  }
-
-  /**
-   * 渲染分层RSI策略
-   */
-  renderLayeredRSIStrategy(strategy) {
-    const params = strategy.params || {};
-
-    return `
-      <!-- 基本参数 -->
-      <div class="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-        ${params.period ? `
-          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
-            <div class="text-xs text-gray-500 mb-1">RSI周期</div>
-            <div class="font-bold text-purple-700">${params.period}</div>
-          </div>
-        ` : ''}
-        ${params.dataPoints ? `
-          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
-            <div class="text-xs text-gray-500 mb-1">数据点数</div>
-            <div class="font-bold text-purple-700">${params.dataPoints}</div>
-          </div>
-        ` : ''}
-        ${params.enableLong !== undefined ? `
-          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
-            <div class="text-xs text-gray-500 mb-1">做多</div>
-            <div class="font-bold ${params.enableLong ? 'text-green-600' : 'text-red-500'}">${params.enableLong ? '✓' : '✗'}</div>
-          </div>
-        ` : ''}
-        ${params.enableShort !== undefined ? `
-          <div class="bg-white rounded-lg px-3 py-2 border border-purple-200 text-center">
-            <div class="text-xs text-gray-500 mb-1">做空</div>
-            <div class="font-bold ${params.enableShort ? 'text-green-600' : 'text-red-500'}">${params.enableShort ? '✓' : '✗'}</div>
-          </div>
-        ` : ''}
-      </div>
-
-      <!-- 买入层级 -->
-      ${params.buyAtRSI && Array.isArray(params.buyAtRSI) && params.buyAtRSI.length > 0 ? `
-        <div class="mb-4">
-          <div class="flex items-center mb-3">
-            <span class="text-green-600 font-bold text-sm mr-2">📈 买入层级</span>
-            <span class="text-xs text-gray-500">(${params.buyAtRSI.length}个)</span>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            ${params.buyAtRSI.map((level, idx) => `
-              <div class="bg-gradient-to-br from-green-50 to-white rounded-lg p-3 border-2 border-green-300 shadow-sm">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="bg-green-600 text-white text-xs px-2 py-1 rounded-full font-bold">#${idx + 1}</span>
-                  <span class="text-xs text-gray-500">优先级 ${level.priority || (params.buyAtRSI.length - idx)}</span>
-                </div>
-                <div class="text-center">
-                  <div class="text-2xl font-bold text-green-700 mb-1">RSI &lt; ${level.rsi}</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
-
-      <!-- 卖出层级 -->
-      ${params.sellAtRSI && Array.isArray(params.sellAtRSI) && params.sellAtRSI.length > 0 ? `
-        <div>
-          <div class="flex items-center mb-3">
-            <span class="text-red-600 font-bold text-sm mr-2">📉 卖出层级</span>
-            <span class="text-xs text-gray-500">(${params.sellAtRSI.length}个)</span>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            ${params.sellAtRSI.map((level, idx) => `
-              <div class="bg-gradient-to-br from-red-50 to-white rounded-lg p-3 border-2 border-red-300 shadow-sm">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="bg-red-600 text-white text-xs px-2 py-1 rounded-full font-bold">#${idx + 1}</span>
-                  <span class="text-xs text-gray-500">优先级 ${level.priority || (params.sellAtRSI.length - idx)}</span>
-                </div>
-                <div class="text-center">
-                  <div class="text-2xl font-bold text-red-700 mb-1">RSI &gt; ${level.rsi}</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      ` : ''}
     `;
   }
 
@@ -1316,98 +1225,6 @@ class ExperimentDetail {
                         </div>
                         <div class="bg-gray-50 rounded-lg p-4 text-sm border border-gray-300">
                           ${token.strategies.map(strategy => {
-                            // 检查是否为分层RSI策略
-                            const isLayeredRSI = strategy.type === 'rsi' && strategy.params &&
-                                              (strategy.params.buyAtRSI || strategy.params.sellAtRSI);
-
-                            if (isLayeredRSI) {
-                              return `
-                                <div class="mb-3 last:mb-0">
-                                  <!-- 策略标题 -->
-                                  <div class="bg-white rounded-t-lg px-3 py-2 border border-gray-300 flex items-center justify-between mb-2">
-                                    <div class="flex items-center">
-                                      <span class="text-base">🎯</span>
-                                      <span class="ml-2 font-bold text-gray-900 text-sm">${strategy.name || strategy.type}</span>
-                                    </div>
-                                    <span class="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-bold border border-purple-300">分层RSI</span>
-                                  </div>
-
-                                  <!-- 基本参数网格 -->
-                                  <div class="bg-white px-3 py-2 border-x border-t border-gray-200 grid grid-cols-2 gap-2">
-                                    ${strategy.params.period ? `
-                                      <div class="flex items-center bg-gray-50 rounded px-2 py-1.5">
-                                        <span class="text-gray-500 mr-2">📊 周期</span>
-                                        <span class="font-bold text-gray-900">${strategy.params.period}</span>
-                                      </div>
-                                    ` : ''}
-                                    ${strategy.params.dataPoints ? `
-                                      <div class="flex items-center bg-gray-50 rounded px-2 py-1.5">
-                                        <span class="text-gray-500 mr-2">📈 数据点</span>
-                                        <span class="font-bold text-gray-900">${strategy.params.dataPoints}</span>
-                                      </div>
-                                    ` : ''}
-                                    ${strategy.params.enableLong !== undefined ? `
-                                      <div class="flex items-center bg-gray-50 rounded px-2 py-1.5">
-                                        <span class="text-gray-500 mr-2">✓ 做多</span>
-                                        <span class="font-bold ${strategy.params.enableLong ? 'text-green-600' : 'text-red-500'}">${strategy.params.enableLong ? '开启' : '关闭'}</span>
-                                      </div>
-                                    ` : ''}
-                                    ${strategy.params.enableShort !== undefined ? `
-                                      <div class="flex items-center bg-gray-50 rounded px-2 py-1.5">
-                                        <span class="text-gray-500 mr-2">✗ 做空</span>
-                                        <span class="font-bold ${strategy.params.enableShort ? 'text-green-600' : 'text-red-500'}">${strategy.params.enableShort ? '开启' : '关闭'}</span>
-                                      </div>
-                                    ` : ''}
-                                  </div>
-
-                                  <!-- 买入层级 -->
-                                  ${strategy.params.buyAtRSI && Array.isArray(strategy.params.buyAtRSI) && strategy.params.buyAtRSI.length > 0 ? `
-                                    <div class="mt-2 bg-white px-3 py-2 border-x border-gray-200">
-                                      <div class="bg-green-50 rounded-lg px-3 py-2 mb-2 flex items-center justify-between border border-green-200">
-                                        <div class="flex items-center">
-                                          <span class="text-green-600 font-bold text-sm">📈 买入</span>
-                                          <span class="ml-2 text-green-700 text-xs">${strategy.params.buyAtRSI.length} 个层级</span>
-                                        </div>
-                                      </div>
-                                      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                                        ${strategy.params.buyAtRSI.map((level, idx) => `
-                                          <div class="bg-gradient-to-br from-green-50 to-white rounded-lg p-2 border border-green-300 hover:shadow-md transition-shadow">
-                                            <div class="flex items-center justify-between mb-1">
-                                              <span class="bg-green-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">#${idx + 1}</span>
-                                              <span class="text-green-700 font-bold text-xs">优先级 ${level.priority || (strategy.params.buyAtRSI.length - idx)}</span>
-                                            </div>
-                                            <div class="text-green-800 font-bold text-base mb-1">RSI &lt; ${level.rsi}</div>
-                                          </div>
-                                        `).join('')}
-                                      </div>
-                                    </div>
-                                  ` : ''}
-
-                                  <!-- 卖出层级 -->
-                                  ${strategy.params.sellAtRSI && Array.isArray(strategy.params.sellAtRSI) && strategy.params.sellAtRSI.length > 0 ? `
-                                    <div class="mt-2 bg-white px-3 py-2 border-x border-b border-gray-200 rounded-b-lg">
-                                      <div class="bg-red-50 rounded-lg px-3 py-2 mb-2 flex items-center justify-between border border-red-200">
-                                        <div class="flex items-center">
-                                          <span class="text-red-600 font-bold text-sm">📉 卖出</span>
-                                          <span class="ml-2 text-red-700 text-xs">${strategy.params.sellAtRSI.length} 个层级</span>
-                                        </div>
-                                      </div>
-                                      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
-                                        ${strategy.params.sellAtRSI.map((level, idx) => `
-                                          <div class="bg-gradient-to-br from-red-50 to-white rounded-lg p-2 border border-red-300 hover:shadow-md transition-shadow">
-                                            <div class="flex items-center justify-between mb-1">
-                                              <span class="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-bold">#${idx + 1}</span>
-                                              <span class="text-red-700 font-bold text-xs">优先级 ${level.priority || (strategy.params.sellAtRSI.length - idx)}</span>
-                                            </div>
-                                            <div class="text-red-800 font-bold text-base mb-1">RSI &gt; ${level.rsi}</div>
-                                          </div>
-                                        `).join('')}
-                                      </div>
-                                    </div>
-                                  ` : ''}
-                                </div>
-                              `;
-                            } else {
                               // 传统策略展示 - 使用卡片网格布局
                               return `
                                 <div class="mb-2 last:mb-0">
@@ -1431,7 +1248,6 @@ class ExperimentDetail {
                                   </div>
                                 </div>
                               `;
-                            }
                           }).join('')}
                         </div>
                       </div>
@@ -1450,93 +1266,6 @@ class ExperimentDetail {
               <span class="mr-2">📊</span>全局策略配置
             </h4>
             ${config.strategies.map((strategy, index) => {
-              // 检查是否为分层RSI策略
-              const isLayeredRSI = strategy.type === 'rsi' && strategy.params &&
-                                (strategy.params.buyAtRSI || strategy.params.sellAtRSI);
-
-              if (isLayeredRSI) {
-                return `
-                  <div class="mb-3 p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg border-2 border-purple-300 shadow-sm">
-                    <div class="flex items-center justify-between mb-3">
-                      <div class="font-bold text-gray-900 text-base flex items-center">
-                        <span class="mr-2">🎯</span>${strategy.name || strategy.type || `策略${index + 1}`}
-                      </div>
-                      <span class="px-3 py-1 bg-purple-600 text-white text-sm font-bold rounded-full shadow">分层模式</span>
-                    </div>
-
-                    <!-- 基本参数 -->
-                    <div class="bg-white rounded-lg p-3 mb-3 border border-purple-200">
-                      <div class="text-sm font-semibold text-gray-700 mb-2">基本参数</div>
-                      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                        ${strategy.params.period ? `
-                          <div class="flex flex-col">
-                            <span class="text-gray-500 text-xs">RSI周期</span>
-                            <span class="font-bold text-gray-900">${strategy.params.period}</span>
-                          </div>
-                        ` : ''}
-                        ${strategy.params.dataPoints ? `
-                          <div class="flex flex-col">
-                            <span class="text-gray-500 text-xs">数据量</span>
-                            <span class="font-bold text-gray-900">${strategy.params.dataPoints}</span>
-                          </div>
-                        ` : ''}
-                        ${strategy.params.enableLong !== undefined ? `
-                          <div class="flex flex-col">
-                            <span class="text-gray-500 text-xs">做多</span>
-                            <span class="font-bold ${strategy.params.enableLong ? 'text-green-600' : 'text-red-600'}">${strategy.params.enableLong ? '✓ 启用' : '✗ 禁用'}</span>
-                          </div>
-                        ` : ''}
-                        ${strategy.params.enableShort !== undefined ? `
-                          <div class="flex flex-col">
-                            <span class="text-gray-500 text-xs">做空</span>
-                            <span class="font-bold ${strategy.params.enableShort ? 'text-green-600' : 'text-red-600'}">${strategy.params.enableShort ? '✓ 启用' : '✗ 禁用'}</span>
-                          </div>
-                        ` : ''}
-                      </div>
-                    </div>
-
-                    <!-- 买入层级 -->
-                    ${strategy.params.buyAtRSI && Array.isArray(strategy.params.buyAtRSI) && strategy.params.buyAtRSI.length > 0 ? `
-                      <div class="mb-3">
-                        <div class="flex items-center mb-2">
-                          <span class="text-green-600 font-bold text-sm">📈</span>
-                          <span class="ml-2 text-green-700 font-semibold">买入层级 (${strategy.params.buyAtRSI.length}个)</span>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                          ${strategy.params.buyAtRSI.map((level, idx) => `
-                            <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 border-2 border-green-300 shadow-sm hover:shadow-md transition-shadow">
-                              <div class="flex items-center justify-between mb-1">
-                                <span class="text-green-700 font-bold text-xs">层级 ${idx + 1}</span>
-                              </div>
-                              <div class="text-green-800 font-bold text-lg mb-1">RSI < ${level.rsi}</div>
-                            </div>
-                          `).join('')}
-                        </div>
-                      </div>
-                    ` : ''}
-
-                    <!-- 卖出层级 -->
-                    ${strategy.params.sellAtRSI && Array.isArray(strategy.params.sellAtRSI) && strategy.params.sellAtRSI.length > 0 ? `
-                      <div>
-                        <div class="flex items-center mb-2">
-                          <span class="text-red-600 font-bold text-sm">📉</span>
-                          <span class="ml-2 text-red-700 font-semibold">卖出层级 (${strategy.params.sellAtRSI.length}个)</span>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                          ${strategy.params.sellAtRSI.map((level, idx) => `
-                            <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-3 border-2 border-red-300 shadow-sm hover:shadow-md transition-shadow">
-                              <div class="flex items-center justify-between mb-1">
-                                <span class="text-red-700 font-bold text-xs">层级 ${idx + 1}</span>
-                              </div>
-                              <div class="text-red-800 font-bold text-lg mb-1">RSI > ${level.rsi}</div>
-                            </div>
-                          `).join('')}
-                        </div>
-                      </div>
-                    ` : ''}
-                  </div>
-                `;
-              } else {
                 // 传统策略展示
                 return `
                   <div class="mb-3 p-3 bg-white rounded border border-gray-200">
@@ -1561,7 +1290,6 @@ class ExperimentDetail {
                     </div>
                   </div>
                 `;
-              }
             }).join('')}
           </div>
         ` : ''}
@@ -2284,7 +2012,6 @@ class ExperimentDetail {
   getStrategyDisplayName(strategyType) {
     const names = {
       'fourmeme_earlyreturn': 'Fourmeme Early Return 策略',
-      'rsi': 'RSI 策略',
       'bollinger': '布林带策略',
       'macd': 'MACD 策略',
       'ema': 'EMA 均线策略',
@@ -2327,9 +2054,7 @@ class ExperimentDetail {
       'smoothingType': '平滑类型',
       'smoothingPeriod': '平滑周期',
       'signalConfirmation': '信号确认',
-      'minRSIDistance': '最小RSI距离',
       'cooldownPeriod': '冷却期',
-      // RSI特定参数
       'parameters': '参数',
       // 通用参数
       'enabled': '启用状态',

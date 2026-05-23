@@ -1,14 +1,12 @@
 /**
- * 代币分析页面 - 独立的K线和RSI指标分析
+ * 代币分析页面 - 独立的K线分析
  * 不依赖实验，用户自定义参数
  */
 
 class TokenAnalysis {
   constructor() {
     this.klineData = [];
-    this.rsiData = [];
     this.candlestickChart = null;
-    this.rsiChart = null;
     this.currentParams = null;
 
     this.init();
@@ -92,11 +90,6 @@ class TokenAnalysis {
 
     // 设置默认K线类型
     document.getElementById('kline-type').value = '15m';
-
-    // 设置默认RSI参数
-    document.getElementById('rsi-period').value = 14;
-    document.getElementById('rsi-overbought').value = 70;
-    document.getElementById('rsi-oversold').value = 30;
   }
 
   /**
@@ -121,9 +114,6 @@ class TokenAnalysis {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
     const klineType = document.getElementById('kline-type').value;
-    const rsiPeriod = parseInt(document.getElementById('rsi-period').value);
-    const rsiOverbought = parseInt(document.getElementById('rsi-overbought').value);
-    const rsiOversold = parseInt(document.getElementById('rsi-oversold').value);
 
     // 验证Token ID
     if (!tokenId) {
@@ -144,14 +134,6 @@ class TokenAnalysis {
       return { valid: false, error: '开始日期必须早于结束日期' };
     }
 
-    if (rsiPeriod < 1 || rsiPeriod > 100) {
-      return { valid: false, error: 'RSI周期必须在1-100之间' };
-    }
-
-    if (rsiOverbought <= rsiOversold) {
-      return { valid: false, error: 'RSI超买阈值必须大于超卖阈值' };
-    }
-
     return {
       valid: true,
       tokenId, // 原始Token ID（包含blockchain）
@@ -159,10 +141,7 @@ class TokenAnalysis {
       blockchain: parsed.blockchain,
       startTime: new Date(startDate + 'T00:00:00Z'),
       endTime: new Date(endDate + 'T23:59:59Z'),
-      klineType,
-      rsiPeriod,
-      rsiOverbought,
-      rsiOversold
+      klineType
     };
   }
 
@@ -266,7 +245,7 @@ class TokenAnalysis {
       this.showLoading(true);
       this.showCharts(false);
 
-      // 3. 获取K线数据（包含后端计算的RSI）
+      // 3. 获取K线数据
       await this.fetchKlineData(params);
 
       // 4. 初始化图表
@@ -298,9 +277,6 @@ class TokenAnalysis {
     url.searchParams.append('startTime', params.startTime.toISOString());
     url.searchParams.append('endTime', params.endTime.toISOString());
     url.searchParams.append('klineType', params.klineType);
-    url.searchParams.append('rsiPeriod', params.rsiPeriod);
-    url.searchParams.append('rsiOverbought', params.rsiOverbought);
-    url.searchParams.append('rsiOversold', params.rsiOversold);
 
     console.log('📡 请求URL:', url.toString());
 
@@ -311,7 +287,6 @@ class TokenAnalysis {
       throw new Error(data.error || '获取数据失败');
     }
 
-    // 后端已计算好RSI，直接使用
     this.klineData = data.data.map(item => ({
       time: new Date(item.time),
       timestamp: item.timestamp,
@@ -319,16 +294,10 @@ class TokenAnalysis {
       high: item.high,
       low: item.low,
       close: item.close,
-      volume: item.volume,
-      rsi: item.rsi
+      volume: item.volume
     }));
 
-    this.rsiData = this.klineData.map(kline => ({
-      time: kline.time,
-      value: kline.rsi
-    }));
-
-    console.log('✅ K线数据和RSI指标加载完成:', this.klineData.length, '条记录');
+    console.log('✅ K线数据加载完成:', this.klineData.length, '条记录');
   }
 
   /**
@@ -340,13 +309,8 @@ class TokenAnalysis {
       this.candlestickChart.destroy();
       this.candlestickChart = null;
     }
-    if (this.rsiChart) {
-      this.rsiChart.destroy();
-      this.rsiChart = null;
-    }
 
     this.initCandlestickChart();
-    this.initRSIChart();
   }
 
   /**
@@ -372,10 +336,6 @@ class TokenAnalysis {
     }));
 
     console.log('📊 K线数据样本:', candlestickData.slice(0, 3));
-
-    // 获取RSI参数用于设置阈值线
-    const rsiOverbought = this.currentParams?.rsiOverbought || 70;
-    const rsiOversold = this.currentParams?.rsiOversold || 30;
 
     const config = {
       type: 'candlestick',
@@ -465,129 +425,6 @@ class TokenAnalysis {
   }
 
   /**
-   * 初始化RSI图
-   */
-  initRSIChart() {
-    console.log('🚀 开始初始化RSI图...');
-
-    const canvas = document.getElementById('rsi-chart');
-    if (!canvas) {
-      throw new Error('找不到RSI图画布元素');
-    }
-
-    const ctx = canvas.getContext('2d');
-
-    const rsiOverbought = this.currentParams?.rsiOverbought || 70;
-    const rsiOversold = this.currentParams?.rsiOversold || 30;
-
-    const config = {
-      type: 'line',
-      data: {
-        datasets: [{
-          label: 'RSI',
-          data: this.rsiData.map(item => ({
-            x: new Date(item.time).getTime(),
-            y: item.value
-          })),
-          borderColor: '#8b5cf6',
-          backgroundColor: 'rgba(139, 92, 246, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              unit: this.getTimeUnit(),
-              displayFormats: {
-                minute: 'MM-dd HH:mm',
-                hour: 'MM-dd HH:mm',
-                day: 'MM-dd'
-              }
-            },
-            grid: {
-              color: 'rgba(156, 163, 175, 0.2)'
-            },
-            ticks: {
-              color: '#9ca3af'
-            }
-          },
-          y: {
-            min: 0,
-            max: 100,
-            position: 'right',
-            grid: {
-              color: 'rgba(156, 163, 175, 0.2)'
-            },
-            ticks: {
-              color: '#9ca3af'
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            display: true,
-            labels: {
-              color: '#f3f4f6'
-            }
-          },
-          tooltip: {
-            mode: 'index',
-            intersect: false,
-            callbacks: {
-              label: function(context) {
-                return `RSI: ${context.parsed.y.toFixed(2)}`;
-              }
-            }
-          },
-          annotation: {
-            annotations: {
-              overboughtLine: {
-                type: 'line',
-                yMin: rsiOverbought,
-                yMax: rsiOverbought,
-                borderColor: 'rgb(239, 68, 68)',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                label: {
-                  display: true,
-                  content: `超买 (${rsiOverbought})`,
-                  position: 'end',
-                  backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                  color: '#fff'
-                }
-              },
-              oversoldLine: {
-                type: 'line',
-                yMin: rsiOversold,
-                yMax: rsiOversold,
-                borderColor: 'rgb(16, 185, 129)',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                label: {
-                  display: true,
-                  content: `超卖 (${rsiOversold})`,
-                  position: 'end',
-                  backgroundColor: 'rgba(16, 185, 129, 0.8)',
-                  color: '#fff'
-                }
-              }
-            }
-          }
-        }
-      }
-    };
-
-    this.rsiChart = new Chart(ctx, config);
-    console.log('✅ RSI图初始化完成');
-  }
-
-  /**
    * 获取时间单位
    */
   getTimeUnit() {
@@ -628,18 +465,6 @@ class TokenAnalysis {
     const klineType = this.currentParams?.klineType || '15m';
     document.getElementById('stat-interval').textContent = klineType;
 
-    document.getElementById('stat-rsi-period').textContent = this.currentParams?.rsiPeriod || 14;
-
-    // 计算RSI统计
-    const rsiOverbought = this.currentParams?.rsiOverbought || 70;
-    const rsiOversold = this.currentParams?.rsiOversold || 30;
-
-    const overboughtCount = this.klineData.filter(k => k.rsi > rsiOverbought).length;
-    const oversoldCount = this.klineData.filter(k => k.rsi < rsiOversold).length;
-
-    document.getElementById('stat-rsi-overbought-count').textContent = overboughtCount;
-    document.getElementById('stat-rsi-oversold-count').textContent = oversoldCount;
-
     const start = new Date(this.klineData[0].time);
     const end = new Date(this.klineData[this.klineData.length - 1].time);
     document.getElementById('stat-time-range').textContent =
@@ -665,14 +490,9 @@ class TokenAnalysis {
       this.candlestickChart.destroy();
       this.candlestickChart = null;
     }
-    if (this.rsiChart) {
-      this.rsiChart.destroy();
-      this.rsiChart = null;
-    }
 
     // 清空数据
     this.klineData = [];
-    this.rsiData = [];
     this.currentParams = null;
 
     console.log('🔄 已重置');
@@ -694,8 +514,7 @@ class TokenAnalysis {
       最高: item.high.toFixed(4),
       最低: item.low.toFixed(4),
       收盘: item.close.toFixed(4),
-      交易量: item.volume.toFixed(2),
-      RSI: item.rsi.toFixed(2)
+      交易量: item.volume.toFixed(2)
     }));
 
     // 转换为CSV

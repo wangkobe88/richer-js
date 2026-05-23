@@ -246,6 +246,16 @@ class StrategyAnalysisService {
       }
 
       point.factor_values = fv;
+
+      // 补算 trendDrawdownFromWindowHigh（可能在旧数据中缺失）
+      if (fv.trendDrawdownFromWindowHigh === undefined || fv.trendDrawdownFromWindowHigh === null) {
+        const _dpPrices = priceHistory.slice(-8);
+        if (_dpPrices.length >= 2) {
+          const _windowMaxPrice = Math.max(..._dpPrices);
+          fv.trendDrawdownFromWindowHigh = _windowMaxPrice > 0
+            ? ((_dpPrices[_dpPrices.length - 1] - _windowMaxPrice) / _windowMaxPrice) * 100 : 0;
+        }
+      }
     }
   }
 

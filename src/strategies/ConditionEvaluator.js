@@ -6,7 +6,7 @@
  *
  * 支持的条件语法:
  * - 比较运算: age < 1, profitPercent >= 30, currentPrice > 0
- * - 空值检查: rsiSlow IS NULL, rsiSlow IS NOT NULL
+ * - 空值检查: holders IS NULL, holders IS NOT NULL
  * - 逻辑运算: condition1 AND condition2, condition1 OR condition2
  * - 括号分组: (condition1 AND condition2) OR condition3
  */
