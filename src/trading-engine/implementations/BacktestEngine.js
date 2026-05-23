@@ -742,12 +742,29 @@ class BacktestEngine extends AbstractTradingEngine {
       innerPair = tokenState.main_pair;
     } else if (tokenState.pair) {
       innerPair = tokenState.pair;
+    } else if (platform === 'pumpfun') {
+      innerPair = this._derivePumpfunPairAddress(tokenState.token);
     } else {
       // 默认使用 fourmeme 格式
       innerPair = `${tokenState.token}_fo`;
     }
 
     return { innerPair, tokenCreatedAt: tokenState.tokenCreatedAt };
+  }
+
+  _derivePumpfunPairAddress(tokenAddress) {
+    try {
+      const { PublicKey } = require('@solana/web3.js');
+      const PUMP_FUN_PROGRAM = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
+      const mint = new PublicKey(tokenAddress);
+      const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('bonding-curve'), mint.toBuffer()],
+        PUMP_FUN_PROGRAM
+      );
+      return pda.toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   /**
@@ -899,7 +916,7 @@ class BacktestEngine extends AbstractTradingEngine {
           const rawApiData = row.raw_api_data || {};
           this._tokenPlatformInfo.set(row.token_address, {
             platform: row.platform || null,
-            mainPair: rawApiData.main_pair || null,
+            mainPair: rawApiData.main_pair || rawApiData.pairAddress || null,
           });
         }
 
