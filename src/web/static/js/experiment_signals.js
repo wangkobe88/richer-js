@@ -1972,12 +1972,6 @@ class ExperimentSignals {
         ? '<span class="ml-1 text-xs px-2 py-1 bg-red-200 text-red-900 rounded-full font-bold">🚫 永久阻断</span>'
         : '';
 
-      // 跳过条件匹配标识（代币已有交易记录）
-      let skippedMatchBadge = '';
-      if (pf.skippedConditionMatch === true) {
-        skippedMatchBadge = '<span class="ml-2 text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full" title="代币已有交易记录，跳过条件匹配（因子已收集）">⚡️ 快速通道</span>';
-      }
-
       // 显示实验配置的策略条件
       let strategyConfigHtml = '';
       if (buyCondition || preBuyCheckCondition || pf.permanentBlockCondition) {
@@ -2244,7 +2238,6 @@ class ExperimentSignals {
             <div class="flex items-center gap-1">
               ${checkResultBadge}
               ${permanentBlockBadge}
-              ${skippedMatchBadge}
             </div>
           </div>
           ${strategyConfigHtml}

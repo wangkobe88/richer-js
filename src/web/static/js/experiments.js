@@ -794,12 +794,6 @@ class ExperimentMonitor {
         }
 
 
-        // 跳过第一层策略检测配置
-        if (sc.skipStrategyDetection !== undefined) {
-          copyData.skipStrategyDetection = sc.skipStrategyDetection;
-          copyData.skipStrategyDetectionMaxRounds = sc.skipStrategyDetectionMaxRounds ?? 1;
-        }
-
         // 事件记录配置
         if (sc.eventRecording !== undefined) {
           copyData.eventRecording = sc.eventRecording;

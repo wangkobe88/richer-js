@@ -689,13 +689,6 @@ class RicherJsWebServer {
             config.strategiesConfig.contractRiskCheck = strategy.contractRiskCheck;
           }
 
-          // 跳过第一层策略检测配置
-          if (strategy.skipStrategyDetection !== undefined) {
-            config.strategiesConfig = config.strategiesConfig || {};
-            config.strategiesConfig.skipStrategyDetection = strategy.skipStrategyDetection;
-            config.strategiesConfig.skipStrategyDetectionMaxRounds = strategy.skipStrategyDetectionMaxRounds ?? 1;
-          }
-
           // 事件记录配置
           if (strategy.eventRecording !== undefined) {
             config.strategiesConfig = config.strategiesConfig || {};
@@ -1728,6 +1721,134 @@ class RicherJsWebServer {
         });
       } catch (error) {
         this.logger.error('WebServer', '获取黑名单统计失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 获取早期交易者黑白名单统计（基于信号 metadata.preBuyCheckFactors）
+    this.app.get('/api/experiment/:id/early-trader-blacklist-stats', async (req, res) => {
+      try {
+        let experimentId = req.params.id;
+
+        // 如果是回测实验，使用源实验ID
+        const { data: expConfig } = await this.dataService.supabase
+          .from('experiments')
+          .select('config, blockchain')
+          .eq('id', experimentId)
+          .single();
+
+        const experimentChain = expConfig?.blockchain || 'bsc';
+
+        if (expConfig?.config?.backtest?.sourceExperimentId) {
+          const sourceExperimentId = expConfig.config.backtest.sourceExperimentId;
+          this.logger.info('WebServer', `📊 [早期交易者黑名单统计] 回测实验，使用源实验ID: ${sourceExperimentId}`);
+          experimentId = sourceExperimentId;
+        }
+
+        // 从 strategy_signals 表获取该实验的所有买入信号
+        const pageSize = 1000;
+        let offset = 0;
+        let hasMore = true;
+        const tokenStats = new Map();
+
+        while (hasMore) {
+          const { data: signals } = await this.dataService.supabase
+            .from('strategy_signals')
+            .select('token_address, metadata, action')
+            .eq('experiment_id', experimentId)
+            .eq('action', 'buy')
+            .range(offset, offset + pageSize - 1);
+
+          if (signals && signals.length > 0) {
+            for (const signal of signals) {
+              const tokenAddr = signal.token_address;
+              if (!tokenAddr) continue;
+
+              const preBuyCheckFactors = signal.metadata?.preBuyCheckFactors;
+              if (!preBuyCheckFactors) continue;
+
+              const blacklistCount = preBuyCheckFactors.earlyTraderBlacklistCount || 0;
+              const whitelistCount = preBuyCheckFactors.earlyTraderWhitelistCount || 0;
+
+              if (!tokenStats.has(tokenAddr)) {
+                tokenStats.set(tokenAddr, {
+                  hasBlacklist: blacklistCount > 0,
+                  blacklistedTraders: blacklistCount,
+                  hasWhitelist: whitelistCount > 0,
+                  whitelistedTraders: whitelistCount,
+                  uniqueParticipants: preBuyCheckFactors.earlyTraderUniqueParticipants || 0
+                });
+              } else {
+                // 如果有多个买入信号，取最大值（最严格）
+                const existing = tokenStats.get(tokenAddr);
+                if (blacklistCount > existing.blacklistedTraders) {
+                  existing.blacklistedTraders = blacklistCount;
+                  existing.hasBlacklist = blacklistCount > 0;
+                }
+                if (whitelistCount > existing.whitelistedTraders) {
+                  existing.whitelistedTraders = whitelistCount;
+                  existing.hasWhitelist = whitelistCount > 0;
+                }
+              }
+            }
+            offset += pageSize;
+            hasMore = signals.length === pageSize;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        // 获取黑名单/白名单钱包总数（用于统计展示，按链过滤）
+        let blacklistWalletCount = 0;
+        let whitelistWalletCount = 0;
+
+        let blacklistCountQuery = this.dataService.supabase
+          .from('wallets')
+          .select('*', { count: 'exact', head: true })
+          .in('category', ['dev', 'pump_group', 'negative_holder']);
+
+        if (experimentChain !== 'all') {
+          blacklistCountQuery = blacklistCountQuery.eq('chain', experimentChain);
+        }
+        const { count: bCount } = await blacklistCountQuery;
+
+        let whitelistCountQuery = this.dataService.supabase
+          .from('wallets')
+          .select('*', { count: 'exact', head: true })
+          .eq('category', 'good_holder');
+
+        if (experimentChain !== 'all') {
+          whitelistCountQuery = whitelistCountQuery.eq('chain', experimentChain);
+        }
+        const { count: wCount } = await whitelistCountQuery;
+
+        blacklistWalletCount = bCount || 0;
+        whitelistWalletCount = wCount || 0;
+
+        const tokensWithBlacklist = Array.from(tokenStats.entries())
+          .filter(([_, stats]) => stats.hasBlacklist)
+          .map(([tokenAddr, stats]) => ({ token: tokenAddr, ...stats }));
+
+        const tokensWithWhitelist = Array.from(tokenStats.entries())
+          .filter(([_, stats]) => stats.hasWhitelist)
+          .map(([tokenAddr, stats]) => ({ token: tokenAddr, ...stats }));
+
+        const totalTokens = tokenStats.size;
+
+        res.json({
+          success: true,
+          data: {
+            totalTokens,
+            blacklistedTokens: tokensWithBlacklist.length,
+            blacklistedTokenList: tokensWithBlacklist,
+            blacklistWalletCount,
+            whitelistedTokens: tokensWithWhitelist.length,
+            whitelistedTokenList: tokensWithWhitelist,
+            whitelistWalletCount
+          }
+        });
+      } catch (error) {
+        this.logger.error('WebServer', '获取早期交易者黑名单统计失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });

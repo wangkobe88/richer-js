@@ -1482,21 +1482,6 @@ class ExperimentDetail {
 
         ` : ''}
 
-        <!-- 跳过策略检测 -->
-        ${config.strategiesConfig?.skipStrategyDetection ? `
-          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
-              <span class="mr-2">⏭️</span>跳过策略检测
-            </h4>
-            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
-              <div class="flex justify-between">
-                <span class="text-gray-300">跳过前几轮:</span>
-                <span class="font-medium text-white">${config.strategiesConfig.skipStrategyDetectionMaxRounds || 1} 轮</span>
-              </div>
-            </div>
-          </div>
-        ` : ''}
-
         <!-- 永久阻断条件 -->
         ${config.strategiesConfig?.permanentBlockCondition ? `
           <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">

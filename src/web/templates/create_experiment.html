@@ -395,9 +395,8 @@
                                    name="wallet_address"
                                    id="wallet_address"
                                    placeholder="0x..."
-                                   pattern="^0x[a-fA-F0-9]{40}$"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <span class="text-xs text-gray-500">输入您的钱包地址（0x开头的40位十六进制）</span>
+                            <span id="wallet_address_hint" class="text-xs text-gray-500">输入您的钱包地址（0x开头的40位十六进制）</span>
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -408,11 +407,11 @@
                                    id="private_key"
                                    placeholder="输入私钥（将使用 AES-256 加密存储）"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <span class="text-xs text-gray-500">私钥将在提交前加密，请确保您的环境设置了 ENCRYPTION_KEY</span>
+                            <span id="private_key_hint" class="text-xs text-gray-500">私钥将在提交后加密存储，请确保您的环境设置了 ENCRYPTION_KEY</span>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                保留金额 (BNB) <span class="text-gray-500">- 用于 GAS 费用</span>
+                            <label class="block text-sm font-medium text-gray-700 mb-1" id="reserve_amount_label">
+                                保留金额 (<span class="reserve-currency">BNB</span>) <span class="text-gray-500">- 用于 GAS 费用</span>
                             </label>
                             <input type="number"
                                    name="reserve_amount"
@@ -421,7 +420,7 @@
                                    min="0.01"
                                    value="0.1"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <span class="text-xs text-gray-500">保留用于支付 GAS 费用的 BNB 数量（最小 0.01 BNB）</span>
+                            <span id="reserve_amount_hint" class="text-xs text-gray-500">保留用于支付 GAS 费用（最小 0.01）</span>
                         </div>
                     </div>
                     <div class="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2">
@@ -430,7 +429,7 @@
                             <div class="text-sm text-blue-800">
                                 <p class="font-semibold mb-1">资金说明</p>
                                 <ul class="list-disc list-inside space-y-1">
-                                    <li>可动用资金 = 钱包 BNB 余额 - 保留金额</li>
+                                    <li id="fund-desc-1">可动用资金 = 钱包余额 - 保留金额</li>
                                     <li>保留金额将始终保留，不用于购买代币</li>
                                     <li>引擎启动时会自动查询钱包余额</li>
                                 </ul>
@@ -556,51 +555,7 @@
                 </div>
 
 
-                <!-- 跳过第一层策略检测配置 -->
-                <div class="border border-gray-200 rounded-lg p-3">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-lg font-semibold text-gray-800">⚡ 跳过第一层策略检测</h2>
-                        <label class="flex items-center gap-2">
-                            <input type="checkbox" id="skip-strategy-detection" class="w-4 h-4">
-                            <span class="text-sm font-medium text-gray-700">启用</span>
-                        </label>
-                    </div>
 
-                    <div id="skip-strategy-config" class="space-y-2">
-                        <div class="flex items-center gap-4">
-                            <label class="block text-sm font-medium text-gray-700 whitespace-nowrap">
-                                跳过轮数
-                            </label>
-                            <input
-                                type="number"
-                                id="skip-strategy-max-rounds"
-                                min="1"
-                                max="20"
-                                value="1"
-                                class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                            <span class="text-xs text-gray-500">
-                                代币被检测到后，前 N 轮跳过策略条件评估，直接进入购买前检查（默认 1 轮）
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mt-2">
-                        <div class="flex items-start">
-                            <span class="text-lg mr-2">💡</span>
-                            <div class="text-sm text-yellow-800">
-                                <p class="font-semibold mb-1">说明</p>
-                                <ul class="list-disc list-inside space-y-1">
-                                    <li><strong>正常流程：</strong>收集 → 策略评估（第一层）→ 购买前检查（第二层）→ 执行买入</li>
-                                    <li><strong>跳过第一层：</strong>收集 → <s>策略评估</s> → 直接进入购买前检查 → 执行买入</li>
-                                    <li>跳过的是买入策略的条件表达式判断，购买前检查（早期参与者检查等）仍然正常执行</li>
-                                    <li>已买入代币的卖出策略不受影响，仍正常评估</li>
-                                    <li>适用于纯靠预检查筛选代币的场景，不需要等待趋势因子数据积累</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- 统计与通知配置 -->
                 <div class="border border-gray-200 rounded-lg p-3">
@@ -1046,13 +1001,13 @@
                 setFieldValue('trading_mode', copyData.trading_mode);
                 setFieldValue('blockchain', copyData.blockchain);
 
-                // 设置平台选择
+                // 保存平台值，等脚本末尾 handleBlockchainChange 重建平台列表后再恢复
                 if (copyData.platform) {
-                    const platformSelect = document.getElementById('platform_select');
-                    if (platformSelect) {
-                        platformSelect.value = copyData.platform;
-                    }
+                    window._pendingCopyPlatform = copyData.platform;
                 }
+
+                // 注意：handleBlockchainChange 由脚本末尾的初始化调用统一处理，
+                // 因为此时 BLOCKCHAIN_PLATFORMS 等常量可能尚未声明。
 
                 // 🔥 重要：设置 trading_mode 后需要手动调用 handleTradingModeChange
                 // 来移除 backtest_source_experiment 的 required 属性
@@ -1144,16 +1099,6 @@
                     naPollIntervalMs.value = copyData.narrativeAnalysis.pollIntervalMs;
                 }
 
-
-                // 填充跳过第一层策略检测配置
-                const skipStrategyDetection = document.getElementById('skip-strategy-detection');
-                const skipStrategyMaxRounds = document.getElementById('skip-strategy-max-rounds');
-                if (skipStrategyDetection && copyData.skipStrategyDetection !== undefined) {
-                    skipStrategyDetection.checked = !!copyData.skipStrategyDetection;
-                }
-                if (skipStrategyMaxRounds && copyData.skipStrategyDetectionMaxRounds !== undefined) {
-                    skipStrategyMaxRounds.value = copyData.skipStrategyDetectionMaxRounds;
-                }
 
                 // 填充统计配置
                 const statsEnabled = document.getElementById('stats-enabled');
@@ -1359,6 +1304,33 @@
             ethereum: { interval: 20, maxAge: 300 }
         };
 
+        // 根据区块链类型更新钱包输入区域
+        function updateWalletInputHints(blockchain) {
+            const walletAddressInput = document.getElementById('wallet_address');
+            const walletAddressHint = document.getElementById('wallet_address_hint');
+            const privateKeyHint = document.getElementById('private_key_hint');
+            const reserveAmountHint = document.getElementById('reserve_amount_hint');
+            const currency = BLOCKCHAIN_NATIVE_CURRENCY[blockchain] || 'BNB';
+
+            if (blockchain === 'solana') {
+                if (walletAddressInput) {
+                    walletAddressInput.placeholder = '例: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
+                    walletAddressInput.removeAttribute('pattern');
+                }
+                if (walletAddressHint) walletAddressHint.textContent = '输入 Solana 钱包地址（Base58 编码，32-44 位字符）';
+                if (privateKeyHint) privateKeyHint.textContent = 'Solana 私钥（Base58 编码，通常为 88 位字符），将在提交后 AES-256 加密存储';
+                if (reserveAmountHint) reserveAmountHint.textContent = `保留用于支付 GAS 费用的 ${currency} 数量（最小 0.01 ${currency}）`;
+            } else {
+                if (walletAddressInput) {
+                    walletAddressInput.placeholder = '0x...';
+                    walletAddressInput.pattern = '^0x[a-fA-F0-9]{40}$';
+                }
+                if (walletAddressHint) walletAddressHint.textContent = '输入您的钱包地址（0x开头的40位十六进制）';
+                if (privateKeyHint) privateKeyHint.textContent = 'EVM 私钥（0x开头的64位十六进制），将在提交后 AES-256 加密存储';
+                if (reserveAmountHint) reserveAmountHint.textContent = `保留用于支付 GAS 费用的 ${currency} 数量（最小 0.01 ${currency}）`;
+            }
+        }
+
         // 区块链变化处理
         function handleBlockchainChange() {
             const blockchainSelect = document.getElementById('blockchain_select');
@@ -1393,11 +1365,15 @@
                 }
             }
 
-            const reserveLabel = document.querySelector('label[for="reserve_amount"]');
-            if (reserveLabel) {
+            // 更新保留金额标签中的货币名称
+            const reserveAmountLabel = document.getElementById('reserve_amount_label');
+            if (reserveAmountLabel) {
                 const currency = BLOCKCHAIN_NATIVE_CURRENCY[selectedBlockchain] || 'BNB';
-                reserveLabel.innerHTML = `保留金额 (${currency}) <span class="text-red-500">*</span>`;
+                reserveAmountLabel.innerHTML = `保留金额 (${currency}) <span class="text-gray-500">- 用于 GAS 费用</span>`;
             }
+
+            // 根据区块链类型更新钱包输入区域的提示
+            updateWalletInputHints(selectedBlockchain);
 
             // 更新logo显示
             updateLogoDisplay();
@@ -1790,9 +1766,6 @@
                         maxWaitSeconds: parseInt(document.getElementById('na-max-wait-seconds')?.value) || 10,
                         pollIntervalMs: parseInt(document.getElementById('na-poll-interval-ms')?.value) || 2000
                     },
-                    // 跳过第一层策略检测配置
-                    skipStrategyDetection: document.getElementById('skip-strategy-detection')?.checked || false,
-                    skipStrategyDetectionMaxRounds: parseInt(document.getElementById('skip-strategy-max-rounds')?.value) || 1,
                     // 统计配置
                     stats: {
                         enabled: document.getElementById('stats-enabled')?.checked !== false,
@@ -1875,6 +1848,8 @@
                 const walletAddress = document.getElementById('wallet_address').value;
                 const privateKey = document.getElementById('private_key').value;
                 const reserveAmount = parseFloat(document.getElementById('reserve_amount').value);
+                const blockchain = document.getElementById('blockchain_select').value;
+                const currency = BLOCKCHAIN_NATIVE_CURRENCY[blockchain] || 'BNB';
 
                 if (!walletAddress) {
                     alert('请输入钱包地址');
@@ -1884,19 +1859,32 @@
                     alert('请输入私钥');
                     return;
                 }
-                // 验证钱包地址格式
-                if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
-                    alert('钱包地址格式不正确，应为0x开头的40位十六进制字符');
-                    return;
+
+                if (blockchain === 'solana') {
+                    // Solana: Base58 编码的地址和私钥
+                    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress)) {
+                        alert('Solana 钱包地址格式不正确，应为 Base58 编码（32-44位字符）');
+                        return;
+                    }
+                    if (!/^[1-9A-HJ-NP-Za-km-z]{43,}$/.test(privateKey)) {
+                        alert('Solana 私钥格式不正确，应为 Base58 编码的字符串');
+                        return;
+                    }
+                } else {
+                    // EVM 链: 0x 开头的十六进制
+                    if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+                        alert('钱包地址格式不正确，应为0x开头的40位十六进制字符');
+                        return;
+                    }
+                    if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
+                        alert('私钥格式不正确，应为0x开头的64位十六进制字符');
+                        return;
+                    }
                 }
-                // 验证私钥格式
-                if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
-                    alert('私钥格式不正确，应为0x开头的64位十六进制字符');
-                    return;
-                }
+
                 // 验证保留金额
                 if (isNaN(reserveAmount) || reserveAmount < 0.01) {
-                    alert('保留金额必须至少为 0.01 BNB');
+                    alert(`保留金额必须至少为 0.01 ${currency}`);
                     return;
                 }
             }
@@ -1975,6 +1963,16 @@
 
         // 初始化区块链和平台
         handleBlockchainChange();
+
+        // 复制模式下，handleBlockchainChange 会重建平台列表，需要在此之后恢复平台选择
+        if (isCopyMode && window._pendingCopyPlatform) {
+            const platformSelect = document.getElementById('platform_select');
+            if (platformSelect) {
+                platformSelect.value = window._pendingCopyPlatform;
+            }
+            updateLogoDisplay();
+            window._pendingCopyPlatform = null;
+        }
     </script>
 </body>
 </html>

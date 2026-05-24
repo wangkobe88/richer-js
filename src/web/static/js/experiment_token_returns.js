@@ -127,11 +127,11 @@ class ExperimentTokenReturns {
     this.showLoading(true);
 
     try {
-      // 并行加载实验数据、交易数据和黑名单统计
+      // 并行加载实验数据、交易数据和早期交易者黑名单统计
       const [experimentRes, tradesRes, blacklistRes, tokensRes] = await Promise.all([
         fetch(`/api/experiment/${this.experimentId}`),
         fetch(`/api/experiment/${this.experimentId}/trades?limit=10000`),
-        fetch(`/api/experiment/${this.experimentId}/holder-blacklist-stats`),
+        fetch(`/api/experiment/${this.experimentId}/early-trader-blacklist-stats`),
         fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`)
       ]);
 
@@ -638,13 +638,13 @@ class ExperimentTokenReturns {
     const blacklistInfo = this.blacklistTokenMap?.get(item.tokenAddress);
     const hasBlacklist = blacklistInfo && blacklistInfo.hasBlacklist;
     const blacklistBadge = hasBlacklist
-      ? '<span class="token-badge bg-red-900 text-red-400 border border-red-700" title="命中持有者黑名单">⚠️</span>'
+      ? '<span class="token-badge bg-red-900 text-red-400 border border-red-700" title="命中早期交易者黑名单">⚠️</span>'
       : '';
 
     const whitelistInfo = this.whitelistTokenMap?.get(item.tokenAddress);
     const hasWhitelist = whitelistInfo && whitelistInfo.hasWhitelist;
     const whitelistBadge = hasWhitelist
-      ? '<span class="token-badge bg-green-900 text-green-400 border border-green-700" title="命中持有者白名单">✨</span>'
+      ? '<span class="token-badge bg-green-900 text-green-400 border border-green-700" title="命中早期交易者白名单">✨</span>'
       : '';
 
     // 展开/收起按钮（多次交易默认展开）
@@ -684,8 +684,8 @@ class ExperimentTokenReturns {
           <div class="text-xs text-gray-500 font-mono flex items-center justify-between">
             <span class="text-xs">${item.tokenAddress.slice(0, 6)}...${item.tokenAddress.slice(-4)}</span>
             <div class="flex items-center gap-1">
-              ${hasBlacklist ? '<span class="text-red-400 text-xs" title="' + (blacklistInfo.blacklistedHolders || 0) + '个黑名单持有者">' + (blacklistInfo.blacklistedHolders || 0) + '⚠️</span>' : ''}
-              ${hasWhitelist ? '<span class="text-green-400 text-xs" title="' + (whitelistInfo.whitelistedHolders || 0) + '个白名单持有者">' + (whitelistInfo.whitelistedHolders || 0) + '✨</span>' : ''}
+              ${hasBlacklist ? '<span class="text-red-400 text-xs" title="' + (blacklistInfo.blacklistedTraders || 0) + '个黑名单早期交易者">' + (blacklistInfo.blacklistedTraders || 0) + '⚠️</span>' : ''}
+              ${hasWhitelist ? '<span class="text-green-400 text-xs" title="' + (whitelistInfo.whitelistedTraders || 0) + '个白名单早期交易者">' + (whitelistInfo.whitelistedTraders || 0) + '✨</span>' : ''}
             </div>
           </div>
         </td>
@@ -958,7 +958,7 @@ class ExperimentTokenReturns {
   }
 
   /**
-   * 更新干净代币统计（无黑名单持有者）
+   * 更新干净代币统计（无早期交易者黑名单命中）
    */
   updateCleanTokensStats() {
     // 筛选未命中黑名单的代币

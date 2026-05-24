@@ -1523,11 +1523,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
 
       const currentPrice = token.currentPrice || 0;
-      const skipConfig = this._experiment?.config?.strategiesConfig;
-      const skipStrategyDetection = skipConfig?.skipStrategyDetection === true;
-      const skipMaxRounds = skipConfig?.skipStrategyDetectionMaxRounds ?? 1;
 
-      if (currentPrice === 0 && !(skipStrategyDetection && (token._dataCollectionRound || 0) < skipMaxRounds)) {
+      if (currentPrice === 0) {
         // 使用 RoundSummary 记录价格获取失败（与虚拟盘一致）
         if (this._roundSummary) {
           this._roundSummary.recordTokenIndicators(
@@ -1617,22 +1614,13 @@ class LiveTradingEngine extends AbstractTradingEngine {
         }
       }
 
-      // 评估策略（支持跳过第一层检测）
-      let strategy;
-
-      if (skipStrategyDetection && token.status !== 'bought'
-          && (token._dataCollectionRound || 0) <= skipMaxRounds) {
-        // 跳过第一层策略条件评估，直接使用第一个买入策略的配置进入预检查
-        strategy = this._strategyEngine.getAllStrategies()
-          .find(s => s.enabled && s.action === 'buy');
-      } else {
-        strategy = this._strategyEngine.evaluate(
-          factorResults,
-          token.token,
-          Date.now(),
-          token
-        );
-      }
+      // 评估策略
+      const strategy = this._strategyEngine.evaluate(
+        factorResults,
+        token.token,
+        Date.now(),
+        token
+      );
 
       if (strategy) {
         if (strategy.action === 'buy') {
