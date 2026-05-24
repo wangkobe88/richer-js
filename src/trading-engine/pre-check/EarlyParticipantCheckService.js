@@ -263,15 +263,12 @@ class EarlyParticipantCheckService {
     if (!this.supabase) return null;
 
     try {
-      let query = this.supabase
+      const query = this.supabase
         .from('early_participant_trades')
         .select('trades_data, check_time')
         .eq('token_address', tokenAddress)
         .gte('check_time', checkTime - 1)
         .lte('check_time', checkTime + 1);
-      if (sourceExperimentId) {
-        query = query.eq('experiment_id', sourceExperimentId);
-      }
       const { data, error } = await query
         .order('check_time', { ascending: true })
         .limit(1);
