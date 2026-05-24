@@ -247,7 +247,14 @@ class LiveTradingEngine extends AbstractTradingEngine {
    * @returns {Promise<void>}
    */
   async _runMainLoop() {
-    const interval = 10000; // 10秒间隔
+    let interval = DEFAULT_MONITOR.interval;
+    const expMonitorConfig = this._experiment?.config?.monitor || {};
+    if (expMonitorConfig.interval) interval = expMonitorConfig.interval;
+
+    // 启动 PumpFun WebSocket 收集器（与虚拟盘一致）
+    if (this._pumpfunWsCollector) {
+      this._pumpfunWsCollector.start();
+    }
 
     this._monitoringTimer = setInterval(async () => {
       await this._monitoringCycle();
@@ -1133,6 +1140,18 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this.logger.info('LiveTradingEngine', 'Initialize', `Platform 收集器初始化完成 [实验ID: ${this._experimentId}, 区块链: ${this._blockchain}, 收集频率: ${mergedCollectorConfig.collector.interval}ms, 代币最大年龄: ${mergedCollectorConfig.collector.maxAgeSeconds}s]`);
     console.log(`✅ Platform 收集器初始化完成 [区块链: ${this._blockchain}, 收集频率: ${mergedCollectorConfig.collector.interval}ms]`);
 
+    // 初始化 PumpFun WebSocket 收集器（仅 solana/all 模式，与虚拟盘一致）
+    const PumpFunWsCollector = require('../../collectors/pumpfun-ws-collector');
+    this._pumpfunWsCollector = new PumpFunWsCollector(
+      mergedCollectorConfig,
+      this.logger,
+      this._tokenPool
+    );
+    const wsEnabled = this._pumpfunWsCollector.enabled;
+    const aveEnabled = mergedCollectorConfig.pumpfunCollectors?.ave?.enabled !== false;
+    this.logger.info('LiveTradingEngine', 'Initialize', `✅ PumpFun 收集器配置 [AVE轮询=${aveEnabled}, WS实时=${wsEnabled}]`);
+    console.log(`✅ PumpFun 收集器配置 [AVE轮询=${aveEnabled}, WS实时=${wsEnabled}]`);
+
     // 初始化 RoundSummary（与虚拟盘一致）
     this._roundSummary = new RoundSummary(this._experimentId, this.logger, this._blockchain);
     this.logger.info('LiveTradingEngine', 'Initialize', 'RoundSummary 初始化完成');
@@ -1211,6 +1230,14 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
     // 读取交易金额配置
     this._tradeAmount = experimentConfig.tradeAmount || 0.1;
+
+    // 永久阻断条件（与虚拟盘一致）
+    this._permanentBlockCondition = experimentConfig.strategiesConfig?.permanentBlockCondition || null;
+    this._tokenBlacklist = new Map();
+    if (this._permanentBlockCondition) {
+      this.logger.info('LiveTradingEngine', 'Initialize', `✅ 永久阻断条件已配置: ${this._permanentBlockCondition}`);
+      console.log(`✅ 永久阻断条件已配置: ${this._permanentBlockCondition}`);
+    }
   }
 
   /**
@@ -1550,6 +1577,27 @@ class LiveTradingEngine extends AbstractTradingEngine {
       // 构建因子
       // 累加数据采集轮数（每次进入因子计算循环时 +1）
       token._dataCollectionRound = (token._dataCollectionRound || 0) + 1;
+
+      // Solana 代币快速淘汰：连续 N 轮价格无变化则标记为不活跃（与虚拟盘一致）
+      const eliminationRounds = this._experiment?.config?.solana?.eliminationRounds || 6;
+      if (token.chain === 'solana' && token.status === 'monitoring') {
+        const hasValidPrice = currentPrice && currentPrice > 0;
+        if (hasValidPrice) {
+          if (currentPrice === token._lastSeenPrice) {
+            token._priceUnchangedRounds = (token._priceUnchangedRounds || 0) + 1;
+          } else {
+            token._priceUnchangedRounds = 0;
+          }
+          token._lastSeenPrice = currentPrice;
+        }
+
+        if ((token._priceUnchangedRounds || 0) >= eliminationRounds && token._lastSeenPrice != null) {
+          this.logger.info(this._experimentId, 'ProcessToken',
+            `Solana 代币连续 ${token._priceUnchangedRounds} 轮价格无变化，快速淘汰 | ${token.symbol} (${token.token})`);
+          this._tokenPool.markTokenStatus(token.token, token.chain, 'inactive');
+          return;
+        }
+      }
 
       const factorResults = this._buildFactors(token);
 
@@ -2165,6 +2213,15 @@ class LiveTradingEngine extends AbstractTradingEngine {
         shouldPerformPreCheck = !!(strategy.repeatBuyCheckCondition && String(strategy.repeatBuyCheckCondition).trim() !== '');
       }
 
+      // 代币永久阻断检查：如果代币已被标记为永久不可交易，直接跳过
+      if (preCheckPassed && this._tokenBlacklist.has(token.token)) {
+        const blInfo = this._tokenBlacklist.get(token.token);
+        this.logger.info(this._experimentId, '_executeStrategy',
+          `代币已被永久阻断 | symbol=${token.symbol}, reason=${blInfo.reason}`);
+        preCheckPassed = false;
+        blockReason = blInfo.reason;
+      }
+
       if (shouldPerformPreCheck && this._preBuyCheckService) {
         try {
           this.logger.info(this._experimentId, '_executeStrategy',
@@ -2223,6 +2280,23 @@ class LiveTradingEngine extends AbstractTradingEngine {
             this.logger.info(this._experimentId, '_executeStrategy',
               `购买前检查通过 | symbol=${token.symbol}, preTraderCanBuy=${preBuyCheckResult.preTraderCanBuy}, ` +
               `reason=${preBuyCheckResult.checkReason}`);
+          }
+
+          // 评估永久阻断条件（独立于 preBuyCheckCondition 的通过/失败）
+          if (this._permanentBlockCondition && preBuyCheckResult) {
+            const blockResult = this._evaluatePermanentBlock(preBuyCheckResult, this._permanentBlockCondition);
+            if (blockResult.blocked) {
+              this._tokenBlacklist.set(token.token, {
+                reason: blockResult.reason,
+                timestamp: Date.now()
+              });
+              if (preCheckPassed) {
+                preCheckPassed = false;
+                blockReason = blockResult.reason;
+              }
+              this.logger.warn(this._experimentId, '_executeStrategy',
+                `永久阻断触发 | symbol=${token.symbol}, condition=${this._permanentBlockCondition}, reason=${blockResult.reason}`);
+            }
           }
         } catch (checkError) {
           const errorMsg = checkError?.message || String(checkError);
@@ -2345,6 +2419,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
           buyTime: Date.now()
         });
 
+        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+
         // 更新代币状态到数据库（与虚拟盘一致）
         await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
 
@@ -2379,6 +2455,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
       const result = await this.processSignal(signal);
 
       if (result && result.success) {
+        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
         return successResult();
       }
 
@@ -2686,6 +2763,12 @@ class LiveTradingEngine extends AbstractTradingEngine {
       console.log(`⏹️ Fourmeme 收集器已停止`);
     }
 
+    // 停止 PumpFun WebSocket 收集器（与虚拟盘一致）
+    if (this._pumpfunWsCollector) {
+      this._pumpfunWsCollector.stop();
+      console.log(`⏹️ PumpFun WS 收集器已停止`);
+    }
+
     // 停止监控循环
     if (this._monitoringTimer) {
       clearInterval(this._monitoringTimer);
@@ -2801,6 +2884,39 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
   // 注意：不再允许使用硬编码策略
   // 策略必须在实验配置中通过 config.strategiesConfig 明确定义
+
+  /**
+   * 评估永久阻断条件（与虚拟盘一致）
+   * 如果条件为 true，代币将被永久标记为不可交易
+   */
+  _evaluatePermanentBlock(preBuyCheckResult, condition) {
+    if (!condition || String(condition).trim() === '') {
+      return { blocked: false, reason: '' };
+    }
+    try {
+      const context = {};
+      for (const [key, value] of Object.entries(preBuyCheckResult)) {
+        if (typeof value !== 'object' && typeof value !== 'function') {
+          context[key] = value;
+        }
+      }
+      const jsExpr = String(condition)
+        .replace(/\bAND\b/gi, '&&')
+        .replace(/\bOR\b/gi, '||')
+        .replace(/\bNOT\b/gi, '!');
+      const keys = Object.keys(context);
+      const values = Object.values(context);
+      const fn = new Function(...keys, `return ${jsExpr};`);
+      const blocked = fn(...values);
+      return blocked
+        ? { blocked: true, reason: `永久阻断: ${condition}` }
+        : { blocked: false, reason: '' };
+    } catch (error) {
+      this.logger.error(this._experimentId, '_evaluatePermanentBlock',
+        `条件评估失败: ${error.message}`);
+      return { blocked: false, reason: '' };
+    }
+  }
 }
 
 module.exports = { LiveTradingEngine };
