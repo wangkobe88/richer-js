@@ -707,6 +707,7 @@ class PreBuyCheckService {
           earlyTradesCountPerMin: context.earlyTradesCountPerMin,
           walletTop3TradeRatio: context.walletTop3TradeRatio,
           narrativeRating: context.narrativeRating,
+        }
       });
 
       const result = {
