@@ -13,6 +13,7 @@ const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService
 const { WalletClusterService } = require('./WalletClusterService');
 const { WalletLabelService } = require('./WalletLabelService');
 const { WalletDataService } = require('../../web/services/WalletDataService');
+const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
 
 const StrongTraderPositionService = require('./StrongTraderPositionService');
 
@@ -368,6 +369,9 @@ class PreBuyCheckService {
 
     // 初始化钱包标签因子服务
     this.walletLabelService = new WalletLabelService(supabase, logger);
+
+    // 初始化条件评估器
+    this._conditionEvaluator = new ConditionEvaluator();
   }
 
   /**
@@ -915,6 +919,19 @@ class PreBuyCheckService {
 
   /**
    * 诊断条件，返回详细的条件检查结果
+   * @private
+   */
+  _safeEvaluate(condition, context) {
+    try {
+      return this._conditionEvaluator.evaluate(condition, context);
+    } catch (error) {
+      this.logger.error('[PreBuyCheckService] 条件评估异常', { condition, error: error.message });
+      return false;
+    }
+  }
+
+  /**
+   * 诊断条件失败原因
    * @private
    */
   _diagnoseCondition(condition, context) {
