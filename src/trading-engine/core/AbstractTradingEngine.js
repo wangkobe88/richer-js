@@ -687,6 +687,11 @@ class AbstractTradingEngine extends ITradingEngine {
    */
   async _sendSignalNotificationWithFilter(signalId, metadata) {
     try {
+      // 回测模式不需要实时通知和事件记录
+      if (this._mode === TradingMode.BACKTEST) {
+        return;
+      }
+
       // 事件记录总开关
       if (!this._eventRecordingConfig.enabled) {
         return;

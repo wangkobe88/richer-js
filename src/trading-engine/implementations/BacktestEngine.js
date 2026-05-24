@@ -74,6 +74,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
     // Backtest 特有组件
     this._tradeAmount = 0.1;
+    this._writeBuffer = null; // 在 _initializeBacktestComponents 中初始化
 
     // 叙事分析配置
     this._narrativeAnalysisEnabled = false;
@@ -162,6 +163,11 @@ class BacktestEngine extends AbstractTradingEngine {
           await this._processTimePoint(dataPoint);
         }
 
+        // 每轮结束时批量 flush 缓冲区
+        if (this._writeBufferEnabled && this._writeBuffer && this._writeBuffer.pendingCount > 0) {
+          await this._writeBuffer.flush(this._experimentId);
+        }
+
         await this._createPortfolioSnapshot();
 
         if (this._roundSummary) {
@@ -174,6 +180,11 @@ class BacktestEngine extends AbstractTradingEngine {
 
       // 回测结束前强制卖出所有剩余持仓
       await this._forceSellAllRemaining();
+
+      // 最终 flush（确保最后一批数据写入）
+      if (this._writeBufferEnabled && this._writeBuffer && this._writeBuffer.pendingCount > 0) {
+        await this._writeBuffer.flush(this._experimentId);
+      }
 
       const duration = Date.now() - startTime;
       this.logger.info(this._experimentId, 'BacktestEngine',
@@ -405,7 +416,13 @@ class BacktestEngine extends AbstractTradingEngine {
         createdAt: signal.timestamp || new Date()
       });
 
-      signalId = await tradeSignal.save();
+      // 使用预生成的 ID
+      signalId = tradeSignal.id;
+      if (this._writeBufferEnabled && this._writeBuffer) {
+        this._writeBuffer.addSignalInsert(tradeSignal.toDatabaseFormat());
+      } else {
+        await tradeSignal.save();
+      }
       this.logger.info('processSignal', `信号已保存 | symbol=${signal.symbol}, signalId=${signalId}`);
     } else {
       this.logger.info('processSignal', `使用已存在的信号 | symbol=${signal.symbol}, signalId=${signalId}`);
@@ -429,8 +446,32 @@ class BacktestEngine extends AbstractTradingEngine {
         result = { success: false, message: `未知动作: ${signal.action}` };
       }
 
-      // 更新信号状态
-      await this._updateSignalStatus(signalId, result.success ? 'executed' : 'failed', result);
+      // 更新信号状态（直接 UPDATE，跳过 SELECT）
+      const execStatus = result.success ? 'executed' : 'failed';
+      await this._directUpdateSignal(signalId, {
+        executed: result.success,
+        metadata: {
+          execution_reason: result.message || result.reason || '',
+          execution_error: result.error || '',
+          executed_at: new Date().toISOString(),
+          execution_status: execStatus,
+          ...(result.trade && typeof result.trade === 'object' ? {
+            tradeResult: {
+              success: result.success ?? false,
+              tradeId: result.trade.id || null,
+              trade: {
+                id: result.trade.id || null,
+                tokenSymbol: result.trade.tokenSymbol || 'UNKNOWN',
+                tradeDirection: result.trade.tradeDirection || 'unknown',
+                inputAmount: result.trade.inputAmount || '0',
+                outputAmount: result.trade.outputAmount || '0',
+                unitPrice: result.trade.unitPrice || '0',
+                success: result.trade.success ?? false
+              }
+            }
+          } : {})
+        }
+      });
 
     } catch (error) {
       this.logger.error('processSignal', '信号执行失败', {
@@ -447,7 +488,15 @@ class BacktestEngine extends AbstractTradingEngine {
       };
 
       try {
-        await this._updateSignalStatus(signalId, 'failed', result);
+        await this._directUpdateSignal(signalId, {
+          executed: false,
+          metadata: {
+            execution_reason: error.message || '未知错误',
+            execution_error: error.message || '',
+            executed_at: new Date().toISOString(),
+            execution_status: 'failed'
+          }
+        });
       } catch (statusError) {
         this.logger.error('processSignal', '更新信号状态失败', {
           signalId,
@@ -460,6 +509,34 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   // ==================== Backtest 特有方法 ====================
+
+  /**
+   * 直接更新信号（跳过 SELECT，回测单线程无需读取当前值）
+   * @param {string} signalId - 信号ID
+   * @param {Object} updateData - 完整的更新数据（包含 metadata、executed 等字段）
+   * @returns {Promise<void>}
+   */
+  async _directUpdateSignal(signalId, updateData) {
+    if (this._writeBufferEnabled && this._writeBuffer) {
+      // 缓冲更新，在每轮结束时批量执行
+      this._writeBuffer.addSignalUpdate(signalId, updateData);
+      return;
+    }
+
+    // 降级：即时写入
+    const { dbManager } = require('../../services/dbManager');
+    const supabase = dbManager.getClient();
+
+    const { error } = await supabase
+      .from('strategy_signals')
+      .update(updateData)
+      .eq('id', signalId);
+
+    if (error) {
+      this.logger.error(this._experimentId, '_directUpdateSignal',
+        `更新信号失败: ${error.message}, signalId=${signalId}`);
+    }
+  }
 
   /**
    * 初始化 Backtest 特有组件
@@ -594,6 +671,12 @@ class BacktestEngine extends AbstractTradingEngine {
     if (this._permanentBlockCondition) {
       this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 永久阻断条件已配置: ${this._permanentBlockCondition}`);
     }
+
+    // 7. 初始化批量写入缓冲区
+    const { BacktestWriteBuffer } = require('../backtest/BacktestWriteBuffer');
+    this._writeBuffer = new BacktestWriteBuffer(supabase, this.logger);
+    this._writeBufferEnabled = experimentConfig.backtest?.writeBufferEnabled !== false;
+    this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 批量写入缓冲区初始化完成 (enabled=${this._writeBufferEnabled})`);
 
   }
 
@@ -1482,7 +1565,7 @@ class BacktestEngine extends AbstractTradingEngine {
         return false;
       }
 
-      // ========== 先创建并保存信号到数据库 ==========
+      // ========== 先创建信号 ==========
       // 信号应该先被保存，然后再进行预检查
       // 这样即使预检查失败，信号记录也会被保存
 
@@ -1509,7 +1592,7 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, '_executeStrategy',
         `创建信号 | symbol=${tokenState.symbol}, action=${signal.action}`);
 
-      // 先保存信号到数据库
+      // 创建信号实体（ID 在构造函数中预生成）
       let signalId = null;
       try {
         const { TradeSignal } = require('../entities');
@@ -1531,11 +1614,17 @@ class BacktestEngine extends AbstractTradingEngine {
           createdAt: signal.timestamp || new Date()
         });
 
-        signalId = await tradeSignal.save();
-        // 将 signalId 添加到 signal 对象中，供后续使用
+        // 使用预生成的 ID（UUID），不再即时 INSERT
+        signalId = tradeSignal.id;
         signal.signalId = signalId;
+
+        if (this._writeBufferEnabled && this._writeBuffer) {
+          this._writeBuffer.addSignalInsert(tradeSignal.toDatabaseFormat());
+        } else {
+          await tradeSignal.save();
+        }
         this.logger.info(this._experimentId, '_executeStrategy',
-          `信号已保存 | symbol=${tokenState.symbol}, signalId=${signalId}`);
+          `信号已缓冲 | symbol=${tokenState.symbol}, signalId=${signalId}`);
       } catch (saveError) {
         this.logger.error(this._experimentId, '_executeStrategy',
           `保存信号失败 | symbol=${tokenState.symbol}, error=${saveError.message}`);
@@ -1663,7 +1752,7 @@ class BacktestEngine extends AbstractTradingEngine {
           `跳过购买前检查 | symbol=${tokenState.symbol}, round=${currentRound + 1}, shouldPerformPreCheck=${shouldPerformPreCheck}`);
       }
 
-      // ========== 更新信号 metadata（包含预检查结果） ==========
+      // ========== 更新信号 metadata（包含预检查结果，直接 UPDATE） ==========
       try {
         const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
 
@@ -1689,7 +1778,7 @@ class BacktestEngine extends AbstractTradingEngine {
           } : null
         };
 
-        await this._updateSignalMetadata(signalId, signalMetadata);
+        await this._directUpdateSignal(signalId, { metadata: signalMetadata });
         this.logger.info(this._experimentId, '_executeStrategy',
           `信号元数据已更新 | symbol=${tokenState.symbol}, signalId=${signalId}`);
       } catch (updateError) {
@@ -1699,9 +1788,13 @@ class BacktestEngine extends AbstractTradingEngine {
 
       // ========== 如果预检查失败，更新信号状态并返回 ==========
       if (!preCheckPassed) {
-        await this._updateSignalStatus(signalId, 'failed', {
-          message: `预检查失败: ${preCheckReason}`,
-          reason: preCheckReason
+        await this._directUpdateSignal(signalId, {
+          executed: false,
+          metadata: {
+            execution_reason: `预检查失败: ${preCheckReason}`,
+            executed_at: new Date().toISOString(),
+            execution_status: 'failed'
+          }
         });
 
         if (this._roundSummary) {
@@ -1743,11 +1836,15 @@ class BacktestEngine extends AbstractTradingEngine {
         return true;
       }
 
-      // 执行失败，更新信号状态
+      // 执行失败，更新信号状态（直接 UPDATE）
       const failureReason = result?.message || result?.reason || '执行失败';
-      await this._updateSignalStatus(signalId, 'failed', {
-        message: failureReason,
-        reason: failureReason
+      await this._directUpdateSignal(signalId, {
+        executed: false,
+        metadata: {
+          execution_reason: failureReason,
+          executed_at: new Date().toISOString(),
+          execution_status: 'failed'
+        }
       });
 
       if (this._roundSummary) {
@@ -2150,6 +2247,159 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.error(this._experimentId, '_evaluatePermanentBlock',
         `条件评估失败: ${error.message}`);
       return { blocked: false, reason: '' };
+    }
+  }
+
+  /**
+   * 创建投资组合快照（重写基类方法，支持批量缓冲）
+   * @protected
+   * @returns {Promise<void>}
+   */
+  async _createPortfolioSnapshot() {
+    const portfolio = this._portfolioManager?.getPortfolio(this._portfolioId);
+    if (!portfolio) {
+      return;
+    }
+
+    const snapshot = {
+      experiment_id: this._experimentId,
+      snapshot_time: new Date().toISOString(),
+      total_value: String(portfolio.totalValue || 0),
+      total_value_change: '0',
+      total_value_change_percent: '0',
+      cash_balance: String(portfolio.cashBalance || portfolio.availableBalance || 0),
+      cash_native_balance: String(portfolio.cashBalance || portfolio.availableBalance || 0),
+      total_portfolio_value_native: String(portfolio.totalValue || 0),
+      token_positions: '[]',
+      positions_count: portfolio.positions ? portfolio.positions.size : 0,
+      metadata: JSON.stringify({
+        loop_count: this._loopCount,
+        availableBalance: String(portfolio.availableBalance || 0),
+        totalInvested: String(portfolio.totalInvested || 0),
+        totalPnL: String(portfolio.totalPnL || 0),
+        timestamp: new Date().toISOString()
+      })
+    };
+
+    if (this._writeBufferEnabled && this._writeBuffer) {
+      this._writeBuffer.addSnapshotInsert(snapshot);
+    } else {
+      // 降级：调用基类方法即时写入
+      await super._createPortfolioSnapshot();
+    }
+  }
+
+  /**
+   * 执行交易（重写基类方法，交易成功后用缓冲区代替直接 save）
+   * @param {Object} tradeRequest - 交易请求
+   * @returns {Promise<Object>} 交易结果
+   */
+  async executeTrade(tradeRequest) {
+    const { Trade } = require('../entities');
+
+    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+    if (!portfolio) {
+      throw new Error('投资组合不存在');
+    }
+
+    const position = portfolio.positions.get(tradeRequest.tokenAddress.toLowerCase());
+    const currentPrice = tradeRequest.price || (position ? position.currentPrice : 0);
+
+    const isBuy = tradeRequest.direction.toLowerCase() === 'buy';
+    const tokenAmount = parseFloat(tradeRequest.amount);
+    const price = parseFloat(currentPrice);
+
+    const inputAmount = isBuy ? (tokenAmount * price) : tokenAmount;
+    const outputAmount = isBuy ? tokenAmount : (tokenAmount * price);
+
+    const trade = new Trade({
+      experimentId: this._experimentId,
+      signalId: tradeRequest.signalId || null,
+      tokenAddress: tradeRequest.tokenAddress,
+      tokenSymbol: tradeRequest.symbol,
+      direction: tradeRequest.direction.toLowerCase(),
+      inputCurrency: isBuy ? 'BNB' : tradeRequest.symbol,
+      outputCurrency: isBuy ? tradeRequest.symbol : 'BNB',
+      inputAmount: String(inputAmount),
+      outputAmount: String(outputAmount),
+      unitPrice: String(price),
+      txHash: tradeRequest.txHash || null,
+      metadata: tradeRequest.metadata || {}
+    });
+
+    let result;
+    try {
+      result = await this._portfolioManager.executeTrade(
+        this._portfolioId,
+        tradeRequest.tokenAddress,
+        tradeRequest.direction.toLowerCase(),
+        tradeRequest.amount,
+        currentPrice
+      );
+
+      this.logger.info('PortfolioManager.executeTrade 返回', {
+        success: result?.success,
+        hasPortfolio: !!result?.portfolio,
+        error: result?.error || result?.message || 'none'
+      });
+    } catch (pmError) {
+      this.logger.error('PortfolioManager.executeTrade 异常', {
+        error: pmError.message,
+        symbol: tradeRequest.symbol,
+        tokenAddress: tradeRequest.tokenAddress
+      });
+
+      trade.markAsFailed(pmError.message || '交易执行异常');
+      return {
+        success: false,
+        message: pmError.message || '交易执行异常',
+        reason: pmError.message || '交易执行异常',
+        error: pmError.message || '交易执行异常'
+      };
+    }
+
+    if (!result) {
+      return {
+        success: false,
+        message: 'PortfolioManager.executeTrade 返回空值',
+        error: 'PortfolioManager.executeTrade 返回空值'
+      };
+    }
+
+    if (result.success) {
+      trade.markAsSuccess();
+
+      // 使用缓冲区代替直接 save
+      if (this._writeBufferEnabled && this._writeBuffer) {
+        this._writeBuffer.addTradeInsert(trade.toDatabaseFormat());
+      } else {
+        await trade.save();
+      }
+
+      this.logger.info('交易已执行', {
+        tradeId: trade.id,
+        direction: tradeRequest.direction,
+        symbol: tradeRequest.symbol,
+        amount: tradeRequest.amount,
+        price: currentPrice
+      });
+
+      return {
+        success: true,
+        tradeId: trade.id,
+        trade: trade,
+        portfolio: result.portfolio
+      };
+    } else {
+      const failureReason = result.message || result.reason || result.error || '未知失败原因';
+      trade.markAsFailed(failureReason);
+
+      return {
+        success: false,
+        message: failureReason,
+        reason: failureReason,
+        error: failureReason
+      };
     }
   }
 }
