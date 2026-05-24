@@ -645,7 +645,7 @@ class PreBuyCheckService {
         earlyTradesFilteredCount: earlyParticipantCheck.earlyTradesFilteredCount || 0,
         // 早期交易新增因子
         earlyTradesFinalLiquidity: earlyParticipantCheck.earlyTradesFinalLiquidity || null,
-        earlyTradesDrawdownFromHighest: earlyParticipantCheck.earlyTradesDrawdownFromHighest || null,
+        earlyTradesDrawdownFromHighest: earlyParticipantCheck.earlyTradesDrawdownFromHighest ?? null,
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,
