@@ -2637,12 +2637,19 @@ class LiveTradingEngine extends AbstractTradingEngine {
     }
 
     try {
-      await this.dataService.updateSignalStatus(signalId, status, {
-        executed: status === 'executed',
-        execution_status: status,
-        execution_reason: result.reason || result.message || null,
-        executed_at: new Date().toISOString()
-      });
+      const { dbManager } = require('../../services/dbManager');
+      const supabase = dbManager.getClient();
+      const { error } = await supabase
+        .from('strategy_signals')
+        .update({
+          executed: status === 'executed',
+          execution_status: status,
+          execution_reason: result.reason || result.message || null,
+          executed_at: new Date().toISOString()
+        })
+        .eq('id', signalId);
+
+      if (error) throw error;
     } catch (error) {
       this.logger.error(this._experimentId, '_updateSignalStatus',
         `更新信号状态失败 | signalId=${signalId}, error=${error.message}`);
