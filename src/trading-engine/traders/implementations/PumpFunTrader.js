@@ -127,7 +127,19 @@ class PumpFunTrader extends ITrader {
             return { mode: 'amm', bondingCurve: null };
         }
 
-        const decoded = PUMP_SDK.decodeBondingCurve(accountInfo.data);
+        // 使用 decodeBondingCurveNullable 安全解码（兼容数据格式变化）
+        const decoded = this.onlinePumpSdk
+            ? await PUMP_SDK.decodeBondingCurveNullable(accountInfo)
+            : PUMP_SDK.decodeBondingCurve(accountInfo.data);
+
+        if (!decoded) {
+            this.logger.warn('PumpFun _detectTokenMode', {
+                token: tokenMint.toBase58(),
+                warning: 'bonding curve 数据无法解码，视为 AMM 模式'
+            });
+            return { mode: 'amm', bondingCurve: null };
+        }
+
         if (decoded.complete) {
             return { mode: 'amm', bondingCurve: decoded };
         }
