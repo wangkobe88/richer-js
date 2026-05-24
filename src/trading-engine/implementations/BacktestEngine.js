@@ -767,9 +767,16 @@ class BacktestEngine extends AbstractTradingEngine {
         }
         if (dataSourceFilter) {
           const allowedAddresses = await this._filterTokensByDataSource(null, dataSourceFilter);
-          this._dataSourceAllowedTokens = new Set(allowedAddresses);
-          this.logger.info(this._experimentId, 'BacktestEngine',
-            `📊 数据来源过滤: source=${dataSourceFilter}, 允许交易代币数=${this._dataSourceAllowedTokens.size}`);
+          if (allowedAddresses.length === 0) {
+            // 源实验可能未存储 data_source 字段，此时不做过滤
+            this._dataSourceAllowedTokens = null;
+            this.logger.warn(this._experimentId, 'BacktestEngine',
+              `⚠️ 数据来源过滤: source=${dataSourceFilter} 未匹配到任何代币（源实验可能未存储 data_source），跳过过滤`);
+          } else {
+            this._dataSourceAllowedTokens = new Set(allowedAddresses);
+            this.logger.info(this._experimentId, 'BacktestEngine',
+              `📊 数据来源过滤: source=${dataSourceFilter}, 允许交易代币数=${this._dataSourceAllowedTokens.size}`);
+          }
         } else {
           this._dataSourceAllowedTokens = null;
         }

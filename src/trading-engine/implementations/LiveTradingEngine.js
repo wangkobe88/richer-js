@@ -1552,6 +1552,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           symbol: token.symbol,
           chain: token.chain,
           platform: token.platform || 'fourmeme',
+          data_source: token.dataSource || token.data_source || null,
           created_at: token.createdAt,
           raw_api_data: token.rawApiData || null,
           contract_security_raw_data: token.contractSecurity || null,
