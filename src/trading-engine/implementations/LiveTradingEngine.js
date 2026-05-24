@@ -1130,6 +1130,19 @@ class LiveTradingEngine extends AbstractTradingEngine {
         ...experimentCollectorConfig
       }
     };
+
+    // 合并 pumpfunCollectors 配置到顶层（与虚拟盘一致，收集器从顶层读取）
+    const DEFAULT_PUMPFUN_COLLECTORS = { ave: { enabled: true }, ws: { enabled: true } };
+    const experimentPumpfunCollectors = experimentCollectorConfig.pumpfunCollectors;
+    if (experimentPumpfunCollectors) {
+      mergedCollectorConfig.pumpfunCollectors = {
+        ...DEFAULT_PUMPFUN_COLLECTORS,
+        ave: { ...DEFAULT_PUMPFUN_COLLECTORS.ave, ...experimentPumpfunCollectors.ave },
+        ws: { ...DEFAULT_PUMPFUN_COLLECTORS.ws, ...experimentPumpfunCollectors.ws }
+      };
+    } else {
+      mergedCollectorConfig.pumpfunCollectors = DEFAULT_PUMPFUN_COLLECTORS;
+    }
     this._fourmemeCollector = new PlatformCollector(
       mergedCollectorConfig,
       this.logger,
