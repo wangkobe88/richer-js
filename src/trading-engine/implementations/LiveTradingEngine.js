@@ -567,7 +567,9 @@ class LiveTradingEngine extends AbstractTradingEngine {
     } catch (error) {
       this.logger.error(this._experimentId, '_executeBuy',
         `========== _executeBuy 异常 | error=${error.message} ==========`);
-      return { success: false, reason: error.message };
+      this.logger.error(this._experimentId, '_executeBuy',
+        `Stack: ${error.stack}`);
+      return { success: false, reason: error.message, stack: error.stack };
     }
   }
 
@@ -2752,6 +2754,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
         ...(existing?.metadata || {}),
         execution_status: status,
         execution_reason: result.reason || result.message || null,
+        execution_stack: result.stack || null,
         executed_at: new Date().toISOString()
       };
 
