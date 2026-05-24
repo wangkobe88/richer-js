@@ -2490,12 +2490,16 @@ class LiveTradingEngine extends AbstractTradingEngine {
    */
   _calculateBuyAmount(signal) {
     const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
-    if (!portfolio || !portfolio.availableBalance) return 0;
+    if (!portfolio) return 0;
+
+    // PortfolioManager 使用 cashBalance，兼容 availableBalance
+    const rawBalance = portfolio.availableBalance || portfolio.cashBalance;
+    if (!rawBalance) return 0;
 
     const tradeAmount = this._tradeAmount;
-    const balance = typeof portfolio.availableBalance === 'number'
-      ? portfolio.availableBalance
-      : portfolio.availableBalance.toNumber();
+    const balance = typeof rawBalance === 'number'
+      ? rawBalance
+      : rawBalance.toNumber();
 
     if (balance < tradeAmount) {
       this.logger.warn(this._experimentId, '_calculateBuyAmount',
