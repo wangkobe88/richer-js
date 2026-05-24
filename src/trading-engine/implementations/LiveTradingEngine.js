@@ -2639,13 +2639,26 @@ class LiveTradingEngine extends AbstractTradingEngine {
     try {
       const { dbManager } = require('../../services/dbManager');
       const supabase = dbManager.getClient();
+
+      // execution_status/reason/executed_at 存在 metadata JSON 列中
+      const { data: existing } = await supabase
+        .from('strategy_signals')
+        .select('metadata')
+        .eq('id', signalId)
+        .single();
+
+      const metadata = {
+        ...(existing?.metadata || {}),
+        execution_status: status,
+        execution_reason: result.reason || result.message || null,
+        executed_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('strategy_signals')
         .update({
           executed: status === 'executed',
-          execution_status: status,
-          execution_reason: result.reason || result.message || null,
-          executed_at: new Date().toISOString()
+          metadata: metadata
         })
         .eq('id', signalId);
 
