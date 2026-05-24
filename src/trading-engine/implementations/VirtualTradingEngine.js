@@ -1538,6 +1538,10 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       let blockReason = null;
 
       // 1. 验证 creator_address
+      // 统一 creator_address / creatorAddress（TokenPool 存驼峰，WSS 入池设下划线）
+      if (!token.creator_address && token.creatorAddress) {
+        token.creator_address = token.creatorAddress;
+      }
       if (!token.creator_address) {
         this.logger.warn(this._experimentId, '_executeStrategy',
           `代币 creator_address 为 null，重新获取并验证 | symbol=${token.symbol}, address=${token.token}`);
