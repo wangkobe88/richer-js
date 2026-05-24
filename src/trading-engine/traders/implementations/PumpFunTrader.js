@@ -79,7 +79,7 @@ class PumpFunTrader extends ITrader {
         const { Keypair } = require('@solana/web3.js');
 
         if (typeof privateKey === 'string') {
-            const bs58 = require('bs58');
+            const bs58 = require('bs58').default || require('bs58');
             const secretKey = bs58.decode(privateKey);
             this.wallet = Keypair.fromSecretKey(secretKey);
         } else if (privateKey instanceof Keypair) {
