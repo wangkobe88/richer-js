@@ -14,6 +14,7 @@ class BacktestWriteBuffer {
     this._pendingTradeInserts = [];
     this._pendingSnapshotInserts = [];
     this._pendingSignalUpdates = []; // { signalId, updateData }
+    this._pendingEarlyTradesInserts = [];
   }
 
   /**
@@ -38,6 +39,13 @@ class BacktestWriteBuffer {
    */
   addSnapshotInsert(snapshotData) {
     this._pendingSnapshotInserts.push(snapshotData);
+  }
+
+  /**
+   * 添加早期交易者缓存插入记录
+   */
+  addEarlyTradesInsert(dbData) {
+    this._pendingEarlyTradesInserts.push(dbData);
   }
 
   /**
@@ -71,7 +79,8 @@ class BacktestWriteBuffer {
     return this._pendingSignalInserts.length
       + this._pendingTradeInserts.length
       + this._pendingSnapshotInserts.length
-      + this._pendingSignalUpdates.length;
+      + this._pendingSignalUpdates.length
+      + this._pendingEarlyTradesInserts.length;
   }
 
   /**
@@ -85,6 +94,7 @@ class BacktestWriteBuffer {
       tradesInserted: 0,
       snapshotsInserted: 0,
       signalsUpdated: 0,
+      earlyTradesInserted: 0,
       errors: []
     };
 
@@ -123,6 +133,15 @@ class BacktestWriteBuffer {
         .then(count => { stats.signalsUpdated = count; }));
     }
 
+    // 批量插入早期交易者缓存
+    if (this._pendingEarlyTradesInserts.length > 0) {
+      tasks.push(this._batchInsert(
+        'early_participant_trades',
+        this._pendingEarlyTradesInserts,
+        experimentId
+      ).then(count => { stats.earlyTradesInserted = count; }));
+    }
+
     await Promise.all(tasks);
 
     // 清空缓冲区
@@ -130,10 +149,11 @@ class BacktestWriteBuffer {
     this._pendingTradeInserts = [];
     this._pendingSnapshotInserts = [];
     this._pendingSignalUpdates = [];
+    this._pendingEarlyTradesInserts = [];
 
-    if (this._logger && (stats.signalsInserted || stats.tradesInserted || stats.snapshotsInserted || stats.signalsUpdated)) {
+    if (this._logger && (stats.signalsInserted || stats.tradesInserted || stats.snapshotsInserted || stats.signalsUpdated || stats.earlyTradesInserted)) {
       this._logger.info(experimentId, 'BacktestWriteBuffer',
-        `flush 完成 | signals=${stats.signalsInserted}, trades=${stats.tradesInserted}, snapshots=${stats.snapshotsInserted}, signalUpdates=${stats.signalsUpdated}`);
+        `flush 完成 | signals=${stats.signalsInserted}, trades=${stats.tradesInserted}, snapshots=${stats.snapshotsInserted}, signalUpdates=${stats.signalsUpdated}, earlyTrades=${stats.earlyTradesInserted}`);
     }
 
     return stats;

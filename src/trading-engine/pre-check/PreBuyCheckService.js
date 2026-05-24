@@ -406,7 +406,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId, earlyTradesCacheCallback } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -451,20 +451,36 @@ class PreBuyCheckService {
 
       // 存储早期交易者数据（如果有 signalId 和交易数据，且非缓存数据，且未禁止写缓存）
       if (signalId && earlyParticipantCheck._trades && earlyParticipantCheck._trades.length > 0 && !earlyParticipantCheck._fromCache && !skipEarlyTradesCacheWrite) {
-        // 同步存储，确保数据保存完成
-        const storeSuccess = await this.earlyParticipantService.storeEarlyParticipantTrades(
-          tokenAddress,
-          signalId,
-          experimentId,
-          tokenInfo?.innerPair || null,
-          chain,
-          earlyParticipantCheck._trades,
-          checkTime || Math.floor(Date.now() / 1000)
-        );
-        this.logger.info('[PreBuyCheckService] 早期交易数据存储完成', {
+        const cacheData = {
           signal_id: signalId,
-          success: storeSuccess
-        });
+          token_address: tokenAddress,
+          experiment_id: experimentId,
+          chain: chain,
+          trades_data: earlyParticipantCheck._trades,
+          inner_pair: tokenInfo?.innerPair || null,
+          check_time: checkTime || Math.floor(Date.now() / 1000),
+          window_seconds: this.earlyParticipantService.config.fixedWindowSeconds
+        };
+
+        if (earlyTradesCacheCallback) {
+          // 回调模式：将数据交给调用方缓冲
+          earlyTradesCacheCallback(cacheData);
+        } else {
+          // 直接写入模式
+          const storeSuccess = await this.earlyParticipantService.storeEarlyParticipantTrades(
+            tokenAddress,
+            signalId,
+            experimentId,
+            tokenInfo?.innerPair || null,
+            chain,
+            earlyParticipantCheck._trades,
+            checkTime || Math.floor(Date.now() / 1000)
+          );
+          this.logger.info('[PreBuyCheckService] 早期交易数据存储完成', {
+            signal_id: signalId,
+            success: storeSuccess
+          });
+        }
       }
 
       // 早期交易者黑白名单检查（基于交易参与者，而非持有者）

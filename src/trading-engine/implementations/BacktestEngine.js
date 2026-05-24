@@ -1700,7 +1700,8 @@ class BacktestEngine extends AbstractTradingEngine {
               buyRound: currentRound + 1,  // 即将进行的轮数
               lastPairReturnRate: lastPairReturnRate ?? 0,
               narrativeRating: narrativeRating,  // 叙事评级
-              totalSupply: totalSupply  // 代币总供应量
+              totalSupply: totalSupply,  // 代币总供应量
+              earlyTradesCacheCallback: (dbData) => this._writeBuffer.addEarlyTradesInsert(dbData)
             }
           );
 
