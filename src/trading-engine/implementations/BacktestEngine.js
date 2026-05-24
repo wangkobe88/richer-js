@@ -595,7 +595,6 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 永久阻断条件已配置: ${this._permanentBlockCondition}`);
     }
 
-    }
   }
 
   /**

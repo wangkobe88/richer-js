@@ -746,7 +746,10 @@ class ExperimentMonitor {
         virtual: config.virtual || config.virtualConfig,
 
         // 平台选择
-        platform: config.platform || 'fourmeme'
+        platform: config.platform || 'fourmeme',
+
+        // 交易金额
+        tradeAmount: config.tradeAmount
       };
 
       // 添加 initial_balance 从 virtual 配置中获取

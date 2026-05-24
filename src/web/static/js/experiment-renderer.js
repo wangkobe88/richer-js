@@ -454,6 +454,11 @@ class ExperimentRenderer {
       }));
     }
 
+    // 提取交易金额
+    if (config.tradeAmount !== undefined) {
+      formData.tradeAmount = config.tradeAmount;
+    }
+
     // 提取回测/虚拟模式配置
     if (config.backtest) {
       formData.start_date = config.backtest.start_date || '';
