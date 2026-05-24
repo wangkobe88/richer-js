@@ -98,11 +98,12 @@ class BacktestWriteBuffer {
       errors: []
     };
 
-    const tasks = [];
+    // 第一阶段：所有 INSERT 并行执行
+    const insertTasks = [];
 
     // 批量插入信号
     if (this._pendingSignalInserts.length > 0) {
-      tasks.push(this._batchInsert(
+      insertTasks.push(this._batchInsert(
         'strategy_signals',
         this._pendingSignalInserts,
         experimentId
@@ -111,7 +112,7 @@ class BacktestWriteBuffer {
 
     // 批量插入交易
     if (this._pendingTradeInserts.length > 0) {
-      tasks.push(this._batchInsert(
+      insertTasks.push(this._batchInsert(
         'trades',
         this._pendingTradeInserts,
         experimentId
@@ -120,29 +121,29 @@ class BacktestWriteBuffer {
 
     // 批量插入快照
     if (this._pendingSnapshotInserts.length > 0) {
-      tasks.push(this._batchInsert(
+      insertTasks.push(this._batchInsert(
         'portfolio_snapshots',
         this._pendingSnapshotInserts,
         experimentId
       ).then(count => { stats.snapshotsInserted = count; }));
     }
 
-    // 信号更新（并行执行）
-    if (this._pendingSignalUpdates.length > 0) {
-      tasks.push(this._batchSignalUpdates(experimentId)
-        .then(count => { stats.signalsUpdated = count; }));
-    }
-
     // 批量插入早期交易者缓存
     if (this._pendingEarlyTradesInserts.length > 0) {
-      tasks.push(this._batchInsert(
+      insertTasks.push(this._batchInsert(
         'early_participant_trades',
         this._pendingEarlyTradesInserts,
         experimentId
       ).then(count => { stats.earlyTradesInserted = count; }));
     }
 
-    await Promise.all(tasks);
+    await Promise.all(insertTasks);
+
+    // 第二阶段：信号更新（必须等 INSERT 完成，否则 UPDATE 找不到记录）
+    if (this._pendingSignalUpdates.length > 0) {
+      const count = await this._batchSignalUpdates(experimentId);
+      stats.signalsUpdated = count;
+    }
 
     // 清空缓冲区
     this._pendingSignalInserts = [];
