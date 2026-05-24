@@ -399,6 +399,12 @@ class PumpFunWsCollector {
                 poolSize: this.tokenPool.getStats().total
             });
         } else {
+            // 代币已存在于池中（通常由 AVE 轮询先入池），补充 creator_address
+            if (devWallet) {
+                this.tokenPool.enrichToken(mintAddress, 'solana', {
+                    creator_address: devWallet
+                });
+            }
             this.stats.duplicate++;
         }
     }
