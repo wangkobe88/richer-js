@@ -2538,6 +2538,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // 优先使用已设置的 pairAddress（由 PlatformCollector 设置）
     if (token.pairAddress) {
       innerPair = token.pairAddress;
+    } else if (platform === 'pumpfun') {
+      innerPair = this._derivePumpfunPairAddress(token.token);
     } else if (platform === 'fourmeme') {
       innerPair = `${token.token}_fo`;
     } else if (platform === 'flap') {
@@ -2781,6 +2783,21 @@ class LiveTradingEngine extends AbstractTradingEngine {
 
 
 
+
+  _derivePumpfunPairAddress(tokenAddress) {
+    try {
+      const { PublicKey } = require('@solana/web3.js');
+      const PUMP_FUN_PROGRAM = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
+      const mint = new PublicKey(tokenAddress);
+      const [pda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('bonding-curve'), mint.toBuffer()],
+        PUMP_FUN_PROGRAM
+      );
+      return pda.toString();
+    } catch (_) {
+      return null;
+    }
+  }
 
   // 注意：不再允许使用硬编码策略
   // 策略必须在实验配置中通过 config.strategiesConfig 明确定义
