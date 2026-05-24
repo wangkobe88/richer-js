@@ -17,8 +17,8 @@
         .strategy-card {
             border: 1px solid #e5e7eb;
             border-radius: 0.5rem;
-            padding: 1rem;
-            margin-bottom: 1rem;
+            padding: 0.625rem;
+            margin-bottom: 0.5rem;
             background: #fafafa;
             transition: all 0.2s;
         }
@@ -29,8 +29,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.375rem;
             border-bottom: 1px solid #e5e7eb;
         }
         .strategy-card .strategy-name {
@@ -52,7 +52,7 @@
         .strategy-card .strategy-params {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
+            gap: 0.5rem;
         }
         .strategy-card .param-group {
             display: flex;
@@ -81,8 +81,8 @@
             background: #f3f4f6;
             border: 1px solid #e5e7eb;
             border-radius: 0.5rem;
-            padding: 1rem;
-            margin-top: 1rem;
+            padding: 0.625rem;
+            margin-top: 0.5rem;
         }
         .condition-help h4 {
             font-size: 1rem;
@@ -159,14 +159,14 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen py-8">
+<body class="bg-gray-100 min-h-screen py-4">
     <div class="container mx-auto px-4 max-w-5xl">
         <!-- 页头 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="bg-white rounded-lg shadow-md p-4 mb-3">
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-800">创建新实验</h1>
-                    <p class="text-gray-600 mt-2">基于策略的代币交易实验</p>
+                    <h1 class="text-2xl font-bold text-gray-800">创建新实验</h1>
+                    <p class="text-gray-600 mt-1 text-sm">基于策略的代币交易实验</p>
                 </div>
                 <a href="/experiments" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md">
                     ← 返回列表
@@ -175,14 +175,14 @@
         </div>
 
         <!-- 创建表单 -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <form id="experiment-form" class="space-y-6">
+        <div class="bg-white rounded-lg shadow-md p-4">
+            <form id="experiment-form" class="space-y-4">
                 <!-- 基本信息 -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">基本信息</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-3">基本信息</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 实验名称 <span class="text-red-500">*</span>
                             </label>
                             <input type="text"
@@ -193,7 +193,7 @@
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 实验描述
                             </label>
                             <input type="text"
@@ -203,7 +203,7 @@
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 交易模式 <span class="text-red-500">*</span>
                             </label>
                             <select name="trading_mode"
@@ -217,7 +217,7 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 区块链 <span class="text-red-500">*</span>
                             </label>
                             <select name="blockchain" id="blockchain_select"
@@ -231,7 +231,7 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 平台 <span class="text-red-500">*</span>
                             </label>
                             <select name="platform" id="platform_select"
@@ -247,7 +247,7 @@
                             <p class="text-xs text-gray-500 mt-1">选择该区块链上的代币发行平台</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 初始余额 (<span id="native-currency">BNB</span>) <span class="text-red-500">*</span>
                             </label>
                             <input type="number"
@@ -263,11 +263,11 @@
                 </div>
 
                 <!-- 代币收集配置 -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">📡 代币收集配置</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-3">📡 代币收集配置</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 收集频率（秒）
                             </label>
                             <input type="number"
@@ -280,7 +280,7 @@
                             <p class="text-xs text-gray-500 mt-1">多久请求一次API获取新代币。ETH链建议20-30秒，BSC/Solana建议10秒</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 代币最大年龄（秒）
                             </label>
                             <input type="number"
@@ -293,7 +293,7 @@
                             <p class="text-xs text-gray-500 mt-1">只收集创建时间在此范围内的代币。ETH链建议300-600秒，BSC/Solana建议60秒</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 价格监控频率（秒）
                             </label>
                             <input type="number"
@@ -306,8 +306,8 @@
                             <p class="text-xs text-gray-500 mt-1">多久获取一次代币池中的价格数据。建议10秒</p>
                         </div>
                         <!-- 数据来源配置（仅 Solana 链时显示） -->
-                        <div id="data-source-config" class="hidden md:col-span-2 mt-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <div id="data-source-config" class="hidden md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 数据来源
                             </label>
                             <select name="data_source" id="data-source-select"
@@ -322,11 +322,11 @@
                 </div>
 
                 <!-- 回测配置（仅在选择回测模式时显示） -->
-                <div id="backtest-config" class="border border-gray-200 rounded-lg p-4" style="display:none;">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">📊 回测配置</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div id="backtest-config" class="border border-gray-200 rounded-lg p-3" style="display:none;">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-3">📊 回测配置</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 源实验 <span class="text-red-500">*</span>
                             </label>
                             <select name="backtest_source_experiment"
@@ -339,7 +339,7 @@
                             <span class="text-xs text-gray-500">选择要基于其历史数据进行回测的源实验</span>
                         </div>
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 最低最高涨幅 (%)
                             </label>
                             <input type="number"
@@ -354,7 +354,7 @@
                         </div>
                         <!-- 回测数据来源过滤（仅 Solana + 回测模式时显示） -->
                         <div id="backtest-data-source-filter" class="hidden md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 回测数据来源过滤
                             </label>
                             <select name="backtest_data_source"
@@ -370,9 +370,9 @@
                 </div>
 
                 <!-- 实盘配置（仅在选择实盘模式时显示） -->
-                <div id="live-config" class="border border-gray-200 rounded-lg p-4" style="display:none;">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">🔐 实盘钱包配置</h2>
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <div id="live-config" class="border border-gray-200 rounded-lg p-3" style="display:none;">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-3">🔐 实盘钱包配置</h2>
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
                         <div class="flex items-start">
                             <span class="text-2xl mr-2">⚠️</span>
                             <div class="text-sm text-yellow-800">
@@ -386,9 +386,9 @@
                             </div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 钱包地址 <span class="text-red-500">*</span>
                             </label>
                             <input type="text"
@@ -400,7 +400,7 @@
                             <span class="text-xs text-gray-500">输入您的钱包地址（0x开头的40位十六进制）</span>
                         </div>
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 私钥 <span class="text-red-500">*</span>
                             </label>
                             <input type="password"
@@ -411,7 +411,7 @@
                             <span class="text-xs text-gray-500">私钥将在提交前加密，请确保您的环境设置了 ENCRYPTION_KEY</span>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 保留金额 (BNB) <span class="text-gray-500">- 用于 GAS 费用</span>
                             </label>
                             <input type="number"
@@ -424,7 +424,7 @@
                             <span class="text-xs text-gray-500">保留用于支付 GAS 费用的 BNB 数量（最小 0.01 BNB）</span>
                         </div>
                     </div>
-                    <div class="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div class="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2">
                         <div class="flex items-start">
                             <span class="text-lg mr-2">💡</span>
                             <div class="text-sm text-blue-800">
@@ -440,10 +440,10 @@
                 </div>
 
                 <!-- 交易金额配置 -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">💰 交易金额</h2>
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-3">💰 交易金额</h2>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
                             单次买入金额 (SOL)
                         </label>
                         <input type="number" name="trade_amount" value="0.5" step="0.01" min="0.01"
@@ -453,9 +453,9 @@
                 </div>
 
                 <!-- 叙事分析配置 -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">📖 叙事分析</h2>
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-lg font-semibold text-gray-800">📖 叙事分析</h2>
                         <div class="flex items-center gap-4 flex-wrap">
                             <label class="flex items-center gap-2">
                                 <input type="checkbox" name="narrative_analysis_enabled" id="na-enabled" class="w-4 h-4">
@@ -473,8 +473,8 @@
                     </div>
 
                     <!-- 触发阈值配置 -->
-                    <div class="mb-4" id="na-threshold-group">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <div class="mb-3" id="na-threshold-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
                             触发阈值（第一阶段因子满足比例 %）
                         </label>
                         <div class="flex items-center gap-4">
@@ -494,8 +494,8 @@
                     </div>
 
                     <!-- 等待时间配置 -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
                             最大等待时间（秒）
                         </label>
                         <div class="flex items-center gap-4">
@@ -515,8 +515,8 @@
                     </div>
 
                     <!-- 轮询间隔配置 -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
                             轮询间隔（毫秒）
                         </label>
                         <div class="flex items-center gap-4">
@@ -536,7 +536,7 @@
                         </div>
                     </div>
 
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-2">
                         <div class="flex items-start">
                             <span class="text-lg mr-2">💡</span>
                             <div class="text-sm text-blue-800">
@@ -555,52 +555,18 @@
                     </div>
                 </div>
 
-                <!-- GMGN 安全检测配置 -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">🛡️ GMGN 安全检测</h2>
-                        <label class="flex items-center gap-2">
-                            <input type="checkbox" id="gmgn-security-enabled" class="w-4 h-4">
-                            <span class="text-sm font-medium text-gray-700">启用安全检测</span>
-                        </label>
-                    </div>
-
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <div class="flex items-start">
-                            <span class="text-lg mr-2">💡</span>
-                            <div class="text-sm text-blue-800">
-                                <p class="font-semibold mb-1">说明</p>
-                                <ul class="list-disc list-inside space-y-1">
-                                    <li><strong>安全检测：</strong>通过 GMGN API 获取代币安全审计数据，检测蜜罐、买卖税、合约开源、LP锁仓等风险</li>
-                                    <li><strong>因子说明：</strong>
-                                        <code>gmgnIsHoneypot</code> 是否蜜罐、
-                                        <code>gmgnBuyTax</code>/<code>gmgnSellTax</code> 买卖税率、
-                                        <code>gmgnIsOpenSource</code> 是否开源、
-                                        <code>gmgnIsRenounced</code> 是否放弃权限、
-                                        <code>gmgnTop10HolderRate</code> Top10持仓占比、
-                                        <code>gmgnLpLocked</code>/<code>gmgnLpLockPercent</code> LP锁仓、
-                                        <code>gmgnHasAlert</code> GMGN风险警报、
-                                        <code>gmgnSecurityAvailable</code> 数据是否可用
-                                    </li>
-                                    <li><strong>使用示例：</strong>条件表达式中使用 <code>gmgnIsHoneypot === false AND gmgnSellTax < 0.05</code> 过滤蜜罐和高卖税代币</li>
-                                    <li><strong>数据缓存：</strong>安全数据持久化到数据库，同一代币不重复请求 API</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- 跳过第一层策略检测配置 -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">⚡ 跳过第一层策略检测</h2>
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-lg font-semibold text-gray-800">⚡ 跳过第一层策略检测</h2>
                         <label class="flex items-center gap-2">
                             <input type="checkbox" id="skip-strategy-detection" class="w-4 h-4">
                             <span class="text-sm font-medium text-gray-700">启用</span>
                         </label>
                     </div>
 
-                    <div id="skip-strategy-config" class="space-y-3">
+                    <div id="skip-strategy-config" class="space-y-2">
                         <div class="flex items-center gap-4">
                             <label class="block text-sm font-medium text-gray-700 whitespace-nowrap">
                                 跳过轮数
@@ -619,7 +585,7 @@
                         </div>
                     </div>
 
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-3">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-2 mt-2">
                         <div class="flex items-start">
                             <span class="text-lg mr-2">💡</span>
                             <div class="text-sm text-yellow-800">
@@ -627,7 +593,7 @@
                                 <ul class="list-disc list-inside space-y-1">
                                     <li><strong>正常流程：</strong>收集 → 策略评估（第一层）→ 购买前检查（第二层）→ 执行买入</li>
                                     <li><strong>跳过第一层：</strong>收集 → <s>策略评估</s> → 直接进入购买前检查 → 执行买入</li>
-                                    <li>跳过的是买入策略的条件表达式判断，购买前检查（GMGN 安全检测、早期参与者检查等）仍然正常执行</li>
+                                    <li>跳过的是买入策略的条件表达式判断，购买前检查（早期参与者检查等）仍然正常执行</li>
                                     <li>已买入代币的卖出策略不受影响，仍正常评估</li>
                                     <li>适用于纯靠预检查筛选代币的场景，不需要等待趋势因子数据积累</li>
                                 </ul>
@@ -637,20 +603,20 @@
                 </div>
 
                 <!-- 统计与通知配置 -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4">📊 统计与通知配置</h2>
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-3">📊 统计与通知配置</h2>
 
                     <!-- 统计配置 -->
-                    <div class="mb-4 p-4 bg-gray-50 rounded-lg">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-lg font-medium text-gray-900">定期统计</h3>
+                    <div class="mb-3 p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-base font-medium text-gray-900">定期统计</h3>
                             <label class="flex items-center gap-2">
                                 <input type="checkbox" id="stats-enabled" class="w-4 h-4" checked>
                                 <span class="text-sm font-medium text-gray-900">启用定期统计</span>
                             </label>
                         </div>
                         <div class="flex items-center gap-4">
-                            <label class="block text-sm font-medium text-gray-900 mb-2">
+                            <label class="block text-sm font-medium text-gray-900 mb-1">
                                 统计间隔（分钟）
                             </label>
                             <input
@@ -668,9 +634,9 @@
                     </div>
 
                     <!-- 电报通知配置 -->
-                    <div class="p-4 bg-purple-50 rounded-lg">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-lg font-medium text-purple-900">📱 电报通知</h3>
+                    <div class="p-3 bg-purple-50 rounded-lg">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-base font-medium text-purple-900">📱 电报通知</h3>
                             <label class="flex items-center gap-2">
                                 <input type="checkbox" id="telegram-enabled" class="w-4 h-4">
                                 <span class="text-sm font-medium text-purple-900">启用电报通知</span>
@@ -689,15 +655,15 @@
                     </div>
 
                     <!-- 事件记录配置 -->
-                    <div class="p-4 bg-blue-50 rounded-lg">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-lg font-medium text-blue-900">📋 事件记录策略</h3>
+                    <div class="p-3 bg-blue-50 rounded-lg">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-base font-medium text-blue-900">📋 事件记录策略</h3>
                             <label class="flex items-center gap-2">
                                 <input type="checkbox" id="event-recording-enabled" class="w-4 h-4" checked>
                                 <span class="text-sm font-medium text-blue-900">保存事件</span>
                             </label>
                         </div>
-                        <div id="event-recording-config" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div id="event-recording-config" class="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
                                 <label class="block text-sm font-medium text-blue-900 mb-1">买入信号序号</label>
                                 <input type="text" id="event-buy-indices" value="1/3"
@@ -723,9 +689,9 @@
                 </div>
 
                 <!-- 买入策略配置 -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">📈 买入策略</h2>
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-lg font-semibold text-gray-800">📈 买入策略</h2>
                         <button type="button" onclick="addBuyStrategy()" class="btn-add">
                             <span>+ 添加买入条件</span>
                         </button>
@@ -736,9 +702,9 @@
                 </div>
 
                 <!-- 卖出策略配置 -->
-                <div class="border border-gray-200 rounded-lg p-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">📉 卖出策略</h2>
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-lg font-semibold text-gray-800">📉 卖出策略</h2>
                         <button type="button" onclick="addSellStrategy()" class="btn-add">
                             <span>+ 添加卖出条件</span>
                         </button>
@@ -749,9 +715,9 @@
                 </div>
 
                 <!-- 条件表达式帮助器 -->
-                <div class="border border-blue-200 bg-blue-50 rounded-lg p-4">
+                <div class="border border-blue-200 bg-blue-50 rounded-lg p-3">
                     <details>
-                        <summary class="text-lg font-semibold text-blue-900 cursor-pointer">
+                        <summary class="text-base font-semibold text-blue-900 cursor-pointer">
                             📖 条件表达式语法帮助（点击展开）
                         </summary>
                         <div class="condition-help">
@@ -877,7 +843,7 @@
         </div>
 
         <!-- 结果消息 -->
-        <div id="result-message" class="hidden mt-6">
+        <div id="result-message" class="hidden mt-3">
             <div id="result-content" class="rounded-lg p-4"></div>
         </div>
     </div>
@@ -914,7 +880,6 @@
                                 <strong>早期参与者:</strong> earlyTradesHighValueCount, earlyTradesHighValuePerMin, earlyTradesCountPerMin, earlyTradesVolumePerMin, earlyTradesWalletsPerMin, earlyTradesTotalCount, earlyTradesVolume, earlyTradesUniqueWallets, earlyTradesDataCoverage, earlyTradesFilteredCount<br>
                                 <strong>钱包簇:</strong> walletClusterSecondToFirstRatio, walletClusterMegaRatio, walletClusterTop2Ratio, walletClusterConcentration<br>
                                 <strong>叙事分析:</strong> narrativeRating (1=低质量, 2=中质量, 3=高质量, 9=未评级)<br>
-                                <strong>GMGN安全检测:</strong> gmgnIsHoneypot, gmgnIsOpenSource, gmgnIsRenounced, gmgnHasBlacklist, gmgnBuyTax, gmgnSellTax, gmgnTop10HolderRate, gmgnHasAlert, gmgnPrivilegeCount, gmgnLpLocked, gmgnLpLockPercent, gmgnHolderCount, gmgnLiquidity, gmgnSecurityAvailable
                             </div>
                         </details>
                     </div>
@@ -1179,11 +1144,6 @@
                     naPollIntervalMs.value = copyData.narrativeAnalysis.pollIntervalMs;
                 }
 
-                // 填充 GMGN 安全检测配置
-                const gmgnSecurityEnabled = document.getElementById('gmgn-security-enabled');
-                if (gmgnSecurityEnabled && copyData.gmgnSecurityCheck !== undefined) {
-                    gmgnSecurityEnabled.checked = !!copyData.gmgnSecurityCheck.enabled;
-                }
 
                 // 填充跳过第一层策略检测配置
                 const skipStrategyDetection = document.getElementById('skip-strategy-detection');
@@ -1829,10 +1789,6 @@
                         triggerThreshold: parseInt(document.getElementById('na-trigger-threshold')?.value) || 80,
                         maxWaitSeconds: parseInt(document.getElementById('na-max-wait-seconds')?.value) || 10,
                         pollIntervalMs: parseInt(document.getElementById('na-poll-interval-ms')?.value) || 2000
-                    },
-                    // GMGN 安全检测配置
-                    gmgnSecurityCheck: {
-                        enabled: document.getElementById('gmgn-security-enabled')?.checked || false
                     },
                     // 跳过第一层策略检测配置
                     skipStrategyDetection: document.getElementById('skip-strategy-detection')?.checked || false,

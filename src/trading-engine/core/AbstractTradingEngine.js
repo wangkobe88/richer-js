@@ -1020,7 +1020,7 @@ class AbstractTradingEngine extends ITradingEngine {
    * @private
    * @param {string} signalId - 信号ID
    * @param {Object} additionalMetadata - 要添加的元数据
-   * @param {Object} directFields - 直接更新的表字段（非metadata），如 twitter_search_result, twitter_search_duration
+   * @param {Object} directFields - 直接更新的表字段（非metadata），如 gmgn_security_raw_data
    * @returns {Promise<void>}
    */
   async _updateSignalMetadata(signalId, additionalMetadata, directFields = null) {
@@ -1051,12 +1051,6 @@ class AbstractTradingEngine extends ITradingEngine {
 
     // 如果有直接字段需要更新，添加到更新数据中
     if (directFields && typeof directFields === 'object') {
-      if (directFields.twitter_search_result !== undefined) {
-        updateData.twitter_search_result = directFields.twitter_search_result;
-      }
-      if (directFields.twitter_search_duration !== undefined) {
-        updateData.twitter_search_duration = directFields.twitter_search_duration;
-      }
       if (directFields.gmgn_security_raw_data !== undefined) {
         updateData.gmgn_security_raw_data = directFields.gmgn_security_raw_data;
       }

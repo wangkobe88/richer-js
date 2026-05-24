@@ -13,9 +13,8 @@ const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService
 const { WalletClusterService } = require('./WalletClusterService');
 const { WalletLabelService } = require('./WalletLabelService');
 const { WalletDataService } = require('../../web/services/WalletDataService');
-const TwitterSearchService = require('./TwitterSearchService');
+
 const StrongTraderPositionService = require('./StrongTraderPositionService');
-const GMGNSecurityService = require('./GMGNSecurityService');
 
 /**
  * 因子元数据配置
@@ -237,67 +236,6 @@ const FACTOR_METADATA = {
     unit: '',
     severity: 'info'
   },
-  // Twitter因子
-  twitterTotalResults: {
-    name: 'Twitter搜索结果数',
-    format: v => v.toString(),
-    unit: '条',
-    severity: 'info'
-  },
-  twitterQualityTweets: {
-    name: 'Twitter高质量推文数',
-    format: v => v.toString(),
-    unit: '条',
-    severity: 'info'
-  },
-  twitterLikes: {
-    name: 'Twitter点赞数',
-    format: v => v.toString(),
-    unit: '',
-    severity: 'info'
-  },
-  twitterRetweets: {
-    name: 'Twitter转发数',
-    format: v => v.toString(),
-    unit: '',
-    severity: 'info'
-  },
-  twitterComments: {
-    name: 'Twitter评论数',
-    format: v => v.toString(),
-    unit: '',
-    severity: 'info'
-  },
-  twitterTotalEngagement: {
-    name: 'Twitter总互动量',
-    format: v => v.toString(),
-    unit: '',
-    severity: 'info'
-  },
-  twitterAvgEngagement: {
-    name: 'Twitter平均互动量',
-    format: v => v.toFixed(0),
-    unit: '',
-    severity: 'info'
-  },
-  twitterVerifiedUsers: {
-    name: 'Twitter认证用户数',
-    format: v => v.toString(),
-    unit: '个',
-    severity: 'info'
-  },
-  twitterFollowers: {
-    name: 'Twitter粉丝总数',
-    format: v => v.toString(),
-    unit: '',
-    severity: 'info'
-  },
-  twitterUniqueUsers: {
-    name: 'Twitter唯一用户数',
-    format: v => v.toString(),
-    unit: '个',
-    severity: 'info'
-  },
   // 强势交易者持仓因子
   strongTraderNetPositionRatio: {
     name: '强势交易者净持仓比',
@@ -372,141 +310,6 @@ const FACTOR_METADATA = {
     unit: '',
     severity: 'warning'
   },
-  // [已停用] 合约审计风控因子（原 AVE API，改用 GMGN 安全检测）
-  // contractRiskAvailable: {
-  //   name: '合约审计数据可用',
-  //   format: v => v === 1 ? '有数据' : '无数据',
-  //   unit: '',
-  //   severity: 'info'
-  // },
-  // contractRiskPairLockPercent: {
-  //   name: 'LP锁定百分比',
-  //   format: v => v.toFixed(2) + '%',
-  //   unit: '%',
-  //   severity: 'critical'
-  // },
-  // contractRiskTopLpHolderPercent: {
-  //   name: 'Top1 LP持有人百分比',
-  //   format: v => v.toFixed(1) + '%',
-  //   unit: '%',
-  //   severity: 'critical'
-  // },
-  // contractRiskLpHolders: {
-  //   name: 'LP持有人数量',
-  //   format: v => v.toString(),
-  //   unit: '个',
-  //   severity: 'info'
-  // },
-  // contractRiskScore: {
-  //   name: 'AVE风险评分',
-  //   format: v => v.toString(),
-  //   unit: '分',
-  //   severity: 'warning'
-  // },
-  // contractRiskIsHoneypot: {
-  //   name: '蜜罐标记',
-  //   format: v => v === 1 ? '是蜜罐' : v === -1 ? '未知' : '否',
-  //   unit: '',
-  //   severity: 'critical'
-  // },
-  // contractRiskDexAmmType: {
-  //   name: 'DEX AMM类型',
-  //   format: v => v || 'unknown',
-  //   unit: '',
-  //   severity: 'info'
-  // },
-  // contractRiskHasCode: {
-  //   name: '合约开源状态',
-  //   format: v => v === 'open' ? '已开源' : v === 'closed' ? '未开源' : '无数据',
-  //   unit: '',
-  //   severity: 'info'
-  // },
-
-  // [已停用] GMGN 安全检测因子 — 无法回测验证，暂时注释
-  // gmgnSecurityAvailable: {
-  //   name: 'GMGN安全数据可用',
-  //   format: v => v === 1 ? '有数据' : '无数据',
-  //   unit: '',
-  //   severity: 'info'
-  // },
-  // gmgnIsHoneypot: {
-  //   name: 'GMGN蜜罐检测',
-  //   format: v => v ? '蜜罐' : '安全',
-  //   unit: '',
-  //   severity: 'critical'
-  // },
-  // gmgnIsOpenSource: {
-  //   name: '合约开源',
-  //   format: v => v ? '已开源' : '未开源',
-  //   unit: '',
-  //   severity: 'warning'
-  // },
-  // gmgnIsRenounced: {
-  //   name: '合约放弃权限',
-  //   format: v => v ? '已放弃' : '未放弃',
-  //   unit: '',
-  //   severity: 'warning'
-  // },
-  // gmgnHasBlacklist: {
-  //   name: '黑名单功能',
-  //   format: v => v === 1 ? '有黑名单' : v === -1 ? '未知' : '无',
-  //   unit: '',
-  //   severity: 'critical'
-  // },
-  // gmgnBuyTax: {
-  //   name: '买入税',
-  //   format: v => (v * 100).toFixed(1) + '%',
-  //   unit: '%',
-  //   severity: 'critical'
-  // },
-  // gmgnSellTax: {
-  //   name: '卖出税',
-  //   format: v => (v * 100).toFixed(1) + '%',
-  //   unit: '%',
-  //   severity: 'critical'
-  // },
-  // gmgnTop10HolderRate: {
-  //   name: 'Top10持仓占比',
-  //   format: v => (v * 100).toFixed(1) + '%',
-  //   unit: '%',
-  //   severity: 'warning'
-  // },
-  // gmgnHasAlert: {
-  //   name: 'GMGN风险警报',
-  //   format: v => v ? '有警报' : '无',
-  //   unit: '',
-  //   severity: 'critical'
-  // },
-  // gmgnPrivilegeCount: {
-  //   name: '特权函数数量',
-  //   format: v => v + '个',
-  //   unit: '个',
-  //   severity: 'warning'
-  // },
-  // gmgnLpLocked: {
-  //   name: 'LP锁仓状态',
-  //   format: v => v ? '已锁仓' : '未锁仓',
-  //   unit: '',
-  //   severity: 'info'
-  // },
-  // gmgnLpLockPercent: {
-  //   name: 'LP锁仓比例',
-  //   format: v => (v * 100).toFixed(1) + '%',
-  //   unit: '%',
-  //   severity: 'info'
-  // },
-  // gmgnHolderCount: {
-  //   name: 'GMGN持有人数',
-  //   format: v => v.toString(),
-  //   unit: '个',
-  //   severity: 'info'
-  // },
-  // gmgnLiquidity: {
-  //   name: 'GMGN流动性',
-  //   format: v => '$' + (v >= 1000 ? (v / 1000).toFixed(1) + 'K' : v.toFixed(2)),
-  //   unit: 'USD',
-  //   severity: 'info'
-  // }
 };
 
 /**
@@ -560,17 +363,11 @@ class PreBuyCheckService {
     };
     this.walletClusterService = new WalletClusterService(logger, clusterConfig);
 
-    // 初始化Twitter搜索服务
-    this.twitterSearchService = new TwitterSearchService(logger);
-
     // 初始化强势交易者持仓服务
     this.strongTraderPositionService = new StrongTraderPositionService();
 
     // 初始化钱包标签因子服务
     this.walletLabelService = new WalletLabelService(supabase, logger);
-
-    // 初始化 GMGN 安全检测服务（传入 supabase 用于 DB 缓存读写，传入 logger 用于文件日志）
-    this.gmgnSecurityService = new GMGNSecurityService(supabase, logger);
   }
 
   /**
@@ -598,7 +395,6 @@ class PreBuyCheckService {
    * @param {number} options.checkTime - 检查时间戳（秒），用于回测时指定历史时间点
    * @param {boolean} options.skipHolderCheck - 是否跳过持有者检查（回测时为 true）
    * @param {boolean} options.skipEarlyParticipant - 是否跳过早期参与者检查
-   * @param {boolean} options.skipTwitterSearch - 是否跳过Twitter搜索（回测时为 true，因子使用默认值）
    * @param {number} options.tokenBuyTime - 代币首次买入时间戳（毫秒），用于判断是否有历史交易记录
    * @param {number} options.drawdownFromHighest - 从最高价跌幅（%），负数表示下跌
    * @param {boolean} options.useEarlyTradesCache - 是否使用早期交易者数据库缓存（仅回测使用）
@@ -606,7 +402,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, skipTwitterSearch, skipGmgnSecurity, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, contractRiskData, totalSupply, rawApiData, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -619,7 +415,6 @@ class PreBuyCheckService {
       check_time: checkTime || Math.floor(Date.now() / 1000),
       skip_holder_check: skipHolderCheck || false,
       skip_early_participant: skipEarlyParticipant || false,
-      skip_twitter_search: skipTwitterSearch || false,
       buy_round: buyRound || 1,
       last_pair_return_rate: lastPairReturnRate ?? 0
     });
@@ -630,24 +425,14 @@ class PreBuyCheckService {
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant, totalSupply, useEarlyTradesCache, sourceExperimentId
       );
 
-      // Twitter搜索：回测时跳过，使用默认因子
-      const twitterCheck = skipTwitterSearch
-        ? this._getEmptyTwitterCheck()
-        : await this._performTwitterSearch(tokenAddress);
 
       // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查
-      // [已停用] GMGN 安全检测 — 无法回测验证，暂时跳过
-      // const gmgnSecurityPromise = skipGmgnSecurity
-      //   ? Promise.resolve(this.gmgnSecurityService.getEmptyFactorValues())
-      //   : this.gmgnSecurityService.performSecurityCheck(tokenAddress, chain);
       const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck, tokenAddress),
         this._checkCreatorIsNotBadDevWallet(creatorAddress),
         this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck),
-        // gmgnSecurityPromise,
       ]);
-      const gmgnSecurityCheck = this.gmgnSecurityService.getEmptyFactorValues();
 
       // 钱包标签因子（纯内存计算，无 IO）
       const walletLabelCheck = this.walletLabelService.calculateLabelFactors(earlyParticipantCheck._trades);
@@ -688,7 +473,6 @@ class PreBuyCheckService {
         walletClusterCheck,
         walletLabelCheck,
         creatorDevCheck,
-        twitterCheck,
         strongTraderCheck,
         earlyTraderCheck,
         preBuyCheckCondition,
@@ -700,9 +484,6 @@ class PreBuyCheckService {
           narrativeRating: narrativeRating,
           tweetAuthorType: tweetAuthorType,
           dataCollectionRound: dataCollectionRound,
-          // contractRiskData: contractRiskData  // [已停用] AVE 合约审计风控数据
-          gmgnSecurityCheck: gmgnSecurityCheck,  // GMGN 安全检测数据
-          rawApiData: rawApiData,  // 原始API数据（用于社交因子融合）
         }
       );
     } catch (error) {
@@ -752,33 +533,8 @@ class PreBuyCheckService {
         ...this.earlyParticipantService.getEmptyFactorValues(),
         // 钱包簇检查失败时的空值
         ...this.walletClusterService.getEmptyFactorValues(),
-        // Twitter检查失败时的空值
-        twitterTotalResults: 0,
-        twitterQualityTweets: 0,
-        twitterLikes: 0,
-        twitterRetweets: 0,
-        twitterComments: 0,
-        twitterTotalEngagement: 0,
-        twitterAvgEngagement: 0,
-        twitterVerifiedUsers: 0,
-        twitterFollowers: 0,
-        twitterUniqueUsers: 0,
-        twitterSearchSuccess: false,
-        twitterSearchDuration: 0,
-        twitterSearchError: errorMessage,
         // 强势交易者持仓检查失败时的空值
         ...this.strongTraderPositionService.getEmptyFactorValues(),
-        // [已停用] GMGN 安全检测（失败时使用空值）
-        // ...this.gmgnSecurityService.getEmptyFactorValues(),
-        // [已停用] 合约审计风控因子（保留默认值以兼容已有数据）
-        // contractRiskAvailable: options.contractRiskData?.contractRiskAvailable ?? 0,
-        // contractRiskPairLockPercent: options.contractRiskData?.contractRiskPairLockPercent ?? 0,
-        // contractRiskTopLpHolderPercent: options.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
-        // contractRiskLpHolders: options.contractRiskData?.contractRiskLpHolders ?? 0,
-        // contractRiskScore: options.contractRiskData?.contractRiskScore ?? 0,
-        // contractRiskIsHoneypot: options.contractRiskData?.contractRiskIsHoneypot ?? 0,
-        // contractRiskDexAmmType: options.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
-        // contractRiskHasCode: options.contractRiskData?.contractRiskHasCode ?? 'unknown'
       };
     }
   }
@@ -790,7 +546,6 @@ class PreBuyCheckService {
    * @param {Object} earlyParticipantCheck - 早期参与者检查结果
    * @param {Object} walletClusterCheck - 钱包簇检查结果
    * @param {Object} creatorDevCheck - 创建者Dev检查结果
-   * @param {Object} twitterCheck - Twitter检查结果
    * @param {Object} strongTraderCheck - 强势交易者持仓检查结果
    * @param {Object} earlyTraderCheck - 早期交易者黑白名单检查结果
    * @param {string} condition - 条件表达式
@@ -798,7 +553,7 @@ class PreBuyCheckService {
    * @param {number} drawdownFromHighest - 从最高价跌幅
    * @param {Object} extraContext - 额外上下文 { buyRound, lastPairReturnRate, narrativeRating }
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, walletLabelCheck, creatorDevCheck, twitterCheck, strongTraderCheck, earlyTraderCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, walletLabelCheck, creatorDevCheck, strongTraderCheck, earlyTraderCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -841,20 +596,6 @@ class PreBuyCheckService {
       // 数据采集轮数因子
       dataCollectionRound: extraContext.dataCollectionRound ?? 0,
 
-      // [已停用] GMGN 安全检测因子 — 无法回测验证
-      // ...(extraContext.gmgnSecurityCheck || this.gmgnSecurityService.getEmptyFactorValues()),
-      // // 社交信息因子融合
-      // ...this._mergeSocialFactors(extraContext.gmgnSecurityCheck, extraContext.rawApiData),
-
-      // [已停用] 合约审计风控因子（保留默认值以兼容已有数据）
-      // contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
-      // contractRiskPairLockPercent: extraContext.contractRiskData?.contractRiskPairLockPercent ?? 0,
-      // contractRiskTopLpHolderPercent: extraContext.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
-      // contractRiskLpHolders: extraContext.contractRiskData?.contractRiskLpHolders ?? 0,
-      // contractRiskScore: extraContext.contractRiskData?.contractRiskScore ?? 0,
-      // contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0,
-      // contractRiskDexAmmType: extraContext.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
-      // contractRiskHasCode: extraContext.contractRiskData?.contractRiskHasCode ?? 'unknown',
 
       // 早期参与者检查结果
       ...earlyParticipantCheck,
@@ -864,11 +605,6 @@ class PreBuyCheckService {
 
       // 钱包标签因子
       ...walletLabelCheck,
-
-      // Twitter搜索结果
-      ...twitterCheck.factors,
-      _twitterRawResult: twitterCheck.rawResult,
-      _twitterDuration: twitterCheck.duration,
 
       // 强势交易者持仓检查结果
       ...strongTraderCheck,
@@ -930,19 +666,6 @@ class PreBuyCheckService {
         walletLabelOnlyBuyRatio: walletLabelCheck.walletLabelOnlyBuyRatio,
         // 创建者Dev钱包因子（1=不在Dev列表中, 0=在Dev列表中）
         creatorIsNotBadDevWallet: creatorDevCheck.creatorIsNotBadDevWallet ?? 0,
-        // Twitter因子
-        twitterTotalResults: twitterCheck.factors.twitterTotalResults || 0,
-        twitterQualityTweets: twitterCheck.factors.twitterQualityTweets || 0,
-        twitterLikes: twitterCheck.factors.twitterLikes || 0,
-        twitterRetweets: twitterCheck.factors.twitterRetweets || 0,
-        twitterComments: twitterCheck.factors.twitterComments || 0,
-        twitterTotalEngagement: twitterCheck.factors.twitterTotalEngagement || 0,
-        twitterAvgEngagement: twitterCheck.factors.twitterAvgEngagement || 0,
-        twitterVerifiedUsers: twitterCheck.factors.twitterVerifiedUsers || 0,
-        twitterFollowers: twitterCheck.factors.twitterFollowers || 0,
-        twitterUniqueUsers: twitterCheck.factors.twitterUniqueUsers || 0,
-        twitterSearchSuccess: twitterCheck.factors.twitterSearchSuccess || false,
-        twitterSearchDuration: twitterCheck.factors.twitterSearchDuration || 0,
         // 强势交易者持仓因子
         strongTraderNetPositionRatio: strongTraderCheck.strongTraderNetPositionRatio || 0,
         strongTraderTotalBuyRatio: strongTraderCheck.strongTraderTotalBuyRatio || 0,
@@ -961,19 +684,6 @@ class PreBuyCheckService {
         tweetAuthorType: extraContext.tweetAuthorType ?? 0,
         // 数据采集轮数因子（允许在条件表达式中使用）
         dataCollectionRound: extraContext.dataCollectionRound ?? 0,
-        // [已停用] GMGN 安全检测因子 — 无法回测验证
-        // ...this._extractGmgnFactors(extraContext.gmgnSecurityCheck),
-        // // 社交信息因子融合：GMGN API 数据 + rawApiData（AVE 等收集时数据）
-        // ...this._mergeSocialFactors(extraContext.gmgnSecurityCheck, extraContext.rawApiData),
-        // [已停用] AVE 合约审计风控因子
-        // contractRiskAvailable: extraContext.contractRiskData?.contractRiskAvailable ?? 0,
-        // contractRiskPairLockPercent: extraContext.contractRiskData?.contractRiskPairLockPercent ?? 0,
-        // contractRiskTopLpHolderPercent: extraContext.contractRiskData?.contractRiskTopLpHolderPercent ?? 0,
-        // contractRiskLpHolders: extraContext.contractRiskData?.contractRiskLpHolders ?? 0,
-        // contractRiskScore: extraContext.contractRiskData?.contractRiskScore ?? 0,
-        // contractRiskIsHoneypot: extraContext.contractRiskData?.contractRiskIsHoneypot ?? 0,
-        // contractRiskDexAmmType: extraContext.contractRiskData?.contractRiskDexAmmType ?? 'unknown',
-        // contractRiskHasCode: extraContext.contractRiskData?.contractRiskHasCode ?? 'unknown',
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
@@ -996,29 +706,13 @@ class PreBuyCheckService {
           earlyTradesHighValueCount: context.earlyTradesHighValueCount,
           earlyTradesCountPerMin: context.earlyTradesCountPerMin,
           walletTop3TradeRatio: context.walletTop3TradeRatio,
-          twitterTotalResults: context.twitterTotalResults,
-          twitterSearchDuration: context.twitterSearchDuration,
           narrativeRating: context.narrativeRating,
-          // [已停用] GMGN 安全检测因子
-          // gmgnSecurityAvailable: context.gmgnSecurityAvailable,
-          // gmgnIsHoneypot: context.gmgnIsHoneypot,
-          // gmgnIsOpenSource: context.gmgnIsOpenSource,
-          // gmgnIsRenounced: context.gmgnIsRenounced,
-          // gmgnBuyTax: context.gmgnBuyTax,
-          // gmgnSellTax: context.gmgnSellTax,
-          // gmgnLpLocked: context.gmgnLpLocked,
-          // gmgnTop10HolderRate: context.gmgnTop10HolderRate,
-          // gmgnHasAlert: context.gmgnHasAlert
-        }
       });
 
       const result = {
         ...baseResult,
         canBuy,
         preTraderCanBuy: canBuy,
-        // [已停用] 透传 GMGN 原始 API 数据
-        // gmgnSecurityRawData: extraContext.gmgnSecurityCheck?._rawSecurity || null,
-        // gmgnTokenInfoRawData: extraContext.gmgnSecurityCheck?._rawInfo || null,
       };
 
       // 无论成功失败，都执行详细诊断
@@ -1113,93 +807,8 @@ class PreBuyCheckService {
   }
 
   /**
-   * 从 GMGN 安全检测结果中提取因子用于条件表达式评估上下文
-   * @private
-   */
-  _extractGmgnFactors(gmgnSecurityCheck) {
-    const empty = this.gmgnSecurityService.getEmptyFactorValues();
-    if (!gmgnSecurityCheck) return empty;
-    return {
-      gmgnSecurityAvailable: gmgnSecurityCheck.gmgnSecurityAvailable ?? 0,
-      gmgnIsHoneypot: gmgnSecurityCheck.gmgnIsHoneypot ?? false,
-      gmgnIsOpenSource: gmgnSecurityCheck.gmgnIsOpenSource ?? false,
-      gmgnIsRenounced: gmgnSecurityCheck.gmgnIsRenounced ?? false,
-      gmgnHasBlacklist: gmgnSecurityCheck.gmgnHasBlacklist ?? -1,
-      gmgnBuyTax: gmgnSecurityCheck.gmgnBuyTax ?? 0,
-      gmgnSellTax: gmgnSecurityCheck.gmgnSellTax ?? 0,
-      gmgnTop10HolderRate: gmgnSecurityCheck.gmgnTop10HolderRate ?? 0,
-      gmgnHasAlert: gmgnSecurityCheck.gmgnHasAlert ?? false,
-      gmgnPrivilegeCount: gmgnSecurityCheck.gmgnPrivilegeCount ?? 0,
-      gmgnLpLocked: gmgnSecurityCheck.gmgnLpLocked ?? false,
-      gmgnLpLockPercent: gmgnSecurityCheck.gmgnLpLockPercent ?? 0,
-      gmgnHolderCount: gmgnSecurityCheck.gmgnHolderCount ?? 0,
-      gmgnLiquidity: gmgnSecurityCheck.gmgnLiquidity ?? 0,
-      // 社交信息因子
-      hasTwitter: gmgnSecurityCheck.hasTwitter ?? false,
-      hasTelegram: gmgnSecurityCheck.hasTelegram ?? false,
-      hasWebsite: gmgnSecurityCheck.hasWebsite ?? false,
-      hasDiscord: gmgnSecurityCheck.hasDiscord ?? false,
-      socialLinkCount: gmgnSecurityCheck.socialLinkCount ?? 0,
-      hasAnySocial: gmgnSecurityCheck.hasAnySocial ?? false,
-      // stat 市场统计因子
-      gmgnMarketCap: gmgnSecurityCheck.gmgnMarketCap ?? 0,
-      gmgnFdv: gmgnSecurityCheck.gmgnFdv ?? 0,
-      gmgnVolume24h: gmgnSecurityCheck.gmgnVolume24h ?? 0,
-      gmgnVolume7d: gmgnSecurityCheck.gmgnVolume7d ?? 0,
-      gmgnPriceChange24h: gmgnSecurityCheck.gmgnPriceChange24h ?? 0,
-      gmgnAth: gmgnSecurityCheck.gmgnAth ?? 0,
-      // wallet_tags_stat 钱包标签因子
-      gmgnSmartMoneyCount: gmgnSecurityCheck.gmgnSmartMoneyCount ?? 0,
-      gmgnSmartMoneyPercent: gmgnSecurityCheck.gmgnSmartMoneyPercent ?? 0,
-      gmgnSniperCount: gmgnSecurityCheck.gmgnSniperCount ?? 0,
-      gmgnSniperPercent: gmgnSecurityCheck.gmgnSniperPercent ?? 0,
-      gmgnBotCount: gmgnSecurityCheck.gmgnBotCount ?? 0,
-      gmgnBotPercent: gmgnSecurityCheck.gmgnBotPercent ?? 0,
-      gmgnRetailCount: gmgnSecurityCheck.gmgnRetailCount ?? 0,
-      gmgnRetailPercent: gmgnSecurityCheck.gmgnRetailPercent ?? 0,
-    };
-  }
 
   /**
-   * 融合 GMGN API 和 rawApiData（AVE 等）的社交信息
-   * 两个数据源取 OR 逻辑：任一来源有该社交链接即算有
-   * @private
-   * @param {Object} gmgnSecurityCheck - GMGN 安全检测结果（含社交因子）
-   * @param {Object} rawApiData - 原始 API 数据（AVE 等收集时数据）
-   * @returns {Object} 融合后的社交因子
-   */
-  _mergeSocialFactors(gmgnSecurityCheck, rawApiData) {
-    const gmgn = gmgnSecurityCheck || {};
-    const raw = rawApiData || {};
-
-    const hasTwitter = !!(gmgn.hasTwitter || raw.twitter || raw.twitter_username || raw.twitterUrl || raw.twitter_url);
-    const hasTelegram = !!(gmgn.hasTelegram || raw.telegram || raw.telegram_channel || raw.telegramUrl || raw.telegram_url);
-    const hasWebsite = !!(gmgn.hasWebsite || raw.website || raw.website_url || raw.homepage);
-    const hasDiscord = !!(gmgn.hasDiscord || raw.discord || raw.discord_url);
-    const socialLinkCount = [hasTwitter, hasTelegram, hasWebsite, hasDiscord].filter(Boolean).length;
-
-    return {
-      hasTwitter,
-      hasTelegram,
-      hasWebsite,
-      hasDiscord,
-      socialLinkCount,
-      hasAnySocial: socialLinkCount > 0,
-    };
-  }
-
-  /**
-   * 安全的表达式评估
-   * @private
-   */
-  _safeEvaluate(expression, context) {
-    // 替换 AND/OR 为 JavaScript 运算符
-    const jsExpr = expression
-      .replace(/\bAND\b/gi, '&&')
-      .replace(/\bOR\b/gi, '||')
-      .replace(/\bNOT\b/gi, '!');
-
-    // 使用 Function 构造器评估
     const keys = Object.keys(context);
     const values = Object.values(context);
     const fn = new Function(...keys, `return ${jsExpr};`);
@@ -1630,70 +1239,6 @@ class PreBuyCheckService {
   }
 
   /**
-   * 执行Twitter搜索检查
-   * @private
-   * @param {string} tokenAddress - 代币地址
-   * @returns {Object} Twitter搜索结果
-   */
-  async _performTwitterSearch(tokenAddress) {
-    const startTime = Date.now();
-    try {
-      this.logger.debug('[PreBuyCheckService] 开始Twitter搜索', { token_address: tokenAddress });
-      const result = await this.twitterSearchService.performCheck(tokenAddress);
-      this.logger.debug('[PreBuyCheckService] Twitter搜索完成', {
-        token_address: tokenAddress,
-        success: result.success,
-        duration: result.duration,
-        factors_count: Object.keys(result.factors || {}).length
-      });
-      return result;
-    } catch (error) {
-      this.logger.error('[PreBuyCheckService] Twitter搜索检查失败', {
-        token_address: tokenAddress,
-        error: error.message,
-        stack: error.stack
-      });
-      // 返回空因子值
-      return {
-        success: false,
-        factors: this.twitterSearchService.getEmptyFactors(Date.now() - startTime, error.message),
-        rawResult: null,
-        duration: Date.now() - startTime,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * 获取空的Twitter搜索检查结果（用于回测时跳过Twitter搜索）
-   * @private
-   * @returns {Object} 空的Twitter搜索结果
-   */
-  _getEmptyTwitterCheck() {
-    return {
-      success: false,
-      factors: {
-        twitterTotalResults: 0,
-        twitterQualityTweets: 0,
-        twitterLikes: 0,
-        twitterRetweets: 0,
-        twitterComments: 0,
-        twitterTotalEngagement: 0,
-        twitterAvgEngagement: 0,
-        twitterVerifiedUsers: 0,
-        twitterFollowers: 0,
-        twitterUniqueUsers: 0,
-        twitterSearchSuccess: false,
-        twitterSearchDuration: 0,
-        twitterSearchError: 'Skipped in backtest'
-      },
-      rawResult: null,
-      duration: 0,
-      error: 'Skipped in backtest'
-    };
-  }
-
-  /**
    * 执行强势交易者持仓检查
    * @private
    * @param {string} tokenAddress - 代币地址
@@ -1798,33 +1343,8 @@ class PreBuyCheckService {
       tweetAuthorType: 0,
       // 数据采集轮数因子
       dataCollectionRound: 0,
-      // 合约审计风控因子 [已停用 AVE，改用 GMGN]
-      // contractRiskAvailable: 0,
-      // contractRiskPairLockPercent: 0,
-      // contractRiskTopLpHolderPercent: 0,
-      // contractRiskLpHolders: 0,
-      // contractRiskScore: 0,
-      // contractRiskIsHoneypot: 0,
-      // contractRiskDexAmmType: 'unknown',
-      // contractRiskHasCode: 'unknown',
-      // [已停用] GMGN 安全检测因子
-      // ...this.gmgnSecurityService.getEmptyFactorValues(),
       ...this.earlyParticipantService.getEmptyFactorValues(),
       ...this.walletClusterService.getEmptyFactorValues(),
-      // Twitter因子
-      twitterTotalResults: 0,
-      twitterQualityTweets: 0,
-      twitterLikes: 0,
-      twitterRetweets: 0,
-      twitterComments: 0,
-      twitterTotalEngagement: 0,
-      twitterAvgEngagement: 0,
-      twitterVerifiedUsers: 0,
-      twitterFollowers: 0,
-      twitterUniqueUsers: 0,
-      twitterSearchSuccess: false,
-      twitterSearchDuration: 0,
-      twitterSearchError: null,
       // 强势交易者持仓因子
       ...this.strongTraderPositionService.getEmptyFactorValues()
     };

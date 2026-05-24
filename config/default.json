@@ -3,10 +3,6 @@
     "apiUrl": "https://prod.ave-api.com",
     "timeout": 30000
   },
-  "gmgn": {
-    "apiUrl": "https://openapi.gmgn.ai",
-    "timeout": 30000
-  },
   "fourmeme": {
     "apiUrl": "https://four.meme",
     "timeout": 30000
@@ -53,7 +49,6 @@
     },
     "largeHoldingThreshold": 18,
     "clusterBlockThreshold": 7,
-    "skipTwitterSearch": true,
     "earlyTradesLookbackSeconds": 90
   },
   "logging": {

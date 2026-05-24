@@ -1082,8 +1082,8 @@ class LiveTradingEngine extends AbstractTradingEngine {
     // 初始化钱包缓存和钱包标签缓存
     const initChain = this._blockchain === 'all' ? 'solana' : this._blockchain;
     await this._preBuyCheckService.initialize(initChain);
-    this.logger.info('LiveTradingEngine', 'Initialize', `购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
-    console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
+    this.logger.info('LiveTradingEngine', 'Initialize', `购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
+    console.log(`✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
 
     // 5. 初始化 TokenPool（传入价格历史缓存、持有者历史缓存和监控配置，与虚拟盘一致）
     const monitorConfig = {
@@ -1201,12 +1201,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
       this.logger.info('LiveTradingEngine', 'Initialize', `⚠️ 叙事分析未启用`);
     }
 
-    // GMGN 安全检测配置（与虚拟盘一致）
-    this._gmgnSecurityCheckEnabled = experimentConfig.strategiesConfig?.gmgnSecurityCheck?.enabled ?? experimentConfig.gmgnSecurityCheck?.enabled ?? false;
-    if (this._gmgnSecurityCheckEnabled) {
-      this.logger.info('LiveTradingEngine', 'Initialize', '✅ GMGN 安全检测已启用');
-      console.log('✅ GMGN 安全检测已启用');
-    }
 
     // 提前加载 Super IP 检测模块（用于 tweetAuthorType 因子）
     getSuperIpModules().catch(err => console.warn('Super IP 模块加载失败:', err.message));
@@ -2117,21 +2111,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
             strongTraderSellIntensity: factorResults.strongTraderSellIntensity || 0,
             // 叙事分析评级因子
             narrativeRating: factorResults.narrativeRating ?? 9,
-            // [已停用] GMGN 安全检测因子 — 无法回测验证
-            // gmgnSecurityAvailable: 0,
-            // gmgnIsHoneypot: false,
-            // gmgnIsOpenSource: false,
-            // gmgnIsRenounced: false,
-            // gmgnHasBlacklist: -1,
-            // gmgnBuyTax: 0,
-            // gmgnSellTax: 0,
-            // gmgnTop10HolderRate: 0,
-            // gmgnHasAlert: false,
-            // gmgnPrivilegeCount: 0,
-            // gmgnLpLocked: false,
-            // gmgnLpLockPercent: 0,
-            // gmgnHolderCount: 0,
-            // gmgnLiquidity: 0,
           }
         } : null
       };
@@ -2177,9 +2156,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
       }
       // ========== 叙事分析步骤结束 ==========
 
-      // ========== 合约审计风控（与虚拟盘一致，已停用 AVE，GMGN 安全检测已在 PreBuyCheckService 中执行）==========
-      let contractRiskData = this._getEmptyContractRiskData();  // 固定返回空数据
-      // ========== 合约审计风控结束 ==========
 
       // ========== 然后进行预检查（与虚拟盘一致）==========
       let preCheckPassed = true;
@@ -2244,11 +2220,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
               narrativeRating: narrativeRating,  // 叙事评级
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,  // 推文作者类型
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,  // 数据采集轮数
-              skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false,
-              skipGmgnSecurity: !this._gmgnSecurityCheckEnabled,  // GMGN 安全检测开关（与虚拟盘一致）
-              contractRiskData: contractRiskData,  // 合约审计风控数据（与虚拟盘一致）
               totalSupply: totalSupply,  // 代币总供应量（与虚拟盘一致）
-              rawApiData: token.rawApiData || null  // 原始API数据（用于社交因子融合，与虚拟盘一致）
             }
           );
 
@@ -2305,14 +2277,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
           };
 
           try {
-            // 传递Twitter数据（与虚拟盘一致）
-            const directFields = {
-              twitter_search_result: preBuyCheckResult._twitterRawResult || null,
-              twitter_search_duration: preBuyCheckResult._twitterDuration || null,
-              // [已停用] GMGN 原始数据
-              // gmgn_security_raw_data: preBuyCheckResult.gmgnSecurityRawData || null,
-              // gmgn_token_info_raw_data: preBuyCheckResult.gmgnTokenInfoRawData || null
-            };
+            const directFields = {};
             await this._updateSignalMetadata(signalId, failedCheckMetadata, directFields);
             this.logger.info(this._experimentId, '_executeStrategy',
               `预检查失败，但已保存购买前置检查数据 | symbol=${token.symbol}, signalId=${signalId}`);
@@ -2371,14 +2336,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
         };
 
         try {
-          // 传递Twitter数据（与虚拟盘一致）
-          const directFields = {
-            twitter_search_result: preBuyCheckResult._twitterRawResult || null,
-            twitter_search_duration: preBuyCheckResult._twitterDuration || null,
-            // [已停用] GMGN 原始数据
-            // gmgn_security_raw_data: preBuyCheckResult.gmgnSecurityRawData || null,
-            // gmgn_token_info_raw_data: preBuyCheckResult.gmgnTokenInfoRawData || null
-          };
+          const directFields = {};
           await this._updateSignalMetadata(signalId, signalMetadata, directFields);
           this.logger.info(this._experimentId, '_executeStrategy',
             `信号元数据已更新 | symbol=${token.symbol}, signalId=${signalId}`);
@@ -2545,21 +2503,6 @@ class LiveTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 获取空的合约审计数据（已停用 AVE，GMGN 安全检测已在 PreBuyCheckService 中执行）
-   * @private
-   * @returns {Object} 空的合约审计数据
-   */
-  _getEmptyContractRiskData() {
-    return {
-      contractRiskAvailable: 0,
-      contractRiskPairLockPercent: 0,
-      contractRiskTopLpHolderPercent: 0,
-      contractRiskLpHolders: 0,
-      contractRiskScore: 0,
-      contractRiskIsHoneypot: 0,
-      contractRiskDexAmmType: 'unknown',
-      contractRiskHasCode: 'unknown',
-    };
   }
 
   /**
@@ -2687,7 +2630,7 @@ class LiveTradingEngine extends AbstractTradingEngine {
    * @private
    * @param {string} signalId - 信号ID
    * @param {Object} metadata - 元数据
-   * @param {Object} [directFields] - 直接数据库字段（如 twitter_search_result）
+   * @param {Object} [directFields] - 直接数据库字段
    * @returns {Promise<void>}
    */
 

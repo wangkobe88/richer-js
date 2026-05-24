@@ -53,9 +53,6 @@ class BacktestEngine extends AbstractTradingEngine {
     this._currentLoopCount = 0;
     this._tokenPlatformInfo = new Map(); // token_address → { platform, mainPair }
 
-    // 合约审计风控（LP锁定检查）
-    this._contractRiskCache = new Map(); // token_address → contract risk data
-    this._contractRiskCheckEnabled = false;
 
     // 虚拟资金管理（余额从 PortfolioManager 获取，不再单独维护）
     this.initialBalance = 100;
@@ -591,13 +588,6 @@ class BacktestEngine extends AbstractTradingEngine {
     await this._preBuyCheckService.initialize(initChain);
     this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, clusterBlockThreshold=${preBuyCheckConfig.clusterBlockThreshold || 7})`);
 
-    // 合约审计风控配置
-    const contractRiskConfig = experimentConfig.strategiesConfig?.contractRiskCheck || experimentConfig.contractRiskCheck || {};
-    this._contractRiskCheckEnabled = contractRiskConfig.enabled === true;
-    if (this._contractRiskCheckEnabled) {
-      this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 合约审计风控已启用（LP锁定检查）`);
-    }
-
     // 永久阻断条件
     this._permanentBlockCondition = experimentConfig.strategiesConfig?.permanentBlockCondition || null;
     this._tokenBlacklist = new Map();
@@ -605,16 +595,6 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, '_initializeBacktestComponents', `✅ 永久阻断条件已配置: ${this._permanentBlockCondition}`);
     }
 
-    // 初始化 AVE TokenAPI（用于合约审计检查）
-    if (this._contractRiskCheckEnabled) {
-      const { AveTokenAPI } = require('../../core/ave-api');
-      const config = require('../../../config/default.json');
-      const apiKey = process.env.AVE_API_KEY;
-      this._aveTokenApi = new AveTokenAPI(
-        config.ave.apiUrl,
-        config.ave.timeout,
-        apiKey
-      );
     }
   }
 
@@ -1572,17 +1552,6 @@ class BacktestEngine extends AbstractTradingEngine {
       }
       // ========== 叙事分析步骤结束 ==========
 
-      // ========== 合约审计风控（LP锁定检查）[已停用 AVE，GMGN 安全检测已在 PreBuyCheckService 中执行] ==========
-      // let contractRiskData = { contractRiskAvailable: 0, contractRiskPairLockPercent: 0, contractRiskTopLpHolderPercent: 0, contractRiskLpHolders: 0, contractRiskScore: 0, contractRiskIsHoneypot: 0 };
-      // if (this._contractRiskCheckEnabled) {
-      //   contractRiskData = await this._fetchContractRiskData(tokenState.token, tokenState.chain || this._blockchain || 'bsc');
-      //   this.logger.info(this._experimentId, '_executeStrategy',
-      //     `合约审计数据 | symbol=${tokenState.symbol}, available=${contractRiskData.contractRiskAvailable}, ` +
-      //     `pairLock=${contractRiskData.contractRiskPairLockPercent}%, topLpHolder=${contractRiskData.contractRiskTopLpHolderPercent}%, ` +
-      //     `score=${contractRiskData.contractRiskScore}, honeypot=${contractRiskData.contractRiskIsHoneypot}, dexAmmType=${contractRiskData.contractRiskDexAmmType}, hasCode=${contractRiskData.contractRiskHasCode}`);
-      // }
-      let contractRiskData = { contractRiskAvailable: 0, contractRiskPairLockPercent: 0, contractRiskTopLpHolderPercent: 0, contractRiskLpHolders: 0, contractRiskScore: 0, contractRiskIsHoneypot: 0 };  // 固定返回空数据
-      // ========== 合约审计风控结束 ==========
 
       // ========== 执行购买前检查 ==========
       let preCheckPassed = true;
@@ -1648,17 +1617,14 @@ class BacktestEngine extends AbstractTradingEngine {
             {
               checkTime: Math.floor(timestamp.getTime() / 1000),
               skipHolderCheck: true,
-              skipTwitterSearch: true,  // 回测时跳过Twitter搜索，因子使用默认值
               useEarlyTradesCache: true,  // 回测使用早期交易者缓存（±2秒内复用）
               sourceExperimentId: this._sourceExperimentId,  // 只读源虚拟实验的缓存
               skipEarlyTradesCacheWrite: true,  // 回测不写入缓存
-              // GMGN安全检测不跳过：优先使用DB缓存（虚拟/实盘实验可能已有数据），无缓存时调用API并写入DB
               tokenBuyTime: tokenState.buyTime || null,  // 代币首次买入时间
               drawdownFromHighest: factorResults.drawdownFromHighest || null,  // 从最高价跌幅
               buyRound: currentRound + 1,  // 即将进行的轮数
               lastPairReturnRate: lastPairReturnRate ?? 0,
               narrativeRating: narrativeRating,  // 叙事评级
-              contractRiskData: contractRiskData,  // 合约审计风控数据
               totalSupply: totalSupply  // 代币总供应量
             }
           );
@@ -2108,100 +2074,10 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 获取空的合约审计数据（默认值）
-   * @returns {Object} 空的合约审计数据
-   */
-  _getEmptyContractRiskData() {
-    return {
-      contractRiskAvailable: 0,
-      contractRiskPairLockPercent: 0,
-      contractRiskTopLpHolderPercent: 0,
-      contractRiskLpHolders: 0,
-      contractRiskScore: 0,
-      contractRiskIsHoneypot: 0,
-      contractRiskDexAmmType: 'unknown',
-      contractRiskHasCode: 'unknown',
     };
   }
 
   /**
-   * 获取代币的合约审计数据（带缓存）
-   * 每个代币最多获取一次，后续使用缓存
-   * @param {string} tokenAddress - 代币地址
-   * @param {string} chain - 链名称
-   * @returns {Promise<Object>} 合约审计数据
-   */
-  async _fetchContractRiskData(tokenAddress, chain) {
-    // 检查缓存
-    if (this._contractRiskCache.has(tokenAddress)) {
-      this.logger.info(this._experimentId, '_fetchContractRiskData',
-        `使用缓存的合约审计数据 | token=${tokenAddress.slice(0, 10)}...`);
-      return this._contractRiskCache.get(tokenAddress);
-    }
-
-    try {
-      const { BlockchainConfig } = require('../../utils/BlockchainConfig');
-      const tokenId = BlockchainConfig.buildTokenId(tokenAddress, chain);
-
-      this.logger.info(this._experimentId, '_fetchContractRiskData',
-        `获取合约审计数据 | token=${tokenAddress.slice(0, 10)}..., tokenId=${tokenId}`);
-
-      const riskData = await this._aveTokenApi.getContractRisk(tokenId);
-
-      // 从 pair_holders_rank 提取 Top1 非黑洞 LP 持有人百分比
-      const phr = riskData.pair_holders_rank || [];
-      const nonBurnHolders = phr.filter(h => h.address !== '0x0000000000000000000000000000000000000000');
-      const topHolder = nonBurnHolders[0];
-      const topLpPercent = topHolder ? parseFloat(topHolder.percent) * 100 : 0;
-
-      // pair_lock_percent API 返回 0~1 小数，未锁定时可能返回极小浮点值（如 2.43e-20）
-      // 低于 0.01%（即原始值 < 0.0001）视为未锁定，规整为 0
-      const rawPairLock = riskData.pair_lock_percent || 0;
-      const pairLockPercent = rawPairLock < 0.0001 ? 0 : rawPairLock * 100;
-
-      // 从 dex 数组提取 AMM 类型（v4/v2/unknown）
-      const dexList = riskData.dex || [];
-      const primaryAmm = dexList.length > 0 ? dexList[0].amm || 'unknown' : 'unknown';
-      let dexAmmType = 'unknown';
-      if (primaryAmm === 'uniswapv4') {
-        dexAmmType = 'v4';
-      } else if (primaryAmm === 'uniswapv2') {
-        dexAmmType = 'v2';
-      } else if (primaryAmm !== 'unknown') {
-        dexAmmType = primaryAmm;
-      }
-
-      // 合约开源状态：1 -> open, 0 -> closed, 其他 -> unknown
-      const rawHasCode = riskData.has_code;
-      const hasCodeLabel = rawHasCode === 1 ? 'open' : rawHasCode === 0 ? 'closed' : 'unknown';
-
-      const result = {
-        contractRiskAvailable: 1,
-        contractRiskPairLockPercent: pairLockPercent,
-        contractRiskTopLpHolderPercent: topLpPercent,
-        contractRiskLpHolders: nonBurnHolders.length,
-        contractRiskScore: riskData.risk_score || 0,
-        contractRiskIsHoneypot: riskData.is_honeypot || 0,
-        contractRiskDexAmmType: dexAmmType,
-        contractRiskHasCode: hasCodeLabel,
-      };
-
-      // 缓存结果
-      this._contractRiskCache.set(tokenAddress, result);
-
-      this.logger.info(this._experimentId, '_fetchContractRiskData',
-        `合约审计数据获取成功 | token=${tokenAddress.slice(0, 10)}..., ` +
-        `pairLock=${result.contractRiskPairLockPercent}%, topLp=${result.contractRiskTopLpHolderPercent}%, ` +
-        `score=${result.contractRiskScore}, honeypot=${result.contractRiskIsHoneypot}, dexAmmType=${result.contractRiskDexAmmType}, hasCode=${result.contractRiskHasCode}`);
-
-      return result;
-    } catch (error) {
-      this.logger.warn(this._experimentId, '_fetchContractRiskData',
-        `获取合约审计数据失败 | token=${tokenAddress.slice(0, 10)}..., error=${error.message}`);
-
-      // 获取失败时返回空数据（不阻塞交易，让条件表达式自行判断）
-      const emptyResult = this._getEmptyContractRiskData();
-      this._contractRiskCache.set(tokenAddress, emptyResult);
       return emptyResult;
     }
   }

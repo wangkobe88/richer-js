@@ -37,10 +37,6 @@ class TradeSignal {
     // 元数据（包含价格信息）
     this.metadata = signalData.metadata || {};
 
-    // Twitter搜索结果
-    this.twitter_search_result = signalData.twitter_search_result || null;
-    this.twitter_search_duration = signalData.twitter_search_duration || null;
-
     // GMGN API 原始数据
     this.gmgn_security_raw_data = signalData.gmgn_security_raw_data || null;
     this.gmgn_token_info_raw_data = signalData.gmgn_token_info_raw_data || null;
@@ -69,8 +65,6 @@ class TradeSignal {
       confidence: this.confidence,
       reason: this.reason,
       metadata: this.metadata,
-      twitter_search_result: this.twitter_search_result,
-      twitter_search_duration: this.twitter_search_duration,
       gmgn_security_raw_data: this.gmgn_security_raw_data,
       gmgn_token_info_raw_data: this.gmgn_token_info_raw_data,
       executed: this.executed,
@@ -95,8 +89,6 @@ class TradeSignal {
       confidence: dbRow.confidence,
       reason: dbRow.reason,
       metadata: dbRow.metadata || {},
-      twitter_search_result: dbRow.twitter_search_result || null,
-      twitter_search_duration: dbRow.twitter_search_duration || null,
       gmgn_security_raw_data: dbRow.gmgn_security_raw_data || null,
       gmgn_token_info_raw_data: dbRow.gmgn_token_info_raw_data || null,
       executed: dbRow.executed || false,
@@ -259,8 +251,6 @@ class TradeSignal {
       confidence: this.confidence,
       reason: this.reason,
       metadata: this.metadata,
-      twitter_search_result: this.twitter_search_result,
-      twitter_search_duration: this.twitter_search_duration,
       executed: this.executed,
       // 从 metadata 中提取 execution_reason 以便前端显示
       execution_reason: this.metadata?.execution_reason || null,

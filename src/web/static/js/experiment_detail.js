@@ -1480,19 +1480,6 @@ class ExperimentDetail {
           </div>
         ` : ''}
 
-        <!-- GMGN 安全检测 -->
-        ${config.strategiesConfig?.gmgnSecurityCheck ? `
-          <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <h4 class="text-sm font-semibold text-white mb-3 flex items-center">
-              <span class="mr-2">🛡️</span>GMGN 安全检测
-            </h4>
-            <div class="p-3 bg-gray-700 rounded border border-gray-600 text-sm space-y-2">
-              <div class="flex justify-between">
-                <span class="text-gray-300">状态:</span>
-                <span class="font-medium ${config.strategiesConfig.gmgnSecurityCheck.enabled ? 'text-green-400' : 'text-gray-400'}">${config.strategiesConfig.gmgnSecurityCheck.enabled ? '✅ 启用' : '❌ 禁用'}</span>
-              </div>
-            </div>
-          </div>
         ` : ''}
 
         <!-- 跳过策略检测 -->

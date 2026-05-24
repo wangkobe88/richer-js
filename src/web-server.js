@@ -689,12 +689,6 @@ class RicherJsWebServer {
             config.strategiesConfig.contractRiskCheck = strategy.contractRiskCheck;
           }
 
-          // GMGN 安全检测配置
-          if (strategy.gmgnSecurityCheck !== undefined) {
-            config.strategiesConfig = config.strategiesConfig || {};
-            config.strategiesConfig.gmgnSecurityCheck = strategy.gmgnSecurityCheck;
-          }
-
           // 跳过第一层策略检测配置
           if (strategy.skipStrategyDetection !== undefined) {
             config.strategiesConfig = config.strategiesConfig || {};

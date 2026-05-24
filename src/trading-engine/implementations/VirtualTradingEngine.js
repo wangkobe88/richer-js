@@ -115,9 +115,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     // 叙事分析配置
     this._narrativeAnalysisEnabled = false;
 
-    // 合约审计风控（LP锁定检查）
-    this._contractRiskCache = new Map(); // token_address → contract risk data
-    this._contractRiskCheckEnabled = false;
     this._narrativeReanalyze = false;
     this._narrativeSubmitImmediately = false;
     this._narrativeTriggerThreshold = 80; // 默认80%
@@ -514,7 +511,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     this._preBuyCheckConfig = preBuyCheckConfig;
 
     this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
-    this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled}, skipTwitterSearch=${preBuyCheckConfig.skipTwitterSearch})`);
+    this.logger.info(this._experimentId, 'VirtualTradingEngine', `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
 
     // 3. 初始化代币池（传入价格历史缓存、持有者历史缓存和监控配置）
     const monitorConfig = {
@@ -640,13 +637,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
     const experimentConfig = this._experiment?.config || {};
     this._tradeAmount = experimentConfig.tradeAmount || 0.1;
 
-    // 6.0.1 读取合约审计风控配置 [已停用 AVE]
-    this._contractRiskCheckEnabled = false;
-    // 6.0.2 读取 GMGN 安全检测配置
-    this._gmgnSecurityCheckEnabled = experimentConfig.strategiesConfig?.gmgnSecurityCheck?.enabled ?? experimentConfig.gmgnSecurityCheck?.enabled ?? false;
-    if (this._gmgnSecurityCheckEnabled) {
-      this.logger.info(this._experimentId, 'VirtualTradingEngine', '✅ GMGN 安全检测已启用');
-    }
 
     // 6.0.3 永久阻断条件
     this._permanentBlockCondition = experimentConfig.strategiesConfig?.permanentBlockCondition || null;
@@ -1506,27 +1496,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
             strongTraderSellIntensity: factorResults.strongTraderSellIntensity || 0,
             // 叙事分析评级因子
             narrativeRating: factorResults.narrativeRating ?? 9,
-            // 合约审计风控因子（初始为空，预检查后更新）[已停用 AVE，改用 GMGN]
-            // contractRiskAvailable: 0,
-            // contractRiskPairLockPercent: 0,
-            // contractRiskTopLpHolderPercent: 0,
-            // contractRiskLpHolders: 0,
-            // contractRiskScore: 0,
-            // contractRiskIsHoneypot: 0,
-            // contractRiskDexAmmType: 'unknown',
-            // contractRiskHasCode: 'unknown'
-            // [已停用] GMGN 安全检测因子 — 无法回测验证
-            // gmgnSecurityAvailable: 0,
-            // gmgnIsHoneypot: false,
-            // gmgnIsOpenSource: false,
-            // gmgnIsRenounced: false,
-            // gmgnHasBlacklist: -1,
-            // gmgnBuyTax: 0,
-            // gmgnSellTax: 0,
-            // gmgnTop10HolderRate: 0,
-            // gmgnHasAlert: false,
-            // gmgnPrivilegeCount: 0,
-            // gmgnLpLocked: false,
             // gmgnLpLockPercent: 0,
             // gmgnHolderCount: 0,
             // gmgnLiquidity: 0,
@@ -1575,17 +1544,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
       }
       // ========== 叙事分析步骤结束 ==========
 
-      // ========== 合约审计风控（LP锁定检查）[已停用 AVE，GMGN 安全检测已在 PreBuyCheckService 中执行] ==========
-      // let contractRiskData = this._getEmptyContractRiskData();
-      // if (this._contractRiskCheckEnabled) {
-      //   contractRiskData = await this._fetchContractRiskData(token.token, token.chain || this._blockchain || 'bsc');
-      //   this.logger.info(this._experimentId, '_executeStrategy',
-      //     `合约审计数据 | symbol=${token.symbol}, available=${contractRiskData.contractRiskAvailable}, ` +
-      //     `pairLock=${contractRiskData.contractRiskPairLockPercent}%, topLpHolder=${contractRiskData.contractRiskTopLpHolderPercent}%, ` +
-      //     `score=${contractRiskData.contractRiskScore}, honeypot=${contractRiskData.contractRiskIsHoneypot}, dexAmmType=${contractRiskData.contractRiskDexAmmType}, hasCode=${contractRiskData.contractRiskHasCode}`);
-      // }
-      let contractRiskData = this._getEmptyContractRiskData();  // 固定返回空数据
-      // ========== 合约审计风控结束 ==========
 
       // ========== 然后进行预检查 ==========
       let preCheckPassed = true;
@@ -1677,11 +1635,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
               narrativeRating: narrativeRating,  // 叙事评级
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,  // 推文作者类型
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,  // 数据采集轮数
-              skipTwitterSearch: this._preBuyCheckConfig?.skipTwitterSearch ?? false,
-              skipGmgnSecurity: !this._gmgnSecurityCheckEnabled,  // GMGN 安全检测开关
-              contractRiskData: contractRiskData,  // 合约审计风控数据（已停用，保留兼容）
               totalSupply: totalSupply,  // 代币总供应量
-              rawApiData: token.rawApiData || null  // 原始API数据（用于社交因子融合）
             }
           );
 
@@ -1772,11 +1726,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
           };
 
           try {
-            // 传递Twitter数据
-            const directFields = {
-              twitter_search_result: preBuyCheckResult._twitterRawResult || null,
-              twitter_search_duration: preBuyCheckResult._twitterDuration || null
-            };
+            const directFields = {};
             await this._updateSignalMetadata(signalId, failedCheckMetadata, directFields);
             this.logger.info(this._experimentId, '_executeStrategy',
               `预检查失败，但已保存购买前置检查数据 | symbol=${token.symbol}, signalId=${signalId}`);
@@ -1817,12 +1767,6 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         // 构建趋势因子快照（购买时点的代币状态）
         const trendFactors = buildFactorValuesForTimeSeries(factorResults);
 
-        // 调试日志：检查 preBuyCheckResult 中的推特数据
-        this.logger.debug(this._experimentId, '_executeStrategy',
-          `preBuyCheckResult keys: ${Object.keys(preBuyCheckResult).filter(k => k.startsWith('twitter')).join(', ')}`);
-        this.logger.debug(this._experimentId, '_executeStrategy',
-          `twitterTotalResults: ${preBuyCheckResult.twitterTotalResults}, _twitterDuration: ${preBuyCheckResult._twitterDuration}`);
-
         // 构建购买前检查因子
         const preBuyCheckFactors = buildPreBuyCheckFactorValues(preBuyCheckResult);
 
@@ -1843,14 +1787,7 @@ class VirtualTradingEngine extends AbstractTradingEngine {
         };
 
         try {
-          // 传递Twitter数据和GMGN原始API数据
-          const directFields = {
-            twitter_search_result: preBuyCheckResult._twitterRawResult || null,
-            twitter_search_duration: preBuyCheckResult._twitterDuration || null,
-            // [已停用] GMGN 原始数据
-            // gmgn_security_raw_data: preBuyCheckResult.gmgnSecurityRawData || null,
-            // gmgn_token_info_raw_data: preBuyCheckResult.gmgnTokenInfoRawData || null
-          };
+          const directFields = {};
           await this._updateSignalMetadata(signalId, signalMetadata, directFields);
           this.logger.info(this._experimentId, '_executeStrategy',
             `信号元数据已更新 | symbol=${token.symbol}, signalId=${signalId}`);
@@ -1996,103 +1933,9 @@ class VirtualTradingEngine extends AbstractTradingEngine {
    * 获取叙事评级（带轮询等待）
    * @protected
    * @param {string} tokenAddress - 代币地址
-   * 获取空的合约审计数据
-   * @returns {Object} 空的合约审计因子
-   */
-  _getEmptyContractRiskData() {
-    return {
-      contractRiskAvailable: 0,
-      contractRiskPairLockPercent: 0,
-      contractRiskTopLpHolderPercent: 0,
-      contractRiskLpHolders: 0,
-      contractRiskScore: 0,
-      contractRiskIsHoneypot: 0,
-      contractRiskDexAmmType: 'unknown',
-      contractRiskHasCode: 'unknown',
-    };
   }
 
   /**
-   * 获取代币的合约审计数据（LP锁定检查等）
-   * 每个代币最多获取一次，结果缓存在 _contractRiskCache 中
-   *
-   * @param {string} tokenAddress - 代币地址
-   * @param {string} chain - 区块链标识
-   * @returns {Promise<Object>} 合约审计因子
-   */
-  async _fetchContractRiskData(tokenAddress, chain) {
-    // 检查缓存
-    if (this._contractRiskCache.has(tokenAddress)) {
-      this.logger.info(this._experimentId, '_fetchContractRiskData',
-        `使用缓存的合约审计数据 | token=${tokenAddress.slice(0, 10)}...`);
-      return this._contractRiskCache.get(tokenAddress);
-    }
-
-    try {
-      const { BlockchainConfig } = require('../../utils/BlockchainConfig');
-      const tokenId = BlockchainConfig.buildTokenId(tokenAddress, chain);
-
-      this.logger.info(this._experimentId, '_fetchContractRiskData',
-        `获取合约审计数据 | token=${tokenAddress.slice(0, 10)}..., tokenId=${tokenId}`);
-
-      const riskData = await this._aveTokenApi.getContractRisk(tokenId);
-
-      // 从 pair_holders_rank 提取 Top1 非黑洞 LP 持有人百分比
-      const phr = riskData.pair_holders_rank || [];
-      const nonBurnHolders = phr.filter(h => h.address !== '0x0000000000000000000000000000000000000000');
-      const topHolder = nonBurnHolders[0];
-      const topLpPercent = topHolder ? parseFloat(topHolder.percent) * 100 : 0;
-
-      // pair_lock_percent API 返回 0~1 小数，未锁定时可能返回极小浮点值（如 2.43e-20）
-      // 低于 0.01%（即原始值 < 0.0001）视为未锁定，规整为 0
-      const rawPairLock = riskData.pair_lock_percent || 0;
-      const pairLockPercent = rawPairLock < 0.0001 ? 0 : rawPairLock * 100;
-
-      // 从 dex 数组提取 AMM 类型（v4/v2/unknown）
-      const dexList = riskData.dex || [];
-      const primaryAmm = dexList.length > 0 ? dexList[0].amm || 'unknown' : 'unknown';
-      // 标准化 AMM 类型：uniswapv4 -> v4, uniswapv2 -> v2, 其他保持原样
-      let dexAmmType = 'unknown';
-      if (primaryAmm === 'uniswapv4') {
-        dexAmmType = 'v4';
-      } else if (primaryAmm === 'uniswapv2') {
-        dexAmmType = 'v2';
-      } else if (primaryAmm !== 'unknown') {
-        dexAmmType = primaryAmm;
-      }
-
-      // 合约开源状态：1 -> open, 0 -> closed, 其他 -> unknown
-      const rawHasCode = riskData.has_code;
-      const hasCodeLabel = rawHasCode === 1 ? 'open' : rawHasCode === 0 ? 'closed' : 'unknown';
-
-      const result = {
-        contractRiskAvailable: 1,
-        contractRiskPairLockPercent: pairLockPercent,
-        contractRiskTopLpHolderPercent: topLpPercent,
-        contractRiskLpHolders: nonBurnHolders.length,
-        contractRiskScore: riskData.risk_score || 0,
-        contractRiskIsHoneypot: riskData.is_honeypot || 0,
-        contractRiskDexAmmType: dexAmmType,
-        contractRiskHasCode: hasCodeLabel,
-      };
-
-      // 缓存结果
-      this._contractRiskCache.set(tokenAddress, result);
-
-      this.logger.info(this._experimentId, '_fetchContractRiskData',
-        `合约审计数据获取成功 | token=${tokenAddress.slice(0, 10)}..., ` +
-        `pairLock=${result.contractRiskPairLockPercent}%, topLp=${result.contractRiskTopLpHolderPercent}%, ` +
-        `score=${result.contractRiskScore}, honeypot=${result.contractRiskIsHoneypot}, dexAmmType=${result.contractRiskDexAmmType}, hasCode=${result.contractRiskHasCode}`);
-
-      return result;
-    } catch (error) {
-      this.logger.warn(this._experimentId, '_fetchContractRiskData',
-        `获取合约审计数据失败 | token=${tokenAddress.slice(0, 10)}..., error=${error.message}`);
-
-      // 获取失败时返回空数据（不阻塞交易，让条件表达式自行判断）
-      const emptyResult = this._getEmptyContractRiskData();
-      this._contractRiskCache.set(tokenAddress, emptyResult);
-      return emptyResult;
     }
   }
 

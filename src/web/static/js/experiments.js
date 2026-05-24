@@ -790,10 +790,6 @@ class ExperimentMonitor {
           copyData.contractRiskCheck = sc.contractRiskCheck;
         }
 
-        // GMGN 安全检测配置
-        if (sc.gmgnSecurityCheck !== undefined) {
-          copyData.gmgnSecurityCheck = sc.gmgnSecurityCheck;
-        }
 
         // 跳过第一层策略检测配置
         if (sc.skipStrategyDetection !== undefined) {

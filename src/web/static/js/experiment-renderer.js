@@ -512,9 +512,6 @@ class ExperimentRenderer {
       if (sc.contractRiskCheck) {
         formData.contractRiskCheck = sc.contractRiskCheck;
       }
-      if (sc.gmgnSecurityCheck !== undefined) {
-        formData.gmgnSecurityCheck = sc.gmgnSecurityCheck;
-      }
       if (sc.eventRecording !== undefined) {
         formData.eventRecording = sc.eventRecording;
       }
