@@ -45,11 +45,25 @@ function decodePumpCreateInstruction(dataB58) {
         const data = Buffer.from(bs58.decode(dataB58));
         if (data.length < 8) return null;
         const disc = data.slice(0, 8);
-        if (!disc.equals(PUMP_CREATE_DISCRIMINATOR) && !disc.equals(PUMP_CREATE_V2_DISCRIMINATOR)) return null;
+        const isCreateV2 = disc.equals(PUMP_CREATE_V2_DISCRIMINATOR);
+        const isCreateV1 = disc.equals(PUMP_CREATE_DISCRIMINATOR);
+        if (!isCreateV1 && !isCreateV2) return null;
+
         let offset = 8;
         const nameResult = readAnchorString(data, offset);
         const symbolResult = readAnchorString(data, nameResult.offset);
-        return { name: nameResult.value, symbol: symbolResult.value };
+
+        let isMayhemMode = false;
+        if (isCreateV2) {
+            // create_v2: name + symbol + uri + creator(32) + is_mayhem_mode(1)
+            const uriResult = readAnchorString(data, symbolResult.offset);
+            const creatorEnd = uriResult.offset + 32;
+            if (creatorEnd < data.length) {
+                isMayhemMode = data[creatorEnd] === 1;
+            }
+        }
+
+        return { name: nameResult.value, symbol: symbolResult.value, isMayhemMode };
     } catch { return null; }
 }
 
@@ -321,9 +335,10 @@ class PumpFunWsCollector {
                 return;
             }
 
-            // 从 PumpFun 指令数据中解码 name/symbol
+            // 从 PumpFun 指令数据中解码 name/symbol/isMayhemMode
             let tokenName = '';
             let tokenSymbol = '';
+            let isMayhemMode = false;
             const instructions = txMessage.instructions || [];
             for (const ix of instructions) {
                 const programId = typeof ix.programId === 'string' ? ix.programId : (ix.programId?.pubkey || '');
@@ -334,6 +349,7 @@ class PumpFunWsCollector {
                 if (decoded) {
                     tokenName = decoded.name || '';
                     tokenSymbol = decoded.symbol || '';
+                    isMayhemMode = decoded.isMayhemMode || false;
                     this.stats.decodeSuccess++;
                     break;
                 }
@@ -343,7 +359,7 @@ class PumpFunWsCollector {
                 this.stats.decodeFailed++;
             }
 
-            this._handleNewToken(signature, mintAddress, devWallet, tokenName, tokenSymbol);
+            this._handleNewToken(signature, mintAddress, devWallet, tokenName, tokenSymbol, isMayhemMode);
 
         } catch (error) {
             this.logger.error('[PumpFunWsCollector] 解析交易失败', { error: error.message });
@@ -356,7 +372,7 @@ class PumpFunWsCollector {
      * name/symbol 从 Create/CreateV2 指令数据中解码
      * 价格由后续监控循环的批量价格 API 获取
      */
-    _handleNewToken(signature, mintAddress, devWallet, tokenName, tokenSymbol) {
+    _handleNewToken(signature, mintAddress, devWallet, tokenName, tokenSymbol, isMayhemMode) {
         // 去重检查
         const existingToken = this.tokenPool.getToken(mintAddress, 'solana');
         if (existingToken) {
@@ -385,7 +401,8 @@ class PumpFunWsCollector {
             created_at: Math.floor(now / 1000),
             current_price_usd: null,
             creator_address: devWallet,
-            pairAddress
+            pairAddress,
+            is_mayhem_mode: isMayhemMode
         };
 
         const added = this.tokenPool.addToken(minimalToken);
@@ -395,14 +412,16 @@ class PumpFunWsCollector {
                 name: tokenName || '',
                 symbol: tokenSymbol || '',
                 dev: devWallet,
+                isMayhemMode,
                 signature: signature?.slice(0, 20) + '...',
                 poolSize: this.tokenPool.getStats().total
             });
         } else {
-            // 代币已存在于池中（通常由 AVE 轮询先入池），补充 creator_address
+            // 代币已存在于池中（通常由 AVE 轮询先入池），补充 creator_address 和 is_mayhem_mode
             if (devWallet) {
                 this.tokenPool.enrichToken(mintAddress, 'solana', {
-                    creator_address: devWallet
+                    creator_address: devWallet,
+                    is_mayhem_mode: isMayhemMode
                 });
             }
             this.stats.duplicate++;
