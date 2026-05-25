@@ -537,6 +537,7 @@ class PumpFunTrader extends ITrader {
 
         const maxRetries = this.config.maxRetries || 3;
         let lastError;
+        let lastSignature;
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
@@ -546,6 +547,7 @@ class PumpFunTrader extends ITrader {
                     serialized,
                     { skipPreflight: true, preflightCommitment: 'confirmed' }
                 );
+                lastSignature = signature;
 
                 // 使用 lastValidBlockHeight 控制确认超时
                 const confirmation = await this.connection.confirmTransaction(
@@ -577,11 +579,24 @@ class PumpFunTrader extends ITrader {
                     'insufficient funds',
                     'invalid signature',
                     'already processed',
-                    'custom program error'
+                    'custom program error',
+                    '6022' // NotEnoughTokensToSell — 余额不足，重试无意义
                 ];
                 if (nonRetryable.some(e => errorMessage.includes(e))) {
                     this.logger.error('PumpFun 交易不可重试错误', { attempt, error: error.message });
                     break;
+                }
+
+                // confirmTransaction 超时时，检查交易是否实际已上链成功
+                if (lastSignature && (errorMessage.includes('timeout') || errorMessage.includes('block height'))) {
+                    this.logger.info('PumpFun confirmTransaction 超时，检查交易状态', { signature: lastSignature });
+                    try {
+                        const status = await this.connection.getSignatureStatus(lastSignature);
+                        if (status?.value && !status.value.err) {
+                            this.logger.info('PumpFun 交易实际已成功', { signature: lastSignature, slot: status.value.slot });
+                            return lastSignature;
+                        }
+                    } catch (_) {}
                 }
 
                 this.logger.warn('PumpFun 交易尝试失败', { attempt, error: error.message });

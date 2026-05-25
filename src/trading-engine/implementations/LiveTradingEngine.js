@@ -631,6 +631,15 @@ class LiveTradingEngine extends AbstractTradingEngine {
           }
         } catch (error) {
           this.logger.error(this._experimentId, '_executeSell', `PumpFun 交易器卖出失败: ${error.message}`);
+
+          // Custom:6022 = NotEnoughTokensToSell，说明代币已卖出（可能首次交易确认超时但实际成功）
+          // 标记为 sold 避免后续轮次重复创建卖出信号
+          if (error.message?.includes('6022')) {
+            this.logger.info(this._experimentId, '_executeSell',
+              `余额不足(6022)，代币可能已卖出，标记为 sold | token=${signal.tokenAddress}`);
+            this._tokenPool.markTokenStatus(signal.tokenAddress, 'solana', 'sold');
+          }
+
           return { success: false, reason: error.message };
         }
 
