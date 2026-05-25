@@ -580,7 +580,7 @@ class PumpFunTrader extends ITrader {
                     'invalid signature',
                     'already processed',
                     'custom program error',
-                    '6022' // NotEnoughTokensToSell — 余额不足，重试无意义
+                    'instructionerror' // 所有链上程序错误（6022/6023/6024/6002等），同一笔tx重试无意义
                 ];
                 if (nonRetryable.some(e => errorMessage.includes(e))) {
                     this.logger.error('PumpFun 交易不可重试错误', { attempt, error: error.message });
