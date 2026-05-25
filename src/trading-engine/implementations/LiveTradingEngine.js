@@ -585,31 +585,33 @@ class LiveTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, '_executeSell',
       `检查持仓 | tokenAddress=${signal.tokenAddress}, chain=${signal.chain}`);
     try {
-      const holding = this._getHolding(signal.tokenAddress);
-      if (!holding || holding.amount <= 0) {
-        this.logger.warn(this._experimentId, '_executeSell',
-          `无持仓 | tokenAddress=${signal.tokenAddress}`);
-        return { success: false, reason: '无持仓' };
-      }
+      // 实盘以链上实际持仓为准：Solana 直接使用 'all' 卖出全部持仓，
+      // EVM 从 PortfolioManager 查询（AVE API 同步）
+      let amountToSellForTrader;
 
-      const amountToSell = holding.amount;
-
-      if (amountToSell <= 0) {
-        return { success: false, reason: '卖出数量为0' };
+      if (this._blockchain === 'solana') {
+        // Solana: 使用 'all' 让交易器自动查询链上余额并卖出全部
+        amountToSellForTrader = 'all';
+        this.logger.info(this._experimentId, '_executeSell',
+          `Solana 卖出全部持仓 | tokenAddress=${signal.tokenAddress}`);
+      } else {
+        // EVM: 从 PortfolioManager 获取持仓数量
+        const holding = this._getHolding(signal.tokenAddress);
+        if (!holding || holding.amount <= 0) {
+          this.logger.warn(this._experimentId, '_executeSell',
+            `无持仓 | tokenAddress=${signal.tokenAddress}`);
+          return { success: false, reason: '无持仓' };
+        }
+        if (holding.amount <= 0) {
+          return { success: false, reason: '卖出数量为0' };
+        }
+        const ethers = require('ethers');
+        amountToSellForTrader = ethers.parseUnits(holding.amount.toFixed(18), 18);
       }
 
       // 智能选择交易器：根据链类型使用不同的交易器组合
       let sellResult;
       let traderUsed = 'unknown';
-
-      // 转换金额格式：EVM 用 wei，Solana 直接传代币数量
-      let amountToSellForTrader;
-      if (this._blockchain === 'solana') {
-        amountToSellForTrader = amountToSell.toString();
-      } else {
-        const ethers = require('ethers');
-        amountToSellForTrader = ethers.parseUnits(amountToSell.toFixed(18), 18);
-      }
 
       if (this._blockchain === 'solana') {
         // Solana: PumpFun 统一交易器（自动检测内外盘）
