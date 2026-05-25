@@ -292,11 +292,12 @@ class PumpFunTrader extends ITrader {
         const global = await this.onlinePumpSdk.fetchGlobal();
         const feeConfig = await this.onlinePumpSdk.fetchFeeConfig();
 
-        const { bondingCurveAccountInfo, bondingCurve } =
-            await this.onlinePumpSdk.fetchSellState(tokenMint, this.wallet.publicKey);
-
+        // 先获取 mint info 确定 tokenProgram，再传给 fetchSellState
         const mintAccountInfo = await this.connection.getParsedAccountInfo(tokenMint);
         const tokenProgram = this._detectTokenProgram(mintAccountInfo);
+
+        const { bondingCurveAccountInfo, bondingCurve } =
+            await this.onlinePumpSdk.fetchSellState(tokenMint, this.wallet.publicKey, tokenProgram);
 
         // 计算预期获得的 SOL 数量
         const expectedSol = getSellSolAmountFromTokenAmount({
