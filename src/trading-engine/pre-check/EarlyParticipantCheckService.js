@@ -2,13 +2,19 @@
  * 早期参与者检查服务
  * 获取代币早期交易数据，计算时间标准化的参与者指标
  *
+ * 数据源（Phase 7）：wss_price_ticks（ankr WSS 四.meme 内盘成交 tick）
+ * - 按代币全市场查询（UNIQUE(tx_hash,log_index) 全网去重，多实验竞速归属不影响读侧）
+ * - tick 行映射为 AVE trade 兼容形态（time/tx_id/wallet_address/from_usd/...），
+ *   下游 WalletCluster/WalletLabel/TokenHolder 消费方零改动
+ * - 与 AVE 时代的行为差异：窗口内确认无 tick 时返回真实空统计（拒绝语义），
+ *   不再走"可能已出内盘"的通过值兜底——WSS 订阅覆盖内盘全量成交，
+ *   查空只可能是 flush 竞态（单 tick 沉寂场景，本就该拒）或真无成交。
+ *
  * 职责：
- * 1. 调用AVE API获取早期交易数据
+ * 1. 查询 wss_price_ticks 获取早期交易数据
  * 2. 计算时间窗口标准化的指标
  * 3. 分析增长趋势特征
  */
-
-const config = require('../../../config/default.json');
 
 /**
  * 默认配置
@@ -20,20 +26,18 @@ const DEFAULT_CONFIG = {
   calculateGrowthScore: false,    // 是否计算增长评分
   accelerationSegments: 3,        // 加速度计算分段数（已废弃，保留配置兼容性）
   calculateGrowthMetrics: false,  // 是否计算增长特征（分析显示无效，默认关闭）
-  apiMaxRetries: 6,               // API调用最大重试次数
-  apiRetryDelayMs: 1000           // API重试延迟（毫秒）
+  maxTickRows: 2000               // 单次查询最大 tick 行数（90s 窗口防御上限）
 };
 
 class EarlyParticipantCheckService {
   /**
    * @param {Object} logger - Logger实例
    * @param {Object} config - 配置对象
-   * @param {Object} supabase - Supabase客户端（可选，用于存储数据）
+   * @param {Object} supabase - Supabase客户端（可选，用于查询与存储）
    */
   constructor(logger, config = {}, supabase = null) {
     this.logger = logger;
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.aveTxApi = null;
     this.supabase = supabase;
   }
 
@@ -46,87 +50,12 @@ class EarlyParticipantCheckService {
   }
 
   /**
-   * 带重试的API调用
-   * @private
-   */
-  async _fetchTradesWithRetry(txApi, pairId, limit, fromTime, toTime, sort) {
-    const maxRetries = this.config.apiMaxRetries || 3;
-    const retryDelay = this.config.apiRetryDelayMs || 1000;
-    let lastError = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const trades = await txApi.getSwapTransactions(pairId, limit, fromTime, toTime, sort);
-        if (attempt > 1) {
-          this.logger.info('[EarlyParticipantCheckService] API重试成功', {
-            attempt,
-            pair_id: pairId
-          });
-        }
-        return trades;
-      } catch (error) {
-        lastError = error;
-        this.logger.warn('[EarlyParticipantCheckService] API调用失败', {
-          attempt,
-          max_retries: maxRetries,
-          pair_id: pairId,
-          error: error.message
-        });
-
-        if (attempt < maxRetries) {
-          // 第1-2次：指数退避 (1秒, 2秒)
-          // 第3-6次：固定等待2秒
-          let delay;
-          if (attempt <= 2) {
-            delay = retryDelay * Math.pow(2, attempt - 1);
-          } else {
-            delay = 2000; // 第3-6次重试都等待2秒
-          }
-          this.logger.debug('[EarlyParticipantCheckService] 等待重试', {
-            attempt,
-            delay_ms: delay
-          });
-          await this._sleep(delay);
-        }
-      }
-    }
-
-    // 所有重试都失败
-    throw new Error(`API调用失败（重试${maxRetries}次后）: ${lastError?.message || '未知错误'}`);
-  }
-
-  /**
-   * 延迟函数
-   * @private
-   */
-  _sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  /**
-   * 获取AVE Tx API实例（延迟初始化）
-   * @private
-   */
-  _getTxApi() {
-    if (!this.aveTxApi) {
-      const { AveTxAPI } = require('../../core/ave-api');
-      const apiKey = process.env.AVE_API_KEY;
-      this.aveTxApi = new AveTxAPI(
-        config.ave.apiUrl,
-        config.ave.timeout,
-        apiKey
-      );
-    }
-    return this.aveTxApi;
-  }
-
-  /**
    * 执行早期参与者检查
-   * @param {string} tokenAddress - 代币地址
-   * @param {string} innerPair - 内盘交易对（如 0x..._fo）
-   * @param {string} chain - 区块链
+   * @param {string} tokenAddress - 代币地址（wss_price_ticks 查询键）
+   * @param {string} innerPair - 内盘交易对标识（如 0x..._fo，仅用于日志与 early_participant_trades 存档，不参与查询）
+   * @param {string} chain - 区块链（仅用于日志与存档，tick 表已按 BSC 全市场组织）
    * @param {number} launchAt - 代币创建时间戳（秒）（保留参数兼容性，但不再使用）
-   * @param {number} checkTime - 当前检查时间戳（秒）
+   * @param {number} checkTime - 当前检查时间戳（秒）（实时=当前墙钟；回测=回放时钟）
    * @param {number} totalSupply - 代币总供应量（可选，用于计算净持仓占比）
    * @param {Object} options - 可选配置
    * @param {boolean} options.useCache - 是否使用数据库缓存（仅回测使用，虚拟/实盘不缓存）
@@ -159,19 +88,21 @@ class EarlyParticipantCheckService {
         }
       }
 
-      // 1. 获取交易数据（固定90秒回溯窗口）
+      // 1. 获取交易数据（固定90秒回溯窗口，wss_price_ticks 源）
       if (!trades) {
-        trades = await this._fetchEarlyTrades(innerPair, chain, checkTime);
+        trades = await this._fetchEarlyTrades(tokenAddress, checkTime);
       }
 
+      // WSS 源下查空是真实市场状态（窗口内无成交或 flush 竞态），
+      // 走正常空统计（全 0 值 → evaluateBuyEligibility 自然拒绝），
+      // 不再抛错走"可能已出内盘"的通过值兜底（该语义仅保留给查询异常路径）
       if (!trades || trades.length === 0) {
-        this.logger.error('[EarlyParticipantCheckService] 未获取到交易数据，拒绝交易', {
+        this.logger.info('[EarlyParticipantCheckService] 窗口内无成交 tick，返回空统计', {
           token_address: tokenAddress,
-          inner_pair: innerPair,
-          chain
+          check_time: checkTime,
+          window_seconds: this.config.fixedWindowSeconds
         });
-        // 数据获取失败时抛出错误，而不是返回空结果
-        throw new Error('未获取到交易数据，无法进行早期参与者检查');
+        trades = [];
       }
 
       // 2. 计算实际数据跨度
@@ -219,6 +150,9 @@ class EarlyParticipantCheckService {
         // 新增因子
         earlyTradesFinalLiquidity: basicStats.earlyTradesFinalLiquidity,
         earlyTradesDrawdownFromHighest: basicStats.earlyTradesDrawdownFromHighest,
+
+        // 窗口内无成交标记（值为真实空统计，非通过值兜底）
+        earlyTradesNoInnerData: trades.length === 0 ? 1 : 0,
 
         // 内部数据（供钱包簇检查复用）
         _trades: trades,
@@ -288,131 +222,94 @@ class EarlyParticipantCheckService {
 
   /**
    * 获取早期交易数据
-   * 固定回溯90秒窗口，循环获取直到覆盖完整时间窗口
+   * 从 wss_price_ticks 表查 checkTime 前 90s 窗口内的成交 tick（按代币全市场查询，
+   * 不按 experiment_id 过滤——tick UNIQUE(tx_hash,log_index) 全网去重竞速归属，读侧语义与市场级一致）
+   * 过滤口径与 tick-kline-service 一致：price_usd 非 null + price_outlier=false
    * @private
    */
-  async _fetchEarlyTrades(innerPair, chain, checkTime) {
-    const txApi = this._getTxApi();
-    // 使用 BlockchainConfig 的后缀映射（ethereum → eth）
-    const { BlockchainConfig } = require('../../utils/BlockchainConfig');
-    const suffix = BlockchainConfig.TOKEN_ID_SUFFIXES[chain] || chain;
-    const pairId = `${innerPair}-${suffix}`;
-
-    // 固定回溯窗口
-    const targetFromTime = checkTime - this.config.fixedWindowSeconds;
-    let currentToTime = checkTime;
-
-    const allTrades = [];
-    let loopCount = 0;
-    const maxLoops = 10; // 防止无限循环，最多10次（可覆盖3000笔交易）
-
-    this.logger.debug('[EarlyParticipantCheckService] 开始循环获取交易数据', {
-      pair_id: pairId,
-      target_from_time: targetFromTime,
-      initial_to_time: currentToTime,
-      window_seconds: this.config.fixedWindowSeconds
-    });
-
-    while (loopCount < maxLoops) {
-      loopCount++;
-
-      // 调用API获取一批数据（带重试）
-      const trades = await this._fetchTradesWithRetry(
-        txApi,
-        pairId,
-        300,              // limit - 最大300条
-        targetFromTime,   // fromTime - 固定为目标起始时间
-        currentToTime,    // toTime - 当前批次的结束时间
-        'asc'             // sort - 按时间升序
-      );
-
-      if (trades.length === 0) {
-        this.logger.debug('[EarlyParticipantCheckService] 批次无数据，结束', {
-          loop: loopCount
-        });
-        break;
-      }
-
-      // 记录这批交易的时间范围
-      const batchFirstTime = trades[0].time;
-      const batchLastTime = trades[trades.length - 1].time;
-
-      this.logger.debug('[EarlyParticipantCheckService] 获取到批次数据', {
-        loop: loopCount,
-        trades_count: trades.length,
-        batch_first_time: batchFirstTime,
-        batch_last_time: batchLastTime,
-        batch_span: (batchLastTime - batchFirstTime).toFixed(1) + 's'
-      });
-
-      allTrades.push(...trades);
-
-      // 检查是否已经覆盖到目标起始时间
-      if (batchFirstTime <= targetFromTime) {
-        this.logger.debug('[EarlyParticipantCheckService] 已覆盖完整时间窗口', {
-          loop: loopCount,
-          total_trades: allTrades.length
-        });
-        break;
-      }
-
-      // 如果返回了300条数据，可能还有更早的数据
-      // 更新toTime为当前批次最早交易时间的前1秒，继续获取
-      if (trades.length === 300) {
-        currentToTime = batchFirstTime - 1;
-        this.logger.debug('[EarlyParticipantCheckService] 继续获取更早的数据', {
-          loop: loopCount,
-          new_to_time: currentToTime
-        });
-      } else {
-        // 返回数据不足300条，说明已经没有更早的数据了
-        this.logger.debug('[EarlyParticipantCheckService] 数据已获取完毕', {
-          loop: loopCount,
-          total_trades: allTrades.length
-        });
-        break;
-      }
+  async _fetchEarlyTrades(tokenAddress, checkTime) {
+    if (!this.supabase) {
+      throw new Error('Supabase 客户端未初始化，无法查询 wss_price_ticks');
     }
 
-    // 按时间排序并去重（以防批次间有重叠）
-    const uniqueTrades = this._deduplicateTrades(allTrades);
+    const fromIso = new Date((checkTime - this.config.fixedWindowSeconds) * 1000).toISOString();
+    const toIso = new Date(checkTime * 1000).toISOString();
 
-    this.logger.info('[EarlyParticipantCheckService] 交易数据获取完成', {
-      pair_id: pairId,
-      total_trades: uniqueTrades.length,
-      loops: loopCount,
-      expected_window: this.config.fixedWindowSeconds + 's',
-      actual_span: uniqueTrades.length > 0
-        ? ((uniqueTrades[uniqueTrades.length - 1].time - uniqueTrades[0].time).toFixed(1) + 's')
-        : '0s',
-      data_completeness: uniqueTrades.length > 0 && uniqueTrades[0].time <= targetFromTime ? 'complete' : 'partial'
+    const { data, error } = await this.supabase
+      .from('wss_price_ticks')
+      .select('token_address, tx_hash, log_index, trade_type, trader_address, price_usd, bnb_amount, token_amount, block_number, block_time')
+      .eq('token_address', tokenAddress)
+      .gte('block_time', fromIso)
+      .lte('block_time', toIso)
+      .eq('price_outlier', false)
+      .not('price_usd', 'is', null)
+      .order('block_time', { ascending: true })
+      .order('log_index', { ascending: true })
+      .limit(this.config.maxTickRows);
+
+    if (error) {
+      throw new Error(`查询 wss_price_ticks 失败: ${error.message}`);
+    }
+
+    const rows = data || [];
+    if (rows.length >= this.config.maxTickRows) {
+      this.logger.warn('[EarlyParticipantCheckService] tick 行数达到上限已截断，统计基于窗口内最早部分', {
+        token_address: tokenAddress,
+        max_tick_rows: this.config.maxTickRows,
+        window_seconds: this.config.fixedWindowSeconds
+      });
+    }
+
+    this.logger.info('[EarlyParticipantCheckService] 交易数据获取完成（wss_price_ticks）', {
+      token_address: tokenAddress,
+      total_trades: rows.length,
+      window: `${fromIso} ~ ${toIso}`
     });
 
-    return uniqueTrades;
+    return rows.map(row => this._mapTickRow(row, tokenAddress));
   }
 
   /**
-   * 对交易数据去重（基于tx_id）
+   * WSS tick 行 → AVE trade 兼容形态映射
+   * 下游消费方（WalletCluster/WalletLabel/TokenHolder）零改动：
+   * - WalletCluster: to_token/to_amount/from_token（买入手数累计）、from_usd、wallet_address
+   * - WalletLabel: from_token/from_token_symbol 判 isBuy（BNB 为计价货币方）
+   * - TokenHolder: wallet_address/from_address
+   * 同时保留 tick 原始字段（trade_type/price_usd/bnb_amount/token_amount），随 trades_data 落 early_participant_trades
    * @private
    */
-  _deduplicateTrades(trades) {
-    if (!trades || trades.length === 0) return [];
+  _mapTickRow(row, tokenAddress) {
+    const isBuy = row.trade_type === 'buy';
+    const priceUsd = parseFloat(row.price_usd) || 0;
+    const tokenAmount = parseFloat(row.token_amount) || 0;
+    const bnbAmount = parseFloat(row.bnb_amount) || 0;
+    const usdVolume = priceUsd * tokenAmount;
+    // BSC WBNB（four.meme 内盘计价货币）
+    const WBNB = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
 
-    const seen = new Set();
-    const unique = [];
+    return {
+      // AVE trade 兼容形态
+      time: Math.floor(new Date(row.block_time).getTime() / 1000),
+      tx_id: `${row.tx_hash}-${row.log_index}`,
+      wallet_address: row.trader_address,
+      from_address: row.trader_address,
+      from_usd: usdVolume,
+      to_usd: usdVolume,
+      to_token_price_usd: priceUsd,
+      from_token_price_usd: priceUsd,
+      pair_liquidity_usd: null,
+      to_token: isBuy ? tokenAddress : WBNB,
+      from_token: isBuy ? WBNB : tokenAddress,
+      to_amount: isBuy ? tokenAmount : bnbAmount,
+      from_token_symbol: isBuy ? 'BNB' : 'TOKEN',
+      block_number: row.block_number,
 
-    // 先按时间排序
-    const sorted = trades.sort((a, b) => a.time - b.time);
-
-    for (const trade of sorted) {
-      const key = trade.tx_id || `${trade.time}_${trade.from_address}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        unique.push(trade);
-      }
-    }
-
-    return unique;
+      // WSS tick 原始字段（裸数据留存）
+      trade_type: row.trade_type,
+      price_usd: priceUsd,
+      bnb_amount: bnbAmount,
+      token_amount: tokenAmount
+    };
   }
 
   /**
