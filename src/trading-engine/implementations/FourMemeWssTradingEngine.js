@@ -69,13 +69,24 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._seenTokens = new Set();        // 已落库 experiment_tokens 的 `${token}-bsc`
     this._buyingTokens = new Set();      // 买路径执行中（预检查+记账期间防重入）
     this._sellingTokens = new Set();     // 卖路径执行中防重入（tick 密集，必须有）
-    this._debounceTimers = new Map();    // tokenAddress → { timer, maxTimer, burstStart, tick }
     this._restoreAnchors = new Map();    // 重启恢复的持仓锚点 tokenAddress → { buyPriceUsd, buyTime }
     this._intervals = {};
     this._wssDownFlagged = false;
 
     // 引擎级配置（fourmemeWs 段；实验级覆盖在 _initializeDataSources 中重读）
     this._applyWsConfig(baseConfig.fourmemeWs || {});
+
+    // 买评估去抖（real 模式；与回测引擎共享 TickDebouncer 语义）
+    const { TickDebouncer } = require('../core/TickDebouncer');
+    this._buyDebouncer = new TickDebouncer({
+      debounceMs: this._signalDebounceMs,
+      maxWaitMs: this._signalDebounceMaxWaitMs,
+      mode: 'real',
+      onFire: (tokenAddress, tick) => {
+        this.metrics.debounceFired++;
+        this._runBuyEvaluation(tokenAddress, tick);
+      },
+    });
 
     this.metrics = {
       totalTrades: 0,
@@ -291,10 +302,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._intervals = {};
 
     // 清 debounce 定时器（fire 回调内自清，此处处理未 fire 的）
-    for (const [tokenAddress, entry] of this._debounceTimers) {
-      clearTimeout(entry.timer);
-      if (entry.maxTimer) clearTimeout(entry.maxTimer);
-      this._debounceTimers.delete(tokenAddress);
+    if (this._buyDebouncer) {
+      this._buyDebouncer.clearAll();
     }
 
     // 停采集器（内部 flush 剩余 tick 缓冲后关闭 WSS）
@@ -354,38 +363,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 买评估 slot 级去抖：burst 内每 tick 重置 timer；maxWait 强制触发
-   *（持续拉升的热门票全程连续 tick 时不会被无限推迟）。
+   * 买评估 slot 级去抖：burst 内每 tick 重置；maxWait 强制触发
+   *（持续拉升的热门票全程连续 tick 时不会被无限推迟）。语义见 TickDebouncer。
    */
   _scheduleDebouncedBuy(tokenAddress, tick) {
-    if (this._signalDebounceMs <= 0) {
-      this._runBuyEvaluation(tokenAddress, tick);
-      return;
-    }
-
-    let entry = this._debounceTimers.get(tokenAddress);
-    if (entry) {
-      clearTimeout(entry.timer);
+    if (this._buyDebouncer.pending.has(tokenAddress)) {
       this.metrics.debounceSuppressed++;
-    } else {
-      entry = { burstStart: Date.now(), maxTimer: null };
     }
-    entry.tick = tick; // 跟踪 burst 末笔 tick（供信号 metadata）
-
-    const fire = () => {
-      const e = this._debounceTimers.get(tokenAddress);
-      if (!e) return;
-      clearTimeout(e.timer);
-      if (e.maxTimer) clearTimeout(e.maxTimer);
-      this._debounceTimers.delete(tokenAddress);
-      this.metrics.debounceFired++;
-      this._runBuyEvaluation(tokenAddress, e.tick);
-    };
-    entry.timer = setTimeout(fire, this._signalDebounceMs);
-    if (this._signalDebounceMaxWaitMs > 0 && !entry.maxTimer) {
-      entry.maxTimer = setTimeout(fire, this._signalDebounceMaxWaitMs);
-    }
-    this._debounceTimers.set(tokenAddress, entry);
+    this._buyDebouncer.touch(tokenAddress, tick);
   }
 
   /**
@@ -1116,7 +1101,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       collector: this._collector ? this._collector.getStats() : null,
       factorAggregator: this._factorAggregator ? this._factorAggregator.getStats() : null,
       tokenPool: this._tokenPool ? this._tokenPool.getStats() : null,
-      debouncePending: this._debounceTimers.size,
+      debouncePending: this._buyDebouncer ? this._buyDebouncer.size : 0,
       buying: this._buyingTokens.size,
       selling: this._sellingTokens.size,
       wssDownFlagged: this._wssDownFlagged,
