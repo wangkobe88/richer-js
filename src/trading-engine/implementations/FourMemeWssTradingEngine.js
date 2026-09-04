@@ -980,7 +980,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const factors = this._factorAggregator.buildFactorMap(tokenAddress, now);
       if (!factors) continue;
 
-      const recordResult = await this.timeSeriesService.recordRoundData({
+      const recordResult = await this._timeSeriesService.recordRoundData({
         experimentId: this._experimentId,
         tokenAddress,
         tokenSymbol: token?.symbol || state.symbol || '',
