@@ -1,24 +1,18 @@
 /**
  * Price Refresh Service
  *
- * 负责批量获取代币实时价格并更新数据库
+ * 批量刷新实验代币实时价格（Phase 6：数据源从 AVE API 改为 wss_price_ticks）
+ * 每代币取时间最近一条有效 tick 的 price_usd 写回 experiment_tokens.current_price_usd。
  */
 
-const { AveTokenAPI } = require('../../core/ave-api');
+const TickKlineService = require('./tick-kline-service');
 
 class PriceRefreshService {
     constructor(logger, db, config) {
         this.logger = logger;
         this.db = db;
         this.config = config;
-
-        // 初始化 AVE TokenAPI（用于获取价格数据）
-        const apiKey = process.env.AVE_API_KEY;
-        this.aveTokenApi = new AveTokenAPI(
-            config.ave?.apiUrl || 'https://api.ave.ai',
-            config.ave?.timeout || 30000,
-            apiKey
-        );
+        this.tickKlineService = new TickKlineService(logger);
     }
 
     /**
@@ -28,13 +22,13 @@ class PriceRefreshService {
      */
     async refreshTokenPrices(experimentId) {
         const startTime = Date.now();
-        this.logger.log(`开始刷新实验 ${experimentId} 的代币价格`);
+        this.logger.log(`开始刷新实验 ${experimentId} 的代币价格（tick 源）`);
 
         try {
             // 1. 获取实验中的所有代币
             const { data: tokens, error } = await this.db
                 .from('experiment_tokens')
-                .select('token_address, blockchain')
+                .select('token_address')
                 .eq('experiment_id', experimentId);
 
             if (error) {
@@ -51,18 +45,17 @@ class PriceRefreshService {
                 };
             }
 
-            // 2. 构建 tokenId 列表（格式：{address}-{chain}）
-            const tokenIds = tokens.map(t => `${t.token_address}-${t.blockchain || 'bsc'}`);
-            const prices = await this._fetchBatchPrices(tokenIds);
+            // 2. tick 源批量取最新价
+            const addresses = tokens.map(t => t.token_address);
+            const prices = await this.tickKlineService.getLatestPrices(this.db, addresses);
 
-            if (!prices || Object.keys(prices).length === 0) {
-                this.logger.log(`AVE API 未返回任何价格数据`);
+            if (Object.keys(prices).length === 0) {
                 return {
                     success: true,
                     updated: 0,
                     failed: 0,
                     duration: Date.now() - startTime,
-                    message: '未获取到价格数据'
+                    message: '无 tick 数据（代币尚无成交记录）'
                 };
             }
 
@@ -93,54 +86,26 @@ class PriceRefreshService {
     }
 
     /**
-     * 批量获取代币价格
-     * @param {Array<string>} tokenIds - 代币ID数组（格式：{address}-{chain}）
-     * @returns {Promise<Object>} 价格数据对象 { tokenId: { current_price_usd, ... } }
-     * @private
-     */
-    async _fetchBatchPrices(tokenIds) {
-        try {
-            // AVE API 批量获取价格
-            const response = await this.aveTokenApi.getTokenPrices(tokenIds);
-            return response || {};
-        } catch (error) {
-            this.logger.log(`获取价格失败: ${error.message}`);
-            return {};
-        }
-    }
-
-    /**
      * 批量更新数据库中的价格
      * @param {string} experimentId - 实验 ID
-     * @param {Object} prices - 价格数据对象 { tokenId: { current_price_usd, ... } }
-     * @returns {Promise<Object>} 更新结果
+     * @param {Object<string, {price:number, blockTime:string}>} prices - tick 最新价
+     * @returns {Promise<{updated:number, failed:number}>}
      * @private
      */
     async _batchUpdatePrices(experimentId, prices) {
         let updated = 0;
         let failed = 0;
 
-        for (const [tokenId, priceData] of Object.entries(prices)) {
+        for (const [tokenAddress, priceData] of Object.entries(prices)) {
             try {
-                // 从 tokenId 中提取 token_address（格式：{address}-{chain}）
-                const tokenAddress = tokenId.split('-')[0];
-                if (!tokenAddress) continue;
-
-                const currentPrice = parseFloat(priceData.current_price_usd);
+                const currentPrice = parseFloat(priceData.price);
                 if (isNaN(currentPrice)) continue;
 
-                // 更新数据库
                 const { error } = await this.db
                     .from('experiment_tokens')
                     .update({
                         current_price_usd: currentPrice,
-                        price_updated_at: new Date().toISOString(),
-                        // 同时更新 raw_api_data 中的价格
-                        raw_api_data: this.db.raw(`jsonb_set(
-                            coalesce(raw_api_data, '{}'::jsonb),
-                            '{current_price_usd}',
-                            '${currentPrice}'::jsonb
-                        )`)
+                        price_updated_at: new Date().toISOString()
                     })
                     .eq('experiment_id', experimentId)
                     .eq('token_address', tokenAddress);

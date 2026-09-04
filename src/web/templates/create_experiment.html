@@ -225,9 +225,6 @@
                                     onchange="handleBlockchainChange()"
                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="bsc" selected>BSC (Binance Smart Chain)</option>
-                                <option value="base">Base</option>
-                                <option value="solana">Solana</option>
-                                <option value="ethereum">Ethereum (Mainnet)</option>
                             </select>
                         </div>
                         <div>
@@ -262,63 +259,10 @@
                     </div>
                 </div>
 
-                <!-- 代币收集配置 -->
-                <div class="border border-gray-200 rounded-lg p-3">
-                    <h2 class="text-lg font-semibold text-gray-800 mb-3">📡 代币收集配置</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                收集频率（秒）
-                            </label>
-                            <input type="number"
-                                   name="collector_interval"
-                                   id="collector-interval"
-                                   min="1"
-                                   step="1"
-                                   value="10"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-gray-500 mt-1">多久请求一次API获取新代币。ETH链建议20-30秒，BSC/Solana建议10秒</p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                代币最大年龄（秒）
-                            </label>
-                            <input type="number"
-                                   name="collector_max_age"
-                                   id="collector-max-age"
-                                   min="10"
-                                   step="10"
-                                   value="60"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-gray-500 mt-1">只收集创建时间在此范围内的代币。ETH链建议300-600秒，BSC/Solana建议60秒</p>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                价格监控频率（秒）
-                            </label>
-                            <input type="number"
-                                   name="monitor_interval"
-                                   id="monitor-interval"
-                                   min="1"
-                                   step="1"
-                                   value="10"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <p class="text-xs text-gray-500 mt-1">多久获取一次代币池中的价格数据。建议10秒</p>
-                        </div>
-                        <!-- 数据来源配置（仅 Solana 链时显示） -->
-                        <div id="data-source-config" class="hidden md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                数据来源
-                            </label>
-                            <select name="data_source" id="data-source-select"
-                                    class="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="both" selected>WSS + AVE API（两者都开启）</option>
-                                <option value="wss">仅 WSS（WebSocket 实时）</option>
-                                <option value="ave_api">仅 AVE API（轮询）</option>
-                            </select>
-                            <p class="text-xs text-gray-500 mt-1">WSS: ~0.5-1秒检测 | AVE API: ~18-19秒检测 | 默认两者都开启</p>
-                        </div>
-                    </div>
+                <!-- 代币收集说明（WSS 事件驱动，无轮询参数） -->
+                <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-2">📡 代币收集</h2>
+                    <p class="text-sm text-gray-600">ankr WSS 事件驱动：TokenCreate/TokenTrade/LiquidityAdded 实时订阅（BSC four.meme 内盘），无轮询频率配置。采集参数（去抖/缓冲/断流守护）见 config/default.json 的 fourmemeWs 段。</p>
                 </div>
 
                 <!-- 回测配置（仅在选择回测模式时显示） -->
@@ -351,20 +295,6 @@
                                    step="1"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <span class="text-xs text-gray-500">只回测最高涨幅超过此值的代币，避免处理大量无波动代币。设置为0表示回测所有代币。</span>
-                        </div>
-                        <!-- 回测数据来源过滤（仅 Solana + 回测模式时显示） -->
-                        <div id="backtest-data-source-filter" class="hidden md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                回测数据来源过滤
-                            </label>
-                            <select name="backtest_data_source"
-                                    id="backtest_data_source"
-                                    class="w-full md:w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="">不过滤（使用所有数据来源）</option>
-                                <option value="wss">仅 WSS 数据</option>
-                                <option value="ave_api">仅 AVE API 数据</option>
-                            </select>
-                            <span class="text-xs text-gray-500">按代币发现方式过滤回测数据</span>
                         </div>
                     </div>
                 </div>
@@ -443,7 +373,7 @@
                     <h2 class="text-lg font-semibold text-gray-800 mb-3">💰 交易金额</h2>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            单次买入金额 (SOL)
+                            单次买入金额 (BNB)
                         </label>
                         <input type="number" name="trade_amount" value="0.5" step="0.01" min="0.01"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -1028,10 +958,6 @@
                     if (minMaxChangeInput) {
                         minMaxChangeInput.value = bt.minMaxChangePercent !== undefined ? bt.minMaxChangePercent : 50;
                     }
-                    // 填充回测数据来源过滤
-                    if (bt.dataSource) {
-                        setFieldValue('backtest_data_source', bt.dataSource);
-                    }
                 }
 
                 // 填充初始余额
@@ -1041,32 +967,6 @@
                                      copyData.backtest?.initial_balance ||
                                      100;
                 setFieldValue('initial_balance', initialBalance);
-
-                // 填充收集配置
-                if (copyData.collector) {
-                    const intervalInput = document.getElementById('collector-interval');
-                    const maxAgeInput = document.getElementById('collector-max-age');
-                    if (intervalInput && copyData.collector.interval) {
-                        intervalInput.value = Math.round(copyData.collector.interval / 1000);
-                    }
-                    if (maxAgeInput && copyData.collector.maxAgeSeconds) {
-                        maxAgeInput.value = copyData.collector.maxAgeSeconds;
-                    }
-                    // 填充数据来源配置
-                    if (copyData.collector.pumpfunCollectors) {
-                        const pc = copyData.collector.pumpfunCollectors;
-                        const aveOn = pc.ave?.enabled !== false;
-                        const wsOn = pc.ws?.enabled !== false;
-                        const ds = aveOn && wsOn ? 'both' : wsOn ? 'wss' : 'ave_api';
-                        setFieldValue('data_source', ds);
-                    }
-                }
-
-                // 填充监控频率配置
-                if (copyData.monitor?.interval) {
-                    const monitorInput = document.getElementById('monitor-interval');
-                    if (monitorInput) monitorInput.value = Math.round(copyData.monitor.interval / 1000);
-                }
 
                 // 填充交易金额配置
                 if (copyData.tradeAmount !== undefined) {
@@ -1264,73 +1164,39 @@
             }, 5000);
         }
 
-        // === 多链多平台配置 ===
+        // === 多链多平台配置（BSC-only：four.meme 内盘） ===
         // 区块链和平台映射配置
         const BLOCKCHAIN_PLATFORMS = {
             bsc: [
-                { value: 'fourmeme', name: 'Four.meme', logo: '/static/fourmeme-logo.png' },
-                { value: 'flap', name: 'Flap', logo: '/static/flap-logo.png' }
-            ],
-            base: [
-                { value: 'bankr', name: 'Bankr', logo: '/static/bankr-logo.png' }
-            ],
-            solana: [
-                { value: 'pumpfun', name: 'Pump.fun', logo: '/static/pumpfun-logo.png' }
-            ],
-            ethereum: [
-                { value: 'uniswap', name: 'Uniswap (DEX)', logo: '/static/uniswap-logo.png' }
+                { value: 'fourmeme', name: 'Four.meme', logo: '/static/fourmeme-logo.png' }
             ]
         };
 
         // 区块链logo配置
         const BLOCKCHAIN_LOGOS = {
-            bsc: '/static/bsc-logo.png',
-            base: '/static/base-logo.png',
-            solana: '/static/solana-logo.png',
-            ethereum: '/static/ethereum-logo.png'
+            bsc: '/static/bsc-logo.png'
         };
 
         // 区块链原生币映射
         const BLOCKCHAIN_NATIVE_CURRENCY = {
-            bsc: 'BNB',
-            base: 'ETH',
-            solana: 'SOL',
-            ethereum: 'ETH'
+            bsc: 'BNB'
         };
 
-        // 区块链收集配置默认值
-        const BLOCKCHAIN_COLLECTOR_DEFAULTS = {
-            bsc: { interval: 10, maxAge: 60 },
-            base: { interval: 10, maxAge: 60 },
-            solana: { interval: 10, maxAge: 60 },
-            ethereum: { interval: 20, maxAge: 300 }
-        };
-
-        // 根据区块链类型更新钱包输入区域
+        // 根据区块链类型更新钱包输入区域（BSC-only：恒 EVM 提示）
         function updateWalletInputHints(blockchain) {
             const walletAddressInput = document.getElementById('wallet_address');
             const walletAddressHint = document.getElementById('wallet_address_hint');
             const privateKeyHint = document.getElementById('private_key_hint');
             const reserveAmountHint = document.getElementById('reserve_amount_hint');
-            const currency = BLOCKCHAIN_NATIVE_CURRENCY[blockchain] || 'BNB';
+            const currency = 'BNB';
 
-            if (blockchain === 'solana') {
-                if (walletAddressInput) {
-                    walletAddressInput.placeholder = '例: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
-                    walletAddressInput.removeAttribute('pattern');
-                }
-                if (walletAddressHint) walletAddressHint.textContent = '输入 Solana 钱包地址（Base58 编码，32-44 位字符）';
-                if (privateKeyHint) privateKeyHint.textContent = 'Solana 私钥（Base58 编码，通常为 88 位字符），将在提交后 AES-256 加密存储';
-                if (reserveAmountHint) reserveAmountHint.textContent = `保留用于支付 GAS 费用的 ${currency} 数量（最小 0.01 ${currency}）`;
-            } else {
-                if (walletAddressInput) {
-                    walletAddressInput.placeholder = '0x...';
-                    walletAddressInput.pattern = '^0x[a-fA-F0-9]{40}$';
-                }
-                if (walletAddressHint) walletAddressHint.textContent = '输入您的钱包地址（0x开头的40位十六进制）';
-                if (privateKeyHint) privateKeyHint.textContent = 'EVM 私钥（0x开头的64位十六进制），将在提交后 AES-256 加密存储';
-                if (reserveAmountHint) reserveAmountHint.textContent = `保留用于支付 GAS 费用的 ${currency} 数量（最小 0.01 ${currency}）`;
+            if (walletAddressInput) {
+                walletAddressInput.placeholder = '0x...';
+                walletAddressInput.pattern = '^0x[a-fA-F0-9]{40}$';
             }
+            if (walletAddressHint) walletAddressHint.textContent = '输入您的钱包地址（0x开头的40位十六进制）';
+            if (privateKeyHint) privateKeyHint.textContent = 'EVM 私钥（0x开头的64位十六进制），将在提交后 AES-256 加密存储';
+            if (reserveAmountHint) reserveAmountHint.textContent = `保留用于支付 GAS 费用的 ${currency} 数量（最小 0.01 ${currency}）`;
         }
 
         // 区块链变化处理
@@ -1360,7 +1226,7 @@
             // 更新交易金额配置中的原生币引用
             const tradeAmountLabel = document.querySelector('input[name="trade_amount"]');
             if (tradeAmountLabel) {
-                const currency = BLOCKCHAIN_NATIVE_CURRENCY[selectedBlockchain] || 'SOL';
+                const currency = BLOCKCHAIN_NATIVE_CURRENCY[selectedBlockchain] || 'BNB';
                 const label = tradeAmountLabel.closest('div')?.querySelector('label');
                 if (label) {
                     label.innerHTML = `单次买入金额 (${currency})`;
@@ -1379,22 +1245,6 @@
 
             // 更新logo显示
             updateLogoDisplay();
-
-            // 更新收集配置默认值
-            const collectorDefaults = BLOCKCHAIN_COLLECTOR_DEFAULTS[selectedBlockchain] || BLOCKCHAIN_COLLECTOR_DEFAULTS.bsc;
-            const intervalInput = document.getElementById('collector-interval');
-            const maxAgeInput = document.getElementById('collector-max-age');
-            if (intervalInput) intervalInput.value = collectorDefaults.interval;
-            if (maxAgeInput) maxAgeInput.value = collectorDefaults.maxAge;
-
-            // 数据来源选项：仅 Solana 链时显示
-            const dataSourceConfig = document.getElementById('data-source-config');
-            if (dataSourceConfig) {
-                dataSourceConfig.classList.toggle('hidden', selectedBlockchain !== 'solana');
-            }
-
-            // 回测数据来源过滤：仅 Solana + 回测模式时显示
-            updateBacktestDataSourceVisibility();
         }
 
         // 更新logo显示
@@ -1480,19 +1330,6 @@
                     initialBalanceInput.value = '100';
                 }
             }
-
-            // 回测数据来源过滤：仅 Solana + 回测模式时显示
-            updateBacktestDataSourceVisibility();
-        }
-
-        // 控制"回测数据来源过滤"的显隐
-        function updateBacktestDataSourceVisibility() {
-            const backtestDsFilter = document.getElementById('backtest-data-source-filter');
-            if (!backtestDsFilter) return;
-            const tm = document.getElementById('trading_mode');
-            const bc = document.getElementById('blockchain_select');
-            const isBacktestSolana = tm?.value === 'backtest' && bc?.value === 'solana';
-            backtestDsFilter.classList.toggle('hidden', !isBacktestSolana);
         }
 
         // 加载可回测的实验列表
@@ -1725,29 +1562,6 @@
                 blockchain: formData.get('blockchain'),
                 platform: formData.get('platform'),
                 initial_balance: parseFloat(formData.get('initial_balance')),
-                // 收集配置
-                collector: {
-                    interval: parseInt(formData.get('collector_interval')) * 1000 || 10000,
-                    maxAgeSeconds: parseInt(formData.get('collector_max_age')) || 60,
-                    // 数据来源配置（仅 Solana 链）
-                    ...(() => {
-                        const bc = formData.get('blockchain');
-                        if (bc === 'solana') {
-                            const ds = formData.get('data_source') || 'both';
-                            return {
-                                pumpfunCollectors: {
-                                    ave: { enabled: ds === 'ave_api' || ds === 'both' },
-                                    ws: { enabled: ds === 'wss' || ds === 'both' }
-                                }
-                            };
-                        }
-                        return {};
-                    })()
-                },
-                // 监控配置
-                monitor: {
-                    interval: parseInt(formData.get('monitor_interval')) * 1000 || 10000
-                },
                 // 策略配置
                 strategy: {
                     buyStrategies: buyStrategies,
@@ -1796,8 +1610,7 @@
                 config.backtest = {
                     initialBalance: parseFloat(formData.get('initial_balance')),
                     sourceExperimentId: formData.get('backtest_source_experiment'),
-                    minMaxChangePercent: parseFloat(formData.get('min_max_change_percent')) || 0,
-                    dataSource: formData.get('backtest_data_source') || null
+                    minMaxChangePercent: parseFloat(formData.get('min_max_change_percent')) || 0
                 };
             } else if (tradingMode === 'live') {
                 config.wallet = {
@@ -1862,26 +1675,14 @@
                     return;
                 }
 
-                if (blockchain === 'solana') {
-                    // Solana: Base58 编码的地址和私钥
-                    if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(walletAddress)) {
-                        alert('Solana 钱包地址格式不正确，应为 Base58 编码（32-44位字符）');
-                        return;
-                    }
-                    if (!/^[1-9A-HJ-NP-Za-km-z]{43,}$/.test(privateKey)) {
-                        alert('Solana 私钥格式不正确，应为 Base58 编码的字符串');
-                        return;
-                    }
-                } else {
-                    // EVM 链: 0x 开头的十六进制
-                    if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
-                        alert('钱包地址格式不正确，应为0x开头的40位十六进制字符');
-                        return;
-                    }
-                    if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
-                        alert('私钥格式不正确，应为0x开头的64位十六进制字符');
-                        return;
-                    }
+                // EVM 链: 0x 开头的十六进制
+                if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+                    alert('钱包地址格式不正确，应为0x开头的40位十六进制字符');
+                    return;
+                }
+                if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
+                    alert('私钥格式不正确，应为0x开头的64位十六进制字符');
+                    return;
                 }
 
                 // 验证保留金额

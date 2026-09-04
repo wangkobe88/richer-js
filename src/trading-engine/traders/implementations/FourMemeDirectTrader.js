@@ -151,7 +151,7 @@ class FourMemeDirectTrader extends BaseTrader {
         const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
 
         if (this.logger) {
-            // 使用外部设置的 logger (LiveTradingEngine 的 logger)
+            // 使用外部设置的 logger（FourMemeWssTradingEngine live 模式的 logger）
             // 使用 Logger 的标准调用方式：logger.info(experimentId, module, message)
             // 但这里我们只有 message，所以简化为直接调用 info 方法
             try {

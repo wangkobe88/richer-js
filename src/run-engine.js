@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * 运行虚拟交易引擎
+ * 运行虚拟交易引擎（WSS 事件驱动；主入口 main.js start-experiment 的精简版）
  * 用法: node src/run-engine.js <experiment_id>
  */
 
 require('dotenv').config({ path: './config/.env' });
 
 const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
-const { VirtualTradingEngine } = require('./trading-engine/implementations/VirtualTradingEngine');
+const { FourMemeWssTradingEngine } = require('./trading-engine/implementations/FourMemeWssTradingEngine');
 
 async function runEngine(experimentId) {
   if (!experimentId) {
@@ -18,13 +18,13 @@ async function runEngine(experimentId) {
 
   console.log('');
   console.log('========================================');
-  console.log('🚀 Richer-js 虚拟交易引擎');
+  console.log('🚀 Richer-js 虚拟交易引擎（WSS 事件驱动）');
   console.log('========================================');
   console.log('');
 
   try {
     // 创建引擎实例
-    const engine = new VirtualTradingEngine();
+    const engine = new FourMemeWssTradingEngine({ tradingMode: 'virtual' });
 
     // 初始化引擎（加载实验）
     console.log(`🔍 启动实验: ${experimentId}`);

@@ -579,35 +579,22 @@ class RicherJsWebServer {
           experiment_name,
           experiment_description,
           trading_mode,
-          blockchain,
           kline_type,
           initial_balance,
           strategy,
           virtual,
           backtest,
           wallet,
-          reserveNative,
-          collector,
-          monitor
+          reserveNative
         } = req.body;
 
-        // 构建实验配置
+        // 构建实验配置（BSC-only：ankr WSS 事件驱动，无轮询收集/监控配置）
         const config = {
           name: experiment_name,
           description: experiment_description,
-          blockchain: blockchain || 'bsc',
+          blockchain: 'bsc',
           kline_type: kline_type || '1m'
         };
-
-        // 收集器配置（收集频率、代币最大年龄等）
-        if (collector) {
-          config.collector = collector;
-        }
-
-        // 监控配置（价格获取频率）
-        if (monitor) {
-          config.monitor = monitor;
-        }
 
         // 根据交易模式添加特定配置
         if (trading_mode === 'virtual') {
@@ -619,8 +606,7 @@ class RicherJsWebServer {
           config.backtest = {
             initialBalance: backtest?.initialBalance || parseFloat(initial_balance) || 100,
             sourceExperimentId: backtest?.sourceExperimentId,
-            minMaxChangePercent: backtest?.minMaxChangePercent || 0,
-            dataSource: backtest?.dataSource || null
+            minMaxChangePercent: backtest?.minMaxChangePercent || 0
           };
         } else if (trading_mode === 'live') {
           // 实盘交易配置 - 必须加密私钥
@@ -635,11 +621,13 @@ class RicherJsWebServer {
             address: wallet.address,
             privateKey: cryptoUtils.encrypt(wallet.privateKey) // 只加密私钥
           };
-          config.reserveNative = reserveNative || 0.1; // 保留用于 GAS 的金额
-          config.trading = {
-            maxGasPrice: strategy?.trading?.maxGasPrice || 10,
-            maxGasLimit: strategy?.trading?.maxGasLimit || 500000,
-            maxSlippage: strategy?.trading?.maxSlippage || 5
+          // live 执行层参数（引擎读 config.fourmemeWs.live 段）
+          config.fourmemeWs = {
+            live: {
+              reserveNative: reserveNative !== undefined ? parseFloat(reserveNative) : 0.1,
+              slippageTolerance: strategy?.live?.slippageTolerance || 5,
+              maxGasPrice: strategy?.live?.maxGasPrice || 10
+            }
           };
         } else {
           // 兼容旧格式
@@ -2827,23 +2815,10 @@ class RicherJsWebServer {
 
         // 构建 tokenId 格式：{address}-{chain}
         const blockchain = experiment.blockchain || 'bsc';
-        const aveTokenId = `${targetTokenAddress}-${blockchain}`;
 
-        // 导入 AveKlineAPI
-        const { AveKlineAPI } = require('./core/ave-api/kline-api');
-        const config = require('../config/default.json');
-        const apiKey = process.env.AVE_API_KEY;
-        const aveApi = new AveKlineAPI(
-          config.ave?.apiUrl || 'https://prod.ave-api.com',
-          config.ave?.timeout || 30000,
-          apiKey
-        );
-
-        // 获取1分钟K线数据（获取足够多的数据以覆盖实验时间段）
-        const klineResult = await aveApi.getKlineDataByToken(aveTokenId, 1, 1000);
-
-        // 格式化K线数据
-        const formattedKlineData = AveKlineAPI.formatKlinePoints(klineResult.points);
+        // tick 源 K线（Phase 6：wss_price_ticks 聚合，去 AVE）
+        const TickKlineService = require('./web/services/tick-kline-service');
+        const tickKlineService = new TickKlineService(console);
 
         // 确定实验时间范围
         const experimentStartTime = new Date(experiment.startedAt || experiment.createdAt).getTime();
@@ -2851,22 +2826,13 @@ class RicherJsWebServer {
           ? new Date(experiment.stoppedAt).getTime()
           : Date.now();
 
-        // 转换为前端期望的格式，并过滤到实验时间范围内
-        const klineData = formattedKlineData
-          .filter(k => {
-            // k.timestamp 是毫秒，检查是否在实验时间范围内
-            const klineTime = k.timestamp;
-            return klineTime >= experimentStartTime && klineTime <= experimentEndTime;
-          })
-          .map(k => ({
-            timestamp: Math.floor(k.timestamp / 1000), // 转换为秒
-            open_price: k.open.toString(),
-            high_price: k.high.toString(),
-            low_price: k.low.toString(),
-            close_price: k.close.toString(),
-            volume: k.volume.toString()
-          }))
-          .sort((a, b) => a.timestamp - b.timestamp); // 按时间正序排列
+        // 获取实验时间范围内的 1 分钟 K线（按代币全市场聚合 tick）
+        const klineData = await tickKlineService.getKline(this.dataService.supabase, {
+            tokenAddress: targetTokenAddress,
+            startTimeMs: experimentStartTime,
+            endTimeMs: experimentEndTime,
+            intervalMinutes: 1
+        });
 
         // 获取信号数据（用于图表标记）
         let signalsForChart = [];
@@ -3547,12 +3513,8 @@ class RicherJsWebServer {
             mainPair = pairs[0].pair;
           }
           // 检查 pair 后缀
-          if (mainPair) {
-            if (mainPair.endsWith('_fo')) {
-              platform = 'fourmeme';
-            } else if (mainPair.endsWith('_iportal')) {
-              platform = 'flap';
-            }
+          if (mainPair && mainPair.endsWith('_fo')) {
+            platform = 'fourmeme';
           }
         }
 
@@ -3567,24 +3529,6 @@ class RicherJsWebServer {
         let innerPair;
         if (platform === 'fourmeme') {
           innerPair = `${tokenAddress}_fo`;
-        } else if (platform === 'flap') {
-          innerPair = `${tokenAddress}_iportal`;
-        } else if (platform === 'pumpfun') {
-          // PumpFun 代币：通过 PDA 推导 bonding curve 地址作为 pair
-          try {
-            const { PublicKey } = require('@solana/web3.js');
-            const PUMP_FUN_PROGRAM_ID = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
-            const mint = new PublicKey(tokenAddress);
-            const [pda] = PublicKey.findProgramAddressSync(
-              [Buffer.from('bonding-curve'), mint.toBuffer()],
-              new PublicKey(PUMP_FUN_PROGRAM_ID)
-            );
-            innerPair = pda.toString();
-            this.logger.info('WebServer', `📊 [最早交易] PumpFun bonding curve PDA: ${innerPair}`);
-          } catch (e) {
-            this.logger.warn('WebServer', `📊 [最早交易] PumpFun PDA 推导失败: ${e.message}, 回退到 main_pair`);
-            innerPair = token.main_pair;
-          }
         } else {
           // 非 BSC 内盘平台（ETH/Base/Solana 等），从 AVE API 获取主交易对
           // 优先使用 main_pair，其次从 pairs 数组中找交易量最大的 WETH/原生代币交易对
@@ -3957,12 +3901,12 @@ if (require.main === module) {
 
   // 优雅关闭
   process.on('SIGINT', () => {
-    this.logger.info('WebServer', '\n👋 收到关闭信号，正在关闭服务器...');
+    server.logger.info('WebServer', '\n👋 收到关闭信号，正在关闭服务器...');
     process.exit(0);
   });
 
   process.on('SIGTERM', () => {
-    this.logger.info('WebServer', '\n👋 收到关闭信号，正在关闭服务器...');
+    server.logger.info('WebServer', '\n👋 收到关闭信号，正在关闭服务器...');
     process.exit(0);
   });
 }

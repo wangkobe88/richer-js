@@ -1,6 +1,7 @@
 /**
  * 抽象交易引擎基类
- * 提取 VirtualTradingEngine 和 BacktestEngine 的共同逻辑
+ * 提取 FourMemeWssTradingEngine 和 BacktestEngine 的共同逻辑
+ *（生命周期、信号落库与执行、组合管理、快照与统计）
  *
  * @abstract
  * @class

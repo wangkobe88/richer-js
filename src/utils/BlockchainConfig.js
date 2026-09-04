@@ -1,23 +1,23 @@
 /**
- * 区块链配置中心
+ * 区块链配置中心（BSC-only，Phase 6 收敛）
  *
- * 集中管理所有区块链相关的配置信息，包括：
- * - 区块链元数据（名称、ID、类型等）
- * - 原生代币配置（地址、符号、精度等）
- * - Token ID 后缀映射
- * - 链配置（网络参数、交易参数等）
- * - 地址验证规则（EVM 和 Solana）
+ * 系统唯一支持链为 BSC（four.meme 内盘）。历史实验中的其他链数据
+ * （solana/base/ethereum）仍可展示，但不再具备配置与交易能力：
+ * 未知链的 normalize* 调用不再抛错，走原值/小写回落（历史数据只读展示）。
+ *
+ * 集中管理：
+ * - 区块链元数据（名称、ID、类型）
+ * - 原生代币配置（BNB 地址、符号、精度、AVE Token ID）
+ * - Token ID 后缀映射（AVE API 辅助预检/工具端点）
+ * - 链配置（网络参数、交易参数）
  *
  * @module utils/BlockchainConfig
- * @author Trading Engine Team
- * @created 2026-01-09
  */
 
 /**
  * 区块链配置类
  *
  * 所有配置均为静态属性和方法，无需实例化。
- * 提供统一的区块链信息访问接口，消除系统中的硬编码。
  *
  * @class
  */
@@ -25,14 +25,12 @@ class BlockchainConfig {
   /**
    * 区块链元数据定义
    *
-   * 包含所有支持的区块链的基本信息
-   *
    * @static
    * @type {Object.<string, BlockchainMetadata>}
    * @property {string} id - 区块链唯一标识符（小写）
    * @property {string} name - 区块链显示名称
-   * @property {string} type - 区块链类型 ('evm' | 'solana')
-   * @property {number} chainId - EVM 链 ID（Solana 为 null）
+   * @property {string} type - 区块链类型（'evm'）
+   * @property {number} chainId - EVM 链 ID
    * @property {string} logoFile - Logo 文件名
    * @property {string[]} aliases - 别名列表（用于兼容性）
    * @readonly
@@ -47,44 +45,11 @@ class BlockchainConfig {
       logoFile: 'bsc-logo.png',
       aliases: ['bnb', 'binance', 'bsc'],
       color: '#F0B90B'
-    },
-    solana: {
-      id: 'solana',
-      name: 'Solana',
-      fullName: 'Solana Network',
-      type: 'solana',
-      chainId: null,
-      logoFile: 'solana-logo.png',
-      aliases: ['sol', 'solana'],
-      color: '#00FFA3'
-    },
-    base: {
-      id: 'base',
-      name: 'Base',
-      fullName: 'Base Network',
-      type: 'evm',
-      chainId: 8453,
-      logoFile: 'base-logo.png',
-      aliases: ['base', 'base_l2', 'base_mainnet'],
-      color: '#0052FF'
-    },
-    // 预留：未来扩展的区块链
-    ethereum: {
-      id: 'ethereum',
-      name: 'Ethereum',
-      fullName: 'Ethereum Network',
-      type: 'evm',
-      chainId: 1,
-      logoFile: 'ethereum-logo.png',
-      aliases: ['eth', 'ethereum'],
-      color: '#627EEA'
     }
   };
 
   /**
    * 原生代币配置
-   *
-   * 定义每个区块链的原生代币信息
    *
    * @static
    * @type {Object.<string, NativeTokenConfig>}
@@ -108,52 +73,13 @@ class BlockchainConfig {
       decimals: 18,
       usdtPair: 'BNBUSDT',
       aveTokenId: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c-bsc'
-    },
-    solana: {
-      symbol: 'SOL',
-      name: 'SOL',
-      addresses: [
-        'So11111111111111111111111111111111111111112', // Wrapped SOL
-        'NativeSo111111111111111111111111111111111111111', // 原生 SOL
-        'so11111111111111111111111111111111111111112', // Wrapped SOL (小写)
-        'nativeso111111111111111111111111111111111111111', // 原生 SOL (小写)
-        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', // SOL (AVE API 原生表示)
-        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' // AVE API地址（代码中会自动转小写）
-      ],
-      decimals: 9,
-      usdtPair: 'SOLUSDT',
-      aveTokenId: 'So11111111111111111111111111111111111111112-solana'
-    },
-    base: {
-      symbol: 'ETH',
-      name: 'ETH',
-      addresses: [
-        '0x4200000000000000000000000000000000000006', // WETH on Base
-        '0x4200000000000000000000000000000000000006', // WETH (小写)
-        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'  // ETH (AVE API)
-      ],
-      decimals: 18,
-      usdtPair: 'ETHUSDT',
-      aveTokenId: '0x4200000000000000000000000000000000000006-base'
-    },
-    ethereum: {
-      symbol: 'ETH',
-      name: 'ETH',
-      addresses: [
-        '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
-        '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', // WETH (小写)
-        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'  // ETH (AVE API)
-      ],
-      decimals: 18,
-      usdtPair: 'ETHUSDT',
-      aveTokenId: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2-eth'
     }
   };
 
   /**
-   * Token ID 后缀映射
+   * Token ID 后缀映射（AVE API：{address}-{suffix}）
    *
-   * 用于构建 AVE API 的 Token ID（格式：{address}-{suffix}）
+   * 未知链不在此表中，调用方 `|| chain` 回落原值。
    *
    * @static
    * @type {Object.<string, string>}
@@ -161,12 +87,7 @@ class BlockchainConfig {
    */
   static TOKEN_ID_SUFFIXES = {
     bsc: 'bsc',
-    bnb: 'bsc',        // 别名
-    solana: 'solana',
-    sol: 'solana',     // 别名
-    base: 'base',
-    ethereum: 'eth',
-    eth: 'eth'         // 别名
+    bnb: 'bsc'         // 别名
   };
 
   /**
@@ -174,9 +95,6 @@ class BlockchainConfig {
    *
    * @static
    * @type {Object.<string, ChainConfig>}
-   * @property {NetworkConfig} network - 网络配置
-   * @property {TradingConfig} trading - 交易配置
-   * @property {string[]} availableTraders - 可用的交易器列表
    * @readonly
    */
   static CHAIN_CONFIGS = {
@@ -199,119 +117,49 @@ class BlockchainConfig {
         maxSlippage: 0.05       // 5%
       },
       availableTraders: [
-        'pancakeswap-v2',
-        'pancakeswap-v3'
-      ]
-    },
-    solana: {
-      network: {
-        name: 'Solana',
-        chainId: null,
-        rpcUrl: 'https://mainnet.helius-rpc.com/?api-key=7fb3ba97-0684-4e0c-8416-3a8fd44db217',
-        fallbackRpcUrls: [
-          'https://api.mainnet-beta.solana.com'
-        ],
-        blockExplorer: 'https://explorer.solana.com',
-        confirmations: 1
-      },
-      trading: {
-        maxGasPrice: null,      // Solana 不使用 Gas Price
-        maxGasLimit: null,      // Solana 不使用 Gas Limit
-        defaultSlippage: 0.01,  // 1% (Solana 通常更快的滑点)
-        maxSlippage: 0.03       // 3%
-      },
-      availableTraders: [
-        'pumpfun'
-      ]
-    },
-    base: {
-      network: {
-        name: 'Base',
-        chainId: 8453,
-        rpcUrl: 'https://mainnet.base.org',
-        fallbackRpcUrls: [
-          'https://base.publicnode.com',
-          'https://rpc.ankr.com/base'
-        ],
-        blockExplorer: 'https://basescan.org',
-        confirmations: 1
-      },
-      trading: {
-        maxGasPrice: 10,        // Gwei (Base 低费用)
-        maxGasLimit: 500000,
-        defaultSlippage: 0.02,  // 2%
-        maxSlippage: 0.05       // 5%
-      },
-      availableTraders: [
-        'uniswap-v4'
-      ]
-    },
-    ethereum: {
-      network: {
-        name: 'Ethereum',
-        chainId: 1,
-        rpcUrl: 'https://eth.llamarpc.com',
-        fallbackRpcUrls: [
-          'https://rpc.ankr.com/eth',
-          'https://ethereum.publicnode.com'
-        ],
-        blockExplorer: 'https://etherscan.io',
-        confirmations: 1
-      },
-      trading: {
-        maxGasPrice: 50,        // Gwei
-        maxGasLimit: 800000,
-        defaultSlippage: 0.02,
-        maxSlippage: 0.05
-      },
-      availableTraders: [
-        'uniswap-v2',
-        'uniswap-v4'
+        'fourmeme',
+        'pancakeswap-v2'
       ]
     }
   };
 
   /**
-   * 地址验证正则表达式模式
+   * 地址验证正则表达式模式（EVM）
    *
    * @static
    * @type {Object.<string, RegExp>}
    * @readonly
    */
   static VALIDATION_PATTERNS = {
-    evm: /^0x[a-fA-F0-9]{40}$/,                    // EVM 地址：0x + 40 位十六进制
-    solana: /^[1-9A-HJ-NP-Za-km-z]{32,44}$/        // Solana 地址：Base58 编码，32-44 字符
+    evm: /^0x[a-fA-F0-9]{40}$/              // EVM 地址：0x + 40 位十六进制
   };
 
   /**
    * 当前支持的区块链列表
    *
-   * 注意：虽然配置文件包含 ethereum，但用户明确要求
-   * 支持 BSC、Solana 和 Base，其他链作为预留配置。
-   *
    * @static
    * @type {string[]}
    * @readonly
    */
-  static SUPPORTED_BLOCKCHAINS = ['bsc', 'solana', 'base', 'ethereum'];
+  static SUPPORTED_BLOCKCHAINS = ['bsc'];
 
   // ========== 公共方法 ==========
 
   /**
    * 规范化区块链 ID
    *
-   * 将各种可能的输入（别名、大小写变化）转换为标准的小写 ID
+   * 将各种可能的输入（别名、大小写变化）转换为标准的小写 ID。
+   * 未知链（历史实验数据）返回原值小写而非抛错——历史数据只读展示，
+   * 不应因配置收敛而让读取路径 500。
    *
    * @static
    * @param {string} input - 输入的区块链标识符
    * @returns {string} 规范化后的区块链 ID（小写）
-   * @throws {Error} 如果输入的区块链不受支持
    *
    * @example
    * BlockchainConfig.normalizeBlockchainId('BSC')      // 'bsc'
    * BlockchainConfig.normalizeBlockchainId('bnb')      // 'bsc'
-   * BlockchainConfig.normalizeBlockchainId('SOL')      // 'solana'
-   * BlockchainConfig.normalizeBlockchainId('Solana')   // 'solana'
+   * BlockchainConfig.normalizeBlockchainId('SOL')      // 'sol'（历史链，原值回落）
    */
   static normalizeBlockchainId(input) {
     if (!input || typeof input !== 'string') {
@@ -320,26 +168,23 @@ class BlockchainConfig {
 
     const normalized = input.toLowerCase().trim();
 
-    // 检查是否是标准 ID
     if (this.BLOCKCHAINS[normalized]) {
       return normalized;
     }
 
-    // 检查别名
+    // 别名
     for (const [id, config] of Object.entries(this.BLOCKCHAINS)) {
       if (config.aliases.includes(normalized)) {
         return id;
       }
     }
 
-    throw new Error(`不支持的区块链: ${input}`);
+    // 未知链（历史实验数据）：原值回落
+    return normalized;
   }
 
   /**
-   * 规范化代币地址（用于 Map 键）
-   *
-   * 对于 EVM 链（BSC、ETH等），地址转为小写
-   * 对于 Solana，保持原样（Base58 编码区分大小写）
+   * 规范化代币地址（用于 Map 键）：EVM 地址统一小写
    *
    * @static
    * @param {string} tokenAddress - 代币地址
@@ -347,24 +192,13 @@ class BlockchainConfig {
    * @returns {string} 规范化后的地址
    *
    * @example
-   * BlockchainConfig.normalizeTokenAddress('0xABC...123', 'bsc')      // '0xabc...123'
-   * BlockchainConfig.normalizeTokenAddress('So11111111111111111111111111111111111111112', 'solana')  // 'So11111111111111111111111111111111111111112'
+   * BlockchainConfig.normalizeTokenAddress('0xABC...123', 'bsc')  // '0xabc...123'
    */
   static normalizeTokenAddress(tokenAddress, blockchain) {
     if (!tokenAddress || typeof tokenAddress !== 'string') {
       throw new Error(`无效的代币地址: ${tokenAddress}`);
     }
-
-    const normalizedBlockchain = this.normalizeBlockchainId(blockchain);
-    const blockchainType = this.BLOCKCHAINS[normalizedBlockchain]?.type;
-
-    if (blockchainType === 'solana') {
-      // Solana 地址使用 Base58 编码，区分大小写，保持原样
-      return tokenAddress;
-    } else {
-      // EVM 链地址使用小写
-      return tokenAddress.toLowerCase();
-    }
+    return tokenAddress.toLowerCase();
   }
 
   /**
@@ -372,12 +206,11 @@ class BlockchainConfig {
    *
    * @static
    * @param {string} blockchain - 区块链 ID（会自动规范化）
-   * @returns {BlockchainMetadata} 区块链元数据
-   * @throws {Error} 如果区块链不受支持
+   * @returns {BlockchainMetadata|null} 区块链元数据（未知链返回 null）
    */
   static getBlockchain(blockchain) {
     const normalized = this.normalizeBlockchainId(blockchain);
-    return this.BLOCKCHAINS[normalized];
+    return this.BLOCKCHAINS[normalized] || null;
   }
 
   /**
@@ -386,7 +219,7 @@ class BlockchainConfig {
    * @static
    * @param {string} blockchain - 区块链 ID（会自动规范化）
    * @returns {NativeTokenConfig} 原生代币配置
-   * @throws {Error} 如果区块链不受支持
+   * @throws {Error} 如果区块链没有原生代币配置（非 BSC）
    */
   static getNativeToken(blockchain) {
     const normalized = this.normalizeBlockchainId(blockchain);
@@ -404,7 +237,7 @@ class BlockchainConfig {
    *
    * @static
    * @param {string} blockchain - 区块链 ID
-   * @returns {string} 代币符号（如 'BNB', 'SOL'）
+   * @returns {string} 代币符号（如 'BNB'）
    */
   static getNativeTokenSymbol(blockchain) {
     try {
@@ -412,7 +245,7 @@ class BlockchainConfig {
       return config.symbol;
     } catch (error) {
       console.warn(`获取 ${blockchain} 原生代币符号失败:`, error.message);
-      return 'BNB'; // 默认返回 BNB
+      return 'BNB';
     }
   }
 
@@ -421,30 +254,15 @@ class BlockchainConfig {
    *
    * @static
    * @param {string} blockchain - 区块链 ID（会自动规范化）
-   * @returns {string} 区块链显示名称（如 'BSC', 'Solana'）
-   *
-   * @example
-   * BlockchainConfig.getBlockchainDisplayName('bsc')      // 'BSC'
-   * BlockchainConfig.getBlockchainDisplayName('sol')      // 'Solana'
-   * BlockchainConfig.getBlockchainDisplayName('SOLANA')   // 'Solana'
+   * @returns {string} 区块链显示名称（如 'BSC'；未知链返回原值）
    */
   static getBlockchainDisplayName(blockchain) {
-    try {
-      const config = this.getBlockchain(blockchain);
-      return config.name;
-    } catch (error) {
-      console.warn(`获取 ${blockchain} 显示名称失败:`, error.message);
-      return blockchain || 'Unknown'; // 返回原始值作为后备
-    }
+    const config = this.getBlockchain(blockchain);
+    return config ? config.name : (blockchain || 'Unknown');
   }
 
   /**
-   * 获取配置字段名
-   *
-   * 根据区块链类型动态生成配置字段名，例如：
-   * - BSC -> initial_bnb, reserve_bnb
-   * - Solana -> initial_sol, reserve_sol
-   * - Ethereum -> initial_eth, reserve_eth
+   * 获取配置字段名（initial_bnb / reserve_bnb 形态）
    *
    * @static
    * @param {string} blockchain - 区块链 ID
@@ -458,9 +276,7 @@ class BlockchainConfig {
   }
 
   /**
-   * 获取原生代币地址列表
-   *
-   * 返回所有可能的地址表示，包括包装版本和 AVE API 表示
+   * 获取原生代币地址列表（所有表示，含 AVE API 原生表示）
    *
    * @static
    * @param {string} blockchain - 区块链 ID
@@ -469,12 +285,7 @@ class BlockchainConfig {
   static getNativeTokenAddresses(blockchain) {
     try {
       const config = this.getNativeToken(blockchain);
-      const normalized = this.normalizeBlockchainId(blockchain);
-
-      // 🔥 对 EVM 链使用小写，对 Solana 保持原样（区分大小写）
-      return config.addresses.map(addr =>
-        this.normalizeTokenAddress(addr, normalized)
-      );
+      return config.addresses.map(addr => this.normalizeTokenAddress(addr, blockchain));
     } catch (error) {
       console.warn(`获取 ${blockchain} 原生代币地址失败:`, error.message);
       return [];
@@ -503,7 +314,7 @@ class BlockchainConfig {
    *
    * @static
    * @param {string} blockchain - 区块链 ID
-   * @returns {string} USDT 交易对符号（如 'BNBUSDT', 'SOLUSDT'）
+   * @returns {string} USDT 交易对符号（如 'BNBUSDT'）
    */
   static getUsdtPair(blockchain) {
     try {
@@ -511,7 +322,7 @@ class BlockchainConfig {
       return config.usdtPair;
     } catch (error) {
       console.warn(`获取 ${blockchain} USDT 交易对失败:`, error.message);
-      return 'BNBUSDT'; // 默认返回 BNB/USDT
+      return 'BNBUSDT';
     }
   }
 
@@ -526,24 +337,17 @@ class BlockchainConfig {
    * @returns {string} Token ID
    *
    * @example
-   * BlockchainConfig.buildTokenId('0xtoken...', 'bsc')      // '0xtoken...-bsc'
-   * BlockchainConfig.buildTokenId('Soltoken...', 'solana')  // 'Soltoken...-solana'
+   * BlockchainConfig.buildTokenId('0xtoken...', 'bsc')  // '0xtoken...-bsc'
    */
   static buildTokenId(tokenAddress, blockchain) {
     const normalized = this.normalizeBlockchainId(blockchain);
-    const suffix = this.TOKEN_ID_SUFFIXES[normalized];
-
-    if (!suffix) {
-      throw new Error(`未找到 ${normalized} 的 Token ID 后缀配置`);
-    }
+    const suffix = this.TOKEN_ID_SUFFIXES[normalized] || normalized;
 
     return `${tokenAddress}-${suffix}`;
   }
 
   /**
-   * 规范化 Token ID
-   *
-   * 如果 Token ID 缺少后缀，自动添加默认后缀（基于区块链）
+   * 规范化 Token ID：缺后缀时补默认后缀（bsc）
    *
    * @static
    * @param {string} tokenId - Token ID（可能不完整）
@@ -555,25 +359,12 @@ class BlockchainConfig {
       throw new Error(`无效的 Token ID: ${tokenId}`);
     }
 
-    // 如果已经包含 '-'，检查是否需要转换后缀
     if (tokenId.includes('-')) {
-      const [address, suffix] = tokenId.split('-');
-
-      // 检查后缀是否需要转换（如 'sol' → 'solana'）
-      const normalizedBlockchain = this.normalizeBlockchainId(suffix);
-      const correctSuffix = this.TOKEN_ID_SUFFIXES[normalizedBlockchain];
-
-      if (suffix !== correctSuffix) {
-        console.warn(`Token ID 后缀不匹配，自动修正: ${suffix} → ${correctSuffix}`);
-        return `${address}-${correctSuffix}`;
-      }
-
-      return tokenId;
+      return tokenId; // 已带后缀，原样返回（后缀即链名）
     }
 
-    // 没有后缀，添加默认后缀
     const normalizedBlockchain = this.normalizeBlockchainId(defaultBlockchain);
-    const suffix = this.TOKEN_ID_SUFFIXES[normalizedBlockchain];
+    const suffix = this.TOKEN_ID_SUFFIXES[normalizedBlockchain] || normalizedBlockchain;
 
     return `${tokenId}-${suffix}`;
   }
@@ -590,18 +381,11 @@ class BlockchainConfig {
       return null;
     }
 
-    const suffix = tokenId.split('-')[1];
-    try {
-      return this.normalizeBlockchainId(suffix);
-    } catch (error) {
-      return null;
-    }
+    return tokenId.split('-')[1] || null;
   }
 
   /**
-   * 验证地址格式
-   *
-   * 根据区块链类型验证地址格式
+   * 验证地址格式（EVM）
    *
    * @static
    * @param {string} address - 待验证的地址
@@ -612,22 +396,7 @@ class BlockchainConfig {
     if (!address || typeof address !== 'string') {
       return false;
     }
-
-    try {
-      const blockchainConfig = this.getBlockchain(blockchain);
-      const type = blockchainConfig.type;
-
-      if (type === 'evm') {
-        return this.VALIDATION_PATTERNS.evm.test(address);
-      } else if (type === 'solana') {
-        return this.VALIDATION_PATTERNS.solana.test(address);
-      }
-
-      return false;
-    } catch (error) {
-      console.warn(`验证地址失败:`, error.message);
-      return false;
-    }
+    return this.VALIDATION_PATTERNS.evm.test(address);
   }
 
   /**
@@ -654,7 +423,7 @@ class BlockchainConfig {
    *
    * @static
    * @param {string} blockchain - 区块链 ID
-   * @returns {NetworkConfig} 网络配置
+   * @returns {NetworkConfig|null} 网络配置
    */
   static getNetworkConfig(blockchain) {
     try {
@@ -671,7 +440,7 @@ class BlockchainConfig {
    *
    * @static
    * @param {string} blockchain - 区块链 ID
-   * @returns {TradingConfig} 交易配置
+   * @returns {TradingConfig|null} 交易配置
    */
   static getTradingConfig(blockchain) {
     try {
@@ -701,20 +470,15 @@ class BlockchainConfig {
   }
 
   /**
-   * 获取区块链 Logo 文件路径
+   * 获取区块链 Logo 文件名
    *
    * @static
    * @param {string} blockchain - 区块链 ID
    * @returns {string} Logo 文件名
    */
   static getLogoFile(blockchain) {
-    try {
-      const blockchainConfig = this.getBlockchain(blockchain);
-      return blockchainConfig.logoFile;
-    } catch (error) {
-      console.warn(`获取 ${blockchain} Logo 失败:`, error.message);
-      return 'bsc-logo.png'; // 默认返回 BSC logo
-    }
+    const blockchainConfig = this.getBlockchain(blockchain);
+    return blockchainConfig ? blockchainConfig.logoFile : 'bsc-logo.png';
   }
 
   /**
@@ -756,7 +520,7 @@ class BlockchainConfig {
   }
 
   /**
-   * 获取所有可用的区块链列表（包括预留的）
+   * 获取所有可用的区块链列表
    *
    * @static
    * @returns {string[]} 所有可用的区块链 ID 列表
@@ -766,24 +530,19 @@ class BlockchainConfig {
   }
 
   /**
-   * 获取区块链类型
+   * 获取区块链类型（恒 'evm'）
    *
    * @static
    * @param {string} blockchain - 区块链 ID
-   * @returns {string} 区块链类型 ('evm' | 'solana')
+   * @returns {string} 区块链类型
    */
   static getBlockchainType(blockchain) {
-    try {
-      const blockchainConfig = this.getBlockchain(blockchain);
-      return blockchainConfig.type;
-    } catch (error) {
-      console.warn(`获取 ${blockchain} 类型失败:`, error.message);
-      return 'evm'; // 默认返回 EVM
-    }
+    const blockchainConfig = this.getBlockchain(blockchain);
+    return blockchainConfig ? blockchainConfig.type : 'evm';
   }
 
   /**
-   * 判断是否为 EVM 链
+   * 判断是否为 EVM 链（BSC-only 下恒 true）
    *
    * @static
    * @param {string} blockchain - 区块链 ID
@@ -794,14 +553,14 @@ class BlockchainConfig {
   }
 
   /**
-   * 判断是否为 Solana 链
+   * 判断是否为 Solana 链（BSC-only 下恒 false，历史链数据兼容判断用）
    *
    * @static
    * @param {string} blockchain - 区块链 ID
    * @returns {boolean} 是否为 Solana 链
    */
   static isSolana(blockchain) {
-    return this.getBlockchainType(blockchain) === 'solana';
+    return false;
   }
 
   /**
@@ -809,16 +568,11 @@ class BlockchainConfig {
    *
    * @static
    * @param {string} blockchain - 区块链 ID
-   * @returns {number|null} EVM 链 ID，如果不是 EVM 链则返回 null
+   * @returns {number|null} EVM 链 ID
    */
   static getChainId(blockchain) {
-    try {
-      const blockchainConfig = this.getBlockchain(blockchain);
-      return blockchainConfig.chainId;
-    } catch (error) {
-      console.warn(`获取 ${blockchain} Chain ID 失败:`, error.message);
-      return null;
-    }
+    const blockchainConfig = this.getBlockchain(blockchain);
+    return blockchainConfig ? blockchainConfig.chainId : null;
   }
 
   /**
@@ -855,17 +609,15 @@ class BlockchainConfig {
     const normalized = this.normalizeBlockchainId(blockchain);
 
     return {
-      blockchain: this.BLOCKCHAINS[normalized],
-      nativeToken: this.NATIVE_TOKENS[normalized],
-      chainConfig: this.CHAIN_CONFIGS[normalized],
-      tokenIdSuffix: this.TOKEN_ID_SUFFIXES[normalized]
+      blockchain: this.BLOCKCHAINS[normalized] || null,
+      nativeToken: this.NATIVE_TOKENS[normalized] || null,
+      chainConfig: this.CHAIN_CONFIGS[normalized] || null,
+      tokenIdSuffix: this.TOKEN_ID_SUFFIXES[normalized] || null
     };
   }
 
   /**
-   * 验证配置完整性
-   *
-   * 检查所有配置是否完整且一致（用于开发调试）
+   * 验证配置完整性（开发调试用）
    *
    * @static
    * @returns {Object[]} 验证错误列表，如果为空则表示全部通过
@@ -873,43 +625,19 @@ class BlockchainConfig {
   static validateConfig() {
     const errors = [];
 
-    // 检查支持的区块链是否都有完整配置
     for (const blockchain of this.SUPPORTED_BLOCKCHAINS) {
-      // 检查 BLOCKCHAINS
       if (!this.BLOCKCHAINS[blockchain]) {
-        errors.push({
-          type: 'missing_blockchain',
-          blockchain,
-          message: `缺少 ${blockchain} 的区块链元数据`
-        });
+        errors.push({ type: 'missing_blockchain', blockchain, message: `缺少 ${blockchain} 的区块链元数据` });
         continue;
       }
-
-      // 检查 NATIVE_TOKENS
       if (!this.NATIVE_TOKENS[blockchain]) {
-        errors.push({
-          type: 'missing_native_token',
-          blockchain,
-          message: `缺少 ${blockchain} 的原生代币配置`
-        });
+        errors.push({ type: 'missing_native_token', blockchain, message: `缺少 ${blockchain} 的原生代币配置` });
       }
-
-      // 检查 CHAIN_CONFIGS
       if (!this.CHAIN_CONFIGS[blockchain]) {
-        errors.push({
-          type: 'missing_chain_config',
-          blockchain,
-          message: `缺少 ${blockchain} 的链配置`
-        });
+        errors.push({ type: 'missing_chain_config', blockchain, message: `缺少 ${blockchain} 的链配置` });
       }
-
-      // 检查 TOKEN_ID_SUFFIXES
       if (!this.TOKEN_ID_SUFFIXES[blockchain]) {
-        errors.push({
-          type: 'missing_token_suffix',
-          blockchain,
-          message: `缺少 ${blockchain} 的 Token ID 后缀配置`
-        });
+        errors.push({ type: 'missing_token_suffix', blockchain, message: `缺少 ${blockchain} 的 Token ID 后缀配置` });
       }
     }
 

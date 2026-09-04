@@ -1433,8 +1433,7 @@ class PortfolioManager extends IPortfolioManager {
       const currentValue = position.amount.mul(currentPrice);
       position.value = currentValue;
 
-      // ❌ 删除：本地PNL计算，使用AVE PNL数据
-      // PNL数据现在由WalletService从AVE API获取并存储在position.pnl中
+      // 本地PNL计算已删除（AVE PNL 数据源与 WalletService 已随多链支持一并移除）
 
       totalValue = totalValue.add(currentValue);
     }

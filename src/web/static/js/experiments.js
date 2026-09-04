@@ -757,18 +757,6 @@ class ExperimentMonitor {
         copyData.initial_balance = config.virtual.initialBalance || config.virtual.initial_balance || 100;
       }
 
-      // 收集器配置（收集频率、代币最大年龄、数据来源等）
-      copyData.collector = {
-        interval: config.collector?.interval || 10000,
-        maxAgeSeconds: config.collector?.maxAgeSeconds || 60,
-        ...(config.collector?.pumpfunCollectors ? { pumpfunCollectors: config.collector.pumpfunCollectors } : {})
-      };
-
-      // 监控配置（价格获取频率）
-      copyData.monitor = {
-        interval: config.monitor?.interval || 10000
-      };
-
       // 添加 strategiesConfig 中的高级配置
       if (config.strategiesConfig) {
         const sc = config.strategiesConfig;
@@ -810,7 +798,8 @@ class ExperimentMonitor {
       if (config.wallet && config.wallet.address) {
         copyData.wallet_address = config.wallet.address;
         // 不复制私钥，出于安全考虑
-        copyData.reserve_amount = config.reserveNative || 0.1;
+        // 保留金额：新引擎在 fourmemeWs.live 段，旧实验行在顶层 reserveNative
+        copyData.reserve_amount = config.fourmemeWs?.live?.reserveNative ?? config.reserveNative ?? 0.1;
       }
 
       console.log('📋 准备复制的配置数据:', copyData);
