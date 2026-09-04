@@ -45,6 +45,8 @@ class ExperimentTokenReturns {
     this.tokenMaxChangeMap = new Map();
     // 叙事分析数据
     this.narrativeDataMap = new Map();
+    // 代币符号映射（从 experiment_tokens 回补）
+    this.tokenSymbolMap = new Map();
     // 当前编辑的代币地址
     this.currentEditingToken = null;
 
@@ -177,6 +179,10 @@ class ExperimentTokenReturns {
             if (token.analysis_results?.max_change_percent !== undefined) {
               this.tokenMaxChangeMap.set(token.token_address, token.analysis_results.max_change_percent);
             }
+            // 保存代币符号
+            if (token.token_symbol) {
+              this.tokenSymbolMap.set(token.token_address, token.token_symbol);
+            }
           });
         }
       }
@@ -220,7 +226,7 @@ class ExperimentTokenReturns {
       await this.loadNarrativeData();
 
       // 如果是回测且当前实验没有标注数据，尝试从源实验加载
-      if (this.judgeExperimentId !== this.experimentId && (this.judgesData.size === 0 || this.tokenPlatformMap.size === 0 || this.tokenMaxChangeMap.size === 0)) {
+      if (this.judgeExperimentId !== this.experimentId && (this.judgesData.size === 0 || this.tokenPlatformMap.size === 0 || this.tokenMaxChangeMap.size === 0 || this.tokenSymbolMap.size === 0)) {
         try {
           const sourceTokensRes = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens?limit=10000`);
           if (sourceTokensRes.ok) {
@@ -243,10 +249,15 @@ class ExperimentTokenReturns {
                 if (token.analysis_results?.max_change_percent !== undefined) {
                   this.tokenMaxChangeMap.set(token.token_address, token.analysis_results.max_change_percent);
                 }
+                // 同时加载代币符号
+                if (token.token_symbol && !this.tokenSymbolMap.has(token.token_address)) {
+                  this.tokenSymbolMap.set(token.token_address, token.token_symbol);
+                }
               });
               console.log(`从源实验加载了 ${this.judgesData.size} 条标注数据`);
               console.log(`从源实验加载了 ${this.tokenPlatformMap.size} 条平台数据`);
               console.log(`从源实验加载了 ${this.tokenMaxChangeMap.size} 条最高涨幅数据`);
+              console.log(`从源实验加载了 ${this.tokenSymbolMap.size} 条代币符号数据`);
             }
           }
         } catch (error) {
@@ -297,9 +308,10 @@ class ExperimentTokenReturns {
     this.tokenReturns = tokenAddresses.map(tokenAddress => {
       const pnl = this.calculateTokenPnL(tokenAddress);
 
-      // 获取代币符号
+      // 获取代币符号（优先从交易记录，其次从 experiment_tokens 数据）
       const tokenTrades = this.tradesData.filter(t => t.token_address === tokenAddress);
-      const symbol = tokenTrades[0]?.token_symbol || 'Unknown';
+      const tradesSymbol = tokenTrades[0]?.token_symbol?.trim();
+      const symbol = tradesSymbol || this.tokenSymbolMap.get(tokenAddress) || 'Unknown';
 
       const expChain = this.experimentData?.blockchain;
       const chain = (expChain && expChain !== 'all')

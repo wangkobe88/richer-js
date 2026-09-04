@@ -505,15 +505,17 @@ class ExperimentRenderer {
     // 提取 strategiesConfig 中的高级配置
     if (config.strategiesConfig) {
       const sc = config.strategiesConfig;
-      if (sc.narrativeAnalysis) {
-        formData.narrativeAnalysis = sc.narrativeAnalysis;
-      }
+      // [DECOUPLED] 叙事分析配置传递已禁用
+      // if (sc.narrativeAnalysis) {
+      //   formData.narrativeAnalysis = sc.narrativeAnalysis;
+      // }
       if (sc.stats) {
         formData.stats = sc.stats;
       }
-      if (sc.telegramNotifications) {
-        formData.telegramNotifications = sc.telegramNotifications;
-      }
+      // [DECOUPLED] 电报通知配置传递已禁用
+      // if (sc.telegramNotifications) {
+      //   formData.telegramNotifications = sc.telegramNotifications;
+      // }
       if (sc.contractRiskCheck) {
         formData.contractRiskCheck = sc.contractRiskCheck;
       }

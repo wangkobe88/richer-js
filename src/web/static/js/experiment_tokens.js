@@ -1338,7 +1338,9 @@ class ExperimentTokens {
   /**
    * 异步加载叙事分析数据
    */
+  // [DECOUPLED] 叙事数据加载已禁用
   async loadNarrativeData() {
+    return;
     try {
       const tokenAddresses = this.tokens.map(t => t.token_address);
       // 并发加载，每次最多 5 个请求
@@ -1386,7 +1388,9 @@ class ExperimentTokens {
   /**
    * 渲染叙事评级
    */
+  // [DECOUPLED] 叙事评级渲染已禁用
   renderNarrativeRating(tokenAddress) {
+    return '<span class="text-gray-600 text-[10px]">-</span>';
     const narrative = this.narrativeDataMap.get(tokenAddress);
 
     if (!narrative || !narrative.meta?.isValid) {

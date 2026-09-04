@@ -1507,7 +1507,7 @@ class ExperimentDetail {
                   <span class="font-medium ${config.strategiesConfig.stats.enabled !== false ? 'text-green-400' : 'text-gray-400'}">${config.strategiesConfig.stats.enabled !== false ? '✅ ' + Math.round((config.strategiesConfig.stats.interval || 1800000) / 60000) + ' 分钟' : '❌ 禁用'}</span>
                 </div>
               ` : ''}
-              ${config.strategiesConfig.telegramNotifications ? `
+              ${false && config.strategiesConfig.telegramNotifications ? `
                 <div class="flex justify-between">
                   <span class="text-gray-300">电报通知:</span>
                   <span class="font-medium ${config.strategiesConfig.telegramNotifications.enabled ? 'text-green-400' : 'text-gray-400'}">${config.strategiesConfig.telegramNotifications.enabled ? '✅ 启用' : '❌ 禁用'}</span>

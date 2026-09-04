@@ -127,11 +127,11 @@ class ExperimentSignalStats {
 
     try {
       // 并行加载实验数据、信号数据、代币数据和叙事分析数据
-      const [experimentRes, signalsRes, tokensRes, narrativeRes] = await Promise.all([
+      // [DECOUPLED] 叙事数据加载已禁用
+      const [experimentRes, signalsRes, tokensRes] = await Promise.all([
         fetch(`/api/experiment/${this.experimentId}`),
         fetch(`/api/experiment/${this.experimentId}/signals?limit=10000`),
-        fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`),
-        fetch(`/api/experiment/${this.experimentId}/narrative`)
+        fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`)
       ]);
 
       if (!experimentRes.ok || !signalsRes.ok || !tokensRes.ok) {
@@ -141,7 +141,7 @@ class ExperimentSignalStats {
       const experimentData = await experimentRes.json();
       const signalsData = await signalsRes.json();
       const tokensData = await tokensRes.json();
-      const narrativeData = narrativeRes.ok ? await narrativeRes.json() : { success: false, data: [] };
+      const narrativeData = { success: false, data: [] };
 
       if (!experimentData.success) {
         throw new Error('实验数据格式错误');

@@ -317,6 +317,8 @@ class AbstractTradingEngine extends ITradingEngine {
    * @returns {Promise<void>}
    */
   async _initializeTelegramNotifier() {
+    // [DECOUPLED] 电报通知已禁用
+    return;
     if (!this._experiment || !this._experiment.config) {
       // 没有实验配置，不初始化通知器
       return;
@@ -1453,6 +1455,8 @@ class AbstractTradingEngine extends ITradingEngine {
    * @returns {Promise<number>} 叙事评级
    */
   async _pollNarrativeRating(experimentId, tokenAddress, options = {}) {
+    // [DECOUPLED] 叙事评级轮询已禁用
+    return 0;
     const {
       maxWaitSeconds = 10,
       pollIntervalMs = 2000
@@ -1528,6 +1532,8 @@ class AbstractTradingEngine extends ITradingEngine {
    * @returns {Promise<void>}
    */
   async _createOrUpdateNarrativeTask(token, satisfaction) {
+    // [DECOUPLED] 叙事任务创建已禁用
+    return;
     const supabase = dbManager.getClient();
     const reanalyze = this._narrativeReanalyze || false;
 

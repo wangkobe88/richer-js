@@ -264,9 +264,10 @@ class RicherJsWebServer {
     });
 
     // 实验叙事分析页面
-    this.app.get('/experiment/:id/narrative', (req, res) => {
-      res.sendFile(path.join(__dirname, 'web/templates/experiment_narrative.html'));
-    });
+    // [DECOUPLED] 叙事分析路由已禁用
+    // this.app.get('/experiment/:id/narrative', (req, res) => {
+    //   res.sendFile(path.join(__dirname, 'web/templates/experiment_narrative.html'));
+    // });
 
     // 交易策略分析页面
     this.app.get('/experiment/:id/strategy-analysis', (req, res) => {
@@ -279,14 +280,16 @@ class RicherJsWebServer {
     });
 
     // 叙事分析页面（独立页面，不在实验子路由下）
-    this.app.get('/narrative-analyzer', (req, res) => {
-      res.sendFile(path.join(__dirname, 'web/templates/narrative-analyzer.html'));
-    });
+    // [DECOUPLED] 叙事分析路由已禁用
+    // this.app.get('/narrative-analyzer', (req, res) => {
+    //   res.sendFile(path.join(__dirname, 'web/templates/narrative-analyzer.html'));
+    // });
 
     // 叙事分析任务管理页面
-    this.app.get('/narrative-tasks', (req, res) => {
-      res.sendFile(path.join(__dirname, 'web/templates/narrative_tasks.html'));
-    });
+    // [DECOUPLED] 叙事任务路由已禁用
+    // this.app.get('/narrative-tasks', (req, res) => {
+    //   res.sendFile(path.join(__dirname, 'web/templates/narrative_tasks.html'));
+    // });
 
     // 事件监控页面
     this.app.get('/monitor', (req, res) => {
@@ -304,7 +307,8 @@ class RicherJsWebServer {
     });
 
     // ============ API路由：叙事分析 ============
-    this.app.use('/api/narrative', narrativeRoutes);
+    // [DECOUPLED] 叙事分析 API 路由已禁用
+    // this.app.use('/api/narrative', narrativeRoutes);
 
     // ============ API路由：事件监控 ============
 
@@ -357,7 +361,8 @@ class RicherJsWebServer {
         }
 
         // 动态填充叙事数据
-        await this._enrichEventsWithNarrative(events);
+        // [DECOUPLED] 叙事数据填充已禁用
+        // await this._enrichEventsWithNarrative(events);
 
         res.json({
           success: true,
@@ -660,10 +665,11 @@ class RicherJsWebServer {
           }
 
           // 叙事分析配置
-          if (strategy.narrativeAnalysis) {
-            config.strategiesConfig = config.strategiesConfig || {};
-            config.strategiesConfig.narrativeAnalysis = strategy.narrativeAnalysis;
-          }
+          // [DECOUPLED] 叙事分析配置传递已禁用
+          // if (strategy.narrativeAnalysis) {
+          //   config.strategiesConfig = config.strategiesConfig || {};
+          //   config.strategiesConfig.narrativeAnalysis = strategy.narrativeAnalysis;
+          // }
 
           // Super IP 快速通道配置
           if (strategy.superIpFastTrack) {
@@ -678,10 +684,11 @@ class RicherJsWebServer {
           }
 
           // 电报通知配置
-          if (strategy.telegramNotifications) {
-            config.strategiesConfig = config.strategiesConfig || {};
-            config.strategiesConfig.telegramNotifications = strategy.telegramNotifications;
-          }
+          // [DECOUPLED] 电报通知配置传递已禁用
+          // if (strategy.telegramNotifications) {
+          //   config.strategiesConfig = config.strategiesConfig || {};
+          //   config.strategiesConfig.telegramNotifications = strategy.telegramNotifications;
+          // }
 
           // 合约审计风控配置（兼容旧数据）
           if (strategy.contractRiskCheck) {
@@ -2357,15 +2364,16 @@ class RicherJsWebServer {
     });
 
     // 获取实验叙事分析数据
-    this.app.get('/api/experiment/:id/narrative', async (req, res) => {
-      try {
-        const result = await this.dataService.getExperimentNarratives(req.params.id);
-        res.json(result);
-      } catch (error) {
-        this.logger.error('WebServer', '获取实验叙事数据失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message, data: [], count: 0 });
-      }
-    });
+    // [DECOUPLED] 叙事数据接口已禁用
+    // this.app.get('/api/experiment/:id/narrative', async (req, res) => {
+    //   try {
+    //     const result = await this.dataService.getExperimentNarratives(req.params.id);
+    //     res.json(result);
+    //   } catch (error) {
+    //     this.logger.error('WebServer', '获取实验叙事数据失败:', { details: error });
+    //     res.status(500).json({ success: false, error: error.message, data: [], count: 0 });
+    //   }
+    // });
 
     // 刷新实验代币的实时价格
     this.app.post('/api/experiment/:id/tokens/refresh-prices', async (req, res) => {
@@ -2524,77 +2532,78 @@ class RicherJsWebServer {
     });
 
     // ============ 叙事人工标注 API ============
+    // [DECOUPLED] 叙事人工标注 API 已禁用
 
     // 保存/更新叙事人工标注（token_address在请求体中）
-    this.app.post('/api/experiment/:experimentId/narrative/judge', async (req, res) => {
-      try {
-        const { experimentId } = req.params;
-        const { token_address, category, note } = req.body;
-
-        if (!token_address) {
-          return res.status(400).json({ success: false, error: '缺少token_address参数' });
-        }
-
-        // 验证 category
-        const validCategories = ['fake_pump', 'no_user', 'low_quality', 'mid_quality', 'high_quality'];
-        if (!category || !validCategories.includes(category)) {
-          return res.status(400).json({ success: false, error: '无效的类别' });
-        }
-
-        const judgeData = {
-          category,
-          note: note || null,
-          judge_at: new Date().toISOString()
-        };
-
-        const { error } = await this.dataService.supabase
-          .from('experiment_tokens')
-          .update({ human_judges: judgeData })
-          .eq('experiment_id', experimentId)
-          .eq('token_address', token_address);
-
-        if (error) throw error;
-
-        res.json({
-          success: true,
-          data: {
-            token_address: token_address,
-            human_judges: judgeData
-          }
-        });
-      } catch (error) {
-        this.logger.error('WebServer', '保存叙事人工标注失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
+    // this.app.post('/api/experiment/:experimentId/narrative/judge', async (req, res) => {
+    //   try {
+    //     const { experimentId } = req.params;
+    //     const { token_address, category, note } = req.body;
+    //
+    //     if (!token_address) {
+    //       return res.status(400).json({ success: false, error: '缺少token_address参数' });
+    //     }
+    //
+    //     // 验证 category
+    //     const validCategories = ['fake_pump', 'no_user', 'low_quality', 'mid_quality', 'high_quality'];
+    //     if (!category || !validCategories.includes(category)) {
+    //       return res.status(400).json({ success: false, error: '无效的类别' });
+    //     }
+    //
+    //     const judgeData = {
+    //       category,
+    //       note: note || null,
+    //       judge_at: new Date().toISOString()
+    //     };
+    //
+    //     const { error } = await this.dataService.supabase
+    //       .from('experiment_tokens')
+    //       .update({ human_judges: judgeData })
+    //       .eq('experiment_id', experimentId)
+    //       .eq('token_address', token_address);
+    //
+    //     if (error) throw error;
+    //
+    //     res.json({
+    //       success: true,
+    //       data: {
+    //         token_address: token_address,
+    //         human_judges: judgeData
+    //       }
+    //     });
+    //   } catch (error) {
+    //     this.logger.error('WebServer', '保存叙事人工标注失败:', { details: error });
+    //     res.status(500).json({ success: false, error: error.message });
+    //   }
+    // });
 
     // 删除叙事人工标注（token_address在请求体中）
-    this.app.delete('/api/experiment/:experimentId/narrative/judge', async (req, res) => {
-      try {
-        const { experimentId } = req.params;
-        const { token_address } = req.body;
-
-        if (!token_address) {
-          return res.status(400).json({ success: false, error: '缺少token_address参数' });
-        }
-
-        const { error } = await this.dataService.supabase
-          .from('experiment_tokens')
-          .update({ human_judges: null })
-          .eq('experiment_id', experimentId)
-          .eq('token_address', token_address);
-
-        if (error) throw error;
-
-        res.json({
-          success: true,
-          message: '标注已删除'
-        });
-      } catch (error) {
-        this.logger.error('WebServer', '删除叙事人工标注失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
+    // this.app.delete('/api/experiment/:experimentId/narrative/judge', async (req, res) => {
+    //   try {
+    //     const { experimentId } = req.params;
+    //     const { token_address } = req.body;
+    //
+    //     if (!token_address) {
+    //       return res.status(400).json({ success: false, error: '缺少token_address参数' });
+    //     }
+    //
+    //     const { error } = await this.dataService.supabase
+    //       .from('experiment_tokens')
+    //       .update({ human_judges: null })
+    //       .eq('experiment_id', experimentId)
+    //       .eq('token_address', token_address);
+    //
+    //     if (error) throw error;
+    //
+    //     res.json({
+    //       success: true,
+    //       message: '标注已删除'
+    //     });
+    //   } catch (error) {
+    //     this.logger.error('WebServer', '删除叙事人工标注失败:', { details: error });
+    //     res.status(500).json({ success: false, error: error.message });
+    //   }
+    // });
 
     // ============ API路由：Twitter功能 ============
 

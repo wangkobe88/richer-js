@@ -784,9 +784,10 @@ class ExperimentMonitor {
         }
 
         // 电报通知配置
-        if (sc.telegramNotifications) {
-          copyData.telegramNotifications = sc.telegramNotifications;
-        }
+        // [DECOUPLED] 电报通知配置复制已禁用
+        // if (sc.telegramNotifications) {
+        //   copyData.telegramNotifications = sc.telegramNotifications;
+        // }
 
         // 合约审计风控配置
         if (sc.contractRiskCheck) {

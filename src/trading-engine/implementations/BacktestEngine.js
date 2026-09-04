@@ -2158,6 +2158,8 @@ class BacktestEngine extends AbstractTradingEngine {
    * @returns {Promise<number>} 叙事评级
    */
   async _getNarrativeRating(tokenAddress) {
+    // [DECOUPLED] 叙事评级始终返回未评级
+    return 9;
     return this._pollNarrativeRating(this._experimentId, tokenAddress, {
       maxWaitSeconds: this._narrativeMaxWaitSeconds,
       pollIntervalMs: this._narrativePollIntervalMs
