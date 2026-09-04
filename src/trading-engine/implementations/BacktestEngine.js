@@ -29,8 +29,9 @@ const Decimal = require('decimal.js');
 
 const baseConfig = require('../../../config/default.json');
 
-const TICK_PAGE_SIZE = 2000;      // wss_price_ticks 分页读取页大小
-const MAX_TICK_PAGES = 500;       // 分页保护上限（100 万 tick）
+const TICK_PAGE_SIZE = 500;       // 分页读取页大小（必须 < Supabase 默认 max rows 1000，
+                                  // 否则响应被服务端截断、终止条件误判数据到尾）
+const MAX_TICK_PAGES = 2000;      // 分页保护上限（100 万 tick）
 const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐实时引擎 30s）
 
 class BacktestEngine extends AbstractTradingEngine {
