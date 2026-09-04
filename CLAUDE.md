@@ -111,12 +111,14 @@ Token URL → URL Classification → Data Fetching → Pre-Check
 
 ```
 PreBuyCheckService.performAllChecks()
-    ├── EarlyParticipantCheckService (first 90 seconds trades analysis)
+    ├── EarlyParticipantCheckService (first 90 seconds trades, from `wss_price_ticks`)
     │   └── WalletClusterService (cluster detection, reuses trades data)
     └── TokenHolderService (holder blacklist via AVE API)
 ```
 
-All pre-buy factors stored in signal metadata under `preBuyCheckFactors`.
+EarlyParticipantCheckService queries `wss_price_ticks` (market-wide per token, rows mapped to AVE-trade-compatible shape so WalletCluster/WalletLabel/TokenHolder are unchanged). An empty window returns real zero stats (reject semantics), not the legacy "probably graduated" pass-through values — those remain only for query errors.
+
+All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-buy checks only run when the buy strategy defines `preBuyCheckCondition` (first round) / `repeatBuyCheckCondition` (later rounds) — strategies cloned from legacy configs without these fields buy without pre-checks.
 
 ### Chain Support (BSC-only)
 
