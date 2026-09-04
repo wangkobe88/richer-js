@@ -19,7 +19,14 @@
     "tickBuffer": { "flushIntervalMs": 2000, "flushThreshold": 100, "batchSize": 500 },
     "wssDownGuardMs": 900000,
     "bnbUsd": { "refreshMs": 60000 },
-    "maxTrackedTokens": 300
+    "maxTrackedTokens": 300,
+    "signalDebounceMs": 1500,
+    "signalDebounceMaxWaitMs": 5000,
+    "pruneIntervalMs": 300000,
+    "pruneMaxAgeMs": 1800000,
+    "timeSeriesIntervalMs": 30000,
+    "timeSeriesActiveWindowMs": 60000,
+    "minTickBnb": 0.001
   },
   "strategy": {
     "buyTimeMinutes": 1.33,

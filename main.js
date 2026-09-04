@@ -13,7 +13,7 @@ const path = require('path');
 // 引入引擎相关模块
 const { ExperimentFactory } = require('./src/trading-engine/factories/ExperimentFactory');
 const { Experiment } = require('./src/trading-engine/entities/Experiment');
-const { VirtualTradingEngine } = require('./src/trading-engine/implementations/VirtualTradingEngine');
+const { FourMemeWssTradingEngine } = require('./src/trading-engine/implementations/FourMemeWssTradingEngine');
 const { LiveTradingEngine } = require('./src/trading-engine/implementations/LiveTradingEngine');
 const { BacktestEngine } = require('./src/trading-engine/implementations/BacktestEngine');
 
@@ -45,9 +45,8 @@ class VirtualTradingSystem {
     switch (tradingMode) {
       case 'virtual':
         const initialBalance = experiment.config?.virtual?.initialBalance || 100;
-        const blockchain = experiment.config?.blockchain || 'bsc';
-        console.log(`🎮 创建虚拟交易引擎，初始余额: ${initialBalance}, 区块链: ${blockchain}`);
-        return new VirtualTradingEngine({ initialBalance, blockchain });
+        console.log(`🎮 创建 WSS 事件驱动虚拟交易引擎，初始余额: ${initialBalance}`);
+        return new FourMemeWssTradingEngine({ tradingMode: 'virtual', initialBalance });
 
       case 'live':
         console.log(`🔴 创建实盘交易引擎`);

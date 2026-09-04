@@ -106,12 +106,18 @@ class StrategyEngine {
      * @param {string} tokenAddress - 代币地址
      * @param {number} timestamp - 当前时间戳
      * @param {Object} tokenData - 代币数据（用于检查执行次数）
+     * @param {string|null} [actionFilter] - 只评估指定动作的策略（'buy'|'sell'），null 为混合（旧语义）
      * @returns {Object|null} 触发的策略对象，如果没有则返回null
      */
-    evaluate(factorResults, tokenAddress, timestamp = Date.now(), tokenData = null) {
+    evaluate(factorResults, tokenAddress, timestamp = Date.now(), tokenData = null, actionFilter = null) {
         const triggeredStrategies = [];
 
         for (const strategy of this._strategies) {
+            // 动作过滤（事件驱动引擎分腿评估用：持仓中只看卖腿，避免同优先级买策略遮蔽卖出）
+            if (actionFilter && strategy.action !== actionFilter) {
+                continue;
+            }
+
             // 检查是否启用
             if (!strategy.enabled) {
                 continue;
