@@ -14,7 +14,6 @@ const path = require('path');
 const { ExperimentFactory } = require('./src/trading-engine/factories/ExperimentFactory');
 const { Experiment } = require('./src/trading-engine/entities/Experiment');
 const { FourMemeWssTradingEngine } = require('./src/trading-engine/implementations/FourMemeWssTradingEngine');
-const { LiveTradingEngine } = require('./src/trading-engine/implementations/LiveTradingEngine');
 const { BacktestEngine } = require('./src/trading-engine/implementations/BacktestEngine');
 
 const consoleLogger = {
@@ -49,8 +48,8 @@ class VirtualTradingSystem {
         return new FourMemeWssTradingEngine({ tradingMode: 'virtual', initialBalance });
 
       case 'live':
-        console.log(`🔴 创建实盘交易引擎`);
-        return new LiveTradingEngine();
+        console.log(`🔴 创建实盘交易引擎（WSS 事件驱动 + FourMemeDirectTrader）`);
+        return new FourMemeWssTradingEngine({ tradingMode: 'live' });
 
       case 'backtest':
         console.log(`📊 创建回测引擎`);

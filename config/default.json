@@ -15,10 +15,19 @@
     },
     "subscribeV1": false,
     "pingIntervalMs": 10000,
-    "reconnect": { "minDelayMs": 2000, "maxDelayMs": 60000 },
-    "tickBuffer": { "flushIntervalMs": 2000, "flushThreshold": 100, "batchSize": 500 },
+    "reconnect": {
+      "minDelayMs": 2000,
+      "maxDelayMs": 60000
+    },
+    "tickBuffer": {
+      "flushIntervalMs": 2000,
+      "flushThreshold": 100,
+      "batchSize": 500
+    },
     "wssDownGuardMs": 900000,
-    "bnbUsd": { "refreshMs": 60000 },
+    "bnbUsd": {
+      "refreshMs": 60000
+    },
     "maxTrackedTokens": 300,
     "signalDebounceMs": 1500,
     "signalDebounceMaxWaitMs": 5000,
@@ -26,7 +35,14 @@
     "pruneMaxAgeMs": 1800000,
     "timeSeriesIntervalMs": 30000,
     "timeSeriesActiveWindowMs": 60000,
-    "minTickBnb": 0.001
+    "minTickBnb": 0.001,
+    "live": {
+      "reserveNative": 0.01,
+      "slippageTolerance": 5,
+      "maxGasPrice": 10,
+      "holdingsSyncMs": 300000,
+      "sellFailureCooldownMs": 60000
+    }
   },
   "strategy": {
     "buyTimeMinutes": 1.33,

@@ -8,6 +8,15 @@
  * 虚拟记账）），因子源换为 FourMemeFactorAggregator（WSS tick 增量因子，61 键契约
  * 与旧 VirtualTradingEngine._buildFactors 逐字对齐）。
  *
+ * 双交易模式（tradingMode）：
+ *   - virtual：PortfolioManager 虚拟记账（executeTrade 0.5% 模拟手续费）
+ *   - live（Phase 5）：FourMemeDirectTrader 真实链上成交。记账口径与 virtual 统一为
+ *     USD 名义（实际 BNB 成交按 BNB/USD 换算；组合 cash = 链上可用 BNB 的 USD 等值，
+ *     记账 fee=0——真实成本已含在实际成交里）。链上事实优先：记账异常不改变交易
+ *     成功语义，cash 由 _reconcileLiveCash 对账兜底。重启恢复走 _loadHoldingsLive
+ *     （trades 账面 + 链上 balanceOf 对账 + tokenPool/FA 状态重建）；卖出失败有
+ *     冷却（防 tick 级重试烧 gas）。
+ *
  * 驱动模型：collector（TokenCreate/TokenPurchase/TokenSale/LiquidityAdded 事件）→
  * FA.processTick → 'factorsUpdated' → _onFactorsUpdated：
  *   - 卖腿：token.status==='bought' 时每 tick 实时评估（止损/止盈时间敏感，不去抖）
@@ -37,8 +46,8 @@ const baseConfig = require('../../../config/default.json');
 class FourMemeWssTradingEngine extends AbstractTradingEngine {
   /**
    * @param {Object} engineConfig
-   * @param {string} engineConfig.tradingMode - 'virtual' | 'live'（live 于 Phase 5 接入）
-   * @param {number} [engineConfig.initialBalance] - 虚拟初始余额（BNB 名义）
+   * @param {string} engineConfig.tradingMode - 'virtual' | 'live'
+   * @param {number} [engineConfig.initialBalance] - 虚拟初始余额（USD 名义，live 忽略——以链上为准）
    */
   constructor(engineConfig = {}) {
     super({
@@ -48,10 +57,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       blockchain: 'bsc',
     });
 
-    if (engineConfig.tradingMode === 'live') {
-      // Phase 5 接入 FourMemeDirectTrader 执行层；在此之前 fail-fast 防止误启动
-      throw new Error('FourMemeWssTradingEngine: live 模式尚未接入（Phase 5），当前仅支持 virtual');
-    }
+    this._isLive = engineConfig.tradingMode === 'live';
 
     this.initialBalance = engineConfig.initialBalance || 100;
     this._currentBalance = this.initialBalance;
@@ -72,6 +78,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._restoreAnchors = new Map();    // 重启恢复的持仓锚点 tokenAddress → { buyPriceUsd, buyTime }
     this._intervals = {};
     this._wssDownFlagged = false;
+
+    // live 执行层状态（Phase 5）
+    this._trader = null;                 // FourMemeDirectTrader（live 专用）
+    this._walletAddress = null;
+    this._lastKnownBnbUsd = 0;           // 最近一次 BNB/USD（collector 刷新，启动时 trader 直读一次）
+    this._sellCooldownUntil = new Map(); // 卖出失败冷却 tokenAddress → untilTs（live 防 gas 消耗风暴）
 
     // 引擎级配置（fourmemeWs 段；实验级覆盖在 _initializeDataSources 中重读）
     this._applyWsConfig(baseConfig.fourmemeWs || {});
@@ -116,6 +128,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._timeSeriesIntervalMs = this._wsConfig.timeSeriesIntervalMs ?? 30 * 1000;
     this._timeSeriesActiveWindowMs = this._wsConfig.timeSeriesActiveWindowMs ?? 60 * 1000;
     this._wssDownThresholdMs = this._wsConfig.wssDownGuardMs ?? 15 * 60 * 1000;
+
+    // live 执行层参数（实验级覆盖在 _initializeLiveTrader 中重读 trading 段）
+    const liveConfig = this._wsConfig.live || {};
+    this._reserveNative = new Decimal(liveConfig.reserveNative ?? 0.01); // gas 保留 BNB（≈3 笔 300k×10gwei）
+    this._liveSlippagePct = liveConfig.slippageTolerance ?? 5;           // 滑点百分比（trader 契约：5 = 5%）
+    this._liveMaxGasPriceGwei = liveConfig.maxGasPrice ?? 10;            // gwei
+    this._liveHoldingsSyncMs = liveConfig.holdingsSyncMs ?? 5 * 60 * 1000;
+    this._sellFailureCooldownMs = liveConfig.sellFailureCooldownMs ?? 60 * 1000;
   }
 
   /** 当前可用余额（PortfolioManager 真实余额优先） */
@@ -137,6 +157,20 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   async _initializeDataSources() {
+    // 实验级 fourmemeWs 覆盖重读（构造器时 _experiment 未注入，只有 base 段；
+    // debounce/live 参数随之生效，debouncer 按最终参数重建——初始化阶段无 pending，安全）
+    this._applyWsConfig(this._mergedWsConfig());
+    const { TickDebouncer } = require('../core/TickDebouncer');
+    this._buyDebouncer = new TickDebouncer({
+      debounceMs: this._signalDebounceMs,
+      maxWaitMs: this._signalDebounceMaxWaitMs,
+      mode: 'real',
+      onFire: (tokenAddress, tick) => {
+        this.metrics.debounceFired++;
+        this._runBuyEvaluation(tokenAddress, tick);
+      },
+    });
+
     const TokenPool = require('../../core/token-pool');
 
     // 1. 购买前检查服务（默认配置 + 实验级覆盖，与 Virtual 同源）
@@ -227,8 +261,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._tokenBlacklist = new Map();
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', `交易金额配置 | tradeAmount=${this._tradeAmount}`);
 
-    // 7. 重启恢复：重放 trades 重建 PortfolioManager 持仓 + 记录 FA 锚点
-    await this._loadHoldings();
+    // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪
+    if (this._isLive) {
+      await this._initializeLiveTrader();
+    }
+
+    // 8. 重启恢复：重放 trades 重建 PortfolioManager 持仓 + 记录 FA 锚点
+    //    live：以链上余额为准对账（cash=链上 BNB 等值，持仓数量=balanceOf）
+    await (this._isLive ? this._loadHoldingsLive() : this._loadHoldings());
   }
 
   /** 基础 fourmemeWs 配置 + 实验级覆盖（浅合并） */
@@ -237,6 +277,131 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       ...(baseConfig.fourmemeWs || {}),
       ...(this._experiment?.config?.fourmemeWs || {}),
     };
+  }
+
+  // ==================== live 执行层（Phase 5：FourMemeDirectTrader）====================
+
+  /**
+   * live 交易器初始化：钱包配置校验 → 私钥解密 → FourMemeDirectTrader →
+   * 地址一致性校验（私钥推导地址 ≠ 配置地址 = 配置错误，fail-fast）→
+   * 链上连通性探测 + BNB/USD 启动锚定。
+   */
+  async _initializeLiveTrader() {
+    const walletConfig = this._experiment?.config?.wallet;
+    if (!walletConfig?.address || !walletConfig?.privateKey) {
+      throw new Error('live 实验缺少钱包配置 (config.wallet.address / config.wallet.privateKey)');
+    }
+    this._walletAddress = walletConfig.address;
+
+    const { CryptoUtils } = require('../../utils/CryptoUtils');
+    let privateKey;
+    try {
+      privateKey = new CryptoUtils().decrypt(walletConfig.privateKey);
+    } catch (error) {
+      throw new Error(`钱包私钥解密失败: ${error.message}`);
+    }
+
+    const traderFactory = require('../traders');
+    const traderConfig = { blockchain: 'bsc', chain: 'bsc' };
+    // 发单 RPC：ankr（与 WSS 同源账号）优先，否则 BaseTrader 内置公共节点
+    if (process.env.ANKR_API_KEY) {
+      traderConfig.network = { rpcUrl: `https://rpc.ankr.com/bsc/${process.env.ANKR_API_KEY}` };
+    }
+    this._trader = traderFactory.createTrader('fourmeme', traderConfig);
+    await this._trader.setWallet(privateKey);
+
+    const derivedAddress = this._trader.wallet?.address;
+    if (!derivedAddress || derivedAddress.toLowerCase() !== this._walletAddress.toLowerCase()) {
+      throw new Error(
+        `钱包地址不一致: 私钥推导 ${derivedAddress} ≠ 配置 ${this._walletAddress}（检查 config.wallet）`);
+    }
+
+    // 连通性探测 + 启动时 BNB/USD 锚定（collector 尚未启动，getBnbUsd 为 0）
+    const nativeBalance = await this._trader.getNativeBalance();
+    await this._fetchBnbUsdOnce();
+
+    this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+      `✅ live 交易器就绪 | 钱包 ${this._walletAddress} 链上 ${nativeBalance} BNB（reserve ${this._reserveNative}）` +
+      ` BNB/USD≈${this._lastKnownBnbUsd} 滑点 ${this._liveSlippagePct}% gas≤${this._liveMaxGasPriceGwei}gwei`);
+  }
+
+  /** 启动时 BNB/USD 直读一次（PancakeSwap V2 Router getAmountsOut；运行期由 collector 60s 刷新接力） */
+  async _fetchBnbUsdOnce() {
+    try {
+      const { ethers } = require('ethers');
+      const router = new ethers.Contract(
+        '0x10ED43C718714eb63d5aA57B78B54704E256024E',
+        ['function getAmountsOut(uint256 amountIn, address[] path) view returns (uint256[] amounts)'],
+        this._trader.provider,
+      );
+      const amounts = await router.getAmountsOut(ethers.parseEther('1'), [
+        '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB
+        '0x55d398326f99059fF775485246999027B3197955', // USDT (BSC)
+      ]);
+      const rate = Number(ethers.formatUnits(amounts[1], 18));
+      if (rate > 0) this._lastKnownBnbUsd = rate;
+    } catch (error) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine',
+        `BNB/USD 启动直读失败（collector 启动后接力刷新）: ${error.message}`);
+    }
+  }
+
+  /** 当前 BNB/USD（collector 刷新值优先，回落最近已知值） */
+  _getBnbUsd() {
+    const fromCollector = this._collector ? this._collector.getBnbUsd() : 0;
+    if (fromCollector > 0) this._lastKnownBnbUsd = fromCollector;
+    return this._lastKnownBnbUsd;
+  }
+
+  /** 链上 ERC20 余额（代币数量；查询失败返回 null） */
+  async _getOnChainTokenBalance(tokenAddress) {
+    try {
+      const { ethers } = require('ethers');
+      const erc20 = new ethers.Contract(
+        tokenAddress,
+        ['function balanceOf(address) view returns (uint256)'],
+        this._trader.provider,
+      );
+      const balance = await erc20.balanceOf(this._trader.wallet.address);
+      return Number(ethers.formatUnits(balance, 18));
+    } catch (error) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine',
+        `链上余额查询失败 | ${tokenAddress} ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * live 现金对账：cashBalance 直设为链上可用 BNB 的 USD 等值。
+   * 现金就是现金——gas/手续费/盈亏在链上余额里都已体现，直设即完成校正。
+   */
+  async _reconcileLiveCash() {
+    const rate = this._getBnbUsd();
+    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+    if (!portfolio || !(rate > 0)) return;
+
+    const native = new Decimal(await this._trader.getNativeBalance());
+    portfolio.cashBalance = Decimal.max(0, native.sub(this._reserveNative)).mul(rate);
+  }
+
+  /** live 记账（fee=0，真实成本已含在实际成交里）：cash 不足（对账 drift）时先对账再重试；仍失败不阻断链上事实 */
+  async _liveRecordTrade(direction, signal, tokenAmount, priceUsd) {
+    try {
+      return await this._portfolioManager.executeTrade(
+        this._portfolioId, signal.tokenAddress, direction, tokenAmount, priceUsd, 0);
+    } catch (firstError) {
+      this.logger.warn(this._experimentId, '_liveRecordTrade',
+        `记账失败（${firstError.message}），对账修正 cash 后重试`);
+      await this._reconcileLiveCash();
+      try {
+        return await this._portfolioManager.executeTrade(
+          this._portfolioId, signal.tokenAddress, direction, tokenAmount, priceUsd, 0);
+      } catch (secondError) {
+        this.logger.error(this._experimentId, '_liveRecordTrade',
+          `记账失败（链上已成交，持仓账目待 _syncHoldings 对账）: ${secondError.message}`);
+        return null;
+      }
+    }
   }
 
   async _runMainLoop() {
@@ -276,14 +441,52 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       }
     }, this._pruneIntervalMs);
 
+    // live 持仓对账（链上余额 vs 账面，外部处置/偏差告警）
+    if (this._isLive) {
+      this._intervals.liveSync = setInterval(() => {
+        this._syncHoldings().catch(err => {
+          this.logger.error(this._experimentId, 'LiveSync', `live 持仓对账失败: ${err.message}`);
+        });
+      }, this._liveHoldingsSyncMs);
+    }
+
     // 不阻塞：main.js 在 start() 返回后注册优雅退出；WSS 连接 + intervals 保活事件循环
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `🚀 事件循环已启动（debounce=${this._signalDebounceMs}ms maxWait=${this._signalDebounceMaxWaitMs}ms ` +
       `时序=${this._timeSeriesIntervalMs / 1000}s 断流阈值=${this._wssDownThresholdMs / 60000}min），等待 WSS 事件...`);
   }
 
+  /**
+   * virtual：持仓由 PortfolioManager 内部维护（_loadHoldings 重放 + executeTrade 记账）。
+   * live：链上对账——持仓数量逐个 balanceOf（链上 0 = 外部处置，告警；数量偏差告警），
+   * 现金只记对账日志（cash 修正已由 _liveRecordTrade 的对账重试兜底）。
+   */
   async _syncHoldings() {
-    // virtual：持仓由 PortfolioManager 内部维护（_loadHoldings 重放 + executeTrade 记账）
+    if (!this._isLive || !this._trader) return;
+
+    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+    if (!portfolio) return;
+
+    for (const [tokenAddress, position] of portfolio.positions) {
+      if (!(position.amount > 0)) continue;
+      const onChainQty = await this._getOnChainTokenBalance(tokenAddress);
+      if (onChainQty === null) continue;
+      if (onChainQty <= 0) {
+        this.logger.warn(this._experimentId, 'SyncHoldings',
+          `⚠️ 链上余额为 0（可能已外部处置），账面 ${position.amount}——卖出触发将失败 | ${tokenAddress}`);
+      } else if (Math.abs(onChainQty - Number(position.amount)) / Number(position.amount) > 0.01) {
+        this.logger.warn(this._experimentId, 'SyncHoldings',
+          `⚠️ 持仓偏差>1%：链上 ${onChainQty} vs 账面 ${position.amount} | ${tokenAddress}`);
+      }
+    }
+
+    const rate = this._getBnbUsd();
+    if (rate > 0) {
+      const native = new Decimal(await this._trader.getNativeBalance());
+      this.logger.info(this._experimentId, 'SyncHoldings',
+        `对账 | 链上 ${native.toFixed(4)} BNB ≈ ${native.mul(rate).toFixed(2)} USD vs cash ${portfolio.cashBalance.toFixed(2)}` +
+        `（持仓 ${portfolio.positions.size} 个）`);
+    }
   }
 
   _shouldRecordTimeSeries() {
@@ -609,8 +812,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const result = await this.processSignal(signal, signalId);
 
       if (result && result.success) {
+        // 持仓锚点价：live 用实际成交价（result.priceUsd），虚拟用信号时刻因子价
+        const execPriceUsd = result.priceUsd || latestPrice;
         this._tokenPool.markAsBought(token.token, token.chain, {
-          buyPrice: latestPrice,
+          buyPrice: execPriceUsd,
           buyTime: Date.now(),
         });
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
@@ -620,12 +825,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         const faState = this._factorAggregator.getTokenState(token.token);
         this._factorAggregator.setBuyState(token.token, {
           buyPriceBnb: faState?.currentPriceBnb || 0,
-          buyPriceUsd: latestPrice,
+          buyPriceUsd: execPriceUsd,
           buyTime: Date.now(),
         });
 
         this.logger.info(this._experimentId, 'BuyEval',
-          `✅ 买入成功 | ${token.symbol} price=${latestPrice.toExponential(4)} amount=${this._tradeAmount} 余额=${this.currentBalance.toFixed(4)}`);
+          `✅ 买入成功${this._isLive ? '(live)' : ''} | ${token.symbol} price=${execPriceUsd.toExponential(4)} amount=${this._tradeAmount} 余额=${this.currentBalance.toFixed(4)}`);
         return { success: true };
       }
 
@@ -645,6 +850,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token || token.status !== 'bought') return { success: false, reason: '非持有状态' };
     if (this._sellingTokens.has(tokenAddress)) return { success: false, reason: '卖出执行中' };
+
+    // live 卖出失败冷却：tick 驱动的卖腿若无冷却，链上失败会每 tick 重试烧 gas
+    if (this._isLive) {
+      const cooldownUntil = this._sellCooldownUntil.get(tokenAddress);
+      if (cooldownUntil && Date.now() < cooldownUntil) {
+        return { success: false, reason: '卖出冷却中' };
+      }
+    }
 
     this._sellingTokens.add(tokenAddress);
     try {
@@ -697,9 +910,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
   }
 
-  // ==================== 交易执行（虚拟记账，与旧 Virtual 引擎同构）====================
+  // ==================== 交易执行（virtual 虚拟记账 / live FourMemeDirectTrader）====================
 
   async _executeBuy(signal, signalId = null, metadata = {}) {
+    if (this._isLive) {
+      return this._executeBuyLive(signal, signalId, metadata);
+    }
     try {
       const amountInBNB = this._calculateBuyAmount(signal);
       if (amountInBNB <= 0) {
@@ -732,32 +948,42 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: '无持仓' };
       }
 
-      const amountToSell = holding.amount;
-      const price = signal.price || 0;
-      const amountOutBNB = price > 0 ? new Decimal(amountToSell).mul(price).toNumber() : 0;
-
-      const result = await this.executeTrade({
-        tokenAddress: signal.tokenAddress,
-        symbol: signal.symbol,
-        direction: 'sell',
-        amount: amountToSell,
-        price: price,
-        signalId: signalId,
-        metadata: {
-          ...metadata,
-          buyPrice: signal.buyPrice,
-          profitPercent: signal.profitPercent,
-          holdDuration: signal.holdDuration,
-        },
-      });
+      let result;
+      if (this._isLive) {
+        result = await this._executeSellLive(signal, signalId, metadata, holding);
+      } else {
+        const amountToSell = holding.amount;
+        const price = signal.price || 0;
+        result = await this.executeTrade({
+          tokenAddress: signal.tokenAddress,
+          symbol: signal.symbol,
+          direction: 'sell',
+          amount: amountToSell,
+          price: price,
+          signalId: signalId,
+          metadata: {
+            ...metadata,
+            buyPrice: signal.buyPrice,
+            profitPercent: signal.profitPercent,
+            holdDuration: signal.holdDuration,
+          },
+        });
+      }
 
       if (result && result.success) {
+        this._sellCooldownUntil.delete(signal.tokenAddress);
+
+        // 记账价/所得：live 用实际成交（priceUsd/bnbReceived），虚拟按信号价估算
+        const sellPrice = result.priceUsd ?? (signal.price || 0);
+        const amountOutBNB = result.bnbReceived ??
+          (sellPrice > 0 ? new Decimal(holding.amount).mul(sellPrice).toNumber() : 0);
+
         // 全额卖出：记录交易对 + 状态推进 + FA 清锚
         const token = this._tokenPool.getToken(signal.tokenAddress, signal.chain || 'bsc');
         if (token && token.buyTime && token.buyPrice) {
           const sellTime = Date.now();
           const buyPrice = token.buyPrice;
-          const returnRate = buyPrice > 0 ? ((price - buyPrice) / buyPrice * 100) : 0;
+          const returnRate = buyPrice > 0 ? ((sellPrice - buyPrice) / buyPrice * 100) : 0;
           const pnl = amountOutBNB - (amountOutBNB / (1 + returnRate / 100));
 
           this._tokenPool.addCompletedPair(signal.tokenAddress, signal.chain, {
@@ -773,12 +999,200 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         this._tokenPool.markAsSold(signal.tokenAddress, signal.chain);
         await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'sold');
         this._factorAggregator.clearBuyState(signal.tokenAddress, 'default');
+      } else if (this._isLive) {
+        // 卖出失败冷却：防每 tick 高频重试烧 gas（成功后清除）
+        this._sellCooldownUntil.set(signal.tokenAddress, Date.now() + this._sellFailureCooldownMs);
+        this.logger.warn(this._experimentId, '_executeSell',
+          `live 卖出失败，冷却 ${this._sellFailureCooldownMs / 1000}s | ${signal.symbol} ${result?.reason || ''}`);
       }
 
       return result;
     } catch (error) {
       return { success: false, reason: error.message };
     }
+  }
+
+  /**
+   * live 买入：链上余额检查（含 gas reserve）→ FourMemeDirectTrader.buyToken →
+   * 实际成交（receipt 解析数量）按 BNB/USD 换算 USD 口径记账（fee=0，真实成本已含在
+   * 成交差价里）→ Trade 落库（isVirtualTrade=false + txHash）。
+   * 链上事实优先：记账异常不改变交易成功语义（cash 由 _reconcileLiveCash 对账兜底）。
+   */
+  async _executeBuyLive(signal, signalId = null, metadata = {}) {
+    try {
+      const amountInBNB = this._tradeAmount;
+      if (!(amountInBNB > 0)) {
+        return { success: false, reason: 'tradeAmount 未配置或为 0' };
+      }
+
+      // 链上资金检查（portfolio cash 是记账镜像，真金白银以链上为准）
+      const nativeBalance = new Decimal(await this._trader.getNativeBalance());
+      if (nativeBalance.lt(new Decimal(amountInBNB).plus(this._reserveNative))) {
+        return {
+          success: false,
+          reason: `链上余额不足: 实际 ${nativeBalance.toString()}, 需要 ${amountInBNB}+reserve ${this._reserveNative}`,
+        };
+      }
+
+      const { ethers } = require('ethers');
+      const amountInWei = ethers.parseEther(String(amountInBNB));
+      const options = {
+        slippageTolerance: this._liveSlippagePct,
+        maxGasPrice: this._liveMaxGasPriceGwei,
+      };
+
+      this.logger.info(this._experimentId, '_executeBuyLive',
+        `📡 live 买入 | ${signal.symbol} ${amountInBNB} BNB（滑点 ${this._liveSlippagePct}% gas≤${this._liveMaxGasPriceGwei}gwei）`);
+
+      const buyResult = await this._trader.buyToken(signal.tokenAddress, amountInWei, options);
+      if (!buyResult.success) {
+        return { success: false, reason: buyResult.error || 'live 买入交易失败' };
+      }
+
+      // 实际成交数量：receipt 解析为准，失败按信号价估算
+      const bnbUsd = this._getBnbUsd();
+      let actualTokenAmount = parseFloat(buyResult.actualAmountOut);
+      if (!isFinite(actualTokenAmount) || actualTokenAmount <= 0) {
+        const fallbackPrice = signal.price || 0;
+        actualTokenAmount = fallbackPrice > 0
+          ? new Decimal(amountInBNB).div(fallbackPrice).toNumber() : 0;
+        this.logger.warn(this._experimentId, '_executeBuyLive',
+          `实际成交数量未知（receipt 解析失败），按信号价估算 ${actualTokenAmount}`);
+      }
+      if (!(actualTokenAmount > 0)) {
+        return { success: false, reason: `成交数量无效: ${buyResult.actualAmountOut}` };
+      }
+      const actualPriceUsd = bnbUsd > 0
+        ? new Decimal(amountInBNB).mul(bnbUsd).div(actualTokenAmount).toNumber()
+        : (signal.price || 0);
+
+      await this._liveRecordTrade('buy', signal, actualTokenAmount, actualPriceUsd);
+
+      const { Trade } = require('../entities');
+      const trade = new Trade({
+        experimentId: this._experimentId,
+        signalId,
+        tokenAddress: signal.tokenAddress,
+        tokenSymbol: signal.symbol,
+        tradeDirection: 'buy',
+        tradeStatus: 'success',
+        success: true,
+        isVirtualTrade: false,
+        inputCurrency: 'BNB',
+        outputCurrency: signal.symbol,
+        inputAmount: String(amountInBNB),
+        outputAmount: String(actualTokenAmount),
+        unitPrice: String(actualPriceUsd),
+        txHash: buyResult.transactionHash || buyResult.txHash || null,
+        gasUsed: buyResult.gasUsed || null,
+        gasPrice: buyResult.gasPrice || null,
+        executedAt: new Date(),
+        metadata: {
+          ...metadata,
+          txHash: buyResult.transactionHash || buyResult.txHash || null,
+          bnbUsd,
+          amountInBnb: String(amountInBNB),
+          protocol: 'FourMeme TokenManager2',
+          method: buyResult.method || 'buyTokenAMAP',
+        },
+      });
+      const tradeId = await trade.save();
+
+      this.logger.info(this._experimentId, '_executeBuyLive',
+        `✅ live 买入成交 | ${signal.symbol} tx=${trade.txHash} 得 ${actualTokenAmount} @ ${actualPriceUsd.toExponential(4)} USD`);
+
+      return { success: true, tradeId, txHash: trade.txHash, trade, priceUsd: actualPriceUsd };
+    } catch (error) {
+      this.logger.error(this._experimentId, '_executeBuyLive', `异常 | ${error.message}`);
+      return { success: false, reason: error.message || 'live 买入执行异常', error: error.message };
+    }
+  }
+
+  /**
+   * live 卖出：链上余额预查（账面 > 链上时按链上数量卖，防呆账）→
+   * sellToken（trader 内自动 approve + 余额截断 + minFunds 滑点保护）→
+   * 实收 BNB 换算 USD 记账（fee=0）→ Trade 落库。
+   */
+  async _executeSellLive(signal, signalId = null, metadata = {}, holding) {
+    const { ethers } = require('ethers');
+    const amountToSell = Number(holding.amount);
+
+    const onChainQty = await this._getOnChainTokenBalance(signal.tokenAddress);
+    let qtySold = amountToSell;
+    if (onChainQty !== null && onChainQty < amountToSell) {
+      if (onChainQty <= 0) {
+        return { success: false, reason: `链上余额为 0（可能已外部处置），账面 ${amountToSell}` };
+      }
+      this.logger.warn(this._experimentId, '_executeSellLive',
+        `账面 ${amountToSell} > 链上 ${onChainQty}，按链上数量卖出 | ${signal.symbol}`);
+      qtySold = onChainQty;
+    }
+
+    const amountOutWei = ethers.parseUnits(qtySold.toFixed(18), 18); // trader bigint 分支内含 6 位小数舍入
+    const options = {
+      slippageTolerance: this._liveSlippagePct,
+      maxGasPrice: this._liveMaxGasPriceGwei,
+    };
+
+    this.logger.info(this._experimentId, '_executeSellLive',
+      `📡 live 卖出 | ${signal.symbol} ${qtySold}（滑点 ${this._liveSlippagePct}%）`);
+
+    const sellResult = await this._trader.sellToken(signal.tokenAddress, amountOutWei, options);
+    if (!sellResult.success) {
+      return { success: false, reason: sellResult.error || 'live 卖出交易失败' };
+    }
+
+    // 实收 BNB：receipt 解析值优先（trader 解析失败时为 0），回落按信号价/汇率估算
+    const bnbUsd = this._getBnbUsd();
+    let bnbReceived = parseFloat(sellResult.actualReceived);
+    if (!isFinite(bnbReceived) || bnbReceived <= 0) {
+      const fallbackPriceUsd = signal.price || 0;
+      bnbReceived = fallbackPriceUsd > 0 && bnbUsd > 0
+        ? new Decimal(qtySold).mul(fallbackPriceUsd).div(bnbUsd).toNumber()
+        : 0;
+      this.logger.warn(this._experimentId, '_executeSellLive',
+        `实收 BNB 解析失败，按信号价估算 ${bnbReceived}`);
+    }
+    const actualPriceUsd = qtySold > 0 && bnbReceived > 0 && bnbUsd > 0
+      ? new Decimal(bnbReceived).mul(bnbUsd).div(qtySold).toNumber()
+      : (signal.price || 0);
+
+    await this._liveRecordTrade('sell', signal, qtySold, actualPriceUsd);
+
+    const { Trade } = require('../entities');
+    const trade = new Trade({
+      experimentId: this._experimentId,
+      signalId,
+      tokenAddress: signal.tokenAddress,
+      tokenSymbol: signal.symbol,
+      tradeDirection: 'sell',
+      tradeStatus: 'success',
+      success: true,
+      isVirtualTrade: false,
+      inputCurrency: signal.symbol,
+      outputCurrency: 'BNB',
+      inputAmount: String(qtySold),
+      outputAmount: String(bnbReceived),
+      unitPrice: String(actualPriceUsd),
+      txHash: sellResult.transactionHash || sellResult.txHash || null,
+      gasUsed: sellResult.gasUsed || null,
+      gasPrice: sellResult.gasPrice || null,
+      executedAt: new Date(),
+      metadata: {
+        ...metadata,
+        txHash: sellResult.transactionHash || sellResult.txHash || null,
+        bnbUsd,
+        bnbReceived: String(bnbReceived),
+        protocol: 'FourMeme TokenManager2',
+        method: 'sellToken',
+      },
+    });
+    const tradeId = await trade.save();
+
+    this.logger.info(this._experimentId, '_executeSellLive',
+      `✅ live 卖出成交 | ${signal.symbol} tx=${trade.txHash} 得 ${bnbReceived} BNB @ ${actualPriceUsd.toExponential(4)} USD`);
+
+    return { success: true, tradeId, txHash: trade.txHash, trade, priceUsd: actualPriceUsd, bnbReceived };
   }
 
   _calculateBuyAmount(signal) {
@@ -1087,6 +1501,116 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
   }
 
+  /**
+   * live 重启恢复（链上事实优先）：
+   *   trades 重放账面（净数量 / 买入加权均价 USD / 最后一笔买入）→ 链上 balanceOf 对账
+   *   （数量以链上为准；链上 0 = 已外部处置，跳过）→ cash = 链上可用 BNB 的 USD 等值 →
+   *   tokenPool markAsBought + FA registerToken/锚点（重启后卖腿才能被 tick 路由触发）。
+   */
+  async _loadHoldingsLive() {
+    const trades = await this.dataService.getTrades(this._experimentId, { limit: 10000 });
+    const book = new Map(); // tokenAddress → { qty, costUsd, lastBuy: { priceUsd, timeMs } }
+    for (const trade of (trades || []).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))) {
+      if (!trade.success) continue;
+      const isBuy = (trade.tradeDirection || trade.direction) === 'buy';
+      const qty = Number(isBuy ? trade.outputAmount : trade.inputAmount) || 0;
+      const price = Number(trade.unitPrice) || 0;
+      if (!(qty > 0) || !(price > 0)) continue;
+
+      const entry = book.get(trade.tokenAddress) || { qty: 0, costUsd: 0, lastBuy: null };
+      if (isBuy) {
+        entry.qty += qty;
+        entry.costUsd += qty * price;
+        entry.lastBuy = { priceUsd: price, timeMs: new Date(trade.createdAt).getTime() };
+      } else if (entry.qty > 0) {
+        // 卖出按剩余比例摊减成本（与 PortfolioManager 卖出记账语义一致）
+        const remainRatio = Math.max(0, (entry.qty - qty) / entry.qty);
+        entry.costUsd *= remainRatio;
+        entry.qty *= remainRatio;
+      }
+      book.set(trade.tokenAddress, entry);
+    }
+
+    // 链上对账 + 持仓注入（数量以链上为准）
+    const positions = [];
+    const anchorSources = [];
+    for (const [tokenAddress, entry] of book) {
+      if (!(entry.qty > 0)) continue;
+      const avgPriceUsd = entry.costUsd / entry.qty;
+
+      const onChainQty = await this._getOnChainTokenBalance(tokenAddress);
+      if (onChainQty !== null && onChainQty <= 0) {
+        this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine',
+          `⚠️ 恢复跳过：链上余额为 0（已外部处置）| ${tokenAddress} 账面 ${entry.qty}`);
+        continue;
+      }
+      const finalQty = onChainQty ?? entry.qty; // 查询失败保守用账面
+      if (onChainQty !== null && Math.abs(onChainQty - entry.qty) / entry.qty > 0.01) {
+        this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine',
+          `⚠️ 恢复数量偏差>1%：链上 ${onChainQty} vs 账面 ${entry.qty}（以链上为准）| ${tokenAddress}`);
+      }
+      positions.push({
+        tokenAddress,
+        amount: finalQty,
+        price: avgPriceUsd || entry.lastBuy?.priceUsd || 0,
+      });
+      anchorSources.push({ tokenAddress, avgPriceUsd, lastBuy: entry.lastBuy });
+    }
+
+    // cash = 链上可用 BNB 的 USD 等值（组合记账口径与虚拟版一致：USD 名义）
+    await this._reconcileLiveCash();
+
+    if (positions.length > 0) {
+      await this._portfolioManager.setInitialPositions(this._portfolioId, positions);
+      await this._restoreLiveTokens(anchorSources);
+    }
+
+    const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
+    const cashStr = portfolio?.cashBalance?.toFixed?.(2) ?? String(portfolio?.cashBalance ?? 0);
+    this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+      `📦 live 持仓恢复完成: ${positions.length} 个代币, cash=${cashStr} USD 名义（BNB/USD≈${this._getBnbUsd()}）`);
+  }
+
+  /** 恢复代币的池/FA 状态：experiment_tokens 元数据 → registerToken / addToken / markAsBought / 锚点 */
+  async _restoreLiveTokens(anchorSources) {
+    const { dbManager } = require('../../services/dbManager');
+    const supabase = dbManager.getClient();
+    const { data: metaRows } = await supabase
+      .from('experiment_tokens')
+      .select('token_address, token_symbol, created_at, raw_api_data, creator_address')
+      .eq('experiment_id', this._experimentId)
+      .in('token_address', anchorSources.map(a => a.tokenAddress));
+    const metaByAddr = new Map((metaRows || []).map(r => [r.token_address, r]));
+
+    for (const { tokenAddress, avgPriceUsd, lastBuy } of anchorSources) {
+      const meta = metaByAddr.get(tokenAddress) || {};
+      const createdAtSec = meta.created_at ? new Date(meta.created_at).getTime() / 1000 : null;
+
+      this._factorAggregator.registerToken(tokenAddress, {
+        createdAtMs: createdAtSec ? createdAtSec * 1000 : undefined,
+        totalSupply: Number(meta.raw_api_data?.totalSupply) || 0,
+        symbol: meta.token_symbol || '',
+        creatorAddress: meta.creator_address || meta.raw_api_data?.creator || null,
+      });
+      this._tokenPool.addToken({
+        token: tokenAddress,
+        chain: 'bsc',
+        platform: 'fourmeme',
+        data_source: 'wss',
+        symbol: meta.token_symbol || '',
+        created_at: createdAtSec,
+        current_price_usd: null,
+        creator_address: meta.creator_address || meta.raw_api_data?.creator || null,
+      });
+
+      const buyTime = lastBuy?.timeMs || Date.now();
+      const buyPriceUsd = avgPriceUsd || lastBuy?.priceUsd || 0;
+      this._tokenPool.markAsBought(tokenAddress, 'bsc', { buyPrice: buyPriceUsd, buyTime });
+      // FA 锚点：USD 价用账面记录，BNB 锚点等重启后首个可靠 tick 落位（_onFactorsUpdated 内处理）
+      this._restoreAnchors.set(tokenAddress, { buyPriceUsd, buyTime });
+    }
+  }
+
   /** 引擎运行状态（collector/FA/组合，监控用） */
   getStats() {
     return {
@@ -1096,6 +1620,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         status: this._status,
         loopCount: this._loopCount,
         isLive: this._isLive,
+        walletAddress: this._isLive ? this._walletAddress : null,
+        bnbUsd: this._isLive ? this._getBnbUsd() : null,
+        sellCooldown: this._isLive ? this._sellCooldownUntil.size : 0,
       },
       metrics: { ...this.metrics },
       collector: this._collector ? this._collector.getStats() : null,
