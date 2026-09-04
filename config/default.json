@@ -7,6 +7,20 @@
     "apiUrl": "https://four.meme",
     "timeout": 30000
   },
+  "fourmemeWs": {
+    "endpointFrom": "env",
+    "contracts": {
+      "tokenManagerV2": "0x5c952063c7fc8610FFDB798152D69F0B9550762b",
+      "tokenManagerV1": "0xEC4549caDcE5DA21Df6E6422d448034B5233bFbC"
+    },
+    "subscribeV1": false,
+    "pingIntervalMs": 10000,
+    "reconnect": { "minDelayMs": 2000, "maxDelayMs": 60000 },
+    "tickBuffer": { "flushIntervalMs": 2000, "flushThreshold": 100, "batchSize": 500 },
+    "wssDownGuardMs": 900000,
+    "bnbUsd": { "refreshMs": 60000 },
+    "maxTrackedTokens": 300
+  },
   "strategy": {
     "buyTimeMinutes": 1.33,
     "earlyReturnMin": 80,
