@@ -50,11 +50,24 @@ class BacktestWriteBuffer {
 
   /**
    * 添加信号更新（替代逐条 _directUpdateSignal 的即时写入）
-   * 同一个 signalId 的多次更新会被合并
+   * 同一个 signalId 的多次更新会被合并；update 的 metadata 与尚未 flush 的
+   * insert 行 metadata 深合并（supabase update 整列覆盖，部分键会把 insert 时
+   * 写入的 price/strategyId/strategyName 等丢掉）
    * @param {string} signalId
    * @param {Object} updateData
    */
   addSignalUpdate(signalId, updateData) {
+    // 与 insert 缓冲中的原始 metadata 合并（update 键优先；toDatabaseFormat 的
+    // metadata 恒为对象）
+    if (updateData.metadata) {
+      const insertRow = this._pendingSignalInserts.find(r => r.id === signalId);
+      if (insertRow && insertRow.metadata) {
+        const merged = { ...insertRow.metadata, ...updateData.metadata };
+        insertRow.metadata = merged;
+        updateData = { ...updateData, metadata: { ...merged } };
+      }
+    }
+
     const existing = this._pendingSignalUpdates.find(u => u.signalId === signalId);
     if (existing) {
       // 合并：新数据覆盖旧数据，metadata 深度合并

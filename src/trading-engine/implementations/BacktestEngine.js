@@ -972,7 +972,7 @@ class BacktestEngine extends AbstractTradingEngine {
           confidence: 80,
           reason: signal.reason,
           chain: 'bsc',
-          metadata: { price, reason: signal.reason, ...signal.factors },
+          metadata: { price, reason: signal.reason, strategyId: signal.strategyId, strategyName: signal.strategyName, ...signal.factors },
           createdAt: signal.timestamp,
         });
         signalId = tradeSignal.id;

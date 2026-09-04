@@ -206,6 +206,16 @@ async function main() {
     assert.ok(expUpdates.some(u => u.patch.status === 'completed'), '实验状态应更新为 completed');
     console.log(`✅ 终态 OK | completed | signalUpdates=${updates.filter(u => u.table === 'strategy_signals').length}`);
 
+    // ── 6) 信号 metadata 完整性（update 不得覆盖丢 insert 的 price/strategyId）──
+    const sigUpdates = updates.filter(u => u.table === 'strategy_signals' && u.patch && u.patch.metadata);
+    assert.ok(sigUpdates.length > 0, '应有携带 metadata 的信号更新');
+    for (const u of sigUpdates) {
+        assert.ok(u.patch.metadata.price !== undefined, `信号 update 的 metadata 应保留 price（signalId=${u.patch.id ?? ''}）`);
+        assert.ok(u.patch.metadata.strategyId !== undefined, '信号 update 的 metadata 应保留 strategyId');
+        assert.ok(u.patch.metadata.strategyName !== undefined, '信号 update 的 metadata 应保留 strategyName');
+    }
+    console.log(`✅ metadata 完整性 OK | ${sigUpdates.length} 个更新均保留 price/strategyId/strategyName`);
+
     console.log('\n✅ Phase 4 回放引擎链路自检全部通过（数据加载→回放→轮次重买→强平→虚拟时间戳→终态）');
 }
 
