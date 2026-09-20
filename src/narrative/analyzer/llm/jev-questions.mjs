@@ -10,9 +10,11 @@
  *   分档边界与原 prompt 逐档对齐（tier S/A/B/C、时效档、W 类三段式等）
  *
  * 版本：改动任何一题的 instructions/criteria 后必须 bump JEV_QUESTIONS_VERSION
+ * J1.8：问题文本与 J1.7 相同；本版变更在 jev-result-mapper.mjs 的代码端量表校准
+ *       （MAGNITUDE_TIER_SCORES S39/A34/B27/C22 + DIM2_BANDS 分位带，108 样本定参）
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.7';
+export const JEV_QUESTIONS_VERSION = 'J1.8';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）

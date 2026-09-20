@@ -2,7 +2,7 @@
  * Jev answers → 阶段结果映射器
  *
  * 全部确定性聚合在本文件完成（原 3 阶段管线的公式原样保留）：
- * - 量级档 S/A/B/C → 40/32/24/12（复用 super-ip-registry 的 TIER_SCORES），D/E 档阻断
+ * - 量级档 S/A/B/C → 39/34/27/22（MAGNITUDE_TIER_SCORES，108 样本校准定参），D/E 档阻断
  * - 标准类 stage2Total = tierScore + dimension2(0-30) + 时效(0-20)，pass ≥ 60
  * - W 类独立数学：产品(0-35) + 币安交互(0-40) + 时效(0-25) = 100，pass ≥ 60
  * - 最终 = round(stage2Total×0.6, 2) + 关联分 + 质量分，≥70 high / ≥50 mid / else low
@@ -13,11 +13,20 @@
  * 经 buildStageSaveData 零改动转换为五列存储契约（{stage}_result/_prompt/_raw_output）。
  */
 
-import { TIER_SCORES } from '../prompts/super-ip/super-ip-registry.mjs';
 import { JEV_QUESTIONS_VERSION } from './jev-questions.mjs';
 
 /** 量级 6 档（与 jev-questions event_magnitude criteria 顺序一致） */
 const MAGNITUDE_TIERS = ['E', 'D', 'C', 'B', 'A', 'S'];
+
+/**
+ * 主路径量级档 → 分（108 样本校准定参，2026-09-20）：
+ * 按条件期望 E[旧tier分|Jev档]（S 38.8/A 33.9/B 27.3，n=91）取整；
+ * C 档从期望 26.8 下调至 22——Jev 的 C 档混有旧 B/A 样本（期望被拉高），
+ * 但"C 档主体难过 pass 线"是旧管线核心语义（C22+dim2均值21.5+时效15=58.5<60）。
+ * D/E 档不进表：维持主体量级不足阻断。
+ * superIP 路径不用此表（注册表 tier 可信，走 TIER_SCORES 预评分）。
+ */
+const MAGNITUDE_TIER_SCORES = { S: 39, A: 34, B: 27, C: 22 };
 
 /** 时效 6 档 → 分数（标准类 / W 类各自一张表，与原 prompt 逐档对齐） */
 const TIMING_SCORES_STANDARD = {
@@ -29,8 +38,15 @@ const TIMING_SCORES_W = {
   expected_within_30d: 15, expected_beyond_30d: 0, unknown: 0,
 };
 
-/** dimension2 六带边界（与 jev-questions dimension2 criteria 一致） */
-const DIM2_BANDS = [[0, 4], [5, 9], [10, 14], [15, 19], [20, 24], [25, 30]];
+/**
+ * dimension2 校准带（108 样本远程校准定参，2026-09-20）：
+ * Jev 档位与旧 LLM 维度二分几乎不相关（旧量表 P25=18/P50=22/P75=25，近似恒 20-25
+ * 的宽松输出），故按分布分位匹配而非逐点拟合——Jev 档 1-4 累计占比 29%/58%/86%/100%
+ * ↔ 旧分位 15.5/22.5/26/29，映射后均值 21.5 ≈ 旧均值 21.1。
+ * 带语义（与 jev-questions dimension2 criteria 的六档对应）：
+ * 无[0,10] / 微弱[10,20] / 小[18,26] / 中[23,28] / 强[26,30] / 极强[28,30]
+ */
+const DIM2_BANDS = [[0, 10], [10, 20], [18, 26], [23, 28], [26, 30], [28, 30]];
 const W_PRODUCT_BANDS = [[0, 8], [9, 17], [18, 26], [27, 35]];
 const W_INTERACTION_BANDS = [[0, 9], [10, 19], [20, 29], [30, 40]];
 const SPELLING_BANDS = [[0, 1], [2, 3], [4, 5], [6, 7]];
@@ -257,7 +273,7 @@ export function mapStandardAnswers(answers, context) {
     stage2Reason = `W类 产品${wProduct}+交互${wInteraction}+时效${timeliness}=${stage2Total}（pass线60）`;
     if (stage2Blocked) stage2BlockReason = `W类总分不足（${stage2Total}<60）`;
   } else {
-    tierScore = TIER_SCORES[tier] || 0;
+    tierScore = MAGNITUDE_TIER_SCORES[tier] || 0;
     timeliness = TIMING_SCORES_STANDARD[timing] ?? 0;
     stage2Total = round2(tierScore + dim2 + timeliness);
     stage2Blocked = stage2Total < 60;
