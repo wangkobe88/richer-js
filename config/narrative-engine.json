@@ -5,6 +5,13 @@
     "taskTimeout": 180000,
     "maxRetries": 3
   },
+  "jev": {
+    "endpoint": "https://api.typesafe.ai/v1/systemone",
+    "model": "jev-latest",
+    "apiKeyEnv": "TYPESAFE_API_KEY",
+    "timeoutMs": 30000,
+    "retryCount": 2
+  },
   "api": {
     "baseUrl": "https://api.minimax.io/v1",
     "envKeyName": "API_KEY"

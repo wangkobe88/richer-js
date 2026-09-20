@@ -43,7 +43,8 @@ function buildTweetPart(tweet, label = '推文', options = {}) {
   // 推文发布时间
   if (tweet.created_at || tweet.createdTimeStamp) {
     const tweetDate = tweet.created_at ? new Date(tweet.created_at) : new Date(tweet.createdTimeStamp);
-    const daysAgo = Math.floor((Date.now() - tweetDate.getTime()) / (1000 * 60 * 60 * 24));
+    const nowMs = options.now ?? Date.now();
+    const daysAgo = Math.floor((nowMs - tweetDate.getTime()) / (1000 * 60 * 60 * 24));
     parts.push(`【发布时间】${tweet.created_at}（约${daysAgo}天前）`);
   }
 
@@ -74,7 +75,8 @@ function buildTweetPart(tweet, label = '推文', options = {}) {
     parts.push(`作者：@${inReplyTo.author_screen_name || '未知'}`);
     if (inReplyTo.created_at || inReplyTo.createdTimeStamp) {
       const tweetDate = inReplyTo.created_at ? new Date(inReplyTo.created_at) : new Date(inReplyTo.createdTimeStamp);
-      const daysAgo = Math.floor((Date.now() - tweetDate.getTime()) / (1000 * 60 * 60 * 24));
+      const nowMs = options.now ?? Date.now();
+      const daysAgo = Math.floor((nowMs - tweetDate.getTime()) / (1000 * 60 * 60 * 24));
       parts.push(`【发布时间】${inReplyTo.created_at}（约${daysAgo}天前）`);
     }
     if (inReplyTo.author_followers_count) {
@@ -183,7 +185,8 @@ export function buildTwitterSection(twitterInfo, options = {}) {
     parts.push(`作者：@${quoted.author_screen_name || quoted.author_name || '未知'}`);
     if (quoted.created_at || quoted.createdTimeStamp) {
       const tweetDate = quoted.created_at ? new Date(quoted.created_at) : new Date(quoted.createdTimeStamp);
-      const daysAgo = Math.floor((Date.now() - tweetDate.getTime()) / (1000 * 60 * 60 * 24));
+      const nowMs = options.now ?? Date.now();
+      const daysAgo = Math.floor((nowMs - tweetDate.getTime()) / (1000 * 60 * 60 * 24));
       parts.push(`【发布时间】${quoted.created_at}（约${daysAgo}天前）`);
     }
     if (quoted.author_followers_count) {
@@ -201,7 +204,8 @@ export function buildTwitterSection(twitterInfo, options = {}) {
     parts.push(`作者：@${retweeted.author_screen_name || retweeted.author_name || '未知'}`);
     if (retweeted.created_at || retweeted.createdTimeStamp) {
       const tweetDate = retweeted.created_at ? new Date(retweeted.created_at) : new Date(retweeted.createdTimeStamp);
-      const daysAgo = Math.floor((Date.now() - tweetDate.getTime()) / (1000 * 60 * 60 * 24));
+      const nowMs = options.now ?? Date.now();
+      const daysAgo = Math.floor((nowMs - tweetDate.getTime()) / (1000 * 60 * 60 * 24));
       parts.push(`【发布时间】${retweeted.created_at}（约${daysAgo}天前）`);
     }
     if (retweeted.author_followers_count) {
