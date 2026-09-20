@@ -28,8 +28,11 @@ const { buildJevState } = await import('../../src/narrative/analyzer/llm/jev-sta
 const { mapStandardAnswers, mapSuperIPAnswers } = await import('../../src/narrative/analyzer/llm/jev-result-mapper.mjs');
 const { detectSuperIP, calculatePreScores } = await import('../../src/narrative/analyzer/prompts/super-ip/super-ip-registry.mjs');
 
-/** 各旧类别的抽样上限（总数 ≈ 26-30） */
-const QUOTA = { 'A': 3, 'W': 3, 'B': 3, 'F': 3, 'C': 5, 'D': 4, 'G': 2, 'E': 4, super_ip_fast: 4 };
+/** 各旧类别的抽样上限（总数 ≈ 26-30；--scale N 按比例放大用于远程扩样定参） */
+const BASE_QUOTA = { 'A': 3, 'W': 3, 'B': 3, 'F': 3, 'C': 5, 'D': 4, 'G': 2, 'E': 4, super_ip_fast: 4 };
+const scaleIdx = process.argv.indexOf('--scale');
+const scale = scaleIdx > 0 ? Math.max(1, parseInt(process.argv[scaleIdx + 1], 10) || 1) : 1;
+const QUOTA = Object.fromEntries(Object.entries(BASE_QUOTA).map(([k, v]) => [k, v * scale]));
 
 async function main() {
   const supabase = NarrativeRepository.getSupabase();
@@ -149,6 +152,13 @@ async function main() {
       symbol: row.token_symbol, cls: row.oldClass, isSuperIP,
       oldRating, oldScore, newRating, newScore, verdict, elapsed,
       reason: mapped.llmResult.reason, attributions,
+      // 量表校准用原始数据
+      newClass: isSuperIP ? null : a.event_category?.choice,
+      newTier: mapped.jevDetails?.tier || null,
+      dim2Raw: a.dimension2?.score,
+      oldTierScore: row.stage2_result?.details?.raw?.scoringResult?.magnitudeScore ?? null,
+      oldDim2: row.stage2_result?.details?.raw?.scoringResult?.weightScore ?? null,
+      blockChoice: a.block_reason?.choice, noneProb: a.block_reason?.probabilities?.none,
     });
 
     console.log(`[${verdict}] ${row.oldClass}${isSuperIP ? '(superIP)' : ''} ${row.token_symbol}: ${oldRating}(${oldScore ?? '-'}) → ${newRating}(${newScore ?? '-'}) [${elapsed}ms]`);
@@ -177,6 +187,38 @@ async function main() {
   for (const [cls, v] of Object.entries(byCls)) {
     console.log(`  ${cls.padEnd(14)} ${v.same}/${v.n}`);
   }
+
+  // ── 量表校准数据（代码端 tierScore/dim2 映射定参用）──
+  const std = details.filter(d => !d.isSuperIP);
+  const tierPairs = std.filter(d => d.oldTierScore != null);
+  if (tierPairs.length) {
+    console.log(`\ntier 对照（旧 magnitudeScore ↔ 新 Jev 档，n=${tierPairs.length}）:`);
+    const byOld = {};
+    for (const d of tierPairs) {
+      byOld[d.oldTierScore] = byOld[d.oldTierScore] || [];
+      byOld[d.oldTierScore].push(d.newTier);
+    }
+    for (const [oldS, tiers] of Object.entries(byOld)) {
+      const dist = tiers.reduce((m, t) => (m[t] = (m[t] || 0) + 1, m), {});
+      console.log(`  旧${oldS}分 → ${JSON.stringify(dist)}`);
+    }
+  }
+  const dim2Pairs = std.filter(d => d.oldDim2 != null && d.dim2Raw != null);
+  if (dim2Pairs.length) {
+    const oldAvg = (dim2Pairs.reduce((s, d) => s + d.oldDim2, 0) / dim2Pairs.length).toFixed(1);
+    // Jev raw score 0-6 档 → 现行插值分的均值
+    const curAvg = (dim2Pairs.reduce((s, d) => {
+      const idx = Math.min(Math.floor(d.dim2Raw), 5), frac = d.dim2Raw - Math.floor(d.dim2Raw);
+      const bands = [[0, 4], [5, 9], [10, 14], [15, 19], [20, 24], [25, 30]];
+      return s + bands[idx][0] + frac * (bands[idx][1] - bands[idx][0]);
+    }, 0) / dim2Pairs.length).toFixed(1);
+    const rawHist = dim2Pairs.reduce((m, d) => (m[Math.floor(d.dim2Raw)] = (m[Math.floor(d.dim2Raw)] || 0) + 1, m), {});
+    console.log(`\ndim2 对照（n=${dim2Pairs.length}）: 旧均值 ${oldAvg} | 现行映射均值 ${curAvg} | Jev raw 档直方图 ${JSON.stringify(rawHist)}`);
+  }
+  const catMatch = std.filter(d => d.newClass === d.cls.replace('super_ip_fast', ''));
+  console.log(`\n分类一致率: ${catMatch.length}/${std.length} (${(catMatch.length / std.length * 100).toFixed(0)}%)`);
+  const blockHits = details.filter(d => d.blockChoice !== 'none');
+  console.log(`block_reason≠none: ${blockHits.length}/${details.length}（含 scope 外与 noneP≥0.5 放行的）`);
 }
 
 main().catch(err => {
