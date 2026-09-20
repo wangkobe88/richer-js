@@ -14,6 +14,7 @@ const path = require('path');
 const { ExperimentFactory } = require('./src/trading-engine/factories/ExperimentFactory');
 const { Experiment } = require('./src/trading-engine/entities/Experiment');
 const { FourMemeWssTradingEngine } = require('./src/trading-engine/implementations/FourMemeWssTradingEngine');
+const { FlapWssTradingEngine } = require('./src/trading-engine/implementations/FlapWssTradingEngine');
 const { BacktestEngine } = require('./src/trading-engine/implementations/BacktestEngine');
 
 const consoleLogger = {
@@ -40,14 +41,23 @@ class VirtualTradingSystem {
    */
   _createEngine(experiment) {
     const tradingMode = experiment.tradingMode;
+    const platform = experiment.config?.platform || 'fourmeme';
 
     switch (tradingMode) {
-      case 'virtual':
+      case 'virtual': {
         const initialBalance = experiment.config?.virtual?.initialBalance || 100;
+        if (platform === 'flap') {
+          console.log(`🎮 创建 flap WSS 事件驱动虚拟交易引擎，初始余额: ${initialBalance}`);
+          return new FlapWssTradingEngine({ tradingMode: 'virtual', initialBalance });
+        }
         console.log(`🎮 创建 WSS 事件驱动虚拟交易引擎，初始余额: ${initialBalance}`);
         return new FourMemeWssTradingEngine({ tradingMode: 'virtual', initialBalance });
+      }
 
       case 'live':
+        if (platform === 'flap') {
+          throw new Error('flap live 交易暂未实现（规划中：FlapPortalTrader + live 验收流程）');
+        }
         console.log(`🔴 创建实盘交易引擎（WSS 事件驱动 + FourMemeDirectTrader）`);
         return new FourMemeWssTradingEngine({ tradingMode: 'live' });
 

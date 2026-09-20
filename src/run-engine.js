@@ -9,6 +9,7 @@ require('dotenv').config({ path: './config/.env' });
 
 const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
 const { FourMemeWssTradingEngine } = require('./trading-engine/implementations/FourMemeWssTradingEngine');
+const { FlapWssTradingEngine } = require('./trading-engine/implementations/FlapWssTradingEngine');
 
 async function runEngine(experimentId) {
   if (!experimentId) {
@@ -23,8 +24,15 @@ async function runEngine(experimentId) {
   console.log('');
 
   try {
-    // 创建引擎实例
-    const engine = new FourMemeWssTradingEngine({ tradingMode: 'virtual' });
+    // 加载实验配置，按 platform 选引擎（默认 fourmeme）
+    const experiment = await ExperimentFactory.getInstance().load(experimentId);
+    if (!experiment) {
+      throw new Error(`实验不存在: ${experimentId}`);
+    }
+    const EngineClass = experiment.config?.platform === 'flap'
+      ? FlapWssTradingEngine
+      : FourMemeWssTradingEngine;
+    const engine = new EngineClass({ tradingMode: 'virtual' });
 
     // 初始化引擎（加载实验）
     console.log(`🔍 启动实验: ${experimentId}`);

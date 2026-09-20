@@ -118,10 +118,14 @@ class BacktestEngine extends AbstractTradingEngine {
     this._tokenPool = new TokenPool(this.logger);
 
     // 3. 因子聚合器（回放不挂 factorsUpdated 事件，轮询 processTick 返回值）
+    // 平台由回测实验 config.platform 声明（决定 wsConfig 段；FA 键名固定 fourmemeWs）；
+    // 代币级 platform 以源实验 experiment_tokens.platform 为权威（_registerToken 处覆盖）
     const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
+    this._platform = this._experiment?.config?.platform || 'fourmeme';
+    const wsSection = this._platform === 'flap' ? 'flapWs' : 'fourmemeWs';
     const wsConfig = {
-      ...(baseConfig.fourmemeWs || {}),
-      ...(this._experiment?.config?.fourmemeWs || {}),
+      ...(baseConfig[wsSection] || {}),
+      ...(this._experiment?.config?.[wsSection] || {}),
     };
     this._factorAggregator = new FourMemeFactorAggregator({ fourmemeWs: wsConfig }, this.logger);
 
@@ -203,7 +207,7 @@ class BacktestEngine extends AbstractTradingEngine {
     for (;;) {
       const { data, error } = await supabase
         .from('experiment_tokens')
-        .select('token_address, token_symbol, created_at, raw_api_data, creator_address')
+        .select('token_address, token_symbol, created_at, raw_api_data, creator_address, platform')
         .eq('experiment_id', this._sourceExperimentId)
         .order('created_at', { ascending: true })
         .range(from, from + TICK_PAGE_SIZE - 1);
@@ -211,6 +215,7 @@ class BacktestEngine extends AbstractTradingEngine {
       for (const row of data || []) {
         this._tokenMeta.set(row.token_address, {
           symbol: row.token_symbol || '',
+          platform: row.platform || 'fourmeme',
           createdAtSec: row.created_at ? new Date(row.created_at).getTime() / 1000 : null,
           totalSupply: Number(row.raw_api_data?.totalSupply) || 0,
           creator: row.creator_address || row.raw_api_data?.creator || null,
@@ -417,7 +422,7 @@ class BacktestEngine extends AbstractTradingEngine {
     this._tokenPool.addToken({
       token: tokenAddress,
       chain: 'bsc',
-      platform: 'fourmeme',
+      platform: meta.platform || this._platform,
       data_source: 'wss',
       name: meta.name || meta.symbol || '',
       symbol: meta.symbol || '',
@@ -431,7 +436,7 @@ class BacktestEngine extends AbstractTradingEngine {
         token: tokenAddress,
         symbol: meta.symbol || '',
         chain: 'bsc',
-        platform: 'fourmeme',
+        platform: meta.platform || this._platform,
         data_source: 'wss',
         created_at: createdAtSec,
         raw_api_data: { source: 'wss_tick_replay', totalSupply: meta.totalSupply || 0, creator: meta.creator },
@@ -561,13 +566,14 @@ class BacktestEngine extends AbstractTradingEngine {
 
       if (preCheckPassed && shouldPerformPreCheck && this._preBuyCheckService) {
         try {
+          const tokenPlatform = token.platform || this._platform;
           const tokenInfo = {
             address: token.token,
             symbol: token.symbol,
             chain: 'bsc',
-            platform: 'fourmeme',
+            platform: tokenPlatform,
             launchAt: token.createdAt || null,
-            innerPair: `${token.token}_fo`,
+            innerPair: `${token.token}_${tokenPlatform === 'flap' ? 'fl' : 'fo'}`,
           };
           let preBuyCheckCondition = currentRound === 0
             ? strategy.preBuyCheckCondition

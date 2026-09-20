@@ -580,6 +580,7 @@ class RicherJsWebServer {
           experiment_description,
           trading_mode,
           kline_type,
+          platform,
           initial_balance,
           strategy,
           virtual,
@@ -589,10 +590,12 @@ class RicherJsWebServer {
         } = req.body;
 
         // 构建实验配置（BSC-only：ankr WSS 事件驱动，无轮询收集/监控配置）
+        // platform：内盘平台 fourmeme（默认）| flap（引擎与 collector 据此分派）
         const config = {
           name: experiment_name,
           description: experiment_description,
           blockchain: 'bsc',
+          platform: platform || 'fourmeme',
           kline_type: kline_type || '1m'
         };
 
@@ -609,6 +612,9 @@ class RicherJsWebServer {
             minMaxChangePercent: backtest?.minMaxChangePercent || 0
           };
         } else if (trading_mode === 'live') {
+          if (platform === 'flap') {
+            return res.status(400).json({ success: false, error: 'flap live 交易暂未实现（规划中：FlapPortalTrader + live 验收流程）' });
+          }
           // 实盘交易配置 - 必须加密私钥
           if (!wallet || !wallet.privateKey) {
             return res.status(400).json({ success: false, error: '实盘交易需要提供钱包私钥' });

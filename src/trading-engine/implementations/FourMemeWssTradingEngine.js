@@ -86,7 +86,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._sellCooldownUntil = new Map(); // 卖出失败冷却 tokenAddress → untilTs（live 防 gas 消耗风暴）
 
     // 引擎级配置（fourmemeWs 段；实验级覆盖在 _initializeDataSources 中重读）
-    this._applyWsConfig(baseConfig.fourmemeWs || {});
+    this._applyWsConfig(baseConfig[this._wsConfigSectionName()] || {});
 
     // 买评估去抖（real 模式；与回测引擎共享 TickDebouncer 语义）
     const { TickDebouncer } = require('../core/TickDebouncer');
@@ -190,24 +190,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '✅ 代币池初始化完成');
 
     // 3. 因子聚合器 + 事件链路
+    // （键名固定 fourmemeWs：FA 仅读该节的 maxTrackedTokens，flap 子类传 flap merged 配置同键）
     const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
     this._factorAggregator = new FourMemeFactorAggregator(
       { fourmemeWs: this._mergedWsConfig() }, this.logger);
     this._factorAggregator.on('factorsUpdated', (data) => this._onFactorsUpdated(data));
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '✅ 因子聚合器初始化完成');
 
-    // 4. ankr WSS 采集器（发现 + tick + 毕业回调）
-    const { FourMemeAnkrWsCollector } = require('../../collectors/fourmeme-ankr-ws-collector');
-    this._collector = new FourMemeAnkrWsCollector(
-      { fourmemeWs: this._mergedWsConfig() },
-      this.logger,
-      this._tokenPool,
-      this._factorAggregator,
-      {
-        onTokenCreate: (info) => this._handleNewToken(info),
-        onGraduation: (info) => this._handleGraduation(info),
-      },
-    );
+    // 4. ankr WSS 采集器（发现 + tick + 毕业回调；平台 collector 由 _createCollector 决定）
+    this._collector = this._createCollector();
     this._collector.setExperimentId(this._experimentId);
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '✅ ankr WSS 采集器初始化完成');
 
@@ -271,11 +262,32 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     await (this._isLive ? this._loadHoldingsLive() : this._loadHoldings());
   }
 
+  /** WSS 配置节名（子类覆盖：flap 引擎用 'flapWs'；FA/collector 参数节随之切换） */
+  _wsConfigSectionName() {
+    return 'fourmemeWs';
+  }
+
+  /** ankr WSS 采集器创建（子类覆盖换平台 collector；回调绑定 this 保持动态分派） */
+  _createCollector() {
+    const { FourMemeAnkrWsCollector } = require('../../collectors/fourmeme-ankr-ws-collector');
+    return new FourMemeAnkrWsCollector(
+      { [this._wsConfigSectionName()]: this._mergedWsConfig() },
+      this.logger,
+      this._tokenPool,
+      this._factorAggregator,
+      {
+        onTokenCreate: (info) => this._handleNewToken(info),
+        onGraduation: (info) => this._handleGraduation(info),
+      },
+    );
+  }
+
   /** 基础 fourmemeWs 配置 + 实验级覆盖（浅合并） */
   _mergedWsConfig() {
+    const section = this._wsConfigSectionName();
     return {
-      ...(baseConfig.fourmemeWs || {}),
-      ...(this._experiment?.config?.fourmemeWs || {}),
+      ...(baseConfig[section] || {}),
+      ...(this._experiment?.config?.[section] || {}),
     };
   }
 
