@@ -15,6 +15,7 @@
 
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { writeFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -219,6 +220,10 @@ async function main() {
   console.log(`\n分类一致率: ${catMatch.length}/${std.length} (${(catMatch.length / std.length * 100).toFixed(0)}%)`);
   const blockHits = details.filter(d => d.blockChoice !== 'none');
   console.log(`block_reason≠none: ${blockHits.length}/${details.length}（含 scope 外与 noneP≥0.5 放行的）`);
+
+  // 点对数据落盘（量表定参用：oldDim2↔dim2Raw / oldTierScore↔newTier 精确拟合）
+  writeFileSync('/tmp/jev_calib_details.json', JSON.stringify(details, null, 1));
+  console.log('details 已写入 /tmp/jev_calib_details.json');
 }
 
 main().catch(err => {
