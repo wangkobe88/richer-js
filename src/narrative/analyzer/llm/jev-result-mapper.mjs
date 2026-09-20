@@ -64,17 +64,17 @@ const BLOCK_LABELS = {
 /**
  * 阻断选项的类别作用域（与原各类 Stage2 prompt 的阻断条件集合对齐）：
  * - A 类（形象化IP）：主体资格不足/小圈子亚文化/低质衍生(简单替换拼贴/抄袭)/IP二次利用
- * - W 类（Web3项目）：营销噱头/标题党（通用项覆盖）
+ * - W/B 类：营销噱头/标题党（旧管线仅此两类设此项，校准实证设为通用会误伤 E/C 类热点推文）
  * - C/D 类：机构日常运营
  * - G 类：无据猜测
  * - E 类：地区性事件
- * - 通用（各类均设）：空洞内容/营销噱头
+ * - 通用（各类均设）：空洞内容
  * Jev 在不知类别的情况下作答（speculative fan-out），代码端按分类结果
  * 条件采信——scope 外的 choice 不构成阻断（如 E 类蹭热点命名代币不算低质衍生）。
  */
 const BLOCK_SCOPE = {
   empty_content: 'all',
-  marketing_gimmick: 'all',
+  marketing_gimmick: ['W', 'B'],
   subject_unqualified: ['A'],
   niche_subculture: ['A'],
   low_quality_derivative: ['A'],
@@ -439,8 +439,12 @@ export function mapSuperIPAnswers(answers, context) {
 
   // superIP 阻断：注册表账号的日常闲聊（如 S 级人物发纯问候）没有叙事价值
   // （阻断门槛与主路径一致：P(none)≥0.5 才放行；作用域按注册表 type → C/D 类）
+  // 例外：institution_routine 对注册表账号豁免——旧 fast track 语义是
+  // "S/A 级账号的实质内容推文不算日常运营"（校准实证：币安中文/BNB Chain 的
+  // 实质内容推被 P=0.02-0.09 的日常运营误阻断）
   const superIPCategory = superIPInfo.type === 'person' ? 'C' : 'D';
-  const blocked = blockChoice !== 'none' && noneProb < 0.5 && blockInScope(blockChoice, superIPCategory);
+  const blocked = blockChoice !== 'none' && blockChoice !== 'institution_routine'
+    && noneProb < 0.5 && blockInScope(blockChoice, superIPCategory);
 
   const prestageDataToSave = {
     category: 'super_ip_fast',

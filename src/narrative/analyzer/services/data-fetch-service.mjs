@@ -329,26 +329,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         //   console.log(`[NarrativeAnalyzer] 非高影响力账号 @${screenName}，跳过图片分析`);
         // }
 
-        // 非中英文推文翻译
-        if (info && info.text) {
-          const tweetLang = detectLanguage(info.text);
-          if (tweetLang && tweetLang !== 'zh' && tweetLang !== 'en') {
-            console.log(`[NarrativeAnalyzer] 检测到非中英文推文 (${tweetLang})，尝试翻译...`);
-            try {
-              const translated = await LLMClient.translate(info.text, 'zh');
-              if (translated) {
-                const standardized = standardizeTranslatedNames(translated, tokenData.symbol);
-                info.text_original = info.text;
-                info.text = standardized;
-                info.text_translated = true;
-                info.original_language = tweetLang;
-                console.log('[NarrativeAnalyzer] 推文翻译成功');
-              }
-            } catch (error) {
-              console.warn('[NarrativeAnalyzer] 推文翻译失败:', error.message);
-            }
-          }
-        }
+        // （非中英文推文翻译已删除——Jev 迁移裁定：原文直接进 state）
 
         // 检查是否有第二个推文（classifiedUrls中的第二个twitter URL）
         let secondTweetUrl = null;

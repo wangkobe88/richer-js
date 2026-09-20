@@ -39,10 +39,15 @@ import { fetchTokenData, extractInfo, checkBinanceRelated } from './services/tok
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken } from './services/account-analysis-service.mjs';
 import { analyzeMemeTokenTwoStage } from './services/meme-analysis-service.mjs';
 import { saveStage1Data, saveStage2Data } from './services/stage-data-service.mjs';
-import { callLLMAPI, LLMClient } from './llm/llm-api-client.mjs';
-import { detectSuperIP, calculatePreScores, TIER_SCORES } from './prompts/super-ip/super-ip-registry.mjs';
-import { buildPersonFastPrompt } from './prompts/super-ip/super-ip-fast-person.mjs';
-import { buildInstitutionFastPrompt } from './prompts/super-ip/super-ip-fast-institution.mjs';
+import { callLLMAPI } from './llm/llm-api-client.mjs';
+import { detectSuperIP, calculatePreScores } from './prompts/super-ip/super-ip-registry.mjs';
+
+// Jev 判定（主路径 + 超大IP快速通道）
+import { JevClient } from './llm/JevClient.mjs';
+import { buildStandardQuestions, shouldIncludeBrandHijackCheck, JEV_QUESTIONS_VERSION } from './llm/jev-questions.mjs';
+import { buildJevState } from './llm/jev-state-builder.mjs';
+import { mapStandardAnswers, mapSuperIPAnswers } from './llm/jev-result-mapper.mjs';
+import { classifyTweetType } from './services/tweet-type-classifier.mjs';
 
 // 获取supabase客户端
 const getSupabase = () => NarrativeRepository.getSupabase();
@@ -472,432 +477,123 @@ export class NarrativeAnalyzer {
           }
 
           // ═══════════════════════════════════════════════════════════════════════════
-          // 超大IP快速通道：单次LLM调用完成所有评估
+          // 超大IP快速通道：Jev 单次调用完成所有评估
           // 条件：推文来自注册表中的超大IP账号（CZ/何一/币安官方/Elon/Trump等）
+          // 与主路径共用同一问题集；tier/时效用代码预评分，W 类两题不采信
           // ═══════════════════════════════════════════════════════════════════════════
           if (superIPInfo && !shouldUseAccountCommunity) {
-            logger.info('NarrativeAnalyzer', `使用超大IP快速通道：${superIPInfo.name}（${superIPInfo.type}/${superIPInfo.tier}级）`);
+            logger.info('NarrativeAnalyzer', `使用超大IP快速通道（Jev）：${superIPInfo.name}（${superIPInfo.type}/${superIPInfo.tier}级）`);
 
-            // 预计算分数
             const preScores = calculatePreScores(superIPInfo, twitterInfo?.created_at);
             logger.info('NarrativeAnalyzer', '超大IP预评分', preScores);
 
-            // 构建Prompt（根据人物/机构分流）
-            const fastPrompt = superIPInfo.type === 'person'
-              ? buildPersonFastPrompt(tokenData, fetchResults, superIPInfo, preScores)
-              : buildInstitutionFastPrompt(tokenData, fetchResults, superIPInfo, preScores);
+            const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
+            const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
+            const { state, stats } = buildJevState(tokenData, fetchResults, { superIPInfo, preScores });
+            const questions = buildStandardQuestions({ includeBrandHijack });
+            const startedAt = new Date().toISOString();
+            const result = await JevClient.ask(state, questions, { label: `jev-superip:${tokenData.symbol}` });
+            const finishedAt = new Date().toISOString();
 
-            // 单次LLM调用
-            const fastCallResult = await callLLMAPI(fastPrompt);
-            if (!fastCallResult.success) {
-              throw new Error(`超大IP快速通道LLM调用失败: ${fastCallResult.error}`);
-            }
-
-            const fastParsed = parseJSONResponse(fastCallResult.content);
-
-            if (!fastParsed.pass) {
-              // 阻断
-              llmResult = {
-                rating: 'low',
-                reason: fastParsed.blockReason || fastParsed.reason || '超大IP快速通道阻断',
-                score: null,
-                pass: false
-              };
-              logger.info('NarrativeAnalyzer', '超大IP快速通道阻断', { blockReason: fastParsed.blockReason });
-            } else {
-              // 聚合分数
-              const eventTotal = preScores.baseEventScore + (fastParsed.dimension2Score || 0);
-              const eventWeighted = Math.round(eventTotal * 0.6 * 100) / 100;
-              const totalScore = eventWeighted + (fastParsed.relevanceScore || 0) + (fastParsed.qualityScore || 0);
-              const rating = totalScore >= 70 ? 'high' : totalScore >= 50 ? 'mid' : 'low';
-
-              llmResult = { rating, score: totalScore, pass: true };
-
-              // 构建最终聚合结果（与3阶段流程的 stageFinalData 对齐）
-              stageFinalData = {
-                category: rating,
-                totalScore,
-                eventScore: eventWeighted,
-                eventWeight: 0.6,
-                relevanceScore: fastParsed.relevanceScore || 0,
-                qualityScore: fastParsed.qualityScore || 0,
-                stage2TotalScore: eventTotal,
-                blockReason: null
-              };
-
-              logger.info('NarrativeAnalyzer', '超大IP快速通道评分', {
-                eventTotal, eventWeighted, totalScore, rating,
-                dimension2Score: fastParsed.dimension2Score,
-                relevanceScore: fastParsed.relevanceScore,
-                qualityScore: fastParsed.qualityScore
-              });
-            }
-
-            // 注入预计算数据供前端展示
-            fastParsed.ipInfo = superIPInfo;
-            fastParsed.tierScore = preScores.tierScore;
-            fastParsed.timeliness = preScores.timeliness;
-            fastParsed.baseEventScore = preScores.baseEventScore;
-
-            // 保存到prestage（与账号/社区分析一致）
-            prestageDataToSave = {
-              category: 'super_ip_fast',
-              model: fastCallResult.model,
-              prompt: fastPrompt,
-              raw_output: fastCallResult.content,
-              parsed_output: fastParsed,
-              started_at: fastCallResult.startedAt,
-              finished_at: fastCallResult.finishedAt,
-              success: fastCallResult.success,
-              error: fastCallResult.error
-            };
-
-            // 清除旧的stage数据（防止重新分析时残留）
-            stage1DataToSave = { __clear: true };
-            stage2DataToSave = { __clear: true };
-            stage3DataToSave = { __clear: true };
-
-            promptType = `super_ip_fast(${superIPInfo.name}/${superIPInfo.tier}级)`;
-
-          // ═══════════════════════════════════════════════════════════════════════════
-          // 3阶段架构：Stage 1事件预处理 + Stage 2分类评分 + Stage 3代币分析
-          // 进入条件：
-          // 1. 原本不使用账号/社区分析流程（!shouldUseAccountCommunity）
-          // 2. 且不是超大IP快速通道
-          // ═══════════════════════════════════════════════════════════════════════════
-          } else if (!shouldUseAccountCommunity) {
-            logger.info('NarrativeAnalyzer', '使用3阶段架构：Stage1事件预处理 + Stage2分类评分 + Stage3代币分析');
-
-            // ========== Stage 1: 事件预处理 ==========
-            logger.debug('NarrativeAnalyzer', '开始Stage 1：事件预处理');
-            const stage1Prompt = PromptBuilder.buildStage1Preprocessing(tokenData, fetchResults);
-            const stage1PromptType = PromptBuilder.getPromptTypeDesc(fetchResults, 1);
-            const tweetClassification = PromptBuilder.getLastTweetClassification();
-            logger.debug('NarrativeAnalyzer', `Stage 1 Prompt类型: ${stage1PromptType}`, {
-              tweetType: tweetClassification?.type,
-              tweetConfidence: tweetClassification?.confidence,
-              tweetReason: tweetClassification?.reason
+            const mapped = mapSuperIPAnswers(result.answers, {
+              superIPInfo,
+              preScores,
+              symbol: tokenData.symbol,
+              includeBrandHijack,
+              callInfo: {
+                model: result.model, questions, stateStats: stats,
+                usage: result.usage, startedAt, finishedAt,
+              },
             });
 
-            // Stage 1：调用API获取原始响应（带元数据）
-            const stage1CallResult = await callLLMAPI(stage1Prompt);
+            prestageDataToSave = mapped.prestageDataToSave;
+            stage1DataToSave = mapped.stage1DataToSave;
+            stage2DataToSave = mapped.stage2DataToSave;
+            stage3DataToSave = mapped.stage3DataToSave;
+            stageFinalData = mapped.stageFinalData;
+            llmResult = mapped.llmResult;
+            promptType = mapped.promptType;
 
-            // 检查Stage 1是否成功
-            if (!stage1CallResult.success) {
-              throw new Error(`Stage 1 LLM调用失败: ${stage1CallResult.error}`);
-            }
+            logger.info('NarrativeAnalyzer', '超大IP快速通道评分（Jev）', {
+              rating: mapped.llmResult.rating,
+              score: mapped.llmResult.score,
+              reason: mapped.llmResult.reason,
+            });
 
-            const stage1Data = parseJSONResponse(stage1CallResult.content);
+          // ═══════════════════════════════════════════════════════════════════════════
+          // 主路径：Jev 单次 speculative fan-out 判定（原 3 阶段串行 LLM 的替代）
+          // 一次调用问完分类/量级/时效/阻断/W类/关联/质量全部原子问题，
+          // 聚合/阈值/截断在 jev-result-mapper 代码端完成
+          // ═══════════════════════════════════════════════════════════════════════════
+          } else if (!shouldUseAccountCommunity) {
+            logger.info('NarrativeAnalyzer', '使用 Jev 单次判定（原3阶段架构的替代）');
 
-            if (!stage1Data.pass) {
-              // Stage 1未通过，直接返回
-              logger.info('Stage1', '事件预处理未通过', {
-                reason: stage1Data.reason
-              });
+            // Jev 单次 speculative fan-out：全部原子问题一次问完，代码端聚合
+            const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
+            const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
+            const { state, stats } = buildJevState(tokenData, fetchResults);
+            const questions = buildStandardQuestions({ includeBrandHijack });
+            const startedAt = new Date().toISOString();
+            const result = await JevClient.ask(state, questions, { label: `jev:${tokenData.symbol}` });
+            const finishedAt = new Date().toISOString();
 
-              llmResult = {
-                rating: 'low',
-                reason: stage1Data.reason,
-                score: null,
-                pass: false
-              };
+            const mapped = mapStandardAnswers(result.answers, {
+              tokenData,
+              includeBrandHijack,
+              tweetClassification: classifyTweetType(twitterInfo),
+              callInfo: {
+                model: result.model, questions, stateStats: stats,
+                usage: result.usage, startedAt, finishedAt,
+              },
+            });
 
-              // 收集Stage 1数据（旧格式，会在 save 时通过 buildStageSaveData 转换）
-              stage1DataToSave = {
-                category: 'low',
-                model: stage1CallResult.model,
-                prompt: stage1Prompt,
-                raw_output: stage1CallResult.content,
-                parsed_output: stage1Data,
-                started_at: stage1CallResult.startedAt,
-                finished_at: stage1CallResult.finishedAt,
-                success: stage1CallResult.success,
-                error: stage1CallResult.error
-              };
+            stage1DataToSave = mapped.stage1DataToSave;
+            stage2DataToSave = mapped.stage2DataToSave;
+            stage3DataToSave = mapped.stage3DataToSave;
+            stageFinalData = mapped.stageFinalData;
+            llmResult = mapped.llmResult;
+            promptType = mapped.promptType;
 
-              promptType = stage1PromptType;
-            } else {
-              // Stage 1通过，校验必要字段
-              if (!stage1Data.eventClassification) {
-                throw new Error(`Stage 1 通过但缺少 eventClassification 字段，LLM 输出格式异常。原始响应前500字符: ${stage1CallResult.content?.substring(0, 500)}`);
-              }
+            // ========== W类 + 免费托管网站检查（原样保留，代码端规则） ==========
+            // Web3项目声称自己是平台/产品，但主站用免费托管（github.io等），说明项目不可信
+            if (stage1DataToSave?.parsed_output?.eventClassification?.primaryCategory === 'W' && llmResult.pass) {
+              const websiteUrl = classifiedUrls?.websites?.[0]?.url;
+              if (websiteUrl && _isFreeHostingUrl(websiteUrl)) {
+                const reason = `Web3项目主站使用免费托管平台（${websiteUrl}），连域名都不买，项目不可信`;
+                logger.info('NarrativeAnalyzer', `W类免费托管检查触发: ${reason}`);
 
-              logger.info('Stage1', '事件预处理通过', {
-                eventTheme: stage1Data.eventDescription?.eventTheme,
-                primaryCategory: stage1Data.eventClassification?.primaryCategory
-              });
-
-              // 保存Stage 1数据（即使后续Stage失败，Stage1数据也应该被保存）
-              stage1DataToSave = {
-                category: stage1Data.eventClassification?.primaryCategory || null,
-                model: stage1CallResult.model,
-                prompt: stage1Prompt,
-                raw_output: stage1CallResult.content,
-                parsed_output: stage1Data,
-                started_at: stage1CallResult.startedAt,
-                finished_at: stage1CallResult.finishedAt,
-                success: stage1CallResult.success,
-                error: stage1CallResult.error
-              };
-
-              // === 增量保存 Stage 1 数据 ===
-              try {
-                await NarrativeRepository.save({
-                  token_address: tokenData.address,
-                  ...buildStageSaveData('stage1', stage1DataToSave)
-                });
-                logger.info('NarrativeAnalyzer', 'Stage 1数据已增量保存');
-              } catch (e) {
-                logger.warn('NarrativeAnalyzer', 'Stage 1增量保存失败', { error: e.message });
-              }
-
-              // ========== Stage 2: 分类评分 ==========
-              logger.debug('NarrativeAnalyzer', '开始Stage 2：分类评分');
-              const stage2Prompt = await PromptBuilder.buildStage2Scoring(
-                stage1Data.eventDescription,
-                stage1Data.eventClassification
-              );
-              logger.debug('NarrativeAnalyzer', `Stage 2 Prompt类型: 分类特定（${stage1Data.eventClassification?.primaryCategory}类）`);
-
-              // Stage 2：调用API（带元数据）
-              const stage2CallResult = await LLMClient.analyzeWithMetadata(stage2Prompt);
-
-              // 检查 Stage 2 调用是否成功
-              if (!stage2CallResult.success) {
-                throw new Error(`Stage 2 LLM调用失败: ${stage2CallResult.error}`);
-              }
-
-              // 收集Stage 2数据
-              // analyzeWithMetadata 返回的 raw 包含 { raw: 原始响应, ...parsed }
-              const stage2RawContent = stage2CallResult.raw?.raw?.raw || stage2CallResult.raw?.raw;
-              if (!stage2RawContent) {
-                throw new Error('Stage 2 LLM返回数据为空');
-              }
-
-              // 使用 parseResponse 的结果（已支持新格式）
-              const stage2Data = stage2CallResult.parsed || {};
-              // 调试日志：打印 stage2Data 的关键信息
-              console.log('[NarrativeAnalyzer] Stage 2 解析结果:', JSON.stringify({
-                hasPass: typeof stage2Data.pass !== 'undefined',
-                pass: stage2Data.pass,
-                hasCategory: !!stage2Data.category,
-                category: stage2Data.category,
-                hasTotalScore: !!stage2Data.total_score,
-                totalScore: stage2Data.total_score,
-                hasBlockReason: !!stage2Data.blockReason,
-                blockReason: stage2Data.blockReason
-              }));
-              stage2DataToSave = {
-                category: stage2Data.scoringResult?.category || stage2CallResult.parsed?.category || null,
-                model: stage2CallResult.model,
-                prompt: stage2Prompt,
-                raw_output: stage2RawContent,
-                parsed_output: stage2Data,
-                started_at: stage2CallResult.startedAt,
-                finished_at: stage2CallResult.finishedAt,
-                success: stage2CallResult.success,
-                error: stage2CallResult.error
-              };
-
-              // 检查Stage 2是否成功
-              if (!stage2CallResult.success || !stage2Data.pass) {
-                // Stage 2失败或未通过
-                const failReason = !stage2CallResult.success ? stage2CallResult.error : stage2Data.blockReason;
-                logger.warn('NarrativeAnalyzer', `Stage 2 ${!stage2CallResult.success ? '失败' : '未通过'}: ${failReason}`);
-
-                // Stage 2未通过，category设为low（保证概览卡片正确显示）
+                stage2DataToSave.parsed_output = {
+                  ...stage2DataToSave.parsed_output,
+                  pass: false,
+                  blockReason: reason,
+                };
                 stage2DataToSave.category = 'low';
-
-                // Stage 3被跳过，清除旧的Stage 3数据（防止重新分析时残留旧结果）
                 stage3DataToSave = { __clear: true };
-
+                stageFinalData = {
+                  ...stageFinalData,
+                  category: 'low',
+                  totalScore: null,
+                  blockReason: reason,
+                };
                 llmResult = {
                   rating: 'low',
-                  reason: `Stage 1通过，但Stage 2${!stage2CallResult.success ? '失败' : '未通过'}: ${failReason}`,
-                  score: stage2Data.scoringResult?.totalScore || null,
+                  reason,
+                  score: stage2DataToSave.parsed_output.scoringResult?.totalScore || null,
                   pass: false,
-                  analysis_stage: 2
+                  analysis_stage: 2,
                 };
-
-                promptType = `stage1+stage2(${stage1Data.eventClassification?.primaryCategory}类)`;
-              } else {
-                // Stage 2通过，进入Stage 3
-                logger.info('Stage2', '分类评分通过', {
-                  category: stage2Data.scoringResult?.category,
-                  totalScore: stage2Data.scoringResult?.totalScore
-                });
-
-                // ========== W类 + 免费托管网站检查 ==========
-                // Web3项目声称自己是平台/产品，但主站用免费托管（github.io等），说明项目不可信
-                if (stage1Data.eventClassification?.primaryCategory === 'W') {
-                  const websiteUrl = classifiedUrls?.websites?.[0]?.url;
-                  if (websiteUrl && _isFreeHostingUrl(websiteUrl)) {
-                    const reason = `Web3项目主站使用免费托管平台（${websiteUrl}），连域名都不买，项目不可信`;
-                    logger.info('NarrativeAnalyzer', `W类免费托管检查触发: ${reason}`);
-
-                    stage2DataToSave.category = 'low';
-                    stage3DataToSave = { __clear: true };
-
-                    llmResult = {
-                      rating: 'low',
-                      reason,
-                      score: stage2Data.scoringResult?.totalScore || null,
-                      pass: false,
-                      analysis_stage: 2
-                    };
-                    promptType = `stage1+stage2(W类-免费托管阻断)`;
-
-                    // 跳过Stage 3，直接到保存
-                    logger.info('NarrativeAnalyzer', `W类免费托管阻断，跳过Stage 3`);
-                  }
-                }
-
-                // === 增量保存 Stage 2 数据（Stage 2通过，即将进入Stage 3）===
-                try {
-                  await NarrativeRepository.save({
-                    token_address: tokenData.address,
-                    ...buildStageSaveData('stage2', stage2DataToSave)
-                  });
-                  logger.info('NarrativeAnalyzer', 'Stage 2数据已增量保存');
-                } catch (e) {
-                  logger.warn('NarrativeAnalyzer', 'Stage 2增量保存失败', { error: e.message });
-                }
-
-                // 只有未被免费托管检查阻断时，才进入Stage 3
-                if (!llmResult || llmResult.pass !== false) {
-                // ========== Stage 3: 代币分析 ==========
-                logger.debug('NarrativeAnalyzer', '开始Stage 3：代币分析');
-                const stage3Prompt = PromptBuilder.buildStage3TokenAnalysis(
-                  tokenData,
-                  stage1Data
-                );
-                logger.debug('NarrativeAnalyzer', `Stage 3 Prompt类型: 代币分析（使用Stage1输出）`);
-
-                // Stage 3：调用API（带元数据）
-                const stage3CallResult = await LLMClient.analyzeWithMetadata(stage3Prompt);
-
-                // 检查 Stage 3 调用是否成功
-                if (!stage3CallResult.success) {
-                  throw new Error(`Stage 3 LLM调用失败: ${stage3CallResult.error}`);
-                }
-
-                // 收集Stage 3数据
-                // analyzeWithMetadata 返回的 raw 包含 { raw: 原始响应, ...parsed }
-                const stage3RawContent = stage3CallResult.raw?.raw?.raw || stage3CallResult.raw?.raw;
-
-                // 使用 parseResponse 的结果（已支持新格式）
-                const stage3Data = stage3CallResult.parsed || {};
-
-                // ========== 分数聚合：Stage 2（事件分）+ Stage 3（代币分） ==========
-                // Stage 3 输出 pass/fail + 分数，Stage 2 输出事件分，最终 category 由代码聚合
-                // 注意：LLMClient.analyzeWithMetadata() 返回的 parsed 中，原始响应被包在 raw 里
-                // 外层有扁平字段（total_score, category, pass 等），内层 raw 有详细结构
-                const stage3Pass = stage3Data.pass ?? stage3Data.raw?.pass;
-                const relevanceScore = stage3Data.relevanceScore ?? stage3Data.raw?.relevanceScore ?? stage3Data.breakdown?.relevanceScore;
-                const qualityScore = stage3Data.qualityScore ?? stage3Data.raw?.qualityScore ?? stage3Data.breakdown?.qualityScore;
-
-                let aggregatedCategory;
-                let aggregatedTotalScore;
-                let eventScore = null;
-                const stage2TotalScore = stage2Data.scoringResult?.totalScore ?? stage2Data.raw?.scoringResult?.totalScore ?? stage2Data.total_score;
-
-                if (stage3Pass === false) {
-                  // Stage 3 截断触发（品牌劫持/拼写错误/关联性不足/质量过低）
-                  aggregatedCategory = 'low';
-                  aggregatedTotalScore = null;
-                  logger.info('NarrativeAnalyzer', 'Stage 3截断触发', {
-                    blockReason: stage3Data.blockReason,
-                    relevanceScore: relevanceScore,
-                    qualityScore: qualityScore
-                  });
-                } else {
-                  // Stage 3 通过，计算加权总分
-                  if (stage2TotalScore !== undefined) {
-                    eventScore = Math.round(stage2TotalScore * 0.6 * 100) / 100;
-                  }
-                  aggregatedTotalScore = (eventScore || 0) + (relevanceScore || 0) + (qualityScore || 0);
-
-                  if (aggregatedTotalScore >= 70) aggregatedCategory = 'high';
-                  else if (aggregatedTotalScore >= 50) aggregatedCategory = 'mid';
-                  else aggregatedCategory = 'low';
-
-                  logger.info('NarrativeAnalyzer', '分数聚合结果', {
-                    stage2TotalScore: stage2TotalScore,
-                    eventScore: eventScore,
-                    relevanceScore: relevanceScore,
-                    qualityScore: qualityScore,
-                    aggregatedTotalScore: aggregatedTotalScore,
-                    aggregatedCategory: aggregatedCategory
-                  });
-                }
-
-                // ========== Stage Final：聚合结果 ==========
-                stageFinalData = {
-                  category: aggregatedCategory,
-                  totalScore: aggregatedTotalScore,
-                  eventScore: eventScore,
-                  relevanceScore: relevanceScore,
-                  qualityScore: qualityScore,
-                  eventWeight: 0.6,
-                  stage2TotalScore: stage2TotalScore || null,
-                  blockReason: stage3Pass === false ? stage3Data.blockReason : null
-                };
-
-                // 将聚合结果写入 stage3Data，供 resolveFinalRating 和后续代码使用
-                stage3Data.category = aggregatedCategory;
-                stage3Data.total_score = aggregatedTotalScore;
-
-                // 同步 raw.category，确保 resolveFinalRating 读取到聚合后的值
-                if (stage3Data.raw && stage3Data.raw.category !== aggregatedCategory) {
-                  stage3Data.raw.category = aggregatedCategory;
-                }
-
-                stage3DataToSave = {
-                  category: stage3Data.category || stage3CallResult.parsed?.category || null,
-                  model: stage3CallResult.model,
-                  prompt: stage3Prompt,
-                  raw_output: stage3RawContent || stage3CallResult.raw?.raw || null,
-                  parsed_output: stage3Data,
-                  started_at: stage3CallResult.startedAt,
-                  finished_at: stage3CallResult.finishedAt,
-                  success: stage3CallResult.success,
-                  error: stage3CallResult.error
-                };
-
-                // === 增量保存 Stage 3 数据 ===
-                try {
-                  await NarrativeRepository.save({
-                    token_address: tokenData.address,
-                    ...buildStageSaveData('stage3', stage3DataToSave)
-                  });
-                  logger.info('NarrativeAnalyzer', 'Stage 3数据已增量保存');
-                } catch (e) {
-                  logger.warn('NarrativeAnalyzer', 'Stage 3增量保存失败', { error: e.message });
-                }
-
-                // 检查Stage 3是否成功
-                if (!stage3CallResult.success) {
-                  // Stage 3失败，但不抛出错误，而是设置llmResult为Stage 2的结果
-                  logger.warn('NarrativeAnalyzer', `Stage 3失败，使用Stage 2结果: ${stage3CallResult.error}`);
-                  llmResult = {
-                    rating: stage2Data.scoringResult?.category || 'unrated',
-                    reason: `Stage 1和Stage 2通过，但Stage 3失败: ${stage3CallResult.error}`,
-                    score: stage2Data.scoringResult?.totalScore || null,
-                    pass: true,
-                    analysis_stage: 2
-                  };
-                } else {
-                  // Stage 3成功，使用完整的分析结果
-                  llmResult = {
-                    ...stage3Data,
-                    analysis_stage: 3
-                  };
-                }
-
-                promptType = `stage1+stage2(${stage1Data.eventClassification?.primaryCategory}类)+stage3`;
-                } // 关闭免费托管检查的 if (!llmResult || ...) 块
+                promptType = `jev(W类-免费托管阻断)`;
+                logger.info('NarrativeAnalyzer', 'W类免费托管阻断');
               }
-            } // 关闭3阶段架构 else 分支（第334行的else）
+            }
+
+            logger.info('NarrativeAnalyzer', 'Jev 判定完成', {
+              rating: llmResult.rating,
+              score: llmResult.score,
+              category: stage1DataToSave?.parsed_output?.eventClassification?.primaryCategory,
+              stateChars: stats.totalChars,
+              reason: llmResult.reason,
+            });
           } // 关闭hasAnyData的else分支（第267行的else）
           }
         } catch (error) {  // 关闭try块（第249行）
@@ -978,7 +674,7 @@ export class NarrativeAnalyzer {
       analyzed_at: new Date().toISOString(),
       experiment_id: experimentId,
       is_valid: true,
-      prompt_version: PromptBuilder.getPromptVersion(),
+      prompt_version: `jev-${JEV_QUESTIONS_VERSION}`,
       analysis_stage: llmResult?.analysis_stage || null,
       prompt_type: promptType || null,
 
@@ -1027,12 +723,12 @@ export class NarrativeAnalyzer {
         preCheckReason: isPreCheckTriggered ? preCheckDataToSave?.details?.ruleName : null,
         analyzedAt: saveResult.analyzed_at,
         sourceExperimentId: experimentId,
-        promptVersion: PromptBuilder.getPromptVersion(),
+        promptVersion: `jev-${JEV_QUESTIONS_VERSION}`,
         promptType: promptType
       },
       debugInfo: {
         promptUsed: promptUsed,
-        promptVersion: PromptBuilder.getPromptVersion(),
+        promptVersion: `jev-${JEV_QUESTIONS_VERSION}`,
         promptType: promptType,
         // 根据执行的stage确定analysisStage
         analysisStage: stage3DataToSave ? 3 : stage2DataToSave ? 2 : stage1DataToSave ? 1 : 0,

@@ -12,7 +12,7 @@
  * 版本：改动任何一题的 instructions/criteria 后必须 bump JEV_QUESTIONS_VERSION
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.3';
+export const JEV_QUESTIONS_VERSION = 'J1.7';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -73,26 +73,33 @@ export function buildStandardQuestions(options = {}) {
 
   const questions = {
 
-    // ── 1. 事件分类（原 Stage1，8 类 + 边界规则）──────────────────────
+    // ── 1. 事件分类（原 Stage1，8 类 + 边界规则；英文——文档标注英文最佳，校准实证中文边界规则下 50% 样本分类漂移）──
     event_category: {
       type: 'choice',
-      instructions: `事件分类（event classification）。判断这条推文/内容构成的事件属于哪一类，只选一个最佳类别。
-边界规则：
-- 优先级（同时符合多类时）：A > W > B > F > G > C > D > E
-- E=正在流行的热点内容；F=新发现的规律/模式（有证据）
-- F=有证据支撑的发现；G=无充分证据的推测/预测
-- C=个人账号的言论；D=机构/公司官方账号的动作
-- 找角度/借势推文（angle-seeking）：事件主体是被借势的原始事件，不是发推人自己
-- 解读型回复（interpretive reply）：事件主体是被解读的原始消息的发布者，不是回复者`,
+      instructions: `Event classification. Select the single best category for the event constituted by this tweet/content.
+Priority when multiple could apply: A > W > B > F > G > C > D > E.
+Key discriminating signals:
+- E = a trend or viral content spreading NOW on some platform (meme, challenge, hot post, trending topic). The tweet merely reports or rides content that is already hot.
+- F = the author presents THEIR OWN finding: a hidden pattern, data insight, or narrative connection they claim to have discovered. Even if the finding is about trending content, an original discovery claim is F, not E.
+- G = a PREDICTION about a future event, with some reasoning but insufficient evidence.
+- C = a statement or action by an INDIVIDUAL person speaking personally (a personal account, even if that person is a CEO — unless posting as the institution's official mouthpiece).
+- D = an announcement or action by an INSTITUTION's official account (company or organization official channel).
+- W = a blockchain/crypto product launch or update (token, DeFi, NFT, public chain, infra tool, protocol).
+- B = a non-Web3 product launch or update (app, game, hardware, website, consumer product).
+- A = a visual IP: meme character, mascot, virtual image, cartoon IP, emoji-pack character.
+Subject attribution rules (critical):
+- angle-seeking tweet / interpretive reply: the event subject is the ORIGINAL event being leveraged or interpreted, NOT the tweet author.
+- tweet reporting or relaying an external hot event: subject = the hot event's protagonist, not the relayer.
+- tweet about the author's own content/work/statement: subject = the author (only then does the author's follower count represent event magnitude).`,
       criteria: {
-        A: '形象化IP：meme角色/形象/吉祥物/虚拟形象/卡通IP/表情包形象',
-        W: 'Web3项目：区块链/加密项目发布（代币/DeFi/NFT/公链/工具/协议）',
-        B: '非Web3产品：非Web3产品发布/更新（App/游戏/硬件/网站/消费产品）',
-        F: '发现型：发现隐藏模式/规律/数据洞察/叙事发现（有证据支撑）',
-        G: '推测型：对未来事件的预测/猜想（有推理但无充分证据）',
-        C: '人物言论：个人（非机构官方身份）的声明/言论/动作',
-        D: '机构动作：机构/公司官方账号的公告/动作',
-        E: '社会热点：社交媒体正在流行的趋势/病毒式内容/热点事件',
+        A: 'Visual IP: meme character / mascot / virtual image / cartoon IP',
+        W: 'Web3 project: blockchain/crypto launch or update (token/DeFi/NFT/chain/tool)',
+        B: 'Non-Web3 product: app/game/hardware/website/consumer product launch or update',
+        F: 'Discovery: hidden pattern / data insight / narrative finding, evidence-backed, author-discovered',
+        G: 'Speculation: future prediction with reasoning but insufficient evidence',
+        C: 'Personal statement: an individual speaking personally (not as institutional official mouthpiece)',
+        D: 'Institutional action: official account announcement/action of a company or organization',
+        E: 'Social hotspot: trend/viral content spreading on social platforms now',
       },
     },
 
@@ -134,23 +141,25 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
       },
     },
 
-    // ── 4. 维度二：传播力加分（原各类 Stage2 第二维度，0-30）─────────
+    // ── 4. 维度二：主体影响力/传播权重（原各类 Stage2 第二维度，0-30）─
     dimension2: {
       type: 'score',
-      instructions: `事件第二维度加分（原各类Stage2维度二，0-30分），含义按事件类别：
-- A类（形象化IP）=IP方权重：世界级IP 30/知名IP 20-25/KOL>4万粉 18-22/普通KOL 12-17/普通创作者 8-11/新账号 5-8；自创IP上限：创作者粉丝<1万→最高11分、1-10万→最高17分、≥10万或认证→无上限
-- B类（非Web3产品）=发布方权重（基于发布方本身的影响力，不是内容涉及的名人）：世界级公司25-30/知名机构约22/知名个人约20/普通团队8-15/小号约8
-- C/D类=人物/机构传播与职务权重
-- E类（社会热点）=传播与meme元素权重：强二创模仿文化/全网热议25-30、多级扩散15-24、有限讨论5-14
-- W类不适用本题（W类独立计分）
-⚠️ 传播力归属规则：看事件本身在其源头平台的传播（热点视频/热搜的播放量、讨论度、出圈程度、二创情况），不是发推人账号的互动数据；推文描述的"爆火/热搜/疯传"即为传播证据，直接采信不质疑`,
+      instructions: `事件第二维度：主体影响力/传播权重加分（原各类Stage2维度二，0-30分）。
+⚠️ 与event_magnitude同主体：两题评估同一主体，档位应基本一致（magnitude给高主体本维度也给高档），不要在这题重新贬低主体。
+各类别语义：
+- A类（形象化IP）=IP方权重：看创作者/关联IP的知名度——世界级IP 30/知名IP 20-25/KOL>4万粉 18-22/普通KOL 12-17/普通创作者 8-11/新账号 5-8；关联名人IP按该IP知名度定档（如吉祥物蹭总统选举IP→按世界级算）
+- B类（非Web3产品）=发布方权重（发布方本身的影响力）：世界级公司25-30/知名机构约22/知名个人约20/普通团队8-15/小号约8
+- C/D类=人物/机构影响力权重：直接看事件主体的粉丝量级与身份——世界级名人/顶级机构25-30、知名人物/大型机构20-24、十万粉级15-19、万粉级10-14、千粉及以下5-9
+- E类（社会热点）=热点传播量级：看热点在源头平台的传播（播放量/讨论度/出圈/二创），不看发推人互动数据；推文描述的"爆火/热搜/疯传"直接采信
+- F/G类=主体影响力权重（同C类语义）
+- W类不适用本题（W类独立计分）`,
       criteria: [
-        '0-4分：无传播——零互动/无扩散/无名主体',
-        '5-9分：微弱——普通创作者/小号/极小范围传播',
-        '10-14分：小范围——普通KOL/小圈子内传播/有限讨论',
-        '15-19分：中等——知名KOL/中等传播/有一定讨论度和跟风',
-        '20-24分：较强——知名IP/大V/多级转发扩散/持续发酵',
-        '25-30分：极强——世界级IP/全民话题/病毒式传播/大规模二创',
+        '0-4分：无——无名主体/零影响力/零互动/无传播',
+        '5-9分：微弱——新账号/小号/千粉以下/极小范围传播',
+        '10-14分：小——万粉级/普通KOL/小圈子传播/有限讨论',
+        '15-19分：中——十万粉KOL/中型机构/中等传播/有讨论度和跟风',
+        '20-24分：强——知名IP/大V/大型机构/多级扩散/持续发酵',
+        '25-30分：极强——世界级IP/顶级机构/全民话题/病毒式传播/大规模二创',
       ],
     },
 
@@ -164,9 +173,9 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
         subject_unqualified: '主体资格不足——事件主体（注意：是事件本身的核心实体，报道外部热点的推文其主体是热点主角而非发推人）粉丝<1万且无认证且非知名IP',
         niche_subculture: '小圈子亚文化——圈内梗/黑话，圈外人无法理解，无出圈可能',
         empty_content: '空洞内容——纯问候/感叹/日常闲聊，无具体事件或设定',
-        institution_routine: '机构日常运营——机构日常发推/回复/转发，非重大事件',
+        institution_routine: '机构日常运营——机构的例行推文：问候/转发/回复/无信息量互动。⚠️ 实质性内容不算：产品发布/功能更新/政策公告/数据报告/合作消息都是有信息量的实质事件',
         low_quality_derivative: '低质衍生——对现有IP/热点的简单替换/拼贴/抄袭/模仿',
-        marketing_gimmick: '营销噱头——纯营销包装/标题党/蹭热度无实质内容',
+        marketing_gimmick: '营销噱头——无任何实质产品/事件信息，纯标题党/引流/蹭热点包装（有具体产品或事件内容的推文不算）',
         baseless_speculation: '无据猜测——预测没有任何推理依据支撑',
         ip_reuse: 'IP二次利用——直接使用现有知名IP但活动无重大传播力（活动有重大传播力则不算）',
         regional_event: '地区性事件——仅特定地区有感知，无更大范围影响',
