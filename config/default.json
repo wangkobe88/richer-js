@@ -44,6 +44,34 @@
       "sellFailureCooldownMs": 60000
     }
   },
+  "flapWs": {
+    "endpointFrom": "env",
+    "contracts": {
+      "portal": "0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0"
+    },
+    "pingIntervalMs": 10000,
+    "reconnect": {
+      "minDelayMs": 2000,
+      "maxDelayMs": 60000
+    },
+    "tickBuffer": {
+      "flushIntervalMs": 2000,
+      "flushThreshold": 100,
+      "batchSize": 500
+    },
+    "wssDownGuardMs": 900000,
+    "bnbUsd": {
+      "refreshMs": 60000
+    },
+    "maxTrackedTokens": 300,
+    "signalDebounceMs": 1500,
+    "signalDebounceMaxWaitMs": 5000,
+    "pruneIntervalMs": 300000,
+    "pruneMaxAgeMs": 1800000,
+    "timeSeriesIntervalMs": 30000,
+    "timeSeriesActiveWindowMs": 60000,
+    "minTickBnb": 0.001
+  },
   "strategy": {
     "buyTimeMinutes": 1.33,
     "earlyReturnMin": 80,

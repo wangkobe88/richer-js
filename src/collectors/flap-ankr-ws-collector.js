@@ -1,47 +1,60 @@
 /**
- * FourMeme ankr WSS Collector
+ * Flap ankr WSS Collector
  *
- * 通过 ankr Advanced API WSS（标准 eth_subscribe）实时监控 four.meme BSC 内盘事件。
- * 订阅 TokenManager2 合约的全部 logs（发现 + 价格 + 毕业）+ newHeads（块时间回填）。
+ * 通过 ankr Advanced API WSS（标准 eth_subscribe）实时监控 flap.sh BSC 内盘事件。
+ * 订阅 Portal 合约的全部 logs（发现 + 价格 + 毕业）+ newHeads（块时间回填）。
+ *
+ * ⚠️ 机制层（重连/心跳/块时间回填/pending RPC 兜底/去重/tickBuffer/毒 tick 二分/BNB-USD）
+ * 复制自 fourmeme-ankr-ws-collector.js——改动任一份的机制逻辑须评估另一份。
  *
  * 功能：
- * 1. TokenCreate  → 新代币发现：TokenPool.addToken(data_source='wss') + 回调 onTokenCreate（引擎负责落库 experiment_tokens）
- * 2. TokenPurchase/TokenSale → tick：事件 price 字段直接是成交价（BNB wei）
+ * 1. TokenCreated → 新代币发现：TokenPool.addToken(data_source='wss') + 回调 onTokenCreate（引擎负责落库 experiment_tokens）
+ * 2. TokenBought/TokenSold → tick：postPrice 字段直接可用（18 decimals BNB/token）
  *    → tick 缓冲批量落库 wss_price_ticks + TokenPool.updatePrice + FactorAggregator.processTick
- * 3. LiquidityAdded → 毕业：回调 onGraduation
+ * 3. LaunchedToDEX → 毕业：回调 onGraduation
+ * 4. TokenQuoteSet → 计价币识别：非 BNB 计价（如 USD1）的代币照常发现记录，
+ *    但其 tick 不落库不进因子（postPrice 是 quote/token 价，落 price_bnb 会污染口径）。
+ *    实测 TokenQuoteSet 的 logIndex 后于 TokenCreated，计价币在 create 之后才可知
  *
- * 事件口径（Phase 0 实测验证，docs/fourmeme-events.md）：
+ * 事件口径（2026-09 实测验证，90s 订阅 1851 事件 / 18 新币 / 254 买 / 177 卖）：
  * - 全部事件无 indexed 参数（topics 只有 topic0），业务参数全在 data
- * - TokenCreate(creator, token, requestId, name, symbol, totalSupply, launchTime, launchFee)
- *   launchTime/launchFee 实测恒 0 —— 代币年龄用事件块时间
- * - TokenPurchase/TokenSale(token, account, price, amount, cost, fee, offers, funds)
- *   price 为每 token 的 BNB 价（18 decimals wei）；fee = cost 的 1%
- *
- * 模式参考 pumpfun-wss-trader 的 pumpfun-ws-collector（去重/重连/毒 tick 二分/批量缓冲）。
+ * - TokenCreated(ts, creator, nonce, token, name, symbol, meta)
+ *   ts 为秒级时间戳（仅存档，代币年龄统一用事件块时间）；totalSupply 固定 1e9
+ * - TokenBought/TokenSold(ts, token, trader, amount, eth, fee, postPrice)
+ *   postPrice 为「成交后」价格（four.meme 是成交时价）——作为 tick 序列等价
+ *   （下一 tick 前价 ≈ 上一 postPrice），实时与回测同源同口径；
+ *   eth 即该笔 BNB 金额（1% 协议费已含其中，与 four.meme cost 口径对齐）
+ * - LaunchedToDEX(token, pool, amount, eth)：签名来自官方文档，尚无实测样本，上线自然验证
+ * - TokenQuoteSet(token, quoteToken)：quoteToken 零地址 = BNB 计价；topic0 待 dry-run 实测确认
+ * - 税币地址后缀 7777（标准币 8888）：eth/amount/postPrice 口径不受税结构影响，仅标记不过滤
  */
 
 const WebSocket = require('ws');
 const { ethers } = require('ethers');
 
-// ── 事件签名（Phase 0 验证，全 data 无 indexed）──
+// ── 事件签名（TokenCreated/Bought/Sold 实测验证；LaunchedToDEX/TokenQuoteSet 待大样本确认）──
 const EVENT_SIGS = {
-    TokenCreate: 'TokenCreate(address,address,uint256,string,string,uint256,uint256,uint256)',
-    TokenPurchase: 'TokenPurchase(address,address,uint256,uint256,uint256,uint256,uint256,uint256)',
-    TokenSale: 'TokenSale(address,address,uint256,uint256,uint256,uint256,uint256,uint256)',
-    LiquidityAdded: 'LiquidityAdded(address,uint256,address,uint256)',
-    TradeStop: 'TradeStop(address)',
+    TokenCreated: 'TokenCreated(uint256,address,uint256,address,string,string,string)',
+    TokenBought: 'TokenBought(uint256,address,address,uint256,uint256,uint256,uint256)',
+    TokenSold: 'TokenSold(uint256,address,address,uint256,uint256,uint256,uint256)',
+    LaunchedToDEX: 'LaunchedToDEX(address,address,uint256,uint256)',
+    TokenQuoteSet: 'TokenQuoteSet(address,address)',
 };
 
-// topic0 → 事件名（模块加载时本地 keccak 计算，与 Phase 0 实测值一致）
+// topic0 → 事件名（模块加载时本地 keccak 计算）
 const TOPIC0_MAP = new Map();
 for (const [name, sig] of Object.entries(EVENT_SIGS)) {
     TOPIC0_MAP.set(ethers.id(sig), name);
 }
 
-const TRADE_DATA_TYPES = ['address', 'address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'];
-const CREATE_DATA_TYPES = ['address', 'address', 'uint256', 'string', 'string', 'uint256', 'uint256', 'uint256'];
-const LIQ_ADDED_DATA_TYPES = ['address', 'uint256', 'address', 'uint256'];
-const TRADE_STOP_DATA_TYPES = ['address'];
+const CREATE_DATA_TYPES = ['uint256', 'address', 'uint256', 'address', 'string', 'string', 'string'];
+const TRADE_DATA_TYPES = ['uint256', 'address', 'address', 'uint256', 'uint256', 'uint256', 'uint256'];
+const LAUNCHED_DEX_DATA_TYPES = ['address', 'address', 'uint256', 'uint256'];
+const QUOTE_SET_DATA_TYPES = ['address', 'address'];
+
+// flap 内盘代币固定总量 1B（与 four.meme 相同量级，供 marketCap 因子）
+const FLAP_TOTAL_SUPPLY = 1e9;
+const ZERO_ADDRESS = '0x' + '0'.repeat(40);
 
 // BSC PancakeSwap V2 Router（BNB/USD 换算：WBNB→USDT getAmountsOut）
 const PANCAKE_V2_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
@@ -58,25 +71,23 @@ function lowerAddr(a) {
     return (a || '').toLowerCase();
 }
 
-class FourMemeAnkrWsCollector {
+class FlapAnkrWsCollector {
     /**
-     * @param {Object} config - 全局配置（读取 config.fourmemeWs 段）
+     * @param {Object} config - 全局配置（读取 config.flapWs 段）
      * @param {Object} logger - 引擎 logger（info/warn/error/debug）
      * @param {Object} tokenPool - TokenPool 实例
      * @param {Object|null} factorAggregator - FourMemeFactorAggregator 实例
      * @param {Object} callbacks - { onTokenCreate(info), onTick(tick), onGraduation(info) } 均可选
      */
     constructor(config, logger, tokenPool, factorAggregator = null, callbacks = {}) {
-        this.config = config.fourmemeWs || {};
+        this.config = config.flapWs || {};
         this.logger = logger;
         this.tokenPool = tokenPool;
         this._factorAggregator = factorAggregator;
         this._callbacks = callbacks || {};
 
         const contracts = this.config.contracts || {};
-        this._tokenManagerV2 = lowerAddr(contracts.tokenManagerV2);
-        this._tokenManagerV1 = lowerAddr(contracts.tokenManagerV1);
-        this._subscribeV1 = this.config.subscribeV1 === true;
+        this._portal = lowerAddr(contracts.portal);
 
         // WSS 端点：env 优先
         this._wsUrl = this.config.endpointFrom === 'env'
@@ -114,6 +125,10 @@ class FourMemeAnkrWsCollector {
         // 去重：(txHash, logIndex) —— 同 tx 可有多条同类型事件（聚合交易）
         this._processedTickKeys = new Set();
 
+        // 非 BNB 计价代币（如 USD1 quote）：token → quoteToken 地址。
+        // 仅记录已确认为非 BNB 的；未记录的默认按 BNB 处理（冷启动窗口见文件头注释）
+        this._nonBnbQuoteTokens = new Map();
+
         this._tickBuffer = [];
         this._tickFlushTimer = null;
         this._flushInProgress = false;
@@ -125,16 +140,20 @@ class FourMemeAnkrWsCollector {
 
         this._experimentId = null;
 
+        // 未知 topic0 计数分布（确认未验证事件签名用，dry-run 结束打印）
+        this._unknownTopic0Counts = new Map();
+
         this.stats = {
             startTime: null,
             lastMessageAt: null,
             headsReceived: 0,
             logsReceived: 0,
-            createDecoded: 0,
-            purchaseDecoded: 0,
-            saleDecoded: 0,
-            liquidityAdded: 0,
-            tradeStop: 0,
+            tokenCreated: 0,
+            tokenBought: 0,
+            tokenSold: 0,
+            launchedToDex: 0,
+            quoteSetEvents: 0,
+            nonBnbQuoteSkipped: 0,
             unknownEvents: 0,
             decodeFailed: 0,
             duplicateTicks: 0,
@@ -166,7 +185,7 @@ class FourMemeAnkrWsCollector {
 
     start() {
         if (!this._wsUrl) {
-            throw new Error('[FourMemeAnkrWsCollector] 缺少 ankr WSS 端点（config/.env ANKR_WS_URL 或 ANKR_API_KEY）');
+            throw new Error('[FlapAnkrWsCollector] 缺少 ankr WSS 端点（config/.env ANKR_WS_URL 或 ANKR_API_KEY）');
         }
         this.stats.startTime = Date.now();
         this._connect();
@@ -179,7 +198,7 @@ class FourMemeAnkrWsCollector {
         this._bnbUsdTimer = setInterval(() => this._fetchBnbUsd(), this._bnbUsdRefreshMs);
 
         this._startHeartbeat();
-        this.logger.info('', 'FourMemeAnkrWsCollector', `已启动：TokenManager2=${this._tokenManagerV2} 订阅V1=${this._subscribeV1}`);
+        this.logger.info('', 'FlapAnkrWsCollector', `已启动：Portal=${this._portal}`);
     }
 
     async stop() {
@@ -199,25 +218,21 @@ class FourMemeAnkrWsCollector {
         this._pingTimer = this._heartbeatTimer = this._tickFlushTimer = this._bnbUsdTimer = this._reconnectTimer = null;
 
         await this._flushTickBuffer(); // 关闭前把缓冲写完
-        this.logger.info('', 'FourMemeAnkrWsCollector', '已停止', this.stats);
+        this.logger.info('', 'FlapAnkrWsCollector', '已停止', this.stats);
     }
 
     // ═══════════════ WSS 连接与订阅 ═══════════════
 
     _connect() {
-        this.logger.info('', 'FourMemeAnkrWsCollector',
+        this.logger.info('', 'FlapAnkrWsCollector',
             `连接 ankr WSS: ${this._wsUrl.replace(/\/ws\/[^/?]+/, '/ws/***')}`);
 
         this._ws = new WebSocket(this._wsUrl);
 
         this._ws.on('open', () => {
-            this.logger.info('', 'FourMemeAnkrWsCollector', 'WSS 已连接，发送订阅请求');
+            this.logger.info('', 'FlapAnkrWsCollector', 'WSS 已连接，发送订阅请求');
             this._send({ jsonrpc: '2.0', id: 1, method: 'eth_subscribe', params: ['newHeads'] });
-
-            const logAddresses = this._subscribeV1 && this._tokenManagerV1
-                ? [this._tokenManagerV2, this._tokenManagerV1]
-                : [this._tokenManagerV2];
-            this._send({ jsonrpc: '2.0', id: 2, method: 'eth_subscribe', params: ['logs', { address: logAddresses }] });
+            this._send({ jsonrpc: '2.0', id: 2, method: 'eth_subscribe', params: ['logs', { address: [this._portal] }] });
 
             this._pingTimer = setInterval(() => {
                 if (this._ws && this._ws.readyState === WebSocket.OPEN) {
@@ -231,16 +246,16 @@ class FourMemeAnkrWsCollector {
                 this._onMessage(data);
             } catch (err) {
                 this.stats.decodeFailed++;
-                this.logger.error('', 'FourMemeAnkrWsCollector', `消息处理异常: ${err.message}`);
+                this.logger.error('', 'FlapAnkrWsCollector', `消息处理异常: ${err.message}`);
             }
         });
 
         this._ws.on('error', (err) => {
-            this.logger.error('', 'FourMemeAnkrWsCollector', `WSS 错误: ${err.message}`);
+            this.logger.error('', 'FlapAnkrWsCollector', `WSS 错误: ${err.message}`);
         });
 
         this._ws.on('close', (code, reason) => {
-            this.logger.warn('', 'FourMemeAnkrWsCollector', `WSS 关闭: ${code} ${reason?.toString() || ''}`);
+            this.logger.warn('', 'FlapAnkrWsCollector', `WSS 关闭: ${code} ${reason?.toString() || ''}`);
             this._scheduleReconnect();
         });
     }
@@ -266,7 +281,7 @@ class FourMemeAnkrWsCollector {
             if (msg.id === 1) this._headSubId = msg.result;
             if (msg.id === 2) this._logSubId = msg.result;
             if (msg.id === 1 || msg.id === 2) {
-                this.logger.info('', 'FourMemeAnkrWsCollector', `订阅确认 id=${msg.id} subId=${msg.result}`);
+                this.logger.info('', 'FlapAnkrWsCollector', `订阅确认 id=${msg.id} subId=${msg.result}`);
             }
             return;
         }
@@ -287,7 +302,7 @@ class FourMemeAnkrWsCollector {
         }
 
         if (msg.error) {
-            this.logger.warn('', 'FourMemeAnkrWsCollector', `RPC 错误帧: ${JSON.stringify(msg.error).slice(0, 200)}`);
+            this.logger.warn('', 'FlapAnkrWsCollector', `RPC 错误帧: ${JSON.stringify(msg.error).slice(0, 200)}`);
         }
     }
 
@@ -368,7 +383,8 @@ class FourMemeAnkrWsCollector {
         const eventName = topic0 ? TOPIC0_MAP.get(topic0) : null;
         if (!eventName) {
             this.stats.unknownEvents++;
-            return; // 未知伴随事件（Phase 0 已确认存在，安全忽略并计数）
+            this._unknownTopic0Counts.set(topic0, (this._unknownTopic0Counts.get(topic0) || 0) + 1);
+            return; // 未知伴随事件（实测确认 Portal 大量配置类事件，安全忽略并计数）
         }
 
         const blockNumber = logEntry.blockNumber != null ? parseInt(logEntry.blockNumber, 16) : null;
@@ -398,17 +414,21 @@ class FourMemeAnkrWsCollector {
         const blockTimeMs = blockTimeSec * 1000;
 
         try {
-            if (eventName === 'TokenCreate') {
+            if (eventName === 'TokenCreated') {
                 const d = ethers.AbiCoder.defaultAbiCoder().decode(CREATE_DATA_TYPES, data);
-                this.stats.createDecoded++;
+                this.stats.tokenCreated++;
+                const token = lowerAddr(d[3]);
+                // TokenQuoteSet 的 logIndex 后于 TokenCreated（实测），create 时无法预知计价币：
+                // 一律入池落库（用户决策：非 BNB 币照常发现记录），仅 tick 层按计价币跳过
                 this._handleTokenCreate({
-                    creator: lowerAddr(d[0]),
-                    token: lowerAddr(d[1]),
-                    requestId: d[2].toString(),
-                    name: d[3],
-                    symbol: d[4],
-                    totalSupply: Number(ethers.formatEther(d[5])), // 18 decimals → UI 数量
-                    // d[6]=launchTime 恒 0，d[7]=launchFee 恒 0（Phase 0 实测，不用）
+                    eventTsSec: Number(d[0]), // 事件自带秒级时间戳，仅存档（年龄统一用块时间）
+                    creator: lowerAddr(d[1]),
+                    nonce: d[2].toString(),
+                    token,
+                    name: d[4],
+                    symbol: d[5],
+                    meta: d[6], // IPFS 元数据 URL
+                    taxToken: token.endsWith('7777'), // 税币地址后缀 7777（标准币 8888）
                     blockNumber,
                     blockTimeMs,
                     txHash: logEntry.transactionHash,
@@ -416,12 +436,18 @@ class FourMemeAnkrWsCollector {
                 return;
             }
 
-            if (eventName === 'TokenPurchase' || eventName === 'TokenSale') {
+            if (eventName === 'TokenBought' || eventName === 'TokenSold') {
                 const d = ethers.AbiCoder.defaultAbiCoder().decode(TRADE_DATA_TYPES, data);
-                if (eventName === 'TokenPurchase') this.stats.purchaseDecoded++;
-                else this.stats.saleDecoded++;
+                const token = lowerAddr(d[1]);
+                if (!this._isBnbQuote(token)) {
+                    this.stats.nonBnbQuoteSkipped++;
+                    return; // 非 BNB 计价：postPrice 是 quote/token 价，落 price_bnb 会污染口径
+                }
+                if (eventName === 'TokenBought') this.stats.tokenBought++;
+                else this.stats.tokenSold++;
 
-                const priceBnb = Number(ethers.formatEther(d[2]));
+                // postPrice = 成交后价格（18 decimals BNB/token）；eth 即该笔 BNB 金额（1% fee 已含）
+                const priceBnb = Number(ethers.formatEther(d[6]));
                 const tokenAmount = Number(ethers.formatEther(d[3]));
                 const bnbAmount = Number(ethers.formatEther(d[4]));
 
@@ -437,14 +463,13 @@ class FourMemeAnkrWsCollector {
                 }
 
                 this._emitTick({
-                    token: lowerAddr(d[0]),
-                    tradeType: eventName === 'TokenPurchase' ? 'buy' : 'sell',
-                    trader: lowerAddr(d[1]),
+                    token,
+                    tradeType: eventName === 'TokenBought' ? 'buy' : 'sell',
+                    trader: lowerAddr(d[2]),
                     priceBnb,
                     tokenAmount,
                     bnbAmount,
-                    offers: Number(ethers.formatEther(d[6])),
-                    fundsBnb: Number(ethers.formatEther(d[7])),
+                    // flap 事件无 offers/funds 字段：不传（FA 的 `> 0` 守卫容忍 undefined，tvl 因子恒 0）
                     blockNumber,
                     blockTimeMs,
                     txHash: logEntry.transactionHash,
@@ -453,17 +478,32 @@ class FourMemeAnkrWsCollector {
                 return;
             }
 
-            if (eventName === 'LiquidityAdded') {
-                const d = ethers.AbiCoder.defaultAbiCoder().decode(LIQ_ADDED_DATA_TYPES, data);
-                this.stats.liquidityAdded++;
-                // ⚠ Phase 0 未观察到样本，签名来自官方文档；上线后自然验证
-                this.logger.info('', 'FourMemeAnkrWsCollector',
-                    `毕业事件: token=${lowerAddr(d[0])} funds=${ethers.formatEther(d[3])} BNB tx=${logEntry.transactionHash}`);
+            if (eventName === 'TokenQuoteSet') {
+                const d = ethers.AbiCoder.defaultAbiCoder().decode(QUOTE_SET_DATA_TYPES, data);
+                this.stats.quoteSetEvents++;
+                const token = lowerAddr(d[0]);
+                const quoteToken = lowerAddr(d[1]);
+                if (quoteToken === ZERO_ADDRESS) {
+                    this._nonBnbQuoteTokens.delete(token); // BNB 计价
+                } else {
+                    this._nonBnbQuoteTokens.set(token, quoteToken);
+                    this.logger.info('', 'FlapAnkrWsCollector',
+                        `非 BNB 计价代币: token=${token} quote=${quoteToken} tx=${logEntry.transactionHash}`);
+                }
+                return;
+            }
+
+            if (eventName === 'LaunchedToDEX') {
+                const d = ethers.AbiCoder.defaultAbiCoder().decode(LAUNCHED_DEX_DATA_TYPES, data);
+                this.stats.launchedToDex++;
+                // ⚠ 签名来自官方文档，尚无实测样本；上线自然验证
+                this.logger.info('', 'FlapAnkrWsCollector',
+                    `毕业事件: token=${lowerAddr(d[0])} pool=${lowerAddr(d[1])} eth=${ethers.formatEther(d[3])} tx=${logEntry.transactionHash}`);
                 if (this._callbacks.onGraduation) {
                     this._callbacks.onGraduation({
                         token: lowerAddr(d[0]),
-                        offers: Number(ethers.formatEther(d[1])),
-                        quote: lowerAddr(d[2]), // address(0) 表示 BNB 计价
+                        dexPool: lowerAddr(d[1]),
+                        tokenAmount: Number(ethers.formatEther(d[2])),
                         fundsBnb: Number(ethers.formatEther(d[3])),
                         blockNumber,
                         blockTimeMs,
@@ -472,28 +512,26 @@ class FourMemeAnkrWsCollector {
                 }
                 return;
             }
-
-            if (eventName === 'TradeStop') {
-                this.stats.tradeStop++;
-                const d = ethers.AbiCoder.defaultAbiCoder().decode(TRADE_STOP_DATA_TYPES, data);
-                this.logger.info('', 'FourMemeAnkrWsCollector', `交易停止: token=${lowerAddr(d[0])} tx=${logEntry.transactionHash}`);
-                return;
-            }
         } catch (err) {
             this.stats.decodeFailed++;
-            this.logger.error('', 'FourMemeAnkrWsCollector',
+            this.logger.error('', 'FlapAnkrWsCollector',
                 `[${eventName}] 解码失败: ${err.message} tx=${logEntry.transactionHash}`);
         }
     }
 
-    // ═══════════════ TokenCreate：发现 ═══════════════
+    /** 是否 BNB 计价（未收到 TokenQuoteSet 的默认 BNB；冷启动窗口已知局限） */
+    _isBnbQuote(token) {
+        return !this._nonBnbQuoteTokens.has(token);
+    }
+
+    // ═══════════════ TokenCreated：发现 ═══════════════
 
     _handleTokenCreate(info) {
         // 注册到 FactorAggregator（代币年龄基准 = 创建事件块时间；totalSupply 供 marketCap）
         if (this._factorAggregator) {
             this._factorAggregator.registerToken(info.token, {
                 createdAtMs: info.blockTimeMs,
-                totalSupply: info.totalSupply,
+                totalSupply: FLAP_TOTAL_SUPPLY,
                 name: info.name,
                 symbol: info.symbol,
                 creatorAddress: info.creator,
@@ -505,7 +543,7 @@ class FourMemeAnkrWsCollector {
             const added = this.tokenPool.addToken({
                 token: info.token,
                 chain: 'bsc',
-                platform: 'fourmeme',
+                platform: 'flap',
                 data_source: 'wss',
                 name: info.name || '',
                 symbol: info.symbol || '',
@@ -515,8 +553,8 @@ class FourMemeAnkrWsCollector {
             });
             if (added) {
                 this.stats.tokensAddedToPool++;
-                this.logger.info('', 'FourMemeAnkrWsCollector',
-                    `新代币入池: ${info.symbol || info.name || ''} ${info.token} creator=${info.creator} block=${info.blockNumber}`);
+                this.logger.info('', 'FlapAnkrWsCollector',
+                    `新代币入池: ${info.symbol || info.name || ''} ${info.token}${info.taxToken ? ' [税币]' : ''} creator=${info.creator} block=${info.blockNumber}`);
             }
         }
 
@@ -532,8 +570,7 @@ class FourMemeAnkrWsCollector {
         const priceUsd = bnbUsd > 0 ? decoded.priceBnb * bnbUsd : null;
         const receivedAt = Date.now();
 
-        // 1) TokenPool 价格更新（只对已在池中的代币；USD 价有效才更新。
-        //    AVE 专属因子 txVolumeU24h/holders/tvl/fdv 不再由价格轮询注入，由 FA 从 tick 自建）
+        // 1) TokenPool 价格更新（只对已在池中的代币；USD 价有效才更新）
         if (this.tokenPool && priceUsd && priceUsd > 0) {
             const token = this.tokenPool.getToken(decoded.token, 'bsc');
             if (token) {
@@ -558,7 +595,7 @@ class FourMemeAnkrWsCollector {
             block_number: decoded.blockNumber,
             block_time: new Date(decoded.blockTimeMs).toISOString(),
             received_at: new Date(receivedAt).toISOString(),
-            platform: 'fourmeme',
+            platform: 'flap',
         };
         this.stats.ticksBuffered++;
         this._tickBuffer.push(tickRow);
@@ -577,8 +614,7 @@ class FourMemeAnkrWsCollector {
                 price_usd: priceUsd,
                 bnb_amount: decoded.bnbAmount,
                 token_amount: decoded.tokenAmount,
-                offers: decoded.offers,
-                funds_bnb: decoded.fundsBnb,
+                // flap 事件无 offers/funds 字段：不传（undefined 守卫容忍，tvl 恒 0）
                 block_number: decoded.blockNumber,
                 timestamp: decoded.blockTimeMs,
                 tx_hash: decoded.txHash,
@@ -622,7 +658,7 @@ class FourMemeAnkrWsCollector {
         if (isDataError) {
             if (batch.length === 1) {
                 const t = batch[0];
-                this.logger.warn('', 'FourMemeAnkrWsCollector',
+                this.logger.warn('', 'FlapAnkrWsCollector',
                     `tick 字段非法已丢弃: token=${t.token_address} price_bnb=${t.price_bnb} block=${t.block_number} tx=${t.tx_hash} err=${error.message}`);
                 this.stats.ticksFlushFailed++;
                 return { written: 0, failed: 1 };
@@ -663,7 +699,7 @@ class FourMemeAnkrWsCollector {
                 const r = await this._upsertTickBatch(batch);
                 totalWritten += r.written;
             } catch (err) {
-                this.logger.warn('', 'FourMemeAnkrWsCollector',
+                this.logger.warn('', 'FlapAnkrWsCollector',
                     `tick 写入失败(将重试): ${err.message} batchSize=${batch.length}`);
                 this.stats.ticksFlushFailed += batch.length;
                 this._tickBuffer.unshift(...batch);
@@ -692,7 +728,7 @@ class FourMemeAnkrWsCollector {
                 this.stats.bnbUsdUpdates++;
             }
         } catch (err) {
-            this.logger.warn('', 'FourMemeAnkrWsCollector', `BNB/USD 获取失败(沿用缓存 ${this._bnbUsd}): ${err.message}`);
+            this.logger.warn('', 'FlapAnkrWsCollector', `BNB/USD 获取失败(沿用缓存 ${this._bnbUsd}): ${err.message}`);
         }
     }
 
@@ -701,7 +737,7 @@ class FourMemeAnkrWsCollector {
     _startHeartbeat() {
         this._heartbeatTimer = setInterval(() => {
             if (!this._ws || this._ws.readyState !== WebSocket.OPEN) {
-                this.logger.warn('', 'FourMemeAnkrWsCollector', 'WebSocket 未连接，触发重连');
+                this.logger.warn('', 'FlapAnkrWsCollector', 'WebSocket 未连接，触发重连');
                 this._scheduleReconnect();
                 return;
             }
@@ -726,7 +762,7 @@ class FourMemeAnkrWsCollector {
      */
     forceReconnect() {
         if (this._reconnectTimer) return false; // 已在重连循环中
-        this.logger.warn('', 'FourMemeAnkrWsCollector', '强制重连（断流守护触发）');
+        this.logger.warn('', 'FlapAnkrWsCollector', '强制重连（断流守护触发）');
         this._ensureIntervals();
         this._scheduleReconnect();
         return true;
@@ -753,7 +789,7 @@ class FourMemeAnkrWsCollector {
         this._logSubId = null;
         this._headSubId = null;
 
-        this.logger.info('', 'FourMemeAnkrWsCollector',
+        this.logger.info('', 'FlapAnkrWsCollector',
             `计划重连: delay=${this._reconnectDelay}ms attempt=${this.stats.reconnects}`);
 
         this._reconnectTimer = setTimeout(() => {
@@ -773,11 +809,14 @@ class FourMemeAnkrWsCollector {
             pendingLogs: this._pendingLogs.length,
             blockTimeCacheSize: this._blockTimes.size,
             dedupeSetSize: this._processedTickKeys.size,
+            nonBnbQuoteTracked: this._nonBnbQuoteTokens.size,
             uptimeSeconds: this.stats.startTime
                 ? Math.floor((Date.now() - this.stats.startTime) / 1000)
                 : 0,
+            // 未匹配 topic0 的分布（dry-run 验证事件签名覆盖用）
+            unknownTopic0: Object.fromEntries(this._unknownTopic0Counts),
         };
     }
 }
 
-module.exports = { FourMemeAnkrWsCollector, TOPIC0_MAP };
+module.exports = { FlapAnkrWsCollector, TOPIC0_MAP };
