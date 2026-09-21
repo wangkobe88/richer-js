@@ -7,37 +7,18 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { NarrativeRepository } from '../db/NarrativeRepository.mjs';
-import { TwitterFetcher } from '../utils/twitter-fetcher.mjs';
-import { TwitterMediaExtractor } from '../utils/twitter-media-extractor.mjs';
-import { ImageDownloader } from '../utils/image-downloader.mjs';
-import { WeiboFetcher, WeiboExtractor } from '../utils/weibo-fetcher.mjs';
-import { GithubFetcher } from '../utils/github-fetcher.mjs';
-import { YoutubeFetcher } from '../utils/youtube-fetcher.mjs';
-import { DouyinFetcher } from '../utils/douyin-fetcher.mjs';
-import { BilibiliFetcher } from '../utils/bilibili-fetcher.mjs';
-import { XiaohongshuFetcher } from '../utils/xiaohongshu-fetcher.mjs';
-import { InstagramFetcher } from '../utils/instagram-fetcher.mjs';
-import { fetchTikTokVideoInfo, isTikTokUrl } from '../utils/tiktok-fetcher.mjs';
-import { WeixinFetcher } from '../utils/weixin-fetcher.mjs';
-import { fetchWebsiteContent, isFetchableUrl, isTwitterTweetUrl } from '../utils/web-fetcher.mjs';
-import { fetchProductInfo, getInfluenceLevel, getInfluenceDescription } from '../utils/amazon-fetcher.mjs';
 import { ExternalResourceCache } from '../db/ExternalResourceCache.mjs';
 import { PromptBuilder } from './prompt-builder.mjs';
-import { extractAllUrls, classifyAllUrls, selectBestUrls } from '../utils/url-classifier.mjs';
-import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from './prompts/account/account-backgrounds.mjs';
-import { fetchCommunityForTweet } from '../../utils/twitter-validation/communities-api.js';
 import { getLogger } from '../core/logger.mjs';
 
 // 新增：从拆分的模块导入
-import { cleanSymbol, getVisualLength, hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, isProjectCoin, extractScreenNameFromTwitterUrl } from './utils/narrative-utils.mjs';
-import { detectLanguage, standardizeTranslatedNames } from './utils/language-utils.mjs';
+import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, isProjectCoin, extractScreenNameFromTwitterUrl } from './utils/narrative-utils.mjs';
 import { cleanDataForDB } from './utils/data-cleaner.mjs';
-import { parseStage1Response, parseEventResponse, parseJSONResponse, formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
+import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
 import { performPreCheck } from './services/pre-check-service.mjs';
-import { fetchAllDataViaClassifier, fetchDataSequentially, recordDataFetch } from './services/data-fetch-service.mjs';
-import { fetchTokenData, extractInfo, checkBinanceRelated } from './services/token-info-service.mjs';
+import { fetchAllDataViaClassifier } from './services/data-fetch-service.mjs';
+import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken } from './services/account-analysis-service.mjs';
-import { saveStage1Data, saveStage2Data } from './services/stage-data-service.mjs';
 import { detectSuperIP, calculatePreScores } from './prompts/super-ip/super-ip-registry.mjs';
 
 // Jev 判定（主路径 + 超大IP快速通道 + prestage 前置判定）

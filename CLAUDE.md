@@ -54,56 +54,51 @@ Two engines via `src/trading-engine/implementations/`:
 - **FourMemeWssTradingEngine** - virtual (simulated accounting) and live (`FourMemeDirectTrader` on-chain trades) modes in one engine
 - **BacktestEngine** - replays `wss_price_ticks` through the same factor-strategy pipeline (`FA.processTick(emitFactors:false)`)
 
-### Narrative Analyzer (3-Stage LLM Pipeline)
+### Narrative Analyzer (Jev Structured Decision Engine)
 
 **Location**: `src/narrative/`
 
-The narrative analyzer evaluates whether a meme coin's underlying event has narrative value. It's a multi-stage LLM pipeline:
+The narrative analyzer evaluates whether a meme coin's underlying event has narrative value. All LLM decisions run through **Jev** (TypeSafe System One, `api.typesafe.ai`): a structured decision model with three primitives (Choice/Score/Noul), no text generation, one speculative fan-out call per token (~seconds). The former 3-stage generative pipeline (Stage 1 preprocessing → Stage 2 category scoring → Stage 3 token analysis) was fully replaced.
 
 ```
-Token URL → URL Classification → Data Fetching → Pre-Check
+Token URL → URL Classification → Data Fetching → Pre-Check (rules, no LLM)
                                                         ↓
-                                              Tweet Type Classification
-                                              (interpretive_reply / angle_seeking / direct_tweet)
-                                                        ↓
-                                              Stage 1: Event Preprocessing
-                                              (event description + category classification)
-                                                        ↓
-                                              Stage 2: Category Scoring
-                                              (8 categories, each with scoring rules)
-                                                        ↓
-                                              Stage 3: Token Analysis
-                                              (relevance + quality + brand hijacking check)
+                              account/community token? ── yes → prestage Jev (4 questions, P1.2)
+                                                        │       rules validation first (account-community-rules.mjs)
+                                                        │       → account_based_meme / web3_native_ip_early / project
+                                                        │         (rating math in jev-prestage-mapper.mjs)
+                                                        ↓ no
+                              super-IP account? ── yes → super-IP fast track (standard question set + code pre-scores)
+                                                        ↓ no
+                              standard path: single Jev call (13 questions, J1.8)
+                              classification/magnitude/timing/block/W-class/relevance/quality asked atomically;
+                              aggregation/thresholds/truncation in jev-result-mapper.mjs (code-side)
 ```
 
-**Stage 1** (`prompts/stage1/`): Extracts event description (theme, subject, content, timing, key entities) and classifies into one of 8 categories. Different prompts for different tweet types (angle-seeking, interpretive reply, direct tweet).
+**Jev layer** (`analyzer/llm/`):
+- `JevClient.mjs` - HTTP client; `ask(state, questions, {label})` → answers (throws on missing answer ids — no error swallowing); 429/5xx backoff
+- `jev-questions.mjs` - Standard 13-question set `J1.8` (`buildStandardQuestions({includeBrandHijack})`)
+- `jev-prestage-questions.mjs` - Prestage 4-question set `P1.2` (token type / abm name link / abm web3 traffic / community activity)
+- `jev-state-builder.mjs` - `buildJevState` (60k budget) + `buildPrestageState` (20k budget): state assembly with section quotas
+- `jev-result-mapper.mjs` - Standard/super-IP answer mapping: stage1/2/3 result construction, scale calibration constants (MAGNITUDE_TIER_SCORES, DIM2_BANDS)
+- `jev-prestage-mapper.mjs` - Prestage mapping: project rating table (followers/members floors), abm two-condition verdict, all deterministic math code-side
 
-**Stage 2** (`prompts/event-scoring-categories/`): Category-specific scoring with hard blocking conditions:
-- **A类** (Visual IP): Characters, mascots, virtual images
-- **W类** (Web3 Project): Blockchain/crypto project launches
-- **B类** (Product Event): Non-Web3 product launches/updates
-- **F类** (Discovery): Hidden pattern/narrative discoveries
-- **G类** (Speculative): Future predictions with reasoning
-- **C类** (Personal Statement): Person statements/actions
-- **D类** (Institutional Action): Institution announcements
-- **E类** (Social Hotspot): Social media trends/viral content
+**Version rule**: editing any question's instructions/criteria requires bumping its version constant (`JEV_QUESTIONS_VERSION` / `JEV_PRESTAGE_QUESTIONS_VERSION`); prompt_type/prompt_version columns identify them (`jev(J1.8/…)`, `prestage-jev(P1.2/…)`).
 
-**Stage 3** (`prompts/stage3-token-analysis.mjs`): Token-event relevance, token quality, brand hijacking detection (3 layers:知名代币名/知名人物名/著名机构名).
-
-**Super IP Fast Track** (`prompts/super-ip/`): Known high-influence accounts (CZ, Elon Musk, Binance official, etc.) bypass the 3-stage pipeline and get evaluated in a single LLM call. Tier system: S (world-class) and A (known).
+**Super IP** (`prompts/super-ip/super-ip-registry.mjs`): Known high-influence accounts (CZ, Elon Musk, Binance official, etc.) reuse the standard question set with code pre-scores; tier S (world-class) / A (known).
 
 **Key supporting services** (`analyzer/services/`):
-- `tweet-type-classifier.mjs` - Pre-classifies tweets before Stage 1
+- `tweet-type-classifier.mjs` - Pre-classifies tweets (feeds Jev standard path context)
 - `frequent-issuers.mjs` - Registry of ~94 accounts that frequently create tokens
-- `pre-check-service.mjs` - Validates data quality before analysis
+- `pre-check-service.mjs` - Validates data quality before analysis (rules, no LLM)
 - `data-fetch-service.mjs` - Coordinates multi-platform data fetching
-- `account-analysis-service.mjs` - Community and account background analysis
+- `account-analysis-service.mjs` - Account/community prestage flow (rules validation → Jev prestage)
+
+**Rules (no LLM)**: `prompts/account/account-community-rules.mjs` - account quality gates, address verification, name matching; `prompt-builder.mjs` only provides `getPromptTypeDesc`.
 
 **Platform data fetchers** (`utils/`): twitter, weibo, github, youtube, douyin, bilibili, xiaohongshu, instagram, tiktok, weixin, amazon, binance-square, web
 
-**Narrative Analysis Engine** (`engine/`): Multi-threaded worker architecture with task queue, polling from DB, configurable concurrency (default 30). Config in `config/narrative-engine.json`.
-
-**Prompt loading**: `analyzer/prompt-loader.mjs` dynamically loads Stage 2 prompts based on Stage 1's classification result.
+**Narrative Analysis Engine** (`engine/`): Multi-threaded worker architecture with task queue, polling from DB, concurrency 30. Config in `config/narrative-engine.json` (`engine` + `jev` sections; JSON is the single source of truth — env overrides were removed). Worker task timeout = `engine.taskTimeout`.
 
 ### Pre-Buy Check System
 
@@ -139,7 +134,7 @@ Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `st
 ## Configuration
 
 - **`config/default.json`** - `fourmemeWs` section (contracts, reconnect, tickBuffer, debounce, live execution params) + strategy defaults (buyTimeMinutes: 1.33, earlyReturnMin: 80, earlyReturnMax: 120)
-- **`config/narrative-engine.json`** - LLM models (MiniMax-M2.5 primary, DeepSeek-V3 fallback), concurrency, timeouts
+- **`config/narrative-engine.json`** - Jev client settings (`jev` section: endpoint/model/TYPESAFE_API_KEY env/timeout) + engine concurrency/timeouts
 - **`config/.env`** - Environment variables (ANKR_WS_URL, AVE_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, MINIMAX_API_KEY, ENCRYPTION_KEY for live wallet private keys, etc.)
 
 ## Strategy Parameters
@@ -168,10 +163,9 @@ Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `st
 4. Add factor to `FactorBuilder.buildPreBuyCheckFactorValues()` (for backtest compatibility)
 5. Add factor to `FourMemeWssTradingEngine.js` preBuyCheckFactors construction (for virtual/live trading)
 
-## Adding New Narrative Category Rules
+## Modifying Jev Question Sets
 
-Category scoring prompts are in `src/narrative/analyzer/prompts/event-scoring-categories/category-{letter}-{name}.mjs`. Each exports:
-- `{CATEGORY_X_PROMPT_VERSION}` - version string
-- `buildCategoryXPrompt(eventDescription, eventClassification)` - returns prompt string
-
-After modifying a category prompt, bump its `CATEGORY_X_PROMPT_VERSION` constant.
+1. Edit the question's `instructions`/`criteria` in `src/narrative/analyzer/llm/jev-questions.mjs` (standard path) or `jev-prestage-questions.mjs` (prestage)
+2. Bump `JEV_QUESTIONS_VERSION` / `JEV_PRESTAGE_QUESTIONS_VERSION`
+3. If aggregation semantics change, update the mapping in `jev-result-mapper.mjs` / `jev-prestage-mapper.mjs`
+4. Validate with `node scripts/narrative/jev_calibration.mjs` (standard) or `jev_prestage_calibration.mjs` (prestage) — check rating agreement and that no rating flips cross the buy boundary

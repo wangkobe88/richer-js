@@ -19,6 +19,10 @@
  *   result?: object,
  *   error?: string
  * }
+ *
+ * P4（2026-09-21）：primary/fallback 双模型循环删除（生成式 LLM 已全面退役，
+ * 判定全在 JevClient——其超时/重试由 jev 节配置自理）。任务级超时读引擎配置
+ * taskTimeout，超时给明确错误信息（外层引擎同值超时是 terminate，信息不友好）。
  */
 
 import { parentPort, workerData } from 'worker_threads';
@@ -34,7 +38,7 @@ const __dirname = dirname(__filename);
 dotenv.config({ path: resolve(__dirname, '../../../../config/.env') });
 
 // 导入配置模块
-import { getPrimaryModelConfig, getFallbackModelConfig } from './config.mjs';
+import { getEngineConfig } from './config.mjs';
 
 // 动态导入 NarrativeAnalyzer
 let NarrativeAnalyzer;
@@ -53,7 +57,7 @@ async function loadAnalyzer() {
 function withTimeout(promise, timeoutMs) {
   let timeoutId;
   const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs);
+    timeoutId = setTimeout(() => reject(new Error(`任务超时(${timeoutMs}ms)：分析未在 taskTimeout 内完成`)), timeoutMs);
   });
 
   return Promise.race([promise, timeoutPromise]).finally(() => {
@@ -62,66 +66,30 @@ function withTimeout(promise, timeoutMs) {
 }
 
 /**
- * 执行叙事分析任务（使用新框架）
- * 新框架：事件分析 + 代币分析 + 账号/社区子LLM
+ * 执行叙事分析任务（Jev 单模型：判定在 JevClient 内完成，超时/重试自理）
  */
-async function executeTask(task, modelConfig) {
+async function executeTask(task) {
   const Analyzer = await loadAnalyzer();
   const taskStartTime = Date.now();
-  let lastError = null;
+  const timeout = getEngineConfig().taskTimeout || 180000;
 
-  console.log(`[INFO] Task ${task.id} 开始分析（新框架）`);
+  console.log(`[INFO] Task ${task.id} 开始分析`);
 
-  // 先尝试主模型
-  for (const modelType of ['primary', 'fallback']) {
-    const model = modelConfig[modelType];
+  const result = await withTimeout(
+    Analyzer.analyze(task.token_address, {
+      experimentId: task.triggered_by_experiment_id,
+      ignoreCache: false
+    }),
+    timeout
+  );
 
-    // 设置当前模型
-    process.env.LLM_MODEL = model.name;
+  const duration = Date.now() - taskStartTime;
+  console.log(`[SUCCESS] Task ${task.id} 成功 (${duration}ms)`);
 
-    // 合并超时时间（stage1 + stage2）
-    const timeout = model.stage1Timeout + model.stage2Timeout;
-
-    try {
-      const result = await withTimeout(
-        Analyzer.analyze(task.token_address, {
-          experimentId: task.triggered_by_experiment_id,
-          ignoreCache: false
-        }),
-        timeout
-      );
-
-      const duration = Date.now() - taskStartTime;
-
-      // 记录日志
-      if (modelType === 'fallback') {
-        console.log(`[FALLBACK] Task ${task.id} 使用备用模型 ${model.name} 成功 (${duration}ms)`);
-      } else {
-        console.log(`[SUCCESS] Task ${task.id} 使用模型 ${model.name} 成功 (${duration}ms)`);
-      }
-
-      return {
-        ...result,
-        totalDuration: duration
-      };
-
-    } catch (error) {
-      lastError = error;
-      const duration = Date.now() - taskStartTime;
-
-      if (error.message === 'TIMEOUT') {
-        console.log(`[TIMEOUT] Task ${task.id} 模型 ${model.name} 超时 (${timeout}ms)`);
-        continue; // 尝试下一个模型
-      }
-
-      // 非超时错误，记录并抛出
-      console.log(`[ERROR] Task ${task.id} 模型 ${model.name} 失败: ${error.message}`);
-      throw error;
-    }
-  }
-
-  // 两个模型都失败
-  throw new Error(`所有模型均失败: ${lastError?.message || 'Unknown error'}`);
+  return {
+    ...result,
+    totalDuration: duration
+  };
 }
 
 /**
@@ -131,27 +99,8 @@ parentPort.on('message', async (task) => {
   try {
     console.log(`[WORKER] 收到任务 ${task.id} (${task.token_symbol}) 地址: ${task.token_address}`);
 
-    // 从配置文件读取模型配置
-    const primaryConfig = getPrimaryModelConfig();
-    const fallbackConfig = getFallbackModelConfig();
-
-    const modelConfig = {
-      primary: {
-        name: primaryConfig?.name || 'Pro/MiniMaxAI/MiniMax-M2.5',
-        stage1Timeout: primaryConfig?.stage1Timeout || 60000,
-        stage2Timeout: primaryConfig?.stage2Timeout || 60000,
-        parameters: primaryConfig?.parameters || {}
-      },
-      fallback: {
-        name: fallbackConfig?.name || 'deepseek-ai/DeepSeek-V3',
-        stage1Timeout: fallbackConfig?.stage1Timeout || 30000,
-        stage2Timeout: fallbackConfig?.stage2Timeout || 30000,
-        parameters: fallbackConfig?.parameters || {}
-      }
-    };
-
     // 执行分析
-    const result = await executeTask(task, modelConfig);
+    const result = await executeTask(task);
 
     parentPort.postMessage({
       type: 'success',

@@ -6,14 +6,11 @@
  */
 
 import { NarrativeAnalysisEngine } from './NarrativeAnalysisEngine.mjs';
+import { getEngineConfig } from './config.mjs';
 
-// 从环境变量读取配置
-const config = {
-  pollingInterval: parseInt(process.env.NARRATIVE_POLLING_INTERVAL || '1000'),
-  maxConcurrency: parseInt(process.env.NARRATIVE_MAX_CONCURRENCY || '30'),
-  taskTimeout: parseInt(process.env.NARRATIVE_TASK_TIMEOUT || '180000'),
-  maxRetries: parseInt(process.env.NARRATIVE_MAX_RETRIES || '3')
-};
+// 从 narrative-engine.json 读取配置（单一事实来源）。
+// 此前从 env 默认值组装（恒非空）会覆盖 JSON engine 节——JSON 写 6 实效却是 30。
+const config = getEngineConfig();
 
 console.log('叙事分析引擎配置:', config);
 

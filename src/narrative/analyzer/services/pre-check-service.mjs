@@ -8,8 +8,6 @@ import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../pr
 import { SameNameCheckService } from './same-name-check-service.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
 import { extractNarrativeMaterialId } from '../../utils/material-id-extractor.mjs';
-// import { LLMClient } from '../llm/llm-api-client.mjs';
-// import { ImageDownloader } from '../../utils/image-downloader.mjs';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';

@@ -50,7 +50,6 @@ import { getCacheTTL } from '../../db/cache-ttl-config.mjs';
 import { TwitterMediaExtractor } from '../../utils/twitter-media-extractor.mjs';
 import { ImageDownloader } from '../../utils/image-downloader.mjs';
 import { detectLanguage, standardizeTranslatedNames } from '../utils/language-utils.mjs';
-import { LLMClient } from '../llm/llm-api-client.mjs';
 
 // 获取叙事配置
 import { readFileSync } from 'fs';

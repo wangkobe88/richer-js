@@ -44,47 +44,12 @@ function loadConfig() {
 }
 
 /**
- * 获取 API 配置
- * @returns {Object} { baseUrl, envKeyName }
- */
-export function getApiConfig() {
-  const config = loadConfig();
-  return config.api || {};
-}
-
-/**
  * 获取引擎配置
  * @returns {Object} { maxConcurrency, pollingInterval, taskTimeout, maxRetries }
  */
 export function getEngineConfig() {
   const config = loadConfig();
   return config.engine || {};
-}
-
-/**
- * 获取模型配置
- * @param {string} modelType - 'primary' 或 'fallback'
- * @returns {Object} { name, stage1Timeout, stage2Timeout, parameters }
- */
-export function getModelConfig(modelType = 'primary') {
-  const config = loadConfig();
-  return config.models?.[modelType] || null;
-}
-
-/**
- * 获取主模型配置
- * @returns {Object}
- */
-export function getPrimaryModelConfig() {
-  return getModelConfig('primary');
-}
-
-/**
- * 获取备用模型配置
- * @returns {Object}
- */
-export function getFallbackModelConfig() {
-  return getModelConfig('fallback');
 }
 
 /**

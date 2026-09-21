@@ -1,7 +1,7 @@
 {
   "engine": {
-    "maxConcurrency": 6,
-    "pollingInterval": 1000,
+    "maxConcurrency": 30,
+    "pollingInterval": 3000,
     "taskTimeout": 180000,
     "maxRetries": 3
   },
@@ -11,37 +11,5 @@
     "apiKeyEnv": "TYPESAFE_API_KEY",
     "timeoutMs": 30000,
     "retryCount": 2
-  },
-  "api": {
-    "baseUrl": "https://api.minimax.io/v1",
-    "envKeyName": "API_KEY"
-  },
-  "models": {
-    "primary": {
-      "name": "MiniMax-M2.5",
-      "apiBaseUrl": "https://api.minimax.io/v1",
-      "apiKeyEnv": "MINIMAX_API_KEY",
-      "stage1Timeout": 60000,
-      "stage2Timeout": 60000,
-      "parameters": {
-        "temperature": 0,
-        "max_tokens": 2000,
-        "top_p": 1
-      }
-    },
-    "fallback": {
-      "name": "deepseek-ai/DeepSeek-V3",
-      "apiBaseUrl": "https://api.siliconflow.cn/v1",
-      "apiKeyEnv": "SILICONFLOW_FALLBACK_KEY",
-      "stage1Timeout": 30000,
-      "stage2Timeout": 30000,
-      "parameters": {
-        "temperature": 0,
-        "max_tokens": 2000,
-        "top_p": 1,
-        "top_k": 50,
-        "frequency_penalty": 0
-      }
-    }
   }
 }
