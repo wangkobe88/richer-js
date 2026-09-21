@@ -37,14 +37,13 @@ import { performPreCheck } from './services/pre-check-service.mjs';
 import { fetchAllDataViaClassifier, fetchDataSequentially, recordDataFetch } from './services/data-fetch-service.mjs';
 import { fetchTokenData, extractInfo, checkBinanceRelated } from './services/token-info-service.mjs';
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken } from './services/account-analysis-service.mjs';
-import { analyzeMemeTokenTwoStage } from './services/meme-analysis-service.mjs';
 import { saveStage1Data, saveStage2Data } from './services/stage-data-service.mjs';
-import { callLLMAPI } from './llm/llm-api-client.mjs';
 import { detectSuperIP, calculatePreScores } from './prompts/super-ip/super-ip-registry.mjs';
 
-// Jev 判定（主路径 + 超大IP快速通道）
+// Jev 判定（主路径 + 超大IP快速通道 + prestage 前置判定）
 import { JevClient } from './llm/JevClient.mjs';
 import { buildStandardQuestions, shouldIncludeBrandHijackCheck, JEV_QUESTIONS_VERSION } from './llm/jev-questions.mjs';
+import { JEV_PRESTAGE_QUESTIONS_VERSION } from './llm/jev-prestage-questions.mjs';
 import { buildJevState } from './llm/jev-state-builder.mjs';
 import { mapStandardAnswers, mapSuperIPAnswers } from './llm/jev-result-mapper.mjs';
 import { classifyTweetType } from './services/tweet-type-classifier.mjs';
@@ -353,6 +352,7 @@ export class NarrativeAnalyzer {
     let llmResult;
     let promptUsed = '';
     let promptType = '';
+    let promptVersion = `jev-${JEV_QUESTIONS_VERSION}`; // prestage 分支覆盖为 P 系版本
     let analysisFailed = false;
     let stage1DataToSave = null;
     let stage2DataToSave = null;
@@ -405,9 +405,6 @@ export class NarrativeAnalyzer {
           if (shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');
             const analysisResult = await analyzeAccountCommunityToken(tokenData, fetchResults, {
-              callLLMAPI,
-              analyzeMemeTokenTwoStage
-            }, {
               skipAddressValidation: isProjectCoinResult
             });
 
@@ -435,39 +432,24 @@ export class NarrativeAnalyzer {
                 score: analysisResult.total_score || null,
                 details: pcd.result || {}
               };
-            } else if (analysisResult.stage1Data) {
-              // meme币分流：使用stage2Data作为最终结果（如果有）
-              llmResult = {
-                rating: analysisResult.rating,
-                reason: analysisResult.reasoning,
-                score: analysisResult.total_score,
-                pass: true
-              };
-              promptUsed = analysisResult.stage2Data?.prompt || analysisResult.stage1Data.prompt || 'meme_two_stage';
-              promptType = 'meme_two_stage';
-              analysisFailed = false;
-
-              // 保存前置LLM数据（账号/社区分析判断币种类型）
-              prestageDataToSave = analysisResult.prestageData;
-              // 保存两阶段数据到stage1和stage2字段（stage2Data可能为null）
-              stage1DataToSave = analysisResult.stage1Data;
-              stage2DataToSave = analysisResult.stage2Data;
             } else {
-              // 项目币或Web3原生IP早期：前置LLM判断结果
+              // 项目币 / Web3原生IP早期 / 以账号为背景的meme币：Jev 前置判定结果
+              // （meme 两阶段分流已删除——死代码，见 account-analysis-service.mjs 文件头）
               llmResult = {
                 rating: analysisResult.rating,
                 reason: analysisResult.reasoning,
                 score: analysisResult.total_score,
                 pass: analysisResult.rating !== 'unrated'
               };
-              promptUsed = analysisResult.prestageData?.prompt || 'account_community_analysis';
-              promptType = 'account_community';
+              promptUsed = analysisResult.prestageData?.prompt || 'prestage_jev';
+              promptType = analysisResult.promptType || 'account_community';
+              promptVersion = `jev-${JEV_PRESTAGE_QUESTIONS_VERSION}`;
               analysisFailed = false;
 
               // 保存前置LLM数据（账号/社区分析判断币种类型）
               prestageDataToSave = analysisResult.prestageData;
 
-              // 对于 unrated 类别（如 Web3 原生 IP 早期），显式清除旧的 stage1/stage2 数据
+              // 对于 unrated 类别（Web3 原生 IP 早期 / abm 通过），显式清除旧的 stage1/stage2 数据
               if (analysisResult.rating === 'unrated') {
                 // 使用特殊标记对象指示需要清除旧数据
                 stage1DataToSave = { __clear: true };
@@ -674,7 +656,7 @@ export class NarrativeAnalyzer {
       analyzed_at: new Date().toISOString(),
       experiment_id: experimentId,
       is_valid: true,
-      prompt_version: `jev-${JEV_QUESTIONS_VERSION}`,
+      prompt_version: promptVersion,
       analysis_stage: llmResult?.analysis_stage || null,
       prompt_type: promptType || null,
 
@@ -723,12 +705,12 @@ export class NarrativeAnalyzer {
         preCheckReason: isPreCheckTriggered ? preCheckDataToSave?.details?.ruleName : null,
         analyzedAt: saveResult.analyzed_at,
         sourceExperimentId: experimentId,
-        promptVersion: `jev-${JEV_QUESTIONS_VERSION}`,
+        promptVersion: promptVersion,
         promptType: promptType
       },
       debugInfo: {
         promptUsed: promptUsed,
-        promptVersion: `jev-${JEV_QUESTIONS_VERSION}`,
+        promptVersion: promptVersion,
         promptType: promptType,
         // 根据执行的stage确定analysisStage
         analysisStage: stage3DataToSave ? 3 : stage2DataToSave ? 2 : stage1DataToSave ? 1 : 0,

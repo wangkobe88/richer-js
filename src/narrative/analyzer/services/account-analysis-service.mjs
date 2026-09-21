@@ -1,11 +1,19 @@
 /**
  * Account Analysis Service - 账号/社区分析服务
  * 处理账号和社区相关的分析逻辑
+ *
+ * P3（2026-09-21）：前置判定 LLM 段迁移 Jev（原 account-community-analysis.mjs V2.0
+ * + account-community-unverified.mjs V1.0 两条生成式 prompt 合并为一次 Jev 调用，
+ * 评级数学下沉 jev-prestage-mapper.mjs）。meme 分流已删除——实证死代码：
+ * V2.0/V1.0 prompt 从不允许输出 tokenType='meme'，12873 行历史数据 0 行触发。
  */
 
 import logger from '../../core/logger.mjs';
 import { hasIndependentWebsite, shouldUseAccountCommunityAnalysis } from '../utils/narrative-utils.mjs';
-import { safeSubstring } from '../utils/data-cleaner.mjs';
+import { JevClient } from '../llm/JevClient.mjs';
+import { buildPrestageQuestions } from '../llm/jev-prestage-questions.mjs';
+import { buildPrestageState } from '../llm/jev-state-builder.mjs';
+import { mapPrestageAnswers } from '../llm/jev-prestage-mapper.mjs';
 
 /**
  * 收集所有相关账号的完整信息
@@ -79,16 +87,22 @@ export async function getFullAccountInfo(screenName) {
 }
 
 /**
- * 执行账号/社区代币分析
- * 这是一个复杂的方法，需要依赖其他服务（如 meme-analysis-service）
- * 因此这里只是一个简化版本，完整的实现需要在调用时组合使用
+ * 执行账号/社区代币前置判定（Jev 单次调用）
+ *
+ * 流程：纯规则验证先行（账号质量/地址验证/名称匹配，account-community-rules.mjs）
+ * → 通过后一次 JevClient.ask（4 题问题集，代码端按 addressVerified 分支采信）
+ * → 三路分流返回：account_based_meme / web3_native_ip_early / project
+ *
  * @param {Object} tokenData - 代币数据
  * @param {Object} fetchResults - 获取的数据结果
- * @param {Object} dependencies - 依赖的方法（用于循环依赖问题）
+ * @param {Object} [options]
+ * @param {boolean} [options.skipAddressValidation] - 项目币跳过地址验证（网站已验证）
  * @returns {Promise<Object>} 分析结果
+ *   成功：{ rating, category, reasoning, scores:null, total_score:null, promptType,
+ *           prestageData, [baselineMet], [preCheckData 规则失败时], [addressVerified/nameMatch] }
+ *   Jev 调用失败直接抛错（analysisFailed → 引擎 maxRetries，不做兼容吞错）
  */
-export async function analyzeAccountCommunityToken(tokenData, fetchResults, dependencies = {}, options = {}) {
-  const { buildAccountCommunityAnalysisPrompt } = await import('../prompts/account/account-community-analysis.mjs');
+export async function analyzeAccountCommunityToken(tokenData, fetchResults, options = {}) {
   const {
     getAccountWithFullTweets,
     getCommunityWithFullTweets,
@@ -98,7 +112,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   const twitterInfo = fetchResults.twitterInfo;
   const relatedAccounts = fetchResults.relatedAccounts || [];
 
-  // 新增：如果有多个账号，选择主要账号进行分析
+  // 如果有多个账号，选择主要账号进行分析
   let accountOrCommunityRef;
   if (relatedAccounts.length > 0) {
     // 优先选择 original_author（通常是项目官方账号）
@@ -201,297 +215,78 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, depe
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 第二步：LLM分析（币种类型判断 + 评级）
-  // 根据地址验证结果选择不同的 prompt
+  // 第二步：Jev 前置判定（一次调用；代码端按 addressVerified 分支采信答案）
+  // 未命中 → abm 两条件判定；命中 → token_type 二分 + project 评级（代码端数学）
   // ═══════════════════════════════════════════════════════════════════════════
-  let prompt;
-  if (!rulesResult.addressVerified) {
-    // 地址未命中：使用专用 prompt，只判断 account_based_meme
-    const { buildUnverifiedPrompt } = await import('../prompts/account/account-community-unverified.mjs');
-    prompt = await buildUnverifiedPrompt(tokenData, accountOrCommunityRef);
-  } else {
-    // 地址命中：使用标准 prompt，判断 project / web3_native_ip_early
-    prompt = await buildAccountCommunityAnalysisPrompt(tokenData, accountOrCommunityRef, {
-      websiteInfo: options.skipAddressValidation ? fetchResults.websiteInfo : null
-    });
-  }
+  const startedAt = new Date().toISOString();
+  const { state, stats } = buildPrestageState(tokenData, fullAccountOrCommunityData, {
+    addressVerified: rulesResult.addressVerified,
+    rulesResult,
+    websiteInfo: skipAddressValidation ? fetchResults.websiteInfo : null,
+  });
+  const questions = buildPrestageQuestions();
+  const result = await JevClient.ask(state, questions, {
+    label: `jev-prestage:${tokenSymbol || (tokenAddress || '').slice(0, 8)}`,
+  });
+  const finishedAt = new Date().toISOString();
 
-  if (!prompt) {
+  const mapped = mapPrestageAnswers(result.answers, {
+    fullAccountOrCommunityData,
+    addressVerified: rulesResult.addressVerified,
+    rulesResult,
+    callInfo: {
+      model: result.model, questions, stateStats: stats,
+      usage: result.usage, startedAt, finishedAt,
+    },
+  });
+
+  logger.info('AccountCommunityAnalysis', 'Jev 前置判定完成', {
+    tokenType: mapped.tokenType,
+    rating: mapped.rating,
+    addressVerified: rulesResult.addressVerified,
+    stateChars: stats.totalChars,
+    reason: mapped.reasoning,
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 第三步：分流返回（旧四路分流中的 meme 分流已删除——死代码，见文件头注释）
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  if (mapped.tokenType === 'account_based_meme') {
     return {
-      rating: 'low',
-      category: 'prompt_build_failed',
-      reasoning: '无法构建账号/社区分析Prompt（数据获取失败）',
-      scores: null,
-      total_score: null,
-      // prompt构建失败也返回preCheckData
-      preCheckData: {
-        category: 'low',
-        reason: '无法构建账号/社区分析Prompt（数据获取失败）',
-        result: {
-          addressVerified: rulesResult.addressVerified,
-          nameMatch: rulesResult.nameMatch,
-          details: rulesResult.details,
-          error: '无法构建Prompt'
-        }
-      }
-    };
-  }
-
-  // 使用依赖注入的 _callLLMAPI 方法
-  const callResult = await dependencies.callLLMAPI ? await dependencies.callLLMAPI(prompt) : await (await import('../llm/llm-api-client.mjs')).callLLMAPI(prompt);
-
-  if (!callResult.success) {
-    throw new Error(`账号/社区分析LLM调用失败: ${callResult.error}`);
-  }
-
-  // 解析响应
-  let parsed;
-  try {
-    // 清理markdown代码块标记
-    let content = callResult.content.trim();
-    // 移除 ```json 和 ``` 标记
-    content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
-
-    // 尝试提取tokenType（作为fallback）
-    const tokenTypeMatch = content.match(/"tokenType"\s*:\s*"([^"]+)"/);
-    const ratingMatch = content.match(/"rating"\s*:\s*"([^"]+)"/);
-    const reasonMatch = content.match(/"reason"\s*:\s*"([^"]+(?:"[^"]*)*?)"/);
-
-    // 尝试解析JSON，处理中文引号问题
-    const tryParse = (str) => {
-      try {
-        return JSON.parse(str);
-      } catch (_) {
-        return null;
-      }
-    };
-
-    parsed = tryParse(content);
-    if (!parsed) {
-      // 尝试修复中文引号 - 替换为英文单引号
-      let fixedContent = content.replace(/"/g, "'").replace(/"/g, "'");
-      parsed = tryParse(fixedContent);
-    }
-
-    if (!parsed) {
-      // 尝试使用eval方式解析（更宽松，但需要注意安全性）
-      // 由于内容来自LLM，相对安全，但仍需谨慎
-      try {
-        // 移除所有换行符，但保留JSON结构中的换行
-        const compactContent = content.replace(/\n/g, ' ').replace(/\r/g, '');
-        parsed = eval(`(${compactContent})`);
-      } catch (_) {
-        // eval也失败，尝试最后一次清理
-        // 移除所有可能导致问题的字符
-        let cleanContent = content
-          .replace(/[\u2018\u2019]/g, "'")  // 左右单引号
-          .replace(/[\u201C\u201D]/g, '"')  // 左右双引号
-          .replace(/\n/g, '\\n')           // 转义换行
-          .replace(/\r/g, '\\r')           // 转义回车
-          .replace(/\t/g, '\\t');          // 转义制表符
-
-        parsed = tryParse(cleanContent);
-      }
-    }
-
-    // 如果所有解析方式都失败，尝试从内容中提取关键字段作为fallback
-    if (!parsed && tokenTypeMatch && ratingMatch) {
-      logger.warn('AccountCommunityAnalysis', 'JSON解析失败，使用正则提取作为fallback', {
-        tokenType: tokenTypeMatch[1],
-        rating: ratingMatch[1]
-      });
-
-      // 构造最小可用的parsed对象
-      parsed = {
-        tokenType: tokenTypeMatch[1],
-        rating: ratingMatch[1],
-        reason: reasonMatch ? safeSubstring(reasonMatch[1], 200) : '解析失败但提取到关键字段',
-        details: {}
-      };
-    }
-
-    if (!parsed) {
-      throw new Error('JSON解析失败，已尝试多种修复方式');
-    }
-  } catch (e) {
-    logger.error('AccountCommunityAnalysis', '解析LLM响应失败', { error: e.message, content: callResult.content.substring(0, 500) });
-    return {
-      rating: 'low',
-      category: 'parse_failed',
-      reasoning: '分析响应解析失败',
-      scores: null,
-      total_score: null
-    };
-  }
-
-  // 注意：地址验证和名称匹配已在规则验证阶段完成，无需再检查LLM返回的这些字段
-
-  // 判断币种类型并分流处理
-  const tokenType = parsed.tokenType || 'project'; // 默认为项目币
-
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // 新增：以账号为背景的meme币判断
-  // ═══════════════════════════════════════════════════════════════════════════════
-  if (tokenType === 'account_based_meme') {
-    const abmRating = parsed.rating || null;
-    const abmReason = parsed.reason || '';
-
-    logger.info('AccountCommunityAnalysis', `判断为以账号为背景的meme币，返回${abmRating}`, {
-      accountMatchDetails: safeSubstring(parsed.details?.accountMatchDetails, 100),
-      web3Interaction: safeSubstring(parsed.details?.web3Interaction, 100)
-    });
-
-    if (!abmRating) {
-      throw new Error(`account_based_meme 判断成功但LLM未返回rating字段`);
-    }
-
-    return {
-      rating: abmRating,
+      rating: mapped.rating,
       category: 'account_based_meme',
-      reasoning: abmReason,
+      reasoning: mapped.reasoning,
       scores: null,
       total_score: null,
-      prestageData: {
-        rating: abmRating,
-        pass: true,
-        category: 'account_based_meme',
-        prompt: prompt,
-        raw_output: callResult.content,
-        parsed_output: {
-          ...parsed,
-          rulesValidationPassed: true,
-          addressVerified: rulesResult.addressVerified,
-          nameMatch: rulesResult.nameMatch
-        },
-        model: callResult.model,
-        started_at: callResult.startedAt,
-        finished_at: callResult.finishedAt,
-        success: callResult.success,
-        error: callResult.error
-      }
+      promptType: mapped.promptType,
+      prestageData: mapped.prestageDataToSave,
     };
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════════
-  // 新增：Web3 原生 IP 早期判断
-  // ═══════════════════════════════════════════════════════════════════════════════
-  if (tokenType === 'web3_native_ip_early') {
-    // Web3 原生 IP 处于早期发展阶段，直接返回 unrated
-    logger.info('AccountCommunityAnalysis', '判断为Web3原生IP早期，返回unrated', {
-      ipConcept: safeSubstring(parsed.ipConcept, 100)
-    });
-
+  if (mapped.tokenType === 'web3_native_ip_early') {
     return {
       rating: 'unrated',
       category: 'web3_native_ip_early',
-      reasoning: parsed.reason || 'Web3原生IP处于早期发展阶段，需等待社区成长后再评估',
+      reasoning: mapped.reasoning,
       scores: null,
       total_score: null,
-      // 前置LLM阶段数据（账号/社区分析判断币种类型）
-      prestageData: {
-        rating: 'unrated',
-        pass: null,
-        category: 'web3_native_ip_early',
-        prompt: prompt,
-        raw_output: callResult.content,
-        parsed_output: {
-          ...parsed,
-          rulesValidationPassed: true,
-          addressVerified: rulesResult.addressVerified,
-          nameMatch: rulesResult.nameMatch
-        },
-        model: callResult.model,
-        started_at: callResult.startedAt,
-        finished_at: callResult.finishedAt,
-        success: callResult.success,
-        error: callResult.error
-      }
+      promptType: mapped.promptType,
+      prestageData: mapped.prestageDataToSave,
     };
   }
 
-  if (tokenType === 'meme') {
-    // meme币：转入两阶段分析流程
-    logger.info('AccountCommunityAnalysis', '判断为meme币，转入两阶段分析流程', {
-      accountSummary: safeSubstring(parsed.accountSummary, 100)
-    });
-
-    // 构建带账号摘要的fetchResults
-    const memeFetchResults = {
-      ...fetchResults,
-      accountSummary: parsed.accountSummary || '' // 将账号摘要传入
-    };
-
-    // 使用依赖注入的 _analyzeMemeTokenTwoStage 方法
-    const analyzeMemeTokenTwoStage = dependencies.analyzeMemeTokenTwoStage ||
-      (await import('./meme-analysis-service.mjs')).analyzeMemeTokenTwoStage;
-
-    // 调用meme币两阶段分析流程，传递规则验证结果和前置LLM数据
-    const memeResult = await analyzeMemeTokenTwoStage(tokenData, memeFetchResults, {
-      stage1Prompt: prompt,
-      stage1CallResult: callResult,
-      stage1Parsed: parsed,
-      rulesResult: rulesResult // 传递规则验证结果
-    });
-
-    // 添加前置LLM阶段数据（账号/社区分析判断币种类型）
-    memeResult.prestageData = {
-      rating: null,
-      pass: true,
-      category: 'meme', // 前置LLM判断为meme币
-      prompt: prompt,
-      raw_output: callResult.content,
-      parsed_output: {
-        ...parsed,
-        rulesValidationPassed: true,
-        addressVerified: rulesResult.addressVerified,
-        nameMatch: rulesResult.nameMatch
-      },
-      model: callResult.model,
-      started_at: callResult.startedAt,
-      finished_at: callResult.finishedAt,
-      success: callResult.success,
-      error: callResult.error
-    };
-
-    return memeResult;
-  } else {
-    // 项目币：直接返回评级结果
-    const rating = parsed.rating || null;
-    const reason = parsed.reason || '';
-
-    if (!rating) {
-      throw new Error(`项目币判断成功但LLM未返回rating字段`);
-    }
-
-    return {
-      rating: rating,
-      category: 'project',
-      reasoning: reason,
-      scores: null, // 简化流程不返回详细评分
-      total_score: null,
-      baselineMet: parsed.baselineMet,
-      // 前置LLM阶段数据（账号/社区分析判断币种类型）
-      prestageData: {
-        rating: rating,
-        pass: true,
-        category: 'project',
-        prompt: prompt,
-        raw_output: callResult.content,
-        parsed_output: {
-          ...parsed,
-          rulesValidationPassed: true,
-          addressVerified: rulesResult.addressVerified,
-          nameMatch: rulesResult.nameMatch,
-          details: parsed.details
-        },
-        model: callResult.model,
-        started_at: callResult.startedAt,
-        finished_at: callResult.finishedAt,
-        success: callResult.success,
-        error: callResult.error
-      }
-    };
-  }
+  // 项目币：直接返回评级结果（评级数学已在 mapper 代码端完成）
+  return {
+    rating: mapped.rating,
+    category: 'project',
+    reasoning: mapped.reasoning,
+    scores: null,
+    total_score: null,
+    baselineMet: mapped.baselineMet,
+    promptType: mapped.promptType,
+    prestageData: mapped.prestageDataToSave,
+  };
 }
 
 // 重新导出 utils 中的函数，保持向后兼容

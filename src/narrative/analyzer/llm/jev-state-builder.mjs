@@ -28,6 +28,9 @@ import { buildBinanceSquareSection } from '../prompts/sections/binance-square-se
 
 export const STATE_CHAR_BUDGET = 60000;
 
+/** prestage（账号/社区代币前置判定）state 预算：语料量远小于主路径（单账号 20 推），独立小预算 */
+export const PRESTAGE_STATE_CHAR_BUDGET = 20000;
+
 /** 各区占预算比例（和为 1） */
 const SECTION_GROUP_QUOTAS = {
   twitter: 0.40,
@@ -183,6 +186,118 @@ export function buildJevState(tokenData, fetchResults, options = {}) {
     groupStats.used = used;
     stats.groups[group.name] = groupStats;
     remaining -= used;
+  }
+
+  const state = headerStr + '\n\n' + bodyParts.join('\n\n');
+  stats.totalChars = state.length;
+  return { state, stats };
+}
+
+/**
+ * 构建 prestage state（账号/社区代币前置判定，P3）
+ *
+ * 语料与原 V2.0/V1.0 prompt 同源：fullAccountOrCommunityData（规则验证段已取回的
+ * 账号/社区数据，50 条完整推文——避免旧 prompt 的二次 fetch），state 渲染前 20 条
+ * 各 100 字（与旧 prompt 的推文摘要量一致）。项目币路径附加 website section。
+ *
+ * @param {Object} tokenData - 代币数据
+ * @param {Object} fullAccountOrCommunityData - getAccountWithFullTweets/getCommunityWithFullTweets 结果
+ * @param {Object} [options]
+ * @param {boolean} [options.addressVerified] - 规则验证的地址命中结果
+ * @param {Object|null} [options.rulesResult] - performRulesValidation 结果（名称匹配/账号质量进 PRECOMPUTED）
+ * @param {Object|null} [options.websiteInfo] - 网站信息（项目币路径，地址从网站验证时）
+ * @param {number} [options.now] - 时间基准（毫秒时间戳；校准历史 token 时传旧分析时刻）
+ * @returns {{state: string, stats: Object}} stats: { totalChars, budget, droppedSections[] }
+ */
+export function buildPrestageState(tokenData, fullAccountOrCommunityData, options = {}) {
+  const data = fullAccountOrCommunityData;
+  const isAccount = data.type === 'account';
+  const nowMs = options.now ?? Date.now();
+  const currentDate = new Date(nowMs).toLocaleDateString('zh-CN', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
+  const headerParts = [
+    `[TOKEN]`,
+    `Symbol: ${tokenData.symbol || ''}`,
+    tokenName ? `Name: ${tokenName}` : null,
+    `Address: ${tokenData.address || ''}`,
+    tokenData.raw_api_data?.intro_en ? `Intro(EN): ${tokenData.raw_api_data.intro_en}` : null,
+    tokenData.raw_api_data?.intro_cn ? `Intro(CN): ${tokenData.raw_api_data.intro_cn}` : null,
+    '',
+    `[TIME]`,
+    `Now: ${currentDate}（重要：现在是2026年，任何2026年或之前的时间都是过去或现在，不是未来）`,
+  ].filter(p => p !== null);
+
+  // ── PRECOMPUTED：规则验证已确定的事实（旧 prompt 的地址验证横幅等价物）────
+  const precomputed = ['', '[PRECOMPUTED] （以下事实由系统预先判定，直接采信）'];
+  if (options.addressVerified) {
+    precomputed.push(`address_verified: true（${options.websiteInfo ? `项目官方网站 ${options.websiteInfo.url || ''} 的内容中包含代币合约地址，确认为项目方官方代币` : '账号简介或推文中找到了代币合约地址，确认为官方代币'}）`);
+  } else {
+    precomputed.push(`address_verified: false（账号简介和推文中都没有找到代币合约地址——真项目方会公示地址，这不是官方代币，而是以账号为背景的 meme 币）`);
+  }
+  if (options.rulesResult) {
+    const r = options.rulesResult;
+    if (r.nameMatch !== null && r.nameMatch !== undefined) {
+      precomputed.push(`name_literal_match: ${r.nameMatch}（代码端字面匹配：${r.details?.nameMatchType || '-'}；语义关联仍需自行判断）`);
+    }
+    if (r.details?.accountQuality) {
+      const q = r.details.accountQuality;
+      precomputed.push(`account_quality: 粉丝${q.followersCount} 发推${q.statusesCount} 认证:${q.verified || q.isBlueVerified ? '是' : '否'}${q.matchedConditions?.length ? `（${q.matchedConditions.join(' + ')}）` : ''}`);
+    }
+  }
+
+  // ── 账号/社区信息块（旧 prompt 的【账号信息】段等价物）──────────────────
+  const infoBlock = isAccount ? [
+    `[ACCOUNT]`,
+    `@${data.screen_name || ''}（显示名: ${data.name || ''}）`,
+    `简介: ${data.description || '无'}`,
+    `粉丝数: ${(data.followers_count || 0).toLocaleString()}`,
+    `认证状态: ${data.verified ? '认证' : data.is_blue_verified ? '蓝V' : '无'}`,
+    `推文总数: ${(data.statuses_count || 0).toLocaleString()}`,
+  ] : [
+    `[COMMUNITY]`,
+    `社区名: ${data.name || ''}`,
+    `简介: ${data.description || '无'}`,
+    `成员数: ${(data.members_count || 0).toLocaleString()}`,
+    `管理员数: ${data.moderators_count || 0}`,
+    `推文总数: ${(data.timeline_tweet_count || 0).toLocaleString()}`,
+  ];
+
+  // ── 推文列表：前 20 条各 100 字（与旧 prompt 摘要量一致）─────────────────
+  const tweets = (data.tweets || []).slice(0, 20);
+  const tweetsBlock = tweets.length ? [
+    `[RECENT_POSTS]（${tweets.length}条）`,
+    ...tweets.map((t, i) => {
+      const author = !isAccount && t.user?.screen_name ? `@${t.user.screen_name}: ` : '';
+      return `${i + 1}. [${t.created_at || ''}] ${author}${safeSubstring(t.text || '', 100)}`;
+    }),
+  ] : null;
+
+  // ── website section（仅项目币路径：地址从网站验证时传入）─────────────────
+  const websiteSection = options.websiteInfo ? buildWebsiteSection(options.websiteInfo) : null;
+
+  // ── 组装：预算内从低优先级（website）到高优先级（推文）保内容 ────────────
+  const headerStr = headerParts.join('\n') + '\n' + precomputed.filter(Boolean).join('\n');
+  const stats = { budget: PRESTAGE_STATE_CHAR_BUDGET, totalChars: 0, droppedSections: [] };
+
+  const sections = [
+    { name: 'info', body: infoBlock.join('\n') },
+    { name: 'posts', body: tweetsBlock ? tweetsBlock.join('\n') : null },
+    { name: 'website', body: websiteSection },
+  ];
+
+  const bodyParts = [];
+  let remaining = PRESTAGE_STATE_CHAR_BUDGET - headerStr.length;
+  for (const { name, body } of sections) {
+    if (!body) continue;
+    if (body.length <= remaining) {
+      bodyParts.push(body);
+      remaining -= body.length;
+    } else {
+      stats.droppedSections.push(`${name}(${body.length}字符)`);
+    }
   }
 
   const state = headerStr + '\n\n' + bodyParts.join('\n\n');

@@ -102,10 +102,6 @@ import { buildInstagramSection } from './prompts/sections/instagram-section.mjs'
 import { buildBinanceSquareSection } from './prompts/sections/binance-square-section.mjs';
 import { generateAccountBackgroundsPrompt } from './prompts/account/account-backgrounds.mjs';
 
-// V12.0 新框架：事件分析 + 代币分析
-import { buildEventAnalysisPrompt, EVENT_ANALYSIS_PROMPT_VERSION } from './prompts/event-analysis.mjs';
-import { buildTokenAnalysisPrompt, TOKEN_ANALYSIS_PROMPT_VERSION } from './prompts/token-analysis.mjs';
-
 // V17.0 3阶段架构：Stage 1事件预处理 + Stage 2分类评分 + Stage 3代币分析
 import { buildStage1EventPreprocessingPrompt, STAGE1_EVENT_PREPROCESSING_VERSION } from './prompts/stage1/stage1-event-preprocessing.mjs';
 import { buildStage3TokenAnalysisPrompt, STAGE3_TOKEN_ANALYSIS_PROMPT_VERSION } from './prompts/stage3-token-analysis.mjs';
@@ -121,38 +117,6 @@ export class PromptBuilder {
 
   /** 最后一次推文分类结果 */
   static _lastTweetClassification = null;
-
-  /**
-   * 获取Prompt版本
-   * V13.2 新框架：返回 'V13.2'
-   * @returns {string} Prompt版本号
-   */
-  static getPromptVersion() {
-    return EVENT_ANALYSIS_PROMPT_VERSION; // V13.2
-  }
-
-  /**
-   * 构建事件分析Prompt（新框架第一阶段）
-   * 对应原 Stage 1（低质量检测），重构为"事件分析"
-   * @param {Object} tokenData - 代币数据
-   * @param {Object} fetchResults - 获取的数据结果
-   * @returns {string} 事件分析Prompt
-   */
-  static buildEventAnalysis(tokenData, fetchResults) {
-    return buildEventAnalysisPrompt(tokenData, fetchResults);
-  }
-
-  /**
-   * 构建代币分析Prompt（新框架第二阶段）
-   * 对应原 Stage 2（详细评分），重构为"代币分析"
-   * @param {Object} tokenData - 代币数据
-   * @param {Object} fetchResults - 获取的数据结果
-   * @param {Object} eventAnalysis - 事件分析结果
-   * @returns {string} 代币分析Prompt
-   */
-  static buildTokenAnalysis(tokenData, fetchResults, eventAnalysis) {
-    return buildTokenAnalysisPrompt(tokenData, fetchResults, eventAnalysis);
-  }
 
   /**
    * 构建Stage 1 Prompt（3阶段架构：事件预处理）
