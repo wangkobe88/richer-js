@@ -7,7 +7,35 @@ import { dbManager } from '../../../services/dbManager.js';
 import { cleanSymbol } from '../utils/narrative-utils.mjs';
 
 /**
+ * 叙事语料字段的丰富度评分（择优依据）。
+ * 回测回放写入的行 raw_api_data 只有 totalSupply/creator（链上字段），
+ * 实时/AVE 采集行才可能带 appendix/twitterUrl/intro 等语料——
+ * 多行时必须取语料最全的行，否则叙事分析拿阉割行判"无语料"。
+ */
+function rawCorpusScore(raw) {
+  const r = raw || {};
+  let appendix = r.appendix;
+  if (typeof appendix === 'string') {
+    try { appendix = JSON.parse(appendix); } catch { appendix = null; }
+  }
+  let score = 0;
+  if (appendix?.twitter) score += 4;
+  if (appendix?.website) score += 2;
+  if (r.webUrl || r.twitterUrl) score += 4;
+  if (r.website || r.websiteUrl) score += 2;
+  if (r.fourmeme_creator_info) score += 2;
+  if (r.intro_en || r.introduction || r.intro_cn) score += 2;
+  if (r.description) score += 1;
+  return score;
+}
+
+/**
  * 从数据库获取代币数据
+ *
+ * experiment_tokens 里同一 token_address 每个实验一行（多实验观察同一
+ * token 是常态），不能 maybeSingle（多行时报错）——取回后按语料丰富度
+ * 择优一行。0 行返回 null（analyze 侧报"代币不存在"）。
+ *
  * @param {string} address - 代币地址
  * @returns {Promise<Object|null>} 代币数据或null
  */
@@ -17,22 +45,25 @@ export async function fetchTokenData(address) {
     .from('experiment_tokens')
     .select('token_symbol, raw_api_data, blockchain, platform')
     .eq('token_address', address)
-    .maybeSingle();
+    .limit(20);
 
   if (error) {
     throw error;
   }
 
-  if (!data) {
+  if (!data || data.length === 0) {
     return null;
   }
 
+  const best = data.reduce((acc, row) =>
+    rawCorpusScore(row.raw_api_data) > rawCorpusScore(acc.raw_api_data) ? row : acc);
+
   return {
     address: address,
-    symbol: cleanSymbol(data.token_symbol),  // 清洗代币名
-    blockchain: data.blockchain,
-    platform: data.platform,
-    raw_api_data: data.raw_api_data
+    symbol: cleanSymbol(best.token_symbol),  // 清洗代币名
+    blockchain: best.blockchain,
+    platform: best.platform,
+    raw_api_data: best.raw_api_data
   };
 }
 
