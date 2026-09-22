@@ -554,8 +554,8 @@ router.post('/tasks', async (req, res) => {
     let symbol = tokenSymbol;
     if (!symbol) {
       try {
-        const { NarrativeAnalyzer } = await import('../../narrative/analyzer/NarrativeAnalyzer.mjs');
-        const tokenData = await NarrativeAnalyzer.fetchTokenData(tokenAddress);
+        const { fetchTokenData } = await import('../../narrative/analyzer/services/token-info-service.mjs');
+        const tokenData = await fetchTokenData(tokenAddress);
         if (tokenData) {
           symbol = tokenData.symbol;
         }

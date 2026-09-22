@@ -127,11 +127,11 @@ class ExperimentSignalStats {
 
     try {
       // 并行加载实验数据、信号数据、代币数据和叙事分析数据
-      // [DECOUPLED] 叙事数据加载已禁用
-      const [experimentRes, signalsRes, tokensRes] = await Promise.all([
+      const [experimentRes, signalsRes, tokensRes, narrativeRes] = await Promise.all([
         fetch(`/api/experiment/${this.experimentId}`),
         fetch(`/api/experiment/${this.experimentId}/signals?limit=10000`),
-        fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`)
+        fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`),
+        fetch(`/api/experiment/${this.experimentId}/narrative`)
       ]);
 
       if (!experimentRes.ok || !signalsRes.ok || !tokensRes.ok) {
@@ -141,7 +141,7 @@ class ExperimentSignalStats {
       const experimentData = await experimentRes.json();
       const signalsData = await signalsRes.json();
       const tokensData = await tokensRes.json();
-      const narrativeData = { success: false, data: [] };
+      const narrativeData = narrativeRes.ok ? await narrativeRes.json() : { success: false, data: [] };
 
       if (!experimentData.success) {
         throw new Error('实验数据格式错误');
@@ -150,6 +150,9 @@ class ExperimentSignalStats {
       this.experimentData = experimentData.data;
       this.signalsData = signalsData.signals || [];
       this.tokensData = tokensData.tokens || [];
+
+      // 回测实验的人工评级写入源实验的 token 行（与叙事数据读取口径一致）
+      this.judgeExperimentId = this.experimentData.config?.backtest?.sourceExperimentId || this.experimentId;
 
       // 创建叙事数据映射表（保存完整数据，包含叙事评级和人工评级）
       this.narrativeDataMap = new Map();
@@ -775,13 +778,12 @@ class ExperimentSignalStats {
     const note = noteEl ? noteEl.value : '';
 
     try {
-      const response = await fetch(`/api/experiment/${this.experimentId}/narrative/judge`, {
+      const response = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens/${this.currentEditingToken}/judge`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          token_address: this.currentEditingToken,
           category: selectedCategory,
           note: note
         })
@@ -835,14 +837,8 @@ class ExperimentSignalStats {
     }
 
     try {
-      const response = await fetch(`/api/experiment/${this.experimentId}/narrative/judge`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          token_address: tokenAddress
-        })
+      const response = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens/${tokenAddress}/judge`, {
+        method: 'DELETE'
       });
 
       const result = await response.json();

@@ -1466,43 +1466,21 @@ class ExperimentTokenReturns {
   }
 
   /**
-   * 检查实验是否启用了叙事分析
-   */
-  isNarrativeAnalysisEnabled() {
-    const config = this.experimentData?.config || {};
-    const narrativeConfig = config.strategiesConfig?.narrativeAnalysis || config.narrativeAnalysis || {};
-    return narrativeConfig.enabled === true;
-  }
-
-  /**
-   * 加载叙事分析数据
+   * 加载叙事分析数据（实验级批量接口，一次拉全；后端自动处理回测→源实验）
    */
   async loadNarrativeData() {
-    if (!this.isNarrativeAnalysisEnabled()) {
-      console.log('实验未启用叙事分析，跳过加载叙事数据');
-      return;
-    }
-
     try {
-      // 获取所有代币地址
-      const tokenAddresses = [...new Set(this.tradesData.map(t => t.token_address))];
-
-      // 批量获取叙事数据
-      for (const address of tokenAddresses) {
-        try {
-          const response = await fetch(`/api/narrative/result/${address}`);
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.data) {
-              this.narrativeDataMap.set(address, result.data);
-            }
-          }
-        } catch (error) {
-          // 单个代币加载失败不影响其他代币
-          console.warn(`加载代币 ${address} 的叙事数据失败:`, error);
+      const response = await fetch(`/api/experiment/${this.experimentId}/narrative`);
+      if (!response.ok) {
+        console.warn(`加载叙事分析数据失败: HTTP ${response.status}`);
+        return;
+      }
+      const result = await response.json();
+      if (result.success && Array.isArray(result.data)) {
+        for (const item of result.data) {
+          this.narrativeDataMap.set(item.token_address, item);
         }
       }
-
       console.log(`加载了 ${this.narrativeDataMap.size} 条叙事分析数据`);
     } catch (error) {
       console.error('加载叙事分析数据失败:', error);
@@ -1510,14 +1488,14 @@ class ExperimentTokenReturns {
   }
 
   /**
-   * 渲染叙事评级列
+   * 渲染叙事评级列（Jev 方案：numericRating 3/2/1/9，reason/score 在 summary）
    * @param {string} tokenAddress - 代币地址
    * @returns {string} 叙事评级 HTML
    */
   renderNarrativeRating(tokenAddress) {
     const narrative = this.narrativeDataMap.get(tokenAddress);
 
-    if (!narrative || !narrative.meta?.isValid) {
+    if (!narrative || !narrative.narrative?.llmAnalysis?.summary) {
       // 没有数据时，显示可点击的链接去分析
       return `
         <div class="flex items-center justify-center">
@@ -1531,17 +1509,15 @@ class ExperimentTokenReturns {
       `;
     }
 
-    // 三阶段架构：从 llmAnalysis.summary 获取最终结果（rating 由后端统一计算）
-    const summary = narrative.llmAnalysis?.summary;
-    const rating = summary?.rating ?? 9;
+    const summary = narrative.narrative.llmAnalysis.summary;
+    const rating = summary.numericRating ?? 9;
     const ratingInfo = NARRATIVE_RATING_MAP[rating] || NARRATIVE_RATING_MAP[9];
 
-    // 获取摘要和总分
-    const summaryStr = summary?.reasoning || '';
-    const hasSummary = summaryStr.trim() !== '';
-    const summaryTitle = hasSummary ? summaryStr.slice(0, 200) + (summaryStr.length > 200 ? '...' : '') : '';
+    // 评级理由（Jev mapper 代码端拼接的模板串）
+    const summaryStr = summary.reason || '';
+    const summaryTitle = summaryStr ? summaryStr.slice(0, 200) + (summaryStr.length > 200 ? '...' : '') : '';
 
-    const totalScore = summary?.total_score;
+    const totalScore = summary.score;
     const scoreText = totalScore !== undefined && totalScore !== null ? ` (${totalScore.toFixed(0)}分)` : '';
 
     return `

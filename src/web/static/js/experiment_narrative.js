@@ -343,9 +343,9 @@ class ExperimentNarrative {
       ? `${item.max_change_percent.toFixed(2)}%`
       : '-';
 
-    // 叙事摘要（截断）
-    const summaryObj = item.narrative.llm_summary;
-    const reasoning = summaryObj?.reasoning || '';
+    // 叙事摘要（截断）— Jev 方案：summary.reason 为代码端模板串
+    const summaryObj = item.narrative.llmAnalysis?.summary;
+    const reasoning = summaryObj?.reason || '';
     const summary = reasoning
       ? (reasoning.length > 80
           ? reasoning.substring(0, 80) + '...'

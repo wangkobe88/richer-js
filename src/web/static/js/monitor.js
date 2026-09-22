@@ -227,9 +227,7 @@ function stopPolling() {
 }
 
 // ============ 叙事数据定期刷新（Realtime 模式） ============
-// [DECOUPLED] 叙事刷新已禁用
 function startNarrativeRefresh() {
-  return;
   if (pollingTimer || narrativeRefreshTimer) return;
   narrativeRefreshTimer = setInterval(async () => {
     try {
@@ -443,8 +441,7 @@ function buildExpandContent(event) {
   let content = '';
 
   // 叙事原因
-  // [DECOUPLED] 叙事原因展示已禁用
-  if (false && d.narrativeReason) {
+  if (d.narrativeReason) {
     content += `<div class="text-sm text-gray-600 mt-2"><strong>叙事原因:</strong> ${escapeHtml(d.narrativeReason)}</div>`;
   }
 
@@ -570,9 +567,8 @@ function renderTokenCard(card) {
   // 涨幅
   const returnStr = s.earlyReturn != null ? `${s.earlyReturn >= 0 ? '+' : ''}${s.earlyReturn.toFixed(1)}%` : '';
 
-  // 叙事评级
-  // [DECOUPLED] 叙事评级渲染已禁用
-  const ratingHtml = '';
+  // 叙事评级（_enrichEventsWithNarrative 给 buy 事件注入 summary.narrativeRating/narrativeScore）
+  const ratingHtml = renderRatingBadge(s.narrativeRating, s.narrativeScore);
 
   // 最新事件利润（卖出时）
   const profitStr = s.profitPercent != null

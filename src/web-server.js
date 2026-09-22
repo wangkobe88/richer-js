@@ -264,10 +264,9 @@ class RicherJsWebServer {
     });
 
     // 实验叙事分析页面
-    // [DECOUPLED] 叙事分析路由已禁用
-    // this.app.get('/experiment/:id/narrative', (req, res) => {
-    //   res.sendFile(path.join(__dirname, 'web/templates/experiment_narrative.html'));
-    // });
+    this.app.get('/experiment/:id/narrative', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_narrative.html'));
+    });
 
     // 交易策略分析页面
     this.app.get('/experiment/:id/strategy-analysis', (req, res) => {
@@ -280,16 +279,14 @@ class RicherJsWebServer {
     });
 
     // 叙事分析页面（独立页面，不在实验子路由下）
-    // [DECOUPLED] 叙事分析路由已禁用
-    // this.app.get('/narrative-analyzer', (req, res) => {
-    //   res.sendFile(path.join(__dirname, 'web/templates/narrative-analyzer.html'));
-    // });
+    this.app.get('/narrative-analyzer', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/narrative-analyzer.html'));
+    });
 
     // 叙事分析任务管理页面
-    // [DECOUPLED] 叙事任务路由已禁用
-    // this.app.get('/narrative-tasks', (req, res) => {
-    //   res.sendFile(path.join(__dirname, 'web/templates/narrative_tasks.html'));
-    // });
+    this.app.get('/narrative-tasks', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/narrative_tasks.html'));
+    });
 
     // 事件监控页面
     this.app.get('/monitor', (req, res) => {
@@ -307,8 +304,7 @@ class RicherJsWebServer {
     });
 
     // ============ API路由：叙事分析 ============
-    // [DECOUPLED] 叙事分析 API 路由已禁用
-    // this.app.use('/api/narrative', narrativeRoutes);
+    this.app.use('/api/narrative', narrativeRoutes);
 
     // ============ API路由：事件监控 ============
 
@@ -361,8 +357,7 @@ class RicherJsWebServer {
         }
 
         // 动态填充叙事数据
-        // [DECOUPLED] 叙事数据填充已禁用
-        // await this._enrichEventsWithNarrative(events);
+        await this._enrichEventsWithNarrative(events);
 
         res.json({
           success: true,
@@ -2357,16 +2352,15 @@ class RicherJsWebServer {
     });
 
     // 获取实验叙事分析数据
-    // [DECOUPLED] 叙事数据接口已禁用
-    // this.app.get('/api/experiment/:id/narrative', async (req, res) => {
-    //   try {
-    //     const result = await this.dataService.getExperimentNarratives(req.params.id);
-    //     res.json(result);
-    //   } catch (error) {
-    //     this.logger.error('WebServer', '获取实验叙事数据失败:', { details: error });
-    //     res.status(500).json({ success: false, error: error.message, data: [], count: 0 });
-    //   }
-    // });
+    this.app.get('/api/experiment/:id/narrative', async (req, res) => {
+      try {
+        const result = await this.dataService.getExperimentNarratives(req.params.id);
+        res.json(result);
+      } catch (error) {
+        this.logger.error('WebServer', '获取实验叙事数据失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message, data: [], count: 0 });
+      }
+    });
 
     // 刷新实验代币的实时价格
     this.app.post('/api/experiment/:id/tokens/refresh-prices', async (req, res) => {

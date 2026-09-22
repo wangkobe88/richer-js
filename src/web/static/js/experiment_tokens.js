@@ -1336,31 +1336,20 @@ class ExperimentTokens {
   }
 
   /**
-   * 异步加载叙事分析数据
+   * 异步加载叙事分析数据（实验级批量接口，一次拉全；后端自动处理回测→源实验）
    */
-  // [DECOUPLED] 叙事数据加载已禁用
   async loadNarrativeData() {
-    return;
     try {
-      const tokenAddresses = this.tokens.map(t => t.token_address);
-      // 并发加载，每次最多 5 个请求
-      const batchSize = 5;
-      for (let i = 0; i < tokenAddresses.length; i += batchSize) {
-        const batch = tokenAddresses.slice(i, i + batchSize);
-        const promises = batch.map(async (address) => {
-          try {
-            const response = await fetch(`/api/narrative/result/${address}`);
-            if (response.ok) {
-              const result = await response.json();
-              if (result.success && result.data) {
-                this.narrativeDataMap.set(address, result.data);
-              }
-            }
-          } catch (e) {
-            // 单个加载失败不影响其他
-          }
-        });
-        await Promise.all(promises);
+      const response = await fetch(`/api/experiment/${this.experimentId}/narrative`);
+      if (!response.ok) {
+        console.warn(`加载叙事分析数据失败: HTTP ${response.status}`);
+        return;
+      }
+      const result = await response.json();
+      if (result.success && Array.isArray(result.data)) {
+        for (const item of result.data) {
+          this.narrativeDataMap.set(item.token_address, item);
+        }
       }
 
       // 更新已渲染的叙事列
@@ -1386,25 +1375,23 @@ class ExperimentTokens {
   }
 
   /**
-   * 渲染叙事评级
+   * 渲染叙事评级（Jev 方案：numericRating 3/2/1/9，reason/score 在 summary）
    */
-  // [DECOUPLED] 叙事评级渲染已禁用
   renderNarrativeRating(tokenAddress) {
-    return '<span class="text-gray-600 text-[10px]">-</span>';
     const narrative = this.narrativeDataMap.get(tokenAddress);
 
-    if (!narrative || !narrative.meta?.isValid) {
+    if (!narrative || !narrative.narrative?.llmAnalysis?.summary) {
       return `<a href="/narrative-analyzer?address=${tokenAddress}" target="_blank" class="text-gray-500 text-[10px] hover:text-blue-400 transition-colors">-</a>`;
     }
 
-    const summary = narrative.llmAnalysis?.summary;
-    const rating = summary?.rating ?? 9;
+    const summary = narrative.narrative.llmAnalysis.summary;
+    const rating = summary.numericRating ?? 9;
     const ratingInfo = NARRATIVE_RATING_MAP[rating] || NARRATIVE_RATING_MAP[9];
 
-    const summaryStr = summary?.reasoning || '';
+    const summaryStr = summary.reason || '';
     const summaryTitle = summaryStr ? summaryStr.slice(0, 200) + (summaryStr.length > 200 ? '...' : '') : '';
 
-    const totalScore = summary?.total_score;
+    const totalScore = summary.score;
     const scoreText = totalScore != null ? ` ${totalScore.toFixed(0)}分` : '';
 
     return `<a href="/narrative-analyzer?address=${tokenAddress}" target="_blank" class="px-1.5 py-0.5 rounded text-[10px] ${ratingInfo.bgClass} ${ratingInfo.colorClass} border ${ratingInfo.borderClass} hover:opacity-80 transition-opacity inline-block" title="${summaryTitle || ratingInfo.label}" style="cursor:pointer;text-decoration:none;">${ratingInfo.emoji} ${rating}${scoreText}</a>`;
