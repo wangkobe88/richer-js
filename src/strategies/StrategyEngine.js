@@ -77,7 +77,12 @@ class StrategyEngine {
                     maxExecutions: config.maxExecutions || null,
                     preBuyCheckCondition: config.preBuyCheckCondition || null,
                     repeatBuyCheckCondition: config.repeatBuyCheckCondition || null,
-                    narrativeCallCondition: config.narrativeCallCondition || null
+                    narrativeCallCondition: config.narrativeCallCondition || null,
+                    // pumpfun 回迁批 2 卖腿机制字段（引擎侧消费：去抖分流/止损闩锁/累亏闩锁）
+                    bypassDebounce: !!config.bypassDebounce,
+                    lockTokenAfterSell: !!config.lockTokenAfterSell,
+                    cumulativeLossLockPct: typeof config.cumulativeLossLockPct === 'number'
+                        ? config.cumulativeLossLockPct : null
                 };
 
                 this._strategies.push(strategy);

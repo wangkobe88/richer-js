@@ -100,6 +100,19 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       },
     });
 
+    // 卖出确认去抖（real 模式；首真 tick 起计不重置，语义见 SellConfirmDebouncer）
+    const { SellConfirmDebouncer } = require('../core/SellConfirmDebouncer');
+    this._sellConfirmDebouncer = new SellConfirmDebouncer({
+      debounceMs: this._sellDebounceMs,
+      mode: 'real',
+      onFire: (tokenAddress, tick) => this._onSellDebounceFire(tokenAddress, tick),
+    });
+
+    // pumpfun 回迁批 2 闩锁（token 级降维：单仓语义下对齐 _tokenBlacklist 生命周期模式）
+    this._tokenLocks = new Set();     // 止损闩锁：lockTokenAfterSell 卖腿成交 → 该 token 永久禁买
+    this._cumLossTotals = new Map();  // token → 已平仓轮 profitPercent 累计（盈亏同记）
+    this._cumLossLockPct = null;      // 累亏闩锁阈值（卖腿 cumulativeLossLockPct，多腿取最严；null=未配置）
+
     this.metrics = {
       totalTrades: 0,
       successfulTrades: 0,
@@ -123,6 +136,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._wsConfig = wsConfig || {};
     this._signalDebounceMs = this._wsConfig.signalDebounceMs ?? 1500;
     this._signalDebounceMaxWaitMs = this._wsConfig.signalDebounceMaxWaitMs ?? 5000;
+    // 卖出确认去抖（pumpfun 回迁批 2；默认 0=关闭，存量实验行为零变化）
+    this._sellDebounceMs = this._wsConfig.sellDebounceMs ?? 0;
     this._pruneIntervalMs = this._wsConfig.pruneIntervalMs ?? 5 * 60 * 1000;
     this._pruneMaxAgeMs = this._wsConfig.pruneMaxAgeMs ?? 30 * 60 * 1000;
     this._timeSeriesIntervalMs = this._wsConfig.timeSeriesIntervalMs ?? 30 * 1000;
@@ -169,6 +184,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         this.metrics.debounceFired++;
         this._runBuyEvaluation(tokenAddress, tick);
       },
+    });
+    const { SellConfirmDebouncer } = require('../core/SellConfirmDebouncer');
+    this._sellConfirmDebouncer = new SellConfirmDebouncer({
+      debounceMs: this._sellDebounceMs,
+      mode: 'real',
+      onFire: (tokenAddress, tick) => this._onSellDebounceFire(tokenAddress, tick),
     });
 
     const TokenPool = require('../../core/token-pool');
@@ -248,11 +269,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           condition: s.condition,
           priority: s.priority || 0,
           maxExecutions: s.maxExecutions || null,
+          bypassDebounce: !!s.bypassDebounce,
+          lockTokenAfterSell: !!s.lockTokenAfterSell,
+          cumulativeLossLockPct: typeof s.cumulativeLossLockPct === 'number' ? s.cumulativeLossLockPct : null,
           enabled: true,
         });
       });
     }
     this._strategyEngine.loadStrategies(strategyArray, availableFactorIds);
+
+    // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存时最严者先锁，fail-closed 方向）；
+    // 未配置任何腿 = null = 机制关闭（存量实验零变化）
+    const _cumLocks = this._strategyEngine.getAllStrategies()
+      .filter(s => s.action === 'sell' && s.cumulativeLossLockPct != null)
+      .map(s => s.cumulativeLossLockPct);
+    this._cumLossLockPct = _cumLocks.length > 0 ? Math.max(..._cumLocks) : null;
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
@@ -531,6 +562,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     if (this._buyDebouncer) {
       this._buyDebouncer.clearAll();
     }
+    if (this._sellConfirmDebouncer) {
+      this._sellConfirmDebouncer.clearAll();
+    }
 
     // 停采集器（内部 flush 剩余 tick 缓冲后关闭 WSS）
     if (this._collector) {
@@ -614,6 +648,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     if (token.status === 'bought') return; // 单仓语义
 
     if (this._tokenBlacklist.has(tokenAddress)) return;
+
+    // pumpfun 回迁批 2 买腿门：止损闩锁（lockTokenAfterSell 成交置锁）/
+    // 累亏闩锁（该 token 已平仓轮 profitPercent 累计 ≤ 阈值）→ 永久禁买。
+    // 置锁与记账在 _emitSellSignal 卖出成功处，日志 tag [stopLossLock]/[cumLossLock]
+    if (this._tokenLocks.has(tokenAddress)) return;
+    if (this._cumLossLockPct != null
+        && (this._cumLossTotals.get(tokenAddress) ?? 0) <= this._cumLossLockPct) return;
 
     this._evaluateBuyPath(token, factors, tick)
       .catch(e => this.logger.error(this._experimentId, 'BuyEval',
@@ -884,12 +925,69 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   // ==================== 卖路径 ====================
 
   /**
-   * 卖腿评估（对齐旧 _executeStrategy 的 sell 分支）：持有中每 tick 评估，
-   * 触发即构造信号 → processSignal（自建信号落库）→ 全额卖出。
+   * 卖腿评估（pumpfun 回迁批 2：每 tick 实时评估不去抖，hit 后分流）：
+   * - bypassDebounce 腿（利润锁定/断流类时间敏感腿）或 sellDebounceMs=0 → 立即卖（存量行为）
+   * - 默认腿 → SellConfirmDebouncer touch（首真 tick 起计不重置），fire 重读因子重评，
+   *   仍真才卖（窗口内恢复→不卖）——「庄还在的回调拿住，庄撤了的真跌快卖」
+   * - 条件变 false → clear pending（下次触发重新起算）
    */
   async _evaluateSellPath(tokenAddress, factors, tick) {
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token || token.status !== 'bought') return { success: false, reason: '非持有状态' };
+    if (this._sellingTokens.has(tokenAddress)) return { success: false, reason: '卖出执行中' };
+
+    // 只看卖腿：单仓语义下买入触发对持仓代币是无效噪声，混合评估会让同优先级的
+    // 买策略永远压住卖出（triggeredStrategies[0] 按插入序取）——止损/止盈被静默杀死
+    const strategy = this._strategyEngine.evaluate(factors, tokenAddress, Date.now(), token, 'sell');
+    if (!strategy) {
+      this._sellConfirmDebouncer.clear(tokenAddress); // 条件 false（趋势恢复）→ 取消 pending
+      return { success: false, reason: '无触发卖出策略' };
+    }
+
+    // B/C 分流：bypassDebounce 或去抖关闭 → 立即卖；趋势失去类默认腿 → 进确认去抖
+    if (strategy.bypassDebounce || this._sellDebounceMs <= 0) {
+      this._sellConfirmDebouncer.clear(tokenAddress);
+      return this._emitSellSignal(token, strategy, factors, tick);
+    }
+
+    this._sellConfirmDebouncer.touch(tokenAddress, tick);
+    return { success: false, reason: '卖出确认去抖中' };
+  }
+
+  /**
+   * 卖出确认去抖 fire：重读 fire 时刻因子重评（窗口内 token 可能已恢复/sold/prune）。
+   * now 必须 Date.now()——省略会回落 lastTickAt，断流期时钟因子冻结在末 tick。
+   */
+  _onSellDebounceFire(tokenAddress, tick) {
+    const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
+    if (!factors) return;
+    const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+    if (!token || token.status !== 'bought') return;
+    if (this._buyingTokens.has(tokenAddress)) return; // 与卖腿路由门同口径
+
+    this._reconfirmAndSell(token, factors)
+      .catch(e => this.logger.error(this._experimentId, 'SellEval',
+        `${token.symbol || tokenAddress.slice(0, 10)} 卖出去抖 fire 异常: ${e.message}`));
+  }
+
+  /** fire 重评：条件仍真才卖（恢复→不卖，等下次触发重新起算） */
+  async _reconfirmAndSell(token, factors) {
+    const tokenAddress = token.token;
+    if (this._sellingTokens.has(tokenAddress)) return { success: false, reason: '卖出执行中' };
+
+    const strategy = this._strategyEngine.evaluate(factors, tokenAddress, Date.now(), token, 'sell');
+    if (!strategy) return { success: false, reason: '条件恢复，不卖' };
+
+    return this._emitSellSignal(token, strategy, factors, null);
+  }
+
+  /**
+   * 构造卖出信号并执行（立即卖 / 去抖 fire 共用；从原 _evaluateSellPath 抽取）。
+   * 成功后：累亏闩锁记账（盈亏同记）+ lockTokenAfterSell 止损闩锁置位。
+   * @param {Object|null} tick - 触发 tick（去抖 fire 路径为 null）
+   */
+  async _emitSellSignal(token, strategy, factors, tick) {
+    const tokenAddress = token.token;
     if (this._sellingTokens.has(tokenAddress)) return { success: false, reason: '卖出执行中' };
 
     // live 卖出失败冷却：tick 驱动的卖腿若无冷却，链上失败会每 tick 重试烧 gas
@@ -902,15 +1000,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     this._sellingTokens.add(tokenAddress);
     try {
-      // 只看卖腿：单仓语义下买入触发对持仓代币是无效噪声，混合评估会让同优先级的
-      // 买策略永远压住卖出（triggeredStrategies[0] 按插入序取）——止损/止盈被静默杀死
-      const strategy = this._strategyEngine.evaluate(factors, tokenAddress, Date.now(), token, 'sell');
-      if (!strategy) {
-        return { success: false, reason: '无触发卖出策略' };
-      }
-
       this.logger.info(this._experimentId, 'SellEval',
-        `${token.symbol} 触发卖出策略: ${strategy.name} | profitPercent=${factors.profitPercent?.toFixed(1)}% ` +
+        `${token.symbol} 触发卖出策略: ${strategy.name}${tick ? '' : '（去抖确认后）'} | ` +
+        `profitPercent=${factors.profitPercent?.toFixed(1)}% ` +
         `holdDuration=${factors.holdDuration?.toFixed(0)}s drawdown=${factors.drawdownFromHighestSinceLastBuy?.toFixed(1)}%`);
 
       const latestPrice = factors.currentPrice || 0;
@@ -943,6 +1035,30 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
       if (result && result.success) {
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+        this._sellConfirmDebouncer.clear(tokenAddress);
+
+        // 累亏闩锁记账：卖出成交 → 该 token 已平仓轮 profitPercent 累计（盈亏同记）。
+        // signal.profitPercent 缺失时从 token.buyPrice 现算（双缺失才跳过记账）
+        let _pct = Number(signal.profitPercent);
+        if (!Number.isFinite(_pct) && latestPrice > 0 && token.buyPrice > 0) {
+          _pct = (latestPrice - token.buyPrice) / token.buyPrice * 100;
+        }
+        if (Number.isFinite(_pct)) {
+          const _cum = (this._cumLossTotals.get(tokenAddress) || 0) + _pct;
+          this._cumLossTotals.set(tokenAddress, _cum);
+          if (this._cumLossLockPct != null && _cum <= this._cumLossLockPct) {
+            this.logger.info(this._experimentId, 'cumLossLock',
+              `[cumLossLock] ${token.symbol} 累计盈亏 ${_cum.toFixed(1)}% ≤ ${this._cumLossLockPct}%，该 token 禁买`);
+          }
+        }
+
+        // 止损闩锁：lockTokenAfterSell 卖腿成交 → 该 token 永久禁买（"止损后该票不再交易"）
+        if (strategy.lockTokenAfterSell) {
+          this._tokenLocks.add(tokenAddress);
+          this.logger.info(this._experimentId, 'stopLossLock',
+            `[stopLossLock] ${token.symbol} 止损腿[${strategy.id}]成交，该 token 禁买`);
+        }
+
         return { success: true };
       }
       return { success: false, reason: result?.reason || result?.message || '卖出执行失败' };
@@ -1701,8 +1817,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       factorAggregator: this._factorAggregator ? this._factorAggregator.getStats() : null,
       tokenPool: this._tokenPool ? this._tokenPool.getStats() : null,
       debouncePending: this._buyDebouncer ? this._buyDebouncer.size : 0,
+      sellDebounce: this._sellConfirmDebouncer
+        ? { pending: this._sellConfirmDebouncer.size, ...this._sellConfirmDebouncer.stats } : null,
       buying: this._buyingTokens.size,
       selling: this._sellingTokens.size,
+      tokenLocks: this._tokenLocks.size,
       wssDownFlagged: this._wssDownFlagged,
       balance: this.currentBalance,
     };
