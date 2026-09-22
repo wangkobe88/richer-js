@@ -176,13 +176,8 @@ class ExperimentSignals {
             selector.value = this.selectedToken;
             console.log('✅ 已自动选择代币:', this.selectedToken);
           }
-          if (this._tokenDetailMode) {
-            // 详情模式：只保留价格趋势图（代币地址栏仍显示），隐藏其余区块
-            this.hideDetailExtras();
-          } else {
-            // 🔥 调用 filterAndRenderSignals 以显示代币地址信息
-            this.filterAndRenderSignals();
-          }
+          // 🔥 调用 filterAndRenderSignals 以显示代币地址信息
+          this.filterAndRenderSignals();
           // 加载该代币的时序数据图表
           await this.loadKlineForToken(selectedToken);
         } else {
@@ -232,11 +227,6 @@ class ExperimentSignals {
 
       console.log('🔍 filteredSignals:', filteredSignals.length, 'selectedToken:', this.selectedToken);
       console.log('🔍 Sample signals:', filteredSignals.slice(0, 3).map(s => ({ action: s.action, symbol: s.symbol, token_address: s.token_address })));
-
-      if (this._tokenDetailMode) {
-        // 详情模式：只展示价格趋势图，不渲染信号列表/统计
-        return;
-      }
 
       // 更新信号统计
       this.updateSignalsStats(filteredSignals);
@@ -542,21 +532,14 @@ class ExperimentSignals {
       }
 
       this.initPriceLineChart(windowed, token, tokenInfo);
+
+      // Holder 走势图同样用窗口数据（保持与价格图同一显示范围）
+      this.initHolderChart(windowed, token);
+
       console.log(`✅ 信号窗口价格趋势图加载完成: ${token.symbol}，${windowed.length}/${all.length} 个时序点，窗口 ${new Date(startMs).toISOString()} ~ ${new Date(endMs).toISOString()}`);
     } catch (error) {
       console.error('❌ 信号窗口价格趋势图加载失败:', error);
       this.showKlinePlaceholder('价格趋势图加载失败: ' + error.message);
-    }
-  }
-
-  /**
-   * 详情模式：隐藏非图表区块（筛选、统计、拒绝面板、信号列表、Holder 图）
-   */
-  hideDetailExtras() {
-    // signal-count：详情模式跳过统计更新，保持默认 0 会误导，随统计一起隐藏
-    for (const id of ['token-selector-container', 'signal-filters', 'signal-stats', 'rejection-details', 'signals-list-wrapper', 'empty-state', 'holder-chart-wrapper', 'signal-count']) {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
     }
   }
 
