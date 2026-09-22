@@ -5,8 +5,10 @@
  * 叙事分析需要的语料（twitter URL/website/介绍）需另抓平台附属信息：
  *   - four.meme：自家 API GET /meme-api/v1/private/token/get（老 token 会清库，
  *     数据窗口约 1 天，只能发现时实时抓；当天 token 语料覆盖实测 6/6）
- *   - flap：TokenCreated 事件的 meta（IPFS URL/裸 CID）→ IPFS metadata JSON
- *     （内容寻址永不过期；官方 ipfs.io 网关正迁移 service worker，用 pinata/4everland）
+ *   - flap：TokenCreated 事件的 meta → metadata JSON。meta 两种形态：
+ *     IPFS URL/裸 CID（主流；内容寻址永不过期，官方 ipfs.io 网关正迁移
+ *     service worker，用 pinata/4everland）与 S3 直链
+ *     （meta-7777.s3.amazonaws.com/metadata/*.json，实测约占 1%，直接 GET）
  *
  * 语义（fire-and-forget，永不抛错）：
  *   - 成功 → 返回语料字段对象（含 corpus 留痕），调用方合并进
@@ -131,13 +133,21 @@ class TokenCorpusEnricher {
 
   async _enrichFlap(metaUrl) {
     const cid = this._extractCid(metaUrl);
-    if (!cid) {
+    let metadata;
+    let corpus;
+    if (cid) {
+      metadata = await this._fetchIpfsJson(cid);
+      if (!metadata) return null; // 网关均失败/非 JSON——已在 _fetchIpfsJson 记日志
+      corpus = { provider: 'flap_ipfs', cid, fetchedAt: new Date().toISOString() };
+    } else if (/^https?:\/\//i.test(metaUrl || '')) {
+      // S3 等直链 metadata（同一套 JSON 键：twitter/website/description/name）
+      metadata = await this._fetchJsonUrl(metaUrl);
+      if (!metadata) return null;
+      corpus = { provider: 'flap_meta_url', fetchedAt: new Date().toISOString() };
+    } else {
       this._log('warn', `flap meta 无法解析出 CID | ${metaUrl}`);
       return null;
     }
-
-    const metadata = await this._fetchIpfsJson(cid);
-    if (!metadata) return null; // 网关均失败/非 JSON——已在 _fetchIpfsJson 记日志
 
     const fields = {};
     if (metadata.twitter) fields.twitterUrl = metadata.twitter;
@@ -149,8 +159,20 @@ class TokenCorpusEnricher {
     if (metadata.name) fields.name = metadata.name;
     return {
       ...fields,
-      corpus: { provider: 'flap_ipfs', cid, fetchedAt: new Date().toISOString() },
+      corpus,
     };
+  }
+
+  /** 直链 metadata JSON（S3 等）；失败/非 JSON 记日志返回 null */
+  async _fetchJsonUrl(url) {
+    try {
+      const resp = await this._ipfsClient.get(url);
+      if (resp.data && typeof resp.data === 'object') return resp.data;
+      this._log('warn', `flap meta URL 返回非 JSON | ${url}`);
+    } catch (error) {
+      this._log('warn', `flap meta URL 取失败 | ${url} ${error.message}`);
+    }
+    return null;
   }
 
   /** meta（完整 URL 或裸 CID）→ CID；非 IPFS meta 返回 null */
