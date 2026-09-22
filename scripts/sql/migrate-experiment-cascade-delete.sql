@@ -3,14 +3,45 @@
 -- 删除 experiments 行即自动连带删除所有实验数据，应用层不再逐表清理。
 --
 -- ⚠️ 执行要求：
---   1. 等 2026-09-22 旧实验清理脚本（v3）跑完后再执行（大表已瘦身，FK 校验快）
+--   1. 等 2026-09-22 旧实验清理完成后表已瘦身，FK 校验快
 --   2. 第 1 段的 CREATE INDEX CONCURRENTLY 不能在事务里跑 —— 在 Supabase SQL Editor
---      里逐条单独执行；第 2、3 段可整段执行
---   3. 执行完成后，web 端删除实验走纯级联路径（见 web-server.js DELETE /api/experiment/:id）
+--      里逐条单独执行；第 0、2、3 段可整段执行
+--   3. 本文件幂等，可整体重复执行
+--   4. 执行完成后，web 端删除实验走纯级联路径（见 web-server.js DELETE /api/experiment/:id）
+--
+-- 列类型现状（OpenAPI 探测）：strategy_signals/trades/experiment_tokens/
+-- portfolio_snapshots/wss_price_ticks 的 experiment_id 是 uuid；
+-- token_holders/early_participant_trades/experiment_events/
+-- experiment_time_series_data 是 text —— 第 0 段先统一转 uuid，否则
+-- FK 比较 uuid = text 报 42883。
 --
 -- wss_price_ticks 已有 experiment_id → experiments(id) ON DELETE CASCADE（勿重复加），
 -- 这里只补索引。
 -- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 第 0 段：text 列统一转 uuid（幂等；空串转 NULL；重写表需短暂排它锁，
+-- 当前无实验在写这些表，安全窗口执行）
+-- ---------------------------------------------------------------------
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'token_holders' AND column_name = 'experiment_id' AND data_type = 'text') THEN
+    ALTER TABLE token_holders ALTER COLUMN experiment_id TYPE uuid USING NULLIF(experiment_id, '')::uuid;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'early_participant_trades' AND column_name = 'experiment_id' AND data_type = 'text') THEN
+    ALTER TABLE early_participant_trades ALTER COLUMN experiment_id TYPE uuid USING NULLIF(experiment_id, '')::uuid;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'experiment_events' AND column_name = 'experiment_id' AND data_type = 'text') THEN
+    ALTER TABLE experiment_events ALTER COLUMN experiment_id TYPE uuid USING NULLIF(experiment_id, '')::uuid;
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'experiment_time_series_data' AND column_name = 'experiment_id' AND data_type = 'text') THEN
+    ALTER TABLE experiment_time_series_data ALTER COLUMN experiment_id TYPE uuid USING NULLIF(experiment_id, '')::uuid;
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------
 -- 第 1 段：experiment_id 索引（逐条单独执行；CONCURRENTLY 不锁写入）
@@ -27,7 +58,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_wss_price_ticks_experiment ON wss_pr
 
 -- ---------------------------------------------------------------------
 -- 第 2 段：清理历史孤儿行（此前 app 层删除漏删 experiment_events 等造成；
--- FK 建立要求子表无悬空 experiment_id）
+-- FK 建立要求子表无悬空 experiment_id。第 0 段后全部是 uuid = uuid）
 -- ---------------------------------------------------------------------
 DELETE FROM strategy_signals t WHERE t.experiment_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM experiments e WHERE e.id = t.experiment_id);
 DELETE FROM trades t WHERE t.experiment_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM experiments e WHERE e.id = t.experiment_id);
