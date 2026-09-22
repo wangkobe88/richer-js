@@ -429,7 +429,7 @@ class ExperimentDataService {
       const timeSeriesResult = await this._deleteTableInBatches(experimentId, 'experiment_time_series_data', 500);
 
       // 其他表直接删除（数据量小）
-      const smallTables = ['trades', 'strategy_signals', 'portfolio_snapshots', 'experiment_tokens', 'token_holders', 'early_participant_trades'];
+      const smallTables = ['trades', 'strategy_signals', 'portfolio_snapshots', 'experiment_tokens', 'token_holders', 'early_participant_trades', 'experiment_events'];
       const results = [timeSeriesResult];
 
       for (const table of smallTables) {
