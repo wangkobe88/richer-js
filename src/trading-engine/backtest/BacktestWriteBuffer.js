@@ -111,17 +111,19 @@ class BacktestWriteBuffer {
       errors: []
     };
 
-    // 第一阶段：所有 INSERT 并行执行
-    const insertTasks = [];
-
-    // 批量插入信号
+    // 第一阶段：信号先落库（trades.signal_id / early_participant_trades 外键引用
+    // strategy_signals，并行发出时 trades 请求可能先到 → FK 23503 整批丢弃，
+    // 降级单条也在同一竞态窗口内失败——必须等 signals INSERT 完成后再插其余）
     if (this._pendingSignalInserts.length > 0) {
-      insertTasks.push(this._batchInsert(
+      stats.signalsInserted = await this._batchInsert(
         'strategy_signals',
         this._pendingSignalInserts,
         experimentId
-      ).then(count => { stats.signalsInserted = count; }));
+      );
     }
+
+    // 第二阶段：其余 INSERT 并行执行（表间无外键依赖）
+    const insertTasks = [];
 
     // 批量插入交易
     if (this._pendingTradeInserts.length > 0) {
@@ -152,7 +154,7 @@ class BacktestWriteBuffer {
 
     await Promise.all(insertTasks);
 
-    // 第二阶段：信号更新（必须等 INSERT 完成，否则 UPDATE 找不到记录）
+    // 第三阶段：信号更新（必须等 INSERT 完成，否则 UPDATE 找不到记录）
     if (this._pendingSignalUpdates.length > 0) {
       const count = await this._batchSignalUpdates(experimentId);
       stats.signalsUpdated = count;
