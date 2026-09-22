@@ -298,6 +298,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/signal_early_trades.html'));
     });
 
+    // 市场截面 Regime 监控页（pumpfun 回迁批 2.6 观察版，纯只读）
+    this.app.get('/market-regime', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/market_regime.html'));
+    });
+
     // 实验详情页面（必须放在最后，作为默认路由）
     this.app.get('/experiment/:id', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));
@@ -416,6 +421,50 @@ class RicherJsWebServer {
         }
       } catch (error) {
         this.logger.error('WebServer', '清空事件失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ============ API路由：市场截面 Regime（回迁批 2.6 观察版，只读） ============
+
+    // 快照时序：market_regime_snapshots 按时间窗查询（ts 游标分页防服务端 max rows 截断）；
+    // >2500 行时服务端等距抽样（响应带 stride 与 total，前端展示抽样说明——不静默截断）。
+    // null 行原样返回（null≠0，前端暖机态展示）。pumpfun 母版同口径，列名 SOL→BNB。
+    this.app.get('/api/market-regime', async (req, res) => {
+      try {
+        const { from, to } = req.query;
+        const toMs = to ? Date.parse(to) : Date.now();
+        const fromMs = from ? Date.parse(from) : toMs - 24 * 3600 * 1000;
+        if (!Number.isFinite(toMs) || !Number.isFinite(fromMs) || fromMs >= toMs) {
+          return res.status(400).json({ success: false, error: 'from/to 时间窗参数无效' });
+        }
+        if (toMs - fromMs > 8 * 24 * 3600 * 1000) {
+          return res.status(400).json({ success: false, error: '时间窗最大 8 天' });
+        }
+        const rows = [];
+        let lastTs = new Date(fromMs).toISOString();
+        const toIso = new Date(toMs).toISOString();
+        for (;;) {
+          const { data: page, error } = await this.dataService.supabase
+            .from('market_regime_snapshots')
+            .select('ts,newborn_count_1h,rocket_rate_30m,young_mean_ret_30m,death_rate_30m,flow_bs_ratio_10m,cohort_n,flow_buy_bnb,flow_sell_bnb,fed_age_ms,source')
+            .gt('ts', lastTs).lte('ts', toIso).order('ts', { ascending: true }).limit(1000);
+          if (error) throw error;
+          if (!page || !page.length) break;
+          rows.push(...page);
+          lastTs = page[page.length - 1].ts;
+          if (page.length < 1000) break;
+        }
+        // 服务端等距抽样至 ≤2500 点（保留最新一行；stride=每 stride 行取 1）
+        let stride = 1;
+        let out = rows;
+        if (rows.length > 2500) {
+          stride = Math.ceil(rows.length / 2500);
+          out = rows.filter((_, i) => i % stride === 0 || i === rows.length - 1);
+        }
+        res.json({ success: true, rows: out, total: rows.length, stride, from: new Date(fromMs).toISOString(), to: toIso });
+      } catch (error) {
+        this.logger.error('WebServer', '市场截面快照查询失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });

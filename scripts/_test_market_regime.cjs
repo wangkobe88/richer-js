@@ -142,9 +142,9 @@ function s3_birthDedup() {
     fa.processTick(mkTick('S3R', birth + 5000, true, 1, 0.01, '0x3'), { emitFactors: false });
     ok(fa.getTokenState('S3R') !== null, 'S3 复活 tick 重建 state');
     ok(FA.getMarketRegistrySize() === 1, 'S3 复活不重计（write-once）', FA.getMarketRegistrySize());
-    // 老票：首 tick 距 birth 50m > 40m → 不入册
+    // 老票：首 tick 距 birth 50m > 40m → 不入册（TokenCreate 见过但迟到的存量票）
     fa.registerToken('S3OLD', { createdAtMs: birth - 50 * MIN, totalSupply: 1e9 });
-    fa.processTick(mkTick('S3OLD', birth - 50 * MIN + 1000, true, 1, 0.01, '0x3'), { emitFactors: false });
+    fa.processTick(mkTick('S3OLD', T0 + 1000, true, 1, 0.01, '0x3'), { emitFactors: false });
     ok(FA.getMarketRegistrySize() === 1, 'S3 老票（>40m）不入册', FA.getMarketRegistrySize());
 }
 
@@ -162,7 +162,8 @@ function s4_cohortBoundaries() {
     }
     // 未成熟票（born T-5m，若入分母会污染三率）：10→50 假火箭
     birthToken(fa, 'S4YOUNG', T - 5 * MIN, [[1000, true, 10, 0.01], [2000, true, 50, 0.01]]);
-    let f = fa.buildFactorMap('S4C1', T);
+    // null 检查读在 T-90s（前一分钟）：minute(T) 不落 memo，30 票补齐后 T 读到重算截面
+    let f = fa.buildFactorMap('S4C1', T - 90 * 1000);
     ok(f.marketRocketRate30m === null && f.marketYoungMeanRet30m === null && f.marketDeathRate30m === null,
         'S4 分母 29<30 → 三率全 null fail-closed', f.marketRocketRate30m);
     // 存活者（S4C2 于 T-60s 再 tick，防 S4 全员死亡）——先补再加分母第 30 票
@@ -200,7 +201,8 @@ function s6_flowRing() {
     resetFeed();
     const fa = new FA({});
     const m0 = T0 / 60000;
-    birthToken(fa, 'S6F', T0, [[0, true, 1, 0.01]]);
+    // 出生 tick 用 0 量（只建 state 不污染流向账）
+    birthToken(fa, 'S6F', T0, [[0, true, 1, 0]]);
     // 远古买 5 BNB @m0-10 分钟槽
     fa.processTick(mkTick('S6F', (m0 - 10) * 60000 + 500, true, 1, 5, '0x6'), { emitFactors: false });
     let snap = fa.computeMarketSnapshot((m0 - 10) * 60000 + 60000); // m0-9 分钟读：远古在窗（差 1）

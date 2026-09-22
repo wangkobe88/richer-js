@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Richer 交易系统 - 市场截面 Regime 监控（观察版）</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header h1 { font-size: 22px; margin-bottom: 6px; color: #1a1a1a; }
+    .header .subtitle { font-size: 13px; color: #888; margin-bottom: 15px; }
+    .controls { display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
+    .control-group { display: flex; flex-direction: column; gap: 5px; }
+    .control-group label { font-size: 12px; color: #666; font-weight: 500; }
+    .btn { padding: 8px 16px; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+    .btn-secondary { background: #f0f0f0; color: #333; }
+    .btn-secondary:hover { background: #e0e0e0; }
+    .range-tabs { display: flex; gap: 0; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
+    .range-tabs button {
+      padding: 8px 14px; border: none; background: white; cursor: pointer;
+      font-size: 13px; color: #555;
+    }
+    .range-tabs button.active { background: #1890ff; color: white; }
+    .card {
+      background: white; border-radius: 8px; padding: 20px;
+      margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .card-title { font-size: 16px; font-weight: 600; color: #1a1a1a; }
+    .card-note { font-size: 12px; color: #999; }
+    .chart-container { position: relative; height: 320px; width: 100%; }
+    .error {
+      background: #fff2f0; border: 1px solid #ffccc7; border-radius: 4px;
+      padding: 12px; color: #ff4d4f; margin-bottom: 20px;
+    }
+    .empty-state { text-align: center; padding: 50px 20px; color: #999; line-height: 1.8; }
+    /* 分位卡片 */
+    .percentile-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
+    }
+    .pct-card {
+      border: 1px solid #ececec; border-radius: 8px; padding: 14px;
+      background: #fafafa;
+    }
+    .pct-card .k { font-size: 12px; color: #888; margin-bottom: 6px; }
+    .pct-card .v { font-size: 22px; font-weight: 700; color: #1a1a1a; }
+    .pct-card .p { font-size: 12px; color: #666; margin-top: 4px; }
+    .pct-card .d { font-size: 11px; color: #aaa; margin-top: 2px; }
+    .pct-card.nullstate { opacity: 0.65; }
+    .pct-card.nullstate .v { font-size: 16px; color: #999; }
+    .meta-line { font-size: 12px; color: #999; margin-top: 6px; }
+    @media (max-width: 768px) {
+      .controls { flex-direction: column; align-items: stretch; }
+      .chart-container { height: 240px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 页面头部 -->
+    <div class="header">
+      <h1>🌡️ 市场截面 Regime 监控（观察版）</h1>
+      <div class="subtitle">
+        market* 5 因子 = 全市场截面状态（同快照同值注入所有 token）。观察版纯只读，零交易路径接触；
+        任何交易策略 condition 均不引用 market* 键（audit-strategy-factor-keys.js 红线报错）。
+      </div>
+      <div class="controls">
+        <div class="control-group">
+          <label>时间窗</label>
+          <div class="range-tabs" id="rangeTabs">
+            <button data-range="1h">1h</button>
+            <button data-range="6h">6h</button>
+            <button data-range="24h" class="active">24h</button>
+            <button data-range="7d">7d</button>
+          </div>
+        </div>
+        <div class="control-group" style="flex-direction: row; align-items: flex-end;">
+          <button id="refreshBtn" class="btn btn-secondary">🔄 刷新</button>
+        </div>
+        <div class="control-group" style="margin-left: auto; justify-content: flex-end;">
+          <label id="autoRefreshLabel" style="text-align: right;">自动刷新 60s（下次 <span id="countdown">60</span>s）</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="errorContainer" style="display: none;"></div>
+
+    <!-- 当前值 + 历史分位卡片 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📌 当前值与窗口内分位</div>
+        <div class="card-note">分位按当前时间窗内非 null 快照计算；null = fail-closed（证据不足，≠ 0）</div>
+      </div>
+      <div id="pctCards" class="percentile-grid">
+        <div class="empty-state">加载中...</div>
+      </div>
+      <div class="meta-line" id="snapshotMeta"></div>
+    </div>
+
+    <!-- 面板①：5 键时序 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📈 市场截面时序</div>
+        <div class="card-note" id="seriesNote"></div>
+      </div>
+      <div class="card-title" style="font-size: 13px; color: #555; margin-bottom: 6px;">① 新生票数（1h 窗，柱）与 cohort 样本量（线）</div>
+      <div class="chart-container"><canvas id="chartNewborn"></canvas></div>
+      <div class="card-title" style="font-size: 13px; color: #555; margin: 18px 0 6px;">② 火箭率 / 断流死亡率（cohort，30m+成熟10m）与全市场买卖比（10m）</div>
+      <div class="chart-container"><canvas id="chartRates"></canvas></div>
+      <div class="card-title" style="font-size: 13px; color: #555; margin: 18px 0 6px;">③ cohort 末价平均涨幅 %</div>
+      <div class="chart-container"><canvas id="chartMeanRet"></canvas></div>
+    </div>
+  </div>
+
+  <!-- 引入 Chart.js 和依赖（同 experiment_observer.html 先例，不引新库） -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+  <!-- 引入页面逻辑 -->
+  <script src="/static/js/market_regime.js"></script>
+</body>
+</html>
