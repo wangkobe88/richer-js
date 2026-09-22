@@ -189,6 +189,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const { NarrativeDirectCaller } = require('../pre-check/NarrativeDirectCaller');
     this._narrativeCaller = new NarrativeDirectCaller();
 
+    // 1.6 叙话语料补采（新代币入池时抓平台附属信息进 raw_api_data；
+    // 配置段 corpusEnrich（默认/实验级覆盖经 _mergedWsConfig 合并；flap 子类同键生效））
+    const { TokenCorpusEnricher } = require('../core/TokenCorpusEnricher');
+    this._corpusEnricher = new TokenCorpusEnricher(
+      this._mergedWsConfig().corpusEnrich || {}, this.logger, this._experimentId);
+
     // 2. 代币池（FA 自带趋势序列，池不再需要价格/持有者历史缓存）
     this._tokenPool = new TokenPool(this.logger);
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '✅ 代币池初始化完成');
@@ -1338,7 +1344,38 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     } catch (error) {
       this.logger.error(this._experimentId, 'NewToken',
         `新代币落库失败 | ${info.token} ${error.message}`);
+      return;
     }
+
+    // 行已确保存在后补采语料（fire-and-forget：four.meme API/重试百毫秒~10s 级，
+    // 不阻塞采集回调；结果合并进 raw_api_data，叙事直调/预检查按新字段生效）
+    this._enrichCorpus(info, 'fourmeme');
+  }
+
+  /**
+   * 语料补采并落库（fire-and-forget，永不抛错）。
+   * flap 子类复用（_handleNewToken 覆盖里传 platform='flap' + info.meta）。
+   */
+  _enrichCorpus(info, platform) {
+    if (!this._corpusEnricher) return;
+    this._corpusEnricher.enrich(info.token, platform, info.meta)
+      .then(corpusFields => {
+        if (!corpusFields) return;
+        return this.dataService.updateTokenCorpus(this._experimentId, info.token, corpusFields)
+          .then(ok => {
+            if (ok) {
+              const parts = [
+                corpusFields.twitterUrl ? `twitter=${corpusFields.twitterUrl.slice(0, 50)}` : null,
+                corpusFields.webUrl ? 'web=有' : null,
+                corpusFields.description ? `descr=${String(corpusFields.description).slice(0, 20)}` : null,
+              ].filter(Boolean).join(' ');
+              this.logger.info(this._experimentId, 'NewToken',
+                `📥 语料补采 | ${info.symbol || info.token.slice(0, 10)} ${parts || '(无语料字段)'}`);
+            }
+          });
+      })
+      .catch(error => this.logger.warn(this._experimentId, 'NewToken',
+        `语料补采落库失败 | ${info.token} ${error.message}`));
   }
 
   /**

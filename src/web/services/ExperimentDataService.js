@@ -736,6 +736,59 @@ class ExperimentDataService {
   }
 
   /**
+   * 合并更新代币的叙事语料字段进 raw_api_data（TokenCorpusEnricher 补采结果落库）
+   *
+   * raw_api_data 只在 saveToken 时 insert 一次，此后无更新路径；本方法读-合-写
+   * （Supabase 无 JSON 字段合并原语）。合并后重算 narrative_material_id
+   * （saveToken 时链上字段无 URL 提不出，语料补齐后才有值；提不出时保留原值）。
+   *
+   * @param {string} experimentId - 实验ID
+   * @param {string} tokenAddress - 代币地址
+   * @param {Object} corpusFields - 语料字段（twitterUrl/webUrl/description/intro_en/corpus 等）
+   * @returns {Promise<boolean>} 是否更新成功
+   */
+  async updateTokenCorpus(experimentId, tokenAddress, corpusFields) {
+    try {
+      const { data: row, error: selectError } = await this.supabase
+        .from('experiment_tokens')
+        .select('id, raw_api_data')
+        .eq('experiment_id', experimentId)
+        .eq('token_address', tokenAddress)
+        .limit(1)
+        .maybeSingle();
+
+      if (selectError) throw selectError;
+      if (!row) {
+        // 行不存在（saveToken 失败或被清理）：语料无处可写，丢弃记日志
+        this.logger.warn('DataService', '更新语料的代币行不存在:', { details: { experimentId, tokenAddress } });
+        return false;
+      }
+
+      const merged = { ...(row.raw_api_data || {}), ...(corpusFields || {}) };
+      const updateData = { raw_api_data: merged, updated_at: new Date().toISOString() };
+
+      try {
+        const materialId = extractNarrativeMaterialId(merged);
+        if (materialId) updateData.narrative_material_id = materialId;
+      } catch (err) {
+        this.logger.warn('DataService', '[ExperimentDataService] 合并后提取narrative_material_id失败:', { details: err.message });
+      }
+
+      const { error } = await this.supabase
+        .from('experiment_tokens')
+        .update(updateData)
+        .eq('id', row.id);
+
+      if (error) throw error;
+      return true;
+
+    } catch (error) {
+      this.logger.error('DataService', '更新代币语料失败:', { details: error });
+      return false;
+    }
+  }
+
+  /**
    * 批量补充代币的叙事表征语料ID
    * 增量更新：跳过已有 narrative_material_id 的 token
    * @param {string} experimentId - 实验ID

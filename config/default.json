@@ -42,6 +42,15 @@
       "maxGasPrice": 10,
       "holdingsSyncMs": 300000,
       "sellFailureCooldownMs": 60000
+    },
+    "corpusEnrich": {
+      "enabled": true,
+      "concurrency": 3,
+      "fourmemeRetryDelayMs": 10000,
+      "ipfsGateways": [
+        "https://gateway.pinata.cloud/ipfs/",
+        "https://4everland.io/ipfs/"
+      ]
     }
   },
   "flapWs": {
@@ -70,7 +79,16 @@
     "pruneMaxAgeMs": 1800000,
     "timeSeriesIntervalMs": 30000,
     "timeSeriesActiveWindowMs": 60000,
-    "minTickBnb": 0.001
+    "minTickBnb": 0.001,
+    "corpusEnrich": {
+      "enabled": true,
+      "concurrency": 3,
+      "fourmemeRetryDelayMs": 10000,
+      "ipfsGateways": [
+        "https://gateway.pinata.cloud/ipfs/",
+        "https://4everland.io/ipfs/"
+      ]
+    }
   },
   "strategy": {
     "buyTimeMinutes": 1.33,

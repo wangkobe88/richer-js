@@ -75,7 +75,12 @@ class FlapWssTradingEngine extends FourMemeWssTradingEngine {
     } catch (error) {
       this.logger.error(this._experimentId, 'NewToken',
         `新代币落库失败 | ${info.token} ${error.message}`);
+      return;
     }
+
+    // 行已确保存在后补采语料（IPFS metadata，meta=IPFS URL/裸 CID；
+    // fire-and-forget 同 four.meme，enricher 配置取 flapWs.corpusEnrich）
+    this._enrichCorpus(info, 'flap');
   }
 
   /** 代币信息（购买前检查用；innerPair 后缀 _fl 区分 flap 内盘存档） */
