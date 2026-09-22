@@ -249,14 +249,35 @@
                     </div>
                 </div>
 
-                <!-- K线图 -->
+                <!-- Tick 交易散点图（每点=一笔链上交易，气泡大小=BNB 交易额） -->
                 <div id="kline-chart-wrapper" class="bg-gray-800 rounded-lg border border-gray-700 mb-4">
-                    <div class="p-4 border-b border-gray-700">
-                        <h2 class="text-lg font-semibold text-white">价格走势与交易信号</h2>
+                    <div class="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-semibold text-white">Tick 交易散点图与交易信号</h2>
+                            <span class="text-xs text-gray-400">每点=一笔链上交易 · 气泡大小=BNB交易额 · 绿买红卖 · 实线=已执行信号 · 虚线=未执行</span>
+                        </div>
+                        <div class="flex items-center gap-2 text-sm">
+                            <span class="text-gray-400 whitespace-nowrap">只显示代币发出后</span>
+                            <input type="number" id="tick-time-window" min="0" step="1" placeholder="不限" class="w-24 px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <span class="text-gray-400 whitespace-nowrap">秒内的 ticks</span>
+                            <button id="apply-tick-window" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white transition-colors">应用</button>
+                            <button id="reset-tick-window" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-white transition-colors">重置</button>
+                            <button id="load-full-ticks" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-white transition-colors whitespace-nowrap" title="分页拉取该代币全量 ticks（突破单页上限），展示窗口只框住交易区间=首末信号±5分钟，窗口外长尾 ticks 不画">加载全量（含所有信号）</button>
+                        </div>
                     </div>
                     <div class="chart-container">
                         <canvas id="kline-chart"></canvas>
                     </div>
+                </div>
+
+                <!-- K线图（按区块聚合 OHLC + 成交量副图 + 买卖信号标注） -->
+                <div id="candle-chart-wrapper" class="hidden bg-gray-800 rounded-lg border border-gray-700 mb-4">
+                    <div class="p-4 border-b border-gray-700 flex flex-wrap items-center justify-between gap-2">
+                        <h2 class="text-lg font-semibold text-white">K线图（按区块 OHLC + 买卖信号）</h2>
+                        <span class="text-xs text-gray-400">每根=一个区块 · 绿涨红跌 · 实线=已执行信号 · 虚线=未执行</span>
+                    </div>
+                    <div style="height:360px; padding:12px;"><canvas id="candle-chart"></canvas></div>
+                    <div style="height:140px; padding:0 12px 12px;"><canvas id="candle-volume-chart"></canvas></div>
                 </div>
 
                 <!-- Holder走势图 -->
@@ -390,7 +411,7 @@
         </main>
     </div>
 
-    <script src="/static/js/simple-init.js?v=4.21"></script>
-    <script src="/static/js/experiment_signals.js?v=4.21"></script>
+    <script src="/static/js/simple-init.js?v=4.22"></script>
+    <script src="/static/js/experiment_signals.js?v=4.22"></script>
 </body>
 </html>

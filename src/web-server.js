@@ -2770,6 +2770,52 @@ class RicherJsWebServer {
       }
     });
 
+    // ============ API路由：Tick 原始数据（信号页散点图/区块K线数据源） ============
+
+    // 查询代币的原始 ticks（block_time 升序，分页）
+    // 与 tick-kline-service 同口径：price_outlier 剔除、null price_usd 剔除、
+    // 按 token_address 全市场聚合（tick 表 UNIQUE(tx_hash, log_index) 全网去重）
+    this.app.get('/api/ticks', async (req, res) => {
+      try {
+        const { tokenAddress, from, to, tradeType, limit, offset } = req.query;
+
+        if (!tokenAddress) {
+          return res.status(400).json({ success: false, error: '缺少必需参数: tokenAddress' });
+        }
+
+        const supabase = this.dataService.supabase;
+
+        let query = supabase
+          .from('wss_price_ticks')
+          .select('block_time, block_number, price_usd, price_bnb, bnb_amount, token_amount, trade_type, trader_address, tx_hash', { count: 'exact' })
+          .eq('token_address', tokenAddress)
+          .eq('price_outlier', false)
+          .not('price_usd', 'is', null)
+          .order('block_time', { ascending: true });
+
+        if (from) query = query.gte('block_time', from);
+        if (to) query = query.lte('block_time', to);
+        if (tradeType) query = query.eq('trade_type', tradeType);
+
+        const pageLimit = Math.min(parseInt(limit) || 1000, 5000);
+        const pageOffset = parseInt(offset) || 0;
+        query = query.range(pageOffset, pageOffset + pageLimit - 1);
+
+        const { data, error, count } = await query;
+
+        if (error) throw error;
+
+        res.json({
+          success: true,
+          data: data || [],
+          pagination: { total: count || 0, limit: pageLimit, offset: pageOffset },
+        });
+      } catch (error) {
+        this.logger.error('WebServer', '获取tick数据失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // ============ API路由：K线数据 ============
 
     // 获取K线数据（用于信号/交易页面图表显示）

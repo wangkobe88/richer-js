@@ -23,8 +23,13 @@ class ExperimentSignals {
     this.selectedToken = 'all';  // 当前选择的代币，'all'表示全部
     this.availableTokens = [];   // 可用的代币列表
 
-    // 🔥 token 详情模式（URL 带 ?token= / #token=）：只展示信号时间前后的价格趋势图
-    this._tokenDetailMode = false;
+    // 🔥 Tick 图状态（散点图/区块K线共用一份数据与窗口口径）
+    this.tickWindowSec = null;   // 用户指定的 tick 时间窗口（代币发出后 N 秒；null=不限）
+    this._fullTickRange = false; // 全量模式（分页拉完全部 ticks，窗口=首末信号±5min）
+    this._lastTickData = null;   // 缓存已拉取的 ticks（窗口切换不重新 fetch）
+    this._lastToken = null;
+    this.candleChart = null;
+    this.candleVolumeChart = null;
 
     // 🔥 区块链信息（用于生成GMGN链接）
     this.blockchain = 'bsc';  // 默认BSC
@@ -125,6 +130,129 @@ class ExperimentSignals {
     safeBind('export-signals', 'click', () => {
       this.exportSignals();
     });
+
+    // 🔥 Tick 时间窗口过滤（代币发出后 N 秒）
+    safeBind('apply-tick-window', 'click', () => {
+      this.applyTickWindow();
+    });
+    safeBind('reset-tick-window', 'click', () => {
+      this.resetTickWindow();
+    });
+    // 输入框回车直接应用
+    safeBind('tick-time-window', 'keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.applyTickWindow();
+      }
+    });
+
+    // 🔥 分页拉取全量 ticks + 窗口覆盖所有买卖信号（单页上限可能截掉信号区间的 ticks）
+    safeBind('load-full-ticks', 'click', () => {
+      this.loadFullTickRange();
+    });
+  }
+
+  /**
+   * 应用 tick 时间窗口过滤：只展示代币发出后 N 秒内的 ticks
+   * 基准 = 该 token 第一个 tick 的 block_time（最小值）
+   */
+  applyTickWindow() {
+    const input = document.getElementById('tick-time-window');
+    if (!input) return;
+    const raw = input.value.trim();
+    const val = Number(raw);
+    // 空值或非正数 → 不限
+    this.tickWindowSec = (raw !== '' && Number.isFinite(val) && val > 0) ? val : null;
+    this._fullTickRange = false; // 显式窗口模式与全量模式互斥
+    if (this._lastTickData && this._lastToken) {
+      this.initBubbleChart(this._lastTickData, this._lastToken);
+      this.initCandleChart(this._lastTickData, this._lastToken);
+      this._renderHolderForWindow();
+    }
+  }
+
+  /**
+   * 重置 tick 时间窗口过滤（恢复默认：以首次信号为中心 ±5 分钟）
+   */
+  resetTickWindow() {
+    const input = document.getElementById('tick-time-window');
+    if (input) input.value = '';
+    this.tickWindowSec = null;
+    this._fullTickRange = false; // 重置回默认（首信号±5min）窗口
+    if (this._lastTickData && this._lastToken) {
+      this.initBubbleChart(this._lastTickData, this._lastToken);
+      this.initCandleChart(this._lastTickData, this._lastToken);
+      this._renderHolderForWindow();
+    }
+  }
+
+  /**
+   * 🔥 分页拉取该代币全量 ticks，展示窗口框住交易区间（首末信号 ±5 分钟）
+   * 单页实际返回可能 < 请求 limit（Supabase 托管层行数限制），
+   * block_time 升序 + offset 分页只拿到最早一页——信号区间的 ticks 可能在后面，
+   * 必须分页拉完；默认窗口=首信号±5min 也会漏掉后续轮次信号 → 全量模式窗口=首末信号±5min
+   */
+  async loadFullTickRange() {
+    const tokenAddress = this.selectedToken;
+    if (!tokenAddress || tokenAddress === 'all') return;
+    const token = this.availableTokens.find(t => t.address === tokenAddress)
+      || (this._lastToken && this._lastToken.address === tokenAddress ? this._lastToken : null);
+    if (!token) return;
+
+    const btn = document.getElementById('load-full-ticks');
+    if (btn && !btn.dataset.origText) btn.dataset.origText = btn.textContent; // 固定原始文案，重复点击不被「已加载全量…」覆盖
+    if (btn) { btn.disabled = true; btn.textContent = '加载中...'; }
+
+    try {
+      const PAGE = 5000;
+      const all = [];
+      let offset = 0;
+      // ⚠ offset 必须按实际返回条数推进：单页实际返回可能 < PAGE，
+      // 若按 PAGE 推进且用 page.length < PAGE 终止会第一页就提前退出（信号位置 ticks 缺失的根因）
+      while (true) {
+        const params = new URLSearchParams({
+          tokenAddress, limit: String(PAGE), offset: String(offset)
+        });
+        const response = await fetch(`/api/ticks?${params}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = await response.json();
+        const page = result?.data || [];
+        all.push(...page);
+        offset += page.length;
+        const total = result?.pagination?.total;
+        if (!page.length || (Number.isFinite(total) && all.length >= total)) break;
+      }
+
+      // 切换代币后过期响应直接丢弃（先恢复按钮状态，否则永久停留在「加载中...」）
+      if (this.selectedToken !== tokenAddress) {
+        if (btn) { btn.disabled = false; btn.textContent = btn.dataset.origText; }
+        return;
+      }
+
+      console.log(`📥 全量 ticks 拉取完成: ${token.symbol || tokenAddress} 共 ${all.length} 条`);
+
+      // 更新缓存 + 清掉窗口输入，进入全量模式后重渲染
+      const input = document.getElementById('tick-time-window');
+      if (input) input.value = '';
+      this.tickWindowSec = null;
+      this._fullTickRange = true;
+      this._lastTickData = all;
+      this._lastToken = token;
+
+      this.initBubbleChart(all, token);
+      this.initCandleChart(all, token);
+      this._renderHolderForWindow();
+
+      if (btn) btn.textContent = `已加载全量 ${all.length} 条`;
+    } catch (error) {
+      console.error('❌ 加载全量 ticks 失败:', error);
+      if (btn) { btn.disabled = false; btn.textContent = '加载失败，点击重试'; }
+      return;
+    }
+    if (btn) {
+      btn.disabled = false;
+      setTimeout(() => { if (btn.textContent.startsWith('已加载全量')) btn.textContent = btn.dataset.origText; }, 5000);
+    }
   }
 
   async loadData() {
@@ -375,9 +503,6 @@ class ExperimentSignals {
       if (tokenAddress) {
         console.log('🔍 设置selectedToken:', tokenAddress);
 
-        // 详情模式：只展示信号时间前后的价格趋势图
-        this._tokenDetailMode = true;
-
         // 直接设置 selectedToken（用于API过滤）
         // 此时 availableTokens 还未填充，所以先不检查
         this.selectedToken = tokenAddress;
@@ -404,77 +529,55 @@ class ExperimentSignals {
   }
 
   /**
-   * 🔥 加载特定代币的时序数据（替代K线数据）
+   * 🔥 加载特定代币的图表（tick 散点图 + 区块K线图 + Holder 走势）
+   * 数据源 wss_price_ticks（链上逐笔成交，与引擎决策同粒度——30s 时序快照会
+   * 漏采秒级脉冲，卖点前"看不到下跌"的显示问题由此修复）
    * @param {Object} token - 代币对象 { address, symbol, priority }
    */
   async loadKlineForToken(token) {
-    // 详情模式（URL ?token= / #token=）：只展示价格趋势图，且显示范围
-    // 裁剪到信号时间前后（图本身与非详情模式同源：源实验时序折线图）
-    if (this._tokenDetailMode) {
-      return this._loadSignalWindowKline(token);
-    }
-
     try {
       console.log('🔄 loadKlineForToken 开始:', token.symbol, token.address);
 
-      // 显示加载状态
+      // 切换代币：常规加载仍是单页上限，退出全量模式
+      this._fullTickRange = false;
+
       const chartWrapper = document.getElementById('kline-chart-wrapper');
-      const chartContainer = document.querySelector('.chart-container');
+      if (chartWrapper) chartWrapper.style.display = 'block';
 
-      // 首先确保图表区域可见
-      if (chartWrapper) {
-        chartWrapper.style.display = 'block';
-        console.log('✅ chartWrapper 设置为可见');
-      }
-      if (chartContainer) {
-        chartContainer.style.display = 'block';
-        console.log('✅ chartContainer 设置为可见');
-      }
+      // tick 数据 + 时序数据（Holder 图数据源）并行拉取
+      const [tickResponse, timeSeriesResponse] = await Promise.all([
+        this.fetchTickData(token.address),
+        this.fetchTimeSeriesData(token.address),
+      ]);
+      // 切换代币后过期响应直接丢弃
+      if (this.selectedToken !== token.address) return;
+      this._lastTimeSeriesData = timeSeriesResponse?.data || [];
 
-      // 获取代币的详细信息（created_at 和 discovered_at）
-      const tokenInfo = await this.fetchTokenInfo(token.address);
-
-      // 获取时序数据（替代K线数据）
-      const timeSeriesResponse = await this.fetchTimeSeriesData(token.address);
-
-      console.log('📊 fetchTimeSeriesData 返回:', {
-        success: timeSeriesResponse?.success,
-        dataLength: timeSeriesResponse?.data?.length,
-        firstData: timeSeriesResponse?.data?.[0]
-      });
-
-      if (!timeSeriesResponse || !timeSeriesResponse.data || timeSeriesResponse.data.length === 0) {
-        console.warn('⚠️ 没有时序数据，隐藏图表');
-        // 显示友好提示并隐藏整个图表区域
-        if (chartWrapper) {
-          chartWrapper.style.display = 'none';
-        }
+      if (!tickResponse?.success || !tickResponse?.data?.length) {
+        console.warn('⚠️ 没有 tick 数据，隐藏图表');
+        if (chartWrapper) chartWrapper.style.display = 'none';
+        const candleWrapper = document.getElementById('candle-chart-wrapper');
+        if (candleWrapper) candleWrapper.classList.add('hidden');
         const holderChartWrapper = document.getElementById('holder-chart-wrapper');
-        if (holderChartWrapper) {
-          holderChartWrapper.style.display = 'none';
-        }
+        if (holderChartWrapper) holderChartWrapper.style.display = 'none';
         return;
       }
 
-      // 更新时序数据
-      this.klineData = timeSeriesResponse.data;
+      this.initBubbleChart(tickResponse.data, token);
+      this.initCandleChart(tickResponse.data, token);
+      this._renderHolderForWindow();
 
-      // 初始化价格折线图，传入代币信息
-      this.initPriceLineChart(timeSeriesResponse.data, token, tokenInfo);
-
-      // 初始化 Holder 走势图
-      this.initHolderChart(timeSeriesResponse.data, token);
-
-      console.log(`✅ 代币 ${token.symbol} 的时序数据图表加载完成`);
-
+      console.log(`✅ Tick charts loaded for ${token.symbol}, ${tickResponse.data.length} ticks`);
     } catch (error) {
-      console.error(`❌ 加载代币 ${token.symbol} 的时序数据失败:`, error);
+      console.error(`❌ 加载 tick 数据失败:`, error);
 
       // 隐藏图表区域
       const chartWrapper = document.getElementById('kline-chart-wrapper');
       if (chartWrapper) {
         chartWrapper.style.display = 'none';
       }
+      const candleWrapper = document.getElementById('candle-chart-wrapper');
+      if (candleWrapper) candleWrapper.classList.add('hidden');
       const holderChartWrapper = document.getElementById('holder-chart-wrapper');
       if (holderChartWrapper) {
         holderChartWrapper.style.display = 'none';
@@ -483,64 +586,36 @@ class ExperimentSignals {
   }
 
   /**
-   * 详情模式：加载信号时间前后的价格趋势图
-   * 图本身不变（源实验 experiment_time_series_data 折线图，同原详情模式），
-   * 只把显示范围裁剪到该代币首末信号时间 ±5 分钟
-   * @param {Object} token - 代币对象 { address, symbol }
+   * 拉取代币的原始 ticks（单页上限内；需要完整数据点「加载全量」分页拉取）
+   * @param {string} tokenAddress
    */
-  async _loadSignalWindowKline(token) {
-    const chartWrapper = document.getElementById('kline-chart-wrapper');
-    if (chartWrapper) chartWrapper.style.display = 'block';
-
-    const tokenSignals = this.signals.filter(s =>
-      (s.token_address || s.tokenAddress) === token.address
-    );
-    const times = tokenSignals
-      .map(s => new Date(s.signal_timestamp || s.created_at).getTime())
-      .filter(t => !isNaN(t));
-
-    if (times.length === 0) {
-      this.showKlinePlaceholder('该代币暂无交易信号');
-      return;
-    }
-
-    const PAD_MS = 5 * 60 * 1000;
-    const startMs = Math.min(...times) - PAD_MS;
-    const endMs = Math.max(...times) + PAD_MS;
-
+  async fetchTickData(tokenAddress) {
     try {
-      const timeSeriesResponse = await this.fetchTimeSeriesData(token.address);
-      const all = timeSeriesResponse?.data || [];
-      if (all.length === 0) {
-        this.showKlinePlaceholder('暂无时序数据');
-        return;
-      }
-
-      const windowed = all.filter(d => {
-        const t = new Date(d.timestamp).getTime();
-        return !isNaN(t) && t >= startMs && t <= endMs;
-      });
-      if (windowed.length === 0) {
-        this.showKlinePlaceholder('信号时间前后暂无时序数据');
-        return;
-      }
-
-      const tokenInfo = await this.fetchTokenInfo(token.address);
-      // 首价参考点在窗口外时会拉宽 x 轴，剔除
-      if (tokenInfo?.discovered_at && new Date(tokenInfo.discovered_at).getTime() < startMs) {
-        delete tokenInfo.discovered_at;
-      }
-
-      this.initPriceLineChart(windowed, token, tokenInfo);
-
-      // Holder 走势图同样用窗口数据（保持与价格图同一显示范围）
-      this.initHolderChart(windowed, token);
-
-      console.log(`✅ 信号窗口价格趋势图加载完成: ${token.symbol}，${windowed.length}/${all.length} 个时序点，窗口 ${new Date(startMs).toISOString()} ~ ${new Date(endMs).toISOString()}`);
+      const params = new URLSearchParams({ tokenAddress, limit: '5000' });
+      const response = await fetch(`/api/ticks?${params}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
     } catch (error) {
-      console.error('❌ 信号窗口价格趋势图加载失败:', error);
-      this.showKlinePlaceholder('价格趋势图加载失败: ' + error.message);
+      console.error('获取tick数据失败:', error);
+      return { success: false, data: [] };
     }
+  }
+
+  /**
+   * 用最近一次窗口（散点图/K线图同口径）渲染 Holder 走势图
+   * 窗口外数据剔除，保持三图 X 轴显示范围一致；窗口内无时序点时回退全量
+   */
+  _renderHolderForWindow() {
+    if (!this._lastToken) return;
+    const win = this._lastWindow;
+    const all = this._lastTimeSeriesData || [];
+    if (!win || !all.length) return;
+
+    const windowed = all.filter(d => {
+      const t = new Date(d.timestamp).getTime();
+      return !isNaN(t) && t >= win.trimStart && t <= win.trimEnd;
+    });
+    this.initHolderChart(windowed.length > 0 ? windowed : all, this._lastToken);
   }
 
   /**
@@ -580,304 +655,394 @@ class ExperimentSignals {
   }
 
   /**
-   * 获取代币的详细信息（created_at, discovered_at）
-   * @param {string} tokenAddress - 代币地址
-   * @returns {Promise<Object>} 代币信息
+   * Tick 交易散点图 — 每个 tick 一个气泡（半径=BNB 交易额），买卖信号垂直线标注
+   * 画法移植自 pumpfun-wss-trader（BNB 计价适配）
    */
-  async fetchTokenInfo(tokenAddress) {
+  initBubbleChart(tickData, token) {
     try {
-      const targetExperimentId = this._isBacktest && this._sourceExperimentId
-        ? this._sourceExperimentId
-        : this.experimentId;
-
-      const response = await fetch(`/api/experiment/${targetExperimentId}/tokens?limit=10000`);
-      if (!response.ok) {
-        console.warn('获取代币列表失败，使用空数据');
-        return null;
-      }
-
-      const result = await response.json();
-      const tokens = result.data || result.tokens || [];
-      const tokenInfo = tokens.find(t =>
-        (t.token_address || t.address) === tokenAddress
-      );
-
-      if (tokenInfo) {
-        console.log('📊 找到代币信息:', {
-          created_at: tokenInfo.created_at,
-          discovered_at: tokenInfo.discovered_at,
-          raw_api_data_created_at: tokenInfo.raw_api_data?.created_at
-        });
-        return tokenInfo;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('❌ 获取代币信息失败:', error);
-      return null;
-    }
-  }
-
-  /**
-   * 初始化价格折线图（使用时序数据）
-   * @param {Array} timeSeriesData - 时序数据
-   * @param {Object} token - 代币对象
-   * @param {Object} tokenInfo - 代币详细信息（包含 created_at, discovered_at）
-   */
-  initPriceLineChart(timeSeriesData, token, tokenInfo = null) {
-    try {
-      console.log('📊 initPriceLineChart 被调用，数据点:', timeSeriesData.length, '代币:', token.symbol);
-
-      // 确保图表容器可见
       const chartWrapper = document.getElementById('kline-chart-wrapper');
-      if (chartWrapper) {
-        chartWrapper.style.display = 'block';
-      }
+      if (chartWrapper) chartWrapper.style.display = 'block';
 
-      // 隐藏占位符
       const placeholder = document.getElementById('kline-chart-placeholder');
-      if (placeholder) {
-        placeholder.style.display = 'none';
-      }
+      if (placeholder) placeholder.style.display = 'none';
 
-      // 确保并显示 canvas
       let canvas = document.getElementById('kline-chart');
       if (!canvas) {
-        // canvas 不存在，需要重新创建
         const chartContainer = document.querySelector('.chart-container');
-        if (!chartContainer) {
-          console.error('❌ 找不到 .chart-container 容器');
-          return;
-        }
+        if (!chartContainer) return;
         canvas = document.createElement('canvas');
         canvas.id = 'kline-chart';
-        chartContainer.innerHTML = ''; // 清空容器
+        chartContainer.innerHTML = '';
         chartContainer.appendChild(canvas);
-        console.log('✅ 重新创建了 kline-chart canvas 元素');
       }
       canvas.style.display = 'block';
 
-      // 销毁旧图表
-      if (this.chart) {
-        this.chart.destroy();
-        this.chart = null;
-      }
+      if (this.chart) { this.chart.destroy(); this.chart = null; }
 
       const ctx = canvas.getContext('2d');
 
-      // 🔥 价格乘以10亿得到市值
-      const MARKET_CAP_MULTIPLIER = 1e9; // 10亿
+      // 缓存原始数据，供 tick 时间窗口切换时重渲染（不重新 fetch）
+      this._lastTickData = tickData;
+      this._lastToken = token;
 
-      // 🔥 准备扩展数据：在时序数据前面添加首次价格参考点
-      const extendedData = [];
+      // 窗口裁剪 + 信号时间范围由共享 helper 计算（K线图与散点图同口径）
+      const { trimmed: trimmedTickData, trimStart, trimEnd, tokenSignals } =
+        this._trimTicksByWindow(tickData, token);
 
-      // 从时序数据第一个点获取 firstPrice
-      const firstPoint = timeSeriesData[0];
-      const factorValues = firstPoint?.factor_values || {};
-      const firstPrice = factorValues.firstPrice;
+      // 分离买卖 tick（过滤极小交易，价格精度不足）
+      const buys = [], sells = [];
+      const MIN_BNB = 0.005; // 小额 tick 价格精度不足
+      for (const tick of trimmedTickData) {
+        const bnbAmount = parseFloat(tick.bnb_amount) || 0;
+        if (bnbAmount < MIN_BNB) continue;
 
-      // 添加首次价格参考点（如果有数据）
-      if (firstPrice && tokenInfo?.discovered_at) {
-        const discoveredAt = new Date(tokenInfo.discovered_at);
-        extendedData.push({
-          timestamp: discoveredAt.toISOString(),
-          price_usd: firstPrice,
-          isReferencePoint: true,
-          pointType: 'firstPrice'
-        });
-        console.log('📊 添加首次价格参考点:', {
-          time: discoveredAt.toISOString(),
-          price: firstPrice
-        });
+        const priceUsd = parseFloat(tick.price_usd);
+        if (!priceUsd || priceUsd <= 0) continue;
+
+        const timestamp = new Date(tick.block_time).getTime();
+
+        const point = {
+          x: timestamp,
+          y: priceUsd,
+          r: this._mapTickRadius(bnbAmount),
+          _raw: tick,
+        };
+
+        if (tick.trade_type === 'buy') buys.push(point);
+        else sells.push(point);
       }
 
-      // 添加时序数据
-      timeSeriesData.forEach(d => {
-        extendedData.push({
-          ...d,
-          isReferencePoint: false
-        });
-      });
+      // 信号标注（仅展示当前裁剪窗口内的信号，避免窗口外的信号垂直线撑开 X 轴）
+      const annotations = this._buildSignalAnnotations(tokenSignals, trimStart, trimEnd);
 
-      // 准备数据
-      const labels = extendedData.map(d => new Date(d.timestamp));
-      const marketCaps = extendedData.map(d => d.price_usd ? parseFloat(d.price_usd) * MARKET_CAP_MULTIPLIER : null);
-
-      console.log('📊 图表数据准备完成:', {
-        labels: labels.length,
-        marketCaps: marketCaps.filter(m => m !== null).length,
-        firstLabel: labels[0],
-        lastLabel: labels[labels.length - 1],
-        referencePoints: extendedData.filter(d => d.isReferencePoint).length
-      });
-
-      // 准备信号标记点
-      const signalAnnotations = [];
-      const tokenSignals = this.signals.filter(s =>
-        (s.token_address || s.tokenAddress) === token.address
-      );
-
-      console.log('📊 找到', tokenSignals.length, '个该代币的信号');
-
-      tokenSignals.forEach(signal => {
-        const signalTime = new Date(signal.timestamp || signal.created_at);
-        const signalType = signal.signal_type || signal.action?.toUpperCase();
-        const isBuy = signalType === 'BUY';
-        const isExecuted = signal.executed === true || signal.executed === 'true';
-
-        // 找到最接近的数据点
-        const closestIndex = labels.findIndex(label => Math.abs(label - signalTime) < 30000); // 30秒内
-        if (closestIndex >= 0 && marketCaps[closestIndex] !== null) {
-          // 根据执行状态设置不同的样式
-          let borderColor, borderWidth, borderDash, labelBg, labelText;
-
-          if (isExecuted) {
-            // 已执行的信号：深色、实线、更粗
-            borderColor = isBuy ? '#22c55e' : '#dc2626';  // 深绿/深红
-            borderWidth = 3;
-            borderDash = [];  // 实线
-            labelBg = borderColor;
-            labelText = (isBuy ? '买入' : '卖出') + ' ✓';
-          } else {
-            // 未执行的信号：浅色、虚线、较细
-            borderColor = isBuy ? '#86efac' : '#fca5a5';  // 浅绿/浅红
-            borderWidth = 2;
-            borderDash = [5, 5];  // 虚线
-            labelBg = borderColor;
-            labelText = (isBuy ? '买入' : '卖出') + ' ✗';
-          }
-
-          signalAnnotations.push({
-            type: 'line',
-            xMin: signalTime,
-            xMax: signalTime,
-            yMin: 0,
-            yMax: 'max',
-            borderColor: borderColor,
-            borderWidth: borderWidth,
-            borderDash: borderDash,
-            label: {
-              display: true,
-              content: labelText,
-              position: 'start',
-              backgroundColor: labelBg,
-              color: '#fff',
-              font: {
-                size: isExecuted ? 12 : 11,
-                weight: isExecuted ? 'bold' : 'normal'
-              }
-            }
-          });
-        }
-      });
-
-      // 创建图表
       this.chart = new Chart(ctx, {
-        type: 'line',
+        type: 'bubble',
         data: {
-          labels: labels,
-          datasets: [{
-            label: `${token.symbol} 市值`,
-            data: marketCaps,
-            borderColor: '#1890ff',
-            backgroundColor: 'rgba(24, 144, 255, 0.1)',
-            borderWidth: 2,
-            pointRadius: extendedData.map(d => d.isReferencePoint ? 6 : 0),
-            pointHoverRadius: extendedData.map(d => d.isReferencePoint ? 8 : 4),
-            pointBackgroundColor: extendedData.map(d => {
-              if (d.pointType === 'launch') return '#9ca3af'; // 灰色 - 发布价
-              if (d.pointType === 'collection') return '#8b5cf6'; // 紫色 - 收集价
-              return '#1890ff';
-            }),
-            pointBorderColor: extendedData.map(d => {
-              if (d.isReferencePoint) return '#fff';
-              return '#1890ff';
-            }),
-            pointBorderWidth: extendedData.map(d => d.isReferencePoint ? 2 : 0),
-            fill: true,
-            tension: 0.1
-          }]
+          datasets: [
+            {
+              label: `Buy (${buys.length})`,
+              data: buys,
+              backgroundColor: 'rgba(34,197,94,0.65)',
+              borderColor: 'rgba(22,163,74,0.9)',
+              borderWidth: 1,
+            },
+            {
+              label: `Sell (${sells.length})`,
+              data: sells,
+              backgroundColor: 'rgba(239,68,68,0.65)',
+              borderColor: 'rgba(220,38,38,0.9)',
+              borderWidth: 1,
+            },
+          ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          interaction: {
-            mode: 'index',
-            intersect: false,
-          },
+          animation: { duration: 400 },
           plugins: {
-            annotation: {
-              annotations: signalAnnotations
-            },
-            legend: {
-              display: true,
-              position: 'top'
-            },
+            annotation: { annotations },
+            legend: { display: true, position: 'top', labels: { boxWidth: 12, padding: 12 } },
             tooltip: {
               callbacks: {
-                label: (context) => {
-                  const value = context.parsed.y;
-                  const dataIndex = context.dataIndex;
-                  const dataPoint = extendedData[dataIndex];
-
-                  if (value !== null) {
-                    // 市值格式化为K（千）为单位
-                    const marketCapInK = value / 1e3;
-                    let label = `市值: ${marketCapInK.toFixed(1)}K`;
-
-                    // 添加参考点标签
-                    if (dataPoint?.pointType === 'launch') {
-                      label = '📌 发布时价格: ' + label;
-                    } else if (dataPoint?.pointType === 'collection') {
-                      label = '📍 收集时价格: ' + label;
-                    }
-
-                    return label;
-                  }
-                  return '市值: N/A';
-                }
-              }
-            }
+                title(items) {
+                  if (!items.length) return '';
+                  return new Date(items[0].raw.x).toLocaleString('zh-CN');
+                },
+                label(item) {
+                  const raw = item.raw._raw;
+                  const bnb = (parseFloat(raw.bnb_amount) || 0).toFixed(4);
+                  const price = parseFloat(raw.price_usd || 0);
+                  const trader = (raw.trader_address || '').slice(0, 8) + '...';
+                  return [
+                    `${raw.trade_type === 'buy' ? 'BUY' : 'SELL'} | ${bnb} BNB`,
+                    `Price: $${price.toExponential(3)}`,
+                    `Trader: ${trader}`,
+                  ];
+                },
+              },
+            },
           },
           scales: {
-          x: {
-            type: 'time',
-            time: {
-              displayFormats: {
-                minute: 'HH:mm',
-                hour: 'MM-dd HH:mm'
-              }
+            x: {
+              type: 'time',
+              time: {
+                tooltipFormat: 'HH:mm:ss',
+                displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm' },
+              },
+              ticks: { font: { size: 10 }, maxTicksLimit: 12 },
+              title: { display: true, text: '时间' },
             },
-            title: {
-              display: true,
-              text: '时间'
-            }
+            y: {
+              type: 'logarithmic',
+              title: { display: true, text: 'Price (USD)' },
+              ticks: {
+                font: { size: 10 },
+                callback(v) {
+                  if (v >= 1) return '$' + v.toFixed(2);
+                  if (v >= 0.001) return '$' + v.toPrecision(2);
+                  return '$' + v.toExponential(1);
+                },
+              },
+            },
           },
-          y: {
-            type: 'linear',
-            display: true,
-            title: {
-              display: true,
-              text: '市值 (K)'
-            },
-            ticks: {
-              callback: function(value) {
-                // Y轴刻度显示为K（千）
-                return (value / 1e3).toFixed(1) + 'K';
-              }
-            }
-          }
+        },
+      });
+
+      console.log(`✅ Bubble chart initialized: ${buys.length} buys, ${sells.length} sells, ${annotations.length} annotations`);
+
+    } catch (error) {
+      console.error('❌ initBubbleChart 失败:', error);
+      this.showKlinePlaceholder('图表初始化失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 窗口裁剪：决定散点图/K线图实际展示的 tick 子集与时间范围（两者同口径）
+   *   0) 全量模式（_fullTickRange，点「加载全量」）→ 窗口 = ticks ∪ 全部信号时间范围（首末信号±5分钟）
+   *   1) 用户设了 tickWindowSec → 只保留代币发出后 [0, N秒] 内的 ticks
+   *   2) 否则有信号 → 以首次信号为中心 ±5 分钟（不足 10 条放宽到 ±10 分钟）
+   *   3) 都没有 → 全量
+   * @returns {{trimmed:Array, trimStart:number|null, trimEnd:number|null, tokenSignals:Array}}
+   */
+  _trimTicksByWindow(tickData, token) {
+    const tokenSignals = (this.signals || []).filter(s =>
+      (s.token_address || s.tokenAddress) === token.address
+    );
+    const firstTickTime = tickData.length > 0
+      ? Math.min(...tickData.map(t => new Date(t.block_time).getTime()))
+      : null;
+
+    if (this._fullTickRange) {
+      // 全量模式：数据已分页拉全（信号区间的 ticks 可能在单页之后），
+      // 但展示窗口只框住交易区间 = [首信号, 末信号] ± 5 分钟——窗口外的 ticks 裁掉不画，
+      // 避免 token 生命周期后段的长尾交易把 X 轴拉得过长、交易区被压窄看不见
+      const signalTimes = tokenSignals
+        .map(s => new Date(s.timestamp || s.created_at).getTime())
+        .filter(Number.isFinite);
+      if (signalTimes.length) {
+        const PAD = 5 * 60 * 1000; // 前后各延长 5 分钟（与默认窗口 ±5min 同量级）
+        const trimStart = Math.min(...signalTimes) - PAD;
+        const trimEnd = Math.max(...signalTimes) + PAD;
+        const trimmed = tickData.filter(t => {
+          const ms = new Date(t.block_time).getTime();
+          return Number.isFinite(ms) && ms >= trimStart && ms <= trimEnd;
+        });
+        this._lastWindow = { trimStart, trimEnd };
+        return { trimmed, trimStart, trimEnd, tokenSignals };
+      }
+      // 无信号：退化为全量展示（几万条 ticks 用循环求 min/max——Math.min(...arr) spread 会栈溢出）
+      let trimStart = firstTickTime;
+      let trimEnd = firstTickTime;
+      for (const t of tickData) {
+        const ms = new Date(t.block_time).getTime();
+        if (!Number.isFinite(ms)) continue;
+        if (trimStart == null || ms < trimStart) trimStart = ms;
+        if (trimEnd == null || ms > trimEnd) trimEnd = ms;
+      }
+      this._lastWindow = { trimStart, trimEnd };
+      return { trimmed: tickData, trimStart, trimEnd, tokenSignals };
+    }
+
+    let trimmed = tickData;
+    if (this.tickWindowSec != null && this.tickWindowSec > 0 && firstTickTime != null) {
+      // 用户指定时间窗口：只展示代币发出后 [0, N秒] 内的 ticks
+      const windowEnd = firstTickTime + this.tickWindowSec * 1000;
+      trimmed = tickData.filter(t => new Date(t.block_time).getTime() <= windowEnd);
+    } else if (tokenSignals.length > 0 && tickData.length > 0) {
+      // 默认：首末信号区间 ±5 分钟（覆盖全部轮次信号；只取首信号±5min 会漏掉
+      // 稍晚于首信号+5min 的卖出信号——4PAY 场景末信号恰在首信号+5min 之外）
+      const signalTimes = tokenSignals
+        .map(s => new Date(s.timestamp || s.created_at).getTime())
+        .filter(Number.isFinite);
+      const firstSignalTime = signalTimes.length ? Math.min(...signalTimes) : null;
+      const lastSignalTime = signalTimes.length ? Math.max(...signalTimes) : null;
+      if (firstSignalTime != null && lastSignalTime != null) {
+        const WINDOW_MS = 5 * 60 * 1000;
+        trimmed = tickData.filter(t => {
+          const tTime = new Date(t.block_time).getTime();
+          return tTime >= firstSignalTime - WINDOW_MS && tTime <= lastSignalTime + WINDOW_MS;
+        });
+        // 窗口内数据太少（<10 条），放宽到 ±10 分钟
+        if (trimmed.length < 10) {
+          const wideWindow = 10 * 60 * 1000;
+          trimmed = tickData.filter(t => {
+            const tTime = new Date(t.block_time).getTime();
+            return tTime >= firstSignalTime - wideWindow && tTime <= lastSignalTime + wideWindow;
+          });
         }
       }
+    }
+
+    const trimTimes = trimmed.map(t => new Date(t.block_time).getTime());
+    const trimStart = trimTimes.length > 0 ? Math.min(...trimTimes) : null;
+    const trimEnd = trimTimes.length > 0 ? Math.max(...trimTimes) : null;
+    this._lastWindow = { trimStart, trimEnd };
+    return { trimmed, trimStart, trimEnd, tokenSignals };
+  }
+
+  /**
+   * 生成买卖信号垂直线标注（仅保留落在 [trimStart, trimEnd] 窗口内的信号，
+   * 避免窗口外信号锚定 X 轴导致轴范围不随过滤收缩）
+   */
+  _buildSignalAnnotations(tokenSignals, trimStart, trimEnd) {
+    const annotations = [];
+    tokenSignals.forEach(signal => {
+      const signalTime = new Date(signal.timestamp || signal.created_at).getTime();
+      if (trimStart != null && trimEnd != null && (signalTime < trimStart || signalTime > trimEnd)) return;
+      const signalType = signal.signal_type || signal.action?.toUpperCase();
+      const isBuy = signalType === 'BUY';
+      const isExecuted = signal.executed === true || signal.executed === 'true';
+      const borderColor = isExecuted
+        ? (isBuy ? '#22c55e' : '#dc2626')
+        : (isBuy ? '#86efac' : '#fca5a5');
+      const labelText = (isBuy ? 'BUY' : 'SELL') + (isExecuted ? ' ✓' : ' ✗');
+      annotations.push({
+        type: 'line',
+        xMin: signalTime,
+        xMax: signalTime,
+        borderColor,
+        borderWidth: isExecuted ? 3 : 2,
+        borderDash: isExecuted ? [] : [5, 5],
+        label: {
+          display: true,
+          content: labelText,
+          position: 'start',
+          backgroundColor: borderColor,
+          color: '#fff',
+          font: { size: 11, weight: isExecuted ? 'bold' : 'normal' },
+        },
+      });
+    });
+    return annotations;
+  }
+
+  /**
+   * 按区块(block_number)聚合 OHLC + 成交量，供 candlestick K 线图使用
+   * （BSC 无 slot 概念，每根蜡烛=一个区块，与 pumpfun 按 block_slot 聚合同口径）
+   * @returns {{ohlc:Array, buyVol:Array, sellVol:Array}|null}
+   */
+  _buildBlockCandles(tickData) {
+    const ticksWithBlock = tickData.filter(t => t.block_number != null);
+    if (!ticksWithBlock.length) return null;
+    // reduce 而非 Math.min(...arr)：全量模式下几万条 ticks 的 spread 会栈溢出
+    const firstBlock = ticksWithBlock.reduce((min, t) => Math.min(min, t.block_number), Infinity);
+    // 按 block_time 升序聚合：每区块首笔=open，末笔持续覆盖即 close
+    const sorted = [...tickData].sort((a, b) => new Date(a.block_time) - new Date(b.block_time));
+    const map = new Map(); // blockNumber -> {t, open, high, low, close, buyVol, sellVol}
+    for (const t of sorted) {
+      if (t.block_number == null) continue;
+      const price = parseFloat(t.price_usd);
+      if (!price || price <= 0) continue;
+      const bnb = parseFloat(t.bnb_amount) || 0;
+      const block = t.block_number;
+      let g = map.get(block);
+      if (!g) { g = { t: new Date(t.block_time).getTime(), open: price, high: price, low: price, close: price, buyVol: 0, sellVol: 0 }; map.set(block, g); }
+      g.high = Math.max(g.high, price);
+      g.low = Math.min(g.low, price);
+      g.close = price;
+      if (t.trade_type === 'buy') g.buyVol += bnb; else g.sellVol += bnb;
+    }
+    if (!map.size) return null;
+    const blocks = [...map.keys()].sort((a, b) => a - b);
+    const ohlc = [], buyVol = [], sellVol = [];
+    for (const block of blocks) {
+      const g = map.get(block);
+      const x = g.t;                                 // 区块首笔时间戳
+      const blockSeq = block - firstBlock + 1;       // 区块序号（tooltip 展示）
+      ohlc.push({ x, o: g.open, h: g.high, l: g.low, c: g.close, blockSeq });
+      buyVol.push({ x, y: g.buyVol, blockSeq });
+      sellVol.push({ x, y: g.sellVol, blockSeq });
+    }
+    return { ohlc, buyVol, sellVol };
+  }
+
+  /**
+   * 区块 K 线图（candlestick 主图 + 成交量副图 + 买卖信号垂直线标注）
+   * 画法移植自 pumpfun-wss-trader（BNB 计价适配）；数据/标注口径与散点图一致（同一窗口、同一信号源）
+   */
+  initCandleChart(tickData, token) {
+    const wrapper = document.getElementById('candle-chart-wrapper');
+    if (!tickData || !tickData.length) { if (wrapper) wrapper.classList.add('hidden'); return; }
+
+    const { trimmed, trimStart, trimEnd, tokenSignals } = this._trimTicksByWindow(tickData, token);
+    const data = this._buildBlockCandles(trimmed);
+    if (!data) { if (wrapper) wrapper.classList.add('hidden'); return; }
+    if (wrapper) wrapper.classList.remove('hidden');
+
+    if (this.candleChart) { this.candleChart.destroy(); this.candleChart = null; }
+    if (this.candleVolumeChart) { this.candleVolumeChart.destroy(); this.candleVolumeChart = null; }
+
+    const signalAnnotations = this._buildSignalAnnotations(tokenSignals, trimStart, trimEnd);
+    // 涨跌配色：close>=open 绿，否则红（与散点图 buy绿/sell红 一致）
+    const up = 'rgba(34,197,94,0.85)', down = 'rgba(239,68,68,0.85)';
+
+    const canvas = document.getElementById('candle-chart');
+    if (!canvas) return;
+    this.candleChart = new Chart(canvas, {
+      type: 'candlestick',
+      data: { datasets: [{ label: 'OHLC(USD)', data: data.ohlc,
+        backgroundColors: { up, down, unchanged: up }, borderColors: { up, down, unchanged: up } }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+        plugins: {
+          annotation: { annotations: signalAnnotations },
+          legend: { labels: { boxWidth: 12, padding: 12 } },
+          tooltip: { callbacks: {
+            title: items => items.length ? `区块序号 ${items[0].raw.blockSeq} · ${new Date(items[0].raw.x).toLocaleTimeString('zh-CN')}` : '',
+            label: it => {
+              const p = it.raw, dir = p.c >= p.o ? '▲' : '▼';
+              return [`${dir} O $${p.o.toExponential(2)}  H $${p.h.toExponential(2)}`, `   L $${p.l.toExponential(2)}  C $${p.c.toExponential(2)}`];
+            },
+          } },
+        },
+        scales: {
+          x: { type: 'time', time: { tooltipFormat: 'HH:mm:ss', displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm' } },
+               // candlestick 控制器给 x 轴泄漏 ticks.source:'data'/major/autoSkipPadding:75（刻度=数据点时间戳，跳选后轴末端整段无刻度），
+               // 显式恢复 time 轴默认整刻度，保证铺满全轴（与散点图同口径）
+               ticks: { font: { size: 10 }, maxTicksLimit: 12, source: 'auto', major: { enabled: false }, autoSkipPadding: 3 },
+               title: { display: true, text: '时间' } },
+          y: { type: 'logarithmic', title: { display: true, text: 'Price (USD)' },
+               ticks: { font: { size: 10 }, callback(v) { if (v >= 1) return '$' + v.toFixed(2); if (v >= 0.001) return '$' + v.toPrecision(2); return '$' + v.toExponential(1); } } },
+        },
+      },
     });
 
-    console.log(`✅ 市值折线图已初始化，包含 ${timeSeriesData.length} 个数据点和 ${signalAnnotations.length} 个信号标记`);
+    const volCanvas = document.getElementById('candle-volume-chart');
+    if (!volCanvas) return;
+    this.candleVolumeChart = new Chart(volCanvas, {
+      type: 'bar',
+      data: { datasets: [
+        { label: `Buy (${data.buyVol.reduce((s, p) => s + p.y, 0).toFixed(2)} BNB)`, data: data.buyVol, backgroundColor: 'rgba(34,197,94,0.6)', stack: 'vol' },
+        { label: `Sell (${data.sellVol.reduce((s, p) => s + p.y, 0).toFixed(2)} BNB)`, data: data.sellVol, backgroundColor: 'rgba(239,68,68,0.6)', stack: 'vol' },
+      ] },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+        plugins: {
+          legend: { labels: { boxWidth: 12, padding: 12 } },
+          tooltip: { callbacks: {
+            title: items => items.length ? `区块序号 ${items[0].raw.blockSeq} · ${new Date(items[0].raw.x).toLocaleTimeString('zh-CN')}` : '',
+            label: it => `${it.dataset.label.split(' ')[0]} ${(it.raw.y).toFixed(4)} BNB`,
+          } },
+        },
+        scales: {
+          x: { type: 'time', stacked: true, time: { displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm' } },
+               ticks: { font: { size: 10 }, maxTicksLimit: 12 }, grid: { display: false } },
+          y: { stacked: true, title: { display: true, text: 'Vol (BNB)' }, ticks: { font: { size: 10 } } },
+        },
+      },
+    });
 
-  } catch (error) {
-    console.error('❌ initPriceLineChart 失败:', error);
-    // 显示错误提示
-    this.showKlinePlaceholder('图表初始化失败: ' + error.message);
+    console.log(`✅ Candle chart initialized: ${data.ohlc.length} blocks, ${signalAnnotations.length} signals`);
   }
+
+  /**
+   * tick 气泡半径映射（BNB 交易额 → 3~15px，对数刻度）
+   */
+  _mapTickRadius(bnbAmount) {
+    const minR = 3, maxR = 15;
+    const logVal = Math.log10(Math.max(bnbAmount, 0.01));
+    const normalized = Math.min(Math.max((logVal + 2) / 4, 0), 1); // 0.01 BNB ~ 100 BNB
+    return minR + normalized * (maxR - minR);
   }
 
   /**
