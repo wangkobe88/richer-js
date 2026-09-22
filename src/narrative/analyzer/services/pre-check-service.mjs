@@ -607,9 +607,9 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     // 调试日志：输出阈值判断结果
     console.log(`[NarrativeAnalyzer] ${video.name}阈值判断 - viewMeetsThreshold: ${viewMeetsThreshold} (${viewCount}>=${unratedViewThreshold}), likeMeetsThreshold: ${likeMeetsThreshold} (${likeCount}>=${unratedLikeThreshold})`);
 
-    // 获取用于显示的数据
-    const displayValue = hasViewData ? viewCount : likeCount;
-    const displayType = hasViewData ? '播放量' : '点赞数';
+    // 获取用于显示的数据（显示实际触发阈值的指标；抖音播放量常被隐藏为0，由点赞触发时不能显示"播放量=0"）
+    const displayValue = viewMeetsThreshold ? viewCount : likeCount;
+    const displayType = viewMeetsThreshold ? '播放量' : '点赞数';
 
     if (viewMeetsThreshold || likeMeetsThreshold) {
       console.log(`[NarrativeAnalyzer] 规则3触发: ${video.name}视频${displayType}=${displayValue}，达到unrated阈值`);
