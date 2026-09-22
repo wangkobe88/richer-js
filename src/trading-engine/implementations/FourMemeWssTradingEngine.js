@@ -226,6 +226,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._factorAggregator = new FourMemeFactorAggregator(
       { fourmemeWs: this._mergedWsConfig() }, this.logger);
     this._factorAggregator.on('factorsUpdated', (data) => this._onFactorsUpdated(data));
+    // 市场 regime 截面 feed 显式 opt-in（回迁批 2.6 观察版：web 侧裸 FA 不 feed → 读恒 null 零污染；
+    // 红线：任何交易策略 condition 不得引用 market* 键。stop() 关 feed 防同进程下一实验继承）
+    FourMemeFactorAggregator.setMarketFeedEnabled(true);
+    this._marketRegimeWriteFails = 0;
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '✅ 因子聚合器初始化完成');
 
     // 4. ankr WSS 采集器（发现 + tick + 毕业回调；平台 collector 由 _createCollector 决定）
@@ -495,6 +499,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       }
     }, this._pruneIntervalMs);
 
+    // 市场截面快照落表（60s，纯观察通道；写失败仅计数不重试不阻塞——显式设计非吞错兜底；
+    // ts=分钟桶键 → PK 幂等 upsert ≈1440 行/天，source=实验 id）
+    this._intervals.marketRegime = setInterval(() => {
+      this._captureMarketRegimeSnapshot().catch(err => {
+        this.logger.error(this._experimentId, 'MarketRegime', `快照采集异常: ${err.message}`);
+      });
+    }, 60 * 1000);
+
     // live 持仓对账（链上余额 vs 账面，外部处置/偏差告警）
     if (this._isLive) {
       this._intervals.liveSync = setInterval(() => {
@@ -508,6 +520,36 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `🚀 事件循环已启动（debounce=${this._signalDebounceMs}ms maxWait=${this._signalDebounceMaxWaitMs}ms ` +
       `时序=${this._timeSeriesIntervalMs / 1000}s 断流阈值=${this._wssDownThresholdMs / 60000}min），等待 WSS 事件...`);
+  }
+
+  /**
+   * 市场截面快照落表（60s 计时器；纯观察通道，失败仅计数不重试不阻塞）。
+   * ts=分钟桶键（ISO）→ 表 PK 幂等：计时器抖动/重启同分钟覆写不产生重复行。
+   */
+  async _captureMarketRegimeSnapshot() {
+    const snap = this._factorAggregator.computeMarketSnapshot(Date.now());
+    if (!snap) return; // 未 feed（引擎构造即 opt-in，理论不可达；防御 null 不写空行）
+    const { dbManager } = require('../../services/dbManager');
+    const row = {
+      ts: new Date(snap.minuteKey * 60000).toISOString(),
+      newborn_count_1h: snap.newborn1h,
+      rocket_rate_30m: snap.rocketRate,
+      young_mean_ret_30m: snap.youngMeanRetPct,
+      death_rate_30m: snap.deathRate,
+      flow_bs_ratio_10m: snap.flowBsRatio,
+      cohort_n: snap.cohortN,
+      flow_buy_bnb: snap.flowBuyBnb,
+      flow_sell_bnb: snap.flowSellBnb,
+      fed_age_ms: snap.fedAgeMs,
+      source: this._experimentId,
+    };
+    try {
+      await dbManager.getClient().from('market_regime_snapshots').upsert(row);
+    } catch (err) {
+      this._marketRegimeWriteFails++;
+      this.logger.error(this._experimentId, 'MarketRegime',
+        `快照落表失败（累计 ${this._marketRegimeWriteFails}）: ${err.message}`);
+    }
   }
 
   /**
@@ -571,6 +613,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       await this._collector.stop();
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '⏹️ WSS 采集器已停止');
     }
+
+    // 市场截面 feed 关闭 + 模块级单例清除（main.js 同进程起下一实验不继承旧截面）
+    require('../../services/FourMemeFactorAggregator').setMarketFeedEnabled(false);
 
     await super.stop();
 
@@ -757,14 +802,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
       // ── 叙事评级直调 ──
       // 策略配置 narrativeCallCondition（fire 因子评估）满足才同步调 NarrativeAnalyzer.analyze（Jev 秒级）；
-      // 未配置/不满足/调用失败/超时 → numericRating=9（未评级）放行，由 preBuyCheckCondition 裁决买不买。
+      // 结果为代币级全局缓存（不挂实验名下），未配置/不满足/调用失败/超时 → numericRating=9（未评级）放行，
+      // 由 preBuyCheckCondition 裁决买不买。
       let narrativeCallInfo = null;
       const narrativeCallCondition = strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== ''
         ? String(strategy.narrativeCallCondition).trim()
         : null;
       if (narrativeCallCondition && preCheckPassed
           && this._strategyEngine.evaluateCondition(narrativeCallCondition, factorResults)) {
-        narrativeCallInfo = await this._narrativeCaller.getRating(token.token, this._experimentId);
+        narrativeCallInfo = await this._narrativeCaller.getRating(token.token);
         this.logger.info(this._experimentId, 'BuyEval',
           `叙事评级直调 | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
           ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +

@@ -89,7 +89,6 @@ router.get('/result/:address', async (req, res) => {
     // 添加元数据
     formattedResult.meta = {
       analyzedAt: result.analyzed_at,
-      sourceExperimentId: result.experiment_id,
       promptVersion: result.prompt_version,
       isValid: result.is_valid,
       preCheckTriggered: !!result.pre_check_result

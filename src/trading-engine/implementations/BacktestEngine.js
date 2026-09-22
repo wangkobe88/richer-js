@@ -135,6 +135,9 @@ class BacktestEngine extends AbstractTradingEngine {
       ...(this._experiment?.config?.[wsSection] || {}),
     };
     this._factorAggregator = new FourMemeFactorAggregator({ fourmemeWs: wsConfig }, this.logger);
+    // 市场 regime 截面 feed 显式 opt-in（回迁批 2.6 观察版：与 WSS 引擎同入口同截面口径，
+    // 回放 tick ts 自动成为决策时钟；回测不落表（不污染观察史）。红线同 WSS 引擎：condition 不引用 market*）
+    FourMemeFactorAggregator.setMarketFeedEnabled(true);
 
     // 4. 策略引擎（buy/sell 扁平化，与实时引擎同构；分腿评估语义）
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
@@ -402,6 +405,9 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.error(this._experimentId, 'BacktestEngine', `❌ 回放执行失败: ${error.message}`);
       this.logger.error(this._experimentId, 'BacktestEngine', 'Stack trace', { stack: error.stack });
     } finally {
+      // 市场截面 feed 关闭 + 模块级单例清除（防同进程下一实验继承回放累积的截面）
+      require('../../services/FourMemeFactorAggregator').setMarketFeedEnabled(false);
+
       const finalStatus = completedSuccessfully ? 'completed' : 'failed';
       try {
         await this._updateExperimentStatus(finalStatus);
@@ -614,13 +620,14 @@ class BacktestEngine extends AbstractTradingEngine {
       }
 
       // ── 叙事评级直调（同实时引擎：narrativeCallCondition 满足才同步调 analyze；
-      // 超时挂钟等待 30s，虚拟时钟回放下视为该 tick 时点的决策；失败/超时=9 放行）──
+      // 结果为代币级全局缓存（不挂实验名下）；超时挂钟等待 30s，虚拟时钟回放下视为该 tick 时点的决策；
+      // 失败/超时=9 放行）──
       let narrativeCallInfo = null;
       const narrativeCallCondition = strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== ''
         ? String(strategy.narrativeCallCondition).trim() : null;
       if (narrativeCallCondition && preCheckPassed
           && this._strategyEngine.evaluateCondition(narrativeCallCondition, factorResults)) {
-        narrativeCallInfo = await this._narrativeCaller.getRating(token.token, this._experimentId);
+        narrativeCallInfo = await this._narrativeCaller.getRating(token.token);
         this.logger.info(this._experimentId, 'BuyEval',
           `叙事评级直调(回放) | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
           ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +

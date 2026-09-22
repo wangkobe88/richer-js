@@ -8,6 +8,9 @@
  * 引用键 ∉ FA 全集 = ConditionEvaluator 对 undefined 恒 false → 买入被静默封死。
  * （preBuyCheckCondition 的上下文是 PreBuyCheckService 结果键，不在本审计范围。）
  *
+ * 红线（回迁批 2.6）：market* 键是市场截面【观察版】因子，禁止进任何交易策略
+ * condition——引用即报错 exitCode 3（null 过 ConditionEvaluator 恒 false 只是二道保险）。
+ *
  * 用法：node scripts/audit-strategy-factor-keys.js [--limit 20] [--exp <experimentId>]
  */
 
@@ -53,6 +56,8 @@ async function main() {
 
   // 全局引用统计：key → [实验名...]
   const unknownRefs = new Map();
+  // 红线：market* 观察版键进 condition（回迁批 2.6；key → [实验名...]）
+  const marketRefs = new Map();
   let auditedConditions = 0;
   const seenConditions = new Set();
 
@@ -67,6 +72,11 @@ async function main() {
       seenConditions.add(c);
       auditedConditions++;
       for (const id of extractIdentifiers(c)) {
+        if (/^market/.test(id)) {
+          if (!marketRefs.has(id)) marketRefs.set(id, []);
+          marketRefs.get(id).push(`${exp.experiment_name}(${kind})`);
+          continue;
+        }
         if (!faKeys.has(id)) {
           if (!unknownRefs.has(id)) unknownRefs.set(id, []);
           unknownRefs.get(id).push(`${exp.experiment_name}(${kind})`);
@@ -78,6 +88,14 @@ async function main() {
   console.log(`\n审计实验数: ${(experiments || []).length}，去重 condition 数: ${auditedConditions}`);
   console.log(`FA 因子键全集: ${faKeys.size} 个`);
 
+  if (marketRefs.size > 0) {
+    console.log(`\n❌ 红线违规：${marketRefs.size} 个 market* 观察版键被 condition 引用（禁止进交易策略）:`);
+    for (const [key, refs] of [...marketRefs.entries()].sort()) {
+      console.log(`  ${key}  ← ${[...new Set(refs)].slice(0, 3).join(', ')}${new Set(refs).size > 3 ? ' 等' : ''}`);
+    }
+    process.exitCode = 3;
+  }
+
   if (unknownRefs.size === 0) {
     console.log('✅ 所有 condition 引用键均在 FA 因子全集内（无静默封死风险）');
   } else {
@@ -85,7 +103,7 @@ async function main() {
     for (const [key, refs] of [...unknownRefs.entries()].sort()) {
       console.log(`  ${key}  ← ${[...new Set(refs)].slice(0, 3).join(', ')}${new Set(refs).size > 3 ? ' 等' : ''}`);
     }
-    process.exitCode = 2;
+    if (process.exitCode !== 3) process.exitCode = 2; // 红线违规（3）优先保留
   }
 }
 

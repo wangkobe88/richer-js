@@ -76,10 +76,8 @@ async function executeTask(task) {
   console.log(`[INFO] Task ${task.id} 开始分析`);
 
   const result = await withTimeout(
-    Analyzer.analyze(task.token_address, {
-      experimentId: task.triggered_by_experiment_id,
-      ignoreCache: false
-    }),
+    // 叙事结果为代币级全局缓存（不挂实验名下）：命中 is_valid 缓存即复用，不重复分析
+    Analyzer.analyze(task.token_address, { ignoreCache: false }),
     timeout
   );
 

@@ -136,14 +136,15 @@ export class NarrativeAnalyzer {
 
   /**
    * 分析代币叙事（带缓存）
+   * 叙事结果为代币级全局缓存（token_address 唯一，不挂实验名下）：
+   * 同一代币任何实验/任何调用方共享一份，命中有效缓存即复用，不重复分析
    * @param {string} address - 代币地址
    * @param {Object} options - 选项
    * @param {boolean} options.ignoreCache - 是否忽略缓存，强制重新分析
    * @param {boolean} options.ignoreExpired - 是否忽略过期时间限制
-   * @param {string} options.experimentId - 实验ID，用于标识数据来源
    */
   static async analyze(address, options = {}) {
-    const { ignoreCache = false, ignoreExpired = false, experimentId = null } = options;
+    const { ignoreCache = false, ignoreExpired = false } = options;
 
     // 标准化地址
     const normalizedAddress = address.toLowerCase();
@@ -151,65 +152,35 @@ export class NarrativeAnalyzer {
     // 1. 检查缓存（查询最新的记录，任何实验的都可以）
     const cached = await NarrativeRepository.findByAddress(normalizedAddress);
 
-    // 2. 判断是否可以使用缓存
-    if (cached && cached.is_valid) {
-      if (!ignoreCache) {
-        // ===== 不设置重新分析（ignoreCache=false）=====
-        // 直接使用已有的分析结果（任何实验的都可以）
-        // 检查是否是预检查触发的结果
-        const isCachedPreCheck = !!cached.pre_check_result;
-        const llmAnalysis = buildLLMAnalysis(cached);
-        return {
-          ...formatResult(cached),
-          llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段
-          classifiedUrls: cached.classified_urls || null,
-          twitter: await ExternalResourceCache.reassembleTwitterInfo(cached.classified_urls?.twitter),
-          fetchErrors: null,
-          debugInfo: {
-            urlExtractionResult: cached.url_extraction_result || null,
-            dataFetchResults: cached.data_fetch_results || null,
-            promptVersion: cached.prompt_version || null,
-            analysisStage: cached.analysis_stage || null
-          },
-          meta: {
-            fromCache: true,
-            fromFallback: false,
-            preCheckTriggered: isCachedPreCheck,
-            preCheckReason: isCachedPreCheck ? cached.pre_check_result?.details?.ruleName : null,
-            analyzedAt: cached.analyzed_at,
-            sourceExperimentId: cached.experiment_id
-          }
-        };
-      } else {
-        // ===== 设置了重新分析（ignoreCache=true）=====
-        // 检查缓存的 experiment_id 是否是当前实验
-        // 只有当 experimentId 明确指定且与缓存的 experiment_id 匹配时，才使用缓存
-        if (experimentId && cached.experiment_id === experimentId) {
-          // 缓存是当前实验的 → 说明本实验已经分析过这个代币了
-          // 直接使用缓存，不再重复分析
-          const llmAnalysis = buildLLMAnalysis(cached);
-          return {
-            ...formatResult(cached),
-            llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段
-            classifiedUrls: cached.classified_urls || null,
-            twitter: await ExternalResourceCache.reassembleTwitterInfo(cached.classified_urls?.twitter),
-            fetchErrors: null,
-            debugInfo: {
-              urlExtractionResult: cached.url_extraction_result || null,
-              dataFetchResults: cached.data_fetch_results || null,
-              promptVersion: cached.prompt_version || null,
-              analysisStage: cached.analysis_stage || null
-            }
-          };
+    // 2. 判断是否可以使用缓存（代币级全局：命中有效缓存即复用，ignoreCache=true 才强制重分析）
+    if (cached && cached.is_valid && !ignoreCache) {
+      // 检查是否是预检查触发的结果
+      const isCachedPreCheck = !!cached.pre_check_result;
+      const llmAnalysis = buildLLMAnalysis(cached);
+      return {
+        ...formatResult(cached),
+        llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段
+        classifiedUrls: cached.classified_urls || null,
+        twitter: await ExternalResourceCache.reassembleTwitterInfo(cached.classified_urls?.twitter),
+        fetchErrors: null,
+        debugInfo: {
+          urlExtractionResult: cached.url_extraction_result || null,
+          dataFetchResults: cached.data_fetch_results || null,
+          promptVersion: cached.prompt_version || null,
+          analysisStage: cached.analysis_stage || null
+        },
+        meta: {
+          fromCache: true,
+          fromFallback: false,
+          preCheckTriggered: isCachedPreCheck,
+          preCheckReason: isCachedPreCheck ? cached.pre_check_result?.details?.ruleName : null,
+          analyzedAt: cached.analyzed_at
         }
-        // 缓存是别的实验的（或 experiment_id 为空）或 experimentId 未指定
-        // → 需要重新分析，保存时带上当前 experiment_id
-        // 这样后续再遇到这个代币时，就会命中本实验的缓存
-      }
+      };
     }
 
-    // 3. 执行叙事分析（缓存未命中 或 需要重新分析）
-    // 分析结果会保存时带上当前 experiment_id，用于后续缓存判断
+    // 3. 执行叙事分析（缓存未命中 或 ignoreCache=true 强制重新分析）
+    // 结果按 token_address 全局 upsert，供所有调用方复用
 
     // 2. 从数据库获取代币数据
     const tokenData = await fetchTokenData(normalizedAddress);
@@ -574,7 +545,7 @@ export class NarrativeAnalyzer {
 
     // 9. 如果分析失败且有缓存，使用缓存作为fallback
     if (analysisFailed && cached && cached.is_valid) {
-      console.log(`分析失败，使用已有缓存作为fallback | address=${normalizedAddress}, cached_experiment=${cached.experiment_id}`);
+      console.log(`分析失败，使用已有缓存作为fallback | address=${normalizedAddress}`);
       return {
         ...formatResult(cached),
         classifiedUrls: cached.classified_urls || null,
@@ -589,13 +560,12 @@ export class NarrativeAnalyzer {
         meta: {
           fromCache: true,
           fromFallback: true, // 标记这是fallback缓存
-          analyzedAt: cached.analyzed_at,
-          sourceExperimentId: cached.experiment_id
+          analyzedAt: cached.analyzed_at
         }
       };
     }
 
-    // 9. 保存结果（包含 experiment_id 和 prompt_type）- 只有在分析成功时才保存
+    // 9. 保存结果 - 只有在分析成功时才保存（结果为代币级全局缓存，不挂实验名下）
     // 注意：只保存 twitter_info，微博等背景信息不保存（已缓存到 external_resource_cache）
 
     // 清理数据中的空字符和控制字符（PostgreSQL不支持）
@@ -635,7 +605,6 @@ export class NarrativeAnalyzer {
       twitter_info: cleanedTwitterInfo,
       classified_urls: classifiedUrls,
       analyzed_at: new Date().toISOString(),
-      experiment_id: experimentId,
       is_valid: true,
       prompt_version: promptVersion,
       analysis_stage: llmResult?.analysis_stage || null,
@@ -685,7 +654,6 @@ export class NarrativeAnalyzer {
         preCheckTriggered: isPreCheckTriggered,
         preCheckReason: isPreCheckTriggered ? preCheckDataToSave?.details?.ruleName : null,
         analyzedAt: saveResult.analyzed_at,
-        sourceExperimentId: experimentId,
         promptVersion: promptVersion,
         promptType: promptType
       },

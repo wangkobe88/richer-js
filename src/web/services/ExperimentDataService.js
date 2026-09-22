@@ -1295,7 +1295,6 @@ class ExperimentDataService {
             discovered_at: token.discovered_at,
             narrative: {
               rating: rating,
-              experiment_id: narrative.experiment_id,
               analyzed_at: narrative.analyzed_at,
               llmAnalysis: llmAnalysis
             },

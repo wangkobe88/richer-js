@@ -46,7 +46,7 @@
  *
  * 不迁（母版特定装置）：zz25、w0ShareB/_w0bWin、k0 latch、_traderMaxNetTokens、
  * maxEarlyBuySol、afterFirst3s、_cumulativeBuy/SellTokens、preFilter、ML/GMGN/TPA、
- * creator 前作命中率（批 2.5）、market 截面 5 键（批 2.6）、smartBot/sniper（批 3.3）。
+ * smartBot/sniper（批 3.3）。
  */
 
 const EventEmitter = require('events');
@@ -106,6 +106,10 @@ const FACTOR_PARAM_DEFAULTS = {
     tickFlowIdleYoungSec: 9,     // 断流阈值：年轻档（母版 3s）
     tickFlowIdleMidSec: 12,      // 断流阈值：中档（母版 4s）
     tickFlowIdleOldSec: 24,      // 断流阈值：老档（母版 8s，闭区间 <=）
+    // ── 市场截面 cohort 三参数（回迁批 2.6；母版 config 顶层级，此处并入 factorParams 统一覆盖）──
+    marketCohortWinMs: 40 * 60 * 1000,  // cohort 出生窗上沿：birth∈[t−40m, t−10m] 计分母
+    marketMatureMs: 10 * 60 * 1000,     // cohort 成熟下沿：出生后 ≥10m 才计分母（<10m 未成熟）
+    marketMinCohort: 30,                // 分母 < 此数 → 三个 cohort 率全 null fail-closed
 };
 
 // ── Q 组：creator 前作 registry 常量（pumpfun 逐字沿用——跨票日级口径与链节奏无关）──
@@ -113,6 +117,31 @@ const CREATOR_PRIOR_WINDOW_MS = 24 * 3600 * 1000;  // 前作首可靠价窗口 [
 const CREATOR_PRIOR_UNFOLD_MS = 10 * 60 * 1000;    // 展开 10min（排除刚出生未展开票；本 token 另行排除）
 const CREATOR_PRIOR_MIN_N = 2;                     // 分母 <2 → 命中率 null fail-closed（null=放行方向）
 const CREATOR_PRIOR_TTL_MS = 26 * 3600 * 1000;     // registry 条目自剪枝：firstTs 龄超窗（24h+余量）即弃
+
+// ── 市场截面 regime 观测（market* 5 键，回迁批 2.6；pumpfun 08-30 观察版口径）──
+// 既有因子全部 per-token，市场整体状态=真实盲区；本组把市场状态做成截面因子（同快照同值
+// 注入所有 token）。★红线：观察版——任何交易策略 condition 不得引用 market* 键
+// （audit-strategy-factor-keys.js 对引用报错；null 过 ConditionEvaluator 恒 false 是二道保险）。
+// 模块级单例（跨 FA 实例共享，pruneStaleTokens 不清）。
+// ⚠写路径显式 opt-in：仅两引擎（Wss/Backtest）构 FA 后调 setMarketFeedEnabled(true)——web 侧
+//   裸 FA 实例不 feed → 读恒 null，零污染零误计；引擎 stop 关 feed 清单例（防同进程下一实验继承）。
+// 出生锚 = state.createdAtMs（live=TokenCreate 块时间 / 回测=experiment_tokens discovered_at，
+// 与 age 同基准；母版 firstTickAt 本身是墓碑/DB discovered_at 证据链≈创建时间，语义对齐）。
+// 距出生已 >40m 的老票不入册（防引擎中途启动把存量票当 newborn 灌满截面；richer-js FA 无 DB
+// 证据链，未见 TokenCreate 的存量票无法识别——视作新生，≈40m 内自愈出 cohort 窗，此残留存案）。
+// registry 只进 newborn：断流死票【保留在册】（death 率口径含死亡票=无幸存者偏差），仅按 birth
+// 龄写时裁剪（TTL=65m ≥ newborn 1h 窗 60m + 余量；FIFO 写时裁剪 O(1) 摊销）。
+let _marketFeedEnabled = false;
+let _marketRegime = null;
+// 窗口常量（定义非调参——改=改口径，须同步 _test_market_regime.cjs；cohort 三参数在
+// FACTOR_PARAM_DEFAULTS，可经 factorParams 覆盖）：
+const MARKET_NEWBORN_WIN_MS = 60 * 60 * 1000;      // marketNewbornCount1h：trailing 60m 出生数
+const MARKET_REGISTRY_TTL_MS = 65 * 60 * 1000;     // registry 出生龄上限（≥ newborn 窗 + 余量）
+const MARKET_ROCKET_REL_PCT = 100;                 // marketRocketRate30m：峰值相对首可靠价 ≥ +100% 记火箭
+const MARKET_DEATH_IDLE_MS = 540 * 1000;           // marketDeathRate30m：now−lastTs ≥ 540s 记断流死（母版 180s；BSC 出块 3s 节奏 ×3）
+const MARKET_FLOW_RING_LEN = 11;                   // marketFlowBsRatio10m：分钟环长（10m 窗 + 当前分钟）
+const MARKET_FLOW_MIN_SELL_BNB = 1;                // 流向比 Σsell < 1 BNB → null fail-closed（母版 5 SOL，同名义档）
+const MARKET_NEWBORN_MAX_AGE_MS = 40 * 60 * 1000;  // 出生注册门：首 tick 距 birth > 此值不入册（老票）
 
 class FourMemeFactorAggregator extends EventEmitter {
     /**
@@ -201,6 +230,31 @@ class FourMemeFactorAggregator extends EventEmitter {
         };
     }
 
+    // ═══════════════ 市场截面 regime（回迁批 2.6，模块级单例）═══════════════
+
+    /**
+     * 市场 feed 显式 opt-in（仅两引擎调用；web 裸 FA 不调 → 读恒 null，零污染）。
+     * 关 feed 即清单例（防 main.js 同进程起下一实验继承旧截面）。
+     * @param {boolean} on
+     */
+    static setMarketFeedEnabled(on) {
+        _marketFeedEnabled = !!on;
+        if (_marketFeedEnabled && !_marketRegime) {
+            _marketRegime = {
+                startedAt: null,        // 首 feed tick ts（fedAgeMs 诊断口径；backtest=回放首 tick）
+                registry: new Map(),    // token → {birth, firstPrice, lastPrice, lastRelPct, peakRelPct, lastTs}
+                fifo: [],               // 注册序 token 队列（按 birth 龄写时裁剪的游标）
+                ringFlow: Array.from({ length: MARKET_FLOW_RING_LEN }, () => ({ k: 0, b: 0, s: 0 })),  // 分钟桶 Σ买/Σ卖 BNB
+                snapMinute: null,       // 快照 memo：分钟桶键（同分钟跨 token 恒同值=截面一致性由构造保证）
+                snap: null,
+            };
+        }
+        if (!_marketFeedEnabled) _marketRegime = null;
+    }
+
+    static isMarketFeedEnabled() { return _marketFeedEnabled; }
+    static getMarketRegistrySize() { return _marketRegime ? _marketRegime.registry.size : 0; }
+
     /**
      * 当前因子体系的全量因子 key 集合（权威单一事实源，空 state 产出即全量键）。
      * Phase 3 策略 condition 键审计用：策略引用键 ∉ 此集合 = 会被静默封死买入。
@@ -247,7 +301,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             this._states.set(tokenAddress, state);
         }
         state.tickCount++;
-        if (state.firstTickAt === null) state.firstTickAt = ts; // 首 tick 锚点（滑窗 span/trend age/脉冲期口径）
+        if (state.firstTickAt === null) {
+            state.firstTickAt = ts; // 首 tick 锚点（滑窗 span/trend age/脉冲期口径）
+            // 市场截面：新出生注册（write-once；registry 已在册的 prune 复活票不重计，S3 口径）
+            this._marketRegisterBirth(tokenAddress, state, ts);
+        }
         if (state.firstBlockNumber === null && tick.block_number != null) {
             state.firstBlockNumber = Number(tick.block_number); // bigHolder early 判定基准 s0（write-once）
         }
@@ -555,6 +613,10 @@ class FourMemeFactorAggregator extends EventEmitter {
         this._pruneRecentTicks(state, ts);
         this._updateSlideWin(state, ts, isBuy, bnbAmount, tick.trader_address);
 
+        // ── 市场截面：全量 tick 口径累积（流量环 + registry 价格/存活推进 + FIFO 写时裁剪；
+        //    市场状态与挂载策略无关。尘 tick 计流量不计价——priceReliable 守卫，S8）──
+        this._marketOnTick(tokenAddress, ts, isBuy, bnbAmount, priceBnb, priceReliable);
+
         state.lastTickAt = ts;
 
         // ── 因子构建与事件发射 ──
@@ -821,6 +883,111 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (ts - pe.firstTs > CREATOR_PRIOR_TTL_MS) toks.delete(pt);
         }
         toks.set(tokenAddress, { firstTs: ts, firstPb: priceBnb, maxPb: priceBnb });
+    }
+
+    /**
+     * 市场截面：新出生注册（processTick 首 tick 分支调用，write-once）。
+     * birth=state.createdAtMs（TokenCreate/回测 discovered_at，与 age 同基准）；
+     * 老票（ts−birth > 40m）不入册；已在册（prune 复活重建 state）不重计。
+     */
+    _marketRegisterBirth(tokenAddress, state, ts) {
+        if (!_marketFeedEnabled || !_marketRegime) return;
+        const M = _marketRegime;
+        if (M.startedAt === null) M.startedAt = ts;
+        if (M.registry.has(tokenAddress)) return;                       // prune 复活不重计（S3）
+        const birth = state.createdAtMs;
+        if (!(birth > 0) || ts - birth > MARKET_NEWBORN_MAX_AGE_MS) return;  // 老票不入册
+        M.registry.set(tokenAddress, {
+            birth, firstPrice: null, lastPrice: null, lastRelPct: null, peakRelPct: null, lastTs: ts,
+        });
+        M.fifo.push(tokenAddress);
+    }
+
+    /**
+     * 市场截面：每 tick 累积（processTick 滑窗后调用，全量口径）：
+     * 流向环（全 token Σ买/Σ卖 BNB）+ registry 价格/存活推进 + FIFO 按 birth 龄写时裁剪。
+     * 死票保留在册（death 口径含死亡票）；尘 tick 计流量不计价（priceReliable 守卫，S8）。
+     */
+    _marketOnTick(tokenAddress, ts, isBuy, bnbAmount, priceBnb, priceReliable) {
+        if (!_marketFeedEnabled || !_marketRegime) return;
+        const M = _marketRegime;
+        const mk = Math.floor(ts / 60000);
+        const fs = M.ringFlow[mk % MARKET_FLOW_RING_LEN];
+        if (fs.k !== mk) { fs.k = mk; fs.b = 0; fs.s = 0; }
+        if (isBuy) fs.b += bnbAmount; else fs.s += bnbAmount;
+        const rec = M.registry.get(tokenAddress);
+        if (rec) {
+            rec.lastTs = ts;
+            if (priceReliable && priceBnb > 0) {
+                if (rec.firstPrice === null) rec.firstPrice = priceBnb;
+                rec.lastPrice = priceBnb;
+                const rel = (priceBnb / rec.firstPrice - 1) * 100;
+                rec.lastRelPct = rel;
+                if (rel > rec.peakRelPct) rec.peakRelPct = rel;
+            }
+        }
+        // FIFO 按 birth 龄写时裁剪（环残差由 ring k 检查天然过期）
+        while (M.fifo.length) {
+            const head = M.fifo[0];
+            const hr = M.registry.get(head);
+            if (hr && ts - hr.birth <= MARKET_REGISTRY_TTL_MS) break;
+            M.registry.delete(head);
+            M.fifo.shift();
+        }
+    }
+
+    /**
+     * 市场截面快照（分钟桶 memo：同分钟同值，跨 token 一致性由构造保证）。
+     * now=决策时钟（回测传回放 tick ts / live 墙钟——冻结时钟纪律；分钟键回退即重算，回测无前视）。
+     * @returns {null|{minuteKey,fedAgeMs,newborn1h,cohortN,rocketRate,youngMeanRetPct,deathRate,flowBuyBnb,flowSellBnb,flowBsRatio}}
+     */
+    _getMarketSnapshot(now) {
+        if (!_marketFeedEnabled || !_marketRegime) return null;
+        const M = _marketRegime;
+        const mk = Math.floor(now / 60000);
+        if (M.snapMinute === mk && M.snap) return M.snap;
+        const cohortWin = this._fp.marketCohortWinMs;
+        const matureMs = this._fp.marketMatureMs;
+        const minCohort = this._fp.marketMinCohort;
+        let newborn1h = 0, cohortN = 0, rockets = 0, deathN = 0, retSum = 0, retN = 0;
+        for (const rec of M.registry.values()) {
+            const age = now - rec.birth;
+            if (age <= MARKET_NEWBORN_WIN_MS) newborn1h++;
+            if (age >= matureMs && age <= cohortWin) {
+                cohortN++;
+                if (rec.peakRelPct !== null && rec.peakRelPct >= MARKET_ROCKET_REL_PCT) rockets++;
+                if (rec.lastRelPct !== null) { retSum += rec.lastRelPct; retN++; }
+                if (now - rec.lastTs >= MARKET_DEATH_IDLE_MS) deathN++;
+            }
+        }
+        // 10m 流向环求和：槽距当前分钟 < 环长即在窗内；≥环长的陈槽被 k 差检查排除（写时同槽复用已清零）
+        let fb = 0, fsv = 0;
+        for (const s of M.ringFlow) {
+            if (s.k > 0 && mk - s.k < MARKET_FLOW_RING_LEN) { fb += s.b; fsv += s.s; }
+        }
+        const snap = {
+            minuteKey: mk,
+            fedAgeMs: M.startedAt === null ? 0 : now - M.startedAt,
+            newborn1h,
+            cohortN,
+            rocketRate: cohortN >= minCohort ? rockets / cohortN : null,
+            youngMeanRetPct: cohortN >= minCohort && retN > 0 ? retSum / retN : null,
+            deathRate: cohortN >= minCohort ? deathN / cohortN : null,
+            flowBuyBnb: fb,
+            flowSellBnb: fsv,
+            flowBsRatio: fsv >= MARKET_FLOW_MIN_SELL_BNB ? fb / fsv : null,
+        };
+        M.snapMinute = mk;
+        M.snap = snap;
+        return snap;
+    }
+
+    /**
+     * 公开快照入口（引擎 60s 落表计时器 / web 观察 / 单测用；未 feed 返回 null）。
+     * @param {number} [now] 不传用墙钟
+     */
+    computeMarketSnapshot(now) {
+        return this._getMarketSnapshot(now ?? Date.now());
     }
 
     /**
@@ -1252,6 +1419,9 @@ class FourMemeFactorAggregator extends EventEmitter {
                 state, state._positions.get(state._lastPositionKey), now);
         }
 
+        // ═══ 回迁批 2.6：市场截面快照（模块级单例分钟桶 memo；未 feed → null → 5 键全 null）═══
+        const _mkt = this._getMarketSnapshot(now);
+
         // ═══ 回迁批 2.5：Q 组 creator 近期前作命中率（registry 因果性由回放顺序保证）═══
         //   买点 t 前 24h 内该 creator 已展开前作（首可靠价 ∈ [t−24h, t−10min]，排除本 token）
         //   中 3× 拉升（maxPb/firstPb ≥ 3）占比。分母<2 / creator 未知 → 率 null fail-closed
@@ -1660,6 +1830,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             // Q 组：creator 前作命中率（批量发币方画像；null=creator 未知/窗内前作<2）
             creatorRecentHitRate3,
             creatorPriorCnt24h,
+
+            // 市场截面 regime（观察版；★红线：不进任何交易策略 condition，audit 报错钉住；
+            // 未 feed（web 裸 FA）→ 全 null；fed 下 marketNewbornCount1h 恒数值，率族受 cohort 门槛）
+            marketNewbornCount1h: _mkt ? _mkt.newborn1h : null,
+            marketRocketRate30m: _mkt ? _mkt.rocketRate : null,
+            marketYoungMeanRet30m: _mkt ? _mkt.youngMeanRetPct : null,
+            marketDeathRate30m: _mkt ? _mkt.deathRate : null,
+            marketFlowBsRatio10m: _mkt ? _mkt.flowBsRatio : null,
 
             // H 组：持仓后（顶层=最新仓，无仓 null；ddConfirmSellFlag latch 至清仓）
             peakProfitPct: positionFactors.peakProfitPct,

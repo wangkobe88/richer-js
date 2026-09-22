@@ -1110,14 +1110,11 @@ class NarrativeAnalyzer {
       overviewReasoning.textContent = '暂无分析理由';
     }
 
-    // 更新元数据 - 第二行：日期和实验ID
+    // 更新元数据 - 第二行：分析日期（叙事结果为代币级全局缓存，不挂实验名下）
     const overviewMeta = document.getElementById('overviewMeta');
     const metaItems = [];
     if (meta?.analyzedAt) {
       metaItems.push(`📅 ${this.formatDate(meta.analyzedAt)}`);
-    }
-    if (meta?.sourceExperimentId) {
-      metaItems.push(`🏷️ ${meta.sourceExperimentId.slice(0, 8)}`);
     }
     overviewMeta.innerHTML = metaItems.join('  |  ');
 

@@ -8,6 +8,8 @@
  * 语义（用户裁定）：
  * - 失败/超时 → 返回 numericRating=9（未评级）放行，由策略条件表达式裁决买不买
  * - 超时上限 30s：被弃的底层分析后台跑完 upsert，下轮买入评估命中 is_valid 缓存
+ * - 叙事结果为代币级全局缓存（token_address 唯一，不挂实验名下）：
+ *   任何实验共享同一份，命中有效缓存即复用，换实验不重复分析
  * - 同 token in-flight 去重：并发调用共享同一底层 analyze promise
  * - 永不抛错（结果全部体现在返回值，由调用方打日志）
  *
@@ -45,15 +47,14 @@ class NarrativeDirectCaller {
    * 启动（或复用）一次底层叙事分析
    * @private
    * @param {string} tokenAddress - 代币地址
-   * @param {string} experimentId - 实验 ID（缓存/留痕语义由 Analyzer 内部处理）
    * @returns {Promise<Object>} analyze 的结果 promise（不设超时，由调用方 race）
    */
-  _startAnalysis(tokenAddress, experimentId) {
+  _startAnalysis(tokenAddress) {
     const key = tokenAddress.toLowerCase();
     let p = this._inflight.get(key);
     if (!p) {
       p = this._getAnalyzer()
-        .then(Analyzer => Analyzer.analyze(tokenAddress, { experimentId }));
+        .then(Analyzer => Analyzer.analyze(tokenAddress));
       // settle 后移出 inflight；then 第二参承接 rejection 防 unhandled rejection
       const cleanup = () => this._inflight.delete(key);
       p.then(cleanup, cleanup);
@@ -65,12 +66,11 @@ class NarrativeDirectCaller {
   /**
    * 获取叙事评级（永不抛错）
    * @param {string} tokenAddress - 代币地址
-   * @param {string} experimentId - 实验 ID
    * @returns {Promise<{numericRating: number, rating: string, reason: string|null,
    *   fromCache: boolean, durationMs: number, timedOut: boolean, error: string|null}>}
    *   numericRating ∈ {1=低, 2=中, 3=高, 9=未评级(未触发/失败/超时/null 归一)}
    */
-  async getRating(tokenAddress, experimentId) {
+  async getRating(tokenAddress) {
     const startedAt = Date.now();
     try {
       let timer = null;
@@ -81,7 +81,7 @@ class NarrativeDirectCaller {
         )), DIRECT_CALL_TIMEOUT_MS);
       });
       const result = await Promise.race([
-        this._startAnalysis(tokenAddress, experimentId),
+        this._startAnalysis(tokenAddress),
         timeout,
       ]).finally(() => clearTimeout(timer));
 

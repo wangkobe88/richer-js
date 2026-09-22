@@ -732,7 +732,6 @@ export function formatResult(record) {
     scores: scores,
     metadata: {
       analyzedAt: record.analyzed_at,
-      experimentId: record.experiment_id,
       promptVersion: record.prompt_version,
       isValid: record.is_valid,
       preCheckTriggered: !!record.pre_check_result

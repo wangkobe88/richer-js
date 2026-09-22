@@ -352,11 +352,6 @@ class ExperimentNarrative {
           : reasoning)
       : '-';
 
-    // 来源实验ID
-    const sourceExpId = item.narrative.experiment_id
-      ? item.narrative.experiment_id.slice(0, 8)
-      : '-';
-
     // 分析时间
     const analyzedAt = item.narrative.analyzed_at
       ? new Date(item.narrative.analyzed_at).toLocaleString('zh-CN', {
@@ -393,7 +388,6 @@ class ExperimentNarrative {
         <td class="px-4 py-3 text-center">${judgeBadge}</td>
         <td class="px-4 py-3 text-right font-medium ${item.max_change_percent > 0 ? 'text-green-400' : 'text-gray-400'}">${maxChange}</td>
         <td class="px-4 py-3 text-left text-gray-400 text-xs">${summary}</td>
-        <td class="px-4 py-3 text-center text-gray-500 text-xs">${sourceExpId}</td>
         <td class="px-4 py-3 text-center text-gray-400 text-xs">${analyzedAt}</td>
         <td class="px-4 py-3 text-center">
           <div class="action-links">

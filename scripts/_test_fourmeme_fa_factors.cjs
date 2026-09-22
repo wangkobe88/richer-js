@@ -520,6 +520,9 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'peakProfitPct', 'ddConfirmSellFlag', 'rsi9PostProtect', 'rsi14PostProtect',
         // Q 组 2（回迁批 2.5）
         'creatorRecentHitRate3', 'creatorPriorCnt24h',
+        // 市场截面 5（回迁批 2.6；未 feed 全 null）
+        'marketNewbornCount1h', 'marketRocketRate30m', 'marketYoungMeanRet30m',
+        'marketDeathRate30m', 'marketFlowBsRatio10m',
     ];
     const missing = NEW_KEYS.filter(k => !keys.has(k));
     ok(missing.length === 0, `getFactorKeys 含全部 ${NEW_KEYS.length} 新键`, missing);

@@ -114,7 +114,7 @@ export class NarrativeRepository {
       extracted_info: result.extracted_info,
       twitter_info: result.twitter_info,
       classified_urls: result.classified_urls || null,
-      experiment_id: result.experiment_id || null,
+      // experiment_id 不再写入：叙事结果为代币级全局缓存，不挂实验名下（历史行的遗留值保留不动）
       analyzed_at: result.analyzed_at || new Date().toISOString(),
       is_valid: this._mergeField(result.is_valid, existing?.is_valid),
       prompt_version: result.prompt_version || existing?.prompt_version || null,

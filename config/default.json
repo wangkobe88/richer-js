@@ -67,7 +67,10 @@
       "tickFlowMidAgeSec": 180,
       "tickFlowIdleYoungSec": 9,
       "tickFlowIdleMidSec": 12,
-      "tickFlowIdleOldSec": 24
+      "tickFlowIdleOldSec": 24,
+      "marketCohortWinMs": 2400000,
+      "marketMatureMs": 600000,
+      "marketMinCohort": 30
     },
     "live": {
       "reserveNative": 0.01,
