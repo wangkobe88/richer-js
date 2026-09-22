@@ -10,6 +10,7 @@ require('dotenv').config({ path: './config/.env' });
 const { ExperimentFactory } = require('./trading-engine/factories/ExperimentFactory');
 const { FourMemeWssTradingEngine } = require('./trading-engine/implementations/FourMemeWssTradingEngine');
 const { FlapWssTradingEngine } = require('./trading-engine/implementations/FlapWssTradingEngine');
+const { BacktestEngine } = require('./trading-engine/implementations/BacktestEngine');
 
 async function runEngine(experimentId) {
   if (!experimentId) {
@@ -24,15 +25,17 @@ async function runEngine(experimentId) {
   console.log('');
 
   try {
-    // 加载实验配置，按 platform 选引擎（默认 fourmeme）
+    // 加载实验配置：回测实验分派 BacktestEngine（自动跑完退出），
+    // 实时按 platform 选引擎（默认 fourmeme）
     const experiment = await ExperimentFactory.getInstance().load(experimentId);
     if (!experiment) {
       throw new Error(`实验不存在: ${experimentId}`);
     }
-    const EngineClass = experiment.config?.platform === 'flap'
-      ? FlapWssTradingEngine
-      : FourMemeWssTradingEngine;
-    const engine = new EngineClass({ tradingMode: 'virtual' });
+    const isBacktest = experiment.tradingMode === 'backtest' || experiment.trading_mode === 'backtest';
+    const EngineClass = isBacktest
+      ? BacktestEngine
+      : (experiment.config?.platform === 'flap' ? FlapWssTradingEngine : FourMemeWssTradingEngine);
+    const engine = new EngineClass({ tradingMode: isBacktest ? 'backtest' : 'virtual' });
 
     // 初始化引擎（加载实验）
     console.log(`🔍 启动实验: ${experimentId}`);
@@ -44,7 +47,11 @@ async function runEngine(experimentId) {
 
     console.log('');
     console.log('========================================');
-    console.log('✅ 引擎运行中，按 Ctrl+C 停止');
+    if (isBacktest) {
+      console.log('📊 回测运行中...（自动跑完退出）');
+    } else {
+      console.log('✅ 引擎运行中，按 Ctrl+C 停止');
+    }
     console.log('========================================');
     console.log('');
 

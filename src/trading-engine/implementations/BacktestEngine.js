@@ -18,7 +18,8 @@
  *
  * 与旧回测引擎（experiment_time_series_data 轮次回放）的差异：
  *   - 数据源换为 tick 级（AVE 时代旧实验的时序数据不再是回测源，历史行不删）
- *   - 叙事分析轮询删除（实时引擎已恒 rating=9，回放同口径）
+ *   - 叙事评级直调（同实时引擎 narrativeCallCondition）：analyze 用当前语料分析
+ *     历史 token（时序穿越），绝对收益不代表当时实时可得，结论看相对增量
  */
 
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
@@ -151,6 +152,7 @@ class BacktestEngine extends AbstractTradingEngine {
           maxExecutions: s.maxExecutions || null,
           preBuyCheckCondition: s.preBuyCheckCondition || null,
           repeatBuyCheckCondition: s.repeatBuyCheckCondition || null,
+          narrativeCallCondition: s.narrativeCallCondition || null,
           enabled: true,
         });
       });
@@ -171,6 +173,11 @@ class BacktestEngine extends AbstractTradingEngine {
     await this._preBuyCheckService.initialize('bsc');
     this.logger.info(this._experimentId, 'BacktestEngine',
       `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
+
+    // 5.5 叙事评级直调（同实时引擎：策略 narrativeCallCondition 触发时同步调
+    // NarrativeAnalyzer.analyze，Jev 秒级；失败/超时=9 放行）
+    const { NarrativeDirectCaller } = require('../pre-check/NarrativeDirectCaller');
+    this._narrativeCaller = new NarrativeDirectCaller();
 
     // 6. 交易金额 / 永久阻断
     const experimentConfig = this._experiment?.config || {};
@@ -564,6 +571,20 @@ class BacktestEngine extends AbstractTradingEngine {
         blockReason = this._tokenBlacklist.get(token.token).reason;
       }
 
+      // ── 叙事评级直调（同实时引擎：narrativeCallCondition 满足才同步调 analyze；
+      // 超时挂钟等待 30s，虚拟时钟回放下视为该 tick 时点的决策；失败/超时=9 放行）──
+      let narrativeCallInfo = null;
+      const narrativeCallCondition = strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== ''
+        ? String(strategy.narrativeCallCondition).trim() : null;
+      if (narrativeCallCondition && preCheckPassed
+          && this._strategyEngine.evaluateCondition(narrativeCallCondition, factorResults)) {
+        narrativeCallInfo = await this._narrativeCaller.getRating(token.token, this._experimentId);
+        this.logger.info(this._experimentId, 'BuyEval',
+          `叙事评级直调(回放) | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
+          ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +
+          (narrativeCallInfo.error ? ` error=${narrativeCallInfo.error}` : ''));
+      }
+
       if (preCheckPassed && shouldPerformPreCheck && this._preBuyCheckService) {
         try {
           const tokenPlatform = token.platform || this._platform;
@@ -601,7 +622,7 @@ class BacktestEngine extends AbstractTradingEngine {
               drawdownFromHighest: factorResults.drawdownFromHighest || null,
               buyRound: currentRound + 1,
               lastPairReturnRate: lastPairReturnRate ?? 0,
-              narrativeRating: 9, // 回测不直调叙事分析（时序穿越：analyze 用当前语料分析历史 token），恒未评级
+              narrativeRating: narrativeCallInfo?.numericRating ?? 9, // 直调链路（时序穿越：当前语料分析历史 token）；未配置/未触发/失败/超时=9
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply,
@@ -643,6 +664,7 @@ class BacktestEngine extends AbstractTradingEngine {
             metadata: {
               tokenCreateTime,
               trendFactors: buildFactorValuesForTimeSeries(factorResults),
+              narrativeCall: narrativeCallInfo,
               preBuyCheckFactors: {
                 ...buildPreBuyCheckFactorValues(preBuyCheckResult || {}),
                 permanentBlockTriggered: this._tokenBlacklist.has(token.token),
@@ -666,6 +688,7 @@ class BacktestEngine extends AbstractTradingEngine {
           metadata: {
             tokenCreateTime,
             trendFactors: buildFactorValuesForTimeSeries(factorResults),
+            narrativeCall: narrativeCallInfo,
             preBuyCheckFactors: buildPreBuyCheckFactorValues(preBuyCheckResult),
             preBuyCheckResult: {
               canBuy: true,
