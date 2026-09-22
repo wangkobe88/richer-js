@@ -76,6 +76,20 @@ function buildFactorValuesForTimeSeries(factorResults) {
     tweetAuthorType: factorResults.tweetAuthorType ?? 0,
     // 数据采集轮数因子
     dataCollectionRound: factorResults.dataCollectionRound ?? 1,
+    // pumpfun 回迁批 1 观察子集（12 键；控制时序表体积，其余回测现场重算。
+    // 旧引擎（AVE 轮询）无这些键 → null，不掩盖）
+    counterpartyOverlapRate: factorResults.counterpartyOverlapRate ?? null,
+    counterpartyOverlapVolume: factorResults.counterpartyOverlapVolume ?? null,
+    top3HolderShare: factorResults.top3HolderShare ?? null,
+    top5HolderShare: factorResults.top5HolderShare ?? null,
+    bigHolderPresent: factorResults.bigHolderPresent ?? null,
+    bigHolderTotal: factorResults.bigHolderTotal ?? null,
+    bigHolderShare: factorResults.bigHolderShare ?? null,
+    maxBlockDropPct: factorResults.maxBlockDropPct ?? null,
+    rsi14Sec: factorResults.rsi14Sec ?? null,
+    crashSpeedPctPerSec: factorResults.crashSpeedPctPerSec ?? null,
+    idleSecSinceLastTick: factorResults.idleSecSinceLastTick ?? null,
+    firstBlockBuyShare: factorResults.firstBlockBuyShare ?? null,
   };
 }
 
@@ -327,10 +341,15 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
 /**
  * 获取所有可用的常规因子ID列表
  * 注意：购买前置检查因子不在此列表中，它们只存储在信号 metadata 中
+ *
+ * 上述硬编码清单并上 FourMemeFactorAggregator.getFactorKeys()（权威单一事实源）：
+ * FA 键集含 tick 原生活跃度键（tradeCount/buyVolumeBnb/tradesPerMin 等，原硬编码清单
+ * 一直缺）与 pumpfun 回迁批 1 的 68 新键。策略 condition 引用键 ∉ 此集合会被
+ * StrategyEngine 拒载，并入后新键可直接进条件表达式。
  * @returns {Set<string>} 常规因子ID集合
  */
 function getAvailableFactorIds() {
-  return new Set([
+  const ids = new Set([
     // 基础因子
     'age', 'currentPrice', 'firstPrice', 'collectionPrice', 'launchPrice', 'earlyReturn', 'buyPrice',
     'holdDuration', 'profitPercent',
@@ -349,6 +368,11 @@ function getAvailableFactorIds() {
     'holderTrendGrowthRatio', 'holderTrendRiseRatio', 'holderTrendSlope', 'holderTrendDataPoints',
     'holderTrendRecentDecreaseCount', 'holderTrendRecentDecreaseRatio', 'holderTrendConsecutiveDecreases',
   ]);
+  // 惰性 require（函数调用时加载，无循环依赖：FA 不依赖 FactorBuilder）
+  const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
+  const fa = new FourMemeFactorAggregator({});
+  for (const k of fa.getFactorKeys()) ids.add(k);
+  return ids;
 }
 
 /**
