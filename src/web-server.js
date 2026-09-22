@@ -2824,11 +2824,25 @@ class RicherJsWebServer {
         const TickKlineService = require('./web/services/tick-kline-service');
         const tickKlineService = new TickKlineService(console);
 
-        // 确定实验时间范围
-        const experimentStartTime = new Date(experiment.startedAt || experiment.createdAt).getTime();
-        const experimentEndTime = experiment.stoppedAt
-          ? new Date(experiment.stoppedAt).getTime()
-          : Date.now();
+        // 确定时间范围：显式 query 参数（信号前后窗口，token 详情模式）>
+        // 回测实验的回放窗口（tick block_time 是历史时间，与实验运行时刻错位，
+        // 用 startedAt 查恒为空）> 实验运行时间范围
+        let experimentStartTime;
+        let experimentEndTime;
+        if (req.query.startTime && req.query.endTime) {
+          experimentStartTime = Number(req.query.startTime);
+          experimentEndTime = Number(req.query.endTime);
+        } else if (experiment.tradingMode === 'backtest' && experiment.config?.backtest?.startTime) {
+          experimentStartTime = new Date(experiment.config.backtest.startTime).getTime();
+          experimentEndTime = experiment.config.backtest.endTime
+            ? new Date(experiment.config.backtest.endTime).getTime()
+            : Date.now();
+        } else {
+          experimentStartTime = new Date(experiment.startedAt || experiment.createdAt).getTime();
+          experimentEndTime = experiment.stoppedAt
+            ? new Date(experiment.stoppedAt).getTime()
+            : Date.now();
+        }
 
         // 获取实验时间范围内的 1 分钟 K线（按代币全市场聚合 tick）
         const klineData = await tickKlineService.getKline(this.dataService.supabase, {

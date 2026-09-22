@@ -23,6 +23,9 @@ class ExperimentSignals {
     this.selectedToken = 'all';  // 当前选择的代币，'all'表示全部
     this.availableTokens = [];   // 可用的代币列表
 
+    // 🔥 token 详情模式（URL 带 ?token= / #token=）：只展示信号时间前后的价格趋势图
+    this._tokenDetailMode = false;
+
     // 🔥 区块链信息（用于生成GMGN链接）
     this.blockchain = 'bsc';  // 默认BSC
 
@@ -173,8 +176,13 @@ class ExperimentSignals {
             selector.value = this.selectedToken;
             console.log('✅ 已自动选择代币:', this.selectedToken);
           }
-          // 🔥 调用 filterAndRenderSignals 以显示代币地址信息
-          this.filterAndRenderSignals();
+          if (this._tokenDetailMode) {
+            // 详情模式：只保留价格趋势图（代币地址栏仍显示），隐藏其余区块
+            this.hideDetailExtras();
+          } else {
+            // 🔥 调用 filterAndRenderSignals 以显示代币地址信息
+            this.filterAndRenderSignals();
+          }
           // 加载该代币的时序数据图表
           await this.loadKlineForToken(selectedToken);
         } else {
@@ -224,6 +232,11 @@ class ExperimentSignals {
 
       console.log('🔍 filteredSignals:', filteredSignals.length, 'selectedToken:', this.selectedToken);
       console.log('🔍 Sample signals:', filteredSignals.slice(0, 3).map(s => ({ action: s.action, symbol: s.symbol, token_address: s.token_address })));
+
+      if (this._tokenDetailMode) {
+        // 详情模式：只展示价格趋势图，不渲染信号列表/统计
+        return;
+      }
 
       // 更新信号统计
       this.updateSignalsStats(filteredSignals);
@@ -326,10 +339,13 @@ class ExperimentSignals {
     return result;
   }
 
-  async fetchKlineData(tokenId = null) {
-    const url = tokenId
-      ? `/api/experiment/${this.experimentId}/kline?tokenId=${encodeURIComponent(tokenId)}`
-      : `/api/experiment/${this.experimentId}/kline`;
+  async fetchKlineData(tokenId = null, startTimeMs = null, endTimeMs = null) {
+    const params = new URLSearchParams();
+    if (tokenId) params.append('tokenId', tokenId);
+    if (startTimeMs !== null) params.append('startTime', String(startTimeMs));
+    if (endTimeMs !== null) params.append('endTime', String(endTimeMs));
+    const qs = params.toString();
+    const url = `/api/experiment/${this.experimentId}/kline${qs ? `?${qs}` : ''}`;
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -369,6 +385,9 @@ class ExperimentSignals {
       if (tokenAddress) {
         console.log('🔍 设置selectedToken:', tokenAddress);
 
+        // 详情模式：只展示信号时间前后的价格趋势图
+        this._tokenDetailMode = true;
+
         // 直接设置 selectedToken（用于API过滤）
         // 此时 availableTokens 还未填充，所以先不检查
         this.selectedToken = tokenAddress;
@@ -399,6 +418,13 @@ class ExperimentSignals {
    * @param {Object} token - 代币对象 { address, symbol, priority }
    */
   async loadKlineForToken(token) {
+    // 详情模式（URL ?token= / #token=）：只展示信号时间前后的价格趋势图
+    // （wss_price_ticks 聚合 K线——回测实验没有 experiment_time_series_data，
+    // 且其实验运行时刻与 tick block_time 错位，必须按信号窗口显式查询）
+    if (this._tokenDetailMode) {
+      return this._loadSignalWindowKline(token);
+    }
+
     try {
       console.log('🔄 loadKlineForToken 开始:', token.symbol, token.address);
 
@@ -464,6 +490,70 @@ class ExperimentSignals {
       if (holderChartWrapper) {
         holderChartWrapper.style.display = 'none';
       }
+    }
+  }
+
+  /**
+   * 详情模式：加载信号时间前后的价格趋势图（tick 聚合 K线 + 信号标记）
+   * 窗口 = 该代币首末信号时间 ±5 分钟（不足 15 分钟时居中扩展到 15 分钟）
+   * @param {Object} token - 代币对象 { address, symbol }
+   */
+  async _loadSignalWindowKline(token) {
+    const chartWrapper = document.getElementById('kline-chart-wrapper');
+    if (chartWrapper) chartWrapper.style.display = 'block';
+
+    const tokenSignals = this.signals.filter(s =>
+      (s.token_address || s.tokenAddress) === token.address
+    );
+    const times = tokenSignals
+      .map(s => new Date(s.signal_timestamp || s.created_at).getTime())
+      .filter(t => !isNaN(t));
+
+    if (times.length === 0) {
+      this.showKlinePlaceholder('该代币暂无交易信号');
+      return;
+    }
+
+    const PAD_MS = 5 * 60 * 1000;
+    const MIN_WINDOW_MS = 15 * 60 * 1000;
+    let startMs = Math.min(...times) - PAD_MS;
+    let endMs = Math.max(...times) + PAD_MS;
+    if (endMs - startMs < MIN_WINDOW_MS) {
+      const mid = (startMs + endMs) / 2;
+      startMs = mid - MIN_WINDOW_MS / 2;
+      endMs = mid + MIN_WINDOW_MS / 2;
+    }
+
+    try {
+      const klineResponse = await this.fetchKlineData(token.address, Math.round(startMs), Math.round(endMs));
+      if (!klineResponse.kline_data || klineResponse.kline_data.length === 0) {
+        this.showKlinePlaceholder('暂无K线数据（信号窗口内无 tick）');
+        return;
+      }
+
+      // initKlineChart 的信号标记读 signal_timestamp（后端 toJSON 无此字段），
+      // 用前端已标准化的该代币信号覆盖
+      klineResponse.signals = tokenSignals.map(s => ({
+        signal_timestamp: s.signal_timestamp || s.created_at,
+        action: s.action
+      }));
+
+      this.initKlineChart(klineResponse);
+      console.log(`✅ 信号窗口K线加载完成: ${token.symbol}，${klineResponse.kline_data.length} 根K线，窗口 ${new Date(startMs).toISOString()} ~ ${new Date(endMs).toISOString()}`);
+    } catch (error) {
+      console.error('❌ 信号窗口K线加载失败:', error);
+      this.showKlinePlaceholder('K线数据加载失败: ' + error.message);
+    }
+  }
+
+  /**
+   * 详情模式：隐藏非图表区块（筛选、统计、拒绝面板、信号列表、Holder 图）
+   */
+  hideDetailExtras() {
+    // signal-count：详情模式跳过统计更新，保持默认 0 会误导，随统计一起隐藏
+    for (const id of ['token-selector-container', 'signal-filters', 'signal-stats', 'rejection-details', 'signals-list-wrapper', 'empty-state', 'holder-chart-wrapper', 'signal-count']) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
     }
   }
 
