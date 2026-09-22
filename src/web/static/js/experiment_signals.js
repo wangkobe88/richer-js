@@ -418,9 +418,8 @@ class ExperimentSignals {
    * @param {Object} token - 代币对象 { address, symbol, priority }
    */
   async loadKlineForToken(token) {
-    // 详情模式（URL ?token= / #token=）：只展示信号时间前后的价格趋势图
-    // （wss_price_ticks 聚合 K线——回测实验没有 experiment_time_series_data，
-    // 且其实验运行时刻与 tick block_time 错位，必须按信号窗口显式查询）
+    // 详情模式（URL ?token= / #token=）：只展示价格趋势图，且显示范围
+    // 裁剪到信号时间前后（图本身与非详情模式同源：源实验时序折线图）
     if (this._tokenDetailMode) {
       return this._loadSignalWindowKline(token);
     }
@@ -494,8 +493,9 @@ class ExperimentSignals {
   }
 
   /**
-   * 详情模式：加载信号时间前后的价格趋势图（tick 聚合 K线 + 信号标记）
-   * 窗口 = 该代币首末信号时间 ±5 分钟（不足 15 分钟时居中扩展到 15 分钟）
+   * 详情模式：加载信号时间前后的价格趋势图
+   * 图本身不变（源实验 experiment_time_series_data 折线图，同原详情模式），
+   * 只把显示范围裁剪到该代币首末信号时间 ±5 分钟
    * @param {Object} token - 代币对象 { address, symbol }
    */
   async _loadSignalWindowKline(token) {
@@ -515,34 +515,37 @@ class ExperimentSignals {
     }
 
     const PAD_MS = 5 * 60 * 1000;
-    const MIN_WINDOW_MS = 15 * 60 * 1000;
-    let startMs = Math.min(...times) - PAD_MS;
-    let endMs = Math.max(...times) + PAD_MS;
-    if (endMs - startMs < MIN_WINDOW_MS) {
-      const mid = (startMs + endMs) / 2;
-      startMs = mid - MIN_WINDOW_MS / 2;
-      endMs = mid + MIN_WINDOW_MS / 2;
-    }
+    const startMs = Math.min(...times) - PAD_MS;
+    const endMs = Math.max(...times) + PAD_MS;
 
     try {
-      const klineResponse = await this.fetchKlineData(token.address, Math.round(startMs), Math.round(endMs));
-      if (!klineResponse.kline_data || klineResponse.kline_data.length === 0) {
-        this.showKlinePlaceholder('暂无K线数据（信号窗口内无 tick）');
+      const timeSeriesResponse = await this.fetchTimeSeriesData(token.address);
+      const all = timeSeriesResponse?.data || [];
+      if (all.length === 0) {
+        this.showKlinePlaceholder('暂无时序数据');
         return;
       }
 
-      // initKlineChart 的信号标记读 signal_timestamp（后端 toJSON 无此字段），
-      // 用前端已标准化的该代币信号覆盖
-      klineResponse.signals = tokenSignals.map(s => ({
-        signal_timestamp: s.signal_timestamp || s.created_at,
-        action: s.action
-      }));
+      const windowed = all.filter(d => {
+        const t = new Date(d.timestamp).getTime();
+        return !isNaN(t) && t >= startMs && t <= endMs;
+      });
+      if (windowed.length === 0) {
+        this.showKlinePlaceholder('信号时间前后暂无时序数据');
+        return;
+      }
 
-      this.initKlineChart(klineResponse);
-      console.log(`✅ 信号窗口K线加载完成: ${token.symbol}，${klineResponse.kline_data.length} 根K线，窗口 ${new Date(startMs).toISOString()} ~ ${new Date(endMs).toISOString()}`);
+      const tokenInfo = await this.fetchTokenInfo(token.address);
+      // 首价参考点在窗口外时会拉宽 x 轴，剔除
+      if (tokenInfo?.discovered_at && new Date(tokenInfo.discovered_at).getTime() < startMs) {
+        delete tokenInfo.discovered_at;
+      }
+
+      this.initPriceLineChart(windowed, token, tokenInfo);
+      console.log(`✅ 信号窗口价格趋势图加载完成: ${token.symbol}，${windowed.length}/${all.length} 个时序点，窗口 ${new Date(startMs).toISOString()} ~ ${new Date(endMs).toISOString()}`);
     } catch (error) {
-      console.error('❌ 信号窗口K线加载失败:', error);
-      this.showKlinePlaceholder('K线数据加载失败: ' + error.message);
+      console.error('❌ 信号窗口价格趋势图加载失败:', error);
+      this.showKlinePlaceholder('价格趋势图加载失败: ' + error.message);
     }
   }
 
