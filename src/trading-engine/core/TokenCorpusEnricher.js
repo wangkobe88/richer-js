@@ -103,7 +103,15 @@ class TokenCorpusEnricher {
     this.experimentId = experimentId;
 
     this._fourMemeApi = new FourMemeTokenAPI();
-    this._ipfsClient = axios.create({ timeout: IPFS_TIMEOUT_MS });
+    // 4everland 的 Cloudflare 对非浏览器 UA 返回 403 挑战页（实测 axios 默认 UA
+    // 被挡、浏览器 UA 200），IPFS 请求统一带浏览器 UA
+    this._ipfsClient = axios.create({
+      timeout: IPFS_TIMEOUT_MS,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+        Accept: 'application/json,text/plain,*/*',
+      },
+    });
 
     // 并发信号量
     this._active = 0;
