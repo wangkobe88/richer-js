@@ -6,9 +6,14 @@
  *   - four.meme：自家 API GET /meme-api/v1/private/token/get（老 token 会清库，
  *     数据窗口约 1 天，只能发现时实时抓；当天 token 语料覆盖实测 6/6）
  *   - flap：TokenCreated 事件的 meta → metadata JSON。meta 两种形态：
- *     IPFS URL/裸 CID（主流；内容寻址永不过期，官方 ipfs.io 网关正迁移
- *     service worker，用 pinata/4everland）与 S3 直链
+ *     IPFS URL/裸 CID（主流；内容寻址永不过期）与 S3 直链
  *     （meta-7777.s3.amazonaws.com/metadata/*.json，实测约占 1%，直接 GET）
+ *
+ * IPFS 网关形态（2026-09-22 实测）：
+ *   - 4everland 子域名 {cid}.ipfs.4everland.io 可用（path 形态被
+ *     Cloudflare 挑战页挡 HTTP 403）；Qm base58 大写 CID 不能进 DNS 子域，
+ *     先转 base32（bafz...，同一 CID 的另一 multibase 表示）
+ *   - pinata path 前缀形态作备用（公共网关全局限流时 429）
  *
  * 语义（fire-and-forget，永不抛错）：
  *   - 成功 → 返回语料字段对象（含 corpus 留痕），调用方合并进
@@ -28,13 +33,63 @@ const DEFAULT_OPTIONS = {
   concurrency: 3,
   fourmemeRetryDelayMs: 10 * 1000,
   ipfsGateways: [
-    'https://gateway.pinata.cloud/ipfs/',
-    'https://4everland.io/ipfs/',
+    'https://{cid}.ipfs.4everland.io/', // 子域名形态：{cid} 占位符（Qm 自动转 base32）
+    'https://gateway.pinata.cloud/ipfs/', // path 前缀形态备用
   ],
 };
 
 /** IPFS fetch 超时（毫秒） */
 const IPFS_TIMEOUT_MS = 15 * 1000;
+
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const BASE32_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567';
+
+/**
+ * CID → DNS 安全的 base32 形态（小写，可进子域名）。
+ * Qm 是 CIDv0（12 20 + sha256，34 字节，codec 隐含 dag-pb），子域名网关只认
+ * CIDv1：升级为 01 70 12 20 + digest 后 base32（bafybei... 形态）；
+ * 已是 b 开头（CIDv1 base32）原样返回；其他形态返回 null（跳过子域名网关）。
+ * 内容寻址不变，仅 multibase/版本表示转换。
+ */
+function cidToBase32(cid) {
+  if (!cid || typeof cid !== 'string') return null;
+  if (/^b[a-z2-7]+$/.test(cid)) return cid;
+  if (!cid.startsWith('Qm')) return null;
+  // base58btc 解码 → 字节
+  let num = 0n;
+  for (const ch of cid) {
+    const idx = BASE58_ALPHABET.indexOf(ch);
+    if (idx < 0) return null;
+    num = num * 58n + BigInt(idx);
+  }
+  let hex = num.toString(16);
+  if (hex.length % 2) hex = `0${hex}`;
+  const bytes = Buffer.from(hex, 'hex');
+  // 前导 '1' = 前导零字节
+  let leading = 0;
+  for (const ch of cid) {
+    if (ch === '1') leading++;
+    else break;
+  }
+  const v0 = Buffer.concat([Buffer.alloc(leading), bytes]);
+  // CIDv0 标准形态校验（12 20 + 32 字节 digest）；非标准形态不猜
+  if (v0.length !== 34 || v0[0] !== 0x12 || v0[1] !== 0x20) return null;
+  const v1 = Buffer.concat([Buffer.from([0x01, 0x70]), v0]);
+  // base32（RFC4648 小写，无 padding）+ multibase 'b' 前缀
+  let bits = 0;
+  let value = 0;
+  let out = '';
+  for (const byte of v1) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) {
+      out += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
+      bits -= 5;
+    }
+  }
+  if (bits > 0) out += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+  return `b${out}`;
+}
 
 class TokenCorpusEnricher {
   /**
@@ -185,11 +240,17 @@ class TokenCorpusEnricher {
   /** 按配置网关顺序取 metadata JSON；均失败/非 JSON 记日志返回 null */
   async _fetchIpfsJson(cid) {
     for (const gateway of this.options.ipfsGateways) {
+      // 子域名形态（{cid} 占位符）：Qm base58 大写不能进 DNS 子域，先转 base32
+      const hostCid = gateway.includes('{cid}') ? cidToBase32(cid) : cid;
+      if (!hostCid) continue; // 转换失败（非 CID 形态）跳过该网关，试下一个
+      const url = gateway.includes('{cid}')
+        ? gateway.replace('{cid}', hostCid)
+        : gateway + hostCid;
       try {
-        const resp = await this._ipfsClient.get(`${gateway}${cid}`);
+        const resp = await this._ipfsClient.get(url);
         if (resp.data && typeof resp.data === 'object') return resp.data;
       } catch (error) {
-        this._log('warn', `IPFS 网关取失败 | ${gateway}${cid} ${error.message}`);
+        this._log('warn', `IPFS 网关取失败 | ${url} ${error.message}`);
       }
     }
     return null;
