@@ -76,7 +76,8 @@ class StrategyEngine {
                     enabled: config.enabled !== false,
                     maxExecutions: config.maxExecutions || null,
                     preBuyCheckCondition: config.preBuyCheckCondition || null,
-                    repeatBuyCheckCondition: config.repeatBuyCheckCondition || null
+                    repeatBuyCheckCondition: config.repeatBuyCheckCondition || null,
+                    narrativeCallCondition: config.narrativeCallCondition || null
                 };
 
                 this._strategies.push(strategy);
@@ -146,6 +147,24 @@ class StrategyEngine {
 
         // 返回优先级最高的策略（数组已排序，第一个就是最高优先级）
         return triggeredStrategies[0];
+    }
+
+    /**
+     * 评估任意条件表达式（fire 因子上下文）
+     * 供买腿叙事直调触发（narrativeCallCondition）等按需评估场景复用，
+     * 与策略 condition 用同一评估器（ConditionEvaluator，含 AST 缓存）。
+     * fail-closed：表达式损坏/因子缺失时返回 false（不触发）。
+     * @param {string} condition - 条件表达式（语法同策略 condition：AND/OR、比较、括号、IS NULL）
+     * @param {Object} factorResults - 因子计算结果（fire 时点因子）
+     * @returns {boolean} 是否满足
+     */
+    evaluateCondition(condition, factorResults) {
+        try {
+            return !!this._evaluator.evaluate(condition, factorResults);
+        } catch (error) {
+            console.warn(`[StrategyEngine] 条件表达式评估失败(fail-closed): ${condition} - ${error.message}`);
+            return false;
+        }
     }
 
     /**

@@ -601,7 +601,7 @@ class BacktestEngine extends AbstractTradingEngine {
               drawdownFromHighest: factorResults.drawdownFromHighest || null,
               buyRound: currentRound + 1,
               lastPairReturnRate: lastPairReturnRate ?? 0,
-              narrativeRating: 9,
+              narrativeRating: 9, // 回测不直调叙事分析（时序穿越：analyze 用当前语料分析历史 token），恒未评级
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply,

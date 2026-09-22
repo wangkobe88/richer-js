@@ -698,9 +698,10 @@
 
                             <h4>操作符</h4>
                             <ul>
-                                <li><code>AND</code> 或 <code>&&</code>: 且条件（两个条件都满足）</li>
-                                <li><code>OR</code> 或 <code>||</code>: 或条件（任一条件满足）</li>
+                                <li><code>AND</code>: 且条件（两个条件都满足）</li>
+                                <li><code>OR</code>: 或条件（任一条件满足）</li>
                                 <li><code>> >= < <= == !=</code>: 比较运算符</li>
+                                <li>⚠️ 逻辑词只能写 <code>AND</code>/<code>OR</code>，不支持 <code>&&</code>/<code>||</code>/<code>===</code>：误写 <code>&&</code> 或 <code>||</code> 不会报错，但其后的条件会被静默忽略（条件被截断）</li>
                             </ul>
 
                             <h4>预设策略模板</h4>
@@ -769,6 +770,22 @@
                                 <strong>叙事分析:</strong> narrativeRating (1=低质量, 2=中质量, 3=高质量, 9=未评级)<br>
                             </div>
                         </details>
+                    </div>
+                </div>
+                <div class="param-group" style="grid-column: 1 / span 2;">
+                    <label>📖 叙事评级直调触发条件（可选）：</label>
+                    <input type="text" name="buy_narrative_call_condition_{INDEX}"
+                           placeholder="例如: age < 10 AND earlyReturn > 30"
+                           value=""
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400">
+                    <div class="text-xs text-gray-500 mt-1">
+                        触发买入策略后、购买检查前，满足此条件才同步调用叙事分析拿评级（Jev 秒级，最长等 30 秒；
+                        调用失败/超时按未评级 9 放行）。评级经 <code>narrativeRating</code>（1=低, 2=中, 3=高, 9=未评级）
+                        供首次/再次检查条件使用。留空 = 不调用。
+                    </div>
+                    <div class="text-xs text-orange-500 mt-1">
+                        ⚠️ 语法同触发条件：逻辑词必须写 AND / OR（误写 &amp;&amp; 或 || 不报错，但其后的条件会被静默忽略）；可用因子与触发条件相同（age/earlyReturn 等）。
+                        若未配置购买检查条件，评级仅记录在信号中不参与买卖决策。
                     </div>
                 </div>
                 <div class="param-group" style="grid-column: 1 / span 2;">
@@ -1066,6 +1083,7 @@
                             maxExecutions: strategy.maxExecutions,
                             preBuyCheckCondition: strategy.preBuyCheckCondition,
                             repeatBuyCheckCondition: strategy.repeatBuyCheckCondition,
+                            narrativeCallCondition: strategy.narrativeCallCondition,
                             permanentBlockCondition: idx === 0 ? (copyData.permanentBlockCondition || strategy.permanentBlockCondition) : undefined,
                             description: strategy.description
                         });
@@ -1098,7 +1116,8 @@
                                 priority: strategy.priority,
                                 maxExecutions: strategy.maxExecutions,
                                 preBuyCheckCondition: strategy.preBuyCheckCondition,
-                                repeatBuyCheckCondition: strategy.repeatBuyCheckCondition
+                                repeatBuyCheckCondition: strategy.repeatBuyCheckCondition,
+                                narrativeCallCondition: strategy.narrativeCallCondition
                             });
                         } else if (strategy.action === 'sell') {
                             addSellStrategy({
@@ -1412,6 +1431,13 @@
                 }
             }
 
+            if (config.narrativeCallCondition !== undefined) {
+                const input = buyContainer.querySelector(`input[name="buy_narrative_call_condition_${index}"]`);
+                if (input) {
+                    input.value = config.narrativeCallCondition || '';
+                }
+            }
+
             if (config.permanentBlockCondition !== undefined) {
                 const input = buyContainer.querySelector(`input[name="buy_permanent_block_condition_${index}"]`);
                 if (input) {
@@ -1534,12 +1560,14 @@
                 const maxExecutionsInput = card.querySelector(`input[name="buy_max_executions_${index}"]`);
                 const preBuyCheckInput = card.querySelector(`input[name="buy_preCheck_condition_${index}"]`);
                 const repeatBuyCheckInput = card.querySelector(`input[name="buy_repeatCheck_condition_${index}"]`);
+                const narrativeCallInput = card.querySelector(`input[name="buy_narrative_call_condition_${index}"]`);
                 buyStrategies.push({
                     condition: card.querySelector(`input[name="buy_condition_${index}"]`).value,
                     priority: parseInt(card.querySelector(`input[name="buy_priority_${index}"]`).value),
                     maxExecutions: maxExecutionsInput.value ? parseInt(maxExecutionsInput.value) : null,
                     preBuyCheckCondition: preBuyCheckInput ? preBuyCheckInput.value.trim() || null : null,
-                    repeatBuyCheckCondition: repeatBuyCheckInput ? repeatBuyCheckInput.value.trim() || null : null
+                    repeatBuyCheckCondition: repeatBuyCheckInput ? repeatBuyCheckInput.value.trim() || null : null,
+                    narrativeCallCondition: narrativeCallInput ? narrativeCallInput.value.trim() || null : null
                 });
             });
 

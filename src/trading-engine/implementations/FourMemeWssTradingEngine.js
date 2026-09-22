@@ -185,6 +185,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
 
+    // 1.5 叙事评级直调（策略 narrativeCallCondition 触发时同步调 NarrativeAnalyzer.analyze，Jev 秒级）
+    const { NarrativeDirectCaller } = require('../pre-check/NarrativeDirectCaller');
+    this._narrativeCaller = new NarrativeDirectCaller();
+
     // 2. 代币池（FA 自带趋势序列，池不再需要价格/持有者历史缓存）
     this._tokenPool = new TokenPool(this.logger);
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '✅ 代币池初始化完成');
@@ -223,6 +227,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           maxExecutions: s.maxExecutions || null,
           preBuyCheckCondition: s.preBuyCheckCondition || null,
           repeatBuyCheckCondition: s.repeatBuyCheckCondition || null,
+          narrativeCallCondition: s.narrativeCallCondition || null,
           enabled: true,
         });
       });
@@ -703,6 +708,22 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         blockReason = this._tokenBlacklist.get(token.token).reason;
       }
 
+      // ── 叙事评级直调 ──
+      // 策略配置 narrativeCallCondition（fire 因子评估）满足才同步调 NarrativeAnalyzer.analyze（Jev 秒级）；
+      // 未配置/不满足/调用失败/超时 → numericRating=9（未评级）放行，由 preBuyCheckCondition 裁决买不买。
+      let narrativeCallInfo = null;
+      const narrativeCallCondition = strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== ''
+        ? String(strategy.narrativeCallCondition).trim()
+        : null;
+      if (narrativeCallCondition && preCheckPassed
+          && this._strategyEngine.evaluateCondition(narrativeCallCondition, factorResults)) {
+        narrativeCallInfo = await this._narrativeCaller.getRating(token.token, this._experimentId);
+        this.logger.info(this._experimentId, 'BuyEval',
+          `叙事评级直调 | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
+          ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +
+          (narrativeCallInfo.error ? ` error=${narrativeCallInfo.error}` : ''));
+      }
+
       if (preCheckPassed && shouldPerformPreCheck && this._preBuyCheckService) {
         try {
           const tokenInfo = this._buildTokenInfo(token);
@@ -734,7 +755,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               drawdownFromHighest: factorResults.drawdownFromHighest || null,
               buyRound: currentRound + 1,
               lastPairReturnRate: lastPairReturnRate ?? 0,
-              narrativeRating: 9,          // 叙事已解耦（[DECOUPLED]），恒未评级
+              narrativeRating: narrativeCallInfo?.numericRating ?? 9, // 直调链路；未配置/未触发/失败/超时=9
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply: totalSupply,
@@ -780,6 +801,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             await this._updateSignalMetadata(signalId, {
               tokenCreateTime,
               trendFactors: buildFactorValuesForTimeSeries(factorResults),
+              narrativeCall: narrativeCallInfo,
               preBuyCheckFactors: {
                 ...buildPreBuyCheckFactorValues(preBuyCheckResult),
                 permanentBlockTriggered: this._tokenBlacklist.has(token.token),
@@ -808,6 +830,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           await this._updateSignalMetadata(signalId, {
             tokenCreateTime,
             trendFactors: buildFactorValuesForTimeSeries(factorResults),
+            narrativeCall: narrativeCallInfo,
             preBuyCheckFactors: buildPreBuyCheckFactorValues(preBuyCheckResult),
             preBuyCheckResult: {
               canBuy: preBuyCheckResult.canBuy,
