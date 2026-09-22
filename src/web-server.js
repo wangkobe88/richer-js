@@ -805,9 +805,8 @@ class RicherJsWebServer {
     // 删除实验
     this.app.delete('/api/experiment/:id', async (req, res) => {
       try {
-        // 先清空实验数据
-        await this.dataService.clearExperimentData(req.params.id);
-        // 再删除实验
+        // 实验数据由 DB 层 FK ON DELETE CASCADE 连带删除
+        // （前置：scripts/sql/migrate-experiment-cascade-delete.sql 已执行）
         const success = await this.experimentFactory.delete(req.params.id);
 
         if (success) {
@@ -2757,7 +2756,6 @@ class RicherJsWebServer {
         let cleared = 0;
 
         for (const exp of experiments) {
-          await this.dataService.clearExperimentData(exp.id);
           await this.experimentFactory.delete(exp.id);
           cleared++;
         }
