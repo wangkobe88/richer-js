@@ -108,6 +108,12 @@ const FACTOR_PARAM_DEFAULTS = {
     tickFlowIdleOldSec: 24,      // 断流阈值：老档（母版 8s，闭区间 <=）
 };
 
+// ── Q 组：creator 前作 registry 常量（pumpfun 逐字沿用——跨票日级口径与链节奏无关）──
+const CREATOR_PRIOR_WINDOW_MS = 24 * 3600 * 1000;  // 前作首可靠价窗口 [t−24h, t−10min]
+const CREATOR_PRIOR_UNFOLD_MS = 10 * 60 * 1000;    // 展开 10min（排除刚出生未展开票；本 token 另行排除）
+const CREATOR_PRIOR_MIN_N = 2;                     // 分母 <2 → 命中率 null fail-closed（null=放行方向）
+const CREATOR_PRIOR_TTL_MS = 26 * 3600 * 1000;     // registry 条目自剪枝：firstTs 龄超窗（24h+余量）即弃
+
 class FourMemeFactorAggregator extends EventEmitter {
     /**
      * @param {Object} config - 全局配置（读取 config.fourmemeWs 段）
@@ -123,6 +129,10 @@ class FourMemeFactorAggregator extends EventEmitter {
         this._fp = Object.assign({}, FACTOR_PARAM_DEFAULTS, this._config.factorParams || {});
 
         this._states = new Map(); // tokenAddress → state
+
+        // Q 组：creator → token → {firstTs, firstPb, maxPb}（回迁批 2.5；BNB 口径免汇率）。
+        // pruneStaleTokens 删 state 不清此表——前作死票的峰值必须留痕到滑出 24h 窗（自剪枝见 _updateCreatorPrior）
+        this._creatorPriors = new Map();
 
         // 趋势检测器（与 VirtualTradingEngine 相同的构造参数，保证算法口径一致）
         this._trendDetector = new TrendDetector({
@@ -366,6 +376,11 @@ class FourMemeFactorAggregator extends EventEmitter {
         const priceReliable = priceBnb > 0 && !priceOutlier && bnbAmount >= this._fp.minPriceUpdateBnb;
         if (priceReliable) {
             state._relPriceBnb = priceBnb;
+
+            // ── Q 组：creator 前作 registry 推进（回迁批 2.5；母版已接受价路径 = 尘门+离群后的可靠价）──
+            //   新 token 首个可靠价 = 前作 firstTs/firstPb；此后只涨 maxPb（首值冻结=票属性锚点）。
+            //   creator 来自 registerToken（live=TokenCreate / 回测=experiment_tokens，tick 无 creator 列）
+            this._updateCreatorPrior(state.creatorAddress, tokenAddress, ts, priceBnb);
 
             // 墙钟秒收盘桶（空秒跳过；已闭合秒序列 = 因果口径 RSI 原料）
             const _sec = Math.floor(ts / 1000);
@@ -785,6 +800,27 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             dataCollectionRound: 1, // 引擎 30s 时序快照轮次
         };
+    }
+
+    /**
+     * Q 组：creator 前作 registry 推进（processTick 可靠价路径调用，回迁批 2.5）。
+     * 新 token 首个可靠价登记 {firstTs, firstPb, maxPb}（首值 write-once）；老 token 只涨 maxPb。
+     * 剪枝摊销：仅在该 creator 登记新 token 时扫一遍，弃 firstTs 龄 >26h 的条目（已滑出 24h 前作窗，
+     * 无论死活不再可及）；creator 条目清空即删键。因果性由回放顺序保证：决策 t 时 registry 只含 ts<t 的折叠。
+     */
+    _updateCreatorPrior(creatorAddress, tokenAddress, ts, priceBnb) {
+        if (!creatorAddress) return;
+        let toks = this._creatorPriors.get(creatorAddress);
+        if (!toks) { toks = new Map(); this._creatorPriors.set(creatorAddress, toks); }
+        let e = toks.get(tokenAddress);
+        if (e) {
+            if (priceBnb > e.maxPb) e.maxPb = priceBnb;
+            return;
+        }
+        for (const [pt, pe] of toks) {
+            if (ts - pe.firstTs > CREATOR_PRIOR_TTL_MS) toks.delete(pt);
+        }
+        toks.set(tokenAddress, { firstTs: ts, firstPb: priceBnb, maxPb: priceBnb });
     }
 
     /**
@@ -1216,6 +1252,28 @@ class FourMemeFactorAggregator extends EventEmitter {
                 state, state._positions.get(state._lastPositionKey), now);
         }
 
+        // ═══ 回迁批 2.5：Q 组 creator 近期前作命中率（registry 因果性由回放顺序保证）═══
+        //   买点 t 前 24h 内该 creator 已展开前作（首可靠价 ∈ [t−24h, t−10min]，排除本 token）
+        //   中 3× 拉升（maxPb/firstPb ≥ 3）占比。分母<2 / creator 未知 → 率 null fail-closed
+        //   （null=放行方向，门=「只留 null/0」）；creatorPriorCnt24h 为窗内前作计数
+        //   （含分母不足的 0/1，供 metadata 观察为什么 null）。
+        let creatorRecentHitRate3 = null;
+        let creatorPriorCnt24h = null;
+        const _cq = state.creatorAddress ? this._creatorPriors.get(state.creatorAddress) : null;
+        if (_cq) {
+            const _t0 = now - CREATOR_PRIOR_WINDOW_MS, _t1 = now - CREATOR_PRIOR_UNFOLD_MS;
+            let _cnt = 0, _hit = 0;
+            for (const [pt, pe] of _cq) {
+                if (pt === state.tokenAddress) continue;
+                if (pe.firstTs >= _t0 && pe.firstTs < _t1) {
+                    _cnt++;
+                    if (pe.firstPb > 0 && pe.maxPb / pe.firstPb >= 3) _hit++;
+                }
+            }
+            creatorPriorCnt24h = _cnt;
+            if (_cnt >= CREATOR_PRIOR_MIN_N) creatorRecentHitRate3 = _hit / _cnt;
+        }
+
         // ═══ 回迁批 1：读取时聚合族（pumpfun 模式，避免 per-tick 全遍历）═══
 
         // P 组：净持仓集中度 top3/top5（五变量插入排序，v<=0 跳过——净口径免疫拆单）
@@ -1598,6 +1656,10 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (_ageSec <= this._fp.tickFlowMidAgeSec) return _idle < this._fp.tickFlowIdleMidSec ? 1 : 0;
                 return _idle <= this._fp.tickFlowIdleOldSec ? 1 : 0;
             })(),
+
+            // Q 组：creator 前作命中率（批量发币方画像；null=creator 未知/窗内前作<2）
+            creatorRecentHitRate3,
+            creatorPriorCnt24h,
 
             // H 组：持仓后（顶层=最新仓，无仓 null；ddConfirmSellFlag latch 至清仓）
             peakProfitPct: positionFactors.peakProfitPct,

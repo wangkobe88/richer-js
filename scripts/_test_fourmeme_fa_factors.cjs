@@ -435,6 +435,57 @@ function scenarioIdleTickFlow(FA) {
     approx(f2.idleSecSinceLastTick, 200, 1e-9, 'idleSecSinceLastTick=200');
 }
 
+function scenarioCreatorPriors(FA) {
+    const fa = new FA({});
+    const t0 = 1758700000000;
+    const CR = '0xcreatorQQ';
+    // T1: 10 → 35（3.5× hit）；T2: 10 → 20（2× no hit）
+    for (const [T, firstTs, p2] of [
+        ['T_Q1', t0, 35],
+        ['T_Q2', t0 + 3600_000, 20],
+    ]) {
+        fa.registerToken(T, { createdAtMs: firstTs - 1000, totalSupply: 1e9, creatorAddress: CR });
+        fa.processTick(mkTick(T, firstTs, true, 10, 0.01, '0xQ', 900, 100), { emitFactors: false });
+        fa.processTick(mkTick(T, firstTs + 1000, true, p2, 0.01, '0xQ', 901, 100), { emitFactors: false });
+    }
+    // T3 首可靠价在决策点前 5min（< 10min 展开窗 → 不计入分母）
+    const t3 = t0 + 2 * 3600_000 - 5 * 60_000;
+    fa.registerToken('T_Q3', { createdAtMs: t3, totalSupply: 1e9, creatorAddress: CR });
+    fa.processTick(mkTick('T_Q3', t3, true, 10, 0.01, '0xQ', 902, 100), { emitFactors: false });
+
+    // 决策 token T_Q4（同 creator），决策点 t0+2h
+    const tNow = t0 + 2 * 3600_000;
+    fa.registerToken('T_Q4', { createdAtMs: tNow - 60000, totalSupply: 1e9, creatorAddress: CR });
+    fa.processTick(mkTick('T_Q4', tNow, true, 10, 0.01, '0xQ', 903, 100), { emitFactors: false });
+    const f4 = fa.buildFactorMap('T_Q4', tNow);
+    ok(f4.creatorPriorCnt24h === 2, 'Q组：窗内前作=2（T1、T2；T3 未展开排除）', f4.creatorPriorCnt24h);
+    approx(f4.creatorRecentHitRate3, 0.5, 1e-12, 'Q组：命中率 1/2（T1 3.5× hit，T2 2× no）');
+
+    // 自排除：T2 自身评估（T1 计入、T2 排除、T3 未展开）→ 分母 1 → 率 null
+    const f2 = fa.buildFactorMap('T_Q2', tNow);
+    ok(f2.creatorPriorCnt24h === 1 && f2.creatorRecentHitRate3 === null,
+        'Q组：自排除 + 分母<2 → 率 null（计数=1）', { c: f2.creatorPriorCnt24h, r: f2.creatorRecentHitRate3 });
+
+    // 尘门：低于 minPriceUpdateBnb 的高价 tick 不得抬 maxPb（registry 只走可靠价路径，
+    // 即便该价通过了离群检测进了 currentPriceBnb）
+    fa.processTick(mkTick('T_Q2', t0 + 3600_000 + 2000, true, 1000, 0.0001, '0xQ', 904, 1), { emitFactors: false });
+    const f4b = fa.buildFactorMap('T_Q4', tNow + 3000);
+    approx(f4b.creatorRecentHitRate3, 0.5, 1e-12, 'Q组：尘 tick（<0.002 BNB）不进 registry');
+
+    // creator 未知 → 双 null
+    fa.registerToken('T_QN', { createdAtMs: tNow, totalSupply: 1e9 });
+    fa.processTick(mkTick('T_QN', tNow, true, 10, 0.01, '0xQ', 905, 100), { emitFactors: false });
+    const fn = fa.buildFactorMap('T_QN', tNow);
+    ok(fn.creatorRecentHitRate3 === null && fn.creatorPriorCnt24h === null, 'Q组：creator 未知 → 双 null');
+
+    // TTL 摊销剪枝：27h 后同 creator 新票注册 → T1（龄 27h > 26h）被弃、T2 留
+    const tNew = t0 + 27 * 3600_000;
+    fa.registerToken('T_Q5', { createdAtMs: tNew, totalSupply: 1e9, creatorAddress: CR });
+    fa.processTick(mkTick('T_Q5', tNew, true, 10, 0.01, '0xQ', 906, 100), { emitFactors: false });
+    ok(!fa._creatorPriors.get(CR).has('T_Q1') && fa._creatorPriors.get(CR).has('T_Q2'),
+        'Q组：TTL 摊销剪枝（T1 弃，T2 留）');
+}
+
 function scenarioFactorKeys(FA, baselineKeys) {
     const fa = new FA({});
     const keys = fa.getFactorKeys();
@@ -467,6 +518,8 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'idleSecSinceLastTick', 'tickFlowOk',
         // H 组 4
         'peakProfitPct', 'ddConfirmSellFlag', 'rsi9PostProtect', 'rsi14PostProtect',
+        // Q 组 2（回迁批 2.5）
+        'creatorRecentHitRate3', 'creatorPriorCnt24h',
     ];
     const missing = NEW_KEYS.filter(k => !keys.has(k));
     ok(missing.length === 0, `getFactorKeys 含全部 ${NEW_KEYS.length} 新键`, missing);
@@ -529,6 +582,8 @@ function main() {
         console.log('  ✓ K 线形态（比值 barReturn/连阳/脉冲期）');
         scenarioIdleTickFlow(CurrentFA);
         console.log('  ✓ 断流分档');
+        scenarioCreatorPriors(CurrentFA);
+        console.log('  ✓ creator 前作命中率（窗/展开/自排除/尘门/TTL）');
         scenarioFactorKeys(CurrentFA, baselineKeys);
         console.log('  ✓ getFactorKeys 键集增量精确');
     } finally {
