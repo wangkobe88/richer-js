@@ -71,12 +71,29 @@ const BLOCK_LABELS = {
   empty_content: '空洞内容',
   institution_routine: '机构日常运营',
   low_quality_derivative: '低质衍生',
-  word_extraction: '截词借势',
   marketing_gimmick: '营销噱头',
   baseless_speculation: '无据猜测',
   ip_reuse: 'IP二次利用',
   regional_event: '地区性事件',
 };
+
+/**
+ * name_referent 阻断（J1.10，2026-09-23 用户裁定：截词/截名发币要成立，名字的主人
+ * 得是超级 IP——被超级IP/大V提到≠名字本身有生命力）：
+ * - minor_other：名字指向事件中被提到/@到/点评到的无名对象（周边小号/小公司/纠纷
+ *   对象等）——YAYA（何一推文@的周边账号）、OneKey（Flork 纠纷文中的失败会展）
+ * - common_word：名字取自非超级IP文本中的普通词——CONVICTION（133万粉 KOL 推文截词）
+ * - notable_other：名字指向知名但非超级IP（十万粉级 KOL/行业知名公司）——同样不构成
+ *   名字的独立生命力（CONVICTION 案即 133 万粉 KOL 推文截词，知名≠超级IP，不放行）
+ * - super_ip（CZ 原话"not a genius"→天才）/subject_self（嫦娥：作者自创）放行
+ * 作用域同截词语义：C/D/F/G（E 类热点命名先例不拦；W 类币通常即产品名；A 类不适用）
+ */
+const NAME_REFERENT_BLOCK_LABELS = {
+  minor_other: '名字指向无名对象',
+  common_word: '截词（非超级IP话中词）',
+  notable_other: '名字指向知名但非超级IP',
+};
+const NAME_REFERENT_BLOCK_SCOPE = ['C', 'D', 'F', 'G'];
 
 /**
  * 阻断选项的类别作用域（与原各类 Stage2 prompt 的阻断条件集合对齐）：
@@ -85,9 +102,6 @@ const BLOCK_LABELS = {
  * - C/D 类：机构日常运营
  * - G 类：无据猜测
  * - E 类：地区性事件
- * - C/D/F/G 类：截词借势（J1.9，2026-09-23 裁定：截取一段话中的一个词发币要成立，
- *   主体得是超级 IP；普通主体截词无叙事生命力。E 类不设——热点命名已有先例不算
- *   低质衍生；A 类币名来自形象本身不适用；W 类币通常即产品名，暂不设）
  * - A/C/D/F/G 类：主体资格不足（J1.9 扩：小主体事件原本靠"事件分<60"下限拦截，但
  *   Jev 量级打分在 C/B 边界会漂移（OneKey 语料A：257 粉小号时过时不过），此档
  *   兜底为确定性阻断。E 类不设——热点主体按归因规则是热点主角而非搬运小号）
@@ -101,12 +115,34 @@ const BLOCK_SCOPE = {
   subject_unqualified: ['A', 'C', 'D', 'F', 'G'],
   niche_subculture: ['A'],
   low_quality_derivative: ['A'],
-  word_extraction: ['C', 'D', 'F', 'G'],
   ip_reuse: ['A'],
   baseless_speculation: ['G'],
   institution_routine: ['C', 'D'],
   regional_event: ['E'],
 };
+
+/**
+ * name_referent 是否在该类别下构成阻断（独立作用域表，语义同 blockInScope）。
+ * 返回 {label, mass} 或 null。label 取阻断侧三项中概率最大者的标签，mass 为三项合计。
+ * 门槛用阻断侧合计概率（minor_other+common_word+notable_other ≥ 0.5）而非 argmax 单项：
+ * Jev 在 YAYA 案上 subject_self/minor_other 五五开（0.43/0.41，argmax 跨 run 抖动），
+ * 合并阻断侧质量后 0.55 稳定过半。放行侧（super_ip/subject_self/none_related）不累计。
+ */
+function nameReferentBlock(answers, category) {
+  if (category == null || !NAME_REFERENT_BLOCK_SCOPE.includes(category)) return null;
+  const probs = answers?.name_referent?.probabilities;
+  if (!probs) return null;
+  let mass = 0;
+  let bestKey = 'minor_other';
+  let bestP = -1;
+  for (const k of Object.keys(NAME_REFERENT_BLOCK_LABELS)) {
+    const p = probs[k] ?? 0;
+    mass += p;
+    if (p > bestP) { bestP = p; bestKey = k; }
+  }
+  if (mass < 0.5) return null;
+  return { label: NAME_REFERENT_BLOCK_LABELS[bestKey], mass: Math.round(mass * 100) / 100 };
+}
 
 /**
  * 阻断选项是否在该类别下生效
@@ -240,6 +276,9 @@ export function mapStandardAnswers(answers, context) {
   // 9 个阻断项共享概率质量，argmax≠none 过易触发（dry-run 实证：P=0.43 即阻断）。
   // 忠实转译：P(none)≥0.5 才视为无阻断。
   const noneProb = answers.block_reason?.probabilities?.none ?? 0;
+  // name_referent 阻断（J1.10）：名字指向无名对象/截词/仅知名，无论事件分多高都不通过
+  const nameReferent = answers.name_referent?.choice || null;
+  const nameReferentProb = answers.name_referent?.probabilities?.[nameReferent] ?? null;
 
   const stage1DataToSave = {
     category,
@@ -258,6 +297,7 @@ export function mapStandardAnswers(answers, context) {
           event_category: answers.event_category?.probabilities,
           event_magnitude: answers.event_magnitude?.probabilities,
           block_reason: answers.block_reason?.probabilities,
+          name_referent: answers.name_referent?.probabilities,
         },
       },
     },
@@ -267,6 +307,7 @@ export function mapStandardAnswers(answers, context) {
   const isW = category === 'W';
   let stage2Blocked = false;
   let stage2BlockReason = null;
+  let nrBlock = null; // name_referent 阻断信息 {label, mass}（reason 展示用）
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
@@ -277,6 +318,9 @@ export function mapStandardAnswers(answers, context) {
   if (blockChoice !== 'none' && noneProb < 0.5 && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
+  } else if ((nrBlock = nameReferentBlock(answers, isW ? 'W' : category))) {
+    stage2Blocked = true;
+    stage2BlockReason = nrBlock.label;
   } else if (!isW && (tier === 'E' || tier === 'D')) {
     // 量级 D/E 档：主体量级不足，直接阻断（原各类 prompt 的 D/E 处理）
     stage2Blocked = true;
@@ -318,6 +362,9 @@ export function mapStandardAnswers(answers, context) {
         magnitudeTier: tier,
         blockChoice,
         blockProbability: blockProb ?? null,
+        nameReferent,
+        nameReferentProbability: nameReferentProb,
+        nameReferentBlockMass: nrBlock?.mass ?? null,
         timing,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,
@@ -365,7 +412,7 @@ export function mapStandardAnswers(answers, context) {
   }
 
   const finalReason = stage2Blocked
-    ? `阻断:${stage2BlockReason}｜P=${blockProb ?? '-'}`
+    ? `阻断:${stage2BlockReason}｜P=${nrBlock ? nrBlock.mass : (blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)} 拼写P=${round2(misspellingP)}`
       : `事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
@@ -477,8 +524,15 @@ export function mapSuperIPAnswers(answers, context) {
   // "S/A 级账号的实质内容推文不算日常运营"（校准实证：币安中文/BNB Chain 的
   // 实质内容推被 P=0.02-0.09 的日常运营误阻断）
   const superIPCategory = superIPInfo.type === 'person' ? 'C' : 'D';
-  const blocked = blockChoice !== 'none' && blockChoice !== 'institution_routine'
+  // name_referent 阻断（J1.10）同样适用于快车道：注册表账号的量级分不能被
+  // "其推文中@到/提到的无名对象"蹭走（YAYA 案例：何一推文@的周边账号名）
+  const nameReferent = answers.name_referent?.choice || null;
+  const nameReferentProb = answers.name_referent?.probabilities?.[nameReferent] ?? null;
+  const blockedByBlockReason = blockChoice !== 'none' && blockChoice !== 'institution_routine'
     && noneProb < 0.5 && blockInScope(blockChoice, superIPCategory);
+  const nrBlock = nameReferentBlock(answers, superIPCategory);
+  const blockedByNameReferent = !!nrBlock;
+  const blocked = blockedByBlockReason || blockedByNameReferent;
 
   const prestageDataToSave = {
     category: 'super_ip_fast',
@@ -487,7 +541,9 @@ export function mapSuperIPAnswers(answers, context) {
     raw_output: rawOutput,
     parsed_output: {
       pass: !blocked,
-      blockReason: blocked ? (BLOCK_LABELS[blockChoice] || blockChoice) : null,
+      blockReason: blocked
+        ? (blockedByBlockReason ? (BLOCK_LABELS[blockChoice] || blockChoice) : nrBlock.label)
+        : null,
       dimension2Score: dim2,
       ipInfo: superIPInfo,
       tierScore: preScores.tierScore,
@@ -496,9 +552,13 @@ export function mapSuperIPAnswers(answers, context) {
       jev: {
         blockChoice,
         blockProbability: blockProb ?? null,
+        nameReferent,
+        nameReferentProbability: nameReferentProb,
+        nameReferentBlockMass: nrBlock?.mass ?? null,
         probabilities: {
           dimension2: answers.dimension2?.probabilities,
           block_reason: answers.block_reason?.probabilities,
+          name_referent: answers.name_referent?.probabilities,
         },
       },
     },
@@ -512,12 +572,19 @@ export function mapSuperIPAnswers(answers, context) {
   let llmResult;
 
   if (blocked) {
-    llmResult = {
-      rating: 'low',
-      reason: `阻断:${BLOCK_LABELS[blockChoice] || blockChoice}｜P=${blockProb ?? '-'}`,
-      score: null,
-      pass: false,
-    };
+    llmResult = blockedByBlockReason
+      ? {
+          rating: 'low',
+          reason: `阻断:${BLOCK_LABELS[blockChoice] || blockChoice}｜P=${blockProb ?? '-'}`,
+          score: null,
+          pass: false,
+        }
+      : {
+          rating: 'low',
+          reason: `阻断:${nrBlock.label}｜P=${nrBlock.mass}`,
+          score: null,
+          pass: false,
+        };
   } else {
     // 原 fast track 聚合公式：eventTotal = baseEventScore + dimension2
     const eventTotal = round2(preScores.baseEventScore + dim2);
