@@ -276,8 +276,9 @@ export async function getCommunityWithFullTweets(communityId, tweetCount = 50) {
 export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, accountOrCommunityData, options = {}) {
   // ═══════════════════════════════════════════════════════════════════════════
   // 账号质量检查（优先级最高）
-  // 如果账号数据质量达到阈值，跳过地址验证，传递到下游LLM分析
-  // 原因：这可能是meme币的背景性说明（类似一篇推文），账号本身可能是一个IP形象
+  // 质量达标时仍执行地址验证：公示了代币地址（强绑定证据）→ addressVerified=true
+  // 走 token_type 二分；未公示才降级为 abm 两条件路径（交给下游LLM判断）
+  // 原因：质量达标不该丢弃"账号自己贴了地址"这个最强归属证据
   // ═══════════════════════════════════════════════════════════════════════════
 
   const type = accountOrCommunityData.type;
@@ -317,6 +318,42 @@ export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, acc
       if (meetsCondition1) matchedConditions.push(`条件1(粉丝≥${FOLLOWERS_THRESHOLD}且发推≥${STATUSES_THRESHOLD})`);
       if (meetsCondition2) matchedConditions.push(`条件2(粉丝≥${FOLLOWERS_HIGH_THRESHOLD}且有认证)`);
       if (meetsCondition3) matchedConditions.push(`条件3(粉丝≥${FOLLOWERS_VERY_HIGH_THRESHOLD})`);
+
+      // 质量达标后仍验证地址：账号公示了地址 → 已验证归属（与项目币先例一致，名称只记录不拒）
+      const addressResult = verifyTokenAddress(tokenAddress, accountOrCommunityData);
+
+      if (addressResult.found) {
+        const nameResult = verifyTokenName(tokenSymbol, tokenName, accountOrCommunityData);
+
+        console.log(`[AccountCommunityRules] 账号质量达标且地址命中（${addressResult.locations.join('、')}），按已验证归属传递到Prestage LLM判断`, {
+          screenName: accountOrCommunityData.screen_name,
+          followersCount,
+          statusesCount,
+          verified,
+          isBlueVerified,
+          matchedConditions,
+          addressLocations: addressResult.locations
+        });
+
+        return {
+          passed: true,
+          stage: 'account_quality_address_found',
+          addressVerified: true,
+          nameMatch: nameResult.matched,
+          reason: `账号质量达标（${matchedConditions.join(' + ')}）且${addressResult.locations.join('、')}中找到代币合约地址，确认为官方代币，传递到Prestage LLM判断`,
+          details: {
+            accountQuality: {
+              followersCount,
+              statusesCount,
+              verified,
+              isBlueVerified,
+              matchedConditions
+            },
+            addressLocations: addressResult.locations,
+            nameMatchType: nameResult.matchType
+          }
+        };
+      }
 
       console.log(`[AccountCommunityRules] 账号质量检查通过，地址未命中但账号质量达标，传递到Prestage LLM判断`, {
         screenName: accountOrCommunityData.screen_name,
@@ -379,7 +416,7 @@ export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, acc
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 1. 地址验证（账号质量未达标时执行）
+  // 1. 地址验证（账号质量未达标时为强制门槛：找不到地址直接拒）
   // ═══════════════════════════════════════════════════════════════════════════
 
   const addressResult = verifyTokenAddress(tokenAddress, accountOrCommunityData);
