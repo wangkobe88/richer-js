@@ -8,16 +8,24 @@
 //   2 盈亏分布直方
 //   3 差票（轮 PnL% ≤ --bad 阈，默认 -20）vs 好票（≥ --good 阈，默认 +20）
 //     买点信号 metadata.trendFactors 各数值键 P25/P50/P75 对比（找区分度=下一轮门槛候选）
-//   4 卖点观察：持仓时长/卖点位置
+//   4 出场路径分组（策略腿 vs 回放结束强平）——卖侧迭代的核心观察
+//   5 冲高回落机会：未吃到止盈（pnl<15）的轮按持仓期峰值分桶，peak−final 差值
+//     = 追踪止盈腿的理论捕获空间（卖点迭代依据）
+//   6 持仓时长 / 最差最好轮
 //
-// 轮次口径：单仓语义 per token 按时序 buy→开 / sell→闭；轮 PnL% =（卖出回收 BNB /
-// 买入花费 BNB − 1）×100（模拟成交额已含 0.5% 手续费）。买点因子经 trade.signal_id
-// 关联 BUY 信号 metadata（触发时刻快照，12+2 观察子集+旧趋势键）。
+// 轮次口径：单仓语义 per token 按时序 buy→开 / sell→闭；轮 PnL% 含每腿 0.5%
+// 模拟手续费（PortfolioManager.executeTrade 余额扣费、trades 金额为费前值——
+// 买成本=buy×1.005、卖回收=sell×0.995，与实验最终余额对账用此口径）。
+// 峰值重建：peak% = ((1+p/100)/(1+dd/100)−1)×100，p/dd 取自卖出信号
+// metadata.trendFactors（profitPercent / drawdownFromHighestSinceLastBuy，信号时刻快照；
+// peak 为 running max，卖出时刻的 peak≈该轮全程峰值）。
 //
 // 读取量：trades+signals 数千行——建议 182 跑；本地可容忍。
 // ============================================================================
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../..', 'config/.env') });
+
+const FEE = 0.005; // 每腿模拟手续费（与 PortfolioManager.executeTrade 默认值一致）
 
 function pctile(sorted, p) {
   if (!sorted.length) return null;
@@ -53,60 +61,76 @@ async function main() {
   }
   if (!trades.length) { console.log('无 trades 行——实验未跑或未产生交易'); process.exit(0); }
 
-  // ── 买 trade 关联信号（买点因子快照）──
-  const buySigIds = [...new Set(trades.filter(t => t.trade_direction === 'buy' && t.signal_id).map(t => t.signal_id))];
-  const sigMeta = new Map(); // signal_id → {trendFactors, price, createdAt}
+  // ── 买卖 trade 关联信号（买点因子快照 + 卖点出场路径/峰值重建）──
+  const sigIds = [...new Set(trades.filter(t => t.signal_id).map(t => t.signal_id))];
+  const sigMeta = new Map(); // signal_id → row
   // 100/批：uuid .in() URL 长度护栏（400×36B≈15KB 会被网关掐成 fetch failed）
-  for (let i = 0; i < buySigIds.length; i += 100) {
+  for (let i = 0; i < sigIds.length; i += 100) {
     const { data, error } = await sb.from('strategy_signals')
-      .select('id,metadata,created_at').in('id', buySigIds.slice(i, i + 100));
+      .select('id,metadata,created_at').in('id', sigIds.slice(i, i + 100));
     if (error) throw new Error('signals 查询失败: ' + error.message);
     for (const s of (data || [])) sigMeta.set(s.id, s);
   }
 
-  // ── 轮次配对（单仓：buy 开轮 → 下一笔 sell 闭轮）──
+  // ── 轮次配对（单仓：buy 开轮 → 下一笔 sell 闭轮）+ 未配对诊断 ──
   const byToken = new Map();
   for (const t of trades) {
     if (!byToken.has(t.token_address)) byToken.set(t.token_address, []);
     byToken.get(t.token_address).push(t);
   }
-  const rounds = []; // {token, symbol, buyBnb, sellBnb, pnlPct, holdMs, sigFactors, buyAt}
-  let open = null;
+  const rounds = []; // {token, symbol, buyBnb, sellBnb, pnlPct, holdMs, sigFactors, exitStrategy, exitProfit, peakPct}
+  let orphanBuys = 0, orphanBuyBnb = 0, orphanSells = 0; // buy 后无 sell（余额只出不进）/ 无仓 sell
   for (const [tok, list] of byToken) {
-    open = null;
+    let open = null;
     for (const t of list) {
       if (t.trade_direction === 'buy') {
+        if (open) { orphanBuys++; orphanBuyBnb += parseFloat(open.t.input_amount) || 0; } // 连续 buy 覆盖（单仓语义理论不可达）
         open = { t };
-      } else if (t.trade_direction === 'sell' && open) {
-        const buyBnb = parseFloat(open.t.input_amount);   // 买：input=BNB
-        const sellBnb = parseFloat(t.output_amount);      // 卖：output=BNB
+      } else if (t.trade_direction === 'sell') {
+        if (!open) { orphanSells++; continue; }
+        const buyBnb = parseFloat(open.t.input_amount);   // 买：input=BNB（费前）
+        const sellBnb = parseFloat(t.output_amount);      // 卖：output=BNB（费前）
         if (Number.isFinite(buyBnb) && buyBnb > 0 && Number.isFinite(sellBnb)) {
-          const sig = open.t.signal_id ? sigMeta.get(open.t.signal_id) : null;
+          const buySig = open.t.signal_id ? sigMeta.get(open.t.signal_id) : null;
+          const sellSig = t.signal_id ? sigMeta.get(t.signal_id) : null;
+          const stf = (sellSig && sellSig.metadata && sellSig.metadata.trendFactors) || {};
+          const p = Number(stf.profitPercent), dd = Number(stf.drawdownFromHighestSinceLastBuy);
+          // 峰值重建：current=buy×(1+p/100)、peak=current/(1+dd/100) → peak 涨幅
+          let peakPct = null;
+          if (Number.isFinite(p) && Number.isFinite(dd) && dd > -100) {
+            peakPct = ((1 + p / 100) / (1 + dd / 100) - 1) * 100;
+          }
           rounds.push({
             token: tok, symbol: t.token_symbol || open.t.token_symbol || '',
             buyBnb, sellBnb,
-            pnlPct: (sellBnb / buyBnb - 1) * 100,
+            pnlPct: ((sellBnb * (1 - FEE)) / (buyBnb * (1 + FEE)) - 1) * 100, // 含每腿 0.5% 费
             holdMs: new Date(t.created_at) - new Date(open.t.created_at),
             buyAt: open.t.created_at,
-            sigFactors: sig && sig.metadata ? (sig.metadata.trendFactors || {}) : {},
+            sigFactors: buySig && buySig.metadata ? (buySig.metadata.trendFactors || {}) : {},
+            exitStrategy: (sellSig && sellSig.metadata && sellSig.metadata.strategyName) || '未知',
+            exitProfit: Number.isFinite(p) ? p : null,
+            peakPct,
           });
         }
         open = null;
       }
     }
+    if (open) { orphanBuys++; orphanBuyBnb += parseFloat(open.t.input_amount) || 0; } // 持仓未闭（强平跳过等）
   }
-  const openCnt = 0; // 回放结束强平后应无持仓；byToken 循环里 open>0 计入（简化：强平=已卖）
 
   // ── 1 总览 ──
   const pnls = rounds.map(r => r.pnlPct).sort((x, y) => x - y);
   const wins = pnls.filter(v => v > 0).length;
-  const sumBnb = rounds.reduce((s, r) => s + (r.sellBnb - r.buyBnb), 0);
+  const sumBnb = rounds.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
   const spentBnb = rounds.reduce((s, r) => s + r.buyBnb, 0);
   console.log('═'.repeat(76));
   console.log(`回测分析 ${expId.slice(0, 8)} | trades=${trades.length}（buy ${trades.filter(t => t.trade_direction === 'buy').length} / sell ${trades.filter(t => t.trade_direction === 'sell').length}）`);
-  console.log(`轮次 ${rounds.length} | 胜率 ${(rounds.length ? (wins / rounds.length * 100).toFixed(1) : 0)}% | ΣPnL ${sumBnb.toFixed(4)} BNB（投入 ${spentBnb.toFixed(2)}）`);
+  console.log(`轮次 ${rounds.length} | 胜率 ${(rounds.length ? (wins / rounds.length * 100).toFixed(1) : 0)}% | ΣPnL(含费) ${sumBnb.toFixed(4)} BNB（投入 ${spentBnb.toFixed(2)}）`);
+  if (orphanBuys || orphanSells) {
+    console.log(`⚠ 未配对：buy 无后续 sell ${orphanBuys} 笔（${orphanBuyBnb.toFixed(2)} BNB 只出不进）/ 无仓 sell ${orphanSells} 笔`);
+  }
   if (pnls.length) {
-    console.log(`PnL% 分位：P05 ${fmt(pctile(pnls, 0.05))} | P25 ${fmt(pctile(pnls, 0.25))} | P50 ${fmt(pctile(pnls, 0.5))} | P75 ${fmt(pctile(pnls, 0.75))} | P95 ${fmt(pctile(pnls, 0.95))} | 最差 ${fmt(pnls[0])} | 最好 ${fmt(pnls[pnls.length - 1])}`);
+    console.log(`PnL% 分位（含费）：P05 ${fmt(pctile(pnls, 0.05))} | P25 ${fmt(pctile(pnls, 0.25))} | P50 ${fmt(pctile(pnls, 0.5))} | P75 ${fmt(pctile(pnls, 0.75))} | P95 ${fmt(pctile(pnls, 0.95))} | 最差 ${fmt(pnls[0])} | 最好 ${fmt(pnls[pnls.length - 1])}`);
   }
 
   // ── 2 盈亏分布 ──
@@ -146,7 +170,34 @@ async function main() {
     console.log('  （差票或好票样本 <3，跳过因子对比）');
   }
 
-  // ── 4 卖点观察 ──
+  // ── 4 出场路径分组（卖侧迭代核心观察）──
+  console.log('── 出场路径 ──');
+  const byExit = new Map();
+  for (const r of rounds) {
+    if (!byExit.has(r.exitStrategy)) byExit.set(r.exitStrategy, []);
+    byExit.get(r.exitStrategy).push(r);
+  }
+  for (const [name, rs] of [...byExit.entries()].sort((x, y) => y[1].length - x[1].length)) {
+    const sum = rs.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
+    const holdP50 = pctile(rs.map(r => r.holdMs / 1000).sort((x, y) => x - y), 0.5);
+    const peakP50 = pctile(rs.map(r => r.peakPct).filter(Number.isFinite).sort((x, y) => x - y), 0.5);
+    console.log(`  ${String(name).slice(0, 24).padEnd(26)} n=${String(rs.length).padStart(4)} | ΣPnL ${sum.toFixed(4)} | 均值 ${(sum / rs.length * 10).toFixed(2)}‰ | hold P50 ${(holdP50 || 0).toFixed(0)}s | 峰值 P50 ${fmt(peakP50)}%`);
+  }
+
+  // ── 5 冲高回落机会（未吃到 +15 止盈的轮，按持仓期峰值分桶）──
+  const flatR = rounds.filter(r => r.pnlPct < 15 && Number.isFinite(r.peakPct));
+  console.log(`── 冲高回落机会：pnl<15% 的轮 n=${flatR.length}，按峰值分桶（final=实际出场，差值=追踪止盈理论捕获）──`);
+  const pkBuckets = [[-1e9, 4], [4, 8], [8, 12], [12, 15], [15, 1e9]];
+  for (const [lo, hi] of pkBuckets) {
+    const rs = flatR.filter(r => r.peakPct >= lo && r.peakPct < hi);
+    if (!rs.length) { console.log(`  峰值[${hi === 1e9 ? '≥15' : lo + '~' + hi}]  0`); continue; }
+    const avgPeak = rs.reduce((s, r) => s + r.peakPct, 0) / rs.length;
+    const avgFinal = rs.reduce((s, r) => s + r.pnlPct, 0) / rs.length;
+    const label = hi === 1e9 ? '≥15(漏止盈!)' : lo === -1e9 ? '<4' : `${lo}~${hi}`;
+    console.log(`  峰值[${label.padEnd(11)}] n=${String(rs.length).padStart(4)} | 峰值均值 ${avgPeak.toFixed(1)}% → 出场均值 ${avgFinal.toFixed(1)}% | 理论捕获 Σ ${(rs.reduce((s, r) => s + (r.peakPct - r.pnlPct), 0) * 0.1 / 100).toFixed(4)} BNB`);
+  }
+
+  // ── 6 持仓时长 / 极值轮 ──
   const holds = rounds.map(r => r.holdMs / 1000).sort((x, y) => x - y);
   if (holds.length) {
     console.log(`── 持仓时长(s)：P25 ${fmt(pctile(holds, 0.25))} | P50 ${fmt(pctile(holds, 0.5))} | P75 ${fmt(pctile(holds, 0.75))} | P95 ${fmt(pctile(holds, 0.95))}`);
@@ -154,9 +205,9 @@ async function main() {
   const worst = rounds.slice().sort((x, y) => x.pnlPct - y.pnlPct).slice(0, 8);
   const best = rounds.slice().sort((x, y) => y.pnlPct - x.pnlPct).slice(0, 8);
   console.log('── 最差 8 轮 ──');
-  for (const r of worst) console.log(`  ${r.pnlPct.toFixed(1).padStart(7)}%  ${String(r.symbol).slice(0, 12).padEnd(13)} hold=${(r.holdMs / 1000).toFixed(0)}s  ${r.token.slice(0, 10)}`);
+  for (const r of worst) console.log(`  ${r.pnlPct.toFixed(1).padStart(7)}%  ${String(r.symbol).slice(0, 12).padEnd(13)} hold=${(r.holdMs / 1000).toFixed(0)}s 峰值=${fmt(r.peakPct)}% [${r.exitStrategy.slice(0, 12)}]  ${r.token.slice(0, 10)}`);
   console.log('── 最好 8 轮 ──');
-  for (const r of best) console.log(`  ${r.pnlPct.toFixed(1).padStart(7)}%  ${String(r.symbol).slice(0, 12).padEnd(13)} hold=${(r.holdMs / 1000).toFixed(0)}s  ${r.token.slice(0, 10)}`);
+  for (const r of best) console.log(`  ${r.pnlPct.toFixed(1).padStart(7)}%  ${String(r.symbol).slice(0, 12).padEnd(13)} hold=${(r.holdMs / 1000).toFixed(0)}s 峰值=${fmt(r.peakPct)}% [${r.exitStrategy.slice(0, 12)}]  ${r.token.slice(0, 10)}`);
   console.log('═'.repeat(76));
 }
 
