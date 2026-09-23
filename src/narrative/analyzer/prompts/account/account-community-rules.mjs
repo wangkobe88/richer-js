@@ -198,8 +198,9 @@ export function verifyTokenName(tokenSymbol, tokenName, accountOrCommunityData) 
 export async function getAccountWithFullTweets(screenName, tweetCount = 50) {
   try {
     const userInfo = await getUserByScreenName(screenName);
-    // 获取更多推文，避免遗漏包含地址的推文
-    const actualCount = Math.max(tweetCount, 50);
+    // 获取更多推文，避免遗漏包含地址的推文（getUserTweets 已按 cursor 翻页凑满；
+    // 100 条对高频账号可覆盖到 token 创建时刻附近——发币 CA 公告通常在创建后几分钟内发出）
+    const actualCount = Math.max(tweetCount, 100);
     const tweets = await getUserTweets(userInfo.id, { count: String(actualCount) });
 
     return {

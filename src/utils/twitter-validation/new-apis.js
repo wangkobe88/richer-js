@@ -121,34 +121,49 @@ async function getUserByScreenName(screenName) {
 
 /**
  * 获取用户推文列表
+ * /sapi/UserTweets 每页固定约 20 条（count 参数被端点忽略），需按 next_cursor_str 翻页凑满
  * @param {string} userId - Twitter用户ID (不是用户名)
  * @param {Object} options - 选项
+ * @param {string} [options.count] - 目标条数（翻页凑满为止）
  * @returns {Promise<Array>} 推文列表
  */
 async function getUserTweets(userId, options = {}) {
   console.log(`📝 获取用户推文列表: userId=${userId}`);
 
   try {
-    const params = new URLSearchParams({
-      user_id: userId,
-      count: options.count || '10',
-      ...options
-    });
+    const requested = parseInt(options.count || '10', 10) || 10;
+    const MAX_PAGES = 10; // 上限保护：最多 10 页（约 200 条），防止高频账号无限翻页
 
-    const response = await makeRequest(`${NEW_ENDPOINTS.userTweets}?${params}`);
+    const allTweets = [];
+    let pinnedTweet = null;
+    let cursor = null;
 
-    const tweets = response?.tweets || [];
-    const pinnedTweet = response?.pinned_tweet;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const params = new URLSearchParams({ user_id: userId, count: '20' });
+      if (cursor) params.set('cursor', cursor);
+
+      const response = await makeRequest(`${NEW_ENDPOINTS.userTweets}?${params}`);
+
+      const tweets = response?.tweets || [];
+      if (!pinnedTweet && response?.pinned_tweet) {
+        pinnedTweet = response.pinned_tweet;
+      }
+      allTweets.push(...tweets);
+
+      // 够数 / 无游标 / 空页即停
+      cursor = response?.next_cursor_str || null;
+      if (!cursor || allTweets.length >= requested || tweets.length === 0) break;
+    }
 
     // 如果有置顶推文，将其合并到结果中
     if (pinnedTweet) {
-      tweets.unshift(pinnedTweet);
+      allTweets.unshift(pinnedTweet);
       console.log(`📌 发现置顶推文: ${pinnedTweet.tweet_id}`);
     }
 
-    console.log(`✅ 成功获取 ${tweets.length} 条推文`);
+    console.log(`✅ 成功获取 ${allTweets.length} 条推文`);
 
-    return tweets;
+    return allTweets;
 
   } catch (error) {
     console.error(`❌ 获取用户推文失败 (userId=${userId}):`, error.message);
