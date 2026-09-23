@@ -47,6 +47,8 @@ class ExperimentTokenReturns {
     this.narrativeDataMap = new Map();
     // 代币符号映射（从 experiment_tokens 回补）
     this.tokenSymbolMap = new Map();
+    // 代币分类（token_profiles：wash/pump_dump/high_mcap_wash/quality/high_mcap/normal/low_quality/low_activity）
+    this.tokenCategoryMap = new Map();
     // 当前编辑的代币地址
     this.currentEditingToken = null;
 
@@ -183,6 +185,10 @@ class ExperimentTokenReturns {
             if (token.token_symbol) {
               this.tokenSymbolMap.set(token.token_address, token.token_symbol);
             }
+            // 保存代币分类（token_profiles）
+            if (token.token_category) {
+              this.tokenCategoryMap.set(token.token_address, { category: token.token_category, peakMcapUsd: token.peak_mcap_usd });
+            }
           });
         }
       }
@@ -203,6 +209,9 @@ class ExperimentTokenReturns {
               metadataResult.data.forEach(token => {
                 if (token.platform && !this.tokenPlatformMap.has(token.token_address)) {
                   this.tokenPlatformMap.set(token.token_address, token.platform);
+                }
+                if (token.token_category && !this.tokenCategoryMap.has(token.token_address)) {
+                  this.tokenCategoryMap.set(token.token_address, { category: token.token_category, peakMcapUsd: token.peak_mcap_usd });
                 }
                 const ds = token.raw_api_data?.data_source || token.data_source;
                 if (ds && !this.tokenDataSourceMap.has(token.token_address)) {
@@ -705,6 +714,9 @@ class ExperimentTokenReturns {
           ${this.renderPlatformBadge(item.tokenAddress)}
         </td>
         <td class="px-2 py-2 text-center">
+          ${this.renderTokenCategoryBadge(item.tokenAddress)}
+        </td>
+        <td class="px-2 py-2 text-center">
           ${this.renderNarrativeRating(item.tokenAddress)}
         </td>
         <td class="px-2 py-2 text-right">
@@ -783,6 +795,7 @@ class ExperimentTokenReturns {
             <span class="text-gray-600 ml-2 text-xs">(${pair.holdDuration !== null ? pair.holdDuration.toFixed(0) + '分钟' : '-'})</span>
           </div>
         </td>
+        <td class="px-2 py-2 text-center text-gray-600">-</td>
         <td class="px-2 py-2 text-center text-gray-600">-</td>
         <td class="px-2 py-2 text-center text-gray-600">-</td>
         <td class="px-2 py-2 text-right text-gray-600 text-xs">
@@ -1223,6 +1236,29 @@ class ExperimentTokenReturns {
     const dsBadge = dsInfo ? `<span class="px-1 py-0.5 rounded text-[9px] font-medium ${dsInfo.cls} ml-0.5">${dsInfo.label}</span>` : '';
 
     return platformBadge + dsBadge;
+  }
+
+  /**
+   * 渲染代币分类徽章（token_profiles，bsc-v1 分类器：流水盘/高市值等）
+   * @param {string} tokenAddress - 代币地址
+   * @returns {string} 分类徽章 HTML（无分类数据返回 '-'）
+   */
+  renderTokenCategoryBadge(tokenAddress) {
+    const info = this.tokenCategoryMap.get(tokenAddress);
+    if (!info) return '<span class="text-gray-600 text-xs">-</span>';
+    const cfg = {
+      wash:           { label: '流水盘',       cls: 'bg-red-700',        title: '闪崩急跌+起不来（4K≤峰值市值<15K）' },
+      pump_dump:      { label: '拉高出货',     cls: 'bg-red-900',        title: '拉高出货（graduation 断流/内盘砸盘）' },
+      high_mcap_wash: { label: '高市值流水',   cls: 'bg-orange-700',     title: '高市值闪崩但有真实拉升且非暴力砸盘（中性）' },
+      high_mcap:      { label: '高市值',       cls: 'bg-blue-700',       title: '峰值市值 ≥ $15K' },
+      quality:        { label: '优质',         cls: 'bg-green-700',      title: '峰值市值 $8K~$15K' },
+      normal:         { label: '普通',         cls: 'bg-gray-600',       title: '无闪崩无拉高出货，市值 $6K~$8K' },
+      low_quality:    { label: '低质',         cls: 'bg-yellow-800',     title: '峰值市值 < $6K' },
+      low_activity:   { label: '低活跃',       cls: 'bg-gray-800',       title: '成交笔数低于分类门槛' },
+    }[info.category];
+    if (!cfg) return `<span class="text-gray-500 text-xs">${info.category}</span>`;
+    const mcap = info.peakMcapUsd != null ? `，峰值市值 $${Math.round(info.peakMcapUsd).toLocaleString()}` : '';
+    return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cfg.cls} text-white cursor-help" title="${cfg.title}${mcap}">${cfg.label}</span>`;
   }
 
   /**

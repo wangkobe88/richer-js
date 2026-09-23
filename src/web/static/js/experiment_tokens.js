@@ -618,6 +618,7 @@ class ExperimentTokens {
         <td class="px-1.5 py-1 text-right text-[10px] text-white overflow-hidden truncate">${tvl}</td>
         <td class="px-1.5 py-1 text-left text-[10px] text-gray-400 overflow-hidden truncate"><code class="text-gray-400 font-mono truncate">${shortCreatorAddress}</code></td>
         <td class="px-1.5 py-1 text-center overflow-hidden"><span class="px-1 py-0.5 rounded text-[10px] font-medium ${platformClass} text-white">${platformLabel}</span></td>
+        <td class="px-1.5 py-1 text-center overflow-hidden">${this.renderTokenCategoryBadge(token.token_category, token.peak_mcap_usd)}</td>
         <td class="px-1.5 py-1 text-center overflow-hidden"><span class="px-1 py-0.5 rounded text-[10px] font-medium ${chainClass}">${chainLabel}</span></td>
         <td class="px-1.5 py-1 text-left text-[10px] text-gray-400 overflow-hidden truncate">${discoveredAt}</td>
         <td class="px-1.5 py-1 text-center text-[10px] text-gray-400 overflow-hidden">${dataPointsEl}</td>
@@ -1360,6 +1361,26 @@ class ExperimentTokens {
     } catch (error) {
       console.error('加载叙事分析数据失败:', error);
     }
+  }
+
+  /**
+   * 渲染代币分类徽章（token_profiles，bsc-v1 分类器：流水盘/高市值等，字段由 /tokens API merge）
+   */
+  renderTokenCategoryBadge(category, peakMcapUsd) {
+    if (!category) return '<span class="text-gray-600 text-[10px]">-</span>';
+    const cfg = {
+      wash:           { label: '流水盘',     cls: 'bg-red-700',    title: '闪崩急跌+起不来（4K≤峰值市值<15K）' },
+      pump_dump:      { label: '拉高出货',   cls: 'bg-red-900',    title: '拉高出货（graduation 断流/内盘砸盘）' },
+      high_mcap_wash: { label: '高市值流水', cls: 'bg-orange-700', title: '高市值闪崩但有真实拉升且非暴力砸盘（中性）' },
+      high_mcap:      { label: '高市值',     cls: 'bg-blue-700',   title: '峰值市值 ≥ $15K' },
+      quality:        { label: '优质',       cls: 'bg-green-700',  title: '峰值市值 $8K~$15K' },
+      normal:         { label: '普通',       cls: 'bg-gray-600',   title: '无闪崩无拉高出货，市值 $6K~$8K' },
+      low_quality:    { label: '低质',       cls: 'bg-yellow-800', title: '峰值市值 < $6K' },
+      low_activity:   { label: '低活跃',     cls: 'bg-gray-800',   title: '成交笔数低于分类门槛' },
+    }[category];
+    if (!cfg) return `<span class="text-gray-500 text-[10px]">${category}</span>`;
+    const mcap = peakMcapUsd != null ? `，峰值市值 $${Math.round(peakMcapUsd).toLocaleString()}` : '';
+    return `<span class="px-1 py-0.5 rounded text-[10px] font-medium ${cfg.cls} text-white cursor-help" title="${cfg.title}${mcap}">${cfg.label}</span>`;
   }
 
   /**

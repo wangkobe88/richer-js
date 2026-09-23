@@ -832,8 +832,8 @@ class ExperimentDataService {
     try {
       const targetExperimentId = await this._getTargetExperimentIdForTokens(experimentId);
 
-      // Supabase in() 最多支持数组长度有限，分批查询
-      const BATCH_SIZE = 500;
+      // 分批查询：.in 500 个地址时 URL 超长触发 undici UND_ERR_HEADERS_OVERFLOW（实测 300 以下正常），留余量取 200
+      const BATCH_SIZE = 200;
       const allResults = [];
 
       for (let i = 0; i < addresses.length; i += BATCH_SIZE) {
@@ -846,6 +846,16 @@ class ExperimentDataService {
 
         if (error) throw error;
         if (data) allResults.push(...data);
+      }
+
+      // 合并代币分类（token_profiles 全局表）
+      const profileMap = await this.getTokenProfilesByAddresses(addresses);
+      for (const r of allResults) {
+        const p = profileMap.get(r.token_address);
+        if (p) {
+          r.token_category = p.category;
+          r.peak_mcap_usd = p.peak_mcap_usd;
+        }
       }
 
       return allResults;
@@ -940,6 +950,16 @@ class ExperimentDataService {
   async getFormattedTokens(experimentId, options = {}) {
     const tokens = await this.getTokens(experimentId, options);
 
+    // 合并代币分类（token_profiles 全局表，offline/online 皆可写）
+    const profileMap = await this.getTokenProfilesByAddresses(tokens.map(t => t.token_address).filter(Boolean));
+    for (const t of tokens) {
+      const p = profileMap.get(t.token_address);
+      if (p) {
+        t.token_category = p.category;
+        t.peak_mcap_usd = p.peak_mcap_usd;
+      }
+    }
+
     // 统计各状态数量
     const stats = {
       total: tokens.length,
@@ -960,6 +980,31 @@ class ExperimentDataService {
         filters: options
       }
     };
+  }
+
+  /**
+   * 按地址批量查询代币分类（token_profiles，token_address 全局 PK）
+   * @param {string[]} addresses - 代币地址列表
+   * @returns {Promise<Map<string, Object>>} token_address → { category, peak_mcap_usd, classifier_version }
+   */
+  async getTokenProfilesByAddresses(addresses) {
+    if (!addresses || addresses.length === 0) return new Map();
+    try {
+      const map = new Map();
+      const BATCH_SIZE = 200; // 同上：.in 批量 500 会 UND_ERR_HEADERS_OVERFLOW
+      for (let i = 0; i < addresses.length; i += BATCH_SIZE) {
+        const { data, error } = await this.supabase
+          .from('token_profiles')
+          .select('token_address, category, peak_mcap_usd, classifier_version')
+          .in('token_address', addresses.slice(i, i + BATCH_SIZE));
+        if (error) throw error;
+        for (const r of (data || [])) map.set(r.token_address, r);
+      }
+      return map;
+    } catch (error) {
+      this.logger.error('DataService', '查询代币分类失败:', { details: error });
+      return new Map();
+    }
   }
 
   /**
