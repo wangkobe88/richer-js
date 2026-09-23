@@ -200,6 +200,65 @@ async function main() {
     console.log(`  峰值[${label.padEnd(11)}] n=${String(rs.length).padStart(4)} | 峰值均值 ${avgPeak.toFixed(1)}% → 出场均值 ${avgFinal.toFixed(1)}% | 理论捕获 Σ ${(rs.reduce((s, r) => s + (r.peakPct - r.pnlPct), 0) * 0.1 / 100).toFixed(4)} BNB`);
   }
 
+  // ── 5.6 死票 vs 活票 买点对比（买侧门设计主数据；全量非尾巴）──
+  // 死票=强平出场且峰值<4%（从没起来过）；活票=其余（含止盈/止损但冲过的）。
+  // 尾部差票对比（≤-20 vs ≥+20）样本个位数易过拟合——轮2 教训。
+  const deadR = rounds.filter(r => r.exitStrategy === '回放结束强平' && Number.isFinite(r.peakPct) && r.peakPct < 4);
+  const aliveR = rounds.filter(r => !(r.exitStrategy === '回放结束强平' && Number.isFinite(r.peakPct) && r.peakPct < 4));
+  const deadSum = deadR.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
+  console.log(`── 死/活票买点对比：死票(强平且峰值<4%) n=${deadR.length} Σ${deadSum.toFixed(4)} vs 活票 n=${aliveR.length} ──`);
+  if (deadR.length >= 10 && aliveR.length >= 10) {
+    const keySet = new Set();
+    for (const r of rounds) for (const k of Object.keys(r.sigFactors)) keySet.add(k);
+    const rows = [];
+    for (const k of keySet) {
+      const d = deadR.map(r => Number(r.sigFactors[k])).filter(Number.isFinite).sort((x, y) => x - y);
+      const a = aliveR.map(r => Number(r.sigFactors[k])).filter(Number.isFinite).sort((x, y) => x - y);
+      if (!d.length || !a.length) continue;
+      const d50 = pctile(d, 0.5), a50 = pctile(a, 0.5);
+      const sep = Math.abs(d50 - a50) / (Math.abs(d50) + Math.abs(a50) + 1e-12);
+      rows.push({ k, d25: pctile(d, 0.25), d50, d75: pctile(d, 0.75), a25: pctile(a, 0.25), a50, a75: pctile(a, 0.75), sep });
+    }
+    rows.sort((x, y) => y.sep - x.sep);
+    console.log('  键'.padEnd(28) + '死票P25/P50/P75'.padEnd(30) + '活票P25/P50/P75'.padEnd(30) + '分离度');
+    for (const r of rows.slice(0, 15)) {
+      console.log('  ' + r.k.padEnd(26) +
+        `${fmt(r.d25)}/${fmt(r.d50)}/${fmt(r.d75)}`.padEnd(30) +
+        `${fmt(r.a25)}/${fmt(r.a50)}/${fmt(r.a75)}`.padEnd(30) +
+        (r.sep * 100).toFixed(0) + '%');
+    }
+    // 单门预筛：按已录买点因子过滤轮次的存活 Σ（近似：忽略买入时点位移，
+    // 方向性粗筛——正增益才值得回放验证）
+    console.log('  ── 单门预筛（过滤后 ΣPnL，Δ=相对全量 Σ；近似忽略买入延迟效应）──');
+    const fullSum = rounds.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
+    const cands = [
+      ['earlyReturn', '<', 20], ['earlyReturn', '<', 30], ['earlyReturn', '<', 40],
+      ['top3HolderShare', '<', 0.10], ['top3HolderShare', '<', 0.15],
+      ['top5HolderShare', '<', 0.12],
+      ['riseSpeed', '<', 30], ['riseSpeed', '<', 60],
+      ['age', '>', 0.5], ['age', '>', 1], ['age', '>', 2],
+      ['trendCV', '<', 0.08], ['trendCV', '<', 0.12],
+      ['firstBlockBuyShare', '<', 0.5], ['firstBlockBuyShare', '<', 0.3],
+      ['tradeCount', '>=', 5], ['tradeCount', '>=', 8],
+      ['counterpartyOverlapRate', '<', 0.35],
+      ['holders', '>=', 4], ['holders', '>=', 6],
+      ['maxBlockDropPct', '<', 3],
+      ['bigHolderTotal', '==', 0],
+    ];
+    for (const [k, op, thr] of cands) {
+      const keep = rounds.filter(r => {
+        const v = Number(r.sigFactors[k]);
+        if (!Number.isFinite(v)) return false;
+        return op === '<' ? v < thr : op === '>' ? v > thr : op === '>=' ? v >= thr : op === '==' ? v === thr : false;
+      });
+      if (!keep.length) continue;
+      const sum = keep.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
+      const delta = sum - fullSum;
+      const killed = rounds.length - keep.length;
+      console.log(`    ${k} ${op} ${thr}`.padEnd(28) + `存 ${String(keep.length).padStart(4)}/${rounds.length} 删${String(killed).padStart(4)} | Σ ${sum.toFixed(4)} Δ ${(delta >= 0 ? '+' : '') + delta.toFixed(4)} | 死票余 ${keep.filter(r => deadR.includes(r)).length}`);
+    }
+  }
+
   // ── 6 卖点反事实模拟（tick 级；--cf 0 跳过）──
   // 对每轮用 wss_price_ticks 价格路径模拟候选卖腿组合，先跑"基线模拟"自校验
   // （Σ 应接近实际 ΣPnL——成交近似=tick 价、费 1% 往返），再网格对比增益。
