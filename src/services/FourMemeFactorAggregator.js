@@ -110,6 +110,11 @@ const FACTOR_PARAM_DEFAULTS = {
     marketCohortWinMs: 40 * 60 * 1000,  // cohort 出生窗上沿：birth∈[t−40m, t−10m] 计分母
     marketMatureMs: 10 * 60 * 1000,     // cohort 成熟下沿：出生后 ≥10m 才计分母（<10m 未成熟）
     marketMinCohort: 30,                // 分母 < 此数 → 三个 cohort 率全 null fail-closed
+    // ── 分类器轨迹参数（回迁批 3.1；与 classifier-constants OPB_DEFAULTS 对齐，供 FA state 维护用）──
+    clsFirstWindowMs: 9000,       // afterFirst9s 基准窗（母版扣前3s=7.5 slot；BSC 3 block）
+    clsBigTickBnb: 0.05,          // 大额 tick 门槛（母版 SIGNIFICANT_SOL 0.1≈$15；0.05 BNB 同量级待校准）
+    clsTicksWindowMs: 60 * 1000,  // 分类器轨迹最小窗（母版 recentTicksWindowMs 同值）
+    clsTicksMaxPerToken: 1500,    // 分类器轨迹上限（母版 maxRecentTicksPerToken 同值）
 };
 
 // ── Q 组：creator 前作 registry 常量（pumpfun 逐字沿用——跨票日级口径与链节奏无关）──
@@ -440,6 +445,23 @@ class FourMemeFactorAggregator extends EventEmitter {
             //   creator 来自 registerToken（live=TokenCreate / 回测=experiment_tokens，tick 无 creator 列）
             this._updateCreatorPrior(state.creatorAddress, tokenAddress, ts, priceBnb);
 
+            // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
+            // USD 峰快照：仅在新 BNB 峰 tick 覆写（对齐离线「highestPriceUsd 在 BNB 峰 tick 处快照」；
+            // 峰 tick 缺 USD → 0，其后非峰 tick 不回填——保守方向与离线一致）
+            if (priceBnb > state._relHighestPriceBnb) {
+                state._relHighestPriceUsd = Number(tick.price_usd) > 0 ? tick.price_usd : 0;
+            }
+            // afterFirst9s（ts ≥ firstTickAt+9s；母版扣前3s=7.5 slot 的 BSC 3 block 版）达标 tick 的
+            // peak + 峰值前 min（砸盘地板在峰值后不计入 min；创新高时锁定 running min 为分母）
+            if (state.firstTickAt !== null && ts - state.firstTickAt >= this._fp.clsFirstWindowMs) {
+                state._afterFirst9sReliableCount++;
+                if (priceBnb < state._runningMinAfterFirst9sBnb) state._runningMinAfterFirst9sBnb = priceBnb;
+                if (priceBnb > state._afterFirst9sPeakPriceBnb) {
+                    state._afterFirst9sPeakPriceBnb = priceBnb;
+                    state._beforeFirst9sPeakMinBnb = state._runningMinAfterFirst9sBnb;
+                }
+            }
+
             // 墙钟秒收盘桶（空秒跳过；已闭合秒序列 = 因果口径 RSI 原料）
             const _sec = Math.floor(ts / 1000);
             if (state._secCurrent === null) {
@@ -612,6 +634,17 @@ class FourMemeFactorAggregator extends EventEmitter {
         state._recentTicks.push({ ts, isBuy, bnb: bnbAmount, priceBnb, priceReliable, blockNumber });
         this._pruneRecentTicks(state, ts);
         this._updateSlideWin(state, ts, isBuy, bnbAmount, tick.trader_address);
+
+        // ── 分类器轨迹（回迁批 3.1：OPB/离线挖掘共用 slim shape，全量 tick 记录——
+        //    大额断流/活跃度判定需全 tick，价格判定由消费方按 priceReliable 过滤。
+        //    母版 recentTicks 同构：peak 后动态保留（见 _pruneClsTicks），与速率滑窗分离互不干扰）──
+        state._clsTicks.push({
+            ts, isBuy, bnbAmount, priceBnb,
+            priceUsd: Number(tick.price_usd) > 0 ? tick.price_usd : null,
+            blockNumber, priceReliable,
+        });
+        if (bnbAmount >= this._fp.clsBigTickBnb) state._lastBigTickAt = ts;
+        this._pruneClsTicks(state, ts);
 
         // ── 市场截面：全量 tick 口径累积（流量环 + registry 价格/存活推进 + FIFO 写时裁剪；
         //    市场状态与挂载策略无关。尘 tick 计流量不计价——priceReliable 守卫，S8）──
@@ -860,6 +893,17 @@ class FourMemeFactorAggregator extends EventEmitter {
             _slideTraderCounts: new Map(), // addr → 窗内笔数（计数映射，出窗减一）
             _walletFirstTs: new Map(),    // addr → 全史首现 ts（write-once，newWalletsSlide 原料）
 
+            // ── 分类器轨迹与 running 标量（回迁批 3.1：OPB 专用，不进因子键/时序存储。
+            //    口径 = scripts/shared/token-classifier.js computeTickMetrics，两处修改须同步）──
+            _clsTicks: [],             // 分类器轨迹 {ts,isBuy,bnbAmount,priceBnb,priceUsd,blockNumber,priceReliable}
+                                       // （母版 recentTicks 同构：peak 后动态保留，与速率滑窗 _recentTicks 分离）
+            _relHighestPriceUsd: 0,    // BNB 峰 tick 的 USD 价快照（离线 computeTickMetrics 同口径；OPB maxMarketCap = ×totalSupply）
+            _afterFirst9sPeakPriceBnb: 0,       // afterFirst9s 区间峰（high_mcap_wash ratio 分子；母版 afterFirst3s 的 BSC 9s 版）
+            _runningMinAfterFirst9sBnb: Infinity, // afterFirst9s 区间 running min（ratio 分母原料）
+            _beforeFirst9sPeakMinBnb: Infinity,  // 到峰为止锁定的 min（ratio 分母；Infinity=未锁定）
+            _afterFirst9sReliableCount: 0,       // afterFirst9s 达标 tick 数（<2 → ratio null）
+            _lastBigTickAt: null,      // 最近大额（≥clsBigTickBnb）tick 时间（OPB bigTickIdle 触发）
+
             dataCollectionRound: 1, // 引擎 30s 时序快照轮次
         };
     }
@@ -1034,6 +1078,24 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 摊销：只在尾部越过窗口且长度超阈值时批量裁剪
         if (ticks.length > 64 && now - ticks[0].ts > RATE_WINDOW_MS) {
             while (ticks.length > 0 && now - ticks[0].ts > RATE_WINDOW_MS) ticks.shift();
+        }
+    }
+
+    /**
+     * 分类器轨迹修剪（回迁批 3.1，母版 _pruneRecentTicks 动态窗同构）：
+     * 有可靠价峰时从峰起保留全部（供 OPB 闪崩检测看完整 peak→crash 路径——修固定短窗
+     * 「crash 不落在分类时刻窗口内就漏判闪崩」），无峰时用最小窗口兜底；超上限截断。
+     * 独立于 _recentTicks（速率滑窗原料，固定短窗）——两套窗口语义不同不可复用。
+     */
+    _pruneClsTicks(state, now) {
+        const ticks = state._clsTicks;
+        if (ticks.length === 0) return;
+        const minCutoff = now - this._fp.clsTicksWindowMs;
+        const peakCutoff = state._relHighestAt || 0;
+        const cutoff = peakCutoff ? Math.min(minCutoff, peakCutoff) : minCutoff;
+        while (ticks.length > 0 && ticks[0].ts < cutoff) ticks.shift();
+        if (ticks.length > this._fp.clsTicksMaxPerToken) {
+            state._clsTicks = ticks.slice(-this._fp.clsTicksMaxPerToken);
         }
     }
 

@@ -232,6 +232,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._marketRegimeWriteFails = 0;
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '✅ 因子聚合器初始化完成');
 
+    // 3.5 在线代币分类（回迁批 3.1：idle 60s/大额断流 600s 双触发 + 60s 扫描补救，
+    //     写 token_profiles source='online'；config fourmemeWs.onlineProfile.enabled 默认 false，
+    //     未配置的存量实验零行为变化。BacktestEngine 不嵌——回测无写表副作用）
+    const { OnlineProfileBuilder } = require('../../services/OnlineProfileBuilder');
+    this._onlineProfileBuilder = new OnlineProfileBuilder(
+      this._mergedWsConfig().onlineProfile || {}, this.logger);
+    this._onlineProfileBuilder.start({ factorAggregator: this._factorAggregator });
+
     // 4. ankr WSS 采集器（发现 + tick + 毕业回调；平台 collector 由 _createCollector 决定）
     this._collector = this._createCollector();
     this._collector.setExperimentId(this._experimentId);
@@ -617,6 +625,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 市场截面 feed 关闭 + 模块级单例清除（main.js 同进程起下一实验不继承旧截面）
     require('../../services/FourMemeFactorAggregator').setMarketFeedEnabled(false);
 
+    // 在线代币分类器清理（扫描 interval + 已分类集合；回迁批 3.1）
+    if (this._onlineProfileBuilder) {
+      this._onlineProfileBuilder.destroy();
+    }
+
     await super.stop();
 
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
@@ -629,9 +642,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * FA 'factorsUpdated' 回调：单一咽喉点分买卖两腿。
    * 卖腿 fire-and-forget（同步事件内不 await）；买腿走去抖调度。
    */
-  _onFactorsUpdated({ tokenAddress, factors, tick }) {
+  _onFactorsUpdated({ tokenAddress, factors, tick, tokenState }) {
     this.metrics.lastFactorsUpdatedAt = Date.now();
     this.metrics.factorsUpdatedCount++;
+
+    // 在线代币分类触发检查（回迁批 3.1：state 驱动、全 token 覆盖，先于 pool 门——
+    // 分类是画像层观察与交易两腿无关；池外 token 由 OPB 60s 扫描入口兜底）
+    this._onlineProfileBuilder.checkAndEnqueue(tokenAddress, tokenState, tick.timestamp);
 
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token) return;

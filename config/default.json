@@ -70,7 +70,14 @@
       "tickFlowIdleOldSec": 24,
       "marketCohortWinMs": 2400000,
       "marketMatureMs": 600000,
-      "marketMinCohort": 30
+      "marketMinCohort": 30,
+      "clsFirstWindowMs": 9000,
+      "clsBigTickBnb": 0.05,
+      "clsTicksWindowMs": 60000,
+      "clsTicksMaxPerToken": 1500
+    },
+    "onlineProfile": {
+      "enabled": false
     },
     "live": {
       "reserveNative": 0.01,
