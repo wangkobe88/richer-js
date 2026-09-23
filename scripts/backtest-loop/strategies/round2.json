@@ -1,0 +1,11 @@
+{
+  "_comment": "轮 2 买侧·追高过滤：轮1残余差票(n=7)全部是追高买入——earlyReturn P25/P50/P75=16.5/22.9/28 vs 好票 P75=14.8（轮0 同向：28.3 vs 9.5）。加 earlyReturn<20 杀追高；卖侧不动（反事实模拟：bail/trail 均跑不赢±15 基线）",
+  "tradeAmount": 0.1,
+  "initialBalance": 100,
+  "buyStrategies": [
+    { "priority": 1, "condition": "tradeCount >= 3 AND firstBlockBuyShare < 0.85 AND bigHolderPresent == 0 AND earlyReturn < 20", "maxExecutions": 1 }
+  ],
+  "sellStrategies": [
+    { "priority": 1, "condition": "profitPercent > 15 OR profitPercent < -15", "maxExecutions": 1 }
+  ]
+}
