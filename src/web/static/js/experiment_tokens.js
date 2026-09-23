@@ -20,6 +20,18 @@ const NARRATIVE_RATING_MAP = {
   9: { label: '未评级', emoji: '❓', colorClass: 'text-gray-400', bgClass: 'bg-gray-700', borderClass: 'border-gray-600' }
 };
 
+// 代币分类配置（token_profiles，bsc-v1 分类器；筛选下拉与行内徽章共用）
+const TOKEN_CATEGORY_CONFIG = {
+  wash:           { label: '流水盘',     cls: 'bg-red-700',    title: '闪崩急跌+起不来（4K≤峰值市值<15K）' },
+  pump_dump:      { label: '拉高出货',   cls: 'bg-red-900',    title: '拉高出货（graduation 断流/内盘砸盘）' },
+  high_mcap_wash: { label: '高市值流水', cls: 'bg-orange-700', title: '高市值闪崩但有真实拉升且非暴力砸盘（中性）' },
+  high_mcap:      { label: '高市值',     cls: 'bg-blue-700',   title: '峰值市值 ≥ $15K' },
+  quality:        { label: '优质',       cls: 'bg-green-700',  title: '峰值市值 $8K~$15K' },
+  normal:         { label: '普通',       cls: 'bg-gray-600',   title: '无闪崩无拉高出货，市值 $6K~$8K' },
+  low_quality:    { label: '低质',       cls: 'bg-yellow-800', title: '峰值市值 < $6K' },
+  low_activity:   { label: '低活跃',     cls: 'bg-gray-800',   title: '成交笔数低于分类门槛' },
+};
+
 class ExperimentTokens {
   constructor() {
     this.experimentId = this.extractExperimentId();
@@ -113,6 +125,12 @@ class ExperimentTokens {
     const sortBySelect = document.getElementById('sort-by');
     if (sortBySelect) {
       sortBySelect.addEventListener('change', () => this.applyFilters());
+    }
+
+    // 分类筛选变化时自动触发筛选（与状态筛选同为 applyFilters 维度，可叠加）
+    const categoryFilter = document.getElementById('category-filter');
+    if (categoryFilter) {
+      categoryFilter.addEventListener('change', () => this.applyFilters());
     }
 
     // 搜索框回车触发筛选
@@ -221,6 +239,9 @@ class ExperimentTokens {
       this.tokens = result.tokens || [];
       this.filteredTokens = [...this.tokens];
 
+      // 按实际数据填充分类筛选下拉（含各分类计数）
+      this.populateCategoryFilter();
+
       // 异步加载黑白名单统计（不阻塞页面渲染）
       this.loadBlacklistStats();
 
@@ -257,6 +278,48 @@ class ExperimentTokens {
     } catch (error) {
       console.warn('⚠️ 黑白名单统计加载失败，不影响主功能:', error);
     }
+  }
+
+  /**
+   * 按实际数据填充分类筛选下拉（只列出有数据的分类，带计数）
+   * 数据刷新后原选中分类已无数据时回退到"全部"；保留选中值需在 options 存在的前提下
+   */
+  populateCategoryFilter() {
+    const select = document.getElementById('category-filter');
+    if (!select) return;
+
+    // 统计各分类计数
+    const counts = new Map();
+    let noneCount = 0;
+    for (const t of this.tokens) {
+      if (t.token_category) {
+        counts.set(t.token_category, (counts.get(t.token_category) || 0) + 1);
+      } else {
+        noneCount++;
+      }
+    }
+
+    // 按配置顺序组装选项：全部 + 有数据的已知分类（未知分类值原样列出，与行内徽章展示口径一致）
+    const options = [`<option value="all">全部分类 (${this.tokens.length})</option>`];
+    const knownKeys = new Set(Object.keys(TOKEN_CATEGORY_CONFIG));
+    for (const [key, cfg] of Object.entries(TOKEN_CATEGORY_CONFIG)) {
+      const count = counts.get(key);
+      if (count) {
+        options.push(`<option value="${key}">${cfg.label} (${count})</option>`);
+      }
+    }
+    for (const [key, count] of counts) {
+      if (!knownKeys.has(key)) {
+        options.push(`<option value="${key}">${this.escapeHtml(key)} (${count})</option>`);
+      }
+    }
+    if (noneCount > 0) {
+      options.push(`<option value="__none__">未分类 (${noneCount})</option>`);
+    }
+
+    const selected = select.value;
+    select.innerHTML = options.join('');
+    select.value = [...select.options].some(o => o.value === selected) ? selected : 'all';
   }
 
   /**
@@ -934,6 +997,7 @@ class ExperimentTokens {
    */
   applyFilters() {
     const statusFilter = document.getElementById('status-filter')?.value || 'all';
+    const categoryFilter = document.getElementById('category-filter')?.value || 'all';
     const sortBy = document.getElementById('sort-by')?.value || 'discovered_at';
     const searchInput = document.getElementById('search-input')?.value || '';
 
@@ -945,6 +1009,13 @@ class ExperimentTokens {
       filtered = filtered.filter(t => t.status === 'bad_holder');
     } else if (statusFilter !== 'all') {
       filtered = filtered.filter(t => t.status === statusFilter);
+    }
+
+    // 分类筛选（token_profiles 的 token_category；'__none__' = 未分类）
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(t =>
+        categoryFilter === '__none__' ? !t.token_category : t.token_category === categoryFilter
+      );
     }
 
     if (searchInput) {
@@ -1127,6 +1198,12 @@ class ExperimentTokens {
     const sortBySelect = document.getElementById('sort-by');
     if (sortBySelect) {
       sortBySelect.value = 'discovered_at';
+    }
+
+    // 重置分类筛选
+    const categoryFilter = document.getElementById('category-filter');
+    if (categoryFilter) {
+      categoryFilter.value = 'all';
     }
 
     // 重置搜索框
@@ -1368,17 +1445,8 @@ class ExperimentTokens {
    */
   renderTokenCategoryBadge(category, peakMcapUsd) {
     if (!category) return '<span class="text-gray-600 text-[10px]">-</span>';
-    const cfg = {
-      wash:           { label: '流水盘',     cls: 'bg-red-700',    title: '闪崩急跌+起不来（4K≤峰值市值<15K）' },
-      pump_dump:      { label: '拉高出货',   cls: 'bg-red-900',    title: '拉高出货（graduation 断流/内盘砸盘）' },
-      high_mcap_wash: { label: '高市值流水', cls: 'bg-orange-700', title: '高市值闪崩但有真实拉升且非暴力砸盘（中性）' },
-      high_mcap:      { label: '高市值',     cls: 'bg-blue-700',   title: '峰值市值 ≥ $15K' },
-      quality:        { label: '优质',       cls: 'bg-green-700',  title: '峰值市值 $8K~$15K' },
-      normal:         { label: '普通',       cls: 'bg-gray-600',   title: '无闪崩无拉高出货，市值 $6K~$8K' },
-      low_quality:    { label: '低质',       cls: 'bg-yellow-800', title: '峰值市值 < $6K' },
-      low_activity:   { label: '低活跃',     cls: 'bg-gray-800',   title: '成交笔数低于分类门槛' },
-    }[category];
-    if (!cfg) return `<span class="text-gray-500 text-[10px]">${category}</span>`;
+    const cfg = TOKEN_CATEGORY_CONFIG[category];
+    if (!cfg) return `<span class="text-gray-500 text-[10px]">${this.escapeHtml(category)}</span>`;
     const mcap = peakMcapUsd != null ? `，峰值市值 $${Math.round(peakMcapUsd).toLocaleString()}` : '';
     return `<span class="px-1 py-0.5 rounded text-[10px] font-medium ${cfg.cls} text-white cursor-help" title="${cfg.title}${mcap}">${cfg.label}</span>`;
   }
