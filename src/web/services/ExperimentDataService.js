@@ -1312,7 +1312,7 @@ class ExperimentDataService {
         'stage1_result', 'stage1_raw_output',
         'stage2_result', 'stage2_raw_output',
         'stage3_result', 'stage3_raw_output',
-        'stage_final_result', 'stage_final_raw_output',
+        'stage_final_result',
       ].join(',');
       const batchSize = 200;
       const allNarratives = [];
