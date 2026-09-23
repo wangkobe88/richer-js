@@ -1,0 +1,11 @@
+{
+  "_comment": "轮 3 买侧·稳定+动量地板：死票画像=flat 无量（earlyReturn/riseSpeed P50≈0、txVol 23 vs 368、holders 1 vs 3）——上限门方向反了（轮2 教训）。组合预筛冠军 maxBlockDropPct<3 AND earlyReturn>1（存166/470，预筛 Σ+0.105 Δ+0.21）。卖侧不动",
+  "tradeAmount": 0.1,
+  "initialBalance": 100,
+  "buyStrategies": [
+    { "priority": 1, "condition": "tradeCount >= 3 AND firstBlockBuyShare < 0.85 AND bigHolderPresent == 0 AND maxBlockDropPct < 3 AND earlyReturn > 1", "maxExecutions": 1 }
+  ],
+  "sellStrategies": [
+    { "priority": 1, "condition": "profitPercent > 15 OR profitPercent < -15", "maxExecutions": 1 }
+  ]
+}
