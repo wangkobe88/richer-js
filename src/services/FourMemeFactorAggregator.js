@@ -115,6 +115,9 @@ const FACTOR_PARAM_DEFAULTS = {
     clsBigTickBnb: 0.05,          // 大额 tick 门槛（母版 SIGNIFICANT_SOL 0.1≈$15；0.05 BNB 同量级待校准）
     clsTicksWindowMs: 60 * 1000,  // 分类器轨迹最小窗（母版 recentTicksWindowMs 同值）
     clsTicksMaxPerToken: 1500,    // 分类器轨迹上限（母版 maxRecentTicksPerToken 同值）
+    // ── 名单因子（回迁批 3.3；smartBotMinBuyBnb=母版 smartBotMinBuySol 0.05 SOL 的 BSC 重校，
+    //    对齐挖掘参与门 0.02 BNB；sniper 阈值是口径常量 SNIPER_TOKEN_COUNT_THR 不在此）──
+    smartBotMinBuyBnb: 0.02,
 };
 
 // ── Q 组：creator 前作 registry 常量（pumpfun 逐字沿用——跨票日级口径与链节奏无关）──
@@ -138,6 +141,23 @@ const CREATOR_PRIOR_TTL_MS = 26 * 3600 * 1000;     // registry 条目自剪枝�
 // 龄写时裁剪（TTL=65m ≥ newborn 1h 窗 60m + 余量；FIFO 写时裁剪 O(1) 摊销）。
 let _marketFeedEnabled = false;
 let _marketRegime = null;
+// ── 名单因子（回迁批 3.3；母版 smartBotCount/sniperHolderShare 口径）──
+// 两份名单=模块级单例（跨 FA 实例共享，prune 不清，引擎 stop 不清——同进程下一实验直接复用；
+// 名单是挖掘管线的静态产物，运行中不重载，182 更新名单后重启生效，与母版同款）。
+// null 语义方向相反（设计意图，勿"统一"）：
+//   _smartBotWallets=null → smartBotCount 恒 0（fail-open 观察：无名单≠无 bot，不拦交易）；
+//   _sniperWallets=null  → sniperHolderShare 恒 null（fail-closed：null 过 ConditionEvaluator 恒
+//     false=引用键的门不放行——进买腿门的键证据不足必须关，与 smartBot 方向相反）。
+let _smartBotWallets = null;
+let _smartBotLoadPromise = null;   // 在途去重（并发调用复用同一 promise）
+let _sniperWallets = null;
+let _sniperLoadPromise = null;
+// sniper 判据：wallets.token_count ≥ 此值（母版 wallet-scorer ZR_SNIPER_TOKENCOUNT_THR=300 的
+// BSC 重校——four.meme 历史短参与基数小，计划批 3.3 裁定 50 待校准。定义非调参，改=改口径）。
+// token_count 写入方=mine-smart-wallets.cjs --apply（入榜钱包 rawTotalRun）。⚠口径边界：当前
+// 名单 ⊆ 挖掘入榜钱包（非全史画像），全量 rawTotal 画像源待后续离线管线；fail-closed 方向下
+// 名单偏小=门更保守，安全侧。
+const SNIPER_TOKEN_COUNT_THR = 50;
 // 窗口常量（定义非调参——改=改口径，须同步 _test_market_regime.cjs；cohort 三参数在
 // FACTOR_PARAM_DEFAULTS，可经 factorParams 覆盖）：
 const MARKET_NEWBORN_WIN_MS = 60 * 60 * 1000;      // marketNewbornCount1h：trailing 60m 出生数
@@ -259,6 +279,118 @@ class FourMemeFactorAggregator extends EventEmitter {
 
     static isMarketFeedEnabled() { return _marketFeedEnabled; }
     static getMarketRegistrySize() { return _marketRegime ? _marketRegime.registry.size : 0; }
+
+    // ═══════════════ 名单因子（回迁批 3.3，模块级单例）═══════════════
+
+    /**
+     * 启动时从 wallets.category 加载聪明Bot名单到模块级单例（id 游标分页 1000/页 4 次重试）。
+     * 幂等：已加载直接返回；在途复用同一 promise。失败抛错（不落缓存，下次调用可重试），
+     * 调用方（两引擎钩子）自行 try/catch fail-open（名单 null → 因子恒 0）。
+     * ★BSC：母版查 wallets 不带链过滤（单链仓库）；本表多链共存，必须 .eq('chain','bsc')。
+     */
+    static async loadSmartBotWallets(supabase, category = 'smart_bot') {
+        if (!supabase) throw new Error('[FourMemeFA] loadSmartBotWallets: 缺少 supabase client');
+        if (_smartBotWallets) return _smartBotWallets;
+        if (_smartBotLoadPromise) return _smartBotLoadPromise;
+        _smartBotLoadPromise = (async () => {
+            const pageSize = 1000;
+            let lastId = 0;
+            const addresses = [];
+            while (true) {
+                let data = null, error = null;
+                for (let attempt = 1; attempt <= 4; attempt++) {
+                    ({ data, error } = await supabase
+                        .from('wallets')
+                        .select('id, address')
+                        .eq('chain', 'bsc')
+                        .eq('category', category)
+                        .gt('id', lastId)
+                        .order('id', { ascending: true })
+                        .limit(pageSize));
+                    if (!error && data) break;
+                    if (attempt < 4) {
+                        this._logWarn(`smart_bot 名单分页查询失败 ${attempt}/4: ${error?.message || error}，重试...`);
+                        await new Promise(r => setTimeout(r, 2000 * attempt));
+                    }
+                }
+                if (error) throw error;
+                if (!data || data.length === 0) break;
+                for (const row of data) addresses.push(row.address);
+                lastId = data[data.length - 1].id;
+                if (data.length < pageSize) break;
+            }
+            _smartBotWallets = new Set(addresses);
+            this._logInfo(`加载 smart_bot（聪明Bot）名单: ${_smartBotWallets.size} 个（chain='bsc', category='${category}'）`);
+            return _smartBotWallets;
+        })();
+        try {
+            return await _smartBotLoadPromise;
+        } finally {
+            // 结束（成功/失败）后清引用：成功路径 _smartBotWallets 已落、后续调用首行快返回；失败路径允许重试
+            _smartBotLoadPromise = null;
+        }
+    }
+
+    /**
+     * sniper 名单（sniperHolderShare 因子原料）：wallets.token_count ≥ SNIPER_TOKEN_COUNT_THR，
+     * 服务端过滤+id 游标（普通 INT 列，母版绕 jsonb 谓词的理由不适用）。失败抛错，调用方决定
+     * fail-open/fail-fast（两引擎统一 fail-open，见引擎侧注释）。
+     */
+    static async loadSniperWallets(supabase) {
+        if (!supabase) throw new Error('[FourMemeFA] loadSniperWallets: 缺少 supabase client');
+        if (_sniperWallets) return _sniperWallets;
+        if (_sniperLoadPromise) return _sniperLoadPromise;
+        _sniperLoadPromise = (async () => {
+            const pageSize = 1000;
+            let lastId = 0;
+            const addresses = [];
+            while (true) {
+                let data = null, error = null;
+                for (let attempt = 1; attempt <= 4; attempt++) {
+                    ({ data, error } = await supabase
+                        .from('wallets')
+                        .select('id, address')
+                        .eq('chain', 'bsc')
+                        .gte('token_count', SNIPER_TOKEN_COUNT_THR)
+                        .gt('id', lastId)
+                        .order('id', { ascending: true })
+                        .limit(pageSize));
+                    if (!error && data) break;
+                    if (attempt < 4) {
+                        this._logWarn(`sniper 名单分页查询失败 ${attempt}/4: ${error?.message || error}，重试...`);
+                        await new Promise(r => setTimeout(r, 2000 * attempt));
+                    }
+                }
+                if (error) throw error;
+                if (!data || data.length === 0) break;
+                for (const row of data) addresses.push(row.address);
+                lastId = data[data.length - 1].id;
+                if (data.length < pageSize) break;
+            }
+            _sniperWallets = new Set(addresses);
+            this._logInfo(`加载 sniper（早期快速买入类）名单: ${_sniperWallets.size} 个（chain='bsc', token_count≥${SNIPER_TOKEN_COUNT_THR}）`);
+            return _sniperWallets;
+        })();
+        try {
+            return await _sniperLoadPromise;
+        } finally {
+            _sniperLoadPromise = null;
+        }
+    }
+
+    /** 测试专用：直接注入 smart_bot 名单 Set（绕过 DB；探针零 DB 断言用）。传 null 还原「未加载」态。 */
+    static setSmartBotWalletsForTest(setOrNullOrUndefined) {
+        _smartBotWallets = setOrNullOrUndefined ?? null;
+    }
+
+    /** 测试专用：直接注入 sniper 名单 Set（绕过 DB；探针零 DB 断言用）。传 null 还原「未加载」态（因子恢复恒 null fail-closed）。 */
+    static setSniperWalletsForTest(setOrNullOrUndefined) {
+        _sniperWallets = setOrNullOrUndefined ?? null;
+    }
+
+    /** static 上下文的日志出口（无实例 logger 时落 console；与母版 console.log 口径一致） */
+    static _logInfo(msg) { console.log(`[FourMemeFactorAggregator] ${msg}`); }
+    static _logWarn(msg) { console.warn(`[FourMemeFactorAggregator] ${msg}`); }
 
     /**
      * 当前因子体系的全量因子 key 集合（权威单一事实源，空 state 产出即全量键）。
@@ -444,6 +576,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             //   新 token 首个可靠价 = 前作 firstTs/firstPb；此后只涨 maxPb（首值冻结=票属性锚点）。
             //   creator 来自 registerToken（live=TokenCreate / 回测=experiment_tokens，tick 无 creator 列）
             this._updateCreatorPrior(state.creatorAddress, tokenAddress, ts, priceBnb);
+
+            // ── 名单因子（回迁批 3.3）：smart_bot 名单内地址的可靠买额累计
+            //   （参与=累计 buyBnb ≥ smartBotMinBuyBnb，对齐挖掘 qualify 口径；母版 _smartBotBuySol→BNB。
+            //    只累不减：卖出不清——"参与过"留痕；名单 null（未加载/失败）整段跳过=因子恒 0 fail-open）
+            if (isBuy && _smartBotWallets && tick.trader_address && _smartBotWallets.has(tick.trader_address)) {
+                state._smartBotBuyBnb.set(tick.trader_address,
+                    (state._smartBotBuyBnb.get(tick.trader_address) || 0) + bnbAmount);
+            }
 
             // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
             // USD 峰快照：仅在新 BNB 峰 tick 覆写（对齐离线「highestPriceUsd 在 BNB 峰 tick 处快照」；
@@ -835,6 +975,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             totalSellTokens: 0,
             uniqueTraders: new Set(),
             _traderNetTokens: new Map(), // trader → 净持仓（内盘精确）
+            _smartBotBuyBnb: new Map(), // trader → 名单内累计可靠买额 BNB（回迁批 3.3；只累不减——参与留痕）
             holderCount: 0,
 
             _recentTicks: [],    // 滑窗速率原料 {ts, isBuy, bnb, priceBnb, priceReliable, blockNumber}
@@ -1521,6 +1662,28 @@ class FourMemeFactorAggregator extends EventEmitter {
         const _holderTop3 = _nA + _nB + _nC;
         const _holderTop5 = _nA + _nB + _nC + _nD + _nE;
 
+        // 名单因子（回迁批 3.3）：sniperHolderShare = top20 净持仓中 sniper 占比×100
+        // （20 槽插入排序，v<=0 跳过；分母=_sum20 top20 净和【非 totalSupply】——母版口径；
+        //   creator 豁免；名单 null 或 _sum20<=0 → null fail-closed=引用键的门不放行）
+        let _sniperHolderShare = null;
+        if (_sniperWallets) {
+            const _top20 = [];
+            for (const [addr, v] of state._traderNetTokens) {
+                if (v <= 0) continue;
+                let i = _top20.length;
+                while (i > 0 && _top20[i - 1][1] < v) i--;
+                if (i >= 20) continue;
+                _top20.splice(i, 0, [addr, v]);
+                if (_top20.length > 20) _top20.pop();
+            }
+            let _sum20 = 0, _sumSn = 0;
+            for (const [addr, v] of _top20) {
+                _sum20 += v;
+                if (addr !== state.creatorAddress && _sniperWallets.has(addr)) _sumSn += v;
+            }
+            if (_sum20 > 0) _sniperHolderShare = _sumSn / _sum20 * 100;
+        }
+
         // 累计买入集中度 top5 / 最大单户（单调不减，出货后留痕）
         let _cA = 0, _cB = 0, _cC = 0, _cD = 0, _cE = 0;
         for (const v of state._traderBoughtTokens.values()) {
@@ -1809,6 +1972,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             top5HolderShare: state.totalSupply > 0 ? _holderTop5 / state.totalSupply : null,
             cumBuyTop5Share: state.totalSupply > 0 ? _cumBuyTop5 / state.totalSupply : null,
             maxCumBuyShare: state.totalSupply > 0 ? _cA / state.totalSupply : null,
+
+            // 名单因子（回迁批 3.3）：
+            // smartBotCount=累计买额 ≥ smartBotMinBuyBnb 的名单地址数（观察因子；名单 null 恒 0 fail-open，
+            //   与母版同构只累不减——卖光仍计数）；
+            // sniperHolderShare=top20 净持仓 sniper 占比%（设计上进买腿门；名单 null 恒 null fail-closed
+            //   =null 过 ConditionEvaluator 恒 false 门不放行。分母=top20 净和非 totalSupply）
+            smartBotCount: (() => { let n = 0; for (const v of state._smartBotBuyBnb.values()) if (v >= this._fp.smartBotMinBuyBnb) n++; return n; })(),
+            sniperHolderShare: _sniperHolderShare,
 
             // 大户群体（W=累计买入 >= bigHolderMinCumBuyBnb；present=严格净持仓>0；
             // early=首买块 <= 首块+1（≈6s），无块证据=late）

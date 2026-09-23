@@ -486,6 +486,75 @@ function scenarioCreatorPriors(FA) {
         'Q组：TTL 摊销剪枝（T1 弃，T2 留）');
 }
 
+// ─────────── 名单因子（回迁批 3.3）───────────
+
+function scenarioListFactors(FA) {
+    const t0 = 1758800000000;
+    const PX = 10; // 价格恒定无离群；block 手写递增
+
+    // ── smartBotCount：名单内累计可靠买额 ≥ smartBotMinBuyBnb(0.02) 的地址数 ──
+    {
+        const fa = new FA({});
+        fa.registerToken('T_SB', { createdAtMs: t0, totalSupply: 1e9, creatorAddress: '0xC' });
+        FA.setSmartBotWalletsForTest(new Set(['0xA', '0xB']));
+        // A：0.012+0.012=0.024 ≥0.02 → 计；B：单笔恰 0.02（≥ 边界）→ 计；
+        // Z：5 BNB 非名单 → 不计；尘 tick 0.001（<minPriceUpdateBnb 0.002）不进可靠价链不累计
+        fa.processTick(mkTick('T_SB', t0 + 1000, true, PX, 0.012, '0xA', 1000, 120), { emitFactors: false });
+        fa.processTick(mkTick('T_SB', t0 + 4000, true, PX, 0.012, '0xA', 1001, 120), { emitFactors: false });
+        fa.processTick(mkTick('T_SB', t0 + 7000, true, PX, 0.02, '0xB', 1002, 200), { emitFactors: false });
+        fa.processTick(mkTick('T_SB', t0 + 10000, true, PX, 5, '0xZ', 1003, 50000), { emitFactors: false });
+        fa.processTick(mkTick('T_SB', t0 + 13000, true, PX, 0.001, '0xA', 1004, 10), { emitFactors: false });
+        // A 清仓卖出：_smartBotBuyBnb 只累不减（参与留痕）→ 计数不变
+        fa.processTick(mkTick('T_SB', t0 + 16000, false, PX, 0.03, '0xA', 1005, 240), { emitFactors: false });
+        const f = fa.buildFactorMap('T_SB', t0 + 16000);
+        ok(f.smartBotCount === 2, '名单：A 累计 0.024 + B 恰 0.02 → 2（Z 非名单/尘不计/卖不减）', f.smartBotCount);
+    }
+    {
+        // 名单 null（未加载/加载失败）→ 恒 0 fail-open
+        const fa = new FA({});
+        FA.setSmartBotWalletsForTest(null);
+        fa.registerToken('T_SB2', { createdAtMs: t0, totalSupply: 1e9 });
+        fa.processTick(mkTick('T_SB2', t0 + 1000, true, PX, 1, '0xA', 1000, 10000), { emitFactors: false });
+        const f = fa.buildFactorMap('T_SB2', t0 + 1000);
+        ok(f.smartBotCount === 0, '名单：smart_bot 未加载 → 恒 0（fail-open 观察，不拦交易）', f.smartBotCount);
+    }
+
+    // ── sniperHolderShare：top20 净持仓 sniper 占比（creator 豁免；分母=_sum20 非 totalSupply）──
+    {
+        const fa = new FA({});
+        FA.setSniperWalletsForTest(new Set(['0xSNIP']));
+        // totalSupply 缺失(0) → top3/top5HolderShare null；sniperHolderShare 分母=_sum20 不受影响
+        fa.registerToken('T_SN', { createdAtMs: t0, totalSupply: 0, creatorAddress: '0xC' });
+        // 净持仓：0xC(creator) 1000 / 0xSNIP 500 / 0xX 500 / 0xY 买 400 卖 400 → 净 0 不进 top20
+        fa.processTick(mkTick('T_SN', t0 + 1000, true, PX, 1, '0xC', 1000, 1000), { emitFactors: false });
+        fa.processTick(mkTick('T_SN', t0 + 4000, true, PX, 1, '0xSNIP', 1001, 500), { emitFactors: false });
+        fa.processTick(mkTick('T_SN', t0 + 7000, true, PX, 1, '0xX', 1002, 500), { emitFactors: false });
+        fa.processTick(mkTick('T_SN', t0 + 10000, true, PX, 0.5, '0xY', 1003, 400), { emitFactors: false });
+        fa.processTick(mkTick('T_SN', t0 + 13000, false, PX, 0.5, '0xY', 1004, 400), { emitFactors: false });
+        const f = fa.buildFactorMap('T_SN', t0 + 13000);
+        approx(f.sniperHolderShare, 25, 1e-9, '名单：top20=[C1000,SNIP500,X500] creator 豁免 → 500/2000=25%');
+        ok(f.top5HolderShare === null, '名单：totalSupply=0 → top5 null（对照 sniperHolderShare 不依赖 totalSupply）', f.top5HolderShare);
+    }
+    {
+        // 名单 null → 恒 null fail-closed；名单在但全清仓 _sum20=0 → null
+        const fa = new FA({});
+        FA.setSniperWalletsForTest(null);
+        fa.registerToken('T_SN2', { createdAtMs: t0, totalSupply: 1e9, creatorAddress: '0xC' });
+        fa.processTick(mkTick('T_SN2', t0 + 1000, true, PX, 1, '0xSNIP', 1000, 500), { emitFactors: false });
+        const f = fa.buildFactorMap('T_SN2', t0 + 1000);
+        ok(f.sniperHolderShare === null, '名单：sniper 未加载 → 恒 null（fail-closed，引用键的门不放行）', f.sniperHolderShare);
+
+        FA.setSniperWalletsForTest(new Set(['0xSNIP']));
+        fa.processTick(mkTick('T_SN2', t0 + 4000, false, PX, 1, '0xSNIP', 1001, 500), { emitFactors: false });
+        const f2 = fa.buildFactorMap('T_SN2', t0 + 4000);
+        ok(f2.sniperHolderShare === null, '名单：全清仓 _sum20=0 → null（无分母）', f2.sniperHolderShare);
+    }
+
+    // ── 复位（模块级单例跨场景/跨探针共享，防泄漏）──
+    FA.setSmartBotWalletsForTest(null);
+    FA.setSniperWalletsForTest(null);
+}
+
 function scenarioFactorKeys(FA, baselineKeys) {
     const fa = new FA({});
     const keys = fa.getFactorKeys();
@@ -523,6 +592,8 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 市场截面 5（回迁批 2.6；未 feed 全 null）
         'marketNewbornCount1h', 'marketRocketRate30m', 'marketYoungMeanRet30m',
         'marketDeathRate30m', 'marketFlowBsRatio10m',
+        // 名单因子 2（回迁批 3.3；smart_bot 未注入恒 0 / sniper 未注入恒 null）
+        'smartBotCount', 'sniperHolderShare',
     ];
     const missing = NEW_KEYS.filter(k => !keys.has(k));
     ok(missing.length === 0, `getFactorKeys 含全部 ${NEW_KEYS.length} 新键`, missing);
@@ -587,6 +658,8 @@ function main() {
         console.log('  ✓ 断流分档');
         scenarioCreatorPriors(CurrentFA);
         console.log('  ✓ creator 前作命中率（窗/展开/自排除/尘门/TTL）');
+        scenarioListFactors(CurrentFA);
+        console.log('  ✓ 名单因子 smartBotCount/sniperHolderShare');
         scenarioFactorKeys(CurrentFA, baselineKeys);
         console.log('  ✓ getFactorKeys 键集增量精确');
     } finally {

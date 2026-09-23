@@ -1324,6 +1324,10 @@ async function main() {
           // 双值分流：高频bot样 → 'smart_bot'（引擎 smartBotCount 观察因子名单，apply-smart-bots.cjs 同源），
           // 其余 → 'smart_money'。人工标注行冲突已在上行跳过，这里只有 null/smart 族/新行。
           category: (s.notes && s.notes.includes('高频bot样')) ? 'smart_bot' : 'smart_money',
+          // 批 3.3 sniper 名单原料：参与 token 数（rawTotalRun，母版 profile.tokenCount≡rawTotal 恒等式）。
+          // ⚠口径边界：仅入榜钱包有值 → sniper 名单 ⊆ 挖掘入榜集；全史 rawTotal 全量画像待后续离线管线。
+          // PostgREST upsert onConflict 只更新送入列，未入榜的既有行不受影响（token_count 保持 NULL 不命中阈值）。
+          token_count: s.rawTotalRun,
         });
       }
       if (batchRows.length) { const { error } = await client.from('wallets').upsert(batchRows, { onConflict: 'address,chain' }); if (error) throw new Error(`--apply 失败: ${error.message}`); updated += batchRows.length; }

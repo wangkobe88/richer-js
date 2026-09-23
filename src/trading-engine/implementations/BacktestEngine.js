@@ -139,6 +139,22 @@ class BacktestEngine extends AbstractTradingEngine {
     // 回放 tick ts 自动成为决策时钟；回测不落表（不污染观察史）。红线同 WSS 引擎：condition 不引用 market*）
     FourMemeFactorAggregator.setMarketFeedEnabled(true);
 
+    // 名单因子名单加载（回迁批 3.3）：与 WSS 引擎同入口同名单（回测/live 因子同构 parity）。
+    // 两加载均 fail-open+warn：smartBotCount 恒 0 / sniperHolderShare 恒 null（fail-closed 门不放行），
+    // 后果方向在因子层已定。⚠母版此处 sniper 是 fail-fast（A/B B 臂引用该键，静默 null 的空统计
+    // 比死 run 更糟）；richer-js 无 A/B 装置且新键无存量策略引用，统一 fail-open 偏离存案。
+    try {
+      await FourMemeFactorAggregator.loadSmartBotWallets(this._getClient(),
+        (wsConfig.factorParams || {}).smartBotCategory);
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'BacktestEngine', `smart_bot 名单加载失败(fail-open): ${e.message}`);
+    }
+    try {
+      await FourMemeFactorAggregator.loadSniperWallets(this._getClient());
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'BacktestEngine', `sniper 名单加载失败(fail-open, sniperHolderShare 将恒 null): ${e.message}`);
+    }
+
     // 4. 策略引擎（buy/sell 扁平化，与实时引擎同构；分腿评估语义）
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
     const strategiesConfig = this._buildStrategyConfig();

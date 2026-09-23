@@ -90,6 +90,10 @@ function buildFactorValuesForTimeSeries(factorResults) {
     crashSpeedPctPerSec: factorResults.crashSpeedPctPerSec ?? null,
     idleSecSinceLastTick: factorResults.idleSecSinceLastTick ?? null,
     firstBlockBuyShare: factorResults.firstBlockBuyShare ?? null,
+    // 名单因子（回迁批 3.3，2 键）——名单依赖型：值取决于加载时的名单快照，离线回放重算
+    // 会因名单演进失真，必须在线记录（回测亦走此路径=同名单快照 parity）
+    smartBotCount: factorResults.smartBotCount ?? null,
+    sniperHolderShare: factorResults.sniperHolderShare ?? null,
   };
 }
 

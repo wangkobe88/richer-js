@@ -10,7 +10,7 @@
 
 | 文件 | 作用 |
 |---|---|
-| `mine-smart-wallets.cjs` | 主挖掘：6 阶段管线 → `data/smart-wallets-{ts}.csv/.json`；`--apply` 写 `wallets.category` |
+| `mine-smart-wallets.cjs` | 主挖掘：6 阶段管线 → `data/smart-wallets-{ts}.csv/.json`；`--apply` 写 `wallets.category` + `wallets.token_count` |
 | `verify-smart-wallets.cjs` | 独立路径对账（PnL 抽样重算 / mark 合理性 / A/B 结构），任一 fail 退出 1 |
 | `apply-smart-bots.cjs` | 从产出 JSON 挑「高频bot样」写 `wallets.category='smart_bot'`（批 3.3 smartBotCount 消费） |
 | `lib/tick-data-cache.js` | 每实验 gzip JSONL 缓存（staleness=DB max(received_at) 高水位，增量合并） |
@@ -36,7 +36,7 @@ node scripts/smart-wallet-mining/apply-smart-bots.cjs --json data/smart-wallets-
 3. **两批门槛**：批1 活跃持续盈利（≥20 票、胜率≥0.40、mean≥0.03 BNB、对半两半均盈利、realized≥0.25 防断流票纸面富贵）；批2 稳准狠（5-20 票、胜率≥0.80、mean≥0.08 BNB、中位买≥0.04、realized≥0.5、单票≤0.6、≥2 天、raw 参与<200）。双达标归批2。公共门 wash+pump_dump 占比≤0.5。
 4. **enrich**：★BSC 缩减——wallets 表仅 {address,chain,name,category}，母版 tags/clusters insider-coords 簇重叠与 token_participation 无此列不迁；只做人工标注冲突预检（现有 category 非空且非 smart 族 → `--apply` 跳过，产出仍列+notes 标注）。
 5. **第三趟受限重扫**：A/B 带量验证（聪明钱早入票 vs 同类目+同热度桶+首 tick 48h 卡钳对照票的存活/散户到达提升，≥30 A 票才裁决）+ 随机钱包零假设（300 个 lcg seed 42，提升应≈0，显著为正=机械成分扣减）+ lead-lag 跟单标注（首买 ±1 block 内有先行者=被带，followRate≥0.7 标疑似跟单 bot）+ 协作环（合格票集 Jaccard≥0.6 对更高排名者）。
-6. **产出**：CSV/JSON + 控制台中文报告；`--apply` 写 wallets（高频bot样→smart_bot，其余→smart_money）。
+6. **产出**：CSV/JSON + 控制台中文报告；`--apply` 写 wallets（高频bot样→smart_bot，其余→smart_money；顺带写 `token_count` = 入榜钱包 rawTotalRun——批 3.3 sniperHolderShare 名单原料，依赖 `scripts/sql/create-wallets-token-count.sql` 已执行）。
 
 ## ★BSC 适配差异清单（vs 母版）
 
@@ -58,5 +58,6 @@ node scripts/smart-wallet-mining/apply-smart-bots.cjs --json data/smart-wallets-
 ## 已知边界
 
 - 单源数据（当前仅实验 572033ad 有 ticks）时 A/B 对照池小、verdict 多为「不确定」——管线有效性不受影响，名单置信等数据量。
-- `--apply`/apply-smart-bots 写 wallets 为 upsert `onConflict 'address,chain'` 只送 {address,chain,category}，name 列保留。
+- `--apply`/apply-smart-bots 写 wallets 为 upsert `onConflict 'address,chain'`：mine `--apply` 送 {address,chain,category,token_count}，apply-smart-bots 送 {address,chain,category}——PostgREST on conflict 只更新送入列，name 保留。
+- **sniper 名单口径边界（批 3.3）**：`token_count` 仅入榜钱包有值（挖掘 rawTotalRun）→ FA 的 sniper 名单（`chain='bsc' AND token_count≥50`）⊆ 挖掘入榜集，非全史画像；fail-closed（名单小=门保守）方向安全。全量 rawTotal 画像源待后续离线管线；挖掘更新名单后引擎重启才生效（模块级单例不热重载）。
 - verify 的 PnL 对拍容差 TOL=6e-4 BNB；500-tick mark 独立重算与全量滚动窗口在可靠价 tick >500 且末期稀疏时理论可差（末 11 条价总被 500 覆盖，实际一致）。

@@ -232,6 +232,24 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._marketRegimeWriteFails = 0;
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '✅ 因子聚合器初始化完成');
 
+    // 3.1 名单因子名单加载（回迁批 3.3）：smart_bot（wallets.category）+ sniper（wallets.token_count
+    //     ≥ 阈值）。两加载均 try/catch fail-open：smartBotCount 恒 0 观察 / sniperHolderShare 恒 null
+    //     fail-closed 门不放行——后果方向在因子层已定，加载失败只 warn 不阻断启动。
+    //     （母版 Backtest 对 sniper 是 fail-fast：A/B B 臂门引用该键，静默 null 会产出误导性空统计；
+    //     richer-js 无 A/B 装置且新键无存量策略引用，加载失败杀死整个 run 不符合「存量实验零变化」
+    //     总门槛，故两引擎统一 fail-open——偏离存案，生产策略引用 sniperHolderShare 后再议）
+    try {
+      await FourMemeFactorAggregator.loadSmartBotWallets(supabase,
+        (this._mergedWsConfig().factorParams || {}).smartBotCategory);
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `smart_bot 名单加载失败(fail-open): ${e.message}`);
+    }
+    try {
+      await FourMemeFactorAggregator.loadSniperWallets(supabase);
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `sniper 名单加载失败(fail-open, sniperHolderShare 将恒 null): ${e.message}`);
+    }
+
     // 3.5 在线代币分类（回迁批 3.1：idle 60s/大额断流 600s 双触发 + 60s 扫描补救，
     //     写 token_profiles source='online'；config fourmemeWs.onlineProfile.enabled 默认 false，
     //     未配置的存量实验零行为变化。BacktestEngine 不嵌——回测无写表副作用）
