@@ -15,6 +15,8 @@
 //
 // 用法：node scripts/backtest-loop/create-backtest.cjs --source <id> --name 轮0基线 \
 //        --strategy scripts/backtest-loop/strategies/round0.json
+//        [--start ISO] [--end ISO]   —— 回放 tick 时间窗切分（BacktestEngine
+//        startTime/endTime 过滤；半窗稳健性检验用：切点持仓按回放结束强平）
 // 写操作（插 experiments 一行）——建议 182 跑；本地小写可容忍但遵守红线优先远程。
 // ============================================================================
 const path = require('path');
@@ -23,11 +25,13 @@ require('dotenv').config({ path: path.join(__dirname, '../..', 'config/.env') })
 
 async function main() {
   const a = process.argv;
-  let source = null, name = null, strategyPath = null;
+  let source = null, name = null, strategyPath = null, start = null, end = null;
   for (let i = 2; i < a.length; i++) {
     if (a[i] === '--source') source = a[++i];
     else if (a[i] === '--name') name = a[++i];
     else if (a[i] === '--strategy') strategyPath = a[++i];
+    else if (a[i] === '--start') start = a[++i];
+    else if (a[i] === '--end') end = a[++i];
     else { console.error(`未知参数: ${a[i]}`); process.exit(1); }
   }
   if (!source) { console.error('缺 --source <experimentId>'); process.exit(1); }
@@ -55,6 +59,8 @@ async function main() {
       initialBalance: S.initialBalance != null ? S.initialBalance : 100,
       sourceExperimentId: source,
       minMaxChangePercent: 0,
+      ...(start ? { startTime: start } : {}),
+      ...(end ? { endTime: end } : {}),
     },
   };
   if (S.ws) config[wsSection] = S.ws;
