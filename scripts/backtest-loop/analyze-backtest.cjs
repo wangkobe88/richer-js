@@ -105,6 +105,7 @@ async function main() {
           rounds.push({
             token: tok, symbol: t.token_symbol || open.t.token_symbol || '',
             buyBnb, sellBnb,
+            buyUnit: parseFloat(open.t.unit_price), // 买入成交价（USD/枚，引擎 signal.price）
             pnlPct: ((sellBnb * (1 - FEE)) / (buyBnb * (1 + FEE)) - 1) * 100, // 含每腿 0.5% 费
             holdMs: new Date(t.created_at) - new Date(open.t.created_at),
             buyAt: open.t.created_at,
@@ -214,13 +215,13 @@ async function main() {
       // 批内 range 分页拉全（无分页默认截 1000 行=只覆盖最热 token，模拟失真）
       for (let off = 0; ; off += 1000) {
         const { data, error } = await sb.from('wss_price_ticks')
-          .select('token_address,price_bnb,block_time').in('token_address', batch)
+          .select('token_address,price_usd,block_time').in('token_address', batch)
           .order('block_time', { ascending: true }).range(off, off + 999);
         if (error) throw new Error('ticks 查询失败: ' + error.message);
         for (const tk of (data || [])) {
-          if (!Number.isFinite(+tk.price_bnb) || +tk.price_bnb <= 0) continue;
+          if (!Number.isFinite(+tk.price_usd) || +tk.price_usd <= 0) continue;
           if (!ticksByTok.has(tk.token_address)) ticksByTok.set(tk.token_address, []);
-          ticksByTok.get(tk.token_address).push({ p: +tk.price_bnb, t: Date.parse(tk.block_time) });
+          ticksByTok.get(tk.token_address).push({ u: +tk.price_usd, t: Date.parse(tk.block_time) });
           totalTicks++;
         }
         if (!data || data.length < 1000) break;
@@ -229,33 +230,32 @@ async function main() {
     for (const arr of ticksByTok.values()) arr.sort((x, y) => x.t - y.t);
 
     // 模拟一轮：legs={bailMin?, trailP?, trailDd?}；返回 {pnlPct, exitLeg}
+    // 锚点=买入 trade 的 unit_price（引擎实际成交价，USD/枚）——消除 tick 锚定时误差；
+    // 路径用 tick.price_usd（与锚同单位）。
     const simulate = (r, legs) => {
       const ticks = ticksByTok.get(r.token);
-      if (!ticks || !ticks.length) return null;
+      if (!ticks || !ticks.length || !(r.buyUnit > 0)) return null;
       const buyT = Date.parse(r.buyAt), sellT = buyT + r.holdMs;
-      // 锚点=买入前最后一笔 tick（引擎按触发时 FA 价成交的近似）
-      let anchor = null;
-      for (const tk of ticks) { if (tk.t <= buyT) anchor = tk.p; else break; }
-      if (anchor == null) { const nx = ticks.find(tk => tk.t >= buyT); if (!nx) return null; anchor = nx.p; }
+      const anchor = r.buyUnit;
       let peak = anchor;
+      let last = null;
       for (const tk of ticks) {
         if (tk.t < buyT) continue;
         if (tk.t > sellT) break;
-        const p = (tk.p / anchor - 1) * 100;
-        if (tk.p > peak) peak = tk.p;
-        if (p >= 15) return { pnlPct: feePct(tk.p, anchor), exitLeg: 'take15' };
-        if (p <= -15) return { pnlPct: feePct(tk.p, anchor), exitLeg: 'stop15' };
+        last = tk;
+        const p = (tk.u / anchor - 1) * 100;
+        if (tk.u > peak) peak = tk.u;
+        if (p >= 15) return { pnlPct: feePct(tk.u, anchor), exitLeg: 'take15' };
+        if (p <= -15) return { pnlPct: feePct(tk.u, anchor), exitLeg: 'stop15' };
         if (legs.bailMin != null && (tk.t - buyT) >= legs.bailMin * 60000 && p < 0) {
-          return { pnlPct: feePct(tk.p, anchor), exitLeg: 'bail' };
+          return { pnlPct: feePct(tk.u, anchor), exitLeg: 'bail' };
         }
-        if (legs.trailP != null && peak >= anchor * (1 + legs.trailP / 100) && tk.p <= peak * (1 - legs.trailDd / 100)) {
-          return { pnlPct: feePct(tk.p, anchor), exitLeg: 'trail' };
+        if (legs.trailP != null && peak >= anchor * (1 + legs.trailP / 100) && tk.u <= peak * (1 - legs.trailDd / 100)) {
+          return { pnlPct: feePct(tk.u, anchor), exitLeg: 'trail' };
         }
       }
       // 无触发 → 按末 tick 冻价强平
-      let last = null;
-      for (const tk of ticks) { if (tk.t <= sellT) last = tk; else break; }
-      return last ? { pnlPct: feePct(last.p, anchor), exitLeg: 'force' } : null;
+      return last ? { pnlPct: feePct(last.u, anchor), exitLeg: 'force' } : null;
     };
 
     const configs = [
