@@ -311,7 +311,7 @@ async function main() {
     }
     for (const arr of ticksByTok.values()) arr.sort((x, y) => x.t - y.t);
 
-    // 模拟一轮：legs={bailMin?, trailP?, trailDd?}；返回 {pnlPct, exitLeg}
+    // 模拟一轮：legs={takeThr?, stopThr?, bailMin?, trailP?, trailDd?}；返回 {pnlPct, exitLeg}
     // 锚点=买入 trade 的 unit_price（引擎实际成交价，USD/枚）——消除 tick 锚定时误差；
     // 路径用 tick.price_usd（与锚同单位）。
     const simulate = (r, legs) => {
@@ -319,6 +319,8 @@ async function main() {
       if (!ticks || !ticks.length || !(r.buyUnit > 0)) return null;
       const buyT = Date.parse(r.buyAt), sellT = buyT + r.holdMs;
       const anchor = r.buyUnit;
+      const take = legs.takeThr != null ? legs.takeThr : 15;
+      const stop = legs.stopThr != null ? -legs.stopThr : -15;
       let peak = anchor;
       let last = null;
       for (const tk of ticks) {
@@ -327,8 +329,8 @@ async function main() {
         last = tk;
         const p = (tk.u / anchor - 1) * 100;
         if (tk.u > peak) peak = tk.u;
-        if (p >= 15) return { pnlPct: feePct(tk.u, anchor), exitLeg: 'take15' };
-        if (p <= -15) return { pnlPct: feePct(tk.u, anchor), exitLeg: 'stop15' };
+        if (p >= take) return { pnlPct: feePct(tk.u, anchor), exitLeg: 'take' };
+        if (p <= stop) return { pnlPct: feePct(tk.u, anchor), exitLeg: 'stop' };
         if (legs.bailMin != null && (tk.t - buyT) >= legs.bailMin * 60000 && p < 0) {
           return { pnlPct: feePct(tk.u, anchor), exitLeg: 'bail' };
         }
@@ -351,10 +353,20 @@ async function main() {
       { name: 'bail5+trail(6,6)', legs: { bailMin: 5, trailP: 6, trailDd: 6 } },
       { name: 'bail5+trail(8,6)', legs: { bailMin: 5, trailP: 8, trailDd: 6 } },
       { name: 'bail3+trail(8,6)', legs: { bailMin: 3, trailP: 8, trailDd: 6 } },
+      // 阈值微调网格（轮5 候选；take/stop 可参变）
+      { name: 'bail5·take12', legs: { bailMin: 5, takeThr: 12 } },
+      { name: 'bail5·take18', legs: { bailMin: 5, takeThr: 18 } },
+      { name: 'bail5·take20', legs: { bailMin: 5, takeThr: 20 } },
+      { name: 'bail5·stop10', legs: { bailMin: 5, stopThr: 10 } },
+      { name: 'bail5·stop12', legs: { bailMin: 5, stopThr: 12 } },
+      { name: 'bail5·stop8', legs: { bailMin: 5, stopThr: 8 } },
+      { name: 'bail2', legs: { bailMin: 2 } },
+      { name: 'bail4', legs: { bailMin: 4 } },
+      { name: 'bail7', legs: { bailMin: 7 } },
     ];
     const actualSumBnb = rounds.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
     console.log(`── 卖点反事实模拟（${ticksByTok.size}/${roundTokens.length} token ${totalTicks} ticks，${Date.now() - t0}ms；实际 Σ=${actualSumBnb.toFixed(4)} BNB）──`);
-    console.log('  配置'.padEnd(20) + 'ΣPnL(BNB)'.padEnd(11) + 'Δ实际'.padEnd(10) + 'take15/stop15/bail/trail/强平');
+    console.log('  配置'.padEnd(20) + 'ΣPnL(BNB)'.padEnd(11) + 'Δ实际'.padEnd(10) + 'take/stop/bail/trail/强平');
     const baseRes = rounds.map(r => ({ r, sim: simulate(r, {}) }));
     for (const cfg of configs) {
       const res = rounds.map(r => simulate(r, cfg.legs)).filter(Boolean);
@@ -362,7 +374,7 @@ async function main() {
       const cnt = k => res.filter(x => x.exitLeg === k).length;
       const delta = sum - actualSumBnb;
       console.log('  ' + cfg.name.padEnd(18) + sum.toFixed(4).padEnd(11) + (delta >= 0 ? '+' : '') + delta.toFixed(4).padEnd(9) +
-        `${cnt('take15')}/${cnt('stop15')}/${cnt('bail')}/${cnt('trail')}/${cnt('force')}`);
+        `${cnt('take')}/${cnt('stop')}/${cnt('bail')}/${cnt('trail')}/${cnt('force')}`);
     }
     // 自校验失配 top（模拟基线 vs 实际逐轮差——成交近似系统性偏差定位）
     const diffs = baseRes.filter(x => x.sim).map(x => ({
