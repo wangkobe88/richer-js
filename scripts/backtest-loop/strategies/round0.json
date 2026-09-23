@@ -1,0 +1,11 @@
+{
+  "_comment": "轮 0 基线：照抄源实验 572033ad 的验收策略（tradeCount>=3 买 / ±15% 平推卖），零改动对标",
+  "tradeAmount": 0.1,
+  "initialBalance": 100,
+  "buyStrategies": [
+    { "priority": 1, "condition": "tradeCount >= 3", "maxExecutions": 1 }
+  ],
+  "sellStrategies": [
+    { "priority": 1, "condition": "profitPercent > 15 OR profitPercent < -15", "maxExecutions": 1 }
+  ]
+}
