@@ -56,9 +56,10 @@ async function main() {
   // ── 买 trade 关联信号（买点因子快照）──
   const buySigIds = [...new Set(trades.filter(t => t.trade_direction === 'buy' && t.signal_id).map(t => t.signal_id))];
   const sigMeta = new Map(); // signal_id → {trendFactors, price, createdAt}
-  for (let i = 0; i < buySigIds.length; i += 400) {
+  // 100/批：uuid .in() URL 长度护栏（400×36B≈15KB 会被网关掐成 fetch failed）
+  for (let i = 0; i < buySigIds.length; i += 100) {
     const { data, error } = await sb.from('strategy_signals')
-      .select('id,metadata,created_at').in('id', buySigIds.slice(i, i + 400));
+      .select('id,metadata,created_at').in('id', buySigIds.slice(i, i + 100));
     if (error) throw new Error('signals 查询失败: ' + error.message);
     for (const s of (data || [])) sigMeta.set(s.id, s);
   }
