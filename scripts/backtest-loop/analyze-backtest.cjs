@@ -233,29 +233,52 @@ async function main() {
     const fullSum = rounds.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
     const cands = [
       ['earlyReturn', '<', 20], ['earlyReturn', '<', 30], ['earlyReturn', '<', 40],
-      ['top3HolderShare', '<', 0.10], ['top3HolderShare', '<', 0.15],
+      ['earlyReturn', '>', 1], ['earlyReturn', '>', 2], ['earlyReturn', '>', 4],
+      ['top3HolderShare', '<', 0.10], ['top3HolderShare', '<', 0.15], ['top3HolderShare', '>', 0.005],
       ['top5HolderShare', '<', 0.12],
-      ['riseSpeed', '<', 30], ['riseSpeed', '<', 60],
+      ['riseSpeed', '<', 30], ['riseSpeed', '<', 60], ['riseSpeed', '>', 0.5], ['riseSpeed', '>', 1],
       ['age', '>', 0.5], ['age', '>', 1], ['age', '>', 2],
-      ['trendCV', '<', 0.08], ['trendCV', '<', 0.12],
+      ['trendCV', '<', 0.08], ['trendCV', '<', 0.12], ['trendCV', '>', 0.01],
+      ['txVolumeU24h', '>', 50], ['txVolumeU24h', '>', 100], ['txVolumeU24h', '>', 200],
       ['firstBlockBuyShare', '<', 0.5], ['firstBlockBuyShare', '<', 0.3],
       ['tradeCount', '>=', 5], ['tradeCount', '>=', 8],
       ['counterpartyOverlapRate', '<', 0.35],
-      ['holders', '>=', 4], ['holders', '>=', 6],
+      ['holders', '>=', 3], ['holders', '>=', 4], ['holders', '>=', 6],
       ['maxBlockDropPct', '<', 3],
       ['bigHolderTotal', '==', 0],
     ];
+    const pass = (r, k, op, thr) => {
+      const v = Number(r.sigFactors[k]);
+      if (!Number.isFinite(v)) return false;
+      return op === '<' ? v < thr : op === '>' ? v > thr : op === '>=' ? v >= thr : op === '==' ? v === thr : false;
+    };
     for (const [k, op, thr] of cands) {
-      const keep = rounds.filter(r => {
-        const v = Number(r.sigFactors[k]);
-        if (!Number.isFinite(v)) return false;
-        return op === '<' ? v < thr : op === '>' ? v > thr : op === '>=' ? v >= thr : op === '==' ? v === thr : false;
-      });
+      const keep = rounds.filter(r => pass(r, k, op, thr));
       if (!keep.length) continue;
       const sum = keep.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
       const delta = sum - fullSum;
       const killed = rounds.length - keep.length;
       console.log(`    ${k} ${op} ${thr}`.padEnd(28) + `存 ${String(keep.length).padStart(4)}/${rounds.length} 删${String(killed).padStart(4)} | Σ ${sum.toFixed(4)} Δ ${(delta >= 0 ? '+' : '') + delta.toFixed(4)} | 死票余 ${keep.filter(r => deadR.includes(r)).length}`);
+    }
+    // 组合门预筛（语义互补方向的合取；两门/三门）
+    const combos = [
+      [['maxBlockDropPct', '<', 3], ['txVolumeU24h', '>', 100]],
+      [['maxBlockDropPct', '<', 3], ['earlyReturn', '>', 1]],
+      [['maxBlockDropPct', '<', 3], ['holders', '>=', 3]],
+      [['txVolumeU24h', '>', 100], ['holders', '>=', 3]],
+      [['txVolumeU24h', '>', 100], ['age', '>', 1]],
+      [['maxBlockDropPct', '<', 3], ['txVolumeU24h', '>', 100], ['counterpartyOverlapRate', '<', 0.35]],
+      [['maxBlockDropPct', '<', 3], ['txVolumeU24h', '>', 100], ['holders', '>=', 3]],
+      [['maxBlockDropPct', '<', 3], ['earlyReturn', '>', 1], ['counterpartyOverlapRate', '<', 0.35]],
+    ];
+    console.log('  ── 组合门预筛 ──');
+    for (const gates of combos) {
+      const keep = rounds.filter(r => gates.every(([k, op, thr]) => pass(r, k, op, thr)));
+      if (!keep.length) continue;
+      const sum = keep.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
+      const delta = sum - fullSum;
+      console.log(`    ${gates.map(g => g.join(' ')).join(' AND ')}`.slice(0, 60).padEnd(62) +
+        `存 ${String(keep.length).padStart(4)} | Σ ${sum.toFixed(4)} Δ ${(delta >= 0 ? '+' : '') + delta.toFixed(4)} | 死票余 ${keep.filter(r => deadR.includes(r)).length}`);
     }
   }
 
