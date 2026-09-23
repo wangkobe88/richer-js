@@ -1393,8 +1393,9 @@ class ExperimentTokens {
     const summaryStr = summary.reason || '';
     const summaryTitle = summaryStr ? summaryStr.slice(0, 200) + (summaryStr.length > 200 ? '...' : '') : '';
 
+    // score 契约：number 或 null（历史行曾出现对象/字符串，非数字一律不显示分数，避免渲染中断）
     const totalScore = summary.score;
-    const scoreText = totalScore != null ? ` ${totalScore.toFixed(0)}分` : '';
+    const scoreText = (typeof totalScore === 'number' && !isNaN(totalScore)) ? ` ${totalScore.toFixed(0)}分` : '';
 
     return `<a href="/narrative-analyzer?address=${tokenAddress}" target="_blank" class="px-1.5 py-0.5 rounded text-[10px] ${ratingInfo.bgClass} ${ratingInfo.colorClass} border ${ratingInfo.borderClass} hover:opacity-80 transition-opacity inline-block" title="${summaryTitle || ratingInfo.label}" style="cursor:pointer;text-decoration:none;">${ratingInfo.emoji} ${rating}${scoreText}</a>`;
   }

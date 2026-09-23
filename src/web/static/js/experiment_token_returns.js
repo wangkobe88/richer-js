@@ -1517,8 +1517,9 @@ class ExperimentTokenReturns {
     const summaryStr = summary.reason || '';
     const summaryTitle = summaryStr ? summaryStr.slice(0, 200) + (summaryStr.length > 200 ? '...' : '') : '';
 
+    // score 契约：number 或 null（历史行曾出现对象/字符串，非数字一律不显示分数，避免渲染中断）
     const totalScore = summary.score;
-    const scoreText = totalScore !== undefined && totalScore !== null ? ` (${totalScore.toFixed(0)}分)` : '';
+    const scoreText = (typeof totalScore === 'number' && !isNaN(totalScore)) ? ` (${totalScore.toFixed(0)}分)` : '';
 
     return `
       <div class="flex items-center justify-center">

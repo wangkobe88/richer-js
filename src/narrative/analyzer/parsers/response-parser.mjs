@@ -640,12 +640,13 @@ export function buildLLMAnalysis(record) {
     }
   }
 
-  // 获取 score
+  // 获取 score（pre-check 兜底取 pre_check_result.score 数字；details.scores 是
+  // {credibility, virality} 评分明细对象，误用会以对象流出导致前端 .toFixed 崩渲染）
   const finalScore = record.stage_final_result?.score
     ?? record.stage3_result?.score
     ?? record.stage2_result?.score
     ?? record.prestage_result?.score
-    ?? record.pre_check_result?.details?.scores
+    ?? record.pre_check_result?.score
     ?? null;
 
   // 获取 scores（详细评分）
