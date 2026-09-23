@@ -336,6 +336,11 @@ export class NarrativeAnalyzer {
         // twitterInfo已包含website_tweet（如果有第二个推文）
         const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo, classifiedUrls, relatedAccounts };
 
+        // Jev 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，
+        // 与何时分析无关——补跑/回测/延迟分析的结果幂等；创建时间缺失时回退当前时刻）
+        const tokenCreatedAtSec = tokenData.raw_api_data?.created_at;
+        const jevNowMs = tokenCreatedAtSec ? tokenCreatedAtSec * 1000 : undefined;
+
         // 检查是否有任何有效数据供分析
         const hasAnyData = hasValidDataForAnalysis(fetchResults);
         if (!hasAnyData) {
@@ -418,12 +423,12 @@ export class NarrativeAnalyzer {
           if (superIPInfo && !shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', `使用超大IP快速通道（Jev）：${superIPInfo.name}（${superIPInfo.type}/${superIPInfo.tier}级）`);
 
-            const preScores = calculatePreScores(superIPInfo, twitterInfo?.created_at);
+            const preScores = calculatePreScores(superIPInfo, twitterInfo?.created_at, jevNowMs);
             logger.info('NarrativeAnalyzer', '超大IP预评分', preScores);
 
             const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
             const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
-            const { state, stats } = buildJevState(tokenData, fetchResults, { superIPInfo, preScores });
+            const { state, stats } = buildJevState(tokenData, fetchResults, { superIPInfo, preScores, now: jevNowMs });
             const questions = buildStandardQuestions({ includeBrandHijack });
             const startedAt = new Date().toISOString();
             const result = await JevClient.ask(state, questions, { label: `jev-superip:${tokenData.symbol}` });
@@ -465,7 +470,7 @@ export class NarrativeAnalyzer {
             // Jev 单次 speculative fan-out：全部原子问题一次问完，代码端聚合
             const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
             const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
-            const { state, stats } = buildJevState(tokenData, fetchResults);
+            const { state, stats } = buildJevState(tokenData, fetchResults, { now: jevNowMs });
             const questions = buildStandardQuestions({ includeBrandHijack });
             const startedAt = new Date().toISOString();
             const result = await JevClient.ask(state, questions, { label: `jev:${tokenData.symbol}` });

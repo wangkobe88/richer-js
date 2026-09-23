@@ -488,75 +488,83 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
   // 规则2：过期内容检查（推文或视频超过配置的时间阈值）
   // 如果设置了ignoreExpired，跳过过期检查
+  // 时间基准 = 代币创建时间（raw_api_data.created_at）而非分析时刻（用户裁定 2026-09-23）：
+  // 过期语义是"发币时推文/视频是否新鲜"，与何时分析无关——补跑/回测/延迟分析的结果幂等
   if (!ignoreExpired) {
-    const expiredMinutesThreshold = NARRATIVE_CONFIG.expiredTweetMinutesThreshold || 10;
+    const tokenCreatedAtSec = tokenData.raw_api_data?.created_at;
 
-    // 2.1 检查推文过期（仅推文类型，不适用账号）
-    // 多推文场景：主推文、website_tweet、quoted_tweet、retweeted_status 中任一满足即可
-    if (twitterInfo?.type === 'tweet') {
-      const tweetSources = [
-        twitterInfo,
-        twitterInfo.website_tweet,
-        twitterInfo.quoted_tweet,
-        twitterInfo.retweeted_status
-      ].filter(t => t?.created_at);
+    if (!tokenCreatedAtSec) {
+      // 代币无创建时间数据时跳过过期检查（与规则0.5 无创建时间跳过同名检查的模式一致）
+      console.log('[NarrativeAnalyzer] 代币无创建时间数据，跳过过期内容检查');
+    } else {
+      const refNow = new Date(tokenCreatedAtSec * 1000);
+      const expiredMinutesThreshold = NARRATIVE_CONFIG.expiredTweetMinutesThreshold || 10;
 
-      if (tweetSources.length > 0) {
-        const now = new Date();
-        let allExpired = true;
-        for (const tweet of tweetSources) {
-          try {
-            const tweetDate = new Date(tweet.created_at);
-            const minutesDiff = (now - tweetDate) / (1000 * 60);
-            if (minutesDiff <= expiredMinutesThreshold) {
-              allExpired = false;
-              break;
+      // 2.1 检查推文过期（仅推文类型，不适用账号）
+      // 多推文场景：主推文、website_tweet、quoted_tweet、retweeted_status 中任一满足即可
+      if (twitterInfo?.type === 'tweet') {
+        const tweetSources = [
+          twitterInfo,
+          twitterInfo.website_tweet,
+          twitterInfo.quoted_tweet,
+          twitterInfo.retweeted_status
+        ].filter(t => t?.created_at);
+
+        if (tweetSources.length > 0) {
+          let allExpired = true;
+          for (const tweet of tweetSources) {
+            try {
+              const tweetDate = new Date(tweet.created_at);
+              const minutesDiff = (refNow - tweetDate) / (1000 * 60);
+              if (minutesDiff <= expiredMinutesThreshold) {
+                allExpired = false;
+                break;
+              }
+            } catch (e) {
+              // 解析失败不视为有效推文
             }
-          } catch (e) {
-            // 解析失败不视为有效推文
           }
-        }
 
-        if (allExpired) {
-          const mainTweetDate = twitterInfo.formatted_created_at || twitterInfo.created_at;
-          console.log(`[NarrativeAnalyzer] 预检查触发: 所有推文发布时间均超过${expiredMinutesThreshold}分钟 (主推文: ${mainTweetDate})`);
-          return buildPreCheckResult('low', `所有推文发布时间均超过${expiredMinutesThreshold}分钟（主推文：${mainTweetDate}），叙事价值已耗尽`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+          if (allExpired) {
+            const mainTweetDate = twitterInfo.formatted_created_at || twitterInfo.created_at;
+            console.log(`[NarrativeAnalyzer] 预检查触发: 发币时所有推文发布时间已超过${expiredMinutesThreshold}分钟 (主推文: ${mainTweetDate})`);
+            return buildPreCheckResult('low', `发币时所有推文发布时间已超过${expiredMinutesThreshold}分钟（主推文：${mainTweetDate}），叙事价值已耗尽`, 'expired_tweet', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+          }
         }
       }
-    }
 
-    // 2.2 检查视频过期（抖音、YouTube、TikTok、Bilibili）
-    // 视频过期阈值：365天（一年）
-    const expiredVideoDaysThreshold = 365;
+      // 2.2 检查视频过期（抖音、YouTube、TikTok、Bilibili）
+      // 视频过期阈值：365天（一年）
+      const expiredVideoDaysThreshold = 365;
 
-    const videos = [
-      { name: '抖音', info: douyinInfo },
-      { name: 'YouTube', info: youtubeInfo },
-      { name: 'TikTok', info: tiktokInfo },
-      { name: 'Bilibili', info: bilibiliInfo },
-      { name: '微信', info: weixinInfo }
-    ];
+      const videos = [
+        { name: '抖音', info: douyinInfo },
+        { name: 'YouTube', info: youtubeInfo },
+        { name: 'TikTok', info: tiktokInfo },
+        { name: 'Bilibili', info: bilibiliInfo },
+        { name: '微信', info: weixinInfo }
+      ];
 
-    for (const video of videos) {
-      // 获取视频发布时间（不同平台字段名不同）
-      const videoTime = video.info?.create_time || video.info?.publish_date || video.info?.create;
-      if (videoTime) {
-        try {
-          const videoDate = new Date(videoTime);
-          const now = new Date();
-          const daysDiff = (now - videoDate) / (1000 * 60 * 60 * 24);
+      for (const video of videos) {
+        // 获取视频发布时间（不同平台字段名不同）
+        const videoTime = video.info?.create_time || video.info?.publish_date || video.info?.create;
+        if (videoTime) {
+          try {
+            const videoDate = new Date(videoTime);
+            const daysDiff = (refNow - videoDate) / (1000 * 60 * 60 * 24);
 
-          if (daysDiff > expiredVideoDaysThreshold) {
-            console.log(`[NarrativeAnalyzer] 预检查触发: ${video.name}视频发布时间超过${expiredVideoDaysThreshold}天 (${videoTime})`);
-            return buildPreCheckResult('low', `${video.name}视频发布时间超过${expiredVideoDaysThreshold}天（${Math.floor(daysDiff)}天前），叙事价值已耗尽`, 'expired_video', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+            if (daysDiff > expiredVideoDaysThreshold) {
+              console.log(`[NarrativeAnalyzer] 预检查触发: 发币时${video.name}视频发布时间已超过${expiredVideoDaysThreshold}天 (${videoTime})`);
+              return buildPreCheckResult('low', `发币时${video.name}视频发布时间已超过${expiredVideoDaysThreshold}天（${Math.floor(daysDiff)}天前），叙事价值已耗尽`, 'expired_video', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+            }
+          } catch (e) {
+            console.warn(`[NarrativeAnalyzer] 解析${video.name}视频时间失败:`, e.message);
           }
-        } catch (e) {
-          console.warn(`[NarrativeAnalyzer] 解析${video.name}视频时间失败:`, e.message);
+        } else if (video.info) {
+          // 有视频数据但无发布时间：记录日志用于调试
+          console.log(`[NarrativeAnalyzer] ${video.name}视频无发布时间数据，跳过过期检查`);
+          console.log(`[NarrativeAnalyzer] ${video.name}视频数据:`, JSON.stringify(video.info).substring(0, 200));
         }
-      } else if (video.info) {
-        // 有视频数据但无发布时间：记录日志用于调试
-        console.log(`[NarrativeAnalyzer] ${video.name}视频无发布时间数据，跳过过期检查`);
-        console.log(`[NarrativeAnalyzer] ${video.name}视频数据:`, JSON.stringify(video.info).substring(0, 200));
       }
     }
   } else {

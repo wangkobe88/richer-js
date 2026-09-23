@@ -219,10 +219,13 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
   // 未命中 → abm 两条件判定；命中 → token_type 二分 + project 评级（代码端数学）
   // ═══════════════════════════════════════════════════════════════════════════
   const startedAt = new Date().toISOString();
+  // 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，与何时分析无关）
+  const tokenCreatedAtSec = tokenData.raw_api_data?.created_at;
   const { state, stats } = buildPrestageState(tokenData, fullAccountOrCommunityData, {
     addressVerified: rulesResult.addressVerified,
     rulesResult,
     websiteInfo: skipAddressValidation ? fetchResults.websiteInfo : null,
+    ...(tokenCreatedAtSec ? { now: tokenCreatedAtSec * 1000 } : {}),
   });
   const questions = buildPrestageQuestions();
   const result = await JevClient.ask(state, questions, {

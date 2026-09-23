@@ -61,14 +61,16 @@ export const TIER_SCORES = { S: 40, A: 32, B: 24, C: 12 };
 /**
  * 计算时效性加分（与Stage2 prompt一致）
  * @param {string|number} tweetCreatedAt - 推文创建时间
+ * @param {number} [nowMs] - 时间基准毫秒时间戳（默认当前时刻）；
+ *   传代币创建时间使时效与何时分析无关（补跑/回测幂等，与 pre-check 规则2 同裁定）
  * @returns {number} 时效性加分 (0/10/15)
  */
-export function calculateTimeliness(tweetCreatedAt) {
+export function calculateTimeliness(tweetCreatedAt, nowMs) {
   if (!tweetCreatedAt) return 0;
   try {
     const createdDate = new Date(tweetCreatedAt);
     if (isNaN(createdDate.getTime())) return 0;
-    const age = Date.now() - createdDate.getTime();
+    const age = (nowMs ?? Date.now()) - createdDate.getTime();
     const days = age / (1000 * 60 * 60 * 24);
     if (days <= 7) return 15;
     if (days <= 30) return 10;
@@ -123,11 +125,12 @@ export function detectSuperIP(twitterUrl, twitterInfo) {
  * 计算预评分（规则确定的部分，无需LLM）
  * @param {Object} ipInfo - 注册表中的IP信息
  * @param {string|number} tweetCreatedAt - 推文创建时间
+ * @param {number} [nowMs] - 时间基准毫秒时间戳（透传给 calculateTimeliness）
  * @returns {Object} 预评分 { tierScore, timeliness, baseEventScore }
  */
-export function calculatePreScores(ipInfo, tweetCreatedAt) {
+export function calculatePreScores(ipInfo, tweetCreatedAt, nowMs) {
   const tierScore = TIER_SCORES[ipInfo.tier] || 0;
-  const timeliness = calculateTimeliness(tweetCreatedAt);
+  const timeliness = calculateTimeliness(tweetCreatedAt, nowMs);
   const baseEventScore = tierScore + timeliness;
   return { tierScore, timeliness, baseEventScore };
 }

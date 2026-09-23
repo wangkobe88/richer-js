@@ -51,7 +51,8 @@ const MIN_SECTION_KEEP_CHARS = 200;
  * @param {Object|null} [options.preScores] - 超大IP预评分 {tierScore, timeliness, baseEventScore}
  * @param {Object|null} [options.tweetClassification] - 预分类结果（不传则现场分类）
  * @param {number} [options.now] - 时间基准（毫秒时间戳；默认 Date.now()）。
- *   dry-run/校准用历史 token 时传旧分析时刻，保证时效项与旧评级同基准可比
+ *   生产传代币创建时间（时效=发币时语料新鲜度，与何时分析无关——补跑/回测/延迟分析幂等，
+ *   与 pre-check 规则2 同裁定）；dry-run/校准用历史 token 时传旧分析时刻，保证时效项与旧评级同基准可比
  * @returns {{state: string, stats: Object}}
  *   stats: { totalChars, budget, groups: {name, quota, used, droppedSections[]} }
  */
@@ -206,7 +207,8 @@ export function buildJevState(tokenData, fetchResults, options = {}) {
  * @param {boolean} [options.addressVerified] - 规则验证的地址命中结果
  * @param {Object|null} [options.rulesResult] - performRulesValidation 结果（名称匹配/账号质量进 PRECOMPUTED）
  * @param {Object|null} [options.websiteInfo] - 网站信息（项目币路径，地址从网站验证时）
- * @param {number} [options.now] - 时间基准（毫秒时间戳；校准历史 token 时传旧分析时刻）
+ * @param {number} [options.now] - 时间基准（毫秒时间戳；生产传代币创建时间使时效与何时分析
+ *   无关——补跑/回测/延迟分析幂等；校准历史 token 时传旧分析时刻）
  * @returns {{state: string, stats: Object}} stats: { totalChars, budget, droppedSections[] }
  */
 export function buildPrestageState(tokenData, fullAccountOrCommunityData, options = {}) {
