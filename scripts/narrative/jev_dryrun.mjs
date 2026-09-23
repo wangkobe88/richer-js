@@ -33,7 +33,7 @@ async function main() {
   const { data: rows, error } = await supabase
     .from('token_narrative')
     .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, stage1_result, stage_final_result, analyzed_at')
-    .eq('is_valid', true)
+    // 不过滤 is_valid：dry-run 用行内语料快照走链路，与缓存可否复用无关（2026-09-23 起旧缓存行全表失效）
     .not('twitter_info', 'is', null)
     .not('stage_final_result', 'is', null)
     .order('analyzed_at', { ascending: false })

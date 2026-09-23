@@ -12,9 +12,18 @@
  * 版本：改动任何一题的 instructions/criteria 后必须 bump JEV_QUESTIONS_VERSION
  * J1.8：问题文本与 J1.7 相同；本版变更在 jev-result-mapper.mjs 的代码端量表校准
  *       （MAGNITUDE_TIER_SCORES S39/A34/B27/C22 + DIM2_BANDS 分位带，108 样本定参）
+ * J1.9：block_reason 新增 word_extraction（截词借势）选项——按代币名本身的指向判定：
+ *       作者/主体自己的原创命名→不算；名字指向超级IP（实体或原话）→豁免；名字指向
+ *       无名第三方或取自非超级IP的话中词→阻断
+ *       （CONVICTION：截自 133 万粉 KOL 推文的词→阻断；天才：CZ 原话"not a genius"
+ *       →豁免照过。2026-09-23 用户裁定：截词/截名发币要成立，名字的主人得是超级 IP。
+ *       已知未覆盖：OneKey Flork 纠纷语料——Jev 稳定判 Onkey 为"事件主角名"而非截词，
+ *       需"币名指向≠计分主体"维度才能拦，待定）；
+ *       subject_unqualified 扩作用域 A→A/C/D/F/G（小主体确定性兜底，防 Jev 量级在 C/B
+ *       边界漂移漏过事件分下限）
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.8';
+export const JEV_QUESTIONS_VERSION = 'J1.9';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -165,7 +174,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
       ],
     },
 
-    // ── 5. 硬阻断（原各类 Stage2 阻断条件合集，10 选项）───────────────
+    // ── 5. 硬阻断（原各类 Stage2 阻断条件合集，11 选项）───────────────
     block_reason: {
       type: 'choice',
       instructions: `硬阻断检查（hard-block check）。该事件是否命中任一硬阻断条件？未命中选 none。
@@ -177,6 +186,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
         empty_content: '空洞内容——纯问候/感叹/日常闲聊，无具体事件或设定',
         institution_routine: '机构日常运营——机构的例行推文：问候/转发/回复/无信息量互动。⚠️ 实质性内容不算：产品发布/功能更新/政策公告/数据报告/合作消息都是有信息量的实质事件',
         low_quality_derivative: '低质衍生——对现有IP/热点的简单替换/拼贴/抄袭/模仿',
+        word_extraction: '截词借势——按代币名本身的指向判断（不看事件热度）：①名字是推文作者/事件主体自己的原创命名（自己的梗/设定/作品/自称）→不算截词；②名字指向的实体或原话出自超级IP（世界级名人、顶级机构如币安/OpenAI、全球性IP、全国级人物或国民级IP）→豁免不算（超级IP的词/名有独立meme生命力）；③名字取自他人文本中的普通词、或指向事件中提及的无名第三方（纠纷对象/被点评的公司人名项目名等）——名字的主人不是超级IP→阻断（普通知名人物/百万粉KOL/知名meme号/前高管的话中词、无名配角的名字，都无独立叙事生命力）',
         marketing_gimmick: '营销噱头——无任何实质产品/事件信息，纯标题党/引流/蹭热点包装（有具体产品或事件内容的推文不算）',
         baseless_speculation: '无据猜测——预测没有任何推理依据支撑',
         ip_reuse: 'IP二次利用——直接使用现有知名IP但活动无重大传播力（活动有重大传播力则不算）',

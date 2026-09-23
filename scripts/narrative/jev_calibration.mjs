@@ -39,10 +39,11 @@ async function main() {
   const supabase = NarrativeRepository.getSupabase();
 
   // 拉一批候选（近期优先），本地分层
+  // 注意：不过滤 is_valid——2026-09-23 起全表缓存失效后旧基线行 is_valid=false，
+  // 但校准用的是行内旧评级做对比基线，与缓存可否复用无关
   const { data: rows, error } = await supabase
     .from('token_narrative')
     .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, prompt_type, stage1_result, stage2_result, stage_final_result, analyzed_at')
-    .eq('is_valid', true)
     .not('twitter_info', 'is', null)
     .not('stage_final_result', 'is', null)
     .order('analyzed_at', { ascending: false })

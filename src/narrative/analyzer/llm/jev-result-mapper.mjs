@@ -71,6 +71,7 @@ const BLOCK_LABELS = {
   empty_content: '空洞内容',
   institution_routine: '机构日常运营',
   low_quality_derivative: '低质衍生',
+  word_extraction: '截词借势',
   marketing_gimmick: '营销噱头',
   baseless_speculation: '无据猜测',
   ip_reuse: 'IP二次利用',
@@ -84,6 +85,12 @@ const BLOCK_LABELS = {
  * - C/D 类：机构日常运营
  * - G 类：无据猜测
  * - E 类：地区性事件
+ * - C/D/F/G 类：截词借势（J1.9，2026-09-23 裁定：截取一段话中的一个词发币要成立，
+ *   主体得是超级 IP；普通主体截词无叙事生命力。E 类不设——热点命名已有先例不算
+ *   低质衍生；A 类币名来自形象本身不适用；W 类币通常即产品名，暂不设）
+ * - A/C/D/F/G 类：主体资格不足（J1.9 扩：小主体事件原本靠"事件分<60"下限拦截，但
+ *   Jev 量级打分在 C/B 边界会漂移（OneKey 语料A：257 粉小号时过时不过），此档
+ *   兜底为确定性阻断。E 类不设——热点主体按归因规则是热点主角而非搬运小号）
  * - 通用（各类均设）：空洞内容
  * Jev 在不知类别的情况下作答（speculative fan-out），代码端按分类结果
  * 条件采信——scope 外的 choice 不构成阻断（如 E 类蹭热点命名代币不算低质衍生）。
@@ -91,9 +98,10 @@ const BLOCK_LABELS = {
 const BLOCK_SCOPE = {
   empty_content: 'all',
   marketing_gimmick: ['W', 'B'],
-  subject_unqualified: ['A'],
+  subject_unqualified: ['A', 'C', 'D', 'F', 'G'],
   niche_subculture: ['A'],
   low_quality_derivative: ['A'],
+  word_extraction: ['C', 'D', 'F', 'G'],
   ip_reuse: ['A'],
   baseless_speculation: ['G'],
   institution_routine: ['C', 'D'],
