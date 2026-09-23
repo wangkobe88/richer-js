@@ -26,6 +26,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../..', 'config/.env') });
 
 const FEE = 0.005; // 每腿模拟手续费（与 PortfolioManager.executeTrade 默认值一致）
+const feePct = (exitPrice, anchor) => ((exitPrice * (1 - FEE)) / (anchor * (1 + FEE)) - 1) * 100; // 含费往返 PnL%
 
 function pctile(sorted, p) {
   if (!sorted.length) return null;
@@ -37,11 +38,12 @@ const fmt = v => (v == null || !Number.isFinite(v)) ? '  n/a ' : (v >= 1000 || (
 
 async function main() {
   const a = process.argv;
-  let expId = null, badThr = -20, goodThr = 20;
+  let expId = null, badThr = -20, goodThr = 20, cfMode = 1;
   for (let i = 2; i < a.length; i++) {
     if (a[i] === '--experiment') expId = a[++i];
     else if (a[i] === '--bad') badThr = parseFloat(a[++i]);
     else if (a[i] === '--good') goodThr = parseFloat(a[++i]);
+    else if (a[i] === '--cf') cfMode = parseInt(a[++i], 10);
     else { console.error(`未知参数: ${a[i]}`); process.exit(1); }
   }
   if (!expId) { console.error('缺 --experiment <id>'); process.exit(1); }
@@ -197,7 +199,83 @@ async function main() {
     console.log(`  峰值[${label.padEnd(11)}] n=${String(rs.length).padStart(4)} | 峰值均值 ${avgPeak.toFixed(1)}% → 出场均值 ${avgFinal.toFixed(1)}% | 理论捕获 Σ ${(rs.reduce((s, r) => s + (r.peakPct - r.pnlPct), 0) * 0.1 / 100).toFixed(4)} BNB`);
   }
 
-  // ── 6 持仓时长 / 极值轮 ──
+  // ── 6 卖点反事实模拟（tick 级；--cf 0 跳过）──
+  // 对每轮用 wss_price_ticks 价格路径模拟候选卖腿组合，先跑"基线模拟"自校验
+  // （Σ 应接近实际 ΣPnL——成交近似=tick 价、费 1% 往返），再网格对比增益。
+  // 腿语义与引擎一致：profitPercent=价格比值；bailM=holdDuration>M 分钟且水下；
+  // trail(P,D)=峰值涨超 P% 后从峰值价回撤 D%。
+  if (cfMode) {
+    const t0 = Date.now();
+    const roundTokens = [...new Set(rounds.map(r => r.token))];
+    const ticksByTok = new Map();
+    for (let i = 0; i < roundTokens.length; i += 100) {
+      const { data, error } = await sb.from('wss_price_ticks')
+        .select('token_address,price_bnb,block_time').in('token_address', roundTokens.slice(i, i + 100));
+      if (error) throw new Error('ticks 查询失败: ' + error.message);
+      for (const tk of (data || [])) {
+        if (!Number.isFinite(+tk.price_bnb) || +tk.price_bnb <= 0) continue;
+        if (!ticksByTok.has(tk.token_address)) ticksByTok.set(tk.token_address, []);
+        ticksByTok.get(tk.token_address).push({ p: +tk.price_bnb, t: Date.parse(tk.block_time) });
+      }
+    }
+    for (const arr of ticksByTok.values()) arr.sort((x, y) => x.t - y.t);
+
+    // 模拟一轮：legs={bailMin?, trailP?, trailDd?}；返回 {pnlPct, exitLeg}
+    const simulate = (r, legs) => {
+      const ticks = ticksByTok.get(r.token);
+      if (!ticks || !ticks.length) return null;
+      const buyT = Date.parse(r.buyAt), sellT = buyT + r.holdMs;
+      // 锚点=买入前最后一笔 tick（引擎按触发时 FA 价成交的近似）
+      let anchor = null;
+      for (const tk of ticks) { if (tk.t <= buyT) anchor = tk.p; else break; }
+      if (anchor == null) { const nx = ticks.find(tk => tk.t >= buyT); if (!nx) return null; anchor = nx.p; }
+      let peak = anchor;
+      for (const tk of ticks) {
+        if (tk.t < buyT) continue;
+        if (tk.t > sellT) break;
+        const p = (tk.p / anchor - 1) * 100;
+        if (tk.p > peak) peak = tk.p;
+        if (p >= 15) return { pnlPct: feePct(tk.p, anchor), exitLeg: 'take15' };
+        if (p <= -15) return { pnlPct: feePct(tk.p, anchor), exitLeg: 'stop15' };
+        if (legs.bailMin != null && (tk.t - buyT) >= legs.bailMin * 60000 && p < 0) {
+          return { pnlPct: feePct(tk.p, anchor), exitLeg: 'bail' };
+        }
+        if (legs.trailP != null && peak >= anchor * (1 + legs.trailP / 100) && tk.p <= peak * (1 - legs.trailDd / 100)) {
+          return { pnlPct: feePct(tk.p, anchor), exitLeg: 'trail' };
+        }
+      }
+      // 无触发 → 按末 tick 冻价强平
+      let last = null;
+      for (const tk of ticks) { if (tk.t <= sellT) last = tk; else break; }
+      return last ? { pnlPct: feePct(last.p, anchor), exitLeg: 'force' } : null;
+    };
+
+    const configs = [
+      { name: '基线±15(自校验)', legs: {} },
+      { name: 'bail3', legs: { bailMin: 3 } },
+      { name: 'bail5', legs: { bailMin: 5 } },
+      { name: 'bail8', legs: { bailMin: 8 } },
+      { name: 'trail(6,6)', legs: { trailP: 6, trailDd: 6 } },
+      { name: 'trail(8,6)', legs: { trailP: 8, trailDd: 6 } },
+      { name: 'trail(10,8)', legs: { trailP: 10, trailDd: 8 } },
+      { name: 'bail5+trail(6,6)', legs: { bailMin: 5, trailP: 6, trailDd: 6 } },
+      { name: 'bail5+trail(8,6)', legs: { bailMin: 5, trailP: 8, trailDd: 6 } },
+      { name: 'bail3+trail(8,6)', legs: { bailMin: 3, trailP: 8, trailDd: 6 } },
+    ];
+    const actualSumBnb = rounds.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
+    console.log(`── 卖点反事实模拟（${ticksByTok.size} token ticks，${Date.now() - t0}ms；实际 Σ=${actualSumBnb.toFixed(4)} BNB）──`);
+    console.log('  配置'.padEnd(20) + 'ΣPnL(BNB)'.padEnd(11) + 'Δ实际'.padEnd(10) + 'take15/stop15/bail/trail/强平');
+    for (const cfg of configs) {
+      const res = rounds.map(r => simulate(r, cfg.legs)).filter(Boolean);
+      const sum = res.reduce((s, x) => s + x.pnlPct / 100 * 0.1, 0); // 每轮投入 0.1 BNB
+      const cnt = k => res.filter(x => x.exitLeg === k).length;
+      const delta = sum - actualSumBnb;
+      console.log('  ' + cfg.name.padEnd(18) + sum.toFixed(4).padEnd(11) + (delta >= 0 ? '+' : '') + delta.toFixed(4).padEnd(9) +
+        `${cnt('take15')}/${cnt('stop15')}/${cnt('bail')}/${cnt('trail')}/${cnt('force')}`);
+    }
+  }
+
+  // ── 7 持仓时长 / 极值轮 ──
   const holds = rounds.map(r => r.holdMs / 1000).sort((x, y) => x - y);
   if (holds.length) {
     console.log(`── 持仓时长(s)：P25 ${fmt(pctile(holds, 0.25))} | P50 ${fmt(pctile(holds, 0.5))} | P75 ${fmt(pctile(holds, 0.75))} | P95 ${fmt(pctile(holds, 0.95))}`);
