@@ -1,0 +1,12 @@
+{
+  "_comment": "轮 6-dd10 = 轮6 唯一变化 trail 回撤阈 12→10。模拟器 noClip 网格显示 dd10 0.4211 > dd12 0.3769，但自校验残差 -0.17 系模拟插针过敏（引擎 _acceptPrice 中位滤波扛插针）——模拟相对排序不可信，回放一锤定音",
+  "tradeAmount": 0.1,
+  "initialBalance": 100,
+  "buyStrategies": [
+    { "priority": 1, "condition": "tradeCount >= 3 AND firstBlockBuyShare < 0.85 AND bigHolderPresent == 0 AND maxBlockDropPct < 3 AND earlyReturn > 1 AND counterpartyOverlapRate < 0.35", "maxExecutions": 1 }
+  ],
+  "sellStrategies": [
+    { "priority": 1, "condition": "peakProfitPct >= 8 AND drawdownFromHighestSinceLastBuy <= -10", "maxExecutions": 1 },
+    { "priority": 2, "condition": "holdDuration > 300 AND profitPercent < 0", "maxExecutions": 1 }
+  ]
+}

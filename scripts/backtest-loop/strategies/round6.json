@@ -1,0 +1,12 @@
+{
+  "_comment": "轮 6 = 轮4 买门 + 卖侧整体换成 pumpfun PROD-TPA sell_x11_hi 式峰值门槛 trailing：冲过 +8% 后从持仓峰值回撤 12% 高位锁定（peakProfitPct/drawdownFromHighestSinceLastBuy 均为 FA 持仓因子，零代码改动）+ 腿2 水下 5min bail 保留。预筛（轮4 58 轮 tick 级反事实）：0.2313 vs 实际 0.2215（+0.0098，peak8-10×dd12-15 等价平台）；对照：DAILY-1 式纯 hold 分档 trail 全负（flap 峰值后深回撤路径稀少，trail 仅 3-6 触发）、x12 式 hold 分档×peak 门槛全负（晚档 dd8/10 过紧卖飞）、加 stop20/25 反伤 -0.03",
+  "tradeAmount": 0.1,
+  "initialBalance": 100,
+  "buyStrategies": [
+    { "priority": 1, "condition": "tradeCount >= 3 AND firstBlockBuyShare < 0.85 AND bigHolderPresent == 0 AND maxBlockDropPct < 3 AND earlyReturn > 1 AND counterpartyOverlapRate < 0.35", "maxExecutions": 1 }
+  ],
+  "sellStrategies": [
+    { "priority": 1, "condition": "peakProfitPct >= 8 AND drawdownFromHighestSinceLastBuy <= -12", "maxExecutions": 1 },
+    { "priority": 2, "condition": "holdDuration > 300 AND profitPercent < 0", "maxExecutions": 1 }
+  ]
+}

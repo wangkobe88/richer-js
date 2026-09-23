@@ -311,21 +311,27 @@ async function main() {
     }
     for (const arr of ticksByTok.values()) arr.sort((x, y) => x.t - y.t);
 
-    // 模拟一轮：legs={takeThr?, stopThr?, bailMin?, trailP?, trailDd?}；返回 {pnlPct, exitLeg}
+    // 模拟一轮：legs={takeThr?, stopThr?, bailMin?, trailP?, trailDd?, tiered?, classic?}；
+    // tiered=[[maxHoldSec, ddPct], ...]（末档 maxH=Infinity）= pumpfun DAILY-1 式
+    // holdDuration 分档 trailing：dd=(价/持仓期峰值-1)×100 <= -档阈值 即卖，无 peak 门槛；
+    // classic:false = 不默认启用 ±15 take/stop（可再单独传 takeThr/stopThr 显式启用）。
     // 锚点=买入 trade 的 unit_price（引擎实际成交价，USD/枚）——消除 tick 锚定时误差；
     // 路径用 tick.price_usd（与锚同单位）。
-    const simulate = (r, legs) => {
+    const simulate = (r, legs, noClip) => {
       const ticks = ticksByTok.get(r.token);
       if (!ticks || !ticks.length || !(r.buyUnit > 0)) return null;
       const buyT = Date.parse(r.buyAt), sellT = buyT + r.holdMs;
       const anchor = r.buyUnit;
-      const take = legs.takeThr != null ? legs.takeThr : 15;
-      const stop = legs.stopThr != null ? -legs.stopThr : -15;
+      const classic = legs.classic !== false;
+      const take = classic ? (legs.takeThr != null ? legs.takeThr : 15) : (legs.takeThr != null ? legs.takeThr : Infinity);
+      const stop = classic ? (legs.stopThr != null ? -legs.stopThr : -15) : (legs.stopThr != null ? -legs.stopThr : -Infinity);
       let peak = anchor;
       let last = null;
       for (const tk of ticks) {
         if (tk.t < buyT) continue;
-        if (tk.t > sellT) break;
+        // noClip（反事实网格）：不截断在实际卖出时刻——比实际更晚触发的腿
+        // （更松 dd/更高 peak 门槛）需要卖出后的路径；截断会系统性低估松变体
+        if (!noClip && tk.t > sellT) break;
         last = tk;
         const p = (tk.u / anchor - 1) * 100;
         if (tk.u > peak) peak = tk.u;
@@ -334,8 +340,30 @@ async function main() {
         if (legs.bailMin != null && (tk.t - buyT) >= legs.bailMin * 60000 && p < 0) {
           return { pnlPct: feePct(tk.u, anchor), exitLeg: 'bail' };
         }
+        if (legs.tiered) {
+          const holdSec = (tk.t - buyT) / 1000;
+          const dd = (tk.u / peak - 1) * 100;
+          for (const [maxH, ddThr] of legs.tiered) {
+            if (holdSec <= maxH) {
+              if (dd <= -ddThr) return { pnlPct: feePct(tk.u, anchor), exitLeg: 'trail' + maxH };
+              break;
+            }
+          }
+        }
         if (legs.trailP != null && peak >= anchor * (1 + legs.trailP / 100) && tk.u <= peak * (1 - legs.trailDd / 100)) {
           return { pnlPct: feePct(tk.u, anchor), exitLeg: 'trail' };
+        }
+        // 多档 peak 门槛 trail（PROD-TPA 式）：trailTiers=[{maxH?, minP, dd}]，
+        // 首个满足（hold 档内 ∧ 峰值≥minP ∧ 从峰值回撤≥dd）的档触发；maxH 缺省=∞
+        if (legs.trailTiers) {
+          const holdSec = (tk.t - buyT) / 1000;
+          const peakPct = (peak / anchor - 1) * 100;
+          const dd = (tk.u / peak - 1) * 100;
+          for (const t of legs.trailTiers) {
+            if ((t.maxH == null || holdSec <= t.maxH) && peakPct >= t.minP && dd <= -t.dd) {
+              return { pnlPct: feePct(tk.u, anchor), exitLeg: 'pt' + (t.maxH != null ? t.maxH : 'x') + '/' + t.minP + '/' + t.dd };
+            }
+          }
         }
       }
       // 无触发 → 按末 tick 冻价强平
@@ -343,35 +371,30 @@ async function main() {
     };
 
     const configs = [
-      { name: '基线±15(自校验)', legs: {} },
-      { name: 'bail3', legs: { bailMin: 3 } },
-      { name: 'bail5', legs: { bailMin: 5 } },
-      { name: 'bail8', legs: { bailMin: 8 } },
-      { name: 'trail(6,6)', legs: { trailP: 6, trailDd: 6 } },
-      { name: 'trail(8,6)', legs: { trailP: 8, trailDd: 6 } },
-      { name: 'trail(10,8)', legs: { trailP: 10, trailDd: 8 } },
-      { name: 'bail5+trail(6,6)', legs: { bailMin: 5, trailP: 6, trailDd: 6 } },
-      { name: 'bail5+trail(8,6)', legs: { bailMin: 5, trailP: 8, trailDd: 6 } },
-      { name: 'bail3+trail(8,6)', legs: { bailMin: 3, trailP: 8, trailDd: 6 } },
-      // 阈值微调网格（轮5 候选；take/stop 可参变）
-      { name: 'bail5·take12', legs: { bailMin: 5, takeThr: 12 } },
-      { name: 'bail5·take18', legs: { bailMin: 5, takeThr: 18 } },
-      { name: 'bail5·take20', legs: { bailMin: 5, takeThr: 20 } },
-      { name: 'bail5·stop10', legs: { bailMin: 5, stopThr: 10 } },
-      { name: 'bail5·stop12', legs: { bailMin: 5, stopThr: 12 } },
-      { name: 'bail5·stop8', legs: { bailMin: 5, stopThr: 8 } },
-      { name: 'bail2', legs: { bailMin: 2 } },
-      { name: 'bail4', legs: { bailMin: 4 } },
-      { name: 'bail7', legs: { bailMin: 7 } },
+      // 自校验锚=本轮实际卖腿（截断版应≈实际 Σ；noClip 版看截断偏差）
+      { name: '自校验:peak8dd12+bail5(截断)', legs: { classic: false, bailMin: 5, trailP: 8, trailDd: 12 } },
+      { name: '同上noClip', legs: { classic: false, bailMin: 5, trailP: 8, trailDd: 12 }, noClip: true },
+      // 全路径网格（noClip）：dd 扫描 / peak 扫描 / 硬底 / bail 扫描
+      { name: 'p8·dd8+bail5', legs: { classic: false, bailMin: 5, trailP: 8, trailDd: 8 }, noClip: true },
+      { name: 'p8·dd10+bail5', legs: { classic: false, bailMin: 5, trailP: 8, trailDd: 10 }, noClip: true },
+      { name: 'p8·dd15+bail5', legs: { classic: false, bailMin: 5, trailP: 8, trailDd: 15 }, noClip: true },
+      { name: 'p8·dd20+bail5', legs: { classic: false, bailMin: 5, trailP: 8, trailDd: 20 }, noClip: true },
+      { name: 'p5·dd12+bail5', legs: { classic: false, bailMin: 5, trailP: 5, trailDd: 12 }, noClip: true },
+      { name: 'p10·dd12+bail5', legs: { classic: false, bailMin: 5, trailP: 10, trailDd: 12 }, noClip: true },
+      { name: 'p15·dd12+bail5', legs: { classic: false, bailMin: 5, trailP: 15, trailDd: 12 }, noClip: true },
+      { name: 'p8·dd12+bail5+stop30', legs: { classic: false, bailMin: 5, stopThr: 30, trailP: 8, trailDd: 12 }, noClip: true },
+      { name: 'p8·dd12+bail5+stop40', legs: { classic: false, bailMin: 5, stopThr: 40, trailP: 8, trailDd: 12 }, noClip: true },
+      { name: 'p8·dd12+bail3', legs: { classic: false, bailMin: 3, trailP: 8, trailDd: 12 }, noClip: true },
+      { name: 'p8·dd12+bail8', legs: { classic: false, bailMin: 8, trailP: 8, trailDd: 12 }, noClip: true },
     ];
     const actualSumBnb = rounds.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
     console.log(`── 卖点反事实模拟（${ticksByTok.size}/${roundTokens.length} token ${totalTicks} ticks，${Date.now() - t0}ms；实际 Σ=${actualSumBnb.toFixed(4)} BNB）──`);
     console.log('  配置'.padEnd(20) + 'ΣPnL(BNB)'.padEnd(11) + 'Δ实际'.padEnd(10) + 'take/stop/bail/trail/强平');
     const baseRes = rounds.map(r => ({ r, sim: simulate(r, {}) }));
     for (const cfg of configs) {
-      const res = rounds.map(r => simulate(r, cfg.legs)).filter(Boolean);
+      const res = rounds.map(r => simulate(r, cfg.legs, cfg.noClip)).filter(Boolean);
       const sum = res.reduce((s, x) => s + x.pnlPct / 100 * 0.1, 0); // 每轮投入 0.1 BNB
-      const cnt = k => res.filter(x => x.exitLeg === k).length;
+      const cnt = k => res.filter(x => k === 'trail' ? (String(x.exitLeg).startsWith('trail') || String(x.exitLeg).startsWith('pt')) : x.exitLeg === k).length;
       const delta = sum - actualSumBnb;
       console.log('  ' + cfg.name.padEnd(18) + sum.toFixed(4).padEnd(11) + (delta >= 0 ? '+' : '') + delta.toFixed(4).padEnd(9) +
         `${cnt('take')}/${cnt('stop')}/${cnt('bail')}/${cnt('trail')}/${cnt('force')}`);
