@@ -208,14 +208,22 @@ async function main() {
     const t0 = Date.now();
     const roundTokens = [...new Set(rounds.map(r => r.token))];
     const ticksByTok = new Map();
+    let totalTicks = 0;
     for (let i = 0; i < roundTokens.length; i += 100) {
-      const { data, error } = await sb.from('wss_price_ticks')
-        .select('token_address,price_bnb,block_time').in('token_address', roundTokens.slice(i, i + 100));
-      if (error) throw new Error('ticks 查询失败: ' + error.message);
-      for (const tk of (data || [])) {
-        if (!Number.isFinite(+tk.price_bnb) || +tk.price_bnb <= 0) continue;
-        if (!ticksByTok.has(tk.token_address)) ticksByTok.set(tk.token_address, []);
-        ticksByTok.get(tk.token_address).push({ p: +tk.price_bnb, t: Date.parse(tk.block_time) });
+      const batch = roundTokens.slice(i, i + 100);
+      // 批内 range 分页拉全（无分页默认截 1000 行=只覆盖最热 token，模拟失真）
+      for (let off = 0; ; off += 1000) {
+        const { data, error } = await sb.from('wss_price_ticks')
+          .select('token_address,price_bnb,block_time').in('token_address', batch)
+          .order('block_time', { ascending: true }).range(off, off + 999);
+        if (error) throw new Error('ticks 查询失败: ' + error.message);
+        for (const tk of (data || [])) {
+          if (!Number.isFinite(+tk.price_bnb) || +tk.price_bnb <= 0) continue;
+          if (!ticksByTok.has(tk.token_address)) ticksByTok.set(tk.token_address, []);
+          ticksByTok.get(tk.token_address).push({ p: +tk.price_bnb, t: Date.parse(tk.block_time) });
+          totalTicks++;
+        }
+        if (!data || data.length < 1000) break;
       }
     }
     for (const arr of ticksByTok.values()) arr.sort((x, y) => x.t - y.t);
@@ -263,7 +271,7 @@ async function main() {
       { name: 'bail3+trail(8,6)', legs: { bailMin: 3, trailP: 8, trailDd: 6 } },
     ];
     const actualSumBnb = rounds.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
-    console.log(`── 卖点反事实模拟（${ticksByTok.size} token ticks，${Date.now() - t0}ms；实际 Σ=${actualSumBnb.toFixed(4)} BNB）──`);
+    console.log(`── 卖点反事实模拟（${ticksByTok.size}/${roundTokens.length} token ${totalTicks} ticks，${Date.now() - t0}ms；实际 Σ=${actualSumBnb.toFixed(4)} BNB）──`);
     console.log('  配置'.padEnd(20) + 'ΣPnL(BNB)'.padEnd(11) + 'Δ实际'.padEnd(10) + 'take15/stop15/bail/trail/强平');
     for (const cfg of configs) {
       const res = rounds.map(r => simulate(r, cfg.legs)).filter(Boolean);
