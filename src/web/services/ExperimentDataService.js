@@ -1219,8 +1219,23 @@ class ExperimentDataService {
       // 对于回测实验，使用源实验的代币数据
       const targetExperimentId = await this._getTargetExperimentIdForTokens(experimentId);
 
-      // 获取目标实验的代币列表
-      const tokens = await this.getTokens(targetExperimentId, { limit: 10000 });
+      // 获取目标实验的代币列表（轻量列查询：只取本接口用到的字段，不拉 raw_api_data 等大列。
+      // 走 getTokens(select *) 时 6161 行 ≈17MB、接口 17s+ 才返回，页面叙事列长时间显示 "-"，
+      // 被误判为"叙事结果缺失"）
+      const tokens = [];
+      for (let off = 0; ; off += 1000) {
+        const { data: pageTokens, error: pageError } = await this.supabase
+          .from('experiment_tokens')
+          .select('token_address, token_symbol, platform, blockchain, discovered_at, human_judges, analysis_results')
+          .eq('experiment_id', targetExperimentId)
+          .range(off, off + 999);
+        if (pageError) {
+          if (pageError.code === '42P01') break; // 表不存在：与 getTokens 行为一致，返回空
+          throw pageError;
+        }
+        tokens.push(...(pageTokens || []));
+        if (!pageTokens || pageTokens.length < 1000) break;
+      }
 
       if (tokens.length === 0) {
         return {

@@ -1009,6 +1009,8 @@ class ExperimentTokens {
 
       // 再加载代币数据（此时数据已包含最新价格）
       await this.loadTokens();
+      // 叙事数据一并重拉（此前只刷代币，叙事列停留在页面加载时的旧数据）
+      this.loadNarrativeData();
       this.applyFilters();
       this.renderStatistics();
       this.showToast('刷新成功');
