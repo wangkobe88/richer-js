@@ -1,0 +1,11 @@
+{
+  "_comment": "轮 1 买侧过滤：轮0分析——36差票贡献全部亏损；firstBlockBuyShare 差票P50=1/好票0.5（同块对倒脉冲）、bigHolderPresent 差票P50=1/好票0（推手在场=出货前夜）。卖点不动隔离变量",
+  "tradeAmount": 0.1,
+  "initialBalance": 100,
+  "buyStrategies": [
+    { "priority": 1, "condition": "tradeCount >= 3 AND firstBlockBuyShare < 0.85 AND bigHolderPresent == 0", "maxExecutions": 1 }
+  ],
+  "sellStrategies": [
+    { "priority": 1, "condition": "profitPercent > 15 OR profitPercent < -15", "maxExecutions": 1 }
+  ]
+}
