@@ -238,7 +238,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
     addressVerified: rulesResult.addressVerified,
     rulesResult,
     callInfo: {
-      model: result.model, questions, stateStats: stats,
+      model: result.model, questions, state, stateStats: stats,
       usage: result.usage, startedAt, finishedAt,
     },
   });

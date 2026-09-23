@@ -742,8 +742,8 @@ class NarrativeAnalyzer {
             <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起 Prompt' : '展开 Prompt'">
               ▼ 展开 Prompt
             </button>
-            <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
-              ${this.escapeHtml(prestage.prompt)}
+            <div class="expand-content" style="max-height: 560px; overflow-y: auto;">
+              ${this.renderJevPromptHtml(prestage.prompt)}
             </div>
           `;
         }
@@ -754,8 +754,8 @@ class NarrativeAnalyzer {
             <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起原始响应' : '展开原始响应'">
               ▼ 展开原始响应
             </button>
-            <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
-              ${typeof prestage.rawOutput === 'string' ? this.escapeHtml(prestage.rawOutput) : this.escapeHtml(JSON.stringify(prestage.rawOutput, null, 2))}
+            <div class="expand-content" style="max-height: 560px; overflow-y: auto;">
+              ${this.renderRawOutputHtml(prestage.rawOutput)}
             </div>
           `;
         }
@@ -895,8 +895,8 @@ class NarrativeAnalyzer {
           <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起 Prompt' : '展开 Prompt'">
             ▼ 展开 Prompt
           </button>
-          <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
-            ${this.escapeHtml(prestage.prompt)}
+          <div class="expand-content" style="max-height: 560px; overflow-y: auto;">
+            ${this.renderJevPromptHtml(prestage.prompt)}
           </div>
         `;
       }
@@ -907,8 +907,8 @@ class NarrativeAnalyzer {
           <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起原始响应' : '展开原始响应'">
             ▼ 展开原始响应
           </button>
-          <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
-            ${JSON.stringify(prestage.rawOutput, null, 2)}
+          <div class="expand-content" style="max-height: 560px; overflow-y: auto;">
+            ${this.renderRawOutputHtml(prestage.rawOutput)}
           </div>
         `;
       }
@@ -1285,8 +1285,8 @@ class NarrativeAnalyzer {
           <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起 Prompt' : '展开 Prompt'">
             ▼ 展开 Prompt
           </button>
-          <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
-            ${this.escapeHtml(stage1.prompt)}
+          <div class="expand-content" style="max-height: 560px; overflow-y: auto;">
+            ${this.renderJevPromptHtml(stage1.prompt)}
           </div>
         `;
       } else {
@@ -1303,8 +1303,8 @@ class NarrativeAnalyzer {
           <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起原始响应' : '展开原始响应'">
             ▼ 展开原始响应
           </button>
-          <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
-            ${JSON.stringify(stage1.rawOutput, null, 2)}
+          <div class="expand-content" style="max-height: 560px; overflow-y: auto;">
+            ${this.renderRawOutputHtml(stage1.rawOutput)}
           </div>
         `;
       }
@@ -1516,8 +1516,8 @@ class NarrativeAnalyzer {
           <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起 Prompt' : '展开 Prompt'">
             ▼ 展开 Prompt
           </button>
-          <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
-            ${this.escapeHtml(stage2.prompt)}
+          <div class="expand-content" style="max-height: 560px; overflow-y: auto;">
+            ${this.renderJevPromptHtml(stage2.prompt)}
           </div>
         `;
       } else {
@@ -1534,8 +1534,8 @@ class NarrativeAnalyzer {
           <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起原始响应' : '展开原始响应'">
             ▼ 展开原始响应
           </button>
-          <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
-            ${JSON.stringify(stage2.rawOutput, null, 2)}
+          <div class="expand-content" style="max-height: 560px; overflow-y: auto;">
+            ${this.renderRawOutputHtml(stage2.rawOutput)}
           </div>
         `;
       }
@@ -1703,8 +1703,8 @@ class NarrativeAnalyzer {
             <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起 Prompt' : '展开 Prompt'">
               ▼ 展开 Prompt
             </button>
-            <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
-              ${this.escapeHtml(stage3.prompt)}
+            <div class="expand-content" style="max-height: 560px; overflow-y: auto;">
+              ${this.renderJevPromptHtml(stage3.prompt)}
             </div>
           `;
         } else {
@@ -1721,8 +1721,8 @@ class NarrativeAnalyzer {
             <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起原始响应' : '展开原始响应'">
               ▼ 展开原始响应
             </button>
-            <div class="expand-content" style="max-height: 300px; overflow-y: auto;">
-              ${JSON.stringify(stage3.rawOutput, null, 2)}
+            <div class="expand-content" style="max-height: 560px; overflow-y: auto;">
+              ${this.renderRawOutputHtml(stage3.rawOutput)}
             </div>
           `;
         }
@@ -2300,6 +2300,100 @@ class NarrativeAnalyzer {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * 渲染 Prompt 展开区内容（Jev 结构化 / 旧格式原样文本）
+   * Jev 的 *_prompt 列存 JSON：{engine:'jev', questionsVersion, questionIds, stateStats,
+   * state?(语料全文), questions?(问题集全文), fullPromptIn?(完整 prompt 所在列的指针)}
+   * - 带 state+questions：分"问题集 / 状态语料"两块子折叠回放完整 prompt
+   * - 带 fullPromptIn：摘要版（主路径 stage2/3 与 stage1 同一次 fan-out 调用）
+   * - 旧 Jev 元数据行 / 旧生成式管线的自然语言 prompt：原样展示
+   */
+  renderJevPromptHtml(prompt) {
+    let parsed = null;
+    if (typeof prompt === 'string') {
+      try { parsed = JSON.parse(prompt); } catch (e) { parsed = null; }
+    } else if (prompt && typeof prompt === 'object') {
+      parsed = prompt;
+    }
+    if (!parsed || parsed.engine !== 'jev') {
+      return this.escapeHtml(typeof prompt === 'string' ? prompt : JSON.stringify(prompt, null, 2));
+    }
+
+    const qCount = parsed.questionIds?.length ?? (parsed.questions ? Object.keys(parsed.questions).length : null);
+    const stateChars = parsed.stateStats?.totalChars ?? (typeof parsed.state === 'string' ? parsed.state.length : null);
+
+    let html = `
+      <div class="jev-meta">
+        <span class="jev-badge">Jev ${this.escapeHtml(parsed.questionsVersion || '')}</span>
+        ${qCount != null ? `<span class="jev-meta-item">问题 ${qCount} 题</span>` : ''}
+        ${stateChars != null ? `<span class="jev-meta-item">语料 ${stateChars.toLocaleString()} 字符</span>` : ''}
+      </div>`;
+
+    if (parsed.fullPromptIn) {
+      html += `
+        <div class="jev-note">与 Stage 1 同一次 Jev 调用（一次 fan-out 问完三阶段全部问题），完整 Prompt 见 Stage 1 卡片的"展开 Prompt"。</div>
+        <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起调用元数据' : '展开调用元数据'">▼ 展开调用元数据</button>
+        <div class="expand-content">${this.escapeHtml(JSON.stringify({ ...parsed, fullPromptIn: undefined }, null, 2))}</div>`;
+    } else if (parsed.questions || typeof parsed.state === 'string') {
+      if (parsed.questions) {
+        html += `
+          <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起问题集' : '展开问题集'">▼ 展开问题集（${qCount} 题）</button>
+          <div class="expand-content jev-questions">${this.renderJevQuestions(parsed.questions)}</div>`;
+      }
+      if (typeof parsed.state === 'string') {
+        html += `
+          <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起状态语料' : '展开状态语料'">▼ 展开状态语料（${stateChars.toLocaleString()} 字符）</button>
+          <div class="expand-content">${this.escapeHtml(parsed.state)}</div>`;
+      }
+    } else {
+      html += `
+        <div class="jev-note">该记录分析时未保存 prompt 全文（旧版 Jev 元数据行），点击"重新分析"可获得完整 Prompt。</div>
+        <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('active'); this.textContent = this.nextElementSibling.classList.contains('active') ? '收起元数据' : '展开元数据'">▼ 展开元数据</button>
+        <div class="expand-content">${this.escapeHtml(JSON.stringify(parsed, null, 2))}</div>`;
+    }
+    return html;
+  }
+
+  /**
+   * Jev 问题集逐题渲染（{id: {type, instructions, criteria}}）
+   * criteria 为对象（choice 选项表）时渲染键值表，字符串（score 锚点）时渲染文本块
+   */
+  renderJevQuestions(questions) {
+    return Object.entries(questions || {}).map(([id, q]) => {
+      const criteria = q.criteria;
+      let criteriaHtml;
+      if (criteria && typeof criteria === 'object') {
+        criteriaHtml = '<table class="jev-criteria-table">' + Object.entries(criteria).map(([k, v]) =>
+          `<tr><td>${this.escapeHtml(String(k))}</td><td>${this.escapeHtml(String(v))}</td></tr>`).join('') + '</table>';
+      } else {
+        criteriaHtml = `<pre class="jev-pre">${this.escapeHtml(String(criteria ?? ''))}</pre>`;
+      }
+      return `
+        <div class="jev-question">
+          <div class="jev-q-head"><code>${this.escapeHtml(id)}</code><span class="jev-q-type">${this.escapeHtml(q.type || '')}</span></div>
+          <div class="jev-q-label">instructions</div>
+          <pre class="jev-pre">${this.escapeHtml(q.instructions || '')}</pre>
+          <div class="jev-q-label">criteria</div>
+          ${criteriaHtml}
+        </div>`;
+    }).join('');
+  }
+
+  /**
+   * 原始响应（answers+usage 的 JSON 字符串）pretty 展示
+   * DB text 列透传的是字符串：先 parse 再 pretty（直接 JSON.stringify 字符串会得到带转义引号的一行）
+   */
+  renderRawOutputHtml(rawOutput) {
+    if (rawOutput == null) return '';
+    let text;
+    if (typeof rawOutput === 'string') {
+      try { text = JSON.stringify(JSON.parse(rawOutput), null, 2); } catch (e) { text = rawOutput; }
+    } else {
+      text = JSON.stringify(rawOutput, null, 2);
+    }
+    return this.escapeHtml(text);
   }
 
   /**

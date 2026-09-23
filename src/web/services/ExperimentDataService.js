@@ -1303,13 +1303,24 @@ class ExperimentDataService {
       const addresses = tokens.map(t => t.token_address.toLowerCase());
 
       // 分批查询叙事数据（避免 URL 过长导致 414 错误）
+      // 列裁剪：Jev 迁移后 *_prompt 列携带 state+questions 全文（最大 ~70k 字符/列），
+      // 批量接口只消费 *_result 与 summary，select * 会把上百行 × 数十 k 的 prompt 全文
+      // 拉回来（getTokens 17MB/17s 的同款教训）；详情页 prompt 展示走 /api/narrative/result
+      const NARRATIVE_LIGHT_COLUMNS = [
+        'token_address', 'analyzed_at', 'is_valid', 'prompt_version',
+        'pre_check_result', 'prestage_result', 'prestage_raw_output',
+        'stage1_result', 'stage1_raw_output',
+        'stage2_result', 'stage2_raw_output',
+        'stage3_result', 'stage3_raw_output',
+        'stage_final_result', 'stage_final_raw_output',
+      ].join(',');
       const batchSize = 200;
       const allNarratives = [];
       for (let i = 0; i < addresses.length; i += batchSize) {
         const batch = addresses.slice(i, i + batchSize);
         const { data: batchNarratives, error: batchError } = await this.supabase
           .from('token_narrative')
-          .select('*')
+          .select(NARRATIVE_LIGHT_COLUMNS)
           .in('token_address', batch);
 
         if (batchError) {

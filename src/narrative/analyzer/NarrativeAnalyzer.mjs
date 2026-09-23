@@ -440,7 +440,7 @@ export class NarrativeAnalyzer {
               symbol: tokenData.symbol,
               includeBrandHijack,
               callInfo: {
-                model: result.model, questions, stateStats: stats,
+                model: result.model, questions, state, stateStats: stats,
                 usage: result.usage, startedAt, finishedAt,
               },
             });
@@ -481,7 +481,7 @@ export class NarrativeAnalyzer {
               includeBrandHijack,
               tweetClassification: classifyTweetType(twitterInfo),
               callInfo: {
-                model: result.model, questions, stateStats: stats,
+                model: result.model, questions, state, stateStats: stats,
                 usage: result.usage, startedAt, finishedAt,
               },
             });

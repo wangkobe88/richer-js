@@ -732,6 +732,111 @@
             display: block;
         }
 
+        /* Jev prompt 结构化展示（嵌在深色 expand-content 内的浅色卡片） */
+        .jev-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .jev-badge {
+            background: #8e44ad;
+            color: #fff;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .jev-meta-item {
+            color: #bdc3c7;
+            font-size: 12px;
+        }
+
+        .jev-note {
+            color: #f1c40f;
+            font-size: 12px;
+            padding: 8px 10px;
+            background: rgba(241, 196, 15, 0.12);
+            border-radius: 6px;
+            margin: 6px 0;
+            white-space: normal;
+        }
+
+        .jev-question {
+            background: #fff;
+            color: #2c3e50;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .jev-q-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .jev-q-head code {
+            background: #2c3e50;
+            color: #1abc9c;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .jev-q-type {
+            background: #3498db;
+            color: #fff;
+            font-size: 11px;
+            padding: 1px 8px;
+            border-radius: 8px;
+        }
+
+        .jev-q-label {
+            font-size: 11px;
+            color: #7f8c8d;
+            margin: 6px 0 2px;
+            font-weight: 600;
+        }
+
+        .jev-pre {
+            background: #f4f6f7;
+            color: #2c3e50;
+            padding: 8px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 11px;
+            max-height: 260px;
+            overflow-y: auto;
+            margin: 0;
+            font-family: inherit;
+        }
+
+        .jev-criteria-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            background: #f4f6f7;
+        }
+
+        .jev-criteria-table td {
+            border: 1px solid #dfe6e9;
+            padding: 4px 8px;
+            vertical-align: top;
+        }
+
+        .jev-criteria-table td:first-child {
+            white-space: nowrap;
+            font-weight: 600;
+            color: #8e44ad;
+            width: 1%;
+        }
+
         /* 评分详情 */
         .score-detail {
             margin-bottom: 16px;
@@ -1449,6 +1554,6 @@
         </div>
     </div>
 
-    <script src="/static/js/narrative-analyzer.js?v=20250411-2"></script>
+    <script src="/static/js/narrative-analyzer.js?v=20260923-1"></script>
 </body>
 </html>

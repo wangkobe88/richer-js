@@ -176,13 +176,19 @@ function qualityFrom(answers, symbol) {
   return { length, spelling, reasonability, total: round2(length + spelling + reasonability) };
 }
 
-/** 组装三个 stage 共用的调用元数据（prompt 列存储内容） */
-function buildCallPromptMeta(questions, stateStats) {
+/**
+ * 组装三个 stage 共用的调用元数据（prompt 列存储内容）
+ * full=true 携带 state（语料全文）+ questions（问题集全文）——Jev 单次调用的完整 prompt，
+ * 落库供页面回放展示；full=false 为摘要版（主路径 stage2/3 与 stage1 同一次调用，
+ * 全文只存 stage1_prompt，避免一行三份 60k 语料，指针 fullPromptIn 指明全文所在列）
+ */
+function buildCallPromptMeta(questions, stateStats, state, { full = false } = {}) {
   return JSON.stringify({
     engine: 'jev',
     questionsVersion: JEV_QUESTIONS_VERSION,
     questionIds: Object.keys(questions),
     stateStats,
+    ...(full ? { state, questions } : { fullPromptIn: 'stage1_prompt' }),
   });
 }
 
@@ -192,7 +198,7 @@ function buildCallPromptMeta(questions, stateStats) {
  * @param {Object} context
  * @param {Object} context.tokenData - 代币数据
  * @param {boolean} context.includeBrandHijack - 品牌劫持预检是否命中（问题是否存在）
- * @param {Object} context.callInfo - {model, questions, stateStats, usage, startedAt, finishedAt}
+ * @param {Object} context.callInfo - {model, questions, state, stateStats, usage, startedAt, finishedAt}
  * @param {Object|null} [context.tweetClassification] - 推文预分类
  * @returns {Object} { stage1DataToSave, stage2DataToSave, stage3DataToSave,
  *                     stageFinalData, llmResult, promptType, jevDetails }
@@ -200,7 +206,9 @@ function buildCallPromptMeta(questions, stateStats) {
 export function mapStandardAnswers(answers, context) {
   const { tokenData, includeBrandHijack = false, callInfo, tweetClassification = null } = context;
   const symbol = tokenData.symbol || '';
-  const promptMeta = buildCallPromptMeta(callInfo.questions, callInfo.stateStats);
+  // stage1 存完整 prompt（state+questions 全文），stage2/3 存摘要+指针
+  const promptMetaFull = buildCallPromptMeta(callInfo.questions, callInfo.stateStats, callInfo.state, { full: true });
+  const promptMeta = buildCallPromptMeta(callInfo.questions, callInfo.stateStats, callInfo.state);
   const rawOutput = JSON.stringify({ answers, usage: callInfo.usage });
   const baseFields = {
     model: callInfo.model,
@@ -228,6 +236,7 @@ export function mapStandardAnswers(answers, context) {
   const stage1DataToSave = {
     category,
     ...baseFields,
+    prompt: promptMetaFull, // 覆盖 baseFields 的摘要版：stage1 是完整 prompt 的落库位
     parsed_output: {
       pass: true,
       eventClassification: category ? { primaryCategory: category } : null,
@@ -445,7 +454,8 @@ export function mapStandardAnswers(answers, context) {
  */
 export function mapSuperIPAnswers(answers, context) {
   const { superIPInfo, preScores, callInfo } = context;
-  const promptMeta = buildCallPromptMeta(callInfo.questions, callInfo.stateStats);
+  // prestage 单列承载，无 stage2/3 冗余，直接存完整 prompt（state+questions 全文）
+  const promptMeta = buildCallPromptMeta(callInfo.questions, callInfo.stateStats, callInfo.state, { full: true });
   const rawOutput = JSON.stringify({ answers, usage: callInfo.usage });
 
   const blockChoice = answers.block_reason?.choice || 'none';

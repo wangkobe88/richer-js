@@ -71,7 +71,7 @@ export function rateProject(data, activityChoice) {
  * @param {Object} context.fullAccountOrCommunityData - 账号/社区完整数据
  * @param {boolean} context.addressVerified - 规则验证地址命中结果
  * @param {Object|null} [context.rulesResult] - performRulesValidation 结果
- * @param {Object} context.callInfo - {model, questions, stateStats, usage, startedAt, finishedAt}
+ * @param {Object} context.callInfo - {model, questions, state, stateStats, usage, startedAt, finishedAt}
  * @returns {Object} { tokenType, rating, reasoning, baselineMet, prestageDataToSave, promptType, jevDetails }
  */
 export function mapPrestageAnswers(answers, context) {
@@ -81,11 +81,14 @@ export function mapPrestageAnswers(answers, context) {
   const followers = isAccount ? (data.followers_count || 0) : null;
   const members = !isAccount ? (data.members_count || 0) : null;
 
+  // 完整 prompt 落库：state（语料全文）+ questions（问题集全文），页面回放展示用
   const promptMeta = JSON.stringify({
     engine: 'jev',
     questionsVersion: JEV_PRESTAGE_QUESTIONS_VERSION,
     questionIds: Object.keys(callInfo.questions),
     stateStats: callInfo.stateStats,
+    state: callInfo.state,
+    questions: callInfo.questions,
   });
   const rawOutput = JSON.stringify({ answers, usage: callInfo.usage });
   const baseFields = {
