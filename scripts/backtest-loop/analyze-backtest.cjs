@@ -273,6 +273,7 @@ async function main() {
     const actualSumBnb = rounds.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
     console.log(`── 卖点反事实模拟（${ticksByTok.size}/${roundTokens.length} token ${totalTicks} ticks，${Date.now() - t0}ms；实际 Σ=${actualSumBnb.toFixed(4)} BNB）──`);
     console.log('  配置'.padEnd(20) + 'ΣPnL(BNB)'.padEnd(11) + 'Δ实际'.padEnd(10) + 'take15/stop15/bail/trail/强平');
+    const baseRes = rounds.map(r => ({ r, sim: simulate(r, {}) }));
     for (const cfg of configs) {
       const res = rounds.map(r => simulate(r, cfg.legs)).filter(Boolean);
       const sum = res.reduce((s, x) => s + x.pnlPct / 100 * 0.1, 0); // 每轮投入 0.1 BNB
@@ -280,6 +281,15 @@ async function main() {
       const delta = sum - actualSumBnb;
       console.log('  ' + cfg.name.padEnd(18) + sum.toFixed(4).padEnd(11) + (delta >= 0 ? '+' : '') + delta.toFixed(4).padEnd(9) +
         `${cnt('take15')}/${cnt('stop15')}/${cnt('bail')}/${cnt('trail')}/${cnt('force')}`);
+    }
+    // 自校验失配 top（模拟基线 vs 实际逐轮差——成交近似系统性偏差定位）
+    const diffs = baseRes.filter(x => x.sim).map(x => ({
+      r: x.r, d: x.sim.pnlPct - x.r.pnlPct, sim: x.sim.pnlPct, act: x.r.pnlPct,
+      leg: x.r.exitStrategy, hold: x.r.holdMs / 1000,
+    })).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+    console.log('  ── 模拟 vs 实际 失配 top10（定位成交近似偏差）──');
+    for (const x of diffs.slice(0, 10)) {
+      console.log(`    diff ${x.d >= 0 ? '+' : ''}${x.d.toFixed(1).padStart(6)}pp  sim ${x.sim.toFixed(1).padStart(7)}% vs 实际 ${x.act.toFixed(1).padStart(7)}%  hold=${x.hold.toFixed(0)}s [${x.leg.slice(0, 10)}] ${x.r.symbol.slice(0, 10)} ${x.r.token.slice(0, 10)}`);
     }
   }
 
