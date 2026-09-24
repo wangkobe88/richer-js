@@ -54,6 +54,9 @@ const CACHE_TTL_CONFIG = {
 
   // 币安广场
   binance_square:     { maxAge:  90 * DAY, ttl: 365 * DAY },
+
+  // four.meme 链上 metadata（IPFS 内容不可变，同 tweet 档长期缓存）
+  ipfs_metadata:      { maxAge: 365 * DAY, ttl: 730 * DAY },
 };
 
 const DEFAULT_TTL = { maxAge: 30 * DAY, ttl: 365 * DAY };

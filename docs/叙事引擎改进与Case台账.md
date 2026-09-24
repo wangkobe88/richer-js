@@ -54,9 +54,16 @@ C6 认定的内部抢先建仓模式。
 （ipfs.io ×3 + pinata 网关 ×1）唯一语料入口是未解包的 IPFS metadata →
 估计 ≈20%·100+ 个 token 同病。
 
-**待裁定**（→ §六-8）：提取层是否补"IPFS metadata 解包"——meta 指向 IPFS 时拉取
-JSON（需可靠网关：ipfs.io 已 sunset，另有项目用 pinata 网关），twitter/website/
-youtube 等字段并入 URL 分类；对 ARENA 型（公告先于铸币）即恢复标准 13 问路径。
+**落地**（2026-09-24，用户裁定"当然要修"）：新增 `src/narrative/utils/ipfs-metadata-fetcher.mjs`
+（多网关轮询 pinata→ipfs.io→4everland→w3s，单网关 8s 超时；失败走缓存冷却不缓存
+null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ data-fetch-service
+提取层钩子：`raw_api_data.meta` 为 IPFS URL 时解包 JSON，其内 URL 经 extractAllUrls
+并入分类池，meta URL 本身不再作为 website（JSON 非网页）；解包失败按原流程处理
+（无行为回退）。**ARENA 端到端复跑验证**（ignoreCache）：规则4-B 清除 → 推文语料
+进入（公告推文仍存活，priority 1）→ 标准 Jev 13 问路径，`prompt_type=jev(J1.10/W类-W数学)`，
+终局 **W 类阻断 low（产品15.16+交互3.96+时效25=44.12<60，P=0.75）**——数据层修复
+达成，该 token 仍 low 但已是实质判定（W 类把"发行方自有公告首发盘"判蹭仿 0.75
+是否偏严 → §六-8 校准议题）。
 
 ### C6 BWA 0x724d —— KOL 账号链接发币，语料天然只有 profile 一行（2026-09-24）
 
@@ -281,7 +288,6 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
 6. **material_id 映射覆盖率**：全表 22184 行仅 10159 有值——龙头门只对挂了 material_id 的
    候选生效，无映射的仿盘漏拦（fail-open 方向已接受）
 7. **e3 的 virtual 孪生（v3）**：E3 回测零误杀已过，待建虚拟实验实跑积累拦截场景
-8. **IPFS metadata 未解包**（C7，2026-09-24）：four.meme API twitterUrl/webUrl 为空时
-   真实社交链接藏在 meta 指向的 IPFS JSON 里，提取层不解包 → 语料入口丢失 →
-   规则4-B 按"获取失败"拦截（578 个中约 20%）。修复方向：提取层拉取 meta JSON
-   （pinata 等可靠网关）并入 URL 分类。待用户裁定
+8. **W 类阻断对"首发公告盘"的校准**（C7 复跑发现，2026-09-24）：ARENA 修复后走标准
+   Jev 路径仍 low——W 类数学 44.12<60 阻断（P=0.75 把发行方自有公告判为蹭仿）。
+   "自有账号首发公告"是否应豁免/降权 W 类（该盘 8.5min 峰值 12.54x），待用户裁定

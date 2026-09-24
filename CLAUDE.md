@@ -91,7 +91,7 @@ Token URL → URL Classification → Data Fetching → Pre-Check (rules, no LLM)
 - `tweet-type-classifier.mjs` - Pre-classifies tweets (feeds Jev standard path context)
 - `frequent-issuers.mjs` - Registry of ~94 accounts that frequently create tokens
 - `pre-check-service.mjs` - Validates data quality before analysis (rules, no LLM). **Time-base rule (user decision 2026-09-23)**: staleness is measured against the **token creation time** (`raw_api_data.created_at`), never wall-clock analysis time — "was the corpus fresh at mint". This applies to expired tweet (10min) / expired video (365d) pre-checks, Jev state timeliness (`buildJevState({now})`), prestage state, and super-IP `calculateTimeliness` — making re-runs/backtests/delayed analysis idempotent. Missing creation time: pre-check skips the expiry rules; Jev state falls back to wall clock.
-- `data-fetch-service.mjs` - Coordinates multi-platform data fetching
+- `data-fetch-service.mjs` - Coordinates multi-platform data fetching; includes four.meme IPFS metadata unpacking (`ipfs-metadata-fetcher.mjs`): when API twitterUrl/webUrl are empty, real social links live only in the on-chain metadata JSON (`raw_api_data.meta` IPFS URL) — fetched via multi-gateway (pinata primary, ipfs.io is sunset) and merged into URL classification; unpack success removes the meta URL from the websites bucket
 - `account-analysis-service.mjs` - Account/community prestage flow (rules validation → Jev prestage)
 
 **Rules (no LLM)**: `prompts/account/account-community-rules.mjs` - account quality gates, address verification, name matching; `prompt-builder.mjs` only provides `getPromptTypeDesc`.

@@ -4,6 +4,7 @@
  */
 
 import { extractAllUrls, classifyAllUrls } from '../../utils/url-classifier.mjs';
+import { isIpfsUrl, fetchIpfsMetadata } from '../../utils/ipfs-metadata-fetcher.mjs';
 import { TwitterFetcher } from '../../utils/twitter-fetcher.mjs';
 import { WeiboFetcher } from '../../utils/weibo-fetcher.mjs';
 import { GithubFetcher } from '../../utils/github-fetcher.mjs';
@@ -156,7 +157,27 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo) {
     };
   }
 
-  // 3. 分类所有URL
+  // 3. 解包链上 IPFS metadata（C7）：API twitterUrl/webUrl 为空时真实社交链接只在
+  // meta 指向的 JSON 里（ARENA 案：公告推文先于铸币 7m40s 发出，却因不解包被规则4-B 误拦）
+  const metaUrl = typeof rawData.meta === 'string' ? rawData.meta : null;
+  if (metaUrl && isIpfsUrl(metaUrl)) {
+    const metadata = await fetchIpfsMetadata(metaUrl);
+    if (metadata) {
+      const metaUrls = extractAllUrls(metadata);
+      const newUrls = metaUrls.filter(u => !allUrls.includes(u));
+      if (newUrls.length > 0) {
+        console.log(`[NarrativeAnalyzer] IPFS metadata 解包新增 ${newUrls.length} 个URL: ${newUrls.join(', ')}`);
+        allUrls.push(...newUrls);
+      }
+      // 解包成功：meta URL 本身不再作为 website 抓取（内容已展开，JSON 非网页）
+      const metaIdx = allUrls.indexOf(metaUrl);
+      if (metaIdx >= 0) allUrls.splice(metaIdx, 1);
+    } else {
+      console.warn('[NarrativeAnalyzer] IPFS metadata 解包失败，meta 链接按原流程作为 website 处理');
+    }
+  }
+
+  // 4. 分类所有URL
   const classifiedUrls = classifyAllUrls(allUrls);
   console.log('[NarrativeAnalyzer] URL分类结果:', {
     twitter: classifiedUrls.twitter.length,
