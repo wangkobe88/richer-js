@@ -31,6 +31,33 @@ Token URL → URL 分类 → 数据抓取 → Pre-Check（纯规则，无 LLM）
 
 ## 二、Case 研究（倒序）
 
+### C7 ARENA 0x4b4d —— IPFS metadata 未解包，公告推语料丢失（2026-09-24）★
+
+**现象**：0x4b4daf725bfe16f59249522faac053f1cbd47777（AI STOCK ARENA，铸币
+2026-09-23T14:50:59Z）pre-check 规则4-B `public_info_fetch_failed` 拦截 → low(1)，
+未进 LLM。`twitter_info=null`，唯一 URL = `raw_api_data.meta` 的
+`ipfs.io/ipfs/bafkrei…`（被当 website 抓取，失败）。
+
+**根因**：four.meme API 的 twitterUrl/webUrl 字段为空时，真实链接在 **IPFS metadata
+JSON**（meta 指向，实测 353B）里——解包得 `twitter=x.com/AIStockArena/status/
+2102770794636230709`（**发于铸币前 7m40s**，正规预热发币，与 C6"拉完才公告"不同）
++ `website=aiarena.meme`。URL 提取层（url-classifier `extractAllUrls`）只正则扫字符串，
+不解包 IPFS JSON → 公告推文丢失；且 ipfs.io 网关正在 sunset（响应带 429/sunset 头），
+web-fetcher 抓它必失败 → 规则4-B"有链接但获取失败"。
+
+**盘面**（wss_price_ticks，outlier=false，共 1242 tick / 8.5min 寿命）：
++7s 内部拉到 9.7x → +80s（fire 时点）回落 3.05x → 峰值 **12.54x**（14:59:31）终局。
+若评级放行，3.05x 进场吃到 +30%/+50% TP 阶梯大概率获利；但首 7s 9.7x 亦符合
+C6 认定的内部抢先建仓模式。
+
+**影响面**：`public_info_fetch_failed` 历史拦截 578 个；抽样 20 个中 4 个
+（ipfs.io ×3 + pinata 网关 ×1）唯一语料入口是未解包的 IPFS metadata →
+估计 ≈20%·100+ 个 token 同病。
+
+**待裁定**（→ §六-8）：提取层是否补"IPFS metadata 解包"——meta 指向 IPFS 时拉取
+JSON（需可靠网关：ipfs.io 已 sunset，另有项目用 pinata 网关），twitter/website/
+youtube 等字段并入 URL 分类；对 ARENA 型（公告先于铸币）即恢复标准 13 问路径。
+
 ### C6 BWA 0x724d —— KOL 账号链接发币，语料天然只有 profile 一行（2026-09-24）
 
 **现象**：0x724d875ef143b0ae316bfae526770eae4b337777（BWA，desc="Binance World Assets"，
@@ -254,3 +281,7 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
 6. **material_id 映射覆盖率**：全表 22184 行仅 10159 有值——龙头门只对挂了 material_id 的
    候选生效，无映射的仿盘漏拦（fail-open 方向已接受）
 7. **e3 的 virtual 孪生（v3）**：E3 回测零误杀已过，待建虚拟实验实跑积累拦截场景
+8. **IPFS metadata 未解包**（C7，2026-09-24）：four.meme API twitterUrl/webUrl 为空时
+   真实社交链接藏在 meta 指向的 IPFS JSON 里，提取层不解包 → 语料入口丢失 →
+   规则4-B 按"获取失败"拦截（578 个中约 20%）。修复方向：提取层拉取 meta JSON
+   （pinata 等可靠网关）并入 URL 分类。待用户裁定
