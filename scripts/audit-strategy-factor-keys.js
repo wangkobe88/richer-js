@@ -18,6 +18,7 @@ require('dotenv').config({ path: './config/.env' });
 
 const JS_KEYWORDS = new Set([
   'and', 'or', 'not', 'true', 'false', 'null', 'undefined', 'NaN', 'Infinity',
+  'is', // SQL 式 IS NULL 語法（ConditionEvaluator 支持）
   'if', 'else', 'return', 'Math', 'min', 'max', 'abs', 'floor', 'ceil', 'round',
   'sqrt', 'pow', 'log', 'exp', 'isNaN', 'isFinite', 'Number', 'String', 'Boolean',
   'length', 'includes', 'typeof', 'new',
@@ -26,10 +27,11 @@ const JS_KEYWORDS = new Set([
 function extractIdentifiers(expr) {
   if (!expr || typeof expr !== 'string') return new Set();
   const ids = new Set();
-  // 去掉字符串字面量与数字
-  const cleaned = expr.replace(/'[^']*'/g, '').replace(/"[^"]*"/g, '').replace(/\d+(\.\d+)?/g, ' ');
+  // 去掉字符串字面量与数字字面量（独立数字——标识符内的数字如 rsi9Bar5mRt/top3HolderShare 不剔）
+  const cleaned = expr.replace(/'[^']*'/g, '').replace(/"[^"]*"/g, '')
+    .replace(/(?<![\w.])\d+(\.\d+)?(?![\w.])/g, ' ');
   for (const m of cleaned.matchAll(/[a-zA-Z_][a-zA-Z0-9_]*/g)) {
-    // 大小写不敏感过滤关键字：AND/OR/NOT 是条件语法糖（非因子键），因子键均为小写驼峰不受影响
+    // 大小写不敏感过滤关键字：AND/OR/NOT/IS/NULL 是条件语法糖（非因子键），因子键均为小写驼峰不受影响
     if (!JS_KEYWORDS.has(m[0].toLowerCase())) ids.add(m[0]);
   }
   return ids;

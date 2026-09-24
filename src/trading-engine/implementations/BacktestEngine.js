@@ -1084,7 +1084,12 @@ class BacktestEngine extends AbstractTradingEngine {
       // P-3 快照（与实时引擎同构）：PM 部分卖原地改写 holding.amount，成交后此引用即余量
       const qtyBefore = Number(holding.amount);
 
-      const amountToSell = new Decimal(qtyBefore).mul(sellPct).toNumber();
+      // E5d 修复（精度）：amountToSell 保持 Decimal 精确值，不经 Number 往返——
+      // 部分卖后 PM 余仓是 20 位精度 Decimal，Number 化可能向上失真，全清腿（sellPct=1）
+      // 会以「Insufficient token balance」被 PM 拒绝（E5d BRX1600 实测：P2 每 tick 重触发
+      // 40+ 次全失败、强平腿静默跳过、6140 token 成僵尸仓）。executeTrade/PM 均接受
+      // Decimal 实例，currentAmount.lt(tradeAmount) 精确相等不再误抛。
+      const amountToSell = new Decimal(holding.amount).mul(sellPct);
       const price = signal.price || 0;
 
       const result = await this.executeTrade({
@@ -1107,7 +1112,7 @@ class BacktestEngine extends AbstractTradingEngine {
       this.metrics.totalTrades++;
       if (result && result.success) {
         this.metrics.successfulTrades++;
-        const qtySold = amountToSell; // 虚拟成交=请求数量
+        const qtySold = amountToSell; // 虚拟成交=请求数量（Decimal，腿所得精确累计）
         const legProceedsUsd = price > 0 ? new Decimal(qtySold).mul(price).toNumber() : 0;
 
         // 全清判定用 PM 余仓（部分卖保持 bought，卖腿继续评估、FA 锚不清——硬底分母保住）
@@ -1146,11 +1151,15 @@ class BacktestEngine extends AbstractTradingEngine {
         }
       } else {
         this.metrics.failedTrades++;
+        // E5d 修复（可观测）：卖出失败原为静默（BRX1600 强平腿跳过即由此漏诊）
+        this.logger.error(this._experimentId, '_executeSell',
+          `卖出失败(回放) | ${signal.symbol} reason=${result?.reason || result?.message || '未知'}`);
       }
       return result;
     } catch (error) {
       this.metrics.totalTrades++;
       this.metrics.failedTrades++;
+      this.logger.error(this._experimentId, '_executeSell', `异常(回放) | ${signal.symbol} ${error.message}`);
       return { success: false, reason: error.message };
     }
   }
@@ -1310,7 +1319,9 @@ class BacktestEngine extends AbstractTradingEngine {
     const currentPrice = tradeRequest.price || (position ? position.currentPrice : 0);
 
     const isBuy = tradeRequest.direction.toLowerCase() === 'buy';
-    const tokenAmount = parseFloat(tradeRequest.amount);
+    // amount 可为 Decimal 实例（E5 卖腿精确链）；String() 得精确数字串，parseFloat 仅用于
+    // inputAmount/outputAmount 成交记录（double 精度足够，无比较语义）
+    const tokenAmount = parseFloat(String(tradeRequest.amount));
     const price = parseFloat(currentPrice);
     const inputAmount = isBuy ? (tokenAmount * price) : tokenAmount;
     const outputAmount = isBuy ? tokenAmount : (tokenAmount * price);
@@ -1340,6 +1351,9 @@ class BacktestEngine extends AbstractTradingEngine {
         currentPrice,
       );
     } catch (pmError) {
+      // E5d 修复（可观测）：PM 异常原为静默 return（Insufficient 被吞导致漏诊）
+      this.logger.error(this._experimentId, 'executeTrade',
+        `PM 交易异常(回放) | ${tradeRequest.symbol} ${tradeRequest.direction} ${pmError.message}`);
       trade.markAsFailed(pmError.message || '交易执行异常');
       return {
         success: false,

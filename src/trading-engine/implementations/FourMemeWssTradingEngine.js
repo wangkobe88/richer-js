@@ -1240,10 +1240,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const qtyBefore = Number(holding.amount);
 
       let result;
+      let virtualAmountDec = null; // 虚拟腿精确卖出量（Decimal），qtySold 回退用
       if (this._isLive) {
         result = await this._executeSellLive(signal, signalId, metadata, holding, sellPct);
       } else {
-        const amountToSell = new Decimal(qtyBefore).mul(sellPct).toNumber();
+        // E5d 修复（精度，与 BacktestEngine 同构）：amountToSell 保持 Decimal 精确值，
+        // 不经 Number 往返——部分卖后余仓 Number 化可能向上失真，全清腿会被 PM 以
+        // 「Insufficient token balance」误拒（详见 BacktestEngine._executeSell 注释）
+        const amountToSell = new Decimal(holding.amount).mul(sellPct);
+        virtualAmountDec = amountToSell;
         const price = signal.price || 0;
         result = await this.executeTrade({
           tokenAddress: signal.tokenAddress,
@@ -1265,8 +1270,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (result && result.success) {
         this._sellCooldownUntil.delete(signal.tokenAddress);
 
-        // 腿实际卖出量：live=链上/receipt 实际 qtySold，虚拟=请求数量（PM 按此成交）
-        const qtySold = result.qtySold ?? new Decimal(qtyBefore).mul(sellPct).toNumber();
+        // 腿实际卖出量：live=链上/receipt 实际 qtySold，虚拟=请求数量（Decimal 精确，PM 按此成交）
+        const qtySold = result.qtySold ?? virtualAmountDec ?? new Decimal(qtyBefore).mul(sellPct).toNumber();
         // 腿所得（记账货币 USD）：live bnbReceived×汇率，虚拟 qtySold×信号价(USD)
         const sellPrice = result.priceUsd ?? (signal.price || 0);
         const legProceedsUsd = result.bnbReceived != null && result.bnbReceived > 0
