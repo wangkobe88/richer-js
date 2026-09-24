@@ -58,26 +58,22 @@ class ExperimentFactory {
    * @returns {Promise<Experiment|null>} 实验实例，不存在返回null
    */
   async load(experimentId) {
-    try {
-      const { data, error } = await this.supabase
-        .from('experiments')
-        .select('*')
-        .eq('id', experimentId)
-        .single();
+    // 注意：查询失败/数据解析失败必须上抛（调用方会看到真实错误），
+    // 只有 PGRST116（确认 0 行）才返回 null——不能把故障伪装成"实验不存在"
+    const { data, error } = await this.supabase
+      .from('experiments')
+      .select('*')
+      .eq('id', experimentId)
+      .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          return null;
-        }
-        throw error;
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
       }
-
-      return Experiment.fromDatabaseFormat(data);
-
-    } catch (error) {
-      console.error('❌ 加载实验失败:', error.message);
-      return null;
+      throw error;
     }
+
+    return Experiment.fromDatabaseFormat(data);
   }
 
   /**
