@@ -126,7 +126,8 @@ const BLOCK_SCOPE = {
  * 返回 {label, mass} 或 null。label 取阻断侧三项中概率最大者的标签，mass 为三项合计。
  * 门槛用阻断侧合计概率（minor_other+common_word+notable_other ≥ 0.5）而非 argmax 单项：
  * Jev 在 YAYA 案上 subject_self/minor_other 五五开（0.43/0.41，argmax 跨 run 抖动），
- * 合并阻断侧质量后 0.55 稳定过半。放行侧（super_ip/subject_self/none_related）不累计。
+ * 合并阻断侧质量后 0.55 稳定过半。放行侧（super_ip/subject_self/none_related）不累计
+ * （B/C 类例外：subject_self 质量触发骑乘改道，见 rideDetourBelow）。
  */
 function nameReferentBlock(answers, category) {
   if (category == null || !NAME_REFERENT_BLOCK_SCOPE.includes(category)) return null;
@@ -142,6 +143,39 @@ function nameReferentBlock(answers, category) {
   }
   if (mass < 0.5) return null;
   return { label: NAME_REFERENT_BLOCK_LABELS[bestKey], mass: Math.round(mass * 100) / 100 };
+}
+
+/**
+ * 骑乘改道（C8，2026-09-24 用户裁定）：项目制作者自己发币通过没问题（路由层
+ * detectIssuerSelfLaunch 命中 → prestage，C7 方案 A）；**第三方骑乘**推文主体的
+ * 作品/产品名发币，产品的分量就远远不足——不得按「主体=作者影响力」的标准分放行，
+ * 改道 W 数学：要求被骑产品本身影响力极高（宝玉 demo 级被拦）。
+ *
+ * 判定（纯代码市场事实，无 LLM 新题）：
+ * - 作用域 B+C：作品发布（B）与账号动态（C）在「作者展示自己的东西」语料上同构，
+ *   event_category 在 B/C 边界跨 run 抖动（桃花源记两次 run：B 0.52/C 0.45 →
+ *   B 0.41/C 0.56），只挂 B 会被抖到 C 绕过。C7 路由优先于本门不受影响。
+ * - 触发：subject_self+super_ip 合计 ≥ 0.5（币名=推文主体自己的东西；合并质量
+ *   对抗跨 run 抖动，语义同 nameReferentBlock 阻断侧合计）且 **super_ip 单项 < 0.5**
+ *   ——super_ip 过半 = 名字的主人本身就是超级 IP（天才 0.97/嫦娥 0.65-0.7），
+ *   J1.10 放行侧语义直接豁免；B 类下同构覆盖「超级牛产品骑乘可放」（用户裁定
+ *   「如果是超级牛有巨大影响的产品发布那可能可以」）。
+ * - D/F/E/G 不入域：无实证 case，D/F 全量行已是 low 零增益，E 热点命名先例不拦
+ *   （语义同 NAME_REFERENT_BLOCK_SCOPE 的取舍）。
+ *
+ * 已知模糊区（C7 同源，接受）：到达标准路径的 B/C+subject_self 必是 detector
+ * 不命中——真骑乘盘，或 handle 与币名无包含的漏检自发盘（语料层无法证明钱包归属）。
+ * 误伤方向=漏检自发盘按产品分评（偏低）；detector 正向命中优先转 prestage 不受影响。
+ */
+function rideDetourBelow(answers, category) {
+  if (category !== 'B' && category !== 'C') return null;
+  const probs = answers?.name_referent?.probabilities;
+  if (!probs) return null;
+  const ss = probs.subject_self ?? 0;
+  const sip = probs.super_ip ?? 0;
+  if (sip >= 0.5) return null; // 名字主人=超级 IP：豁免（天才/嫦娥/超级牛产品）
+  const mass = ss + sip;
+  return mass >= 0.5 ? Math.round(mass * 100) / 100 : null;
 }
 
 /**
@@ -305,6 +339,8 @@ export function mapStandardAnswers(answers, context) {
 
   // ── Stage2：阻断 + 事件分 ──────────────────────────────────────────
   const isW = category === 'W';
+  // C8 骑乘改道：B 类第三方骑乘盘改走 W 数学（见 rideDetourBelow 注释）
+  const rideMass = rideDetourBelow(answers, category);
   let stage2Blocked = false;
   let stage2BlockReason = null;
   let nrBlock = null; // name_referent 阻断信息 {label, mass}（reason 展示用）
@@ -325,14 +361,20 @@ export function mapStandardAnswers(answers, context) {
     // 量级 D/E 档：主体量级不足，直接阻断（原各类 prompt 的 D/E 处理）
     stage2Blocked = true;
     stage2BlockReason = `事件主体量级不足（${tier}档）`;
-  } else if (isW) {
+  } else if (isW || rideMass != null) {
+    // W 数学（W 类原生 / B 类骑乘改道共用：产品分量 + 币安交互 + 时效，pass 线 60）
     wProduct = bandInterpolate(answers.w_product_score?.score ?? 0, W_PRODUCT_BANDS);
     wInteraction = bandInterpolate(answers.w_binance_interaction?.score ?? 0, W_INTERACTION_BANDS);
     timeliness = TIMING_SCORES_W[timing] ?? 0;
     stage2Total = round2(wProduct + wInteraction + timeliness);
     stage2Blocked = stage2Total < 60;
-    stage2Reason = `W类 产品${wProduct}+交互${wInteraction}+时效${timeliness}=${stage2Total}（pass线60）`;
-    if (stage2Blocked) stage2BlockReason = `W类总分不足（${stage2Total}<60）`;
+    if (rideMass != null) {
+      stage2Reason = `骑乘改道W类 产品${wProduct}+交互${wInteraction}+时效${timeliness}=${stage2Total}（pass线60）`;
+      if (stage2Blocked) stage2BlockReason = `骑乘盘W数学总分不足（${stage2Total}<60）`;
+    } else {
+      stage2Reason = `W类 产品${wProduct}+交互${wInteraction}+时效${timeliness}=${stage2Total}（pass线60）`;
+      if (stage2Blocked) stage2BlockReason = `W类总分不足（${stage2Total}<60）`;
+    }
   } else {
     tierScore = MAGNITUDE_TIER_SCORES[tier] || 0;
     timeliness = TIMING_SCORES_STANDARD[timing] ?? 0;
@@ -349,7 +391,7 @@ export function mapStandardAnswers(answers, context) {
       pass: !stage2Blocked,
       blockReason: stage2Blocked ? stage2BlockReason : null,
       scoringResult: {
-        category: isW ? 'W' : category,
+        category: (isW || rideMass != null) ? 'W' : category,
         totalScore: stage2Total,
         tierScore: isW ? null : tierScore,
         dimension2: isW ? null : dim2,
@@ -412,7 +454,7 @@ export function mapStandardAnswers(answers, context) {
   }
 
   const finalReason = stage2Blocked
-    ? `阻断:${stage2BlockReason}｜P=${nrBlock ? nrBlock.mass : (blockProb ?? '-')}`
+    ? `阻断:${stage2BlockReason}｜P=${nrBlock ? nrBlock.mass : (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)} 拼写P=${round2(misspellingP)}`
       : `事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
@@ -476,7 +518,8 @@ export function mapStandardAnswers(answers, context) {
         analysis_stage: 3,
       };
 
-  const promptType = `jev(${JEV_QUESTIONS_VERSION}/${category || '?'}类${isW ? '-W数学' : ''})`;
+  const promptType = `jev(${JEV_QUESTIONS_VERSION}/${category || '?'}类`
+    + `${isW ? '-W数学' : (rideMass != null ? '-骑乘改道W数学' : '')})`;
 
   return {
     stage1DataToSave,
