@@ -88,6 +88,13 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
   自有宣告文本+过账号门），且此结构下 W 数学/superIP 通道同样只评品牌影响力而非
   发行归属、同样倾向放行——增量风险有限。反向保护已验证：截词盘（CONVICTION 类，
   词取自推文但与作者身份无关）不满足品牌同一性，不会误入
+- **品牌劫持例外评估 → 裁定不补**（2026-09-24）：币安王国 0xec648f…（@BK_bsc
+  151 粉，name="Binance Kingdom" 蹭 Binance 品牌）与 ARENA 同构——W 阻断
+  39.27<60（产品12.92+交互1.35+时效25），detector 命中，方案 A 生效后转 prestage →
+  151 粉 project 评级表 mid(2) 会被放行。曾识别盲点：prestage 无品牌劫持检查
+  （`shouldIncludeBrandHijackCheck` 对该盘实测 true，仅标准路径可达），假冒大牌的
+  自发盘失去品牌劫持题兜底。**用户裁定：品牌劫持不拦——Web3 文化特有**，路由不做
+  品牌劫持例外，自发盘一律按账号语义评（151 粉 mid 与 27 粉 low 均为账号判定正常输出）
 
 ### C6 BWA 0x724d —— KOL 账号链接发币，语料天然只有 profile 一行（2026-09-24）
 
