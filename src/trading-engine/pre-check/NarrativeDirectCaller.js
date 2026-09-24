@@ -64,11 +64,32 @@ class NarrativeDirectCaller {
   }
 
   /**
+   * 从 analyze 结果的 classifiedUrls 提取源推文 id
+   * 口径镜像 material-id-extractor 的 _extractFromTwitterTweets：先 status 再 communities，
+   * 两者均为裸数字串 = experiment_tokens.narrative_material_id 的写入键（同叙事龙头检查用）
+   * @private
+   */
+  _extractSourceTweetId(classifiedUrls) {
+    try {
+      for (const t of (classifiedUrls?.twitter || [])) {
+        const m1 = String(t.url || '').match(/(?:x\.com|twitter\.com)\/[^/]+\/status\/(\d+)/i);
+        if (m1) return m1[1];
+        const m2 = String(t.url || '').match(/\/i\/communities\/(\d+)/i);
+        if (m2) return m2[1];
+      }
+    } catch (_) { /* 提取失败按无源推文处理 */ }
+    return null;
+  }
+
+  /**
    * 获取叙事评级（永不抛错）
    * @param {string} tokenAddress - 代币地址
    * @returns {Promise<{numericRating: number, rating: string, reason: string|null,
-   *   fromCache: boolean, durationMs: number, timedOut: boolean, error: string|null}>}
+   *   fromCache: boolean, durationMs: number, timedOut: boolean, error: string|null,
+   *   sourceTweetId: string|null}>}
    *   numericRating ∈ {1=低, 2=中, 3=高, 9=未评级(未触发/失败/超时/null 归一)}
+   *   sourceTweetId：analyze 三条返回路径顶层均带 classifiedUrls，从 twitter 桶提取；
+   *   超时/异常/无推文语料 → null（下游同叙事龙头检查因子按 0 放行）
    */
   async getRating(tokenAddress) {
     const startedAt = Date.now();
@@ -93,6 +114,7 @@ class NarrativeDirectCaller {
         durationMs: Date.now() - startedAt,
         timedOut: false,
         error: null,
+        sourceTweetId: this._extractSourceTweetId(result?.classifiedUrls),
       };
     } catch (error) {
       return {
@@ -103,6 +125,7 @@ class NarrativeDirectCaller {
         durationMs: Date.now() - startedAt,
         timedOut: error?.code === TIMEOUT_CODE,
         error: error?.message || String(error),
+        sourceTweetId: null,
       };
     }
   }

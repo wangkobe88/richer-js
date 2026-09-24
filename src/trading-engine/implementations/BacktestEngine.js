@@ -216,6 +216,11 @@ class BacktestEngine extends AbstractTradingEngine {
     const { NarrativeDirectCaller } = require('../pre-check/NarrativeDirectCaller');
     this._narrativeCaller = new NarrativeDirectCaller();
 
+    // 5.6 同叙事龙头已火检查（同实时引擎：narrativeLeaderHot 因子，火门槛 5x + 首达后 24h 窗；
+    // checkTimeSec 用回放时点，涨幅只算 block_time<=t 的 ticks，无未来函数）
+    const { SameNarrativeLeaderService } = require('../pre-check/SameNarrativeLeaderService');
+    this._sameNarrativeLeaderService = new SameNarrativeLeaderService(supabase, this.logger);
+
     // 6. 交易金额 / 永久阻断
     const experimentConfig = this._experiment?.config || {};
     this._tradeAmount = experimentConfig.tradeAmount || 0.1;
@@ -639,6 +644,7 @@ class BacktestEngine extends AbstractTradingEngine {
       // 结果为代币级全局缓存（不挂实验名下）；超时挂钟等待 30s，虚拟时钟回放下视为该 tick 时点的决策；
       // 失败/超时=9 放行）──
       let narrativeCallInfo = null;
+      let narrativeLeaderInfo = null;
       const narrativeCallCondition = strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== ''
         ? String(strategy.narrativeCallCondition).trim() : null;
       if (narrativeCallCondition && preCheckPassed
@@ -648,6 +654,22 @@ class BacktestEngine extends AbstractTradingEngine {
           `叙事评级直调(回放) | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
           ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +
           (narrativeCallInfo.error ? ` error=${narrativeCallInfo.error}` : ''));
+
+        // ── 同叙事龙头已火检查（回放：checkTimeSec 用回放时点，与下方 performAllChecks checkTime 同源；
+        // 无 sourceTweetId→因子 0 放行；候选 material_id 映射为当前状态属已知穿越，涨幅计算无前视）──
+        if (narrativeCallInfo.sourceTweetId) {
+          narrativeLeaderInfo = await this._sameNarrativeLeaderService.check({
+            tokenAddress: token.token,
+            sourceTweetId: narrativeCallInfo.sourceTweetId,
+            checkTimeSec: Math.floor(nowTs / 1000),
+          });
+          this.logger.info(this._experimentId, 'BuyEval',
+            `同叙事龙头检查(回放) | ${token.symbol} hot=${narrativeLeaderInfo.factors.narrativeLeaderHot}` +
+            ` count=${narrativeLeaderInfo.factors.narrativeLeaderCount}` +
+            ` max=${narrativeLeaderInfo.factors.narrativeLeaderMaxMultiple}x` +
+            ` ${narrativeLeaderInfo.detail.durationMs}ms tweet=${narrativeCallInfo.sourceTweetId}` +
+            (narrativeLeaderInfo.detail.error ? ` error=${narrativeLeaderInfo.detail.error}` : ''));
+        }
       }
 
       if (preCheckPassed && shouldPerformPreCheck && this._preBuyCheckService) {
@@ -688,6 +710,9 @@ class BacktestEngine extends AbstractTradingEngine {
               buyRound: currentRound + 1,
               lastPairReturnRate: lastPairReturnRate ?? 0,
               narrativeRating: narrativeCallInfo?.numericRating ?? 9, // 直调链路（时序穿越：当前语料分析历史 token）；未配置/未触发/失败/超时=9
+              narrativeLeaderHot: narrativeLeaderInfo?.factors?.narrativeLeaderHot ?? 0, // 同叙事龙头链路；无 tweet/失败=0 放行
+              narrativeLeaderCount: narrativeLeaderInfo?.factors?.narrativeLeaderCount ?? 0,
+              narrativeLeaderMaxMultiple: narrativeLeaderInfo?.factors?.narrativeLeaderMaxMultiple ?? 0,
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply,
@@ -730,6 +755,7 @@ class BacktestEngine extends AbstractTradingEngine {
               tokenCreateTime,
               trendFactors: buildFactorValuesForTimeSeries(factorResults),
               narrativeCall: narrativeCallInfo,
+              narrativeLeaderCheck: narrativeLeaderInfo,
               preBuyCheckFactors: {
                 ...buildPreBuyCheckFactorValues(preBuyCheckResult || {}),
                 permanentBlockTriggered: this._tokenBlacklist.has(token.token),
@@ -754,6 +780,7 @@ class BacktestEngine extends AbstractTradingEngine {
             tokenCreateTime,
             trendFactors: buildFactorValuesForTimeSeries(factorResults),
             narrativeCall: narrativeCallInfo,
+            narrativeLeaderCheck: narrativeLeaderInfo,
             preBuyCheckFactors: buildPreBuyCheckFactorValues(preBuyCheckResult),
             preBuyCheckResult: {
               canBuy: true,

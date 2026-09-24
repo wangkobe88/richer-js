@@ -179,6 +179,10 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     strongTraderSellIntensity: preBuyCheckResult.strongTraderSellIntensity ?? 0,
     // 叙事分析评级因子
     narrativeRating: preBuyCheckResult.narrativeRating ?? 9,
+    // 同叙事龙头因子（1=同源推文下已有代币峰值涨幅>=5x 且判定时刻在其首达后24h内）
+    narrativeLeaderHot: preBuyCheckResult.narrativeLeaderHot ?? 0,
+    narrativeLeaderCount: preBuyCheckResult.narrativeLeaderCount ?? 0,
+    narrativeLeaderMaxMultiple: preBuyCheckResult.narrativeLeaderMaxMultiple ?? 0,
     // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
     tweetAuthorType: preBuyCheckResult.tweetAuthorType ?? 0,
     // 数据采集轮数因子

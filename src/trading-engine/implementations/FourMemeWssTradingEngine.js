@@ -210,6 +210,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const { NarrativeDirectCaller } = require('../pre-check/NarrativeDirectCaller');
     this._narrativeCaller = new NarrativeDirectCaller();
 
+    // 1.5.1 同叙事龙头已火检查（narrativeLeaderHot 因子：直调拿到 sourceTweetId 后查
+    // 同源推文其余代币的峰值涨幅，火门槛 5x + 首达后 24h 拒绝窗口；详见 SameNarrativeLeaderService 头注）
+    const { SameNarrativeLeaderService } = require('../pre-check/SameNarrativeLeaderService');
+    this._sameNarrativeLeaderService = new SameNarrativeLeaderService(supabase, this.logger);
+
     // 1.6 叙话语料补采（新代币入池时抓平台附属信息进 raw_api_data；
     // 配置段 corpusEnrich（默认/实验级覆盖经 _mergedWsConfig 合并；flap 子类同键生效））
     const { TokenCorpusEnricher } = require('../core/TokenCorpusEnricher');
@@ -840,6 +845,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 结果为代币级全局缓存（不挂实验名下），未配置/不满足/调用失败/超时 → numericRating=9（未评级）放行，
       // 由 preBuyCheckCondition 裁决买不买。
       let narrativeCallInfo = null;
+      let narrativeLeaderInfo = null;
       const narrativeCallCondition = strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== ''
         ? String(strategy.narrativeCallCondition).trim()
         : null;
@@ -850,6 +856,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           `叙事评级直调 | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
           ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +
           (narrativeCallInfo.error ? ` error=${narrativeCallInfo.error}` : ''));
+
+        // ── 同叙事龙头已火检查（依赖直调结果的 sourceTweetId，未拿到→因子 0 放行）──
+        if (narrativeCallInfo.sourceTweetId) {
+          narrativeLeaderInfo = await this._sameNarrativeLeaderService.check({
+            tokenAddress: token.token,
+            sourceTweetId: narrativeCallInfo.sourceTweetId,
+            checkTimeSec: Math.floor(Date.now() / 1000), // 与下方 performAllChecks checkTime 同值
+          });
+          this.logger.info(this._experimentId, 'BuyEval',
+            `同叙事龙头检查 | ${token.symbol} hot=${narrativeLeaderInfo.factors.narrativeLeaderHot}` +
+            ` count=${narrativeLeaderInfo.factors.narrativeLeaderCount}` +
+            ` max=${narrativeLeaderInfo.factors.narrativeLeaderMaxMultiple}x` +
+            ` ${narrativeLeaderInfo.detail.durationMs}ms tweet=${narrativeCallInfo.sourceTweetId}` +
+            (narrativeLeaderInfo.detail.error ? ` error=${narrativeLeaderInfo.detail.error}` : ''));
+        }
       }
 
       if (preCheckPassed && shouldPerformPreCheck && this._preBuyCheckService) {
@@ -884,6 +905,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               buyRound: currentRound + 1,
               lastPairReturnRate: lastPairReturnRate ?? 0,
               narrativeRating: narrativeCallInfo?.numericRating ?? 9, // 直调链路；未配置/未触发/失败/超时=9
+              narrativeLeaderHot: narrativeLeaderInfo?.factors?.narrativeLeaderHot ?? 0, // 同叙事龙头链路；无 tweet/失败=0 放行
+              narrativeLeaderCount: narrativeLeaderInfo?.factors?.narrativeLeaderCount ?? 0,
+              narrativeLeaderMaxMultiple: narrativeLeaderInfo?.factors?.narrativeLeaderMaxMultiple ?? 0,
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply: totalSupply,
@@ -930,6 +954,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               tokenCreateTime,
               trendFactors: buildFactorValuesForTimeSeries(factorResults),
               narrativeCall: narrativeCallInfo,
+              narrativeLeaderCheck: narrativeLeaderInfo,
               preBuyCheckFactors: {
                 ...buildPreBuyCheckFactorValues(preBuyCheckResult),
                 permanentBlockTriggered: this._tokenBlacklist.has(token.token),
@@ -959,6 +984,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             tokenCreateTime,
             trendFactors: buildFactorValuesForTimeSeries(factorResults),
             narrativeCall: narrativeCallInfo,
+            narrativeLeaderCheck: narrativeLeaderInfo,
             preBuyCheckFactors: buildPreBuyCheckFactorValues(preBuyCheckResult),
             preBuyCheckResult: {
               canBuy: preBuyCheckResult.canBuy,

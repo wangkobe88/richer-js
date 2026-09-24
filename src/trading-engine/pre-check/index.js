@@ -7,10 +7,12 @@ const { PreBuyCheckService } = require('./PreBuyCheckService');
 const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService');
 const { WalletClusterService } = require('./WalletClusterService');
 const { NarrativeDirectCaller } = require('./NarrativeDirectCaller');
+const { SameNarrativeLeaderService } = require('./SameNarrativeLeaderService');
 
 module.exports = {
   PreBuyCheckService,
   EarlyParticipantCheckService,
   WalletClusterService,
-  NarrativeDirectCaller
+  NarrativeDirectCaller,
+  SameNarrativeLeaderService
 };

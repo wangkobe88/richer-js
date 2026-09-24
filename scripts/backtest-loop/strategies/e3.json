@@ -1,0 +1,21 @@
+{
+  "_comment": "E3 = E2 唯一差异：preBuyCheckCondition 加同叙事龙头门 narrativeLeaderHot == 0（同源推文下已有代币峰值涨幅>=5x 且判定时刻在其首达 5x 后 24h 内则拒买）。设计依据（嫦娥案例 tweet 2101613496303833524）：龙头 0x47da 首达 5x=13:21:47Z，其判定时刻 12:40 早于首达不受影响（吃到 12.2x），天鹏 x3（15:03 判定）落 24h 窗内被拒。与叙事 pre-check 规则 0.5/0.55/0.58（均要求同名）互补：本门不限名、火的确认用 5x 价格锚、层级在 pre-buy 因子。因子前置：依赖 narrativeCallCondition 触发拿到 sourceTweetId，无 tweet/检查失败=0 放行（fail-open 漏拦方向）。跑在 J1.10",
+  "tradeAmount": 0.1,
+  "initialBalance": 100,
+  "buyStrategies": [
+    {
+      "priority": 1,
+      "condition": "buyVolumeBnb >= 1.5 AND age < 30",
+      "maxExecutions": 1,
+      "preBuyCheckCondition": "(narrativeRating == 2 OR narrativeRating == 3) AND narrativeLeaderHot == 0",
+      "narrativeCallCondition": "buyVolumeBnb >= 1.5 AND age < 30"
+    }
+  ],
+  "sellStrategies": [
+    { "priority": 1, "condition": "drawdownFromHighestSinceLastBuy <= -45 AND holdDuration < 60", "maxExecutions": 1 },
+    { "priority": 2, "condition": "drawdownFromHighestSinceLastBuy <= -35 AND holdDuration >= 60 AND holdDuration < 180", "maxExecutions": 1 },
+    { "priority": 3, "condition": "drawdownFromHighestSinceLastBuy <= -25 AND holdDuration >= 180 AND holdDuration < 300", "maxExecutions": 1 },
+    { "priority": 4, "condition": "drawdownFromHighestSinceLastBuy <= -20 AND holdDuration >= 300 AND holdDuration < 600", "maxExecutions": 1 },
+    { "priority": 5, "condition": "drawdownFromHighestSinceLastBuy <= -10 AND holdDuration >= 600", "maxExecutions": 1 }
+  ]
+}

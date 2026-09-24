@@ -22,6 +22,25 @@ const StrongTraderPositionService = require('./StrongTraderPositionService');
  * 用于诊断失败条件时显示友好的名称和格式化
  */
 const FACTOR_METADATA = {
+  // 同叙事龙头因子（narrativeLeaderHot：1=同源推文下已有代币峰值涨幅>=5x 且判定时刻在其首达后24h内）
+  narrativeLeaderHot: {
+    name: '同叙事龙头已火',
+    format: v => v ? '是' : '否',
+    unit: '',
+    severity: 'critical'
+  },
+  narrativeLeaderCount: {
+    name: '同叙事候选代币数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
+  narrativeLeaderMaxMultiple: {
+    name: '同叙事龙头峰值倍数',
+    format: v => v.toFixed(1),
+    unit: 'x',
+    severity: 'info'
+  },
   // 早期交易者黑白名单因子
   earlyTraderWhitelistCount: {
     name: '白名单早期交易者数量',
@@ -406,7 +425,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId, earlyTradesCacheCallback } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId, earlyTradesCacheCallback } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -502,6 +521,9 @@ class PreBuyCheckService {
           buyRound: options.buyRound,
           lastPairReturnRate: options.lastPairReturnRate,
           narrativeRating: narrativeRating,
+          narrativeLeaderHot: narrativeLeaderHot,
+          narrativeLeaderCount: narrativeLeaderCount,
+          narrativeLeaderMaxMultiple: narrativeLeaderMaxMultiple,
           tweetAuthorType: tweetAuthorType,
           dataCollectionRound: dataCollectionRound,
         }
@@ -544,6 +566,12 @@ class PreBuyCheckService {
         // 多次交易因子（默认值）
         buyRound: options.buyRound || 1,
         lastPairReturnRate: options.lastPairReturnRate ?? 0,
+        // 同叙事龙头因子（默认 0=未查/无源推文；fail-open 放行，默认值用 0 不用 null——
+        // ConditionEvaluator null 比较恒 false，null 会让 ==0 门误拒）
+        narrativeRating: options.narrativeRating ?? 9,
+        narrativeLeaderHot: options.narrativeLeaderHot ?? 0,
+        narrativeLeaderCount: options.narrativeLeaderCount ?? 0,
+        narrativeLeaderMaxMultiple: options.narrativeLeaderMaxMultiple ?? 0,
         // 推文作者类型因子
         tweetAuthorType: options.tweetAuthorType ?? 0,
         // 数据采集轮数因子
@@ -611,6 +639,10 @@ class PreBuyCheckService {
 
       // 叙事分析因子
       narrativeRating: extraContext.narrativeRating ?? 9,
+      // 同叙事龙头因子（引擎侧算好透传；默认 0=未查/无源推文/失败 fail-open 放行）
+      narrativeLeaderHot: extraContext.narrativeLeaderHot ?? 0,
+      narrativeLeaderCount: extraContext.narrativeLeaderCount ?? 0,
+      narrativeLeaderMaxMultiple: extraContext.narrativeLeaderMaxMultiple ?? 0,
       // 推文作者类型因子
       tweetAuthorType: extraContext.tweetAuthorType ?? 0,
       // 数据采集轮数因子
@@ -700,6 +732,10 @@ class PreBuyCheckService {
         lastPairReturnRate: extraContext.lastPairReturnRate ?? 0,
         // 叙事分析因子（允许在条件表达式中使用）
         narrativeRating: extraContext.narrativeRating ?? 9,
+        // 同叙事龙头因子（允许在条件表达式中使用；默认 0 不用 null——null 比较恒 false 会误拒）
+        narrativeLeaderHot: extraContext.narrativeLeaderHot ?? 0,
+        narrativeLeaderCount: extraContext.narrativeLeaderCount ?? 0,
+        narrativeLeaderMaxMultiple: extraContext.narrativeLeaderMaxMultiple ?? 0,
         // 推文作者类型因子（允许在条件表达式中使用）
         tweetAuthorType: extraContext.tweetAuthorType ?? 0,
         // 数据采集轮数因子（允许在条件表达式中使用）
@@ -1373,6 +1409,10 @@ class PreBuyCheckService {
       lastPairReturnRate: 0,
       // 叙事分析因子（默认值）
       narrativeRating: 9,
+      // 同叙事龙头因子（默认 0=未查/无源推文）
+      narrativeLeaderHot: 0,
+      narrativeLeaderCount: 0,
+      narrativeLeaderMaxMultiple: 0,
       // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
       tweetAuthorType: 0,
       // 数据采集轮数因子
