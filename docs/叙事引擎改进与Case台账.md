@@ -31,6 +31,34 @@ Token URL → URL 分类 → 数据抓取 → Pre-Check（纯规则，无 LLM）
 
 ## 二、Case 研究（倒序）
 
+### C6 BWA 0x724d —— KOL 账号链接发币，语料天然只有 profile 一行（2026-09-24）
+
+**现象**：0x724d875ef143b0ae316bfae526770eae4b337777（BWA，desc="Binance World Assets"，
+官网 bwa.bot，x.com/JackKongNano 60,388 粉/蓝V/2017 老号/Nano Labs）prestage P1.2 判 low：
+名称关联 none(P=0.73) ｜ Web3流量 no_traffic(P=0) → abm 两条件全不满足 → numericRating=1 被买入门拒。
+
+**根因链**（三层叠加，均为机制性）：
+1. **语料**：four.meme 元数据只挂账号链接（无推文链接）→ `twitter_info` 仅 profile 一行；
+   账号抓取不抓时间线（twitter-fetcher `_fetchAccountInternal` 只调 getUserByScreenName）
+2. **发币公告推文永远进不来**：公告 status/2102904584091934796（snowflake 23:34:57.582Z
+   = 铸币 eventTs 23:34:38 后 19.6s）——分析 23:34:44 触发（铸币后 6s）、prestage
+   23:34:57.5-58.4 判定，抓取窗口内推文尚未发出；补跑/回测也拿不到（不抓时间线）
+3. **路由无此路径**：super-IP 快速通道只认人工名单，且条件为 `superIPInfo &&
+   !shouldUseAccountCommunity`（账号链接入口恒走 prestage）；HIGH_INFLUENCE_ACCOUNTS
+   同为名单制；abm 两条件（名称关联+Web3流量）不含"发币公告热度/账号影响力"维度，
+   60k 粉/蓝V/老号在 abm 分支零参与（粉丝数只在 project 评级表用；Jev token_type
+   两答 project 0.51 / web3_native_ip_early 0.49 也未被消费——地址未验证固定走 abm 分支）
+
+**附带发现**：desc="Binance World Assets"——若走标准路径，`shouldIncludeBrandHijackCheck`
+会命中 Binance 触发 W 类品牌劫持题；prestage 无 W 类问题，该维度同样不可达。
+
+**用户裁定**（2026-09-24）：**不建路径，本案存档**——KOL 发币后挺久才在推特公开宣传，
+公告时价格已被发行方自己拉起来、正在出货，追公告=接盘；prestage 判 low 对此类盘
+恰好形成拦截保护。（备案：本条公告推文实测为铸币后 19.6s 发出，若"挺久"另有所指，
+结论不变——均不改变拦截裁定。）曾评估方向存档备查：A 账号入口补抓时间线转标准
+13 问（W 类可达）/ B prestage 加公告影响力维度 / C 名单制。若未来重建，公告滞后
+应作为出货/接盘风险信号参与判定，而非买入叙事。
+
 ### C1 嫦娥系列 —— 同推文仿盘群 → E3 龙头门（2026-09-24）★
 
 **现象**：源推文 `2101613496303833524`（嫦娥六号相关）当天衍生 25 个名字含"嫦娥"
