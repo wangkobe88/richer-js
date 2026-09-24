@@ -12,7 +12,7 @@ import { PromptBuilder } from './prompt-builder.mjs';
 import { getLogger } from '../core/logger.mjs';
 
 // 新增：从拆分的模块导入
-import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, isProjectCoin, extractScreenNameFromTwitterUrl } from './utils/narrative-utils.mjs';
+import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, isProjectCoin, extractScreenNameFromTwitterUrl, detectIssuerSelfLaunch } from './utils/narrative-utils.mjs';
 import { cleanDataForDB } from './utils/data-cleaner.mjs';
 import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
 import { performPreCheck } from './services/pre-check-service.mjs';
@@ -297,6 +297,19 @@ export class NarrativeAnalyzer {
       logger.info('NarrativeAnalyzer', '项目币账号信息收集完成', { count: relatedAccounts.length });
     }
 
+    // 发行方自发币检测（路径二，方案 A，2026-09-24）：推文作者与代币品牌同一且
+    // 作者自己宣告了该品牌 → 转账号判定（不要求当前影响力；截词借势盘不满足
+    // 品牌同一性，仍走标准路径 W 数学）
+    const issuerSelfLaunch = detectIssuerSelfLaunch(tokenData, { twitterInfo });
+    if (issuerSelfLaunch) {
+      logger.info('NarrativeAnalyzer', '检测到发行方自发宣告（品牌同一性+宣告指纹）→ 转账号判定路径', issuerSelfLaunch);
+      // 账号判定需要作者账号：独立网站/项目币路径未收集时补收（推文作者 → primary）
+      if (relatedAccounts.length === 0) {
+        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo);
+        logger.info('NarrativeAnalyzer', '自发币路径补充收集作者账号', { count: relatedAccounts.length });
+      }
+    }
+
     // 7. 预检查规则（不调用LLM，直接返回结果）
     const preCheckResult = await performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo }, githubInfo, backgroundInfo, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
@@ -357,7 +370,8 @@ export class NarrativeAnalyzer {
         } else {
           // 检查是否应该使用账号/社区分析流程
           const shouldUseAccountCommunity = shouldUseAccountCommunityAnalysis(fetchResults)
-            || (isProjectCoinResult && fetchResults.relatedAccounts?.length > 0);
+            || (isProjectCoinResult && fetchResults.relatedAccounts?.length > 0)
+            || !!issuerSelfLaunch;
 
           if (shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');

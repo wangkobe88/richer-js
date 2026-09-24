@@ -61,29 +61,33 @@ Two engines via `src/trading-engine/implementations/`:
 The narrative analyzer evaluates whether a meme coin's underlying event has narrative value. All LLM decisions run through **Jev** (TypeSafe System One, `api.typesafe.ai`): a structured decision model with three primitives (Choice/Score/Noul), no text generation, one speculative fan-out call per token (~seconds). The former 3-stage generative pipeline (Stage 1 preprocessing → Stage 2 category scoring → Stage 3 token analysis) was fully replaced.
 
 ```
-Token URL → URL Classification → Data Fetching → Pre-Check (rules, no LLM)
+Token URL → URL Classification (incl. IPFS metadata unpack) → Data Fetching → Pre-Check (rules, no LLM)
                                                         ↓
                               account/community token? ── yes → prestage Jev (4 questions, P1.2)
                                                         │       rules validation first (account-community-rules.mjs)
                                                         │       → account_based_meme / web3_native_ip_early / project
                                                         │         (rating math in jev-prestage-mapper.mjs)
+                              issuer self-launch? ────── yes → prestage Jev (same flow)
+                              (brand identity + announcement fingerprint, code-only)
                                                         ↓ no
                               super-IP account? ── yes → super-IP fast track (standard question set + code pre-scores)
                                                         ↓ no
-                              standard path: single Jev call (13 questions, J1.8)
+                              standard path: single Jev call (13 questions, J1.10)
                               classification/magnitude/timing/block/W-class/relevance/quality asked atomically;
                               aggregation/thresholds/truncation in jev-result-mapper.mjs (code-side)
 ```
 
+**Two-path model (user decision 2026-09-24)**: rider coins (issued by a third party riding an influential product) stay on the standard path where W-class math requires the *ridden product* to have extreme influence; issuer self-launched coins (announced by the brand owner's own account) must NOT be gated on current influence — `detectIssuerSelfLaunch` (narrative-utils.mjs, code-only: token symbol/name bidirectionally contains the tweet author's handle/nickname + the author's own text mentions the brand) reroutes them to prestage account judgment. Word-extraction rider coins (C3/CONVICTION class: word from a tweet but unrelated to the author's identity) fail brand identity and stay on W-math.
+
 **Jev layer** (`analyzer/llm/`):
 - `JevClient.mjs` - HTTP client; `ask(state, questions, {label})` → answers (throws on missing answer ids — no error swallowing); 429/5xx backoff
-- `jev-questions.mjs` - Standard 13-question set `J1.8` (`buildStandardQuestions({includeBrandHijack})`)
+- `jev-questions.mjs` - Standard 13-question set `J1.10` (`buildStandardQuestions({includeBrandHijack})`)
 - `jev-prestage-questions.mjs` - Prestage 4-question set `P1.2` (token type / abm name link / abm web3 traffic / community activity)
 - `jev-state-builder.mjs` - `buildJevState` (60k budget) + `buildPrestageState` (20k budget): state assembly with section quotas
 - `jev-result-mapper.mjs` - Standard/super-IP answer mapping: stage1/2/3 result construction, scale calibration constants (MAGNITUDE_TIER_SCORES, DIM2_BANDS)
 - `jev-prestage-mapper.mjs` - Prestage mapping: project rating table (followers/members floors), abm two-condition verdict, all deterministic math code-side
 
-**Version rule**: editing any question's instructions/criteria requires bumping its version constant (`JEV_QUESTIONS_VERSION` / `JEV_PRESTAGE_QUESTIONS_VERSION`); prompt_type/prompt_version columns identify them (`jev(J1.8/…)`, `prestage-jev(P1.2/…)`).
+**Version rule**: editing any question's instructions/criteria requires bumping its version constant (`JEV_QUESTIONS_VERSION` / `JEV_PRESTAGE_QUESTIONS_VERSION`); prompt_type/prompt_version columns identify them (`jev(J1.10/…)`, `prestage-jev(P1.2/…)`).
 
 **Super IP** (`prompts/super-ip/super-ip-registry.mjs`): Known high-influence accounts (CZ, Elon Musk, Binance official, etc.) reuse the standard question set with code pre-scores; tier S (world-class) / A (known).
 

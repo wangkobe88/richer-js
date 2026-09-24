@@ -316,6 +316,51 @@ export function extractScreenNameFromTwitterUrl(url) {
  * @param {Object} fetchResults - 获取的数据结果
  * @returns {boolean} 是否为项目币
  */
+/**
+ * 发行方自发币检测（路径二路由，纯代码规则，2026-09-24 用户裁定方案 A）
+ *
+ * 语义：推文语料的事件主体（作者）与代币品牌同一，且作者自己的文本宣告了该品牌
+ * → 判为"项目方/账号自己发币"，转 prestage 账号判定（不要求当前影响力，按账号语义评）。
+ * 反例保护：截词借势盘（C3/CONVICTION 类——词取自推文但与作者身份无关）不满足
+ * 品牌同一性，不路由，仍走标准路径 W 数学（路径一：骑乘盘要求项目本身影响力极高）。
+ *
+ * 注意：语料层面无法证明钱包归属（公告先于铸币时地址尚不存在），本规则是
+ * "品牌同一性"判据而非所有权证明；残余误路由窗口（骑乘盘恰以作者品牌命名且
+ * 作者有 30 天 Web3 流量）已在台账 C7 记录，由 prestage 自身门槛兜底。
+ *
+ * @param {Object} tokenData - 代币数据（symbol/name/raw_api_data.name）
+ * @param {Object} fetchResults - { twitterInfo }
+ * @returns {Object|null} 命中返回 { screenName, symbol }，未命中返回 null
+ */
+export function detectIssuerSelfLaunch(tokenData, fetchResults) {
+  const { twitterInfo } = fetchResults;
+  if (!twitterInfo || twitterInfo.type !== 'tweet' || !twitterInfo.text) return null;
+
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9一-鿿]/g, '');
+  const symbol = norm(tokenData.symbol);
+  const name = norm(tokenData.name || tokenData.raw_api_data?.name);
+  const handle = norm(twitterInfo.author_screen_name || twitterInfo.screen_name);
+  const authorName = norm(twitterInfo.author_name || twitterInfo.name);
+  const text = norm(twitterInfo.text);
+
+  // 条件1 品牌同一性：代币品牌 = 作者自己的品牌（与 handle/昵称任一方向包含；短串门限防误配）
+  const identity = (brand, minLen) => !!brand && brand.length >= minLen && (
+    (handle.length >= 3 && (handle.includes(brand) || brand.includes(handle))) ||
+    (authorName.length >= 3 && (authorName.includes(brand) || brand.includes(authorName)))
+  );
+  if (!(identity(symbol, 3) || identity(name, 4))) return null;
+
+  // 条件2 宣告指纹：作者自己的推文文本里出现该品牌（自发宣告，而非第三方命名）
+  const mention = (symbol.length >= 3 && text.includes(symbol)) ||
+                  (name.length >= 4 && text.includes(name));
+  if (!mention) return null;
+
+  return {
+    screenName: twitterInfo.author_screen_name || twitterInfo.screen_name,
+    symbol: tokenData.symbol,
+  };
+}
+
 export function isProjectCoin(tokenAddress, fetchResults) {
   const address = tokenAddress.toLowerCase();
   const { twitterInfo, websiteInfo, classifiedUrls } = fetchResults;
