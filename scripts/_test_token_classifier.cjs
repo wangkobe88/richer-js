@@ -222,7 +222,7 @@ function section1() {
         ok(r.maxMarketCap === 0, 'maxMarketCap=0', r.maxMarketCap);
     }
 
-    ok(CLASSIFIER_VERSION === 'bsc-v1', 'CLASSIFIER_VERSION=bsc-v1', CLASSIFIER_VERSION);
+    ok(CLASSIFIER_VERSION === 'bsc-v2', 'CLASSIFIER_VERSION=bsc-v2', CLASSIFIER_VERSION);
 }
 
 // ═══════════ 2) computeFirstIdleVisibleAt 双触发 ═══════════
@@ -527,6 +527,7 @@ function section5() {
         // 慢拉横盘 state：峰 7K、末价 7K、无闪崩、ratio null（count<2）
         const st = mkState({
             _relHighestPriceBnb: pb(7000), _relPriceBnb: pb(7000),
+            _relFirstPriceBnb: pb(5000), // 涨幅基准：base=5K → max/final = +40%
             _relHighestPriceUsd: pb(7000) * BNB_USD, totalSupply: SUPPLY,
             _relHighestAt: s(60), firstTickAt: s(0), tradeCount: 13,
             _afterFirst9sReliableCount: 5, _beforeFirst9sPeakMinBnb: pb(5000),
@@ -536,10 +537,22 @@ function section5() {
         const flash = findFlashCrashPeriod(st._clsTicks, { peakTimeMs: st._relHighestAt });
         const { category, profile } = opb._classify(st, 'test', flash !== null, 60, flash);
         ok(category === 'normal', 'OPB._classify 慢拉横盘 → normal', category);
-        ok(profile.source === 'online' && profile.classifier_version === 'bsc-v1',
+        ok(profile.source === 'online' && profile.classifier_version === 'bsc-v2',
             'profile source/classifier_version', `${profile.source}/${profile.classifier_version}`);
         ok(profile.category_visible_at === profile.classified_at, '在线 visible_at=写入时刻');
         approx(profile.max_market_cap_usd, 7000, 0.5, 'profile max_market_cap_usd=7K');
+        approx(profile.max_change_percent, 40, 1e-6, 'profile max_change_percent=+40%（base 5K→峰 7K）');
+        approx(profile.final_change_percent, 40, 1e-6, 'profile final_change_percent=+40%（base 5K→末 7K）');
+    }
+
+    // 5.11 OPB 涨幅 null：无 _relFirstPriceBnb（全尘 token）→ 两字段 null（不进分类门也安全）
+    {
+        const { opb } = makeOpb();
+        const st = mkState({ _relHighestPriceBnb: pb(7000), _relPriceBnb: pb(7000) });
+        st._clsTicks = [];
+        const { profile } = opb._classify(st, 'test', false, 60, null);
+        ok(profile.max_change_percent === null && profile.final_change_percent === null,
+            'OPB 无基准价 → 涨幅 null', `${profile.max_change_percent}/${profile.final_change_percent}`);
     }
 }
 

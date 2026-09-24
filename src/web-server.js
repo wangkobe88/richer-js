@@ -2359,39 +2359,6 @@ class RicherJsWebServer {
       }
     });
 
-    // 分析实验代币涨幅
-    this.app.post('/api/experiment/:id/analyze-tokens', async (req, res) => {
-      try {
-        const { TokenAnalysisService } = require('./web/services/TokenAnalysisService');
-        const analysisService = new TokenAnalysisService();
-
-        const { skipAnalyzed = false } = req.body || {};
-        const skipText = skipAnalyzed ? '（跳过已分析）' : '';
-        this.logger.info('WebServer', `[代币分析] 开始分析实验 ${req.params.id} 的代币涨幅${skipText}...`);
-
-        let progress = 0;
-        const totalTokens = await analysisService.getAllTokens(req.params.id);
-        const total = totalTokens.length;
-
-        const result = await analysisService.analyzeExperimentTokens(req.params.id, (current, total) => {
-          progress = current;
-          const percent = ((current / total) * 100).toFixed(1);
-          this.logger.info('WebServer', `[代币分析] 进度: ${current}/${total} (${percent}%)`);
-        }, { skipAnalyzed });
-
-        const skippedText = result.skipped > 0 ? `, ${result.skipped} 跳过` : '';
-        this.logger.info('WebServer', `[代币分析] 分析完成: ${result.analyzed} 成功, ${result.failed} 失败${skippedText}`);
-
-        res.json({
-          success: true,
-          ...result
-        });
-      } catch (error) {
-        this.logger.error('WebServer', `分析代币涨幅失败: ${error.message}`, error.stack);
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
     // 获取实验代币统计
     this.app.get('/api/experiment/:id/tokens/stats', async (req, res) => {
       try {

@@ -571,6 +571,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         const priceReliable = priceBnb > 0 && !priceOutlier && bnbAmount >= this._fp.minPriceUpdateBnb;
         if (priceReliable) {
             state._relPriceBnb = priceBnb;
+            if (state._relFirstPriceBnb === 0) state._relFirstPriceBnb = priceBnb; // 涨幅基准：首值冻结（priceBnb>0 由 priceReliable 保证，0 哨兵安全）
 
             // ── Q 组：creator 前作 registry 推进（回迁批 2.5；母版已接受价路径 = 尘门+离群后的可靠价）──
             //   新 token 首个可靠价 = 前作 firstTs/firstPb；此后只涨 maxPb（首值冻结=票属性锚点）。
@@ -1009,6 +1010,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             _bar15Closes: [],           // 已闭合 15s bar 收盘（bar15RsiMaxBars 环形）
 
             _relPriceBnb: 0,            // 最近可靠价（新链专用）
+            _relFirstPriceBnb: 0,       // 首个可靠价（涨幅基准 base，OPB 与离线 computeTickMetrics.firstUsablePriceBnb 同口径；不能用 firstPriceBnb——那只过离群门没过尘门）
             _relHighestPriceBnb: 0,     // 可靠价全时峰（与 highestPriceBnb 双轨）
             _relHighestAt: 0,
             _relHighestBlock: null,

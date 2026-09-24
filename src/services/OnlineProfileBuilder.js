@@ -233,6 +233,15 @@ class OnlineProfileBuilder {
     };
 
     const nowIso = new Date().toISOString();
+    // 涨幅指标（bsc-v2 起与离线管线同口径：base=首个可靠价，BNB 计价；无可靠价 → null）。
+    // 在线触发时刻的快照值，离线重跑会用全史 ticks 纠正。
+    const base = tokenState._relFirstPriceBnb || 0;
+    const maxChangePercent = base > 0
+      ? ((tokenState._relHighestPriceBnb - base) / base) * 100
+      : null;
+    const finalChangePercent = base > 0
+      ? ((tokenState._relPriceBnb - base) / base) * 100
+      : null;
     const profile = {
       version: 1,
       category,
@@ -240,6 +249,8 @@ class OnlineProfileBuilder {
       classified_at: nowIso,
       classifier_version: CLASSIFIER_VERSION,
       max_market_cap_usd: metrics.maxMarketCap || 0,
+      max_change_percent: maxChangePercent,
+      final_change_percent: finalChangePercent,
       class_info: classInfo,
       config_snapshot: {
         qualityMarketCapThreshold: DEFAULT_SCORING_PARAMS.qualityMarketCapThreshold,
@@ -281,6 +292,8 @@ class OnlineProfileBuilder {
         classified_at: profile.classified_at,
         category_visible_at: profile.category_visible_at,
         peak_mcap_usd: profile.max_market_cap_usd,
+        max_change_percent: profile.max_change_percent ?? null,
+        final_change_percent: profile.final_change_percent ?? null,
         profile,
       };
       const { error } = await dbManager.getClient()

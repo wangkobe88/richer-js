@@ -719,8 +719,8 @@ class ExperimentTimeSeriesService {
       const supabase = dbManager.getClient();
       console.log(`🗜️ [时序数据压缩] 开始压缩实验 ${experimentId}, 阈值: ${threshold}%`);
 
-      // 步骤1: 查询所有代币及其 analysis_results
-      console.log(`📊 [时序数据压缩] 步骤1: 查询代币分析结果...`);
+      // 步骤1: 查询所有代币
+      console.log(`📊 [时序数据压缩] 步骤1: 查询代币列表...`);
       const pageSize = 1000;
       let offset = 0;
       let hasMore = true;
@@ -729,7 +729,7 @@ class ExperimentTimeSeriesService {
       while (hasMore) {
         const { data, error } = await supabase
           .from('experiment_tokens')
-          .select('token_address, token_symbol, analysis_results')
+          .select('token_address, token_symbol')
           .eq('experiment_id', experimentId)
           .range(offset, offset + pageSize - 1);
 
@@ -784,27 +784,43 @@ class ExperimentTimeSeriesService {
       console.log(`📊 [时序数据压缩] 步骤2.5: 查询受保护代币...`);
       const protectedAddresses = await this._getProtectedTokenAddresses(experimentId);
 
+      // 步骤2.6: 查 token_profiles 涨幅（分类管线产出，bsc-v2 起；替代退役的 analysis_results）
+      console.log(`📊 [时序数据压缩] 步骤2.6: 查询代币分类涨幅...`);
+      const profileMap = new Map();
+      {
+        const BATCH = 200; // .in 批量 500 会 UND_ERR_HEADERS_OVERFLOW
+        const addrs = allTokens.map(t => t.token_address);
+        for (let i = 0; i < addrs.length; i += BATCH) {
+          const { data, error } = await supabase
+            .from('token_profiles')
+            .select('token_address, max_change_percent')
+            .in('token_address', addrs.slice(i, i + BATCH));
+          if (error) throw new Error(`查询代币分类涨幅失败: ${error.message}`);
+          for (const r of (data || [])) profileMap.set(r.token_address, r);
+        }
+      }
+
       // 步骤3: 筛选需要删除的代币（max_change_percent < threshold）
       console.log(`📊 [时序数据压缩] 步骤3: 筛选低涨幅代币...`);
       const tokensToDelete = [];
       const skippedTokens = [];
 
       for (const token of allTokens) {
-        const analysis = token.analysis_results;
+        const profile = profileMap.get(token.token_address);
 
-        // 无分析结果 -> 跳过
-        if (!analysis) {
+        // 无 token_profiles 行（未跑离线分类）-> 跳过
+        if (!profile) {
           skippedTokens.push({
             address: token.token_address,
             symbol: token.token_symbol,
-            reason: 'no_analysis_results'
+            reason: 'no_profile'
           });
           continue;
         }
 
-        const maxChange = analysis.max_change_percent;
+        const maxChange = profile.max_change_percent;
 
-        // max_change_percent 为 null/undefined -> 跳过
+        // max_change_percent 为 null（无可用价 tick）-> 跳过
         if (maxChange === null || maxChange === undefined) {
           skippedTokens.push({
             address: token.token_address,
@@ -1065,8 +1081,8 @@ class ExperimentTimeSeriesService {
       const supabase = dbManager.getClient();
       console.log(`🧹 [清理代币] 开始清理实验 ${experimentId}`);
 
-      // 步骤1: 查询所有代币及其 analysis_results
-      console.log(`📊 [清理代币] 步骤1: 查询代币分析结果...`);
+      // 步骤1: 查询所有代币
+      console.log(`📊 [清理代币] 步骤1: 查询代币列表...`);
       const pageSize = 1000;
       let offset = 0;
       let hasMore = true;
@@ -1075,7 +1091,7 @@ class ExperimentTimeSeriesService {
       while (hasMore) {
         const { data, error } = await supabase
           .from('experiment_tokens')
-          .select('token_address, token_symbol, analysis_results')
+          .select('token_address, token_symbol')
           .eq('experiment_id', experimentId)
           .range(offset, offset + pageSize - 1);
 
@@ -1098,16 +1114,32 @@ class ExperimentTimeSeriesService {
       console.log(`📊 [清理代币] 步骤1.5: 查询受保护代币...`);
       const protectedAddresses = await this._getProtectedTokenAddresses(experimentId);
 
-      // 步骤2: 筛选需要删除的代币（无 analysis_results 或 analysis_results 为空）
+      // 步骤1.6: 查 token_profiles（分类管线产出，bsc-v2 起；替代退役的 analysis_results）
+      console.log(`📊 [清理代币] 步骤1.6: 查询代币分类涨幅...`);
+      const profileMap = new Map();
+      {
+        const BATCH = 200; // .in 批量 500 会 UND_ERR_HEADERS_OVERFLOW
+        const addrs = allTokens.map(t => t.token_address);
+        for (let i = 0; i < addrs.length; i += BATCH) {
+          const { data, error } = await supabase
+            .from('token_profiles')
+            .select('token_address, max_change_percent')
+            .in('token_address', addrs.slice(i, i + BATCH));
+          if (error) throw new Error(`查询代币分类涨幅失败: ${error.message}`);
+          for (const r of (data || [])) profileMap.set(r.token_address, r);
+        }
+      }
+
+      // 步骤2: 筛选需要删除的代币（无 token_profiles 行或涨幅为 null = 无可用价数据）
       console.log(`📊 [清理代币] 步骤2: 筛选无数据代币...`);
       const tokensToDelete = [];
       const tokensWithAnalysis = [];
 
       for (const token of allTokens) {
-        const analysis = token.analysis_results;
+        const profile = profileMap.get(token.token_address);
 
-        // 无分析结果或分析结果为空对象 -> 检查是否受保护
-        if (!analysis || (typeof analysis === 'object' && Object.keys(analysis).length === 0)) {
+        // 无 profile 行 / 无可用价 tick（涨幅 null）-> 检查是否受保护
+        if (!profile || profile.max_change_percent === null || profile.max_change_percent === undefined) {
           if (protectedAddresses.has(token.token_address.toLowerCase())) {
             tokensWithAnalysis.push({
               address: token.token_address,

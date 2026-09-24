@@ -177,9 +177,9 @@ class ExperimentTokenReturns {
             if (ds) {
               this.tokenDataSourceMap.set(token.token_address, ds);
             }
-            // 保存最高涨幅
-            if (token.analysis_results?.max_change_percent !== undefined) {
-              this.tokenMaxChangeMap.set(token.token_address, token.analysis_results.max_change_percent);
+            // 保存最高涨幅（token_profiles 分类管线产出）
+            if (token.max_change_percent !== undefined && token.max_change_percent !== null) {
+              this.tokenMaxChangeMap.set(token.token_address, token.max_change_percent);
             }
             // 保存代币符号
             if (token.token_symbol) {
@@ -217,8 +217,8 @@ class ExperimentTokenReturns {
                 if (ds && !this.tokenDataSourceMap.has(token.token_address)) {
                   this.tokenDataSourceMap.set(token.token_address, ds);
                 }
-                if (token.analysis_results?.max_change_percent !== undefined && !this.tokenMaxChangeMap.has(token.token_address)) {
-                  this.tokenMaxChangeMap.set(token.token_address, token.analysis_results.max_change_percent);
+                if (token.max_change_percent !== undefined && token.max_change_percent !== null && !this.tokenMaxChangeMap.has(token.token_address)) {
+                  this.tokenMaxChangeMap.set(token.token_address, token.max_change_percent);
                 }
                 if (token.human_judges && !this.judgesData.has(token.token_address)) {
                   this.judgesData.set(token.token_address, token.human_judges);
@@ -254,9 +254,9 @@ class ExperimentTokenReturns {
                 if (ds) {
                   this.tokenDataSourceMap.set(token.token_address, ds);
                 }
-                // 同时加载最高涨幅数据
-                if (token.analysis_results?.max_change_percent !== undefined) {
-                  this.tokenMaxChangeMap.set(token.token_address, token.analysis_results.max_change_percent);
+                // 同时加载最高涨幅数据（token_profiles 分类管线产出）
+                if (token.max_change_percent !== undefined && token.max_change_percent !== null) {
+                  this.tokenMaxChangeMap.set(token.token_address, token.max_change_percent);
                 }
                 // 同时加载代币符号
                 if (token.token_symbol && !this.tokenSymbolMap.has(token.token_address)) {

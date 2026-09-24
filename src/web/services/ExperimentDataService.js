@@ -840,7 +840,7 @@ class ExperimentDataService {
         const batch = addresses.slice(i, i + BATCH_SIZE);
         const { data, error } = await this.supabase
           .from('experiment_tokens')
-          .select('token_address, platform, data_source, raw_api_data, analysis_results, human_judges')
+          .select('token_address, platform, data_source, raw_api_data, human_judges')
           .eq('experiment_id', targetExperimentId)
           .in('token_address', batch);
 
@@ -848,13 +848,15 @@ class ExperimentDataService {
         if (data) allResults.push(...data);
       }
 
-      // 合并代币分类（token_profiles 全局表）
+      // 合并代币分类 + 涨幅（token_profiles 全局表）
       const profileMap = await this.getTokenProfilesByAddresses(addresses);
       for (const r of allResults) {
         const p = profileMap.get(r.token_address);
         if (p) {
           r.token_category = p.category;
           r.peak_mcap_usd = p.peak_mcap_usd;
+          r.max_change_percent = p.max_change_percent ?? null;
+          r.final_change_percent = p.final_change_percent ?? null;
         }
       }
 
@@ -950,13 +952,15 @@ class ExperimentDataService {
   async getFormattedTokens(experimentId, options = {}) {
     const tokens = await this.getTokens(experimentId, options);
 
-    // 合并代币分类（token_profiles 全局表，offline/online 皆可写）
+    // 合并代币分类 + 涨幅（token_profiles 全局表，offline/online 皆可写；涨幅自 bsc-v2 起由分类管线产出）
     const profileMap = await this.getTokenProfilesByAddresses(tokens.map(t => t.token_address).filter(Boolean));
     for (const t of tokens) {
       const p = profileMap.get(t.token_address);
       if (p) {
         t.token_category = p.category;
         t.peak_mcap_usd = p.peak_mcap_usd;
+        t.max_change_percent = p.max_change_percent ?? null;
+        t.final_change_percent = p.final_change_percent ?? null;
       }
     }
 
@@ -995,7 +999,7 @@ class ExperimentDataService {
       for (let i = 0; i < addresses.length; i += BATCH_SIZE) {
         const { data, error } = await this.supabase
           .from('token_profiles')
-          .select('token_address, category, peak_mcap_usd, classifier_version')
+          .select('token_address, category, peak_mcap_usd, max_change_percent, final_change_percent, classifier_version')
           .in('token_address', addresses.slice(i, i + BATCH_SIZE));
         if (error) throw error;
         for (const r of (data || [])) map.set(r.token_address, r);
@@ -1271,7 +1275,7 @@ class ExperimentDataService {
       for (let off = 0; ; off += 1000) {
         const { data: pageTokens, error: pageError } = await this.supabase
           .from('experiment_tokens')
-          .select('token_address, token_symbol, platform, blockchain, discovered_at, human_judges, analysis_results')
+          .select('token_address, token_symbol, platform, blockchain, discovered_at, human_judges')
           .eq('experiment_id', targetExperimentId)
           .range(off, off + 999);
         if (pageError) {
@@ -1281,6 +1285,10 @@ class ExperimentDataService {
         tokens.push(...(pageTokens || []));
         if (!pageTokens || pageTokens.length < 1000) break;
       }
+
+      // 涨幅来自 token_profiles（分类管线产出，bsc-v2 起）。注意用原始大小写地址查 map
+      // （token_profiles 键 = experiment_tokens 原值；下方 narrative 查询才转小写）。
+      const profileMap = await this.getTokenProfilesByAddresses(tokens.map(t => t.token_address));
 
       if (tokens.length === 0) {
         return {
@@ -1370,7 +1378,7 @@ class ExperimentDataService {
               llmAnalysis: llmAnalysis
             },
             human_judge: token.human_judges || null,
-            max_change_percent: token.analysis_results?.max_change_percent || null
+            max_change_percent: profileMap.get(token.token_address)?.max_change_percent ?? null
           };
         });
 

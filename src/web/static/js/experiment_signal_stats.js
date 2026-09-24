@@ -249,7 +249,7 @@ class ExperimentSignalStats {
           name: token.raw_api_data?.name || '',
           dataSource: token.raw_api_data?.data_source || token.data_source || null,
           narrativeRating: this.narrativeRatingMap.get(signalStats.tokenAddress) ?? null, // 从叙事分析数据获取
-          maxChange: token.analysis_results?.max_change_percent ?? null
+          maxChange: token.max_change_percent ?? null // token_profiles 分类管线产出
         };
       }
 

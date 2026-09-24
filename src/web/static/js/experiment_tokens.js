@@ -143,12 +143,6 @@ class ExperimentTokens {
       });
     }
 
-    // 分析按钮
-    const analyzeBtn = document.getElementById('analyze-btn');
-    if (analyzeBtn) {
-      analyzeBtn.addEventListener('click', () => this.startAnalysis());
-    }
-
     // 涨幅筛选按钮
     const filterFinal50Btn = document.getElementById('filter-final-50');
     if (filterFinal50Btn) {
@@ -604,21 +598,9 @@ class ExperimentTokens {
     const strategyUrl = `/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${token.token_address}`;
     const tokenDetailUrl = `/token-detail?experiment=${this.experimentId}&address=${token.token_address}`;
 
-    // 获取分析结果
-    const analysis = token.analysis_results;
-
-    // 格式化涨幅
-    const finalChangeEl = analysis
-      ? this.formatChangePercent(analysis.final_change_percent)
-      : '<span class="text-gray-500">-</span>';
-
-    const maxChangeEl = analysis
-      ? `<span class="text-yellow-400">${this.formatChangePercent(analysis.max_change_percent)}</span>`
-      : '<span class="text-gray-500">-</span>';
-
-    const dataPointsEl = analysis
-      ? `<span class="text-gray-400">${analysis.data_points || 0}</span>`
-      : '<span class="text-gray-500">-</span>';
+    // 涨幅（来自离线分类管线 token_profiles，BNB 计价；null = 未分类/无可用价 tick）
+    const finalChangeEl = this.formatChangePercent(token.final_change_percent);
+    const maxChangeEl = `<span class="text-yellow-400">${this.formatChangePercent(token.max_change_percent)}</span>`;
 
     // 检查是否命中黑名单（基于 token_holders 数据）
     const blacklistInfo = this.blacklistTokenMap?.get(token.token_address);
@@ -686,7 +668,6 @@ class ExperimentTokens {
         <td class="px-1.5 py-1 text-center overflow-hidden">${this.renderTokenCategoryBadge(token.token_category, token.peak_mcap_usd)}</td>
         <td class="px-1.5 py-1 text-center overflow-hidden"><span class="px-1 py-0.5 rounded text-[10px] font-medium ${chainClass}">${chainLabel}</span></td>
         <td class="px-1.5 py-1 text-left text-[10px] text-gray-400 overflow-hidden truncate">${discoveredAt}</td>
-        <td class="px-1.5 py-1 text-center text-[10px] text-gray-400 overflow-hidden">${dataPointsEl}</td>
         <td class="px-1.5 py-1 text-center overflow-hidden narrative-cell">${this.renderNarrativeRating(token.token_address)}</td>
         <td class="px-1.5 py-1 text-center overflow-hidden">${this.renderJudgeColumn(token)}</td>
       </tr>
@@ -708,68 +689,6 @@ class ExperimentTokens {
       colorClass = 'text-red-400';
     }
     return `<span class="${colorClass}">${value > 0 ? '+' : ''}${value.toFixed(2)}%</span>`;
-  }
-
-  /**
-   * 启动涨幅分析
-   */
-  async startAnalysis() {
-    const analyzeBtn = document.getElementById('analyze-btn');
-    const progressContainer = document.getElementById('analysis-progress');
-    const progressBar = document.getElementById('progress-bar');
-    const progressText = document.getElementById('progress-text');
-    const resultText = document.getElementById('analysis-result');
-
-    if (analyzeBtn) {
-      analyzeBtn.disabled = true;
-      analyzeBtn.textContent = '⏳ 分析中...';
-    }
-
-    if (progressContainer) {
-      progressContainer.classList.remove('hidden');
-    }
-
-    try {
-      const response = await fetch(`/api/experiment/${this.experimentId}/analyze-tokens`, {
-        method: 'POST'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      if (!result.success) {
-        throw new Error(result.error || '分析失败');
-      }
-
-      if (resultText) {
-        resultText.textContent = `✅ 完成: ${result.analyzed} 成功, ${result.failed} 失败`;
-      }
-
-      // 重新加载数据
-      await this.loadTokens();
-      this.render();
-
-    } catch (error) {
-      console.error('分析失败:', error);
-      if (resultText) {
-        resultText.textContent = `❌ 失败: ${error.message}`;
-      }
-      alert('分析失败：' + error.message);
-    } finally {
-      if (analyzeBtn) {
-        analyzeBtn.disabled = false;
-        analyzeBtn.textContent = '🔄 重新分析';
-      }
-
-      if (progressContainer) {
-        setTimeout(() => {
-          progressContainer.classList.add('hidden');
-        }, 2000);
-      }
-    }
   }
 
   /**
@@ -1044,12 +963,12 @@ class ExperimentTokens {
           const bSymbol = (b.token_symbol || '').toLowerCase();
           return aSymbol.localeCompare(bSymbol);
         case 'final_change':
-          const aFinalChange = a.analysis_results?.final_change_percent || -999;
-          const bFinalChange = b.analysis_results?.final_change_percent || -999;
+          const aFinalChange = a.final_change_percent ?? -999;
+          const bFinalChange = b.final_change_percent ?? -999;
           return bFinalChange - aFinalChange;
         case 'max_change':
-          const aMaxChange = a.analysis_results?.max_change_percent || -999;
-          const bMaxChange = b.analysis_results?.max_change_percent || -999;
+          const aMaxChange = a.max_change_percent ?? -999;
+          const bMaxChange = b.max_change_percent ?? -999;
           return bMaxChange - aMaxChange;
         case 'discovered_at':
         default:
@@ -1139,17 +1058,13 @@ class ExperimentTokens {
 
     console.log(`🔍 筛选前总代币数: ${filtered.length}`);
 
-    // 统计有分析结果的代币
-    const withAnalysis = filtered.filter(t => t.analysis_results && t.analysis_results[type === 'final' ? 'final_change_percent' : 'max_change_percent'] !== undefined);
-    console.log(`📊 有分析结果的代币数: ${withAnalysis.length}`);
+    // 统计有涨幅数据的代币（token_profiles 离线分类产出）
+    const withAnalysis = filtered.filter(t => (type === 'final' ? t.final_change_percent : t.max_change_percent) !== undefined);
+    console.log(`📊 有涨幅数据的代币数: ${withAnalysis.length}`);
 
     // 按涨幅筛选
     filtered = filtered.filter(t => {
-      const analysis = t.analysis_results;
-      if (!analysis) return false;
-      const percent = type === 'final'
-        ? analysis.final_change_percent
-        : analysis.max_change_percent;
+      const percent = type === 'final' ? t.final_change_percent : t.max_change_percent;
       return percent !== undefined && percent !== null && percent > threshold;
     });
 
@@ -1166,8 +1081,8 @@ class ExperimentTokens {
 
     // 按涨幅降序排序
     filtered.sort((a, b) => {
-      const aChange = a.analysis_results?.[type === 'final' ? 'final_change_percent' : 'max_change_percent'] || -999;
-      const bChange = b.analysis_results?.[type === 'final' ? 'final_change_percent' : 'max_change_percent'] || -999;
+      const aChange = (type === 'final' ? a.final_change_percent : a.max_change_percent) ?? -999;
+      const bChange = (type === 'final' ? b.final_change_percent : b.max_change_percent) ?? -999;
       return bChange - aChange;
     });
 
@@ -1177,9 +1092,9 @@ class ExperimentTokens {
 
     if (filtered.length === 0) {
       if (withAnalysis.length === 0) {
-        this.showToast(`⚠️ 该实验的代币还没有涨幅分析数据！请先点击页面顶部的"🔄 开始分析"按钮。`);
+        this.showToast(`⚠️ 该实验的代币还没有涨幅数据！请先运行离线分类（node scripts/build-token-profiles.cjs --experiment <id>）。`);
       } else {
-        this.showToast(`⚠️ 没有符合条件的代币（${type === 'final' ? '最终涨幅' : '最高涨幅'} > ${threshold}%）。已有分析数据的代币: ${withAnalysis.length} 个`);
+        this.showToast(`⚠️ 没有符合条件的代币（${type === 'final' ? '最终涨幅' : '最高涨幅'} > ${threshold}%）。已有涨幅数据的代币: ${withAnalysis.length} 个`);
       }
     } else {
       this.showToast(`已筛选: ${type === 'final' ? '最终涨幅' : '最高涨幅'} > ${threshold}%，共 ${filtered.length} 个代币`);
@@ -1234,8 +1149,8 @@ class ExperimentTokens {
 
     // 按最高涨幅降序排序
     filtered.sort((a, b) => {
-      const aMaxChange = a.analysis_results?.max_change_percent || -999;
-      const bMaxChange = b.analysis_results?.max_change_percent || -999;
+      const aMaxChange = a.max_change_percent ?? -999;
+      const bMaxChange = b.max_change_percent ?? -999;
       return bMaxChange - aMaxChange;
     });
 
