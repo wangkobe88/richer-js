@@ -63,8 +63,10 @@ Token URL → URL 分类 → 数据抓取 → Pre-Check（纯规则，无 LLM）
 | 仿盘#7 @ 12:44:08 | 0 | 0（max 2.2x） | 全组尚无人到 5x |
 | 天鹏 @ 15:03:47 | 1 | 1（max 12.2x） | 首达 13:21:47Z 在 24h 窗内，拒 |
 
-**回测**：E3 = `adec51f7-6436-4741-a459-131d62eead99`（源 572033ad，策略 e3.json），
-结果待回放完成后补记（预期差集恰为"同推文分组内、判定落在龙头 24h 窗内"的买入）。
+**回测**：E3 = `adec51f7-6436-4741-a459-131d62eead99`（源 572033ad，策略 e3.json）——
+与 E2 完全同结果（6 买入全同、ΣPnL 0.2391 BNB）：窗口内 hot=1 场景 0 次（天鹏型死盘活跃度
+不足未 fire），零误杀；龙头 0x47da 判定 trail（12:42:37，count=9/maxMultiple=1.7/leaders 空）
+实证无前视，放行后吃到 +337.7%。详见 §五/§六。
 
 ### C2 币安 agent 广场 0x355c —— 地址验证被短路（2026-09-23）
 
@@ -198,7 +200,7 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
 |---|---|---|---|---|
 | E1 | c0150101 | `==2 OR ==3 OR ==9` | 基线（跑在 J1.8） | 胜率 28.6% |
 | E2 | f5adb5e7 | `==2 OR ==3` | 去掉 ==9（未评级不混入爆款语义）；跑 J1.10（与 E1 双重差异，对比注意归因） | 胜率 33.3% |
-| E3 | adec51f7 | `(==2 OR ==3) AND narrativeLeaderHot == 0` | E2 + 同叙事龙头门（C1）；跑 J1.10 | **回放中，待补** |
+| E3 | adec51f7 | `(==2 OR ==3) AND narrativeLeaderHot == 0` | E2 + 同叙事龙头门（C1）；跑 J1.10 | **与 E2 完全同结果**（6 买入全同、ΣPnL 0.2391 BNB、胜率 33.3%）——零误杀；龙头 0x47da 放行吃到 +337.7% |
 
 - 三者买侧主条件均为活跃度单门 `buyVolumeBnb >= 1.5 AND age < 30`，narrativeCallCondition
   挂同一门；卖侧均为轮 6 分档 trailing（P1~P5 drawdown 门槛腿）
@@ -214,9 +216,13 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
 1. **SHIELDCAT**：J1.10 下阻断侧 0.67 → low，待用户裁定是否预期行为
 2. **OneKey Flork 纠纷语料**：需"币名指向 ≠ 计分主体"新维度，待设计
 3. **主路径带语料端到端**：等新 token 自然验证（jev 新格式行落库）
-4. **E3 回测结果**：adec51f7 回放中——对比 E2 差集应恰为"同推文分组内、t 落龙头 24h 窗内"的买入；
-   抽查信号 `metadata.narrativeLeaderCheck.detail.leaders[0]`（应含 0x47da、firstReachAt=13:21:47Z）
+4. **龙头门拦截力未激活**（E3 回测，2026-09-24）：窗口内 hot=1 信号 0 条——天鹏型仿盘活跃度
+   不足买门（buyVolumeBnb≥1.5）从未 fire，龙头门只拦"活跃度够但叙事已火"的后来者，此类 case
+   本窗口未出现。正向验证全过：E3 与 E2 executed 买入完全一致（零误杀）、龙头 0x47da
+   12:42:37 判定 trail 实测 count=9 / maxMultiple=1.7（只看 ≤t ticks，无前视）、
+   rating=3 + hot=0 双门放行吃到 +337.7%。拦截场景需等虚拟实跑（V 系）自然出现
 5. **叙事缓存失效清理机制**：模块改动后批量置 is_valid=false 的机制 planned 未建；现行手动
    行删或 `NarrativeRepository.updateIsValid(address, false)`
 6. **material_id 映射覆盖率**：全表 22184 行仅 10159 有值——龙头门只对挂了 material_id 的
    候选生效，无映射的仿盘漏拦（fail-open 方向已接受）
+7. **e3 的 virtual 孪生（v3）**：E3 回测零误杀已过，待建虚拟实验实跑积累拦截场景
