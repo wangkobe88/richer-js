@@ -74,7 +74,12 @@
       "clsFirstWindowMs": 9000,
       "clsBigTickBnb": 0.05,
       "clsTicksWindowMs": 60000,
-      "clsTicksMaxPerToken": 1500
+      "clsTicksMaxPerToken": 1500,
+      "graduationAnchorBnb": 72,
+      "bar5mRsiMaxBars": 30,
+      "bar15mRsiMaxBars": 12,
+      "riseMinTicks": 8,
+      "riseMinElapsedMin": 0.1
     },
     "onlineProfile": {
       "enabled": false

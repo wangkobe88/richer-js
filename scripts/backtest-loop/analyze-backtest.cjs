@@ -74,27 +74,48 @@ async function main() {
     for (const s of (data || [])) sigMeta.set(s.id, s);
   }
 
-  // ── 轮次配对（单仓：buy 开轮 → 下一笔 sell 闭轮）+ 未配对诊断 ──
+  // ── 轮次配对（多卖轮状态机，E5 P-1）+ 未配对诊断 ──
+  // buy 开轮；sell 累计 token 量与 BNB 所得，soldTokens ≥ 买入量×0.999 才闭轮
+  // （token 侧无费，精确判全清；部分卖不闭、下一腿继续累计）。轮 PnL%=
+  // Σ卖×(1-FEE) / (买×(1+FEE)) - 1；exitStrategy=末腿；exitLegs 全腿明细。
   const byToken = new Map();
   for (const t of trades) {
     if (!byToken.has(t.token_address)) byToken.set(t.token_address, []);
     byToken.get(t.token_address).push(t);
   }
-  const rounds = []; // {token, symbol, buyBnb, sellBnb, pnlPct, holdMs, sigFactors, exitStrategy, exitProfit, peakPct}
+  const rounds = []; // {token, symbol, buyBnb, sellBnb, pnlPct, holdMs, sigFactors, exitStrategy, exitProfit, peakPct, exitLegs, legCount}
   let orphanBuys = 0, orphanBuyBnb = 0, orphanSells = 0; // buy 后无 sell（余额只出不进）/ 无仓 sell
+  const CLOSE_TOL = 0.999; // token 侧全清容差（无费；防浮点尾差）
   for (const [tok, list] of byToken) {
-    let open = null;
+    let open = null; // {t, buyBnb, buyTokens, soldTokens, sellBnb, legs[]}
     for (const t of list) {
       if (t.trade_direction === 'buy') {
         if (open) { orphanBuys++; orphanBuyBnb += parseFloat(open.t.input_amount) || 0; } // 连续 buy 覆盖（单仓语义理论不可达）
-        open = { t };
+        open = {
+          t,
+          buyBnb: parseFloat(t.input_amount),      // 买：input=BNB（费前）
+          buyTokens: parseFloat(t.output_amount),  // 买：output=token 数
+          soldTokens: 0, sellBnb: 0, legs: [],
+        };
       } else if (t.trade_direction === 'sell') {
         if (!open) { orphanSells++; continue; }
-        const buyBnb = parseFloat(open.t.input_amount);   // 买：input=BNB（费前）
-        const sellBnb = parseFloat(t.output_amount);      // 卖：output=BNB（费前）
-        if (Number.isFinite(buyBnb) && buyBnb > 0 && Number.isFinite(sellBnb)) {
-          const buySig = open.t.signal_id ? sigMeta.get(open.t.signal_id) : null;
-          const sellSig = t.signal_id ? sigMeta.get(t.signal_id) : null;
+        const sellBnb = parseFloat(t.output_amount);   // 卖：output=BNB（费前）
+        const sellTokens = parseFloat(t.input_amount); // 卖：input=token 数
+        const sellSig = t.signal_id ? sigMeta.get(t.signal_id) : null;
+        open.soldTokens += Number.isFinite(sellTokens) ? sellTokens : 0;
+        open.sellBnb += Number.isFinite(sellBnb) ? sellBnb : 0;
+        open.legs.push({
+          strategy: (sellSig && sellSig.metadata && sellSig.metadata.strategyName) || '未知',
+          strategyId: (sellSig && sellSig.metadata && sellSig.metadata.strategyId) || null,
+          sellBnb: Number.isFinite(sellBnb) ? sellBnb : 0,
+          pct: t.metadata && Number.isFinite(Number(t.metadata.sellPercentage)) ? Number(t.metadata.sellPercentage) : 1,
+          at: t.created_at,
+          unit: parseFloat(t.unit_price),
+        });
+        const buySig = open.t.signal_id ? sigMeta.get(open.t.signal_id) : null;
+        if (open.buyTokens > 0 && open.soldTokens >= open.buyTokens * CLOSE_TOL
+          && open.buyBnb > 0) {
+          const lastLeg = open.legs[open.legs.length - 1];
           const stf = (sellSig && sellSig.metadata && sellSig.metadata.trendFactors) || {};
           const p = Number(stf.profitPercent), dd = Number(stf.drawdownFromHighestSinceLastBuy);
           // 峰值重建：current=buy×(1+p/100)、peak=current/(1+dd/100) → peak 涨幅
@@ -104,31 +125,42 @@ async function main() {
           }
           rounds.push({
             token: tok, symbol: t.token_symbol || open.t.token_symbol || '',
-            buyBnb, sellBnb,
+            buyBnb: open.buyBnb, sellBnb: open.sellBnb,
             buyUnit: parseFloat(open.t.unit_price), // 买入成交价（USD/枚，引擎 signal.price）
-            pnlPct: ((sellBnb * (1 - FEE)) / (buyBnb * (1 + FEE)) - 1) * 100, // 含每腿 0.5% 费
+            pnlPct: ((open.sellBnb * (1 - FEE)) / (open.buyBnb * (1 + FEE)) - 1) * 100, // 含每腿 0.5% 费
             holdMs: new Date(t.created_at) - new Date(open.t.created_at),
             buyAt: open.t.created_at,
             sigFactors: buySig && buySig.metadata ? (buySig.metadata.trendFactors || {}) : {},
-            exitStrategy: (sellSig && sellSig.metadata && sellSig.metadata.strategyName) || '未知',
+            exitStrategy: lastLeg.strategy,
             exitProfit: Number.isFinite(p) ? p : null,
             peakPct,
+            exitLegs: open.legs,
+            legCount: open.legs.length,
           });
+          open = null;
         }
-        open = null;
       }
     }
     if (open) { orphanBuys++; orphanBuyBnb += parseFloat(open.t.input_amount) || 0; } // 持仓未闭（强平跳过等）
   }
 
-  // ── 1 总览 ──
+  // ── 1 总览（策略腿轮 vs 冻结估值轮分列，E5）──
+  const FORCE_EXIT = '回放结束强平';
+  const stratR = rounds.filter(r => r.exitStrategy !== FORCE_EXIT);
+  const frozenR = rounds.filter(r => r.exitStrategy === FORCE_EXIT);
+  const sumOf = rs => rs.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
   const pnls = rounds.map(r => r.pnlPct).sort((x, y) => x - y);
   const wins = pnls.filter(v => v > 0).length;
-  const sumBnb = rounds.reduce((s, r) => s + (r.sellBnb * (1 - FEE) - r.buyBnb * (1 + FEE)), 0);
+  const sumBnb = sumOf(rounds);
   const spentBnb = rounds.reduce((s, r) => s + r.buyBnb, 0);
+  const multiLeg = rounds.filter(r => r.legCount > 1);
   console.log('═'.repeat(76));
   console.log(`回测分析 ${expId.slice(0, 8)} | trades=${trades.length}（buy ${trades.filter(t => t.trade_direction === 'buy').length} / sell ${trades.filter(t => t.trade_direction === 'sell').length}）`);
   console.log(`轮次 ${rounds.length} | 胜率 ${(rounds.length ? (wins / rounds.length * 100).toFixed(1) : 0)}% | ΣPnL(含费) ${sumBnb.toFixed(4)} BNB（投入 ${spentBnb.toFixed(2)}）`);
+  console.log(`  ΣPnL 分列：策略腿出场 ${stratR.length} 轮 ${sumOf(stratR).toFixed(4)} | ${FORCE_EXIT}（冻结估值） ${frozenR.length} 轮 ${sumOf(frozenR).toFixed(4)}（占 ${(sumBnb !== 0 ? sumOf(frozenR) / sumBnb * 100 : 0).toFixed(0)}%）`);
+  if (multiLeg.length) {
+    console.log(`  多卖腿轮 ${multiLeg.length} 个（腿数分布：${multiLeg.map(r => r.legCount).sort((x, y) => x - y).join(',')}）`);
+  }
   if (orphanBuys || orphanSells) {
     console.log(`⚠ 未配对：buy 无后续 sell ${orphanBuys} 笔（${orphanBuyBnb.toFixed(2)} BNB 只出不进）/ 无仓 sell ${orphanSells} 笔`);
   }
@@ -185,6 +217,24 @@ async function main() {
     const holdP50 = pctile(rs.map(r => r.holdMs / 1000).sort((x, y) => x - y), 0.5);
     const peakP50 = pctile(rs.map(r => r.peakPct).filter(Number.isFinite).sort((x, y) => x - y), 0.5);
     console.log(`  ${String(name).slice(0, 24).padEnd(26)} n=${String(rs.length).padStart(4)} | ΣPnL ${sum.toFixed(4)} | 均值 ${(sum / rs.length * 10).toFixed(2)}‰ | hold P50 ${(holdP50 || 0).toFixed(0)}s | 峰值 P50 ${fmt(peakP50)}%`);
+  }
+
+  // ── 4.5 卖腿明细（E5 多卖轮：每腿策略 n/ΣBNB/腿占比/出场价相对买价涨幅）──
+  const allLegs = rounds.flatMap(r => r.exitLegs.map(l => ({ ...l, symbol: r.symbol, buyUnit: r.buyUnit })));
+  if (allLegs.length && allLegs.some(l => l.strategyId)) {
+    console.log('── 卖腿明细（腿级，多卖轮拆开看）──');
+    const byLeg = new Map();
+    for (const l of allLegs) {
+      if (!byLeg.has(l.strategy)) byLeg.set(l.strategy, []);
+      byLeg.get(l.strategy).push(l);
+    }
+    for (const [name, ls] of [...byLeg.entries()].sort((x, y) => y[1].length - x[1].length)) {
+      const sumBnbL = ls.reduce((s, l) => s + l.sellBnb, 0);
+      const avgPct = ls.reduce((s, l) => s + l.pct, 0) / ls.length;
+      const upArr = ls.map(l => l.buyUnit > 0 && l.unit > 0 ? (l.unit / l.buyUnit - 1) * 100 : NaN).filter(Number.isFinite);
+      const up50 = upArr.length ? pctile(upArr.sort((x, y) => x - y), 0.5) : null;
+      console.log(`  ${String(name).slice(0, 26).padEnd(28)} n=${String(ls.length).padStart(3)} | Σ卖 ${sumBnbL.toFixed(4)} | 腿占比均值 ${(avgPct * 100).toFixed(0)}% | 卖价/买价 P50 ${up50 != null ? up50.toFixed(1) + '%' : 'n/a'}`);
+    }
   }
 
   // ── 5 冲高回落机会（未吃到 +15 止盈的轮，按持仓期峰值分桶）──

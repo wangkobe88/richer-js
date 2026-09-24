@@ -118,6 +118,15 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── 名单因子（回迁批 3.3；smartBotMinBuyBnb=母版 smartBotMinBuySol 0.05 SOL 的 BSC 重校，
     //    对齐挖掘参与门 0.02 BNB；sniper 阈值是口径常量 SNIPER_TOKEN_COUNT_THR 不在此）──
     smartBotMinBuyBnb: 0.02,
+    // ── E5 卖侧参数（2026-09-24）──
+    graduationAnchorBnb: 72,     // 毕业市值锚（BNB 口径）：four.meme 毕业市值 $50,585；0x47da 实测断流前
+                                 // max 7.21e-8×1e9=72.1 BNB 吻合。progress=priceBnb*totalSupply/此值
+    bar5mRsiMaxBars: 30,         // 5m bar 收盘环形窗（30 根=2.5h；RSI 阶梯臂原料）
+    bar15mRsiMaxBars: 12,        // 15m bar 收盘环形窗（12 根=3h；内盘期基本无值，观察键）
+    riseMinTicks: 8,             // 针臂稀疏窗门（5min 窗内可靠 tick 数 < 此数 → null fail-closed；
+                                 //   rich-js minTicks=窗口分钟数，tick 秒级更密故起步 8）
+    riseMinElapsedMin: 0.1,      // 针臂速度分母下限（分钟；rich-js 钳 1min 是 1m bar 粒度，tick 秒级可小；
+                                 //   谷=最新 tick 时防除零）
 };
 
 // ── Q 组：creator 前作 registry 常量（pumpfun 逐字沿用——跨票日级口径与链节奏无关）──
@@ -642,6 +651,29 @@ class FourMemeFactorAggregator extends EventEmitter {
                 state._bar15Current.close = priceBnb;
             }
 
+            // 宽 bar（5m/15m）收盘桶（E5 RSI 阶梯/观察：5m=rich-js RSI 卖臂同档节奏，15m 观察键。
+            // 三段式同构 bar15：开桶/闭桶推 close/同桶末笔覆盖；Rt 实时口径由读取侧拼 _barNmCurrent.close）
+            const _bar5m = Math.floor(_sec / 300);
+            if (state._bar5mCurrent === null) {
+                state._bar5mCurrent = { bar: _bar5m, close: priceBnb };
+            } else if (_bar5m > state._bar5mCurrent.bar) {
+                state._bar5mCloses.push(state._bar5mCurrent.close);
+                if (state._bar5mCloses.length > this._fp.bar5mRsiMaxBars) state._bar5mCloses.shift();
+                state._bar5mCurrent = { bar: _bar5m, close: priceBnb };
+            } else if (_bar5m === state._bar5mCurrent.bar) {
+                state._bar5mCurrent.close = priceBnb;
+            }
+            const _bar15m = Math.floor(_sec / 900);
+            if (state._bar15mCurrent === null) {
+                state._bar15mCurrent = { bar: _bar15m, close: priceBnb };
+            } else if (_bar15m > state._bar15mCurrent.bar) {
+                state._bar15mCloses.push(state._bar15mCurrent.close);
+                if (state._bar15mCloses.length > this._fp.bar15mRsiMaxBars) state._bar15mCloses.shift();
+                state._bar15mCurrent = { bar: _bar15m, close: priceBnb };
+            } else if (_bar15m === state._bar15mCurrent.bar) {
+                state._bar15mCurrent.close = priceBnb;
+            }
+
             // 可靠价峰值链（新链专用；与既有 highestPriceBnb 任意接受价口径双轨并行）
             if (priceBnb > state._relHighestPriceBnb) {
                 state._relHighestPriceBnb = priceBnb;
@@ -1008,6 +1040,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             _secRsiLong: null,          // 增量全史 Wilder {prevClose, m, g30, l30, g60, l60}
             _bar15Current: null,        // 当前 15s bar 收盘（未闭合）
             _bar15Closes: [],           // 已闭合 15s bar 收盘（bar15RsiMaxBars 环形）
+            _bar5mCurrent: null,        // 当前 5m bar 收盘（未闭合；E5 RSI 阶梯臂）
+            _bar5mCloses: [],           // 已闭合 5m bar 收盘（bar5mRsiMaxBars 环形）
+            _bar15mCurrent: null,       // 当前 15m bar 收盘（未闭合；E5 观察键）
+            _bar15mCloses: [],          // 已闭合 15m bar 收盘（bar15mRsiMaxBars 环形）
 
             _relPriceBnb: 0,            // 最近可靠价（新链专用）
             _relFirstPriceBnb: 0,       // 首个可靠价（涨幅基准 base，OPB 与离线 computeTickMetrics.firstUsablePriceBnb 同口径；不能用 firstPriceBnb——那只过离群门没过尘门）
@@ -1794,6 +1830,25 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (state._bar15Closes.length > 14) {
             rsi14Bar15s = this._rsi(state._bar15Closes, 14);
         }
+        // 宽 bar（5m/15m）RSI（E5 卖侧）：闭合版=因果口径；Rt 版=闭合序列拼当前未闭合 bar close
+        // （rich-js 实时触发口径：最后一根进行中、close=最新可靠价，不等收盘）。warmup：RSI9 需
+        // 10 根闭合 5m bar≈首 tick 后 50min、RSI14 需 75min——正是 fail-closed 的前期窗口
+        let rsi9Bar5m = null, rsi14Bar5m = null, rsi9Bar5mRt = null, rsi14Bar5mRt = null;
+        if (state._bar5mCloses.length >= 2 && state._bar5mCurrent !== null) {
+            rsi9Bar5m = this._rsi(state._bar5mCloses, 9);
+            rsi14Bar5m = this._rsi(state._bar5mCloses, 14);
+            const _rt5 = state._bar5mCloses.concat([state._bar5mCurrent.close]);
+            rsi9Bar5mRt = this._rsi(_rt5, 9);
+            rsi14Bar5mRt = this._rsi(_rt5, 14);
+        }
+        let rsi9Bar15m = null, rsi14Bar15m = null, rsi9Bar15mRt = null, rsi14Bar15mRt = null;
+        if (state._bar15mCloses.length >= 2 && state._bar15mCurrent !== null) {
+            rsi9Bar15m = this._rsi(state._bar15mCloses, 9);
+            rsi14Bar15m = this._rsi(state._bar15mCloses, 14);
+            const _rt15 = state._bar15mCloses.concat([state._bar15mCurrent.close]);
+            rsi9Bar15mRt = this._rsi(_rt15, 9);
+            rsi14Bar15mRt = this._rsi(_rt15, 14);
+        }
         // 长线秒级 RSI（增量全史 Wilder；m<period → null fail-closed）
         let rsi30Sec = null, rsi60Sec = null;
         if (state._secRsiLong && state._secRsiLong.m >= 30) {
@@ -1891,6 +1946,38 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
 
+        // 针臂原料（E5 卖侧，rich-js RiseSpeed tick 模式搬运）：5min 窗谷→现价涨幅+速度。
+        // 持仓口径（E5b 修正）：窗下界 = max(now-5min, 买入时间)——谷/tick 计数只取买入后。
+        // 市场口径（含买前涨幅）+ 动量买门会在买入瞬间即成立 → 100% 秒卖（E5 实测 4 轮
+        // 全部 hold 0-2s 被 P2 猛档全清）；rich-js 原版语义本就是「持仓期间的拉升针」。
+        // 买入时间取最新仓（_lastPositionKey，与顶层 buyPrice 族因子同口径）；无仓/
+        // 无有效 buyTime → null fail-closed（买腿评估期天然 null，零污染）。
+        // 谷用 <=（最近触及——防横盘反复触谷稀释 elapsed）；现价=_relPriceBnb（可靠价，
+        // 尘价不触发）；窗内可靠 tick 不足 riseMinTicks → null fail-closed（买入后头几个
+        // tick 不构成针）；速度分母钳 riseMinElapsedMin（谷=最新 tick 时防除零）。
+        // risePct5m 可为负（现价贴谷）——条件都是 > 阈值，fail-closed 方向安全。
+        let risePct5m = null, riseVel5m = null;
+        {
+            const _pos = state._lastPositionKey ? state._positions.get(state._lastPositionKey) : null;
+            const _buyTs = Number(_pos?.buyTime) || 0;
+            if (_buyTs > 0) {
+                const _rsCut = Math.max(now - RATE_WINDOW_MS, _buyTs);
+                let _trough = Infinity, _troughTs = 0, _rn = 0;
+                for (const tk of state._recentTicks) {
+                    if (tk.ts < _rsCut) continue;
+                    if (!tk.priceReliable || !(Number(tk.priceBnb) > 0)) continue;
+                    _rn++;
+                    if (Number(tk.priceBnb) <= _trough) { _trough = Number(tk.priceBnb); _troughTs = tk.ts; }
+                }
+                if (_rn >= this._fp.riseMinTicks && _trough > 0 && _troughTs > 0
+                    && state._relPriceBnb > 0) {
+                    risePct5m = (state._relPriceBnb / _trough - 1) * 100;
+                    const _elapsedMin = Math.max((now - _troughTs) / 60000, this._fp.riseMinElapsedMin);
+                    riseVel5m = risePct5m / _elapsedMin;
+                }
+            }
+        }
+
         // 趋势窗 5 因子（可靠价切片）
         const trendFactors = this._computePriceTrendFactors(state._recentTicks, now, state.firstTickAt);
 
@@ -1944,6 +2031,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             tvl: bnbUsd > 0 ? state.lastFundsBnb * bnbUsd : 0,
             fdv: 0,        // 见下（与 marketCap 同值）
             marketCap: state.totalSupply > 0 && currentPrice > 0 ? currentPrice * state.totalSupply : 0,
+            // 毕业进度（E5 卖侧）：可靠价市值 / flap 毕业锚（72 BNB，实测 11 token 收敛 72.1）。
+            // 用 _relPriceBnb 而非 currentPrice——V1 实证尘价/异常巨量 tick 可把任意价口径推到 >1 假触发
+            graduationProgress: (state.totalSupply > 0 && state._relPriceBnb > 0)
+                ? (state._relPriceBnb * state.totalSupply) / this._fp.graduationAnchorBnb
+                : null,
 
             tweetAuthorType: 0, // 叙事已解耦，恒 0
             dataCollectionRound: state.dataCollectionRound,
@@ -2028,6 +2120,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             rsi9Sec,
             rsi14Sec,
             rsi14Bar15s,
+            rsi9Bar5m,
+            rsi14Bar5m,
+            rsi9Bar5mRt,
+            rsi14Bar5mRt,
+            rsi9Bar15m,
+            rsi14Bar15m,
+            rsi9Bar15mRt,
+            rsi14Bar15mRt,
             rsi30Sec,
             rsi60Sec,
             slopePct20,
@@ -2045,6 +2145,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             maxDdSinceHighestPct,
             crashSpeedPctPerSec,
             peakFallSpeedPctPerSec,
+            // 针臂（E5 卖侧）：5min 稀疏窗谷→现价涨幅/速度；持仓口径（窗下界含买入时间）；
+            // 无仓/样本不足或无可靠价 → null fail-closed
+            risePct5m,
+            riseVel5m,
             secondsSinceDeepDrop70,
             riseFromLow6s: trendFactors.riseFromLow6s,
             spikeCurveRatio: trendFactors.spikeCurveRatio,

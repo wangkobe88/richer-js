@@ -293,20 +293,25 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
 
 ---
 
-## 五、策略侧应用（回测 E1→E2→E3，源 572033ad）
+## 五、策略侧应用（回测 E1→E2→E3→E4，源 572033ad）
 
 | 实验 | id | preBuyCheckCondition | 差异 | 结果 |
 |---|---|---|---|---|
 | E1 | c0150101 | `==2 OR ==3 OR ==9` | 基线（跑在 J1.8） | 胜率 28.6% |
 | E2 | f5adb5e7 | `==2 OR ==3` | 去掉 ==9（未评级不混入爆款语义）；跑 J1.10（与 E1 双重差异，对比注意归因） | 胜率 33.3% |
-| E3 | adec51f7 | `(==2 OR ==3) AND narrativeLeaderHot == 0` | E2 + 同叙事龙头门（C1）；跑 J1.10 | **与 E2 完全同结果**（6 买入全同、ΣPnL 0.2391 BNB、胜率 33.3%）——零误杀；龙头 0x47da 放行吃到 +337.7% |
+| E3 | adec51f7 | `(==2 OR ==3) AND narrativeLeaderHot == 0` | E2 + 同叙事龙头门（C1）；跑 J1.10 | **与 E2 完全同结果**（6 买入全同、ΣPnL 0.2391、胜率 33.3%）——零误杀；龙头 0x47da 放行吃到 +337.7% |
+| E4 | 83453b6e | 同 E3 | 买门加 `holders > 5`（E3 唯一差异；narrativeCallCondition 同步） | 4 买入、胜率 50%、ΣPnL 0.3208——拦掉 NOINT（fire 时 holders=2）与天才（holders=3）两个最大亏损笔，全部盈利笔 holders≥6；0x47da 大腿 +337.7% 保留 |
 
-- 三者买侧主条件均为活跃度单门 `buyVolumeBnb >= 1.5 AND age < 30`，narrativeCallCondition
-  挂同一门；卖侧均为轮 6 分档 trailing（P1~P5 drawdown 门槛腿）
+- **记账口径**（E4 台账起澄清）：trades 表/余额的记账货币是 **USD**（virtual unit_price 为 USD 价、
+  tradeAmount 0.1 为 0.1 USD）——ΣPnL 数值与 E1-E3 同口径可比，此前行文称 "BNB" 系口径误称
+- 四者买侧主条件均为活跃度门 `buyVolumeBnb >= 1.5 AND age < 30`（E4 加 holders>5），
+  narrativeCallCondition 挂同一门；E1-E4 卖侧均为轮 6 分档 trailing（P1~P5 drawdown 门槛腿）
 - E2 的 ==9 收紧是 C4 裁定的实践修正：unrated（真爆款）与直调失败/超时（normalize 9）无法区分，
   保守起见只买确定 2/3
-- V1 虚拟孪生（fb03389c，E1 策略 virtual 版）09-23 起在 182 实跑；e3 的 virtual 孪生（v3）留待
-  E3 回测验证后
+- E4 卖侧观察（0x47da 由 P5 时间档 +342% 出场、峰值 396%；冲高回落 2 轮理论捕获 0.0839）
+  = E5 卖侧改造的直接动因（2026-09-24 用户裁定：叙事筛选后币质量高、BSC 发酵慢，时间分档不适配）
+- V1 虚拟孪生（fb03389c，E1 策略 virtual 版）09-23 起在 182 实跑；e3/e4 的 virtual 孪生留待
+  回测验证后
 
 ---
 

@@ -42,10 +42,10 @@ async function runLiveDryRun(durationMs) {
     });
 
     let lastCreate = null;
-    const collector = new FlapAnkrWsCollector(defaultConfig, consoleLogger, pool, fa, {
+    const collector = new FlapAnkrWsCollector({ ...defaultConfig, flapWs: { ...defaultConfig.flapWs, dryRun: true } }, consoleLogger, pool, fa, {
         onTokenCreate: (info) => { lastCreate = info; },
     });
-    // 无 setExperimentId → _flushTickBuffer 直接丢弃（dry-run 不写库）
+    // config dryRun=true → _flushTickBuffer 直接丢弃（dry-run 不写库）
 
     collector.start();
     console.log(`\n🔗 flap 真流 dry-run ${Math.round(durationMs / 1000)}s（不写库）...`);

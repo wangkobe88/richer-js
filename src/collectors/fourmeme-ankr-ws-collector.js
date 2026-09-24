@@ -66,12 +66,14 @@ class FourMemeAnkrWsCollector {
      * @param {Object|null} factorAggregator - FourMemeFactorAggregator 实例
      * @param {Object} callbacks - { onTokenCreate(info), onTick(tick), onGraduation(info) } 均可选
      */
-    constructor(config, logger, tokenPool, factorAggregator = null, callbacks = {}) {
+    constructor(config, logger, tokenPool = null, factorAggregator = null, callbacks = {}) {
         this.config = config.fourmemeWs || {};
         this.logger = logger;
         this.tokenPool = tokenPool;
         this._factorAggregator = factorAggregator;
         this._callbacks = callbacks || {};
+        // dry-run：显式丢缓冲不写库（脚本真实流验证用；watcher/实验模式缺省写库，experiment_id 为 null）
+        this._dryRun = this.config.dryRun === true;
 
         const contracts = this.config.contracts || {};
         this._tokenManagerV2 = lowerAddr(contracts.tokenManagerV2);
@@ -544,7 +546,7 @@ class FourMemeAnkrWsCollector {
 
         // 2) tick 缓冲落库（行对象引用交给 FA 标记 price_outlier 后再 flush）
         const tickRow = {
-            experiment_id: this._experimentId,
+            experiment_id: this._experimentId ?? null,
             token_address: decoded.token,
             tx_hash: decoded.txHash,
             log_index: decoded.logIndex,
@@ -638,8 +640,8 @@ class FourMemeAnkrWsCollector {
     async _flushTickBuffer() {
         if (this._tickBuffer.length === 0) return;
         if (this._flushInProgress) return;
-        // 无实验上下文（dry-run 模式）：不写库，丢弃缓冲
-        if (!this._experimentId) {
+        // dry-run 模式（config dryRun=true）：不写库，丢弃缓冲
+        if (this._dryRun) {
             this._tickBuffer = [];
             return;
         }

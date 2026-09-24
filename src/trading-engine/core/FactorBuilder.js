@@ -94,6 +94,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 会因名单演进失真，必须在线记录（回测亦走此路径=同名单快照 parity）
     smartBotCount: factorResults.smartBotCount ?? null,
     sniperHolderShare: factorResults.sniperHolderShare ?? null,
+    // E5 卖侧观测键（4 键）：毕业进度 + 5m RSI9 实时口径 + 针臂涨幅/速度——卖点信号
+    // 可观测、analyze 冻结轮分桶用；旧 FA 无这些键 → null，不掩盖
+    graduationProgress: factorResults.graduationProgress ?? null,
+    rsi9Bar5mRt: factorResults.rsi9Bar5mRt ?? null,
+    risePct5m: factorResults.risePct5m ?? null,
+    riseVel5m: factorResults.riseVel5m ?? null,
   };
 }
 

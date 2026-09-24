@@ -4,7 +4,8 @@
  * 继承 FourMemeWssTradingEngine：买/卖管线、去抖、守护 intervals、重启恢复、时序快照
  * 全部复用父类；仅覆盖平台差异点：
  *   - 配置节：flapWs（config/default.json，实验级 config.flapWs 浅合并覆盖）
- *   - 采集器：FlapAnkrWsCollector（订阅 flap Portal 合约，事件口径见 collector 头注释）
+ *   - 消费平台：_wsPlatform()='flap'（SharedTickConsumer 本地过滤 watcher 双平台流中的
+ *     flap 行；WSS 订阅由常驻 watcher 统一持有，事件口径见 flap collector 头注释）
  *   - 新代币落库：platform='flap' + flap TokenCreated 字段存档
  *   - innerPair 后缀：_fl（仅日志与 early_participant_trades 存档用）
  *   - live：暂不支持（_initializeLiveTrader 覆盖为 fail-fast；FlapPortalTrader
@@ -22,24 +23,15 @@ class FlapWssTradingEngine extends FourMemeWssTradingEngine {
     this._name = 'Flap WSS Trading Engine';
   }
 
-  /** flapWs 配置节（引擎参数 + collector 订阅合约） */
+  /** flapWs 配置节（引擎参数 + consumer 轮询参数） */
   _wsConfigSectionName() {
     return 'flapWs';
   }
 
-  /** flap Portal 采集器（发现 + tick + LaunchedToDEX 毕业） */
-  _createCollector() {
-    const { FlapAnkrWsCollector } = require('../../collectors/flap-ankr-ws-collector');
-    return new FlapAnkrWsCollector(
-      { flapWs: this._mergedWsConfig() },
-      this.logger,
-      this._tokenPool,
-      this._factorAggregator,
-      {
-        onTokenCreate: (info) => this._handleNewToken(info),
-        onGraduation: (info) => this._handleGraduation(info),
-      },
-    );
+  /** 消费平台标识：flap（SharedTickConsumer 本地过滤 ticks/events；flap token_create
+   *  的 registerToken totalSupply 由 consumer 内部按平台取 FLAP_TOTAL_SUPPLY） */
+  _wsPlatform() {
+    return 'flap';
   }
 
   /** TokenCreated：新代币落库 experiment_tokens（platform='flap' + flap 字段存档） */

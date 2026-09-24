@@ -1,0 +1,24 @@
+{
+  "_comment": "E5 = E4 买侧不动 + 全新卖侧（2026-09-24 用户裁定：叙事筛选后币平均质量高、BSC 发酵慢，轮6时间分档 trailing 不适配）。卖侧四臂：P1 -50% 硬底（不分档全清防归零，用户裁定）；P2/P4 RiseSpeed 针臂（rich-js 积累：5min 稀疏窗谷→现价涨幅+速度双锁定，猛档全清/普通档卖半，RSI 门 IS NULL 宽容=warmup 期可用）——E5b 双修正（2026-09-24 用户裁定）：① risePct5m/riseVel5m 改持仓口径（FA 侧窗下界含买入时间；第一版市场口径含买前涨幅+动量买门 → 4 轮全部 hold 0-2s 被 P2 秒卖）；② 市值门 graduationProgress >= 0.6667（≥毕业市值 2/3 才允许针臂卖——早期拉升针不卖，只有接近毕业的末段逼空针才卖）；P3/P8 毕业臂（可靠价市值/flap 毕业锚 72 BNB ≥0.9 卖半、≥0.98 再卖半；毕业后内盘 WSS 断流，剩仓冻结估值=用户裁定，回测强平口径分列）；P5-P7 RSI 阶梯（rich-js 参数：5m RSI9 实时口径 85/78/75 三档互斥带递减 0.4/0.3/0.25，互斥带防连续 tick 级联打光三档，risePct5m>=5 前置防断流假超买卖早）。sellPercentage=执行时点余仓比例。买门与 preBuyCheck 与 E4 完全一致。",
+  "tradeAmount": 0.1,
+  "initialBalance": 100,
+  "buyStrategies": [
+    {
+      "priority": 1,
+      "condition": "buyVolumeBnb >= 1.5 AND age < 30 AND holders > 5",
+      "maxExecutions": 1,
+      "preBuyCheckCondition": "(narrativeRating == 2 OR narrativeRating == 3) AND narrativeLeaderHot == 0",
+      "narrativeCallCondition": "buyVolumeBnb >= 1.5 AND age < 30 AND holders > 5"
+    }
+  ],
+  "sellStrategies": [
+    { "priority": 1, "condition": "drawdownFromHighestSinceLastBuy <= -50", "maxExecutions": 1, "sellPercentage": 1.0, "bypassDebounce": true, "description": "硬底：-50% 不分档全清（防归零；部分卖期间 FA 锚不清、分母保住）" },
+    { "priority": 2, "condition": "riseVel5m > 8 AND risePct5m > 15 AND (rsi9Bar5mRt IS NULL OR rsi9Bar5mRt > 60) AND graduationProgress >= 0.6667", "maxExecutions": 1, "sellPercentage": 1.0, "bypassDebounce": true, "description": "针臂猛档：速度>8%/min 且 5min 涨幅>15%，RSI 门 IS NULL 宽容（warmup 期可用），市值门≥毕业 2/3（早期拉升针不卖），全清" },
+    { "priority": 3, "condition": "graduationProgress >= 0.9", "maxExecutions": 1, "sellPercentage": 0.5, "bypassDebounce": true, "description": "毕业臂①：可靠价市值达 flap 毕业锚 72 BNB 的 90%，卖半（起步 0.9 留尘价余量）" },
+    { "priority": 4, "condition": "riseVel5m > 5 AND risePct5m > 15 AND (rsi9Bar5mRt IS NULL OR rsi9Bar5mRt > 50) AND graduationProgress >= 0.6667", "maxExecutions": 1, "sellPercentage": 0.5, "bypassDebounce": true, "description": "针臂普通档：速度>5%/min 且 5min 涨幅>15%，市值门≥毕业 2/3，卖半" },
+    { "priority": 5, "condition": "rsi9Bar5mRt > 85 AND risePct5m >= 5", "maxExecutions": 1, "sellPercentage": 0.4, "bypassDebounce": true, "description": "RSI T85：5m RSI9 实时口径>85 且 5min 涨幅≥5，卖 40%" },
+    { "priority": 6, "condition": "rsi9Bar5mRt > 78 AND rsi9Bar5mRt <= 85 AND risePct5m >= 5", "maxExecutions": 1, "sellPercentage": 0.3, "bypassDebounce": true, "description": "RSI T78：互斥带 (78,85]，防连续 tick 级联打光三档（冷却=RSI 降温穿带），卖 30%" },
+    { "priority": 7, "condition": "rsi9Bar5mRt > 75 AND rsi9Bar5mRt <= 78 AND risePct5m >= 5", "maxExecutions": 1, "sellPercentage": 0.25, "bypassDebounce": true, "description": "RSI T75：互斥带 (75,78]，卖 25%" },
+    { "priority": 8, "condition": "graduationProgress >= 0.98", "maxExecutions": 1, "sellPercentage": 0.5, "bypassDebounce": true, "description": "毕业臂②：≥0.98 再卖半（若①已触发余半仓的 50%）" }
+  ]
+}

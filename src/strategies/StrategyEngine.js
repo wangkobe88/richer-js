@@ -82,7 +82,11 @@ class StrategyEngine {
                     bypassDebounce: !!config.bypassDebounce,
                     lockTokenAfterSell: !!config.lockTokenAfterSell,
                     cumulativeLossLockPct: typeof config.cumulativeLossLockPct === 'number'
-                        ? config.cumulativeLossLockPct : null
+                        ? config.cumulativeLossLockPct : null,
+                    // E5 卖侧：卖出比例（执行时点余仓的比例，(0,1]；缺省/非法 → 1=全仓=旧语义）
+                    sellPercentage: (typeof config.sellPercentage === 'number'
+                        && config.sellPercentage > 0 && config.sellPercentage <= 1)
+                        ? config.sellPercentage : 1
                 };
 
                 this._strategies.push(strategy);

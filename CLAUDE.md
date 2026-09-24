@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Richer-js is an automated trading engine for **BSC four.meme platform tokens** (BSC-only). Token discovery and prices come from an **ankr WSS event subscription** on the four.meme TokenManager contract (fully event-driven, no polling); every trade tick is persisted to `wss_price_ticks`. It supports virtual trading (simulation), backtesting (tick replay), and live trading modes. It also includes a **narrative analysis engine** that evaluates meme coin events using a 3-stage LLM pipeline.
+Richer-js is an automated trading engine for **BSC four.meme + flap tokens** (BSC-only). Token discovery and prices come from a **常驻 WSS watcher**（ankr WSS event subscription on four.meme TokenManager + flap Portal, fully event-driven, no polling）: watcher 落库 `wss_price_ticks`/`wss_events`，实验进程（virtual / live / backtest，任意数量各自策略）从 DB 增量消费同一份数据流. It supports virtual trading (simulation), backtesting (tick replay), and live trading modes. It also includes a **narrative analysis engine** (Jev structured decision model) that evaluates meme coin events.
 
 ## Common Commands
 
@@ -23,6 +23,12 @@ node src/run-engine.js <experiment_id>
 
 # Narrative analysis engine (standalone worker)
 npm run narrative-engine
+
+# WSS watcher daemon (常驻双平台采集，182 screen 部署；本地不跑——ANKR key 在 182)
+node src/watcher/index.js
+
+# Watcher 架构本地零 DB 单测（打桩 dbManager）
+node scripts/_test_watcher_architecture.cjs
 ```
 
 No test framework or CI is configured.
@@ -35,24 +41,46 @@ No test framework or CI is configured.
 - **`src/run-engine.js`** - Run a single experiment's engine directly (virtual mode)
 - **`src/web-server.js`** - Web interface (Express.js, port 3010)
 - **`src/narrative/engine/start.mjs`** - Narrative analysis engine
+- **`src/watcher/index.js`** - WSS watcher daemon（常驻采集进程）
 
-### Trading Engine Flow (WSS event-driven)
+### Trading Engine Flow (watcher 架构：订阅与消费剥离)
+
+WSS 订阅由**常驻 watcher**（`src/watcher/`，单进程双平台，182 screen + pid 单实例锁）长期持有，不随实验起停；实验进程（任意数量、各自策略）从 DB 增量消费同一份数据流：
 
 ```
-ankr WSS (TokenManager2 logs subscription)
-  ├─ TokenCreate    → token discovery (TokenPool + experiment_tokens)
-  ├─ TokenTrade     → tick (dedup txHash+logIndex) ──┬→ wss_price_ticks (batch upsert)
-  │                                                 ├→ TokenPool.updatePrice
-  │                                                 └→ FourMemeFactorAggregator.processTick
-  │                                                     └─ factorsUpdated → FourMemeWssTradingEngine
-  │                                                                          ├─ sell leg: per-position realtime
-  │                                                                          └─ buy leg: debounce (burst+maxWait)
-  └─ LiquidityAdded → graduation (PancakeSwap route on live sells)
+┌ watcher 进程（src/watcher/WssWatcherService.js，常驻）─────────────────┐
+│ FourMemeAnkrWsCollector + FlapAnkrWsCollector（FA/tokenPool=null）      │
+│   tick(500ms flush)      → wss_price_ticks (experiment_id=NULL)        │
+│   token_create/graduation → wss_events (kind 行；重试队列保证不丢)       │
+│   60s heartbeat 行 → 实验侧断供判据 + 人工查活（7 天清理）               │
+│   60s 断流自愈（消息静默≥5min → forceReconnect；自引擎迁入）             │
+└─────────────────────────────────────────────────────────────────────────┘
+     │ wss_price_ticks (exp_id=NULL)        │ wss_events
+     ▼                                      ▼
+┌ 实验进程 ×N（FourMemeWssTradingEngine / FlapWssTradingEngine）─────────┐
+│ SharedTickConsumer（src/trading-engine/core/，1s 轮询 id watermark）：  │
+│   events: registerToken → pool.addToken → 引擎._handleNewToken/_handle │
+│           Graduation（heartbeat 只推水位不派发）                        │
+│   ticks:  pool.updatePrice → minTickBnb 门 → FA.processTick            │
+│           (emitFactors:true) → priceOutlier 命中行批量回写              │
+│ 引擎既有 factorsUpdated → OPB/卖腿实时/买腿 debounce 管线零改动         │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
+
+**SharedTickConsumer 关键机制**：首拉 `select max(id)` 对齐（只消费启动后新行，等价旧订阅行为）；水位延迟一周期提交 + `(tx_hash,log_index)` 去重集（对抗 bigserial 分配序≠提交序的双写者竞态）；**禁止服务端 platform 过滤**（异平台行须进结果集推水位，本地过滤）；先 events 后 ticks 串行（同周期 create 先应用）。乱序自愈：FA.processTick 对未注册 token 自动建 state，registerToken 幂等回填更早 createdAtMs。
 
 Two engines via `src/trading-engine/implementations/`:
-- **FourMemeWssTradingEngine** - virtual (simulated accounting) and live (`FourMemeDirectTrader` on-chain trades) modes in one engine
-- **BacktestEngine** - replays `wss_price_ticks` through the same factor-strategy pipeline (`FA.processTick(emitFactors:false)`)
+- **FourMemeWssTradingEngine** - virtual (simulated accounting) and live (`FourMemeDirectTrader` on-chain trades) modes in one engine; platform via `_wsConfigSectionName()`/`_wsPlatform()`（flap 子类覆盖）
+- **BacktestEngine** - replays `wss_price_ticks` through the same factor-strategy pipeline（**token 集合 + platform 口径**：`_tokenMeta` 全集 100 地址/批 `.in` + `.eq('platform')`，分块后全局 id 归并排序；不再按 experiment_id——watcher 新行 exp_id=NULL）
+
+### Watcher 架构口径变化（2026-09-24 切换）
+
+1. **`wss_price_ticks` 新行 `experiment_id=NULL`**：watcher 写的行免疫删实验级联；删历史实验仍级联删其名下旧行（FK 仍在，混合保留语义）
+2. **tvl 因子恒 0**：DB 行无 offers/funds_bnb（four.meme 虚拟对齐回测口径；flap 一直如此）
+3. **price_outlier 消费侧回写**：新行落库 false，consumer 判离群后批量 UPDATE（延迟 ~1s）
+4. **实验级 collector 配置失效**：实验 config 的 `fourmemeWs/flapWs` 段 contracts/tickBuffer/reconnect/endpoint 覆盖无效（watcher 只读 default.json）；debounce/FA 参数/conpusEnrich 仍实验侧生效
+5. **端到端延迟 +~1.5s**：flush(≤0.5s) + 轮询(1s)；卖腿止损同此
+6. **wss-down-guard 改判据**：consumer `lastIngestAt` 15min 停滞（watcher 60s 心跳行保证市场安静时不误报）→ status='wss_down'；自愈 forceReconnect 已迁 watcher，实验侧只告警
 
 ### Narrative Analyzer (Jev Structured Decision Engine)
 
@@ -137,7 +165,7 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 ### Database
 
-Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
+Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; watcher 写入行 experiment_id=NULL), `wss_events` (token_create/graduation/heartbeat 低频事件通道，token 级全局表不挂 experiment 维度), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
 
 Experiment deletion is DB-level: every experiment-owned table carries `experiment_id → experiments(id) ON DELETE CASCADE` (see `scripts/sql/migrate-experiment-cascade-delete.sql`), so deleting the experiments row removes all its data — the web layer just deletes the row, no per-table cleanup.
 
@@ -163,7 +191,9 @@ Experiment deletion is DB-level: every experiment-owned table carries `experimen
 - **Case sensitivity**: Wallet addresses are case-sensitive when querying database
 - **Factor building**: Use `FactorBuilder.buildPreBuyCheckFactorValues()` when adding new pre-buy factors
 - **Narrative prompts are ESM** (`.mjs`) while trading engine is CommonJS (`.js`) — don't mix import styles
-- **Never delete experiment rows that have produced data** — deleting cascades to `wss_price_ticks` rows (race-owned by experiment_id) and loses them globally forever
+- **Never delete experiment rows that have produced data** — deleting cascades to `wss_price_ticks` rows (race-owned by experiment_id) and loses them globally forever（watcher 架构后新行 exp_id=NULL 免疫级联，但历史行仍级联——删历史实验前必须用户裁定）
+- **smart-wallet-mining 待迁**（watcher 架构遗留批次）：`scripts/smart-wallet-mining/` 仍按 experiment_id 口径拉 ticks（data-fetcher.js / mine-smart-wallets.cjs pickSources / verify-smart-wallets.cjs）——对新实验（exp_id=NULL ticks）会静默拉空，需改 token 集合或 received_at 全局窗口+platform 口径
+- **Watcher 单实例**：`pids/wss-watcher.pid` 锁 + kill(pid,0) 探活；watcher 挂掉 → 实验侧 15min wss_down 告警（不自愈，需人工/监控重启 watcher）
 
 ## Adding New Pre-Buy Factors
 

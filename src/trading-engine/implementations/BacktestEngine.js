@@ -32,7 +32,8 @@ const baseConfig = require('../../../config/default.json');
 
 const TICK_PAGE_SIZE = 500;       // 分页读取页大小（必须 < Supabase 默认 max rows 1000，
                                   // 否则响应被服务端截断、终止条件误判数据到尾）
-const MAX_TICK_PAGES = 2000;      // 分页保护上限（100 万 tick）
+const MAX_TICK_PAGES = 2000;      // 分页保护上限（全局累计 100 万 tick）
+const TOKEN_CHUNK_SIZE = 100;     // .in('token_address') 地址批量护栏（PostgREST URL 长度）
 const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐实时引擎 30s）
 
 class BacktestEngine extends AbstractTradingEngine {
@@ -61,6 +62,10 @@ class BacktestEngine extends AbstractTradingEngine {
     this._cumLossTotals = new Map();    // token → 已平仓轮 profitPercent 累计（盈亏同记）
     this._cumLossLockPct = null;        // 累亏闩锁阈值（卖腿 cumulativeLossLockPct 多腿取最严；null=未配置）
     this._sellDebounceMs = 0;           // 卖出确认去抖窗口（_initializeDataSources 按 wsConfig 重读）
+    // E5 多卖腿轮账本：tokenAddress → { buyUsd, sellUsdGross, buyTime, legCount }（记账货币 USD，
+    // 与 trades 表同口径）。买入成功登记，每卖腿累计（含回放结束强平腿）；全清时
+    // addCompletedPair 一次记整轮 pnl=Σ卖-买
+    this._roundLedger = new Map();
 
     this.initialBalance = 100;
     this._tradeAmount = 0.1;
@@ -182,6 +187,9 @@ class BacktestEngine extends AbstractTradingEngine {
           bypassDebounce: !!s.bypassDebounce,
           lockTokenAfterSell: !!s.lockTokenAfterSell,
           cumulativeLossLockPct: typeof s.cumulativeLossLockPct === 'number' ? s.cumulativeLossLockPct : null,
+          // E5 卖侧：卖出比例（执行时点余仓比例，(0,1]；缺省/非法 → 1=全仓=旧语义）
+          sellPercentage: (typeof s.sellPercentage === 'number'
+            && s.sellPercentage > 0 && s.sellPercentage <= 1) ? s.sellPercentage : 1,
           enabled: true,
         });
       });
@@ -286,41 +294,59 @@ class BacktestEngine extends AbstractTradingEngine {
     }
   }
 
-  /** 源实验 wss_price_ticks 按 id 升序分页读入（内存过滤时间窗） */
+  /**
+   * 回放 tick 载入（watcher 架构口径：token 集合 + platform，不再按 experiment_id——
+   * 新行 experiment_id=NULL，旧口径会漏掉全部 watcher 写入的行）。
+   * token 集来自 _tokenMeta（源实验 experiment_tokens 全量），100 地址/批（PostgREST
+   * .in 护栏，参照 build-token-profiles.cjs）+ platform 过滤 + id 升序分页；
+   * 分块各自有序但块间无序 → 全部载入后全局按 id 归并排序，再内存过滤时间窗。
+   * 全局累计上限 100 万 tick（MAX_TICK_PAGES × TICK_PAGE_SIZE）。
+   */
   async _loadWssTicks() {
     const supabase = this._getClient();
-    let from = 0;
-    let query = supabase
-      .from('wss_price_ticks')
-      .select('id, token_address, trade_type, trader_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier')
-      .eq('experiment_id', this._sourceExperimentId)
-      .order('id', { ascending: true });
-    for (let page = 0; page < MAX_TICK_PAGES; page++) {
-      const { data, error } = await query.range(from, from + TICK_PAGE_SIZE - 1);
-      if (error) throw new Error(`读取 wss_price_ticks 失败: ${error.message}`);
-      if (!data || data.length === 0) break;
-      for (const row of data) {
-        const ts = new Date(row.block_time).getTime();
-        if (this._startTimeFilter && ts < this._startTimeFilter) continue;
-        if (this._endTimeFilter && ts > this._endTimeFilter) continue;
-        this._ticks.push({
-          token_address: row.token_address,
-          trade_type: row.trade_type,
-          trader_address: row.trader_address,
-          price_bnb: Number(row.price_bnb),
-          price_usd: row.price_usd === null ? null : Number(row.price_usd),
-          bnb_amount: Number(row.bnb_amount || 0),
-          token_amount: Number(row.token_amount || 0),
-          block_number: row.block_number,
-          timestamp: ts,
-          tx_hash: row.tx_hash,
-          log_index: row.log_index,
-          price_outlier: row.price_outlier || false,
-        });
+    const addresses = [...this._tokenMeta.keys()];
+    const raw = [];
+    for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
+      const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
+      let from = 0;
+      for (let page = 0; page < MAX_TICK_PAGES; page++) {
+        const { data, error } = await supabase
+          .from('wss_price_ticks')
+          .select('id, token_address, trade_type, trader_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier')
+          .in('token_address', chunk)
+          .eq('platform', this._platform)
+          .order('id', { ascending: true })
+          .range(from, from + TICK_PAGE_SIZE - 1);
+        if (error) throw new Error(`读取 wss_price_ticks 失败: ${error.message}`);
+        if (!data || data.length === 0) break;
+        raw.push(...data);
+        this.metrics.processedDataPoints += data.length;
+        if (raw.length > MAX_TICK_PAGES * TICK_PAGE_SIZE) {
+          throw new Error('回放 tick 总量超出分页保护上限（100 万）');
+        }
+        if (data.length < TICK_PAGE_SIZE) break;
+        from += TICK_PAGE_SIZE;
       }
-      this.metrics.processedDataPoints += data.length;
-      if (data.length < TICK_PAGE_SIZE) break;
-      from += TICK_PAGE_SIZE;
+    }
+    raw.sort((a, b) => a.id - b.id);
+    for (const row of raw) {
+      const ts = new Date(row.block_time).getTime();
+      if (this._startTimeFilter && ts < this._startTimeFilter) continue;
+      if (this._endTimeFilter && ts > this._endTimeFilter) continue;
+      this._ticks.push({
+        token_address: row.token_address,
+        trade_type: row.trade_type,
+        trader_address: row.trader_address,
+        price_bnb: Number(row.price_bnb),
+        price_usd: row.price_usd === null ? null : Number(row.price_usd),
+        bnb_amount: Number(row.bnb_amount || 0),
+        token_amount: Number(row.token_amount || 0),
+        block_number: row.block_number,
+        timestamp: ts,
+        tx_hash: row.tx_hash,
+        log_index: row.log_index,
+        price_outlier: row.price_outlier || false,
+      });
     }
     // wss_price_ticks 表无 offers/funds_bnb 列：FA 仅在 tick.funds_bnb > 0 时更新
     // lastFundsBnb（回放恒保持 0），tvl 因子因此恒 0——策略 condition 引用 tvl 时需知情
@@ -918,6 +944,7 @@ class BacktestEngine extends AbstractTradingEngine {
         buyPrice,
         profitPercent: buyPrice && latestPrice ? ((latestPrice - buyPrice) / buyPrice * 100) : null,
         holdDuration: token.buyTime ? ((nowTs - token.buyTime) / 1000) : null,
+        sellPercentage: strategy.sellPercentage ?? 1, // E5：本腿卖出比例（执行时点余仓）
         factors: { trendFactors: buildFactorValuesForTimeSeries(factors) },
         timestamp: new Date(nowTs),
       };
@@ -965,12 +992,14 @@ class BacktestEngine extends AbstractTradingEngine {
         this._sellConfirmDebouncer.clear(tokenAddress);
 
         // 累亏闩锁记账：卖出成交 → 该 token 已平仓轮 profitPercent 累计（盈亏同记）。
-        // signal.profitPercent 缺失时从 token.buyPrice 现算（双缺失才跳过记账）
+        // signal.profitPercent 缺失时从 token.buyPrice 现算（双缺失才跳过记账）；
+        // E5 部分卖按腿折算（本腿只动了 sellPercentage 比例的仓位）
         let _pct = Number(signal.profitPercent);
         if (!Number.isFinite(_pct) && latestPrice > 0 && token.buyPrice > 0) {
           _pct = (latestPrice - token.buyPrice) / token.buyPrice * 100;
         }
         if (Number.isFinite(_pct)) {
+          _pct = _pct * (signal.sellPercentage ?? 1);
           const _cum = (this._cumLossTotals.get(tokenAddress) || 0) + _pct;
           this._cumLossTotals.set(tokenAddress, _cum);
           if (this._cumLossLockPct != null && _cum <= this._cumLossLockPct) {
@@ -1023,6 +1052,13 @@ class BacktestEngine extends AbstractTradingEngine {
       this.metrics.totalTrades++;
       if (result && result.success) {
         this.metrics.successfulTrades++;
+        // E5 轮账本开轮：买入成功登记成本（记账货币 USD；回测 tradeAmount 即此口径）
+        this._roundLedger.set(signal.tokenAddress, {
+          buyUsd: amountInBNB,
+          sellUsdGross: 0,
+          buyTime: timestamp !== null ? timestamp : Date.now(),
+          legCount: 0,
+        });
       } else {
         this.metrics.failedTrades++;
         this.logger.error(this._experimentId, '_executeBuy',
@@ -1043,10 +1079,13 @@ class BacktestEngine extends AbstractTradingEngine {
       if (!holding || holding.amount <= 0) {
         return { success: false, reason: '无持仓' };
       }
+      const sellPct = (typeof signal.sellPercentage === 'number'
+        && signal.sellPercentage > 0 && signal.sellPercentage <= 1) ? signal.sellPercentage : 1;
+      // P-3 快照（与实时引擎同构）：PM 部分卖原地改写 holding.amount，成交后此引用即余量
+      const qtyBefore = Number(holding.amount);
 
-      const amountToSell = holding.amount;
+      const amountToSell = new Decimal(qtyBefore).mul(sellPct).toNumber();
       const price = signal.price || 0;
-      const amountOutBNB = price > 0 ? new Decimal(amountToSell).mul(price).toNumber() : 0;
 
       const result = await this.executeTrade({
         tokenAddress: signal.tokenAddress,
@@ -1061,28 +1100,50 @@ class BacktestEngine extends AbstractTradingEngine {
           buyPrice: signal.buyPrice,
           profitPercent: signal.profitPercent,
           holdDuration: signal.holdDuration,
+          sellPercentage: sellPct,
         },
       });
 
       this.metrics.totalTrades++;
       if (result && result.success) {
         this.metrics.successfulTrades++;
+        const qtySold = amountToSell; // 虚拟成交=请求数量
+        const legProceedsUsd = price > 0 ? new Decimal(qtySold).mul(price).toNumber() : 0;
+
+        // 全清判定用 PM 余仓（部分卖保持 bought，卖腿继续评估、FA 锚不清——硬底分母保住）
+        const fullyClosed = (Number(this._getHolding(signal.tokenAddress)?.amount ?? 0) <= 0);
+
+        // E5 轮账本：每卖腿累计所得；全清时一次记整轮 pnl=Σ卖-买（含回放结束强平腿）
+        const ledger = this._roundLedger.get(signal.tokenAddress)
+          || { buyUsd: 0, sellUsdGross: 0, buyTime: Date.now(), legCount: 0 };
+        ledger.sellUsdGross = new Decimal(ledger.sellUsdGross).plus(legProceedsUsd).toNumber();
+        ledger.legCount = (ledger.legCount || 0) + 1;
+
         const token = this._tokenPool.getToken(signal.tokenAddress, signal.chain || 'bsc');
-        if (token && token.buyTime && token.buyPrice) {
-          const sellTime = timestamp !== null ? timestamp : Date.now();
-          const buyPrice = token.buyPrice;
-          const returnRate = buyPrice > 0 ? ((price - buyPrice) / buyPrice * 100) : 0;
-          const pnl = amountOutBNB - (amountOutBNB / (1 + returnRate / 100));
-          this._tokenPool.addCompletedPair(signal.tokenAddress, signal.chain, {
-            buyTime: token.buyTime,
-            sellTime,
-            returnRate,
-            pnl,
-          });
+        if (fullyClosed) {
+          if (token && token.buyTime) {
+            const sellTime = timestamp !== null ? timestamp : Date.now();
+            const returnRate = ledger.buyUsd > 0
+              ? (ledger.sellUsdGross - ledger.buyUsd) / ledger.buyUsd * 100 : 0;
+            this._tokenPool.addCompletedPair(signal.tokenAddress, signal.chain, {
+              buyTime: token.buyTime,
+              sellTime,
+              returnRate,
+              pnl: new Decimal(ledger.sellUsdGross).minus(ledger.buyUsd).toNumber(),
+            });
+            this.logger.info(this._experimentId, '_executeSell',
+              `已完成交易对(回放，全清 ${ledger.legCount} 腿归并) | ${signal.symbol} returnRate=${returnRate.toFixed(2)}%`);
+          }
+          this._roundLedger.delete(signal.tokenAddress);
+
+          this._tokenPool.markAsSold(signal.tokenAddress, signal.chain);
+          await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'sold');
+          this._factorAggregator.clearBuyState(signal.tokenAddress, 'default');
+        } else {
+          this._roundLedger.set(signal.tokenAddress, ledger);
+          this.logger.info(this._experimentId, '_executeSell',
+            `部分卖出(回放) ${(sellPct * 100).toFixed(0)}% | ${signal.symbol} 腿所得=${legProceedsUsd.toFixed(6)} 余仓=${Number(this._getHolding(signal.tokenAddress)?.amount ?? 0).toFixed(4)}`);
         }
-        this._tokenPool.markAsSold(signal.tokenAddress, signal.chain);
-        await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'sold');
-        this._factorAggregator.clearBuyState(signal.tokenAddress, 'default');
       } else {
         this.metrics.failedTrades++;
       }
@@ -1152,6 +1213,7 @@ class BacktestEngine extends AbstractTradingEngine {
         buyPrice,
         profitPercent: buyPrice && price ? ((price - buyPrice) / buyPrice * 100) : null,
         holdDuration: token?.buyTime ? ((lastTs - token.buyTime) / 1000) : null,
+        sellPercentage: 1, // E5：强平腿=余仓全清（冻结估值口径，analyze 分列）
         factors: factors ? { trendFactors: buildFactorValuesForTimeSeries(factors) } : {},
         timestamp: new Date(lastTs),
       };
