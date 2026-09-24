@@ -4,8 +4,10 @@
 //
 // 对一个实验涉及的全部 token（experiment_tokens，回测实验自动解析源实验）
 // 从 wss_price_ticks 拉全史 ticks → slim tick（mine 同构映射：含尘/outlier，
-// priceReliable=!outlier&&px>0&&bnb>=minTickBnb）→ classifyToken（bsc-v1，
-// wash/pump_dump/high_mcap_wash/quality/high_mcap/normal/low_quality/low_activity）
+// priceReliable=!outlier&&px>0&&bnb>=minTickBnb）→ classifyToken（bsc-v2，
+// wash/pump_dump/high_mcap_wash/quality/high_mcap/normal/low_quality/low_activity；
+// v2 起顺带产出涨幅 max/final_change_percent——BNB 计价，base=首个可用价 tick，
+// 退役页面涨幅分析的替代数据源，web/压缩/清理一律读 token_profiles 两列）
 // → upsert token_profiles（token_address 全局 PK，与在线 OPB 同 shape）。
 //
 // category_visible_at 口径：离线用 computeFirstIdleVisibleAt（复刻 OPB 双触发
@@ -112,6 +114,8 @@ async function main() {
       classified_at: nowIso,
       category_visible_at: visMs != null ? new Date(visMs).toISOString() : nowIso,
       peak_mcap_usd: r.maxMarketCap || 0,
+      max_change_percent: r.maxChangePercent ?? null,   // (可用价峰-基准)/基准*100，BNB 计价；null=无可用价 tick
+      final_change_percent: r.finalChangePercent ?? null,
       profile: {
         version: 1,
         category: r.category,
@@ -119,6 +123,8 @@ async function main() {
         classified_at: nowIso,
         classifier_version: CLASSIFIER_VERSION,
         max_market_cap_usd: r.maxMarketCap || 0,
+        max_change_percent: r.maxChangePercent ?? null,
+        final_change_percent: r.finalChangePercent ?? null,
         class_info: r.classInfo,
         config_snapshot: { qualityMarketCapThreshold: DEFAULT_SCORING_PARAMS.qualityMarketCapThreshold },
         reason: r.reason || null,
@@ -138,8 +144,8 @@ async function main() {
     rows.push({
       token_address: addr, category: 'low_activity', source: 'offline',
       classifier_version: CLASSIFIER_VERSION, classified_at: nowIso, category_visible_at: nowIso,
-      peak_mcap_usd: 0,
-      profile: { version: 1, category: 'low_activity', source: 'offline', classified_at: nowIso, classifier_version: CLASSIFIER_VERSION, max_market_cap_usd: 0, class_info: null, reason: 'low_activity: 无 ticks', category_visible_at: nowIso, flash_crash_period: null, violent_crash_blocks: [], first_tick_time: null, last_tick_time: null, conflict: null },
+      peak_mcap_usd: 0, max_change_percent: null, final_change_percent: null,
+      profile: { version: 1, category: 'low_activity', source: 'offline', classified_at: nowIso, classifier_version: CLASSIFIER_VERSION, max_market_cap_usd: 0, max_change_percent: null, final_change_percent: null, class_info: null, reason: 'low_activity: 无 ticks', category_visible_at: nowIso, flash_crash_period: null, violent_crash_blocks: [], first_tick_time: null, last_tick_time: null, conflict: null },
     });
   }
 

@@ -42,7 +42,8 @@ const {
   DEFAULT_SCORING_PARAMS, OPB_DEFAULTS,
 } = require('./classifier-constants');
 
-const CLASSIFIER_VERSION = 'bsc-v1'; // BSC 分叉从 v1 起（母版 v7 口径已按上述适配变更，不沿用版本号）
+const CLASSIFIER_VERSION = 'bsc-v2'; // BSC 分叉从 v1 起（母版 v7 口径已按上述适配变更，不沿用版本号）
+// v2 = v1 分类判定逐字不变，仅 profile 新增涨幅指标（max/final_change_percent；bsc-v1 行无涨幅列，重跑后升 v2）
 
 // afterFirst9s 基准窗（母版扣前3秒=7.5 slot；BSC 9s=3 block）
 const FIRST_WINDOW_MS = 9000;
@@ -182,6 +183,7 @@ function computeTickMetrics(ticks, totalSupply = 0) {
   let highestPriceUsd = 0;
   let peakIdx = 0;
   let lastPriceBnb = 0;
+  let firstUsablePriceBnb = 0;
   const uniqueTraders = new Set();
   let totalBuyBnb = 0;
   let totalSellBnb = 0;
@@ -206,6 +208,7 @@ function computeTickMetrics(ticks, totalSupply = 0) {
     if (_priceUsable(tick)) {
       const priceBnb = Number(tick.priceBnb);
       const priceUsd = Number(tick.priceUsd) || 0;
+      if (firstUsablePriceBnb === 0) firstUsablePriceBnb = priceBnb; // 涨幅基准价：可用价链首值（priceBnb>0 由 _priceUsable 保证，0 哨兵安全）
       if (priceBnb > highestPriceBnb) {
         highestPriceBnb = priceBnb;
         highestPriceUsd = priceUsd; // USD 峰与 BNB 峰同 tick 快照（母版同构：peak 时点的 USD 价）
@@ -257,6 +260,15 @@ function computeTickMetrics(ticks, totalSupply = 0) {
     ? ((lastPriceBnb - firstPriceBnb) / firstPriceBnb) * 100
     : 0;
 
+  // 涨幅指标（退役页面涨幅分析的替代口径，BNB 计价与比率族原则一致）：
+  // base = 首个可用价 tick，peak/final = 可用价链最大/末值。无可用价 tick → null（尘票/离群全滤）。
+  const maxChangePercent = firstUsablePriceBnb > 0
+    ? ((highestPriceBnb - firstUsablePriceBnb) / firstUsablePriceBnb) * 100
+    : null;
+  const finalChangePercent = firstUsablePriceBnb > 0
+    ? ((lastPriceBnb - firstUsablePriceBnb) / firstUsablePriceBnb) * 100
+    : null;
+
   return {
     highestPriceBnb,
     highestPriceUsd,
@@ -275,6 +287,9 @@ function computeTickMetrics(ticks, totalSupply = 0) {
     drawdownFromHighestPct,
     maxMarketCap,
     priceChangePct,
+    firstUsablePriceBnb,
+    maxChangePercent,   // (可用价峰-基准)/基准*100，BNB 计价；null = 无可用价 tick
+    finalChangePercent, // (可用价末-基准)/基准*100，BNB 计价；null = 无可用价 tick
     // high_mcap_wash 收紧 ratio：afterFirst9s peak / 峰值前 min（[firstTickTime+9s, peakTime] 最低价，砸盘地板价不计入）。
     // null = afterFirst9s 达标 tick <2 或 peak 在前9秒内（数据不足以证明真实拉升）→ 判定时不归 high_mcap_wash → 落 wash。
     beforePeakMaxMinRatio:
@@ -441,13 +456,16 @@ function classifyFromMetrics(metrics, config = {}, options = {}) {
  * @param {Array} ticks slim tick 序列（按 ts 升序）
  * @param {Object} [config] 分类配置（除 DEFAULT_SCORING_PARAMS 键外另含 totalSupply：TokenCreate 发行量）
  * @param {Object} [options] { diagnostic: boolean }
- * @returns {{ category, maxMarketCap, classInfo, flashCrashPeriod, violentCrashBlocks, firstTickTime, lastTickTime, reason? }}
+ * @returns {{ category, maxMarketCap, classInfo, flashCrashPeriod, violentCrashBlocks, firstTickTime, lastTickTime, maxChangePercent, finalChangePercent, reason? }}
  */
 function classifyToken(ticks, config = {}, options = {}) {
   const { diagnostic = false } = options;
   const totalSupply = Number(config.totalSupply) || 0;
 
   if (ticks.length < MIN_TICKS) {
+    // low_activity 也补算涨幅（数据可得性指标而非分类质量门——时序压缩/清理对尘票也需要涨幅信号）。
+    // computeTickMetrics 对空数组有前置契约（ticks[peakIdx] 解引用），ticks.length 为 0 时不调。
+    const metrics = ticks.length ? computeTickMetrics(ticks, totalSupply) : null;
     return {
       category: 'low_activity',
       maxMarketCap: 0,
@@ -456,6 +474,8 @@ function classifyToken(ticks, config = {}, options = {}) {
       violentCrashBlocks: [],
       firstTickTime: ticks.length ? ticks[0].ts : null,
       lastTickTime: ticks.length ? ticks[ticks.length - 1].ts : null,
+      maxChangePercent: metrics?.maxChangePercent ?? null,
+      finalChangePercent: metrics?.finalChangePercent ?? null,
       reason: diagnostic ? `low_activity: ticks=${ticks.length} < MIN_TICKS=${MIN_TICKS}` : undefined,
     };
   }
@@ -502,7 +522,9 @@ function classifyToken(ticks, config = {}, options = {}) {
     flashCrashPeriod: metrics.flashCrashPeriod || null,   // {peakTime,peakPrice,floorTime,floorPrice} | null
     violentCrashBlocks: metrics.violentCrashBlocks || [], // Tier2 暴力砸盘 block_number[]（number[]；仅 flashCrashPeriod 非空 token 有）
     firstTickTime: metrics.firstTickTime,                 // token 首 tick 时间（ms）
-    lastTickTime: metrics.lastTickTime };                 // token 末 tick 时间（ms），与 firstTickTime 成对=分类数据时间范围
+    lastTickTime: metrics.lastTickTime,                   // token 末 tick 时间（ms），与 firstTickTime 成对=分类数据时间范围
+    maxChangePercent: metrics.maxChangePercent,           // (可用价峰-基准)/基准*100；null = 无可用价 tick
+    finalChangePercent: metrics.finalChangePercent };     // (可用价末-基准)/基准*100；null = 无可用价 tick
 }
 
 // ── firstIdle 可见时刻（category_visible_at 的计算口径，单一真相源）──

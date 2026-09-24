@@ -278,6 +278,12 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/token_detail.html'));
     });
 
+    // 代币 ticks 浏览页面（全历史 wss_price_ticks，全局口径不挂实验；
+    // 移植自 pumpfun-wss-trader /token/:address，BSC 区块/BNB 计价适配）
+    this.app.get('/token-ticks', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/token_ticks.html'));
+    });
+
     // 叙事分析页面（独立页面，不在实验子路由下）
     this.app.get('/narrative-analyzer', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/narrative-analyzer.html'));
@@ -2820,7 +2826,7 @@ class RicherJsWebServer {
     // 按 token_address 全市场聚合（tick 表 UNIQUE(tx_hash, log_index) 全网去重）
     this.app.get('/api/ticks', async (req, res) => {
       try {
-        const { tokenAddress, from, to, tradeType, limit, offset } = req.query;
+        const { tokenAddress, from, to, tradeType, limit, offset, withinSeconds } = req.query;
 
         if (!tokenAddress) {
           return res.status(400).json({ success: false, error: '缺少必需参数: tokenAddress' });
@@ -2840,6 +2846,25 @@ class RicherJsWebServer {
         if (to) query = query.lte('block_time', to);
         if (tradeType) query = query.eq('trade_type', tradeType);
 
+        // 🔥 代币发出后 N 秒内的 ticks：以该 token 首个 tick 的 block_time 为基准加 upper bound
+        // （移植自 pumpfun-wss-trader）。与主查询同口径（price_outlier=false、price_usd 非空），
+        // 分页 count 自动反映窗口内总量。
+        const winSec = Number(withinSeconds);
+        if (Number.isFinite(winSec) && winSec > 0) {
+          const { data: firstTick } = await supabase
+            .from('wss_price_ticks')
+            .select('block_time')
+            .eq('token_address', tokenAddress)
+            .eq('price_outlier', false)
+            .not('price_usd', 'is', null)
+            .order('block_time', { ascending: true })
+            .limit(1);
+          if (firstTick && firstTick[0] && firstTick[0].block_time) {
+            const windowEnd = new Date(new Date(firstTick[0].block_time).getTime() + winSec * 1000).toISOString();
+            query = query.lte('block_time', windowEnd);
+          }
+        }
+
         const pageLimit = Math.min(parseInt(limit) || 1000, 5000);
         const pageOffset = parseInt(offset) || 0;
         query = query.range(pageOffset, pageOffset + pageLimit - 1);
@@ -2855,6 +2880,32 @@ class RicherJsWebServer {
         });
       } catch (error) {
         this.logger.error('WebServer', '获取tick数据失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 代币基本信息（ticks 浏览页用，全局口径不挂实验）：experiment_tokens 按地址
+    // 取最近一条（同地址可能被多个实验发现），轻量列，不带 raw_api_data
+    this.app.get('/api/token-ticks/info', async (req, res) => {
+      try {
+        const { token } = req.query;
+        if (!token) {
+          return res.status(400).json({ success: false, error: '缺少必需参数: token' });
+        }
+
+        const supabase = this.dataService.supabase;
+        const { data, error } = await supabase
+          .from('experiment_tokens')
+          .select('token_address, token_symbol, creator_address, platform, blockchain, discovered_at, experiment_id')
+          .eq('token_address', token)
+          .order('discovered_at', { ascending: false })
+          .limit(1);
+
+        if (error) throw error;
+
+        res.json({ success: true, data: data && data.length ? data[0] : null });
+      } catch (error) {
+        this.logger.error('WebServer', '获取代币信息失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });

@@ -406,6 +406,7 @@
                         <button class="tab-button" data-tab="signals">信号记录</button>
                         <button class="tab-button" data-tab="holders">持有者</button>
                         <button class="tab-button" data-tab="early-trades">早期交易</button>
+                        <button class="tab-button" data-tab="ticks">Ticks 浏览</button>
                     </div>
 
                     <!-- 基本信息标签页 -->
@@ -448,6 +449,17 @@
                         <div class="text-center py-8">
                             <a id="link-early-trades" href="#" target="_blank" class="btn btn-primary">
                                 查看早期交易详情
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Ticks 浏览标签页 -->
+                    <div id="tab-ticks" class="tab-content">
+                        <h3 class="text-lg font-semibold text-white mb-4">Ticks 浏览</h3>
+                        <p class="text-sm text-gray-400 mb-4">全历史逐笔成交（wss_price_ticks，与实验无关）：Tick 气泡图 + 区块 K 线 + 交易明细分页。</p>
+                        <div class="text-center py-8">
+                            <a id="link-ticks" href="#" target="_blank" class="btn btn-primary">
+                                打开 Ticks 浏览页
                             </a>
                         </div>
                     </div>

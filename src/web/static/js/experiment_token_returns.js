@@ -769,6 +769,9 @@ class ExperimentTokenReturns {
             <a href="/token-detail?experiment=${this.experimentId}&address=${item.tokenAddress}" target="_blank" class="action-link text-indigo-400 hover:text-indigo-300">
               代币详情
             </a>
+            <a href="/token-ticks?token=${item.tokenAddress}" target="_blank" class="action-link text-green-400 hover:text-green-300">
+              Ticks 浏览
+            </a>
           </div>
         </td>
       </tr>

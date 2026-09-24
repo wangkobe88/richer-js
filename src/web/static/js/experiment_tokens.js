@@ -664,6 +664,8 @@ class ExperimentTokens {
               <span class="text-gray-600">|</span>
               <a href="${tokenDetailUrl}" target="_blank" class="hover:text-cyan-400 flex-shrink-0" title="代币详情">详情</a>
               <span class="text-gray-600">|</span>
+              <a href="/token-ticks?token=${token.token_address}" target="_blank" class="hover:text-green-400 flex-shrink-0" title="Ticks 浏览（全历史）">Ticks</a>
+              <span class="text-gray-600">|</span>
               <a href="${holdersUrl}" target="_blank" class="hover:text-indigo-400 flex-shrink-0" title="持有者">持有者</a>
               <span class="text-gray-600">|</span>
               <button class="copy-address-btn hover:text-blue-400 flex-shrink-0" data-address="${token.token_address}">复制</button>

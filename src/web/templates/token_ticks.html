@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richer 交易系统 - Ticks 浏览</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.0" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1/dist/chartjs-chart-financial.min.js"></script>
+    <style>
+        .chart-container { position: relative; height: 450px; background: #1f2937; border-radius: 8px; padding: 20px; }
+        select option { background-color: #374151; color: white; }
+        table th { position: sticky; top: 0; z-index: 10; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen">
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+                <a href="/experiments" class="text-gray-300 hover:text-white text-sm">← 实验列表</a>
+                <span class="text-gray-600">/</span>
+                <span class="text-white font-semibold">Ticks 浏览</span>
+                <span class="text-gray-500 text-xs ml-2">(与实验无关 · 全历史 wss_price_ticks · BSC four.meme)</span>
+                <button id="refresh-btn" class="ml-auto px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm text-white">🔄 刷新</button>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-4 py-6">
+            <!-- Header: 代币地址 + symbol + 外链 -->
+            <div class="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0 flex-1">
+                        <div class="text-xs text-gray-400 mb-1">代币地址</div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <code id="token-address" class="text-green-400 font-mono break-all text-base">加载中...</code>
+                            <button id="copy-token-btn" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs text-white whitespace-nowrap">复制</button>
+                        </div>
+                        <div id="token-summary" class="mt-3 text-sm text-gray-400"></div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <a id="gmgn-token-btn" href="#" target="_blank" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-sm text-white flex items-center gap-1"><span>📊</span> GMGN</a>
+                        <a id="bscscan-token-btn" href="#" target="_blank" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 rounded text-sm text-white flex items-center gap-1"><span>🔍</span> BSCScan</a>
+                        <a id="fourmeme-btn" href="#" target="_blank" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 rounded text-sm text-white flex items-center gap-1"><span>🪙</span> four.meme</a>
+                        <a id="dexscreener-btn" href="#" target="_blank" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 rounded text-sm text-white flex items-center gap-1"><span>📈</span> Dexscreener</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 筛选栏 -->
+            <div class="bg-gray-800 rounded-lg p-4 mb-4 border border-gray-700">
+                <div class="flex flex-wrap gap-4 items-end">
+                    <div>
+                        <label for="filter-type" class="block text-sm font-medium text-white mb-1">交易类型</label>
+                        <select id="filter-type" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
+                            <option value="all">全部</option>
+                            <option value="buy">买入</option>
+                            <option value="sell">卖出</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-from" class="block text-sm font-medium text-white mb-1">开始时间</label>
+                        <input type="datetime-local" id="filter-from" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
+                    </div>
+                    <div>
+                        <label for="filter-to" class="block text-sm font-medium text-white mb-1">结束时间</label>
+                        <input type="datetime-local" id="filter-to" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
+                    </div>
+                    <button id="apply-filters" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white">应用筛选</button>
+                    <div class="flex items-center gap-2 text-sm border-l border-gray-600 pl-4 ml-2">
+                        <span class="text-gray-400 whitespace-nowrap">只显示代币发出后</span>
+                        <input type="number" id="tick-time-window" min="0" step="1" placeholder="不限" class="w-24 px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-sm">
+                        <span class="text-gray-400 whitespace-nowrap">秒内的 ticks</span>
+                        <button id="apply-tick-window" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm text-white">应用</button>
+                        <button id="reset-tick-window" class="px-3 py-2 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white">重置</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 交易统计卡片 -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700"><p class="text-sm font-medium text-gray-400">总交易数</p><p class="text-2xl font-bold text-white" id="stat-total">0</p></div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700"><p class="text-sm font-medium text-gray-400">买入</p><p class="text-2xl font-bold text-green-400" id="stat-buys">0</p></div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700"><p class="text-sm font-medium text-gray-400">卖出</p><p class="text-2xl font-bold text-red-400" id="stat-sells">0</p></div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700"><p class="text-sm font-medium text-gray-400">BNB 总量</p><p class="text-2xl font-bold text-yellow-400" id="stat-volume">0</p></div>
+            </div>
+
+            <!-- Bubble Chart -->
+            <div id="chart-wrapper" class="bg-gray-800 rounded-lg border border-gray-700 mb-4">
+                <div class="p-4 border-b border-gray-700">
+                    <h2 class="text-lg font-semibold text-white">价格走势（Tick Bubble Chart · 前 5000 笔）</h2>
+                </div>
+                <div class="chart-container">
+                    <canvas id="tick-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- 区块 K 线图（按 block_number 聚合 OHLC + 成交量副图） -->
+            <div id="candle-chart-wrapper" class="bg-gray-800 rounded-lg border border-gray-700 mb-4">
+                <div class="p-4 border-b border-gray-700">
+                    <h2 class="text-lg font-semibold text-white">价格走势（区块 K 线 · 按 block_number 聚合 OHLC）</h2>
+                </div>
+                <div style="height:320px; padding:12px;"><canvas id="candle-chart"></canvas></div>
+                <div style="height:120px; padding:0 12px 12px;"><canvas id="volume-chart"></canvas></div>
+            </div>
+
+            <!-- 交易明细表 -->
+            <div class="bg-gray-800 rounded-lg border border-gray-700 mb-6">
+                <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-white">交易明细</h2>
+                    <span id="tick-table-info" class="text-sm text-gray-400">-</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-700 text-gray-300">
+                            <tr>
+                                <th class="px-4 py-3 text-left">#</th>
+                                <th class="px-4 py-3 text-left">时间</th>
+                                <th class="px-4 py-3 text-right">区块号</th>
+                                <th class="px-4 py-3 text-right">区块序号</th>
+                                <th class="px-4 py-3 text-left">类型</th>
+                                <th class="px-4 py-3 text-left">时段</th>
+                                <th class="px-4 py-3 text-right">价格 (USD)</th>
+                                <th class="px-4 py-3 text-right">BNB 金额</th>
+                                <th class="px-4 py-3 text-right">Token 金额</th>
+                                <th class="px-4 py-3 text-left">交易者</th>
+                                <th class="px-4 py-3 text-left">交易哈希</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tick-table-body" class="divide-y divide-gray-700"></tbody>
+                    </table>
+                </div>
+                <div id="pagination" class="flex items-center justify-between px-4 py-3 border-t border-gray-700">
+                    <button id="prev-page" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed" disabled>上一页</button>
+                    <span id="page-info" class="text-sm text-gray-400">-</span>
+                    <button id="next-page" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed" disabled>下一页</button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="/static/js/token-ticks.js?v=1.0"></script>
+</body>
+</html>

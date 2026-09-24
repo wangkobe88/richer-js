@@ -15,6 +15,10 @@
 --   category_visible_at  分类信息可见时刻（在线=写入时刻；离线 daily=firstIdle 口径，
 --                        重写保最早——防前视消费口径，见 token-classifier.computeFirstIdleVisibleAt）
 --   peak_mcap_usd        峰值市值（= profile.max_market_cap_usd 冗余列，供索引/分位校准）
+--   max_change_percent   最高涨幅 %（(可用价峰-基准)/基准*100，BNB 计价，base=首个可用价
+--                        tick；NULL=无可用价 tick。bsc-v2 起携带，冗余列供批量过滤，
+--                        见 2026-09-24-token-profiles-add-change-percent.sql）
+--   final_change_percent 最终涨幅 %（(可用价末-基准)/基准*100，同上口径）
 --   profile              完整 JSONB（class_info/config_snapshot/flash_crash_period/
 --                        violent_crash_blocks/first_tick_time/last_tick_time/reason/conflict）
 --   conflict             离线重写与已有分类不一致时的冲突记录（pending_review；
@@ -31,6 +35,8 @@ CREATE TABLE IF NOT EXISTS token_profiles (
     classified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     category_visible_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     peak_mcap_usd DOUBLE PRECISION,
+    max_change_percent DOUBLE PRECISION,
+    final_change_percent DOUBLE PRECISION,
     profile JSONB NOT NULL,
     conflict JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

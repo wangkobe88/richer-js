@@ -541,6 +541,10 @@ class ExperimentSignals {
       // 切换代币：常规加载仍是单页上限，退出全量模式
       this._fullTickRange = false;
 
+      // Ticks 浏览页外链跟随当前代币
+      const ticksLink = document.getElementById('token-ticks-link');
+      if (ticksLink) ticksLink.href = `/token-ticks?token=${encodeURIComponent(token.address)}`;
+
       const chartWrapper = document.getElementById('kline-chart-wrapper');
       if (chartWrapper) chartWrapper.style.display = 'block';
 

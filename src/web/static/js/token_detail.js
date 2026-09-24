@@ -166,6 +166,8 @@ class TokenDetailPage {
       `/token-holders?experiment=${this.experimentId}&token=${this.tokenAddress}`;
     document.getElementById('link-early-trades').href =
       `/token-early-trades?token=${this.tokenAddress}&chain=${chain}`;
+    document.getElementById('link-ticks').href =
+      `/token-ticks?token=${this.tokenAddress}`;
   }
 
   renderExternalLinks() {
