@@ -92,6 +92,28 @@ maxMultiple=0）→ E5e 买中活跃度最先达标的首发盘。
 - **已知残余**：ss 在 0.5 附近的盘（如 TenPayGo 另一地址 0.37）不触发——合并质量
   门槛 0.5 是「过半」语义，边界盘漏放属已知接受面
 
+**v3 补丁（2026-09-24，Muse 案：B 入 name_referent 阻断 scope）**：
+- **case**：0xc3136948（Muse，B 类）——alexandr_wang 推 Muse 桌面版，第三方骑乘发币
+  被 v2 双门皆漏（B 不在 `NAME_REFERENT_BLOCK_SCOPE` + 骑乘侧 ss+sip=0.35<0.5）
+  评 high 放行。用户裁定「只是上了一个桌面版（而不是一个大产品），影响力不够，
+  显然也不行」；拦截定性二次纠正：「不是知名但非超级 IP，而是**只是一个版本更新
+  功能改进**」——版本更新不构成叙事事件
+- **改动**：`NAME_REFERENT_BLOCK_SCOPE` 补 `'B'`（一行 + 注释）。版本更新语义在
+  block_reason 题面**不可判**（Muse 语料实判 none 0.98/institution_routine 0.02——
+  判「版本更新」需外部知识知道产品之前存在），不加题（加题须 bump
+  JEV_QUESTIONS_VERSION 且 Jev 无此前置）；名字维度是结果正确的拦截路径：无论
+  事件性质如何，骑乘非超级 IP 的产品名本身无独立生命力（与 C3 OneKey/CONVICTION
+  同构）。与骑乘门互补：门拦「名字=主体自己的」（放行侧质量触发），scope 拦
+  「名字指向非超级 IP 的他人对象」（阻断侧质量触发）
+- **验证**：① Muse ignoreCache 终验：Jev 真实重调用实判 B 类，阻断侧合计 0.64 →
+  **low**（label 取阻断侧最大项显示「名字指向无名对象」，拦截是合并质量语义）；
+  ② 全量 104 行重放：变化 5 行 = 4 个 v2 已拦（TenPayGo 0x14d/VELLINK/Muse Charm/
+  BOT）+ v3 新拦 TenPayGo 0xc6c（阻断 0.63，E5e 另一票）+ Muse 本行（终验已落 low）；
+  ③ 零误伤：B 类 8 行中 AwesomeSeedance（阻断 0.62）旧 low 不变，无其他连带翻转
+- **部署**：182 mapper scp + narrative engine 重启（14:43 加载 v3）
+- **遗留发现（§六-11）**：V1 虚拟实验进程内存仍是旧 mapper，其 NarrativeDirectCaller
+  直调写入的缓存行用旧聚合——BOT 行 14:30 落库 high（v2 应拦）即此问题
+
 ### C7 ARENA 0x4b4d —— IPFS metadata 未解包，公告推语料丢失（2026-09-24）★
 
 **现象**：0x4b4daf725bfe16f59249522faac053f1cbd47777（AI STOCK ARENA，铸币
@@ -335,6 +357,10 @@ P0-P1 客户端+问题集+state+映射（`9b76a1b`）→ P2 主路径+superIP（
   骑乘推文主体作品名发币改道 W 数学（subject_self+super_ip≥0.5 且 super_ip<0.5；
   super_ip 过半豁免=天才/嫦娥/超级牛产品统一语义）。双路径模型补齐「骑乘非 Web3
   作品」半边（C7 只覆盖了骑乘 Web3 产品的 W 类原生路径）
+- name_referent 阻断作用域扩 B（2026-09-24，C8 v3 Muse 案）：B 类骑乘非超级 IP
+  产品名（Muse 桌面版=版本更新，不构成叙事事件）v2 双门皆漏 → B 入
+  `NAME_REFERENT_BLOCK_SCOPE`（阻断侧合计 ≥0.5 拦）；版本更新语义题面不可判
+  不加题，名字维度拦截（骑乘非超级 IP 产品名无独立生命力）
 
 ### 4.5 代码侧 pre-check 规则族（无 LLM，与 LLM 分工的"市场事实"侧）
 | 规则 | 判定 | 局限 |
@@ -436,6 +462,13 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
    根因是路径混判——自发盘改道 prestage 账号判定后，W 数学回归纯骑乘盘语义（要求
    被骑乘产品影响力极高），无需再校准。见 C7 方案 A 落地记录
 10. ~~**B 类骑乘盘盲区**~~（已解决，2026-09-24 骑乘门落地）：`rideDetourBelow`
-   B/C 域改道 W 数学，见 C8 落地记录。**同推文仿盘群盲区仍在**：「首发+全没火」
-   结构（9 盘 16s 抢发）龙头门/同名规则均无覆盖，需并发仿盘门（pre-check 密度口径）
-   方向待后续裁定
+   B/C 域改道 W 数学，见 C8 落地记录；v3 补 B 入 name_referent 阻断 scope 收口
+   Muse/TenPayGo 0xc6c（版本更新/无名对象两案）。**同推文仿盘群盲区仍在**：
+   「首发+全没火」结构（9 盘 16s 抢发）龙头门/同名规则均无覆盖，需并发仿盘门
+   （pre-check 密度口径）方向待后续裁定
+11. **多进程 mapper 版本漂移**（2026-09-24 发现，待裁定）：token_narrative 缓存行
+   由多进程写入——narrative engine（重启即加载新 mapper）+ 交易引擎进程直调
+   （NarrativeDirectCaller，启动后不随文件更新）。V1 虚拟实验（fb03389c，09-23 起
+   182 实跑）内存仍是旧 mapper，14:30 分析的 BOT 行落库 high（v2 应拦）即此问题。
+   mapper 语义改动要彻底生效需重启所有直调进程；重启 V1 有实跑中断风险，是否重启
+   或依赖缓存失效机制待用户裁定
