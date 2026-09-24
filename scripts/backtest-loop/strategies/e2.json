@@ -1,0 +1,21 @@
+{
+  "_comment": "E2 = E1（c0150101）迭代：唯一差异是 preBuyCheckCondition 去掉 ==9——叙事无法判断/未评级（直调失败或超时 normalize 9）不再放行，只买叙事评级确定 2/3 的币。买侧活跃度单门（buyVolumeBnb>=1.5）+ 叙事直调挂同一活跃度门；卖侧分档 trailing 同 E1。跑在 J1.10（name_referent 阻断）上：与 E1 基线（J1.8）的差异 = 评级门收紧 + J1.10 拦截双重叠加，对比时注意归因。源 572033ad，回测窗口同 E1",
+  "tradeAmount": 0.1,
+  "initialBalance": 100,
+  "buyStrategies": [
+    {
+      "priority": 1,
+      "condition": "buyVolumeBnb >= 1.5 AND age < 30",
+      "maxExecutions": 1,
+      "preBuyCheckCondition": "narrativeRating == 2 OR narrativeRating == 3",
+      "narrativeCallCondition": "buyVolumeBnb >= 1.5 AND age < 30"
+    }
+  ],
+  "sellStrategies": [
+    { "priority": 1, "condition": "drawdownFromHighestSinceLastBuy <= -45 AND holdDuration < 60", "maxExecutions": 1 },
+    { "priority": 2, "condition": "drawdownFromHighestSinceLastBuy <= -35 AND holdDuration >= 60 AND holdDuration < 180", "maxExecutions": 1 },
+    { "priority": 3, "condition": "drawdownFromHighestSinceLastBuy <= -25 AND holdDuration >= 180 AND holdDuration < 300", "maxExecutions": 1 },
+    { "priority": 4, "condition": "drawdownFromHighestSinceLastBuy <= -20 AND holdDuration >= 300 AND holdDuration < 600", "maxExecutions": 1 },
+    { "priority": 5, "condition": "drawdownFromHighestSinceLastBuy <= -10 AND holdDuration >= 600", "maxExecutions": 1 }
+  ]
+}
