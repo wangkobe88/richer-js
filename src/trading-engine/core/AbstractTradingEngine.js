@@ -1238,6 +1238,12 @@ class AbstractTradingEngine extends ITradingEngine {
       updated_at: new Date().toISOString()
     };
 
+    // 切到 running 时写开始时间（对齐 ExperimentFactory.updateStatus 口径，
+    // run-engine.js 路径此前漏写导致 started_at=null）
+    if (status === 'running') {
+      updateData.started_at = new Date().toISOString();
+    }
+
     if (status === 'stopped' || status === 'completed' || status === 'error') {
       updateData.stopped_at = new Date().toISOString();
     }
