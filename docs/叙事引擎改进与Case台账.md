@@ -397,6 +397,7 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
 | E5d | 08a85d2c | 同 E4 | 同 E5c（跨窗口验证：源 fb03389c，43,657 ticks / 5,671 tokens / 全 flap） | **ΣPnL 0.3196，胜率 50%（4/5 轮）**。P2 针臂跨窗口依旧主力（×2 全清 @+382.6% P50）；RSI 三档全开张（BRX1600 五腿轮：P7@467%→P4@598%→P5/P6@+61/53%）；币安王国 114s 全清 @+142%。**发现执行链精度 bug**：BRX1600 余仓 6140 token 强平腿静默失败（详见下方精度修复记录）——实际含未强平僵尸仓 |
 | E5e | 6eced095 | 同 E4 | 同 E5c（跨窗口验证：源 c4a5a57f，35,935 ticks / 4,112 tokens / 全 flap） | **ΣPnL -0.2668，7 轮全败、0 策略腿触发**（全部冻结强平 -24.7%~-56.1%，峰值 25.6%~130% 全漏）。**根因=票型错配非 bug**：7 票 grad max 全部 0.13~0.28（无一接近毕业）→ 市值门 2/3 把 5/7 票的裸 P2 触发全部拦掉（TenPayGo 裸 P2 @+127% grad=0.135 被拦）；活跃期全部 2.1~27.6min < RSI warmup 42.5min → RSI 三臂全程 null；末态 grad>0.05 → P1 不触发——「中段止盈臂缺失」缺口的极端呈现（c4a5 窗口全是小票冲高回落型），市值门 trade-off 待裁定。另：桃花源记 0x1e09 轮的叙事放行为 C8 case（B 类骑乘误放+同推文 9 盘仿盘群） |
 | E5d2 | 67e044fb | 同 E4 | 同 E5c **同源复跑 E5d**（fb03389c；Decimal 精度修复后的验证 run） | **ΣPnL 0.7074（vs E5d 0.3196，+0.39），胜率 60%**。**精度修复验证通过**：BRX1600 由 E5d 的「RSI 三腿 + 末段 P2 40+ 次触发全失败 + 强平腿静默跳过 = 6140 token 僵尸仓」变为**五腿轮 P7→P4→P5→P6→P2 末段逼空全清完整落袋 +385.9%**；SpaceXAI 四腿轮 +270.7%、币安王国 114s P2 全清 +139.6%；两强平轮 -26.2%/-66.1% 与 E5d 一致（五仁能敌/跳舞蛙型）。卖点反事实全部配置（peak8·dd12 等 12 组）Σ 0.45 < 实际 0.71——现行 8 腔在 fb 窗口显著优于 trailing 组合 |
+| E5e2 | 67af6e3f | 同 E4 | 同 E5e 策略（e5.json 原样）**叙事 v2+v3 后同源复跑 E5e**（c4a5a57f；前置：7 翻转票 ignoreCache 缓存刷新，5 low 2 high——两 high 均为 v2/v3 不翻转行） | **ΣPnL -0.0733（vs E5e -0.2668，减亏 72.5%）**，2 轮全败 0 策略腿。**买侧收缩 7→2**：拦 5 票（桃花源记=骑乘门；Muse 0xc313+TenPayGo 0xc6c=B 入阻断 scope；VELLINK=骑乘改道；TenPayGo 0x14d=C7 detector 命中→prestage abm 两条件不满足→low，路由层功劳非骑乘门）；仍买 2 票：ChainPulse 0x1fc2（**W 类原生 W 数学** high——骑乘门不适用 W）+ Zen Monkey 0x933（**E 类** high——热点命名先例不拦），峰值 25.6%/130% 全漏冻结强平（-36.1%/-36.8%）——**小票窗口盲区原样复现**（grad<2/3 市值门拦针臂+RSI warmup，三方向仍待裁定）。副产品发现：① BOT 0x189c super_ip 跨 run 在 0.5 边界抖动（0.49 拦↔0.53 豁免），本轮未 fire 无影响；② prestage 行 stage_final_result 旧残留 bug（§六-12） |
 
 - **记账口径**（E4 台账起澄清）：trades 表/余额的记账货币是 **USD**（virtual unit_price 为 USD 价、
   tradeAmount 0.1 为 0.1 USD）——ΣPnL 数值与 E1-E3 同口径可比，此前行文称 "BNB" 系口径误称
@@ -472,3 +473,9 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
    182 实跑）内存仍是旧 mapper，14:30 分析的 BOT 行落库 high（v2 应拦）即此问题。
    mapper 语义改动要彻底生效需重启所有直调进程；重启 V1 有实跑中断风险，是否重启
    或依赖缓存失效机制待用户裁定
+12. **prestage 行 stage_final_result 旧残留**（2026-09-25 E5e2 发现）：prestage
+   分支只写 prestage_result（+unrated 时清 stage1/2），**不写/不清 stage_final_result**
+   → 改道 prestage 的 token 行残留旧主路径终局（TenPayGo 0x14d：prestage 'low' vs
+   stage_final 旧 'high' 并存）。交易链无影响（resolveFinalRating 按 pre_check→
+   prestage→… 顺序提前返回 prestage 'low'），但 web 展示/人工核查读 stage_final 会
+   误导。修法：prestage 分支终局时同步写 stageFinalData（或 __clear）——待裁定
