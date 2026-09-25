@@ -38,7 +38,7 @@ class SameNameTokenService {
       // 初始化AVE API
       const apiKey = process.env.AVE_API_KEY || null;
       const { AveTokenAPI } = require('../../core/ave-api');
-      const config = require('../../config/default.json');
+      const config = require('../../../config/default.json');
       const baseURL = config.ave?.apiUrl || 'https://prod.ave-api.com';
 
       const api = new AveTokenAPI(baseURL, timeout, apiKey);
