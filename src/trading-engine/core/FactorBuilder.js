@@ -193,6 +193,11 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     tweetAuthorType: preBuyCheckResult.tweetAuthorType ?? 0,
     // 数据采集轮数因子
     dataCollectionRound: preBuyCheckResult.dataCollectionRound ?? 0,
+    // 严格同名代币因子（AVE 检索；maxFDV=排除自己+过滤虚假数据后的同名最大市值，0=无同名/检查失败）
+    strictSameNameTokenCount: preBuyCheckResult.strictSameNameTokenCount ?? 0,
+    strictSameNameSearchCount: preBuyCheckResult.strictSameNameSearchCount ?? 0,
+    strictSameNameFilteredCount: preBuyCheckResult.strictSameNameFilteredCount ?? 0,
+    strictSameNameMaxFDV: preBuyCheckResult.strictSameNameMaxFDV ?? 0,
   };
 }
 

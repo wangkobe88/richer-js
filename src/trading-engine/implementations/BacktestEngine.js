@@ -282,6 +282,7 @@ class BacktestEngine extends AbstractTradingEngine {
       for (const row of data || []) {
         this._tokenMeta.set(row.token_address, {
           symbol: row.token_symbol || '',
+          name: row.raw_api_data?.name || '',
           platform: row.platform || 'fourmeme',
           createdAtSec: row.created_at ? new Date(row.created_at).getTime() / 1000 : null,
           totalSupply: Number(row.raw_api_data?.totalSupply) || 0,
@@ -704,6 +705,7 @@ class BacktestEngine extends AbstractTradingEngine {
           const tokenInfo = {
             address: token.token,
             symbol: token.symbol,
+            name: this._tokenMeta.get(token.token)?.name || token.name || '',
             chain: 'bsc',
             platform: tokenPlatform,
             launchAt: token.createdAt || null,

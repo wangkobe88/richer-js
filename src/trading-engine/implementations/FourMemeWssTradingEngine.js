@@ -1757,6 +1757,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     return {
       address: token.token,
       symbol: token.symbol,
+      name: token.name || '',                 // 严格同名代币检查（AVE）匹配用
       chain: token.chain || 'bsc',
       platform: token.platform || 'fourmeme',
       launchAt: token.createdAt || null,      // WSS: TokenCreate 块时间（秒）
@@ -1946,6 +1947,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         chain: 'bsc',
         platform: 'fourmeme',
         data_source: 'wss',
+        name: meta.raw_api_data?.name || '',
         symbol: meta.token_symbol || '',
         created_at: createdAtSec,
         current_price_usd: null,

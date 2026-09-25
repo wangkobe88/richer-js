@@ -14,6 +14,7 @@ const { WalletClusterService } = require('./WalletClusterService');
 const { WalletLabelService } = require('./WalletLabelService');
 const { WalletDataService } = require('../../web/services/WalletDataService');
 const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
+const { SameNameTokenService } = require('./SameNameTokenService');
 
 const StrongTraderPositionService = require('./StrongTraderPositionService');
 
@@ -330,6 +331,20 @@ const FACTOR_METADATA = {
     unit: '',
     severity: 'warning'
   },
+  // 严格同名代币因子（AVE 检索；strictSameNameMaxFDV = 严格同名（排除自己）且
+  // 过滤 AVE 虚假数据后的最大 FDV，用于"同名老币已存在且市值不低"拒买门）
+  strictSameNameMaxFDV: {
+    name: '同名老币最大市值',
+    format: v => '$' + (v / 1000).toFixed(0) + 'k',
+    unit: '',
+    severity: 'critical'
+  },
+  strictSameNameTokenCount: {
+    name: '严格同名代币数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
 };
 
 /**
@@ -388,6 +403,9 @@ class PreBuyCheckService {
 
     // 初始化钱包标签因子服务
     this.walletLabelService = new WalletLabelService(supabase, logger);
+
+    // 初始化严格同名代币检查服务（AVE 检索"同名老币已存在"信号）
+    this.sameNameTokenService = new SameNameTokenService(logger);
 
     // 初始化条件评估器
     this._conditionEvaluator = new ConditionEvaluator();
@@ -449,12 +467,13 @@ class PreBuyCheckService {
       );
 
 
-      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查
-      const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck] = await Promise.all([
+      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查、严格同名代币检查
+      const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck, sameNameCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck),
         this._performWalletClusterCheck(earlyParticipantCheck, tokenAddress),
         this._checkCreatorIsNotBadDevWallet(creatorAddress),
         this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck),
+        this._performSameNameCheck(tokenAddress, tokenInfo),
       ]);
 
       // 钱包标签因子（纯内存计算，无 IO）
@@ -517,6 +536,7 @@ class PreBuyCheckService {
         preBuyCheckCondition,
         startTime,
         options.drawdownFromHighest,  // 传入 drawdownFromHighest
+        sameNameCheck,
         {
           buyRound: options.buyRound,
           lastPairReturnRate: options.lastPairReturnRate,
@@ -577,6 +597,12 @@ class PreBuyCheckService {
         // 数据采集轮数因子
         dataCollectionRound: options.dataCollectionRound ?? 0,
 
+        // 严格同名代币因子（检查整体失败时空值；maxFDV=0 → 条件门放行）
+        strictSameNameTokenCount: 0,
+        strictSameNameSearchCount: 0,
+        strictSameNameFilteredCount: 0,
+        strictSameNameMaxFDV: 0,
+
         // 早期参与者检查失败时的空值
         ...this.earlyParticipantService.getEmptyFactorValues(),
         // 钱包簇检查失败时的空值
@@ -599,9 +625,10 @@ class PreBuyCheckService {
    * @param {string} condition - 条件表达式
    * @param {number} startTime - 开始时间戳
    * @param {number} drawdownFromHighest - 从最高价跌幅
+   * @param {Object} sameNameCheck - 严格同名代币检查结果（AVE 检索因子）
    * @param {Object} extraContext - 额外上下文 { buyRound, lastPairReturnRate, narrativeRating }
    */
-  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, walletLabelCheck, creatorDevCheck, strongTraderCheck, earlyTraderCheck, condition, startTime, drawdownFromHighest = null, extraContext = {}) {
+  _evaluateWithCondition(holderCheck, earlyParticipantCheck, walletClusterCheck, walletLabelCheck, creatorDevCheck, strongTraderCheck, earlyTraderCheck, condition, startTime, drawdownFromHighest = null, sameNameCheck = null, extraContext = {}) {
     // 构建基础结果
     const baseResult = {
       // 标记已执行预检查
@@ -648,6 +675,11 @@ class PreBuyCheckService {
       // 数据采集轮数因子
       dataCollectionRound: extraContext.dataCollectionRound ?? 0,
 
+      // 严格同名代币因子（AVE 检索；错误/未执行时 maxFDV=0 放行，与龙头门同 fail-open 方向）
+      strictSameNameTokenCount: sameNameCheck?.factors?.strictSameNameTokenCount ?? 0,
+      strictSameNameSearchCount: sameNameCheck?.factors?.strictSameNameSearchCount ?? 0,
+      strictSameNameFilteredCount: sameNameCheck?.factors?.strictSameNameFilteredCount ?? 0,
+      strictSameNameMaxFDV: sameNameCheck?.factors?.strictSameNameMaxFDV ?? 0,
 
       // 早期参与者检查结果
       ...earlyParticipantCheck,
@@ -740,6 +772,10 @@ class PreBuyCheckService {
         tweetAuthorType: extraContext.tweetAuthorType ?? 0,
         // 数据采集轮数因子（允许在条件表达式中使用）
         dataCollectionRound: extraContext.dataCollectionRound ?? 0,
+        // 严格同名代币因子（允许在条件表达式中使用；AVE 错误时 maxFDV=0 → 条件门放行）
+        strictSameNameTokenCount: sameNameCheck?.factors?.strictSameNameTokenCount ?? 0,
+        strictSameNameSearchCount: sameNameCheck?.factors?.strictSameNameSearchCount ?? 0,
+        strictSameNameMaxFDV: sameNameCheck?.factors?.strictSameNameMaxFDV ?? 0,
         // 注意：以下因子主要用于调试，通常不用于条件表达式
         // earlyTradesCheckTimestamp, earlyTradesCheckDuration, earlyTradesCheckTime
         // earlyTradesWindow, earlyTradesExpectedFirstTime, earlyTradesExpectedLastTime
@@ -1192,6 +1228,47 @@ class PreBuyCheckService {
   }
 
   /**
+   * 执行严格同名代币检查（AVE 检索"同名老币已存在且市值不低"信号）
+   * 无 symbol（tokenInfo 缺失）时返回空因子（maxFDV=0 → 条件门放行）
+   * @private
+   * @param {string} tokenAddress - 代币地址
+   * @param {Object} tokenInfo - 代币信息（需要 symbol/name）
+   * @returns {Promise<Object>} 检查结果 { success, factors }
+   */
+  async _performSameNameCheck(tokenAddress, tokenInfo) {
+    const symbol = tokenInfo?.symbol;
+    if (!symbol) {
+      this.logger.info('[PreBuyCheckService] 缺少 symbol，跳过严格同名代币检查', {
+        token_address: tokenAddress
+      });
+      return { success: false, factors: this.sameNameTokenService.getEmptyFactors('missing_symbol') };
+    }
+
+    try {
+      const result = await this.sameNameTokenService.performCheck(
+        symbol,
+        tokenInfo?.name || '', // name 缺失时传空 → 严格匹配全不命中 → maxFDV=0 放行（保守方向，与 AVE 错误处理一致）
+        { selfAddress: tokenAddress }
+      );
+      this.logger.info('[PreBuyCheckService] 严格同名代币检查完成', {
+        token_address: tokenAddress,
+        symbol,
+        count: result.factors.strictSameNameTokenCount,
+        maxFDV: result.factors.strictSameNameMaxFDV,
+        error: result.error || null
+      });
+      return result;
+    } catch (error) {
+      this.logger.error('[PreBuyCheckService] 严格同名代币检查异常', {
+        token_address: tokenAddress,
+        symbol,
+        error: error.message
+      });
+      return { success: false, factors: this.sameNameTokenService.getEmptyFactors(error.message) };
+    }
+  }
+
+  /**
    * 执行持有者检查
    * @private
    * @param {string} tokenAddress - 代币地址
@@ -1417,6 +1494,11 @@ class PreBuyCheckService {
       tweetAuthorType: 0,
       // 数据采集轮数因子
       dataCollectionRound: 0,
+      // 严格同名代币因子（未执行检查默认值）
+      strictSameNameTokenCount: 0,
+      strictSameNameSearchCount: 0,
+      strictSameNameFilteredCount: 0,
+      strictSameNameMaxFDV: 0,
       ...this.earlyParticipantService.getEmptyFactorValues(),
       ...this.walletClusterService.getEmptyFactorValues(),
       // 强势交易者持仓因子
