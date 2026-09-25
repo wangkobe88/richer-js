@@ -86,20 +86,30 @@ const BLOCK_LABELS = {
  * - notable_other：名字指向知名但非超级IP（十万粉级 KOL/行业知名公司）——同样不构成
  *   名字的独立生命力（CONVICTION 案即 133 万粉 KOL 推文截词，知名≠超级IP，不放行）
  * - super_ip（CZ 原话"not a genius"→天才）/subject_self（嫦娥：作者自创）放行
- * 作用域同截词语义：C/D/F/G + **B（2026-09-24 Muse 案补入）**——B 类下币名指向
- * 的产品/对象不是超级 IP（Muse 桌面版 0xc313：minor_other 0.32+notable_other 0.31
- * 阻断侧合计 0.66；用户定性「只是版本更新功能改进，影响力不够」——版本更新语义
- * 在 block_reason 题面不可判，实判 none 0.98，但无论事件性质如何，骑乘非超级 IP
- * 的产品名本身无独立生命力，由本维度拦）。主体自己的作品名走骑乘改道
- * （rideDetourBelow，放行侧语义）。E 类热点命名先例不拦；W 类币通常即产品名；
- * A 类不适用
+ * 作用域同截词语义：C/D/F/G + **B（2026-09-24 Muse 案补入）** + **W（2026-09-25
+ * ChainPulse 案补入，用户裁定「被骑对象的热度还是远远不够的，如果是超大超火的
+ * 产品被骑，那没问题。但现在就是一个几千粉的用户，发了个1赞的产品介绍，被骑
+ * 肯定不行的」）**：
+ * - B 类：币名指向的产品/对象不是超级 IP（Muse 桌面版 0xc313：minor_other 0.32+
+ *   notable_other 0.31 阻断侧合计 0.66；用户定性「只是版本更新功能改进，影响力
+ *   不够」——版本更新语义在 block_reason 题面不可判，实判 none 0.98，但无论事件
+ *   性质如何，骑乘非超级 IP 的产品名本身无独立生命力，由本维度拦）
+ * - W 类：第三方骑乘文章/事件中的**无名构想**发币（ChainPulse 0x1fc2：3886粉
+ *   1赞推文链 Article 全文不可获取，标题构想的 agent 名被第三方发币，蹭 BNB
+ *   Agent Studio v4 发版；W 数学交互分 18.1 被「BNB Chain」字样喂成生态热度档、
+ *   产品分 18 对标题党创意无实体约束 → 61.1 压线过；阻断侧 0.68 拦）。W 数学的
+ *   交互分存在语义错位——被骑对象火反而给骑乘盘加分，与 C7「骑乘盘要求被骑
+ *   产品影响力极高才放」矛盾，由名字维度补此门；super_ip≥0.5（超大超火被骑）
+ *   仍在放行侧豁免，真自发盘 subject_self 高不受影响
+ * - 主体自己的作品名（B/C）走骑乘改道（rideDetourBelow，放行侧语义）。E 类热点
+ *   命名先例不拦；A 类不适用
  */
 const NAME_REFERENT_BLOCK_LABELS = {
   minor_other: '名字指向无名对象',
   common_word: '截词（非超级IP话中词）',
   notable_other: '名字指向知名但非超级IP',
 };
-const NAME_REFERENT_BLOCK_SCOPE = ['C', 'D', 'F', 'G', 'B'];
+const NAME_REFERENT_BLOCK_SCOPE = ['C', 'D', 'F', 'G', 'B', 'W'];
 
 /**
  * 阻断选项的类别作用域（与原各类 Stage2 prompt 的阻断条件集合对齐）：

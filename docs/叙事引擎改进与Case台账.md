@@ -114,6 +114,31 @@ maxMultiple=0）→ E5e 买中活跃度最先达标的首发盘。
 - **遗留发现（§六-11）**：V1 虚拟实验进程内存仍是旧 mapper，其 NarrativeDirectCaller
   直调写入的缓存行用旧聚合——BOT 行 14:30 落库 high（v2 应拦）即此问题
 
+**v4 补丁（2026-09-25，ChainPulse 案：W 入 name_referent 阻断 scope）**：
+- **case**：0x1fc2d27a（ChainPulse，W 类）——@danishless（3886 粉，1 赞 0 转发）推文链
+  Twitter Article（**全文不可获取，state 仅 901 字符**），标题构想的 agent「ChainPulse」
+  被第三方发币，蹭 09-22 BNB Agent Studio v4 发版。两次分析均 **W 数学压线过**
+  （09-24: 产品18+交互18.1+时效25=61.1；09-25: 60.65）→ E5e2 买入 -36.1% 冻结强平
+- **根因（W 数学的结构性错位）**：交互分「生态热度」档（10-19）的证据全是被骑对象
+  字样（「A BNB Chain Agent」「BNB Chain shipped Agent Studio v4」）——**被骑对象火
+  反而给骑乘盘加分**，与 C7「骑乘盘要求被骑产品影响力极高才放」直接矛盾；产品分
+  对标题党创意无实体约束（语料 websiteGithub 组 used=0，18 分=「有特点新产品」
+  基线）。骑乘门只管 B/C、W 不在 name_referent scope、detector 不命中 → 全漏
+- **用户裁定（2026-09-25）**：「被骑对象的热度还是远远不够的，如果是超大超火的
+  产品被骑，那没问题。但现在就是一个几千粉的用户，发了个1赞的产品介绍，被骑
+  肯定不行的」——骑乘语义在 W 类同构落地：名字维度裁被骑对象分量
+- **改动**：`NAME_REFERENT_BLOCK_SCOPE` 补 `'W'`（一行 + 注释）。super_ip≥0.5
+  （超大超火被骑）仍在放行侧豁免；真自发盘 subject_self 高不受影响；交互/产品
+  题面不动（不 bump JEV_QUESTIONS_VERSION）
+- **验证**：① 全量 160 行重放：评级变化**仅 1 行 = ChainPulse**（阻断 0.68 拦，
+  high→low）；W 类 23 行零误伤——自发盘（MUNCH ss0.90/mm ss0.80/TRENCH MCP
+  ss0.66）与超级 IP（BNB的力量 sip0.88）评级不变，阻断侧高但本就 low 的 14 行
+  （health 0.94/LEE 0.96/SOCK 0.99 等）无变化；② ChainPulse ignoreCache 端到端
+  终验：Jev 真实重调（同 901 字符语料）→ 阻断侧 0.65 → **low**
+- **部署**：182 mapper scp + narrative engine 重启（05:02 加载 v4）
+- **对回测的影响**：E5e2 的 ChainPulse 亏损腿由此收口（缓存已终验落 low，下次
+  重跑不再买）；Zen Monkey（E 类）不在本门 scope
+
 ### C7 ARENA 0x4b4d —— IPFS metadata 未解包，公告推语料丢失（2026-09-24）★
 
 **现象**：0x4b4daf725bfe16f59249522faac053f1cbd47777（AI STOCK ARENA，铸币
@@ -361,6 +386,10 @@ P0-P1 客户端+问题集+state+映射（`9b76a1b`）→ P2 主路径+superIP（
   产品名（Muse 桌面版=版本更新，不构成叙事事件）v2 双门皆漏 → B 入
   `NAME_REFERENT_BLOCK_SCOPE`（阻断侧合计 ≥0.5 拦）；版本更新语义题面不可判
   不加题，名字维度拦截（骑乘非超级 IP 产品名无独立生命力）
+- name_referent 阻断作用域扩 W（2026-09-25，C8 v4 ChainPulse 案）：W 类第三方
+  骑乘文章构想名发币（3886 粉 1 赞 Article 标题党）——W 数学交互分被被骑对象
+  字样喂饱（被骑对象火反而加分，与 C7 骑乘语义矛盾）→ W 入 scope（阻断侧
+  ≥0.5 拦，super_ip≥0.5 超大产品豁免同构）；重放 160 行仅 ChainPulse 1 行翻转
 
 ### 4.5 代码侧 pre-check 规则族（无 LLM，与 LLM 分工的"市场事实"侧）
 | 规则 | 判定 | 局限 |
