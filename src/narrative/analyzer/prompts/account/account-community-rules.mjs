@@ -193,15 +193,24 @@ export function verifyTokenName(tokenSymbol, tokenName, accountOrCommunityData) 
  * 获取账号信息（含完整推文，用于规则验证）
  * @param {string} screenName - Twitter用户名
  * @param {number} tweetCount - 获取推文数量
+ * @param {Object} [options]
+ * @param {number} [options.untilSec] - 推文时间窗下界（unix 秒，通常 = token 创建时间-24h）：
+ *   有窗口时不再凑满 100 条，翻到窗口下界即停（发币 CA 公告在创建后几分钟内，必在窗口内）
  * @returns {Promise<Object>} 账号信息
  */
-export async function getAccountWithFullTweets(screenName, tweetCount = 50) {
+export async function getAccountWithFullTweets(screenName, tweetCount = 50, options = {}) {
   try {
     const userInfo = await getUserByScreenName(screenName);
-    // 获取更多推文，避免遗漏包含地址的推文（getUserTweets 已按 cursor 翻页凑满；
-    // 100 条对高频账号可覆盖到 token 创建时刻附近——发币 CA 公告通常在创建后几分钟内发出）
-    const actualCount = Math.max(tweetCount, 100);
-    const tweets = await getUserTweets(userInfo.id, { count: String(actualCount) });
+    let tweets;
+    if (options.untilSec) {
+      // 时间窗驱动（2026-09-25 裁定）：只取发币前后阶段的推文，不凑数
+      tweets = await getUserTweets(userInfo.id, { count: String(tweetCount), untilSec: options.untilSec });
+    } else {
+      // 获取更多推文，避免遗漏包含地址的推文（getUserTweets 已按 cursor 翻页凑满；
+      // 100 条对高频账号可覆盖到 token 创建时刻附近——发币 CA 公告通常在创建后几分钟内发出）
+      const actualCount = Math.max(tweetCount, 100);
+      tweets = await getUserTweets(userInfo.id, { count: String(actualCount) });
+    }
 
     return {
       type: 'account',

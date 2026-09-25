@@ -8,7 +8,7 @@
 const API_CONFIG = {
   apiKey: 'llfo2ip8ghxvivzo77tugorx3dz7xf',
   baseUrl: 'https://api.apidance.pro',
-  timeout: 30000,
+  timeout: 5000, // 与 new-apis.js 同源裁定（2026-09-25）：坏页 30s 死等收紧为 5s
   maxRetries: 3,
   retryDelay: 2000
 };

@@ -258,13 +258,19 @@ export class NarrativeAnalyzer {
     const shouldCollectAccounts = hasIndependentWebsiteResult && twitterInfo &&
       (twitterInfo.type === 'account' || twitterInfo.type === 'community' || twitterInfo.type === 'tweet');
 
+    // 账号收集推文时间窗下界 = token 创建时间-24h（2026-09-25 裁定：只取发币前后阶段
+    // 推文，不再翻页凑 100 条；创建时间缺失不设窗口，回退凑数口径）
+    const tokenCreatedAtSec = tokenData.raw_api_data?.created_at;
+    const tweetWindowUntilSec = tokenCreatedAtSec ? tokenCreatedAtSec - 24 * 3600 : null;
+
     if (shouldCollectAccounts) {
       logger.info('NarrativeAnalyzer', '检测到独立网站，开始收集所有账号信息', {
         twitterType: twitterInfo.type,
         twitterScreenName: twitterInfo.screen_name,
         hasInReplyTo: !!twitterInfo.in_reply_to
       });
-      relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo);
+      relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo,
+        tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {});
       logger.info('NarrativeAnalyzer', '账号信息收集完成', { count: relatedAccounts.length });
     }
 
@@ -279,14 +285,16 @@ export class NarrativeAnalyzer {
       if (twitterInfo) {
         // 有twitterInfo，从推文作者收集
         logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过twitterInfo）');
-        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo);
+        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo,
+          tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {});
       } else if (classifiedUrls?.twitter?.length > 0) {
         // 推文被删/获取失败，但URL中有screen_name，直接获取账号信息
         for (const tw of classifiedUrls.twitter) {
           const screenName = extractScreenNameFromTwitterUrl(tw.url);
           if (screenName) {
             logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过URL提取）', { screenName });
-            const accountInfo = await getFullAccountInfo(screenName);
+            const accountInfo = await getFullAccountInfo(screenName,
+              tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {});
             if (accountInfo) {
               relatedAccounts.push({ ...accountInfo, role: 'primary' });
             }
@@ -305,7 +313,8 @@ export class NarrativeAnalyzer {
       logger.info('NarrativeAnalyzer', '检测到发行方自发宣告（品牌同一性+宣告指纹）→ 转账号判定路径', issuerSelfLaunch);
       // 账号判定需要作者账号：独立网站/项目币路径未收集时补收（推文作者 → primary）
       if (relatedAccounts.length === 0) {
-        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo);
+        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo,
+          tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {});
         logger.info('NarrativeAnalyzer', '自发币路径补充收集作者账号', { count: relatedAccounts.length });
       }
     }
@@ -351,7 +360,7 @@ export class NarrativeAnalyzer {
 
         // Jev 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，
         // 与何时分析无关——补跑/回测/延迟分析的结果幂等；创建时间缺失时回退当前时刻）
-        const tokenCreatedAtSec = tokenData.raw_api_data?.created_at;
+        // tokenCreatedAtSec 已在账号收集前声明（兼作推文时间窗基准）
         const jevNowMs = tokenCreatedAtSec ? tokenCreatedAtSec * 1000 : undefined;
 
         // 检查是否有任何有效数据供分析

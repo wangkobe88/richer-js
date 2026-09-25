@@ -372,6 +372,14 @@ P0-P1 客户端+问题集+state+映射（`9b76a1b`）→ P2 主路径+superIP（
 ### 4.4 数据抓取修复
 - `404dea1`：getUserTweets 按 next_cursor_str 翻页凑满目标条数（sapi 每页固定 ~20 条且忽略 count）
 - `308b547`：账号质量达标分支补做地址验证（C2）
+- apidance 超时收紧 + 推文时间窗（2026-09-25）：账号路径拖慢主因定位为 data-fetch 层
+  （Jev 本身 p50≈1s 无辜）——每账号 ~6 次串行 apidance 调用 × 坏页率 ~2% × 30s 死等
+  × 无重试，单 token 命中率 ~22%（136 token 中 34 个 ≥10s，阴阳协议案账号收集挂 30s）。
+  两项修复：① makeRequest 超时 30s→5s（new-apis.js + index.js 同源同改）；② 账号收集
+  推文窗口化——untilSec = token 创建时间-24h，getUserTweets 翻到早于窗口下界的推文即停
+  且页内越界推文丢弃，getAccountWithFullTweets 有窗口时不再 Math.max(100) 凑数
+  （发币 CA 公告在创建后几分钟内必在窗口内；创建时间缺失回退凑数口径）。窗口从
+  NarrativeAnalyzer 四处账号收集点 + analyzeAccountCommunityToken 规则验证点全程透传
 - IPFS metadata 解包（2026-09-24，C7）：`ipfs-metadata-fetcher.mjs` 多网关轮询
   （pinata→ipfs.io→4everland→w3s，单网关 8s 超时，64KB 上限，失败缓存冷却不缓存
   null），data-fetch-service 提取层钩子——meta 指向 JSON 内的真实社交 URL 并入分类池
@@ -508,3 +516,7 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
    stage_final 旧 'high' 并存）。交易链无影响（resolveFinalRating 按 pre_check→
    prestage→… 顺序提前返回 prestage 'low'），但 web 展示/人工核查读 stage_final 会
    误导。修法：prestage 分支终局时同步写 stageFinalData（或 __clear）——待裁定
+13. **apidance 配额耗尽**（2026-09-25 发现，**阻塞全部叙事分析**）：UserByScreenName /
+   TweetDetail 均返回 401 "insufficient api counts"——数据抓取层全断，所有新分析
+   直接失败（直调 normalize 9；0336befc 严格条件 ==2 OR ==3 下 9 不放行 = 零买入）。
+   需续费/换供应商；恢复后注意 narrative engine 与交易引擎直调两处进程都受影响

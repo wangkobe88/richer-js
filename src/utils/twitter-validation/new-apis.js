@@ -6,7 +6,7 @@
 const API_CONFIG = {
   apiKey: 'llfo2ip8ghxvivzo77tugorx3dz7xf',
   baseUrl: 'https://api.apidance.pro',
-  timeout: 30000,
+  timeout: 5000, // 坏页 30s 死等是账号收集拖慢主因（2026-09-25 裁定收紧）
   maxRetries: 3,
   retryDelay: 2000
 };
@@ -124,14 +124,17 @@ async function getUserByScreenName(screenName) {
  * /sapi/UserTweets 每页固定约 20 条（count 参数被端点忽略），需按 next_cursor_str 翻页凑满
  * @param {string} userId - Twitter用户ID (不是用户名)
  * @param {Object} options - 选项
- * @param {string} [options.count] - 目标条数（翻页凑满为止）
+ * @param {string} [options.count] - 目标条数（翻页凑满为止；untilSec 存在时忽略，按时间窗驱动）
+ * @param {number} [options.untilSec] - 推文时间窗下界（unix 秒）：翻到早于该时刻的推文即停，
+ *   页内更早的推文丢弃（只取发币时间前后阶段的推文，不必凑满 count 条）
  * @returns {Promise<Array>} 推文列表
  */
 async function getUserTweets(userId, options = {}) {
-  console.log(`📝 获取用户推文列表: userId=${userId}`);
+  console.log(`📝 获取用户推文列表: userId=${userId}${options.untilSec ? ` untilSec=${options.untilSec}` : ''}`);
 
   try {
     const requested = parseInt(options.count || '10', 10) || 10;
+    const untilMs = options.untilSec ? options.untilSec * 1000 : null;
     const MAX_PAGES = 10; // 上限保护：最多 10 页（约 200 条），防止高频账号无限翻页
 
     const allTweets = [];
@@ -148,11 +151,32 @@ async function getUserTweets(userId, options = {}) {
       if (!pinnedTweet && response?.pinned_tweet) {
         pinnedTweet = response.pinned_tweet;
       }
-      allTweets.push(...tweets);
 
-      // 够数 / 无游标 / 空页即停
-      cursor = response?.next_cursor_str || null;
-      if (!cursor || allTweets.length >= requested || tweets.length === 0) break;
+      if (untilMs) {
+        // 时间窗驱动：页内早于下界的推文丢弃；本页出现越界推文 = 时间线已翻过窗口，停止翻页
+        let crossedWindow = false;
+        for (const t of tweets) {
+          const ts = (typeof t.createdTimeStamp === 'number' && t.createdTimeStamp > 0)
+            ? t.createdTimeStamp
+            : Date.parse(t.created_at);
+          if (!Number.isFinite(ts)) {
+            allTweets.push(t); // 时间解析失败不作为停止判据，保守保留
+            continue;
+          }
+          if (ts < untilMs) {
+            crossedWindow = true;
+          } else {
+            allTweets.push(t);
+          }
+        }
+        cursor = response?.next_cursor_str || null;
+        if (!cursor || tweets.length === 0 || crossedWindow) break;
+      } else {
+        allTweets.push(...tweets);
+        // 够数 / 无游标 / 空页即停
+        cursor = response?.next_cursor_str || null;
+        if (!cursor || allTweets.length >= requested || tweets.length === 0) break;
+      }
     }
 
     // 如果有置顶推文，将其合并到结果中

@@ -19,9 +19,12 @@ import { mapPrestageAnswers } from '../llm/jev-prestage-mapper.mjs';
  * 收集所有相关账号的完整信息
  * 当检测到独立网站时，收集所有相关账号（主账号、原始作者等）的完整信息
  * @param {Object} twitterInfo - Twitter信息
+ * @param {Object} [options]
+ * @param {number} [options.untilSec] - 推文时间窗下界（unix 秒，token 创建时间-24h；
+ *   有窗口时账号收集只取发币前后阶段推文，不再翻页凑 100 条）
  * @returns {Promise<Array>} 账号信息列表
  */
-export async function collectAllAccountsWithFullInfo(twitterInfo) {
+export async function collectAllAccountsWithFullInfo(twitterInfo, options = {}) {
   const accounts = [];
   const screenNames = new Set(); // 用于去重
 
@@ -37,7 +40,7 @@ export async function collectAllAccountsWithFullInfo(twitterInfo) {
   }
 
   if (primaryScreenName && !screenNames.has(primaryScreenName)) {
-    const fullAccount = await getFullAccountInfo(primaryScreenName);
+    const fullAccount = await getFullAccountInfo(primaryScreenName, options);
     if (fullAccount) {
       accounts.push({ ...fullAccount, role: 'primary' });
       screenNames.add(primaryScreenName);
@@ -48,7 +51,7 @@ export async function collectAllAccountsWithFullInfo(twitterInfo) {
   if (twitterInfo.in_reply_to && twitterInfo.in_reply_to.author_screen_name) {
     const originalAuthor = twitterInfo.in_reply_to.author_screen_name;
     if (!screenNames.has(originalAuthor)) {
-      const fullAccount = await getFullAccountInfo(originalAuthor);
+      const fullAccount = await getFullAccountInfo(originalAuthor, options);
       if (fullAccount) {
         accounts.push({ ...fullAccount, role: 'original_author' });
         screenNames.add(originalAuthor);
@@ -68,12 +71,13 @@ export async function collectAllAccountsWithFullInfo(twitterInfo) {
 /**
  * 获取单个账号的完整信息（含推文历史）
  * @param {string} screenName - Twitter用户名
+ * @param {Object} [options] - 透传 untilSec（推文时间窗下界）给 getAccountWithFullTweets
  * @returns {Promise<Object|null>} 账号完整信息
  */
-export async function getFullAccountInfo(screenName) {
+export async function getFullAccountInfo(screenName, options = {}) {
   try {
     const { getAccountWithFullTweets } = await import('../prompts/account/account-community-rules.mjs');
-    const accountInfo = await getAccountWithFullTweets(screenName, 20); // 获取20条推文
+    const accountInfo = await getAccountWithFullTweets(screenName, 20, options); // 获取20条推文
     if (accountInfo) {
       return accountInfo;
     } else {
@@ -151,8 +155,13 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
   logger.info('AccountCommunityAnalysis', '执行规则验证（地址 + 名称）');
 
   // 获取完整的账号/社区数据（含完整推文，用于规则验证）
+  // 推文时间窗下界 = token 创建时间-24h（2026-09-25 裁定：只取发币前后阶段，不凑 100 条；
+  // 发币 CA 公告在创建后几分钟内必在窗口内；创建时间缺失则不设窗口回退凑数口径）
+  const tokenCreatedAtSec = tokenData.raw_api_data?.created_at;
+  const tweetWindowUntilSec = tokenCreatedAtSec ? tokenCreatedAtSec - 24 * 3600 : null;
   const fullAccountOrCommunityData = accountOrCommunityRef.type === 'account'
-    ? await getAccountWithFullTweets(accountOrCommunityRef.screen_name, 20)
+    ? await getAccountWithFullTweets(accountOrCommunityRef.screen_name, 20,
+        tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {})
     : await getCommunityWithFullTweets(accountOrCommunityRef.community_id, 20);
 
   if (!fullAccountOrCommunityData) {
@@ -220,7 +229,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
   // ═══════════════════════════════════════════════════════════════════════════
   const startedAt = new Date().toISOString();
   // 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，与何时分析无关）
-  const tokenCreatedAtSec = tokenData.raw_api_data?.created_at;
+  // tokenCreatedAtSec 已在上方推文时间窗处声明
   const { state, stats } = buildPrestageState(tokenData, fullAccountOrCommunityData, {
     addressVerified: rulesResult.addressVerified,
     rulesResult,
