@@ -475,6 +475,37 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
 - V1 虚拟孪生（fb03389c，E1 策略 virtual 版）09-23 起在 182 实跑；e3/e4 的 virtual 孪生留待
   回测验证后
 
+### V2 虚拟实验 0336befc 策略升级（2026-09-25，用户三项裁定）
+
+flap 虚拟（叙事严格买门 V1，screen `v2-0336befc`）当日实跑 6 票后升级（延龄草 -35% /
+人生好物 +80% / STONKS ×2 地址 / 子曰 -35% / 白头鹰 / 共合）：
+
+1. **同名老币拒买门**（STONKS 案：0x7cbc/0xd65d 蹭 flap.sh 09-04 老盘 Stonks
+   $1.08M FDV / TVL $252k 的名字发币）——`SameNameTokenService`（交易引擎侧原死代码，
+   与叙事侧 SameNameCheckService 同源不同物）激活接入 PreBuyCheckService：
+   AVE 按归一化 symbol 检索 BSC 同名（300 条，~100-300ms），严格 **name 维度**匹配
+   （归一化防隐形字符 + 相同/互相包含≥3；**不用 symbol 相同规则**——symbol 同名但 name
+   跨语义的盘不属蹭名：人生好物买入盘 name="Treasures of Life" vs 老盘中文 name，
+   语义不同不拦，+80% 票保住），`tvl≥$1k && vol>0 && fdv≤$20M` 假数据过滤
+   （$28B/TVL$9 型行排除），排除自己地址（防补买轮当前盘 FDV 已达标自我误拦）；
+   因子 `strictSameNameMaxFDV` 进 preBuyCheckCondition（0336befc 门 `< $500k`）。
+   AVE 错误 / symbol 缺失 → maxFDV=0 放行（fail-open，与龙头门同方向）。
+   回测同步接入（BacktestEngine tokenInfo 补 name；AVE 检索为当前快照，时序穿越
+   同 narrativeRating 直调声明——绝对收益不代表实时可得）。
+   **实测四 case 全对**：STONKS 0x7cbc maxFDV=$1.11M 拦 / 人生好物 $0 放（name 跨语义）/
+   子曰 $3.3k 放 / 老盘自排除后 $26.9k 放。**误伤面**：嫦娥（$16.5k）/延龄草/白头鹰/
+   共合全部远低于门。叙事分工印证：叙事评级管推文语料价值，名字是否被老盘占用是
+   市场事实归代码侧（STONKS 叙事评级 2/3 放行没错，错在名字无独立生命力）
+2. **holders > 5 买门**：buy condition `buyVolumeBnb >= 1.5 AND age < 30 AND holders > 5`
+   （holders=FA 内盘净持仓 trader 计数，fire 因子零代码改动；E4 回测先例：拦掉 NOINT/
+   天才两个最大亏损笔）；narrativeCallCondition 同步（省直调费）
+3. **卖侧换 E5c 8 腔**：5 腿 trailing 全换 E5c 止损市值化 8 腿（硬底 `grad<0.05 AND
+   profit<0` / 针臂猛档+普通档 / 毕业臂 ①② / RSI T85/T78/T75，bypassDebounce，
+   maxExecutions=1）——1f69dc53 同为 flap 平台，因子键全在 FA，直接迁移
+
+**待用户裁定**：symbol 同名维度是否纳入严格匹配（现仅 name 维度；若纳入，人生好物型
+symbol 同名 name 跨语义盘会被拦）
+
 ---
 
 ## 六、未决事项
@@ -516,7 +547,8 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
    stage_final 旧 'high' 并存）。交易链无影响（resolveFinalRating 按 pre_check→
    prestage→… 顺序提前返回 prestage 'low'），但 web 展示/人工核查读 stage_final 会
    误导。修法：prestage 分支终局时同步写 stageFinalData（或 __clear）——待裁定
-13. **apidance 配额耗尽**（2026-09-25 发现，**阻塞全部叙事分析**）：UserByScreenName /
-   TweetDetail 均返回 401 "insufficient api counts"——数据抓取层全断，所有新分析
-   直接失败（直调 normalize 9；0336befc 严格条件 ==2 OR ==3 下 9 不放行 = 零买入）。
-   需续费/换供应商；恢复后注意 narrative engine 与交易引擎直调两处进程都受影响
+13. ~~**apidance 配额耗尽**（2026-09-25 发现，**阻塞全部叙事分析**）~~
+   **已解决（2026-09-25 用户续费）**：401 恢复正常，narrative engine（pid 212830）与
+   v2-0336befc（同日重启）已加载超时收紧+推文窗口化新代码实跑。遗留观察项：makeRequest
+   的 abort 只覆盖响应头阶段，`response.json()` body 阶段无超时保护（实测偶发 body
+   阶段挂死 120s+）——是否把超时延长到 body 读取完待裁定
