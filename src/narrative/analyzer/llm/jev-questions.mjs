@@ -24,9 +24,16 @@
  *       同时覆盖"话中截词"与"指向文中当事人但当事人无名"两种结构，拆独立题解决。
  *       subject_unqualified 扩作用域 A→A/C/D/F/G（小主体确定性兜底，防 Jev 量级
  *       在 C/B 边界漂移漏过事件分下限）
+ * J1.11：block_reason 新增 negative_hard_news 选项（2026-09-26 用户裁定，C9 bitget被盗案
+ *       0x0e323198：蹭 Bitget 热钱包被盗 3.516 亿官方公告命名，D 类 + A 档量级 80.32
+ *       high 放行后 -55%。裁定：事件热度高≠该放——负面事故（被盗/暴雷）+纯硬新闻
+ *       （无梗/无玩味空间/主体不自嘲传播）的事件无 meme 价值，蹭其命名只是消费热度。
+ *       边界收窄到"安全事故/被盗/被黑/暴雷/巨额损失/灾难"，其余负面留给 Jev 自由裁量。
+ *       代码端 mapper 双挂：BLOCK_SCOPE 'all'（argmax 机制全域）+ 概率 ≥0.5 质量门
+ *       negativeHardNewsBlock（标准 + superIP 双路径），见 jev-result-mapper）
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.10';
+export const JEV_QUESTIONS_VERSION = 'J1.11';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -177,7 +184,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
       ],
     },
 
-    // ── 5. 硬阻断（原各类 Stage2 阻断条件合集，10 选项）───────────────
+    // ── 5. 硬阻断（原各类 Stage2 阻断条件合集，11 选项；J1.11 加 negative_hard_news）──
     block_reason: {
       type: 'choice',
       instructions: `硬阻断检查（hard-block check）。该事件是否命中任一硬阻断条件？未命中选 none。
@@ -193,6 +200,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
         baseless_speculation: '无据猜测——预测没有任何推理依据支撑',
         ip_reuse: 'IP二次利用——直接使用现有知名IP但活动无重大传播力（活动有重大传播力则不算）',
         regional_event: '地区性事件——仅特定地区有感知，无更大范围影响',
+        negative_hard_news: '负面硬新闻——安全事故/被盗/被黑/暴雷/巨额损失/灾难类负面事件，语料是事故通报/官方公告/新闻报道。事件无meme化玩味空间：主体是机构/平台（不会参与自嘲式传播），无梗、无二创动力，蹭此类事件命名的名字无独立叙事生命力（热度再高也不算叙事价值）。⚠️ 仅限该窄边界：监管罚款/项目失败/名人去世等其他负面不选本项，按事件实际叙事价值正常评估',
       },
     },
 

@@ -75,6 +75,7 @@ const BLOCK_LABELS = {
   baseless_speculation: '无据猜测',
   ip_reuse: 'IP二次利用',
   regional_event: '地区性事件',
+  negative_hard_news: '负面硬新闻事件',
 };
 
 /**
@@ -135,6 +136,11 @@ const BLOCK_SCOPE = {
   baseless_speculation: ['G'],
   institution_routine: ['C', 'D'],
   regional_event: ['E'],
+  // J1.11（2026-09-26 用户裁定，C9 bitget被盗案）：负面事故（被盗/暴雷）+纯硬新闻
+  // 的事件无 meme 价值，全域拦截——事件热度高≠该放（A 档量级喂饱事件分 74.65、
+  // 80.32 high 放行后 -55%）。质量门 negativeHardNewsBlock 同步双挂（argmax 五五开
+  // 抖动时概率门兜底），二者任一命中即拦
+  negative_hard_news: 'all',
 };
 
 /**
@@ -159,6 +165,24 @@ function nameReferentBlock(answers, category) {
   }
   if (mass < 0.5) return null;
   return { label: NAME_REFERENT_BLOCK_LABELS[bestKey], mass: Math.round(mass * 100) / 100 };
+}
+
+/**
+ * 负面硬新闻质量门（J1.11，2026-09-26 用户裁定，C9 bitget被盗案 0x0e323198：
+ * 蹭 Bitget 热钱包被盗 3.516 亿官方公告命名，D 类 + A 档量级直接喂饱事件分 74.65
+ * → 80.32 high 放行后 -55%。裁定原文「第一，这是一个负面事件；第二，它没有啥
+ * meme的」——安全事故/被盗/被黑/暴雷/巨额损失类负面事件无 meme 化玩味空间
+ * （主体是机构不自嘲、无梗无二创），蹭其命名只是消费热度，热度再高也不该放）。
+ *
+ * 与 argmax 机制（BLOCK_SCOPE 'all'）双挂：argmax 命中 negative_hard_news 且
+ * noneProb<0.5 拦；本门按概率 ≥0.5 独立拦（覆盖 negative 是 argmax 但 none 恰
+ * ≥0.5、或边界抖动 none/negative 五五开时 mass 仍过半的情况）。二者任一命中
+ * 即拦，全域（不限类别）、标准 + superIP 双路径。
+ */
+function negativeHardNewsBlock(answers) {
+  const p = answers?.block_reason?.probabilities?.negative_hard_news ?? 0;
+  if (p < 0.5) return null;
+  return { label: BLOCK_LABELS.negative_hard_news, mass: Math.round(p * 100) / 100 };
 }
 
 /**
@@ -360,6 +384,7 @@ export function mapStandardAnswers(answers, context) {
   let stage2Blocked = false;
   let stage2BlockReason = null;
   let nrBlock = null; // name_referent 阻断信息 {label, mass}（reason 展示用）
+  let nhnBlock = null; // negative_hard_news 质量门信息 {label, mass}（J1.11）
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
@@ -367,7 +392,13 @@ export function mapStandardAnswers(answers, context) {
   let wInteraction = null;
   let stage2Reason = null;
 
-  if (blockChoice !== 'none' && noneProb < 0.5 && blockInScope(blockChoice, category)) {
+  // J1.11 负面硬新闻质量门挂最前（事件性质层面的否决，优先于其他阻断展示）；
+  // argmax 命中时下方 BLOCK_SCOPE 'all' 也能拦，此处覆盖概率过半但 argmax/noneProb
+  // 边界抖动的情况（nameReferentBlock 同思路：合并质量对抗五五开抖动）
+  if ((nhnBlock = negativeHardNewsBlock(answers))) {
+    stage2Blocked = true;
+    stage2BlockReason = nhnBlock.label;
+  } else if (blockChoice !== 'none' && noneProb < 0.5 && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
   } else if ((nrBlock = nameReferentBlock(answers, isW ? 'W' : category))) {
@@ -423,6 +454,7 @@ export function mapStandardAnswers(answers, context) {
         nameReferent,
         nameReferentProbability: nameReferentProb,
         nameReferentBlockMass: nrBlock?.mass ?? null,
+        negativeHardNewsMass: nhnBlock?.mass ?? null,
         timing,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,
@@ -591,7 +623,11 @@ export function mapSuperIPAnswers(answers, context) {
     && noneProb < 0.5 && blockInScope(blockChoice, superIPCategory);
   const nrBlock = nameReferentBlock(answers, superIPCategory);
   const blockedByNameReferent = !!nrBlock;
-  const blocked = blockedByBlockReason || blockedByNameReferent;
+  // J1.11 负面硬新闻质量门（全域，与标准路径同门；superIP 通道无豁免——
+  // 超级 IP 的被盗/事故公告同样无 meme 空间，蹭名盘照样拦）
+  const nhnBlock = negativeHardNewsBlock(answers);
+  const blockedByNegativeNews = !!nhnBlock;
+  const blocked = blockedByBlockReason || blockedByNameReferent || blockedByNegativeNews;
 
   const prestageDataToSave = {
     category: 'super_ip_fast',
@@ -601,7 +637,8 @@ export function mapSuperIPAnswers(answers, context) {
     parsed_output: {
       pass: !blocked,
       blockReason: blocked
-        ? (blockedByBlockReason ? (BLOCK_LABELS[blockChoice] || blockChoice) : nrBlock.label)
+        ? (blockedByNegativeNews ? nhnBlock.label
+          : (blockedByBlockReason ? (BLOCK_LABELS[blockChoice] || blockChoice) : nrBlock.label))
         : null,
       dimension2Score: dim2,
       ipInfo: superIPInfo,
@@ -614,6 +651,7 @@ export function mapSuperIPAnswers(answers, context) {
         nameReferent,
         nameReferentProbability: nameReferentProb,
         nameReferentBlockMass: nrBlock?.mass ?? null,
+        negativeHardNewsMass: nhnBlock?.mass ?? null,
         probabilities: {
           dimension2: answers.dimension2?.probabilities,
           block_reason: answers.block_reason?.probabilities,
@@ -631,7 +669,14 @@ export function mapSuperIPAnswers(answers, context) {
   let llmResult;
 
   if (blocked) {
-    llmResult = blockedByBlockReason
+    llmResult = blockedByNegativeNews
+      ? {
+          rating: 'low',
+          reason: `阻断:${nhnBlock.label}｜P=${nhnBlock.mass}`,
+          score: null,
+          pass: false,
+        }
+      : blockedByBlockReason
       ? {
           rating: 'low',
           reason: `阻断:${BLOCK_LABELS[blockChoice] || blockChoice}｜P=${blockProb ?? '-'}`,

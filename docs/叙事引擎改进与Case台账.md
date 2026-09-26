@@ -14,7 +14,7 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
                                    ├─ account/community token → prestage Jev（P1.2，4 题）
                                    ├─ 发行方自发宣告（品牌同一性+宣告指纹，纯代码）→ prestage Jev
                                    ├─ super-IP 账号 → 快速通道（标准题集 + 代码预评分）
-                                   └─ 标准路径 → 单次 Jev 调用（13 题，J1.10）
+                                   └─ 标准路径 → 单次 Jev 调用（13 题，J1.11）
 分类/量级/时机/阻断/W类/关联性/质量 原子化同问；聚合/阈值/截断全部代码端（jev-result-mapper）
 ```
 
@@ -31,6 +31,43 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 ---
 
 ## 二、Case 研究（倒序）
+
+### C9 bitget被盗 0x0e32 —— 负面硬新闻事件误放 → J1.11（2026-09-26）★
+
+**现象**：0x0e323198cdfd9928831d929a1c78c0c04bdc7777（bitget被盗，铸币蹭 Bitget 官方
+被盗公告）被 Jev 评 **high 80.32** → 买门放行（rating=3）后 **-55%**。用户裁定「这个事件
+热度挺高，但问题在于，第一，这是一个负面事件；第二，它没有啥 meme 的」——热度高≠该放。
+
+**评级事实链**（token_narrative，`jev(J1.10/D类)` 标准路径，三道门全没拦）：
+- event_category **D 1.0**（机构官方公告）+ 量级 A 档（被盗 3.516 亿——被骑事件量级直接
+  喂饱事件分 34 + 传播 25.65 + 时效 15 = **74.65>60** 过线）——D 类版 ChainPulse：被骑对象
+  的量级直接给骑乘盘计分
+- block_reason none 0.94（旧题面 10 选项无负面事件维度可判）
+- name_referent notable_other 0.45（Bitget 知名但按量表非超级 IP）→ 阻断侧合计 0.45<0.5
+  **差 0.05 未拦**；super_ip 0.42<0.5 也在阻断侧豁免线下
+- 骑乘门 rideDetourBelow scope 只 B/C（D 类当时无实证 case 不入域）
+- detectIssuerSelfLaunch 不命中（creator 是第三方非 Bitget，公告文本无"bitget被盗"连串）
+
+**修复（J1.11，2026-09-26 用户批准「好，搞吧」）**：负面事件 + 无 meme 性 → 新拦截维度
+`negative_hard_news`：
+- **题面**（jev-questions block_reason 第 11 选项）：安全事故/被盗/被黑/暴雷/巨额损失/
+  灾难类负面事件，语料是事故通报/公告/新闻报道；事件无 meme 化玩味空间——主体是机构
+  不参与自嘲传播、无梗无二创动力，蹭名只是消费热度。**边界收窄**（用户确认）：监管罚款/
+  项目失败/名人去世等其他负面不选本项，留给 Jev 按实际叙事价值自由裁量
+- **代码端双挂**（jev-result-mapper）：① BLOCK_SCOPE `'all'`（argmax 机制全域，标准 +
+  superIP 双路径）；② 独立质量门 `negativeHardNewsBlock`——概率 ≥0.5 即拦（不依赖
+  argmax/noneProb，覆盖 none/negative 五五开边界抖动；nameReferentBlock 同思路）。
+  superIP 通道无豁免（超级 IP 的被盗公告同样无 meme 空间）
+- **验证**：① 全量重放 240 行（213 标准 + 27 superIP）J1.11 自身**零翻转**——6 行翻转
+  全是既有门对旧 mapper 滞后行的纠正（捕日者 ×4 = v2 骑乘门、GRASS/YAYA = J1.10
+  nameReferentBlock，6 行 negativeHardNewsMass 全 null；另 583 行无 rating/answers 不可
+  重放，零效果同理成立——存量答案无新键数学上不可触发两道门）；② **bitget被盗
+  ignoreCache 端到端**：Jev 真实重调（J1.11 题面）→ D 1.0 + negative_hard_news
+  **0.98**（none 0.02）→ **low**，落库 `jev(J1.11/D类)`，blockReason「负面硬新闻事件」
+- **部署**：182 两文件 scp + narrative engine 重启（01:41 加载 J1.11）
+- **重放副产品**：捕日者 4 行（09-25 06:29 f3ae56d3 回测直调写入的 high 缓存行）实为
+  §六-11 多进程 mapper 漂移的滞后行——现行 mapper 下本就是 low（骑乘门），4 个缓存行
+  仍是脏 high（未刷新，待 ignoreCache 重跑或失效机制）
 
 ### C8 桃花源记 0x1e09 —— B 类骑乘误放 + 同推文仿盘群 16s 抢发（2026-09-24）★
 
@@ -339,6 +376,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.8 | 09-20 | 代码端量表校准：MAGNITUDE_TIER_SCORES S39/A34/B27/C22（108 样本定参）；DIM2_BANDS 分位带；一致率 29%→54%（含相邻档 68%） | Jev 迁移收尾 | `c430425` |
 | J1.9 | 09-23 | block_reason 加 word_extraction + subject_unqualified 扩 scope——**已废弃**（Jev 无法单选项覆盖双结构） | CONVICTION/OneKey | `ce040b6` |
 | J1.10 | 09-23 | name_referent 独立题（6 选项）+ 阻断侧合计概率 ≥0.5；标准+superIP 双路径 | CONVICTION/OneKey/YAYA/天才 | `89e31ba` |
+| J1.11 | 09-26 | block_reason 加 negative_hard_news（第 11 选项，边界收窄到安全事故/被盗/暴雷/巨额损失/灾难）；mapper 双挂 BLOCK_SCOPE 'all' + 概率 ≥0.5 质量门（negativeHardNewsBlock，标准+superIP 双路径）；重放 240 行零翻转 | bitget被盗 C9 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。
@@ -398,6 +436,11 @@ P0-P1 客户端+问题集+state+映射（`9b76a1b`）→ P2 主路径+superIP（
   骑乘文章构想名发币（3886 粉 1 赞 Article 标题党）——W 数学交互分被被骑对象
   字样喂饱（被骑对象火反而加分，与 C7 骑乘语义矛盾）→ W 入 scope（阻断侧
   ≥0.5 拦，super_ip≥0.5 超大产品豁免同构）；重放 160 行仅 ChainPulse 1 行翻转
+- 负面硬新闻拦截（2026-09-26，C9 bitget被盗案，J1.11）：block_reason 加
+  negative_hard_news 选项（边界收窄到安全事故/被盗/暴雷/巨额损失/灾难，其余负面
+  留给 Jev 自由裁量）+ mapper 双挂（BLOCK_SCOPE 'all' argmax 机制 + 概率 ≥0.5
+  质量门 negativeHardNewsBlock，标准 + superIP 双路径，superIP 无豁免）；端到端
+  negative_hard_news 0.98 → low，重放 240 行 J1.11 自身零翻转
 
 ### 4.5 代码侧 pre-check 规则族（无 LLM，与 LLM 分工的"市场事实"侧）
 | 规则 | 判定 | 局限 |
