@@ -103,6 +103,30 @@ function buildStageSaveData(stageName, stageData, overrides = {}) {
 }
 
 /**
+ * 代币分类提取（2026-09-27 用户裁定：分类作为叙事分析的输出，落库 token_category）
+ *
+ * 分类来源（三路互斥）：
+ * - prestage 路径（账号/社区/项目币/发行方自发）：prestageDataToSave.category = tokenType
+ *   （project / account_based_meme / web3_native_ip_early）
+ * - superIP 快速通道：同一 prestage 位承载 category='super_ip_fast'（jev-result-mapper）
+ * - 标准路径：stage1 事件类别 → 'event:<A~W>'
+ * - precheck fail / no_data：未走到分类环节 → null
+ *
+ * @param {Object} prestageDataToSave - prestage 阶段数据（含 __clear 标记形态）
+ * @param {Object} stage1DataToSave - 标准/superIP 路径 stage1 数据
+ * @returns {string|null} 分类值
+ */
+export function deriveTokenCategory(prestageDataToSave, stage1DataToSave) {
+  if (prestageDataToSave && prestageDataToSave.__clear !== true && prestageDataToSave.category) {
+    return prestageDataToSave.category;
+  }
+  const eventCategory = (!stage1DataToSave || stage1DataToSave.__clear === true)
+    ? null
+    : stage1DataToSave.parsed_output?.eventClassification?.primaryCategory;
+  return eventCategory ? `event:${eventCategory}` : null;
+}
+
+/**
  * 将 buildStageSaveData 的输出扁平化为前端可用的格式
  * 合并 result + prompt + rawOutput 到同一层级
  * @param {Object} saveData - buildStageSaveData 的返回值
@@ -643,6 +667,10 @@ export class NarrativeAnalyzer {
     const stage2SaveData = buildStageSaveData('stage2', stage2DataToSave);
     const stage3SaveData = buildStageSaveData('stage3', stage3DataToSave);
 
+    // 代币分类（fPay/FOMOPAY 宣告竞态案裁定 2026-09-27）：null 不带键——
+    // repository 侧保留旧值（重析 precheck fail 不清掉已落库的分类）
+    const tokenCategory = deriveTokenCategory(prestageDataToSave, stage1DataToSave);
+
     // 构建 stage_final_result
     const stageFinalSaveData = stageFinalData ? {
       stage_final_result: {
@@ -692,7 +720,10 @@ export class NarrativeAnalyzer {
 
       // === GMGN 风险字段（x-0 案）===：直调语境拿到才写（repository 侧 ?? existing
       // 保旧行——重析时 GMGN 失败不清掉已积累的风险数据）
-      gmgn_info: gmgnRisk ? { risk: gmgnRisk, fetchedAt: new Date().toISOString() } : undefined
+      gmgn_info: gmgnRisk ? { risk: gmgnRisk, fetchedAt: new Date().toISOString() } : undefined,
+
+      // === 代币分类（2026-09-27 裁定）===：prestage tokenType / super_ip_fast / event:X
+      ...(tokenCategory ? { token_category: tokenCategory } : {})
     });
 
     // 构造 llmAnalysis 对象供前端使用（扁平格式，与缓存路径 buildLLMAnalysis 一致）

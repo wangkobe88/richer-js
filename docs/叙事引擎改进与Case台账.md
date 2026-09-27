@@ -41,11 +41,12 @@ precheck fail「未在账号简介或推文中找到完整代币地址」，账�
 项目方第一条贴 CA 推文发出 **10:05:28（晚 5 秒）**；完整宣告推（CA+产品说明，蹭
 「CZ 创立的币安链」叙事）10:31 才发。**同日两例（fPay 晚 6s / FOMOPAY 晚 5s）实证
 「先发币、立即发推贴 CA」是项目方标准动作序列——竞态窗口命中率极高，§六-24 不是
-孤例是个面**。
+孤例是个面**（→ 已落地：§4.8 precheck fail 重试，此类盘 5min 窗内自动重析救回）。
 
 **重跑（ignoreCache）同 fPay 结果**：宣告进时间线 → 地址命中 → 规则过 → prestage
 Jev project 路径 → 粉丝底线 60 不达标（25 粉）→ **low**。两案收敛为同一结论：
-- 表层故障 = 宣告竞态 + fail 缓存固化（§六-24 待裁定，本例为第二实证）
+- 表层故障 = 宣告竞态 + fail 缓存固化（§六-24 待裁定，本例为第二实证；同日已裁定
+  落地 §4.8 重试服务）
 - 表层修通后还有 project 粉丝底线门对冷启动账号偏严（§六-23 收窄项，两例同挂）
 
 ### C20 邦多利 0xc19c —— 抖音视频发布时间组装层丢弃，视频类盘时效恒 0 分（2026-09-27）★
@@ -105,8 +106,8 @@ DB 行已被重跑覆盖为新结果（project/low/addressVerified=true）。
 **暴露的机制缺口（→§六-23/24）**：
 - **fail 缓存无重试语义**（§六-24）：precheck 因地址未验证 fail 的行永久缓存，把
   「自发宣告型」整类锁死在宣告前状态——这是 CLAUDE.md 已挂的缓存失效机制（planned
-  not built）的最尖锐场景。修法方向：fail 行短 TTL 重分析 / 消费侧不信任 fail 缓存
-  / 分析前等宣告窗口，待用户裁定
+  not built）的最尖锐场景。（→ 同日裁定落地 §4.8：address-fail 行 5min 窗内按交易
+  增量重析，出窗完全停止）
 - **flap 创建时间缺口新实例**（并入 §六-22）：raw_api_data.eventTs（wss_token_create
   源）有值但 pre-check 判「代币无创建时间数据」——时效检查跳过 + 推文时间窗 untilSec
   未用上；与 §六-22 的 5 处 created_at 消费点同族（token-info-service 只读
@@ -1071,6 +1072,37 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
 
 ---
 
+### 4.8 代币分类输出 + precheck fail 重试（09-27，§六-24 落地）
+
+用户裁定（C19/C21 宣告竞态两例后）：「把分类记下来，作为叙事分析的一个输出。对于
+项目币，如果没通过、且没找到发布的地址，交易量达到一定数量再次重试，重试在代币
+发出后 5 分钟完全停止。」
+
+**分类输出 `token_narrative.token_category`**（新列，`deriveTokenCategory` 三路互斥
+提取）：prestage 路径 `project / account_based_meme / web3_native_ip_early`；superIP
+通道 `super_ip_fast`（prestage 同位承载）；标准路径 `event:A~W`（stage1
+eventClassification.primaryCategory 前缀拼接）；precheck fail / no_data → NULL。
+写侧语义 = **有分类才带键**（null 不带键 → repository 保留旧值）：重析 fail 不清掉
+已落库分类，新分类自然覆盖。SQL：`scripts/sql/add-token-narrative-token-category.sql`
+（含可选历史回填段，默认注释；⚠️ 部署顺序红线：列必须先于进程重启创建，同 gmgn_info
+先例）。
+
+**precheck fail 重试服务**（`src/narrative/engine/PrecheckFailRetryService.mjs`，挂
+engine 常驻进程主线程，`config/narrative-engine.json` → `engine.precheckFailRetry`）：
+
+| 条件（全部满足才触发 `analyze(ignoreCache:true)`） | 缺省 |
+|---|---|
+| 候选形状：`pre_check_result.pass=false` 且 `details.validationStage='address'`（宣告竞态形状；no_public_info 等不在域内） | — |
+| 时间窗：代币创建（wss_events 最早 token_create）距今 < 300s，**出窗完全停止**；查不到创建事件 = 无锚不重试（fail-closed） | retryWindowSec 300 |
+| 交易增量：自 analyzed_at 起新增 tick ≥ 20（增量而非总量——fail 时刻盘面已有量，总量口径会立即触发且每轮触发；增量天然限频） | tradeSurgeThreshold 20 |
+| per-token 次数 < 5（进程内计数，重启清零——5min 窗本身即边界）；单轮扫描最多触发 2 个 | maxRetriesPerToken 5 / maxPerScan 2 |
+
+扫描 30s 周期（`scanIntervalMs`）；DB 走 **dbManager（service key）**——wss_price_ticks
+/wss_events 对 anon key 被 RLS 静默过滤成空（红线：禁用 repository 的 anon 客户端查
+这两表）；写入仍走 NarrativeAnalyzer→NarrativeRepository 同链路。重析成功（地址命中
+→ prestage → 分类落库 + fail 行覆盖）→ 行不再候选自动停止；仍 fail → 窗口内按增量
+再试。单测：`scripts/_test_precheck_fail_retry.cjs`（25 断言零 DB 全过）。
+
 ## 五、策略侧应用（回测 E1→E2→E3→E4，源 572033ad）
 
 | 实验 | id | preBuyCheckCondition | 差异 | 结果 |
@@ -1269,14 +1301,11 @@ symbol 同名 name 跨语义盘会被拦）
     当天冷启动项目账号偏严**（宣告几分钟内分析必然 <60 粉 → low；粉丝是当前快照，
     无历史锚）。是否对「账号创建远早于 token 且地址强绑定」的项目盘放宽粉丝底线
     或改用别的冷启动信号（如宣告推文互动/官网真实性），待用户裁定
-24. **precheck fail 缓存固化无重试语义**（2026-09-27 C19 ★）：宣告推文晚于分析
-    几秒是项目方常态（先发币后发推），precheck 因「地址未公示」fail 的行被全局缓存
-    永久固化（is_valid=true）——「自发宣告型」币在宣告前被分析一次就永远锁死。
-    CLAUDE.md 已挂的缓存失效机制（planned not built）最尖锐场景。修法方向：
-    ① fail（address 阶段）行短 TTL 自动重分析（如 10min 内一次）② 消费侧
-    （NarrativeDirectCaller）对 precheck fail 行不信任缓存强制重分析 ③ 无为（接受
-    漏，靠 fail 放行语义 9 兜底——注意现 fail 是 rating low 拦截不是 9 放行）。
-    待用户裁定
+24. ~~**precheck fail 缓存固化无重试语义**~~（**已裁定落地**，2026-09-27：§4.8
+    precheck fail 重试服务——address-fail 行在代币创建后 5min 窗内按交易增量
+    ≥20 tick 触发 ignoreCache 重析，出窗完全停止；宣告竞态盘（fPay/FOMOPAY 型）
+    宣告进时间线后自动救回，分类随 prestage 判定落 `token_category`。遗留观察项：
+    project 粉丝底线 60 对冷启动账号偏严（→§六-23）依然在重析后拦 rating）
 25. **历史视频类 token 时效系统性低估 + TikTok/B站 fetcher 时间字段**（2026-09-27
     C20）：组装层修复只救新分析；历史抖音/YouTube 视频币的 token_narrative 行时效
     恒 0（unknown）——差 5.96 分内的盘全部被压线。① 是否批量重放刷新历史视频币

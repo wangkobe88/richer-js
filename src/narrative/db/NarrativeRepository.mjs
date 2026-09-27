@@ -132,6 +132,13 @@ export class NarrativeRepository {
       gmgn_info: result.gmgn_info ?? existing?.gmgn_info ?? null,
     };
 
+    // === 代币分类（2026-09-27 裁定）===：有分类判定才写键——null/undefined（precheck
+    // fail 未分类）不带键保留旧值（重析 fail 不清掉已落库的分类；新分类自然覆盖）。
+    // 列由 scripts/sql/add-token-narrative-token-category.sql 先行创建（部署顺序红线）
+    if (result.token_category) {
+      record.token_category = result.token_category;
+    }
+
     // === 仅 result 的阶段（无 prompt/raw_output）===
     for (const stage of RESULT_ONLY_FIELDS) {
       const fieldName = stage === 'pre_check' ? 'pre_check_result' : `${stage}_result`;

@@ -23,6 +23,7 @@ dotenv.config({ path: resolve(__dirname, '../../../config/.env') });
 import { createClient } from '@supabase/supabase-js';
 import { Worker } from 'worker_threads';
 import path from 'path';
+import { PrecheckFailRetryService } from './PrecheckFailRetryService.mjs';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY;
@@ -73,6 +74,10 @@ export class NarrativeAnalysisEngine {
     this._realtimeConnected = false;
     this._fallbackTimer = null;
 
+    // precheck fail 重试服务（fPay/FOMOPAY 宣告竞态案，§六-24 落地）：主线程常驻扫描
+    // address-fail 行，5min 窗口内按交易增量触发 ignoreCache 重析（配置段缺省即默认启用）
+    this._precheckFailRetry = new PrecheckFailRetryService(engineConfig.precheckFailRetry || {});
+
     this.stats = {
       totalProcessed: 0,
       successCount: 0,
@@ -112,6 +117,9 @@ export class NarrativeAnalysisEngine {
 
     // 3. 启动 fallback 轮询（3秒间隔，防止 Realtime 事件丢失）
     this._startFallbackPolling();
+
+    // 4. 启动 precheck fail 重试服务（address-fail 宣告竞态盘的 5min 窗口内重析）
+    this._precheckFailRetry.start();
   }
 
   /**
@@ -135,6 +143,11 @@ export class NarrativeAnalysisEngine {
     if (this._fallbackTimer) {
       clearInterval(this._fallbackTimer);
       this._fallbackTimer = null;
+    }
+
+    // 清理 precheck fail 重试服务
+    if (this._precheckFailRetry) {
+      this._precheckFailRetry.stop();
     }
 
     this._log('INFO', '收到停止信号，等待活跃任务完成...');
