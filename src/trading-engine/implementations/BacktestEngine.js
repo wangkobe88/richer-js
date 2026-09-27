@@ -239,6 +239,31 @@ class BacktestEngine extends AbstractTradingEngine {
     this._writeBuffer = new BacktestWriteBuffer(supabase, this.logger);
     this._writeBufferEnabled = experimentConfig.backtest?.writeBufferEnabled !== false;
 
+    // 7.5 TPA 触发点持仓分析（回迁批 4 shadow 先行）：opt-in 同实时引擎——实验 config 整段无
+    //     tokenPositionAnalyzer → 不构造（存量实验零影响）；段存在才构造（trigger fail-fast）。
+    //     回测三点差异：persistSink 走 writeBuffer 攒批（决策不依赖落表，仅写库时机后移）；
+    //     _alignClassifiedAsOf=true（防前视：分类可见时刻>asOf 的 token 不计 bad_action）；
+    //     启动后预载三连（见 _loadWssTicks 之后）
+    this._tokenPositionAnalyzer = null;
+    const tpaExpConfig = experimentConfig.tokenPositionAnalyzer;
+    if (tpaExpConfig != null) {
+      const { TokenPositionAnalyzer } = require('../../services/TokenPositionAnalyzer');
+      this._tokenPositionAnalyzer = new TokenPositionAnalyzer(tpaExpConfig, {
+        logger: this.logger,
+        experimentId: this._experimentId,
+        factorAggregator: this._factorAggregator,
+        // writeBuffer 关闭（调试模式，_writeBufferEnabled=false 永不 flush）时传 null →
+        // TPA._persist 回退单条直写 upsert，行不丢；对齐信号通道 writeBufferEnabled guard 语义
+        persistSink: this._writeBufferEnabled
+          ? (row) => this._writeBuffer.addAnalysisInsert(row)
+          : null,
+        alignClassifiedAsOf: true,
+      });
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `✅ TPA 已构造 (enabled=${this._tokenPositionAnalyzer.isEnabled()} ` +
+        `enforce=${this._tokenPositionAnalyzer.isEnforceMode()}, alignClassifiedAsOf=true)`);
+    }
+
     // 8. 买评估去抖（虚拟时钟模式：回放循环每 tick 前 advance 推进）
     const { TickDebouncer } = require('../core/TickDebouncer');
     this._buyDebouncer = new TickDebouncer({
@@ -265,6 +290,22 @@ class BacktestEngine extends AbstractTradingEngine {
     await this._loadWssTicks();
     this.logger.info(this._experimentId, 'BacktestEngine',
       `📊 回放数据就绪: ${this._ticks.length} 笔 tick，${this._tokenMeta.size} 个代币元数据`);
+
+    // 9.5 TPA 预载三连（回迁批 4，回测启动期一次性成本换回放期零 DB 往返）：
+    //     offline 画像全表预载（内存 Map）→ 本实验全量 ticks 注入 trader→ticks 索引
+    //     （miss/stale 路径零查询；口径=注入实验口径 ticks，平台过滤后——架构性偏离 #4
+    //     已接受）→ token 分类预载（token_profiles 批量入 cache，运行期触发全命中）
+    if (this._tokenPositionAnalyzer) {
+      const pre = await this._tokenPositionAnalyzer.preloadOfflineProfiles(supabase);
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `TPA offline 画像预载: ${pre.rows} 行 / ${(pre.ms / 1000).toFixed(1)}s (${pre.source || 'fail-open'})`);
+      const traders = this._tokenPositionAnalyzer.setHistoricalTicks(this._ticks);
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `TPA historical ticks 注入: ${this._ticks.length} 笔 → ${traders} traders`);
+      const cachedTps = await this._tokenPositionAnalyzer.preloadTokenProfiles([...this._tokenMeta.keys()], supabase);
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `TPA token 分类预载: ${this._tokenMeta.size} token → cache ${cachedTps}`);
+    }
   }
 
   /** 源实验 experiment_tokens → 代币元数据（FA registerToken / 落库 / totalSupply 用） */
@@ -395,6 +436,16 @@ class BacktestEngine extends AbstractTradingEngine {
         const factors = this._factorAggregator.buildFactorMap(tick.token_address, tick.timestamp);
         if (!factors) continue;
 
+        // TPA 触发检查（回迁批 4）：await 保证同 tick verdict 就绪（回放串行语义，
+        // 后续 buildFactorMap 立即可读 setHoldingFactors 回填的 TPAPre_* 因子；
+        // asOf=tick.timestamp，tick 行含 block_number 供 blocks 时间门）
+        if (this._tokenPositionAnalyzer) {
+          await this._tokenPositionAnalyzer.checkAndTrigger(
+            tick.token_address, factors,
+            this._factorAggregator.getTokenState(tick.token_address),
+            tick, tick.timestamp);
+        }
+
         const token = this._tokenPool.getToken(tick.token_address, 'bsc');
         if (!token) continue;
 
@@ -446,7 +497,12 @@ class BacktestEngine extends AbstractTradingEngine {
         `✅ 回放完成，耗时 ${duration}ms | 初始 ${this.initialBalance} → 最终 ${finalBalanceValue.toFixed(4)} BNB | ` +
         `收益 ${profit.toFixed(4)} (${profitPercent > 0 ? '+' : ''}${profitPercent}%) | ` +
         `信号 ${this.metrics.totalSignals}/${this.metrics.executedSignals} | 交易 ${this.metrics.totalTrades}` +
-        `（成功 ${this.metrics.successfulTrades} 失败 ${this.metrics.failedTrades}）| debounceFired=${this.metrics.debounceFired}`);
+        `（成功 ${this.metrics.successfulTrades} 失败 ${this.metrics.failedTrades}）| debounceFired=${this.metrics.debounceFired}` +
+        (this._tokenPositionAnalyzer
+          ? ` | TPA: ${JSON.stringify(this._tokenPositionAnalyzer.getStats())}` +
+            (this._tokenPositionAnalyzer.getProfileStats()
+              ? ` | TPA探针: ${JSON.stringify(this._tokenPositionAnalyzer.getProfileStats())}` : '')
+          : ''));
 
       completedSuccessfully = true;
     } catch (error) {
@@ -455,6 +511,11 @@ class BacktestEngine extends AbstractTradingEngine {
     } finally {
       // 市场截面 feed 关闭 + 模块级单例清除（防同进程下一实验继承回放累积的截面）
       require('../../services/FourMemeFactorAggregator').setMarketFeedEnabled(false);
+
+      // TPA 清理（回迁批 4：verdict/画像缓存释放）
+      if (this._tokenPositionAnalyzer) {
+        this._tokenPositionAnalyzer.destroy();
+      }
 
       const finalStatus = completedSuccessfully ? 'completed' : 'failed';
       try {

@@ -73,8 +73,13 @@ class OnlineProfileBuilder {
    * @param {boolean} [config.scanEnabled=true] 定时扫描补救开关
    * @param {number} [config.scanIntervalSeconds=60] 扫描间隔（秒）
    * @param {Object} [logger]
+   * @param {Function} [onProfileClassified] (tokenAddress, tokenProfilesRow) => void：分类落库成功
+   *   回调（回迁批 4）：引擎传 TPA.upsertTokenProfileCache 喂分类缓存。OPB 只写库不留内存——
+   *   无此钩子时 token 在分类完成前被 TPA 查过会 stuck-null 永不更新（DB 后续行它读不到）。
+   *   row 为 token_profiles DB 行形状（category 顶层列 + profile JSONB + classified_at/
+   *   category_visible_at），与 TPA._queryTokenProfileChunk 读回同形状。
    */
-  constructor(config = {}, logger = null) {
+  constructor(config = {}, logger = null, onProfileClassified = null) {
     this._enabled = config.enabled ?? false;
     this._minTicks = config.minTicks || MIN_TICKS;
     this._minAgeSeconds = config.minAgeSeconds || 10;
@@ -90,6 +95,7 @@ class OnlineProfileBuilder {
     this._scanIntervalSeconds = config.scanIntervalSeconds ?? 60;
     this._factorAggregator = null;   // start() 注入（遍历 tracked tokens + 读 state）
     this._scanInterval = null;
+    this._onProfileClassified = typeof onProfileClassified === 'function' ? onProfileClassified : null;
 
     _logger = logger;
   }
@@ -303,6 +309,15 @@ class OnlineProfileBuilder {
         log('error', `写入 token_profiles 失败`, { error: error.message });
       } else {
         log('info', `✓ ${tokenAddress.slice(0, 12)}… → ${category} (online)`);
+        // 分类落库成功 → 喂引擎注入的分类缓存回调（TPA.upsertTokenProfileCache）；
+        // throw 会落入外层 catch 被误报为「DB 操作失败」，语义错位，故单独 catch 报告
+        if (this._onProfileClassified) {
+          try {
+            this._onProfileClassified(tokenAddress, row);
+          } catch (cbErr) {
+            log('error', `onProfileClassified 回调异常 ${tokenAddress.slice(0, 12)}…`, { error: cbErr.message });
+          }
+        }
       }
     } catch (err) {
       log('error', `DB 操作失败 ${tokenAddress.slice(0, 12)}…`, { error: err.message });

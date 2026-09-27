@@ -266,6 +266,7 @@ class ExperimentDetail {
     const linkTrades = document.getElementById('link-trades');
     const linkObserver = document.getElementById('link-observer');
     const linkReturns = document.getElementById('link-returns');
+    const linkPosition = document.getElementById('link-position');
 
     if (linkSignalStats) {
       linkSignalStats.href = `/experiment/${this.experimentId}/signal-stats`;
@@ -284,6 +285,9 @@ class ExperimentDetail {
     }
     if (linkReturns) {
       linkReturns.href = `/experiment/${this.experimentId}/token-returns`;
+    }
+    if (linkPosition) {
+      linkPosition.href = `/experiment/${this.experimentId}/position-analysis`;
     }
 
     // 显示回测实验的源实验ID

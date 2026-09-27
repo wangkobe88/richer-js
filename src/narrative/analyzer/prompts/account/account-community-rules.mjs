@@ -221,6 +221,7 @@ export async function getAccountWithFullTweets(screenName, tweetCount = 50, opti
       verified: userInfo.verified,
       is_blue_verified: userInfo.is_blue_verified,
       statuses_count: userInfo.statuses_count,
+      created_at: userInfo.created_at || null, // 账号注册时间（P1.3 信用降档年龄锚点）
       tweets: tweets.map(t => ({
         tweet_id: t.tweet_id,
         text: t.text,  // 完整文本，不截断

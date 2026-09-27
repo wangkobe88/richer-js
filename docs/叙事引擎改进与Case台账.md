@@ -32,6 +32,52 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C18 x-0 叙事侧加固 —— prestage project 评级表账号信用降档 P1.3（2026-09-27）★
+
+**背景（C15 续 + C17 归因实证收束）**：GMGN twitter_create_token_count 归因方向实证为
+token→推特（8/8：dev 推特 ≡ token 元数据挂链，计数是推文级蹭名聚合/账号级自发计数），
+「大V区分」方案被数据否决（区分后两半各自混排：挂大V推文侧高计数全是赢家，挂自己
+账号侧 osbook=20/+333% 与 x-0=16/-68.8% 同计数）——阈值死结不在归因噪声，x-0 与
+osbook 的真分界在叙事侧账号真实性。用户批准 prestage project 评级表加固。
+
+**修复（P1.3；题面未动，mapper 端聚合语义变化照 J1.8 先例 bump 版本）**：
+- **rateProject 账号信用降档**：账号型 project，`statuses_count <5` OR 账号年龄 `<30 天`
+  → low（OR 语义任一触发；社区型无年龄概念不受影响；reason 落 why 细项，
+  jevDetails.downgrade={statuses, accountAgeDays}）。粉丝数不再是评级表唯一量化指标
+- **年龄锚定幂等**：accountAgeDays 以 **token 创建时间**为锚（tokenCreatedAtSec −
+  account.created_at），对齐 09-23 时效基准裁定——重跑/回测与何时分析无关；created_at
+  缺失/解析失败跳过年龄项（推文项独立生效）；statuses_count 是当前快照（重放偏松方向，
+  穿越声明同 narrativeRating 直调）
+- **flap 创建时间缺口修复**：raw_api_data.created_at 仅 four.meme API 有 →
+  token-info-service fetchTokenData 加 wss_events token_create 事件回退（watcher 秒级
+  落库；x-0 实测一致）；受益链 = P1.3 年龄锚 + 推文时间窗 untilSec + jevNowMs——flap
+  盘时效语义回到 09-23/09-25 裁定的完整形态
+- 数据链 4 文件配合：account-community-rules `getAccountWithFullTweets` 补透传
+  created_at（原先该字段被丢弃）；account-analysis-service mapPrestageAnswers 传
+  tokenCreatedAtSec；NarrativeAnalyzer/token-info-service 统一源声明
+
+**误伤校准（52 行历史 project 重放 × 账号当前快照 × 新 rateProject，2026-09-27）**：
+- 38 行可复算：**x-0 mid→low 唯一降档命中**（134 粉过底线 + 0 推文<5 + 10 天龄<30
+  双触发）——目标案例正中
+- **降档误伤 0**：其余 36 行 old=new 逐行一致（多为 <60 粉早已被底线拦；_OSBook
+  4877 粉 276 推文老号仍 high）
+- 另 1 翻转 USEbNpaid low→high 与降档无关（涨粉 322/45 推文，无 downgrade 记录，
+  P1.2/P1.3 两轮重放同翻——当前快照漂移所致）
+- 14 行账号已删/无 handle（flap 生态盘居多）：P1.2/P1.3 行为一致 fail→low，非新增面
+
+**端到端（x-0 ignoreCache 重析）**：最终 rating=low ✓，但走的是**规则验证地址门**
+（CA 公告推文已被删 → 项目币检测失败 → 134 粉质量不达标 → 地址验证 0 推文找不到
+CA → stage=address 拒）——x-0 初次分析形态（1 条 CA 推文 + 131 粉卡带）已不可复现，
+降档路径的端到端触发无法在其身上重演；链路传递有铁证：日志 untilSec=1790337737 ≡
+wss_events 创建时间 −24h（flap 盘回退精确命中）。降档路径其余各环分别有实证（单测
+21/21，含 promptType=`prestage-jev(P1.3/project)` 透传与 jevDetails.downgrade 断言）。
+当下 x-0 双保险：即使不走 P1.3 也会被地址门拦 low。注意：本次重析已覆盖 x-0 的
+token_narrative 行（现为 precheck/stage=address 拦截形状）。
+
+**部署**：182 六文件 + 三进程重启（narrative engine nohup → /tmp/narrative-engine-p13.log
+Realtime 订阅正常；v2-53c9737c / v2-dfc7a623 screen 原样重建，SharedTickConsumer
+水位对齐正常）。
+
 ### C17 GMGN dev 风险因子 —— 全链路落地 + 校准否决拦截门（2026-09-27）★
 
 **背景（C15 x-0 案续）**：x-0 0xa5fd 批量发币人伪装新项目（131 粉卡进 prestage project
@@ -195,9 +241,9 @@ details 不参与计算）、token 名与账号名精确同名、配官网——
 （preBuyCheckFactors 无该字段），母版 0336befc 及新副本策略亦未写入该门——§六-18
 「是否写入实验 preBuyCheckCondition」的拦截实证 +1（与共合同向）。
 
-**叙事侧可加固方向（待裁定，非必须）**：项目评级表对「新号+空内容」无免疫——可加
-账号年龄/推文数降档（如注册 <30 天或 statuses_count <5 → low）→ 需重放校准误伤面；
-市场事实侧（净流入）已可拦，优先级看裁定。
+**叙事侧可加固方向**：~~待裁定~~ **已落地**（2026-09-27 用户批准）：P1.3 信用降档
+（注册 <30 天 OR statuses_count <5 → low，token 创建时点锚定幂等），52 行重放仅 x-0
+命中 0 误伤，见 C18。市场事实侧（净流入）已由 §六-18/C16 门覆盖。
 
 ### C14 Cz黄鞋 0x91c4 —— 「IP名+闲聊物品词」拼接 + superIP 通道闲聊满分 → J1.14 实体性前提（2026-09-27）★
 
@@ -811,6 +857,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.13 | 09-27 | block_reason 加 routine_content_product（第 12 选项：常规内容产品宣传——电影/剧集/综艺/动漫/小说/游戏发布上映预告，官宣与否无关均拦；边界：全民玩梗对象/文化符号/公共事件/世界级实体产品不选）；mapper 双挂 BLOCK_SCOPE 'all' + 概率 ≥0.5 质量门（routineContentProductBlock，标准+superIP 双路径）；重放 289 行零新增翻转 | 绣春刀3 0xa7c9c86e C12 | `36b66cb` |
 | J1.14 | 09-27 | name_referent super_ip 加第③前提「实体性」（主定义扩含「IP 亲口提及/讲述的具体实体=提及即事件」Giggle 语义，不含被@的普通人物；「IP名+日常物品词」拼接/无实体对应无 meme 元素的普通词组判 common_word）+ common_word 去「文本作者非超级IP」限制；mapper 零改动；重放 322 行（含 superIP）零新增翻转 | Cz黄鞋 0x91c4c4e9 C14 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
+| P1.3 | 09-27 | 题面未动——mapper 端 project 评级表加账号信用降档（推文 <5 OR 账号年龄 <30 天→low，年龄以 token 创建时点锚定幂等；照 J1.8 先例 bump）；附带 flap 创建时间 wss_events token_create 回退（token-info-service）；52 行 project 重放仅 x-0 命中 0 误伤 | x-0 0xa5fd1f C15/C18 | 本 commit |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。
 
@@ -1130,3 +1177,9 @@ symbol 同名 name 跨语义盘会被拦）
     双向误伤无可用阈值。**建议不写门**（x-0 已被 C13/C16 门覆盖），保留 gmgn_info
     落库与 context 因子待更好判据（如按叙事路径拆分 issuer 语义：prestage project
     盘的 issuer 才是自发语义）。待用户裁定
+22. **pre-check 5 处 created_at 消费点是否切 wss_events 回退源**（2026-09-27 C18 附带
+    发现）：P1.3 只统一了叙事侧 tokenCreatedAtSec（prestage 评级/推文时间窗/jevNow），
+    pre-check（过期推文/过期视频/同名代币等 5 处）仍读 raw_api_data.created_at——
+    flap 盘这些检查维持跳过（fail-open）。数据源已可得（wss_events 回退），flap 盘
+    语义上也可执行时效检查了，是否扩面（拦截面变化：flap 盘过期语料从放行变可能拦截）
+    待用户裁定

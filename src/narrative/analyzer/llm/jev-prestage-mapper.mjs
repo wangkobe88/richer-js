@@ -7,7 +7,8 @@
  * - addressVerified=true → token_type 二分（V2.0 第一步）：
  *   - web3_native_ip_early → unrated
  *   - project 评级（V2.0 第三步表，就高处理——high 档无封顶，认证记 details 不参与）：
- *     账号 <60 low / 60-299 mid / ≥300 high；社区 <20 low / 20-99 mid / ≥100 且活跃 high
+ *     账号 <60 low / 60-299 mid / ≥300 high；社区 <20 low / 20-99 mid / ≥100 且活跃 high；
+ *     P1.3 账号信用降档——推文 <5 或账号年龄 <30 天（token 创建时点锚定）→ low
  * - 输出 prestageDataToSave 与旧 prestageData 字段一一对应（存储契约不变），
  *   promptType 用于 prompt_type 列识别新旧格式
  */
@@ -28,11 +29,18 @@ const NAME_LINK_LABELS = {
  * project 评级（纯确定性，V2.0 评级表下沉；high 档就高处理：
  * 旧表 high 只写 300-2999 且"认证/蓝V优先"无量化规则 → ≥300 一律 high，
  * 认证状态记入 details 不参与计算——评级可由 followers/members 复算验证）
+ * P1.3 信用降档（x-0 案 C15）：账号型 project 加新号/空内容降档——买粉新号
+ * 可精确卡进粉丝带（x-0：131 粉、11 天号、1 条推文 → mid 放行 -68.8%），
+ * 粉丝数是唯一量化指标的盲区。推文 <5 或账号年龄 <30 天 → low（不具项目信用）。
+ * 年龄以 token 创建时间为锚（与 pre-check 时效基准同裁定：重跑/回测幂等）；
+ * created_at 缺失/解析失败跳过年龄项；statuses_count 是当前快照（重放偏松方向，
+ * 穿越声明同 narrativeRating 直调）。
  * @param {Object} data - fullAccountOrCommunityData
  * @param {string|null} activityChoice - prestage_community_activity 的 choice（社区型用）
- * @returns {{rating: string, baselineMet: boolean, reason: string}}
+ * @param {number|null} [tokenCreatedAtSec] - 代币创建时间（秒，raw_api_data.created_at）
+ * @returns {{rating: string, baselineMet: boolean, reason: string, downgrade: Object|null}}
  */
-export function rateProject(data, activityChoice) {
+export function rateProject(data, activityChoice, tokenCreatedAtSec = null) {
   const isAccount = data.type === 'account';
   const count = isAccount
     ? (data.followers_count || 0)
@@ -45,7 +53,33 @@ export function rateProject(data, activityChoice) {
       rating: 'low',
       baselineMet: false,
       reason: `底线指标不达标（${metric}${count} < ${floor}，被过滤）`,
+      downgrade: null,
     };
+  }
+
+  // 账号信用降档（P1.3）：只作用于账号型——社区型无账号年龄概念
+  if (isAccount) {
+    const statuses = data.statuses_count || 0;
+    let accountAgeDays = null;
+    if (tokenCreatedAtSec && data.created_at) {
+      const accountCreatedMs = Date.parse(data.created_at);
+      if (!Number.isNaN(accountCreatedMs)) {
+        accountAgeDays = (tokenCreatedAtSec * 1000 - accountCreatedMs) / 86400000;
+      }
+    }
+    const tooFewTweets = statuses < 5;
+    const tooYoung = accountAgeDays !== null && accountAgeDays < 30;
+    if (tooFewTweets || tooYoung) {
+      const why = [];
+      if (tooFewTweets) why.push(`推文仅${statuses}条<5`);
+      if (tooYoung) why.push(`账号注册仅${Math.floor(accountAgeDays)}天<30（以token创建时点锚定）`);
+      return {
+        rating: 'low',
+        baselineMet: true,
+        reason: `项目币评级：${metric}${count} → 信用降档low（${why.join('、')}，新号/空内容不具项目信用）`,
+        downgrade: { statuses, accountAgeDays: accountAgeDays === null ? null : Math.floor(accountAgeDays) },
+      };
+    }
   }
 
   let rating;
@@ -61,6 +95,7 @@ export function rateProject(data, activityChoice) {
     rating,
     baselineMet: true,
     reason: `项目币评级：${metric}${count}${activityNote} → ${rating}（底线≥${floor}）`,
+    downgrade: null,
   };
 }
 
@@ -71,11 +106,13 @@ export function rateProject(data, activityChoice) {
  * @param {Object} context.fullAccountOrCommunityData - 账号/社区完整数据
  * @param {boolean} context.addressVerified - 规则验证地址命中结果
  * @param {Object|null} [context.rulesResult] - performRulesValidation 结果
+ * @param {number|null} [context.tokenCreatedAtSec] - 代币创建时间（秒；P1.3 账号
+ *   年龄锚点，与 pre-check 时效基准同裁定）
  * @param {Object} context.callInfo - {model, questions, state, stateStats, usage, startedAt, finishedAt}
  * @returns {Object} { tokenType, rating, reasoning, baselineMet, prestageDataToSave, promptType, jevDetails }
  */
 export function mapPrestageAnswers(answers, context) {
-  const { fullAccountOrCommunityData, addressVerified, rulesResult, callInfo } = context;
+  const { fullAccountOrCommunityData, addressVerified, rulesResult, callInfo, tokenCreatedAtSec = null } = context;
   const data = fullAccountOrCommunityData;
   const isAccount = data.type === 'account';
   const followers = isAccount ? (data.followers_count || 0) : null;
@@ -153,9 +190,9 @@ export function mapPrestageAnswers(answers, context) {
       details = { followers, members, projectReason: null, ipConcept: null };
       jevDetails = { tokenType };
     } else {
-      // project：评级数学全部代码端（V2.0 评级表）
+      // project：评级数学全部代码端（V2.0 评级表 + P1.3 信用降档）
       const activityChoice = answers.prestage_community_activity?.choice || null;
-      const rated = rateProject(data, activityChoice);
+      const rated = rateProject(data, activityChoice, tokenCreatedAtSec);
       tokenType = 'project';
       rating = rated.rating;
       baselineMet = rated.baselineMet;
@@ -169,7 +206,8 @@ export function mapPrestageAnswers(answers, context) {
         ipConcept: null,
         ...(isAccount ? { verified: data.verified || data.is_blue_verified || false } : { communityActivity: activityChoice }),
       };
-      jevDetails = { tokenType, activityChoice, baselineMet: rated.baselineMet };
+      jevDetails = { tokenType, activityChoice, baselineMet: rated.baselineMet,
+        ...(rated.downgrade ? { downgrade: rated.downgrade } : {}) };
     }
   }
 

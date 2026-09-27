@@ -15,6 +15,7 @@ class BacktestWriteBuffer {
     this._pendingSnapshotInserts = [];
     this._pendingSignalUpdates = []; // { signalId, updateData }
     this._pendingEarlyTradesInserts = [];
+    this._pendingAnalysisInserts = []; // TPA token_position_analyses 行（回迁批 4；upsert 通道）
   }
 
   /**
@@ -46,6 +47,16 @@ class BacktestWriteBuffer {
    */
   addEarlyTradesInsert(dbData) {
     this._pendingEarlyTradesInserts.push(dbData);
+  }
+
+  /**
+   * 添加 TPA 持仓分析落表记录（回迁批 4）：TPA._persist 经 persistSink 注入本通道，
+   * flush 时批量 upsert token_position_analyses（onConflict 三列，防 --force 重跑撞
+   * UNIQUE duplicate key）。决策路径不依赖落表（verdict/holding 因子在 _persist 前
+   * 已内存生效），仅写库时机后移。
+   */
+  addAnalysisInsert(dbData) {
+    this._pendingAnalysisInserts.push(dbData);
   }
 
   /**
@@ -93,7 +104,8 @@ class BacktestWriteBuffer {
       + this._pendingTradeInserts.length
       + this._pendingSnapshotInserts.length
       + this._pendingSignalUpdates.length
-      + this._pendingEarlyTradesInserts.length;
+      + this._pendingEarlyTradesInserts.length
+      + this._pendingAnalysisInserts.length;
   }
 
   /**
@@ -108,6 +120,7 @@ class BacktestWriteBuffer {
       snapshotsInserted: 0,
       signalsUpdated: 0,
       earlyTradesInserted: 0,
+      analysesUpserted: 0,
       errors: []
     };
 
@@ -152,6 +165,16 @@ class BacktestWriteBuffer {
       ).then(count => { stats.earlyTradesInserted = count; }));
     }
 
+    // 批量 upsert TPA 持仓分析行（回迁批 4；与其他表无外键依赖，同段并行）
+    if (this._pendingAnalysisInserts.length > 0) {
+      insertTasks.push(this._batchUpsert(
+        'token_position_analyses',
+        this._pendingAnalysisInserts,
+        'experiment_id,token_address,trigger_no',
+        experimentId
+      ).then(count => { stats.analysesUpserted = count; }));
+    }
+
     await Promise.all(insertTasks);
 
     // 第三阶段：信号更新（必须等 INSERT 完成，否则 UPDATE 找不到记录）
@@ -166,10 +189,11 @@ class BacktestWriteBuffer {
     this._pendingSnapshotInserts = [];
     this._pendingSignalUpdates = [];
     this._pendingEarlyTradesInserts = [];
+    this._pendingAnalysisInserts = [];
 
-    if (this._logger && (stats.signalsInserted || stats.tradesInserted || stats.snapshotsInserted || stats.signalsUpdated || stats.earlyTradesInserted)) {
+    if (this._logger && (stats.signalsInserted || stats.tradesInserted || stats.snapshotsInserted || stats.signalsUpdated || stats.earlyTradesInserted || stats.analysesUpserted)) {
       this._logger.info(experimentId, 'BacktestWriteBuffer',
-        `flush 完成 | signals=${stats.signalsInserted}, trades=${stats.tradesInserted}, snapshots=${stats.snapshotsInserted}, signalUpdates=${stats.signalsUpdated}, earlyTrades=${stats.earlyTradesInserted}`);
+        `flush 完成 | signals=${stats.signalsInserted}, trades=${stats.tradesInserted}, snapshots=${stats.snapshotsInserted}, signalUpdates=${stats.signalsUpdated}, earlyTrades=${stats.earlyTradesInserted}, analyses=${stats.analysesUpserted}`);
     }
 
     return stats;
@@ -210,6 +234,56 @@ class BacktestWriteBuffer {
       }
     }
     return inserted;
+  }
+
+  /**
+   * 分批 UPSERT（回迁批 4，token_position_analyses 专用）：批级 3 次退避重试
+   * （500ms×attempt，对抗 fetch failed 瞬断——supabase-js 网络错误整批丢弃），
+   * 耗尽后降级逐条 upsert（定位坏行：好行仍写入，与 _batchInsert 降级语义一致）
+   */
+  async _batchUpsert(table, records, onConflict, experimentId, maxRetries = 3) {
+    let upserted = 0;
+    for (let i = 0; i < records.length; i += BATCH_INSERT_LIMIT) {
+      const batch = records.slice(i, i + BATCH_INSERT_LIMIT);
+      const batchNo = Math.floor(i / BATCH_INSERT_LIMIT) + 1;
+      let lastError = null;
+      let ok = false;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const { error } = await this._supabase
+          .from(table)
+          .upsert(batch, { onConflict });
+        if (!error) { ok = true; break; }
+        lastError = error;
+        if (this._logger) {
+          this._logger.error(experimentId, 'BacktestWriteBuffer',
+            `批量 upsert ${table} 失败 (尝试 ${attempt}/${maxRetries}): ${error.message} (batch ${batchNo})`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+      }
+      if (ok) {
+        upserted += batch.length;
+        continue;
+      }
+      // 重试耗尽 → 降级逐条（确定性 DB 错误在此定位坏行）
+      if (this._logger) {
+        this._logger.error(experimentId, 'BacktestWriteBuffer',
+          `批量 upsert ${table} 重试耗尽，降级单条: ${lastError ? lastError.message : 'unknown'} (batch ${batchNo})`);
+      }
+      for (const record of batch) {
+        const { error: singleError } = await this._supabase
+          .from(table)
+          .upsert([record], { onConflict });
+        if (singleError) {
+          if (this._logger) {
+            this._logger.error(experimentId, 'BacktestWriteBuffer',
+              `单条 upsert ${table} 失败: ${singleError.message}, token=${record.token_address}`);
+          }
+        } else {
+          upserted++;
+        }
+      }
+    }
+    return upserted;
   }
 
   /**

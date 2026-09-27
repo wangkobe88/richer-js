@@ -16,9 +16,13 @@
  *   真 web3ip 样本 10/14 被判 project。折中：project 侧保留"低粉产品号是
  *   project（规模由代码端过滤）"澄清，web3ip 侧恢复 V2.0 的伴随特征描述
  *   （小社区/早期/IP 叙事为主体）——规模是伴随信号而非充分条件
+ * P1.3：题面未动——mapper 端 project 评级表加账号信用降档（J1.8 量表校准
+ *   同例 bump：聚合语义变化须可按版本筛历史行）。x-0 案（C15）：买粉新号
+ *   131 粉精确卡进 mid 带（粉丝是评级表唯一量化指标的盲区）→ 推文 <5 或
+ *   账号年龄 <30 天（token 创建时点锚定，重跑/回测幂等）→ low
  */
 
-export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.2';
+export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.3';
 
 /**
  * 构建 prestage 问题集

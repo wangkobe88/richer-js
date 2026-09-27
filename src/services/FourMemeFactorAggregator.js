@@ -44,14 +44,18 @@
  *      cutoff 过滤，窗内语义等价
  *   4. USD 输出仅 blockLowMcapUsd（经 state.lastImpliedBnbUsd），其余新链全程 BNB 原生
  *
- * 不迁（母版特定装置）：zz25、w0ShareB/_w0bWin、k0 latch、_traderMaxNetTokens、
- * maxEarlyBuySol、afterFirst3s、_cumulativeBuy/SellTokens、preFilter、ML/GMGN/TPA、
- * smartBot/sniper（批 3.3）。
+ * 不迁（母版特定装置）：zz25、w0ShareB/_w0bWin、k0 latch、maxEarlyBuySol、afterFirst3s、
+ * _cumulativeBuy/SellTokens、preFilter、ML/GMGN、smartBot/sniper（批 3.3）。
+ * TPA 注入装置 + _traderMaxNetTokens（retention 峰值基准）已随回迁批 4 落地：
+ * TokenPositionAnalyzer 触发点 as-of 画像 → setHoldingFactors/setRetentionBasis 回填
+ * → buildFactorMap 直读注入（TPAPre_* 17 键 + TPAAnalyzed/retention/asofRelFirst，
+ * 键集见 tpa-factor-keys.js；触发前 null → ConditionEvaluator 恒 false fail-closed）。
  */
 
 const EventEmitter = require('events');
 const TrendDetector = require('../trading-engine/TrendDetector');
 const HolderTrendDetector = require('../trading-engine/HolderTrendDetector');
+const { HOLDING_FACTOR_KEYS, FA_TPA_KEYS } = require('./tpa-factor-keys');
 
 // 趋势序列时间桶宽度：8 点 × 10s ≈ 旧轮询时代（10s 采样 × 8 点）窗口语义
 const SERIES_BUCKET_SEC = 10;
@@ -161,6 +165,19 @@ let _smartBotWallets = null;
 let _smartBotLoadPromise = null;   // 在途去重（并发调用复用同一 promise）
 let _sniperWallets = null;
 let _sniperLoadPromise = null;
+// ── TPA 持仓因子回填缓存（回迁批 4；母版 :56-70 同款装置）──
+// _holdingFactorOverrides（tokenAddress → { TPAPre_walletHoldingPct, 庄散派生键, ... 17 键 }）：
+//   TokenPositionAnalyzer 触发点 as-of 画像算出持仓因子后 setHoldingFactors 回填，
+//   buildFactorMap 直读注入（触发前 null → 不注入，TPAPre_* 因子缺省 fail-closed）。
+// _retentionBasis（tokenAddress → { zhuangAddresses:[], netZAtDecision:number }）：TPA 在触发点
+//   冻结「哪些钱包是大户」+ Σ 大户建仓峰值净持仓；buildFactorMap 每 tick 用 running
+//   _traderNetTokens 对冻结大户集求和得 netZ@T → TPAPre_retention=netZ@T/netZ@D（live 因子）。
+//   ★netZ@D=Σ 大户 maxNetTokens（建仓峰值，含触发前已清仓的）——旧口径用触发时刻净持仓，
+//   清仓大户 floatPct≈0 被漏（retention 恒 1.0 盲区）。
+// 模块级是有意设计（对齐 _marketRegime/_smartBotWallets 先例：pruneStaleTokens 不清，跨 FA 实例
+//   共享）；由 TPA 侧 write-once 生命周期管理（token 级单次触发后不变）。
+let _holdingFactorOverrides = null;
+let _retentionBasis = null;
 // sniper 判据：wallets.token_count ≥ 此值（母版 wallet-scorer ZR_SNIPER_TOKENCOUNT_THR=300 的
 // BSC 重校——four.meme 历史短参与基数小，计划批 3.3 裁定 50 待校准。定义非调参，改=改口径）。
 // token_count 写入方=mine-smart-wallets.cjs --apply（入榜钱包 rawTotalRun）。⚠口径边界：当前
@@ -413,6 +430,10 @@ class FourMemeFactorAggregator extends EventEmitter {
         const factors = this._buildFactorMap(state, Date.now());
         const keys = new Set(Object.keys(factors || {}));
         for (const k of [
+            // TPA 注入键（回迁批 4）：holdingCache spread 动态键探针收不到（getFactorKeys 用空 state），
+            // 手动并入两清单；FA_TPA_KEYS 字面量无条件出键本可探到，显式并入作双保险（Set 去重）
+            ...HOLDING_FACTOR_KEYS,
+            ...FA_TPA_KEYS,
             'trendTotalReturn', 'trendRiseRatio', 'trendCV', 'trendRecentDownCount', 'trendRecentDownRatio',
             'trendConsecutiveDowns', 'trendDrawdownFromWindowHigh',
             'trendPriceUp', 'trendMedianUp', 'trendSlope', 'trendStrengthScore',
@@ -423,6 +444,22 @@ class FourMemeFactorAggregator extends EventEmitter {
             keys.add(k);
         }
         return keys;
+    }
+
+    /**
+     * 注入 TPA 审批时刻（TokenPositionAnalyzer verdict=approve 时回调；母版 :1088-1095 同款）。
+     * 在此刻冻结 _asofRelFirst = 审批价相对首可靠价的涨幅（静态值，复刻 offline asofRelFirst 语义）。
+     * 调用时机保证 processTick 已推进 _relPriceBnb 为本 tick 可靠价（≈审批价）——引擎
+     * _onFactorsUpdated 在 factorsUpdated（=processTick 尾部）后触发 checkAndTrigger，
+     * TPA verdict approve 在其内。幂等：已冻结则跳过（避免后续重算漂移）。
+     */
+    setAsofMs(tokenAddress, asOfMs) {
+        const state = this._states.get(tokenAddress);
+        if (!state) return;
+        state._asofMs = asOfMs;
+        if (state._asofRelFirst === null && state._relFirstPriceBnb > 0) {
+            state._asofRelFirst = ((state._relPriceBnb - state._relFirstPriceBnb) / state._relFirstPriceBnb) * 100;
+        }
     }
 
     // ═══════════════ 核心：tick 增量处理 ═══════════════
@@ -498,8 +535,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             // 按 trader 维护净持仓（内盘持有者计数与 holderTrend 原料）
             if (tokenAmount > 0) {
                 const delta = isBuy ? tokenAmount : -tokenAmount;
-                state._traderNetTokens.set(tick.trader_address,
-                    (state._traderNetTokens.get(tick.trader_address) || 0) + delta);
+                const _cur = (state._traderNetTokens.get(tick.trader_address) || 0) + delta;
+                state._traderNetTokens.set(tick.trader_address, _cur);
+                // 建仓峰值净持仓（TPA retention 基准分母，回迁批 4）：仅 running 上升时更新，
+                // 单调不减 → 触发前已清仓的大户 maxNet 仍保留（母版 :487-488 同款）
+                const _mx = state._traderMaxNetTokens.get(tick.trader_address) || 0;
+                if (_cur > _mx) state._traderMaxNetTokens.set(tick.trader_address, _cur);
                 state.holderCount = 0;
                 for (const net of state._traderNetTokens.values()) {
                     if (net > 0) state.holderCount++;
@@ -839,6 +880,7 @@ class FourMemeFactorAggregator extends EventEmitter {
                         trade_type: tick.trade_type,
                         price_bnb: priceBnb,
                         price_usd: tick.price_usd || null,
+                        block_number: blockNumber, // TPA blocks 时间门用（回迁批 4；null=本 tick 无块证据）
                         timestamp: ts,
                     },
                     tokenState: state,
@@ -1008,6 +1050,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             totalSellTokens: 0,
             uniqueTraders: new Set(),
             _traderNetTokens: new Map(), // trader → 净持仓（内盘精确）
+            _traderMaxNetTokens: new Map(), // trader → 建仓峰值净持仓（running max 单调不减；TPA retention 基准，回迁批 4）
             _smartBotBuyBnb: new Map(), // trader → 名单内累计可靠买额 BNB（回迁批 3.3；只累不减——参与留痕）
             holderCount: 0,
 
@@ -1053,6 +1096,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             _postPeakBlockTail: new Map(), // 峰后 block → 价（postPeakSlope/blocksSinceHighest 原料）
             _minDdSinceHighestPct: 0,   // 峰后最深回撤 %
             deepDrop70At: null,         // 首触 -70% 时刻（新高重置）
+
+            // TPA 审批时刻冻结（回迁批 4）：setAsofMs 幂等写入。_asofRelFirst=审批价相对首可靠价
+            // 涨幅 %（用 _relPriceBnb/_relFirstPriceBnb 可靠价链冻结——母版 currentPriceUsd/firstPriceUsd
+            // 本身是可靠价链产物，此为对齐而非偏离）。未审批恒 null → condition 引用 fail-closed
+            _asofMs: null,
+            _asofRelFirst: null,
 
             _curBlock: null,            // 单块跌幅链：当前块
             _curBlockClose: null,
@@ -2270,7 +2319,80 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
 
+        // ── TPA 注入（回迁批 4；母版 :2257-2281 + :2441-2448 同款，BSC 可靠价链版）──
+        // holdingCache = TPA 触发点 as-of 画像回填的 17 持仓键（setHoldingFactors）；
+        // 触发前 null → 不注入（TPAPre_* 因子缺省 null → ConditionEvaluator 恒 false fail-closed）
+        const holdingCache = state.tokenAddress && _holdingFactorOverrides
+            ? _holdingFactorOverrides.get(state.tokenAddress) || null
+            : null;
+        if (holdingCache) Object.assign(factors, holdingCache);
+        // TPAAnalyzed（0/1）：是否已完成首次 TPA 检测（holdingCache 存在 ≡ 已 setHoldingFactors ≡
+        //   首次检测完成）。去门控化后供策略显式要求"先检测再买"：TPAAnalyzed == 1 AND TPAPre_tokenScore > X
+        factors.TPAAnalyzed = holdingCache ? 1 : 0;
+
+        // retention（大户走没走 live 因子）：TPA 在触发点冻结大户集 + netZ@D=Σ 大户建仓峰值净持仓
+        //   （setRetentionBasis），每 tick 用 running _traderNetTokens 对冻结集求和得 netZ@T →
+        //   retention=netZ@T/netZ@D。★netZ@D 用峰值（含触发前已清仓的）：netZ@T(running)≤netZ@D(峰值)
+        //   → 触发刻即反映大户已部分出货。未冻结（TPA 未触发）→ null（fail-closed，与 holdingCache 同语义）。
+        //   不 sanitize 负值：大户净卖超买 → retention≤0 = 强"走"信号；Infinity 不可能
+        {
+            const _retBasis = state.tokenAddress && _retentionBasis
+                ? _retentionBasis.get(state.tokenAddress) : null;
+            if (_retBasis && _retBasis.netZAtDecision > 0 && Array.isArray(_retBasis.zhuangAddresses)) {
+                let _netZNow = 0;
+                const _nmap = state._traderNetTokens;
+                if (_nmap) {
+                    for (const _a of _retBasis.zhuangAddresses) _netZNow += (_nmap.get(_a) || 0);
+                }
+                factors.TPAPre_retention = _netZNow / _retBasis.netZAtDecision;
+            } else {
+                factors.TPAPre_retention = null;
+            }
+        }
+
+        // 审批时刻冻结的相对首可靠价涨幅 %（setAsofMs；未审批 null）
+        factors.TPAPre_asofRelFirst = state._asofRelFirst;
+
         return factors;
+    }
+
+    // ═══════════════ TPA 回填接口（static，母版 :2746-2780 同款；回迁批 4）═══════════════
+
+    /**
+     * 回填某 token 的 as-of 持仓因子到内存缓存（TokenPositionAnalyzer 触发分析后调用）。
+     * buildFactorMap 直接读 _holdingFactorOverrides（触发前 null 不注入）。
+     */
+    static setHoldingFactors(tokenAddress, factors) {
+        if (!tokenAddress) return false;
+        if (!_holdingFactorOverrides) _holdingFactorOverrides = new Map();
+        _holdingFactorOverrides.set(tokenAddress, factors);
+        return true;
+    }
+
+    /** 取 setHoldingFactors 回填的 as-of 持仓因子（无则 null）。 */
+    static getHoldingFactors(tokenAddress) {
+        return (_holdingFactorOverrides && _holdingFactorOverrides.get(tokenAddress)) || null;
+    }
+
+    /**
+     * 冻结某 token 的 retention（大户走没走）基准。TokenPositionAnalyzer._analyze 触发后调用
+     * （与 setHoldingFactors 同位点）。buildFactorMap 每 tick 据 state._traderNetTokens 对
+     * zhuangAddresses 求和得 netZ@T → retention=netZ@T/netZAtDecision。
+     * @param {string} tokenAddress
+     * @param {{zhuangAddresses:string[], netZAtDecision:number}} basis
+     *   zhuangAddresses = 大户集（独立从 _traderMaxNetTokens 枚举 maxNet>0 + classifyHolder='zhuang'，
+     *   含触发前已清仓的；D 冻结）；netZAtDecision = Σ 大户 maxNetTokens（建仓峰值净持仓和，>0 才有 retention）
+     */
+    static setRetentionBasis(tokenAddress, basis) {
+        if (!tokenAddress) return false;
+        if (!_retentionBasis) _retentionBasis = new Map();
+        _retentionBasis.set(tokenAddress, basis);
+        return true;
+    }
+
+    /** 取 setRetentionBasis 冻结的 retention 基准（无则 null）。 */
+    static getRetentionBasis(tokenAddress) {
+        return (_retentionBasis && _retentionBasis.get(tokenAddress)) || null;
     }
 }
 

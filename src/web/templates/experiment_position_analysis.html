@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Richer 交易系统 - 持仓分析</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+  <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+  <link href="/static/css/main.css?v=4.2" rel="stylesheet">
+  <style>
+    /* 下拉框选项深色 */
+    select option { color: #fff; background: #1f2937; }
+    /* block 原因单元格可点击 */
+    .block-reason-cell { cursor: pointer; transition: background-color 0.15s; }
+    .block-reason-cell:hover { background-color: rgba(59, 130, 246, 0.1); }
+    .reason-chip { display: inline-block; padding: 1px 6px; margin: 1px 2px 1px 0; border-radius: 8px; font-size: 11px; font-family: 'JetBrains Mono', monospace; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    /* approve 行通过的因子 chip（绿色，与 block 行红色 reason-chip 对称） */
+    .pass-chip { display: inline-block; padding: 1px 6px; margin: 1px 2px 1px 0; border-radius: 8px; font-size: 11px; font-family: 'JetBrains Mono', monospace; background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .pass-chip-sub { display: inline-block; padding: 1px 5px; margin: 1px 2px 1px 0; border-radius: 8px; font-size: 10px; font-family: 'JetBrains Mono', monospace; color: #9ca3af; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+  <div class="min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="bg-gray-800 border-b border-gray-700">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center">
+            <h1 class="text-xl font-bold text-green-400">
+              <a href="/" class="hover:text-green-300 transition-colors">Richer-js Fourmeme Trading</a>
+            </h1>
+            <div class="hidden md:block">
+              <a href="/experiments" class="ml-8 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">实验列表</a>
+              <a id="link-detail" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">实验详情</a>
+              <a id="link-signals" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">交易信号</a>
+              <a id="link-trades" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">交易记录</a>
+              <a id="link-strategy-analysis" href="#" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">策略分析</a>
+              <a href="#" id="current-page" class="ml-4 px-3 py-2 rounded-md text-sm font-medium bg-gray-700 text-white">持仓分析</a>
+            </div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <button id="refreshBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium text-white transition-colors">🔄 刷新</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- 主内容区 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div id="errorContainer"></div>
+
+      <!-- 实验信息头部 -->
+      <div class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700">
+        <div class="flex items-start justify-between mb-4 gap-4">
+          <div class="flex-1 min-w-0">
+            <h1 class="text-2xl font-bold text-white mb-2">
+              持仓分析（TokenPositionAnalyzer）
+              <span id="enforceBadge" class="ml-2 px-2 py-1 rounded text-xs font-semibold hidden"></span>
+            </h1>
+          </div>
+          <button id="backBtn" class="flex-shrink-0 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-md text-sm font-medium text-white transition-colors">← 返回实验</button>
+        </div>
+        <!-- 筛选控件 -->
+        <div class="flex gap-4 flex-wrap items-end mt-4 pt-4 border-t border-gray-700">
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-400 font-medium">verdict</label>
+            <select id="verdictFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-sm">
+              <option value="">全部</option>
+              <option value="approve">approve</option>
+              <option value="block">block</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-400 font-medium">离线/OPB 分类</label>
+            <select id="profileCategoryFilter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-sm">
+              <option value="">全部</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-400 font-medium">每页</label>
+            <select id="limitSelect" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-sm">
+              <option value="100">100</option>
+              <option value="200" selected>200</option>
+              <option value="500">500</option>
+              <option value="1000">1000</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1 flex-1 min-w-[220px]">
+            <label class="text-xs text-gray-400 font-medium">搜索代币地址</label>
+            <input id="searchInput" type="text" autocomplete="off" placeholder="粘贴/输入代币地址或片段…" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <!-- 因子表达式过滤（ConditionEvaluator，与策略 condition 同语法；仅数值比较，verdict 字符串用上方下拉） -->
+        <div class="mt-4 pt-4 border-t border-gray-700">
+          <div class="flex items-center gap-3 mb-1">
+            <label class="text-xs text-gray-400 font-medium">因子表达式过滤</label>
+            <button id="exprFactorToggle" type="button" class="text-xs text-blue-400 hover:text-blue-300 transition-colors">可用因子 ▾</button>
+          </div>
+          <input id="expressionInput" type="text" autocomplete="off" spellcheck="false"
+            placeholder="例如：TPAPre_tokenScore > 2 AND TPAPre_zhuangRetailRatio <= 3"
+            class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white text-sm font-mono placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+          <div id="exprErrorHint" class="text-xs text-red-400 mt-1 hidden"></div>
+          <!-- 可用因子说明（可折叠） -->
+          <div id="exprFactorPanel" class="hidden mt-2 text-xs text-gray-400 bg-gray-900 bg-opacity-50 rounded-md p-3 border border-gray-700 leading-relaxed">
+            <div class="font-semibold text-gray-300 mb-1">TPA 首次检测因子（检测前缺失，可用 IS NULL / IS NOT NULL）</div>
+            <div class="font-mono text-[11px] text-gray-400">TPAPre_tokenScore（总分 0-5）· TPAPre_walletHoldingPct（池子净吸收%）· TPAPre_zhuangRetailRatio（庄散比）· TPAPre_zhuangScore / TPAPre_retailScore / TPAPre_newWalletScore / TPAPre_neutralScore（各桶加权分 0-5）· TPAPre_minZR · TPAPre_gapZR · TPAPre_zhuangPct / TPAPre_newWalletPct / TPAPre_retailPct / TPAPre_neutralPct（4 桶占比%）· TPAPre_zhuangHolderCount</div>
+            <div class="font-semibold text-gray-300 mt-2 mb-1">状态因子</div>
+            <div class="font-mono text-[11px]">TPAAnalyzed（0/1，是否已完成首次检测）</div>
+            <div class="font-semibold text-gray-300 mt-2 mb-1">触发快照</div>
+            <div class="font-mono text-[11px]">ageSeconds · tradeCount · buyBnb · currentPriceBnb · blockDiff</div>
+            <div class="font-semibold text-gray-300 mt-2 mb-1">语法</div>
+            <div class="font-mono text-[11px]">&gt; &lt; &gt;= &lt;= == != &nbsp;AND OR () &nbsp;IS NULL / IS NOT NULL（与策略 condition 完全一致）</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- summary -->
+      <div id="summaryCard" class="bg-gray-800 rounded-lg p-6 mb-8 border border-gray-700 hidden">
+        <h2 class="text-lg font-semibold text-white mb-4">汇总</h2>
+        <div id="summaryGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+      </div>
+
+      <!-- 离线/OPB 分类统计 + 核心指标（紧凑） -->
+      <div id="categoryCard" class="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700 hidden">
+        <h2 class="text-sm font-semibold text-white mb-3">离线/OPB 分类统计 <span class="text-xs font-normal text-gray-500">· verdict 对照崩盘后定性</span></h2>
+        <!-- 核心指标：两个紧凑 tile 横排 -->
+        <div id="coreMetrics" class="grid grid-cols-2 gap-3 mb-3"></div>
+        <!-- 分类明细表 -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-gray-700">
+              <tr>
+                <th class="px-3 py-1.5 text-left text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">分类</th>
+                <th class="px-3 py-1.5 text-right text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">总处理</th>
+                <th class="px-3 py-1.5 text-right text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">通过</th>
+                <th class="px-3 py-1.5 text-right text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">拦截</th>
+                <th class="px-3 py-1.5 text-right text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">通过率</th>
+                <th class="px-3 py-1.5 text-right text-xs font-semibold text-gray-300 uppercase whitespace-nowrap" title="该分类通过数 / 全部分类通过总数">通过占比</th>
+              </tr>
+            </thead>
+            <tbody id="categoryTbody" class="divide-y divide-gray-700"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 代币列表 -->
+      <div id="listCard" class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div class="p-4 border-b border-gray-700">
+          <h2 class="text-lg font-semibold text-white">已分析代币<span class="text-sm font-normal text-gray-400 ml-2">点击「block 原因」单元格查看持仓因子详情</span><span id="profileFilterHint" class="ml-2 text-sm font-normal text-yellow-400"></span></h2>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-700">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">代币</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">verdict</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">代币总分</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">离线/OPB 分类</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">block 原因</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">触发快照 (age/tc/buyBNB/price)</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-300 uppercase whitespace-nowrap">as_of</th>
+              </tr>
+            </thead>
+            <tbody id="tokenTbody" class="divide-y divide-gray-700"></tbody>
+          </table>
+        </div>
+        <div id="listEmpty" class="text-center py-16 text-gray-500 hidden">
+          <p>暂无持仓分析记录（模块未启用 / 未触发 / 表未建）。</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- block 原因子详情弹窗（verdict 因子全量实际值） -->
+  <div id="factor-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4 border border-gray-700">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-lg font-semibold text-white">🔍 持仓因子</h3>
+          <button id="factor-modal-close" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+        <div id="factor-modal-title" class="text-sm text-gray-300 mb-3 font-mono break-all"></div>
+        <div id="factor-modal-meta" class="text-xs text-gray-500 mb-4"></div>
+        <table class="w-full text-sm mb-4">
+          <thead class="bg-gray-700">
+            <tr>
+              <th class="px-3 py-2 text-left text-gray-300 font-medium">持仓因子</th>
+              <th class="px-3 py-2 text-right text-gray-300 font-medium">实际值</th>
+              <th class="px-3 py-2 text-center text-gray-300 font-medium">状态</th>
+            </tr>
+          </thead>
+          <tbody id="factor-modal-body" class="divide-y divide-gray-700"></tbody>
+        </table>
+        <div id="factor-modal-footer" class="text-sm text-gray-300 pt-3 border-t border-gray-700"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 复制代币地址提示 toast -->
+  <div id="copy-toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg opacity-0 transition-opacity duration-200 pointer-events-none z-50 text-sm font-medium">已复制代币地址</div>
+
+  <script src="/static/js/simple-init.js?v=4.3"></script>
+  <script src="/static/js/experiment_position_analysis.js?v=1.0"></script>
+</body>
+</html>

@@ -259,12 +259,43 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', `sniper 名单加载失败(fail-open, sniperHolderShare 将恒 null): ${e.message}`);
     }
 
+    // 3.4 TPA 触发点持仓分析（回迁批 4 shadow 先行）：opt-in——实验 config 整段无
+    //     tokenPositionAnalyzer → 不构造（存量实验零影响）；段存在才构造，trigger 缺配/非法
+    //     由构造器 fail-fast 抛错 → 实验启动失败（禁止默认值兜底掩盖配置缺失）。
+    //     策略条件暂不引用 TPAPre_*（纯观察+落表 enforce=false），参数回测校准后由用户裁定写入策略
+    this._tokenPositionAnalyzer = null;
+    const tpaExpConfig = this._experiment?.config?.tokenPositionAnalyzer;
+    if (tpaExpConfig != null) {
+      const { TokenPositionAnalyzer } = require('../../services/TokenPositionAnalyzer');
+      this._tokenPositionAnalyzer = new TokenPositionAnalyzer(tpaExpConfig, {
+        logger: this.logger,
+        experimentId: this._experimentId,
+        factorAggregator: this._factorAggregator,
+      });
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        `✅ TPA 已构造 (enabled=${this._tokenPositionAnalyzer.isEnabled()} ` +
+        `enforce=${this._tokenPositionAnalyzer.isEnforceMode()})`);
+      // offline 画像预载（TPA 内部 try/catch：失败 warn 回退按需 DB 查——fail-open 性能退化，不阻启动）
+      const pre = await this._tokenPositionAnalyzer.preloadOfflineProfiles(supabase);
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        `TPA offline 画像预载: ${pre.rows} 行 / ${(pre.ms / 1000).toFixed(1)}s (${pre.source || 'fail-open'})`);
+      // live token 分类预热（BSC live 无 ticks 缓冲恒 no-op——watcher 架构 DB 即真相；保留结构对齐母版）
+      this._tokenPositionAnalyzer.prewarmLiveTokenProfiles(supabase)
+        .catch(e => this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine',
+          `TPA prewarm 异常: ${e.message}`));
+    }
+
     // 3.5 在线代币分类（回迁批 3.1：idle 60s/大额断流 600s 双触发 + 60s 扫描补救，
     //     写 token_profiles source='online'；config fourmemeWs.onlineProfile.enabled 默认 false，
     //     未配置的存量实验零行为变化。BacktestEngine 不嵌——回测无写表副作用）
     const { OnlineProfileBuilder } = require('../../services/OnlineProfileBuilder');
     this._onlineProfileBuilder = new OnlineProfileBuilder(
-      this._mergedWsConfig().onlineProfile || {}, this.logger);
+      this._mergedWsConfig().onlineProfile || {}, this.logger,
+      // 分类落库成功回调（回迁批 4）：喂 TPA 分类缓存——OPB 只写库不留内存，无此钩子时
+      // token 在分类完成前被 TPA 查过会 stuck-null 永不更新；TPA 未启用时传 null 不挂钩
+      this._tokenPositionAnalyzer
+        ? (tokenAddress, row) => this._tokenPositionAnalyzer.upsertTokenProfileCache(tokenAddress, row)
+        : null);
     this._onlineProfileBuilder.start({ factorAggregator: this._factorAggregator });
 
     // 4. 共享流消费者（watcher 架构：实验不再持有 WSS 连接，从 wss_events / wss_price_ticks
@@ -667,6 +698,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._onlineProfileBuilder.destroy();
     }
 
+    // TPA 清理（回迁批 4：verdict/画像缓存释放 + enabled=false 防停后续触发）
+    if (this._tokenPositionAnalyzer) {
+      this._tokenPositionAnalyzer.destroy();
+    }
+
     await super.stop();
 
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
@@ -686,6 +722,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 在线代币分类触发检查（回迁批 3.1：state 驱动、全 token 覆盖，先于 pool 门——
     // 分类是画像层观察与交易两腿无关；池外 token 由 OPB 60s 扫描入口兜底）
     this._onlineProfileBuilder.checkAndEnqueue(tokenAddress, tokenState, tick.timestamp);
+
+    // TPA 触发检查（回迁批 4 shadow：write-once 五门；fire-and-forget——返回 promise 已含
+    // .catch 兜底，live 不等 verdict，holding 因子经 setHoldingFactors 回填后由后续
+    // buildFactorMap 消费，晚到只影响首个读点。asOf=tick.timestamp（tick 含 block_number））
+    if (this._tokenPositionAnalyzer) {
+      this._tokenPositionAnalyzer.checkAndTrigger(tokenAddress, factors, tokenState, tick, tick.timestamp);
+    }
 
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token) return;

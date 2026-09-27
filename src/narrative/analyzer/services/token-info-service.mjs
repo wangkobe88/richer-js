@@ -58,12 +58,30 @@ export async function fetchTokenData(address) {
   const best = data.reduce((acc, row) =>
     rawCorpusScore(row.raw_api_data) > rawCorpusScore(acc.raw_api_data) ? row : acc);
 
+  // token 创建时间（秒）：four.meme API 行自带 created_at；flap 行无此字段 →
+  // wss_events token_create 事件时间回退（watcher 秒级落库；P1.3 账号年龄锚点
+  // + 推文时间窗/时效基准共用——flap 盘原先回退墙钟/跳过，现拿到真实创建时间）
+  let tokenCreatedAtSec = best.raw_api_data?.created_at || null;
+  if (!tokenCreatedAtSec) {
+    const { data: ev } = await supabase
+      .from('wss_events')
+      .select('created_at')
+      .eq('token_address', address)
+      .eq('kind', 'token_create')
+      .order('created_at', { ascending: true })
+      .limit(1);
+    if (ev && ev[0]?.created_at) {
+      tokenCreatedAtSec = Math.floor(new Date(ev[0].created_at).getTime() / 1000);
+    }
+  }
+
   return {
     address: address,
     symbol: cleanSymbol(best.token_symbol),  // 清洗代币名
     blockchain: best.blockchain,
     platform: best.platform,
-    raw_api_data: best.raw_api_data
+    raw_api_data: best.raw_api_data,
+    tokenCreatedAtSec
   };
 }
 

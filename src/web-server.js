@@ -273,6 +273,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/strategy_analysis.html'));
     });
 
+    // 持仓分析页面（pumpfun 回迁批 4：TokenPositionAnalyzer 落表结果展示）
+    this.app.get('/experiment/:id/position-analysis', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_position_analysis.html'));
+    });
+
     // 代币详情页面（独立页面，不在实验子路由下）
     this.app.get('/token-detail', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/token_detail.html'));
@@ -602,6 +607,42 @@ class RicherJsWebServer {
           success: false,
           error: error.message
         });
+      }
+    });
+
+    // 持仓分析列表（pumpfun 回迁批 4）：必须在 /api/experiment/:id 之前定义，避免路由冲突
+    this.app.get('/api/experiment/position-analysis', async (req, res) => {
+      try {
+        const { experimentId, verdict, limit, offset, profileCategory, search, expression } = req.query;
+        if (!experimentId) {
+          return res.status(400).json({ success: false, error: '缺少必需参数: experimentId' });
+        }
+        const { PositionAnalysisService } = require('./web/services/PositionAnalysisService');
+        const service = new PositionAnalysisService();
+        const result = await service.getAnalyses(experimentId, {
+          verdict, limit, offset, profileCategory, search, expression,
+        });
+        res.json(result);
+      } catch (error) {
+        this.logger.error('WebServer', '持仓分析列表失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 持仓分析单代币详情（pumpfun 回迁批 4）：必须在 /api/experiment/:id 之前定义，避免路由冲突
+    this.app.get('/api/experiment/position-analysis/detail', async (req, res) => {
+      try {
+        const { experimentId, tokenAddress } = req.query;
+        if (!experimentId || !tokenAddress) {
+          return res.status(400).json({ success: false, error: '缺少必需参数: experimentId, tokenAddress' });
+        }
+        const { PositionAnalysisService } = require('./web/services/PositionAnalysisService');
+        const service = new PositionAnalysisService();
+        const result = await service.getAnalysis(experimentId, tokenAddress);
+        res.json(result);
+      } catch (error) {
+        this.logger.error('WebServer', '持仓分析详情失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
       }
     });
 

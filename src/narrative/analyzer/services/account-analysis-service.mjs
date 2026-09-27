@@ -157,7 +157,8 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
   // 获取完整的账号/社区数据（含完整推文，用于规则验证）
   // 推文时间窗下界 = token 创建时间-24h（2026-09-25 裁定：只取发币前后阶段，不凑 100 条；
   // 发币 CA 公告在创建后几分钟内必在窗口内；创建时间缺失则不设窗口回退凑数口径）
-  const tokenCreatedAtSec = tokenData.raw_api_data?.created_at;
+  // token 创建时间：wss_events 回退补全后的统一源（flap 盘原先缺失）
+  const tokenCreatedAtSec = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
   const tweetWindowUntilSec = tokenCreatedAtSec ? tokenCreatedAtSec - 24 * 3600 : null;
   const fullAccountOrCommunityData = accountOrCommunityRef.type === 'account'
     ? await getAccountWithFullTweets(accountOrCommunityRef.screen_name, 20,
@@ -246,6 +247,7 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
     fullAccountOrCommunityData,
     addressVerified: rulesResult.addressVerified,
     rulesResult,
+    tokenCreatedAtSec: tokenCreatedAtSec || null, // P1.3 账号年龄锚点（token 创建时点，重跑幂等）
     callInfo: {
       model: result.model, questions, state, stateStats: stats,
       usage: result.usage, startedAt, finishedAt,

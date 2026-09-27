@@ -294,7 +294,9 @@ export class NarrativeAnalyzer {
 
     // 账号收集推文时间窗下界 = token 创建时间-24h（2026-09-25 裁定：只取发币前后阶段
     // 推文，不再翻页凑 100 条；创建时间缺失不设窗口，回退凑数口径）
-    const tokenCreatedAtSec = tokenData.raw_api_data?.created_at;
+    // token 创建时间：raw_api_data.created_at（four.meme）→ wss_events token_create
+    // 回退（flap，token-info-service 补全）——flap 盘原先缺失回退墙钟，现锚定真实创建时间
+    const tokenCreatedAtSec = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
     const tweetWindowUntilSec = tokenCreatedAtSec ? tokenCreatedAtSec - 24 * 3600 : null;
 
     if (shouldCollectAccounts) {
