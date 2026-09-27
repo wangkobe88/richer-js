@@ -314,6 +314,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/market_regime.html'));
     });
 
+    // Daily 更新流程监控页（daily-model-update 例行编排 step3/step4，纯只读——cron 专属无手动触发）
+    this.app.get('/model-metrics', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/model_metrics.html'));
+    });
+
     // 实验详情页面（必须放在最后，作为默认路由）
     this.app.get('/experiment/:id', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));
@@ -476,6 +481,39 @@ class RicherJsWebServer {
         res.json({ success: true, rows: out, total: rows.length, stride, from: new Date(fromMs).toISOString(), to: toIso });
       } catch (error) {
         this.logger.error('WebServer', '市场截面快照查询失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // ===== Daily 更新流程指标（model_iteration_metrics，pumpfun 迁移批：step3/4 两步）=====
+    this.app.get('/api/model-metrics', async (req, res) => {
+      try {
+        const { status, limit = 50, offset = 0 } = req.query;
+        let query = this.dataService.supabase
+          .from('model_iteration_metrics')
+          .select('*', { count: 'exact' })
+          .order('iteration_no', { ascending: false, nullsFirst: false });
+        if (status) query = query.eq('status', status);
+        const pageLimit = Math.min(parseInt(limit) || 50, 500);
+        const pageOffset = parseInt(offset) || 0;
+        query = query.range(pageOffset, pageOffset + pageLimit - 1);
+        const { data, error, count } = await query;
+        if (error) throw error;
+        res.json({ success: true, data: data || [], pagination: { total: count || 0, limit: pageLimit, offset: pageOffset } });
+      } catch (error) {
+        this.logger.error('WebServer', '获取 Daily 迭代指标失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+    this.app.get('/api/model-metrics/:id', async (req, res) => {
+      try {
+        const { data, error } = await this.dataService.supabase
+          .from('model_iteration_metrics')
+          .select('*').eq('id', req.params.id).single();
+        if (error) throw error;
+        res.json({ success: true, data });
+      } catch (error) {
+        this.logger.error('WebServer', '获取 Daily 迭代指标详情失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
