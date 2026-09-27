@@ -54,7 +54,7 @@ class EarlyParticipantCheckService {
    * @param {string} tokenAddress - 代币地址（wss_price_ticks 查询键）
    * @param {string} innerPair - 内盘交易对标识（如 0x..._fo，仅用于日志与 early_participant_trades 存档，不参与查询）
    * @param {string} chain - 区块链（仅用于日志与存档，tick 表已按 BSC 全市场组织）
-   * @param {number} launchAt - 代币创建时间戳（秒）（保留参数兼容性，但不再使用）
+   * @param {number|null} launchAt - 代币创建时间戳（秒）——净流入因子的创建锚定窗口基准（共合案 2026-09-27 起使用）
    * @param {number} checkTime - 当前检查时间戳（秒）（实时=当前墙钟；回测=回放时钟）
    * @param {number} totalSupply - 代币总供应量（可选，用于计算净持仓占比）
    * @param {Object} options - 可选配置
@@ -111,6 +111,9 @@ class EarlyParticipantCheckService {
       // 3. 计算基础统计
       const basicStats = this._calculateBasicStats(trades);
 
+      // 3.5 净流入因子（对倒拦截，共合案 2026-09-27）
+      const netBuy = this._calculateNetBuyRatio(trades, tokenAddress, launchAt, checkTime);
+
       // 4. 计算速率指标（使用实际数据跨度）
       const rateMetrics = this._calculateRateMetrics(basicStats, coverage);
 
@@ -151,6 +154,10 @@ class EarlyParticipantCheckService {
         earlyTradesFinalLiquidity: basicStats.earlyTradesFinalLiquidity,
         earlyTradesDrawdownFromHighest: basicStats.earlyTradesDrawdownFromHighest,
 
+        // 净流入因子（对倒拦截）：(Σ买BNB−Σ卖BNB)/Σ买BNB×100，创建锚定口径
+        earlyTradesNetBuyRatio: netBuy.ratio,
+        earlyTradesNetBuyCovered: netBuy.covered,
+
         // 窗口内无成交标记（值为真实空统计，非通过值兜底）
         earlyTradesNoInnerData: trades.length === 0 ? 1 : 0,
 
@@ -164,6 +171,8 @@ class EarlyParticipantCheckService {
       this.logger.info('[EarlyParticipantCheckService] 早期参与者检查完成', {
         token_address: tokenAddress,
         trades_count: trades.length,
+        net_buy_ratio: netBuy.ratio,
+        net_buy_covered: netBuy.covered,
         actual_span: coverage.actualSpan,
         rate_calc_window: coverage.rateCalculationWindow,
         volume_per_min: rateMetrics.volumePerMin.toFixed(2),
@@ -413,6 +422,54 @@ class EarlyParticipantCheckService {
   }
 
   /**
+   * 计算窗口净买入占比（对倒拦截因子，共合案 2026-09-27）
+   *
+   * 口径：(Σ买入BNB − Σ卖出BNB) / Σ买入BNB × 100 —— 对倒盘自买自卖近似等量对冲，
+   * 净流入趋近 0；真实抢筹盘买入显著大于卖出。校准（阈值 40，90s 窗）：对倒盘
+   * 全 ≤39.8（共合二轮 39.8/孔子AI 36.8/跳舞蛙 39.1），赢家全 ≥58.6。
+   *
+   * 窗口语义（关键）：仅当 checkTime 距创建 ≤90s（查询窗 [checkTime-90s, checkTime]
+   * 覆盖创建时点，trades 即"创建以来全量"）时才与校准口径一致；age>90s 时滚动窗
+   * 不含创建段（初期抢筹密集段丢失，净流入被系统性低估——龙布布 fire@103s 实测
+   * 滚动窗 34.6% 会被误杀），launchAt 缺失同样无法锚定——两种情况都给通过值 100
+   * 放行（fail-open 宁漏拦不误杀，covered=0 标记口径未覆盖供复盘分辨）。
+   * 极早 fire（<15s）窗口内 washers 先买后卖净流入虚高（共合 R1@6.6s=63.7% 放行）
+   * ——该场景由 holders>5 门拦截（共合 R1 holders=3），本因子只负责二轮/晚 fire。
+   * @private
+   * @param {Array} trades - _mapTickRow 映射后的窗口交易（尘门已在查询侧过滤）
+   * @param {string} tokenAddress - 代币地址
+   * @param {number|null} launchAt - 代币创建时间（秒，TokenCreate 块时间）
+   * @param {number} checkTime - 检查时间戳（秒）
+   * @returns {{ratio: number, covered: number}}
+   */
+  _calculateNetBuyRatio(trades, tokenAddress, launchAt, checkTime) {
+    const validLaunchAt = Number.isFinite(launchAt) && launchAt > 0 ? launchAt : null;
+    const covered = validLaunchAt !== null
+      && (checkTime - validLaunchAt) <= this.config.fixedWindowSeconds ? 1 : 0;
+    if (!covered) {
+      return { ratio: 100, covered: 0 };
+    }
+
+    let totalBuyBnb = 0;
+    let totalSellBnb = 0;
+    const tokenLower = String(tokenAddress).toLowerCase();
+    for (const t of trades) {
+      const amount = t.bnb_amount || 0;
+      if (String(t.to_token || '').toLowerCase() === tokenLower) {
+        totalBuyBnb += amount;
+      } else {
+        totalSellBnb += amount;
+      }
+    }
+    if (totalBuyBnb <= 0) {
+      // 窗口内无买入（全卖盘流出）：净流入语义取 -100
+      return { ratio: totalSellBnb > 0 ? -100 : 0, covered: 1 };
+    }
+    const ratio = (totalBuyBnb - totalSellBnb) / totalBuyBnb * 100;
+    return { ratio: parseFloat(ratio.toFixed(2)), covered: 1 };
+  }
+
+  /**
    * 计算速率指标（使用实际数据跨度）
    * @private
    */
@@ -476,6 +533,10 @@ class EarlyParticipantCheckService {
       earlyTradesFinalLiquidity: 9999,
       earlyTradesDrawdownFromHighest: 0,
 
+      // 净流入因子：查询异常通过值（与 9999 族同方向，covered=0 标记）
+      earlyTradesNetBuyRatio: 100,
+      earlyTradesNetBuyCovered: 0,
+
       // 标记内盘无交易数据（可能已出内盘）
       earlyTradesNoInnerData: 1,
 
@@ -517,6 +578,10 @@ class EarlyParticipantCheckService {
       // 新增因子
       earlyTradesFinalLiquidity: null,
       earlyTradesDrawdownFromHighest: null,
+
+      // 净流入因子（对倒拦截）：未执行检查时 null（条件表达式不引用即无影响）
+      earlyTradesNetBuyRatio: null,
+      earlyTradesNetBuyCovered: 0,
 
       // 内盘无数据标记
       earlyTradesNoInnerData: 0,

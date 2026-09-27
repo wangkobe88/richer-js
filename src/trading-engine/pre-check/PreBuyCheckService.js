@@ -726,6 +726,10 @@ class PreBuyCheckService {
         // 早期交易新增因子
         earlyTradesFinalLiquidity: earlyParticipantCheck.earlyTradesFinalLiquidity || null,
         earlyTradesDrawdownFromHighest: earlyParticipantCheck.earlyTradesDrawdownFromHighest ?? null,
+        // 净流入因子（对倒拦截）：缺省 100 放行（covered=0=age>90s 或 launchAt 缺失，
+        // 口径未覆盖创建段时不拦——fail-open 与龙头门同方向）
+        earlyTradesNetBuyRatio: earlyParticipantCheck.earlyTradesNetBuyRatio ?? 100,
+        earlyTradesNetBuyCovered: earlyParticipantCheck.earlyTradesNetBuyCovered ?? 0,
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,
@@ -1352,7 +1356,7 @@ class PreBuyCheckService {
       tokenAddress,
       tokenInfo.innerPair,
       chain,
-      null,  // launchAt 参数已不再使用
+      tokenInfo.launchAt || null,  // 创建时间（秒）——净流入因子创建锚定窗口用（共合案 2026-09-27 恢复传参）
       effectiveCheckTime,
       totalSupply,
       { useCache, sourceExperimentId }

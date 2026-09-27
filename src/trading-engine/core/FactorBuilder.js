@@ -152,6 +152,9 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     // 早期交易新增因子
     earlyTradesFinalLiquidity: preBuyCheckResult.earlyTradesFinalLiquidity ?? null,
     earlyTradesDrawdownFromHighest: preBuyCheckResult.earlyTradesDrawdownFromHighest ?? null,
+    // 净流入因子（对倒拦截，共合案 2026-09-27）：covered=0 时 ratio 为通过值 100
+    earlyTradesNetBuyRatio: preBuyCheckResult.earlyTradesNetBuyRatio ?? null,
+    earlyTradesNetBuyCovered: preBuyCheckResult.earlyTradesNetBuyCovered ?? 0,
     // 钱包集中度因子
     walletTop3VolumeRatio: preBuyCheckResult.walletTop3VolumeRatio || 0,
     walletTop1VolumeRatio: preBuyCheckResult.walletTop1VolumeRatio || 0,
