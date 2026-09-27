@@ -170,6 +170,15 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 **Narrative results are token-level global cache**: `token_narrative` is keyed by `token_address` (global upsert) and is NOT attached to experiments — the same token shares one result across all experiments/callers; `analyze()` reuses any valid (`is_valid`) cache hit regardless of experiment, `ignoreCache: true` forces re-analysis. `experiment_id` is no longer written on save (legacy values in old rows are left as-is); to invalidate stale results use row delete or `NarrativeRepository.updateIsValid(address, false)` — a cleanup mechanism (e.g. invalidate all rows when the narrative module changes) is planned but not built yet.
 
+### OnlineProfileBuilder（在线代币分类；pumpfun 批 3.1 回迁）
+
+`src/services/OnlineProfileBuilder.js` — 内嵌 FourMemeWssTradingEngine 的实时代币分类器，交易活跃度下降时触发（双门：idle 60s 无 tick / bigTickIdle 600s 无 ≥clsBigTickBnb 大额 tick；`_onFactorsUpdated` tick 入口 + 60s `_scanIdleTokens` 扫描补救死后零 tick token），写 `token_profiles` 表（token_address 全局 PK upsert，source='online'，不挂实验维度防级联删）。阈值判定与离线 classifyToken 共用 `scripts/shared/token-classifier.js`（单一真相）；metrics 直接读 FA state 标量（`_clsTicks`/`_relHighest*`/`_lastBigTickAt`/afterFirst9s 三元组），maxMarketCap = 可靠价峰 USD × totalSupply。
+
+- **opt-in**：`config.fourmemeWs.onlineProfile.enabled` 默认 false（default.json 与实验级均可配；both 实验引擎级配置恒读 fourmemeWs 段）；启动时构造——改 config 须重启实验进程。BacktestEngine 不嵌（回测无写表副作用）
+- **TPA 联动**：落库成功回调 `onProfileClassified` → `TokenPositionAnalyzer.upsertTokenProfileCache` 喂分类缓存（修 stuck-null；TPA 未启用时传 null 不挂钩）
+- **重启过渡期边界**：水位对齐之前的存量活跃 token 不派发 create → FA tick 自动建 state（totalSupply=0）→ mcap=0 恒 low_quality 误标，离线 build-token-profiles.cjs 重跑覆盖纠正
+- **单测**：`node scripts/_test_token_classifier.cjs`（分类阈值/visible_at/FA 对拍/触发门/扫描，零 DB）；2026-09-27 起在虚拟实验 c5945f36 实跑开启
+
 ### Token Position Analyzer（TPA，触发点 as-of 钱包画像；pumpfun 批 4 回迁）
 
 `src/services/TokenPositionAnalyzer.js` — 代币触发门命中时（write-once，一 token 一次）对 top20 持仓者做 as-of 画像，产出 `TPAPre_*` 因子族（17 持仓键）注入 FA（`setHoldingFactors`/`setRetentionBasis` 静态注入 + `setAsofMs` 冻结审批价），FA `buildFactorMap` 尾部 spread 后 `TPAAnalyzed`/`TPAPre_retention`/`TPAPre_asofRelFirst` 可读；策略 condition 引用未触发的 `TPAPre_*` 恒 null → ConditionEvaluator false = **fail-closed 不买（去门控化）**。verdict 收口 `zhuangCondition`（默认 `TPAPre_tokenScore > 2 AND TPAPre_zhuangRetailRatio > 0.3`；`∞` 庄散比落表 null + `TPAPre_zhuangRetailRatioInfinite` 布尔）。
