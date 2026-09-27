@@ -1109,21 +1109,16 @@
                 console.log('  sellStrategies:', copyData.sellStrategies);
 
                 // 新格式：分离的 buyStrategies 和 sellStrategies
+                // 整包透传 strategy（不再白名单挑字段）——addXxxStrategy 存 rawConfig
+                // 整包，collectFormData 合并表单白名单外的键，复制链路不丢机制字段
+                //（bypassDebounce/sellPercentage/cards/cooldownSec 等）
                 if (copyData.buyStrategies && Array.isArray(copyData.buyStrategies)) {
                     console.log(`✅ 找到 ${copyData.buyStrategies.length} 个买入策略`);
                     copyData.buyStrategies.forEach((strategy, idx) => {
                         console.log(`  添加买入策略 #${idx + 1}:`, strategy);
                         addBuyStrategy({
-                            condition: strategy.condition,
-                            priority: strategy.priority,
-                            maxExecutions: strategy.maxExecutions,
-                            preBuyCheckCondition: strategy.preBuyCheckCondition,
-                            repeatBuyCheckCondition: strategy.repeatBuyCheckCondition,
-                            narrativeCallCondition: strategy.narrativeCallCondition,
+                            ...strategy,
                             permanentBlockCondition: idx === 0 ? (copyData.permanentBlockCondition || strategy.permanentBlockCondition) : undefined,
-                            cards: strategy.cards,
-                            cooldownSec: strategy.cooldownSec,
-                            description: strategy.description
                         });
                     });
                 } else {
@@ -1134,14 +1129,7 @@
                     console.log(`✅ 找到 ${copyData.sellStrategies.length} 个卖出策略`);
                     copyData.sellStrategies.forEach((strategy, idx) => {
                         console.log(`  添加卖出策略 #${idx + 1}:`, strategy);
-                        addSellStrategy({
-                            condition: strategy.condition,
-                            priority: strategy.priority,
-                            maxExecutions: strategy.maxExecutions,
-                            cards: strategy.cards,
-                            cooldownSec: strategy.cooldownSec,
-                            description: strategy.description
-                        });
+                        addSellStrategy(strategy);
                     });
                 } else {
                     console.log('⚠️ 没有找到 sellStrategies 或不是数组');
@@ -1151,20 +1139,9 @@
                 if (copyData.strategies && Array.isArray(copyData.strategies) && !copyData.buyStrategies) {
                     copyData.strategies.forEach(strategy => {
                         if (strategy.action === 'buy') {
-                            addBuyStrategy({
-                                condition: strategy.condition,
-                                priority: strategy.priority,
-                                maxExecutions: strategy.maxExecutions,
-                                preBuyCheckCondition: strategy.preBuyCheckCondition,
-                                repeatBuyCheckCondition: strategy.repeatBuyCheckCondition,
-                                narrativeCallCondition: strategy.narrativeCallCondition
-                            });
+                            addBuyStrategy(strategy);
                         } else if (strategy.action === 'sell') {
-                            addSellStrategy({
-                                condition: strategy.condition,
-                                priority: strategy.priority,
-                                maxExecutions: strategy.maxExecutions
-                            });
+                            addSellStrategy(strategy);
                         }
                     });
                 }
