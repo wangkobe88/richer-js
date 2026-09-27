@@ -270,6 +270,27 @@ async function main() {
             `2000 块分块且尾块截断（got ${JSON.stringify(ranges)}）`);
     }
 
+    // ── T12 回放失败退避重试调度 ──
+    console.log('T12 回放失败退避重试');
+    {
+        const warns = [];
+        const logger2 = { info: () => {}, warn: (...a) => warns.push(a[2]), error: () => {}, debug: () => {} };
+        const c = new FlapAnkrWsCollector(
+            { flapWs: { contracts: { portal: addr('ab') } } }, logger2, null, null, {});
+        let attempts = 0;
+        c._backfillQuoteSets = () => {
+            attempts++;
+            return attempts < 2 ? Promise.reject(new Error('rate limit -32005')) : Promise.resolve();
+        };
+        c._scheduleQuoteBackfill();
+        await new Promise(r => setTimeout(r, 20));
+        assert(attempts === 1, '首轮立即执行');
+        assert(c._quoteBackfillRetryTimer !== null, '失败已挂重试定时器');
+        assert(warns.some(m => /30s 后重试.*rate limit/.test(m)), `warn 带重试间隔与原因（got ${warns[0]}）`);
+        await c.stop();
+        assert(c._quoteBackfillRetryTimer === null, 'stop 清理重试定时器');
+    }
+
     console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
     process.exitCode = failed === 0 ? 0 : 1;
 }

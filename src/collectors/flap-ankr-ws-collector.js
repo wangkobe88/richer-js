@@ -155,6 +155,7 @@ class FlapAnkrWsCollector {
         this._quoteDecimalsCache = new Map(); // quote → decimals
         this._pcsFactoryContract = null;      // 惰性（首次换算时建）
         this._quoteBackfilled = false;        // 启动回放 TokenQuoteSet 只跑一次（重连不重跑）
+        this._quoteBackfillRetryTimer = null; // 回放失败退避重试定时器（stop 清理）
         const qrCfg = this.config.quoteRate || {};
         this._quoteRateTtlMs = qrCfg.ttlMs ?? 30000;
         this._quoteRateStaleMaxMs = qrCfg.staleMaxMs ?? 300000;
@@ -247,10 +248,10 @@ class FlapAnkrWsCollector {
             }
             this._ws = null;
         }
-        for (const t of [this._pingTimer, this._heartbeatTimer, this._tickFlushTimer, this._bnbUsdTimer, this._reconnectTimer]) {
+        for (const t of [this._pingTimer, this._heartbeatTimer, this._tickFlushTimer, this._bnbUsdTimer, this._reconnectTimer, this._quoteBackfillRetryTimer]) {
             if (t) { clearInterval(t); clearTimeout(t); }
         }
-        this._pingTimer = this._heartbeatTimer = this._tickFlushTimer = this._bnbUsdTimer = this._reconnectTimer = null;
+        this._pingTimer = this._heartbeatTimer = this._tickFlushTimer = this._bnbUsdTimer = this._reconnectTimer = this._quoteBackfillRetryTimer = null;
 
         await this._flushTickBuffer(); // 关闭前把缓冲写完
         this.logger.info('', 'FlapAnkrWsCollector', '已停止', this.stats);
@@ -321,10 +322,7 @@ class FlapAnkrWsCollector {
                 //（重连不重跑）；失败仅告警，已回放部分与实时事件继续维持状态
                 if (!this._quoteBackfilled) {
                     this._quoteBackfilled = true;
-                    this._backfillQuoteSets().catch((err) => {
-                        this.logger.warn('', 'FlapAnkrWsCollector',
-                            `TokenQuoteSet 启动回放失败: ${err.message}`);
-                    });
+                    this._scheduleQuoteBackfill();
                 }
             }
             if (msg.id === 1 || msg.id === 2) {
@@ -710,6 +708,23 @@ class FlapAnkrWsCollector {
     }
 
     /**
+     * 启动回放调度：失败退避重试（30s 起 ×2 上限 5min，不设轮次上限）。
+     * 回放缺失不是无害缺口——窗口内存量非 BNB 盘不再发 TokenQuoteSet，其 tick 会按
+     * quote 价冒充 BNB 价落库（口径污染），必须重试到成功；_applyQuoteSet 的
+     * (block,logIndex) 单调去重保证重跑幂等（182 实测 ankr getLogs 批量限流
+     * -32005 即此设计依据）。成功即静默（完成日志在 _backfillQuoteSets 内）。
+     */
+    _scheduleQuoteBackfill(retryDelayMs = 0) {
+        this._backfillQuoteSets().catch((err) => {
+            const nextDelayMs = retryDelayMs === 0 ? 30000 : Math.min(retryDelayMs * 2, 300000);
+            this.logger.warn('', 'FlapAnkrWsCollector',
+                `TokenQuoteSet 启动回放失败(${Math.round(nextDelayMs / 1000)}s 后重试): ${err.message}`);
+            this._quoteBackfillRetryTimer = setTimeout(
+                () => this._scheduleQuoteBackfill(nextDelayMs), nextDelayMs);
+        });
+    }
+
+    /**
      * 启动回放：getLogs 拉最近 backfillMinutes 的 TokenQuoteSet 重建计价表。
      * 只补表不补 tick——历史缺口不回填（WSS 本就不回放），回放只为让后续实时 tick 判对计价。
      */
@@ -726,7 +741,7 @@ class FlapAnkrWsCollector {
             `TokenQuoteSet 启动回放完成: blocks ${fromBlock}→${toBlock} events=${logs.length} applied后非BNB计价=${this._nonBnbQuoteTokens.size}`);
     }
 
-    /** 分块 getLogs（规避 RPC 单次块深上限）；按块序拼接 */
+    /** 分块 getLogs（规避 RPC 单次块深上限）；按块序拼接；chunk 间 500ms 摊开（ankr 批量限流） */
     async _fetchQuoteSetLogs(provider, fromBlock, toBlock) {
         const CHUNK = 2000;
         const topic0 = ethers.id(EVENT_SIGS.TokenQuoteSet);
@@ -740,6 +755,7 @@ class FlapAnkrWsCollector {
                 toBlock: end,
             });
             out.push(...logs);
+            if (end < toBlock) await new Promise((r) => setTimeout(r, 500));
         }
         return out;
     }

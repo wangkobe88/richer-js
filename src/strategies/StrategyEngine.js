@@ -7,6 +7,27 @@
 
 const { ConditionEvaluator } = require('./ConditionEvaluator');
 
+/**
+ * 卡牌张数归一化（迁自 rich-js 卡牌仓位机制）
+ * 正整数张数；卖腿额外接受 'all'（全清）；其余（含买腿 'all'、0/负/小数/空串）→ null=旧语义。
+ * UI number/text 输入天然是字符串，'8' 归一为 8。
+ * @param {*} raw - 配置原始值
+ * @param {string} action - 'buy' | 'sell'
+ * @returns {number|'all'|null}
+ */
+function normalizeCards(raw, action) {
+    if (typeof raw === 'string') {
+        const s = raw.trim().toLowerCase();
+        if (s === 'all' && action === 'sell') return 'all';
+        const n = Number(s);
+        return Number.isInteger(n) && n > 0 ? n : null;
+    }
+    if (typeof raw === 'number') {
+        return Number.isInteger(raw) && raw > 0 ? raw : null;
+    }
+    return null;
+}
+
 class StrategyEngine {
     /**
      * @param {Object} config - 策略引擎配置
@@ -86,7 +107,16 @@ class StrategyEngine {
                     // E5 卖侧：卖出比例（执行时点余仓的比例，(0,1]；缺省/非法 → 1=全仓=旧语义）
                     sellPercentage: (typeof config.sellPercentage === 'number'
                         && config.sellPercentage > 0 && config.sellPercentage <= 1)
-                        ? config.sellPercentage : 1
+                        ? config.sellPercentage : 1,
+                    // 卡牌仓位（迁自 rich-js）：本腿买/卖张数；卖腿 'all'=全清。实验未配置
+                    // positionManagement.perCardBNB 时引擎侧整体忽略（null=旧语义）
+                    cards: normalizeCards(config.cards, config.action),
+                    // 冷却（秒，独立于卡牌可用）：本腿成交后 N 秒内不再触发，期满可再触发；
+                    // 与 maxExecutions 共存（限间隔 vs 限总次数）。正数否则 null=不冷却
+                    cooldownSec: (() => {
+                        const n = Number(config.cooldownSec);
+                        return Number.isFinite(n) && n > 0 ? n : null;
+                    })()
                 };
 
                 this._strategies.push(strategy);
@@ -95,7 +125,10 @@ class StrategyEngine {
                 const enabledText = strategy.enabled ? '启用' : '禁用';
                 const actionText = strategy.action === 'buy' ? '买入' : '卖出';
                 const maxExecText = strategy.maxExecutions ? ` ×${strategy.maxExecutions}` : '';
-                console.log(`✅ [${enabledText}] ${strategy.name}: ${actionText}${maxExecText} | 优先级:${strategy.priority}`);
+                const cardsText = strategy.cards != null
+                    ? (strategy.cards === 'all' ? ' | 全清卡' : ` | ${strategy.cards}卡`) : '';
+                const cooldownText = strategy.cooldownSec != null ? ` | 冷却${strategy.cooldownSec}s` : '';
+                console.log(`✅ [${enabledText}] ${strategy.name}: ${actionText}${maxExecText} | 优先级:${strategy.priority}${cardsText}${cooldownText}`);
                 console.log(`   条件: ${config.condition}`);
 
             } catch (error) {
@@ -138,6 +171,18 @@ class StrategyEngine {
                 const execution = tokenData.strategyExecutions[strategy.id];
                 if (execution && execution.count >= strategy.maxExecutions) {
                     continue;  // 已达到最大执行次数，跳过
+                }
+            }
+
+            // 检查冷却（迁自 rich-js 卡牌机制，独立于卡牌可用）：本腿上次成交后 cooldownSec
+            // 秒内跳过，期满恢复触发。lastExecuted 由 recordStrategyExecution 写入（引擎传
+            // 评估时点——回测为虚拟时钟），timestamp 是本次评估时刻。冷却中跳过与
+            // maxExecutions 跳过同语义：高优先级腿冷却中被跳过 → 低优先级腿可顶上
+            if (strategy.cooldownSec != null && tokenData && tokenData.strategyExecutions) {
+                const execution = tokenData.strategyExecutions[strategy.id];
+                if (execution && execution.lastExecuted != null
+                    && (timestamp - execution.lastExecuted) < strategy.cooldownSec * 1000) {
+                    continue;  // 冷却期内，跳过
                 }
             }
 

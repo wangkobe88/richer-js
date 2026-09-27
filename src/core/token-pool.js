@@ -720,9 +720,11 @@ class TokenPool {
      * @param {string} tokenAddress - Token address
      * @param {string} chain - Chain
      * @param {string} strategyId - Strategy ID
+     * @param {number} [timestamp=Date.now()] - 执行时刻（ms）。回测引擎传虚拟时钟的
+     *        评估时点（cooldownSec 冷却判据用它比较），实时引擎缺省墙钟
      * @returns {boolean} True if recorded successfully
      */
-    recordStrategyExecution(tokenAddress, chain, strategyId) {
+    recordStrategyExecution(tokenAddress, chain, strategyId, timestamp = Date.now()) {
         const token = this.getToken(tokenAddress, chain);
         if (token && token.strategyExecutions) {
             if (!token.strategyExecutions[strategyId]) {
@@ -732,7 +734,7 @@ class TokenPool {
                 };
             }
             token.strategyExecutions[strategyId].count++;
-            token.strategyExecutions[strategyId].lastExecuted = Date.now();
+            token.strategyExecutions[strategyId].lastExecuted = timestamp;
             return true;
         }
         return false;
