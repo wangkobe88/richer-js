@@ -11,10 +11,14 @@
  *     override 逐字段一致）；本子类消费集合只放行 flap 行，实参恒 'flap'
  *   - innerPair 后缀：_buildTokenInfo override 保留（flap 版无 name 字段——不给
  *     存量 flap 实验的预检查新增 AVE 同名检查输入，行为零变化）
- *   - live：暂不支持（_initializeLiveTrader 覆盖为 fail-fast；FlapPortalTrader
- *     swapExactInput 接入后在此处替换——TraderFactory 注册位）
+ *   - live：FlapPortalTrader（Portal swapExactInput/quoteExactInput，ABI 与官方
+ *     文档 docs.flap.sh trade-tokens 对齐；traders/index.js 注册名 'flap'）。
+ *     钱包/解密/余额门/BNB-USD 锚定/对账/恢复全部复用父类 _initializeLiveTrader，
+ *     仅 trader 类型经 _liveTraderType() 分派。live 参数读 flapWs.live 段。
+ *     收窄口径：BNB 计价盘买入（非 BNB 盘 swapExactInput 未启用 nativeToQuoteSwap
+ *     时 revert = 天然 fail-closed）；卖出 token→BNB 全盘支持。
  *
- * 范围：virtual 虚拟交易 + backtest（BacktestEngine 平台无关，tick 同表回放）。
+ * 范围：virtual 虚拟交易 + backtest（BacktestEngine 平台无关，tick 同表回放）+ live。
  */
 
 const { FourMemeWssTradingEngine } = require('./FourMemeWssTradingEngine');
@@ -51,12 +55,9 @@ class FlapWssTradingEngine extends FourMemeWssTradingEngine {
     };
   }
 
-  /**
-   * live 暂不支持：fail-fast。后续接入点——FlapPortalTrader
-   * （Portal.quoteExactInput / swapExactInput）+ TraderFactory 注册 'flap' + flapWs.live 段
-   */
-  async _initializeLiveTrader() {
-    throw new Error('flap live 交易暂未实现（规划中：FlapPortalTrader + live 验收流程）');
+  /** live trader 类型：TraderFactory 注册名 'flap'（FlapPortalTrader） */
+  _liveTraderType() {
+    return 'flap';
   }
 }
 

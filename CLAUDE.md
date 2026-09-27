@@ -35,6 +35,9 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 
 # TPA 本地零 DB 单测（builder/scorer/TPA 三件）
 node scripts/_test_wallet_profile_builder.cjs && node scripts/_test_wallet_scorer.cjs && node scripts/_test_tpa.cjs
+
+# live 加固层零 DB 单测（assertMinOut/_awaitReceipt/FlapPortalTrader 打桩）
+node scripts/_test_live_hardening.cjs
 ```
 
 No test framework or CI is configured.
@@ -78,13 +81,14 @@ WSS 订阅由**常驻 watcher**（`src/watcher/`，单进程双平台，182 scre
 Two engines via `src/trading-engine/implementations/`:
 - **FourMemeWssTradingEngine** - virtual (simulated accounting) and live (`FourMemeDirectTrader` on-chain trades) modes in one engine; platform via `_wsConfigSectionName()`/`_wsPlatforms()`（flap 子类覆盖）
 - **BacktestEngine** - replays `wss_price_ticks` through the same factor-strategy pipeline（**token 集合 + platform 口径**：`_tokenMeta` 全集 100 地址/批 `.in` + platform 按单值 `.eq` 循环（`.in` 多值等价无过滤，planner 弃索引致 statement timeout），分块后全局 id 归并排序；不再按 experiment_id——watcher 新行 exp_id=NULL）
+- **FlapWssTradingEngine** - extends FourMemeWssTradingEngine（virtual + live：`FlapPortalTrader` Portal `swapExactInput`，见 Live Trading 节）
 
 ### 双平台实验（config.platform='both'，2026-09-27 上线）
 
 一个实验同时交易 fourmeme+flap 两平台代币：**单引擎实例 per-token 分派**（基类 `_handleNewToken(info, platform)` 按 consumer 传入的行平台分派 `_buildFourMemeTokenRecord`/`_buildFlapTokenRecord`），共用同一套买/卖策略与单一资金池（PM 单组合）；FlapWssTradingEngine 改薄（`_handleNewToken` 逻辑入基类，保留 constructor/`flapWs` 段/`_buildTokenInfo` 无 name 版/live throw）。
 
 - **归一化唯一入口** `resolvePlatforms(platform)`（`src/trading-engine/core/platforms.js`）：`'both'`→`['fourmeme','flap']`、`'flap'`→`['flap']`、其余→`['fourmeme']`
-- **范围 virtual + backtest；live 双平台三重防线禁止**：web-server POST 400（live && platform∈{flap,both}）/ main.js `_createEngine` throw / 基类 `_initializeLiveTrader` 顶部 fail-fast
+- **范围 virtual + backtest + 单平台 live（fourmeme/flap 各自）**；双平台 live 三重防线禁止：web-server POST 400（live && platform='both'）/ main.js `_createEngine` throw / 前端提交拦截
 - **引擎级配置恒读 fourmemeWs 段**（`_wsConfigSectionName()` 基类返回值，flap 子类才覆盖 flapWs）；FA 构造键名固定 fourmemeWs；corpusEnrich per-token 分派
 - **创建页平台选择 = 多选 checkbox**（结构保证至少一勾；双勾 POST 标量 `'both'`；live 模式 flap 禁用联动；复制链路 both→双勾回填）
 - 存量单平台实验零行为变化（182 重启回归验证：引擎身份/配置段/水位对齐保持）
@@ -220,6 +224,21 @@ Token-level card ledger（用户裁定：组合级现金卡不迁）。**机制�
 - **冷却**：`StrategyEngine.evaluate` 内 maxExecutions 检查后；期内腿返回 null→低优先级腿可顶上（与 maxExecutions 跳过语义一致）。回测传虚拟时钟（`recordStrategyExecution` 第 4 参），实时墙钟缺省
 - **UI**：create_experiment.html 表单键 `cards`/`cooldownSec`/`per_card_bnb`；`card.dataset.rawConfig` 整包存复制源策略，collectFormData 的 `mergeRawConfig` 合并表单白名单外键（复制链路保真 bypassDebounce/sellPercentage 等无 UI 输入字段）
 - **单测**：`node scripts/_test_card_position_mechanisms.cjs`（归一化/冷却/Decimal 精度边界三节，零 DB）
+
+## Live Trading（实盘加固，2026-09-27）
+
+双平台 live 全链路已通：four.meme 走 `FourMemeDirectTrader`（TokenManager2），flap 走 `FlapPortalTrader`（Portal `swapExactInput`；**live 只买 BNB 计价盘**——非 BNB 盘合约 revert = 天然 fail-closed；卖出 token→0x0 全盘支持）。live 实验只能 `node main.js start-experiment -e <id>` 启动（`src/run-engine.js` 对 live 显式拒绝，防被静默当虚拟盘）。实收解析用**余额差法**（买入 token `balanceOf` 前后差 = 税后真相；卖出 BNB `getBalance` 差 + `gasUsed×gasPrice` 补偿），对税币/非 BNB quote 盘免疫（TokenSold 事件 `eth` 字段非 BNB 盘记 quote 币，事件解析不可用）。
+
+防御分层（参数在 default.json `fourmemeWs.live`/`flapWs.live`，验收 runbook `docs/live-acceptance-runbook.md`）：
+
+- **L1 预成交校验 `assertMinOut`**（`traders/core/preTradeCheck.js` 纯函数）：trader 签名前校验「报价到手 vs 引擎信号价预期」，ratio < `minOutRatio`(默认 0.5) 拒单——BURNIE 报价错位/尘埃报价防线（相对滑点对尘埃失效）。`expectedTokenOut`/`expectedNativeOut` **契约必传**（缺即 throw，逼调用方显式表态）；卖出侧预估失败（trySell/quote）且有预期锚 → fail-closed 拒绝裸奔卖出（无锚独立工具路径保留旧行为）。事前/事后 ratio 语义刻意不统一，勿"统一"
+- **L3 卖出熔断**：引擎 `_sellFailStreak` 连败 ≥ `sellCircuitBreakerFailures`(5) → `sellCircuitBreakerCooldownMs`(30min) 长冷却 + Telegram 告警；成功清零
+- **L5 `_awaitReceipt`**：`waitForTransaction(hash,1,txWaitTimeoutMs 120s)` 超时回查一次 `getTransactionReceipt`，仍未上链 throw 带 txHash——**绝不自动重发防双买**；reverted throw
+- **持仓数上限 `maxPositionTokens`**（0=不限，只拦新开仓）；**毕业告警**：live+bought 毕业 → Telegram 告警人工去 PCS 处置（TM2 毕业卖出必 revert）
+- **多态 `_liveTraderType()`**：基类 'fourmeme' / FlapWssTradingEngine 覆盖 'flap'（`_initializeLiveTrader` 走 `traderFactory.createTrader`）；钱包解密/余额门/BNB-USD 锚定/恢复全复用父类
+- **钱包复用（轻量版钱包管理）**：web 创建 live 实验时「复用历史钱包」下拉（`GET /api/live-wallets` 去重地址列表，不含私钥）→ 提交 `wallet.reuseExperimentId` → 服务端从源实验拷贝加密私钥密文（地址一致性校验 400），私钥永不回传前端；要求两端 ENCRYPTION_KEY 一致
+- **单测**：`node scripts/_test_live_hardening.cjs`（零 DB：assertMinOut 全分支含 BURNIE 数值复现、`_awaitReceipt` 超时语义、FlapPortalTrader quote 方向/拒单在签名前/余额差记账/钳制/approve/实收=余额差+gas 补偿——真实 JsonRpcProvider+Wallet 实例 + 实例级 RPC 方法覆盖打桩；ethers v6 导出属性 getter-only，`ethers.Contract` 不可 monkey-patch）
+- **真实资金验收未做**（需用户钱包，见 live-acceptance-deferred 记忆与 runbook）；flap 毕业/非 BNB 盘卖出 revert 属预期 fail-closed 行为
 
 ## Important Notes
 

@@ -57,10 +57,12 @@ class VirtualTradingSystem {
       }
 
       case 'live':
-        if (platform === 'flap' || platform === 'both') {
-          throw new Error(platform === 'both'
-            ? '双平台实验不支持 live（仅 virtual/backtest）'
-            : 'flap live 交易暂未实现（规划中：FlapPortalTrader + live 验收流程）');
+        if (platform === 'both') {
+          throw new Error('双平台实验不支持 live（仅 virtual/backtest）');
+        }
+        if (platform === 'flap') {
+          console.log(`🔴 创建实盘交易引擎（WSS 事件驱动 + FlapPortalTrader）`);
+          return new FlapWssTradingEngine({ tradingMode: 'live' });
         }
         console.log(`🔴 创建实盘交易引擎（WSS 事件驱动 + FourMemeDirectTrader）`);
         return new FourMemeWssTradingEngine({ tradingMode: 'live' });

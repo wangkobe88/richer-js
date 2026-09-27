@@ -684,6 +684,31 @@ class RicherJsWebServer {
       }
     });
 
+    // 历史 live 实验钱包列表（钱包复用下拉数据源；只回地址/实验元信息，绝不回传私钥）
+    this.app.get('/api/live-wallets', async (req, res) => {
+      try {
+        const experiments = await this.experimentFactory.list({ tradingMode: 'live', limit: 200 });
+        const seen = new Set();
+        const wallets = [];
+        for (const exp of experiments) {
+          const wallet = exp.config?.wallet;
+          if (!wallet?.address || !wallet?.privateKey) continue;
+          const addr = wallet.address.toLowerCase();
+          if (seen.has(addr)) continue; // 同钱包去重（保留最新实验——list 已按 created_at 倒序）
+          seen.add(addr);
+          wallets.push({
+            experimentId: exp.id,
+            experimentName: exp.experimentName || exp.config?.name || exp.id,
+            address: wallet.address,
+          });
+        }
+        res.json({ success: true, data: wallets });
+      } catch (error) {
+        this.logger.error('WebServer', '获取 live 钱包列表失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 获取实验详情
     this.app.get('/api/experiment/:id', async (req, res) => {
       try {
@@ -746,31 +771,45 @@ class RicherJsWebServer {
             minMaxChangePercent: backtest?.minMaxChangePercent || 0
           };
         } else if (trading_mode === 'live') {
-          if (platform === 'flap' || platform === 'both') {
-            return res.status(400).json({ success: false, error: platform === 'both'
-              ? '双平台实验不支持 live（仅 virtual/backtest）'
-              : 'flap live 交易暂未实现（规划中：FlapPortalTrader + live 验收流程）' });
+          if (platform === 'both') {
+            return res.status(400).json({ success: false, error: '双平台实验不支持 live（仅 virtual/backtest）' });
           }
-          // 实盘交易配置 - 必须加密私钥
-          if (!wallet || !wallet.privateKey) {
-            return res.status(400).json({ success: false, error: '实盘交易需要提供钱包私钥' });
-          }
-
-          // 加密私钥
+          // 实盘交易配置：私钥二选一——前端明文（服务端加密）或复用历史 live 实验
+          // 的已加密私钥（reuseExperimentId；密文服务端拷贝，私钥永不回传前端）
           const { CryptoUtils } = require('../src/utils/CryptoUtils');
           const cryptoUtils = new CryptoUtils();
-          config.wallet = {
-            address: wallet.address,
-            privateKey: cryptoUtils.encrypt(wallet.privateKey) // 只加密私钥
-          };
-          // live 执行层参数（引擎读 config.fourmemeWs.live 段）
-          config.fourmemeWs = {
-            live: {
-              reserveNative: reserveNative !== undefined ? parseFloat(reserveNative) : 0.1,
-              slippageTolerance: strategy?.live?.slippageTolerance || 5,
-              maxGasPrice: strategy?.live?.maxGasPrice || 10
+          let encryptedPrivateKey = null;
+
+          if (wallet?.reuseExperimentId) {
+            const sourceExperiment = await this.experimentFactory.load(wallet.reuseExperimentId);
+            const sourceWallet = sourceExperiment?.config?.wallet;
+            if (!sourceWallet?.privateKey || !sourceWallet?.address) {
+              return res.status(400).json({ success: false, error: `源实验 ${wallet.reuseExperimentId} 无钱包配置，无法复用` });
             }
+            if (wallet.address && wallet.address.toLowerCase() !== sourceWallet.address.toLowerCase()) {
+              return res.status(400).json({ success: false, error: `复用钱包地址不匹配：源实验 ${sourceWallet.address} ≠ 提交 ${wallet.address}` });
+            }
+            encryptedPrivateKey = sourceWallet.privateKey; // 已是密文，直接拷贝
+            config.wallet = { address: sourceWallet.address, privateKey: encryptedPrivateKey };
+          } else if (wallet && wallet.privateKey) {
+            encryptedPrivateKey = cryptoUtils.encrypt(wallet.privateKey); // 只加密私钥
+            config.wallet = { address: wallet.address, privateKey: encryptedPrivateKey };
+          } else {
+            return res.status(400).json({ success: false, error: '实盘交易需要提供钱包私钥（或选择复用历史钱包）' });
+          }
+
+          // live 执行层参数（引擎读实验 config 的对应平台 ws 段 live；仅落用户可调项，
+          // 加固参数 minOutRatio/熔断/超时走 config/default.json 默认）
+          const liveParams = {
+            reserveNative: reserveNative !== undefined ? parseFloat(reserveNative) : 0.1,
+            slippageTolerance: strategy?.live?.slippageTolerance || 5,
+            maxGasPrice: strategy?.live?.maxGasPrice || 10
           };
+          if (resolvedPlatform === 'flap') {
+            config.flapWs = { live: liveParams };
+          } else {
+            config.fourmemeWs = { live: liveParams };
+          }
         } else {
           // 兼容旧格式
           config.virtual = {

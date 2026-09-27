@@ -33,6 +33,11 @@ async function runEngine(experimentId) {
       throw new Error(`实验不存在: ${experimentId}`);
     }
     const isBacktest = experiment.tradingMode === 'backtest' || experiment.trading_mode === 'backtest';
+    // live 实验显式拒绝：本入口恒以 virtual/backtest 模式构造引擎，live 实验会
+    // 静默降级成虚拟盘（跑出假账）——fail-fast，live 请用 main.js start-experiment
+    if (experiment.tradingMode === 'live' || experiment.trading_mode === 'live') {
+      throw new Error('live 实验不能用 run-engine.js 启动（会被静默当作虚拟盘）。请用: node main.js start-experiment -e <id>');
+    }
     const EngineClass = isBacktest
       ? BacktestEngine
       : (experiment.config?.platform === 'flap' ? FlapWssTradingEngine : FourMemeWssTradingEngine);

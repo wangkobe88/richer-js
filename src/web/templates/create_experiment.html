@@ -315,6 +315,16 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium text-gray-700 mb-1">
+                                复用历史钱包（可选）
+                            </label>
+                            <select id="wallet_reuse"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">使用新钱包（下方输入私钥）</option>
+                            </select>
+                            <span id="wallet_reuse_hint" class="text-xs text-gray-500">选择后复用该实验已加密的钱包（私钥密文服务端拷贝，无需重新输入）；若 182 与本机 ENCRYPTION_KEY 不一致则无法复用</span>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 钱包地址 <span class="text-red-500">*</span>
                             </label>
                             <input type="text"
@@ -1342,23 +1352,65 @@
             if (platformName) platformName.textContent = `${names.join(' + ')} @ ${selectedBlockchain.toUpperCase()}`;
         }
 
-        // live 模式平台可用性联动：flap live 未实现 → 禁用 flap 勾选框（与服务端 400 双保险，
-        // flap 被禁也使双平台 live 无法勾出）；已勾则自动取消
+        // live 模式平台可用性联动：flap live 已支持（FlapPortalTrader）——双平台 live
+        // 仍禁止：勾了两个平台时给视觉提示 + 提交验证兜底（服务端 400 三保险）
         function syncPlatformAvailability() {
             const tradingMode = document.getElementById('trading_mode')?.value;
-            const flapCb = document.getElementById('platform_cb_flap');
-            if (!flapCb) return;
             const liveMode = tradingMode === 'live';
-            flapCb.disabled = liveMode;
-            if (liveMode && flapCb.checked) flapCb.checked = false;
-            const flapLabel = flapCb.closest('label');
-            if (flapLabel) {
-                flapLabel.title = liveMode ? 'flap live 交易暂未实现，live 仅支持 Four.meme' : '';
-                flapLabel.classList.toggle('opacity-50', liveMode);
-                flapLabel.classList.toggle('cursor-not-allowed', liveMode);
-            }
+            const checked = [...document.querySelectorAll('#platform_checkboxes input[name="platform"]:checked')];
+            const bothSelected = liveMode && checked.length >= 2;
+            checked.slice(1).forEach(cb => {
+                const label = cb.closest('label');
+                if (!label) return;
+                label.title = bothSelected ? '双平台实验不支持 live（仅 virtual/backtest）' : '';
+                label.classList.toggle('opacity-50', bothSelected);
+            });
             updateLogoDisplay();
         }
+
+        // ==== live 钱包复用（轻量版钱包管理，参考 rich-js）====
+        // 历史 live 实验钱包下拉：选择后地址自动填充+只读、私钥禁用；
+        // 提交时服务端从源实验拷贝加密私钥（私钥永不回传前端）
+        async function loadLiveWallets() {
+            const select = document.getElementById('wallet_reuse');
+            if (!select || select.dataset.loaded === 'true') return;
+            try {
+                const response = await fetch('/api/live-wallets');
+                const result = await response.json();
+                if (!result.success || !Array.isArray(result.data)) return;
+                result.data.forEach(w => {
+                    const option = document.createElement('option');
+                    option.value = w.experimentId;
+                    option.textContent = `${w.address}（${w.experimentName}）`;
+                    option.dataset.address = w.address;
+                    select.appendChild(option);
+                });
+                select.dataset.loaded = 'true';
+            } catch (error) {
+                console.warn('⚠️ 加载历史钱包列表失败:', error.message);
+            }
+        }
+
+        function applyWalletReuseState() {
+            const select = document.getElementById('wallet_reuse');
+            const walletAddressInput = document.getElementById('wallet_address');
+            const privateKeyInput = document.getElementById('private_key');
+            if (!select || !walletAddressInput || !privateKeyInput) return;
+            const chosen = select.selectedOptions[0];
+            const reusing = !!(chosen && chosen.value);
+            if (reusing) {
+                walletAddressInput.value = chosen.dataset.address || '';
+                walletAddressInput.readOnly = true;
+                privateKeyInput.value = '';
+                privateKeyInput.disabled = true;
+                privateKeyInput.removeAttribute('required');
+                walletAddressInput.setAttribute('required', 'required');
+            } else {
+                walletAddressInput.readOnly = false;
+                privateKeyInput.disabled = false;
+            }
+        }
+        document.getElementById('wallet_reuse')?.addEventListener('change', applyWalletReuseState);
 
         // 交易模式切换处理
         async function handleTradingModeChange() {
@@ -1401,13 +1453,13 @@
                 await loadBacktestableExperiments();
             } else if (tradingMode === 'live') {
                 liveConfig.style.display = 'block';
-                // 添加实盘字段的必填属性
-                if (walletAddressInput) walletAddressInput.setAttribute('required', 'required');
-                if (privateKeyInput) privateKeyInput.setAttribute('required', 'required');
+                // 必填属性按钱包来源动态定（复用历史钱包时私钥不必填——见 applyWalletReuseState）
+                applyWalletReuseState();
                 // 实盘模式隐藏初始余额字段（资金从钱包获取）
                 if (initialBalanceContainer) {
                     initialBalanceContainer.style.display = 'none';
                 }
+                loadLiveWallets();
             } else {
                 // 恢复默认初始余额
                 if (initialBalanceInput.value === '100') {
@@ -1769,10 +1821,14 @@
                     minMaxChangePercent: parseFloat(formData.get('min_max_change_percent')) || 0
                 };
             } else if (tradingMode === 'live') {
-                config.wallet = {
-                    address: formData.get('wallet_address'),
-                    privateKey: formData.get('private_key')  // 将在服务器端加密
-                };
+                const reuseSelect = document.getElementById('wallet_reuse');
+                const reuseExperimentId = reuseSelect?.value || null;
+                config.wallet = reuseExperimentId
+                    ? { address: formData.get('wallet_address'), reuseExperimentId } // 服务端拷贝源实验加密私钥
+                    : {
+                        address: formData.get('wallet_address'),
+                        privateKey: formData.get('private_key')  // 将在服务器端加密
+                    };
                 // 实盘交易：保留用于 GAS 的金额
                 config.reserveNative = parseFloat(formData.get('reserve_amount')) || 0.1;
             }
@@ -1818,16 +1874,25 @@
             if (tradingMode === 'live') {
                 const walletAddress = document.getElementById('wallet_address').value;
                 const privateKey = document.getElementById('private_key').value;
+                const reuseSelect = document.getElementById('wallet_reuse');
+                const reusingWallet = !!(reuseSelect && reuseSelect.value);
                 const reserveAmount = parseFloat(document.getElementById('reserve_amount').value);
                 const blockchain = document.getElementById('blockchain_select').value;
                 const currency = BLOCKCHAIN_NATIVE_CURRENCY[blockchain] || 'BNB';
+                const checkedPlatforms = [...document.querySelectorAll('#platform_checkboxes input[name="platform"]:checked')];
+
+                // 双平台 live 禁止（与服务端 400 双保险）
+                if (checkedPlatforms.length >= 2) {
+                    alert('双平台实验不支持 live（仅虚拟/回测）；请只勾选一个平台');
+                    return;
+                }
 
                 if (!walletAddress) {
                     alert('请输入钱包地址');
                     return;
                 }
-                if (!privateKey) {
-                    alert('请输入私钥');
+                if (!reusingWallet && !privateKey) {
+                    alert('请输入私钥，或选择复用历史钱包');
                     return;
                 }
 
@@ -1836,7 +1901,7 @@
                     alert('钱包地址格式不正确，应为0x开头的40位十六进制字符');
                     return;
                 }
-                if (!/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
+                if (!reusingWallet && !/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
                     alert('私钥格式不正确，应为0x开头的64位十六进制字符');
                     return;
                 }

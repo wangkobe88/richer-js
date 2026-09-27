@@ -89,7 +89,12 @@
       "slippageTolerance": 5,
       "maxGasPrice": 10,
       "holdingsSyncMs": 300000,
-      "sellFailureCooldownMs": 60000
+      "sellFailureCooldownMs": 60000,
+      "minOutRatio": 0.5,
+      "maxPositionTokens": 0,
+      "sellCircuitBreakerFailures": 5,
+      "sellCircuitBreakerCooldownMs": 1800000,
+      "txWaitTimeoutMs": 120000
     },
     "corpusEnrich": {
       "enabled": true,
@@ -144,6 +149,18 @@
         "https://{cid}.ipfs.4everland.io/",
         "https://gateway.pinata.cloud/ipfs/"
       ]
+    },
+    "live": {
+      "reserveNative": 0.01,
+      "slippageTolerance": 5,
+      "maxGasPrice": 10,
+      "holdingsSyncMs": 300000,
+      "sellFailureCooldownMs": 60000,
+      "minOutRatio": 0.5,
+      "maxPositionTokens": 0,
+      "sellCircuitBreakerFailures": 5,
+      "sellCircuitBreakerCooldownMs": 1800000,
+      "txWaitTimeoutMs": 120000
     }
   },
   "strategy": {

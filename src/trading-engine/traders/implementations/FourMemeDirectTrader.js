@@ -5,6 +5,7 @@
 
 const { ethers } = require('ethers');
 const BaseTrader = require('../core/BaseTrader');
+const { assertMinOut } = require('../core/preTradeCheck');
 
 class FourMemeDirectTrader extends BaseTrader {
     constructor(config = {}) {
@@ -174,6 +175,43 @@ class FourMemeDirectTrader extends BaseTrader {
      */
     setLogger(logger) {
         this.logger = logger;
+    }
+
+    /**
+     * 带超时的交易回执等待（live 加固，迁自 rich-js 防御层）
+     *
+     * 原 tx.wait() 无超时——pending 卡住（RPC 丢回执/gas 过低长期 pending）会永久
+     * 挂起 tick 处理链。语义：
+     *   - 确认成功 → 返回回执摘要（含 blockNumber/gasUsed）
+     *   - reverted → throw（交易终态失败）
+     *   - 超时 → 回查一次链上终态，仍未上链则 throw（错误消息带 txHash），
+     *     绝不自动重发（防双买）；后续处置交引擎告警 + _syncHoldings 对账
+     *
+     * @param {Object} tx - ethers 已发送的交易（有 hash 字段）
+     * @param {string} label - 日志/错误消息上下文
+     * @returns {Promise<{hash, blockNumber, gasUsed, gasPrice}>}
+     */
+    async _awaitReceipt(tx, label) {
+        const timeoutMs = this.txWaitTimeoutMs ?? 120000;
+        let receipt;
+        try {
+            receipt = await this.provider.waitForTransaction(tx.hash, 1, timeoutMs);
+        } catch (error) {
+            const isTimeout = String(error.message || '').toLowerCase().includes('timeout')
+                || error.code === 'TIMEOUT';
+            if (!isTimeout) throw error;
+            // 超时回查：receipt 可能刚好已上链（waitForTransaction 的轮询间隙）
+            receipt = await this.provider.getTransactionReceipt(tx.hash);
+            if (!receipt) {
+                throw new Error(
+                    `${label}确认超时(${timeoutMs / 1000}s)，txHash=${tx.hash} —— 请人工核查链上终态（已停止等待，未重发防双买）`);
+            }
+            this.log(`${label} waitForTransaction 超时但回查已上链: ${tx.hash} status=${receipt.status}`, 'warning');
+        }
+        if (receipt.status !== 1) {
+            throw new Error(`${label}链上执行失败(reverted): ${tx.hash}`);
+        }
+        return receipt;
     }
 
     /**
@@ -619,6 +657,18 @@ class FourMemeDirectTrader extends BaseTrader {
                 throw new Error(`无法获取价格报价: ${priceQuote.error}`);
             }
 
+            // L1 预成交校验（rich-js BURNIE 防线）：报价到手量 vs 引擎按信号价推导的预期量。
+            // expectedTokenOut 契约必传（缺失即 throw，逼绕过引擎的调用方显式表态）
+            const minOutRatio = typeof options.minOutRatio === 'number' ? options.minOutRatio : 0.5;
+            const assertRes = assertMinOut({
+                expectedOut: options.expectedTokenOut,
+                decimals: 18,
+                quoteOutRaw: priceQuote.amountOut,
+                minOutRatio,
+                context: `buyToken ${tokenAddress}`,
+            });
+            this.log(`[预成交校验通过] ratio=${assertRes.ratio} 报价到手=${assertRes.quoteOutUi}（minOutRatio=${minOutRatio}）`);
+
             // 准备交易参数
             const gasLimit = options.gasLimit || this.fourMemeConfig.gasLimit;
             const gasPrice = options.maxGasPrice ?
@@ -674,9 +724,9 @@ class FourMemeDirectTrader extends BaseTrader {
             this.log(`交易已发送，哈希: ${tx.hash}`);
             this.log('等待交易确认...');
 
-            const receipt = await tx.wait();
+            const receipt = await this._awaitReceipt(tx, '买入');
 
-            if (receipt.status === 1) {
+            {
                 this.log(`✅ 购买成功！`);
                 this.log(`   区块号: ${receipt.blockNumber}`);
                 this.log(`   Gas 使用: ${receipt.gasUsed.toString()}`);
@@ -698,8 +748,6 @@ class FourMemeDirectTrader extends BaseTrader {
                     method: 'buyTokenAMAP',
                     methodId: this.fourMemeConfig.purchaseMethodId
                 };
-            } else {
-                throw new Error('交易失败');
             }
         } catch (error) {
             this.log(`❌ 购买失败: ${error.message}`, 'error');
@@ -793,7 +841,7 @@ class FourMemeDirectTrader extends BaseTrader {
             if (currentAllowance < amountOutWei) {
                 this.log('授权 TokenManager2 使用代币...');
                 const approveTx = await tokenContract.approve(platformAddress, amountOutWei);
-                await approveTx.wait();
+                await this._awaitReceipt(approveTx, 'approve');
                 this.log('✅ 授权完成');
             } else {
                 this.log('✅ 授权额度充足，无需重新授权');
@@ -829,8 +877,32 @@ class FourMemeDirectTrader extends BaseTrader {
                     this.log(`   预估可能不准确，让合约执行决定`, 'warning');
                 }
             } catch (error) {
+                if (options.expectedNativeOut !== undefined && options.expectedNativeOut !== null) {
+                    // fail-closed（rich-js 防线）：引擎路径预估失败即拒绝——旧行为 minFunds=1wei
+                    // 裸奔上线等于无滑点保护，貔貅盘/死池会把整仓贱卖
+                    this.log(`❌ trySell 预估失败且引擎提供了预期锚，fail-closed 拒绝卖出: ${error.message}`, 'error');
+                    throw new Error(`trySell 预估失败（fail-closed 拒绝裸奔卖出）: ${error.message}`);
+                }
                 this.log(`预估失败: ${error.message}`, 'warning');
-                // 预估失败不影响继续执行卖出
+                // 预估失败不影响继续执行卖出（独立工具路径，无预期锚）
+            }
+
+            // L1 预成交校验（卖出侧绝对锚，与预估 try-catch 分离——校验拒绝不被预估
+            // catch 吞语义）：报价净收入 vs 引擎按信号价推导的预期 BNB。
+            // expectedNativeOut 由引擎传入（qtySold×信号价/BNB-USD）；缺省时跳过绝对锚
+            // （minFunds 仍有 trySell 相对滑点锚），供独立工具调用
+            const hasExpectedAnchor = options.expectedNativeOut !== undefined && options.expectedNativeOut !== null;
+            const netIncomeEstimate = sellEstimate ? sellEstimate.funds - sellEstimate.fee : null;
+            if (hasExpectedAnchor && netIncomeEstimate !== null && netIncomeEstimate > 0n) {
+                const minOutRatio = typeof options.minOutRatio === 'number' ? options.minOutRatio : 0.5;
+                const assertRes = assertMinOut({
+                    expectedOut: options.expectedNativeOut,
+                    decimals: 18,
+                    quoteOutRaw: netIncomeEstimate,
+                    minOutRatio,
+                    context: `sellToken ${tokenAddress}`,
+                });
+                this.log(`[预成交校验通过] ratio=${assertRes.ratio} 报价净得=${assertRes.quoteOutUi} BNB（minOutRatio=${minOutRatio}）`);
             }
 
             // 准备交易参数
@@ -923,9 +995,9 @@ class FourMemeDirectTrader extends BaseTrader {
             this.log(`交易已发送，哈希: ${tx.hash}`);
             this.log('等待交易确认...');
 
-            const receipt = await tx.wait();
+            const receipt = await this._awaitReceipt(tx, '卖出');
 
-            if (receipt.status === 1) {
+            {
                 this.log(`✅ 卖出成功！`);
                 this.log(`   区块号: ${receipt.blockNumber}`);
                 this.log(`   Gas 使用: ${receipt.gasUsed.toString()}`);
@@ -943,8 +1015,6 @@ class FourMemeDirectTrader extends BaseTrader {
                     protocol: 'FourMeme TokenManager2',
                     method: 'sellToken'
                 };
-            } else {
-                throw new Error('交易失败');
             }
         } catch (error) {
             this.log(`❌ 卖出失败 ==========`, 'error');

@@ -84,6 +84,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._walletAddress = null;
     this._lastKnownBnbUsd = 0;           // 最近一次 BNB/USD（live 60s interval 刷新，启动时 trader 直读一次）
     this._sellCooldownUntil = new Map(); // 卖出失败冷却 tokenAddress → untilTs（live 防 gas 消耗风暴）
+    this._sellFailStreak = new Map();    // 卖出连续失败计数 tokenAddress → 连败数（熔断判定输入）
 
     // 引擎级配置（fourmemeWs 段；实验级覆盖在 _initializeDataSources 中重读）
     this._applyWsConfig(baseConfig[this._wsConfigSectionName()] || {});
@@ -161,6 +162,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._liveMaxGasPriceGwei = liveConfig.maxGasPrice ?? 10;            // gwei
     this._liveHoldingsSyncMs = liveConfig.holdingsSyncMs ?? 5 * 60 * 1000;
     this._sellFailureCooldownMs = liveConfig.sellFailureCooldownMs ?? 60 * 1000;
+    // live 加固（迁自 rich-js 防御层）：
+    this._liveMinOutRatio = liveConfig.minOutRatio ?? 0.5;               // L1 预成交校验比值（meme 内盘默认 0.5，见 preTradeCheck）
+    this._liveMaxPositionTokens = liveConfig.maxPositionTokens ?? 0;     // 持仓代币数上限（0=不限；只拦新开仓）
+    this._sellCbFailures = liveConfig.sellCircuitBreakerFailures ?? 5;   // 卖出连续失败熔断阈值
+    this._sellCbCooldownMs = liveConfig.sellCircuitBreakerCooldownMs ?? 30 * 60 * 1000; // 熔断后长冷却
+    this._liveTxWaitTimeoutMs = liveConfig.txWaitTimeoutMs ?? 120000;    // trader 交易回执等待超时（防 pending 永久挂起）
   }
 
   /** 当前可用余额（PortfolioManager 真实余额优先） */
@@ -440,16 +447,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     };
   }
 
-  // ==================== live 执行层（Phase 5：FourMemeDirectTrader）====================
+  // ==================== live 执行层（Phase 5：FourMemeDirectTrader / FlapPortalTrader）====================
+
+  /** live trader 类型（TraderFactory 注册名）；flap 子类覆盖为 'flap' */
+  _liveTraderType() {
+    return 'fourmeme';
+  }
 
   /**
-   * live 交易器初始化：钱包配置校验 → 私钥解密 → FourMemeDirectTrader →
+   * live 交易器初始化：钱包配置校验 → 私钥解密 → trader（类型按平台分派）→
    * 地址一致性校验（私钥推导地址 ≠ 配置地址 = 配置错误，fail-fast）→
    * 链上连通性探测 + BNB/USD 启动锚定。
    */
   async _initializeLiveTrader() {
     // 双平台 live 禁止（防线三：web-server 400 / main.js throw 之外的兜底，防未来新入口；
-    // flap live 本未实现，trader 引擎级单例也无法承载双平台）
+    // trader 引擎级单例也无法承载双平台）
     if (this._wsPlatforms().length > 1) {
       throw new Error('双平台实验不支持 live（仅 virtual/backtest）');
     }
@@ -473,7 +485,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     if (process.env.ANKR_API_KEY) {
       traderConfig.network = { rpcUrl: `https://rpc.ankr.com/bsc/${process.env.ANKR_API_KEY}` };
     }
-    this._trader = traderFactory.createTrader('fourmeme', traderConfig);
+    this._trader = traderFactory.createTrader(this._liveTraderType(), traderConfig);
+    this._trader.txWaitTimeoutMs = this._liveTxWaitTimeoutMs;
     await this._trader.setWallet(privateKey);
 
     const derivedAddress = this._trader.wallet?.address;
@@ -489,6 +502,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `✅ live 交易器就绪 | 钱包 ${this._walletAddress} 链上 ${nativeBalance} BNB（reserve ${this._reserveNative}）` +
       ` BNB/USD≈${this._lastKnownBnbUsd} 滑点 ${this._liveSlippagePct}% gas≤${this._liveMaxGasPriceGwei}gwei`);
+  }
+
+  /** live 紧急告警（Telegram；未启用通知时仅 error 日志——告警通道尽最大努力不阻断交易流） */
+  async _notifyLiveAlert(title, message) {
+    this.logger.error(this._experimentId, 'LiveAlert', `${title} | ${message}`);
+    try {
+      if (this._telegramNotifier) {
+        await this._telegramNotifier.sendMessage(`⚠️ [${this._experimentId}] ${title}\n${message}`);
+      }
+    } catch (error) {
+      this.logger.warn(this._experimentId, 'LiveAlert', `Telegram 推送失败: ${error.message}`);
+    }
   }
 
   /** BNB/USD 直读一次（PancakeSwap V2 Router getAmountsOut；live 启动锚定 + 60s interval 接力刷新） */
@@ -1385,6 +1410,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
       if (result && result.success) {
         this._sellCooldownUntil.delete(signal.tokenAddress);
+        this._sellFailStreak.delete(signal.tokenAddress);
 
         // 腿实际卖出量：live=链上/receipt 实际 qtySold，虚拟=请求数量（Decimal 精确，PM 按此成交）
         const qtySold = result.qtySold ?? virtualAmountDec ?? new Decimal(qtyBefore).mul(sellPct).toNumber();
@@ -1443,9 +1469,24 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         }
       } else if (this._isLive) {
         // 卖出失败冷却：防每 tick 高频重试烧 gas（成功后清除）
-        this._sellCooldownUntil.set(signal.tokenAddress, Date.now() + this._sellFailureCooldownMs);
-        this.logger.warn(this._experimentId, '_executeSell',
-          `live 卖出失败，冷却 ${this._sellFailureCooldownMs / 1000}s | ${signal.symbol} ${result?.reason || ''}`);
+        // 连续失败熔断（迁自 rich-js 卖腿防线）：同一 token 连败达阈值 → 长冷却 + 告警
+        // （rich-js 事故面：flap 税币 "Pancake: K" 持续 revert，短冷却下反复烧 gas）
+        const streak = (this._sellFailStreak.get(signal.tokenAddress) || 0) + 1;
+        this._sellFailStreak.set(signal.tokenAddress, streak);
+        let cooldownMs = this._sellFailureCooldownMs;
+        if (streak >= this._sellCbFailures) {
+          cooldownMs = this._sellCbCooldownMs;
+          this.logger.error(this._experimentId, '_executeSell',
+            `🛑 卖出熔断 | ${signal.symbol} 连续失败 ${streak} 次（阈值 ${this._sellCbFailures}），` +
+            `长冷却 ${this._sellCbCooldownMs / 60000}min，请人工核查（${result?.reason || '未知原因'}）`);
+          this._notifyLiveAlert('🛑 卖出熔断',
+            `${signal.symbol} 连续卖出失败 ${streak} 次，已长冷却 ${this._sellCbCooldownMs / 60000}min。` +
+            `原因: ${result?.reason || '未知'}。请人工核查持仓 ${signal.tokenAddress}`);
+        } else {
+          this.logger.warn(this._experimentId, '_executeSell',
+            `live 卖出失败（连败 ${streak}/${this._sellCbFailures}），冷却 ${this._sellFailureCooldownMs / 1000}s | ${signal.symbol} ${result?.reason || ''}`);
+        }
+        this._sellCooldownUntil.set(signal.tokenAddress, Date.now() + cooldownMs);
       }
 
       return result;
@@ -1477,6 +1518,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         cardTrade = { cards: cardsN, before, after: before + cardsN };
       }
 
+      // 持仓数上限（迁自 rich-js 安全阀：maxPositionTokens 只拦新开仓，不碰已有持仓的加仓）
+      if (this._liveMaxPositionTokens > 0 && !this._getHolding(signal.tokenAddress)) {
+        const heldCount = this._getAllHoldings().filter(h => Number(h.amount) > 0).length;
+        if (heldCount >= this._liveMaxPositionTokens) {
+          return {
+            success: false,
+            reason: `持仓数已达上限 ${this._liveMaxPositionTokens}（当前 ${heldCount}），拒绝新开仓 | ${signal.symbol}`,
+          };
+        }
+      }
+
       // 链上资金检查（portfolio cash 是记账镜像，真金白银以链上为准）
       const nativeBalance = new Decimal(await this._trader.getNativeBalance());
       if (nativeBalance.lt(new Decimal(amountInBNB).plus(this._reserveNative))) {
@@ -1488,9 +1540,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
       const { ethers } = require('ethers');
       const amountInWei = ethers.parseEther(String(amountInBNB));
+
+      // L1 预成交校验锚（rich-js BURNIE 防线）：按信号价推导预期到手 token 数。
+      // 信号价是 USD/token，买入金额 BNB → USD → token；bnbUsd/信号价任一缺失时
+      // 传 null（trader 契约缺失即拒绝——极端行情宁可错过不可买错）
+      const bnbUsd = this._getBnbUsd();
+      const signalPriceUsd = signal.price || 0;
+      const expectedTokenOut = (bnbUsd > 0 && signalPriceUsd > 0)
+        ? new Decimal(amountInBNB).mul(bnbUsd).div(signalPriceUsd).toNumber()
+        : null;
+
       const options = {
         slippageTolerance: this._liveSlippagePct,
         maxGasPrice: this._liveMaxGasPriceGwei,
+        minOutRatio: this._liveMinOutRatio,
+        expectedTokenOut,
       };
 
       this.logger.info(this._experimentId, '_executeBuyLive',
@@ -1501,8 +1565,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: buyResult.error || 'live 买入交易失败' };
       }
 
-      // 实际成交数量：receipt 解析为准，失败按信号价估算
-      const bnbUsd = this._getBnbUsd();
+      // 实际成交数量：receipt 解析为准，失败按信号价估算（bnbUsd 沿用上方锚定值）
       let actualTokenAmount = parseFloat(buyResult.actualAmountOut);
       if (!isFinite(actualTokenAmount) || actualTokenAmount <= 0) {
         const fallbackPrice = signal.price || 0;
@@ -1545,7 +1608,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           bnbUsd,
           amountInBnb: String(amountInBNB),
           ...(cardTrade ? { cardTrade } : {}),
-          protocol: 'FourMeme TokenManager2',
+          protocol: buyResult.protocol || 'FourMeme TokenManager2',
           method: buyResult.method || 'buyTokenAMAP',
         },
       });
@@ -1593,9 +1656,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
 
     const amountOutWei = ethers.parseUnits(qtySold.toFixed(18), 18); // trader bigint 分支内含 6 位小数舍入
+
+    // L1 预成交校验锚（卖出侧）：qtySold×信号价(USD)/BNB-USD = 预期实收 BNB（UI 单位）。
+    // bnbUsd/信号价任一缺失传 null（trader 缺锚时预估失败 fail-closed、预估成功仍走
+    // 相对滑点锚——降级但不裸奔）
+    const bnbUsdSell = this._getBnbUsd();
+    const signalPriceUsdSell = signal.price || 0;
+    const expectedNativeOut = (bnbUsdSell > 0 && signalPriceUsdSell > 0)
+      ? new Decimal(qtySold).mul(signalPriceUsdSell).div(bnbUsdSell).toNumber()
+      : null;
+
     const options = {
       slippageTolerance: this._liveSlippagePct,
       maxGasPrice: this._liveMaxGasPriceGwei,
+      minOutRatio: this._liveMinOutRatio,
+      expectedNativeOut,
     };
 
     this.logger.info(this._experimentId, '_executeSellLive',
@@ -1649,8 +1724,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         bnbReceived: String(bnbReceived),
         sellPercentage: sellPct,
         ...(signal.cardTrade ? { cardTrade: signal.cardTrade } : {}),
-        protocol: 'FourMeme TokenManager2',
-        method: 'sellToken',
+        protocol: sellResult.protocol || 'FourMeme TokenManager2',
+        method: sellResult.method || 'sellToken',
       },
     });
     const tradeId = await trade.save();
@@ -1857,14 +1932,24 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * LiquidityAdded（毕业）：内盘曲线终结，此后不再有 TokenManager2 事件。
    * virtual 模式未订阅外盘（PancakeSwap），毕业票的持仓将收不到 tick、无法通过
    * 事件驱动卖出——只记日志与 FA 标记，不改 token 状态（不阻断卖出路径）。
+   * live 模式持仓毕业 = 资金卡死在内盘（TM2 sellToken 毕业 revert），即时告警
+   * 人工去 PancakeSwap 处置（恰恰爆款票才会毕业——最赚钱的仓位不能静默死仓）。
    */
   _handleGraduation(info) {
     this._factorAggregator.markGraduated(info.token);
     const token = this._tokenPool.getToken(info.token, 'bsc');
     if (token && token.status === 'bought') {
-      this.logger.warn(this._experimentId, 'Graduation',
-        `⚠️ 持仓代币已毕业（内盘事件流终止）| ${token.symbol} ${info.token} ` +
-        `funds=${info.fundsBnb} BNB —— virtual 模式无外盘数据源，持仓不再有 tick 触发卖出`);
+      if (this._isLive) {
+        const qty = Number(this._getHolding(info.token)?.amount ?? 0);
+        this._notifyLiveAlert('🎓 持仓代币毕业（需人工处置）',
+          `${token.symbol} 已毕业（内盘曲线终结，funds=${info.fundsBnb} BNB）。` +
+          `live 持仓 ${qty} 个代币已无法通过内盘卖出（TM2 毕业 revert，引擎不再收到该 token 的 tick）。` +
+          `请尽快到 PancakeSwap 手动处置: ${info.token}`);
+      } else {
+        this.logger.warn(this._experimentId, 'Graduation',
+          `⚠️ 持仓代币已毕业（内盘事件流终止）| ${token.symbol} ${info.token} ` +
+          `funds=${info.fundsBnb} BNB —— virtual 模式无外盘数据源，持仓不再有 tick 触发卖出`);
+      }
     }
   }
 
@@ -2158,7 +2243,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._tokenPool.addToken({
         token: tokenAddress,
         chain: 'bsc',
-        platform: 'fourmeme',
+        platform: this._wsPlatforms()[0],
         data_source: 'wss',
         name: meta.raw_api_data?.name || '',
         symbol: meta.token_symbol || '',

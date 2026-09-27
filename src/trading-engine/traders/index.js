@@ -1,11 +1,12 @@
 /**
- * 交易器模块入口文件（BSC four.meme 专用）
+ * 交易器模块入口文件（BSC four.meme / flap）
  */
 
 const TraderFactory = require('./TraderFactory');
 const ITrader = require('./ITrader');
 const FourMemeDirectTrader = require('./implementations/FourMemeDirectTrader');
 const PancakeSwapV2Trader = require('./implementations/PancakeSwapV2Trader');
+const FlapPortalTrader = require('./implementations/FlapPortalTrader');
 
 // 注册 FourMeme 交易器（内盘 TokenManager2）
 TraderFactory.registerTrader('fourmeme', FourMemeDirectTrader, {
@@ -22,6 +23,15 @@ TraderFactory.registerTrader('pancakeswap-v2', PancakeSwapV2Trader, {
     description: 'PancakeSwap V2 AMM 交易器 - 用于已出盘代币的外部交易',
     riskLevel: 2,
     priority: 20,
+    enabled: true
+});
+
+// 注册 Flap Portal 交易器（flap.sh 内盘 swapExactInput）
+TraderFactory.registerTrader('flap', FlapPortalTrader, {
+    name: 'Flap Portal Trader',
+    description: 'Flap.sh Portal 交易器 - 用于 flap 内盘代币交易（BNB 计价盘）',
+    riskLevel: 3,
+    priority: 10,
     enabled: true
 });
 
@@ -73,5 +83,6 @@ module.exports = {
     ITrader,
     FourMemeDirectTrader,
     PancakeSwapV2Trader,
+    FlapPortalTrader,
     BaseTrader: require('./core/BaseTrader')
 };
