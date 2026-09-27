@@ -75,12 +75,22 @@ no_public_info 行穿透 → GMGN 补源 `@Bitgetrelief`（9 粉项目方账号�
 `web3_native_ip_early` → **unrated**（"需等待社区成长后再评估"，实质判定
 而非空语料误拦），耗时 9.9s（30s 直调预算内）；② **HASH 回归**（元数据有
 推文的 four.meme 币）：正常路径 2 URL 提取、正常账号规则判定、无 GMGN 调用，
-零影响；③ engine/web 链路 `analyze` 调用点 grep 实证不传开关。
+零影响；③ engine/web 链路 `analyze` 调用点 grep 实证不传开关；④ **53c9737c
+批量验证**（09-27，four.meme V2 实跑被 no_public_info 误拦的全部 14 个 fire
+token 重析）：GMGN 补源成功率 **12/14**——3 翻 high（GEND ×2 同推文 E 类
+70.2 / crypto guy C 类 72.04，当时若非误拦会被买入）、9 仍 low 但全部实质
+判定（名字指向无名对象 ×2、截词、账号地址验证 ×2、prestage 粉丝 7<60 底线、
+superIP 判 low ×2、推文已删 fetch_failed）、2 个 GMGN 也无语料（猿AI/狗熊
+哆嗦毛，正确拦截）——判定从「没数据」变成「有判断」，重析行已 upsert 覆盖
+旧误拦缓存。
 
-**部署**：182 六文件 scp（gmgn-social-fetcher / ipfs-metadata-fetcher /
-cache-ttl-config / data-fetch-service / NarrativeAnalyzer /
-NarrativeDirectCaller）。**待重启加载**：narrative engine（pid 212830）与
-两个虚拟实验进程（0336befc / 53c9737c）仍跑旧代码——重启待用户裁定。
+**部署**：182 六文件 scp（09-27 08:25-08:27：gmgn-social-fetcher /
+ipfs-metadata-fetcher / cache-ttl-config / data-fetch-service /
+NarrativeAnalyzer / NarrativeDirectCaller）。**加载完成**（09-27 用户裁定
+全重启）：narrative engine 与 v2-53c9737c 已于 08:43 重启（新 pid
+1044505/1044565，Realtime 订阅与水位对齐正常）；08:33 起的 v2-dfc7a623 /
+bt-377cc0a6 启动即新代码无需动；0336befc 发现已不在运行（未擅自拉起，
+flap V2 实跑中断待用户确认是否有意）。
 
 ### C9 bitget被盗 0x0e32 —— 负面硬新闻事件误放 → J1.11（2026-09-26）★
 
