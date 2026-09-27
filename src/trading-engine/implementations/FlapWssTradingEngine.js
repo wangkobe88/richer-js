@@ -4,10 +4,13 @@
  * 继承 FourMemeWssTradingEngine：买/卖管线、去抖、守护 intervals、重启恢复、时序快照
  * 全部复用父类；仅覆盖平台差异点：
  *   - 配置节：flapWs（config/default.json，实验级 config.flapWs 浅合并覆盖）
- *   - 消费平台：_wsPlatform()='flap'（SharedTickConsumer 本地过滤 watcher 双平台流中的
+ *   - 消费平台：_wsPlatforms()=['flap']（SharedTickConsumer 本地过滤 watcher 双平台流中的
  *     flap 行；WSS 订阅由常驻 watcher 统一持有，事件口径见 flap collector 头注释）
- *   - 新代币落库：platform='flap' + flap TokenCreated 字段存档
- *   - innerPair 后缀：_fl（仅日志与 early_participant_trades 存档用）
+ *   - 新代币落库：无 override——基类 _handleNewToken(info, platform) 按 row.platform
+ *     分派 _buildFlapTokenRecord（platform='flap' + flap TokenCreated 字段存档，与旧
+ *     override 逐字段一致）；本子类消费集合只放行 flap 行，实参恒 'flap'
+ *   - innerPair 后缀：_buildTokenInfo override 保留（flap 版无 name 字段——不给
+ *     存量 flap 实验的预检查新增 AVE 同名检查输入，行为零变化）
  *   - live：暂不支持（_initializeLiveTrader 覆盖为 fail-fast；FlapPortalTrader
  *     swapExactInput 接入后在此处替换——TraderFactory 注册位）
  *
@@ -28,54 +31,14 @@ class FlapWssTradingEngine extends FourMemeWssTradingEngine {
     return 'flapWs';
   }
 
-  /** 消费平台标识：flap（SharedTickConsumer 本地过滤 ticks/events；flap token_create
-   *  的 registerToken totalSupply 由 consumer 内部按平台取 FLAP_TOTAL_SUPPLY） */
-  _wsPlatform() {
-    return 'flap';
+  /** 消费平台集合：恒 ['flap']（显式子类身份，防 flap 引擎类被误配非 flap 实验；
+   *  SharedTickConsumer 本地过滤 ticks/events，flap token_create 的 registerToken
+   *  totalSupply 由 consumer 内部按行 platform 取 FLAP_TOTAL_SUPPLY） */
+  _wsPlatforms() {
+    return ['flap'];
   }
 
-  /** TokenCreated：新代币落库 experiment_tokens（platform='flap' + flap 字段存档） */
-  async _handleNewToken(info) {
-    const tokenKey = `${info.token}-bsc`;
-    if (this._seenTokens.has(tokenKey)) return;
-    this._seenTokens.add(tokenKey);
-
-    try {
-      await this.dataService.saveToken(this._experimentId, {
-        token: info.token,
-        symbol: info.symbol || '',
-        chain: 'bsc',
-        platform: 'flap',
-        data_source: 'wss',
-        created_at: Math.floor(info.blockTimeMs / 1000),
-        raw_api_data: {
-          source: 'wss_token_create',
-          name: info.name,
-          symbol: info.symbol,
-          totalSupply: 1e9,          // flap 内盘固定总量
-          creator: info.creator,
-          nonce: info.nonce,
-          eventTs: info.eventTsSec,  // 事件自带秒级时间戳（年龄口径仍用块时间，仅存档）
-          meta: info.meta,           // IPFS 元数据 URL
-          taxToken: info.taxToken,   // 税币（地址后缀 7777）
-          blockNumber: info.blockNumber,
-          txHash: info.txHash,
-        },
-        creator_address: info.creator,
-        status: 'monitoring',
-      });
-    } catch (error) {
-      this.logger.error(this._experimentId, 'NewToken',
-        `新代币落库失败 | ${info.token} ${error.message}`);
-      return;
-    }
-
-    // 行已确保存在后补采语料（IPFS metadata，meta=IPFS URL/裸 CID；
-    // fire-and-forget 同 four.meme，enricher 配置取 flapWs.corpusEnrich）
-    this._enrichCorpus(info, 'flap');
-  }
-
-  /** 代币信息（购买前检查用；innerPair 后缀 _fl 区分 flap 内盘存档） */
+  /** 代币信息（购买前检查用；innerPair 后缀 _fl 区分 flap 内盘存档；无 name 字段——见头注释） */
   _buildTokenInfo(token) {
     return {
       address: token.token,

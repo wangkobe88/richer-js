@@ -182,6 +182,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   async _initializeDataSources() {
+    // 双平台实验（config.platform='both'）：单引擎实例 per-token 分派，两平台共用
+    // 资金池/策略状态/consumer 水位；引擎级配置恒 fourmemeWs 段（见 _wsConfigSectionName）
+    if (this._experiment?.config?.platform === 'both') {
+      this._name = 'Dual WSS Trading Engine (fourmeme+flap)';
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        '🔀 双平台实验 | platforms=fourmeme,flap 配置段=fourmemeWs | 单引擎共用资金池/策略状态/水位');
+    }
     // 实验级 fourmemeWs 覆盖重读（构造器时 _experiment 未注入，只有 base 段；
     // debounce/live 参数随之生效，debouncer 按最终参数重建——初始化阶段无 pending，安全）
     this._applyWsConfig(this._mergedWsConfig());
@@ -308,12 +315,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     //    增量消费常驻 watcher 落库的同一份数据流；FA/pool 分发与旧 collector 内嵌路径等价）
     const { SharedTickConsumer } = require('../core/SharedTickConsumer');
     this._consumer = new SharedTickConsumer({
-      platform: this._wsPlatform(),
+      platforms: this._wsPlatforms(),
       pollIntervalMs: this._mergedWsConfig().consumer?.pollIntervalMs,
       minTickBnb: this._mergedWsConfig().minTickBnb,
       factorAggregator: this._factorAggregator,
       tokenPool: this._tokenPool,
-      onTokenCreate: (info) => this._handleNewToken(info),
+      onTokenCreate: (info, platform) => this._handleNewToken(info, platform),
       onGraduation: (info) => this._handleGraduation(info),
       logger: this.logger,
       experimentId: this._experimentId,
@@ -407,14 +414,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     await (this._isLive ? this._loadHoldingsLive() : this._loadHoldings());
   }
 
-  /** WSS 配置节名（子类覆盖：flap 引擎用 'flapWs'；debounce/consumer 参数节随之切换） */
+  /** WSS 配置节名（子类覆盖：flap 引擎用 'flapWs'；双平台 'both' 走基类 fourmemeWs 段——
+   *  引擎级单值参数（debounce 等）不按平台合并，flapWs 独有键全是 watcher 侧消费） */
   _wsConfigSectionName() {
     return 'fourmemeWs';
   }
 
-  /** 消费平台标识（子类覆盖 'flap'；SharedTickConsumer 本地过滤 ticks/events 用） */
-  _wsPlatform() {
-    return 'fourmeme';
+  /**
+   * 消费平台集合（SharedTickConsumer 本地过滤 ticks/events 用）。
+   * 基类按 experiment.config.platform 归一化（'both' → 双平台；flap 子类覆盖为 ['flap']）。
+   * 构造期 _experiment 未注入时返回 ['fourmeme']，与旧行为一致；consumer 在
+   * _initializeDataSources 中构造，彼时 _experiment 已由 AbstractTradingEngine.initialize 注入。
+   */
+  _wsPlatforms() {
+    const { resolvePlatforms } = require('../core/platforms');
+    return resolvePlatforms(this._experiment?.config?.platform);
   }
 
   /** 基础 fourmemeWs 配置 + 实验级覆盖（浅合并） */
@@ -434,6 +448,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * 链上连通性探测 + BNB/USD 启动锚定。
    */
   async _initializeLiveTrader() {
+    // 双平台 live 禁止（防线三：web-server 400 / main.js throw 之外的兜底，防未来新入口；
+    // flap live 本未实现，trader 引擎级单例也无法承载双平台）
+    if (this._wsPlatforms().length > 1) {
+      throw new Error('双平台实验不支持 live（仅 virtual/backtest）');
+    }
     const walletConfig = this._experiment?.config?.wallet;
     if (!walletConfig?.address || !walletConfig?.privateKey) {
       throw new Error('live 实验缺少钱包配置 (config.wallet.address / config.wallet.privateKey)');
@@ -1730,33 +1749,22 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
   // ==================== 采集器回调 ====================
 
-  /** TokenCreate：新代币落库 experiment_tokens（_seenTokens 去重；23505 容忍在 saveToken 内） */
-  async _handleNewToken(info) {
+  /**
+   * TokenCreate：新代币落库 experiment_tokens（_seenTokens 去重——token 地址全局唯一
+   * 无跨平台碰撞；23505 容忍在 saveToken 内）。platform 实参来自 consumer 的
+   * row.platform，双平台实验按其分派 record builder（单平台实验恒为本平台值）。
+   */
+  async _handleNewToken(info, platform = 'fourmeme') {
     const tokenKey = `${info.token}-bsc`;
     if (this._seenTokens.has(tokenKey)) return;
     this._seenTokens.add(tokenKey);
 
+    const record = platform === 'flap'
+      ? this._buildFlapTokenRecord(info)
+      : this._buildFourMemeTokenRecord(info);
+
     try {
-      await this.dataService.saveToken(this._experimentId, {
-        token: info.token,
-        symbol: info.symbol || '',
-        chain: 'bsc',
-        platform: 'fourmeme',
-        data_source: 'wss',
-        created_at: Math.floor(info.blockTimeMs / 1000),
-        raw_api_data: {
-          source: 'wss_token_create',
-          name: info.name,
-          symbol: info.symbol,
-          totalSupply: info.totalSupply,
-          creator: info.creator,
-          requestId: info.requestId,
-          blockNumber: info.blockNumber,
-          txHash: info.txHash,
-        },
-        creator_address: info.creator,
-        status: 'monitoring',
-      });
+      await this.dataService.saveToken(this._experimentId, record);
     } catch (error) {
       this.logger.error(this._experimentId, 'NewToken',
         `新代币落库失败 | ${info.token} ${error.message}`);
@@ -1765,12 +1773,63 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     // 行已确保存在后补采语料（fire-and-forget：four.meme API/重试百毫秒~10s 级，
     // 不阻塞采集回调；结果合并进 raw_api_data，叙事直调/预检查按新字段生效）
-    this._enrichCorpus(info, 'fourmeme');
+    this._enrichCorpus(info, platform);
+  }
+
+  /** four.meme TokenCreate 落库 payload（与旧基类 _handleNewToken 逐字段一致） */
+  _buildFourMemeTokenRecord(info) {
+    return {
+      token: info.token,
+      symbol: info.symbol || '',
+      chain: 'bsc',
+      platform: 'fourmeme',
+      data_source: 'wss',
+      created_at: Math.floor(info.blockTimeMs / 1000),
+      raw_api_data: {
+        source: 'wss_token_create',
+        name: info.name,
+        symbol: info.symbol,
+        totalSupply: info.totalSupply,
+        creator: info.creator,
+        requestId: info.requestId,
+        blockNumber: info.blockNumber,
+        txHash: info.txHash,
+      },
+      creator_address: info.creator,
+      status: 'monitoring',
+    };
+  }
+
+  /** flap TokenCreated 落库 payload（与旧 FlapWss._handleNewToken 逐字段一致：总量 1e9 + flap 存档字段） */
+  _buildFlapTokenRecord(info) {
+    return {
+      token: info.token,
+      symbol: info.symbol || '',
+      chain: 'bsc',
+      platform: 'flap',
+      data_source: 'wss',
+      created_at: Math.floor(info.blockTimeMs / 1000),
+      raw_api_data: {
+        source: 'wss_token_create',
+        name: info.name,
+        symbol: info.symbol,
+        totalSupply: 1e9,          // flap 内盘固定总量
+        creator: info.creator,
+        nonce: info.nonce,
+        eventTs: info.eventTsSec,  // 事件自带秒级时间戳（年龄口径仍用块时间，仅存档）
+        meta: info.meta,           // IPFS 元数据 URL
+        taxToken: info.taxToken,   // 税币（地址后缀 7777）
+        blockNumber: info.blockNumber,
+        txHash: info.txHash,
+      },
+      creator_address: info.creator,
+      status: 'monitoring',
+    };
   }
 
   /**
    * 语料补采并落库（fire-and-forget，永不抛错）。
-   * flap 子类复用（_handleNewToken 覆盖里传 platform='flap' + info.meta）。
+   * 双平台共用：platform 实参按 token 分派（flap 行传 'flap' + info.meta=IPFS URL）。
    */
   _enrichCorpus(info, platform) {
     if (!this._corpusEnricher) return;
@@ -1887,16 +1946,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
   // ==================== 辅助 ====================
 
-  /** 代币信息（购买前检查用；早期参与者检查只需要 innerPair） */
+  /** 代币信息（购买前检查用；早期参与者检查只需要 innerPair；platform/innerPair 按 token 行分派） */
   _buildTokenInfo(token) {
+    const platform = token.platform || this._wsPlatforms()[0];
     return {
       address: token.token,
       symbol: token.symbol,
       name: token.name || '',                 // 严格同名代币检查（AVE）匹配用
       chain: token.chain || 'bsc',
-      platform: token.platform || 'fourmeme',
+      platform,
       launchAt: token.createdAt || null,      // WSS: TokenCreate 块时间（秒）
-      innerPair: `${token.token}_fo`,         // four.meme BSC 内盘交易对
+      innerPair: `${token.token}_${platform === 'flap' ? 'fl' : 'fo'}`, // 内盘交易对（对齐 BacktestEngine 写法）
       pairAddress: token.pairAddress || null,
     };
   }

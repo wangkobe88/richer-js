@@ -681,12 +681,17 @@ class RicherJsWebServer {
         } = req.body;
 
         // 构建实验配置（BSC-only：ankr WSS 事件驱动，无轮询收集/监控配置）
-        // platform：内盘平台 fourmeme（默认）| flap（引擎与 collector 据此分派）
+        // platform：内盘平台 fourmeme（默认）| flap | both（双平台：单引擎 per-token 分派）
+        const VALID_PLATFORMS = ['fourmeme', 'flap', 'both'];
+        const resolvedPlatform = platform || 'fourmeme';
+        if (!VALID_PLATFORMS.includes(resolvedPlatform)) {
+          return res.status(400).json({ success: false, error: `不支持的 platform: ${resolvedPlatform}（可选 fourmeme / flap / both）` });
+        }
         const config = {
           name: experiment_name,
           description: experiment_description,
           blockchain: 'bsc',
-          platform: platform || 'fourmeme',
+          platform: resolvedPlatform,
           kline_type: kline_type || '1m'
         };
 
@@ -703,8 +708,10 @@ class RicherJsWebServer {
             minMaxChangePercent: backtest?.minMaxChangePercent || 0
           };
         } else if (trading_mode === 'live') {
-          if (platform === 'flap') {
-            return res.status(400).json({ success: false, error: 'flap live 交易暂未实现（规划中：FlapPortalTrader + live 验收流程）' });
+          if (platform === 'flap' || platform === 'both') {
+            return res.status(400).json({ success: false, error: platform === 'both'
+              ? '双平台实验不支持 live（仅 virtual/backtest）'
+              : 'flap live 交易暂未实现（规划中：FlapPortalTrader + live 验收流程）' });
           }
           // 实盘交易配置 - 必须加密私钥
           if (!wallet || !wallet.privateKey) {

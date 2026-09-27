@@ -138,7 +138,12 @@ class BacktestEngine extends AbstractTradingEngine {
     // 平台由回测实验 config.platform 声明（决定 wsConfig 段；FA 键名固定 fourmemeWs）；
     // 代币级 platform 以源实验 experiment_tokens.platform 为权威（_registerToken 处覆盖）
     const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
+    const { resolvePlatforms } = require('../core/platforms');
     this._platform = this._experiment?.config?.platform || 'fourmeme';
+    // 平台集合（'both' → 双平台并集）：ticks .in 过滤 + token 级 fallback 用；
+    // wsSection 选择仍用标量（'both' → fourmemeWs，与实时双平台引擎口径一致）
+    this._platforms = resolvePlatforms(this._platform);
+    this.logger.info(this._experimentId, 'BacktestEngine', `回放平台口径 | platforms=${this._platforms.join(',')}`);
     const wsSection = this._platform === 'flap' ? 'flapWs' : 'fourmemeWs';
     const wsConfig = {
       ...(baseConfig[wsSection] || {}),
@@ -369,24 +374,30 @@ class BacktestEngine extends AbstractTradingEngine {
     const raw = [];
     for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
       const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
-      let from = 0;
-      for (let page = 0; page < MAX_TICK_PAGES; page++) {
-        const { data, error } = await supabase
-          .from('wss_price_ticks')
-          .select('id, token_address, trade_type, trader_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier')
-          .in('token_address', chunk)
-          .eq('platform', this._platform)
-          .order('id', { ascending: true })
-          .range(from, from + TICK_PAGE_SIZE - 1);
-        if (error) throw new Error(`读取 wss_price_ticks 失败: ${error.message}`);
-        if (!data || data.length === 0) break;
-        raw.push(...data);
-        this.metrics.processedDataPoints += data.length;
-        if (raw.length > MAX_TICK_PAGES * TICK_PAGE_SIZE) {
-          throw new Error('回放 tick 总量超出分页保护上限（100 万）');
+      // platform 按单值 .eq 循环（而非 .in 多值）：.in('platform', 两平台全集) 等价于
+      // 无 platform 过滤，planner 放弃索引转大范围扫描——62 token 双平台回测即触发
+      // statement timeout（2026-09-27 182 实测）；单值 .eq 是存量回测一直走的索引
+      // 路径，语义与 .in 并集严格等价（结果合并后同样全局 id 归并）
+      for (const platform of this._platforms) {
+        let from = 0;
+        for (let page = 0; page < MAX_TICK_PAGES; page++) {
+          const { data, error } = await supabase
+            .from('wss_price_ticks')
+            .select('id, token_address, trade_type, trader_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier, platform')
+            .in('token_address', chunk)
+            .eq('platform', platform)
+            .order('id', { ascending: true })
+            .range(from, from + TICK_PAGE_SIZE - 1);
+          if (error) throw new Error(`读取 wss_price_ticks 失败: ${error.message}`);
+          if (!data || data.length === 0) break;
+          raw.push(...data);
+          this.metrics.processedDataPoints += data.length;
+          if (raw.length > MAX_TICK_PAGES * TICK_PAGE_SIZE) {
+            throw new Error('回放 tick 总量超出分页保护上限（100 万）');
+          }
+          if (data.length < TICK_PAGE_SIZE) break;
+          from += TICK_PAGE_SIZE;
         }
-        if (data.length < TICK_PAGE_SIZE) break;
-        from += TICK_PAGE_SIZE;
       }
     }
     raw.sort((a, b) => a.id - b.id);
@@ -407,6 +418,7 @@ class BacktestEngine extends AbstractTradingEngine {
         tx_hash: row.tx_hash,
         log_index: row.log_index,
         price_outlier: row.price_outlier || false,
+        platform: row.platform,   // token 级 fallback 证据（_registerToken/_evaluateBuyPath）
       });
     }
     // wss_price_ticks 表无 offers/funds_bnb 列：FA 仅在 tick.funds_bnb > 0 时更新
@@ -599,7 +611,9 @@ class BacktestEngine extends AbstractTradingEngine {
     this._tokenPool.addToken({
       token: tokenAddress,
       chain: 'bsc',
-      platform: meta.platform || this._platform,
+      // fallback 链：meta（源实验行级）→ tick 行（源实验缺行的罕见路径）→ 实验主平台；
+      // 'both' 不落库——集合首元素 fourmeme 是缺省主平台
+      platform: meta.platform || tick.platform || this._platforms[0],
       data_source: 'wss',
       name: meta.name || meta.symbol || '',
       symbol: meta.symbol || '',
@@ -613,7 +627,7 @@ class BacktestEngine extends AbstractTradingEngine {
         token: tokenAddress,
         symbol: meta.symbol || '',
         chain: 'bsc',
-        platform: meta.platform || this._platform,
+        platform: meta.platform || tick.platform || this._platforms[0],
         data_source: 'wss',
         created_at: createdAtSec,
         raw_api_data: { source: 'wss_tick_replay', totalSupply: meta.totalSupply || 0, creator: meta.creator },
@@ -782,7 +796,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
       if (preCheckPassed && shouldPerformPreCheck && this._preBuyCheckService) {
         try {
-          const tokenPlatform = token.platform || this._platform;
+          const tokenPlatform = token.platform || tick.platform || this._platforms[0];
           const tokenInfo = {
             address: token.token,
             symbol: token.symbol,

@@ -35,18 +35,20 @@ const TICK_COLUMNS = 'id,token_address,tx_hash,log_index,trade_type,trader_addre
 class SharedTickConsumer {
     /**
      * @param {Object} deps
-     * @param {string} deps.platform            - 'fourmeme' | 'flap'（本实验消费的平台）
+     * @param {string[]} [deps.platforms]       - 消费平台集合（双平台实验 ['fourmeme','flap']，
+     *                                            见 core/platforms.js resolvePlatforms）
+     * @param {string} [deps.platform]          - 单平台兼容入参（'fourmeme' | 'flap'；platforms 优先）
      * @param {number} [deps.pollIntervalMs]    - 轮询间隔（缺省 1000）
      * @param {number} deps.minTickBnb          - 尘 tick 门（bnb_amount 低于此值不进 FA，仍推水位）
      * @param {Object|null} deps.factorAggregator - FourMemeFactorAggregator（引擎实例）
      * @param {Object|null} deps.tokenPool      - TokenPool（引擎实例）
-     * @param {Function} [deps.onTokenCreate]   - 引擎._handleNewToken(info)
+     * @param {Function} [deps.onTokenCreate]   - 引擎._handleNewToken(info, platform)（platform=row.platform）
      * @param {Function} [deps.onGraduation]    - 引擎._handleGraduation(info)
      * @param {Object} deps.logger
      * @param {string} [deps.experimentId]      - 日志标识
      */
     constructor(deps) {
-        this._platform = deps.platform;
+        this._platforms = new Set(deps.platforms || [deps.platform]);
         this._pollIntervalMs = deps.pollIntervalMs ?? 1000;
         this._minTickBnb = deps.minTickBnb ?? 0.001;
         this._fa = deps.factorAggregator || null;
@@ -94,7 +96,7 @@ class SharedTickConsumer {
             });
         }, this._pollIntervalMs);
         this._logger.info(this._experimentId, 'SharedTickConsumer',
-            `已启动 | platform=${this._platform} poll=${this._pollIntervalMs}ms minTickBnb=${this._minTickBnb}`);
+            `已启动 | platforms=${[...this._platforms].join(',')} poll=${this._pollIntervalMs}ms minTickBnb=${this._minTickBnb}`);
     }
 
     async stop() {
@@ -215,9 +217,9 @@ class SharedTickConsumer {
     }
 
     _applyEvent(row) {
-        // heartbeat 只推水位不派发（watcher 存活的证明）；异平台本地过滤（水位已在 _drainTable 推进）
+        // heartbeat 只推水位不派发（watcher 存活的证明）；集合外平台本地过滤（水位已在 _drainTable 推进）
         if (row.kind === 'heartbeat') return;
-        if (row.platform !== this._platform) {
+        if (!this._platforms.has(row.platform)) {
             this.stats.eventsSkippedPlatform++;
             return;
         }
@@ -225,7 +227,7 @@ class SharedTickConsumer {
         if (row.kind === 'token_create') {
             // 复刻 collector._handleTokenCreate 的 FA/pool 两路（乱序自愈：registerToken 幂等回填权威锚点）
             if (this._fa && info && info.token) {
-                const totalSupply = this._platform === 'flap'
+                const totalSupply = row.platform === 'flap'
                     ? require('../../collectors/flap-ankr-ws-collector.js').FLAP_TOTAL_SUPPLY
                     : (info.totalSupply ?? 0);
                 this._fa.registerToken(info.token, {
@@ -242,7 +244,7 @@ class SharedTickConsumer {
                     this._tokenPool.addToken({
                         token: info.token,
                         chain: 'bsc',
-                        platform: this._platform,
+                        platform: row.platform,
                         data_source: 'wss',
                         name: info.name || '',
                         symbol: info.symbol || '',
@@ -253,7 +255,8 @@ class SharedTickConsumer {
                 }
             }
             this.stats.eventsApplied++;
-            if (this._onTokenCreate) this._onTokenCreate(info);
+            // 第二参 row.platform：引擎 _handleNewToken 按平台分派落库 payload（双平台关键）
+            if (this._onTokenCreate) this._onTokenCreate(info, row.platform);
         } else if (row.kind === 'graduation') {
             this.stats.eventsApplied++;
             if (this._onGraduation) this._onGraduation(info);
@@ -269,7 +272,7 @@ class SharedTickConsumer {
     }
 
     _applyTick(row, outlierIds) {
-        if (row.platform !== this._platform) {
+        if (!this._platforms.has(row.platform)) {
             this.stats.ticksSkippedPlatform++;
             return;
         }

@@ -229,19 +229,15 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                平台 <span class="text-red-500">*</span>
+                                平台 <span class="text-red-500">*</span>（可多选）
                             </label>
-                            <select name="platform" id="platform_select"
-                                    required
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <!-- 选项将根据区块链动态加载 -->
-                            </select>
+                            <div id="platform_checkboxes" class="flex flex-col gap-1.5"></div>
                             <div id="platform_logo_display" class="mt-2 flex items-center gap-2 hidden">
-                                <img id="selected_platform_logo" src="" alt="" class="w-5 h-5 rounded-full">
+                                <span id="selected_platform_logos" class="flex items-center gap-1"></span>
                                 <img id="selected_blockchain_logo" src="" alt="" class="w-4 h-4 rounded-full opacity-70">
                                 <span id="selected_platform_name" class="text-xs text-gray-600"></span>
                             </div>
-                            <p class="text-xs text-gray-500 mt-1">选择该区块链上的代币发行平台</p>
+                            <p class="text-xs text-gray-500 mt-1">选择该区块链上的代币发行平台；勾选两个 = 双平台实验（同一套策略、同一资金池交易两平台代币，仅虚拟/回测）</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -1239,21 +1235,46 @@
         // 区块链变化处理
         function handleBlockchainChange() {
             const blockchainSelect = document.getElementById('blockchain_select');
-            const platformSelect = document.getElementById('platform_select');
+            const platformContainer = document.getElementById('platform_checkboxes');
             const nativeCurrencySpan = document.getElementById('native-currency');
 
             const selectedBlockchain = blockchainSelect.value;
             const platforms = BLOCKCHAIN_PLATFORMS[selectedBlockchain] || [];
 
-            // 清空并更新平台选项
-            platformSelect.innerHTML = '';
+            // 清空并重建平台 checkbox 组（多选：勾两个 = 双平台实验 platform='both'）
+            platformContainer.innerHTML = '';
             platforms.forEach(platform => {
-                const option = document.createElement('option');
-                option.value = platform.value;
-                option.textContent = platform.name;
-                option.dataset.logo = platform.logo || '';
-                platformSelect.appendChild(option);
+                const label = document.createElement('label');
+                label.className = 'flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.name = 'platform';
+                cb.value = platform.value;
+                cb.id = `platform_cb_${platform.value}`;
+                cb.className = 'w-4 h-4 accent-blue-600';
+                cb.addEventListener('change', () => {
+                    // 至少保留一个勾选（取消最后一个时直接拒绝）
+                    if (!document.querySelector('#platform_checkboxes input[name="platform"]:checked')) {
+                        cb.checked = true;
+                    }
+                    updateLogoDisplay();
+                });
+                const img = document.createElement('img');
+                img.src = platform.logo || '';
+                img.alt = platform.name || '';
+                img.className = 'w-5 h-5 rounded-full';
+                const span = document.createElement('span');
+                span.className = 'text-sm text-gray-700';
+                span.textContent = platform.name;
+                label.appendChild(cb);
+                label.appendChild(img);
+                label.appendChild(span);
+                platformContainer.appendChild(label);
             });
+            // 默认勾选第一个平台（对齐旧 select 默认首项行为）
+            if (platformContainer.querySelector('input[name="platform"]')) {
+                platformContainer.querySelector('input[name="platform"]').checked = true;
+            }
 
             // 更新原生币显示
             if (nativeCurrencySpan) {
@@ -1282,34 +1303,60 @@
 
             // 更新logo显示
             updateLogoDisplay();
+            syncPlatformAvailability();
         }
 
-        // 更新logo显示
+        // 更新logo显示（多选：渲染所有已勾选平台的 logo）
         function updateLogoDisplay() {
             const blockchainSelect = document.getElementById('blockchain_select');
-            const platformSelect = document.getElementById('platform_select');
             const logoDisplay = document.getElementById('platform_logo_display');
-            const platformLogo = document.getElementById('selected_platform_logo');
+            const logosSpan = document.getElementById('selected_platform_logos');
             const blockchainLogo = document.getElementById('selected_blockchain_logo');
             const platformName = document.getElementById('selected_platform_name');
 
             const selectedBlockchain = blockchainSelect.value;
-            const selectedPlatform = platformSelect.value;
+            const checked = [...document.querySelectorAll('#platform_checkboxes input[name="platform"]:checked')];
             const platforms = BLOCKCHAIN_PLATFORMS[selectedBlockchain] || [];
-            const platformData = platforms.find(p => p.value === selectedPlatform);
 
-            if (platformData && logoDisplay) {
-                logoDisplay.classList.remove('hidden');
-                if (platformLogo) platformLogo.src = platformData.logo || '';
-                if (platformLogo) platformLogo.alt = platformData.name || '';
-                if (blockchainLogo) blockchainLogo.src = BLOCKCHAIN_LOGOS[selectedBlockchain] || '';
-                if (blockchainLogo) blockchainLogo.alt = selectedBlockchain.toUpperCase();
-                if (platformName) platformName.textContent = `${platformData.name} @ ${selectedBlockchain.toUpperCase()}`;
+            if (checked.length === 0 || !logoDisplay) {
+                if (logoDisplay) logoDisplay.classList.add('hidden');
+                return;
             }
+            logoDisplay.classList.remove('hidden');
+            logosSpan.innerHTML = '';
+            const names = [];
+            checked.forEach(cb => {
+                const pd = platforms.find(p => p.value === cb.value);
+                if (!pd) return;
+                names.push(pd.name);
+                const img = document.createElement('img');
+                img.src = pd.logo || '';
+                img.alt = pd.name || '';
+                img.className = 'w-5 h-5 rounded-full';
+                logosSpan.appendChild(img);
+            });
+            if (blockchainLogo) {
+                blockchainLogo.src = BLOCKCHAIN_LOGOS[selectedBlockchain] || '';
+                blockchainLogo.alt = selectedBlockchain.toUpperCase();
+            }
+            if (platformName) platformName.textContent = `${names.join(' + ')} @ ${selectedBlockchain.toUpperCase()}`;
         }
 
-        // 平台变化处理
-        function handlePlatformChange() {
+        // live 模式平台可用性联动：flap live 未实现 → 禁用 flap 勾选框（与服务端 400 双保险，
+        // flap 被禁也使双平台 live 无法勾出）；已勾则自动取消
+        function syncPlatformAvailability() {
+            const tradingMode = document.getElementById('trading_mode')?.value;
+            const flapCb = document.getElementById('platform_cb_flap');
+            if (!flapCb) return;
+            const liveMode = tradingMode === 'live';
+            flapCb.disabled = liveMode;
+            if (liveMode && flapCb.checked) flapCb.checked = false;
+            const flapLabel = flapCb.closest('label');
+            if (flapLabel) {
+                flapLabel.title = liveMode ? 'flap live 交易暂未实现，live 仅支持 Four.meme' : '';
+                flapLabel.classList.toggle('opacity-50', liveMode);
+                flapLabel.classList.toggle('cursor-not-allowed', liveMode);
+            }
             updateLogoDisplay();
         }
 
@@ -1367,6 +1414,9 @@
                     initialBalanceInput.value = '100';
                 }
             }
+
+            // 模式切换后联动平台可用性（live：禁用 flap 勾选框）
+            syncPlatformAvailability();
         }
 
         // 加载可回测的实验列表
@@ -1659,7 +1709,9 @@
                 experiment_description: formData.get('experiment_description'),
                 trading_mode: tradingMode,
                 blockchain: formData.get('blockchain'),
-                platform: formData.get('platform'),
+                // 平台多选 checkbox：勾两个 → 'both'（双平台实验），单勾 → 该平台
+                //（change 监听结构性保证至少一勾：取消最后一个勾选会被拒绝）
+                platform: formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform'),
                 initial_balance: parseFloat(formData.get('initial_balance')),
                 // 策略配置
                 strategy: {
@@ -1865,19 +1917,20 @@
             loadPreset('tp2');
         }
 
-        // 添加平台变化事件监听器
-        document.getElementById('platform_select').addEventListener('change', handlePlatformChange);
-
-        // 初始化区块链和平台
+        // 初始化区块链和平台（重建 checkbox 组 + 默认勾选第一个平台）
         handleBlockchainChange();
 
-        // 复制模式下，handleBlockchainChange 会重建平台列表，需要在此之后恢复平台选择
+        // 复制模式下，handleBlockchainChange 会重建平台 checkbox 组，之后恢复勾选状态
+        //（copyData.platform：'fourmeme'|'flap'|'both' → 拆成对应勾选；
+        // live 源 + flap 的组合由 syncPlatformAvailability 取消勾选）
         if (isCopyMode && window._pendingCopyPlatform) {
-            const platformSelect = document.getElementById('platform_select');
-            if (platformSelect) {
-                platformSelect.value = window._pendingCopyPlatform;
-            }
-            updateLogoDisplay();
+            const wanted = window._pendingCopyPlatform === 'both'
+                ? ['fourmeme', 'flap']
+                : [window._pendingCopyPlatform];
+            document.querySelectorAll('#platform_checkboxes input[name="platform"]').forEach(cb => {
+                cb.checked = wanted.includes(cb.value);
+            });
+            syncPlatformAvailability();
             window._pendingCopyPlatform = null;
         }
     </script>

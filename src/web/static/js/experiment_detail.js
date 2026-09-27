@@ -326,7 +326,7 @@ class ExperimentDetail {
     }
 
     // 更新页面标题
-    document.title = `${this.experiment.experiment_name} - 实验详情 - 2025-2026 Become Rich Baby!`;
+    document.title = `${this.experiment.experimentName ?? this.experiment.experiment_name ?? ''} - 实验详情 - 2025-2026 Become Rich Baby!`;
   }
 
   /**
@@ -1145,7 +1145,7 @@ class ExperimentDetail {
             <div class="flex justify-between">
               <span class="text-gray-600">区块链/平台:</span>
               <div class="flex items-center gap-2">
-                <img src="${this.getPlatformLogo(this.experiment.platform)}" alt="${this.getPlatformLabel(this.experiment.platform)}" class="w-5 h-5 rounded-full" title="${this.getPlatformLabel(this.experiment.platform)}">
+                <img src="${this.getPlatformLogo(this.experiment.config?.platform)}" alt="${this.getPlatformLabel(this.experiment.config?.platform)}" class="w-5 h-5 rounded-full" title="${this.getPlatformLabel(this.experiment.config?.platform)}">
                 <img src="${this.getBlockchainLogo(this.experiment.blockchain)}" alt="${this.getBlockchainLabel(this.experiment.blockchain)}" class="w-4 h-4 rounded-full opacity-70" title="${this.getBlockchainLabel(this.experiment.blockchain)}">
               </div>
             </div>
@@ -1484,8 +1484,6 @@ class ExperimentDetail {
           </div>
         ` : ''}
 
-        ` : ''}
-
         <!-- 永久阻断条件 -->
         ${config.strategiesConfig?.permanentBlockCondition ? `
           <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
@@ -1729,6 +1727,7 @@ class ExperimentDetail {
     const labels = {
       'fourmeme': 'Four.meme',
       'flap': 'Flap',
+      'both': 'Four.meme + Flap',
       'bankr': 'Bankr',
       'pumpfun': 'Pump.fun',
       'ave': 'AVE',
@@ -1742,6 +1741,7 @@ class ExperimentDetail {
     const logos = {
       'fourmeme': '/static/fourmeme-logo.png',
       'flap': '/static/flap-logo.png',
+      'both': '/static/bsc-logo.png',
       'bankr': '/static/bankr-logo.png',
       'pumpfun': '/static/pumpfun-logo.png'
     };

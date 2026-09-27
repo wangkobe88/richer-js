@@ -4,11 +4,15 @@
  *
  *  1. SharedTickConsumer：首水位对齐不吃启动前行 / 先 events 后 ticks / 本地 platform
  *     过滤且水位推进含异平台行 / 水位延迟一周期 + 去重集（FA tick 不翻倍）/ minTickBnb
- *     门 / priceOutlier 回写 / heartbeat 只推水位 / 空轮不回退 / 单行错误跳过 / stop 幂等
+ *     门 / priceOutlier 回写 / heartbeat 只推水位 / 空轮不回退 / 单行错误跳过 / stop 幂等 /
+ *     双平台集合（两平台行都派发 onTokenCreate(info, platform)，flap totalSupply 特判）
  *  2. collector dryRun 语义：dryRun=true 丢缓冲零 upsert；缺省 upsert 收 experiment_id:null
- *  3. BacktestEngine._loadWssTicks：token 集合 + platform 口径、分块乱序 id 全局归并、时间窗过滤
+ *  3. BacktestEngine._loadWssTicks：token 集合 + platform 口径、分块乱序 id 全局归并、时间窗过滤、
+ *     双平台并集（resolvePlatforms('both') → .in 并集回捞 flap 行）
  *  4. 引擎接线冒烟：_initializeDataSources 建 consumer（平台正确）→ mock DB 行驱动
- *     _pollLoop → saveToken（发现）/ FA factorsUpdated（tick）/ graduation 链路
+ *     _pollLoop → saveToken（发现）/ FA factorsUpdated（tick）/ graduation 链路；
+ *     4.5 双平台接线（platform='both' 单引擎 per-token 分派落库 payload / live fail-fast）；
+ *     4.6 Flap 子类黄金回归（改薄后落库 payload 逐字段不变 / _buildTokenInfo 无 name / live throw）
  *
  * 用法：node scripts/_test_watcher_architecture.cjs
  */
@@ -122,10 +126,25 @@ function evCreateRow(id, token, platform = 'fourmeme') {
     };
 }
 
-/** 事件+tick 双路观测的 FA mock（register/processTick 调用序进 orderLog） */
+/** flap TokenCreated 事件行（payload 含 flap 特有存档字段：nonce/eventTsSec/meta/taxToken） */
+function evFlapCreateRow(id, token) {
+    return {
+        id, kind: 'token_create', platform: 'flap', token_address: token,
+        payload: {
+            creator: '0xflapcreator', token, name: `F${id}`, symbol: `F${id}`,
+            blockNumber: 1,
+            blockTimeMs: 1700000000000 + id, txHash: `0xevf${id}`,
+            nonce: id, eventTsSec: 1700000000 + id, meta: `ipfs://Qm${id}`,
+            taxToken: `0xtax${id}7777`,
+        },
+        block_time: null, created_at: new Date().toISOString(),
+    };
+}
+
+/** 事件+tick 双路观测的 FA mock（register/processTick 调用序进 orderLog；register 记录 info 供 totalSupply 断言） */
 function mockFa(orderLog) {
     return {
-        registerToken: (token, info) => orderLog.push(['fa_register', token]),
+        registerToken: (token, info) => orderLog.push(['fa_register', token, info]),
         processTick: (t) => {
             orderLog.push(['fa_tick', t.token_address]);
             return { factors: {}, priceAccepted: true, priceOutlier: t.tx_hash === '0xOUT' };
@@ -284,6 +303,57 @@ async function testSharedTickConsumer() {
         check('1.8b stop 后轮询停止（幂等）',
             consumer.stats.pollLoops + consumer.stats.pollErrors === loopsAtStop);
     }
+
+    // ── 1.9 双平台消费：两平台行都派发（onTokenCreate 第二参=行平台）；单平台集合回归 ──
+    {
+        const db = freshDb();
+        const orderLog = [];
+        const poolAdds = [];
+        const consumer = manualConsumer(db, {
+            platforms: ['fourmeme', 'flap'],
+            factorAggregator: mockFa(orderLog),
+            tokenPool: { getToken: () => null, addToken: (t) => poolAdds.push(t) },
+            onTokenCreate: (info, platform) => orderLog.push(['engine_new', info.token, platform]),
+        });
+        await consumer._pollLoop(); // 对齐
+        const fmEv = evCreateRow(1, '0xFM');
+        fmEv.payload.totalSupply = 5e8; // 与 flap 固定 1e9 区分，验证特判分支
+        db.tables.wss_events.push(fmEv, evFlapCreateRow(2, '0xFL'));
+        db.tables.wss_price_ticks.push(tickRow(1, '0xFM', 'fourmeme'), tickRow(2, '0xFL', 'flap'));
+        await consumer._pollLoop();
+        check('1.9a 双平台 token_create 均派发（第二参=行平台）',
+            orderLog.some(e => e[0] === 'engine_new' && e[1] === '0xFM' && e[2] === 'fourmeme')
+            && orderLog.some(e => e[0] === 'engine_new' && e[1] === '0xFL' && e[2] === 'flap'),
+            JSON.stringify(orderLog.filter(e => e[0] === 'engine_new')));
+        const fmReg = orderLog.find(e => e[0] === 'fa_register' && e[1] === '0xFM');
+        const flReg = orderLog.find(e => e[0] === 'fa_register' && e[1] === '0xFL');
+        check('1.9b registerToken totalSupply：fourmeme 用 payload 值，flap 恒 1e9（固定总量）',
+            fmReg?.[2]?.totalSupply === 5e8 && flReg?.[2]?.totalSupply === 1e9,
+            JSON.stringify({ fm: fmReg?.[2]?.totalSupply, fl: flReg?.[2]?.totalSupply }));
+        check('1.9c tokenPool.addToken platform 按事件行',
+            poolAdds.find(t => t.token === '0xFM')?.platform === 'fourmeme'
+            && poolAdds.find(t => t.token === '0xFL')?.platform === 'flap');
+        check('1.9d 双平台 tick 均应用', consumer.stats.ticksApplied === 2, `applied=${consumer.stats.ticksApplied}`);
+
+        // 单平台回归：platforms:['flap'] 时 fourmeme 行 skip 不派发
+        const db2 = freshDb();
+        const orderLog2 = [];
+        const consumer2 = manualConsumer(db2, {
+            platforms: ['flap'],
+            factorAggregator: mockFa(orderLog2),
+            onTokenCreate: (info, platform) => orderLog2.push(['engine_new', info.token, platform]),
+        });
+        await consumer2._pollLoop();
+        db2.tables.wss_events.push(evCreateRow(1, '0xFM'), evFlapCreateRow(2, '0xFL'));
+        db2.tables.wss_price_ticks.push(tickRow(1, '0xFM', 'fourmeme'), tickRow(2, '0xFL', 'flap'));
+        await consumer2._pollLoop();
+        check('1.9e flap-only：fourmeme 行 skip 不派发',
+            !orderLog2.some(e => e[1] === '0xFM') && orderLog2.some(e => e[0] === 'engine_new' && e[1] === '0xFL' && e[2] === 'flap'),
+            JSON.stringify(orderLog2.filter(e => e[0] === 'engine_new')));
+        check('1.9f flap-only：skip 计数（event+tick 各 1）',
+            consumer2.stats.eventsSkippedPlatform === 1 && consumer2.stats.ticksSkippedPlatform === 1,
+            JSON.stringify(consumer2.stats));
+    }
 }
 
 // ═══════════════ 2. collector dryRun 语义 ═══════════════
@@ -344,7 +414,7 @@ async function testBacktestLoadTicks() {
     const be = Object.create(BacktestEngine.prototype);
     be._tokenMeta = new Map(tokens.map(t => [t, {}]));
     be._ticks = [];
-    be._platform = 'fourmeme';
+    be._platforms = ['fourmeme'];
     be._startTimeFilter = null;
     be._endTimeFilter = null;
     be.metrics = { processedDataPoints: 0 };
@@ -363,7 +433,7 @@ async function testBacktestLoadTicks() {
     const be2 = Object.create(BacktestEngine.prototype);
     be2._tokenMeta = new Map(tokens.map(t => [t, {}]));
     be2._ticks = [];
-    be2._platform = 'fourmeme';
+    be2._platforms = ['fourmeme'];
     be2._startTimeFilter = 1700000000800;
     be2._endTimeFilter = null;
     be2.metrics = { processedDataPoints: 0 };
@@ -371,6 +441,31 @@ async function testBacktestLoadTicks() {
     await be2._loadWssTicks();
     check('3d 时间窗内存过滤生效', be2._ticks.every(t => t.timestamp >= be2._startTimeFilter) && be2._ticks.length === 101,
         `n=${be2._ticks.length}`);
+
+    // 双平台并集（resolvePlatforms 归一化 + 'both' → .in 并集回捞 flap 行）
+    const { resolvePlatforms } = require('../src/trading-engine/core/platforms');
+    check('3e resolvePlatforms 归一化（both/flap/缺省）',
+        JSON.stringify(resolvePlatforms('both')) === '["fourmeme","flap"]'
+        && JSON.stringify(resolvePlatforms('flap')) === '["flap"]'
+        && JSON.stringify(resolvePlatforms(undefined)) === '["fourmeme"]'
+        && JSON.stringify(resolvePlatforms('fourmeme')) === '["fourmeme"]');
+    const be3 = Object.create(BacktestEngine.prototype);
+    be3._tokenMeta = new Map(tokens.map(t => [t, {}]));
+    be3._ticks = [];
+    be3._platforms = resolvePlatforms('both');
+    be3._startTimeFilter = null;
+    be3._endTimeFilter = null;
+    be3.metrics = { processedDataPoints: 0 };
+    be3._getClient = () => db.client;
+    await be3._loadWssTicks();
+    const ids3 = be3._ticks.map(t => Number(t.tx_hash.replace('0xtx', '')));
+    const sorted3 = [...ids3].sort((a, b) => a - b);
+    check('3f 双平台并集（250 fourmeme + 2 flap 全入，全局 id 归并）',
+        be3._ticks.length === 252 && JSON.stringify(ids3) === JSON.stringify(sorted3),
+        `n=${be3._ticks.length}`);
+    check('3g tick 行带 platform（flap 2 行可辨）',
+        be3._ticks.filter(t => t.platform === 'flap').length === 2
+        && be3._ticks.filter(t => t.platform === 'fourmeme').length === 250);
 }
 
 // ═══════════════ 4. 引擎接线冒烟 ═══════════════
@@ -411,7 +506,8 @@ async function testEngineWiring() {
     await engine._initializeDataSources(); // 建 consumer（dbManager 已打桩 → wallets 空名单）
 
     check('4a 引擎持有 consumer（collector 已删）', !!engine._consumer && !engine._collector);
-    check('4b consumer 平台=引擎平台', engine._consumer._platform === 'fourmeme');
+    check('4b consumer 平台集合=单平台 fourmeme',
+        engine._consumer._platforms.size === 1 && engine._consumer._platforms.has('fourmeme'));
 
     // 用真实引擎 FA 的 factorsUpdated 计数观测 tick 链路
     const faTicksBefore = engine.metrics.factorsUpdatedCount;
@@ -445,6 +541,157 @@ async function testEngineWiring() {
     engine._isStopped = false;
     await engine.stop(); // consumer.stop + intervals 清理（stop 全链不抛错即过）
     check('4f engine.stop() 清理完成（consumer 停止）', consumer._stopped);
+
+    // ── 4.5 双平台接线（config.platform='both'：单引擎 per-token 分派两平台落库 payload）──
+    {
+        const engine2 = new FourMemeWssTradingEngine({ tradingMode: 'virtual', initialBalance: 1 });
+        engine2._experiment = {
+            id: 'dual-test',
+            config: {
+                platform: 'both',
+                strategiesConfig: {
+                    buyStrategies: [{ priority: 1, condition: 'earlyReturn > 100 AND age < 10' }],
+                    sellStrategies: [{ priority: 1, condition: 'profitPercent > 40' }],
+                },
+                tradeAmount: 0.1,
+                fourmemeWs: { corpusEnrich: { enabled: false } }, // 关语料补采（零网络）
+            },
+        };
+        engine2._experimentId = 'dual-test';
+        engine2.logger = silentLogger;
+        engine2._logger = silentLogger;
+        const dualSaved = [];
+        engine2.dataService = {
+            saveToken: async (expId, t) => { dualSaved.push(t); return true; },
+            updateTokenStatus: async () => true,
+            getTrades: async () => [],
+        };
+        engine2._updateSignalStatus = async () => {};
+        engine2._updateSignalMetadata = async () => {};
+
+        await engine2._initializeComponents();
+        await engine2._initializeDataSources();
+
+        check('4.5a dual consumer 平台集合={fourmeme,flap}',
+            engine2._consumer._platforms.size === 2
+            && engine2._consumer._platforms.has('fourmeme') && engine2._consumer._platforms.has('flap'));
+        check('4.5b dual 配置段恒 fourmemeWs', engine2._wsConfigSectionName() === 'fourmemeWs');
+
+        // live 双平台 fail-fast（防线三：web-server 400 / main.js throw 之外）
+        let liveThrew = false;
+        try { await engine2._initializeLiveTrader(); } catch { liveThrew = true; }
+        check('4.5c 双平台 live fail-fast throw', liveThrew);
+
+        // 双平台 token_create → per-token 分派落库（flap payload 特有存档字段）
+        const consumer2 = engine2._consumer;
+        consumer2._supabase = activeDb.client;
+        await consumer2._pollLoop(); // 对齐（activeDb 已有 events≤103 / ticks≤201）
+        activeDb.tables.wss_events.push(
+            evCreateRow(110, '0xDUALFM'),
+            { id: 111, kind: 'token_create', platform: 'flap', token_address: '0xDUALFL',
+              payload: { creator: '0xc', token: '0xDUALFL', name: 'DualFlap', symbol: 'DFL',
+                  blockNumber: 5, blockTimeMs: 1700000000000, txHash: '0xevf', nonce: 7,
+                  eventTsSec: 1700000099, meta: 'ipfs://QmX', taxToken: '0xtax7777' },
+              block_time: null, created_at: new Date().toISOString() },
+        );
+        activeDb.tables.wss_price_ticks.push(tickRow(301, '0xDUALFM', 'fourmeme'), tickRow(302, '0xDUALFL', 'flap'));
+        await consumer2._pollLoop();
+        await consumer2._pollLoop();
+
+        const fmRec = dualSaved.find(t => t.token === '0xDUALFM');
+        const flRec = dualSaved.find(t => t.token === '0xDUALFL');
+        check('4.5d fourmeme 行落库 platform=fourmeme（requestId/totalSupply 存档）',
+            fmRec && fmRec.platform === 'fourmeme'
+            && fmRec.raw_api_data.totalSupply === 1e9 && 'requestId' in fmRec.raw_api_data,
+            JSON.stringify(fmRec));
+        check('4.5e flap 行落库 platform=flap（nonce/eventTs/meta/taxToken 存档，totalSupply 恒 1e9）',
+            flRec && flRec.platform === 'flap' && flRec.raw_api_data.nonce === 7
+            && flRec.raw_api_data.eventTs === 1700000099 && flRec.raw_api_data.meta === 'ipfs://QmX'
+            && flRec.raw_api_data.taxToken === '0xtax7777' && flRec.raw_api_data.totalSupply === 1e9,
+            JSON.stringify(flRec));
+
+        // _buildTokenInfo per-token：flap→_fl / fourmeme→_fo
+        const flTok = engine2._tokenPool.getToken('0xDUALFL', 'bsc');
+        const fmTok = engine2._tokenPool.getToken('0xDUALFM', 'bsc');
+        check('4.5f _buildTokenInfo 按行平台分派（innerPair _fl/_fo）',
+            flTok && engine2._buildTokenInfo(flTok).innerPair.endsWith('_fl')
+            && engine2._buildTokenInfo(flTok).platform === 'flap'
+            && fmTok && engine2._buildTokenInfo(fmTok).innerPair.endsWith('_fo'),
+            JSON.stringify({ fl: flTok && engine2._buildTokenInfo(flTok).innerPair, fm: fmTok && engine2._buildTokenInfo(fmTok).innerPair }));
+
+        engine2._isStopped = false;
+        await engine2.stop();
+    }
+
+    // ── 4.6 Flap 子类黄金回归（改薄后 _handleNewToken 走基类分派，落库 payload 字段不变）──
+    {
+        const { FlapWssTradingEngine } = require('../src/trading-engine/implementations/FlapWssTradingEngine');
+        const engine3 = new FlapWssTradingEngine({ tradingMode: 'virtual', initialBalance: 1 });
+        engine3._experiment = {
+            id: 'flap-test',
+            config: {
+                platform: 'flap',
+                strategiesConfig: {
+                    buyStrategies: [{ priority: 1, condition: 'earlyReturn > 100 AND age < 10' }],
+                    sellStrategies: [{ priority: 1, condition: 'profitPercent > 40' }],
+                },
+                tradeAmount: 0.1,
+                flapWs: { corpusEnrich: { enabled: false } }, // 关语料补采（零网络）
+            },
+        };
+        engine3._experimentId = 'flap-test';
+        engine3.logger = silentLogger;
+        engine3._logger = silentLogger;
+        const flapSaved = [];
+        engine3.dataService = {
+            saveToken: async (expId, t) => { flapSaved.push(t); return true; },
+            updateTokenStatus: async () => true,
+            getTrades: async () => [],
+        };
+        engine3._updateSignalStatus = async () => {};
+        engine3._updateSignalMetadata = async () => {};
+
+        await engine3._initializeComponents();
+        await engine3._initializeDataSources();
+        check('4.6a0 引擎 id/name 为 flap 身份（constructor 覆盖保留）',
+            engine3._id.startsWith('flapWs_') && engine3._name === 'Flap WSS Trading Engine');
+        check('4.6a flap 引擎 consumer 平台集合={flap}（单平台）',
+            engine3._consumer._platforms.size === 1 && engine3._consumer._platforms.has('flap'));
+        check('4.6b flap 配置段仍 flapWs', engine3._wsConfigSectionName() === 'flapWs');
+
+        const consumer3 = engine3._consumer;
+        consumer3._supabase = activeDb.client;
+        await consumer3._pollLoop();
+        activeDb.tables.wss_events.push(
+            evCreateRow(120, '0xGFM'),
+            { id: 121, kind: 'token_create', platform: 'flap', token_address: '0xGFL',
+              payload: { creator: '0xc2', token: '0xGFL', name: 'GoldenFlap', symbol: 'GFL',
+                  blockNumber: 6, blockTimeMs: 1700000000000, txHash: '0xevg', nonce: 3,
+                  eventTsSec: 1700000123, meta: 'ipfs://QmY', taxToken: '0xtax27777' },
+              block_time: null, created_at: new Date().toISOString() },
+        );
+        activeDb.tables.wss_price_ticks.push(tickRow(401, '0xGFM', 'fourmeme'), tickRow(402, '0xGFL', 'flap'));
+        await consumer3._pollLoop();
+        await consumer3._pollLoop();
+
+        const gRec = flapSaved.find(t => t.token === '0xGFL');
+        check('4.6c flap token 落库黄金字段（platform/nonce/eventTs/meta/taxToken/totalSupply=1e9）',
+            gRec && gRec.platform === 'flap' && gRec.raw_api_data.source === 'wss_token_create'
+            && gRec.raw_api_data.nonce === 3 && gRec.raw_api_data.eventTs === 1700000123
+            && gRec.raw_api_data.meta === 'ipfs://QmY' && gRec.raw_api_data.taxToken === '0xtax27777'
+            && gRec.raw_api_data.totalSupply === 1e9,
+            JSON.stringify(gRec));
+        check('4.6d fourmeme 行被 flap 引擎过滤（不落库）', !flapSaved.some(t => t.token === '0xGFM'));
+        const gTok = engine3._tokenPool.getToken('0xGFL', 'bsc');
+        check('4.6e _buildTokenInfo 保持无 name 字段（flap 版）',
+            gTok && !('name' in engine3._buildTokenInfo(gTok)));
+        let flapLiveThrew = false;
+        try { await engine3._initializeLiveTrader(); } catch { flapLiveThrew = true; }
+        check('4.6f flap live 仍 throw', flapLiveThrew);
+
+        engine3._isStopped = false;
+        await engine3.stop();
+    }
 }
 
 // ═══════════════ main ═══════════════

@@ -50,13 +50,17 @@ class VirtualTradingSystem {
           console.log(`🎮 创建 flap WSS 事件驱动虚拟交易引擎，初始余额: ${initialBalance}`);
           return new FlapWssTradingEngine({ tradingMode: 'virtual', initialBalance });
         }
-        console.log(`🎮 创建 WSS 事件驱动虚拟交易引擎，初始余额: ${initialBalance}`);
+        // 'fourmeme'（缺省）与 'both'（双平台 per-token 分派）都走基类引擎
+        const dualNote = platform === 'both' ? '（双平台 fourmeme+flap）' : '';
+        console.log(`🎮 创建 WSS 事件驱动虚拟交易引擎${dualNote}，初始余额: ${initialBalance}`);
         return new FourMemeWssTradingEngine({ tradingMode: 'virtual', initialBalance });
       }
 
       case 'live':
-        if (platform === 'flap') {
-          throw new Error('flap live 交易暂未实现（规划中：FlapPortalTrader + live 验收流程）');
+        if (platform === 'flap' || platform === 'both') {
+          throw new Error(platform === 'both'
+            ? '双平台实验不支持 live（仅 virtual/backtest）'
+            : 'flap live 交易暂未实现（规划中：FlapPortalTrader + live 验收流程）');
         }
         console.log(`🔴 创建实盘交易引擎（WSS 事件驱动 + FourMemeDirectTrader）`);
         return new FourMemeWssTradingEngine({ tradingMode: 'live' });

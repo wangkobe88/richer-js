@@ -26,7 +26,8 @@ async function runEngine(experimentId) {
 
   try {
     // 加载实验配置：回测实验分派 BacktestEngine（自动跑完退出），
-    // 实时按 platform 选引擎（默认 fourmeme）
+    // 实时按 platform 选引擎——'flap' → Flap 子类；'fourmeme'（缺省）与 'both'
+    // （双平台 per-token 分派）→ 基类 FourMemeWssTradingEngine
     const experiment = await ExperimentFactory.getInstance().load(experimentId);
     if (!experiment) {
       throw new Error(`实验不存在: ${experimentId}`);
