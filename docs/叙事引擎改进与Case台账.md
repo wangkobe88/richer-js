@@ -32,6 +32,63 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C14 Cz黄鞋 0x91c4 —— 「IP名+闲聊物品词」拼接 + superIP 通道闲聊满分 → J1.14 实体性前提（2026-09-27）★
+
+**现象**：0x91c4c4e9f769f0f7a126c583f2dfb5b938717777（name=symbol=「Cz黄鞋」，flap，
+09-26 12:57:32 铸，creator 0x0027737e 第三方）语料挂 CZ 闲聊回复「I need to get one.
+I love yellow shoes. 😂」（@币安系账号的 reply，与 SHOES 案同推文）→ superIP 快车道
+**high 77.15**（`super_ip_fast(CZ/S级/jev-J1.10)`）→ 0336befc（12:58:37）与 377cc0a6
+双双放行 executed BUY（均无成交，§六-14 已修正定性：个别买入失败非系统性——
+0336befc 当天 13:33-18:26 另有 8 笔正常成交）。用户裁定「**superIP讲了一个第三方
+主体也没有问题，例如CZ说了Giggle肯定没问题，但是问题在于，'yellow shoes'不是
+什么具体实体，只是一个修饰+名词，没有具体实体对应，也没有meme元素**」。
+
+**评级事实链**（superIP 快车道，三处失守）：
+- 推文作者=CZ 命中注册表 → **跳过 event_magnitude，S 级预评分 40+时效15 直接喂饱**
+  ——一句闲聊 reply 被当 S 级事件计分（传播 29.56 → 事件分 84.56×0.6）
+- name_referent **super_ip 0.44 argmax 摇摆**（common_word 0.27 被题面「文本作者非
+  超级IP」限制压低；阻断侧合计 0.41<0.5 差 0.09 不拦）——「Cz」字样出现 → Jev 倾向
+  判指向 CZ 本人
+- block_reason none 0.36 vs empty_content 0.32 五五开，argmax=none 放行
+  （institution_routine 在 superIP 通道被豁免）
+
+**根因（豁免第四空洞：实体性）**：「Cz黄鞋」=注册表 IP 缩写 + CZ 闲聊推文中的
+**非实体物品词**拼接——蹭的是 CZ 的注意力，名字主体「黄鞋」无具体实体对应、无
+meme 元素。J1.12 双前提**双满足拦不住**（J1.12 下重析仍 high 77.15：「Cz」是忠实
+缩写、「黄鞋」非传闻名）——缺失维度是「名字主体是否指向具体实体」。另一面（用户
+裁定正向语义）：超级 IP 亲口提及/讲述的**具体实体**（如 CZ 提到的某产品名）没问题
+——提及本身即事件，不该因「指向第三方」而拦（「整体指代 IP 本身」方案被用户
+否定：superIP 讲第三方主体也成立）。
+
+**修复（J1.14，name_referent 两处 criteria，mapper 零改动）**：
+- **super_ip 加第③前提「实体性」**：主定义扩含「该 IP 亲口提及/讲述的具体实体——
+  产品/项目/公司/事件，提及本身即事件（Giggle 语义）」+「不含被其@到的普通人物/
+  小号账号——那些仍是周边对象」（YAYA 型仍走 minor_other，边界自洽）；③实体性——
+  名字只是「IP名+日常物品词」拼接（如「Cz黄鞋」）或主体词是 IP 文本中无具体实体
+  对应的普通词组（修饰+名词，无 meme 元素）→ 判 common_word。自指原话词（天才）在
+  主定义实体性满足项内，不翻转
+- **common_word 去「文本作者非超级IP」限制**：IP 闲聊里的非实体词组同样判本项
+  （该限制正是本案 common_word 仅 0.27 的题面原因）；超级 IP 明确提及的具体实体
+  不是普通词（按 super_ip 评估）
+
+**验证**：① **Cz黄鞋 ignoreCache 重析**：name_referent 翻 **common_word 0.78**
+  （super_ip 掉到 0.19）→ 阻断侧 0.79 → **low**，落库 `super_ip_fast(CZ/S级/jev-J1.14)`；
+  ② **天才**（0x110bbb，CZ 自指原话）：super_ip **0.72** → 仍 **high 80.07** 零误伤；
+  ③ **哦**（J1.12 变体/传闻）：notable_other **0.98** → 仍 low 零回归；④ **全量重放
+  322 行**（v2 修 brand_hijack 实判后）：翻转 7 行全部对上已知集合——捕日者×4
+  （§六-11 脏缓存）+ GRASS/YAYA（J1.11 重放已知 nameReferentBlock 滞后行）+ Cz黄鞋
+  本行（刚重析、stage_final 残留旧 high）——**零新增翻转**（mapper 零改动的数学
+  预期）。⚠️ 重放方法论教训：首版脚本 includeBrandHijack 硬设 false，9 个 superIP
+  行（币安慈善/歌手CZ 等）被误报 low→high——brand_hijack 必须按行内 prompt 的
+  questionIds 实判（名字含「币安/CZ」的行当年正是被品牌劫持题拦的）
+
+**部署**：182 scp + narrative engine / v2-53c9737c / v2-dfc7a623 重启（09-27 10:49
+加载 J1.14，engine 1101583 / 53c9737c 1101599 / dfc7a623 1101624，Realtime 订阅正常）。
+
+**附带发现**：superIP 通道 blocked 时 `stageFinalData=null` 不写也不清——Cz黄鞋行
+stage_final_result 残留旧 high（llmResult 已 low，交易链取 llmResult 无影响，web/
+人工核查会误导）——§六-12 prestage 残留的同构变体，修法一并待裁定。
+
 ### C13 共合 0x667c —— 对倒盘净流入拦截因子（2026-09-27）★
 
 **现象**：0x667cedcf623067da4494ec1c74a4c365fc697777（共合，flap，蹭微博热点词）0336befc
@@ -584,7 +641,8 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.10 | 09-23 | name_referent 独立题（6 选项）+ 阻断侧合计概率 ≥0.5；标准+superIP 双路径 | CONVICTION/OneKey/YAYA/天才 | `89e31ba` |
 | J1.11 | 09-26 | block_reason 加 negative_hard_news（第 11 选项，边界收窄到安全事故/被盗/暴雷/巨额损失/灾难）；mapper 双挂 BLOCK_SCOPE 'all' + 概率 ≥0.5 质量门（negativeHardNewsBlock，标准+superIP 双路径）；重放 240 行零翻转 | bitget被盗 C9 | 本 commit |
 | J1.12 | 09-27 | name_referent super_ip 加双前提（①忠实呈现：原名直接出现/官方通用标准译名，音译/形近/跨书写系统变体不算；②已官宣存在：传闻/泄露/内部曝光/未官宣计划名不算），不满足判 notable_other（承接语义入该 criteria）；mapper 零改动；重放 289 行零新增翻转 | 哦 0xbefe2b70 C11 | 5668e4c |
-| J1.13 | 09-27 | block_reason 加 routine_content_product（第 12 选项：常规内容产品宣传——电影/剧集/综艺/动漫/小说/游戏发布上映预告，官宣与否无关均拦；边界：全民玩梗对象/文化符号/公共事件/世界级实体产品不选）；mapper 双挂 BLOCK_SCOPE 'all' + 概率 ≥0.5 质量门（routineContentProductBlock，标准+superIP 双路径）；重放 289 行零新增翻转 | 绣春刀3 0xa7c9c86e C12 | 本 commit |
+| J1.13 | 09-27 | block_reason 加 routine_content_product（第 12 选项：常规内容产品宣传——电影/剧集/综艺/动漫/小说/游戏发布上映预告，官宣与否无关均拦；边界：全民玩梗对象/文化符号/公共事件/世界级实体产品不选）；mapper 双挂 BLOCK_SCOPE 'all' + 概率 ≥0.5 质量门（routineContentProductBlock，标准+superIP 双路径）；重放 289 行零新增翻转 | 绣春刀3 0xa7c9c86e C12 | `36b66cb` |
+| J1.14 | 09-27 | name_referent super_ip 加第③前提「实体性」（主定义扩含「IP 亲口提及/讲述的具体实体=提及即事件」Giggle 语义，不含被@的普通人物；「IP名+日常物品词」拼接/无实体对应无 meme 元素的普通词组判 common_word）+ common_word 去「文本作者非超级IP」限制；mapper 零改动；重放 322 行（含 superIP）零新增翻转 | Cz黄鞋 0x91c4c4e9 C14 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。
@@ -666,6 +724,13 @@ P0-P1 客户端+问题集+state+映射（`9b76a1b`）→ P2 主路径+superIP（
   梗/文化符号/公共事件不误伤（天才 0.76 保持 high、嫦娥 rcp=0 保持 high）；
   mapper 与 negative_hard_news 同构双挂（BLOCK_SCOPE 'all' + ≥0.5 质量门，标准
   +superIP 双路径）
+- 实体性前提（2026-09-27，C14 Cz黄鞋案，J1.14）：name_referent super_ip 加第③
+  前提——名字主体须指向具体实体；主定义扩含「IP 亲口提及/讲述的具体实体=提及
+  本身即事件」（Giggle 语义，superIP 讲第三方主体成立），「IP名+日常物品词」拼接
+  （Cz黄鞋）或无实体对应无 meme 元素的普通词组判 common_word；common_word 去
+  「文本作者非超级IP」限制（正是本案 common_word 被压低的题面原因）。拼接蹭名盘
+  （0.44 argmax 摇摆 → high 77.15）重析 common_word 0.78 拦；天才（自指原话）/
+  哦（变体传闻）零回归，mapper 零改动
 
 ### 4.5 代码侧 pre-check 规则族（无 LLM，与 LLM 分工的"市场事实"侧）
 | 规则 | 判定 | 局限 |
@@ -847,10 +912,12 @@ symbol 同名 name 跨语义盘会被拦）
    v2-0336befc（同日重启）已加载超时收紧+推文窗口化新代码实跑。遗留观察项：makeRequest
    的 abort 只覆盖响应头阶段，`response.json()` body 阶段无超时保护（实测偶发 body
    阶段挂死 120s+）——是否把超时延长到 body 读取完待裁定
-14. **executed 信号 0 成交——执行链断点**（2026-09-27 C11 附带发现）：0xbefe2b70 两笔
-   BUY 信号（0336befc 实时 09-26 / 377cc0a6 回测）`execution_status=executed`（preBuy 全
-   过），但 trades / experiment_tokens 均 0 行，日志到「早期交易数据存储成功」后无买入
-   执行记录。pre-check 之后到 executeBuy 之间的断点原因待查（独立 bug，非叙事侧）
+14. **executed 信号 0 成交——个别买入静默失败**（2026-09-27 C11 附带发现，C14 修正
+   定性）：0xbefe2b70（哦）与 0x91c4c4e9（Cz黄鞋）BUY 信号（0336befc 实时 / 377cc0a6
+   回测）`execution_status=executed`（preBuy 全过），但 trades 均 0 行，日志到「早期交易
+   数据存储成功」后无买入执行记录。**非系统性断点**：0336befc 同日 13:33-18:26 另有
+   8 笔正常成交（中国第一×4/KUKU/JEANPHIL）——执行链没断，是这两个 token 的买入
+   静默失败（共同特征：创建后 16-65s 内 fire 的极新盘）。是否深查待裁定
 15. **377cc0a6 回测题面版本混杂**（2026-09-27 J1.12 部署遗留）：回测进程 08:33 启动加载
    J1.11，J1.12 部署时未重启（避免中断回放）——直调命中缓存受 J1.12 新行影响、
    miss 的 token 首析仍 J1.11。中断重跑 vs 跑完接受混杂，待用户裁定
