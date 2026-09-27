@@ -32,6 +32,52 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C11 哦 0xbefe —— OpenAI 传闻名变体抢注 → J1.12 super_ip 双前提（2026-09-27）★
+
+**现象**：0xbefe2b70020089f6d7f311c0ddb80fc074107777（**name="o"、symbol="哦"**，第三方
+0xf9f9…3358 铸于 09-26 10:08:26，元数据全空）被 J1.10 判 **high 80.05** → 0336befc
+（实时虚拟）与 377cc0a6（回测）均放行 `executed` BUY 信号。语料是 OpenAI DevDay 前瞻
+传闻推文：always-on assistant 将命名 **"o"**（ChatGPT 升级界面内部 config 短暂曝光，
+**未官宣、产品未发布**）。同推文 **37 个抢名盘**（narrativeLeaderCount=37）全没火；
+走势 1 分钟冲 217.8% 后回落 74.4% 死盘，fire 时点恰在峰值顶上。用户裁定「把'o'
+直接发成中文'哦'，感觉不行」，方向选定 **B：忠实度 + 传闻维度**（一次 J1.12）。
+
+**评级事实链**（`jev(J1.10/B类)` 标准路径，三道门全没拦）：
+- 事件主体归因 OpenAI 产品传闻 → **S 档 39** + 传播 26.05 + 时效 15 = **80.05>60** 过线
+- name_referent **super_ip 0.81**（币名指向 OpenAI 的传闻名）→ C8「超大超火被骑可放」
+  豁免直接命中：骑乘门 super_ip≥0.5 不改道、阻断侧合计仅 0.07 不拦
+
+**根因（豁免语义的两个空洞）**：
+1. **无名字忠实度校验**——「超大超火产品被骑没问题」的隐含前提是币名忠实呈现被骑名。
+   「哦」是 "o" 的中文音译变体：发币者明知不是自己的名字，用形近音字蹭——**变体替换
+   本身是「蹭」而非「是」的证据**（与天才案 CZ 原话「天才」的直接使用不同）
+2. **被骑的是传闻不是产品**——"o" 未官宣未发布，火的是 OpenAI、"o" 还不存在，
+   「超大超火产品」语义不成立
+
+**修复（J1.12，jev-questions name_referent）**：super_ip 选项加**双前提**：
+①忠实呈现——币名须为该 IP 名字的忠实使用（原名直接出现或官方/通用标准译名），
+音译/形近/跨书写系统变体（如 "o"→"哦"）不算；②已官宣存在——名字所指对象须已被
+官方正式官宣或已公开发布，仅为传闻/泄露/内部界面曝光/未官宣计划中的名字（"will be
+named X"）不算。不满足前提判 **notable_other**（承接语义同步写入该 criteria）；
+mapper **零改动**（notable_other 已在阻断侧三项、scope 已含 B/C/D/F/G/W——变体/传闻
+盘掉出豁免后直接被阻断 scope 拦）。
+
+**验证**：① **哦案 ignoreCache 重析**：name_referent **notable_other 0.98**（super_ip
+仅 0.01）→ 阻断侧 0.98 → **low**，落库 `jev(J1.12/B类)`（原 high 缓存已覆盖）；
+② **天才反向**（CZ 原话「天才」，忠实用名）：super_ip **0.83** 稳定，仍 high(3)
+（73.8 过线）——零误伤；③ **全量重放 289 行**：翻转仅捕日者 4 行（C9 基线同款
+§六-11 已知脏缓存，非 J1.12 引入）——**J1.12 零新增翻转**（与 mapper 零改动的
+数学预期一致）。
+
+**部署**：182 scp + narrative engine / v2-53c9737c / v2-dfc7a623 重启（09-27 10:24
+加载 J1.12）；**377cc0a6 回测未重启**（避免中断回放——进程内题面仍 J1.11，直调命中
+缓存的行受 J1.12 新行影响，未命中缓存的 token 首析仍 J1.11，版本混杂是否可接受/
+是否中断重跑待用户裁定）。
+
+**附注（支线异常，§六-14）**：两笔信号 `execution_status=executed` 但 trades /
+experiment_tokens 均 0 行——执行链在 pre-check 完成后（10:08:59.890 存储成功后）
+断掉，无买入日志。独立于本案的执行层问题，待查。
+
 ### C10 BRF 0x2c5b —— 元数据全空 no_public_info 误拦 → GMGN 社媒补源（2026-09-27）★
 
 **现象**：0x2c5b84d4ab2256d987a6fc094e1e764d9e9b7777（BRF，Bitget Relief Fund
@@ -437,6 +483,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.9 | 09-23 | block_reason 加 word_extraction + subject_unqualified 扩 scope——**已废弃**（Jev 无法单选项覆盖双结构） | CONVICTION/OneKey | `ce040b6` |
 | J1.10 | 09-23 | name_referent 独立题（6 选项）+ 阻断侧合计概率 ≥0.5；标准+superIP 双路径 | CONVICTION/OneKey/YAYA/天才 | `89e31ba` |
 | J1.11 | 09-26 | block_reason 加 negative_hard_news（第 11 选项，边界收窄到安全事故/被盗/暴雷/巨额损失/灾难）；mapper 双挂 BLOCK_SCOPE 'all' + 概率 ≥0.5 质量门（negativeHardNewsBlock，标准+superIP 双路径）；重放 240 行零翻转 | bitget被盗 C9 | 本 commit |
+| J1.12 | 09-27 | name_referent super_ip 加双前提（①忠实呈现：原名直接出现/官方通用标准译名，音译/形近/跨书写系统变体不算；②已官宣存在：传闻/泄露/内部曝光/未官宣计划名不算），不满足判 notable_other（承接语义入该 criteria）；mapper 零改动；重放 289 行零新增翻转 | 哦 0xbefe2b70 C11 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。
@@ -506,6 +553,11 @@ P0-P1 客户端+问题集+state+映射（`9b76a1b`）→ P2 主路径+superIP（
   engine 队列/web 链路零调用）；IPFS 解包前移+裸 CID 归一化（normalizeIpfsRef）；
   no_public_info 缓存行直调穿透重析。AVE 实测无独立社媒渠道（appendix 与
   four.meme 元数据逐字符一致）不可行
+- 名字忠实度+传闻维度（2026-09-27，C11 哦案，J1.12）：super_ip 豁免加双前提
+  （忠实呈现——音译/形近/跨书写系统变体不算；已官宣存在——传闻/泄露/内部曝光/
+  未官宣传闻名不算），不满足判 notable_other 走阻断 scope——变体蹭名盘（"o"→
+  「哦」抢注 OpenAI 传闻名）掉出「超大超火被骑可放」豁免被拦；忠实用名（天才）
+  零误伤，mapper 零改动
 
 ### 4.5 代码侧 pre-check 规则族（无 LLM，与 LLM 分工的"市场事实"侧）
 | 规则 | 判定 | 局限 |
@@ -678,3 +730,10 @@ symbol 同名 name 跨语义盘会被拦）
    v2-0336befc（同日重启）已加载超时收紧+推文窗口化新代码实跑。遗留观察项：makeRequest
    的 abort 只覆盖响应头阶段，`response.json()` body 阶段无超时保护（实测偶发 body
    阶段挂死 120s+）——是否把超时延长到 body 读取完待裁定
+14. **executed 信号 0 成交——执行链断点**（2026-09-27 C11 附带发现）：0xbefe2b70 两笔
+   BUY 信号（0336befc 实时 09-26 / 377cc0a6 回测）`execution_status=executed`（preBuy 全
+   过），但 trades / experiment_tokens 均 0 行，日志到「早期交易数据存储成功」后无买入
+   执行记录。pre-check 之后到 executeBuy 之间的断点原因待查（独立 bug，非叙事侧）
+15. **377cc0a6 回测题面版本混杂**（2026-09-27 J1.12 部署遗留）：回测进程 08:33 启动加载
+   J1.11，J1.12 部署时未重启（避免中断回放）——直调命中缓存受 J1.12 新行影响、
+   miss 的 token 首析仍 J1.11。中断重跑 vs 跑完接受混杂，待用户裁定
