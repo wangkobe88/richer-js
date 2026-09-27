@@ -178,7 +178,10 @@ let _logger = null;
 function log(level, msg, data) {
   const prefix = '[TokenPositionAnalyzer]';
   if (_logger) {
-    _logger[level](`${prefix} ${msg}`, data);
+    // data 未传时不传第二参——引擎 logger 的 (module, message) 分支会把显式
+    // undefined 当 message 打成行尾 "undefined"（单参走简单分支才正确）
+    if (data !== undefined) _logger[level](`${prefix} ${msg}`, data);
+    else _logger[level](`${prefix} ${msg}`);
   } else {
     console.log(`${prefix} [${level}] ${msg}`, data || '');
   }

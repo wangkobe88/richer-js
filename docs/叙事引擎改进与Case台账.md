@@ -32,29 +32,39 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
-### C19 fPay 0x2259 —— 协议/基建自发币无独立通道，弱账号门拦截（2026-09-27）
+### C19 fPay 0x2259 —— 宣告推文晚于分析 6 秒，precheck fail 被全局缓存固化（2026-09-27）★
 
 **现象**：用户质询 fPay（0x2259d0fc…7777，flap 税币，行内 platform 误落 fourmeme——
-仅发现源标记，不影响叙事判定）叙事为何没过。`token_narrative`（13:30 分析，
-prompt_type=precheck）：`pass=false, rating=low`，挂在账号类 pre-check 纯规则层，
-未到 Jev。
+仅发现源标记）叙事为何没过。`token_narrative`（05:30:25Z 分析，prompt_type=precheck）：
+`pass=false, rating=low`，挂在账号类 pre-check 纯规则层，未到 Jev。
 
-**判定链**（复核确认数据完整，推文全量拉取——该账号共 9 条全进了地址匹配）：
-1. URL 分类只找到 @Flappayment 账号 + 官网 flappayment.com → 账号背景币进账号规则
-2. 账号质量门：粉丝 5 / 发推 9，三条件全不满足（500粉+20推 / 1000粉+认证 /
-   3000粉；有蓝标但粉丝不够）
-3. 质量不达标的唯一过关路径 = 账号公示完整合约地址（强绑定证据）→ 简介+9 条推文
-   均无 `0x2259…` 地址 → fail（validationStage=address，
-   reason=「未在账号简介或推文中找到完整代币地址」）
+**根因（用户给出宣告推文后反转）**：时序竞态 + 缓存固化，两层——
+1. **竞态**：分析完成于 05:30:25，项目方宣告推文（status/2104081228345577860，
+   文本含「fPay 正式发射」+ 完整合约地址）发出于 **05:30:31——晚 6 秒**。分析时刻
+   账号时间线（getAccountWithFullTweets 实时拉取）里没有这条贴地址的推文 → 账号
+   质量门不过（当时 5 粉/9 推）+ 地址未公示 → precheck fail（validationStage=address）。
+   按当时数据判定本身没错——「先发币、后发推」是项目方常态动作序列
+2. **固化**：`token_narrative` 全局缓存 is_valid=true → 宣告发出后的所有调用（含
+   实验侧 narrativeRating 直调）永远命中这个「宣告前」fail 结果，不会重分析
 
-**结论：设计内行为，不修**。fPay 实为 flap 生态协议币（替大 V 发射代币收 50% 税收，
-代币捕获协议税流），非大 V 事件骑乘；发币账号 2019 年老号但 5 粉 9 推无影响力，
-且未公示地址无法证明绑定——与 C15（x-0 税币伪装项目币）同一风险面，账号门拦截
-符合规则本意。
+**重跑验证（ignoreCache）**：宣告推文进时间线后规则即通过（passed=true，
+addressVerified=true，nameMatch=true——display name「fPay | Flap Pay」匹配 symbol），
+prestage Jev 判 **tokenType=project**（用户判断正确：协议币有独立分类通道，走的是
+prestage project 而非大 V 影响力逻辑）。但 project 评级表账号型粉丝底线 60（x-0 案
+P1.2 加固）——重跑时账号 24 粉 <60 → **rating=low**（「底线指标不达标」）。即宣告
+门修通后还有基本面门：冷启动项目账号（宣告几分钟内）粉丝必然少，用当前快照粉丝数
+做底线对当天新项目偏严（与 C18「statuses_count 当前快照」同族语义，重放偏松方向）。
+DB 行已被重跑覆盖为新结果（project/low/addressVerified=true）。
 
-**暴露的分类缺口（→§六-23）**：协议/基建自发币（有真实产品+税收/utility 捕获）当前
-没有独立通道，弱账号协议币一律被账号门拦。是否为这类币建独立评估路径（不按大 V
-影响力逻辑）待用户裁定。
+**暴露的机制缺口（→§六-23/24）**：
+- **fail 缓存无重试语义**（§六-24）：precheck 因地址未验证 fail 的行永久缓存，把
+  「自发宣告型」整类锁死在宣告前状态——这是 CLAUDE.md 已挂的缓存失效机制（planned
+  not built）的最尖锐场景。修法方向：fail 行短 TTL 重分析 / 消费侧不信任 fail 缓存
+  / 分析前等宣告窗口，待用户裁定
+- **flap 创建时间缺口新实例**（并入 §六-22）：raw_api_data.eventTs（wss_token_create
+  源）有值但 pre-check 判「代币无创建时间数据」——时效检查跳过 + 推文时间窗 untilSec
+  未用上；与 §六-22 的 5 处 created_at 消费点同族（token-info-service 只读
+  raw_api_data.created_at 不读 eventTs）
 
 ### C18 x-0 叙事侧加固 —— prestage project 评级表账号信用降档 P1.3（2026-09-27）★
 
@@ -1207,7 +1217,17 @@ symbol 同名 name 跨语义盘会被拦）
     flap 盘这些检查维持跳过（fail-open）。数据源已可得（wss_events 回退），flap 盘
     语义上也可执行时效检查了，是否扩面（拦截面变化：flap 盘过期语料从放行变可能拦截）
     待用户裁定
-23. **协议/基建自发币独立通道**（2026-09-27 C19）：fPay（flap 生态税收协议币）被
-    账号质量门拦截（5 粉/9 推且未公示地址）——设计内行为，但「有真实产品+税收/
-    utility 捕获的协议币」目前只能按账号背书逻辑评，弱账号一律拦。是否建独立分类
-    通道（评估协议本身的产品/采用叙事而非发行账号影响力）待用户裁定
+23. ~~**协议/基建自发币独立通道**~~（**撤销**，2026-09-27 C19 重跑实证：协议币走
+    prestage project 通道，Jev 正确判 fPay=project——通道存在，原「被账号门拦」是
+    时序竞态非分类缺口）。真正待裁定的语义点收窄为：**project 评级表粉丝底线对
+    当天冷启动项目账号偏严**（宣告几分钟内分析必然 <60 粉 → low；粉丝是当前快照，
+    无历史锚）。是否对「账号创建远早于 token 且地址强绑定」的项目盘放宽粉丝底线
+    或改用别的冷启动信号（如宣告推文互动/官网真实性），待用户裁定
+24. **precheck fail 缓存固化无重试语义**（2026-09-27 C19 ★）：宣告推文晚于分析
+    几秒是项目方常态（先发币后发推），precheck 因「地址未公示」fail 的行被全局缓存
+    永久固化（is_valid=true）——「自发宣告型」币在宣告前被分析一次就永远锁死。
+    CLAUDE.md 已挂的缓存失效机制（planned not built）最尖锐场景。修法方向：
+    ① fail（address 阶段）行短 TTL 自动重分析（如 10min 内一次）② 消费侧
+    （NarrativeDirectCaller）对 precheck fail 行不信任缓存强制重分析 ③ 无为（接受
+    漏，靠 fail 放行语义 9 兜底——注意现 fail 是 rating low 拦截不是 9 放行）。
+    待用户裁定
