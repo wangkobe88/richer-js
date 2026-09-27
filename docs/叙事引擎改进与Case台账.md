@@ -80,6 +80,16 @@ performCheck 链路：**拦** 作弊1 fire@+21s（12w/10c/**83.3%**——窗口�
 （4w<10 豁免，极早 fire 无信息与净流入因子同边界）。策略用法：
 `earlyTradesUniformBuyWallets < 10 OR earlyTradesUniformBuyClusterRatio < 50`。
 
+**上线（2026-09-27 用户批准「明白了，可以上」）**：拦截门与净流入门（C13）同门写入
+运行中实验 53c9737c / dfc7a623 的 preBuyCheckCondition——
+`(narrativeRating == 2 OR narrativeRating == 3) AND strictSameNameMaxFDV < 500000
+AND earlyTradesNetBuyRatio >= 40 AND (earlyTradesUniformBuyWallets < 10 OR
+earlyTradesUniformBuyClusterRatio < 50)`（ConditionEvaluator 递归下降解析核验：
+`(A OR B) AND C AND D AND (E OR F)` 与现行条件同构，五因子 context 全在位）。
+DB 写入回读验证一致，两 screen 进程 11:16 重启加载（新 pid 1115189/1115191），
+config 含新条件、9 策略加载、水位对齐（events 85758 / ticks 549680）、消费循环
+正常零报错。0336befc 母版已停未写入（拉起待用户确认）。
+
 **已知接受面**：真有 ≥10 个 bot 同精确额度买入的健康票会误拦——校准集不存在此
 结构，且该结构本身即协同买入信号。已知漏拦：作弊团伙改用随机额度（每钱包不同
 金额）则簇因子失效——但等额是他们控制成本/均分收益的最省力路径，改随机额度
@@ -1023,18 +1033,15 @@ symbol 同名 name 跨语义盘会被拦）
    即证据）。实时实验无买入风险（全过观察窗），回测会吃到——回测前按 E5e2 流程
    ignoreCache 批量刷新（嫦娥等正例预期保持 high）；彻底解法（题面版本变化时的
    缓存失效机制）仍是 CLAUDE.md 已记录的 planned-not-built
-18. **净流入因子阈值与应用面**（2026-09-27 C13 落地遗留）：校准阈值 40 已实现待确认
-   ——共合R2 39.77 距阈值仅 0.23（fire 实时查询可能因 watcher flush 延迟少几笔卖腿
-   行而更高），抬到 50 无新误杀证据（放侧最低 86.14）；是否写入 0336befc 等实验
-   preBuyCheckCondition、运行中进程（v2-53c9737c 等）是否重启加载新因子，待用户裁定。
-   **拦截实证 +1（C15 x-0 案）**：0xa5fd1f 90s 全窗净流入 18.6% ≪ 40，写入即拦
+18. ~~**净流入因子阈值与应用面**~~（**已解决**，2026-09-27 用户批准写入上线）：阈值
+    维持 40（共合R2 39.77 贴线，但 C15 x-0 18.6% 强拦截实证 + 中间带 [40,86] 空旷，
+    保守不抬）；已与簇因子门同门写入运行中实验 53c9737c / dfc7a623
+    preBuyCheckCondition，进程 11:16 重启加载（详见 C16「上线」段）。
+    0336befc 母版已停未写入（拉起待用户确认）
 19. **E 类 name_referent 阻断 scope**（2026-09-27 C13 附带发现）：共合 E 类 common_word
    0.93 但 E 不在 NAME_REFERENT_BLOCK_SCOPE（现 B/C/D/F/G+W）→ S 档事件分喂饱 81.7
    过线 high 放行。扩 E 有误伤风险（Zen Monkey E 类 +68%），需全量重放验证误伤面，
    待用户裁定
-20. **同额度簇因子阈值与应用面**（2026-09-27 C16 落地遗留）：拦截门 `wallets>=10
-   AND ratio>=50` 已实现待确认——两票 fire 实测 83.3%/71.4% 距阈值远（抬高到 60
-   仍拦），赢家 fire 侧最高 28.6%（MuseCharm 12w 过 wallets 门但 ratio 低，压低
-   ratio 门到 40 无新误杀证据）；与 §六-18 净流入门同理：是否写入 0336befc 等实验
-   preBuyCheckCondition、运行中进程是否重启加载，待用户裁定。作弊1 净流入 100
-   + 簇 83.3 组合实证：两因子互补（净流入拦对倒、簇拦批量钱包），建议同门写入
+20. ~~**同额度簇因子阈值与应用面**~~（**已解决**，2026-09-27 与 §六-18 净流入门
+    同门写入运行中实验 53c9737c / dfc7a623 并重启加载——两因子互补组合上线，
+    阈值维持 wallets≥10 AND ratio≥50 保守值，详见 C16「上线」段）
