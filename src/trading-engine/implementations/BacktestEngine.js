@@ -1213,7 +1213,9 @@ class BacktestEngine extends AbstractTradingEngine {
       const buyPrice = holding.averagePurchasePrice || token?.buyPrice || null;
       const signal = {
         action: 'sell',
-        symbol: holding.tokenSymbol || token?.symbol || '',
+        // tokenPool 的 symbol 来自 wss_events payload（权威）；holding.tokenSymbol 是
+        // PM getTokenSymbol 的降级值（targetTokens 未配置时恒为地址前 8 位+'...'）
+        symbol: token?.symbol || holding.tokenSymbol || '',
         tokenAddress,
         chain: 'bsc',
         price,

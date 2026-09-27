@@ -320,7 +320,11 @@ class ExperimentTokenReturns {
       // 获取代币符号（优先从交易记录，其次从 experiment_tokens 数据）
       const tokenTrades = this.tradesData.filter(t => t.token_address === tokenAddress);
       const tradesSymbol = tokenTrades[0]?.token_symbol?.trim();
-      const symbol = tradesSymbol || this.tokenSymbolMap.get(tokenAddress) || 'Unknown';
+      // "0x" + 6位hex + "..." 是回测强平腿写入的截断地址（PM getTokenSymbol 降级值），
+      // 不是有效 symbol——让 experiment_tokens 的正确 symbol 接管
+      const isTruncatedAddress = /^0x[0-9a-fA-F]{6}\.\.\.$/.test(tradesSymbol || '');
+      const validTradesSymbol = tradesSymbol && !isTruncatedAddress ? tradesSymbol : null;
+      const symbol = validTradesSymbol || this.tokenSymbolMap.get(tokenAddress) || 'Unknown';
 
       const expChain = this.experimentData?.blockchain;
       const chain = (expChain && expChain !== 'all')
