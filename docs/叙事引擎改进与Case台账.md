@@ -1392,6 +1392,25 @@ flap 虚拟（叙事严格买门 V1，screen `v2-0336befc`）当日实跑 6 票�
 **待用户裁定**：symbol 同名维度是否纳入严格匹配（现仅 name 维度；若纳入，人生好物型
 symbol 同名 name 跨语义盘会被拦）
 
+### V3 双平台虚拟 c5945f36 止损双腿（2026-09-27，用户裁定）
+
+c5945f36（both 双平台叙事 V2 策略，卡牌 perCardBNB=0.02）实跑 11 买 0 卖冻结触发——
+11 token 全 flap、grad_max 0.12-0.49（无一接近毕业）、10/11 存活 <45min：E5c 8 腿
+结构性盲区**第三次**实证（f3ae56d3 回测、E5e 回测后首次实时），且断流票无 tick →
+tick 驱动卖腿整体冻结。
+
+用户裁定两条保命规则（AskUserQuestion 阈值定稿）：**时间止损 60min**（持有超时仍
+`profitPercent < 0` 全清；未采纳推荐 -30%）+ **价格止损 -50%**（`profitPercent <= -50`
+全清；c5945f36 冻结 11 票中 5 票 ≤-50% 被价格腿拦、其余浅亏票由时间腿 60min 兜住）。
+
+实现为**引擎级规则不占策略位**（`experiment.config.stopLoss` 段，不配=完全关闭）：
+tick 即时挂点（`_onFactorsUpdated` 卖腿分支优先于策略腿）+ 30s 持仓扫描
+`_scanHoldingsStopLoss`（断流票唯一触发路径，只判止损不跑策略腿）；执行构造等价
+strategy（cards='all'/sellPercentage=1/bypassDebounce）走 `_emitSellSignal` 全清链，
+signals/trades/卡账本副作用全复用。单测 `scripts/_test_stop_loss_rules.cjs` 29 断言
+零 DB 全过。CLAUDE.md「引擎级止损双腿」段同步。c5945f36 停止（不删行），新实验
+复制其 config + stopLoss 段重启（V4）。
+
 ---
 
 ## 六、未决事项

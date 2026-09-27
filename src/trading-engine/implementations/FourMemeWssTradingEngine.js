@@ -420,6 +420,27 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `交易金额配置 | tradeAmount=${this._tradeAmount}${this._cardsEnabled ? ` | 🃏 卡牌模式 perCardBNB=${this._perCardBNB}` : ''}`);
 
+    // 6.5 引擎级止损双腿（用户裁定 2026-09-27，c5945f36 11 买 0 卖冻结实跑触发）：
+    //   ① 时间止损：持有超 timeStopMinutes 仍浮亏（profitPercent < 0）→ 全清
+    //   ② 价格止损：现价跌破买入成本 priceStopPercent（如 -50 = 跌 50%）→ 全清
+    // 不配 stopLoss 段 = 机制完全关闭（存量实验零变化）；两条规则独立可配。
+    // 触发双挂点：tick 即时（活票）+ 持仓扫描（断流票无 tick 永不进 _onFactorsUpdated，
+    // 扫描是唯一路径）；执行走 _emitSellSignal 全清链（signals/trades/卡账本副作用全复用）
+    const _sl = experimentConfig.stopLoss || {};
+    const _slTimeMin = Number(_sl.timeStopMinutes);
+    const _slPricePct = Number(_sl.priceStopPercent);
+    this._stopLossTimeSec = Number.isFinite(_slTimeMin) && _slTimeMin > 0 ? _slTimeMin * 60 : null;
+    this._stopLossPricePct = Number.isFinite(_slPricePct) && _slPricePct < 0 ? _slPricePct : null;
+    const _slScanSec = Number(_sl.scanIntervalSec);
+    this._stopLossScanMs = Number.isFinite(_slScanSec) && _slScanSec > 0 ? _slScanSec * 1000 : null;
+    this._stopLossEnabled = !!(this._stopLossTimeSec || this._stopLossPricePct);
+    if (this._stopLossEnabled) {
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        `🛡️ 止损双腿已启用 | ${this._stopLossTimeSec != null ? `时间止损: 持有>${Math.round(this._stopLossTimeSec / 60)}min仍亏损全清 ` : ''}` +
+        `${this._stopLossPricePct != null ? `价格止损: 现价≤成本${this._stopLossPricePct}%全清 ` : ''}` +
+        `| 持仓扫描=${this._stopLossScanMs != null ? this._stopLossScanMs / 1000 + 's' : '未配置（仅 tick 路径）'}（断流兜底）`);
+    }
+
     // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪
     if (this._isLive) {
       await this._initializeLiveTrader();
@@ -665,6 +686,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       }, this._liveHoldingsSyncMs);
     }
 
+    // 止损双腿持仓扫描（断流兜底）：断流 token 无 tick → tick 驱动的止损/卖腿全部冻结，
+    // 扫描周期性重建因子判止损。stopLoss 段配置才起（存量实验零变化）
+    if (this._stopLossEnabled && this._stopLossScanMs != null) {
+      this._intervals.stopLossScan = setInterval(() => {
+        this._scanHoldingsStopLoss().catch(err => {
+          this.logger.error(this._experimentId, 'StopLoss', `持仓止损扫描异常: ${err.message}`);
+        });
+      }, this._stopLossScanMs);
+    }
+
     // 不阻塞：main.js 在 start() 返回后注册优雅退出；WSS 连接 + intervals 保活事件循环
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `🚀 事件循环已启动（debounce=${this._signalDebounceMs}ms maxWait=${this._signalDebounceMaxWaitMs}ms ` +
@@ -825,6 +856,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     // 卖腿：持有中每 tick 实时评估（止损/止盈时间敏感，不去抖）
     if (token.status === 'bought' && !this._buyingTokens.has(tokenAddress)) {
+      // 引擎级止损双腿（tick 即时路径）：命中优先于策略腿——保命腿不等策略评估
+      const _slHit = this._stopLossHit(factors);
+      if (_slHit) {
+        this._emitStopLossSell(token, factors, _slHit, tick)
+          .catch(e => this.logger.error(this._experimentId, 'StopLoss',
+            `${token.symbol || tokenAddress.slice(0, 10)} 止损卖出异常: ${e.message}`));
+        return;
+      }
       this._evaluateSellPath(tokenAddress, factors, tick)
         .catch(e => this.logger.error(this._experimentId, 'SellEval',
           `${token.symbol || tokenAddress.slice(0, 10)} 卖腿评估异常: ${e.message}`));
@@ -1188,6 +1227,69 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   // ==================== 卖路径 ====================
+
+  /**
+   * 引擎级止损双腿判定（配置 stopLoss 段启用；纯读 factors 不动状态）。
+   * 返回命中描述或 null；price 先判（两条同时命中时标注更深的那条，全清同效）。
+   * 因子口径与策略腿同源：profitPercent=相对 FA buyState 成本（%）/ holdDuration=秒
+   */
+  _stopLossHit(factors) {
+    if (!this._stopLossEnabled) return null;
+    const profit = factors.profitPercent;
+    const hold = factors.holdDuration;
+    if (this._stopLossPricePct != null && Number.isFinite(profit) && profit <= this._stopLossPricePct) {
+      return { kind: 'price', profitPercent: profit };
+    }
+    if (this._stopLossTimeSec != null && Number.isFinite(hold) && hold > this._stopLossTimeSec
+        && Number.isFinite(profit) && profit < 0) {
+      return { kind: 'time', profitPercent: profit, holdDuration: hold };
+    }
+    return null;
+  }
+
+  /**
+   * 止损卖出：构造等价 strategy 走 _emitSellSignal 全清链——signals/trades/
+   * 卡账本（cards='all'→全清卖Pct=1，PM remainingAmount.eq(0) 删仓判据成立）/
+   * 累亏记账副作用全复用，零新执行逻辑。@param {Object|null} tick 触发 tick（扫描路径 null）
+   */
+  async _emitStopLossSell(token, factors, hit, tick) {
+    const common = {
+      action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
+      priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+    };
+    const strategy = hit.kind === 'price'
+      ? { id: 'stopLossPrice', name: `止损-价格跌破成本线(${this._stopLossPricePct}%)`, ...common }
+      : { id: 'stopLossTime', name: `止损-持有超时仍亏损(${Math.round(this._stopLossTimeSec / 60)}min)`, ...common };
+    this.logger.info(this._experimentId, 'StopLoss',
+      `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name} | profitPercent=${hit.profitPercent?.toFixed(1)}%` +
+      `${hit.kind === 'time' ? ` holdDuration=${(hit.holdDuration / 60).toFixed(1)}min` : ''}` +
+      `${tick ? '' : ' | 持仓扫描触发(断流兜底)'}`);
+    return this._emitSellSignal(token, strategy, factors, tick);
+  }
+
+  /**
+   * 持仓止损扫描（stopLoss.scanIntervalSec 驱动）：断流 token 无 tick →
+   * _onFactorsUpdated 永不进 → tick 驱动的止损/策略腿全部冻结（c5945f36 11 票
+   * 冻结实跑实证）。扫描只判止损双腿、不跑策略腿——P1-P8 在断流票上维持
+   * 「不评估」现状语义。buildFactorMap 必须传 Date.now()：断流期 holdDuration
+   * 继续走（回落 lastTickAt 会冻结时钟因子，见 _onSellDebounceFire 注释）。
+   * 串行执行（一次扫描内逐 token await，避免卖出风暴）
+   */
+  async _scanHoldingsStopLoss() {
+    for (const holding of this._getAllHoldings()) {
+      const tokenAddress = holding.tokenAddress;
+      if (!tokenAddress) continue;
+      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+      if (!token || token.status !== 'bought') continue;
+      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
+      const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
+      if (!factors) continue;
+      const hit = this._stopLossHit(factors);
+      if (hit) {
+        await this._emitStopLossSell(token, factors, hit, null);
+      }
+    }
+  }
 
   /**
    * 卖腿评估（pumpfun 回迁批 2：每 tick 实时评估不去抖，hit 后分流）：

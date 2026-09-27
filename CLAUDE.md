@@ -244,6 +244,16 @@ Token-level card ledger（用户裁定：组合级现金卡不迁）。**机制�
 - **UI**：create_experiment.html 表单键 `cards`/`cooldownSec`/`per_card_bnb`；`card.dataset.rawConfig` 整包存复制源策略，collectFormData 的 `mergeRawConfig` 合并表单白名单外键（复制链路保真 bypassDebounce/sellPercentage 等无 UI 输入字段）
 - **单测**：`node scripts/_test_card_position_mechanisms.cjs`（归一化/冷却/Decimal 精度边界三节，零 DB）
 
+## 引擎级止损双腿（2026-09-27，c5945f36 11 买 0 卖冻结实跑触发）
+
+E5c 8 腿对「不冲毕业的 flap 小票」结构性盲区的保命兜底（f3ae56d3 回测 / E5e 回测 / c5945f36 实跑三次实证：grad<0.05 够不着 P1 硬底、市值门/毕业臂/RSI warmup 全不可达，断流票 tick 驱动卖腿整体冻结）。**机制开关 = `experiment.config.stopLoss` 段存在任一腿参数**；不配段 = 完全关闭（存量实验零变化），不占策略位。
+
+- **配置**：`stopLoss: { timeStopMinutes: 60, priceStopPercent: -50, scanIntervalSec: 30 }`——① 时间止损：持有超 60min 仍 `profitPercent < 0` 全清；② 价格止损：`profitPercent <= -50` 全清（FA 因子，相对 buyState 成本）；双腿独立可配，双命中标注 price
+- **双挂点**：tick 即时路径（`_onFactorsUpdated` 卖腿分支 `_stopLossHit` 优先于策略腿判定）+ 持仓扫描 `_scanHoldingsStopLoss`（scanIntervalSec 驱动，**断流票唯一触发路径**——无 tick 永不进 `_onFactorsUpdated`）；扫描只判止损双腿不跑策略腿（P1-P8 断流「不评估」语义维持），`buildFactorMap(addr, Date.now())` 必传 Date.now()（断流期 holdDuration 继续走）
+- **执行**：`_emitStopLossSell` 构造等价 strategy（`id: stopLossPrice/stopLossTime`、`cards: 'all'`、`sellPercentage: 1`、`bypassDebounce: true`、`lockTokenAfterSell: false`）直接走 `_emitSellSignal` 全清链——signals/trades/卡账本/累亏记账副作用全复用零新逻辑；卖出失败下周期扫描自然重试
+- **范围**：仅 FourMemeWssTradingEngine（含 flap/both 子类）；BacktestEngine 不动（回测已有强平兜底）
+- **单测**：`node scripts/_test_stop_loss_rules.cjs`（29 断言零 DB：判定矩阵/构造/扫描链/tick 挂点四节）
+
 ## Live Trading（实盘加固，2026-09-27）
 
 双平台 live 全链路已通：four.meme 走 `FourMemeDirectTrader`（TokenManager2），flap 走 `FlapPortalTrader`（Portal `swapExactInput`；**live 只买 BNB 计价盘**——非 BNB 盘合约 revert = 天然 fail-closed；卖出 token→0x0 全盘支持）。live 实验只能 `node main.js start-experiment -e <id>` 启动（`src/run-engine.js` 对 live 显式拒绝，防被静默当虚拟盘）。实收解析用**余额差法**（买入 token `balanceOf` 前后差 = 税后真相；卖出 BNB `getBalance` 差 + `gasUsed×gasPrice` 补偿），对税币/非 BNB quote 盘免疫（TokenSold 事件 `eth` 字段非 BNB 盘记 quote 币，事件解析不可用）。
