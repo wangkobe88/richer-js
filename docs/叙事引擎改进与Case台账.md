@@ -32,6 +32,55 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C13 共合 0x667c —— 对倒盘净流入拦截因子（2026-09-27）★
+
+**现象**：0x667cedcf623067da4494ec1c74a4c365fc697777（共合，flap，蹭微博热点词）0336befc
+实时虚拟一轮买入 -25.7%、377cc0a6 回测二轮买入 -39.5%。任务 G 排查确认**对倒极重**：
+11 个地址倒货 19 小时，卖盘 99.6% 来自双向钱包（既买又卖）。用户裁定「看看用什么
+因子，把这种币干掉」。
+
+**四方向证伪**（每步有数据，全不行）：
+1. **现有集中度因子失效**——fire 时 walletTop1TradeRatio/Top3/Diversity 分不开对倒与
+   赢家：SpaceXAI（+274%）fire 时 Top1Tr=83.3/Top3Tr=100/eUniq=2，比共合（75/95/4）
+   更极端——早期高集中度是新币常态（创建者+狙击 bot 主导）
+2. **双向钱包占比失效**——前 90s 既买又卖量占比：和平熊猫（+201%）97.2% vs 嫦娥
+   （+503%）14.5%，赢家输家完全混排——flap/four.meme 前 90s 做市 bot/套利 bot/快翻
+   交易者天然双向
+3. **creator 维度对 flap 失效**——wss_events payload.creator 在 flap 是工厂/发射器共享
+   地址 0x90497450（名下 3270 token、7 天 1584 个）——延龄草/STONKS/和平熊猫/JIBE 全
+   是它；four.meme 的 creator 才是每 token 真实地址
+4. **同 symbol 克隆数失效**——共合 10 分钟内 4 个先行克隆，但和平熊猫 24 个克隆仍 +201%
+
+**成立方案（净流入因子）**：`earlyTradesNetBuyRatio = (Σ买BNB − Σ卖BNB)/Σ买BNB × 100`，
+窗口同 earlyTradesWindow（90s，截断到 checkTime 严格无前视，尘门 price_outlier=false +
+price_usd 非 null 与既有查询一致）。**创建锚定口径**（关键）：仅当 checkTime 距创建
+≤90s（查询窗覆盖创建时点，trades 即"创建以来全量"）才有效；age>90s 或 launchAt 缺失
+给通过值 100 放行（fail-open 宁漏拦不误杀——龙布布 fire@103s 滚动窗实测 34.6% 会被
+误杀，covered=0 因子标记口径未覆盖）。
+
+**校准（阈值 40，182 真实 ticks）**：
+- 对倒盘 90s 全窗全 ≤30（共合 9.5/桃花源记 9.1/STONKS 3.0/宝力青宝 3.5/白头鹰 15.8/
+  跳舞蛙 29.5）
+- fire 时点引擎全链路实测（performCheck 真实查询）：**拦** 共合R2 39.77/孔子AI 36.83/
+  跳舞蛙 39.12（全 <40）；**放** 和平熊猫 86.14/人生好物 100/JIBE 99.99/MuseCharm
+  86.58/币安王国 95.57（全 ≥86）——中间带 [40, 86] 空旷，但共合R2 距阈值仅 0.23
+- **已知边界（极早 fire 无信息）**：<15s fire 时窗口内 washers 先买后卖未开卖腿，净流入
+  虚高（共合 R1@6.6s=63.7%、桃花源记@12.5s=100 放行）——该场景由 holders>5 门拦
+  （共合 R1 holders=3 拦）；桃花源记 holders 过门，防线在叙事骑乘门（C8 v2 已拦）
+
+**落地（五步清单）**：EarlyParticipantCheckService `_calculateNetBuyRatio`（buy/sell 判定
+to_token===tokenAddress，与 WalletCluster 同口径）+ result/getEmptyResult（异常通过值
+100）/getEmptyFactorValues（null）+ PreBuyCheckService `_performEarlyParticipantCheck`
+恢复 launchAt 传参（tokenInfo.launchAt，全链路秒口径已核）+ `_evaluateWithCondition`
+context（缺省 100 放行）+ FactorBuilder（引擎/回测 preBuyCheckFactors 两路径全经此构造）。
+本地零 DB 单测 8/8（含 age=90/91 边界、大小写、全卖盘 -100）；182 端到端 10 token
+上表全过。策略用法：preBuyCheckCondition 加 `earlyTradesNetBuyRatio >= 40`。
+
+**叙事侧 miss（附带发现，待裁定）**：共合 token_narrative `jev(J1.10/E类)` 判 high 84.68
+放行——语料仅一条微博链接，E 类事件分 39(S档)+传播 27.7+时效 15=81.7>60 过线；
+name_referent common_word 0.93 但 **E 类不在 NAME_REFERENT_BLOCK_SCOPE**（现为
+B/C/D/F/G+W）。扩 E 有误伤风险（Zen Monkey E 类 +68%），需重放验证，留用户裁定。
+
 ### C12 绣春刀3 0xa7c9 —— 常规电影骑乘豁免误放 → J1.13 routine_content_product（2026-09-27）★
 
 **现象**：0xa7c9c86e2d3b6cb7de698d8067635ebd8e627777（symbol/name=绣春刀3，flap，
@@ -637,6 +686,15 @@ C/D 类双维度评分（`2acebff`）、F 类发现型（`04d4e22`）、G 类推
 tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信息改 low + 推文过期 30min +
 多推文支持（`fe92d72`/`42f5d66`）、09-04 与电报通知解耦（`968748d`）。
 
+### 4.7 交易引擎买前因子
+- **净流入因子**（2026-09-27，C13 共合对倒案）：`earlyTradesNetBuyRatio` =
+  (Σ买BNB − Σ卖BNB)/Σ买BNB × 100，earlyTradesWindow 90s 窗口创建锚定口径
+  （age>90s / launchAt 缺失 → 通过值 100 + covered=0 fail-open）；伴生因子
+  `earlyTradesNetBuyCovered` 标记口径覆盖。策略用法：preBuyCheckCondition 加
+  `earlyTradesNetBuyRatio >= 40`（校准：对倒盘 fire 全 ≤39.8 拦、赢家全 ≥58.6 放；
+  极早 fire <15s 无信息由 holders 门补位）。四方向证伪（集中度/双向钱包占比/
+  creator 发币史/克隆数）见 C13
+
 ---
 
 ## 五、策略侧应用（回测 E1→E2→E3→E4，源 572033ad）
@@ -805,3 +863,11 @@ symbol 同名 name 跨语义盘会被拦）
    即证据）。实时实验无买入风险（全过观察窗），回测会吃到——回测前按 E5e2 流程
    ignoreCache 批量刷新（嫦娥等正例预期保持 high）；彻底解法（题面版本变化时的
    缓存失效机制）仍是 CLAUDE.md 已记录的 planned-not-built
+18. **净流入因子阈值与应用面**（2026-09-27 C13 落地遗留）：校准阈值 40 已实现待确认
+   ——共合R2 39.77 距阈值仅 0.23（fire 实时查询可能因 watcher flush 延迟少几笔卖腿
+   行而更高），抬到 50 无新误杀证据（放侧最低 86.14）；是否写入 0336befc 等实验
+   preBuyCheckCondition、运行中进程（v2-53c9737c 等）是否重启加载新因子，待用户裁定
+19. **E 类 name_referent 阻断 scope**（2026-09-27 C13 附带发现）：共合 E 类 common_word
+   0.93 但 E 不在 NAME_REFERENT_BLOCK_SCOPE（现 B/C/D/F/G+W）→ S 档事件分喂饱 81.7
+   过线 high 放行。扩 E 有误伤风险（Zen Monkey E 类 +68%），需全量重放验证误伤面，
+   待用户裁定
