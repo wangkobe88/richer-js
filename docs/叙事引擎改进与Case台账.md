@@ -32,6 +32,57 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C12 绣春刀3 0xa7c9 —— 常规电影骑乘豁免误放 → J1.13 routine_content_product（2026-09-27）★
+
+**现象**：0xa7c9c86e2d3b6cb7de698d8067635ebd8e627777（symbol/name=绣春刀3，flap，
+09-26 11:55:23 铸，creator 0xc1cb…70c3 第三方）语料源 BTCdayu 推「绣春刀3电影即将推出」
+→ 16s 后 0336befc 与 377cc0a6 双双 narrativeCall 直调，0336befc 2.1s 评 **high 75.31**
+（`jev(J1.10/B类)`）→ BUY 信号（无成交）。用户裁定「**显然不能用这种常规电影作为
+meme币**，当然『牛来』（0xbeea…7777，crypto 原生梗）可以」；二次裁定收口「**即使
+推出了，也不能作为meme币的**」——官宣与否无关，类型层面排除。
+
+**评级事实链**（J1.10 标准路径，三道门全没拦）：
+- event_category **B 0.46**（电影=非 Web3 产品发布）/ C 0.41；magnitudeTier B 档 →
+  事件分 27 + 传播 23.95 + 时效 15 = **65.95>60** 过线
+- name_referent **super_ip 0.66** → C8 豁免区（骑乘门 sip≥0.5 不改道；阻断侧合计
+  0.30 不拦）——Jev 把华语电影系列按「国民级 IP」语义判了超级 IP
+
+**根因（评分内部自相矛盾 + 豁免第三空洞）**：同 run 量级题 S 档概率仅 **0.01**
+（magnitudeTier=B「知名中小 IP」），name_referent 却 super_ip 0.66——两题矛盾，
+量级题明说不是世界级、名字题给了豁免。C8 豁免先例（天才=名人原话梗/嫦娥=世界级
+航天+神话）都有梗/事件维度；**常规商业电影续作宣传是娱乐产品新闻：观众是消费者
+不是玩梗社区，无二创动力、无 meme 玩味空间**——蹭其命名只是消费上映热度（与
+C9「热度≠该放」同构：产品知名度≠该放）。J1.12 双前提对本案**双满足拦不住**
+（原名忠实呈现 + 电影已官宣），实证靠 notable_other 0.53 贴线拦（非类型确定）。
+
+**修复（J1.13，block_reason 新增第 12 选项 `routine_content_product`）**：
+常规内容产品宣传——电影/剧集/综艺/动漫/小说/游戏等常规内容型产品的发布/上映/
+定档/预告/官宣消息，**即便已官宣已上映、即便系列国民级知名也不构成叙事事件**。
+边界收窄（防误伤）：内容本身已是全民玩梗对象（名场面梗/大规模二创）不选（按
+E 类热点评估）；跨世代文化符号/神话/历史人物/公共事件（孔子/嫦娥/探月）不是
+产品宣传不选；Web3 产品不适用；世界级颠覆性实体产品/平台发布不选。mapper 双挂
+（与 negative_hard_news 同构）：BLOCK_SCOPE `'all'`（argmax 全域）+ 概率 ≥0.5
+质量门 `routineContentProductBlock`（标准 + superIP 双路径），mass 透出
+`routineContentProductMass`。
+
+**验证**：① **绣春刀3 ignoreCache 重析**：`routine_content_product 0.95`（argmax，
+none 仅 0.02）→ 阻断「常规内容产品宣传」**low**，落库 `jev(J1.13/B类)`——类型
+确定性拦截；② **天才**（CZ 原话梗）：super_ip 0.76、rcp=0 → 仍 **high 80.12**
+零误伤；③ **嫦娥 0x47da**（E5 大腿票）：rcp=0 → 仍 **high 72.63** 零误伤；
+④ **全量重放 289 行**（旧行 answers + 新 mapper）：翻转恰 4 行=捕日者已知脏缓存
+（§六-11），rcpP 全 0——**零新增翻转**（数学预期一致：旧 answers 无该选项概率）；
+⑤ 校准集 28 样本 The Half Second（B 类内容产品）被 rcp 正常拦截（mid→low）。
+
+**部署**：182 scp + narrative engine / v2-53c9737c / v2-dfc7a623 重启（09-27 10:38
+加载 J1.13）；377cc0a6 回测进程已停不在运行，无重启项。
+
+**附带发现**：①「牛来」0xbeea1d61 完全未进系统（无 wss_events/ticks/监控池）——
+watcher 断供窗口漏采嫌疑，是否排查待裁定；② ≤J1.12 旧版本「豁免/骑乘区 + high +
+is_valid」脏缓存共 **21 行**（crypto guy J1.11 sip 0.81 / 子曰 0.58 / 孔子AI 0.76 /
+熊猫外交 0.7 / 捕日者×4 / 嫦娥×3（正例，重析应保持）/ BOT 0.53 等）——离线重放
+发现不了（旧 answers 是旧题面产物，本案即证据），实时实验无买入风险（全过观察窗），
+**回测前需按 E5e2 流程 ignoreCache 批量刷新**（刷新时嫦娥等正例预期保持 high）。
+
 ### C11 哦 0xbefe —— OpenAI 传闻名变体抢注 → J1.12 super_ip 双前提（2026-09-27）★
 
 **现象**：0xbefe2b70020089f6d7f311c0ddb80fc074107777（**name="o"、symbol="哦"**，第三方
@@ -483,7 +534,8 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.9 | 09-23 | block_reason 加 word_extraction + subject_unqualified 扩 scope——**已废弃**（Jev 无法单选项覆盖双结构） | CONVICTION/OneKey | `ce040b6` |
 | J1.10 | 09-23 | name_referent 独立题（6 选项）+ 阻断侧合计概率 ≥0.5；标准+superIP 双路径 | CONVICTION/OneKey/YAYA/天才 | `89e31ba` |
 | J1.11 | 09-26 | block_reason 加 negative_hard_news（第 11 选项，边界收窄到安全事故/被盗/暴雷/巨额损失/灾难）；mapper 双挂 BLOCK_SCOPE 'all' + 概率 ≥0.5 质量门（negativeHardNewsBlock，标准+superIP 双路径）；重放 240 行零翻转 | bitget被盗 C9 | 本 commit |
-| J1.12 | 09-27 | name_referent super_ip 加双前提（①忠实呈现：原名直接出现/官方通用标准译名，音译/形近/跨书写系统变体不算；②已官宣存在：传闻/泄露/内部曝光/未官宣计划名不算），不满足判 notable_other（承接语义入该 criteria）；mapper 零改动；重放 289 行零新增翻转 | 哦 0xbefe2b70 C11 | 本 commit |
+| J1.12 | 09-27 | name_referent super_ip 加双前提（①忠实呈现：原名直接出现/官方通用标准译名，音译/形近/跨书写系统变体不算；②已官宣存在：传闻/泄露/内部曝光/未官宣计划名不算），不满足判 notable_other（承接语义入该 criteria）；mapper 零改动；重放 289 行零新增翻转 | 哦 0xbefe2b70 C11 | 5668e4c |
+| J1.13 | 09-27 | block_reason 加 routine_content_product（第 12 选项：常规内容产品宣传——电影/剧集/综艺/动漫/小说/游戏发布上映预告，官宣与否无关均拦；边界：全民玩梗对象/文化符号/公共事件/世界级实体产品不选）；mapper 双挂 BLOCK_SCOPE 'all' + 概率 ≥0.5 质量门（routineContentProductBlock，标准+superIP 双路径）；重放 289 行零新增翻转 | 绣春刀3 0xa7c9c86e C12 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。
@@ -558,6 +610,13 @@ P0-P1 客户端+问题集+state+映射（`9b76a1b`）→ P2 主路径+superIP（
   未官宣传闻名不算），不满足判 notable_other 走阻断 scope——变体蹭名盘（"o"→
   「哦」抢注 OpenAI 传闻名）掉出「超大超火被骑可放」豁免被拦；忠实用名（天才）
   零误伤，mapper 零改动
+- 常规内容产品宣传拦截（2026-09-27，C12 绣春刀3案，J1.13）：block_reason 新增
+  routine_content_product——电影/剧集等内容型产品宣传无 meme 玩味空间（观众是
+  消费者非玩梗社区），官宣与否无关均拦（产品知名度≠该放，C9 同构）；super_ip
+  0.66 命中 C8 豁免的骑乘电影名盘（65.95 high）被类型确定性拦截（rcp 0.95 argmax）；
+  梗/文化符号/公共事件不误伤（天才 0.76 保持 high、嫦娥 rcp=0 保持 high）；
+  mapper 与 negative_hard_news 同构双挂（BLOCK_SCOPE 'all' + ≥0.5 质量门，标准
+  +superIP 双路径）
 
 ### 4.5 代码侧 pre-check 规则族（无 LLM，与 LLM 分工的"市场事实"侧）
 | 规则 | 判定 | 局限 |
@@ -737,3 +796,12 @@ symbol 同名 name 跨语义盘会被拦）
 15. **377cc0a6 回测题面版本混杂**（2026-09-27 J1.12 部署遗留）：回测进程 08:33 启动加载
    J1.11，J1.12 部署时未重启（避免中断回放）——直调命中缓存受 J1.12 新行影响、
    miss 的 token 首析仍 J1.11。中断重跑 vs 跑完接受混杂，待用户裁定
+16. **「牛来」0xbeea1d61 完全未进系统**（2026-09-27 C12 附带发现）：用户举例的正例
+   （crypto 原生梗盘），无 wss_events / wss_price_ticks（0 行）/ 监控池行——watcher
+   断供窗口漏采 token_create 嫌疑。是否排查 09-26 前后心跳连续性待裁定
+17. **≤J1.12 豁免/骑乘区脏 high 缓存 21 行**（2026-09-27 C12 排查）：旧题面 answers 下
+   评的 high 行（crypto guy sip 0.81 / 子曰 0.58 / 孔子AI 0.76 / 熊猫外交 0.7 / 捕日者×4 /
+   嫦娥×3（正例）/ BOT 0.53 等），离线重放发现不了（题面改动改变 Jev 答案本身，本案
+   即证据）。实时实验无买入风险（全过观察窗），回测会吃到——回测前按 E5e2 流程
+   ignoreCache 批量刷新（嫦娥等正例预期保持 high）；彻底解法（题面版本变化时的
+   缓存失效机制）仍是 CLAUDE.md 已记录的 planned-not-built

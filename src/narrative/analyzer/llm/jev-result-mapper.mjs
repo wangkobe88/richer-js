@@ -76,6 +76,7 @@ const BLOCK_LABELS = {
   ip_reuse: 'IP二次利用',
   regional_event: '地区性事件',
   negative_hard_news: '负面硬新闻事件',
+  routine_content_product: '常规内容产品宣传',
 };
 
 /**
@@ -141,6 +142,12 @@ const BLOCK_SCOPE = {
   // 80.32 high 放行后 -55%）。质量门 negativeHardNewsBlock 同步双挂（argmax 五五开
   // 抖动时概率门兜底），二者任一命中即拦
   negative_hard_news: 'all',
+  // J1.13（2026-09-27 用户裁定，C12 绣春刀3案）：常规内容型产品（电影/剧集/综艺/
+  // 动漫/小说/游戏）的发布/上映/预告宣传无 meme 价值，全域拦截——产品知名度≠该放
+  // （绣春刀3 super_ip 0.66 命中 C8 豁免 → 65.95 high 放行。裁定「即使推出了，也
+  // 不能作为meme币」：官宣与否无关）。质量门 routineContentProductBlock 同步双挂，
+  // 二者任一命中即拦
+  routine_content_product: 'all',
 };
 
 /**
@@ -183,6 +190,23 @@ function negativeHardNewsBlock(answers) {
   const p = answers?.block_reason?.probabilities?.negative_hard_news ?? 0;
   if (p < 0.5) return null;
   return { label: BLOCK_LABELS.negative_hard_news, mass: Math.round(p * 100) / 100 };
+}
+
+/**
+ * 常规内容产品宣传质量门（J1.13，2026-09-27 用户裁定，C12 绣春刀3案 0xa7c9c86e：
+ * BTCdayu 推「绣春刀3电影即将推出」，第三方骑乘电影系列名发币，name_referent
+ * super_ip 0.66 命中 C8 豁免 → B 类 65.95 high 放行。裁定「即使推出了，也不能
+ * 作为meme币」——常规电影等内容型产品宣传与官宣与否无关：观众是消费者不是玩梗
+ * 社区，无二创动力、无 meme 玩味空间，蹭其命名只是消费上映热度，产品知名度
+ * 再高也不该放（与 negative_hard_news 同构：热度/知名度≠叙事价值））。
+ *
+ * 与 argmax 机制（BLOCK_SCOPE 'all'）双挂，语义同 negativeHardNewsBlock：
+ * 本门按概率 ≥0.5 独立拦边界抖动，二者任一命中即拦，全域、标准 + superIP 双路径。
+ */
+function routineContentProductBlock(answers) {
+  const p = answers?.block_reason?.probabilities?.routine_content_product ?? 0;
+  if (p < 0.5) return null;
+  return { label: BLOCK_LABELS.routine_content_product, mass: Math.round(p * 100) / 100 };
 }
 
 /**
@@ -385,6 +409,7 @@ export function mapStandardAnswers(answers, context) {
   let stage2BlockReason = null;
   let nrBlock = null; // name_referent 阻断信息 {label, mass}（reason 展示用）
   let nhnBlock = null; // negative_hard_news 质量门信息 {label, mass}（J1.11）
+  let rcpBlock = null; // routine_content_product 质量门信息 {label, mass}（J1.13）
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
@@ -395,9 +420,13 @@ export function mapStandardAnswers(answers, context) {
   // J1.11 负面硬新闻质量门挂最前（事件性质层面的否决，优先于其他阻断展示）；
   // argmax 命中时下方 BLOCK_SCOPE 'all' 也能拦，此处覆盖概率过半但 argmax/noneProb
   // 边界抖动的情况（nameReferentBlock 同思路：合并质量对抗五五开抖动）
+  // J1.13 常规内容产品宣传质量门同位双挂（C12 绣春刀3案，事件性质层面否决）
   if ((nhnBlock = negativeHardNewsBlock(answers))) {
     stage2Blocked = true;
     stage2BlockReason = nhnBlock.label;
+  } else if ((rcpBlock = routineContentProductBlock(answers))) {
+    stage2Blocked = true;
+    stage2BlockReason = rcpBlock.label;
   } else if (blockChoice !== 'none' && noneProb < 0.5 && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
@@ -455,6 +484,7 @@ export function mapStandardAnswers(answers, context) {
         nameReferentProbability: nameReferentProb,
         nameReferentBlockMass: nrBlock?.mass ?? null,
         negativeHardNewsMass: nhnBlock?.mass ?? null,
+        routineContentProductMass: rcpBlock?.mass ?? null,
         timing,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,
@@ -627,7 +657,12 @@ export function mapSuperIPAnswers(answers, context) {
   // 超级 IP 的被盗/事故公告同样无 meme 空间，蹭名盘照样拦）
   const nhnBlock = negativeHardNewsBlock(answers);
   const blockedByNegativeNews = !!nhnBlock;
-  const blocked = blockedByBlockReason || blockedByNameReferent || blockedByNegativeNews;
+  // J1.13 常规内容产品宣传质量门（全域，与标准路径同门；superIP 通道无豁免——
+  // 注册表账号推自己参与的常规电影/剧集宣传，蹭名盘同样拦）
+  const rcpBlock = routineContentProductBlock(answers);
+  const blockedByRoutineContent = !!rcpBlock;
+  const blocked = blockedByBlockReason || blockedByNameReferent || blockedByNegativeNews
+    || blockedByRoutineContent;
 
   const prestageDataToSave = {
     category: 'super_ip_fast',
@@ -638,7 +673,8 @@ export function mapSuperIPAnswers(answers, context) {
       pass: !blocked,
       blockReason: blocked
         ? (blockedByNegativeNews ? nhnBlock.label
-          : (blockedByBlockReason ? (BLOCK_LABELS[blockChoice] || blockChoice) : nrBlock.label))
+          : (blockedByRoutineContent ? rcpBlock.label
+            : (blockedByBlockReason ? (BLOCK_LABELS[blockChoice] || blockChoice) : nrBlock.label)))
         : null,
       dimension2Score: dim2,
       ipInfo: superIPInfo,
@@ -652,6 +688,7 @@ export function mapSuperIPAnswers(answers, context) {
         nameReferentProbability: nameReferentProb,
         nameReferentBlockMass: nrBlock?.mass ?? null,
         negativeHardNewsMass: nhnBlock?.mass ?? null,
+        routineContentProductMass: rcpBlock?.mass ?? null,
         probabilities: {
           dimension2: answers.dimension2?.probabilities,
           block_reason: answers.block_reason?.probabilities,
@@ -673,6 +710,13 @@ export function mapSuperIPAnswers(answers, context) {
       ? {
           rating: 'low',
           reason: `阻断:${nhnBlock.label}｜P=${nhnBlock.mass}`,
+          score: null,
+          pass: false,
+        }
+      : blockedByRoutineContent
+      ? {
+          rating: 'low',
+          reason: `阻断:${rcpBlock.label}｜P=${rcpBlock.mass}`,
           score: null,
           pass: false,
         }
