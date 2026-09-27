@@ -32,6 +32,63 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C17 GMGN dev 风险因子 —— 全链路落地 + 校准否决拦截门（2026-09-27）★
+
+**背景（C15 x-0 案续）**：x-0 0xa5fd 批量发币人伪装新项目（131 粉卡进 prestage project
+mid 带）骗过叙事门 -68.8%。GMGN 实查（用户怀疑证实）：链上 creator 是 flap 工厂
+0x90497450（每次发币换新 EOA，链上 creator 发币史恒 1 绕过检测）、真实 EOA
+0x6bb9 从币安热钱包提币 398s 后发币（一次性钱包）、handle 回收史
+（x0money→0x7298…7777→lvchoppaz）、GMGN 推特维度 twitter_create_token_count=16、
+holder 侧 76% bundler。用户裁定加双因子 + 架构方向：GMGN 调用收进叙事 analyze
+链路（enrichSocialByGmgn 直调语境承载「其他条件满足才触发」配额语义）。
+
+**落地（11 文件，2026-09-27）**：
+- **采集**：`gmgn-social-fetcher.mjs` 加 `extractGmgnRisk`——同次 getTokenInfo 带出
+  dev/wallet_tags_stat 九字段（issuerTokenCount/creatorAddress/creatorTokenStatus/
+  fundFrom/bundler/sniper/fresh/top/imageDup），零额外配额；「无社媒→null 冷却 1h」
+  改为「成功即缓存全量 1d」
+- **数据层**：data-fetch 直调语境**总是调** GMGN（risk 全覆盖；社媒并入仍以无
+  twitter 链接为前提，C10 行为零变化）；risk 透出含 0-URL 早退的全部 return
+- **缓存**：token_narrative 新列 `gmgn_info` jsonb（**部署顺序红线：列必须先于
+  进程重启**——save record 常挂该字段，列缺失全链路 upsert PGRST204）；缓存命中
+  但行内无字段 → 补调+updateGmgnInfo 回写（不重析 Jev，比 no_public_info 穿透轻）
+- **因子链**：`mapGmgnRiskFactors`（NarrativeDirectCaller 导出，双引擎共用）→
+  `gmgnIssuerTokenCount`/`gmgnBundlerWalletRatio`（bundler/top×100 保留 1 位）/
+  `gmgnRiskCovered`（0=未查放行，宁漏拦不误杀）→ PBS 七处接线 + FACTOR_METADATA
+  + FactorBuilder；本地+182 单测 13/13（`scripts/_test_gmgn_risk_factors.cjs`）
+- **配额模型**：付费调用只发生在 narrativeCallCondition 满足（买门已 fire）的
+  直调；结果随叙事行代币级全局缓存——后续轮次/其他实验/web 免费复用
+- **部署**：DDL（用户 dashboard）→ 182 scp 11 文件 → 三进程重启（engine 1130520 /
+  v2-53c9737c 1130732 / v2-dfc7a623 1130736，水位对齐正常）
+
+**校准（25 样本 = C16 样本集 + x-0 + 赢家扩充，182 付费调 25 次并全部入缓存）——
+否决拦截门**：
+
+| 组 | issuerTokenCount | bundler/top % |
+|---|---|---|
+| 作弊票×2 | 5、4 | 90.9、76.9 |
+| x-0 | 16 | 76.1 |
+| 输家×6 | 0,0,**26**,0,0,0 | 54.3,**84**,12.5,56.3,41.2,0 |
+| 赢家×12 | **5446,2400,2014,20,16,6**,0×6 | 5.1,**126.7**,0,0,26.1,26.9,8.8,13.3,2.5,0,**598.7**,20.9 |
+
+两个因子都无区分度，根因是**语义混淆**：
+1. **issuer 混「自发小号」与「被引用大 V」**：twitter_create_token_count 是推特
+   维度归因——挂该推特链接的 token 总数。SpaceXAI 2014/人生好物 5446/BNBMART
+   2400 是蹭名盘挂大 V 推特（引用计数），x-0 16 是自己小号自发（真发币史），
+   两者在同一字段里不可分。设高阈拦 1000+ 会拦掉三个大赢家；小值带 [4,26] 里
+   混着 osbook(20,+333%)/BRX1600(16,+385.9%)/龙布布(6) 赢家与 x-0(16)/作弊票
+   (4,5) 输家——**双向误伤，无可用阈值**
+2. **ratio 量纲不稳**：bundler 与 top 标签独立计数有重叠，和平熊猫 126.7%、
+   osbook 598.7% 超 100% 常见；赢家 osbook(598.7) 比作弊票(90.9) 还高
+3. x-0 案的拦截已由 C13 净流入门（18.6%<40）+ C16 簇因子（17 钱包等额簇）
+  覆盖——GMGN 门的增量假设（「其他门漏掉的 serial issuer」）不成立
+
+**处置（落地保留，门不写入）**：三因子已进 preBuyCheckCondition context（策略
+随时可引用）；gmgn_info 落库保留——人工核查/web 展示价值已验证（x-0 案调查
+即靠它）；更好的判据（如按叙事路径拆分 issuer 语义：prestage project 盘的
+issuer 才是自发语义）出现后再启用门。作弊票基金From 通道注意：osbook 同样
+是 Binance 热钱包引流（fundFrom 维度亦无区分度）。
+
 ### C16 双作弊票 0x0e27/0xd8e8 —— 同额度批量钱包伪造全绿画像 → 簇因子拦截（2026-09-27）★
 
 **现象**：用户报两张「作弊票」——0x0e27088c6e832fbb6a5b11eac89506883bee7777 与
@@ -862,6 +919,13 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
   因子的高值放行方向相反）。策略用法：`earlyTradesUniformBuyWallets < 10 OR
   earlyTradesUniformBuyClusterRatio < 50`（校准：两票 83.3%/71.4% 拦、赢家全
   ≤28.6% 放；手法还原与 0x168303a9 黑名单否决见 C16）
+- **GMGN 风险因子**（2026-09-27，C17 x-0 案）：`gmgnIssuerTokenCount` /
+  `gmgnBundlerWalletRatio`（bundler/top×100）/ `gmgnRiskCovered`（0=未查放行）。
+  源头是叙事直调语境（enrichSocialByGmgn）同次 getTokenInfo 带出的 dev 风险字段，
+  随 token_narrative.gmgn_info 代币级全局缓存。**已全链接线、未写拦截门**——25 样本
+  校准否决（issuer 混淆"自发小号"与"被引用大V"两种语义、ratio>100% 量纲不稳，
+  双向误伤无可用阈值，见 C17 校准段）；x-0 型盘已由净流入+簇因子门覆盖。
+  未来判据出现（如按叙事路径拆分 issuer 语义）可随时在 preBuyCheckCondition 启用
 
 ---
 
@@ -1045,3 +1109,9 @@ symbol 同名 name 跨语义盘会被拦）
 20. ~~**同额度簇因子阈值与应用面**~~（**已解决**，2026-09-27 与 §六-18 净流入门
     同门写入运行中实验 53c9737c / dfc7a623 并重启加载——两因子互补组合上线，
     阈值维持 wallets≥10 AND ratio≥50 保守值，详见 C16「上线」段）
+21. **GMGN 风险因子拦截门启用**（2026-09-27 C17）：全链路已落地（采集/落库/三因子
+    进 preBuyCheckCondition context），25 样本校准否决现行阈值方案——issuerTokenCount
+    语义混淆（自发小号 vs 蹭名盘引用大V）、bundler ratio 量纲不稳（标签重叠 >100%），
+    双向误伤无可用阈值。**建议不写门**（x-0 已被 C13/C16 门覆盖），保留 gmgn_info
+    落库与 context 因子待更好判据（如按叙事路径拆分 issuer 语义：prestage project
+    盘的 issuer 才是自发语义）。待用户裁定

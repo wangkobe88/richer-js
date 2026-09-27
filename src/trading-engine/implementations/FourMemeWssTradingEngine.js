@@ -211,7 +211,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
 
     // 1.5 叙事评级直调（策略 narrativeCallCondition 触发时同步调 NarrativeAnalyzer.analyze，Jev 秒级）
-    const { NarrativeDirectCaller } = require('../pre-check/NarrativeDirectCaller');
+    const { NarrativeDirectCaller, mapGmgnRiskFactors } = require('../pre-check/NarrativeDirectCaller');
     this._narrativeCaller = new NarrativeDirectCaller();
 
     // 1.5.1 同叙事龙头已火检查（narrativeLeaderHot 因子：直调拿到 sourceTweetId 后查
@@ -922,6 +922,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               narrativeLeaderHot: narrativeLeaderInfo?.factors?.narrativeLeaderHot ?? 0, // 同叙事龙头链路；无 tweet/失败=0 放行
               narrativeLeaderCount: narrativeLeaderInfo?.factors?.narrativeLeaderCount ?? 0,
               narrativeLeaderMaxMultiple: narrativeLeaderInfo?.factors?.narrativeLeaderMaxMultiple ?? 0,
+              // GMGN 风险因子（x-0 案）：直调链路同次 getTokenInfo 带出发币史/捆绑钱包；
+              // 未触发/失败/未索引 → covered=0 + 0 值放行（宁漏拦不误杀）
+              ...mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk),
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply: totalSupply,

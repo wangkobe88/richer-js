@@ -17,6 +17,7 @@ import { cleanDataForDB } from './utils/data-cleaner.mjs';
 import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
 import { performPreCheck } from './services/pre-check-service.mjs';
 import { fetchAllDataViaClassifier } from './services/data-fetch-service.mjs';
+import { fetchGmgnSocialLinks } from '../utils/gmgn-social-fetcher.mjs';
 import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
 import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken } from './services/account-analysis-service.mjs';
 import { detectSuperIP, calculatePreScores } from './prompts/super-ip/super-ip-registry.mjs';
@@ -161,12 +162,37 @@ export class NarrativeAnalyzer {
     // 直调穿透重析（带补源），新结果 upsert 覆盖旧行；其他行（Jev 评过/其他规则拦）照常复用
     const isNoPublicInfoBlock = cached?.pre_check_result?.details?.ruleName === 'no_public_info';
     if (cached && cached.is_valid && !ignoreCache && !(enrichSocialByGmgn && isNoPublicInfoBlock)) {
+      // x-0 案（2026-09-27）：直调语境下行内无 GMGN 风险字段（engine 队列先写的行 /
+      // 存量旧行）→ 补调 GMGN（1d 缓存兜底）并 updateGmgnInfo 回写，不重析 Jev——
+      // 与 no_public_info 穿透重析同构但更轻（只补数据不重判定）。GMGN 拿不到 /
+      // 失败 → risk null 放行（gmgnRiskCovered=0，宁漏拦不误杀）
+      let gmgnRisk = cached.gmgn_info?.risk ?? null;
+      if (enrichSocialByGmgn && !cached.gmgn_info) {
+        try {
+          const socials = await fetchGmgnSocialLinks('bsc', normalizedAddress);
+          gmgnRisk = socials?.risk ?? null;
+          if (gmgnRisk) {
+            await NarrativeRepository.updateGmgnInfo(normalizedAddress, {
+              risk: gmgnRisk,
+              fetchedAt: new Date().toISOString()
+            });
+            logger.info('NarrativeAnalyzer', '缓存行补写 GMGN 风险字段', {
+              address: normalizedAddress,
+              issuerTokenCount: gmgnRisk.issuerTokenCount,
+              bundler: gmgnRisk.bundlerWallets
+            });
+          }
+        } catch (e) {
+          console.warn(`[NarrativeAnalyzer] GMGN 风险补调失败（risk=null 放行）: ${e.message}`);
+        }
+      }
       // 检查是否是预检查触发的结果
       const isCachedPreCheck = !!cached.pre_check_result;
       const llmAnalysis = buildLLMAnalysis(cached);
       return {
         ...formatResult(cached),
         llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段
+        gmgnRisk,
         classifiedUrls: cached.classified_urls || null,
         twitter: await ExternalResourceCache.reassembleTwitterInfo(cached.classified_urls?.twitter),
         fetchErrors: null,
@@ -223,7 +249,8 @@ export class NarrativeAnalyzer {
       fetchErrors,  // 获取数据收集的错误信息
       url_extraction_result,  // URL提取结果
       data_fetch_results,  // 数据获取结果
-      binanceSquareInfo
+      binanceSquareInfo,
+      gmgnRisk  // GMGN dev 风险字段（x-0 案：发币史/捆绑钱包，直调语境才有值）
     } = await fetchAllDataViaClassifier(tokenData, extractedInfo, { enrichSocialByGmgn });
 
     // 保存URL提取和数据获取结果
@@ -583,6 +610,8 @@ export class NarrativeAnalyzer {
       console.log(`分析失败，使用已有缓存作为fallback | address=${normalizedAddress}`);
       return {
         ...formatResult(cached),
+        // GMGN 风险字段：本次已拿到优先（fetchAllDataViaClassifier 成功过），否则读行内
+        gmgnRisk: gmgnRisk ?? cached.gmgn_info?.risk ?? null,
         classifiedUrls: cached.classified_urls || null,
         twitter: await ExternalResourceCache.reassembleTwitterInfo(cached.classified_urls?.twitter),
         fetchErrors: null,
@@ -657,7 +686,11 @@ export class NarrativeAnalyzer {
 
       // === Debug字段 ===
       url_extraction_result: urlExtractionResult || null,
-      data_fetch_results: dataFetchResults || null
+      data_fetch_results: dataFetchResults || null,
+
+      // === GMGN 风险字段（x-0 案）===：直调语境拿到才写（repository 侧 ?? existing
+      // 保旧行——重析时 GMGN 失败不清掉已积累的风险数据）
+      gmgn_info: gmgnRisk ? { risk: gmgnRisk, fetchedAt: new Date().toISOString() } : undefined
     });
 
     // 构造 llmAnalysis 对象供前端使用（扁平格式，与缓存路径 buildLLMAnalysis 一致）
@@ -680,6 +713,7 @@ export class NarrativeAnalyzer {
     return {
       ...formatResult(saveResult),
       llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段供前端使用
+      gmgnRisk,  // GMGN dev 风险字段（直调语境透传给 NarrativeDirectCaller）
       twitter: twitterInfo,  // 添加 twitter 字段供前端使用
       backgroundInfo: backgroundInfo, // 返回背景信息供调试使用
       classifiedUrls: classifiedUrls, // 返回分类后的URL供前端展示

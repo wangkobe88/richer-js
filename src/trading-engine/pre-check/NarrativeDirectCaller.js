@@ -91,10 +91,13 @@ class NarrativeDirectCaller {
    * @param {string} tokenAddress - 代币地址
    * @returns {Promise<{numericRating: number, rating: string, reason: string|null,
    *   fromCache: boolean, durationMs: number, timedOut: boolean, error: string|null,
-   *   sourceTweetId: string|null}>}
+   *   sourceTweetId: string|null, gmgnRisk: Object|null}>}
    *   numericRating ∈ {1=低, 2=中, 3=高, 9=未评级(未触发/失败/超时/null 归一)}
    *   sourceTweetId：analyze 三条返回路径顶层均带 classifiedUrls，从 twitter 桶提取；
    *   超时/异常/无推文语料 → null（下游同叙事龙头检查因子按 0 放行）
+   *   gmgnRisk：GMGN dev 风险字段（x-0 案——直调语境 analyze 内同次 getTokenInfo
+   *   带出发币史/捆绑钱包统计；超时/异常/未索引 → null，下游 gmgnRiskCovered=0
+   *   放行——宁漏拦不误杀）
    */
   async getRating(tokenAddress) {
     const startedAt = Date.now();
@@ -120,6 +123,7 @@ class NarrativeDirectCaller {
         timedOut: false,
         error: null,
         sourceTweetId: this._extractSourceTweetId(result?.classifiedUrls),
+        gmgnRisk: result?.gmgnRisk ?? null,
       };
     } catch (error) {
       return {
@@ -131,9 +135,33 @@ class NarrativeDirectCaller {
         timedOut: error?.code === TIMEOUT_CODE,
         error: error?.message || String(error),
         sourceTweetId: null,
+        gmgnRisk: null,
       };
     }
   }
 }
 
-module.exports = { NarrativeDirectCaller };
+/**
+ * GMGN 风险字段 → preBuyCheckCondition 因子（x-0 案，2026-09-27）
+ * 交易引擎/回测两路径共用映射，单点维护：
+ * - gmgnIssuerTokenCount：推特维度发币总数（serial issuer 核心信号——链上 EOA 每
+ *   次换新绕过链上 creator 检测，推特归因暴露真实发币史；null→0）
+ * - gmgnBundlerWalletRatio：捆绑钱包占比 = bundler_wallets/top_wallets ×100，
+ *   保留 1 位小数（x-0：35/46=76.1%；分母不可得→0）
+ * - gmgnRiskCovered：1=GMGN 查到（上两因子可信），0=未触发/失败/未索引——
+ *   放行值语义（宁漏拦不误杀，与净流入因子 covered 同方向）
+ * @param {Object|null} risk - analyze 返回的 gmgnRisk（null=未查到）
+ * @returns {{gmgnIssuerTokenCount: number, gmgnBundlerWalletRatio: number, gmgnRiskCovered: number}}
+ */
+function mapGmgnRiskFactors(risk) {
+  return {
+    gmgnIssuerTokenCount: typeof risk?.issuerTokenCount === 'number' ? risk.issuerTokenCount : 0,
+    gmgnBundlerWalletRatio: (risk && typeof risk.bundlerWallets === 'number'
+      && typeof risk.topWallets === 'number' && risk.topWallets > 0)
+      ? Math.round(risk.bundlerWallets / risk.topWallets * 1000) / 10
+      : 0,
+    gmgnRiskCovered: risk ? 1 : 0,
+  };
+}
+
+module.exports = { NarrativeDirectCaller, mapGmgnRiskFactors };

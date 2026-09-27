@@ -344,6 +344,19 @@ const FACTOR_METADATA = {
     unit: '',
     severity: 'warning'
   },
+  // GMGN 风险因子（x-0 案：直调语境同次 getTokenInfo 带出；covered=0=未查放行）
+  gmgnIssuerTokenCount: {
+    name: 'GMGN发币账号历史币数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'critical'
+  },
+  gmgnBundlerWalletRatio: {
+    name: 'GMGN捆绑钱包占比',
+    format: v => v.toFixed(1) + '%',
+    unit: '',
+    severity: 'critical'
+  },
   // 严格同名代币因子（AVE 检索；strictSameNameMaxFDV = 严格同名（排除自己）且
   // 过滤 AVE 虚假数据后的最大 FDV，用于"同名老币已存在且市值不低"拒买门）
   strictSameNameMaxFDV: {
@@ -456,7 +469,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId, earlyTradesCacheCallback } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId, earlyTradesCacheCallback, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -559,6 +572,10 @@ class PreBuyCheckService {
           narrativeLeaderMaxMultiple: narrativeLeaderMaxMultiple,
           tweetAuthorType: tweetAuthorType,
           dataCollectionRound: dataCollectionRound,
+          // GMGN 风险因子（x-0 案，引擎侧 mapGmgnRiskFactors 算好透传）
+          gmgnIssuerTokenCount: gmgnIssuerTokenCount,
+          gmgnBundlerWalletRatio: gmgnBundlerWalletRatio,
+          gmgnRiskCovered: gmgnRiskCovered,
         }
       );
     } catch (error) {
@@ -605,6 +622,10 @@ class PreBuyCheckService {
         narrativeLeaderHot: options.narrativeLeaderHot ?? 0,
         narrativeLeaderCount: options.narrativeLeaderCount ?? 0,
         narrativeLeaderMaxMultiple: options.narrativeLeaderMaxMultiple ?? 0,
+        // GMGN 风险因子（默认 0 放行——未触发/失败/未索引，fail-open 与龙头门同方向）
+        gmgnIssuerTokenCount: options.gmgnIssuerTokenCount ?? 0,
+        gmgnBundlerWalletRatio: options.gmgnBundlerWalletRatio ?? 0,
+        gmgnRiskCovered: options.gmgnRiskCovered ?? 0,
         // 推文作者类型因子
         tweetAuthorType: options.tweetAuthorType ?? 0,
         // 数据采集轮数因子
@@ -683,6 +704,10 @@ class PreBuyCheckService {
       narrativeLeaderHot: extraContext.narrativeLeaderHot ?? 0,
       narrativeLeaderCount: extraContext.narrativeLeaderCount ?? 0,
       narrativeLeaderMaxMultiple: extraContext.narrativeLeaderMaxMultiple ?? 0,
+      // GMGN 风险因子（引擎侧 mapGmgnRiskFactors 透传；默认 0 放行 fail-open）
+      gmgnIssuerTokenCount: extraContext.gmgnIssuerTokenCount ?? 0,
+      gmgnBundlerWalletRatio: extraContext.gmgnBundlerWalletRatio ?? 0,
+      gmgnRiskCovered: extraContext.gmgnRiskCovered ?? 0,
       // 推文作者类型因子
       tweetAuthorType: extraContext.tweetAuthorType ?? 0,
       // 数据采集轮数因子
@@ -791,6 +816,10 @@ class PreBuyCheckService {
         narrativeLeaderHot: extraContext.narrativeLeaderHot ?? 0,
         narrativeLeaderCount: extraContext.narrativeLeaderCount ?? 0,
         narrativeLeaderMaxMultiple: extraContext.narrativeLeaderMaxMultiple ?? 0,
+        // GMGN 风险因子（允许在条件表达式中使用；默认 0 放行——与龙头门同 fail-open 方向）
+        gmgnIssuerTokenCount: extraContext.gmgnIssuerTokenCount ?? 0,
+        gmgnBundlerWalletRatio: extraContext.gmgnBundlerWalletRatio ?? 0,
+        gmgnRiskCovered: extraContext.gmgnRiskCovered ?? 0,
         // 推文作者类型因子（允许在条件表达式中使用）
         tweetAuthorType: extraContext.tweetAuthorType ?? 0,
         // 数据采集轮数因子（允许在条件表达式中使用）
@@ -1513,6 +1542,10 @@ class PreBuyCheckService {
       narrativeLeaderHot: 0,
       narrativeLeaderCount: 0,
       narrativeLeaderMaxMultiple: 0,
+      // GMGN 风险因子（默认 0=未查/未触发，covered=0 放行）
+      gmgnIssuerTokenCount: 0,
+      gmgnBundlerWalletRatio: 0,
+      gmgnRiskCovered: 0,
       // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
       tweetAuthorType: 0,
       // 数据采集轮数因子

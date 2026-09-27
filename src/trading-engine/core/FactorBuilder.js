@@ -197,6 +197,10 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     narrativeLeaderHot: preBuyCheckResult.narrativeLeaderHot ?? 0,
     narrativeLeaderCount: preBuyCheckResult.narrativeLeaderCount ?? 0,
     narrativeLeaderMaxMultiple: preBuyCheckResult.narrativeLeaderMaxMultiple ?? 0,
+    // GMGN 风险因子（x-0 案 2026-09-27：直调语境同次 getTokenInfo 带出发币史/捆绑钱包；covered=0=未查放行）
+    gmgnIssuerTokenCount: preBuyCheckResult.gmgnIssuerTokenCount ?? 0,
+    gmgnBundlerWalletRatio: preBuyCheckResult.gmgnBundlerWalletRatio ?? 0,
+    gmgnRiskCovered: preBuyCheckResult.gmgnRiskCovered ?? 0,
     // 推文作者类型因子（0=普通, 1=A级SuperIP, 2=S级SuperIP）
     tweetAuthorType: preBuyCheckResult.tweetAuthorType ?? 0,
     // 数据采集轮数因子

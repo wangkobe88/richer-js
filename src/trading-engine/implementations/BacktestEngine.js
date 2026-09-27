@@ -221,7 +221,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
     // 5.5 叙事评级直调（同实时引擎：策略 narrativeCallCondition 触发时同步调
     // NarrativeAnalyzer.analyze，Jev 秒级；失败/超时=9 放行）
-    const { NarrativeDirectCaller } = require('../pre-check/NarrativeDirectCaller');
+    const { NarrativeDirectCaller, mapGmgnRiskFactors } = require('../pre-check/NarrativeDirectCaller');
     this._narrativeCaller = new NarrativeDirectCaller();
 
     // 5.6 同叙事龙头已火检查（同实时引擎：narrativeLeaderHot 因子，火门槛 5x + 首达后 24h 窗；
@@ -741,6 +741,10 @@ class BacktestEngine extends AbstractTradingEngine {
               narrativeLeaderHot: narrativeLeaderInfo?.factors?.narrativeLeaderHot ?? 0, // 同叙事龙头链路；无 tweet/失败=0 放行
               narrativeLeaderCount: narrativeLeaderInfo?.factors?.narrativeLeaderCount ?? 0,
               narrativeLeaderMaxMultiple: narrativeLeaderInfo?.factors?.narrativeLeaderMaxMultiple ?? 0,
+              // GMGN 风险因子（x-0 案）：同 narrativeRating 直调链路；时序穿越同声明
+              // （GMGN 是当前快照——历史 token 的 issuerTokenCount 含其后所有发币，
+              // 偏拦方向；bundler 是当前 holder 群体）——只看相对增量，绝对值不代表实时可得
+              ...mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk),
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply,

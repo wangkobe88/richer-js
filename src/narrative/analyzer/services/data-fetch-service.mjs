@@ -143,27 +143,32 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
     }
   }
 
-  // 3.5 GMGN 社媒补源（BRF 案，2026-09-27）：元数据 + IPFS 解包后仍提取不到任何
-  // twitter 链接、且调用方显式允许（enrichSocialByGmgn——仅叙事直调传 true，配额
-  // 控制见 gmgn-social-fetcher）时，从 GMGN token info 的 link 补社媒入口。
-  // GMGN 也拿不到 / 调用失败 → 按无补源继续，行为与现状一致
-  if (options.enrichSocialByGmgn
-      && !allUrls.some(u => /^https?:\/\/(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com)\//i.test(u))) {
+  // 3.5 GMGN token info（BRF 社媒补源 + x-0 风险因子，2026-09-27）：
+  // enrichSocialByGmgn（仅叙事直调传 true，配额控制见 gmgn-social-fetcher）时
+  // **总是调用**——同一次 getTokenInfo 带出 dev 风险字段（发币史/捆绑钱包，x-0 案
+  // serial issuer 伪装新项目骗过 prestage 粉丝评级）；社媒并入仍以「无 twitter 链接」
+  // 为前提（C10 行为零变化——有语料的 token 不需要补源）。
+  // GMGN 也拿不到 / 调用失败 → 按无补源、无风险因子继续，行为与现状一致
+  let gmgnRisk = null;
+  if (options.enrichSocialByGmgn) {
     try {
       const socials = await fetchGmgnSocialLinks('bsc', tokenData.address);
-      const addUrls = [socials?.twitterUrl, socials?.websiteUrl]
-        .filter(u => u && !allUrls.includes(u));
-      if (addUrls.length > 0) {
-        console.log(`[NarrativeAnalyzer] GMGN 社媒补源新增 ${addUrls.length} 个URL: ${addUrls.join(', ')}`);
-        allUrls.push(...addUrls);
+      gmgnRisk = socials?.risk ?? null;
+      if (!allUrls.some(u => /^https?:\/\/(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com)\//i.test(u))) {
+        const addUrls = [socials?.twitterUrl, socials?.websiteUrl]
+          .filter(u => u && !allUrls.includes(u));
+        if (addUrls.length > 0) {
+          console.log(`[NarrativeAnalyzer] GMGN 社媒补源新增 ${addUrls.length} 个URL: ${addUrls.join(', ')}`);
+          allUrls.push(...addUrls);
+        }
       }
     } catch (e) {
-      console.warn('[NarrativeAnalyzer] GMGN 社媒补源失败（按无补源继续）:', e.message);
+      console.warn('[NarrativeAnalyzer] GMGN 补源/风险获取失败（按无补源继续）:', e.message);
     }
   }
 
   // 3.9 0-URL 早退（IPFS 解包与 GMGN 补源之后的最终判定：三者都拿不到任何 URL
-  // 才判 no_public_info 语义的空数据）
+  // 才判 no_public_info 语义的空数据）；GMGN 风险字段（若有）仍随空数据带出
   if (allUrls.length === 0) {
     console.log('[NarrativeAnalyzer] 未找到任何URL，返回空数据');
     return {
@@ -202,7 +207,8 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
         githubError: null,
         videoErrors: {}
       },
-      bestUrls: null
+      bestUrls: null,
+      gmgnRisk
     };
   }
 
@@ -238,7 +244,8 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
 
   return {
     ...fetchData,
-    url_extraction_result
+    url_extraction_result,
+    gmgnRisk
   };
 }
 

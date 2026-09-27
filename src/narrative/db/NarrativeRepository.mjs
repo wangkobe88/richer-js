@@ -126,6 +126,10 @@ export class NarrativeRepository {
       // === Debug 字段 ===
       url_extraction_result: result.url_extraction_result ?? existing?.url_extraction_result ?? null,
       data_fetch_results: result.data_fetch_results ?? existing?.data_fetch_results ?? null,
+
+      // === GMGN 风险字段（x-0 案，2026-09-27）===：直调语境拿到才写；undefined
+      // （非直调 / 本次未拿到）保旧行值——重析失败不清掉已积累的发币史/捆绑数据
+      gmgn_info: result.gmgn_info ?? existing?.gmgn_info ?? null,
     };
 
     // === 仅 result 的阶段（无 prompt/raw_output）===
@@ -183,6 +187,22 @@ export class NarrativeRepository {
     const { data, error } = await supabase
       .from('token_narrative')
       .update({ is_valid: isValid })
+      .eq('token_address', address.toLowerCase())
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  /**
+   * 仅回写 GMGN 风险字段（x-0 案）：缓存命中但行内无 gmgn_info 的直调补调路径——
+   * 不重析 Jev，只补数据（与 no_public_info 穿透重析同构但更轻）
+   */
+  static async updateGmgnInfo(address, info) {
+    const { data, error } = await supabase
+      .from('token_narrative')
+      .update({ gmgn_info: info })
       .eq('token_address', address.toLowerCase())
       .select()
       .single();
