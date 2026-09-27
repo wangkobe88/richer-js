@@ -36,6 +36,13 @@
  *    richer-js FA 无 preFilter 装置，且本类不依赖 factors）。
  * 7. category_visible_at 在线路径=写入时刻（诚实口径；离线 daily 才有 computeFirstIdleVisibleAt
  *    提前口径，重写时保最早——见 token-classifier.js）。
+ * 8. ★重启过渡期全史路径（2026-09-27 失真首例后修复）：FA state.registered !== true
+ *    （processTick 自动建 state、本进程从未收到 token_create 派发——引擎重启时刻仍活跃
+ *    的存量 token）→ FA 价格史不完整：_relFirstPriceBnb 锚在重启后中途价（重启前涨幅全丢，
+ *    首例 0x125a…17777 真实 +292% 落库 0.05%）、totalSupply=0（mcap 恒 0 low_quality 误标）。
+ *    此类 token 分类时改走 wss_price_ticks 全史 + classifyToken（与离线管线同口径），
+ *    totalSupply 取 wss_events token_create（flap 固定 1e9）；minTicks 门同样放行给
+ *    classifyToken 自带 MIN_TICKS 判（FA tradeCount 只计重启后 tick，不完整）。
  *
  * BacktestEngine 不嵌入（回测无写表副作用，批 3.1 既定边界）。
  */
@@ -44,7 +51,7 @@ const {
   DEFAULT_SCORING_PARAMS, MIN_TICKS,
 } = require('../../scripts/shared/classifier-constants');
 const {
-  CLASSIFIER_VERSION, findFlashCrashPeriod, classifyFromMetrics,
+  CLASSIFIER_VERSION, findFlashCrashPeriod, classifyFromMetrics, classifyToken, mapDbTickRow,
   computeMaxBlockDropPct, computeViolentCrashBlocks,
 } = require('../../scripts/shared/token-classifier');
 
@@ -114,7 +121,9 @@ class OnlineProfileBuilder {
     // 已分类过，跳过
     if (this._profiled.has(tokenAddress)) return;
 
-    if ((tokenState.tradeCount || 0) < this._minTicks) return;
+    // minTicks 门只对已注册 token 有效（FA tradeCount=完整史）；未注册（重启过渡期自动
+    // 建 state）tradeCount 只计重启后 tick，门交给全史路径 classifyToken 自带 MIN_TICKS 判
+    if (tokenState.registered === true && (tokenState.tradeCount || 0) < this._minTicks) return;
 
     // 年龄门（createdAtMs 锚 = richer-js age 契约；母版 factors.ageSeconds 同位置门）
     const ageSeconds = tokenState.createdAtMs ? (now - tokenState.createdAtMs) / 1000 : 0;
@@ -284,8 +293,15 @@ class OnlineProfileBuilder {
 
   /**
    * 异步分类并持久化（fire-and-forget；仅写 token_profiles，不做任何 wallets/creator 写入）。@private
+   *
+   * 双路径：registered=true（本进程 create 派发过，FA 价格史完整）→ FA 快照；
+   * registered!==true（重启过渡期自动建 state）→ 全史 DB 路径（见类头注释 8）。
    */
   async _classifyAndPersist(tokenAddress, tokenState, reason, hasFlash, peakTimeSeconds, flashCrashPeriod) {
+    if (tokenState.registered !== true) {
+      return this._classifyAndPersistFullHistory(tokenAddress, reason);
+    }
+
     const { category, profile } = this._classify(tokenState, reason, hasFlash, peakTimeSeconds, flashCrashPeriod);
 
     try {
@@ -325,6 +341,97 @@ class OnlineProfileBuilder {
   }
 
   /**
+   * 全史路径（重启过渡期未注册 token）：wss_price_ticks 全史 + classifyToken（与离线
+   * build-token-profiles 同口径），base=真实首个可用价、totalSupply 取 token_create 事件。
+   * 失败 fail-closed：不写失真行、解除 _profiled 标记让扫描重试（token 仍在 FA 追踪时）；
+   * 被 prune 淘汰后不再重试 → 离线 build-token-profiles 重跑兜底。@private
+   */
+  async _classifyAndPersistFullHistory(tokenAddress, reason) {
+    try {
+      const { dbManager } = require('./dbManager');
+      const sb = dbManager.getClient();
+
+      // totalSupply：wss_events token_create payload（fourmeme）；flap 固定 1e9（consumer 同口径）
+      let totalSupply = 0;
+      const { data: creates, error: createErr } = await sb.from('wss_events')
+        .select('platform,payload')
+        .eq('kind', 'token_create').eq('token_address', tokenAddress).limit(1);
+      if (createErr) throw new Error('wss_events 查询失败: ' + createErr.message);
+      if (creates && creates.length) {
+        totalSupply = creates[0].platform === 'flap'
+          ? require('../collectors/flap-ankr-ws-collector.js').FLAP_TOTAL_SUPPLY
+          : (Number(creates[0].payload && creates[0].payload.totalSupply) || 0);
+      } else {
+        log('warn', `全史路径无 token_create 行（totalSupply=0 保守→low_quality） ${tokenAddress.slice(0, 12)}…`);
+      }
+
+      // 全史 ticks（token_address 无索引顺序扫描——仅过渡期 token 分类时一次，量级=每次重启一小批）
+      const ticks = [];
+      let cursor = 0;
+      for (;;) {
+        const { data, error } = await sb.from('wss_price_ticks')
+          .select('id,token_address,trader_address,trade_type,block_time,block_number,bnb_amount,price_bnb,price_usd,price_outlier')
+          .eq('token_address', tokenAddress).gt('id', cursor)
+          .order('id', { ascending: true }).range(0, 999);
+        if (error) throw new Error('wss_price_ticks 查询失败: ' + error.message);
+        for (const row of (data || [])) {
+          const slim = mapDbTickRow(row);
+          if (slim) ticks.push(slim);
+        }
+        if (!data || data.length < 1000) break;
+        cursor = data[data.length - 1].id;
+      }
+      ticks.sort((a, b) => a.ts - b.ts || a.blockNumber - b.blockNumber);
+
+      const r = classifyToken(ticks, { totalSupply }, { diagnostic: true });
+      const nowIso = new Date().toISOString();
+      const row = {
+        token_address: tokenAddress,
+        category: r.category,
+        source: 'online',
+        classifier_version: CLASSIFIER_VERSION,
+        classified_at: nowIso,
+        category_visible_at: nowIso, // 在线写入时刻（诚实口径，与 FA 快照路径一致）
+        peak_mcap_usd: r.maxMarketCap || 0,
+        max_change_percent: r.maxChangePercent ?? null,
+        final_change_percent: r.finalChangePercent ?? null,
+        profile: {
+          version: 1,
+          category: r.category,
+          source: 'online',
+          classified_at: nowIso,
+          classifier_version: CLASSIFIER_VERSION,
+          max_market_cap_usd: r.maxMarketCap || 0,
+          max_change_percent: r.maxChangePercent ?? null,
+          final_change_percent: r.finalChangePercent ?? null,
+          class_info: r.classInfo,
+          config_snapshot: { qualityMarketCapThreshold: DEFAULT_SCORING_PARAMS.qualityMarketCapThreshold },
+          reason: r.reason ? `full_history(未注册/跨重启; 触发: ${reason}): ${r.reason}` : `full_history(未注册/跨重启; 触发: ${reason})`,
+          category_visible_at: nowIso,
+          flash_crash_period: r.flashCrashPeriod || null,
+          violent_crash_blocks: r.violentCrashBlocks || [],
+          first_tick_time: r.firstTickTime ?? null,
+          last_tick_time: r.lastTickTime ?? null,
+          conflict: null,
+        },
+      };
+      const { error } = await sb.from('token_profiles').upsert(row, { onConflict: 'token_address' });
+      if (error) throw new Error('token_profiles 写入失败: ' + error.message);
+      log('info', `✓ ${tokenAddress.slice(0, 12)}… → ${r.category} (online 全史 ${ticks.length} ticks, base=真实首价)`);
+      if (this._onProfileClassified) {
+        try {
+          this._onProfileClassified(tokenAddress, row);
+        } catch (cbErr) {
+          log('error', `onProfileClassified 回调异常 ${tokenAddress.slice(0, 12)}…`, { error: cbErr.message });
+        }
+      }
+    } catch (err) {
+      this._profiled.delete(tokenAddress); // 解除标记：token 仍被扫描追踪则 60s 后重试
+      log('error', `全史分类失败（已解除标记待扫描重试） ${tokenAddress.slice(0, 12)}…`, { error: err.message });
+    }
+  }
+
+  /**
    * 定时扫描：补救"短命暴发后死亡、零迟到 tick"的漏分类 token。
    *
    * checkAndEnqueue 只在 token 有新 tick 时被调，死后零 tick 的 token 永不触发 idle 分类。
@@ -351,7 +458,8 @@ class OnlineProfileBuilder {
       if (!state) { skipNoState++; continue; }
       const idleSeconds = (now - state.lastTickAt) / 1000;
       if (idleSeconds <= this._idleThresholdSeconds) { skipNotIdle++; continue; }   // 还没真正 idle
-      if ((state.tradeCount || 0) < this._minTicks) { skipLowTicks++; continue; }  // tick 不够，分类无意义
+      // tick 门只对已注册 token（FA tradeCount=完整史）；未注册走全史路径，门由 classifyToken 判
+      if (state.registered === true && (state.tradeCount || 0) < this._minTicks) { skipLowTicks++; continue; }
       triggered++;
       this._enqueueClassification(tokenAddress, state,
         `scan_idle: ${idleSeconds.toFixed(0)}s > ${this._idleThresholdSeconds}s`);

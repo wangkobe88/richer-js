@@ -176,8 +176,8 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 - **opt-in**：`config.fourmemeWs.onlineProfile.enabled` 默认 false（default.json 与实验级均可配；both 实验引擎级配置恒读 fourmemeWs 段）；启动时构造——改 config 须重启实验进程。BacktestEngine 不嵌（回测无写表副作用）
 - **TPA 联动**：落库成功回调 `onProfileClassified` → `TokenPositionAnalyzer.upsertTokenProfileCache` 喂分类缓存（修 stuck-null；TPA 未启用时传 null 不挂钩）
-- **重启过渡期边界**：水位对齐之前的存量活跃 token 不派发 create → FA tick 自动建 state（totalSupply=0）→ mcap=0 恒 low_quality 误标，离线 build-token-profiles.cjs 重跑覆盖纠正
-- **单测**：`node scripts/_test_token_classifier.cjs`（分类阈值/visible_at/FA 对拍/触发门/扫描，零 DB）；2026-09-27 起在虚拟实验 c5945f36 实跑开启
+- **重启过渡期全史路径（2026-09-27 修复，失真首例 0x125a…17777 真实 +292% 落库 0.05%）**：水位对齐之前的存量活跃 token 不派发 create → FA tick 自动建 state（`registered!==true`）→ FA 价格史不完整（`_relFirstPriceBnb` 锚在重启后中途价、totalSupply=0 mcap 恒 0）。此类 token 分类时**自动改走全史 DB 路径**：wss_price_ticks 全史（`mapDbTickRow` 共享映射）+ classifyToken（与离线同口径，base=真实首价）、totalSupply 取 wss_events token_create（flap 固定 1e9）；minTicks 门放行给 classifyToken 自带 MIN_TICKS 判（FA tradeCount 只计重启后 tick）。失败 fail-closed：不写失真行、解除 `_profiled` 标记待扫描重试，token 被 prune 后由离线 build-token-profiles.cjs 重跑兜底。registered=true 的常规路径零变化
+- **单测**：`node scripts/_test_token_classifier.cjs`（分类阈值/visible_at/FA 对拍/触发门/扫描/过渡期全史路径 dbManager 打桩，零 DB）；2026-09-27 起在虚拟实验 c5945f36 实跑开启
 
 ### Token Position Analyzer（TPA，触发点 as-of 钱包画像；pumpfun 批 4 回迁）
 

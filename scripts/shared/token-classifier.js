@@ -53,6 +53,32 @@ function _priceUsable(tk) {
   return tk.priceReliable && (Number(tk.bnbAmount) || 0) >= MIN_PRICE_UPDATE_BNB && Number(tk.priceBnb) > 0;
 }
 
+// ── DB 行 → slim tick 映射（单一真相：离线 build-token-profiles 与在线 OPB 全史路径共用）──
+// MAP_DUST_BNB = collector 落表尘门（watcher/consumer minTickBnb 同值 0.001；≠ 分类器内
+// 尘门 MIN_PRICE_UPDATE_BNB=0.002——映射层只标 priceReliable，_priceUsable 内部再 AND 金额门）。
+const MAP_DUST_BNB = 0.001;
+
+/**
+ * wss_price_ticks DB 行 → slim tick。行缺 token/trader 地址或 block_time 不可解析 → null（调用方跳过）。
+ * @param {Object} t DB 行（token_address,trader_address,trade_type,block_time,block_number,bnb_amount,price_bnb,price_usd,price_outlier）
+ * @returns {{ts,isBuy,bnbAmount,priceBnb,priceUsd,traderAddress,blockNumber,priceReliable}|null}
+ */
+function mapDbTickRow(t) {
+  if (!t.token_address || !t.trader_address) return null;
+  const ts = Date.parse(t.block_time);
+  if (!Number.isFinite(ts)) return null;
+  const px = +t.price_bnb;
+  const bnb = +t.bnb_amount || 0;
+  return {
+    ts, isBuy: String(t.trade_type).toLowerCase() === 'buy',
+    bnbAmount: bnb, priceBnb: px > 0 ? px : 0,
+    priceUsd: t.price_usd != null ? +t.price_usd : null,
+    traderAddress: t.trader_address,
+    blockNumber: t.block_number != null ? Number(t.block_number) : 0,
+    priceReliable: !t.price_outlier && px > 0 && bnb >= MAP_DUST_BNB,
+  };
+}
+
 // ── 闪崩检测 ──
 
 /**
@@ -592,4 +618,6 @@ module.exports = {
   classifyToken,
   computeTickMetrics,
   computeFirstIdleVisibleAt,
+  mapDbTickRow,
+  MAP_DUST_BNB,
 };

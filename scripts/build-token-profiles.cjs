@@ -19,10 +19,9 @@
 // ============================================================================
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../', 'config/.env') });
-const { classifyToken, computeFirstIdleVisibleAt, CLASSIFIER_VERSION } = require('./shared/token-classifier');
+const { classifyToken, computeFirstIdleVisibleAt, mapDbTickRow, CLASSIFIER_VERSION } = require('./shared/token-classifier');
 const { DEFAULT_SCORING_PARAMS } = require('./shared/classifier-constants');
 
-const MIN_TICK_BNB = 0.001;   // collector 落表尘门（与在线 _acceptPrice 双保险一致）
 const UPSERT_BATCH = 100;
 
 async function main() {
@@ -75,20 +74,10 @@ async function main() {
         .in('token_address', batch).order('block_time', { ascending: true }).range(off, off + 999);
       if (error) throw new Error('ticks 查询失败: ' + error.message);
       for (const t of (data || [])) {
-        if (!t.token_address || !t.trader_address) continue;
-        const ts = Date.parse(t.block_time);
-        if (!Number.isFinite(ts)) continue;
-        const bnb = +t.bnb_amount || 0;
-        const px = +t.price_bnb;
+        const slim = mapDbTickRow(t); // DB 行 → slim tick（与在线 OPB 全史路径共用的单一真相）
+        if (!slim) continue;
         if (!slimByTok.has(t.token_address)) slimByTok.set(t.token_address, []);
-        slimByTok.get(t.token_address).push({
-          ts, isBuy: String(t.trade_type).toLowerCase() === 'buy',
-          bnbAmount: bnb, priceBnb: px > 0 ? px : 0,
-          priceUsd: t.price_usd != null ? +t.price_usd : null,
-          traderAddress: t.trader_address,
-          blockNumber: t.block_number != null ? Number(t.block_number) : 0,
-          priceReliable: !t.price_outlier && px > 0 && bnb >= MIN_TICK_BNB,
-        });
+        slimByTok.get(t.token_address).push(slim);
         totalTicks++;
       }
       if (!data || data.length < 1000) break;

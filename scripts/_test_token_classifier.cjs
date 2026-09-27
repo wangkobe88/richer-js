@@ -13,6 +13,9 @@
  *    + _lastBigTickAt + _relHighestPriceUsd「BNB 峰 tick 处 USD 快照」语义。
  * 5) OnlineProfileBuilder 触发门：enabled/minTicks/minAge/idle gap/bigTickIdle/profiled 去重/
  *    扫描入口（_classifyAndPersist 打桩，零 DB）。
+ * 6) 重启过渡期全史路径（2026-09-27 修复）：mapDbTickRow 映射、未注册 token（registered!==true）
+ *    走 wss_price_ticks 全史 + classifyToken（base=真实首价，失真首例 0.05% vs +292% 的回归）、
+ *    失败 fail-closed 解除 _profiled 待重试、registered 路径不查全史（dbManager 打桩，零真实 DB）。
  *
  * 用法：node scripts/_test_token_classifier.cjs
  */
@@ -422,6 +425,7 @@ function section5() {
     }
     const mkState = (o = {}) => ({
         createdAtMs: s(0),
+        registered: true, // create 已派发（FA 价格史完整）；未注册=重启过渡期，见 section 6
         tradeCount: 20,
         _clsTicks: [
             { ts: s(0), bnbAmount: 0.01 }, { ts: s(1), bnbAmount: 0.01 },
@@ -556,11 +560,191 @@ function section5() {
     }
 }
 
+// ═══════════ 6) 重启过渡期全史路径（dbManager 打桩，零真实 DB）═══════════
+async function section6() {
+    console.log('── 6) 重启过渡期全史路径 ──');
+
+    const { mapDbTickRow } = require('./shared/token-classifier');
+
+    // 6.1 mapDbTickRow：DB 行 → slim tick（尘/outlier/毒价不可靠；缺地址/坏时间 → null）
+    {
+        const base = {
+            token_address: 'T', trader_address: '0xt', trade_type: 'Buy',
+            block_time: new Date(T0).toISOString(), block_number: '123',
+            bnb_amount: 0.01, price_bnb: 1.5e-8, price_usd: 9e-6, price_outlier: false,
+        };
+        const slim = mapDbTickRow(base);
+        ok(slim !== null && slim.isBuy === true && slim.ts === T0, 'mapDbTickRow 基本映射');
+        ok(slim.blockNumber === 123 && slim.priceReliable === true, 'mapDbTickRow blockNumber 数值化 + 可靠');
+        ok(slim.priceUsd === 9e-6, 'mapDbTickRow priceUsd');
+        ok(mapDbTickRow({ ...base, bnb_amount: 0.0005 }).priceReliable === false, '尘(<0.001) 不可靠');
+        ok(mapDbTickRow({ ...base, price_outlier: true }).priceReliable === false, 'outlier 不可靠');
+        const zeroPx = mapDbTickRow({ ...base, price_bnb: 0 });
+        ok(zeroPx.priceBnb === 0 && zeroPx.priceReliable === false, 'price_bnb≤0 → priceBnb=0 不可靠');
+        ok(mapDbTickRow({ ...base, trader_address: null }) === null, '缺 trader → null');
+        ok(mapDbTickRow({ ...base, block_time: 'not-a-date' }) === null, '坏 block_time → null');
+    }
+
+    // ── dbManager 打桩（watcher 架构测试同款：置 client/isInitialized，被测模块惰性取用）──
+    const { dbManager } = require(path.join(ROOT, 'src/services/dbManager'));
+    const savedClient = dbManager.client, savedInit = dbManager.isInitialized;
+
+    /** 合成 DB tick 行（重启前拉盘 + 重启后回落的失真场景） */
+    function dbRow(id, sec, priceBnb, o = {}) {
+        return {
+            id,
+            token_address: o.token ?? 'TOK_FH',
+            trader_address: '0xt' + id,
+            trade_type: o.isBuy === false ? 'sell' : 'buy',
+            block_time: new Date(s(sec)).toISOString(),
+            block_number: Math.floor(sec / 3),
+            bnb_amount: o.bnb ?? 0.01,
+            price_bnb: priceBnb,
+            price_usd: priceBnb * BNB_USD,
+            price_outlier: o.outlier ?? false,
+        };
+    }
+
+    /**
+     * 假 Supabase client：wss_events / wss_price_ticks / token_profiles 三表链式打桩。
+     * ticksPages: [{data,error}] 依次出队（模拟分页）；tickQuery 计数器供"未查询"断言。
+     */
+    function stubDb({ createEvent, ticksPages, upsertError } = {}) {
+        const db = { upserts: [], tickQueries: 0, eventQueries: 0 };
+        db.client = {
+            from(name) {
+                if (name === 'wss_events') {
+                    const chain = {
+                        select: () => chain, eq: () => chain,
+                        limit: () => { db.eventQueries++; return Promise.resolve(createEvent ?? { data: [], error: null }); },
+                    };
+                    return chain;
+                }
+                if (name === 'wss_price_ticks') {
+                    const chain = {
+                        select: () => chain, eq: () => chain, gt: () => chain, order: () => chain,
+                        range: () => {
+                            db.tickQueries++;
+                            const page = (ticksPages && ticksPages.length) ? ticksPages.shift() : { data: [], error: null };
+                            return Promise.resolve(page);
+                        },
+                    };
+                    return chain;
+                }
+                if (name === 'token_profiles') {
+                    return {
+                        upsert: (row) => { db.upserts.push(row); return Promise.resolve({ error: upsertError ?? null }); },
+                    };
+                }
+                throw new Error('测试未预期的表: ' + name);
+            },
+        };
+        return db;
+    }
+
+    const mkUnregistered = (o = {}) => ({
+        createdAtMs: s(0), registered: false, tradeCount: 61, totalSupply: 0,
+        _clsTicks: [{ ts: s(0), bnbAmount: 0.01 }, { ts: s(62), bnbAmount: 0.01 }],
+        _lastBigTickAt: null, _relHighestAt: 0, firstTickAt: s(0),
+        _relHighestPriceBnb: 0, _relPriceBnb: 0, _relHighestPriceUsd: 0,
+        ...o,
+    });
+
+    // 6.2 未注册 → 全史路径：base=真实首价 1e-8，全史峰 4e-8 → +300%（失真首例回归：
+    //     FA 快照口径只会看到重启后 ~平盘段，涨幅 ≈0）
+    {
+        const ramp = [1.0, 1.2, 1.5, 1.8, 2.2, 2.6, 3.1, 3.6, 4.0];      // 0..40s 拉到峰（sec 间隔 5）
+        const rows = ramp.map((p, i) => dbRow(i + 1, i * 5, p * 1e-8));
+        rows.push(dbRow(10, 50, 3.6e-8), dbRow(11, 55, 3.6e-8), dbRow(12, 60, 3.6e-8)); // 回落 -10% 无闪崩
+        const db = stubDb({
+            createEvent: { data: [{ platform: 'flap', payload: {} }], error: null },  // flap → 1e9
+            ticksPages: [{ data: rows, error: null }],
+        });
+        dbManager.isInitialized = true;
+        dbManager.client = db.client;
+
+        let cbRow = null;
+        const opb = new OnlineProfileBuilder({ enabled: true }, null, (addr, row) => { cbRow = row; });
+        const st = mkUnregistered(); // FA 视角：totalSupply=0、可靠价链只有重启后段
+        await opb._classifyAndPersist('TOK_FH', st, 'idle: 93.0s > 60s', false, Infinity, null);
+
+        ok(db.tickQueries === 1 && db.eventQueries === 1, '全史路径查 ticks+create 事件');
+        ok(db.upserts.length === 1, '全史路径落库一行');
+        const row = db.upserts[0];
+        ok(row.source === 'online' && row.token_address === 'TOK_FH', '全史行 source=online');
+        approx(row.max_change_percent, 300, 1e-6, '全史 max_change=+300%（base=真实首价 1e-8→峰 4e-8）');
+        approx(row.final_change_percent, 260, 1e-6, '全史 final_change=+260%');
+        approx(row.peak_mcap_usd, 4e-8 * BNB_USD * 1e9, 1e-4, 'flap totalSupply=1e9 → peak mcap=24K');
+        ok(row.category === 'high_mcap', '全史分类 high_mcap（24K≥15K 无闪崩）', row.category);
+        ok(/full_history/.test(row.profile.reason), 'reason 标注 full_history', row.profile.reason);
+        ok(cbRow === row, 'onProfileClassified 收到全史行');
+    }
+
+    // 6.3 全史失败 → fail-closed：不写失真行 + 解除 _profiled（扫描 60s 后重试）
+    {
+        const db = stubDb({
+            createEvent: { data: [{ platform: 'fourmeme', payload: { totalSupply: 1e9 } }], error: null },
+            ticksPages: [{ data: null, error: { message: 'boom' } }],
+        });
+        dbManager.isInitialized = true;
+        dbManager.client = db.client;
+
+        const opb = new OnlineProfileBuilder({ enabled: true }, null);
+        opb._profiled.add('TOK_FH2'); // 模拟 _enqueueClassification 已标记
+        await opb._classifyAndPersist('TOK_FH2', mkUnregistered(), 'idle: 93.0s > 60s', false, Infinity, null);
+        ok(db.upserts.length === 0, '查询失败不落库');
+        ok(!opb._profiled.has('TOK_FH2'), '失败解除 _profiled（待扫描重试）');
+    }
+
+    // 6.4 registered=true → FA 快照路径不查全史（回归保护）
+    {
+        const db = stubDb(); // 无 ticksPages → 若被查询返回空页
+        dbManager.isInitialized = true;
+        dbManager.client = db.client;
+
+        const opb = new OnlineProfileBuilder({ enabled: true }, null);
+        const st = {
+            createdAtMs: s(0), registered: true, tradeCount: 13, totalSupply: SUPPLY,
+            _relHighestPriceBnb: pb(7000), _relPriceBnb: pb(7000), _relFirstPriceBnb: pb(5000),
+            _relHighestPriceUsd: pb(7000) * BNB_USD,
+            _relHighestAt: s(60), firstTickAt: s(0), lastTickAt: s(60),
+            _afterFirst9sReliableCount: 5, _beforeFirst9sPeakMinBnb: pb(5000),
+            _afterFirst9sPeakPriceBnb: pb(7000),
+            uniqueTraders: new Set(['a']), totalBuyBnb: 0.1, totalSellBnb: 0.1,
+            firstPriceBnb: pb(5000), buyCount: 7, sellCount: 6, _clsTicks: [],
+        };
+        await opb._classifyAndPersist('TOK_REG', st, 'idle: 62s > 60s', false, 60, null);
+        ok(db.tickQueries === 0 && db.eventQueries === 0, 'registered 路径不查 ticks/事件表');
+        ok(db.upserts.length === 1, 'registered 路径 FA 快照落库');
+        approx(db.upserts[0].max_change_percent, 40, 1e-6, 'registered 路径涨幅来自 FA 标量（+40%）');
+    }
+
+    // 6.5 未注册 minTicks 门放行（FA tradeCount 只计重启后 tick；门交给 classifyToken 全史判）
+    {
+        const opb = new OnlineProfileBuilder({ enabled: true }, null);
+        const calls = [];
+        opb._classifyAndPersist = async (...a) => { calls.push(a); };
+        opb.checkAndEnqueue('TOK_LOW', mkUnregistered({ tradeCount: 9 }), s(62));
+        ok(calls.length === 1, '未注册 tradeCount<minTicks 仍触发（全史路径自有 MIN_TICKS 门）');
+
+        const opb2 = new OnlineProfileBuilder({ enabled: true }, null);
+        const calls2 = [];
+        opb2._classifyAndPersist = async (...a) => { calls2.push(a); };
+        opb2.checkAndEnqueue('TOK_LOW2', mkUnregistered({ tradeCount: 9, registered: true }), s(62));
+        ok(calls2.length === 0, '已注册 tradeCount<minTicks 仍拦截（语义不变）');
+    }
+
+    // 还原打桩（防污染后续同进程测试）
+    dbManager.client = savedClient;
+    dbManager.isInitialized = savedInit;
+}
+
 // ═══════════ 运行 ═══════════
 section1();
 section2();
 section3();
 section5();
-
-console.log(`\n结果：${passed} 通过 / ${failed} 失败${failed === 0 ? ' 全部通过 ✅' : ' ❌'}`);
-process.exit(failed === 0 ? 0 : 1);
+section6().then(() => {
+    console.log(`\n结果：${passed} 通过 / ${failed} 失败${failed === 0 ? ' 全部通过 ✅' : ' ❌'}`);
+    process.exit(failed === 0 ? 0 : 1);
+});
