@@ -1157,6 +1157,18 @@ engine 常驻进程主线程，`config/narrative-engine.json` → `engine.preche
 - 单测：`scripts/_test_narrative_signal_gate.cjs`（13 断言零 DB：shouldBlockOnNarrative
   八路边界 + getRating precheckStage 透传打桩四路）
 
+**实跑验证（09-27 13:31-13:33，182 dual-c5945f36）**：螃蟹/crab/蟹市同名仿盘群
+（flap 抢名大军）+ 蝴蝶皇后连续实证——5 个 token rating=1(low) 首析登记（crab
+10.4s / 螃蟹 6.7s / 螃蟹 5.8s / 蟹市 7.3s / 蝴蝶皇后 5.9s，全非缓存）；期间买腿
+「触发买入策略」61 次（crab 17 / 螃蟹 36 / 蟹市 8）但 signal 落库仅 ~5 条
+（每 token 首次 fire 一条），其余全部被短路静默拦截——对照 FOMOPAY 前例同形态
+168 条白信号，落库量降 ~97%；直调每 token 恰 1 次（登记后不再重复，含缓存命中
+也免）。对照组：暖暖 rating=3(high) 正常放行买入（4卡）零误伤。已知显示层噪声
+（非本次引入，C16 带括号条件起）：preBuyCheck 诊断路径对 `(A || B)` 段恒打
+「括号不匹配」ERROR——`_diagnoseCondition`→`_parseCondition` 把 OR 转 `||` 后
+回传只认 OR 的 ConditionEvaluator；主评估用原始条件不受影响（暖暖 canBuy=true
+实证），是否修诊断显示待裁定
+
 ### 4.10 发行方 CA 宣告路由（09-27，C22 落地）
 
 字面法（品牌同一性 + 宣告指纹，2026-09-24 方案 A）之外的第二条 issuer self-launch
