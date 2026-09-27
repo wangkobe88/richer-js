@@ -17,7 +17,11 @@
  *    不换算=整类盲区）。汇率源 = PancakeSwap V2 quote/WBNB 池 reserves（TTL 缓存 +
  *    stale-while-revalidate + 无池负缓存），换算失败才跳过；wss_price_ticks.quote_token 留溯源。
  *    进程启动时回放最近 N 分钟 TokenQuoteSet 重建计价表（否则冷启动窗口会按 BNB 错采）。
- *    实测 TokenQuoteSet 的 logIndex 后于 TokenCreated，计价币在 create 之后才可知
+ *    实测 TokenQuoteSet 的 logIndex 后于 TokenCreated，计价币在 create 之后才可知。
+ *    回放缺口保护：回放完成前到达的 trade/graduation 事件（计价未知——无法区分「BNB 盘」
+ *    与「映射未回放出来」）暂存内存队列，回放成功后按序重放（2026-09-27 0xcf91 冒充事故
+ *    结构性修复：回放卡死窗口内 quote 价曾冒充 BNB 价落库虚高 22.6 倍）；TokenCreated/
+ *    TokenQuoteSet 照常处理（create 不依赖计价，QuoteSet 实时事件是映射正源）
  *
  * 事件口径（2026-09 实测验证，90s 订阅 1851 事件 / 18 新币 / 254 买 / 177 卖）：
  * - 全部事件无 indexed 参数（topics 只有 topic0），业务参数全在 data
@@ -156,12 +160,19 @@ class FlapAnkrWsCollector {
         this._pcsFactoryContract = null;      // 惰性（首次换算时建）
         this._quoteBackfilled = false;        // 启动回放 TokenQuoteSet 只跑一次（重连不重跑）
         this._quoteBackfillRetryTimer = null; // 回放失败退避重试定时器（stop 清理）
+        // 回放缺口保护：settled=true 表示计价表状态可信（未启动，或回放已完成）。订阅确认
+        // 触发回放时置 false——期间 trade/graduation 事件暂存 _pendingDuringBackfill，回放
+        // 成功后按序重放（防 quote 价冒充 BNB 价）；BNB 盘 tick 也会暂存（回放完成前无法
+        // 区分「BNB 盘」与「映射未回放出来」，统一延迟到可判定，稳态无影响）
+        this._quoteBackfillSettled = true;
+        this._pendingDuringBackfill = [];     // 回放窗口内暂存的 {logEntry, blockTimeSec}
         const qrCfg = this.config.quoteRate || {};
         this._quoteRateTtlMs = qrCfg.ttlMs ?? 30000;
         this._quoteRateStaleMaxMs = qrCfg.staleMaxMs ?? 300000;
         this._quoteRateNegTtlMs = qrCfg.negTtlMs ?? 60000;
         this._quoteBackfillMinutes = qrCfg.backfillMinutes ?? 120;
         this._quoteBackfillRpcUrl = qrCfg.backfillRpcUrl ?? null;
+        this._pendingBackfillMax = qrCfg.pendingBackfillMax ?? 50000;
 
         this._tickBuffer = [];
         this._tickFlushTimer = null;
@@ -191,6 +202,9 @@ class FlapAnkrWsCollector {
             quoteConverted: 0,
             quoteRateUnavailable: 0,
             quoteSetBackfilled: 0,
+            pendingDuringBackfill: 0,   // 回放窗口暂存队列当前长度
+            pendingBackfillFlushed: 0,  // 回放完成后重放的事件数（累计）
+            pendingBackfillDropped: 0,  // 暂存队列溢出丢弃数（累计；溢出=回放卡死超容量，error 告警）
             unknownEvents: 0,
             decodeFailed: 0,
             duplicateTicks: 0,
@@ -255,6 +269,14 @@ class FlapAnkrWsCollector {
         this._pingTimer = this._heartbeatTimer = this._tickFlushTimer = this._bnbUsdTimer = this._reconnectTimer = this._quoteBackfillRetryTimer = null;
 
         await this._flushTickBuffer(); // 关闭前把缓冲写完
+        // 回放仍未完成：暂存事件的计价不可判定，丢弃（重放=可能冒充 BNB 价；宁丢不污染）。
+        // 丢弃量已在 stats.pendingDuringBackfill 留痕，人工可查
+        if (!this._quoteBackfillSettled && this._pendingDuringBackfill.length) {
+            this.logger.warn('', 'FlapAnkrWsCollector',
+                `停止时 QuoteSet 回放未完成，丢弃暂存事件 ${this._pendingDuringBackfill.length} 条（计价未知，宁丢不污染）`);
+            this._pendingDuringBackfill = [];
+            this.stats.pendingDuringBackfill = 0;
+        }
         this.logger.info('', 'FlapAnkrWsCollector', '已停止', this.stats);
     }
 
@@ -320,9 +342,11 @@ class FlapAnkrWsCollector {
                 this._logSubId = msg.result;
                 // 首次订阅成功后回放最近 N 分钟 TokenQuoteSet 重建计价表——否则冷启动
                 // 窗口内非 BNB 盘的 tick 会按 BNB 错采（污染 price_bnb 口径）。只跑一次
-                //（重连不重跑）；失败仅告警，已回放部分与实时事件继续维持状态
+                //（重连不重跑）；失败仅告警，已回放部分与实时事件继续维持状态。
+                // 置 settled=false：回放完成前 trade/graduation 事件暂存（见 _processLog）
                 if (!this._quoteBackfilled) {
                     this._quoteBackfilled = true;
+                    this._quoteBackfillSettled = false;
                     this._scheduleQuoteBackfill();
                 }
             }
@@ -455,6 +479,28 @@ class FlapAnkrWsCollector {
     async _processLog(logEntry, blockTimeSec) {
         const eventName = TOPIC0_MAP.get(logEntry.topics[0]);
         if (!eventName) return;
+
+        // 回放缺口保护：QuoteSet 回放未完成期间，trade/graduation 事件的计价无法判定
+        //（映射缺失 ≠ BNB 盘）——暂存待回放成功后重放，绝不以 quote 价冒充 BNB 价落库。
+        // TokenCreated/TokenQuoteSet 不暂存：create 不依赖计价（延迟反而阻碍发现），
+        // QuoteSet 实时事件是映射正源（新 token 立即 apply，后续 tick 即不受影响）
+        if (!this._quoteBackfillSettled
+            && (eventName === 'TokenBought' || eventName === 'TokenSold' || eventName === 'LaunchedToDEX')) {
+            this._pendingDuringBackfill.push({ logEntry, blockTimeSec });
+            if (this._pendingDuringBackfill.length > this._pendingBackfillMax) {
+                // 溢出丢最老（保序 + 保留贴近回放完成点的最新数据）；溢出即回放卡死超容量，
+                // fail-loud 人工介入（退避重试会继续，成功后仍重放余下暂存）
+                this._pendingDuringBackfill.splice(0, this._pendingDuringBackfill.length - this._pendingBackfillMax);
+                this.stats.pendingBackfillDropped++;
+                if (this.stats.pendingBackfillDropped === 1 || this.stats.pendingBackfillDropped % 1000 === 0) {
+                    this.logger.error('', 'FlapAnkrWsCollector',
+                        `回放缺口暂存队列溢出（上限 ${this._pendingBackfillMax}）：已丢弃 ${this.stats.pendingBackfillDropped} 条最老事件——QuoteSet 回放持续失败，请检查回放 RPC`);
+                }
+            }
+            this.stats.pendingDuringBackfill = this._pendingDuringBackfill.length;
+            return;
+        }
+
         const data = logEntry.data || '0x';
         const blockNumber = parseInt(logEntry.blockNumber, 16);
         const blockTimeMs = blockTimeSec * 1000;
@@ -710,10 +756,10 @@ class FlapAnkrWsCollector {
 
     /**
      * 启动回放调度：失败退避重试（30s 起 ×2 上限 5min，不设轮次上限）。
-     * 回放缺失不是无害缺口——窗口内存量非 BNB 盘不再发 TokenQuoteSet，其 tick 会按
-     * quote 价冒充 BNB 价落库（口径污染），必须重试到成功；_applyQuoteSet 的
-     * (block,logIndex) 单调去重保证重跑幂等（182 实测 ankr getLogs 批量限流
-     * -32005 即此设计依据）。成功即静默（完成日志在 _backfillQuoteSets 内）。
+     * 回放缺失不是无害缺口——窗口内 trade 事件计价无法判定，一律暂存（见 _processLog
+     * 的回放缺口保护）；重试到成功后 _flushPendingDuringBackfill 按序重放，数据不丢。
+     * _applyQuoteSet 的 (block,logIndex) 单调去重保证重跑幂等（182 实测 ankr getLogs
+     * 批量限流 -32005 即此设计依据）。成功即静默（完成日志在 _backfillQuoteSets 内）。
      */
     _scheduleQuoteBackfill(retryDelayMs = 0) {
         this._backfillQuoteSets().catch((err) => {
@@ -747,6 +793,7 @@ class FlapAnkrWsCollector {
     /**
      * 启动回放：getLogs 拉最近 backfillMinutes 的 TokenQuoteSet 重建计价表。
      * 只补表不补 tick——历史缺口不回填（WSS 本就不回放），回放只为让后续实时 tick 判对计价。
+     * 成功后置 settled 并重放回放窗口内暂存的 trade/graduation 事件（此时映射已完整）。
      */
     async _backfillQuoteSets() {
         const { BlockchainConfig } = require('../utils/BlockchainConfig');
@@ -761,6 +808,35 @@ class FlapAnkrWsCollector {
         this._applyQuoteSetLogs(logs);
         this.logger.info('', 'FlapAnkrWsCollector',
             `TokenQuoteSet 启动回放完成: blocks ${fromBlock}→${toBlock} events=${logs.length} applied后非BNB计价=${this._nonBnbQuoteTokens.size} rpc=${new URL(rpcUrl).host}`);
+        await this._flushPendingDuringBackfill();
+    }
+
+    /**
+     * 重放回放窗口内暂存的事件（_backfillQuoteSets 成功后调用；此时计价映射已重建，
+     * _processLog 走正常管线：换算/去重/emitTick 全生效）。串行按暂存序重放保 tick 顺序。
+     * settled 置位在此处（early return 前）：调 flush 即意味着回放已成功——无论窗口内
+     * 是否有暂存事件，此后实时事件都不再暂存。独立 catch：回放本身已成功，重放失败
+     * 不应触发回放重试（重试只是再跑一遍 getLogs）。
+     */
+    async _flushPendingDuringBackfill() {
+        this._quoteBackfillSettled = true;
+        if (!this._pendingDuringBackfill.length) return;
+        const pending = this._pendingDuringBackfill;
+        this._pendingDuringBackfill = [];
+        this.stats.pendingDuringBackfill = 0;
+        this.logger.info('', 'FlapAnkrWsCollector',
+            `回放缺口暂存重放开始: ${pending.length} 条（含 BNB 盘/非 BNB 盘 trade 与 graduation）`);
+        try {
+            for (const item of pending) {
+                await this._processLog(item.logEntry, item.blockTimeSec);
+            }
+            this.stats.pendingBackfillFlushed += pending.length;
+            this.logger.info('', 'FlapAnkrWsCollector',
+                `回放缺口暂存重放完成: ${pending.length} 条（换算=${this.stats.quoteConverted}）`);
+        } catch (err) {
+            this.logger.error('', 'FlapAnkrWsCollector',
+                `回放缺口暂存重放中断: ${err.message}（已重放条数不计入 flushed，剩余丢弃——单条 _processLog 内部有全 catch，此为防御层）`);
+        }
     }
 
     /** 分块 getLogs（规避 RPC 单次块深上限）；按块序拼接；chunk 间 500ms 摊开（ankr 批量限流） */

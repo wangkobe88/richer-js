@@ -320,6 +320,70 @@ async function main() {
         }
     }
 
+    // ── T14 回放缺口保护：暂存 / 重放 / 溢出 / stop 丢弃 ──
+    // 事故背景（2026-09-27 0xcf91）：回放卡死窗口内 quote 价冒充 BNB 价落库（虚高 22.6 倍）。
+    // 保护语义：settled=false 期间 trade/graduation 一律暂存（BNB 盘也无法判定），回放成功
+    // 后按序重放；TokenCreated/TokenQuoteSet 照常处理
+    console.log('T14 回放缺口保护（暂存/重放/溢出/stop）');
+    {
+        // T14a 未 settled：trade/graduation 暂存，create/quoteSet 照常
+        const c = makeCollector();
+        c._fetchQuoteRateFromRpc = async () => 0.5;
+        c._quoteBackfillSettled = false; // 模拟订阅确认后回放进行中
+        await c._processLog(tradeLog({ token: TOKEN, trader: TRADER, tokenAmt: 1, eth: 1, postPrice: 0.01, tx: txHash('p1'), logIndex: 1 }), 1790000000);
+        await c._processLog(launchedLog({ token: TOKEN, pool: addr('55'), amount: 1e8, eth: 10, tx: txHash('p2') }), 1790000000);
+        assert(c._pendingDuringBackfill.length === 2 && c._tickBuffer.length === 0,
+            '回放进行中 trade/graduation 暂存不落缓冲');
+        assert(c.stats.pendingDuringBackfill === 2, 'pendingDuringBackfill 计数');
+        await c._processLog(quoteSetLog({ token: TOKEN, quote: QUOTE, block: 100, logIndex: 1, tx: txHash('p3') }), 1790000000);
+        assert(c._nonBnbQuoteTokens.get(TOKEN) === QUOTE && c._pendingDuringBackfill.length === 2,
+            'TokenQuoteSet 回放期间照常应用映射（正源）');
+
+        // T14b 重放：映射重建后 flush，换算正确 + 保序 + quote_token 溯源
+        await c._processLog(tradeLog({ token: addr('99'), trader: TRADER, tokenAmt: 5, eth: 0.5, postPrice: 0.02, tx: txHash('p4'), logIndex: 1, block: 1001 }), 1790000001);
+        assert(c._pendingDuringBackfill.length === 3, 'BNB 盘 tick 回放期间同样暂存（无法判定不冒充）');
+        await c._flushPendingDuringBackfill();
+        assert(c._tickBuffer.length === 2 && c._pendingDuringBackfill.length === 0, '重放落缓冲 + 队列清空');
+        const r1 = c._tickBuffer[0], r2 = c._tickBuffer[1];
+        assert(r1.tx_hash === txHash('p1') && r2.tx_hash === txHash('p4'), '按暂存序重放（保序）');
+        assert(near(r1.price_bnb, 0.005) && r1.quote_token === QUOTE, '非 BNB 盘重放换算正确 + 溯源');
+        assert(near(r2.price_bnb, 0.02) && r2.quote_token === null, 'BNB 盘重放原样');
+        assert(c.stats.pendingBackfillFlushed === 3, 'pendingBackfillFlushed 计数（含 graduation）');
+        assert(c.stats.pendingDuringBackfill === 0, 'flush 后 pending 计数归零');
+
+        // T14c settled 后不再暂存
+        await c._processLog(tradeLog({ token: addr('99'), trader: TRADER, tokenAmt: 1, eth: 1, postPrice: 0.01, tx: txHash('p5'), logIndex: 1, block: 1002 }), 1790000002);
+        assert(c._tickBuffer.length === 3 && c._pendingDuringBackfill.length === 0, 'settled 后直接处理');
+
+        // T14d 溢出：丢最老保最新 + 计数
+        const c2 = makeCollector();
+        c2._quoteBackfillSettled = false;
+        c2._pendingBackfillMax = 3;
+        for (let i = 0; i < 5; i++) {
+            await c2._processLog(tradeLog({ token: addr('99'), trader: TRADER, tokenAmt: 1, eth: 1, postPrice: 0.01, tx: txHash('q' + i), logIndex: 1, block: 1000 + i }), 1790000000 + i);
+        }
+        assert(c2._pendingDuringBackfill.length === 3 && c2.stats.pendingBackfillDropped === 2,
+            '溢出丢最老保最新（上限 3 存 3 丢 2）');
+        assert(c2._pendingDuringBackfill[0].logEntry.transactionHash === txHash('q2'),
+            '保留的是最新段（q2/q3/q4）');
+
+        // T14e stop 未 settled：丢弃暂存 + warn 日志
+        const warns3 = [];
+        const logger3 = { info: () => {}, warn: (...a) => warns3.push(a.join(' ')), error: () => {}, debug: () => {} };
+        const c3 = new FlapAnkrWsCollector({ flapWs: { contracts: { portal: addr('ab') } } }, logger3, null, null, {});
+        c3._quoteBackfillSettled = false;
+        await c3._processLog(tradeLog({ token: TOKEN, trader: TRADER, tokenAmt: 1, eth: 1, postPrice: 0.01, tx: txHash('r1'), logIndex: 1 }), 1790000000);
+        await c3.stop();
+        assert(c3._pendingDuringBackfill.length === 0 && c3.stats.pendingDuringBackfill === 0,
+            'stop 未 settled 丢弃暂存');
+        assert(warns3.some((m) => /丢弃暂存事件 1 条/.test(m)), 'stop 丢弃有 warn 日志');
+
+        // T14f 未 start 的 collector（单测脚手架形态）settled 默认 true：直接处理不暂存
+        const c4 = makeCollector();
+        await c4._processLog(tradeLog({ token: addr('99'), trader: TRADER, tokenAmt: 1, eth: 1, postPrice: 0.01, tx: txHash('s1'), logIndex: 1 }), 1790000000);
+        assert(c4._tickBuffer.length === 1 && c4._pendingDuringBackfill.length === 0, '未启动（无回放调度）不暂存');
+    }
+
     console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
     process.exitCode = failed === 0 ? 0 : 1;
 }
