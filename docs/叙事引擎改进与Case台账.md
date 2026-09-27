@@ -32,6 +32,25 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C24 NEARkat 0xcc47 —— 老官宣推时效 0 分拦截，IP 首币豁免暂缓（2026-09-27）
+
+**现象**：用户质询 NEARkat（0xcc47a6433b1bb8c2785bb2161fd5594210927777，four.meme，
+name=NEAR mascot）为何没过。链路：NEAR Protocol **官方账号 2024-11-22** 推
+「mascot meta? as per, NEAR was ahead of the curve w/ the NEARkat. Who remembers?」
+（108 转/673 赞）→ 第三方（0x324b…）2026-09-27 翻这条 22 个月前的官宣推发 BSC meme。
+
+**J1.14 判定**：A 类 0.89（mascot 形象 IP），各维度均不差——量级 B 档 27 + 传播 27 +
+时效 **0**（older：推文 2024-11-22 vs token 创建 2026-09-27，时间抓取正确非 C20 型
+bug）= 事件分 **54 < 60 差 6 分**拦。name_referent subject_self 0.58（NEARkat=NEAR
+官方吉祥物=主体自己的 IP，放行侧），阻断质量 0.26 未拦；blockChoice none 0.39。
+
+**裁定（2026-09-27，暂缓执行）**：时效判定本身正确（推文确实老）；但该 IP
+（NEARkat）**此前似乎从未被发过币**——「IP 首币」骑乘应豁免时效：首币本身就是事件，
+不存在"翻旧热点无当下动能"的问题。**暂不修**：判定「该 IP 是否已有先币」需要全史
+代币 symbol/name 与 IP 的匹配数据，系统刚开、数据收集不足，先记录 case 等数据积累
+后修（见 §六-27）。修法方向：A 类（或全域）骑乘盘在 IP 名下无先币时给时效豁免/
+保底分；数据源候选=wss_events 全史 + four.meme/flap 历史代币名做 IP 匹配。
+
 ### C23 货币自由 0xced5 —— 币安APP口号被实体性前提压成截词 → J1.15 官方口号归 super_ip（2026-09-27）★
 
 **现象**：用户质询货币自由（0xced5a2ba24268407abda6790744d65b192897777，four.meme 税币，
@@ -1479,3 +1498,10 @@ symbol 同名 name 跨语义盘会被拦）
     §4.8 PrecheckFailRetry 只救 precheck address-fail 行；「走了标准路径评了 low」
     的行不在重试域——竞态窗口内 CA 推文未发导致 CA miss → low 固化。如需覆盖要扩
     重试判据（形状识别难：low+标准路径不一定是竞态），待用户裁定是否值得
+27. **IP 首币时效豁免**（2026-09-27 C24 用户裁定，暂缓）：知名 IP（NEARkat 型官方
+    mascot）首次被发成代币时，官宣推文虽老（older→时效 0 分）应豁免时效——首币
+    本身即事件，与"翻坟蹭旧热点"不同构。暂缓原因：判定「该 IP 名下无先币」需要
+    全史代币名与 IP 的匹配数据，系统刚开收集不足。待数据积累后修：时效维度对
+    IP 首币给豁免/保底分；先币判定数据源候选 wss_events 全史 + four.meme/flap
+    历史代币 symbol/name（注意 BSC 之外的先币，如 NEARkat 可能在 NEAR 链/其他链
+    已有同名币，链外数据是否纳入待定）
