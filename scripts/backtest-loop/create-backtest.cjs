@@ -12,6 +12,8 @@
 //   initialBalance                  —— 初始余额（默认 100）
 //   ws                              —— 引擎级覆盖（合入实验 config 的平台 ws 段：
 //                                      sellDebounceMs / factorParams / signalDebounce 等）
+//   tokenPositionAnalyzer            —— TPA 段透传（config.tokenPositionAnalyzer，
+//                                      shadow 回测：{enabled:true,enforce:false,trigger:{…}}）
 //
 // 用法：node scripts/backtest-loop/create-backtest.cjs --source <id> --name 轮0基线 \
 //        --strategy scripts/backtest-loop/strategies/round0.json
@@ -64,6 +66,7 @@ async function main() {
     },
   };
   if (S.ws) config[wsSection] = S.ws;
+  if (S.tokenPositionAnalyzer) config.tokenPositionAnalyzer = S.tokenPositionAnalyzer;
 
   const exp = await factory.createFromConfig(config, 'backtest');
   console.log(`平台=${platform}（${wsSection} 段） | tradeAmount=${config.tradeAmount} | 初始余额=${config.backtest.initialBalance}`);
