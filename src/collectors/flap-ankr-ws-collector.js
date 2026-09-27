@@ -12,8 +12,11 @@
  * 2. TokenBought/TokenSold → tick：postPrice 字段直接可用（18 decimals BNB/token）
  *    → tick 缓冲批量落库 wss_price_ticks + TokenPool.updatePrice + FactorAggregator.processTick
  * 3. LaunchedToDEX → 毕业：回调 onGraduation
- * 4. TokenQuoteSet → 计价币识别：非 BNB 计价（如 USD1）的代币照常发现记录，
- *    但其 tick 不落库不进因子（postPrice 是 quote/token 价，落 price_bnb 会污染口径）。
+ * 4. TokenQuoteSet → 计价币识别：非 BNB 计价（如 USD1/QQQB 等 meme quote）的代币照常发现记录，
+ *    其 tick 按 quote→BNB 实时汇率换算后落库（2026-09-27 用户裁定覆盖：链上大量代币属此类，
+ *    不换算=整类盲区）。汇率源 = PancakeSwap V2 quote/WBNB 池 reserves（TTL 缓存 +
+ *    stale-while-revalidate + 无池负缓存），换算失败才跳过；wss_price_ticks.quote_token 留溯源。
+ *    进程启动时回放最近 N 分钟 TokenQuoteSet 重建计价表（否则冷启动窗口会按 BNB 错采）。
  *    实测 TokenQuoteSet 的 logIndex 后于 TokenCreated，计价币在 create 之后才可知
  *
  * 事件口径（2026-09 实测验证，90s 订阅 1851 事件 / 18 新币 / 254 买 / 177 卖）：
@@ -61,6 +64,19 @@ const PANCAKE_V2_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
 const WBNB_BSC = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
 const USDT_BSC = '0x55d398326f99059fF775485246999027B3197955'; // BSC 上 18 decimals
 const ROUTER_ABI = ['function getAmountsOut(uint amountIn, address[] path) view returns (uint[] amounts)'];
+
+// PancakeSwap V2 Factory（非 BNB 计价盘的 quote→BNB 汇率源：quote/WBNB 池 reserves；
+// 实证 2026-09-27：QQQB 池毕业块汇率 0.9628，笑笑牛 1362 笔换算后 graduation 池资金
+// 14.26 BNB 与 BNB 计价盘毕业线同量级）
+const PCS_V2_FACTORY = '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73';
+const FACTORY_ABI = ['function getPair(address,address) view returns (address)'];
+const PAIR_ABI = [
+    'function getReserves() view returns (uint112,uint112,uint32)',
+    'function token0() view returns (address)',
+];
+const ERC20_DECIMALS_ABI = ['function decimals() view returns (uint8)'];
+// BSC 出块 ~0.75s：120min ≈ 9600 块（TokenQuoteSet 回放窗口块深）
+const QUOTE_BACKFILL_BLOCKS_PER_MIN = 80;
 
 // logs 事件可能先于对应 newHeads 到达：未知块时间的 log 进 pending 队列，
 // 由后续 head 回填；超过 15s 仍无 head 的走 RPC eth_getBlockByNumber 兜底
@@ -127,9 +143,23 @@ class FlapAnkrWsCollector {
         // 去重：(txHash, logIndex) —— 同 tx 可有多条同类型事件（聚合交易）
         this._processedTickKeys = new Set();
 
-        // 非 BNB 计价代币（如 USD1 quote）：token → quoteToken 地址。
-        // 仅记录已确认为非 BNB 的；未记录的默认按 BNB 处理（冷启动窗口见文件头注释）
+        // 非 BNB 计价代币（如 USD1/QQQB quote）：token → quoteToken 地址。
+        // 仅记录已确认为非 BNB 的；未记录的默认按 BNB 处理（冷启动窗口由启动回放兜住）
         this._nonBnbQuoteTokens = new Map();
+        // token → [blockNumber, logIndex]：已应用的最近一条 TokenQuoteSet 位置——
+        // 启动回放与实时订阅存在块重叠，按 (block, logIndex) 单调去重，旧事件晚到不回退状态
+        this._quoteSetBlocks = new Map();
+        // quote→BNB 换算缓存（2026-09-27 覆盖裁定）：quote → {rate, fetchedAtMs, negative}
+        this._quoteRates = new Map();
+        this._quoteRateInflight = new Map(); // quote → Promise（并发去重；同 quote 的 tick 序列保序）
+        this._quoteDecimalsCache = new Map(); // quote → decimals
+        this._pcsFactoryContract = null;      // 惰性（首次换算时建）
+        this._quoteBackfilled = false;        // 启动回放 TokenQuoteSet 只跑一次（重连不重跑）
+        const qrCfg = this.config.quoteRate || {};
+        this._quoteRateTtlMs = qrCfg.ttlMs ?? 30000;
+        this._quoteRateStaleMaxMs = qrCfg.staleMaxMs ?? 300000;
+        this._quoteRateNegTtlMs = qrCfg.negTtlMs ?? 60000;
+        this._quoteBackfillMinutes = qrCfg.backfillMinutes ?? 120;
 
         this._tickBuffer = [];
         this._tickFlushTimer = null;
@@ -156,6 +186,9 @@ class FlapAnkrWsCollector {
             launchedToDex: 0,
             quoteSetEvents: 0,
             nonBnbQuoteSkipped: 0,
+            quoteConverted: 0,
+            quoteRateUnavailable: 0,
+            quoteSetBackfilled: 0,
             unknownEvents: 0,
             decodeFailed: 0,
             duplicateTicks: 0,
@@ -281,7 +314,19 @@ class FlapAnkrWsCollector {
         // 订阅确认帧
         if (msg.id !== undefined && msg.result !== undefined && typeof msg.result === 'string') {
             if (msg.id === 1) this._headSubId = msg.result;
-            if (msg.id === 2) this._logSubId = msg.result;
+            if (msg.id === 2) {
+                this._logSubId = msg.result;
+                // 首次订阅成功后回放最近 N 分钟 TokenQuoteSet 重建计价表——否则冷启动
+                // 窗口内非 BNB 盘的 tick 会按 BNB 错采（污染 price_bnb 口径）。只跑一次
+                //（重连不重跑）；失败仅告警，已回放部分与实时事件继续维持状态
+                if (!this._quoteBackfilled) {
+                    this._quoteBackfilled = true;
+                    this._backfillQuoteSets().catch((err) => {
+                        this.logger.warn('', 'FlapAnkrWsCollector',
+                            `TokenQuoteSet 启动回放失败: ${err.message}`);
+                    });
+                }
+            }
             if (msg.id === 1 || msg.id === 2) {
                 this.logger.info('', 'FlapAnkrWsCollector', `订阅确认 id=${msg.id} subId=${msg.result}`);
             }
@@ -408,7 +453,7 @@ class FlapAnkrWsCollector {
         this._processLog(logEntry, blockTimeSec);
     }
 
-    _processLog(logEntry, blockTimeSec) {
+    async _processLog(logEntry, blockTimeSec) {
         const eventName = TOPIC0_MAP.get(logEntry.topics[0]);
         if (!eventName) return;
         const data = logEntry.data || '0x';
@@ -441,17 +486,26 @@ class FlapAnkrWsCollector {
             if (eventName === 'TokenBought' || eventName === 'TokenSold') {
                 const d = ethers.AbiCoder.defaultAbiCoder().decode(TRADE_DATA_TYPES, data);
                 const token = lowerAddr(d[1]);
-                if (!this._isBnbQuote(token)) {
-                    this.stats.nonBnbQuoteSkipped++;
-                    return; // 非 BNB 计价：postPrice 是 quote/token 价，落 price_bnb 会污染口径
+                // postPrice = 成交后价格（18 decimals 计价币/token）；eth 即该笔计价币金额（1% fee 已含）
+                let priceBnb = Number(ethers.formatEther(d[6]));
+                let bnbAmount = Number(ethers.formatEther(d[4]));
+                let quoteToken = null;
+                const quote = this._nonBnbQuoteTokens.get(token);
+                if (quote !== undefined) {
+                    const conv = await this._getQuoteConversion(quote);
+                    if (!conv) {
+                        this.stats.nonBnbQuoteSkipped++;
+                        return; // 无池/汇率不可得：跳过（宁漏不污染 price_bnb 口径）
+                    }
+                    priceBnb *= conv.rate;
+                    bnbAmount *= conv.rate;
+                    quoteToken = quote;
+                    this.stats.quoteConverted++;
                 }
                 if (eventName === 'TokenBought') this.stats.tokenBought++;
                 else this.stats.tokenSold++;
 
-                // postPrice = 成交后价格（18 decimals BNB/token）；eth 即该笔 BNB 金额（1% fee 已含）
-                const priceBnb = Number(ethers.formatEther(d[6]));
                 const tokenAmount = Number(ethers.formatEther(d[3]));
-                const bnbAmount = Number(ethers.formatEther(d[4]));
 
                 const tickKey = `${logEntry.transactionHash}-${parseInt(logEntry.logIndex, 16)}`;
                 if (this._processedTickKeys.has(tickKey)) {
@@ -471,6 +525,7 @@ class FlapAnkrWsCollector {
                     priceBnb,
                     tokenAmount,
                     bnbAmount,
+                    quoteToken,
                     // flap 事件无 offers/funds 字段：不传（FA 的 `> 0` 守卫容忍 undefined，tvl 因子恒 0）
                     blockNumber,
                     blockTimeMs,
@@ -485,10 +540,9 @@ class FlapAnkrWsCollector {
                 this.stats.quoteSetEvents++;
                 const token = lowerAddr(d[0]);
                 const quoteToken = lowerAddr(d[1]);
-                if (quoteToken === ZERO_ADDRESS) {
-                    this._nonBnbQuoteTokens.delete(token); // BNB 计价
-                } else {
-                    this._nonBnbQuoteTokens.set(token, quoteToken);
+                const applied = this._applyQuoteSet(token, quoteToken,
+                    blockNumber, parseInt(logEntry.logIndex, 16));
+                if (applied && quoteToken !== ZERO_ADDRESS) {
                     this.logger.info('', 'FlapAnkrWsCollector',
                         `非 BNB 计价代币: token=${token} quote=${quoteToken} tx=${logEntry.transactionHash}`);
                 }
@@ -499,14 +553,38 @@ class FlapAnkrWsCollector {
                 const d = ethers.AbiCoder.defaultAbiCoder().decode(LAUNCHED_DEX_DATA_TYPES, data);
                 this.stats.launchedToDex++;
                 // ⚠ 签名来自官方文档，尚无实测样本；上线自然验证
+                // 非 BNB 计价盘：eth 是 quote 币金额——换算成 BNB 落 fundsBnb；
+                // 换算不可得时 fundsBnb=null + fundsQuote 留原值（诚实语义，不冒充 BNB）
+                const gradToken = lowerAddr(d[0]);
+                let fundsBnb = Number(ethers.formatEther(d[3]));
+                let fundsQuote = null;
+                let quoteToken = null;
+                const quote = this._nonBnbQuoteTokens.get(gradToken);
+                if (quote !== undefined) {
+                    fundsQuote = fundsBnb;
+                    quoteToken = quote;
+                    const conv = await this._getQuoteConversion(quote);
+                    if (conv) {
+                        fundsBnb *= conv.rate;
+                        this.stats.quoteConverted++;
+                    } else {
+                        fundsBnb = null;
+                        this.stats.quoteRateUnavailable++;
+                    }
+                }
+                const fundsDesc = fundsBnb != null
+                    ? `${fundsBnb.toFixed(6)} BNB`
+                    : `${fundsQuote} ${quoteToken}(未换算)`;
                 this.logger.info('', 'FlapAnkrWsCollector',
-                    `毕业事件: token=${lowerAddr(d[0])} pool=${lowerAddr(d[1])} eth=${ethers.formatEther(d[3])} tx=${logEntry.transactionHash}`);
+                    `毕业事件: token=${gradToken} pool=${lowerAddr(d[1])} funds=${fundsDesc} tx=${logEntry.transactionHash}`);
                 if (this._callbacks.onGraduation) {
                     this._callbacks.onGraduation({
-                        token: lowerAddr(d[0]),
+                        token: gradToken,
                         dexPool: lowerAddr(d[1]),
                         tokenAmount: Number(ethers.formatEther(d[2])),
-                        fundsBnb: Number(ethers.formatEther(d[3])),
+                        fundsBnb,
+                        fundsQuote,
+                        quoteToken,
                         blockNumber,
                         blockTimeMs,
                         txHash: logEntry.transactionHash,
@@ -521,9 +599,162 @@ class FlapAnkrWsCollector {
         }
     }
 
-    /** 是否 BNB 计价（未收到 TokenQuoteSet 的默认 BNB；冷启动窗口已知局限） */
-    _isBnbQuote(token) {
-        return !this._nonBnbQuoteTokens.has(token);
+    // ═══════════════ 非 BNB 计价：quote→BNB 换算 + 启动回放（2026-09-27） ═══════════════
+
+    /**
+     * 应用一条 TokenQuoteSet（实时/回放共用）。按 (blockNumber, logIndex) 单调去重：
+     * 启动回放与实时订阅存在块重叠窗口，旧事件晚到不得回退新状态。
+     * @returns {boolean} 是否实际应用（false=旧事件被忽略）
+     */
+    _applyQuoteSet(token, quoteToken, blockNumber, logIndex) {
+        const last = this._quoteSetBlocks.get(token);
+        if (last && (blockNumber < last[0] || (blockNumber === last[0] && logIndex <= last[1]))) {
+            return false;
+        }
+        this._quoteSetBlocks.set(token, [blockNumber, logIndex]);
+        if (quoteToken === ZERO_ADDRESS) {
+            this._nonBnbQuoteTokens.delete(token); // BNB 计价
+        } else {
+            this._nonBnbQuoteTokens.set(token, quoteToken);
+        }
+        return true;
+    }
+
+    /**
+     * 取 quote→BNB 汇率（TTL 缓存 + stale-while-revalidate + 负缓存 + inflight 去重）。
+     * @returns {Promise<{rate:number}|null>} null=无池/无储备/负缓存期内（调用方跳过该 tick）
+     */
+    async _getQuoteConversion(quote) {
+        const now = Date.now();
+        const cached = this._quoteRates.get(quote);
+        if (cached) {
+            const age = now - cached.fetchedAtMs;
+            if (cached.negative) {
+                if (age < this._quoteRateNegTtlMs) return null;
+            } else if (age < this._quoteRateTtlMs) {
+                return { rate: cached.rate };
+            } else if (age < this._quoteRateStaleMaxMs) {
+                // stale-while-revalidate：旧值先用（容忍一个 TTL 的汇率滞后），后台刷新；
+                // 刷新失败只落负缓存（负缓存过期前后续 tick 跳过，不影响本次返回）
+                this._refreshQuoteRate(quote).catch(() => {});
+                return { rate: cached.rate };
+            }
+        }
+        return this._refreshQuoteRate(quote);
+    }
+
+    /**
+     * 刷新汇率（inflight 去重；同 quote 并发共享同一 Promise——注册序即完成序，
+     * 同 token 的 tick 序列在换算点保序）。内部全 catch 绝不 reject：
+     * _processLog 的 await 段需要这层保护（unhandled rejection 会崩 watcher）。
+     */
+    async _refreshQuoteRate(quote) {
+        const inflight = this._quoteRateInflight.get(quote);
+        if (inflight) return inflight;
+
+        const p = (async () => {
+            try {
+                const rate = await this._fetchQuoteRateFromRpc(quote);
+                this._quoteRates.set(quote, { rate, fetchedAtMs: Date.now(), negative: rate == null });
+                return rate == null ? null : { rate };
+            } catch (err) {
+                this.logger.warn('', 'FlapAnkrWsCollector',
+                    `quote 汇率获取失败(负缓存${Math.round(this._quoteRateNegTtlMs / 1000)}s): quote=${quote} ${err.message}`);
+                this._quoteRates.set(quote, { rate: null, fetchedAtMs: Date.now(), negative: true });
+                return null;
+            }
+        })();
+
+        this._quoteRateInflight.set(quote, p);
+        try {
+            return await p;
+        } finally {
+            this._quoteRateInflight.delete(quote);
+        }
+    }
+
+    /**
+     * 链上汇率：PancakeSwap V2 getPair(quote, WBNB) → getReserves。
+     * rate = WBNB 储备 / quote 储备（各自按 decimals 归一到 whole-token 单位）。
+     * 无池（零地址）/储备为 0 → null。
+     */
+    async _fetchQuoteRateFromRpc(quote) {
+        if (!this._pcsFactoryContract) {
+            const { BlockchainConfig } = require('../utils/BlockchainConfig');
+            const rpcUrl = BlockchainConfig.CHAIN_CONFIGS.bsc.network.rpcUrl;
+            this._pcsProvider = new ethers.JsonRpcProvider(rpcUrl);
+            this._pcsFactoryContract = new ethers.Contract(PCS_V2_FACTORY, FACTORY_ABI, this._pcsProvider);
+        }
+        const pair = await this._pcsFactoryContract.getPair(quote, WBNB_BSC);
+        if (!pair || pair === ethers.ZeroAddress) return null; // quote 未上 PCS V2 对 WBNB 池
+        const pairContract = new ethers.Contract(pair, PAIR_ABI, this._pcsProvider);
+        const [reserves, token0] = await Promise.all([pairContract.getReserves(), pairContract.token0()]);
+        const [reserve0, reserve1] = reserves; // bigint（uint112）
+        if (reserve0 === 0n || reserve1 === 0n) return null; // 无流动性
+        const decimals = await this._quoteDecimalsOf(quote);
+        const decExp = 10n ** BigInt(decimals);
+        const rate = lowerAddr(token0) === quote
+            ? Number(reserve1 * decExp) / Number(reserve0 * 10n ** 18n) // token0=quote → r1 是 WBNB
+            : Number(reserve0 * decExp) / Number(reserve1 * 10n ** 18n); // token0=WBNB → r0 是 WBNB
+        return rate > 0 ? rate : null;
+    }
+
+    /** quote 币 decimals（缓存；provider 由 _fetchQuoteRateFromRpc 先行创建） */
+    async _quoteDecimalsOf(quote) {
+        let dec = this._quoteDecimalsCache.get(quote);
+        if (dec !== undefined) return dec;
+        const erc20 = new ethers.Contract(quote, ERC20_DECIMALS_ABI, this._pcsProvider);
+        dec = Number(await erc20.decimals());
+        this._quoteDecimalsCache.set(quote, dec);
+        return dec;
+    }
+
+    /**
+     * 启动回放：getLogs 拉最近 backfillMinutes 的 TokenQuoteSet 重建计价表。
+     * 只补表不补 tick——历史缺口不回填（WSS 本就不回放），回放只为让后续实时 tick 判对计价。
+     */
+    async _backfillQuoteSets() {
+        const { BlockchainConfig } = require('../utils/BlockchainConfig');
+        const rpcUrl = BlockchainConfig.CHAIN_CONFIGS.bsc.network.rpcUrl;
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const toBlock = await provider.getBlockNumber();
+        const depth = Math.ceil(this._quoteBackfillMinutes * QUOTE_BACKFILL_BLOCKS_PER_MIN);
+        const fromBlock = Math.max(0, toBlock - depth);
+        const logs = await this._fetchQuoteSetLogs(provider, fromBlock, toBlock);
+        this._applyQuoteSetLogs(logs);
+        this.logger.info('', 'FlapAnkrWsCollector',
+            `TokenQuoteSet 启动回放完成: blocks ${fromBlock}→${toBlock} events=${logs.length} applied后非BNB计价=${this._nonBnbQuoteTokens.size}`);
+    }
+
+    /** 分块 getLogs（规避 RPC 单次块深上限）；按块序拼接 */
+    async _fetchQuoteSetLogs(provider, fromBlock, toBlock) {
+        const CHUNK = 2000;
+        const topic0 = ethers.id(EVENT_SIGS.TokenQuoteSet);
+        const out = [];
+        for (let start = fromBlock; start <= toBlock; start += CHUNK) {
+            const end = Math.min(start + CHUNK - 1, toBlock);
+            const logs = await provider.getLogs({
+                address: this._portal,
+                topics: [topic0],
+                fromBlock: start,
+                toBlock: end,
+            });
+            out.push(...logs);
+        }
+        return out;
+    }
+
+    /** 应用回放日志（与实时共用 _applyQuoteSet 的单调去重） */
+    _applyQuoteSetLogs(logs) {
+        let applied = 0;
+        for (const log of logs) {
+            const d = ethers.AbiCoder.defaultAbiCoder().decode(QUOTE_SET_DATA_TYPES, log.data);
+            if (this._applyQuoteSet(lowerAddr(d[0]), lowerAddr(d[1]),
+                parseInt(log.blockNumber, 16), parseInt(log.logIndex, 16))) {
+                applied++;
+            }
+        }
+        this.stats.quoteSetBackfilled = applied;
     }
 
     // ═══════════════ TokenCreated：发现 ═══════════════
@@ -598,6 +829,8 @@ class FlapAnkrWsCollector {
             block_time: new Date(decoded.blockTimeMs).toISOString(),
             received_at: new Date(receivedAt).toISOString(),
             platform: 'flap',
+            // 非 BNB 计价盘的计价币（price_bnb/bnb_amount 已按 quote→BNB 汇率换算；BNB 盘 null）
+            quote_token: decoded.quoteToken ?? null,
         };
         this.stats.ticksBuffered++;
         this._tickBuffer.push(tickRow);
@@ -812,6 +1045,7 @@ class FlapAnkrWsCollector {
             blockTimeCacheSize: this._blockTimes.size,
             dedupeSetSize: this._processedTickKeys.size,
             nonBnbQuoteTracked: this._nonBnbQuoteTokens.size,
+            quoteRateCacheSize: this._quoteRates.size,
             uptimeSeconds: this.stats.startTime
                 ? Math.floor((Date.now() - this.stats.startTime) / 1000)
                 : 0,
