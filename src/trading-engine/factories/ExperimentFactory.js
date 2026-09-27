@@ -177,10 +177,13 @@ class ExperimentFactory {
    */
   async list(filters = {}) {
     try {
+      // id 第二排序键：回测创建时源+回测两行同事务同毫秒 created_at，无 tiebreaker
+      // 时 Postgres 并列行返回顺序不稳定（页面刷新会互换）
       let query = this.supabase
         .from('experiments')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true });
 
       // 应用筛选条件
       if (filters.status) {
