@@ -293,10 +293,10 @@ class ExperimentMonitor {
 
     emptyState.classList.add('hidden');
     container.classList.remove('hidden');
-    tbody.innerHTML = this.filteredExperiments.map((exp, index) => this.renderExperimentRow(exp, index)).join('');
+    tbody.innerHTML = this.filteredExperiments.map(exp => this.renderExperimentRow(exp)).join('');
   }
 
-  renderExperimentRow(exp, index = 0) {
+  renderExperimentRow(exp) {
     const statusColors = {
       initializing: 'bg-gray-600 text-gray-200',
       running: 'bg-green-700 text-green-100',
@@ -355,8 +355,6 @@ class ExperimentMonitor {
 
     return `
       <tr class="hover:bg-gray-700 transition-colors">
-        <!-- 序号（当前筛选视图内行号） -->
-        <td class="px-2 py-2 text-center text-gray-400">${index + 1}</td>
         <!-- 实验名称 -->
         <td class="px-2 py-2">
           <div class="flex flex-col gap-1">
