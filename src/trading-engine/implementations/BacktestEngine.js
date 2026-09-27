@@ -237,6 +237,8 @@ class BacktestEngine extends AbstractTradingEngine {
     // NarrativeAnalyzer.analyze，Jev 秒级；失败/超时=9 放行）
     const { NarrativeDirectCaller, mapGmgnRiskFactors } = require('../pre-check/NarrativeDirectCaller');
     this._narrativeCaller = new NarrativeDirectCaller();
+    // 挂 this：解构是函数级作用域，_evaluateBuyPath 裸引用会 ReferenceError（同实时引擎蝴蝶轮回案）
+    this._mapGmgnRiskFactors = mapGmgnRiskFactors;
 
     // 5.6 同叙事龙头已火检查（同实时引擎：narrativeLeaderHot 因子，火门槛 5x + 首达后 24h 窗；
     // checkTimeSec 用回放时点，涨幅只算 block_time<=t 的 ticks，无未来函数）
@@ -839,7 +841,7 @@ class BacktestEngine extends AbstractTradingEngine {
               // GMGN 风险因子（x-0 案）：同 narrativeRating 直调链路；时序穿越同声明
               // （GMGN 是当前快照——历史 token 的 issuerTokenCount 含其后所有发币，
               // 偏拦方向；bundler 是当前 holder 群体）——只看相对增量，绝对值不代表实时可得
-              ...mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk),
+              ...this._mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk),
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply,

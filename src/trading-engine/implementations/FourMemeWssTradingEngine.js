@@ -239,6 +239,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // （缓存命中秒回）重新登记，代价一条 signal 行）
     this._narrativeBlockedTokens = new Set();
     this._shouldBlockOnNarrative = shouldBlockOnNarrative;
+    // 挂 this：解构是 _initializeDataSources 函数级作用域，_evaluateBuyPath 裸引用会
+    // ReferenceError（2026-09-27 蝴蝶轮回案：60 次 BUY 信号全挂「mapGmgnRiskFactors is not defined」）
+    this._mapGmgnRiskFactors = mapGmgnRiskFactors;
 
     // 1.5.1 同叙事龙头已火检查（narrativeLeaderHot 因子：直调拿到 sourceTweetId 后查
     // 同源推文其余代币的峰值涨幅，火门槛 5x + 首达后 24h 拒绝窗口；详见 SameNarrativeLeaderService 头注）
@@ -1062,7 +1065,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               narrativeLeaderMaxMultiple: narrativeLeaderInfo?.factors?.narrativeLeaderMaxMultiple ?? 0,
               // GMGN 风险因子（x-0 案）：直调链路同次 getTokenInfo 带出发币史/捆绑钱包；
               // 未触发/失败/未索引 → covered=0 + 0 值放行（宁漏拦不误杀）
-              ...mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk),
+              ...this._mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk),
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply: totalSupply,
