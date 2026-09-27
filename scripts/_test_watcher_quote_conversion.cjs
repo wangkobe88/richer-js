@@ -384,6 +384,115 @@ async function main() {
         assert(c4._tickBuffer.length === 1 && c4._pendingDuringBackfill.length === 0, '未启动（无回放调度）不暂存');
     }
 
+    // ── T15 映射持久化：onQuoteSet 实时触发 / DB 加载排序应用 / 水位驱动回放窗 ──
+    // 二次事故背景（1319020 进程）：固定 120min 回放窗对 QuoteSet 早于窗口的存量非 BNB 盘
+    // 恒 miss → 回放「成功」但映射缺失照常冒充。修复：实时 QuoteSet 落 wss_events，启动
+    // 从 DB 加载终态映射，回放窗 = [DB 水位-100, head] 增量补停机缺口
+    console.log('T15 映射持久化（onQuoteSet/DB加载/水位回放窗）');
+    {
+        // T15a 实时 QuoteSet 应用时触发 onQuoteSet 回调（含 blockNumber/logIndex/blockTimeMs）
+        const persisted = [];
+        const cq = makeCollector({ onQuoteSet: (info) => persisted.push(info) });
+        await cq._processLog(quoteSetLog({ token: TOKEN, quote: QUOTE, block: 500, logIndex: 7, tx: txHash('t1') }), 1790000000);
+        assert(persisted.length === 1 && persisted[0].token === TOKEN && persisted[0].quoteToken === QUOTE,
+            '实时 QuoteSet 应用触发 onQuoteSet');
+        assert(persisted[0].blockNumber === 500 && persisted[0].logIndex === 7 && persisted[0].blockTimeMs === 1790000000000,
+            '回调携带 blockNumber/logIndex/blockTimeMs');
+        // 旧块重复事件（单调去重拒绝）不触发
+        await cq._processLog(quoteSetLog({ token: TOKEN, quote: addr('88'), block: 499, logIndex: 9, tx: txHash('t2') }), 1790000000);
+        assert(persisted.length === 1, '被单调去重拒绝的事件不落库');
+        // 零地址（BNB）也持久化（终态记录，加载时压制更早非零记录）
+        await cq._processLog(quoteSetLog({ token: TOKEN, quote: '0x' + '0'.repeat(40), block: 501, logIndex: 0, tx: txHash('t3') }), 1790000000);
+        assert(persisted.length === 2 && persisted[1].quoteToken === '0x' + '0'.repeat(40),
+            'BNB 转换（零地址）同样持久化');
+
+        // T15b _loadQuoteMapFromDb：乱序行排序后应用（终态正确）+ 零地址压制 + 水位 = max 块
+        const c5 = makeCollector();
+        const dbRows = [
+            { id: 2, payload: { token: TOKEN, quoteToken: QUOTE, blockNumber: 500, logIndex: 7 } },      // id 序 ≠ 块序
+            { id: 1, payload: { token: TOKEN, quoteToken: addr('88'), blockNumber: 480, logIndex: 3 } },
+            { id: 3, payload: { token: addr('66'), quoteToken: addr('44'), blockNumber: 600, logIndex: 1 } },
+            { id: 4, payload: { token: addr('66'), quoteToken: '0x' + '0'.repeat(40), blockNumber: 700, logIndex: 0 } }, // BNB 压制
+            { id: 5, payload: { blockNumber: 900 } }, // 非法行（缺 token/quoteToken）过滤
+        ];
+        c5._supabase = { from: () => ({
+            select: () => ({
+                eq: () => ({ eq: () => ({
+                    gt: () => ({
+                        order: () => ({
+                            limit: async (n) => {
+                                const out = dbRows.filter(r => !r._sent).slice(0, n);
+                                for (const r of out) r._sent = true;
+                                return { data: out, error: null };
+                            },
+                        }),
+                    }),
+                }) }),
+            }) }),
+        };
+        const wm = await c5._loadQuoteMapFromDb();
+        assert(c5._nonBnbQuoteTokens.get(TOKEN) === QUOTE, '乱序行按块序应用（480 的 0x88 被 500 的 QUOTE 覆盖）');
+        assert(!c5._nonBnbQuoteTokens.has(addr('66')), '零地址行压制更早非零记录（BNB 终态）');
+        assert(wm === 700, `水位 = 最大应用块（got ${wm}）`);
+        assert(c5.stats.quoteSetPersistLoaded === 4, `非法行过滤不计数（got ${c5.stats.quoteSetPersistLoaded}）`);
+
+        // T15c 空表 → null 水位（首启全量窗路径）
+        const c6 = makeCollector();
+        const emptyChain = () => ({
+            select: () => ({
+                eq: () => ({
+                    eq: () => ({
+                        gt: () => ({
+                            order: () => ({
+                                limit: async () => ({ data: [], error: null }),
+                            }),
+                        }),
+                    }),
+                }),
+            }),
+        });
+        c6._supabase = { from: emptyChain };
+        assert(await c6._loadQuoteMapFromDb() === null, '空表返回 null 水位');
+
+        // T15d 水位驱动回放窗：打桩 provider 工厂/加载/拉取，验证 fromBlock
+        const c7 = makeCollector();
+        let fetchRange = null;
+        c7._loadQuoteMapFromDb = async () => 1234500;
+        c7._fetchQuoteSetLogs = async (provider, from, to) => { fetchRange = [from, to]; return []; };
+        c7._resolveBackfillRpcUrl = () => 'https://rpc.example/x';
+        c7._makeBackfillProvider = () => ({ getBlockNumber: async () => 1240000, getLogs: async () => [] });
+        await c7._backfillQuoteSets();
+        assert(fetchRange && fetchRange[0] === 1234400 && fetchRange[1] === 1240000,
+            `回放窗 = [水位-100, head]（got ${JSON.stringify(fetchRange)}）`);
+        assert(c7._quoteBackfillSettled === true, '回放完成后 settled 置位');
+
+        // T15e 首启（null 水位）→ fullBackfillMinutes 全量窗
+        const c8 = makeCollector({}, { fullBackfillMinutes: 30 });
+        c8._loadQuoteMapFromDb = async () => null;
+        c8._fetchQuoteSetLogs = async (provider, from, to) => { fetchRange = [from, to]; return []; };
+        c8._resolveBackfillRpcUrl = () => 'https://rpc.example/x';
+        c8._makeBackfillProvider = () => ({ getBlockNumber: async () => 1240000, getLogs: async () => [] });
+        await c8._backfillQuoteSets();
+        assert(fetchRange[0] === 1240000 - 30 * 80 && fetchRange[1] === 1240000,
+            `DB 空 → fullBackfillMinutes 全量窗（got ${JSON.stringify(fetchRange)}）`);
+
+        // T15f 回放路径（_applyQuoteSetLogs）不触发 onQuoteSet（水位驱动重拉，无需落库）
+        const persisted2 = [];
+        const c9 = makeCollector({ onQuoteSet: (info) => persisted2.push(info) });
+        c9._applyQuoteSetLogs([
+            quoteSetLog({ token: TOKEN, quote: QUOTE, block: 800, logIndex: 1, tx: txHash('u1') }),
+        ]);
+        assert(persisted2.length === 0 && c9._nonBnbQuoteTokens.get(TOKEN) === QUOTE,
+            '回放应用映射但不落库');
+
+        // T15g 加载失败 → throw（上层退避重试，不带空表冒充）
+        const c10 = makeCollector();
+        c10._supabase = { from: () => { throw new Error('db down'); } };
+        let threwLoad = false;
+        try { await c10._loadQuoteMapFromDb(); } catch { threwLoad = true; }
+        assert(threwLoad, 'DB 加载失败抛错（走回放退避重试）');
+    }
+
     console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
     process.exitCode = failed === 0 ? 0 : 1;
 }

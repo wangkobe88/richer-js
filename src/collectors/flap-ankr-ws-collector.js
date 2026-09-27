@@ -22,6 +22,12 @@
  *    与「映射未回放出来」）暂存内存队列，回放成功后按序重放（2026-09-27 0xcf91 冒充事故
  *    结构性修复：回放卡死窗口内 quote 价曾冒充 BNB 价落库虚高 22.6 倍）；TokenCreated/
  *    TokenQuoteSet 照常处理（create 不依赖计价，QuoteSet 实时事件是映射正源）
+ *    映射持久化（2026-09-27 二次事故修复）：实时 QuoteSet 落 wss_events
+ *    （kind='token_quote_set'，watcher 重试队列）；启动先从 DB 加载终态映射，回放窗
+ *    缩为 [DB 水位-100, head] 增量补停机缺口——固定 120min 回放窗对「QuoteSet 早于
+ *    窗口」的存量非 BNB 盘恒 miss（1319020 进程实测又开 10:34~10:39 冒充段）；回放
+ *    结果不落库（水位驱动下次重启自动重拉停机期）；首启 DB 空 → fullBackfillMinutes
+ *    全量窗（默认 30 天，一次性）
  *
  * 事件口径（2026-09 实测验证，90s 订阅 1851 事件 / 18 新币 / 254 买 / 177 卖）：
  * - 全部事件无 indexed 参数（topics 只有 topic0），业务参数全在 data
@@ -170,7 +176,7 @@ class FlapAnkrWsCollector {
         this._quoteRateTtlMs = qrCfg.ttlMs ?? 30000;
         this._quoteRateStaleMaxMs = qrCfg.staleMaxMs ?? 300000;
         this._quoteRateNegTtlMs = qrCfg.negTtlMs ?? 60000;
-        this._quoteBackfillMinutes = qrCfg.backfillMinutes ?? 120;
+        this._quoteFullBackfillMinutes = qrCfg.fullBackfillMinutes ?? 43200; // 首启 DB 无持久映射时的全量窗（30 天）
         this._quoteBackfillRpcUrl = qrCfg.backfillRpcUrl ?? null;
         this._pendingBackfillMax = qrCfg.pendingBackfillMax ?? 50000;
 
@@ -202,6 +208,7 @@ class FlapAnkrWsCollector {
             quoteConverted: 0,
             quoteRateUnavailable: 0,
             quoteSetBackfilled: 0,
+            quoteSetPersistLoaded: 0,   // 启动时从 wss_events 加载的持久 QuoteSet 条数
             pendingDuringBackfill: 0,   // 回放窗口暂存队列当前长度
             pendingBackfillFlushed: 0,  // 回放完成后重放的事件数（累计）
             pendingBackfillDropped: 0,  // 暂存队列溢出丢弃数（累计；溢出=回放卡死超容量，error 告警）
@@ -585,8 +592,16 @@ class FlapAnkrWsCollector {
                 this.stats.quoteSetEvents++;
                 const token = lowerAddr(d[0]);
                 const quoteToken = lowerAddr(d[1]);
-                const applied = this._applyQuoteSet(token, quoteToken,
-                    blockNumber, parseInt(logEntry.logIndex, 16));
+                const logIndex = parseInt(logEntry.logIndex, 16);
+                const applied = this._applyQuoteSet(token, quoteToken, blockNumber, logIndex);
+                // 持久化（仅实时事件；回放路径不落库——水位驱动下次重启自动重拉）：实际应用
+                // 的状态变更经 onQuoteSet 回调由 watcher 落 wss_events（重试队列保证不丢）
+                if (applied && this._callbacks.onQuoteSet) {
+                    this._callbacks.onQuoteSet({
+                        token, quoteToken, blockNumber, logIndex,
+                        blockTimeMs, txHash: logEntry.transactionHash,
+                    });
+                }
                 if (applied && quoteToken !== ZERO_ADDRESS) {
                     this.logger.info('', 'FlapAnkrWsCollector',
                         `非 BNB 计价代币: token=${token} quote=${quoteToken} tx=${logEntry.transactionHash}`);
@@ -791,24 +806,79 @@ class FlapAnkrWsCollector {
     }
 
     /**
-     * 启动回放：getLogs 拉最近 backfillMinutes 的 TokenQuoteSet 重建计价表。
+     * 启动回放：先从 wss_events 加载持久 QuoteSet 终态映射（水位），再 getLogs 增量补
+     * [水位-100, head] 的停机缺口。DB 无持久映射（首启）→ fullBackfillMinutes 全量窗。
      * 只补表不补 tick——历史缺口不回填（WSS 本就不回放），回放只为让后续实时 tick 判对计价。
      * 成功后置 settled 并重放回放窗口内暂存的 trade/graduation 事件（此时映射已完整）。
      */
     async _backfillQuoteSets() {
         const { BlockchainConfig } = require('../utils/BlockchainConfig');
         const rpcUrl = this._resolveBackfillRpcUrl() || BlockchainConfig.CHAIN_CONFIGS.bsc.network.rpcUrl;
-        // batchMaxCount=1：RPC 请求不打 JSON-RPC batch（getLogs in batch 是独立限流面）；
-        // staticNetwork 56 免网络 detect 往返
-        const provider = new ethers.JsonRpcProvider(rpcUrl, 56, { batchMaxCount: 1 });
+        const provider = this._makeBackfillProvider(rpcUrl);
         const toBlock = await provider.getBlockNumber();
-        const depth = Math.ceil(this._quoteBackfillMinutes * QUOTE_BACKFILL_BLOCKS_PER_MIN);
-        const fromBlock = Math.max(0, toBlock - depth);
+        let watermark = null;
+        try {
+            watermark = await this._loadQuoteMapFromDb();
+        } catch (err) {
+            throw new Error(`QuoteSet 持久映射加载失败: ${err.message}`); // 走退避重试（不带着空表回放冒充）
+        }
+        const fromBlock = watermark != null
+            ? Math.max(0, watermark - 100) // 增量：水位-100 重叠防边界（_applyQuoteSet 单调去重兜底）
+            : Math.max(0, toBlock - Math.ceil(this._quoteFullBackfillMinutes * QUOTE_BACKFILL_BLOCKS_PER_MIN));
         const logs = await this._fetchQuoteSetLogs(provider, fromBlock, toBlock);
         this._applyQuoteSetLogs(logs);
         this.logger.info('', 'FlapAnkrWsCollector',
-            `TokenQuoteSet 启动回放完成: blocks ${fromBlock}→${toBlock} events=${logs.length} applied后非BNB计价=${this._nonBnbQuoteTokens.size} rpc=${new URL(rpcUrl).host}`);
+            `TokenQuoteSet 启动回放完成: blocks ${fromBlock}→${toBlock}${watermark != null ? `（水位=${watermark} 增量）` : '（DB空·全量窗）'} events=${logs.length} applied后非BNB计价=${this._nonBnbQuoteTokens.size} rpc=${new URL(rpcUrl).host}`);
         await this._flushPendingDuringBackfill();
+    }
+
+    /** 回放 provider 工厂（单测打桩点）——batchMaxCount=1：RPC 请求不打 JSON-RPC batch
+     *  （getLogs in batch 是独立限流面）；staticNetwork 56 免网络 detect 往返 */
+    _makeBackfillProvider(rpcUrl) {
+        return new ethers.JsonRpcProvider(rpcUrl, 56, { batchMaxCount: 1 });
+    }
+
+    /**
+     * 从 wss_events 加载持久 QuoteSet（kind='token_quote_set', platform='flap'）重建终态
+     * 映射。DB 行序不保证块序——内存按 (blockNumber, logIndex) 排序后逐条应用（排序后
+     * 天然单调，终态=最后一条）。零地址（BNB 计价）行也参与排序（压制更早的非零记录）但
+     * 不进映射表。@returns {Promise<number|null>} 水位块（无行则 null）
+     */
+    async _loadQuoteMapFromDb() {
+        let supabase = this._supabase;
+        if (!supabase) {
+            const { dbManager } = require('../services/dbManager');
+            supabase = dbManager.getClient();
+        }
+        const rows = [];
+        let afterId = 0;
+        for (;;) {
+            const { data: page, error } = await supabase.from('wss_events')
+                .select('id, payload')
+                .eq('kind', 'token_quote_set')
+                .eq('platform', 'flap')
+                .gt('id', afterId)
+                .order('id', { ascending: true })
+                .limit(1000);
+            if (error) throw new Error(error.message);
+            if (!page || !page.length) break;
+            rows.push(...page);
+            afterId = page[page.length - 1].id;
+            if (page.length < 1000) break;
+        }
+        if (!rows.length) return null;
+        const sorted = rows
+            .map((r) => r.payload || {})
+            .filter((p) => p.token && p.quoteToken && Number.isFinite(p.blockNumber) && Number.isFinite(p.logIndex))
+            .sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex);
+        for (const p of sorted) {
+            this._applyQuoteSet(lowerAddr(p.token), lowerAddr(p.quoteToken), p.blockNumber, p.logIndex);
+        }
+        this.stats.quoteSetPersistLoaded = sorted.length;
+        const watermark = sorted.length ? sorted[sorted.length - 1].blockNumber : null;
+        this.logger.info('', 'FlapAnkrWsCollector',
+            `QuoteSet 持久映射加载: ${sorted.length} 条 → 非BNB计价=${this._nonBnbQuoteTokens.size} 水位=${watermark}`);
+        return watermark;
     }
 
     /**

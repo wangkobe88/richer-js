@@ -5,6 +5,7 @@
  * ankr WSS，解析事件落库——不随实验起停：
  *   - tick → collector 内置 tickBuffer → upsert wss_price_ticks（experiment_id=NULL）
  *   - token_create / graduation 回调 → events 重试队列 → insert wss_events
+ *   - token_quote_set 回调（flap）→ wss_events 持久化计价映射（重启用，见 collector）
  *   - 60s 心跳行（kind='heartbeat'）→ 人工 SQL 查活 + 实验侧断供判据
  *   - 60s 断流自愈守护（自引擎 wss-down-guard 迁入：消息心跳静默 → forceReconnect）
  *   - 心跳行 7 天清理（每日一次）
@@ -84,6 +85,10 @@ class WssWatcherService {
             const collector = new p.Ctor(watcherCfg(p.section), this.logger, null, null, {
                 onTokenCreate: (info) => this._enqueueEvent('token_create', p.name, info),
                 onGraduation: (info) => this._enqueueEvent('graduation', p.name, info),
+                // flap 专属：QuoteSet 持久化（重启用——collector 回放窗由 DB 水位驱动增量补停机缺口）
+                onQuoteSet: p.name === 'flap'
+                    ? (info) => this._enqueueEvent('token_quote_set', 'flap', info)
+                    : null,
             });
             this._collectors.set(p.name, collector);
             collector.start();
