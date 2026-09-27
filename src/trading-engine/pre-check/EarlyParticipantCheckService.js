@@ -26,7 +26,8 @@ const DEFAULT_CONFIG = {
   calculateGrowthScore: false,    // 是否计算增长评分
   accelerationSegments: 3,        // 加速度计算分段数（已废弃，保留配置兼容性）
   calculateGrowthMetrics: false,  // 是否计算增长特征（分析显示无效，默认关闭）
-  maxTickRows: 2000               // 单次查询最大 tick 行数（90s 窗口防御上限）
+  maxTickRows: 2000,              // 单次查询最大 tick 行数（90s 窗口防御上限）
+  uniformDustThresholdBnb: 0.01   // 同额度簇因子的尘埃钱包门槛（BNB，低于不参与分簇）
 };
 
 class EarlyParticipantCheckService {
@@ -114,6 +115,9 @@ class EarlyParticipantCheckService {
       // 3.5 净流入因子（对倒拦截，共合案 2026-09-27）
       const netBuy = this._calculateNetBuyRatio(trades, tokenAddress, launchAt, checkTime);
 
+      // 3.6 同额度买入簇因子（sybil 批量钱包拦截，作弊票案 2026-09-27）
+      const uniform = this._calculateUniformBuyCluster(trades, tokenAddress, launchAt, checkTime);
+
       // 4. 计算速率指标（使用实际数据跨度）
       const rateMetrics = this._calculateRateMetrics(basicStats, coverage);
 
@@ -158,6 +162,13 @@ class EarlyParticipantCheckService {
         earlyTradesNetBuyRatio: netBuy.ratio,
         earlyTradesNetBuyCovered: netBuy.covered,
 
+        // 同额度买入簇因子（sybil 拦截）：非尘埃买入钱包按金额 toFixed(2) 分簇，
+        // 最大簇钱包数占比——批量独立钱包精确等额买入的团伙指纹
+        earlyTradesUniformBuyWallets: uniform.wallets,
+        earlyTradesUniformBuyClusterN: uniform.clusterN,
+        earlyTradesUniformBuyClusterRatio: uniform.ratio,
+        earlyTradesUniformBuyCovered: uniform.covered,
+
         // 窗口内无成交标记（值为真实空统计，非通过值兜底）
         earlyTradesNoInnerData: trades.length === 0 ? 1 : 0,
 
@@ -173,6 +184,8 @@ class EarlyParticipantCheckService {
         trades_count: trades.length,
         net_buy_ratio: netBuy.ratio,
         net_buy_covered: netBuy.covered,
+        uniform_buy_wallets: uniform.wallets,
+        uniform_cluster_ratio: uniform.ratio,
         actual_span: coverage.actualSpan,
         rate_calc_window: coverage.rateCalculationWindow,
         volume_per_min: rateMetrics.volumePerMin.toFixed(2),
@@ -470,6 +483,73 @@ class EarlyParticipantCheckService {
   }
 
   /**
+   * 计算同额度买入簇因子（sybil 批量钱包拦截，作弊票案 2026-09-27）
+   *
+   * 口径：窗口内买入钱包（同一钱包多笔合并）累计 BNB，过滤 <0.01 尘埃后按金额
+   * toFixed(2) 分簇，最大簇钱包数 / 非尘埃钱包数 ×100。手法指纹：批量独立钱包
+   * 各精确等额买入（0x0e27 案 17 钱包含 0.10×10；0xd8e8 案 14 钱包含 0.12×10）
+   * ——链上固定额度下单（amountInExact）无 wei 级滑点离散，簇内金额实测完全相等，
+   * 该团伙伪造 holders/多样性/集中度全绿，但同额度比例天然盘不可能出现。
+   *
+   * 校准（26 样本，90s 创建锚定窗 + 尘埃过滤后）：两张作弊票 58.8%/71.4%
+   * （modeN 均 10），赢家全 ≤20.6%、lose 全 ≤30%、共合 25%（8 钱包被 wallets 门
+   * 豁免）。拦截门：`wallets >= 10 AND ratio >= 50`——小样本票（bitget被盗 3 钱包、
+   * SpaceXAI 6）被 wallets≥10 豁免，天然 bot 整数额（JIBE 0.20×3=20%、
+   * BNBMART 0.07×6=20%）远低于门。fire@85s 截断口径实测与全窗一致（簇在 85s 内
+   * 已全部完成）。
+   *
+   * 窗口语义（与净流入因子同构）：仅 age≤90s（查询窗覆盖创建时点）时有效；
+   * age>90s 或 launchAt 缺失 → 全 0 放行（fail-open 宁漏拦不误杀，covered=0 标记）
+   * ——注意放行值是 0 不是 9999：拦截门是"达到阈值触发"，9999 会误触发。
+   *
+   * 已知接受面：真有 ≥10 个 bot 同精确额度买入的健康票会误拦——校准集不存在
+   * 此结构，且该结构本身即协同买入信号，风险接受。
+   * @private
+   * @param {Array} trades - _mapTickRow 映射后的窗口交易（尘门已在查询侧过滤）
+   * @param {string} tokenAddress - 代币地址
+   * @param {number|null} launchAt - 代币创建时间（秒，TokenCreate 块时间）
+   * @param {number} checkTime - 检查时间戳（秒）
+   * @returns {{wallets: number, clusterN: number, ratio: number, covered: number}}
+   */
+  _calculateUniformBuyCluster(trades, tokenAddress, launchAt, checkTime) {
+    const validLaunchAt = Number.isFinite(launchAt) && launchAt > 0 ? launchAt : null;
+    const covered = validLaunchAt !== null
+      && (checkTime - validLaunchAt) <= this.config.fixedWindowSeconds ? 1 : 0;
+    if (!covered) {
+      return { wallets: 0, clusterN: 0, ratio: 0, covered: 0 };
+    }
+
+    // 买入钱包累计 BNB（卖单不计；同一钱包多笔合并——簇钱包通常单笔，合并口径更稳）
+    const buyByWallet = new Map();
+    const tokenLower = String(tokenAddress).toLowerCase();
+    for (const t of trades) {
+      if (String(t.to_token || '').toLowerCase() !== tokenLower) continue;
+      const wallet = t.wallet_address || t.from_address;
+      if (!wallet) continue;
+      const key = wallet.toLowerCase();
+      buyByWallet.set(key, (buyByWallet.get(key) || 0) + (t.bnb_amount || 0));
+    }
+
+    // 尘埃过滤：微量买入（<0.01 BNB）不构成簇信号，只稀释分母
+    const amounts = [...buyByWallet.values()]
+      .filter(a => a >= this.config.uniformDustThresholdBnb);
+    const wallets = amounts.length;
+    if (wallets < 3) {
+      return { wallets, clusterN: 0, ratio: 0, covered: 1 };
+    }
+
+    // 同额度分簇：toFixed(2) 分桶（固定额度买入簇内金额精确相等，2 位小数粒度可靠）
+    const buckets = new Map();
+    for (const a of amounts) {
+      const k = a.toFixed(2);
+      buckets.set(k, (buckets.get(k) || 0) + 1);
+    }
+    const clusterN = Math.max(...buckets.values());
+    const ratio = clusterN / wallets * 100;
+    return { wallets, clusterN, ratio: parseFloat(ratio.toFixed(1)), covered: 1 };
+  }
+
+  /**
    * 计算速率指标（使用实际数据跨度）
    * @private
    */
@@ -537,6 +617,13 @@ class EarlyParticipantCheckService {
       earlyTradesNetBuyRatio: 100,
       earlyTradesNetBuyCovered: 0,
 
+      // 同额度簇因子：查询异常 0 值放行（拦截门 wallets>=10 不触发；
+      // 9999 会误触发拦截，与净流入因子的高值放行方向相反）
+      earlyTradesUniformBuyWallets: 0,
+      earlyTradesUniformBuyClusterN: 0,
+      earlyTradesUniformBuyClusterRatio: 0,
+      earlyTradesUniformBuyCovered: 0,
+
       // 标记内盘无交易数据（可能已出内盘）
       earlyTradesNoInnerData: 1,
 
@@ -582,6 +669,13 @@ class EarlyParticipantCheckService {
       // 净流入因子（对倒拦截）：未执行检查时 null（条件表达式不引用即无影响）
       earlyTradesNetBuyRatio: null,
       earlyTradesNetBuyCovered: 0,
+
+      // 同额度簇因子（sybil 拦截）：未执行检查 0 值——null 会让 `<10` 放行写法
+      // 恒 false 误拦，0 对「触发拦截门」和「放行写法」双向安全
+      earlyTradesUniformBuyWallets: 0,
+      earlyTradesUniformBuyClusterN: 0,
+      earlyTradesUniformBuyClusterRatio: 0,
+      earlyTradesUniformBuyCovered: 0,
 
       // 内盘无数据标记
       earlyTradesNoInnerData: 0,

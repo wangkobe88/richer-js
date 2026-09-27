@@ -155,6 +155,11 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     // 净流入因子（对倒拦截，共合案 2026-09-27）：covered=0 时 ratio 为通过值 100
     earlyTradesNetBuyRatio: preBuyCheckResult.earlyTradesNetBuyRatio ?? null,
     earlyTradesNetBuyCovered: preBuyCheckResult.earlyTradesNetBuyCovered ?? 0,
+    // 同额度簇因子（sybil 批量钱包拦截，作弊票案 2026-09-27）：covered=0 时为 0 值放行
+    earlyTradesUniformBuyWallets: preBuyCheckResult.earlyTradesUniformBuyWallets ?? 0,
+    earlyTradesUniformBuyClusterN: preBuyCheckResult.earlyTradesUniformBuyClusterN ?? 0,
+    earlyTradesUniformBuyClusterRatio: preBuyCheckResult.earlyTradesUniformBuyClusterRatio ?? 0,
+    earlyTradesUniformBuyCovered: preBuyCheckResult.earlyTradesUniformBuyCovered ?? 0,
     // 钱包集中度因子
     walletTop3VolumeRatio: preBuyCheckResult.walletTop3VolumeRatio || 0,
     walletTop1VolumeRatio: preBuyCheckResult.walletTop1VolumeRatio || 0,

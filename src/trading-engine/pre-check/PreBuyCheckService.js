@@ -171,6 +171,19 @@ const FACTOR_METADATA = {
     unit: '%',
     severity: 'warning'
   },
+  // 同额度买入簇因子（sybil 批量钱包拦截，作弊票案 2026-09-27）
+  earlyTradesUniformBuyClusterRatio: {
+    name: '同额度买入簇占比',
+    format: v => v.toFixed(1) + '%',
+    unit: '',
+    severity: 'critical'
+  },
+  earlyTradesUniformBuyWallets: {
+    name: '非尘埃买入钱包数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
   earlyTradesActualSpan: {
     name: '早期数据实际跨度',
     format: v => v.toFixed(1) + '秒',
@@ -730,6 +743,12 @@ class PreBuyCheckService {
         // 口径未覆盖创建段时不拦——fail-open 与龙头门同方向）
         earlyTradesNetBuyRatio: earlyParticipantCheck.earlyTradesNetBuyRatio ?? 100,
         earlyTradesNetBuyCovered: earlyParticipantCheck.earlyTradesNetBuyCovered ?? 0,
+        // 同额度簇因子（sybil 拦截）：缺省 0 放行（拦截门 wallets>=10 AND ratio>=50
+        // 不触发——与净流入因子的高值放行方向相反）
+        earlyTradesUniformBuyWallets: earlyParticipantCheck.earlyTradesUniformBuyWallets ?? 0,
+        earlyTradesUniformBuyClusterN: earlyParticipantCheck.earlyTradesUniformBuyClusterN ?? 0,
+        earlyTradesUniformBuyClusterRatio: earlyParticipantCheck.earlyTradesUniformBuyClusterRatio ?? 0,
+        earlyTradesUniformBuyCovered: earlyParticipantCheck.earlyTradesUniformBuyCovered ?? 0,
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,

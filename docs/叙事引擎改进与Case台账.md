@@ -32,6 +32,91 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C16 双作弊票 0x0e27/0xd8e8 —— 同额度批量钱包伪造全绿画像 → 簇因子拦截（2026-09-27）★
+
+**现象**：用户报两张「作弊票」——0x0e27088c6e832fbb6a5b11eac89506883bee7777 与
+0xd8e8f436c14d1904e724f8ba4a30400139487777（均 09-26 铸，flap）。双实验买入
+（0336befc 实时虚拟 + 377cc0a6 回测），回测腿分别强平 **-51.1%**（买 0.00000877 →
+0.00000429）/ **-42.1%**；0336befc 冻结持有浮亏 -35.5%/-42.1%。
+
+**手法还原（两票同构，同一作案人）**：
+1. **90s 内批量独立钱包精确等额买入**——票1：17 钱包（0.100000×10 +
+   0.070000×3 + 0.080000×2 + 0.050000 + creator 0.500000）；票2：14 钱包
+   （0.120000×10 + 0.695505 + 0.060000/0.025000/0.015246）。链上固定额度下单
+   （amountInExact）无 wei 级滑点离散，**簇内金额到小数点后 6 位完全相等**
+2. **伪造全绿画像骗过所有现有门**：holders>5 ✓（17 独立钱包）、净流入 100% ✓
+   （先只买不卖——刚上线的净流入门对「先建仓后退出」模式无效，fire@+21s 实测
+   netBuy=100）、多样性高 ✓、集中度低 ✓（每钱包额度小而分散）
+3. **持续推价**：票1 +120.7%@542s、票2 +216.9%@914s
+4. **批量钱包按获利额精确退出 + 关联地址大单砸盘**：票1 5-10min 卖
+   0.16/0.15/0.14…递减 + 569s 0x168303a9 零买入砸 0.98；票2 15-20min 砸
+   5.74 BNB → 死盘
+
+**跨票铁证与黑名单否决**：0x168303a96a767e2a6b2e00cb862eb95e416f72fa 在票1
+零买入纯砸盘、票2 开局建仓 0.7——但排查发现它是 **296 token/13645 行的高频做市
+地址**（09-20 起持续活动），黑名单误伤面不可控 → 转向结构性指纹（同额度簇）。
+
+**成立方案（同额度买入簇因子）**：非尘埃（≥0.01 BNB）买入钱包按累计金额
+`toFixed(2)` 分簇，最大簇钱包数 / 非尘埃钱包数 ×100。天然买家金额带滑点离散
+（0.0587/0.0623…），团伙批量钱包精确等额——比例天然盘不可能高。
+
+**校准（26 样本，90s 创建锚定窗 + 尘埃过滤后）**：作弊票 58.8%（17w/10c）/
+71.4%（14w/10c），fire@85s 截断口径一致（簇 85s 内已完成）；赢家全 ≤20.6%
+（天然 bot 整数额 JIBE 0.20×3=20%、BNBMART 0.07×6=20%）、lose 全 ≤30%、共合
+25%（8 钱包被 wallets≥10 门豁免，净流入门管）。**拦截门：非尘埃钱包数 ≥10
+AND 簇占比 ≥50**——小样本票（bitget被盗 3w、SpaceXAI 6w）被 wallets 门豁免，
+Fred 22.9% 放行（-14.9% 接受漏拦）。
+
+**落地（五步清单）**：EarlyParticipantCheckService `_calculateUniformBuyCluster`
+（买入判定 to_token===tokenAddress 与净流入因子同口径；钱包多笔合并；窗口语义
+同构——age>90s/launchAt 缺失全 0 放行 covered=0，**注意放行值是 0 不是 9999**：
+拦截门是"达到阈值触发"，9999 会误触发，与净流入因子高值放行方向相反）+
+result/`_getEmptyResult`（异常 0 值）/`getEmptyFactorValues`（0 值，null 会让
+`<10` 放行写法恒 false 误拦）+ PreBuyCheckService context + FACTOR_METADATA +
+FactorBuilder（引擎/回测两路径全覆盖）。本地零 DB 单测 12/12；182 端到端真实
+performCheck 链路：**拦** 作弊1 fire@+21s（12w/10c/**83.3%**——窗口截断后簇纯度
+更高）/作弊2 fire@+45s（14w/10c/71.4%）；**放** 和平熊猫 0%/人生好物 20%/
+龙布布 28.6%/JIBE 12.5%/MuseCharm 16.7%/BNBMART 20%/Fred 11.1%/共合 R1@+6s
+（4w<10 豁免，极早 fire 无信息与净流入因子同边界）。策略用法：
+`earlyTradesUniformBuyWallets < 10 OR earlyTradesUniformBuyClusterRatio < 50`。
+
+**已知接受面**：真有 ≥10 个 bot 同精确额度买入的健康票会误拦——校准集不存在此
+结构，且该结构本身即协同买入信号。已知漏拦：作弊团伙改用随机额度（每钱包不同
+金额）则簇因子失效——但等额是他们控制成本/均分收益的最省力路径，改随机额度
+显著增加操作复杂度，属于对抗升级而非修补面。
+
+### C15 x-0 0xa5fd1f —— 税币伪装项目币骗 prestage mid 评级（2026-09-27）★
+
+**现象**：0xa5fd1ff387bdbd3df877ffd35b908651250b7777（name/symbol=x-0，flap 税币 7777
+后缀，09-26 12:02:17 铸，creator=0x90497450 工厂地址——C13 已证 flap creator 共享）
+0336befc 母版 12:02:39 买入、377cc0a6 回测命中叙事缓存同买（fromCache），回放结束强平
+-68.8%（最高 +330% 后崩回 launch 下方）。用户问「这个代币怎么通过的」。
+
+**决策链还原**（信号 metadata + token_narrative + wss_events 逐环核实）：
+1. 买门 fire：`buyVolumeBnb >= 1.5 AND age < 30 AND holders > 5`——fire@12:02:38（创建后
+   21s），90s 窗 37 笔 $4685 / holders=6 / earlyReturn +207%，全过
+2. 叙事直调：IPFS meta 解包出 Twitter **@x0money** + 官网 x0money.com（非「无语料」，
+   符号是随机名 x-0）→ prestage Jev P1.2 判 token_type=project(0.8)；nameMatch=true
+   （token 名 x-0 与账号名精确一致）、addressVerified=true、rulesValidationPassed
+3. 项目评级表（rateProject 纯代码）：账号粉丝 **131 ∈ [60,299) → mid(2)**——恰好命中
+   策略放行带 `narrativeRating == 2 OR == 3`
+4. strictSameNameMaxFDV=0 放行 → 12:02:38/39 双实验成交 @+207% 价位
+
+**伪装画像**：账号 09-15 注册（11 天新号）、仅 1 条推文、131 粉丝、蓝 V（按设计认证记
+details 不参与计算）、token 名与账号名精确同名、配官网——项目评级表唯一量化指标
+（粉丝数）被精确卡进 mid 带。creator 同为 C13 flap 工厂 0x90497450，属同一批量伪装
+模式（工厂铸币 + 买粉新号 + IPFS meta 挂社媒链）。
+
+**已有解实证（C13 净流入因子）**：创建锚定 90s 全窗实测净流入比 **18.6% < 40**（Σ买
+16.86 BNB / Σ卖 13.73 BNB，345 笔）——preBuyCheckCondition 若已含
+`earlyTradesNetBuyRatio >= 40` 本案被拦。回测 377cc0a6 跑于因子上线前
+（preBuyCheckFactors 无该字段），母版 0336befc 及新副本策略亦未写入该门——§六-18
+「是否写入实验 preBuyCheckCondition」的拦截实证 +1（与共合同向）。
+
+**叙事侧可加固方向（待裁定，非必须）**：项目评级表对「新号+空内容」无免疫——可加
+账号年龄/推文数降档（如注册 <30 天或 statuses_count <5 → low）→ 需重放校准误伤面；
+市场事实侧（净流入）已可拦，优先级看裁定。
+
 ### C14 Cz黄鞋 0x91c4 —— 「IP名+闲聊物品词」拼接 + superIP 通道闲聊满分 → J1.14 实体性前提（2026-09-27）★
 
 **现象**：0x91c4c4e9f769f0f7a126c583f2dfb5b938717777（name=symbol=「Cz黄鞋」，flap，
@@ -759,6 +844,14 @@ tweetAuthorType 因子）、05-01 语料去重豁免 5min→1min + 无社交信�
   `earlyTradesNetBuyRatio >= 40`（校准：对倒盘 fire 全 ≤39.8 拦、赢家全 ≥58.6 放；
   极早 fire <15s 无信息由 holders 门补位）。四方向证伪（集中度/双向钱包占比/
   creator 发币史/克隆数）见 C13
+- **同额度买入簇因子**（2026-09-27，C16 双作弊票案）：`earlyTradesUniformBuyClusterRatio`
+  = 最大同额度簇钱包数 / 非尘埃（≥0.01 BNB）买入钱包数 × 100（金额 toFixed(2)
+  分簇，同钱包多笔合并），伴生 `earlyTradesUniformBuyWallets`（分母）/
+  `earlyTradesUniformBuyClusterN`（最大簇）/ `earlyTradesUniformBuyCovered`。
+  90s 创建锚定口径，fail-open 放行值 **0**（拦截门是"达到阈值触发"，与净流入
+  因子的高值放行方向相反）。策略用法：`earlyTradesUniformBuyWallets < 10 OR
+  earlyTradesUniformBuyClusterRatio < 50`（校准：两票 83.3%/71.4% 拦、赢家全
+  ≤28.6% 放；手法还原与 0x168303a9 黑名单否决见 C16）
 
 ---
 
@@ -933,8 +1026,15 @@ symbol 同名 name 跨语义盘会被拦）
 18. **净流入因子阈值与应用面**（2026-09-27 C13 落地遗留）：校准阈值 40 已实现待确认
    ——共合R2 39.77 距阈值仅 0.23（fire 实时查询可能因 watcher flush 延迟少几笔卖腿
    行而更高），抬到 50 无新误杀证据（放侧最低 86.14）；是否写入 0336befc 等实验
-   preBuyCheckCondition、运行中进程（v2-53c9737c 等）是否重启加载新因子，待用户裁定
+   preBuyCheckCondition、运行中进程（v2-53c9737c 等）是否重启加载新因子，待用户裁定。
+   **拦截实证 +1（C15 x-0 案）**：0xa5fd1f 90s 全窗净流入 18.6% ≪ 40，写入即拦
 19. **E 类 name_referent 阻断 scope**（2026-09-27 C13 附带发现）：共合 E 类 common_word
    0.93 但 E 不在 NAME_REFERENT_BLOCK_SCOPE（现 B/C/D/F/G+W）→ S 档事件分喂饱 81.7
    过线 high 放行。扩 E 有误伤风险（Zen Monkey E 类 +68%），需全量重放验证误伤面，
    待用户裁定
+20. **同额度簇因子阈值与应用面**（2026-09-27 C16 落地遗留）：拦截门 `wallets>=10
+   AND ratio>=50` 已实现待确认——两票 fire 实测 83.3%/71.4% 距阈值远（抬高到 60
+   仍拦），赢家 fire 侧最高 28.6%（MuseCharm 12w 过 wallets 门但 ratio 低，压低
+   ratio 门到 40 无新误杀证据）；与 §六-18 净流入门同理：是否写入 0336befc 等实验
+   preBuyCheckCondition、运行中进程是否重启加载，待用户裁定。作弊1 净流入 100
+   + 簇 83.3 组合实证：两因子互补（净流入拦对倒、簇拦批量钱包），建议同门写入
