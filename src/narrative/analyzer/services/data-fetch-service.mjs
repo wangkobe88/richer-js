@@ -4,7 +4,8 @@
  */
 
 import { extractAllUrls, classifyAllUrls } from '../../utils/url-classifier.mjs';
-import { isIpfsUrl, fetchIpfsMetadata } from '../../utils/ipfs-metadata-fetcher.mjs';
+import { fetchIpfsMetadata, normalizeIpfsRef } from '../../utils/ipfs-metadata-fetcher.mjs';
+import { fetchGmgnSocialLinks } from '../../utils/gmgn-social-fetcher.mjs';
 import { TwitterFetcher } from '../../utils/twitter-fetcher.mjs';
 import { WeiboFetcher } from '../../utils/weibo-fetcher.mjs';
 import { GithubFetcher } from '../../utils/github-fetcher.mjs';
@@ -69,9 +70,13 @@ const NARRATIVE_CONFIG = config.narrative || {
  * 基于URL分类器的统一数据获取流程
  * @param {Object} tokenData - 代币数据
  * @param {Object} extractedInfo - 提取的结构化信息
+ * @param {Object} [options]
+ * @param {boolean} [options.enrichSocialByGmgn] - GMGN 社媒补源开关（BRF 案，
+ *   2026-09-27 用户裁定）：仅交易引擎叙事直调传 true（买门已 fire 才花 GMGN 配额）；
+ *   narrative engine 队列链路不传，零行为变化
  * @returns {Promise<Object>} 所有获取到的数据
  */
-export async function fetchAllDataViaClassifier(tokenData, extractedInfo) {
+export async function fetchAllDataViaClassifier(tokenData, extractedInfo, options = {}) {
   // 1. 从appendix和raw_api_data中提取所有URL
   const rawData = tokenData.raw_api_data || {};
   let appendix = {};
@@ -115,6 +120,50 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo) {
     console.log('  - appendix:', JSON.stringify(appendix, null, 2));
   }
 
+  // 3. 解包链上 IPFS metadata（C7）：API twitterUrl/webUrl 为空时真实社交链接只在
+  // meta 指向的 JSON 里（ARENA 案：公告推文先于铸币 7m40s 发出，却因不解包被规则4-B 误拦）。
+  // 解包位于 0-URL 早退之前（BRF 案前移，2026-09-27）：meta 可能是 extractAllUrls
+  // 不识别的裸 CID（BRF：meta="bafkreigaw…"），0-URL 的 token 也要解包——
+  // IPFS 解包免费，先于 GMGN 付费补源
+  const metaUrl = normalizeIpfsRef(typeof rawData.meta === 'string' ? rawData.meta : null);
+  if (metaUrl) {
+    const metadata = await fetchIpfsMetadata(metaUrl);
+    if (metadata) {
+      const metaUrls = extractAllUrls(metadata);
+      const newUrls = metaUrls.filter(u => !allUrls.includes(u));
+      if (newUrls.length > 0) {
+        console.log(`[NarrativeAnalyzer] IPFS metadata 解包新增 ${newUrls.length} 个URL: ${newUrls.join(', ')}`);
+        allUrls.push(...newUrls);
+      }
+      // 解包成功：meta URL 本身不再作为 website 抓取（内容已展开，JSON 非网页）
+      const metaIdx = allUrls.indexOf(metaUrl);
+      if (metaIdx >= 0) allUrls.splice(metaIdx, 1);
+    } else {
+      console.warn('[NarrativeAnalyzer] IPFS metadata 解包失败，meta 链接按原流程作为 website 处理');
+    }
+  }
+
+  // 3.5 GMGN 社媒补源（BRF 案，2026-09-27）：元数据 + IPFS 解包后仍提取不到任何
+  // twitter 链接、且调用方显式允许（enrichSocialByGmgn——仅叙事直调传 true，配额
+  // 控制见 gmgn-social-fetcher）时，从 GMGN token info 的 link 补社媒入口。
+  // GMGN 也拿不到 / 调用失败 → 按无补源继续，行为与现状一致
+  if (options.enrichSocialByGmgn
+      && !allUrls.some(u => /^https?:\/\/(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com)\//i.test(u))) {
+    try {
+      const socials = await fetchGmgnSocialLinks('bsc', tokenData.address);
+      const addUrls = [socials?.twitterUrl, socials?.websiteUrl]
+        .filter(u => u && !allUrls.includes(u));
+      if (addUrls.length > 0) {
+        console.log(`[NarrativeAnalyzer] GMGN 社媒补源新增 ${addUrls.length} 个URL: ${addUrls.join(', ')}`);
+        allUrls.push(...addUrls);
+      }
+    } catch (e) {
+      console.warn('[NarrativeAnalyzer] GMGN 社媒补源失败（按无补源继续）:', e.message);
+    }
+  }
+
+  // 3.9 0-URL 早退（IPFS 解包与 GMGN 补源之后的最终判定：三者都拿不到任何 URL
+  // 才判 no_public_info 语义的空数据）
   if (allUrls.length === 0) {
     console.log('[NarrativeAnalyzer] 未找到任何URL，返回空数据');
     return {
@@ -155,26 +204,6 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo) {
       },
       bestUrls: null
     };
-  }
-
-  // 3. 解包链上 IPFS metadata（C7）：API twitterUrl/webUrl 为空时真实社交链接只在
-  // meta 指向的 JSON 里（ARENA 案：公告推文先于铸币 7m40s 发出，却因不解包被规则4-B 误拦）
-  const metaUrl = typeof rawData.meta === 'string' ? rawData.meta : null;
-  if (metaUrl && isIpfsUrl(metaUrl)) {
-    const metadata = await fetchIpfsMetadata(metaUrl);
-    if (metadata) {
-      const metaUrls = extractAllUrls(metadata);
-      const newUrls = metaUrls.filter(u => !allUrls.includes(u));
-      if (newUrls.length > 0) {
-        console.log(`[NarrativeAnalyzer] IPFS metadata 解包新增 ${newUrls.length} 个URL: ${newUrls.join(', ')}`);
-        allUrls.push(...newUrls);
-      }
-      // 解包成功：meta URL 本身不再作为 website 抓取（内容已展开，JSON 非网页）
-      const metaIdx = allUrls.indexOf(metaUrl);
-      if (metaIdx >= 0) allUrls.splice(metaIdx, 1);
-    } else {
-      console.warn('[NarrativeAnalyzer] IPFS metadata 解包失败，meta 链接按原流程作为 website 处理');
-    }
   }
 
   // 4. 分类所有URL

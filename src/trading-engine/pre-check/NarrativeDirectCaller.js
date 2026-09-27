@@ -45,6 +45,11 @@ class NarrativeDirectCaller {
 
   /**
    * 启动（或复用）一次底层叙事分析
+   *
+   * enrichSocialByGmgn=true（BRF 案，2026-09-27 用户裁定）：直调时点买门已 fire
+   * （其他购买条件已满足），才允许元数据无社交链接的 token 调 GMGN 补语料入口
+   * （付费配额控制——narrative engine 队列链路不传此开关，零调用）；
+   * 且 no_public_info 拦截的缓存行穿透重析（空语料行已失真，见 NarrativeAnalyzer）
    * @private
    * @param {string} tokenAddress - 代币地址
    * @returns {Promise<Object>} analyze 的结果 promise（不设超时，由调用方 race）
@@ -54,7 +59,7 @@ class NarrativeDirectCaller {
     let p = this._inflight.get(key);
     if (!p) {
       p = this._getAnalyzer()
-        .then(Analyzer => Analyzer.analyze(tokenAddress));
+        .then(Analyzer => Analyzer.analyze(tokenAddress, { enrichSocialByGmgn: true }));
       // settle 后移出 inflight；then 第二参承接 rejection 防 unhandled rejection
       const cleanup = () => this._inflight.delete(key);
       p.then(cleanup, cleanup);

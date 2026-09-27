@@ -32,6 +32,56 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C10 BRF 0x2c5b —— 元数据全空 no_public_info 误拦 → GMGN 社媒补源（2026-09-27）★
+
+**现象**：0x2c5b84d4ab2256d987a6fc094e1e764d9e9b7777（BRF，Bitget Relief Fund
+蹭名盘，"by the BNBCHAIN community as asked by CZ"）被 pre-check 规则
+`no_public_info` 拦 → low(10) 未进 LLM。用户指出 GMGN 网站上有其推特信息。
+
+**根因（三层叠加）**：four.meme 元数据 twitterUrl/webUrl 全空 + IPFS JSON 社媒
+字段全空串（上段实测）+ **meta 是裸 CID**（`meta="bafkreigaw…"`，非 http 网关
+URL——`extractAllUrls` 不识别、C7 的 `isIpfsUrl` 也不匹配 → IPFS 解包从不运行）
+→ 0-URL 早退分支在 IPFS 解包/GMGN 补源之前 return，token 唯一信息源只剩 desc 自述。
+
+**AVE 补源排查（用户提议，实测不可行）**：AVE detail（`/v2/tokens/{id}`）与
+search 端点均不返回任何社媒字段（BRF + 成熟币 CAKE 对照全字段实证）；社媒
+`appendix` 只在 platform 列表端点返回且**三例对照与 four.meme 元数据
+twitterUrl 逐字符一致**（含 `?s=20` 分享尾参）——AVE 无独立社媒渠道，four.meme
+元数据空的币 AVE 同样空；且 platform 端点固定 200 行窗口（≈30-50 分钟），
+`page`/`offset` 均无效，按地址不可查。结论：AVE 付费也补不了此缺口。
+
+**修复（2026-09-27 用户裁定「可以，但限制在其他购买条件满足的前提下再调
+GMGN，否则每一个都调用扛不住」）**——配额控制为核心设计：
+- **`gmgn-social-fetcher.mjs`**（新，与 ipfs-fetcher 同构）：GMGN token info 的
+  `link` 补社媒——`twitter_username` 拼接（形状不固定：纯 handle 或
+  `handle/status/id` 复合串，后者拼出即合法推文 URL 语料更丰富）；website 空串
+  过滤；`gmgn_token_info` 缓存 1d + 失败冷却 1h（GMGN 确认无社媒不重打）
+- **data-fetch 层 `enrichSocialByGmgn` 开关**：仅交易引擎叙事直调
+  （NarrativeDirectCaller）传 true——直调时点买门已 fire（其他购买条件已
+  满足）才花 GMGN 配额；narrative engine 队列 / web 路由不传，零调用零行为
+  变化（三处调用点实证）
+- **触发条件**：extractAllUrls + IPFS 解包后仍无任何 twitter 链接才调——有
+  元数据社媒的 token（多数）不增加延迟与配额
+- **IPFS 解包前移 + `normalizeIpfsRef`**（同病顺带修复）：裸 CID 归一化为
+  pinata 网关 URL 后解包；解包与 GMGN 补源都移到 0-URL 早退之前（IPFS 免费
+  先试，GMGN 付费兜底）
+- **`no_public_info` 缓存行穿透**（NarrativeAnalyzer）：engine 队列先写入的
+  空语料拦截行在补源语境下已失真——直调链路命中该类行时视为未命中重析
+  （upsert 覆盖）；其他行（Jev 评过/其他规则拦）照常复用
+
+**验证**：① **BRF 端到端**（182，不带 ignoreCache 专门验证穿透）：
+no_public_info 行穿透 → GMGN 补源 `@Bitgetrelief`（9 粉项目方账号）→ 推特
+抓取（置顶推文 + bio 挂合约地址）→ 项目币路径地址验证通过 → prestage Jev 判
+`web3_native_ip_early` → **unrated**（"需等待社区成长后再评估"，实质判定
+而非空语料误拦），耗时 9.9s（30s 直调预算内）；② **HASH 回归**（元数据有
+推文的 four.meme 币）：正常路径 2 URL 提取、正常账号规则判定、无 GMGN 调用，
+零影响；③ engine/web 链路 `analyze` 调用点 grep 实证不传开关。
+
+**部署**：182 六文件 scp（gmgn-social-fetcher / ipfs-metadata-fetcher /
+cache-ttl-config / data-fetch-service / NarrativeAnalyzer /
+NarrativeDirectCaller）。**待重启加载**：narrative engine（pid 212830）与
+两个虚拟实验进程（0336befc / 53c9737c）仍跑旧代码——重启待用户裁定。
+
 ### C9 bitget被盗 0x0e32 —— 负面硬新闻事件误放 → J1.11（2026-09-26）★
 
 **现象**：0x0e323198cdfd9928831d929a1c78c0c04bdc7777（bitget被盗，铸币蹭 Bitget 官方
@@ -441,6 +491,11 @@ P0-P1 客户端+问题集+state+映射（`9b76a1b`）→ P2 主路径+superIP（
   留给 Jev 自由裁量）+ mapper 双挂（BLOCK_SCOPE 'all' argmax 机制 + 概率 ≥0.5
   质量门 negativeHardNewsBlock，标准 + superIP 双路径，superIP 无豁免）；端到端
   negative_hard_news 0.98 → low，重放 240 行 J1.11 自身零翻转
+- GMGN 社媒补源（2026-09-27，C10 BRF案）：元数据+IPFS 均无社交链接的 token，
+  叙事直调时（买门已 fire）调 GMGN token info 补社媒入口（付费配额控制：
+  engine 队列/web 链路零调用）；IPFS 解包前移+裸 CID 归一化（normalizeIpfsRef）；
+  no_public_info 缓存行直调穿透重析。AVE 实测无独立社媒渠道（appendix 与
+  four.meme 元数据逐字符一致）不可行
 
 ### 4.5 代码侧 pre-check 规则族（无 LLM，与 LLM 分工的"市场事实"侧）
 | 规则 | 判定 | 局限 |

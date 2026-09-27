@@ -31,6 +31,27 @@ export function isIpfsUrl(url) {
   return typeof url === 'string' && /^https?:\/\/[^/]+\/ipfs\/[A-Za-z0-9]+/i.test(url);
 }
 
+/**
+ * 归一化 meta 引用为可解包的网关 URL
+ *
+ * four.meme 的 raw_api_data.meta 有两种形状（BRF 案实测）：
+ * - http 网关 URL（ARENA 型，extractAllUrls 能提取到）
+ * - 裸 CID（BRF：meta="bafkreigaw…"，extractAllUrls / isIpfsUrl 均不识别，
+ *   曾导致 0-URL 早退连 IPFS 解包都不跑）
+ * 裸 CID 统一转 pinata 网关 URL（fetchIpfsMetadata 多网关轮询的第一站）
+ * @param {string} ref - raw_api_data.meta 原始值
+ * @returns {string|null} 网关 URL；非 IPFS 引用返回 null
+ */
+export function normalizeIpfsRef(ref) {
+  if (typeof ref !== 'string' || !ref) return null;
+  if (isIpfsUrl(ref)) return ref;
+  // CID v0（Qm 开头 44 位 base58）/ v1（baf 开头 base32，长度可变取下限 20）
+  if (/^(Qm[1-9A-HJ-NP-Za-km-z]{44}|baf[a-z0-9]{20,})$/.test(ref.trim())) {
+    return `https://gateway.pinata.cloud/ipfs/${ref.trim()}`;
+  }
+  return null;
+}
+
 function extractCid(url) {
   const m = url.match(/\/ipfs\/([A-Za-z0-9]+)/);
   return m ? m[1] : null;

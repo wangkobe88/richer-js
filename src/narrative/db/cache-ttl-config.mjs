@@ -57,6 +57,9 @@ const CACHE_TTL_CONFIG = {
 
   // four.meme 链上 metadata（IPFS 内容不可变，同 tweet 档长期缓存）
   ipfs_metadata:      { maxAge: 365 * DAY, ttl: 730 * DAY },
+
+  // GMGN token info 社媒补源（BRF 案）：link 内容稳定但可变，1 天刷新
+  gmgn_token_info:    { maxAge:   1 * DAY, ttl:  90 * DAY },
 };
 
 const DEFAULT_TTL = { maxAge: 30 * DAY, ttl: 365 * DAY };

@@ -142,9 +142,12 @@ export class NarrativeAnalyzer {
    * @param {Object} options - 选项
    * @param {boolean} options.ignoreCache - 是否忽略缓存，强制重新分析
    * @param {boolean} options.ignoreExpired - 是否忽略过期时间限制
+   * @param {boolean} options.enrichSocialByGmgn - GMGN 社媒补源（BRF 案，仅叙事
+   *   直调传 true）：元数据无社交链接时调 GMGN 补语料入口；且 no_public_info
+   *   拦截的缓存行视为失真，穿透重析（见缓存命中分支）
    */
   static async analyze(address, options = {}) {
-    const { ignoreCache = false, ignoreExpired = false } = options;
+    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false } = options;
 
     // 标准化地址
     const normalizedAddress = address.toLowerCase();
@@ -153,7 +156,11 @@ export class NarrativeAnalyzer {
     const cached = await NarrativeRepository.findByAddress(normalizedAddress);
 
     // 2. 判断是否可以使用缓存（代币级全局：命中有效缓存即复用，ignoreCache=true 才强制重分析）
-    if (cached && cached.is_valid && !ignoreCache) {
+    // GMGN 补源链路例外（BRF 案）：no_public_info 拦截行的根因是语料缺失（元数据+
+    // IPFS 都无社媒链接），narrative engine 队列先写入的这类行在补源语境下已失真——
+    // 直调穿透重析（带补源），新结果 upsert 覆盖旧行；其他行（Jev 评过/其他规则拦）照常复用
+    const isNoPublicInfoBlock = cached?.pre_check_result?.details?.ruleName === 'no_public_info';
+    if (cached && cached.is_valid && !ignoreCache && !(enrichSocialByGmgn && isNoPublicInfoBlock)) {
       // 检查是否是预检查触发的结果
       const isCachedPreCheck = !!cached.pre_check_result;
       const llmAnalysis = buildLLMAnalysis(cached);
@@ -217,7 +224,7 @@ export class NarrativeAnalyzer {
       url_extraction_result,  // URL提取结果
       data_fetch_results,  // 数据获取结果
       binanceSquareInfo
-    } = await fetchAllDataViaClassifier(tokenData, extractedInfo);
+    } = await fetchAllDataViaClassifier(tokenData, extractedInfo, { enrichSocialByGmgn });
 
     // 保存URL提取和数据获取结果
     urlExtractionResult = url_extraction_result;
