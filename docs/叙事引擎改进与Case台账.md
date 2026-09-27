@@ -1230,7 +1230,13 @@ engine 常驻进程主线程，`config/narrative-engine.json` → `engine.preche
 （非本次引入，C16 带括号条件起）：preBuyCheck 诊断路径对 `(A || B)` 段恒打
 「括号不匹配」ERROR——`_diagnoseCondition`→`_parseCondition` 把 OR 转 `||` 后
 回传只认 OR 的 ConditionEvaluator；主评估用原始条件不受影响（暖暖 canBuy=true
-实证），是否修诊断显示待裁定
+实证）。**已修复（同日用户裁定）**：诊断路径括号段评估前把 `&&`/`||` 还原成
+`AND`/`OR`（`_diagnoseCondition` 复杂段分支最小侵入——`_parseCondition` 分割
+逻辑不动，其产出只进诊断路径；canBuy 主评估 line 839 原始条件零变化）。单测
+`scripts/_test_precheck_diagnose_condition.cjs` 13 断言五节（诊断全程 ERROR 零
+调用 / 复杂段 satisfied 真实满足态三方向 / 裸原子段回归 / 主评估语义一致 / 整体
+外括号形状）；git stash 反向验证旧代码 5 过 8 失败（非恒过摆设）。182 scp 部署
++ 单测 13/13 + dual-c5945f36 screen 重启加载（pid 1455020，水位对齐正常）
 
 ### 4.10 发行方 CA 宣告路由（09-27，C22 落地）
 

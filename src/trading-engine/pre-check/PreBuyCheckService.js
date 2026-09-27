@@ -1081,9 +1081,12 @@ class PreBuyCheckService {
     for (const expr of atomicConditions) {
       // 处理括号包裹的复杂表达式
       if (expr.startsWith('(') && expr.endsWith(')')) {
-        // 尝试评估复杂条件
+        // 尝试评估复杂条件。_parseCondition 已把 AND/OR 转成 &&/||，而
+        // ConditionEvaluator 只认字面量 AND/OR——还原后再评估，否则括号段
+        // 必然解析失败（「括号不匹配」恒 false，诊断恒示 ✗ 不满足）
         try {
-          const satisfied = this._safeEvaluate(expr, context);
+          const satisfied = this._safeEvaluate(
+            expr.replace(/&&/g, ' AND ').replace(/\|\|/g, ' OR '), context);
 
           // 提取复杂条件中的所有因子
           const factorNames = this._extractAllFactorNames(expr);
