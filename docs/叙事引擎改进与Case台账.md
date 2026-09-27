@@ -32,6 +32,39 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C22 蝴蝶轮回 0x125a + GMGNPaid 0x81e6 —— 字面法两臂各失灵，CA 宣告路由链路落地（2026-09-27）★
+
+**现象**：用户质询蝴蝶轮回（0x125aebe35439c8547c5f9485eb9893f66db17777，flap 税币，
++292% 真实涨幅、OPB 失真首例）为何没过。排查发现两层叠加：
+
+**第一层（致命）：交易引擎 precheck 代码 bug，非叙事问题**。买腿 fire 正常（60 次 BUY
+信号，buyVolumeBnb 首分钟 4.24 远超 1.5 门），全部挂在 `购买前检查异常:
+mapGmgnRiskFactors is not defined`——`_initializeDataSources()` 函数内解构 require 的
+`mapGmgnRiskFactors` 在 `_evaluateBuyPath()` 跨方法裸引用 → ReferenceError → catch 按
+保守语义拒买。C17 批次（12440a2）引入，单测只测纯函数语义没测引擎接线漏网；
+BacktestEngine 同病。**c5945f36 因此全天 0 成交**。已修（挂 this，efe3e8d）。
+
+**第二层（修好 bug 后仍拦）：两币叙事都 low，用户裁定均为项目币被误丢进 W 类数学**：
+
+| | 蝴蝶轮回 | GMGNPaid |
+|---|---|---|
+| 作者 | @rongluBSC「熔炉」164 粉 | @GMGNPaid 7 粉 |
+| name_referent | common_word 0.69（截词） | subject_self 0.84（自称） |
+| 挂链推文 | 品牌词长文（条件 2 过） | 纯短链 `https://t.co/…`（条件 2 挂） |
+| 字面法死点 | 条件 1：币名↔作者名零包含 | 条件 1 命中（同名）；条件 2：推文无品牌词 |
+| blockReason | 截词（非超级IP话中词） | W 类总分不足 41.35<60 |
+
+**裁定与落地（§4.10）**：新增发行方 CA 宣告路由——挂链推文作者的时间线任一推文含
+**合约地址** → 改道 prestage 账号判定 + `skipAddressValidation`（走项目币通道，名称
+只记录不拦截——蝴蝶轮回↔熔炉名称不匹配不得拦 project 评级）。地址在铸币时刻才存在，
+出现在谁的时间线里谁就是发行方，比名字匹配强得多的归属实锤。实跑验证：@rongluBSC
+时间线确有「`0x125a…17777` 蝴蝶轮回合约」宣告推（tweetId 2104133565042880657）→
+命中；168 粉过 project 底线 20，进 Jev prestage 正常评级。
+
+**GMGNPaid 未命中属事实性结果**：9 推全是文案 + t.co 短链，从未在文本里贴 CA（地址
+在短链目标页）。且 7 粉过不了 project 底线 20，即使路由成功仍 low——语义正确。
+短链形态记 §六-14 未决。
+
 ### C21 FOMOPAY 0x23aa —— 宣告竞态第二例（晚 5 秒），fPay 同构收束（2026-09-27）
 
 **现象**：用户质询 FOMOPAY（0x23aae05d…7777，FOMO 观点变现平台 fomopay.uk 的协议币）
@@ -1124,6 +1157,26 @@ engine 常驻进程主线程，`config/narrative-engine.json` → `engine.preche
 - 单测：`scripts/_test_narrative_signal_gate.cjs`（13 断言零 DB：shouldBlockOnNarrative
   八路边界 + getRating precheckStage 透传打桩四路）
 
+### 4.10 发行方 CA 宣告路由（09-27，C22 落地）
+
+字面法（品牌同一性 + 宣告指纹，2026-09-24 方案 A）之外的第二条 issuer self-launch
+路由：**作者时间线含合约地址 = 发行方实锤**。
+
+- `findCaTweetInAccount`（narrative-utils，纯文本）：账号 tweets 任一 text 含小写地址
+  → 命中；`detectIssuerByCaTimeline`（account-analysis-service，`options.fetchAccount`
+  可注入打桩）：前置 type==='tweet' + author_screen_name → 拉作者账号（复用
+  getFullAccountInfo，时间窗下界=创建-24h 与账号收集同口径，CA 公告在创建后几分钟内
+  必在窗内）→ 判定
+- 接线（NarrativeAnalyzer）：**字面法未命中才拉**（省 API）；命中 → 改道 prestage +
+  检测拉到的账号直接作 relatedAccounts primary 复用；`skipAddressValidation` 与
+  isProjectCoinResult 同级（项目币通道，名称不拦）
+- fail-open：拉取失败/宣告竞态未发 → 不改道，维持标准路径 W 数学（与 gmgn 因子同
+  取向）；precheckFailRetry 只救 address-stage fail，CA miss 的 low 不重试（竞态窗口
+  命中率见 C19/C21，由 §4.8 重试域覆盖 precheck 形态，改道形态未覆盖记 §六-14）
+- 不改 Jev 问题集文本 → JEV 版本号不动（路由层代码变更）
+- 单测：`scripts/_test_issuer_ca_detection.cjs`（15 断言零网络：纯函数 8 路 + 注入
+  打桩 7 路）；实跑验证蝴蝶轮回命中 / GMGNPaid 事实性未命中
+
 ## 五、策略侧应用（回测 E1→E2→E3→E4，源 572033ad）
 
 | 实验 | id | preBuyCheckCondition | 差异 | 结果 |
@@ -1332,3 +1385,11 @@ symbol 同名 name 跨语义盘会被拦）
     恒 0（unknown）——差 5.96 分内的盘全部被压线。① 是否批量重放刷新历史视频币
     行（可先用 stage2 分数筛「时效=unknown 且 差距≤15」的候选集给用户过目再跑）
     ② TikTok/B站 fetcher 补抓发布时间（fetcher 层新抓取）。待用户裁定
+26. **CA 宣告路由的两个残余形态**（2026-09-27 C22，§4.10 落地后遗留）：
+    ① **短链不展开**：项目方推文只放 t.co 短链、文本从不贴 CA（GMGNPaid 实例——
+    地址在短链目标页）。覆盖需短链展开+页面抓取（isProjectCoin 的 websiteInfo 路径
+    已能查网站内容，前提是 URL 被分类进 websites 桶）；低收益（此类账号粉丝普遍
+    过不了 project 底线，语义上本就该 low）② **宣告竞态的改道形态无重试**：
+    §4.8 PrecheckFailRetry 只救 precheck address-fail 行；「走了标准路径评了 low」
+    的行不在重试域——竞态窗口内 CA 推文未发导致 CA miss → low 固化。如需覆盖要扩
+    重试判据（形状识别难：low+标准路径不一定是竞态），待用户裁定是否值得

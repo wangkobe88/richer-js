@@ -361,6 +361,29 @@ export function detectIssuerSelfLaunch(tokenData, fetchResults) {
   };
 }
 
+/**
+ * 在账号时间线中查找含代币合约地址（CA）的宣告推文（纯文本判定，零网络）
+ *
+ * 语义：合约地址在铸币时刻才存在，出现在谁的时间线里谁就是发行方——比名字
+ * 匹配强得多的归属实锤（蝴蝶轮回/GMGNPaid 案：字面法两条件各失灵一臂，
+ * CA 实锤双覆盖）。
+ *
+ * @param {string} tokenAddress - 代币合约地址（任意大小写）
+ * @param {Object|null} accountData - getFullAccountInfo 返回的账号信息（含 tweets）
+ * @returns {Object|null} 命中返回 { tweetId, text }, 未命中/输入无效返回 null
+ */
+export function findCaTweetInAccount(tokenAddress, accountData) {
+  const addr = String(tokenAddress || '').toLowerCase();
+  if (!addr || !accountData || !Array.isArray(accountData.tweets)) return null;
+  for (const t of accountData.tweets) {
+    const text = String(t?.text || '');
+    if (text.toLowerCase().includes(addr)) {
+      return { tweetId: t.tweet_id, text };
+    }
+  }
+  return null;
+}
+
 export function isProjectCoin(tokenAddress, fetchResults) {
   const address = tokenAddress.toLowerCase();
   const { twitterInfo, websiteInfo, classifiedUrls } = fetchResults;

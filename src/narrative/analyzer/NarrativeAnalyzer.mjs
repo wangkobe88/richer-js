@@ -19,7 +19,7 @@ import { performPreCheck } from './services/pre-check-service.mjs';
 import { fetchAllDataViaClassifier } from './services/data-fetch-service.mjs';
 import { fetchGmgnSocialLinks } from '../utils/gmgn-social-fetcher.mjs';
 import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
-import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken } from './services/account-analysis-service.mjs';
+import { collectAllAccountsWithFullInfo, getFullAccountInfo, analyzeAccountCommunityToken, detectIssuerByCaTimeline } from './services/account-analysis-service.mjs';
 import { detectSuperIP, calculatePreScores } from './prompts/super-ip/super-ip-registry.mjs';
 
 // Jev 判定（主路径 + 超大IP快速通道 + prestage 前置判定）
@@ -379,6 +379,26 @@ export class NarrativeAnalyzer {
       }
     }
 
+    // 发行方 CA 宣告检测（2026-09-27 蝴蝶轮回/GMGNPaid 案）：字面法未命中时拉作者
+    // 时间线找含合约地址的宣告推文——地址在铸币时刻才存在，出现在谁的时间线里谁就是
+    // 发行方。覆盖字面法两臂失灵形态（币名与作者身份无关 / 同名但挂链推文纯短链无
+    // 品牌词）；fail-open：拉取失败/宣告竞态未发 → 不改道，维持标准路径 W 数学
+    let issuerCaTimeline = null;
+    if (!issuerSelfLaunch && twitterInfo?.type === 'tweet') {
+      issuerCaTimeline = await detectIssuerByCaTimeline(normalizedAddress, twitterInfo,
+        tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {});
+      if (issuerCaTimeline) {
+        logger.info('NarrativeAnalyzer', '检测到发行方 CA 宣告（作者时间线含合约地址）→ 转账号判定路径', {
+          screenName: issuerCaTimeline.screenName, tweetId: issuerCaTimeline.tweetId,
+        });
+        // 检测拉到的完整账号直接作 primary 复用（prestage 账号选择用；推文内部会按同窗口重拉）
+        if (relatedAccounts.length === 0 && issuerCaTimeline.account) {
+          relatedAccounts.push({ ...issuerCaTimeline.account, role: 'primary' });
+        }
+      }
+    }
+    const issuerDetected = issuerSelfLaunch || issuerCaTimeline;
+
     // 7. 预检查规则（不调用LLM，直接返回结果）
     const preCheckResult = await performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo }, githubInfo, backgroundInfo, { ignoreExpired });
     let isPreCheckTriggered = preCheckResult !== null;
@@ -440,12 +460,14 @@ export class NarrativeAnalyzer {
           // 检查是否应该使用账号/社区分析流程
           const shouldUseAccountCommunity = shouldUseAccountCommunityAnalysis(fetchResults)
             || (isProjectCoinResult && fetchResults.relatedAccounts?.length > 0)
-            || !!issuerSelfLaunch;
+            || !!issuerDetected;
 
           if (shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');
             const analysisResult = await analyzeAccountCommunityToken(tokenData, fetchResults, {
-              skipAddressValidation: isProjectCoinResult
+              // CA 实锤与项目币网站验证同级：地址已被作者时间线宣告，prestage 规则走
+              // 项目币通道（名称只记录不拦截——蝴蝶轮回↔熔炉 名称不匹配不能拦 project 评级）
+              skipAddressValidation: isProjectCoinResult || !!issuerCaTimeline
             });
 
             // 检查是否是规则验证失败（返回preCheckData）

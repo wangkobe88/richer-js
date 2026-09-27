@@ -91,6 +91,53 @@ export async function getFullAccountInfo(screenName, options = {}) {
 }
 
 /**
+ * 发行方 CA 宣告检测（issuer self-launch 路由补充链路，2026-09-27 蝴蝶轮回/GMGNPaid 案）
+ *
+ * 拉挂链推文作者的时间线，任一推文含该代币合约地址 → 判为发行方自发币。
+ * 覆盖字面法（品牌同一性+宣告指纹）失灵的两类真实形态：币名与作者身份无关
+ * （蝴蝶轮回↔熔炉）、同名但挂链推文是纯短链无品牌词（GMGNPaid）。
+ *
+ * 失败语义 fail-open：账号拉取失败返回 null（不改道，按现状走标准路径 W 数学）——
+ * 与 gmgn 因子同取向（宁漏拦不误杀）。宣告竞态（分析时 CA 推文尚未发出）同理 miss，
+ * 维持标准路径结果。
+ *
+ * @param {string} tokenAddress - 代币合约地址
+ * @param {Object} twitterInfo - 挂链推文信息（需 type==='tweet' 且有 author_screen_name）
+ * @param {Object} [options] - 透传 untilSec 给 getFullAccountInfo（时间窗下界=
+ *   token 创建时间-24h；CA 公告在创建后几分钟内，必在窗口内）
+ * @param {Function} [options.fetchAccount] - 账号拉取函数注入（单测打桩；缺省 getFullAccountInfo）
+ * @returns {Promise<Object|null>} 命中返回
+ *   { screenName, method:'ca_timeline', tweetId, account }，未命中/前置不满足返回 null
+ */
+export async function detectIssuerByCaTimeline(tokenAddress, twitterInfo, options = {}) {
+  if (!twitterInfo || twitterInfo.type !== 'tweet' || !twitterInfo.author_screen_name) return null;
+
+  const fetchAccount = options.fetchAccount || getFullAccountInfo;
+  let account = null;
+  try {
+    account = await fetchAccount(twitterInfo.author_screen_name, options);
+  } catch (error) {
+    logger.error('NarrativeAnalyzer', `CA 宣告检测拉取作者时间线异常: @${twitterInfo.author_screen_name}`, { error: error.message });
+    return null;
+  }
+  if (!account) return null;
+
+  const { findCaTweetInAccount } = await import('../utils/narrative-utils.mjs');
+  const hit = findCaTweetInAccount(tokenAddress, account);
+  if (!hit) return null;
+
+  logger.info('NarrativeAnalyzer', `CA 宣告命中: @${account.screen_name} 时间线含合约地址`, {
+    tweetId: hit.tweetId,
+  });
+  return {
+    screenName: account.screen_name,
+    method: 'ca_timeline',
+    tweetId: hit.tweetId,
+    account,
+  };
+}
+
+/**
  * 执行账号/社区代币前置判定（Jev 单次调用）
  *
  * 流程：纯规则验证先行（账号质量/地址验证/名称匹配，account-community-rules.mjs）
