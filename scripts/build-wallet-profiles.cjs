@@ -249,6 +249,7 @@ async function main() {
     dbMaxId: () => fetchMaxTickId(sb()),
     visit: makeVisitor(sinceMs, (t, btMs) => {
       if (!hfSet.has(t.trader_address)) return;
+      allTokens.add(t.token_address); // 阶段3 预查集合（曾漏此行：Set 恒空 → tpMap 空 → bad_action 族全按无分类低估）
       // 紧凑数组行（BSC 列名：bnb_amount / block_number；builder 消费 {token_address,bnb_amount,price_usd,trade_type,block_time,block_number,trader_address}）
       bucketStreams[bucketOf(t.trader_address)].write(
         JSON.stringify([t.token_address, t.bnb_amount, t.price_usd, t.trade_type, t.block_time, t.block_number, t.trader_address]) + '\n'
