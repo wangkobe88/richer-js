@@ -32,6 +32,40 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C23 货币自由 0xced5 —— 币安APP口号被实体性前提压成截词 → J1.15 官方口号归 super_ip（2026-09-27）★
+
+**现象**：用户质询货币自由（0xced5a2ba24268407abda6790744d65b192897777，four.meme 税币，
+symbol=货币自由 / name=Freedom of Money）为何没过。链路：Simon（@in927772，1803 粉）
+12:30:09 推「币安更新后，货币-自由已经成为了币安的口号了吗？在APP点进去就能看见」
++APP 截图 → 第三方博主发现币安 APP 上线界面口号后发币（发行方非币安，标准路径）。
+J1.14 判定：D 类（angle-seeking 归因主体=币安）A 档量级，但 name_referent
+**common_word 0.53** + minor_other 0.22 → 阻断侧合计 0.78 → 「截词（非超级IP话中词）」
+拦截 low，stage3 未跑。
+
+**根因**：J1.14 实体性前提（C14 Cz黄鞋案）口径只覆盖「IP 闲聊物品词」与「无实体对应
+的普通词组」——「货币自由」是口号不是具体实体（产品/项目/公司/事件），被机械压成
+common_word。但口号与闲聊物品词不同类：它是品牌的标志性资产，作者=产出该口号的机构。
+
+**裁定**：「币安应用中的slogan，并且口号比较强，确实这个币是应该过的。口号的『作者』
+并不是发推者，而是币安应用，发推者只是叙事的陈述者」——归因口径与 event_category 的
+subject attribution rules 同构（angle-seeking 主体=被解读的原事件，不是推文作者）。
+
+**落地（J1.15，mapper 零改动）**：name_referent super_ip 扩含「官方口号/标志性品牌
+主张」三处：①主定义——该IP官方产出物（已上线产品界面/官网/开屏/官方公告/品牌宣传）
+中的官方口号，口号作者=产出该口号的机构，发现/转述/解读口号的推文作者只是叙事陈述
+者不改变归属；**界面普通功能文案（菜单/按钮/功能名，如"提现"）无口号强度仍
+common_word**；②前提「已官宣存在」区分——正式上线/更新后公开可见的界面口号=已公开
+发布（「内部界面曝光」仅指未发布产品的内部截图/泄露，C11 哦案语义不回退）；③实体性
+前提——官方口号/品牌主张是 IP 标志性资产，视为有实体对应。common_word 排除句同步。
+
+**验证**：本案重跑（ignoreCache）name_referent argmax 翻 **super_ip**、阻断侧合计
+<0.5（nameReferentBlockMass=null），事件分 60.1（34A档+传播+时效，压线过 60）×0.6
++ 关联 20（exact_match/lv4）+ 质量 13.79 = **69.85 mid**（==2 放行，差 0.15 到 high）。
+回归 3 个历史拦截 case（不落库重打）全部维持：CONVICTION common_word 0.98（133 万粉
+KOL 话中词≠机构官方口号）、Cz黄鞋 common_word 0.86（闲聊物品词非口号）、哦
+notable_other 0.94（传闻名变体，前提②未回退）——口子未开大。182 需重启 narrative
+engine 加载 J1.15。
+
 ### C22 蝴蝶轮回 0x125a + GMGNPaid 0x81e6 —— 字面法两臂各失灵，CA 宣告路由链路落地（2026-09-27）★
 
 **现象**：用户质询蝴蝶轮回（0x125aebe35439c8547c5f9485eb9893f66db17777，flap 税币，
@@ -978,6 +1012,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.12 | 09-27 | name_referent super_ip 加双前提（①忠实呈现：原名直接出现/官方通用标准译名，音译/形近/跨书写系统变体不算；②已官宣存在：传闻/泄露/内部曝光/未官宣计划名不算），不满足判 notable_other（承接语义入该 criteria）；mapper 零改动；重放 289 行零新增翻转 | 哦 0xbefe2b70 C11 | 5668e4c |
 | J1.13 | 09-27 | block_reason 加 routine_content_product（第 12 选项：常规内容产品宣传——电影/剧集/综艺/动漫/小说/游戏发布上映预告，官宣与否无关均拦；边界：全民玩梗对象/文化符号/公共事件/世界级实体产品不选）；mapper 双挂 BLOCK_SCOPE 'all' + 概率 ≥0.5 质量门（routineContentProductBlock，标准+superIP 双路径）；重放 289 行零新增翻转 | 绣春刀3 0xa7c9c86e C12 | `36b66cb` |
 | J1.14 | 09-27 | name_referent super_ip 加第③前提「实体性」（主定义扩含「IP 亲口提及/讲述的具体实体=提及即事件」Giggle 语义，不含被@的普通人物；「IP名+日常物品词」拼接/无实体对应无 meme 元素的普通词组判 common_word）+ common_word 去「文本作者非超级IP」限制；mapper 零改动；重放 322 行（含 superIP）零新增翻转 | Cz黄鞋 0x91c4c4e9 C14 | 本 commit |
+| J1.15 | 09-27 | name_referent super_ip 扩含「官方口号/标志性品牌主张」（口号作者=产出该口号的机构，发现/转述/解读口号的推文作者只是叙事陈述者不改变归属；界面功能文案仍 common_word；前提②区分公开上线界面口号=已发布 vs 内部曝光=未发布泄露；前提③口号=IP标志性资产视为有实体对应）；common_word 排除句同步；mapper 零改动；本案重跑 low→mid + 回归 CONVICTION/Cz黄鞋/哦 3 拦截全维持 | 货币自由 0xced5a2ba C23 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 | P1.3 | 09-27 | 题面未动——mapper 端 project 评级表加账号信用降档（推文 <5 OR 账号年龄 <30 天→low，年龄以 token 创建时点锚定幂等；照 J1.8 先例 bump）；附带 flap 创建时间 wss_events token_create 回退（token-info-service）；52 行 project 重放仅 x-0 命中 0 误伤 | x-0 0xa5fd1f C15/C18 | 本 commit |
 | P1.4 | 09-27 | 题面未动——mapper 端消灭 unrated（用户裁定：分析完成必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足 unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject 粉丝带+P1.3 降档按账号基本面给结论 | C4 反裁定 + 蝴蝶轮回 C22 | 本 commit |
