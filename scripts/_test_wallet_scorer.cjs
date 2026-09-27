@@ -106,7 +106,7 @@ function mkProfile(o = {}) {
     eq(scoreProfile(mkProfile({ totalBnb: 0.2, avgBnb: 0 })).score, 0.25, 'vol<floor →0');
     eq(scoreProfile(mkProfile({ totalBnb: 80, avgBnb: 0 })).score, 2.25, 'vol=80（≥ceil）→2 + 0.25');
     approx(scoreProfile(mkProfile({ totalBnb: 4, avgBnb: 0 })).score, 1.119, 1e-9, 'vol=4 →0.869（log10 线性）');
-    approx(scoreProfile(mkProfile({ totalBnb: 40, avgBnb: 0 })).score, 1.987, 1e-9, 'vol=40 →1.737');
+    approx(scoreProfile(mkProfile({ totalBnb: 40, avgBnb: 0 })).score, 1.988, 1e-9, 'vol=40 →1.738（t=2/log10(200)=0.8692）');
 
     // avg 锚点（totalBnb=80 → vol 满 2）
     eq(scoreProfile(mkProfile({ avgBnb: 0.04 })).score, 2.25, 'avg=0.04（≤floor）→0');
@@ -210,7 +210,8 @@ function mkProfile(o = {}) {
         eq(r.breakdown.maliciousCap.incidentalExempt, true, '豁免命中');
         eq(r.breakdown.maliciousCap.reason, 'incidental_exempt', '豁免 reason');
         eq(r.breakdown.maliciousCap.applied, false, '豁免 → cap 不 applied');
-        eq(r.score, 4.25, '豁免 → 满分');
+        // 底座 totalBnb=50（豁免条件要求 ≥40）：vol(50)=1.823 + avg 2 + hold 0.25 = 4.073
+        approx(r.score, 4.073, 1e-9, '豁免 → 不压（底座 4.073）');
     }
     // 反例 1：tokenCount 不足
     {
@@ -219,7 +220,7 @@ function mkProfile(o = {}) {
             badBuyCount: 7, earlyLargeBuyCount: 10,
         }));
         eq(r.breakdown.maliciousCap.incidentalExempt, false, 'tok<400 不豁免');
-        approx(r.score, 2.4, 1e-9, 'tok<400 → 0.7∈[0.6,0.8) 插值 2.4');
+        approx(r.score, 1.6, 1e-9, 'tok<400 → 0.7 为 [0.6,0.8) 段中点插值 (2.4+0.8)/2=1.6');
     }
     // 反例 2：effBadRatio ≥0.8（靶率上限）
     {
@@ -273,10 +274,10 @@ function mkProfile(o = {}) {
         eq(r.breakdown.tier2Penalty.applied, true, 'tier2 applied');
         approx(r.breakdown.tier2Penalty.ratioFactor, 0.92, 1e-9, 'ratioFactor=0.92');
     }
-    // ratio=0.3 → 0.55
-    approx(scoreProfile(mkProfile({ tier2Ratio: 0.3, tier2CrashBlockSellCount: 3 })).score, 4.25 * 0.55, 1e-9, 'tier2Ratio=0.3 → ×0.55');
-    // ratio=0.5 → 0.30
-    approx(scoreProfile(mkProfile({ tier2Ratio: 0.5, tier2CrashBlockSellCount: 3 })).score, 4.25 * 0.30, 1e-9, 'tier2Ratio=0.5 → ×0.30');
+    // ratio=0.3 → 0.55（4.25×0.55=2.3375，score toFixed(3) 舍入 2.338）
+    approx(scoreProfile(mkProfile({ tier2Ratio: 0.3, tier2CrashBlockSellCount: 3 })).score, 2.338, 1e-9, 'tier2Ratio=0.3 → ×0.55');
+    // ratio=0.5 锚 → 0.40（1.0 锚才是 0.30）
+    approx(scoreProfile(mkProfile({ tier2Ratio: 0.5, tier2CrashBlockSellCount: 3 })).score, 1.7, 1e-9, 'tier2Ratio=0.5 → ×0.40');
     // ratio<0.05 不衰减
     {
         const r = scoreProfile(mkProfile({ tier2Ratio: 0.049, tier2CrashBlockSellCount: 3 }));
@@ -297,8 +298,8 @@ function mkProfile(o = {}) {
         const r = scoreProfile(mkProfile({ tier2Ratio: 0.01, tier2CrashBlockSellCount: 20 }));
         eq(r.score, 4.25, 'ratio<0.02 countFactor 不触发');
     }
-    // 双乘：ratio=0.05（0.92）× count=20（0.82）
-    approx(scoreProfile(mkProfile({ tier2Ratio: 0.05, tier2CrashBlockSellCount: 20 })).score, 4.25 * 0.92 * 0.82, 1e-9, 'ratio+count 双乘');
+    // 双乘：ratio=0.05（0.92）× count=20（0.82）=3.2062 → toFixed(3)=3.206
+    approx(scoreProfile(mkProfile({ tier2Ratio: 0.05, tier2CrashBlockSellCount: 20 })).score, 3.206, 1e-9, 'ratio+count 双乘');
 }
 
 // ═══════════════ 8. badActionByHuman cap（注入后还原）═══════════════
@@ -368,13 +369,13 @@ function mkProfile(o = {}) {
         }));
         eq(r.score, 4.25, 'llCand=2<3 不压');
     }
-    // ll 豁免大户（tok400+BNB50+eff60+脏度0）不压
+    // ll 豁免大户（tok400+BNB50+eff60+脏度0）不压（底座 totalBnb=50 → 4.073）
     {
         const r = scoreProfile(mkProfile({
             tokenCount: 400, totalBnb: 50, badCount14d: 0,
             lowLevelBadAction: { buy: { '0.6': { early: 5, bad: 5 } }, sell: {} },
         }));
-        eq(r.score, 4.25, 'll 大户偶发豁免 → 不压');
+        approx(r.score, 4.073, 1e-9, 'll 大户偶发豁免 → 不压（底座 4.073）');
     }
     // baseline 已 cap（badExempt=false）→ ll 不重复压（补充层语义）
     {
@@ -394,9 +395,9 @@ function mkProfile(o = {}) {
     }
     {
         const r = scoreProfile(mkProfile({
-            tinyLevelBadAction: { buy: { '0.2': { early: 15, bad: 13 } }, sell: {} }, // 0.867
+            tinyLevelBadAction: { buy: { '0.2': { early: 15, bad: 13 } }, sell: {} }, // 0.8667
         }));
-        approx(r.score, 1.14, 1e-9, 'tlEff≈0.8667 → [0.8,0.9) 插值 1.14');
+        approx(r.score, 1.1, 1e-9, 'tlEff≈0.8667 → 1.5+(0.0667/0.1)×(0.9-1.5)=1.1');
     }
     // tlCand<10 → 不压
     {
