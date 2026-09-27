@@ -1103,6 +1103,27 @@ engine 常驻进程主线程，`config/narrative-engine.json` → `engine.preche
 → prestage → 分类落库 + fail 行覆盖）→ 行不再候选自动停止；仍 fail → 窗口内按增量
 再试。单测：`scripts/_test_precheck_fail_retry.cjs`（25 断言零 DB 全过）。
 
+### 4.9 叙事否决信号短路（09-27，交易引擎侧）
+
+用户裁定（c5945f36 signal-stats 观察到信号过多——top1 FOMOPAY 0x23aa 一个 token 白落
+168 条 signal 行）：「如果叙事分析没有通过，检测多少次都没有用（除了项目币有再次检测）。
+如果叙事分析没过就不用再次生成交易信号了（项目币的再次检测看看如何豁免）。」
+
+**机制**（`shouldBlockOnNarrative` 纯函数 + 引擎 `_narrativeBlockedTokens` 内存 Set）：
+- 叙事直调返回 `numericRating=1`（low=终态否决）→ 登记 token；后续买腿 fire 在
+  **信号落库之前** return——不落 signal 行、不重复叙事直调、不重复 preBuyCheck 全套
+- **豁免（项目币再次检测）**：`precheckStage==='address'`（宣告竞态形状，§4.8
+  PrecheckFailRetryService 重试域）且代币年龄 < 300s → 不登记——窗口内叙事引擎侧重析
+  可能翻正；出窗后重试服务也停止 = 终态，可安全短路。两侧窗口一致（300s）保证无
+  「登记后翻正」竞态；age 缺失按出窗处理（fail-closed，对齐重试服务「无锚不重试」）
+- **作用域**：仅策略配置了 `narrativeCallCondition`（叙事直调链路启用）才生效；
+  rating 2/3（过）/ 9（未评级，非终态——失败/超时归一）永不登记；只拦买腿（卖腿与
+  持仓管理无关）；未配叙事的策略零影响；BacktestEngine 不动（回测重放需完整信号轨迹）
+- **内存语义**：重启丢失 → 首个 fire 重新直调（缓存命中秒回）重新登记，代价一条
+  signal 行——无需持久化
+- 单测：`scripts/_test_narrative_signal_gate.cjs`（13 断言零 DB：shouldBlockOnNarrative
+  八路边界 + getRating precheckStage 透传打桩四路）
+
 ## 五、策略侧应用（回测 E1→E2→E3→E4，源 572033ad）
 
 | 实验 | id | preBuyCheckCondition | 差异 | 结果 |

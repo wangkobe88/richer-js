@@ -231,8 +231,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
 
     // 1.5 叙事评级直调（策略 narrativeCallCondition 触发时同步调 NarrativeAnalyzer.analyze，Jev 秒级）
-    const { NarrativeDirectCaller, mapGmgnRiskFactors } = require('../pre-check/NarrativeDirectCaller');
+    const { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative } = require('../pre-check/NarrativeDirectCaller');
     this._narrativeCaller = new NarrativeDirectCaller();
+    // 叙事否决短路集（2026-09-27 用户裁定：叙事评级确认为 low 的代币不再重复生成
+    // 买信号——每次 fire 白落 signal 行 + 全套 preBuyCheck；address-fail 宣告竞态
+    // 盘的豁免见 shouldBlockOnNarrative。内存语义：重启丢失后首个 fire 重新调叙事
+    // （缓存命中秒回）重新登记，代价一条 signal 行）
+    this._narrativeBlockedTokens = new Set();
+    this._shouldBlockOnNarrative = shouldBlockOnNarrative;
 
     // 1.5.1 同叙事龙头已火检查（narrativeLeaderHot 因子：直调拿到 sourceTweetId 后查
     // 同源推文其余代币的峰值涨幅，火门槛 5x + 首达后 24h 拒绝窗口；详见 SameNarrativeLeaderService 头注）
@@ -895,6 +901,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         `${token.symbol} 触发买入策略: ${strategy.name} | price=${factorResults.currentPrice?.toExponential(4)}` +
         ` earlyReturn=${factorResults.earlyReturn?.toFixed(1)}% age=${factorResults.age?.toFixed(2)}min tick=${tick ? 'y' : 'n'}`);
 
+      // ── 叙事否决短路（2026-09-27 用户裁定）──
+      // 叙事评级已确认为 low（终态，检测多少次都没用）的代币不再生成买信号——
+      // 不落 signal 行、不跑叙事直调/preBuyCheck；仅对配置了 narrativeCallCondition
+      // （叙事直调链路启用）的策略生效，未配叙事的策略零影响。address-fail 宣告
+      // 竞态盘的豁免在登记侧把关（shouldBlockOnNarrative，重试窗内不登记）
+      const narrativeGateEnabled = !!(strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== '');
+      if (narrativeGateEnabled && this._narrativeBlockedTokens.has(tokenAddress)) {
+        return { success: false, reason: '叙事否决短路（评级 low 终态，不再生成信号）' };
+      }
+
       const latestPrice = factorResults.currentPrice || 0;
       if (!(latestPrice > 0)) {
         return { success: false, reason: '无有效价格（USD 换算未就绪）' };
@@ -978,6 +994,20 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           `叙事评级直调 | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
           ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +
           (narrativeCallInfo.error ? ` error=${narrativeCallInfo.error}` : ''));
+
+        // ── 叙事否决短路登记 ──
+        // rating=low（终态）→ 登记短路集，本 token 后续 fire 不再生成买信号；
+        // address-fail（宣告竞态，重试窗内可能被 PrecheckFailRetryService 翻正）豁免
+        if (this._shouldBlockOnNarrative(
+          narrativeCallInfo.numericRating,
+          narrativeCallInfo.precheckStage,
+          factorResults.age ?? null,
+        )) {
+          this._narrativeBlockedTokens.add(tokenAddress);
+          this.logger.info(this._experimentId, 'BuyEval',
+            `叙事否决登记 | ${token.symbol} rating=low${narrativeCallInfo.precheckStage ? `(${narrativeCallInfo.precheckStage})` : ''}` +
+            ' → 后续买信号短路（address-fail 重试窗内已豁免的除外）');
+        }
 
         // ── 同叙事龙头已火检查（依赖直调结果的 sourceTweetId，未拿到→因子 0 放行）──
         if (narrativeCallInfo.sourceTweetId) {

@@ -24,6 +24,36 @@ const DIRECT_CALL_TIMEOUT_MS = 30000;
 /** 超时错误标记（timedOut 判定用） */
 const TIMEOUT_CODE = 'NARRATIVE_DIRECT_TIMEOUT';
 
+/**
+ * precheck fail 重试豁免窗（秒）——与 narrative engine PrecheckFailRetryService
+ * 的 retryWindowSec 缺省值联动（2026-09-27 用户裁定：项目币宣告竞态盘的再次检测
+ * 豁免；窗口内叙事引擎侧重析可能翻正，出窗后重试停止 = 终态，引擎侧可安全短路）
+ */
+const PRECHECK_FAIL_RETRY_WINDOW_SEC = 300;
+
+/**
+ * 叙事否决短路判定（纯函数，2026-09-27 用户裁定：叙事分析没过的代币不再重复
+ * 生成买信号——检测多少次都没用；项目币 address-fail 重试窗内豁免）
+ *
+ * - numericRating===1（low=叙事否决终态）且非豁免形状 → true（登记短路）
+ * - 豁免 = precheckStage==='address'（宣告竞态形状，PrecheckFailRetryService 域）
+ *   且代币年龄 < 300s（重试窗内可能翻正）；无年龄信息按出窗处理（与重试服务
+ *   「无时间锚不重试」fail-closed 口径对齐）
+ * - rating 2/3（过）/ 9（未评级，非终态）→ false
+ *
+ * @param {number} numericRating - 直调评级 {1,2,3,9}
+ * @param {string|null} precheckStage - precheck 挂点（'address'=宣告竞态；null=非 precheck fail）
+ * @param {number|null} ageMinutes - 代币年龄（分钟；fire 因子 age，缺=null）
+ * @returns {boolean} 是否登记叙事否决短路
+ */
+function shouldBlockOnNarrative(numericRating, precheckStage, ageMinutes) {
+  if (numericRating !== 1) return false;
+  if (precheckStage === 'address' && ageMinutes !== null && ageMinutes * 60 < PRECHECK_FAIL_RETRY_WINDOW_SEC) {
+    return false; // 宣告竞态重试窗内：豁免（等 PrecheckFailRetryService 重析翻正）
+  }
+  return true;
+}
+
 class NarrativeDirectCaller {
   constructor() {
     this._Analyzer = null;
@@ -98,6 +128,7 @@ class NarrativeDirectCaller {
    *   gmgnRisk：GMGN dev 风险字段（x-0 案——直调语境 analyze 内同次 getTokenInfo
    *   带出发币史/捆绑钱包统计；超时/异常/未索引 → null，下游 gmgnRiskCovered=0
    *   放行——宁漏拦不误杀）
+   *   precheckStage：precheck 挂点（'address'=宣告竞态，叙事否决短路豁免判据）
    */
   async getRating(tokenAddress) {
     const startedAt = Date.now();
@@ -124,6 +155,10 @@ class NarrativeDirectCaller {
         error: null,
         sourceTweetId: this._extractSourceTweetId(result?.classifiedUrls),
         gmgnRisk: result?.gmgnRisk ?? null,
+        // precheck 挂点（实时/缓存两路径 preCheck 均展开行内 details）——'address'
+        // = 宣告竞态形状（PrecheckFailRetryService 重试域），引擎侧叙事否决短路的
+        // 豁免判据；非 precheck fail / 超时 / 异常 → null
+        precheckStage: result?.llmAnalysis?.preCheck?.details?.validationStage ?? null,
       };
     } catch (error) {
       return {
@@ -136,6 +171,7 @@ class NarrativeDirectCaller {
         error: error?.message || String(error),
         sourceTweetId: null,
         gmgnRisk: null,
+        precheckStage: null,
       };
     }
   }
@@ -164,4 +200,4 @@ function mapGmgnRiskFactors(risk) {
   };
 }
 
-module.exports = { NarrativeDirectCaller, mapGmgnRiskFactors };
+module.exports = { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative };
