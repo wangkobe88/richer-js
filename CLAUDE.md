@@ -199,6 +199,19 @@ Experiment deletion is DB-level: every experiment-owned table carries `experimen
 - **Take profit**: +30% sell 50%, +50% sell remaining
 - **Observation window**: 30 minutes
 
+## Card Position Management (migrated from rich-js, 2026-09-27)
+
+Token-level card ledger（用户裁定：组合级现金卡不迁）。**机制开关 = `experiment.config.positionManagement.perCardBNB` 存在且 >0**；不配 → 卡牌字段全忽略，存量实验零变化。
+
+- **策略级字段**（买/卖腿均可）：`cards`（正整数；卖腿额外接受 `"all"`=全清）+ `cooldownSec`（正数秒，独立于卡牌，任何实验可用）。归一化在 `StrategyEngine.loadStrategies` 的 `normalizeCards`（脏值→null=旧语义）
+- **买入**：金额 = `perCardBNB × (strategy.cards ?? 1)`（Decimal；virtual 现金门不足返 0=买失败不降张；live 用 `_buyAmountFor(signal)` 不走 PM cash 门，链上余额才是真门）。买成功 `_tokenCards[addr] += cards`
+- **卖出 sizing**（`_emitSellSignal` 解析进 signal）：`soldN = cards==='all' ? tokenCards : min(cards, tokenCards)`；`sellPct = soldN >= tokenCards ? 1 : soldN/tokenCards`（全清腿恒精确 1 → PM `remainingAmount.eq(0)` 删仓判据成立）。未启用/未配 cards → 旧 `sellPercentage ?? 1` 路径
+- **卡账本**：引擎实例 `_tokenCards = Map()`（原始地址 key，同 `_roundLedger` 口径）；维护在 `_executeSell` 成功分支——`cardTrade ? (after>0 ? set : delete) : (fullyClosed ? delete : 不动)`（强平腿/sellPct=1 腿不带 cardTrade 但全清→delete 防重买后卡数虚高）
+- **重启恢复**：trades.metadata 记 `cardTrade: { cards, before, after }`（信号构造时点的绝对值）；`_loadHoldings`/`_loadHoldingsLive` 重放读 `after` 绝对值 set/delete
+- **冷却**：`StrategyEngine.evaluate` 内 maxExecutions 检查后；期内腿返回 null→低优先级腿可顶上（与 maxExecutions 跳过语义一致）。回测传虚拟时钟（`recordStrategyExecution` 第 4 参），实时墙钟缺省
+- **UI**：create_experiment.html 表单键 `cards`/`cooldownSec`/`per_card_bnb`；`card.dataset.rawConfig` 整包存复制源策略，collectFormData 的 `mergeRawConfig` 合并表单白名单外键（复制链路保真 bypassDebounce/sellPercentage 等无 UI 输入字段）
+- **单测**：`node scripts/_test_card_position_mechanisms.cjs`（归一化/冷却/Decimal 精度边界三节，零 DB）
+
 ## Important Notes
 
 - **Pre-buy check factors are always calculated** - No enable/disable configuration
