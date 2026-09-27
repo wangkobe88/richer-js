@@ -63,7 +63,7 @@ WSS 订阅由**常驻 watcher**（`src/watcher/`，单进程双平台，182 scre
 ┌ watcher 进程（src/watcher/WssWatcherService.js，常驻）─────────────────┐
 │ FourMemeAnkrWsCollector + FlapAnkrWsCollector（FA/tokenPool=null）      │
 │   tick(500ms flush)      → wss_price_ticks (experiment_id=NULL)        │
-│   token_create/graduation → wss_events (kind 行；重试队列保证不丢)       │
+│   token_create/graduation/quote_set → wss_events (kind 行；重试队列)     │
 │   60s heartbeat 行 → 实验侧断供判据 + 人工查活（7 天清理）               │
 │   60s 断流自愈（消息静默≥5min → forceReconnect；自引擎迁入）             │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -103,6 +103,7 @@ Two engines via `src/trading-engine/implementations/`:
 4. **实验级 collector 配置失效**：实验 config 的 `fourmemeWs/flapWs` 段 contracts/tickBuffer/reconnect/endpoint 覆盖无效（watcher 只读 default.json）；debounce/FA 参数/conpusEnrich 仍实验侧生效
 5. **端到端延迟 +~1.5s**：flush(≤0.5s) + 轮询(1s)；卖腿止损同此
 6. **wss-down-guard 改判据**：consumer `lastIngestAt` 15min 停滞（watcher 60s 心跳行保证市场安静时不误报）→ status='wss_down'；自愈 forceReconnect 已迁 watcher，实验侧只告警
+7. **flap QuoteSet 映射持久化（2026-09-27 事故根治，1920701）**：flap 非 BNB 计价盘的 token→quote 映射实时落 `wss_events`（kind='token_quote_set'，watcher 重试队列）；collector 启动先 `_loadQuoteMapFromDb` 重建终态（乱序行按 (blockNumber,logIndex) 排序应用、零地址压制更早非零记录），回放窗缩为 [水位-100, head] 增量补停机缺口，**回放结果不落库**（水位驱动下次重启自动重拉）；DB 空首启走 `flapWs.quoteRate.fullBackfillMinutes`（默认 43200=30 天）全量窗。单测 `node scripts/_test_watcher_quote_conversion.cjs`（85 断言，T15 覆盖持久化分支）。事故档案见记忆 flap-quote-impersonation-incident（两段冒充窗口 20 token 776+ 行，重算脚本幂等）
 
 ### Narrative Analyzer (Jev Structured Decision Engine)
 
@@ -211,7 +212,7 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 ### Database
 
-Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; watcher 写入行 experiment_id=NULL; `quote_token` 标记 flap 非 BNB 计价盘——collector 按 PCS V2 quote/WBNB 实时汇率换算 price_bnb/bnb_amount 后落库，换算不可得跳行，BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat 低频事件通道，token 级全局表不挂 experiment 维度), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
+Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; watcher 写入行 experiment_id=NULL; `quote_token` 标记 flap 非 BNB 计价盘——collector 按 PCS V2 quote/WBNB 实时汇率换算 price_bnb/bnb_amount 后落库，换算不可得跳行，BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat/token_quote_set 低频事件通道，token 级全局表不挂 experiment 维度；token_quote_set 为 flap quote 映射持久化行，payload 含 blockNumber/logIndex 供水位增量回放), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
 
 Experiment deletion is DB-level: every experiment-owned table carries `experiment_id → experiments(id) ON DELETE CASCADE` (see `scripts/sql/migrate-experiment-cascade-delete.sql`), so deleting the experiments row removes all its data — the web layer just deletes the row, no per-table cleanup.
 
