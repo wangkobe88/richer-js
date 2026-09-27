@@ -17,6 +17,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { HOLDING_FACTOR_KEYS } = require('../src/services/tpa-factor-keys');
 
 const ROOT = path.resolve(__dirname, '..');
 const BASELINE_COMMIT = '2c8c74f'; // 批 1 改造前的最后 commit（固定，勿随 HEAD 推进改）
@@ -594,6 +595,12 @@ function scenarioFactorKeys(FA, baselineKeys) {
         'marketDeathRate30m', 'marketFlowBsRatio10m',
         // 名单因子 2（回迁批 3.3；smart_bot 未注入恒 0 / sniper 未注入恒 null）
         'smartBotCount', 'sniperHolderShare',
+        // watcher 架构批（e90c3a7）增量欠账 11：毕业进度 + 5m/15m K 线 RSI/rise 族
+        'graduationProgress', 'rsi9Bar5m', 'rsi14Bar5m', 'rsi9Bar5mRt', 'rsi14Bar5mRt',
+        'rsi9Bar15m', 'rsi14Bar15m', 'rsi9Bar15mRt', 'rsi14Bar15mRt', 'risePct5m', 'riseVel5m',
+        // TPA 20（回迁批 4）：3 FA 自产键 + 17 持仓键（真相源 tpa-factor-keys）
+        'TPAAnalyzed', 'TPAPre_retention', 'TPAPre_asofRelFirst',
+        ...HOLDING_FACTOR_KEYS,
     ];
     const missing = NEW_KEYS.filter(k => !keys.has(k));
     ok(missing.length === 0, `getFactorKeys 含全部 ${NEW_KEYS.length} 新键`, missing);
