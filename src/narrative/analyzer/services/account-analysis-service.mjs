@@ -326,12 +326,15 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
   }
 
   if (mapped.tokenType === 'web3_native_ip_early') {
+    // P1.4（2026-09-27 裁定）：不再 unrated"等社区成长"——mapper 端已按账号基本面
+    // （rateProject 粉丝带 + P1.3 降档）给出 low/mid/high 结论，直接透传
     return {
-      rating: 'unrated',
+      rating: mapped.rating,
       category: 'web3_native_ip_early',
       reasoning: mapped.reasoning,
       scores: null,
       total_score: null,
+      baselineMet: mapped.baselineMet,
       promptType: mapped.promptType,
       prestageData: mapped.prestageDataToSave,
     };

@@ -65,6 +65,10 @@ BacktestEngine 同病。**c5945f36 因此全天 0 成交**。已修（挂 this�
 在短链目标页）。且 7 粉过不了 project 底线 20，即使路由成功仍 low——语义正确。
 短链形态记 §六-14 未决。
 
+**P1.4 后续（§4.11 同日）**：CA 命中后 prestage 判 web3_native_ip_early 不再 unrated
+——按账号基本面评级（@rongluBSC 168 粉老号多推文 → **mid**，`==2 OR ==3` 放行，
+"可过可不过"落可过档；若触发 P1.3 降档则 low）。GMGNPaid 型 7 粉 → low 不变。
+
 ### C21 FOMOPAY 0x23aa —— 宣告竞态第二例（晚 5 秒），fPay 同构收束（2026-09-27）
 
 **现象**：用户质询 FOMOPAY（0x23aae05d…7777，FOMO 观点变现平台 fomopay.uk 的协议币）
@@ -941,6 +945,10 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 **裁定**：引擎语义**不动**（爆款视频门槛触发 → unrated，"内容过于流行无法解析"），
 放行在**实验策略侧**解决——叙事实验条件用 `narrativeRating == 2 OR == 3 OR == 9`。
 
+**裁定反转（2026-09-27，§4.11）**：消灭引擎侧 unrated——爆款/高影响力无法解析类
+门槛触发直接给 **mid + pass=true**（引擎侧放行），不再依赖 ==9 策略口子；本 case
+当初的 unrated 语义自 P1.4 起不存在。
+
 **后续实践修正**（E2，09-24）：直调失败/超时也 normalize 成 9，==9 放行让"未评级"混进爆款
 语义 → E2/E3 收紧为 `==2 OR ==3`（只买叙事评级确定的）。见 §五。
 
@@ -972,6 +980,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.14 | 09-27 | name_referent super_ip 加第③前提「实体性」（主定义扩含「IP 亲口提及/讲述的具体实体=提及即事件」Giggle 语义，不含被@的普通人物；「IP名+日常物品词」拼接/无实体对应无 meme 元素的普通词组判 common_word）+ common_word 去「文本作者非超级IP」限制；mapper 零改动；重放 322 行（含 superIP）零新增翻转 | Cz黄鞋 0x91c4c4e9 C14 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 | P1.3 | 09-27 | 题面未动——mapper 端 project 评级表加账号信用降档（推文 <5 OR 账号年龄 <30 天→low，年龄以 token 创建时点锚定幂等；照 J1.8 先例 bump）；附带 flap 创建时间 wss_events token_create 回退（token-info-service）；52 行 project 重放仅 x-0 命中 0 误伤 | x-0 0xa5fd1f C15/C18 | 本 commit |
+| P1.4 | 09-27 | 题面未动——mapper 端消灭 unrated（用户裁定：分析完成必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足 unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject 粉丝带+P1.3 降档按账号基本面给结论 | C4 反裁定 + 蝴蝶轮回 C22 | 本 commit |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。
 
@@ -1188,6 +1197,36 @@ engine 常驻进程主线程，`config/narrative-engine.json` → `engine.preche
 - 不改 Jev 问题集文本 → JEV 版本号不动（路由层代码变更）
 - 单测：`scripts/_test_issuer_ca_detection.cjs`（15 断言零网络：纯函数 8 路 + 注入
   打桩 7 路）；实跑验证蝴蝶轮回命中 / GMGNPaid 事实性未命中
+
+### 4.11 消灭引擎侧 unrated（09-27，用户裁定：过与不过总归要有结论）
+
+**裁定**：叙事分析引擎除「直调失败/超时/未触发」（NarrativeDirectCaller 归 9）外
+不要有 unrated——分析完成的结果必须落在 low/mid/high。触发语境：C4 抖音爆款
+64.8 万赞"内容无法解析"当初 unrated 被实验条件拦（裁定反转：现在给通过）；
+蝴蝶轮回走原生 IP"可过可不过"。
+
+**改动面（产出侧全清，解析侧不动）**：
+
+| 点位 | 旧 | 新 |
+|---|---|---|
+| pre-check 9 处高影响力门槛（规则3 爆款视频/3.5 小红书/3.5.5 Instagram×2/3.5.6 抖音/3.5.7 微博/3.5.8 YouTube/3.5.9 TikTok/规则5 高影响力+媒体） | unrated + pass=false | **mid + pass=true**（buildPreCheckResult 新增 extra.pass 覆盖位；ruleName 检索键不变如 video_unrated） |
+| prestage abm 双条件满足（P1.4 mapper） | unrated | **mid**（名称关联+Web3流量双证据成立） |
+| prestage web3_native_ip_early（P1.4 mapper） | unrated"等社区成长" | **复用 rateProject**（粉丝带 <20 low/20-299 mid/≥300 high + P1.3 降档）——蝴蝶轮回 168 粉老号 → mid；纯新号空内容 → low fail-closed |
+| no_data（无语料） | unrated + pass=null | **low + pass=false**（fail-closed：无语料不构成叙事） |
+| LLM 分析失败 catch | unrated | **保留 unrated**（系统故障本体，caller normalize 9——正是 9 保留的三场景之一） |
+
+**不动**：rating-utils（CATEGORY_TO_RATING 9 / resolveFinalRating 规则1——存量
+unrated 行与失败行解析）、getRatingMeta（web 展示旧数据）、NarrativeDirectCaller
+（9 的保留位）。版本 bump P1.3→P1.4（mapper 聚合语义变化照 P1.3 先例）。
+
+**存量缓存行**：历史 unrated 行不失效——需 ignoreCache 重析才变（蝴蝶轮回当日
+重析验证 mid；其余存量是否批量刷新待需要时裁定）。
+
+**策略侧语义变化**：`narrativeRating == 2 OR == 3` 条件从此覆盖爆款/高影响力类
+（C4 的 ==9 放行老问题消解——引擎侧直接给 mid）；`==9` 只剩系统故障语义。
+
+- 单测：`scripts/_test_unrated_elimination.cjs`（29 断言零 DB：mapper abm/web3ip/
+  project 三分支 + pre-check 门槛三路 + resolveFinalRating 历史兼容三路）
 
 ## 五、策略侧应用（回测 E1→E2→E3→E4，源 572033ad）
 

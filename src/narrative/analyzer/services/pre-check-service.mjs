@@ -27,22 +27,24 @@ const NARRATIVE_CONFIG = config.narrative || {
 
 /**
  * 构建统一的预检查返回结果
- * @param {string} rating - "low" | "unrated"
+ * @param {string} rating - "low" | "mid"
  * @param {string} reason - 原因描述
  * @param {string} ruleName - 规则名称（如 "symbol_too_long"）
- * @param {Object} [extra] - 额外的 details 字段
+ * @param {Object} [extra] - 额外的 details 字段；extra.pass=true 可覆盖默认
+ *   pass=false（高影响力门槛给 mid 的"通过"语义，2026-09-27 裁定）
  * @returns {Object} 统一格式的预检查结果
  */
 function buildPreCheckResult(rating, reason, ruleName, extra = {}) {
+  const { pass: passOverride, ...extraFields } = extra;
   return {
     rating,
-    pass: false,
+    pass: passOverride ?? false,
     reason,
     category: null,
     score: extra.total_score ?? null,
     details: {
       ruleName,
-      ...extra,
+      ...extraFields,
     }
   };
 }
@@ -597,35 +599,36 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     if (!hasViewData && !hasLikeData) continue;
 
     // 设置阈值（播放量或点赞数任一达到即可）
-    // 各平台的"爆款"门槛：达到此播放量时，内容过于流行无法准确分析
-    const unratedViewThresholdMap = {
+    // 各平台的"爆款"门槛：达到此传播量时内容无法解析，但数据本身已证明真实影响力
+    // （2026-09-27 裁定：爆款无法解析类给 mid 通过，不再 unrated）
+    const viralViewThresholdMap = {
       'Bilibili': 500000,     // 50万播放量
       'YouTube': 1000000,     // 100万播放量
       'Twitter': 100000,      // 10万播放量
       'TikTok': 500000,       // 50万播放量（流量大，提高门槛）
       '抖音': 500000          // 50万播放量（流量大，提高门槛）
     };
-    const unratedViewThreshold = unratedViewThresholdMap[video.name] || 100000; // 默认10万
-    const unratedLikeThreshold = 100000; // 10万点赞（保持不变）
+    const viralViewThreshold = viralViewThresholdMap[video.name] || 100000; // 默认10万
+    const viralLikeThreshold = 100000; // 10万点赞
 
-    // 判断是否达到 unrated 阈值
-    const viewMeetsThreshold = hasViewData && viewCount >= unratedViewThreshold;
-    const likeMeetsThreshold = hasLikeData && likeCount >= unratedLikeThreshold;
+    // 判断是否达到爆款阈值
+    const viewMeetsThreshold = hasViewData && viewCount >= viralViewThreshold;
+    const likeMeetsThreshold = hasLikeData && likeCount >= viralLikeThreshold;
 
     // 调试日志：输出阈值判断结果
-    console.log(`[NarrativeAnalyzer] ${video.name}阈值判断 - viewMeetsThreshold: ${viewMeetsThreshold} (${viewCount}>=${unratedViewThreshold}), likeMeetsThreshold: ${likeMeetsThreshold} (${likeCount}>=${unratedLikeThreshold})`);
+    console.log(`[NarrativeAnalyzer] ${video.name}阈值判断 - viewMeetsThreshold: ${viewMeetsThreshold} (${viewCount}>=${viralViewThreshold}), likeMeetsThreshold: ${likeMeetsThreshold} (${likeCount}>=${viralLikeThreshold})`);
 
     // 获取用于显示的数据（显示实际触发阈值的指标；抖音播放量常被隐藏为0，由点赞触发时不能显示"播放量=0"）
     const displayValue = viewMeetsThreshold ? viewCount : likeCount;
     const displayType = viewMeetsThreshold ? '播放量' : '点赞数';
 
     if (viewMeetsThreshold || likeMeetsThreshold) {
-      console.log(`[NarrativeAnalyzer] 规则3触发: ${video.name}视频${displayType}=${displayValue}，达到unrated阈值`);
-      return buildPreCheckResult('unrated', `${video.name}视频${displayType}${displayValue}，无法解析视频内容进行完整叙事评估`, 'video_unrated');
+      console.log(`[NarrativeAnalyzer] 规则3触发: ${video.name}视频${displayType}=${displayValue}，达到爆款门槛，给mid（通过）`);
+      return buildPreCheckResult('mid', `${video.name}视频${displayType}${displayValue}，传播数据达爆款门槛，内容无法解析，按影响力数据给mid`, 'video_unrated', { pass: true });
     }
 
     // ⚠️ 播放量/点赞数低的情况不再自动返回low，交给LLM判断
-    console.log(`[NarrativeAnalyzer] ${video.name}视频未达到unrated阈值，将进入LLM分析`);
+    console.log(`[NarrativeAnalyzer] ${video.name}视频未达到爆款门槛，将进入LLM分析`);
   }
 
   // 规则3.5：小红书用户主页影响力检查
@@ -633,18 +636,18 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     const fans = xiaohongshuInfo.fans || 0;
     const liked = xiaohongshuInfo.liked || 0;
 
-    // 高影响力阈值：粉丝≥3万 或 获赞≥10万 → unrated
-    const UNRATED_FANS_THRESHOLD = 30000;
-    const UNRATED_LIKED_THRESHOLD = 100000;
+    // 高影响力阈值：粉丝≥3万 或 获赞≥10万 → mid（2026-09-27 裁定：高影响力无法解析类给通过）
+    const HIGH_INFLUENCE_FANS_THRESHOLD = 30000;
+    const HIGH_INFLUENCE_LIKED_THRESHOLD = 100000;
 
-    const fansMeetsThreshold = fans >= UNRATED_FANS_THRESHOLD;
-    const likedMeetsThreshold = liked >= UNRATED_LIKED_THRESHOLD;
+    const fansMeetsThreshold = fans >= HIGH_INFLUENCE_FANS_THRESHOLD;
+    const likedMeetsThreshold = liked >= HIGH_INFLUENCE_LIKED_THRESHOLD;
 
     if (fansMeetsThreshold || likedMeetsThreshold) {
-      console.log(`[NarrativeAnalyzer] 规则3.5触发: 小红书用户"${xiaohongshuInfo.nickname}"粉丝${fans}，获赞${liked}，影响力较高，返回unrated`);
-      return buildPreCheckResult('unrated',
-        `小红书用户"${xiaohongshuInfo.nickname}"粉丝${fans}，获赞${liked}，影响力较高`,
-        'xiaohongshu_high_influence_user');
+      console.log(`[NarrativeAnalyzer] 规则3.5触发: 小红书用户"${xiaohongshuInfo.nickname}"粉丝${fans}，获赞${liked}，影响力较高，给mid（通过）`);
+      return buildPreCheckResult('mid',
+        `小红书用户"${xiaohongshuInfo.nickname}"粉丝${fans}，获赞${liked}，影响力较高，按影响力数据给mid`,
+        'xiaohongshu_high_influence_user', { pass: true });
     }
 
     // 低影响力阈值：粉丝<100 且 获赞<1000 → low
@@ -668,13 +671,13 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       const followers = instagramInfo.follower_count || 0;
       const mediaCount = instagramInfo.media_count || 0;
 
-      // 高影响力：粉丝≥10万 → unrated
-      const UNRATED_IG_FOLLOWERS_THRESHOLD = 100000;
-      if (followers >= UNRATED_IG_FOLLOWERS_THRESHOLD) {
-        console.log(`[NarrativeAnalyzer] 规则3.5.5触发: Instagram用户"@${instagramInfo.username}"拥有${followers}粉丝，影响力较高，返回unrated`);
-        return buildPreCheckResult('unrated',
-          `Instagram用户"@${instagramInfo.username}"拥有${followers}粉丝，影响力较高`,
-          'instagram_high_influence_user');
+      // 高影响力：粉丝≥10万 → mid（通过）
+      const HIGH_INFLUENCE_IG_FOLLOWERS_THRESHOLD = 100000;
+      if (followers >= HIGH_INFLUENCE_IG_FOLLOWERS_THRESHOLD) {
+        console.log(`[NarrativeAnalyzer] 规则3.5.5触发: Instagram用户"@${instagramInfo.username}"拥有${followers}粉丝，影响力较高，给mid（通过）`);
+        return buildPreCheckResult('mid',
+          `Instagram用户"@${instagramInfo.username}"拥有${followers}粉丝，影响力较高，按影响力数据给mid`,
+          'instagram_high_influence_user', { pass: true });
       }
 
       // 低影响力：粉丝<100 且 帖子<10 → low
@@ -694,13 +697,13 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       const commentCount = instagramInfo.metrics?.comment_count || 0;
       const typeLabel = instagramInfo.type === 'reel' ? ' Reel' : '帖子';
 
-      // 高传播帖子：点赞>50万 → unrated
-      const UNRATED_IG_LIKE_THRESHOLD = 500000;
-      if (likeCount >= UNRATED_IG_LIKE_THRESHOLD) {
-        console.log(`[NarrativeAnalyzer] 规则3.5.5触发: Instagram${typeLabel}点赞${likeCount}，传播力极强，返回unrated`);
-        return buildPreCheckResult('unrated',
-          `Instagram${typeLabel}点赞${likeCount}，传播力极强`,
-          'instagram_viral_post');
+      // 高传播帖子：点赞>50万 → mid（通过）
+      const VIRAL_IG_LIKE_THRESHOLD = 500000;
+      if (likeCount >= VIRAL_IG_LIKE_THRESHOLD) {
+        console.log(`[NarrativeAnalyzer] 规则3.5.5触发: Instagram${typeLabel}点赞${likeCount}，传播力极强，给mid（通过）`);
+        return buildPreCheckResult('mid',
+          `Instagram${typeLabel}点赞${likeCount}，传播力极强，按传播数据给mid`,
+          'instagram_viral_post', { pass: true });
       }
 
       // 低传播帖子：点赞<50 且 评论<10 → low
@@ -722,10 +725,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     const awemeCount = douyinInfo.aweme_count || 0;
 
     if (followers >= 100000) {
-      console.log(`[NarrativeAnalyzer] 规则3.5.6触发: 抖音用户"${douyinInfo.nickname}"粉丝${followers}，影响力较高，返回unrated`);
-      return buildPreCheckResult('unrated',
-        `抖音用户"${douyinInfo.nickname}"粉丝${followers}，影响力较高`,
-        'douyin_high_influence_user');
+      console.log(`[NarrativeAnalyzer] 规则3.5.6触发: 抖音用户"${douyinInfo.nickname}"粉丝${followers}，影响力较高，给mid（通过）`);
+      return buildPreCheckResult('mid',
+        `抖音用户"${douyinInfo.nickname}"粉丝${followers}，影响力较高，按影响力数据给mid`,
+        'douyin_high_influence_user', { pass: true });
     }
 
     if (followers < 100 && awemeCount < 5) {
@@ -745,10 +748,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     const statusesCount = backgroundInfo.statuses_count || 0;
 
     if (followers >= 100000) {
-      console.log(`[NarrativeAnalyzer] 规则3.5.7触发: 微博用户"${backgroundInfo.screen_name}"粉丝${followers}，影响力较高，返回unrated`);
-      return buildPreCheckResult('unrated',
-        `微博用户"${backgroundInfo.screen_name}"粉丝${followers}，影响力较高`,
-        'weibo_high_influence_user');
+      console.log(`[NarrativeAnalyzer] 规则3.5.7触发: 微博用户"${backgroundInfo.screen_name}"粉丝${followers}，影响力较高，给mid（通过）`);
+      return buildPreCheckResult('mid',
+        `微博用户"${backgroundInfo.screen_name}"粉丝${followers}，影响力较高，按影响力数据给mid`,
+        'weibo_high_influence_user', { pass: true });
     }
 
     if (followers < 100 && statusesCount < 10) {
@@ -767,10 +770,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     const recentViews = youtubeInfo.recent_videos?.reduce((sum, v) => sum + (v.view_count || 0), 0) || 0;
 
     if (recentViews >= 1000000) {
-      console.log(`[NarrativeAnalyzer] 规则3.5.8触发: YouTube频道"${youtubeInfo.channel_title}"最近视频总播放${recentViews}，影响力较高，返回unrated`);
-      return buildPreCheckResult('unrated',
-        `YouTube频道"${youtubeInfo.channel_title}"最近视频总播放${recentViews}，影响力较高`,
-        'youtube_high_influence_channel');
+      console.log(`[NarrativeAnalyzer] 规则3.5.8触发: YouTube频道"${youtubeInfo.channel_title}"最近视频总播放${recentViews}，影响力较高，给mid（通过）`);
+      return buildPreCheckResult('mid',
+        `YouTube频道"${youtubeInfo.channel_title}"最近视频总播放${recentViews}，影响力较高，按影响力数据给mid`,
+        'youtube_high_influence_channel', { pass: true });
     }
 
     if (!youtubeInfo.recent_videos?.length || recentViews < 1000) {
@@ -790,10 +793,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     const videoCount = tiktokInfo.video_count || 0;
 
     if (followers >= 100000) {
-      console.log(`[NarrativeAnalyzer] 规则3.5.9触发: TikTok用户"@${tiktokInfo.unique_id}"粉丝${followers}，影响力较高，返回unrated`);
-      return buildPreCheckResult('unrated',
-        `TikTok用户"@${tiktokInfo.unique_id}"粉丝${followers}，影响力较高`,
-        'tiktok_high_influence_user');
+      console.log(`[NarrativeAnalyzer] 规则3.5.9触发: TikTok用户"@${tiktokInfo.unique_id}"粉丝${followers}，影响力较高，给mid（通过）`);
+      return buildPreCheckResult('mid',
+        `TikTok用户"@${tiktokInfo.unique_id}"粉丝${followers}，影响力较高，按影响力数据给mid`,
+        'tiktok_high_influence_user', { pass: true });
     }
 
     if (followers < 100 && videoCount < 5) {
@@ -856,7 +859,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   }
 
   // 规则4：公开信息检查（基于 classifiedUrls）
-  // 区分两种情况：没有公开信息（unrated） vs 有信息但失效（low）
+  // 区分两种情况：没有公开信息 vs 有信息但获取失败（均 low）
 
   // 公开信息平台（排除 Telegram/Discord 通讯应用）
   const publicUrlPlatforms = ['twitter', 'weibo', 'youtube', 'tiktok', 'douyin', 'bilibili', 'xiaohongshu', 'instagram', 'weixin', 'github', 'amazon', 'binanceSquare', 'websites'];
@@ -890,7 +893,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
   // 有有效数据，继续后续规则检查
 
-  // 规则5：高影响力推文 + 媒体 → unrated（保护可能的好叙事）
+  // 规则5：高影响力推文 + 媒体 → mid（2026-09-27 裁定：高影响力+媒体无法解析类给通过，不再 unrated）
   // 检查条件：
   // 1. 推文作者属于高影响力账号（Elon、Trump等）
   // 2. 或者推文交互数据高（点赞>5000 或 转发>2000）
@@ -971,7 +974,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     //   return buildPreCheckResult('unrated', `${reasons.join('，')}，暂不支持解析该类型媒体`, 'high_influence_with_media');
     // }
 
-    // [新逻辑] 高影响力账号 + 任何媒体 → 直接返回 unrated，跳过图片识别
+    // [新逻辑] 高影响力账号 + 任何媒体 → 直接给 mid，跳过图片识别
     if (isHighInfluence || isHighEngagement) {
       const reasons = [];
       if (isHighInfluence) {
@@ -983,8 +986,8 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       }
       reasons.push('推文带有图片/视频媒体内容');
 
-      console.log(`[NarrativeAnalyzer] 规则5触发: ${reasons.join('，')}，返回unrated`);
-      return buildPreCheckResult('unrated', `${reasons.join('，')}，跳过图片/视频识别以加速分析`, 'high_influence_with_media');
+      console.log(`[NarrativeAnalyzer] 规则5触发: ${reasons.join('，')}，给mid（通过）`);
+      return buildPreCheckResult('mid', `${reasons.join('，')}，媒体内容跳过识别，按影响力数据给mid`, 'high_influence_with_media', { pass: true });
     }
   }
 

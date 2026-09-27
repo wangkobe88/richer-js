@@ -446,12 +446,13 @@ export class NarrativeAnalyzer {
         // 检查是否有任何有效数据供分析
         const hasAnyData = hasValidDataForAnalysis(fetchResults);
         if (!hasAnyData) {
-          logger.warn('NarrativeAnalyzer', '没有有效数据可供分析，返回unrated');
+          // 2026-09-27 裁定：分析完成必须有结论，无语料 → low（fail-closed 不买）
+          logger.warn('NarrativeAnalyzer', '没有有效数据可供分析，返回low（fail-closed）');
           llmResult = {
-            rating: 'unrated',
-            reason: '没有可用的数据进行分析（所有推文/内容获取失败）',
+            rating: 'low',
+            reason: '没有可用的数据进行分析（所有推文/内容获取失败），无语料不构成叙事',
             score: null,
-            pass: null
+            pass: false
           };
           promptUsed = null;
           promptType = 'no_data';
@@ -497,11 +498,12 @@ export class NarrativeAnalyzer {
             } else {
               // 项目币 / Web3原生IP早期 / 以账号为背景的meme币：Jev 前置判定结果
               // （meme 两阶段分流已删除——死代码，见 account-analysis-service.mjs 文件头）
+              // P1.4（2026-09-27 裁定）：prestage 判定完成即有 low/mid/high 结论，恒 pass
               llmResult = {
                 rating: analysisResult.rating,
                 reason: analysisResult.reasoning,
                 score: analysisResult.total_score,
-                pass: analysisResult.rating !== 'unrated'
+                pass: true
               };
               promptUsed = analysisResult.prestageData?.prompt || 'prestage_jev';
               promptType = analysisResult.promptType || 'account_community';
@@ -510,13 +512,6 @@ export class NarrativeAnalyzer {
 
               // 保存前置LLM数据（账号/社区分析判断币种类型）
               prestageDataToSave = analysisResult.prestageData;
-
-              // 对于 unrated 类别（Web3 原生 IP 早期 / abm 通过），显式清除旧的 stage1/stage2 数据
-              if (analysisResult.rating === 'unrated') {
-                // 使用特殊标记对象指示需要清除旧数据
-                stage1DataToSave = { __clear: true };
-                stage2DataToSave = { __clear: true };
-              }
             }
           }
 

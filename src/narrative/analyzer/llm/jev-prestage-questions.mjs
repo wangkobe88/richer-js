@@ -20,9 +20,13 @@
  *   同例 bump：聚合语义变化须可按版本筛历史行）。x-0 案（C15）：买粉新号
  *   131 粉精确卡进 mid 带（粉丝是评级表唯一量化指标的盲区）→ 推文 <5 或
  *   账号年龄 <30 天（token 创建时点锚定，重跑/回测幂等）→ low
+ * P1.4：题面未动——mapper 端消灭 unrated（2026-09-27 用户裁定：分析完成的结果
+ *   必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足
+ *   unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject
+ *   粉丝带 + P1.3 降档按账号基本面给结论（蝴蝶轮回 168 粉 → mid）
  */
 
-export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.3';
+export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.4';
 
 /**
  * 构建 prestage 问题集

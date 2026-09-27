@@ -3,9 +3,11 @@
  *
  * 全部确定性判定在本文件完成（原 V2.0/V1.0 prompt 的评级数学下沉代码端）：
  * - addressVerified=false → 固定 account_based_meme：名称关联≠none 且 P(has_traffic)≥0.5
- *   两条件同时满足 → unrated，否则 low（V1.0 第三步逐字转译）
+ *   两条件同时满足 → mid，否则 low（2026-09-27 裁定：abm 双证据成立给结论 mid，
+ *   不再 unrated——分析完成必须有 low/mid/high 结论，9 只保留给直调失败/超时/未触发）
  * - addressVerified=true → token_type 二分（V2.0 第一步）：
- *   - web3_native_ip_early → unrated
+ *   - web3_native_ip_early → 按账号基本面评级（复用 rateProject 粉丝带 + P1.3 降档，
+ *     2026-09-27 裁定：蝴蝶轮回 168 粉 → mid，"等社区成长"不再是不给结论的理由）
  *   - project 评级（V2.0 第三步表，就高处理——high 档无封顶，认证记 details 不参与）：
  *     账号 <20 low / 20-299 mid / ≥300 high（账号底线 60→20，2026-09-27 裁定）；
  *     社区 <20 low / 20-99 mid / ≥100 且活跃 high；
@@ -168,13 +170,13 @@ export function mapPrestageAnswers(answers, context) {
 
     const nameOk = nameLink !== 'none';
     const trafficOk = trafficP >= 0.5;
-    rating = (nameOk && trafficOk) ? 'unrated' : 'low';
+    rating = (nameOk && trafficOk) ? 'mid' : 'low';
 
     const failed = [];
     if (!nameOk) failed.push('名称关联不成立');
     if (!trafficOk) failed.push('无30天内Web3流量事件');
 
-    reasoning = `名称关联:${NAME_LINK_LABELS[nameLink] || nameLink}｜Web3流量:${trafficOk ? `有(P=${round2(trafficP)})` : `无(P=${round2(trafficP)}，choice=${trafficChoice})`}｜${rating === 'unrated' ? '两条件同时满足→unrated' : `不满足:${failed.join('、')}→low`}`;
+    reasoning = `名称关联:${NAME_LINK_LABELS[nameLink] || nameLink}｜Web3流量:${trafficOk ? `有(P=${round2(trafficP)})` : `无(P=${round2(trafficP)}，choice=${trafficChoice})`}｜${rating === 'mid' ? '两条件同时满足→mid（账号背景 meme 双证据成立）' : `不满足:${failed.join('、')}→low`}`;
     pass = true; // 对齐旧 abm 分支的 prestageData.pass=true（判定本身完成）
 
     details = {
@@ -189,11 +191,18 @@ export function mapPrestageAnswers(answers, context) {
     tokenType = answers.prestage_token_type?.choice || 'project';
 
     if (tokenType === 'web3_native_ip_early') {
-      rating = 'unrated';
-      reasoning = '判断为Web3原生IP早期（创造了新称号/概念，社区早期阶段），需等待社区成长后再评估';
-      pass = null; // 对齐旧 web3ip 分支
+      // 按账号基本面评级（2026-09-27 裁定：不再 unrated"等社区成长"——过与不过要有
+      // 结论）。复用 rateProject 同款数学：粉丝/成员带（<20 low / 20-299 mid / ≥300 high）
+      // + P1.3 信用降档（推文 <5 或账号年龄 <30 天 → low）。蝴蝶轮回 @rongluBSC
+      // 168 粉 → mid（"可过可不过"票落 mid 档）；纯新号空内容 → low fail-closed
+      const rated = rateProject(data, null, tokenCreatedAtSec);
+      rating = rated.rating;
+      baselineMet = rated.baselineMet;
+      reasoning = `Web3原生IP早期（创造了新称号/概念，社区早期阶段）→ ${rated.reason}`;
+      pass = true;
       details = { followers, members, projectReason: null, ipConcept: null };
-      jevDetails = { tokenType };
+      jevDetails = { tokenType, baselineMet: rated.baselineMet,
+        ...(rated.downgrade ? { downgrade: rated.downgrade } : {}) };
     } else {
       // project：评级数学全部代码端（V2.0 评级表 + P1.3 信用降档）
       const activityChoice = answers.prestage_community_activity?.choice || null;
