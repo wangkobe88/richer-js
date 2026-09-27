@@ -133,7 +133,8 @@
       "ttlMs": 30000,
       "staleMaxMs": 300000,
       "negTtlMs": 60000,
-      "backfillMinutes": 120
+      "backfillMinutes": 120,
+      "backfillRpcUrl": "ankrFromEnv"
     },
     "corpusEnrich": {
       "enabled": true,

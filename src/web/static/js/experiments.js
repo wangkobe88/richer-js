@@ -731,7 +731,10 @@ class ExperimentMonitor {
         platform: config.platform || 'fourmeme',
 
         // 交易金额
-        tradeAmount: config.tradeAmount
+        tradeAmount: config.tradeAmount,
+
+        // 卡牌仓位模式（迁自 rich-js）
+        positionManagement: config.positionManagement || null
       };
 
       // 添加 initial_balance 从 virtual 配置中获取

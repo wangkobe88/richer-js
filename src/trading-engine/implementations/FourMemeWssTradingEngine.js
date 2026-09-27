@@ -116,6 +116,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // （与 PM cash/trades 表同口径；virtual tradeAmount 与 live bnbReceived×bnbUsd 统一折 USD）。
     // 买入成功登记，每卖腿累计；全清（PM 余仓≤0）时 addCompletedPair 一次记整轮 pnl=Σ卖-买
     this._roundLedger = new Map();
+    // 卡牌仓位（迁自 rich-js）：addr → 该 token 当前卡数（key 用原始地址，与
+    // _roundLedger/_tokenLocks 同口径）。机制关闭时恒空 Map；开关在
+    // _initializeDataSources 解析 positionManagement.perCardBNB
+    this._tokenCards = new Map();
+    this._perCardBNB = null;
+    this._cardsEnabled = false;
 
     this.metrics = {
       totalTrades: 0,
@@ -336,6 +342,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           preBuyCheckCondition: s.preBuyCheckCondition || null,
           repeatBuyCheckCondition: s.repeatBuyCheckCondition || null,
           narrativeCallCondition: s.narrativeCallCondition || null,
+          // 卡牌仓位（迁自 rich-js）：cards/cooldownSec 原样透传，loadStrategies 内归一化
+          //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
+          cards: s.cards,
+          cooldownSec: s.cooldownSec,
           enabled: true,
         });
       });
@@ -355,6 +365,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           cumulativeLossLockPct: typeof s.cumulativeLossLockPct === 'number' ? s.cumulativeLossLockPct : null,
           sellPercentage: (typeof s.sellPercentage === 'number'
             && s.sellPercentage > 0 && s.sellPercentage <= 1) ? s.sellPercentage : 1,
+          // 卡牌仓位（迁自 rich-js）：同买腿透传（卖腿额外接受 'all'）
+          cards: s.cards,
+          cooldownSec: s.cooldownSec,
           enabled: true,
         });
       });
@@ -370,12 +383,19 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
       `✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
-    // 6. 交易金额 / 永久阻断
+    // 6. 交易金额 / 永久阻断 / 卡牌仓位
     const experimentConfig = this._experiment?.config || {};
     this._tradeAmount = experimentConfig.tradeAmount || 0.1;
     this._permanentBlockCondition = experimentConfig.strategiesConfig?.permanentBlockCondition || null;
     this._tokenBlacklist = new Map();
-    this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', `交易金额配置 | tradeAmount=${this._tradeAmount}`);
+    // 卡牌机制开关（迁自 rich-js）：positionManagement.perCardBNB 存在且 >0 才启用。
+    // 启用：买入金额 = perCardBNB × 本腿张数（cards ?? 1），卖腿配 cards 按卡数比例
+    // 卖余仓（_emitSellSignal sizing）；未配置 = 全部卡牌字段忽略（存量实验零变化）
+    const _pmPerCard = Number((experimentConfig.positionManagement || {}).perCardBNB);
+    this._perCardBNB = Number.isFinite(_pmPerCard) && _pmPerCard > 0 ? _pmPerCard : null;
+    this._cardsEnabled = this._perCardBNB != null;
+    this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+      `交易金额配置 | tradeAmount=${this._tradeAmount}${this._cardsEnabled ? ` | 🃏 卡牌模式 perCardBNB=${this._perCardBNB}` : ''}`);
 
     // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪
     if (this._isLive) {
@@ -847,6 +867,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         reason: strategy.name,
         strategyId: strategy.id,
         strategyName: strategy.name,
+        cards: strategy.cards, // 卡牌（迁自 rich-js）：本腿买入张数（_buyAmountFor/_executeBuy* 消费）
         factors: { trendFactors: buildFactorValuesForTimeSeries(factorResults) },
         timestamp: new Date(),
       };
@@ -1079,7 +1100,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         });
 
         this.logger.info(this._experimentId, 'BuyEval',
-          `✅ 买入成功${this._isLive ? '(live)' : ''} | ${token.symbol} price=${execPriceUsd.toExponential(4)} amount=${this._tradeAmount} 余额=${this.currentBalance.toFixed(4)}`);
+          `✅ 买入成功${this._isLive ? '(live)' : ''} | ${token.symbol} price=${execPriceUsd.toExponential(4)} amount=${this._buyAmountFor(signal)}${this._cardsEnabled ? `(${signal.cards ?? 1}卡)` : ''} 余额=${this.currentBalance.toFixed(4)}`);
         return { success: true };
       }
 
@@ -1181,6 +1202,22 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const holding = this._getHolding(tokenAddress);
       const buyPrice = holding?.averagePurchasePrice || token.buyPrice || null;
 
+      // 卡牌 sizing（迁自 rich-js，与 BacktestEngine 同构）：机制启用 且 卖腿配 cards 且
+      // token 有卡 → 按卡数比例卖余仓：soldN = 'all'→全清 / min(cards, 余卡) 钳制；
+      // soldN>=tokenCards 时 sellPct 恒精确 1（IEEE T/T）→ Decimal.mul(1) 精确直通，
+      // PM remainingAmount.eq(0) 删仓判据成立（E5d 僵尸仓教训）。否则旧 sellPercentage
+      // 路径。cardTrade.after 为信号构造时点绝对值，随 trade metadata 落库
+      let cardTrade = null;
+      let sellPct = strategy.sellPercentage ?? 1;
+      if (this._cardsEnabled && strategy.cards != null) {
+        const tokenCards = this._tokenCards.get(tokenAddress) || 0;
+        if (tokenCards > 0) {
+          const soldN = strategy.cards === 'all' ? tokenCards : Math.min(strategy.cards, tokenCards);
+          sellPct = soldN >= tokenCards ? 1 : soldN / tokenCards;
+          cardTrade = { cards: soldN, before: tokenCards, after: tokenCards - soldN };
+        }
+      }
+
       const signal = {
         action: 'sell',
         symbol: token.symbol,
@@ -1194,7 +1231,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         buyPrice: buyPrice,
         profitPercent: buyPrice && latestPrice ? ((latestPrice - buyPrice) / buyPrice * 100) : null,
         holdDuration: token.buyTime ? ((Date.now() - token.buyTime) / 1000) : null,
-        sellPercentage: strategy.sellPercentage ?? 1, // E5：本腿卖出比例（执行时点余仓）
+        sellPercentage: sellPct, // E5：本腿卖出比例（执行时点余仓；卡牌模式=卡数比例）
+        cardTrade,
         factors: { trendFactors: buildFactorValuesForTimeSeries(factors) },
         timestamp: new Date(),
       };
@@ -1249,6 +1287,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: '余额不足或计算金额为0' };
       }
 
+      // 卡账本（迁自 rich-js）：机制启用时所有买入都是卡牌计价（本腿 cards ?? 1 张）。
+      // after 为成交时点绝对值，先写进 trade metadata（重启重放/诊断），成功才落 Map
+      let cardTrade = null;
+      if (this._cardsEnabled) {
+        const cardsN = signal.cards != null ? signal.cards : 1;
+        const before = this._tokenCards.get(signal.tokenAddress) || 0;
+        cardTrade = { cards: cardsN, before, after: before + cardsN };
+      }
+
       const price = signal.price || signal.buyPrice || 0;
       const tokenAmount = price > 0 ? new Decimal(amountInBNB).div(price).toNumber() : 0;
 
@@ -1259,9 +1306,12 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         amount: tokenAmount,
         price: price,
         signalId: signalId,
-        metadata: { ...metadata },
+        metadata: { ...metadata, ...(cardTrade ? { cardTrade } : {}) },
       });
       if (result && result.success) {
+        if (cardTrade) {
+          this._tokenCards.set(signal.tokenAddress, cardTrade.after);
+        }
         // E5 轮账本开轮：买入成功登记成本（记账货币 USD；virtual tradeAmount 即此口径）
         this._roundLedger.set(signal.tokenAddress, {
           buyUsd: amountInBNB, sellUsdGross: 0, buyTime: Date.now(), legCount: 0,
@@ -1309,6 +1359,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             profitPercent: signal.profitPercent,
             holdDuration: signal.holdDuration,
             sellPercentage: sellPct,
+            ...(signal.cardTrade ? { cardTrade: signal.cardTrade } : {}),
           },
         });
       }
@@ -1326,6 +1377,19 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
         // 全清判定用 PM 余仓（live 6 位小数截断/链上下调后比例反推不可靠；部分卖保持 bought，卖腿继续评估）
         const fullyClosed = (Number(this._getHolding(signal.tokenAddress)?.amount ?? 0) <= 0);
+
+        // 卡账本写回（迁自 rich-js，与 BacktestEngine 同构）：成交才扣卡。配卡腿写
+        // after 绝对值（0 → 删卡）；不带 cardTrade 的腿在全清时也删卡（防重买后卡数
+        // 虚高）；部分比例卖不动卡数（比例/卡数两套 sizing 口径并行）
+        if (signal.cardTrade) {
+          if (signal.cardTrade.after > 0) {
+            this._tokenCards.set(signal.tokenAddress, signal.cardTrade.after);
+          } else {
+            this._tokenCards.delete(signal.tokenAddress);
+          }
+        } else if (fullyClosed) {
+          this._tokenCards.delete(signal.tokenAddress);
+        }
 
         // E5 轮账本：每卖腿累计所得；全清时一次记整轮 pnl=Σ卖-买（替换旧单腿估算口径）
         const ledger = this._roundLedger.get(signal.tokenAddress)
@@ -1356,7 +1420,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         } else {
           this._roundLedger.set(signal.tokenAddress, ledger);
           this.logger.info(this._experimentId, '_executeSell',
-            `部分卖出 ${(sellPct * 100).toFixed(0)}% | ${signal.symbol} 腿所得=${legProceedsUsd.toFixed(6)} 余仓=${Number(this._getHolding(signal.tokenAddress)?.amount ?? 0).toFixed(4)}`);
+            `部分卖出 ${(sellPct * 100).toFixed(0)}% | ${signal.symbol} 腿所得=${legProceedsUsd.toFixed(6)} 余仓=${Number(this._getHolding(signal.tokenAddress)?.amount ?? 0).toFixed(4)}${signal.cardTrade ? ` 余卡=${signal.cardTrade.after}` : ''}`);
         }
       } else if (this._isLive) {
         // 卖出失败冷却：防每 tick 高频重试烧 gas（成功后清除）
@@ -1379,9 +1443,19 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    */
   async _executeBuyLive(signal, signalId = null, metadata = {}) {
     try {
-      const amountInBNB = this._tradeAmount;
+      // 卡牌模式：逐腿金额 = perCardBNB × 张数（不走 _calculateBuyAmount 的 PM cash 门，
+      // live 真金白银以链上余额检查为准）
+      const amountInBNB = this._buyAmountFor(signal);
       if (!(amountInBNB > 0)) {
         return { success: false, reason: 'tradeAmount 未配置或为 0' };
+      }
+
+      // 卡账本（迁自 rich-js）：after 绝对值先写 trade metadata，成交才落 Map
+      let cardTrade = null;
+      if (this._cardsEnabled) {
+        const cardsN = signal.cards != null ? signal.cards : 1;
+        const before = this._tokenCards.get(signal.tokenAddress) || 0;
+        cardTrade = { cards: cardsN, before, after: before + cardsN };
       }
 
       // 链上资金检查（portfolio cash 是记账镜像，真金白银以链上为准）
@@ -1451,6 +1525,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           txHash: buyResult.transactionHash || buyResult.txHash || null,
           bnbUsd,
           amountInBnb: String(amountInBNB),
+          ...(cardTrade ? { cardTrade } : {}),
           protocol: 'FourMeme TokenManager2',
           method: buyResult.method || 'buyTokenAMAP',
         },
@@ -1460,6 +1535,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, '_executeBuyLive',
         `✅ live 买入成交 | ${signal.symbol} tx=${trade.txHash} 得 ${actualTokenAmount} @ ${actualPriceUsd.toExponential(4)} USD`);
 
+      if (cardTrade) {
+        this._tokenCards.set(signal.tokenAddress, cardTrade.after);
+      }
       // E5 轮账本开轮：买入成功登记成本（live 实付 BNB 折 USD，统一记账货币）
       this._roundLedger.set(signal.tokenAddress, {
         buyUsd: bnbUsd > 0 ? new Decimal(amountInBNB).mul(bnbUsd).toNumber() : amountInBNB,
@@ -1551,6 +1629,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         bnbUsd,
         bnbReceived: String(bnbReceived),
         sellPercentage: sellPct,
+        ...(signal.cardTrade ? { cardTrade: signal.cardTrade } : {}),
         protocol: 'FourMeme TokenManager2',
         method: 'sellToken',
       },
@@ -1563,8 +1642,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     return { success: true, tradeId, txHash: trade.txHash, trade, priceUsd: actualPriceUsd, bnbReceived, qtySold };
   }
 
+  /** 本腿买入金额（迁自 rich-js）：卡牌模式 = perCardBNB × 张数（cards ?? 1，现金门
+   * 不足在 _calculateBuyAmount 返 0=买失败不降张）；旧模式 = 固定 tradeAmount。live
+   * 用本方法取金额（链上余额门才是真门，不走 PM cash 镜像门） */
+  _buyAmountFor(signal) {
+    if (this._cardsEnabled) {
+      return new Decimal(this._perCardBNB).mul(signal.cards != null ? signal.cards : 1).toNumber();
+    }
+    return this._tradeAmount;
+  }
+
   _calculateBuyAmount(signal) {
-    const tradeAmount = this._tradeAmount;
+    const tradeAmount = this._buyAmountFor(signal);
     if (this.currentBalance < tradeAmount) {
       this.logger.warn(this._experimentId, '_calculateBuyAmount',
         `余额不足: 需要 ${tradeAmount}, 当前 ${this.currentBalance.toFixed(4)}`);
@@ -1865,6 +1954,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           tokenPrice = trade.unitPrice || 0;
         }
 
+        // 卡账本重放（迁自 rich-js）：cardTrade.after 是成交时点绝对值，后写覆盖先写、
+        // 0 → 删卡。独立于下方 qty/price 有效性门（卡记账不依赖成交价存在）；
+        // 旧 trades 无此键自动跳过；机制未启用天然无此键
+        const _cardAfter = Number(trade.metadata?.cardTrade?.after);
+        if (Number.isFinite(_cardAfter)) {
+          if (_cardAfter > 0) this._tokenCards.set(trade.tokenAddress, _cardAfter);
+          else this._tokenCards.delete(trade.tokenAddress);
+        }
+
         if (!(tokenAmount > 0) || !(tokenPrice > 0)) continue;
 
         await this._portfolioManager.executeTrade(
@@ -1911,6 +2009,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const isBuy = (trade.tradeDirection || trade.direction) === 'buy';
       const qty = Number(isBuy ? trade.outputAmount : trade.inputAmount) || 0;
       const price = Number(trade.unitPrice) || 0;
+
+      // 卡账本重放（迁自 rich-js）：同 _loadHoldings，cardTrade.after 绝对值直写，
+      // 独立于 qty/price 有效性门
+      const _cardAfter = Number(trade.metadata?.cardTrade?.after);
+      if (Number.isFinite(_cardAfter)) {
+        if (_cardAfter > 0) this._tokenCards.set(trade.tokenAddress, _cardAfter);
+        else this._tokenCards.delete(trade.tokenAddress);
+      }
+
       if (!(qty > 0) || !(price > 0)) continue;
 
       const entry = book.get(trade.tokenAddress) || { qty: 0, costUsd: 0, lastBuy: null };

@@ -73,11 +73,10 @@ function launchedLog({ token, pool, amount, eth, tx, block = 1000 }) {
     };
 }
 
-function makeCollector(callbacks = {}) {
-    return new FlapAnkrWsCollector(
-        { flapWs: { contracts: { portal: addr('ab') } } },
-        logger, null, null, callbacks
-    );
+function makeCollector(callbacks = {}, quoteRate = null) {
+    const cfg = { flapWs: { contracts: { portal: addr('ab') } } };
+    if (quoteRate) cfg.flapWs.quoteRate = quoteRate;
+    return new FlapAnkrWsCollector(cfg, logger, null, null, callbacks);
 }
 
 const TOKEN = addr('11');
@@ -289,6 +288,36 @@ async function main() {
         assert(warns.some(m => /30s 后重试.*rate limit/.test(m)), `warn 带重试间隔与原因（got ${warns[0]}）`);
         await c.stop();
         assert(c._quoteBackfillRetryTimer === null, 'stop 清理重试定时器');
+    }
+
+    // ── T13 回放 RPC 端点解析 ──
+    console.log('T13 _resolveBackfillRpcUrl 五分支');
+    {
+        const bakWs = process.env.ANKR_WS_URL, bakKey = process.env.ANKR_API_KEY;
+        const K1 = 'a'.repeat(64), K2 = 'b'.repeat(64);
+        try {
+            process.env.ANKR_API_KEY = K1; delete process.env.ANKR_WS_URL;
+            assert(makeCollector({}, { backfillRpcUrl: 'ankrFromEnv' })._resolveBackfillRpcUrl()
+                === `https://rpc.ankr.com/bsc/${K1}`, 'ankrFromEnv + ANKR_API_KEY');
+
+            process.env.ANKR_WS_URL = `wss://rpc.ankr.com/bsc/ws/${K2}`;
+            assert(makeCollector({}, { backfillRpcUrl: 'ankrFromEnv' })._resolveBackfillRpcUrl()
+                === `https://rpc.ankr.com/bsc/${K2}`, 'ankrFromEnv + ANKR_WS_URL 提取 key 优先');
+
+            process.env.ANKR_WS_URL = 'wss://rpc.ankr.com/bsc/ws'; // 无 key 形状（尾段 'ws'）
+            assert(makeCollector({}, { backfillRpcUrl: 'ankrFromEnv' })._resolveBackfillRpcUrl()
+                === `https://rpc.ankr.com/bsc/${K1}`, '无 key WS_URL 回退 ANKR_API_KEY');
+            delete process.env.ANKR_API_KEY;
+            assert(makeCollector({}, { backfillRpcUrl: 'ankrFromEnv' })._resolveBackfillRpcUrl()
+                === null, 'ankrFromEnv 但无任何 key → null（回退主 rpcUrl）');
+
+            assert(makeCollector({}, { backfillRpcUrl: 'https://x.example/rpc' })._resolveBackfillRpcUrl()
+                === 'https://x.example/rpc', '显式 url 直用');
+            assert(makeCollector()._resolveBackfillRpcUrl() === null, '缺省 → null（主 rpcUrl）');
+        } finally {
+            if (bakWs !== undefined) process.env.ANKR_WS_URL = bakWs; else delete process.env.ANKR_WS_URL;
+            if (bakKey !== undefined) process.env.ANKR_API_KEY = bakKey; else delete process.env.ANKR_API_KEY;
+        }
     }
 
     console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

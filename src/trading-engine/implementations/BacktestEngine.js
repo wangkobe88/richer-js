@@ -66,6 +66,11 @@ class BacktestEngine extends AbstractTradingEngine {
     // 与 trades 表同口径）。买入成功登记，每卖腿累计（含回放结束强平腿）；全清时
     // addCompletedPair 一次记整轮 pnl=Σ卖-买
     this._roundLedger = new Map();
+    // 卡牌仓位（迁自 rich-js）：addr → 该 token 当前卡数。机制关闭时恒空 Map（零开销）；
+    // 买/卖腿只在 positionManagement.perCardBNB 启用时读写（详见 _initializeDataSources）
+    this._tokenCards = new Map();
+    this._perCardBNB = null;
+    this._cardsEnabled = false;
 
     this.initialBalance = 100;
     this._tradeAmount = 0.1;
@@ -190,6 +195,10 @@ class BacktestEngine extends AbstractTradingEngine {
           // E5 卖侧：卖出比例（执行时点余仓比例，(0,1]；缺省/非法 → 1=全仓=旧语义）
           sellPercentage: (typeof s.sellPercentage === 'number'
             && s.sellPercentage > 0 && s.sellPercentage <= 1) ? s.sellPercentage : 1,
+          // 卡牌仓位（迁自 rich-js）：cards/cooldownSec 原样透传，loadStrategies 内归一化
+          //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
+          cards: s.cards,
+          cooldownSec: s.cooldownSec,
           enabled: true,
         });
       });
@@ -229,10 +238,20 @@ class BacktestEngine extends AbstractTradingEngine {
     const { SameNarrativeLeaderService } = require('../pre-check/SameNarrativeLeaderService');
     this._sameNarrativeLeaderService = new SameNarrativeLeaderService(supabase, this.logger);
 
-    // 6. 交易金额 / 永久阻断
+    // 6. 交易金额 / 永久阻断 / 卡牌仓位
     const experimentConfig = this._experiment?.config || {};
     this._tradeAmount = experimentConfig.tradeAmount || 0.1;
     this._permanentBlockCondition = experimentConfig.strategiesConfig?.permanentBlockCondition || null;
+    // 卡牌机制开关（迁自 rich-js）：positionManagement.perCardBNB 存在且 >0 才启用。
+    // 启用：买入金额 = perCardBNB × 本腿张数（cards ?? 1），卖腿配 cards 按卡数比例
+    // 卖余仓（_emitSellSignal sizing）；未配置 = 全部卡牌字段忽略（存量实验零变化）
+    const _pmPerCard = Number((experimentConfig.positionManagement || {}).perCardBNB);
+    this._perCardBNB = Number.isFinite(_pmPerCard) && _pmPerCard > 0 ? _pmPerCard : null;
+    this._cardsEnabled = this._perCardBNB != null;
+    if (this._cardsEnabled) {
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `🃏 卡牌仓位模式启用: perCardBNB=${this._perCardBNB}（买入金额=perCardBNB×本腿张数，卖腿按卡数比例卖余仓）`);
+    }
 
     // 7. 批量写入缓冲区
     const { BacktestWriteBuffer } = require('../backtest/BacktestWriteBuffer');
@@ -673,6 +692,7 @@ class BacktestEngine extends AbstractTradingEngine {
         reason: strategy.name,
         strategyId: strategy.id,
         strategyName: strategy.name,
+        cards: strategy.cards, // 卡牌（迁自 rich-js）：本腿买入张数（_calculateBuyAmount/_executeBuy 消费）
         factors: { trendFactors: buildFactorValuesForTimeSeries(factorResults) },
         timestamp: new Date(nowTs),
       };
@@ -889,6 +909,7 @@ class BacktestEngine extends AbstractTradingEngine {
         timestamp: signal.timestamp.toISOString(),
         factors: signal.factors || null,
       };
+      const buyAmt = this._calculateBuyAmount(signal); // 卡牌模式下逐腿金额不同，日志用实际值
       const result = await this._executeBuy(signal, signalId, metadata, nowTs);
 
       if (result && result.success) {
@@ -896,7 +917,8 @@ class BacktestEngine extends AbstractTradingEngine {
           buyPrice: latestPrice,
           buyTime: nowTs,
         });
-        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+        // 虚拟时钟：冷却/次数计数都要记回放时点（挂钟会让回测冷却判据失真）
+        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id, nowTs);
         await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
 
         const faState = this._factorAggregator.getTokenState(token.token);
@@ -909,7 +931,7 @@ class BacktestEngine extends AbstractTradingEngine {
         this._bufferSignalUpdate(signalId, { executed: true, metadata: { execution_status: 'executed' } });
         this.metrics.executedSignals++;
         this.logger.info(this._experimentId, 'BuyEval',
-          `✅ 买入成功(回放) | ${token.symbol} price=${latestPrice.toExponential(4)} amount=${this._tradeAmount} 余额=${this.currentBalance.toFixed(4)}`);
+          `✅ 买入成功(回放) | ${token.symbol} price=${latestPrice.toExponential(4)} amount=${buyAmt}${this._cardsEnabled ? `(${signal.cards ?? 1}卡)` : ''} 余额=${this.currentBalance.toFixed(4)}`);
         return { success: true };
       }
 
@@ -998,6 +1020,23 @@ class BacktestEngine extends AbstractTradingEngine {
       const holding = this._getHolding(tokenAddress);
       const buyPrice = holding?.averagePurchasePrice || token.buyPrice || null;
 
+      // 卡牌 sizing（迁自 rich-js）：机制启用 且 卖腿配 cards 且 token 有卡 → 按卡数比例
+      // 卖余仓：soldN = 'all'→全清 / min(cards, 余卡)（超余卡钳制）；soldN>=tokenCards 时
+      // sellPct 恒精确 1（IEEE T/T）→ Decimal.mul(1) 精确直通，PM remainingAmount.eq(0)
+      // 删仓判据成立（E5d 僵尸仓教训，详见 _executeSell 注释）。不满足任一条件 → 旧
+      // sellPercentage 路径（机制关闭/腿未配卡/无卡均不拦截）。cardTrade.after 为信号
+      // 构造时点算好的绝对值，随 trade metadata 落库（_executeSell 成功分支写回 Map）
+      let cardTrade = null;
+      let sellPct = strategy.sellPercentage ?? 1;
+      if (this._cardsEnabled && strategy.cards != null) {
+        const tokenCards = this._tokenCards.get(tokenAddress) || 0;
+        if (tokenCards > 0) {
+          const soldN = strategy.cards === 'all' ? tokenCards : Math.min(strategy.cards, tokenCards);
+          sellPct = soldN >= tokenCards ? 1 : soldN / tokenCards;
+          cardTrade = { cards: soldN, before: tokenCards, after: tokenCards - soldN };
+        }
+      }
+
       const signal = {
         action: 'sell',
         symbol: token.symbol,
@@ -1011,7 +1050,8 @@ class BacktestEngine extends AbstractTradingEngine {
         buyPrice,
         profitPercent: buyPrice && latestPrice ? ((latestPrice - buyPrice) / buyPrice * 100) : null,
         holdDuration: token.buyTime ? ((nowTs - token.buyTime) / 1000) : null,
-        sellPercentage: strategy.sellPercentage ?? 1, // E5：本腿卖出比例（执行时点余仓）
+        sellPercentage: sellPct, // E5：本腿卖出比例（执行时点余仓；卡牌模式=卡数比例）
+        cardTrade,
         factors: { trendFactors: buildFactorValuesForTimeSeries(factors) },
         timestamp: new Date(nowTs),
       };
@@ -1055,7 +1095,8 @@ class BacktestEngine extends AbstractTradingEngine {
       const result = await this._executeSell(signal, signalId, metadata, nowTs);
 
       if (result && result.success) {
-        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
+        // 虚拟时钟：冷却判据（lastExecuted）必须记回放时点
+        this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id, nowTs);
         this._sellConfirmDebouncer.clear(tokenAddress);
 
         // 累亏闩锁记账：卖出成交 → 该 token 已平仓轮 profitPercent 累计（盈亏同记）。
@@ -1102,6 +1143,15 @@ class BacktestEngine extends AbstractTradingEngine {
         return { success: false, reason: '余额不足或计算金额为0' };
       }
 
+      // 卡账本（迁自 rich-js）：机制启用时所有买入都是卡牌计价（本腿 cards ?? 1 张）。
+      // after 为成交时点绝对值，先写进 trade metadata（重放/诊断），成功才落 Map
+      let cardTrade = null;
+      if (this._cardsEnabled) {
+        const cardsN = signal.cards != null ? signal.cards : 1;
+        const before = this._tokenCards.get(signal.tokenAddress) || 0;
+        cardTrade = { cards: cardsN, before, after: before + cardsN };
+      }
+
       const price = signal.price || 0;
       const tokenAmount = price > 0 ? new Decimal(amountInBNB).div(price).toNumber() : 0;
 
@@ -1113,12 +1163,19 @@ class BacktestEngine extends AbstractTradingEngine {
         amount: tokenAmount,
         price,
         signalId,
-        metadata: { ...metadata, timestamp: timestamp !== null ? new Date(timestamp).toISOString() : undefined },
+        metadata: {
+          ...metadata,
+          timestamp: timestamp !== null ? new Date(timestamp).toISOString() : undefined,
+          ...(cardTrade ? { cardTrade } : {}),
+        },
       });
 
       this.metrics.totalTrades++;
       if (result && result.success) {
         this.metrics.successfulTrades++;
+        if (cardTrade) {
+          this._tokenCards.set(signal.tokenAddress, cardTrade.after);
+        }
         // E5 轮账本开轮：买入成功登记成本（记账货币 USD；回测 tradeAmount 即此口径）
         this._roundLedger.set(signal.tokenAddress, {
           buyUsd: amountInBNB,
@@ -1173,6 +1230,7 @@ class BacktestEngine extends AbstractTradingEngine {
           profitPercent: signal.profitPercent,
           holdDuration: signal.holdDuration,
           sellPercentage: sellPct,
+          ...(signal.cardTrade ? { cardTrade: signal.cardTrade } : {}),
         },
       });
 
@@ -1184,6 +1242,19 @@ class BacktestEngine extends AbstractTradingEngine {
 
         // 全清判定用 PM 余仓（部分卖保持 bought，卖腿继续评估、FA 锚不清——硬底分母保住）
         const fullyClosed = (Number(this._getHolding(signal.tokenAddress)?.amount ?? 0) <= 0);
+
+        // 卡账本写回（迁自 rich-js）：成交才扣卡（失败腿不烧卡）。配卡腿写 after 绝对值
+        //（0 → 删卡）；不带 cardTrade 的腿在全清时也删卡（强平腿/sellPct=1 腿走此处，
+        // 仓位清零卡随清，防重买后卡数虚高）；部分比例卖不动卡数（比例/卡数两套口径并行）
+        if (signal.cardTrade) {
+          if (signal.cardTrade.after > 0) {
+            this._tokenCards.set(signal.tokenAddress, signal.cardTrade.after);
+          } else {
+            this._tokenCards.delete(signal.tokenAddress);
+          }
+        } else if (fullyClosed) {
+          this._tokenCards.delete(signal.tokenAddress);
+        }
 
         // E5 轮账本：每卖腿累计所得；全清时一次记整轮 pnl=Σ卖-买（含回放结束强平腿）
         const ledger = this._roundLedger.get(signal.tokenAddress)
@@ -1214,7 +1285,7 @@ class BacktestEngine extends AbstractTradingEngine {
         } else {
           this._roundLedger.set(signal.tokenAddress, ledger);
           this.logger.info(this._experimentId, '_executeSell',
-            `部分卖出(回放) ${(sellPct * 100).toFixed(0)}% | ${signal.symbol} 腿所得=${legProceedsUsd.toFixed(6)} 余仓=${Number(this._getHolding(signal.tokenAddress)?.amount ?? 0).toFixed(4)}`);
+            `部分卖出(回放) ${(sellPct * 100).toFixed(0)}% | ${signal.symbol} 腿所得=${legProceedsUsd.toFixed(6)} 余仓=${Number(this._getHolding(signal.tokenAddress)?.amount ?? 0).toFixed(4)}${signal.cardTrade ? ` 余卡=${signal.cardTrade.after}` : ''}`);
         }
       } else {
         this.metrics.failedTrades++;
@@ -1232,6 +1303,12 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   _calculateBuyAmount(signal) {
+    // 卡牌模式（迁自 rich-js）：金额 = perCardBNB × 本腿张数（cards ?? 1）；
+    // 现金不足返 0=买失败，不降张（rich-js 原味语义）
+    if (this._cardsEnabled) {
+      const amt = new Decimal(this._perCardBNB).mul(signal.cards != null ? signal.cards : 1).toNumber();
+      return this.currentBalance >= amt ? amt : 0;
+    }
     if (this.currentBalance < this._tradeAmount) {
       return 0;
     }

@@ -749,6 +749,15 @@ class RicherJsWebServer {
             config.tradeAmount = strategy.tradeAmount;
           }
 
+          // 卡牌仓位机制（迁自 rich-js）：perCardBNB 存在且 >0 才写入（引擎据此开关
+          // 卡牌模式：买入金额=perCardBNB×本腿张数、卖腿按卡数比例卖余仓）
+          if (strategy.positionManagement) {
+            const _perCard = parseFloat(strategy.positionManagement.perCardBNB);
+            if (Number.isFinite(_perCard) && _perCard > 0) {
+              config.positionManagement = { perCardBNB: _perCard };
+            }
+          }
+
           // 叙事分析配置
           // [DECOUPLED] 叙事分析配置传递已禁用
           // if (strategy.narrativeAnalysis) {

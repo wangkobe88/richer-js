@@ -137,8 +137,14 @@ function testCardArithmetic() {
     ok(Object.is(1, resolveCardSellPct(1, 1)), '1卡/1卡 → 精确 1（末卡全清）', resolveCardSellPct(1, 1));
 
     // 3.2 PM 删仓判据：Decimal(x).mul(1) 恒等 → sub 后 eq(0)
-    const amt = new Decimal('8932.56123456789012345678');
-    ok(new Decimal(amt).mul(1).sub(amt).eq(0), 'Decimal(x).mul(1) 恒等（PM remainingAmount.eq(0) 删仓判据成立）');
+    // 不变量：PM 持仓 amount 恒 ≤20 位有效数字（PM add/sub 结果按 Decimal 默认精度 20
+    // 舍入；买入 amount 经 toNumber() ≤17 位）。mul(1) 在 ≤20 位时精确恒等（积不触发
+    // 舍入）；>20 位时积会被舍入到 20 位 → 非恒等。两条都锁：前者是判据成立的前提，
+    // 后者是边界警示（若未来链路产出 >20 位 Decimal，全清腿判据即失效，须先修口径）
+    const amt = new Decimal('8932.5612345678901234'); // 20 位有效数字（PM 上界）
+    ok(new Decimal(amt).mul(1).sub(amt).eq(0), 'amount ≤20 位有效数字时 Decimal.mul(1) 恒等（PM 删仓判据成立）');
+    const amtOver = new Decimal('8932.56123456789012345678'); // 24 位（超界）
+    ok(!new Decimal(amtOver).mul(1).sub(amtOver).eq(0), '边界锁：>20 位有效数字时 mul(1) 非恒等（真实链路不可达，守卫口径变化）');
 
     // 3.3 部分腿残差链 + 末腿全清：余仓最终精确归零（E5d 僵尸仓反例的直证）
     let cur = new Decimal(100);

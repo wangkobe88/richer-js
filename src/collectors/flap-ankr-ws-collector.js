@@ -161,6 +161,7 @@ class FlapAnkrWsCollector {
         this._quoteRateStaleMaxMs = qrCfg.staleMaxMs ?? 300000;
         this._quoteRateNegTtlMs = qrCfg.negTtlMs ?? 60000;
         this._quoteBackfillMinutes = qrCfg.backfillMinutes ?? 120;
+        this._quoteBackfillRpcUrl = qrCfg.backfillRpcUrl ?? null;
 
         this._tickBuffer = [];
         this._tickFlushTimer = null;
@@ -725,20 +726,41 @@ class FlapAnkrWsCollector {
     }
 
     /**
+     * 回放 RPC 端点解析：config `backfillRpcUrl` = 'ankrFromEnv'（从 ANKR_WS_URL /
+     * ANKR_API_KEY 推导 ankr HTTP 端点）| 显式 url | null（回退主 rpcUrl）。
+     * 182 实证：主 rpcUrl（binance dataseed）对 eth_getLogs 恒 -32005 限流
+     * （batch 与单发都拒），ankr 带 key 323ms/2000 块。
+     */
+    _resolveBackfillRpcUrl() {
+        if (this._quoteBackfillRpcUrl === 'ankrFromEnv') {
+            const wsUrl = process.env.ANKR_WS_URL || '';
+            const wsKey = wsUrl.split('/').pop();
+            // 无 key 的 wss://rpc.ankr.com/bsc/ws 尾段 'ws' 不是 key——合格才用，否则回退 ANKR_API_KEY
+            const key = (wsKey && wsKey.length >= 20 ? wsKey : '')
+                || (process.env.ANKR_API_KEY && process.env.ANKR_API_KEY.length >= 20 ? process.env.ANKR_API_KEY : '');
+            if (key) return `https://rpc.ankr.com/bsc/${key}`;
+            return null;
+        }
+        return this._quoteBackfillRpcUrl || null;
+    }
+
+    /**
      * 启动回放：getLogs 拉最近 backfillMinutes 的 TokenQuoteSet 重建计价表。
      * 只补表不补 tick——历史缺口不回填（WSS 本就不回放），回放只为让后续实时 tick 判对计价。
      */
     async _backfillQuoteSets() {
         const { BlockchainConfig } = require('../utils/BlockchainConfig');
-        const rpcUrl = BlockchainConfig.CHAIN_CONFIGS.bsc.network.rpcUrl;
-        const provider = new ethers.JsonRpcProvider(rpcUrl);
+        const rpcUrl = this._resolveBackfillRpcUrl() || BlockchainConfig.CHAIN_CONFIGS.bsc.network.rpcUrl;
+        // batchMaxCount=1：RPC 请求不打 JSON-RPC batch（getLogs in batch 是独立限流面）；
+        // staticNetwork 56 免网络 detect 往返
+        const provider = new ethers.JsonRpcProvider(rpcUrl, 56, { batchMaxCount: 1 });
         const toBlock = await provider.getBlockNumber();
         const depth = Math.ceil(this._quoteBackfillMinutes * QUOTE_BACKFILL_BLOCKS_PER_MIN);
         const fromBlock = Math.max(0, toBlock - depth);
         const logs = await this._fetchQuoteSetLogs(provider, fromBlock, toBlock);
         this._applyQuoteSetLogs(logs);
         this.logger.info('', 'FlapAnkrWsCollector',
-            `TokenQuoteSet 启动回放完成: blocks ${fromBlock}→${toBlock} events=${logs.length} applied后非BNB计价=${this._nonBnbQuoteTokens.size}`);
+            `TokenQuoteSet 启动回放完成: blocks ${fromBlock}→${toBlock} events=${logs.length} applied后非BNB计价=${this._nonBnbQuoteTokens.size} rpc=${new URL(rpcUrl).host}`);
     }
 
     /** 分块 getLogs（规避 RPC 单次块深上限）；按块序拼接；chunk 间 500ms 摊开（ankr 批量限流） */
