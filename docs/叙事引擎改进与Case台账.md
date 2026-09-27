@@ -32,6 +32,36 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C20 邦多利 0xc19c —— 抖音视频发布时间组装层丢弃，视频类盘时效恒 0 分（2026-09-27）★
+
+**现象**：用户质询邦多利（0xc19c3b11…7777，BanG Dream!/邦邦 IP 的抖音壁纸视频币
+「棉花娃娃蹦迪」，39247 赞/35640 分享病毒级，E 类网络梗事件 63%、notable_other 指称）
+为何 rating low。实际不是「质量」维度低——stage_final 把 stage2 不过线的盘归 low，
+blockReason「事件分不足 54.04<60」。
+
+**分数解剖**：事件分 27（B 档量级）+ 传播 27.04 + **时效 0** = 54.04，差 5.96 过线。
+时效 unknown（0.83）→ TIMING_SCORES_STANDARD[unknown]=0——**决定性扣分**。
+
+**根因（数据组装缺口，非 Jev 判定问题）**：douyin-fetcher 已抓 `create_time`
+（返回对象 238/346 行），但 video-section.mjs 组装 state 时只输出标题/点赞/观看/
+分享——**发布时间被丢弃**。Jev state header 有 `Now:` 基准（token 创建时间）但
+无事件时间 → event_timing 只能 unknown。**所有视频类 token 的时效被系统性压 0**
+（不只本盘）；TikTok/B站 fetcher 干脆无时间字段（fetcher 层缺口，另立）、YouTube
+仅频道路径 recent_videos 有 published_at 但组装层同样没输出。
+
+**修复（组装层两处补输出，fetcher 已有数据零新抓取；题面未动不 bump 版本——
+与 C7 IPFS 解包同为「给 Jev 更完整事实」类）**：
+- video-section.mjs 抖音视频段补 `发布时间: ${create_time}`
+- YouTube 频道 recent_videos 行附带 published_at
+
+**重跑实证（ignoreCache）**：发布时间进 state 后 Jev 判 within_30d → 时效 +10 →
+stage2 64.08 过线 → stage3 执行 → **final 74.03 = high**（事件 38.45×0.6 + 质量
+15.58 + 关联 20）。low→high 翻身，DB 行已更新。
+
+**遗留（→§六-25）**：① 历史视频类 token（抖音/TikTok/YouTube/B站链接币）时效全被
+压 0 分系统性低估——是否批量重放刷新待裁定；② TikTok/B站 fetcher 补抓发布时间
+（fetcher 层新抓取，非组装）待排期。
+
 ### C19 fPay 0x2259 —— 宣告推文晚于分析 6 秒，precheck fail 被全局缓存固化（2026-09-27）★
 
 **现象**：用户质询 fPay（0x2259d0fc…7777，flap 税币，行内 platform 误落 fourmeme——
@@ -1231,3 +1261,8 @@ symbol 同名 name 跨语义盘会被拦）
     （NarrativeDirectCaller）对 precheck fail 行不信任缓存强制重分析 ③ 无为（接受
     漏，靠 fail 放行语义 9 兜底——注意现 fail 是 rating low 拦截不是 9 放行）。
     待用户裁定
+25. **历史视频类 token 时效系统性低估 + TikTok/B站 fetcher 时间字段**（2026-09-27
+    C20）：组装层修复只救新分析；历史抖音/YouTube 视频币的 token_narrative 行时效
+    恒 0（unknown）——差 5.96 分内的盘全部被压线。① 是否批量重放刷新历史视频币
+    行（可先用 stage2 分数筛「时效=unknown 且 差距≤15」的候选集给用户过目再跑）
+    ② TikTok/B站 fetcher 补抓发布时间（fetcher 层新抓取）。待用户裁定

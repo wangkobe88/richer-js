@@ -35,7 +35,8 @@ export function buildVideoSection(youtubeInfo, douyinInfo, tiktokInfo, bilibiliI
       if (youtubeInfo.recent_videos && youtubeInfo.recent_videos.length > 0) {
         parts.push(`最近视频:`);
         youtubeInfo.recent_videos.slice(0, 3).forEach(v => {
-          parts.push(`  - ${v.title || '无标题'} (${v.view_count || 0}播放)`);
+          const pub = v.published_at ? `, ${v.published_at}` : ''; // 发布时间（时效判定依据，同 C20）
+          parts.push(`  - ${v.title || '无标题'} (${v.view_count || 0}播放${pub})`);
         });
       }
     } else {
@@ -67,6 +68,11 @@ export function buildVideoSection(youtubeInfo, douyinInfo, tiktokInfo, bilibiliI
     } else {
       // 抖音视频
       parts.push(`【抖音】${douyinInfo.title || '未知'}`);
+      // 发布时间必须进 state（C20 邦多利案：fetcher 已抓 create_time 但组装层丢弃 →
+      // Jev 拿不到事件时间 → event_timing unknown → 时效恒 0 分，视频类盘系统性压分）
+      if (douyinInfo.create_time) {
+        parts.push(`发布时间: ${douyinInfo.create_time}`);
+      }
       const stats = [];
       const likeCount = douyinInfo.like_count || 0;
       stats.push(`点赞数: ${likeCount}`);
