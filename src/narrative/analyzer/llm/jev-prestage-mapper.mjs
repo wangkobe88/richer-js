@@ -7,7 +7,8 @@
  * - addressVerified=true → token_type 二分（V2.0 第一步）：
  *   - web3_native_ip_early → unrated
  *   - project 评级（V2.0 第三步表，就高处理——high 档无封顶，认证记 details 不参与）：
- *     账号 <60 low / 60-299 mid / ≥300 high；社区 <20 low / 20-99 mid / ≥100 且活跃 high；
+ *     账号 <20 low / 20-299 mid / ≥300 high（账号底线 60→20，2026-09-27 裁定）；
+ *     社区 <20 low / 20-99 mid / ≥100 且活跃 high；
  *     P1.3 账号信用降档——推文 <5 或账号年龄 <30 天（token 创建时点锚定）→ low
  * - 输出 prestageDataToSave 与旧 prestageData 字段一一对应（存储契约不变），
  *   promptType 用于 prompt_type 列识别新旧格式
@@ -46,7 +47,11 @@ export function rateProject(data, activityChoice, tokenCreatedAtSec = null) {
     ? (data.followers_count || 0)
     : (data.members_count || 0);
   const metric = isAccount ? '粉丝' : '成员';
-  const floor = isAccount ? 60 : 20;
+  // 账号粉丝底线 60→20（2026-09-27 用户裁定，§六-23）：fPay 26 粉 / FOMOPAY 25 粉
+  // 两例实证 60 对当天冷启动项目账号偏严（宣告几分钟内分析必然 <60）；新号/空内容
+  // 风险仍由 P1.3 信用降档拦截（推文 <5 或账号年龄 <30 天 → low），粉丝底线只做
+  // 存在性下限。账号/社区底线现一致（均为 20）
+  const floor = 20;
 
   if (count < floor) {
     return {
