@@ -239,7 +239,17 @@ class BacktestEngine extends AbstractTradingEngine {
       ...baseConfig.preBuyCheck,
       ...(this._experiment?.config?.preBuyCheck || {}),
     };
-    this._preBuyCheckService = new PreBuyCheckService(supabase, this.logger, preBuyCheckConfig);
+    // P1-2 日志降噪（bc4f756e 性能案：PreBuyCheck+EarlyParticipant per-signal 明细
+    // 占日志量 73%、其中严格同名 DEBUG 大对象行占墙钟 15.2%）：config.backtest.
+    // logMinLevel（'DEBUG'|'INFO'|'WARN'|'ERROR'，默认 null=现状全量）时给 pre-buy
+    // 服务链（PreBuyCheck→EarlyParticipant/WalletCluster/SameName 等子服务共用）
+    // 传独立降级 Logger——判级短路发生在 JSON.stringify 之前；引擎主日志
+    // （BuyEval 触发/否决登记/直调/龙头/成交决策行）不动。两 Logger 写同一文件
+    const _logMinLevel = backtestConfig.logMinLevel || null;
+    const preBuyLogger = _logMinLevel
+      ? new Logger({ dir: './logs', experimentId: this._experimentId, minLevel: _logMinLevel })
+      : this.logger;
+    this._preBuyCheckService = new PreBuyCheckService(supabase, preBuyLogger, preBuyCheckConfig);
     await this._preBuyCheckService.initialize('bsc');
     this.logger.info(this._experimentId, 'BacktestEngine',
       `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);

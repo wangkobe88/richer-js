@@ -6,6 +6,9 @@
 const fs = require('fs');
 const path = require('path');
 
+/** 日志级别权重（minLevel 判级用；未知级别按 0 恒输出，保守不丢行） */
+const LEVEL_ORDER = { DEBUG: 10, INFO: 20, WARN: 30, ERROR: 40 };
+
 class Logger {
     constructor(config = {}) {
         this.logDir = config.dir || path.join(process.cwd(), 'logs');
@@ -15,6 +18,25 @@ class Logger {
         // （bc4f756e 性能案：单次回放 30.5 万行日志 × 双写 = 30 万次同步系统调用）。
         // experimentId / 日期变化 → 路径变化 → 自动新建 stream，旧 stream 由进程退出关闭
         this._streams = new Map();
+        // 最低级别（P1-2 日志降噪）：null/undefined = 全量输出（默认，现状语义）；
+        // 大小写不敏感（配置侧 'warn'/'WARN' 等价），脏值 → null = 全量（保守不丢行）；
+        // 设置后低于该级别的行在 JSON.stringify 之前短路——大对象格式化开销一并省掉
+        this._minLevelOrder = this._normalizeMinLevel(config.minLevel);
+    }
+
+    /** 级别名归一为权重（脏值/空 → null = 全量） */
+    _normalizeMinLevel(level) {
+        if (!level || typeof level !== 'string') return null;
+        const w = LEVEL_ORDER[level.toUpperCase()];
+        return w != null ? w : null;
+    }
+
+    /**
+     * 设置最低日志级别（'DEBUG'|'INFO'|'WARN'|'ERROR'，大小写不敏感；null = 全量）
+     * @param {string|null} level
+     */
+    setMinLevel(level) {
+        this._minLevelOrder = this._normalizeMinLevel(level);
     }
 
     /**
@@ -119,6 +141,11 @@ class Logger {
 
     log(...args) {
         const level = args[0] || 'INFO';
+        // minLevel 判级短路（P1-2）：低于最低级别直接返回，格式化零开销。
+        // 未知级别权重按 0 恒放行（保守方向：多打一行不丢信息）
+        if (this._minLevelOrder != null && (LEVEL_ORDER[level] ?? 0) < this._minLevelOrder) {
+            return;
+        }
         const { experimentId, module, message, data } = this._formatLogMessage(args.slice(1));
 
         const timestamp = new Date().toISOString();
