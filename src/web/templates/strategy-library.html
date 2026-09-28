@@ -451,7 +451,8 @@
                 for (const exp of result.data) {
                     const opt = document.createElement('option');
                     opt.value = exp.id;
-                    opt.textContent = `${exp.experiment_name || exp.id}（${exp.trading_mode}/${exp.status}）`;
+                    // GET /api/experiments 返回 camelCase（experimentName/tradingMode）
+                    opt.textContent = `${exp.experimentName || exp.id}（${exp.tradingMode || '?'} / ${exp.status}）`;
                     select.appendChild(opt);
                 }
             } catch (e) {

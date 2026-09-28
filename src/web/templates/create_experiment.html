@@ -2097,6 +2097,10 @@
 
         // 初始化区块链和平台（重建 checkbox 组 + 默认勾选第一个平台）
         handleBlockchainChange();
+        // 初始化交易模式联动（修复：非复制模式直接打开时 onchange 未触发过，
+        // 隐藏的 backtest_source_experiment 残留 required → 原生校验拦截提交
+        // "invalid form control not focusable"；复制模式已在 loadCopiedExperimentData 调过，幂等无害）
+        handleTradingModeChange();
 
         // 复制模式下，handleBlockchainChange 会重建平台 checkbox 组，之后恢复勾选状态
         //（copyData.platform：'fourmeme'|'flap'|'both' → 拆成对应勾选；
