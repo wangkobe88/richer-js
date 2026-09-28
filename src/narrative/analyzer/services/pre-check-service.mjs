@@ -160,12 +160,17 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 规则0.5：同名代币检查（检测蹭热度作弊币）
   // 检查代币发布前是否存在大量同名代币，这通常是蹭热度行为
   const sameNameConfig = NARRATIVE_CONFIG.sameNameCheck || { enabled: true };
+  // 0.5/0.52 共用实例：AVE BSC 搜索走实例级缓存（同 keyword 60s 内不重复搜）
+  const sameNameService = new SameNameCheckService(console);
 
   if (sameNameConfig.enabled) {
-    // 获取代币创建时间
-    const tokenCreatedAt = tokenData.raw_api_data?.created_at;
+    // 获取代币创建时间——wss 行 raw_api_data 无 created_at（flap builder 只存
+    // eventTs 存档字段）→ tokenCreatedAtSec 回退（token-info-service 的
+    // wss_events token_create 补全），口径与 NarrativeAnalyzer 创建时间基准
+    // 一致；原裸读 raw_api_data.created_at 使全部 wss 新票同名规则静默失效
+    // （2026-09-28 富贵案 0x5e888…7777）
+    const tokenCreatedAt = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
     if (tokenCreatedAt) {
-      const sameNameService = new SameNameCheckService(console);
       const sameNameCheck = await sameNameService.checkIfCopycatToken(
         tokenSymbol,
         tokenName,
@@ -188,6 +193,29 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     }
   }
 
+  // 规则0.52：同名蓝筹拦截（2026-09-28 用户裁定「有同名蓝筹肯定不行」，富贵案：
+  // 0x5e888…7777「传奇耐电汪」蹭蓝筹 0x198d…4444 的 symbol「富贵」，三层同名
+  // 防线全漏——0.5 一周窗+同叙事+appendix 对比覆盖不了老蓝筹，交易侧
+  // strictSameNameMaxFDV 只用 name 维度且 50 万门高于蓝筹 32 万市值）
+  // AVE 归一化 symbol 相同的候选中存在体量代币 → low 硬拦。不限一周窗、不做
+  // 叙事对比、不看 name——蓝筹任意时间存在，蹭 symbol 即拦。体量组合门
+  // （fdv ≥ minFdv 且 tvl/holders/24h 交易笔数三选一佐证）防 AVE 虚假 fdv
+  // 单指标误拦（与交易侧 _getMaxFDV 的 tvl/交易量佐证思路同源）
+  if (sameNameConfig.enabled) {
+    const selfAddress = tokenData.raw_api_data?.token || tokenData.address || '';
+    const blueChipCheck = await sameNameService.checkBlueChipConflict(tokenSymbol, selfAddress);
+    if (blueChipCheck.success && blueChipCheck.isConflict) {
+      const m = blueChipCheck.matched[0];
+      console.log(`[NarrativeAnalyzer] 预检查触发: 同名蓝筹拦截 (symbol: ${tokenSymbol}, 蓝筹: ${m.symbol} ${m.token}, fdv=${m.fdv}, tvl=${m.tvl}, holders=${m.holders})`);
+      return buildPreCheckResult('low',
+        `检测到同名蓝筹代币：symbol"${tokenSymbol}"已存在体量代币${m.name || m.symbol}(${m.token.slice(0, 10)}..., fdv=$${Math.round(m.fdv).toLocaleString()}, tvl=$${Math.round(m.tvl).toLocaleString()}, ${m.holders}持有人, 24h ${m.txCount}笔交易)，同名蹭名判定拦截`,
+        'same_name_blue_chip',
+        { scores: { credibility: 0, virality: 0 }, total_score: 0, blueChipMatched: blueChipCheck.matched });
+    } else if (!blueChipCheck.success) {
+      console.warn(`[NarrativeAnalyzer] 同名蓝筹检查失败: ${blueChipCheck.error || '未知错误'}，跳过此项检查`);
+    }
+  }
+
   // 规则0.55：同名+同推文重复叙事检查
   // 当两个代币使用相同推文（相同Twitter Status ID）且代币Symbol相同时，后者应被阻断为重复叙事
   // 与规则0.5（同名检查，需"起来过"）和规则0.7（语料复用，3分钟豁免）互补
@@ -202,7 +230,8 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
       if (currentTwitterId) {
         const normalizedAddress = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
-        const currentCreatedAt = tokenData.raw_api_data?.created_at;
+        // wss 行 created_at 口径回退（与规则0.5 同修复，2026-09-28）
+        const currentCreatedAt = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
 
         if (currentCreatedAt) {
           const twoMinBeforeToken = new Date((currentCreatedAt - 2 * 60) * 1000).toISOString();
@@ -254,7 +283,8 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 与规则0.5（需"起来过"，1周窗口，高阈值）互补：此规则用更短时间窗口+更低阈值捕捉早期跟风者
   // 活跃度阈值低于"起来过"：txCount>=30 或 txVolume>=3000 即视为有基础活跃度
   try {
-    const currentCreatedAt58 = tokenData.raw_api_data?.created_at;
+    // wss 行 created_at 口径回退（与规则0.5 同修复，2026-09-28）
+    const currentCreatedAt58 = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
     if (tokenSymbol && currentCreatedAt58) {
       const normalizedAddress58 = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
       const tenMinBefore = new Date((currentCreatedAt58 - 10 * 60) * 1000).toISOString();

@@ -32,6 +32,63 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C27 富贵 0x5e888 —— wss 票同名规则全灭 + 蹭蓝筹 symbol 三层漏 → 规则 0.52 同名蓝筹拦截 + created_at 口径修复（2026-09-28）★
+
+**现象**：用户质询「传奇耐电汪」（0x5e888dde073ba817c1cb120653d66fbd28757777，
+symbol=富贵，flap 税盘，09-28 02:50 创建，买它的实验 51ea69e7）的叙事分析为何没有被
+重名拦截。`token_narrative`：`rating=mid, pass=true`，挂在 `video_unrated`（抖音 620 万
+赞视频达爆款门槛、内容无法解析 → 按影响力数据给 mid 放行），Jev 全程未跑，
+`is_valid=true` 缓存固化。GMGN 显示 creator `issuerTokenCount=25`、`imageDupCount=3`
+（高频批量盘特征，但 GMGN risk 因子现无拦截消费方）。一周内 experiment_tokens 有 7 个
+同名「富贵」票（09-25×5 / 09-26×2，全 flap）。
+
+**三层同名防线为何全漏（逐层）**：
+1. **pre-check 0.5/0.55/0.58 整体没跑**：三条规则裸读 `raw_api_data?.created_at`，
+   而 wss watcher 组装的行（`_buildFlapTokenRecord`/`_buildFourMemeTokenRecord`）
+   只把 `created_at` 写在行级列、raw_api_data 里没有（flap 仅存 eventTs 存档字段），
+   也没 appendix——0.5 打日志「无创建时间数据，跳过」，0.55/0.58 静默跳过。**全部
+   wss 新票（watcher 架构后的所有新 token）同名规则结构性失效**。讽刺点：P1.3 时
+   `token-info-service` 已补 `tokenCreatedAtSec`（wss_events token_create 回退），
+   但 pre-check 没跟着改口径（NarrativeAnalyzer.mjs:323 的推文时间窗用了）
+2. **即使修好 created_at，0.5 也拦不住蓝筹场景**：0.5 判定链 = 一周窗（蓝筹
+   0x198dba421a7db566a90da5de7901abe3443b4444「富贵」07-07 创建，超窗）+ appendix
+   叙事对比（本票 wss 行无 appendix → duplicateNarrative 恒空）+「起来过」三重门；
+   0.58 两小时窗内同名票 0 个（最近 09-26 隔 2 天）；0.55 推文本票首发使用
+3. **交易侧 `strictSameNameMaxFDV < 500000` 门（51ea69e7 已配）双重失明**：
+   `SameNameTokenService._isSameName` 刻意只用 name 维度（symbol 跨语义豁免，
+   「人生好物」型）——本票 name「传奇耐电汪」vs 蓝筹 name「富贵」互不包含，
+   蓝筹不进候选；即便进了：蓝筹 fdv $320k < $500k 门照样放行
+
+**蓝筹富贵画像**（AVE getTokenDetail 实测）：four.meme 毕业盘，name/symbol 均「富贵」，
+fdv $320k / tvl $317k / **holders 100,748** / 24h 370 笔·$28k——BSC 上「富贵」同名票
+AVE 搜索命中 300 条（fdv 排序蓝筹居首）。
+
+**裁定（用户，2026-09-28）**：**「有同名的蓝筹肯定不行」**——归一化 symbol 撞名体量
+代币即拦，不限一周窗、不做叙事对比、不看 name。体量门用**组合门**（防 AVE 虚假 fdv
+单指标误拦，与交易侧 `_getMaxFDV` 的 tvl/交易量佐证思路同源）：
+`fdv ≥ 100k 且（tvl ≥ 50k 或 holders ≥ 10k 或 txCount ≥ 100）`。
+
+**落地**：
+- **规则 0.52 `same_name_blue_chip`**（pre-check-service，0.5 块后）：
+  `SameNameCheckService.checkBlueChipConflict(symbol, selfAddress)`——归一化 symbol
+  相同（≥2 字符）+ 大小写不敏感排除自己 + 组合门 → low 硬拦（copycat_token 同级），
+  matched 按 fdv 降序落 details.blueChipMatched；阈值 `narrative.sameNameCheck.blueChip`
+  可配（default.json 已显式落值）
+- **AVE BSC 搜索实例级缓存**（`_searchBscWithCache`，同 keyword 60s）：0.5 与 0.52
+  共用 service 实例共享一次搜索，AVE 配额零增量（0.5 已跑时）
+- **created_at 口径修复**：0.5/0.55/0.58 三处改
+  `tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at`（与
+  NarrativeAnalyzer 创建时间基准同口径）——wss 票同名规则恢复执行
+- 单测 `scripts/_test_blue_chip_check.cjs`（21 断言零 DB：判定矩阵/缓存/源码口径防
+  回归）；**端到端实测**：对 0x5e888 强制重析（ignoreCache）→ 0.5 恢复跑（AVE 300 条/
+  严格匹配 299/older 276，appendix 缺失判 0 如预期）→ 0.52 命中蓝筹 → 落库
+  `ruleName=same_name_blue_chip, rating=low, numericRating=1`（触发引擎叙事否决短路）
+
+**遗留**：见 §六-29——0.55 的 appendix 依赖（wss 行语料在顶层 twitterUrl，status id
+提取未适配，本票该规则仍空转）与蓝筹阈值实跑校准。
+
+---
+
 ### C26 FOMOON 0xb5e1 —— 「先发币后补推文」落在重试域外 → no_public_info 纳入重试域（2026-09-28）★
 
 **现象**：用户质询 FOMOON（0xb5e17933501712485d2ec6662679409006767777，fourmeme，
@@ -1390,6 +1447,21 @@ unrated 行与失败行解析）、getRatingMeta（web 展示旧数据）、Narr
 - 单测：`scripts/_test_unrated_elimination.cjs`（29 断言零 DB：mapper abm/web3ip/
   project 三分支 + pre-check 门槛三路 + resolveFinalRating 历史兼容三路）
 
+### 4.12 同名蓝筹拦截（规则 0.52）+ wss 票 created_at 口径修复（09-28，C27 落地）
+
+- **规则 0.52 `same_name_blue_chip`**：AVE 归一化 symbol 相同（≥2 字符、大小写不敏感
+  排除自己）+ 体量组合门 `fdv≥100k 且（tvl≥50k 或 holders≥10k 或 txCount≥100）`
+  → pre-check low 硬拦。阈值 `narrative.sameNameCheck.blueChip` 可配。与 0.5（一周窗
+  +同叙事+起来过）、交易侧 strictSameNameMaxFDV（name 维度、实验级因子门）互不覆盖
+  ——蓝筹任意时间存在，蹭 symbol 即拦（用户裁定「有同名的蓝筹肯定不行」）
+- **AVE BSC 搜索实例级缓存**（`_searchBscWithCache` 同 keyword 60s）：pre-check 侧
+  0.5/0.52 共用 service 实例，共享一次搜索，配额零增量（0.5 已跑时）
+- **created_at 口径修复**：0.5/0.55/0.58 三处 `raw_api_data?.created_at` →
+  `tokenCreatedAtSec || raw_api_data?.created_at`（token-info-service 的 wss_events
+  回退）——watcher 架构后全部 wss 新票的同名规则由静默失效恢复执行
+- 单测：`scripts/_test_blue_chip_check.cjs`（21 断言零 DB：判定矩阵/缓存共享/
+  源码口径防回归）；端到端实测富贵票 ignoreCache 重析命中（见 C27）
+
 ## 五、策略侧应用（回测 E1→E2→E3→E4，源 572033ad）
 
 | 实验 | id | preBuyCheckCondition | 差异 | 结果 |
@@ -1672,3 +1744,11 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     放行，80s 评估点 earlyReturn ~+70% 低于下沿 80（仅 53s 时 +95% 在窗内）——快拉
     金狗的买腿窗口可达性问题（叙事放行≠买得进）独立于叙事侧，是否需要策略侧
     响应待后续金狗复盘积累
+
+29. **0.55 appendix 适配 + 蓝筹阈值实跑校准**（2026-09-28 C27 落地后遗留）：
+    ① 规则 0.55（同名+同推文）与 0.5 的叙事对比仍依赖 `raw_api_data.appendix`——
+    wss 行语料在顶层 `twitterUrl`/`webUrl`（corpusEnrich 合并），status id 提取与
+    appendix 构造未适配，两处对 wss 票继续空转（created_at 口径已修，0.58 已恢复）；
+    ② 蓝筹组合门阈值（fdv 100k / tvl 50k / holders 10k / txCount 100）按富贵案定标，
+    误拦率（如真二发盘、同 symbol 无关新叙事盘被硬拦）待实跑积累后回看校准
+

@@ -74,9 +74,7 @@ class SameNameCheckService {
       // 搜索同名代币（BSC链）
       // 归一化 symbol 搜索，避免隐形字符导致搜不到同名代币
       const normalizedSearchSymbol = SameNameCheckService._normalizeName(tokenSymbol);
-      const bscResults = await this.api.searchTokens(
-        normalizedSearchSymbol || tokenSymbol, 'bsc', 300, 'fdv'
-      );
+      const bscResults = await this._searchBscWithCache(normalizedSearchSymbol || tokenSymbol);
 
       this.logger.debug('SameNameCheck', 'BSC搜索完成', {
         totalResults: bscResults.length
@@ -239,6 +237,98 @@ class SameNameCheckService {
         isCopycat: false,
         error: error.message
       };
+    }
+  }
+
+  /**
+   * AVE BSC 搜索（实例级缓存，同 keyword 60s 内复用）
+   * 规则0.5 与规则0.52 共用一次搜索（pre-check 侧两规则共享 service 实例）
+   * @param {string} keyword - 搜索关键词（归一化 symbol）
+   * @returns {Promise<Array>} 搜索结果
+   * @private
+   */
+  async _searchBscWithCache(keyword) {
+    const cacheKey = String(keyword || '');
+    const now = Date.now();
+    if (this._bscSearchCache &&
+        this._bscSearchCache.key === cacheKey &&
+        now - this._bscSearchCache.at < 60 * 1000) {
+      return this._bscSearchCache.data;
+    }
+    const data = await this.api.searchTokens(cacheKey, 'bsc', 300, 'fdv');
+    this._bscSearchCache = { key: cacheKey, at: now, data };
+    return data;
+  }
+
+  /**
+   * 检查同名蓝筹冲突（规则0.52，2026-09-28 用户裁定「有同名蓝筹肯定不行」）
+   *
+   * 与 checkIfCopycatToken（规则0.5：一周窗 + 同叙事 + 起来过）互补：蓝筹是
+   * 任意时间存在的体量代币，不看创建窗口、不做叙事对比、不看 name——归一化
+   * symbol 相同即候选（AVE 搜索本就按 symbol 匹配）。
+   *
+   * 体量组合门（防 AVE 虚假 fdv 单指标误拦，与交易侧 _getMaxFDV 的 tvl/交易量
+   * 佐证思路同源）：
+   *   fdv ≥ minFdv 且（tvl ≥ minTvl 或 holders ≥ minHolders 或 txCount ≥ minTxCount）
+   *
+   * @param {string} tokenSymbol - 目标代币 symbol
+   * @param {string} selfAddress - 目标代币地址（大小写不敏感排除自己，防自我误拦）
+   * @returns {Promise<Object>} { success, isConflict, matched[]（按 fdv 降序） }
+   */
+  async checkBlueChipConflict(tokenSymbol, selfAddress) {
+    try {
+      const normalized = SameNameCheckService._normalizeName(tokenSymbol);
+      if (!normalized || normalized.length < 2) {
+        return { success: true, isConflict: false, matched: [] };
+      }
+
+      const results = await this._searchBscWithCache(normalized);
+      const self = String(selfAddress || '').toLowerCase();
+      const candidates = results.filter(t =>
+        SameNameCheckService._normalizeName(t.symbol) === normalized &&
+        String(t.token || '').toLowerCase() !== self
+      );
+
+      const blueChipConfig = SAME_NAME_CONFIG.blueChip || {};
+      const minFdv = blueChipConfig.minFdv ?? 100000;
+      const minTvl = blueChipConfig.minTvl ?? 50000;
+      const minHolders = blueChipConfig.minHolders ?? 10000;
+      const minTxCount = blueChipConfig.minTxCount ?? 100;
+
+      const toNum = v => parseFloat(v) || 0;
+      const matched = candidates
+        .filter(t => {
+          const fdv = toNum(t.fdv);
+          const tvl = toNum(t.tvl);
+          const holders = parseInt(t.holders) || 0;
+          const txCount = parseInt(t.tx_count_24h) || 0;
+          return fdv >= minFdv &&
+            (tvl >= minTvl || holders >= minHolders || txCount >= minTxCount);
+        })
+        .map(t => ({
+          token: t.token,
+          name: t.name,
+          symbol: t.symbol,
+          fdv: toNum(t.fdv),
+          tvl: toNum(t.tvl),
+          holders: parseInt(t.holders) || 0,
+          txCount: parseInt(t.tx_count_24h) || 0,
+          issuePlatform: t.issue_platform || ''
+        }))
+        .sort((a, b) => b.fdv - a.fdv);
+
+      if (matched.length > 0) {
+        this.logger.info('SameNameCheck', '检测到同名蓝筹', {
+          symbol: tokenSymbol,
+          count: matched.length,
+          top: `${matched[0].symbol} ${matched[0].token} fdv=${matched[0].fdv}`
+        });
+      }
+
+      return { success: true, isConflict: matched.length > 0, matched };
+    } catch (error) {
+      this.logger.error('SameNameCheck', '蓝筹检查失败', { error: error.message });
+      return { success: false, isConflict: false, error: error.message, matched: [] };
     }
   }
 

@@ -193,6 +193,12 @@
         "priceChangeThreshold": 300,
         "txVolumeThreshold": 30000,
         "txCountThreshold": 300
+      },
+      "blueChip": {
+        "minFdv": 100000,
+        "minTvl": 50000,
+        "minHolders": 10000,
+        "minTxCount": 100
       }
     }
   },
