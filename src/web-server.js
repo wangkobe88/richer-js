@@ -749,7 +749,12 @@ class RicherJsWebServer {
           virtual,
           backtest,
           wallet,
-          reserveNative
+          reserveNative,
+          // 引擎级高级段（2026-09-28 复制保真）：表单无输入 UI，由复制链路携带
+          tokenCycle,
+          stopLoss,
+          tokenPositionAnalyzer,
+          fourmemeWs
         } = req.body;
 
         // 构建实验配置（BSC-only：ankr WSS 事件驱动，无轮询收集/监控配置）
@@ -825,6 +830,27 @@ class RicherJsWebServer {
             initialBalance: parseFloat(initial_balance) || 100,
             tradeAmount: strategy?.tradeAmount !== undefined ? parseFloat(strategy.tradeAmount) : 0.1
           };
+        }
+
+        // 引擎级高级段透传（2026-09-28 复制保真）：tokenCycle（周期路由开关，无则
+        // groups 腿全隐 fail-closed）/ stopLoss（止损双腿）/ tokenPositionAnalyzer（TPA，
+        // 买腿 TPAPre_* 因子源）/ fourmemeWs（onlineProfile 等实验级 ws 段）。
+        // 表单无输入 UI——复制链路经创建页暂存携带；形状校验 fail-fast（脏对象 400，
+        // 不静默丢弃——静默丢=复制件行为大变）。live 分支已写 fourmemeWs={live} 时合并不覆盖
+        const advancedSections = { tokenCycle, stopLoss, tokenPositionAnalyzer, fourmemeWs };
+        for (const [key, val] of Object.entries(advancedSections)) {
+          if (val === undefined || val === null) continue;
+          if (typeof val !== 'object' || Array.isArray(val)) {
+            return res.status(400).json({ success: false, error: `${key} 段形状非法（须为对象）` });
+          }
+          if (key === 'tokenCycle' && typeof val.enforce !== 'boolean') {
+            return res.status(400).json({ success: false, error: 'tokenCycle.enforce 必须为布尔值' });
+          }
+          if (key === 'fourmemeWs') {
+            config.fourmemeWs = { ...val, ...(config.fourmemeWs || {}) };
+          } else {
+            config[key] = val;
+          }
         }
 
         // 如果提供了策略参数，添加到配置中

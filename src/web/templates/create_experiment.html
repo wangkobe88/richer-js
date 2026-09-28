@@ -76,6 +76,53 @@
             color: #6b7280;
         }
 
+        /* 腿只读展示（2026-09-28 裁定：创建页=策略库选择器，不可编辑策略） */
+        .strategy-card .leg-condition {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.8125rem;
+            background: #1f2937;
+            color: #10b981;
+            padding: 0.5rem 0.625rem;
+            border-radius: 0.375rem;
+            word-break: break-all;
+        }
+        .strategy-card .leg-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            margin-top: 0.5rem;
+        }
+        .strategy-card .badge {
+            font-size: 0.75rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            background: #eef2ff;
+            color: #4338ca;
+            border: 1px solid #c7d2fe;
+            white-space: nowrap;
+        }
+        .strategy-card .badge.groups-badge {
+            background: #f5f3ff;
+            color: #6d28d9;
+            border-color: #ddd6fe;
+        }
+        .strategy-card .leg-advanced {
+            margin-top: 0.5rem;
+        }
+        .strategy-card .leg-advanced .adv-line {
+            font-size: 0.75rem;
+            color: #6b7280;
+            word-break: break-all;
+        }
+        .empty-hint {
+            font-size: 0.8125rem;
+            color: #9ca3af;
+            border: 1px dashed #d1d5db;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            text-align: center;
+        }
+
         /* 条件帮助器样式 */
         .condition-help {
             background: #f3f4f6;
@@ -120,18 +167,6 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
-        }
-        .condition-help .preset-templates button {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-            cursor: pointer;
-        }
-        .condition-help .preset-templates button:hover {
-            background: #2563eb;
         }
 
         /* 初始分配样式 */
@@ -592,7 +627,7 @@
                     </div>
                 </div>
 
-                <!-- 买入策略配置 -->
+                <!-- 买入策略配置（2026-09-28 裁定：创建页=策略库选择器，只能从库引用，不可编辑策略） -->
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
                         <h2 class="text-lg font-semibold text-gray-800">📈 买入策略</h2>
@@ -601,17 +636,17 @@
                                     class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
                                 📚 从库引用
                             </button>
-                            <button type="button" onclick="addBuyStrategy()" class="btn-add">
-                                <span>+ 添加买入条件</span>
-                            </button>
                         </div>
                     </div>
-                    <div id="buy-strategies-container">
-                        <!-- 默认添加一个早止买入策略 -->
+                    <div id="buy-strategies-container"></div>
+                    <div id="buy-empty-hint" class="empty-hint hidden">
+                        暂无买入策略——点「📚 从库引用」从策略库添加。
+                        创建页不可编辑策略（腿只读快照），调整腿请到
+                        <a href="/strategy-library" target="_blank" class="text-indigo-600 underline">策略库页</a>
                     </div>
                 </div>
 
-                <!-- 卖出策略配置 -->
+                <!-- 卖出策略配置（同上：只读快照，仅库引用） -->
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
                         <h2 class="text-lg font-semibold text-gray-800">📉 卖出策略</h2>
@@ -620,13 +655,13 @@
                                     class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
                                 📚 从库引用
                             </button>
-                            <button type="button" onclick="addSellStrategy()" class="btn-add">
-                                <span>+ 添加卖出条件</span>
-                            </button>
                         </div>
                     </div>
-                    <div id="sell-strategies-container">
-                        <!-- 默认添加止盈1和止盈2策略 -->
+                    <div id="sell-strategies-container"></div>
+                    <div id="sell-empty-hint" class="empty-hint hidden">
+                        暂无卖出策略——点「📚 从库引用」从策略库添加。
+                        创建页不可编辑策略（腿只读快照），调整腿请到
+                        <a href="/strategy-library" target="_blank" class="text-indigo-600 underline">策略库页</a>
                     </div>
                 </div>
 
@@ -737,18 +772,9 @@
                             <ul>
                                 <li>腿可带 <code>groups</code> 表达式限定只对特定行为周期桶生效：<code>cycle==3</code>（热桶，tps≥0.5 或 tick 间隔≤2s）/ <code>cycle==2</code>（中桶）/ <code>cycle==1</code>（冷桶）；支持 <code>cycle!=3</code>、<code>cycle>=2</code>、<code>cycle==1 OR cycle==3</code> 组合</li>
                                 <li>档位为 null（证据不足/热身期/实验未开 tokenCycle.enforce）时该腿不可见（fail-closed，不评估不触发），无 groups 的腿恒可见</li>
-                                <li>「从库引用」展开的腿自动携带库内 groups；快照语义——引用后本实验腿与库独立，改库不影响已建实验（重启实验进程才生效新腿）</li>
+                                <li>腿卡片「groups」输入框可直接编辑（留空=全周期=旧语义）；「从库引用」展开的腿自动携带库内 groups、复制腿的 cycle 数字自动预填 <code>cycle==N</code>；快照语义——引用后本实验腿与库独立，改库不影响已建实验（重启实验进程才生效新腿）</li>
                             </ul>
 
-                            <h4>预设策略模板</h4>
-                            <div class="preset-templates">
-                                <button type="button" onclick="loadPreset('early_buy')">早止买入</button>
-                                <button type="button" onclick="loadPreset('high_volume_buy')">高交易量买入</button>
-                                <button type="button" onclick="loadPreset('tp1')">止盈1 (30%)</button>
-                                <button type="button" onclick="loadPreset('tp2')">止盈2 (50%)</button>
-                                <button type="button" onclick="loadPreset('drawback_stop')">高位回落止损</button>
-                                <button type="button" onclick="loadPreset('stop_loss')">时间止损</button>
-                            </div>
                         </div>
                     </details>
                 </div>
@@ -772,7 +798,7 @@
         </div>
     </div>
 
-    <!-- 策略卡片模板 -->
+    <!-- 策略卡片模板（只读快照：2026-09-28 裁定创建页不可编辑策略，腿来自库/源实验整包展示） -->
     <template id="buy-strategy-template">
         <div class="strategy-card" data-action="buy" data-index="{INDEX}">
             <div class="card-header">
@@ -780,100 +806,9 @@
                 <button type="button" onclick="removeStrategy(this)" class="btn-remove">删除</button>
             </div>
             <div class="card-body">
-                <div class="param-group" style="grid-column: 1 / span 2;">
-                    <label>触发条件：</label>
-                    <input type="text" name="buy_condition_{INDEX}"
-                           placeholder="例如: age < 1.33 AND earlyReturn >= 80 AND earlyReturn < 120"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div class="param-group pre-buy-check-group" style="grid-column: 1 / span 2;">
-                    <label>🔍 首次购买检查条件（第1次买入）：</label>
-                    <input type="text" name="buy_preCheck_condition_{INDEX}"
-                           placeholder="例如: earlyTraderBlacklistCount < 5 AND devHoldingRatio < 15 AND earlyTradesHighValueCount >= 8"
-                           value=""
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <div class="text-xs text-gray-500 mt-1">
-                        仅在第1次买入此代币时检查
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1">
-                        <details>
-                            <summary class="cursor-pointer">📋 可用因子</summary>
-                            <div class="mt-2 p-2 bg-gray-50 rounded text-xs">
-                                <strong>早期交易者黑白名单:</strong> earlyTraderBlacklistCount, earlyTraderWhitelistCount, earlyTraderUniqueParticipants, earlyTraderBlacklistRatio, earlyTraderCanBuy<br>
-                                <strong>持有者检查:</strong> holdersCount, devHoldingRatio, maxHoldingRatio<br>
-                                <strong>早期参与者:</strong> earlyTradesHighValueCount, earlyTradesHighValuePerMin, earlyTradesCountPerMin, earlyTradesVolumePerMin, earlyTradesWalletsPerMin, earlyTradesTotalCount, earlyTradesVolume, earlyTradesUniqueWallets, earlyTradesDataCoverage, earlyTradesFilteredCount<br>
-                                <strong>钱包簇:</strong> walletClusterSecondToFirstRatio, walletClusterMegaRatio, walletClusterTop2Ratio, walletClusterConcentration<br>
-                                <strong>叙事分析:</strong> narrativeRating (1=低质量, 2=中质量, 3=高质量, 9=未评级)<br>
-                            </div>
-                        </details>
-                    </div>
-                </div>
-                <div class="param-group" style="grid-column: 1 / span 2;">
-                    <label>📖 叙事评级直调触发条件（可选）：</label>
-                    <input type="text" name="buy_narrative_call_condition_{INDEX}"
-                           placeholder="例如: age < 10 AND earlyReturn > 30"
-                           value=""
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400">
-                    <div class="text-xs text-gray-500 mt-1">
-                        触发买入策略后、购买检查前，满足此条件才同步调用叙事分析拿评级（Jev 秒级，最长等 30 秒；
-                        调用失败/超时按未评级 9 放行）。评级经 <code>narrativeRating</code>（1=低, 2=中, 3=高, 9=未评级）
-                        供首次/再次检查条件使用。留空 = 不调用。
-                    </div>
-                    <div class="text-xs text-orange-500 mt-1">
-                        ⚠️ 语法同触发条件：逻辑词必须写 AND / OR（误写 &amp;&amp; 或 || 不报错，但其后的条件会被静默忽略）；可用因子与触发条件相同（age/earlyReturn 等）。
-                        若未配置购买检查条件，评级仅记录在信号中不参与买卖决策。
-                    </div>
-                </div>
-                <div class="param-group" style="grid-column: 1 / span 2;">
-                    <label>🚫 永久阻断条件（触发后该代币永久不可交易）：</label>
-                    <input type="text" name="buy_permanent_block_condition_{INDEX}"
-                           placeholder="例如: earlyTraderBlacklistCount > 4"
-                           value=""
-                           class="w-full px-3 py-2 border border-red-200 rounded-md focus:outline-none focus:ring-2 focus:ring-red-400">
-                    <div class="text-xs text-gray-500 mt-1">
-                        条件为 true 时永久阻断该代币。独立于首次/再次检查条件，触发后该代币所有后续信号直接跳过。可用因子与首次检查相同。
-                    </div>
-                </div>
-                <div class="param-group repeat-buy-check-group" style="grid-column: 1 / span 2;">
-                    <label>🔄 再次购买检查条件（第2次及以后）：</label>
-                    <input type="text" name="buy_repeatCheck_condition_{INDEX}"
-                           placeholder="例如: lastPairReturnRate < 10 AND lastPairReturnRate > -15"
-                           value=""
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <div class="text-xs text-gray-500 mt-1">
-                        第2次及之后的买入检查，可使用 <code>lastPairReturnRate</code>（上一对交易收益率%）
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1">
-                        <details>
-                            <summary class="cursor-pointer">📋 可用因子（包含首次检查的所有因子 + 新增因子）</summary>
-                            <div class="mt-2 p-2 bg-gray-50 rounded text-xs">
-                                <strong>新增因子:</strong><br>
-                                • lastPairReturnRate - 上一对交易收益率(%)<br>
-                                • buyRound - 当前交易轮数（2, 3, ...）<br>
-                                <hr class="my-1">
-                                <strong>其他因子:</strong> 与首次检查相同
-                            </div>
-                        </details>
-                    </div>
-                </div>
-                <div class="strategy-params">
-                    <div class="param-group">
-                        <label>优先级</label>
-                        <input type="number" name="buy_priority_{INDEX}" value="1" min="1" max="100">
-                    </div>
-                    <div class="param-group">
-                        <label>最大执行次数</label>
-                        <input type="number" name="buy_max_executions_{INDEX}" placeholder="不限" min="1">
-                    </div>
-                    <div class="param-group">
-                        <label>🃏 卡牌张数</label>
-                        <input type="number" name="buy_cards_{INDEX}" placeholder="1" min="1" step="1">
-                    </div>
-                    <div class="param-group">
-                        <label>⏱️ 冷却（秒）</label>
-                        <input type="number" name="buy_cooldown_sec_{INDEX}" placeholder="不冷却" min="1" step="any">
-                    </div>
-                </div>
+                <div class="leg-condition"></div>
+                <div class="leg-badges"></div>
+                <div class="leg-advanced"></div>
             </div>
         </div>
     </template>
@@ -885,34 +820,9 @@
                 <button type="button" onclick="removeStrategy(this)" class="btn-remove">删除</button>
             </div>
             <div class="card-body">
-                <div class="param-group" style="grid-column: 1 / span 2;">
-                    <label>触发条件：</label>
-                    <input type="text" name="sell_condition_{INDEX}"
-                           placeholder="例如: profitPercent >= 30 AND holdDuration > 0"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div class="strategy-params">
-                    <div class="param-group">
-                        <label>优先级</label>
-                        <input type="number" name="sell_priority_{INDEX}" value="1" min="1" max="100">
-                    </div>
-                    <div class="param-group">
-                        <label>最大执行次数</label>
-                        <input type="number" name="sell_max_executions_{INDEX}" value="1" min="1">
-                    </div>
-                    <div class="param-group">
-                        <label>🃏 卖出卡数</label>
-                        <input type="text" name="sell_cards_{INDEX}" placeholder="正整数或 all">
-                    </div>
-                    <div class="param-group">
-                        <label>⏱️ 冷却（秒）</label>
-                        <input type="number" name="sell_cooldown_sec_{INDEX}" placeholder="不冷却" min="1" step="any">
-                    </div>
-                </div>
-                <div class="text-xs text-gray-500" style="grid-column: 1 / span 2;">
-                    卡牌模式（实验配置了每卡 BNB）下生效：本腿卖出 正整数张（或 all=全清），按 当余卡数 分之 卖出卡数 比例卖余仓；
-                    多腿分批卖出请把"最大执行次数"调到 ≥ 分批次数。冷却独立生效：本腿成交后 N 秒内不再触发。
-                </div>
+                <div class="leg-condition"></div>
+                <div class="leg-badges"></div>
+                <div class="leg-advanced"></div>
             </div>
         </div>
     </template>
@@ -1016,10 +926,6 @@
                 if (!copyDataStr) {
                     console.error('❌ 未找到复制的实验数据');
                     showCopyModeNotice('❌ 未找到复制的实验数据');
-                    // 添加默认策略以确保表单可用
-                    loadPreset('early_buy');
-                    loadPreset('tp1');
-                    loadPreset('tp2');
                     return;
                 }
 
@@ -1092,6 +998,17 @@
                 if (copyData.positionManagement?.perCardBNB) {
                     setFieldValue('per_card_bnb', copyData.positionManagement.perCardBNB);
                 }
+
+                // 引擎级高级段（2026-09-28 复制保真）：表单无对应输入 UI，暂存 window，
+                // collectFormData 提交时顶层透传（服务端形状校验后写入 config）。
+                // 不带则复制件行为大变——cycle/groups 卖腿无 tokenCycle.enforce 全隐、
+                // 无止损双腿、TPA 买腿 TPAPre_* 恒 null fail-closed、OPB 不采集
+                window._copyAdvancedConfig = {
+                    ...(copyData.tokenCycle ? { tokenCycle: copyData.tokenCycle } : {}),
+                    ...(copyData.stopLoss ? { stopLoss: copyData.stopLoss } : {}),
+                    ...(copyData.tokenPositionAnalyzer ? { tokenPositionAnalyzer: copyData.tokenPositionAnalyzer } : {}),
+                    ...(copyData.fourmemeWs ? { fourmemeWs: copyData.fourmemeWs } : {}),
+                };
 
                 // 填充叙事分析配置
                 const naEnabled = document.getElementById('na-enabled');
@@ -1222,14 +1139,9 @@
                 console.log('卖出容器内容:', sellContainer.innerHTML);
 
                 if (buyStrategiesCount === 0 && sellStrategiesCount === 0) {
-                    console.warn('⚠️ 没有找到任何策略配置，添加默认策略');
-                    loadPreset('early_buy');
-                    loadPreset('tp1');
-                    loadPreset('tp2');
-
-                    // 再次检查
-                    console.log(`添加默认策略后: 买入${buyContainer.querySelectorAll('.strategy-card').length}个, 卖出${sellContainer.querySelectorAll('.strategy-card').length}个`);
+                    console.warn('⚠️ 没有找到任何策略配置（空态提示已显示，从库引用添加）');
                 }
+                updateEmptyHints();
 
                 // 显示复制模式通知
                 showCopyModeNotice('✅ 已加载复制的实验配置，您可以修改后创建新实验');
@@ -1548,115 +1460,67 @@
             }
         }
 
-        // 添加买入策略
-        function addBuyStrategy(config = {}) {
-            console.log('addBuyStrategy 被调用，config:', config);
-            console.log('buyTemplate:', buyTemplate);
-            console.log('buyContainer:', buyContainer);
-
-            const index = buyStrategyCount++;
-            let html = buyTemplate.innerHTML.replace(/\{INDEX\}/g, index);
-            console.log('模板HTML长度:', html.length);
-
-            // 应用预设配置
-            if (config.condition) {
-                html = html.replace(`name="buy_condition_${index}"`, `name="buy_condition_${index}" value="${config.condition}"`);
-            }
-            if (config.priority) {
-                html = html.replace(`name="buy_priority_${index}" value="1"`, `name="buy_priority_${index}" value="${config.priority}"`);
-            }
-            if (config.maxExecutions !== undefined) {
-                const attr = config.maxExecutions ? `value="${config.maxExecutions}"` : 'placeholder="不限"';
-                html = html.replace(`name="buy_max_executions_${index}" placeholder`, `name="buy_max_executions_${index}" ${attr}`);
-            }
-            // 先插入HTML
-            buyContainer.insertAdjacentHTML('beforeend', html);
-
-            // rawConfig 保真：整包存原始策略配置，collectFormData 合并表单白名单外的键
-            //（复制链路丢 bypassDebounce/sellPercentage 等机制字段的既有缺陷由此修复）
-            const card = buyContainer.lastElementChild;
-            card.dataset.rawConfig = JSON.stringify(config || {});
-
-            // 卡牌/冷却回填（迁自 rich-js）
-            if (config.cards !== undefined) {
-                const input = card.querySelector(`input[name="buy_cards_${index}"]`);
-                if (input) input.value = config.cards ?? '';
-            }
-            if (config.cooldownSec !== undefined) {
-                const input = card.querySelector(`input[name="buy_cooldown_sec_${index}"]`);
-                if (input) input.value = config.cooldownSec ?? '';
-            }
-
-            // 使用DOM操作设置检查条件（避免HTML实体编码导致正则匹配失败）
-            if (config.preBuyCheckCondition !== undefined) {
-                console.log(`[addBuyStrategy] 设置检查条件 #${index}:`, config.preBuyCheckCondition);
-                const input = buyContainer.querySelector(`input[name="buy_preCheck_condition_${index}"]`);
-                if (input) {
-                    input.value = config.preBuyCheckCondition || '';
-                    console.log(`[addBuyStrategy] 检查条件已设置: "${input.value}"`);
-                } else {
-                    console.warn(`[addBuyStrategy] 未找到检查条件输入框 #${index}`);
-                }
-            }
-
-            if (config.repeatBuyCheckCondition !== undefined) {
-                console.log(`[addBuyStrategy] 设置再次购买检查条件 #${index}:`, config.repeatBuyCheckCondition);
-                const input = buyContainer.querySelector(`input[name="buy_repeatCheck_condition_${index}"]`);
-                if (input) {
-                    input.value = config.repeatBuyCheckCondition || '';
-                    console.log(`[addBuyStrategy] 再次购买检查条件已设置: "${input.value}"`);
-                } else {
-                    console.warn(`[addBuyStrategy] 未找到再次购买检查条件输入框 #${index}`);
-                }
-            }
-
-            if (config.narrativeCallCondition !== undefined) {
-                const input = buyContainer.querySelector(`input[name="buy_narrative_call_condition_${index}"]`);
-                if (input) {
-                    input.value = config.narrativeCallCondition || '';
-                }
-            }
-
-            if (config.permanentBlockCondition !== undefined) {
-                const input = buyContainer.querySelector(`input[name="buy_permanent_block_condition_${index}"]`);
-                if (input) {
-                    input.value = config.permanentBlockCondition || '';
-                }
+        // === 腿只读渲染（2026-09-28 裁定：创建页=策略库选择器，不可编辑策略）===
+        // 卡片 = 库条目/源实验腿的只读快照；rawConfig 整包存储，提交时零损取回。
+        // 调整腿参数一律到 /strategy-library 页
+        function renderLegReadonly(card, cfg) {
+            card.querySelector('.leg-condition').textContent = cfg.condition || '(无 condition)';
+            const badges = [];
+            if (cfg.priority != null) badges.push(`P${cfg.priority}`);
+            badges.push(cfg.maxExecutions != null ? `执行≤${cfg.maxExecutions}` : '不限次数');
+            if (cfg.cards != null) badges.push(`🃏${cfg.cards}`);
+            if (cfg.cooldownSec != null) badges.push(`⏱️${cfg.cooldownSec}s`);
+            if (cfg.sellPercentage != null) badges.push(`卖${Math.round(cfg.sellPercentage * 100)}%`);
+            if (cfg.bypassDebounce) badges.push('旁路去抖');
+            const groupsText = cfg.groups || (cfg.cycle != null ? `cycle==${cfg.cycle}` : '');
+            card.querySelector('.leg-badges').innerHTML =
+                badges.map(b => `<span class="badge">${b}</span>`).join('') +
+                (groupsText ? `<span class="badge groups-badge">🏷️${groupsText}</span>` : '');
+            const adv = [];
+            if (cfg.description) adv.push(`📝 ${cfg.description}`);
+            if (cfg.preBuyCheckCondition) adv.push(`首次检查: ${cfg.preBuyCheckCondition}`);
+            if (cfg.repeatBuyCheckCondition) adv.push(`再次检查: ${cfg.repeatBuyCheckCondition}`);
+            if (cfg.narrativeCallCondition) adv.push(`叙事直调: ${cfg.narrativeCallCondition}`);
+            if (cfg.permanentBlockCondition) adv.push(`永久阻断: ${cfg.permanentBlockCondition}`);
+            const advBox = card.querySelector('.leg-advanced');
+            if (adv.length) {
+                advBox.innerHTML = `<details><summary class="cursor-pointer text-xs text-gray-500">高级字段（${adv.length}，只读）</summary>` +
+                    `<div class="mt-1 space-y-0.5">${adv.map(() => `<div class="adv-line"></div>`).join('')}</div></details>`;
+                advBox.querySelectorAll('.adv-line').forEach((el, i) => { el.textContent = adv[i]; });
+            } else {
+                advBox.innerHTML = '';
             }
         }
 
-        // 添加卖出策略
+        function updateEmptyHints() {
+            const bh = document.getElementById('buy-empty-hint');
+            const sh = document.getElementById('sell-empty-hint');
+            if (bh) bh.classList.toggle('hidden',
+                document.querySelectorAll('#buy-strategies-container .strategy-card').length > 0);
+            if (sh) sh.classList.toggle('hidden',
+                document.querySelectorAll('#sell-strategies-container .strategy-card').length > 0);
+        }
+
+        // 添加买入策略（只读卡：库引用 importLibraryItem / 复制链路回填调用）
+        function addBuyStrategy(config = {}) {
+            const index = buyStrategyCount++;
+            const html = buyTemplate.innerHTML.replace(/\{INDEX\}/g, index);
+            buyContainer.insertAdjacentHTML('beforeend', html);
+            const card = buyContainer.lastElementChild;
+            card.dataset.rawConfig = JSON.stringify(config || {});
+            renderLegReadonly(card, config || {});
+            updateEmptyHints();
+        }
+
+        // 添加卖出策略（同 addBuyStrategy）
         function addSellStrategy(config = {}) {
             const index = sellStrategyCount++;
-            let html = sellTemplate.innerHTML.replace(/\{INDEX\}/g, index);
-
-            // 应用预设配置
-            if (config.condition) {
-                html = html.replace(`name="sell_condition_${index}"`, `name="sell_condition_${index}" value="${config.condition}"`);
-            }
-            if (config.priority) {
-                html = html.replace(`name="sell_priority_${index}" value="1"`, `name="sell_priority_${index}" value="${config.priority}"`);
-            }
-            if (config.maxExecutions !== undefined) {
-                const attr = config.maxExecutions ? `value="${config.maxExecutions}"` : 'placeholder="不限"';
-                html = html.replace(`name="sell_max_executions_${index}" value="1"`, `name="sell_max_executions_${index}" ${attr}`);
-            }
-
+            const html = sellTemplate.innerHTML.replace(/\{INDEX\}/g, index);
             sellContainer.insertAdjacentHTML('beforeend', html);
-
-            // rawConfig 保真：同 addBuyStrategy
             const card = sellContainer.lastElementChild;
             card.dataset.rawConfig = JSON.stringify(config || {});
-
-            // 卡牌/冷却回填（迁自 rich-js；卖腿 cards 支持 'all'）
-            if (config.cards !== undefined) {
-                const input = card.querySelector(`input[name="sell_cards_${index}"]`);
-                if (input) input.value = config.cards ?? '';
-            }
-            if (config.cooldownSec !== undefined) {
-                const input = card.querySelector(`input[name="sell_cooldown_sec_${index}"]`);
-                if (input) input.value = config.cooldownSec ?? '';
-            }
+            renderLegReadonly(card, config || {});
+            updateEmptyHints();
         }
 
         // === 策略库引用（策略库一期，2026-09-28）===
@@ -1725,86 +1589,26 @@
             document.getElementById('library-picker-overlay').classList.add('hidden');
         }
 
-        // 删除策略
+        // 删除策略（只读卡无输入框：重编号仅更新序号标签与 dataset.index）
         function removeStrategy(button) {
             const card = button.closest('.strategy-card');
             const action = card.dataset.action;
-            const index = parseInt(card.dataset.index);
 
             card.remove();
 
-            // 重新编号
             const container = action === 'buy' ? buyContainer : sellContainer;
             container.querySelectorAll('.strategy-card').forEach((c, i) => {
                 c.dataset.index = i;
                 c.querySelector('.strategy-name').textContent =
                     (action === 'buy' ? '买入策略' : '卖出策略') + ' #' + (i + 1);
-
-                // 更新所有name属性中的索引
-                c.querySelectorAll('[name]').forEach(input => {
-                    input.name = input.name.replace(/\d+$/, i);
-                });
             });
 
-            // 更新计数器
             if (action === 'buy') {
                 buyStrategyCount = container.querySelectorAll('.strategy-card').length;
             } else {
                 sellStrategyCount = container.querySelectorAll('.strategy-card').length;
             }
-        }
-
-        // 加载预设模板
-        function loadPreset(preset) {
-            const presets = {
-                early_buy: {
-                    action: 'buy',
-                    condition: 'age < 1.33 AND earlyReturn >= 80 AND earlyReturn < 120 AND currentPrice > 0',
-                    priority: 1,
-                    maxExecutions: null
-                },
-                high_volume_buy: {
-                    action: 'buy',
-                    condition: 'age < 5 AND txVolumeU24h > 50000 AND holders >= 100 AND currentPrice > 0',
-                    priority: 5,
-                    maxExecutions: null,
-                    description: '高交易量买入：24小时交易量>5万 且 持有者>=100'
-                },
-                tp1: {
-                    action: 'sell',
-                    condition: 'profitPercent >= 30 AND holdDuration > 0',
-                    priority: 1,
-                    maxExecutions: 1
-                },
-                tp2: {
-                    action: 'sell',
-                    condition: 'profitPercent >= 50 AND holdDuration > 0',
-                    priority: 2,
-                    maxExecutions: 1
-                },
-                drawback_stop: {
-                    action: 'sell',
-                    condition: 'profitPercent >= 20 AND drawdownFromHighest <= -30',
-                    priority: 5,
-                    maxExecutions: 1,
-                    description: '盈利20%后，从最高点回落30%时止损'
-                },
-                stop_loss: {
-                    action: 'sell',
-                    condition: 'holdDuration >= 300 AND profitPercent <= 0',
-                    priority: 10,
-                    maxExecutions: 1
-                }
-            };
-
-            const config = presets[preset];
-            if (config) {
-                if (config.action === 'buy') {
-                    addBuyStrategy(config);
-                } else {
-                    addSellStrategy(config);
-                }
-            }
+            updateEmptyHints();
         }
 
         // 收集表单数据
@@ -1812,66 +1616,42 @@
             const formData = new FormData(form);
             const tradingMode = formData.get('trading_mode');
 
-            // 表单白名单键：这些键始终以表单输入为准；白名单外的键从 rawConfig 合并
-            //（复制链路保真 bypassDebounce/sellPercentage 等无 UI 输入的机制字段）
-            const STRATEGY_FORM_KEYS = ['condition', 'priority', 'maxExecutions',
-                'preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition',
-                'permanentBlockCondition', 'description', 'cards', 'cooldownSec'];
-            const mergeRawConfig = (card, formValues) => {
-                let raw = {};
-                try { raw = JSON.parse(card.dataset.rawConfig || '{}'); } catch (e) { /* 损坏即忽略 */ }
-                const merged = { ...raw };
-                for (const k of STRATEGY_FORM_KEYS) delete merged[k];
-                return { ...merged, ...formValues };
-            };
-
-            // 收集买入策略
+            // 收集策略腿（只读化重构 2026-09-28：创建页零编辑——腿=库条目/源实验
+            // 快照整包取回，机制字段（bypassDebounce/sellPercentage/groups/description/
+            // cycle 等）零损失；调整腿一律在策略库页）
             const buyStrategies = [];
             document.querySelectorAll('#buy-strategies-container .strategy-card').forEach(card => {
-                const index = card.dataset.index;
-                const maxExecutionsInput = card.querySelector(`input[name="buy_max_executions_${index}"]`);
-                const preBuyCheckInput = card.querySelector(`input[name="buy_preCheck_condition_${index}"]`);
-                const repeatBuyCheckInput = card.querySelector(`input[name="buy_repeatCheck_condition_${index}"]`);
-                const narrativeCallInput = card.querySelector(`input[name="buy_narrative_call_condition_${index}"]`);
-                const cardsInput = card.querySelector(`input[name="buy_cards_${index}"]`);
-                const cooldownInput = card.querySelector(`input[name="buy_cooldown_sec_${index}"]`);
-                buyStrategies.push(mergeRawConfig(card, {
-                    condition: card.querySelector(`input[name="buy_condition_${index}"]`).value,
-                    priority: parseInt(card.querySelector(`input[name="buy_priority_${index}"]`).value),
-                    maxExecutions: maxExecutionsInput.value ? parseInt(maxExecutionsInput.value) : null,
-                    preBuyCheckCondition: preBuyCheckInput ? preBuyCheckInput.value.trim() || null : null,
-                    repeatBuyCheckCondition: repeatBuyCheckInput ? repeatBuyCheckInput.value.trim() || null : null,
-                    narrativeCallCondition: narrativeCallInput ? narrativeCallInput.value.trim() || null : null,
-                    // 卡牌/冷却（迁自 rich-js）：cards 原样传字符串（引擎归一化正整数；
-                    // 买腿 'all' → 忽略），cooldownSec parseFloat
-                    cards: cardsInput && cardsInput.value.trim() !== '' ? cardsInput.value.trim() : null,
-                    cooldownSec: cooldownInput && cooldownInput.value.trim() !== '' ? parseFloat(cooldownInput.value) || null : null,
-                }));
+                let raw = {};
+                try { raw = JSON.parse(card.dataset.rawConfig || '{}'); } catch (e) { /* 损坏即忽略 */ }
+                buyStrategies.push(raw);
             });
 
-            // 收集卖出策略
             const sellStrategies = [];
             document.querySelectorAll('#sell-strategies-container .strategy-card').forEach(card => {
-                const index = card.dataset.index;
-                const maxExecutionsInput = card.querySelector(`input[name="sell_max_executions_${index}"]`);
-                const cardsInput = card.querySelector(`input[name="sell_cards_${index}"]`);
-                const cooldownInput = card.querySelector(`input[name="sell_cooldown_sec_${index}"]`);
-                sellStrategies.push(mergeRawConfig(card, {
-                    condition: card.querySelector(`input[name="sell_condition_${index}"]`).value,
-                    priority: parseInt(card.querySelector(`input[name="sell_priority_${index}"]`).value),
-                    maxExecutions: maxExecutionsInput.value ? parseInt(maxExecutionsInput.value) : null,
-                    // 卖腿 cards 额外接受 'all'（全清）
-                    cards: cardsInput && cardsInput.value.trim() !== '' ? cardsInput.value.trim() : null,
-                    cooldownSec: cooldownInput && cooldownInput.value.trim() !== '' ? parseFloat(cooldownInput.value) || null : null,
-                }));
+                let raw = {};
+                try { raw = JSON.parse(card.dataset.rawConfig || '{}'); } catch (e) { /* 损坏即忽略 */ }
+                sellStrategies.push(raw);
             });
 
+            // 永久阻断条件：引擎读 strategiesConfig 顶层（FourMemeWssTradingEngine），
+            // 从首买腿快照提取（复制链路把它挂在首买腿上），提取后从腿上移除保持旧提交形状
+            let permanentBlockCondition = null;
+            if (buyStrategies.length && buyStrategies[0].permanentBlockCondition) {
+                permanentBlockCondition = buyStrategies[0].permanentBlockCondition;
+                delete buyStrategies[0].permanentBlockCondition;
+            }
+
             // 构建配置数据
+            // 复制携带的引擎级高级段（tokenCycle/stopLoss/tokenPositionAnalyzer/fourmemeWs）：
+            // 表单无输入 UI，复制链路保真透传（服务端形状校验后写入 config 顶层）；
+            // 非复制模式 window._copyAdvancedConfig 为 undefined → 无段 → 与现状一致
+            const adv = window._copyAdvancedConfig || {};
             const config = {
                 experiment_name: formData.get('experiment_name'),
                 experiment_description: formData.get('experiment_description'),
                 trading_mode: tradingMode,
                 blockchain: formData.get('blockchain'),
+                ...adv,
                 // 平台多选 checkbox：勾两个 → 'both'（双平台实验），单勾 → 该平台
                 //（change 监听结构性保证至少一勾：取消最后一个勾选会被拒绝）
                 platform: formData.getAll('platform').length >= 2 ? 'both' : formData.get('platform'),
@@ -1882,11 +1662,8 @@
                     sellStrategies: sellStrategies,
                     // 策略库引用 provenance（纯记录，服务端形状校验后透传；无引用时省略）
                     ...(libraryRefs.length > 0 ? { libraryRefs } : {}),
-                    // 永久阻断条件（取第一个策略的值）
-                    permanentBlockCondition: (() => {
-                        const input = buyContainer.querySelector('input[name="buy_permanent_block_condition_0"]');
-                        return input ? input.value.trim() || null : null;
-                    })(),
+                    // 永久阻断条件（从首买腿快照提取，见上方收集段）
+                    permanentBlockCondition,
                     // 交易金额配置
                     tradeAmount: parseFloat(formData.get('trade_amount')) || 0.5,
                     // 卡牌仓位机制（迁自 rich-js）：每卡 BNB 存在且 >0 才启用（服务端同校验）
@@ -1963,12 +1740,12 @@
 
             if (buyStrategies.length === 0) {
                 console.error('❌ 验证失败: 没有买入策略');
-                alert('请至少添加一个买入策略');
+                alert('请从策略库引用至少一个买入策略（创建页不可手写策略）');
                 return;
             }
             if (sellStrategies.length === 0) {
                 console.error('❌ 验证失败: 没有卖出策略');
-                alert('请至少添加一个卖出策略');
+                alert('请从策略库引用至少一个卖出策略（创建页不可手写策略）');
                 return;
             }
 
@@ -2088,12 +1865,8 @@
             }
         });
 
-        // 初始化默认策略（复制模式下不添加默认策略）
-        if (!isCopyMode) {
-            loadPreset('early_buy');
-            loadPreset('tp1');
-            loadPreset('tp2');
-        }
+        // 初始化空态提示（2026-09-28 只读化：无默认策略，从库引用添加）
+        updateEmptyHints();
 
         // 初始化区块链和平台（重建 checkbox 组 + 默认勾选第一个平台）
         handleBlockchainChange();

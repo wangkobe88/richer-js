@@ -742,6 +742,14 @@ class ExperimentMonitor {
         copyData.initial_balance = config.virtual.initialBalance || config.virtual.initial_balance || 100;
       }
 
+      // 引擎级高级段（2026-09-28 复制保真）：表单无对应输入，创建页暂存 window
+      // 后提交时顶层透传。不带则复制件行为大变——cycle/groups 卖腿无
+      // tokenCycle.enforce 全隐、无止损双腿、TPA 买腿 fail-closed、OPB 不采集
+      if (config.tokenCycle) copyData.tokenCycle = config.tokenCycle;
+      if (config.stopLoss) copyData.stopLoss = config.stopLoss;
+      if (config.tokenPositionAnalyzer) copyData.tokenPositionAnalyzer = config.tokenPositionAnalyzer;
+      if (config.fourmemeWs) copyData.fourmemeWs = config.fourmemeWs;
+
       // 添加 strategiesConfig 中的高级配置
       if (config.strategiesConfig) {
         const sc = config.strategiesConfig;
