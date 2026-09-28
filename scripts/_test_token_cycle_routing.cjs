@@ -6,6 +6,9 @@
  * tps30s + gapMedianMs 双主量三档判定（3 热/2 中/1 冷/null 证据不足 fail-closed），
  * hysteresis 闩锁（升档驻留 30s/降档 120s/断流 stale 快速降档），strategy.cycle
  * × token.cycleTag 等值路由（evaluate 内过滤，一处覆盖买/卖/去抖重评/回测四链）。
+ * 2026-09-28 v2（策略库一期）：strategy.cycle 字段泛化为 groups 表达式
+ * （'cycle==3'），loadStrategies 单点转换 + evaluate 对标签上下文求值——
+ * 本文件 C 段断言已随改；groups 机制的独立单测见 _test_strategy_library_groups.cjs。
  *
  * 覆盖：
  *   A. FA 判定（密/中/疏 → 3/2/1；tick<minTicks → null；age<warmup → null）
@@ -160,8 +163,8 @@ console.log('B. hysteresis（升档 30s / 降档 120s / stale 快速降档）');
 
 console.log = origLog; // 恢复（后续段允许正常输出；C 段策略加载日志保留）
 
-// ═══ C. loadStrategies cycle 归一 ═══
-console.log('C. loadStrategies cycle 脏值归一（1|2|3 外全 → null=全周期）');
+// ═══ C. loadStrategies cycle 归一（v2：strategy.cycle 字段 → groups 表达式）═══
+console.log('C. loadStrategies cycle 脏值归一（1|2|3 外全 → null=全周期；v2 转换为 groups 表达式）');
 {
   const factorIds = new Set(['tradeCount']);
   const se = new StrategyEngine();
@@ -174,13 +177,14 @@ console.log('C. loadStrategies cycle 脏值归一（1|2|3 外全 → null=全周
     base('s5', { cycle: null }),  // 显式 null → null
     base('s6'),                   // 未配 → null
   ], factorIds);
-  const cycles = Object.fromEntries(se.getAllStrategies().map(s => [s.id, s.cycle]));
-  check('合法 2 → 2', cycles.s1, 2);
-  check("字符串 '3' → null", cycles.s2, null);
-  check('越界 4 → null', cycles.s3, null);
-  check('小数 1.5 → null', cycles.s4, null);
-  check('显式 null → null', cycles.s5, null);
-  check('未配 → null', cycles.s6, null);
+  const groups = Object.fromEntries(se.getAllStrategies().map(s => [s.id, s.groups]));
+  check('合法 2 → groups "cycle==2"（v1 数字 v2 表达式等价转换）', groups.s1, 'cycle==2');
+  check("字符串 '3' → null", groups.s2, null);
+  check('越界 4 → null', groups.s3, null);
+  check('小数 1.5 → null', groups.s4, null);
+  check('显式 null → null', groups.s5, null);
+  check('未配 → null', groups.s6, null);
+  check('cycle 字段不再落在 strategy 对象（单一事实源 groups）', 'cycle' in se.getAllStrategies()[0], false);
 }
 
 // ═══ D. evaluate 过滤矩阵 ═══

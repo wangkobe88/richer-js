@@ -373,7 +373,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
           cooldownSec: s.cooldownSec,
-          // 行为周期分桶（2026-09-28）：透传桶标注，loadStrategies 内归一（脏值 → null=全周期）
+          // 组路由（策略库一期，2026-09-28）：groups 表达式透传（loadStrategies 内
+          // 归一 + 校验）；存量 cycle 数字仍在 normalizeGroups 内转换为等价表达式
+          groups: s.groups,
           cycle: s.cycle,
           enabled: true,
         });
@@ -397,7 +399,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           // 卡牌仓位（迁自 rich-js）：同买腿透传（卖腿额外接受 'all'）
           cards: s.cards,
           cooldownSec: s.cooldownSec,
-          // 行为周期分桶（2026-09-28）：透传桶标注，loadStrategies 内归一（脏值 → null=全周期）
+          // 组路由（策略库一期，2026-09-28）：groups 表达式透传（loadStrategies 内
+          // 归一 + 校验）；存量 cycle 数字仍在 normalizeGroups 内转换为等价表达式
+          groups: s.groups,
           cycle: s.cycle,
           enabled: true,
         });
@@ -456,9 +460,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     //   止损双腿兜底），不带 cycle 腿恒可见（存量实验零变化）
     this._cycleEnforce = !!(experimentConfig.tokenCycle && experimentConfig.tokenCycle.enforce);
     if (this._cycleEnforce) {
-      const _cycled = this._strategyEngine.getAllStrategies().filter(s => s.cycle != null).length;
+      const _cycled = this._strategyEngine.getAllStrategies().filter(s => s.groups != null).length;
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
-        `🔁 周期路由已启用（enforce）| 标注 cycle 的腿=${_cycled}/${this._strategyEngine.getStrategyCount()} | 桶标签=token.cycleTag（FA _cycleFactors 判定）`);
+        `🔁 周期路由已启用（enforce）| 标注 groups 的腿=${_cycled}/${this._strategyEngine.getStrategyCount()} | 桶标签=token.cycleTag（FA _cycleFactors 判定）`);
     }
 
     // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪

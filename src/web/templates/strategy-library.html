@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richer 交易系统 - 策略库</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
+    <style>
+        .hidden { display: none; }
+        select option { background-color: #374151; color: white; }
+        .side-badge-buy { background: #dcfce7; color: #166534; }
+        .side-badge-sell { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="min-h-screen">
+        <!-- 导航栏（复制 experiments.html，深色） -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-14">
+                    <div class="flex items-center space-x-1.5">
+                        <a href="/experiments" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">实验监控</a>
+                        <a href="/platform-tokens" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">平台代币</a>
+                        <a href="/token-early-trades" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">最早交易</a>
+                        <a href="/token-holders" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">持有者</a>
+                        <a href="/monitor" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">事件监控</a>
+                        <a href="/model-metrics" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">Daily更新</a>
+                        <a href="/strategy-library" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-blue-400 bg-gray-700">策略库</a>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <a href="/wallets" target="_blank" class="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-md text-xs font-medium text-white transition-colors">钱包</a>
+                        <a href="/wallet-analysis" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">钱包分析</a>
+                        <a href="/wallet-ave-query" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">AVE查询</a>
+                        <a href="/create-experiment" target="_blank" class="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded-md text-xs font-medium text-white transition-colors">创建实验</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+            <!-- 标题 + 操作条 -->
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">📚 策略库</h1>
+                    <p class="text-sm text-gray-500 mt-1">
+                        条目 = 一组同侧腿（「热桶卖侧 9 腿」「V2 买门」各成条目）。创建实验页「从库引用」展开进表单；
+                        快照语义——已建实验与库独立，改库/删库不影响运行。
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="btn-toggle-import"
+                            class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-sm font-medium">
+                        📥 从实验导入
+                    </button>
+                    <button type="button" id="btn-new"
+                            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
+                        + 新建条目
+                    </button>
+                </div>
+            </div>
+
+            <!-- 从实验导入面板 -->
+            <div id="import-panel" class="hidden bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                <h2 class="text-base font-semibold text-gray-800">📥 从实验导入</h2>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <select id="import-experiment-select" class="px-3 py-2 border border-gray-300 rounded-md text-sm min-w-[320px]">
+                        <option value="">— 选择实验 —</option>
+                    </select>
+                    <button type="button" id="btn-load-experiment-legs"
+                            class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm font-medium">
+                        加载该实验策略腿
+                    </button>
+                    <span class="text-xs text-gray-500">腿上的 cycle 数字标注自动转为 groups 表达式（cycle==N）</span>
+                </div>
+                <div id="import-legs-area" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="border border-green-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-green-800">📈 买入腿</h3>
+                            <button type="button" id="btn-import-buy"
+                                    class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-xs font-medium">
+                                导入选中腿进表单
+                            </button>
+                        </div>
+                        <div id="import-buy-legs" class="space-y-1.5 text-sm"></div>
+                    </div>
+                    <div class="border border-red-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-sm font-semibold text-red-800">📉 卖出腿</h3>
+                            <button type="button" id="btn-import-sell"
+                                    class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-medium">
+                                导入选中腿进表单
+                            </button>
+                        </div>
+                        <div id="import-sell-legs" class="space-y-1.5 text-sm"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 编辑/新建表单 -->
+            <div id="lib-form-card" class="hidden bg-white border border-indigo-300 rounded-lg p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-semibold text-gray-800" id="lib-form-title">新建条目</h2>
+                    <button type="button" id="btn-cancel-form" class="text-gray-400 hover:text-gray-700 text-sm">✕ 关闭</button>
+                </div>
+                <input type="hidden" id="lib-id">
+                <input type="hidden" id="lib-expected-version">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">名称（唯一）</label>
+                        <input type="text" id="lib-name" placeholder="如 sell-hot-v1"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">侧（创建后锁死）</label>
+                        <select id="lib-side" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                            <option value="buy">buy（买侧）</option>
+                            <option value="sell">sell（卖侧）</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">说明</label>
+                        <input type="text" id="lib-description" placeholder="人读说明（可选）"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-semibold text-gray-700">腿集合（<span id="lib-leg-count">0</span>）</h3>
+                        <button type="button" id="btn-add-leg"
+                                class="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-xs font-medium">
+                            + 添加腿
+                        </button>
+                    </div>
+                    <div id="lib-legs" class="space-y-2"></div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <button type="button" id="btn-save"
+                            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium">
+                        保存条目
+                    </button>
+                    <span id="lib-form-msg" class="text-sm"></span>
+                </div>
+            </div>
+
+            <!-- 条目列表 -->
+            <div class="space-y-3">
+                <div id="lib-list-loading" class="text-sm text-gray-500">加载中…</div>
+                <div id="lib-list" class="space-y-3"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        'use strict';
+
+        // ============ 状态 ============
+        let allItems = [];          // 列表缓存（编辑回填用）
+        let formLegs = [];          // 表单腿原始 JSON（保真基底，表单字段覆盖）
+        let groupVariables = null;  // 组变量注册表（帮助单源）
+
+        const $ = (id) => document.getElementById(id);
+
+        // ============ 列表加载/渲染 ============
+        async function loadList() {
+            $('lib-list-loading').textContent = '加载中…';
+            $('lib-list-loading').classList.remove('hidden');
+            try {
+                const res = await fetch('/api/strategy-library');
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error || '接口返回失败');
+                allItems = result.data;
+                renderList();
+            } catch (e) {
+                $('lib-list-loading').textContent = `加载失败: ${e.message}`;
+            }
+        }
+
+        function renderList() {
+            $('lib-list-loading').classList.add('hidden');
+            const list = $('lib-list');
+            list.innerHTML = '';
+            if (!allItems.length) {
+                list.innerHTML = '<p class="text-sm text-gray-500">库为空——点右上「新建条目」或「从实验导入」。</p>';
+                return;
+            }
+            for (const item of allItems) {
+                const legLines = (item.legs || []).map(l => {
+                    const bits = [`P${l.priority ?? '-'}`, l.condition || '(无 condition)'];
+                    if (l.groups) bits.push(`[${l.groups}]`);
+                    else if (l.cycle != null) bits.push(`[cycle:${l.cycle}]`);
+                    return bits.join(' ');
+                }).map(t => `<div class="text-xs text-gray-600 truncate" title="${escapeAttr(t)}">${escapeHtml(t)}</div>`).join('');
+                const card = document.createElement('div');
+                card.className = 'bg-white border border-gray-200 rounded-lg p-4';
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-3 flex-wrap">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="font-semibold text-gray-800">${escapeHtml(item.name)}</span>
+                                <span class="px-1.5 py-0.5 rounded text-xs font-medium ${item.side === 'buy' ? 'side-badge-buy' : 'side-badge-sell'}">${item.side === 'buy' ? '买' : '卖'}</span>
+                                <span class="text-xs text-gray-500">${item.legCount} 腿 · v${item.version} · 被 ${item.usageCount} 个实验引用 · 更新 ${new Date(item.updated_at).toLocaleString()}</span>
+                            </div>
+                            ${item.description ? `<div class="text-sm text-gray-500 mt-1">${escapeHtml(item.description)}</div>` : ''}
+                            <div class="mt-2 space-y-0.5">${legLines}</div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button type="button" data-act="edit" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs font-medium">编辑</button>
+                            <button type="button" data-act="delete" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-medium">删除</button>
+                        </div>
+                    </div>`;
+                card.querySelector('[data-act="edit"]').addEventListener('click', () => startEdit(item));
+                card.querySelector('[data-act="delete"]').addEventListener('click', () => removeItem(item));
+                list.appendChild(card);
+            }
+        }
+
+        // ============ 编辑/新建表单 ============
+        function showForm(title) {
+            $('lib-form-title').textContent = title;
+            $('lib-form-card').classList.remove('hidden');
+            $('lib-form-msg').textContent = '';
+            $('lib-form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function startNew() {
+            $('lib-id').value = '';
+            $('lib-expected-version').value = '';
+            $('lib-name').value = '';
+            $('lib-description').value = '';
+            $('lib-side').value = 'sell';
+            $('lib-side').disabled = false;
+            formLegs = [];
+            renderFormLegs();
+            showForm('新建条目');
+        }
+
+        async function startEdit(item) {
+            // 编辑用 getById 全量（列表已含 legs，直接用列表缓存项即可——同一形状）
+            $('lib-id').value = item.id;
+            $('lib-expected-version').value = item.version;
+            $('lib-name').value = item.name;
+            $('lib-description').value = item.description || '';
+            $('lib-side').value = item.side;
+            $('lib-side').disabled = true; // side 创建后锁死
+            formLegs = (item.legs || []).map(l => ({ ...l }));
+            renderFormLegs();
+            showForm(`编辑：${item.name}（v${item.version}）`);
+        }
+
+        function addFormLeg(leg = {}) {
+            formLegs.push({ ...leg });
+            renderFormLegs();
+        }
+
+        function removeFormLeg(i) {
+            formLegs.splice(i, 1);
+            renderFormLegs();
+        }
+
+        function renderFormLegs() {
+            const box = $('lib-legs');
+            box.innerHTML = '';
+            $('lib-leg-count').textContent = formLegs.length;
+            formLegs.forEach((leg, i) => {
+                const row = document.createElement('div');
+                row.className = 'border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2';
+                row.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-gray-700">腿 #${i + 1}</span>
+                        <button type="button" class="text-red-500 hover:text-red-700 text-sm">✕ 删腿</button>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-0.5">触发条件（必填，因子同创建页）</label>
+                        <input type="text" data-k="condition" value="${escapeAttr(leg.condition || '')}"
+                               placeholder="例如: profitPercent >= 30 AND holdDuration > 0"
+                               class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-0.5">优先级</label>
+                            <input type="number" data-k="priority" value="${leg.priority ?? 1}" min="1" max="100"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-0.5">最大执行次数</label>
+                            <input type="number" data-k="maxExecutions" value="${leg.maxExecutions ?? ''}" placeholder="不限" min="1"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-0.5">🃏 卡牌张数</label>
+                            <input type="text" data-k="cards" value="${escapeAttr(leg.cards ?? '')}" placeholder="正整数或 all"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-0.5">⏱️ 冷却（秒）</label>
+                            <input type="number" data-k="cooldownSec" value="${leg.cooldownSec ?? ''}" placeholder="不冷却" min="0" step="any"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-0.5">🏷️ groups（组路由，留空=全周期）</label>
+                            <input type="text" data-k="groups" value="${escapeAttr(leg.groups || (leg.cycle != null ? `cycle==${leg.cycle}` : ''))}"
+                                   placeholder="cycle==3"
+                                   class="w-full px-2 py-1.5 border border-indigo-200 rounded-md text-xs">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-0.5">卖出比例（0-1，卖腿）</label>
+                            <input type="number" data-k="sellPercentage" value="${leg.sellPercentage ?? ''}" placeholder="卡牌模式留空" min="0" max="1" step="any"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                        </div>
+                        <div class="flex items-end">
+                            <label class="flex items-center gap-2 text-xs text-gray-700 pb-1.5">
+                                <input type="checkbox" data-k="bypassDebounce" ${leg.bypassDebounce ? 'checked' : ''} class="w-4 h-4">
+                                去抖旁路（bypassDebounce）
+                            </label>
+                        </div>
+                    </div>
+                    <details class="text-xs">
+                        <summary class="cursor-pointer text-gray-500">高级条件（买腿预检/叙事直调/再检；展开编辑）</summary>
+                        <div class="grid grid-cols-1 gap-2 mt-2">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">首次购买检查条件</label>
+                                <input type="text" data-k="preBuyCheckCondition" value="${escapeAttr(leg.preBuyCheckCondition || '')}" placeholder="留空=不检查"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">再次购买检查条件</label>
+                                <input type="text" data-k="repeatBuyCheckCondition" value="${escapeAttr(leg.repeatBuyCheckCondition || '')}" placeholder="留空=不检查"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">叙事评级直调触发条件</label>
+                                <input type="text" data-k="narrativeCallCondition" value="${escapeAttr(leg.narrativeCallCondition || '')}" placeholder="留空=不调用"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                            </div>
+                        </div>
+                    </details>`;
+                row.querySelector('button').addEventListener('click', () => removeFormLeg(i));
+                box.appendChild(row);
+            });
+        }
+
+        /**
+         * 表单腿收集：以原始 JSON 为基底（保真 bypassDebounce 等任意机制字段），
+         * 表单字段覆盖；空值键删除（空字符串不落库）。
+         * 表单字段读写错配（如买腿填卖比例）服务端放行（引擎携带不生效）。
+         */
+        function collectFormLegs() {
+            return [...$('lib-legs').children].map((row, i) => {
+                const merged = { ...formLegs[i] };
+                delete merged.cycle; // 已转 groups，避免双源
+                const get = (k) => row.querySelector(`[data-k="${k}"]`);
+
+                merged.condition = get('condition').value.trim();
+                const priority = parseInt(get('priority').value);
+                if (Number.isFinite(priority)) merged.priority = priority; else delete merged.priority;
+
+                const maxEx = get('maxExecutions').value.trim();
+                if (maxEx === '') delete merged.maxExecutions;
+                else merged.maxExecutions = parseInt(maxEx);
+
+                for (const k of ['cards']) {
+                    const v = get(k).value.trim();
+                    if (v === '') delete merged[k]; else merged[k] = v;
+                }
+                for (const k of ['cooldownSec', 'sellPercentage']) {
+                    const v = get(k).value.trim();
+                    if (v === '') delete merged[k]; else merged[k] = parseFloat(v);
+                }
+                const groups = get('groups').value.trim();
+                if (groups === '') delete merged.groups; else merged.groups = groups;
+
+                merged.bypassDebounce = get('bypassDebounce').checked; // 勾选才落 true
+                if (!merged.bypassDebounce) delete merged.bypassDebounce;
+
+                for (const k of ['preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition']) {
+                    const v = get(k).value.trim();
+                    if (v === '') delete merged[k]; else merged[k] = v;
+                }
+                return merged;
+            });
+        }
+
+        async function saveItem() {
+            const msg = $('lib-form-msg');
+            msg.className = 'text-sm text-gray-500';
+            msg.textContent = '保存中…';
+            const id = $('lib-id').value;
+            const payload = {
+                name: $('lib-name').value.trim(),
+                description: $('lib-description').value.trim(),
+                legs: collectFormLegs(),
+            };
+            if (!payload.name) { msg.className = 'text-sm text-red-600'; msg.textContent = '名称必填'; return; }
+            try {
+                let res;
+                if (id) {
+                    res = await fetch(`/api/strategy-library/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...payload, expectedVersion: parseInt($('lib-expected-version').value) }),
+                    });
+                } else {
+                    payload.side = $('lib-side').value;
+                    res = await fetch('/api/strategy-library', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                }
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error || `HTTP ${res.status}`);
+                msg.className = 'text-sm text-green-600';
+                msg.textContent = `✅ 已保存（v${result.data.version}）`;
+                $('lib-form-card').classList.add('hidden');
+                await loadList();
+            } catch (e) {
+                msg.className = 'text-sm text-red-600';
+                msg.textContent = `保存失败: ${e.message}`;
+            }
+        }
+
+        async function removeItem(item) {
+            let usage = item.usageCount;
+            const ok = confirm(`删除条目「${item.name}」？\n\n快照语义：已建实验的腿是引用时的快照，删除不影响其运行；仅被引用统计不再计数。\n当前被 ${usage} 个实验引用。`);
+            if (!ok) return;
+            try {
+                const res = await fetch(`/api/strategy-library/${item.id}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error || `HTTP ${res.status}`);
+                await loadList();
+            } catch (e) {
+                alert(`删除失败: ${e.message}`);
+            }
+        }
+
+        // ============ 从实验导入 ============
+        async function loadExperimentOptions() {
+            try {
+                const res = await fetch('/api/experiments?limit=200');
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error || '接口返回失败');
+                const select = $('import-experiment-select');
+                select.innerHTML = '<option value="">— 选择实验 —</option>';
+                for (const exp of result.data) {
+                    const opt = document.createElement('option');
+                    opt.value = exp.id;
+                    opt.textContent = `${exp.experiment_name || exp.id}（${exp.trading_mode}/${exp.status}）`;
+                    select.appendChild(opt);
+                }
+            } catch (e) {
+                $('import-experiment-select').innerHTML = `<option value="">加载实验列表失败: ${e.message}</option>`;
+            }
+        }
+
+        // 实验腿缓存（renderImportLegs 纯渲染，importSelectedLegs 从缓存取勾选腿）
+        const importLegCache = { buy: [], sell: [] };
+
+        async function loadExperimentLegs() {
+            const expId = $('import-experiment-select').value;
+            if (!expId) { alert('请先选择实验'); return; }
+            $('import-legs-area').classList.remove('hidden');
+            $('import-buy-legs').innerHTML = '<p class="text-xs text-gray-500">加载中…</p>';
+            $('import-sell-legs').innerHTML = '';
+            try {
+                const res = await fetch(`/api/experiment/${expId}`);
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error || '接口返回失败');
+                const cfg = result.data.config?.strategiesConfig || {};
+                importLegCache.buy = cfg.buyStrategies || [];
+                importLegCache.sell = cfg.sellStrategies || [];
+                renderImportLegs('import-buy-legs', importLegCache.buy, 'buy');
+                renderImportLegs('import-sell-legs', importLegCache.sell, 'sell');
+            } catch (e) {
+                $('import-buy-legs').innerHTML = `<p class="text-xs text-red-500">加载失败: ${e.message}</p>`;
+            }
+        }
+
+        function renderImportLegs(containerId, legs, side) {
+            const box = $(containerId);
+            box.innerHTML = '';
+            if (!legs.length) {
+                box.innerHTML = `<p class="text-xs text-gray-500">该实验无${side === 'buy' ? '买' : '卖'}腿</p>`;
+                return;
+            }
+            legs.forEach((leg, i) => {
+                const bits = [`P${leg.priority ?? '-'}`, leg.condition || '(无 condition)'];
+                if (leg.groups) bits.push(`[${leg.groups}]`);
+                else if (leg.cycle != null) bits.push(`[cycle:${leg.cycle} → groups]`);
+                const label = document.createElement('label');
+                label.className = 'flex items-start gap-2 p-1.5 rounded hover:bg-gray-50 cursor-pointer';
+                label.innerHTML = `
+                    <input type="checkbox" data-i="${i}" checked class="w-4 h-4 mt-0.5 shrink-0">
+                    <span class="text-xs text-gray-700 break-all">${escapeHtml(bits.join(' '))}</span>`;
+                box.appendChild(label);
+            });
+        }
+
+        function importSelectedLegs(side) {
+            const box = $(side === 'buy' ? 'import-buy-legs' : 'import-sell-legs');
+            const expId = $('import-experiment-select').value;
+            const legs = importLegCache[side] || [];
+            const picked = [...box.querySelectorAll('input[type="checkbox"]:checked')].map(cb => legs[parseInt(cb.dataset.i)]);
+            if (!picked.length) { alert('请至少勾选一条腿'); return; }
+            // cycle 数字 → groups 表达式预填（单点转换语义与 loadStrategies normalizeGroups 一致）
+            const converted = picked.map(l => {
+                const { cycle, ...rest } = l;
+                if (rest.groups == null && cycle != null && [1, 2, 3].includes(cycle)) rest.groups = `cycle==${cycle}`;
+                return rest;
+            });
+            // 填充表单（覆盖式：导入即整组换入）
+            $('lib-id').value = '';
+            $('lib-expected-version').value = '';
+            $('lib-side').value = side;
+            $('lib-side').disabled = false;
+            const expName = $('import-experiment-select').selectedOptions[0]?.textContent?.split('（')[0] || expId.slice(0, 8);
+            $('lib-name').value = `${expName}-${side === 'buy' ? 'buy' : 'sell'}`;
+            $('lib-description').value = `从实验 ${expId} 导入（${converted.length} 腿）`;
+            formLegs = converted;
+            renderFormLegs();
+            showForm(`从实验导入（${side === 'buy' ? '买' : '卖'}侧 ${converted.length} 腿，确认后保存）`);
+        }
+
+        // ============ 工具 ============
+        function escapeHtml(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function escapeAttr(s) {
+            return escapeHtml(s).replace(/"/g, '&quot;');
+        }
+
+        // ============ 帮助：组变量注册表（单源下发） ============
+        async function loadGroupVariables() {
+            try {
+                const res = await fetch('/api/strategy-library/meta/variables');
+                const result = await res.json();
+                if (result.success) groupVariables = result.data;
+            } catch (e) { /* 帮助性质，失败静默 */ }
+        }
+
+        // ============ 事件绑定 + 启动 ============
+        $('btn-new').addEventListener('click', startNew);
+        $('btn-cancel-form').addEventListener('click', () => $('lib-form-card').classList.add('hidden'));
+        $('btn-add-leg').addEventListener('click', () => addFormLeg({}));
+        $('btn-save').addEventListener('click', saveItem);
+        $('btn-toggle-import').addEventListener('click', () => {
+            const panel = $('import-panel');
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden') && $('import-experiment-select').options.length <= 1) {
+                loadExperimentOptions();
+            }
+        });
+        $('btn-load-experiment-legs').addEventListener('click', () => loadExperimentLegs());
+        $('btn-import-buy').addEventListener('click', () => importSelectedLegs('buy'));
+        $('btn-import-sell').addEventListener('click', () => importSelectedLegs('sell'));
+
+        loadList();
+        loadGroupVariables();
+    </script>
+</body>
+</html>

@@ -23,6 +23,7 @@ const { TwitterService } = require('./services/TwitterService');
 const PriceRefreshService = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 const narrativeRoutes = require('./web/routes/narrative.routes');
+const strategyLibraryRoutes = require('./web/routes/strategy-library.routes');
 
 // buildLLMAnalysis 是 ESM 模块，首次使用时动态导入并缓存
 let _buildLLMAnalysis = null;
@@ -319,6 +320,11 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/model_metrics.html'));
     });
 
+    // 策略库管理页面（策略库一期，2026-09-28：条目 CRUD + 从实验导入，全局不挂实验）
+    this.app.get('/strategy-library', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/strategy-library.html'));
+    });
+
     // 实验详情页面（必须放在最后，作为默认路由）
     this.app.get('/experiment/:id', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));
@@ -326,6 +332,9 @@ class RicherJsWebServer {
 
     // ============ API路由：叙事分析 ============
     this.app.use('/api/narrative', narrativeRoutes);
+
+    // ============ API路由：策略库（策略库一期，2026-09-28）============
+    this.app.use('/api/strategy-library', strategyLibraryRoutes);
 
     // ============ API路由：事件监控 ============
 
@@ -826,6 +835,25 @@ class RicherJsWebServer {
               buyStrategies: strategy.buyStrategies || [],
               sellStrategies: strategy.sellStrategies || []
             };
+
+            // 策略库引用元数据（策略库一期，2026-09-28）：前端「从库引用」展开腿后
+            // 随载荷上报的 provenance（libId/name/side/version/legCount/snapshotAt）。
+            // 纯记录语义——运行链零消费（快照 copy-in：腿已展开进数组，不依赖库表）；
+            // 形状校验后透传，缺 libraryRefs 的旧载荷零影响
+            if (Array.isArray(strategy.libraryRefs) && strategy.libraryRefs.length > 0) {
+              const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+              const validRefs = strategy.libraryRefs.every(r =>
+                r && typeof r === 'object'
+                && typeof r.libId === 'string' && UUID_RE.test(r.libId)
+                && Number.isInteger(r.legCount) && r.legCount > 0);
+              if (!validRefs) {
+                return res.status(400).json({
+                  success: false,
+                  error: 'libraryRefs 形状非法（每项需 libId(uuid) + legCount 正整数）'
+                });
+              }
+              config.strategiesConfig.libraryRefs = strategy.libraryRefs;
+            }
           }
 
           // 交易金额配置

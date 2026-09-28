@@ -596,9 +596,15 @@
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
                         <h2 class="text-lg font-semibold text-gray-800">📈 买入策略</h2>
-                        <button type="button" onclick="addBuyStrategy()" class="btn-add">
-                            <span>+ 添加买入条件</span>
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="openLibraryPicker('buy')"
+                                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
+                                📚 从库引用
+                            </button>
+                            <button type="button" onclick="addBuyStrategy()" class="btn-add">
+                                <span>+ 添加买入条件</span>
+                            </button>
+                        </div>
                     </div>
                     <div id="buy-strategies-container">
                         <!-- 默认添加一个早止买入策略 -->
@@ -609,9 +615,15 @@
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
                         <h2 class="text-lg font-semibold text-gray-800">📉 卖出策略</h2>
-                        <button type="button" onclick="addSellStrategy()" class="btn-add">
-                            <span>+ 添加卖出条件</span>
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="openLibraryPicker('sell')"
+                                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
+                                📚 从库引用
+                            </button>
+                            <button type="button" onclick="addSellStrategy()" class="btn-add">
+                                <span>+ 添加卖出条件</span>
+                            </button>
+                        </div>
                     </div>
                     <div id="sell-strategies-container">
                         <!-- 默认添加止盈1和止盈2策略 -->
@@ -719,6 +731,13 @@
                                 <li><code>OR</code>: 或条件（任一条件满足）</li>
                                 <li><code>> >= < <= == !=</code>: 比较运算符</li>
                                 <li>⚠️ 逻辑词只能写 <code>AND</code>/<code>OR</code>，不支持 <code>&&</code>/<code>||</code>/<code>===</code>：误写 <code>&&</code> 或 <code>||</code> 不会报错，但其后的条件会被静默忽略（条件被截断）</li>
+                            </ul>
+
+                            <h4>组路由（groups，从库引用携带）</h4>
+                            <ul>
+                                <li>腿可带 <code>groups</code> 表达式限定只对特定行为周期桶生效：<code>cycle==3</code>（热桶，tps≥0.5 或 tick 间隔≤2s）/ <code>cycle==2</code>（中桶）/ <code>cycle==1</code>（冷桶）；支持 <code>cycle!=3</code>、<code>cycle>=2</code>、<code>cycle==1 OR cycle==3</code> 组合</li>
+                                <li>档位为 null（证据不足/热身期/实验未开 tokenCycle.enforce）时该腿不可见（fail-closed，不评估不触发），无 groups 的腿恒可见</li>
+                                <li>「从库引用」展开的腿自动携带库内 groups；快照语义——引用后本实验腿与库独立，改库不影响已建实验（重启实验进程才生效新腿）</li>
                             </ul>
 
                             <h4>预设策略模板</h4>
@@ -898,10 +917,31 @@
         </div>
     </template>
 
+    <!-- 策略库引用浮层（策略库一期，2026-09-28）：展开库腿进表单（copy-in 快照） -->
+    <div id="library-picker-overlay" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+         onclick="closeLibraryPicker()">
+        <div class="bg-white rounded-lg max-w-3xl w-full max-h-[80vh] overflow-y-auto p-5"
+             onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-gray-800">📚 从策略库引用（<span id="library-picker-side"></span>）</h3>
+                <button type="button" onclick="closeLibraryPicker()"
+                        class="px-2 py-1 text-gray-500 hover:text-gray-800 text-xl leading-none">×</button>
+            </div>
+            <p class="text-xs text-gray-500 mb-3">
+                引用 = 展开库内腿进下方表单（可再编辑）；实验与库从此独立（快照语义）。
+                组变量说明见页面底部「条件表达式语法帮助 → 组路由」。
+            </p>
+            <div id="library-picker-list" class="space-y-3"></div>
+        </div>
+    </div>
+
     <script>
         // 全局变量
         let buyStrategyCount = 0;
         let sellStrategyCount = 0;
+        // 策略库引用 provenance（策略库一期）：从库引用展开时记录
+        // {libId, name, side, version, legCount, snapshotAt}，提交随载荷上报（服务端纯记录）
+        let libraryRefs = [];
 
         // DOM 元素
         const form = document.getElementById('experiment-form');
@@ -1619,6 +1659,72 @@
             }
         }
 
+        // === 策略库引用（策略库一期，2026-09-28）===
+        // 浮层拉取库条目 → 逐腿 addXxxStrategy 展开进表单（rawConfig 整包保真，groups 等机制字段自动携带）
+        async function openLibraryPicker(side) {
+            const overlay = document.getElementById('library-picker-overlay');
+            document.getElementById('library-picker-side').textContent = side === 'buy' ? '买侧' : '卖侧';
+            const list = document.getElementById('library-picker-list');
+            list.innerHTML = '<p class="text-gray-500 text-sm">加载中…</p>';
+            overlay.classList.remove('hidden');
+            try {
+                const res = await fetch(`/api/strategy-library?side=${side}`);
+                const result = await res.json();
+                if (!result.success) throw new Error(result.error || '接口返回失败');
+                if (!result.data.length) {
+                    list.innerHTML = `<p class="text-gray-500 text-sm">库中暂无${side === 'buy' ? '买' : '卖'}侧条目——去
+                        <a href="/strategy-library" target="_blank" class="text-indigo-600 underline">策略库页</a> 创建或从实验导入</p>`;
+                    return;
+                }
+                list.innerHTML = '';
+                for (const item of result.data) {
+                    const legLines = (item.legs || []).map(l => {
+                        const bits = [`P${l.priority ?? '-'}`, l.condition || ''];
+                        if (l.groups) bits.push(`[${l.groups}]`);
+                        return bits.join(' ');
+                    }).map(t => `<div class="text-xs text-gray-600 truncate" title="${t.replace(/"/g, '&quot;')}">${t}</div>`).join('');
+                    const card = document.createElement('div');
+                    card.className = 'border border-gray-200 rounded-lg p-3';
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-medium text-gray-800">${item.name}</span>
+                                    <span class="px-1.5 py-0.5 rounded text-xs font-medium ${item.side === 'buy' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${item.side === 'buy' ? '买' : '卖'}</span>
+                                    <span class="text-xs text-gray-500">${item.legs.length} 腿 · v${item.version} · 被 ${item.usageCount} 实验引用</span>
+                                </div>
+                                ${item.description ? `<div class="text-xs text-gray-500 mt-0.5">${item.description}</div>` : ''}
+                                <div class="mt-1 space-y-0.5">${legLines}</div>
+                            </div>
+                            <button type="button" class="shrink-0 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
+                                引用 ${item.legs.length} 腿
+                            </button>
+                        </div>`;
+                    card.querySelector('button').addEventListener('click', () => importLibraryItem(item));
+                    list.appendChild(card);
+                }
+            } catch (e) {
+                list.innerHTML = `<p class="text-red-500 text-sm">加载失败: ${e.message}</p>`;
+            }
+        }
+
+        function importLibraryItem(item) {
+            const add = item.side === 'buy' ? addBuyStrategy : addSellStrategy;
+            for (const leg of item.legs) add({ ...leg });
+            if (!libraryRefs.some(r => r.libId === item.id)) {
+                libraryRefs.push({
+                    libId: item.id, name: item.name, side: item.side,
+                    version: item.version, legCount: item.legs.length,
+                    snapshotAt: new Date().toISOString(),
+                });
+            }
+            closeLibraryPicker();
+        }
+
+        function closeLibraryPicker() {
+            document.getElementById('library-picker-overlay').classList.add('hidden');
+        }
+
         // 删除策略
         function removeStrategy(button) {
             const card = button.closest('.strategy-card');
@@ -1774,6 +1880,8 @@
                 strategy: {
                     buyStrategies: buyStrategies,
                     sellStrategies: sellStrategies,
+                    // 策略库引用 provenance（纯记录，服务端形状校验后透传；无引用时省略）
+                    ...(libraryRefs.length > 0 ? { libraryRefs } : {}),
                     // 永久阻断条件（取第一个策略的值）
                     permanentBlockCondition: (() => {
                         const input = buyContainer.querySelector('input[name="buy_permanent_block_condition_0"]');

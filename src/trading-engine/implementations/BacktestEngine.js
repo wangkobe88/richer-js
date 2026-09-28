@@ -204,7 +204,9 @@ class BacktestEngine extends AbstractTradingEngine {
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
           cooldownSec: s.cooldownSec,
-          // 行为周期分桶（2026-09-28）：透传桶标注，loadStrategies 内归一（脏值 → null=全周期）
+          // 组路由（策略库一期，2026-09-28）：groups 表达式透传（loadStrategies 内
+          // 归一 + 校验）；存量 cycle 数字仍在 normalizeGroups 内转换为等价表达式
+          groups: s.groups,
           cycle: s.cycle,
           enabled: true,
         });
@@ -267,9 +269,9 @@ class BacktestEngine extends AbstractTradingEngine {
     //     _cycleFactors 防前视：判定只用 asOf 前数据）；缺段 = 带 cycle 腿全隐 fail-closed
     this._cycleEnforce = !!(experimentConfig.tokenCycle && experimentConfig.tokenCycle.enforce);
     if (this._cycleEnforce) {
-      const _cycled = this._strategyEngine.getAllStrategies().filter(s => s.cycle != null).length;
+      const _cycled = this._strategyEngine.getAllStrategies().filter(s => s.groups != null).length;
       this.logger.info(this._experimentId, 'BacktestEngine',
-        `🔁 周期路由已启用（enforce）| 标注 cycle 的腿=${_cycled}/${this._strategyEngine.getStrategyCount()}`);
+        `🔁 周期路由已启用（enforce）| 标注 groups 的腿=${_cycled}/${this._strategyEngine.getStrategyCount()}`);
     }
 
     // 7. 批量写入缓冲区

@@ -6,6 +6,7 @@
  */
 
 const { ConditionEvaluator } = require('./ConditionEvaluator');
+const { normalizeGroups, parseGroupsExpression, buildTagContext } = require('./group-variables');
 
 /**
  * 卡牌张数归一化（迁自 rich-js 卡牌仓位机制）
@@ -36,6 +37,8 @@ class StrategyEngine {
     constructor(config = {}) {
         this._strategies = [];
         this._evaluator = new ConditionEvaluator();
+        // 组路由求值器（独立实例：AST 缓存域分离，组表达式与因子条件互不挤占）
+        this._groupEvaluator = new ConditionEvaluator();
 
         // 初始化策略
         if (config.strategies) {
@@ -117,11 +120,26 @@ class StrategyEngine {
                         const n = Number(config.cooldownSec);
                         return Number.isFinite(n) && n > 0 ? n : null;
                     })(),
-                    // 行为周期分桶（卖出臂周期路由，2026-09-28）：1=冷桶 2=中桶 3=热桶；
-                    // 脏值/未配 → null=全周期=旧语义（不带 cycle 的腿恒可见，存量零变化）
-                    cycle: Number.isInteger(config.cycle) && [1, 2, 3].includes(config.cycle)
-                        ? config.cycle : null
+                    // 组路由（策略库一期，cycle v1 泛化 2026-09-28）：groups 表达式
+                    // （'cycle==3' 形态），evaluate 内对 token 标签上下文求值；
+                    // null=恒可见=旧语义。存量 config.cycle 数字在 normalizeGroups 内
+                    // 转换为等价表达式（DB 存量不迁移）；脏 groups → throw 实验拒绝
+                    // 启动（warn+降级 null=腿恒可见，危险方向的静默变化）
+                    groups: normalizeGroups(config),
+                    groupAst: null,
+                    groupVars: null
                 };
+
+                // 组表达式解析 + AST 级校验（脏值 throw，与 condition 语法错同款 fail-fast）
+                if (strategy.groups != null) {
+                    try {
+                        const parsed = parseGroupsExpression(strategy.groups);
+                        strategy.groupAst = parsed.ast;
+                        strategy.groupVars = parsed.vars;
+                    } catch (groupError) {
+                        throw new Error(`策略[${config.id}] groups 表达式非法: ${groupError.message}`);
+                    }
+                }
 
                 this._strategies.push(strategy);
 
@@ -132,7 +150,8 @@ class StrategyEngine {
                 const cardsText = strategy.cards != null
                     ? (strategy.cards === 'all' ? ' | 全清卡' : ` | ${strategy.cards}卡`) : '';
                 const cooldownText = strategy.cooldownSec != null ? ` | 冷却${strategy.cooldownSec}s` : '';
-                console.log(`✅ [${enabledText}] ${strategy.name}: ${actionText}${maxExecText} | 优先级:${strategy.priority}${cardsText}${cooldownText}`);
+                const groupsText = strategy.groups != null ? ` | 组:${strategy.groups}` : '';
+                console.log(`✅ [${enabledText}] ${strategy.name}: ${actionText}${maxExecText} | 优先级:${strategy.priority}${cardsText}${cooldownText}${groupsText}`);
                 console.log(`   条件: ${config.condition}`);
 
             } catch (error) {
@@ -165,12 +184,19 @@ class StrategyEngine {
                 continue;
             }
 
-            // 行为周期分桶（卖出臂周期路由，2026-09-28）：带 cycle 腿只在 tokenData.cycleTag
-            // 等值时可见；cycleTag null（证据不足/未启用）→ 全隐 fail-closed（止损双腿兜底）。
-            // 与 maxExecutions/cooldown 同构：高优先级腿被隐 → 低优先级腿可顶上
-            if (strategy.cycle != null && (!tokenData || tokenData.cycleTag == null
-                || strategy.cycle !== tokenData.cycleTag)) {
-                continue;
+            // 组路由（策略库一期，cycle v1 泛化 2026-09-28）：带 groups 腿对 token 标签
+            // 上下文求值；引用变量值 null（证据不足/未启用 enforce）→ 全隐 fail-closed
+            //（止损双腿兜底）。null 门先于表达式求值（封 IS NULL 逃生口；比较类本身
+            // 也 null→false，双保险）。与 maxExecutions/cooldown 同构：高优先级腿被隐
+            // → 低优先级腿可顶上
+            if (strategy.groups != null) {
+                const tagCtx = buildTagContext(tokenData);
+                if (strategy.groupVars.some(v => tagCtx[v] == null)) {
+                    continue;
+                }
+                if (!this._groupEvaluator.evaluate(strategy.groupAst, tagCtx)) {
+                    continue;
+                }
             }
 
             // 检查是否启用
