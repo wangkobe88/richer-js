@@ -66,6 +66,9 @@ WSS 订阅由**常驻 watcher**（`src/watcher/`，单进程双平台，182 scre
 │   token_create/graduation/quote_set → wss_events (kind 行；重试队列)     │
 │   60s heartbeat 行 → 实验侧断供判据 + 人工查活（7 天清理）               │
 │   60s 断流自愈（消息静默≥5min → forceReconnect；自引擎迁入）             │
+│   logs 订阅带 topic0 白名单（TOPIC0_MAP，2026-09-28 ANKR 降费 flap -74%/  │
+│   fourmeme -42%；unknownTopic0 计数归零=新事件类型发现盲化，诊断时临时    │
+│   去掉订阅 params 的 topics 字段重订阅一天）                              │
 └─────────────────────────────────────────────────────────────────────────┘
      │ wss_price_ticks (exp_id=NULL)        │ wss_events
      ▼                                      ▼
