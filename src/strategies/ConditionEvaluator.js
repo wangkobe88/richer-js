@@ -40,6 +40,62 @@ class ConditionEvaluator {
     }
 
     /**
+     * 从 buy condition 表达式提取 age 的范围上下界，供 FactorAggregator
+     * preFilter 粗筛（pumpfun 回迁：跳过 condition 本就会拒绝的 tick 的因子
+     * 构建，纯提效）。age 口径 = 分钟（与 FA buildFactorMap 的 age 因子同锚
+     * 同单位：锚 createdAtMs）。
+     *
+     * 仅提取 AND 链中的 age 比较子句；OR 分支无法确定单一范围 → 返回 null
+     * 安全降级（不过滤）。阈值 = condition 实际范围，绝不偏紧（偏紧会漏买）。
+     * 调用方（FA）用「严格大于上界 / 严格小于下界」判定跳过，保证对 < 与
+     * <= operator 都不漏买（边界值交回 condition 评估）。
+     *
+     * @param {string} condition - 条件表达式字符串
+     * @returns {{minAgeMinutes?:number, maxAgeMinutes?:number}|null}
+     *          整体 null 表示无法提取（不过滤）；字段缺省由调用方填 0/Infinity
+     */
+    static extractBuyRangeFromCondition(condition) {
+        if (!condition || typeof condition !== 'string') return null;
+        try {
+            const ast = new ConditionEvaluator().parseCondition(condition);
+            return ConditionEvaluator._walkBuyRange(ast);
+        } catch {
+            return null; // 语法错/认不出 → 不过滤（fail-open 方向）
+        }
+    }
+
+    /** 递归提取 age 范围；AND 取最紧（上界取小/下界取大），OR → null（安全降级） */
+    static _walkBuyRange(node) {
+        if (!node) return null;
+        if (node.type === 'AND') {
+            const l = ConditionEvaluator._walkBuyRange(node.left);
+            const r = ConditionEvaluator._walkBuyRange(node.right);
+            if (!l && !r) return null;
+            if (!l) return r;
+            if (!r) return l;
+            const TIGHTER = { maxAgeMinutes: Math.min, minAgeMinutes: Math.max };
+            const out = {};
+            for (const k of new Set([...Object.keys(l), ...Object.keys(r)])) {
+                const a = l[k], b = r[k];
+                const v = a == null ? b : (b == null ? a : TIGHTER[k](a, b));
+                if (v != null) out[k] = v;
+            }
+            return out;
+        }
+        if (node.type === 'OR') return null; // OR 无法确定单一范围，安全降级
+        if (node.type === 'COMPARISON') {
+            const num = Number(node.right);
+            if (!Number.isFinite(num)) return null;
+            if (node.left === 'age') {
+                if (node.operator === '<' || node.operator === '<=') return { maxAgeMinutes: num };
+                if (node.operator === '>' || node.operator === '>=') return { minAgeMinutes: num };
+            }
+            return null;
+        }
+        return null; // IS_NULL 等其他节点
+    }
+
+    /**
      * 解析条件表达式（递归下降解析器）
      * @private
      * @param {string} input - 输入字符串

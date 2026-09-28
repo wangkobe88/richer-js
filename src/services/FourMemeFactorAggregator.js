@@ -228,6 +228,12 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         this._states = new Map(); // tokenAddress → state
 
+        // preFilter（pumpfun 回迁，回测专属默认关）：age 区间数组（并集语义），
+        // 未持仓 token 的 age 落在全部区间外 → _buildFactorMap 跳过因子构建。
+        // null = 不过滤（live/回测未开启时的恒常态，零行为变化）
+        this._preFilter = null;
+        this._preFilterSkipped = 0;
+
         // Q 组：creator → token → {firstTs, firstPb, maxPb}（回迁批 2.5；BNB 口径免汇率）。
         // pruneStaleTokens 删 state 不清此表——前作死票的峰值必须留痕到滑出 24h 窗（自剪枝见 _updateCreatorPrior）
         this._creatorPriors = new Map();
@@ -936,6 +942,35 @@ class FourMemeFactorAggregator extends EventEmitter {
         const state = this._states.get(tokenAddress);
         if (!state) return null;
         return this._buildFactorMap(state, now);
+    }
+
+    /**
+     * 注入 buy condition age 区间粗筛（pumpfun 回迁；回测专属，引擎侧
+     * config.backtest.faPreFilter===true 才调用，live 恒不注入零变化）。
+     * 多买策略并行：传区间数组（每策略一个，从各自 buy condition AST 提取），
+     * token 落在【任一】区间内即计算（并集）；数组元素字段缺省填 0/Infinity；
+     * 传 null/undefined/空数组清除（不过滤）。
+     *
+     * ⚠红线（plan 裁定）：跳过 = buildFactorMap 返回 null → 引擎侧 TPA
+     * checkAndTrigger / cycle latch 推进一并跳过 = 决策行为变化（TPA 触发数、
+     * cycleTag 演化可能与未开启时不一致），故默认关；开启前须开/关双跑
+     * trades 一致才允许实验级启用
+     * @param {Array<{minAgeMinutes?:number, maxAgeMinutes?:number}>|null} ranges
+     */
+    setPreFilter(ranges) {
+        if (!ranges || (Array.isArray(ranges) && ranges.length === 0)) {
+            this._preFilter = null;
+            return;
+        }
+        this._preFilter = (Array.isArray(ranges) ? ranges : [ranges]).map(r => ({
+            minAgeMinutes: r.minAgeMinutes ?? 0,
+            maxAgeMinutes: r.maxAgeMinutes ?? Infinity,
+        }));
+    }
+
+    /** preFilter 跳过计数（回测收尾探针） */
+    getPreFilterSkipped() {
+        return this._preFilterSkipped;
     }
 
     // ═══════════════ 持仓状态（per-position）═══════════════
@@ -1797,6 +1832,19 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         // age：分钟（契约口径：创建时间锚点，非收集时间）
         const age = state.createdAtMs ? (now - state.createdAtMs) / 60000 : 0;
+
+        // ── preFilter：未持仓且 age 落在【全部】买策略区间并集外 → 跳过因子构建（纯提效）──
+        // 阈值由引擎从各买腿 condition AST 提取注入（setPreFilter）；严格小于下界/严格
+        // 大于上界才跳过，对 < 与 <= operator 都不漏买（边界值交回 condition 评估——age
+        // 与 condition 里的 age 是同一算式产物，出区间 ⇒ AND 链 condition 必 false）。
+        // 持仓 token（_positions 非空）永不跳过——卖腿/止损需实时因子
+        if (this._preFilter && state._positions.size === 0) {
+            const inAnyRange = this._preFilter.some(r => !(age < r.minAgeMinutes || age > r.maxAgeMinutes));
+            if (!inAnyRange) {
+                this._preFilterSkipped++;
+                return null;
+            }
+        }
 
         // earlyReturn / riseSpeed：BNB 比值（=USD 比值，免汇率）
         let earlyReturn = 0;

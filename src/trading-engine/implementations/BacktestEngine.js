@@ -231,6 +231,31 @@ class BacktestEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'BacktestEngine',
       `✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
+    // 6.1 FA preFilter（pumpfun 回迁，**默认关**）：backtest.faPreFilter===true 时从每个
+    // 买腿 condition AST 提取 age 区间（分钟，与 FA age 因子同锚同单位），多策略取
+    // 【并集】注入 FA——未持仓 token 的 age 落在全部区间外 → buildFactorMap 跳过因子
+    // 构建（纯提效：AND 链 condition 出 age 区间必 false，不漏买）。红线：跳过会连带
+    // 跳过 TPA checkAndTrigger 与 cycle latch 推进 = 决策行为变化（触发数/分桶演化可能
+    // 漂移），故默认关；开启前须开/关双跑 trades 一致才允许实验级启用
+    if (backtestConfig.faPreFilter === true) {
+      const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
+      const ranges = [];
+      for (const s of this._strategyEngine.getAllStrategies()) {
+        if (s.action !== 'buy') continue;
+        const pf = s.condition ? ConditionEvaluator.extractBuyRangeFromCondition(String(s.condition)) : null;
+        if (pf) ranges.push(pf);
+      }
+      this._factorAggregator.setPreFilter(ranges.length > 0 ? ranges : null);
+      if (ranges.length > 0) {
+        const fmt = pf => `age∈[${pf.minAgeMinutes ?? 0},${pf.maxAgeMinutes ?? '∞'})`;
+        this.logger.info(this._experimentId, 'preFilter',
+          `FA preFilter 已启用（默认关，实验级显式开启）：${ranges.length} 个买腿区间并集 ${ranges.map(fmt).join(' | ')}`);
+      } else {
+        this.logger.info(this._experimentId, 'preFilter',
+          'FA preFilter 开启但无可提取 age 区间的买腿（OR 结构/无 age 子句）→ 不过滤');
+      }
+    }
+
     // 5. 购买前检查服务（与实时引擎同源构建）
     const { PreBuyCheckService } = require('../pre-check/PreBuyCheckService');
     const { dbManager } = require('../../services/dbManager');
@@ -604,6 +629,7 @@ class BacktestEngine extends AbstractTradingEngine {
         ` | narrativeBlocked=${this._narrativeBlockedTokens.size}` +
         ` | memCacheHit=${this._narrativeCaller.getMemoryCacheHits()}` +
         ` | earlyReplayHit=${this._preBuyCheckService.earlyParticipantService.getReplayHits()}` +
+        ` | preFilterSkipped=${this._factorAggregator.getPreFilterSkipped()}` +
         (this._tokenPositionAnalyzer
           ? ` | TPA: ${JSON.stringify(this._tokenPositionAnalyzer.getStats())}` +
             (this._tokenPositionAnalyzer.getProfileStats()
