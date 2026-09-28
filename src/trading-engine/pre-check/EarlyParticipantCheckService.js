@@ -51,6 +51,32 @@ class EarlyParticipantCheckService {
   }
 
   /**
+   * 注入回放 ticks 内存索引（回测专属；TPA setHistoricalTicks 同款形态：
+   * 引擎启动期一次性注入、查询侧单点切换；实时/虚拟引擎从不注入 → 零变化）
+   *
+   * bc4f756e 性能案（2026-09-28）：回测期每触发买信号的早期参与者检查原本现查
+   * wss_price_ticks（90s 窗，一 signal 一次 DB 往返），回放数据却已全量在内存。
+   * 索引 = Map<token_address, tick[]>（tick 为 BacktestEngine._ticks 元素形状，
+   * 桶内须按 (timestamp, log_index) 升序——注入方负责排序）。
+   *
+   * 口径注记（架构性偏离，与决策数据自洽）：索引只含回放窗内 tick（回测加载时
+   * 已滤时间窗），DB 直查可含窗外行——checkTime 距回放窗起点 <90s 时两者有差，
+   * 以回放口径为准（窗外 tick 不参与任何决策，本就不该进统计）。token 级桶
+   * miss = 窗口内确定无成交（等价 SQL 空结果，走真实空统计拒绝语义）。
+   *
+   * @param {Map<string, Array<Object>>|null} index - 回放 ticks 索引（null = 摘除，回退 DB 路径）
+   */
+  setReplayTicksIndex(index) {
+    this._replayTicksIndex = index || null;
+    this._replayHits = 0;
+  }
+
+  /** 回放索引累计命中次数（性能探针，回放收尾汇总用） */
+  getReplayHits() {
+    return this._replayHits || 0;
+  }
+
+  /**
    * 执行早期参与者检查
    * @param {string} tokenAddress - 代币地址（wss_price_ticks 查询键）
    * @param {string} innerPair - 内盘交易对标识（如 0x..._fo，仅用于日志与 early_participant_trades 存档，不参与查询）
@@ -250,6 +276,15 @@ class EarlyParticipantCheckService {
    * @private
    */
   async _fetchEarlyTrades(tokenAddress, checkTime) {
+    // 回放内存索引优先（回测注入后零 DB 往返；语义逐条对齐下方 SQL：
+    // 闭区间 [checkTime-90s, checkTime] / price_outlier=false / price_usd 非空 /
+    // (block_time, log_index) 升序 / 过滤后截断 maxTickRows）
+    if (this._replayTicksIndex) {
+      this._replayHits = (this._replayHits || 0) + 1;
+      const rows = this._queryReplayWindow(tokenAddress, checkTime);
+      return rows.map(row => this._mapTickRow(row, tokenAddress));
+    }
+
     if (!this.supabase) {
       throw new Error('Supabase 客户端未初始化，无法查询 wss_price_ticks');
     }
@@ -289,6 +324,60 @@ class EarlyParticipantCheckService {
     });
 
     return rows.map(row => this._mapTickRow(row, tokenAddress));
+  }
+
+  /**
+   * 回放索引窗口查询（语义镜像 _fetchEarlyTrades 的 SQL）
+   * 桶按 timestamp 升序 → 二分定位闭区间 [checkTime-90s, checkTime]（毫秒数值
+   * 比较与 SQL block_time ISO 字符串比较等价——索引 tick.timestamp 即 DB
+   * block_time 经 getTime() 往返所得，毫秒无损）；过滤后截断，产出伪 DB 行
+   * （字段形状与 SQL select 列一致，block_time 回填 ISO 串）喂 _mapTickRow
+   * ——映射单一代码路径，AVE 兼容形状零漂移。
+   * @private
+   * @param {string} tokenAddress - 代币地址（桶 key，与 DB 查询同为大小写敏感原样匹配）
+   * @param {number} checkTime - 检查时间戳（秒）
+   * @returns {Array<Object>} 伪 DB 行数组（可能为空 = 窗口内无成交）
+   */
+  _queryReplayWindow(tokenAddress, checkTime) {
+    const bucket = this._replayTicksIndex.get(tokenAddress);
+    if (!bucket || bucket.length === 0) return [];
+
+    const fromMs = (checkTime - this.config.fixedWindowSeconds) * 1000;
+    const toMs = checkTime * 1000;
+    // lowerBound(fromMs)：首个 timestamp >= fromMs 的下标
+    let lo = 0, hi = bucket.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (bucket[mid].timestamp < fromMs) lo = mid + 1; else hi = mid;
+    }
+    const start = lo;
+    // upperBound(toMs)：首个 timestamp > toMs 的下标（闭区间右端）
+    lo = start; hi = bucket.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (bucket[mid].timestamp <= toMs) lo = mid + 1; else hi = mid;
+    }
+
+    const rows = [];
+    for (let i = start; i < lo; i++) {
+      const t = bucket[i];
+      if (t.price_outlier !== false) continue;          // SQL .eq('price_outlier', false)
+      if (t.price_usd === null) continue;               // SQL .not('price_usd', 'is', null)
+      if (rows.length >= this.config.maxTickRows) break; // SQL LIMIT（过滤后截断）
+      rows.push({
+        token_address: t.token_address,
+        tx_hash: t.tx_hash,
+        log_index: t.log_index,
+        trade_type: t.trade_type,
+        trader_address: t.trader_address,
+        price_usd: t.price_usd,
+        bnb_amount: t.bnb_amount,
+        token_amount: t.token_amount,
+        block_number: t.block_number,
+        block_time: new Date(t.timestamp).toISOString(),
+      });
+    }
+    return rows;
   }
 
   /**

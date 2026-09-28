@@ -345,6 +345,26 @@ class BacktestEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'BacktestEngine',
       `📊 回放数据就绪: ${this._ticks.length} 笔 tick，${this._tokenMeta.size} 个代币元数据`);
 
+    // 9.4 EarlyParticipant 回放 ticks 索引（bc4f756e 性能案 2026-09-28）：回测期每触发
+    // 买信号的早期参与者检查原本现查 wss_price_ticks（90s 窗，一 signal 一次 DB 往返）；
+    // 回放数据已全量在内存——按 token 分桶预建索引注入检查服务（TPA setHistoricalTicks
+    // 同款形态）。桶内 (timestamp, log_index) 升序对齐 SQL order by block_time, log_index；
+    // 查询语义（闭区间/outlier=false/usd 非空/过滤后截断/桶 miss=空统计）见服务侧注释
+    {
+      const _epIdx = new Map();
+      for (const t of this._ticks) {
+        let arr = _epIdx.get(t.token_address);
+        if (!arr) { arr = []; _epIdx.set(t.token_address, arr); }
+        arr.push(t);
+      }
+      for (const arr of _epIdx.values()) {
+        arr.sort((a, b) => (a.timestamp - b.timestamp) || ((a.log_index ?? 0) - (b.log_index ?? 0)));
+      }
+      this._preBuyCheckService.earlyParticipantService.setReplayTicksIndex(_epIdx);
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `EarlyParticipant 回放索引注入: ${this._ticks.length} 笔 → ${_epIdx.size} 个 token 桶`);
+    }
+
     // 9.5 TPA 预载三连（回迁批 4，回测启动期一次性成本换回放期零 DB 往返）：
     //     offline 画像全表预载（内存 Map）→ 本实验全量 ticks 注入 trader→ticks 索引
     //     （miss/stale 路径零查询；口径=注入实验口径 ticks，平台过滤后——架构性偏离 #4
@@ -564,6 +584,7 @@ class BacktestEngine extends AbstractTradingEngine {
         `信号 ${this.metrics.totalSignals}/${this.metrics.executedSignals} | 交易 ${this.metrics.totalTrades}` +
         `（成功 ${this.metrics.successfulTrades} 失败 ${this.metrics.failedTrades}）| debounceFired=${this.metrics.debounceFired}` +
         ` | narrativeBlocked=${this._narrativeBlockedTokens.size}` +
+        ` | earlyReplayHit=${this._preBuyCheckService.earlyParticipantService.getReplayHits()}` +
         (this._tokenPositionAnalyzer
           ? ` | TPA: ${JSON.stringify(this._tokenPositionAnalyzer.getStats())}` +
             (this._tokenPositionAnalyzer.getProfileStats()
