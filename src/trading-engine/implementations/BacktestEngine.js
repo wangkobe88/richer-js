@@ -426,9 +426,14 @@ class BacktestEngine extends AbstractTradingEngine {
    * 回放 tick 载入（watcher 架构口径：token 集合 + platform，不再按 experiment_id——
    * 新行 experiment_id=NULL，旧口径会漏掉全部 watcher 写入的行）。
    * token 集来自 _tokenMeta（源实验 experiment_tokens 全量），100 地址/批（PostgREST
-   * .in 护栏，参照 build-token-profiles.cjs）+ platform 过滤 + id 升序分页；
+   * .in 护栏，参照 build-token-profiles.cjs）+ platform 过滤 + id 升序 keyset 分页
+   * （.gt('id', cursor)，P2-3：OFFSET 深翻页时 planner 逐页重扫前缀，keyset 每页
+   * 从游标续扫；语义与 OFFSET 严格等价——id 升序、无重复无遗漏）；禁 spread push
+   * （大页展开参数溢出风险）。
    * 分块各自有序但块间无序 → 全部载入后全局按 id 归并排序，再内存过滤时间窗。
    * 全局累计上限 100 万 tick（MAX_TICK_PAGES × TICK_PAGE_SIZE）。
+   * 建议索引 scripts/sql/create-index-wss-ticks-token-platform-id.sql（token_address,
+   * platform, id）——无索引也能跑（keyset 语义不依赖索引），有索引才拿全部收益。
    */
   async _loadWssTicks() {
     const supabase = this._getClient();
@@ -441,24 +446,25 @@ class BacktestEngine extends AbstractTradingEngine {
       // statement timeout（2026-09-27 182 实测）；单值 .eq 是存量回测一直走的索引
       // 路径，语义与 .in 并集严格等价（结果合并后同样全局 id 归并）
       for (const platform of this._platforms) {
-        let from = 0;
+        let cursor = 0;
         for (let page = 0; page < MAX_TICK_PAGES; page++) {
           const { data, error } = await supabase
             .from('wss_price_ticks')
             .select('id, token_address, trade_type, trader_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier, platform')
             .in('token_address', chunk)
             .eq('platform', platform)
+            .gt('id', cursor)
             .order('id', { ascending: true })
-            .range(from, from + TICK_PAGE_SIZE - 1);
+            .limit(TICK_PAGE_SIZE);
           if (error) throw new Error(`读取 wss_price_ticks 失败: ${error.message}`);
           if (!data || data.length === 0) break;
-          raw.push(...data);
+          for (const row of data) raw.push(row);
           this.metrics.processedDataPoints += data.length;
           if (raw.length > MAX_TICK_PAGES * TICK_PAGE_SIZE) {
             throw new Error('回放 tick 总量超出分页保护上限（100 万）');
           }
           if (data.length < TICK_PAGE_SIZE) break;
-          from += TICK_PAGE_SIZE;
+          cursor = data[data.length - 1].id;
         }
       }
     }
