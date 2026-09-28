@@ -14,6 +14,7 @@
  *   D. evaluate 过滤矩阵（腿 cycle × cycleTag 等值可见 + null 全隐 + 无 cycle 恒可见）
  *   E. 桶切换后旧桶 strategyExecutions 计数保留
  *   F. getFactorKeys 含 5 新键 + 时序白名单 4 键（旧因子集 → null 不掩盖）
+ *   G. 遗留修复：毕业补卖（幂等后置 + 扫描兜底 + 买入点挂点）+ timeStop <=0 边界
  *
  * 用法：node scripts/_test_token_cycle_routing.cjs
  */
@@ -21,6 +22,7 @@
 
 const FourMemeFactorAggregator = require('../src/services/FourMemeFactorAggregator');
 const { StrategyEngine } = require('../src/strategies/StrategyEngine');
+const { FourMemeWssTradingEngine } = require('../src/trading-engine/implementations/FourMemeWssTradingEngine');
 const { buildFactorValuesForTimeSeries } = require('../src/trading-engine/core/FactorBuilder');
 
 let pass = 0, fail = 0;
@@ -261,5 +263,76 @@ console.log('F. getFactorKeys 5 新键 + 时序白名单 4 键');
     [2, 2, 0.21, 5000]);
 }
 
-console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
-process.exitCode = fail === 0 ? 0 : 1;
+// ═══ G. 遗留修复（毕业竞态补卖 + timeStop <=0）═══
+console.log('G. 遗留修复（盘古案毕业竞态 / timeStop 持平盲区）');
+
+function makeEngine(fields = {}) {
+  return Object.assign(Object.create(FourMemeWssTradingEngine.prototype), {
+    _experimentId: 'test-exp',
+    logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+    _isLive: false,
+    _graduationSoldTokens: new Set(),
+    _cycleEnforce: false,
+    ...fields,
+  });
+}
+
+(async () => {
+
+  // G1 _emitGraduationSell 幂等标记后置到卖出成功（失败不标记 → 扫描可重试）
+  {
+    const eng = makeEngine({
+      _factorAggregator: { buildFactorMap: () => ({ graduationProgress: 0.9, profitPercent: 10 }) },
+      _emitSellSignal: async () => ({ success: false, reason: '卖出执行中' }),
+    });
+    const r1 = await eng._emitGraduationSell({ token: '0xg1', symbol: 'G1' }, { fundsBnb: 15 });
+    check('卖出失败 → 幂等集不标记（可重试）', [r1.success, eng._graduationSoldTokens.size], [false, 0]);
+
+    eng._emitSellSignal = async () => ({ success: true });
+    const r2 = await eng._emitGraduationSell({ token: '0xg1', symbol: 'G1' }, {});
+    check('卖出成功 → 幂等集标记', [r2.success, eng._graduationSoldTokens.size], [true, 1]);
+
+    let calls = 0;
+    eng._emitSellSignal = async () => { calls++; return { success: true }; };
+    const r3 = await eng._emitGraduationSell({ token: '0xg1', symbol: 'G1' }, {});
+    check('已标记 → 短路不再调卖出链', [calls, r3], [0, undefined]);
+  }
+
+  // G2 _scanHoldingsStopLoss 毕业兜底（先于止损；Set 已含走止损；live 不走）
+  {
+    async function runScan({ graduated, inSet, isLive }) {
+      const stopCalls = [], gradCalls = [];
+      const eng = makeEngine({
+        _isLive: isLive,
+        _stopLossEnabled: true, _stopLossPricePct: -50,
+        _graduationSoldTokens: new Set(inSet ? ['0xscan'] : []),
+        _getAllHoldings: () => [{ tokenAddress: '0xscan' }],
+        _tokenPool: { getToken: () => ({ token: '0xscan', status: 'bought' }) },
+        _factorAggregator: {
+          buildFactorMap: () => ({ profitPercent: -55, holdDuration: 100 }),
+          getTokenState: () => ({ graduated, lastFundsBnb: 15 }),
+        },
+        _sellingTokens: new Set(), _buyingTokens: new Set(),
+        _emitStopLossSell: async () => { stopCalls.push(1); },
+        _emitGraduationSell: async () => { gradCalls.push(1); return { success: true }; },
+      });
+      await eng._scanHoldingsStopLoss();
+      return { stopCalls: stopCalls.length, gradCalls: gradCalls.length };
+    }
+    check('已毕业未卖 → 毕业补卖且不走止损', await runScan({ graduated: true, inSet: false, isLive: false }), { stopCalls: 0, gradCalls: 1 });
+    check('已毕业已卖（Set 含）→ 走止损（回归）', await runScan({ graduated: true, inSet: true, isLive: false }), { stopCalls: 1, gradCalls: 0 });
+    check('未毕业 → 走止损（回归）', await runScan({ graduated: false, inSet: false, isLive: false }), { stopCalls: 1, gradCalls: 0 });
+    check('live → 不走毕业补卖（人工处置语义）', await runScan({ graduated: true, inSet: false, isLive: true }), { stopCalls: 1, gradCalls: 0 });
+  }
+
+  // G3 timeStop <=0：断流冻结票 profit 恒 0 也能触发（盘古案盲区）
+  {
+    const eng = makeEngine({ _stopLossEnabled: true, _stopLossTimeSec: 3600, _stopLossPricePct: -50 });
+    check('超时 + profit 恰 0 → time 命中（<=0）',
+      eng._stopLossHit({ profitPercent: 0, holdDuration: 3700 }).kind, 'time');
+    check('超时 + 盈利 → 不触发（回归）', eng._stopLossHit({ profitPercent: 1, holdDuration: 3700 }), null);
+  }
+
+  console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
+  process.exitCode = fail === 0 ? 0 : 1;
+})();

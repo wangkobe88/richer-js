@@ -2,8 +2,8 @@
 /**
  * 引擎级止损双腿（时间止损/价格止损）——本地零 DB 单测
  *
- * 背景（2026-09-27 用户裁定，c5945f36 11 买 0 卖冻结实跑触发）：
- *   ① 持有超 60min 仍浮亏（profitPercent < 0）→ 全清
+ * 背景（2026-09-27 用户裁定，c5945f36 11 买 0 卖冻结实跑触发；2026-09-28 盘古案改 <=0）：
+ *   ① 持有超 60min 仍浮亏或持平（profitPercent <= 0）→ 全清（断流冻结票 profit 恒 0）
  *   ② 现价跌破买入成本 -50%（profitPercent <= -50）→ 全清
  * 断流 token 无 tick → tick 驱动卖腿全部冻结，扫描（scanIntervalSec）是
  * 唯一触发路径；扫描只判止损双腿，不跑策略腿（P1-P8 断流不评估语义维持）。
@@ -40,6 +40,8 @@ function makeEngine(fields = {}) {
     _stopLossTimeSec: null,
     _stopLossPricePct: null,
     _stopLossScanMs: null,
+    _cycleEnforce: false,                 // 周期路由未启用（扫描内 cycleTag 同步分支跳过）
+    _graduationSoldTokens: new Set(),     // 毕业兜底分支（virtual）读取
     ...fields,
   });
 }
@@ -55,7 +57,7 @@ console.log('A. _stopLossHit 判定矩阵（time=60min / price=-50）');
   check('时间命中 61min 且亏损', eng._stopLossHit({ profitPercent: -1, holdDuration: 3601 }).kind, 'time');
   check('浅亏 -0.1% 也算亏损（时间腿）', eng._stopLossHit({ profitPercent: -0.1, holdDuration: 3601 }).kind, 'time');
   check('超时但盈利 → null', eng._stopLossHit({ profitPercent: 1, holdDuration: 3700 }), null);
-  check('超时但恰 0%（不属亏损）→ null', eng._stopLossHit({ profitPercent: 0, holdDuration: 3700 }), null);
+  check('超时 + 恰 0% → time 命中（<=0，断流冻结票盘古案盲区）', eng._stopLossHit({ profitPercent: 0, holdDuration: 3700 }).kind, 'time');
   check('亏损但未超时（59min）→ null', eng._stopLossHit({ profitPercent: -30, holdDuration: 3540 }), null);
   check('双命中取 price（更深的优先标注）', eng._stopLossHit({ profitPercent: -60, holdDuration: 3700 }).kind, 'price');
   check('profit null → null', eng._stopLossHit({ profitPercent: null, holdDuration: 3700 }), null);
@@ -99,7 +101,7 @@ console.log('C. 持仓扫描（断流兜底路径）');
       _stopLossEnabled: true, _stopLossTimeSec: 3600, _stopLossPricePct: -50,
       _getAllHoldings: () => holdings,
       _tokenPool: { getToken: (addr) => tokenByAddr[addr] || null },
-      _factorAggregator: { buildFactorMap: (addr, now) => { buildCalls.push({ addr, now }); return factorsByAddr[addr]; } },
+      _factorAggregator: { buildFactorMap: (addr, now) => { buildCalls.push({ addr, now }); return factorsByAddr[addr]; }, getTokenState: () => null },
       _sellingTokens: new Set(), _buyingTokens: new Set(),
       _emitStopLossSell: async (token, factors, hit, tick) => { calls.push({ addr: token.token, hit, tick }); },
     });
@@ -139,7 +141,7 @@ console.log('C. 持仓扫描（断流兜底路径）');
       _stopLossEnabled: true, _stopLossPricePct: -50,
       _getAllHoldings: () => [{ tokenAddress: '0xs' }, { tokenAddress: '0xb' }],
       _tokenPool: { getToken: (a) => ({ token: a, status: 'bought' }) },
-      _factorAggregator: { buildFactorMap: () => ({ profitPercent: -90, holdDuration: 99999 }) },
+      _factorAggregator: { buildFactorMap: () => ({ profitPercent: -90, holdDuration: 99999 }), getTokenState: () => null },
       _sellingTokens: new Set(['0xs']), _buyingTokens: new Set(['0xb']),
       _emitStopLossSell: async (t) => { calls.push(t.token); },
     });
@@ -163,7 +165,7 @@ console.log('C. 持仓扫描（断流兜底路径）');
       _stopLossEnabled: true, _stopLossPricePct: -50,
       _getAllHoldings: () => [{ tokenAddress: '0xhit' }, { tokenAddress: '0xmiss' }],
       _tokenPool: { getToken: (a) => ({ token: a, status: 'bought' }) },
-      _factorAggregator: { buildFactorMap: (a) => (a === '0xhit' ? { profitPercent: -90, holdDuration: 100 } : { profitPercent: -1, holdDuration: 100 }) },
+      _factorAggregator: { buildFactorMap: (a) => (a === '0xhit' ? { profitPercent: -90, holdDuration: 100 } : { profitPercent: -1, holdDuration: 100 }), getTokenState: () => null },
       _sellingTokens: new Set(), _buyingTokens: new Set(),
       _emitStopLossSell: async () => {},
       _evaluateSellPath: async () => { strategyLegCalls++; },

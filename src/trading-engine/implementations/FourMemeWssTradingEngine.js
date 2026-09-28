@@ -429,7 +429,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       `交易金额配置 | tradeAmount=${this._tradeAmount}${this._cardsEnabled ? ` | 🃏 卡牌模式 perCardBNB=${this._perCardBNB}` : ''}`);
 
     // 6.5 引擎级止损双腿（用户裁定 2026-09-27，c5945f36 11 买 0 卖冻结实跑触发）：
-    //   ① 时间止损：持有超 timeStopMinutes 仍浮亏（profitPercent < 0）→ 全清
+    //   ① 时间止损：持有超 timeStopMinutes 仍浮亏或持平（profitPercent <= 0）→ 全清
+    //     （<=0 而非 <0：断流冻结票 profit 恒 0，<0 会永远不触发——盘古案盲区）
     //   ② 价格止损：现价跌破买入成本 priceStopPercent（如 -50 = 跌 50%）→ 全清
     // 不配 stopLoss 段 = 机制完全关闭（存量实验零变化）；两条规则独立可配。
     // 触发双挂点：tick 即时（活票）+ 持仓扫描（断流票无 tick 永不进 _onFactorsUpdated，
@@ -444,7 +445,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._stopLossEnabled = !!(this._stopLossTimeSec || this._stopLossPricePct);
     if (this._stopLossEnabled) {
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
-        `🛡️ 止损双腿已启用 | ${this._stopLossTimeSec != null ? `时间止损: 持有>${Math.round(this._stopLossTimeSec / 60)}min仍亏损全清 ` : ''}` +
+        `🛡️ 止损双腿已启用 | ${this._stopLossTimeSec != null ? `时间止损: 持有>${Math.round(this._stopLossTimeSec / 60)}min仍浮亏或持平全清 ` : ''}` +
         `${this._stopLossPricePct != null ? `价格止损: 现价≤成本${this._stopLossPricePct}%全清 ` : ''}` +
         `| 持仓扫描=${this._stopLossScanMs != null ? this._stopLossScanMs / 1000 + 's' : '未配置（仅 tick 路径）'}（断流兜底）`);
     }
@@ -1243,6 +1244,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           buyTime: Date.now(),
         });
 
+        // 毕业竞态补卖（盘古案 2026-09-28，virtual）：graduation 事件先于买入到达时
+        // _handleGraduation 因 status!=='bought' no-op，买入即断流冻结。买入成功点查
+        // FA graduated 标记直接补毕业全清（markAsBought 已置位；幂等在 _emitGraduationSell）。
+        // live 不适用——毕业持仓走 Telegram 人工告警处置（语义见 _handleGraduation）
+        if (!this._isLive && faState?.graduated && !this._graduationSoldTokens.has(token.token)) {
+          this._emitGraduationSell(token, { fundsBnb: faState.lastFundsBnb ?? null })
+            .catch(e => this.logger.error(this._experimentId, 'Graduation',
+              `买入点毕业竞态补卖失败 | ${token.symbol} ${e.message}`));
+        }
+
         this.logger.info(this._experimentId, 'BuyEval',
           `✅ 买入成功${this._isLive ? '(live)' : ''} | ${token.symbol} price=${execPriceUsd.toExponential(4)} amount=${this._buyAmountFor(signal)}${this._cardsEnabled ? `(${signal.cards ?? 1}卡)` : ''} 余额=${this.currentBalance.toFixed(4)}`);
         return { success: true };
@@ -1259,7 +1270,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   /**
    * 引擎级止损双腿判定（配置 stopLoss 段启用；纯读 factors 不动状态）。
    * 返回命中描述或 null；price 先判（两条同时命中时标注更深的那条，全清同效）。
-   * 因子口径与策略腿同源：profitPercent=相对 FA buyState 成本（%）/ holdDuration=秒
+   * 因子口径与策略腿同源：profitPercent=相对 FA buyState 成本（%）/ holdDuration=秒。
+   * 时间腿 <=0 而非 <0：断流冻结票 FA 价格不动 profit 恒 0，<0 永不触发（盘古案盲区）
    */
   _stopLossHit(factors) {
     if (!this._stopLossEnabled) return null;
@@ -1269,7 +1281,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       return { kind: 'price', profitPercent: profit };
     }
     if (this._stopLossTimeSec != null && Number.isFinite(hold) && hold > this._stopLossTimeSec
-        && Number.isFinite(profit) && profit < 0) {
+        && Number.isFinite(profit) && profit <= 0) {
       return { kind: 'time', profitPercent: profit, holdDuration: hold };
     }
     return null;
@@ -1315,6 +1327,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       // 周期路由同步点（断流票 stale 降档）：buildFactorMap 顺带推进 _cycleLatch，
       // 此处把结果写进 token.cycleTag（恢复零星 tick 后 evaluate 用最新档）
       if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
+      // 毕业兜底（盘古案，virtual）：graduation 事件路径的卖出失败（幂等标记后置到
+      // 成功，失败不标记）在此重试——毕业票断流，扫描是唯一重试路径。先于止损判定
+      //（毕业全清语义正确且卖出价更可靠）
+      if (!this._isLive) {
+        const st = this._factorAggregator.getTokenState(tokenAddress);
+        if (st?.graduated && !this._graduationSoldTokens.has(tokenAddress)) {
+          await this._emitGraduationSell(token, { fundsBnb: st.lastFundsBnb ?? null });
+          continue;
+        }
+      }
       const hit = this._stopLossHit(factors);
       if (hit) {
         await this._emitStopLossSell(token, factors, hit, null);
@@ -2129,13 +2151,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * sellPercentage=1/bypassDebounce）直接走 _emitSellSignal 全清链——signals/trades/
    * 卡账本/累亏记账副作用全复用。选全清而非等价 P3+P8 卖 3/4 剩 1/4：virtual 冻结
    * 与全清估值同价只差 0.5% 费，全清释放 PM 资金与卡牌。卖出价 = 断流前最后可靠价
-   * （buildFactorMap 的 _relPriceBnb）。卖出失败无重试路径（事件不重放）——但毕业票
-   * 若仍来 tick（flap 毕业后短窗）策略腿仍可卖，风险敞口有限。
+   * （buildFactorMap 的 _relPriceBnb）。幂等标记后置到卖出成功：卖出失败（DB/执行
+   * 异常/恰在卖出中）不标记 → 持仓扫描兜底重试（盘古案 2026-09-28 前为「无重试
+   * 路径」盲区）；并发双调被 _emitSellSignal 内 _sellingTokens 挡住，无重复卖出。
    */
   async _emitGraduationSell(token, info) {
     const tokenAddress = token.token;
     if (this._graduationSoldTokens.has(tokenAddress)) return; // graduation 事件重复派发幂等（实测同事件两遍）
-    this._graduationSoldTokens.add(tokenAddress);
     const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
     if (!factors) return;
     const strategy = {
@@ -2146,7 +2168,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'Graduation',
       `${token.symbol || tokenAddress.slice(0, 10)} 毕业事件驱动全清 | funds=${info?.fundsBnb} BNB ` +
       `余仓按断流前最后可靠价落袋 graduationProgress=${factors.graduationProgress?.toFixed(3)}`);
-    return this._emitSellSignal(token, strategy, factors, null);
+    const result = await this._emitSellSignal(token, strategy, factors, null);
+    if (result && result.success) this._graduationSoldTokens.add(tokenAddress);
+    return result;
   }
 
   // ==================== 守护 intervals ====================
