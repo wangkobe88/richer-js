@@ -8,6 +8,7 @@
       "enabled": true,
       "scanIntervalMs": 30000,
       "retryWindowSec": 300,
+      "noPublicInfoRetryWindowSec": 1800,
       "tradeSurgeThreshold": 20,
       "maxRetriesPerToken": 5,
       "maxPerScan": 2

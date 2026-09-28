@@ -32,6 +32,48 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C26 FOMOON 0xb5e1 —— 「先发币后补推文」落在重试域外 → no_public_info 纳入重试域（2026-09-28）★
+
+**现象**：用户质询 FOMOON（0xb5e17933501712485d2ec6662679409006767777，fourmeme，
+name=聚势赴月 / symbol=FOMOON，taxToken）为何没过叙事分析，随后追问「现在取数据还
+是空吗」。`token_narrative`（09-27 16:55:24Z 分析，创建 16:51:16 后 4min，
+prompt_type=minimal）：`pass=false, rating=low`，挂在规则层 `no_public_info`（score 10
+= credibility 5 + virality 5 双底线，「缺少任何有效的公开信息来源」），未到 Jev——
+首析时三源全空：four.meme 元数据空、IPFS meta 空模板（**不可变恒空**）、GMGN link
+未聚合（有 risk 无社媒，成功调用缓存 1d）。
+
+**根因（时间线反转）**：公告推文（x.com/Geenylfg/status/2104255723743957139，
+snowflake 解码 17:03:54Z）**比链上创建晚 12m38s、比首析晚 8m30s**；GMGN 随后聚合出
+推文 + 官网 fomoon.tech（次日已 502，一次性站特征）。首析时数据确实为空，按当时数据
+判定本身正确——与 fPay（C19）同族的「先发币、后发推」竞态，但 fail 形状不同：
+fPay 挂 `validationStage='address'`（有语料、地址未公示），FOMOON 挂
+`ruleName='no_public_info'`（语料整体缺失）。
+
+**三重救不了（机制缺口）**：
+1. **规则域外**：PrecheckFailRetry 只认 `validationStage='address'`（§4.8 fPay 域）；
+   no_public_info 是 ruleName 形状（两类 details 形状互斥）→ 不候选
+2. **时间域外**：即便纳入，300s 窗盖不住 12m38s 推文延迟
+3. **缓存空转**：GMGN 成功调用缓存 `maxAge:1d`——重试若不删缓存行，5 次全部命中
+   首析的空社媒缓存，拿到同样的 no_public_info（本次实查验证：FOMOON 行 10h 后
+   仍是旧缓存语义，要到次日 16:55Z 才自然过期）
+
+**裁定（用户，2026-09-28）**：no_public_info 也在首析后补重试几次；独立窗口 **30min**
+（address 域 300s 不动，两者独立配窗）；**重试前删该 token 的 GMGN 缓存行**强制重打
+（GMGN 付费配额语义扩展：从「仅叙事直调」到含重试链路——重试低频可控：ticks 增量门
+≥20 + attempts<5 + 每轮≤2）。
+
+**落地**（§4.8 扩展段）：`classifyFailShape` 两域候选（address / no_public_info）；
+`noPublicInfoRetryWindowSec=1800` 按域选窗；no_public_info 重试前
+`ExternalResourceCache.invalidate('gmgn:token:bsc:<addr>')`（失败跳过本轮不烧配额、
+attempts 不计）；analyze 参数 `{ignoreCache:true, enrichSocialByGmgn:true}`——
+**不传 enrichSocialByGmgn 则 GMGN 补源链不执行**（four.meme 元数据/IPFS 不可变恒空，
+GMGN 是唯一可变补源，C10 结论），重试必空转；成功判定按触发形状（仍同形状 fail =
+未解决；拿到语料后 Jev 评 low 属「已解决」——语料到位，评级归 Jev）。单测 35 断言
+零 DB 全过（address 域 9 节零回归 + 新域候选/独立窗/参数/invalidate/成功判定）。
+
+**遗留**：FOMOON 本体已出 30min 窗救不回（终局 low 维持）；`isNoPublicInfoBlock`
+直调穿透（BRF 批次）与重试链路无冲突（ignoreCache 本就穿透 token_narrative 层）。
+
 ### C25 久留美 0xfedf —— 角色IP币被 rcp 门 veto 后 12.6 倍毕业 → J1.16 角色豁免（2026-09-28）★
 
 **现象**：用户质询久留美（0xfedf19759ba9c45b1a8345a2bde916b38acc7777，four.meme，
@@ -1245,6 +1287,19 @@ engine 常驻进程主线程，`config/narrative-engine.json` → `engine.preche
 这两表）；写入仍走 NarrativeAnalyzer→NarrativeRepository 同链路。重析成功（地址命中
 → prestage → 分类落库 + fail 行覆盖）→ 行不再候选自动停止；仍 fail → 窗口内按增量
 再试。单测：`scripts/_test_precheck_fail_retry.cjs`（25 断言零 DB 全过）。
+
+**no_public_info 域扩展（09-28，C26 FOMOON 案，用户裁定）**：「先发币、后补推文」
+（推文比创建晚 12m38s）落在 address 域外三重救不了（规则域/时间域/GMGN 1d 缓存空转）。
+候选形状扩为两域：`classifyFailShape`（address：`details.validationStage` /
+no_public_info：`details.ruleName`，两类形状互斥，其余规则形状仍不候选）；窗口按域
+独立（`noPublicInfoRetryWindowSec` 缺省 **1800s**，address 域 300s 零变化；扫描回看窗
+取两域 max+300s）；no_public_info 重试三件套：① `ExternalResourceCache.invalidate
+('gmgn:token:bsc:<addr>')` 定点失效 GMGN 缓存（**失败跳过本轮不烧 analyze 配额、
+attempts 不计**，stats.gmgnInvalidateFailSkips 计数）② `analyze(addr, {ignoreCache:true,
+enrichSocialByGmgn:true})`——不传 enrichSocialByGmgn 则 GMGN 补源链不执行，重试必
+空转 ③ 成功判定按触发形状（仍同形状 fail=未解决；拿到语料后 Jev 评 low 属已解决）。
+GMGN 配额语义同步扩展（用户裁定）：从「仅叙事直调」到含重试链路（低频：ticks 门 +
+attempts<5 + 每轮≤2）。单测扩至 35 断言（address 域 9 节零回归）。
 
 ### 4.9 叙事否决信号短路（09-27，交易引擎侧）
 
