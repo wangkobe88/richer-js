@@ -2135,6 +2135,22 @@ class RicherJsWebServer {
       }
     });
 
+    // 获取卖出信号的 cycle 档位序列（token-returns 页「行为周期」列数据源）
+    // 轻量窄列端点：只拉卖信号 trendFactors cycle 键 + 腿名，不拉 metadata 大字段
+    this.app.get('/api/experiment/:id/cycle-signals', async (req, res) => {
+      try {
+        const data = await this.dataService.getCycleSellSignals(req.params.id);
+        res.json({
+          success: true,
+          data,
+          count: data.length
+        });
+      } catch (error) {
+        this.logger.error('WebServer', '获取卖出信号 cycle 档位失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // 获取拒绝信号统计
     this.app.get('/api/experiment/:id/rejection-stats', async (req, res) => {
       try {

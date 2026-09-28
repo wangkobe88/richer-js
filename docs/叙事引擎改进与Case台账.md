@@ -32,6 +32,61 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C28 iNu 0xf578b8 —— 偷借其它代币推特蹲号 14 秒抢发，C 类截词叙事误放 → J1.17 cashtag 改道 W 类（2026-09-28）★
+
+**现象**：用户质询 0xf578b84ba599b44baea6d766e5cb3421a77a7777（iNu，flap 税盘非 BNB 计价，
+09-28 07:46:51 创建，rating=high(3) 放行买入）——「这个应该是偷借其它代币的推特发的币」。
+
+**语料真相**：deployer 把 twitterUrl 指到 @theunipcs（Unipcs/Bonk Guy，32.7 万粉、蓝标）
+的一条回复 `"@Mikesi30 @iNuApple $INU"`；被回复的 Mike S（5.4 万粉）长文讨论的是 **RH
+Chain 上 @iNuApple 发行的另一个 INU 代币**（holders/mcap/与 APPL 配对，全是那个币的事）。
+回复 07:46:37 → 建币 07:46:51，**14 秒蹲号抢发**。GMGN：bundler 16 / sniper 6 / fresh 11
+/ imageDup 4 / creator_close（典型蹲号画像，但 gmgn_info 不参与叙事评分）。
+
+**每道门为何放行（全部擦线）**：
+1. event_category：**C（个人表态）0.52 argmax 压过 W（Web3 资产）0.25**——真身是骑乘
+   已存在的 Web3 资产（真 INU），但 Jev 读成「KOL 个人表态截词」→ W 类「被骑资产须
+   极端影响力」数学门（w_product_score 0.96@0，若走 W 必拦）根本没启用
+2. C 类数学：B 档 27（Unipcs 32.7 万粉撑量级）+ 传播 25.4 + 时效 15（14 秒 within_7d
+   满分）= **67.4 过 60 线，只富余 7.4**
+3. name_referent：super_ip 0.54（Apple 的「iPhone, iPad, now iNu」i 前缀联想）——阻断侧
+   （notable 0.2 + minor 0.2 + common 0.04）= 0.44 < 0.5，J1.10 截词阻断没触发（若按
+   J1.12 忠实呈现前提判 notable_other——iNu 是变体拼接非忠实使用——0.94 ≥ 0.5 就拦了）；
+   同一 0.54 也豁免了 C8 骑乘改道（subject_self+super_ip 0.56 ≥ 0.5 但 super_ip 单项
+   ≥ 0.5 豁免）
+4. brand_hijack 题没问：normalize('iNu')='inu' 不在 BRAND_HIJACK_KEYWORDS（且该题语义
+   是知名品牌劫持，不覆盖「另一个代币的 ticker」）
+5. 关联性 exact_match 20/20——「iNu」与推文核心词 $INU 完全一致，但**这个词本身就是
+   那个代币的 ticker**，不是推文新造的词
+6. rule 0.52 同名蓝筹：AVE 搜索 BSC 单链，真身在 RH Chain 搜不到（跨链同名盲区）
+
+**裁定（用户，2026-09-28）**：**「推文里面有明确的代币 ticker，那么肯定说的是一个
+web3 资产了，应该走 W」**——语料推文含与币名相同的 $TICKER cashtag 即机械改道 W 类
+数学，不给 Jev 概率逃逸空间。
+
+**落地（J1.17，问题文本与 J1.16 相同，改动全在代码端）**：
+- `detectCorpusCashtag(tokenData, twitterInfo)`（narrative-utils，纯代码）：扫描
+  twitterInfo.text + in_reply_to.text，cashtag 正则 `$[A-Za-z0-9]{2,15}` 归一化后与
+  symbol/name **全等**（非包含，防 $BANANA 命中 BAN；价格串 $100 天然不误配；双侧
+  ≥2 字符保守门）→ 命中返回 { cashtag, inReplyTo }
+- mapper `mapStandardAnswers`：命中且 Jev choice ≠ W → category 强制 'W'，自然进 W 数学
+  （产品 + 币安交互 + 时效，pass 60）；stage1 落审计标记 `categoryForced='cashtag_w'` +
+  `cashtagMatched`，stage2 reason 标注 `cashtag改道W类($TAG)`；原生 W 不标（语义不混）
+- analyzer 标准路径 context 传入 twitterInfo；jev_dryrun / jev_calibration 校准工具同口径
+- 本案重放：产品 0.48+交互 0.18+时效 25 = **25.66 < 60 拦截**（改道前 C 类 67.4 放行 →
+  终评 75.31 high）
+- 单测 `scripts/_test_cashtag_w_route.cjs`（21 断言零 DB：判据 9 项 + 路由矩阵 6 项含
+  iNu 数值复现 / 无 cashtag 行为对照 / 原生 W / 高影响力被骑资产 W 高分照放）
+- **存量翻转检查**（`scripts/narrative/cashtag-flip-check.mjs`，182 跑，673 标准路径行）：
+  cashtag 命中 10 行，**翻转 5 行全部 high→low、反向 0、评级不变 5（本就 low）**。翻转
+  5 票实跑盈亏对账**零误伤**：JEANPHIL 0xd8e8（-42%，0336befc+377cc0a6 两实验同亏）、
+  iNu 本案（-39%/-38%）、INU 0x1eada（-53%）、bukangi/BUKANGI 0xcd99+0x771c（同
+  cashtag 两蹲号盘，买入后零卖出断流冻结）——cashtag 蹲号盘样本内 100% 亏损
+
+**遗留**：见 §六-30——superIP 通道未挂改道、直调进程重启节奏。
+
+---
+
 ### C27 富贵 0x5e888 —— wss 票同名规则全灭 + 蹭蓝筹 symbol 三层漏 → 规则 0.52 同名蓝筹拦截 + created_at 口径修复（2026-09-28）★
 
 **现象**：用户质询「传奇耐电汪」（0x5e888dde073ba817c1cb120653d66fbd28757777，
@@ -1178,6 +1233,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.14 | 09-27 | name_referent super_ip 加第③前提「实体性」（主定义扩含「IP 亲口提及/讲述的具体实体=提及即事件」Giggle 语义，不含被@的普通人物；「IP名+日常物品词」拼接/无实体对应无 meme 元素的普通词组判 common_word）+ common_word 去「文本作者非超级IP」限制；mapper 零改动；重放 322 行（含 superIP）零新增翻转 | Cz黄鞋 0x91c4c4e9 C14 | 本 commit |
 | J1.15 | 09-27 | name_referent super_ip 扩含「官方口号/标志性品牌主张」（口号作者=产出该口号的机构，发现/转述/解读口号的推文作者只是叙事陈述者不改变归属；界面功能文案仍 common_word；前提②区分公开上线界面口号=已发布 vs 内部曝光=未发布泄露；前提③口号=IP标志性资产视为有实体对应）；common_word 排除句同步；mapper 零改动；本案重跑 low→mid + 回归 CONVICTION/Cz黄鞋/哦 3 拦截全维持 | 货币自由 0xced5a2ba C23 | 本 commit |
 | J1.16 | 09-28 | 角色IP币豁免 routine_content_product：①event_category 主体归属新增「代币名指向作品中角色（含音译/译名形式，非作品名）→主体=该角色、类别A，作品宣传推只是语料载体」②block_reason rcp 边界收窄（角色名币必不选本项）③event_magnitude A类语义锚定（角色按自身及关联IP知名度定档，未开播/未出圈=无名IP，官号粉丝数≠角色知名度）；mapper `routineContentProductBlock` 加 category 参数——A 类豁免（argmax 门同步，仅标准路径，superIP 通道仍拦）；题目措辞实证 rcp 只能压到 0.57-0.70 不过线（J1.13 教训同款：Jev 分不动的边界代码切）→把关交 A 类量级门；本案 A 轴 56.04<60 拦（量级不足）；回归绣春刀3 B+0.93 继续拦/Pelecanusbikes 维持/superIP 4/4 | 久留美 0xfedf19759 C25 | 本 commit |
+| J1.17 | 09-28 | 题面未动——mapper 代码端 cashtag 改道：语料推文（含被回复父推）出现与币名归一化**全等**的 $TICKER cashtag → category 强制 'W' 进 W 数学（被骑资产影响力须极高），Jev event_category 概率不再有决定权；判据 `detectCorpusCashtag`（narrative-utils 纯代码，双侧 ≥2 字符保守门）；stage1 审计标记 categoryForced/cashtagMatched、stage2 reason 标注改道来源；analyzer/dryrun/calibration 三处 context 传 twitterInfo；本案重放 W 25.66<60 拦（改道前 C 67.4 放行）；单测 21 断言 + 673 行翻转检查：翻 5 全 high→low 且实跑对账全亏零误伤、反向 0 | iNu 0xf578b84b C28 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 | P1.3 | 09-27 | 题面未动——mapper 端 project 评级表加账号信用降档（推文 <5 OR 账号年龄 <30 天→low，年龄以 token 创建时点锚定幂等；照 J1.8 先例 bump）；附带 flap 创建时间 wss_events token_create 回退（token-info-service）；52 行 project 重放仅 x-0 命中 0 误伤 | x-0 0xa5fd1f C15/C18 | 本 commit |
 | P1.4 | 09-27 | 题面未动——mapper 端消灭 unrated（用户裁定：分析完成必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足 unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject 粉丝带+P1.3 降档按账号基本面给结论 | C4 反裁定 + 蝴蝶轮回 C22 | 本 commit |
@@ -1751,4 +1807,11 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     appendix 构造未适配，两处对 wss 票继续空转（created_at 口径已修，0.58 已恢复）；
     ② 蓝筹组合门阈值（fdv 100k / tvl 50k / holders 10k / txCount 100）按富贵案定标，
     误拦率（如真二发盘、同 symbol 无关新叙事盘被硬拦）待实跑积累后回看校准
+30. **J1.17 cashtag 改道生效面**（2026-09-28 C28 落地后遗留）：
+    ① superIP 快车道未挂改道（W 两题不采信、preScores 体系不同）——注册表账号推文含
+    $TICKER + 币名骑乘的场景（如 CZ 荐币式）仍走快车道数学，是否补挂待裁定；
+    ② §六-11 同款版本漂移：J1.17 只对新分析生效——182 narrative engine 与在跑实验
+    直调进程（51ea69e7 / bc4f756e 等）需重启才加载新 mapper，重启节奏待用户裁定；
+    存量 high 缓存（含 iNu/INU 等 5 行已翻转为 low 的判定）不自动失效，重析走
+    ignoreCache 或缓存失效机制（§六-5）
 

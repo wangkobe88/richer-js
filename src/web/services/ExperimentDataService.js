@@ -232,6 +232,59 @@ class ExperimentDataService {
   }
 
   /**
+   * 获取实验卖出信号的 cycle 档位序列（token-returns 页「行为周期」列数据源）
+   * 数据源 = strategy_signals.metadata.trendFactors 的 cycle 键（信号 fire 精确时刻
+   * 落库，实时/回测引擎全覆盖）；jsonb 路径窄列查询，不拉 metadata 大字段
+   * （gmgn_security_raw_data 等）——与 getSignals 全量拉取区分
+   * @param {string} experimentId - 实验ID（实验自身信号，回测实验不跳源实验）
+   * @returns {Promise<Object[]>} 平铺数组 [{tokenAddress, ts, cycle, tps30s, gapMedianMs, strategyId, strategyName}]
+   */
+  async getCycleSellSignals(experimentId) {
+    const PAGE_SIZE = 1000;
+    const allData = [];
+    let currentOffset = 0;
+    // 分页循环沿 getSignals 惯例（卖信号量级小单页即完，长实验防漏）
+    while (true) {
+      const { data, error } = await this.supabase
+        .from('strategy_signals')
+        .select(
+          'token_address, created_at, ' +
+          'tokenCycle:metadata->trendFactors->>tokenCycle, ' +
+          'cycleTps30s:metadata->trendFactors->>cycleTps30s, ' +
+          'cycleGapMedianMs:metadata->trendFactors->>cycleGapMedianMs, ' +
+          'strategyId:metadata->>strategyId, ' +
+          'strategyName:metadata->>strategyName'
+        )
+        .eq('experiment_id', experimentId)
+        .eq('action', 'sell')
+        .order('created_at', { ascending: true })
+        .range(currentOffset, currentOffset + PAGE_SIZE - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      allData.push(...data);
+      currentOffset += data.length;
+      if (data.length < PAGE_SIZE) break;
+    }
+
+    // ->> 取出的是 text：数字键 Number() 归一（无法转换/缺失 → null）
+    const toNum = (v) => {
+      const n = Number(v);
+      return v !== null && v !== undefined && Number.isFinite(n) ? n : null;
+    };
+    return allData.map(row => ({
+      tokenAddress: row.token_address,
+      ts: row.created_at,
+      cycle: toNum(row.tokenCycle),
+      tps30s: toNum(row.cycleTps30s),
+      gapMedianMs: toNum(row.cycleGapMedianMs),
+      strategyId: row.strategyId ?? null,
+      strategyName: row.strategyName ?? null,
+    }));
+  }
+
+  /**
    * 获取实验的统计数据
    * @param {string} experimentId - 实验ID
    * @returns {Promise<Object>} 统计数据
