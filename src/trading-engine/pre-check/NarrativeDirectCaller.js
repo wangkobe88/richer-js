@@ -55,10 +55,23 @@ function shouldBlockOnNarrative(numericRating, precheckStage, ageMinutes) {
 }
 
 class NarrativeDirectCaller {
-  constructor() {
+  /**
+   * @param {Object} [options]
+   * @param {boolean} [options.memoryCacheResults=false] - 结果内存缓存（回测专属
+   *   opt-in，bc4f756e 性能案 2026-09-28；live 构造点不传 → 行为零变化）。
+   *   只缓存终态 PASS（rating∈{2,3} 且非 precheck-fail 重试域形状），命中返回
+   *   浅拷贝（fromMemoryCache=true 观测标记），消除 token_narrative 表 DB 往返
+   *   （暖缓存下每次直调仍 ~70ms roundtrip）。rating=1 不缓存——其重复消耗由
+   *   引擎侧叙事否决拉黑承担（互补不重叠）；9/超时/错误不缓存保留重试。
+   *   缓存命中不短路调用方链路（龙头检查/pre-buy 随 checkTime 演化，由调用方自理）
+   */
+  constructor(options = {}) {
     this._Analyzer = null;
     /** tokenAddress(小写) → 底层 analyze promise（并发调用共享，settle 后移除） */
     this._inflight = new Map();
+    this._memoryCacheResults = !!options.memoryCacheResults;
+    /** tokenAddress(小写) → 已缓存 getRating 结果（终态 PASS 形状，见 constructor 注释） */
+    this._resultCache = new Map();
   }
 
   /**
@@ -131,6 +144,15 @@ class NarrativeDirectCaller {
    *   precheckStage：precheck 挂点（'address'=宣告竞态，叙事否决短路豁免判据）
    */
   async getRating(tokenAddress) {
+    const cacheKey = tokenAddress.toLowerCase();
+    // 内存缓存命中（回测 opt-in）：浅拷贝 + 观测标记；durationMs 归 0（本次零开销）
+    if (this._memoryCacheResults) {
+      const cached = this._resultCache.get(cacheKey);
+      if (cached) {
+        this._memoryCacheHits = (this._memoryCacheHits || 0) + 1;
+        return { ...cached, fromMemoryCache: true, durationMs: 0 };
+      }
+    }
     const startedAt = Date.now();
     try {
       let timer = null;
@@ -145,7 +167,7 @@ class NarrativeDirectCaller {
         timeout,
       ]).finally(() => clearTimeout(timer));
 
-      return {
+      const ratingResult = {
         numericRating: [1, 2, 3].includes(result?.numericRating) ? result.numericRating : 9,
         rating: result?.rating ?? 'unrated',
         reason: result?.reason ?? null,
@@ -160,6 +182,10 @@ class NarrativeDirectCaller {
         // 豁免判据；非 precheck fail / 超时 / 异常 → null
         precheckStage: result?.llmAnalysis?.preCheck?.details?.validationStage ?? null,
       };
+      if (this._memoryCacheResults && this._isCacheableRatingResult(ratingResult)) {
+        this._resultCache.set(cacheKey, ratingResult);
+      }
+      return ratingResult;
     } catch (error) {
       return {
         numericRating: 9,
@@ -174,6 +200,29 @@ class NarrativeDirectCaller {
         precheckStage: null,
       };
     }
+  }
+
+  /** 内存缓存命中计数（性能探针，回放收尾汇总用；未启用恒 0） */
+  getMemoryCacheHits() {
+    return this._memoryCacheHits || 0;
+  }
+
+  /**
+   * 缓存谓词：只缓存终态 PASS 形状（rating∈{2,3} 且非 precheck-fail 重试域）
+   *
+   * - rating=1 不缓存：重复消耗由引擎侧叙事否决拉黑承担（P0 互补，不重叠）
+   * - 9 / 超时 / 错误 不缓存：保留后续 fire 重试语义
+   * - precheckStage 非 null（任意 precheck-fail 形状）不缓存：重试域（address 300s /
+   *   no_public_info 1800s）内 PrecheckFailRetryService 重析可翻正，冻结即失真
+   * @private
+   * @param {Object} r - getRating 成功路径构造的结果对象
+   * @returns {boolean}
+   */
+  _isCacheableRatingResult(r) {
+    if (r.timedOut || r.error) return false;
+    if (r.numericRating !== 2 && r.numericRating !== 3) return false;
+    if (r.precheckStage != null) return false;
+    return true;
   }
 }
 

@@ -245,9 +245,11 @@ class BacktestEngine extends AbstractTradingEngine {
       `✅ 购买前检查服务初始化完成 (earlyParticipantFilterEnabled=${preBuyCheckConfig.earlyParticipantFilterEnabled})`);
 
     // 5.5 叙事评级直调（同实时引擎：策略 narrativeCallCondition 触发时同步调
-    // NarrativeAnalyzer.analyze，Jev 秒级；失败/超时=9 放行）
+    // NarrativeAnalyzer.analyze，Jev 秒级；失败/超时=9 放行）。memoryCacheResults
+    // 回测专属开启（bc4f756e 性能案 2026-09-28）：终态 PASS 结果进程内缓存，
+    // 消除暖缓存下每次直调的 token_narrative 表 DB 往返；live 构造点不传=零变化
     const { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative } = require('../pre-check/NarrativeDirectCaller');
-    this._narrativeCaller = new NarrativeDirectCaller();
+    this._narrativeCaller = new NarrativeDirectCaller({ memoryCacheResults: true });
     // 挂 this：解构是函数级作用域，_evaluateBuyPath 裸引用会 ReferenceError（同实时引擎蝴蝶轮回案）
     this._mapGmgnRiskFactors = mapGmgnRiskFactors;
     // 叙事否决短路集（镜像实时引擎 _narrativeBlockedTokens，2026-09-27 用户裁定：
@@ -584,6 +586,7 @@ class BacktestEngine extends AbstractTradingEngine {
         `信号 ${this.metrics.totalSignals}/${this.metrics.executedSignals} | 交易 ${this.metrics.totalTrades}` +
         `（成功 ${this.metrics.successfulTrades} 失败 ${this.metrics.failedTrades}）| debounceFired=${this.metrics.debounceFired}` +
         ` | narrativeBlocked=${this._narrativeBlockedTokens.size}` +
+        ` | memCacheHit=${this._narrativeCaller.getMemoryCacheHits()}` +
         ` | earlyReplayHit=${this._preBuyCheckService.earlyParticipantService.getReplayHits()}` +
         (this._tokenPositionAnalyzer
           ? ` | TPA: ${JSON.stringify(this._tokenPositionAnalyzer.getStats())}` +
