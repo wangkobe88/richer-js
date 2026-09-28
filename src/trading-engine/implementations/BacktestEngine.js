@@ -246,10 +246,17 @@ class BacktestEngine extends AbstractTradingEngine {
 
     // 5.5 叙事评级直调（同实时引擎：策略 narrativeCallCondition 触发时同步调
     // NarrativeAnalyzer.analyze，Jev 秒级；失败/超时=9 放行）
-    const { NarrativeDirectCaller, mapGmgnRiskFactors } = require('../pre-check/NarrativeDirectCaller');
+    const { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative } = require('../pre-check/NarrativeDirectCaller');
     this._narrativeCaller = new NarrativeDirectCaller();
     // 挂 this：解构是函数级作用域，_evaluateBuyPath 裸引用会 ReferenceError（同实时引擎蝴蝶轮回案）
     this._mapGmgnRiskFactors = mapGmgnRiskFactors;
+    // 叙事否决短路集（镜像实时引擎 _narrativeBlockedTokens，2026-09-27 用户裁定：
+    // 叙事评级 low 终态的代币不再重复生成买信号——检测多少次都没用）。回测此前漏接，
+    // 导致已否决 token 每次 fire 重复整链（bc4f756e 实证：222 token 重复 10,564 条
+    // BUY 信号，98.9% rating=1，占 67.7min 回放的主导耗时）。内存语义同实时引擎：
+    // 重启丢失后首 fire 缓存命中秒回重新登记，代价一条 signal 行
+    this._narrativeBlockedTokens = new Set();
+    this._shouldBlockOnNarrative = shouldBlockOnNarrative;
 
     // 5.6 同叙事龙头已火检查（同实时引擎：narrativeLeaderHot 因子，火门槛 5x + 首达后 24h 窗；
     // checkTimeSec 用回放时点，涨幅只算 block_time<=t 的 ticks，无未来函数）
@@ -556,6 +563,7 @@ class BacktestEngine extends AbstractTradingEngine {
         `收益 ${profit.toFixed(4)} (${profitPercent > 0 ? '+' : ''}${profitPercent}%) | ` +
         `信号 ${this.metrics.totalSignals}/${this.metrics.executedSignals} | 交易 ${this.metrics.totalTrades}` +
         `（成功 ${this.metrics.successfulTrades} 失败 ${this.metrics.failedTrades}）| debounceFired=${this.metrics.debounceFired}` +
+        ` | narrativeBlocked=${this._narrativeBlockedTokens.size}` +
         (this._tokenPositionAnalyzer
           ? ` | TPA: ${JSON.stringify(this._tokenPositionAnalyzer.getStats())}` +
             (this._tokenPositionAnalyzer.getProfileStats()
@@ -719,6 +727,16 @@ class BacktestEngine extends AbstractTradingEngine {
         `${token.symbol} 触发买入策略(回放): ${strategy.name} | price=${factorResults.currentPrice?.toExponential(4)}` +
         ` earlyReturn=${factorResults.earlyReturn?.toFixed(1)}% age=${factorResults.age?.toFixed(2)}min tick=y`);
 
+      // ── 叙事否决短路（镜像实时引擎，2026-09-27 用户裁定）──
+      // 叙事评级已确认为 low（终态，检测多少次都没用）的代币不再生成买信号——
+      // 不落 signal 行、不跑叙事直调/preBuyCheck；仅对配置了 narrativeCallCondition
+      // （叙事直调链路启用）的策略生效，未配叙事的策略零影响。address-fail 宣告
+      // 竞态盘的豁免在登记侧把关（shouldBlockOnNarrative，重试窗内不登记）
+      const narrativeGateEnabled = !!(strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== '');
+      if (narrativeGateEnabled && this._narrativeBlockedTokens.has(tokenAddress)) {
+        return { success: false, reason: '叙事否决短路（评级 low 终态，不再生成信号）' };
+      }
+
       const latestPrice = factorResults.currentPrice || 0;
       if (!(latestPrice > 0)) {
         return { success: false, reason: '无有效价格' };
@@ -805,6 +823,21 @@ class BacktestEngine extends AbstractTradingEngine {
           `叙事评级直调(回放) | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
           ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +
           (narrativeCallInfo.error ? ` error=${narrativeCallInfo.error}` : ''));
+
+        // ── 叙事否决短路登记（镜像实时引擎）──
+        // rating=low（终态）→ 登记短路集，本 token 后续 fire 不再生成买信号；
+        // address-fail（宣告竞态，重试窗内可能被 PrecheckFailRetryService 翻正）豁免；
+        // age 取 fire 因子（分钟、锚 token 创建时刻，与实时引擎同源同单位）
+        if (this._shouldBlockOnNarrative(
+          narrativeCallInfo.numericRating,
+          narrativeCallInfo.precheckStage,
+          factorResults.age ?? null,
+        )) {
+          this._narrativeBlockedTokens.add(tokenAddress);
+          this.logger.info(this._experimentId, 'BuyEval',
+            `叙事否决登记(回放) | ${token.symbol} rating=low${narrativeCallInfo.precheckStage ? `(${narrativeCallInfo.precheckStage})` : ''}` +
+            ' → 后续买信号短路（address-fail 重试窗内已豁免的除外）');
+        }
 
         // ── 同叙事龙头已火检查（回放：checkTimeSec 用回放时点，与下方 performAllChecks checkTime 同源；
         // 无 sourceTweetId→因子 0 放行；候选 material_id 映射为当前状态属已知穿越，涨幅计算无前视）──
