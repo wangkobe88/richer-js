@@ -253,7 +253,7 @@ Token-level card ledger（用户裁定：组合级现金卡不迁）。**机制�
 
 E5c 8 腿对「不冲毕业的 flap 小票」结构性盲区的保命兜底（f3ae56d3 回测 / E5e 回测 / c5945f36 实跑三次实证：grad<0.05 够不着 P1 硬底、市值门/毕业臂/RSI warmup 全不可达，断流票 tick 驱动卖腿整体冻结）。**机制开关 = `experiment.config.stopLoss` 段存在任一腿参数**；不配段 = 完全关闭（存量实验零变化），不占策略位。
 
-- **配置**：`stopLoss: { timeStopMinutes: 60, priceStopPercent: -50, scanIntervalSec: 30 }`——① 时间止损：持有超 60min 仍 `profitPercent < 0` 全清；② 价格止损：`profitPercent <= -50` 全清（FA 因子，相对 buyState 成本）；双腿独立可配，双命中标注 price
+- **配置**：`stopLoss: { timeStopMinutes: 60, priceStopPercent: -50, scanIntervalSec: 30 }`——① 时间止损：持有超 60min 仍 `profitPercent <= 0`（浮亏或持平）全清（2026-09-28 盘古案改 `<=0`：断流冻结票 FA 价格不动 profit 恒 0，`<0` 永不触发）；② 价格止损：`profitPercent <= -50` 全清（FA 因子，相对 buyState 成本）；双腿独立可配，双命中标注 price
 - **双挂点**：tick 即时路径（`_onFactorsUpdated` 卖腿分支 `_stopLossHit` 优先于策略腿判定）+ 持仓扫描 `_scanHoldingsStopLoss`（scanIntervalSec 驱动，**断流票唯一触发路径**——无 tick 永不进 `_onFactorsUpdated`）；扫描只判止损双腿不跑策略腿（P1-P8 断流「不评估」语义维持），`buildFactorMap(addr, Date.now())` 必传 Date.now()（断流期 holdDuration 继续走）
 - **执行**：`_emitStopLossSell` 构造等价 strategy（`id: stopLossPrice/stopLossTime`、`cards: 'all'`、`sellPercentage: 1`、`bypassDebounce: true`、`lockTokenAfterSell: false`）直接走 `_emitSellSignal` 全清链——signals/trades/卡账本/累亏记账副作用全复用零新逻辑；卖出失败下周期扫描自然重试
 - **范围**：仅 FourMemeWssTradingEngine（含 flap/both 子类）；BacktestEngine 不动（回测已有强平兜底）
@@ -263,10 +263,25 @@ E5c 8 腿对「不冲毕业的 flap 小票」结构性盲区的保命兜底（f3
 
 王之蔑视（flap funds=14.2 非标准盘）毕业断流后余 3 卡冻结 4 天：progress 峰值 88.9%（72 固定锚失真）→ P3(≥0.9)/P8(≥0.98) 全程够不着，断流后 tick 驱动卖腿整体冻结。两项改动：
 
-- **②毕业事件驱动卖出**：`_handleGraduation` virtual 持仓票直接 `_emitGraduationSell` 全清（等价 strategy `id: graduationSell` 与止损腿同构，余仓按断流前最后可靠价落袋；选全清而非等价 P3+P8 卖 3/4——virtual 冻结与全清估值同价只差 0.5% 费，全清释放 PM 资金与卡牌）。`_graduationSoldTokens` Set 幂等（graduation 事件实测重复派发两遍）；live 维持 Telegram 告警人工处置不动；BacktestEngine 不动（无 graduation 事件消费路径）
+- **②毕业事件驱动卖出**：`_handleGraduation` virtual 持仓票直接 `_emitGraduationSell` 全清（等价 strategy `id: graduationSell` 与止损腿同构，余仓按断流前最后可靠价落袋；选全清而非等价 P3+P8 卖 3/4——virtual 冻结与全清估值同价只差 0.5% 费，全清释放 PM 资金与卡牌）。`_graduationSoldTokens` Set 幂等（graduation 事件实测重复派发两遍）；**竞态修复（2026-09-28 盘古案，graduation 事件先于买入到达 1.9s → `_handleGraduation` 因 status!=='bought' no-op 买入即冻结）三挂点**：幂等标记后置到卖出成功（失败不标记可重试；并发双调被 `_sellingTokens` 挡住）+ 买入成功点补卖（查 FA `graduated` 标记 fire-and-forget，virtual-only，不依赖 stopLoss 段）+ `_scanHoldingsStopLoss` 扫描兜底（virtual-only，先于止损判定，事件路径卖出失败的唯一重试路径）；live 维持 Telegram 告警人工处置不动；BacktestEngine 不动（无 graduation 事件消费路径）
 - **①flap 专属毕业锚**：`graduationProgress` 分母经 `FA._graduationAnchorBnb(state)` per-token 化——flap 盘 = 首市值（`_relFirstPriceBnb × totalSupply`）× `graduationAnchorRatio`(12.5，R 恒比：断流市值/funds≈4.50 与初始/funds≈0.36 两恒比合成，182 实测 4/5 样本 ±2%，funds 跨 10.9~17.3 固定锚数学无解)；**仅当首 tick 距 token 创建 < `graduationAnchorFirstTickMaxMs`**(60s，首 tick≈开盘锚有效；脏样本 0x84439e 首价 5.8 倍开盘 R=2.17) 才启用，否则退 72 默认锚。platform 由 SharedTickConsumer token_create 传入 FA state（乱序自愈：迟到 registerToken 回填更早 createdAt → 窗变大自动退锚）；BacktestEngine 不传 platform → 恒 72，回测行为零变化
 - **附带修复（b24879e0 09-28 03:53 裸崩根因）**：`_computePriceTrendFactors` 分桶 OLS 假设输入升序，但 `_recentTicks` 是 FIFO 到达序且 tick 行存在「bigserial 分配序≠提交序」乱序（watcher 双写者竞态）→ 负 idx `buckets[-k].push` TypeError 进程死。修复 = `reliable` 归一时间升序（排序假设修复非兜底）
 - **单测**：`node scripts/_test_graduation_sell_and_anchor.cjs`（35 断言零 DB：锚矩阵/progress 端到端/毕业卖幂等·live 门/乱序崩溃复现四节；旧代码崩溃用例 git stash 反向复现验证）
+
+## 行为周期分桶·周期路由（2026-09-28，用户思路 v1；51ea69e7 20 买 14 割肉 1 止盈触发）
+
+结构性盲区：8 条卖腿全是暴涨型条件（针臂要 5m 涨 15%、RSI 梯队要涨速、毕业臂要 progress 0.9+），**会割肉不会止盈**——普通代币涨 20-50% 回落无腿可接。用户思路：按盘面交易热度判「用户行为周期」（K 线因子周期：秒级/分钟级/5-15min 级），代币分桶到不同策略集合、可自动切换；「毕业」保留捕捉金狗，普通代币靠普通因子。
+
+- **判定（FA `_cycleFactors` 读取时聚合，与 `_rateFactors` 并列 spread 进 `_buildFactorMap`）**：双主量 `tps30s`（30s 滑窗 tick 密度，读取时按 now 过滤防断流残留虚高）OR `gapMedianMs`（5min 窗相邻 tick 间隔中位数，尾部 `cycleGapSamples` 个样本，乱序负间隔丢弃）→ 三档：**3 热桶**（tps≥0.5 或 gap≤2000ms）/ **2 中桶**（tps≥0.08 或 gap≤12000ms）/ **1 冷桶**（有证据但低于中桶门槛）/ **null 证据不足**（5min 窗 tick<12 或 tokenAge<60s → 带 cycle 腿全隐 fail-closed，止损双腿兜底）
+- **hysteresis `_cycleLatch`**（state 字段 `{current, since, candidate, candidateSince}`，每次 buildFactorMap 推进）：升档驻留 30s（追热要快）/ 降档驻留 120s（抗瞬抖，不对称刻意）；stale 快速通道（now−lastTickAt>120s 且 current>1 → 立即降 1，断流即冷）；切换打 `[CycleSwitch] token=… from=… to=… tps30s=… gapMedMs=… reason=init/upDwell/downDwell/stale` 固定格式日志（console.log 非 logger）
+- **5 新因子键**：`tokenCycle/tokenCycleRaw/tokenCycleAgeSec/cycleTps30s/cycleGapMedianMs`（getFactorKeys 探针自动收键，策略 condition 可直接引用）；10 个 `cycle*` 参数进 `FACTOR_PARAM_DEFAULTS`（`config.fourmemeWs.factorParams` 浅合并覆盖）；**防前视红线：判定内 now 由 `buildFactorMap(state, asOf)` 传入，禁 Date.now**——回测虚拟时钟天然防前视
+- **路由（方案 A：evaluate 内过滤）**：strategy 字段 `cycle`（1|2|3，脏值→null=全周期=旧语义）× `token.cycleTag` 等值匹配；带 cycle 腿在 cycleTag null 时不可见（fail-closed），不带 cycle 腿恒可见（存量零变化）；与 maxExecutions/cooldown 同构——被隐高优腿不遮蔽低优腿，`strategyExecutions` 按 strategyId 分桶跨桶保留
+- **开关 = `experiment.config.tokenCycle.enforce`**（缺段=不写 cycleTag=路由不生效）；cycleTag 同步点 7 处：实时 4（`_onFactorsUpdated`/`_runBuyEvaluation`/`_onSellDebounceFire`/`_scanHoldingsStopLoss`——扫描点是断流票 stale 降档同步）+ 回测 3（主循环/买去抖 fire/卖去抖 fire）
+- **时序快照**：FactorBuilder `buildFactorValuesForTimeSeries` 白名单 +4 键（tokenCycleAgeSec 可差分推不进）——档位快照进 `experiment_time_series_data` 供阈值事后校准；旧 FA 无键 → null 不掩盖
+- **生效矩阵**：腿无 cycle + 无段 → 零行为变化；带 cycle 腿 + 无段 → 腿隐身（fail-closed）；带 cycle 腿 + enforce=true → 生效。**直接 enforce 无 shadow 期**（用户裁定：快照/日志照常收集事后纠偏）
+- **单测**：`node scripts/_test_token_cycle_routing.cjs`（52 断言零 DB：判定三档+双 null 门/hysteresis 升降档驻留/stale/归一/路由矩阵/桶切换计数保留/键集/遗留修复 G 段）
+
+
 
 ## Live Trading（实盘加固，2026-09-27）
 
