@@ -143,8 +143,10 @@ const FACTOR_PARAM_DEFAULTS = {
     cycleMidTps: 0.08,           // 中桶门：30s 滑窗 tps ≥0.08（30s ≥2.4 笔，分钟级行为）
     cycleHotGapMs: 2000,         // 热桶门：相邻 tick 间隔中位数 ≤2s（与 tps 双主量 OR）
     cycleMidGapMs: 12000,        // 中桶门：间隔中位数 ≤12s（5-15min 周期票落冷桶）
-    cycleMinTicks: 12,           // 证据门：5min 窗 tick < 此数 → null fail-closed（带 cycle 腿全隐）
-    cycleWarmupSec: 60,          // 热身门：token 年龄 < 此数不判定（开盘脉冲不算行为周期）
+    cycleMinTicks: 12,           // 证据门：5min 窗 tick < 此数且已过 warmup → 判冷桶 1（熄火票保护腿
+                                 //   不隐身；2026-09-28 1c68478f 回测 36 强平票根因修正）
+    cycleWarmupSec: 15,          // 热身门：token 年龄 < 此数不判定 → null（开盘脉冲不算行为周期；
+                                 //   tps30s 按 30s 窗归一、age=15s 时分子天然减半，自带保守性）
     cycleUpDwellSec: 30,         // 升档驻留秒（追热要快）
     cycleDownDwellSec: 120,      // 降档驻留秒（抗瞬抖；与升档不对称是刻意的）
     cycleStaleMs: 120 * 1000,    // 断流快速降档窗：now−lastTickAt 超此值且 current>1 立即降 1
@@ -1705,8 +1707,11 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 双主量：tps30s（30s 滑窗 tick 密度——读取时按 now 过滤，_slideTicks 写时裁剪断流后会
      * 滞留老 tick 使 length 虚高）+ gapMedianMs（5min 窗相邻 tick 间隔中位数，尾部
      * cycleGapSamples 个样本；乱序 tick 的负间隔丢弃）。
-     * 三档：3=热桶秒级 / 2=中桶分钟级 / 1=冷桶 5-15min 级；证据不足（5min 窗 tick <
-     * cycleMinTicks 或 tokenAge < cycleWarmupSec）→ 全键 null fail-closed（带 cycle 腿全隐）。
+     * 三档：3=热桶秒级 / 2=中桶分钟级 / 1=冷桶 5-15min 级。null 仅两源（2026-09-28
+     * 修正，1c68478f 回测 36 强平票根因）：tokenAge < cycleWarmupSec（新票未分桶，
+     * 多为火票早买，短窗代价小）/ 无 createdAtMs 锚点。「5min 窗 tick < cycleMinTicks
+     * 且已过 warmup」不再 null 而判冷桶 1——从热到冷的衰减必经段恰是最需要保护腿的
+     * 时点，minTicks 门拦它 = 冷桶时间衰减腿隐身 → 无人接管 → 回放结束强平。
      * tokenCycle 经 _cycleLatch hysteresis 稳定化：升档驻留 30s（追热快）/ 降档驻留 120s
      * （抗瞬抖）；断流超 cycleStaleMs 且 current>1 → 立即降 1（gapMedianMs 是老间隔不随
      * 断流增长，stale 时 raw 压回 1 不进升档候选）。tokenCycleRaw 为本帧原始判定。
@@ -1730,10 +1735,17 @@ class FourMemeFactorAggregator extends EventEmitter {
         const gapMedianMs = gaps.length > 0 ? this._median(gaps) : null;
 
         let raw = null;
-        if (ageSec != null && ageSec >= fp.cycleWarmupSec && winTicks.length >= fp.cycleMinTicks) {
-            if (tps30s >= fp.cycleHotTps || (gapMedianMs != null && gapMedianMs <= fp.cycleHotGapMs)) raw = 3;
-            else if (tps30s >= fp.cycleMidTps || (gapMedianMs != null && gapMedianMs <= fp.cycleMidGapMs)) raw = 2;
-            else raw = 1;
+        if (ageSec != null && ageSec >= fp.cycleWarmupSec) {
+            if (winTicks.length >= fp.cycleMinTicks) {
+                if (tps30s >= fp.cycleHotTps || (gapMedianMs != null && gapMedianMs <= fp.cycleHotGapMs)) raw = 3;
+                else if (tps30s >= fp.cycleMidTps || (gapMedianMs != null && gapMedianMs <= fp.cycleMidGapMs)) raw = 2;
+                else raw = 1;
+            } else {
+                // 证据不足但已过 warmup：判冷桶而非 null——熄火票（5min 窗凑不满
+                // minTicks）的冷桶保护腿不再 fail-closed 隐身（稀疏 tick 仍触发评估，
+                // P17/P18 时间衰减可接管）；warmup 期照旧 null（新票未分桶正常）
+                raw = 1;
+            }
         }
 
         const latch = state._cycleLatch;
@@ -1758,8 +1770,8 @@ class FourMemeFactorAggregator extends EventEmitter {
                 }
             }
         }
-        // stale 快速通道：跳过降档 dwell（断流即冷）；raw==null（证据衰减）时也跑，
-        // 恢复证据后从冷档重新 dwell 升档
+        // stale 快速通道：跳过降档 dwell（断流即冷）；断流期 raw==null（warmup 前
+        // 不可能持有仓位，实际仅无锚点场景）时也跑，恢复后从冷档重新 dwell 升档
         if (stale && latch.current != null && latch.current > 1) {
             const from = latch.current;
             latch.current = 1; latch.since = now;

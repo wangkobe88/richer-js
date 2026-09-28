@@ -11,7 +11,8 @@
  * 本文件 C 段断言已随改；groups 机制的独立单测见 _test_strategy_library_groups.cjs。
  *
  * 覆盖：
- *   A. FA 判定（密/中/疏 → 3/2/1；tick<minTicks → null；age<warmup → null）
+ *   A. FA 判定（密/中/疏 → 3/2/1；tick<minTicks 且过 warmup → 冷桶 1；age<warmup → null
+ *      ——2026-09-28 修正：证据不足不再 null 全隐，1c68478f 回测 36 强平票根因）
  *   B. hysteresis（升档 30s 驻留 / 降档 120s 驻留 / stale 快速降档 / 驻留秒数）
  *   C. loadStrategies cycle 脏值归一（字符串/越界/小数/未配 → null）
  *   D. evaluate 过滤矩阵（腿 cycle × cycleTag 等值可见 + null 全隐 + 无 cycle 恒可见）
@@ -99,17 +100,33 @@ console.log('A. FA _cycleFactors 判定（tps30s + gapMedianMs 双主量三档�
   const f3 = fa3.buildFactorMap('0xa3', 345000);
   check('疏(20s×15) → 冷桶 1', [f3.tokenCycle, f3.tokenCycleRaw], [1, 1]);
 
-  // A4 证据门：5min 窗 tick < 12 → null（带 cycle 腿全隐 fail-closed）
+  // A4 证据门（2026-09-28 修正）：5min 窗 tick < 12 且已过 warmup → 判冷桶 1 而非
+  // null——熄火票冷桶保护腿（P17/P18 时间衰减）不再 fail-closed 隐身
   const fa4 = makeFA('0xa4');
   feed(fa4, '0xa4', 61000, 1.5, 11);
   const f4 = fa4.buildFactorMap('0xa4', 80000);
-  check('tick<12 → null（证据不足）', [f4.tokenCycle, f4.tokenCycleRaw], [null, null]);
+  check('tick<12 且过 warmup → 冷桶 1（不再 null 全隐）', [f4.tokenCycle, f4.tokenCycleRaw], [1, 1]);
 
-  // A5 热身门：tokenAge < 60s → null（开盘脉冲不算行为周期）
+  // A5 热身门：tokenAge < warmupSec(15) → null（开盘脉冲不算行为周期）；
+  // 同一 token 出 warmup 后（仍证据不足）→ 冷桶——warmup null 与证据冷的两段衔接
   const fa5 = makeFA('0xa5');
-  feed(fa5, '0xa5', 5000, 1.5, 20);
-  const f5 = fa5.buildFactorMap('0xa5', 34000);
-  check('age 34s<60 → null（热身期）', f5.tokenCycle, null);
+  feed(fa5, '0xa5', 2000, 1.5, 10);
+  check('age 9s<15 → null（热身期）', fa5.buildFactorMap('0xa5', 10000).tokenCycle, null);
+  check('age 20s≥15 且 tick<12 → 冷桶 1', fa5.buildFactorMap('0xa5', 21000).tokenCycle, 1);
+
+  // A6 衰减段核心场景（1c68478f 36 强平票路径）：热档 → tick 稀疏化（5min 窗掉破
+  // minTicks）→ raw=1 走 downDwell 120s 降档——稀疏 tick（间隔<staleMs）仍在触发
+  // 评估，冷桶腿上线接管。若间隔 >staleMs 则走 stale 快速通道（B 段已覆盖）。
+  // 稀疏段须距热段末笔 ≥5min（RATE_WINDOW_MS）——否则热段 tick/gap 样本仍在窗内
+  // raw 照判热（构造坑：稀疏首笔 265000 距热段末笔 89500 仅 175.5s 时 raw=3）
+  const fa6 = makeFA('0xa6');
+  feed(fa6, '0xa6', 61000, 1.5, 20);            // 热段末笔 ts≈89500
+  check('A6 热段 → 3', fa6.buildFactorMap('0xa6', 90000).tokenCycle, 3);
+  feed(fa6, '0xa6', 400000, 90, 4);             // 稀疏段：90s 间隔 ×4（末笔 670000）
+  check('稀疏首评估 → candidate 登记，dwell 未满仍 3', fa6.buildFactorMap('0xa6', 400500).tokenCycle, 3);
+  check('间隔 90s×2 <120s dwell → 仍 3', fa6.buildFactorMap('0xa6', 491000).tokenCycle, 3);
+  const a6_3 = fa6.buildFactorMap('0xa6', 581000); // candidateSince=400500，180.5s≥120s
+  check('dwell 满 120s → 切冷桶 1（保护腿上线）', [a6_3.tokenCycle, a6_3.tokenCycleRaw], [1, 1]);
 }
 
 // ═══ B. hysteresis 闩锁 ═══
