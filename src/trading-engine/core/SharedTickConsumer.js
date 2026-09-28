@@ -236,6 +236,7 @@ class SharedTickConsumer {
                     name: info.name,
                     symbol: info.symbol,
                     creatorAddress: info.creator,
+                    platform: row.platform, // flap per-token 毕业锚维度（FA._graduationAnchorBnb；BacktestEngine 不传恒 72 锚）
                 });
             }
             if (this._tokenPool && info && info.token) {

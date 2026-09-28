@@ -125,6 +125,13 @@ const FACTOR_PARAM_DEFAULTS = {
     // ── E5 卖侧参数（2026-09-24）──
     graduationAnchorBnb: 72,     // 毕业市值锚（BNB 口径）：four.meme 毕业市值 $50,585；0x47da 实测断流前
                                  // max 7.21e-8×1e9=72.1 BNB 吻合。progress=priceBnb*totalSupply/此值
+    graduationAnchorRatio: 12.5, // flap per-token 毕业锚（2026-09-28 王之蔑视案）：毕业市值/首市值 R 恒比
+                                 //   （182 实测 4/5 样本 12.10~12.63 ±2%；断流市值/funds≈4.50、初始/funds≈0.36
+                                 //   两条恒比合成）。flap 池 funds 10.9~17.3 跨 1.6 倍 → 固定 72 锚对非标准盘
+                                 //   失真（9/77 盘断流 progress<90% 毕业臂够不着）
+    graduationAnchorFirstTickMaxMs: 60 * 1000, // 首市值锚有效性门：首 tick 距 token 创建超此窗 = 首 tick≠开盘
+                                 //   （watcher 起采晚/开盘抢拉，脏样本 0x84439e 首价 5.8 倍于开盘 R=2.17）
+                                 //   → 退 72 默认锚（口径有效性判定，非行为兜底）
     bar5mRsiMaxBars: 30,         // 5m bar 收盘环形窗（30 根=2.5h；RSI 阶梯臂原料）
     bar15mRsiMaxBars: 12,        // 15m bar 收盘环形窗（12 根=3h；内盘期基本无值，观察键）
     riseMinTicks: 8,             // 针臂稀疏窗门（5min 窗内可靠 tick 数 < 此数 → null fail-closed；
@@ -246,7 +253,8 @@ class FourMemeFactorAggregator extends EventEmitter {
 
     /**
      * TokenCreate 事件注册（代币年龄基准 = 创建事件块时间；totalSupply 供 marketCap）。
-     * Buy 先于 Create 到达的乱序场景：迟到注册时若已有 state，仅回填更早的 createdAt。
+     * Buy 先于 Create 到达的乱序场景：迟到注册时若已有 state，仅回填更早的 createdAt
+     * （首市值锚有效性门因此自动生效：回填更早 createdAt 后首 tick 距创建变大 → 超 60s 窗退 72 锚）。
      */
     registerToken(tokenAddress, info = {}) {
         if (!tokenAddress) return;
@@ -263,7 +271,26 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (info.name) state.name = info.name;
         if (info.symbol) state.symbol = info.symbol;
         if (info.creatorAddress) state.creatorAddress = info.creatorAddress;
+        if (info.platform) state.platform = info.platform; // 平台维度（flap per-token 毕业锚用；write-once 语义，平台不变）
         this._stats.tokensRegistered++;
+    }
+
+    /**
+     * 毕业市值锚（graduationProgress 分母）。flap 盘 per-token 定锚（2026-09-28 王之蔑视案裁定）：
+     * 锚 = 首市值（_relFirstPriceBnb × totalSupply）× graduationAnchorRatio(12.5)，
+     * 仅当首 tick 距 token 创建 < graduationAnchorFirstTickMaxMs(60s)（首 tick≈开盘，锚有效）时启用；
+     * 其余一切情况（非 flap / platform 未注册 / 首 tick 超窗=首 tick≠开盘 / 首市值缺失）
+     * 退 graduationAnchorBnb(72) 默认锚。BacktestEngine 注册不传 platform → 恒 72，回测行为零变化。
+     */
+    _graduationAnchorBnb(state) {
+        if (state.platform !== 'flap') return this._fp.graduationAnchorBnb;
+        if (state.firstTickAt === null || state.createdAtMs == null) return this._fp.graduationAnchorBnb;
+        if (state.firstTickAt - state.createdAtMs > this._fp.graduationAnchorFirstTickMaxMs) {
+            return this._fp.graduationAnchorBnb;
+        }
+        const firstMcap = state._relFirstPriceBnb * state.totalSupply;
+        if (!(firstMcap > 0)) return this._fp.graduationAnchorBnb;
+        return firstMcap * this._fp.graduationAnchorRatio;
     }
 
     getTrackedTokens() {
@@ -1019,6 +1046,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             name: null,
             symbol: null,
             creatorAddress: null,
+            platform: null,
             graduated: false,
 
             firstTickAt: null,
@@ -1514,6 +1542,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
         if (reliable.length === 0) return NULL_RESULT;
+        // 到达序 ≠ 时间序（watcher 双写者 bigserial 分配序≠提交序，迟到的更早 blockTime 行）：
+        // 本函数升序假设（t0=window[0]、window[n-1] 当现价、分桶 idx∈[0,B)）在乱序输入下
+        // idx 变负 → buckets[-k].push 崩进程（2026-09-28 b24879e0 裸崩实案，QSAFU 盘）。
+        // 归一为时间升序——修复排序假设，非行为兜底
+        reliable.sort((a, b) => a.t - b.t);
 
         const age = firstTickAt !== null && firstTickAt > 0
             ? Math.max(0, now - firstTickAt) : this._fp.trendWindowMs;
@@ -2080,10 +2113,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             tvl: bnbUsd > 0 ? state.lastFundsBnb * bnbUsd : 0,
             fdv: 0,        // 见下（与 marketCap 同值）
             marketCap: state.totalSupply > 0 && currentPrice > 0 ? currentPrice * state.totalSupply : 0,
-            // 毕业进度（E5 卖侧）：可靠价市值 / flap 毕业锚（72 BNB，实测 11 token 收敛 72.1）。
+            // 毕业进度（E5 卖侧）：可靠价市值 / 毕业锚。锚经 _graduationAnchorBnb per-token 化——
+            // flap 盘首 tick 距创建 <60s 时 = 首市值×12.5（funds 浮动 R 恒比），否则 72 默认锚
+            // （four.meme 实测 11 token 收敛 72.1）。
             // 用 _relPriceBnb 而非 currentPrice——V1 实证尘价/异常巨量 tick 可把任意价口径推到 >1 假触发
             graduationProgress: (state.totalSupply > 0 && state._relPriceBnb > 0)
-                ? (state._relPriceBnb * state.totalSupply) / this._fp.graduationAnchorBnb
+                ? (state._relPriceBnb * state.totalSupply) / this._graduationAnchorBnb(state)
                 : null,
 
             tweetAuthorType: 0, // 叙事已解耦，恒 0

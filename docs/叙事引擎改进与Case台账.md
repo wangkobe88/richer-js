@@ -1411,6 +1411,36 @@ signals/trades/卡账本副作用全复用。单测 `scripts/_test_stop_loss_rul
 零 DB 全过。CLAUDE.md「引擎级止损双腿」段同步。c5945f36 停止（不删行），新实验
 复制其 config + stopLoss 段重启（V4）。
 
+### V4 双平台虚拟 b24879e0 毕业卖出 + flap 毕业锚（2026-09-28，王之蔑视案「2+1」）
+
+王之蔑视 0x7abcc1（flap funds=14.2 非标准盘，+506% P2 针臂卖 1 卡后毕业断流）余
+3 卡冻结 4 天触发排查：progress 峰值 88.9%（72 固定锚失真——77 盘 funds≤14.8 断流
+progress<90%，9 盘够不着 P3 0.9 门）+ 断流后 tick 驱动卖腿整体冻结。用户裁定
+「2+1」落地：
+
+1. **毕业事件驱动卖出**：`_handleGraduation` virtual 持仓票直接全清（等价 strategy
+   `graduationSell` 与止损腿同构；选全清而非等价 P3+P8 卖 3/4——virtual 冻结与
+   全清估值同价只差 0.5% 费，全清释放 PM 资金与卡牌）。`_graduationSoldTokens`
+   Set 幂等（graduation 事件实测重复派发两遍）；live 维持告警人工处置；回测不动
+2. **flap per-token 毕业锚**：token_create payload 无资金字段（原路不通）→ 等价
+   路径「首市值×12.5」（R 恒比 = 断流市值/funds≈4.50 ÷ 初始/funds≈0.36，182 实测
+   4/5 样本 12.10~12.63 ±2%）；**60s 有效性门**（首 tick 距创建超窗 = 首 tick≠开盘，
+   脏样本 0x84439e 首价 5.8 倍开盘 R=2.17 → 退 72 锚）。platform 经
+   SharedTickConsumer 传入 FA state；乱序自愈（迟到注册回填更早 createdAt → 窗
+   变大自动退锚）；BacktestEngine 不传 platform 恒 72，回测零变化
+
+**附带修复（部署时发现 b24879e0 已于 09-28 03:53 裸崩 9 小时）**：
+`_computePriceTrendFactors` 分桶 OLS 假设输入升序，`_recentTicks` FIFO 到达序在
+「bigserial 分配序≠提交序」乱序下负 idx `buckets[-k].push` TypeError → uncaught
+进程死（QSAFU 盘触发）。修复 = reliable 归一时间升序。单测
+`scripts/_test_graduation_sell_and_anchor.cjs` 35 断言四节（锚矩阵/progress 端到端/
+毕业卖幂等·live 门/乱序崩溃复现——旧代码 git stash 反向复现同款崩溃）。
+
+**部署**：182 五文件（FA/SharedTickConsumer/引擎/default.json/单测）+ dual-b24879e0
+screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢复，运行正常）。
+王之蔑视余 3 卡无法追溯补救（graduation 事件已消费，事件不重放），改动只对未来
+新盘生效。
+
 ---
 
 ## 六、未决事项

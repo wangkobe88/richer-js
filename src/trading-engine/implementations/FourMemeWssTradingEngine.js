@@ -238,6 +238,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 盘的豁免见 shouldBlockOnNarrative。内存语义：重启丢失后首个 fire 重新调叙事
     // （缓存命中秒回）重新登记，代价一条 signal 行）
     this._narrativeBlockedTokens = new Set();
+    // 毕业事件全清幂等集（2026-09-28 王之蔑视案裁定「2+1」）：graduation 事件实测重复
+    // 派发两遍 → Set 挡第二次触发；内存语义与 _narrativeBlockedTokens 同款——重启丢失
+    // 安全（事件不重放，重启后无仓则不触发、已卖则 status 已变）
+    this._graduationSoldTokens = new Set();
     this._shouldBlockOnNarrative = shouldBlockOnNarrative;
     // 挂 this：解构是 _initializeDataSources 函数级作用域，_evaluateBuyPath 裸引用会
     // ReferenceError（2026-09-27 蝴蝶轮回案：60 次 BUY 信号全挂「mapGmgnRiskFactors is not defined」）
@@ -2065,8 +2069,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
   /**
    * LiquidityAdded（毕业）：内盘曲线终结，此后不再有 TokenManager2 事件。
-   * virtual 模式未订阅外盘（PancakeSwap），毕业票的持仓将收不到 tick、无法通过
-   * 事件驱动卖出——只记日志与 FA 标记，不改 token 状态（不阻断卖出路径）。
+   * virtual 模式（2026-09-28 王之蔑视案裁定「2+1」）：持仓票直接触发毕业事件驱动
+   * 全清（_emitGraduationSell，余仓按断流前最后可靠价落袋——冻结与全清估值同价
+   * 只差 0.5% 费，全清额外释放 PM 资金与卡牌）。王之蔑视 0x7abcc1 毕业断流后
+   * 余 3 卡冻结 4 天即此盲区首案：progress 峰值 88.9%（funds=14.2 非标准盘，
+   * 72 固定锚失真）→ P3(≥0.9)/P8(≥0.98) 全程够不着，断流后 tick 驱动卖腿整体冻结。
    * live 模式持仓毕业 = 资金卡死在内盘（TM2 sellToken 毕业 revert），即时告警
    * 人工去 PancakeSwap 处置（恰恰爆款票才会毕业——最赚钱的仓位不能静默死仓）。
    */
@@ -2081,11 +2088,36 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           `live 持仓 ${qty} 个代币已无法通过内盘卖出（TM2 毕业 revert，引擎不再收到该 token 的 tick）。` +
           `请尽快到 PancakeSwap 手动处置: ${info.token}`);
       } else {
-        this.logger.warn(this._experimentId, 'Graduation',
-          `⚠️ 持仓代币已毕业（内盘事件流终止）| ${token.symbol} ${info.token} ` +
-          `funds=${info.fundsBnb} BNB —— virtual 模式无外盘数据源，持仓不再有 tick 触发卖出`);
+        this._emitGraduationSell(token, info).catch(error =>
+          this.logger.error(this._experimentId, 'Graduation',
+            `毕业事件全清卖出失败 | ${info.token} ${error.message}`));
       }
     }
+  }
+
+  /**
+   * 毕业事件驱动全清（virtual）：构造等价 strategy（与止损腿同构：cards='all'/
+   * sellPercentage=1/bypassDebounce）直接走 _emitSellSignal 全清链——signals/trades/
+   * 卡账本/累亏记账副作用全复用。选全清而非等价 P3+P8 卖 3/4 剩 1/4：virtual 冻结
+   * 与全清估值同价只差 0.5% 费，全清释放 PM 资金与卡牌。卖出价 = 断流前最后可靠价
+   * （buildFactorMap 的 _relPriceBnb）。卖出失败无重试路径（事件不重放）——但毕业票
+   * 若仍来 tick（flap 毕业后短窗）策略腿仍可卖，风险敞口有限。
+   */
+  async _emitGraduationSell(token, info) {
+    const tokenAddress = token.token;
+    if (this._graduationSoldTokens.has(tokenAddress)) return; // graduation 事件重复派发幂等（实测同事件两遍）
+    this._graduationSoldTokens.add(tokenAddress);
+    const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
+    if (!factors) return;
+    const strategy = {
+      id: 'graduationSell', name: '毕业事件全清',
+      action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
+      priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+    };
+    this.logger.info(this._experimentId, 'Graduation',
+      `${token.symbol || tokenAddress.slice(0, 10)} 毕业事件驱动全清 | funds=${info?.fundsBnb} BNB ` +
+      `余仓按断流前最后可靠价落袋 graduationProgress=${factors.graduationProgress?.toFixed(3)}`);
+    return this._emitSellSignal(token, strategy, factors, null);
   }
 
   // ==================== 守护 intervals ====================

@@ -76,6 +76,8 @@
       "clsTicksWindowMs": 60000,
       "clsTicksMaxPerToken": 1500,
       "graduationAnchorBnb": 72,
+      "graduationAnchorRatio": 12.5,
+      "graduationAnchorFirstTickMaxMs": 60000,
       "bar5mRsiMaxBars": 30,
       "bar15mRsiMaxBars": 12,
       "riseMinTicks": 8,
