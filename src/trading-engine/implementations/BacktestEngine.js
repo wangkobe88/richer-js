@@ -682,17 +682,38 @@ class BacktestEngine extends AbstractTradingEngine {
     });
 
     try {
-      await this.dataService.saveToken(this._experimentId, {
-        token: tokenAddress,
-        symbol: meta.symbol || '',
-        chain: 'bsc',
-        platform: meta.platform || tick.platform || this._platforms[0],
-        data_source: 'wss',
-        created_at: createdAtSec,
-        raw_api_data: { source: 'wss_tick_replay', totalSupply: meta.totalSupply || 0, creator: meta.creator },
-        creator_address: meta.creator || null,
-        status: 'monitoring',
-      });
+      if (this._writeBufferEnabled && this._writeBuffer) {
+        // P1-3（bc4f756e 性能案）：experiment_tokens 逐 token 直写（5,495 次 roundtrip）
+        // 改 buffer 批量。行构造镜像 ExperimentDataService.saveToken 字段组装；
+        // narrative_material_id 提取省略——回放 raw_api_data 无 URL 字段，提取恒 null
+        // （语义安全，plan 已核）；唯一冲突（--force 重跑残留旧行）走 _batchInsert
+        // 降级路径记日志跳过，与直写 saveToken 的 23505 吞掉语义等价
+        const tokenRow = {
+          experiment_id: this._experimentId,
+          token_address: tokenAddress,
+          token_symbol: meta.symbol || '',
+          blockchain: 'bsc',
+          platform: meta.platform || tick.platform || this._platforms[0],
+          data_source: 'wss',
+          discovered_at: new Date(createdAtSec * 1000).toISOString(),
+          status: 'monitoring',
+          raw_api_data: { source: 'wss_tick_replay', totalSupply: meta.totalSupply || 0, creator: meta.creator },
+        };
+        if (meta.creator) tokenRow.creator_address = meta.creator;
+        this._writeBuffer.addTokenInsert(tokenRow);
+      } else {
+        await this.dataService.saveToken(this._experimentId, {
+          token: tokenAddress,
+          symbol: meta.symbol || '',
+          chain: 'bsc',
+          platform: meta.platform || tick.platform || this._platforms[0],
+          data_source: 'wss',
+          created_at: createdAtSec,
+          raw_api_data: { source: 'wss_tick_replay', totalSupply: meta.totalSupply || 0, creator: meta.creator },
+          creator_address: meta.creator || null,
+          status: 'monitoring',
+        });
+      }
     } catch (error) {
       this.logger.error(this._experimentId, 'BacktestEngine',
         `回放代币落库失败 | ${tokenAddress} ${error.message}`);
@@ -1026,7 +1047,14 @@ class BacktestEngine extends AbstractTradingEngine {
         });
         // 虚拟时钟：冷却/次数计数都要记回放时点（挂钟会让回测冷却判据失真）
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id, nowTs);
-        await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
+        // P1-3：状态更新走 buffer（flush 末段按入队序重放）；buffer 关时保留直写
+        if (this._writeBufferEnabled && this._writeBuffer) {
+          this._writeBuffer.addTokenStatusUpdate({
+            experimentId: this._experimentId, tokenAddress: token.token, status: 'bought',
+          });
+        } else {
+          await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
+        }
 
         const faState = this._factorAggregator.getTokenState(token.token);
         this._factorAggregator.setBuyState(token.token, {
@@ -1389,7 +1417,14 @@ class BacktestEngine extends AbstractTradingEngine {
           this._roundLedger.delete(signal.tokenAddress);
 
           this._tokenPool.markAsSold(signal.tokenAddress, signal.chain);
-          await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'sold');
+          // P1-3：状态更新走 buffer（flush 末段按入队序重放）；buffer 关时保留直写
+          if (this._writeBufferEnabled && this._writeBuffer) {
+            this._writeBuffer.addTokenStatusUpdate({
+              experimentId: this._experimentId, tokenAddress: signal.tokenAddress, status: 'sold',
+            });
+          } else {
+            await this.dataService.updateTokenStatus(this._experimentId, signal.tokenAddress, 'sold');
+          }
           this._factorAggregator.clearBuyState(signal.tokenAddress, 'default');
         } else {
           this._roundLedger.set(signal.tokenAddress, ledger);

@@ -16,6 +16,8 @@ class BacktestWriteBuffer {
     this._pendingSignalUpdates = []; // { signalId, updateData }
     this._pendingEarlyTradesInserts = [];
     this._pendingAnalysisInserts = []; // TPA token_position_analyses 行（回迁批 4；upsert 通道）
+    this._pendingTokenInserts = [];           // experiment_tokens INSERT 行（P1-3）
+    this._pendingTokenStatusUpdates = [];     // { experimentId, tokenAddress, status }（P1-3，按入队序重放）
   }
 
   /**
@@ -47,6 +49,24 @@ class BacktestWriteBuffer {
    */
   addEarlyTradesInsert(dbData) {
     this._pendingEarlyTradesInserts.push(dbData);
+  }
+
+  /**
+   * 添加 experiment_tokens INSERT 记录（P1-3，bc4f756e 性能案）：行形状由引擎侧
+   * 构造（镜像 ExperimentDataService.saveToken 的字段组装；material_id 提取省略
+   * ——回放 raw_api_data 无 URL 字段，提取恒 null）。flush 与其他 INSERT 同段并行
+   */
+  addTokenInsert(dbData) {
+    this._pendingTokenInserts.push(dbData);
+  }
+
+  /**
+   * 添加 token 状态更新（P1-3）：{ experimentId, tokenAddress, status }。
+   * flush 末段按入队序串行重放（同 token 可能 monitoring→bought→sold→bought
+   * 多轮迁移，乱序/并行会丢中间态）
+   */
+  addTokenStatusUpdate(entry) {
+    this._pendingTokenStatusUpdates.push(entry);
   }
 
   /**
@@ -105,7 +125,9 @@ class BacktestWriteBuffer {
       + this._pendingSnapshotInserts.length
       + this._pendingSignalUpdates.length
       + this._pendingEarlyTradesInserts.length
-      + this._pendingAnalysisInserts.length;
+      + this._pendingAnalysisInserts.length
+      + this._pendingTokenInserts.length
+      + this._pendingTokenStatusUpdates.length;
   }
 
   /**
@@ -121,6 +143,8 @@ class BacktestWriteBuffer {
       signalsUpdated: 0,
       earlyTradesInserted: 0,
       analysesUpserted: 0,
+      tokensInserted: 0,
+      tokenStatusUpdated: 0,
       errors: []
     };
 
@@ -175,12 +199,28 @@ class BacktestWriteBuffer {
       ).then(count => { stats.analysesUpserted = count; }));
     }
 
+    // 批量插入 experiment_tokens 行（P1-3；experiment_id FK 指向早已存在的实验行，
+    // 与其他表无依赖，同段并行；状态 UPDATE 在末段等 INSERT 完成后按序重放）
+    if (this._pendingTokenInserts.length > 0) {
+      insertTasks.push(this._batchInsert(
+        'experiment_tokens',
+        this._pendingTokenInserts,
+        experimentId
+      ).then(count => { stats.tokensInserted = count; }));
+    }
+
     await Promise.all(insertTasks);
 
     // 第三阶段：信号更新（必须等 INSERT 完成，否则 UPDATE 找不到记录）
     if (this._pendingSignalUpdates.length > 0) {
       const count = await this._batchSignalUpdates(experimentId);
       stats.signalsUpdated = count;
+    }
+
+    // 第四阶段：token 状态更新——按入队序串行重放（同 token 多轮迁移保序；
+    // 且必须等 experiment_tokens INSERT 落地，否则 UPDATE 空匹配）
+    if (this._pendingTokenStatusUpdates.length > 0) {
+      stats.tokenStatusUpdated = await this._batchTokenStatusUpdates(experimentId);
     }
 
     // 清空缓冲区
@@ -190,10 +230,12 @@ class BacktestWriteBuffer {
     this._pendingSignalUpdates = [];
     this._pendingEarlyTradesInserts = [];
     this._pendingAnalysisInserts = [];
+    this._pendingTokenInserts = [];
+    this._pendingTokenStatusUpdates = [];
 
-    if (this._logger && (stats.signalsInserted || stats.tradesInserted || stats.snapshotsInserted || stats.signalsUpdated || stats.earlyTradesInserted || stats.analysesUpserted)) {
+    if (this._logger && (stats.signalsInserted || stats.tradesInserted || stats.snapshotsInserted || stats.signalsUpdated || stats.earlyTradesInserted || stats.analysesUpserted || stats.tokensInserted || stats.tokenStatusUpdated)) {
       this._logger.info(experimentId, 'BacktestWriteBuffer',
-        `flush 完成 | signals=${stats.signalsInserted}, trades=${stats.tradesInserted}, snapshots=${stats.snapshotsInserted}, signalUpdates=${stats.signalsUpdated}, earlyTrades=${stats.earlyTradesInserted}, analyses=${stats.analysesUpserted}`);
+        `flush 完成 | signals=${stats.signalsInserted}, trades=${stats.tradesInserted}, snapshots=${stats.snapshotsInserted}, signalUpdates=${stats.signalsUpdated}, earlyTrades=${stats.earlyTradesInserted}, analyses=${stats.analysesUpserted}, tokens=${stats.tokensInserted}, tokenStatus=${stats.tokenStatusUpdated}`);
     }
 
     return stats;
@@ -234,6 +276,32 @@ class BacktestWriteBuffer {
       }
     }
     return inserted;
+  }
+
+  /**
+   * token 状态更新按入队序串行重放（P1-3）：逐条 UPDATE（不可并行——同 token
+   * monitoring→bought→sold→bought 多轮迁移，乱序会丢中间态/终态错乱；量级
+   * ~每买卖轮 2 条，串行无性能压力）。失败仅记日志不中断（与直写路径的
+   * updateTokenStatus 吞错返回 false 语义一致）
+   */
+  async _batchTokenStatusUpdates(experimentId) {
+    let updated = 0;
+    for (const u of this._pendingTokenStatusUpdates) {
+      const { error } = await this._supabase
+        .from('experiment_tokens')
+        .update({ status: u.status, updated_at: new Date().toISOString() })
+        .eq('experiment_id', u.experimentId)
+        .eq('token_address', u.tokenAddress);
+      if (error) {
+        if (this._logger) {
+          this._logger.error(experimentId, 'BacktestWriteBuffer',
+            `token status UPDATE 失败: ${u.tokenAddress} → ${u.status}: ${error.message}`);
+        }
+      } else {
+        updated++;
+      }
+    }
+    return updated;
   }
 
   /**
