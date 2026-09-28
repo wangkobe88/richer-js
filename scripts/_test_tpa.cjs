@@ -493,6 +493,46 @@ function ctor(overrides = {}, deps = {}) {
     }
 }
 
+// ═══════════════ 7. 买信号 TPA 快照（buildTpaFactorSnapshot；signals 页复盘用）═══════════════
+{
+    const { buildTpaFactorSnapshot } = require('../src/trading-engine/core/FactorBuilder');
+    const FA = FourMemeFactorAggregator;
+    const fa = new FA({});
+    const TOK = '0xTSNAP';
+    fa.registerToken(TOK, { createdAtMs: T0 - 1000, totalSupply: 1e6, symbol: 'TS' });
+    fa.processTick(faTick(TOK, T0, true, 10, 1.0, '0xA', 100, 500), { emitFactors: false });
+
+    // 触发前：fire 时刻 factorMap 无 TPA 注入 → 快照全 null（显式未就绪，不掩盖），
+    // 但键集完整（HOLDING_FACTOR_KEYS + FA_TPA_KEYS 全集，前端按键渲染不缺列）
+    const f0 = fa.buildFactorMap(TOK, T0 + 500) || {};
+    const s0 = buildTpaFactorSnapshot(f0);
+    const expectedKeys = [...HOLDING_FACTOR_KEYS, ...FA_TPA_KEYS];
+    eq(Object.keys(s0).length, expectedKeys.length, '快照键数 = TPA 键清单全集');
+    for (const k of expectedKeys) ok(k in s0, `快照含键 ${k}`);
+    eq(s0.TPAAnalyzed, 0, '触发前快照 TPAAnalyzed=0');
+    eq(s0.TPAPre_tokenScore, null, '触发前快照 tokenScore=null（undefined 显式化）');
+    eq(s0.TPAPre_walletHoldingPct, null, '触发前快照 whp=null');
+
+    // 触发后：fire 时刻注入值原样进快照（买腿 condition 用的同一份因子）
+    FA.setHoldingFactors(TOK, {
+        TPAPre_walletHoldingPct: 12.5, TPAPre_tokenScore: 3.482,
+        TPAPre_zhuangRetailRatio: 29.387, TPAPre_zhuangRetailRatioInfinite: false,
+    });
+    FA.setRetentionBasis(TOK, { zhuangAddresses: ['0xA'], netZAtDecision: 500 });
+    const f1 = fa.buildFactorMap(TOK, T0 + 1000) || {};
+    const s1 = buildTpaFactorSnapshot(f1);
+    eq(s1.TPAAnalyzed, 1, '触发后快照 TPAAnalyzed=1');
+    eq(s1.TPAPre_tokenScore, 3.482, '快照读注入 tokenScore');
+    eq(s1.TPAPre_zhuangRetailRatio, 29.387, '快照读注入庄散比');
+    eq(s1.TPAPre_walletHoldingPct, 12.5, '快照读注入 whp');
+    eq(s1.TPAPre_retention, 1, '快照读 FA retention');
+
+    // 输入 null/空对象防御：不 throw，全键 null
+    const s2 = buildTpaFactorSnapshot(null);
+    eq(s2.TPAPre_tokenScore, null, 'null 输入 → 全 null 不炸');
+    eq(Object.keys(s2).length, expectedKeys.length, 'null 输入键集仍完整');
+}
+
 // ═══════════════ 汇总 ═══════════════
 console.log(`\n_tpa: ${passed} passed, ${failed} failed`);
 if (failed > 0) { console.error(failures.join('\n')); process.exit(1); }

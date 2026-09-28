@@ -2297,7 +2297,46 @@ class ExperimentSignals {
         `;
       }
 
-      // 第二阶段：早期交易者黑白名单 + 持有者检查信息
+      // TPA 持仓分析因子块（买腿 condition 引用 TPAPre_* 时复盘用；键由引擎
+      // buildTpaFactorSnapshot 于 fire 时刻快照写入 metadata.tpaFactors）
+      let tpaFactorsHtml = '';
+      const tpf = metadata.tpaFactors;
+      if (tpf) {
+        const analyzed = tpf.TPAAnalyzed === 1;
+        // 从买入条件解析 TPAPre_tokenScore 阈值染色（如 "TPAPre_tokenScore > 2.2"）
+        let tsClass = 'text-gray-900';
+        const tsMatch = buyCondition && buyCondition.match(/TPAPre_tokenScore\s*([<>]=?|==)\s*([0-9.]+)/);
+        if (tsMatch && tpf.TPAPre_tokenScore != null) {
+          const op = tsMatch[1], thr = parseFloat(tsMatch[2]), v = Number(tpf.TPAPre_tokenScore);
+          const ok = op === '>' ? v > thr : op === '>=' ? v >= thr : op === '<' ? v < thr : op === '<=' ? v <= thr : v === thr;
+          tsClass = ok ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold';
+        }
+        const ratioDisp = tpf.TPAPre_zhuangRetailRatioInfinite ? '∞'
+          : (tpf.TPAPre_zhuangRetailRatio == null ? 'null' : Number(tpf.TPAPre_zhuangRetailRatio).toFixed(2));
+        const pct = (v) => v == null ? 'N/A' : Number(v).toFixed(1) + '%';
+        const num = (v, d = 2) => v == null ? 'null' : Number(v).toFixed(d);
+        tpaFactorsHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="text-xs font-semibold text-amber-900 mb-1">🎯 TPA 持仓分析因子（fire 时刻快照）</div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div><span class="text-amber-800">TPA 状态:</span> <span class="${analyzed ? 'text-green-600' : 'text-red-600'}">${analyzed ? '✅ 已检测' : '❌ 未检测(null fail-closed)'}</span></div>
+              <div><span class="text-amber-800">总分(0-5):</span> <span class="${tsClass}">${num(tpf.TPAPre_tokenScore)}</span></div>
+              <div><span class="text-amber-800">庄散比:</span> <span class="text-gray-900">${ratioDisp}</span></div>
+              <div><span class="text-amber-800">净吸收:</span> <span class="text-gray-900">${pct(tpf.TPAPre_walletHoldingPct)}</span></div>
+              <div><span class="text-amber-800">庄占比:</span> <span class="text-gray-900">${pct(tpf.TPAPre_zhuangPct)}</span></div>
+              <div><span class="text-amber-800">新钱包占比:</span> <span class="text-gray-900">${pct(tpf.TPAPre_newWalletPct)}</span></div>
+              <div><span class="text-amber-800">散占比:</span> <span class="text-gray-900">${pct(tpf.TPAPre_retailPct)}</span></div>
+              <div><span class="text-amber-800">中占比:</span> <span class="text-gray-900">${pct(tpf.TPAPre_neutralPct)}</span></div>
+              <div><span class="text-amber-800">庄/散/新/中分:</span> <span class="text-gray-900">${num(tpf.TPAPre_zhuangScore)}/${num(tpf.TPAPre_retailScore)}/${num(tpf.TPAPre_newWalletScore)}/${num(tpf.TPAPre_neutralScore)}</span></div>
+              <div><span class="text-amber-800">retention:</span> <span class="text-gray-900">${num(tpf.TPAPre_retention)}</span></div>
+              <div><span class="text-amber-800">asof相对首价:</span> <span class="text-gray-900">${num(tpf.TPAPre_asofRelFirst)}</span></div>
+              <div><span class="text-amber-800">画像就绪年龄:</span> <span class="text-gray-900">${tpf.TPAPre_analyzedAgeSec == null ? 'null' : num(tpf.TPAPre_analyzedAgeSec, 0) + 's'}</span></div>
+            </div>
+          </div>
+        `;
+      }
+
+
       let holderCheckHtml = '';
       if (pf.earlyTraderBlacklistCount !== undefined || pf.holdersCount !== undefined) {
         const traderWhitelistClass = this._getFactorClass('earlyTraderWhitelistCount', pf.earlyTraderWhitelistCount || 0, preCheckThresholds);
@@ -2487,6 +2526,7 @@ class ExperimentSignals {
           </div>
           ${strategyConfigHtml}
           ${trendFactorsHtml}
+          ${tpaFactorsHtml}
           ${holderCheckHtml}
           ${earlyTradesHtml}
           ${strongTraderHtml}

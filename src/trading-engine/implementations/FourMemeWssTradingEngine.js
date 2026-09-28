@@ -927,7 +927,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    */
   async _evaluateBuyPath(token, factorResults, tick) {
     const tokenAddress = token.token;
-    const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
+    const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues, buildTpaFactorSnapshot } = require('../core/FactorBuilder');
 
     this._buyingTokens.add(tokenAddress);
     try {
@@ -1154,6 +1154,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             await this._updateSignalMetadata(signalId, {
               tokenCreateTime,
               trendFactors: buildFactorValuesForTimeSeries(factorResults),
+              tpaFactors: buildTpaFactorSnapshot(factorResults),
               narrativeCall: narrativeCallInfo,
               narrativeLeaderCheck: narrativeLeaderInfo,
               preBuyCheckFactors: {
@@ -1184,6 +1185,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           await this._updateSignalMetadata(signalId, {
             tokenCreateTime,
             trendFactors: buildFactorValuesForTimeSeries(factorResults),
+            tpaFactors: buildTpaFactorSnapshot(factorResults),
             narrativeCall: narrativeCallInfo,
             narrativeLeaderCheck: narrativeLeaderInfo,
             preBuyCheckFactors: buildPreBuyCheckFactorValues(preBuyCheckResult),

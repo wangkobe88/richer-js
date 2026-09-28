@@ -672,7 +672,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
   async _evaluateBuyPath(token, factorResults, tick, fireTs) {
     const tokenAddress = token.token;
-    const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues } = require('../core/FactorBuilder');
+    const { buildFactorValuesForTimeSeries, buildPreBuyCheckFactorValues, buildTpaFactorSnapshot } = require('../core/FactorBuilder');
     const nowTs = fireTs;
 
     this._buyingTokens.add(tokenAddress);
@@ -883,6 +883,7 @@ class BacktestEngine extends AbstractTradingEngine {
             metadata: {
               tokenCreateTime,
               trendFactors: buildFactorValuesForTimeSeries(factorResults),
+              tpaFactors: buildTpaFactorSnapshot(factorResults),
               narrativeCall: narrativeCallInfo,
               narrativeLeaderCheck: narrativeLeaderInfo,
               preBuyCheckFactors: {
@@ -908,6 +909,7 @@ class BacktestEngine extends AbstractTradingEngine {
           metadata: {
             tokenCreateTime,
             trendFactors: buildFactorValuesForTimeSeries(factorResults),
+            tpaFactors: buildTpaFactorSnapshot(factorResults),
             narrativeCall: narrativeCallInfo,
             narrativeLeaderCheck: narrativeLeaderInfo,
             preBuyCheckFactors: buildPreBuyCheckFactorValues(preBuyCheckResult),

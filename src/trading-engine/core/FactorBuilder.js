@@ -428,10 +428,31 @@ function buildSlimFactorValues(factorResults) {
   };
 }
 
+/**
+ * 构建 TPA 持仓因子快照用于买信号 metadata（tpaFactors 键）
+ * TPAPre_* 因子族由 TokenPositionAnalyzer 触发后经 FA.buildFactorMap 尾部注入，
+ * 供买腿 condition 评估（如 TPAPre_tokenScore > 2.2）——但不在
+ * preBuyCheckFactors/trendFactors 白名单内，不快照则落库即丢，signals 页面
+ * 无法复盘「买入时刻 TPA 分数」。快照取 fire 时刻 factorResults 的 TPA 键集
+ * （tpa-factor-keys 单一真相源），未触发键 undefined → null（显式未就绪，不掩盖）。
+ * @param {Object} factorResults - 策略评估用的 fire 时刻因子（含 TPA 注入键）
+ * @returns {Object} TPA 因子快照对象
+ */
+function buildTpaFactorSnapshot(factorResults) {
+  const { HOLDING_FACTOR_KEYS, FA_TPA_KEYS } = require('../../services/tpa-factor-keys');
+  const snapshot = {};
+  for (const key of [...HOLDING_FACTOR_KEYS, ...FA_TPA_KEYS]) {
+    const v = factorResults ? factorResults[key] : undefined;
+    snapshot[key] = v === undefined ? null : v;
+  }
+  return snapshot;
+}
+
 module.exports = {
   buildFactorValuesForTimeSeries,
   buildSlimFactorValues,
   buildPreBuyCheckFactorValues,
   buildFactorsFromTimeSeries,
-  getAvailableFactorIds
+  getAvailableFactorIds,
+  buildTpaFactorSnapshot
 };
