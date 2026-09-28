@@ -11,6 +11,27 @@ class Logger {
         this.logDir = config.dir || path.join(process.cwd(), 'logs');
         this.experimentId = config.experimentId || 'main';
         this.ensureLogDirectory();
+        // 按文件路径复用的 WriteStream（flags:'a' 追加），替代 appendFileSync 同步阻塞写
+        // （bc4f756e 性能案：单次回放 30.5 万行日志 × 双写 = 30 万次同步系统调用）。
+        // experimentId / 日期变化 → 路径变化 → 自动新建 stream，旧 stream 由进程退出关闭
+        this._streams = new Map();
+    }
+
+    /**
+     * 按 filePath 复用 WriteStream（追加模式），命中即复用，未命中新建
+     * write() 把数据写入内核缓冲后立即返回（非阻塞）；错误走 error 事件打 console
+     * @private
+     */
+    _getStream(filePath) {
+        let stream = this._streams.get(filePath);
+        if (!stream) {
+            stream = fs.createWriteStream(filePath, { flags: 'a', encoding: 'utf8' });
+            stream.on('error', (err) => {
+                console.error('[Logger] writeStream error:', filePath, err.message);
+            });
+            this._streams.set(filePath, stream);
+        }
+        return stream;
     }
 
     ensureLogDirectory() {
@@ -81,7 +102,7 @@ class Logger {
         const filePath = this.getLogFilePath();
 
         try {
-            fs.appendFileSync(filePath, logLine + '\n', 'utf8');
+            this._getStream(filePath).write(logLine + '\n', 'utf8');
         } catch (err) {
             console.error('Failed to write log:', err);
         }
@@ -137,7 +158,7 @@ class Logger {
 
         const filePath = this.getLogFilePath();
         try {
-            fs.appendFileSync(filePath, logLine + '\n', 'utf8');
+            this._getStream(filePath).write(logLine + '\n', 'utf8');
         } catch (err) {
             console.error('[Logger] logRaw failed:', err.message);
         }
