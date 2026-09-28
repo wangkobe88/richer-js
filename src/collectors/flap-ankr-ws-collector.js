@@ -298,7 +298,12 @@ class FlapAnkrWsCollector {
         this._ws.on('open', () => {
             this.logger.info('', 'FlapAnkrWsCollector', 'WSS 已连接，发送订阅请求');
             this._send({ jsonrpc: '2.0', id: 1, method: 'eth_subscribe', params: ['newHeads'] });
-            this._send({ jsonrpc: '2.0', id: 2, method: 'eth_subscribe', params: ['logs', { address: [this._portal] }] });
+            // topic0 白名单：ANKR WSS 按推送消息计费，Portal 全量 logs 中 unknown 事件占 ~74%
+            // （stats.unknownEvents 实测，三个 PCS 高频 topic0 合计 ~49 万条/天）纯浪费——
+            // 服务端只推 TOPIC0_MAP 内的事件。客户端行为零变化（unknown 本来就只计数丢弃）；
+            // 取舍=合约升级新事件类型不再可发现（unknownTopic0 计数归零），需人工诊断时
+            // 临时去 topics 重订阅一天
+            this._send({ jsonrpc: '2.0', id: 2, method: 'eth_subscribe', params: ['logs', { address: [this._portal], topics: [Array.from(TOPIC0_MAP.keys())] }] });
 
             this._pingTimer = setInterval(() => {
                 if (this._ws && this._ws.readyState === WebSocket.OPEN) {

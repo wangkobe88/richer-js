@@ -219,7 +219,11 @@ class FourMemeAnkrWsCollector {
             const logAddresses = this._subscribeV1 && this._tokenManagerV1
                 ? [this._tokenManagerV2, this._tokenManagerV1]
                 : [this._tokenManagerV2];
-            this._send({ jsonrpc: '2.0', id: 2, method: 'eth_subscribe', params: ['logs', { address: logAddresses }] });
+            // topic0 白名单：ANKR WSS 按推送消息计费，全量 logs 中 unknown 事件占 ~42%
+            // （stats.unknownEvents 实测）纯浪费——服务端只推 TOPIC0_MAP 内的事件。
+            // 客户端行为零变化（unknown 本来就只计数丢弃）；取舍=合约升级新事件类型
+            // 不再可发现（unknownTopic0 计数归零），需人工诊断时临时去 topics 重订阅一天
+            this._send({ jsonrpc: '2.0', id: 2, method: 'eth_subscribe', params: ['logs', { address: logAddresses, topics: [Array.from(TOPIC0_MAP.keys())] }] });
 
             this._pingTimer = setInterval(() => {
                 if (this._ws && this._ws.readyState === WebSocket.OPEN) {
