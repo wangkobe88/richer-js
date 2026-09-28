@@ -431,7 +431,12 @@ class PreBuyCheckService {
     this.walletLabelService = new WalletLabelService(supabase, logger);
 
     // 初始化严格同名代币检查服务（AVE 检索"同名老币已存在"信号）
-    this.sameNameTokenService = new SameNameTokenService(logger);
+    // P1-5（bc4f756e 性能案）：AVE 搜索结果实例级 TTL 缓存（preBuyCheck.
+    // sameNameSearchCacheTtlSec，默认 0=off 零变化）——回测重复 fire 同 token
+    // 时同 symbol 搜索 ~47:1 重复，省外部 API roundtrip
+    this.sameNameTokenService = new SameNameTokenService(logger, {
+      searchCacheTtlSec: this.config?.sameNameSearchCacheTtlSec,
+    });
 
     // 初始化条件评估器
     this._conditionEvaluator = new ConditionEvaluator();

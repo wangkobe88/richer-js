@@ -15,9 +15,18 @@ class SameNameTokenService {
   /**
    * 构造函数
    * @param {Object} logger - 日志记录器
+   * @param {Object} [config] - 配置
+   * @param {number} [config.searchCacheTtlSec=0] - AVE 搜索结果缓存 TTL（秒，
+   *   默认 0=off 现状零变化；P1-5 bc4f756e 性能案）。回测重复 fire 同 token 时
+   *   同 symbol 搜索 ~47:1 重复，缓存省外部 API roundtrip；只缓存搜索原始结果，
+   *   selfAddress 排除 / 名称匹配过滤每次重跑（per-token 输入不同）
    */
-  constructor(logger) {
+  constructor(logger, config = {}) {
     this.logger = logger;
+    const ttl = Number(config.searchCacheTtlSec);
+    this._searchCacheTtlMs = Number.isFinite(ttl) && ttl > 0 ? ttl * 1000 : 0;
+    /** key = `${chain}:${搜索词}` → { results, cachedAt }（AVE 原始行，只缓存成功结果） */
+    this._searchCache = new Map();
   }
 
   /**
@@ -35,18 +44,39 @@ class SameNameTokenService {
     this.logger.debug('开始严格同名代币检查', { symbol: tokenSymbol, name: tokenName, chain });
 
     try {
-      // 初始化AVE API
-      const apiKey = process.env.AVE_API_KEY || null;
-      const { AveTokenAPI } = require('../../core/ave-api');
-      const config = require('../../../config/default.json');
-      const baseURL = config.ave?.apiUrl || 'https://prod.ave-api.com';
+      // AVE 搜索（带实例级 TTL 缓存，默认 off）：key 与搜索词口径一致（归一化 symbol），
+      // 只缓存成功结果（失败 throw 不缓存，保留重试）；过滤逻辑（self 排除/名称匹配）不缓存
+      const searchTerm = SameNameTokenService._normalizeName(tokenSymbol) || tokenSymbol;
+      const cacheKey = `${chain}:${searchTerm}`;
+      let results = null;
+      let fromSearchCache = false;
+      if (this._searchCacheTtlMs > 0) {
+        const cached = this._searchCache.get(cacheKey);
+        if (cached && Date.now() - cached.cachedAt < this._searchCacheTtlMs) {
+          results = cached.results;
+          fromSearchCache = true;
+        }
+      }
 
-      const api = new AveTokenAPI(baseURL, timeout, apiKey);
+      if (!results) {
+        // 初始化AVE API
+        const apiKey = process.env.AVE_API_KEY || null;
+        const { AveTokenAPI } = require('../../core/ave-api');
+        const config = require('../../../config/default.json');
+        const baseURL = config.ave?.apiUrl || 'https://prod.ave-api.com';
 
-      // 搜索同名代币（固定BSC链；归一化 symbol 搜索，避免隐形字符搜不到同名代币）
-      const results = await api.searchTokens(
-        SameNameTokenService._normalizeName(tokenSymbol) || tokenSymbol, chain, 300, 'fdv'
-      );
+        const api = new AveTokenAPI(baseURL, timeout, apiKey);
+
+        // 搜索同名代币（固定BSC链；归一化 symbol 搜索，避免隐形字符搜不到同名代币）
+        results = await api.searchTokens(searchTerm, chain, 300, 'fdv');
+        if (this._searchCacheTtlMs > 0) {
+          this._searchCache.set(cacheKey, { results, cachedAt: Date.now() });
+        }
+      }
+
+      if (fromSearchCache) {
+        this.logger.debug('严格同名检查命中搜索缓存', { symbol: tokenSymbol, chain, rows: results.length });
+      }
 
       // 排除自己后做严格名称匹配过滤
       const self = selfAddress ? selfAddress.toLowerCase() : null;
