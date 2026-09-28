@@ -2226,6 +2226,7 @@ class ExperimentSignals {
               <div class="text-xs mb-1">
                 <span class="font-semibold text-amber-900">📋 买入条件配置:</span>
                 <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(buyCondition)}</code>
+                ${this._renderConditionFactorChips(buyCondition, buyThresholds, metadata)}
               </div>
             ` : ''}
             ${preBuyCheckCondition ? `
@@ -3009,6 +3010,71 @@ class ExperimentSignals {
     const firstStrategy = enrichedStrategies[0];
     console.log(`[ExperimentSignals] 使用第一个策略: ${firstStrategy?.id} - ${firstStrategy?.name}`);
     return firstStrategy?.condition || null;
+  }
+
+  /**
+   * 渲染买入条件各因子的触发时刻值（chip 行，紧贴条件表达式展示）。
+   * 值查找顺序：metadata.trendFactors → metadata.tpaFactors → metadata.preBuyCheckFactors → metadata 顶层。
+   * 着色：满足阈值=绿 / 不满足=红 / null（TPA 未触发等 fail-closed）=红底「null」/
+   * 快照段缺失（历史信号）=灰「无快照」。
+   * @private
+   * @param {string} condition - 条件表达式
+   * @param {Object} thresholds - _parseBuyCondition 解析出的 { factorName: { operator, value } }
+   * @param {Object} metadata - 信号 metadata
+   * @returns {string} HTML
+   */
+  _renderConditionFactorChips(condition, thresholds, metadata) {
+    if (!condition || !thresholds || Object.keys(thresholds).length === 0) return '';
+    const sources = [
+      metadata && metadata.trendFactors,
+      metadata && metadata.tpaFactors,
+      metadata && metadata.preBuyCheckFactors,
+      metadata
+    ].filter(Boolean);
+
+    const fmt = (v) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return String(v);
+      return (Math.abs(n) >= 0.001 && Math.abs(n) < 100000) ? n.toFixed(2) : n.toExponential(3);
+    };
+    const cmp = (op, v, threshold) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return false;
+      switch (op) {
+        case '>=': return n >= threshold;
+        case '<=': return n <= threshold;
+        case '>': return n > threshold;
+        case '<': return n < threshold;
+        case '=': case '==': return n === threshold;
+        default: return null;
+      }
+    };
+
+    const chips = [];
+    for (const [name, th] of Object.entries(thresholds)) {
+      // 在各快照段中找值；区分 undefined（段/键缺失）与 null（因子存在但未就绪）
+      let raw;
+      let srcIdx = 0;
+      while (srcIdx < sources.length) {
+        if (name in sources[srcIdx]) { raw = sources[srcIdx][name]; break; }
+        srcIdx++;
+      }
+      const found = srcIdx < sources.length;
+      let cls, text;
+      if (!found) {
+        cls = 'bg-gray-100 text-gray-500';
+        text = `${name} = 无快照(历史信号)`;
+      } else if (raw === null || raw === undefined) {
+        cls = 'bg-red-50 text-red-700 border border-red-200';
+        text = `${name} = null(未触发/未就绪)`;
+      } else {
+        const ok = cmp(th.operator, raw, th.value);
+        cls = ok === null ? 'bg-gray-100 text-gray-700' : (ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800');
+        text = `${name} = ${fmt(raw)} ${th.operator} ${th.value} ${ok === null ? '?' : (ok ? '✓' : '✗')}`;
+      }
+      chips.push(`<code class="px-1.5 py-0.5 rounded text-xs ${cls}">${this._escapeHtml(text)}</code>`);
+    }
+    return `<div class="mt-1 flex flex-wrap gap-1 items-center"><span class="text-amber-800">📊 因子值:</span>${chips.join('')}</div>`;
   }
 
   /**

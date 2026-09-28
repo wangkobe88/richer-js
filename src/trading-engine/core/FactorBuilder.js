@@ -44,6 +44,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,
     txVolumeU24h: factorResults.txVolumeU24h,
     holders: factorResults.holders,
+    // 累计买入量 BNB（FA state.totalBuyBnb；买腿 condition 量能主键）——signals 页
+    // 买入条件复盘用；旧 FA/历史信号无此键 → null 不掩盖
+    buyVolumeBnb: factorResults.buyVolumeBnb ?? null,
     tvl: factorResults.tvl,
     fdv: factorResults.fdv,
     marketCap: factorResults.marketCap,
