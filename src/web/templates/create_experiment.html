@@ -114,6 +114,34 @@
             color: #6b7280;
             word-break: break-all;
         }
+        /* 卖腿按 cycle 桶分组（2026-09-28 cycle 判定配置化） */
+        .cycle-group {
+            border: 1px dashed #c7d2fe;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            margin-bottom: 0.75rem;
+            background: #f8fafc;
+        }
+        .cycle-group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.375rem;
+            padding-bottom: 0.375rem;
+            border-bottom: 1px dashed #e0e7ff;
+        }
+        .cycle-group-header .cgh-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #4338ca;
+        }
+        .cycle-group-header .cgh-count {
+            font-size: 0.75rem;
+            color: #6366f1;
+            background: #eef2ff;
+            border-radius: 0.25rem;
+            padding: 0.125rem 0.5rem;
+        }
         .empty-hint {
             font-size: 0.8125rem;
             color: #9ca3af;
@@ -646,6 +674,89 @@
                     </div>
                 </div>
 
+                <!-- 行为周期判定（cycle 判定配置化，2026-09-28：实验级显式配置） -->
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">🌡️ 行为周期判定（cycle 分桶路由）</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">实验级配置——本实验如何把代币分到冷/中/热行为桶（与库条目无关，复制实验各持口径）</p>
+                        </div>
+                        <label class="flex items-center gap-2 shrink-0">
+                            <input type="checkbox" id="tc-enforce" class="w-4 h-4">
+                            <span class="text-sm font-medium text-gray-700">启用周期路由</span>
+                        </label>
+                    </div>
+                    <div id="tc-params" class="grid grid-cols-2 md:grid-cols-4 gap-3 opacity-60">
+                        <!-- 档位门 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">热桶 tps 门</label>
+                            <input type="number" id="tc_hot_tps" value="0.5" step="any" min="0"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">tps30s ≥ 此值 → 热桶</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">中桶 tps 门</label>
+                            <input type="number" id="tc_mid_tps" value="0.08" step="any" min="0"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">tps30s ≥ 此值 → 至少中桶</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">热桶间隔门 (ms)</label>
+                            <input type="number" id="tc_hot_gap_ms" value="2000" step="any" min="1"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">tick 间隔中位数 ≤ 此值 → 热桶</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">中桶间隔门 (ms)</label>
+                            <input type="number" id="tc_mid_gap_ms" value="12000" step="any" min="1"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">间隔中位数 ≤ 此值 → 至少中桶</span>
+                        </div>
+                        <!-- 证据门 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">最小 tick 数（5min 窗）</label>
+                            <input type="number" id="tc_min_ticks" value="12" step="1" min="1"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">低于此值 = 证据不足 → 档位 null</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">热身期 (秒)</label>
+                            <input type="number" id="tc_warmup_sec" value="60" step="1" min="1"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">代币年龄小于此值 → 档位 null</span>
+                        </div>
+                        <!-- 稳定性 -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">升档驻留 (秒)</label>
+                            <input type="number" id="tc_up_dwell_sec" value="30" step="1" min="1"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">升档需持续此时长（追热要快）</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">降档驻留 (秒)</label>
+                            <input type="number" id="tc_down_dwell_sec" value="120" step="1" min="1"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">降档需持续此时长（抗瞬抖）</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">断流判定 (ms)</label>
+                            <input type="number" id="tc_stale_ms" value="120000" step="any" min="1"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">无 tick 超此时长 → 立即降冷桶</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">间隔样本数</label>
+                            <input type="number" id="tc_gap_samples" value="120" step="1" min="1"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">间隔中位数取尾部此数个样本</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">
+                        档位判定 = tps30s（30s 滑窗 tick 密度）OR gapMedianMs（5min 窗间隔中位数）双主量；
+                        不启用时带 groups 的腿全隐（fail-closed，止损双腿兜底）。改参数 = 改本实验分桶口径（与库条目无关）。
+                    </p>
+                </div>
+
                 <!-- 卖出策略配置（同上：只读快照，仅库引用） -->
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
@@ -770,9 +881,10 @@
 
                             <h4>组路由（groups，从库引用携带）</h4>
                             <ul>
-                                <li>腿可带 <code>groups</code> 表达式限定只对特定行为周期桶生效：<code>cycle==3</code>（热桶，tps≥0.5 或 tick 间隔≤2s）/ <code>cycle==2</code>（中桶）/ <code>cycle==1</code>（冷桶）；支持 <code>cycle!=3</code>、<code>cycle>=2</code>、<code>cycle==1 OR cycle==3</code> 组合</li>
-                                <li>档位为 null（证据不足/热身期/实验未开 tokenCycle.enforce）时该腿不可见（fail-closed，不评估不触发），无 groups 的腿恒可见</li>
-                                <li>腿卡片「groups」输入框可直接编辑（留空=全周期=旧语义）；「从库引用」展开的腿自动携带库内 groups、复制腿的 cycle 数字自动预填 <code>cycle==N</code>；快照语义——引用后本实验腿与库独立，改库不影响已建实验（重启实验进程才生效新腿）</li>
+                                <li>cycle 档位如何判定（冷/中/热的门槛与稳定性参数）由上方「🌡️ 行为周期判定」配置区决定——实验级配置，改参数=改本实验分桶口径（与库条目无关）</li>
+                                <li>腿可带 <code>groups</code> 表达式限定只对特定行为周期桶生效：<code>cycle==3</code>（热桶）/ <code>cycle==2</code>（中桶）/ <code>cycle==1</code>（冷桶），具体门槛（tps/间隔）见上方「🌡️ 行为周期判定」当前配置；支持 <code>cycle!=3</code>、<code>cycle>=2</code>、<code>cycle==1 OR cycle==3</code> 组合</li>
+                                <li>档位为 null（证据不足/热身期/实验未开周期路由）时该腿不可见（fail-closed，不评估不触发），无 groups 的腿恒可见</li>
+                                <li>「从库引用」展开的腿自动携带库内 groups、复制腿的 v1 cycle 数字按等价语义归组展示；快照语义——引用后本实验腿与库独立（腿在创建页只读，调整去策略库页），改库不影响已建实验（重启实验进程才生效新腿）</li>
                             </ul>
 
                         </div>
@@ -838,7 +950,7 @@
                         class="px-2 py-1 text-gray-500 hover:text-gray-800 text-xl leading-none">×</button>
             </div>
             <p class="text-xs text-gray-500 mb-3">
-                引用 = 展开库内腿进下方表单（可再编辑）；实验与库从此独立（快照语义）。
+                引用 = 展开库内腿进下方表单（只读快照卡，调整腿请到策略库页）；实验与库从此独立（快照语义）。
                 组变量说明见页面底部「条件表达式语法帮助 → 组路由」。
             </p>
             <div id="library-picker-list" class="space-y-3"></div>
@@ -906,6 +1018,14 @@
             }
         }
         document.getElementById('na-submit-immediately')?.addEventListener('change', updateNarrativeSubmitImmediatelyUI);
+
+        // 行为周期判定：enforce 联动 params 区视觉（不勾弱化，仍可预填）
+        function syncTcParamsVisibility() {
+            const checked = document.getElementById('tc-enforce')?.checked;
+            const paramsBox = document.getElementById('tc-params');
+            if (paramsBox) paramsBox.classList.toggle('opacity-60', !checked);
+        }
+        document.getElementById('tc-enforce')?.addEventListener('change', syncTcParamsVisibility);
 
         // 🔥 检查是否是复制模式
         const urlParams = new URLSearchParams(window.location.search);
@@ -1001,14 +1121,37 @@
 
                 // 引擎级高级段（2026-09-28 复制保真）：表单无对应输入 UI，暂存 window，
                 // collectFormData 提交时顶层透传（服务端形状校验后写入 config）。
-                // 不带则复制件行为大变——cycle/groups 卖腿无 tokenCycle.enforce 全隐、
-                // 无止损双腿、TPA 买腿 TPAPre_* 恒 null fail-closed、OPB 不采集
+                // 不带则复制件行为大变——无止损双腿、TPA 买腿 TPAPre_* 恒 null fail-closed、
+                // OPB 不采集。（tokenCycle 已表单化——上方「行为周期判定」区回填，不走暂存）
                 window._copyAdvancedConfig = {
-                    ...(copyData.tokenCycle ? { tokenCycle: copyData.tokenCycle } : {}),
                     ...(copyData.stopLoss ? { stopLoss: copyData.stopLoss } : {}),
                     ...(copyData.tokenPositionAnalyzer ? { tokenPositionAnalyzer: copyData.tokenPositionAnalyzer } : {}),
                     ...(copyData.fourmemeWs ? { fourmemeWs: copyData.fourmemeWs } : {}),
                 };
+
+                // 行为周期判定回填（表单化）：enforce 勾选 + params 逐键回填输入框；
+                // 旧格式仅 enforce 无 params → 输入框保持默认值（值等价默认，行为零变化）
+                if (copyData.tokenCycle) {
+                    const tcEnforce = document.getElementById('tc-enforce');
+                    if (tcEnforce && copyData.tokenCycle.enforce) {
+                        tcEnforce.checked = true;
+                        syncTcParamsVisibility();
+                    }
+                    const tcParams = copyData.tokenCycle.params || {};
+                    const tcKeyToInput = {
+                        hotTps: 'tc_hot_tps', midTps: 'tc_mid_tps',
+                        hotGapMs: 'tc_hot_gap_ms', midGapMs: 'tc_mid_gap_ms',
+                        minTicks: 'tc_min_ticks', warmupSec: 'tc_warmup_sec',
+                        upDwellSec: 'tc_up_dwell_sec', downDwellSec: 'tc_down_dwell_sec',
+                        staleMs: 'tc_stale_ms', gapSamples: 'tc_gap_samples',
+                    };
+                    for (const [k, inputId] of Object.entries(tcKeyToInput)) {
+                        if (tcParams[k] !== undefined) {
+                            const input = document.getElementById(inputId);
+                            if (input) input.value = tcParams[k];
+                        }
+                    }
+                }
 
                 // 填充叙事分析配置
                 const naEnabled = document.getElementById('na-enabled');
@@ -1512,14 +1655,81 @@
             updateEmptyHints();
         }
 
-        // 添加卖出策略（同 addBuyStrategy）
+        // === 卖腿按 cycle 桶分组展示（2026-09-28 cycle 判定配置化；纯展示层，
+        // 数据形状零改动——collectFormData 按DOM序平铺，执行序由 priority 决定）===
+        // 归组：groups（或 v1 cycle 数字转等价表达式）trim 全等 cycle==N → 桶 N；
+        // 无 groups → 'none'；其他表达式（OR/!=/范围）→ 'cross'
+        const SELL_CYCLE_GROUPS = [
+            { key: '3', title: '🔥 热桶 · cycle==3（秒级行为）' },
+            { key: '2', title: '🌤️ 中桶 · cycle==2（分钟级行为）' },
+            { key: '1', title: '❄️ 冷桶 · cycle==1（5-15min 级行为）' },
+            { key: 'cross', title: '🌐 跨周期 · 组合表达式' },
+            { key: 'none', title: '♾️ 全周期（未限定桶）' },
+        ];
+        function cycleGroupOf(cfg) {
+            // 与引擎 normalizeGroups 同口径（单一事实源语义）：groups 非空串优先 >
+            // v1 cycle∈{1,2,3} 整数转 cycle==N > 无表达式（脏 cycle 4/'3'/1.5 → none，
+            // 引擎侧同样归 null=恒可见=「未限定桶」）
+            const g = typeof cfg.groups === 'string' && cfg.groups.trim() !== ''
+                ? cfg.groups.trim()
+                : (Number.isInteger(cfg.cycle) && [1, 2, 3].includes(cfg.cycle) ? `cycle==${cfg.cycle}` : '');
+            if (g === 'cycle==3') return '3';
+            if (g === 'cycle==2') return '2';
+            if (g === 'cycle==1') return '1';
+            if (!g) return 'none';
+            return 'cross';
+        }
+        // 归组重排：读全部卡 rawConfig → 按组容器序 appendChild 移动现有节点
+        // （零状态损失，dataset 随节点走）→ 组标题腿数 + 全局编号 + 空组清理
+        function reflowSellGroups() {
+            const cards = [...sellContainer.querySelectorAll('.strategy-card')];
+            const buckets = {};
+            cards.forEach(c => {
+                let cfg = {};
+                try { cfg = JSON.parse(c.dataset.rawConfig || '{}'); } catch (e) { /* 损坏即 'none' */ }
+                const g = cycleGroupOf(cfg);
+                (buckets[g] = buckets[g] || []).push(c);
+            });
+            for (const def of SELL_CYCLE_GROUPS) {
+                if (!buckets[def.key]) continue;
+                let box = sellContainer.querySelector(`.cycle-group[data-group="${def.key}"]`);
+                if (!box) {
+                    box = document.createElement('div');
+                    box.className = 'cycle-group';
+                    box.dataset.group = def.key;
+                    box.innerHTML = '<div class="cycle-group-header"><span class="cgh-title"></span><span class="cgh-count"></span></div>';
+                }
+                sellContainer.appendChild(box); // 按 SELL_CYCLE_GROUPS 序 append = 组序
+                buckets[def.key].forEach(card => box.appendChild(card));
+                box.querySelector('.cgh-title').textContent = def.title;
+                box.querySelector('.cgh-count').textContent = `${buckets[def.key].length} 腿`;
+            }
+            // 空组清理（removeStrategy 后组内无卡）
+            sellContainer.querySelectorAll('.cycle-group').forEach(box => {
+                if (!box.querySelector('.strategy-card')) box.remove();
+            });
+            // 全局编号（DOM 序 = 分组序，跨组连续 #1..#N）
+            sellContainer.querySelectorAll('.strategy-card').forEach((c, i) => {
+                c.dataset.index = i;
+                c.querySelector('.strategy-name').textContent = '卖出策略 #' + (i + 1);
+            });
+        }
+
+        // 添加卖出策略（同 addBuyStrategy + 末尾归组重排：
+        // lastElementChild 在 reflow 前取新卡——insertAdjacentHTML 平铺插入容器尾，
+        // 此刻新卡恒为最后子节点，时序安全。dataset.seq=插入序单调计数——DOM 被
+        // 分组重排后 collectFormData 按 seq 排序回插序，保「同 priority 平局由
+        // 插入序决出」的复制保真语义（分组只是展示层，不改提交腿序））
+        let sellSeqCounter = 0;
         function addSellStrategy(config = {}) {
             const index = sellStrategyCount++;
             const html = sellTemplate.innerHTML.replace(/\{INDEX\}/g, index);
             sellContainer.insertAdjacentHTML('beforeend', html);
             const card = sellContainer.lastElementChild;
             card.dataset.rawConfig = JSON.stringify(config || {});
+            card.dataset.seq = String(sellSeqCounter++);
             renderLegReadonly(card, config || {});
+            reflowSellGroups();
             updateEmptyHints();
         }
 
@@ -1589,7 +1799,8 @@
             document.getElementById('library-picker-overlay').classList.add('hidden');
         }
 
-        // 删除策略（只读卡无输入框：重编号仅更新序号标签与 dataset.index）
+        // 删除策略（只读卡无输入框：重编号仅更新序号标签与 dataset.index；
+        // 卖侧 reflowSellGroups 吸收重编号 + 空组清理，买侧保持平铺重编号）
         function removeStrategy(button) {
             const card = button.closest('.strategy-card');
             const action = card.dataset.action;
@@ -1597,11 +1808,14 @@
             card.remove();
 
             const container = action === 'buy' ? buyContainer : sellContainer;
-            container.querySelectorAll('.strategy-card').forEach((c, i) => {
-                c.dataset.index = i;
-                c.querySelector('.strategy-name').textContent =
-                    (action === 'buy' ? '买入策略' : '卖出策略') + ' #' + (i + 1);
-            });
+            if (action === 'sell') {
+                reflowSellGroups();
+            } else {
+                container.querySelectorAll('.strategy-card').forEach((c, i) => {
+                    c.dataset.index = i;
+                    c.querySelector('.strategy-name').textContent = '买入策略 #' + (i + 1);
+                });
+            }
 
             if (action === 'buy') {
                 buyStrategyCount = container.querySelectorAll('.strategy-card').length;
@@ -1627,11 +1841,15 @@
             });
 
             const sellStrategies = [];
-            document.querySelectorAll('#sell-strategies-container .strategy-card').forEach(card => {
-                let raw = {};
-                try { raw = JSON.parse(card.dataset.rawConfig || '{}'); } catch (e) { /* 损坏即忽略 */ }
-                sellStrategies.push(raw);
-            });
+            // 卖腿按 dataset.seq（插入序）回插序收集——DOM 被桶分组重排后提交腿序
+            // 仍与源实验/库条目插入序一致（同 priority 平局语义复制保真）
+            [...document.querySelectorAll('#sell-strategies-container .strategy-card')]
+                .sort((a, b) => Number(a.dataset.seq || 0) - Number(b.dataset.seq || 0))
+                .forEach(card => {
+                    let raw = {};
+                    try { raw = JSON.parse(card.dataset.rawConfig || '{}'); } catch (e) { /* 损坏即忽略 */ }
+                    sellStrategies.push(raw);
+                });
 
             // 永久阻断条件：引擎读 strategiesConfig 顶层（FourMemeWssTradingEngine），
             // 从首买腿快照提取（复制链路把它挂在首买腿上），提取后从腿上移除保持旧提交形状
@@ -1642,10 +1860,32 @@
             }
 
             // 构建配置数据
-            // 复制携带的引擎级高级段（tokenCycle/stopLoss/tokenPositionAnalyzer/fourmemeWs）：
+            // 复制携带的引擎级高级段（stopLoss/tokenPositionAnalyzer/fourmemeWs）：
             // 表单无输入 UI，复制链路保真透传（服务端形状校验后写入 config 顶层）；
-            // 非复制模式 window._copyAdvancedConfig 为 undefined → 无段 → 与现状一致
-            const adv = window._copyAdvancedConfig || {};
+            // 非复制模式 window._copyAdvancedConfig 为 undefined → 无段 → 与现状一致。
+            // 浅拷贝防污染：下方 tokenCycle 写入不得改写暂存对象（否则取消勾选后
+            // 污染值仍经 spread 透传）
+            const adv = { ...(window._copyAdvancedConfig || {}) };
+            // 行为周期判定（表单化，2026-09-28）：勾 enforce → 始终带 params（实验口径
+            // 自包含可回读，引擎侧三级合并 tokenCycle.params 最高优先级）；不勾 → 不带段
+            const tcEnforceChecked = document.getElementById('tc-enforce')?.checked || false;
+            if (tcEnforceChecked) {
+                adv.tokenCycle = {
+                    enforce: true,
+                    params: {
+                        hotTps: parseFloat(document.getElementById('tc_hot_tps')?.value),
+                        midTps: parseFloat(document.getElementById('tc_mid_tps')?.value),
+                        hotGapMs: parseFloat(document.getElementById('tc_hot_gap_ms')?.value),
+                        midGapMs: parseFloat(document.getElementById('tc_mid_gap_ms')?.value),
+                        minTicks: parseInt(document.getElementById('tc_min_ticks')?.value, 10),
+                        warmupSec: parseInt(document.getElementById('tc_warmup_sec')?.value, 10),
+                        upDwellSec: parseInt(document.getElementById('tc_up_dwell_sec')?.value, 10),
+                        downDwellSec: parseInt(document.getElementById('tc_down_dwell_sec')?.value, 10),
+                        staleMs: parseFloat(document.getElementById('tc_stale_ms')?.value),
+                        gapSamples: parseInt(document.getElementById('tc_gap_samples')?.value, 10),
+                    },
+                };
+            }
             const config = {
                 experiment_name: formData.get('experiment_name'),
                 experiment_description: formData.get('experiment_description'),

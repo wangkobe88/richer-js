@@ -265,8 +265,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 3. 因子聚合器 + 事件链路
     // （键名固定 fourmemeWs：FA 仅读该节的 maxTrackedTokens，flap 子类传 flap merged 配置同键）
     const FourMemeFactorAggregator = require('../../services/FourMemeFactorAggregator');
+    // cycle 判定配置化（2026-09-28）：实验级显式入口 tokenCycle.params 并入 factorParams，
+    // 三级合并最高优先级（FACTOR_PARAM_DEFAULTS < ws.factorParams < tokenCycle.params）；
+    // 不带 params 的存量实验 mapCycleParams 返回 {} 行为零变化。flap/both 同此处注入
+    const { mapCycleParams } = require('../../strategies/group-variables');
+    const wsMerged = this._mergedWsConfig();
+    wsMerged.factorParams = {
+      ...(wsMerged.factorParams || {}),
+      ...mapCycleParams(this._experiment?.config?.tokenCycle?.params),
+    };
     this._factorAggregator = new FourMemeFactorAggregator(
-      { fourmemeWs: this._mergedWsConfig() }, this.logger);
+      { fourmemeWs: wsMerged }, this.logger);
     this._factorAggregator.on('factorsUpdated', (data) => this._onFactorsUpdated(data));
     // 市场 regime 截面 feed 显式 opt-in（回迁批 2.6 观察版：web 侧裸 FA 不 feed → 读恒 null 零污染；
     // 红线：任何交易策略 condition 不得引用 market* 键。stop() 关 feed 防同进程下一实验继承）

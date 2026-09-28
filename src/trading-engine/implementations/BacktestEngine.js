@@ -149,6 +149,13 @@ class BacktestEngine extends AbstractTradingEngine {
       ...(baseConfig[wsSection] || {}),
       ...(this._experiment?.config?.[wsSection] || {}),
     };
+    // cycle 判定配置化（2026-09-28）：与实时引擎同一注入口径——tokenCycle.params
+    // 并入 factorParams 最高优先级；不带 params 的存量回测零变化
+    const { mapCycleParams } = require('../../strategies/group-variables');
+    wsConfig.factorParams = {
+      ...(wsConfig.factorParams || {}),
+      ...mapCycleParams(this._experiment?.config?.tokenCycle?.params),
+    };
     this._factorAggregator = new FourMemeFactorAggregator({ fourmemeWs: wsConfig }, this.logger);
     // 市场 regime 截面 feed 显式 opt-in（回迁批 2.6 观察版：与 WSS 引擎同入口同截面口径，
     // 回放 tick ts 自动成为决策时钟；回测不落表（不污染观察史）。红线同 WSS 引擎：condition 不引用 market*）

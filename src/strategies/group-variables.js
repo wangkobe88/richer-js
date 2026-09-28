@@ -141,10 +141,46 @@ function buildTagContext(tokenData) {
     return ctx;
 }
 
+/**
+ * cycle 判定参数键映射（cycle 判定配置化，2026-09-28）：
+ * 实验级显式入口 experiment.config.tokenCycle.params（段内去 cycle 前缀自然命名）
+ * → FA FACTOR_PARAM_DEFAULTS 的 cycle* 键。引擎构造 FA 时经此映射并入
+ * factorParams（tokenCycle.params 最后 spread = 三级合并中最高优先级：
+ * FACTOR_PARAM_DEFAULTS < fourmemeWs.factorParams < tokenCycle.params）。
+ * 只挑已知键（服务端 POST 已做闭集校验，这里是注入层不是兜底门——未知键
+ * 不静默转写，直接丢弃层不做值校验）；null/undefined/非对象 → {}（存量
+ * 实验不带 params 走 FACTOR_PARAM_DEFAULTS，行为零变化）。
+ */
+const CYCLE_PARAM_KEY_MAP = {
+    hotTps: 'cycleHotTps',
+    midTps: 'cycleMidTps',
+    hotGapMs: 'cycleHotGapMs',
+    midGapMs: 'cycleMidGapMs',
+    minTicks: 'cycleMinTicks',
+    warmupSec: 'cycleWarmupSec',
+    upDwellSec: 'cycleUpDwellSec',
+    downDwellSec: 'cycleDownDwellSec',
+    staleMs: 'cycleStaleMs',
+    gapSamples: 'cycleGapSamples',
+};
+// 导出供 web-server 校验清单复用（单一事实源：键映射/POST 校验/前端输入框三处同步义务收敛到此）
+
+function mapCycleParams(params) {
+    if (params === null || params === undefined) return {};
+    if (typeof params !== 'object' || Array.isArray(params)) return {};
+    const out = {};
+    for (const [key, faKey] of Object.entries(CYCLE_PARAM_KEY_MAP)) {
+        if (params[key] !== undefined) out[faKey] = params[key];
+    }
+    return out;
+}
+
 module.exports = {
     GROUP_VARIABLES,
+    CYCLE_PARAM_KEY_MAP,
     normalizeGroups,
     parseGroupsExpression,
     collectGroupVariables,
     buildTagContext,
+    mapCycleParams,
 };

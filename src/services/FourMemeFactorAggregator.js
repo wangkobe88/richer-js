@@ -2533,4 +2533,8 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 }
 
+// 静态挂载（cycle 判定配置化 2026-09-28）：单测用——创建页模板预填默认值须与
+// FACTOR_PARAM_DEFAULTS 的 cycle* 十键一致（防双源漂移，见 _test_strategy_library_groups H 段）
+FourMemeFactorAggregator.FACTOR_PARAM_DEFAULTS = FACTOR_PARAM_DEFAULTS;
+
 module.exports = FourMemeFactorAggregator;

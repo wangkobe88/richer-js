@@ -27,6 +27,7 @@ const FourMemeFactorAggregator = require('../src/services/FourMemeFactorAggregat
 const { StrategyEngine } = require('../src/strategies/StrategyEngine');
 const { FourMemeWssTradingEngine } = require('../src/trading-engine/implementations/FourMemeWssTradingEngine');
 const { buildFactorValuesForTimeSeries, buildSlimFactorValues } = require('../src/trading-engine/core/FactorBuilder');
+const { mapCycleParams } = require('../src/strategies/group-variables');
 
 let pass = 0, fail = 0;
 function check(name, actual, expected) {
@@ -342,6 +343,31 @@ function makeEngine(fields = {}) {
     check('超时 + profit 恰 0 → time 命中（<=0）',
       eng._stopLossHit({ profitPercent: 0, holdDuration: 3700 }).kind, 'time');
     check('超时 + 盈利 → 不触发（回归）', eng._stopLossHit({ profitPercent: 1, holdDuration: 3700 }), null);
+  }
+
+  // ═══ H. cycle 判定配置化注入链（三级合并优先级）═══
+  // 引擎构造点行为复刻：ws.factorParams 与 tokenCycle.params 并入后 FA._fp 的取值
+  // （FACTOR_PARAM_DEFAULTS < fourmemeWs.factorParams < tokenCycle.params）
+  console.log('H. tokenCycle.params 注入链三级合并优先级');
+  {
+    const wsMerged = { factorParams: { cycleHotTps: 0.4, cycleMinTicks: 8 } }; // 旧入口
+    wsMerged.factorParams = {
+      ...(wsMerged.factorParams || {}),
+      ...mapCycleParams({ hotTps: 0.6 }), // 新显式入口（最高优先级）
+    };
+    const fa = new FourMemeFactorAggregator({ fourmemeWs: wsMerged }, noopLogger);
+    check('tokenCycle.params 压过 ws.factorParams', fa._fp.cycleHotTps, 0.6);
+    check('ws.factorParams 未覆盖键保留', fa._fp.cycleMinTicks, 8);
+    check('未涉键走 FACTOR_PARAM_DEFAULTS', fa._fp.cycleStaleMs, 120000);
+    // 行为级：注入后热桶门收紧（hotTps 0.6）——1.5s 间隔（tps≈0.67>0.5 但 <0.6+）
+    // 注意 tps 门与 gap 门 OR 关系：1.5s 间隔同时命中 hotGapMs(2000)——构造只踩 tps
+    // 门的样本不可行，改为验证参数真的进判定（gap 门放宽到 5000 后 2.5s 间隔升热桶）
+    const fa2Cfg = { factorParams: { ...mapCycleParams({ hotGapMs: 5000 }) } };
+    const fa2 = new FourMemeFactorAggregator({ fourmemeWs: fa2Cfg }, noopLogger);
+    fa2.registerToken('0xh1', { createdAtMs: 1000, totalSupply: 1e9, symbol: 'TST', creatorAddress: '0xc' });
+    let ts = feed(fa2, '0xh1', 2000, 2.5, 30); // 2.5s 间隔：默认门(2000)中桶、放宽门(5000)热桶
+    const f = fa2.buildFactorMap('0xh1', ts + 1000);
+    check('hotGapMs 注入生效：2.5s 间隔 → 热桶（默认门下为中桶）', f.tokenCycle, 3);
   }
 
   console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
