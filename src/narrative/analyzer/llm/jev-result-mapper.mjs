@@ -206,8 +206,18 @@ function negativeHardNewsBlock(answers) {
  *
  * 与 argmax 机制（BLOCK_SCOPE 'all'）双挂，语义同 negativeHardNewsBlock：
  * 本门按概率 ≥0.5 独立拦边界抖动，二者任一命中即拦，全域、标准 + superIP 双路径。
+ *
+ * J1.16 角色IP豁免（2026-09-28 用户裁定，C25 久留美案 0xfedf19759ba9c45b1a8345a2bde916b
+ * 38acc7777：角色名币被本门 0.91 拦下 rating 1，实际 12.6 倍毕业实验涨幅第一。裁定「这
+ * 个不仅仅是开播剧，是里头的角色」——作品中的角色是独立 IP 实体可有自身 meme 生命
+ * 周期，角色名币≠蹭作品宣传）：category=A（形象IP，event_category 主体归属规则同版本
+ * 新增）时本门豁免，把关交给 A 类量级门（无名/未出圈角色 D/E 档直接拦、事件分 <60 拦；
+ * Jev 对角色豁免的题目层措辞实证只能把 rcp 概率压到 0.57-0.70 压不过 0.5 线，与 J1.13
+ * word_extraction 六轮措辞教训一致——Jev 分不动的边界由代码确定性切分）。仅标准路径
+ * 豁免；superIP 通道不豁免（注册表账号推自己参与的常规作品宣传仍拦，C23 域语义不变）。
  */
-function routineContentProductBlock(answers) {
+function routineContentProductBlock(answers, category) {
+  if (category === 'A') return null;
   const p = answers?.block_reason?.probabilities?.routine_content_product ?? 0;
   if (p < 0.5) return null;
   return { label: BLOCK_LABELS.routine_content_product, mass: Math.round(p * 100) / 100 };
@@ -428,10 +438,13 @@ export function mapStandardAnswers(answers, context) {
   if ((nhnBlock = negativeHardNewsBlock(answers))) {
     stage2Blocked = true;
     stage2BlockReason = nhnBlock.label;
-  } else if ((rcpBlock = routineContentProductBlock(answers))) {
+  } else if ((rcpBlock = routineContentProductBlock(answers, category))) {
     stage2Blocked = true;
     stage2BlockReason = rcpBlock.label;
-  } else if (blockChoice !== 'none' && noneProb < 0.5 && blockInScope(blockChoice, category)) {
+  } else if (blockChoice !== 'none' && noneProb < 0.5
+    // J1.16 角色IP豁免：argmax 命中 rcp 且类别为 A（形象IP/角色）时不拦，与概率门同语义
+    && !(blockChoice === 'routine_content_product' && category === 'A')
+    && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
   } else if ((nrBlock = nameReferentBlock(answers, isW ? 'W' : category))) {

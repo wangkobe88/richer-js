@@ -130,9 +130,11 @@ Token URL → URL Classification (incl. IPFS metadata unpack) → Data Fetching 
 
 **Two-path model (user decision 2026-09-24)**: rider coins (issued by a third party riding an influential product) stay on the standard path where W-class math requires the *ridden product* to have extreme influence; issuer self-launched coins (announced by the brand owner's own account) must NOT be gated on current influence — `detectIssuerSelfLaunch` (narrative-utils.mjs, code-only: token symbol/name bidirectionally contains the tweet author's handle/nickname + the author's own text mentions the brand) reroutes them to prestage account judgment. Word-extraction rider coins (C3/CONVICTION class: word from a tweet but unrelated to the author's identity) fail brand identity and stay on W-math.
 
+**Character-IP exemption (user decision 2026-09-28, C25 久留美案, J1.16)**: tokens named after a CHARACTER inside a work (including transliterations, くるみ↔久留美) route to category A (visual IP) — the work's official promo tweet is only corpus for the character, NOT a product announcement; the `routine_content_product` gate is exempted for category A in the standard path (`routineContentProductBlock` category param + argmax gate; superIP channel keeps the gate). Gatekeeping moves to A-class magnitude math: unknown/not-yet-aired characters stay blocked on tier or <60 event score (the C25 case itself: 56.04), known/memed characters (B tier ≈61) can pass. Work-title coins (绣春刀3) are unaffected (category B, gate still blocks).
+
 **Jev layer** (`analyzer/llm/`):
 - `JevClient.mjs` - HTTP client; `ask(state, questions, {label})` → answers (throws on missing answer ids — no error swallowing); 429/5xx backoff
-- `jev-questions.mjs` - Standard 13-question set `J1.10` (`buildStandardQuestions({includeBrandHijack})`)
+- `jev-questions.mjs` - Standard 13-question set (`buildStandardQuestions({includeBrandHijack})`; version = `JEV_QUESTIONS_VERSION`, per-change bump — history in the file header)
 - `jev-prestage-questions.mjs` - Prestage 4-question set `P1.2` (token type / abm name link / abm web3 traffic / community activity)
 - `jev-state-builder.mjs` - `buildJevState` (60k budget) + `buildPrestageState` (20k budget): state assembly with section quotas
 - `jev-result-mapper.mjs` - Standard/super-IP answer mapping: stage1/2/3 result construction, scale calibration constants (MAGNITUDE_TIER_SCORES, DIM2_BANDS)

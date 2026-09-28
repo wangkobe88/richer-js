@@ -28,16 +28,27 @@ const { mapStandardAnswers } = await import('../../src/narrative/analyzer/llm/je
 
 async function main() {
   const limit = parseInt(process.argv[2] || '3', 10);
+  // --token <addr>：单条指定地址验证（case 复验用），地址大小写敏感原样查询，无 not-null 过滤
+  const tokenIdx = process.argv.indexOf('--token');
+  const targetToken = tokenIdx > 0 ? process.argv[tokenIdx + 1] : null;
   const supabase = NarrativeRepository.getSupabase();
 
-  const { data: rows, error } = await supabase
-    .from('token_narrative')
-    .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, stage1_result, stage_final_result, analyzed_at')
-    // 不过滤 is_valid：dry-run 用行内语料快照走链路，与缓存可否复用无关（2026-09-23 起旧缓存行全表失效）
-    .not('twitter_info', 'is', null)
-    .not('stage_final_result', 'is', null)
-    .order('analyzed_at', { ascending: false })
-    .limit(limit);
+  let rows, error;
+  if (targetToken) {
+    ({ data: rows, error } = await supabase
+      .from('token_narrative')
+      .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, stage1_result, stage_final_result, analyzed_at')
+      .eq('token_address', targetToken));
+  } else {
+    ({ data: rows, error } = await supabase
+      .from('token_narrative')
+      .select('token_address, token_symbol, raw_api_data, extracted_info, classified_urls, twitter_info, stage1_result, stage_final_result, analyzed_at')
+      // 不过滤 is_valid：dry-run 用行内语料快照走链路，与缓存可否复用无关（2026-09-23 起旧缓存行全表失效）
+      .not('twitter_info', 'is', null)
+      .not('stage_final_result', 'is', null)
+      .order('analyzed_at', { ascending: false })
+      .limit(limit));
+  }
 
   if (error) throw new Error(`查询 token_narrative 失败: ${error.message}`);
   if (!rows || rows.length === 0) throw new Error('没有可用的历史 token（twitter_info 为空的表）');

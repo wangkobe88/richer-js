@@ -78,9 +78,27 @@
  *       已公开发布（"内部界面曝光"仅指未发布产品的内部截图/泄露）；③实体性前提：
  *       官方口号/品牌主张是IP标志性资产，视为有实体对应。common_word 排除句同步。
  *       mapper 零改动（super_ip 已在放行侧）
+ * J1.16：角色IP币豁免 routine_content_product（2026-09-28 用户裁定，C25 久留美案
+ *       0xfedf19759ba9c45b1a8345a2bde916b38acc7777：动画《FX戦士くるみちゃん》官号
+ *       （2.3万粉）先行上映会感谢+10/1开播定档推发出4.5h后，第三方发角色名币
+ *       「久留美」（symbol=主角くるみ音译），J1.14 判 D类+routine_content_product
+ *       0.91 → rating 1 终端 veto 拦下 BUY；实际创建后100分钟 12.6倍毕业，实验涨幅
+ *       第一。裁定原话「这个不仅仅是开播剧，是里头的角色——其实是基于角色IP发的币」：
+ *       作品中的角色（人物/形象）是有形象的独立IP实体，可有自身meme生命周期，角色
+ *       名币≠蹭作品宣传消费上映热度，与 C12 绣春刀案（币名=电影系列名，纯消费上映
+ *       热度）机制不同。三处改动：①event_category 主体归属新增规则——代币名指向
+ *       作品中角色（角色名而非作品名）→主体=该角色、类别A（形象IP），作品官方宣传
+ *       推只是角色语料载体；②block_reason routine_content_product 边界收窄——角色
+ *       名币不选本项，改A类评估；③event_magnitude A类语义锚定——角色按自身及关联
+ *       IP知名度定档，未开播/未出圈角色=无名IP低档（官号粉丝数≠角色知名度）。把关
+ *       交给A类数值门：本案按A轴 C档22+dim2 18.64+时效15=55.64<60 仍拦（量级不足），
+ *       知名/爆梗角色B档以上（≥60.64）可过线。mapper 零改动（A类不在
+ *       NAME_REFERENT_BLOCK_SCOPE；rcp 概率门随 Jev 判定自然放行；A类 D/E 档量级
+ *       拦截承接无名角色）。10/1 开播为自然验证点：角色爆梗→B档通道实证；无声息→
+ *       归档开播抢跑盘（台账§六未决跟踪）
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.15';
+export const JEV_QUESTIONS_VERSION = 'J1.16';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -158,7 +176,8 @@ Key discriminating signals:
 Subject attribution rules (critical):
 - angle-seeking tweet / interpretive reply: the event subject is the ORIGINAL event being leveraged or interpreted, NOT the tweet author.
 - tweet reporting or relaying an external hot event: subject = the hot event's protagonist, not the relayer.
-- tweet about the author's own content/work/statement: subject = the author (only then does the author's follower count represent event magnitude).`,
+- tweet about the author's own content/work/statement: subject = the author (only then does the author's follower count represent event magnitude).
+- token named after a CHARACTER inside a work (anime/manga/game/film character: token name = the character's own name, NOT the work's title): subject = that character as a visual IP → category A. The work's official promo/announcement tweet is merely the corpus source for the character — it does NOT make the event an institutional product announcement (D) or a routine content-product promo. Judge the character's own IP notability and meme evidence; an unknown / not-yet-aired character is a low-tier IP.`,
       criteria: {
         A: 'Visual IP: meme character / mascot / virtual image / cartoon IP',
         W: 'Web3 project: blockchain/crypto launch or update (token/DeFi/NFT/chain/tool)',
@@ -180,7 +199,7 @@ Subject attribution rules (critical):
 - 推文是作者自己的内容/作品/声明 → 主体=作者（此时才看发推人粉丝数/认证）
 - 找角度/解读型推文：量级针对被借势/被解读的原始事件主体，不是发推人
 量级含义按事件类别（分类见event_category题）：
-- A类（形象化IP）=IP/形象的知名度；B类（非Web3产品）=发布方地位+产品影响力；C/D类=人物/机构影响力；E类（社会热点）=热点传播量级；W类不适用本题
+- A类（形象化IP）=IP/形象的知名度；角色（作品人物）按该角色自身及其关联IP的知名度定档——未开播/未出圈的角色=无名IP低档，作品官号粉丝数是宣传渠道数据不是角色知名度证据；B类（非Web3产品）=发布方地位+产品影响力；C/D类=人物/机构影响力；E类（社会热点）=热点传播量级；W类不适用本题
 E类无量化数据时的升级规则（仅有定性描述时）：
 - 强热度词（爆火/热搜/疯传/大爆/持续发酵）/主流平台持续有新内容/跨语言地域传播/用户自发二创模仿/被KOL大V主动报道——任意2项→至少B档；仅1项→C档；0项→D档以下
 B类第三方限制：发布方是第三方小号（非产品官方）且影响力低→最高C档，除非第三方本身是世界级/知名机构人物`,
@@ -248,7 +267,7 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
         ip_reuse: 'IP二次利用——直接使用现有知名IP但活动无重大传播力（活动有重大传播力则不算）',
         regional_event: '地区性事件——仅特定地区有感知，无更大范围影响',
         negative_hard_news: '负面硬新闻——安全事故/被盗/被黑/暴雷/巨额损失/灾难类负面事件，语料是事故通报/官方公告/新闻报道。事件无meme化玩味空间：主体是机构/平台（不会参与自嘲式传播），无梗、无二创动力，蹭此类事件命名的名字无独立叙事生命力（热度再高也不算叙事价值）。⚠️ 仅限该窄边界：监管罚款/项目失败/名人去世等其他负面不选本项，按事件实际叙事价值正常评估',
-        routine_content_product: '常规内容产品宣传——电影/剧集/综艺/动漫/小说/游戏等常规内容型产品的发布/上映/定档/预告/官宣消息。观众是消费者而非玩梗社区：无二创动力、无meme玩味空间，蹭其命名只是消费上映/上线热度——即便作品已官宣已上映、即便系列国民级知名也不构成叙事事件（产品知名度≠该放，同负面硬新闻语义：蹭其命名无独立叙事生命力）。⚠️ 边界收窄：内容本身已是全民玩梗对象（名场面梗/梗图泛滥/大规模二创模仿）不选本项（按社会热点正常评估）；跨世代文化符号/神话/历史人物/公共事件（如孔子、嫦娥、探月工程）本身不是产品宣传，不选本项；Web3产品不适用本题；世界级颠覆性实体产品/平台发布（硬件/平台级）不选，按实际影响力正常评估',
+        routine_content_product: '常规内容产品宣传——电影/剧集/综艺/动漫/小说/游戏等常规内容型产品的发布/上映/定档/预告/官宣消息。观众是消费者而非玩梗社区：无二创动力、无meme玩味空间，蹭其命名只是消费上映/上线热度——即便作品已官宣已上映、即便系列国民级知名也不构成叙事事件（产品知名度≠该放，同负面硬新闻语义：蹭其命名无独立叙事生命力）。⚠️ 边界收窄：代币名指向作品中的角色（人物/形象，含角色名的音译/译名形式，如くるみ↔久留美/Kurumi——不以字符字面一致为条件）而非作品名本身时必不选本项：即使推文内容本身是作品的宣传/定档消息，角色名币的叙事主体是该角色而非作品宣传——角色是有形象的独立IP实体、可有自身meme生命周期（角色名币≠消费作品上映热度），改按A类（形象IP）评估该角色自身的知名度与玩梗证据（无名/未出圈角色由A类量级门拦截把关）；内容本身已是全民玩梗对象（名场面梗/梗图泛滥/大规模二创模仿）不选本项（按社会热点正常评估）；跨世代文化符号/神话/历史人物/公共事件（如孔子、嫦娥、探月工程）本身不是产品宣传，不选本项；Web3产品不适用本题；世界级颠覆性实体产品/平台发布（硬件/平台级）不选，按实际影响力正常评估',
       },
     },
 
