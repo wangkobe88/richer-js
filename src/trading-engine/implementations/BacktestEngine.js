@@ -918,6 +918,11 @@ class BacktestEngine extends AbstractTradingEngine {
               drawdownFromHighest: factorResults.drawdownFromHighest || null,
               buyRound: currentRound + 1,
               lastPairReturnRate: lastPairReturnRate ?? 0,
+              // early trades 存档走 buffer 批量（通道+flush FK 顺序 signals→early_trades
+              // 已就绪；buffer 关时 undefined 落回直写，P1-4 接线）
+              earlyTradesCacheCallback: this._writeBufferEnabled && this._writeBuffer
+                ? (d) => this._writeBuffer.addEarlyTradesInsert(d)
+                : undefined,
               narrativeRating: narrativeCallInfo?.numericRating ?? 9, // 直调链路（时序穿越：当前语料分析历史 token）；未配置/未触发/失败/超时=9
               narrativeLeaderHot: narrativeLeaderInfo?.factors?.narrativeLeaderHot ?? 0, // 同叙事龙头链路；无 tweet/失败=0 放行
               narrativeLeaderCount: narrativeLeaderInfo?.factors?.narrativeLeaderCount ?? 0,
