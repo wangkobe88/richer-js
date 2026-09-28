@@ -23,7 +23,7 @@
 const FourMemeFactorAggregator = require('../src/services/FourMemeFactorAggregator');
 const { StrategyEngine } = require('../src/strategies/StrategyEngine');
 const { FourMemeWssTradingEngine } = require('../src/trading-engine/implementations/FourMemeWssTradingEngine');
-const { buildFactorValuesForTimeSeries } = require('../src/trading-engine/core/FactorBuilder');
+const { buildFactorValuesForTimeSeries, buildSlimFactorValues } = require('../src/trading-engine/core/FactorBuilder');
 
 let pass = 0, fail = 0;
 function check(name, actual, expected) {
@@ -261,6 +261,13 @@ console.log('F. getFactorKeys 5 新键 + 时序白名单 4 键');
   const snap = buildFactorValuesForTimeSeries({ tokenCycle: 2, tokenCycleRaw: 2, cycleTps30s: 0.21, cycleGapMedianMs: 5000 });
   check('快照 4 键透传', [snap.tokenCycle, snap.tokenCycleRaw, snap.cycleTps30s, snap.cycleGapMedianMs],
     [2, 2, 0.21, 5000]);
+  // 30s 时序快照走 buildSlimFactorValues（2026-09-28 部署发现：4 错加在大白名单，
+  // 182 实测快照零键；cycle 档依赖 latch 状态不可回测重建，slim 必须落库）
+  const slim = buildSlimFactorValues({ tokenCycle: 3, tokenCycleRaw: 2, cycleTps30s: 0.6, cycleGapMedianMs: 1800 });
+  check('slim 快照 4 键透传', [slim.tokenCycle, slim.tokenCycleRaw, slim.cycleTps30s, slim.cycleGapMedianMs],
+    [3, 2, 0.6, 1800]);
+  const slimLegacy = buildSlimFactorValues({ tradeCount: 3 });
+  check('slim 旧因子集 4 键 → null', [slimLegacy.tokenCycle, slimLegacy.cycleTps30s], [null, null]);
 }
 
 // ═══ G. 遗留修复（毕业竞态补卖 + timeStop <=0）═══

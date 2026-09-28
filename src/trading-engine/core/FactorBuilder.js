@@ -434,6 +434,14 @@ function buildSlimFactorValues(factorResults) {
     fdv: factorResults.fdv,
     marketCap: factorResults.marketCap,
     dataCollectionRound: factorResults.dataCollectionRound ?? 1,
+    // 行为周期 4 键（2026-09-28）：tokenCycle 依赖 _cycleLatch 状态推进（hysteresis），
+    // 回测的 FactorReplayEngine 只重建趋势/回撤类纯函数因子——cycle 档不可重建，
+    // 不落库即丢；本表是阈值校准的唯一数据源（tps30s/gapMed 实测分布）。null 显式
+    // 保留（证据不足/热身期），不掩盖
+    tokenCycle: factorResults.tokenCycle ?? null,
+    tokenCycleRaw: factorResults.tokenCycleRaw ?? null,
+    cycleTps30s: factorResults.cycleTps30s ?? null,
+    cycleGapMedianMs: factorResults.cycleGapMedianMs ?? null,
   };
 }
 
