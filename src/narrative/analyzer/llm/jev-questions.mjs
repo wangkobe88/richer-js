@@ -96,9 +96,18 @@
  *       NAME_REFERENT_BLOCK_SCOPE；rcp 概率门随 Jev 判定自然放行；A类 D/E 档量级
  *       拦截承接无名角色）。10/1 开播为自然验证点：角色爆梗→B档通道实证；无声息→
  *       归档开播抢跑盘（台账§六未决跟踪）
+ * J1.17：问题文本与 J1.16 相同；本版变更在 jev-result-mapper 代码端——cashtag 改道
+ *       （2026-09-28 用户裁定，C28 iNu案 0xf578b84ba599b44baea6d766e5cb3421a77a7777：
+ *       32.7万粉 KOL @theunipcs 回复 "$INU"（讨论 RH Chain 上 @iNuApple 的另一个
+ *       INU 代币）14 秒后 BSC 蹲号盘 iNu 出生，C 类 0.52 压过 W 0.25 → 67.4 过线
+ *       high 放行。裁定原话「推文里面有明确的代币ticker，那么肯定说的是一个web3
+ *       资产了，应该走W」）：语料推文（含被回复父推）出现与币名归一化全等的
+ *       $TICKER cashtag → 强制按 W 类数学评分（被骑资产影响力须极高，小项目
+ *       w_product 低分拦截），Jev event_category 概率不再有决定权。判据纯代码
+ *       （detectCorpusCashtag，narrative-utils），无新题
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.16';
+export const JEV_QUESTIONS_VERSION = 'J1.17';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）

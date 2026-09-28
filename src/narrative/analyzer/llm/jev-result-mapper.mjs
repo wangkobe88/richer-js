@@ -14,6 +14,7 @@
  */
 
 import { JEV_QUESTIONS_VERSION } from './jev-questions.mjs';
+import { detectCorpusCashtag } from '../utils/narrative-utils.mjs';
 
 /** 量级 6 档（与 jev-questions event_magnitude criteria 顺序一致） */
 const MAGNITUDE_TIERS = ['E', 'D', 'C', 'B', 'A', 'S'];
@@ -360,7 +361,7 @@ function buildCallPromptMeta(questions, stateStats, state, { full = false } = {}
  *                     stageFinalData, llmResult, promptType, jevDetails }
  */
 export function mapStandardAnswers(answers, context) {
-  const { tokenData, includeBrandHijack = false, callInfo, tweetClassification = null } = context;
+  const { tokenData, includeBrandHijack = false, callInfo, tweetClassification = null, twitterInfo = null } = context;
   const symbol = tokenData.symbol || '';
   // stage1 存完整 prompt（state+questions 全文），stage2/3 存摘要+指针
   const promptMetaFull = buildCallPromptMeta(callInfo.questions, callInfo.stateStats, callInfo.state, { full: true });
@@ -377,7 +378,14 @@ export function mapStandardAnswers(answers, context) {
   };
 
   // ── Stage1：分类（无阻断语义）──────────────────────────────────────
-  const category = answers.event_category?.choice || null;
+  // J1.17 cashtag 改道（2026-09-28 用户裁定，C28 iNu案 0xf578b84b：语料推文含与
+  // 币名相同的 $TICKER cashtag = 推文讨论的是已存在的 web3 资产，代币是骑乘/
+  // 蹲号该资产的名字而非截词原创叙事 → 强制按 W 类数学评分（被骑资产影响力须
+  // 极高）。判据在 detectCorpusCashtag（纯代码，无 LLM），Jev event_category
+  // 概率不再有决定权——iNu 案 W 0.25 输给 C 0.52 的 argmax 逃逸正是漏放根因。
+  const cashtagHit = detectCorpusCashtag(tokenData, twitterInfo);
+  const cashtagForced = !!(cashtagHit && answers.event_category?.choice !== 'W');
+  const category = cashtagForced ? 'W' : (answers.event_category?.choice || null);
   const magnitude = answers.event_magnitude?.score ?? 0;
   const tier = magnitudeTier(magnitude);
   const timing = answers.event_timing?.choice || 'unknown';
@@ -405,6 +413,10 @@ export function mapStandardAnswers(answers, context) {
         magnitudeTier: tier,
         timing,
         blockChoice,
+        // J1.17 审计标记：category 被代码端 cashtag 判据改写为 W（原 Jev choice 见
+        // event_category probabilities），落库行可追溯改道来源
+        categoryForced: cashtagForced ? 'cashtag_w' : null,
+        cashtagMatched: cashtagHit?.cashtag ?? null,
         probabilities: {
           event_category: answers.event_category?.probabilities,
           event_magnitude: answers.event_magnitude?.probabilities,
@@ -455,19 +467,15 @@ export function mapStandardAnswers(answers, context) {
     stage2Blocked = true;
     stage2BlockReason = `事件主体量级不足（${tier}档）`;
   } else if (isW || rideMass != null) {
-    // W 数学（W 类原生 / B 类骑乘改道共用：产品分量 + 币安交互 + 时效，pass 线 60）
+    // W 数学（W 类原生 / B 类骑乘改道 / J1.17 cashtag 改道共用：产品分量 + 币安交互 + 时效，pass 线 60）
     wProduct = bandInterpolate(answers.w_product_score?.score ?? 0, W_PRODUCT_BANDS);
     wInteraction = bandInterpolate(answers.w_binance_interaction?.score ?? 0, W_INTERACTION_BANDS);
     timeliness = TIMING_SCORES_W[timing] ?? 0;
     stage2Total = round2(wProduct + wInteraction + timeliness);
     stage2Blocked = stage2Total < 60;
-    if (rideMass != null) {
-      stage2Reason = `骑乘改道W类 产品${wProduct}+交互${wInteraction}+时效${timeliness}=${stage2Total}（pass线60）`;
-      if (stage2Blocked) stage2BlockReason = `骑乘盘W数学总分不足（${stage2Total}<60）`;
-    } else {
-      stage2Reason = `W类 产品${wProduct}+交互${wInteraction}+时效${timeliness}=${stage2Total}（pass线60）`;
-      if (stage2Blocked) stage2BlockReason = `W类总分不足（${stage2Total}<60）`;
-    }
+    const wLabel = rideMass != null ? '骑乘改道W类' : (cashtagForced ? `cashtag改道W类(${cashtagHit.cashtag})` : 'W类');
+    stage2Reason = `${wLabel} 产品${wProduct}+交互${wInteraction}+时效${timeliness}=${stage2Total}（pass线60）`;
+    if (stage2Blocked) stage2BlockReason = `${wLabel}总分不足（${stage2Total}<60）`;
   } else {
     tierScore = MAGNITUDE_TIER_SCORES[tier] || 0;
     timeliness = TIMING_SCORES_STANDARD[timing] ?? 0;

@@ -580,6 +580,7 @@ export class NarrativeAnalyzer {
               tokenData,
               includeBrandHijack,
               tweetClassification: classifyTweetType(twitterInfo),
+              twitterInfo, // J1.17 cashtag 改道判据（detectCorpusCashtag）用
               callInfo: {
                 model: result.model, questions, state, stateStats: stats,
                 usage: result.usage, startedAt, finishedAt,

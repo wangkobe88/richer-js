@@ -122,7 +122,7 @@ async function main() {
     };
     const mapped = isSuperIP
       ? mapSuperIPAnswers(result.answers, { superIPInfo, preScores: calculatePreScores(superIPInfo, twitterInfo?.created_at), symbol: tokenData.symbol, includeBrandHijack, callInfo })
-      : mapStandardAnswers(result.answers, { tokenData, includeBrandHijack, callInfo });
+      : mapStandardAnswers(result.answers, { tokenData, includeBrandHijack, twitterInfo, callInfo });
 
     const newRating = mapped.llmResult.rating;
     const newScore = mapped.llmResult.score ?? null;

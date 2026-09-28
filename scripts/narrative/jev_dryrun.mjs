@@ -101,6 +101,7 @@ async function main() {
     const mapped = mapStandardAnswers(result.answers, {
       tokenData,
       includeBrandHijack,
+      twitterInfo, // J1.17 cashtag 改道判据用（与主路径同口径）
       callInfo: {
         model: result.model, questions, stateStats: stats,
         usage: result.usage, startedAt, finishedAt,

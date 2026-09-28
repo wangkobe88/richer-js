@@ -362,6 +362,51 @@ export function detectIssuerSelfLaunch(tokenData, fetchResults) {
 }
 
 /**
+ * 语料 cashtag 检测（W 类强制改道判据，纯代码规则，2026-09-28 用户裁定，C28 iNu案）
+ *
+ * 语义：语料推文（含被回复的父推）里出现与代币名相同的 $TICKER cashtag，
+ * 说明推文讨论的是一个已存在的 web3 资产——代币是骑乘/蹲号该资产的名字，
+ * 不是「从推文里截了个新词」的 C 类叙事，强制改道 W 类数学（要求被骑乘资产
+ * 本身影响力极高）。iNu 案：@theunipcs（32.7万粉）回复 "$INU"（讨论 RH Chain
+ * 上 @iNuApple 的另一个 INU 代币）14 秒后 BSC 蹲号盘出生，Jev 判 C 类 0.52
+ * 压过 W 0.25 放行——机械判据不再给 Jev 概率逃逸空间。
+ *
+ * 判定（机械匹配，无 LLM）：
+ * - 扫描 twitterInfo.text 与 twitterInfo.in_reply_to.text（两者都是该代币语料）
+ * - cashtag 正则 $[A-Za-z0-9]{2,15}，归一化后与 symbol/name 全等（非包含，
+ *   防 $BANANA 命中 BAN）；价格串 $100 天然不匹配非数字币名；两侧均要求 ≥2
+ *   字符（1 字符名走原路径，保守方向=少改道）
+ *
+ * @param {Object} tokenData - 代币数据（symbol/name/raw_api_data.name）
+ * @param {Object|null} twitterInfo - 语料推文信息（twitter fetch 结果）
+ * @returns {Object|null} 命中返回 { cashtag, inReplyTo }，未命中返回 null
+ */
+export function detectCorpusCashtag(tokenData, twitterInfo) {
+  if (!twitterInfo) return null;
+  const texts = [
+    { text: twitterInfo.text, inReplyTo: false },
+    { text: twitterInfo.in_reply_to?.text, inReplyTo: true },
+  ].filter(t => typeof t.text === 'string' && t.text);
+  if (!texts.length) return null;
+
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9一-鿿]/g, '');
+  const names = [
+    norm(tokenData.symbol),
+    norm(tokenData.name || tokenData.raw_api_data?.name),
+  ].filter(n => n.length >= 2);
+  if (!names.length) return null;
+
+  for (const { text, inReplyTo } of texts) {
+    for (const m of text.matchAll(/\$([A-Za-z0-9]{2,15})/g)) {
+      if (names.includes(norm(m[1]))) {
+        return { cashtag: `$${m[1]}`, inReplyTo };
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * 在账号时间线中查找含代币合约地址（CA）的宣告推文（纯文本判定，零网络）
  *
  * 语义：合约地址在铸币时刻才存在，出现在谁的时间线里谁就是发行方——比名字
