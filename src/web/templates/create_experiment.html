@@ -913,6 +913,27 @@
         const buyTemplate = document.getElementById('buy-strategy-template');
         const sellTemplate = document.getElementById('sell-strategy-template');
 
+        // === 多链多平台配置（BSC-only：four.meme / flap 内盘） ===
+        // 区块链和平台映射配置（须声明在下方复制模式 IIFE 之前——loadCopiedExperimentData
+        // 同步段经 handleTradingModeChange → syncPlatformAvailability → updateLogoDisplay
+        // 触达本常量，后置声明会 TDZ ReferenceError 中断策略回填）
+        const BLOCKCHAIN_PLATFORMS = {
+            bsc: [
+                { value: 'fourmeme', name: 'Four.meme', logo: '/static/fourmeme-logo.png' },
+                { value: 'flap', name: 'Flap', logo: '/static/flap-logo.png' }
+            ]
+        };
+
+        // 区块链logo配置
+        const BLOCKCHAIN_LOGOS = {
+            bsc: '/static/bsc-logo.png'
+        };
+
+        // 区块链原生币映射
+        const BLOCKCHAIN_NATIVE_CURRENCY = {
+            bsc: 'BNB'
+        };
+
         // 验证模板已加载
         if (!buyTemplate || !sellTemplate) {
             console.error('❌ 策略模板未找到！');
@@ -992,8 +1013,8 @@
                     window._pendingCopyPlatform = copyData.platform;
                 }
 
-                // 注意：handleBlockchainChange 由脚本末尾的初始化调用统一处理，
-                // 因为此时 BLOCKCHAIN_PLATFORMS 等常量可能尚未声明。
+                // 注意：handleBlockchainChange 由脚本末尾的初始化调用统一处理
+                //（BLOCKCHAIN_* 常量已上移至脚本前段，此处链路不再有 TDZ 风险）。
 
                 // 🔥 重要：设置 trading_mode 后需要手动调用 handleTradingModeChange
                 // 来移除 backtest_source_experiment 的 required 属性
@@ -1206,24 +1227,8 @@
             }, 5000);
         }
 
-        // === 多链多平台配置（BSC-only：four.meme / flap 内盘） ===
-        // 区块链和平台映射配置
-        const BLOCKCHAIN_PLATFORMS = {
-            bsc: [
-                { value: 'fourmeme', name: 'Four.meme', logo: '/static/fourmeme-logo.png' },
-                { value: 'flap', name: 'Flap', logo: '/static/flap-logo.png' }
-            ]
-        };
-
-        // 区块链logo配置
-        const BLOCKCHAIN_LOGOS = {
-            bsc: '/static/bsc-logo.png'
-        };
-
-        // 区块链原生币映射
-        const BLOCKCHAIN_NATIVE_CURRENCY = {
-            bsc: 'BNB'
-        };
+        // === 多链多平台配置：BLOCKCHAIN_PLATFORMS/BLOCKCHAIN_LOGOS/
+        // BLOCKCHAIN_NATIVE_CURRENCY 三常量已上移至脚本前段声明区（复制模式 IIFE 之前） ===
 
         // 根据区块链类型更新钱包输入区域（BSC-only：恒 EVM 提示）
         function updateWalletInputHints(blockchain) {
