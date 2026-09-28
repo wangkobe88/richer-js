@@ -103,6 +103,12 @@ function buildFactorValuesForTimeSeries(factorResults) {
     rsi9Bar5mRt: factorResults.rsi9Bar5mRt ?? null,
     risePct5m: factorResults.risePct5m ?? null,
     riseVel5m: factorResults.riseVel5m ?? null,
+    // 行为周期分桶（卖出臂周期路由，2026-09-28）：档位快照进时序供事后校准阈值
+    // （tokenCycleAgeSec 不进快照——可由相邻行差分推）；旧 FA 无这些键 → null，不掩盖
+    tokenCycle: factorResults.tokenCycle ?? null,
+    tokenCycleRaw: factorResults.tokenCycleRaw ?? null,
+    cycleTps30s: factorResults.cycleTps30s ?? null,
+    cycleGapMedianMs: factorResults.cycleGapMedianMs ?? null,
   };
 }
 

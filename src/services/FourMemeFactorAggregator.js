@@ -138,6 +138,17 @@ const FACTOR_PARAM_DEFAULTS = {
                                  //   rich-js minTicks=窗口分钟数，tick 秒级更密故起步 8）
     riseMinElapsedMin: 0.1,      // 针臂速度分母下限（分钟；rich-js 钳 1min 是 1m bar 粒度，tick 秒级可小；
                                  //   谷=最新 tick 时防除零）
+    // ── 行为周期分桶（卖出臂周期路由，2026-09-28）：双主量三档判定 + hysteresis ──
+    cycleHotTps: 0.5,            // 热桶门：30s 滑窗 tps ≥0.5（30s ≥15 笔，秒级行为）
+    cycleMidTps: 0.08,           // 中桶门：30s 滑窗 tps ≥0.08（30s ≥2.4 笔，分钟级行为）
+    cycleHotGapMs: 2000,         // 热桶门：相邻 tick 间隔中位数 ≤2s（与 tps 双主量 OR）
+    cycleMidGapMs: 12000,        // 中桶门：间隔中位数 ≤12s（5-15min 周期票落冷桶）
+    cycleMinTicks: 12,           // 证据门：5min 窗 tick < 此数 → null fail-closed（带 cycle 腿全隐）
+    cycleWarmupSec: 60,          // 热身门：token 年龄 < 此数不判定（开盘脉冲不算行为周期）
+    cycleUpDwellSec: 30,         // 升档驻留秒（追热要快）
+    cycleDownDwellSec: 120,      // 降档驻留秒（抗瞬抖；与升档不对称是刻意的）
+    cycleStaleMs: 120 * 1000,    // 断流快速降档窗：now−lastTickAt 超此值且 current>1 立即降 1
+    cycleGapSamples: 120,        // gap 中位数样本数（5min 窗尾部 N 个相邻间隔）
 };
 
 // ── Q 组：creator 前作 registry 常量（pumpfun 逐字沿用——跨票日级口径与链节奏无关）──
@@ -1160,6 +1171,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             _afterFirst9sReliableCount: 0,       // afterFirst9s 达标 tick 数（<2 → ratio null）
             _lastBigTickAt: null,      // 最近大额（≥clsBigTickBnb）tick 时间（OPB bigTickIdle 触发）
 
+            // ── 行为周期分桶（卖出臂周期路由，2026-09-28）：hysteresis 闩锁。
+            //    current=生效档 / since=档位起点 / candidate+candidateSince=异档候选及其起点
+            //    （dwell 期满才切换；_cycleFactors 内每次 buildFactorMap 推进）──
+            _cycleLatch: { current: null, since: null, candidate: null, candidateSince: null },
+
             dataCollectionRound: 1, // 引擎 30s 时序快照轮次
         };
     }
@@ -1649,6 +1665,89 @@ class FourMemeFactorAggregator extends EventEmitter {
         };
     }
 
+    /**
+     * 行为周期分桶因子（卖出臂周期路由，2026-09-28 用户思路 v1）。
+     * 双主量：tps30s（30s 滑窗 tick 密度——读取时按 now 过滤，_slideTicks 写时裁剪断流后会
+     * 滞留老 tick 使 length 虚高）+ gapMedianMs（5min 窗相邻 tick 间隔中位数，尾部
+     * cycleGapSamples 个样本；乱序 tick 的负间隔丢弃）。
+     * 三档：3=热桶秒级 / 2=中桶分钟级 / 1=冷桶 5-15min 级；证据不足（5min 窗 tick <
+     * cycleMinTicks 或 tokenAge < cycleWarmupSec）→ 全键 null fail-closed（带 cycle 腿全隐）。
+     * tokenCycle 经 _cycleLatch hysteresis 稳定化：升档驻留 30s（追热快）/ 降档驻留 120s
+     * （抗瞬抖）；断流超 cycleStaleMs 且 current>1 → 立即降 1（gapMedianMs 是老间隔不随
+     * 断流增长，stale 时 raw 压回 1 不进升档候选）。tokenCycleRaw 为本帧原始判定。
+     * ★红线：内部禁 Date.now——now 由 buildFactorMap(state, asOf) 传入，回测虚拟时钟防前视。
+     */
+    _cycleFactors(state, now) {
+        const fp = this._fp;
+        const ageSec = state.createdAtMs ? (now - state.createdAtMs) / 1000 : null;
+        const slideCutoff = now - fp.slideWinMs;
+        let hotCount = 0;
+        for (const t of state._slideTicks) {
+            if (t.ts >= slideCutoff) hotCount++;
+        }
+        const tps30s = hotCount / (fp.slideWinMs / 1000);
+        const winTicks = state._recentTicks.filter(t => now - t.ts <= RATE_WINDOW_MS);
+        const gaps = [];
+        for (let i = Math.max(1, winTicks.length - fp.cycleGapSamples); i < winTicks.length; i++) {
+            const g = winTicks[i].ts - winTicks[i - 1].ts;
+            if (g > 0) gaps.push(g);
+        }
+        const gapMedianMs = gaps.length > 0 ? this._median(gaps) : null;
+
+        let raw = null;
+        if (ageSec != null && ageSec >= fp.cycleWarmupSec && winTicks.length >= fp.cycleMinTicks) {
+            if (tps30s >= fp.cycleHotTps || (gapMedianMs != null && gapMedianMs <= fp.cycleHotGapMs)) raw = 3;
+            else if (tps30s >= fp.cycleMidTps || (gapMedianMs != null && gapMedianMs <= fp.cycleMidGapMs)) raw = 2;
+            else raw = 1;
+        }
+
+        const latch = state._cycleLatch;
+        const stale = state.lastTickAt != null && (now - state.lastTickAt) > fp.cycleStaleMs;
+        if (stale && raw != null && raw > 1) raw = 1;
+
+        if (raw != null) {
+            if (latch.current == null) {
+                latch.current = raw; latch.since = now;
+                latch.candidate = null; latch.candidateSince = null;
+                this._logCycleSwitch(state, null, raw, tps30s, gapMedianMs, 'init');
+            } else if (raw === latch.current) {
+                latch.candidate = null; latch.candidateSince = null;
+            } else {
+                if (latch.candidate !== raw) { latch.candidate = raw; latch.candidateSince = now; }
+                const dwellMs = (raw > latch.current ? fp.cycleUpDwellSec : fp.cycleDownDwellSec) * 1000;
+                if (now - latch.candidateSince >= dwellMs) {
+                    const from = latch.current;
+                    latch.current = raw; latch.since = now;
+                    latch.candidate = null; latch.candidateSince = null;
+                    this._logCycleSwitch(state, from, raw, tps30s, gapMedianMs, raw > from ? 'upDwell' : 'downDwell');
+                }
+            }
+        }
+        // stale 快速通道：跳过降档 dwell（断流即冷）；raw==null（证据衰减）时也跑，
+        // 恢复证据后从冷档重新 dwell 升档
+        if (stale && latch.current != null && latch.current > 1) {
+            const from = latch.current;
+            latch.current = 1; latch.since = now;
+            latch.candidate = null; latch.candidateSince = null;
+            this._logCycleSwitch(state, from, 1, tps30s, gapMedianMs, 'stale');
+        }
+
+        return {
+            tokenCycle: raw == null ? null : latch.current,
+            tokenCycleRaw: raw,
+            tokenCycleAgeSec: latch.current != null && latch.since != null ? (now - latch.since) / 1000 : null,
+            cycleTps30s: tps30s,
+            cycleGapMedianMs: gapMedianMs,
+        };
+    }
+
+    /** 周期档位切换固定格式日志（182 部署后观察切换频率与档位分布） */
+    _logCycleSwitch(state, from, to, tps30s, gapMedianMs, reason) {
+        console.log(`[CycleSwitch] token=${state.tokenAddress} from=${from == null ? 'null' : from} to=${to}`
+            + ` tps30s=${tps30s.toFixed(3)} gapMedMs=${gapMedianMs == null ? 'null' : gapMedianMs.toFixed(0)}`
+            + ` reason=${reason}`);
+    }
+
     /** per-position 持仓期因子 */
     _positionFactors(state, pos, now) {
         const currentBnb = state.currentPriceBnb || 0;
@@ -2132,6 +2231,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             buyVolumeBnb: state.totalBuyBnb,
             sellVolumeBnb: state.totalSellBnb,
             ...this._rateFactors(state, now),
+            // 行为周期分桶（卖出臂周期路由，2026-09-28）：tokenCycle/tokenCycleRaw/tokenCycleAgeSec/
+            // cycleTps30s/cycleGapMedianMs——latch 推进副作用在读取路径（hysteresis 需状态）
+            ...this._cycleFactors(state, now),
 
             trendDataPoints: prices.length,
 

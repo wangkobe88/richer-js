@@ -373,6 +373,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
           cooldownSec: s.cooldownSec,
+          // 行为周期分桶（2026-09-28）：透传桶标注，loadStrategies 内归一（脏值 → null=全周期）
+          cycle: s.cycle,
           enabled: true,
         });
       });
@@ -395,6 +397,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           // 卡牌仓位（迁自 rich-js）：同买腿透传（卖腿额外接受 'all'）
           cards: s.cards,
           cooldownSec: s.cooldownSec,
+          // 行为周期分桶（2026-09-28）：透传桶标注，loadStrategies 内归一（脏值 → null=全周期）
+          cycle: s.cycle,
           enabled: true,
         });
       });
@@ -443,6 +447,17 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         `🛡️ 止损双腿已启用 | ${this._stopLossTimeSec != null ? `时间止损: 持有>${Math.round(this._stopLossTimeSec / 60)}min仍亏损全清 ` : ''}` +
         `${this._stopLossPricePct != null ? `价格止损: 现价≤成本${this._stopLossPricePct}%全清 ` : ''}` +
         `| 持仓扫描=${this._stopLossScanMs != null ? this._stopLossScanMs / 1000 + 's' : '未配置（仅 tick 路径）'}（断流兜底）`);
+    }
+
+    // 6.6 行为周期分桶（卖出臂周期路由，2026-09-28 用户思路 v1）：tokenCycle 段存在且
+    //   enforce=true → 每 tick 把 factors.tokenCycle 写进 token.cycleTag，带 cycle 腿按桶
+    //   路由（evaluate 内过滤）；缺段 = 不写 cycleTag = 带 cycle 腿全隐（fail-closed，
+    //   止损双腿兜底），不带 cycle 腿恒可见（存量实验零变化）
+    this._cycleEnforce = !!(experimentConfig.tokenCycle && experimentConfig.tokenCycle.enforce);
+    if (this._cycleEnforce) {
+      const _cycled = this._strategyEngine.getAllStrategies().filter(s => s.cycle != null).length;
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        `🔁 周期路由已启用（enforce）| 标注 cycle 的腿=${_cycled}/${this._strategyEngine.getStrategyCount()} | 桶标签=token.cycleTag（FA _cycleFactors 判定）`);
     }
 
     // 7. live 执行层（FourMemeDirectTrader + 钱包），必须在重启恢复之前就绪
@@ -841,6 +856,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token) return;
 
+    // 行为周期分桶（2026-09-28）：tokenCycle 写进 token.cycleTag 供 evaluate 桶路由
+    //（_evaluateSellPath/买腿去抖重评传同一 token 对象引用）。仅 enforce 实验写；
+    // null（证据不足）也写——带 cycle 腿全隐 fail-closed
+    if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
+
     // 重启恢复的持仓锚点：FA 首个可靠价到达时落锚（BNB 锚点以重启后首价近似）
     if (this._restoreAnchors.has(tokenAddress)) {
       const state = this._factorAggregator.getTokenState(tokenAddress);
@@ -902,6 +922,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token) return;
+    // 周期路由同步（fire 时刻 buildFactorMap 已推进 latch；避免 cycleTag 滞后末 tick 一拍）
+    if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
     if (this._buyingTokens.has(tokenAddress)) return;
     if (token.status === 'bought') return; // 单仓语义
 
@@ -1290,6 +1312,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
       const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
       if (!factors) continue;
+      // 周期路由同步点（断流票 stale 降档）：buildFactorMap 顺带推进 _cycleLatch，
+      // 此处把结果写进 token.cycleTag（恢复零星 tick 后 evaluate 用最新档）
+      if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
       const hit = this._stopLossHit(factors);
       if (hit) {
         await this._emitStopLossSell(token, factors, hit, null);
@@ -1337,6 +1362,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token || token.status !== 'bought') return;
     if (this._buyingTokens.has(tokenAddress)) return; // 与卖腿路由门同口径
+    // 周期路由同步（fire 时刻 buildFactorMap 已推进 latch；避免 cycleTag 滞后末 tick 一拍）
+    if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
 
     this._reconfirmAndSell(token, factors)
       .catch(e => this.logger.error(this._experimentId, 'SellEval',

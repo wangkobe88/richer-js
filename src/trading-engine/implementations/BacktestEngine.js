@@ -204,6 +204,8 @@ class BacktestEngine extends AbstractTradingEngine {
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
           cooldownSec: s.cooldownSec,
+          // 行为周期分桶（2026-09-28）：透传桶标注，loadStrategies 内归一（脏值 → null=全周期）
+          cycle: s.cycle,
           enabled: true,
         });
       });
@@ -258,6 +260,16 @@ class BacktestEngine extends AbstractTradingEngine {
     if (this._cardsEnabled) {
       this.logger.info(this._experimentId, 'BacktestEngine',
         `🃏 卡牌仓位模式启用: perCardBNB=${this._perCardBNB}（买入金额=perCardBNB×本腿张数，卖腿按卡数比例卖余仓）`);
+    }
+
+    // 6.6 行为周期分桶（卖出臂周期路由，2026-09-28）：同实时引擎——tokenCycle 段
+    //     enforce=true → 主循环 buildFactorMap 后写 token.cycleTag（tick 虚拟时刻，
+    //     _cycleFactors 防前视：判定只用 asOf 前数据）；缺段 = 带 cycle 腿全隐 fail-closed
+    this._cycleEnforce = !!(experimentConfig.tokenCycle && experimentConfig.tokenCycle.enforce);
+    if (this._cycleEnforce) {
+      const _cycled = this._strategyEngine.getAllStrategies().filter(s => s.cycle != null).length;
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `🔁 周期路由已启用（enforce）| 标注 cycle 的腿=${_cycled}/${this._strategyEngine.getStrategyCount()}`);
     }
 
     // 7. 批量写入缓冲区
@@ -482,6 +494,10 @@ class BacktestEngine extends AbstractTradingEngine {
         const token = this._tokenPool.getToken(tick.token_address, 'bsc');
         if (!token) continue;
 
+        // 周期路由同步（2026-09-28）：buildFactorMap(tick.timestamp) 已按虚拟时刻推进
+        // _cycleLatch（防前视），此处写 token.cycleTag 供 evaluate 桶路由
+        if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
+
         // 分腿路由（与实时引擎 _onFactorsUpdated 同构）
         if (token.status === 'bought' && !this._buyingTokens.has(tick.token_address)) {
           await this._evaluateSellPath(token, factors, tick);
@@ -651,6 +667,8 @@ class BacktestEngine extends AbstractTradingEngine {
 
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token) return Promise.resolve();
+    // 周期路由同步（fire 时刻 buildFactorMap 已按虚拟时刻推进 latch；防 cycleTag 滞后一拍）
+    if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
     if (this._buyingTokens.has(tokenAddress)) return Promise.resolve();
     if (token.status === 'bought') return Promise.resolve();
     if (this._tokenBlacklist.has(tokenAddress)) return Promise.resolve();
@@ -995,6 +1013,8 @@ class BacktestEngine extends AbstractTradingEngine {
     const token = this._tokenPool.getToken(tokenAddress, 'bsc');
     if (!token || token.status !== 'bought') return;
     if (this._buyingTokens.has(tokenAddress)) return; // 与卖腿路由门同口径
+    // 周期路由同步（fire 时刻 buildFactorMap 已按虚拟时刻推进 latch；防 cycleTag 滞后一拍）
+    if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
 
     const p = this._reconfirmAndSell(token, factors, fireTs)
       .catch(e => this.logger.error(this._experimentId, 'SellEval',

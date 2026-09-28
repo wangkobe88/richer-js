@@ -116,7 +116,11 @@ class StrategyEngine {
                     cooldownSec: (() => {
                         const n = Number(config.cooldownSec);
                         return Number.isFinite(n) && n > 0 ? n : null;
-                    })()
+                    })(),
+                    // 行为周期分桶（卖出臂周期路由，2026-09-28）：1=冷桶 2=中桶 3=热桶；
+                    // 脏值/未配 → null=全周期=旧语义（不带 cycle 的腿恒可见，存量零变化）
+                    cycle: Number.isInteger(config.cycle) && [1, 2, 3].includes(config.cycle)
+                        ? config.cycle : null
                 };
 
                 this._strategies.push(strategy);
@@ -158,6 +162,14 @@ class StrategyEngine {
         for (const strategy of this._strategies) {
             // 动作过滤（事件驱动引擎分腿评估用：持仓中只看卖腿，避免同优先级买策略遮蔽卖出）
             if (actionFilter && strategy.action !== actionFilter) {
+                continue;
+            }
+
+            // 行为周期分桶（卖出臂周期路由，2026-09-28）：带 cycle 腿只在 tokenData.cycleTag
+            // 等值时可见；cycleTag null（证据不足/未启用）→ 全隐 fail-closed（止损双腿兜底）。
+            // 与 maxExecutions/cooldown 同构：高优先级腿被隐 → 低优先级腿可顶上
+            if (strategy.cycle != null && (!tokenData || tokenData.cycleTag == null
+                || strategy.cycle !== tokenData.cycleTag)) {
                 continue;
             }
 

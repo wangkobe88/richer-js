@@ -1,0 +1,265 @@
+#!/usr/bin/env node
+/**
+ * 行为周期分桶（卖出臂周期路由）+ 毕业竞态/timeStop 遗留修复——本地零 DB 单测
+ *
+ * 背景（2026-09-28 用户思路 v1，51ea69e7 20 买 14 割肉实证）：FA 读取时聚合
+ * tps30s + gapMedianMs 双主量三档判定（3 热/2 中/1 冷/null 证据不足 fail-closed），
+ * hysteresis 闩锁（升档驻留 30s/降档 120s/断流 stale 快速降档），strategy.cycle
+ * × token.cycleTag 等值路由（evaluate 内过滤，一处覆盖买/卖/去抖重评/回测四链）。
+ *
+ * 覆盖：
+ *   A. FA 判定（密/中/疏 → 3/2/1；tick<minTicks → null；age<warmup → null）
+ *   B. hysteresis（升档 30s 驻留 / 降档 120s 驻留 / stale 快速降档 / 驻留秒数）
+ *   C. loadStrategies cycle 脏值归一（字符串/越界/小数/未配 → null）
+ *   D. evaluate 过滤矩阵（腿 cycle × cycleTag 等值可见 + null 全隐 + 无 cycle 恒可见）
+ *   E. 桶切换后旧桶 strategyExecutions 计数保留
+ *   F. getFactorKeys 含 5 新键 + 时序白名单 4 键（旧因子集 → null 不掩盖）
+ *
+ * 用法：node scripts/_test_token_cycle_routing.cjs
+ */
+'use strict';
+
+const FourMemeFactorAggregator = require('../src/services/FourMemeFactorAggregator');
+const { StrategyEngine } = require('../src/strategies/StrategyEngine');
+const { buildFactorValuesForTimeSeries } = require('../src/trading-engine/core/FactorBuilder');
+
+let pass = 0, fail = 0;
+function check(name, actual, expected) {
+  const a = JSON.stringify(actual), e = JSON.stringify(expected);
+  if (a === e) { pass++; console.log(`  ✓ ${name}`); }
+  else { fail++; console.log(`  ✗ ${name}\n    期望 ${e}\n    实际 ${a}`); }
+}
+const noopLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} };
+
+// ── [CycleSwitch] 日志捕获（FA _logCycleSwitch 走 console.log 固定格式）──
+const cycleLogs = [];
+const origLog = console.log;
+console.log = (...args) => {
+  const s = args.join(' ');
+  if (s.includes('[CycleSwitch]')) cycleLogs.push(s);
+  else origLog(...args);
+};
+
+// ── 真 FA 实例（构造零 DB；默认 factorParams 即被测阈值）──
+let traderSeq = 0;
+function makeTick(addr, ts, { isBuy = true, bnb = 0.01, priceBnb = 5e-9 } = {}) {
+  traderSeq++;
+  return {
+    token_address: addr,
+    trade_type: isBuy ? 'buy' : 'sell',
+    trader_address: `0xtrader${traderSeq}`,
+    price_bnb: priceBnb, price_usd: priceBnb * 600,
+    bnb_amount: bnb, token_amount: bnb / priceBnb,
+    block_number: 40000000 + traderSeq, timestamp: ts,
+    tx_hash: `0xtx${traderSeq}`, log_index: 0,
+    price_outlier: false, platform: 'fourmeme',
+  };
+}
+function makeFA(addr, createdAtMs = 1000) {
+  const fa = new FourMemeFactorAggregator({ fourmemeWs: {} }, noopLogger);
+  fa.registerToken(addr, { createdAtMs, totalSupply: 1e9, symbol: 'TST', creatorAddress: '0xcreator' });
+  return fa;
+}
+/** 从 startTs 起喂 n 笔间隔 intervalSec 的 tick，返回下一时刻 ts */
+function feed(fa, addr, startTs, intervalSec, n) {
+  let ts = startTs;
+  for (let i = 0; i < n; i++) {
+    fa.processTick(makeTick(addr, ts), { emitFactors: false });
+    ts += intervalSec * 1000;
+  }
+  return ts;
+}
+
+// ═══ A. FA 周期判定（三档 + null fail-closed）═══
+console.log('A. FA _cycleFactors 判定（tps30s + gapMedianMs 双主量三档）');
+{
+  // A1 密集：1.5s 间隔 × 20 笔（30s 窗 tps≈0.67 ≥0.5）→ 3
+  const fa1 = makeFA('0xa1');
+  feed(fa1, '0xa1', 61000, 1.5, 20);
+  const f1 = fa1.buildFactorMap('0xa1', 90000);
+  check('密集(1.5s×20) → 热桶 3', [f1.tokenCycle, f1.tokenCycleRaw], [3, 3]);
+  check('密集 tps30s ≥0.5', f1.cycleTps30s >= 0.5, true);
+  check('密集 gapMedianMs ≈1500 ≤2000', f1.cycleGapMedianMs <= 2000, true);
+
+  // A2 中密：5s 间隔 × 20 笔（tps 0.2 ∈[0.08,0.5)；gapMed 5000 ∈(2000,12000]）→ 2
+  const fa2 = makeFA('0xa2');
+  feed(fa2, '0xa2', 61000, 5, 20);
+  const f2 = fa2.buildFactorMap('0xa2', 160000);
+  check('中密(5s×20) → 中桶 2', [f2.tokenCycle, f2.tokenCycleRaw], [2, 2]);
+
+  // A3 疏：20s 间隔 × 15 笔（tps 0.033<0.08；gapMed 20000>12000）→ 1（5min 窗 15 笔 ≥12）
+  const fa3 = makeFA('0xa3');
+  feed(fa3, '0xa3', 61000, 20, 15);
+  const f3 = fa3.buildFactorMap('0xa3', 345000);
+  check('疏(20s×15) → 冷桶 1', [f3.tokenCycle, f3.tokenCycleRaw], [1, 1]);
+
+  // A4 证据门：5min 窗 tick < 12 → null（带 cycle 腿全隐 fail-closed）
+  const fa4 = makeFA('0xa4');
+  feed(fa4, '0xa4', 61000, 1.5, 11);
+  const f4 = fa4.buildFactorMap('0xa4', 80000);
+  check('tick<12 → null（证据不足）', [f4.tokenCycle, f4.tokenCycleRaw], [null, null]);
+
+  // A5 热身门：tokenAge < 60s → null（开盘脉冲不算行为周期）
+  const fa5 = makeFA('0xa5');
+  feed(fa5, '0xa5', 5000, 1.5, 20);
+  const f5 = fa5.buildFactorMap('0xa5', 34000);
+  check('age 34s<60 → null（热身期）', f5.tokenCycle, null);
+}
+
+// ═══ B. hysteresis 闩锁 ═══
+console.log('B. hysteresis（升档 30s / 降档 120s / stale 快速降档）');
+{
+  // B1 升档驻留：2 →(密集)→ candidate 3，<30s 不切，≥30s 切（reason=upDwell）
+  const fa = makeFA('0xb1');
+  feed(fa, '0xb1', 61000, 5, 12);          // 中密期 → raw=2
+  check('B1 中密期 init=2', fa.buildFactorMap('0xb1', 120000).tokenCycle, 2);
+  const denseEnd = feed(fa, '0xb1', 116500, 1.5, 40); // 末笔 ts=175500
+  // candidate 在首次评估到 raw=3 时登记（不是 tick 到达时）——密集结束后立即评一次锚定 candidateSince
+  fa.buildFactorMap('0xb1', 176000);
+  const b1_29 = fa.buildFactorMap('0xb1', 176000 + 29000);
+  check('升档驻留 29s<30s → 仍 2', b1_29.tokenCycle, 2);
+  const b1_31 = fa.buildFactorMap('0xb1', 176000 + 31000);
+  check('升档驻留 31s≥30s → 切 3', b1_31.tokenCycle, 3);
+  check('切桶日志 reason=upDwell', cycleLogs.some(l => l.includes('from=2 to=3') && l.includes('reason=upDwell')), true);
+
+  // B2 降档驻留：3 →(疏 13s)→ candidate 1，<120s 不切，≥120s 切（reason=downDwell）
+  const fa2 = makeFA('0xb2');
+  feed(fa2, '0xb2', 61000, 1.5, 40);       // 密集期 → init=3
+  check('B2 密集期 init=3', fa2.buildFactorMap('0xb2', 121000).tokenCycle, 3);
+  // 疏期 13s 间隔持续喂（gapMed 翻转 >12000 需 13s 间隔过半；5min 窗内 13s×23 笔 ≥12）
+  let ts = feed(fa2, '0xb2', 124000, 13, 45); // 末笔 ts≈702000
+  const b2_cand = fa2.buildFactorMap('0xb2', ts + 1000);
+  check('疏期首评 → candidate 登记 current 仍 3', b2_cand.tokenCycle, 3);
+  const candSince = ts + 1000;
+  // 持续喂 tick 到驻留 117s（不 stale：lastTickAt 持续刷新）→ 仍 3
+  ts = feed(fa2, '0xb2', ts + 13000, 13, 8);
+  const b2_117 = fa2.buildFactorMap('0xb2', ts + 1000);
+  check('降档驻留 117s<120s → 仍 3', b2_117.tokenCycle, 3);
+  ts = feed(fa2, '0xb2', ts + 13000, 13, 2); // 再喂 2 笔跨过 120s
+  const b2_over = fa2.buildFactorMap('0xb2', ts + 1000);
+  check(`降档驻留 ≥120s → 切 1`, b2_over.tokenCycle, 1);
+  check('切桶日志 reason=downDwell', cycleLogs.some(l => l.includes('from=3 to=1') && l.includes('reason=downDwell')), true);
+
+  // B3 stale 快速通道：current=3 断流 >120s → 立即 1（不等降档驻留）
+  const fa3 = makeFA('0xb3');
+  feed(fa3, '0xb3', 61000, 1.5, 40);       // init=3（末笔 120500）
+  fa3.buildFactorMap('0xb3', 121000);
+  const b3 = fa3.buildFactorMap('0xb3', 121000 + 121000); // 断流 121s>120s
+  check('断流 121s → 立即降 1', b3.tokenCycle, 1);
+  check('stale 日志 reason=stale', cycleLogs.some(l => l.includes('reason=stale')), true);
+
+  // B4 tokenCycleAgeSec：当前档位驻留秒数
+  const fa4 = makeFA('0xb4');
+  feed(fa4, '0xb4', 61000, 1.5, 20);
+  fa4.buildFactorMap('0xb4', 90000);       // init since=90000
+  const b4 = fa4.buildFactorMap('0xb4', 90000 + 12000);
+  check('tokenCycleAgeSec=档位驻留秒数', b4.tokenCycleAgeSec, 12);
+}
+
+console.log = origLog; // 恢复（后续段允许正常输出；C 段策略加载日志保留）
+
+// ═══ C. loadStrategies cycle 归一 ═══
+console.log('C. loadStrategies cycle 脏值归一（1|2|3 外全 → null=全周期）');
+{
+  const factorIds = new Set(['tradeCount']);
+  const se = new StrategyEngine();
+  const base = (id, extra = {}) => ({ id, name: `策略${id}`, action: 'sell', condition: 'tradeCount >= 0', priority: 1, ...extra });
+  se.loadStrategies([
+    base('s1', { cycle: 2 }),
+    base('s2', { cycle: '3' }),   // 字符串脏值 → null
+    base('s3', { cycle: 4 }),     // 越界 → null
+    base('s4', { cycle: 1.5 }),   // 非整数 → null
+    base('s5', { cycle: null }),  // 显式 null → null
+    base('s6'),                   // 未配 → null
+  ], factorIds);
+  const cycles = Object.fromEntries(se.getAllStrategies().map(s => [s.id, s.cycle]));
+  check('合法 2 → 2', cycles.s1, 2);
+  check("字符串 '3' → null", cycles.s2, null);
+  check('越界 4 → null', cycles.s3, null);
+  check('小数 1.5 → null', cycles.s4, null);
+  check('显式 null → null', cycles.s5, null);
+  check('未配 → null', cycles.s6, null);
+}
+
+// ═══ D. evaluate 过滤矩阵 ═══
+console.log('D. evaluate 桶路由（腿 cycle × tokenData.cycleTag）');
+{
+  const factorIds = new Set(['tradeCount']);
+  const mk = () => {
+    const se = new StrategyEngine();
+    se.loadStrategies([
+      { id: 'cold1', name: '冷桶腿', action: 'sell', condition: 'tradeCount >= 0', priority: 5, cycle: 1 },
+      { id: 'mid1', name: '中桶腿', action: 'sell', condition: 'tradeCount >= 0', priority: 5, cycle: 2 },
+      { id: 'hot1', name: '热桶腿', action: 'sell', condition: 'tradeCount >= 0', priority: 5, cycle: 3 },
+      { id: 'plain', name: '无标注腿', action: 'sell', condition: 'tradeCount >= 0', priority: 9 },
+    ], factorIds);
+    return se;
+  };
+  const factors = { tradeCount: 5 };
+  check('cycleTag=1 → 冷桶腿', mk().evaluate(factors, '0xa', 1, { cycleTag: 1 }, 'sell').id, 'cold1');
+  check('cycleTag=2 → 中桶腿', mk().evaluate(factors, '0xa', 1, { cycleTag: 2 }, 'sell').id, 'mid1');
+  check('cycleTag=3 → 热桶腿', mk().evaluate(factors, '0xa', 1, { cycleTag: 3 }, 'sell').id, 'hot1');
+  check('cycleTag=null → 带 cycle 腿全隐（fail-closed）→ 无标注腿顶上',
+    mk().evaluate(factors, '0xa', 1, { cycleTag: null }, 'sell').id, 'plain');
+  check('tokenData 缺失 → 同 null 语义',
+    mk().evaluate(factors, '0xa', 1, null, 'sell').id, 'plain');
+
+  // 高优先级带 cycle 腿被隐 → 低优先级无 cycle 腿可顶上（与 maxExecutions/cooldown 同构）
+  const se2 = new StrategyEngine();
+  se2.loadStrategies([
+    { id: 'hotHigh', name: '热桶高优', action: 'sell', condition: 'tradeCount >= 0', priority: 0, cycle: 3 },
+    { id: 'plainLow', name: '无标注低优', action: 'sell', condition: 'tradeCount >= 0', priority: 9 },
+  ], factorIds);
+  check('cycleTag=2 时热桶高优腿被隐 → 无标注低优顶上',
+    se2.evaluate(factors, '0xa', 1, { cycleTag: 2 }, 'sell').id, 'plainLow');
+  check('cycleTag=3 时热桶高优腿恢复',
+    se2.evaluate(factors, '0xa', 1, { cycleTag: 3 }, 'sell').id, 'hotHigh');
+
+  // 买腿同链路（actionFilter=buy）覆盖验证
+  const se3 = new StrategyEngine();
+  se3.loadStrategies([
+    { id: 'buyCold', name: '冷桶买', action: 'buy', condition: 'tradeCount >= 0', priority: 1, cycle: 1 },
+    { id: 'buyPlain', name: '无标注买', action: 'buy', condition: 'tradeCount >= 0', priority: 9 },
+  ], factorIds);
+  check('买腿同路由（cycleTag=2 → 无标注买腿）',
+    se3.evaluate(factors, '0xa', 1, { cycleTag: 2 }, 'buy').id, 'buyPlain');
+}
+
+// ═══ E. 桶切换后旧桶计数保留（strategyExecutions 按 strategyId 分桶）═══
+console.log('E. 桶切换 → strategyExecutions 计数保留');
+{
+  const factorIds = new Set(['tradeCount']);
+  const se = new StrategyEngine();
+  se.loadStrategies([
+    { id: 'hot1', name: '热桶腿限2次', action: 'sell', condition: 'tradeCount >= 0', priority: 1, cycle: 3, maxExecutions: 2 },
+    { id: 'cold1', name: '冷桶腿', action: 'sell', condition: 'tradeCount >= 0', priority: 1, cycle: 1 },
+    { id: 'plain', name: '兜底腿', action: 'sell', condition: 'tradeCount >= 0', priority: 9 },
+  ], factorIds);
+  const factors = { tradeCount: 5 };
+  const td = { cycleTag: 3, strategyExecutions: { hot1: { count: 2 } } };
+  check('热桶：hot1 计数满 2/2 → 被挡，兜底腿顶上', se.evaluate(factors, '0xa', 1, td, 'sell').id, 'plain');
+  td.cycleTag = 1; // 切冷桶
+  check('切冷桶 → cold1 可见', se.evaluate(factors, '0xa', 1, td, 'sell').id, 'cold1');
+  td.cycleTag = 3; // 切回热桶
+  check('切回热桶 → hot1 计数保留仍被挡', se.evaluate(factors, '0xa', 1, td, 'sell').id, 'plain');
+}
+
+// ═══ F. 因子键集 + 时序白名单 ═══
+console.log('F. getFactorKeys 5 新键 + 时序白名单 4 键');
+{
+  const keys = new FourMemeFactorAggregator({ fourmemeWs: {} }, noopLogger).getFactorKeys();
+  for (const k of ['tokenCycle', 'tokenCycleRaw', 'tokenCycleAgeSec', 'cycleTps30s', 'cycleGapMedianMs']) {
+    check(`因子键集含 ${k}`, keys.has(k), true);
+  }
+  // 旧因子集（FA 无这些键）→ null 而非 undefined（不掩盖）
+  const legacy = buildFactorValuesForTimeSeries({ tradeCount: 3 });
+  check('旧因子集 4 键 → null（不 undefined）',
+    [legacy.tokenCycle, legacy.tokenCycleRaw, legacy.cycleTps30s, legacy.cycleGapMedianMs],
+    [null, null, null, null]);
+  const snap = buildFactorValuesForTimeSeries({ tokenCycle: 2, tokenCycleRaw: 2, cycleTps30s: 0.21, cycleGapMedianMs: 5000 });
+  check('快照 4 键透传', [snap.tokenCycle, snap.tokenCycleRaw, snap.cycleTps30s, snap.cycleGapMedianMs],
+    [2, 2, 0.21, 5000]);
+}
+
+console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
+process.exitCode = fail === 0 ? 0 : 1;
