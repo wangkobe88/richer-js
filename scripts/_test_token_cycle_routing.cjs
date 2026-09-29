@@ -4,7 +4,8 @@
  *
  * 背景（2026-09-28 用户思路 v1，51ea69e7 20 买 14 割肉实证）：FA 读取时聚合
  * tps30s + gapMedianMs 双主量三档判定（3 热/2 中/1 冷/null 证据不足 fail-closed），
- * hysteresis 闩锁（升档驻留 30s/降档 120s/断流 stale 快速降档），strategy.cycle
+ * hysteresis 闩锁（升/降档驻留 30s——2026-09-29 降档 120→30（8bd5ef0b 断流票案）/
+ * 断流 stale 快速降档 30s），strategy.cycle
  * × token.cycleTag 等值路由（evaluate 内过滤，一处覆盖买/卖/去抖重评/回测四链）。
  * 2026-09-28 v2（策略库一期）：strategy.cycle 字段泛化为 groups 表达式
  * （'cycle==3'），loadStrategies 单点转换 + evaluate 对标签上下文求值——
@@ -13,7 +14,7 @@
  * 覆盖：
  *   A. FA 判定（密/中/疏 → 3/2/1；tick<minTicks 且过 warmup → 冷桶 1；age<warmup → null
  *      ——2026-09-28 修正：证据不足不再 null 全隐，1c68478f 回测 36 强平票根因）
- *   B. hysteresis（升档 30s 驻留 / 降档 120s 驻留 / stale 快速降档 / 驻留秒数）
+ *   B. hysteresis（升档 30s 驻留 / 降档 30s 驻留 / stale 快速降档 / 驻留秒数）
  *   C. loadStrategies cycle 脏值归一（字符串/越界/小数/未配 → null）
  *   D. evaluate 过滤矩阵（腿 cycle × cycleTag 等值可见 + null 全隐 + 无 cycle 恒可见）
  *   E. 桶切换后旧桶 strategyExecutions 计数保留
@@ -115,18 +116,18 @@ console.log('A. FA _cycleFactors 判定（tps30s + gapMedianMs 双主量三档�
   check('age 20s≥15 且 tick<12 → 冷桶 1', fa5.buildFactorMap('0xa5', 21000).tokenCycle, 1);
 
   // A6 衰减段核心场景（1c68478f 36 强平票路径）：热档 → tick 稀疏化（5min 窗掉破
-  // minTicks）→ raw=1 走 downDwell 120s 降档——稀疏 tick（间隔<staleMs）仍在触发
+  // minTicks）→ raw=1 走 downDwell 30s 降档——稀疏 tick（间隔<staleMs 30s）仍在触发
   // 评估，冷桶腿上线接管。若间隔 >staleMs 则走 stale 快速通道（B 段已覆盖）。
   // 稀疏段须距热段末笔 ≥5min（RATE_WINDOW_MS）——否则热段 tick/gap 样本仍在窗内
   // raw 照判热（构造坑：稀疏首笔 265000 距热段末笔 89500 仅 175.5s 时 raw=3）
   const fa6 = makeFA('0xa6');
   feed(fa6, '0xa6', 61000, 1.5, 20);            // 热段末笔 ts≈89500
   check('A6 热段 → 3', fa6.buildFactorMap('0xa6', 90000).tokenCycle, 3);
-  feed(fa6, '0xa6', 400000, 90, 4);             // 稀疏段：90s 间隔 ×4（末笔 670000）
+  feed(fa6, '0xa6', 400000, 25, 4);             // 稀疏段：25s 间隔 ×4（末笔 475000）
   check('稀疏首评估 → candidate 登记，dwell 未满仍 3', fa6.buildFactorMap('0xa6', 400500).tokenCycle, 3);
-  check('间隔 90s×2 <120s dwell → 仍 3', fa6.buildFactorMap('0xa6', 491000).tokenCycle, 3);
-  const a6_3 = fa6.buildFactorMap('0xa6', 581000); // candidateSince=400500，180.5s≥120s
-  check('dwell 满 120s → 切冷桶 1（保护腿上线）', [a6_3.tokenCycle, a6_3.tokenCycleRaw], [1, 1]);
+  check('间隔 25s <30s dwell → 仍 3', fa6.buildFactorMap('0xa6', 415000).tokenCycle, 3);
+  const a6_3 = fa6.buildFactorMap('0xa6', 430500); // candidateSince=400500，30s≥30s
+  check('dwell 满 30s → 切冷桶 1（保护腿上线）', [a6_3.tokenCycle, a6_3.tokenCycleRaw], [1, 1]);
 }
 
 // ═══ B. hysteresis 闩锁 ═══
@@ -141,34 +142,36 @@ console.log('B. hysteresis（升档 30s / 降档 120s / stale 快速降档）');
   fa.buildFactorMap('0xb1', 176000);
   const b1_29 = fa.buildFactorMap('0xb1', 176000 + 29000);
   check('升档驻留 29s<30s → 仍 2', b1_29.tokenCycle, 2);
+  feed(fa, '0xb1', 205500, 1.5, 1);   // 补一笔密集 tick：31s 评估点距末笔须 <staleMs 30s，否则 stale 降 1 抢跑
   const b1_31 = fa.buildFactorMap('0xb1', 176000 + 31000);
   check('升档驻留 31s≥30s → 切 3', b1_31.tokenCycle, 3);
   check('切桶日志 reason=upDwell', cycleLogs.some(l => l.includes('from=2 to=3') && l.includes('reason=upDwell')), true);
 
-  // B2 降档驻留：3 →(疏 13s)→ candidate 1，<120s 不切，≥120s 切（reason=downDwell）
+  // B2 降档驻留：3 →(疏 13s)→ candidate 1，<30s 不切，≥30s 切（reason=downDwell）
   const fa2 = makeFA('0xb2');
   feed(fa2, '0xb2', 61000, 1.5, 40);       // 密集期 → init=3
   check('B2 密集期 init=3', fa2.buildFactorMap('0xb2', 121000).tokenCycle, 3);
-  // 疏期 13s 间隔持续喂（gapMed 翻转 >12000 需 13s 间隔过半；5min 窗内 13s×23 笔 ≥12）
-  let ts = feed(fa2, '0xb2', 124000, 13, 45); // 末笔 ts≈702000
+  // 疏期 13s 间隔持续喂（评估点落在笔间空档时 30s 窗仅 2 笔 tps<0.08、gapMed 13000
+  // >12000 → raw=1；13s < staleMs 30s 不走 stale 快速通道，B3 独立覆盖）
+  let ts = feed(fa2, '0xb2', 124000, 13, 45); // 末笔 696000，返回 709000
   const b2_cand = fa2.buildFactorMap('0xb2', ts + 1000);
   check('疏期首评 → candidate 登记 current 仍 3', b2_cand.tokenCycle, 3);
   const candSince = ts + 1000;
-  // 持续喂 tick 到驻留 117s（不 stale：lastTickAt 持续刷新）→ 仍 3
-  ts = feed(fa2, '0xb2', ts + 13000, 13, 8);
-  const b2_117 = fa2.buildFactorMap('0xb2', ts + 1000);
-  check('降档驻留 117s<120s → 仍 3', b2_117.tokenCycle, 3);
-  ts = feed(fa2, '0xb2', ts + 13000, 13, 2); // 再喂 2 笔跨过 120s
+  // 持续喂 tick 到驻留 26s（不 stale：lastTickAt 持续刷新）→ 仍 3
+  ts = feed(fa2, '0xb2', ts + 13000, 13, 1);
+  const b2_26 = fa2.buildFactorMap('0xb2', ts + 1000);
+  check('降档驻留 26s<30s → 仍 3', b2_26.tokenCycle, 3);
+  ts = feed(fa2, '0xb2', ts + 13000, 13, 1); // 再喂 1 笔跨过 30s
   const b2_over = fa2.buildFactorMap('0xb2', ts + 1000);
-  check(`降档驻留 ≥120s → 切 1`, b2_over.tokenCycle, 1);
+  check(`降档驻留 ≥30s → 切 1`, b2_over.tokenCycle, 1);
   check('切桶日志 reason=downDwell', cycleLogs.some(l => l.includes('from=3 to=1') && l.includes('reason=downDwell')), true);
 
-  // B3 stale 快速通道：current=3 断流 >120s → 立即 1（不等降档驻留）
+  // B3 stale 快速通道：current=3 断流 >30s → 立即 1（不等降档驻留）
   const fa3 = makeFA('0xb3');
-  feed(fa3, '0xb3', 61000, 1.5, 40);       // init=3（末笔 120500）
+  feed(fa3, '0xb3', 61000, 1.5, 40);       // init=3（末笔 119500）
   fa3.buildFactorMap('0xb3', 121000);
-  const b3 = fa3.buildFactorMap('0xb3', 121000 + 121000); // 断流 121s>120s
-  check('断流 121s → 立即降 1', b3.tokenCycle, 1);
+  const b3 = fa3.buildFactorMap('0xb3', 121000 + 31000); // 断流 32.5s>30s
+  check('断流 31s>30s → 立即降 1', b3.tokenCycle, 1);
   check('stale 日志 reason=stale', cycleLogs.some(l => l.includes('reason=stale')), true);
 
   // B4 tokenCycleAgeSec：当前档位驻留秒数
@@ -375,7 +378,7 @@ function makeEngine(fields = {}) {
     const fa = new FourMemeFactorAggregator({ fourmemeWs: wsMerged }, noopLogger);
     check('tokenCycle.params 压过 ws.factorParams', fa._fp.cycleHotTps, 0.6);
     check('ws.factorParams 未覆盖键保留', fa._fp.cycleMinTicks, 8);
-    check('未涉键走 FACTOR_PARAM_DEFAULTS', fa._fp.cycleStaleMs, 120000);
+    check('未涉键走 FACTOR_PARAM_DEFAULTS', fa._fp.cycleStaleMs, 30000);
     // 行为级：注入后热桶门收紧（hotTps 0.6）——1.5s 间隔（tps≈0.67>0.5 但 <0.6+）
     // 注意 tps 门与 gap 门 OR 关系：1.5s 间隔同时命中 hotGapMs(2000)——构造只踩 tps
     // 门的样本不可行，改为验证参数真的进判定（gap 门放宽到 5000 后 2.5s 间隔升热桶）

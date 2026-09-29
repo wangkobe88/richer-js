@@ -148,8 +148,9 @@ const FACTOR_PARAM_DEFAULTS = {
     cycleWarmupSec: 15,          // 热身门：token 年龄 < 此数不判定 → null（开盘脉冲不算行为周期；
                                  //   tps30s 按 30s 窗归一、age=15s 时分子天然减半，自带保守性）
     cycleUpDwellSec: 30,         // 升档驻留秒（追热要快）
-    cycleDownDwellSec: 120,      // 降档驻留秒（抗瞬抖；与升档不对称是刻意的）
-    cycleStaleMs: 120 * 1000,    // 断流快速降档窗：now−lastTickAt 超此值且 current>1 立即降 1
+    cycleDownDwellSec: 30,       // 降档驻留秒（2026-09-29 120→30：8bd5ef0b 断流票案，衰减段
+                                 //   降档太慢致冷桶保护腿迟到；与升档对称）
+    cycleStaleMs: 30 * 1000,     // 断流快速降档窗：now−lastTickAt 超此值且 current>1 立即降 1（同案 120→30）
     cycleGapSamples: 120,        // gap 中位数样本数（5min 窗尾部 N 个相邻间隔）
 };
 
@@ -1712,8 +1713,8 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 多为火票早买，短窗代价小）/ 无 createdAtMs 锚点。「5min 窗 tick < cycleMinTicks
      * 且已过 warmup」不再 null 而判冷桶 1——从热到冷的衰减必经段恰是最需要保护腿的
      * 时点，minTicks 门拦它 = 冷桶时间衰减腿隐身 → 无人接管 → 回放结束强平。
-     * tokenCycle 经 _cycleLatch hysteresis 稳定化：升档驻留 30s（追热快）/ 降档驻留 120s
-     * （抗瞬抖）；断流超 cycleStaleMs 且 current>1 → 立即降 1（gapMedianMs 是老间隔不随
+     * tokenCycle 经 _cycleLatch hysteresis 稳定化：升/降档驻留 30s（2026-09-29 降档 120→30，
+     * 8bd5ef0b 断流票案：衰减段降档太慢致冷桶保护腿迟到）；断流超 cycleStaleMs 且 current>1 → 立即降 1（gapMedianMs 是老间隔不随
      * 断流增长，stale 时 raw 压回 1 不进升档候选）。tokenCycleRaw 为本帧原始判定。
      * ★红线：内部禁 Date.now——now 由 buildFactorMap(state, asOf) 传入，回测虚拟时钟防前视。
      */
