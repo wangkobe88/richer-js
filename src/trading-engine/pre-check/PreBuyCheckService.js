@@ -184,6 +184,25 @@ const FACTOR_METADATA = {
     unit: '个',
     severity: 'info'
   },
+  // sniper 持仓比例因子（虚假流动性拦截，显化之歌案 2026-09-29）
+  earlyTradesSniperHoldingPct: {
+    name: 'sniper 持仓占比',
+    format: v => v.toFixed(1) + '%',
+    unit: '',
+    severity: 'critical'
+  },
+  earlyTradesSniperWallets: {
+    name: 'sniper 持仓钱包数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'warning'
+  },
+  earlyTradesSniperHolders: {
+    name: '窗口正持仓钱包数',
+    format: v => v.toString(),
+    unit: '个',
+    severity: 'info'
+  },
   earlyTradesActualSpan: {
     name: '早期数据实际跨度',
     format: v => v.toFixed(1) + '秒',
@@ -779,6 +798,12 @@ class PreBuyCheckService {
         earlyTradesUniformBuyClusterN: earlyParticipantCheck.earlyTradesUniformBuyClusterN ?? 0,
         earlyTradesUniformBuyClusterRatio: earlyParticipantCheck.earlyTradesUniformBuyClusterRatio ?? 0,
         earlyTradesUniformBuyCovered: earlyParticipantCheck.earlyTradesUniformBuyCovered ?? 0,
+        // sniper 持仓比例因子（虚假流动性拦截）：缺省 0 放行（拦截写法 pct<50，
+        // 0 恒放行——与净流入因子的高值放行方向相反，同 uniformBuy 族）
+        earlyTradesSniperHoldingPct: earlyParticipantCheck.earlyTradesSniperHoldingPct ?? 0,
+        earlyTradesSniperWallets: earlyParticipantCheck.earlyTradesSniperWallets ?? 0,
+        earlyTradesSniperHolders: earlyParticipantCheck.earlyTradesSniperHolders ?? 0,
+        earlyTradesSniperCovered: earlyParticipantCheck.earlyTradesSniperCovered ?? 0,
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,

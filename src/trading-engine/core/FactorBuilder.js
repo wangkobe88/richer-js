@@ -169,6 +169,11 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     earlyTradesUniformBuyClusterN: preBuyCheckResult.earlyTradesUniformBuyClusterN ?? 0,
     earlyTradesUniformBuyClusterRatio: preBuyCheckResult.earlyTradesUniformBuyClusterRatio ?? 0,
     earlyTradesUniformBuyCovered: preBuyCheckResult.earlyTradesUniformBuyCovered ?? 0,
+    // sniper 持仓比例因子（虚假流动性拦截，显化之歌案 2026-09-29）：covered=0 时为 0 值放行
+    earlyTradesSniperHoldingPct: preBuyCheckResult.earlyTradesSniperHoldingPct ?? 0,
+    earlyTradesSniperWallets: preBuyCheckResult.earlyTradesSniperWallets ?? 0,
+    earlyTradesSniperHolders: preBuyCheckResult.earlyTradesSniperHolders ?? 0,
+    earlyTradesSniperCovered: preBuyCheckResult.earlyTradesSniperCovered ?? 0,
     // 钱包集中度因子
     walletTop3VolumeRatio: preBuyCheckResult.walletTop3VolumeRatio || 0,
     walletTop1VolumeRatio: preBuyCheckResult.walletTop1VolumeRatio || 0,

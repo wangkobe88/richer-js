@@ -16,6 +16,8 @@
  * 3. 分析增长趋势特征
  */
 
+const { SniperFlagCache, PROTOCOL_ADDRS } = require('./sniper-detector');
+
 /**
  * 默认配置
  */
@@ -40,6 +42,8 @@ class EarlyParticipantCheckService {
     this.logger = logger;
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.supabase = supabase;
+    // sniper 标志缓存（进程生命周期，画像几天一更不复查；见 sniper-detector.js）
+    this._sniperFlagCache = new SniperFlagCache(logger);
   }
 
   /**
@@ -144,6 +148,9 @@ class EarlyParticipantCheckService {
       // 3.6 同额度买入簇因子（sybil 批量钱包拦截，作弊票案 2026-09-27）
       const uniform = this._calculateUniformBuyCluster(trades, tokenAddress, launchAt, checkTime);
 
+      // 3.7 sniper 持仓比例因子（虚假流动性拦截，显化之歌案 2026-09-29）
+      const sniper = await this._calculateSniperHolding(trades, tokenAddress, launchAt, checkTime);
+
       // 4. 计算速率指标（使用实际数据跨度）
       const rateMetrics = this._calculateRateMetrics(basicStats, coverage);
 
@@ -195,6 +202,13 @@ class EarlyParticipantCheckService {
         earlyTradesUniformBuyClusterRatio: uniform.ratio,
         earlyTradesUniformBuyCovered: uniform.covered,
 
+        // sniper 持仓比例因子（虚假流动性拦截）：窗口正持仓中 sniper 钱包占比×100，
+        // 拦截写法 `earlyTradesSniperHoldingPct < 50`（低于才放行买入）
+        earlyTradesSniperHoldingPct: sniper.pct,
+        earlyTradesSniperWallets: sniper.wallets,
+        earlyTradesSniperHolders: sniper.holders,
+        earlyTradesSniperCovered: sniper.covered,
+
         // 窗口内无成交标记（值为真实空统计，非通过值兜底）
         earlyTradesNoInnerData: trades.length === 0 ? 1 : 0,
 
@@ -212,6 +226,9 @@ class EarlyParticipantCheckService {
         net_buy_covered: netBuy.covered,
         uniform_buy_wallets: uniform.wallets,
         uniform_cluster_ratio: uniform.ratio,
+        sniper_holding_pct: sniper.pct,
+        sniper_wallets: sniper.wallets,
+        sniper_covered: sniper.covered,
         actual_span: coverage.actualSpan,
         rate_calc_window: coverage.rateCalculationWindow,
         volume_per_min: rateMetrics.volumePerMin.toFixed(2),
@@ -639,6 +656,85 @@ class EarlyParticipantCheckService {
   }
 
   /**
+   * 计算 sniper 持仓比例因子（虚假流动性拦截，显化之歌案 2026-09-29）
+   *
+   * 口径（与 182 验证脚本一致，防前视——只用检查时刻前的窗口数据）：
+   * 窗口内每钱包净持仓 netTokens = Σ买 token_amount − Σ卖 token_amount，
+   * 只留正持仓池（已清仓钱包不占分母）；因子 = Σ(sniper 钱包正持仓) /
+   * Σ(全部正持仓) × 100。sniper 判定走 wallet_offline_profiles 画像纯函数
+   * （sniper-detector.js，实例级缓存），协议地址（内盘官方）不计入。
+   *
+   * 验证结论（创建锚定口径 354 closed 票）：拦 sniperPct>=50 → 拦 201 票
+   * （亏率 78.6%），避免亏 22.50 BNB / 放弃赢 11.56，留票净额 −6.7 → +4.2 BNB；
+   * sniperWallets>=2 次要门有效（亏率 77.4% vs 47.0%）。
+   *
+   * 窗口语义（与净流入/同额度簇因子同构）：仅 age<=90s（查询窗覆盖创建时点）
+   * 时与验证口径一致；age>90s 或 launchAt 缺失 → 0 值放行（拦截写法
+   * `pct < 50`，0 恒放行；null 会让 `< 50` 恒 false 误拦——fail-open 宁漏拦
+   * 不误杀，covered=0 标记口径未覆盖供复盘分辨）。
+   * 已知接受面：画像 miss = 非 sniper（低频钱包不进表是常态）；协同簇小号
+   * （tc<100）是画像盲区，归 TPA/uniformBuyCluster 管辖。
+   * @private
+   * @param {Array} trades - _mapTickRow 映射后的窗口交易
+   * @param {string} tokenAddress - 代币地址
+   * @param {number|null} launchAt - 代币创建时间（秒，TokenCreate 块时间）
+   * @param {number} checkTime - 检查时间戳（秒）
+   * @returns {Promise<{pct: number, wallets: number, holders: number, covered: number}>}
+   */
+  async _calculateSniperHolding(trades, tokenAddress, launchAt, checkTime) {
+    const validLaunchAt = Number.isFinite(launchAt) && launchAt > 0 ? launchAt : null;
+    const covered = validLaunchAt !== null
+      && (checkTime - validLaunchAt) <= this.config.fixedWindowSeconds ? 1 : 0;
+    if (!covered) {
+      return { pct: 0, wallets: 0, holders: 0, covered: 0 };
+    }
+
+    // 每钱包净持仓（token 数量）：Σ买 − Σ卖；协议地址（内盘官方）不计入
+    const net = new Map();
+    const tokenLower = String(tokenAddress).toLowerCase();
+    for (const t of trades) {
+      const wallet = t.wallet_address || t.from_address;
+      if (!wallet) continue;
+      const key = wallet.toLowerCase();
+      if (PROTOCOL_ADDRS.has(key)) continue;
+      const isBuy = String(t.to_token || '').toLowerCase() === tokenLower;
+      const delta = isBuy ? (t.token_amount || 0) : -(t.token_amount || 0);
+      net.set(key, (net.get(key) || 0) + delta);
+    }
+
+    // 正持仓池（已清仓钱包剔除）
+    let posTotal = 0;
+    const holders = [];
+    for (const [w, v] of net) {
+      if (v > 0) {
+        posTotal += v;
+        holders.push([w, v]);
+      }
+    }
+    if (posTotal <= 0) {
+      return { pct: 0, wallets: 0, holders: 0, covered: 1 };
+    }
+
+    // 画像判 sniper（实例级缓存；查询失败 fail-open 全放行，见 sniper-detector.js）
+    const flags = await this._sniperFlagCache.flagsFor(this.supabase, holders.map(([w]) => w));
+    let sniperPos = 0;
+    let sniperWallets = 0;
+    for (const [w, v] of holders) {
+      if (flags.get(w)) {
+        sniperPos += v;
+        sniperWallets++;
+      }
+    }
+    const pct = sniperPos / posTotal * 100;
+    return {
+      pct: parseFloat(pct.toFixed(2)),
+      wallets: sniperWallets,
+      holders: holders.length,
+      covered: 1
+    };
+  }
+
+  /**
    * 计算速率指标（使用实际数据跨度）
    * @private
    */
@@ -713,6 +809,13 @@ class EarlyParticipantCheckService {
       earlyTradesUniformBuyClusterRatio: 0,
       earlyTradesUniformBuyCovered: 0,
 
+      // sniper 持仓比例因子：查询异常 0 值放行（拦截写法 pct<50，0 恒放行；
+      // 与同额度簇因子同方向——9999/null 会误拦）
+      earlyTradesSniperHoldingPct: 0,
+      earlyTradesSniperWallets: 0,
+      earlyTradesSniperHolders: 0,
+      earlyTradesSniperCovered: 0,
+
       // 标记内盘无交易数据（可能已出内盘）
       earlyTradesNoInnerData: 1,
 
@@ -765,6 +868,12 @@ class EarlyParticipantCheckService {
       earlyTradesUniformBuyClusterN: 0,
       earlyTradesUniformBuyClusterRatio: 0,
       earlyTradesUniformBuyCovered: 0,
+
+      // sniper 持仓比例因子（虚假流动性拦截）：未执行检查 0 值——同上双向安全
+      earlyTradesSniperHoldingPct: 0,
+      earlyTradesSniperWallets: 0,
+      earlyTradesSniperHolders: 0,
+      earlyTradesSniperCovered: 0,
 
       // 内盘无数据标记
       earlyTradesNoInnerData: 0,
