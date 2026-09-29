@@ -1514,6 +1514,18 @@ P0-P1 客户端+问题集+state+映射（`9b76a1b`）→ P2 主路径+superIP（
   梗/文化符号/公共事件不误伤（天才 0.76 保持 high、嫦娥 rcp=0 保持 high）；
   mapper 与 negative_hard_news 同构双挂（BLOCK_SCOPE 'all' + ≥0.5 质量门，标准
   +superIP 双路径）
+- YoutubeFetcher 平铺载荷兼容（2026-09-29，熊熊波西 0x254e…7777 案，`b0109fc`）：
+  JustOneAPI get-video-detail 实测返回**平铺结构**（title/description/channel{}/
+  thumbnails 直接在 data.data 下，无 videoDetails 包装），旧代码只读
+  `data.data.videoDetails` → 所有 YouTube 视频详情拉取恒 null → precheck 规则 4
+  情况 B `public_info_fetch_failed` 误杀（熊熊波西唯一语料为 YouTube 链接，
+  没进 Jev 直接判 low；影响面 119 个 YouTube 语料 token 中 9 个死于此，最早
+  2026-04；失败 markFailed 1h 冷却后重试仍读错字段=死循环）。修复：
+  `parseVideoDetailPayload` 归一函数——videoDetails 包装（innertube 原生）原样
+  透传，平铺映射 description→shortDescription、channel.id/name→channelId/author、
+  thumbnails→thumbnail.thumbnails。单测 `_test_youtube_fetcher.cjs`（25 断言零 DB
+  零网络，含 hasValidDataForAnalysis 语义闭环）；182 已部署 + narrative engine
+  重启 + 33 条 youtube failed 缓存行已清
 - 实体性前提（2026-09-27，C14 Cz黄鞋案，J1.14）：name_referent super_ip 加第③
   前提——名字主体须指向具体实体；主定义扩含「IP 亲口提及/讲述的具体实体=提及
   本身即事件」（Giggle 语义，superIP 讲第三方主体成立），「IP名+日常物品词」拼接
@@ -2040,4 +2052,16 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     fit 0.86 放行 vs 8 实验全亏 -1.219——用户裁定**接受判定**（主观直觉与
     Jev 判定分歧，计价单位梗确有玩味空间，亏损归因买点而非判定），积累 2-3
     个同类误放再议是否 bump J1.20 补边界措辞
+
+33. **YouTube 语料链路残余缺口**（2026-09-29 熊熊波西案修复后遗留）：
+    ① `extractVideoId` 只认 watch?v=/youtu.be/embed/v 四种 pattern——
+    **shorts/live/`v` 参数不在首位**（`watch?t=471&v=…`）的 URL 提不出视频 ID
+    恒 null（失败缓存行里 ~7 条属此类），是否补 pattern 待用户裁定；
+    ② 修好的 fetcher 在 **182 narrative engine 已生效**，但实验进程（8aca25e2
+    等带 narrativeCallCondition 直调链路的）需重启才加载新代码——存量被拦
+    token 在进程内存 `_narrativeBlockedTokens` 集里，且 token_narrative 行
+    is_valid=true 会被全局缓存复用，重析需行删/置 is_valid=false；
+    ③ 熊熊波西本体不重析（视频为 Binance Ukraine 乌克兰语 spoofing 教育片，
+    与名字无关属硬蹭，修复后 Jev 大概率仍判低）；④ youtube.com/post/ 与畸形
+    URL（`watch?v=xxx?t=608s`）发币者书写错误，救不回维持 null 合理
 
