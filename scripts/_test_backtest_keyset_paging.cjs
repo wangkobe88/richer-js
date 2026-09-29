@@ -103,6 +103,12 @@ function makeEngineStub(rows, platforms, startFilter = null, endFilter = null) {
     _endTimeFilter: endFilter,
     _ticks: [],
     metrics: { processedDataPoints: 0 },
+    // 直拉对拍（本测试语义）：走 _loadRawTickRows 的 cacheEnabled===false 分支
+    _experiment: { config: { backtest: { cacheEnabled: false } } },
+    // 原型方法借用链（_loadWssTicks 内部再调 this._loadRawTickRows 等，stub 需可见）
+    _loadRawTickRows: BacktestEngine.prototype._loadRawTickRows,
+    _fetchPlatformTicksRows: BacktestEngine.prototype._fetchPlatformTicksRows,
+    _probeMaxTickId: BacktestEngine.prototype._probeMaxTickId,
     _getClient: () => makeFakeSupabase(rows),
   };
 }

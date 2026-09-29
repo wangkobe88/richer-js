@@ -35,6 +35,9 @@ const TICK_PAGE_SIZE = 500;       // 分页读取页大小（必须 < Supabase �
 const MAX_TICK_PAGES = 2000;      // 分页保护上限（全局累计 100 万 tick）
 const TOKEN_CHUNK_SIZE = 100;     // .in('token_address') 地址批量护栏（PostgREST URL 长度）
 const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐实时引擎 30s）
+// ticks 拉取列清单单一事实源：拉取查询与 BacktestTickCache columnsTag 同源
+//（列变更时旧缓存自动判废重拉，不静默缺列）
+const TICK_SELECT_COLUMNS = 'id, token_address, trade_type, trader_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier, platform';
 
 class BacktestEngine extends AbstractTradingEngine {
   constructor(options = {}) {
@@ -450,49 +453,16 @@ class BacktestEngine extends AbstractTradingEngine {
   /**
    * 回放 tick 载入（watcher 架构口径：token 集合 + platform，不再按 experiment_id——
    * 新行 experiment_id=NULL，旧口径会漏掉全部 watcher 写入的行）。
-   * token 集来自 _tokenMeta（源实验 experiment_tokens 全量），100 地址/批（PostgREST
-   * .in 护栏，参照 build-token-profiles.cjs）+ platform 过滤 + id 升序 keyset 分页
-   * （.gt('id', cursor)，P2-3：OFFSET 深翻页时 planner 逐页重扫前缀，keyset 每页
-   * 从游标续扫；语义与 OFFSET 严格等价——id 升序、无重复无遗漏）；禁 spread push
-   * （大页展开参数溢出风险）。
-   * 分块各自有序但块间无序 → 全部载入后全局按 id 归并排序，再内存过滤时间窗。
-   * 全局累计上限 100 万 tick（MAX_TICK_PAGES × TICK_PAGE_SIZE）。
-   * 建议索引 scripts/sql/create-index-wss-ticks-token-platform-id.sql（token_address,
-   * platform, id）——无索引也能跑（keyset 语义不依赖索引），有索引才拿全部收益。
+   * raw 行装载走 _loadRawTickRows：默认经 BacktestTickCache 本地缓存（jsonl.gz，
+   * (sourceExperimentId, platform) 一文件全时段；配对回测/多轮验证免重复全量拉取，
+   * 2026-09-29 参照 pumpfun TickDataCache 机制），backtest.cacheEnabled === false 时
+   * 直拉（缓存路径只换数据来源，后续处理零差异）。
+   * 全部载入后全局按 id 归并排序，再内存过滤时间窗。
    */
   async _loadWssTicks() {
     const supabase = this._getClient();
     const addresses = [...this._tokenMeta.keys()];
-    const raw = [];
-    for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
-      const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
-      // platform 按单值 .eq 循环（而非 .in 多值）：.in('platform', 两平台全集) 等价于
-      // 无 platform 过滤，planner 放弃索引转大范围扫描——62 token 双平台回测即触发
-      // statement timeout（2026-09-27 182 实测）；单值 .eq 是存量回测一直走的索引
-      // 路径，语义与 .in 并集严格等价（结果合并后同样全局 id 归并）
-      for (const platform of this._platforms) {
-        let cursor = 0;
-        for (let page = 0; page < MAX_TICK_PAGES; page++) {
-          const { data, error } = await supabase
-            .from('wss_price_ticks')
-            .select('id, token_address, trade_type, trader_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier, platform')
-            .in('token_address', chunk)
-            .eq('platform', platform)
-            .gt('id', cursor)
-            .order('id', { ascending: true })
-            .limit(TICK_PAGE_SIZE);
-          if (error) throw new Error(`读取 wss_price_ticks 失败: ${error.message}`);
-          if (!data || data.length === 0) break;
-          for (const row of data) raw.push(row);
-          this.metrics.processedDataPoints += data.length;
-          if (raw.length > MAX_TICK_PAGES * TICK_PAGE_SIZE) {
-            throw new Error('回放 tick 总量超出分页保护上限（100 万）');
-          }
-          if (data.length < TICK_PAGE_SIZE) break;
-          cursor = data[data.length - 1].id;
-        }
-      }
-    }
+    const raw = await this._loadRawTickRows(supabase, addresses);
     raw.sort((a, b) => a.id - b.id);
     for (const row of raw) {
       const ts = new Date(row.block_time).getTime();
@@ -516,6 +486,109 @@ class BacktestEngine extends AbstractTradingEngine {
     }
     // wss_price_ticks 表无 offers/funds_bnb 列：FA 仅在 tick.funds_bnb > 0 时更新
     // lastFundsBnb（回放恒保持 0），tvl 因子因此恒 0——策略 condition 引用 tvl 时需知情
+  }
+
+  /**
+   * raw 行装载路由：缓存（默认）或直拉。
+   * 开关：config.backtest.cacheEnabled（默认开启，=== false 才直拉）+
+   * backtest.forceRefreshCache（默认 false，跳过缓存读强制重拉重建）。
+   */
+  async _loadRawTickRows(supabase, addresses) {
+    const btConfig = this._experiment?.config?.backtest || {};
+    if (btConfig.cacheEnabled === false) {
+      const raw = [];
+      for (const platform of this._platforms) {
+        const rows = await this._fetchPlatformTicksRows(supabase, addresses, platform, 0, raw.length);
+        for (const r of rows) raw.push(r);   // 禁 spread（大数组展开参数溢出风险）
+      }
+      return raw;
+    }
+    if (!this._tickCache) {
+      const { BacktestTickCache } = require('../core/BacktestTickCache');
+      this._tickCache = new BacktestTickCache({ logger: this.logger, experimentId: this._experimentId });
+    }
+    const forceRefresh = btConfig.forceRefreshCache === true;
+    const raw = [];
+    for (const platform of this._platforms) {   // both → 两 platform 文件独立装载
+      const { rows, source } = await this._tickCache.getOrFetch({
+        sourceExperimentId: this._sourceExperimentId,
+        platform,
+        addresses,
+        forceRefresh,
+        columnsTag: TICK_SELECT_COLUMNS,
+        fetchRows: (afterId) => this._fetchPlatformTicksRows(supabase, addresses, platform, afterId, raw.length),
+        probeMaxId: () => this._probeMaxTickId(supabase, addresses, platform),
+      });
+      // FRESH 纯读文件不经过 _fetchPlatformTicksRows（拉取行已在方法内计数），此处补计；
+      // miss/stale/bypass 均经过 fetchRows 已计，按 source 区分防双计
+      if (source === 'fresh') this.metrics.processedDataPoints += rows.length;
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `${platform}: raw ticks 装载 source=${source}, ${rows.length} 行`);
+      for (const r of rows) raw.push(r);
+    }
+    return raw;
+  }
+
+  /**
+   * 单 platform 分块 keyset 分页拉取（MISS 传 afterId=0，STALE 增量传缓存 meta.maxId）。
+   * 100 地址/批（PostgREST .in 护栏）+ platform 单值 .eq（而非 .in 多值：两平台全集
+   * 等价无过滤，planner 放弃索引转大范围扫描——62 token 双平台回测即触发 statement
+   * timeout，2026-09-27 182 实测）+ id 升序 keyset 分页（.gt('id', cursor)，P2-3：语义
+   * 与 OFFSET 严格等价——id 升序、无重复无遗漏）；禁 spread push。
+   * priorRowCount 保持「全局累计 100 万 tick」护栏口径（跨 platform 累计）。
+   * 建议索引 scripts/sql/create-index-wss-ticks-token-platform-id.sql（token_address,
+   * platform, id）——无索引也能跑（keyset 语义不依赖索引），有索引才拿全部收益。
+   */
+  async _fetchPlatformTicksRows(supabase, addresses, platform, afterId, priorRowCount) {
+    const rows = [];
+    for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
+      const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
+      let cursor = afterId;
+      for (let page = 0; page < MAX_TICK_PAGES; page++) {
+        const { data, error } = await supabase
+          .from('wss_price_ticks')
+          .select(TICK_SELECT_COLUMNS)
+          .in('token_address', chunk)
+          .eq('platform', platform)
+          .gt('id', cursor)
+          .order('id', { ascending: true })
+          .limit(TICK_PAGE_SIZE);
+        if (error) throw new Error(`读取 wss_price_ticks 失败: ${error.message}`);
+        if (!data || data.length === 0) break;
+        for (const row of data) rows.push(row);
+        this.metrics.processedDataPoints += data.length;
+        if (priorRowCount + rows.length > MAX_TICK_PAGES * TICK_PAGE_SIZE) {
+          throw new Error('回放 tick 总量超出分页保护上限（100 万）');
+        }
+        if (data.length < TICK_PAGE_SIZE) break;
+        cursor = data[data.length - 1].id;
+      }
+    }
+    return rows;
+  }
+
+  /**
+   * 新鲜度探针：chunk × platform 反取 max(id)（走 (token_address, platform, id) 索引，
+   * 每 chunk 一条 ~百 ms）。该 token 集 × platform 在 DB 无任何行时返回 null。
+   */
+  async _probeMaxTickId(supabase, addresses, platform) {
+    let maxId = null;
+    for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
+      const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
+      const { data, error } = await supabase
+        .from('wss_price_ticks')
+        .select('id')
+        .in('token_address', chunk)
+        .eq('platform', platform)
+        .order('id', { ascending: false })
+        .limit(1);
+      if (error) throw new Error(`wss_price_ticks max(id) 探针失败: ${error.message}`);
+      if (data && data.length > 0) {
+        const id = Number(data[0].id);
+        if (maxId === null || id > maxId) maxId = id;
+      }
+    }
+    return maxId;
   }
 
   _getClient() {

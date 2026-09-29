@@ -73,9 +73,18 @@ function makeMockClient() {
         from(table) {
             const b = {};
             b._patch = null;
+            b._desc = false;
             b.select = () => b;
             b.eq = () => b;
-            b.order = () => b;
+            b.in = () => b;
+            b.gt = () => b;
+            b.order = (col, opts) => { b._desc = !!(opts && opts.ascending === false); return b; };
+            b.limit = (n) => {
+                // keyset 分页/探针共尾（order id ± limit）：合成数据单 token 全量，排序切片即语义
+                const rows = (selectData[table] || []).slice()
+                    .sort((a, c) => (b._desc ? c.id - a.id : a.id - c.id));
+                return Promise.resolve({ data: rows.slice(0, n), error: null });
+            };
             b.insert = (rows) => {
                 inserts.push({ table, rows: Array.isArray(rows) ? rows : [rows] });
                 return Promise.resolve({ error: null });
@@ -124,7 +133,7 @@ async function main() {
         id: 'local-backtest-selftest',
         config: {
             blockchain: 'bsc',
-            backtest: { sourceExperimentId: 'src-exp-001', initialBalance: 10 },
+            backtest: { sourceExperimentId: 'src-exp-001', initialBalance: 10, cacheEnabled: false },
             tradeAmount: 0.1,
             strategiesConfig: {
                 buyStrategies: [{ priority: 1, condition: 'tradeCount >= 3', maxExecutions: 2 }],

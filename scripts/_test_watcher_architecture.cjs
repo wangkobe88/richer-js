@@ -417,6 +417,7 @@ async function testBacktestLoadTicks() {
     be._platforms = ['fourmeme'];
     be._startTimeFilter = null;
     be._endTimeFilter = null;
+    be._experiment = { config: { backtest: { cacheEnabled: false } } }; // 本节测直拉装载逻辑
     be.metrics = { processedDataPoints: 0 };
     be._getClient = () => db.client;
     await be._loadWssTicks();
@@ -436,6 +437,7 @@ async function testBacktestLoadTicks() {
     be2._platforms = ['fourmeme'];
     be2._startTimeFilter = 1700000000800;
     be2._endTimeFilter = null;
+    be2._experiment = { config: { backtest: { cacheEnabled: false } } };
     be2.metrics = { processedDataPoints: 0 };
     be2._getClient = () => db.client;
     await be2._loadWssTicks();
@@ -455,6 +457,7 @@ async function testBacktestLoadTicks() {
     be3._platforms = resolvePlatforms('both');
     be3._startTimeFilter = null;
     be3._endTimeFilter = null;
+    be3._experiment = { config: { backtest: { cacheEnabled: false } } };
     be3.metrics = { processedDataPoints: 0 };
     be3._getClient = () => db.client;
     await be3._loadWssTicks();

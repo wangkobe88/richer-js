@@ -41,6 +41,9 @@ node scripts/_test_precheck_fail_retry.cjs
 
 # live 加固层零 DB 单测（assertMinOut/_awaitReceipt/FlapPortalTrader 打桩）
 node scripts/_test_live_hardening.cjs
+
+# 回测 ticks 装载缓存零 DB 单测（BacktestTickCache 状态机/引擎级对拍）
+node scripts/_test_backtest_tick_cache.cjs
 ```
 
 No test framework or CI is configured.
@@ -87,6 +90,7 @@ WSS 订阅由**常驻 watcher**（`src/watcher/`，单进程双平台，182 scre
 Two engines via `src/trading-engine/implementations/`:
 - **FourMemeWssTradingEngine** - virtual (simulated accounting) and live (`FourMemeDirectTrader` on-chain trades) modes in one engine; platform via `_wsConfigSectionName()`/`_wsPlatforms()`（flap 子类覆盖）
 - **BacktestEngine** - replays `wss_price_ticks` through the same factor-strategy pipeline（**token 集合 + platform 口径**：`_tokenMeta` 全集 100 地址/批 `.in` + platform 按单值 `.eq` 循环（`.in` 多值等价无过滤，planner 弃索引致 statement timeout），分块后全局 id 归并排序；不再按 experiment_id——watcher 新行 exp_id=NULL）
+  - **ticks 装载本地缓存**（`src/trading-engine/core/BacktestTickCache.js`，2026-09-29 参照 pumpfun TickDataCache 机制）：raw 行装载默认经缓存——粒度 `(sourceExperimentId, platform)` 一文件 `data/tick-cache/backtest/<src>/<platform>.jsonl.gz` + `.meta.json`；**缓存存全量、运行期过滤**（存原始 DB 行原样 JSON，时间窗/映射维持内存层零改动 → 任意窗口回测共用、结果与直拉 bit-identical）。状态机：MISS（data/meta 缺、gzipBytes 失配=crash 窗口、columnsTag 漂移→全量拉）/ FRESH（探针 chunk×platform 反取 max(id) === meta.maxId → 纯读零拉）/ STALE（增量 `.gt(id, meta.maxId)` 补拉合并重写）/ bypass（探针失败→WARN+直拉不读写缓存，数据正确性优先）；表回缩（probe < meta 或 probe null 而 meta 非空）→ drop 重拉；读损坏自动删缓存重拉不中断。开关 `backtest.cacheEnabled`（默认开）+ `backtest.forceRefreshCache`；`_fetchPlatformTicksRows` MISS/STALE 共用（afterId 起点参数化）；pid 后缀 tmp+rename 原子写、4MB 背压、行 id 超 MAX_SAFE_INTEGER fail-loud throw。磁盘无自动清理（clear() 手动）。单测 `node scripts/_test_backtest_tick_cache.cjs`（47 断言）
 - **FlapWssTradingEngine** - extends FourMemeWssTradingEngine（virtual + live：`FlapPortalTrader` Portal `swapExactInput`，见 Live Trading 节）
 
 ### 双平台实验（config.platform='both'，2026-09-27 上线）
