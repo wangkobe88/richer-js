@@ -151,6 +151,9 @@ class EarlyParticipantCheckService {
       // 3.7 sniper 持仓比例因子（虚假流动性拦截，显化之歌案 2026-09-29）
       const sniper = await this._calculateSniperHolding(trades, tokenAddress, launchAt, checkTime);
 
+      // 3.8 top1 买入集中度因子（单钱包主导拦截，buy-dominance 案 2026-09-29）
+      const top1Buy = this._calculateTop1BuyShare(trades, tokenAddress, launchAt, checkTime);
+
       // 4. 计算速率指标（使用实际数据跨度）
       const rateMetrics = this._calculateRateMetrics(basicStats, coverage);
 
@@ -209,6 +212,14 @@ class EarlyParticipantCheckService {
         earlyTradesSniperHolders: sniper.holders,
         earlyTradesSniperCovered: sniper.covered,
 
+        // top1 买入集中度因子（单钱包主导拦截）：首窗**纯买入量**中最大钱包占比×100
+        // （刻意不含卖腿，与 walletTop1VolumeRatio 的买卖混合口径区分），
+        // 拦截写法 `earlyTradesTop1BuySharePct < 60`（低于才放行买入）
+        earlyTradesTop1BuySharePct: top1Buy.pct,
+        earlyTradesTop1BuyBnb: top1Buy.top1Bnb,
+        earlyTradesBuyBnb: top1Buy.totalBnb,
+        earlyTradesTop1BuyCovered: top1Buy.covered,
+
         // 窗口内无成交标记（值为真实空统计，非通过值兜底）
         earlyTradesNoInnerData: trades.length === 0 ? 1 : 0,
 
@@ -229,6 +240,9 @@ class EarlyParticipantCheckService {
         sniper_holding_pct: sniper.pct,
         sniper_wallets: sniper.wallets,
         sniper_covered: sniper.covered,
+        top1_buy_share_pct: top1Buy.pct,
+        top1_buy_bnb: top1Buy.top1Bnb,
+        window_buy_bnb: top1Buy.totalBnb,
         actual_span: coverage.actualSpan,
         rate_calc_window: coverage.rateCalculationWindow,
         volume_per_min: rateMetrics.volumePerMin.toFixed(2),
@@ -735,6 +749,73 @@ class EarlyParticipantCheckService {
   }
 
   /**
+   * 计算 top1 买入集中度因子（单钱包主导拦截，buy-dominance 案 2026-09-29）
+   *
+   * 口径（与 182 扫描/验证脚本 find-buy-dominance-tokens.cjs 一致）：窗口内
+   * **纯买入量**（BNB）按钱包聚合，因子 = 最大钱包买入 / 窗口总买入 × 100。
+   * 刻意不含卖腿——既有 walletTop1VolumeRatio 已覆盖买卖混合口径，本因子锚定
+   * 用户裁定的「买的时候就这一个钱包占据绝大多数流动性（购买量）」：对倒主力
+   * 买卖双腿与场外分发货纯卖出都不应混入购买量语义。协议地址（内盘官方）不计入。
+   *
+   * 验证结论（2026-09-29，创建锚定口径）：share>=60 且首窗买入>=1 BNB → 拦
+   * 109 closed 票亏率 86.2%，避免亏 12.684 / 放弃赢 0.559 BNB（22:1）；单实验
+   * 9e413cbe 全本 55 票拦 28 票，净额 +0.198 → +2.072 BNB。与 sniperPct 互补：
+   * 7777 家族（top1 sniper 率 69%）画像门可拦，4444 家族（低频新钱包，
+   * sniper 率 3%）只靠本因子。策略可写
+   * `earlyTradesTop1BuySharePct < 60 OR earlyTradesBuyBnb < 1` 复刻验证口径的
+   * 1 BNB 尘埃豁免（首窗买入不足 1 BNB 的票份额噪声大、不拦）。
+   *
+   * 窗口语义（与净流入/sniper 因子同构）：尾随 90s 窗，仅 age<=90s（窗覆盖创建
+   * 时点）时与验证口径一致；age>90s 或 launchAt 缺失 → 0 值放行（拦截写法
+   * `< 60`，0 恒放行；null 会恒 false 误拦——fail-open 宁漏拦不误杀，
+   * covered=0 标记口径未覆盖供复盘分辨）。
+   * 已知接受面：窗口无买入（totalBnb=0）→ 0 值放行——死票由
+   * volumePerMin/uniqueWallets 等量门管辖，本因子只管集中度。
+   * @private
+   * @param {Array} trades - _mapTickRow 映射后的窗口交易
+   * @param {string} tokenAddress - 代币地址
+   * @param {number|null} launchAt - 代币创建时间（秒，TokenCreate 块时间）
+   * @param {number} checkTime - 检查时间戳（秒）
+   * @returns {{pct: number, top1Bnb: number, totalBnb: number, covered: number}}
+   */
+  _calculateTop1BuyShare(trades, tokenAddress, launchAt, checkTime) {
+    const validLaunchAt = Number.isFinite(launchAt) && launchAt > 0 ? launchAt : null;
+    const covered = validLaunchAt !== null
+      && (checkTime - validLaunchAt) <= this.config.fixedWindowSeconds ? 1 : 0;
+    if (!covered) {
+      return { pct: 0, top1Bnb: 0, totalBnb: 0, covered: 0 };
+    }
+
+    // 每钱包买入 BNB 聚合（只看买腿；协议地址不计入）
+    const tokenLower = String(tokenAddress).toLowerCase();
+    const buy = new Map();
+    let totalBnb = 0;
+    for (const t of trades) {
+      if (String(t.to_token || '').toLowerCase() !== tokenLower) continue;
+      const wallet = t.wallet_address || t.from_address;
+      if (!wallet) continue;
+      const key = wallet.toLowerCase();
+      if (PROTOCOL_ADDRS.has(key)) continue;
+      const bnb = Number(t.bnb_amount) || 0;
+      if (!(bnb > 0)) continue;
+      totalBnb += bnb;
+      buy.set(key, (buy.get(key) || 0) + bnb);
+    }
+    if (totalBnb <= 0) {
+      return { pct: 0, top1Bnb: 0, totalBnb: 0, covered: 1 };
+    }
+
+    let top1Bnb = 0;
+    for (const v of buy.values()) top1Bnb = Math.max(top1Bnb, v);
+    return {
+      pct: parseFloat((top1Bnb / totalBnb * 100).toFixed(2)),
+      top1Bnb: parseFloat(top1Bnb.toFixed(4)),
+      totalBnb: parseFloat(totalBnb.toFixed(4)),
+      covered: 1
+    };
+  }
+
+  /**
    * 计算速率指标（使用实际数据跨度）
    * @private
    */
@@ -816,6 +897,12 @@ class EarlyParticipantCheckService {
       earlyTradesSniperHolders: 0,
       earlyTradesSniperCovered: 0,
 
+      // top1 买入集中度因子：查询异常 0 值放行（拦截写法 <60，0 恒放行）
+      earlyTradesTop1BuySharePct: 0,
+      earlyTradesTop1BuyBnb: 0,
+      earlyTradesBuyBnb: 0,
+      earlyTradesTop1BuyCovered: 0,
+
       // 标记内盘无交易数据（可能已出内盘）
       earlyTradesNoInnerData: 1,
 
@@ -874,6 +961,12 @@ class EarlyParticipantCheckService {
       earlyTradesSniperWallets: 0,
       earlyTradesSniperHolders: 0,
       earlyTradesSniperCovered: 0,
+
+      // top1 买入集中度因子（单钱包主导拦截）：未执行检查 0 值——同上双向安全
+      earlyTradesTop1BuySharePct: 0,
+      earlyTradesTop1BuyBnb: 0,
+      earlyTradesBuyBnb: 0,
+      earlyTradesTop1BuyCovered: 0,
 
       // 内盘无数据标记
       earlyTradesNoInnerData: 0,

@@ -203,6 +203,25 @@ const FACTOR_METADATA = {
     unit: '个',
     severity: 'info'
   },
+  // top1 买入集中度因子（单钱包主导拦截，buy-dominance 案 2026-09-29）
+  earlyTradesTop1BuySharePct: {
+    name: 'top1 买入占比',
+    format: v => v.toFixed(1) + '%',
+    unit: '',
+    severity: 'critical'
+  },
+  earlyTradesTop1BuyBnb: {
+    name: 'top1 钱包买入额',
+    format: v => v.toFixed(2) + ' BNB',
+    unit: 'BNB',
+    severity: 'warning'
+  },
+  earlyTradesBuyBnb: {
+    name: '窗口总买入额',
+    format: v => v.toFixed(2) + ' BNB',
+    unit: 'BNB',
+    severity: 'info'
+  },
   earlyTradesActualSpan: {
     name: '早期数据实际跨度',
     format: v => v.toFixed(1) + '秒',
@@ -804,6 +823,12 @@ class PreBuyCheckService {
         earlyTradesSniperWallets: earlyParticipantCheck.earlyTradesSniperWallets ?? 0,
         earlyTradesSniperHolders: earlyParticipantCheck.earlyTradesSniperHolders ?? 0,
         earlyTradesSniperCovered: earlyParticipantCheck.earlyTradesSniperCovered ?? 0,
+        // top1 买入集中度因子（单钱包主导拦截）：缺省 0 放行（拦截写法 <60，
+        // 0 恒放行——同 uniformBuy/sniper 族方向）
+        earlyTradesTop1BuySharePct: earlyParticipantCheck.earlyTradesTop1BuySharePct ?? 0,
+        earlyTradesTop1BuyBnb: earlyParticipantCheck.earlyTradesTop1BuyBnb ?? 0,
+        earlyTradesBuyBnb: earlyParticipantCheck.earlyTradesBuyBnb ?? 0,
+        earlyTradesTop1BuyCovered: earlyParticipantCheck.earlyTradesTop1BuyCovered ?? 0,
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,
