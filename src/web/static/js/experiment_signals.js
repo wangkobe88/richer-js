@@ -1590,6 +1590,13 @@ class ExperimentSignals {
             console.warn('⚠️ gmgnLinkBtn 元素未找到');
           }
 
+          // Ticks 浏览页外链（地址区常驻：不依赖下方 Tick 图表区可见性——
+          // 无 tick 数据时图表区整体隐藏，工具栏里的链接会一起不可见）
+          const ticksInfoLink = document.getElementById('token-ticks-info-link');
+          if (ticksInfoLink) {
+            ticksInfoLink.href = `/token-ticks?token=${encodeURIComponent(token.address)}`;
+          }
+
           // 绑定复制按钮事件
           copyAddressBtn.onclick = async () => {
             try {
