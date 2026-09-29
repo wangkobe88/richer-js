@@ -126,7 +126,13 @@
  *       字样时量级题与 name_referent 双侧可判）。dimension2 B 类同步句（新产品同
  *       按发布者指代定档、版本更新按低档）。内容型产品不适用发布者指代——rcp 门
  *       （J1.13）独立于量级门拦截，C12 绣春刀裁定维持。
- *       mapper 零改动（super_ip 语义在放行侧，J1.10 阻断与 C8 改道自然豁免）
+ *       mapper 代码门（detectPublisherProxy 四判据：官方域名 stem=币名 + 作者粉
+ *       丝≥10万 + 币名与作者名互不包含 + 无版本指纹词）：题面措辞实证 Jev 执行不
+ *       下去（super_ip 0.16→0.31 压不过 0.5、magnitude 稳定 B 档），J1.16 先例——
+ *       Jev 分不动的边界由代码确定性切分。pubProxyActive 时（仅 B/C 域，cashtag
+ *       改道优先）：nameReferentBlock/骑乘改道/marketing_gimmick argmax 三处豁免
+ *       + 量级 A 档锚（effTier，S 不降 A 原判不动）+ stage1 审计标记
+ *       publisherProxy/tierAnchored（Jev 原判 tier 保留在 magnitudeTier 键）
  */
 
 export const JEV_QUESTIONS_VERSION = 'J1.18';

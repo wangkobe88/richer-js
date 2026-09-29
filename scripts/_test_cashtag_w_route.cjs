@@ -61,6 +61,7 @@ function makeContext(answers, twitterInfo) {
 async function main() {
   const { mapStandardAnswers } = await import('../src/narrative/analyzer/llm/jev-result-mapper.mjs');
   const { detectCorpusCashtag } = await import('../src/narrative/analyzer/utils/narrative-utils.mjs');
+  const { JEV_QUESTIONS_VERSION } = await import('../src/narrative/analyzer/llm/jev-questions.mjs');
 
   console.log('\n── A. detectCorpusCashtag 纯函数 ──');
   const hit1 = detectCorpusCashtag(iNuTokenData, iNuTwitter);
@@ -85,7 +86,7 @@ async function main() {
   check('B1c stage2 走 W 数学：25.97<60 拦截', m1.stage2DataToSave.parsed_output.scoringResult.category === 'W' && m1.stage2DataToSave.parsed_output.scoringResult.totalScore === 25.97 && m1.stage2DataToSave.parsed_output.pass === false, m1.stage2DataToSave.parsed_output.scoringResult);
   check('B1d reason 标注 cashtag 改道来源', typeof m1.stage2DataToSave.parsed_output.reason === 'string' && m1.stage2DataToSave.parsed_output.reason.includes('cashtag改道W类($INU)'), m1.stage2DataToSave.parsed_output.reason);
   check('B1e 拦截链：stage2 low + stage3 清空 + rating low', m1.stage2DataToSave.category === 'low' && m1.stage3DataToSave.__clear === true && m1.llmResult.rating === 'low' && m1.llmResult.pass === false && m1.llmResult.analysis_stage === 2);
-  check('B1f promptType 版本+类别随改道更新', m1.promptType.includes('J1.17') && m1.promptType.includes('W类'), m1.promptType);
+  check('B1f promptType 版本+类别随改道更新（动态版本号防 bump 断裂）', m1.promptType.includes(JEV_QUESTIONS_VERSION) && m1.promptType.includes('W类'), m1.promptType);
 
   // B2 同一答案、无 cashtag 语料 → 原 C 类路径放行（改道前后行为对照）
   const m2 = mapStandardAnswers(iNuAnswers, makeContext(iNuAnswers, null));

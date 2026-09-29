@@ -400,9 +400,6 @@ class ExperimentNarrative {
             <a href="/token-holders?experiment=${this.experimentId}&token=${item.token_address}" target="_blank" class="action-link text-cyan-400 hover:text-cyan-300">
               持有者
             </a>
-            <a href="/token-early-trades?token=${item.token_address}&chain=${blockchain}" target="_blank" class="action-link text-amber-400 hover:text-amber-300">
-              早期交易
-            </a>
             <a href="/token-detail?experiment=${this.experimentId}&address=${item.token_address}" target="_blank" class="action-link text-indigo-400 hover:text-indigo-300">
               代币详情
             </a>

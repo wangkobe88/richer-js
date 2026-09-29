@@ -14,7 +14,7 @@
  */
 
 import { JEV_QUESTIONS_VERSION } from './jev-questions.mjs';
-import { detectCorpusCashtag } from '../utils/narrative-utils.mjs';
+import { detectCorpusCashtag, detectPublisherProxy } from '../utils/narrative-utils.mjs';
 
 /** 量级 6 档（与 jev-questions event_magnitude criteria 顺序一致） */
 const MAGNITUDE_TIERS = ['E', 'D', 'C', 'B', 'A', 'S'];
@@ -386,8 +386,29 @@ export function mapStandardAnswers(answers, context) {
   const cashtagHit = detectCorpusCashtag(tokenData, twitterInfo);
   const cashtagForced = !!(cashtagHit && answers.event_category?.choice !== 'W');
   const category = cashtagForced ? 'W' : (answers.event_category?.choice || null);
+  // J1.18 发布者指代（C29 Cue/Manus 案 0x5074546c，2026-09-29 用户裁定「骑乘第三方
+  // 产品：①独立产品发布/重大升级；②产品影响力由发布者指代——领域知名发布者算
+  // 大IP」）：领域知名发布者官宣独立新产品（判据全代码可读，detectPublisherProxy：
+  // 官宣域名 stem=币名 + 作者粉丝≥10万 + 币名与作者名互不包含 + 无版本指纹词）被
+  // 第三方骑乘发币时，按发布者知名度指代计分：
+  // - nameReferentBlock / 骑乘改道豁免——等同 super_ip≥0.5 放行侧语义（Jev 对
+  //   发布者知名度的知识缺口五轮实测 super_ip 0.16→0.31 压不过 0.5 线）；
+  // - marketing_gimmick argmax 豁免——官方域名=具体产品，与「无任何实质产品」的
+  //   噱头定义直接矛盾（CUE 本轮 argmax gimmick 0.30/none 0.29 抖动即此形状）；
+  // - 量级 A 档锚（effTier）——题面「领域知名大IP→A档起」Jev 执行不下去（magnitude
+  //   稳定 B 档），发布者知名度由代码事实锚定；superIP 快车道 S 级预评分同构
+  //   （量级代码判定的体系先例）。
+  // 边界：仅 B/C 域（与 rideDetourBelow 同域，防 B/C 边界跨 run 抖动）；cashtag
+  // 改道优先（推文含 $TICKER = 讨论已存在 web3 资产，W 数学语义不变）；rcp /
+  // negativeHardNews 门不豁免（内容型产品 C12 绣春刀裁定维持——发布者指代不适用
+  // 于电影等内容产品）。
+  const pubProxy = detectPublisherProxy(tokenData, twitterInfo);
+  const pubProxyActive = !!(pubProxy && !cashtagForced && (category === 'B' || category === 'C'));
   const magnitude = answers.event_magnitude?.score ?? 0;
   const tier = magnitudeTier(magnitude);
+  // 发布者指代量级锚生效位：Jev 原判低于 A 时锚到 A（S 不降，A 原判不动）
+  const tierAnchored = pubProxyActive && tier !== 'S' && tier !== 'A';
+  const effTier = tierAnchored ? 'A' : tier;
   const timing = answers.event_timing?.choice || 'unknown';
   const dim2 = bandInterpolate(answers.dimension2?.score ?? 0, DIM2_BANDS);
   const blockChoice = answers.block_reason?.choice || 'none';
@@ -417,6 +438,11 @@ export function mapStandardAnswers(answers, context) {
         // event_category probabilities），落库行可追溯改道来源
         categoryForced: cashtagForced ? 'cashtag_w' : null,
         cashtagMatched: cashtagHit?.cashtag ?? null,
+        // J1.18 审计标记：发布者指代门命中详情（判据/豁免可追溯，Jev 原判 tier
+        // 保留在 magnitudeTier 键不受锚定影响）
+        publisherProxy: pubProxy ? { domain: pubProxy.domain, followers: pubProxy.followers } : null,
+        publisherProxyActive: pubProxyActive || null,
+        tierAnchored: tierAnchored ? 'A' : null,
         probabilities: {
           event_category: answers.event_category?.probabilities,
           event_magnitude: answers.event_magnitude?.probabilities,
@@ -429,8 +455,10 @@ export function mapStandardAnswers(answers, context) {
 
   // ── Stage2：阻断 + 事件分 ──────────────────────────────────────────
   const isW = category === 'W';
-  // C8 骑乘改道：B 类第三方骑乘盘改走 W 数学（见 rideDetourBelow 注释）
-  const rideMass = rideDetourBelow(answers, category);
+  // C8 骑乘改道：B 类第三方骑乘盘改走 W 数学（见 rideDetourBelow 注释）。
+  // J1.18 发布者指代豁免：官方域名+领域知名发布者已实锤「独立新产品」，不再改道
+  // W 数学（W 产品分对新非 Web3 产品无实体约束，语义错位），走标准数学按 effTier 计分
+  const rideMass = pubProxyActive ? null : rideDetourBelow(answers, category);
   let stage2Blocked = false;
   let stage2BlockReason = null;
   let nrBlock = null; // name_referent 阻断信息 {label, mass}（reason 展示用）
@@ -456,13 +484,19 @@ export function mapStandardAnswers(answers, context) {
   } else if (blockChoice !== 'none' && noneProb < 0.5
     // J1.16 角色IP豁免：argmax 命中 rcp 且类别为 A（形象IP/角色）时不拦，与概率门同语义
     && !(blockChoice === 'routine_content_product' && category === 'A')
+    // J1.18 发布者指代豁免：官方域名=具体产品落地，与 marketing_gimmick
+    // 「无任何实质产品」的定义直接矛盾（CUE 本轮 gimmick 0.30/none 0.29 抖动即此
+    // 形状——官方域名的存在本身就是反证），不拦
+    && !(pubProxyActive && blockChoice === 'marketing_gimmick')
     && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
-  } else if ((nrBlock = nameReferentBlock(answers, isW ? 'W' : category))) {
+  } else if (!pubProxyActive && (nrBlock = nameReferentBlock(answers, isW ? 'W' : category))) {
+    // J1.18 发布者指代豁免（前置 !pubProxyActive）：名字的分量由发布者知名度指代
+    // （= super_ip≥0.5 放行侧同语义），notable_other「Manus 知名非超级IP」不再构成阻断
     stage2Blocked = true;
     stage2BlockReason = nrBlock.label;
-  } else if (!isW && (tier === 'E' || tier === 'D')) {
+  } else if (!isW && (effTier === 'E' || effTier === 'D')) {
     // 量级 D/E 档：主体量级不足，直接阻断（原各类 prompt 的 D/E 处理）
     stage2Blocked = true;
     stage2BlockReason = `事件主体量级不足（${tier}档）`;
@@ -477,11 +511,11 @@ export function mapStandardAnswers(answers, context) {
     stage2Reason = `${wLabel} 产品${wProduct}+交互${wInteraction}+时效${timeliness}=${stage2Total}（pass线60）`;
     if (stage2Blocked) stage2BlockReason = `${wLabel}总分不足（${stage2Total}<60）`;
   } else {
-    tierScore = MAGNITUDE_TIER_SCORES[tier] || 0;
+    tierScore = MAGNITUDE_TIER_SCORES[effTier] || 0;
     timeliness = TIMING_SCORES_STANDARD[timing] ?? 0;
     stage2Total = round2(tierScore + dim2 + timeliness);
     stage2Blocked = stage2Total < 60;
-    stage2Reason = `事件分${tierScore}(${tier}档)+传播${dim2}+时效${timeliness}=${stage2Total}（pass线60）`;
+    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}+传播${dim2}+时效${timeliness}=${stage2Total}（pass线60）`;
     if (stage2Blocked) stage2BlockReason = `事件分不足（${stage2Total}<60）`;
   }
 

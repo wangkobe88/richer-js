@@ -412,7 +412,6 @@ class ExperimentSignalStats {
     const observerUrl = `/experiment/${this.experimentId}/observer#token=${stat.tokenAddress}`;
     const signalsUrl = `/experiment/${this.experimentId}/signals#token=${stat.tokenAddress}`;
     const strategyUrl = `/experiment/${this.experimentId}/strategy-analysis?tokenAddress=${stat.tokenAddress}`;
-    const earlyTradesUrl = `/token-early-trades?token=${stat.tokenAddress}&chain=${blockchain}`;
     const tokenDetailUrl = `/token-detail?experiment=${this.experimentId}&address=${stat.tokenAddress}`;
     const holdersUrl = `/token-holders?experiment=${this.experimentId}&token=${stat.tokenAddress}`;
 
@@ -463,8 +462,6 @@ class ExperimentSignalStats {
               <a href="${strategyUrl}" target="_blank" class="hover:text-pink-400 flex-shrink-0">策略</a>
             </div>
             <div class="flex items-center gap-1">
-              <a href="${earlyTradesUrl}" target="_blank" class="hover:text-amber-400 flex-shrink-0" title="早期交易">早期</a>
-              <span class="text-gray-600">|</span>
               <a href="${tokenDetailUrl}" target="_blank" class="hover:text-cyan-400 flex-shrink-0" title="代币详情">详情</a>
               <span class="text-gray-600">|</span>
               <a href="${holdersUrl}" target="_blank" class="hover:text-indigo-400 flex-shrink-0" title="持有者">持有者</a>

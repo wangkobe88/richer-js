@@ -160,12 +160,9 @@ class TokenDetailPage {
     // 更新原始API数据
     this.renderRawApiData();
 
-    // 更新持有者和早期交易链接
-    const chain = this.experimentData?.blockchain || 'bsc';
+    // 更新持有者和Ticks链接
     document.getElementById('link-holders').href =
       `/token-holders?experiment=${this.experimentId}&token=${this.tokenAddress}`;
-    document.getElementById('link-early-trades').href =
-      `/token-early-trades?token=${this.tokenAddress}&chain=${chain}`;
     document.getElementById('link-ticks').href =
       `/token-ticks?token=${this.tokenAddress}`;
   }

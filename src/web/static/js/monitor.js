@@ -420,7 +420,6 @@ function buildActionLinks(event) {
     `<a href="/experiment/${expId}/signals#token=${addr}" target="_blank" class="hover:text-blue-600">信号</a>`,
     `<a href="/experiment/${expId}/strategy-analysis?tokenAddress=${addr}" target="_blank" class="hover:text-pink-500">策略</a>`,
     `<a href="/experiment/${expId}/observer#token=${addr}" target="_blank" class="hover:text-emerald-500">时序</a>`,
-    `<a href="/token-early-trades?token=${addr}&chain=${chain}" target="_blank" class="hover:text-amber-500">早期</a>`,
     `<a href="/token-holders?experiment=${expId}&token=${addr}" target="_blank" class="hover:text-cyan-500">持有者</a>`,
     `<a href="/token-detail?experiment=${expId}&address=${addr}" target="_blank" class="hover:text-indigo-500">详情</a>`
   ];

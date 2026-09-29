@@ -291,6 +291,12 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/token_ticks.html'));
     });
 
+    // 交易者详情页（全局钱包行为/画像页，跨所有实验；token-ticks 等页钱包链接指向这里。
+    // 移植自 pumpfun-wss-trader /trader/:address，BSC/BNB 口径适配）
+    this.app.get('/trader/:address', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/trader_detail.html'));
+    });
+
     // 叙事分析页面（独立页面，不在实验子路由下）
     this.app.get('/narrative-analyzer', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/narrative-analyzer.html'));
@@ -3104,6 +3110,128 @@ class RicherJsWebServer {
       }
     });
 
+    // ============ 交易者（钱包）详情 API：移植自 pumpfun-wss-trader，BSC/BNB 口径适配 ============
+
+    // 查询单个钱包（按地址精确匹配，trader 详情页画像 meta 展示）
+    // richer-js wallets 列：address/name/category/chain（无母版 nickname/source/tags 等列）
+    this.app.get('/api/wallets/:address', async (req, res) => {
+      try {
+        const supabase = this.dataService.supabase;
+        const { data, error } = await supabase
+          .from('wallets')
+          .select('address, name, category, chain')
+          .eq('address', req.params.address)
+          .limit(1);
+        if (error) throw error;
+        res.json({ success: true, data: (data && data[0]) || null });
+      } catch (error) {
+        this.logger.error('WebServer', '查询钱包失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 按需分析单个钱包的全局 as-off 画像（trader 详情页自动触发）：
+    // TPA._fetchAndBuildProfile 离线 profile 命中则增量合并，否则实时 14d 窗口算
+    this.app.post('/api/trader/:address/analyze-position', async (req, res) => {
+      try {
+        const { PositionAnalysisService } = require('./web/services/PositionAnalysisService');
+        const svc = new PositionAnalysisService();
+        const result = await svc.analyzeWallet(req.params.address);
+        if (!result.success) return res.status(500).json(result);
+        res.json(result);
+      } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+      }
+    });
+
+    // 交易者全局交易记录（跨所有实验/代币，wss_price_ticks 按 trader_address）
+    this.app.get('/api/trader/:address/trades', async (req, res) => {
+      try {
+        const address = req.params.address;
+        const supabase = this.dataService.supabase;
+
+        // 循环分页拉取该 trader 的全部 ticks（PostgREST 单次 cap 1000）
+        const PAGE = 1000;
+        const MAX_ROWS = 10000; // 上限保护，防机器人超大 trader
+        const all = [];
+        let offset = 0;
+        let truncated = false;
+        while (true) {
+          if (all.length >= MAX_ROWS) { truncated = true; break; }
+          const { data, error } = await supabase
+            .from('wss_price_ticks')
+            .select('block_time, token_address, trade_type, bnb_amount, price_usd, experiment_id, tx_hash, platform')
+            .eq('trader_address', address)
+            .eq('price_outlier', false)
+            .order('block_time', { ascending: false })
+            .range(offset, offset + PAGE - 1);
+          if (error) {
+            return res.status(500).json({ success: false, error: error.message });
+          }
+          if (!data || data.length === 0) break;
+          all.push(...data);
+          if (data.length < PAGE) break; // 最后一页
+          offset += PAGE;
+        }
+        const trades = all.slice(0, MAX_ROWS);
+
+        // 批量查代币 symbol + platform（experiment_tokens 同地址多实验取最近 discovered_at 的非空值；
+        // in() 走 GET URL，batch 过大会超网关 URL 长度限制，分批并行拉取）
+        const tokenSet = [...new Set(trades.map(t => t.token_address).filter(Boolean))];
+        const tokenSymbols = {};
+        const tokenPlatforms = {};
+        const SYMBOL_BATCH = 200;
+        const symbolBatches = [];
+        for (let i = 0; i < tokenSet.length; i += SYMBOL_BATCH) {
+          symbolBatches.push(tokenSet.slice(i, i + SYMBOL_BATCH));
+        }
+        const symbolResults = await Promise.all(symbolBatches.map(async (batch, idx) => {
+          const { data: tk, error: symErr } = await supabase
+            .from('experiment_tokens')
+            .select('token_address, token_symbol, platform, discovered_at')
+            .in('token_address', batch)
+            .order('discovered_at', { ascending: false });
+          if (symErr) {
+            this.logger.warn('WebServer', '交易者 symbol 批量查询失败', { batchIdx: idx, details: symErr.message });
+          }
+          return tk || [];
+        }));
+        for (const tk of symbolResults) {
+          for (const row of tk) {
+            if (row.token_symbol && !tokenSymbols[row.token_address]) {
+              tokenSymbols[row.token_address] = row.token_symbol;
+            }
+            if (row.platform && !tokenPlatforms[row.token_address]) {
+              tokenPlatforms[row.token_address] = row.platform;
+            }
+          }
+        }
+
+        // 实验 name + 模式（virtual/backtest/live）：交易记录列 + 实验分布面板展示用
+        const experimentInfo = {};
+        const expIds = [...new Set(trades.map(t => t.experiment_id).filter(Boolean))];
+        for (let i = 0; i < expIds.length; i += 200) { // in() 分批 200，防 URL 超长
+          const { data: exps } = await supabase.from('experiments')
+            .select('id, experiment_name, trading_mode').in('id', expIds.slice(i, i + 200));
+          for (const e of (exps || [])) experimentInfo[e.id] = { name: e.experiment_name, mode: e.trading_mode };
+        }
+
+        res.json({
+          success: true,
+          traderAddress: address,
+          total: trades.length,
+          truncated,
+          tokenSymbols,
+          tokenPlatforms,
+          experimentInfo,
+          data: trades,
+        });
+      } catch (error) {
+        this.logger.error('WebServer', '获取交易者交易记录失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
     // ============ API路由：K线数据 ============
 
     // 获取K线数据（用于信号/交易页面图表显示）
@@ -3782,271 +3910,6 @@ class RicherJsWebServer {
           error: error.message || '查询失败'
         });
       }
-    });
-
-    // ============ 代币最早交易 API ============
-
-    // 获取代币最早交易记录
-    this.app.post('/api/token-early-trades', async (req, res) => {
-      try {
-        const { AveTokenAPI } = require('./core/ave-api');
-        const { AveTxAPI } = require('./core/ave-api');
-        const config = require('../config/default.json');
-
-        const { apiKey, baseURL, tokenAddress, chain: rawChain, limit = 300, timeWindowMinutes = 3 } = req.body;
-
-        if (!tokenAddress) {
-          return res.status(400).json({
-            success: false,
-            error: '代币地址不能为空'
-          });
-        }
-
-        // 从数据库查真实 blockchain，修正前端可能传错的 chain
-        let chain = rawChain;
-        try {
-          const { data: chainRecord } = await this.dataService.supabase
-            .from('experiment_tokens')
-            .select('blockchain')
-            .eq('token_address', tokenAddress)
-            .limit(1)
-            .maybeSingle();
-          if (chainRecord?.blockchain) {
-            chain = chainRecord.blockchain;
-          }
-        } catch (_) { /* ignore */ }
-
-        if (!chain) {
-          return res.status(400).json({
-            success: false,
-            error: '区块链不能为空'
-          });
-        }
-
-        // 使用提供的配置或默认配置
-        const finalApiKey = apiKey || process.env.AVE_API_KEY;
-        const finalBaseURL = baseURL || config.ave?.apiUrl || 'https://prod.ave-api.com';
-
-        // 构建 tokenId
-        const tokenId = `${tokenAddress}-${chain}`;
-
-        // 1. 获取代币详情
-        const tokenApi = new AveTokenAPI(finalBaseURL, config.ave?.timeout || 30000, finalApiKey);
-        const tokenDetail = await tokenApi.getTokenDetail(tokenId);
-
-        // 2. 获取 platform 和 launch_at
-        const { token, pairs } = tokenDetail;
-
-        // 从数据库查询代币平台信息
-        let platform = null;
-        try {
-          const { data: tokenRecord } = await this.dataService.supabase
-            .from('experiment_tokens')
-            .select('platform')
-            .eq('token_address', tokenAddress)
-            .limit(1)
-            .maybeSingle();
-
-          platform = tokenRecord?.platform || null;
-          this.logger.info('WebServer', `📊 [最早交易] 从数据库查询 platform: ${platform}`);
-        } catch (dbError) {
-          this.logger.info('WebServer', `📊 [最早交易] 数据库查询失败: ${dbError.message}`);
-        }
-
-        // 如果数据库中没有，从 token 对象获取（AVE API 可能返回）
-        if (!platform && token.platform) {
-          platform = token.platform;
-        }
-
-        // 如果仍然没有，尝试从 pair 地址推测
-        if (!platform) {
-          let mainPair = token.main_pair;
-          if (!mainPair && pairs && pairs.length > 0) {
-            mainPair = pairs[0].pair;
-          }
-          // 检查 pair 后缀
-          if (mainPair && mainPair.endsWith('_fo')) {
-            platform = 'fourmeme';
-          }
-        }
-
-        // 默认平台：BSC 为 fourmeme，其他链不设默认（走 AVE API pair 逻辑）
-        if (!platform && chain === 'bsc') {
-          platform = 'fourmeme';
-        }
-
-        this.logger.info('WebServer', `📊 [最早交易] 最终确定的 platform: ${platform}`);
-
-        // 根据 platform + chain 构造 pair 地址
-        let innerPair;
-        if (platform === 'fourmeme') {
-          innerPair = `${tokenAddress}_fo`;
-        } else {
-          // 非 BSC 内盘平台（ETH/Base/Solana 等），从 AVE API 获取主交易对
-          // 优先使用 main_pair，其次从 pairs 数组中找交易量最大的 WETH/原生代币交易对
-          let mainPair = token.main_pair;
-
-          if (!mainPair && pairs && pairs.length > 0) {
-            // 按 24h 交易量排序，取交易量最大的交易对
-            const sortedPairs = [...pairs].sort((a, b) => {
-              const volA = parseFloat(a.volume_u) || 0;
-              const volB = parseFloat(b.volume_u) || 0;
-              return volB - volA;
-            });
-            mainPair = sortedPairs[0].pair;
-            this.logger.info('WebServer', `📊 [最早交易] 从 pairs 数组选取交易量最大的 pair: ${mainPair} (volume: ${sortedPairs[0].volume_u})`);
-          }
-
-          if (!mainPair) {
-            return res.status(400).json({
-              success: false,
-              error: '该代币没有交易对信息'
-            });
-          }
-          innerPair = mainPair;
-        }
-
-        // 使用 launch_at 作为起始时间，获取代币创建后指定时间窗口内的交易
-        const launchAt = token.launch_at || null;
-        const fromTime = launchAt;
-        const toTime = launchAt ? launchAt + (timeWindowMinutes * 60) : null;
-
-        this.logger.info('WebServer', `📊 [最早交易] token=${tokenAddress}, chain=${chain}`);
-        this.logger.info('WebServer', `   platform=${platform}`);
-        this.logger.info('WebServer', `   launch_at=${launchAt}, created_at=${token.created_at}`);
-        this.logger.info('WebServer', `   时间窗口: ${timeWindowMinutes}分钟`);
-        this.logger.info('WebServer', `   innerPair=${innerPair}`);
-        this.logger.info('WebServer', `   fromTime=${fromTime} (${fromTime ? toBeijingTime(fromTime) : 'null'})`);
-        this.logger.info('WebServer', `   toTime=${toTime} (${toTime ? toBeijingTime(toTime) : 'null'})`);
-
-        // 3. 获取最早交易记录（使用内盘 pair）
-        const pairId = `${innerPair}-${chain}`;
-        const txApi = new AveTxAPI(finalBaseURL, config.ave?.timeout || 30000, finalApiKey);
-
-        // 获取交易记录（使用时间窗口，支持分页）
-        // AVE API 从 toTime 向后回溯，所以如果返回300条，可能还有更早的交易
-        const allTrades = [];
-        const paginationLogs = []; // 记录每次分页查询的详情
-        let currentToTime = toTime;
-        let pageCount = 0;
-        const MAX_PAGES = 10; // 安全限制，最多查询10次
-
-        while (pageCount < MAX_PAGES) {
-          const trades = await txApi.getSwapTransactions(
-            pairId,
-            300,        // limit - 每次最多300条
-            fromTime,   // fromTime - 代币创建时间
-            currentToTime,  // toTime - 当前查询的结束时间
-            'asc'       // sort - 按时间升序
-          );
-
-          pageCount++;
-          const logEntry = {
-            page: pageCount,
-            count: trades.length,
-            toTime: currentToTime,
-            toTimeFormatted: currentToTime ? toBeijingTime(currentToTime) : 'null'
-          };
-          paginationLogs.push(logEntry);
-          this.logger.info('WebServer', `   第${pageCount}次查询: ${trades.length}条, toTime=${currentToTime} (${logEntry.toTimeFormatted})`);
-
-          if (trades.length === 0) {
-            // 没有更多数据了
-            break;
-          }
-
-          allTrades.push(...trades);
-
-          // 如果返回少于300条，说明已经取完所有数据
-          if (trades.length < 300) {
-            break;
-          }
-
-          // 返回了300条，可能还有更早的数据，继续向前查询
-          // 新的 toTime = 当前结果第一条交易时间 - 1（向前1秒）
-          logEntry.nextToTime = trades[0].time - 1;
-          logEntry.nextToTimeFormatted = toBeijingTime(logEntry.nextToTime);
-          currentToTime = trades[0].time - 1;
-
-          // 安全检查：如果 toTime 已经早于 fromTime，停止查询
-          if (currentToTime < fromTime) {
-            this.logger.info('WebServer', '   ⚠️ 查询范围超出 fromTime，停止分页');
-            break;
-          }
-        }
-
-        // 按时间排序确保顺序正确
-        allTrades.sort((a, b) => a.time - b.time);
-
-        const earlyTrades = allTrades;
-        this.logger.info('WebServer', `   总共查询${pageCount}次，获取${earlyTrades.length}条交易记录`);
-        if (earlyTrades.length > 0) {
-          const firstTime = earlyTrades[0].time;
-          const lastTime = earlyTrades[earlyTrades.length - 1].time;
-          this.logger.info('WebServer', `   最早交易时间: ${firstTime} (${toBeijingTime(firstTime)})`);
-          this.logger.info('WebServer', `   最晚交易时间: ${lastTime} (${toBeijingTime(lastTime)})`);
-          this.logger.info('WebServer', `   代币 launch_at: ${launchAt} (${launchAt ? toBeijingTime(launchAt) : 'null'})`);
-          this.logger.info('WebServer', `   代币 created_at: ${token.created_at} (${toBeijingTime(token.created_at)})`);
-        } else {
-          this.logger.info('WebServer', '   ⚠️ 没有查询到交易记录');
-          this.logger.info('WebServer', `   代币 launch_at: ${launchAt} (${launchAt ? toBeijingTime(launchAt) : 'null'})`);
-        }
-
-        // 如果进行了分页查询（多次API调用），返回所有获取的数据
-        // 否则只返回前N条交易记录
-        const limitedTrades = pageCount > 1 ? earlyTrades : earlyTrades.slice(0, limit);
-
-        // 辅助函数：转换为北京时间字符串
-        function toBeijingTime(timestamp) {
-          if (!timestamp) return '-';
-          const date = new Date(timestamp * 1000);
-          const beijingTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
-          return beijingTime.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '').substring(0, 19);
-        }
-
-        res.json({
-          success: true,
-          data: {
-            tokenInfo: tokenDetail,
-            earlyTrades: limitedTrades,
-            debug: {
-              launchAt,
-              createdAt: token.created_at,
-              pairId,
-              totalTrades: earlyTrades.length,
-              returnedTrades: limitedTrades.length,
-              firstTradeTime: limitedTrades.length > 0 ? limitedTrades[0].time : null,
-              lastTradeTime: limitedTrades.length > 0 ? limitedTrades[limitedTrades.length - 1].time : null,
-              timeWindowMinutes,
-              pagination: {
-                totalPages: pageCount,
-                logs: paginationLogs
-              },
-              apiParams: {
-                pairId,
-                limit,
-                timeWindowMinutes,
-                fromTime: fromTime,
-                fromTimeFormatted: fromTime ? toBeijingTime(fromTime) : 'null',
-                toTime: toTime,
-                toTimeFormatted: toTime ? toBeijingTime(toTime) : 'null',
-                sort: 'asc'
-              }
-            }
-          }
-        });
-      } catch (error) {
-        this.logger.error('WebServer', '获取代币最早交易失败:', { details: error });
-        res.status(500).json({
-          success: false,
-          error: error.message
-        });
-      }
-    });
-
-    // 代币最早交易页面
-    this.app.get('/token-early-trades', (req, res) => {
-      res.sendFile(path.join(__dirname, 'web/templates/token-early-trades.html'));
     });
 
     // 404处理

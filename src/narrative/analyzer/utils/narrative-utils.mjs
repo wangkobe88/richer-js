@@ -407,6 +407,84 @@ export function detectCorpusCashtag(tokenData, twitterInfo) {
 }
 
 /**
+ * J1.18 发布者指代检测（纯代码，无 LLM）——C29 Cue/Manus 案（0x5074546c，
+ * 2026-09-29 用户裁定）：「骑乘第三方产品，必须满足两个条件，一个是产品本身不是
+ * 简单"更新"，而是独立产品发布，或者重大升级；第二，就是产品的影响力，新产品
+ * 往往由产品发布者指代，这里 Manus 是可以作为大 IP 的」。
+ *
+ * Jev 对发布者知名度的知识缺口由本判据确定性切分（J1.16 先例：题目措辞实证只能
+ * 把概率压到贴线压不过线）：CUE 五轮实测 super_ip 0.16→0.31（<0.5）、magnitude
+ * 稳定 B 档 2.83-2.93（题面「领域知名大IP→A档起」执行不下去）——发布者粉丝数、
+ * 域名词根、版本指纹词全是代码可读的市场/结构事实。
+ *
+ * 四判据（全部满足才命中）：
+ * 1. 展开链接域名首段（stem）与币名归一化全等——产品有官方独立域名且域名词根=
+ *    产品名（cue.im ↔ CUE），独立新产品官宣实锤（Muse 语料只有 twitter 视频
+ *    URL 无产品域名，天然不命中）；
+ * 2. 语料作者（主推，回退父推）粉丝数 ≥ 10 万——领域知名发布者门槛（Manus
+ *    官号 25.0 万）；
+ * 3. 币名与作者 handle/昵称归一化互不包含——排除自发盘（detectIssuerSelfLaunch
+ *    域）与「发布者名+版本」拼接形状；
+ * 4. 语料文本（主推+父推）无版本更新指纹词（desktop/mac/mobile/version/v2/
+ *    now has/更新/迭代/升级…）——排除 Muse 桌面版型（「muse for mac now has
+ *    computer use」；版本更新不构成叙事事件，C8 v3 语义维持拦截）。
+ *
+ * 已知边界（台账 §六 跟踪）：媒体号转述带官方链接时与发布者自宣不可分（粉丝门
+ * 取转述者粉丝≈发布者知名度的一次近似）；「重大升级」形状带版本字样（v2/2.0）
+ * 会被判据 4 排除，一期只放行「独立新产品」形状（域名实锤），重大升级边界待
+ * 案例积累。
+ *
+ * @param {Object} tokenData - 代币数据（symbol/name/raw_api_data.name）
+ * @param {Object|null} twitterInfo - 语料推文信息（twitter fetch 结果）
+ * @returns {Object|null} 命中返回 { domain, followers, symbol }，未命中返回 null
+ */
+const PUBLISHER_PROXY_MIN_FOLLOWERS = 100000;
+const VERSION_UPDATE_FINGERPRINT = /desktop|\bmac\b|mobile|version|\bv\d+\b|update|now has|更新|迭代|升级/i;
+
+export function detectPublisherProxy(tokenData, twitterInfo) {
+  if (!twitterInfo || typeof twitterInfo !== 'object') return null;
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9一-鿿]/g, '');
+  const tokenNames = [
+    norm(tokenData?.symbol),
+    norm(tokenData?.name || tokenData?.raw_api_data?.name),
+  ].filter(n => n.length >= 2);
+  if (!tokenNames.length) return null;
+
+  // ② 领域知名发布者门槛：主推作者粉丝，回退父推作者（CUE 形状主推父推同号）
+  const followers = Number(twitterInfo.author_followers_count
+    ?? twitterInfo.in_reply_to?.author_followers_count ?? 0);
+  if (followers < PUBLISHER_PROXY_MIN_FOLLOWERS) return null;
+
+  // ③ 币名与发布者名互不包含（排除自发盘/「发布者名+版本」形状）
+  const authorNames = [
+    twitterInfo.author_screen_name, twitterInfo.author_name,
+    twitterInfo.in_reply_to?.author_screen_name, twitterInfo.in_reply_to?.author_name,
+  ].map(norm).filter(n => n.length >= 2);
+  if (authorNames.some(n => tokenNames.some(t => t.includes(n) || n.includes(t)))) return null;
+
+  // ① 独立新产品实锤：展开链接域名 stem 与币名归一化全等（cue.im ↔ CUE）
+  const urlEntries = [
+    ...(Array.isArray(twitterInfo.expanded_urls) ? twitterInfo.expanded_urls : []),
+    ...(Array.isArray(twitterInfo.in_reply_to?.expanded_urls) ? twitterInfo.in_reply_to.expanded_urls : []),
+  ];
+  let domain = null;
+  for (const u of urlEntries) {
+    const raw = typeof u === 'string' ? u : (u?.expanded || u?.short || '');
+    let host = null;
+    try { host = new URL(raw).hostname; } catch { continue; }
+    const stem = norm(host.split('.')[0]);
+    if (stem && tokenNames.includes(stem)) { domain = host; break; }
+  }
+  if (!domain) return null;
+
+  // ④ 版本更新指纹排除（Muse 桌面版型：语料明示版本字样不满足「独立新产品」）
+  const corpusText = `${twitterInfo.text || ''}\n${twitterInfo.in_reply_to?.text || ''}`;
+  if (VERSION_UPDATE_FINGERPRINT.test(corpusText)) return null;
+
+  return { domain, followers, symbol: tokenNames[0] };
+}
+
+/**
  * 在账号时间线中查找含代币合约地址（CA）的宣告推文（纯文本判定，零网络）
  *
  * 语义：合约地址在铸币时刻才存在，出现在谁的时间线里谁就是发行方——比名字

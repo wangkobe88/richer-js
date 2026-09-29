@@ -32,6 +32,83 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C29 Cue/Manus 0x507454 —— 领域知名发布者官宣独立新产品被骑乘，notable_other 阻断误拦 → J1.18 发布者指代代码门 + B 类量级锚（2026-09-29）★
+
+**现象**：CUE（0x5074546cb787d5a698ec8e9a1734e33a3fae7777）——Manus 官宣独立新产品
+Cue，第三方骑乘发币被拦。Manus 官推（@ManusAI，25.0 万粉）09-29 发
+「Get Cue: https://t.co/…（展开 cue.im）」+ 父推「Download Manus Studio」同号，
+骑乘盘以 cue.im 域名词根命名。旧判定 low 拦截——用户裁定应放行。
+
+**每道门为何拦截**：
+1. name_referent：notable_other 0.52 首轮——Jev 读 Manus 为「知名但非超级 IP」
+   （AI 领域知名公司够不到 OpenAI/币安级世界档），阻断侧合计 0.84 ≥ 0.5 触发
+   J1.10 截词阻断
+2. block_reason argmax 每轮抖动：marketing_gimmick 0.30/none 0.29（下轮
+   institution_routine 0.32）——9 选项摊薄下 noneP<0.5 即拦
+3. event_magnitude 稳定 B 档 2.83-2.93——题面写了「领域知名大IP→A档起」也
+   执行不下去（Jev 对 Manus 知名度的知识缺口）
+
+**裁定（用户，2026-09-29）**：**「骑乘第三方产品，必须满足两个条件，一个是产品
+本身不是简单"更新"，而是独立产品发布，或者重大升级；第二，就是产品的影响力，
+新产品往往由产品发布者指代，这里 Manus 是可以作为大IP的（在AI领域已经很有
+名气）」**——①独立新产品/重大升级才构成事件（版本更新/功能改进/新平台移植不算，
+C8 v3 Muse 桌面版语义维持拦截）；②新产品影响力由发布者指代，领域知名即算大 IP。
+
+**措辞实验失败（先走题面路径的实证）**：name_referent super_ip 加「发布者指代」
+分支 + event_magnitude/dimension2 B 类锚定句（J1.18 题面已留档）后，CUE 五轮
+Jev 实测：super_ip **0.16→0.31 压不过 0.5 放行线**、magnitude 稳定 B 档——
+与 J1.13 word_extraction 六轮、J1.16 rcp 0.57-0.70 同款教训：**Jev 分不动的
+边界由代码确定性切分**（J1.16 先例）。粉丝数/域名词根/版本指纹词全是代码可读
+的市场/结构事实，分工原则「LLM 管叙事价值判断，代码管市场事实」。
+
+**落地（J1.18，题面语义留档 + mapper 代码门生效双层）**：
+- `detectPublisherProxy(tokenData, twitterInfo)`（narrative-utils，纯代码四判据，
+  全满足才命中）：①展开链接域名 stem 与币名归一化全等（cue.im↔CUE，独立新
+  产品官方域名实锤；Muse 语料只有 twitter 视频 URL 天然不命中）②语料作者粉丝
+  ≥10 万（主推回退父推，Manus 官号 25.0 万）③币名与作者 handle/昵称归一化互不
+  包含（排除自发盘域——Manus⊂ManusAI 时拒绝且 detectIssuerSelfLaunch 正向命中
+  转 prestage，两门互斥无重叠）④语料文本无版本指纹词（desktop/mac/mobile/
+  version/v\d+/update/now has/更新/迭代/升级——排除 Muse「muse for mac now has
+  computer use」型）
+- mapper 生效位（pubProxyActive，仅 B/C 域防边界抖动，cashtag 改道优先——语料含
+  $TICKER = 讨论已存在 web3 资产；rcp/negativeHardNews 门不豁免——内容型产品
+  C12 绣春刀裁定维持）：**nameReferentBlock 豁免**（notable_other 不再构成阻断，
+  = super_ip≥0.5 放行侧同语义）+ **骑乘改道豁免**（rideMass=null 不改道 W——
+  W 产品分对新非 Web3 产品无实体约束语义错位，走标准数学）+ **marketing_gimmick
+  argmax 豁免**（官方域名的存在与「无任何实质产品」定义直接矛盾，CUE 抖动形状
+  即此）+ **量级 A 档锚 effTier**（Jev 原判非 S/A 时锚到 A=34：S 不降、A 原判
+  不动；「Manus 可以作为大IP」裁定的忠实转译，superIP 快车道 S40/A32 预评分的
+  量级代码判定先例；Jev 原判保留在 magnitudeTier 键、tierAnchored 键记录锚定，
+  落库可审计）
+- stage1 审计标记 publisherProxy{domain,followers}/publisherProxyActive/tierAnchored；
+  stage2 reason 标注 `发布者指代锚(原判X档)`
+- **floor A 依据与豁免-only 对照**：豁免-only（不锚）时 27+23.4+15=65.4→mid；
+  锚 A 后 72.4→终评 78.95 high。锚的必要性：magnitude 抖到 C 档低位时豁免-only
+  贴线（60.4）甚至 D 档被量级拦截——量级锚让「发布者知名度」代码事实真正生效，
+  不被 Jev 知识缺口抖动稀释
+- 单测 `scripts/_test_publisher_proxy.cjs`（28 断言零 DB：四判据矩阵含父推粉丝/
+  域名回退 + 路由矩阵——CUE 数值复现 72.4/78.95 high、无 twitterInfo 同答案原
+  路径拦截对照、Muse 域名门+指纹词双保险、cashtag 优先、rcp 不豁免、骑乘改道
+  豁免、S 不降/A 不动、C 域生效、D 档锚定边界）；既有叙事链单测全绿零回归
+  （cashtag 21/issuer CA 15/memcache 20/signal gate 13/unrated 29/blue chip 21）
+- dryrun 端到端：CUE **78.93 high**（argmax 抖成 institution_routine 仍稳定过线，
+  代码门不依赖 argmax）；Muse **low 维持**（nrBlock 0.69，proxy 未激活）
+
+**逻辑冲突检查（六点，全通过）**：①name_referent 题已加分支但 Jev 执行不下去，
+代码门配套生效（题面管语义、代码管事实）②rcp 门独立于量级门不豁免——内容型
+产品无「发布者指代」语义，C12 无冲突 ③C8 v3 版本更新判定从「block_reason 不可
+判、全靠 nrBlock」迁移为量级题+name_referent 双侧可判+代码指纹词——Muse 三保险
+④C8 骑乘改道豁免链连续（pubProxyActive 置 rideMass=null 在前），0.49/0.51 边界
+抖动是既有问题不受影响 ⑤J1.12 双前提：官方域名=「已官宣存在」最强实锤天然满足
+⑥superIP 快车道不经量级题自洽、与 detectIssuerSelfLaunch 判据③互斥无重叠。
+
+**已知边界（§六-31 跟踪）**：媒体号转述带官方链接与发布者自宣不可分（粉丝门取
+转述者粉丝≈发布者知名度的一次近似）；「重大升级」形状带版本字样被判据④排除，
+一期只放行「独立新产品」形状（域名实锤），重大升级边界待案例积累；10 万粉阈值
+待实跑校准。
+
+---
+
 ### C28 iNu 0xf578b8 —— 偷借其它代币推特蹲号 14 秒抢发，C 类截词叙事误放 → J1.17 cashtag 改道 W 类（2026-09-28）★
 
 **现象**：用户质询 0xf578b84ba599b44baea6d766e5cb3421a77a7777（iNu，flap 税盘非 BNB 计价，
@@ -1234,6 +1311,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.15 | 09-27 | name_referent super_ip 扩含「官方口号/标志性品牌主张」（口号作者=产出该口号的机构，发现/转述/解读口号的推文作者只是叙事陈述者不改变归属；界面功能文案仍 common_word；前提②区分公开上线界面口号=已发布 vs 内部曝光=未发布泄露；前提③口号=IP标志性资产视为有实体对应）；common_word 排除句同步；mapper 零改动；本案重跑 low→mid + 回归 CONVICTION/Cz黄鞋/哦 3 拦截全维持 | 货币自由 0xced5a2ba C23 | 本 commit |
 | J1.16 | 09-28 | 角色IP币豁免 routine_content_product：①event_category 主体归属新增「代币名指向作品中角色（含音译/译名形式，非作品名）→主体=该角色、类别A，作品宣传推只是语料载体」②block_reason rcp 边界收窄（角色名币必不选本项）③event_magnitude A类语义锚定（角色按自身及关联IP知名度定档，未开播/未出圈=无名IP，官号粉丝数≠角色知名度）；mapper `routineContentProductBlock` 加 category 参数——A 类豁免（argmax 门同步，仅标准路径，superIP 通道仍拦）；题目措辞实证 rcp 只能压到 0.57-0.70 不过线（J1.13 教训同款：Jev 分不动的边界代码切）→把关交 A 类量级门；本案 A 轴 56.04<60 拦（量级不足）；回归绣春刀3 B+0.93 继续拦/Pelecanusbikes 维持/superIP 4/4 | 久留美 0xfedf19759 C25 | 本 commit |
 | J1.17 | 09-28 | 题面未动——mapper 代码端 cashtag 改道：语料推文（含被回复父推）出现与币名归一化**全等**的 $TICKER cashtag → category 强制 'W' 进 W 数学（被骑资产影响力须极高），Jev event_category 概率不再有决定权；判据 `detectCorpusCashtag`（narrative-utils 纯代码，双侧 ≥2 字符保守门）；stage1 审计标记 categoryForced/cashtagMatched、stage2 reason 标注改道来源；analyzer/dryrun/calibration 三处 context 传 twitterInfo；本案重放 W 25.66<60 拦（改道前 C 67.4 放行）；单测 21 断言 + 673 行翻转检查：翻 5 全 high→low 且实跑对账全亏零误伤、反向 0 | iNu 0xf578b84b C28 | 本 commit |
+| J1.18 | 09-29 | name_referent super_ip 加「发布者指代」分支 + event_magnitude/dimension2 B 类语义锚定（新产品分量由发布者指代：领域知名大IP→A档起/普通知名→B/无名→C 以下；版本更新/功能改进/新平台移植→E/D 阻断档，Muse 桌面版型）+ notable_other 承接句——题面语义留档；**生效层在 mapper 代码门** `detectPublisherProxy` 四判据（域名 stem=币名 + 作者粉丝≥10万 + 币名与作者名互不包含 + 无版本指纹词；措辞实证 super_ip 0.16→0.31 压不过 0.5、magnitude 稳定 B 档，J1.16 先例代码切分）：pubProxyActive（仅 B/C 域，cashtag 优先）时 nameReferentBlock/骑乘改道/marketing_gimmick argmax 三豁免 + 量级 A 档锚 effTier（S 不降 A 不动，原判留 magnitudeTier 键、tierAnchored 键审计）；rcp/negativeHardNews 门不豁免；本案 72.4 过线终评 78.95 high（豁免-only 65.4 mid 对照）；Muse 三保险维持拦截；单测 28 断言 + 既有叙事链全绿 | Cue/Manus 0x5074546c C29 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 | P1.3 | 09-27 | 题面未动——mapper 端 project 评级表加账号信用降档（推文 <5 OR 账号年龄 <30 天→low，年龄以 token 创建时点锚定幂等；照 J1.8 先例 bump）；附带 flap 创建时间 wss_events token_create 回退（token-info-service）；52 行 project 重放仅 x-0 命中 0 误伤 | x-0 0xa5fd1f C15/C18 | 本 commit |
 | P1.4 | 09-27 | 题面未动——mapper 端消灭 unrated（用户裁定：分析完成必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足 unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject 粉丝带+P1.3 降档按账号基本面给结论 | C4 反裁定 + 蝴蝶轮回 C22 | 本 commit |
@@ -1814,4 +1892,13 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     直调进程（51ea69e7 / bc4f756e 等）需重启才加载新 mapper，重启节奏待用户裁定；
     存量 high 缓存（含 iNu/INU 等 5 行已翻转为 low 的判定）不自动失效，重析走
     ignoreCache 或缓存失效机制（§六-5）
+31. **J1.18 发布者指代门已知边界**（2026-09-29 C29 落地后跟踪）：
+    ① 媒体号转述带官方链接与发布者自宣不可分——粉丝门取转述者粉丝≈发布者知名度
+    的一次近似（10 万粉媒体号转述小公司产品发布会误放行方向），实跑出现案例后
+    校准（可加转述指纹词如 "according to"/「报道」）；② 「重大升级」形状带版本
+    字样（v2/2.0）被指纹词判据排除——一期只放行「独立新产品」形状（域名实锤），
+    重大升级骑乘的边界待案例积累；③ 10 万粉阈值按 Manus 25 万定标，AI/科技圈
+    外的领域（如游戏圈独立工作室）阈值是否该分领域待实跑回看；④ 生效面同
+    §六-30②：182 narrative engine 与直调进程重启才加载新 mapper，存量 CUE 行
+    重析走 ignoreCache
 

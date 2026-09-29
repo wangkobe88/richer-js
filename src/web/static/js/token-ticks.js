@@ -337,8 +337,10 @@ class TokenTicksPage {
       const tokenAmount = tick.token_amount != null ? this._formatNum(parseFloat(tick.token_amount)) : '-';
       const isCreator = this.tokenInfo?.creator_address && tick.trader_address === this.tokenInfo.creator_address;
       const creatorBadge = isCreator ? '<span class="ml-1 px-1.5 py-0.5 text-[10px] rounded bg-violet-900 text-violet-300 font-sans">creator</span>' : '';
+      // 钱包链接指向站内 /trader/:address 行为/画像页（同 pumpfun 母版 /token/:address 模式），
+      // bscscan 降为辅助外链小图标
       const trader = tick.trader_address
-        ? `<a href="https://bscscan.com/address/${tick.trader_address}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 font-mono" title="${this._esc(tick.trader_address)}">${tick.trader_address.slice(0, 8)}...</a>${creatorBadge}`
+        ? `<span class="inline-flex items-center"><a href="/trader/${tick.trader_address}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 font-mono" title="钱包统计/行为页：${this._esc(tick.trader_address)}">${tick.trader_address.slice(0, 8)}...</a>${creatorBadge}<a href="https://bscscan.com/address/${tick.trader_address}" target="_blank" rel="noopener noreferrer" class="ml-0.5 text-gray-500 hover:text-blue-400 text-[10px]" title="BscScan">B</a></span>`
         : '-';
       const tx = tick.tx_hash
         ? `<a href="https://bscscan.com/tx/${tick.tx_hash}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 font-mono" title="${this._esc(tick.tx_hash)}">${tick.tx_hash.slice(0, 10)}...</a>`

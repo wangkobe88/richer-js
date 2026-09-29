@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richer 交易系统 - 交易者详情</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/style.css?v=4.0" rel="stylesheet">
+    <link href="/static/css/main.css?v=4.0" rel="stylesheet">
+    <style>
+        table th {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        select option {
+            background-color: #374151;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div class="min-h-screen">
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+                <a href="/experiments" class="text-gray-300 hover:text-white text-sm">← 实验列表</a>
+                <span class="text-gray-600">/</span>
+                <span class="text-white font-semibold">交易者详情</span>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-4 py-6">
+            <!-- Header: 交易者地址 + 外链 -->
+            <div class="bg-gray-800 rounded-lg p-6 mb-6 border border-gray-700">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0 flex-1">
+                        <div class="text-xs text-gray-400 mb-1">交易者地址（BSC）</div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <code id="trader-address" class="text-green-400 font-mono break-all text-base">加载中...</code>
+                            <button id="copy-trader-btn" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs text-white whitespace-nowrap">复制</button>
+                        </div>
+                        <div id="trader-summary" class="mt-3 text-sm text-gray-400"></div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <a id="gmgn-wallet-btn" href="#" target="_blank" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-sm text-white flex items-center gap-1">
+                            <span>📊</span> GMGN
+                        </a>
+                        <a id="bscscan-btn" href="#" target="_blank" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 rounded text-sm text-white flex items-center gap-1">
+                            <span>🔍</span> BscScan
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 统计卡片 -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <p class="text-sm text-medium text-gray-400">总交易数</p>
+                    <p class="text-2xl font-bold text-white" id="stat-total">0</p>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <p class="text-sm text-medium text-gray-400">买入</p>
+                    <p class="text-2xl font-bold text-green-400" id="stat-buys">0</p>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <p class="text-sm text-medium text-gray-400">卖出</p>
+                    <p class="text-2xl font-bold text-red-400" id="stat-sells">0</p>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <p class="text-sm text-medium text-gray-400">BNB 总量</p>
+                    <p class="text-2xl font-bold text-yellow-400" id="stat-volume">0</p>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                    <p class="text-sm text-medium text-gray-400">参与代币</p>
+                    <p class="text-2xl font-bold text-blue-400" id="stat-tokens">0</p>
+                </div>
+            </div>
+
+            <!-- 钱包画像（TPA as-off 实时 + wallets 表人工标注 meta） -->
+            <div class="bg-gray-800 rounded-lg p-5 mb-6 border border-gray-700">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-base font-semibold text-white">钱包画像 <span class="text-xs font-normal text-gray-500">(TokenPositionAnalyzer as-off 实时)</span></h2>
+                </div>
+                <div id="wallet-profile-meta" class="text-sm text-gray-400 mb-3"></div>
+
+                <!-- 全局 as-off 画像（主体）：页面加载即对该钱包算（POST /analyze-position，查 wss_price_ticks 14d 窗口 + 离线 profile 合并） -->
+                <div class="mb-4 p-3 bg-gray-700/50 rounded border border-gray-600">
+                    <div id="tpa-analyze-result" class="text-xs text-gray-400">加载中…</div>
+                </div>
+
+            </div>
+
+            <!-- 实验分布聚合面板 -->
+            <div class="bg-gray-800 rounded-lg p-5 mb-6 border border-gray-700">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-base font-semibold text-white">实验分布 <span class="text-xs font-normal text-gray-500">(交易落在哪些实验；watcher 架构后新 ticks 无实验归属)</span></h2>
+                </div>
+                <div id="experiment-breakdown" class="text-sm text-gray-400">加载中…</div>
+            </div>
+
+            <!-- 截断提示 -->
+            <div id="truncated-notice" class="hidden mb-4 bg-yellow-900 border border-yellow-700 text-yellow-200 px-4 py-2 rounded-lg text-sm">
+                ⚠️ 该交易者交易数超过 10000 条上限，仅显示最近 10000 条。
+            </div>
+
+            <!-- 交易记录表格 -->
+            <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+                    <h2 class="text-base font-semibold text-white">交易记录</h2>
+                    <span id="table-info" class="text-sm text-gray-400"></span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-700 text-gray-300 border-b border-gray-700">
+                            <tr>
+                                <th class="px-4 py-3 text-left font-semibold">时间</th>
+                                <th class="px-4 py-3 text-left font-semibold">代币</th>
+                                <th class="px-4 py-3 text-center font-semibold">类型</th>
+                                <th class="px-4 py-3 text-right font-semibold">BNB 金额</th>
+                                <th class="px-4 py-3 text-right font-semibold">价格 (USD)</th>
+                                <th class="px-4 py-3 text-left font-semibold">实验</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trades-tbody" class="divide-y divide-gray-700"></tbody>
+                    </table>
+                </div>
+                <!-- 分页控件 -->
+                <div id="pagination" class="flex items-center justify-between px-4 py-3 border-t border-gray-700">
+                    <button id="prev-page" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed" disabled>上一页</button>
+                    <span id="page-info" class="text-sm text-gray-400">-</span>
+                    <button id="next-page" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm text-white disabled:opacity-40 disabled:cursor-not-allowed" disabled>下一页</button>
+                </div>
+            </div>
+
+            <!-- 空状态 -->
+            <div id="empty-state" class="hidden p-10 text-center text-gray-500">
+                该交易者暂无交易记录
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/trader_detail.js?v=1.0"></script>
+</body>
+</html>
