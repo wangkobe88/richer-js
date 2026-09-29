@@ -608,11 +608,13 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
   // 规则3：视频传播力检查（有视频时直接判断，不走LLM）
   // 优先级：Bilibili > 抖音 > TikTok > YouTube
+  // titleField：各平台「标题」字段名（C31 二次收窄的可读语料判定用）——TikTok fetcher
+  // 无 title，视频描述在 description（video-section 组装 state 同款口径）
   const videoPriority = [
-    { name: 'Bilibili', info: bilibiliInfo, viewField: 'view_count', likeField: 'like_count' },
-    { name: '抖音', info: douyinInfo, viewField: 'view_count', likeField: 'like_count' },
-    { name: 'TikTok', info: tiktokInfo, viewField: 'view_count', likeField: 'like_count' },
-    { name: 'YouTube', info: youtubeInfo, viewField: 'view_count', likeField: 'like_count' }
+    { name: 'Bilibili', info: bilibiliInfo, viewField: 'view_count', likeField: 'like_count', titleField: 'title' },
+    { name: '抖音', info: douyinInfo, viewField: 'view_count', likeField: 'like_count', titleField: 'title' },
+    { name: 'TikTok', info: tiktokInfo, viewField: 'view_count', likeField: 'like_count', titleField: 'description' },
+    { name: 'YouTube', info: youtubeInfo, viewField: 'view_count', likeField: 'like_count', titleField: 'title' }
   ];
 
   for (const video of videoPriority) {
@@ -656,13 +658,21 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     const displayType = viewMeetsThreshold ? '播放量' : '点赞数';
 
     if (viewMeetsThreshold || likeMeetsThreshold) {
-      // J1.19（2026-09-29 用户裁定，C30 死亡观察员/太阳之勤案）：有可读推文文本时
-      // 不再短路——推文文本已描述视频内容（「内容无法解析」不成立），放行进 Jev
+      // J1.19（2026-09-29 用户裁定，C30 死亡观察员/太阳之勤案）：有可读语料时
+      // 不再短路——语料已描述视频内容（「内容无法解析」不成立），放行进 Jev
       // 做完整分类/量级 + Web3 用户偏好判断（web3_fit 题）；无可读语料才维持爆款
       // mid 短路（此时 Jev 确实没有内容可读）。Web2 传播热度 ≠ Web3 用户偏好
       // （历史口径：video_unrated 27 成交票 25 亏全为人名梗/土味/丧文化型）
-      if (twitterInfo?.text && twitterInfo.text.trim().length > 0) {
-        console.log(`[NarrativeAnalyzer] 规则3调整(J1.19): ${video.name}视频${displayType}${displayValue}达爆款门槛，但有可读推文文本，进入Jev分析（含Web3用户偏好判断）`);
+      // 二次收窄（2026-09-29 C31 Training season/显化之歌案）：可读语料从
+      // 「推文文本」扩为「推文文本或视频标题任一」——抖音 fetcher 的 title
+      // 完整描述内容类型（本案「Dua Lipa的显化之歌…给宇宙下的订单」身心灵
+      // 内容 20.2 万赞，无推文文本维持短路 mid 放行 → 9 实验全亏 -1.19 BNB），
+      // Jev 凭标题足以判 web3_fit（state 的 video section 本就输出标题，
+      // C20 时序修复同源字段）
+      const hasReadableTitle = !!(video.info?.[video.titleField] && String(video.info[video.titleField]).trim().length > 0);
+      if ((twitterInfo?.text && twitterInfo.text.trim().length > 0) || hasReadableTitle) {
+        const sourceLabel = (twitterInfo?.text && twitterInfo.text.trim().length > 0) ? '推文文本' : '视频标题';
+        console.log(`[NarrativeAnalyzer] 规则3调整(J1.19): ${video.name}视频${displayType}${displayValue}达爆款门槛，但有可读语料（${sourceLabel}），进入Jev分析（含Web3用户偏好判断）`);
         continue;
       }
       console.log(`[NarrativeAnalyzer] 规则3触发: ${video.name}视频${displayType}=${displayValue}，达到爆款门槛，给mid（通过）`);

@@ -12,8 +12,9 @@
  *      nhn 门优先级在前 / stage1+stage2 概率落库审计（probabilities.web3_fit、
  *      web3FitMass）
  *   C. mapSuperIPAnswers：unfit 0.7 拦（superIP 通道无豁免）/ unfit 0.2 放
- *   D. performPreCheck 规则 3 收窄三态：爆款+有推文文本 → null（进 Jev）/
- *      爆款+无文本 → mid 短路（video_unrated 原行为）/ 非爆款 → null（原行为）
+ *   D. performPreCheck 规则 3 收窄：爆款+有推文文本或视频标题任一非空 → null
+ *      （进 Jev，C31 Training season/显化之歌案二次收窄——标题也算语料）/
+ *      爆款+两者皆空 → mid 短路（video_unrated 原行为）/ 非爆款 → null（原行为）
  *
  * 用法：node scripts/_test_web3_fit.cjs
  */
@@ -131,7 +132,7 @@ async function main() {
   const rs2 = mapSuperIPAnswers(superAnswers({ unfit: 0.2, fit: 0.6, strong_fit: 0.2 }), superIPCtx);
   check('C3 superIP unfit 0.2 → 放（不因偏好拦）', rs2.llmResult.rating !== 'low' || !rs2.llmResult.reason.includes('Web3用户偏好不合'), rs2.llmResult);
 
-  // ═══ D. performPreCheck 规则 3 收窄三态 ═══
+  // ═══ D. performPreCheck 规则 3 收窄（J1.19 收窄 + C31 二次收窄：推文文本或视频标题任一非空进 Jev）═══
   console.log('\n── D. video_unrated 爆款短路收窄 ──');
   // 参数避开口径依赖：无 created_at（同名/过期检查跳过）+ ignoreExpired（规则2跳过）
   const baseToken = { symbol: '死亡观察员', name: '死亡观察员', raw_api_data: { name: '死亡观察员' } };
@@ -142,18 +143,43 @@ async function main() {
   });
   const urls = { twitter: [{ url: 'https://x.com/i/web/status/1', type: 'tweet', platform: 'twitter', priority: 1 }] };
   const viralDouyin = { type: 'video', title: 'AI短片', like_count: 446981, view_count: 0, create_time: nowIso };
+  // C31 Training season 形状对照：fetcher 未带 title（或 title 空串）→ 语料真不可读，维持短路
+  const viralDouyinNoTitle = { type: 'video', like_count: 446981, view_count: 0, create_time: nowIso };
+  const viralDouyinBlankTitle = { type: 'video', title: '   ', like_count: 446981, view_count: 0, create_time: nowIso };
 
   // D1 爆款 + 有推文文本 → null（进 Jev，收窄生效）
   const d1 = await performPreCheck(baseToken, makeTwitter('抖音最新爆火AI短片，点赞破50万'), { twitter_url: 'https://x.com/i/web/status/1' }, null, urls, { douyinInfo: viralDouyin }, null, null, { ignoreExpired: true });
   check('D1 爆款+有文本 → null 进 Jev（收窄生效）', d1 === null, d1);
 
-  // D2 爆款 + 推文文本为空串 → 维持 mid 短路
-  const d2 = await performPreCheck(baseToken, makeTwitter('   '), { twitter_url: 'https://x.com/i/web/status/1' }, null, urls, { douyinInfo: viralDouyin }, null, null, { ignoreExpired: true });
-  check('D2 爆款+空文本 → mid 短路 video_unrated（原行为）', d2 && d2.rating === 'mid' && d2.details.ruleName === 'video_unrated' && d2.pass === true, d2);
+  // D2 爆款 + 推文文本为空串 + 无标题 → 维持 mid 短路
+  const d2 = await performPreCheck(baseToken, makeTwitter('   '), { twitter_url: 'https://x.com/i/web/status/1' }, null, urls, { douyinInfo: viralDouyinNoTitle }, null, null, { ignoreExpired: true });
+  check('D2 爆款+空文本+无标题 → mid 短路 video_unrated（原行为）', d2 && d2.rating === 'mid' && d2.details.ruleName === 'video_unrated' && d2.pass === true, d2);
 
-  // D3 爆款 + 无 twitterInfo → 维持 mid 短路（无推文只有视频链接型）
-  const d3 = await performPreCheck(baseToken, null, { twitter_url: 'https://v.douyin.com/xxx' }, null, { douyin: [{ url: 'https://v.douyin.com/xxx', type: 'video', platform: 'douyin', priority: 1 }] }, { douyinInfo: viralDouyin }, null, null, { ignoreExpired: true });
-  check('D3 爆款+无推文 → mid 短路（无语料可读型）', d3 && d3.rating === 'mid' && d3.details.ruleName === 'video_unrated', d3);
+  // D2b 爆款 + 空文本 + title 为空白串 → 同无标题（trim 判空生效）
+  const d2b = await performPreCheck(baseToken, makeTwitter('   '), { twitter_url: 'https://x.com/i/web/status/1' }, null, urls, { douyinInfo: viralDouyinBlankTitle }, null, null, { ignoreExpired: true });
+  check('D2b 爆款+空文本+空白标题 → mid 短路（trim 判空）', d2b && d2b.rating === 'mid' && d2b.details.ruleName === 'video_unrated', d2b);
+
+  // D3 爆款 + 无 twitterInfo + 无标题 → 维持 mid 短路（无推文只有视频链接型）
+  const d3 = await performPreCheck(baseToken, null, { twitter_url: 'https://v.douyin.com/xxx' }, null, { douyin: [{ url: 'https://v.douyin.com/xxx', type: 'video', platform: 'douyin', priority: 1 }] }, { douyinInfo: viralDouyinNoTitle }, null, null, { ignoreExpired: true });
+  check('D3 爆款+无推文+无标题 → mid 短路（无语料可读型）', d3 && d3.rating === 'mid' && d3.details.ruleName === 'video_unrated', d3);
+
+  // D5 爆款 + 无 twitterInfo + 有视频标题 → null 进 Jev（C31 Training season/显化之歌案：
+  // 抖音链接票无推文文本，但 title「Dua Lipa的显化之歌…」完整描述内容类型，Jev 凭标题可判 web3_fit）
+  const d5 = await performPreCheck(baseToken, null, { twitter_url: 'https://v.douyin.com/xxx' }, null, { douyin: [{ url: 'https://v.douyin.com/xxx', type: 'video', platform: 'douyin', priority: 1 }] }, { douyinInfo: viralDouyin }, null, null, { ignoreExpired: true });
+  check('D5 爆款+无推文+有标题 → null 进 Jev（C31 二次收窄生效）', d5 === null, d5);
+
+  // D6 爆款 + 空文本 + 有标题 → null 进 Jev（文本空但标题非空，任一非空即进）
+  const d6 = await performPreCheck(baseToken, makeTwitter('   '), { twitter_url: 'https://x.com/i/web/status/1' }, null, urls, { douyinInfo: viralDouyin }, null, null, { ignoreExpired: true });
+  check('D6 爆款+空文本+有标题 → null 进 Jev', d6 === null, d6);
+
+  // D7 TikTok 平台标题字段是 description（fetcher 无 title；video-section 同款口径）→
+  // 有 description 进 Jev / 无 description 维持短路
+  const viralTikTok = { type: 'video', description: 'manifestation song gone viral', like_count: 0, view_count: 600000 };
+  const d7 = await performPreCheck(baseToken, null, { twitter_url: 'https://www.tiktok.com/@a/video/1' }, null, { tiktok: [{ url: 'https://www.tiktok.com/@a/video/1', type: 'video', platform: 'tiktok', priority: 1 }] }, { tiktokInfo: viralTikTok }, null, null, { ignoreExpired: true });
+  check('D7 TikTok 爆款+有description → null 进 Jev（titleField=description）', d7 === null, d7);
+  const viralTikTokNoDesc = { type: 'video', like_count: 0, view_count: 600000 };
+  const d7b = await performPreCheck(baseToken, null, { twitter_url: 'https://www.tiktok.com/@a/video/1' }, null, { tiktok: [{ url: 'https://www.tiktok.com/@a/video/1', type: 'video', platform: 'tiktok', priority: 1 }] }, { tiktokInfo: viralTikTokNoDesc }, null, null, { ignoreExpired: true });
+  check('D7b TikTok 爆款+无description → mid 短路', d7b && d7b.rating === 'mid' && d7b.details.ruleName === 'video_unrated', d7b);
 
   // D4 非爆款 → null（原有行为不变，进 Jev）
   const nonViral = { ...viralDouyin, like_count: 99999, view_count: 0 };
