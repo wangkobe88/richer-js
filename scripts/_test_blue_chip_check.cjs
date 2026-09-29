@@ -170,9 +170,72 @@ async function main() {
       path.join(__dirname, '../src/narrative/analyzer/services/pre-check-service.mjs'), 'utf8');
     const fallback = 'tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at';
     const count = src.split(fallback).length - 1;
-    check('C1 tokenCreatedAtSec 回退存在三处（0.5/0.55/0.58）', count, 3);
+    check('C1 tokenCreatedAtSec 回退存在四处（0.5/0.52/0.55/0.58）', count, 4);
     check('C2 规则0.52 已挂载', src.includes('checkBlueChipConflict'), true);
     check('C3 same_name_blue_chip 规则名已定义', src.includes("'same_name_blue_chip'"), true);
+    check('C4 0.52 调用传蓝筹豁免锚（第三参）', src.includes('checkBlueChipConflict(tokenSymbol, selfAddress, blueChipCreatedAt)'), true);
+  }
+
+  // ============ D. 同事件竞争盘豁免（C29 Cue/Manus 案，2026-09-29 用户裁定）============
+  console.log('\nD. 同事件竞争盘豁免');
+
+  // CUE 案实测数值：本 token 1790609551，同事件骑乘盘 0x3895f33c 晚 411s（fdv 15.9 万）
+  {
+    const svc = makeService([{
+      token: '0x3895f33c9f61388fc68754aa7e00e744ddafd1f0',
+      name: 'CUE', symbol: 'CUE',
+      fdv: '159020', tvl: '0.03', holders: 196, tx_count_24h: 298,
+      issue_platform: 'four.meme', created_at: 1790609962
+    }]);
+    const r = await svc.checkBlueChipConflict('CUE', '0x5074546cb787d5a698ec8e9a1734e33a3fae7777', 1790609551);
+    check('D1 晚 411s 抢发骑乘盘（fdv 15.9 万）不拦', r.isConflict, false);
+  }
+
+  // 早发抢跑盘（-300s）同样豁免
+  {
+    const svc = makeService([{ ...BLUE_CHIP_FUGUI, created_at: 1790563801 - 300 }]);
+    const r = await svc.checkBlueChipConflict('富贵', SELF, 1790563801);
+    check('D2 早 300s 抢跑盘不拦', r.isConflict, false);
+  }
+
+  // 富贵案原语义：老蓝筹（创建时间差 80+ 天）维持拦截
+  {
+    const svc = makeService([BLUE_CHIP_FUGUI]);
+    const r = await svc.checkBlueChipConflict('富贵', SELF, 1790563801);
+    check('D3 窗外老蓝筹维持拦截（富贵案语义不变）', r.isConflict, true);
+  }
+
+  // 无锚（不传第三参）→ 维持拦截（无法证明同事件，fail-closed）
+  {
+    const svc = makeService([{ ...BLUE_CHIP_FUGUI, created_at: 1790563801 - 100 }]);
+    const r = await svc.checkBlueChipConflict('富贵', SELF);
+    check('D4 无锚维持拦截（原行为）', r.isConflict, true);
+  }
+
+  // 锚存在但候选 created_at=0/缺失（无法判定时间）→ 保守维持拦截
+  {
+    const svc = makeService([{ ...BLUE_CHIP_FUGUI, created_at: 0 }]);
+    const r = await svc.checkBlueChipConflict('富贵', SELF, 1790563801);
+    check('D5 候选无 created_at 维持拦截', r.isConflict, true);
+  }
+
+  // 混合：窗内骑乘盘 + 窗外真蓝筹 → matched 只含窗外蓝筹，仍拦
+  {
+    const svc = makeService([
+      { token: '0x3895f33c9f61388fc68754aa7e00e744ddafd1f0', name: 'CUE', symbol: 'CUE', fdv: '159020', tvl: '0.03', holders: 196, tx_count_24h: 298, created_at: 1790609962 },
+      { token: '0xoldblue', name: 'CUE', symbol: 'CUE', fdv: '500000', tvl: '100000', holders: 20000, tx_count_24h: 500, created_at: 1780000000 },
+    ]);
+    const r = await svc.checkBlueChipConflict('CUE', '0x5074546cb787d5a698ec8e9a1734e33a3fae7777', 1790609551);
+    check('D6 混合场景仍拦（matched 只含窗外蓝筹）', [r.isConflict, r.matched.map(m => m.token)], [true, ['0xoldblue']]);
+    check('D7 matched 审计带 createdAt', r.matched[0].createdAt, 1780000000);
+  }
+
+  // 窗边界：恰 3600s 排除，3601s 不排除
+  {
+    const edge = makeService([{ ...BLUE_CHIP_FUGUI, created_at: 1790563801 - 3600 }]);
+    check('D8 恰 1h 边界排除', (await edge.checkBlueChipConflict('富贵', SELF, 1790563801)).isConflict, false);
+    const over = makeService([{ ...BLUE_CHIP_FUGUI, created_at: 1790563801 - 3601 }]);
+    check('D9 超 1h 不排除', (await over.checkBlueChipConflict('富贵', SELF, 1790563801)).isConflict, true);
   }
 
   console.log(`\n结果: ${pass} 通过, ${fail} 失败`);

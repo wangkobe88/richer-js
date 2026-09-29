@@ -271,11 +271,20 @@ class SameNameCheckService {
    * 佐证思路同源）：
    *   fdv ≥ minFdv 且（tvl ≥ minTvl 或 holders ≥ minHolders 或 txCount ≥ minTxCount）
    *
+   * 同事件竞争盘豁免（2026-09-29 用户裁定，C29 Cue/Manus 案）：热点事件官宣后
+   * ±sameEventWindowSec 内抢发的同名骑乘盘不是「蹭既有蓝筹」——它的 fdv 是骑乘
+   * 热度本身，撞名是事件天然造成的（Manus 官宣 Cue 后 7 分钟抢发的 CUE 盘 fdv
+   * 15.9 万被当蓝筹拦下了 J1.18 的放行）。锚（tokenCreatedAtSec）存在且候选
+   * created_at 有效时，创建时间相近的候选排除；无锚或候选无 created_at（无法
+   * 证明同事件）维持拦截——富贵案蹭既有老蓝筹（创建时间差 80+ 天）语义不变。
+   *
    * @param {string} tokenSymbol - 目标代币 symbol
    * @param {string} selfAddress - 目标代币地址（大小写不敏感排除自己，防自我误拦）
+   * @param {number|null} [tokenCreatedAtSec] - 目标代币创建时间（秒级锚，
+   *   缺省不豁免——无法证明同事件，维持原拦截语义）
    * @returns {Promise<Object>} { success, isConflict, matched[]（按 fdv 降序） }
    */
-  async checkBlueChipConflict(tokenSymbol, selfAddress) {
+  async checkBlueChipConflict(tokenSymbol, selfAddress, tokenCreatedAtSec = null) {
     try {
       const normalized = SameNameCheckService._normalizeName(tokenSymbol);
       if (!normalized || normalized.length < 2) {
@@ -294,10 +303,17 @@ class SameNameCheckService {
       const minTvl = blueChipConfig.minTvl ?? 50000;
       const minHolders = blueChipConfig.minHolders ?? 10000;
       const minTxCount = blueChipConfig.minTxCount ?? 100;
+      const sameEventWindowSec = blueChipConfig.sameEventWindowSec ?? 3600;
 
       const toNum = v => parseFloat(v) || 0;
+      const anchor = toNum(tokenCreatedAtSec);
       const matched = candidates
         .filter(t => {
+          // 同事件竞争盘豁免：锚与候选 created_at 均有效且时间相近 → 排除
+          if (anchor > 0 && toNum(t.created_at) > 0 &&
+              Math.abs(toNum(t.created_at) - anchor) <= sameEventWindowSec) {
+            return false;
+          }
           const fdv = toNum(t.fdv);
           const tvl = toNum(t.tvl);
           const holders = parseInt(t.holders) || 0;
@@ -313,7 +329,8 @@ class SameNameCheckService {
           tvl: toNum(t.tvl),
           holders: parseInt(t.holders) || 0,
           txCount: parseInt(t.tx_count_24h) || 0,
-          issuePlatform: t.issue_platform || ''
+          issuePlatform: t.issue_platform || '',
+          createdAt: toNum(t.created_at) || 0
         }))
         .sort((a, b) => b.fdv - a.fdv);
 

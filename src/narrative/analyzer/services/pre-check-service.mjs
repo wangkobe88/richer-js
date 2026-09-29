@@ -203,7 +203,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 单指标误拦（与交易侧 _getMaxFDV 的 tvl/交易量佐证思路同源）
   if (sameNameConfig.enabled) {
     const selfAddress = tokenData.raw_api_data?.token || tokenData.address || '';
-    const blueChipCheck = await sameNameService.checkBlueChipConflict(tokenSymbol, selfAddress);
+    // 同事件竞争盘豁免锚（C29，2026-09-29）：创建时间口径与 0.5/0.55/0.58 一致
+    // ——±1h 内抢发的同名骑乘盘不算蹭既有蓝筹（fdv 是骑乘热度本身）
+    const blueChipCreatedAt = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
+    const blueChipCheck = await sameNameService.checkBlueChipConflict(tokenSymbol, selfAddress, blueChipCreatedAt);
     if (blueChipCheck.success && blueChipCheck.isConflict) {
       const m = blueChipCheck.matched[0];
       console.log(`[NarrativeAnalyzer] 预检查触发: 同名蓝筹拦截 (symbol: ${tokenSymbol}, 蓝筹: ${m.symbol} ${m.token}, fdv=${m.fdv}, tvl=${m.tvl}, holders=${m.holders})`);
