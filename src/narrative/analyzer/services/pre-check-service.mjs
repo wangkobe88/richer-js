@@ -656,6 +656,15 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     const displayType = viewMeetsThreshold ? '播放量' : '点赞数';
 
     if (viewMeetsThreshold || likeMeetsThreshold) {
+      // J1.19（2026-09-29 用户裁定，C30 死亡观察员/太阳之勤案）：有可读推文文本时
+      // 不再短路——推文文本已描述视频内容（「内容无法解析」不成立），放行进 Jev
+      // 做完整分类/量级 + Web3 用户偏好判断（web3_fit 题）；无可读语料才维持爆款
+      // mid 短路（此时 Jev 确实没有内容可读）。Web2 传播热度 ≠ Web3 用户偏好
+      // （历史口径：video_unrated 27 成交票 25 亏全为人名梗/土味/丧文化型）
+      if (twitterInfo?.text && twitterInfo.text.trim().length > 0) {
+        console.log(`[NarrativeAnalyzer] 规则3调整(J1.19): ${video.name}视频${displayType}${displayValue}达爆款门槛，但有可读推文文本，进入Jev分析（含Web3用户偏好判断）`);
+        continue;
+      }
       console.log(`[NarrativeAnalyzer] 规则3触发: ${video.name}视频${displayType}=${displayValue}，达到爆款门槛，给mid（通过）`);
       return buildPreCheckResult('mid', `${video.name}视频${displayType}${displayValue}，传播数据达爆款门槛，内容无法解析，按影响力数据给mid`, 'video_unrated', { pass: true });
     }

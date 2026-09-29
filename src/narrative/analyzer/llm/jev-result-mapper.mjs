@@ -225,6 +225,24 @@ function routineContentProductBlock(answers, category) {
 }
 
 /**
+ * Web3 用户偏好质量门（J1.19，2026-09-29 用户裁定，C30 死亡观察员/太阳之勤案
+ * 0xd2a6d440…7777 / 0xe5fa214f…7777：两票均为抖音爆款视频票，video_unrated
+ * 爆款短路（点赞≥10万 → 不进Jev直接mid）放行后 Web3 用户不买账阴跌。裁定原话
+ * 「Web3用户是不会喜欢的，不符合用户胃口」：Web2 传播热度 ≠ Web3 用户偏好——
+ * 事件可以完全有叙事价值（E 类爆款）只是不合链上 meme 买家口味，故独立成题
+ * （web3_fit 四档）而非并入 block_reason 的「无叙事价值」语义）。
+ *
+ * 独立题独立门：unfit 概率 ≥0.5 → rating 1（与 negativeHardNewsBlock 同构：
+ * 概率门对抗 argmax 跨 run 抖动，全域不限类别、标准 + superIP 双路径）。
+ * marginal 不拦——四档概率落库观察，待校准数据后再定是否收严。
+ */
+function web3FitBlock(answers) {
+  const p = answers?.web3_fit?.probabilities?.unfit ?? 0;
+  if (p < 0.5) return null;
+  return { label: 'Web3用户偏好不合', mass: Math.round(p * 100) / 100 };
+}
+
+/**
  * 骑乘改道（C8，2026-09-24 用户裁定）：项目制作者自己发币通过没问题（路由层
  * detectIssuerSelfLaunch 命中 → prestage，C7 方案 A）；**第三方骑乘**推文主体的
  * 作品/产品名发币，产品的分量就远远不足——不得按「主体=作者影响力」的标准分放行，
@@ -448,6 +466,7 @@ export function mapStandardAnswers(answers, context) {
           event_magnitude: answers.event_magnitude?.probabilities,
           block_reason: answers.block_reason?.probabilities,
           name_referent: answers.name_referent?.probabilities,
+          web3_fit: answers.web3_fit?.probabilities,
         },
       },
     },
@@ -464,6 +483,7 @@ export function mapStandardAnswers(answers, context) {
   let nrBlock = null; // name_referent 阻断信息 {label, mass}（reason 展示用）
   let nhnBlock = null; // negative_hard_news 质量门信息 {label, mass}（J1.11）
   let rcpBlock = null; // routine_content_product 质量门信息 {label, mass}（J1.13）
+  let w3Block = null; // web3_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
@@ -475,12 +495,17 @@ export function mapStandardAnswers(answers, context) {
   // argmax 命中时下方 BLOCK_SCOPE 'all' 也能拦，此处覆盖概率过半但 argmax/noneProb
   // 边界抖动的情况（nameReferentBlock 同思路：合并质量对抗五五开抖动）
   // J1.13 常规内容产品宣传质量门同位双挂（C12 绣春刀3案，事件性质层面否决）
+  // J1.19 Web3用户偏好质量门第三位同挂（C30 死亡观察员/太阳之勤案，受众口味
+  // 层面否决——事件可有叙事价值但不合链上 meme 买家口味，热度再高也不该放）
   if ((nhnBlock = negativeHardNewsBlock(answers))) {
     stage2Blocked = true;
     stage2BlockReason = nhnBlock.label;
   } else if ((rcpBlock = routineContentProductBlock(answers, category))) {
     stage2Blocked = true;
     stage2BlockReason = rcpBlock.label;
+  } else if ((w3Block = web3FitBlock(answers))) {
+    stage2Blocked = true;
+    stage2BlockReason = w3Block.label;
   } else if (blockChoice !== 'none' && noneProb < 0.5
     // J1.16 角色IP豁免：argmax 命中 rcp 且类别为 A（形象IP/角色）时不拦，与概率门同语义
     && !(blockChoice === 'routine_content_product' && category === 'A')
@@ -544,12 +569,14 @@ export function mapStandardAnswers(answers, context) {
         nameReferentBlockMass: nrBlock?.mass ?? null,
         negativeHardNewsMass: nhnBlock?.mass ?? null,
         routineContentProductMass: rcpBlock?.mass ?? null,
+        web3FitMass: w3Block?.mass ?? null,
         timing,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,
           dimension2: answers.dimension2?.probabilities,
           w_product_score: answers.w_product_score?.probabilities,
           w_binance_interaction: answers.w_binance_interaction?.probabilities,
+          web3_fit: answers.web3_fit?.probabilities,
         },
       },
     },
@@ -591,7 +618,7 @@ export function mapStandardAnswers(answers, context) {
   }
 
   const finalReason = stage2Blocked
-    ? `阻断:${stage2BlockReason}｜P=${nrBlock ? nrBlock.mass : (rideMass ?? blockProb ?? '-')}`
+    ? `阻断:${stage2BlockReason}｜P=${(w3Block ?? nrBlock)?.mass ?? (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)} 拼写P=${round2(misspellingP)}`
       : `事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
@@ -720,8 +747,12 @@ export function mapSuperIPAnswers(answers, context) {
   // 注册表账号推自己参与的常规电影/剧集宣传，蹭名盘同样拦）
   const rcpBlock = routineContentProductBlock(answers);
   const blockedByRoutineContent = !!rcpBlock;
+  // J1.19 Web3用户偏好质量门（全域，与标准路径同门；superIP 通道无豁免——
+  // 超级 IP 语境下同样存在不合链上买家口味的事件，蹭名盘照样拦）
+  const w3Block = web3FitBlock(answers);
+  const blockedByWeb3Unfit = !!w3Block;
   const blocked = blockedByBlockReason || blockedByNameReferent || blockedByNegativeNews
-    || blockedByRoutineContent;
+    || blockedByRoutineContent || blockedByWeb3Unfit;
 
   const prestageDataToSave = {
     category: 'super_ip_fast',
@@ -733,7 +764,8 @@ export function mapSuperIPAnswers(answers, context) {
       blockReason: blocked
         ? (blockedByNegativeNews ? nhnBlock.label
           : (blockedByRoutineContent ? rcpBlock.label
-            : (blockedByBlockReason ? (BLOCK_LABELS[blockChoice] || blockChoice) : nrBlock.label)))
+            : (blockedByWeb3Unfit ? w3Block.label
+              : (blockedByBlockReason ? (BLOCK_LABELS[blockChoice] || blockChoice) : nrBlock.label))))
         : null,
       dimension2Score: dim2,
       ipInfo: superIPInfo,
@@ -748,10 +780,12 @@ export function mapSuperIPAnswers(answers, context) {
         nameReferentBlockMass: nrBlock?.mass ?? null,
         negativeHardNewsMass: nhnBlock?.mass ?? null,
         routineContentProductMass: rcpBlock?.mass ?? null,
+        web3FitMass: w3Block?.mass ?? null,
         probabilities: {
           dimension2: answers.dimension2?.probabilities,
           block_reason: answers.block_reason?.probabilities,
           name_referent: answers.name_referent?.probabilities,
+          web3_fit: answers.web3_fit?.probabilities,
         },
       },
     },
@@ -776,6 +810,13 @@ export function mapSuperIPAnswers(answers, context) {
       ? {
           rating: 'low',
           reason: `阻断:${rcpBlock.label}｜P=${rcpBlock.mass}`,
+          score: null,
+          pass: false,
+        }
+      : blockedByWeb3Unfit
+      ? {
+          rating: 'low',
+          reason: `阻断:${w3Block.label}｜P=${w3Block.mass}`,
           score: null,
           pass: false,
         }

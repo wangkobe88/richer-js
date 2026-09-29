@@ -32,6 +32,54 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C30 死亡观察员/太阳之勤 0xd2a6d440/0xe5fa214f —— 抖音爆款视频票 Web3 用户不买账，video_unrated 爆款短路无偏好把关 → J1.19 web3_fit 独立题 + 短路收窄（2026-09-29）★
+
+**现象**：两票均为 flap 7777 尾号抖音爆款视频票——「死亡观察员」
+（0xd2a6d4408542cb78d5d3fcdda3c0bd6528767777，09-29 02:59，AI 死亡短片 44.7 万赞，
+推文「一个人死后还可以短暂行动…有人会疯狂删除浏览记录，有人会趁新鲜贩卖自己的器官」）/
+「太阳之勤」（0xe5fa214f42f765844cde4194f7c82d4058677777，09-29 07:03，范小勤
+抽象表情梗 13.7 万赞）。两票 pre-check 命中 `video_unrated` 爆款短路（点赞≥10 万 →
+**不进 Jev 直接 mid 放行**，2026-09-27 裁定的盲区），多实验买入后无人接盘阴跌：
+死亡观察员 4 实验净 -0.245、太阳之勤 3 实验净 -0.267。
+
+**根因**：爆款短路只看 Web2 传播数据（点赞/播放），不看主题——推文文本明明完整
+描述了视频内容（「内容无法解析」不成立），Jev 却没机会读。**Web2 传播热度 ≠
+Web3 用户偏好**：链上 meme 买家（BSC 发射平台，华语 crypto 圈为主）喜欢动物萌宠/
+币圈梗/AI/知名 IP/可玩味乐子梗，不喜欢消费弱势真人的土味网红梗（范小勤型）、
+死亡丧文化主题、纯内容欣赏无玩梗空间（影评式赞叹）。
+
+**历史口径支撑（video_unrated 口子全量对账，27 成交票）**：净 +7.598 BNB 全靠
+两张撑——熊猫 +7.777、大头混子 +7.401（动物萌宠/可玩抽象，天然合 Web3 口味）；
+其余 **25 票全亏合计 -7.58**，全是人名梗/土味/丧文化/无形象热点型（16:39、江江、
+怪盗咪德、Training season、汪蜂、臭臭、菠萝菠萝蜜、阿Sir、李大宝、美国人能飞×2…）。
+偏好层若能「赢放亏拦」就是这个口子的正确过滤网。
+
+**裁定（用户，2026-09-29）**：原话「**Web3用户是不会喜欢的，不符合用户胃口，
+看看能不能增加Web3用户偏好这一层判断**」。两个裁定点均采纳推荐方案：
+①爆款短路收窄——有可读推文文本进 Jev（无可读语料才维持 mid 短路）；
+②独立题 + 概率 ≥0.5 硬拦（不并入 block_reason，语义独立）。
+
+**落地（J1.19，三处）**：
+- `jev-questions.mjs`：新增独立第 14 题 `web3_fit`（choice 四档
+  strong_fit/fit/marginal/unfit；题面含链上买家画像 + 判据两问「能否被链上买家
+  玩梗/二创/自嘲式传播」「受众与 crypto 圈是否重叠」+ 强契合/不契合典型清单 +
+  「传播数据大小不是本题依据」边界句）。语义独立于 block_reason 的「无叙事价值」
+  ——事件可以完全有叙事价值（E 类爆款）只是不合链上买家口味
+- `jev-result-mapper.mjs`：`web3FitBlock` 质量门（unfit 概率 ≥0.5 → rating 1，
+  与 negativeHardNewsBlock 同构：概率门对抗 argmax 抖动、全域不限类别、标准 +
+  superIP 双路径无豁免）；挂载位在 nhn/rcp 之后第三位（事件性质否决优先于受众
+  口味否决）；marginal 不拦——四档概率落库观察待校准；stage1/stage2 审计
+  `probabilities.web3_fit` + `web3FitMass`；superIP 路径 blockReason/llmResult 链
+  同步
+- `pre-check-service.mjs` 规则 3 收窄：爆款门槛命中时若 `twitterInfo.text`
+  非空 → 不再短路（continue 进后续规则 → 进 Jev 完整评估）；推文文本为空/无
+  twitterInfo → 维持原 mid 短路（Jev 确实无内容可读型）。2026-09-27「爆款不拦」
+  裁定语义由 Jev E 类量级题承接（state 的 video section 已带点赞/播放/发布时间，
+  真爆款照样高档高分，不会被冤枉）
+- 单测 `scripts/_test_web3_fit.cjs`（24 断言零 DB：问卷形状/标准路径矩阵含边界
+  0.5 拦 0.49 放与 miss 不误拦/superIP 同门/短路收窄三态）；既有叙事链单测
+  （publisher_proxy 28 + cashtag 21 + blue_chip 31 + precheck_retry 35）全绿零回归
+
 ### C29 Cue/Manus 0x507454 —— 领域知名发布者官宣独立新产品被骑乘，notable_other 阻断误拦 → J1.18 发布者指代代码门 + B 类量级锚（2026-09-29）★
 
 **现象**：CUE（0x5074546cb787d5a698ec8e9a1734e33a3fae7777）——Manus 官宣独立新产品
@@ -1326,6 +1374,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.16 | 09-28 | 角色IP币豁免 routine_content_product：①event_category 主体归属新增「代币名指向作品中角色（含音译/译名形式，非作品名）→主体=该角色、类别A，作品宣传推只是语料载体」②block_reason rcp 边界收窄（角色名币必不选本项）③event_magnitude A类语义锚定（角色按自身及关联IP知名度定档，未开播/未出圈=无名IP，官号粉丝数≠角色知名度）；mapper `routineContentProductBlock` 加 category 参数——A 类豁免（argmax 门同步，仅标准路径，superIP 通道仍拦）；题目措辞实证 rcp 只能压到 0.57-0.70 不过线（J1.13 教训同款：Jev 分不动的边界代码切）→把关交 A 类量级门；本案 A 轴 56.04<60 拦（量级不足）；回归绣春刀3 B+0.93 继续拦/Pelecanusbikes 维持/superIP 4/4 | 久留美 0xfedf19759 C25 | 本 commit |
 | J1.17 | 09-28 | 题面未动——mapper 代码端 cashtag 改道：语料推文（含被回复父推）出现与币名归一化**全等**的 $TICKER cashtag → category 强制 'W' 进 W 数学（被骑资产影响力须极高），Jev event_category 概率不再有决定权；判据 `detectCorpusCashtag`（narrative-utils 纯代码，双侧 ≥2 字符保守门）；stage1 审计标记 categoryForced/cashtagMatched、stage2 reason 标注改道来源；analyzer/dryrun/calibration 三处 context 传 twitterInfo；本案重放 W 25.66<60 拦（改道前 C 67.4 放行）；单测 21 断言 + 673 行翻转检查：翻 5 全 high→low 且实跑对账全亏零误伤、反向 0 | iNu 0xf578b84b C28 | 本 commit |
 | J1.18 | 09-29 | name_referent super_ip 加「发布者指代」分支 + event_magnitude/dimension2 B 类语义锚定（新产品分量由发布者指代：领域知名大IP→A档起/普通知名→B/无名→C 以下；版本更新/功能改进/新平台移植→E/D 阻断档，Muse 桌面版型）+ notable_other 承接句——题面语义留档；**生效层在 mapper 代码门** `detectPublisherProxy` 四判据（域名 stem=币名 + 作者粉丝≥10万 + 币名与作者名互不包含 + 无版本指纹词；措辞实证 super_ip 0.16→0.31 压不过 0.5、magnitude 稳定 B 档，J1.16 先例代码切分）：pubProxyActive（仅 B/C 域，cashtag 优先）时 nameReferentBlock/骑乘改道/marketing_gimmick argmax 三豁免 + 量级 A 档锚 effTier（S 不降 A 不动，原判留 magnitudeTier 键、tierAnchored 键审计）；rcp/negativeHardNews 门不豁免；本案 72.4 过线终评 78.95 high（豁免-only 65.4 mid 对照）；Muse 三保险维持拦截；单测 28 断言 + 既有叙事链全绿；同日两门冲突解决：rule 0.52 同名蓝筹加同事件竞争盘豁免（±1h 窗，锚=创建时间口径同 0.5，无锚/候选无 created_at 维持拦；「蓝筹」实为晚 7 分钟抢发的同事件骑乘盘 fdv 15.9 万）| Cue/Manus 0x5074546c C29 | 本 commit |
+| J1.19 | 09-29 | 新增独立第 14 题 `web3_fit`（strong_fit/fit/marginal/unfit 四档——Web3 用户偏好契合度：链上 meme 买家画像 + 判据两问「能否被玩梗/二创/自嘲式传播」「受众与 crypto 圈是否重叠」+ 强契合/不契合典型清单；语义独立不并入 block_reason 的「无叙事价值」）+ mapper `web3FitBlock` 质量门（unfit 概率 ≥0.5 → rating 1，negativeHardNewsBlock 同构：全域 + 标准/superIP 双路径无豁免，挂 nhn/rcp 后第三位；marginal 不拦落库观察）+ **pre-check 规则 3 爆款短路收窄**：video_unrated 命中时有可读推文文本（推文已描述视频内容，「内容无法解析」不成立）→ 不短路进 Jev 完整评估，无文本才维持 mid 短路（「爆款不拦」语义由 E 类量级题承接，video section 已带点赞/播放数据）；历史口径：video_unrated 27 成交票净 +7.6 全靠熊猫+大头混子（动物萌宠/可玩抽象）两张撑、其余 25 票全亏 -7.58 全为人名梗/土味/丧文化型；单测 24 断言 + 既有叙事链（publisher_proxy/cashtag/blue_chip/precheck_retry 115 断言）全绿 | 死亡观察员/太阳之勤 0xd2a6d440/0xe5fa214f C30 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 | P1.3 | 09-27 | 题面未动——mapper 端 project 评级表加账号信用降档（推文 <5 OR 账号年龄 <30 天→low，年龄以 token 创建时点锚定幂等；照 J1.8 先例 bump）；附带 flap 创建时间 wss_events token_create 回退（token-info-service）；52 行 project 重放仅 x-0 命中 0 误伤 | x-0 0xa5fd1f C15/C18 | 本 commit |
 | P1.4 | 09-27 | 题面未动——mapper 端消灭 unrated（用户裁定：分析完成必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足 unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject 粉丝带+P1.3 降档按账号基本面给结论 | C4 反裁定 + 蝴蝶轮回 C22 | 本 commit |
@@ -1917,4 +1966,16 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     重析走 ignoreCache；⑤ 0.52 同事件豁免窗 ±1h（sameEventWindowSec 3600）按
     CUE 案抢发节奏（+55s~+10min）定标——若出现「真蓝筹恰在 1h 内刚上线」的误放
     形状（老蓝筹重新开盘/迁移新约），考虑叠加发布方/叙事相似度佐证
+
+32. **J1.19 web3_fit 门校准与生效面**（2026-09-29 C30 落地后跟踪）：
+    ① marginal 档现不拦只落库观察——积累一定量 probabilities.web3_fit 四档
+    分布后回看 marginal 票的实际盈亏，决定是否把门收严到「unfit≥0.4 或
+    unfit+marginal 合计 ≥0.6」之类；② unfit 0.5 门本身同理，若出现「偏好不合
+    票反而赢」的对账反例再调；③ 题面典型清单（动物萌宠/币圈梗/AI/土味网红/
+    丧文化…）是从 27 成交票盈亏反推的判据——新 case 积累后按 §二 台账节奏
+    补充边界措辞（每改必 bump J1.20）；④ 版本漂移同 §六-30②：182 narrative
+    engine 与直调进程重启才生效；⑤ 短路收窄只动了规则 3（爆款视频）——规则
+    3.5/3.5.5/3.5.6（小红书/Instagram/抖音用户主页高影响力 mid 短路）同款
+    「只看数据不看内容」结构未动，若同类 Web3 偏好盲区票从那些口子漏出再
+    按本案模式收窄
 
