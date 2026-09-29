@@ -336,6 +336,8 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
   return {
     // 基础因子
     age: age,
+    // 秒口径年龄（= age×60；age 的锚点回退链 collectionTime 场景下同源推导，保持一致）
+    tokenAgeSec: age * 60,
     currentPrice: priceUsd,
     collectionPrice: firstPrice,  // 兼容旧前端
     launchPrice: firstPrice,      // 兼容旧前端

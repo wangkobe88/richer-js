@@ -191,6 +191,15 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 - **拦截写法**：`earlyTradesTop1BuySharePct < 60 OR earlyTradesBuyBnb < 1`——OR 腿复刻验证口径的 1 BNB 尘埃豁免（首窗买入不足 1 BNB 份额噪声大不拦）。covered 语义与 sniper 同构：age>90s 或 launchAt 缺失 → 0 值放行
 - **验证结论**（share≥0.6 且首窗≥1 BNB，109 closed 票）：亏率 86.2%，避免亏 12.684 / 放弃赢 0.559 BNB（22:1）；单实验 9e413cbe 55 票拦 28 票净额 +0.198→+2.072。**与 sniperPct 互补**：7777 家族（top1 sniper 率 69%）画像门可拦，4444 家族（低频新钱包 sniper 率 3%、单笔可占 98%）只靠本因子；叙事 2/3 级命中 0 张零误伤。0.6→0.7 少拦的 59 票净 -6.6 BNB（0.6 是正确档）
 - **单测**：`node scripts/_test_top1_buy_share.cjs`（33 断言零 DB：聚合矩阵/0x01bf 案数值锚定/performCheck 集成/源码口径四节）
+- **配对回测 expired 洞（2026-09-29，a7e34059 基线 vs 8bd5ef0b 加门，9e413cbe 克隆同窗并发）**：净额打平（拦 5 亏票 +0.658 vs 20 张「过期票」晚进车 −0.914 恰好抵消）——根因 = top1 因子 covered=0（>90s 窗过期）0 值放行语义 × 买腿 30min 年龄窗错配，主导票 35-115s 高价接盘。象限验证：全部盈利买点 ≤74s（early_clean +1.611），90s 上限零误伤。修正写法 `tokenAgeSec < 90 AND earlyTradesTop1BuySharePct < 60 AND earlyTradesTop1BuyCovered == 1`（修正版回测 120caca6 预测 ≈ +2.23）
+
+**tokenAgeSec 秒口径年龄因子**（2026-09-29 同案上线；用户裁定方案 B——`age` 单位是分钟、改单位会静默翻转存量实验条件语义（红线），故新增独立秒键）：
+
+- **口径**：`(now − createdAtMs)/1000`，与 `age` 同创建锚 ×60 关系；FA `_buildFactorMap` 字面量键（getFactorKeys 探针自动收 → 策略 condition 可直接引用）+ FactorBuilder `buildFactorsFromTimeSeries` 同源推导（`age * 60`，两条路径一致）。秒级买窗写 `tokenAgeSec < 90`（ConditionEvaluator 字面量 parseFloat 支持小数，`age < 1.5` 亦等价）。缺锚 → `_createEmptyState` 注册时刻 `Date.now()` 兜底（age 同行为）
+- **preFilter 提取**：`ConditionEvaluator._walkBuyRange` 识别 tokenAgeSec 比较子句，/60 归一到分钟区间与 age 子句合并（AND 取最紧/OR → null 降级）；FA preFilter 越界跳过对新键同等生效
+- **勿混 E 组 `_ageSec`**（首 tick 锚点，tickFlow 分档内部量）：锚点不同，非倍数换算关系
+- **时序快照不落库**：可由 age 推导（与 age/tokenCycleAgeSec 同判定），slim 白名单不变
+- **单测**：`node scripts/_test_token_age_sec.cjs`（27 断言零 DB：FA 发射/键审计/真值表/preFilter 提取/集成/时序重建六节）
 
 
 **Narrative rating direct call** (`narrativeCallCondition`, strategy field): when a buy strategy defines it and the condition holds at fire time (evaluated over the same fire factors as the strategy condition — `age`/`earlyReturn`/activity/trend, NOT narrativeRating itself), the buy leg synchronously calls `NarrativeAnalyzer.analyze()` via `NarrativeDirectCaller` (`src/trading-engine/pre-check/NarrativeDirectCaller.js`) after the blacklist check and before the pre-buy check. Jev is seconds-fast; 30s timeout via Promise.race (the timed-out analysis keeps running in the background, upserts, and the next round hits the cache), failure/timeout normalize to 9 and pass through — the strategy decides via `narrativeRating` in `preBuyCheckCondition`. Not configured / not triggered = always 9, identical to legacy behavior. BacktestEngine uses the same direct-call path (temporal leakage: analyze uses current corpus on historical tokens — absolute returns are not real-time achievable, compare relative increments only). Trigger trail lands in signal metadata as `narrativeCall`. Condition syntax: AND/OR only — `&&`/`||` are silently truncated (rest of the expression is dropped, no error).

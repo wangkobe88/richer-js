@@ -90,6 +90,11 @@ class ConditionEvaluator {
                 if (node.operator === '<' || node.operator === '<=') return { maxAgeMinutes: num };
                 if (node.operator === '>' || node.operator === '>=') return { minAgeMinutes: num };
             }
+            // tokenAgeSec：秒口径（与 age 同锚点，/60 归一到 FA 的分钟 age 后参与同一区间合并）
+            if (node.left === 'tokenAgeSec') {
+                if (node.operator === '<' || node.operator === '<=') return { maxAgeMinutes: num / 60 };
+                if (node.operator === '>' || node.operator === '>=') return { minAgeMinutes: num / 60 };
+            }
             return null;
         }
         return null; // IS_NULL 等其他节点

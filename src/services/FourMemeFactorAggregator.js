@@ -1845,6 +1845,9 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         // age：分钟（契约口径：创建时间锚点，非收集时间）
         const age = state.createdAtMs ? (now - state.createdAtMs) / 60000 : 0;
+        // tokenAgeSec：秒（同一 createdAtMs 锚点；秒级买窗 condition 用。勿与 E 组
+        // _ageSec（首 tick 锚点，tickFlow 分档内部量）混——锚点不同，非倍数换算关系）
+        const tokenAgeSec = state.createdAtMs ? (now - state.createdAtMs) / 1000 : 0;
 
         // ── preFilter：未持仓且 age 落在【全部】买策略区间并集外 → 跳过因子构建（纯提效）──
         // 阈值由引擎从各买腿 condition AST 提取注入（setPreFilter）；严格小于下界/严格
@@ -2246,6 +2249,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         const prices = state._priceSeries.map(p => p.price);
         const factors = {
             age,
+            tokenAgeSec,
             currentPrice,
             firstPrice,
             collectionPrice: firstPrice,   // 兼容旧前端
