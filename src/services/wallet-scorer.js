@@ -852,9 +852,17 @@ function aggregateTokenScore(scoredHolders, holdingFactors, walletScore = {}, pa
 }
 
 /**
+ * BSC 新钱包中性分（用户 2026-09-29 裁定）：scoreTokenFromHolders 内非 creator 新钱包
+ * （source='realtime' 且 tokenCount<=1）分数低于此值抬到此值（只升不降）。观察期参数，
+ * 详见 scoreTokenFromHolders 内注释。creator 维持 1.5 中性分档不动。
+ */
+const NEW_WALLET_NEUTRAL_SCORE = 2.2;
+
+/**
  * Token 级钱包评分完整入口（per-holder scoreProfile + aggregateTokenScore）—— TPA 决策落库专用。
  * web 用 scoreHolderAtDecisionTime 评分后直接调 aggregateTokenScore（它们不走本函数）。
- * 1:1 等价于 TPA _computeWalletScores 旧内联实现（抽函数纯 refactor，零行为变化）。
+ * 1:1 等价于 TPA _computeWalletScores 旧内联实现（抽函数纯 refactor，零行为变化；
+ * 2026-09-29 起加 BSC 新钱包 2.2 中性分豁免——与母版的用户裁定偏离）。
  * @returns {Object} walletScoreSummary（落 token_position_analyses.holding_factors 附带）
  */
 function scoreTokenFromHolders(walletProfiles, holdingFactors, walletScore = {}, paramsOverride = {}) {
@@ -870,12 +878,23 @@ function scoreTokenFromHolders(walletProfiles, holdingFactors, walletScore = {},
     // 创建者新钱包中性分（母版用户 2026-08-19 拍板，仅创建者）：多数创建者是新钱包，
     // 持仓不好不坏；source='realtime'（无 offline 历史）且 tokenCount<=1（除本币外零历史）
     // → 提到 1.5 中性分（只升不降），替代 volume/avg 双零维度给出的 ~0.24 低分。
-    // 仅创建者豁免；其余新钱包维持原判（母版 FfeDVN2n 四 burner 链上实锤同秒成簇 farm，低分正确）。
     // ⚠️flap creator=工厂共享地址 → 该豁免对 flap 不生效方向=误伤工厂地址（1e9 固定 totalSupply 下
     //   工厂钱包 floatPct 极小，影响可忽略），不加特判。
     if (p.isCreator && p.source === 'realtime' && (p.tokenCount ?? 0) <= 1 && r.score < 1.5) {
       p.score = 1.5;
       p.scoreBreakdown = { ...r.breakdown, creatorNewNeutral: true, scoreBefore: r.score };
+    }
+    // BSC 新钱包中性分 2.2（用户 2026-09-29 裁定，先观察再定）——★与母版的有意偏离：
+    // 母版仅 creator 豁免、一般新钱包维持原判（2026-08-19 FfeDVN2n 四 burner 同秒成簇
+    // farm 案，solana 链节奏下低分正确）。BSC 节奏不同（gas 廉价散户新钱包常见 + 单块 3s
+    // 装下整簇买入），用户裁定 BSC 先豁免观察：source='realtime' 且 tokenCount<=1
+    // （与 creator 门同源同阈值）且非 creator（creator 维持 1.5 档——发币者控盘语义
+    // 低半档，不被本门再抬）→ 分数低于 2.2 抬到 2.2（只升不降，与 creator 豁免同向）。
+    // 观察期后去留由用户再定；回滚 = 删本块。
+    if (!p.isCreator && p.source === 'realtime' && (p.tokenCount ?? 0) <= 1
+      && r.score < NEW_WALLET_NEUTRAL_SCORE) {
+      p.score = NEW_WALLET_NEUTRAL_SCORE;
+      p.scoreBreakdown = { ...r.breakdown, newWalletNeutral: true, scoreBefore: r.score };
     }
     scored++;
     if (r.approx) sampleApproxCount++;
@@ -969,4 +988,4 @@ async function loadBadActionByHumanSet(supabase) {
   return set;
 }
 
-module.exports = { scoreProfile, scoreTokenFromHolders, aggregateTokenScore, applyLowFloatPenalty, classifyHolder, classifyHolderDetail, zhuangSubtype, computeZhuangRetail, computeZhuangRetailRatio, STRATEGIES, DEFAULT_PARAMS, setBadActionByHumanSet, loadBadActionByHumanSet, maybeRefreshBadActionByHumanSet, isSniperLikeProfile: _isSniperLike };
+module.exports = { scoreProfile, scoreTokenFromHolders, aggregateTokenScore, applyLowFloatPenalty, classifyHolder, classifyHolderDetail, zhuangSubtype, computeZhuangRetail, computeZhuangRetailRatio, STRATEGIES, DEFAULT_PARAMS, NEW_WALLET_NEUTRAL_SCORE, setBadActionByHumanSet, loadBadActionByHumanSet, maybeRefreshBadActionByHumanSet, isSniperLikeProfile: _isSniperLike };

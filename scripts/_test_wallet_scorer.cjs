@@ -16,6 +16,8 @@
  *      sniper 否决、creator 豁免、人工标覆盖
  *  11) computeZhuangRetail 加权聚合 + 散=0 → computeZhuangRetailRatio Infinity
  *  12) scoreTokenFromHolders 聚合 + topN 切片 + lowFloat 惩罚 + creator 新钱包中性分 1.5
+ *      + BSC 新钱包中性分 2.2（用户 2026-09-29 裁定先观察：非 creator、source=realtime、
+ *        tokenCount<=1、只升不降；creator 维持 1.5 档不叠加；offline 系不豁免）
  *
  * 用法：node scripts/_test_wallet_scorer.cjs
  */
@@ -24,7 +26,7 @@ const {
     scoreProfile, scoreTokenFromHolders, aggregateTokenScore, applyLowFloatPenalty,
     classifyHolder, classifyHolderDetail, zhuangSubtype,
     computeZhuangRetail, computeZhuangRetailRatio,
-    DEFAULT_PARAMS, setBadActionByHumanSet, isSniperLikeProfile,
+    DEFAULT_PARAMS, NEW_WALLET_NEUTRAL_SCORE, setBadActionByHumanSet, isSniperLikeProfile,
 } = require('../src/services/wallet-scorer');
 
 let passed = 0, failed = 0;
@@ -545,15 +547,16 @@ function mkProfile(o = {}) {
         mkProfile({ address: '0xA', tokenCount: 50, totalBnb: 80, avgBnb: 4 }),          // → 4.25
         mkProfile({ address: '0xB', tokenCount: 5, totalBnb: 0, avgBnb: 0 }),            // → 0.25
         mkProfile({ address: '0xC', isCreator: true, source: 'realtime', tokenCount: 1, rawTotal: 1, totalBnb: 0, avgBnb: 0 }), // → 提 1.5
-        mkProfile({ address: '0xD', source: 'realtime', tokenCount: 5, rawTotal: 5, totalBnb: 0, avgBnb: 0 }),  // 非 creator → 0.25
+        mkProfile({ address: '0xD', source: 'realtime', tokenCount: 5, rawTotal: 5, totalBnb: 0, avgBnb: 0 }),  // tokenCount>1 → 不提
         mkProfile({ address: '0xE', isCreator: true, source: 'offline', tokenCount: 1, rawTotal: 1, totalBnb: 0, avgBnb: 0 }), // source 非 realtime → 不提
     ];
     const ws = scoreTokenFromHolders(profiles, { walletHoldingPct: 50 }, { strategy: 'v1', topN: 20, topNMode: 'all' });
     approx(profiles[0].score, 4.25, 1e-9, 'A 评分写回 4.25');
     approx(profiles[1].score, 0.25, 1e-9, 'B 评分写回 0.25');
-    eq(profiles[2].score, 1.5, 'C creator realtime tokenCount1 → 中性分 1.5');
+    eq(profiles[2].score, 1.5, 'C creator realtime tokenCount1 → 中性分 1.5（不被 2.2 再抬）');
     eq(profiles[2].scoreBreakdown.creatorNewNeutral, true, 'C creatorNewNeutral 标记');
-    approx(profiles[3].score, 0.25, 1e-9, 'D 非 creator 维持 0.25');
+    eq(profiles[2].scoreBreakdown.newWalletNeutral, undefined, 'C 不叠加 newWalletNeutral');
+    approx(profiles[3].score, 0.25, 1e-9, 'D tokenCount=5 超新钱包门维持 0.25');
     approx(profiles[4].score, 0.25, 1e-9, 'E source=offline 不提分');
     eq(ws.holderCount, 5, 'holderCount');
     eq(ws.scoredHolderCount, 5, 'scoredHolderCount');
@@ -563,6 +566,45 @@ function mkProfile(o = {}) {
     const withFp = profiles.map((p, i) => ({ ...p, floatPct: [60, 20, 10, 5, 5][i] }));
     const ws2 = scoreTokenFromHolders(withFp, { walletHoldingPct: 50 }, { strategy: 'v1', topN: 20, topNMode: 'all' });
     approx(ws2.totalScore, 4.25 * 0.6 + 0.25 * 0.2 + 1.5 * 0.1 + 0.25 * 0.05 + 0.25 * 0.05, 1e-9, '端到端聚合 Σscore×fp/100');
+
+    // BSC 新钱包中性分 2.2（用户 2026-09-29 裁定，先观察再定；creator 门不动）
+    {
+        const p1 = [mkProfile({ address: '0xF', source: 'realtime', tokenCount: 1, rawTotal: 1, totalBnb: 0, avgBnb: 0 })]; // THESIS burner 同形状（tokenCount=1）
+        scoreTokenFromHolders(p1, { walletHoldingPct: 50 }, { strategy: 'v1', topN: 20, topNMode: 'all' });
+        eq(p1[0].score, NEW_WALLET_NEUTRAL_SCORE, 'F 非creator realtime tokenCount1 → 2.2');
+        eq(p1[0].scoreBreakdown.newWalletNeutral, true, 'F newWalletNeutral 标记');
+        approx(p1[0].scoreBreakdown.scoreBefore, 0.25, 1e-9, 'F scoreBefore=0.25');
+
+        const p2 = [mkProfile({ address: '0xG', source: 'realtime', tokenCount: 0, rawTotal: 0, totalBnb: 0, avgBnb: 0 })]; // 零历史 burner
+        scoreTokenFromHolders(p2, { walletHoldingPct: 50 }, { strategy: 'v1', topN: 20, topNMode: 'all' });
+        eq(p2[0].score, NEW_WALLET_NEUTRAL_SCORE, 'G tokenCount=0 零历史 → 2.2');
+
+        const p3 = [mkProfile({ address: '0xH', source: 'realtime', tokenCount: 1, rawTotal: 10, totalBnb: 80, avgBnb: 4 })]; // 本高分 → 只升不降
+        scoreTokenFromHolders(p3, { walletHoldingPct: 50 }, { strategy: 'v1', topN: 20, topNMode: 'all' });
+        approx(p3[0].score, 4.25, 1e-9, 'H 高分新钱包不被 2.2 压制（只升不降）');
+        eq(p3[0].scoreBreakdown.newWalletNeutral, undefined, 'H 不打豁免标记');
+
+        const p4 = [mkProfile({ address: '0xI', isCreator: true, source: 'realtime', tokenCount: 1, rawTotal: 1, totalBnb: 0, avgBnb: 0 })];
+        scoreTokenFromHolders(p4, { walletHoldingPct: 50 }, { strategy: 'v1', topN: 20, topNMode: 'all' });
+        eq(p4[0].score, 1.5, 'I creator 维持 1.5 档（2.2 门不叠加）');
+
+        const p5 = [mkProfile({ address: '0xJ', source: 'offline+inc', tokenCount: 0, rawTotal: 0, totalBnb: 0, avgBnb: 0 })];
+        scoreTokenFromHolders(p5, { walletHoldingPct: 50 }, { strategy: 'v1', topN: 20, topNMode: 'all' });
+        approx(p5[0].score, 0.25, 1e-9, 'J source=offline+inc 不豁免（offline 系路径不走 2.2 门）');
+
+        // THESIS 0xa21bb591…7777 案形状锚定（per-dim 用近似画像，只锁方向不锁逐位）：
+        // 大户 offline + burner 新钱包占 57.84% + 老散 offline——豁免前 burner 0.27 把
+        // tokenScore 拖到 1.445 被 2.2 门拦（本案即 2026-09-29 裁定触发源）；豁免后必过门
+        const th = [
+            { ...mkProfile({ tokenCount: 255, rawTotal: 559, totalBnb: 559.7, avgBnb: 1.0 }), address: '0xz', floatPct: 37.31 },
+            { ...mkProfile({ source: 'realtime', tokenCount: 0, rawTotal: 0, totalBnb: 0, avgBnb: 0 }), address: '0xb', floatPct: 57.84 },
+            { ...mkProfile({ tokenCount: 227, rawTotal: 692, totalBnb: 82.4, avgBnb: 0.119 }), address: '0xr', floatPct: 4.85 },
+        ];
+        const agg = scoreTokenFromHolders(th, { walletHoldingPct: 99.99 }, { strategy: 'v1', topN: 20, topNMode: 'all' });
+        const burnerScore = th[1].score;
+        ok(burnerScore === NEW_WALLET_NEUTRAL_SCORE, 'THESIS burner 豁免到 2.2', 'score=' + burnerScore);
+        ok(agg.totalScore > 2.2, 'THESIS 案豁免后 tokenScore 过 2.2 门（豁免前 1.445 被拦）', 'totalScore=' + agg.totalScore.toFixed(3));
+    }
 }
 
 // ═══════════════ scoreProfile 未知策略 throw ═══════════════
