@@ -2343,14 +2343,45 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
         if (!(tokenAmount > 0) || !(tokenPrice > 0)) continue;
 
-        await this._portfolioManager.executeTrade(
-          this._portfolioId,
-          trade.tokenAddress,
-          trade.tradeDirection || trade.direction,
-          new Decimal(tokenAmount),
-          new Decimal(tokenPrice),
-          0.001,
-        );
+        // E5d 重放版精度钳制 + 单票隔离（2026-09-29 Adventures 62897.70879672016 vs …720157 案）：
+        //   DB 金额列是 double，实时链路 PM 20 位 Decimal 余量 Number 化落库后与重放 Decimal
+        //   累加值存在 ~1e-12 相对尾差——全清腿卖量恰好略超持有量时被 PM 严格 lt 校验拒绝，
+        //   旧代码此 throw 逃出循环 →「加载持仓失败」→ 全部持仓丢失（一票尾差全灭 49 票）。
+        //   处理（与 E5d 执行路径修复同族，重放路径无法「不经 Number 往返」——DB 里只有 double）：
+        //   ① 卖单重放遇 Insufficient 且差异 ≤ 相对 1e-9（double 往返固有误差量级，现金差额
+        //      ~1e-10 BNB 可忽略）→ 钳到持有量重试（余量归零删仓 = 实时 sellPct=1 全清语义）；
+        //      真超卖（更大差异 = 数据异常）不钳制，照常失败——不掩盖。
+        //   ② 单票失败只跳过该票（error log 留痕），不再中断其余票的恢复。
+        try {
+          await this._portfolioManager.executeTrade(
+            this._portfolioId,
+            trade.tokenAddress,
+            trade.tradeDirection || trade.direction,
+            new Decimal(tokenAmount),
+            new Decimal(tokenPrice),
+            0.001,
+          );
+        } catch (error) {
+          const direction = trade.tradeDirection || trade.direction;
+          let handled = false;
+          if (direction === 'sell' && /Insufficient token balance/.test(error.message)) {
+            const pos = this._portfolioManager.getPortfolio(this._portfolioId)
+              ?.positions.get(trade.tokenAddress.toLowerCase());
+            const avail = pos ? pos.amount : null;
+            if (avail != null && avail.gt(0)
+              && new Decimal(tokenAmount).minus(avail).lte(avail.times(1e-9))) {
+              await this._portfolioManager.executeTrade(
+                this._portfolioId, trade.tokenAddress, 'sell', avail,
+                new Decimal(tokenPrice), 0.001,
+              );
+              handled = true;
+            }
+          }
+          if (!handled) {
+            this.logger.error(this._experimentId, 'FourMemeWssTradingEngine',
+              `⚠️ 持仓重放单票失败已跳过（其余票继续恢复）: ${trade.tokenAddress} ${direction} ${error.message}`);
+          }
+        }
       }
 
       const portfolio = this._portfolioManager.getPortfolio(this._portfolioId);
