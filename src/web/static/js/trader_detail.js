@@ -7,9 +7,24 @@
  *   - bnb_amount BNB 浮点（母版 sol_amount lamports 整数）→ 金额列直读不除 1e9
  *   - 画像键 totalBnb/avgBnb（母版 totalSolLam/avgSolLam）；评分维度 volume(0-2)+avgBnb(0-2)+hold(flat 0.25)=4.5
  *   - 金额桶阈值（母版 SOL 边界 ×0.4）：dust<0.0004 / tiny<0.02 / small<0.2 / medium<0.8 / big≥0.8 BNB
- *   - 母版的代币分类 badge / bad action 按笔判定 / 创建者画像（creator_token_stats）依赖 pumpfun 侧
- *     token_profile 体系，richer-js 无对应物，裁掉不展示
+ *   - 代币分类 badge：token_profiles 全局表（离线/OPB 崩盘后定性，richer-js 8 类），对齐母版
+ *     tokenClassifications 语义；映射表与 position-analysis 页同款保持站内一致
+ *   - 母版的 bad action 按笔判定 / 创建者画像（creator_token_stats）依赖 pumpfun 侧表，裁掉不展示
  */
+
+// 离线/OPB 代币分类映射（token_profiles.category，richer-js 8 类 + neutral 兜底）
+// ——与 experiment_position_analysis.js 的 TOKEN_PROFILE_MAP 同款（单一视觉口径）
+const TOKEN_PROFILE_MAP = {
+  wash:          { label: '流水盘',     emoji: '🗑️', colorClass: 'text-red-400',     bgClass: 'bg-red-900',     borderClass: 'border-red-700' },
+  high_mcap_wash:{ label: '高市值流水', emoji: '⚠️', colorClass: 'text-yellow-400',  bgClass: 'bg-yellow-900',  borderClass: 'border-yellow-700' },
+  pump_dump:     { label: '拉高出货',   emoji: '📉', colorClass: 'text-orange-400',  bgClass: 'bg-orange-900',  borderClass: 'border-orange-700' },
+  high_mcap:     { label: '高市值',     emoji: '💎', colorClass: 'text-emerald-400', bgClass: 'bg-emerald-900', borderClass: 'border-emerald-700' },
+  quality:       { label: '高质量',     emoji: '🚀', colorClass: 'text-green-400',   bgClass: 'bg-green-900',   borderClass: 'border-green-700' },
+  normal:        { label: '普通',       emoji: '📊', colorClass: 'text-blue-400',    bgClass: 'bg-blue-900',    borderClass: 'border-blue-700' },
+  low_quality:   { label: '低质量',     emoji: '💤', colorClass: 'text-gray-400',    bgClass: 'bg-gray-700',    borderClass: 'border-gray-600' },
+  low_activity:  { label: '低活跃',     emoji: '🔇', colorClass: 'text-cyan-400',    bgClass: 'bg-cyan-900',    borderClass: 'border-cyan-700' },
+  neutral:       { label: '未知',       emoji: '❓', colorClass: 'text-gray-500',    bgClass: 'bg-gray-800',    borderClass: 'border-gray-700' },
+};
 
 class TraderDetail {
   constructor() {
@@ -17,6 +32,7 @@ class TraderDetail {
     this.trades = [];
     this.tokenSymbols = {};
     this.tokenPlatforms = {}; // token_address → platform（fourmeme/flap）
+    this.tokenClassifications = {}; // token_address → {category, source, maxMcap, classifiedAt}（token_profiles）
     this.pageSize = 100;
     this.currentPage = 1;
     this.init();
@@ -93,6 +109,7 @@ class TraderDetail {
       this.trades = result.data || [];
       this.tokenSymbols = result.tokenSymbols || {};
       this.tokenPlatforms = result.tokenPlatforms || {};
+      this.tokenClassifications = result.tokenClassifications || {};
       this.experimentInfo = result.experimentInfo || {};
       if (result.truncated) {
         document.getElementById('truncated-notice').classList.remove('hidden');
@@ -381,6 +398,13 @@ class TraderDetail {
     return addr.length > 12 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
   }
 
+  /** 市值缩写（position-analysis 页 fmtMcap 同款口径） */
+  fmtMcap(v) {
+    if (v == null) return '';
+    if (v >= 1000) return (v / 1000).toFixed(1) + 'k';
+    return v.toFixed(0);
+  }
+
   formatTime(ts) {
     if (!ts) return '-';
     try {
@@ -470,10 +494,19 @@ class TraderDetail {
             </div>
           </div>`
         : '<span class="text-gray-600">-</span>';
+      // 代币分类 badge（token_profiles 离线/OPB 定性；无分类行不显示——多数新票未定性属常态）
+      const cls = this.tokenClassifications[addr];
+      const clsInfo = cls && cls.category ? (TOKEN_PROFILE_MAP[cls.category] || TOKEN_PROFILE_MAP.neutral) : null;
+      const clsSrc = cls && cls.source === 'online' ? '在线' : cls && cls.source === 'offline' ? '离线' : '';
+      const clsMcap = cls && cls.maxMcap != null && cls.maxMcap !== 0 ? ` · 峰值 $${this.fmtMcap(cls.maxMcap)}` : '';
+      const catBadge = clsInfo
+        ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-semibold border whitespace-nowrap ${clsInfo.colorClass} ${clsInfo.bgClass} ${clsInfo.borderClass}" title="代币分类（${clsSrc || '来源未知'}${clsMcap}）">${clsInfo.emoji} ${clsInfo.label}</span>`
+        : '';
       const tokenCell = addr
         ? `<div class="flex items-center gap-1.5 flex-wrap">
             <a href="/token-ticks?token=${encodeURIComponent(addr)}" target="_blank" class="text-yellow-400 hover:underline font-mono text-xs" title="${addr}">${this.escapeHtml(symbol)}</a>
             ${platBadge}
+            ${catBadge}
             <a href="https://gmgn.ai/bsc/token/${addr}" target="_blank" rel="noopener noreferrer" class="text-xs px-1.5 py-0.5 bg-purple-600 hover:bg-purple-700 rounded text-white whitespace-nowrap">📊 GMGN</a>
            </div>`
         : '-';

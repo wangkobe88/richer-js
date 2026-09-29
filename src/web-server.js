@@ -3207,6 +3207,13 @@ class RicherJsWebServer {
           }
         }
 
+        // 代币分类（token_profiles 全局表，离线/OPB 崩盘后定性）：交易记录代币列 badge 展示。
+        // 复用 PositionAnalysisService.getTokenProfileByAddresses（service key + 200 分批，
+        // 查询失败降级空 map 不阻断主列表——对齐 pumpfun 母版 tokenClassifications 字段）
+        const { PositionAnalysisService } = require('./web/services/PositionAnalysisService');
+        const tokenClassifications = await new PositionAnalysisService()
+          .getTokenProfileByAddresses(tokenSet);
+
         // 实验 name + 模式（virtual/backtest/live）：交易记录列 + 实验分布面板展示用
         const experimentInfo = {};
         const expIds = [...new Set(trades.map(t => t.experiment_id).filter(Boolean))];
@@ -3223,6 +3230,7 @@ class RicherJsWebServer {
           truncated,
           tokenSymbols,
           tokenPlatforms,
+          tokenClassifications,
           experimentInfo,
           data: trades,
         });
