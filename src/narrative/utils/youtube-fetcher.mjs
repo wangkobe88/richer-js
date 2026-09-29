@@ -55,6 +55,36 @@ export class YoutubeFetcher {
   }
 
   /**
+   * 归一 get-video-detail 响应载荷为 videoDetails 形状
+   * JustOneAPI 载荷有两种结构（均为合法返回，非异常路径）：
+   * - 包装：payload.videoDetails.{title, shortDescription, channelId, author, thumbnail...}
+   *   （innertube player 原生形状）
+   * - 平铺：payload.{title, description, channel:{id,name}, thumbnails:[...], viewCount...}
+   *   （2026-09-29 熊熊波西案实测当前线上结构——旧代码只读 videoDetails 导致
+   *   所有视频详情拉取恒 null → precheck public_info_fetch_failed 误杀，
+   *   9 个 YouTube 语料 token 死于此）
+   * @param {Object|null} payload - data.data 载荷
+   * @returns {Object|null} 统一 videoDetails 形状；无可识别视频字段返回 null
+   */
+  static parseVideoDetailPayload(payload) {
+    if (!payload) return null;
+    if (payload.videoDetails) return payload.videoDetails;
+    // 平铺结构：至少要有 title 或 description 才算可识别的视频详情
+    if (!(payload.title || payload.description)) return null;
+    return {
+      title: payload.title,
+      shortDescription: payload.description,
+      channelId: payload.channel?.id,
+      author: payload.channel?.name,
+      viewCount: payload.viewCount,
+      likeCount: payload.likeCount,
+      commentCount: payload.commentCount,
+      lengthSeconds: payload.lengthSeconds,
+      thumbnail: { thumbnails: payload.thumbnails || [] }
+    };
+  }
+
+  /**
    * 使用 JustOneAPI 获取视频详细信息
    * @param {string} videoId - YouTube 视频 ID
    * @returns {Promise<Object|null>} 视频信息
@@ -82,12 +112,12 @@ export class YoutubeFetcher {
         return null;
       }
 
-      if (!data.data || !data.data.videoDetails) {
+      // 归一载荷（videoDetails 包装 / 平铺双结构，见 parseVideoDetailPayload 注释）
+      const videoDetails = this.parseVideoDetailPayload(data.data);
+      if (!videoDetails) {
         console.warn('[YoutubeFetcher] 视频数据为空');
         return null;
       }
-
-      const videoDetails = data.data.videoDetails;
 
       return {
         video_id: videoId,
