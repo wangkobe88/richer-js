@@ -17,10 +17,15 @@ export class YoutubeFetcher {
 
   /**
    * 从 YouTube URL 中提取视频 ID
-   * 支持格式：
-   * - youtube.com/watch?v=ID
+   * 支持格式（捕获组统一 [^?&#/]+：videoId 本身不含这些字符，顺带截断畸形
+   * URL 尾巴，如 watch?v=xxx?t=608s 的 ?t=608s 段）：
+   * - youtube.com/watch?v=ID（v 首位，标准）
+   * - youtube.com/watch?…&v=ID（v 非首位，如 watch?t=471&v=…&feature=youtu.be）
    * - youtu.be/ID
    * - youtube.com/embed/ID
+   * - youtube.com/v/ID
+   * - youtube.com/shorts/ID（短视频，JustOneAPI 同 ID 域已实测支持）
+   * - youtube.com/live/ID（直播/直播录像）
    * @param {string} url - YouTube URL
    * @returns {string|null} 视频 ID
    */
@@ -28,10 +33,13 @@ export class YoutubeFetcher {
     if (!url) return null;
 
     const patterns = [
-      /youtube\.com\/watch\?v=([^&]+)/,
-      /youtu\.be\/([^?]+)/,
-      /youtube\.com\/embed\/([^?]+)/,
-      /youtube\.com\/v\/([^?]+)/
+      /youtube\.com\/watch\?v=([^?&#/]+)/,
+      /youtube\.com\/watch\?.*?&v=([^?&#/]+)/,
+      /youtu\.be\/([^?&#/]+)/,
+      /youtube\.com\/embed\/([^?&#/]+)/,
+      /youtube\.com\/v\/([^?&#/]+)/,
+      /youtube\.com\/shorts\/([^?&#/]+)/,
+      /youtube\.com\/live\/([^?&#/]+)/
     ];
 
     for (const pattern of patterns) {
@@ -51,7 +59,7 @@ export class YoutubeFetcher {
    */
   static isValidYoutubeUrl(url) {
     if (!url) return false;
-    return /youtu\.be\/|youtube\.com\/(watch|embed|v)/.test(url);
+    return /youtu\.be\/|youtube\.com\/(watch|embed|v|shorts|live)/.test(url);
   }
 
   /**

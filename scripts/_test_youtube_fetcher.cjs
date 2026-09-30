@@ -154,6 +154,42 @@ async function sectionC(YoutubeFetcher, hasValidDataForAnalysis) {
     hasValidDataForAnalysis({ youtubeInfo: { title: '', description: 'опис відео' } }) === true);
 }
 
+// ═══════════════════════════ D. extractVideoId pattern 全矩阵 ═══════════════════════════
+function sectionD(YoutubeFetcher) {
+  console.log('\nD. extractVideoId pattern 全矩阵（含失败缓存行真实 URL）');
+  const E = YoutubeFetcher.extractVideoId.bind(YoutubeFetcher);
+
+  // 标准格式不回归
+  check('D1 标准 watch?v=', E('https://www.youtube.com/watch?v=LGFMM6JiOb8&si=x&t=91') === 'LGFMM6JiOb8');
+  check('D2 标准 youtu.be', E('https://youtu.be/aKPK_UfOLTY?t=700') === 'aKPK_UfOLTY');
+  check('D3 embed', E('https://www.youtube.com/embed/abc123XYZ_-') === 'abc123XYZ_-');
+  check('D4 /v/', E('https://www.youtube.com/v/vid0ID') === 'vid0ID');
+
+  // 新增 pattern（2026-09-30 §六-33① 补齐）
+  check('D5 shorts', E('https://www.youtube.com/shorts/t3lXLdgAYuk?t=47&feature=share') === 't3lXLdgAYuk');
+  check('D6 live', E('https://www.youtube.com/live/SVk0tkOhtOE?si=KY0Vx5w3k79Lt3JB') === 'SVk0tkOhtOE');
+  check('D7 v 非首位（失败行真实 URL）',
+    E('https://www.youtube.com/watch?t=471&v=ovJLQPNedw0&feature=youtu.be') === 'ovJLQPNedw0');
+  check('D8 v 非首位 http（失败行真实 URL）',
+    E('http://youtube.com/watch?si=t0XSUx4J78epTcIA&t=506&v=u5L9oGtwZAU&feature=youtu.be') === 'u5L9oGtwZAU');
+
+  // 捕获组截断畸形尾巴（失败行真实 URL：v=82HsvG1_Nqk?t=608s）
+  check('D9 畸形 v=xxx?t=608s 截断', E('https://www.youtube.com/watch?v=82HsvG1_Nqk?t=608s') === '82HsvG1_Nqk');
+  check('D10 v= 后带 ?si= 截断',
+    E('https://www.youtube.com/watch?v=u5L9oGtwZAU?si=7NlQgXKfAyCA3VNW&t=2359s') === 'u5L9oGtwZAU');
+
+  // 非视频 URL 维持 null
+  check('D11 post 页面 → null', E('https://www.youtube.com/post/UgkxsoGVPk1iNn2eAJqjS3E_oOGQA_Nk7fVM') === null);
+  check('D12 频道 URL → null', E('https://www.youtube.com/@BinanceUkraine') === null);
+  check('D13 空值 → null', E(null) === null && E('') === null);
+
+  // isValidYoutubeUrl 同步收口（无外部调用者，自洽性）
+  const V = YoutubeFetcher.isValidYoutubeUrl.bind(YoutubeFetcher);
+  check('D14 isValid 认 shorts/live', V('https://www.youtube.com/shorts/x') && V('https://www.youtube.com/live/y'));
+  check('D15 isValid 认标准格式',
+    V('https://www.youtube.com/watch?v=x') && V('https://youtu.be/x'));
+}
+
 // ═══════════════════════════ 主流程 ═══════════════════════════
 (async () => {
   console.log('══ YoutubeFetcher 双结构载荷归一单测 ══');
@@ -164,6 +200,7 @@ async function sectionC(YoutubeFetcher, hasValidDataForAnalysis) {
   await sectionA(YoutubeFetcher);
   await sectionB(YoutubeFetcher);
   await sectionC(YoutubeFetcher, hasValidDataForAnalysis);
+  sectionD(YoutubeFetcher);
 
   console.log(`\n══ 结果: ${passed} 通过 / ${failed} 失败 ══`);
   process.exit(failed > 0 ? 1 : 0);
