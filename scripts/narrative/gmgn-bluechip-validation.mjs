@@ -32,6 +32,15 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '../..');
 process.chdir(ROOT);
 
+// 主动加载 config/.env（GMGN_API_KEY 等在 dbManager require 链之外也要用；
+// 已设的 env 不覆盖）
+for (const line of fs.readFileSync(path.join(ROOT, 'config/.env'), 'utf8').split('\n')) {
+  const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+  if (m && process.env[m[1]] === undefined) {
+    process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
+}
+
 const DATA_DIR = path.join(ROOT, 'data', 'gmgn-bluechip-validation');
 const LIST_FILE = path.join(DATA_DIR, 'list.json');
 const INJECTED_FILE = path.join(DATA_DIR, 'injected.json');
