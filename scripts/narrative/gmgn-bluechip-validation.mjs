@@ -18,6 +18,8 @@
  *   node scripts/narrative/gmgn-bluechip-validation.mjs --inject    # B 类造行（验证实验行 + experiment_tokens）
  *   nohup node scripts/narrative/gmgn-bluechip-validation.mjs --analyze >> data/gmgn-bluechip-validation/run.log 2>&1 &
  *   node scripts/narrative/gmgn-bluechip-validation.mjs --report    # 汇总 → report.md
+ *   nohup node scripts/narrative/gmgn-bluechip-validation.mjs --reanalyze-bluechip >> data/gmgn-bluechip-validation/run.log 2>&1 &
+ *                                                  # 0.52 拦截票重析（名实不符豁免上线后；原地替换 results.jsonl 行）
  *
  * 注意：analyze 用 ignoreCache:true——token_narrative 全局表旧行被 J1.21 口径覆盖
  * （版本刷新，§六-11 既定现状）；验证实验行与注入行不删（去留由用户裁定）。
@@ -82,6 +84,9 @@ function writeJson(file, obj) {
 }
 function appendJsonl(file, obj) {
   fs.appendFileSync(file, JSON.stringify(obj) + '\n');
+}
+function writeJsonl(file, rows) {
+  fs.writeFileSync(file, rows.map(r => JSON.stringify(r)).join('\n') + '\n');
 }
 function readJsonl(file) {
   try {
@@ -417,6 +422,74 @@ async function cmdAnalyze() {
   console.log('分析完成');
 }
 
+// ─────────────────────── --reanalyze-bluechip ───────────────────────
+
+/**
+ * 0.52 same_name_blue_chip 拦截票重析（C34 方案①，2026-10-01 用户裁定）：
+ * 规则 0.52 已修（票龄门 matureAgeDays + 自身体量豁免 + maxValidFdv 脏值帽），
+ * 被 0.52 拦下的拦截票用新规则重跑全链路。
+ *
+ * - 目标 = results.jsonl 中 preCheckRuleName='same_name_blue_chip' 且无 error 的行
+ * - 逐票 analyze(ignoreCache:true, enrichSocialByGmgn:true)，成功后**原地替换**
+ *   该行（其余行原样保留），替换行带 reanalyzedFrom 旧行快照 + reanalyzedAt 时间戳
+ * - 断点续跑 = 行上 reanalyzedAt 存在即完成；失败不替换（保旧 rating 审计），重跑重试
+ * - 预期（对照 /tmp/bluechip-candidates-check.mjs 38 票对照表）：25 张维持 low(0.52)
+ *   （豁免不触发——票龄不足/候选真蓝筹/自身 fdv 不及）；13 张名实不符票豁免后走
+ *   后续链路（可能挂其他 precheck 规则或进 Jev）
+ */
+async function cmdReanalyzeBluechip() {
+  const results = readJsonl(RESULTS_FILE);
+  const idxByAddr = new Map(results.map((r, i) => [r.address, i]));
+  const targets = results.filter(r => r.preCheckRuleName === 'same_name_blue_chip' && !r.error);
+  const todo = targets.filter(r => !r.reanalyzedAt);
+  console.log(`0.52 拦截票 ${targets.length}，已重析 ${targets.length - todo.length}，待重析 ${todo.length}`);
+  if (!todo.length) { console.log('全部已重析，无事可做'); return; }
+
+  const store = readJson(LIST_FILE, null);
+  const metaByAddr = store ? new Map(store.tokens.map(t => [t.address, t])) : new Map();
+  const { NarrativeAnalyzer } = await import('../../src/narrative/analyzer/NarrativeAnalyzer.mjs');
+
+  let ok = 0, fail = 0;
+  for (const old of todo) {
+    const startedAt = Date.now();
+    try {
+      const r = await NarrativeAnalyzer.analyze(old.address, { ignoreCache: true, enrichSocialByGmgn: true });
+      const twitterUrls = r?.classifiedUrls?.twitter;
+      const row = {
+        address: old.address,
+        symbol: r?.token?.symbol || old.symbol,
+        injected: old.injected,
+        rating: r?.rating ?? null,
+        numericRating: r?.numericRating ?? null,
+        reason: (r?.reason || '').slice(0, 300) || null,
+        score: r?.score ?? null,
+        preCheckRuleName: r?.llmAnalysis?.preCheck?.details?.ruleName ?? null,
+        analysisStage: r?.debugInfo?.analysisStage ?? r?.analysis_stage ?? null,
+        hasTwitterCorpus: Array.isArray(twitterUrls) ? twitterUrls.length > 0 : !!twitterUrls,
+        twitterHandle: r?.twitter?.screen_name ?? null,
+        fetchErrorCount: r?.fetchErrors ? Object.keys(r.fetchErrors).filter(k => r.fetchErrors[k]).length : 0,
+        durationMs: Date.now() - startedAt,
+        // 0.52 修正重析标记：旧行快照（审计）+ 时间戳（断点续跑判据）
+        reanalyzedFrom: {
+          rating: old.rating, numericRating: old.numericRating,
+          preCheckRuleName: old.preCheckRuleName, reason: old.reason,
+        },
+        reanalyzedAt: new Date().toISOString(),
+      };
+      const idx = idxByAddr.get(old.address);
+      if (idx == null) throw new Error(`results.jsonl 中找不到行: ${old.address}`);
+      results[idx] = row;
+      writeJsonl(RESULTS_FILE, results);
+      ok++;
+      console.log(`[${ok + fail}/${todo.length}] ${row.symbol} ${old.rating}(${old.numericRating}) → ${row.rating}(${row.numericRating}) preCheck=${row.preCheckRuleName ?? '-'} ${row.durationMs}ms`);
+    } catch (e) {
+      fail++;
+      console.log(`[${ok + fail}/${todo.length}] ${old.symbol || old.address} 异常(旧行保留可重跑): ${e?.message || e}`);
+    }
+  }
+  console.log(`重析完成: ok=${ok} fail=${fail}（失败行保留原样，重跑本命令重试）`);
+}
+
 // ─────────────────────── --report ───────────────────────
 
 async function cmdReport() {
@@ -533,10 +606,11 @@ const arg = process.argv[2];
 const cmds = {
   '--smoke': cmdSmoke, '--fetch': cmdFetch, '--classify': cmdClassify,
   '--inject': cmdInject, '--analyze': cmdAnalyze, '--report': cmdReport,
+  '--reanalyze-bluechip': cmdReanalyzeBluechip,
 };
 const fn = cmds[arg];
 if (!fn) {
-  console.error('用法: node scripts/narrative/gmgn-bluechip-validation.mjs --smoke|--fetch|--classify|--inject|--analyze|--report');
+  console.error('用法: node scripts/narrative/gmgn-bluechip-validation.mjs --smoke|--fetch|--classify|--inject|--analyze|--reanalyze-bluechip|--report');
   process.exit(1);
 }
 ensureDataDir();

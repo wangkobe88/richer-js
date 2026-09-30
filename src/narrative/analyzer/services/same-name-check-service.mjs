@@ -278,11 +278,23 @@ class SameNameCheckService {
    * created_at 有效时，创建时间相近的候选排除；无锚或候选无 created_at（无法
    * 证明同事件）维持拦截——富贵案蹭既有老蓝筹（创建时间差 80+ 天）语义不变。
    *
+   * 名实不符豁免（2026-09-30 用户裁定，C34 GMGN 蓝筹验证）：拦截票自身已是
+   * 蓝筹体量（票龄 ≥ matureAgeDays 的成熟票）且自身 fdv ≥ 候选最大有效 fdv
+   * 时，「蓝筹候选」实为同名小盘（DOGE 案：$249.7M 仿盘 vs 蓝筹候选 $1.69M
+   * ——候选不配称蓝筹，拦截不成立）。候选 fdv > maxValidFdv 按 AVE 脏数据
+   * 剔除（实测 $119T/$1.83T 天文数字行过组合门，§六-29）。fail-closed：
+   * 票龄不足（A 类新票语义零扰动）/无锚/AVE 结果无自身行/自身 fdv 脏或缺失/
+   * 候选有效 fdv 全缺（比特币案：候选全 ≥1T）→ 维持拦截。注意体量比较是
+   * now-based 快照口径（AVE 无历史 fdv，比较「现在的自己 vs 现在的候选」），
+   * 刻意不按 09-23 时效基准裁定锚定创建时刻——重析成熟票的豁免资格随票龄
+   * 增长自然获得。
+   *
    * @param {string} tokenSymbol - 目标代币 symbol
    * @param {string} selfAddress - 目标代币地址（大小写不敏感排除自己，防自我误拦）
    * @param {number|null} [tokenCreatedAtSec] - 目标代币创建时间（秒级锚，
    *   缺省不豁免——无法证明同事件，维持原拦截语义）
-   * @returns {Promise<Object>} { success, isConflict, matched[]（按 fdv 降序） }
+   * @returns {Promise<Object>} { success, isConflict, matched[]（按 fdv 降序）,
+   *   exempt|null（名实不符豁免审计：{ selfFdv, candMaxFdv, ageDays }） }
    */
   async checkBlueChipConflict(tokenSymbol, selfAddress, tokenCreatedAtSec = null) {
     try {
@@ -304,6 +316,9 @@ class SameNameCheckService {
       const minHolders = blueChipConfig.minHolders ?? 10000;
       const minTxCount = blueChipConfig.minTxCount ?? 100;
       const sameEventWindowSec = blueChipConfig.sameEventWindowSec ?? 3600;
+
+      const matureAgeDays = blueChipConfig.matureAgeDays ?? 7;
+      const maxValidFdv = blueChipConfig.maxValidFdv ?? 1e12;
 
       const toNum = v => parseFloat(v) || 0;
       const anchor = toNum(tokenCreatedAtSec);
@@ -334,7 +349,33 @@ class SameNameCheckService {
         }))
         .sort((a, b) => b.fdv - a.fdv);
 
-      if (matched.length > 0) {
+      // 名实不符豁免（见方法 javadoc，C34 2026-09-30）：自身已是蓝筹体量的
+      // 成熟票不被同名小盘拦截。自身行取自 AVE 同次搜索原始结果（candidates
+      // 已排除自己）——零新配额；全部 fail-closed 方向见 javadoc。
+      let exempt = null;
+      if (matched.length > 0 && anchor > 0) {
+        const ageSec = Math.floor(Date.now() / 1000) - anchor;
+        if (ageSec >= matureAgeDays * 86400) {
+          const selfRow = results.find(t => String(t.token || '').toLowerCase() === self);
+          const selfFdv = selfRow ? toNum(selfRow.fdv) : 0;
+          const validFdvs = matched.filter(m => m.fdv > 0 && m.fdv < maxValidFdv).map(m => m.fdv);
+          if (selfRow && selfFdv > 0 && selfFdv < maxValidFdv && validFdvs.length > 0) {
+            const candMaxFdv = Math.max(...validFdvs);
+            if (selfFdv >= candMaxFdv) {
+              exempt = { selfFdv, candMaxFdv, ageDays: +(ageSec / 86400).toFixed(1) };
+              this.logger.info('SameNameCheck', '同名蓝筹名实不符豁免', {
+                symbol: tokenSymbol,
+                selfFdv,
+                candMaxFdv,
+                candidates: matched.length,
+                ageDays: exempt.ageDays,
+              });
+            }
+          }
+        }
+      }
+
+      if (matched.length > 0 && !exempt) {
         this.logger.info('SameNameCheck', '检测到同名蓝筹', {
           symbol: tokenSymbol,
           count: matched.length,
@@ -342,10 +383,10 @@ class SameNameCheckService {
         });
       }
 
-      return { success: true, isConflict: matched.length > 0, matched };
+      return { success: true, isConflict: matched.length > 0 && !exempt, matched, exempt };
     } catch (error) {
       this.logger.error('SameNameCheck', '蓝筹检查失败', { error: error.message });
-      return { success: false, isConflict: false, error: error.message, matched: [] };
+      return { success: false, isConflict: false, error: error.message, matched: [], exempt: null };
     }
   }
 

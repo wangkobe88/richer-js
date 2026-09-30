@@ -216,7 +216,9 @@
         "minFdv": 100000,
         "minTvl": 50000,
         "minHolders": 10000,
-        "minTxCount": 100
+        "minTxCount": 100,
+        "matureAgeDays": 7,
+        "maxValidFdv": 1000000000000
       }
     }
   },

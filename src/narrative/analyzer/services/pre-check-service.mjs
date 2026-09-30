@@ -214,6 +214,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         `检测到同名蓝筹代币：symbol"${tokenSymbol}"已存在体量代币${m.name || m.symbol}(${m.token.slice(0, 10)}..., fdv=$${Math.round(m.fdv).toLocaleString()}, tvl=$${Math.round(m.tvl).toLocaleString()}, ${m.holders}持有人, 24h ${m.txCount}笔交易)，同名蹭名判定拦截`,
         'same_name_blue_chip',
         { scores: { credibility: 0, virality: 0 }, total_score: 0, blueChipMatched: blueChipCheck.matched });
+    } else if (blueChipCheck.exempt) {
+      // 名实不符豁免（C34，2026-09-30）：matched 非空但自身已是蓝筹体量的成熟票
+      // ——isConflict=false 走后续链路；日志与拦截分支对偶便于 run.log grep
+      console.log(`[NarrativeAnalyzer] 同名蓝筹名实不符豁免 (symbol: ${tokenSymbol}, 自身fdv=$${Math.round(blueChipCheck.exempt.selfFdv).toLocaleString()} ≥ 候选max=$${Math.round(blueChipCheck.exempt.candMaxFdv).toLocaleString()}, 票龄${blueChipCheck.exempt.ageDays}天, 候选${blueChipCheck.matched.length}个), 继续评估`);
     } else if (!blueChipCheck.success) {
       console.warn(`[NarrativeAnalyzer] 同名蓝筹检查失败: ${blueChipCheck.error || '未知错误'}，跳过此项检查`);
     }
