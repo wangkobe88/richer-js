@@ -87,8 +87,35 @@ fdv 行说明 AVE 数据质量需在阈值校准时纳入考量（本案拦截�
 ⑤ 0.52 方向性瑕疵 1 例（DOGE 仿盘 $249.7M 被拦 vs 蓝筹候选 Dogecoin $1.69M——
 不比较相对大小，无害）。
 
+**0.52 名实不符修正 + 38 票重析（2026-10-01 用户裁定方案①落地，commit cfee4ba）**：
+38 张 0.52 拦截票对照分析（selfMc vs 候选 maxFdv）发现 13 张「自身已是蓝筹体量被
+同名小盘拦」的方向性瑕疵（DOGE $249.7M vs 候选 $1.69M 最典型）。修生产规则三件：
+**票龄门** `matureAgeDays`(7d，A 类实盘新票语义零扰动) + **自身体量豁免**（AVE 同次
+搜索自带自身行 fdv ≥ 候选最大有效 fdv → 候选不配称蓝筹，拦截不成立；now-based
+快照口径，刻意不按 09-23 时效基准锚定创建时刻——重析成熟票豁免资格随票龄自然
+获得）+ **脏 fdv 帽** `maxValidFdv`($1T，AVE $119T/$1.83T 天文数字行只过组合门、
+不参与豁免比较)；五向 fail-closed 维持拦截（票龄不足/无锚/无自身行/自身 fdv 脏/
+候选有效 fdv 全缺）。自身行取同次搜索原始 results 零新配额。单测
+`node scripts/_test_blue_chip_check.cjs` E 节 14 断言（45 全绿，DOGE 案数值锚定/7 天
+边界/三向脏值/比特币案全脏 fail-closed/混合候选取有效值/FIST 形状不豁免）。
+重析子命令 `--reanalyze-bluechip`（0.52 拦截行原地替换 + `reanalyzedFrom` 旧行快照
+审计 + `reanalyzedAt` 断点标记，失败保留旧行重试）。
+
+**重析结果（38/38 成功，182 跑）**：维持 0.52 拦截 **24 张**（豁免未触发——票龄
+不足/候选真蓝筹/自身不及，回归验证通过零误放）；名实不符豁免命中 **12 张**（DOGE
+$201M/SPX/TRX/short/UNI/龙虾/招财猫/MarsCoin/CZ/SPCXB/我踏马来了/中国人能飞）；
+AVE 数据漂移致 matched 变空放行 2 张（GCAT/CMC，候选组合门数据隔日变化）。豁免后
+去向——**翻 high 仅 2 张**（SPX/short 走 prestage project 通道，P1.4）；rating=null
+1 张（TRX 撞 §六-37 bug，第 5 票实证）；Jev/prestage 判 low 7 张；其他 precheck
+规则拦 4 张（SPCXB→no_public_info、我踏马来了/中国人能飞/CZ→public_info_fetch_
+failed）。总体分布 high 21→23 / low 161→158 / null 4→5，通过率 13.6%→14.7%。
+**结论：修正是精确手术**——豁免只放行「自身已是蓝筹体量」的成熟票（实盘新票
+零扰动），且放行后 14 张中 12 张被后续链路正确处理，真翻案仅 2 张；24 张维持
+拦截证明票龄门没有误放蹭名票。
+
 **遗留**：验证实验行 `2609e300` 与 163 张注入 experiment_tokens 行不删（结果已全局
-化在 token_narrative；去留由用户裁定）；null bug 修复方向待用户裁定（§六-37）。
+化在 token_narrative；去留由用户裁定）；null bug 修复方向待用户裁定（§六-37，
+重析后实证票升至 5 张含 TRX $100M）。
 
 ---
 
@@ -1926,6 +1953,27 @@ unrated 行与失败行解析）、getRatingMeta（web 展示旧数据）、Narr
 - 单测：`scripts/_test_blue_chip_check.cjs`（21 断言零 DB：判定矩阵/缓存共享/
   源码口径防回归）；端到端实测富贵票 ignoreCache 重析命中（见 C27）
 
+### 4.12b 0.52 名实不符豁免（票龄门 + 自身体量豁免 + 脏 fdv 帽，10-01，C34 方案①落地）
+
+- **动机**：C34 GMGN 验证 38 张 0.52 拦截票对照发现 13 张方向性瑕疵——自身已是
+  蓝筹体量的成熟票被同名**小盘**拦（DOGE 仿盘 $249.7M vs「蓝筹候选」Dogecoin
+  $1.69M）：0.52 只判候选自身体量、不比较相对大小，「候选不配称蓝筹」时拦截不成立
+- **三件套**（`checkBlueChipConflict`，config `blueChip.matureAgeDays=7` /
+  `maxValidFdv=$1T`）：① **票龄门**——票龄 ≥7d 才评估豁免（A 类实盘新票语义
+  零扰动）；② **自身体量豁免**——AVE 同次搜索自带自身行（candidates 已排除
+  自己）fdv ≥ 候选最大有效 fdv → `exempt={selfFdv,candMaxFdv,ageDays}`，isConflict
+  =false 放行，matched 保留审计；③ **脏 fdv 帽**——候选 fdv ≥$1T（AVE $119T/
+  $1.83T 天文数字行）只在豁免比较中剔除、组合门不动
+- **fail-closed 五向**：票龄不足/无锚/AVE 无自身行/自身 fdv 脏或缺失/候选有效
+  fdv 全缺（比特币案）→ 维持拦截
+- **now-based 快照口径**：AVE 无历史 fdv，比较「现在的自己 vs 现在的候选」，
+  刻意不按 09-23 时效基准锚定创建时刻——重析成熟票的豁免资格随票龄增长自然获得
+- pre-check 侧豁免分支日志与拦截分支对偶（run.log grep）；重析工具
+  `--reanalyze-bluechip`（原地替换 + reanalyzedFrom 快照 + 断点标记）
+- 单测：`_test_blue_chip_check.cjs` E 节 14 断言（全量 45）；38 票重析回归——
+  24 维持拦（零误放）/12 豁免/2 AVE 漂移放行，真翻案仅 SPX/short 两张 high
+  （详见 C34 台账段）
+
 ## 五、策略侧应用（回测 E1→E2→E3→E4，源 572033ad）
 
 | 实验 | id | preBuyCheckCondition | 差异 | 结果 |
@@ -2214,7 +2262,11 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     wss 行语料在顶层 `twitterUrl`/`webUrl`（corpusEnrich 合并），status id 提取与
     appendix 构造未适配，两处对 wss 票继续空转（created_at 口径已修，0.58 已恢复）；
     ② 蓝筹组合门阈值（fdv 100k / tvl 50k / holders 10k / txCount 100）按富贵案定标，
-    误拦率（如真二发盘、同 symbol 无关新叙事盘被硬拦）待实跑积累后回看校准
+    误拦率（如真二发盘、同 symbol 无关新叙事盘被硬拦）待实跑积累后回看校准。
+    **2026-10-01 部分收口**：C34 已积累 AVE 假 fdv 实证素材（候选池含 $1.83T/$119T
+    天文数字行过组合门）；`maxValidFdv`($1T) 帽先落在 0.52 名实不符豁免的比较层
+    （脏值不参与自身 vs 候选比较），组合门本身对脏 fdv 行为未动（比特币案候选全脏
+    fail-closed 维持拦是当前语义）——组合门是否叠加脏值过滤待阈值校准时一并裁定
 30. **J1.17 cashtag 改道生效面**（2026-09-28 C28 落地后遗留）：
     ① superIP 快车道未挂改道（W 两题不采信、preScores 体系不同）——注册表账号推文含
     $TICKER + 币名骑乘的场景（如 CZ 荐币式）仍走快车道数学，是否补挂待裁定；
@@ -2331,7 +2383,8 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     校准观察点，新 E 类票的 magnitude/dim2 分布回看时留意
 
 37. **prestage data_fetch_failed 路径 rating=null 落库 bug + apidance 空 stub
-    上游（2026-09-30 C34 GMGN 蓝筹验证发现，4 票实证）**：
+    上游（2026-09-30 C34 GMGN 蓝筹验证发现，4 票实证；2026-10-01 0.52 修正重析
+    又添 TRX $100M 第 5 票——豁免放行后走到同一路径）**：
     **形状**：蝴蝶人生 $24.5M（mc24h#24）/ AAPLB $5.8M（mc24h#62）/ Freedom of
     Money $2.4M / Taraxacum $52K 四票（全 B 类注入票）token_narrative 行
     `prompt_type='account_community'`、`is_valid=true`、pre_check/prestage/
@@ -2363,7 +2416,9 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     **附带观察**：① GMGN creation_timestamp 对部分 B 类票不可靠（负年龄 10 张：
     accountAgeDays 为负触发 P1.3 降档——降档方向恰好保守无害，但口径脏）；
     ② AVE 假 fdv 过 0.52 组合门实证（候选池含 $1.83T/$119T 天文数字行，
-    §六-29 阈值校准素材）；③ 0.52 方向性瑕疵 1 例（DOGE 仿盘 $249.7M 被拦
-    vs 蓝筹候选 Dogecoin $1.69M——0.52 只判候选自身体量不比较相对大小，
-    本案拦截结论正确，无害记录）
+    §六-29 阈值校准素材）；③ 0.52 方向性瑕疵——**已修复（2026-10-01 用户裁定
+    方案①，commit cfee4ba）**：票龄门 matureAgeDays(7d) + 自身体量豁免 + 脏 fdv
+    帽 maxValidFdv($1T)，38 票重析 24 维持拦/12 豁免/2 漂移放行，详见 C34 台账段；
+    **TRX 重析实证本 bug 第 5 票**（$100M 仿盘豁免放行 → account 路径拉取失败 →
+    null 行，rating 语义丢失的实证面从 4 票扩到 5 票）
 
