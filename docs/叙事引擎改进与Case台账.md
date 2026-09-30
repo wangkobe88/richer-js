@@ -92,10 +92,16 @@ run 抖动翻掉风险）。
 
 **防翻案边界**：YAYA（人名 0 档）、Muse 桌面版（版本更新 1-2 档）、ChainPulse
 （无名文章构想 1-2 档）按题面分档均 <3 维持拦截；仅「内容作品 + 双达标」形状
-翻案。豁免后本案预测：事件管线 ~48.93+关联+质量 → mid/high。
+翻案。
 
-**部署**：182 磁盘更新 + narrative engine 重启生效（superIP 通道仅 engine 进程
-消费，在跑实验直调进程重启节奏同 §六-30② 惯例属用户决策点）。
+**部署 + 实测验证（182，09-30 12:13）**：commit `0d0040d`；engine 重启（pid
+3635501，Realtime 正常）后 MTAT 本尊重析（reanalyze-tokens ignoreCache）——
+**豁免路径精确生效非打分抖动**：nameReferent 仍 minor_other 0.48/blockMass
+0.67（nameReferentBlock 照常命中，YAYA 规矩原判不变）+ **referentMemeability
+3.86 ≥3 → nameReferentExempt=true** → pass=true 走事件管线 eventScore 49.62
+（82.7×0.6）+ 关联 20 + 质量 15.58 = **85.2 high**；prompt_type 落
+`super_ip_fast(币安中文/S级/jev-J1.21)`。在跑实验直调进程重启节奏同 §六-30②
+惯例属用户决策点。
 
 ---
 
