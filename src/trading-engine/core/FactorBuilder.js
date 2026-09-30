@@ -179,6 +179,9 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     earlyTradesTop1BuyBnb: preBuyCheckResult.earlyTradesTop1BuyBnb ?? 0,
     earlyTradesBuyBnb: preBuyCheckResult.earlyTradesBuyBnb ?? 0,
     earlyTradesTop1BuyCovered: preBuyCheckResult.earlyTradesTop1BuyCovered ?? 0,
+    // 聚合路由占比因子（GMGN 主导盘拦截，0x1de460 案 2026-09-30）：covered=0 时为 0 值放行
+    earlyTradesRouterPct: preBuyCheckResult.earlyTradesRouterPct ?? 0,
+    earlyTradesRouterCovered: preBuyCheckResult.earlyTradesRouterCovered ?? 0,
     // 钱包集中度因子
     walletTop3VolumeRatio: preBuyCheckResult.walletTop3VolumeRatio || 0,
     walletTop1VolumeRatio: preBuyCheckResult.walletTop1VolumeRatio || 0,

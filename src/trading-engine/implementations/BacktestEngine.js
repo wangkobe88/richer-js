@@ -37,7 +37,7 @@ const TOKEN_CHUNK_SIZE = 100;     // .in('token_address') 地址批量护栏（P
 const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐实时引擎 30s）
 // ticks 拉取列清单单一事实源：拉取查询与 BacktestTickCache columnsTag 同源
 //（列变更时旧缓存自动判废重拉，不静默缺列）
-const TICK_SELECT_COLUMNS = 'id, token_address, trade_type, trader_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier, platform';
+const TICK_SELECT_COLUMNS = 'id, token_address, trade_type, trader_address, sender_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier, platform';
 
 class BacktestEngine extends AbstractTradingEngine {
   constructor(options = {}) {
@@ -472,6 +472,7 @@ class BacktestEngine extends AbstractTradingEngine {
         token_address: row.token_address,
         trade_type: row.trade_type,
         trader_address: row.trader_address,
+        sender_address: row.sender_address || null,  // 真实买家 tx.from（0x1de460 案 2026-09-30）；NULL 回退 trader（消费侧 COALESCE）
         price_bnb: Number(row.price_bnb),
         price_usd: row.price_usd === null ? null : Number(row.price_usd),
         bnb_amount: Number(row.bnb_amount || 0),

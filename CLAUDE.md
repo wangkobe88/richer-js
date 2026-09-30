@@ -45,6 +45,9 @@ node scripts/_test_precheck_fail_retry.cjs
 # live 加固层零 DB 单测（assertMinOut/_awaitReceipt/FlapPortalTrader 打桩）
 node scripts/_test_live_hardening.cjs
 
+# sender 口径切换 + 聚合路由占比因子零 DB 单测（0x1de460 GMGN 案）
+node scripts/_test_sender_switch_and_router.cjs
+
 # 回测 ticks 装载缓存零 DB 单测（BacktestTickCache 状态机/引擎级对拍）
 node scripts/_test_backtest_tick_cache.cjs
 ```
@@ -78,7 +81,8 @@ WSS 订阅由**常驻 watcher**（`src/watcher/`，单进程双平台，182 scre
 │     EOA kind 缓存命中同步进 buffer 零延迟；合约/未知走 getCode +          │
 │     getTransactionByHash 反查后回推（RPC=dataseed 池轮询，可切            │
 │     ankrFromEnv）；失败/溢出/停机 → NULL 保行不丢（绝不冒充）。           │
-│     消费侧本期不切（top1/sniper/TPA 仍读 trader_address，先积累对拍）    │
+│     消费侧已切 sender 口径（2026-09-30 案 A）：早期窗口因子 wallet 聚合    │
+│     COALESCE(sender, trader)；TPA/离线画像仍 trader（二期裁定）          │
 │   logs 订阅带 topic0 白名单（TOPIC0_MAP，2026-09-28 ANKR 降费 flap -74%/  │
 │   fourmeme -42%；unknownTopic0 计数归零=新事件类型发现盲化，诊断时临时    │
 │   去掉订阅 params 的 topics 字段重订阅一天）                              │
@@ -201,11 +205,19 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 **Top1 买入集中度因子**（单钱包主导拦截，2026-09-29 buy-dominance 扫描案上线；用户裁定「买的时候就一个钱包占据绝大多数流动性（购买量）」才拦——叙事好、后期多人稀释的不算）：
 
-- **口径**（`EarlyParticipantCheckService._calculateTop1BuyShare`，复用 90s 窗 trades 零新 tick 查询）：首窗**纯买入量**（BNB）按钱包聚合，`earlyTradesTop1BuySharePct` = 最大钱包买入/窗口总买入×100，伴随 `earlyTradesTop1BuyBnb` / `earlyTradesBuyBnb` / `earlyTradesTop1BuyCovered`。**刻意不含卖腿**（既有 `walletTop1VolumeRatio` 是买卖混合口径，不重复）；协议地址剔除。扫描脚本 `scripts/find-buy-dominance-tokens.cjs`（182，75 万买行 0.5min）
+- **口径**（`EarlyParticipantCheckService._calculateTop1BuyShare`，复用 90s 窗 trades 零新 tick 查询）：首窗**纯买入量**（BNB）按钱包聚合，`earlyTradesTop1BuySharePct` = 最大钱包买入/窗口总买入×100，伴随 `earlyTradesTop1BuyBnb` / `earlyTradesBuyBnb` / `earlyTradesTop1BuyCovered`。**刻意不含卖腿**（既有 `walletTop1VolumeRatio` 是买卖混合口径，不重复）；协议地址**双地址层剔除**（wallet 层 COALESCE 后协议行落 tx.from EOA，trader 裸字段层恒可识别）。扫描脚本 `scripts/find-buy-dominance-tokens.cjs`（182，75 万买行 0.5min）。**钱包口径已切 sender（2026-09-30 案 A，0x1de460 GMGN 路由案）**：`_mapTickRow` 单点 `wallet_address = sender_address || trader_address`（NULL 回退 = 旧行为等价），top1/sniper/netBuy/uniform/WalletCluster 全下游自动生效——公共路由行不再聚成单一巨型钱包虚抬集中度；GMGN 主导盘负信号由下述 routerPct 因子显式接管
 - **拦截写法**：`earlyTradesTop1BuySharePct < 60 OR earlyTradesBuyBnb < 1`——OR 腿复刻验证口径的 1 BNB 尘埃豁免（首窗买入不足 1 BNB 份额噪声大不拦）。covered 语义与 sniper 同构：age>90s 或 launchAt 缺失 → 0 值放行
 - **验证结论**（share≥0.6 且首窗≥1 BNB，109 closed 票）：亏率 86.2%，避免亏 12.684 / 放弃赢 0.559 BNB（22:1）；单实验 9e413cbe 55 票拦 28 票净额 +0.198→+2.072。**与 sniperPct 互补**：7777 家族（top1 sniper 率 69%）画像门可拦，4444 家族（低频新钱包 sniper 率 3%、单笔可占 98%）只靠本因子；叙事 2/3 级命中 0 张零误伤。0.6→0.7 少拦的 59 票净 -6.6 BNB（0.6 是正确档）
 - **单测**：`node scripts/_test_top1_buy_share.cjs`（33 断言零 DB：聚合矩阵/0x01bf 案数值锚定/performCheck 集成/源码口径四节）
 - **配对回测 expired 洞（2026-09-29，a7e34059 基线 vs 8bd5ef0b 加门，9e413cbe 克隆同窗并发）**：净额打平（拦 5 亏票 +0.658 vs 20 张「过期票」晚进车 −0.914 恰好抵消）——根因 = top1 因子 covered=0（>90s 窗过期）0 值放行语义 × 买腿 30min 年龄窗错配，主导票 35-115s 高价接盘。象限验证：全部盈利买点 ≤74s（early_clean +1.611），90s 上限零误伤。修正写法 `tokenAgeSec < 90 AND earlyTradesTop1BuySharePct < 60 AND earlyTradesTop1BuyCovered == 1`（修正版回测 120caca6 预测 ≈ +2.23）
+
+**聚合路由买入占比因子**（GMGN 主导盘拦截，2026-09-30 0x1de460 案上线，与 sender 口径切换配套——单切口径不配套新门会放走差票）：
+
+- **身份鉴定**：`0x1de460f363af910f51726def188f9004276bf4bc` = **GMGN BSC 聚合路由**（TransparentUpgradeableProxy 代理壳 1810 万 tx 多链部署；init data 内嵌 GMGN fee collector `0xb8159b…931c9c8` 自证 + impl 选择器 pancakeV3SwapCallback/algebraSwapCallback/V4 swapCallback/多协议结构化 swap 聚合路由指纹 + Dune GMGN dashboard 直接引用）。flap 27.9% 成交行 trader 落它——GMGN 是 BSC meme 盘最大散户流量入口之一，用户自有钱包直连路由下单（tx.from = 真实买家）
+- **口径**（`EarlyParticipantCheckService._calculateRouterShare`，复用同一 90s 窗 trades 零新查询）：首窗纯买入量（BNB，与 top1 同窗同构）中 `trader_address`（msg.sender 层，**与 wallet COALESCE 无关**）落在 `AGGREGATOR_ROUTER_ADDRS`（现仅 GMGN 一址，Set 便于扩展）的行占比×100 → `earlyTradesRouterPct` / `earlyTradesRouterCovered`。covered 语义与 top1 同构（age>90s 或 launchAt 缺失 → 0 值放行）
+- **对拍依据**（8aca25e2 回填 16,393 行后双口径终审）：被拦 signal 459/token 192；sender 口径翻案 174（top1 62-87 → 4.9-20.5），但假想放行 TP **-8.566 BNB**（亏票 114/173=66%、单票均值 -0.0495；峰值 +45 是 7777 家族对倒深 V 幻觉）——router 主导盘 = 散户热度/bot 蜂拥盘，top1 门歪打正着当「bot 盘代理」；仍拦 4 票（真实主导）TP +0.019。拦截写法 `earlyTradesRouterPct < 60`（对拍锚定档）
+- **回测装载链**：BacktestEngine `TICK_SELECT_COLUMNS` 加 `sender_address`（columnsTag 漂移 → 缓存全量重拉一次，设计内）+ `_loadWssTicks` tick 对象透传 + replay 索引伪行透传
+- **单测**：`node scripts/_test_sender_switch_and_router.cjs`（46 断言零 DB 六节：COALESCE 矩阵/router 矩阵/翻案票形状集成/协议双地址层剔除/回测装载链/源码口径）；旧 `_test_top1_buy_share.cjs` 零改动仍过（无 sender 输入 COALESCE 等价旧行为的机器证明）
 
 **tokenAgeSec 秒口径年龄因子**（2026-09-29 同案上线；用户裁定方案 B——`age` 单位是分钟、改单位会静默翻转存量实验条件语义（红线），故新增独立秒键）：
 
@@ -262,7 +274,7 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 ### Database
 
-Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; watcher 写入行 experiment_id=NULL; `sender_address` = 真实交易发起者 tx.from（BSC 恒 EOA，watcher 侧 SenderResolver 解析，2026-09-30 0x1de460 公共路由案——`trader_address` 是事件 msg.sender，公共路由行落 router 合约占全 flap 27.9%，top1/sniper/TPA 画像被污染；NULL=未解析，等于 trader_address 即 EOA 直连；存量行与消费侧切换暂缓，先积累 sender vs trader 对拍；DDL `scripts/sql/add-wss-ticks-sender-address.sql`）；`quote_token` 标记 flap 非 BNB 计价盘——collector 按三级汇率源换算 price_bnb/bnb_amount 后落库（2026-09-30 wTCENTx 案：① PCS V2 quote/WBNB reserves ② PCS V3 quote/WBNB 各 fee 档 liquidity>0 最深池 slot0 ③ PCS V3 quote/USDT 同门槛 → ÷ bnbUsd 中转；零流动性 V3 池挂价不可信必须拦——同案 WBNB 对挂价偏离真值 20%），三级全 miss 跳行（宁跳不冒充），BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat/token_quote_set 低频事件通道，token 级全局表不挂 experiment 维度；token_quote_set 为 flap quote 映射持久化行，payload 含 blockNumber/logIndex 供水位增量回放), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
+Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; watcher 写入行 experiment_id=NULL; `sender_address` = 真实交易发起者 tx.from（BSC 恒 EOA，watcher 侧 SenderResolver 解析，2026-09-30 0x1de460 公共路由案——`trader_address` 是事件 msg.sender，0x1de460f3…4bc = **GMGN BSC 聚合路由**（代理壳 + init data 内嵌 GMGN fee collector 0xb8159b…9c8 自证），flap 27.9% 行落它；消费侧已切 sender 口径（案 A 同日）：早期窗口因子 wallet 聚合 COALESCE(sender, trader)、router 因子判 trader 层、协议地址双地址层剔除，TPA/离线画像仍 trader（二期）；NULL=未解析回退 trader（= EOA 直连旧行为等价）；8aca25e2 被拦窗 16,393 行已回填（备份 data/backfill-8aca-sender-backup.json）；存量全量回填 42 万行暂缓；DDL `scripts/sql/add-wss-ticks-sender-address.sql`）；`quote_token` 标记 flap 非 BNB 计价盘——collector 按三级汇率源换算 price_bnb/bnb_amount 后落库（2026-09-30 wTCENTx 案：① PCS V2 quote/WBNB reserves ② PCS V3 quote/WBNB 各 fee 档 liquidity>0 最深池 slot0 ③ PCS V3 quote/USDT 同门槛 → ÷ bnbUsd 中转；零流动性 V3 池挂价不可信必须拦——同案 WBNB 对挂价偏离真值 20%），三级全 miss 跳行（宁跳不冒充），BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat/token_quote_set 低频事件通道，token 级全局表不挂 experiment 维度；token_quote_set 为 flap quote 映射持久化行，payload 含 blockNumber/logIndex 供水位增量回放), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
 
 Experiment deletion is DB-level: every experiment-owned table carries `experiment_id → experiments(id) ON DELETE CASCADE` (see `scripts/sql/migrate-experiment-cascade-delete.sql`), so deleting the experiments row removes all its data — the web layer just deletes the row, no per-table cleanup.
 

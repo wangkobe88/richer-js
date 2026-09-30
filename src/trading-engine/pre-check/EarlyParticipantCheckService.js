@@ -19,6 +19,16 @@
 const { SniperFlagCache, PROTOCOL_ADDRS } = require('./sniper-detector');
 
 /**
+ * 公共聚合路由合约地址集（trader_address=msg.sender 层；0x1de460 GMGN 案 2026-09-30）
+ * GMGN BSC 聚合路由（代理 0x1de460f3…4bc，1810 万 tx）：flap 27.9% 成交行 trader 落此
+ * 合约——真实买家在 tx.from（sender_address）。router 主导盘 = 散户热度/bot 蜂拥盘
+ * （8aca25e2 对拍：翻案 174 票假想 TP -8.566 BNB、亏率 66%），显式化为 routerPct 因子。
+ */
+const AGGREGATOR_ROUTER_ADDRS = new Set([
+  '0x1de460f363af910f51726def188f9004276bf4bc', // GMGN swap 路由（BSC）
+]);
+
+/**
  * 默认配置
  */
 const DEFAULT_CONFIG = {
@@ -154,6 +164,9 @@ class EarlyParticipantCheckService {
       // 3.8 top1 买入集中度因子（单钱包主导拦截，buy-dominance 案 2026-09-29）
       const top1Buy = this._calculateTop1BuyShare(trades, tokenAddress, launchAt, checkTime);
 
+      // 3.9 聚合路由买入占比因子（GMGN 主导盘拦截，0x1de460 案 2026-09-30）
+      const router = this._calculateRouterShare(trades, tokenAddress, launchAt, checkTime);
+
       // 4. 计算速率指标（使用实际数据跨度）
       const rateMetrics = this._calculateRateMetrics(basicStats, coverage);
 
@@ -220,6 +233,14 @@ class EarlyParticipantCheckService {
         earlyTradesBuyBnb: top1Buy.totalBnb,
         earlyTradesTop1BuyCovered: top1Buy.covered,
 
+        // 聚合路由买入占比因子（GMGN 主导盘拦截）：首窗买入 BNB 中公共路由合约
+        // （trader 层）行占比×100。sender 切换后 top1 按 EOA 聚合不再拦路由盘，
+        // 本因子显式接管「router 主导 = 散户热度/bot 蜂拥盘」负信号
+        //（8aca25e2 对拍：翻案 174 票假想 TP -8.566 BNB、亏率 66%）。
+        // 拦截写法 `earlyTradesRouterPct < 60`（低于才放行买入）
+        earlyTradesRouterPct: router.pct,
+        earlyTradesRouterCovered: router.covered,
+
         // 窗口内无成交标记（值为真实空统计，非通过值兜底）
         earlyTradesNoInnerData: trades.length === 0 ? 1 : 0,
 
@@ -243,6 +264,8 @@ class EarlyParticipantCheckService {
         top1_buy_share_pct: top1Buy.pct,
         top1_buy_bnb: top1Buy.top1Bnb,
         window_buy_bnb: top1Buy.totalBnb,
+        router_pct: router.pct,
+        router_covered: router.covered,
         actual_span: coverage.actualSpan,
         rate_calc_window: coverage.rateCalculationWindow,
         volume_per_min: rateMetrics.volumePerMin.toFixed(2),
@@ -325,7 +348,7 @@ class EarlyParticipantCheckService {
 
     const { data, error } = await this.supabase
       .from('wss_price_ticks')
-      .select('token_address, tx_hash, log_index, trade_type, trader_address, price_usd, bnb_amount, token_amount, block_number, block_time')
+      .select('token_address, tx_hash, log_index, trade_type, trader_address, sender_address, price_usd, bnb_amount, token_amount, block_number, block_time')
       .eq('token_address', tokenAddress)
       .gte('block_time', fromIso)
       .lte('block_time', toIso)
@@ -401,6 +424,7 @@ class EarlyParticipantCheckService {
         log_index: t.log_index,
         trade_type: t.trade_type,
         trader_address: t.trader_address,
+        sender_address: t.sender_address || null,
         price_usd: t.price_usd,
         bnb_amount: t.bnb_amount,
         token_amount: t.token_amount,
@@ -433,8 +457,11 @@ class EarlyParticipantCheckService {
       // AVE trade 兼容形态
       time: Math.floor(new Date(row.block_time).getTime() / 1000),
       tx_id: `${row.tx_hash}-${row.log_index}`,
-      wallet_address: row.trader_address,
-      from_address: row.trader_address,
+      // 真实买家口径（2026-09-30 切换，0x1de460 GMGN 路由案）：sender_address = tx.from
+      // 优先；NULL（未解析/历史行）回退 trader_address——公共路由行 trader 落合约，
+      // top1/sniper/netBuy/uniform/WalletCluster 按用户 EOA 聚合不再虚抬集中度
+      wallet_address: row.sender_address || row.trader_address,
+      from_address: row.sender_address || row.trader_address,
       from_usd: usdVolume,
       to_usd: usdVolume,
       to_token_price_usd: priceUsd,
@@ -446,8 +473,11 @@ class EarlyParticipantCheckService {
       from_token_symbol: isBuy ? 'BNB' : 'TOKEN',
       block_number: row.block_number,
 
-      // WSS tick 原始字段（裸数据留存）
+      // WSS tick 原始字段（裸数据留存；trader/sender 双地址供 router 因子判定——
+      // router 在 msg.sender（trader）层，与 wallet_address 的 COALESCE 口径无关）
       trade_type: row.trade_type,
+      trader_address: row.trader_address || null,
+      sender_address: row.sender_address || null,
       price_usd: priceUsd,
       bnb_amount: bnbAmount,
       token_amount: tokenAmount
@@ -703,14 +733,16 @@ class EarlyParticipantCheckService {
       return { pct: 0, wallets: 0, holders: 0, covered: 0 };
     }
 
-    // 每钱包净持仓（token 数量）：Σ买 − Σ卖；协议地址（内盘官方）不计入
+    // 每钱包净持仓（token 数量）：Σ买 − Σ卖；协议地址（内盘官方）不计入。
+    // 双地址层剔除（sender 切换 2026-09-30）：wallet 层 COALESCE 后协议行落 tx.from
+    // EOA 剔除失效，trader 裸字段层恒可识别协议行
     const net = new Map();
     const tokenLower = String(tokenAddress).toLowerCase();
     for (const t of trades) {
       const wallet = t.wallet_address || t.from_address;
       if (!wallet) continue;
       const key = wallet.toLowerCase();
-      if (PROTOCOL_ADDRS.has(key)) continue;
+      if (PROTOCOL_ADDRS.has(key) || PROTOCOL_ADDRS.has(String(t.trader_address || '').toLowerCase())) continue;
       const isBuy = String(t.to_token || '').toLowerCase() === tokenLower;
       const delta = isBuy ? (t.token_amount || 0) : -(t.token_amount || 0);
       net.set(key, (net.get(key) || 0) + delta);
@@ -786,7 +818,7 @@ class EarlyParticipantCheckService {
       return { pct: 0, top1Bnb: 0, totalBnb: 0, covered: 0 };
     }
 
-    // 每钱包买入 BNB 聚合（只看买腿；协议地址不计入）
+    // 每钱包买入 BNB 聚合（只看买腿；协议地址双地址层剔除——同 sniper 因子口径）
     const tokenLower = String(tokenAddress).toLowerCase();
     const buy = new Map();
     let totalBnb = 0;
@@ -795,7 +827,7 @@ class EarlyParticipantCheckService {
       const wallet = t.wallet_address || t.from_address;
       if (!wallet) continue;
       const key = wallet.toLowerCase();
-      if (PROTOCOL_ADDRS.has(key)) continue;
+      if (PROTOCOL_ADDRS.has(key) || PROTOCOL_ADDRS.has(String(t.trader_address || '').toLowerCase())) continue;
       const bnb = Number(t.bnb_amount) || 0;
       if (!(bnb > 0)) continue;
       totalBnb += bnb;
@@ -810,6 +842,59 @@ class EarlyParticipantCheckService {
     return {
       pct: parseFloat((top1Bnb / totalBnb * 100).toFixed(2)),
       top1Bnb: parseFloat(top1Bnb.toFixed(4)),
+      totalBnb: parseFloat(totalBnb.toFixed(4)),
+      covered: 1
+    };
+  }
+
+  /**
+   * 计算聚合路由买入占比因子（GMGN 主导盘拦截，0x1de460 案 2026-09-30）
+   *
+   * 口径：首窗纯买入量（BNB，与 top1 因子同窗同构、只看买腿）中，
+   * trader_address（msg.sender）落在公共聚合路由合约（AGGREGATOR_ROUTER_ADDRS）
+   * 的行占比 ×100。GMGN 等聚合器用户自有钱包直连路由下单——trader 层是路由合约、
+   * sender 层才是真实买家；router 主导盘 = 散户热度/bot 蜂拥盘（无原生筹码沉淀）。
+   *
+   * sender 口径切换（wallet COALESCE）后 top1 按 EOA 聚合，路由盘不再被 top1 误拦，
+   * 本因子显式接管该负信号（8aca25e2 对拍：翻案 174 票假想 TP -8.566 BNB、
+   * 亏率 66%，对拍锚定档 60）。
+   *
+   * covered 语义与 top1 同构：age>90s 或 launchAt 缺失 → 0 值放行
+   * （拦截写法 `< 60`，0 恒放行；null 会恒 false 误拦——fail-open）。
+   * 已知接受面：窗口无买入（totalBnb=0）→ 0 值放行。
+   * @private
+   * @param {Array} trades - _mapTickRow 映射后的窗口交易（需含裸 trader_address 字段）
+   * @param {string} tokenAddress - 代币地址
+   * @param {number|null} launchAt - 代币创建时间（秒，TokenCreate 块时间）
+   * @param {number} checkTime - 检查时间戳（秒）
+   * @returns {{pct: number, routerBnb: number, totalBnb: number, covered: number}}
+   */
+  _calculateRouterShare(trades, tokenAddress, launchAt, checkTime) {
+    const validLaunchAt = Number.isFinite(launchAt) && launchAt > 0 ? launchAt : null;
+    const covered = validLaunchAt !== null
+      && (checkTime - validLaunchAt) <= this.config.fixedWindowSeconds ? 1 : 0;
+    if (!covered) {
+      return { pct: 0, routerBnb: 0, totalBnb: 0, covered: 0 };
+    }
+
+    // 路由行买入 BNB 占比（只看买腿；trader 层恒等匹配，不做钱包聚合）
+    const tokenLower = String(tokenAddress).toLowerCase();
+    let routerBnb = 0, totalBnb = 0;
+    for (const t of trades) {
+      if (String(t.to_token || '').toLowerCase() !== tokenLower) continue;
+      const bnb = Number(t.bnb_amount) || 0;
+      if (!(bnb > 0)) continue;
+      totalBnb += bnb;
+      const trader = String(t.trader_address || '').toLowerCase();
+      if (AGGREGATOR_ROUTER_ADDRS.has(trader)) routerBnb += bnb;
+    }
+    if (totalBnb <= 0) {
+      return { pct: 0, routerBnb: 0, totalBnb: 0, covered: 1 };
+    }
+
+    return {
+      pct: parseFloat((routerBnb / totalBnb * 100).toFixed(2)),
+      routerBnb: parseFloat(routerBnb.toFixed(4)),
       totalBnb: parseFloat(totalBnb.toFixed(4)),
       covered: 1
     };
@@ -903,6 +988,10 @@ class EarlyParticipantCheckService {
       earlyTradesBuyBnb: 0,
       earlyTradesTop1BuyCovered: 0,
 
+      // 聚合路由占比因子：查询异常 0 值放行（拦截写法 <60，0 恒放行——同 top1 族方向）
+      earlyTradesRouterPct: 0,
+      earlyTradesRouterCovered: 0,
+
       // 标记内盘无交易数据（可能已出内盘）
       earlyTradesNoInnerData: 1,
 
@@ -967,6 +1056,10 @@ class EarlyParticipantCheckService {
       earlyTradesTop1BuyBnb: 0,
       earlyTradesBuyBnb: 0,
       earlyTradesTop1BuyCovered: 0,
+
+      // 聚合路由占比因子（GMGN 主导盘拦截）：未执行检查 0 值——同上双向安全
+      earlyTradesRouterPct: 0,
+      earlyTradesRouterCovered: 0,
 
       // 内盘无数据标记
       earlyTradesNoInnerData: 0,

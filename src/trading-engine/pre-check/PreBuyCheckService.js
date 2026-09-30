@@ -222,6 +222,13 @@ const FACTOR_METADATA = {
     unit: 'BNB',
     severity: 'info'
   },
+  // 聚合路由占比因子（GMGN 主导盘拦截，0x1de460 案 2026-09-30）
+  earlyTradesRouterPct: {
+    name: '聚合路由买入占比',
+    format: v => v.toFixed(1) + '%',
+    unit: '',
+    severity: 'critical'
+  },
   earlyTradesActualSpan: {
     name: '早期数据实际跨度',
     format: v => v.toFixed(1) + '秒',
@@ -829,6 +836,9 @@ class PreBuyCheckService {
         earlyTradesTop1BuyBnb: earlyParticipantCheck.earlyTradesTop1BuyBnb ?? 0,
         earlyTradesBuyBnb: earlyParticipantCheck.earlyTradesBuyBnb ?? 0,
         earlyTradesTop1BuyCovered: earlyParticipantCheck.earlyTradesTop1BuyCovered ?? 0,
+        // 聚合路由占比因子（GMGN 主导盘拦截）：缺省 0 放行（拦截写法 <60——同 top1 族方向）
+        earlyTradesRouterPct: earlyParticipantCheck.earlyTradesRouterPct ?? 0,
+        earlyTradesRouterCovered: earlyParticipantCheck.earlyTradesRouterCovered ?? 0,
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,
