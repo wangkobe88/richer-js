@@ -439,16 +439,17 @@ async function cmdReport() {
   }
 
   const n = store.tokens.length;
-  const buckets = { high: [], mid: [], low: [], unrated: [], error: [] };
+  const buckets = { high: [], mid: [], low: [], unrated: [], nodata: [], error: [] };
   const preCheckRules = {};
   for (const r of results) {
     if (r.error) { buckets.error.push(r); continue; }
+    if (r.rating === null || r.rating === undefined) { buckets.nodata.push(r); continue; }
     const b = buckets[r.rating] || buckets.unrated;
     b.push(r);
     if (r.preCheckRuleName) preCheckRules[r.preCheckRuleName] = (preCheckRules[r.preCheckRuleName] || 0) + 1;
   }
   const pass = buckets.high.length + buckets.mid.length;
-  const failRows = [...buckets.low, ...buckets.unrated, ...buckets.error];
+  const failRows = [...buckets.low, ...buckets.unrated, ...buckets.nodata, ...buckets.error];
   const splitByClass = rows => {
     const a = rows.filter(r => !r.injected).length, b = rows.filter(r => r.injected).length;
     return `A(库内)=${a} / B(注入)=${b}`;
@@ -472,6 +473,7 @@ async function cmdReport() {
   lines.push(`| mid(2) 通过 | ${buckets.mid.length} | ${pct(buckets.mid.length)} | ${splitByClass(buckets.mid)} |`);
   lines.push(`| low(1) 拦截 | ${buckets.low.length} | ${pct(buckets.low.length)} | ${splitByClass(buckets.low)} |`);
   lines.push(`| unrated(9) 未知 | ${buckets.unrated.length} | ${pct(buckets.unrated.length)} | ${splitByClass(buckets.unrated)} |`);
+  lines.push(`| null(no_data?) | ${buckets.nodata.length} | ${pct(buckets.nodata.length)} | ${splitByClass(buckets.nodata)} |`);
   lines.push(`| 异常 | ${buckets.error.length} | ${pct(buckets.error.length)} | ${splitByClass(buckets.error)} |`);
   lines.push(`| **通过率(high+mid)** | **${pass}** | **${pct(pass)}** | |`);
   lines.push('');
@@ -480,7 +482,7 @@ async function cmdReport() {
     lines.push('');
   }
 
-  lines.push('## 未通过票明细（low / unrated / 异常）');
+  lines.push('## 未通过票明细（low / unrated / nodata / 异常）');
   lines.push('');
   lines.push('| symbol | mc | 榜单 | 类 | 语料 | 拦截点 | stage | category | reason 摘要 |');
   lines.push('|---|---|---|---|---|---|---|---|---|');
