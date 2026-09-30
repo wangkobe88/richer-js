@@ -2,25 +2,34 @@
 // ============================================================================
 // 再入场配对回测创建（2026-09-30，暴走板栗案衍生：全清后放量反弹能否追回）
 //
-// 一次性脚本，三件事：
-//   1. 插策略库条目 buy-reentry-v1（name UNIQUE 冲突即退出——防重复跑）
-//   2. 建 B0 基线回测：8aca25e2 config 整包（buy-v2 v3 + 17 卖腿 + tokenCycle/
-//      stopLoss/TPA/卡牌全保留）+ backtest 段（G 系列起点延长到 09-29T23:59Z，
-//      覆盖不烧心与暴走板栗；sourceExperimentId=9e413cbe 令 BacktestTickCache
-//      缓存增量续拉）——绕过 create-backtest.cjs 不透传 tokenCycle 等段的缺口
+// 用法：
+//   node scripts/create-reentry-pair.cjs [--source <expId>] [--start <ISO>] [--end <ISO>]
+//        [--skip-lib] [--suffix <str>]
+//   默认：--source 8aca25e2（buy-v2 v3 实跑 = 策略基底 + token 集合源，自洽）
+//         --start 2026-09-29T14:51:52Z（8aca25e2 集合起点，全窗零损失）
+//         --end   2026-09-30T02:45:00Z（集合最晚 token 时刻）
+//
+// 做三件事：
+//   1. 插策略库条目 buy-reentry-v1（name UNIQUE 冲突即退出；--skip-lib 跳过、按名查 id）
+//   2. 建 B0 基线回测：基底实验 config 整包（buy-v2 v3 + 17 卖腿 + tokenCycle/
+//      stopLoss/TPA/卡牌全保留）+ backtest 段——绕过 create-backtest.cjs 不透传
+//      tokenCycle 等段的缺口
 //   3. 建 B1 实验：B0 + buyStrategies 追加 buy-reentry-v1 整腿快照 + libraryRefs
 //
+// ⚠️ sourceExperimentId 决定 token 全集（引擎 _loadTokenMeta 拉源实验
+//    experiment_tokens）——窗口内 case 票必须在源实验集合里（首版用 9e413cbe
+//    翻车：其集合最晚 09-29T14:51Z，不含 15:19Z 创建的暴走板栗，已作废重跑）。
+//
 // 启动（182，串行防 tick 缓存双写竞态）：
-//   node main.js start-experiment -e <B0_ID>
-//   node main.js start-experiment -e <B1_ID>
+//   node main.js start-experiment -e <B0_ID> && node main.js start-experiment -e <B1_ID>
 // ============================================================================
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
 
-const BASE_EXPERIMENT_ID = '8aca25e2-7baf-421d-9a6a-6698d85d977d';  // buy-v2 v3 实跑
-const SOURCE_EXPERIMENT_ID = '9e413cbe-d60d-43ef-93bb-2889b7261423'; // ticks 缓存键（G 系列同源）
-const START_TIME = '2026-09-28T15:25:54.337+00:00';                  // G 系列起点（缓存增量）
-const END_TIME = '2026-09-29T23:59:59.000Z';                         // 延长覆盖暴走板栗 15:19Z
+const BASE_EXPERIMENT_ID = '8aca25e2-7baf-421d-9a6a-6698d85d977d';  // buy-v2 v3 实跑（config 基底）
+const DEFAULT_SOURCE = '8aca25e2-7baf-421d-9a6a-6698d85d977d';      // token 集合源（默认=基底）
+const DEFAULT_START = '2026-09-29T14:51:52.000Z';
+const DEFAULT_END = '2026-09-30T02:45:00.000Z';
 
 // 再入场腿设计（2026-09-30 用户批准：建库条目 + 配对回测）
 //   - condition：age>=90s（与 buy-v2 的 <90s 互斥，天然只在首轮窗口外触发）+ 热桶
@@ -42,60 +51,80 @@ const REENTRY_LEG = {
   description: '再入场买腿（暴走板栗案 2026-09-30）：全清后放量反弹追回——age>=90s + 热桶 + 毕业进度 30% + 5 分钟涨幅 15% 动量；2 卡 0.2 BNB；叙事门保留（rating∈{2,3}），top1 门不适用（covered 在 age>90s 恒 0 会拦死）；repeatBuy 同门（第二轮起 preBuy 不生效）',
 };
 
+const args = process.argv.slice(2);
+function argVal(name, dflt) {
+  const i = args.indexOf(name);
+  return i >= 0 && args[i + 1] != null ? args[i + 1] : dflt;
+}
+const SOURCE = argVal('--source', DEFAULT_SOURCE);
+const START = argVal('--start', DEFAULT_START);
+const END = argVal('--end', DEFAULT_END);
+const SKIP_LIB = args.includes('--skip-lib');
+const SUFFIX = argVal('--suffix', '');
+
 async function main() {
   const { dbManager } = require('../src/services/dbManager');
   const { ExperimentFactory } = require('../src/trading-engine/factories/ExperimentFactory');
   const client = dbManager.getClient();
 
-  // ── 1. 插策略库条目（幂等防线：重名报错退出）──
-  const { data: dup } = await client.from('strategy_library').select('id').eq('name', 'buy-reentry-v1');
-  if (dup && dup.length > 0) {
-    console.error(`❌ strategy_library 已存在 buy-reentry-v1 (id=${dup[0].id})，如需重建请先删条目`);
-    process.exit(1);
+  // ── 1. 策略库条目（--skip-lib 时按名查已有 id）──
+  let libId;
+  if (SKIP_LIB) {
+    const { data: row } = await client.from('strategy_library').select('id, version').eq('name', 'buy-reentry-v1').single();
+    if (!row) { console.error('❌ --skip-lib 但 strategy_library 无 buy-reentry-v1'); process.exit(1); }
+    libId = row.id;
+    console.log(`复用库条目 buy-reentry-v1 id=${libId}`);
+  } else {
+    const { data: dup } = await client.from('strategy_library').select('id').eq('name', 'buy-reentry-v1');
+    if (dup && dup.length > 0) {
+      console.error(`❌ strategy_library 已存在 buy-reentry-v1 (id=${dup[0].id})——重跑请加 --skip-lib`);
+      process.exit(1);
+    }
+    // 插入前先校验（复用库编辑面的校验器，防脏腿入库）
+    const { validateLegs } = require('../src/web/services/StrategyLibraryService');
+    const validation = validateLegs('buy', [REENTRY_LEG]);
+    if (!validation.valid) {
+      console.error('❌ 再入场腿校验失败:', validation.errors.join('; '));
+      process.exit(1);
+    }
+    const { data: libRow, error: libErr } = await client.from('strategy_library')
+      .insert({ name: 'buy-reentry-v1', side: 'buy', version: 1, legs: [REENTRY_LEG] })
+      .select('id')
+      .single();
+    if (libErr) throw libErr;
+    libId = libRow.id;
+    console.log(`✅ 策略库条目 buy-reentry-v1 已插入 id=${libId}`);
   }
-  // 插入前先校验 condition/groups 语法（复用库编辑面的校验器，防脏腿入库）
-  const { validateLegs } = require('../src/web/services/StrategyLibraryService');
-  const validation = validateLegs('buy', [REENTRY_LEG]);
-  if (!validation.valid) {
-    console.error('❌ 再入场腿校验失败:', validation.errors.join('; '));
-    process.exit(1);
-  }
-  const { data: libRow, error: libErr } = await client.from('strategy_library')
-    .insert({ name: 'buy-reentry-v1', side: 'buy', version: 1, legs: [REENTRY_LEG] })
-    .select('id')
-    .single();
-  if (libErr) throw libErr;
-  console.log(`✅ 策略库条目 buy-reentry-v1 已插入 id=${libRow.id}`);
 
-  // ── 2. 拉基底 config（8aca25e2 整包）──
+  // ── 2. 拉基底 config（整包）──
   const factory = ExperimentFactory.getInstance();
   const base = await factory.load(BASE_EXPERIMENT_ID);
   if (!base) throw new Error(`基底实验不存在: ${BASE_EXPERIMENT_ID}`);
 
   const backtestSection = {
     initialBalance: 100,
-    sourceExperimentId: SOURCE_EXPERIMENT_ID,
+    sourceExperimentId: SOURCE,
     minMaxChangePercent: 0,
-    startTime: START_TIME,
-    endTime: END_TIME,
+    startTime: START,
+    endTime: END,
   };
 
   // ── 3. B0 基线 ──
   const b0Config = {
     ...JSON.parse(JSON.stringify(base.config)),  // 深拷贝整包（tokenCycle/stopLoss/TPA/卡牌全保留）
-    name: '回测-B0-基线-buyv2v3-0930',
-    description: '再入场配对基线：8aca25e2 config 整包（buy-v2 v3 + 17 卖腿），窗 09-28T15:25Z→09-29T23:59Z（G 系列起点延长，覆盖暴走板栗 15:19Z/不烧心 06:44Z）',
+    name: `回测-B0-基线-buyv2v3${SUFFIX}`,
+    description: `再入场配对基线：8aca25e2 config 整包（buy-v2 v3 + 17 卖腿），源=8aca25e2 集合（含暴走板栗），窗 ${START}→${END}`,
     backtest: backtestSection,
   };
   const b0 = await factory.createFromConfig(b0Config, 'backtest');
 
   // ── 4. B1 = B0 + 再入场腿 ──
   const b1Config = JSON.parse(JSON.stringify(b0Config));
-  b1Config.name = '回测-B1-再入场-buyv2v3+reentry-0930';
-  b1Config.description = '再入场配对实验：B0 + buy-reentry-v1 腿（库条目 id=' + libRow.id.slice(0, 8) + '）；唯一差异变量=再入场腿';
+  b1Config.name = `回测-B1-再入场-buyv2v3+reentry${SUFFIX}`;
+  b1Config.description = `再入场配对实验：B0 + buy-reentry-v1 腿（库 id=${libId.slice(0, 8)}）；唯一差异变量=再入场腿`;
   b1Config.strategiesConfig.buyStrategies = [...b1Config.strategiesConfig.buyStrategies, JSON.parse(JSON.stringify(REENTRY_LEG))];
   b1Config.strategiesConfig.libraryRefs = [...(b1Config.strategiesConfig.libraryRefs || []), {
-    name: 'buy-reentry-v1', side: 'buy', libId: libRow.id, version: 1, legCount: 1,
+    name: 'buy-reentry-v1', side: 'buy', libId, version: 1, legCount: 1,
     snapshotAt: new Date().toISOString(),
   }];
   const b1 = await factory.createFromConfig(b1Config, 'backtest');
