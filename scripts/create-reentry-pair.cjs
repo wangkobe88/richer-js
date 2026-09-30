@@ -31,10 +31,16 @@ const DEFAULT_SOURCE = '8aca25e2-7baf-421d-9a6a-6698d85d977d';      // token 集
 const DEFAULT_START = '2026-09-29T14:51:52.000Z';
 const DEFAULT_END = '2026-09-30T02:45:00.000Z';
 
-// 再入场腿设计（2026-09-30 用户批准：建库条目 + 配对回测）
+// 再入场腿设计（2026-09-30 用户批准：建库条目 + 配对回测；v2 同日修复零触发根因）
 //   - condition：age>=90s（与 buy-v2 的 <90s 互斥，天然只在首轮窗口外触发）+ 热桶
-//     + 毕业进度 30%（已涨离地）+ 5 分钟涨幅/涨速动量（对应扫描口径「90s 低点反弹
+//     + 毕业进度 30%（已涨离地）+ 趋势窗动量双门（对应扫描口径「90s 低点反弹
 //     >=15% + tps>=0.5」）
+//   - ⚠️ v1 零触发根因（B1 463cb835 实证）：risePct5m/riseVel5m 是**持仓口径**因子
+//     （E5b：窗下界=max(now-5m, buyTime)，无仓/无有效 buyTime → 恒 null fail-closed，
+//     「买腿评估期天然 null」），买腿 condition 引用它们恒 false——v2 换市场口径：
+//     recentRiseFromWindowLowPct（5m 趋势窗距窗内低点拉起 %，即「低点反弹」）+
+//     priceTrendSlope（ln 价 OLS 斜率 %/s > 0.05 = 正在涨的方向门）。
+//     暴走板栗重放验证：137 全真时刻，首真 15:36:59Z（全清后 97s），回调段正确关闭
 //   - 叙事门保留（rating ∈ {2,3}），top1 门不适用：earlyTradesTop1BuyCovered 在
 //     age>90s 恒 0，照抄 buy-v2 的 `== 1` 子句会把再入场全部拦死
 //   - repeatBuyCheckCondition 必须配：第二轮起（currentRound>=1）引擎走
@@ -43,12 +49,12 @@ const DEFAULT_END = '2026-09-30T02:45:00.000Z';
 const REENTRY_LEG = {
   priority: 2,
   cards: 2,
-  condition: 'tokenAgeSec >= 90 AND tokenCycle == 3 AND graduationProgress >= 0.3 AND riseVel5m > 5 AND risePct5m > 15',
-  narrativeCallCondition: 'tokenAgeSec >= 90 AND tokenCycle == 3 AND graduationProgress >= 0.3 AND riseVel5m > 5 AND risePct5m > 15',
+  condition: 'tokenAgeSec >= 90 AND tokenCycle == 3 AND graduationProgress >= 0.3 AND priceTrendSlope > 0.05 AND recentRiseFromWindowLowPct > 15',
+  narrativeCallCondition: 'tokenAgeSec >= 90 AND tokenCycle == 3 AND graduationProgress >= 0.3 AND priceTrendSlope > 0.05 AND recentRiseFromWindowLowPct > 15',
   preBuyCheckCondition: 'narrativeRating == 2 OR narrativeRating == 3',
   repeatBuyCheckCondition: 'narrativeRating == 2 OR narrativeRating == 3',
   maxExecutions: 1,
-  description: '再入场买腿（暴走板栗案 2026-09-30）：全清后放量反弹追回——age>=90s + 热桶 + 毕业进度 30% + 5 分钟涨幅 15% 动量；2 卡 0.2 BNB；叙事门保留（rating∈{2,3}），top1 门不适用（covered 在 age>90s 恒 0 会拦死）；repeatBuy 同门（第二轮起 preBuy 不生效）',
+  description: '再入场买腿 v2（暴走板栗案 2026-09-30）：全清后放量反弹追回——age>=90s + 热桶 + 毕业进度 30% + 窗低拉起 15% + 趋势斜率方向门；2 卡 0.2 BNB；叙事门保留（rating∈{2,3}），top1 门不适用（covered 在 age>90s 恒 0 拦死）；repeatBuy 同门。v1 用 risePct5m/riseVel5m 系持仓口径因子（E5b 无仓恒 null）买腿永不触发，v2 换市场口径 recentRiseFromWindowLowPct/priceTrendSlope（重放验证首真=全清后 97s）',
 };
 
 const args = process.argv.slice(2);
