@@ -697,11 +697,157 @@ async function testEngineWiring() {
     }
 }
 
+// ═══════════════ 2.5 flap quoteRate 三级换算源（V2 → V3/WBNB → V3/USDT 中转）═══════════════
+
+async function testFlapQuoteRateFallback() {
+    console.log('\n━━━ 2.5 flap quoteRate 三级换算源 ━━━');
+    const { FlapAnkrWsCollector } = require('../src/collectors/flap-ankr-ws-collector');
+    const { ethers } = require('ethers');
+    const coder = ethers.AbiCoder.defaultAbiCoder();
+
+    const QUOTE = '0x41333df9e7639188bbfca5522dc4844398af9f9e';
+    const V2F = '0xca143ce32fe78f1f7019d7d551a6402fc5350c73';
+    const V3F = '0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865';
+    const POOL_V2 = '0x' + 'aa'.repeat(20);
+    const POOL_V3_WBNB_500 = '0x' + 'bb'.repeat(20);
+    const POOL_V3_WBNB_2500 = '0x' + 'cc'.repeat(20);
+    const POOL_V3_USDT_2500 = '0x' + 'dd'.repeat(20);
+
+    const sel = (sig) => ethers.id(sig).slice(0, 10);
+    const S = {
+        getPair: sel('getPair(address,address)'),
+        getPool: sel('getPool(address,address,uint24)'),
+        getReserves: sel('getReserves()'),
+        token0: sel('token0()'),
+        slot0: sel('slot0()'),
+        liquidity: sel('liquidity()'),
+    };
+    const encAddr = (a) => coder.encode(['address'], [a]);
+    const sqrtOf = (raw) => BigInt(Math.round(Math.sqrt(raw) * 1e12)) * (2n ** 96n) / (10n ** 12n);
+
+    /**
+     * 构造打桩 collector：真实 ethers.Contract + 假 provider.send。
+     * 路由按 (to, match(data)) 匹配——getPool 同 selector 四 fee 档靠 calldata 的
+     * other 地址参数与 fee 尾缀区分。未打桩的调用直接 throw——天然验证
+     * 「不该发生的源不被触碰」。
+     */
+    const mk = (routes, bnbUsd) => {
+        const col = new FlapAnkrWsCollector({ flapWs: {} }, silentLogger, null, null, {});
+        col._pcsProvider = {
+            // ethers v6 Contract staticCall 走 provider.call(tx)（AbstractProvider.call 接口）
+            call: async (tx) => {
+                const to = (tx.to || '').toLowerCase();
+                const data = (tx.data || '').toLowerCase();
+                const r = routes.find((x) => x.to === to && x.match(data));
+                if (!r) throw new Error(`unstubbed eth_call to=${to} data=${data.slice(0, 10)}`);
+                return r.enc;
+            },
+        };
+        col._pcsFactoryContract = new ethers.Contract(V2F,
+            ['function getPair(address,address) view returns (address)'], col._pcsProvider);
+        col._pcsV3FactoryContract = new ethers.Contract(V3F,
+            ['function getPool(address,address,uint24) view returns (address)'], col._pcsProvider);
+        col._quoteDecimalsCache.set(QUOTE, 18);
+        col._bnbUsd = bnbUsd;
+        return col;
+    };
+    const R = (to, match, enc) => ({ to: to.toLowerCase(), match, enc });
+    const bySel = (s) => (data) => data.startsWith(s);
+    const feePad = (fee) => fee.toString(16).padStart(64, '0');
+    // getPool(quote, other, fee) 的 calldata 谓词（other 地址去 0x 小写包含匹配 + fee 尾缀全等）
+    const getPoolOf = (other, fee) => (data) =>
+        data.startsWith(S.getPool) && data.includes(other.toLowerCase().slice(2)) && data.endsWith(feePad(fee));
+    const ZERO_POOL = encAddr(ethers.ZeroAddress);
+
+    // 2.5a V2 命中：不触 V3（V3 factory 无路由，触碰即 throw）
+    {
+        const col = mk([
+            R(V2F, bySel(S.getPair), encAddr(POOL_V2)),
+            R(POOL_V2, bySel(S.getReserves), coder.encode(['uint112', 'uint112', 'uint32'], [1n * 10n ** 18n, 2n * 10n ** 17n, 0])),
+            R(POOL_V2, bySel(S.token0), encAddr(QUOTE)),
+        ], 600);
+        const rate = await col._fetchQuoteRateFromRpc(QUOTE);
+        check('2.5a V2 命中 rate=0.2 且不触 V3', Math.abs(rate - 0.2) < 1e-12, `rate=${rate}`);
+    }
+
+    // 2.5b wTCENTx 案复刻：V2 miss + V3/WBNB2500 零流动性挂价（不可信）+ V3/USDT2500 深池 → USDT 中转
+    {
+        const WBNB = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
+        const USDT = '0x55d398326f99059ff775485246999027b3197955';
+        const col = mk([
+            R(V2F, bySel(S.getPair), ZERO_POOL),
+            R(V3F, getPoolOf(WBNB, 100), ZERO_POOL),
+            R(V3F, getPoolOf(WBNB, 500), ZERO_POOL),
+            R(V3F, getPoolOf(WBNB, 2500), encAddr(POOL_V3_WBNB_2500)),
+            R(V3F, getPoolOf(WBNB, 10000), ZERO_POOL),
+            R(POOL_V3_WBNB_2500, bySel(S.liquidity), coder.encode(['uint128'], [0n])), // 零流动性 → 挂价池被门槛拦下
+            R(V3F, getPoolOf(USDT, 100), ZERO_POOL),
+            R(V3F, getPoolOf(USDT, 500), ZERO_POOL),
+            R(V3F, getPoolOf(USDT, 2500), encAddr(POOL_V3_USDT_2500)),
+            R(V3F, getPoolOf(USDT, 10000), ZERO_POOL),
+            R(POOL_V3_USDT_2500, bySel(S.liquidity), coder.encode(['uint128'], [1336541629862019616428216n])),
+            R(POOL_V3_USDT_2500, bySel(S.slot0), coder.encode(
+                ['uint160', 'int24', 'uint16', 'uint16', 'uint16', 'uint8', 'bool'],
+                [sqrtOf(54), 0, 0, 0, 0, 0, true])),
+            R(POOL_V3_USDT_2500, bySel(S.token0), encAddr(QUOTE)),
+        ], 600);
+        const rate = await col._fetchQuoteRateFromRpc(QUOTE);
+        check('2.5b V3/USDT 中转 rate=54/600=0.09（WBNB 零流动性挂价被门槛拦下）',
+            rate != null && Math.abs(rate - 0.09) < 1e-12, `rate=${rate}`);
+    }
+
+    // 2.5c V3/WBNB 命中（token0=other 方向）：rate=1/raw；USDT 档不被触碰（无路由即 throw）
+    {
+        const WBNB = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
+        const col = mk([
+            R(V2F, bySel(S.getPair), ZERO_POOL),
+            R(V3F, getPoolOf(WBNB, 100), ZERO_POOL),
+            R(V3F, getPoolOf(WBNB, 500), ZERO_POOL),
+            R(V3F, getPoolOf(WBNB, 2500), encAddr(POOL_V3_WBNB_2500)),
+            R(V3F, getPoolOf(WBNB, 10000), ZERO_POOL),
+            R(POOL_V3_WBNB_2500, bySel(S.liquidity), coder.encode(['uint128'], [1n * 10n ** 18n])),
+            R(POOL_V3_WBNB_2500, bySel(S.slot0), coder.encode(
+                ['uint160', 'int24', 'uint16', 'uint16', 'uint16', 'uint8', 'bool'],
+                [sqrtOf(0.5), 0, 0, 0, 0, 0, true])),
+            R(POOL_V3_WBNB_2500, bySel(S.token0), encAddr(ethers.ZeroAddress)), // token0=WBNB(other)
+        ], 600);
+        const rate = await col._fetchQuoteRateFromRpc(QUOTE);
+        // raw=(sqrtP/2^96)^2=0.5=quote_raw/WBNB_raw（18/18）→ WBNB per quote=1/0.5=2
+        check('2.5c V3/WBNB token0=other 方向 rate=1/0.5=2', rate != null && Math.abs(rate - 2) < 1e-9, `rate=${rate}`);
+    }
+
+    // 2.5d 全 miss → null（上游负缓存路径语义）
+    {
+        const WBNB = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
+        const USDT = '0x55d398326f99059ff775485246999027b3197955';
+        const routes = [R(V2F, bySel(S.getPair), ZERO_POOL)];
+        for (const o of [WBNB, USDT]) for (const f of [100, 500, 2500, 10000]) routes.push(R(V3F, getPoolOf(o, f), ZERO_POOL));
+        const col = mk(routes, 600);
+        const rate = await col._fetchQuoteRateFromRpc(QUOTE);
+        check('2.5d 三级全 miss → null', rate == null);
+    }
+
+    // 2.5e bnbUsd 未就绪：V2/V3-WBNB miss 时 USDT 中转不点火 → null（负缓存下周期重试）
+    {
+        const WBNB = '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c';
+        const col = mk([
+            R(V2F, bySel(S.getPair), ZERO_POOL),
+            R(V3F, getPoolOf(WBNB, 100), ZERO_POOL),
+            R(V3F, getPoolOf(WBNB, 500), ZERO_POOL),
+            R(V3F, getPoolOf(WBNB, 2500), ZERO_POOL),
+            R(V3F, getPoolOf(WBNB, 10000), ZERO_POOL),
+        ], 0);
+        const rate = await col._fetchQuoteRateFromRpc(QUOTE);
+        check('2.5e bnbUsd=0 时 USDT 中转让位 → null', rate == null);
+    }
+}
+
 // ═══════════════ main ═══════════════
 
 (async () => {
     await testSharedTickConsumer();
     await testCollectorDryRun();
+    await testFlapQuoteRateFallback();
     await testBacktestLoadTicks();
     await testEngineWiring();
     console.log(`\n━━━ 结果: ${passed} 通过 / ${failed} 失败 ━━━`);

@@ -84,6 +84,17 @@ const PAIR_ABI = [
     'function getReserves() view returns (uint112,uint112,uint32)',
     'function token0() view returns (address)',
 ];
+// PancakeSwap V3 Factory（V2 无池时的 fallback 汇率源，2026-09-30 wTCENTx 案：
+// 1295 token 家族 quote 币只上了 V3 USDT 对（$40 万深度），V2-only 换算源整族跳行盲区；
+// 注意 liquidity=0 的挂价池不可信——同案 WBNB 对零流动性挂价偏离真值 20%，必须过流动性门）
+const PCS_V3_FACTORY = '0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865';
+const V3_FEE_TIERS = [100, 500, 2500, 10000];
+const V3_FACTORY_ABI = ['function getPool(address,address,uint24) view returns (address)'];
+const V3_POOL_ABI = [
+    'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
+    'function liquidity() view returns (uint128)',
+    'function token0() view returns (address)',
+];
 const ERC20_DECIMALS_ABI = ['function decimals() view returns (uint8)'];
 // BSC 出块 ~0.75s：120min ≈ 9600 块（TokenQuoteSet 回放窗口块深）
 const QUOTE_BACKFILL_BLOCKS_PER_MIN = 80;
@@ -164,6 +175,7 @@ class FlapAnkrWsCollector {
         this._quoteRateInflight = new Map(); // quote → Promise（并发去重；同 quote 的 tick 序列保序）
         this._quoteDecimalsCache = new Map(); // quote → decimals
         this._pcsFactoryContract = null;      // 惰性（首次换算时建）
+        this._pcsV3FactoryContract = null;    // 惰性（V2 miss 时 V3 fallback 用）
         this._quoteBackfilled = false;        // 启动回放 TokenQuoteSet 只跑一次（重连不重跑）
         this._quoteBackfillRetryTimer = null; // 回放失败退避重试定时器（stop 清理）
         // 回放缺口保护：settled=true 表示计价表状态可信（未启动，或回放已完成）。订阅确认
@@ -739,17 +751,41 @@ class FlapAnkrWsCollector {
     }
 
     /**
-     * 链上汇率：PancakeSwap V2 getPair(quote, WBNB) → getReserves。
+     * 链上汇率三级源（2026-09-30 wTCENTx 案前仅 V2）：
+     * ① PancakeSwap V2 quote/WBNB getPair → getReserves（不变，主源）
+     * ② V3 quote/WBNB 各 fee 档 → liquidity>0 中最深池 slot0（零流动性挂价池不可信）
+     * ③ V3 quote/USDT 各 fee 档（同上门槛）→ USDT 价 ÷ bnbUsd → BNB 价
+     * rate = 1 quote 值多少 BNB；三级全 miss → null。
+     */
+    async _fetchQuoteRateFromRpc(quote) {
+        this._ensurePcsContracts();
+        const rateV2 = await this._fetchQuoteRateV2(quote);
+        if (rateV2 != null) return rateV2;
+        const rateV3Wbnb = await this._fetchQuoteRateV3(quote, WBNB_BSC);
+        if (rateV3Wbnb != null) return rateV3Wbnb;
+        const bnbUsd = this._bnbUsd;
+        if (bnbUsd <= 0) return null; // USDT 中转依赖 bnbUsd；未就绪走负缓存，下周期重试
+        const usdtPerQuote = await this._fetchQuoteRateV3(quote, USDT_BSC);
+        if (usdtPerQuote == null) return null;
+        return usdtPerQuote / bnbUsd;
+    }
+
+    /** 惰性创建换算用 provider + V2/V3 factory 合约 */
+    _ensurePcsContracts() {
+        if (this._pcsFactoryContract) return;
+        const { BlockchainConfig } = require('../utils/BlockchainConfig');
+        const rpcUrl = BlockchainConfig.CHAIN_CONFIGS.bsc.network.rpcUrl;
+        this._pcsProvider = new ethers.JsonRpcProvider(rpcUrl);
+        this._pcsFactoryContract = new ethers.Contract(PCS_V2_FACTORY, FACTORY_ABI, this._pcsProvider);
+        this._pcsV3FactoryContract = new ethers.Contract(PCS_V3_FACTORY, V3_FACTORY_ABI, this._pcsProvider);
+    }
+
+    /**
+     * 源①：PancakeSwap V2 quote/WBNB 池 reserves。
      * rate = WBNB 储备 / quote 储备（各自按 decimals 归一到 whole-token 单位）。
      * 无池（零地址）/储备为 0 → null。
      */
-    async _fetchQuoteRateFromRpc(quote) {
-        if (!this._pcsFactoryContract) {
-            const { BlockchainConfig } = require('../utils/BlockchainConfig');
-            const rpcUrl = BlockchainConfig.CHAIN_CONFIGS.bsc.network.rpcUrl;
-            this._pcsProvider = new ethers.JsonRpcProvider(rpcUrl);
-            this._pcsFactoryContract = new ethers.Contract(PCS_V2_FACTORY, FACTORY_ABI, this._pcsProvider);
-        }
+    async _fetchQuoteRateV2(quote) {
         const pair = await this._pcsFactoryContract.getPair(quote, WBNB_BSC);
         if (!pair || pair === ethers.ZeroAddress) return null; // quote 未上 PCS V2 对 WBNB 池
         const pairContract = new ethers.Contract(pair, PAIR_ABI, this._pcsProvider);
@@ -762,6 +798,43 @@ class FlapAnkrWsCollector {
             ? Number(reserve1 * decExp) / Number(reserve0 * 10n ** 18n) // token0=quote → r1 是 WBNB
             : Number(reserve0 * decExp) / Number(reserve1 * 10n ** 18n); // token0=WBNB → r0 是 WBNB
         return rate > 0 ? rate : null;
+    }
+
+    /**
+     * 源②③：PancakeSwap V3 quote/other（WBNB 或 USDT）各 fee 档。
+     * liquidity>0 的池中取 liquidity 最大者（同一对 token 的 L 量纲可比），
+     * slot0 sqrtPriceX96 换算 other-per-quote（decimals 归一）。
+     * @returns {Promise<number|null>} other 计价的 1 quote 价格；无可用池 → null
+     */
+    async _fetchQuoteRateV3(quote, other) {
+        const candidates = [];
+        for (const fee of V3_FEE_TIERS) {
+            const pool = await this._pcsV3FactoryContract.getPool(quote, other, fee);
+            if (!pool || pool === ethers.ZeroAddress) continue;
+            const poolContract = new ethers.Contract(pool, V3_POOL_ABI, this._pcsProvider);
+            const liq = await poolContract.liquidity();
+            if (liq > 0n) candidates.push({ pool, fee, liq, poolContract });
+        }
+        if (candidates.length === 0) return null;
+        candidates.sort((a, b) => (b.liq > a.liq ? 1 : b.liq < a.liq ? -1 : 0));
+        const best = candidates[0];
+        const [slot0, token0] = await Promise.all([best.poolContract.slot0(), best.poolContract.token0()]);
+        const sqrtP = slot0.sqrtPriceX96;
+        if (!sqrtP || sqrtP <= 0n) return null;
+        // V3 价格 = (sqrtP/2^96)^2 = token1_raw/token0_raw（sqrtP ~2e26，Number 相对误差 1e-16 级）
+        const raw = Math.pow(Number(sqrtP) / Math.pow(2, 96), 2);
+        const decimals = await this._quoteDecimalsOf(quote);
+        const otherDecimals = 18; // WBNB 恒 18；BSC USDT(0x55d3…) 也是 18
+        let otherPerQuote;
+        if (lowerAddr(token0) === quote) {
+            otherPerQuote = raw * Math.pow(10, decimals - otherDecimals); // token1=other
+        } else {
+            otherPerQuote = 1 / (raw * Math.pow(10, otherDecimals - decimals)); // token0=other，raw=quote_per_other
+        }
+        if (!(otherPerQuote > 0)) return null;
+        this.logger.info('', 'FlapAnkrWsCollector',
+            `quote 汇率源=PCS V3 ${other === USDT_BSC ? 'USDT 中转' : 'WBNB'}: quote=${quote} pool=${best.pool} fee=${best.fee} rate(other)=${otherPerQuote}`);
+        return otherPerQuote;
     }
 
     /** quote 币 decimals（缓存；provider 由 _fetchQuoteRateFromRpc 先行创建） */
