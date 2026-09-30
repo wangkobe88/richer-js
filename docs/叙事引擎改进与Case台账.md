@@ -2053,15 +2053,18 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     Jev 判定分歧，计价单位梗确有玩味空间，亏损归因买点而非判定），积累 2-3
     个同类误放再议是否 bump J1.20 补边界措辞
 
-33. **YouTube 语料链路残余缺口**（2026-09-29 熊熊波西案修复后遗留）：
-    ① `extractVideoId` 只认 watch?v=/youtu.be/embed/v 四种 pattern——
-    **shorts/live/`v` 参数不在首位**（`watch?t=471&v=…`）的 URL 提不出视频 ID
-    恒 null（失败缓存行里 ~7 条属此类），是否补 pattern 待用户裁定；
-    ② 修好的 fetcher 在 **182 narrative engine 已生效**，但实验进程（8aca25e2
-    等带 narrativeCallCondition 直调链路的）需重启才加载新代码——存量被拦
-    token 在进程内存 `_narrativeBlockedTokens` 集里，且 token_narrative 行
-    is_valid=true 会被全局缓存复用，重析需行删/置 is_valid=false；
-    ③ 熊熊波西本体不重析（视频为 Binance Ukraine 乌克兰语 spoofing 教育片，
-    与名字无关属硬蹭，修复后 Jev 大概率仍判低）；④ youtube.com/post/ 与畸形
-    URL（`watch?v=xxx?t=608s`）发币者书写错误，救不回维持 null 合理
+33. **YouTube 语料链路残余缺口**（2026-09-29 熊熊波西案修复后遗留，2026-09-30
+    ①②③ 已收口）：
+    ① ~~`extractVideoId` 只认 watch?v=/youtu.be/embed/v 四种 pattern~~（**已修**，
+    `6a7cdb6` 2026-09-30）：补 shorts/live/v 非首位 pattern，捕获组统一
+    `[^?&#/]+` 顺带截断畸形尾巴（`watch?v=xxx?t=608s` → xxx）；JustOneAPI 对
+    shorts/live 同 ID 域实测支持；单测扩 D 节共 40 断言；
+    ② ~~实验进程需重启~~（**已重启**，2026-09-30 10:49）：8aca25e2 新 pid 加载
+    新代码（水位对齐正常）；182 narrative engine 前夜已重启；
+    ③ ~~熊熊波西重析验证~~（**已跑**，2026-09-30 `reanalyze-tokens.mjs
+    --ignoreCache`）：YouTube 数据拉到（259 views/1 like）→ 规则 3 爆款门
+    未命中 → **首次真正进 Jev** → rating=low category=A「事件主体量级不足
+    （D档）P=0.44」——结局不变但死因从「误杀（fetcher bug）」变「正杀（语料
+    与名字无关的硬蹭）」，修复链路端到端实锤；④ youtube.com/post/ 与部分
+    畸形 URL 发币者书写错误，救不回维持 null 合理（事实陈述，非待办）
 
