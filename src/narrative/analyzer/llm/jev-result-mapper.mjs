@@ -119,6 +119,14 @@ const NAME_REFERENT_BLOCK_LABELS = {
 const NAME_REFERENT_BLOCK_SCOPE = ['C', 'D', 'F', 'G', 'B', 'W'];
 
 /**
+ * J1.21 指代对象 meme 价值豁免门槛（C33 MTAT 案）：超级IP转发/提及的指代对象
+ * referent_memeability ≥3（内容作品有玩味点 AND 与 web3 用户有可感知共鸣的双达
+ * 标下限档）→ 豁免 superIP 通道 nameReferentBlock。3 档即题面 AND 语义下限，
+ * 0-2（人名/账号/严肃对象/玩味弱或圈外）维持拦截（YAYA 案形状不变）。
+ */
+const REFERENT_MEME_EXEMPT_MIN = 3;
+
+/**
  * 阻断选项的类别作用域（与原各类 Stage2 prompt 的阻断条件集合对齐）：
  * - A 类（形象化IP）：主体资格不足/小圈子亚文化/低质衍生(简单替换拼贴/抄袭)/IP二次利用
  * - W/B 类：营销噱头/标题党（旧管线仅此两类设此项，校准实证设为通用会误伤 E/C 类热点推文）
@@ -738,7 +746,16 @@ export function mapSuperIPAnswers(answers, context) {
   const blockedByBlockReason = blockChoice !== 'none' && blockChoice !== 'institution_routine'
     && noneProb < 0.5 && blockInScope(blockChoice, superIPCategory);
   const nrBlock = nameReferentBlock(answers, superIPCategory);
-  const blockedByNameReferent = !!nrBlock;
+  // J1.21 内容作品豁免（C33 MTAT 案，用户裁定「要看被转发的指代对象 meme 程度，
+  // 以及被 web3 用户喜欢的程度」）：超级IP转发/提及的指代对象按对象类型分流——
+  // 人名/账号（YAYA 型）无内容可玩味维持拦截；内容作品 meme 玩味 + web3 契合
+  // 双达标（referent_memeability ≥3，superIP 通道条件题）豁免 nameReferentBlock
+  // 走正常评分管线。仅 superIP 通道（无名对象须有超级IP曝光背书才有生命力）；
+  // web3FitBlock unfit≥0.5 负门独立保底不受豁免影响；分缺失（null）不豁免
+  // （fail-closed：豁免是放行方向，缺数据不放行）
+  const referentMemeScore = answers.referent_memeability?.score ?? null;
+  const nameReferentExempt = !!nrBlock && referentMemeScore != null && referentMemeScore >= REFERENT_MEME_EXEMPT_MIN;
+  const blockedByNameReferent = !!nrBlock && !nameReferentExempt;
   // J1.11 负面硬新闻质量门（全域，与标准路径同门；superIP 通道无豁免——
   // 超级 IP 的被盗/事故公告同样无 meme 空间，蹭名盘照样拦）
   const nhnBlock = negativeHardNewsBlock(answers);
@@ -778,6 +795,10 @@ export function mapSuperIPAnswers(answers, context) {
         nameReferent,
         nameReferentProbability: nameReferentProb,
         nameReferentBlockMass: nrBlock?.mass ?? null,
+        // J1.21 豁免审计：分数 + 是否豁免（nrBlock 未命中时 exempt 恒 false、
+        // 分数照落库观察；标准路径无此题恒 null）
+        referentMemeability: referentMemeScore,
+        nameReferentExempt,
         negativeHardNewsMass: nhnBlock?.mass ?? null,
         routineContentProductMass: rcpBlock?.mass ?? null,
         web3FitMass: w3Block?.mass ?? null,

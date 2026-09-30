@@ -68,7 +68,7 @@ async function main() {
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.19 第 14 题，版本随问题集 bump）──');
   const qs = buildStandardQuestions();
-  check('A1 版本号 J1.20', JEV_QUESTIONS_VERSION === 'J1.20', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 J1.21', JEV_QUESTIONS_VERSION === 'J1.21', JEV_QUESTIONS_VERSION);
   const w3q = qs.web3_fit;
   check('A2 web3_fit 题存在且 type=choice', !!w3q && w3q.type === 'choice', w3q?.type);
   check('A3 四档选项齐全', w3q && ['strong_fit', 'fit', 'marginal', 'unfit'].every(k => typeof w3q.criteria[k] === 'string' && w3q.criteria[k].length > 0), w3q ? Object.keys(w3q.criteria) : null);

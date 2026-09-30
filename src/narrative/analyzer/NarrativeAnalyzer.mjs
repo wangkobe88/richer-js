@@ -529,7 +529,9 @@ export class NarrativeAnalyzer {
             const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
             const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
             const { state, stats } = buildJevState(tokenData, fetchResults, { superIPInfo, preScores, now: jevNowMs });
-            const questions = buildStandardQuestions({ includeBrandHijack });
+            // J1.21：superIP 通道携带 referent_memeability 条件题（nameReferentBlock
+            // 命中时的内容作品豁免评分，标准路径不问）
+            const questions = buildStandardQuestions({ includeBrandHijack, referentMemeability: true });
             const startedAt = new Date().toISOString();
             const result = await JevClient.ask(state, questions, { label: `jev-superip:${tokenData.symbol}` });
             const finishedAt = new Date().toISOString();

@@ -32,6 +32,73 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C33 MTAT/More Than a Trade 0x67fd1190 —— 币安 S 级转发 Yuki 创作歌曲 45 秒抢发被「名字指向无名对象」拦 → J1.21 指代对象 meme 价值豁免（superIP 通道，2026-09-30）★
+
+**现象**：MTAT（0x67fd1190013255c3e3ddc7363f0387d2258e7777，four.meme，又一 7777
+尾号）super_ip_fast 通道被 nameReferentBlock **「名字指向无名对象」**（minor_other
+0.52，阻断侧合计 0.68）拦截。用户质疑「币安转发了啊」——直觉 S 级官方转发 =
+有效背书。
+
+**语料结构（announcement-race 形态）**：
+- 09:30 UTC @Yuki27__（**1.8 万粉**创作者）发歌：「谢谢峰哥把自己的经历分享出来
+  「钱可以慢慢赚，但身体只有一副」所以我写了一首歌，送给所有熬过夜、扛过无数
+  波动的你 Binance VIP🎵**《More Than a Trade》**」
+- 11:17:45 @binancezh（**币安中文官方**，46.4 万粉，注册表 S 级 institution）
+  回复转发「@Yuki27__ @BinanceVIP @heyibinance **建议每日循环🎧**」（点赞 1/
+  转发 0）
+- ~11:18 MTAT 抢发——**贴币安转发 45 秒内**
+
+**原判定链（J1.20）**：binancezh 命中 super-IP 注册表 → 快车道预分 tierScore 40/
+timeliness 15/baseEventScore 55；name_referent minor_other 0.52 主导（super_ip 仅
+0.04）→ 阻断侧 0.68 ≥0.5 拦截——YAYA 案（J1.10）立的规矩「注册表账号量级分不能
+被其@到的无名对象蹭走」机械执行：歌是 Yuki 的、Yuki 无名。institution_routine
+0.66 也打了但 superIP 通道豁免（注册表账号实质内容推不算日常运营）——非拦截点。
+
+**裁定（用户，2026-09-30）**：原话「**要看被转发的指代对象 meme 程度，以及被
+web3 用户喜欢的程度。丫丫肯定不行啊是个币安员工，这首歌明显可以**」——
+「无名对象」按**对象类型**分流：
+- **人名/账号/周边人物**（YAYA 型=币安员工）：对象是「一个人」非内容，无玩味
+  空间 → **维持拦截**
+- **内容作品**（歌/视频/梗图/口号）：对象自身有 meme 玩味空间 **AND** 契合 web3
+  用户口味 → 放行（本案：交易员之歌「熬夜扛波动」自嘲式共鸣，币圈财富叙事
+  圈内文化——4 档形状）
+
+**AskUserQuestion 两决策点（同日）**：①豁免范围=**仅 superIP 快车道**（标准路径
+语料作者非超级IP、无名对象无曝光背书，ChainPulse/Muse/W 类无名构想拦截语义
+不变）；②维度承载=**一题复合**（score 题 legend 分档承载两维度 AND 语义，vs
+meme 新题+web3_fit 正向门两条件——后者本案 fit+strong_fit=0.51 悬在门槛上跨
+run 抖动翻掉风险）。
+
+**落地（J1.21，条件第 15 题 + mapper 豁免，范围仅 superIP 通道）**：
+- 新题 `referent_memeability`（score 0-5，**条件携带**：buildStandardQuestions
+  `referentMemeability: true` 仅 superIP 调用点传——标准路径不问不消费零变化）：
+  题面钉死评估对象=name_referent 判定的指代对象本身（**被超级IP转发/提及/@到
+  不加分**——陈述者量级另有题评）；两维度 AND 语义入分档（0 人名/账号/周边
+  人物；1 严肃对象/事务性名称；2 玩味弱或与 web3 完全无关；**3 内容作品有可
+  玩味点 AND 与 web3 用户有可感知共鸣=双达标下限**；4 明确梗/自嘲/圈内共鸣 +
+  web3 强契合（交易员之歌型）；5 圈内文化符号/病毒二创级）
+- mapper `mapSuperIPAnswers`：nameReferentBlock 命中且 `referent_memeability
+  ≥3`（REFERENT_MEME_EXEMPT_MIN）→ 豁免该门走正常评分管线（事件分 55+26.55=
+  81.55×0.6 + 关联 + 质量）；**分缺失（null）不豁免**（fail-closed：豁免是放行
+  方向）；**web3FitBlock unfit≥0.5 负门独立保底不受豁免**（豁免不放 web3 unfit
+  盘）；审计落库 `referentMemeability`/`nameReferentExempt`（nrBlock 未命中时
+  exempt 恒 false、分数照落库观察）
+- 校准脚本 superIP 分支同口径携带（jev_calibration referentMemeability:
+  isSuperIP）；dryrun 仅标准路径不涉及
+- 单测 `scripts/_test_referent_memeability.cjs`（30 断言零 DB 八节：问卷形状/
+  豁免矩阵 {null,0,2,3,4,5}/nrBlock 未命中不激活/web3 unfit 保底/**YAYA 形状
+  锚定保持拦**/MTAT 端到端豁免数值/标准路径无豁免面/源码口径）；既有叙事链
+  10 测试 243 断言全绿（web3_fit/two_shapes 版本断言同步 J1.21）
+
+**防翻案边界**：YAYA（人名 0 档）、Muse 桌面版（版本更新 1-2 档）、ChainPulse
+（无名文章构想 1-2 档）按题面分档均 <3 维持拦截；仅「内容作品 + 双达标」形状
+翻案。豁免后本案预测：事件管线 ~48.93+关联+质量 → mid/high。
+
+**部署**：182 磁盘更新 + narrative engine 重启生效（superIP 通道仅 engine 进程
+消费，在跑实验直调进程重启节奏同 §六-30② 惯例属用户决策点）。
+
+---
+
 ### C32 正龟 0x969c6981 —— A股新规全国级事件被「第三方小号」字面锚定陈述者压 C 档 → J1.20 陈述者两形状分流；量级修复后新阻断点=关联性谐音梗盲区（2026-09-30）★
 
 **现象**：正龟（0x969c6981ff56be42404542a7d459d34955997777，flap，谐音梗——讽刺 A 股
@@ -1496,6 +1563,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.18 | 09-29 | name_referent super_ip 加「发布者指代」分支 + event_magnitude/dimension2 B 类语义锚定（新产品分量由发布者指代：领域知名大IP→A档起/普通知名→B/无名→C 以下；版本更新/功能改进/新平台移植→E/D 阻断档，Muse 桌面版型）+ notable_other 承接句——题面语义留档；**生效层在 mapper 代码门** `detectPublisherProxy` 四判据（域名 stem=币名 + 作者粉丝≥10万 + 币名与作者名互不包含 + 无版本指纹词；措辞实证 super_ip 0.16→0.31 压不过 0.5、magnitude 稳定 B 档，J1.16 先例代码切分）：pubProxyActive（仅 B/C 域，cashtag 优先）时 nameReferentBlock/骑乘改道/marketing_gimmick argmax 三豁免 + 量级 A 档锚 effTier（S 不降 A 不动，原判留 magnitudeTier 键、tierAnchored 键审计）；rcp/negativeHardNews 门不豁免；本案 72.4 过线终评 78.95 high（豁免-only 65.4 mid 对照）；Muse 三保险维持拦截；单测 28 断言 + 既有叙事链全绿；同日两门冲突解决：rule 0.52 同名蓝筹加同事件竞争盘豁免（±1h 窗，锚=创建时间口径同 0.5，无锚/候选无 created_at 维持拦；「蓝筹」实为晚 7 分钟抢发的同事件骑乘盘 fdv 15.9 万）| Cue/Manus 0x5074546c C29 | 本 commit |
 | J1.19 | 09-29 | 新增独立第 14 题 `web3_fit`（strong_fit/fit/marginal/unfit 四档——Web3 用户偏好契合度：链上 meme 买家画像 + 判据两问「能否被玩梗/二创/自嘲式传播」「受众与 crypto 圈是否重叠」+ 强契合/不契合典型清单；语义独立不并入 block_reason 的「无叙事价值」）+ mapper `web3FitBlock` 质量门（unfit 概率 ≥0.5 → rating 1，negativeHardNewsBlock 同构：全域 + 标准/superIP 双路径无豁免，挂 nhn/rcp 后第三位；marginal 不拦落库观察）+ **pre-check 规则 3 爆款短路收窄**：video_unrated 命中时有可读推文文本（推文已描述视频内容，「内容无法解析」不成立）→ 不短路进 Jev 完整评估，无文本才维持 mid 短路（「爆款不拦」语义由 E 类量级题承接，video section 已带点赞/播放数据）；历史口径：video_unrated 27 成交票净 +7.6 全靠熊猫+大头混子（动物萌宠/可玩抽象）两张撑、其余 25 票全亏 -7.58 全为人名梗/土味/丧文化型；单测 24 断言 + 既有叙事链（publisher_proxy/cashtag/blue_chip/precheck_retry 115 断言）全绿 | 死亡观察员/太阳之勤 0xd2a6d440/0xe5fa214f C30 | 本 commit |
 | J1.20 | 09-30 | event_magnitude/dimension2 陈述者两形状分流——instructions 主体判定规则（形状① 陈述者关联事件→主体=陈述者按粉丝量级定档，原语义保留；形状② 陈述者无关联只是陈述者→主体=事件本身按传播规模定档，**陈述者粉丝数既不代表也不封顶**；找角度/解读型→形状②；回复/转述语料按父推/源头定形状，十万粉级以上父推陈述=事件被大V扩散证据计入传播规模、回复者粉丝不参与定档）+ criteria 六档双锚（D/C/B/A 每档①②双措辞；C 档「无源可溯最高到此档」封顶保留=7777 防线；A② 全国性监管政策与市场事件；S 档两形状同一口径）+ E 类升级规则含父推 + dimension2 同分流引用与 C/D 形状②分带（全国级=全民话题级 25-30）；mapper 零改动；本案重析量级修复生效 58.2→**67.04 过线**（E 0.77 + B 档 27 + 25.04 + 15）但唯一拦截点移到 stage3 关联性——relevance none 0.85 笃定（「正龟」≈「正规」谐音梗，语料无字面来源，Jev 结构性盲区，§六-36）；馒头回归 high 72.17 维持（B→C 档漂移 dim2 补偿）、久留美回归 low 55.56 维持零回归；单测 22 断言 | 正龟 0x969c6981 C32 | `316dfbc` |
+| J1.21 | 09-30 | 新增条件第 15 题 `referent_memeability`（指代对象 meme 玩味价值 0-5：评估对象=name_referent 判定的指代对象本身，被超级IP转发/提及不加分；两维度 AND——①对象自身 meme 玩味空间（人名/账号=「一个人」非内容 0 档）②web3 meme 买家口味契合；**条件携带** buildStandardQuestions `referentMemeability: true` 仅 superIP 调用点，标准路径不问零变化）+ mapper `mapSuperIPAnswers` 内容作品豁免：nameReferentBlock 命中且分数 ≥REFERENT_MEME_EXEMPT_MIN(3)=双达标下限档 → 豁免该门走正常评分管线；分缺失 null 不豁免（fail-closed）；web3FitBlock unfit≥0.5 负门独立保底不受豁免；审计落库 referentMemeability/nameReferentExempt；校准脚本 superIP 分支同口径携带；仅 superIP 通道（标准路径无名对象无曝光背书，ChainPulse/Muse/YAYA 拦截语义不变——YAYA 人名 0 档锚定）；单测 30 断言 + 既有叙事链 10 测试 243 断言全绿 | MTAT/More Than a Trade 0x67fd1190 C33 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 | P1.3 | 09-27 | 题面未动——mapper 端 project 评级表加账号信用降档（推文 <5 OR 账号年龄 <30 天→low，年龄以 token 创建时点锚定幂等；照 J1.8 先例 bump）；附带 flap 创建时间 wss_events token_create 回退（token-info-service）；52 行 project 重放仅 x-0 命中 0 误伤 | x-0 0xa5fd1f C15/C18 | 本 commit |
 | P1.4 | 09-27 | 题面未动——mapper 端消灭 unrated（用户裁定：分析完成必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足 unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject 粉丝带+P1.3 降档按账号基本面给结论 | C4 反裁定 + 蝴蝶轮回 C22 | 本 commit |

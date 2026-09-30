@@ -109,7 +109,8 @@ async function main() {
       preScores: calculatePreScores(superIPInfo, twitterInfo?.created_at),
       now: analyzedAtMs,
     } : { now: analyzedAtMs });
-    const questions = buildStandardQuestions({ includeBrandHijack });
+    // J1.21：superIP 样本与线上同口径携带 referent_memeability（nameReferentBlock 豁免评分）
+    const questions = buildStandardQuestions({ includeBrandHijack, referentMemeability: isSuperIP });
 
     const t0 = Date.now();
     const result = await JevClient.ask(state, questions, { label: `calib:${row.token_symbol}` });

@@ -36,7 +36,7 @@ async function main() {
 
   // ═══ A. event_magnitude instructions ═══
   console.log('\n── A. event_magnitude instructions 两形状分流 ──');
-  check('A1 版本号 J1.20', JEV_QUESTIONS_VERSION === 'J1.20', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 J1.21', JEV_QUESTIONS_VERSION === 'J1.21', JEV_QUESTIONS_VERSION);
   check('A2 显式形状①（陈述者关联事件→按陈述者定档）',
     mag.instructions.includes('形状①') && mag.instructions.includes('主体=该陈述者本人'));
   check('A3 显式形状②（陈述者无关联→按事件本身定档，粉丝数不封顶）',
