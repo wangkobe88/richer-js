@@ -32,6 +32,66 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C34 GMGN 三榜蓝筹验证 191 票 —— 叙事引擎假阴性全量扫描：A 类实盘同形票零新问题；暴露 data_fetch_failed 路径 rating=null 落库 bug（2026-09-30）★
+
+**背景与管线（用户发起：GMGN 榜单币相对绝大多数代币算蓝筹/小蓝筹，批量喂引擎看假阴性）**：
+`scripts/narrative/gmgn-bluechip-validation.mjs` 六子命令（--smoke/--fetch/--classify/--inject/
+--analyze/--report，断点续跑进度落盘 `data/gmgn-bluechip-validation/`）。榜单口径（用户裁定）
+= 24h×marketcap + 24h×renowned_count + 24h×volume 三榜各 100，合并去重 **191 票**
+（剔除 WBNB/USDT/USDC/CAKE/ETH 五计价币）；A 类（experiment_tokens 已有行）28 张直接
+analyze，B 类（无行，存量成熟盘为主）163 张注入造行（验证实验 `2609e300-b17e-4c1a-
+9a30-0e6e617a1d00`，status='stopped' 纯数据挂靠；raw_api_data 由 GMGN 榜单行/
+token info 组装，created_at 优先 creation_timestamp）；统一 `analyze(addr,
+{ignoreCache:true, enrichSocialByGmgn:true})`（GMGN 配额用户已批准，J1.21 口径覆盖）。
+
+**总体分布（191/191 全部完成，异常 0）**：high 21（A6/B15）/ mid 5（A4/B1）/ low 161
+（A18/B143）/ null 4（全 B）——通过率 13.6%（26/191）；**A 类通过率 35.7%（10/28）、
+零 null 零新 bug**；B 类 163/191 为创建数天~数月的存量盘，引擎设计目标（新票叙事
+事件验证）下低通过率是口径内正确行为，不是假阴性。
+
+**165 张未通过票四层归因（逐票见 report.md 明细表）**：
+1. **precheck 规则层 104 张**（全部语义正确方向）：same_name_blue_chip 38——绝大多数
+   是 BSC 本链同名仿盘蹭成小蓝筹（比特币 $89.4M/龙虾 $56.5M/招财猫/CZ 等，「大币名」
+   票 XRP $501M/DOGE $249.7M/TRX $100M 远低于真身市值证实均为 BSC 仿盘）；no_public_info
+   41（无语料，存量盘元数据/GMGN 均无社媒）；expired_tweet 9（翻坟蹭名——语料推文
+   早于 token 创建 10min+，存量盘天然属性）；public_info_fetch_failed 12（语料已删）；
+   weibo_low_engagement 1 / narrative_material_reuse 2 / youtube_low_influence_channel 1
+2. **Jev 判定层 57 张**（走完判定给 low）：P1.3 账号信用降档 18（project 11 + web3ip
+   降档 7：statuses<5 或年龄<30 天）；**负年龄 10 张**（-1天×7、-36/-18/-123 天——
+   GMGN creation_timestamp 对部分票不可靠致 accountAgeDays 为负，触发降档，B 类语境
+   特有）；abm「无 30 天 Web3 流量事件」21（ADA/LTC/AVAX/DOT/FIL 等存量主流盘——
+   无当下叙事事件，口径内正确）；prestage address fail 3（ZEC $324.9M/METAB/NECTAR）；
+   W/F 名字维度 7；super_ip_fast low 3；贴线差分 3（暴走板栗 56.32/Marky 57.96/螃蟹
+   55.6，pass 线 60）
+3. **数据链路层**：4 张 null 票 = **新 bug（§六-37，rating 语义丢失）**；其余语料
+   缺失已计入 precheck 层
+4. **时间口径层**：B 类票 created_at 来自 GMGN creation_timestamp（部分缺失/不可靠，
+   负年龄 10 张同源）——时效规则跳过 + Jev 回退墙钟，语义天然偏移，已在报告标注
+
+**通过票通道验证（26 张）**：prestage 通道（project/web3_native_ip_early 按账号基本
+面评级）是 high 主力——B 类 high 15 张多为该通道（牛来 $106M/Moolah $38.4M/派人生
+$22.4M/RICE/TART/客服小何/PIRATE/b-money/Marvin/SpaceXcoin/老吴/Mubarakah/奶蛙——
+有真实社区/账号的盘识别通道畅通）；**标准 event 路径仅 4 张**（TIMELESS 82.03/达摩鹰
+81.96/王尼玛 74.89/Si了都要Ai 67.85）——榜单语料天然账号链接型，event 路径占比低是
+输入分布属性非通道故障；A 类 high 6（BNCDAO/奇迹人生/达摩鹰/MTAT 85.37/王尼玛/
+币安带你飞）与实盘 8aca25e2 买入票一致。
+
+**AVE 假 fdv 过组合门实证（§六-29 校准素材）**：same_name_blue_chip 拦截票中「比特币」
+候选中文比特币 fdv $1.83T、FIST $435B、ARX $119T 等荒谬值参与组合门判定——AVE
+fdv 单指标虚高，组合门（tvl/holders/txCount 佐证）设计方向正确但候选池含天文数字
+fdv 行说明 AVE 数据质量需在阈值校准时纳入考量（本案拦截结论本身全部正确）。
+
+**新发现问题清单（详见 §六-37）**：① data_fetch_failed 路径 rating=null 落库 bug
+（4 票实证，违反 P1.4 裁定）；② apidance 空 stub 用户对象「成功」返回（上游）；
+③ GMGN creation_timestamp 部分票不可靠（负年龄 10 张）；④ AVE 假 fdv 过组合门实证；
+⑤ 0.52 方向性瑕疵 1 例（DOGE 仿盘 $249.7M 被拦 vs 蓝筹候选 Dogecoin $1.69M——
+不比较相对大小，无害）。
+
+**遗留**：验证实验行 `2609e300` 与 163 张注入 experiment_tokens 行不删（结果已全局
+化在 token_narrative；去留由用户裁定）；null bug 修复方向待用户裁定（§六-37）。
+
+---
+
 ### C33 MTAT/More Than a Trade 0x67fd1190 —— 币安 S 级转发 Yuki 创作歌曲 45 秒抢发被「名字指向无名对象」拦 → J1.21 指代对象 meme 价值豁免（superIP 通道，2026-09-30）★
 
 **现象**：MTAT（0x67fd1190013255c3e3ddc7363f0387d2258e7777，four.meme，又一 7777
@@ -2269,4 +2329,41 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     （见一个谐音梗票记一笔）样本够后再定。另：J1.20 形状② E 类措辞对存量
     E 类票有档位扰动（馒头 B→C 档漂移 dim2 19.5→24.16 补偿、结论不变）——
     校准观察点，新 E 类票的 magnitude/dim2 分布回看时留意
+
+37. **prestage data_fetch_failed 路径 rating=null 落库 bug + apidance 空 stub
+    上游（2026-09-30 C34 GMGN 蓝筹验证发现，4 票实证）**：
+    **形状**：蝴蝶人生 $24.5M（mc24h#24）/ AAPLB $5.8M（mc24h#62）/ Freedom of
+    Money $2.4M / Taraxacum $52K 四票（全 B 类注入票）token_narrative 行
+    `prompt_type='account_community'`、`is_valid=true`、pre_check/prestage/
+    stage1/2/3/final 全部结果列 null——`resolveFinalRating` 全链落空 →
+    rating=null（web 显示空；下游 NarrativeDirectCaller null→9，现策略
+    `==2 OR ==3` 不买方向安全但语义错误——9 应只留给系统故障）。
+    **根因（三层）**：① 上游——apidance 对疑似被封禁的批量盘账号返回**空
+    stub 用户对象**（日志 `✅ 成功获取用户信息:  (@)` 粉丝 0 推文 0），
+    TwitterFetcher 判「成功」但 screen_name=''；② 路由——twitterUrl 是账号
+    链接 → `twitterInfo={type:'account',screen_name:''}` →
+    `getAccountWithFullTweets('')` 返回 null → `analyzeAccountCommunityToken`
+    （account-analysis-service L215-223）走 `data_fetch_failed` 早退，返回
+    `{rating:'low', category:'data_fetch_failed', reasoning:'无法获取账号/社区
+    完整数据…'}` **不带任何落库载体**（prestage 5 条返回路径中唯一无载体：
+    rules_validation 带 preCheckData、abm/web3ip/project 带 promptType+
+    prestageData）；③ 落库——NarrativeAnalyzer L499-515 else 分支只进内存
+    llmResult，prestageDataToSave=undefined → `buildStageSaveData('prestage',
+    null)` → `__clear`，save 时 pre_check_result=null 全 stage 列 null 且
+    is_valid=true → **rating=null 缓存固化**（enrichSocialByGmgn 只穿透
+    no_public_info 行，不穿透此形状）。
+    **定性**：分析完成却落全 null 行而非 fail-closed low——直接违反 P1.4/§4.11
+    裁定「分析完成必须落在 low/mid/high，9 只留给直调失败/超时/未触发」。
+    **修复方向（待用户裁定）**：候选 A——`data_fetch_failed` 早退路径补
+    preCheckData 形状（`{rating:'low', pass:false, ruleName:'data_fetch_failed'}`
+    同 rules_validation 走 precheck 落库链，rating 语义保住且 low 方向正确：
+    账号都拉不到的盘本就不该买）；候选 B——TwitterFetcher 层判空 stub
+    （screen_name 空且 followers=0 的「成功」返回按失败处理，走重试/冷却而非
+    冒充语料）——A 治落库语义、B 治数据源头，可并行。
+    **附带观察**：① GMGN creation_timestamp 对部分 B 类票不可靠（负年龄 10 张：
+    accountAgeDays 为负触发 P1.3 降档——降档方向恰好保守无害，但口径脏）；
+    ② AVE 假 fdv 过 0.52 组合门实证（候选池含 $1.83T/$119T 天文数字行，
+    §六-29 阈值校准素材）；③ 0.52 方向性瑕疵 1 例（DOGE 仿盘 $249.7M 被拦
+    vs 蓝筹候选 Dogecoin $1.69M——0.52 只判候选自身体量不比较相对大小，
+    本案拦截结论正确，无害记录）
 
