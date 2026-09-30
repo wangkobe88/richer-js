@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>新闻监控 · richer-js</title>
+  <link rel="stylesheet" href="/static/news/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🐦 新闻监控 <a class="nav-link" href="/news-accounts">· 监控账号</a><a class="nav-link" href="/experiments">· 实验监控</a></div>
+    <div class="status-strip">
+      <span class="stat"><span id="pulse-dot" class="dot off" title="事件活性（10min 内有事件=绿）"></span><span id="pulse-text">…</span></span>
+      <span class="stat">监控 <b id="watch-count">-</b> 账号</span>
+      <span class="stat">最近报告 <b id="latest-report-at">-</b></span>
+      <span class="stat clock" id="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="left">
+      <div class="card report-card" id="report-card">
+        <div class="card-head">
+          <h2 id="report-title">加载中…</h2>
+          <span class="meta" id="report-meta"></span>
+        </div>
+        <div class="report-body md" id="report-body"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>历史报告</h2><span class="meta" id="reports-count"></span></div>
+        <ul class="report-list" id="report-list"></ul>
+      </div>
+    </section>
+
+    <aside class="right">
+      <div class="card">
+        <div class="card-head"><h2>事件流</h2><span class="meta" id="events-hint">实时</span></div>
+        <ul class="event-stream" id="event-stream"></ul>
+        <button class="load-more" id="load-more-events">加载更多</button>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/static/news/app.js"></script>
+</body>
+</html>

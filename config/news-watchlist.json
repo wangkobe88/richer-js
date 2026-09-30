@@ -1,0 +1,112 @@
+{
+  "solana": [
+    "solana",
+    "aeyakovenko",
+    "rajgokal",
+    "solanafndn",
+    "0xmert_",
+    "jupiterexchange",
+    "raydiumprotocol",
+    "phantom",
+    "a1lon9",
+    "backpack"
+  ],
+  "bsc": [
+    "cz_binance",
+    "binance",
+    "_richardteng",
+    "heyibinance",
+    "bnbchain",
+    "binancewallet",
+    "aster_dex",
+    "four_meme_",
+    "venusprotocol",
+    "yzilabs"
+  ],
+  "eth": [
+    "vitalikbuterin",
+    "ethereum",
+    "ethereumfndn",
+    "timbeiko",
+    "dankrad",
+    "haydenzadams",
+    "uniswap",
+    "aave",
+    "lidofinance",
+    "ensdomains"
+  ],
+  "hyperliquid": [
+    "hyperliquidx",
+    "chameleon_jeff",
+    "iliensinc",
+    "hypurr_co",
+    "mira_network"
+  ],
+  "base": [
+    "base",
+    "jessepollak",
+    "coinbase",
+    "brian_armstrong",
+    "aerodromefi",
+    "virtuals_io",
+    "farcaster_xyz",
+    "zora"
+  ],
+  "ai": [
+    "openai",
+    { "handle": "sama", "name": "Sam Altman（OpenAI CEO）" },
+    { "handle": "elonmusk", "name": "Elon Musk（xAI/Grok 创始人）" },
+    "xai",
+    { "handle": "anthropicai", "name": "Anthropic（Claude）" },
+    { "handle": "googledeepmind", "name": "Google DeepMind" },
+    { "handle": "deepseek_ai", "name": "DeepSeek" },
+    { "handle": "huggingface", "name": "Hugging Face（开源 AI）" },
+    "openrouterai",
+    { "handle": "mistralai", "name": "Mistral AI" },
+    { "handle": "karpathy", "name": "Andrej Karpathy（前 Tesla AI 总监/OpenAI 创始成员）" },
+    { "handle": "DrJimFan", "name": "Jim Fan（NVIDIA 高级科学家，Agent 领域）" },
+    { "handle": "alexalbert__", "name": "Alex Albert（Anthropic 产品负责人，Claude 动态）" },
+    { "handle": "ylecun", "name": "Yann LeCun（Meta 首席 AI 科学家）" },
+    { "handle": "AndrewYNg", "name": "Andrew Ng 吴恩达（AI 产业化/教育）" },
+    { "handle": "swyx", "name": "swyx（AI 工程，Latent Space）" },
+    { "handle": "nvidiaai", "name": "NVIDIA AI（算力供给侧）" }
+  ],
+  "robinhood": [
+    "robinhoodapp",
+    { "handle": "vladtenev", "name": "Vlad Tenev（Robinhood CEO）" }
+  ],
+  "intel": [
+    { "handle": "lookonchain", "name": "Lookonchain（smart money 链上情报）" },
+    { "handle": "EmberCNF", "name": "余烬（中文链上情报）" },
+    { "handle": "whale_alert", "name": "Whale Alert（大额转账快讯）" },
+    { "handle": "ArkhamIntel", "name": "Arkham（链上侦探/地址标签）" }
+  ],
+  "media": [
+    { "handle": "WuBlockchain", "name": "吴说区块链（中文快讯/独家）" },
+    { "handle": "BlockBeats", "name": "律动 BlockBeats（中文快讯）" },
+    { "handle": "WatcherGuru", "name": "Watcher.Guru（全球最快加密快讯，量大）" },
+    "theblock__"
+  ],
+  "og": [
+    { "handle": "saylor", "name": "Michael Saylor（Strategy 创始人，BTC 最大买家）" },
+    { "handle": "Strategy", "name": "Strategy（原 MicroStrategy，BTC 持仓披露）" },
+    { "handle": "RaoulGMI", "name": "Raoul Pal（Real Vision，宏观×加密周期）" },
+    { "handle": "Balajis", "name": "Balaji Srinivasan（前 a16z，技术×地缘观点）" },
+    { "handle": "cobie", "name": "Cobie（Jordan Fish，加密 OG）" },
+    { "handle": "PeterLBrandt", "name": "Peter Brandt（传奇交易员）" },
+    { "handle": "CathieDWood", "name": "Cathie Wood（ARK，BTC ETF 视角）" },
+    { "handle": "paradigm", "name": "Paradigm（顶级加密 VC，研究）" },
+    { "handle": "a16zcrypto", "name": "a16z crypto（加密 VC，研究+监管评论）" }
+  ],
+  "general": [
+    { "handle": "realdonaldtrump", "name": "Donald Trump（美国总统）" },
+    { "handle": "nasa", "name": "NASA" },
+    { "handle": "whitehouse", "name": "The White House（白宫）" },
+    { "handle": "federalreserve", "name": "Federal Reserve（美联储）" },
+    { "handle": "secgov", "name": "SEC（美国证交会）" },
+    { "handle": "ustreasury", "name": "U.S. Treasury（美国财政部）" },
+    { "handle": "ap", "name": "The Associated Press（美联社）" },
+    { "handle": "bloomberg", "name": "Bloomberg（彭博）" },
+    { "handle": "spacex", "name": "SpaceX" }
+  ]
+}

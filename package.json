@@ -12,7 +12,9 @@
     "experiment": "node main.js",
     "cleanup:holders": "node scripts/cleanup_orphaned_token_holders.js --dry-run",
     "cleanup:holders:exec": "node scripts/cleanup_orphaned_token_holders.js --execute",
-    "narrative-engine": "node src/narrative/engine/start.mjs"
+    "narrative-engine": "node src/narrative/engine/start.mjs",
+    "news-daemon": "node src/news-monitor/index.js",
+    "news-cli": "node src/news-monitor/cli.js"
   },
   "keywords": [
     "trading",

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>监控账号 · 新闻监控 · richer-js</title>
+  <link rel="stylesheet" href="/static/news/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><a href="/news-monitor" class="nav-link">🐦 新闻监控</a> · 监控账号<a class="nav-link" href="/experiments"> · 实验监控</a></div>
+    <div class="status-strip">
+      <span class="stat">共 <b id="total-count">-</b> 个</span>
+      <span class="stat">核心 <b id="core-count">-</b></span>
+      <span class="stat">11 组生态</span>
+      <span class="stat clock" id="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <main class="accounts-wrap">
+    <div class="accounts-toolbar">
+      <input type="search" id="search" placeholder="搜索 handle / 名称…" autocomplete="off">
+      <span class="meta" id="synced-at"></span>
+    </div>
+    <div id="groups"></div>
+  </main>
+
+  <script src="/static/news/accounts.js"></script>
+</body>
+</html>

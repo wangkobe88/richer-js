@@ -218,5 +218,14 @@
   "logging": {
     "level": "INFO",
     "dir": "./logs"
+  },
+  "newsMonitor": {
+    "enabled": true,
+    "syncMinute": 0,
+    "summaryMinute": 5,
+    "purgeMinute": 17,
+    "digestCap": 300,
+    "heartbeatMs": 30000,
+    "retainDays": 30
   }
 }

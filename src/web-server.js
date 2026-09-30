@@ -25,6 +25,7 @@ const { CryptoUtils } = require('./utils/CryptoUtils');
 const { CYCLE_PARAM_KEY_MAP } = require('./strategies/group-variables');
 const narrativeRoutes = require('./web/routes/narrative.routes');
 const strategyLibraryRoutes = require('./web/routes/strategy-library.routes');
+const newsRoutes = require('./web/routes/news.routes');
 
 // buildLLMAnalysis 是 ESM 模块，首次使用时动态导入并缓存
 let _buildLLMAnalysis = null;
@@ -332,6 +333,15 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/strategy-library.html'));
     });
 
+    // 新闻监控页面（news_monitor 项目收编，2026-09-30：小时报告 + 事件流 + 监控账号）
+    this.app.get('/news-monitor', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/news-monitor.html'));
+    });
+
+    this.app.get('/news-accounts', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/news-accounts.html'));
+    });
+
     // 实验详情页面（必须放在最后，作为默认路由）
     this.app.get('/experiment/:id', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/experiment_detail.html'));
@@ -342,6 +352,9 @@ class RicherJsWebServer {
 
     // ============ API路由：策略库（策略库一期，2026-09-28）============
     this.app.use('/api/strategy-library', strategyLibraryRoutes);
+
+    // ============ API路由：新闻监控（news_monitor 收编，2026-09-30）============
+    this.app.use('/api/news', newsRoutes);
 
     // ============ API路由：事件监控 ============
 
