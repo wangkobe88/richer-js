@@ -198,15 +198,33 @@ async function cmdSmoke() {
 
 // ─────────────────────── --fetch ───────────────────────
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 async function cmdFetch() {
   const { marketApi } = await getGmgnApis();
-  const merged = new Map();
+  // 断点续跑：list.json 已有完成的榜单直接复用（GMGN 榜单接口 IP 速率限制实测
+  // 连续两榜即 429 ban ~30s——逐榜落盘 + 榜间间隔 + 429 退避重试）
+  const prevStore = readJson(LIST_FILE, null);
+  const completed = new Set(prevStore?.completedRanks || []);
+  const merged = new Map((prevStore?.tokens || []).map(t => [t.address, t]));
+
   for (const def of RANK_DEFS) {
+    if (completed.has(def.key)) { console.log(`榜单 ${def.key} 已完成，跳过`); continue; }
     console.log(`拉榜单 ${def.key} (interval=${def.interval} order_by=${def.order_by} limit=${RANK_LIMIT}) ...`);
-    const res = await marketApi.getTrendingSwaps('bsc', def.interval, { order_by: def.order_by, limit: RANK_LIMIT });
-    const rows = extractRankRows(res);
+    let rows = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await marketApi.getTrendingSwaps('bsc', def.interval, { order_by: def.order_by, limit: RANK_LIMIT });
+        rows = extractRankRows(res);
+        break;
+      } catch (e) {
+        if (attempt >= 3 || !/429|RATE_LIMIT/i.test(String(e?.message) + String(e?.name))) throw e;
+        console.log(`  429 限速，等 35s 重试（第 ${attempt} 次）...`);
+        await sleep(35000);
+      }
+    }
     let kept = 0;
-    rows.forEach((row, i) => {
+    (rows || []).forEach((row, i) => {
       const rec = normalizeRankRow(row, def, i);
       if (!isValidBscAddr(rec.address)) return;
       if (EXCLUDE_ADDRS.has(rec.address)) return;
@@ -222,11 +240,18 @@ async function cmdFetch() {
         kept++;
       }
     });
-    console.log(`  行数=${rows.length} 新增=${kept}`);
+    completed.add(def.key);
+    writeJson(LIST_FILE, {
+      fetchedAt: new Date().toISOString(),
+      ranks: RANK_DEFS.map(d => d.key),
+      completedRanks: [...completed],
+      tokens: [...merged.values()],
+    });
+    console.log(`  行数=${rows?.length ?? 0} 新增=${kept}（累计 ${merged.size}，进度已落盘）`);
+    // 榜间间隔防 429（最后一榜后不等）
+    if (def !== RANK_DEFS[RANK_DEFS.length - 1]) await sleep(35000);
   }
-  const list = [...merged.values()];
-  writeJson(LIST_FILE, { fetchedAt: new Date().toISOString(), ranks: RANK_DEFS.map(d => d.key), tokens: list });
-  console.log(`合并去重 ${list.length} 票 → ${LIST_FILE}`);
+  console.log(`合并去重 ${merged.size} 票 → ${LIST_FILE}`);
 }
 
 // ─────────────────────── --classify ───────────────────────
@@ -289,7 +314,8 @@ async function cmdInject() {
   const tokenApi = new GMGNTokenAPI({ apiKey: process.env.GMGN_API_KEY, timeout: 30000 });
 
   const injected = readJsonl(INJECTED_FILE);
-  const done = new Set(injected.map(r => r.address));
+  // error 行不算完成（重跑时重试）；成功行断点跳过
+  const done = new Set(injected.filter(r => r.ok).map(r => r.address));
   let ok = 0, fail = 0;
   for (const t of targets) {
     if (done.has(t.address)) continue;
@@ -352,7 +378,8 @@ async function cmdAnalyze() {
   if (!store) throw new Error('list.json 不存在');
   const { NarrativeAnalyzer } = await import('../../src/narrative/analyzer/NarrativeAnalyzer.mjs');
 
-  const done = new Set(readJsonl(RESULTS_FILE).map(r => r.address));
+  // error 行不算完成（重跑时重试）；正常行断点跳过
+  const done = new Set(readJsonl(RESULTS_FILE).filter(r => !r.error).map(r => r.address));
   const todo = store.tokens.filter(t => !done.has(t.address));
   console.log(`待分析 ${todo.length} 票（已完成 ${done.size}）`);
   let i = 0;
