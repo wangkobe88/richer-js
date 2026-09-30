@@ -65,13 +65,16 @@ class FourMemeAnkrWsCollector {
      * @param {Object} tokenPool - TokenPool 实例
      * @param {Object|null} factorAggregator - FourMemeFactorAggregator 实例
      * @param {Object} callbacks - { onTokenCreate(info), onTick(tick), onGraduation(info) } 均可选
+     * @param {Object|null} senderResolver - SenderResolver 实例（watcher 共享传入；null=不解析
+     *        sender_address，行为与旧版完全一致——实验进程不跑 collector，dry-run 脚本传 null）
      */
-    constructor(config, logger, tokenPool = null, factorAggregator = null, callbacks = {}) {
+    constructor(config, logger, tokenPool = null, factorAggregator = null, callbacks = {}, senderResolver = null) {
         this.config = config.fourmemeWs || {};
         this.logger = logger;
         this.tokenPool = tokenPool;
         this._factorAggregator = factorAggregator;
         this._callbacks = callbacks || {};
+        this._senderResolver = senderResolver;
         // dry-run：显式丢缓冲不写库（脚本真实流验证用；watcher/实验模式缺省写库，experiment_id 为 null）
         this._dryRun = this.config.dryRun === true;
 
@@ -556,6 +559,11 @@ class FourMemeAnkrWsCollector {
             log_index: decoded.logIndex,
             trade_type: decoded.tradeType,
             trader_address: decoded.trader,
+            // 真实交易发起者 tx.from（BSC 恒 EOA）。trader_address 是事件 msg.sender——公共路由
+            // 交易时是 router 合约（flap 0x1de460 同病）。resolver 未启用/反查耗尽 → NULL；
+            // EOA 快路 = trader 零延迟；合约行 resolve 完成后回推 _pushTickRow（FA 因子
+            // 路径不受影响）
+            sender_address: null,
             price_bnb: decoded.priceBnb,
             price_usd: priceUsd,
             bnb_amount: decoded.bnbAmount,
@@ -566,10 +574,17 @@ class FourMemeAnkrWsCollector {
             received_at: new Date(receivedAt).toISOString(),
             platform: 'fourmeme',
         };
-        this.stats.ticksBuffered++;
-        this._tickBuffer.push(tickRow);
-        if (this._tickBuffer.length >= this._tickFlushThreshold) {
-            this._flushTickBuffer();
+        if (this._senderResolver) {
+            // 合约/未知钱包延迟入 buffer（单次 upsert 全字段，省回填 UPDATE）；EOA 缓存
+            // 命中在 submit 内同步回推，与旧路径零差异
+            this._senderResolver.submit({
+                tickRow,
+                trader: decoded.trader,
+                txHash: decoded.txHash,
+                pushRow: (row) => this._pushTickRow(row),
+            });
+        } else {
+            this._pushTickRow(tickRow);
         }
 
         // 3) FactorAggregator（小额尘 tick 不参与因子计算，仍落表）
@@ -605,6 +620,15 @@ class FourMemeAnkrWsCollector {
                 price_usd: priceUsd,
                 timestamp: decoded.blockTimeMs,
             });
+        }
+    }
+
+    /** tick 行进缓冲（resolver 回推与直推共用的单一咽喉点） */
+    _pushTickRow(tickRow) {
+        this.stats.ticksBuffered++;
+        this._tickBuffer.push(tickRow);
+        if (this._tickBuffer.length >= this._tickFlushThreshold) {
+            this._flushTickBuffer();
         }
     }
 

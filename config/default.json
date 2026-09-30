@@ -165,6 +165,24 @@
       "txWaitTimeoutMs": 120000
     }
   },
+  "senderResolve": {
+    "enabled": true,
+    "rpcMode": "urls",
+    "rpcUrls": [
+      "https://bsc-dataseed1.binance.org/",
+      "https://bsc-dataseed2.binance.org/",
+      "https://bsc-dataseed3.binance.org/",
+      "https://bsc-dataseed1.defibit.io/",
+      "https://bsc-dataseed1.nariox.io/"
+    ],
+    "concurrency": 4,
+    "backlogLimit": 20000,
+    "retryLimit": 2,
+    "retryDelayMs": 3000,
+    "kindCacheLimit": 200000,
+    "txFromCacheLimit": 50000,
+    "logEvery": 10000
+  },
   "strategy": {
     "buyTimeMinutes": 1.33,
     "earlyReturnMin": 80,

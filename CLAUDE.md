@@ -30,6 +30,9 @@ node src/watcher/index.js
 # Watcher 架构本地零 DB 单测（打桩 dbManager）
 node scripts/_test_watcher_architecture.cjs
 
+# sender_address 解析（真实买家 tx.from）零 DB 零网络单测（打桩 provider/collector）
+node scripts/_test_sender_resolver.cjs
+
 # TPA 离线画像构建（step4；只在 182 跑，须在 build-token-profiles 之后——依赖 flash_crash_period）
 NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs --threshold 3 --days 14
 
@@ -69,6 +72,13 @@ WSS 订阅由**常驻 watcher**（`src/watcher/`，单进程双平台，182 scre
 │   token_create/graduation/quote_set → wss_events (kind 行；重试队列)     │
 │   60s heartbeat 行 → 实验侧断供判据 + 人工查活（7 天清理）               │
 │   60s 断流自愈（消息静默≥5min → forceReconnect；自引擎迁入）             │
+│   SenderResolver（共享实例传两 collector，config.senderResolve，默认开）： │
+│     新行 sender_address = tx.from（真实发起 EOA）。trader 参数是          │
+│     msg.sender——公共路由（flap 0x1de460 占 27.9% 行）落的是 router 合约。│
+│     EOA kind 缓存命中同步进 buffer 零延迟；合约/未知走 getCode +          │
+│     getTransactionByHash 反查后回推（RPC=dataseed 池轮询，可切            │
+│     ankrFromEnv）；失败/溢出/停机 → NULL 保行不丢（绝不冒充）。           │
+│     消费侧本期不切（top1/sniper/TPA 仍读 trader_address，先积累对拍）    │
 │   logs 订阅带 topic0 白名单（TOPIC0_MAP，2026-09-28 ANKR 降费 flap -74%/  │
 │   fourmeme -42%；unknownTopic0 计数归零=新事件类型发现盲化，诊断时临时    │
 │   去掉订阅 params 的 topics 字段重订阅一天）                              │
@@ -252,7 +262,7 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 ### Database
 
-Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; watcher 写入行 experiment_id=NULL; `quote_token` 标记 flap 非 BNB 计价盘——collector 按三级汇率源换算 price_bnb/bnb_amount 后落库（2026-09-30 wTCENTx 案：① PCS V2 quote/WBNB reserves ② PCS V3 quote/WBNB 各 fee 档 liquidity>0 最深池 slot0 ③ PCS V3 quote/USDT 同门槛 → ÷ bnbUsd 中转；零流动性 V3 池挂价不可信必须拦——同案 WBNB 对挂价偏离真值 20%），三级全 miss 跳行（宁跳不冒充），BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat/token_quote_set 低频事件通道，token 级全局表不挂 experiment 维度；token_quote_set 为 flap quote 映射持久化行，payload 含 blockNumber/logIndex 供水位增量回放), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
+Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; watcher 写入行 experiment_id=NULL; `sender_address` = 真实交易发起者 tx.from（BSC 恒 EOA，watcher 侧 SenderResolver 解析，2026-09-30 0x1de460 公共路由案——`trader_address` 是事件 msg.sender，公共路由行落 router 合约占全 flap 27.9%，top1/sniper/TPA 画像被污染；NULL=未解析，等于 trader_address 即 EOA 直连；存量行与消费侧切换暂缓，先积累 sender vs trader 对拍；DDL `scripts/sql/add-wss-ticks-sender-address.sql`）；`quote_token` 标记 flap 非 BNB 计价盘——collector 按三级汇率源换算 price_bnb/bnb_amount 后落库（2026-09-30 wTCENTx 案：① PCS V2 quote/WBNB reserves ② PCS V3 quote/WBNB 各 fee 档 liquidity>0 最深池 slot0 ③ PCS V3 quote/USDT 同门槛 → ÷ bnbUsd 中转；零流动性 V3 池挂价不可信必须拦——同案 WBNB 对挂价偏离真值 20%），三级全 miss 跳行（宁跳不冒充），BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat/token_quote_set 低频事件通道，token 级全局表不挂 experiment 维度；token_quote_set 为 flap quote 映射持久化行，payload 含 blockNumber/logIndex 供水位增量回放), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
 
 Experiment deletion is DB-level: every experiment-owned table carries `experiment_id → experiments(id) ON DELETE CASCADE` (see `scripts/sql/migrate-experiment-cascade-delete.sql`), so deleting the experiments row removes all its data — the web layer just deletes the row, no per-table cleanup.
 

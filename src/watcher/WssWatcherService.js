@@ -38,6 +38,7 @@ class WssWatcherService {
 
         this._supabase = null;
         this._collectors = new Map(); // platform → collector
+        this._senderResolver = null;  // 共享 sender 解析器（config.senderResolve.enabled 才构造）
         this._eventQueue = [];        // 写失败的 events 待重试（unshift 模式，镜像 tickBuffer）
         this._eventWriting = false;
 
@@ -66,6 +67,16 @@ class WssWatcherService {
         const { FourMemeAnkrWsCollector } = require('../collectors/fourmeme-ankr-ws-collector.js');
         const { FlapAnkrWsCollector } = require('../collectors/flap-ankr-ws-collector.js');
 
+        // 共享 sender 解析器（单实例传两 collector：钱包跨平台交易，kind 缓存利用率更高）。
+        // 段缺失/enabled=false → 不构造，collector 收 null 走旧路径零行为变化
+        if (this.config.senderResolve && this.config.senderResolve.enabled === true) {
+            const { SenderResolver } = require('../collectors/sender-resolver.js');
+            this._senderResolver = new SenderResolver(this.config.senderResolve, this.logger);
+            this.logger.info('', 'WssWatcher',
+                `sender 解析已启用 | mode=${this.config.senderResolve.rpcMode || 'urls'} ` +
+                `concurrency=${this._senderResolver._concurrency}（0x1de460 公共路由案修正，详见 sender-resolver.js 头注）`);
+        }
+
         // tick flush 压到 500ms（浅覆盖各自 config 段）；FA/tokenPool=null 无状态复用
         const watcherCfg = (section) => ({
             ...this.config,
@@ -89,7 +100,7 @@ class WssWatcherService {
                 onQuoteSet: p.name === 'flap'
                     ? (info) => this._enqueueEvent('token_quote_set', 'flap', info)
                     : null,
-            });
+            }, this._senderResolver);
             this._collectors.set(p.name, collector);
             collector.start();
         }
@@ -121,6 +132,15 @@ class WssWatcherService {
             await this._flushEventQueue();
         } catch (e) {
             this.logger.error('', 'WssWatcher', `停机 events 冲刷失败（丢失 ${this._eventQueue.length} 条）: ${e.message}`);
+        }
+        // sender 解析器必须先于 collector 停止——未解析行的 NULL 回推要进 tickBuffer，
+        // 再由 collector.stop() 的 flush 落库（零丢行）；顺序反了回推行就没人收了
+        if (this._senderResolver) {
+            try {
+                await this._senderResolver.stop();
+            } catch (e) {
+                this.logger.error('', 'WssWatcher', `sender 解析器停止失败: ${e.message}`);
+            }
         }
         for (const collector of this._collectors.values()) {
             try {
@@ -191,6 +211,7 @@ class WssWatcherService {
                 at: Date.now(),
                 collectors: collectorState,
                 eventQueue: this._eventQueue.length,
+                senderResolve: this._senderResolver ? this._senderResolver.getStats() : null,
                 watcherStats: { ...this.stats },
             },
             block_time: null,
