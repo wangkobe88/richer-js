@@ -89,36 +89,49 @@ function readJsonl(file) {
   } catch { return []; }
 }
 
+/** 榜单响应 → 行数组（冒烟实测：_normalRequest 返回完整 {code, data:{rank:[...]}} 外壳） */
+function extractRankRows(res) {
+  const cand = [res?.data?.rank, res?.rank, res?.list, res?.data];
+  return cand.find(Array.isArray) || [];
+}
+
+/** 榜单行 twitter_username 实测可能是完整 URL（"https://x.com/Ripple"）或裸 handle */
+function normalizeTwitterUrl(v) {
+  if (!v || typeof v !== 'string') return null;
+  const s = v.trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  return s ? `https://x.com/${s}` : null;
+}
+
 /**
- * GMGN 榜单行 → 标准化记录。字段名候选链：官方 openapi 文档措辞与 web 版
- * 不完全一致，冒烟（--smoke）核对后收敛——缺字段记 null 不抛错（报告分层可见）。
+ * GMGN 榜单行 → 标准化记录。字段名已按 2026-09-30 冒烟实测收敛：
+ * market_cap/volume/swaps/holder_count/smart_degen_count/renowned_count 扁平数字；
+ * 创建时间 creation_timestamp（open_timestamp 实测常为 0 占位——0 视为无效）；
+ * launchpad_platform 是平台口径（launchpad 常空串）；社媒 twitter_username/website
+ * 榜单行直接带出（B 类造行零额外 GMGN 调用）。
  */
 function normalizeRankRow(row, rankDef, rankIndex) {
   const addr = String(row.address || '').toLowerCase();
-  const pickNum = (...keys) => {
+  const pickPos = (...keys) => {
     for (const k of keys) {
-      // volume 可能是嵌套对象 {h24: ...}，扁平键优先，嵌套兜底
-      if (typeof row[k] === 'number' && Number.isFinite(row[k])) return row[k];
+      if (typeof row[k] === 'number' && Number.isFinite(row[k]) && row[k] > 0) return row[k];
     }
     return null;
   };
-  const nestedNum = (objKey, subKey) => {
-    const o = row[objKey];
-    return (o && typeof o[subKey] === 'number' && Number.isFinite(o[subKey])) ? o[subKey] : null;
-  };
-  const openTs = pickNum('open_timestamp', 'creation_timestamp', 'created_timestamp', 'deploy_timestamp');
   return {
     address: addr,
     symbol: row.symbol || null,
     name: row.name || null,
-    openTimestampSec: openTs,
-    marketCapUsd: pickNum('market_cap', 'marketCap', 'usd_market_cap'),
-    volume24hUsd: pickNum('volume_h24', 'volume_24h', 'volume') ?? nestedNum('volume', 'h24'),
-    holderCount: pickNum('holder_count', 'holders'),
-    renownedCount: pickNum('renowned_count', 'renowned_account_count'),
-    smartDegenCount: pickNum('smart_degen_count', 'smart_degen_account_count'),
-    swaps24h: pickNum('swaps_h24', 'swaps_24h', 'swaps'),
-    launchpad: row.launchpad || row.launchpad_platform || null,
+    openTimestampSec: pickPos('creation_timestamp', 'open_timestamp'),
+    marketCapUsd: pickPos('market_cap', 'marketCap'),
+    volume24hUsd: pickPos('volume'),
+    holderCount: pickPos('holder_count'),
+    renownedCount: pickPos('renowned_count'),
+    smartDegenCount: pickPos('smart_degen_count'),
+    swaps24h: pickPos('swaps'),
+    launchpad: row.launchpad_platform || row.launchpad || null,
+    twitterUrl: normalizeTwitterUrl(row.twitter_username),
+    websiteUrl: (typeof row.website === 'string' && /^https?:\/\//i.test(row.website)) ? row.website : null,
     ranks: { [rankDef.key]: rankIndex + 1 },
   };
 }
@@ -158,17 +171,15 @@ async function cmdSmoke() {
   const { marketApi, tokenApi } = await getGmgnApis();
   console.log('=== 榜单冒烟: bsc 24h marketcap limit=5 ===');
   const res = await marketApi.getTrendingSwaps('bsc', '24h', { order_by: 'marketcap', limit: 5 });
-  const rows = Array.isArray(res) ? res : (res?.rank || res?.list || res?.data || []);
-  console.log(`响应外壳类型: ${typeof res}；行数: ${rows.length}`);
+  const rows = extractRankRows(res);
+  console.log(`行数: ${rows.length}`);
   if (!rows.length) {
     console.log('响应全文:', JSON.stringify(res, null, 2).slice(0, 3000));
     return;
   }
-  console.log('第一行完整字段（排序）:');
-  console.log(JSON.stringify(Object.keys(rows[0]).sort().reduce((acc, k) => (acc[k] = rows[0][k], acc), {}), null, 2));
-  console.log('\n逐行 address/symbol（核对 normalizeRankRow 映射）:');
+  console.log('逐行（核对 normalizeRankRow 映射）:');
   rows.forEach((r, i) => {
-    console.log(`  #${i + 1} addr=${r.address} symbol=${r.symbol} mc=${r.market_cap ?? r.marketCap ?? '-'} openTs=${r.open_timestamp ?? '-'}`);
+    console.log(`  #${i + 1} addr=${r.address} symbol=${r.symbol} name=${r.name} mc=${r.market_cap} vol=${r.volume} renowned=${r.renowned_count} created=${r.creation_timestamp} launchpad=${r.launchpad_platform} tw=${r.twitter_username}`);
   });
 
   console.log('\n=== token info 冒烟: 榜一 ===');
@@ -180,9 +191,8 @@ async function cmdSmoke() {
     console.log('时间类字段:', JSON.stringify({
       open_timestamp: info?.open_timestamp,
       creation_timestamp: info?.creation_timestamp,
-      pool_creation: info?.pool?.creation_timestamp,
     }));
-    console.log('基础字段:', JSON.stringify({ symbol: info?.symbol, name: info?.name, launchpad: info?.launchpad, price: info?.price }));
+    console.log('基础字段:', JSON.stringify({ symbol: info?.symbol, name: info?.name, launchpad: info?.launchpad }));
   }
 }
 
@@ -194,7 +204,7 @@ async function cmdFetch() {
   for (const def of RANK_DEFS) {
     console.log(`拉榜单 ${def.key} (interval=${def.interval} order_by=${def.order_by} limit=${RANK_LIMIT}) ...`);
     const res = await marketApi.getTrendingSwaps('bsc', def.interval, { order_by: def.order_by, limit: RANK_LIMIT });
-    const rows = Array.isArray(res) ? res : (res?.rank || res?.list || res?.data || []);
+    const rows = extractRankRows(res);
     let kept = 0;
     rows.forEach((row, i) => {
       const rec = normalizeRankRow(row, def, i);
@@ -204,7 +214,7 @@ async function cmdFetch() {
       if (prev) {
         prev.ranks[def.key] = i + 1;
         // 指标字段留首次非空值（三榜口径同源，字段一致）
-        for (const k of ['symbol', 'name', 'openTimestampSec', 'marketCapUsd', 'volume24hUsd', 'holderCount', 'renownedCount', 'smartDegenCount', 'swaps24h', 'launchpad']) {
+        for (const k of ['symbol', 'name', 'openTimestampSec', 'marketCapUsd', 'volume24hUsd', 'holderCount', 'renownedCount', 'smartDegenCount', 'swaps24h', 'launchpad', 'twitterUrl', 'websiteUrl']) {
           if (prev[k] == null && rec[k] != null) prev[k] = rec[k];
         }
       } else {
@@ -270,9 +280,10 @@ async function cmdInject() {
   if (expErr) throw expErr;
   console.log(`验证实验行就绪: ${VALIDATION_EXPERIMENT.id}`);
 
-  // 2. B 类逐票造行。社媒走 fetchGmgnSocialLinks（CachedFetcher——顺手写 1d 缓存，
-  //    analyze 阶段 enrichSocialByGmgn 复用同缓存零二次配额）；name/open_timestamp
-  //    榜单行缺时才补打 getTokenInfo
+  // 2. B 类逐票造行。社媒优先用榜单行自带 twitter_username/website（冒烟实测直接
+  //    带出，零 GMGN 调用）；榜单行缺失才走 fetchGmgnSocialLinks（CachedFetcher 顺手
+  //    写 1d 缓存，analyze 阶段 enrichSocialByGmgn 复用同缓存零二次配额）；
+  //    name/creation_timestamp 也缺时才补打 getTokenInfo
   const { fetchGmgnSocialLinks } = await import('../../src/narrative/utils/gmgn-social-fetcher.mjs');
   const { GMGNTokenAPI } = await import('../../src/core/gmgn-api/index.js');
   const tokenApi = new GMGNTokenAPI({ apiKey: process.env.GMGN_API_KEY, timeout: 30000 });
@@ -283,19 +294,27 @@ async function cmdInject() {
   for (const t of targets) {
     if (done.has(t.address)) continue;
     try {
-      const socials = await fetchGmgnSocialLinks('bsc', t.address).catch(() => null);
+      let twitterUrl = t.twitterUrl || null;
+      let websiteUrl = t.websiteUrl || null;
       let symbol = t.symbol, name = t.name, openTs = t.openTimestampSec, launchpad = t.launchpad;
+      if ((!twitterUrl && !websiteUrl) || openTs == null || !name || !symbol) {
+        const socials = await fetchGmgnSocialLinks('bsc', t.address).catch(() => null);
+        twitterUrl = twitterUrl || socials?.twitterUrl || null;
+        websiteUrl = websiteUrl || socials?.websiteUrl || null;
+      }
       if (openTs == null || !name || !symbol) {
         const info = await tokenApi.getTokenInfo('bsc', t.address);
         symbol = symbol || info?.symbol || '';
         name = name || info?.name || '';
-        openTs = openTs ?? (typeof info?.open_timestamp === 'number' ? info.open_timestamp : null);
+        openTs = openTs ?? (typeof info?.creation_timestamp === 'number' && info.creation_timestamp > 0
+          ? info.creation_timestamp
+          : (typeof info?.open_timestamp === 'number' && info.open_timestamp > 0 ? info.open_timestamp : null));
         launchpad = launchpad || info?.launchpad || null;
       }
       const raw = {
         symbol, name,
-        twitterUrl: socials?.twitterUrl || null,
-        websiteUrl: socials?.websiteUrl || null,
+        twitterUrl,
+        websiteUrl,
         created_at: openTs, // 秒；null → precheck 时效规则跳过 + Jev 回退墙钟（报告标注）
         source: 'gmgn_rank_validation',
       };
@@ -321,7 +340,7 @@ async function cmdInject() {
       appendJsonl(INJECTED_FILE, { address: t.address, symbol: t.symbol, ok: false, error: e?.message || String(e) });
       fail++;
     }
-    console.log(`inject [${ok + fail}/${targets.length}] ${t.symbol || t.address} ${fail ? '' : ''}`);
+    console.log(`inject [${ok + fail}/${targets.length}] ${t.symbol || t.address}`);
   }
   console.log(`造行完成: ok=${ok} fail=${fail} → ${INJECTED_FILE}`);
 }
