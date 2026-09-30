@@ -44,7 +44,7 @@ const DEFAULT_RPC_URLS = [
     'https://bsc-dataseed2.binance.org/',
     'https://bsc-dataseed3.binance.org/',
     'https://bsc-dataseed1.defibit.io/',
-    'https://bsc-dataseed1.nariox.io/',
+    'https://bsc-dataseed2.defibit.io/',
 ];
 
 /**
