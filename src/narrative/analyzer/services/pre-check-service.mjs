@@ -22,7 +22,9 @@ const NARRATIVE_CONFIG = config.narrative || {
   enableImageAnalysis: false,
   enableVideoAnalysis: false,
   twitterBlacklist: [],
-  expiredTweetMinutesThreshold: 10
+  // 过期推文窗 10min → 6h（2026-10-01 用户裁定「10分钟确实有点太窄了」；
+  // 详见 NarrativeAnalyzer.mjs 同键注释——族五形状 B：10min 预拦抢了 Jev timing 判断）
+  expiredTweetMinutesThreshold: 360
 };
 
 /**
@@ -514,7 +516,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       console.log('[NarrativeAnalyzer] 代币无创建时间数据，跳过过期内容检查');
     } else {
       const refNow = new Date(tokenCreatedAtSec * 1000);
-      const expiredMinutesThreshold = NARRATIVE_CONFIG.expiredTweetMinutesThreshold || 10;
+      const expiredMinutesThreshold = NARRATIVE_CONFIG.expiredTweetMinutesThreshold || 360;
 
       // 2.1 检查推文过期（仅推文类型，不适用账号）
       // 多推文场景：主推文、website_tweet、quoted_tweet、retweeted_status 中任一满足即可

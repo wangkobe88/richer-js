@@ -154,7 +154,11 @@ const NARRATIVE_CONFIG = config.narrative || {
   enableImageAnalysis: false,
   enableVideoAnalysis: false,
   twitterBlacklist: [],
-  expiredTweetMinutesThreshold: 10
+  // 过期推文窗（分钟）：语料推文距 mint > 窗口 → low 硬拦「叙事价值耗尽」。
+  // 2026-10-01 用户裁定 10min → 6h：10min 比 Jev timing 题自己的「当前」档
+  // （within_7d）严 4 个数量级，代码预拦抢了叙事新鲜度判断；6h 内放行进 Jev，
+  // 由 timing 题分档（族五形状 B：TRUMAN 32min / 9 3.9h 放行实证）
+  expiredTweetMinutesThreshold: 360
 };
 
 export class NarrativeAnalyzer {
