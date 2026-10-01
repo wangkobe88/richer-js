@@ -37,7 +37,7 @@ function check(desc, actual, expected) {
   const { resolveFinalRating } = await import('../src/narrative/utils/rating-utils.mjs');
 
   console.log('== 0. 版本 bump ==');
-  check('P1.7', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.7');
+  check('P1.8', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.8');
 
   // ── mapper 测试基础设施 ────────────────────────────────────────────
   const callInfo = {
@@ -88,7 +88,7 @@ function check(desc, actual, expected) {
   check('mid 带 pass=true', wl.prestageDataToSave.pass, true);
   check('baselineMet=true', wl.baselineMet, true);
   check('category=web3_native_ip_early', wl.tokenType, 'web3_native_ip_early');
-  check('promptType 带 P1.7', wl.promptType, `prestage-jev(P1.7/web3_native_ip_early)`);
+  check('promptType 带 P1.8', wl.promptType, `prestage-jev(P1.8/web3_native_ip_early)`);
 
   check('7 粉 → low（底线 20）',
     web3ip(account({ followers_count: 7 })).rating, 'low');
