@@ -83,8 +83,23 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
   METAB」推断的巧合性唯一解（9-22 仿盘出现后引用已歧义）。与 C47 互为镜像：
   **symbol 级关联不构成票号归属，地址级宣告才是**（地址验证门语义正确）。
 - **处置**：0x7425 拦截维持（映射盘 + 无地址级宣告双事实），拦截理由记录修正
-  为本条目定性；BENNY `0xcdea…7777`（正主票，44 粉 6 天新号宣告 CA + Zuck FB
-  语料）是否跑真实评级待用户表态。
+  为本条目定性；BENNY 正主票实跑结果见下。
+- **BENNY 正主票实跑（2026-10-02 用户指令「跑一下」，mid(2) PASS）**：
+  `0xcdea0845dc394ce4bf5cdd1f8297521428877777` 造行挂 Benny 号语料源
+  （AVE/GMGN 自挂全空，C40 造行同款操作）+ created_at 1789521066（AVE+GMGN
+  双源一致）→ `analyze(ignoreCache+enrichSocialByGmgn)`：**地址验证过**（置顶推
+  正是宣告推 status/2100030446910554609，29 推内含完整 CA）+ nameMatch exact →
+  prestage P1.9 判 **web3_native_ip_early 0.99**（vs project 0.01）→ 账号基本面
+  评级粉丝 44 ≥20 底线 → **mid**。三个要点：① **C46 翻案键自然验证**——账号
+  只比 token 早 5.5h、44 粉、实度题 1.5<3，旧 P1.7 世界线判 project 吃年龄门+
+  实度门双拦 low；P1.9 双形状判 web3ip 绕开两门（C46 上线两天第一张完全踩在
+  双形状上的自然票；与 ARX 对照：判 project 吃 no_traffic 拦 vs 判 web3ip 绕开
+  骑乘判定，判型分流正确）② mid 非 high = 粉丝带 44<300 + **Zuck FB/IG 语料
+  未进 prestage state**（置顶推 t.co 短链不被展开提取，prestage 路径语料边界）
+  ③ **C52 论点机器实证**：同一宣告推，地址级宣告的 BENNY → mid 真评级；符号
+  引用的 0x7425 → 维持拦。落库：token_narrative 全局行 + experiment_tokens
+  造行挂验证实验 2609e300（与 163 张注入行同容器同去留）；结果未入
+  results.jsonl/cases（非榜单票），dump 留档会话。
 - **附带观察**：「Paired」字样疑指 flap 代币配对计价机制（BENNY 或为 METAB
   计价盘，watcher 9-24 起未覆盖 9-16 创建盘，未验证）——若成立则 0x7425 与
   Benny 生态存在池级配对链上事实，不改变本体定性。
