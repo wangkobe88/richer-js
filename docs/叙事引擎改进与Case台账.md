@@ -68,26 +68,59 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 - **JustOneAPI web/html/v1 调查**（用户提示）：JustOneAPI 确有普通网页抓取端点
   （`api/web/html/v1`，返回 `{code,data:{data:渲染后HTML}}`），广场 fetcher 已接
   （C39 增强位）；但现有 key（douyin/tiktok 同把）调用返回 `code:300 API INVALID`
-  ——端点大概率不在当前套餐/需单独开通。若开通可作一级回退（付费稳定、jina 降
-  二级免费兜底），挂点在 `_fetchWebsiteContentInternal` 回退链，待用户确认套餐。
+  ——端点不在当前套餐。**用户裁定不开通（「这块就先不管」）**：jina 免费档
+  （仅失败回退，~20 req/min）继续顶用；未来若开通可作一级回退，挂点就在
+  `_fetchWebsiteContentInternal` 回退链。
 - **验证闭环**：RedCoin 重析 rule 4 消失（`preCheck=-`，语料 1137 字符 + 发布时间
   进 state）→ 进入 Jev 完整判定 stage3。单测
   `node scripts/_test_web_fetcher_jina_fallback.cjs`（19 断言零 DB 零网络，打桩
   globalThis.fetch：解析矩阵/主抓成功不回退/403 回退形状/回退也失败 null/空壳页
   走回退/源码接线六节）。
-- **衍生判定点（W 类数学错位，待裁定）**：语料进来后新拦截点 = **W 类数学
+- **衍生判定点（W 类数学错位，已裁定 → C42）**：语料进来后新拦截点 = **W 类数学
   41.45 < 60**（产品 16.36 + 币安交互 0.09 + 时效 25）。Jev 全维度证据与 W 数学
   自相矛盾：event_category W 0.68 但 D 0.31（分类优先级表 W>D 把「机构官宣链上
   产品」推向 W）；magnitude A 档 0.72（HSBC 知名大公司）；name_referent super_ip
   0.70（RedCoin=HSBC 官宣产品名）；dim2 4.49 极强带（世界级机构）；relevance
   exact_match 0.91；block none 0.91——除币安交互轴外全维度世界级，唯
   `w_binance_interaction` 0.01（置信 0.99「无交互」事实正确：HSBC≠币安系）压死。
-  语义错位同源 J1.17 注释（ChainPulse 案「W 交互分语义错位」）：交互轴为币安生态
-  叙事票设计，「传统世界级机构的链上产品官宣」的叙事价值在机构本身不在币安交互。
-  反事实：按 D 类标准数学 = A 档 34 + dim2 28~29 + 时效 15 ≈ 77-78 过线，exact 20 +
-  质量 ≈19 → **≈85 high**。三方向待裁定：A W 类 effTier S/A 世界级主体锚（交互轴
-  换轴/豁免）/ B 分类改道（机构官宣自家链上产品优先 D）/ C 维持拦截。
+  裁定与落地见 C42。
 - **部署提醒**：narrative engine 常驻进程（182）需重启吃到回退逻辑（与 J1.24 同批）。
+
+---
+
+### C42 RedCoin 续——W 类「世界级主体产品豁免币安交互」（2026-10-01 用户裁定）★
+
+- **Token**：同 C41 RedCoin `0xe2881a7ac454c473a8b4c858732402154e107777`
+- **用户裁定**：原话「世界级主体发布产品（不是版本更新），可以豁免跟币安交互」；
+  另 JustOneAPI web/html/v1 不开通（「这块就先不管」）——jina 免费档（仅失败回退
+  ~20 req/min）继续顶用。
+- **语义**：交互轴（W 数学最大权重 40 分）为币安生态叙事票设计；「传统世界级
+  机构 × 链上产品官宣」的叙事价值在机构本身（D 类量级/传播轴正主），跟币安
+  零交互是常态而非缺陷——J1.17 ChainPulse 案「W 交互分语义错位」注释同源。
+- **落地（mapper-only 切分，题集版本不动 J1.24——J1.16/J1.23/J1.24 三案教训：
+  题面锚移不动 Jev 的分）**：`jev-result-mapper.mjs` W 数学分支 `wInteractionExempt`
+  四条件全中才豁免：①**原生 W 类**（isW && 非 rideDetour && 非 cashtag 改道——
+  改道票各有拦截语义，iNu 案 cashtag 改道就是要拦，豁免不越界）；②effTier S/A
+  （世界级/头部主体）；③**新产品带 P(2)+P(3)≥0.5**（「重要新功能或有特点的新
+  产品」+「创新产品」——裁定原文「不是版本更新」，0 档小改进/边缘更新与
+  1 档一般新功能排除）；④交互已落无交互带（wInteraction<10）——交互 ≥10 的票
+  三轴照算（高交互是加分，剔除反而亏分）。效果：**产品+时效两轴归一化百分制
+  （÷60×100），pass 线 60 不变**；wInteraction 照常计算落库（审计可见）但不参与
+  总分。审计 `jev.wInteractionExempt {tier, newProductP}` + reason 前缀
+  「世界级主体产品豁免币安交互(C42)」+ stage2 reason「两轴归一」标注。
+- **验证闭环**：单测 `node scripts/_test_w_interaction_exempt.cjs`（17 断言零 DB：
+  RedCoin 实测 answers 数值复现 41.45→68.93 high 78.23 / 豁免矩阵六例——tier C
+  不豁免、版本更新形状不豁免、交互 14.5 不豁免、D 类不触达、骑乘改道不豁免、
+  cashtag 改道不豁免 / 高交互票三轴照算 89.2 / 审计 reason / 源码接线版本）；
+  回归 pun_exemption 18 / web3_fit_anchor 12 / publisher_proxy 28 /
+  narrative_signal_gate 13 全过。**端到端 `--case` 复验：low 41.45 → high
+  77.39 PASS**（生产链路含 GMGN 补源，reason 完整标注；事件分 41.6(69.33×0.6)+
+  关联 20+质量 15.79）。
+- **影响面**：豁免条件三重收紧（S/A 主体门 × 新产品带 × 原生 W）——垃圾票主体
+  量级过不了 A 档，误放面极小；交互 ≥10 的高交互票路径零变化。
+- **遗留**：182 narrative engine 常驻进程重启与 J1.24/C41 同批（mapper 版本漂移
+  §四-10）；改道票（B 类骑乘/cashtag）出现「世界级主体新产品被交互轴压死」case
+  再议扩围。
 
 ---
 

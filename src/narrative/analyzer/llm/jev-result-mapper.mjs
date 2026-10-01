@@ -517,6 +517,8 @@ export function mapStandardAnswers(answers, context) {
   let stage2Total = null;
   let wProduct = null;
   let wInteraction = null;
+  let wInteractionExempt = false;
+  let wNewProductP = null;
   let stage2Reason = null;
 
   // J1.11 负面硬新闻质量门挂最前（事件性质层面的否决，优先于其他阻断展示）；
@@ -558,10 +560,33 @@ export function mapStandardAnswers(answers, context) {
     wProduct = bandInterpolate(answers.w_product_score?.score ?? 0, W_PRODUCT_BANDS);
     wInteraction = bandInterpolate(answers.w_binance_interaction?.score ?? 0, W_INTERACTION_BANDS);
     timeliness = TIMING_SCORES_W[timing] ?? 0;
-    stage2Total = round2(wProduct + wInteraction + timeliness);
+    // C42 世界级主体产品豁免币安交互（2026-10-01 用户裁定「世界级主体发布产品
+    // （不是版本更新），可以豁免跟币安交互」，RedCoin 案 0xe2881a7ac454c473a8b4
+    // c858732402154e107777：HSBC 官宣港元稳定币 RedCoin——机构本身的量级就是
+    // 叙事价值，跟币安零交互是常态而非缺陷，交互轴（W 数学最大权重 40 分，为
+    // 币安生态叙事票设计）压死这类票属语义错位（J1.17 ChainPulse 案同源注释）。
+    // 条件全中才豁免：①原生 W 类（改道票不豁免——骑乘改道/cashtag 改道各有
+    // 拦截语义，iNu 案 cashtag 改道就是要拦）；②effTier S/A（世界级/头部主体）；
+    // ③新产品带 P(2)+P(3)≥0.5（「重要新功能或有特点的新产品」+「创新产品」，
+    // 排除 0 档小改进/版本更新与 1 档一般新功能——裁定原文「不是版本更新」）；
+    // ④交互已落无交互带（<10 分）——交互 ≥10 的票三轴照算，剔除反而亏分。
+    // 效果：产品+时效两轴归一化百分制（÷60×100），pass 线 60 不变；wInteraction
+    // 照常计算落库（审计可见）但不参与总分。mapper-only 切分，题集版本不动
+    // （J1.16/J1.23/J1.24 教训：题面锚移不动 Jev 的分，代码切分才决定性）。
+    const wProb = answers.w_product_score?.probabilities ?? {};
+    wNewProductP = round2((wProb['2'] ?? 0) + (wProb['3'] ?? 0));
+    wInteractionExempt = isW && rideMass == null && !cashtagForced
+      && (effTier === 'S' || effTier === 'A')
+      && wNewProductP >= 0.5
+      && wInteraction < 10;
+    stage2Total = wInteractionExempt
+      ? round2((wProduct + timeliness) / 60 * 100)
+      : round2(wProduct + wInteraction + timeliness);
     stage2Blocked = stage2Total < 60;
     const wLabel = rideMass != null ? '骑乘改道W类' : (cashtagForced ? `cashtag改道W类(${cashtagHit.cashtag})` : 'W类');
-    stage2Reason = `${wLabel} 产品${wProduct}+交互${wInteraction}+时效${timeliness}=${stage2Total}（pass线60）`;
+    stage2Reason = wInteractionExempt
+      ? `${wLabel}·世界级主体产品豁免币安交互 产品${wProduct}+时效${timeliness}=${stage2Total}（两轴归一，pass线60）`
+      : `${wLabel} 产品${wProduct}+交互${wInteraction}+时效${timeliness}=${stage2Total}（pass线60）`;
     if (stage2Blocked) stage2BlockReason = `${wLabel}总分不足（${stage2Total}<60）`;
   } else {
     tierScore = MAGNITUDE_TIER_SCORES[effTier] || 0;
@@ -599,6 +624,9 @@ export function mapStandardAnswers(answers, context) {
         routineContentProductMass: rcpBlock?.mass ?? null,
         web3FitMass: w3Block?.mass ?? null,
         timing,
+        // C42 审计标记：世界级主体产品豁免币安交互命中详情（effTier/新产品带概率
+        // 可追溯；wInteractionScore 键照常落库不受豁免影响）
+        wInteractionExempt: wInteractionExempt ? { tier: effTier, newProductP: wNewProductP } : null,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,
           dimension2: answers.dimension2?.probabilities,
@@ -666,7 +694,7 @@ export function mapStandardAnswers(answers, context) {
     ? `阻断:${stage2BlockReason}｜P=${(w3Block ?? nrBlock)?.mass ?? (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)} 拼写P=${round2(misspellingP)}`
-      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
+      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = stage2Blocked
     ? { __clear: true }  // 对齐原流程：Stage2 未通过 → Stage3 被跳过，清旧数据
