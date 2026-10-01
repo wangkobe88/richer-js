@@ -23,6 +23,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
   return {
     // 基础因子
     age: factorResults.age,
+    // 秒口径年龄（= age×60 同源；2026-10-01 裁定改落快照——signals 页因子 chip 直读，
+    // 旧信号（无此键）由前端 age×60 推导兜底；旧 FA 无键 → null 不掩盖）
+    tokenAgeSec: factorResults.tokenAgeSec ?? null,
     currentPrice: factorResults.currentPrice,
     collectionPrice: factorResults.firstPrice,  // 兼容旧前端
     launchPrice: factorResults.firstPrice,      // 兼容旧前端

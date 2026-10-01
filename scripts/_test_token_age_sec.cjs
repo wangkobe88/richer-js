@@ -6,7 +6,9 @@
 
 const FourMemeFactorAggregator = require('../src/services/FourMemeFactorAggregator');
 const { ConditionEvaluator } = require('../src/strategies/ConditionEvaluator');
-const { getAvailableFactorIds, buildFactorsFromTimeSeries } = require('../src/trading-engine/core/FactorBuilder');
+const { getAvailableFactorIds, buildFactorsFromTimeSeries, buildFactorValuesForTimeSeries } = require('../src/trading-engine/core/FactorBuilder');
+const fs = require('fs');
+const path = require('path');
 
 let pass = 0, fail = 0;
 function check(name, actual, expected) {
@@ -102,6 +104,21 @@ console.log('F. FactorBuilder 时序重建路径（tokenAgeSec = age×60 同源�
   check('F2 age 同步 1.5 分钟', f.age, 1.5);
   const f2 = buildFactorsFromTimeSeries({ age: 2 }, {}, 3e-9, T0); // fv.age 优先路径
   check('F3 fv.age 优先时同样 ×60', f2.tokenAgeSec, 120);
+}
+
+console.log('G. 快照白名单落库（2026-10-01 裁定 A/B 都做之 B：trendFactors 直读）');
+{
+  const snap = buildFactorValuesForTimeSeries({ age: 1.5, tokenAgeSec: 90, buyVolumeBnb: 2 });
+  check('G1 白名单含 tokenAgeSec（=90）', snap.tokenAgeSec, 90);
+  check('G2 旧 FA 无键 → null 不掩盖', buildFactorValuesForTimeSeries({ age: 1.5 }).tokenAgeSec, null);
+}
+
+console.log('H. signals 页旧信号推导兜底源码口径（A：tokenAgeSec miss 时 age×60 推导）');
+{
+  const src = fs.readFileSync(path.join(__dirname, '../src/web/static/js/experiment_signals.js'), 'utf8');
+  check('H1 chip 推导分支存在（tokenAgeSec × age×60）',
+    /cl\.name === 'tokenAgeSec'[\s\S]*?Number\(ageSrc\.age\) \* 60/.test(src), true);
+  check('H2 推导 chip 标注来源（age×60 推导）', /（age×60 推导）/.test(src), true);
 }
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
