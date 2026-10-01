@@ -26,8 +26,24 @@ export async function fetchWebsiteContent(url, options = {}) {
 
 /**
  * 获取网页内容（实际HTTP请求）
+ *
+ * C41（2026-10-01 用户裁定 A，RedCoin 案 0xe2881a7a…7777）：主抓失败
+ * （403/Cloudflare JS 挑战/超时/内容提取失败）时回退 r.jina.ai 代理一次——
+ * 免 key GET，返回 markdown 正文，实测直通 Cloudflare 站点（SCMP 等）。
+ * 与「语料物理删除」（fail-closed 正确拦）不同，本案是「源活着但管道被
+ * 反爬挡」（C39 币安广场 WAF 同族）。回退成功 ExternalResourceCache 照常
+ * 缓存（website TTL），失败缓存 null——量在免费限流（~20 req/min）内可控。
  */
-async function _fetchWebsiteContentInternal(url, options = {}) {
+export async function _fetchWebsiteContentInternal(url, options = {}) {
+  const direct = await _fetchDirect(url, options);
+  if (direct) return direct;
+  return _fetchViaJinaReader(url, options);
+}
+
+/**
+ * 直接抓取原 URL（原 _fetchWebsiteContentInternal 主体，无改动）
+ */
+async function _fetchDirect(url, options = {}) {
   const { maxLength = 5000, timeout = 15000 } = options;
 
   if (!url) {
@@ -81,6 +97,113 @@ async function _fetchWebsiteContentInternal(url, options = {}) {
     console.error(`[WebFetcher] 获取网页失败: ${error.message}`);
     return null;
   }
+}
+
+/** r.jina.ai Reader 代理地址（免 key，GET 原URL 直拼路径） */
+const JINA_READER_BASE = 'https://r.jina.ai/';
+
+/**
+ * r.jina.ai 回退抓取（仅主抓失败时调用一次）
+ * 返回形状与 _fetchDirect 同构（下游 websiteInfo/hasValidDataForAnalysis 零改动），
+ * 附 fetchedVia 审计字段；Published Time 解析出来时仿 twitter-section 模式
+ * 拼进 content 头部（Jev timing 题有时间信息可判，C39 同款做法）
+ */
+async function _fetchViaJinaReader(url, options = {}) {
+  const { maxLength = 5000, timeout = 20000 } = options;
+
+  if (!url) {
+    return null;
+  }
+
+  console.log(`[WebFetcher] 主抓失败，回退 r.jina.ai 代理: ${url}`);
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    const response = await fetch(JINA_READER_BASE + url, {
+      signal: controller.signal,
+      // ⚠️ 不带浏览器 UA：r.jina.ai 对伪装 Chrome UA 的请求 403（反滥用），
+      // curl 默认 UA / 无 UA 放行（实测对拍 200 vs 403）
+      headers: {
+        'User-Agent': 'richer-js-narrative/1.0'
+      }
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.warn(`[WebFetcher] r.jina.ai 回退 HTTP错误: ${response.status}`);
+      return null;
+    }
+
+    const text = await response.text();
+    const parsed = parseJinaReaderOutput(text);
+
+    // 挑战页穿透检测（jina 偶尔拿到 Cloudflare 挑战页而非正文）
+    const challengeHit = parsed && /just a moment|checking your browser|enable javascript and cookies/i.test(parsed.content);
+
+    if (!parsed || parsed.content.length < 50 || challengeHit) {
+      console.warn('[WebFetcher] r.jina.ai 回退未能提取到有效内容');
+      return null;
+    }
+
+    const contentWithTime = parsed.publishedTime
+      ? `[发布时间: ${parsed.publishedTime}]\n${parsed.content}`
+      : parsed.content;
+    const truncatedContent = safeSubstring(contentWithTime, maxLength);
+
+    console.log(`[WebFetcher] r.jina.ai 回退成功，长度: ${parsed.content.length} 字符${parsed.publishedTime ? `，发布时间: ${parsed.publishedTime}` : ''}`);
+
+    return {
+      type: 'website',
+      url: url,
+      content: truncatedContent,
+      original_length: contentWithTime.length,
+      rawHtml: safeSubstring(text, 10000, ''),
+      fetchedVia: 'r.jina.ai',
+      ...(parsed.title ? { title: parsed.title } : {}),
+      ...(parsed.publishedTime ? { publishedTime: parsed.publishedTime } : {}),
+    };
+
+  } catch (error) {
+    console.warn(`[WebFetcher] r.jina.ai 回退失败: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * 解析 r.jina.ai Reader 输出（导出供单测）
+ * 格式（实测）：
+ *   Title: <标题>
+ *   URL Source: <原URL>
+ *   Published Time: <ISO8601，可选>
+ *   Markdown Content:
+ *   <markdown 正文>
+ * 无标准头（部分站点直接吐内容）时整体当正文
+ * @param {string} text - r.jina.ai 响应全文
+ * @returns {{title: string|null, urlSource: string|null, publishedTime: string|null, content: string}|null}
+ */
+export function parseJinaReaderOutput(text) {
+  if (!text) return null;
+  const lines = text.split('\n');
+  let title = null;
+  let urlSource = null;
+  let publishedTime = null;
+  let contentStartIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (title === null && /^Title: /.test(line)) { title = line.slice('Title: '.length).trim(); continue; }
+    if (urlSource === null && /^URL Source: /.test(line)) { urlSource = line.slice('URL Source: '.length).trim(); continue; }
+    if (publishedTime === null && /^Published Time: /.test(line)) { publishedTime = line.slice('Published Time: '.length).trim(); continue; }
+    if (line.trim() === 'Markdown Content:') { contentStartIdx = i + 1; break; }
+  }
+  if (contentStartIdx === -1) {
+    const raw = text.trim();
+    return raw ? { title: null, urlSource: null, publishedTime: null, content: raw } : null;
+  }
+  const content = lines.slice(contentStartIdx).join('\n').trim();
+  return { title: title || null, urlSource: urlSource || null, publishedTime: publishedTime || null, content };
 }
 
 /**

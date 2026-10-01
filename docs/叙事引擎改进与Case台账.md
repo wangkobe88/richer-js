@@ -48,6 +48,49 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C41 RedCoin——web-fetcher r.jina.ai 回退（2026-10-01 用户裁定 A）+ W 类数学「世界级机构链上产品」错位（待裁定）
+
+- **Token**：RedCoin `0xe2881a7ac454c473a8b4c858732402154e107777`（flap，provenance=A，
+  vol24h#83；per-case 验证轮 #28）
+- **事件**：HSBC 2026-09-30 12:18 HKT 官宣港元稳定币命名 "RedCoin"（330 万 PayMe 用户，
+  年底前上线）——币名 exact_match + 世界级机构主体 + within_7d，真事件票。
+- **修复（管道层，用户裁定 A）**：SCMP 有 Cloudflare JS 挑战（加强 header 也 403）→
+  web-fetcher null → pre-check rule 4 `public_info_fetch_failed` 误拦（与 #24 那兔/
+  #25 FISHMIND「语料物理删除 fail-closed 正确拦」不同族——本案是「源活着管道被反爬
+  挡」，C39 币安广场 WAF 同族）。落地 `web-fetcher.mjs`：主抓失败（403/超时/内容
+  提取 <50 字）回退 `https://r.jina.ai/<原URL>` 一次——免 key，实测直通 Cloudflare
+  站点；解析 Title/Published Time/Markdown Content（`parseJinaReaderOutput` 导出），
+  Published Time 仿 twitter-section 模式拼进 content 头部（Jev timing 题时间信息）；
+  返回形状同构 + `fetchedVia` 审计字段；回退也失败 null（fail-closed 等价旧行为）。
+  仅失败回退 + ExternalResourceCache 缓存，量在免费限流（~20 req/min）内。
+  **UA 坑（实测对拍）**：r.jina.ai 对伪装 Chrome 浏览器 UA 的请求 403（反滥用），
+  curl 默认 UA/无 UA 放行——回退请求带 `richer-js-narrative/1.0` 非浏览器 UA。
+- **JustOneAPI web/html/v1 调查**（用户提示）：JustOneAPI 确有普通网页抓取端点
+  （`api/web/html/v1`，返回 `{code,data:{data:渲染后HTML}}`），广场 fetcher 已接
+  （C39 增强位）；但现有 key（douyin/tiktok 同把）调用返回 `code:300 API INVALID`
+  ——端点大概率不在当前套餐/需单独开通。若开通可作一级回退（付费稳定、jina 降
+  二级免费兜底），挂点在 `_fetchWebsiteContentInternal` 回退链，待用户确认套餐。
+- **验证闭环**：RedCoin 重析 rule 4 消失（`preCheck=-`，语料 1137 字符 + 发布时间
+  进 state）→ 进入 Jev 完整判定 stage3。单测
+  `node scripts/_test_web_fetcher_jina_fallback.cjs`（19 断言零 DB 零网络，打桩
+  globalThis.fetch：解析矩阵/主抓成功不回退/403 回退形状/回退也失败 null/空壳页
+  走回退/源码接线六节）。
+- **衍生判定点（W 类数学错位，待裁定）**：语料进来后新拦截点 = **W 类数学
+  41.45 < 60**（产品 16.36 + 币安交互 0.09 + 时效 25）。Jev 全维度证据与 W 数学
+  自相矛盾：event_category W 0.68 但 D 0.31（分类优先级表 W>D 把「机构官宣链上
+  产品」推向 W）；magnitude A 档 0.72（HSBC 知名大公司）；name_referent super_ip
+  0.70（RedCoin=HSBC 官宣产品名）；dim2 4.49 极强带（世界级机构）；relevance
+  exact_match 0.91；block none 0.91——除币安交互轴外全维度世界级，唯
+  `w_binance_interaction` 0.01（置信 0.99「无交互」事实正确：HSBC≠币安系）压死。
+  语义错位同源 J1.17 注释（ChainPulse 案「W 交互分语义错位」）：交互轴为币安生态
+  叙事票设计，「传统世界级机构的链上产品官宣」的叙事价值在机构本身不在币安交互。
+  反事实：按 D 类标准数学 = A 档 34 + dim2 28~29 + 时效 15 ≈ 77-78 过线，exact 20 +
+  质量 ≈19 → **≈85 high**。三方向待裁定：A W 类 effTier S/A 世界级主体锚（交互轴
+  换轴/豁免）/ B 分类改道（机构官宣自家链上产品优先 D）/ C 维持拦截。
+- **部署提醒**：narrative engine 常驻进程（182）需重启吃到回退逻辑（与 J1.24 同批）。
+
+---
+
 ### C40 Binance Inu——品牌劫持门「戏谑关联豁免」（J1.24，2026-10-01 用户裁定）★
 
 - **Token**：BI (Binance Inu) `0xcaf66eb2c00d206d741a654face34768cf2a7777`（flap，
