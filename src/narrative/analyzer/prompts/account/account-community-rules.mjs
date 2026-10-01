@@ -456,6 +456,33 @@ export function performRulesValidation(tokenAddress, tokenSymbol, tokenName, acc
   const nameResult = verifyTokenName(tokenSymbol, tokenName, accountOrCommunityData);
 
   if (!nameResult.matched) {
+    // C50（2026-10-01 CZ 案用户裁定）：社区票名称匹配不作拒因——字面匹配（精确/
+    // 包含）对缩写/谐音/双关叙事结构性失明（CZ = Crypto for Gen Z 首尾缩写双关，
+    // 2.2 万粉 KOL 宣告帖定义叙事）；社区含合约地址（最强归属绑定）+ 成员达数百人
+    // = 社区阵地确凿，名称关联与叙事价值交 prestage Jev（P1.2 名字关联题本就是它判）
+    const COMMUNITY_NAME_EXEMPT_MIN_MEMBERS = 200;
+    if (type === 'community'
+        && addressResult.found
+        && (accountOrCommunityData.members_count || 0) >= COMMUNITY_NAME_EXEMPT_MIN_MEMBERS) {
+      console.log(`[AccountCommunityRules] 社区票名称豁免（地址验证过+成员${accountOrCommunityData.members_count}≥${COMMUNITY_NAME_EXEMPT_MIN_MEMBERS}），交 Prestage LLM 判断`, {
+        community: accountOrCommunityData.name,
+        nameMatchType: nameResult.matchType
+      });
+      return {
+        passed: true,
+        stage: 'community_address_members_pass',
+        addressVerified: true,
+        nameMatch: false, // 字面不匹配如实记录，关联判断交 Prestage LLM
+        reason: `社区简介/推文中找到代币合约地址且成员数 ${accountOrCommunityData.members_count} 人（社区阵地确凿），名称字面不匹配，名称关联与叙事判断交 Prestage LLM`,
+        details: {
+          addressLocations: addressResult.locations,
+          nameMatchType: nameResult.matchType,
+          communityMembers: accountOrCommunityData.members_count,
+          nameExempt: 'community_address_members'
+        }
+      };
+    }
+
     return {
       passed: false,
       stage: 'name',

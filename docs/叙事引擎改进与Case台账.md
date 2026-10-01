@@ -50,6 +50,44 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C50 CZ——社区票名称匹配不作拒因：地址绑定 + 数百成员即阵地确凿（2026-10-01 用户裁定）★
+
+- **Token**：CZ (The Final Form Bull) `0x7a848a5a8169aa6a2f603d056a749f924f504444`
+  （GMGN per-case 验证轮族六；mc $2.4M / **70,009 holders** / renowned24h#17；
+  2026-07-03 创建）
+- **案由**：C48 修复后重跑拿到真数据仍被拦——**名称门字面失明**：「代币名称（CZ）
+  与社区名称（crypto for genz）不匹配」。用户指出 **CZ = Crypto for Gen Z 首尾
+  缩写双关**（C40 BI = Binance Intelligence 同族形状），且叙事有正式宣告：
+  @jiaojiaojio（2.2 万粉）2026-07-26 帖「cz 社区的朋友们！…**CZ = Crypto for
+  Gen Z.**」（mint 后 23 天社区后补叙事，C46「社区后建」合法形状）。`verifyTokenName`
+  全部匹配规则是字面精确/包含——"cz" 与 "cryptoforgenz" 无字面包含关系（首尾缩写
+  与全称之间不存在包含），结构性失明；且地址验证已过（社区推文含 CA = 最强归属
+  绑定），强绑定票死于锦上添花层的匹配缺陷。
+- **方案裁定**：缩写匹配方案（加 first[0]+last[0] / 词首连拼规则）被否决——
+  「通过这种匹配也不能根治」（字面匹配家族里打补丁，永远有下一种双关形态漏网）。
+  根治 = **社区票名称匹配不作拒因**：「如果社区中有地址，并且社区有数百人，
+  基本够了」——地址绑定 × 成员规模 = 社区阵地确凿，名称关联与叙事价值交
+  prestage Jev（P1.2 名字关联题本来就是它判）。
+- **落地**（`account-community-rules.mjs` `performRulesValidation` 名称拒分支前）：
+  豁免三条件全中才过——`type==='community'` × `addressResult.found` ×
+  `members_count ≥ 200`（「数百人」下界取整，本案 292 过线，可调）。豁免返回
+  `stage:'community_address_members_pass'`、`nameMatch:false`（字面不匹配如实
+  记录不隐藏）、reason 明示交 Prestage、details 落 `nameExempt` 审计。account
+  侧名称门不动；原名称拒分支保留（门槛外形状照常拒）；项目币 skip 分支零触及。
+- **翻案**：low（名称门）→ **mid(2) PASS**——豁免日志命中 → P1.9
+  「成员292，活跃度?」→ `web3_native_ip_early` → mid。**与 C48 接力**：本票先由
+  C48 修复解锁社区真数据（fetch_failed 盲评 → 名称门真拦），再由 C50 名称豁免
+  放行进评级——两案同一张票的两层修复链。
+- **单测**：`node scripts/_test_community_name_exemption.cjs`（16 断言零 DB 零网络，
+  直接 import 纯函数本体：CZ 案数值锚定翻案 / 199 门槛下拒 / 边界 200 过 /
+  地址未命中不豁免 / 成员缺失 fail-closed / account 侧不豁免 / 名称匹配票原路径 /
+  账号质量达标分支零回归 / 项目币 skip 分支零回归 / 源码口径四连）。
+  C48 单测 14/14 回归通过。
+- **影响面**：所有「社区票 + 字面名称不匹配 + 地址验证过 + ≥200 成员」形状——
+  此前全被名称门拦死（缩写/谐音/双关/中英混排等一切非字面关联）；Jev 拿社区
+  真数据（成员/活跃度/P1.2）做最终评级，误放面由评级层兜底。182 重启生效
+  （§四-10 同批）。
+
 ### C49 币有——expired_tweet 窗 10min → 6h：叙事新鲜度不该代码预拦到分钟级（2026-10-01 用户裁定「10分钟确实有点太窄了，改成6小时」）★
 
 - **Token**：币有 `0xe9337dde3dd9e97f1f45a56412767ce5098e7777`（GMGN per-case 验证轮族五
