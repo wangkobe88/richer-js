@@ -296,6 +296,7 @@ Experiment deletion is DB-level: every experiment-owned table carries `experimen
 ## Configuration
 
 - **`config/default.json`** - `fourmemeWs` section (contracts, reconnect, tickBuffer, debounce, live execution params) + strategy defaults (buyTimeMinutes: 1.33, earlyReturnMin: 80, earlyReturnMax: 120)
+- **买/卖腿去抖（2026-10-01 修正 1500/5000/0 → 200/1000/200，fourmemeWs+flapWs 两段）**：`signalDebounceMs` 1500 是 pumpfun 母版 08-18 重复买入事故的临时补丁值（母版当天 v3.10.1 因「去抖饥饿事故」9a86E7n2 案已降 100ms≈0.25 slot；`signalDebounceMaxWaitMs` 兜底母版从未上线），BSC 迁移 Phase 3 误抄成默认——热门票全程连续 tick 静默分支永不满足，被饿到 5s 强制采样一次（0x7e3b…7777 案：条件 21:01:26 已全齐、fire 拖到 21:01:29，TPA as-of→fire 价差 +23%）。修正语义 = slot 级合并：200ms≈0.25×BSC 0.75s 出块，同 slot 批量推送并成一个 burst、slot 结束即评；maxWait 1000 退化为极端兜底。`sellDebounceMs` 0→200：走去抖的默认卖腿（TP/移动止盈/保本/时间衰减）进 SellConfirmDebouncer 200ms 确认窗（与买腿语义相反：首真起计**不重置**、窗口内恢复 clear 不卖、fire 重评仍真才卖——「卖的时候怕被震下去」防线）；bypassDebounce 腿（P1-P9 针臂/硬底/RSI/毕业臂）、止损双腿、毕业卖、强平全走立即路径不受影响。实验级 `fourmemeWs.signalDebounceMs` 等键可覆盖（引擎参数，不受 watcher 收权影响）；跑中实验须重启进程才生效
 - **`config/narrative-engine.json`** - Jev client settings (`jev` section: endpoint/model/TYPESAFE_API_KEY env/timeout) + engine concurrency/timeouts
 - **`config/.env`** - Environment variables (ANKR_WS_URL, AVE_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, MINIMAX_API_KEY, ENCRYPTION_KEY for live wallet private keys, etc.)
 
