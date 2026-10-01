@@ -25,6 +25,7 @@
 const { TradingMode, EngineStatus } = require('../interfaces/ITradingEngine');
 const { AbstractTradingEngine } = require('../core/AbstractTradingEngine');
 const { ExperimentDataService } = require('../../web/services/ExperimentDataService');
+const { ExperimentStatsService } = require('../../web/services/ExperimentStatsService');
 const Logger = require('../../services/logger');
 const Decimal = require('decimal.js');
 
@@ -735,6 +736,29 @@ class BacktestEngine extends AbstractTradingEngine {
         this.logger.info(this._experimentId, 'BacktestEngine', `📊 实验终态: ${finalStatus}`);
       } catch (updateError) {
         this.logger.error(this._experimentId, 'BacktestEngine', `更新实验状态失败: ${updateError.message}`);
+      }
+
+      // 回测结束即算收益（2026-10-01）：completed 后立即计算 stats 写 experiments.stats，
+      // 免手动点首页「分析」按钮（analyze-all 见 stats.tokenCount>0 自动跳过，幂等）。
+      // 仅 completed 算：failed 时强平腿未执行、尾部 trades 未必 flush，半程数据
+      // 算出的收益会误导。失败只记日志不动终态——分析按钮仍是手动补救路径。
+      if (finalStatus === 'completed' && this._finalStatusSet) {
+        try {
+          const statsService = new ExperimentStatsService();
+          const stats = await statsService.calculateExperimentStats(this._experimentId);
+          const { error: statsError } = await this._getClient()
+            .from('experiments')
+            .update({ stats })
+            .eq('id', this._experimentId);
+          if (statsError) throw new Error(statsError.message);
+          this.logger.info(this._experimentId, 'BacktestEngine',
+            `📊 收益统计已写入: ${stats.tokenCount} 票 | 胜率 ${Number(stats.winRate).toFixed(1)}% | ` +
+            `净额 ${stats.bnbChange >= 0 ? '+' : ''}${Number(stats.bnbChange).toFixed(4)} BNB | ` +
+            `收益率 ${stats.totalReturn >= 0 ? '+' : ''}${Number(stats.totalReturn).toFixed(2)}%`);
+        } catch (statsError) {
+          this.logger.error(this._experimentId, 'BacktestEngine',
+            `回测结束 stats 计算失败（终态不受影响）: ${statsError.message}`);
+        }
       }
     }
   }
