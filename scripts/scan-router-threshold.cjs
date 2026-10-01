@@ -41,9 +41,9 @@ async function pullBuySignals(client, expId) {
   const all = [];
   for (let off = 0; ; off += 1000) {
     const { data, error } = await client.from('strategy_signals')
-      .select('token_address, timestamp, metadata')
+      .select('token_address, created_at, metadata')
       .eq('experiment_id', expId).eq('action', 'buy')
-      .order('timestamp', { ascending: true }).range(off, off + 999);
+      .order('created_at', { ascending: true }).range(off, off + 999);
     if (error) throw new Error(`signals 查询失败: ${error.message}`);
     if (!data || data.length === 0) break;
     all.push(...data);
