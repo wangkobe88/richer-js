@@ -12,8 +12,10 @@
 //   initialBalance                  —— 初始余额（默认 100）
 //   ws                              —— 引擎级覆盖（合入实验 config 的平台 ws 段：
 //                                      sellDebounceMs / factorParams / signalDebounce 等）
-//   tokenPositionAnalyzer            —— TPA 段透传（config.tokenPositionAnalyzer，
-//                                      shadow 回测：{enabled:true,enforce:false,trigger:{…}}）
+//   tokenCycle / stopLoss / positionManagement / tokenPositionAnalyzer
+//                                   —— 引擎级段透传（显式给则用，省则继承源实验同段；
+//                                      2026-10-01 补：此前只透传 TPA，cycle 卖腿路由/
+//                                      止损双腿/卡牌 sizing 在回测克隆里静默丢失）
 //
 // 用法：node scripts/backtest-loop/create-backtest.cjs --source <id> --name 轮0基线 \
 //        --strategy scripts/backtest-loop/strategies/round0.json
@@ -66,7 +68,14 @@ async function main() {
     },
   };
   if (S.ws) config[wsSection] = S.ws;
-  if (S.tokenPositionAnalyzer) config.tokenPositionAnalyzer = S.tokenPositionAnalyzer;
+  // 引擎级段透传（显式 S.<段> 优先，省则继承源实验同段）——回测引擎消费这些段：
+  // tokenCycle（cycle 卖腿路由，缺段=cycleTag 恒 null 腿隐身）、stopLoss（止损双腿）、
+  // positionManagement（卡牌 sizing：缺段买入金额退 tradeAmount）、
+  // tokenPositionAnalyzer（TPA fail-closed 买门，缺段=TPAPre_* 恒 null 不买）
+  for (const sec of ['tokenCycle', 'stopLoss', 'positionManagement', 'tokenPositionAnalyzer']) {
+    const v = S[sec] != null ? S[sec] : (src.config && src.config[sec]);
+    if (v != null) config[sec] = v;
+  }
 
   const exp = await factory.createFromConfig(config, 'backtest');
   console.log(`平台=${platform}（${wsSection} 段） | tradeAmount=${config.tradeAmount} | 初始余额=${config.backtest.initialBalance}`);

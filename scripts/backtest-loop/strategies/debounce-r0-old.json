@@ -1,0 +1,7 @@
+{
+  "ws": {
+    "signalDebounceMs": 1500,
+    "signalDebounceMaxWaitMs": 5000,
+    "sellDebounceMs": 0
+  }
+}
