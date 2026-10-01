@@ -26,7 +26,7 @@ async function pullTrades(client, expId) {
   const all = [];
   for (;;) {
     const { data, error } = await client.from('trades')
-      .select('token_address, trade_direction, direction, action, input_amount, output_amount, status, trade_status, created_at, executed_at')
+      .select('token_address, trade_direction, input_amount, output_amount, trade_status, success, created_at, executed_at')
       .eq('experiment_id', expId)
       .order('created_at', { ascending: true })
       .range(offset, offset + pageSize - 1);
@@ -57,8 +57,8 @@ async function countSignals(client, expId) {
 function tokenPnL(trades) {
   const byToken = new Map();
   for (const t of trades) {
-    if (!(t.status === 'success' || t.trade_status === 'success')) continue;
-    const dir = t.trade_direction || t.direction || t.action;
+    if (!(t.success === true || t.trade_status === 'success')) continue;
+    const dir = t.trade_direction;
     const isBuy = dir === 'buy' || dir === 'BUY';
     const rec = byToken.get(t.token_address) || { spent: 0, received: 0, buys: 0, sells: 0, leftoverCost: 0, queue: [] };
     const inAmt = parseFloat(t.input_amount || 0);
