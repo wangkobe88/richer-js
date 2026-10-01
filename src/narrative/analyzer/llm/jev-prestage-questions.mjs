@@ -24,9 +24,16 @@
  *   必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足
  *   unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject
  *   粉丝带 + P1.3 降档按账号基本面给结论（蝴蝶轮回 168 粉 → mid）
+ * P1.5：新增恒带第 5 题 prestage_project_quality（项目实度 0-5：产品价值 + 推文
+ *   内容质量两维度，账号注册时间/粉丝数/认证不构成证据）。2026-10-01 用户裁定
+ *   （C35 轮 WIRED 0x55db4b1f 案：flap launchpad 基础设施项目、币后 15 分钟开的
+ *   发币专用号被 P1.3 年龄一刀切）：addressVerified 走项目后账号新不再一票否决，
+ *   以项目实度为根本——mapper 端 age<30 分支从 hard low 改为实度分 ≥3 豁免降档
+ *   走粉丝带（<3 或缺分 fail-closed 维持 low）；推文 <5 保留拦（无内容=质量无）。
+ *   token_type 是 Jev 判的、调用前不可知，故恒带（abm/community 型不消费该题）
  */
 
-export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.4';
+export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.5';
 
 /**
  * 构建 prestage 问题集
@@ -88,6 +95,24 @@ Does NOT count (common false positives):
         medium: 'Medium — moderately active',
         low: 'Low — almost no recent activity',
       },
+    },
+
+    // ── 5. 项目实度（P1.5 恒带；project/web3ip 评级消费，abm 型不消费）──
+    prestage_project_quality: {
+      type: 'score',
+      instructions: `项目实度（project substance）——评估该代币背后项目的真实价值，以产品价值与推文内容质量为根本。
+⚠️ 账号注册时间不是判据（项目方常为发币新开专用号）；粉丝数/认证状态可短期采购，同样不构成产品价值证据。
+两维度同时评估：
+①产品价值——是否有真实可用的产品/服务（网站/dapp/Telegram bot/链上基础设施/可验证的功能与数据），还是只有宣传页/白皮书/口号
+②推文内容质量——账号推文是否为持续产品运营（功能发布、技术细节、用户引导、集成进展），还是营销空话/转发刷量/模板文案`,
+      criteria: [
+        '0分：完全空壳——无产品无内容，只有发币本身',
+        '1分：无产品，推文为纯营销/喊单/刷量',
+        '2分：产品存疑（只有宣传页/白皮书，无可验证的可用功能）或内容多为空话模板',
+        '3分：产品可验证且在正常运营——及格线（功能真实可用 AND 推文为持续运营内容，两条件同时满足）',
+        '4分：有实际产品 + 高频运营（多渠道功能上线、技术更新、用户引导俱全）',
+        '5分：成熟产品生态——真实用户/数据/第三方集成，持续技术演进的完整基础设施',
+      ],
     },
   };
 }

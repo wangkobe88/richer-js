@@ -28,6 +28,9 @@ const NAME_LINK_LABELS = {
   none: '无关联',
 };
 
+/** P1.5 项目实度豁免下限（prestage_project_quality ≥3 = 产品可验证+运营正常的及格线） */
+const PROJECT_QUALITY_PASS_MIN = 3;
+
 /**
  * project 评级（纯确定性，V2.0 评级表下沉；high 档就高处理：
  * 旧表 high 只写 300-2999 且"认证/蓝V优先"无量化规则 → ≥300 一律 high，
@@ -38,13 +41,18 @@ const NAME_LINK_LABELS = {
  * 年龄以 token 创建时间为锚（与 pre-check 时效基准同裁定：重跑/回测幂等）；
  * created_at 缺失/解析失败跳过年龄项；statuses_count 是当前快照（重放偏松方向，
  * 穿越声明同 narrativeRating 直调）。
+ * P1.5 实度豁免（2026-10-01 用户裁定，WIRED 案）：账号新不再一票否决——
+ * prestage_project_quality 分（产品价值+推文内容质量）≥3 豁免降档走粉丝带；
+ * <3 或缺分 fail-closed 维持 low。推文 <5 保留拦（无内容=质量无从评估）。
  * @param {Object} data - fullAccountOrCommunityData
  * @param {string|null} activityChoice - prestage_community_activity 的 choice（社区型用）
  * @param {number|null} [tokenCreatedAtSec] - 代币创建时间（秒，raw_api_data.created_at）
- * @returns {{rating: string, baselineMet: boolean, reason: string, downgrade: Object|null}}
+ * @param {number|null} [projectQualityScore] - prestage_project_quality 分（P1.5 恒带题）
+ * @returns {{rating: string, baselineMet: boolean, reason: string, downgrade: Object|null, qualityExempt: Object|null}}
  */
-export function rateProject(data, activityChoice, tokenCreatedAtSec = null) {
+export function rateProject(data, activityChoice, tokenCreatedAtSec = null, projectQualityScore = null) {
   const isAccount = data.type === 'account';
+  let qualityExempt = null;
   const count = isAccount
     ? (data.followers_count || 0)
     : (data.members_count || 0);
@@ -64,7 +72,10 @@ export function rateProject(data, activityChoice, tokenCreatedAtSec = null) {
     };
   }
 
-  // 账号信用降档（P1.3）：只作用于账号型——社区型无账号年龄概念
+  // 账号信用降档（P1.3/P1.5）：只作用于账号型——社区型无账号年龄概念
+  // P1.5（2026-10-01 用户裁定，WIRED 案）：账号新不再一票否决——项目实度分
+  // （prestage_project_quality，产品价值+推文内容质量）≥3 豁免降档走粉丝带；
+  // <3 或缺分 fail-closed 维持 low。推文 <5 保留拦（无内容=质量无从评估）。
   if (isAccount) {
     const statuses = data.statuses_count || 0;
     let accountAgeDays = null;
@@ -76,16 +87,21 @@ export function rateProject(data, activityChoice, tokenCreatedAtSec = null) {
     }
     const tooFewTweets = statuses < 5;
     const tooYoung = accountAgeDays !== null && accountAgeDays < 30;
-    if (tooFewTweets || tooYoung) {
+    const ageDaysFloor = accountAgeDays === null ? null : Math.floor(accountAgeDays);
+    const qualityOk = projectQualityScore !== null && projectQualityScore >= PROJECT_QUALITY_PASS_MIN;
+    if (tooFewTweets || (tooYoung && !qualityOk)) {
       const why = [];
       if (tooFewTweets) why.push(`推文仅${statuses}条<5`);
-      if (tooYoung) why.push(`账号注册仅${Math.floor(accountAgeDays)}天<30（以token创建时点锚定）`);
+      if (tooYoung) why.push(`账号注册仅${ageDaysFloor}天<30（以token创建时点锚定）${projectQualityScore === null ? '、项目实度分缺失fail-closed' : `、项目实度${projectQualityScore}分<${PROJECT_QUALITY_PASS_MIN}`}`);
       return {
         rating: 'low',
         baselineMet: true,
         reason: `项目币评级：${metric}${count} → 信用降档low（${why.join('、')}，新号/空内容不具项目信用）`,
-        downgrade: { statuses, accountAgeDays: accountAgeDays === null ? null : Math.floor(accountAgeDays) },
+        downgrade: { statuses, accountAgeDays: ageDaysFloor, ...(projectQualityScore !== null ? { projectQuality: projectQualityScore } : {}) },
       };
+    }
+    if (tooYoung && qualityOk) {
+      qualityExempt = { accountAgeDays: ageDaysFloor, projectQuality: projectQualityScore };
     }
   }
 
@@ -98,11 +114,13 @@ export function rateProject(data, activityChoice, tokenCreatedAtSec = null) {
   }
 
   const activityNote = !isAccount ? `，活跃度${activityChoice || '?'}` : '';
+  const exemptNote = qualityExempt ? `；账号新${qualityExempt.accountAgeDays}天但项目实度${qualityExempt.projectQuality}分≥${PROJECT_QUALITY_PASS_MIN}豁免降档` : '';
   return {
     rating,
     baselineMet: true,
-    reason: `项目币评级：${metric}${count}${activityNote} → ${rating}（底线≥${floor}）`,
+    reason: `项目币评级：${metric}${count}${activityNote} → ${rating}（底线≥${floor}${exemptNote}）`,
     downgrade: null,
+    qualityExempt,
   };
 }
 
@@ -193,20 +211,21 @@ export function mapPrestageAnswers(answers, context) {
     if (tokenType === 'web3_native_ip_early') {
       // 按账号基本面评级（2026-09-27 裁定：不再 unrated"等社区成长"——过与不过要有
       // 结论）。复用 rateProject 同款数学：粉丝/成员带（<20 low / 20-299 mid / ≥300 high）
-      // + P1.3 信用降档（推文 <5 或账号年龄 <30 天 → low）。蝴蝶轮回 @rongluBSC
-      // 168 粉 → mid（"可过可不过"票落 mid 档）；纯新号空内容 → low fail-closed
-      const rated = rateProject(data, null, tokenCreatedAtSec);
+      // + P1.3 信用降档 + P1.5 实度豁免（账号新 + 实度分 ≥3 → 不降档走粉丝带）。
+      // 蝴蝶轮回 @rongluBSC 168 粉 → mid（"可过可不过"票落 mid 档）；纯新号空内容 → low
+      const rated = rateProject(data, null, tokenCreatedAtSec, answers.prestage_project_quality?.score ?? null);
       rating = rated.rating;
       baselineMet = rated.baselineMet;
       reasoning = `Web3原生IP早期（创造了新称号/概念，社区早期阶段）→ ${rated.reason}`;
       pass = true;
       details = { followers, members, projectReason: null, ipConcept: null };
       jevDetails = { tokenType, baselineMet: rated.baselineMet,
-        ...(rated.downgrade ? { downgrade: rated.downgrade } : {}) };
+        ...(rated.downgrade ? { downgrade: rated.downgrade } : {}),
+        ...(rated.qualityExempt ? { qualityExempt: rated.qualityExempt } : {}) };
     } else {
-      // project：评级数学全部代码端（V2.0 评级表 + P1.3 信用降档）
+      // project：评级数学全部代码端（V2.0 评级表 + P1.3 信用降档 + P1.5 实度豁免）
       const activityChoice = answers.prestage_community_activity?.choice || null;
-      const rated = rateProject(data, activityChoice, tokenCreatedAtSec);
+      const rated = rateProject(data, activityChoice, tokenCreatedAtSec, answers.prestage_project_quality?.score ?? null);
       tokenType = 'project';
       rating = rated.rating;
       baselineMet = rated.baselineMet;
@@ -221,7 +240,8 @@ export function mapPrestageAnswers(answers, context) {
         ...(isAccount ? { verified: data.verified || data.is_blue_verified || false } : { communityActivity: activityChoice }),
       };
       jevDetails = { tokenType, activityChoice, baselineMet: rated.baselineMet,
-        ...(rated.downgrade ? { downgrade: rated.downgrade } : {}) };
+        ...(rated.downgrade ? { downgrade: rated.downgrade } : {}),
+        ...(rated.qualityExempt ? { qualityExempt: rated.qualityExempt } : {}) };
     }
   }
 

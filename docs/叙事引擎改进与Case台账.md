@@ -64,7 +64,11 @@ IPFS 元数据只有何一转发推文链接，走 superIP 快速通道。
 
 **验证**：本案重跑 low→**high(83.63)**（事件分49.8(83×0.6)+关联20+质量13.83）；校准
 4/4 一致，**GMCZ（币名指向 CZ 组合实体、事件核心不匹配形状）仍被品牌劫持截断维持 low**
-——一翻一守，新判断锚双向生效。**过程发现 0.52 AVE 同名搜索波动**（同 token 两跑一拦
+——一翻一守，新判断锚双向生效。**同轮 P1.5 落地（WIRED/THESIS 案裁定，见 §三 P1.5）**：
+addressVerified 走项目后账号新不再一票否决，prestage 恒带第 5 题项目实度（产品价值+
+推文内容质量 0-5）≥3 豁免年龄降档——WIRED 0x55db4b1f（flap launchpad 基础设施、币后
+15 分钟开专用号）low→**high**（实度 3.95）；THESIS 0x4519cacc（thesisAI_family 营销
+空话型）维持 low（实度 1.81）；x-0 空壳形状零回归（推文<5 保留拦 + 缺分 fail-closed）。**过程发现 0.52 AVE 同名搜索波动**（同 token 两跑一拦
 一放，§六-38）：重跑时 AVE 搜出另一「币安支付」0xd82f2be0…65c4e（fdv $130K/holders
 22.5 万撒币形状）命中 100K 门被拦、未及 Jev；临时 minFdv 100K→200K 绕过后验证完成
 （跑后即恢复）。同轮前置两 case：自由鸭 0x5d01b8174a661600cf4f016bea9b073557847777
@@ -1702,6 +1706,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 | P1.3 | 09-27 | 题面未动——mapper 端 project 评级表加账号信用降档（推文 <5 OR 账号年龄 <30 天→low，年龄以 token 创建时点锚定幂等；照 J1.8 先例 bump）；附带 flap 创建时间 wss_events token_create 回退（token-info-service）；52 行 project 重放仅 x-0 命中 0 误伤 | x-0 0xa5fd1f C15/C18 | 本 commit |
 | P1.4 | 09-27 | 题面未动——mapper 端消灭 unrated（用户裁定：分析完成必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足 unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject 粉丝带+P1.3 降档按账号基本面给结论 | C4 反裁定 + 蝴蝶轮回 C22 | 本 commit |
+| P1.5 | 10-01 | 新增恒带第 5 题 `prestage_project_quality`（项目实度 0-5：产品价值+推文内容质量两维度；账号注册时间/粉丝数/认证不构成证据——「项目方常为发币新开专用号」「粉丝可短期采购」双澄清写进题面）+ mapper `rateProject` 加第 4 参实度分：账号新(<30d)分支从 hard low 改为实度 ≥3 豁免降档走粉丝带（<3 或缺分 fail-closed 维持 low；推文 <5 保留拦——无内容=质量无从评估）；审计 downgrade.projectQuality / qualityExempt 进 jevDetails；token_type 是 Jev 判的调用前不可知故恒带（abm 型不消费）；x-0 形状零回归（不传分=null fail-closed，旧调用机器证明）+ 31 断言单测；WIRED 重跑 low→high（实度 3.95 豁免）、THESIS 维持 low（实度 1.81：营销空话无产品实证 vs WIRED 功能发布/基础设施，判别精准）；prestage 校准 22 行零 P1.5 引入危险翻转（9 rating 分歧全是 unrated→low P1.4 语义 8 + Agentic 3 推文 P1.3 快照 1） | WIRED 0x55db4b1f C35（用户裁定：addressVerified 走项目后账号新不拦截，以产品价值+推文内容质量为根本） | 本 commit |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。
 
