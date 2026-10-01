@@ -50,6 +50,53 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C48 CREPE——Twitter Community 数据链路两处死链修复：社区票全程盲评（2026-10-01 用户裁定「修复吧」）★
+
+- **Token**：CREPE `0xeb2b7d5691878627eff20492ca7c9a71228d931d`（GMGN per-case
+  验证轮族三票；mc $7.2M，twitterUrl 是社区链接 x.com/i/communities/1936927457325515037，
+  website crepe.life）
+- **用户质疑（裁定入口）**：「"有一个 twitter community" 量级 D 档是怎么判断的？
+  如果形成了社区，社区几百个人就不小了」——直觉完全正确：现场实测（apidance
+  CommunitiesFetchOneQuery）社区真实存在且 **4145 成员 / 10 版主**（远超「几百人」），
+  但 Jev 从未看到：dump 实证 state twitter 段 `used: 0`（配额 24000），全部语料 =
+  crepe.life 官网 1016 字 generic roadmap → event_magnitude 1 档 0.44 → **D 档**；
+  之后再被 name_referent common_word 0.7「截词蹭名」拦（族三重跑的 low 结论建立在
+  twitter=null 之上）
+- **根因：两处 import 层级写错，社区链路从未工作过且静默**（C44 IG 死链同款第三例，
+  动态 import 不执行不解析、语法检查抓不到）：
+  ① `data-fetch-service.mjs` 主 community 分支 `await import('../../utils/…')`——
+  从 services/ 出发解析到**不存在的** `src/narrative/utils/twitter-validation/`
+  （真实文件 `src/utils/twitter-validation/communities-api.js`；同文件 432 行回退分支
+  反而写的正确三级）；fetch throw → `markFailed`（error_message 即 MODULE_NOT_FOUND
+  落 external_resource_cache）→ **60min isFailed 冷却内重跑也不重试** → twitter=null；
+  且主分支失败后回退分支被 `type !== 'community'` 条件挡住，null 固化
+  ② `account-community-rules.mjs` `getCommunityWithFullTweets` 动态 import 三级路径
+  （该文件在 prompts/account/ 深一级，需四级）→ 恒 null → **prestage 社区路径全部
+  `data_fetch_failed` low**——若只修 ①，社区票只是换个姿势死（twitterInfo 有了 →
+  走 prestage → ②还是死的）。同文件顶部静态 import 用的是正确四级（加载即验证），
+  动态的死了没人发现
+- **修复**：① 改 `'../../../utils/…'`（与回退分支对齐）；② 删动态 import 改顶部静态
+  `import { fetchCommunityById } from '.../communities-api.js'`（注意 index.js 虽然
+  require 了 fetchCommunityById 但**未放进 module.exports**，不能从 index.js 具名导入；
+  communities-api.js 的 CJS shorthand module.exports 可被 cjs-module-lexer 静态分析，
+  named import 实测可用）
+- **端到端重跑**：清 external_resource_cache failed 行 + ignoreCache 重跑——
+  **low → mid(2) PASS**：链路全通（社区识别 → fetchCommunityById 真数据 →
+  getCommunityWithFullTweets 规则验证「网站已验证地址」→ P1.9 prestage），
+  stateChars 1320→4848，判定 `web3_native_ip_early`（社区 meme 主账号形态，P1.9
+  双形状）→「成员4145，活跃度?」→ mid（社区 timeline 零推文拉低上限没给 high，
+  判定自洽）
+- **影响面**：所有带 twitter community 链接的票（不只 CREPE）——修复前 twitter 恒
+  null，社区票全在标准路径盲评（吃截词/D 档）或 prestage data_fetch_failed
+- **附带观察**：社区 admin 账号已被封（"User is suspended"）、timeline 0 推文——
+  4145 人零发言社区存疑，但这该由 Jev 拿到数据后自己判（「活跃度?」正是它判的），
+  不该由数据缺失代劳
+- **单测**：`node scripts/_test_twitter_community_pipeline.cjs`（14 断言零 DB 零网络：
+  模块解析/两修复点源码口径（字符串+按文件位置 resolve 双锁）/**全库 twitter-validation
+  相对 import 逐条 resolve 零死链**（防新增——把「动态 import 不执行不解析」的盲区
+  用测试填掉）/字段映射/data_fetch_failed fail-closed 语义不变）
+- **182 重启项**：与 C41/J1.24/J1.25/C44/P1.9/C47 同批等重启
+
 ### C47 AST——rule 0.52 same_name_blue_chip 整体废除：同名≠蹭名，蹭名判定移交叙事层（2026-10-01 用户裁定「A跟C，根治」）★
 
 - **Token**：AST (ast.fun) `0x265b3982ea730748100947f52561a4eab54affff`（GMGN

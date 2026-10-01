@@ -8,6 +8,9 @@ import {
   getUserTweets,
   fetchCommunityTweets
 } from '../../../../utils/twitter-validation/index.js';
+// C48：fetchCommunityById 直接从 communities-api.js 导入（index.js 未 re-export 它；
+// CJS shorthand module.exports 的 named import 实测可静态分析）
+import { fetchCommunityById } from '../../../../utils/twitter-validation/communities-api.js';
 
 /**
  * 清理字符串用于匹配
@@ -242,7 +245,10 @@ export async function getAccountWithFullTweets(screenName, tweetCount = 50, opti
  */
 export async function getCommunityWithFullTweets(communityId, tweetCount = 50) {
   try {
-    const { fetchCommunityById } = await import('../../../utils/twitter-validation/communities-api.js');
+    // C48 修复（2026-10-01 CREPE 案）：原为动态 import '../../…/../../../utils/…'（三级，
+    // 解析到不存在的 src/narrative/utils/twitter-validation/）→ getCommunityWithFullTweets
+    // 恒 null → 社区票 prestage 路径全部 data_fetch_failed low；改为顶部静态 import
+    // （与本文件既有三级函数同源，模块加载即验证）
     const communityInfo = await fetchCommunityById(communityId);
     if (!communityInfo) {
       return null;

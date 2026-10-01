@@ -321,7 +321,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
               info = await CachedFetcher.fetchWithCache(
                 communityCacheKey, 'twitter_community',
                 async () => {
-                  const { fetchCommunityById } = await import('../../utils/twitter-validation/communities-api.js');
+                  // C48 修复（2026-10-01 CREPE 案）：此处原写 '../../utils/…'——从 services/
+                  // 出发解析到不存在的 src/narrative/utils/twitter-validation/，社区链路
+                  // 从未通过（与同文件 432 行回退分支的正确层级对齐）
+                  const { fetchCommunityById } = await import('../../../utils/twitter-validation/communities-api.js');
                   return fetchCommunityById(communityId);
                 },
                 getCacheTTL('twitter_community')
