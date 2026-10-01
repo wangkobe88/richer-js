@@ -1627,8 +1627,9 @@
             if (cfg.permanentBlockCondition) adv.push(`永久阻断: ${cfg.permanentBlockCondition}`);
             const advBox = card.querySelector('.leg-advanced');
             if (adv.length) {
-                advBox.innerHTML = `<details><summary class="cursor-pointer text-xs text-gray-500">高级字段（${adv.length}，只读）</summary>` +
-                    `<div class="mt-1 space-y-0.5">${adv.map(() => `<div class="adv-line"></div>`).join('')}</div></details>`;
+                // 平铺常驻（2026-10-01 裁定「不要折叠」）：预检查/叙事直调等执行语义
+                // 字段藏 details 里发现性差（preBuyCheckCondition 误判没带上的案源）
+                advBox.innerHTML = `<div class="space-y-0.5">${adv.map(() => `<div class="adv-line"></div>`).join('')}</div>`;
                 advBox.querySelectorAll('.adv-line').forEach((el, i) => { el.textContent = adv[i]; });
             } else {
                 advBox.innerHTML = '';
