@@ -400,7 +400,9 @@ export class NarrativeAnalyzer {
     const issuerDetected = issuerSelfLaunch || issuerCaTimeline;
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
-    const preCheckResult = await performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo }, githubInfo, backgroundInfo, { ignoreExpired });
+    // superIPInfo/issuerDetected：pre-check 前已算好的叙事锚检测结果，传入供
+    // rule 0.52 叙事锚优先豁免（C37 GM 案，2026-10-01「同名不同意义不拦」）
+    const preCheckResult = await performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo }, githubInfo, backgroundInfo, { ignoreExpired, superIPInfo, issuerDetected });
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;

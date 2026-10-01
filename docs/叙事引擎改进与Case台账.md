@@ -46,6 +46,46 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C37 GM 同名蓝筹误拦——叙事锚优先豁免（rule 0.52，2026-10-01 用户裁定 B「同名不同意义不拦」）
+
+- **Token**：GREEN MORNING (symbol GM) `0x13920fe6467e9e3c852b8d365a036c995f0f7777`（GMGN
+  vol24h#21，mc $0.7M；per-case 验证轮第 7 票）
+- **现象**：rule 0.52 `same_name_blue_chip` 硬拦——AVE 找到 4 个同 symbol 蓝筹，最硬
+  为 BSC 老 `gm`（0xa55c1e67…，fdv $40.8M / 5,729 持有人 / **24h 仅 2 笔交易**）。
+- **调查**：语料锚 = CZ 推文（status 2105024133566468288，superIP 识别成功 tier S），
+  token 名 GREEN MORNING 是推文直接派生；「GM」是 crypto 通用文化词（good morning），
+  4 个蓝筹匹配（老 gm/GOMBLE/GM/GOLD MINT）恰是指代不唯一的证据。三问题：①拦截
+  顺序权重倒挂——0.52 在 super-IP 快速通道之前，symbol 巧合一票否决 S 级叙事锚；
+  ②通用文化词误伤蹭名规则设计意图（富贵案语义是「蹭名蓝筹认知」）；③死盘蓝筹
+  （fdv 在认知亡）仍占名。
+- **用户裁定**：方案 B——已识别独立强叙事锚时跳过同名蓝筹拦截；原话「如果同名
+  不同意义，是不应该被阻塞的」。
+- **落地**：`pre-check-service.mjs` 新增导出纯函数 `evaluateBlueChipNarrativeAnchorExemption`
+  ——豁免信号 = superIP S/A 级语料锚 OR issuerSelfLaunch/CA 时间线检出（两者均在
+  pre-check 之前算好，经 `performPreCheck` options 传入）；反向门 = `detectCorpusCashtag`
+  命中 symbol 时不豁免（C28 iNu 案语义：语料即讨论该 symbol 资产 = 同名同意义，
+  维持拦截）。isConflict 分支内豁免优先于拦截返回，日志与名实不符豁免分支对偶。
+  单测 `_test_blue_chip_check.cjs` F 节 12 断言（S/A 级豁免矩阵/cashtag 反向/父推
+  cashtag/tier 未知 fail-closed/源码接线三连），57/57。
+- **验证**：GM ignoreCache 重析 → 豁免日志命中 → rating **low(0.52 拦) → mid(2)
+  PASS**（preCheck=high_influence_with_media：CZ 推文带图片，媒体无法识别按影响力
+  数据给 mid，既定设计）。
+- **同轮 case 速记（per-case 验证轮 #8-#14）**：币安链能飞 mid PASS（web3_native_ip_
+  early 粉丝 58 小号）；BINF mid PASS（@getbinference 实度 3.99 项目币）；招财猫 mid
+  PASS（@binance 官方锚）；MTAT **high 84.5 PASS**（J1.21 回归确认）；Marky「王之
+  蔑视」`0xf289d694…7777` low 57.8 差 2.2——09-28 已毕业爆款的二次发射复读票，
+  A 类 0.76 但 magnitude C，叙事新鲜度已被原票消耗，**边界 case 记录不动**；CSI
+  (Chinese Super Inu) `0x74fef65b…7777` low「名字指向无名对象」——缩写双关梗票
+  （CSI=中证指数文字巧合）+ Inu 拼接 + 3073 粉小号零互动语料（赞 0/转 0）+ magnitude
+  D，上榜靠拉盘无叙事事件，**引擎拦截合理不改**；BI (Binance Inu) 同类合理拦
+  （GMGN 侧也无有效社媒：twitter_username 是 search query 垃圾值、website 是随机
+  字符 .lol 钓鱼站——零语料截词蹭名盘）。
+- **观察点**：死盘蓝筹占名（老 gm 24h 2 笔）未处理——若后续出现「无 superIP 锚
+  但明显独立叙事」被 0.52 拦的 case，再议活跃度门（方案 C）；GMGN twitter_username
+  垃圾值（search query 串）拼成无效 x.com URL 未防护，记跟踪。
+
+---
+
 ### C36 THESIS 实度 2.65 卡线——一篇产品陈述 + 链上新币相对尺度（P1.8，2026-10-01）
 
 - **Token**：THESIS `0x4519cacc591aecc5f8476bebee43b11ffedd7777`（@thesisAI_family，6 天新号 771 粉）

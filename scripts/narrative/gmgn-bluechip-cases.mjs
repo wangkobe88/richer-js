@@ -422,7 +422,8 @@ async function runCase(t) {
     analysisStage: r?.debugInfo?.analysisStage ?? r?.analysis_stage ?? null,
     hasTwitterCorpus: Array.isArray(twitterUrls) ? twitterUrls.length > 0 : !!twitterUrls,
     twitterHandle: r?.twitter?.screen_name ?? null,
-    fetchErrorCount: r?.fetchErrors ? Object.keys(r.fetchErrors).filter(k => r.fetchErrors[k]).length : 0,
+    fetchErrorCount: r?.fetchErrors ? Object.values(r.fetchErrors)
+      .filter(v => v && (typeof v !== 'object' || Object.keys(v).length > 0)).length : 0,
     promptVersion: r?.meta?.promptVersion ?? null,
     promptType: r?.meta?.promptType ?? null,
     durationMs,

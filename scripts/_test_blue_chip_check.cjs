@@ -345,6 +345,36 @@ async function main() {
     check('E10 同事件豁免排空后 exempt 恒 null', [r.isConflict, r.exempt, r.matched.length], [false, null, 0]);
   }
 
+  // ============ F. 叙事锚优先豁免（C37 GM 案，2026-10-01 用户裁定 B「同名不同意义不拦」） ============
+  console.log('\nF. evaluateBlueChipNarrativeAnchorExemption 豁免矩阵');
+  {
+    const { evaluateBlueChipNarrativeAnchorExemption } = await import(
+      '../src/narrative/analyzer/services/pre-check-service.mjs'
+    );
+
+    // C37 案形状：GREEN MORNING (symbol GM)，语料 CZ 推文（无 $GM cashtag）
+    const GM_TOKEN = { symbol: 'GM', name: 'GREEN MORNING' };
+    const CZ_TWEET = { text: 'gm. green morning BNB fam 🌱', screen_name: 'cz_binance' };
+    const CZ_S = { name: 'CZ（赵长鹏）', tier: 'S', type: 'person' };
+
+    check('F1 superIP S 级豁免', evaluateBlueChipNarrativeAnchorExemption(GM_TOKEN, CZ_TWEET, { superIPInfo: CZ_S }).exempt, true);
+    check('F2 superIP A 级豁免', evaluateBlueChipNarrativeAnchorExemption(GM_TOKEN, CZ_TWEET, { superIPInfo: { name: 'X', tier: 'A' } }).exempt, true);
+    check('F3 未知档位不豁免（fail-closed）', evaluateBlueChipNarrativeAnchorExemption(GM_TOKEN, CZ_TWEET, { superIPInfo: { name: 'X', tier: 'B' } }).exempt, false);
+    check('F4 issuerDetected 豁免', evaluateBlueChipNarrativeAnchorExemption(GM_TOKEN, CZ_TWEET, { issuerDetected: true }).exempt, true);
+    check('F5 无任何锚信号不豁免', evaluateBlueChipNarrativeAnchorExemption(GM_TOKEN, CZ_TWEET, {}).exempt, false);
+    check('F6 语料含 $GM cashtag + superIP S → 不豁免且带 blockedBy', evaluateBlueChipNarrativeAnchorExemption(GM_TOKEN, { text: '$GM to the moon green morning' }, { superIPInfo: CZ_S }), { exempt: false, blockedBy: 'cashtag $GM（语料即讨论该 symbol 资产，同名同意义）' });
+    check('F6b 父推(in_reply_to) cashtag 命中同样不豁免', evaluateBlueChipNarrativeAnchorExemption(GM_TOKEN, { text: 'gm', in_reply_to: { text: 'buy $GM now' } }, { superIPInfo: CZ_S }).exempt, false);
+    check('F7 GM 案端到端形状（symbol 派生自叙事，非蹭名）', evaluateBlueChipNarrativeAnchorExemption(GM_TOKEN, CZ_TWEET, { superIPInfo: CZ_S }), { exempt: true, anchor: 'superIP CZ（赵长鹏）(S级)' });
+    check('F8 twitterInfo 为 null（无语料）不豁免', evaluateBlueChipNarrativeAnchorExemption(GM_TOKEN, null, {}).exempt, false);
+
+    // F9 源码接线口径：调用方传入信号 + isConflict 分支消费
+    const analyzerSrc = readFileSync(path.join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
+    const precheckSrc = readFileSync(path.join(__dirname, '../src/narrative/analyzer/services/pre-check-service.mjs'), 'utf8');
+    check('F9a NarrativeAnalyzer options 携带 superIPInfo/issuerDetected', /performPreCheck\(tokenData[^)]*\{ ignoreExpired, superIPInfo, issuerDetected \}/.test(analyzerSrc), true);
+    check('F9b rule 0.52 isConflict 分支调用豁免判定', /isConflict[\s\S]{0,600}evaluateBlueChipNarrativeAnchorExemption\(/.test(precheckSrc), true);
+    check('F9c 豁免优先于 buildPreCheckResult 拦截返回', precheckSrc.indexOf('anchorEx.exempt') < precheckSrc.indexOf("'same_name_blue_chip',"), true);
+  }
+
   console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
   process.exit(fail > 0 ? 1 : 0);
 }

@@ -3,7 +3,7 @@
  * 处理叙事分析前的各种预检查规则
  */
 
-import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
+import { getVisualLength, hasValidDataForAnalysis, detectCorpusCashtag } from '../utils/narrative-utils.mjs';
 import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../prompts/account/account-backgrounds.mjs';
 import { SameNameCheckService } from './same-name-check-service.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
@@ -50,6 +50,35 @@ function buildPreCheckResult(rating, reason, ruleName, extra = {}) {
 }
 
 /**
+ * 同名蓝筹叙事锚优先豁免（C37 GM 案，2026-10-01 用户裁定 B「同名不同意义
+ * 不应该被阻塞」）：rule 0.52 命中同名蓝筹时，若代币已识别出独立强叙事锚——
+ * superIP S/A 语料锚 或 发行方自发宣告（字面法/CA 时间线）——则蹭名解释不
+ * 成立：symbol 是自身叙事的自然派生（GREEN MORNING↔GM），蹭既有蓝筹认知
+ * 获客的动机在真实强叙事锚面前不成立（CZ 推文锚的 S 级影响力 > symbol 巧合）。
+ * 反向门：语料 cashtag 命中 symbol = 事件本身就是关于该 symbol 资产的讨论
+ * （C28 iNu 案语义）→ 同名同意义，不豁免，维持拦截。
+ * @param {Object} tokenData - 代币数据（symbol/name）
+ * @param {Object|null} twitterInfo - 语料推文信息
+ * @param {Object} signals - { superIPInfo, issuerDetected }（NarrativeAnalyzer
+ *   在 pre-check 之前已算好的检测结果，见调用点）
+ * @returns {{exempt: boolean, anchor?: string, blockedBy?: string}}
+ */
+export function evaluateBlueChipNarrativeAnchorExemption(tokenData, twitterInfo, signals = {}) {
+  const corpusCashtag = detectCorpusCashtag(tokenData, twitterInfo);
+  if (corpusCashtag) {
+    return { exempt: false, blockedBy: `cashtag ${corpusCashtag.cashtag}（语料即讨论该 symbol 资产，同名同意义）` };
+  }
+  const { superIPInfo, issuerDetected } = signals;
+  if (superIPInfo && (superIPInfo.tier === 'S' || superIPInfo.tier === 'A')) {
+    return { exempt: true, anchor: `superIP ${superIPInfo.name || '?'}(${superIPInfo.tier}级)` };
+  }
+  if (issuerDetected) {
+    return { exempt: true, anchor: 'issuerSelfLaunch（发行方自发宣告）' };
+  }
+  return { exempt: false };
+}
+
+/**
  * 执行预检查规则（不调用LLM，直接返回结果）
  * @param {Object} tokenData - 代币数据
  * @param {Object} twitterInfo - Twitter信息
@@ -59,7 +88,7 @@ function buildPreCheckResult(rating, reason, ruleName, extra = {}) {
  * @param {Object} videoInfos - 视频平台及其他平台信息 { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo }
  * @param {Object} githubInfo - GitHub信息
  * @param {Object} backgroundInfo - 背景信息（如微博）
- * @param {Object} options - 选项 { ignoreExpired }
+ * @param {Object} options - 选项 { ignoreExpired, superIPInfo, issuerDetected }
  * @returns {Promise<Object|null>} 预检查结果，null表示通过预检查
  */
 export async function performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls = {}, videoInfos = {}, githubInfo = null, backgroundInfo = null, options = {}) {
@@ -209,11 +238,24 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     const blueChipCheck = await sameNameService.checkBlueChipConflict(tokenSymbol, selfAddress, blueChipCreatedAt);
     if (blueChipCheck.success && blueChipCheck.isConflict) {
       const m = blueChipCheck.matched[0];
-      console.log(`[NarrativeAnalyzer] 预检查触发: 同名蓝筹拦截 (symbol: ${tokenSymbol}, 蓝筹: ${m.symbol} ${m.token}, fdv=${m.fdv}, tvl=${m.tvl}, holders=${m.holders})`);
-      return buildPreCheckResult('low',
-        `检测到同名蓝筹代币：symbol"${tokenSymbol}"已存在体量代币${m.name || m.symbol}(${m.token.slice(0, 10)}..., fdv=$${Math.round(m.fdv).toLocaleString()}, tvl=$${Math.round(m.tvl).toLocaleString()}, ${m.holders}持有人, 24h ${m.txCount}笔交易)，同名蹭名判定拦截`,
-        'same_name_blue_chip',
-        { scores: { credibility: 0, virality: 0 }, total_score: 0, blueChipMatched: blueChipCheck.matched });
+      // 叙事锚优先豁免（C37 GM 案，2026-10-01）：同名但不同意义不拦——独立强
+      // 叙事锚在手时蹭名解释不成立；cashtag 命中（同名同意义）维持拦截
+      const anchorEx = evaluateBlueChipNarrativeAnchorExemption(
+        tokenData, twitterInfo,
+        { superIPInfo: options.superIPInfo, issuerDetected: options.issuerDetected }
+      );
+      if (anchorEx.exempt) {
+        console.log(`[NarrativeAnalyzer] 同名蓝筹叙事锚豁免 (symbol: ${tokenSymbol}, 蓝筹: ${m.symbol} ${m.token.slice(0, 10)}... fdv=${m.fdv}, 叙事锚: ${anchorEx.anchor}), 继续评估`);
+      } else {
+        if (anchorEx.blockedBy) {
+          console.log(`[NarrativeAnalyzer] 同名蓝筹叙事锚豁免未生效: ${anchorEx.blockedBy}`);
+        }
+        console.log(`[NarrativeAnalyzer] 预检查触发: 同名蓝筹拦截 (symbol: ${tokenSymbol}, 蓝筹: ${m.symbol} ${m.token}, fdv=${m.fdv}, tvl=${m.tvl}, holders=${m.holders})`);
+        return buildPreCheckResult('low',
+          `检测到同名蓝筹代币：symbol"${tokenSymbol}"已存在体量代币${m.name || m.symbol}(${m.token.slice(0, 10)}..., fdv=$${Math.round(m.fdv).toLocaleString()}, tvl=$${Math.round(m.tvl).toLocaleString()}, ${m.holders}持有人, 24h ${m.txCount}笔交易)，同名蹭名判定拦截`,
+          'same_name_blue_chip',
+          { scores: { credibility: 0, virality: 0 }, total_score: 0, blueChipMatched: blueChipCheck.matched });
+      }
     } else if (blueChipCheck.exempt) {
       // 名实不符豁免（C34，2026-09-30）：matched 非空但自身已是蓝筹体量的成熟票
       // ——isConflict=false 走后续链路；日志与拦截分支对偶便于 run.log grep
