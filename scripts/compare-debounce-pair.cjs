@@ -41,14 +41,17 @@ async function pullTrades(client, expId) {
   return all;
 }
 
-/** 每 token 首 BUY 成交（时刻 + 价格）——debounce 时移的直接观测点 */
+/** 每 token 首 BUY 成交（时刻 + 价格）——debounce 时移的直接观测点。
+ * 时刻口径 = created_at（回测虚拟市场时间，由 signal.timestamp=tick 时刻驱动）；
+ * ⚠勿用 executed_at——那是回放进程墙钟，两臂串行执行的进程时差（~15min）会
+ * 污染全部 Δt（首版对拍踩坑：60 token「全部更晚」纯伪影）。 */
 function firstBuyPerToken(trades) {
   const map = new Map();
   for (const t of trades) {
     if (!(t.success === true || t.trade_status === 'success')) continue;
     const dir = (t.trade_direction || '').toLowerCase();
     if (dir !== 'buy') continue;
-    const ts = new Date(t.executed_at || t.created_at).getTime();
+    const ts = new Date(t.created_at).getTime();
     const prev = map.get(t.token_address);
     if (!prev || ts < prev.ts) {
       map.set(t.token_address, { ts, price: parseFloat(t.unit_price) || null });
