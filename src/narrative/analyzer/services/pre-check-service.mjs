@@ -3,7 +3,7 @@
  * 处理叙事分析前的各种预检查规则
  */
 
-import { getVisualLength, hasValidDataForAnalysis, detectCorpusCashtag } from '../utils/narrative-utils.mjs';
+import { getVisualLength, hasValidDataForAnalysis } from '../utils/narrative-utils.mjs';
 import { isHighInfluenceAccount, getHighInfluenceAccountBackground } from '../prompts/account/account-backgrounds.mjs';
 import { SameNameCheckService } from './same-name-check-service.mjs';
 import { NarrativeRepository } from '../../db/NarrativeRepository.mjs';
@@ -50,35 +50,6 @@ function buildPreCheckResult(rating, reason, ruleName, extra = {}) {
 }
 
 /**
- * 同名蓝筹叙事锚优先豁免（C37 GM 案，2026-10-01 用户裁定 B「同名不同意义
- * 不应该被阻塞」）：rule 0.52 命中同名蓝筹时，若代币已识别出独立强叙事锚——
- * superIP S/A 语料锚 或 发行方自发宣告（字面法/CA 时间线）——则蹭名解释不
- * 成立：symbol 是自身叙事的自然派生（GREEN MORNING↔GM），蹭既有蓝筹认知
- * 获客的动机在真实强叙事锚面前不成立（CZ 推文锚的 S 级影响力 > symbol 巧合）。
- * 反向门：语料 cashtag 命中 symbol = 事件本身就是关于该 symbol 资产的讨论
- * （C28 iNu 案语义）→ 同名同意义，不豁免，维持拦截。
- * @param {Object} tokenData - 代币数据（symbol/name）
- * @param {Object|null} twitterInfo - 语料推文信息
- * @param {Object} signals - { superIPInfo, issuerDetected }（NarrativeAnalyzer
- *   在 pre-check 之前已算好的检测结果，见调用点）
- * @returns {{exempt: boolean, anchor?: string, blockedBy?: string}}
- */
-export function evaluateBlueChipNarrativeAnchorExemption(tokenData, twitterInfo, signals = {}) {
-  const corpusCashtag = detectCorpusCashtag(tokenData, twitterInfo);
-  if (corpusCashtag) {
-    return { exempt: false, blockedBy: `cashtag ${corpusCashtag.cashtag}（语料即讨论该 symbol 资产，同名同意义）` };
-  }
-  const { superIPInfo, issuerDetected } = signals;
-  if (superIPInfo && (superIPInfo.tier === 'S' || superIPInfo.tier === 'A')) {
-    return { exempt: true, anchor: `superIP ${superIPInfo.name || '?'}(${superIPInfo.tier}级)` };
-  }
-  if (issuerDetected) {
-    return { exempt: true, anchor: 'issuerSelfLaunch（发行方自发宣告）' };
-  }
-  return { exempt: false };
-}
-
-/**
  * 执行预检查规则（不调用LLM，直接返回结果）
  * @param {Object} tokenData - 代币数据
  * @param {Object} twitterInfo - Twitter信息
@@ -88,7 +59,7 @@ export function evaluateBlueChipNarrativeAnchorExemption(tokenData, twitterInfo,
  * @param {Object} videoInfos - 视频平台及其他平台信息 { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo }
  * @param {Object} githubInfo - GitHub信息
  * @param {Object} backgroundInfo - 背景信息（如微博）
- * @param {Object} options - 选项 { ignoreExpired, superIPInfo, issuerDetected }
+ * @param {Object} options - 选项 { ignoreExpired }
  * @returns {Promise<Object|null>} 预检查结果，null表示通过预检查
  */
 export async function performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls = {}, videoInfos = {}, githubInfo = null, backgroundInfo = null, options = {}) {
@@ -222,54 +193,12 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     }
   }
 
-  // 规则0.52：同名蓝筹拦截（2026-09-28 用户裁定「有同名蓝筹肯定不行」，富贵案：
-  // 0x5e888…7777「传奇耐电汪」蹭蓝筹 0x198d…4444 的 symbol「富贵」，三层同名
-  // 防线全漏——0.5 一周窗+同叙事+appendix 对比覆盖不了老蓝筹，交易侧
-  // strictSameNameMaxFDV 只用 name 维度且 50 万门高于蓝筹 32 万市值）
-  // AVE 归一化 symbol 相同的候选中存在体量代币 → low 硬拦。不限一周窗、不做
-  // 叙事对比、不看 name——蓝筹任意时间存在，蹭 symbol 即拦。体量组合门
-  // （fdv ≥ minFdv 且 tvl/holders/24h 交易笔数三选一佐证）防 AVE 虚假 fdv
-  // 单指标误拦（与交易侧 _getMaxFDV 的 tvl/交易量佐证思路同源）
-  if (sameNameConfig.enabled) {
-    const selfAddress = tokenData.raw_api_data?.token || tokenData.address || '';
-    // 同事件竞争盘豁免锚（C29，2026-09-29）：创建时间口径与 0.5/0.55/0.58 一致
-    // ——±1h 内抢发的同名骑乘盘不算蹭既有蓝筹（fdv 是骑乘热度本身）
-    const blueChipCreatedAt = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
-    const blueChipCheck = await sameNameService.checkBlueChipConflict(tokenSymbol, selfAddress, blueChipCreatedAt);
-    if (blueChipCheck.success && blueChipCheck.isConflict) {
-      const m = blueChipCheck.matched[0];
-      // 叙事锚优先豁免（C37 GM 案，2026-10-01）：同名但不同意义不拦——独立强
-      // 叙事锚在手时蹭名解释不成立；cashtag 命中（同名同意义）维持拦截
-      const anchorEx = evaluateBlueChipNarrativeAnchorExemption(
-        tokenData, twitterInfo,
-        { superIPInfo: options.superIPInfo, issuerDetected: options.issuerDetected }
-      );
-      if (anchorEx.exempt) {
-        console.log(`[NarrativeAnalyzer] 同名蓝筹叙事锚豁免 (symbol: ${tokenSymbol}, 蓝筹: ${m.symbol} ${m.token.slice(0, 10)}... fdv=${m.fdv}, 叙事锚: ${anchorEx.anchor}), 继续评估`);
-      } else {
-        if (anchorEx.blockedBy) {
-          console.log(`[NarrativeAnalyzer] 同名蓝筹叙事锚豁免未生效: ${anchorEx.blockedBy}`);
-        }
-        console.log(`[NarrativeAnalyzer] 预检查触发: 同名蓝筹拦截 (symbol: ${tokenSymbol}, 蓝筹: ${m.symbol} ${m.token}, fdv=${m.fdv}, tvl=${m.tvl}, holders=${m.holders})`);
-        return buildPreCheckResult('low',
-          `检测到同名蓝筹代币：symbol"${tokenSymbol}"已存在体量代币${m.name || m.symbol}(${m.token.slice(0, 10)}..., fdv=$${Math.round(m.fdv).toLocaleString()}, tvl=$${Math.round(m.tvl).toLocaleString()}, ${m.holders}持有人, 24h ${m.txCount}笔交易)，同名蹭名判定拦截`,
-          'same_name_blue_chip',
-          { scores: { credibility: 0, virality: 0 }, total_score: 0, blueChipMatched: blueChipCheck.matched });
-      }
-    } else if (blueChipCheck.exempt) {
-      // 豁免审计日志（与拦截分支对偶便于 run.log grep）：
-      // - C45 绝对体量（2026-10-01 XRP 案）：自身 fdv ≥ selfFdvExempt（默认 $10M）
-      //   ——蹭名票必然小盘，蓝筹体量撞名=真身/多版本；不依赖锚与票龄
-      // - C34 名实不符（2026-09-30）：自身 fdv ≥ 候选最大——自己才是同名里最大的
-      const ex = blueChipCheck.exempt;
-      const modeText = ex.mode === 'absolute'
-        ? `绝对体量豁免(C45): 自身fdv=$${Math.round(ex.selfFdv).toLocaleString()} ≥ 阈值$${Math.round(ex.selfFdvExemptMin ?? 10000000).toLocaleString()}`
-        : `名实不符豁免(C34): 自身fdv=$${Math.round(ex.selfFdv).toLocaleString()} ≥ 候选max=$${Math.round(ex.candMaxFdv).toLocaleString()}`;
-      console.log(`[NarrativeAnalyzer] 同名蓝筹${modeText}${ex.ageDays != null ? `, 票龄${ex.ageDays}天` : ', 票龄未知(无锚)'}, 候选${blueChipCheck.matched.length}个), 继续评估`);
-    } else if (!blueChipCheck.success) {
-      console.warn(`[NarrativeAnalyzer] 同名蓝筹检查失败: ${blueChipCheck.error || '未知错误'}，跳过此项检查`);
-    }
-  }
+  // （rule 0.52 same_name_blue_chip 已废除——2026-10-01 AST 案 0x265b…ffff 用户
+  // 裁定 A+C 根治：纯缩写巧合撞名（ast.fun vs Alpha Struct Token，完全不同的
+  // 两个代币）证明「同名≠蹭名」，symbol 巧合不该一票否决；蹭名判定移交叙事层
+  // ——挂 CA 自发宣告票走 prestage account 路径评级、无认领蹭名票吃
+  // nameReferentBlock / brand_hijack / cashtag 改道门。C29/C34/C37/C45 四层
+  // 豁免补丁随之成为死代码一并移除；规则 0.5/0.55/0.58 不受影响）
 
   // 规则0.55：同名+同推文重复叙事检查
   // 当两个代币使用相同推文（相同Twitter Status ID）且代币Symbol相同时，后者应被阻断为重复叙事

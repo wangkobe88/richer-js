@@ -70,7 +70,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.21 条件第 15 题，仅 superIP 携带）──');
-  check('A1 版本号 J1.21', JEV_QUESTIONS_VERSION === 'J1.21', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 ≥ J1.21（随问题集 bump 不回退）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 21, JEV_QUESTIONS_VERSION);
   const qsDefault = buildStandardQuestions();
   check('A2 默认不携带 referent_memeability（标准路径零变化）', !('referent_memeability' in qsDefault), Object.keys(qsDefault).length);
   const qsSuper = buildStandardQuestions({ referentMemeability: true });

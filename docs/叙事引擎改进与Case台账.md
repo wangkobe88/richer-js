@@ -42,13 +42,62 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
   `_narrativeBlockedTokens` 短路（address 形状 <300s 豁免，§4.8 重试域配套）
 - **结果全局缓存**：`token_narrative` 按 token_address 全局唯一，不挂实验；失效靠行删或
   `updateIsValid(addr,false)`（批量失效机制未建，见 §四-3）
-- **代码侧 pre-check 规则族**（无 LLM）：0.5/0.55/0.58 同名 / 0.52 同名蓝筹（含同事件
-  ±1h 豁免、C45 绝对体量豁免 ≥$10M + C34 票龄门相对豁免、脏 fdv 帽）/ 0.7 语料复用 /
+- **代码侧 pre-check 规则族**（无 LLM）：0.5/0.55/0.58 同名 /
+  ~~0.52 同名蓝筹~~（C47 废除：同名≠蹭名，蹭名判定移交叙事层）/ 0.7 语料复用 /
   no_public_info 重试域（30min 窗 GMGN 缓存失效重析）/ 0.5x 爆款短路收窄（有推文文本或视频标题进 Jev）
 
 ---
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
+
+### C47 AST——rule 0.52 same_name_blue_chip 整体废除：同名≠蹭名，蹭名判定移交叙事层（2026-10-01 用户裁定「A跟C，根治」）★
+
+- **Token**：AST (ast.fun) `0x265b3982ea730748100947f52561a4eab54affff`（GMGN
+  renowned24h#61，mc $0.6M；per-case 验证轮族三首票；发行方 @ast_dotfun 4227 粉、
+  issuerTokenCount 54 量产盘画像、website ast.fun）
+- **误拦现场**：rule 0.52 硬拦——AVE 找到「同名蓝筹」Alpha Struct Token
+  `0x4ef4b64f7d9304b6084627a30d51d64df9832a6d`（fdv $168.5M / tvl $253K /
+  22,291 holders，创建 2026-03-17）。两个代币**完全不是一个东西**：ast.fun 是
+  AI agent 平台自发币（27 条推文挂 CA），Alpha Struct Token 是老结构化产品币
+  ——symbol "AST" 纯缩写巧合。C45 没救（selfRow=undefined fail-closed）、
+  C37 没救（字面法 ast.fun↔ast_dotfun 点号/下划线对不上）。
+- **用户裁定**：先质疑「这俩代币完全不是一个东西，只是名字一样，不能去重吧」，
+  再定「A跟C，我认为还是需要根治的，该怎么样怎么样」——**C 为体**：0.52
+  同名蓝筹不再一票否决（代码侧无法区分巧合撞名与蹭名，蹭名判定移交叙事层）；
+  **A 的语义**（有认领/自发宣告 ≠ 蹭名）由叙事层既有防线天然承载：挂 CA
+  自发宣告票走 prestage account 路径评级，无认领蹭名票吃 nameReferentBlock /
+  brand_hijack / cashtag 改道门。
+- **根因**：0.52 立规语义（富贵案「有同名蓝筹肯定不行」）混淆了**同名**（symbol
+  巧合，AST 案）与**蹭名**（蹭既有蓝筹认知获客，CREPE 案）——代码侧只有
+  symbol 匹配事实，蹭名是叙事意图判断，本就该归 LLM 层。四层豁免补丁
+  （C29/C37/C45/C34）都是给代码侧蹭名判定打的语义补丁，越打越窄仍救不了
+  巧合撞名形状——根治=删规则。
+- **落地（三处删除）**：① pre-check-service.mjs 0.52 分支 +
+  `evaluateBlueChipNarrativeAnchorExemption`（C37）+ performPreCheck options
+  的 superIPInfo/issuerDetected 传参链（NarrativeAnalyzer 调用点同步清理）；
+  ② same-name-check-service.mjs `checkBlueChipConflict`（含 C45/C34 内嵌豁免）；
+  ③ 专用单测 `scripts/_test_blue_chip_check.cjs`（66 断言全为 0.52 生态）。
+  `narrative.sameNameCheck.blueChip` config 段成死配置（无消费点，保留无害）。
+  规则 0.5/0.55/0.58 零改动（_normalizeName/_searchBscWithCache 等共用工具保留）。
+- **族三 10 票重跑验证**（A+C 语义双实证）：
+  - **AST 翻案 high(3) PASS**——prestage project 路径：@ast_dotfun 挂 CA 自发
+    宣告（addressVerified=true 27 条推文含地址）+ 4274 粉 + 项目实度 4.3 分
+    →「项目币评级：粉丝4274 → high」——A 语义的正向承载（不拦且给真评级）；
+  - **CREPE `0xeb2b7d5691878627eff20492ca7c9a71228d931d` 被 Jev「截词（非超级
+    IP话中词）」拦**——C 语义的直接实证：以前 0.52 代码拦，现在叙事层用
+    蹭名语义拦（CREPE vs 蓝筹 CREPE 是同名同意义蹭名，正确拦）；
+  - 其余 8 票换正确理由维持 low：no_public_info×4（人生好物/pPOLY/SLX/TAC
+    零语料）/ prestage abm 无30天Web3流量×2（ARX/ClipX 存量蓝筹无新叙事）/
+    币安链能飞 13 粉<20 底线 / CZ 语料失效 fetch_failed——「只是换拦截理由」
+    预期全中，零误放。
+- **影响面**：存量 0.52 拦截行（token_narrative ruleName=same_name_blue_chip）
+  缓存不自动失效（§四-3），重析走新链路；182 narrative engine 常驻进程重启
+  与 C41/C44/J1.24/J1.25/P1.9 同批（§四-10）。
+- **意义**：与 J1.16/J1.23/J1.24 同向的分工原则再实证——**代码管市场事实
+  （谁先发/涨了多少），叙事意图判断归 LLM**；同名是市场事实（代码可判），
+  蹭名是叙事意图（LLM 判）。
+
+---
 
 ### C46 MarsCoin——社区 meme 主账号归 web3 原生 IP + web3ip 不吃账号年龄门（P1.9，2026-10-01 用户裁定）★
 
@@ -92,7 +141,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ---
 
-### C45 XRP——同名蓝筹「绝对体量豁免」（rule 0.52，2026-10-01 用户裁定 B）★
+### C45 XRP——同名蓝筹「绝对体量豁免」（rule 0.52，2026-10-01 用户裁定 B）★ **〔已废除：同日 C47 AST 案 A+C 根治裁定整体移除 0.52，本豁免随之成死代码删除；条目留档〕**
 
 - **Token**：XRP `0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe`（GMGN mc24h#1 / vol24h#7，
   mc $485.7M；per-case 验证轮 #32）
@@ -424,7 +473,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 ---
 
 
-### C37 GM 同名蓝筹误拦——叙事锚优先豁免（rule 0.52，2026-10-01 用户裁定 B「同名不同意义不拦」）
+### C37 GM 同名蓝筹误拦——叙事锚优先豁免（rule 0.52，2026-10-01 用户裁定 B「同名不同意义不拦」）**〔已废除：同日 C47 AST 案 A+C 根治裁定整体移除 0.52，豁免函数随之删除；条目留档〕**
 
 - **Token**：GREEN MORNING (symbol GM) `0x13920fe6467e9e3c852b8d365a036c995f0f7777`（GMGN
   vol24h#21，mc $0.7M；per-case 验证轮第 7 票）
@@ -628,10 +677,10 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
     方向待裁定：A 早退路径补 preCheckData 形状（rating low 落库）、B TwitterFetcher
     判空 stub 按失败处理——可并行。附带：GMGN creation_timestamp 部分不可靠
     （负年龄 10 张，降档方向恰好保守）
-32. **0.52 AVE 同名搜索波动两问**（-38）：同 token 两跑一拦一放（now-based 快照漂移）；
-    ① minFdv 100K 门允许 $130K 撒币小盘拦 $1.7M 票，门槛对「假蓝筹真撒币盘」是否
-    过松（可议抬高或加 holders/fdv 比值形状校验）② 快照波动致判定不稳定是否可接受
-    （波动方向=多拦少放）。待裁定
+32. **（完结留档）0.52 AVE 同名搜索波动两问**（-38）：同 token 两跑一拦一放（now-based
+    快照漂移）；① minFdv 100K 门允许 $130K 撒币小盘拦 $1.7M 票门槛过松 ② 快照波动
+    致判定不稳定——**C47（2026-10-01）整体废除 0.52 后两问皆失对象**，规则本体与
+    蓝筹门配置一并移除
 33. **（完结留档）YouTube 语料链路**（-33）：①②③ 已全部收口（extractVideoId 扩
     pattern / 8aca25e2 重启 / 熊熊波西重析端到端），④ 畸形 URL 维持 null 合理
     （事实陈述非待办）
