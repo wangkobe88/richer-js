@@ -8,7 +8,7 @@
  *   （age=分钟、holdDuration=秒、earlyReturn/profitPercent=百分比），
  *   StrategyEngine/ConditionEvaluator/既有策略配置零改动。
  *   原 AVE 轮询因子在 WSS 事件流下的口径替代：
- *   - holders       → 内盘净持仓 trader 计数（曲线内每笔持仓变化都发事件，毕业前精确）
+ *   - holders       → 内盘净持仓 wallet 计数（sender||trader，GMGN 案 B 2026-10-01；曲线内每笔持仓变化都发事件，毕业前精确）
  *   - txVolumeU24h  → 累计成交额（totalBuyBnb+totalSellBnb）× BNB/USD（观察窗内代币全生命周期）
  *   - tvl           → 最近一笔事件的 curve funds × BNB/USD
  *   - fdv/marketCap → currentPrice × totalSupply（TokenCreate 事件）
@@ -513,7 +513,7 @@ class FourMemeFactorAggregator extends EventEmitter {
 
     /**
      * 处理一笔 tick（实时或回放共用入口）。
-     * @param {Object} tick - { token_address, trade_type, trader_address, price_bnb, price_usd,
+     * @param {Object} tick - { token_address, trade_type, trader_address, sender_address, price_bnb, price_usd,
      *                          bnb_amount, token_amount, offers, funds_bnb, block_number, timestamp(ms), tx_hash, log_index }
      * @param {Object} [opts] - { emitFactors: true } 回放场景可置 false 只累计状态不触发决策
      * @returns {{factors: Object|null, priceAccepted: boolean, priceOutlier: boolean}|null}
@@ -523,6 +523,15 @@ class FourMemeFactorAggregator extends EventEmitter {
         const tokenAddress = tick.token_address;
         if (!tokenAddress || !tick.timestamp) return null;
         this._stats.ticksProcessed++;
+
+        // 钱包口径单点 COALESCE（2026-10-01 GMGN 案 B，bSTOCKS 0x0ad6…7777 案衍生）：
+        // 公共聚合路由（GMGN 0x1de460，flap 27.9% 行）把 N 个真实买家在 trader 层合并成
+        // 单一地址——holders/K 组/滑窗/名单族全部失真（该票 holders 6 vs 独立钱包 48）。
+        // 这些聚合改用 sender（真实买家 EOA，NULL 回退 trader = 旧行为）。刻意不切两处：
+        // _traderNetTokens/_traderMaxNetTokens（TPA 基准——wallet_offline_profiles 画像库
+        // 是 trader 口径建的，单切持仓侧会画像 miss 错配，二期整套切）与 uniqueTraders
+        // （classifier metrics 契约字段，与离线 classifyToken/token-classifier 口径锁定）。
+        const walletAddr = tick.sender_address || tick.trader_address || null;
 
         const ts = tick.timestamp;
         let state = this._states.get(tokenAddress);
@@ -579,7 +588,8 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         if (tick.trader_address) {
             state.uniqueTraders.add(tick.trader_address);
-            // 按 trader 维护净持仓（内盘持有者计数与 holderTrend 原料）
+            // TPA 基准（trader 口径锁定，见 processTick 头 walletAddr 注释）：minHolders
+            // 触发门 / zhuang-retail 分类 / retention 大户集的数据源，与画像库口径一致
             if (tokenAmount > 0) {
                 const delta = isBuy ? tokenAmount : -tokenAmount;
                 const _cur = (state._traderNetTokens.get(tick.trader_address) || 0) + delta;
@@ -588,21 +598,30 @@ class FourMemeFactorAggregator extends EventEmitter {
                 // 单调不减 → 触发前已清仓的大户 maxNet 仍保留（母版 :487-488 同款）
                 const _mx = state._traderMaxNetTokens.get(tick.trader_address) || 0;
                 if (_cur > _mx) state._traderMaxNetTokens.set(tick.trader_address, _cur);
+            }
+        }
+        // holders/K 组（wallet 口径，sender||trader）：GMGN 合并修正的主切口——
+        // holderCount 与 holderTrend 原料、cumBuy 集中度（出货后留痕）
+        if (walletAddr) {
+            if (tokenAmount > 0) {
+                const delta = isBuy ? tokenAmount : -tokenAmount;
+                const _cur = (state._walletNetTokens.get(walletAddr) || 0) + delta;
+                state._walletNetTokens.set(walletAddr, _cur);
                 state.holderCount = 0;
-                for (const net of state._traderNetTokens.values()) {
+                for (const net of state._walletNetTokens.values()) {
                     if (net > 0) state.holderCount++;
                 }
-                // 累计买入（单调不减，cumBuy 集中度原料——出货后留痕）
                 if (isBuy) {
-                    state._traderBoughtTokens.set(tick.trader_address,
-                        (state._traderBoughtTokens.get(tick.trader_address) || 0) + tokenAmount);
+                    state._walletBoughtTokens.set(walletAddr,
+                        (state._walletBoughtTokens.get(walletAddr) || 0) + tokenAmount);
                 }
             }
         }
 
-        // ── K 组：双边地址/累计量（对敲重叠族原料，全史 Sets/Maps）──
-        if (tick.trader_address) {
-            const addr = tick.trader_address;
+        // ── K 组：双边地址/累计量（对敲重叠族原料，全史 Sets/Maps；wallet 口径——
+        //    对倒是同一 EOA 自买自卖，trader 口径下经路由的对倒反成「GMGN 买 GMGN 卖」假重叠）──
+        if (walletAddr) {
+            const addr = walletAddr;
             if (isBuy) {
                 state._buyerAddresses.add(addr);
                 state._buyerVolume.set(addr, (state._buyerVolume.get(addr) || 0) + bnbAmount);
@@ -678,9 +697,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // ── 名单因子（回迁批 3.3）：smart_bot 名单内地址的可靠买额累计
             //   （参与=累计 buyBnb ≥ smartBotMinBuyBnb，对齐挖掘 qualify 口径；母版 _smartBotBuySol→BNB。
             //    只累不减：卖出不清——"参与过"留痕；名单 null（未加载/失败）整段跳过=因子恒 0 fail-open）
-            if (isBuy && _smartBotWallets && tick.trader_address && _smartBotWallets.has(tick.trader_address)) {
-                state._smartBotBuyBnb.set(tick.trader_address,
-                    (state._smartBotBuyBnb.get(tick.trader_address) || 0) + bnbAmount);
+            if (isBuy && _smartBotWallets && walletAddr && _smartBotWallets.has(walletAddr)) {
+                state._smartBotBuyBnb.set(walletAddr,
+                    (state._smartBotBuyBnb.get(walletAddr) || 0) + bnbAmount);
             }
 
             // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
@@ -894,7 +913,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         // ── 滑窗速率原料（附价可靠性/块号，供 trend/crash 窗扫描；既有 5min 摊销窗不变）──
         state._recentTicks.push({ ts, isBuy, bnb: bnbAmount, priceBnb, priceReliable, blockNumber });
         this._pruneRecentTicks(state, ts);
-        this._updateSlideWin(state, ts, isBuy, bnbAmount, tick.trader_address);
+        this._updateSlideWin(state, ts, isBuy, bnbAmount, walletAddr);
 
         // ── 分类器轨迹（回迁批 3.1：OPB/离线挖掘共用 slim shape，全量 tick 记录——
         //    大额断流/活跃度判定需全 tick，价格判定由消费方按 priceReliable 过滤。
@@ -1126,9 +1145,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             totalBuyTokens: 0,
             totalSellTokens: 0,
             uniqueTraders: new Set(),
-            _traderNetTokens: new Map(), // trader → 净持仓（内盘精确）
+            _traderNetTokens: new Map(), // trader(msg.sender) → 净持仓（TPA 基准口径锁定，2026-10-01 GMGN 案 B）
             _traderMaxNetTokens: new Map(), // trader → 建仓峰值净持仓（running max 单调不减；TPA retention 基准，回迁批 4）
-            _smartBotBuyBnb: new Map(), // trader → 名单内累计可靠买额 BNB（回迁批 3.3；只累不减——参与留痕）
+            _walletNetTokens: new Map(), // wallet(sender||trader) → 净持仓（holders/holderTrend/P 组集中度原料；GMGN 合并修正）
+            _smartBotBuyBnb: new Map(), // wallet → 名单内累计可靠买额 BNB（回迁批 3.3；只累不减——参与留痕）
             holderCount: 0,
 
             _recentTicks: [],    // 滑窗速率原料 {ts, isBuy, bnb, priceBnb, priceReliable, blockNumber}
@@ -1149,7 +1169,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             _sellerVolume: new Map(),     // addr → 累计卖出 BNB
             _walletFirstBuyBlock: new Map(), // addr → 首买块号（write-once，early 判定）
             _bhSellEvents: [],            // 大户卖出事件 [ts, bnb]（写时裁剪）
-            _traderBoughtTokens: new Map(), // addr → 累计买入 token 数（单调不减）
+            _walletBoughtTokens: new Map(), // wallet → 累计买入 token 数（单调不减，cumBuy 集中度原料）
 
             _candleCurrent: null,       // 当前 block K 线（未闭合）
             _candlesClosed: [],         // 已闭合 block K 线（短窗 ohlcvMaxCandles）
@@ -1192,7 +1212,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             _m3Closes: [],              // FIFO ≤4
             _max3BlockDrop: null,       // 4 块最大跌幅（小数，读时 ×100）
 
-            _slideTicks: [],            // 30s 滑窗 {ts, isBuy, bnb, trader}
+            _slideTicks: [],            // 30s 滑窗 {ts, isBuy, bnb, wallet}
             _slideBuyBnb: 0,
             _slideSellBnb: 0,
             _slideTraderCounts: new Map(), // addr → 窗内笔数（计数映射，出窗减一）
@@ -1410,22 +1430,22 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /** 30s 滑窗增量维护（回迁批 1：写时进出窗，读取 O(1)） */
-    _updateSlideWin(state, now, isBuy, bnb, trader) {
-        state._slideTicks.push({ ts: now, isBuy, bnb, trader });
+    _updateSlideWin(state, now, isBuy, bnb, wallet) {
+        state._slideTicks.push({ ts: now, isBuy, bnb, wallet });
         if (isBuy) state._slideBuyBnb += bnb; else state._slideSellBnb += bnb;
-        if (trader) {
-            state._slideTraderCounts.set(trader, (state._slideTraderCounts.get(trader) || 0) + 1);
-            if (!state._walletFirstTs.has(trader)) state._walletFirstTs.set(trader, now); // write-once
+        if (wallet) {
+            state._slideTraderCounts.set(wallet, (state._slideTraderCounts.get(wallet) || 0) + 1);
+            if (!state._walletFirstTs.has(wallet)) state._walletFirstTs.set(wallet, now); // write-once
         }
         const cutoff = now - this._fp.slideWinMs;
         while (state._slideTicks.length > 0 && state._slideTicks[0].ts < cutoff) {
             const old = state._slideTicks.shift();
             if (old.isBuy) state._slideBuyBnb -= old.bnb; else state._slideSellBnb -= old.bnb;
-            if (old.trader) {
-                const cnt = state._slideTraderCounts.get(old.trader);
+            if (old.wallet) {
+                const cnt = state._slideTraderCounts.get(old.wallet);
                 if (cnt !== undefined) {
-                    if (cnt <= 1) state._slideTraderCounts.delete(old.trader);
-                    else state._slideTraderCounts.set(old.trader, cnt - 1);
+                    if (cnt <= 1) state._slideTraderCounts.delete(old.wallet);
+                    else state._slideTraderCounts.set(old.wallet, cnt - 1);
                 }
             }
         }
@@ -1932,9 +1952,10 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         // ═══ 回迁批 1：读取时聚合族（pumpfun 模式，避免 per-tick 全遍历）═══
 
-        // P 组：净持仓集中度 top3/top5（五变量插入排序，v<=0 跳过——净口径免疫拆单）
+        // P 组：净持仓集中度 top3/top5（五变量插入排序，v<=0 跳过——净口径免疫拆单；
+        // wallet 口径 _walletNetTokens——trader 口径下 GMGN 盘全员合并成单一巨户，集中度虚高）
         let _nA = 0, _nB = 0, _nC = 0, _nD = 0, _nE = 0;
-        for (const v of state._traderNetTokens.values()) {
+        for (const v of state._walletNetTokens.values()) {
             if (v <= 0) continue;
             if (v > _nA) { _nE = _nD; _nD = _nC; _nC = _nB; _nB = _nA; _nA = v; }
             else if (v > _nB) { _nE = _nD; _nD = _nC; _nC = _nB; _nB = v; }
@@ -1951,7 +1972,7 @@ class FourMemeFactorAggregator extends EventEmitter {
         let _sniperHolderShare = null;
         if (_sniperWallets) {
             const _top20 = [];
-            for (const [addr, v] of state._traderNetTokens) {
+            for (const [addr, v] of state._walletNetTokens) {
                 if (v <= 0) continue;
                 let i = _top20.length;
                 while (i > 0 && _top20[i - 1][1] < v) i--;
@@ -1967,9 +1988,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             if (_sum20 > 0) _sniperHolderShare = _sumSn / _sum20 * 100;
         }
 
-        // 累计买入集中度 top5 / 最大单户（单调不减，出货后留痕）
+        // 累计买入集中度 top5 / 最大单户（单调不减，出货后留痕；wallet 口径）
         let _cA = 0, _cB = 0, _cC = 0, _cD = 0, _cE = 0;
-        for (const v of state._traderBoughtTokens.values()) {
+        for (const v of state._walletBoughtTokens.values()) {
             if (v > _cA) { _cE = _cD; _cD = _cC; _cC = _cB; _cB = _cA; _cA = v; }
             else if (v > _cB) { _cE = _cD; _cD = _cC; _cC = _cB; _cB = v; }
             else if (v > _cC) { _cE = _cD; _cD = _cC; _cC = v; }
@@ -1987,7 +2008,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             for (const [_addr, _vol] of state._buyerVolume) {
                 if (_vol < this._fp.bigHolderMinCumBuyBnb) continue;
                 _bhTotal++;
-                const _net = state._traderNetTokens.get(_addr) || 0;
+                const _net = state._walletNetTokens.get(_addr) || 0;
                 if (_net > 0) {
                     _bhPresent++;
                     _bhShareTok += _net;

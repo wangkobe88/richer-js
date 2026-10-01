@@ -30,7 +30,7 @@ const MAX_PAGES_PER_LOOP = 20;    // 背压：单轮最多 ~2 万行，堆积留
 const DEDUPE_SET_LIMIT = 200000;  // (tx_hash,log_index) 去重集上限（对齐 collector 模式）
 const OUTLIER_UPDATE_BATCH = 200; // price_outlier 回写 .in 批量护栏
 
-const TICK_COLUMNS = 'id,token_address,tx_hash,log_index,trade_type,trader_address,price_bnb,price_usd,bnb_amount,token_amount,price_outlier,block_number,block_time,received_at,platform';
+const TICK_COLUMNS = 'id,token_address,tx_hash,log_index,trade_type,trader_address,sender_address,price_bnb,price_usd,bnb_amount,token_amount,price_outlier,block_number,block_time,received_at,platform';
 
 class SharedTickConsumer {
     /**
@@ -305,6 +305,7 @@ class SharedTickConsumer {
                 token_address: row.token_address,
                 trade_type: row.trade_type,
                 trader_address: row.trader_address,
+                sender_address: row.sender_address || null, // 真实买家 EOA（GMGN 案 B 2026-10-01；FA 钱包口径 COALESCE，NULL 回退 trader）
                 price_bnb: row.price_bnb,
                 price_usd: row.price_usd,
                 bnb_amount: row.bnb_amount,

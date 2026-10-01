@@ -48,6 +48,9 @@ node scripts/_test_live_hardening.cjs
 # sender 口径切换 + 聚合路由占比因子零 DB 单测（0x1de460 GMGN 案）
 node scripts/_test_sender_switch_and_router.cjs
 
+# FA holders 族钱包口径切换零 DB 单测（GMGN 案 B，bSTOCKS 案衍生）
+node scripts/_test_fa_wallet_denomination.cjs
+
 # 回测 ticks 装载缓存零 DB 单测（BacktestTickCache 状态机/引擎级对拍）
 node scripts/_test_backtest_tick_cache.cjs
 ```
@@ -220,6 +223,14 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 - **回测装载链**：BacktestEngine `TICK_SELECT_COLUMNS` 加 `sender_address`（columnsTag 漂移 → 缓存全量重拉一次，设计内）+ `_loadWssTicks` tick 对象透传 + replay 索引伪行透传
 - **单测**：`node scripts/_test_sender_switch_and_router.cjs`（46 断言零 DB 六节：COALESCE 矩阵/router 矩阵/翻案票形状集成/协议双地址层剔除/回测装载链/源码口径）；旧 `_test_top1_buy_share.cjs` 零改动仍过（无 sender 输入 COALESCE 等价旧行为的机器证明）
 
+**FA 钱包口径切换——holders 族**（GMGN 案 B，2026-10-01，bSTOCKS 0x0ad6…7777 案衍生；案 A 只切了 EarlyParticipantCheck 的 90s 窗因子，FA 层聚合漏在审视清单缝里——42 个真实散户被 GMGN 合并成 1 个「持有人」，`holders > 5` 买门严重失真）：
+
+- **改动**：FA `processTick` 单点 `walletAddr = sender_address || trader_address || null`（NULL 回退 = 旧行为等价）；切 wallet 口径的聚合：`holderCount`（holders 因子/`_holderSeries` holderTrend 原料，新增 `_walletNetTokens` map）、P 组 top3/top5 净持仓集中度、sniperHolderShare top20、bigHolder 族交叉（`_buyerVolume` × 净持仓）、K 组对敲重叠（`_buyerAddresses`/`_sellerAddresses`/`_buyerVolume` 等——trader 口径下经路由的对倒反成「GMGN 买 GMGN 卖」假重叠）、cumBuy（`_traderBoughtTokens` 改名 `_walletBoughtTokens`）、滑窗（`_slideTraderCounts`/`_walletFirstTs`）、smartBot 名单匹配（EOA 维度名单）
+- **刻意不切两处**：①`_traderNetTokens`/`_traderMaxNetTokens`（TPA 基准——`wallet_offline_profiles` 画像库是 trader 口径建的，单切持仓侧会画像 miss 错配，二期整套切；GMGN 在 TPA 里仍呈现为单一巨户合并像）②`uniqueTraders`（classifier metrics 契约字段，与离线 classifyToken/token-classifier `tick.traderAddress` 口径锁定，防在线/离线分类输入漂移）
+- **链路**：SharedTickConsumer `TICK_COLUMNS` 加 `sender_address` + processTick 透传（实时链）；BacktestEngine `_loadWssTicks` 09-30 已透传（回测链零改动、columnsTag 不漂移）；OPB 全史路径/离线 build-token-profiles 不动（trader 口径链）
+- **实证**（bSTOCKS 79 ticks 重放对拍）：修正前 holders=6（与实跑 BUY 信号逐位吻合）→ 修正后 holders=44（`_walletNetTokens` 48 键 44 净持仓>0）；`holders > 5` 从「险过」变「明确放行」，GMGN 高占比盘从「误拦」变「正确评估分散度」
+- **单测**：`node scripts/_test_fa_wallet_denomination.cjs`（38 断言零 DB 六节：COALESCE 矩阵/GMGN 合并复现（含零 sender 旧行为 bit-identical）/K 组·滑窗·smartBot·cumBuy/读取时聚合出口/链路透传源码口径/买门翻案形状）
+
 **tokenAgeSec 秒口径年龄因子**（2026-09-29 同案上线；用户裁定方案 B——`age` 单位是分钟、改单位会静默翻转存量实验条件语义（红线），故新增独立秒键）：
 
 - **口径**：`(now − createdAtMs)/1000`，与 `age` 同创建锚 ×60 关系；FA `_buildFactorMap` 字面量键（getFactorKeys 探针自动收 → 策略 condition 可直接引用）+ FactorBuilder `buildFactorsFromTimeSeries` 同源推导（`age * 60`，两条路径一致）。秒级买窗写 `tokenAgeSec < 90`（ConditionEvaluator 字面量 parseFloat 支持小数，`age < 1.5` 亦等价）。缺锚 → `_createEmptyState` 注册时刻 `Date.now()` 兜底（age 同行为）
@@ -275,7 +286,7 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 ### Database
 
-Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; watcher 写入行 experiment_id=NULL; `sender_address` = 真实交易发起者 tx.from（BSC 恒 EOA，watcher 侧 SenderResolver 解析，2026-09-30 0x1de460 公共路由案——`trader_address` 是事件 msg.sender，0x1de460f3…4bc = **GMGN BSC 聚合路由**（代理壳 + init data 内嵌 GMGN fee collector 0xb8159b…9c8 自证），flap 27.9% 行落它；消费侧已切 sender 口径（案 A 同日）：早期窗口因子 wallet 聚合 COALESCE(sender, trader)、router 因子判 trader 层、协议地址双地址层剔除，TPA/离线画像仍 trader（二期）；NULL=未解析回退 trader（= EOA 直连旧行为等价）；8aca25e2 被拦窗 16,393 行已回填（备份 data/backfill-8aca-sender-backup.json）；存量全量回填 42 万行暂缓；DDL `scripts/sql/add-wss-ticks-sender-address.sql`）；`quote_token` 标记 flap 非 BNB 计价盘——collector 按三级汇率源换算 price_bnb/bnb_amount 后落库（2026-09-30 wTCENTx 案：① PCS V2 quote/WBNB reserves ② PCS V3 quote/WBNB 各 fee 档 liquidity>0 最深池 slot0 ③ PCS V3 quote/USDT 同门槛 → ÷ bnbUsd 中转；零流动性 V3 池挂价不可信必须拦——同案 WBNB 对挂价偏离真值 20%），三级全 miss 跳行（宁跳不冒充），BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat/token_quote_set 低频事件通道，token 级全局表不挂 experiment 维度；token_quote_set 为 flap quote 映射持久化行，payload 含 blockNumber/logIndex 供水位增量回放), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
+Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; watcher 写入行 experiment_id=NULL; `sender_address` = 真实交易发起者 tx.from（BSC 恒 EOA，watcher 侧 SenderResolver 解析，2026-09-30 0x1de460 公共路由案——`trader_address` 是事件 msg.sender，0x1de460f3…4bc = **GMGN BSC 聚合路由**（代理壳 + init data 内嵌 GMGN fee collector 0xb8159b…9c8 自证），flap 27.9% 行落它；消费侧已切 sender 口径（案 A 同日）：早期窗口因子 wallet 聚合 COALESCE(sender, trader)、router 因子判 trader 层、协议地址双地址层剔除；FA holders 族已切（案 B 2026-10-01，见 Pre-Buy 节）；TPA 基准/离线画像仍 trader（二期）；NULL=未解析回退 trader（= EOA 直连旧行为等价）；8aca25e2 被拦窗 16,393 行已回填（备份 data/backfill-8aca-sender-backup.json）；存量全量回填 42 万行暂缓；DDL `scripts/sql/add-wss-ticks-sender-address.sql`）；`quote_token` 标记 flap 非 BNB 计价盘——collector 按三级汇率源换算 price_bnb/bnb_amount 后落库（2026-09-30 wTCENTx 案：① PCS V2 quote/WBNB reserves ② PCS V3 quote/WBNB 各 fee 档 liquidity>0 最深池 slot0 ③ PCS V3 quote/USDT 同门槛 → ÷ bnbUsd 中转；零流动性 V3 池挂价不可信必须拦——同案 WBNB 对挂价偏离真值 20%），三级全 miss 跳行（宁跳不冒充），BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat/token_quote_set 低频事件通道，token 级全局表不挂 experiment 维度；token_quote_set 为 flap quote 映射持久化行，payload 含 blockNumber/logIndex 供水位增量回放), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
 
 Experiment deletion is DB-level: every experiment-owned table carries `experiment_id → experiments(id) ON DELETE CASCADE` (see `scripts/sql/migrate-experiment-cascade-delete.sql`), so deleting the experiments row removes all its data — the web layer just deletes the row, no per-table cleanup.
 
