@@ -41,6 +41,17 @@ export class BinanceSquareFetcher {
 
     try {
       console.log(`[BinanceSquareFetcher] 开始获取: ${url}`);
+      // bapi 直连优先（2026-10-01，C39 BI 案）：帖子页 WAF 202 空体 + JustOneAPI key
+      // 长期占位符（your-j***）致整链降级 minimal 全空——实测 www.binance.com 的
+      // content/detail bapi 裸 curl 即通（免 key/免登录/免渲染），title/作者+官方
+      // 认证类型/互动统计/发布时间结构化可得；正文 body 需登录态（已知边界，标题
+      // 通常已含事件核心）。bapi 成功即返回（省 JustOneAPI 配额），失败降级旧链。
+      const bapiInfo = await this._fetchViaBapi(postId);
+      if (bapiInfo) {
+        console.log(`[BinanceSquareFetcher] 获取成功: "${bapiInfo.title || '无标题'}" (via ${bapiInfo.fetchMethod}${bapiInfo.authorVerified ? ', 官方认证' : ''})`);
+        return bapiInfo;
+      }
+
       const info = await this._fetchViaJustOneAPI(url);
 
       if (info) {
@@ -55,6 +66,74 @@ export class BinanceSquareFetcher {
     } catch (error) {
       console.warn(`[BinanceSquareFetcher] 获取失败: ${error.message}`);
       return this._buildMinimalMetadata(url, postId);
+    }
+  }
+
+  /**
+   * 币安自家 bapi 直连获取帖子元数据（2026-10-01，C39）
+   * GET /bapi/composite/v3/friendly/pgc/special/content/detail/{postId}?lang=zh-CN
+   * 实测免 key/免登录/免渲染可通（浏览器 UA 即可），返回 title/作者+认证类型/
+   * 互动统计/发布时间；正文 body/bodyTextOnly 需登录态恒空（已知边界）。
+   * @param {string} postId - 帖子 ID（URL 提取）
+   * @returns {Promise<Object|null>} 与 JustOneAPI 输出同构的文章信息
+   */
+  static async _fetchViaBapi(postId) {
+    if (!postId) return null;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+    try {
+      const apiUrl = `https://www.binance.com/bapi/composite/v3/friendly/pgc/special/content/detail/${postId}?lang=zh-CN`;
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+          'clienttype': 'web',
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.warn(`[BinanceSquareFetcher] bapi HTTP状态码: ${response.status}`);
+        return null;
+      }
+      const data = await response.json();
+      if (data.code !== '000000' || !data.data?.title) {
+        console.warn(`[BinanceSquareFetcher] bapi 返回无效: code=${data.code}`);
+        return null;
+      }
+      const d = data.data;
+      const content = this._cleanText(d.bodyTextOnly || '', 3000) || null;
+      const authorParts = [d.displayName, d.username ? `@${d.username}` : null].filter(Boolean);
+      return {
+        title: this._cleanText(d.title, 500),
+        content,
+        author: authorParts.join(' ') || null,
+        authorId: d.username || null,
+        postId: String(d.id || postId),
+        likeCount: d.likeCount || 0,
+        commentCount: d.commentCount || 0,
+        shareCount: d.shareCount || 0,
+        followerCount: d.totalFollowerCount || 0,
+        publishedAt: d.firstReleaseTime ? new Date(d.firstReleaseTime).toISOString() : null,
+        tags: (Array.isArray(d.hashtagList) ? d.hashtagList : [])
+          .map(t => (typeof t === 'string' ? t : t?.name)).filter(Boolean),
+        fetchMethod: 'bapi',
+        // 官方认证（authorVerificationType>0）与浏览量：叙事强信号，section 消费
+        authorVerified: (d.authorVerificationType || 0) > 0,
+        viewCount: d.viewCount || 0,
+      };
+
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        console.warn('[BinanceSquareFetcher] bapi 请求超时');
+      } else {
+        console.warn(`[BinanceSquareFetcher] bapi 请求异常: ${error.message}`);
+      }
+      return null;
     }
   }
 

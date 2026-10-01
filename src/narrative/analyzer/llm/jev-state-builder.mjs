@@ -149,7 +149,7 @@ export function buildJevState(tokenData, fetchResults, options = {}) {
         buildXiaohongshuSection(xiaohongshuInfo),
         buildInstagramSection(instagramInfo),
         buildAmazonSection(amazonInfo),
-        buildBinanceSquareSection(binanceSquareInfo),
+        buildBinanceSquareSection(binanceSquareInfo, { now: nowMs }),
       ].filter(Boolean),
     },
   ];

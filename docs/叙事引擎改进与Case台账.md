@@ -46,6 +46,39 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C39 BI 案——币安广场链路整体修复：bapi 直连 + section 发布时间（2026-10-01）★
+
+- **Token**：BI (Binance Intelligence) `0x176559b42f4587f12cd793d2a9cbd6d44dd47777`（flap，
+  provenance=A，vol24h#41；per-case 验证轮 #16）
+- **现象**：unrated——语料是币安广场官方号 2026-09-30 09:58Z 帖「Binance Intelligence
+  产品发布会｜参与直播领5,000 USDC 红包」，但整条广场抓取链坏死：帖子页 WAF 202 空体
+  + JustOneAPI key 是占位符（`your-j***`，从未配置）→ 恒降级 minimal（只有 postId 全空）
+  → Jev 无语料。
+- **修复一（bapi 直连，用户裁定 A）**：`binance-square-fetcher` 新增 `_fetchViaBapi`——
+  `GET www.binance.com/bapi/composite/v3/friendly/pgc/special/content/detail/{postId}?lang=zh-CN`
+  （浏览器 UA + Accept json + clienttype:web），**免 key/免登录/免渲染**，实测裸 curl 即通。
+  返回 title/username/displayName/authorVerificationType(2=官方认证)/viewCount/likeCount/
+  commentCount/shareCount/firstReleaseTime/hashtagList；正文 body 需登录态恒空（已知边界，
+  标题通常已含事件核心）。优先级 bapi → JustOneAPI（key 有效时仍是全正文增强位）→
+  minimal；bapi 成功即返回省配额。info 形状与 JustOneAPI 输出同构 + 新增
+  `authorVerified`/`viewCount` 两字段。
+- **修复二（section 发布时间）**：修一后重跑 BI 仍 low 59.68 差 0.32——卡时效 0。根因
+  链：token 创建锚 wss_events 回退**正常工作**（`[TIME] Now: 2026年9月30日` 正确进
+  state），但 binance-square-section 不输出发布时间 → Jev timing 题无时间信息可判 →
+  unknown → 时效 0；而实际帖子 15:18:16Z vs token 创建 15:18:26Z **只早 10 秒**（抢发
+  形状，within_7d 稳过 15 分）。`buildBinanceSquareSection` 补 `发布时间: …（今天/约N天
+  前）`（twitter-section 同款模式，`{now}` 生产传创建锚保持补跑/回测幂等），state
+  builder 调用点传 `nowMs`。
+- **section 增强（同 commit）**：作者官方认证标记（`作者认证: 官方认证账号`——币安矩阵号
+  发文强信号）+ 浏览量进统计行。
+- **验证闭环**：BI 重跑 **unrated → high 79.93 PASS**（事件分 34(A档)+传播 24.6+时效
+  15=73.6，stage3 关联 20+质量 15.77）；旧 minimal 缓存需 `ExternalResourceCache.
+  invalidate(url,'binance_square')` 先失效（`analyze(ignoreCache:true)` 只绕 token_narrative
+  行不绕外部资源缓存——PrecheckFailRetryService 对 GMGN 同款操作）。同轮 #20 币安带你飞
+  `0x31f072d5187cc77667c3c81bf4fde577a1027777` high 79.39 PASS（带广场语料链的连带受益）。
+- **遗留**：JustOneAPI 全正文增强位保留未删（未来配真 key 可拿登录墙内正文）；GMGN
+  twitter_username 垃圾值（search query 串）未防护（C37 已记）。
+
 ### C38 久留美续——A 类量级锚换「Web3 买家视角」+ web3_fit 偏好正门（J1.23，2026-10-01 用户裁定）★
 
 - **Token**：久留美（C25 本体）`0xfedf19759ba9c45b1a8345a2bde916b38acc7777`（four.meme，
