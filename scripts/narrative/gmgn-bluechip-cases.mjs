@@ -484,5 +484,5 @@ if (!fn) {
   }
 } else {
   ensureDataDir();
-  fn().catch(e => { console.error('失败:', e?.stack || e); process.exit(1); });
+  Promise.resolve(fn()).catch(e => { console.error('失败:', e?.stack || e); process.exit(1); });
 }
