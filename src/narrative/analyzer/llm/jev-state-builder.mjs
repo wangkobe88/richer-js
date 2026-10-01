@@ -267,13 +267,16 @@ export function buildPrestageState(tokenData, fullAccountOrCommunityData, option
     `推文总数: ${(data.timeline_tweet_count || 0).toLocaleString()}`,
   ];
 
-  // ── 推文列表：前 20 条各 100 字（与旧 prompt 摘要量一致）─────────────────
+  // ── 推文列表：前 20 条各 500 字（P1.6：旧 100 字/条是 3-stage prompt 摘要量
+  //    遗留——budget 20k 实际只用 ~3.5k，产品功能描述却常落在推文 100 字之后被
+  //    整体切断（THESIS 案实度 1.81 分时 Jev 没看到产品用途段）。放宽到 500：
+  //    20×500+开销 ≈ 11k < 20k 预算；超预算时组装层仍整段 drop 记 droppedSections）──
   const tweets = (data.tweets || []).slice(0, 20);
   const tweetsBlock = tweets.length ? [
     `[RECENT_POSTS]（${tweets.length}条）`,
     ...tweets.map((t, i) => {
       const author = !isAccount && t.user?.screen_name ? `@${t.user.screen_name}: ` : '';
-      return `${i + 1}. [${t.created_at || ''}] ${author}${safeSubstring(t.text || '', 100)}`;
+      return `${i + 1}. [${t.created_at || ''}] ${author}${safeSubstring(t.text || '', 500)}`;
     }),
   ] : null;
 

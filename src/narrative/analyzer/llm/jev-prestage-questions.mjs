@@ -31,9 +31,14 @@
  *   以项目实度为根本——mapper 端 age<30 分支从 hard low 改为实度分 ≥3 豁免降档
  *   走粉丝带（<3 或缺分 fail-closed 维持 low）；推文 <5 保留拦（无内容=质量无）。
  *   token_type 是 Jev 判的、调用前不可知，故恒带（abm/community 型不消费该题）
+ * P1.6：题面未动——state 构造变化（jev-state-builder RECENT_POSTS 每条 100→500
+ *   字）。100 字/条是 3-stage prompt 摘要量遗留：budget 20k 实际只用 ~3.5k 却把
+ *   推文截在产品功能描述之前（THESIS 0x4519cacc 案实度 1.81 分时 Jev 没看到
+ *   产品用途段，营销 hook 恰好都在前 100 字）；放宽后项目实度/内容质量类判定
+ *   才有完整输入。同 token 两版本下的分数不可直接比较
  */
 
-export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.5';
+export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.6';
 
 /**
  * 构建 prestage 问题集

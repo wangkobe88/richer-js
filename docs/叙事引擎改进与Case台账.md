@@ -68,7 +68,23 @@ IPFS 元数据只有何一转发推文链接，走 superIP 快速通道。
 addressVerified 走项目后账号新不再一票否决，prestage 恒带第 5 题项目实度（产品价值+
 推文内容质量 0-5）≥3 豁免年龄降档——WIRED 0x55db4b1f（flap launchpad 基础设施、币后
 15 分钟开专用号）low→**high**（实度 3.95）；THESIS 0x4519cacc（thesisAI_family 营销
-空话型）维持 low（实度 1.81）；x-0 空壳形状零回归（推文<5 保留拦 + 缺分 fail-closed）。**过程发现 0.52 AVE 同名搜索波动**（同 token 两跑一拦
+空话型）维持 low（实度 1.81）；x-0 空壳形状零回归（推文<5 保留拦 + 缺分 fail-closed）。
+
+**P1.6 跟进（THESIS 三连问引出 state 截断实锤，2026-10-01）**：用户追问 THESIS
+「推文取了吗？营销言辞定性没问题吧？prompt 中搞明白产品用途了吗？」——排查证实
+**实度题输入被系统性截断**：`buildPrestageState` RECENT_POSTS 每条推文硬截 **100 字**
+（旧 3-stage prompt 摘要量遗留），而 budget 20000 实际只用 ~3.5k；THESIS 推文全是
+「营销 hook 开头 + 产品功能描述在后」结构（"Thesis AI brings on-chain activity,
+s…" 恰好切在功能列举处），WIRED 恰好功能词在前 100 字——**两案分数差异有一部分是
+推文文本结构差异，不是项目实度差异**。修复：100→500 字/条（20×500+开销 ≈11k<
+20k；超预算时组装层仍整段 drop 记 droppedSections），照 P1.3/P1.4「输入/聚合语义
+变化可按版本筛历史」先例 bump P1.6（题面未动）；标准路径排查无同病（twitter-section
+主推文全文，仅 Article 3000/link 2000 大额截断）。**双案重跑对拍**：THESIS state
+3563→7002、实度 1.81→**1.78** 维持 low（tokenType=project 置信 1.0、881 粉 mid 带
+被 6 天新号降档、实度 <3 不豁免——完整输入下的真实判断，非截断侥幸）；WIRED state
+→9022、实度 3.95→**3.99** 维持 high（豁免更稳）。**判别力双向稳定**：营销空话 vs
+基础设施的分数差在完整输入下依然清晰，P1.5 豁免机制的有效性验证闭合。单测回归
+31/31+29/29（版本断言更新）。**过程发现 0.52 AVE 同名搜索波动**（同 token 两跑一拦
 一放，§六-38）：重跑时 AVE 搜出另一「币安支付」0xd82f2be0…65c4e（fdv $130K/holders
 22.5 万撒币形状）命中 100K 门被拦、未及 Jev；临时 minFdv 100K→200K 绕过后验证完成
 （跑后即恢复）。同轮前置两 case：自由鸭 0x5d01b8174a661600cf4f016bea9b073557847777
@@ -1707,6 +1723,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | P1.3 | 09-27 | 题面未动——mapper 端 project 评级表加账号信用降档（推文 <5 OR 账号年龄 <30 天→low，年龄以 token 创建时点锚定幂等；照 J1.8 先例 bump）；附带 flap 创建时间 wss_events token_create 回退（token-info-service）；52 行 project 重放仅 x-0 命中 0 误伤 | x-0 0xa5fd1f C15/C18 | 本 commit |
 | P1.4 | 09-27 | 题面未动——mapper 端消灭 unrated（用户裁定：分析完成必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足 unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject 粉丝带+P1.3 降档按账号基本面给结论 | C4 反裁定 + 蝴蝶轮回 C22 | 本 commit |
 | P1.5 | 10-01 | 新增恒带第 5 题 `prestage_project_quality`（项目实度 0-5：产品价值+推文内容质量两维度；账号注册时间/粉丝数/认证不构成证据——「项目方常为发币新开专用号」「粉丝可短期采购」双澄清写进题面）+ mapper `rateProject` 加第 4 参实度分：账号新(<30d)分支从 hard low 改为实度 ≥3 豁免降档走粉丝带（<3 或缺分 fail-closed 维持 low；推文 <5 保留拦——无内容=质量无从评估）；审计 downgrade.projectQuality / qualityExempt 进 jevDetails；token_type 是 Jev 判的调用前不可知故恒带（abm 型不消费）；x-0 形状零回归（不传分=null fail-closed，旧调用机器证明）+ 31 断言单测；WIRED 重跑 low→high（实度 3.95 豁免）、THESIS 维持 low（实度 1.81：营销空话无产品实证 vs WIRED 功能发布/基础设施，判别精准）；prestage 校准 22 行零 P1.5 引入危险翻转（9 rating 分歧全是 unrated→low P1.4 语义 8 + Agentic 3 推文 P1.3 快照 1） | WIRED 0x55db4b1f C35（用户裁定：addressVerified 走项目后账号新不拦截，以产品价值+推文内容质量为根本） | 本 commit |
+| P1.6 | 10-01 | 题面未动——state 构造变化（jev-state-builder `buildPrestageState` RECENT_POSTS 每条推文 100→500 字）。100 字/条是旧 3-stage prompt 摘要量遗留：budget 20k 实际只用 ~3.5k，产品功能描述常落在推文 100 字之后被整体切断（THESIS 案实度分被截断输入污染）；同 token 两版本分数不可直接比较。双案对拍：THESIS 1.81→1.78 维持 low（完整输入下真实判断）、WIRED 3.95→3.99 维持 high（豁免非侥幸）；标准路径无同病（主推文全文） | THESIS 0x4519cacc C35 三连问（推文取了吗/营销定性对吗/搞明白产品用途了吗） | 本 commit |
 
 **版本规则**：改题必 bump；DB prompt_type/prompt_version 可按版本筛历史结果。
 
