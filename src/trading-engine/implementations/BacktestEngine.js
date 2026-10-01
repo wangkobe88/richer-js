@@ -462,6 +462,11 @@ class BacktestEngine extends AbstractTradingEngine {
   async _loadWssTicks() {
     const supabase = this._getClient();
     const addresses = [...this._tokenMeta.keys()];
+    // 配对回测对照臂开关（2026-10-01 GMGN 案 B 验证，H0/H1）：stripSenderAddress=true →
+    // 回放 tick 不透传 sender_address → 消费侧全部 COALESCE 点（FA holders 族 + pre-buy
+    // top1/sniper/netBuy）null 回退 trader，与修正前口径 bit-identical（单测 B4 机器证明）。
+    // 只剥内存回放对象；BacktestTickCache 存的是 raw DB 行不动 → H0/H1 两臂共用同一缓存文件。
+    const stripSender = this._experiment?.config?.backtest?.stripSenderAddress === true;
     const raw = await this._loadRawTickRows(supabase, addresses);
     raw.sort((a, b) => a.id - b.id);
     for (const row of raw) {
@@ -472,7 +477,7 @@ class BacktestEngine extends AbstractTradingEngine {
         token_address: row.token_address,
         trade_type: row.trade_type,
         trader_address: row.trader_address,
-        sender_address: row.sender_address || null,  // 真实买家 tx.from（0x1de460 案 2026-09-30）；NULL 回退 trader（消费侧 COALESCE）
+        sender_address: stripSender ? null : (row.sender_address || null),  // 真实买家 tx.from（0x1de460 案 2026-09-30）；NULL 回退 trader（消费侧 COALESCE）；H0 臂剥离复现旧口径
         price_bnb: Number(row.price_bnb),
         price_usd: row.price_usd === null ? null : Number(row.price_usd),
         bnb_amount: Number(row.bnb_amount || 0),

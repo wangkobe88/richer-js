@@ -206,8 +206,8 @@ console.log('\nE 节：链路透传');
     () => assert.ok(/sender_address: row\.sender_address \|\| null/.test(consumerSrc)));
 
   const backtestSrc = fs.readFileSync(BACKTEST_PATH, 'utf8');
-  check('E3 BacktestEngine _loadWssTicks 透传 sender_address（既有，09-30）',
-    () => assert.ok(/sender_address: row\.sender_address \|\| null/.test(backtestSrc)));
+  check('E3 BacktestEngine _loadWssTicks 透传 sender_address（既有，09-30；H0 开关内真臂）',
+    () => assert.ok(/: \(row\.sender_address \|\| null\)/.test(backtestSrc)));
 
   const faSrc = fs.readFileSync(FA_PATH, 'utf8');
   check('E4 FA 单点 COALESCE（walletAddr = sender || trader）',
@@ -224,6 +224,12 @@ console.log('\nE 节：链路透传');
   const opbSrc = fs.readFileSync(OPB_PATH, 'utf8');
   check('E8 OPB 仍读 uniqueTraders（classifier metrics 契约锁定）',
     () => assert.ok(/tokenState\.uniqueTraders/.test(opbSrc)));
+
+  // E9/E10：配对回测对照臂开关（H0 臂剥 sender 复现旧口径；与 B4 行为证明配套）
+  check('E9 BacktestEngine stripSenderAddress 开关接线（strip → null 回退 trader）',
+    () => assert.ok(/stripSender \? null : \(row\.sender_address \|\| null\)/.test(backtestSrc)));
+  check('E10 开关读 config.backtest.stripSenderAddress === true（缺省 false = 新口径默认）',
+    () => assert.ok(/config\?\.backtest\?\.stripSenderAddress === true/.test(backtestSrc)));
 }
 
 // ═══════════ F 节：buy-v2 买门语义（holders > 5 在 GMGN 盘的翻案形状） ═══════════

@@ -227,9 +227,10 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 - **改动**：FA `processTick` 单点 `walletAddr = sender_address || trader_address || null`（NULL 回退 = 旧行为等价）；切 wallet 口径的聚合：`holderCount`（holders 因子/`_holderSeries` holderTrend 原料，新增 `_walletNetTokens` map）、P 组 top3/top5 净持仓集中度、sniperHolderShare top20、bigHolder 族交叉（`_buyerVolume` × 净持仓）、K 组对敲重叠（`_buyerAddresses`/`_sellerAddresses`/`_buyerVolume` 等——trader 口径下经路由的对倒反成「GMGN 买 GMGN 卖」假重叠）、cumBuy（`_traderBoughtTokens` 改名 `_walletBoughtTokens`）、滑窗（`_slideTraderCounts`/`_walletFirstTs`）、smartBot 名单匹配（EOA 维度名单）
 - **刻意不切两处**：①`_traderNetTokens`/`_traderMaxNetTokens`（TPA 基准——`wallet_offline_profiles` 画像库是 trader 口径建的，单切持仓侧会画像 miss 错配，二期整套切；GMGN 在 TPA 里仍呈现为单一巨户合并像）②`uniqueTraders`（classifier metrics 契约字段，与离线 classifyToken/token-classifier `tick.traderAddress` 口径锁定，防在线/离线分类输入漂移）
-- **链路**：SharedTickConsumer `TICK_COLUMNS` 加 `sender_address` + processTick 透传（实时链）；BacktestEngine `_loadWssTicks` 09-30 已透传（回测链零改动、columnsTag 不漂移）；OPB 全史路径/离线 build-token-profiles 不动（trader 口径链）
+- **链路**：SharedTickConsumer `TICK_COLUMNS` 加 `sender_address` + processTick 透传（实时链）；BacktestEngine `_loadWssTicks` 09-30 已透传（回测链零改动、columnsTag 不漂移）+ **`backtest.stripSenderAddress` 对照臂开关**（H0 臂剥回放对象 sender → 消费侧全部 COALESCE 点回退 trader = 修正前行为 bit-identical；只剥内存 tick 不动 BacktestTickCache raw 行，H0/H1 两臂共用同一缓存文件）；OPB 全史路径/离线 build-token-profiles 不动（trader 口径链）
 - **实证**（bSTOCKS 79 ticks 重放对拍）：修正前 holders=6（与实跑 BUY 信号逐位吻合）→ 修正后 holders=44（`_walletNetTokens` 48 键 44 净持仓>0）；`holders > 5` 从「险过」变「明确放行」，GMGN 高占比盘从「误拦」变「正确评估分散度」
-- **单测**：`node scripts/_test_fa_wallet_denomination.cjs`（38 断言零 DB 六节：COALESCE 矩阵/GMGN 合并复现（含零 sender 旧行为 bit-identical）/K 组·滑窗·smartBot·cumBuy/读取时聚合出口/链路透传源码口径/买门翻案形状）
+- **配对回测**：`scripts/create-holders-denomination-pair.cjs`（H0 旧 trader 口径 vs H1 wallet 口径，基底=02c60e50 buy-v2 v4 实跑；182 串行启动）
+- **单测**：`node scripts/_test_fa_wallet_denomination.cjs`（40 断言零 DB 六节：COALESCE 矩阵/GMGN 合并复现（含零 sender 旧行为 bit-identical）/K 组·滑窗·smartBot·cumBuy/读取时聚合出口/链路透传源码口径（含 strip 开关接线）/买门翻案形状）
 
 **tokenAgeSec 秒口径年龄因子**（2026-09-29 同案上线；用户裁定方案 B——`age` 单位是分钟、改单位会静默翻转存量实验条件语义（红线），故新增独立秒键）：
 
