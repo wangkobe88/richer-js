@@ -583,6 +583,10 @@ export class NarrativeAnalyzer {
             const mapped = mapStandardAnswers(result.answers, {
               tokenData,
               includeBrandHijack,
+              // J1.24 戏谑关联豁免（C40 BI Inu 案）的可信事件源锚：superIP 语料锚 /
+              // 发行方自发宣告 / 广场官方认证源 任一——事件真实性有背书时「当前热门
+              // 新鲜事」才立得住，纯小道消息语料不解锁豁免
+              credibleEventAnchor: !!(superIPInfo || issuerDetected || binanceSquareInfo?.authorVerified),
               tweetClassification: classifyTweetType(twitterInfo),
               twitterInfo, // J1.17 cashtag 改道判据（detectCorpusCashtag）用
               callInfo: {

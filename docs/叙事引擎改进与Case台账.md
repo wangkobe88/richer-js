@@ -32,7 +32,9 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 - **代码门族**（mapper 端确定性切分）：nameReferentBlock（阻断侧合计 ≥0.5）/
   rideDetourBelow（B/C 骑乘改道 W）/ cashtag 改道 W（J1.17）/ detectPublisherProxy
   发布者指代（J1.18，量级 A 档锚）/ routineContentProductBlock（A 类角色豁免 J1.16）/
-  negativeHardNewsBlock / web3FitBlock（unfit ≥0.5）/ referent 豁免（J1.21，仅 superIP）
+  negativeHardNewsBlock / web3FitBlock（unfit ≥0.5）/ referent 豁免（J1.21，仅 superIP）/
+  punExempt 戏谑关联豁免（J1.24：P≥0.5+within_7d+S/A 档+可信事件源全中时豁免
+  品牌劫持与 relevance≤10 双截断，计分照常）
 - **交易引擎直调**：策略 `narrativeCallCondition` 触发 → `NarrativeDirectCaller.getRating()`
   同步调 analyze（30s 超时，失败/超时/未配置 normalize 9 放行）；rating=1 终端 veto 进
   `_narrativeBlockedTokens` 短路（address 形状 <300s 豁免，§4.8 重试域配套）
@@ -45,6 +47,58 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 ---
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
+
+### C40 Binance Inu——品牌劫持门「戏谑关联豁免」（J1.24，2026-10-01 用户裁定）★
+
+- **Token**：BI (Binance Inu) `0xcaf66eb2c00d206d741a654face34768cf2a7777`（flap，
+  provenance=A，vol24h#9/renowned24h#97，mc $1.6M；C37 轮曾以「零语料截词蹭名盘」
+  合理拦——GMGN twitter_username 是 search query 垃圾值、website 是钓鱼站，C39
+  修复后用户给到真实信息源＝币安广场发布会帖，与 C39 BI 本尊同一帖）
+- **造行实验（判定层缺口定位）**：experiment_tokens 造行挂广场锚（官方认证 + 帖比
+  token 创建早 36s）排除冷启动变量重跑——全链路只剩两层拦截：brand_hijack 0.72
+  截断 + relevance semantic/lv1=10 分恰好压 `≤10` 截断线；stage2Total 72.9 已过
+  60 线（无门即 high）。Jev 内部矛盾实证：nameReferent=super_ip 0.79（指向币安，
+  放行向）vs brandHijackP 0.72（拦截向）。三维度映射：传播 ✅（timing 0.96）/
+  审美 ✅（量级 A 档）/ 趣味 ❌ 无承载——「缩写双关×狗形象」在引擎里被当负向。
+- **用户裁定**：原话「这里我觉得不是『劫持』，而是一种web3用户特有的戏谑/趣味性
+  关联。当然它也必须是当前的热门新鲜事，否则就成了无病呻吟了」——戏谑关联是
+  meme 创作手法，蹭的是**事件增量热度**而非品牌存量认知；新鲜事锚是必要条件
+  （无病呻吟方向维持拦截）。前轮框架（「指代错位但有很强趣味性」）的三维度：
+  有趣味（缩写双关×形象嫁接）/ 近期大事件有传播 / 符合 web3 审美。
+- **落地 J1.24（题面锚 + 代码切分双防线）**：
+  ① 题面：brand_hijack 豁免③扩充「缩写双关/谐音梗/形象嫁接（如大事件系统的
+  缩写 × meme 动物形象）：语料锚定当前热门新鲜事时是 meme 创作手法而非劫持——
+  蹭的是事件的增量热度而非品牌存量认知；无新鲜事件锚时纯玩品牌词根才是劫持」；
+  ② mapper `punExempt`（web3FitAnchored/tierAnchored 同构确定性切分）：五条件
+  全中才豁免——includeBrandHijack 且 P≥0.5（只救本会被拦的票）+ timing
+  within_7d（当前）+ effTier S/A（热门）+ `credibleEventAnchor`（analyzer 传：
+  superIP 语料锚 / 发行方自发宣告 / 广场官方认证源 任一——事件真实性有背书）；
+  豁免范围两层：品牌劫持截断 + relevance≤10 截断（戏谑关联的本质＝弱字面关联+
+  强语境关联，缩写双关在 relevance 体系天然落低档是特性不是缺陷，10 分照常计入
+  总分——弱关联代价在分数上体现）；misspelling/quality 门不豁免（与戏谑语义
+  无关）；timing/量级不达标的纯蹭名盘（无病呻吟）不豁免。审计 `jev.punExempt
+  {timing,tier}` + reason 前缀「戏谑关联豁免(J1.24)」。
+- **关键实证**：J1.24 题面下重跑 hijackP 0.72→0.69——题面锚影响甚微（J1.16/
+  J1.23「Jev 分不动」第三次实证，代码切分是决定性防线）；豁免后 **mid 69.58
+  PASS**（事件分 43.86(A档) + 关联 10 + 质量 15.72；正式入口 gmgn-bluechip-cases
+  --case 复核 mid 69 PASS，生产链路含 GMGN 补源下同样生效）。
+- **影响面（存量零误翻）**：34 行问过劫持题的存量行中，三条件（P≥0.5+within_7d+
+  S/A 档）圈出 12 个候选——抽查语料锚全为无名小号推文/垃圾 URL（SSO 案
+  `0xc3a4e39c…7777` 甚至挂 phishunt.io 钓鱼站），`credibleEventAnchor` 全 false，
+  **零翻案**：anchor 门恰好挡住全部纯蹭名盘，豁免只解锁「可信事件源的新鲜事票」。
+- **单测**：`node scripts/_test_brand_hijack_pun_exemption.cjs`（18 断言零 DB 五节：
+  豁免矩阵六例/relevance 二层接力三例/审计与 reason/源码接线五项含 superIP 路径
+  一期不挂/版本断言）；回归 web3_fit_anchor 12 / publisher_proxy 28 /
+  narrative_signal_gate 13 全过。
+- **遗留观察**：① superIP 快车道（mapSuperIPAnswers）未挂豁免——superIP 锚票
+  名实题较友好且有 J1.21 referent 豁免，出现 case 再议；② 造行实验行留 2609e300
+  （data_source='narrative_experiment'，勿删）；③ 冷启动问题本体（GMGN 垃圾社媒
+  字段→真实源靠用户人肉）不在本案范围——广场 bapi 链路（C39）只解决「给了 URL
+  能不能抓」，「去哪找 URL」是发现层问题。
+- **意义**：meme 三维度全部进引擎承载——趣味（本案 punExempt）/ 传播（timing+
+  spread）/ 审美（web3_fit 双向，C38）。
+
+---
 
 ### C39 BI 案——币安广场链路整体修复：bapi 直连 + section 发布时间（2026-10-01）★
 
@@ -226,6 +280,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.24 | 2026-10-01 | ①brand_hijack 豁免③扩充「当前热门新鲜事锚定的戏谑关联」（缩写双关/谐音梗/形象嫁接是 meme 创作手法非劫持，蹭事件增量热度非品牌存量认知；无新鲜事件锚纯玩品牌词根才是劫持）②mapper `punExempt`：P≥0.5 + timing within_7d + effTier S/A + credibleEventAnchor（superIP/issuer/广场官方认证）全中豁免品牌劫持截断与 relevance≤10 截断，计分照常；misspelling/quality 不豁免；审计 jev.punExempt + reason 前缀 | C40 Binance Inu 案（用户裁定「不是劫持，而是web3用户特有的戏谑/趣味性关联；也必须是当前的热门新鲜事，否则就成了无病呻吟」；J1.24 题面下 P 0.72→0.69 题面锚仍不动，代码切分决定性） | 本 commit |
 | J1.23 | 2026-10-01 | ①event_magnitude A 类句换锚「Web3 买家视角形象吸引力」（可爱萌系/极客风/奇怪猎奇=风格即吸引力可到 B 档；传统严肃风格大众知名度不转化、通常 C 档以下；已圈内梗=A/S）②dimension2 A 类句配套双证据源 ③web3_fit 小众边界澄清（「小众」按 Web3 买家视角判，动漫游戏/极客/ACG 非小众）+ 强契合典型补三类 ④mapper `web3FitAnchored` 正门：A 类 + strong_fit≥0.5 + 原档 <B → effTier 锚 B（unfit 负门对称面；不越权 A/S；仅 A 类；审计 web3FitAnchored/web3FitStrongP） | C38 久留美续案（用户裁定「最根本上要占到用户角度看叙事」；题面改锚实证 Jev 分不动 C 档 0.94 但 strong_fit 0.88，J1.16/J1.18 同款代码切分） | `e7d0806`+mapper |
 | P1.8 | 2026-10-01 | 实度题尺度校准：一篇产品陈述即达标（不要求多篇/进展）+ 营销按链上新币相对尺度评（有产品推垫底时多语言分发/宣传/借势不扣分）；2 档改「零产品陈述」、3 档「有一篇即够 AND 非纯营销空话」 | C36 THESIS 案（用户裁定「一篇足够」「要啥自行车」） | 2ace60a |
 | （卷一终版：J1.22 / P1.7，2026-10-01；J1.8→J1.22、P1.2→P1.7 全历史见卷一 §三） | | | | |

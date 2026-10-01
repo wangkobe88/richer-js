@@ -381,6 +381,8 @@ function buildCallPromptMeta(questions, stateStats, state, { full = false } = {}
  * @param {Object} context
  * @param {Object} context.tokenData - 代币数据
  * @param {boolean} context.includeBrandHijack - 品牌劫持预检是否命中（问题是否存在）
+ * @param {boolean} [context.credibleEventAnchor] - 可信事件源锚（J1.24 戏谑关联豁免用：
+ *   superIP 语料锚 / 广场官方认证源 / 发行方自发宣告 任一命中为 true，analyzer 层算好传入）
  * @param {Object} context.callInfo - {model, questions, state, stateStats, usage, startedAt, finishedAt}
  * @param {Object|null} [context.tweetClassification] - 推文预分类
  * @returns {Object} { stage1DataToSave, stage2DataToSave, stage3DataToSave,
@@ -614,15 +616,32 @@ export function mapStandardAnswers(answers, context) {
   const brandHijackP = includeBrandHijack ? (answers.brand_hijack?.noul ?? 0) : 0;
   const misspellingP = answers.block_misspelling?.noul ?? 0;
 
+  // J1.24 戏谑关联豁免（C40 Binance Inu 案 0xcaf66eb2…7777，2026-10-01 用户裁定
+  // 「不是劫持，而是web3用户特有的戏谑/趣味性关联。当然它也必须得是当前的热门
+  // 新鲜事，否则就成了无病呻吟」）：品牌关键词票在「当前热门新鲜事锚」下——
+  // timing within_7d（当前）+ effTier S/A（热门）+ 可信事件源锚（superIP 语料锚/
+  // 广场官方认证/发行方自发宣告，analyzer 传入 credibleEventAnchor，事件真实性有
+  // 背书）三条件全中时，缩写双关/谐音/形象嫁接类名字不算品牌劫持：蹭的是事件
+  // 增量热度，不是品牌存量认知。两层截断同豁免：品牌劫持截断 + relevance≤10
+  // 截断（戏谑关联的本质=弱字面关联+强语境关联，缩写双关在 relevance 体系天然
+  // 落低档，是特性不是缺陷；10 分照常计入总分，弱关联代价在分数上体现）。
+  // 不豁免：misspelling/quality 门（与戏谑语义无关）；brandHijackP<0.5 的票
+  // （本就不会被劫持门拦，relevance 弱关联照常截断——那是普通弱关联票）；
+  // timing 非 within_7d / 量级不足的纯蹭名盘（无病呻吟，裁定原文的拦截方向）。
+  const punExempt = includeBrandHijack && brandHijackP >= 0.5
+    && timing === 'within_7d'
+    && (effTier === 'S' || effTier === 'A')
+    && !!context.credibleEventAnchor;
+
   let stage3Blocked = false;
   let stage3BlockReason = null;
-  if (brandHijackP >= 0.5) {
+  if (brandHijackP >= 0.5 && !punExempt) {
     stage3Blocked = true;
     stage3BlockReason = '品牌劫持';
   } else if (misspellingP >= 0.5) {
     stage3Blocked = true;
     stage3BlockReason = '无背景拼写错误';
-  } else if (relevance.score <= 10) {
+  } else if (relevance.score <= 10 && !punExempt) {
     stage3Blocked = true;
     stage3BlockReason = `关联性不足（${relevance.score}分/${relevance.type}）`;
   } else if (quality.total <= 4) {
@@ -647,7 +666,7 @@ export function mapStandardAnswers(answers, context) {
     ? `阻断:${stage2BlockReason}｜P=${(w3Block ?? nrBlock)?.mass ?? (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)} 拼写P=${round2(misspellingP)}`
-      : `事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
+      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = stage2Blocked
     ? { __clear: true }  // 对齐原流程：Stage2 未通过 → Stage3 被跳过，清旧数据
@@ -670,6 +689,9 @@ export function mapStandardAnswers(answers, context) {
             relevanceType: relevance.type,
             relevanceLevelIdx: relevance.levelIdx,
             brandHijackP: includeBrandHijack ? brandHijackP : null,
+            // J1.24 审计标记：戏谑关联豁免命中详情（timing/档位可追溯，Jev 原判
+            // brandHijackP 保留在上一键不受豁免影响）
+            punExempt: punExempt ? { timing, tier: effTier } : null,
             misspellingP,
             probabilities: {
               relevance_type: answers.relevance_type?.probabilities,
