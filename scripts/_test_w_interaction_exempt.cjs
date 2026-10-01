@@ -16,7 +16,8 @@
  *   B. 豁免矩阵：tier 不足 / 版本更新形状 / 交互≥10 / 非 W 类 / 骑乘改道 / cashtag 改道
  *   C. 高交互票不受豁免影响（三轴照算，剔除反而亏分）
  *   D. 审计与 reason：stage2 jev.wInteractionExempt 落位 / reason 前缀 / 交互分照常落库
- *   E. 源码接线 + 版本断言（mapper-only，题集版本不动 J1.24）
+ *   E. 源码接线 + 版本断言（mapper-only 切分，C42 落地时题集 J1.24 不动；
+ *      现 J1.25 = C43 subject_unqualified 修正，W 类题零改动）
  *
  * 用法：node scripts/_test_w_interaction_exempt.cjs
  */
@@ -199,8 +200,10 @@ async function main() {
   check('E2 归一化计分 + 审计字段落位',
     /\(wProduct \+ timeliness\) \/ 60 \* 100/.test(src)
       && /wInteractionExempt: wInteractionExempt \? \{ tier: effTier, newProductP: wNewProductP \} : null/.test(src));
-  check('E3 题集版本不动（mapper-only 切分，J1.24 维持）',
-    JEV_QUESTIONS_VERSION === 'J1.24', JEV_QUESTIONS_VERSION);
+  // C42 本体是 mapper-only 切分（落地时题集 J1.24 不动）；后续 J1.25 = C43
+  // subject_unqualified 主体口径修正（不触 W 类题），版本随之推进
+  check('E3 题集版本 J1.25（C42 mapper-only 落地在 J1.24；J1.25 为 C43 判据修正，W 类题零改动）',
+    JEV_QUESTIONS_VERSION === 'J1.25', JEV_QUESTIONS_VERSION);
 
   console.log(`\n═══════ ${passed} passed, ${failed} failed ═════`);
   process.exit(failed > 0 ? 1 : 0);
