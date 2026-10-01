@@ -32,6 +32,47 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ## 二、Case 研究（倒序）
 
+### C35 币安支付/Binance Pay 0xfa4f58fd46fae74490a9d4cd69ed3eaf1b7d7777 —— brand_hijack 判断锚改「名实一致性」（superIP 通道，2026-10-01）★
+
+**背景（GMGN 蓝筹验证第二轮·case-by-case 逐票模式）**：09-30 批量轮整体归因效果不佳
+（C34），用户裁定换逐票方式：`scripts/narrative/gmgn-bluechip-cases.mjs`（--fetch/--classify/
+--order/--next/--case/--status；数据 `data/gmgn-bluechip-cases/` 与批量轮分离；同口径
+`analyze(ignoreCache:true, enrichSocialByGmgn:true)`；逐票全量落盘 cases/<addr>.json；
+high/mid=PASS(0) / low/unrated/null=FAIL(2)；榜单与 B 类造行挂靠同批量轮 2609e300）。
+逐票跑出不通过即停下深挖。**首会话因 case dump/长输出反复进上下文触发 autocompact
+thrashing 中断（本节恢复后确立纪律：dump 一律 jq/node 抽窄字段，不整读）**。
+
+**事实链**：@binance（1615 万粉）2026-09-30 03:00 UTC 官宣 Binance Pay×PayPay 日本商户
+合作 → 何一 @heyibinance（S 级 person，63.8 万粉）03:23 转发 → 第三方 05:05 铸「币安支付」
+（creator 0x16ddaa0f…67b77 发过 5526 币、GMGN creator_close；mc $1.7M vol24h#31）。
+IPFS 元数据只有何一转发推文链接，走 superIP 快速通道。
+
+**J1.21 判定（误拦）**：事件分 82.72（tier40+时效15+传播28 加权 49.63+关联20+质量13.83）
+本应 high，但 brand_hijack noul=0.74 ≥0.5 → 品牌劫持硬截断 low。「币不是品牌方发的=劫持」
+把发行归属当判据——平台上所有币都不是品牌方发的，语义不成立。
+
+**用户裁定（原话）**：「"币不是币安发的=劫持"这肯定不行。如果公司A发了一个产品B，那么
+代币名字叫B，这肯定不能算品牌劫持，但是如果发的代币叫做A，那么还是可能算品牌劫持
+（本质上算是IP或者说概念实体不一致，把事件的核心概念扩大了。或者不匹配）」+ CZ 补充
+（代币CZ，事件 CZ 本人发布《Freedom of Money》新书 → 本人发起+实质内容+发酵空间 →
+不触发劫持）。
+
+**J1.22 落地（仅改 brand_hijack 一题，mapper 零改动）**：核心事实句钉死「发行归属非判据」；
+新增判断锚四形状（币名=事件核心实体名→一致不算劫持；币名=事件主体本人名→一致不算；
+币名指向比事件核心更大的实体→概念扩大/不匹配正常评估；纯蹭热度→劫持）；豁免②⑤加
+「且币名指向该事件核心实体」限定、④补「指事件由本人发起非指发币」澄清；①③⑥不动。
+
+**验证**：本案重跑 low→**high(83.63)**（事件分49.8(83×0.6)+关联20+质量13.83）；校准
+4/4 一致，**GMCZ（币名指向 CZ 组合实体、事件核心不匹配形状）仍被品牌劫持截断维持 low**
+——一翻一守，新判断锚双向生效。**过程发现 0.52 AVE 同名搜索波动**（同 token 两跑一拦
+一放，§六-38）：重跑时 AVE 搜出另一「币安支付」0xd82f2be0…65c4e（fdv $130K/holders
+22.5 万撒币形状）命中 100K 门被拦、未及 Jev；临时 minFdv 100K→200K 绕过后验证完成
+（跑后即恢复）。同轮前置两 case：自由鸭 0x5d01b8174a661600cf4f016bea9b073557847777
+mid(2) 项目币评级 PASS；BI 0xcaf66eb2c00d206d741a654face34768cf2a7777 0.52 拦（AVE
+同名老盘 Binance Inu 0x750605d2 fdv $54.7M、本体无 twitter 语料）正确拦截；WIRED
+0x55db4b1f497b1d7aa93354701883efc758367777 prestage 信用降档拦（wiredupbnb 账号
+注册 0 天<30 天门、粉丝 1041）正确拦截。
+
 ### C34 GMGN 三榜蓝筹验证 191 票 —— 叙事引擎假阴性全量扫描：A 类实盘同形票零新问题；暴露 data_fetch_failed 路径 rating=null 落库 bug（2026-09-30）★
 
 **背景与管线（用户发起：GMGN 榜单币相对绝大多数代币算蓝筹/小蓝筹，批量喂引擎看假阴性）**：
@@ -1657,6 +1698,7 @@ null；TTL `ipfs_metadata` 365d/730d——IPFS 内容不可变同 tweet 档）+ 
 | J1.19 | 09-29 | 新增独立第 14 题 `web3_fit`（strong_fit/fit/marginal/unfit 四档——Web3 用户偏好契合度：链上 meme 买家画像 + 判据两问「能否被玩梗/二创/自嘲式传播」「受众与 crypto 圈是否重叠」+ 强契合/不契合典型清单；语义独立不并入 block_reason 的「无叙事价值」）+ mapper `web3FitBlock` 质量门（unfit 概率 ≥0.5 → rating 1，negativeHardNewsBlock 同构：全域 + 标准/superIP 双路径无豁免，挂 nhn/rcp 后第三位；marginal 不拦落库观察）+ **pre-check 规则 3 爆款短路收窄**：video_unrated 命中时有可读推文文本（推文已描述视频内容，「内容无法解析」不成立）→ 不短路进 Jev 完整评估，无文本才维持 mid 短路（「爆款不拦」语义由 E 类量级题承接，video section 已带点赞/播放数据）；历史口径：video_unrated 27 成交票净 +7.6 全靠熊猫+大头混子（动物萌宠/可玩抽象）两张撑、其余 25 票全亏 -7.58 全为人名梗/土味/丧文化型；单测 24 断言 + 既有叙事链（publisher_proxy/cashtag/blue_chip/precheck_retry 115 断言）全绿 | 死亡观察员/太阳之勤 0xd2a6d440/0xe5fa214f C30 | 本 commit |
 | J1.20 | 09-30 | event_magnitude/dimension2 陈述者两形状分流——instructions 主体判定规则（形状① 陈述者关联事件→主体=陈述者按粉丝量级定档，原语义保留；形状② 陈述者无关联只是陈述者→主体=事件本身按传播规模定档，**陈述者粉丝数既不代表也不封顶**；找角度/解读型→形状②；回复/转述语料按父推/源头定形状，十万粉级以上父推陈述=事件被大V扩散证据计入传播规模、回复者粉丝不参与定档）+ criteria 六档双锚（D/C/B/A 每档①②双措辞；C 档「无源可溯最高到此档」封顶保留=7777 防线；A② 全国性监管政策与市场事件；S 档两形状同一口径）+ E 类升级规则含父推 + dimension2 同分流引用与 C/D 形状②分带（全国级=全民话题级 25-30）；mapper 零改动；本案重析量级修复生效 58.2→**67.04 过线**（E 0.77 + B 档 27 + 25.04 + 15）但唯一拦截点移到 stage3 关联性——relevance none 0.85 笃定（「正龟」≈「正规」谐音梗，语料无字面来源，Jev 结构性盲区，§六-36）；馒头回归 high 72.17 维持（B→C 档漂移 dim2 补偿）、久留美回归 low 55.56 维持零回归；单测 22 断言 | 正龟 0x969c6981 C32 | `316dfbc` |
 | J1.21 | 09-30 | 新增条件第 15 题 `referent_memeability`（指代对象 meme 玩味价值 0-5：评估对象=name_referent 判定的指代对象本身，被超级IP转发/提及不加分；两维度 AND——①对象自身 meme 玩味空间（人名/账号=「一个人」非内容 0 档）②web3 meme 买家口味契合；**条件携带** buildStandardQuestions `referentMemeability: true` 仅 superIP 调用点，标准路径不问零变化）+ mapper `mapSuperIPAnswers` 内容作品豁免：nameReferentBlock 命中且分数 ≥REFERENT_MEME_EXEMPT_MIN(3)=双达标下限档 → 豁免该门走正常评分管线；分缺失 null 不豁免（fail-closed）；web3FitBlock unfit≥0.5 负门独立保底不受豁免；审计落库 referentMemeability/nameReferentExempt；校准脚本 superIP 分支同口径携带；仅 superIP 通道（标准路径无名对象无曝光背书，ChainPulse/Muse/YAYA 拦截语义不变——YAYA 人名 0 档锚定）；单测 30 断言 + 既有叙事链 10 测试 243 断言全绿 | MTAT/More Than a Trade 0x67fd1190 C33 | 本 commit |
+| J1.22 | 10-01 | brand_hijack 题判断锚改「名实一致性」——核心事实句钉死「发行归属非判据」（平台上的币从来不是品牌方发的）+ 判断锚四形状（币名=事件核心实体名/币名=事件主体本人名 → 一致不算劫持；币名指向更大实体 → 概念扩大/不匹配正常评估；纯蹭热度 → 劫持）+ 豁免②⑤加「且币名指向该事件核心实体」限定、④补「指事件由本人发起非指发币」澄清；mapper 零改动；本案重跑 low→high(83.63)；校准 4/4 一致、GMCZ 品牌劫持截断维持（一翻一守） | 币安支付 0xfa4f58fd C35 | 本 commit |
 | P1.2 | 09-20 | prestage Jev 化（4 题：token 类型/abm 名字关联/abm web3 流量/社区活跃度），全部确定性数学代码端 | Jev 迁移 P3 | `08d1ed5` |
 | P1.3 | 09-27 | 题面未动——mapper 端 project 评级表加账号信用降档（推文 <5 OR 账号年龄 <30 天→low，年龄以 token 创建时点锚定幂等；照 J1.8 先例 bump）；附带 flap 创建时间 wss_events token_create 回退（token-info-service）；52 行 project 重放仅 x-0 命中 0 误伤 | x-0 0xa5fd1f C15/C18 | 本 commit |
 | P1.4 | 09-27 | 题面未动——mapper 端消灭 unrated（用户裁定：分析完成必须落在 low/mid/high，9 只保留给直调失败/超时/未触发）。abm 双条件满足 unrated→mid；web3_native_ip_early 不再 unrated"等社区成长"，复用 rateProject 粉丝带+P1.3 降档按账号基本面给结论 | C4 反裁定 + 蝴蝶轮回 C22 | 本 commit |
@@ -2422,3 +2464,15 @@ screen 原样重建（水位对齐 events 3393092 / ticks 777249，4 持仓恢�
     **TRX 重析实证本 bug 第 5 票**（$100M 仿盘豁免放行 → account 路径拉取失败 →
     null 行，rating 语义丢失的实证面从 4 票扩到 5 票）
 
+
+38. **0.52 AVE 同名搜索结果波动（2026-10-01 C35 币安支付重跑实证）**：同一 token
+    （0xfa4f58fd）两次 0.52 检查一次放行一次拦截——AVE symbol 搜索为 now-based
+    快照，09-30 00:56Z 跑时未返回同名候选「币安支付」0xd82f2be0…65c4e（fdv $130K、
+    holders 22.5 万、24h 340 笔——撒币/空投形状小盘，非真蓝筹），10-01 03:05Z 跑时
+    返回并命中 100K 门（fdv≥100k AND holders≥10k 双过）→ 拦截。成熟豁免不适用
+    （票龄 1 天<7 天，且自身行不在 count:1 的搜索结果里 selfRow 缺失——豁免双门
+    皆关，设计内 fail-closed）。与 C34 重析的 GCAT/CMC「AVE 漂移 matched 空放行 2」
+    同根源反向表现。**待裁定**：① minFdv=100K 门允许 $130K 同名小盘拦 $1.7M 票，
+    门槛对「假蓝筹真撒币盘」是否过松（可议抬高或加 holders/fdv 比值形状校验）；
+    ② AVE 快照波动导致的同票判定不稳定是否可接受（fail-closed 方向已由用户裁定，
+    波动方向=多拦少放，误伤面 vs 漏放面的权衡待定）。
