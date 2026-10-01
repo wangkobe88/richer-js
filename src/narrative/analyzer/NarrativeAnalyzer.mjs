@@ -587,6 +587,13 @@ export class NarrativeAnalyzer {
               // 发行方自发宣告 / 广场官方认证源 任一——事件真实性有背书时「当前热门
               // 新鲜事」才立得住，纯小道消息语料不解锁豁免
               credibleEventAnchor: !!(superIPInfo || issuerDetected || binanceSquareInfo?.authorVerified),
+              // C44（2026-10-01 土豪猫猫案，用户裁定「如果引用了Instagram的链接，
+              // 就认为影响力达标」）：IG 是封闭平台传播数据常不可得，证据缺失≠零
+              // 影响力——链接存在但数据未抓到时，mapper A 类 dim2 兜底锚 18
+              // （J1.23 风格契合带下限）。instagramInfo 非空 = 真数据已进 state
+              // （buildInstagramSection），Jev 按真证据判分不兜底
+              instagramLinked: !!(classifiedUrls?.instagram?.length > 0),
+              instagramInfoFetched: instagramInfo != null,
               tweetClassification: classifyTweetType(twitterInfo),
               twitterInfo, // J1.17 cashtag 改道判据（detectCorpusCashtag）用
               callInfo: {

@@ -383,13 +383,23 @@ function buildCallPromptMeta(questions, stateStats, state, { full = false } = {}
  * @param {boolean} context.includeBrandHijack - 品牌劫持预检是否命中（问题是否存在）
  * @param {boolean} [context.credibleEventAnchor] - 可信事件源锚（J1.24 戏谑关联豁免用：
  *   superIP 语料锚 / 广场官方认证源 / 发行方自发宣告 任一命中为 true，analyzer 层算好传入）
+ * @param {boolean} [context.instagramLinked] - 语料是否引用 Instagram 链接（C44 IG 影响力
+ *   兜底锚条件①，analyzer 层按 classifiedUrls.instagram 算好传入）
+ * @param {boolean} [context.instagramInfoFetched] - IG 数据是否已抓到（false=数据不可得，
+ *   走兜底锚；true=真数据已进 state 由 Jev 按真证据判分）
  * @param {Object} context.callInfo - {model, questions, state, stateStats, usage, startedAt, finishedAt}
  * @param {Object|null} [context.tweetClassification] - 推文预分类
  * @returns {Object} { stage1DataToSave, stage2DataToSave, stage3DataToSave,
  *                     stageFinalData, llmResult, promptType, jevDetails }
  */
 export function mapStandardAnswers(answers, context) {
-  const { tokenData, includeBrandHijack = false, callInfo, tweetClassification = null, twitterInfo = null } = context;
+  const {
+    tokenData, includeBrandHijack = false, callInfo, tweetClassification = null, twitterInfo = null,
+    // C44 IG 影响力兜底（analyzer 传入）：instagramLinked = classifiedUrls.instagram
+    // 有 URL；instagramInfoFetched = IG 数据已抓到（真数据进 state，Jev 按真证据
+    // 判分不兜底）
+    instagramLinked = false, instagramInfoFetched = false,
+  } = context;
   const symbol = tokenData.symbol || '';
   // stage1 存完整 prompt（state+questions 全文），stage2/3 存摘要+指针
   const promptMetaFull = buildCallPromptMeta(callInfo.questions, callInfo.stateStats, callInfo.state, { full: true });
@@ -453,6 +463,20 @@ export function mapStandardAnswers(answers, context) {
   const effTier = tierAnchored ? 'A' : (web3FitAnchored ? 'B' : tier);
   const timing = answers.event_timing?.choice || 'unknown';
   const dim2 = bandInterpolate(answers.dimension2?.score ?? 0, DIM2_BANDS);
+  // C44 IG 影响力兜底锚（2026-10-01 用户裁定「对，因为我们无法知道在Ins上这个猫
+  // 的影响力多大，这里我觉得豁免一下吧，如果引用了Insgram的链接，就认为影响力
+  // 达标」，土豪猫猫案 0xfade76ef…7777）：IG 是封闭平台，帖子/账号传播数据经常
+  // 抓不到——语料「零传播证据」是证据缺失而非零影响力，dim2 被压 0-9 档属口径
+  // 错位。条件全中才锚：①A 类（形象 IP——IG 是形象主阵地，裁定场景）；②语料
+  // 引用了 IG 链接（instagramLinked）；③IG 数据未抓到（instagramInfoFetched
+  // false——真数据已进 state 时 Jev 按真证据判分，不兜底）；④dim2 < 18（只升
+  // 不降；18 = J1.23 dimension2 A 类「风格契合 Web3 偏好的角色形象」带下限）。
+  // 不救量级门（strong_fit<0.5 的 D 档票死量级门合理——偏好证据另有 web3FitAnchored
+  // 正门）；W 数学不消费 dim2 不触达；web3FitBlock unfit 负门在前，豁免票 unfit
+  // 仍拦（交互安全）
+  const igDim2Anchor = category === 'A' && instagramLinked === true
+    && instagramInfoFetched !== true && dim2 < 18;
+  const effDim2 = igDim2Anchor ? 18 : dim2;
   const blockChoice = answers.block_reason?.choice || 'none';
   const blockProb = answers.block_reason?.probabilities?.[blockChoice];
   // 原 prompt 语义是"命中任一阻断条件即阻断"（二值）。Choice 摊成 10 路分布后
@@ -591,9 +615,9 @@ export function mapStandardAnswers(answers, context) {
   } else {
     tierScore = MAGNITUDE_TIER_SCORES[effTier] || 0;
     timeliness = TIMING_SCORES_STANDARD[timing] ?? 0;
-    stage2Total = round2(tierScore + dim2 + timeliness);
+    stage2Total = round2(tierScore + effDim2 + timeliness);
     stage2Blocked = stage2Total < 60;
-    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${dim2}+时效${timeliness}=${stage2Total}（pass线60）`;
+    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${effDim2}${igDim2Anchor ? `·IG影响力豁免(原${dim2})` : ''}+时效${timeliness}=${stage2Total}（pass线60）`;
     if (stage2Blocked) stage2BlockReason = `事件分不足（${stage2Total}<60）`;
   }
 
@@ -607,7 +631,7 @@ export function mapStandardAnswers(answers, context) {
         category: (isW || rideMass != null) ? 'W' : category,
         totalScore: stage2Total,
         tierScore: isW ? null : tierScore,
-        dimension2: isW ? null : dim2,
+        dimension2: isW ? null : effDim2,
         timeliness,
         wProductScore: isW ? wProduct : null,
         wInteractionScore: isW ? wInteraction : null,
@@ -624,6 +648,9 @@ export function mapStandardAnswers(answers, context) {
         routineContentProductMass: rcpBlock?.mass ?? null,
         web3FitMass: w3Block?.mass ?? null,
         timing,
+        // C44 审计标记：IG 影响力兜底锚命中详情（原 dim2 可追溯，锚后值在
+        // scoringResult.dimension2）
+        instagramDim2Anchor: igDim2Anchor ? { from: dim2 } : null,
         // C42 审计标记：世界级主体产品豁免币安交互命中详情（effTier/新产品带概率
         // 可追溯；wInteractionScore 键照常落库不受豁免影响）
         wInteractionExempt: wInteractionExempt ? { tier: effTier, newProductP: wNewProductP } : null,
@@ -694,7 +721,7 @@ export function mapStandardAnswers(answers, context) {
     ? `阻断:${stage2BlockReason}｜P=${(w3Block ?? nrBlock)?.mass ?? (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)} 拼写P=${round2(misspellingP)}`
-      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
+      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = stage2Blocked
     ? { __clear: true }  // 对齐原流程：Stage2 未通过 → Stage3 被跳过，清旧数据

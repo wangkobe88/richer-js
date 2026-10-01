@@ -249,6 +249,13 @@ export function classifyAllUrls(urls) {
       case 'bilibili':
         result.bilibili.push(info);
         break;
+      // C44（2026-10-01 土豪猫猫案）：classifyUrl 一直正确识别 instagram 帖子/主页
+      // （platform='instagram'），但本 switch 漏了 case → 落 default 进 websites 桶
+      // → data-fetch 的 selectFirstUrl('instagram') 恒 null → InstagramFetcher
+      // 从未被调用（IG 数据链路整体死链 8 个月）
+      case 'instagram':
+        result.instagram.push(info);
+        break;
       case 'xiaohongshu':
         result.xiaohongshu.push(info);
         break;

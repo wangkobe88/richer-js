@@ -48,6 +48,78 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C44 土豪猫猫——Instagram 链路三处死链修复 + IG 影响力两层处理（2026-10-01 用户裁定）★
+
+- **Token**：土豪猫猫 `0xfade76ef97ada757be21a4a1aba87d576eda7777`（four.meme，
+  provenance=A，vol24h#87；per-case 验证轮 #29）
+- **裁定与方向升级（两句合并）**：用户先裁定「因为我们无法知道在Ins上这个猫的
+  影响力多大，这里我觉得豁免一下吧，如果引用了Insgram的链接，就认为影响力达标」
+  （我原建议维持拦截被推翻——证据缺失≠零影响力）；mid-turn 再升级「这个API能支持：
+  docs.justoneapi.com/zh/api/instagram/ 进一步获取instagram的信息」——**两层设计**：
+  ①真数据可得（JustOneAPI IG 端点抓到）→ 真数据进 state，Jev 按真证据判分不兜底；
+  ②IG 链接存在但数据未抓到 → mapper A 类 dim2 兜底锚（见下）。真数据优先，豁免是
+  数据不可得时的忠实翻译而非无脑放行。
+- **三处死链（IG 数据链路从未成功过，全链破案）**：①`classifyAllUrls` switch 漏
+  `case 'instagram'`——`classifyUrl` 一直正确识别 IG（platform/type 对）但落
+  default 进 websites 桶 → data-fetch 的 `selectFirstUrl('instagram')` 恒 null →
+  fetcher **从未被调用**（根因）；②fetcher 端点是旧路径（`post-details/v1`/
+  `user-profile/v1` 路径 404 Resource not found——文档 slug ≠ API 路径，真实端点
+  `get-post-detail/v1`/`get-user-detail/v1`）；③解析层读 `metrics.like_count`/
+  `user`/`taken_at` 扁平结构，真实返回是 IG 原生 GraphQL 形状
+  （`edge_media_preview_like.count`/`owner`/`taken_at_timestamp`/
+  `edge_media_to_caption`；user 三层嵌套 `{data:{data:{user:{}}}}` +
+  `edge_followed_by.count`）。输出形状保持（`buildInstagramSection` 与 pre-check
+  规则 3.5.5 消费旧形状零改动）。
+- **key 覆盖实测**：现有 key（硬编码 fetcher 内）对两个新端点均 `code:0` 成功——
+  与 C41 调查的 `web/html/v1` `code:300` 套餐外不同族，**Instagram 端点在现有套餐内**
+  （免开通直接用）。
+- **本案真数据**：帖子 DFZg9g0Bz5E = 19,596 赞 / 12 评论 / GraphSidecar 多图 /
+  发布 2025-01-29（8 个月前老帖）+ accessibility_caption「新年 農曆 紅包 利是 貓貓
+  富豪」+ caption「跟著土豪貓貓秒變富豪」；作者 @meowmomagazine（MEOW MO MAGAZINE，
+  港台生活杂志 Magazine 类）= **128,737 粉 / 920 帖**——「影响力不可知」实为十万粉
+  级账号 + 2 万赞帖，完全支撑用户裁定直觉。
+- **mapper 兜底锚（第二层，`jev-result-mapper.mjs`）**：`igDim2Anchor = A类 &&
+  instagramLinked && instagramInfoFetched!==true && dim2<18` → `effDim2 = 18`
+  （18 = J1.23 dimension2 A 类「风格契合 Web3 偏好」带下限）；analyzer 传
+  `instagramLinked`（classifiedUrls.instagram 有 URL）/`instagramInfoFetched`
+  （IG 数据非空=真数据已进 state）。边界：不救量级门（strong_fit<0.5 的 D 档票死
+  量级门合理，偏好证据另有 web3FitAnchored 正门）；W 数学不消费 dim2 不触达；
+  web3FitBlock unfit 负门在前豁免票仍拦；superIP 快车道不挂（一期范围）；非 A 类
+  不锚（IG 是形象主阵地，豁免限 A 类场景）。审计 `jev.instagramDim2Anchor {from}` +
+  stage2 reason `·IG影响力豁免(原N)` + llm 前缀「IG影响力豁免(C44)｜」。mapper-only
+  不 bump 题集版本（C42 先例）。
+- **重跑验证（真数据路径，PASS）**：`51.7 low` → **`high 72.29`**。IG URL 进
+  instagram 桶（日志「URL识别为Instagram帖子/Reel」）→ 真数据进 state → Jev 按
+  真证据判：**传播 dim2 9.7 → 22.32**（19596 赞+12.9万粉的证据分量）、量级 B 档
+  （Web3偏好锚原判C档 strong_fit 95%）、timing within_7d 15 分——担忧的「8 个月
+  老帖掉 older 档」未发生（Jev 判形象鲜活）；事件分 64.32（27+22.32+15）→
+  72.29 high。**兜底锚未触发**（真数据抓到了）——两层设计按预期走到第一层。
+  pre-check 规则 3.5.5（IG 帖子互动数据）桶修复后**首次生效**。
+- **单测**：`node scripts/_test_instagram_pipeline.cjs`（31 断言零 DB 零网络，
+  fixture=本案真实响应：端点路径/ post+user 解析矩阵/桶归属/兜底矩阵（本案 51.7→60
+  数值复现、真数据不锚、非A不锚、只升不降、W 不触达、存量零变化）/analyzer 传递点/
+  section 形状兼容七节）。
+- **部署提醒**：narrative engine 常驻进程（182）需重启吃到 IG 修复（与 C41 jina
+  回退 + J1.24/J1.25 同批，多进程 mapper 版本漂移同款）。
+
+---
+
+### C43 土豪猫猫——subject_unqualified 主体口径修正（J1.25，2026-10-01）★
+
+- **Token**：土豪猫猫 `0xfade76ef97ada757be21a4a1aba87d576eda7777`（同 C44，先于
+  IG 修复发现）
+- **拦截点**：block_reason `subject_unqualified` argmax「主体资格不足」（A 类
+  scope 内）——把**陈述者账号**（无名发帖号 @MGGA_BSC）当成了主体；实际主体 =
+  币名所指核心实体（土豪猫猫形象本身），来源账号粉丝数不构成形象主体资格不足。
+- **修正（J1.25，语义修正类）**：subject_unqualified 判据改「主体=币名所指核心
+  实体（形象/人物/IP/事件主角），陈述者账号绝不构成主体资格不足；形象类主体按
+  形象自身知名度判，来源账号粉丝是 proxy」。
+- **验证（语义修正类题改生效实证，与 J1.23 分数锚定类不动形成对照）**：重跑后
+  block argmax 翻转 none，拦截点移交「事件分不足 51.7<60」（dim2 只 9.7 因 IG
+  数据抓不到、语料零传播证据）→ 引出 C44 豁免裁定。
+
+---
+
 ### C41 RedCoin——web-fetcher r.jina.ai 回退（2026-10-01 用户裁定 A）+ W 类数学「世界级机构链上产品」错位（待裁定）
 
 - **Token**：RedCoin `0xe2881a7ac454c473a8b4c858732402154e107777`（flap，provenance=A，
@@ -356,6 +428,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.25 | 2026-10-01 | subject_unqualified 判据修正：主体=币名所指核心实体（形象/人物/IP/事件主角），陈述者账号绝不构成主体资格不足；形象类主体按形象自身知名度判，来源账号粉丝是 proxy | C43 土豪猫猫案（语义修正类题改生效实证：block argmax 翻转 none；与 J1.23 分数锚定类题改不动形成对照） | `923b31b` |
 | J1.24 | 2026-10-01 | ①brand_hijack 豁免③扩充「当前热门新鲜事锚定的戏谑关联」（缩写双关/谐音梗/形象嫁接是 meme 创作手法非劫持，蹭事件增量热度非品牌存量认知；无新鲜事件锚纯玩品牌词根才是劫持）②mapper `punExempt`：P≥0.5 + timing within_7d + effTier S/A + credibleEventAnchor（superIP/issuer/广场官方认证）全中豁免品牌劫持截断与 relevance≤10 截断，计分照常；misspelling/quality 不豁免；审计 jev.punExempt + reason 前缀 | C40 Binance Inu 案（用户裁定「不是劫持，而是web3用户特有的戏谑/趣味性关联；也必须是当前的热门新鲜事，否则就成了无病呻吟」；J1.24 题面下 P 0.72→0.69 题面锚仍不动，代码切分决定性） | 本 commit |
 | J1.23 | 2026-10-01 | ①event_magnitude A 类句换锚「Web3 买家视角形象吸引力」（可爱萌系/极客风/奇怪猎奇=风格即吸引力可到 B 档；传统严肃风格大众知名度不转化、通常 C 档以下；已圈内梗=A/S）②dimension2 A 类句配套双证据源 ③web3_fit 小众边界澄清（「小众」按 Web3 买家视角判，动漫游戏/极客/ACG 非小众）+ 强契合典型补三类 ④mapper `web3FitAnchored` 正门：A 类 + strong_fit≥0.5 + 原档 <B → effTier 锚 B（unfit 负门对称面；不越权 A/S；仅 A 类；审计 web3FitAnchored/web3FitStrongP） | C38 久留美续案（用户裁定「最根本上要占到用户角度看叙事」；题面改锚实证 Jev 分不动 C 档 0.94 但 strong_fit 0.88，J1.16/J1.18 同款代码切分） | `e7d0806`+mapper |
 | P1.8 | 2026-10-01 | 实度题尺度校准：一篇产品陈述即达标（不要求多篇/进展）+ 营销按链上新币相对尺度评（有产品推垫底时多语言分发/宣传/借势不扣分）；2 档改「零产品陈述」、3 档「有一篇即够 AND 非纯营销空话」 | C36 THESIS 案（用户裁定「一篇足够」「要啥自行车」） | 2ace60a |

@@ -4,8 +4,11 @@
  */
 
 const JUSTONEAPI_KEY = 'UkWus4GxT7fqEnC1';
-const JUSTONEAPI_POST_URL = 'https://api.justoneapi.com/api/instagram/post-details/v1';
-const JUSTONEAPI_USER_URL = 'https://api.justoneapi.com/api/instagram/user-profile/v1';
+// C44（2026-10-01 实测修正）：JustOneAPI 文档端点为 get-post-detail / get-user-detail；
+// 旧路径 post-details/v1、user-profile/v1 返回 {code:404 Resource not found}
+// （路径 404，非资源 404），IG 链路从未成功过
+const JUSTONEAPI_POST_URL = 'https://api.justoneapi.com/api/instagram/get-post-detail/v1';
+const JUSTONEAPI_USER_URL = 'https://api.justoneapi.com/api/instagram/get-user-detail/v1';
 
 import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
 import { getCacheTTL } from '../db/cache-ttl-config.mjs';
@@ -103,38 +106,41 @@ export class InstagramFetcher {
         return null;
       }
 
+      // C44：get-post-detail/v1 返回 IG 原生 GraphQL 形状（非旧文档的 metrics/user
+      // 扁平结构），按实测形状解析；输出形状保持不变（buildInstagramSection 与
+      // pre-check 规则 3.5.5 消费旧形状，零改动）
       const item = data.data;
-      const mediaType = item.media_type || 1; // 1=图片, 2=视频
-      const isReel = item.media_name === 'reel' || mediaType === 2;
+      const isVideo = item.is_video === true;
+      const mediaType = isVideo ? 2 : 1; // 1=图片, 2=视频
+      const isReel = isVideo; // 视频帖在 IG 语境即 Reel 形态
 
-      // 互动数据
-      const metrics = item.metrics || {};
-      const likeCount = metrics.like_count || 0;
-      const commentCount = metrics.comment_count || 0;
-      const playCount = metrics.play_count || metrics.ig_play_count || 0;
-      const shareCount = metrics.share_count || 0;
+      // 互动数据（GraphQL edge 结构）
+      const likeCount = item.edge_media_preview_like?.count ?? 0;
+      const commentCount = item.edge_media_to_parent_comment?.count ?? 0;
+      const playCount = isVideo ? (item.video_view_count ?? 0) : 0;
+      const shareCount = 0; // 端点不返回分享数
 
-      // 用户信息
-      const user = item.user || {};
+      // 用户信息（owner）
+      const user = item.owner || {};
 
-      // 时间
-      const takenAt = item.taken_at
-        ? (typeof item.taken_at === 'number'
-          ? new Date(item.taken_at * 1000).toISOString()
-          : item.taken_at)
+      // 时间（taken_at_timestamp，秒级 Unix）
+      const takenAtTs = item.taken_at_timestamp;
+      const takenAt = takenAtTs
+        ? new Date(takenAtTs * 1000).toISOString()
         : '';
 
-      // 标签和提及
-      const caption = item.caption || {};
-      const hashtags = caption.hashtags || [];
-      const mentions = caption.mentions || [];
+      // 文案与标签（caption 在 edge_media_to_caption；hashtags/mentions 无现成字段，从文案提取）
+      const captionText = item.edge_media_to_caption?.edges?.[0]?.node?.text
+        || item.caption?.text || '';
+      const hashtags = [...new Set((captionText.match(/#[\w一-鿿]+/g) || []))];
+      const mentions = [...new Set((captionText.match(/@[\w.]+/g) || []))];
 
       const result = {
         type: isReel ? 'reel' : 'post',
         shortcode: shortcode,
-        caption: caption.text || '',
+        caption: captionText,
         media_type: mediaType,
-        media_name: item.media_name || '',
+        media_name: item.__typename || '',
         user: {
           username: user.username || '',
           full_name: user.full_name || '',
@@ -147,7 +153,7 @@ export class InstagramFetcher {
           share_count: shareCount
         },
         taken_at: takenAt,
-        thumbnail_url: item.thumbnail_url || '',
+        thumbnail_url: item.thumbnail_src || item.display_url || '',
         hashtags: hashtags,
         mentions: mentions,
         fetched_via: 'justoneapi'
@@ -209,23 +215,25 @@ export class InstagramFetcher {
         return null;
       }
 
-      const userData = data.data;
-      const about = userData.about || {};
+      // C44：get-user-detail/v1 返回双层嵌套 {data:{data:{user:{...}}}}，计数在
+      // edge_* 结构（edge_followed_by.count 等）；输出形状保持不变
+      const userData = data.data.user || data.data.data?.user || data.data;
+      const followerCount = userData.follower_count ?? userData.edge_followed_by?.count ?? 0;
 
       const result = {
         type: 'user_profile',
         username: userData.username || username,
         full_name: userData.full_name || '',
         biography: userData.biography || '',
-        follower_count: userData.follower_count || 0,
-        following_count: userData.following_count || 0,
-        media_count: userData.media_count || 0,
-        is_verified: userData.is_verified || about.is_verified || false,
+        follower_count: followerCount,
+        following_count: userData.following_count ?? userData.edge_follow?.count ?? 0,
+        media_count: userData.media_count ?? userData.edge_owner_to_timeline_media?.count ?? 0,
+        is_verified: userData.is_verified || false,
         profile_pic_url_hd: userData.profile_pic_url_hd || '',
         external_url: userData.external_url || '',
         bio_links: userData.bio_links || [],
-        date_joined: about.date_joined || '',
-        date_joined_timestamp: about.date_joined_as_timestamp || null,
+        category_name: userData.category_name || '',
+        is_private: userData.is_private || false,
         fetched_via: 'justoneapi'
       };
 
