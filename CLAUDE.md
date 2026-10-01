@@ -161,7 +161,7 @@ Token URL → URL Classification (incl. IPFS metadata unpack) → Data Fetching 
 **Jev layer** (`analyzer/llm/`):
 - `JevClient.mjs` - HTTP client; `ask(state, questions, {label})` → answers (throws on missing answer ids — no error swallowing); 429/5xx backoff
 - `jev-questions.mjs` - Standard 13-question set (`buildStandardQuestions({includeBrandHijack})`; version = `JEV_QUESTIONS_VERSION`, per-change bump — history in the file header)
-- `jev-prestage-questions.mjs` - Prestage 5-question set `P1.5` (token type / abm name link / abm web3 traffic / community activity / project quality 0-5——P1.5 项目实度题（2026-10-01 WIRED 案裁定）：恒带，账号新(<30d)+实度≥3 豁免 P1.3 年龄降档走粉丝带、<3/缺分 fail-closed 维持 low、推文<5 保留拦)
+- `jev-prestage-questions.mjs` - Prestage 5-question set `P1.7` (token type / abm name link / abm web3 traffic / community activity / project quality 0-5——P1.5 项目实度题（2026-10-01 WIRED 案裁定）：恒带，账号新(<30d)+实度≥3 豁免 P1.3 年龄降档走粉丝带、<3/缺分 fail-closed 维持 low、推文<5 保留拦；P1.7 判据落到语料文本层——「可验证」要求了 Jev 做不到的产品实证，改为描述具体性 AND 运营持续，不因无法实证压分)
 - `jev-state-builder.mjs` - `buildJevState` (60k budget) + `buildPrestageState` (20k budget): state assembly with section quotas
 - `jev-result-mapper.mjs` - Standard/super-IP answer mapping: stage1/2/3 result construction, scale calibration constants (MAGNITUDE_TIER_SCORES, DIM2_BANDS)
 - `jev-prestage-mapper.mjs` - Prestage mapping: project rating table (followers/members floors), abm two-condition verdict, all deterministic math code-side

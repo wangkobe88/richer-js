@@ -105,8 +105,8 @@ const mapped = mapPrestageAnswers(answers, {
   tokenCreatedAtSec: X0_TOKEN_AT,
   callInfo,
 });
-check('x-0 全链形状 → rating low + promptType P1.6', { rating: mapped.rating, pt: mapped.promptType },
-  { rating: 'low', pt: 'prestage-jev(P1.6/project)' });
+check('x-0 全链形状 → rating low + promptType P1.7', { rating: mapped.rating, pt: mapped.promptType },
+  { rating: 'low', pt: 'prestage-jev(P1.7/project)' });
 check('jevDetails 含 downgrade', mapped.jevDetails.downgrade, { statuses: 1, accountAgeDays: 11 });
 check('reason 含降档依据', mapped.reasoning.includes('信用降档'), true);
 
