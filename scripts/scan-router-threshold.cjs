@@ -136,14 +136,14 @@ async function main() {
 
   // ── 阈值扫描：假想追加 `earlyTradesRouterPct < θ`（cov==1 且 pct>=θ 拦）──
   console.log(`\n═══ 阈值扫描（在既有买门之上假想追加 router 门；拦 = cov==1 && pct>=θ）═══`);
-  console.log(`  θ   | 拦票 | 避免亏损  | 放弃盈利 | 净效应(R1−R0) | 其中已亏票/已赢票`);
+  console.log(`  θ   | 拦票 | 避免亏损  | 放弃盈利 | 拦后净改善 | 已亏票/已赢票`);
   for (const theta of [30, 40, 50, 60, 65, 70, 75, 80, 90]) {
     const hit = filled.filter(r => r.cov === 1 && r.pct != null && r.pct >= theta);
     const avoided = hit.filter(r => r.net < 0).reduce((s, r) => s + r.net, 0); // 负数
     const forgone = hit.filter(r => r.net > 0).reduce((s, r) => s + r.net, 0); // 正数
     const losses = hit.filter(r => r.net < 0).length, wins = hit.filter(r => r.net > 0).length;
-    const net = hit.reduce((s, r) => s + r.net, 0);
-    console.log(`  ${String(theta).padStart(3)} | ${String(hit.length).padStart(4)} | ${fmt(avoided).padStart(9)} | ${forgone.toFixed(4).padStart(8)} | ${fmt(net).padStart(13)} | ${losses}亏/${wins}赢`);
+    const improve = Math.abs(avoided) - forgone; // 正 = 拦了变好（= -Σ被拦票净额）
+    console.log(`  ${String(theta).padStart(3)} | ${String(hit.length).padStart(4)} | ${fmt(Math.abs(avoided)).padStart(9)} | ${forgone.toFixed(4).padStart(8)} | ${fmt(improve).padStart(10)} | ${losses}亏/${wins}赢`);
   }
 
   // ── 分布分桶（成交票）──
