@@ -6,6 +6,7 @@
 import { extractAllUrls, classifyAllUrls } from '../../utils/url-classifier.mjs';
 import { fetchIpfsMetadata, normalizeIpfsRef } from '../../utils/ipfs-metadata-fetcher.mjs';
 import { fetchGmgnSocialLinks } from '../../utils/gmgn-social-fetcher.mjs';
+import { isSuperIpTweetUrl } from '../prompts/super-ip/super-ip-registry.mjs';
 import { TwitterFetcher } from '../../utils/twitter-fetcher.mjs';
 import { WeiboFetcher } from '../../utils/weibo-fetcher.mjs';
 import { GithubFetcher } from '../../utils/github-fetcher.mjs';
@@ -148,19 +149,36 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   // **总是调用**——同一次 getTokenInfo 带出 dev 风险字段（发币史/捆绑钱包，x-0 案
   // serial issuer 伪装新项目骗过 prestage 粉丝评级）；社媒并入仍以「无 twitter 链接」
   // 为前提（C10 行为零变化——有语料的 token 不需要补源）。
+  // **例外（C51 龙虾案，2026-10-01 用户裁定「GMGN 补源返回的 twitterUrl 是推文
+  // URL——如果是超级IP再并入」）**：GMGN link.twitter_username 可能带完整推文路径
+  // （龙虾 0xeccbb861…4444 实测 "binancezh/status/2027304629890072818"——币安中文
+  // Day 559 梗帖 2m57s 抢发票，自挂链接是 222 粉 3 推马甲号），「已有 twitter 链接
+  // 不补」使 superIP 真语料被马甲号挡住；仅当 GMGN 推文 URL 作者在超级IP注册表
+  // 时突破并入（普通推文/账号 URL 仍守 C10——superIP 推文才是强叙事锚）。并入后
+  // selectTwitterUrl 的 tweet 类型优先保证它被选中而非自挂账号链接。
   // GMGN 也拿不到 / 调用失败 → 按无补源、无风险因子继续，行为与现状一致
   let gmgnRisk = null;
   if (options.enrichSocialByGmgn) {
     try {
       const socials = await fetchGmgnSocialLinks('bsc', tokenData.address);
       gmgnRisk = socials?.risk ?? null;
-      if (!allUrls.some(u => /^https?:\/\/(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com)\//i.test(u))) {
+      const superIpTweet = isSuperIpTweetUrl(socials?.twitterUrl || null);
+      if (superIpTweet) {
+        console.log(`[NarrativeAnalyzer] GMGN 超级IP推文命中(C51): ${socials.twitterUrl} → ${superIpTweet.name}（tier ${superIpTweet.tier}）`);
+      }
+      const hasTwitterUrl = allUrls.some(u => /^https?:\/\/(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com)\//i.test(u));
+      if (!hasTwitterUrl) {
         const addUrls = [socials?.twitterUrl, socials?.websiteUrl]
           .filter(u => u && !allUrls.includes(u));
         if (addUrls.length > 0) {
           console.log(`[NarrativeAnalyzer] GMGN 社媒补源新增 ${addUrls.length} 个URL: ${addUrls.join(', ')}`);
           allUrls.push(...addUrls);
         }
+      } else if (superIpTweet && !allUrls.includes(socials.twitterUrl)) {
+        // C51 例外：已有 twitter 链接，但 GMGN 给出 superIP 推文 URL——只并入该推文
+        // （websiteUrl 不随例外路径并入，C10 语义对它不变）
+        console.log(`[NarrativeAnalyzer] GMGN 超级IP推文补源新增(C51): ${socials.twitterUrl}（${superIpTweet.name}，自挂链接保留但 tweet 优先）`);
+        allUrls.push(socials.twitterUrl);
       }
     } catch (e) {
       console.warn('[NarrativeAnalyzer] GMGN 补源/风险获取失败（按无补源继续）:', e.message);

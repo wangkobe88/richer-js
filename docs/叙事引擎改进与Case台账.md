@@ -50,6 +50,56 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C51 龙虾——GMGN 补源 superIP 推文例外并入：马甲号挡不住 GMGN 手里的真语料（2026-10-01 用户裁定「GMGN 补源返回的 twitterUrl 是推文 URL——如果是超级IP再并入」）★
+
+- **Token**：龙虾 `0xeccbb861c0dda7efd964010085488b69317e4444`（GMGN per-case 验证轮族七
+  address_fail 票；mc $38.4M；2026-02-27 08:50:40 创建）
+- **案由**：族七原判「2011 老号洗白买号盘」被用户推翻——GMGN 页面该 token 挂的
+  推文是 **binancezh（币安中文，46.5 万粉 tier S）2026-02-27 08:47:43 的 Day 559
+  运营梗帖「老板，有了龙虾之后接下来是不是就要解雇我了🥹 @heyibinance」**，token
+  创建 08:50:40 = **梗帖发出 2m57s 后骑乘抢发**（leonardcoinbnb.lol 域名 Leonard
+  →龙虾拉丁词根，@lobstercoinbnb 222 粉 3 推是发币者马甲号非叙事源；
+  issuerTokenCount=61 量产盘）。
+- **根因（GMGN 失明两层）**：① `link.twitter_username` 字段可带完整推文路径
+  （实测 `"binancezh/status/2027304629890072818"`，fetchGmgnSocialLinks 拼
+  `https://x.com/${username}` 恰好产出正确推文 URL）——**GMGN 是 token 自挂马甲号
+  之外真实叙事源的唯一持有者**；② data-fetch 补源条件「已有 twitter 链接就不并入」
+  （C10，省配额/不覆盖有效语料）被自挂马甲号链接挡住，superIP 真语料进不来
+  → twitterType=account → prestage account 路径 address_fail 盲拦（数据缺失代劳，
+  与 C48 社区死链同族：引擎从未见到真实叙事源）。
+- **用户裁定**：「“GMGN 补源返回的 twitterUrl 是推文 URL” 如果是超级IP再并入吧」
+  ——例外口径三重收窄：①推文级 URL（含 `/status/\d+`）②作者在 SUPER_IP_REGISTRY
+  （`isSuperIpTweetUrl` = detectSuperIP 复用）；③例外路径只并入 twitterUrl 不并入
+  websiteUrl（C10 对 website 不变）。普通推文/账号 URL 仍守 C10 原语义。
+- **落地**：`super-ip-registry.mjs` 新增导出 `isSuperIpTweetUrl(url)`（纯函数，
+  `/\/status\/\d+/` 门 + detectSuperIP）；`data-fetch-service.mjs` 3.5 GMGN 段
+  单条件重构为双路径——`!hasTwitterUrl` 走原路径（twitterUrl+websiteUrl 都补，
+  C10 零回归），`else if (superIpTweet && !allUrls.includes(...))` 例外只并入推文，
+  日志「GMGN 超级IP推文命中(C51)」/「GMGN 超级IP推文补源新增(C51)」。并入后
+  `selectTwitterUrl` 的 tweet 类型优先保证 superIP 推文被选中（自挂账号链接保留
+  但靠后），零选择层改动。
+- **验证闭环**：单测 `_test_gmgn_superip_tweet_enrich.cjs`（15 断言零 DB 零网络
+  三节：isSuperIpTweetUrl 矩阵龙虾案数值锚定/马甲号推文 null/superIP 账号 URL
+  非、推文级不触发/源码口径三连）。端到端重跑（需先失效旧缓存行，见下）：
+  **C51 命中日志 → twitterType account→tweet → 标准路径 stage3 真评级**——
+  事件各维度全过（category C 0.56 / magnitude A 档 / timing within_7d / block
+  none 0.52），唯一拦截点 name_referent「截词（非超级IP话中词）」P=0.79。
+  回归 instagram 31 / twitter_community 14 / community_name 16 全过。
+- **⚠️ GMGN 缓存坑（本案实证）**：`gmgn_token_info` 缓存 TTL 实为 90 天（非 1d），
+  9-30 抓的旧行存的是 handle 形状（`x.com/lobstercoinbnb`），GMGN 后来把该 token
+  的推特关联更新成推文路径——**C51 首跑被旧缓存挡住零日志**，须
+  `ExternalResourceCache.invalidate('gmgn:token:bsc:<addr>', 'gmgn_token_info')`
+  后重跑才生效。GMGN 社媒关联是动态的，缓存行里的形状反映抓取时点。
+- **龙虾票终局（待用户裁定的叙事边界，非链路问题）**：链路修复后引擎真实判定
+  low（截词 0.79）。双面性：字面语义成立（「龙虾」是日常词，单独出现不指向
+  币安——非「超级IP话中词」）；meme 语义可辩（S 级 fresh 梗帖核心词 2m57s 抢发
+  = C40 戏谑关联域形状，但 nameReferentBlock 不在 J1.24 punExempt 豁免清单——
+  punExempt 只豁免品牌劫持截断 + relevance≤10 截断）。
+- **影响面**：所有「自挂链接是马甲号/垃圾链接 + GMGN 关联了 superIP 真推文」形状
+  ——此前全在数据层盲拦（address_fail/no_public_info/fetch_failed 族）。注意：
+  superIP 快车道触发源仍是 token 自挂 twitterUrl（本案走标准路径）——GMGN 并入的
+  superIP 推文是否应触发快车道，出现 case 再议。同批 182 重启（§四-10）。
+
 ### C50 CZ——社区票名称匹配不作拒因：地址绑定 + 数百成员即阵地确凿（2026-10-01 用户裁定）★
 
 - **Token**：CZ (The Final Form Bull) `0x7a848a5a8169aa6a2f603d056a749f924f504444`

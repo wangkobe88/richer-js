@@ -122,6 +122,24 @@ export function detectSuperIP(twitterUrl, twitterInfo) {
 }
 
 /**
+ * 判定 URL 是否为「超级IP账号的推文链接」（C51 龙虾案，2026-10-01 用户裁定
+ * 「GMGN 补源返回的 twitterUrl 是推文 URL——如果是超级IP再并入」）
+ *
+ * 背景：GMGN link.twitter_username 字段可能带完整推文路径（龙虾案实测
+ * "binancezh/status/2027304629890072818"——GMGN 手里有 token 自挂马甲号之外的
+ * 真实叙事源推文），但 data-fetch 补源条件「已有 twitter 链接就不并入」（C10）
+ * 使其被自挂的马甲号/垃圾链接挡住。例外口径：仅推文级 URL（含 /status/）且
+ * 作者在超级IP注册表（如币安官方号 Day 559 梗帖）才突破——superIP 推文是
+ * 强叙事锚，普通推文 URL 仍守 C10 语义（有语料不补，省配额/不覆盖有效语料）。
+ * @param {string} url - 候选 twitter URL
+ * @returns {Object|null} 注册表信息（{name,type,tier,desc}）或 null
+ */
+export function isSuperIpTweetUrl(url) {
+  if (!url || !/\/status\/\d+/.test(url)) return null;
+  return detectSuperIP(url);
+}
+
+/**
  * 计算预评分（规则确定的部分，无需LLM）
  * @param {Object} ipInfo - 注册表中的IP信息
  * @param {string|number} tweetCreatedAt - 推文创建时间
