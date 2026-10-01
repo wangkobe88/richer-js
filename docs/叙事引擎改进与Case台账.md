@@ -41,12 +41,47 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 - **结果全局缓存**：`token_narrative` 按 token_address 全局唯一，不挂实验；失效靠行删或
   `updateIsValid(addr,false)`（批量失效机制未建，见 §四-3）
 - **代码侧 pre-check 规则族**（无 LLM）：0.5/0.55/0.58 同名 / 0.52 同名蓝筹（含同事件
-  ±1h 豁免、票龄门+自身体量豁免+脏 fdv 帽）/ 0.7 语料复用 / no_public_info 重试域
-  （30min 窗 GMGN 缓存失效重析）/ 0.5x 爆款短路收窄（有推文文本或视频标题进 Jev）
+  ±1h 豁免、C45 绝对体量豁免 ≥$10M + C34 票龄门相对豁免、脏 fdv 帽）/ 0.7 语料复用 /
+  no_public_info 重试域（30min 窗 GMGN 缓存失效重析）/ 0.5x 爆款短路收窄（有推文文本或视频标题进 Jev）
 
 ---
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
+
+### C45 XRP——同名蓝筹「绝对体量豁免」（rule 0.52，2026-10-01 用户裁定 B）★
+
+- **Token**：XRP `0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe`（GMGN mc24h#1 / vol24h#7，
+  mc $485.7M；per-case 验证轮 #32）
+- **现象**：rule 0.52 `same_name_blue_chip` 误拦真 XRP 本体——AVE BSC 搜索返回的
+  「蓝筹候选」是它自己的镜像版本 `0x9b7e464c9a5801f5b8d237205ee077533844e3db`
+  （fdv $551M > 自身 $485.7M）。C34 相对豁免双毙：①票无 wss_events 创建锚
+  （AVE created_at 存在但口径链路 anchor=0）②selfFdv < candMaxFdv——BSC 多版本
+  蓝筹互为「同名蓝筹」的死锁形状。
+- **用户裁定**：方案 B 体量豁免——「蹭名票必然是小盘新发盘」（引擎 90s 买窗语境），
+  自身 fdv ≥ $10M（蓝筹体量）时撞名只可能是真身/多版本/成熟票，蹭名不成立。
+  候选：A 维持不修 / B 绝对体量豁免 / C 官方账号豁免。
+- **落地（`same-name-check-service.mjs`，C45 先判 + C34 后判共用 selfRow）**：
+  `selfFdv ≥ selfFdvExemptMin`（默认 $10M，config
+  `narrative.sameNameCheck.blueChip.selfFdvExempt` 可调）且 < maxValidFdv(1T)
+  → 豁免，**不依赖创建锚与票龄**（XRP 案正是 C34 双毙形状）；selfRow 取自 AVE
+  同次搜索原始结果（零新配额），缺失/fdv 0/脏值 fail-closed 维持拦截。
+  exempt 审计对象带 `mode:'absolute'|'relative'` 区分两门；pre-check 日志 mode
+  感知（「绝对体量豁免(C45)」/「名实不符豁免(C34)」）。
+- **边界安全**：蹭名票长到 $10M 的风险=极端火票 pump——但它自己已是蓝筹体量
+  且引擎 90s 买窗遇不到；0.5 一周窗 + Jev 各门仍在。C34 相对豁免语义不变
+  （$5M 小盘侧 fail-closed 用例保留在单测）。
+- **验证闭环**：单测 `_test_blue_chip_check.cjs` E 段重写（57→66 断言）：大盘/小盘
+  双轨矩阵（E1-E10 每条用例大盘侧断 C45 absolute、小盘侧 $5M 保留 C34 原语义）
+  + XRP 案数值复现（self $485.7M 无锚 vs cand $551M → absolute，ageDays null）
+  + 恰 $10M 边界（>=）。`--case` 重跑：豁免日志命中（selfFdv=$481.7M 实时值），
+  0.52 拦截解除 → 链路走完 → prestage Jev（@Ripple 317万粉官方号 + xrpl.org）
+  判 `account_based_meme` + 无 30 天 Web3 流量事件 → **low——评级合理非误拦**
+  （票龄 2213 天存量蓝筹无新叙事，榜单真蓝筹本非引擎目标票；拦截理由已从
+  「蹭名指控」修正为「无新叙事」的正确评价）。
+- **同轮遗留观察**：币安链能飞 `0xa993469257c411ab789d990fc995d806b6597777`
+  （0.52 拦，C37 轮）C45 上线后可能同样被救——待重跑验证。
+
+---
 
 ### C44 土豪猫猫——Instagram 链路三处死链修复 + IG 影响力两层处理（2026-10-01 用户裁定）★
 

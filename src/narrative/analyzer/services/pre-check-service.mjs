@@ -257,9 +257,15 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
           { scores: { credibility: 0, virality: 0 }, total_score: 0, blueChipMatched: blueChipCheck.matched });
       }
     } else if (blueChipCheck.exempt) {
-      // 名实不符豁免（C34，2026-09-30）：matched 非空但自身已是蓝筹体量的成熟票
-      // ——isConflict=false 走后续链路；日志与拦截分支对偶便于 run.log grep
-      console.log(`[NarrativeAnalyzer] 同名蓝筹名实不符豁免 (symbol: ${tokenSymbol}, 自身fdv=$${Math.round(blueChipCheck.exempt.selfFdv).toLocaleString()} ≥ 候选max=$${Math.round(blueChipCheck.exempt.candMaxFdv).toLocaleString()}, 票龄${blueChipCheck.exempt.ageDays}天, 候选${blueChipCheck.matched.length}个), 继续评估`);
+      // 豁免审计日志（与拦截分支对偶便于 run.log grep）：
+      // - C45 绝对体量（2026-10-01 XRP 案）：自身 fdv ≥ selfFdvExempt（默认 $10M）
+      //   ——蹭名票必然小盘，蓝筹体量撞名=真身/多版本；不依赖锚与票龄
+      // - C34 名实不符（2026-09-30）：自身 fdv ≥ 候选最大——自己才是同名里最大的
+      const ex = blueChipCheck.exempt;
+      const modeText = ex.mode === 'absolute'
+        ? `绝对体量豁免(C45): 自身fdv=$${Math.round(ex.selfFdv).toLocaleString()} ≥ 阈值$${Math.round(ex.selfFdvExemptMin ?? 10000000).toLocaleString()}`
+        : `名实不符豁免(C34): 自身fdv=$${Math.round(ex.selfFdv).toLocaleString()} ≥ 候选max=$${Math.round(ex.candMaxFdv).toLocaleString()}`;
+      console.log(`[NarrativeAnalyzer] 同名蓝筹${modeText}${ex.ageDays != null ? `, 票龄${ex.ageDays}天` : ', 票龄未知(无锚)'}, 候选${blueChipCheck.matched.length}个), 继续评估`);
     } else if (!blueChipCheck.success) {
       console.warn(`[NarrativeAnalyzer] 同名蓝筹检查失败: ${blueChipCheck.error || '未知错误'}，跳过此项检查`);
     }

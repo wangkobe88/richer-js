@@ -242,8 +242,8 @@ async function main() {
     check('D9 超 1h 不排除', (await over.checkBlueChipConflict('富贵', SELF, 1790563801)).isConflict, true);
   }
 
-  // ============ E. 名实不符豁免（C34 GMGN 蓝筹验证，2026-09-30 用户裁定）============
-  console.log('\nE. 名实不符豁免');
+  // ============ E. 豁免矩阵（C34 名实不符 2026-09-30 + C45 绝对体量 2026-10-01）============
+  console.log('\nE. 豁免矩阵（C34 相对 / C45 绝对）');
 
   const NOW = Math.floor(Date.now() / 1000);
   const MATURE = NOW - 8 * 86400;                 // 票龄 8 天
@@ -253,6 +253,8 @@ async function main() {
     fdv: '249700000', tvl: '100000', holders: 50000, tx_count_24h: 500,
     created_at: MATURE,
   };
+  // 小盘自身行（$5M < C45 阈值 $10M）——隔离测 C34 相对豁免（C45 不触发）
+  const SELF_SMALL_ROW = { ...SELF_ROW, fdv: '5000000' };
   // 蓝筹候选：BSC 小盘 Dogecoin（C34 实测 $1.69M——组合门达标但远小于自身）
   const DOGE_CAND = {
     token: '0xdogecand', name: 'Dogecoin', symbol: 'DOGE',
@@ -260,36 +262,48 @@ async function main() {
     created_at: 1,
   };
 
-  // E1 DOGE 案端到端：自身 $249.7M ≥ 候选 $1.69M → 豁免（isConflict=false + 审计）
+  // E1 DOGE 案端到端：自身 $249.7M ≥ 阈值 $10M → C45 绝对豁免（isConflict=false + 审计）
   {
     const svc = makeService([SELF_ROW, DOGE_CAND]);
     const r = await svc.checkBlueChipConflict('DOGE', SELF, MATURE);
-    check('E1 名实不符豁免放行', [r.success, r.isConflict], [true, false]);
+    check('E1 大盘自身豁免放行', [r.success, r.isConflict], [true, false]);
     check('E1 matched 保留（审计）', r.matched.map(m => m.token), [DOGE_CAND.token]);
     check('E1 exempt 审计数值', [r.exempt.selfFdv, r.exempt.candMaxFdv], [249700000, 1690000]);
     check('E1 exempt 票龄≈8', r.exempt.ageDays, 8);
+    check('E1 exempt mode=absolute（C45）', r.exempt.mode, 'absolute');
+
+    // 小盘侧同一形状走 C34：$5M ≥ 候选 $1.69M + 票龄 8 天 → relative 豁免
+    const s2 = makeService([SELF_SMALL_ROW, DOGE_CAND]);
+    const r2 = await s2.checkBlueChipConflict('DOGE', SELF, MATURE);
+    check('E1b 小盘自身走 C34 relative 豁免', [r2.isConflict, r2.exempt?.mode], [false, 'relative']);
   }
 
-  // E2 票龄 7 天差 1 分钟 → 不豁免（A 类新票语义零扰动；锚在 7 天线之后
-  // 60s，防测试取 NOW 与代码内 Date.now() 的秒级流逝翻转边界）
+  // E2 票龄 7 天差 1 分钟（锚在 7 天线之后 60s，防秒级流逝翻转边界）：
+  // 大盘（≥$10M）→ C45 绝对豁免不问票龄；小盘（<$10M）→ C34 fail-closed 维持拦截
   {
     const svc = makeService([SELF_ROW, DOGE_CAND]);
     const r = await svc.checkBlueChipConflict('DOGE', SELF, NOW - 7 * 86400 + 60);
-    check('E2 票龄不足维持拦截', [r.isConflict, r.exempt], [true, null]);
+    check('E2 大盘票龄不足仍 C45 豁免（绝对门槛不问票龄）', [r.isConflict, r.exempt?.mode], [false, 'absolute']);
+    const svc2 = makeService([SELF_SMALL_ROW, DOGE_CAND]);
+    const r2 = await svc2.checkBlueChipConflict('DOGE', SELF, NOW - 7 * 86400 + 60);
+    check('E2b 小盘票龄不足维持拦截', [r2.isConflict, r2.exempt], [true, null]);
   }
 
   // E3 恰 7 天边界 → 豁免（>= 含边界）
   {
-    const svc = makeService([SELF_ROW, DOGE_CAND]);
+    const svc = makeService([SELF_SMALL_ROW, DOGE_CAND]);
     const r = await svc.checkBlueChipConflict('DOGE', SELF, NOW - 7 * 86400);
     check('E3 恰 7 天豁免', [r.isConflict, r.exempt != null], [false, true]);
   }
 
-  // E4 无锚（不传第三参）→ 维持拦截（无法证龄，fail-closed）
+  // E4 无锚：大盘 → C45 豁免（XRP 案正是 anchor 缺失）；小盘 → C34 fail-closed 拦
   {
     const svc = makeService([SELF_ROW, DOGE_CAND]);
     const r = await svc.checkBlueChipConflict('DOGE', SELF);
-    check('E4 无锚维持拦截', [r.isConflict, r.exempt], [true, null]);
+    check('E4 大盘无锚 C45 豁免（不依赖创建锚）', [r.isConflict, r.exempt?.mode], [false, 'absolute']);
+    const svc2 = makeService([SELF_SMALL_ROW, DOGE_CAND]);
+    const r2 = await svc2.checkBlueChipConflict('DOGE', SELF);
+    check('E4b 小盘无锚维持拦截', [r2.isConflict, r2.exempt], [true, null]);
   }
 
   // E5 AVE 搜索结果无自身行（300 条截断）→ 维持拦截（无法证自身体量）
@@ -299,21 +313,28 @@ async function main() {
     check('E5 无自身行维持拦截', [r.isConflict, r.exempt], [true, null]);
   }
 
-  // E6 自身 fdv 脏（≥1T 天文数字）→ 维持拦截
+  // E6 自身 fdv 脏（≥1T 天文数字）→ 维持拦截（C45/C34 共用 maxValidFdv 防护）
   {
     const svc = makeService([{ ...SELF_ROW, fdv: '2000000000000' }, DOGE_CAND]);
     const r = await svc.checkBlueChipConflict('DOGE', SELF, MATURE);
     check('E6 自身 fdv 脏维持拦截', [r.isConflict, r.exempt], [true, null]);
   }
 
-  // E7 候选有效 fdv 全缺（比特币案：候选 $1.83T 全脏）→ fail-closed 维持拦截
+  // E7 候选有效 fdv 全缺（比特币案：候选 $1.83T 全脏）——大盘 → C45 豁免（候选
+  // 脏不脏与绝对门槛无关）；小盘 → C34 fail-closed 维持拦截
   {
     const svc = makeService([
       { ...SELF_ROW, fdv: '89400000' },
       { token: '0xbtccand', name: '比特币', symbol: '比特币', fdv: '1830000000000', tvl: '900000', holders: 30000, tx_count_24h: 400, created_at: 1 },
     ]);
     const r = await svc.checkBlueChipConflict('比特币', SELF, MATURE);
-    check('E7 候选全脏 fail-closed 维持拦截', [r.isConflict, r.exempt], [true, null]);
+    check('E7 大盘候选全脏仍 C45 豁免', [r.isConflict, r.exempt?.mode], [false, 'absolute']);
+    const svc2 = makeService([
+      SELF_SMALL_ROW,
+      { token: '0xbtccand', name: '比特币', symbol: '比特币', fdv: '1830000000000', tvl: '900000', holders: 30000, tx_count_24h: 400, created_at: 1 },
+    ]);
+    const r2 = await svc2.checkBlueChipConflict('比特币', SELF, MATURE);
+    check('E7b 小盘候选全脏 fail-closed 维持拦截', [r2.isConflict, r2.exempt], [true, null]);
   }
 
   // E8 混合候选：$2T 脏行进 matched（组合门/审计不动）但比较只用有效值 → 豁免
@@ -328,14 +349,41 @@ async function main() {
     check('E8 脏行仍在 matched 审计', r.matched.length, 2);
   }
 
-  // E9 自身 < 候选最大有效值（FIST 形状 $46.5M vs $435.9B）→ 维持拦截（蹭名方向正确）
+  // E9 自身 < 候选最大有效值（FIST 形状 $46.5M vs $435.9B）：大盘 → C45 豁免
+  //（自身 $46.5M 已是蓝筹体量，「蹭」不成立）；小盘 → 维持拦截（蹭名方向正确）
   {
     const svc = makeService([
       { ...SELF_ROW, fdv: '46500000' },
       { ...DOGE_CAND, fdv: '435900000000' },
     ]);
     const r = await svc.checkBlueChipConflict('DOGE', SELF, MATURE);
-    check('E9 自身小于候选维持拦截', [r.isConflict, r.exempt], [true, null]);
+    check('E9 大盘自身小于候选仍 C45 豁免', [r.isConflict, r.exempt?.mode], [false, 'absolute']);
+    const svc2 = makeService([
+      { ...SELF_ROW, fdv: '9900000' },
+      { ...DOGE_CAND, fdv: '435900000000' },
+    ]);
+    const r2 = await svc2.checkBlueChipConflict('DOGE', SELF, MATURE);
+    check('E9b 恰阈下（$9.9M）小于候选维持拦截', [r2.isConflict, r2.exempt], [true, null]);
+  }
+
+  // E9c XRP 案端到端复现（C45 触发案）：真身 mc $485.7M 无锚 + 镜像候选 fdv
+  // $551M → absolute 豁免（C34 双毙：无锚 + selfFdv<candMax），ageDays null
+  {
+    const XRP_SELF = '0x1d2f0da169ceb9fc7b3144628db156f3f6c60dbe';
+    const svc = makeService([
+      { token: XRP_SELF, name: 'XRP', symbol: 'XRP', fdv: '485700000', tvl: '5000000', holders: 80000, tx_count_24h: 900, created_at: 1400000000 },
+      { token: '0x9b7e464c9a5801f5b8d237205ee077533844e3db', name: 'XRP', symbol: 'XRP', fdv: '551160000', tvl: '1771790', holders: 72, tx_count_24h: 4, created_at: 1500000000 },
+    ]);
+    const r = await svc.checkBlueChipConflict('XRP', XRP_SELF); // 无锚（真实案形）
+    check('E9c XRP 案：无锚大盘真身 C45 豁免', [r.isConflict, r.exempt?.mode, r.exempt?.ageDays], [false, 'absolute', null]);
+    check('E9c XRP 案审计数值', [r.exempt.selfFdv, r.exempt.candMaxFdv, r.exempt.selfFdvExemptMin], [485700000, 551160000, 10000000]);
+  }
+
+  // E9d 阈值边界：恰 $10M（含）豁免
+  {
+    const svc = makeService([{ ...SELF_ROW, fdv: '10000000' }, DOGE_CAND]);
+    const r = await svc.checkBlueChipConflict('DOGE', SELF, MATURE);
+    check('E9d 恰 $10M 边界豁免（>=）', [r.isConflict, r.exempt?.mode], [false, 'absolute']);
   }
 
   // E10 同事件豁免先排空 matched → 豁免分支不激活（形状：isConflict=false 且 exempt=null）

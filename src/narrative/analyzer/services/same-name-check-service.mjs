@@ -289,12 +289,20 @@ class SameNameCheckService {
    * 刻意不按 09-23 时效基准裁定锚定创建时刻——重析成熟票的豁免资格随票龄
    * 增长自然获得。
    *
+   * 绝对体量豁免（2026-10-01 用户裁定 B，C45 XRP 案）：自身 fdv ≥
+   * selfFdvExempt（默认 $10M，config 可调）时豁免——蹭名票必然是小盘新发盘，
+   * 蓝筹体量的票撞名是真身/多版本/成熟票而非蹭名。与 C34 相对豁免互补：本门
+   * 是绝对门槛，不依赖创建锚与票龄（XRP 案 anchor 缺失 + selfFdv $485M <
+   * candMaxFdv $551M 双毙 C34，由本门接管）；fdv 脏值（≥maxValidFdv）/自身行
+   * 缺失 fail-closed 维持拦截。
+   *
    * @param {string} tokenSymbol - 目标代币 symbol
    * @param {string} selfAddress - 目标代币地址（大小写不敏感排除自己，防自我误拦）
    * @param {number|null} [tokenCreatedAtSec] - 目标代币创建时间（秒级锚，
-   *   缺省不豁免——无法证明同事件，维持原拦截语义）
+   *   C34 相对豁免用；缺省仍可走 C45 绝对豁免）
    * @returns {Promise<Object>} { success, isConflict, matched[]（按 fdv 降序）,
-   *   exempt|null（名实不符豁免审计：{ selfFdv, candMaxFdv, ageDays }） }
+   *   exempt|null（豁免审计：{ selfFdv, candMaxFdv, ageDays, mode:'absolute'|'relative' }；
+   *   absolute=C45 绝对体量（ageDays 无锚时 null），relative=C34 名实不符） }
    */
   async checkBlueChipConflict(tokenSymbol, selfAddress, tokenCreatedAtSec = null) {
     try {
@@ -349,27 +357,56 @@ class SameNameCheckService {
         }))
         .sort((a, b) => b.fdv - a.fdv);
 
-      // 名实不符豁免（见方法 javadoc，C34 2026-09-30）：自身已是蓝筹体量的
-      // 成熟票不被同名小盘拦截。自身行取自 AVE 同次搜索原始结果（candidates
-      // 已排除自己）——零新配额；全部 fail-closed 方向见 javadoc。
+      // 名实不符豁免（C34）+ 绝对体量豁免（C45），共用自身行（candidates 已排除
+      // 自己，selfRow 取自 AVE 同次搜索原始结果——零新配额）
       let exempt = null;
-      if (matched.length > 0 && anchor > 0) {
-        const ageSec = Math.floor(Date.now() / 1000) - anchor;
-        if (ageSec >= matureAgeDays * 86400) {
-          const selfRow = results.find(t => String(t.token || '').toLowerCase() === self);
-          const selfFdv = selfRow ? toNum(selfRow.fdv) : 0;
-          const validFdvs = matched.filter(m => m.fdv > 0 && m.fdv < maxValidFdv).map(m => m.fdv);
-          if (selfRow && selfFdv > 0 && selfFdv < maxValidFdv && validFdvs.length > 0) {
-            const candMaxFdv = Math.max(...validFdvs);
-            if (selfFdv >= candMaxFdv) {
-              exempt = { selfFdv, candMaxFdv, ageDays: +(ageSec / 86400).toFixed(1) };
-              this.logger.info('SameNameCheck', '同名蓝筹名实不符豁免', {
-                symbol: tokenSymbol,
-                selfFdv,
-                candMaxFdv,
-                candidates: matched.length,
-                ageDays: exempt.ageDays,
-              });
+      if (matched.length > 0) {
+        const selfRow = results.find(t => String(t.token || '').toLowerCase() === self);
+        const selfFdv = selfRow ? toNum(selfRow.fdv) : 0;
+        const validFdvs = matched.filter(m => m.fdv > 0 && m.fdv < maxValidFdv).map(m => m.fdv);
+        const candMaxFdv = validFdvs.length > 0 ? Math.max(...validFdvs) : null;
+
+        // C45 绝对体量豁免（2026-10-01 用户裁定 B，XRP 案 0x1d2f0da169ceb9fc7b
+        // 3144628db156f3f6c60dbe：BSC 多版本蓝筹真身 mc $485M 被「自己的镜像
+        // 0x9b7e464c… fdv $551M」按同名蓝筹拦截）：蹭名票必然是小盘新发盘
+        // （引擎 90s 买窗语境 mint 后短窗口进引擎），自身已是蓝筹体量时「蹭」
+        // 不成立——真身/多版本/成熟票撞名。绝对门槛刻意不依赖创建锚与票龄
+        // （XRP 案正是 anchor 缺失 + selfFdv<candMaxFdv 双毙 C34）：$10M 的票
+        // 无论何时分析都不可能是蹭名新票。fdv 脏值防护同 maxValidFdv；selfRow
+        // 缺失/fdv 0 fail-closed 维持拦截。
+        const selfFdvExemptMin = blueChipConfig.selfFdvExempt ?? 10000000;
+        if (selfRow && selfFdv >= selfFdvExemptMin && selfFdv < maxValidFdv) {
+          const ageSecAbs = anchor > 0 ? Math.floor(Date.now() / 1000) - anchor : null;
+          exempt = {
+            selfFdv, candMaxFdv, selfFdvExemptMin,
+            ageDays: ageSecAbs != null ? +(ageSecAbs / 86400).toFixed(1) : null,
+            mode: 'absolute',
+          };
+          this.logger.info('SameNameCheck', '同名蓝筹绝对体量豁免(C45)', {
+            symbol: tokenSymbol,
+            selfFdv,
+            selfFdvExemptMin,
+            candMaxFdv,
+            candidates: matched.length,
+          });
+        }
+
+        // C34 名实不符豁免（2026-09-30，相对比较：自身 ≥ 候选最大 = 自己才是
+        // 同名里最大的真身；需票龄锚 ≥ matureAgeDays，全部 fail-closed）
+        if (!exempt && anchor > 0) {
+          const ageSec = Math.floor(Date.now() / 1000) - anchor;
+          if (ageSec >= matureAgeDays * 86400) {
+            if (selfRow && selfFdv > 0 && selfFdv < maxValidFdv && validFdvs.length > 0) {
+              if (selfFdv >= candMaxFdv) {
+                exempt = { selfFdv, candMaxFdv, ageDays: +(ageSec / 86400).toFixed(1), mode: 'relative' };
+                this.logger.info('SameNameCheck', '同名蓝筹名实不符豁免', {
+                  symbol: tokenSymbol,
+                  selfFdv,
+                  candMaxFdv,
+                  candidates: matched.length,
+                  ageDays: exempt.ageDays,
+                });
+              }
             }
           }
         }
