@@ -434,7 +434,21 @@ export function mapStandardAnswers(answers, context) {
   const tier = magnitudeTier(magnitude);
   // 发布者指代量级锚生效位：Jev 原判低于 A 时锚到 A（S 不降，A 原判不动）
   const tierAnchored = pubProxyActive && tier !== 'S' && tier !== 'A';
-  const effTier = tierAnchored ? 'A' : tier;
+  // J1.23 Web3 偏好量级锚生效位（C38 久留美案续，2026-10-01 用户裁定「A类判定
+  // 没有考虑 Web3 用户喜好…最根本上要占到用户角度看叙事」）：A 类（形象 IP）的
+  // 量级本质=多少人愿意拿这个形象玩梗，Web3 买家群体强喜欢本身就是量级证据。
+  // 题面改锚实证 Jev 执行不动（久留美 C 档置信 0.82→0.94，语料「2.5万粉官号/
+  // 未开播角色」的客观事实锚死大众知名度口径；同票 web3_fit strong_fit 0.88
+  // 高置信——J1.16 rcp / J1.18 pubProxy 同款教训：Jev 分不动的边界代码切）。
+  // strong_fit ≥0.5（与 unfit 负门同阈值，两档概率互斥无冲突）时量级锚 B：
+  // B 档=过线最低量级带；不越权 A/S——圈内喜好不证明世界级知名度，大众知名
+  // 通道（A/S）仍由知名度证据决定。原判 B/A/S 不动；D/E 档随之放行（偏好
+  // 证据推翻「量级不足」）。仅 A 类：B 类有 pubProxy 锚、C/D/E 类量级是人物
+  // 影响力/热点传播的客观规模，偏好不替代规模。
+  const web3FitStrongP = answers?.web3_fit?.probabilities?.strong_fit ?? 0;
+  const web3FitAnchored = !tierAnchored && category === 'A' && web3FitStrongP >= 0.5
+    && tier !== 'S' && tier !== 'A' && tier !== 'B';
+  const effTier = tierAnchored ? 'A' : (web3FitAnchored ? 'B' : tier);
   const timing = answers.event_timing?.choice || 'unknown';
   const dim2 = bandInterpolate(answers.dimension2?.score ?? 0, DIM2_BANDS);
   const blockChoice = answers.block_reason?.choice || 'none';
@@ -469,6 +483,10 @@ export function mapStandardAnswers(answers, context) {
         publisherProxy: pubProxy ? { domain: pubProxy.domain, followers: pubProxy.followers } : null,
         publisherProxyActive: pubProxyActive || null,
         tierAnchored: tierAnchored ? 'A' : null,
+        // J1.23 审计标记：A 类 + web3_fit strong_fit≥0.5 的偏好量级锚（Jev 原判
+        // tier 保留在 magnitudeTier 键不受锚定影响）
+        web3FitAnchored: web3FitAnchored ? 'B' : null,
+        web3FitStrongP: web3FitAnchored ? web3FitStrongP : null,
         probabilities: {
           event_category: answers.event_category?.probabilities,
           event_magnitude: answers.event_magnitude?.probabilities,
@@ -548,7 +566,7 @@ export function mapStandardAnswers(answers, context) {
     timeliness = TIMING_SCORES_STANDARD[timing] ?? 0;
     stage2Total = round2(tierScore + dim2 + timeliness);
     stage2Blocked = stage2Total < 60;
-    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}+传播${dim2}+时效${timeliness}=${stage2Total}（pass线60）`;
+    stage2Reason = `事件分${tierScore}(${effTier}档)${tierAnchored ? `·发布者指代锚(原判${tier}档)` : ''}${web3FitAnchored ? `·Web3偏好锚(原判${tier}档,strong_fit ${Math.round(web3FitStrongP * 100)}%)` : ''}+传播${dim2}+时效${timeliness}=${stage2Total}（pass线60）`;
     if (stage2Blocked) stage2BlockReason = `事件分不足（${stage2Total}<60）`;
   }
 

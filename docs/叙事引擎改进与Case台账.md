@@ -72,9 +72,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
   数据给 mid，既定设计）。
 - **同轮 case 速记（per-case 验证轮 #8-#14）**：币安链能飞 mid PASS（web3_native_ip_
   early 粉丝 58 小号）；BINF mid PASS（@getbinference 实度 3.99 项目币）；招财猫 mid
-  PASS（@binance 官方锚）；MTAT **high 84.5 PASS**（J1.21 回归确认）；Marky「王之
-  蔑视」`0xf289d694…7777` low 57.8 差 2.2——09-28 已毕业爆款的二次发射复读票，
-  A 类 0.76 但 magnitude C，叙事新鲜度已被原票消耗，**边界 case 记录不动**；CSI
+  PASS（@binance 官方锚）；MTAT **high 84.5 PASS**（J1.21 回归确认）；Marky「王之蔑视」`0xf289d694…7777` J1.22 下 low 57.8 差 2.2（A 类 0.76 但 magnitude C，二次发射复读票叙事新鲜度已被原票消耗，判边界 case）→ 用户问「是否考虑了 Web3 用户偏好」引出关键核对：**web3_fit 答案 strong_fit 0.99 但 J1.22 只消费 unfit 负门，strong_fit 不参与计分**；恰逢 J1.23（C38）上线「A 类 + strong_fit≥0.5 → 量级锚 B」——**重跑翻案 low → high 62.88（事件分 27·Web3偏好锚(原判C档,strong_fit 100%) + 传播 20.88 + 时效 15，终分 73.2）**，预测 62.8 与实跑 62.88 精确对上；CSI
   (Chinese Super Inu) `0x74fef65b…7777` low「名字指向无名对象」——缩写双关梗票
   （CSI=中证指数文字巧合）+ Inu 拼接 + 3073 粉小号零互动语料（赞 0/转 0）+ magnitude
   D，上榜靠拉盘无叙事事件，**引擎拦截合理不改**；BI (Binance Inu) 同类合理拦
