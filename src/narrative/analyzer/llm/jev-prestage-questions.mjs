@@ -52,9 +52,21 @@ P1.8：判据尺度校准（2026-10-01 用户裁定，THESIS 0x4519cacc 案 2.65
    空话/喊单/刷量」才是低分形状。触发案：THESIS 20 推中 1 篇扎实产品陈述 +
    17 条三语营销分发，P1.7 下 45:42 悬在 3 分线下（2.65）——同文案多语言
    分发被误当「模板刷量」，实际是面向多语言市场的正常运营
+P1.9：token 类型判据补社区 meme 主账号形状（2026-10-01 用户裁定，C46 MarsCoin 案
+   0xfe189e97832da1573e4e4ff034f4ffc3a15c7777——@bnbMarsCoin 是「代币大了后社区
+   自己搞的 Meme 币主账号」，不属于项目；「很多 meme 币一出生就有账号，一般算是
+   web3 原生IP」）：①web3ip 判据从「全新发明称号、不复用原名」扩为「币本身即IP」
+   双形状——a) 发明新称号/概念（币安之王型）b) 社区/文化 meme（热点人物主题的
+   社区主账号，MarsCoin 型：bio 自称 Community account、推文全为 meme 文化内容），
+   账号随币而生或社区后建，账号年龄不构成反证；②project 侧补显式反例——社区
+   meme 主账号有官网/品牌/认证也不算 project（官网≠产品）；③state 预计算段
+   「项目官方网站…项目方官方代币」措辞中性化（jev-state-builder，带节奏偏置源）。
+   配套 mapper：web3ip 评级不再吃 P1.3 年龄降档/P1.5 实度门（项目信用框架对
+   meme 范畴错配——实度题要求产品陈述，meme 无产品可陈述；MarsCoin 实度 2.76
+   的低分正是范畴错配产物）。同 token 两版本下的类型判定/评级不可直接比较
  */
 
-export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.8';
+export const JEV_PRESTAGE_QUESTIONS_VERSION = 'P1.9';
 
 /**
  * 构建 prestage 问题集
@@ -67,12 +79,12 @@ export function buildPrestageQuestions() {
     prestage_token_type: {
       type: 'choice',
       instructions: `Token type behind this coin. The contract address IS verified in the account/community's bio or posts (or on its official website), so this is an official token of that account/community.
-Decide by the account's MAIN narrative: is the story a functional product/service, or a brand-new IP concept people rally around? Follower count alone decides nothing here — a tiny account promoting a concrete product is still project (its follower baseline is checked separately in code), and an IP-concept account is web3_native_ip_early even if it also has a simple website.
-- project: the account/community introduces a concrete product, technology, service or development plan; posts cover tech updates / product launches / development progress / partnerships; typically has an official website / whitepaper / technical docs; formal language emphasizing function and utility. Bot/tool accounts (launch bots, fee bots) that describe a functional service are also project.
-- web3_native_ip_early: a BRAND-NEW IP concept/title/role was invented that did not exist before the token was created. It may take crypto figures or concepts as INSPIRATION but does NOT reuse the original name. Key test: was a new title/concept/role created that people could rally around, and is that IP concept the account's main story (rather than a product's features)? Qualifying examples: "币安之王" (King of Binance), "ETH之神" (God of ETH), "火星CEO" (Mars CEO), "币安女英雄" (Heroine of Binance), "币安改变人生" (Binance changes lives). Typical accompanying signals: small early-stage community (followers <5000 / members <500), few posts (<50), at least one of account/website/community as infrastructure.`,
+Decide by the account's MAIN narrative: is the story a functional product/service, or is the COIN ITSELF the IP that people rally around? Follower count alone decides nothing here — a tiny account promoting a concrete product is still project (its follower baseline is checked separately in code), and a community meme account is web3_native_ip_early even if it also has a simple website.
+- project: the account/community introduces a concrete product, technology, service or development plan; posts cover tech updates / product launches / development progress / partnerships; formal language emphasizing function and utility. Bot/tool accounts (launch bots, fee bots) that describe a functional service are also project. ⚠️ NOT project: a community meme coin's main/official account whose posts are meme/culture/community-rallying content around the coin itself — even when it has an official website, branding, or a verification badge. Website + branding alone does not make a product.
+- web3_native_ip_early: the coin itself IS the IP — the account's main story is the meme/coin identity, not a product's features. Two common shapes: (a) a brand-new invented IP title/concept/role that people could rally around ("币安之王" King of Binance, "ETH之神" God of ETH, "火星CEO" Mars CEO, "币安女英雄" Heroine of Binance); (b) a community/culture meme themed on a hot topic or public figure — e.g. MarsCoin: an Elon/SpaceX/Mars-themed community meme whose account bio says "Community account" and whose posts are all Mars-culture memes with zero product content. It may take public figures/topics as INSPIRATION but does not reuse an existing token's identity as its product. The account is typically born together with the token or built by the community after the coin grew — account age relative to token creation is NOT a counter-signal for this type. Typical accompanying signals: early-stage community, meme-style posts, community rallying language.`,
       criteria: {
-        project: 'Concrete product/tech/service with formal function-oriented content; official website/whitepaper/tech docs; low followers does NOT make it web3ip',
-        web3_native_ip_early: 'Brand-new invented IP title/concept as the account\'s main story (inspired by but not reusing existing names); typically small early-stage community',
+        project: 'Concrete product/tech/service with formal function-oriented content; official website/whitepaper/tech docs; low followers does NOT make it web3ip; a community meme main account with website/branding but zero product content is NOT project',
+        web3_native_ip_early: 'The coin itself is the IP: invented new title/concept OR community/culture meme as the account\'s main story (meme content, community rallying, no product/service); account born with the token or community-built later — young account is NOT a counter-signal',
       },
     },
 

@@ -14,21 +14,23 @@
 
 ```
 Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ 数据抓取 → Pre-Check（纯规则，无 LLM）
-                                   ├─ account/community token / 发行方自发宣告（字面法+CA 时间线）→ prestage Jev（P1.7，5 题）
+                                   ├─ account/community token / 发行方自发宣告（字面法+CA 时间线）→ prestage Jev（P1.9，5 题）
                                    ├─ super-IP 账号 → 快速通道（标准题集 + 代码预评分 + referent_memeability 条件题）
-                                   └─ 标准路径 → 单次 Jev 调用（J1.22：13 常驻题 + web3_fit 第 14 题
+                                   └─ 标准路径 → 单次 Jev 调用（J1.25：13 常驻题 + web3_fit 第 14 题
                                       + brand_hijack / referent_memeability 条件携带）
 分类/量级/时机/阻断/W类/关联性/质量/Web3偏好 原子化同问；聚合/阈值/截断全部代码端（jev-result-mapper）
 ```
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.22）/
-  `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.7）；DB 列 prompt_type/prompt_version 标识
-  （`jev(J1.22/…)`、`prestage-jev(P1.7/…)`）
-- **prestage P1.7 五题**：token 类型 / abm 名字关联 / abm Web3 流量 / 社区活跃度 /
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.25）/
+  `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.9）；DB 列 prompt_type/prompt_version 标识
+  （`jev(J1.25/…)`、`prestage-jev(P1.9/…)`）
+- **prestage P1.9 五题**：token 类型（「币本身即IP」双形状：新称号 OR 社区/文化 meme
+  主账号，年龄非反证）/ abm 名字关联 / abm Web3 流量 / 社区活跃度 /
   **项目实度 prestage_project_quality**（恒带；账号新 <30d + 实度 ≥3 豁免 P1.3 年龄降档，
-  <3/缺分 fail-closed；判据全落语料文本层——不要求产品实证）
+  <3/缺分 fail-closed——**仅 project 消费，web3ip 不吃年龄门/实度门**（P1.9 C46），
+  推文 <5 保留拦）
 - **代码门族**（mapper 端确定性切分）：nameReferentBlock（阻断侧合计 ≥0.5）/
   rideDetourBelow（B/C 骑乘改道 W）/ cashtag 改道 W（J1.17）/ detectPublisherProxy
   发布者指代（J1.18，量级 A 档锚）/ routineContentProductBlock（A 类角色豁免 J1.16）/
@@ -47,6 +49,48 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 ---
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
+
+### C46 MarsCoin——社区 meme 主账号归 web3 原生 IP + web3ip 不吃账号年龄门（P1.9，2026-10-01 用户裁定）★
+
+- **Token**：MarsCoin `0xfe189e97832da1573e4e4ff034f4ffc3a15c7777`（GMGN mc24h#5，
+  mc $135.8M；per-case 验证轮 #36；C45 绝对体量豁免先行放行 0.52 → 进 prestage）
+- **现象**：prestage low——Jev 判 `project`，评级链：账号晚于 token 创建 23 天
+  （负年龄 <30 → P1.3 年龄降档）+ 项目实度 2.76 <3（P1.5 fail-closed）双臂锁死。
+- **语料实证**（@bnbMarsCoin，3817 粉/118 推）：bio 自称 **"Community account"**、
+  置顶推文挂 CA、20 条抽样推文全为 Elon/SpaceX/Mars meme 文化内容
+  （"One planet, one coin"、Joe Rogan Mars edition、RT SpaceX 空投）零产品
+  陈述——教科书社区 meme 主账号；实度 2.76 低分正是范畴错配产物（实度题要求
+  产品陈述，meme 无产品可陈述）。
+- **用户裁定（两条）**：①「MarsCoin 的推特账号是代币大了后社区自己搞的 Meme 币
+  的主账号，这不属于项目。我记得之前有"web3 原生IP"这一类，应该是属于这一类」；
+  ②「很多 meme 币也有可能是一出生就有账号的，一般算是"web3 原生 IP"」——
+  账号随币而生/社区后建是 web3 原生 IP 常态，账号年龄不构成反证。
+- **误判偏置源三处（P1.9 全修）**：
+  ①题面 web3ip 判据过窄（「全新发明称号、不复用原名」把热点主题社区 meme 排除
+  在外）→ 扩为「币本身即 IP」双形状：a) 发明新称号/概念（币安之王型）；b) 社区/
+  文化 meme（热点人物主题主账号，MarsCoin 型）；project 侧补显式反例（社区 meme
+  主账号有官网/品牌/认证也不算 project——官网≠产品）；
+  ②state 预计算段「项目官方网站…确认为项目方官方代币」在类型判定前预设 project
+  方向 → 措辞中性化（「官方网站…该账号/社区的官方代币」，jev-state-builder）；
+  ③mapper web3ip 分支复用 rateProject 吃 P1.3 年龄降档 + P1.5 实度门 → 加
+  `opts.accountAgeGate`（web3ip 传 false，reason 标签「账号基本面评级」）；年龄臂
+  关闭后实度门随之不消费（qualityExempt 只作年龄豁免存在）；**推文 <5 拦截保留**
+  （C15 x-0 买粉新号防线与 token 类型无关）。
+- **验证闭环**：单测 `_test_unrated_elimination.cjs` 32 断言（168 粉 10 天新号
+  web3ip low→mid 翻转 / MarsCoin 负年龄形状 → high / 同形状 project 仍 low 对照 /
+  推文<5 保留）+ `_test_prestage_project_downgrade.mjs` 36 断言（新增第 6 节
+  accountAgeGate 矩阵：默认 opts 零回归 / gate=false 年龄臂关 / 推文项独立 /
+  实度缺分不再 fail-closed）。**重跑 `--case`：token_type project →
+  web3_native_ip_early（语义修正类题改生效实证，与 J1.25 同族；对照 J1.23 分数
+  锚定类不动），评级 low → high PASS**（prestage 路径无 stage3 分数；3817 粉 ≥300
+  走 high 带；jev-P1.9 标识）。
+- **影响面**：存量 web3ip 行被年龄降档 low 但推文 ≥5 的票重析时走粉丝带（缓存
+  行不自动失效，§四-3）；C15 x-0 形状（1 推文）仍拦；project 路径零变化（默认
+  opts 机器证明）。验证轮 #41 比特币（@btc2025x 343 粉 20 天新号 + 实度 3.25 →
+  project high）同族形状若重析类型翻 web3ip，方向等价（343≥300 → high）。
+- **部署提醒**：182 narrative engine 常驻进程重启与 C41/C44/J1.24 同批（§四-10）。
+
+---
 
 ### C45 XRP——同名蓝筹「绝对体量豁免」（rule 0.52，2026-10-01 用户裁定 B）★
 
@@ -463,6 +507,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| P1.9 | 2026-10-01 | ①token 类型题「币本身即IP」双形状：发明新称号 OR 社区/文化 meme 主账号（MarsCoin 型），账号随币而生/社区后建、年龄非反证；project 侧显式反例（社区 meme 主账号有官网/品牌/认证不算 project）②state 预计算措辞中性化（去「项目方官方代币」带节奏）③mapper `rateProject` 加 `opts.accountAgeGate`：web3ip 评级不吃 P1.3 年龄降档/P1.5 实度门（项目信用框架对 meme 范畴错配），推文<5 保留；reason 标签「账号基本面评级」 | C46 MarsCoin 案（用户裁定「社区自己搞的 Meme 币主账号不属于项目，属于 web3 原生IP」「很多 meme 币一出生就有账号」；重跑类型 project→web3ip 翻转=语义修正类题改生效实证） | 本 commit |
 | J1.25 | 2026-10-01 | subject_unqualified 判据修正：主体=币名所指核心实体（形象/人物/IP/事件主角），陈述者账号绝不构成主体资格不足；形象类主体按形象自身知名度判，来源账号粉丝是 proxy | C43 土豪猫猫案（语义修正类题改生效实证：block argmax 翻转 none；与 J1.23 分数锚定类题改不动形成对照） | `923b31b` |
 | J1.24 | 2026-10-01 | ①brand_hijack 豁免③扩充「当前热门新鲜事锚定的戏谑关联」（缩写双关/谐音梗/形象嫁接是 meme 创作手法非劫持，蹭事件增量热度非品牌存量认知；无新鲜事件锚纯玩品牌词根才是劫持）②mapper `punExempt`：P≥0.5 + timing within_7d + effTier S/A + credibleEventAnchor（superIP/issuer/广场官方认证）全中豁免品牌劫持截断与 relevance≤10 截断，计分照常；misspelling/quality 不豁免；审计 jev.punExempt + reason 前缀 | C40 Binance Inu 案（用户裁定「不是劫持，而是web3用户特有的戏谑/趣味性关联；也必须是当前的热门新鲜事，否则就成了无病呻吟」；J1.24 题面下 P 0.72→0.69 题面锚仍不动，代码切分决定性） | 本 commit |
 | J1.23 | 2026-10-01 | ①event_magnitude A 类句换锚「Web3 买家视角形象吸引力」（可爱萌系/极客风/奇怪猎奇=风格即吸引力可到 B 档；传统严肃风格大众知名度不转化、通常 C 档以下；已圈内梗=A/S）②dimension2 A 类句配套双证据源 ③web3_fit 小众边界澄清（「小众」按 Web3 买家视角判，动漫游戏/极客/ACG 非小众）+ 强契合典型补三类 ④mapper `web3FitAnchored` 正门：A 类 + strong_fit≥0.5 + 原档 <B → effTier 锚 B（unfit 负门对称面；不越权 A/S；仅 A 类；审计 web3FitAnchored/web3FitStrongP） | C38 久留美续案（用户裁定「最根本上要占到用户角度看叙事」；题面改锚实证 Jev 分不动 C 档 0.94 但 strong_fit 0.88，J1.16/J1.18 同款代码切分） | `e7d0806`+mapper |

@@ -5,6 +5,9 @@
  * 1. rateProject 降档边界（少推文/新号/正常号/缺 created_at/社区型不受影响）
  * 2. 年龄锚定幂等性（token 创建时点锚，与"何时分析"无关）
  * 3. mapPrestageAnswers 透传（tokenCreatedAtSec → downgrade 进 jevDetails）
+ * 4/5. P1.5 项目实度豁免（WIRED 案）
+ * 6. P1.9 accountAgeGate（C46 MarsCoin 案：web3ip 评级不吃年龄门/实度门，
+ *    推文 <5 保留；project 路径默认 opts 零回归）
  */
 import { rateProject, mapPrestageAnswers } from '../src/narrative/analyzer/llm/jev-prestage-mapper.mjs';
 
@@ -105,8 +108,8 @@ const mapped = mapPrestageAnswers(answers, {
   tokenCreatedAtSec: X0_TOKEN_AT,
   callInfo,
 });
-check('x-0 全链形状 → rating low + promptType P1.8', { rating: mapped.rating, pt: mapped.promptType },
-  { rating: 'low', pt: 'prestage-jev(P1.8/project)' });
+check('x-0 全链形状 → rating low + promptType P1.9', { rating: mapped.rating, pt: mapped.promptType },
+  { rating: 'low', pt: 'prestage-jev(P1.9/project)' });
 check('jevDetails 含 downgrade', mapped.jevDetails.downgrade, { statuses: 1, accountAgeDays: 11 });
 check('reason 含降档依据', mapped.reasoning.includes('信用降档'), true);
 
@@ -166,6 +169,21 @@ const mappedLowQ = mapPrestageAnswers({
   tokenCreatedAtSec: X0_TOKEN_AT, callInfo,
 });
 check('低分全链 → low + reason 含实度分', mappedLowQ.rating === 'low' && mappedLowQ.reasoning.includes('项目实度2分<3'), true);
+
+console.log('== 6. P1.9 accountAgeGate（C46 MarsCoin 案，web3ip 不吃年龄门）==');
+// 默认 opts（project 路径）：11 天号零回归 → low
+r = rateProject({ ...X0, statuses_count: 120 }, null, X0_TOKEN_AT);
+check('11 天号 120 推文（默认 opts）→ low 零回归', r.rating, 'low');
+// accountAgeGate=false：同形状年龄臂关闭 → mid（131 粉粉丝带）
+r = rateProject({ ...X0, statuses_count: 120 }, null, X0_TOKEN_AT, null, { accountAgeGate: false, ratingLabel: '账号基本面评级' });
+check('同形状 accountAgeGate=false → mid（年龄不构成反证）', r.rating, 'mid');
+check('reason 用 ratingLabel', r.reason.startsWith('账号基本面评级：'), true);
+// 推文 <5 不受 gate 开关影响（C15 x-0 防线保留）
+r = rateProject(X0, null, X0_TOKEN_AT, null, { accountAgeGate: false });
+check('gate=false 但 1 推文 → 仍 low（推文项独立）', r.rating, 'low');
+// 实度门随年龄臂一并失效（web3ip 不消费实度：负年龄+缺分不再 fail-closed）
+r = rateProject(WIRED, null, X0_TOKEN_AT, null, { accountAgeGate: false });
+check('0天号+实度缺分+gate=false → high（meme 无产品可陈述，实度门不适用）', r.rating, 'high');
 
 console.log(`\n${pass}/${pass + fail}`);
 process.exit(fail === 0 ? 0 : 1);

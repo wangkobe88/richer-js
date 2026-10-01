@@ -235,7 +235,10 @@ export function buildPrestageState(tokenData, fullAccountOrCommunityData, option
   // ── PRECOMPUTED：规则验证已确定的事实（旧 prompt 的地址验证横幅等价物）────
   const precomputed = ['', '[PRECOMPUTED] （以下事实由系统预先判定，直接采信）'];
   if (options.addressVerified) {
-    precomputed.push(`address_verified: true（${options.websiteInfo ? `项目官方网站 ${options.websiteInfo.url || ''} 的内容中包含代币合约地址，确认为项目方官方代币` : '账号简介或推文中找到了代币合约地址，确认为官方代币'}）`);
+    // P1.9（C46 MarsCoin 案）措辞中性化：原「项目官方网站…项目方官方代币」在
+    // Jev 判 token_type 前预设了 project 方向——社区 meme 主账号（官网/简介挂 CA）
+    // 也命中此横幅，被带节奏判 project。「官方」只陈述地址归属事实，不预设类型
+    precomputed.push(`address_verified: true（${options.websiteInfo ? `官方网站 ${options.websiteInfo.url || ''} 的内容中包含代币合约地址，确认为该账号/社区的官方代币` : '账号简介或推文中找到了代币合约地址，确认为该账号/社区的官方代币'}）`);
   } else {
     precomputed.push(`address_verified: false（账号简介和推文中都没有找到代币合约地址——真项目方会公示地址，这不是官方代币，而是以账号为背景的 meme 币）`);
   }

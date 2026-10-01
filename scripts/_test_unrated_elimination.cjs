@@ -5,10 +5,11 @@
  * 裁定：叙事分析引擎除"直调失败/超时/未触发"（NarrativeDirectCaller 归 9）外
  * 不要有 unrated——过与不过总归要有结论。本测覆盖产出侧全部改动点：
  *
- *   1. prestage mapper（P1.4）：
+ *   1. prestage mapper（P1.4；P1.9 web3ip 年龄门豁免）：
  *      - abm 双条件满足 unrated→mid；不满足 low（不变）
- *      - web3_native_ip_early 复用 rateProject 粉丝带 + P1.3 降档
- *        （蝴蝶轮回 168 粉 → mid；7 粉 → low；500 粉 → high；1 推文 → low 降档）
+ *      - web3_native_ip_early 复用 rateProject 粉丝带；P1.9（C46 MarsCoin 案）
+ *        不吃 P1.3 年龄降档（账号随币而生/社区后建是 web3 原生 IP 常态），
+ *        推文 <5 拦截保留；project 路径年龄门语义不变
  *      - project 评级回归不受影响
  *   2. pre-check 高影响力门槛（9 处 unrated→mid + pass:true）：
  *      - 抖音爆款视频（64.8 万赞 C4 案形态）→ mid + pass:true
@@ -37,7 +38,7 @@ function check(desc, actual, expected) {
   const { resolveFinalRating } = await import('../src/narrative/utils/rating-utils.mjs');
 
   console.log('== 0. 版本 bump ==');
-  check('P1.8', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.8');
+  check('P1.9', JEV_PRESTAGE_QUESTIONS_VERSION, 'P1.9');
 
   // ── mapper 测试基础设施 ────────────────────────────────────────────
   const callInfo = {
@@ -78,7 +79,7 @@ function check(desc, actual, expected) {
     ctx(account(), {}, { addressVerified: false }));
   check('无 Web3 流量 → low', abmTrafficFail.rating, 'low');
 
-  console.log('== 2. web3_native_ip_early（复用 rateProject 粉丝带+降档）==');
+  console.log('== 2. web3_native_ip_early（复用 rateProject 粉丝带；P1.9 不吃年龄门）==');
   const web3ip = (data, tokenCreatedAtSec = TOKEN_CREATED_SEC) => mapPrestageAnswers(
     ans({ prestage_token_type: { choice: 'web3_native_ip_early', probabilities: { web3_native_ip_early: 0.8 } } }),
     ctx(data, {}, { ...(tokenCreatedAtSec !== TOKEN_CREATED_SEC ? { tokenCreatedAtSec } : {}) }));
@@ -88,18 +89,27 @@ function check(desc, actual, expected) {
   check('mid 带 pass=true', wl.prestageDataToSave.pass, true);
   check('baselineMet=true', wl.baselineMet, true);
   check('category=web3_native_ip_early', wl.tokenType, 'web3_native_ip_early');
-  check('promptType 带 P1.8', wl.promptType, `prestage-jev(P1.8/web3_native_ip_early)`);
+  check('promptType 带 P1.9', wl.promptType, `prestage-jev(P1.9/web3_native_ip_early)`);
+  check('reason 前缀 = 账号基本面评级（P1.9 标签）',
+    wl.reasoning.startsWith('Web3原生IP早期（币本身即IP') && wl.reasoning.includes('账号基本面评级'), true);
 
   check('7 粉 → low（底线 20）',
     web3ip(account({ followers_count: 7 })).rating, 'low');
   check('500 粉老号 → high',
     web3ip(account({ followers_count: 500 })).rating, 'high');
-  check('168 粉但 1 推文 → low（P1.3 降档）',
+  check('168 粉但 1 推文 → low（推文<5 拦截保留，C15 x-0 防线）',
     web3ip(account({ statuses_count: 1 })).rating, 'low');
-  check('168 粉但 10 天新号 → low（P1.3 年龄降档）',
-    web3ip(account({ created_at: '2026-09-17T00:00:00Z' })).rating, 'low');
-  check('168 粉 10 天新号（无创建时间锚 → 跳年龄项，推文 200 条不降档）',
+  // P1.9（C46 MarsCoin 案，2026-10-01 用户裁定「很多 meme 币一出生就有账号，一般
+  // 算是 web3 原生IP」）：web3ip 不吃 P1.3 年龄降档——账号随币而生/社区后建是常态
+  check('168 粉 10 天新号 → mid（P1.9：web3ip 不吃年龄门，走粉丝带）',
+    web3ip(account({ created_at: '2026-09-17T00:00:00Z' })).rating, 'mid');
+  check('MarsCoin 形状：3817 粉/118 推/账号晚于 token 创建（负年龄）→ high',
+    web3ip(account({ followers_count: 3817, statuses_count: 118, created_at: '2026-09-28T00:00:00Z' })).rating, 'high');
+  check('无创建时间锚 → mid（年龄门关闭后锚缺失同样不降档）',
     web3ip(account({ created_at: '2026-09-17T00:00:00Z' }), null).rating, 'mid');
+  // 对照：project 路径年龄门语义不变（同形状 10 天新号 + 实度缺分 → low）
+  check('同形状 project → 仍 low（年龄门只在 web3ip 关闭）',
+    mapPrestageAnswers(ans(), ctx(account({ created_at: '2026-09-17T00:00:00Z' }))).rating, 'low');
 
   console.log('== 3. project 评级回归（P1.4 不改动）==');
   const pj = mapPrestageAnswers(ans(), ctx(account()));

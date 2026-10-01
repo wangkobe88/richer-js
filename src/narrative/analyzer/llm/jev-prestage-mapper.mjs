@@ -44,13 +44,21 @@ const PROJECT_QUALITY_PASS_MIN = 3;
  * P1.5 实度豁免（2026-10-01 用户裁定，WIRED 案）：账号新不再一票否决——
  * prestage_project_quality 分（产品价值+推文内容质量）≥3 豁免降档走粉丝带；
  * <3 或缺分 fail-closed 维持 low。推文 <5 保留拦（无内容=质量无从评估）。
+ * P1.9 accountAgeGate（C46 MarsCoin 案，2026-10-01 用户裁定「很多 meme 币一出生
+ * 就有账号，一般算是 web3 原生IP」）：web3ip 评级不再吃 P1.3 年龄降档/P1.5 实度门
+ * ——项目信用框架对 meme 范畴错配（实度题要求产品陈述，meme 无产品可陈述；
+ * MarsCoin 实度 2.76 的低分正是范畴错配产物）。年龄门经 opts 关闭后推文 <5 拦截
+ * 保留（C15 x-0 买粉新号防线与 token 类型无关）。
  * @param {Object} data - fullAccountOrCommunityData
  * @param {string|null} activityChoice - prestage_community_activity 的 choice（社区型用）
  * @param {number|null} [tokenCreatedAtSec] - 代币创建时间（秒，raw_api_data.created_at）
  * @param {number|null} [projectQualityScore] - prestage_project_quality 分（P1.5 恒带题）
+ * @param {Object} [opts] - { accountAgeGate=true（P1.3 年龄降档开关，web3ip 传 false）,
+ *   ratingLabel='项目币评级'（reason 前缀，web3ip 传 '账号基本面评级'） }
  * @returns {{rating: string, baselineMet: boolean, reason: string, downgrade: Object|null, qualityExempt: Object|null}}
  */
-export function rateProject(data, activityChoice, tokenCreatedAtSec = null, projectQualityScore = null) {
+export function rateProject(data, activityChoice, tokenCreatedAtSec = null, projectQualityScore = null, opts = {}) {
+  const { accountAgeGate = true, ratingLabel = '项目币评级' } = opts;
   const isAccount = data.type === 'account';
   let qualityExempt = null;
   const count = isAccount
@@ -86,7 +94,9 @@ export function rateProject(data, activityChoice, tokenCreatedAtSec = null, proj
       }
     }
     const tooFewTweets = statuses < 5;
-    const tooYoung = accountAgeDays !== null && accountAgeDays < 30;
+    // P1.9（C46）：accountAgeGate=false（web3ip）时年龄不构成反证——账号随币而生/
+    // 社区后建是 web3 原生 IP 常态；推文 <5 保留（C15 x-0 防线）
+    const tooYoung = accountAgeGate && accountAgeDays !== null && accountAgeDays < 30;
     const ageDaysFloor = accountAgeDays === null ? null : Math.floor(accountAgeDays);
     const qualityOk = projectQualityScore !== null && projectQualityScore >= PROJECT_QUALITY_PASS_MIN;
     if (tooFewTweets || (tooYoung && !qualityOk)) {
@@ -96,7 +106,7 @@ export function rateProject(data, activityChoice, tokenCreatedAtSec = null, proj
       return {
         rating: 'low',
         baselineMet: true,
-        reason: `项目币评级：${metric}${count} → 信用降档low（${why.join('、')}，新号/空内容不具项目信用）`,
+        reason: `${ratingLabel}：${metric}${count} → 信用降档low（${why.join('、')}，新号/空内容不具项目信用）`,
         downgrade: { statuses, accountAgeDays: ageDaysFloor, ...(projectQualityScore !== null ? { projectQuality: projectQualityScore } : {}) },
       };
     }
@@ -118,7 +128,7 @@ export function rateProject(data, activityChoice, tokenCreatedAtSec = null, proj
   return {
     rating,
     baselineMet: true,
-    reason: `项目币评级：${metric}${count}${activityNote} → ${rating}（底线≥${floor}${exemptNote}）`,
+    reason: `${ratingLabel}：${metric}${count}${activityNote} → ${rating}（底线≥${floor}${exemptNote}）`,
     downgrade: null,
     qualityExempt,
   };
@@ -210,13 +220,18 @@ export function mapPrestageAnswers(answers, context) {
 
     if (tokenType === 'web3_native_ip_early') {
       // 按账号基本面评级（2026-09-27 裁定：不再 unrated"等社区成长"——过与不过要有
-      // 结论）。复用 rateProject 同款数学：粉丝/成员带（<20 low / 20-299 mid / ≥300 high）
-      // + P1.3 信用降档 + P1.5 实度豁免（账号新 + 实度分 ≥3 → 不降档走粉丝带）。
-      // 蝴蝶轮回 @rongluBSC 168 粉 → mid（"可过可不过"票落 mid 档）；纯新号空内容 → low
-      const rated = rateProject(data, null, tokenCreatedAtSec, answers.prestage_project_quality?.score ?? null);
+      // 结论）。复用 rateProject 粉丝/成员带（<20 low / 20-299 mid / ≥300 high）。
+      // P1.9（C46 MarsCoin 案 @bnbMarsCoin，2026-10-01 用户裁定：「代币大了后社区
+      // 自己搞的 Meme 币主账号不属于项目」「很多 meme 币一出生就有账号，一般算是
+      // web3 原生IP」）：web3ip 评级不吃 P1.3 年龄降档/P1.5 实度门——账号随币而生/
+      // 社区后建是常态（MarsCoin 主账号晚于 token 创建 23 天，负年龄被当「新号」
+      // 降档），实度题要求产品陈述而 meme 无产品可陈述（范畴错配，实度 2.76 低分
+      // 正是产物）。accountAgeGate=false 只关年龄臂，推文 <5 拦截保留（C15 x-0
+      // 买粉新号防线与 token 类型无关）
+      const rated = rateProject(data, null, tokenCreatedAtSec, null, { accountAgeGate: false, ratingLabel: '账号基本面评级' });
       rating = rated.rating;
       baselineMet = rated.baselineMet;
-      reasoning = `Web3原生IP早期（创造了新称号/概念，社区早期阶段）→ ${rated.reason}`;
+      reasoning = `Web3原生IP早期（币本身即IP：新称号/概念或社区meme，账号随币而生/社区后建）→ ${rated.reason}`;
       pass = true;
       details = { followers, members, projectReason: null, ipConcept: null };
       jevDetails = { tokenType, baselineMet: rated.baselineMet,
