@@ -92,6 +92,34 @@
             gap: 0.375rem;
             margin-top: 0.5rem;
         }
+        /* 子条件块（2026-10-01：预检查/叙事直调等执行语义字段，与主条件同等视觉地位） */
+        .strategy-card .leg-subconds {
+            display: grid;
+            gap: 0.375rem;
+            margin-top: 0.5rem;
+        }
+        .strategy-card .leg-subconds:empty {
+            display: none;
+        }
+        .strategy-card .leg-subcond {
+            border-left: 3px solid #f59e0b;
+            background: #fffbeb;
+            border-radius: 0.375rem;
+            padding: 0.375rem 0.625rem;
+        }
+        .strategy-card .leg-subcond .sc-label {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: #92400e;
+            letter-spacing: 0.02em;
+            margin-bottom: 0.125rem;
+        }
+        .strategy-card .leg-subcond .sc-expr {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.8125rem;
+            color: #78350f;
+            word-break: break-all;
+        }
         .strategy-card .badge {
             font-size: 0.75rem;
             padding: 0.125rem 0.5rem;
@@ -920,6 +948,7 @@
             <div class="card-body">
                 <div class="leg-condition"></div>
                 <div class="leg-badges"></div>
+                <div class="leg-subconds"></div>
                 <div class="leg-advanced"></div>
             </div>
         </div>
@@ -934,6 +963,7 @@
             <div class="card-body">
                 <div class="leg-condition"></div>
                 <div class="leg-badges"></div>
+                <div class="leg-subconds"></div>
                 <div class="leg-advanced"></div>
             </div>
         </div>
@@ -1619,12 +1649,25 @@
             card.querySelector('.leg-badges').innerHTML =
                 badges.map(b => `<span class="badge">${b}</span>`).join('') +
                 (groupsText ? `<span class="badge groups-badge">🏷️${groupsText}</span>` : '');
+            // 子条件块：执行语义字段与主条件同等视觉地位（2026-10-01，
+            // 平铺小字被 200 字描述淹没、用户两轮反馈「没展示」的根治）
+            const subConds = [];
+            if (cfg.preBuyCheckCondition) subConds.push(['预检查', cfg.preBuyCheckCondition]);
+            if (cfg.repeatBuyCheckCondition) subConds.push(['复购检查', cfg.repeatBuyCheckCondition]);
+            if (cfg.narrativeCallCondition) subConds.push(['叙事直调', cfg.narrativeCallCondition]);
+            if (cfg.permanentBlockCondition) subConds.push(['永久阻断', cfg.permanentBlockCondition]);
+            const subBox = card.querySelector('.leg-subconds');
+            if (subConds.length) {
+                subBox.innerHTML = subConds.map(([label]) =>
+                    `<div class="leg-subcond"><div class="sc-label">${label}</div><div class="sc-expr"></div></div>`).join('');
+                subBox.querySelectorAll('.leg-subcond').forEach((el, i) => {
+                    el.querySelector('.sc-expr').textContent = subConds[i][1];
+                });
+            } else {
+                subBox.innerHTML = '';
+            }
             const adv = [];
             if (cfg.description) adv.push(`📝 ${cfg.description}`);
-            if (cfg.preBuyCheckCondition) adv.push(`首次检查: ${cfg.preBuyCheckCondition}`);
-            if (cfg.repeatBuyCheckCondition) adv.push(`再次检查: ${cfg.repeatBuyCheckCondition}`);
-            if (cfg.narrativeCallCondition) adv.push(`叙事直调: ${cfg.narrativeCallCondition}`);
-            if (cfg.permanentBlockCondition) adv.push(`永久阻断: ${cfg.permanentBlockCondition}`);
             const advBox = card.querySelector('.leg-advanced');
             if (adv.length) {
                 // 平铺常驻（2026-10-01 裁定「不要折叠」）：预检查/叙事直调等执行语义
