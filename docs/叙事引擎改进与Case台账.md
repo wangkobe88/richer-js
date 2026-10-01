@@ -50,6 +50,46 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C52 METAB/Benny——「GMGN 错关联」定性推翻 + 映射盘本体五重实锤；符号引用≠票号归属（2026-10-01 用户复查触发）★
+
+- **Token**：METAB `0x7425889fe94f9d693e8daefe88bcced6acfef4c0`（GMGN per-case 验证轮族七票；
+  合约 name()="Meta Platforms"，创建 2026-06-24，fdv $3.79M / 3,480 holders / 日 1,177 笔）
+- **用户复查入口**：「这个票拦截理由是什么？我认为我们的流程无法判断叙事真伪，
+  只能相信。但其实这个票没问题」+ 指定推文 `status/2100030446910554609`。
+- **拦截理由（在库）**：precheck「未在账号简介或推文中找到完整代币地址」
+  （2026-10-01 11:29 验证轮写入，rating=low）——Benny 号语料（简介「All fees
+  are paid out to holders in the form of $METAB shares」+ 推文）里找不到
+  0x7425 完整 CA。
+- **全链复查事实（本条目核心）**：
+  1. 推文实为 **BENNY 票宣告**：CA `0xcdea0845dc394ce4bf5cdd1f8297521428877777`
+     （symbol BENNY，9-16 01:11 创建，比推文早 3 分钟）；$METAB 是**符号级引用**
+     （BENNY 奖励结算币——「Zuck 的狗发主人公司股票当股息」双关梗）；配图链接
+     = Zuck 本人 FB 官方帖「Benny's first 4th」+ IG 帖——**Benny 是扎克伯格家
+     真实的狗**，叙事源真实；
+  2. AVE 全 BSC 搜 METAB 13 张：**唯一有体量 = 0x7425**；其余 2021-2025 死票；
+     两张 "Meta Platforms" 死仿盘（holders=2）在 Benny 推文**之后**（9-22/9-24）
+     出现 → Benny 语境 $METAB 指向 0x7425 成立；
+  3. **旧定性「GMGN 错关联」错误，收回**——GMGN 关联正确（$METAB → 唯一活跃 METAB）。
+- **但 0x7425 本体 = bStocks Meta 股票映射盘（五重证据 TSLAB 同构实锤）**：
+  ①合约 name() 链上直读 "Meta Platforms"（SEC 法定全名格式）②价格 $724.75 vs
+  META 股价 9-30 收盘 $725.18 **1:1 锚定**③1d -0.04%/24h -1.14% 股票形态
+  ④totalSupply 5,227.59 带小数（按需铸造）⑤创建 2026-06-24 bStocks 上线窗口
+  （TSLAB/BABAB/AAPLB 同族）。映射盘非叙事票不在判定域内（TSLAB 先例）——
+  Benny 事件给它的是骑乘热度增量，本体不变。
+- **用户论点「流程无法判断叙事真伪只能相信」的分层采纳**：叙事内容层成立
+  （Benny 是否 Zuck 的狗/FB 帖真假——引擎判不了也没拦，语料照信）；**票号归属
+  是市场事实不是叙事真伪**（哪个 CA 被宣告链上可判）：Benny 地址级宣告的是
+  BENNY（0xcdea），对 0x7425 只有符号引用——「$METAB=0x7425」是按「唯一活跃
+  METAB」推断的巧合性唯一解（9-22 仿盘出现后引用已歧义）。与 C47 互为镜像：
+  **symbol 级关联不构成票号归属，地址级宣告才是**（地址验证门语义正确）。
+- **处置**：0x7425 拦截维持（映射盘 + 无地址级宣告双事实），拦截理由记录修正
+  为本条目定性；BENNY `0xcdea…7777`（正主票，44 粉 6 天新号宣告 CA + Zuck FB
+  语料）是否跑真实评级待用户表态。
+- **附带观察**：「Paired」字样疑指 flap 代币配对计价机制（BENNY 或为 METAB
+  计价盘，watcher 9-24 起未覆盖 9-16 创建盘，未验证）——若成立则 0x7425 与
+  Benny 生态存在池级配对链上事实，不改变本体定性。
+
+
 ### C51 龙虾——GMGN 补源 superIP 推文例外并入：马甲号挡不住 GMGN 手里的真语料（2026-10-01 用户裁定「GMGN 补源返回的 twitterUrl 是推文 URL——如果是超级IP再并入」）★
 
 - **Token**：龙虾 `0xeccbb861c0dda7efd964010085488b69317e4444`（GMGN per-case 验证轮族七
@@ -90,11 +130,19 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
   的推特关联更新成推文路径——**C51 首跑被旧缓存挡住零日志**，须
   `ExternalResourceCache.invalidate('gmgn:token:bsc:<addr>', 'gmgn_token_info')`
   后重跑才生效。GMGN 社媒关联是动态的，缓存行里的形状反映抓取时点。
-- **龙虾票终局（待用户裁定的叙事边界，非链路问题）**：链路修复后引擎真实判定
-  low（截词 0.79）。双面性：字面语义成立（「龙虾」是日常词，单独出现不指向
-  币安——非「超级IP话中词」）；meme 语义可辩（S 级 fresh 梗帖核心词 2m57s 抢发
-  = C40 戏谑关联域形状，但 nameReferentBlock 不在 J1.24 punExempt 豁免清单——
-  punExempt 只豁免品牌劫持截断 + relevance≤10 截断）。
+- **龙虾票终局（2026-10-01 用户裁定「先这样」——接受 fail-closed 维持拦截）**：
+  链路修复后引擎真实判定 low（截词 0.79）。定性修正（用户给出关键事实：**龙虾 =
+  Clawbot，当时最火的 AI 产品**的中文代称——梗帖真实含义「币安引入 Clawbot，
+  运营自嘲要被 AI 解雇」）：按题面 super_ip 档判据原文（「超级IP亲口提及/讲述的
+  具体实体——产品…如 CZ 提到的某产品名」）本应判 super_ip → nameReferentBlock
+  放行 → A 档事件分大概率过 60。Jev 判 common_word 0.79 按其拿到的纯文本语料
+  完全自洽（文本零 Clawbot 线索），盲区在语料域：**指代映射的唯一载体是配图**
+  （实测 HCJuzrtagAAobDg.jpg：红色圆胖龙虾形 AI 机器人，胸口 "AI" 字样——
+  AI 取代打工人梗图，与推文文本互文），而 ① 图片分析整块注释禁用
+  （`LLMClient.analyzeTwitterImage` 本体已在 Jev 迁移时删，重启需另配视觉端点）、
+  ② binancezh 不在 HIGH_INFLUENCE_ACCOUNTS 名单（即便当年开着也不走）——
+  双重盲区。**与 C49 币有同族形状（判定所需事实不在引擎语料集合），news WSS
+  落地后回访**；纯世界知识代称子形状（无图承载）图片分析也修不了，属模型升级域。
 - **影响面**：所有「自挂链接是马甲号/垃圾链接 + GMGN 关联了 superIP 真推文」形状
   ——此前全在数据层盲拦（address_fail/no_public_info/fetch_failed 族）。注意：
   superIP 快车道触发源仍是 token 自挂 twitterUrl（本案走标准路径）——GMGN 并入的
