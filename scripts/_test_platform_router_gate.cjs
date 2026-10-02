@@ -293,6 +293,14 @@ console.log('D. 源码口径断言（透传链 5 处接线）');
     assert.strictEqual(cnt, 2, `baseResult+context 应各一处，实际 ${cnt}`);
   });
 
+  check('D4b buildPreBuyCheckFactorValues 审计清单含 platform（signal metadata 事后可判平台）', () => {
+    const { buildPreBuyCheckFactorValues } = require(path.join(ROOT, 'src', 'trading-engine', 'core', 'FactorBuilder.js'));
+    const fv = buildPreBuyCheckFactorValues({ platform: 'fourmeme', narrativeRating: 2 });
+    assert.strictEqual(fv.platform, 'fourmeme');
+    assert.strictEqual(buildPreBuyCheckFactorValues({}).platform, null);
+    assert.strictEqual(buildPreBuyCheckFactorValues(null).platform, undefined); // null 输入早 return {}
+  });
+
   check('D5 FA 快照白名单不含 platform（不落 experiment_time_series_data）', () => {
     const src = read('src/trading-engine/core/FactorBuilder.js');
     const m = src.match(/buildFactorValuesForTimeSeries[\s\S]{0,4000}?whitelist/i)

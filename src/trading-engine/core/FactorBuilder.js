@@ -209,6 +209,9 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     // 多次交易因子
     buyRound: preBuyCheckResult.buyRound ?? 1,
     lastPairReturnRate: preBuyCheckResult.lastPairReturnRate ?? 0,
+    // 平台标签（router 平台分门审计，2026-10-02）：求值在 PreBuyCheckService context
+    // 直读，此键纯事后分析用——82093ca3 配对分析曾因缺此键无法从 metadata 判平台
+    platform: preBuyCheckResult.platform ?? null,
     // 强势交易者持仓因子
     strongTraderNetPositionRatio: preBuyCheckResult.strongTraderNetPositionRatio ?? 0,
     strongTraderTotalBuyRatio: preBuyCheckResult.strongTraderTotalBuyRatio ?? 0,
