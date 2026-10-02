@@ -9,6 +9,9 @@
  * - 空值检查: holders IS NULL, holders IS NOT NULL
  * - 逻辑运算: condition1 AND condition2, condition1 OR condition2
  * - 括号分组: (condition1 AND condition2) OR condition3
+ * - 字符串等值比较（2026-10-02 platform 分门）: 右操作数单引号字面量
+ *   platform != 'flap' / platform == 'fourmeme'——仅 ==/!=，字符串参与
+ *   > < >= <= 恒 false（防 JS 字典序误判）；左操作数取因子表字符串值
  */
 
 class ConditionEvaluator {
@@ -230,6 +233,24 @@ class ConditionEvaluator {
 
             skipWhitespace();
 
+            // 单引号字符串字面量（platform 分门：platform != 'flap'）。
+            // right 存去引号字面值 + rightString: true 标记；求值侧仅 ==/!=。
+            if (pos < input.length && input[pos] === "'") {
+                const close = input.indexOf("'", pos + 1);
+                if (close === -1) {
+                    throw new Error('字符串字面量未闭合（缺右单引号）');
+                }
+                const strValue = input.substring(pos + 1, close);
+                pos = close + 1;
+                return {
+                    type: 'COMPARISON',
+                    operator,
+                    left: leftOperand,
+                    right: strValue,
+                    rightString: true
+                };
+            }
+
             // 解析右操作数（数字或变量名，支持负数）
             const rightStart = pos;
             // 匹配负号、数字、字母、下划线、点号
@@ -281,7 +302,8 @@ class ConditionEvaluator {
                     errors.push(`未知因子: ${leftVar}`);
                 }
 
-                if (!rightIsNumber && !availableFactorIds.has(rightVar)) {
+                // 字符串字面量右操作数是常量，不是因子引用，跳过检查
+                if (node.rightString !== true && !rightIsNumber && !availableFactorIds.has(rightVar)) {
                     errors.push(`未知因子: ${rightVar}`);
                 }
             }
@@ -360,11 +382,21 @@ class ConditionEvaluator {
      */
     _evaluateComparison(node, factorResults) {
         const leftValue = this._getOperandValue(node.left, factorResults);
-        const rightValue = this._getOperandValue(node.right, factorResults);
+        // 右操作数为字符串字面量时直接取字面值（不经因子表/parseFloat）
+        const rightValue = node.rightString === true
+            ? node.right
+            : this._getOperandValue(node.right, factorResults);
 
         // 如果任何一边是 undefined 或 null，条件无法评估，返回 false
         // （JS 中 null < number 会隐式转换为 0 < number，导致误判）
         if (leftValue == null || rightValue == null) {
+            return false;
+        }
+
+        // 字符串操作数仅支持等值比较（==/!=）；> < >= <= 对字符串恒 false
+        // （防 JS 字典序隐式比较：'flap' > 5 / 'a' < 'b' 都是可比较但无意义）
+        const isEqOp = node.operator === '==' || node.operator === '=' || node.operator === '!=';
+        if (!isEqOp && (typeof leftValue === 'string' || typeof rightValue === 'string')) {
             return false;
         }
 

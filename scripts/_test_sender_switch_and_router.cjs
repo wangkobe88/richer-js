@@ -307,8 +307,8 @@ async function main() {
     const be = readFileSync(path.join(__dirname, '..', 'src', 'trading-engine', 'implementations', 'BacktestEngine.js'), 'utf8');
     check('E4 TICK_SELECT_COLUMNS 含 sender_address',
       be.includes("sender_address, price_bnb"), true);
-    check('E5 _loadWssTicks tick 对象含 sender_address',
-      be.includes("sender_address: row.sender_address || null"), true);
+    check('E5 _loadWssTicks tick 对象含 sender_address（stripSenderAddress 对照臂口径，2026-10-01 后）',
+      be.includes("sender_address: stripSender ? null : (row.sender_address || null)"), true);
   }
 
   // ════════ F. 源码口径防回归 ════════

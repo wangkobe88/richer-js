@@ -823,6 +823,12 @@ class BacktestEngine extends AbstractTradingEngine {
       totalSupply: meta.totalSupply || 0,
       symbol: meta.symbol || '',
       creatorAddress: meta.creator || null,
+      // 平台透传（FA platform 因子 + preBuy 分门）：tick 行级权威（分平台 .eq 装载
+      // 恒有值）。刻意不兜 meta.platform——_loadTokenMetadata 是 `row.platform ||
+      // 'fourmeme'` 兜底，并集容器行 platform 多为 null 时会把 flap 票错标
+      // fourmeme = 豁免 router 门 = 漏拦（危险方向）；null 时分门走 fail-closed
+      // （platform != 'flap' null 比较 false → 落回 router 区间门）
+      platform: tick.platform || null,
     });
     this._tokenPool.addToken({
       token: tokenAddress,
@@ -1112,6 +1118,8 @@ class BacktestEngine extends AbstractTradingEngine {
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply,
+              // 平台标签（router 平台分门）：tick 行级真值（同 _registerToken 口径）
+              platform: token.platform || factorResults.platform || null,
             },
           );
 

@@ -1148,6 +1148,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply: totalSupply,
+              // 平台标签（router 平台分门）：FA state（SharedTickConsumer registerToken
+              // 传入）优先，factorResults（buildFactorMap platform 键）双保险
+              platform: faState?.platform || factorResults.platform || null,
             },
           );
 

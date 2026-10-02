@@ -2271,6 +2271,10 @@ class FourMemeFactorAggregator extends EventEmitter {
         const factors = {
             age,
             tokenAgeSec,
+            // 平台标签（'fourmeme'/'flap'；registerToken 传入，未注册路径 null）——
+            // 供 condition 字符串等值分门（platform != 'flap'，2026-10-02 router 平台豁免）；
+            // 快照白名单（buildFactorValuesForTimeSeries）不含此键，不落时序
+            platform: state.platform || null,
             currentPrice,
             firstPrice,
             collectionPrice: firstPrice,   // 兼容旧前端

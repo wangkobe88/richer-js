@@ -82,6 +82,11 @@ function validateGroupAst(node, expression) {
             if (!VAR_NAME_RE.test(node.left) || !GROUP_VARIABLES[node.left]) {
                 throw new Error(`组表达式左操作数必须是组变量（${Object.keys(GROUP_VARIABLES).join('/')}）: 实际 "${node.left}" in ${expression}`);
             }
+            if (node.rightString === true) {
+                // '3' 会通过下方 Number() 数字校验但求值侧是字符串（'3' === 3 恒
+                // false 的严格比较陷阱）——数字标签语义必须裸写 cycle==3
+                throw new Error(`组表达式右操作数必须是数字字面量（引号字符串不支持，请写 ${node.left}==${node.right}）: 实际 "${node.right}" in ${expression}`);
+            }
             if (node.right === '' || isNaN(Number(node.right))) {
                 throw new Error(`组表达式右操作数必须是数字字面量（变量对变量/字符串不支持）: 实际 "${node.right}" in ${expression}`);
             }

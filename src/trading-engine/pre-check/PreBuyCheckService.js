@@ -626,6 +626,9 @@ class PreBuyCheckService {
           gmgnIssuerTokenCount: gmgnIssuerTokenCount,
           gmgnBundlerWalletRatio: gmgnBundlerWalletRatio,
           gmgnRiskCovered: gmgnRiskCovered,
+          // 平台标签（router 平台分门，2026-10-02）：引擎/回测侧透传
+          // 'fourmeme'/'flap'；null 语义 = 未知平台（分门 fail-closed 落 router 门）
+          platform: options.platform ?? null,
         }
       );
     } catch (error) {
@@ -747,6 +750,9 @@ class PreBuyCheckService {
       // 多次交易因子
       buyRound: extraContext.buyRound || 1,
       lastPairReturnRate: extraContext.lastPairReturnRate ?? 0,
+
+      // 平台标签（router 平台分门）：存档审计用；'fourmeme'/'flap'/null
+      platform: extraContext.platform ?? null,
 
       // 叙事分析因子
       narrativeRating: extraContext.narrativeRating ?? 9,
@@ -875,6 +881,9 @@ class PreBuyCheckService {
         // 多次交易因子（允许在条件表达式中使用）
         buyRound: extraContext.buyRound || 1,
         lastPairReturnRate: extraContext.lastPairReturnRate ?? 0,
+        // 平台标签（允许在条件表达式中使用：platform != 'flap' 分门；
+        // null 时 != 比较恒 false = 未知平台 fail-closed 落 router 区间门）
+        platform: extraContext.platform ?? null,
         // 叙事分析因子（允许在条件表达式中使用）
         narrativeRating: extraContext.narrativeRating ?? 9,
         // 同叙事龙头因子（允许在条件表达式中使用；默认 0 不用 null——null 比较恒 false 会误拒）
