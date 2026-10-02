@@ -226,6 +226,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 - **族五四票新窗推演**：TRUMAN `0xabffa443547b34ab6c3b3173d26e233900527777` 32min → 放行进 Jev；9
   `0x990c71fdfa761bcf500ac8753f775ff7fb1b4444`（@binance S 级）3.9h → 放行；币安股票 `0xd8348b96c8f23e1e24c0f40f495823c98f8e7777`（何一）
   9.9h > 6h → 仍拦（裁定值，不放）；币有（挂小号 62 天推）→ 仍拦等 news WSS；
+  **2026-10-02 三张实跑验证（推演全兑现，C49 两侧边界闭环）**：TRUMAN 拦 →
+  **high(3) PASS**（@WillTheRapper_「Will 世界模型」6,722 粉蓝V，账号质量三条件
+  全中 + 推文含完整 CA 地址验证过 → P1.9 判 project → 粉丝带 high；nameMatch=
+  false 但走 account_quality_address_found 分支，地址绑定优先于名称匹配）；
+  9 拦 → **mid(2) PASS**（语料 = @binance 官方推带媒体 → 规则 5 高影响力短路
+  mid 跳过 LLM，GM 案同口径既定设计）；币安股票仍拦 low(1)（主推文 6-05
+  20:58 vs token 6-06 创建 = 9.9h > 360min，窗外语义实跑确认）。轮统计更新
+  （三张均族五重跑非新跑）：已跑 143 = PASS 49 + FAIL 91 + null 3，翻案
+  8 张（GM/AST/中国人能飞/我踏马来了/CZ/CREPE/TRUMAN/9）。
   TSLAB（另案：特斯拉股票映射盘 `0x5b1910ea…292f` 五重证据实锤跳过——name="Tesla,
   Inc. " SEC 全名格式 / $356 1:1 锚定 TSLA / ±1.5% 股票形态 / totalSupply 68,120.54
   小数=按需铸造 / 76k holders，CZ 2018 推文装饰性挂链，映射盘非叙事票不在域内）
