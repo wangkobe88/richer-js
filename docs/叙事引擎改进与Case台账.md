@@ -89,9 +89,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
   cashtag_w_route 21、referent_memeability 30、community_name_exemption 16、
   w_interaction_exempt 17、web3_fit 29、web3_fit_anchor 12、brand_hijack 18、
   instagram_pipeline 31）。
-- **遗留**：46 B+28 W+6 F翻案候选存量行（is_valid=true旧口径结论）未批量失效
-  ——失效脚本 + 182执行待跑（§四-3缓存失效机制同源）；182 narrative engine +
-  直调进程重启后才对新token生效（§四-10）。
+- **存量失效已执行（2026-10-02 182）**：`invalidate-notable-blocked.cjs --commit`
+  全表扫 17,008 行，命中「旧拦新放」形状且 is_valid=true 共 **130 行**批量置
+  is_valid=false（119 行 stage2 标准路径 + 11 行 superIP prestage 通道——比预估
+  80 多出的是 C/D/G 类与 prestage 域）；正主狮鹫行前段已单独失效（is_valid=false
+  实查确认，不在 130 内）。下次任何实验/回测遇同 token 直调 miss 自动走新口径
+  重析（upsert 回 is_valid=true）。
+- **遗留**：182 narrative engine + 直调进程重启后才对新 token 生效（§四-10 同批，
+  与 C47/C48/C49/C53 等重启项同一决策点）。
 
 ### C53 rating=null 落库 bug——apidance 空 stub + data_fetch_failed 无载体双修（2026-10-02 用户裁定「修复吧」A+B 都做）★
 
