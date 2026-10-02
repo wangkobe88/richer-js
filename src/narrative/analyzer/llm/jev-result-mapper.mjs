@@ -110,20 +110,25 @@ const BLOCK_LABELS = {
  *   仍在放行侧豁免，真自发盘 subject_self 高不受影响
  * - 主体自己的作品名（B/C）走骑乘改道（rideDetourBelow，放行侧语义）。E 类热点
  *   命名先例不拦；A 类不适用
- * - J1.26（2026-10-02 用户裁定，C54 狮鹫案 0xcb808ef1…7777）：**B 类 notable_other
- *   退出阻断侧**——「超级IP就那么几个，名字不是它们就不行吗」。notable_other
- *   （知名但非超级IP）在 B 类骑乘语境下与 event_magnitude 语义重叠：被骑对象够
- *   不够大 tier 已经评过一遍（双重惩罚），无独立信息；真有独立信息的只有
- *   minor_other（关联对象纯无名，YAYA 案）与 common_word（纯截词，CONVICTION 案）。
- *   B 类阻断质量只累计后两项，C/D/F/G/W 不变（W 的 ChainPulse 补位语义、C 的
- *   截词语义维持）。翻案票仍需过事件分 60 线 + 质量门 + preBuy 全套；实测影响面
- *   143 B 类票 98 拦 → 52 拦 + 46 翻案候选（多多/飞猪/绿泡泡 tier C 蹭名票预期
- *   死事件分；狮鹫 tier B + strong_fit 0.96 形状放行——市场 12.3x 实证错过成本）
+ * - J1.26（2026-10-02 用户裁定，C54 狮鹫案 0xcb808ef1…7777）：**notable_other
+ *   全域退出阻断侧**——裁定演化两步：①「超级IP就那么几个，名字不是它们就不行
+ *   吗」；②「CONVICTION/YAYA 案的核心问题并不是实体不够知名，而是实体根本没有
+ *   被接纳为 Web3 meme 币的可能——一个是一个严肃词汇（不跟实体对应），一个是
+ *   个人名，只是个普通币安员工」，即「知名但非超级IP」这个知名度梯度判据本身
+ *   是错的轴。正确的轴（Web3 meme 可接纳性）已由 web3_fit unfit 负门（J1.19，
+ *   全域）承载：狮鹫 strong_fit 0.96 放、严肃词汇/普通人名 unfit 拦。真有独立
+ *   信息的只有 minor_other（关联对象纯无名，YAYA 案）与 common_word（纯截词，
+ *   CONVICTION 案——严肃词汇不跟实体对应）。阻断侧全域只累计后两项；拦截责任
+ *   移交 web3_fit unfit 负门 + minor/common + magnitude/tier（热度不够）。
+ *   翻案票仍需过各类事件分 60 线 + 质量门 + preBuy 全套。实测影响面：B 143 票
+ *   98→52 拦（46 放）、W 88→60（28 放，含 Manus 骑乘家族）、F 26→20（6 放）；
+ *   市场实证错过成本：狮鹫 7.8 分钟毕业、首→峰 12.3x
  */
 const NAME_REFERENT_BLOCK_LABELS = {
   minor_other: '名字指向无名对象',
   common_word: '截词（非超级IP话中词）',
-  notable_other: '名字指向知名但非超级IP',
+  // notable_other（知名但非超级IP）J1.26 全域移出阻断侧——label 保留仅供
+  // 历史行 reason 展示参考，不再参与阻断质量累计
 };
 const NAME_REFERENT_BLOCK_SCOPE = ['C', 'D', 'F', 'G', 'B', 'W'];
 
@@ -177,18 +182,17 @@ const BLOCK_SCOPE = {
  * 返回 {label, mass} 或 null。label 取阻断侧各项中概率最大者的标签，mass 为合计。
  * 门槛用阻断侧合计概率（≥ 0.5）而非 argmax 单项：Jev 在 YAYA 案上
  * subject_self/minor_other 五五开（0.43/0.41，argmax 跨 run 抖动），合并阻断侧
- * 质量后 0.55 稳定过半。放行侧（super_ip/subject_self/none_related）不累计
+ * 质量后稳定过半。放行侧（super_ip/subject_self/none_related）不累计
  * （B/C 类例外：subject_self 质量触发骑乘改道，见 rideDetourBelow）。
- * J1.26：B 类阻断侧排除 notable_other（与 event_magnitude 语义重叠，双重惩罚，
- * 见 NAME_REFERENT_BLOCK_LABELS 注释）——质量只累计 minor_other+common_word。
+ * J1.26：notable_other 全域退出阻断侧（知名度梯度是错误的判定轴，移交 web3_fit
+ * unfit 负门——见 NAME_REFERENT_BLOCK_LABELS 注释），阻断侧全域只累计
+ * minor_other+common_word（无名对象/纯截词，有独立拦截信息）。
  */
 function nameReferentBlock(answers, category) {
   if (category == null || !NAME_REFERENT_BLOCK_SCOPE.includes(category)) return null;
   const probs = answers?.name_referent?.probabilities;
   if (!probs) return null;
-  const blockKeys = category === 'B'
-    ? ['minor_other', 'common_word']
-    : Object.keys(NAME_REFERENT_BLOCK_LABELS);
+  const blockKeys = ['minor_other', 'common_word'];
   let mass = 0;
   let bestKey = blockKeys[0];
   let bestP = -1;
@@ -500,10 +504,10 @@ export function mapStandardAnswers(answers, context) {
   // name_referent 阻断（J1.10）：名字指向无名对象/截词/仅知名，无论事件分多高都不通过
   const nameReferent = answers.name_referent?.choice || null;
   const nameReferentProb = answers.name_referent?.probabilities?.[nameReferent] ?? null;
-  // J1.26 审计：B 类 notable_other 豁免（旧口径会拦、新口径放行）的形状详情——
+  // J1.26 审计：notable_other 全域豁免（旧口径会拦、新口径放行）的形状详情——
   // minor+common < 0.5 ≤ +notable，即 notable 是唯一把质量抬过门槛的项
   let nrNotableExempt = null;
-  if (category === 'B') {
+  {
     const nrProbs = answers.name_referent?.probabilities;
     const nrMinorCommon = (nrProbs?.minor_other ?? 0) + (nrProbs?.common_word ?? 0);
     const nrNotable = nrProbs?.notable_other ?? 0;

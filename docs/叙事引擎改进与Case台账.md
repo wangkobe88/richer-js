@@ -31,7 +31,8 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
   **项目实度 prestage_project_quality**（恒带；账号新 <30d + 实度 ≥3 豁免 P1.3 年龄降档，
   <3/缺分 fail-closed——**仅 project 消费，web3ip 不吃年龄门/实度门**（P1.9 C46），
   推文 <5 保留拦）
-- **代码门族**（mapper 端确定性切分）：nameReferentBlock（阻断侧合计 ≥0.5）/
+- **代码门族**（mapper 端确定性切分）：nameReferentBlock（阻断侧合计 ≥0.5，全域
+  仅累计 minor+common——J1.26 notable_other 全域退出，知名度轴移交 web3_fit）/
   rideDetourBelow（B/C 骑乘改道 W）/ cashtag 改道 W（J1.17）/ detectPublisherProxy
   发布者指代（J1.18，量级 A 档锚）/ routineContentProductBlock（A 类角色豁免 J1.16）/
   negativeHardNewsBlock / web3FitBlock（unfit ≥0.5）/ referent 豁免（J1.21，仅 superIP）/
@@ -49,6 +50,48 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 ---
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
+
+### C54 狮鹫——notable_other「知名但非超级IP」全域退出阻断侧：知名度是错误的轴，Web3 可接纳性才是（2026-10-02 用户裁定两步演化 "A"→"A2"）★
+
+- **案由**：狮鹫 `0xcb808ef1eeb9ba742935f50a63de6e158afb7777`（Griffin 翻译梗，
+  推特语料「新模型Griffin的翻译刚好还是狮鹫，完美符合bsc的两字大金定律」）
+  被name_referent阻断侧0.56拦low（minor 0.08+common 0.03+**notable 0.45**——
+  notable是唯一把质量抬过门槛的项；web3_fit strong_fit 0.96 高置信放行侧）。
+  市场实证：**7.8分钟毕业、首→峰12.3x**、窗末仍8.3x——错杀成本实锤。
+- **裁定两步演化**：①「『名字指向知名但非超级IP』也太严格了吧——超级IP就那么
+  几个，名字不是它们就不行吗」→ B类退出（A方案）；②回看CONVICTION/YAYA案后
+  升级：「核心问题并不是实体不够知名，而是**实体根本没有被接纳为Web3 meme币的
+  可能**——一个是严肃词汇（不跟实体对应），一个是个人名（普通币安员工）」→
+  **A2 全域退出**（C/D/F/G/B/W + superIP通道）。
+- **结构论证**：notable_other（知名度梯度）在B类骑乘语境与event_magnitude语义
+  重叠（被骑对象够不够大tier已评过——双重惩罚），无独立信息；正确的轴（Web3
+  meme可接纳性）已由 web3_fit unfit 负门（J1.19 全域）承载。真有独立拦截信息的
+  只有 minor_other（无名对象，YAYA案）与 common_word（纯截词，CONVICTION案）。
+- **改动**（mapper-only，题集J1.25不动）：`nameReferentBlock` 阻断质量全域只累计
+  minor_other+common_word；`NAME_REFERENT_BLOCK_LABELS` 删notable键（label仅存
+  注释供历史行reason展示）；审计字段 `stage1.jev.nrNotableExempt`（全域，原B类
+  版升级）记录「旧拦新放」形状 `{minorCommon, notable}`。拦截责任移交：
+  web3_fit unfit负门 + minor/common + magnitude/tier（热度不够）；翻案票仍需过
+  各类事件分60线+质量门+preBuy全套。
+- **实测影响面**（2026-10-02库扫）：B 143票 98拦→52拦（46翻案候选）；W 88→60
+  （28放，含Manus骑乘家族）；F 26→20（6放）。
+- **E2E四案复验**（dryrun真实Jev调用）：狮鹫 low→**high 74.44**（事件分67.68过线，
+  翻案主线✅）；CONVICTION `0x81187055…7777` 维持low——**common_word 0.98主导
+  自己拦住**（「严肃词汇不跟实体对应」正是保留键，兜底闭环✅）；YAYA
+  `0x774a0dc9…7777` 维持low——minor_other 0.51主导仍拦（无名对象键✅；库内旧
+  high行是superIP通道跑的，dryrun走标准路径，真实链路两路径都拦）；**Muse
+  `0xc3136948…7777` low→high 76.41（⚠️已知代价）**——本轮web3_fit未判unfit
+  （Jev认为AI工具对Web3用户不算明确不合），name门退出后版本更新票无腿可拦，
+  与W类28票Manus家族同性质（A2裁定时已知的净放行边界，如实记录）。
+- **单测**：`node scripts/_test_notable_other_exit.cjs`（22断言零DB四节：狮鹫
+  数值复现/全域作用域矩阵含CONVICTION新兜底·YAYA边缘形状·superIP通道/审计
+  矩阵/源码口径）。回归九套全过（publisher_proxy 29含B3a翻案+B3a2 unfit新兜底、
+  cashtag_w_route 21、referent_memeability 30、community_name_exemption 16、
+  w_interaction_exempt 17、web3_fit 29、web3_fit_anchor 12、brand_hijack 18、
+  instagram_pipeline 31）。
+- **遗留**：46 B+28 W+6 F翻案候选存量行（is_valid=true旧口径结论）未批量失效
+  ——失效脚本 + 182执行待跑（§四-3缓存失效机制同源）；182 narrative engine +
+  直调进程重启后才对新token生效（§四-10）。
 
 ### C53 rating=null 落库 bug——apidance 空 stub + data_fetch_failed 无载体双修（2026-10-02 用户裁定「修复吧」A+B 都做）★
 
@@ -854,6 +897,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.26（mapper-only，题集 J1.25 不动） | 2026-10-02 | `nameReferentBlock` 阻断侧全域只累计 minor_other+common_word——notable_other（知名但非超级IP）全域退出：知名度梯度是错误判定轴（骑乘语境与 event_magnitude 双重惩罚、无独立信息），拦截责任移交 web3_fit unfit 负门 + minor/common + magnitude/tier；审计 `stage1.jev.nrNotableExempt`（全域）记「旧拦新放」形状 | C54 狮鹫案（两步裁定：①「超级IP就那么几个，名字不是它们就不行吗」→B类退出；②「核心问题不是实体不够知名，而是实体根本没有被接纳为Web3 meme币的可能」→全域；E2E：狮鹫翻high 74.44/CONVICTION截词0.98自拦/YAYA无名0.51自拦/Muse high 76.41=已知代价） | 本 commit |
 | P1.9 | 2026-10-01 | ①token 类型题「币本身即IP」双形状：发明新称号 OR 社区/文化 meme 主账号（MarsCoin 型），账号随币而生/社区后建、年龄非反证；project 侧显式反例（社区 meme 主账号有官网/品牌/认证不算 project）②state 预计算措辞中性化（去「项目方官方代币」带节奏）③mapper `rateProject` 加 `opts.accountAgeGate`：web3ip 评级不吃 P1.3 年龄降档/P1.5 实度门（项目信用框架对 meme 范畴错配），推文<5 保留；reason 标签「账号基本面评级」 | C46 MarsCoin 案（用户裁定「社区自己搞的 Meme 币主账号不属于项目，属于 web3 原生IP」「很多 meme 币一出生就有账号」；重跑类型 project→web3ip 翻转=语义修正类题改生效实证） | 本 commit |
 | J1.25 | 2026-10-01 | subject_unqualified 判据修正：主体=币名所指核心实体（形象/人物/IP/事件主角），陈述者账号绝不构成主体资格不足；形象类主体按形象自身知名度判，来源账号粉丝是 proxy | C43 土豪猫猫案（语义修正类题改生效实证：block argmax 翻转 none；与 J1.23 分数锚定类题改不动形成对照） | `923b31b` |
 | J1.24 | 2026-10-01 | ①brand_hijack 豁免③扩充「当前热门新鲜事锚定的戏谑关联」（缩写双关/谐音梗/形象嫁接是 meme 创作手法非劫持，蹭事件增量热度非品牌存量认知；无新鲜事件锚纯玩品牌词根才是劫持）②mapper `punExempt`：P≥0.5 + timing within_7d + effTier S/A + credibleEventAnchor（superIP/issuer/广场官方认证）全中豁免品牌劫持截断与 relevance≤10 截断，计分照常；misspelling/quality 不豁免；审计 jev.punExempt + reason 前缀 | C40 Binance Inu 案（用户裁定「不是劫持，而是web3用户特有的戏谑/趣味性关联；也必须是当前的热门新鲜事，否则就成了无病呻吟」；J1.24 题面下 P 0.72→0.69 题面锚仍不动，代码切分决定性） | 本 commit |

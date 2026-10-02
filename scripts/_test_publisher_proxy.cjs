@@ -153,11 +153,23 @@ async function main() {
   check('B2a 无语料判据不激活：无审计标记', m2.stage1DataToSave.parsed_output.jev.publisherProxyActive === null);
   check('B2b 原路径拦截：marketing_gimmick argmax（noneP 0.29<0.5）', m2.llmResult.rating === 'low' && m2.llmResult.analysis_stage === 2 && m2.llmResult.reason.includes('营销噱头'), m2.llmResult);
 
-  // B3 Muse 形状：域名门不命中 → proxy 永不激活 → nameReferentBlock 维持拦截
+  // B3 Muse 形状：域名门不命中 → proxy 永不激活。J1.26（2026-10-02 C54 用户裁定）
+  // notable_other 全域退出 name_referent 阻断侧——minor 0.32+notable 0.31 合计 0.66
+  // 的旧拦截形状不再由 name 门拦，兜底移交 web3_fit unfit 负门（J1.19 全域——
+  // 拦截判据从「知名度」换成「Web3 meme 可接纳性」：企业桌面软件版本更新无
+  // meme 可玩味空间）
   const m3 = mapStandardAnswers(museAnswers, makeContext(museTokenData, museAnswers, museTwitter));
-  check('B3a Muse 无域名不改行为：nrBlock 0.66 拦截（J1.18 题面下维持）', m3.llmResult.rating === 'low' && m3.llmResult.reason.includes('名字指向'), m3.llmResult.reason);
-  const m3b = mapStandardAnswers(museAnswers, makeContext(museTokenData, museAnswers, museWithDomain));
-  check('B3b Muse 指纹词双保险：即使有 muse.im 域名仍拦', m3b.llmResult.rating === 'low' && m3b.stage1DataToSave.parsed_output.jev.publisherProxyActive === null);
+  check('B3a Muse 无域名：name 门不再拦 + 翻案审计落位（J1.26）',
+    m3.stage2DataToSave.parsed_output.jev.nameReferentBlockMass === null
+      && m3.stage1DataToSave.parsed_output.jev.nrNotableExempt?.minorCommon === 0.35,
+    { mass: m3.stage2DataToSave.parsed_output.jev?.nameReferentBlockMass, audit: m3.stage1DataToSave.parsed_output.jev?.nrNotableExempt });
+  const museW3 = { ...museAnswers, web3_fit: { choice: 'unfit', probabilities: { unfit: 0.62, marginal: 0.18, fit: 0.1, strong_fit: 0.1 } } };
+  const m3w = mapStandardAnswers(museW3, makeContext(museTokenData, museW3, museTwitter));
+  check('B3a2 Muse 形状新兜底：web3_fit unfit 0.62 负门拦截（拦截判据=可接纳性非知名度）',
+    m3w.llmResult.rating === 'low' && /Web3/.test(m3w.llmResult.reason || ''), m3w.llmResult.reason);
+  const m3b = mapStandardAnswers(museW3, makeContext(museTokenData, museW3, museWithDomain));
+  check('B3b Muse 指纹词双保险：即使有 muse.im 域名仍拦（unfit 负门，proxy 不激活）',
+    m3b.llmResult.rating === 'low' && m3b.stage1DataToSave.parsed_output.jev.publisherProxyActive === null);
 
   // B4 cashtag 改道优先：语料含 $CUE → cashtagForced → pubProxyActive=false → W 数学
   const cashtagTwitter = { ...cueTwitter, text: 'Get Cue: https://t.co/nMpSKSNLrn $CUE' };
