@@ -110,6 +110,15 @@ const BLOCK_LABELS = {
  *   仍在放行侧豁免，真自发盘 subject_self 高不受影响
  * - 主体自己的作品名（B/C）走骑乘改道（rideDetourBelow，放行侧语义）。E 类热点
  *   命名先例不拦；A 类不适用
+ * - J1.26（2026-10-02 用户裁定，C54 狮鹫案 0xcb808ef1…7777）：**B 类 notable_other
+ *   退出阻断侧**——「超级IP就那么几个，名字不是它们就不行吗」。notable_other
+ *   （知名但非超级IP）在 B 类骑乘语境下与 event_magnitude 语义重叠：被骑对象够
+ *   不够大 tier 已经评过一遍（双重惩罚），无独立信息；真有独立信息的只有
+ *   minor_other（关联对象纯无名，YAYA 案）与 common_word（纯截词，CONVICTION 案）。
+ *   B 类阻断质量只累计后两项，C/D/F/G/W 不变（W 的 ChainPulse 补位语义、C 的
+ *   截词语义维持）。翻案票仍需过事件分 60 线 + 质量门 + preBuy 全套；实测影响面
+ *   143 B 类票 98 拦 → 52 拦 + 46 翻案候选（多多/飞猪/绿泡泡 tier C 蹭名票预期
+ *   死事件分；狮鹫 tier B + strong_fit 0.96 形状放行——市场 12.3x 实证错过成本）
  */
 const NAME_REFERENT_BLOCK_LABELS = {
   minor_other: '名字指向无名对象',
@@ -165,20 +174,25 @@ const BLOCK_SCOPE = {
 
 /**
  * name_referent 是否在该类别下构成阻断（独立作用域表，语义同 blockInScope）。
- * 返回 {label, mass} 或 null。label 取阻断侧三项中概率最大者的标签，mass 为三项合计。
- * 门槛用阻断侧合计概率（minor_other+common_word+notable_other ≥ 0.5）而非 argmax 单项：
- * Jev 在 YAYA 案上 subject_self/minor_other 五五开（0.43/0.41，argmax 跨 run 抖动），
- * 合并阻断侧质量后 0.55 稳定过半。放行侧（super_ip/subject_self/none_related）不累计
+ * 返回 {label, mass} 或 null。label 取阻断侧各项中概率最大者的标签，mass 为合计。
+ * 门槛用阻断侧合计概率（≥ 0.5）而非 argmax 单项：Jev 在 YAYA 案上
+ * subject_self/minor_other 五五开（0.43/0.41，argmax 跨 run 抖动），合并阻断侧
+ * 质量后 0.55 稳定过半。放行侧（super_ip/subject_self/none_related）不累计
  * （B/C 类例外：subject_self 质量触发骑乘改道，见 rideDetourBelow）。
+ * J1.26：B 类阻断侧排除 notable_other（与 event_magnitude 语义重叠，双重惩罚，
+ * 见 NAME_REFERENT_BLOCK_LABELS 注释）——质量只累计 minor_other+common_word。
  */
 function nameReferentBlock(answers, category) {
   if (category == null || !NAME_REFERENT_BLOCK_SCOPE.includes(category)) return null;
   const probs = answers?.name_referent?.probabilities;
   if (!probs) return null;
+  const blockKeys = category === 'B'
+    ? ['minor_other', 'common_word']
+    : Object.keys(NAME_REFERENT_BLOCK_LABELS);
   let mass = 0;
-  let bestKey = 'minor_other';
+  let bestKey = blockKeys[0];
   let bestP = -1;
-  for (const k of Object.keys(NAME_REFERENT_BLOCK_LABELS)) {
+  for (const k of blockKeys) {
     const p = probs[k] ?? 0;
     mass += p;
     if (p > bestP) { bestP = p; bestKey = k; }
@@ -486,6 +500,20 @@ export function mapStandardAnswers(answers, context) {
   // name_referent 阻断（J1.10）：名字指向无名对象/截词/仅知名，无论事件分多高都不通过
   const nameReferent = answers.name_referent?.choice || null;
   const nameReferentProb = answers.name_referent?.probabilities?.[nameReferent] ?? null;
+  // J1.26 审计：B 类 notable_other 豁免（旧口径会拦、新口径放行）的形状详情——
+  // minor+common < 0.5 ≤ +notable，即 notable 是唯一把质量抬过门槛的项
+  let nrNotableExempt = null;
+  if (category === 'B') {
+    const nrProbs = answers.name_referent?.probabilities;
+    const nrMinorCommon = (nrProbs?.minor_other ?? 0) + (nrProbs?.common_word ?? 0);
+    const nrNotable = nrProbs?.notable_other ?? 0;
+    if (nrNotable > 0 && nrMinorCommon < 0.5 && nrMinorCommon + nrNotable >= 0.5) {
+      nrNotableExempt = {
+        minorCommon: Math.round(nrMinorCommon * 100) / 100,
+        notable: Math.round(nrNotable * 100) / 100,
+      };
+    }
+  }
 
   const stage1DataToSave = {
     category,
@@ -513,6 +541,8 @@ export function mapStandardAnswers(answers, context) {
         // tier 保留在 magnitudeTier 键不受锚定影响）
         web3FitAnchored: web3FitAnchored ? 'B' : null,
         web3FitStrongP: web3FitAnchored ? web3FitStrongP : null,
+        // J1.26 审计标记：B 类 notable_other 退出阻断侧的豁免详情（翻案票可追溯）
+        nrNotableExempt,
         probabilities: {
           event_category: answers.event_category?.probabilities,
           event_magnitude: answers.event_magnitude?.probabilities,

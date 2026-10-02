@@ -577,19 +577,31 @@ class BacktestEngine extends AbstractTradingEngine {
   /**
    * 新鲜度探针：chunk × platform 反取 max(id)（走 (token_address, platform, id) 索引，
    * 每 chunk 一条 ~百 ms）。该 token 集 × platform 在 DB 无任何行时返回 null。
+   * 单批失败重试 2 次（间隔 1s）：491 批长循环里单批撞 DB 负载抖动（实测同形状
+   * 47ms~2s 波动、偶发 >8s statement timeout，2026-10-02 d46b1b6c 案）不该让整个
+   * 探针 throw → bypass 落回 keyset 慢形状直拉（flap 稀疏平台必超时）；连续 3 次
+   * 失败仍 throw 保持 bypass 语义（真故障不掩盖）。
    */
   async _probeMaxTickId(supabase, addresses, platform) {
     let maxId = null;
+    const PROBE_ATTEMPTS = 3;
     for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
       const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
-      const { data, error } = await supabase
-        .from('wss_price_ticks')
-        .select('id')
-        .in('token_address', chunk)
-        .eq('platform', platform)
-        .order('id', { ascending: false })
-        .limit(1);
-      if (error) throw new Error(`wss_price_ticks max(id) 探针失败: ${error.message}`);
+      let data = null;
+      for (let attempt = 1; attempt <= PROBE_ATTEMPTS; attempt++) {
+        const res = await supabase
+          .from('wss_price_ticks')
+          .select('id')
+          .in('token_address', chunk)
+          .eq('platform', platform)
+          .order('id', { ascending: false })
+          .limit(1);
+        if (!res.error) { data = res.data; break; }
+        if (attempt === PROBE_ATTEMPTS) {
+          throw new Error(`wss_price_ticks max(id) 探针失败（连续 ${PROBE_ATTEMPTS} 次）: ${res.error.message}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
       if (data && data.length > 0) {
         const id = Number(data[0].id);
         if (maxId === null || id > maxId) maxId = id;
