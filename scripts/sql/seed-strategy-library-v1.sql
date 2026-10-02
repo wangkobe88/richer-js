@@ -8,12 +8,12 @@
 -- ⚠️ 前置：create-strategy-library.sql 已执行（表存在）。
 -- =====================================================================
 
--- buy-v2（1 腿）
+-- buy-v2（1 腿；v6 = 2026-10-02 B1 d46b1b6c 漏斗修复版）
 INSERT INTO strategy_library (name, description, side, legs) VALUES (
   'buy-v2',
-  'V2 买门（51ea69e7 实跑口径）：量价门 + TPA 反作弊门 tokenScore>2.2 + 叙事门评级∈{2,3}',
+  'V2 买门 v6：量价门 + TPA 反作弊门 tokenScore>2.5 + 叙事门评级∈{2,3} + router 区间门平台分门（fourmeme 豁免）+ 热度门 uw>=15',
   'buy',
-  '[{"cards":4,"priority":1,"condition":"buyVolumeBnb >= 1.5 AND age < 30 AND holders > 5 AND TPAPre_tokenScore > 2.2","description":"买腿：量价门 + TPA 反作弊门 TPAPre_tokenScore > 2.2（fail-closed）+ 叙事门 narrativeRating ∈ {2,3}；反作弊类 pre-buy 检查（同名市值/净买比/均匀簇）已移除（2026-09-28 裁定：反作弊职责移交 TPA）","maxExecutions":1,"preBuyCheckCondition":"(narrativeRating == 2 OR narrativeRating == 3)","narrativeCallCondition":"buyVolumeBnb >= 1.5 AND age < 30 AND holders > 5"}]'::jsonb
+  '[{"cards":4,"priority":1,"condition":"buyVolumeBnb >= 1.5 AND tokenAgeSec < 90 AND holders > 5 AND TPAPre_tokenScore > 2.5 AND (tokenCycle != 1 OR tokenCycle IS NULL)","description":"买腿：量价门 + TPA 反作弊门 TPAPre_tokenScore > 2.5（fail-closed）+ 叙事门 narrativeRating ∈ {2,3}；反作弊类 pre-buy 检查（同名市值/净买比/均匀簇）已移除（2026-09-28 裁定：反作弊职责移交 TPA）；v3（2026-09-29）：买侧冷档门——不买冷档（tokenCycle==1 拦截），G 系列配对验证 +2.35；v5（2026-10-01）：router 区间门 [50,80)（W2 验证 +6.156）；v6（2026-10-02，B1 d46b1b6c 漏斗修复）：① router 门平台分门 (platform != ''flap'' OR 区间门)——four.meme 内盘不经 GMGN 聚合 rp 恒 0，区间门对 fourmeme 恒假全灭（B1 实证 4/4 mid 全死门、成票 0），flap 保 W2 语义；② TPA 门 2.2→2.5（B1 tpaScore<=2.5 拦 10 票全亏 -1.169）；③ 新热度门 earlyTradesUniqueWallets >= 15（flap uw 分箱 [0,14] 95 票净 -3.591，high 票 P50=14）","maxExecutions":1,"preBuyCheckCondition":"(narrativeRating == 2 OR narrativeRating == 3) AND earlyTradesTop1BuySharePct < 60 AND earlyTradesTop1BuyCovered == 1 AND (platform != ''flap'' OR (earlyTradesRouterPct >= 50 AND earlyTradesRouterPct < 80)) AND earlyTradesUniqueWallets >= 15","narrativeCallCondition":"buyVolumeBnb >= 1.5 AND tokenAgeSec < 90 AND holders > 5"}]'::jsonb
 ) ON CONFLICT (name) DO NOTHING;
 
 -- sell-hot-v1（9 腿）
