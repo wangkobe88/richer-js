@@ -87,8 +87,8 @@ function check(desc, actual, expected) {
   check('命中 → { screenName, method, tweetId, account }',
     { screenName: hit.screenName, method: hit.method, tweetId: hit.tweetId, hasAccount: !!hit.account },
     { screenName: 'rongluBSC', method: 'ca_timeline', tweetId: '42', hasAccount: true });
-  check('screenName + untilSec 透传给 fetchAccount', seen, [
-    { screenName: 'rongluBSC', opts: { untilSec: 1790498441 - 24 * 3600 } },
+  check('screenName + untilSec + tokenAddress 透传给 fetchAccount（CA 早停锚，2026-10-02 用户三点方案）', seen, [
+    { screenName: 'rongluBSC', opts: { untilSec: 1790498441 - 24 * 3600, tokenAddress: ADDR } },
   ]);
 
   console.log(`\n${passed + failed}/${passed + failed}${failed ? `（✗ ${failed}）` : ''}`);

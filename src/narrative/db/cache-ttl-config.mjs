@@ -12,11 +12,13 @@ const CACHE_TTL_CONFIG = {
   tweet:              { maxAge: 365 * DAY, ttl: 730 * DAY },
   twitter_account:    { maxAge:  30 * DAY, ttl: 365 * DAY },
   twitter_community:  { maxAge:  30 * DAY, ttl: 365 * DAY },
-  // 账号完整数据两层缓存（2026-10-02 d46b1b6c 叙事耗时案）：userInfo handle 级
-  // 跨 token 复用（同作者连环发币不重复拉，月级稳定同 twitter_account 档）；
-  // 推文窗 (userId, untilSec|count) 窗口级——单分析内多调用点（collectAllAccounts →
-  // detectIssuerByCaTimeline → prestage 规则验证）+ 同 token 重析幂等复用
-  // （时间线头部随新推文增长，6h 刷新对分析场景足够）
+  // 账号完整数据两层缓存（2026-10-02 d46b1b6c 叙事耗时案 + 同日用户三点方案再升级）：
+  // userInfo handle 级跨 token 复用（同作者连环发币不重复拉，月级稳定同 twitter_account 档）；
+  // 推文 userId 级全量 key（翻满窗口的完整列表 + oldestSec 覆盖深度，复用时按请求窗口
+  // 截断——离散窗口 key (userId, untilSec) 同作者不同 token 锚不同永不命中，B2 实测
+  // 651 真拉/259 唯一作者）+ CA 早停专属 key (:ca:<addr>，本 token 截断列表跨调用点共享）。
+  // 6h 刷新：时间线头部随新推文增长（同作者 6h 内新发 CA 宣告推的漏验由
+  // PrecheckFailRetryService no_public_info 重试窗兜底）
   twitter_user_info:   { maxAge:  30 * DAY, ttl: 365 * DAY },
   twitter_user_tweets: { maxAge: 6 * 3600, ttl:  90 * DAY },
 

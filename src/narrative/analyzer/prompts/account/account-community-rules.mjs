@@ -195,17 +195,65 @@ export function verifyTokenName(tokenSymbol, tokenName, accountOrCommunityData) 
 }
 
 /**
+ * 推文时间戳解析（毫秒）：createdTimeStamp 优先，回退 Date.parse(created_at)，失败 null
+ * ——与 getUserTweets 窗口分支同款口径
+ */
+function tweetTimeMs(t) {
+  if (typeof t?.createdTimeStamp === 'number' && t.createdTimeStamp > 0) return t.createdTimeStamp;
+  const p = Date.parse(t?.created_at);
+  return Number.isFinite(p) ? p : null;
+}
+
+/**
+ * 全量缓存条目的覆盖深度（秒）：跳过第 0 条（置顶推或最新推文）后最老推文时间。
+ * 跳过头部：翻满列表头部若是置顶推（可能远早于时间线覆盖段），计入会把 oldestSec
+ * 拉低、高估覆盖深度 → 复用判据偏松 → 漏窗口内推文；若无置顶，第 0 条是最新推文，
+ * 跳过它不影响 min。全部解析失败返回 null（调用方按覆盖不足处理，fail-closed 重拉）。
+ */
+function computeTweetsOldestSec(tweets) {
+  let oldestMs = null;
+  for (let i = 1; i < tweets.length; i++) {
+    const ms = tweetTimeMs(tweets[i]);
+    if (ms != null && (oldestMs == null || ms < oldestMs)) oldestMs = ms;
+  }
+  return oldestMs == null ? null : Math.floor(oldestMs / 1000);
+}
+
+/**
+ * 全量缓存列表按请求窗口截断复用：第 0 条恒保留（直拉行为置顶推恒 unshift 头部、
+ * 窗口过滤不适用于置顶——BENNY/MarsCoin 案 CA 就在置顶；无置顶时第 0 条是最新推文
+ * 恒在窗口内），其余按时间过滤；时间解析失败保守保留（与直拉一致）。
+ */
+function truncateTweetsForWindow(tweets, untilSec) {
+  const untilMs = untilSec * 1000;
+  return tweets.filter((t, i) => {
+    if (i === 0) return true;
+    const ms = tweetTimeMs(t);
+    return ms == null || ms >= untilMs;
+  });
+}
+
+/**
  * 账号数据两层缓存 key 构造（纯函数，单测锁定形状）
  * - 层1 userInfo：handle 级（小写归一）——跨 token 复用，消除同作者连环发币重复拉取
- * - 层2 tweets：(userId, 窗口) 级——窗口 = untilSec（时间窗驱动）或凑数口径 c<count>；
- *   单分析内多调用点（collectAllAccountsWithFullInfo → detectIssuerByCaTimeline →
- *   prestage 规则验证）传同一窗口参数 → 后续调用点全命中
+ * - 层2 tweets（2026-10-02 再升级，用户三点方案）：
+ *   · 全量 key `twitter_user_tweets:<userId>`——只存翻满窗口的完整列表（条目
+ *     { tweets, oldestSec }），跨 token 共享，复用时按请求窗口截断（离散窗口 key
+ *     w<untilSec> 的根因：untilSec 由各 token 创建锚推导，同作者不同 token 锚不同
+ *     → key 不同 → 跨 token 永不命中；B2 回测实测 651 次真拉 / 259 唯一作者）
+ *   · CA 专属 key `twitter_user_tweets:<userId>:ca:<address小写>`——只存本 token
+ *     CA 早停命中的截断列表，同 token 三调用点共享（collectAllAccountsWithFullInfo →
+ *     detectIssuerByCaTimeline → prestage 规则验证）；跨 token 不共享：早停截断的
+ *     覆盖深度只对本 token 的 CA 语义有效，共享会漏其它 token 更深处的 CA 推文
  */
 export function buildAccountCacheKeys(screenName, tweetCount = 50, options = {}) {
   const handle = String(screenName || '').toLowerCase().trim();
   const userKey = `twitter_user_info:${handle}`;
-  const windowKey = options.untilSec ? `w${options.untilSec}` : `c${Math.max(tweetCount, 100)}`;
-  return { handle, userKey, windowKey };
+  const tweetsKey = options.userId ? `twitter_user_tweets:${options.userId}` : null;
+  const caKey = (options.userId && options.tokenAddress)
+    ? `twitter_user_tweets:${options.userId}:ca:${String(options.tokenAddress).toLowerCase()}`
+    : null;
+  return { handle, userKey, tweetsKey, caKey };
 }
 
 /**
@@ -225,12 +273,16 @@ export function buildAccountCacheKeys(screenName, tweetCount = 50, options = {})
  * @param {Object} [options]
  * @param {number} [options.untilSec] - 推文时间窗下界（unix 秒，通常 = token 创建时间-24h）：
  *   有窗口时不再凑满 100 条，翻到窗口下界即停（发币 CA 公告在创建后几分钟内，必在窗口内）
+ * @param {string} [options.tokenAddress] - 目标代币合约地址（CA 惰性早停，2026-10-02 用户
+ *   三点方案）：传入时真拉走 getUserTweets matchAddress 每页匹配命中即停；命中截断列表
+ *   落 CA 专属 key，翻满全量列表落 userId 级 key。项目方 CA 公告通常在最新几条/置顶
+ *   → 项目票通常 1 页即停；非项目票翻满窗口与原行为一致（早停点恒 ≤ 原停点，零覆盖损失）
  * @returns {Promise<Object>} 账号信息
  */
 export async function getAccountWithFullTweets(screenName, tweetCount = 50, options = {}) {
   try {
     // ── 层1：userInfo（handle 级）──
-    const { userKey, windowKey } = buildAccountCacheKeys(screenName, tweetCount, options);
+    const { userKey } = buildAccountCacheKeys(screenName, tweetCount, options);
     const userTTL = getCacheTTL('twitter_user_info');
     let userInfo = await ExternalResourceCache.get(userKey, 'twitter_user_info', { maxAge: userTTL.maxAge });
     if (!userInfo) {
@@ -240,22 +292,55 @@ export async function getAccountWithFullTweets(screenName, tweetCount = 50, opti
       }
     }
 
-    // ── 层2：tweets（(userId, 窗口) 级）──
-    const tweetsKey = `twitter_user_tweets:${userInfo.id}:${windowKey}`;
+    // ── 层2：tweets（userId 级全量 + CA 专属双 key）──
+    const { tweetsKey, caKey } = buildAccountCacheKeys(screenName, tweetCount, { ...options, userId: userInfo.id });
     const tweetsTTL = getCacheTTL('twitter_user_tweets');
-    let tweets = await ExternalResourceCache.get(tweetsKey, 'twitter_user_tweets', { maxAge: tweetsTTL.maxAge });
-    if (!Array.isArray(tweets)) {
+
+    let tweets = null;
+    // ① CA 专属 key：本 token 早停结果（截断列表含 CA）——同 token 重析/后续调用点直接复用
+    if (caKey) {
+      const cachedCa = await ExternalResourceCache.get(caKey, 'twitter_user_tweets', { maxAge: tweetsTTL.maxAge });
+      if (Array.isArray(cachedCa)) tweets = cachedCa;
+    }
+    // ② userId 级全量 key：翻满窗口的完整列表——覆盖深度足够时按本请求窗口截断复用；
+    //    覆盖不足（oldestSec > untilSec，缓存窗口比本 token 浅）或凑数口径条数不够 → 重拉
+    if (!tweets) {
+      const entry = await ExternalResourceCache.get(tweetsKey, 'twitter_user_tweets', { maxAge: tweetsTTL.maxAge });
+      if (entry && Array.isArray(entry.tweets)) {
+        if (options.untilSec) {
+          if (entry.oldestSec != null && entry.oldestSec <= options.untilSec) {
+            tweets = truncateTweetsForWindow(entry.tweets, options.untilSec);
+          }
+        } else {
+          const actualCount = Math.max(tweetCount, 100);
+          if (entry.tweets.length >= actualCount) tweets = entry.tweets.slice(0, actualCount);
+        }
+      }
+    }
+    // ③ 真拉：miss / 覆盖不足 / CA key 未命中。带 tokenAddress → 每页 CA 匹配命中即停
+    if (!tweets) {
       if (options.untilSec) {
         // 时间窗驱动（2026-09-25 裁定）：只取发币前后阶段的推文，不凑数
-        tweets = await getUserTweets(userInfo.id, { count: String(tweetCount), untilSec: options.untilSec });
+        tweets = await getUserTweets(userInfo.id, { count: String(tweetCount), untilSec: options.untilSec, matchAddress: options.tokenAddress });
       } else {
         // 获取更多推文，避免遗漏包含地址的推文（getUserTweets 已按 cursor 翻页凑满；
         // 100 条对高频账号可覆盖到 token 创建时刻附近——发币 CA 公告通常在创建后几分钟内发出）
         const actualCount = Math.max(tweetCount, 100);
-        tweets = await getUserTweets(userInfo.id, { count: String(actualCount) });
+        tweets = await getUserTweets(userInfo.id, { count: String(actualCount), matchAddress: options.tokenAddress });
       }
-      if (Array.isArray(tweets)) {  // 非数组（异常形状）不落缓存，下次数取重拉
-        await ExternalResourceCache.set(tweetsKey, 'twitter_user_tweets', tweets, { ttl: tweetsTTL.ttl });
+      if (Array.isArray(tweets)) {
+        const caMatched = tweets.addressMatched === true;
+        if (caMatched && caKey) {
+          // 早停命中：截断列表只对本 token 的 CA 语义有效 → 落 CA 专属 key
+          // （不落全量 key：截断覆盖深度对其它 token 无效，写入会让复用判据漏推文）
+          await ExternalResourceCache.set(caKey, 'twitter_user_tweets', tweets, { ttl: tweetsTTL.ttl });
+        } else if (!caMatched) {
+          // 翻满（CA 未命中 / 未传地址）：完整列表落 userId 级全量 key 供跨 token 复用
+          await ExternalResourceCache.set(tweetsKey, 'twitter_user_tweets', {
+            tweets,
+            oldestSec: computeTweetsOldestSec(tweets),
+          }, { ttl: tweetsTTL.ttl });
+        }
       }
     }
 

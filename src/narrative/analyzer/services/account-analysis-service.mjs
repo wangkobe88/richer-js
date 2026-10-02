@@ -104,7 +104,8 @@ export async function getFullAccountInfo(screenName, options = {}) {
  * @param {string} tokenAddress - 代币合约地址
  * @param {Object} twitterInfo - 挂链推文信息（需 type==='tweet' 且有 author_screen_name）
  * @param {Object} [options] - 透传 untilSec 给 getFullAccountInfo（时间窗下界=
- *   token 创建时间-24h；CA 公告在创建后几分钟内，必在窗口内）
+ *   token 创建时间-24h；CA 公告在创建后几分钟内，必在窗口内）；tokenAddress 由本函数
+ *   并入透传（2026-10-02 用户三点方案）→ 真拉走 CA 惰性早停，拉到含 CA 推文即停
  * @param {Function} [options.fetchAccount] - 账号拉取函数注入（单测打桩；缺省 getFullAccountInfo）
  * @returns {Promise<Object|null>} 命中返回
  *   { screenName, method:'ca_timeline', tweetId, account }，未命中/前置不满足返回 null
@@ -115,7 +116,9 @@ export async function detectIssuerByCaTimeline(tokenAddress, twitterInfo, option
   const fetchAccount = options.fetchAccount || getFullAccountInfo;
   let account = null;
   try {
-    account = await fetchAccount(twitterInfo.author_screen_name, options);
+    // tokenAddress 并入透传（2026-10-02 用户三点方案）：getAccountWithFullTweets 真拉走
+    // CA 惰性早停——本函数的目的就是找含 CA 的推文，拉到 CA 即停与语义天然同构
+    account = await fetchAccount(twitterInfo.author_screen_name, { ...options, tokenAddress });
   } catch (error) {
     logger.error('NarrativeAnalyzer', `CA 宣告检测拉取作者时间线异常: @${twitterInfo.author_screen_name}`, { error: error.message });
     return null;
@@ -205,11 +208,13 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
   // 推文时间窗下界 = token 创建时间-24h（2026-09-25 裁定：只取发币前后阶段，不凑 100 条；
   // 发币 CA 公告在创建后几分钟内必在窗口内；创建时间缺失则不设窗口回退凑数口径）
   // token 创建时间：wss_events 回退补全后的统一源（flap 盘原先缺失）
+  // tokenAddress（2026-10-02 用户三点方案）：透传给 getAccountWithFullTweets 走 CA 惰性早停
   const tokenCreatedAtSec = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
   const tweetWindowUntilSec = tokenCreatedAtSec ? tokenCreatedAtSec - 24 * 3600 : null;
+  const tweetsOptions = { tokenAddress: tokenData.address || null };
+  if (tweetWindowUntilSec) tweetsOptions.untilSec = tweetWindowUntilSec;
   const fullAccountOrCommunityData = accountOrCommunityRef.type === 'account'
-    ? await getAccountWithFullTweets(accountOrCommunityRef.screen_name, 20,
-        tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {})
+    ? await getAccountWithFullTweets(accountOrCommunityRef.screen_name, 20, tweetsOptions)
     : await getCommunityWithFullTweets(accountOrCommunityRef.community_id, 20);
 
   if (!fullAccountOrCommunityData) {

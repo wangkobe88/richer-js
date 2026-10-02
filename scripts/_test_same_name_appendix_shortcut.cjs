@@ -227,28 +227,33 @@ async function main() {
         return 'THROW';
     };
 
-    // B1: 预置两层缓存 → 全命中零网络
+    // B1: 预置两层缓存（userId 级全量 key，oldestSec 覆盖足够）→ 全命中零网络
     {
         theCache.rows.length = 0;
+        const until = 1234567890;
         theCache.rows.push(
             { url: 'twitter_user_info:testuser', resource_type: 'twitter_user_info', status: 'success',
               content: { id: '12345', screen_name: 'TestUser', name: 'Test User', description: 'cached bio',
                          followers_count: 2000, statuses_count: 300, created_at: '2019-06-01T00:00:00.000Z' },
               cached_at: new Date().toISOString(), expires_at: null },
-            { url: 'twitter_user_tweets:12345:c100', resource_type: 'twitter_user_tweets', status: 'success',
-              content: [{ tweet_id: '200', text: 'cached tweet', created_at: '2026-09-30' }],
+            { url: 'twitter_user_tweets:12345', resource_type: 'twitter_user_tweets', status: 'success',
+              content: { tweets: [
+                  { tweet_id: '200', text: 'cached tweet', created_at: '2026-09-30', createdTimeStamp: (until + 3600) * 1000 },
+                  { tweet_id: '199', text: 'cached old tweet', created_at: '2026-09-01', createdTimeStamp: (until - 86400) * 1000 },
+              ], oldestSec: until - 86400 },
               cached_at: new Date().toISOString(), expires_at: null },
         );
         fetchCalls = [];
-        const res = await getAccountWithFullTweets('TestUser', 50, {});
-        check('B1 组装结果正确', res && res.type === 'account' && res.screen_name === 'TestUser'
+        const res = await getAccountWithFullTweets('TestUser', 50, { untilSec: until });
+        check('B1 组装结果正确（覆盖足够截断：第0条恒留+窗口内1条，窗口外1条被截）',
+            res && res.type === 'account' && res.screen_name === 'TestUser'
             && res.description === 'cached bio' && res.followers_count === 2000
             && Array.isArray(res.tweets) && res.tweets.length === 1 && res.tweets[0].text === 'cached tweet',
             JSON.stringify(res));
         check('B1 缓存全命中 fetch 零调用', fetchCalls.length === 0, JSON.stringify(fetchCalls));
     }
 
-    // B2: 全 miss → 真拉 + set key 形状
+    // B2: 全 miss → 真拉 + set key 形状（userId 级全量 key + {tweets, oldestSec} 包装）
     {
         theCache.rows.length = 0;
         fetchCalls = [];
@@ -264,36 +269,39 @@ async function main() {
         check('B2 set userInfo key=twitter_user_info:freshuser（handle 小写归一）',
             theCache.rows.some(r => r.resource_type === 'twitter_user_info' && r.url === 'twitter_user_info:freshuser'),
             keys.join(' | '));
-        check('B2 set tweets key=twitter_user_tweets:12345:c100（凑数口径 c<max(50,100)>）',
-            theCache.rows.some(r => r.resource_type === 'twitter_user_tweets' && r.url === 'twitter_user_tweets:12345:c100'),
-            keys.join(' | '));
+        const fullRow = theCache.rows.find(r => r.resource_type === 'twitter_user_tweets' && r.url === 'twitter_user_tweets:12345');
+        check('B2 set tweets userId 级全量 key=twitter_user_tweets:12345', !!fullRow, keys.join(' | '));
+        check('B2 全量条目 {tweets,oldestSec} 形状（oldestSec=跳过第0条后最老=1800000001）',
+            fullRow && Array.isArray(fullRow.content.tweets) && fullRow.content.tweets.length === 2
+            && fullRow.content.oldestSec === 1800000001,
+            JSON.stringify(fullRow && fullRow.content.oldestSec));
     }
 
-    // B3: handle 大小写归一 → userInfo 层跨大小写命中 + tweets 层同 key 命中 → 零新网络
+    // B3: handle 大小写归一 → userInfo 层跨大小写命中 + 全量 key 覆盖足够截断 → 零新网络
     {
         fetchCalls = [];
-        const res = await getAccountWithFullTweets('FRESHUSER', 50, {});   // 大写
+        const res = await getAccountWithFullTweets('FRESHUSER', 50, { untilSec: 1800000001 });   // 大写；oldestSec(1800000001)<=untilSec 覆盖足够
         check('B3 大小写归一全命中（fetch 零调用）', fetchCalls.length === 0, JSON.stringify(fetchCalls));
         check('B3 结果来自缓存（screen_name 原样大小写）', res && res.screen_name === 'TestUser');
     }
 
-    // B4: untilSec 窗口 → userInfo 命中 + tweets 独立 key w<sec>
+    // B4: untilSec 窗口比缓存深（覆盖不足）→ userInfo 命中 + tweets 真拉一次 + 全量 key 更新 + 二次调用零网络
     {
         fetchCalls = [];
         fetchHandler = defaultHandler;
-        const res = await getAccountWithFullTweets('FreshUser', 20, { untilSec: 1234567890 });
+        const res = await getAccountWithFullTweets('FreshUser', 20, { untilSec: 1799913600 });   // 比假响应最老推文(1800000001)深 86400s
         fetchHandler = null;
         const tweetsReqs = fetchCalls.filter(isTweetsReq).length;
         const userReqs = fetchCalls.filter(isUserReq).length;
         check('B4 userInfo 层命中（UserByScreenName 零调用）', userReqs === 0, JSON.stringify(fetchCalls));
-        check('B4 tweets 窗口 miss 真拉一次', tweetsReqs === 1);
-        check('B4 set tweets 窗口 key=twitter_user_tweets:12345:w1234567890',
-            theCache.rows.some(r => r.resource_type === 'twitter_user_tweets' && r.url === 'twitter_user_tweets:12345:w1234567890'),
+        check('B4 覆盖不足 tweets 真拉一次', tweetsReqs === 1);
+        check('B4 返回结果（假响应 2 条均在深窗口内）', res && res.tweets.length === 2);
+        check('B4 全量 key 覆盖深度更新（oldestSec 1799913600→1800000001 重写不变/凑满后一致）',
+            theCache.rows.some(r => r.resource_type === 'twitter_user_tweets' && r.url === 'twitter_user_tweets:12345'),
             theCache.rows.map(r => r.url).join(' | '));
-        check('B4 返回结果', res && res.tweets.length === 2);
-        // 同窗口二次调用 → tweets 层也命中
+        // 同窗口二次调用 → 全量 key 覆盖足够 → 截断复用零网络
         fetchCalls = [];
-        const res2 = await getAccountWithFullTweets('FreshUser', 20, { untilSec: 1234567890 });
+        const res2 = await getAccountWithFullTweets('FreshUser', 20, { untilSec: 1800000001 });
         check('B4 同窗口二次调用 fetch 零调用', fetchCalls.length === 0 && res2 && res2.tweets.length === 2);
     }
 

@@ -326,6 +326,11 @@ export class NarrativeAnalyzer {
     // 回退（flap，token-info-service 补全）——flap 盘原先缺失回退墙钟，现锚定真实创建时间
     const tokenCreatedAtSec = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
     const tweetWindowUntilSec = tokenCreatedAtSec ? tokenCreatedAtSec - 24 * 3600 : null;
+    // tokenAddress 透传（2026-10-02 用户三点方案）：账号收集真拉走 CA 惰性早停——
+    // 项目方 CA 公告通常在最新几条/置顶，拉到即停；全量缓存 userId 级跨 token 复用
+    const tweetsWindowOptions = tweetWindowUntilSec
+      ? { untilSec: tweetWindowUntilSec, tokenAddress: normalizedAddress }
+      : { tokenAddress: normalizedAddress };
 
     if (shouldCollectAccounts) {
       logger.info('NarrativeAnalyzer', '检测到独立网站，开始收集所有账号信息', {
@@ -333,8 +338,7 @@ export class NarrativeAnalyzer {
         twitterScreenName: twitterInfo.screen_name,
         hasInReplyTo: !!twitterInfo.in_reply_to
       });
-      relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo,
-        tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {});
+      relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions);
       logger.info('NarrativeAnalyzer', '账号信息收集完成', { count: relatedAccounts.length });
     }
 
@@ -349,16 +353,14 @@ export class NarrativeAnalyzer {
       if (twitterInfo) {
         // 有twitterInfo，从推文作者收集
         logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过twitterInfo）');
-        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo,
-          tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {});
+        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions);
       } else if (classifiedUrls?.twitter?.length > 0) {
         // 推文被删/获取失败，但URL中有screen_name，直接获取账号信息
         for (const tw of classifiedUrls.twitter) {
           const screenName = extractScreenNameFromTwitterUrl(tw.url);
           if (screenName) {
             logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过URL提取）', { screenName });
-            const accountInfo = await getFullAccountInfo(screenName,
-              tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {});
+            const accountInfo = await getFullAccountInfo(screenName, tweetsWindowOptions);
             if (accountInfo) {
               relatedAccounts.push({ ...accountInfo, role: 'primary' });
             }
@@ -377,8 +379,7 @@ export class NarrativeAnalyzer {
       logger.info('NarrativeAnalyzer', '检测到发行方自发宣告（品牌同一性+宣告指纹）→ 转账号判定路径', issuerSelfLaunch);
       // 账号判定需要作者账号：独立网站/项目币路径未收集时补收（推文作者 → primary）
       if (relatedAccounts.length === 0) {
-        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo,
-          tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {});
+        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions);
         logger.info('NarrativeAnalyzer', '自发币路径补充收集作者账号', { count: relatedAccounts.length });
       }
     }
@@ -389,8 +390,7 @@ export class NarrativeAnalyzer {
     // 品牌词）；fail-open：拉取失败/宣告竞态未发 → 不改道，维持标准路径 W 数学
     let issuerCaTimeline = null;
     if (!issuerSelfLaunch && twitterInfo?.type === 'tweet') {
-      issuerCaTimeline = await detectIssuerByCaTimeline(normalizedAddress, twitterInfo,
-        tweetWindowUntilSec ? { untilSec: tweetWindowUntilSec } : {});
+      issuerCaTimeline = await detectIssuerByCaTimeline(normalizedAddress, twitterInfo, tweetsWindowOptions);
       if (issuerCaTimeline) {
         logger.info('NarrativeAnalyzer', '检测到发行方 CA 宣告（作者时间线含合约地址）→ 转账号判定路径', {
           screenName: issuerCaTimeline.screenName, tweetId: issuerCaTimeline.tweetId,

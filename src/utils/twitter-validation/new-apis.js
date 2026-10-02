@@ -127,6 +127,21 @@ async function getUserByScreenName(screenName) {
 }
 
 /**
+ * 推文文本是否包含目标合约地址（去 0x 前缀双形态匹配，与叙事层
+ * verifyTokenAddress.checkText 同算法——narrative 侧 CA 早停复用本函数保持单一真相）
+ * @param {string} text - 推文文本
+ * @param {string} address - 合约地址（0x 开头与否均可，大小写不敏感）
+ * @returns {boolean}
+ */
+function textContainsAddress(text, address) {
+  if (!text || !address) return false;
+  const addr = String(address).toLowerCase().replace(/^0x/, '');
+  if (!addr) return false;
+  const textLower = String(text).toLowerCase();
+  return textLower.includes(`0x${addr}`) || textLower.includes(addr);
+}
+
+/**
  * 获取用户推文列表
  * /sapi/UserTweets 每页固定约 20 条（count 参数被端点忽略），需按 next_cursor_str 翻页凑满
  * @param {string} userId - Twitter用户ID (不是用户名)
@@ -134,19 +149,25 @@ async function getUserByScreenName(screenName) {
  * @param {string} [options.count] - 目标条数（翻页凑满为止；untilSec 存在时忽略，按时间窗驱动）
  * @param {number} [options.untilSec] - 推文时间窗下界（unix 秒）：翻到早于该时刻的推文即停，
  *   页内更早的推文丢弃（只取发币时间前后阶段的推文，不必凑满 count 条）
+ * @param {string} [options.matchAddress] - 目标合约地址（CA 惰性早停，2026-10-02 用户三点方案）：
+ *   每页拉完对置顶推 + 本页推文做地址匹配，命中即停止翻页（项目方 CA 公告通常在最新几条或
+ *   置顶，非项目票自然翻到窗口边界与原行为一致——早停点恒早于或等于原停点，零覆盖损失）。
+ *   命中时返回数组带 addressMatched=true 属性（数组属性不进 JSON 序列化，天然不落缓存行）
  * @returns {Promise<Array>} 推文列表
  */
 async function getUserTweets(userId, options = {}) {
-  console.log(`📝 获取用户推文列表: userId=${userId}${options.untilSec ? ` untilSec=${options.untilSec}` : ''}`);
+  console.log(`📝 获取用户推文列表: userId=${userId}${options.untilSec ? ` untilSec=${options.untilSec}` : ''}${options.matchAddress ? ' matchAddress=on' : ''}`);
 
   try {
     const requested = parseInt(options.count || '10', 10) || 10;
     const untilMs = options.untilSec ? options.untilSec * 1000 : null;
+    const matchAddress = options.matchAddress || null;
     const MAX_PAGES = 10; // 上限保护：最多 10 页（约 200 条），防止高频账号无限翻页
 
     const allTweets = [];
     let pinnedTweet = null;
     let cursor = null;
+    let addressMatched = false;
 
     for (let page = 0; page < MAX_PAGES; page++) {
       const params = new URLSearchParams({ user_id: userId, count: '20' });
@@ -174,16 +195,35 @@ async function getUserTweets(userId, options = {}) {
             crossedWindow = true;
           } else {
             allTweets.push(t);
+            // CA 早停只对窗口内推文判（命中即列表含 CA；越界推文本就被丢弃，不能只凭它停）
+            if (matchAddress && !addressMatched && textContainsAddress(t.text, matchAddress)) {
+              addressMatched = true;
+            }
           }
         }
+        if (matchAddress && !addressMatched && pinnedTweet
+            && textContainsAddress(pinnedTweet.text, matchAddress)) {
+          addressMatched = true; // 置顶推恒保留（unshift 到头部），命中即可停
+        }
         cursor = response?.next_cursor_str || null;
-        if (!cursor || tweets.length === 0 || crossedWindow) break;
+        if (addressMatched || !cursor || tweets.length === 0 || crossedWindow) break;
       } else {
         allTweets.push(...tweets);
-        // 够数 / 无游标 / 空页即停
+        if (matchAddress && !addressMatched) {
+          if (pinnedTweet && textContainsAddress(pinnedTweet.text, matchAddress)) {
+            addressMatched = true;
+          } else {
+            addressMatched = tweets.some(t => textContainsAddress(t.text, matchAddress));
+          }
+        }
+        // 够数 / 无游标 / 空页 / 地址命中即停
         cursor = response?.next_cursor_str || null;
-        if (!cursor || allTweets.length >= requested || tweets.length === 0) break;
+        if (addressMatched || !cursor || allTweets.length >= requested || tweets.length === 0) break;
       }
+    }
+
+    if (addressMatched) {
+      console.log(`🎯 推文含目标合约地址，提前停止翻页（已拉 ${allTweets.length + (pinnedTweet ? 1 : 0)} 条）`);
     }
 
     // 如果有置顶推文，将其合并到结果中
@@ -193,6 +233,12 @@ async function getUserTweets(userId, options = {}) {
     }
 
     console.log(`✅ 成功获取 ${allTweets.length} 条推文`);
+
+    // CA 早停标记（挂属性：JSON.stringify 数组只序列化索引元素，属性天然不落缓存行；
+    // 调用方据此外流「本列表是命中截断而非翻满全量」）
+    if (addressMatched) {
+      allTweets.addressMatched = true;
+    }
 
     return allTweets;
 
@@ -612,5 +658,6 @@ module.exports = {
   getUserByScreenName,
   getUserTweets,
   getTweetDetail,
-  getTweetDetailGraphQL
+  getTweetDetailGraphQL,
+  textContainsAddress
 };
