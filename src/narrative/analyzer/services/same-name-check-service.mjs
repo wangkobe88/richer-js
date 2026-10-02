@@ -71,6 +71,48 @@ class SameNameCheckService {
         createdAt: new Date(tokenCreatedAt * 1000).toISOString()
       });
 
+      // ── 目标代币 appendix 预解析（2026-10-02 d46b1b6c 叙事耗时案，提前到 AVE 搜索前）──
+      // duplicateNarrative 过滤依赖目标 token 的 raw_api_data.appendix 与同名代币对比——
+      // appendix 是 AVE API 发现链路专属字段，watcher 时代 wss 组装行
+      // （raw_api_data={source:'wss',…}）没有 → targetAppendix=null → filter 恒 false →
+      // duplicateNarrativeTokens 恒空 → isCopycat 恒 false（d46b1b6c 回测日志实证
+      // 960/960 次「重复叙事： 0」）。结果已定，AVE BSC 300 条 + Solana 逐关键词
+      // 300 条搜索（多词 token 单次分析 5-15s）纯死重——短路返回等价结果
+      // （isCopycat=false；details 计数字段为 0 并带 skipped 标记）。
+      // AVE 时代老票（appendix 存在）仍走完整搜索链
+      let targetAppendix = null;
+      if (targetTokenData && targetTokenData.raw_api_data) {
+        const rawData = targetTokenData.raw_api_data;
+        if (rawData.appendix) {
+          try {
+            targetAppendix = typeof rawData.appendix === 'string'
+              ? JSON.parse(rawData.appendix)
+              : rawData.appendix;
+          } catch (e) {
+            this.logger.debug('SameNameCheck', '解析目标代币appendix失败', { error: e.message });
+          }
+        }
+      }
+      if (!targetAppendix) {
+        this.logger.info('SameNameCheck',
+          '目标代币无 appendix（watcher 时代 wss 行）→ AVE 同名搜索短路（duplicateNarrative 恒空，isCopycat 恒 false）', {
+            symbol: tokenSymbol
+          });
+        return {
+          success: true,
+          isCopycat: false,
+          details: {
+            skipped: 'no_target_appendix',
+            totalOlder: 0,
+            duplicateNarrativeCount: 0,
+            withinOneDay: 0,
+            withinOneWeek: 0,
+            targetAppendix: null,
+            withinOneDayTokens: []
+          }
+        };
+      }
+
       // 搜索同名代币（BSC链）
       // 归一化 symbol 搜索，避免隐形字符导致搜不到同名代币
       const normalizedSearchSymbol = SameNameCheckService._normalizeName(tokenSymbol);
@@ -141,20 +183,7 @@ class SameNameCheckService {
         tokenCreatedAt - t.created_at > MIN_COPYCAT_GAP_SECONDS && t.created_at > 0
       );
 
-      // 解析目标代币的 appendix（用于叙事对比）
-      let targetAppendix = null;
-      if (targetTokenData && targetTokenData.raw_api_data) {
-        const rawData = targetTokenData.raw_api_data;
-        if (rawData.appendix) {
-          try {
-            targetAppendix = typeof rawData.appendix === 'string'
-              ? JSON.parse(rawData.appendix)
-              : rawData.appendix;
-          } catch (e) {
-            this.logger.debug('SameNameCheck', '解析目标代币appendix失败', { error: e.message });
-          }
-        }
-      }
+      // 解析目标代币 appendix 已提前到方法开头（no-appendix 短路判定），此处 targetAppendix 恒非空
 
       // 检查每个同名代币是否与目标代币共享同一叙事（appendix字段对比）
       const duplicateNarrativeTokens = olderTokens.filter(t => {

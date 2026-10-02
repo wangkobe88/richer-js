@@ -11,6 +11,8 @@ import {
 // C48：fetchCommunityById 直接从 communities-api.js 导入（index.js 未 re-export 它；
 // CJS shorthand module.exports 的 named import 实测可静态分析）
 import { fetchCommunityById } from '../../../../utils/twitter-validation/communities-api.js';
+import { ExternalResourceCache } from '../../../db/ExternalResourceCache.mjs';
+import { getCacheTTL } from '../../../db/cache-ttl-config.mjs';
 
 /**
  * 清理字符串用于匹配
@@ -193,7 +195,31 @@ export function verifyTokenName(tokenSymbol, tokenName, accountOrCommunityData) 
 }
 
 /**
+ * 账号数据两层缓存 key 构造（纯函数，单测锁定形状）
+ * - 层1 userInfo：handle 级（小写归一）——跨 token 复用，消除同作者连环发币重复拉取
+ * - 层2 tweets：(userId, 窗口) 级——窗口 = untilSec（时间窗驱动）或凑数口径 c<count>；
+ *   单分析内多调用点（collectAllAccountsWithFullInfo → detectIssuerByCaTimeline →
+ *   prestage 规则验证）传同一窗口参数 → 后续调用点全命中
+ */
+export function buildAccountCacheKeys(screenName, tweetCount = 50, options = {}) {
+  const handle = String(screenName || '').toLowerCase().trim();
+  const userKey = `twitter_user_info:${handle}`;
+  const windowKey = options.untilSec ? `w${options.untilSec}` : `c${Math.max(tweetCount, 100)}`;
+  return { handle, userKey, windowKey };
+}
+
+/**
  * 获取账号信息（含完整推文，用于规则验证）
+ *
+ * 两层 ExternalResourceCache（2026-10-02 d46b1b6c 叙事耗时案）：账号收集是叙事
+ * 分析外部 IO 大头（回测实测「获取用户信息」985 次调用 vs 302 唯一 handle ≈3.3 倍
+ * 冗余；高频账号翻页凑满 100 条 = 一次调用多次 API）。缓存命中后同作者后续
+ * token / 同分析后续调用点零网络。刻意手工 get/set 而非 CachedFetcher.fetchWithCache：
+ * 后者失败写 1h 冷却行，会静默灭掉宣告竞态重试（PrecheckFailRetryService 300s 窗
+ * 内的重试会全被冷却挡掉）——这里失败不落任何痕迹，重试语义与无缓存时一致。
+ * 只缓存成功结果（userInfo 需带 screen_name 防空 stub 毒缓存——C53 教训，apidance
+ * 对不存在账号返回 code:0 空骨架；tweets 需 Array.isArray）。
+ *
  * @param {string} screenName - Twitter用户名
  * @param {number} tweetCount - 获取推文数量
  * @param {Object} [options]
@@ -203,16 +229,34 @@ export function verifyTokenName(tokenSymbol, tokenName, accountOrCommunityData) 
  */
 export async function getAccountWithFullTweets(screenName, tweetCount = 50, options = {}) {
   try {
-    const userInfo = await getUserByScreenName(screenName);
-    let tweets;
-    if (options.untilSec) {
-      // 时间窗驱动（2026-09-25 裁定）：只取发币前后阶段的推文，不凑数
-      tweets = await getUserTweets(userInfo.id, { count: String(tweetCount), untilSec: options.untilSec });
-    } else {
-      // 获取更多推文，避免遗漏包含地址的推文（getUserTweets 已按 cursor 翻页凑满；
-      // 100 条对高频账号可覆盖到 token 创建时刻附近——发币 CA 公告通常在创建后几分钟内发出）
-      const actualCount = Math.max(tweetCount, 100);
-      tweets = await getUserTweets(userInfo.id, { count: String(actualCount) });
+    // ── 层1：userInfo（handle 级）──
+    const { userKey, windowKey } = buildAccountCacheKeys(screenName, tweetCount, options);
+    const userTTL = getCacheTTL('twitter_user_info');
+    let userInfo = await ExternalResourceCache.get(userKey, 'twitter_user_info', { maxAge: userTTL.maxAge });
+    if (!userInfo) {
+      userInfo = await getUserByScreenName(screenName);
+      if (userInfo && userInfo.screen_name) {  // 空 stub 不落缓存（C53）；getUserByScreenName 内部已对空骨架 throw，此处双保险
+        await ExternalResourceCache.set(userKey, 'twitter_user_info', userInfo, { ttl: userTTL.ttl });
+      }
+    }
+
+    // ── 层2：tweets（(userId, 窗口) 级）──
+    const tweetsKey = `twitter_user_tweets:${userInfo.id}:${windowKey}`;
+    const tweetsTTL = getCacheTTL('twitter_user_tweets');
+    let tweets = await ExternalResourceCache.get(tweetsKey, 'twitter_user_tweets', { maxAge: tweetsTTL.maxAge });
+    if (!Array.isArray(tweets)) {
+      if (options.untilSec) {
+        // 时间窗驱动（2026-09-25 裁定）：只取发币前后阶段的推文，不凑数
+        tweets = await getUserTweets(userInfo.id, { count: String(tweetCount), untilSec: options.untilSec });
+      } else {
+        // 获取更多推文，避免遗漏包含地址的推文（getUserTweets 已按 cursor 翻页凑满；
+        // 100 条对高频账号可覆盖到 token 创建时刻附近——发币 CA 公告通常在创建后几分钟内发出）
+        const actualCount = Math.max(tweetCount, 100);
+        tweets = await getUserTweets(userInfo.id, { count: String(actualCount) });
+      }
+      if (Array.isArray(tweets)) {  // 非数组（异常形状）不落缓存，下次数取重拉
+        await ExternalResourceCache.set(tweetsKey, 'twitter_user_tweets', tweets, { ttl: tweetsTTL.ttl });
+      }
     }
 
     return {

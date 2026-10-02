@@ -12,6 +12,13 @@ const CACHE_TTL_CONFIG = {
   tweet:              { maxAge: 365 * DAY, ttl: 730 * DAY },
   twitter_account:    { maxAge:  30 * DAY, ttl: 365 * DAY },
   twitter_community:  { maxAge:  30 * DAY, ttl: 365 * DAY },
+  // 账号完整数据两层缓存（2026-10-02 d46b1b6c 叙事耗时案）：userInfo handle 级
+  // 跨 token 复用（同作者连环发币不重复拉，月级稳定同 twitter_account 档）；
+  // 推文窗 (userId, untilSec|count) 窗口级——单分析内多调用点（collectAllAccounts →
+  // detectIssuerByCaTimeline → prestage 规则验证）+ 同 token 重析幂等复用
+  // （时间线头部随新推文增长，6h 刷新对分析场景足够）
+  twitter_user_info:   { maxAge:  30 * DAY, ttl: 365 * DAY },
+  twitter_user_tweets: { maxAge: 6 * 3600, ttl:  90 * DAY },
 
   // 微博
   weibo:              { maxAge:  90 * DAY, ttl: 365 * DAY },

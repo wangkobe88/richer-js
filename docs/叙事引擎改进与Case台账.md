@@ -51,6 +51,47 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C55 d46b1b6c 叙事耗时——账号收集两层缓存 + SameNameCheck appendix 短路（2026-10-02 用户裁定「解决一下」+「Solana 300 条是不是真的有意义」）★
+
+- **案由**：并集回测 d46b1b6c（50442571/02c60e50 双实验 66 万 tick）叙事分析
+  累计 89.1 分钟 ≈ 回测墙钟 92%——瓶颈全在多平台外部 IO，非 Jev（708 次调用
+  秒级）。两个死重定位：①账号收集无缓存：`getAccountWithFullTweets`（账号
+  信息+推文列表路径）是 ExternalResourceCache 唯一漏网的外部拉取，单次分析内
+  三调用点（collectAllAccountsWithFullInfo → detectIssuerByCaTimeline →
+  prestage 规则验证）各自独立重拉同一作者，回测实测「获取用户信息」985 次调用
+  vs 302 唯一 handle ≈3.3 倍冗余（高频账号翻页凑满 100 条 = 单次调用 10 页
+  API）；②SameNameCheck AVE 搜索恒死重：duplicateNarrative 过滤要求目标
+  token `raw_api_data.appendix` 非空——appendix 是 AVE API 发现链路专属字段，
+  watcher 时代 wss 组装行没有 → targetAppendix=null → isCopycat **恒 false**
+  （回测日志实证 960/960 次「重复叙事： 0」），而 BSC 300 条 + Solana 逐关键词
+  300 条搜索（多词 token 单次 5-15s）全白拉——不止 Solana，BSC 也是死重。
+- **改动 1（两层缓存）**：`account-community-rules.mjs` `getAccountWithFullTweets`
+  手工 get/set ExternalResourceCache——层1 userInfo `twitter_user_info:<handle小写>`
+  （跨 token 复用，消除同作者连环发币重复拉取）；层2 tweets
+  `twitter_user_tweets:<userId>:<untilSec|c<count>>`（窗口级，单分析内三调用点
+  同窗全命中 + 同 token 重析幂等）。TTL：userInfo{30d,365d}（同 twitter_account
+  档）/ tweets{6h,90d}（时间线头部随新推文增长）。**刻意不走
+  CachedFetcher.fetchWithCache**：其失败 1h 冷却会静默灭掉宣告竞态重试
+  （PrecheckFailRetryService 300s 窗内重试全被冷却挡掉）；只缓存成功（userInfo
+  需 screen_name 非空防 C53 空 stub 毒缓存、tweets 需 Array.isArray），失败零
+  缓存痕迹 = 重试语义与无缓存时一致。
+- **改动 2（appendix 短路）**：`same-name-check-service.mjs` 把 targetAppendix
+  解析提前到 AVE 搜索之前；null → 直接返回等价结果
+  （`isCopycat:false` + `details.skipped='no_target_appendix'`）零 AVE 调用。
+  逻辑等价证明：targetAppendix=null → duplicateNarrative filter 恒 false →
+  isCopycat=false（960/960 实证）。AVE 时代老票（appendix 存在）仍走完整链
+  （同叙事+起来过 → isCopycat=true 语义保留，A5 单测锁定）。
+- **预期收益**：回测场景单分析内 ×3 调用点 → ×1 真拉 + 跨 token userInfo
+  复用（985→≤302 次 UserByScreenName）；SameNameCheck 每次 5-15s AVE 搜索全免
+  （watcher 时代 token 占绝对多数）。
+- **单测**：`node scripts/_test_same_name_appendix_shortcut.cjs`（38 断言零 DB
+  零网络三节：A 短路矩阵六路+wss 行 AVE 零调用+老票完整链回归/B 两层缓存矩阵
+  miss·命中·大小写归一·untilSec 独立 key·网络失败零缓存痕迹·C53 空 stub
+  不落缓存/C TTL 档+调用透传+源码序）。回归：_test_twitter_community_pipeline
+  14、_test_precheck_fail_retry 35 全过。
+- **生效**：回测/直调进程重启后生效（node 已加载旧代码的进程不受影响）；
+  narrative engine 重启同理（§四-10 同批决策点）。
+
 ### C54 狮鹫——notable_other「知名但非超级IP」全域退出阻断侧：知名度是错误的轴，Web3 可接纳性才是（2026-10-02 用户裁定两步演化 "A"→"A2"）★
 
 - **案由**：狮鹫 `0xcb808ef1eeb9ba742935f50a63de6e158afb7777`（Griffin 翻译梗，
