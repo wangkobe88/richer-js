@@ -461,6 +461,17 @@ export class NarrativeAnalyzer {
           promptUsed = null;
           promptType = 'no_data';
           analysisFailed = false;
+          // 2026-10-02 C53：本分支此前只设内存 llmResult，无落库载体 → 六 stage 字段
+          // 全空 → rating=null 行 is_valid=true 固化（与 data_fetch_failed 早退同病）。
+          // 补 preCheckDataToSave（precheck 分支构造形状同构）→ resolveFinalRating 出 low
+          preCheckDataToSave = {
+            rating: 'low',
+            pass: false,
+            reason: llmResult.reason,
+            category: null,
+            score: null,
+            details: { category: 'no_data' }
+          };
         } else {
           // 检查是否应该使用账号/社区分析流程
           const shouldUseAccountCommunity = shouldUseAccountCommunityAnalysis(fetchResults)

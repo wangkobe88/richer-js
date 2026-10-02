@@ -107,6 +107,13 @@ async function getUserByScreenName(screenName) {
       profile_banner_url: userResult.profile_banner_url || ''
     };
 
+    // 空 stub 判定（2026-10-02 C53）：apidance 对不存在/停封账号返回 code:0 + 空骨架
+    // （user.result 存在但 core/legacy 全空）——screen_name 是账号主键，真实账号不可能为空；
+    // 空 stub 曾穿透判空被当「成功」缓存（30 天毒行）→ account 路径 data_fetch_failed 盲评
+    if (!userInfo.screen_name) {
+      throw new Error(`用户不存在（apidance 空响应骨架，@${screenName} 可能已停封/不存在）`);
+    }
+
     console.log(`✅ 成功获取用户信息: ${userInfo.name} (@${userInfo.screen_name})`);
     console.log(`   粉丝数: ${userInfo.followers_count.toLocaleString()}`);
     console.log(`   推文数: ${userInfo.statuses_count.toLocaleString()}`);

@@ -6,7 +6,7 @@ import twitterValidationModule from '../../utils/twitter-validation/index.js';
 const { getTweetDetail, getTweetDetailGraphQL, getUserByScreenName } = twitterValidationModule;
 import { fetchWebsiteContent, isFetchableUrl } from './web-fetcher.mjs';
 import { TwitterMediaExtractor } from './twitter-media-extractor.mjs';
-import { CachedFetcher } from '../db/ExternalResourceCache.mjs';
+import { CachedFetcher, ExternalResourceCache } from '../db/ExternalResourceCache.mjs';
 import { getCacheTTL } from '../db/cache-ttl-config.mjs';
 
 /**
@@ -293,12 +293,24 @@ export class TwitterFetcher {
     if (!username) return null;
 
     const cacheKey = `https://x.com/${username.toLowerCase()}`;
-    return CachedFetcher.fetchWithCache(
+    const result = await CachedFetcher.fetchWithCache(
       cacheKey,
       'twitter_account',
       async () => this._fetchAccountInternal(username),
       getCacheTTL('twitter_account')
     );
+
+    // 缓存出口空壳拦截（2026-10-02 C53）：修复前（getUserByScreenName 空 stub 判定上线前）
+    // 空 stub 已被当「成功」写进 twitter_account 缓存（30 天 TTL），缓存命中路径在
+    // _fetchAccountInternal 之前返回，源头判定拦不到——出口统一判定 + invalidate 清毒，
+    // 下次分析按失败处理（走 no_data fail-closed），再下次重新真 fetch
+    if (result && !result.screen_name) {
+      console.warn(`[TwitterFetcher] 命中空 stub 缓存行（账号数据无效），已失效并按失败处理: @${username}`);
+      await ExternalResourceCache.invalidate(cacheKey, 'twitter_account');
+      return null;
+    }
+
+    return result;
   }
 
   /**

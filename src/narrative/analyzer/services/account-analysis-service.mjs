@@ -218,7 +218,22 @@ export async function analyzeAccountCommunityToken(tokenData, fetchResults, opti
       category: 'data_fetch_failed',
       reasoning: '无法获取账号/社区完整数据（用于规则验证）',
       scores: null,
-      total_score: null
+      total_score: null,
+      // 2026-10-02 C53：此前该早退无任何落库载体（preCheckData/prestageData 皆无），
+      // 消费侧 else 分支 prestageDataToSave=undefined → 六 stage 字段全空 → rating=null
+      // 行 is_valid=true 缓存固化（18 行实证）。补 preCheckData 与 rules_validation 分支
+      // 同构 → 消费侧走 precheck 分支落 pre_check_result → resolveFinalRating 出 low。
+      // addressVerified/nameMatch 用 null（验证未执行，不冒充「验证失败 false」）
+      preCheckData: {
+        rating: 'low',
+        reason: '无法获取账号/社区完整数据（用于规则验证）',
+        result: {
+          addressVerified: null,
+          nameMatch: null,
+          details: { category: 'data_fetch_failed' },
+          validationStage: 'data_fetch_failed'
+        }
+      }
     };
   }
 

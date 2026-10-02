@@ -50,6 +50,64 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C53 rating=null 落库 bug——apidance 空 stub + data_fetch_failed 无载体双修（2026-10-02 用户裁定「修复吧」A+B 都做）★
+
+- **案由**：GMGN 轮 3 张 rating=null 票（蝴蝶人生 `0x87ae267002cd1ea0ec86bf3601d4a8ad76a47777` /
+  AAPLB `0x431a3bee82e2ca41e49895cbece5bb0f76a89b7a`（bStocks 家族 AAPL+B 第五张实证）/
+  Freedom of Money `0x3e17ee3b1895dd1a7cf993a89769c5e029584444`）——内存有 low 结论
+  （llmAnalysis.summary.rating='low' reason「无法获取账号/社区完整数据」）但落库 rating=null
+  且 is_valid=true 缓存固化，违反 P1.4「分析完成必有结论」。
+- **六环链破案**：① apidance 对停封/不存在账号返回 **code:0 + 空骨架**（user.result 存在
+  但 core/legacy 全空）→ getUserByScreenName 组装全空 userInfo 还打印「✅ 成功获取」
+  ② 空 stub 穿透 `if (!userInfo)` 判空 → twitterInfo=空壳（type:'account' 全零）→ 骗过
+  `hasValidDataForAnalysis`（只要 type==='account' 就算有效数据）→ 进 account 路径
+  ③ `getAccountWithFullTweets(空 screen_name)` → null → data_fetch_failed 早退——**唯一
+  无落库载体的早退形状**（rules_validation 分支有 preCheckData、prestage 成功有
+  prestageData，唯它两者皆无）④ 消费侧 else 分支裸奔：prestageDataToSave=undefined
+  ⑤ token_narrative **无 rating 列**，rating 全靠 resolveFinalRating 扫六 stage 字段推导
+  ——全空→null；llmResult.rating='low' 只进内存 llmAnalysis.summary 从未落库
+  ⑥ is_valid=true 落库固化 → 缓存命中永续。且空 stub 作为非 null truthy 被
+  fetchWithCache **set 成功缓存行（30 天 TTL）**——毒缓存比进程重启更持久。
+- **全表扫描**：六 stage 载体全空且 is_valid=true 共 21 行 = **18 行 data_fetch_failed**
+  （prompt_type='account_community'，远超已知 3+5）+ 3 行 prompt_type=null（9-28 13:3x
+  jev-J1.16 同窗批量、twitter 语料空——Jev unrated catch 落库形状，另案观察不在本案域）。
+  no_data 分支（9-27 加的 fail-closed）**0 行=从未触发过**，且检查发现它同样只设内存
+  llmResult 无落库载体——B 修复生效后它将成为真实落点，不补载体则 rating 仍 null。
+- **修复四处**（用户批准 A+B 都做，另加 A2 必修项）：
+  - **B1 源头**（`new-apis.js` getUserByScreenName）：组装后 `if (!userInfo.screen_name)
+    throw`「用户不存在（apidance 空响应骨架）」——screen_name 是账号主键，真实账号
+    不可能为空；三调用方（twitter-fetcher / account-community-rules / TwitterService）
+    全部 catch 接住（twitter-fetcher → null → fetchWithCache markFailed 60min 冷却）
+  - **B2 缓存出口**（`twitter-fetcher.mjs` fetchAccountInfo）：`fetchWithCache` 返回后
+    `if (result && !result.screen_name)` → invalidate 毒缓存行 + return null——缓存命中
+    路径在 B1 源头之前返回，源头判定拦不到旧毒行；invalidate 后下次重新真 fetch
+  - **A 早退补载体**（`account-analysis-service.mjs`）：data_fetch_failed 早退返回加
+    preCheckData（与 rules_validation 分支同构）→ 消费侧走既有 precheck 分支落
+    pre_check_result → resolveFinalRating 出 low。addressVerified/nameMatch 用 null
+    （验证未执行，不冒充「验证失败 false」）
+  - **A2 no_data 补载体**（`NarrativeAnalyzer.mjs`）：no_data 分支赋 preCheckDataToSave
+    （形状与 precheck 分支构造同构）——与 pre-check 结果互斥分支不覆盖
+- **副作用如实记录**：修复后这些票的 promptType 从 'account_community'（bug 状态 else
+  分支默认值）变为 'precheck'（data_fetch_failed 形状）——失败归因到 precheck 语义层。
+- **单测**：`node scripts/_test_data_fetch_failed_rating.cjs`（30 断言零 DB 零网络五节：
+  B1 行为级打桩 fetch——空骨架 throw/真用户放行/user 整缺回归/单键判定不扩大化；
+  _fetchAccountInternal 空输入 → null；resolveFinalRating 落库形状闭环——修复前 null
+  bug 复现 vs 修复后 A/A2 形状 low + rules_validation/stage_final/prestage 回归；源码
+  口径四连；B1 三调用方 catch 穿透安全）。回归 twitter_community 14 / unrated 32 /
+  prestage_project 36 / precheck_fail_retry 35 全过。
+- **三票重跑闭环（三条路径各异地兑现）**：蝴蝶人生 **null → low(1)**（twitter 毒缓存
+  清除 → website butterflylife-web.vercel.app 进语料 → 标准路径 W 类截词 0.84 拦，
+  stage_final low 落库）；AAPLB **null → low(1)**（无 website → 推特是唯一语料源且
+  账号停封 → pre-check 规则 4 public_info_fetch_failed 拦，pre_check low 落库；
+  bStocks 映射盘家族拦截维持）；Freedom **null → low(1)**（freedom-of-money.org 进
+  语料 → 标准路径 C 类截词 0.51 拦）。三票 twitter_account 毒缓存行全清。修复后引擎
+  真实看到了语料并判定（此前 data_fetch_failed 盲区），fail-closed 语义保持。
+  no_data+A2 路径本轮未被端到端触发（三票各有 website 或 pre-check 接管），形状闭环
+  由单测覆盖。
+- **影响面与遗留**：18 行历史同病行中 15 行存量（is_valid=true）不自动失效（§四-3
+  同款），重析走新链路即修；3 行 prompt_type=null 的 unrated 形状待另案裁定是否
+  批量重析。182 narrative engine + 直调进程重启同 §四-10 批次。
+
 ### C52 METAB/Benny——「GMGN 错关联」定性推翻 + 映射盘本体五重实锤；符号引用≠票号归属（2026-10-01 用户复查触发）★
 
 - **Token**：METAB `0x7425889fe94f9d693e8daefe88bcced6acfef4c0`（GMGN per-case 验证轮族七票；
@@ -911,12 +969,12 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
     ——「正龟」≈「正规」纯中文谐音推理，代码无可判事实；三方向待裁定（cultural 题
     补提示有开口风险 / 接受盲区 / 积累 case 再定）。另：J1.20 形状② E 类措辞对存量
     E 类票档位扰动为校准观察点
-31. **prestage data_fetch_failed 路径 rating=null 落库 bug**（-37，5 票实证含 TRX $100M）：
-    apidance 空 stub 用户对象「成功」返回 → account 路径 data_fetch_failed 早退无落库
-    载体 → 全 null 行 is_valid=true 缓存固化，违反 P1.4「分析完成必有结论」。修复
-    方向待裁定：A 早退路径补 preCheckData 形状（rating low 落库）、B TwitterFetcher
-    判空 stub 按失败处理——可并行。附带：GMGN creation_timestamp 部分不可靠
-    （负年龄 10 张，降档方向恰好保守）
+31. **（完结留档）prestage data_fetch_failed 路径 rating=null 落库 bug**（-37）：
+    **C53（2026-10-02）四处修复闭环**（B1 源头判空骨架 throw / B2 缓存出口拦截毒行 /
+    A 早退补 preCheckData / A2 no_data 补载体），实证扩至 18 行 + no_data 分支同病，
+    三票重跑三条路径全部 null→low。遗留：15 行历史存量不自动失效（重析即修）；3 行
+    prompt_type=null 的 Jev unrated catch 形状另案。附带：GMGN creation_timestamp
+    部分不可靠（负年龄 10 张，降档方向恰好保守）
 32. **（完结留档）0.52 AVE 同名搜索波动两问**（-38）：同 token 两跑一拦一放（now-based
     快照漂移）；① minFdv 100K 门允许 $130K 撒币小盘拦 $1.7M 票门槛过松 ② 快照波动
     致判定不稳定——**C47（2026-10-01）整体废除 0.52 后两问皆失对象**，规则本体与
