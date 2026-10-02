@@ -164,6 +164,7 @@ class ExperimentSignalStats {
             this.narrativeDataMap.set(addr, {
               narrative: item.narrative,
               human_judge: item.human_judge,
+              symbol: item.token_symbol || null,
               max_change_percent: item.max_change_percent
             });
 
@@ -253,13 +254,17 @@ class ExperimentSignalStats {
         };
       }
 
-      // 没有找到代币数据，返回基本信息
+      // 没有找到代币数据（tokens 接口按 discovered_at desc 有 10000 行上限，
+      // 并集容器实验 token 全集远超时早窗 token 会被截掉），从叙事数据补元数据
+      // （narrative 接口全量翻页不受截断，symbol/max_change_percent 同源：
+      // experiment_tokens + token_profiles）
+      const narrativeItem = this.narrativeDataMap.get(signalStats.tokenAddress);
       return {
         ...signalStats,
-        symbol: 'Unknown',
+        symbol: narrativeItem?.symbol || 'Unknown',
         name: '',
         narrativeRating: this.narrativeRatingMap.get(signalStats.tokenAddress) ?? null,
-        maxChange: null
+        maxChange: narrativeItem?.max_change_percent ?? null
       };
     });
 
