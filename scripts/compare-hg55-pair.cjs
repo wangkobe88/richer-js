@@ -4,8 +4,7 @@
 //
 // 用法：node scripts/compare-hg55-pair.cjs [--r1 <门臂id>] [--r0 <基线id>]
 //   v2 两臂（首版 5efaff23/20b5b439 作废：门子句误写裸键 holderTrendGrowth，
-//   (X >= 55 OR X IS NULL) 恒真零拦截；v2 真名 holderTrendGrowthRatio 重跑，
-//   创建后把新 id 回填默认值）
+//   (X >= 55 OR X IS NULL) 恒真零拦截；v2 真名 holderTrendGrowthRatio 重跑）
 //   同窗 10-02T02:18→10-03T04:00Z，同源 50442571，差分 = 门净效应
 //
 // 输出五节：
@@ -20,8 +19,8 @@ require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
 
 const args = process.argv.slice(2);
 const argVal = (n, d) => { const i = args.indexOf(n); return i >= 0 && args[i + 1] ? args[i + 1] : d; };
-const R1 = argVal('--r1', 'REPLACE_WITH_V2_R1_ID');
-const R0 = argVal('--r0', 'REPLACE_WITH_V2_R0_ID');
+const R1 = argVal('--r1', '9252d60a-38e0-4ad1-8032-2ec7bab74f99');
+const R0 = argVal('--r0', 'f6504c4a-494c-4108-995a-3c66029b32e2');
 
 async function pullTrades(client, expId) {
   const pageSize = 1000; let offset = 0; const all = [];
