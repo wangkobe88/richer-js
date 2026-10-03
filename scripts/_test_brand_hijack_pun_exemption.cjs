@@ -168,14 +168,14 @@ async function main() {
   check('D3 题面：豁免③含戏谑关联语义 + 新鲜事锚条件',
     /戏谑性关联是meme创作手法而非劫持/.test(questionsSrc) && /无新鲜事件锚时纯玩品牌词根才是劫持/.test(questionsSrc));
   // D4 superIP 快车道（mapSuperIPAnswers）一期不挂豁免——范围断言
-  const superipSeg = mapperSrc.slice(mapperSrc.indexOf('mapSuperIPAnswers'));
+  const superipSeg = mapperSrc.slice(mapperSrc.indexOf('export function mapSuperIPAnswers'));
   check('D4 superIP 路径一期不挂 punExempt（版本注释+台账记观察点）',
     !superipSeg.includes('punExempt'));
   check('D5 预检函数对 C40 票命中（Binance Inu 含 binance 关键词）',
     shouldIncludeBrandHijackCheck('BI', 'Binance Inu') === true);
 
   console.log('\n── E. 版本断言 ──');
-  check('E1 JEV_QUESTIONS_VERSION === J1.25（J1.24 裁定仍在 mapper；题集 J1.25 = subject_unqualified 主体口径修正）', JEV_QUESTIONS_VERSION === 'J1.25', JEV_QUESTIONS_VERSION);
+  check('E1 JEV_QUESTIONS_VERSION === J1.27（J1.24 裁定仍在 mapper；现 J1.27=C55 产品实体切分 bump）', JEV_QUESTIONS_VERSION === 'J1.27', JEV_QUESTIONS_VERSION);
 
   console.log(`\n═══════ ${passed} passed, ${failed} failed ═══════`);
   process.exit(failed > 0 ? 1 : 0);

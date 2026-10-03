@@ -51,7 +51,99 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
-### C55 d46b1b6c 叙事耗时——账号收集两层缓存 + SameNameCheck appendix 短路（2026-10-02 用户裁定「解决一下」+「Solana 300 条是不是真的有意义」）★
+### C56 中国公司产品发布簇——产品实体主体切分 + web3 接纳门（J1.27，2026-10-03 用户裁定「好，落地吧」+ mid-turn「要豁免币安」）★
+
+- **案由**：评3 161 票主题归类发现中国公司产品发布簇（华为麒麟 Mate90
+  0x967e4a52…7777、龙芯狗剩×4（-0.042~-0.228 BNB）、腾讯 TDreamQQ/EB/小久、
+  网易子曰、多多进宝、大吉等）几乎全亏。用户裁定原话：「这里面的主体并不是
+  『华为』/『网易』，而只是它们发布的产品（实体）。要不就是事件形成了大影响力
+  （并不需要一定是顶级IP），要不就是玩梗/有趣，对应着一个可爱的形象，本质上
+  还是web3用户能不能喜欢与接纳的问题」。mid-turn 补充：「要豁免币安」。
+- **切分语义（J1.27 题面）**：①event_magnitude 形状③收窄——公司产品发布的
+  量级不按母公司知名度评，按**产品实体自身的事件影响力**评（第三方自传播才算
+  大影响力，通稿/官宣矩阵不算）；②新增第 15 题 `subject_entity` 八档主体标注
+  （product_functional / product_character / person / event_hotspot /
+  character_ip / organization / crypto_native / account）；③dimension2 形状③
+  配套（产品实体票的传播影响力看事件自身出圈度）；④币安豁免三处——D/W 边界
+  句（crypto 机构官宣自家产品→D 类不判 W）+ magnitude 豁免句（主体量级按机构
+  自身量级评档）+ fit 豁免句（crypto 原生机构产品天然强契合）。
+- **mapper 产品实体接纳门** `productEntityAcceptanceBlock`：`subject_entity ∈
+  {product_functional, product_character}` 且 `(strong_fit+fit) < 0.5` → 阻断
+  「产品实体未被web3买家接纳(J1.27)」。豁免链：pubProxyActive / isW / rideMass
+  / binanceCorpus（`detectBinanceCorpus`：语料主推+父推+代币名含 binance/币安）
+  / superIP 快车道。fit≥0.5 的产品票放行（两出路之「可爱形象/强契合」路径，
+  例：火腿肠笔 fit 85-94% 放行、波兰球 high）。
+- **校准三轮 + state 保真缺口大发现**：r1/r2（J1.27 重建 state）+ ctrl（J1.25
+  题面重建 state 对照臂）三轮后追查币安 5 票「翻 low」异常，发现
+  **`token_narrative` 只持久化 twitter_info/classified_urls/extracted_info——
+  binance_square_info/instagram_info/website_info/douyin_info/xiaohongshu_info/
+  weixin_info/youtube_info 等全不持久化**，校准脚本重建 state 必缺这些语料节
+  （161 票中 **94 票** 含非持久化节；币安智能案实证：线上 675 字符含
+  【币安广场内容】官方认证发布会节 vs 重建 466 字符 → mag A→B/C 掉档）。
+  **重跑对比线上前必须先验证 state bit-identical**——r1/r2 对 94 缺节票的绝对
+  评级不可信（净效应两臂同缺节仍自洽，但题面×缺节交互会不对称放大打击面：
+  13 票重验实证净降 10 中 5 翻案、净升 3 全是 ctrl 缺节 artifact）。修正法=
+  直接复用线上 `stage1_prompt.state` 原文（buildCallPromptMeta full=true 落库）
+  + context 全键复刻（credibleEventAnchor 三源：superIP/issuer/广场官方认证
+  从 state 文本推导；instagramLinked/InfoFetched；tweetClassification）——已
+  固化进 `_calib-product-entity.mjs`。
+- **币安豁免闭环（5/5 全 high，双轮稳定）**：币安智能1 0x4a674ed3…7777、币安
+  智能2 0xb4705a35…7777、币智 0x1e5b6706…7777、智安 0x7536fa09…7777、
+  bIntelligence 0x5439b534…7777——真 state 下 cat 全 D、mag 3.08-3.64（A 档）、
+  se=product_functional+fit 93-99% 产品门直接放行（detectBinanceCorpus 豁免
+  分支未被用到——fit 高先过门，豁免是兜底层）、72.51-79.36 vs 线上 73.26-80.34。
+  之前 r2「翻 low」全是 state 缺节假阴性。
+- **终校准（真 state 156/161 有效，145 线上原文+11 重建旧行）**：迁移矩阵
+  high→high 125 / **high→low 27 / high→mid 2**（其余 low→low 1、null→low 1；
+  161 票全为线上评3=high 票）。拦因分布：产品门 **11 票全中设计目标**（腾讯微笑
+  ×3 fit 16-18%、麒麟 19%、狗剩×3 45-48%、EB 39%、多多进宝 5%、Express 12%、
+  大吉 10%——清一色中国/大厂功能产品票）+ 事件分贴线掉 7 + 机构日常运营 4 +
+  截词 3 + W 数学 1 + 量级 D 档 1。产品簇 18 票内 6 产品门拦+TDreamQQ 事件分拦
+  56.3+METI mid 68.73；福来/小久/YOYO/小财/子曰/MeMe 保 high/放行（fit≥0.5 或
+  product_character 可爱形象路径，设计内双出路）。对照赢 5 票：猪能飞/小八/
+  LIARA/CHOUCHOU 保 high，**金六根 high→low 59.08**（E 类 mag 2.4 双轮稳定
+  59.32/59.56 贴线，形状③对时事形象票的真实收紧，非方差）。
+- **C42 条件③ J1.27 适配修复（同日）**：RedCoin 0x40278f10…7777 终校准偶发
+  43.17 低分——J1.27 形状③下 Jev 把世界级产品发布的概率质量移向 P4/P5 高档
+  （P2+P3=0.47<0.5），C42 豁免条件③ `newProductP=P(2)+P(3)≥0.5` 意外失效 →
+  W 轮交互轴 0 分重新计入。修复：`newProductP = 1−P(0)−P(1)`（P2 新产品/P3
+  创新/P4/P5 更高档全是产品发布档，排除 minor update/ordinary feature 的原
+  裁定语义不变）；修复后双轮 high 79.06/81.37 稳定。
+- **flap 平台官方源豁免（mid-turn 裁定闭环，原 §四-15 遗留点）**：用户裁定原话
+  「flap 是 币安链的 meme 币发布平台，也是我们交易代币主要来源，跟币安链一个
+  道理」——flap 官方 IP 票与币安官方票同构。落地 `detectPlatformOfficial`（主推
+  作者 handle 硬集 `PLATFORM_OFFICIAL_HANDLES={binance, flapdotsh}`，大小写归一；
+  刻意不查 in_reply_to 父推；作者字段双形状 tweet 型 author_screen_name /
+  account 型 screen_name——182 实查 FlapGuy 行=author_screen_name:"flapdotsh"
+  命中）。**豁免位三处**：① rcp 概率门（routineContentProductBlock
+  opts.platformOfficial）② **block_reason argmax 链 institution_routine /
+  routine_content_product 子句**——FlapGuy 实测拦截点在此（argmax 0.55 / none
+  0.30，rcp 概率仅 0.10 够不着概率门；初版只挂两处豁免时 FlapGuy 仍 low，
+  argmax 位是复验发现的必要豁免；与 superIP 通道 institution_routine 豁免同
+  语义）③ 产品实体接纳门（productEntityAcceptanceBlock opts）。审计
+  `rcpPlatformExempt`（官方源 + 无豁免时概率门 OR argmax 位会拦才落键，忠实
+  复算 argmax 链判定）；superIP 通道不传 opts（C23 域语义不变；币安官方号在
+  注册表走快车道本就豁免 institution_routine，此处置标准路径兜底位）。
+- **BOB 定性修正（原 §四-15 记「BNB Chain 官方 campaign」有误）**：182 dump
+  实证主推是 228 粉路人号 @zhangxuanhui 回复 CZ 玩香蕉梗（父推才是
+  cz_binance）——非官方源不豁免；J1.27 累计四轮 3 low（截词×3 / 骑乘改道 W
+  37.66×1）+1 high 高方差，common_word 拦截维持合理。
+- **182 复验（真 Jev 双轮）**：FlapGuy **low→high 74.42/75.87**（cat=D、
+  mag 3.04-3.05 B 档、se=character_ip、blk=无——豁免生效主线）；RedCoin
+  high 77.52/81.75（C42 修复基线不变）；金六根 R1 low 59.24 / R2 high 71.07
+  （60 线贴线票天然抖动：C 档 dim2 2.63→事件分 60.04 恰过线，语料非官方源
+  豁免不触达）；BOB 双轮 low（minor+common 0.52 拦截词维持）。
+- **单测**：`node scripts/_test_jev_product_entity.cjs`（30 断言零 DB：产品门
+  矩阵/豁免链五路/币安语料检测/版本头/题面豁免句五节）；回归
+  `_test_w_interaction_exempt` 17、`_test_brand_hijack_pun_exemption` 18、
+  `_test_notable_other_exit` 22、`_test_web3_fit_anchor` 12、
+  `_test_narrator_two_shapes` 22 全过。
+- **校准脚本/产物**（182）：`_calib-product-entity.mjs`（正式版：线上 state
+  原文优先+context 全键）→ `/tmp/calib-j127-final.json`；辅助 `_verify-binance
+  -j127.mjs`/`_verify-netdown-state.mjs`/`_verify-anomalies-j127.mjs`/
+  `_audit-state-sections.mjs`/`_diff-state.mjs`/`_dump-binance-rows.mjs`。
+
+
 
 - **案由**：并集回测 d46b1b6c（50442571/02c60e50 双实验 66 万 tick）叙事分析
   累计 89.1 分钟 ≈ 回测墙钟 92%——瓶颈全在多平台外部 IO，非 Jev（708 次调用
@@ -943,6 +1035,8 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.27 | 2026-10-03 | ①event_magnitude 形状③收窄：公司产品发布量级按**产品实体自身**事件影响力评（母公司知名度不转移；第三方自传播才算大影响力，通稿不算）②dimension2 形状③配套 ③新增第 15 题 subject_entity 八档主体标注 ④币安豁免三处（D/W 边界句/magnitude 豁免句/fit 豁免句）⑤mapper `productEntityAcceptanceBlock` 产品实体接纳门：se∈{product_functional,product_character} 且 (strong_fit+fit)<0.5 → 阻断；豁免链 pubProxy/isW/rideMass/binanceCorpus（`detectBinanceCorpus`）/superIP ⑥C42 条件③ J1.27 适配：newProductP 改 1−P(0)−P(1)（形状③下概率质量移向 P4/P5，原 P2+P3 口径意外失效——RedCoin 43.17 偶发低分案） | C56 中国公司产品发布簇案（用户裁定「主体不是华为/网易而是它们发布的产品实体；要不事件形成大影响力，要不玩梗可爱形象——本质是 web3 用户能不能接纳」+ mid-turn「要豁免币安」；终校准真 state 156 票：产品门 11 票全中设计目标、币安 5/5 high、high→low 27/→mid 2；state 保真缺口 94/161 发现与校准方法论见案内） | 本 commit |
+| （C56 mapper-only，题集 J1.27 不动） | 2026-10-03 | 平台官方源豁免三处：`detectPlatformOfficial` 主推作者 handle 硬集 `{binance, flapdotsh}`（大小写归一；刻意不查 in_reply_to 父推——BOB 路人号形状；作者字段双形状 tweet `author_screen_name`/account `screen_name`）→ ① rcp 概率门（routineContentProductBlock opts.platformOfficial）② **block_reason argmax 链 institution_routine/routine_content_product 豁免子句（FlapGuy 实测拦截位：argmax 0.55/none 0.30 而 rcp 概率仅 0.10，概率门盖不住——与 superIP 通道 institution_routine 豁免同语义）** ③ 产品实体接纳门；审计 `rcpPlatformExempt`（救票形状才落，忠实复算 argmax 链）；superIP 通道不传 opts（C23 域语义不变，币安官方号走注册表快车道） | C56 FlapGuy 案（用户裁定「flap 是 币安链的 meme 币发布平台，也是我们交易代币主要来源，跟币安链一个道理」；FlapGuy 0x2fb77ad0…7777 low→high 74.42/75.87、BOB 0xf2fca4cf…7777 路人号照拦双 low、RedCoin 77.52/81.75 基线不变、币安 5 票 flap 改动后复验全 high 不触达） | 本 commit |
 | J1.26（mapper-only，题集 J1.25 不动） | 2026-10-02 | `nameReferentBlock` 阻断侧全域只累计 minor_other+common_word——notable_other（知名但非超级IP）全域退出：知名度梯度是错误判定轴（骑乘语境与 event_magnitude 双重惩罚、无独立信息），拦截责任移交 web3_fit unfit 负门 + minor/common + magnitude/tier；审计 `stage1.jev.nrNotableExempt`（全域）记「旧拦新放」形状 | C54 狮鹫案（两步裁定：①「超级IP就那么几个，名字不是它们就不行吗」→B类退出；②「核心问题不是实体不够知名，而是实体根本没有被接纳为Web3 meme币的可能」→全域；E2E：狮鹫翻high 74.44/CONVICTION截词0.98自拦/YAYA无名0.51自拦/Muse high 76.41=已知代价） | 本 commit |
 | P1.9 | 2026-10-01 | ①token 类型题「币本身即IP」双形状：发明新称号 OR 社区/文化 meme 主账号（MarsCoin 型），账号随币而生/社区后建、年龄非反证；project 侧显式反例（社区 meme 主账号有官网/品牌/认证不算 project）②state 预计算措辞中性化（去「项目方官方代币」带节奏）③mapper `rateProject` 加 `opts.accountAgeGate`：web3ip 评级不吃 P1.3 年龄降档/P1.5 实度门（项目信用框架对 meme 范畴错配），推文<5 保留；reason 标签「账号基本面评级」 | C46 MarsCoin 案（用户裁定「社区自己搞的 Meme 币主账号不属于项目，属于 web3 原生IP」「很多 meme 币一出生就有账号」；重跑类型 project→web3ip 翻转=语义修正类题改生效实证） | 本 commit |
 | J1.25 | 2026-10-01 | subject_unqualified 判据修正：主体=币名所指核心实体（形象/人物/IP/事件主角），陈述者账号绝不构成主体资格不足；形象类主体按形象自身知名度判，来源账号粉丝是 proxy | C43 土豪猫猫案（语义修正类题改生效实证：block argmax 翻转 none；与 J1.23 分数锚定类题改不动形成对照） | `923b31b` |
@@ -984,6 +1078,19 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
     executed 但 trades 0 行（极新盘 16-65s fire 共同特征）；是否深查待裁定
 14. **377cc0a6 回测题面版本混杂**（-15）：J1.12 部署时未重启回测进程——回测大概率
     已结束，条目或已失效，待确认
+15. **（完结留档）crypto 原生机构豁免边界**（C56 遗留）：用户裁定「flap 是
+    币安链的 meme 币发布平台，也是我们交易代币主要来源，跟币安链一个道理」
+    ——落地平台官方源豁免（`detectPlatformOfficial` 三处豁免位，详见 C56 条目
+    与版本表 mapper-only 行）：FlapGuy 0x2fb77ad0…7777 low→high 74.42/75.87；
+    BOB 0xf2fca4cf…7777 定性修正为 228 粉路人号 @zhangxuanhui 回复 CZ 玩香蕉梗
+    （父推才是 cz_binance）——非官方源不豁免，common_word 拦截维持合理
+16. **token_narrative 非持久化语料列缺口**（C56 校准方法论发现）：fetch 结果只有
+    twitter_info/classified_urls/extracted_info 等落列，binance_square_info/
+    instagram_info/website_info/douyin_info/xiaohongshu_info/weixin_info/
+    youtube_info 等全不持久化——重建 state 必缺节（评3 161 票中 94 票受影响；
+    币安智能案实证 mag 掉档）。线上行为不受影响（实时分析 state 完整），只影响
+    事后重跑/校准/回放的保真——是否加列或把 full fetchResults 打包落
+    data_fetch_results，待裁定
 15. **「牛来」0xbeea1d61 完全未进系统**（-16）：watcher 断供窗口漏采嫌疑，
     是否排查 09-26 前后心跳连续性待裁定
 16. **≤J1.12 豁免/骑乘区脏 high 缓存 21 行**（-17）：实时实验无买入风险（全过观察窗），

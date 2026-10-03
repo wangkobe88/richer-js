@@ -202,8 +202,8 @@ async function main() {
       && /wInteractionExempt: wInteractionExempt \? \{ tier: effTier, newProductP: wNewProductP \} : null/.test(src));
   // C42 本体是 mapper-only 切分（落地时题集 J1.24 不动）；后续 J1.25 = C43
   // subject_unqualified 主体口径修正（不触 W 类题），版本随之推进
-  check('E3 题集版本 J1.25（C42 mapper-only 落地在 J1.24；J1.25 为 C43 判据修正，W 类题零改动）',
-    JEV_QUESTIONS_VERSION === 'J1.25', JEV_QUESTIONS_VERSION);
+  check('E3 题集版本（C42 mapper-only 落地在 J1.24；现 J1.27=C55 产品实体切分）',
+    JEV_QUESTIONS_VERSION === 'J1.27', JEV_QUESTIONS_VERSION);
 
   console.log(`\n═══════ ${passed} passed, ${failed} failed ═════`);
   process.exit(failed > 0 ? 1 : 0);

@@ -243,8 +243,12 @@ function negativeHardNewsBlock(answers) {
  * word_extraction 六轮措辞教训一致——Jev 分不动的边界由代码确定性切分）。仅标准路径
  * 豁免；superIP 通道不豁免（注册表账号推自己参与的常规作品宣传仍拦，C23 域语义不变）。
  */
-function routineContentProductBlock(answers, category) {
+function routineContentProductBlock(answers, category, opts) {
   if (category === 'A') return null;
+  // C56 平台官方源豁免：币安/flap 等币安链原生平台官方账号发的自家内容（吉祥物
+  // IP/产品公告）不算「机构日常运营」拦截对象——自家场子官方票（FlapGuy 案）。
+  // 仅标准路径豁免；superIP 通道不传 opts（C23 域语义不变）
+  if (opts?.platformOfficial) return null;
   const p = answers?.block_reason?.probabilities?.routine_content_product ?? 0;
   if (p < 0.5) return null;
   return { label: BLOCK_LABELS.routine_content_product, mass: Math.round(p * 100) / 100 };
@@ -266,6 +270,98 @@ function web3FitBlock(answers) {
   const p = answers?.web3_fit?.probabilities?.unfit ?? 0;
   if (p < 0.5) return null;
   return { label: 'Web3用户偏好不合', mass: Math.round(p * 100) / 100 };
+}
+
+/**
+ * 币安系语料检测（纯代码，无 LLM）——C55 补充裁定（2026-10-03 用户「不过刚才
+ * 说的情况，要豁免币安」）：产品实体接纳门对币安豁免。币安/crypto 原生机构的
+ * 产品对链上买家天然高接纳——BSC meme 平台建在币安生态上、买家即币安用户，
+ * 「产品实体不被 web3 接纳」的前提对币安系不成立（C35 币安支付 D 类 / C40 BI
+ * 骑乘票不得被 C55 门拦）：币安影响力允许正常转移给其产品事件，与传统公司
+ * 产品切分（C55 主体）相反。
+ *
+ * 判据：代币名（symbol/name）或语料推文（主推+父推，与 detectCorpusCashtag
+ * 同文本源）含 binance/币安。宽判据有意——与 W 类交互分对币安生态票的宽松
+ * 口径一致（J1.24 戏谑关联豁免同款先例）。
+ */
+const BINANCE_KEYWORDS = ['binance', '币安'];
+function detectBinanceCorpus(tokenData, twitterInfo) {
+  const norm = (s) => String(s || '').toLowerCase();
+  const hay = [
+    norm(tokenData?.symbol),
+    norm(tokenData?.name || tokenData?.raw_api_data?.name),
+    norm(typeof twitterInfo?.text === 'string' ? twitterInfo.text : ''),
+    norm(typeof twitterInfo?.in_reply_to?.text === 'string' ? twitterInfo.in_reply_to.text : ''),
+  ].join(' ');
+  return BINANCE_KEYWORDS.some(kw => hay.includes(kw));
+}
+
+/**
+ * 币安链原生平台官方账号检测（纯代码，无 LLM）——C56 补充裁定（2026-10-03 用户
+ * 「flap 是币安链的 meme 币发布平台，也是我们交易代币主要来源，跟币安链一个
+ * 道理」）：flap 平台官方 IP 票与币安官方票同构——自家场子的官方内容不算
+ * 拦截对象（FlapGuy 0x2fb77ad0…7777 案：主推 @flapdotsh 官方号 9.98 万粉，
+ * J1.27 下 cat=D + se=character_ip，实际拦截点 = block_reason argmax
+ * institution_routine「机构日常运营」双轮稳定，rcp 概率只有 0.1——所以豁免位
+ * 有三处：① rcp 概率门（routineContentProductBlock opts）② argmax 链
+ * institution_routine / routine_content_product 子句（与 superIP 通道
+ * institution_routine 豁免同语义：S/A 级平台官方号的实质内容推不算日常运营）
+ * ③ 产品实体接纳门（productEntityAcceptanceBlock opts）。币安官方号在
+ * superIP 注册表走快车道（本就豁免 institution_routine），此处置标准路径兜底位。
+ *
+ * 刻意用主推作者 handle 硬集而非文本关键词：flap/four 等词在 BSC meme 语料里
+ * 高频出现（平台链接/普通英文词），裸查会把蹭名票误豁免；只查主推作者不查
+ * in_reply_to 父推（BOB 0xf2fca4cf…7777 案：主推是 228 粉路人号 @zhangxuanhui
+ * 玩 CZ 香蕉梗，父推才是 cz_binance——非官方源不豁免，common_word 拦截维持）。
+ * 官方账号集遇新 case 再扩（four.meme 官方号暂未出现 case，不预设）。
+ * 作者字段双形状：tweet 型 author_screen_name（FlapGuy 实测）/ account 型
+ * screen_name（twitter-fetcher.mjs 两种返回形状，token 自挂官方账号链接时是
+ * account 型）——两个字段都查。
+ */
+const PLATFORM_OFFICIAL_HANDLES = new Set(['binance', 'flapdotsh']);
+function detectPlatformOfficial(twitterInfo) {
+  const h = String(twitterInfo?.author_screen_name || twitterInfo?.screen_name || '').toLowerCase().trim();
+  return h !== '' && PLATFORM_OFFICIAL_HANDLES.has(h);
+}
+
+/**
+ * 产品实体接纳门（J1.27，2026-10-03 用户裁定，C55 华为麒麟案族——评3 161 票
+ * 东西方归类发现「中国公司产品发布」簇 ~15 票几乎全亏：麒麟 0x967e4a52…7777
+ * 实测 mag S71%/dim2 五档84% =「华为」的世界级影响力整体转移给「麒麟芯片」产品
+ * 实体；B 类 J1.21「发布者指代」/D 类机构影响力/A 类形象档三条继承通道横跨四类）。
+ * 裁定原话「这里面的主体并不是"华为"/"网易"，而只是它们发布的产品（实体）。
+ * 要不就是事件形成了大影响力（并不需要一定是顶级IP），要不就是玩梗/有趣，
+ * 对应着一个可爱的形象，本质上还是web3用户能不能喜欢与接纳的问题」。
+ *
+ * 执行：第 15 题 subject_entity 显式标注主体=公司产品实体（product_functional/
+ * product_character）时，两条路统一收敛到接纳度底线——web3_fit 的 strong_fit+fit
+ * 合计 <0.5 → 阻断（路b 玩梗可爱票靠 sf 高过线；路a 真出圈大影响力事件的票
+ * fit 至少中性——web3 用户在讨论它；纯功能产品无论母公司多大、大众圈多热，
+ * crypto 圈不接纳就拦）。母公司影响力的切分由题面形状③承担（wording 实证：
+ * 麒麟 mag 4.58→2.97 且 fit sf44→mg62）、dim2 残留（国产芯片报道被判事件自传播
+ * 五档57%）由本门兜底——题面切分+代码执行双防线（J1.16/J1.23/J1.24 教训）。
+ *
+ * 豁免：①pubProxyActive（J1.18/C29 发布者指代激活——骑乘票的量级语义由代码
+ * 锚定，两裁定并存）；②isW / rideMass≠null（W 数学独立计分，Web3 产品 fit
+ * 天然高、门无增益）；③binanceCorpus（C55 补充裁定：币安系产品对链上买家
+ * 天然高接纳，币安影响力可正常转移给其产品——C35 币安支付/C40 BI 不拦）；
+ * ③b platformOfficial（C56 补充裁定：flap 等币安链原生平台官方账号源，与
+ * 币安同理）；④superIP 快车道不消费本题（mapSuperIPAnswers 独立 mapper，
+ * phase 1 边界同 C44）。
+ */
+function productEntityAcceptanceBlock(answers, opts) {
+  const se = answers?.subject_entity?.choice;
+  if (se !== 'product_functional' && se !== 'product_character') return null;
+  if (opts.pubProxyActive || opts.isW || opts.rideMass != null) return null;
+  if (opts.binanceCorpus || opts.platformOfficial) return null;
+  const p = answers.web3_fit?.probabilities ?? {};
+  const fitMass = (p.strong_fit ?? 0) + (p.fit ?? 0);
+  if (fitMass >= 0.5) return null;
+  return {
+    label: `产品实体未被web3买家接纳(J1.27)（${se === 'product_functional' ? '功能产品' : '产品形象'}，接纳度${Math.round(fitMass * 100)}%<50%）`,
+    subject: se,
+    fitMass: round2(fitMass),
+  };
 }
 
 /**
@@ -460,6 +556,12 @@ export function mapStandardAnswers(answers, context) {
   // 于电影等内容产品）。
   const pubProxy = detectPublisherProxy(tokenData, twitterInfo);
   const pubProxyActive = !!(pubProxy && !cashtagForced && (category === 'B' || category === 'C'));
+  // C55 补充裁定：币安系语料（代币名/主推/父推含 binance/币安）——产品实体
+  // 接纳门豁免位（detectBinanceCorpus 见上）
+  const binanceCorpus = detectBinanceCorpus(tokenData, twitterInfo);
+  // C56 补充裁定（flap 官方源）：主推作者=币安链原生平台官方账号（binance/
+  // flapdotsh）——rcp 门 + 产品门双豁免位（detectPlatformOfficial 见上）
+  const platformOfficial = detectPlatformOfficial(twitterInfo);
   const magnitude = answers.event_magnitude?.score ?? 0;
   const tier = magnitudeTier(magnitude);
   // 发布者指代量级锚生效位：Jev 原判低于 A 时锚到 A（S 不降，A 原判不动）
@@ -553,6 +655,7 @@ export function mapStandardAnswers(answers, context) {
           block_reason: answers.block_reason?.probabilities,
           name_referent: answers.name_referent?.probabilities,
           web3_fit: answers.web3_fit?.probabilities,
+          subject_entity: answers.subject_entity?.probabilities,
         },
       },
     },
@@ -570,6 +673,7 @@ export function mapStandardAnswers(answers, context) {
   let nhnBlock = null; // negative_hard_news 质量门信息 {label, mass}（J1.11）
   let rcpBlock = null; // routine_content_product 质量门信息 {label, mass}（J1.13）
   let w3Block = null; // web3_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
+  let peBlock = null; // 产品实体接纳门信息 {label, subject, fitMass}（J1.27/C55）
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
@@ -578,6 +682,25 @@ export function mapStandardAnswers(answers, context) {
   let wInteractionExempt = false;
   let wNewProductP = null;
   let stage2Reason = null;
+  // C55 币安豁免审计：仅在该豁免实际改变门判定时落键（币安语料 + 无豁免时
+  // 门会拦 = 豁免救票形状），与 punExempt 命中才落的模式一致
+  const peBinanceExempt = binanceCorpus
+    && productEntityAcceptanceBlock(answers, { pubProxyActive, isW, rideMass }) != null
+    ? true : null;
+  // C56 平台官方源豁免审计（FlapGuy 案）：官方源 + 无豁免时三处拦截位任一会拦
+  // （rcp 概率门 rcp≥0.5 OR argmax institution_routine/routine_content_product
+  // 命中且 noneProb<0.5——忠实复算下方 argmax 链的判定，含 A 类 rcp 豁免与
+  // scope 检查）才落键，与 peBinanceExempt 命中才落的模式一致。FlapGuy 实测
+  // 命中的是 argmax 位（rcp 概率仅 0.1），概率门位是备用形状
+  const rcpArgmaxWouldBlock = ['institution_routine', 'routine_content_product']
+    .includes(answers?.block_reason?.choice)
+    && (answers?.block_reason?.probabilities?.none ?? 1) < 0.5
+    && !(answers?.block_reason?.choice === 'routine_content_product' && category === 'A')
+    && blockInScope(answers?.block_reason?.choice, category);
+  const rcpPlatformExempt = platformOfficial
+    && ((answers?.block_reason?.probabilities?.routine_content_product ?? 0) >= 0.5
+      || rcpArgmaxWouldBlock)
+    ? true : null;
 
   // J1.11 负面硬新闻质量门挂最前（事件性质层面的否决，优先于其他阻断展示）；
   // argmax 命中时下方 BLOCK_SCOPE 'all' 也能拦，此处覆盖概率过半但 argmax/noneProb
@@ -588,12 +711,18 @@ export function mapStandardAnswers(answers, context) {
   if ((nhnBlock = negativeHardNewsBlock(answers))) {
     stage2Blocked = true;
     stage2BlockReason = nhnBlock.label;
-  } else if ((rcpBlock = routineContentProductBlock(answers, category))) {
+  } else if ((rcpBlock = routineContentProductBlock(answers, category, { platformOfficial }))) {
     stage2Blocked = true;
     stage2BlockReason = rcpBlock.label;
   } else if ((w3Block = web3FitBlock(answers))) {
     stage2Blocked = true;
     stage2BlockReason = w3Block.label;
+  } else if ((peBlock = productEntityAcceptanceBlock(answers, { pubProxyActive, isW, rideMass, binanceCorpus, platformOfficial }))) {
+    // J1.27 产品实体接纳门（C55）：主体=公司产品实体且 web3 接纳度（sf+fit）<0.5 →
+    // 阻断。挂位在 web3_fit unfit 负门之后（unfit 票先被负门拦，label 归属更准），
+    // block_reason argmax 之前（事件性质层面的否决）
+    stage2Blocked = true;
+    stage2BlockReason = peBlock.label;
   } else if (blockChoice !== 'none' && noneProb < 0.5
     // J1.16 角色IP豁免：argmax 命中 rcp 且类别为 A（形象IP/角色）时不拦，与概率门同语义
     && !(blockChoice === 'routine_content_product' && category === 'A')
@@ -601,6 +730,11 @@ export function mapStandardAnswers(answers, context) {
     // 「无任何实质产品」的定义直接矛盾（CUE 本轮 gimmick 0.30/none 0.29 抖动即此
     // 形状——官方域名的存在本身就是反证），不拦
     && !(pubProxyActive && blockChoice === 'marketing_gimmick')
+    // C56 平台官方源豁免（FlapGuy 案实际拦截点在此位：argmax institution_routine
+    // 0.55 / none 0.30，rcp 概率只有 0.1 够不着概率门）——币安/flap 等币安链原生
+    // 平台官方账号的实质内容推不算「机构日常运营/常规内容产品宣传」，与 superIP
+    // 通道 institution_routine 豁免（blockedByBlockReason 的 blockChoice 排除）同语义
+    && !(platformOfficial && (blockChoice === 'institution_routine' || blockChoice === 'routine_content_product'))
     && blockInScope(blockChoice, category)) {
     stage2Blocked = true;
     stage2BlockReason = BLOCK_LABELS[blockChoice] || blockChoice;
@@ -625,14 +759,18 @@ export function mapStandardAnswers(answers, context) {
     // 币安生态叙事票设计）压死这类票属语义错位（J1.17 ChainPulse 案同源注释）。
     // 条件全中才豁免：①原生 W 类（改道票不豁免——骑乘改道/cashtag 改道各有
     // 拦截语义，iNu 案 cashtag 改道就是要拦）；②effTier S/A（世界级/头部主体）；
-    // ③新产品带 P(2)+P(3)≥0.5（「重要新功能或有特点的新产品」+「创新产品」，
-    // 排除 0 档小改进/版本更新与 1 档一般新功能——裁定原文「不是版本更新」）；
+    // ③新产品带 ≥0.5（排除 0 档小改进/版本更新与 1 档一般新功能——裁定原文
+    // 「不是版本更新」；J1.27 适配 2026-10-03 RedCoin 复验案：形状③收窄后 Jev
+    // 把世界级产品发布的概率质量移向 P4/P5 高档（RedCoin P2+P3=0.47<0.5 豁免
+    // 意外失效 → 43.17 偶发低分，双轮复验 high 79.06/81.37 证实），故改按
+    // 1−P0−P1 计——P2「重要新功能/新产品」/P3「创新产品」/P4/P5 更高档全是
+    // 产品发布档，语义与 C42 原裁定一致）；
     // ④交互已落无交互带（<10 分）——交互 ≥10 的票三轴照算，剔除反而亏分。
     // 效果：产品+时效两轴归一化百分制（÷60×100），pass 线 60 不变；wInteraction
     // 照常计算落库（审计可见）但不参与总分。mapper-only 切分，题集版本不动
     // （J1.16/J1.23/J1.24 教训：题面锚移不动 Jev 的分，代码切分才决定性）。
     const wProb = answers.w_product_score?.probabilities ?? {};
-    wNewProductP = round2((wProb['2'] ?? 0) + (wProb['3'] ?? 0));
+    wNewProductP = round2(1 - (wProb['0'] ?? 0) - (wProb['1'] ?? 0));
     wInteractionExempt = isW && rideMass == null && !cashtagForced
       && (effTier === 'S' || effTier === 'A')
       && wNewProductP >= 0.5
@@ -688,12 +826,20 @@ export function mapStandardAnswers(answers, context) {
         // C42 审计标记：世界级主体产品豁免币安交互命中详情（effTier/新产品带概率
         // 可追溯；wInteractionScore 键照常落库不受豁免影响）
         wInteractionExempt: wInteractionExempt ? { tier: effTier, newProductP: wNewProductP } : null,
+        // J1.27 审计标记：产品实体接纳门命中详情（subject_entity 标注 + 接纳度
+        // 可追溯；豁免票不落键）+ 币安豁免命中（C55 补充裁定，救票形状可追溯）
+        productEntityBlock: peBlock ? { subject: peBlock.subject, fitMass: peBlock.fitMass } : null,
+        productEntityBinanceExempt: peBinanceExempt,
+        // C56 审计标记：平台官方源 rcp 门豁免命中（rcp≥0.5 被官方源豁免救回）
+        rcpPlatformExempt,
+        subjectEntity: answers.subject_entity?.choice ?? null,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,
           dimension2: answers.dimension2?.probabilities,
           w_product_score: answers.w_product_score?.probabilities,
           w_binance_interaction: answers.w_binance_interaction?.probabilities,
           web3_fit: answers.web3_fit?.probabilities,
+          subject_entity: answers.subject_entity?.probabilities,
         },
       },
     },
