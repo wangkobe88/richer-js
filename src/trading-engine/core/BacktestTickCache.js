@@ -238,6 +238,7 @@ class BacktestTickCache {
       this._dropCache(dataPath, metaPath);
       return this._miss({ dataPath, metaPath, platform, addresses, fetchRows, columnsTag });
     }
+    const oldCount = oldRows.length; // push 前快照：rows 是 oldRows 同一引用，push 后 length=合并总数（2026-10-03 R0 双实例事故排查中被此显示误导）
     const incRows = await fetchRows(meta.maxId);
     // for 循环 push 合并（禁 spread：28 万行展开爆栈教训）
     const rows = oldRows;
@@ -245,7 +246,7 @@ class BacktestTickCache {
     const { rows: n, maxId } = await this._writeSorted(dataPath, metaPath, rows, {
       addresses, columnsTag,
     });
-    this._log('info', `${platform}: stale → cacheMax=${meta.maxId} → probe=${probeMax} | 旧行 ${oldRows.length} + 增量 ${incRows.length} = ${n} 行 / maxId=${maxId} / ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    this._log('info', `${platform}: stale → cacheMax=${meta.maxId} → probe=${probeMax} | 旧行 ${oldCount} + 增量 ${incRows.length} = ${n} 行 / maxId=${maxId} / ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     return { rows, source: 'stale' };
   }
 
