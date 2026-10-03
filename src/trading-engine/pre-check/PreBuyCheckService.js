@@ -519,7 +519,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId, earlyTradesCacheCallback, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId, earlyTradesCacheCallback, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered, earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -629,6 +629,10 @@ class PreBuyCheckService {
           // 平台标签（router 平台分门，2026-10-02）：引擎/回测侧透传
           // 'fourmeme'/'flap'；null 语义 = 未知平台（分门 fail-closed 落 router 门）
           platform: options.platform ?? null,
+          // router 门观察史因子（2026-10-03）：引擎侧 per-token 状态透传（router-gate-state.js）；
+          // null=未维护/非 flap——门写法 `== 0 OR IS NULL` / `<= N OR IS NULL` fail-open
+          earlyTradesRouterLowSideSeen: earlyTradesRouterLowSideSeen ?? null,
+          earlyTradesRouterRejectCount: earlyTradesRouterRejectCount ?? null,
         }
       );
     } catch (error) {
@@ -796,6 +800,9 @@ class PreBuyCheckService {
       tweetAuthorType: extraContext.tweetAuthorType ?? 0,
       // 数据采集轮数因子
       dataCollectionRound: extraContext.dataCollectionRound ?? 0,
+      // router 门观察史因子（引擎侧状态透传，2026-10-03）：null=未维护/非 flap
+      earlyTradesRouterLowSideSeen: extraContext.earlyTradesRouterLowSideSeen ?? null,
+      earlyTradesRouterRejectCount: extraContext.earlyTradesRouterRejectCount ?? null,
 
       // 严格同名代币因子（AVE 检索；错误/未执行时 maxFDV=0 放行，与龙头门同 fail-open 方向）
       strictSameNameTokenCount: sameNameCheck?.factors?.strictSameNameTokenCount ?? 0,
@@ -873,6 +880,10 @@ class PreBuyCheckService {
         // 聚合路由占比因子（GMGN 主导盘拦截）：缺省 0 放行（拦截写法 <60——同 top1 族方向）
         earlyTradesRouterPct: earlyParticipantCheck.earlyTradesRouterPct ?? 0,
         earlyTradesRouterCovered: earlyParticipantCheck.earlyTradesRouterCovered ?? 0,
+        // router 门观察史因子（引擎侧 per-token 状态透传，2026-10-03）：null=未维护/非 flap，
+        // 门写法 fail-open——同族平台分门 `(platform != 'flap' OR ... OR ... IS NULL)`
+        earlyTradesRouterLowSideSeen: extraContext.earlyTradesRouterLowSideSeen ?? null,
+        earlyTradesRouterRejectCount: extraContext.earlyTradesRouterRejectCount ?? null,
         // 早期参与者因子 - 数据跨度
         earlyTradesActualSpan: earlyParticipantCheck.earlyTradesActualSpan || 0,
         earlyTradesRateCalcWindow: earlyParticipantCheck.earlyTradesRateCalcWindow || 1,

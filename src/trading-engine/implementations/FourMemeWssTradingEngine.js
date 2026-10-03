@@ -76,6 +76,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._buyingTokens = new Set();      // 买路径执行中（预检查+记账期间防重入）
     this._sellingTokens = new Set();     // 卖路径执行中防重入（tick 密集，必须有）
     this._restoreAnchors = new Map();    // 重启恢复的持仓锚点 tokenAddress → { buyPriceUsd, buyTime }
+    this._routerGateState = new Map();   // router 门观察史 tokenAddress → { lowSideSeen, outCount }（pre-check/router-gate-state.js）
     this._intervals = {};
     this._wssDownFlagged = false;
 
@@ -1114,6 +1115,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
       if (preCheckPassed && shouldPerformPreCheck && this._preBuyCheckService) {
         try {
+          const { updateRouterGateState, routerGateFactors } = require('../pre-check/router-gate-state');
           const tokenInfo = this._buildTokenInfo(token);
           let preBuyCheckCondition = currentRound === 0
             ? strategy.preBuyCheckCondition
@@ -1156,8 +1158,20 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               // 平台标签（router 平台分门）：FA state（SharedTickConsumer registerToken
               // 传入）优先，factorResults（buildFactorMap platform 键）双保险
               platform: faState?.platform || factorResults.platform || null,
+              // router 门观察史（2026-10-03）：截至上次 fire 的状态——本次 fire 的 rp
+              // 由下方回填进状态、本次评估不消费（本次出界由区间门拦，无双计数）
+              ...routerGateFactors(this._routerGateState.get(token.token)),
             },
           );
+
+          // router 门观察史回填（fire 后）：flap 且 rp 非空才累计（宁漏不误）
+          if (preBuyCheckResult && preBuyCheckResult.earlyTradesRouterPct != null) {
+            this._routerGateState.set(token.token, updateRouterGateState(
+              this._routerGateState.get(token.token),
+              faState?.platform || factorResults.platform || null,
+              preBuyCheckResult.earlyTradesRouterPct,
+            ));
+          }
 
           if (!preBuyCheckResult.canBuy) {
             this.logger.warn(this._experimentId, 'BuyEval',

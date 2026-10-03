@@ -57,6 +57,7 @@ class BacktestEngine extends AbstractTradingEngine {
     this._buyingTokens = new Set();     // 买路径执行中防重入
     this._sellingTokens = new Set();    // 卖路径执行中防重入
     this._tokenBlacklist = new Map();   // 永久阻断
+    this._routerGateState = new Map();  // router 门观察史 tokenAddress → { lowSideSeen, outCount }（pre-check/router-gate-state.js；回放逐 fire 累计与实时同源）
     this._lastSnapshotTs = null;        // 上一个组合快照的虚拟时刻
     this._inflightEvals = new Set();    // 回放中 fire-and-forget 的评估 promise（买评估/卖去抖 fire；drain 用）
     this._finalStatusSet = false;       // 回放终态已写（stop 保护用）
@@ -1071,6 +1072,7 @@ class BacktestEngine extends AbstractTradingEngine {
 
       if (preCheckPassed && shouldPerformPreCheck && this._preBuyCheckService) {
         try {
+          const { updateRouterGateState, routerGateFactors } = require('../pre-check/router-gate-state');
           const tokenPlatform = token.platform || tick.platform || this._platforms[0];
           const tokenInfo = {
             address: token.token,
@@ -1125,8 +1127,20 @@ class BacktestEngine extends AbstractTradingEngine {
               totalSupply,
               // 平台标签（router 平台分门）：tick 行级真值（同 _registerToken 口径）
               platform: token.platform || factorResults.platform || null,
+              // router 门观察史（2026-10-03）：截至上次 fire 的状态——本次 fire 的 rp
+              // 由下方回填进状态、本次评估不消费（本次出界由区间门拦，无双计数）
+              ...routerGateFactors(this._routerGateState.get(token.token)),
             },
           );
+
+          // router 门观察史回填（fire 后）：flap 且 rp 非空才累计（宁漏不误）
+          if (preBuyCheckResult && preBuyCheckResult.earlyTradesRouterPct != null) {
+            this._routerGateState.set(token.token, updateRouterGateState(
+              this._routerGateState.get(token.token),
+              tokenPlatform,
+              preBuyCheckResult.earlyTradesRouterPct,
+            ));
+          }
 
           if (!preBuyCheckResult.canBuy) {
             this.logger.warn(this._experimentId, 'BuyEval',

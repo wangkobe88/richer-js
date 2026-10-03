@@ -1,94 +1,120 @@
 #!/usr/bin/env node
 // ============================================================================
-// router 门配对回测创建（2026-10-01，earlyTradesRouterPct<60 去留对比）
+// router 门观察史双门配对回测（2026-10-03 用户指令：
+// 「把 <50 涨进窗 以及 被拒 >10 次 干掉，再开个回测」）
 //
-// 用法：
-//   node scripts/create-router-gate-pair.cjs [--base <expId>] [--source <expId>]
-//        [--start <ISO>] [--end <ISO>] [--suffix <str>]
-//   默认：--base/source 02c60e50（buy-v2 v4 实跑虚拟实验 = config 基底 + token 集合源）
-//         --start 2026-09-30T11:00:00Z（与 H0/H1 配对同起点，首 token 11:06:51Z 前整点）
-//         --end   2026-10-01T10:00:00Z（数据齐备整点；两臂同窗，尾部票卖腿余量
-//                  按强平收尾——配对差分不受影响）
+// 门验证背景（analyze-router-late-entry.cjs，5efaff23/9252d60a 双样本复现）：
+//   router 区间门 [50,80) 拒后晚进车的票分裂——≥80 回落进窗侧净正（bot 退潮
+//   散户接棒），<50 涨进窗侧净负（GMGN 追热），出界 fire >10 次的票结构不稳
+//   净负（3-10 次档是净正主力 +2.70/18 张，阈值必须卡 >10 不误伤）。
+//   两个形状都是「信号历史」函数 → 引擎 _routerGateState 观察史 + 两个新
+//   preBuy 因子（earlyTradesRouterLowSideSeen / earlyTradesRouterRejectCount，
+//   pre-check/router-gate-state.js，单测 _test_router_gate_state.cjs 62 断言）。
+//   阈值来自 10-02→10-03T04:00Z 窗（两样本），同窗再验证 = 自证循环 →
+//   本配对开新窗 out-of-sample。
 //
-// 两臂（同一代码 = 案A sender 口径 + 案B holders 钱包口径引擎，唯一差异变量 =
-// preBuyCheckCondition 的 router 门）：
-//   W0 = 02c60e50 config 整包（router 门在：earlyTradesRouterPct < 60）
-//   W1 = preBuyCheckCondition 去掉 ' AND earlyTradesRouterPct < 60'
-//   差分即 router 门在当前引擎口径上的净效应（R0/R1 验证 +1.808 是案B之前的引擎）
+// 两臂（唯一差异 = 买腿 preBuyCheckCondition 追加两门子句；写在 preBuy 不写
+//   condition——观察史因子在 preBuy 评估上下文，FA fire factors 里没有）：
+//   W1 门臂：  ... AND (platform != 'flap' OR earlyTradesRouterLowSideSeen == 0
+//                        OR earlyTradesRouterLowSideSeen IS NULL)
+//                 AND (platform != 'flap' OR earlyTradesRouterRejectCount <= 10
+//                        OR earlyTradesRouterRejectCount IS NULL)
+//              （null fail-open = 首 fire 无状态放行；fourmeme 短路放行）
+//   W0 基线臂：preBuy 零改动（= 9252d60a 快照，含 hg55 门与 router 区间门）
 //
-// ⚠️ sourceExperimentId 决定 token 全集（_loadTokenMetadata 拉源实验 experiment_tokens）；
-//    02c60e50 仍在跑，创建时刻集合含 END 之后发现的 token——窗口外 token 零 tick 零信号，无害。
-// ⚠️ 两臂共用 BacktestTickCache（(source,platform) 键控）；H0/H1 已拉过 00:45Z 前数据，
-//    本窗终点 10:00Z → 首臂 STALE 增量补拉一次，次臂 FRESH 纯读。
+// 基底 = 9252d60a config 整包（hg55 门 v2 R1 门臂：buy-v2 v6 买腿 + hg 门 +
+//   17 卖腿 + TPA/PM/tokenCycle/stopLoss）——新门叠在当前最强配置上验证增量
+// 窗口 = 9252d60a endTime（10-03T04:00Z）无缝衔接 → 创建时刻（out-of-sample）
+// 源实验 = 50442571（running 的 both 实跑，新窗 token 持续覆盖）
 //
-// 启动（182，串行防 tick 缓存双写竞态）：
-//   node main.js start-experiment -e <W0_ID> && node main.js start-experiment -e <W1_ID>
+// 叙事口径（用户既定模式：第一个重跑、第二个吃缓存）：新窗 token 的
+//   token_narrative 由 50442571 实跑（同 J1.27 代码）持续落下，无需失效重析；
+//   W1 先跑（触碰 miss 就地重析落缓存）→ W0 吃 W1 落下的缓存 → 两臂同源。
+//
+// 用法（182）：node scripts/create-router-gate-pair.cjs [--commit]
+//   默认 dry-run 打印两臂差异；--commit 真建。
 // ============================================================================
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
 
-const DEFAULT_BASE = '02c60e50-1f99-4279-b71b-3d192a5018a4';
-const DEFAULT_START = '2026-09-30T11:00:00.000Z';
-const DEFAULT_END = '2026-10-01T10:00:00.000Z';
-const ROUTER_CLAUSE = ' AND earlyTradesRouterPct < 60';
+const BASE_ID = '9252d60a-38e0-4ad1-8032-2ec7bab74f99';
+const SRC_ID = '50442571-967e-4537-875d-df7d0ceca01d';
+const WIN_START = '2026-10-03T04:00:00.000Z';
+const ROUTER_GATE = " AND (platform != 'flap' OR earlyTradesRouterLowSideSeen == 0 OR earlyTradesRouterLowSideSeen IS NULL)"
+  + " AND (platform != 'flap' OR earlyTradesRouterRejectCount <= 10 OR earlyTradesRouterRejectCount IS NULL)";
 
 const args = process.argv.slice(2);
-function argVal(name, dflt) {
-  const i = args.indexOf(name);
-  return i >= 0 && args[i + 1] != null ? args[i + 1] : dflt;
-}
-const BASE = argVal('--base', DEFAULT_BASE);
-const SOURCE = argVal('--source', BASE);
-const START = argVal('--start', DEFAULT_START);
-const END = argVal('--end', DEFAULT_END);
-const SUFFIX = argVal('--suffix', '');
+const COMMIT = args.includes('--commit');
 
 async function main() {
   const { ExperimentFactory } = require('../src/trading-engine/factories/ExperimentFactory');
   const factory = ExperimentFactory.getInstance();
-  const base = await factory.load(BASE);
-  if (!base) throw new Error(`基底实验不存在: ${BASE}`);
+  const base = await factory.load(BASE_ID);
+  if (!base) throw new Error('基底实验不存在: ' + BASE_ID);
 
-  // router 门断言（preBuyCheckCondition 尾部恰好一次——漏了/写法漂移说明基底选错）
-  const buyLeg = base.config?.strategiesConfig?.buyStrategies?.[0] || {};
-  const preCond = buyLeg.preBuyCheckCondition || '';
-  const hits = preCond.split(ROUTER_CLAUSE).length - 1;
-  if (hits !== 1) {
-    throw new Error(`基底 preBuyCheckCondition 的 router 门出现 ${hits} 次（期望 1）——条件: ${preCond}`);
+  // 终点 = 创建时刻取整到分钟（新窗覆盖到当下，out-of-sample 于 10-03T04:00Z）
+  const winEnd = new Date(Math.floor(Date.now() / 60000) * 60000).toISOString();
+
+  const legs = [];
+  for (const withGate of [true, false]) {
+    const cfg = JSON.parse(JSON.stringify(base.config));
+    cfg.backtest = {
+      ...cfg.backtest,
+      startTime: WIN_START,
+      endTime: winEnd,
+      sourceExperimentId: SRC_ID,
+    };
+    const buy = cfg.strategiesConfig.buyStrategies[0];
+    if (withGate) {
+      if (!/earlyTradesRouterLowSideSeen/.test(buy.preBuyCheckCondition)) {
+        buy.preBuyCheckCondition += ROUTER_GATE;
+      }
+      cfg.name = '回测-router双门-W1门臂-1003新窗';
+      cfg.description = 'router 门观察史配对 W1（门臂）：基底 9252d60a 整包（含 hg55 门），买腿 preBuy 追加两门：'
+        + '(平台非flap OR 低侧未见 OR 无状态) AND (平台非flap OR 出界<=10 OR 无状态)——拦「rp<50 涨进窗」+「被拒>10次」；'
+        + `新窗 10-03T04:00→${winEnd}（out-of-sample，阈值来自 10-02→10-03 窗双样本）；源 50442571；`
+        + '观察史引擎实例级维护（pre-check/router-gate-state.js），叙事 W1 先跑落缓存';
+    } else {
+      if (/earlyTradesRouterLowSideSeen|earlyTradesRouterRejectCount/.test(buy.preBuyCheckCondition || '')) {
+        throw new Error('基线臂 preBuy 意外含 router 观察史门');
+      }
+      cfg.name = '回测-router双门-W0对照-1003新窗';
+      cfg.description = 'router 门观察史配对 W0（基线臂）：基底 9252d60a 整包零改动（含 hg55 门 + router 区间门），'
+        + '与 W1 唯一差异 = 无观察史双门；同窗同源，叙事吃 W1 落下的缓存；差分 = 双门净效应';
+    }
+    legs.push({ withGate, cfg });
   }
 
-  const backtestSection = {
-    initialBalance: 100,
-    sourceExperimentId: SOURCE,
-    minMaxChangePercent: 0,
-    startTime: START,
-    endTime: END,
-  };
+  // ── dry-run 打印 ──
+  for (const { withGate, cfg } of legs) {
+    const buy = cfg.strategiesConfig.buyStrategies[0];
+    console.log(`\n===== ${withGate ? 'W1 门臂' : 'W0 基线'} =====`);
+    console.log('  name:', cfg.name);
+    console.log('  condition:', buy.condition);
+    console.log('  preBuy:', buy.preBuyCheckCondition);
+    console.log('  backtest:', JSON.stringify(cfg.backtest));
+    console.log('  卖腿数:', cfg.strategiesConfig.sellStrategies.length,
+      '| PM:', JSON.stringify(cfg.positionManagement),
+      '| tokenCycle:', JSON.stringify(cfg.tokenCycle),
+      '| stopLoss:', JSON.stringify(cfg.stopLoss));
+  }
+  // 门差异唯一性检查
+  const [w1, w0] = legs.map(l => JSON.stringify(l.cfg));
+  if (w1 === w0) throw new Error('两臂 config 完全相同——门未生效');
 
-  // ── W0 对照臂：router 门保留（= buy-v2 v4 原样）──
-  const w0Config = {
-    ...JSON.parse(JSON.stringify(base.config)),  // 深拷贝整包（tokenCycle/stopLoss/TPA/卡牌全保留）
-    name: `回测-W0-router门在${SUFFIX}`,
-    description: `router 门去留对照臂：02c60e50 config 整包（buy-v2 v4 + 17 卖腿，earlyTradesRouterPct<60 保留）；源=${SOURCE.slice(0, 8)} 集合，窗 ${START}→${END}`,
-    backtest: { ...backtestSection },
-  };
-  const w0 = await factory.createFromConfig(w0Config, 'backtest');
+  if (!COMMIT) { console.log('\n[dry-run] 未建实验；加 --commit 真建（W1、W0 各一）'); process.exit(0); }
 
-  // ── W1 实验臂：唯一差异 = 去掉 router 门 ──
-  const w1Config = JSON.parse(JSON.stringify(w0Config));
-  const w1BuyLeg = w1Config.strategiesConfig.buyStrategies[0];
-  w1BuyLeg.preBuyCheckCondition = w1BuyLeg.preBuyCheckCondition.replace(ROUTER_CLAUSE, '');
-  w1BuyLeg.description = `${w1BuyLeg.description}；W1 变体（2026-10-01）：去掉 router 门 earlyTradesRouterPct<60，其余零改动`;
-  w1Config.name = `回测-W1-去router门${SUFFIX}`;
-  w1Config.description = `router 门去留实验臂：同 W0 config 整包，preBuyCheckCondition 唯一差异 = 去掉 earlyTradesRouterPct<60（top1 门/冷档门/TPA/叙事门全保留）；源=${SOURCE.slice(0, 8)} 集合，窗 ${START}→${END}`;
-  const w1 = await factory.createFromConfig(w1Config, 'backtest');
-
+  const ids = [];
+  for (const { cfg } of legs) {
+    const container = await factory.createFromConfig(cfg, 'backtest');
+    ids.push(container.id);
+    console.log('创建', cfg.name, '→', container.id);
+  }
   console.log('\n========================================');
-  console.log('W0_ID=' + w0.id);
-  console.log('W1_ID=' + w1.id);
+  console.log('W1_ID=' + ids[0]);
+  console.log('W0_ID=' + ids[1]);
   console.log('========================================');
-  console.log(`W1 preBuyCheckCondition = ${w1Config.strategiesConfig.buyStrategies[0].preBuyCheckCondition}`);
-  console.log(`启动（182，串行）：node main.js start-experiment -e ${w0.id} && node main.js start-experiment -e ${w1.id}`);
+  console.log('下一步（182 串行，等 f6504c4a 完成）：① 跑 W1（落叙事缓存）② 跑 W0（吃缓存）③ compare-router-gate-pair');
   process.exit(0);
 }
 

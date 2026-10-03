@@ -185,6 +185,10 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     // 聚合路由占比因子（GMGN 主导盘拦截，0x1de460 案 2026-09-30）：covered=0 时为 0 值放行
     earlyTradesRouterPct: preBuyCheckResult.earlyTradesRouterPct ?? 0,
     earlyTradesRouterCovered: preBuyCheckResult.earlyTradesRouterCovered ?? 0,
+    // router 门观察史因子（2026-10-03，pre-check/router-gate-state.js）：截至本次 fire
+    // 前的历史状态；null=未维护/非 flap（默认 null 非 0——首 fire 语义与 0「全净史」区分）
+    earlyTradesRouterLowSideSeen: preBuyCheckResult.earlyTradesRouterLowSideSeen ?? null,
+    earlyTradesRouterRejectCount: preBuyCheckResult.earlyTradesRouterRejectCount ?? null,
     // 钱包集中度因子
     walletTop3VolumeRatio: preBuyCheckResult.walletTop3VolumeRatio || 0,
     walletTop1VolumeRatio: preBuyCheckResult.walletTop1VolumeRatio || 0,
