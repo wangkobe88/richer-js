@@ -19,6 +19,10 @@ const { parseGroupsExpression } = require('../../strategies/group-variables');
  *   - legs 非空数组；side ∈ {buy, sell}
  *   - 每腿 condition 必填（非空字符串）
  *   - 每腿 groups 过 parseGroupsExpression（库是 groups 第一编辑面，脏值入库前拦截）
+ *   - 条件表达式未知因子拦截（2026-10-03 hg55 事故防线前移：库是条件第一编辑面，
+ *     写错因子名的腿入库前 400；condition/narrativeCallCondition 用 FA 因子集，
+ *     preBuyCheckCondition/repeatBuyCheckCondition 用 PreBuyCheckService 评估上下文键集；
+ *     语法错同样拦——parseCondition throw 视为腿非法）
  *   - side 与腿字段错配放行（买腿带 sellPercentage / 卖腿带 preBuyCheckCondition 等
  *     引擎本就「携带不生效」，不构成危险）
  * @param {string} side - 'buy' | 'sell'
@@ -32,6 +36,20 @@ function validateLegs(side, legs) {
     if (!Array.isArray(legs) || legs.length === 0) {
         return { valid: false, errors: ['腿集合必须是非空数组（空腿条目无意义）'] };
     }
+    // lazy require：保持「require 本文件零依赖」的可测性；require 缓存后无重复开销
+    const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
+    const { getAvailableFactorIds } = require('../../trading-engine/core/FactorBuilder');
+    const { PreBuyCheckService } = require('../../trading-engine/pre-check/PreBuyCheckService');
+    const evaluator = new ConditionEvaluator();
+    const faIds = getAvailableFactorIds();
+    const preBuyIds = new Set(PreBuyCheckService.getConditionFactorKeys());
+    // [字段, 校验集]：与 StrategyEngine.loadStrategies 同一分集口径
+    const CONDITION_FIELDS = [
+        ['condition', faIds],
+        ['narrativeCallCondition', faIds],
+        ['preBuyCheckCondition', preBuyIds],
+        ['repeatBuyCheckCondition', preBuyIds],
+    ];
     const errors = [];
     legs.forEach((leg, i) => {
         if (!leg || typeof leg !== 'object') {
@@ -40,6 +58,16 @@ function validateLegs(side, legs) {
         }
         if (typeof leg.condition !== 'string' || leg.condition.trim() === '') {
             errors.push(`腿[${i}]缺少 condition`);
+        }
+        for (const [field, ids] of CONDITION_FIELDS) {
+            const raw = leg[field];
+            if (typeof raw !== 'string' || raw.trim() === '') continue;
+            try {
+                const v = evaluator.validateCondition(evaluator.parseCondition(raw), ids);
+                if (!v.valid) errors.push(`腿[${i}] ${field} ${v.errors.join('; ')}`);
+            } catch (e) {
+                errors.push(`腿[${i}] ${field} 语法错误: ${e.message}`);
+            }
         }
         if (typeof leg.groups === 'string' && leg.groups.trim() !== '') {
             try {

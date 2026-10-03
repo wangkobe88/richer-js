@@ -7,12 +7,19 @@
 //   但这是 in-sample（holderTrendCV 门刚因同一陷阱被否决），须新窗口 out-of-sample。
 //
 // 两臂（唯一差异 = 买腿 condition 追加 hg 门）：
-//   R1 门臂：  ... AND (holderTrendGrowth >= 55 OR holderTrendGrowth IS NULL)
+//   R1 门臂：  ... AND (holderTrendGrowthRatio >= 55 OR holderTrendGrowthRatio IS NULL)
 //              （null fail-open = 验证矩阵口径：首买 <10s 序列未成型票放行；
 //                写主 condition 不写 preBuy——hg 是 FA trendFactors，fire factors 上下文；
 //                narrativeCallCondition 不加——condition 不过根本不触发叙事调用，
 //                buy-v2 v3 tokenCycle 门同款先例）
 //   R0 基线臂：买腿零改动（= 82093ca3 快照 buy-v2 v6）
+//
+// ⚠️ v2（2026-10-03 重跑）：首版门子句误写裸键 holderTrendGrowth（真名
+//   holderTrendGrowthRatio，FourMemeFactorAggregator 发射），且当时校验只 warn
+//   不拒载 → (X >= 55 OR X IS NULL) 恒真，门零拦截，两臂作废（5efaff23/20b5b439
+//   stopped 留行）。v2 用真名 + 未知因子 fail-fast 已上线（用户裁定），错名即拒启。
+//   叙事缓存：首版 R1 已把新窗 token 按 J1.27(2c16d36) 重析落缓存，v2 两臂
+//   直接复用（失效/重析步骤不再需要，同源成立）。
 //
 // 叙事口径（用户指令：第一个回测叙事重跑，第二个直接用第一个的结果）：
 //   跑前失效新窗 token_narrative（is_valid=false，脚本 invalidate-narrative-hg-window.cjs）
@@ -35,7 +42,7 @@ const BASE_ID = '82093ca3-ea73-4f26-9aef-cb9a1acee842';
 const SRC_ID = '50442571-967e-4537-875d-df7d0ceca01d';
 const WIN_START = '2026-10-02T02:18:18.992Z';
 const WIN_END = '2026-10-03T04:00:00.000Z';
-const HG_GATE = ' AND (holderTrendGrowth >= 55 OR holderTrendGrowth IS NULL)';
+const HG_GATE = ' AND (holderTrendGrowthRatio >= 55 OR holderTrendGrowthRatio IS NULL)';
 
 const args = process.argv.slice(2);
 const COMMIT = args.includes('--commit');
@@ -58,15 +65,16 @@ async function main() {
     };
     const buy = cfg.strategiesConfig.buyStrategies[0];
     if (withGate) {
-      if (!/holderTrendGrowth/.test(buy.condition)) buy.condition += HG_GATE;
-      cfg.name = '回测-hg55门-R1门臂-1002-1003新窗';
-      cfg.description = 'hg<55 门配对 R1（门臂）：基底 82093ca3 整包，买腿 condition 追加 (holderTrendGrowth >= 55 OR IS NULL)；'
-        + '新窗 10-02T02:18→10-03T04:00Z（out-of-sample）；源 50442571；跑前失效新窗叙事缓存，本臂按 J1.27(2c16d36) 重析';
+      if (!/holderTrendGrowthRatio/.test(buy.condition)) buy.condition += HG_GATE;
+      cfg.name = '回测-hg55门v2-R1门臂-1002-1003新窗';
+      cfg.description = 'hg<55 门配对 v2 R1（门臂）：基底 82093ca3 整包，买腿 condition 追加 (holderTrendGrowthRatio >= 55 OR IS NULL)；'
+        + '新窗 10-02T02:18→10-03T04:00Z（out-of-sample）；源 50442571；v2=首版裸键 holderTrendGrowth 写错门恒真作废（5efaff23），'
+        + '本版真名重跑；叙事直接复用首版 R1 已落的 J1.27(2c16d36) 重析缓存';
     } else {
-      if (/holderTrendGrowth/.test(buy.condition)) throw new Error('基线臂 condition 意外含 hg 门');
-      cfg.name = '回测-hg55基线-R0对照-1002-1003新窗';
-      cfg.description = 'hg<55 门配对 R0（基线臂）：基底 82093ca3 整包零门改动，与 R1 唯一差异 = 无 hg 门；'
-        + '同窗同源，叙事直接吃 R1 落下的缓存（用户裁定）；差分 = 门净效应';
+      if (/holderTrendGrowthRatio/.test(buy.condition)) throw new Error('基线臂 condition 意外含 hg 门');
+      cfg.name = '回测-hg55基线v2-R0对照-1002-1003新窗';
+      cfg.description = 'hg<55 门配对 v2 R0（基线臂）：基底 82093ca3 整包零门改动，与 R1 唯一差异 = 无 hg 门；'
+        + '同窗同源，叙事直接吃首版 R1 落下的缓存（用户裁定）；差分 = 门净效应；v2 重跑（首版 20b5b439 随门臂作废）';
     }
     legs.push({ withGate, cfg });
   }

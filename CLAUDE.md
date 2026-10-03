@@ -65,6 +65,12 @@ node scripts/_test_backtest_tick_cache.cjs
 
 # 推文拉取优化（CA 惰性早停 + userId 级全量缓存）零 DB 零网络单测（打桩 dbManager + global fetch）
 node scripts/_test_tweet_pull_optimization.cjs
+
+# 条件表达式未知因子 fail-fast 零 DB 单测（hg55 事故防线：validateCondition IS_NULL 补检/loadStrategies throw/键集真相源/库入库校验）
+node scripts/_test_unknown_factor_reject.cjs
+
+# 存量条件字段未知因子扫描（防线上线前置：experiments + strategy_library 全量，退出码 1=有命中）
+node scripts/scan-unknown-factor-conditions.cjs
 ```
 
 No test framework or CI is configured.
@@ -399,6 +405,17 @@ E5c 8 腿对「不冲毕业的 flap 小票」结构性盲区的保命兜底（f3
 - **单测**：`node scripts/_test_strategy_library_groups.cjs`（53 断言零 DB，A-G 七节：normalizeGroups 转换矩阵 / parseGroupsExpression 脏值矩阵 / evaluate 过滤矩阵 / **v1⇔v2 全积等价**（cycle∈{1,2,3} × cycleTag∈{1,2,3,null} 12 组合逐一相等——存量实验零变化的机器证明）/ 无配置恒可见 / maxExecutions·桶切换计数保留 / validateLegs）
 - **创建页只读化（2026-09-28 用户裁定，两条）**：①「之后实验所有的买入/卖出策略都要来自于策略库」；②「实验创建页面应该是从策略库中选择交易策略，创建页面本身不能编辑交易策略」。落地：create_experiment.html 删「+ 添加」手写入口 / preset 模板 / 腿编辑输入框，只留「📚 从库引用」——腿 = **只读快照卡**（condition 等宽块 + badges 徽章组 P{priority}/执行≤N/🃏cards/⏱️cooldown/卖N%/旁路去抖/🏷️groups + 高级字段 details 折叠，textContent 填充防注入）；机制 = `card.dataset.rawConfig` 整包存储，`collectFormData` 从 DOM 卡整包取回（取代旧「表单白名单收集 + mergeRawConfig 合并」双轨——bypassDebounce/sellPercentage/groups/description/cards 等机制字段零损失，description 白名单误删 bug 的类别整体消失）；`permanentBlockCondition` 从首买腿快照提取放 strategiesConfig 顶层（引擎读点）后从腿上删除保持旧提交形状；删除腿只重编号不重渲染。**复制链路腿同样整包只读回填**（51ea69e7 源 v1 `cycle` 数字格式原样保留——loadStrategies 永久接受，运行等价，不做迁移转换）
 - **复制链路高级段保真（2026-09-28）**：此前复制丢 `tokenCycle/stopLoss/tokenPositionAnalyzer/fourmemeWs` 四引擎级段（copyData 组装白名单 + 服务端 POST 白名单双重丢弃——复制 51ea69e7 出的实验 18 cycle 腿全隐/无止损/TPA 买腿 fail-closed/OPB 不采集）。修复链：experiments.js copyData 组装四段 → 创建页 `window._copyAdvancedConfig` 暂存（表单无输入 UI）→ collectFormData 顶层 spread → web-server POST 解构+形状校验（非对象 400；tokenCycle.enforce 非布尔 400；fourmemeWs 与 live 分支已写的 {live} 段合并且 live 优先）→ config 顶层 → Experiment.fromConfig 无损；非复制路径 `window._copyAdvancedConfig` undefined → 无段与现状一致
+
+## 条件未知因子 fail-fast（2026-10-03 hg55 门事故，用户裁定「发现没有因子，实验直接失败停止」）
+
+hg55 门配对首版（5efaff23/20b5b439，已作废 completed 终态留行）门子句误写裸键 `holderTrendGrowth`（真名 `holderTrendGrowthRatio`），当时 `loadStrategies` 校验失败只 `console.warn` 放行 + `validateCondition` 不检 `IS_NULL` 节点 → `(X >= 55 OR X IS NULL)` 对未知 X **恒真**，门零拦截跑完才发现。三层防线：
+
+- **① ConditionEvaluator.validateCondition 补 `IS_NULL`/`IS_NOT_NULL` operand 检查**（原只遍历 COMPARISON 节点，IS NULL 系子句的因子引用完全绕过校验）
+- **② StrategyEngine.loadStrategies 校验失败 throw**（原 warn 放行）；分集口径：`condition`/`narrativeCallCondition` 用 `getAvailableFactorIds()`（FA 因子集，评估上下文 = fire factors）；`preBuyCheckCondition`/`repeatBuyCheckCondition` 用 `PreBuyCheckService.getConditionFactorKeys()`（**真相源 = 空壳跑 `_evaluateWithCondition` 捕获 `_safeEvaluate` 实收 context 取键**，74 键零清单漂移；preBuy 评估上下文无 FA 因子，分集防误报双向）；不传集合 = 不校验（constructor 便捷路径/单测兼容），两引擎调用点显式传双集。写错名的条件子句静默失效形状：比较恒 false / IS NULL 恒 true，OR 组合可成恒真门——这正是拒启而非 warn 的理由
+- **③ StrategyLibraryService.validateLegs 同口径入库校验**（库是条件第一编辑面，写错腿 400 带腿序号；语法错同拦）
+- **存量扫描**：`scripts/scan-unknown-factor-conditions.cjs`（experiments 全表 + strategy_library 全条目，上线前置检查；2026-10-03 实扫 45 实验 + 6 条目仅命中作废 R1 自身 = 零拒启风险）
+- **单测**：`node scripts/_test_unknown_factor_reject.cjs`（24 断言零 DB：validateCondition 矩阵含事故形状 / loadStrategies throw 矩阵四条件字段 / 键集同源对拍（实跑捕获 context 键集与静态方法恒等）/ validateLegs 入库矩阵）
+- **hg55 v2 重跑**：`create-hg55-pair.cjs` 门子句改真名 `holderTrendGrowthRatio`（实验名 v2 后缀），叙事直接复用首版 R1 已落的 J1.27 重析缓存；`compare-hg55-pair.cjs` hgOf 同步真名
 
 ## Live Trading（实盘加固，2026-09-27）
 

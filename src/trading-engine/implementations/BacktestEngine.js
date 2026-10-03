@@ -223,7 +223,12 @@ class BacktestEngine extends AbstractTradingEngine {
         });
       });
     }
-    this._strategyEngine.loadStrategies(strategyArray, availableFactorIds);
+    // 未知因子 fail-fast（2026-10-03 hg55 事故裁定）：condition/narrativeCall 用 FA
+    // 因子集校验；preBuy/repeat 买检查用 PreBuyCheckService 评估上下文键集校验
+    //（别名防与第 5 步的 PreBuyCheckService 声明重复）
+    const { PreBuyCheckService: _PreBuyCheckService } = require('../pre-check/PreBuyCheckService');
+    this._strategyEngine.loadStrategies(strategyArray, availableFactorIds,
+      new Set(_PreBuyCheckService.getConditionFactorKeys()));
 
     // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存最严者先锁，fail-closed 方向）；
     // 未配置任何腿 = null = 机制关闭（存量实验零变化，语义同实时引擎）

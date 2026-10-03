@@ -289,6 +289,12 @@ class ConditionEvaluator {
             if (node.type === 'AND' || node.type === 'OR') {
                 validateNode(node.left);
                 validateNode(node.right);
+            } else if (node.type === 'IS_NULL' || node.type === 'IS_NOT_NULL') {
+                // IS NULL 系子句 operand 同样是因子引用（2026-10-03 hg55 事故：
+                // holderTrendGrowth IS NULL 的未知 operand 原先绕过校验，配 OR 恒真）
+                if (!availableFactorIds.has(node.operand)) {
+                    errors.push(`未知因子: ${node.operand}`);
+                }
             } else if (node.type === 'COMPARISON') {
                 // 检查左操作数
                 const leftVar = node.left;

@@ -49,9 +49,16 @@ class StrategyEngine {
     /**
      * 加载策略定义
      * @param {Array<Object>} strategyConfigs - 策略配置数组
-     * @param {Set<string>} availableFactorIds - 可用的因子ID集合
+     * @param {Set<string>|null} availableFactorIds - 可用的因子ID集合；null=不校验
+     *   （constructor 便捷路径与单测用；引擎路径必须显式传入）
+     * @param {Set<string>|null} preBuyAvailableFactorIds - preBuy/repeat 买检查条件的
+     *   可用因子集合（PreBuyCheckService.getConditionFactorKeys()）。缺省 null =
+     *   preBuy 系条件跳过校验（不能拿 FA 因子集去校 preBuy 专有键，会误报）。
+     *   ⚠️ 2026-10-03 hg55 事故裁定（用户）：条件引用未知因子 = 因子名写错，
+     *   fail-fast throw 拒绝启动——原 console.warn 放行让 (X >= 55 OR X IS NULL)
+     *   形状的写错门恒真，hg55 门配对回测整组作废。
      */
-    loadStrategies(strategyConfigs, availableFactorIds = new Set()) {
+    loadStrategies(strategyConfigs, availableFactorIds = null, preBuyAvailableFactorIds = null) {
         this._strategies = [];
 
         for (let i = 0; i < strategyConfigs.length; i++) {
@@ -83,10 +90,40 @@ class StrategyEngine {
                 // 解析条件
                 const condition = this._evaluator.parseCondition(config.condition);
 
-                // 验证条件
-                const validation = this._evaluator.validateCondition(condition, availableFactorIds);
-                if (!validation.valid) {
-                    console.warn(`策略[${config.id}]条件验证警告: ${validation.errors.join(', ')}`);
+                // 验证条件（availableFactorIds 传入才校验；未知因子 = 写错名 → throw）
+                if (availableFactorIds) {
+                    const validation = this._evaluator.validateCondition(condition, availableFactorIds);
+                    if (!validation.valid) {
+                        throw new Error(`策略[${config.id}] condition 引用未知因子: ${validation.errors.join(', ')}——因子名写错会让子句静默失效（比较恒 false / IS NULL 恒 true），拒绝启动`);
+                    }
+                }
+
+                // 附属条件字段校验（2026-10-03 hg55 事故同款防线；空串跳过）：
+                //   preBuyCheckCondition / repeatBuyCheckCondition 的评估上下文是
+                //   PreBuyCheckService 组装的 preBuy 因子表（narrativeRating /
+                //   earlyTrades* / platform 等），用 preBuy 键集校验；两集未传则跳过。
+                //   narrativeCallCondition 的评估上下文与主 condition 同为 fire
+                //   factors（FA 因子表），用 availableFactorIds 校验。
+                if (preBuyAvailableFactorIds) {
+                    for (const field of ['preBuyCheckCondition', 'repeatBuyCheckCondition']) {
+                        const raw = config[field];
+                        if (typeof raw !== 'string' || raw.trim() === '') continue;
+                        const v = this._evaluator.validateCondition(
+                            this._evaluator.parseCondition(raw), preBuyAvailableFactorIds);
+                        if (!v.valid) {
+                            throw new Error(`策略[${config.id}] ${field} 引用未知因子: ${v.errors.join(', ')}——因子名写错会让子句静默失效，拒绝启动`);
+                        }
+                    }
+                }
+                if (availableFactorIds) {
+                    const raw = config.narrativeCallCondition;
+                    if (typeof raw === 'string' && raw.trim() !== '') {
+                        const v = this._evaluator.validateCondition(
+                            this._evaluator.parseCondition(raw), availableFactorIds);
+                        if (!v.valid) {
+                            throw new Error(`策略[${config.id}] narrativeCallCondition 引用未知因子: ${v.errors.join(', ')}——因子名写错会让子句静默失效，拒绝启动`);
+                        }
+                    }
                 }
 
                 // 构建策略对象

@@ -2,9 +2,10 @@
 // ============================================================================
 // holderTrendGrowth>=55 门配对对拍（2026-10-03；182 专用——dbManager service key）
 //
-// 用法：node scripts/compare-hg55-pair.cjs [--r1 5efaff23-…] [--r0 20b5b439-…]
-//   R1 = 5efaff23（门臂：买腿追加 AND (holderTrendGrowth >= 55 OR IS NULL)，叙事重析 J1.27）
-//   R0 = 20b5b439（基线：82093ca3 快照零门改动，叙事吃 R1 落下的缓存）
+// 用法：node scripts/compare-hg55-pair.cjs [--r1 <门臂id>] [--r0 <基线id>]
+//   v2 两臂（首版 5efaff23/20b5b439 作废：门子句误写裸键 holderTrendGrowth，
+//   (X >= 55 OR X IS NULL) 恒真零拦截；v2 真名 holderTrendGrowthRatio 重跑，
+//   创建后把新 id 回填默认值）
 //   同窗 10-02T02:18→10-03T04:00Z，同源 50442571，差分 = 门净效应
 //
 // 输出五节：
@@ -19,8 +20,8 @@ require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
 
 const args = process.argv.slice(2);
 const argVal = (n, d) => { const i = args.indexOf(n); return i >= 0 && args[i + 1] ? args[i + 1] : d; };
-const R1 = argVal('--r1', '5efaff23-07c5-45e0-9eff-3527ab9d5240');
-const R0 = argVal('--r0', '20b5b439-f4b8-4f8e-8931-7c08d8a662b4');
+const R1 = argVal('--r1', 'REPLACE_WITH_V2_R1_ID');
+const R0 = argVal('--r0', 'REPLACE_WITH_V2_R0_ID');
 
 async function pullTrades(client, expId) {
   const pageSize = 1000; let offset = 0; const all = [];
@@ -104,7 +105,7 @@ async function main() {
   // 每 token 首条 buy 信号 metadata（hg 值 / 叙事评级快照）
   const metaOf = (sigs) => { const m = new Map(); for (const s of sigs) if (s.action === 'buy' && !m.has(s.token_address)) m.set(s.token_address, s.metadata || {}); return m; };
   const m1 = metaOf(s1), m0 = metaOf(s0);
-  const hgOf = (meta) => meta?.trendFactors?.holderTrendGrowth;
+  const hgOf = (meta) => meta?.trendFactors?.holderTrendGrowthRatio;
   const narOf = (meta) => meta?.preBuyCheckFactors?.narrativeRating;
   const platOf = (meta) => meta?.preBuyCheckFactors?.platform || meta?.trendFactors?.platform || '?';
 

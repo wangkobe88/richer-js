@@ -207,10 +207,10 @@ console.log('G. validateLegs（库是 groups 第一编辑面）');
     { condition: 'a > 1' }, { condition: 'b > 1', groups: 'cycle==9x' },
   ]).errors.some(e => e.startsWith('腿[1]')), true);
   check('groups IS NULL 拒', validateLegs('sell', [{ condition: 'a > 1', groups: 'cycle IS NULL' }]).valid, false);
-  check('side 与腿字段错配放行（引擎携带不生效）', validateLegs('buy', [
-    { condition: 'a > 1', sellPercentage: 0.5, bypassDebounce: true },
+  check('side 与腿字段错配放行（引擎携带不生效；condition 用真因子——2026-10-03 起 validateLegs 拦未知因子，占位键 a 会被拒）', validateLegs('buy', [
+    { condition: 'profitPercent >= 20', sellPercentage: 0.5, bypassDebounce: true },
   ]).valid, true);
-  check('多错误聚合', validateLegs('sell', [{ priority: 1 }, { condition: 'a>1', groups: 'xx==1' }]).errors.length, 2);
+  check('多错误聚合', validateLegs('sell', [{ priority: 1 }, { condition: 'profitPercent > 1', groups: 'xx==1' }]).errors.length, 2);
 }
 
 // ═══ H. mapCycleParams（cycle 判定配置化：tokenCycle.params → FA cycle* 键）═══

@@ -701,6 +701,34 @@ class PreBuyCheckService {
   }
 
   /**
+   * preBuy 系条件（preBuyCheckCondition / repeatBuyCheckCondition）评估上下文的
+   * 因子键集（2026-10-03 hg55 事故防线：StrategyEngine.loadStrategies 用它校验
+   * 条件引用的因子存在，未知键 = 写错名 → 实验拒启）。
+   *
+   * 真相源 = _evaluateWithCondition 实际组装的评估 context：空壳跑一次捕获
+   * _safeEvaluate 收到的 context 取键——不另持清单，context 加键自动跟上（零漂移）。
+   * @returns {Array<string>} 可用于 preBuy 条件表达式的因子键
+   */
+  static getConditionFactorKeys() {
+    const svc = Object.create(PreBuyCheckService.prototype);
+    svc.logger = { info() {}, error() {}, warn() {}, debug() {} };
+    let captured = null;
+    svc._safeEvaluate = (_cond, ctx) => { captured = ctx; return true; };
+    svc._diagnoseCondition = () => ({ conditionList: [], summaryReason: '' });
+    const empty = {};
+    try {
+      svc._evaluateWithCondition(
+        empty, empty, empty, empty, empty, empty, empty,
+        '1 == 1', Date.now(), null, null, {});
+    } catch (_e) {
+      // 空壳跑挂 = context 组装改了形状，校验集失真——fail-loud 让调用方看见
+      throw new Error(`getConditionFactorKeys 空壳捕获失败: ${_e.message}`);
+    }
+    if (!captured) throw new Error('getConditionFactorKeys 未捕获到评估 context');
+    return Object.keys(captured);
+  }
+
+  /**
    * 使用条件表达式评估
    * @private
    * @param {Object} holderCheck - 持有者检查结果
