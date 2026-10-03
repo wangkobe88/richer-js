@@ -38,15 +38,28 @@ async function pullTrades(client, expId) {
   return all;
 }
 
+// 窄列拉取（2026-10-03 v2 重跑实证：metadata 全字段分页拉取 statement timeout——
+// 回测信号数千条且 metadata jsonb 大，只取 jsonb 路径三字段，行缩至几十字节）
 async function pullSignals(client, expId) {
   const pageSize = 1000; let offset = 0; const all = [];
   for (;;) {
     const { data, error } = await client.from('strategy_signals')
-      .select('id, token_address, action, executed, created_at, metadata')
+      .select(`id, token_address, action, executed, created_at,
+               hg:metadata->trendFactors->>holderTrendGrowthRatio,
+               nar:metadata->preBuyCheckFactors->>narrativeRating,
+               plat:metadata->preBuyCheckFactors->>platform,
+               plat2:metadata->trendFactors->>platform`)
       .eq('experiment_id', expId).order('created_at', { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) throw new Error('signals 查询失败: ' + error.message);
     if (!data || data.length === 0) break;
+    for (const r of data) {
+      const hg = r.hg != null ? parseFloat(r.hg) : NaN;
+      const nar = r.nar != null ? parseFloat(r.nar) : NaN;
+      r.hg = Number.isFinite(hg) ? hg : null;
+      r.nar = Number.isFinite(nar) ? nar : null;
+      r.plat = r.plat || r.plat2 || '?';
+    }
     all.push(...data);
     if (data.length < pageSize) break;
     offset += pageSize;
@@ -101,12 +114,12 @@ async function main() {
   const [s1, s0] = await Promise.all([pullSignals(db, R1), pullSignals(db, R0)]);
 
   const p1 = pnlByToken(t1), p0 = pnlByToken(t0);
-  // 每 token 首条 buy 信号 metadata（hg 值 / 叙事评级快照）
-  const metaOf = (sigs) => { const m = new Map(); for (const s of sigs) if (s.action === 'buy' && !m.has(s.token_address)) m.set(s.token_address, s.metadata || {}); return m; };
+  // 每 token 首条 buy 信号（窄列行：hg/nar/plat 已在 pullSignals 归一）
+  const metaOf = (sigs) => { const m = new Map(); for (const s of sigs) if (s.action === 'buy' && !m.has(s.token_address)) m.set(s.token_address, s); return m; };
   const m1 = metaOf(s1), m0 = metaOf(s0);
-  const hgOf = (meta) => meta?.trendFactors?.holderTrendGrowthRatio;
-  const narOf = (meta) => meta?.preBuyCheckFactors?.narrativeRating;
-  const platOf = (meta) => meta?.preBuyCheckFactors?.platform || meta?.trendFactors?.platform || '?';
+  const hgOf = (row) => row?.hg ?? undefined;
+  const narOf = (row) => row?.nar ?? undefined;
+  const platOf = (row) => row?.plat || '?';
 
   // ════════ ① 总览 ════════
   console.log('════════ ① 两臂总览（FIFO，余量按成本记敞口）════════');
@@ -157,7 +170,7 @@ async function main() {
   // ════════ ④ R1 信号 hg 门命中分布 ════════
   console.log('\n════════ ④ R1 buy 信号 hg 门命中形状 ════════');
   const s1buy = s1.filter(s => s.action === 'buy');
-  const hgVals = s1buy.map(s => hgOf(s.metadata)).filter(v => v != null);
+  const hgVals = s1buy.map(s => hgOf(s)).filter(v => v != null);
   const nullCnt = s1buy.length - hgVals.length;
   console.log(`R1 buy 信号 ${s1buy.length} 条：hg 非空 ${hgVals.length}（<55 被门拦 ${hgVals.filter(v => v < 55).length}）| null fail-open ${nullCnt}（${f1(100*nullCnt/s1buy.length)}%）`);
   console.log(`  非空 hg 分桶: <25=${hgVals.filter(v=>v<25).length} [25,40)=${hgVals.filter(v=>v>=25&&v<40).length} [40,55)=${hgVals.filter(v=>v>=40&&v<55).length} [55,80)=${hgVals.filter(v=>v>=55&&v<80).length} >=80=${hgVals.filter(v=>v>=80).length}`);
