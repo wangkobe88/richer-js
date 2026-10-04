@@ -163,6 +163,7 @@ const CYCLE_PARAM_KEY_MAP = {
     midGapMs: 'cycleMidGapMs',
     minTicks: 'cycleMinTicks',
     warmupSec: 'cycleWarmupSec',
+    earlySec: 'cycleEarlySec',
     upDwellSec: 'cycleUpDwellSec',
     downDwellSec: 'cycleDownDwellSec',
     staleMs: 'cycleStaleMs',

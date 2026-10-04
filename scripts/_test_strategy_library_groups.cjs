@@ -216,18 +216,19 @@ console.log('G. validateLegs（库是 groups 第一编辑面）');
 // ═══ H. mapCycleParams（cycle 判定配置化：tokenCycle.params → FA cycle* 键）═══
 console.log('H. mapCycleParams（去前缀键映射矩阵）');
 {
-  // 全 10 键映射：params 键 → FACTOR_PARAM_DEFAULTS 的 cycle* 键
+  // 全 11 键映射：params 键 → FACTOR_PARAM_DEFAULTS 的 cycle* 键
   const mapped = mapCycleParams({
     hotTps: 0.6, midTps: 0.1, hotGapMs: 1500, midGapMs: 10000,
-    minTicks: 20, warmupSec: 90, upDwellSec: 45, downDwellSec: 60,
+    minTicks: 20, warmupSec: 90, earlySec: 120, upDwellSec: 45, downDwellSec: 60,
     staleMs: 60000, gapSamples: 80,
   });
-  check('全 10 键映射成 cycle* 键', Object.keys(mapped).sort(), [
-    'cycleDownDwellSec', 'cycleGapSamples', 'cycleHotGapMs', 'cycleHotTps',
+  check('全 11 键映射成 cycle* 键', Object.keys(mapped).sort(), [
+    'cycleDownDwellSec', 'cycleEarlySec', 'cycleGapSamples', 'cycleHotGapMs', 'cycleHotTps',
     'cycleMidGapMs', 'cycleMidTps', 'cycleMinTicks', 'cycleStaleMs',
     'cycleUpDwellSec', 'cycleWarmupSec',
   ]);
   check('值原样透传', mapped.cycleHotTps, 0.6);
+  check('earlySec 透传（2026-10-04 早期升档免驻留窗）', mapped.cycleEarlySec, 120);
   check('gapSamples 透传', mapped.cycleGapSamples, 80);
   // 空值形态
   check('null → {}（存量不带 params）', mapCycleParams(null), {});
@@ -244,7 +245,7 @@ console.log('H. mapCycleParams（去前缀键映射矩阵）');
 }
 
 // ═══ H2. 模板预填默认值 ≡ FACTOR_PARAM_DEFAULTS（防双源漂移）═══
-console.log('H2. 创建页模板预填值 ≡ FACTOR_PARAM_DEFAULTS cycle* 十键');
+console.log('H2. 创建页模板预填值 ≡ FACTOR_PARAM_DEFAULTS cycle* 十一键');
 {
   const fs = require('fs');
   const path = require('path');
@@ -256,6 +257,7 @@ console.log('H2. 创建页模板预填值 ≡ FACTOR_PARAM_DEFAULTS cycle* 十�
     tc_hot_tps: 'cycleHotTps', tc_mid_tps: 'cycleMidTps',
     tc_hot_gap_ms: 'cycleHotGapMs', tc_mid_gap_ms: 'cycleMidGapMs',
     tc_min_ticks: 'cycleMinTicks', tc_warmup_sec: 'cycleWarmupSec',
+    tc_early_sec: 'cycleEarlySec',
     tc_up_dwell_sec: 'cycleUpDwellSec', tc_down_dwell_sec: 'cycleDownDwellSec',
     tc_stale_ms: 'cycleStaleMs', tc_gap_samples: 'cycleGapSamples',
   };

@@ -755,10 +755,16 @@
                         </div>
                         <!-- 稳定性 -->
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">早期免驻留窗 (秒)</label>
+                            <input type="number" id="tc_early_sec" value="90" step="1" min="1"
+                                   class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
+                            <span class="text-xs text-gray-500">存活小于此值 → 升档免驻留即时生效（新票追热不被钉住；降档不豁免）</span>
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">升档驻留 (秒)</label>
                             <input type="number" id="tc_up_dwell_sec" value="30" step="1" min="1"
                                    class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
-                            <span class="text-xs text-gray-500">升档需持续此时长（追热要快）</span>
+                            <span class="text-xs text-gray-500">升档需持续此时长（追热要快；早期窗内豁免）</span>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">降档驻留 (秒)</label>
@@ -780,7 +786,7 @@
                         </div>
                     </div>
                     <p class="text-xs text-gray-500 mt-2">
-                        档位判定 = tps30s（30s 滑窗 tick 密度）OR gapMedianMs（5min 窗间隔中位数）双主量；
+                        档位判定 = tps30s（30s 滑窗 tick 密度，新票分母按实际存活时长）OR gapMedianMs（5min 窗间隔中位数）双主量；
                         不启用时带 groups 的腿全隐（fail-closed，止损双腿兜底）。改参数 = 改本实验分桶口径（与库条目无关）。
                     </p>
                 </div>
@@ -1172,6 +1178,7 @@
                         hotTps: 'tc_hot_tps', midTps: 'tc_mid_tps',
                         hotGapMs: 'tc_hot_gap_ms', midGapMs: 'tc_mid_gap_ms',
                         minTicks: 'tc_min_ticks', warmupSec: 'tc_warmup_sec',
+                        earlySec: 'tc_early_sec',
                         upDwellSec: 'tc_up_dwell_sec', downDwellSec: 'tc_down_dwell_sec',
                         staleMs: 'tc_stale_ms', gapSamples: 'tc_gap_samples',
                     };
@@ -1923,6 +1930,7 @@
                         midGapMs: parseFloat(document.getElementById('tc_mid_gap_ms')?.value),
                         minTicks: parseInt(document.getElementById('tc_min_ticks')?.value, 10),
                         warmupSec: parseInt(document.getElementById('tc_warmup_sec')?.value, 10),
+                        earlySec: parseInt(document.getElementById('tc_early_sec')?.value, 10),
                         upDwellSec: parseInt(document.getElementById('tc_up_dwell_sec')?.value, 10),
                         downDwellSec: parseInt(document.getElementById('tc_down_dwell_sec')?.value, 10),
                         staleMs: parseFloat(document.getElementById('tc_stale_ms')?.value),

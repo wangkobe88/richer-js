@@ -601,6 +601,10 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // TPA 20（回迁批 4）：3 FA 自产键 + 17 持仓键（真相源 tpa-factor-keys）
         'TPAAnalyzed', 'TPAPre_retention', 'TPAPre_asofRelFirst',
         ...HOLDING_FACTOR_KEYS,
+        // 后续批增量 7（各自上线时漏同步本清单，2026-10-04 补账）：秒级年龄（2026-09-29）+
+        // 平台标签（2026-10-02 router 平台豁免）+ 行为周期 5 键（2026-09-28）
+        'tokenAgeSec', 'platform',
+        'tokenCycle', 'tokenCycleRaw', 'tokenCycleAgeSec', 'cycleTps30s', 'cycleGapMedianMs',
     ];
     const missing = NEW_KEYS.filter(k => !keys.has(k));
     ok(missing.length === 0, `getFactorKeys 含全部 ${NEW_KEYS.length} 新键`, missing);

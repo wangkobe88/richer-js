@@ -14,7 +14,8 @@
  * 覆盖：
  *   A. FA 判定（密/中/疏 → 3/2/1；tick<minTicks 且过 warmup → 冷桶 1；age<warmup → null
  *      ——2026-09-28 修正：证据不足不再 null 全隐，1c68478f 回测 36 强平票根因）
- *   B. hysteresis（升档 30s 驻留 / 降档 30s 驻留 / stale 快速降档 / 驻留秒数）
+ *   B. hysteresis（升档 30s 驻留 / 降档 30s 驻留 / stale 快速降档 / 驻留秒数 /
+ *      B5 早期两项修正 2026-10-04：tps 分母按存活时长归一 + cycleEarlySec 升档免驻留）
  *   C. loadStrategies cycle 脏值归一（字符串/越界/小数/未配 → null）
  *   D. evaluate 过滤矩阵（腿 cycle × cycleTag 等值可见 + null 全隐 + 无 cycle 恒可见）
  *   E. 桶切换后旧桶 strategyExecutions 计数保留
@@ -29,7 +30,7 @@ const FourMemeFactorAggregator = require('../src/services/FourMemeFactorAggregat
 const { StrategyEngine } = require('../src/strategies/StrategyEngine');
 const { FourMemeWssTradingEngine } = require('../src/trading-engine/implementations/FourMemeWssTradingEngine');
 const { buildFactorValuesForTimeSeries, buildSlimFactorValues } = require('../src/trading-engine/core/FactorBuilder');
-const { mapCycleParams } = require('../src/strategies/group-variables');
+const { mapCycleParams, CYCLE_PARAM_KEY_MAP } = require('../src/strategies/group-variables');
 
 let pass = 0, fail = 0;
 function check(name, actual, expected) {
@@ -180,6 +181,57 @@ console.log('B. hysteresis（升档 30s / 降档 120s / stale 快速降档）');
   fa4.buildFactorMap('0xb4', 90000);       // init since=90000
   const b4 = fa4.buildFactorMap('0xb4', 90000 + 12000);
   check('tokenCycleAgeSec=档位驻留秒数', b4.tokenCycleAgeSec, 12);
+
+  // B5 早期两项修正（2026-10-04 0xe5e15117…7777 案裁定）：①tps 分母按实际存活时长
+  // 归一（固定 30s 分母对 <30s 新票天然减半——9 tick 真速率 0.6 被算成 0.30）；②存活
+  // <cycleEarlySec(90) 升档免驻留即时生效（冷档起步新票追热被 30s 驻留钉住，90s 买窗
+  // 内最早可买点被推到 ~48s）；降档驻留不豁免、成熟 token 升档照旧走驻留（B1 锁定）
+  // B5a 分母判别：12 tick 不均匀间隔（6×2100 + 5×100），age 恰 15s —— 新分母
+  // tps=12/15=0.8 ≥0.5 → 热桶；若回退固定 30s 分母 tps=0.4 且 gapMed 2100>2000
+  // → 中桶 2（本断言即回退探测器）。证据门同步满足（winTicks=12 ≥12）
+  {
+    const fa5a = makeFA('0xb5a');
+    for (const ts of [2000, 4100, 4200, 6300, 6400, 8500, 8600, 10700, 10800, 12900, 13000, 15100]) {
+      fa5a.processTick(makeTick('0xb5a', ts), { emitFactors: false });
+    }
+    const f5a = fa5a.buildFactorMap('0xb5a', 16000); // age=(16000-1000)/1000=15s 整
+    check('B5a 新票分母=存活时长：tps=0.8 → 热桶 3（旧 30s 分母为 0.4 → 中桶 2）',
+      [f5a.tokenCycle, f5a.tokenCycleRaw, f5a.cycleTps30s], [3, 3, 0.8]);
+
+    // B5b 早期升档免驻留：稀疏 6 tick init=1（证据门判冷）→ 密集 burst 后首次
+    // raw=3 评估（age 38.1s <90）即时切换 reason=earlyUp——旧代码该评估只登记
+    // candidate（驻留 0s <30s）current 仍 1（本断言即回退探测器）
+    const fa5b = makeFA('0xb5b');
+    feed(fa5b, '0xb5b', 2000, 5, 6);                 // 稀疏：winTicks=6<12
+    check('B5b 稀疏期 init=1（证据门）', fa5b.buildFactorMap('0xb5b', 28000).tokenCycle, 1);
+    feed(fa5b, '0xb5b', 28500, 1.5, 8);              // 密集 burst（末笔 39000）
+    const f5b = fa5b.buildFactorMap('0xb5b', 39100); // age=38.1s；gapMed 1500≤2000 → raw=3
+    check('早期升档即时生效 → 3（旧代码驻留未满仍 1）',
+      [f5b.tokenCycle, f5b.tokenCycleRaw, f5b.tokenCycleAgeSec], [3, 3, 0]);
+    check('切桶日志 reason=earlyUp',
+      cycleLogs.some(l => l.includes('from=1 to=3') && l.includes('reason=earlyUp')), true);
+
+    // B5c earlySec 配置化差分：同形状喂法但 earlySec=20 → age 38.1s 已出早期窗，
+    // 升档回退驻留语义（首评 candidate 驻留 0s → current 仍 1）——证明参数注入生效
+    const fa5c = new FourMemeFactorAggregator(
+      { fourmemeWs: { factorParams: { ...mapCycleParams({ earlySec: 20 }) } } }, noopLogger);
+    fa5c.registerToken('0xb5c', { createdAtMs: 1000, totalSupply: 1e9, symbol: 'TST', creatorAddress: '0xc' });
+    feed(fa5c, '0xb5c', 2000, 5, 6);
+    fa5c.buildFactorMap('0xb5c', 28000);             // init=1
+    feed(fa5c, '0xb5c', 28500, 1.5, 8);
+    const f5c = fa5c.buildFactorMap('0xb5c', 39100); // age 38.1s ≥ earlySec 20
+    check('earlySec=20 → 出窗升档回退驻留（current 仍 1，raw=3）',
+      [f5c.tokenCycle, f5c.tokenCycleRaw], [1, 3]);
+
+    // B5d 源码口径 + 键映射：earlyUp 仅升档豁免（isUp &&）；参数注册表/默认值
+    const faSrc = require('fs').readFileSync(
+      require('path').join(__dirname, '../src/services/FourMemeFactorAggregator.js'), 'utf8');
+    check('源码：earlyUp 守卫 = isUp &&（降档不豁免）', /const earlyUp = isUp &&/.test(faSrc), true);
+    check('源码：tps 分母 min(存活, 滑窗) 实现（tpsDenomMs）', faSrc.includes('tpsDenomMs'), true);
+    check('CYCLE_PARAM_KEY_MAP 含 earlySec → cycleEarlySec', CYCLE_PARAM_KEY_MAP.earlySec, 'cycleEarlySec');
+    check('FACTOR_PARAM_DEFAULTS.cycleEarlySec=90（对齐 90s 买窗）',
+      FourMemeFactorAggregator.FACTOR_PARAM_DEFAULTS.cycleEarlySec, 90);
+  }
 }
 
 console.log = origLog; // 恢复（后续段允许正常输出；C 段策略加载日志保留）

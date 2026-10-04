@@ -146,8 +146,11 @@ const FACTOR_PARAM_DEFAULTS = {
     cycleMinTicks: 12,           // 证据门：5min 窗 tick < 此数且已过 warmup → 判冷桶 1（熄火票保护腿
                                  //   不隐身；2026-09-28 1c68478f 回测 36 强平票根因修正）
     cycleWarmupSec: 15,          // 热身门：token 年龄 < 此数不判定 → null（开盘脉冲不算行为周期；
-                                 //   tps30s 按 30s 窗归一、age=15s 时分子天然减半，自带保守性）
-    cycleUpDwellSec: 30,         // 升档驻留秒（追热要快）
+                                 //   tps30s 分母已改实际存活时长，新票不再天然减半——见 _cycleFactors）
+    cycleEarlySec: 90,           // 早期窗：存活 < 此值的升档免驻留（2026-10-04 0xe5e15117 案裁定：
+                                 //   冷档起步新票追热被 30s 驻留钉住，90s 买窗内最早可买点被推到 ~48s；
+                                 //   对齐买窗 tokenAgeSec<90，降档驻留不受此豁免）
+    cycleUpDwellSec: 30,         // 升档驻留秒（追热要快；早期窗内豁免——cycleEarlySec）
     cycleDownDwellSec: 30,       // 降档驻留秒（2026-09-29 120→30：8bd5ef0b 断流票案，衰减段
                                  //   降档太慢致冷桶保护腿迟到；与升档对称）
     cycleStaleMs: 30 * 1000,     // 断流快速降档窗：now−lastTickAt 超此值且 current>1 立即降 1（同案 120→30）
@@ -1726,7 +1729,8 @@ class FourMemeFactorAggregator extends EventEmitter {
     /**
      * 行为周期分桶因子（卖出臂周期路由，2026-09-28 用户思路 v1）。
      * 双主量：tps30s（30s 滑窗 tick 密度——读取时按 now 过滤，_slideTicks 写时裁剪断流后会
-     * 滞留老 tick 使 length 虚高）+ gapMedianMs（5min 窗相邻 tick 间隔中位数，尾部
+     * 滞留老 tick 使 length 虚高；分母 = min(实际存活时长, 滑窗)，2026-10-04 修正：固定 30s
+     * 分母对 <30s 新票天然减半）+ gapMedianMs（5min 窗相邻 tick 间隔中位数，尾部
      * cycleGapSamples 个样本；乱序 tick 的负间隔丢弃）。
      * 三档：3=热桶秒级 / 2=中桶分钟级 / 1=冷桶 5-15min 级。null 仅两源（2026-09-28
      * 修正，1c68478f 回测 36 强平票根因）：tokenAge < cycleWarmupSec（新票未分桶，
@@ -1734,7 +1738,9 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 且已过 warmup」不再 null 而判冷桶 1——从热到冷的衰减必经段恰是最需要保护腿的
      * 时点，minTicks 门拦它 = 冷桶时间衰减腿隐身 → 无人接管 → 回放结束强平。
      * tokenCycle 经 _cycleLatch hysteresis 稳定化：升/降档驻留 30s（2026-09-29 降档 120→30，
-     * 8bd5ef0b 断流票案：衰减段降档太慢致冷桶保护腿迟到）；断流超 cycleStaleMs 且 current>1 → 立即降 1（gapMedianMs 是老间隔不随
+     * 8bd5ef0b 断流票案：衰减段降档太慢致冷桶保护腿迟到）；存活 < cycleEarlySec 的升档免驻留
+     * 即时生效（2026-10-04 0xe5e15117 案裁定：冷档起步新票追热被 30s 驻留钉住，90s 买窗内
+     * 最早可买点被推到 ~48s；降档驻留不豁免）；断流超 cycleStaleMs 且 current>1 → 立即降 1（gapMedianMs 是老间隔不随
      * 断流增长，stale 时 raw 压回 1 不进升档候选）。tokenCycleRaw 为本帧原始判定。
      * ★红线：内部禁 Date.now——now 由 buildFactorMap(state, asOf) 传入，回测虚拟时钟防前视。
      */
@@ -1746,7 +1752,14 @@ class FourMemeFactorAggregator extends EventEmitter {
         for (const t of state._slideTicks) {
             if (t.ts >= slideCutoff) hotCount++;
         }
-        const tps30s = hotCount / (fp.slideWinMs / 1000);
+        // tps 分母 = min(实际存活时长, 滑窗)（2026-10-04 0xe5e15117 案裁定：固定 30s 分母对
+        // 15s 新票天然减半——9 tick 真速率 0.6 被算成 0.30 → 误判非热。存活不足一个滑窗时按
+        // 实际时长归一，1s 下限防除零；成熟 token（≥滑窗）与无锚点票分母不变）
+        const ageMs = ageSec != null ? ageSec * 1000 : null;
+        const tpsDenomMs = ageMs != null && ageMs < fp.slideWinMs
+            ? Math.max(ageMs, 1000)
+            : fp.slideWinMs;
+        const tps30s = hotCount / (tpsDenomMs / 1000);
         const winTicks = state._recentTicks.filter(t => now - t.ts <= RATE_WINDOW_MS);
         const gaps = [];
         for (let i = Math.max(1, winTicks.length - fp.cycleGapSamples); i < winTicks.length; i++) {
@@ -1781,13 +1794,20 @@ class FourMemeFactorAggregator extends EventEmitter {
             } else if (raw === latch.current) {
                 latch.candidate = null; latch.candidateSince = null;
             } else {
+                // 早期升档免驻留（2026-10-04 0xe5e15117 案裁定）：新票 warmup 后证据不足
+                // init=1 冷档起步，升热若还要等 30s 驻留，90s 买窗内最早可买点被推到 ~48s
+                // ——存活 < cycleEarlySec 内升档即时生效；降档驻留不豁免（瞬抖误降档防线
+                // 语义不变），成熟 token 升档照旧走驻留
+                const isUp = raw > latch.current;
+                const earlyUp = isUp && ageSec != null && ageSec < fp.cycleEarlySec;
                 if (latch.candidate !== raw) { latch.candidate = raw; latch.candidateSince = now; }
-                const dwellMs = (raw > latch.current ? fp.cycleUpDwellSec : fp.cycleDownDwellSec) * 1000;
-                if (now - latch.candidateSince >= dwellMs) {
+                const dwellMs = (isUp ? fp.cycleUpDwellSec : fp.cycleDownDwellSec) * 1000;
+                if (earlyUp || now - latch.candidateSince >= dwellMs) {
                     const from = latch.current;
                     latch.current = raw; latch.since = now;
                     latch.candidate = null; latch.candidateSince = null;
-                    this._logCycleSwitch(state, from, raw, tps30s, gapMedianMs, raw > from ? 'upDwell' : 'downDwell');
+                    this._logCycleSwitch(state, from, raw, tps30s, gapMedianMs,
+                        earlyUp ? 'earlyUp' : (isUp ? 'upDwell' : 'downDwell'));
                 }
             }
         }
