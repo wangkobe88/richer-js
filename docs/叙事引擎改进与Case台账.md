@@ -88,8 +88,17 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
   下次遇同 token 自动重析走 Jev（数据保留不删）。
 - **验证与单测**：`node scripts/_test_rule5_pass_through.cjs`（6 节：名单账号
   放行/高交互腿放行/无媒体不触发/symbol_too_long 不受影响/superIP registry
-  覆盖头部账号/源码防直发回退）。NIGGALON + TradersLeague 代表票 182 重析
-  验证走向。
+  覆盖头部账号/源码防直发回退）。**182 重析双票终局（正例 + 已知代价兑现）**：
+  NIGGALON `0xb62ec51d…7777` mid → **low**——放行日志实锤 → elonmusk superIP
+  fast-track → J1.21 nameReferentBlock「截词（非超级IP话中词）」拦（nameReferent=
+  none_related、strong_fit 0.83 但关联不成立），设计目标达成；现金猫
+  `0x56dc26bd…7777`（TradersLeague 簇最大赢票 +9.515 BNB）mid → **low**「截断：
+  关联性不足（0分）｜事件分50.5」——binance 官方 fast-track 下 token 名与推文
+  无指代关联被 relevance 截断，评估阶段预告的反例簇代价（+14.9 BNB）实际兑现，
+  如实记录。部署链：commit `27b209a` → 182 pull → 191 行存量置 is_valid=false →
+  narrative engine（PID 3194016）+ 实验进程 36a2c12a（screen exp-36a2c12a）重启
+  吃新代码；watcher 无改动未动；6f92e2f9 为实验 description 明示的旧代码对照臂
+  刻意不重启。
 
 ### C56 中国公司产品发布簇——产品实体主体切分 + web3 接纳门（J1.27，2026-10-03 用户裁定「好，落地吧」+ mid-turn「要豁免币安」）★
 
