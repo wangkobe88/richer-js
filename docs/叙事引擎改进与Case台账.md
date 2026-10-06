@@ -51,6 +51,46 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C57 NIGGALON——规则5高影响力+媒体直发 mid 废除：自填 twitterUrl 白拿 mid 的零成本攻击面（2026-10-06 用户裁定「方案A」）★
+
+- **案由**：NIGGALON `0xb62ec51dd713c16dcbb4325ca53aaf555a507777`（fourmeme，
+  2026-10-04 mint）mint 后 12-14 秒两实验即出 BUY 信号。查 `token_narrative`
+  行：`stage1_result`/`prestage_result` 全 null、分析仅 5 秒——评级来自
+  pre-check 规则 5 `high_influence_with_media` 直发 mid，**Jev 全程未跑**。
+  语料是发币者自填的 twitterUrl：elonmusk 的一条**转推**（RT @AlyssaSolen
+  「Stop the Model. Humanity is Losing Control.」AI 警告视频，原作者 1,238
+  粉）；token 名 nigga+elon 蹭名拼词与语料内容零指代关联。语料作者影响力
+  被直接当成了叙事质量。
+- **盲区量化**（`scripts/scan-high-influence-media-tokens.cjs`，182，A 集 776
+  行 + B 集对照）：语料 74% 币安系（binance 410/BNBCHAIN 85/cz 78/heyibinance
+  31/Four_FORM_ 12…）；**79%（610/776）集中在 133 个「同推文复蹭簇」**——同
+  一条推文被多张 token 反复引用（×32「what are we calling this emoji?」、×29
+  CZ 转推「Stretch for BNB」、×21「Redraw Binance logo」、×14 CZ「Soon...」
+  被买 12 张净 -2.04、×12「know the difference!」BINANCESTOCKS 家族），可解析
+  语料时间的 121/127 张是 >30 天存量旧推文——发币者拿热门推文库批量作业。被买
+  147 票全部发生在近 30 天：win rate 28%（41W/103L）、净 **-1.718 BNB**（投入
+  242.6）；对照 Jev/其他路径 mid 121 票净 +23.968（均值 +0.303）high 62 票净
+  +26.753（均值 +1.274）——**同标 mid 质量差 25 倍，被买 mid 票 65% 来自本规
+  则（mid 信号被稀释）**。
+- **反例（一刀切全废的代价边界）**：×12「POV: TradersLeague 排行榜」簇被买 7
+  张净 **+14.9**、×12「know the difference!」净 +2.1——币安官方活动梗推确实带
+  动过 meme 盘。放行进 Jev 后此类真关联票仍可凭叙事拿级（binance 语料簇走
+  fast-track），不损失。
+- **裁定与改动（方案 A）**：规则 5 的存在理由是旧图片识别逻辑弃用后的速度补丁
+  （「图片下载耗时久，识别准确率不稳定」→「直接给 mid 抢最早的筹码」），Jev
+  单次秒级后理由消失。改 `pre-check-service.mjs` 规则 5 块不再 return
+  buildPreCheckResult（放行日志「规则5放行: …进入Jev叙事分析」）；放行后语料
+  作者（elonmusk/cz_binance/heyibinance/binance 均在 super-ip-registry S 级）
+  走 fast-track + J1.21 referent_memeability 条件题，蹭名/无指代关联票由叙事
+  层拦下。高交互腿（赞>5000/转>2000）随规则整体放行。
+- **存量处置**：776 行直发 mid 是未经叙事判定的旧口径，批量置 is_valid=false
+  （`scripts/narrative/invalidate-high-influence-media.cjs`，182 --commit），
+  下次遇同 token 自动重析走 Jev（数据保留不删）。
+- **验证与单测**：`node scripts/_test_rule5_pass_through.cjs`（6 节：名单账号
+  放行/高交互腿放行/无媒体不触发/symbol_too_long 不受影响/superIP registry
+  覆盖头部账号/源码防直发回退）。NIGGALON + TradersLeague 代表票 182 重析
+  验证走向。
+
 ### C56 中国公司产品发布簇——产品实体主体切分 + web3 接纳门（J1.27，2026-10-03 用户裁定「好，落地吧」+ mid-turn「要豁免币安」）★
 
 - **案由**：评3 161 票主题归类发现中国公司产品发布簇（华为麒麟 Mate90

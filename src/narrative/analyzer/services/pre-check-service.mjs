@@ -928,7 +928,8 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
 
   // 有有效数据，继续后续规则检查
 
-  // 规则5：高影响力推文 + 媒体 → mid（2026-09-27 裁定：高影响力+媒体无法解析类给通过，不再 unrated）
+  // 规则5：高影响力推文 + 媒体 →（2026-10-06 废除直发 mid，放行进 Jev——见下方
+  // [新逻辑 v2] 决策记录；2026-09-27 曾裁定直发 mid 替代 unrated）
   // 检查条件：
   // 1. 推文作者属于高影响力账号（Elon、Trump等）
   // 2. 或者推文交互数据高（点赞>5000 或 转发>2000）
@@ -1009,7 +1010,19 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     //   return buildPreCheckResult('unrated', `${reasons.join('，')}，暂不支持解析该类型媒体`, 'high_influence_with_media');
     // }
 
-    // [新逻辑] 高影响力账号 + 任何媒体 → 直接给 mid，跳过图片识别
+    // [新逻辑 v2]（2026-10-06 NIGGALON 案裁定废除直发，方案 A）：
+    // 高影响力账号/高交互 + 媒体不再直发 mid，放行走 Jev（superIP fast-track /
+    // 标准路径）。原直发的存在理由是「图片识别耗时久、准确率不稳定」（旧逻辑
+    // 注释原文）——Jev 单次秒级后该理由已消失。
+    //
+    // 直发盲区实测（776 票扫描，data/high-influence-media-scan-*.json）：
+    // twitterUrl 是发币者自填的，贴一条高影响力账号的带媒体推文即可白拿 mid，
+    // 与语料内容是否相关无关——79% 票集中在 133 个同推文复蹭簇（存量热门推文
+    // 库批量蹭，能解析语料时间的 121/127 张 >30 天）；被买 147 票 win rate 28%
+    // / 净 -1.718 BNB，而 Jev 路径 mid 均值 +0.303（差 25 倍）、被买 mid 票 65%
+    // 来自本规则（mid 信号被稀释）。放行后语料作者（elonmusk/cz/binance 系在
+    // super-ip-registry）走 fast-track + J1.21 referent_memeability 条件题，
+    // 蹭名/无指代关联票由叙事层拦下；TradersLeague 类真关联票仍能凭叙事拿级。
     if (isHighInfluence || isHighEngagement) {
       const reasons = [];
       if (isHighInfluence) {
@@ -1019,10 +1032,8 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
       if (isHighEngagement) {
         reasons.push(`推文交互数据高（点赞${likeCount}，转发${retweetCount}）`);
       }
-      reasons.push('推文带有图片/视频媒体内容');
-
-      console.log(`[NarrativeAnalyzer] 规则5触发: ${reasons.join('，')}，给mid（通过）`);
-      return buildPreCheckResult('mid', `${reasons.join('，')}，媒体内容跳过识别，按影响力数据给mid`, 'high_influence_with_media', { pass: true });
+      console.log(`[NarrativeAnalyzer] 规则5放行: ${reasons.join('，')}，进入Jev叙事分析（不再直发mid）`);
+      // 不 return：预检查通过，继续 LLM/Jev 流程
     }
   }
 
