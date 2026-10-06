@@ -3,6 +3,7 @@
 // 拱形止损配对对拍（2026-10-06；182 专用——dbManager service key）
 //
 // 用法：node scripts/compare-arch-sell-pair.cjs [--r1 <腿臂id>] [--r0 <基线id>] [--live <实跑id>]
+//       [--arch 'P10|P11|P12|P13|P14']   # 拱形腿归因正则（默认 P1\.5 旧单腿臂）
 //   R1 拱形腿臂（18 卖腿）vs R0 基线臂（17 卖腿），基底 6f92e2f9 整包，
 //   同窗 10-03T14:31→10-04T13:10Z，同源 token 集合，差分 = 拱形腿净效应。
 //   --live 实跑对拍（可选，R0 vs 6f92e2f9 回测模拟保真度参考）。
@@ -11,7 +12,7 @@
 //   ① 两臂总览（已实现净额 / 买票 / 胜负 / 卖出笔数）+ 净效应
 //   ② 买票集合配对（独有票 = 资金竞争二阶效应，应少）
 //   ③ 共同票逐张净额对拍（按 |diff| 降序；拱形腿 fire 票标注）
-//   ④ R1 拱形腿 fire 明细（reason='卖出策略 P1.5' 的信号 + 该票两臂差异）
+//   ④ R1 拱形腿 fire 明细（reason 匹配 --arch 正则的信号 + 该票两臂差异）
 //   ⑤ R0 vs 实跑对拍（--live 时）
 // ============================================================================
 const path = require('path');
@@ -22,6 +23,10 @@ const argVal = (n, d) => { const i = args.indexOf(n); return i >= 0 && args[i + 
 const R1 = argVal('--r1', '2ff8adeb-6feb-4310-b6d5-70a81a92dd99');
 const R0 = argVal('--r0', '57fde778-7a0d-424f-8c5d-fd5f7b7e2fc3');
 const LIVE = argVal('--live', '6f92e2f9-1b21-4ea6-b6a1-2e8dc70090e3');
+// 拱形腿 fire 归因正则（2026-10-06 v2 参数化）：默认旧单腿臂 P1.5；R2 拆腿臂传
+//   --arch 'P10|P11|P12|P13|P14'（reason 形如「卖出策略 P10」——\b 边界防 P1 误配 P1x）
+const ARCH_PAT = argVal('--arch', 'P1\\.5');
+const ARCH_RE = new RegExp('\\b(?:' + ARCH_PAT + ')\\b');
 
 async function pullTrades(client, expId) {
   const pageSize = 500; let offset = 0; const all = [];
@@ -99,7 +104,7 @@ async function main() {
 
   console.log(`\n===== ③ 共同票净额对拍（|diff|>0.005 才列）=====`);
   const archFires = new Map(); // token → 次数
-  for (const s of s1) if (/P1\.5/.test(s.reason || '')) {
+  for (const s of s1) if (ARCH_RE.test(s.reason || '')) {
     archFires.set(s.token_address, (archFires.get(s.token_address) || 0) + 1);
   }
   let diffSum = 0, posCnt = 0, negCnt = 0;
@@ -114,7 +119,7 @@ async function main() {
   for (const r of rows) console.log(`  ${r.sym} ${r.addr.slice(0, 10)} R0=${r.n0.toFixed(3)} → R1=${r.n1.toFixed(3)} diff=${(r.d >= 0 ? '+' : '') + r.d.toFixed(3)}${r.fire ? ` 🔺拱形×${r.fire}` : ''}`);
   console.log(`共同票 diff 合计=${diffSum.toFixed(4)}（正 ${posCnt} / 负 ${negCnt} / 平 ${common.length - posCnt - negCnt}）`);
 
-  console.log(`\n===== ④ R1 拱形腿 fire 明细（reason=卖出策略 P1.5）=====`);
+  console.log(`\n===== ④ R1 拱形腿 fire 明细（reason 匹配 /${ARCH_PAT}/）=====`);
   if (archFires.size === 0) console.log('  （无 fire）');
   for (const [k, n] of archFires) {
     const p1 = o1.pnl.get(k), p0 = o0.pnl.get(k);
