@@ -1863,6 +1863,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             highestPriceSinceLastBuy: pos.highestPriceSinceBuyBnb * (state.lastImpliedBnbUsd || 0),
             highestPriceSinceLastBuyBnb: pos.highestPriceSinceBuyBnb,
             drawdownFromHighestSinceLastBuy,
+            // 拱形止损（2026-10-06）：持仓期峰值市值 USD——峰价与 drawdownFromHighestSinceLastBuy
+            // 同源（pos.highestPriceSinceBuyBnb，离群剔除链）；totalSupply/汇率缺失 → null
+            // fail-closed（拱形腿引用 null 比较恒 false 不触发，退回 stopLoss 段保护）
+            peakMarketCapSinceLastBuy: pos.highestPriceSinceBuyBnb > 0 && state.totalSupply > 0 && (state.lastImpliedBnbUsd || 0) > 0
+                ? pos.highestPriceSinceBuyBnb * state.totalSupply * state.lastImpliedBnbUsd
+                : null,
             highestHolderCountSinceLastBuy: pos.highestHoldersSinceBuy,
             holderDrawdownFromHighestSinceLastBuy,
             // 回迁批 1 H 组（可靠价链口径）
@@ -1933,6 +1939,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             highestPriceSinceLastBuy: null,
             highestPriceSinceLastBuyBnb: 0,
             drawdownFromHighestSinceLastBuy: null,
+            peakMarketCapSinceLastBuy: null,
             highestHolderCountSinceLastBuy: null,
             holderDrawdownFromHighestSinceLastBuy: null,
             peakProfitPct: null,
@@ -2313,6 +2320,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             drawdownFromHighest,
             highestPriceSinceLastBuy: positionFactors.highestPriceSinceLastBuy,
             drawdownFromHighestSinceLastBuy: positionFactors.drawdownFromHighestSinceLastBuy,
+            peakMarketCapSinceLastBuy: positionFactors.peakMarketCapSinceLastBuy,
             highestHolderCountSinceLastBuy: positionFactors.highestHolderCountSinceLastBuy,
             holderDrawdownFromHighestSinceLastBuy: positionFactors.holderDrawdownFromHighestSinceLastBuy,
 

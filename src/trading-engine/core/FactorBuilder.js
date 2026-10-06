@@ -42,6 +42,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     // 注意：这个因子会保存到时序数据库，但回测时会动态计算（类似 profitPercent）
     highestPriceSinceLastBuy: factorResults.highestPriceSinceLastBuy,
     drawdownFromHighestSinceLastBuy: factorResults.drawdownFromHighestSinceLastBuy,
+    // 拱形止损（2026-10-06）：持仓期峰值市值 USD——不可从快照因子推导（需 totalSupply+汇率），
+    // 落库供 signals 页复盘；旧 FA/未持仓 → null 不掩盖
+    peakMarketCapSinceLastBuy: factorResults.peakMarketCapSinceLastBuy ?? null,
     // 最近一次购买后的最高持有者数量相关因子（用于持有者回撤检测）
     highestHolderCountSinceLastBuy: factorResults.highestHolderCountSinceLastBuy,
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,
