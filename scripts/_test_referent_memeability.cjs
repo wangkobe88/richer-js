@@ -169,7 +169,12 @@ async function main() {
   const { join } = await import('path');
   const mapperSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-result-mapper.mjs'), 'utf8');
   check('H1 门槛常量 REFERENT_MEME_EXEMPT_MIN = 3', /REFERENT_MEME_EXEMPT_MIN = 3/.test(mapperSrc), null);
-  check('H2 豁免仅 mapSuperIPAnswers（referentMemeScore 全文唯一出现域=superIP 块）', (mapperSrc.match(/referentMemeScore/g) || []).length === 4, (mapperSrc.match(/referentMemeScore/g) || []).length);
+  // C59 指代载体在图豁免复用同一分数（imgReferentExempt 条件 2 次 + 审计 1 次），
+  // 计数 4→7；本质断言 = 标准路径函数体内零出现（豁免域仍仅 superIP 块）
+  const stdFnBody = mapperSrc.slice(mapperSrc.indexOf('export function mapStandardAnswers'), mapperSrc.indexOf('export function mapSuperIPAnswers'));
+  check('H2 豁免仅 mapSuperIPAnswers（referentMemeScore 唯一出现域=superIP 块；C59 复用后计数 7）',
+    (mapperSrc.match(/referentMemeScore/g) || []).length === 7 && !stdFnBody.includes('referentMemeScore'),
+    (mapperSrc.match(/referentMemeScore/g) || []).length);
   check('H3 校准脚本 superIP 分支同口径携带', (readFileSync(join(__dirname, '..', 'scripts', 'narrative', 'jev_calibration.mjs'), 'utf8')).includes('referentMemeability: isSuperIP'), null);
   const analyzerSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'NarrativeAnalyzer.mjs'), 'utf8');
   check('H4 主链路 superIP 调用点携带（标准路径调用点不携带）', analyzerSrc.includes('referentMemeability: true') && (analyzerSrc.match(/buildStandardQuestions\(/g) || []).length === 2, null);

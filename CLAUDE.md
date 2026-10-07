@@ -202,7 +202,7 @@ Token URL → URL Classification (incl. IPFS metadata unpack) → Data Fetching 
 
 **Version rule**: editing any question's instructions/criteria requires bumping its version constant (`JEV_QUESTIONS_VERSION` / `JEV_PRESTAGE_QUESTIONS_VERSION`); prompt_type/prompt_version columns identify them (`jev(J1.10/…)`, `prestage-jev(P1.2/…)`).
 
-**Super IP** (`prompts/super-ip/super-ip-registry.mjs`): Known high-influence accounts (CZ, Elon Musk, Binance official, etc.) reuse the standard question set with code pre-scores; tier S (world-class) / A (known).
+**Super IP** (`prompts/super-ip/super-ip-registry.mjs`): Known high-influence accounts (CZ, Elon Musk, Binance official, etc.) reuse the standard question set with code pre-scores; tier S (world-class) / A (known). **C59 指代载体在图豁免（2026-10-07 现金猫续二案 `0x56dc26bd…7777`，mapper-only 题集不动）**：图分析（C58）开启后 Jev 拿到真图证据但 relevance 题纯文本判据最高只给弱语义档 10 分，恰触 Stage3 关联≤10 截断——`imgReferentExempt` 三门全中（analyzer 传 `imageEvidence = !!twitterInfo?.image_analysis` + `0 < relevance ≤ 10` + `referent_memeability ≥ 3` [J1.21 阈]）豁免该截断，relevance 分照常计入总分（J1.24 同款计分语义）；不绕任何阻断门、标准路径零触达；审计 `jev.imgReferentExempt {relType,relScore,memeScore}` 命中才落。182 存量扫描（336 可解析行）三门全中恰本案 1 行零外溢——无图门会误放 8 行「文化词蹭 superIP 语料」票，图门是必要条件。单测 `node scripts/_test_superip_relevance_exempt.cjs`（23 断言）。
 
 **Key supporting services** (`analyzer/services/`):
 - `tweet-type-classifier.mjs` - Pre-classifies tweets (feeds Jev standard path context)

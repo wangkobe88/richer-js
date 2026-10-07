@@ -994,6 +994,8 @@ export function mapStandardAnswers(answers, context) {
  * @param {Object} context.preScores - {tierScore, timeliness, baseEventScore}
  * @param {string} context.symbol - 代币 Symbol（质量长度分用）
  * @param {boolean} [context.includeBrandHijack] - 品牌劫持预检是否命中
+ * @param {boolean} [context.imageEvidence] - 配图视觉证据是否存在（C59 指代载体在图
+ *   豁免条件①，analyzer 传 imageEvidence = twitterInfo.image_analysis 存在）
  * @param {Object} context.callInfo - 同 mapStandardAnswers
  * @returns {Object} { prestageDataToSave, stageFinalData, llmResult, promptType }
  */
@@ -1021,6 +1023,8 @@ export function mapSuperIPAnswers(answers, context) {
   const blockedByBlockReason = blockChoice !== 'none' && blockChoice !== 'institution_routine'
     && noneProb < 0.5 && blockInScope(blockChoice, superIPCategory);
   const nrBlock = nameReferentBlock(answers, superIPCategory);
+  // C59 关联分提前算（截断豁免与下方 Stage3 else 分支共用；纯函数无副作用）
+  const relevance = relevanceFrom(answers);
   // J1.21 内容作品豁免（C33 MTAT 案，用户裁定「要看被转发的指代对象 meme 程度，
   // 以及被 web3 用户喜欢的程度」）：超级IP转发/提及的指代对象按对象类型分流——
   // 人名/账号（YAYA 型）无内容可玩味维持拦截；内容作品 meme 玩味 + web3 契合
@@ -1031,6 +1035,23 @@ export function mapSuperIPAnswers(answers, context) {
   const referentMemeScore = answers.referent_memeability?.score ?? null;
   const nameReferentExempt = !!nrBlock && referentMemeScore != null && referentMemeScore >= REFERENT_MEME_EXEMPT_MIN;
   const blockedByNameReferent = !!nrBlock && !nameReferentExempt;
+  // C59 指代载体在图豁免（2026-10-07 现金猫案 0x56dc26bd…7777 用户裁定「我认为
+  // 关联应该很强了」，mapper-only 不 bump 题集）：图分析开启后，币名与语料的
+  // 指代映射唯一载体在配图（cashcat ↔ 白猫举金币）——Jev 带图后判 cultural 10 分
+  // （弱字面关联，exact_match 判据的字面语义不允许更强档），同时 referent_
+  // memeability 3.47（指代对象内容作品 + web3 共鸣双达标）已高置信认定指代对象
+  // 有 meme 生命力。三门全中时豁免 Stage3 关联≤10 截断（relevance 分照常计入
+  // 总分，弱字面关联的代价在分数上体现——J1.24 戏谑关联豁免同款计分语义）：
+  //   ① 图证据（analyzer 传 imageEvidence = twitterInfo.image_analysis 存在）——
+  //     精确限定「指代载体在配图」子形状；无此门会误放「文化词蹭 superIP 语料」
+  //     票（182 扫描实证：GM×2/HODL 泛化概念、牛马×4 同名量产家族共 8 行）
+  //   ② 0 < relevance ≤ 10——Jev 已判出关联（>0）且本会被截断（≤10，只救会被
+  //     拦的票）；纯零关联（none 0 分）不救
+  //   ③ referent_memeability ≥ 3（J1.21 双达标阈，superIP 通道恒带此题）
+  // 存量影响面（182 扫描 1311 行/可解析 336）：三门全中恰现金猫 1 行，零外溢
+  const imgReferentExempt = !!context.imageEvidence
+    && relevance.score > 0 && relevance.score <= 10
+    && referentMemeScore != null && referentMemeScore >= REFERENT_MEME_EXEMPT_MIN;
   // J1.11 负面硬新闻质量门（全域，与标准路径同门；superIP 通道无豁免——
   // 超级 IP 的被盗/事故公告同样无 meme 空间，蹭名盘照样拦）
   const nhnBlock = negativeHardNewsBlock(answers);
@@ -1074,6 +1095,11 @@ export function mapSuperIPAnswers(answers, context) {
         // 分数照落库观察；标准路径无此题恒 null）
         referentMemeability: referentMemeScore,
         nameReferentExempt,
+        // C59 审计标记：指代载体在图豁免命中详情（relType/relScore/memeScore
+        // 可追溯；未命中不落键，与 J1.24 命中才落的审计模式一致）
+        imgReferentExempt: imgReferentExempt
+          ? { relType: relevance.type, relScore: relevance.score, memeScore: referentMemeScore }
+          : null,
         negativeHardNewsMass: nhnBlock?.mass ?? null,
         routineContentProductMass: rcpBlock?.mass ?? null,
         web3FitMass: w3Block?.mass ?? null,
@@ -1133,17 +1159,17 @@ export function mapSuperIPAnswers(answers, context) {
     // 原 fast track 聚合公式：eventTotal = baseEventScore + dimension2
     const eventTotal = round2(preScores.baseEventScore + dim2);
     const eventWeighted = round2(eventTotal * 0.6);
-    const relevance = relevanceFrom(answers);
     const quality = qualityFrom(answers, context.symbol || '');
 
-    // superIP 同样做 Stage3 截断检查（品牌劫持/拼写/关联/质量）
+    // superIP 同样做 Stage3 截断检查（品牌劫持/拼写/关联/质量）；
+    // C59 指代载体在图豁免在此挂（imgReferentExempt 上方判定，条件与注释见上）
     const brandHijackP = context.includeBrandHijack ? (answers.brand_hijack?.noul ?? 0) : 0;
     const misspellingP = answers.block_misspelling?.noul ?? 0;
     let truncated = false;
     let truncateReason = null;
     if (brandHijackP >= 0.5) { truncated = true; truncateReason = '品牌劫持'; }
     else if (misspellingP >= 0.5) { truncated = true; truncateReason = '无背景拼写错误'; }
-    else if (relevance.score <= 10) { truncated = true; truncateReason = `关联性不足（${relevance.score}分）`; }
+    else if (relevance.score <= 10 && !imgReferentExempt) { truncated = true; truncateReason = `关联性不足（${relevance.score}分）`; }
     else if (quality.total <= 4) { truncated = true; truncateReason = `代币质量过低（${quality.total}分）`; }
 
     if (truncated) {
@@ -1168,7 +1194,7 @@ export function mapSuperIPAnswers(answers, context) {
       const rating = totalScore >= 70 ? 'high' : totalScore >= 50 ? 'mid' : 'low';
       llmResult = {
         rating,
-        reason: `事件分${eventWeighted}(${eventTotal}×0.6:${preScores.tierScore}+时效${preScores.timeliness}+传播${dim2})｜关联${relevance.score}(${relevance.type})｜质量${quality.total}｜总分${totalScore}→${rating}`,
+        reason: `${imgReferentExempt ? '指代载体在图豁免(C59)｜' : ''}事件分${eventWeighted}(${eventTotal}×0.6:${preScores.tierScore}+时效${preScores.timeliness}+传播${dim2})｜关联${relevance.score}(${relevance.type})｜质量${quality.total}｜总分${totalScore}→${rating}`,
         score: totalScore,
         pass: true,
       };

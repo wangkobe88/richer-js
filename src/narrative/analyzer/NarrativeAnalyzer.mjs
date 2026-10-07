@@ -564,6 +564,9 @@ export class NarrativeAnalyzer {
               preScores,
               symbol: tokenData.symbol,
               includeBrandHijack,
+              // C59 指代载体在图豁免条件①：配图视觉证据存在（analyzeTweetImage
+              // 已在上方正常流程分支挂载 image_analysis）
+              imageEvidence: !!twitterInfo?.image_analysis,
               callInfo: {
                 model: result.model, questions, state, stateStats: stats,
                 usage: result.usage, startedAt, finishedAt,
