@@ -23,9 +23,9 @@
   },
   "vision": {
     "enabled": true,
-    "baseUrl": "https://open.bigmodel.cn/api/anthropic",
-    "model": "glm-5.3",
-    "apiKeyEnv": "NEWS_LLM_API_KEY",
+    "baseUrl": "https://api.siliconflow.cn/v1",
+    "model": "Qwen/Qwen3-Omni-30B-A3B-Captioner",
+    "apiKeyEnv": "SILICONFLOW_FALLBACK_KEY",
     "timeoutMs": 30000,
     "maxTokens": 1500,
     "retryCount": 2,

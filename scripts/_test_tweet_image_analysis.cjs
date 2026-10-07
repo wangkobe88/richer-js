@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * 推文配图视觉分析服务单测（2026-10-07 现金猫案，智谱 glm-5.3 图片分析开启）
+ * 推文配图视觉分析服务单测（2026-10-07 现金猫案，图片分析开启；
+ * 同日终选 Qwen/Qwen3-Omni-30B-A3B-Captioner @ SiliconFlow OpenAI 兼容端点）
  *
- * 零 DB 零网络：打桩 global fetch（图片下载 + 智谱 API）与 ExternalResourceCache
+ * 零 DB 零网络：打桩 global fetch（图片下载 + SiliconFlow API）与 ExternalResourceCache
  * 静态方法（模块实例同对象，static 可写——与 precheck retry 测试同手法）。
  *
  * 用户两点约束的机器验证：
@@ -22,7 +23,7 @@
  *   I. JSON 解析失败 → 整段原文进 description（不丢证据）
  *   J. in-flight 去重：两个不同 twitterInfo 同图并发 → API 只打一次，双双挂载
  *   K. state 渲染：twitter-section 输出【图片内容分析】块（渲染层零改动口径）
- *   L. 源码口径：NarrativeAnalyzer 正常流程分支挂点存在
+ *   L. 源码口径：NarrativeAnalyzer 挂点 + downloadAsBase64 format:'jpeg'
  *   M. 配置残缺（enabled 但 key 缺失）→ throw fail-loud
  *
  * 用法：node scripts/_test_tweet_image_analysis.cjs
@@ -42,8 +43,8 @@ let apiResponse = null; // 当前 API 响应桩（对象或其队列函数）
 const IMG_BUF = Buffer.alloc(2048, 7);
 global.fetch = async (url, init) => {
   const u = String(url);
-  fetchCalls.push({ url: u, body: init?.body });
-  if (u.includes('/v1/messages')) {
+  fetchCalls.push({ url: u, body: init?.body, headers: init?.headers });
+  if (u.includes('/chat/completions')) {
     return typeof apiResponse === 'function' ? apiResponse() : apiResponse;
   }
   return {
@@ -55,7 +56,7 @@ global.fetch = async (url, init) => {
 // ── 打桩 ExternalResourceCache（模块实例同对象，static 方法可写）────────────
 const cacheState = { next: null, gets: [], sets: [] };
 
-const okApi = (text) => ({ ok: true, json: async () => ({ content: [{ type: 'text', text }] }) });
+const okApi = (text) => ({ ok: true, json: async () => ({ choices: [{ message: { content: text } }] }) });
 
 function makeTweet(over = {}) {
   return {
@@ -112,18 +113,19 @@ async function main() {
     const tw = makeTweet();
     const r = await analyzeTweetImage(tw, OPTS);
     check('B1: 返回 true 且挂载 image_analysis', r === true && !!tw.image_analysis);
-    const imgFetches = fetchCalls.filter(c => !c.url.includes('/v1/messages'));
-    const apiFetches = fetchCalls.filter(c => c.url.includes('/v1/messages'));
+    const imgFetches = fetchCalls.filter(c => !c.url.includes('/chat/completions'));
+    const apiFetches = fetchCalls.filter(c => c.url.includes('/chat/completions'));
     check('B2: 只下载第一张图（用户约束 2）',
       imgFetches.length === 1 && imgFetches[0].url === 'https://pbs.twimg.com/media/FIRST.jpg');
-    check('B3: API 只调一次', apiFetches.length === 1 && apiFetches[0].url === 'https://fake-vision.test/v1/messages');
+    check('B3: API 只调一次（OpenAI 兼容 /chat/completions）',
+      apiFetches.length === 1 && apiFetches[0].url === 'https://fake-vision.test/chat/completions');
     check('B4: 缓存 get 键控图片 URL + resourceType=tweet_image',
       cacheState.gets.length === 1 && cacheState.gets[0].url === 'https://pbs.twimg.com/media/FIRST.jpg' && cacheState.gets[0].type === 'tweet_image');
     check('B5: 缓存 set 写入（url/形状/版本/90天TTL）',
       cacheState.sets.length === 1
       && cacheState.sets[0].url === 'https://pbs.twimg.com/media/FIRST.jpg'
       && cacheState.sets[0].type === 'tweet_image'
-      && cacheState.sets[0].content.promptVersion === 'img-v1'
+      && cacheState.sets[0].content.promptVersion === 'img-v2'
       && cacheState.sets[0].content.analysis.description === '排行榜截图，榜首有一只卡通猫'
       && cacheState.sets[0].content.analysis.key_elements.length === 3
       && cacheState.sets[0].ttl === 7776000);
@@ -132,11 +134,11 @@ async function main() {
     check('B6: prompt 含推文文字与作者', prompt.includes('TradersLeagueS4') && prompt.includes('@binance'));
     check('B7: 服务签名无 token 维度入参（跨 token 缓存健全性，Function.length 默认参数截断计 1）',
       analyzeTweetImage.length === 1 && !/tokenName|tokenData|token_relevance/.test(prompt));
-    check('B8: 请求体 thinking disabled + 图片块 base64',
-      body.thinking?.type === 'disabled'
-      && body.messages[0].content[0].type === 'image'
-      && body.messages[0].content[0].source.media_type === 'image/jpeg'
-      && typeof body.messages[0].content[0].source.data === 'string');
+    check('B8: OpenAI 格式请求体（image_url data URI jpeg + Bearer + 无 thinking 字段）',
+      apiFetches[0].headers?.Authorization === 'Bearer k'
+      && body.thinking === undefined
+      && body.messages[0].content[0].type === 'image_url'
+      && body.messages[0].content[0].image_url.url.startsWith('data:image/jpeg;base64,'));
     check('B9: ```json 围栏剥离解析成功', tw.image_analysis.analysis.meme_type === 'POV梗图');
     console.log('B. miss 全链 ✓');
   }
@@ -144,7 +146,7 @@ async function main() {
   // ═══ C. 缓存命中 ═══
   {
     fetchCalls.length = 0; cacheState.gets.length = 0; cacheState.sets.length = 0;
-    cacheState.next = { url: 'https://pbs.twimg.com/media/FIRST.jpg', analysis: { description: '缓存里的描述' }, promptVersion: 'img-v1' };
+    cacheState.next = { url: 'https://pbs.twimg.com/media/FIRST.jpg', analysis: { description: '缓存里的描述' }, promptVersion: 'img-v2' };
     const tw = makeTweet();
     const r = await analyzeTweetImage(tw, OPTS);
     check('C1: 命中直接挂载零 fetch 零 set', r === true && fetchCalls.length === 0 && cacheState.sets.length === 0
@@ -159,7 +161,7 @@ async function main() {
     apiResponse = okApi('{"description":"新版描述","key_elements":[],"meme_type":"","meme_meaning":""}');
     const tw = makeTweet();
     const r = await analyzeTweetImage(tw, OPTS);
-    check('D1: 旧版本缓存视为 miss 重析', r === true && fetchCalls.some(c => c.url.includes('/v1/messages'))
+    check('D1: 旧版本缓存视为 miss 重析', r === true && fetchCalls.some(c => c.url.includes('/chat/completions'))
       && tw.image_analysis.analysis.description === '新版描述');
     console.log('D. 版本校验 ✓');
   }
@@ -190,7 +192,7 @@ async function main() {
     const tw = makeTweet();
     const t0 = Date.now();
     const r = await analyzeTweetImage(tw, OPTS);
-    const apiCount = fetchCalls.filter(c => c.url.includes('/v1/messages')).length;
+    const apiCount = fetchCalls.filter(c => c.url.includes('/chat/completions')).length;
     check('G1: 5xx 重试耗尽（retryCount=2 → 3 次）后 false', r === false && apiCount === 3);
     check('G2: 失败不写缓存（下次重试语义）', cacheState.sets.length === 0 && !tw.image_analysis);
     check('G3: 有退避（≥500ms）', Date.now() - t0 >= 500);
@@ -203,7 +205,7 @@ async function main() {
     apiResponse = { ok: false, status: 400, text: async () => 'bad request' };
     const tw = makeTweet();
     const r = await analyzeTweetImage(tw, OPTS);
-    const apiCount = fetchCalls.filter(c => c.url.includes('/v1/messages')).length;
+    const apiCount = fetchCalls.filter(c => c.url.includes('/chat/completions')).length;
     check('H1: 4xx 单次调用即失败', r === false && apiCount === 1 && cacheState.sets.length === 0);
     console.log('H. 4xx 不重试 ✓');
   }
@@ -232,8 +234,8 @@ async function main() {
     await new Promise(r => setTimeout(r, 50));
     release();
     const [r1, r2] = await Promise.all([p1, p2]);
-    const apiCount = fetchCalls.filter(c => c.url.includes('/v1/messages')).length;
-    const imgCount = fetchCalls.filter(c => !c.url.includes('/v1/messages')).length;
+    const apiCount = fetchCalls.filter(c => c.url.includes('/chat/completions')).length;
+    const imgCount = fetchCalls.filter(c => !c.url.includes('/chat/completions')).length;
     check('J1: 并发同图 API 只打一次（复蹭簇形状）', r1 === true && r2 === true && apiCount === 1 && imgCount === 1);
     check('J2: 两个 twitterInfo 都挂上同一结果', tw1.image_analysis.analysis.description === '并发结果' && tw2.image_analysis.analysis.description === '并发结果');
     console.log('J. in-flight 去重 ✓');
@@ -250,7 +252,7 @@ async function main() {
     console.log('K. state 渲染 ✓');
   }
 
-  // ═══ L. 源码口径：NarrativeAnalyzer 挂点 ═══
+  // ═══ L. 源码口径：NarrativeAnalyzer 挂点 + jpeg 下载口径 ═══
   {
     const fs = require('fs');
     const src = fs.readFileSync('src/narrative/analyzer/NarrativeAnalyzer.mjs', 'utf8');
@@ -258,6 +260,13 @@ async function main() {
     const hookIdx = src.indexOf('await analyzeTweetImage(twitterInfo);');
     const precheckIdx = src.indexOf('const preCheckResult = await performPreCheck');
     check('L2: 挂点在 pre-check 之后（预检拦截票不烧视觉调用）', hookIdx > precheckIdx && hookIdx > 0);
+    const svcSrc = fs.readFileSync('src/narrative/analyzer/services/image-analysis-service.mjs', 'utf8');
+    check('L3: downloadAsBase64 显式传 format jpeg（downloader 默认 webp；webp 在智谱端点实测被静默丢弃，jpeg 是 A/B 实测正常格式）',
+      svcSrc.includes("downloadAsBase64(imageUrl, { format: 'jpeg' })"));
+    check('L4: 请求端点 OpenAI 兼容 /chat/completions（SiliconFlow）',
+      svcSrc.includes('`/chat/completions`') || svcSrc.includes("'/chat/completions'") || svcSrc.includes('/chat/completions'));
+    check('L5: 不残留 anthropic 端点头（x-api-key/anthropic-version）',
+      !svcSrc.includes('x-api-key') && !svcSrc.includes('anthropic-version'));
     console.log('L. 源码口径 ✓');
   }
 

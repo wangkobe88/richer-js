@@ -12,8 +12,15 @@
  *   2. 每个代币只分析主推文的第一张图（多图/第二推文/引用推文的图都不分析，
  *      时间成本考量）。
  *
- * 模型：智谱 glm-5.3（与 NEWS_LLM 同一把 key，anthropic 兼容端点 /v1/messages，
- * thinking disabled——实测 8s 出完整答案；4.6v 会编造读不清的文字，弃用）。
+ * 模型：Qwen/Qwen3-Omni-30B-A3B-Captioner @ SiliconFlow（2026-10-07 用户裁定，
+ * 三模型 A/B + 亲眼看图仲裁终选——现金猫案配图（HTeSnpDXAAAMv9P.jpg）真相 =
+ * 白猫举金币（黄兜帽/墨镜/金表/蓝天白云，无任何排行榜界面）：Qwen 描述全对
+ * 3861ms 且诚实标注「屏幕上没有可读文字」；glm-4.6v 把图「看成」排行榜截图
+ * = 纯文字脑补编造（叙事证据不可用）；glm-5.3 是文本模型看不到图。OpenAI
+ * 兼容端点 /v1/chat/completions（Authorization Bearer + image_url data URI）。
+ * ★压缩输出必须 jpeg（downloader 默认 webp，但 webp 只在智谱端点实测过被静默
+ * 丢弃；jpeg 是三模型 A/B 全部实测正常的格式），故 downloadAsBase64 传
+ * { format: 'jpeg' }。
  *
  * 失败语义：
  *   - vision 配置节缺失 / enabled=false → 跳过（功能关闭态，非错误）
@@ -35,10 +42,13 @@ import { ExternalResourceCache } from '../../db/ExternalResourceCache.mjs';
 const CACHE_RESOURCE_TYPE = 'tweet_image';
 
 /**
- * 图片分析 prompt 版本：prompt 措辞 / 输出形状改动时 bump。
+ * 图片分析 prompt 版本：prompt 措辞 / 输出形状 / 模型改动时 bump。
  * 缓存行带版本号，版本不符视为 miss 重析（防旧形状毒缓存）。
+ * img-v2（2026-10-07）：glm-5.3 → Qwen3-Omni-30B-A3B-Captioner @ SiliconFlow
+ * 切换——v1 行全部是 glm-5.3「看不到图」废结果（webp 被智谱端点静默丢弃），
+ * 全部需要重析（img-v2 未部署过 182，无需 v3）。
  */
-const IMAGE_PROMPT_VERSION = 'img-v1';
+const IMAGE_PROMPT_VERSION = 'img-v2';
 
 const RETRY_BACKOFF_MS = [500, 1500];
 
@@ -73,9 +83,10 @@ export async function analyzeTweetImage(twitterInfo, options = {}) {
   if (twitterInfo.image_analysis) return true;
 
   const imageUrl = firstImage.url;
-  const apiKey = process.env[vision.apiKeyEnv || 'NEWS_LLM_API_KEY'];
+  const apiKeyEnv = vision.apiKeyEnv || 'SILICONFLOW_FALLBACK_KEY';
+  const apiKey = process.env[apiKeyEnv];
   if (!vision.baseUrl || !vision.model || !apiKey) {
-    throw new Error(`vision 配置残缺：baseUrl=${vision.baseUrl} model=${vision.model} ${vision.apiKeyEnv || 'NEWS_LLM_API_KEY'}=${apiKey ? '已配置' : '缺失'}`);
+    throw new Error(`vision 配置残缺：baseUrl=${vision.baseUrl} model=${vision.model} ${apiKeyEnv}=${apiKey ? '已配置' : '缺失'}`);
   }
 
   // 1) 缓存命中直接挂（用户约束 1：同图不重复分析；版本不符视为 miss）
@@ -113,7 +124,8 @@ export async function analyzeTweetImage(twitterInfo, options = {}) {
 async function _analyzeOnce(imageUrl, twitterInfo, vision, apiKey) {
   const startedAt = Date.now();
   try {
-    const imageData = await ImageDownloader.downloadAsBase64(imageUrl);
+    // format:'jpeg'——压缩输出必须是 jpeg（webp 被智谱端点静默丢弃，见头注释）
+    const imageData = await ImageDownloader.downloadAsBase64(imageUrl, { format: 'jpeg' });
     if (!imageData) {
       logger.warn('ImageAnalysis', `图片下载失败，跳过（语料不含图片证据）: ${imageUrl}`);
       return null;
@@ -167,7 +179,7 @@ function _buildPrompt(twitterInfo) {
 }
 
 /**
- * 调用智谱 anthropic 兼容端点（thinking disabled）；429/5xx/网络错误短退避重试
+ * 调用 SiliconFlow OpenAI 兼容端点；429/5xx/网络错误短退避重试
  * @returns {Promise<string>} 模型文本输出
  */
 async function _callVision(vision, apiKey, imageData, prompt) {
@@ -193,7 +205,9 @@ async function _callVision(vision, apiKey, imageData, prompt) {
 }
 
 /**
- * 单次视觉调用（不发日志、不重试）
+ * 单次视觉调用（不发日志、不重试）。OpenAI 兼容格式：
+ * POST {baseUrl}/chat/completions，Authorization Bearer，content 数组
+ * image_url（data URI）+ text；响应取 choices[0].message.content。
  * @returns {Promise<{ok:true, text:string} | {ok:false, error:Error, retryable:boolean}>}
  */
 async function _singleVisionCall(baseUrl, model, apiKey, imageData, prompt, timeoutMs, maxTokens) {
@@ -201,22 +215,19 @@ async function _singleVisionCall(baseUrl, model, apiKey, imageData, prompt, time
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(`${baseUrl}/v1/messages`, {
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
         'Authorization': `Bearer ${apiKey}`,
-        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model,
         max_tokens: maxTokens,
-        thinking: { type: 'disabled' },
         messages: [{
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'base64', media_type: imageData.mimeType, data: imageData.base64 } },
+            { type: 'image_url', image_url: { url: `data:${imageData.mimeType};base64,${imageData.base64}` } },
             { type: 'text', text: prompt },
           ],
         }],
@@ -233,9 +244,12 @@ async function _singleVisionCall(baseUrl, model, apiKey, imageData, prompt, time
     }
 
     const body = await response.json();
-    const text = (body.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+    // 实测 SiliconFlow content 为字符串（A/B 脚本 tmp_ab_qwen_captioner.mjs）；
+    // 形状漂移走 fail-loud（不写缓存下次重试），不做数组形状兜底
+    const text = (typeof body.choices?.[0]?.message?.content === 'string'
+      ? body.choices[0].message.content : '').trim();
     if (!text) {
-      return { ok: false, error: new Error('响应无文本块（thinking 未关闭或 max_tokens 不足）'), retryable: false };
+      return { ok: false, error: new Error('响应无文本（choices[0].message.content 空）'), retryable: false };
     }
     return { ok: true, text };
   } catch (e) {
