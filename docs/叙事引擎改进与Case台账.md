@@ -61,7 +61,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 - **正交性**：不绕任何阻断门（web3 unfit/negative_hard_news/rcp/block_reason/nameReferentBlock 照拦——G/F 节单测锁）；与 J1.21 正交叠加（nrBlock 命中票先 J1.21 放行、再 C59 救关联截断，两豁免独立判分）；标准路径（mapStandardAnswers）零触达——豁免域仍仅 superIP 块。
 - **审计**：`jev.imgReferentExempt {relType, relScore, memeScore}`（命中才落，J1.24 模式）+ 非截断 reason 前缀「指代载体在图豁免(C59)｜」。
 - **单测**：`node scripts/_test_superip_relevance_exempt.cjs`（23 断言零 DB 八节：三门全中数值锚定 76.03/缺图门/relevance=0 不救/relevance>10 不落键/meme 缺失·<3 fail-closed/阻断门不受影响/J1.21 叠加/源码口径）。回归：referent_memeability 30、brand_hijack_pun 18、tweet_image_analysis 34、web3_fit_anchor 12、w_interaction 17、notable_other 22、jev_product_entity 41 全过。
-- **E2E 终局**：〔待 182 部署后补〕
+- **E2E 终局（182 部署 commit `93a0e16` 后重析）**：现金猫 `0x56dc26bd…7777` ignoreCache 重析——**low → high 76.1**（预测 76.03，微差=Jev 概率跨 run 抖动：meme 3.47→3.45、质量分微变；计分骨架 50.4+10+15.7 不变）。审计实录 `imgReferentExempt {relType:cultural, relScore:10, memeScore:3.45}` 命中 + `nameReferentExempt:true`——本轮 nrBlock 恰过半，实走「J1.21 放行 + C59 救关联截断」**叠加路径**（单测 G 节锁定的正交形状在真实链路一并验证）；prompt_type `super_ip_fast(币安官方/S级/jev-J1.27)`。图证据走 90 天缓存命中（同图零 API 成本，复蹭簇后续票同享）。部署链：pull → narrative engine 重启（3528604，旧 3522116）+ 实验 screen exp-36a2c12a 重建（3539057）→ watcher 与 6f92e2f9 对照臂刻意不动。
 
 ### C58 现金猫续——推文配图视觉分析开启（Qwen3-Omni Captioner @ SiliconFlow）：指代载体在图的子形状补上感知层（2026-10-07 用户裁定「开一下图片分析」+ 两点约束；同日三模型 A/B + 看图仲裁终选）★
 
