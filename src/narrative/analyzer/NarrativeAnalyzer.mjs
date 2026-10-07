@@ -16,6 +16,7 @@ import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommuni
 import { cleanDataForDB } from './utils/data-cleaner.mjs';
 import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
 import { performPreCheck } from './services/pre-check-service.mjs';
+import { analyzeTweetImage } from './services/image-analysis-service.mjs';
 import { fetchAllDataViaClassifier } from './services/data-fetch-service.mjs';
 import { fetchGmgnSocialLinks } from '../utils/gmgn-social-fetcher.mjs';
 import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
@@ -441,6 +442,13 @@ export class NarrativeAnalyzer {
       try {
         // twitterInfo已包含website_tweet（如果有第二个推文）
         const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo, classifiedUrls, relatedAccounts };
+
+        // 推文配图视觉分析（2026-10-07 现金猫案 0x56dc26bd…7777 裁定开启，智谱 glm-5.3）：
+        // 主推文首图 → twitterInfo.image_analysis（twitter-section 既有渲染块进 Jev state；
+        // 同图 90 天缓存 + 进程内并发去重，分析 token 无关可跨 token 复用）。挂在 pre-check
+        // 之后——预检拦截票不烧视觉调用；下载/API 失败在服务内降级为无图证据（= 开启前
+        // 行为），配置残缺 throw fail-loud。
+        await analyzeTweetImage(twitterInfo);
 
         // Jev 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，
         // 与何时分析无关——补跑/回测/延迟分析的结果幂等；创建时间缺失时回退当前时刻）

@@ -20,5 +20,15 @@
     "apiKeyEnv": "TYPESAFE_API_KEY",
     "timeoutMs": 30000,
     "retryCount": 2
+  },
+  "vision": {
+    "enabled": true,
+    "baseUrl": "https://open.bigmodel.cn/api/anthropic",
+    "model": "glm-5.3",
+    "apiKeyEnv": "NEWS_LLM_API_KEY",
+    "timeoutMs": 30000,
+    "maxTokens": 1500,
+    "retryCount": 2,
+    "cacheTtlSec": 7776000
   }
 }

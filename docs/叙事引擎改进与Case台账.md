@@ -51,6 +51,16 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C58 现金猫续——推文配图视觉分析开启（智谱 glm-5.3）：指代载体在图的子形状补上感知层（2026-10-07 用户裁定「开一下图片分析」+ 两点约束）★
+
+- **案由**：C57 落地后重析双票终局里，现金猫 `0x56dc26bde1ee2f9159351de1ade5188d06157777`（name=cashcat/symbol 现金猫，binance「POV: TradersLeague 排行榜」语料簇最大赢票 +9.515 BNB）mid → low「截断：关联性不足（0分）｜事件分50.5」。复盘拦截现场：`name_referent` argmax none_related 0.45（压过 common_word 0.41）→ relevance 0 分——**按纯文本语料完全自洽**（推文文字零「现金猫/cashcat/猫/cash/现金」字样），指代映射的唯一载体是配图 `https://pbs.twimg.com/media/HTeSnpDXAAAMv9P.jpg`（与 C51 龙虾案「判定所需事实不在引擎语料集合」同构）。其余维度全顶配（tierScore 40 / 时效 15 / 传播 29.16 / strong_fit 0.96），唯独缺图里那块事实。用户问「是不是只能打开图片分析」→ 复核：不开图的旁路（J1.24 punExempt 挂 superIP / J1.21 放宽）全是对整个 superIP 通道开口，×32 复蹭簇必翻案；裁定开启图片分析。
+- **模型选型实测**（`scripts/tmp_test_zhipu_cashcat.cjs`，智谱 anthropic 兼容端点 `open.bigmodel.cn/api/anthropic`，与 news-monitor 同一把 NEWS_LLM_API_KEY key）：`glm-5.3` thinking disabled 8.1s 出完整答案且**诚实**（「排行榜用户名多为缩略/模糊/被遮挡，无法可靠读出，不建议凭空编造」+ 识别出猫形象 + 判定指代关联 yes）；对照 `glm-4.6v` 5.2s 但**编造**（「假设可读出 cashcat」——读不清就猜，叙事证据不能用）；glm-5.3 不关 thinking 则 3000 token 想不完（52s+ 超时形状）。定 glm-5.3 + `thinking:{type:'disabled'}`。
+- **用户两点约束**：① 同一图片分析结果缓存不重复分析；② 每代币多图只分析其一（时间成本）。落地：`external_resource_cache` 按**图片 URL** 键控（resourceType=`tweet_image`，TTL 90 天，`promptVersion=img-v1` 版本校验防旧形状毒缓存）+ **进程内 in-flight 去重**（复蹭簇同分钟并发分析同图只打一次 API）+ 只取**主推文第一张图**（website_tweet/quoted/第二张都不分析）。
+- **★架构裁定：视觉层 token 无关（跨 token 缓存健全性）**：缓存按图 URL 键控而分析结果会被多个 token 共享——prompt 一旦掺 token 名，token B 会拿到为 token A 算的关联结论（毒缓存，复蹭簇正是多 token 共享同图的形状）。因此 prompt 只含推文作者/文字/图，产出纯感知字段（description/key_elements/meme_type/meme_meaning，与 twitter-section 既有【图片内容分析】渲染块同构——渲染层零改动）；**指代判定留给 Jev 的 name_referent 题**（[TOKEN] 头与图片描述天然在那儿对上），旧渲染块的 token_relevance 字段恒空跳过。
+- **挂点与失败语义**：`NarrativeAnalyzer` 正常流程分支（pre-check 通过后、state 构建前）`await analyzeTweetImage(twitterInfo)`——预检拦截票不烧视觉调用；superIP fast-track 与标准路径共用（现金猫形状正是 superIP 通道）。下载/API/解析失败 → warn + 无图证据（= 开启前行为）+ **不写缓存**（下次重试语义与无缓存一致，刻意不走 CachedFetcher.fetchWithCache——其失败 1h 冷却会灭掉宣告竞态重试窗，与 account-analysis 同裁定）；配置 enabled 但 key/baseUrl 残缺 → throw fail-loud。配置节 `config/narrative-engine.json → vision`（enabled/baseUrl/model/apiKeyEnv=NEWS_LLM_API_KEY/timeoutMs/maxTokens/retryCount/cacheTtlSec）。
+- **范围边界**：只修「指代载体在配图」子形状（C51 已记的「纯世界知识代称无图承载」仍不覆盖，属模型升级域）；prestage 账号路径不进图（buildPrestageState 语料是账号时间线，无 twitterInfo 位）；twitter_info 列随 image_analysis 持久化（审计可见）。
+- **单测**：`node scripts/_test_tweet_image_analysis.cjs`（31 断言零 DB 零网络十三节：关闭态/miss 全链（只下首图·缓存键形状·prompt 无 token 维度·围栏剥离）/缓存命中/版本不符重析/跳过形状/幂等/5xx 重试耗尽不写缓存/4xx 不重试/解析降级原文进 description/in-flight 并发去重/state 渲染/源码挂点/配置残缺 throw）。
+
 ### C57 NIGGALON——规则5高影响力+媒体直发 mid 废除：自填 twitterUrl 白拿 mid 的零成本攻击面（2026-10-06 用户裁定「方案A」）★
 
 - **案由**：NIGGALON `0xb62ec51dd713c16dcbb4325ca53aaf555a507777`（fourmeme，
@@ -95,7 +105,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
   `0x56dc26bd…7777`（TradersLeague 簇最大赢票 +9.515 BNB）mid → **low**「截断：
   关联性不足（0分）｜事件分50.5」——binance 官方 fast-track 下 token 名与推文
   无指代关联被 relevance 截断，评估阶段预告的反例簇代价（+14.9 BNB）实际兑现，
-  如实记录。部署链：commit `27b209a` → 182 pull → 191 行存量置 is_valid=false →
+  如实记录（**续案：该 low 引出 C58——图片分析开启补上指代载体在图的感知层**）。部署链：commit `27b209a` → 182 pull → 191 行存量置 is_valid=false →
   narrative engine（PID 3194016）+ 实验进程 36a2c12a（screen exp-36a2c12a）重启
   吃新代码；watcher 无改动未动；6f92e2f9 为实验 description 明示的旧代码对照臂
   刻意不重启。
@@ -446,6 +456,8 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
   ② binancezh 不在 HIGH_INFLUENCE_ACCOUNTS 名单（即便当年开着也不走）——
   双重盲区。**与 C49 币有同族形状（判定所需事实不在引擎语料集合），news WSS
   落地后回访**；纯世界知识代称子形状（无图承载）图片分析也修不了，属模型升级域。
+  **〔2026-10-07 更新：①盲区已由 C58 图片分析开启修复——龙虾案正是「指代载体在
+  配图」子形状，重析即带图证据；②binancezh 名单问题随 C57 规则5废除不再相关〕**
 - **影响面**：所有「自挂链接是马甲号/垃圾链接 + GMGN 关联了 superIP 真推文」形状
   ——此前全在数据层盲拦（address_fail/no_public_info/fetch_failed 族）。注意：
   superIP 快车道触发源仍是 token 自挂 twitterUrl（本案走标准路径）——GMGN 并入的
