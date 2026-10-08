@@ -4,7 +4,7 @@
 // 用法：node scripts/compare-corpus-lag-pair.cjs <R1_ID> <R0_ID>
 //
 // 拉取口径（防 statement timeout，参照 compare-hg55-pair）：jsonb 路径窄列
-//   strategy_signals: action='buy' AND (status='executed' OR status='failed')
+//   strategy_signals: action='buy' 全量（executed 布尔列筛执行）
 //     metadata->trendFactors->>earlyReturn / metadata->preBuyCheckFactors->>narrativeCorpusLagSec
 //   trades: buy/sell 成功腿（BNB 口径 net = Σ卖BNB − Σ买BNB）
 // 差分 = R1 门臂 − R0 基线 = 晚票门净效应；被拦票 = R0 有 executed 买而 R1 无。
@@ -19,15 +19,23 @@ const { dbManager } = require('../src/services/dbManager');
 
 async function load(expId) {
   const client = dbManager.getClient();
-  const [sigRes, buyRes, sellRes] = await Promise.all([
-    client.from('strategy_signals')
-      .select(`id, token_address, token_symbol, status, reason,
-        metadata->trendFactors->>earlyReturn as er,
-        metadata->preBuyCheckFactors->>narrativeCorpusLagSec as lag,
-        metadata->preBuyCheckFactors->>earlyTradesUniqueWallets as uw,
-        metadata->preBuyCheckFactors->>platform as platform`)
-      .eq('experiment_id', expId).eq('action', 'buy').in('status', ['executed', 'failed'])
-      .order('created_at', { ascending: true }).limit(2000),
+  // signals 分页拉全（PostgREST 默认单页上限 1000，.limit(2000) 会被静默截断）
+  const sigRows = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await client.from('strategy_signals')
+      .select(`id, token_address, token_symbol, executed, reason,
+        er:metadata->preBuyCheckFactors->>earlyReturn,
+        lag:metadata->preBuyCheckFactors->>narrativeCorpusLagSec,
+        uw:metadata->preBuyCheckFactors->>earlyTradesUniqueWallets,
+        platform:metadata->preBuyCheckFactors->>platform`)
+      .eq('experiment_id', expId).eq('action', 'buy')
+      .order('created_at', { ascending: true }).range(offset, offset + 999);
+    if (error) throw new Error('signals: ' + error.message);
+    if (!data || data.length === 0) break;
+    sigRows.push(...data);
+    if (data.length < 1000) break;
+  }
+  const [buyRes, sellRes] = await Promise.all([
     client.from('trades')
       .select('token_address, token_symbol, trade_direction, input_amount, output_amount')
       .eq('experiment_id', expId).eq('success', true).eq('trade_direction', 'buy')
@@ -37,7 +45,6 @@ async function load(expId) {
       .eq('experiment_id', expId).eq('success', true).eq('trade_direction', 'sell')
       .order('created_at', { ascending: true }).limit(3000),
   ]);
-  if (sigRes.error) throw new Error('signals: ' + sigRes.error.message);
   if (buyRes.error) throw new Error('trades.buy: ' + buyRes.error.message);
   if (sellRes.error) throw new Error('trades.sell: ' + sellRes.error.message);
 
@@ -55,8 +62,8 @@ async function load(expId) {
 
   // executed 买票集合（多轮买算一次）+ 首 signal 因子
   const executed = new Map();
-  for (const s of sigRes.data) {
-    if (s.status !== 'executed') continue;
+  for (const s of sigRows) {
+    if (!s.executed) continue;
     if (!executed.has(s.token_address)) {
       executed.set(s.token_address, {
         sym: s.token_symbol, er: Number(s.er), lag: s.lag == null ? null : Number(s.lag),
@@ -65,7 +72,17 @@ async function load(expId) {
       });
     }
   }
-  return { net, executed, sigCount: sigRes.data.length };
+  // 每票最新一行因子快照（被拦票展示用：R0 冻结行无 corpusLag 因子，门臂自己的
+  // 被拦行才有 lag/er 真值——被拦票 = 门臂 executed=false 的最后一行）
+  const lastSig = new Map();
+  for (const s of sigRows) {
+    lastSig.set(s.token_address, {
+      sym: s.token_symbol, er: Number(s.er), lag: s.lag == null ? null : Number(s.lag),
+      uw: s.uw == null ? null : Number(s.uw), platform: s.platform || '',
+      reason: s.reason || '',
+    });
+  }
+  return { net, executed, sigCount: sigRows.length, lastSig };
 }
 
 (async () => {
@@ -89,10 +106,13 @@ async function load(expId) {
   console.log(`R1 拦掉: ${blockN} 张 / 净 ${blockNet.toFixed(4)} BNB${blockNet < 0 ? '（避亏）' : '（误拦）'}\n`);
 
   if (blocks.length) {
-    console.log('被拦票（地址 | sym | lag | er | uw | 平台 | 盈亏BNB）:');
+    console.log('被拦票（地址 | sym | lag | er | uw | 平台 | 盈亏BNB）[lag/er 取 R1 门臂被拦行因子]:');
     blocks.sort((a, b) => a.net - b.net);
     for (const b of blocks) {
-      console.log(`  ${b.addr} | ${b.sym || '?'} | lag=${b.lag ?? 'null'} er=${b.er?.toFixed?.(1) ?? '?'} uw=${b.uw ?? '?'} | ${b.platform || '?'} | ${b.net.toFixed(4)}`);
+      const f = A.lastSig.get(b.addr) || {};
+      const lag = f.lag ?? b.lag, er = Number.isFinite(f.er) ? f.er : b.er,
+        uw = f.uw ?? b.uw, plat = f.platform || b.platform || '';
+      console.log(`  ${b.addr} | ${b.sym || '?'} | lag=${lag ?? 'null'} er=${er != null && Number.isFinite(er) ? er.toFixed(1) : '?'} uw=${uw ?? '?'} | ${plat || '?'} | ${b.net.toFixed(4)}`);
     }
   }
   // R1 独有票（理论上应为零——门只能拦不能放；非零 = 时序扰动，需人工看）
