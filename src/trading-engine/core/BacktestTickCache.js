@@ -10,17 +10,18 @@
  * 字符串、block_time 保持 ISO），回测时间窗/token 过滤维持引擎既有内存层零改动，同一份
  * 缓存服务任意窗口回测，回测结果与直拉 bit-identical。
  *
- * 状态机（探针 = 锚定式，2026-10-08 计划翻转事故改造：`id > meta.maxId` 锚 + chunk×platform
- * 取增量区间 max(id)——扫描范围 = 缓存头之后的增量行，而非全表头无关行。旧无锚形状
- * `IN(N>3) + eq(platform) + ORDER BY id DESC LIMIT 1` 在表涨 150 万行后 planner 稳定选
- * id 反向扫描扫表头无关行 → 8s statement timeout，in(20)/in(50) 小批量同死，探针必败
- * → bypass 全量直拉 flap 同死）：
+ * 状态机（探针 = 锚定 + 无序存在性形状，2026-10-08 计划翻转事故两轮改造：
+ * `id > meta.maxId` 锚 + 无 ORDER BY 的 LIMIT 1——chunk×platform 判增量区间有无行。
+ * 旧无锚 `ORDER BY id DESC LIMIT 1` 表涨后 planner 稳定 id 反向扫描扫无关行 8s 超时；
+ * 锚定 DESC 只救活 token 集仍活跃的平台，死集（锚=集内最后行 id）区间全为无关行
+ * 照样超时；无序 LIMIT 1 无 top-k 排序可贪，稳定走 (token,platform,id) 索引 probe，
+ * 与区间长度无关——死集旧锚最坏情形实测 242 批 0 错、最慢 132ms）：
  *   MISS   data/meta 缺、gzipBytes 与实际 size 失配（上次写 crash 在 rename 与 meta 之间）、
  *          columnsTag 漂移 → fetchRows(0) 全量拉 → 落盘（不经探针）
  *   FRESH  锚定探针 null（增量区间无行）且锚行 PK 核验存在 → 纯读文件零拉取
  *          （空集形态 {0,0} 锚=0 探针退无锚形状，null = DB 无行，同样 FRESH 空数组）
- *   STALE  锚定探针返回 id > 锚（增量区间 max）→ 读旧文件 + fetchRows(meta.maxId)
- *          增量补拉 → 合并重写
+ *   STALE  锚定探针返回行 id（增量区间有行；观测值仅日志用，真 max 由增量拉取后
+ *          _writeSorted 重算）→ 读旧文件 + fetchRows(meta.maxId) 增量补拉 → 合并重写
  *   回缩   锚定探针 null 且锚行 PK 核验不存在（清表/删行使 meta.maxId 行消失——gt 锚
  *          形状下旧行「probeMax < meta.maxId」分支结构性不可达，检测责任移交锚行核验）→ drop → MISS
  *   bypass 探针 throw → WARN + fetchRows(0) 直拉，本次完全不读写缓存（数据正确性优先，
@@ -130,7 +131,8 @@ class BacktestTickCache {
    *                                 单 platform 全 chunk keyset 分页拉取闭包
    *                                 （afterId=0 全量、=meta.maxId 增量）
    * @param {Function} d.probeMaxId  async (anchor: number) => number|null  新鲜度探针
-   *                                 （锚定式：id > anchor 区间内 chunk×platform max(id)；
+   *                                 （锚定无序形状：id > anchor 区间内 chunk×platform
+   *                                 任意一行 id（非 null 即有增量；观测值仅日志用）；
    *                                 anchor=0/空 = 无锚全区间形状；增量区间无行时 null）
    * @param {Function} d.anchorExists async (id: number) => boolean  锚行 PK 存在性核验
    *                                 （`where id = meta.maxId limit 1` 单行查询恒快；
@@ -180,8 +182,8 @@ class BacktestTickCache {
       return this._miss({ dataPath, metaPath, ...d });
     }
 
-    // ② 新鲜度探针（锚定式，2026-10-08）：锚 = meta.maxId，只查 id > 锚 增量区间的
-    //    chunk×platform max(id)。失败 → bypass 直拉（不读写缓存，数据正确性优先不掩盖问题）
+    // ② 新鲜度探针（锚定无序形状，2026-10-08）：锚 = meta.maxId，判 id > 锚 增量
+    //    区间有无行。失败 → bypass 直拉（不读写缓存，数据正确性优先不掩盖问题）
     let probeMax;
     try {
       probeMax = await probeMaxId(meta.maxId);
@@ -226,7 +228,7 @@ class BacktestTickCache {
       }
     }
 
-    // probeMax > meta.maxId（gt 锚形状下不可能 ≤ 锚）：STALE 增量补拉 → 合并重写
+    // 探针命中（gt 锚保证返回 id > 锚）：STALE 增量补拉 → 合并重写
     return this._stale({ dataPath, metaPath, meta, probeMax, ...d });
   }
 
@@ -264,7 +266,7 @@ class BacktestTickCache {
     const { rows: n, maxId } = await this._writeSorted(dataPath, metaPath, rows, {
       addresses, columnsTag,
     });
-    this._log('info', `${platform}: stale → cacheMax=${meta.maxId} → probe=${probeMax} | 旧行 ${oldCount} + 增量 ${incRows.length} = ${n} 行 / maxId=${maxId} / ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    this._log('info', `${platform}: stale → cacheMax=${meta.maxId} → probeObserved=${probeMax} | 旧行 ${oldCount} + 增量 ${incRows.length} = ${n} 行 / maxId=${maxId} / ${((Date.now() - t0) / 1000).toFixed(1)}s`);
     return { rows, source: 'stale' };
   }
 

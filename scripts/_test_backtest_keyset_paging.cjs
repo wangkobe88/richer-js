@@ -108,7 +108,7 @@ function makeEngineStub(rows, platforms, startFilter = null, endFilter = null) {
     // 原型方法借用链（_loadWssTicks 内部再调 this._loadRawTickRows 等，stub 需可见）
     _loadRawTickRows: BacktestEngine.prototype._loadRawTickRows,
     _fetchPlatformTicksRows: BacktestEngine.prototype._fetchPlatformTicksRows,
-    _probeMaxTickId: BacktestEngine.prototype._probeMaxTickId,
+    _probeIncrementalTickId: BacktestEngine.prototype._probeIncrementalTickId,
     _getClient: () => makeFakeSupabase(rows),
   };
 }

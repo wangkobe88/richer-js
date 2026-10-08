@@ -554,7 +554,7 @@ class BacktestEngine extends AbstractTradingEngine {
         forceRefresh,
         columnsTag: TICK_SELECT_COLUMNS,
         fetchRows: (afterId) => this._fetchPlatformTicksRows(supabase, addresses, platform, afterId, raw.length),
-        probeMaxId: (anchor) => this._probeMaxTickId(supabase, addresses, platform, anchor),
+        probeMaxId: (anchor) => this._probeIncrementalTickId(supabase, addresses, platform, anchor),
         anchorExists: (id) => this._anchorRowExists(supabase, id),
       });
       // FRESH 纯读文件不经过 _fetchPlatformTicksRows（拉取行已在方法内计数），此处补计；
@@ -606,18 +606,25 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 新鲜度探针（锚定式，2026-10-08 计划翻转事故改造）：chunk × platform 反取
-   * `id > afterId` 增量区间的 max(id)。afterId = 缓存 meta.maxId（锚）时扫描范围
-   * = 缓存头之后的增量行——旧无锚形状 `IN(N>3) + eq(platform) + ORDER BY id DESC
-   * LIMIT 1` 在表涨 150 万行后 planner 稳定选 id 反向扫描扫表头无关行 → 8s
-   * statement timeout（in(20)/in(50) 小批量同死，假地址可复现非负载问题）。
-   * afterId 空/0 = 无锚全区间形状（MISS 前空集判定用）。增量区间无行返回 null。
-   * 单批失败重试 2 次（间隔 1s）：491 批长循环里单批撞 DB 负载抖动（实测同形状
-   * 47ms~2s 波动、偶发 >8s statement timeout，2026-10-02 d46b1b6c 案）不该让整个
-   * 探针 throw → bypass 落回 keyset 慢形状直拉（flap 稀疏平台必超时）；连续 3 次
-   * 失败仍 throw 保持 bypass 语义（真故障不掩盖）。
+   * 新鲜度探针（锚定 + 无序形状，2026-10-08 计划翻转事故两轮改造）：
+   * chunk × platform 查 `id > afterId` 增量区间**任意一行**（无 ORDER BY 的
+   * LIMIT 1 存在性判定）。形状选择依据（182 真实 6f92e2f9 地址集实测）：
+   * ① 旧无锚 `IN(N>3) + ORDER BY id DESC LIMIT 1` 表涨 150 万行后 planner 稳定
+   *    选 id 反向扫描扫表头无关行 → 8s statement timeout（in20/in50 同死）；
+   * ② 锚定 `gt(meta.maxId) + ORDER DESC LIMIT 1` 只救活 token 集仍活跃（锚近表头）
+   *    的平台；token 集已死（锚=集内最后行 id，如 fourmeme 10-04 死）时区间
+   *    (锚, 表头] 全为无关行，反向扫照样 8s——锚定对死集无效；
+   * ③ 无序 LIMIT 1 无排序需求，planner 无 top-k 反向扫可贪，稳定走
+   *    (token_address, platform, id) 索引 probe（每 probe O(log n) 与区间长度
+   *    无关）——fourmeme 死集旧锚最坏情形 242 批 0 错、最慢 132ms。
+   * 返回值：区间有行 → 观测到的行 id（跨批取 max，仅诊断日志用；真实 max 由
+   * STALE 增量拉取后 _writeSorted 重算）；无行 → null。afterId 空/0 = 无锚全
+   * 区间形状。单批失败重试 2 次（间隔 1s）：491 批长循环里单批撞 DB 负载抖动
+   * （实测同形状 47ms~2s 波动、偶发 >8s statement timeout，2026-10-02 d46b1b6c
+   * 案）不该让整个探针 throw → bypass 落回 keyset 慢形状直拉（flap 稀疏平台必
+   * 超时）；连续 3 次失败仍 throw 保持 bypass 语义（真故障不掩盖）。
    */
-  async _probeMaxTickId(supabase, addresses, platform, afterId) {
+  async _probeIncrementalTickId(supabase, addresses, platform, afterId) {
     let maxId = null;
     const anchored = Number.isFinite(afterId) && afterId > 0;
     const PROBE_ATTEMPTS = 3;
@@ -631,12 +638,10 @@ class BacktestEngine extends AbstractTradingEngine {
           .in('token_address', chunk)
           .eq('platform', platform);
         if (anchored) q = q.gt('id', afterId);
-        const res = await q
-          .order('id', { ascending: false })
-          .limit(1);
+        const res = await q.limit(1);
         if (!res.error) { data = res.data; break; }
         if (attempt === PROBE_ATTEMPTS) {
-          throw new Error(`wss_price_ticks max(id) 探针失败（连续 ${PROBE_ATTEMPTS} 次）: ${res.error.message}`);
+          throw new Error(`wss_price_ticks 增量探针失败（连续 ${PROBE_ATTEMPTS} 次）: ${res.error.message}`);
         }
         await new Promise(resolve => setTimeout(resolve, 1000));
       }

@@ -40,10 +40,11 @@ const { BacktestTickCache } = require('../src/trading-engine/core/BacktestTickCa
 
 /**
  * 行集 → 链式 query builder（过滤语义对齐 PostgREST：in/eq/gt + order by id 升/降 + limit）。
- * 相比 _test_backtest_keyset_paging.cjs 的 v1：① order 的 asc 标志真实生效（探针 desc 需要）；
- * ② opts.failProbe=true 时 desc 查询（探针形状）返回 error（bypass 用例注入）；
+ * 相比 _test_backtest_keyset_paging.cjs 的 v1：① order 的 asc 标志真实生效；
+ * ② opts.failProbe=true 时探针形状查询（无 order + in 过滤，2026-10-08 无序探针形状）
+ * 返回 error（bypass 用例注入；PK 核验 eq 查询无 in 不误伤）；
  * ③ opts.onExec(asc, q) 每次查询执行回调（FRESH 零拉取计数/锚定形状断言用）；
- * ④ 无 order 的查询（锚行 PK 核验 `.eq('id').limit(1)`）不排序直接过滤（v3）。
+ * ④ 无 order 的查询（探针/锚行 PK 核验）不排序直接过滤（v3）。
  */
 function makeFakeSupabaseV2(rows, opts = {}) {
   return {
@@ -58,7 +59,7 @@ function makeFakeSupabaseV2(rows, opts = {}) {
         order(col, o) { this._order = { col, asc: !o || o.ascending !== false }; return this; },
         limit(n) { this._limit = n; return this._exec(); },
         _exec() {
-          if (opts.failProbe && q._order && !q._order.asc) {
+          if (opts.failProbe && !q._order && q._in) {
             return { data: null, error: { message: 'probe boom (injected)' } };
           }
           if (opts.onExec) opts.onExec(!!(q._order && q._order.asc), q);
@@ -126,7 +127,7 @@ function makeEngineStub({ rows, platforms, startFilter = null, endFilter = null,
     _tickCache: new BacktestTickCache({ logger, experimentId: 'exp-bt', cacheDir }),
     _loadRawTickRows: BacktestEngine.prototype._loadRawTickRows,
     _fetchPlatformTicksRows: BacktestEngine.prototype._fetchPlatformTicksRows,
-    _probeMaxTickId: BacktestEngine.prototype._probeMaxTickId,
+    _probeIncrementalTickId: BacktestEngine.prototype._probeIncrementalTickId,
     _anchorRowExists: BacktestEngine.prototype._anchorRowExists,
     _getClient: () => makeFakeSupabaseV2(rows, supabaseOpts),
   };
@@ -201,7 +202,7 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
     });
     await BacktestEngine.prototype._loadWssTicks.call(stub2);
     ok(stub2._ticks.length === 80, `B. FRESH 读出 80 行 = ${stub2._ticks.length}`);
-    ok(pagedQueries === 0, `B2. 零分页拉取查询（pagedQueries=${pagedQueries}；仅探针 desc 查询）`);
+    ok(pagedQueries === 0, `B2. 零分页拉取查询（pagedQueries=${pagedQueries}；仅探针/锚行核验查询）`);
     ok(stub1._ticks.length === stub2._ticks.length
       && stub1._ticks.every((t, i) => JSON.stringify(t) === JSON.stringify(stub2._ticks[i])),
       'B3. 两次 _ticks deep-equal');
@@ -523,7 +524,7 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
     await BacktestEngine.prototype._loadWssTicks.call(stub1);   // MISS 落盘 maxId=80
 
     // Q-1 FRESH 形状：无增量 → 锚定探针 null + 锚行核验在 → 纯读
-    const probeAnchors = [];   // desc 探针查询携带的 gt 锚值（无锚记 null）
+    const probeAnchors = [];   // 无序探针查询携带的 gt 锚值（无锚记 null）
     const pkChecks = [];       // PK 核验查询的 eq id 值
     const stub2 = makeEngineStub({
       rows, platforms: ['fourmeme'], cacheDir: dir,

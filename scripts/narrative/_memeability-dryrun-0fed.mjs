@@ -48,43 +48,56 @@ async function main() {
   const std = [...dedup.values()].filter(r => r.token_category !== 'super_ip_fast');
   console.log(`票数: ${std.length}/${rows.length}（排除 super_ip_fast ${rows.length - std.length}）问题集 ${JEV_QUESTIONS_VERSION}+mem`);
 
-  const out = [];
-  let done = 0;
-  for (const row of std) {
+  const out = new Map();
+  const askOne = async (row) => {
     let state = null, stateSrc = 'online';
     try {
       const p = typeof row.stage1_prompt === 'string' ? JSON.parse(row.stage1_prompt) : row.stage1_prompt;
       state = p?.state || null;
     } catch { /* 旧行非 JSON */ }
-    if (!state) stateSrc = 'rebuilt-no-state';
-    if (!state) { out.push({ addr: row.token_address, symbol: row.token_symbol, net: netByAddr.get(row.token_address), memScore: null, stateSrc, cat: row.token_category }); continue; }
+    const base = { addr: row.token_address, symbol: row.token_symbol, net: netByAddr.get(row.token_address), cat: row.token_category };
+    if (!state) return { ...base, memScore: null, stateSrc: 'rebuilt-no-state' };
     const includeBrandHijack = shouldIncludeBrandHijackCheck(row.token_symbol, row.raw_api_data?.name || '');
     try {
       const q = buildStandardQuestions({ includeBrandHijack, referentMemeability: true });
       const r = await JevClient.ask(state, q, { label: `mem:${row.token_symbol}` });
       const mem = r.answers?.referent_memeability?.score ?? null;
       const nr = r.answers?.name_referent;
-      out.push({
-        addr: row.token_address, symbol: row.token_symbol, net: netByAddr.get(row.token_address),
-        memScore: mem, stateSrc, cat: row.token_category,
-        nrChoice: nr?.choice ?? null,
-      });
+      return { ...base, memScore: mem, stateSrc, nrChoice: nr?.choice ?? null };
     } catch (e) {
-      out.push({ addr: row.token_address, symbol: row.token_symbol, net: netByAddr.get(row.token_address), memScore: null, stateSrc: 'err:' + e.message.slice(0, 60), cat: row.token_category });
+      return { ...base, memScore: null, stateSrc: 'err:' + e.message.slice(0, 60) };
     }
-    if (++done % 10 === 0) console.log(`  ${done}/${std.length}`);
+  };
+  // 多 pass：上游 529 过载时 JevClient 内置 2 次短退避不够，失败票隔 60s 补跑（最多 4 pass）
+  for (let pass = 1; pass <= 4; pass++) {
+    const todo = std.filter(r => {
+      const rec = out.get(r.token_address);
+      return !rec || (rec.memScore == null && String(rec.stateSrc).startsWith('err:'));
+    });
+    if (!todo.length) break;
+    if (pass > 1) {
+      const errs = todo.length;
+      console.log(`pass ${pass}: 补跑 ${errs} 张失败票（60s 冷却后）`);
+      await new Promise(z => setTimeout(z, 60000));
+    }
+    let done = 0;
+    for (const row of todo) {
+      out.set(row.token_address, await askOne(row));
+      if (++done % 10 === 0) console.log(`  pass${pass} ${done}/${todo.length}`);
+    }
   }
-  fs.writeFileSync(resolve(__dirname, '../../data/memeability-dryrun-0fed.json'), JSON.stringify(out, null, 1));
+  const outArr = std.map(r => out.get(r.token_address)).filter(Boolean);
+  fs.writeFileSync(resolve(__dirname, '../../data/memeability-dryrun-0fed.json'), JSON.stringify(outArr, null, 1));
 
   // 交叉
   const sum = a => a.reduce((x, y) => x + y, 0);
   console.log('\n===== memScore × 盈亏 =====');
   const byScore = new Map();
-  for (const r of out) { if (r.memScore == null) continue; if (!byScore.has(r.memScore)) byScore.set(r.memScore, []); byScore.get(r.memScore).push(r); }
+  for (const r of outArr) { if (r.memScore == null) continue; if (!byScore.has(r.memScore)) byScore.set(r.memScore, []); byScore.get(r.memScore).push(r); }
   for (const [s, l] of [...byScore.entries()].sort((a, b) => a[0] - b[0])) {
     console.log(`mem=${s}: ${String(l.length).padStart(2)} 票 净 ${sum(l.map(r => r.net)).toFixed(3).padStart(7)} 胜 ${l.filter(r => r.net > 0).length} | ${l.map(r => `${r.symbol}(${r.net.toFixed(2)})`).slice(0, 8).join(' ')}`);
   }
-  const noMem = out.filter(r => r.memScore == null);
+  const noMem = outArr.filter(r => r.memScore == null);
   if (noMem.length) console.log(`无分: ${noMem.length} 票（${noMem.map(r => r.stateSrc).join(';').slice(0, 100)}）`);
   console.log('\n导出: data/memeability-dryrun-0fed.json');
 }

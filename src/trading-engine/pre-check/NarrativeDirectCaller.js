@@ -227,6 +227,33 @@ class NarrativeDirectCaller {
 }
 
 /**
+ * 语料推文时间解析（早晚票分级，0fed29f9 案 2026-10-08）
+ * twitter created_at 形如 "Sun Oct 04 09:00:06 +0000 2026"（Date.parse 可直接解析）
+ * @param {string|null} s - 推文 created_at
+ * @returns {number|null} 毫秒时间戳；空/不可解析 → null
+ */
+function parseTwitterTs(s) {
+  if (!s) return null;
+  const t = Date.parse(s);
+  return isNaN(t) ? null : t;
+}
+
+/**
+ * 从 analyze 结果的 twitter 字段提取语料最早推文时间（主推/父推取更早）
+ * 早晚票分级的「事件锚」：narrativeCorpusLagSec = token 出生锚 − corpusTs
+ * @param {Object|null} twitter - analyze 返回的 twitterInfo（tweet 型含 created_at；
+ *   account/community 型/无推文语料 → null = 无事件锚）
+ * @returns {number|null} 毫秒时间戳；null = 无推文语料（下游按晚票 fail-closed）
+ */
+function extractCorpusTs(twitter) {
+  const candidates = [twitter?.created_at, twitter?.in_reply_to?.created_at]
+    .map(parseTwitterTs)
+    .filter(v => typeof v === 'number');
+  if (!candidates.length) return null;
+  return Math.min(...candidates);
+}
+
+/**
  * GMGN 风险字段 → preBuyCheckCondition 因子（x-0 案，2026-09-27）
  * 交易引擎/回测两路径共用映射，单点维护：
  * - gmgnIssuerTokenCount：推特维度发币总数（serial issuer 核心信号——链上 EOA 每
