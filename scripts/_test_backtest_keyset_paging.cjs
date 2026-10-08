@@ -142,7 +142,10 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
     ];
     for (const [tok, pf, n] of plan) {
       for (let i = 0; i < n; i++) {
-        rows.push(mkRow(nextId(), tok, pf, T0 + i * 3000 + (pf === 'flap' ? 1500 : 0)));
+        // ts 随全局 id 单调（block_number=id 派生；段间 ts 回退会与链序矛盾——
+        // 真实链上 block_number 单调 ⇒ timestamp 单调，stub 数据须同形状）
+        const rid = nextId();
+        rows.push(mkRow(rid, tok, pf, T0 + rid * 1000));
       }
     }
     const stubK = makeEngineStub(rows, ['fourmeme', 'flap']);
@@ -184,7 +187,7 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
     let id = 0;
     for (let t = 0; t < 105; t++) {
       const addr = '0x' + (t + 10).toString(16).padStart(4, '0');
-      for (let i = 0; i < 7; i++) rows.push(mkRow(++id, addr, 'fourmeme', T0 + i * 2000));
+      for (let i = 0; i < 7; i++) rows.push(mkRow(++id, addr, 'fourmeme', T0 + id * 1000)); // ts 随 id 单调（同 A 段）
     }
     const stubK = makeEngineStub(rows, ['fourmeme']);
     const stubO = makeEngineStub(rows, ['fourmeme']);

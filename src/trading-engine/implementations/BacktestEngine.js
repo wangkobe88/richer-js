@@ -40,6 +40,18 @@ const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐�
 //（列变更时旧缓存自动判废重拉，不静默缺列）
 const TICK_SELECT_COLUMNS = 'id, token_address, trade_type, trader_address, sender_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, tx_hash, log_index, price_outlier, platform';
 
+/**
+ * 回放排序比较函数：链上真序 (block_number, log_index)，id 仅作最终 tie-breaker
+ * （log_index 是区块内日志索引，(block_number, log_index) 全局唯一；id 只保证排序
+ * 确定性）。2026-10-08 凑凑 0x8ea2…7777 案：原 raw.sort(id) 的 bigserial 分配序
+ * ≠提交序——watcher 延迟落库让 07:45:38 的峰行 id 反而小于 07:45:35 的行，回放
+ * 把未来 3 秒的峰提前喂进 FA 价格史，P11 据此算出回撤 -35% 提前全清（真实时序
+ * 该刻峰值利润仅 +8.7% 不触发）。链上真序是回测有效性的前提。
+ */
+function compareByChainOrder(a, b) {
+  return (a.block_number - b.block_number) || (a.log_index - b.log_index) || (a.id - b.id);
+}
+
 class BacktestEngine extends AbstractTradingEngine {
   constructor(options = {}) {
     super({
@@ -475,11 +487,19 @@ class BacktestEngine extends AbstractTradingEngine {
     // 只剥内存回放对象；BacktestTickCache 存的是 raw DB 行不动 → H0/H1 两臂共用同一缓存文件。
     const stripSender = this._experiment?.config?.backtest?.stripSenderAddress === true;
     const raw = await this._loadRawTickRows(supabase, addresses);
-    raw.sort((a, b) => a.id - b.id);
+    // 链上真序回放（2026-10-08 凑凑案：id 分配序≠提交序，乱序回放=把未来 tick
+    // 提前喂进因子状态的前视，见 compareByChainOrder 注释）
+    raw.sort(compareByChainOrder);
+    let tsRegressions = 0;
+    let prevTs = null;
     for (const row of raw) {
       const ts = new Date(row.block_time).getTime();
       if (this._startTimeFilter && ts < this._startTimeFilter) continue;
       if (this._endTimeFilter && ts > this._endTimeFilter) continue;
+      // 链序下 block_time 应非递减（BSC timestamp 协议保证单调）；倒退=数据形状
+      // 异常，WARN 留痕不中断（观测口径，非兜底）
+      if (prevTs !== null && ts < prevTs) tsRegressions++;
+      prevTs = ts;
       this._ticks.push({
         token_address: row.token_address,
         trade_type: row.trade_type,
@@ -496,6 +516,10 @@ class BacktestEngine extends AbstractTradingEngine {
         price_outlier: row.price_outlier || false,
         platform: row.platform,   // token 级 fallback 证据（_registerToken/_evaluateBuyPath）
       });
+    }
+    if (tsRegressions > 0) {
+      this.logger.warn(this._experimentId, 'BacktestEngine',
+        `⚠️ 链上真序下 block_time 倒退 ${tsRegressions} 行（block_number/log_index 序与 block_time 不一致，需排查数据源）`);
     }
     // wss_price_ticks 表无 offers/funds_bnb 列：FA 仅在 tick.funds_bnb > 0 时更新
     // lastFundsBnb（回放恒保持 0），tvl 因子因此恒 0——策略 condition 引用 tvl 时需知情
@@ -1919,4 +1943,4 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 }
 
-module.exports = { BacktestEngine };
+module.exports = { BacktestEngine, compareByChainOrder };
