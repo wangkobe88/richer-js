@@ -291,7 +291,9 @@ async function main() {
       && /instagramInfoFetched !== true && dim2 < 18/.test(mapperSrc)
       && /const effDim2 = igDim2Anchor \? 18 : dim2/.test(mapperSrc)
       && /tierScore \+ effDim2 \+ timeliness/.test(mapperSrc));
-  const superipSeg = mapperSrc.slice(mapperSrc.indexOf('mapSuperIPAnswers'));
+  // 切片锚点=函数定义（C55 起 productEntityAcceptanceBlock JSDoc 先含 mapSuperIPAnswers
+  // 字样，裸 indexOf 会切进 mapStandardAnswers 尾段误命中 IG 键——存量断言修复）
+  const superipSeg = mapperSrc.slice(mapperSrc.indexOf('export function mapSuperIPAnswers'));
   check('F3 superIP 快车道不挂 IG 兜底（一期范围）',
     !superipSeg.includes('igDim2Anchor') && !superipSeg.includes('instagramLinked'));
 

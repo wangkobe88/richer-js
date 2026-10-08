@@ -175,7 +175,7 @@ async function main() {
     shouldIncludeBrandHijackCheck('BI', 'Binance Inu') === true);
 
   console.log('\n── E. 版本断言 ──');
-  check('E1 JEV_QUESTIONS_VERSION === J1.27（J1.24 裁定仍在 mapper；现 J1.27=C55 产品实体切分 bump）', JEV_QUESTIONS_VERSION === 'J1.27', JEV_QUESTIONS_VERSION);
+  check('E1 JEV_QUESTIONS_VERSION ≥J1.24（J1.24 裁定仍在 mapper；现 J1.28=referent_memeability 恒带 bump）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 24, JEV_QUESTIONS_VERSION);
 
   console.log(`\n═══════ ${passed} passed, ${failed} failed ═══════`);
   process.exit(failed > 0 ? 1 : 0);

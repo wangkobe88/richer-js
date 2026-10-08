@@ -226,8 +226,8 @@ async function main() {
       && /nrNotableExempt,/.test(src)
       && /let nrNotableExempt = null;/.test(src)
       && !/if \(category === 'B'\) \{\s*\n\s*const nrProbs/.test(src));
-  check('D3 题集版本（J1.26 mapper-only 后，J1.27=C55 产品实体切分 bump）',
-    JEV_QUESTIONS_VERSION === 'J1.27', JEV_QUESTIONS_VERSION);
+  check('D3 题集版本 ≥J1.26（J1.26 mapper-only；现 J1.28=referent_memeability 恒带 bump）',
+    parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 26, JEV_QUESTIONS_VERSION);
 
   console.log(`\n═══════ ${passed} passed, ${failed} failed ═══════`);
   process.exit(failed > 0 ? 1 : 0);

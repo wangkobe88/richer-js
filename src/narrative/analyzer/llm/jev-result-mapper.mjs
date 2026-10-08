@@ -206,6 +206,29 @@ function nameReferentBlock(answers, category) {
 }
 
 /**
+ * 指代对象 meme 价值低档门（J1.28，2026-10-08 用户裁定，0fed29f9 亏损票分析续案）：
+ * 「币安汽车」「日产」类蹭得过头、根本不可能成为 meme 币的票要拦——依然是 web3
+ * 用户接纳/是否适合成为 meme 币的问题；但 JACKET/永生/Taigan/皮草类不敢一棒子
+ * 打死，故只上低档门：referent_memeability ≤1（人名/账号名/周边人物、严肃对象/
+ * 事务性名称）→ 阻断「不适合成为meme币」。
+ *
+ * dry-run（96 票 182 实跑，scripts/_memeability-dryrun-0fed.mjs）：mem≤1 拦 4 票
+ * 净 -0.354（避亏，误拦仅 卷王 +0.013）；mem>1 合计 +3.035。语义边界（刻意）：
+ * 本题量「指代对象本身的梗性」非「组合体可接纳性」——点名亏票（币安汽车 1.75/
+ * 2.35、隔音舱 1.77、日产途乐 2.12）中间档（1.5-2.5）无单调性，不设门。
+ *
+ * 仅标准路径（mapStandardAnswers）；superIP 快车道不动（J1.21 豁免语义自洽）。
+ * 答案缺失（旧缓存行/旧题集手写 fixture）→ 不拦——生产链 JevClient.ask 对缺
+ * 答案 id 直接 throw，缺失形状只在单测 fixture 出现；旧缓存要触发门须先失效
+ * （scripts/narrative/invalidate-referent-window.cjs）。
+ */
+function referentMemeabilityLowBlock(answers) {
+  const score = answers?.referent_memeability?.score;
+  if (typeof score !== 'number') return null;
+  return score <= 1 ? { label: `不适合成为meme币（指代对象meme价值${score}分≤1）`, score } : null;
+}
+
+/**
  * 负面硬新闻质量门（J1.11，2026-09-26 用户裁定，C9 bitget被盗案 0x0e323198：
  * 蹭 Bitget 热钱包被盗 3.516 亿官方公告命名，D 类 + A 档量级直接喂饱事件分 74.65
  * → 80.32 high 放行后 -55%。裁定原文「第一，这是一个负面事件；第二，它没有啥
@@ -674,6 +697,7 @@ export function mapStandardAnswers(answers, context) {
   let rcpBlock = null; // routine_content_product 质量门信息 {label, mass}（J1.13）
   let w3Block = null; // web3_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let peBlock = null; // 产品实体接纳门信息 {label, subject, fitMass}（J1.27/C55）
+  let rmBlock = null; // 指代对象 meme 价值低档门信息 {label, score}（J1.28）
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
@@ -743,6 +767,13 @@ export function mapStandardAnswers(answers, context) {
     // （= super_ip≥0.5 放行侧同语义），notable_other「Manus 知名非超级IP」不再构成阻断
     stage2Blocked = true;
     stage2BlockReason = nrBlock.label;
+  } else if ((rmBlock = referentMemeabilityLowBlock(answers))) {
+    // J1.28 指代对象 meme 价值低档门：referent_memeability ≤1（人名/严肃对象，无
+    // 梗无二创空间）→ 不适合成为meme币。挂 nameReferentBlock 之后（指代层门，nr
+    // 先拦的票 label 归属 nr）、量级门之前（事件性质层面否决）；无概率 mass——
+    // 分数门，finalReason 的 P 段落 '-'（stage2BlockReason 已含分数）
+    stage2Blocked = true;
+    stage2BlockReason = rmBlock.label;
   } else if (!isW && (effTier === 'E' || effTier === 'D')) {
     // 量级 D/E 档：主体量级不足，直接阻断（原各类 prompt 的 D/E 处理）
     stage2Blocked = true;
@@ -832,6 +863,10 @@ export function mapStandardAnswers(answers, context) {
         productEntityBinanceExempt: peBinanceExempt,
         // C56 审计标记：平台官方源 rcp 门豁免命中（rcp≥0.5 被官方源豁免救回）
         rcpPlatformExempt,
+        // J1.28 审计标记：指代对象 meme 价值低档门。分数恒落（阈值事后校准免重跑，
+        // 旧缓存行无此题 → null）；block 命中才落（productEntityBlock 同款模式）
+        referentMemeabilityScore: answers.referent_memeability?.score ?? null,
+        referentMemeabilityBlock: rmBlock ? { score: rmBlock.score } : null,
         subjectEntity: answers.subject_entity?.choice ?? null,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,

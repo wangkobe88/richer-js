@@ -272,9 +272,21 @@
  *       补 D vs W 边界句（crypto 机构官号官宣自家产品 → D 机构行为；W 留给产品/
  *       项目本身为主体的独立发布）。首轮净效应已正确（避亏 +6.850 vs 放弃
  *       2.869 BNB），修订目标是收窄打击面回产品票
+ * J1.28（2026-10-08）：referent_memeability（J1.21 superIP 条件题）改为标准路径
+ *       恒带，配套 mapper 低档门（memScore≤1 → blocked「不适合成为meme币」，标准
+ *       路径 Stage2 阻断链 nameReferentBlock 之后）。用户裁定（0fed29f9 亏损票
+ *       分析续案）：「币安汽车」「日产」类蹭得过头、根本不可能成为 meme 币的票
+ *       要拦——依然是 web3 用户接纳的问题；但 JACKET/永生/Taigan/皮草类不敢一
+ *       棒子打死，故只上低档门。dry-run（96 票 182 实跑）验证：mem≤1 拦 4 票净
+ *       -0.354（避亏，误拦仅 卷王 +0.013）；mem>1 合计 +3.035。语义边界（刻意）：
+ *       本题量「指代对象本身的梗性」，非「组合体可接纳性」——点名亏票（币安汽车
+ *       1.75/2.35、隔音舱 1.77、日产途乐 2.12）中间档无单调性故不设门。题面
+ *       ⚠️ 行中性化（超级IP→超级IP/大V）。superIP 快车道 J1.21 豁免语义不动
+ *       （mapSuperIPAnswers 原样读取）。旧缓存行无此答案不触发门——窗口级缓存
+ *       失效脚本配套（scripts/narrative/invalidate-referent-window.cjs）
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.27';
+export const JEV_QUESTIONS_VERSION = 'J1.28';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -328,14 +340,13 @@ export const TIMING_OPTIONS = [
  * @param {boolean} [options.includeBrandHijack] - 是否包含品牌劫持题
  *   （仅当代币名命中 BRAND_HIJACK_KEYWORDS 预检时为 true，代码端在
  *   jev-result-mapper 的 shouldIncludeBrandHijackCheck 控制）
- * @param {boolean} [options.referentMemeability] - 是否包含指代对象 meme 价值题
- *   （J1.21，仅 superIP 快车道传 true——被超级IP转发/提及的指代对象豁免
- *   nameReferentBlock 用；标准路径无名对象无曝光背书，不问不消费）
+ * @param {boolean} [options.referentMemeability] - 已废弃（J1.28 起恒带，传不传
+ *   均包含）：J1.21 时仅 superIP 快车道携带（nameReferentBlock 豁免评分）；
+ *   J1.28 起标准路径恒带——mapper 低档门（memScore≤1 → 不适合成为meme币）判据源
  * @returns {Object} questions {id: {type, instructions, criteria}}
  */
 export function buildStandardQuestions(options = {}) {
   const includeBrandHijack = options.includeBrandHijack === true;
-  const referentMemeability = options.referentMemeability === true;
 
   const questions = {
 
@@ -560,25 +571,25 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
       },
     },
 
-    // ── 10.5 指代对象 meme 价值（J1.21 条件题，仅 superIP 快车道携带——nameReferentBlock 命中时的豁免评分）──
-    ...(referentMemeability ? {
-      referent_memeability: {
-        type: 'score',
-        instructions: `指代对象 meme 玩味价值（referent memeability）。评估对象=代币名指向的那个指代对象（name_referent 题判定的对象）本身——不是发推的陈述者、不是事件整体热度。
-⚠️ 对象被超级IP转发/提及/@到不加分（那是陈述者量级，另有题评）——只评对象自身。
+    // ── 10.5 指代对象 meme 价值（J1.21 superIP 条件题 → J1.28 起恒带：
+    //     标准路径 mapper 低档门 memScore≤1「不适合成为meme币」判据源；
+    //     superIP 快车道仍用于 nameReferentBlock 豁免评分）──
+    referent_memeability: {
+      type: 'score',
+      instructions: `指代对象 meme 玩味价值（referent memeability）。评估对象=代币名指向的那个指代对象（name_referent 题判定的对象）本身——不是发推的陈述者、不是事件整体热度。
+⚠️ 对象被大V/超级IP转发/提及/@到不加分（那是陈述者量级，另有题评）——只评对象自身。
 两维度同时评估，都达标才有高分：
 ①对象自身的 meme 玩味空间——有无内容载体（作品/形象/梗/可二创可共鸣的点）；人名/账号名/周边人物是「一个人」不是内容，无玩味空间
 ②对象与 web3 meme 买家口味的契合——币圈自嘲/交易员文化/加密梗/财富叙事等圈内共鸣，还是与 crypto 圈完全无关的圈外内容`,
-        criteria: [
-          '0分：人名/账号名/周边人物——对象是「一个人」（员工花名/绰号、被@的普通人/小号、纠纷当事人），无内容载体，无玩味空间',
-          '1分：严肃对象/事务性名称——机构日常事务、普通公司/组织名，无梗、无二创空间',
-          '2分：有名字的内容但玩味弱，或与 web3 用户完全无关——普通文章标题、产品功能名、圈外文化内容，crypto 圈无感',
-          '3分：内容作品（歌/视频/梗图/口号/梗/创作物）有可玩味的点，且与 web3 用户群体有可感知的共鸣——两条件同时满足的下限档',
-          '4分：内容作品 + 明确的梗/自嘲/圈内共鸣点 + web3 契合强（如写给交易员的歌：「熬夜扛波动」式自嘲，币圈财富叙事圈内文化）',
-          '5分：已是圈内文化符号/病毒式传播/大规模二创 + web3 强契合',
-        ],
-      },
-    } : {}),
+      criteria: [
+        '0分：人名/账号名/周边人物——对象是「一个人」（员工花名/绰号、被@的普通人/小号、纠纷当事人），无内容载体，无玩味空间',
+        '1分：严肃对象/事务性名称——机构日常事务、普通公司/组织名，无梗、无二创空间',
+        '2分：有名字的内容但玩味弱，或与 web3 用户完全无关——普通文章标题、产品功能名、圈外文化内容，crypto 圈无感',
+        '3分：内容作品（歌/视频/梗图/口号/梗/创作物）有可玩味的点，且与 web3 用户群体有可感知的共鸣——两条件同时满足的下限档',
+        '4分：内容作品 + 明确的梗/自嘲/圈内共鸣点 + web3 契合强（如写给交易员的歌：「熬夜扛波动」式自嘲，币圈财富叙事圈内文化）',
+        '5分：已是圈内文化符号/病毒式传播/大规模二创 + web3 强契合',
+      ],
+    },
 
     // ── 10. 品牌劫持（原 Stage3 1.0 节，仅预检命中时加入）────────────
     ...(includeBrandHijack ? {
