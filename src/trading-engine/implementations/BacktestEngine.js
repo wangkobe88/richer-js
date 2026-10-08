@@ -1141,6 +1141,14 @@ class BacktestEngine extends AbstractTradingEngine {
           preBuyCheckCondition = String(preBuyCheckCondition).trim();
 
           const lastPairReturnRate = this._tokenPool.getLastPairReturnRate(token.token, token.chain || 'bsc');
+
+          // 早晚票语料滞后秒（0fed29f9 案 2026-10-08，与实时引擎同口径）：FA 出生锚
+          // （回测 = discovered_at）− corpusTs。时序穿越声明同 narrativeRating：语料是
+          // 当前快照分析历史 token，lag 只看相对增量。null = 晚票门 fail-closed。
+          const faBirthMs = this._factorAggregator.getTokenState(token.token)?.createdAtMs ?? null;
+          const narrativeCorpusLagSec = faBirthMs && narrativeCallInfo?.corpusTs
+            ? Math.round((faBirthMs - narrativeCallInfo.corpusTs) / 1000)
+            : null;
           const meta = this._tokenMeta.get(token.token) || {};
           let totalSupply = meta.totalSupply || 0;
           if (totalSupply <= 0 && factorResults.fdv > 0 && factorResults.currentPrice > 0) {
@@ -1167,6 +1175,9 @@ class BacktestEngine extends AbstractTradingEngine {
                 ? (d) => this._writeBuffer.addEarlyTradesInsert(d)
                 : undefined,
               narrativeRating: narrativeCallInfo?.numericRating ?? 9, // 直调链路（时序穿越：当前语料分析历史 token）；未配置/未触发/失败/超时=9
+              narrativeCorpusLagSec, // 早晚票分级（上方注释）；null=晚票门 fail-closed
+              // earlyReturn 注入 preBuy context（实时引擎同款；晚票门右臂证据）
+              earlyReturn: factorResults.earlyReturn ?? null,
               narrativeLeaderHot: narrativeLeaderInfo?.factors?.narrativeLeaderHot ?? 0, // 同叙事龙头链路；无 tweet/失败=0 放行
               narrativeLeaderCount: narrativeLeaderInfo?.factors?.narrativeLeaderCount ?? 0,
               narrativeLeaderMaxMultiple: narrativeLeaderInfo?.factors?.narrativeLeaderMaxMultiple ?? 0,

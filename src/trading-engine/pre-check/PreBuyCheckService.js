@@ -389,6 +389,21 @@ const FACTOR_METADATA = {
     unit: '',
     severity: 'warning'
   },
+  // 早晚票语料滞后秒（0fed29f9 案 2026-10-08）：token 出生锚 − 语料最早推文时间；
+  // 负值 = 宣告竞态（token 先于推文，事件原创点）；null = 无语料时间（晚票门 fail-closed）
+  narrativeCorpusLagSec: {
+    name: '语料滞后秒数',
+    format: v => v == null ? '无语料' : `${v}s`,
+    unit: 's',
+    severity: 'warning'
+  },
+  // fire 因子 earlyReturn 注入（首价锚以来涨幅 %；晚票门右臂「用户认同」证据）
+  earlyReturn: {
+    name: '早期涨幅',
+    format: v => v == null ? '无锚' : `${v.toFixed(1)}%`,
+    unit: '%',
+    severity: 'info'
+  },
   // GMGN 风险因子（x-0 案：直调语境同次 getTokenInfo 带出；covered=0=未查放行）
   gmgnIssuerTokenCount: {
     name: 'GMGN发币账号历史币数',
@@ -519,7 +534,7 @@ class PreBuyCheckService {
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId, earlyTradesCacheCallback, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered, earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeCorpusLagSec, earlyReturn, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId, earlyTradesCacheCallback, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered, earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -617,6 +632,13 @@ class PreBuyCheckService {
           buyRound: options.buyRound,
           lastPairReturnRate: options.lastPairReturnRate,
           narrativeRating: narrativeRating,
+          // 早晚票分级（0fed29f9 案 2026-10-08）：引擎侧算好透传；null=无语料时间 →
+          // null 比较恒 false → 落晚票严格门（fail-closed，与龙头门 fail-open 方向相反：
+          // 早票是「有证据才放行」的证据门）
+          narrativeCorpusLagSec: narrativeCorpusLagSec ?? null,
+          // fire 因子 earlyReturn 注入（drawdownFromHighest 同款先例）：晚票门右臂
+          // `earlyReturn >= N` 的「用户认同」证据；null=无首价锚（罕见）
+          earlyReturn: earlyReturn ?? null,
           narrativeLeaderHot: narrativeLeaderHot,
           narrativeLeaderCount: narrativeLeaderCount,
           narrativeLeaderMaxMultiple: narrativeLeaderMaxMultiple,
@@ -676,6 +698,9 @@ class PreBuyCheckService {
         // 同叙事龙头因子（默认 0=未查/无源推文；fail-open 放行，默认值用 0 不用 null——
         // ConditionEvaluator null 比较恒 false，null 会让 ==0 门误拒）
         narrativeRating: options.narrativeRating ?? 9,
+        // 早晚票语料滞后秒（检查失败空值；null → 晚票门 fail-closed 同正常路径语义）
+        narrativeCorpusLagSec: options.narrativeCorpusLagSec ?? null,
+        earlyReturn: options.earlyReturn ?? null,
         narrativeLeaderHot: options.narrativeLeaderHot ?? 0,
         narrativeLeaderCount: options.narrativeLeaderCount ?? 0,
         narrativeLeaderMaxMultiple: options.narrativeLeaderMaxMultiple ?? 0,
@@ -788,6 +813,11 @@ class PreBuyCheckService {
 
       // 叙事分析因子
       narrativeRating: extraContext.narrativeRating ?? 9,
+      // 早晚票语料滞后秒（引擎侧算好透传；null=无语料时间，条件里 null 比较恒 false
+      // → 落晚票严格门 fail-closed）
+      narrativeCorpusLagSec: extraContext.narrativeCorpusLagSec ?? null,
+      // fire 因子 earlyReturn（晚票门右臂证据；null=无首价锚）
+      earlyReturn: extraContext.earlyReturn ?? null,
       // 同叙事龙头因子（引擎侧算好透传；默认 0=未查/无源推文/失败 fail-open 放行）
       narrativeLeaderHot: extraContext.narrativeLeaderHot ?? 0,
       narrativeLeaderCount: extraContext.narrativeLeaderCount ?? 0,
@@ -925,6 +955,13 @@ class PreBuyCheckService {
         platform: extraContext.platform ?? null,
         // 叙事分析因子（允许在条件表达式中使用）
         narrativeRating: extraContext.narrativeRating ?? 9,
+        // 早晚票语料滞后秒（允许在条件表达式中使用；null=无语料时间/无出生锚——
+        // ConditionEvaluator null 比较恒 false → `lag < N` 不成立 → 落晚票严格门，
+        // fail-closed 是刻意语义：早票是证据门，无证据不放行）
+        narrativeCorpusLagSec: extraContext.narrativeCorpusLagSec ?? null,
+        // fire 因子 earlyReturn（允许在条件表达式中使用——晚票门右臂证据；
+        // 与 FA fire 因子同名同值同刻，platform 键同款双域存在）
+        earlyReturn: extraContext.earlyReturn ?? null,
         // 同叙事龙头因子（允许在条件表达式中使用；默认 0 不用 null——null 比较恒 false 会误拒）
         narrativeLeaderHot: extraContext.narrativeLeaderHot ?? 0,
         narrativeLeaderCount: extraContext.narrativeLeaderCount ?? 0,
@@ -1654,6 +1691,10 @@ class PreBuyCheckService {
       lastPairReturnRate: 0,
       // 叙事分析因子（默认值）
       narrativeRating: 9,
+      // 早晚票语料滞后秒（默认 null=无语料时间 → 晚票门 fail-closed）
+      narrativeCorpusLagSec: null,
+      // fire 因子 earlyReturn（默认 null=无首价锚）
+      earlyReturn: null,
       // 同叙事龙头因子（默认 0=未查/无源推文）
       narrativeLeaderHot: 0,
       narrativeLeaderCount: 0,

@@ -1124,8 +1124,20 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
           const lastPairReturnRate = this._tokenPool.getLastPairReturnRate(token.token, token.chain || 'bsc');
 
-          // 总供应量：FA（TokenCreate）优先，兜底 fdv/price
           const faState = this._factorAggregator.getTokenState(token.token);
+
+          // 早晚票语料滞后秒（0fed29f9 案 2026-10-08）：FA 出生锚（TokenCreate 块时间）
+          // − 语料最早推文时间（主推/父推取更早，NarrativeDirectCaller.corpusTs）。
+          // 早票（事件新鲜）正常买；晚票由条件表达式加严（如 lag>=300s 要求 er/uw 门）。
+          // null = 无推文语料/无出生锚/直调未触发——null 比较恒 false → 落晚票门
+          // fail-closed（5 张无语料时间票实测 4/5 亏损）。负值 = 宣告竞态（token 先于
+          // 推文出生）= 事件原创点，按早票放行。
+          const faBirthMs = faState?.createdAtMs ?? null;
+          const narrativeCorpusLagSec = faBirthMs && narrativeCallInfo?.corpusTs
+            ? Math.round((faBirthMs - narrativeCallInfo.corpusTs) / 1000)
+            : null;
+
+          // 总供应量：FA（TokenCreate）优先，兜底 fdv/price
           let totalSupply = faState?.totalSupply || parseFloat(token.total) || 0;
           if (totalSupply <= 0 && factorResults.fdv > 0 && factorResults.currentPrice > 0) {
             totalSupply = factorResults.fdv / factorResults.currentPrice;
@@ -1146,6 +1158,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               buyRound: currentRound + 1,
               lastPairReturnRate: lastPairReturnRate ?? 0,
               narrativeRating: narrativeCallInfo?.numericRating ?? 9, // 直调链路；未配置/未触发/失败/超时=9
+              narrativeCorpusLagSec, // 早晚票分级（上方注释）；null=晚票门 fail-closed
+              // earlyReturn 注入 preBuy context（drawdownFromHighest 同款先例：晚票门
+              // 右臂 `earlyReturn >= N` 是 preBuy 条件可引用的「用户认同」证据）
+              earlyReturn: factorResults.earlyReturn ?? null,
               narrativeLeaderHot: narrativeLeaderInfo?.factors?.narrativeLeaderHot ?? 0, // 同叙事龙头链路；无 tweet/失败=0 放行
               narrativeLeaderCount: narrativeLeaderInfo?.factors?.narrativeLeaderCount ?? 0,
               narrativeLeaderMaxMultiple: narrativeLeaderInfo?.factors?.narrativeLeaderMaxMultiple ?? 0,

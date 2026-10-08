@@ -141,6 +141,9 @@ class NarrativeDirectCaller {
    *   gmgnRisk：GMGN dev 风险字段（x-0 案——直调语境 analyze 内同次 getTokenInfo
    *   带出发币史/捆绑钱包统计；超时/异常/未索引 → null，下游 gmgnRiskCovered=0
    *   放行——宁漏拦不误杀）
+   *   corpusTs：语料最早推文时间 ms（主推/父推取更早；0fed29f9 案 2026-10-08 早晚票
+   *   分级事件锚）；null = 无推文语料/超时/异常（下游 narrativeCorpusLagSec=null
+   *   → null 比较恒 false → 落晚票严格门，fail-closed）
    *   precheckStage：precheck 挂点（'address'=宣告竞态，叙事否决短路豁免判据）
    */
   async getRating(tokenAddress) {
@@ -177,6 +180,9 @@ class NarrativeDirectCaller {
         error: null,
         sourceTweetId: this._extractSourceTweetId(result?.classifiedUrls),
         gmgnRisk: result?.gmgnRisk ?? null,
+        // 语料最早推文时间（主推/父推取更早；三条 return 路径顶层均带 twitter 字段）：
+        // 早晚票分级的事件锚；null = 无推文语料（account 型/无 twitterUrl/超时/异常）
+        corpusTs: extractCorpusTs(result?.twitter),
         // precheck 挂点（实时/缓存两路径 preCheck 均展开行内 details）——'address'
         // = 宣告竞态形状（PrecheckFailRetryService 重试域），引擎侧叙事否决短路的
         // 豁免判据；非 precheck fail / 超时 / 异常 → null
@@ -197,6 +203,7 @@ class NarrativeDirectCaller {
         error: error?.message || String(error),
         sourceTweetId: null,
         gmgnRisk: null,
+        corpusTs: null,
         precheckStage: null,
       };
     }
@@ -276,4 +283,4 @@ function mapGmgnRiskFactors(risk) {
   };
 }
 
-module.exports = { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative };
+module.exports = { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative, extractCorpusTs, parseTwitterTs };

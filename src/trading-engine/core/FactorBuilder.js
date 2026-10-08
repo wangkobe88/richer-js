@@ -228,6 +228,10 @@ function buildPreBuyCheckFactorValues(preBuyCheckResult) {
     strongTraderSellIntensity: preBuyCheckResult.strongTraderSellIntensity ?? 0,
     // 叙事分析评级因子
     narrativeRating: preBuyCheckResult.narrativeRating ?? 9,
+    // 早晚票语料滞后秒（0fed29f9 案 2026-10-08）：null=无语料时间（晚票门 fail-closed）
+    narrativeCorpusLagSec: preBuyCheckResult.narrativeCorpusLagSec ?? null,
+    // fire 因子 earlyReturn 注入（晚票门右臂证据；与 trendFactors.earlyReturn 同值同刻）
+    earlyReturn: preBuyCheckResult.earlyReturn ?? null,
     // 同叙事龙头因子（1=同源推文下已有代币峰值涨幅>=5x 且判定时刻在其首达后24h内）
     narrativeLeaderHot: preBuyCheckResult.narrativeLeaderHot ?? 0,
     narrativeLeaderCount: preBuyCheckResult.narrativeLeaderCount ?? 0,
