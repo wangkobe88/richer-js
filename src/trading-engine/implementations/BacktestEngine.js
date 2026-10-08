@@ -554,7 +554,8 @@ class BacktestEngine extends AbstractTradingEngine {
         forceRefresh,
         columnsTag: TICK_SELECT_COLUMNS,
         fetchRows: (afterId) => this._fetchPlatformTicksRows(supabase, addresses, platform, afterId, raw.length),
-        probeMaxId: () => this._probeMaxTickId(supabase, addresses, platform),
+        probeMaxId: (anchor) => this._probeMaxTickId(supabase, addresses, platform, anchor),
+        anchorExists: (id) => this._anchorRowExists(supabase, id),
       });
       // FRESH 纯读文件不经过 _fetchPlatformTicksRows（拉取行已在方法内计数），此处补计；
       // miss/stale/bypass 均经过 fetchRows 已计，按 source 区分防双计
@@ -605,25 +606,32 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 新鲜度探针：chunk × platform 反取 max(id)（走 (token_address, platform, id) 索引，
-   * 每 chunk 一条 ~百 ms）。该 token 集 × platform 在 DB 无任何行时返回 null。
+   * 新鲜度探针（锚定式，2026-10-08 计划翻转事故改造）：chunk × platform 反取
+   * `id > afterId` 增量区间的 max(id)。afterId = 缓存 meta.maxId（锚）时扫描范围
+   * = 缓存头之后的增量行——旧无锚形状 `IN(N>3) + eq(platform) + ORDER BY id DESC
+   * LIMIT 1` 在表涨 150 万行后 planner 稳定选 id 反向扫描扫表头无关行 → 8s
+   * statement timeout（in(20)/in(50) 小批量同死，假地址可复现非负载问题）。
+   * afterId 空/0 = 无锚全区间形状（MISS 前空集判定用）。增量区间无行返回 null。
    * 单批失败重试 2 次（间隔 1s）：491 批长循环里单批撞 DB 负载抖动（实测同形状
    * 47ms~2s 波动、偶发 >8s statement timeout，2026-10-02 d46b1b6c 案）不该让整个
    * 探针 throw → bypass 落回 keyset 慢形状直拉（flap 稀疏平台必超时）；连续 3 次
    * 失败仍 throw 保持 bypass 语义（真故障不掩盖）。
    */
-  async _probeMaxTickId(supabase, addresses, platform) {
+  async _probeMaxTickId(supabase, addresses, platform, afterId) {
     let maxId = null;
+    const anchored = Number.isFinite(afterId) && afterId > 0;
     const PROBE_ATTEMPTS = 3;
     for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
       const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
       let data = null;
       for (let attempt = 1; attempt <= PROBE_ATTEMPTS; attempt++) {
-        const res = await supabase
+        let q = supabase
           .from('wss_price_ticks')
           .select('id')
           .in('token_address', chunk)
-          .eq('platform', platform)
+          .eq('platform', platform);
+        if (anchored) q = q.gt('id', afterId);
+        const res = await q
           .order('id', { ascending: false })
           .limit(1);
         if (!res.error) { data = res.data; break; }
@@ -638,6 +646,21 @@ class BacktestEngine extends AbstractTradingEngine {
       }
     }
     return maxId;
+  }
+
+  /**
+   * 锚行 PK 存在性核验（2026-10-08 锚定探针配套）：`where id = meta.maxId limit 1`
+   * 主键单行查询恒快。锚定探针返回 null（增量区间无行）时区分 FRESH 与
+   * 清表/删行回缩——gt 锚形状下「DB max < 锚」结构性探不到，回缩检测责任在此。
+   */
+  async _anchorRowExists(supabase, id) {
+    const { data, error } = await supabase
+      .from('wss_price_ticks')
+      .select('id')
+      .eq('id', id)
+      .limit(1);
+    if (error) throw new Error(`wss_price_ticks 锚行核验失败: ${error.message}`);
+    return !!(data && data.length > 0);
   }
 
   _getClient() {

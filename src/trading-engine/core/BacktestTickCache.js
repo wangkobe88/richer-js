@@ -10,12 +10,19 @@
  * 字符串、block_time 保持 ISO），回测时间窗/token 过滤维持引擎既有内存层零改动，同一份
  * 缓存服务任意窗口回测，回测结果与直拉 bit-identical。
  *
- * 状态机（探针 = chunk×platform 反取 DB max(id)，走 (token_address, platform, id) 索引）：
+ * 状态机（探针 = 锚定式，2026-10-08 计划翻转事故改造：`id > meta.maxId` 锚 + chunk×platform
+ * 取增量区间 max(id)——扫描范围 = 缓存头之后的增量行，而非全表头无关行。旧无锚形状
+ * `IN(N>3) + eq(platform) + ORDER BY id DESC LIMIT 1` 在表涨 150 万行后 planner 稳定选
+ * id 反向扫描扫表头无关行 → 8s statement timeout，in(20)/in(50) 小批量同死，探针必败
+ * → bypass 全量直拉 flap 同死）：
  *   MISS   data/meta 缺、gzipBytes 与实际 size 失配（上次写 crash 在 rename 与 meta 之间）、
- *          columnsTag 漂移 → fetchRows(0) 全量拉 → 落盘
- *   FRESH  probeMax === meta.maxId → 纯读文件零拉取（空集形态 {0,0} 同样 FRESH 空数组）
- *   STALE  probeMax > meta.maxId → 读旧文件 + fetchRows(meta.maxId) 增量补拉 → 合并重写
- *   回缩   probeMax < meta.maxId 或 probeMax=null 而 meta 非空（清表/删行）→ drop → MISS
+ *          columnsTag 漂移 → fetchRows(0) 全量拉 → 落盘（不经探针）
+ *   FRESH  锚定探针 null（增量区间无行）且锚行 PK 核验存在 → 纯读文件零拉取
+ *          （空集形态 {0,0} 锚=0 探针退无锚形状，null = DB 无行，同样 FRESH 空数组）
+ *   STALE  锚定探针返回 id > 锚（增量区间 max）→ 读旧文件 + fetchRows(meta.maxId)
+ *          增量补拉 → 合并重写
+ *   回缩   锚定探针 null 且锚行 PK 核验不存在（清表/删行使 meta.maxId 行消失——gt 锚
+ *          形状下旧行「probeMax < meta.maxId」分支结构性不可达，检测责任移交锚行核验）→ drop → MISS
  *   bypass 探针 throw → WARN + fetchRows(0) 直拉，本次完全不读写缓存（数据正确性优先，
  *          不掩盖问题；缓存原状，下次重试探针）
  *   损坏   FRESH/STALE 读旧文件失败（gunzip CRC / JSON.parse / 流 error）→ drop + 本次
@@ -122,20 +129,25 @@ class BacktestTickCache {
    * @param {Function} d.fetchRows   async (afterId: number) => Array<row>
    *                                 单 platform 全 chunk keyset 分页拉取闭包
    *                                 （afterId=0 全量、=meta.maxId 增量）
-   * @param {Function} d.probeMaxId  async () => number|null  新鲜度探针（chunk×platform
-   *                                 max(id)；该 token 集×platform 在 DB 无任何行时 null）
+   * @param {Function} d.probeMaxId  async (anchor: number) => number|null  新鲜度探针
+   *                                 （锚定式：id > anchor 区间内 chunk×platform max(id)；
+   *                                 anchor=0/空 = 无锚全区间形状；增量区间无行时 null）
+   * @param {Function} d.anchorExists async (id: number) => boolean  锚行 PK 存在性核验
+   *                                 （`where id = meta.maxId limit 1` 单行查询恒快；
+   *                                 锚定探针 null 时区分 FRESH 与 清表/删行回缩）
    * @param {string}   [d.columnsTag]       列清单标记（引擎 select 字符串；漂移 → 判废重拉）
    * @param {boolean}  [d.forceRefresh=false] 跳过缓存读，MISS 全量重拉重建
    * @returns {Promise<{rows: Array, source: 'miss'|'fresh'|'stale'|'bypass'}>}
    */
   async getOrFetch(d) {
     if (!d || typeof d !== 'object') throw new Error('BacktestTickCache.getOrFetch: 参数必传');
-    const { sourceExperimentId, platform, fetchRows, probeMaxId } = d;
+    const { sourceExperimentId, platform, fetchRows, probeMaxId, anchorExists } = d;
     if (!sourceExperimentId || !platform) {
       throw new Error('BacktestTickCache.getOrFetch: sourceExperimentId/platform 必传');
     }
-    if (typeof fetchRows !== 'function' || typeof probeMaxId !== 'function') {
-      throw new Error('BacktestTickCache.getOrFetch: fetchRows/probeMaxId 必传');
+    if (typeof fetchRows !== 'function' || typeof probeMaxId !== 'function'
+      || typeof anchorExists !== 'function') {
+      throw new Error('BacktestTickCache.getOrFetch: fetchRows/probeMaxId/anchorExists 必传');
     }
     const key = `${sourceExperimentId}::${platform}`;
     if (this._pendingWrites.has(key)) return this._pendingWrites.get(key);
@@ -145,7 +157,7 @@ class BacktestTickCache {
   }
 
   async _getOrFetchInner(d) {
-    const { sourceExperimentId, platform, fetchRows, probeMaxId, forceRefresh } = d;
+    const { sourceExperimentId, platform, fetchRows, probeMaxId, anchorExists, forceRefresh } = d;
     const dataPath = this._dataPath(sourceExperimentId, platform);
     const metaPath = this._metaPath(sourceExperimentId, platform);
 
@@ -168,12 +180,13 @@ class BacktestTickCache {
       return this._miss({ dataPath, metaPath, ...d });
     }
 
-    // ② 新鲜度探针：失败 → bypass 直拉（不读写缓存，数据正确性优先不掩盖问题）
+    // ② 新鲜度探针（锚定式，2026-10-08）：锚 = meta.maxId，只查 id > 锚 增量区间的
+    //    chunk×platform max(id)。失败 → bypass 直拉（不读写缓存，数据正确性优先不掩盖问题）
     let probeMax;
     try {
-      probeMax = await probeMaxId();
+      probeMax = await probeMaxId(meta.maxId);
     } catch (e) {
-      this._log('warn', `${platform}: max(id) 探针失败(${e.message}) → 绕过缓存直拉（缓存原状）`);
+      this._log('warn', `${platform}: 锚定探针失败(${e.message}) → 绕过缓存直拉（缓存原状）`);
       const rows = await fetchRows(0);
       return { rows, source: 'bypass' };
     }
@@ -181,20 +194,25 @@ class BacktestTickCache {
     if (probeMax == null) {
       if (meta.maxId === 0 && meta.rows === 0) {
         // DB 该 token 集×platform 无任何行，缓存同为空集形态 → FRESH 空读零拉取
+        // （空集锚=0 探针退无锚形状，null 即 DB 无行——旧语义不变）
         return { rows: [], source: 'fresh' };
       }
-      // 表清空/行全删（缓存非空却探不到）→ 沿用会拿到已删行 → 重拉
-      this._log('info', `${platform}: DB max(id)=null（表空）且缓存非空 → 删除缓存全量重拉`);
-      this._dropCache(dataPath, metaPath);
-      return this._miss({ dataPath, metaPath, ...d });
-    }
-    if (probeMax < meta.maxId) {
-      // 表回缩（清表/回滚）→ 沿用会拿到已删行 → 重拉
-      this._log('info', `${platform}: DB max(id)=${probeMax} < cache=${meta.maxId}（表回缩）→ 删除缓存全量重拉`);
-      this._dropCache(dataPath, metaPath);
-      return this._miss({ dataPath, metaPath, ...d });
-    }
-    if (probeMax === meta.maxId) {
+      // 增量区间无行。锚行 PK 核验区分 FRESH 与 清表/删行回缩——gt 锚形状下增量
+      // 区间取 max 结构性拿不到「DB max < 锚」，旧行 probeMax < meta.maxId 回缩分支
+      // 不可达，检测责任移交此处锚行核验；核验失败（查询异常）与探针失败同 bypass
+      let alive;
+      try {
+        alive = await anchorExists(meta.maxId);
+      } catch (e) {
+        this._log('warn', `${platform}: 锚行核验失败(${e.message}) → 绕过缓存直拉（缓存原状）`);
+        const rows = await fetchRows(0);
+        return { rows, source: 'bypass' };
+      }
+      if (!alive) {
+        this._log('info', `${platform}: 锚行 id=${meta.maxId} 不存在（表空/回缩/删行）→ 删除缓存全量重拉`);
+        this._dropCache(dataPath, metaPath);
+        return this._miss({ dataPath, metaPath, ...d });
+      }
       // FRESH：纯读文件。损坏 → drop + 本次继续 MISS 重拉（不中断回测）
       try {
         const t0 = Date.now();
@@ -208,7 +226,7 @@ class BacktestTickCache {
       }
     }
 
-    // STALE：读旧文件 + 增量补拉 → 合并重写
+    // probeMax > meta.maxId（gt 锚形状下不可能 ≤ 锚）：STALE 增量补拉 → 合并重写
     return this._stale({ dataPath, metaPath, meta, probeMax, ...d });
   }
 

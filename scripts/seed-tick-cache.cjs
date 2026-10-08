@@ -137,6 +137,7 @@ async function main() {
     columnsTag: TICK_SELECT_COLUMNS,
     fetchRows,
     probeMaxId: async () => { throw new Error('probe 不应被调用（无缓存时走 MISS）'); },
+    anchorExists: async () => { throw new Error('anchorExists 不应被调用（无缓存时走 MISS）'); },
   });
   console.log(`\n完成: source=${source}, ${rows.length} 行 / 查询 ${queryCount} 次 / ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   console.log(`缓存: ${dataPath}`);

@@ -10,7 +10,8 @@
  *  F. forceRefresh：跳过缓存读强制重拉重建
  *  G. 损坏-数据：坏 gzip / 坏 JSON 行 → 自动删缓存 MISS 重拉不中断
  *  H. 损坏-meta：gzipBytes 篡改（crash 窗口形态）→ drop + MISS
- *  I. 表回缩：probeMax < meta.maxId → drop + MISS
+ *  I. 表回缩：锚行被删 → 锚行 PK 核验 false → drop + MISS（2026-10-08 锚定探针
+ *     语义迁移：gt 锚形状下 probeMax < meta.maxId 分支结构性不可达，检测责任移交锚行核验）
  *  J. 空 platform：meta{0,0} 再读 FRESH 空数组零拉取；meta 非空 + probe null → drop+MISS
  *  K. both 双平台引擎级：缓存路径 _ticks 与直拉路径 _ticks 逐字段 deep-equal + 计数相等
  *  L. 时间窗过滤（引擎级）：缓存 vs 直拉 deep-equal（窗过滤/映射段未动的回归证明）
@@ -18,6 +19,8 @@
  *  N. cacheEnabled=false：直拉，缓存目录保持空
  *  O. id 超 Number.MAX_SAFE_INTEGER → 写路径 throw（fail-loud）
  *  P. columnsTag 漂移 → 判废 MISS 重拉
+ *  Q. 锚定探针形状（2026-10-08 计划翻转事故）：探针 desc 查询带 gt(meta.maxId) 锚、
+ *     FRESH 路径锚行 PK 核验恰一次、STALE 增量拉取 afterId=锚
  *
  * 零 DB：fake supabase（v2：order desc 生效 + 探针失败注入）打桩 + tmp 目录真实文件读写。
  */
@@ -39,7 +42,8 @@ const { BacktestTickCache } = require('../src/trading-engine/core/BacktestTickCa
  * 行集 → 链式 query builder（过滤语义对齐 PostgREST：in/eq/gt + order by id 升/降 + limit）。
  * 相比 _test_backtest_keyset_paging.cjs 的 v1：① order 的 asc 标志真实生效（探针 desc 需要）；
  * ② opts.failProbe=true 时 desc 查询（探针形状）返回 error（bypass 用例注入）；
- * ③ opts.onExec(asc) 每次查询执行回调（FRESH 零拉取计数用）。
+ * ③ opts.onExec(asc, q) 每次查询执行回调（FRESH 零拉取计数/锚定形状断言用）；
+ * ④ 无 order 的查询（锚行 PK 核验 `.eq('id').limit(1)`）不排序直接过滤（v3）。
  */
 function makeFakeSupabaseV2(rows, opts = {}) {
   return {
@@ -57,12 +61,14 @@ function makeFakeSupabaseV2(rows, opts = {}) {
           if (opts.failProbe && q._order && !q._order.asc) {
             return { data: null, error: { message: 'probe boom (injected)' } };
           }
-          if (opts.onExec) opts.onExec(!!(q._order && q._order.asc));
+          if (opts.onExec) opts.onExec(!!(q._order && q._order.asc), q);
           let out = rows.filter(r =>
             (!q._in || q._in.vals.includes(r[q._in.col]))
             && (!q._eq || r[q._eq.col] === q._eq.val)
             && (!q._gt || r[q._gt.col] > q._gt.val));
-          out.sort((a, b) => (q._order.asc ? a[q._order.col] - b[q._order.col] : b[q._order.col] - a[q._order.col]));
+          if (q._order) {
+            out.sort((a, b) => (q._order.asc ? a[q._order.col] - b[q._order.col] : b[q._order.col] - a[q._order.col]));
+          }
           return { data: out.slice(0, q._limit), error: null };
         },
       };
@@ -121,6 +127,7 @@ function makeEngineStub({ rows, platforms, startFilter = null, endFilter = null,
     _loadRawTickRows: BacktestEngine.prototype._loadRawTickRows,
     _fetchPlatformTicksRows: BacktestEngine.prototype._fetchPlatformTicksRows,
     _probeMaxTickId: BacktestEngine.prototype._probeMaxTickId,
+    _anchorRowExists: BacktestEngine.prototype._anchorRowExists,
     _getClient: () => makeFakeSupabaseV2(rows, supabaseOpts),
   };
   return stub;
@@ -350,18 +357,18 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
   }
 
   // ---------- I：表回缩 ----------
-  console.log('I. probeMax < meta.maxId（表回缩）→ drop + MISS');
+  console.log('I. 锚行被删（表回缩）→ 锚行 PK 核验失败 → drop + MISS');
   {
     const dir = mkTmpDir();
     const rows = [];
     for (let i = 1; i <= 60; i++) rows.push(mkRow(i, '0xAAA', 'fourmeme', T0 + i * 1000));
     const stub1 = makeEngineStub({ rows, platforms: ['fourmeme'], cacheDir: dir });
     await BacktestEngine.prototype._loadWssTicks.call(stub1);
-    const shrunk = rows.filter(r => r.id <= 30);   // DB 删了大 id 行
+    const shrunk = rows.filter(r => r.id <= 30);   // DB 删了大 id 行（锚行 id=60 消失）
     const stub2 = makeEngineStub({ rows: shrunk, platforms: ['fourmeme'], cacheDir: dir });
     await BacktestEngine.prototype._loadWssTicks.call(stub2);
     ok(stub2._ticks.length === 30, `I. 回缩后按 DB 重拉 30 行 = ${stub2._ticks.length}`);
-    ok(stub2.logger.logs.info.some(m => m.includes('表回缩')), 'I2. 回缩日志发出');
+    ok(stub2.logger.logs.info.some(m => m.includes('回缩')), 'I2. 回缩日志发出（锚行核验不存在分支）');
   }
 
   // ---------- J：空 platform ----------
@@ -448,8 +455,9 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
     const gate = new Promise((r) => { release = r; });
     const fetchRows = async () => { fetchCount++; await gate; return rows.slice(); };
     const probe = async () => 2;
-    const p1 = cache.getOrFetch({ sourceExperimentId: 's', platform: 'fourmeme', addresses: ['0xA'], fetchRows, probeMaxId: probe });
-    const p2 = cache.getOrFetch({ sourceExperimentId: 's', platform: 'fourmeme', addresses: ['0xA'], fetchRows, probeMaxId: probe });
+    const anchor = async () => true;
+    const p1 = cache.getOrFetch({ sourceExperimentId: 's', platform: 'fourmeme', addresses: ['0xA'], fetchRows, probeMaxId: probe, anchorExists: anchor });
+    const p2 = cache.getOrFetch({ sourceExperimentId: 's', platform: 'fourmeme', addresses: ['0xA'], fetchRows, probeMaxId: probe, anchorExists: anchor });
     release();
     const [r1, r2] = await Promise.all([p1, p2]);
     ok(fetchCount === 1, `M. fetchRows 只执行一次（${fetchCount}）`);
@@ -479,7 +487,7 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
     try {
       await cache.getOrFetch({
         sourceExperimentId: 's', platform: 'fourmeme', addresses: ['0xA'],
-        fetchRows: async () => [bad], probeMaxId: async () => bad.id,
+        fetchRows: async () => [bad], probeMaxId: async () => bad.id, anchorExists: async () => true,
       });
     } catch (e) { threw = e; }
     ok(threw && /MAX_SAFE_INTEGER/.test(threw.message), `O. 超 precision 写入 throw（${threw && threw.message.slice(0, 40)}…）`);
@@ -503,6 +511,54 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
     await BacktestEngine.prototype._loadWssTicks.call(stub2);
     ok(stub2._ticks.length === 20, `P2. 漂移判废后 MISS 重拉 20 行 = ${stub2._ticks.length}`);
     ok(readMeta(dir, 'exp-src', 'fourmeme').columnsTag.includes('token_address'), 'P3. meta columnsTag 复原');
+  }
+
+  // ---------- Q：锚定探针形状（2026-10-08 计划翻转事故） ----------
+  console.log('Q. 锚定探针：探针带 gt(meta.maxId) 锚 + 锚行 PK 核验');
+  {
+    const dir = mkTmpDir();
+    const rows = [];
+    for (let i = 1; i <= 80; i++) rows.push(mkRow(i, '0xAAA', 'fourmeme', T0 + i * 1000));
+    const stub1 = makeEngineStub({ rows, platforms: ['fourmeme'], cacheDir: dir });
+    await BacktestEngine.prototype._loadWssTicks.call(stub1);   // MISS 落盘 maxId=80
+
+    // Q-1 FRESH 形状：无增量 → 锚定探针 null + 锚行核验在 → 纯读
+    const probeAnchors = [];   // desc 探针查询携带的 gt 锚值（无锚记 null）
+    const pkChecks = [];       // PK 核验查询的 eq id 值
+    const stub2 = makeEngineStub({
+      rows, platforms: ['fourmeme'], cacheDir: dir,
+      supabaseOpts: { onExec: (asc, q) => {
+        if (q._eq && q._eq.col === 'id') pkChecks.push(q._eq.val);
+        else if (!asc) probeAnchors.push(q._gt ? q._gt.val : null);
+      } },
+    });
+    await BacktestEngine.prototype._loadWssTicks.call(stub2);
+    ok(stub2._ticks.length === 80, `Q. FRESH 纯读 80 行 = ${stub2._ticks.length}`);
+    ok(probeAnchors.length >= 1 && probeAnchors.every(v => v === 80),
+      `Q2. 探针全部带 gt 锚=meta.maxId=80（anchors=${JSON.stringify(probeAnchors)}）`);
+    ok(pkChecks.length === 1 && pkChecks[0] === 80,
+      `Q3. 锚行 PK 核验恰一次且 id=80（checks=${JSON.stringify(pkChecks)}）`);
+
+    // Q-4 STALE 形状：增量 3 行 → 锚定探针返回增量 max（>锚），增量拉取 afterId=锚
+    const dir2 = mkTmpDir();
+    const grown = rows.concat([
+      mkRow(81, '0xAAA', 'fourmeme', T0 + 81 * 1000),
+      mkRow(82, '0xAAA', 'fourmeme', T0 + 82 * 1000),
+      mkRow(83, '0xAAA', 'fourmeme', T0 + 83 * 1000),
+    ]);
+    const stub3 = makeEngineStub({ rows, platforms: ['fourmeme'], cacheDir: dir2 });
+    await BacktestEngine.prototype._loadWssTicks.call(stub3);   // 落盘 maxId=80
+    const staleFetchAfterIds = [];
+    const stub4 = makeEngineStub({ rows: grown, platforms: ['fourmeme'], cacheDir: dir2 });
+    const origFetch = stub4._fetchPlatformTicksRows;
+    stub4._fetchPlatformTicksRows = function (sb, addrs, pf, afterId, prior) {
+      if (afterId > 0) staleFetchAfterIds.push(afterId);   // 只记增量拉取（MISS afterId=0 不记）
+      return origFetch.call(this, sb, addrs, pf, afterId, prior);
+    };
+    await BacktestEngine.prototype._loadWssTicks.call(stub4);
+    ok(stub4._ticks.length === 83 && staleFetchAfterIds.length === 1 && staleFetchAfterIds[0] === 80,
+      `Q4. STALE 增量拉取恰一次且 afterId=锚 80（afterIds=${JSON.stringify(staleFetchAfterIds)}, ticks=${stub4._ticks.length}）`);
+    ok(readMeta(dir2, 'exp-src', 'fourmeme').maxId === 83, 'Q5. STALE 合并后 meta.maxId=83');
   }
 
   console.log(`\n全部通过：${passed} 断言`);
