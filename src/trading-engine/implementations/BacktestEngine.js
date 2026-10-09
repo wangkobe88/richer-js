@@ -40,6 +40,7 @@ const TOKEN_CHUNK_SIZE = 50;      // .in('token_address') 地址批量护栏（P
                                   // 8s statement timeout；(token,platform,id) 索引建成后依旧——
                                   // LIMIT 偏好与索引无关）；in(50) 实测 129ms 稳定快，chunk0 完整
                                   // keyset 装载 282ms/5 页/最慢页 109ms（36a2c12a flap 首批死 token）
+const PAGE_ATTEMPTS = 3;          // 单页拉取重试上限（探针 PROBE_ATTEMPTS 同款；连续失败 throw）
 const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐实时引擎 30s）
 // ticks 拉取列清单单一事实源：拉取查询与 BacktestTickCache columnsTag 同源
 //（列变更时旧缓存自动判废重拉，不静默缺列）
@@ -592,15 +593,25 @@ class BacktestEngine extends AbstractTradingEngine {
       const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
       let cursor = afterId;
       for (let page = 0; page < MAX_TICK_PAGES; page++) {
-        const { data, error } = await supabase
-          .from('wss_price_ticks')
-          .select(TICK_SELECT_COLUMNS)
-          .in('token_address', chunk)
-          .eq('platform', platform)
-          .gt('id', cursor)
-          .order('id', { ascending: true })
-          .limit(TICK_PAGE_SIZE);
-        if (error) throw new Error(`读取 wss_price_ticks 失败: ${error.message}`);
+        // 单页重试（探针 PROBE_ATTEMPTS 同款，d46b1b6c 案先例）：~2000 chunk 长循环里
+        // 撞 DB 负载抖动/偶发坏计划（同形状实测 47ms~8s+ 波动，36a2c12a 三启即死于此）
+        // 不该让整个装载 throw；连续 3 次失败仍 throw 保持 fail-loud（真故障不掩盖）
+        let data = null;
+        let error = null;
+        for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
+          const res = await supabase
+            .from('wss_price_ticks')
+            .select(TICK_SELECT_COLUMNS)
+            .in('token_address', chunk)
+            .eq('platform', platform)
+            .gt('id', cursor)
+            .order('id', { ascending: true })
+            .limit(TICK_PAGE_SIZE);
+          if (!res.error) { data = res.data; break; }
+          error = res.error;
+          if (attempt < PAGE_ATTEMPTS) await new Promise(r => setTimeout(r, 1000));
+        }
+        if (error) throw new Error(`读取 wss_price_ticks 失败（连续 ${PAGE_ATTEMPTS} 次）: ${error.message}`);
         if (!data || data.length === 0) break;
         for (const row of data) rows.push(row);
         this.metrics.processedDataPoints += data.length;
