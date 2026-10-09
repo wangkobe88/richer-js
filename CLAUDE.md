@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Richer-js is an automated trading engine for **BSC four.meme + flap tokens** (BSC-only). Token discovery and prices come from a **常驻 WSS watcher**（ankr WSS event subscription on four.meme TokenManager + flap Portal, fully event-driven, no polling）: watcher 落库 `wss_price_ticks`/`wss_events`，实验进程（virtual / live / backtest，任意数量各自策略）从 DB 增量消费同一份数据流. It supports virtual trading (simulation), backtesting (tick replay), and live trading modes. It also includes a **narrative analysis engine** (Jev structured decision model) that evaluates meme coin events.
+Richer-js is an automated trading engine for **BSC four.meme + flap tokens** (BSC-only). Token discovery and prices come from **实验进程内嵌 ANKR WSS collector 直连**（subscription on four.meme TokenManager + flap Portal, fully event-driven, no polling；watcher 常驻架构 2026-10-09 废除，回迁 pumpfun-wss-trader 同款直连）: 虚拟实验进程自己持有 WSS 订阅，引擎直接消费 collector 内存回调，DB 落库（`wss_price_ticks`/`wss_events`，experiment_id 恒 NULL）仅持久化（回测/web/离线分析数据源）. It supports virtual trading (simulation), backtesting (tick replay), and live trading modes. It also includes a **narrative analysis engine** (Jev structured decision model) that evaluates meme coin events.
 
 ## Common Commands
 
@@ -24,11 +24,8 @@ node src/run-engine.js <experiment_id>
 # Narrative analysis engine (standalone worker)
 npm run narrative-engine
 
-# WSS watcher daemon (常驻双平台采集，182 screen 部署；本地不跑——ANKR key 在 182)
-node src/watcher/index.js
-
-# Watcher 架构本地零 DB 单测（打桩 dbManager）
-node scripts/_test_watcher_architecture.cjs
+# 直连架构（内嵌 collector）零 DB 单测（引擎接线/stop 顺序/setExperimentId 防线/guard 判据）
+node scripts/_test_embedded_collector_architecture.cjs
 
 # sender_address 解析（真实买家 tx.from）零 DB 零网络单测（打桩 provider/collector）
 node scripts/_test_sender_resolver.cjs
@@ -86,20 +83,25 @@ No test framework or CI is configured.
 - **`src/run-engine.js`** - Run a single experiment's engine directly (virtual mode)
 - **`src/web-server.js`** - Web interface (Express.js, port 3010)
 - **`src/narrative/engine/start.mjs`** - Narrative analysis engine
-- **`src/watcher/index.js`** - WSS watcher daemon（常驻采集进程）
 
-### Trading Engine Flow (watcher 架构：订阅与消费剥离)
+### Trading Engine Flow (直连架构：collector 内嵌实验进程，2026-10-09 回迁)
 
-WSS 订阅由**常驻 watcher**（`src/watcher/`，单进程双平台，182 screen + pid 单实例锁）长期持有，不随实验起停；实验进程（任意数量、各自策略）从 DB 增量消费同一份数据流：
+WSS 订阅由**实验进程自己持有**（`_createCollectors()` per `_wsPlatforms()`，both=双 collector，pumpfun-wss-trader 同款）：引擎直接消费 collector 内存回调（零 DB 中转延迟），DB 落库仅持久化（回测/web/离线分析数据源）。watcher 常驻架构（2026-09-24~2026-10-09）已废除删除（`src/watcher/`、`SharedTickConsumer.js` 退役，git 历史即回滚源）：
 
 ```
-┌ watcher 进程（src/watcher/WssWatcherService.js，常驻）─────────────────┐
-│ FourMemeAnkrWsCollector + FlapAnkrWsCollector（FA/tokenPool=null）      │
-│   tick(500ms flush)      → wss_price_ticks (experiment_id=NULL)        │
-│   token_create/graduation/quote_set → wss_events (kind 行；重试队列)     │
-│   60s heartbeat 行 → 实验侧断供判据 + 人工查活（7 天清理）               │
-│   60s 断流自愈（消息静默≥5min → forceReconnect；自引擎迁入）             │
-│   SenderResolver（共享实例传两 collector，config.senderResolve，默认开）： │
+┌ 实验进程（FourMemeWssTradingEngine / FlapWssTradingEngine）───────────┐
+│ collectors（per _wsPlatforms()；fourmeme/flap 各一枚，both=双枚）：      │
+│   tick 三路输出（_emitTick，实时）：pool.updatePrice / tickBuffer 批量    │
+│     落库(500ms flush，experiment_id 恒 NULL★08-27 防线) / FA.processTick │
+│     → price_outlier 在行入 buffer 前定值（INSERT 携带最终 flag，首写者   │
+│     口径）尘 tick（< minTickBnb）只落表不进因子                          │
+│   token_create → FA.registerToken(meta 带 platform 键)+pool.addToken →  │
+│     引擎._handleNewToken(info, platform)（experiment_tokens+语料补采）  │
+│   graduation → 引擎._handleGraduation（毕业事件驱动卖出）               │
+│   WssEventWriter（src/collectors/wss-event-writer.js，共享单实例）：     │
+│     token_create/graduation/token_quote_set 持续写 wss_events（30s 重试 │
+│     队列，create 行丢失=token 永久不可见）；heartbeat 停写（watcher 专属）│
+│   SenderResolver（共享单实例传各 collector，config.senderResolve 默认开）：│
 │     新行 sender_address = tx.from（真实发起 EOA）。trader 参数是          │
 │     msg.sender——公共路由（flap 0x1de460 占 27.9% 行）落的是 router 合约。│
 │     EOA kind 缓存命中同步进 buffer 零延迟；合约/未知走 getCode +          │
@@ -107,48 +109,51 @@ WSS 订阅由**常驻 watcher**（`src/watcher/`，单进程双平台，182 scre
 │     ankrFromEnv）；失败/溢出/停机 → NULL 保行不丢（绝不冒充）。           │
 │     消费侧已切 sender 口径（2026-09-30 案 A）：早期窗口因子 wallet 聚合    │
 │     COALESCE(sender, trader)；TPA/离线画像仍 trader（二期裁定）          │
+│   TPA live 三件套（initLiveTicksBuffer/preloadRecentTicks/ingestLiveTick）│
+│     + collector._onTickBuffered 钩子（行 push 后同步喂）→ 运行期零 DB    │
+│     ticks 查询（182 实测触发 2ms~114ms vs watcher 时代 1-2s/批）；缺口   │
+│     只计数不回退 DB（设计内 R6）                                          │
+│   60s 断流自愈（消息静默≥5min → forceReconnect，引擎侧自踢）+ 15min      │
+│     wss_down 告警（判据 collector.getLastMessageAt()）                   │
 │   logs 订阅带 topic0 白名单（TOPIC0_MAP，2026-09-28 ANKR 降费 flap -74%/  │
 │   fourmeme -42%；unknownTopic0 计数归零=新事件类型发现盲化，诊断时临时    │
 │   去掉订阅 params 的 topics 字段重订阅一天）                              │
+│ 引擎既有 factorsUpdated → OPB/卖腿实时/买腿 debounce 管线零改动         │
+│ stop 顺序：eventWriter → senderResolver → collectors（回推行进 buffer   │
+│   有人收再 flush；★尾两步顺序错误=丢行）                                 │
 └─────────────────────────────────────────────────────────────────────────┘
      │ wss_price_ticks (exp_id=NULL)        │ wss_events
      ▼                                      ▼
-┌ 实验进程 ×N（FourMemeWssTradingEngine / FlapWssTradingEngine）─────────┐
-│ SharedTickConsumer（src/trading-engine/core/，1s 轮询 id watermark）：  │
-│   events: registerToken → pool.addToken → 引擎._handleNewToken/_handle │
-│           Graduation（heartbeat 只推水位不派发）                        │
-│   ticks:  pool.updatePrice → minTickBnb 门 → FA.processTick            │
-│           (emitFactors:true) → priceOutlier 命中行批量回写              │
-│ 引擎既有 factorsUpdated → OPB/卖腿实时/买腿 debounce 管线零改动         │
-└─────────────────────────────────────────────────────────────────────────┘
+   回测/web K 线/离线分析（BacktestEngine 按 token 集合+platform 拉取，
+   不按 experiment_id；UNIQUE(tx_hash,log_index) 吸收多实验并发双写）
 ```
 
-**SharedTickConsumer 关键机制**：首拉 `select max(id)` 对齐（只消费启动后新行，等价旧订阅行为）；水位延迟一周期提交 + `(tx_hash,log_index)` 去重集（对抗 bigserial 分配序≠提交序的双写者竞态）；**禁止服务端 platform 过滤**（异平台行须进结果集推水位，本地过滤）；先 events 后 ticks 串行（同周期 create 先应用）。乱序自愈：FA.processTick 对未注册 token 自动建 state，registerToken 幂等回填更早 createdAtMs。
+**采集覆盖口径（用户裁定 2026-10-09）**：常驻记录实验兜底——现役 both 实跑实验即事实采集器（单平台实验只持单 collector，另一平台无采集，**兜底实验必须是 both**）；无实验运行期接受采集空洞；实验进程崩溃=采集断流，**接受风险，不加 watchdog/watcher 并存兜底**（flap quote 映射缺口由下次 flap collector 启动 getLogs 增量回放自动补齐）。
 
 Two engines via `src/trading-engine/implementations/`:
 - **FourMemeWssTradingEngine** - virtual (simulated accounting) and live (`FourMemeDirectTrader` on-chain trades) modes in one engine; platform via `_wsConfigSectionName()`/`_wsPlatforms()`（flap 子类覆盖）
-- **BacktestEngine** - replays `wss_price_ticks` through the same factor-strategy pipeline（**token 集合 + platform 口径**：`_tokenMeta` 全集 100 地址/批 `.in` + platform 按单值 `.eq` 循环（`.in` 多值等价无过滤，planner 弃索引致 statement timeout），分块拉取后全局**链上真序 `(block_number, log_index)` 归并排序**（2026-10-08 凑凑 0x8ea2…7777 案：原 `raw.sort(id)` 的 bigserial 分配序≠提交序，watcher 延迟落库让 38s 峰行 id<35s 行，乱序回放把未来峰提前喂进 FA 价格史、P11 据此算回撤 -35% 提前全清；真序下 block_time 应单调，倒退行 WARN 留痕；缓存文件行序不变无需重建；单测 `node scripts/_test_backtest_chain_order.cjs`）；不再按 experiment_id——watcher 新行 exp_id=NULL）
+- **BacktestEngine** - replays `wss_price_ticks` through the same factor-strategy pipeline（**token 集合 + platform 口径**：`_tokenMeta` 全集 100 地址/批 `.in` + platform 按单值 `.eq` 循环（`.in` 多值等价无过滤，planner 弃索引致 statement timeout），分块拉取后全局**链上真序 `(block_number, log_index)` 归并排序**（2026-10-08 凑凑 0x8ea2…7777 案：原 `raw.sort(id)` 的 bigserial 分配序≠提交序，watcher 时代延迟落库让 38s 峰行 id<35s 行，乱序回放把未来峰提前喂进 FA 价格史、P11 据此算回撤 -35% 提前全清；真序下 block_time 应单调，倒退行 WARN 留痕；缓存文件行序不变无需重建；单测 `node scripts/_test_backtest_chain_order.cjs`）；不再按 experiment_id——新行 exp_id 恒 NULL）
   - **ticks 装载本地缓存**（`src/trading-engine/core/BacktestTickCache.js`，2026-09-29 参照 pumpfun TickDataCache 机制）：raw 行装载默认经缓存——粒度 `(sourceExperimentId, platform)` 一文件 `data/tick-cache/backtest/<src>/<platform>.jsonl.gz` + `.meta.json`；**缓存存全量、运行期过滤**（存原始 DB 行原样 JSON，时间窗/映射维持内存层零改动 → 任意窗口回测共用、结果与直拉 bit-identical）。状态机：MISS（data/meta 缺、gzipBytes 失配=crash 窗口、columnsTag 漂移→全量拉，不经探针）/ FRESH（锚定探针 null + 锚行 PK 核验存在 → 纯读零拉）/ STALE（探针命中 → 增量 `.gt(id, meta.maxId)` 补拉合并重写，真 max 由 `_writeSorted` 重算）/ bypass（探针失败→WARN+直拉不读写缓存，数据正确性优先）；表回缩（锚行 PK 核验不存在 → drop 重拉）；读损坏自动删缓存重拉不中断。**探针形状（2026-10-08 计划翻转事故两轮改造）= 锚定 + 无序存在性**：`id > meta.maxId` 锚 + 无 ORDER BY 的 LIMIT 1（`_probeIncrementalTickId`）——旧无锚 `ORDER BY id DESC LIMIT 1` 表涨 150 万行后 planner 稳定 id 反向扫描扫无关行 8s 超时（in20/in50 同死）；锚定 DESC 只救活 token 集仍活跃（锚近表头）的平台，死集（锚=集内最后行 id）区间全为无关行照样超时；无序 LIMIT 1 无 top-k 排序可贪，稳定走 (token,platform,id) 索引 probe 与区间长度无关（死集旧锚最坏情形实测 242 批 0 错、最慢 132ms）。开关 `backtest.cacheEnabled`（默认开）+ `backtest.forceRefreshCache`；`_fetchPlatformTicksRows` MISS/STALE 共用（afterId 起点参数化）；pid 后缀 tmp+rename 原子写、4MB 背压、行 id 超 MAX_SAFE_INTEGER fail-loud throw。磁盘无自动清理（clear() 手动）。单测 `node scripts/_test_backtest_tick_cache.cjs`（52 断言）
 - **FlapWssTradingEngine** - extends FourMemeWssTradingEngine（virtual + live：`FlapPortalTrader` Portal `swapExactInput`，见 Live Trading 节）
 
 ### 双平台实验（config.platform='both'，2026-09-27 上线）
 
-一个实验同时交易 fourmeme+flap 两平台代币：**单引擎实例 per-token 分派**（基类 `_handleNewToken(info, platform)` 按 consumer 传入的行平台分派 `_buildFourMemeTokenRecord`/`_buildFlapTokenRecord`），共用同一套买/卖策略与单一资金池（PM 单组合）；FlapWssTradingEngine 改薄（`_handleNewToken` 逻辑入基类，保留 constructor/`flapWs` 段/`_buildTokenInfo` 无 name 版/live throw）。
+一个实验同时交易 fourmeme+flap 两平台代币：**单引擎实例 per-token 分派**（基类 `_handleNewToken(info, platform)` 按 collector 回调平台分派 `_buildFourMemeTokenRecord`/`_buildFlapTokenRecord`），共用同一套买/卖策略与单一资金池（PM 单组合）；FlapWssTradingEngine 改薄（`_handleNewToken` 逻辑入基类，保留 constructor/`flapWs` 段/`_buildTokenInfo` 无 name 版/live throw）。
 
 - **归一化唯一入口** `resolvePlatforms(platform)`（`src/trading-engine/core/platforms.js`）：`'both'`→`['fourmeme','flap']`、`'flap'`→`['flap']`、其余→`['fourmeme']`
 - **范围 virtual + backtest + 单平台 live（fourmeme/flap 各自）**；双平台 live 三重防线禁止：web-server POST 400（live && platform='both'）/ main.js `_createEngine` throw / 前端提交拦截
 - **引擎级配置恒读 fourmemeWs 段**（`_wsConfigSectionName()` 基类返回值，flap 子类才覆盖 flapWs）；FA 构造键名固定 fourmemeWs；corpusEnrich per-token 分派
 - **创建页平台选择 = 多选 checkbox**（结构保证至少一勾；双勾 POST 标量 `'both'`；live 模式 flap 禁用联动；复制链路 both→双勾回填）
 - 存量单平台实验零行为变化（182 重启回归验证：引擎身份/配置段/水位对齐保持）
-### Watcher 架构口径变化（2026-09-24 切换）
+### 直连架构口径（2026-10-09 回迁；watcher 时代 2026-09-24~10-09 七条口径随废除归档）
 
-1. **`wss_price_ticks` 新行 `experiment_id=NULL`**：watcher 写的行免疫删实验级联；删历史实验仍级联删其名下旧行（FK 仍在，混合保留语义）
-2. **tvl 因子恒 0**：DB 行无 offers/funds_bnb（four.meme 虚拟对齐回测口径；flap 一直如此）
-3. **price_outlier 消费侧回写**：新行落库 false，consumer 判离群后批量 UPDATE（延迟 ~1s）
-4. **实验级 collector 配置失效**：实验 config 的 `fourmemeWs/flapWs` 段 contracts/tickBuffer/reconnect/endpoint 覆盖无效（watcher 只读 default.json）；debounce/FA 参数/conpusEnrich 仍实验侧生效
-5. **端到端延迟 +~1.5s**：flush(≤0.5s) + 轮询(1s)；卖腿止损同此
-6. **wss-down-guard 改判据**：consumer `lastIngestAt` 15min 停滞（watcher 60s 心跳行保证市场安静时不误报）→ status='wss_down'；自愈 forceReconnect 已迁 watcher，实验侧只告警
-7. **flap QuoteSet 映射持久化（2026-09-27 事故根治，1920701）**：flap 非 BNB 计价盘的 token→quote 映射实时落 `wss_events`（kind='token_quote_set'，watcher 重试队列）；collector 启动先 `_loadQuoteMapFromDb` 重建终态（乱序行按 (blockNumber,logIndex) 排序应用、零地址压制更早非零记录），回放窗缩为 [水位-100, head] 增量补停机缺口，**回放结果不落库**（水位驱动下次重启自动重拉）；DB 空首启走 `flapWs.quoteRate.fullBackfillMinutes`（默认 43200=30 天）全量窗。单测 `node scripts/_test_watcher_quote_conversion.cjs`（85 断言，T15 覆盖持久化分支）。事故档案见记忆 flap-quote-impersonation-incident（两段冒充窗口 20 token 776+ 行，重算脚本幂等）
+1. **`wss_price_ticks` 新行 `experiment_id=NULL`**（watcher 时代延续）：免疫删实验级联；删历史实验仍级联删其名下旧行（FK 仍在，混合保留语义）。引擎**绝不调 `collector.setExperimentId`**（★08-27 防线，单测源码口径断言锁定）
+2. **tvl 因子恒 0**：FA tick 刻意不含 offers/funds_bnb（对齐 DB 行/回测口径，虚拟/回测不分叉）
+3. **price_outlier INSERT 时携带最终 flag**：collector `_emitTick` 内 FA 判定 → 回写 tickRow 引用 → flush 前生效（首写者实验口径；多实验并发 UNIQUE first-writer-wins；consumer 事后 UPDATE 已随 SharedTickConsumer 退役消失）
+4. **实验级 collector 配置覆盖恢复生效**（watcher 时代失效的反转）：实验 config 的 `fourmemeWs/flapWs` 段 contracts/tickBuffer/reconnect/endpoint 经 per-platform 浅合并生效
+5. **端到端延迟回归实时**：内存回调零中转（watcher 时代 DB 中转 +~1.5s 已消除；EarlyParticipant 90s 窗 fire 时刻 DB 读的尾部新鲜度由 `tickBuffer.flushIntervalMs=500` 对齐）
+6. **wss-down-guard 判据 `collector.getLastMessageAt()`**：任一 collector 静默 ≥ `downGuardSelfHealMs`（5min）每轮踢 `forceReconnect()` 自愈；≥15min → status='wss_down'，恢复回写 running（心跳行判据随 watcher 退役，wss_events 不再新增 heartbeat 行）
+7. **flap QuoteSet 映射持久化（2026-09-27 事故根治，1920701，语义随迁）**：flap 非 BNB 计价盘的 token→quote 映射实时落 `wss_events`（kind='token_quote_set'，WssEventWriter 重试队列）；collector 启动先 `_loadQuoteMapFromDb` 重建终态（乱序行按 (blockNumber,logIndex) 排序应用、零地址压制更早非零记录），回放窗缩为 [水位-100, head] 增量补停机缺口，**回放结果不落库**（水位驱动下次重启自动重拉）；DB 空首启走 `flapWs.quoteRate.fullBackfillMinutes`（默认 43200=30 天）全量窗。单测 `node scripts/_test_watcher_quote_conversion.cjs`（85 断言，T15 覆盖持久化分支）。事故档案见记忆 flap-quote-impersonation-incident
 
 ### Narrative Analyzer (Jev Structured Decision Engine)
 
@@ -275,7 +280,7 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 - **改动**：FA `processTick` 单点 `walletAddr = sender_address || trader_address || null`（NULL 回退 = 旧行为等价）；切 wallet 口径的聚合：`holderCount`（holders 因子/`_holderSeries` holderTrend 原料，新增 `_walletNetTokens` map）、P 组 top3/top5 净持仓集中度、sniperHolderShare top20、bigHolder 族交叉（`_buyerVolume` × 净持仓）、K 组对敲重叠（`_buyerAddresses`/`_sellerAddresses`/`_buyerVolume` 等——trader 口径下经路由的对倒反成「GMGN 买 GMGN 卖」假重叠）、cumBuy（`_traderBoughtTokens` 改名 `_walletBoughtTokens`）、滑窗（`_slideTraderCounts`/`_walletFirstTs`）、smartBot 名单匹配（EOA 维度名单）
 - **刻意不切两处**：①`_traderNetTokens`/`_traderMaxNetTokens`（TPA 基准——`wallet_offline_profiles` 画像库是 trader 口径建的，单切持仓侧会画像 miss 错配，二期整套切；GMGN 在 TPA 里仍呈现为单一巨户合并像）②`uniqueTraders`（classifier metrics 契约字段，与离线 classifyToken/token-classifier `tick.traderAddress` 口径锁定，防在线/离线分类输入漂移）
-- **链路**：SharedTickConsumer `TICK_COLUMNS` 加 `sender_address` + processTick 透传（实时链）；BacktestEngine `_loadWssTicks` 09-30 已透传（回测链零改动、columnsTag 不漂移）+ **`backtest.stripSenderAddress` 对照臂开关**（H0 臂剥回放对象 sender → 消费侧全部 COALESCE 点回退 trader = 修正前行为 bit-identical；只剥内存 tick 不动 BacktestTickCache raw 行，H0/H1 两臂共用同一缓存文件）；OPB 全史路径/离线 build-token-profiles 不动（trader 口径链）
+- **链路**：当时实时链＝SharedTickConsumer `TICK_COLUMNS` 加 `sender_address` + processTick 透传（2026-10-09 直连回迁后透传点在 collector `_emitTick`/`_feedFa`，sender 随 tickRow 直喂 FA）；BacktestEngine `_loadWssTicks` 09-30 已透传（回测链零改动、columnsTag 不漂移）+ **`backtest.stripSenderAddress` 对照臂开关**（H0 臂剥回放对象 sender → 消费侧全部 COALESCE 点回退 trader = 修正前行为 bit-identical；只剥内存 tick 不动 BacktestTickCache raw 行，H0/H1 两臂共用同一缓存文件）；OPB 全史路径/离线 build-token-profiles 不动（trader 口径链）
 - **实证**（bSTOCKS 79 ticks 重放对拍）：修正前 holders=6（与实跑 BUY 信号逐位吻合）→ 修正后 holders=44（`_walletNetTokens` 48 键 44 净持仓>0）；`holders > 5` 从「险过」变「明确放行」，GMGN 高占比盘从「误拦」变「正确评估分散度」
 - **配对回测**：`scripts/create-holders-denomination-pair.cjs`（H0 旧 trader 口径 vs H1 wallet 口径，基底=02c60e50 buy-v2 v4 实跑；182 串行启动）
 - **单测**：`node scripts/_test_fa_wallet_denomination.cjs`（40 断言零 DB 六节：COALESCE 矩阵/GMGN 合并复现（含零 sender 旧行为 bit-identical）/K 组·滑窗·smartBot·cumBuy/读取时聚合出口/链路透传源码口径（含 strip 开关接线）/买门翻案形状）
@@ -337,14 +342,14 @@ All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-bu
 
 ### Database
 
-Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; watcher 写入行 experiment_id=NULL; `sender_address` = 真实交易发起者 tx.from（BSC 恒 EOA，watcher 侧 SenderResolver 解析，2026-09-30 0x1de460 公共路由案——`trader_address` 是事件 msg.sender，0x1de460f3…4bc = **GMGN BSC 聚合路由**（代理壳 + init data 内嵌 GMGN fee collector 0xb8159b…9c8 自证），flap 27.9% 行落它；消费侧已切 sender 口径（案 A 同日）：早期窗口因子 wallet 聚合 COALESCE(sender, trader)、router 因子判 trader 层、协议地址双地址层剔除；FA holders 族已切（案 B 2026-10-01，见 Pre-Buy 节）；TPA 基准/离线画像仍 trader（二期）；NULL=未解析回退 trader（= EOA 直连旧行为等价）；8aca25e2 被拦窗 16,393 行已回填（备份 data/backfill-8aca-sender-backup.json）；存量全量回填 42 万行暂缓；DDL `scripts/sql/add-wss-ticks-sender-address.sql`）；`quote_token` 标记 flap 非 BNB 计价盘——collector 按三级汇率源换算 price_bnb/bnb_amount 后落库（2026-09-30 wTCENTx 案：① PCS V2 quote/WBNB reserves ② PCS V3 quote/WBNB 各 fee 档 liquidity>0 最深池 slot0 ③ PCS V3 quote/USDT 同门槛 → ÷ bnbUsd 中转；零流动性 V3 池挂价不可信必须拦——同案 WBNB 对挂价偏离真值 20%），三级全 miss 跳行（宁跳不冒充），BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat/token_quote_set 低频事件通道，token 级全局表不挂 experiment 维度；token_quote_set 为 flap quote 映射持久化行，payload 含 blockNumber/logIndex 供水位增量回放), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
+Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; 实验进程 collector 写入行 experiment_id=NULL（08-27 级联防线）；`sender_address` = 真实交易发起者 tx.from（BSC 恒 EOA，实验进程 SenderResolver 解析，2026-09-30 0x1de460 公共路由案——`trader_address` 是事件 msg.sender，0x1de460f3…4bc = **GMGN BSC 聚合路由**（代理壳 + init data 内嵌 GMGN fee collector 0xb8159b…9c8 自证），flap 27.9% 行落它；消费侧已切 sender 口径（案 A 同日）：早期窗口因子 wallet 聚合 COALESCE(sender, trader)、router 因子判 trader 层、协议地址双地址层剔除；FA holders 族已切（案 B 2026-10-01，见 Pre-Buy 节）；TPA 基准/离线画像仍 trader（二期）；NULL=未解析回退 trader（= EOA 直连旧行为等价）；8aca25e2 被拦窗 16,393 行已回填（备份 data/backfill-8aca-sender-backup.json）；存量全量回填 42 万行暂缓；DDL `scripts/sql/add-wss-ticks-sender-address.sql`）；`quote_token` 标记 flap 非 BNB 计价盘——collector 按三级汇率源换算 price_bnb/bnb_amount 后落库（2026-09-30 wTCENTx 案：① PCS V2 quote/WBNB reserves ② PCS V3 quote/WBNB 各 fee 档 liquidity>0 最深池 slot0 ③ PCS V3 quote/USDT 同门槛 → ÷ bnbUsd 中转；零流动性 V3 池挂价不可信必须拦——同案 WBNB 对挂价偏离真值 20%），三级全 miss 跳行（宁跳不冒充），BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat/token_quote_set 低频事件通道，token 级全局表不挂 experiment 维度；token_quote_set 为 flap quote 映射持久化行，payload 含 blockNumber/logIndex 供水位增量回放), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
 
 Experiment deletion is DB-level: every experiment-owned table carries `experiment_id → experiments(id) ON DELETE CASCADE` (see `scripts/sql/migrate-experiment-cascade-delete.sql`), so deleting the experiments row removes all its data — the web layer just deletes the row, no per-table cleanup.
 
 ## Configuration
 
 - **`config/default.json`** - `fourmemeWs` section (contracts, reconnect, tickBuffer, debounce, live execution params) + strategy defaults (buyTimeMinutes: 1.33, earlyReturnMin: 80, earlyReturnMax: 120)
-- **买/卖腿去抖（2026-10-01 修正 1500/5000/0 → 200/1000/200，fourmemeWs+flapWs 两段）**：`signalDebounceMs` 1500 是 pumpfun 母版 08-18 重复买入事故的临时补丁值（母版当天 v3.10.1 因「去抖饥饿事故」9a86E7n2 案已降 100ms≈0.25 slot；`signalDebounceMaxWaitMs` 兜底母版从未上线），BSC 迁移 Phase 3 误抄成默认——热门票全程连续 tick 静默分支永不满足，被饿到 5s 强制采样一次（0x7e3b…7777 案：条件 21:01:26 已全齐、fire 拖到 21:01:29，TPA as-of→fire 价差 +23%）。修正语义 = slot 级合并：200ms≈0.25×BSC 0.75s 出块，同 slot 批量推送并成一个 burst、slot 结束即评；maxWait 1000 退化为极端兜底。`sellDebounceMs` 0→200：走去抖的默认卖腿（TP/移动止盈/保本/时间衰减）进 SellConfirmDebouncer 200ms 确认窗（与买腿语义相反：首真起计**不重置**、窗口内恢复 clear 不卖、fire 重评仍真才卖——「卖的时候怕被震下去」防线）；bypassDebounce 腿（P1-P9 针臂/硬底/RSI/毕业臂）、止损双腿、毕业卖、强平全走立即路径不受影响。实验级 `fourmemeWs.signalDebounceMs` 等键可覆盖（引擎参数，不受 watcher 收权影响）；跑中实验须重启进程才生效
+- **买/卖腿去抖（2026-10-01 修正 1500/5000/0 → 200/1000/200，fourmemeWs+flapWs 两段）**：`signalDebounceMs` 1500 是 pumpfun 母版 08-18 重复买入事故的临时补丁值（母版当天 v3.10.1 因「去抖饥饿事故」9a86E7n2 案已降 100ms≈0.25 slot；`signalDebounceMaxWaitMs` 兜底母版从未上线），BSC 迁移 Phase 3 误抄成默认——热门票全程连续 tick 静默分支永不满足，被饿到 5s 强制采样一次（0x7e3b…7777 案：条件 21:01:26 已全齐、fire 拖到 21:01:29，TPA as-of→fire 价差 +23%）。修正语义 = slot 级合并：200ms≈0.25×BSC 0.75s 出块，同 slot 批量推送并成一个 burst、slot 结束即评；maxWait 1000 退化为极端兜底。`sellDebounceMs` 0→200：走去抖的默认卖腿（TP/移动止盈/保本/时间衰减）进 SellConfirmDebouncer 200ms 确认窗（与买腿语义相反：首真起计**不重置**、窗口内恢复 clear 不卖、fire 重评仍真才卖——「卖的时候怕被震下去」防线）；bypassDebounce 腿（P1-P9 针臂/硬底/RSI/毕业臂）、止损双腿、毕业卖、强平全走立即路径不受影响。实验级 `fourmemeWs.signalDebounceMs` 等键可覆盖（引擎参数）；跑中实验须重启进程才生效
 - **`config/narrative-engine.json`** - Jev client settings (`jev` section: endpoint/model/TYPESAFE_API_KEY env/timeout) + engine concurrency/timeouts
 - **`config/.env`** - Environment variables (ANKR_WS_URL, AVE_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, MINIMAX_API_KEY, ENCRYPTION_KEY for live wallet private keys, etc.)
 
@@ -383,7 +388,7 @@ E5c 8 腿对「不冲毕业的 flap 小票」结构性盲区的保命兜底（f3
 王之蔑视（flap funds=14.2 非标准盘）毕业断流后余 3 卡冻结 4 天：progress 峰值 88.9%（72 固定锚失真）→ P3(≥0.9)/P8(≥0.98) 全程够不着，断流后 tick 驱动卖腿整体冻结。两项改动：
 
 - **②毕业事件驱动卖出**：`_handleGraduation` virtual 持仓票直接 `_emitGraduationSell` 全清（等价 strategy `id: graduationSell` 与止损腿同构，余仓按断流前最后可靠价落袋；选全清而非等价 P3+P8 卖 3/4——virtual 冻结与全清估值同价只差 0.5% 费，全清释放 PM 资金与卡牌）。`_graduationSoldTokens` Set 幂等（graduation 事件实测重复派发两遍）；**竞态修复（2026-09-28 盘古案，graduation 事件先于买入到达 1.9s → `_handleGraduation` 因 status!=='bought' no-op 买入即冻结）三挂点**：幂等标记后置到卖出成功（失败不标记可重试；并发双调被 `_sellingTokens` 挡住）+ 买入成功点补卖（查 FA `graduated` 标记 fire-and-forget，virtual-only，不依赖 stopLoss 段）+ `_scanHoldingsStopLoss` 扫描兜底（virtual-only，先于止损判定，事件路径卖出失败的唯一重试路径）；live 维持 Telegram 告警人工处置不动；BacktestEngine 不动（无 graduation 事件消费路径）
-- **①flap 专属毕业锚**：`graduationProgress` 分母经 `FA._graduationAnchorBnb(state)` per-token 化——flap 盘 = 首市值（`_relFirstPriceBnb × totalSupply`）× `graduationAnchorRatio`(12.5，R 恒比：断流市值/funds≈4.50 与初始/funds≈0.36 两恒比合成，182 实测 4/5 样本 ±2%，funds 跨 10.9~17.3 固定锚数学无解)；**仅当首 tick 距 token 创建 < `graduationAnchorFirstTickMaxMs`**(60s，首 tick≈开盘锚有效；脏样本 0x84439e 首价 5.8 倍开盘 R=2.17) 才启用，否则退 72 默认锚。platform 由 SharedTickConsumer token_create 传入 FA state（乱序自愈：迟到 registerToken 回填更早 createdAt → 窗变大自动退锚）；BacktestEngine 不传 platform → 恒 72，回测行为零变化
+- **①flap 专属毕业锚**：`graduationProgress` 分母经 `FA._graduationAnchorBnb(state)` per-token 化——flap 盘 = 首市值（`_relFirstPriceBnb × totalSupply`）× `graduationAnchorRatio`(12.5，R 恒比：断流市值/funds≈4.50 与初始/funds≈0.36 两恒比合成，182 实测 4/5 样本 ±2%，funds 跨 10.9~17.3 固定锚数学无解)；**仅当首 tick 距 token 创建 < `graduationAnchorFirstTickMaxMs`**(60s，首 tick≈开盘锚有效；脏样本 0x84439e 首价 5.8 倍开盘 R=2.17) 才启用，否则退 72 默认锚。platform 注入 FA state（SharedTickConsumer token_create 时代；2026-10-09 直连回迁后由 collector `_handleTokenCreate` registerToken meta.platform 键承载，乱序自愈语义同）——乱序自愈：迟到 registerToken 回填更早 createdAt → 窗变大自动退锚；BacktestEngine 不传 platform → 恒 72，回测行为零变化
 - **附带修复（b24879e0 09-28 03:53 裸崩根因）**：`_computePriceTrendFactors` 分桶 OLS 假设输入升序，但 `_recentTicks` 是 FIFO 到达序且 tick 行存在「bigserial 分配序≠提交序」乱序（watcher 双写者竞态）→ 负 idx `buckets[-k].push` TypeError 进程死。修复 = `reliable` 归一时间升序（排序假设修复非兜底）
 - **单测**：`node scripts/_test_graduation_sell_and_anchor.cjs`（35 断言零 DB：锚矩阵/progress 端到端/毕业卖幂等·live 门/乱序崩溃复现四节；旧代码崩溃用例 git stash 反向复现验证）
 
@@ -454,9 +459,9 @@ hg55 门配对首版（5efaff23/20b5b439，已作废 completed 终态留行）�
 - **Case sensitivity**: Wallet addresses are case-sensitive when querying database
 - **Factor building**: Use `FactorBuilder.buildPreBuyCheckFactorValues()` when adding new pre-buy factors
 - **Narrative prompts are ESM** (`.mjs`) while trading engine is CommonJS (`.js`) — don't mix import styles
-- **Never delete experiment rows that have produced data** — deleting cascades to `wss_price_ticks` rows (race-owned by experiment_id) and loses them globally forever（watcher 架构后新行 exp_id=NULL 免疫级联，但历史行仍级联——删历史实验前必须用户裁定）
+- **Never delete experiment rows that have produced data** — deleting cascades to `wss_price_ticks` rows (race-owned by experiment_id) and loses them globally forever（watcher 时代起（2026-09-24）新行 exp_id=NULL 免疫级联，但历史行仍级联——删历史实验前必须用户裁定）
 - **smart-wallet-mining 待迁**（watcher 架构遗留批次）：`scripts/smart-wallet-mining/` 仍按 experiment_id 口径拉 ticks（data-fetcher.js / mine-smart-wallets.cjs pickSources / verify-smart-wallets.cjs）——对新实验（exp_id=NULL ticks）会静默拉空，需改 token 集合或 received_at 全局窗口+platform 口径
-- **Watcher 单实例**：`pids/wss-watcher.pid` 锁 + kill(pid,0) 探活；watcher 挂掉 → 实验侧 15min wss_down 告警（不自愈，需人工/监控重启 watcher）
+- **采集覆盖 = 常驻 both 实验兜底（用户裁定 2026-10-09）**：watcher 常驻进程已废除（`src/watcher/` 删除，git 历史即回滚源）——无实验运行期采集空洞可接受、实验进程崩溃=采集断流风险接受、不加 watchdog；保持一个 platform='both' 虚拟实验常跑即事实采集器（单平台实验只持单 collector，另一平台无采集）；flap quote 缺口由下次 flap collector 启动 getLogs 增量回放自动补齐
 
 ## Adding New Pre-Buy Factors
 

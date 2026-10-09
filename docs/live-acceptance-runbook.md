@@ -23,7 +23,7 @@ flap 收窄口径：**live 只买 BNB 计价盘**（非 BNB 盘 `swapExactInput`
 1. **182 ENCRYPTION_KEY**：`config/.env` 里必须已有（与历史 live 实验一致；本地与 182 key 已核对一致，sha256 前 12 位 `cb09b8757a55`）。
 2. **专用小额钱包**：新建一个只放验收资金的 EOA 钱包，转入 **0.05 BNB**（保留 0.01 + 买入 0.001×若干次 + gas 余量）。绝不使用主钱包。
 3. **Telegram 通知**（可选但强烈建议）：182 上确认 Telegram bot 配置可用——熔断/毕业告警走这条路。
-4. **watcher 在跑**：`screen -ls` 确认 wss-watcher 存活（`pids/wss-watcher.pid` 探活）。live 引擎消费的就是它落库的 ticks。
+4. **采集在跑（直连架构）**：live 实验进程自己持有 WSS 订阅（collector 内嵌）——确认本实验进程存活即可；另确认一个 both 常驻虚拟实验在跑（事实采集器，保证 `wss_price_ticks` 连续供数，web K 线/离线工具依赖）。watcher 常驻进程已于 2026-10-09 废除。
 
 ## 2. four.meme 最小闭环（约 10 分钟）
 
@@ -78,7 +78,7 @@ node main.js start-experiment ... 停止后状态自动置 stopped
 - 启动日志确认 `FlapPortalTrader` 初始化 + Portal 地址 `0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0`。
 - 买入成交的实得来自**余额差法**（税后真相）；卖出实收 = BNB 余额差 + gas 补偿。验收点 1/3/4/5 同 four.meme。
 - **非 BNB 计价盘**：若买腿撞上 quote_token 非 NULL 的盘，`swapExactInput` revert → 买入失败记录——这是预期 fail-closed 行为，不是 bug；等下一个 BNB 盘 token 即可。
-- 毕业盘：flap token 毕业后 Portal 只支持内盘，卖出同样 revert——flap 毕业告警未接毕业事件处置（watcher 有 graduation 事件，live 告警路径同 four.meme 需观察是否触发）。
+- 毕业盘：flap token 毕业后 Portal 只支持内盘，卖出同样 revert——flap 毕业告警未接毕业事件处置（collector 有 graduation 回调事件，live 告警路径同 four.meme 需观察是否触发）。
 
 ## 4. 验收通过标准（全绿才可放量）
 
@@ -90,7 +90,7 @@ node main.js start-experiment ... 停止后状态自动置 stopped
 
 ## 5. 常见问题
 
-- **买入一直不触发**：确认 watcher 心跳（`wss_events` 最新 heartbeat 行 <60s）；确认买入 condition 对新 token 成立。
+- **买入一直不触发**：确认本实验进程 collector 存活（日志持续有 tick 流/wss-down-guard 无告警；直连架构进程崩=采集断流）+ 常驻 both 采集实验在跑（`wss_price_ticks` 新行持续推进）；确认买入 condition 对新 token 成立。heartbeat 行是已废除 watcher 的历史产物，不再更新。
 - **卖出 revert 且日志带「fail-closed 拒绝裸奔卖出」**：trySell 预估失败 + 引擎提供了预期锚 → 预期行为，检查该 token 是否毕业盘/流动性异常。
 - **「确认超时(120s)，txHash=0x...」**：**绝不重发**。bscscan 查该 hash 终态；若已上链，重启实验靠 trades 恢复对齐；若未上链，人工评估补单。
 - **验收钱包私钥安全**：验收完成后钱包清空归档；如钱包要复用，web「复用历史钱包」下拉会服务端拷贝密文（要求两端 ENCRYPTION_KEY 一致）。

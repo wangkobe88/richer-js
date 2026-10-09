@@ -8,7 +8,7 @@
  *
  * 引擎选择/wsConfig 段选择的存量判断全是标量相等（`=== 'flap'`），'both' 在每处
  * 自然落入"非 flap → 默认分支"（基类引擎 + fourmemeWs 段）；平台集合的展开只发生在
- * SharedTickConsumer 过滤 / _handleNewToken 分派 / BacktestEngine ticks .in 三处。
+ * _createCollectors 构造 / _handleNewToken 分派 / BacktestEngine ticks .in 三处。
  */
 
 'use strict';

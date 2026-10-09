@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * SenderResolver + 两 collector 分流接线 + watcher 接线 单测（零 DB 零网络）
+ * SenderResolver + 两 collector 分流接线 + 引擎接线 单测（零 DB 零网络；
+ * watcher 2026-10-09 废除后断言对象 = 引擎 _createCollectors/stop）
  *
  * 打桩点：SenderResolver._makeProvider（stub provider: getCode/getTransaction/destroy）
  * 与 collector 构造第 6 参（stub resolver: submit）。
@@ -382,7 +383,7 @@ async function testB() {
         }
     }
 
-    // B8 fourmeme FA tick 刻意不含 offers/funds_bnb（对齐 SharedTickConsumer/回测口径：DB 行无
+    // B8 fourmeme FA tick 刻意不含 offers/funds_bnb（对齐 DB 行/回测口径：行无这两列
     //    这两列 tvl 恒 0——直连恢复后若重新传入会造成虚拟/回测 tvl 因子分叉）
     {
         const c = new FourMemeAnkrWsCollector({ fourmemeWs: {} }, quietLogger);
@@ -423,13 +424,17 @@ function testC() {
         ok(/constructor\(config, logger, tokenPool = null, factorAggregator = null, callbacks = \{\}, senderResolver = null\)/.test(src), `C1[${name}] 构造第 6 参 senderResolver`);
     }
 
-    const w = read('src/watcher/WssWatcherService.js');
-    ok(/const collector = new p\.Ctor\(watcherCfg\(p\.section\), this\.logger, null, null, \{[\s\S]*?\}, this\._senderResolver\);/.test(w), 'C2 collector 构造传第 6 参 this._senderResolver');
-    const stopIdx = w.indexOf('await this._senderResolver.stop()');
-    const collStopIdx = w.indexOf('await collector.stop()');
-    ok(stopIdx > 0 && collStopIdx > stopIdx, 'C2 resolver.stop() 先于 collector.stop()（回推行进 buffer 再 flush）');
-    ok(w.includes('senderResolve: this._senderResolver ? this._senderResolver.getStats() : null'), 'C2 心跳 payload 带 senderResolve stats');
-    ok(w.includes("this.config.senderResolve.enabled === true"), 'C2 enabled===true 才构造（缺段零变化）');
+    // C2（直连架构：watcher 2026-10-09 废除，断言对象 = 引擎 _createCollectors/stop）
+    const eng = read('src/trading-engine/implementations/FourMemeWssTradingEngine.js');
+    ok(/this\._senderResolver = new SenderResolver\(senderCfg, this\.logger\);/.test(eng), 'C2 引擎构造共享 SenderResolver（enabled===true 门内）');
+    ok(eng.includes('senderCfg && senderCfg.enabled === true'), 'C2 enabled===true 才构造（缺段零变化）');
+    ok(/this\._senderResolver,\s*\);/.test(eng), 'C2 collector 构造末参传共享 resolver（per-platform 循环内单实例）');
+    const resolverStopIdx = eng.indexOf('await this._senderResolver.stop()');
+    const writerStopIdx = eng.indexOf('await this._eventWriter.stop()');
+    const collStopIdx = eng.indexOf('await c.stop()');
+    ok(writerStopIdx > 0 && resolverStopIdx > writerStopIdx && collStopIdx > resolverStopIdx,
+        'C2 stop 顺序 eventWriter → senderResolver → collectors（回推行进 buffer 再 flush）');
+    ok(eng.includes('senderResolver: this._senderResolver ? this._senderResolver.getStats() : null'), 'C2 getStats 带 senderResolve stats');
 
     const cfg = JSON.parse(read('config/default.json'));
     ok(cfg.senderResolve?.enabled === true, 'C3 default.json senderResolve.enabled=true');

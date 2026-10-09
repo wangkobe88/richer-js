@@ -610,8 +610,8 @@ class FourMemeAnkrWsCollector {
      * 回推路径 tickRow.sender_address 已定值——FA 钱包口径（sender||trader，GMGN 案 A/B）
      * 与落库行一致；直推路径 sender=null 回退 trader（= 旧 collector 行为）。
      * 尘 tick（< minTickBnb）不进因子计算，仍照常落表。
-     * ⚠ 刻意不传 offers/funds_bnb：对齐 SharedTickConsumer/回测口径（DB 行无这两列，
-     * tvl 恒 0）——直连恢复后若重新传入会造成虚拟/回测 tvl 因子分叉。
+     * ⚠ 刻意不传 offers/funds_bnb：对齐 DB 行/回测口径（行无这两列，tvl 恒 0）——
+     * 若重新传入会造成虚拟/回测 tvl 因子分叉。
      */
     _feedFa(decoded, tickRow, priceUsd) {
         if (!this._factorAggregator || decoded.bnbAmount < this._minTickBnb) return null;

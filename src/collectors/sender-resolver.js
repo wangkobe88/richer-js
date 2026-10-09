@@ -27,8 +27,8 @@
  *   - 反查重试 retryLimit 次耗尽 → sender=NULL 回推（保数据丢修复，绝不丢行）
  *   - 暂存满 backlogLimit → 最老行 NULL 强制落库（同上）
  *
- * 共享实例：watcher 进程构造一个传入两 collector（钱包跨平台交易，kind 缓存
- * 利用率更高）；实验进程不跑 collector（SharedTickConsumer 消费 DB），零影响。
+ * 共享实例：引擎进程构造一个传入各 collector（both 实验双平台共享，钱包跨平台
+ * 交易 kind 缓存利用率更高；watcher 2026-10-09 废除前由其持有，语义同款迁入）。
  */
 
 'use strict';
