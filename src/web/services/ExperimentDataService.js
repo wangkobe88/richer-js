@@ -10,6 +10,10 @@ const Logger = require('../../services/logger');
 const { extractNarrativeMaterialId } = require('../../narrative/utils/material-id-extractor.mjs');
 const { buildLLMAnalysis } = require('../../narrative/analyzer/parsers/response-parser.mjs');
 
+// .in 批量/分页拉取的并发上限：VPN 链路下串行批次往返是万级 token 页面的耗时大头
+// （2026-10-09 token-returns 慢页实测：~110 个串行往返 ≈ 474s）
+const DB_BATCH_CONCURRENCY = 8;
+
 /**
  * 实验数据服务类
  * @class
@@ -18,6 +22,27 @@ class ExperimentDataService {
   constructor() {
     this.supabase = dbManager.getClient();
     this.logger = new Logger({ dir: './logs', experimentId: 'data-service' });
+  }
+
+  /**
+   * 并发受限的批处理（保持结果与输入同序）
+   * @private
+   * @param {Array} items - 待处理项
+   * @param {number} limit - 并发上限
+   * @param {Function} fn - async (item, index) => result
+   * @returns {Promise<Array>} 结果数组
+   */
+  async _mapLimit(items, limit, fn) {
+    const results = new Array(items.length);
+    let next = 0;
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        results[i] = await fn(items[i], i);
+      }
+    });
+    await Promise.all(workers);
+    return results;
   }
 
   /**
@@ -844,27 +869,35 @@ class ExperimentDataService {
         return await this._getTokensSingleQuery(targetExperimentId, options, offset, limit);
       }
 
-      // 否则使用分页循环获取所有数据
+      // 否则使用分页循环获取所有数据（按轮并发：万级 token 串行 10+ 页
+      // = 10+ 个 VPN 往返；每轮并发 DB_BATCH_CONCURRENCY 页，短页即到尾）
       const pageSize = 1000;
       let allTokens = [];
       let currentOffset = offset;
       let remaining = limit;
+      let done = false;
 
-      while (remaining > 0) {
-        const currentPageSize = Math.min(remaining, pageSize);
-        const pageTokens = await this._getTokensSingleQuery(targetExperimentId, options, currentOffset, currentPageSize);
-        allTokens = allTokens.concat(pageTokens);
-
-        if (pageTokens.length < currentPageSize) {
-          // 没有更多数据了
-          break;
+      while (remaining > 0 && !done) {
+        const offsets = [];
+        for (let i = 0; i < DB_BATCH_CONCURRENCY && i * pageSize < remaining; i++) {
+          offsets.push(currentOffset + i * pageSize);
         }
-
-        remaining -= pageTokens.length;
-        currentOffset += pageTokens.length;
+        const pages = await this._mapLimit(offsets, DB_BATCH_CONCURRENCY, (off) =>
+          this._getTokensSingleQuery(targetExperimentId, options, off, Math.min(pageSize, limit - (off - offset)))
+        );
+        for (const pageTokens of pages) {
+          allTokens = allTokens.concat(pageTokens);
+          if (pageTokens.length < pageSize) {
+            done = true; // 没有更多数据了
+          }
+        }
+        currentOffset += offsets.length * pageSize;
+        remaining = limit - allTokens.length;
+        if (remaining <= 0) done = true;
       }
 
-      return allTokens;
+      // limit 截断（并发轮可能略超量拉取）
+      return allTokens.slice(0, limit);
 
     } catch (error) {
       this.logger.error('DataService', '获取代币列表失败:', { details: error });
@@ -960,9 +993,14 @@ class ExperimentDataService {
    */
   async _getTokensSingleQuery(experimentId, options, offset, limit) {
     try {
+      // 轻列模式（view=light）：消费方（token-returns 页）只读以下小字段；
+      // select('*') 会拉 raw_api_data 等大列（~1.4KB/行，万行 ≈ 14MB、27.8MB 响应、30s+）。
+      // 注意只列真实列——token_category/涨幅等是 getFormattedTokens 合并 token_profiles
+      // 后才出现的字段，不是表列
+      const LIGHT_COLUMNS = 'token_address, token_symbol, platform, data_source, human_judges, status';
       let query = this.supabase
         .from('experiment_tokens')
-        .select('*')
+        .select(options.light ? LIGHT_COLUMNS : '*')
         .eq('experiment_id', experimentId);
 
       // 状态筛选
@@ -1027,7 +1065,8 @@ class ExperimentDataService {
 
     return {
       success: true,
-      data: tokens,
+      // 注意：不再同时返回 data（同一数组的第二份序列化曾让响应体翻倍，
+      // 27.8MB 里 14.4MB 是 data 拷贝；所有前端消费者均读 tokens 键）
       tokens: tokens,
       count: tokens.length,
       stats: stats,
@@ -1049,13 +1088,21 @@ class ExperimentDataService {
     try {
       const map = new Map();
       const BATCH_SIZE = 200; // 同上：.in 批量 500 会 UND_ERR_HEADERS_OVERFLOW
+      const batches = [];
       for (let i = 0; i < addresses.length; i += BATCH_SIZE) {
+        batches.push(addresses.slice(i, i + BATCH_SIZE));
+      }
+      // 批次并行（万级地址串行 50 批 = 50 个 VPN 往返）
+      const results = await this._mapLimit(batches, DB_BATCH_CONCURRENCY, async (batch) => {
         const { data, error } = await this.supabase
           .from('token_profiles')
           .select('token_address, category, peak_mcap_usd, max_change_percent, final_change_percent, classifier_version')
-          .in('token_address', addresses.slice(i, i + BATCH_SIZE));
+          .in('token_address', batch);
         if (error) throw error;
-        for (const r of (data || [])) map.set(r.token_address, r);
+        return data || [];
+      });
+      for (const rows of results) {
+        for (const r of rows) map.set(r.token_address, r);
       }
       return map;
     } catch (error) {
@@ -1314,29 +1361,86 @@ class ExperimentDataService {
   /**
    * 获取实验的叙事分析数据
    * @param {string} experimentId - 实验ID
+   * @param {Object} options - { addresses?: string[] } 传入即走地址子集模式（POST /narrative）
    * @returns {Promise<Object>} 叙事数据
    */
-  async getExperimentNarratives(experimentId) {
+  async getExperimentNarratives(experimentId, options = {}) {
     try {
       // 对于回测实验，使用源实验的代币数据
       const targetExperimentId = await this._getTargetExperimentIdForTokens(experimentId);
 
-      // 获取目标实验的代币列表（轻量列查询：只取本接口用到的字段，不拉 raw_api_data 等大列。
-      // 走 getTokens(select *) 时 6161 行 ≈17MB、接口 17s+ 才返回，页面叙事列长时间显示 "-"，
-      // 被误判为"叙事结果缺失"）
-      const tokens = [];
-      for (let off = 0; ; off += 1000) {
-        const { data: pageTokens, error: pageError } = await this.supabase
-          .from('experiment_tokens')
-          .select('token_address, token_symbol, platform, blockchain, discovered_at, human_judges')
-          .eq('experiment_id', targetExperimentId)
-          .range(off, off + 999);
-        if (pageError) {
-          if (pageError.code === '42P01') break; // 表不存在：与 getTokens 行为一致，返回空
-          throw pageError;
+      // 地址子集模式（POST /narrative，token-returns 页按 trades 地址取）：
+      // 有交易的代币（几百）远少于实验全集（万级 token 回测源实验全量拉取
+      // 要 ~110 个串行 VPN 往返，2026-10-09 实测 474s）。
+      // 传空数组 = 明确的空子集，直接返回空（落全量路径会把上万 token 白拉一遍）
+      if (Array.isArray(options.addresses) && options.addresses.length === 0) {
+        return {
+          success: true,
+          data: [],
+          count: 0,
+          stats: {
+            total_tokens: 0, narrative_tokens: 0,
+            high_quality_count: 0, mid_quality_count: 0,
+            low_quality_count: 0, unrated_count: 0, avg_max_change: 0
+          }
+        };
+      }
+      const addressFilter = Array.isArray(options.addresses)
+        ? [...new Set(options.addresses.filter(a => typeof a === 'string' && a))]
+        : null;
+
+      // 轻量列查询：只取本接口用到的字段，不拉 raw_api_data 等大列。
+      // （走 getTokens(select *) 时 6161 行 ≈17MB、接口 17s+，页面叙事列长时间显示 "-"）
+      const TOKEN_LIGHT_COLUMNS = 'token_address, token_symbol, platform, blockchain, discovered_at, human_judges';
+
+      let tokens;
+      if (addressFilter && addressFilter.length > 0) {
+        // 子集路径：按地址批查 experiment_tokens（200/批并行）
+        const tokenBatches = [];
+        for (let i = 0; i < addressFilter.length; i += 200) {
+          tokenBatches.push(addressFilter.slice(i, i + 200));
         }
-        tokens.push(...(pageTokens || []));
-        if (!pageTokens || pageTokens.length < 1000) break;
+        const pages = await this._mapLimit(tokenBatches, DB_BATCH_CONCURRENCY, async (batch) => {
+          const { data, error } = await this.supabase
+            .from('experiment_tokens')
+            .select(TOKEN_LIGHT_COLUMNS)
+            .eq('experiment_id', targetExperimentId)
+            .in('token_address', batch);
+          if (error) {
+            if (error.code === '42P01') return []; // 表不存在：与 getTokens 行为一致，返回空
+            throw error;
+          }
+          return data || [];
+        });
+        tokens = pages.flat();
+      } else {
+        // 实验级全量（GET /narrative，narrative/signal-stats/tokens 页的评级分布统计语义）。
+        // 分页按轮并发（万级 token 串行 10+ 页 = 10+ 个串行往返）：每轮并发拉
+        // DB_BATCH_CONCURRENCY 页，出现短页（<1000）即到尾，其后空页无害
+        tokens = [];
+        let offset = 0;
+        let done = false;
+        while (!done) {
+          const offsets = [];
+          for (let i = 0; i < DB_BATCH_CONCURRENCY; i++) offsets.push(offset + i * 1000);
+          const pages = await this._mapLimit(offsets, DB_BATCH_CONCURRENCY, async (off) => {
+            const { data: pageTokens, error: pageError } = await this.supabase
+              .from('experiment_tokens')
+              .select(TOKEN_LIGHT_COLUMNS)
+              .eq('experiment_id', targetExperimentId)
+              .range(off, off + 999);
+            if (pageError) {
+              if (pageError.code === '42P01') return []; // 表不存在：与 getTokens 行为一致，返回空
+              throw pageError;
+            }
+            return pageTokens || [];
+          });
+          for (const p of pages) {
+            tokens.push(...p);
+            if (p.length < 1000) done = true;
+          }
+          offset += offsets.length * 1000;
+        }
       }
 
       // 涨幅来自 token_profiles（分类管线产出，bsc-v2 起）。注意用原始大小写地址查 map
@@ -1376,25 +1480,26 @@ class ExperimentDataService {
         'stage_final_result',
       ].join(',');
       const batchSize = 200;
-      const allNarratives = [];
+      const narrativeBatches = [];
       for (let i = 0; i < addresses.length; i += batchSize) {
-        const batch = addresses.slice(i, i + batchSize);
+        narrativeBatches.push(addresses.slice(i, i + batchSize));
+      }
+      // 批次并行（万级地址串行 50 批 = 50 个串行 VPN 往返）
+      const narrativePages = await this._mapLimit(narrativeBatches, DB_BATCH_CONCURRENCY, async (batch) => {
         const { data: batchNarratives, error: batchError } = await this.supabase
           .from('token_narrative')
           .select(NARRATIVE_LIGHT_COLUMNS)
           .in('token_address', batch);
 
         if (batchError) {
-          this.logger.error('DataService', '获取叙事数据失败（批次 ${i / batchSize + 1}）:', { details: batchError });
+          this.logger.error('DataService', '获取叙事数据失败:', { details: batchError });
           throw batchError;
         }
 
-        if (batchNarratives) {
-          allNarratives.push(...batchNarratives);
-        }
-      }
+        return batchNarratives || [];
+      });
 
-      const narratives = allNarratives;
+      const narratives = narrativePages.flat();
 
       // 构建叙事数据映射（键使用小写地址，保留最新的记录）
       const narrativeMap = new Map();

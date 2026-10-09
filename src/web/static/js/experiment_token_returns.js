@@ -135,11 +135,13 @@ class ExperimentTokenReturns {
 
     try {
       // 并行加载实验数据、交易数据和早期交易者黑名单统计
+      // tokens 用轻列模式（view=light）：本页只读 platform/symbol/judges/分类涨幅等
+      // 小字段，select * 会拉 raw_api_data 大列（万级 token ≈ 27.8MB 响应、30s+）
       const [experimentRes, tradesRes, blacklistRes, tokensRes] = await Promise.all([
         fetch(`/api/experiment/${this.experimentId}`),
         fetch(`/api/experiment/${this.experimentId}/trades?limit=10000`),
         fetch(`/api/experiment/${this.experimentId}/early-trader-blacklist-stats`),
-        fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000`)
+        fetch(`/api/experiment/${this.experimentId}/tokens?limit=10000&view=light`)
       ]);
 
       if (!experimentRes.ok || !tradesRes.ok) {
@@ -234,16 +236,10 @@ class ExperimentTokenReturns {
         }
       }
 
-      // 加载叙事分析数据
-      await this.loadNarrativeData();
-
-      // 加载卖出信号 cycle 档位数据（「行为周期」列；独立 try/catch 不阻塞主流程）
-      await this.loadCycleSignals();
-
       // 如果是回测且当前实验没有标注数据，尝试从源实验加载
       if (this.judgeExperimentId !== this.experimentId && (this.judgesData.size === 0 || this.tokenPlatformMap.size === 0 || this.tokenMaxChangeMap.size === 0 || this.tokenSymbolMap.size === 0)) {
         try {
-          const sourceTokensRes = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens?limit=10000`);
+          const sourceTokensRes = await fetch(`/api/experiment/${this.judgeExperimentId}/tokens?limit=10000&view=light`);
           if (sourceTokensRes.ok) {
             const sourceTokensData = await sourceTokensRes.json();
             if (sourceTokensData.success && sourceTokensData.tokens) {
@@ -305,6 +301,16 @@ class ExperimentTokenReturns {
       this.applyFilterAndSort();
 
       this.showContent(true);
+
+      // 叙事/cycle 数据后置加载、到达后补渲染（2026-10-09 慢页修复：
+      // 实验级全量叙事拉取在万级 token 回测源实验上要数分钟，此前硬阻塞首屏——
+      // 叙事评级列先渲染为「点击分析」、cycle 列先渲染为 '-'，数据到达即重绘）
+      this.loadNarrativeData()
+        .then(() => this.applyFilterAndSort())
+        .catch(() => {});
+      this.loadCycleSignals()
+        .then(() => this.applyFilterAndSort())
+        .catch(() => {});
     } catch (error) {
       console.error('加载数据失败:', error);
       this.showError(error.message);
@@ -1564,11 +1570,19 @@ class ExperimentTokenReturns {
   }
 
   /**
-   * 加载叙事分析数据（实验级批量接口，一次拉全；后端自动处理回测→源实验）
+   * 加载叙事分析数据（按 trades 地址子集 POST——本页只有有交易的代币有行，
+   * 实验级全量接口在万级 token 回测源实验上要数分钟；后端自动处理回测→源实验）
    */
   async loadNarrativeData() {
     try {
-      const response = await fetch(`/api/experiment/${this.experimentId}/narrative`);
+      const addresses = [...new Set(this.tradesData.map(t => t.token_address))];
+      if (addresses.length === 0) return;
+
+      const response = await fetch(`/api/experiment/${this.experimentId}/narrative`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addresses })
+      });
       if (!response.ok) {
         console.warn(`加载叙事分析数据失败: HTTP ${response.status}`);
         return;

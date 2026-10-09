@@ -2579,7 +2579,9 @@ class RicherJsWebServer {
         const options = {
           status: req.query.status,
           limit: parseInt(req.query.limit) || 100,
-          offset: parseInt(req.query.offset) || 0
+          offset: parseInt(req.query.offset) || 0,
+          // 轻列模式：只取 token-returns 页消费的小字段，不拉 raw_api_data 等大列
+          light: req.query.view === 'light'
         };
 
         const result = await this.dataService.getFormattedTokens(req.params.id, options);
@@ -2623,6 +2625,19 @@ class RicherJsWebServer {
     this.app.get('/api/experiment/:id/narrative', async (req, res) => {
       try {
         const result = await this.dataService.getExperimentNarratives(req.params.id);
+        res.json(result);
+      } catch (error) {
+        this.logger.error('WebServer', '获取实验叙事数据失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message, data: [], count: 0 });
+      }
+    });
+
+    // 按地址子集取叙事数据（token-returns 页只取有交易的代币——实验级全量拉取
+    // 在万级 token 回测源实验上要数百个串行往返，2026-10-09 实测 474s）
+    this.app.post('/api/experiment/:id/narrative', async (req, res) => {
+      try {
+        const addresses = Array.isArray(req.body?.addresses) ? req.body.addresses : null;
+        const result = await this.dataService.getExperimentNarratives(req.params.id, { addresses });
         res.json(result);
       } catch (error) {
         this.logger.error('WebServer', '获取实验叙事数据失败:', { details: error });
