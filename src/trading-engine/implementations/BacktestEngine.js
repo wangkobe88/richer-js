@@ -578,6 +578,10 @@ class BacktestEngine extends AbstractTradingEngine {
    * platform, id）——无索引也能跑（keyset 语义不依赖索引），有索引才拿全部收益。
    */
   async _fetchPlatformTicksRows(supabase, addresses, platform, afterId, priorRowCount) {
+    // 全局累计护栏上限 config 可配（backtest.maxTickRows）：默认 100 万防「拉错集合」
+    // 意外；多天大窗口（36a2c12a 4 天 both 全窗口回测 flap 即 90 万+）按实验显式
+    // 放宽——护栏是防意外不是正确性机制（keyset 分页无重复无遗漏）。
+    const maxTickRows = this._experiment.config?.backtest?.maxTickRows || MAX_TICK_PAGES * TICK_PAGE_SIZE;
     const rows = [];
     for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
       const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
@@ -595,8 +599,8 @@ class BacktestEngine extends AbstractTradingEngine {
         if (!data || data.length === 0) break;
         for (const row of data) rows.push(row);
         this.metrics.processedDataPoints += data.length;
-        if (priorRowCount + rows.length > MAX_TICK_PAGES * TICK_PAGE_SIZE) {
-          throw new Error('回放 tick 总量超出分页保护上限（100 万）');
+        if (priorRowCount + rows.length > maxTickRows) {
+          throw new Error();
         }
         if (data.length < TICK_PAGE_SIZE) break;
         cursor = data[data.length - 1].id;
