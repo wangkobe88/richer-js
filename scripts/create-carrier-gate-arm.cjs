@@ -59,11 +59,15 @@ async function main() {
     '| tokenCycle:', JSON.stringify(cfg.tokenCycle),
     '| stopLoss:', JSON.stringify(cfg.stopLoss));
 
-  // 唯一性校验：删 name/description 后与基底逐字节全同（差分全靠叙事缓存状态）
+  // 唯一性校验：两侧同删 name/description 后逐字节全同（基底 config 自带这两个键，
+  // 对照必须镜像删除——单侧删恒不等是首版校验自身的 bug，182 诊断实证其余 13 键序一致）
   const stripped = JSON.parse(JSON.stringify(cfg));
   delete stripped.name;
   delete stripped.description;
-  if (JSON.stringify(stripped) !== JSON.stringify(base.config)) {
+  const baseStripped = JSON.parse(JSON.stringify(base.config));
+  delete baseStripped.name;
+  delete baseStripped.description;
+  if (JSON.stringify(stripped) !== JSON.stringify(baseStripped)) {
     throw new Error('门臂 config 除 name/description 外与基底存在差异——应零差异');
   }
 
