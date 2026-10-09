@@ -62,7 +62,7 @@ async function main() {
   console.log('\n── A. 题面完整性 ──');
   check('A1 版本 ≥J1.27（现 J1.28=referent_memeability 恒带 bump）', parseInt(qm.JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 27, qm.JEV_QUESTIONS_VERSION);
   const q = qm.buildStandardQuestions({});
-  check('A2 题集 16 题含 subject_entity（J1.28 起 referent_memeability 恒带 15→16）', Object.keys(q).length === 16 && !!q.subject_entity && !!q.referent_memeability, Object.keys(q).length);
+  check('A2 题集 17 题含 subject_entity（J1.28 referent_memeability 恒带 15→16；J1.29 subject_carrier 恒带 16→17）', Object.keys(q).length === 17 && !!q.subject_entity && !!q.referent_memeability && !!q.subject_carrier, Object.keys(q).length);
   check('A3 event_magnitude 含形状③（母公司不转移+两条路）',
     q.event_magnitude.instructions.includes('形状③ 产品实体') && q.event_magnitude.instructions.includes('不转移不计入') && q.event_magnitude.instructions.includes('两条都不占→C档以下'));
   check('A3b 形状③收窄锚（校准修订：仅产品实体主体适用+非全域收紧反向锚）',

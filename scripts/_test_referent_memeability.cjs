@@ -205,7 +205,7 @@ async function main() {
   check('H4 主链路两调用点形状（J1.28 恒带后 superIP 传废弃选项无害，标准路径零改动）', analyzerSrc.includes('referentMemeability: true') && (analyzerSrc.match(/buildStandardQuestions\(/g) || []).length === 2, null);
   const qsSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'), 'utf8');
   check('H5 头部历史含 J1.21 条目（C33 MTAT 案）', qsSrc.includes('* J1.21：') && qsSrc.includes('C33 MTAT'), null);
-  check('H5b 头部历史含 J1.28 条目（恒带+低档门）+ 版本常量 J1.28', qsSrc.includes('J1.28') && qsSrc.includes("JEV_QUESTIONS_VERSION = 'J1.28'"), null);
+  check('H5b 头部历史含 J1.28 条目（恒带+低档门）+ 版本常量 ≥J1.28（J1.29 载体门 bump 后现为 J1.29）', qsSrc.includes('J1.28') && parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 28, JEV_QUESTIONS_VERSION);
   check('H6 题面中性化（大V/超级IP）', qsDefault.referent_memeability.instructions.includes('大V/超级IP'), null);
 
   // ═══ 汇总 ═══

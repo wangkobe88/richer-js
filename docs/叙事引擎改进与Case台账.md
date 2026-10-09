@@ -10,22 +10,23 @@
 
 ---
 
-## 一、现行架构一屏（2026-10-01 时点）
+## 一、现行架构一屏（2026-10-09 时点）
 
 ```
-Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ 数据抓取 → Pre-Check（纯规则，无 LLM）
+Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文配图视觉分析 C58）→ 数据抓取 → Pre-Check（纯规则，无 LLM）
                                    ├─ account/community token / 发行方自发宣告（字面法+CA 时间线）→ prestage Jev（P1.9，5 题）
-                                   ├─ super-IP 账号 → 快速通道（标准题集 + 代码预评分 + referent_memeability 条件题）
-                                   └─ 标准路径 → 单次 Jev 调用（J1.25：13 常驻题 + web3_fit 第 14 题
-                                      + brand_hijack / referent_memeability 条件携带）
-分类/量级/时机/阻断/W类/关联性/质量/Web3偏好 原子化同问；聚合/阈值/截断全部代码端（jev-result-mapper）
+                                   ├─ super-IP 账号 → 快速通道（标准题集 + 代码预评分；referent_memeability/图豁免 C59）
+                                   └─ 标准路径 → 单次 Jev 调用（J1.29：16 常驻题——web3_fit 第 14 /
+                                      subject_entity 15 / referent_memeability 16a / subject_carrier 16b
+                                      均恒带 + brand_hijack 条件携带）
+分类/量级/时机/阻断/W类/关联性/质量/Web3偏好/形象载体 原子化同问；聚合/阈值/截断全部代码端（jev-result-mapper）
 ```
 
 - **Jev**（TypeSafe System One，api.typesafe.ai）：结构化决策模型（Choice/Score/Noul 三原语），
   无文本生成，单 token 一次投机性 fan-out 调用（秒级）
-- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.25）/
+- **版本规则**：改任何题的 instructions/criteria 必须 bump `JEV_QUESTIONS_VERSION`（现 J1.29）/
   `JEV_PRESTAGE_QUESTIONS_VERSION`（现 P1.9）；DB 列 prompt_type/prompt_version 标识
-  （`jev(J1.25/…)`、`prestage-jev(P1.9/…)`）
+  （`jev(J1.29/…)`、`prestage-jev(P1.9/…)`）
 - **prestage P1.9 五题**：token 类型（「币本身即IP」双形状：新称号 OR 社区/文化 meme
   主账号，年龄非反证）/ abm 名字关联 / abm Web3 流量 / 社区活跃度 /
   **项目实度 prestage_project_quality**（恒带；账号新 <30d + 实度 ≥3 豁免 P1.3 年龄降档，
@@ -37,7 +38,10 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
   发布者指代（J1.18，量级 A 档锚）/ routineContentProductBlock（A 类角色豁免 J1.16）/
   negativeHardNewsBlock / web3FitBlock（unfit ≥0.5）/ referent 豁免（J1.21，仅 superIP）/
   punExempt 戏谑关联豁免（J1.24：P≥0.5+within_7d+S/A 档+可信事件源全中时豁免
-  品牌劫持与 relevance≤10 双截断，计分照常）
+  品牌劫持与 relevance≤10 双截断，计分照常）/ productEntityAcceptanceBlock
+  产品实体接纳门（J1.27，se∈{product_functional,product_character}×fitMass<0.5；
+  币安/平台官方源豁免）/ referentMemeabilityLowBlock 指代 meme 低档门（J1.28，
+  mem≤1 拦）/ subjectCarrierBlock 形象载体门（J1.29：C/D+非existing、E+no_visual 拦）
 - **交易引擎直调**：策略 `narrativeCallCondition` 触发 → `NarrativeDirectCaller.getRating()`
   同步调 analyze（30s 超时，失败/超时/未配置 normalize 9 放行）；rating=1 终端 veto 进
   `_narrativeBlockedTokens` 短路（address 形状 <300s 豁免，§4.8 重试域配套）
@@ -50,6 +54,15 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 ---
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
+
+### C61 bddd3578——J1.29 形象载体门（subject_carrier）：「叙事主体没有具体的形象/梗载体」病根 + 三档判别题 + M2 门挂载（2026-10-09 用户裁定「可以按照你的想法挂门。然后我的建议是将292票全部跑一遍，将不符合要求的过滤掉后，虚拟的算一下总收益情况」）★
+
+- **案由**：回测 bddd3578（「回测-lag门-36a2c12a窗口-叙事重析-1009」，J1.28 重析，292 票全部有交易）递归分析——C 类 15 票 + D 类 20 票净 -2.85 的逐 case 对照发现共同病根：**叙事主体没有具体的形象/梗载体**（BNC `0xf5362fdf641d31e9ca1a9e6210ae193087167777`「binance cat」币安从未有过猫 / WECAT `0x67496bf3b731ba5450fa075759e284beaa747777`「WECHAT CAT SHOULD BE TENCENT」路人许愿 / SI/安犬/SAFUINU「好像还没发过 SAFU INU」对未来发行的想象）。主体无形象（se 无形象桶全域 70 票 winR 17% 净 -5.37）时叙事再好（C/D 29/35 票 strong_fit≥0.9 而 winR 7%）web3 用户也没有可抓的玩梗载体。用户裁定病根成立并否决最初 5 个外围代理方向（「没有针对这个问题」），要求直接判定载体存在性本身。
+- **新题**：第 16 题 `subject_carrier`（choice 三档，恒带——照 J1.28 先例 dry-run opt-in 参数 `carrier` 废弃传不传均含；superIP 快车道复用同题集但不消费本题答案）。评估对象=代币名所指代实体本身（与 name_referent/subject_entity 同口径）；三档：**existing_entity**（形象已在事件语料/推文配图/官方渠道真实出现——bCAT `0x5becb5cb498b62e5986f5693bdbe4e41b79e7777` 币安 APP 钱包横幅置顶 meme 头像 / Cherry 雷军收养真实狗配图出现）/ **improvised_entity**（脑补许愿形象——名字暗示形象但官方/事件本体从未展示）/ **no_visual_entity**（人物言行/公司/功能产品/事件/概念/缩写不以形象为存在形式）。题面钉死三个关键判别：①形象须真实出现（只在币名或想象中不算）②名字含形象词（cat/inu/狗/猫）≠载体存在③人物/公司/产品/事件不以形象为存在形式。
+- **dry-run**（`scripts/narrative/_carrier-dryrun-bddd.mjs`，state 保真复用线上 stage1_prompt.state verbatim，236 标准路径票）：冒烟 12/12 方向全对（含 CHONK/达摩两观察票）；全域判别力锐利——existing 140 票 winR 39% 净 +11.694 / improvised 24 票 winR 8% 净 -1.111 / no_visual 72 票 winR 24% 净 -3.784。
+- **门矩阵（M1-M6）与 M2 裁定**：M2 = C/D+非existing 拦 + E+no_visual 拦 + A/B/W/F/G 不碰。虚拟收益（用户口径 292 票全跑过滤）：**+21.895 → +26.225 BNB（净效应 +4.33 = 避亏 +7.41 − 放弃赢 3.08，winR 35%→41%）**；M1 +23.983 / M5 +26.261（与 M2 打平差 0.04 但打击面多 16 票）。E 只拦 no_visual 的依据：E+improvised 有肉（6 票 +1.19，Ants +1.42「Anthropic 员工自称蚂蚁」型戏谑票——热点梗自带传播可容忍脑补形象；M3 E 全拦净效应反亏 -1.19）。已知代价：误伤面 13 张 +3.08 大头是「XX人生」概念梗家族（通透人生 `0xfd7475f24c6fdec2739711c6c866203c719d7777` +0.55 / 幕后人生×2 / 极简人生 / 我是个耻辱 等 ~+1.6）。
+- **挂载**：mapper `subjectCarrierBlock`（CARRIER_LABELS：improvised→脑补形象 / no_visual→无形象实体），挂位 rmBlock（J1.28）之后、量级 D/E 门之前（指代层门链尾，nr/rm 先拦的票 label 归属前者）；审计 `subjectCarrier` 恒落（旧缓存行 null）/ `subjectCarrierBlock {carrier}` 命中才落 / `probabilities.subject_carrier` 照落。56 票 prestage/superIP 无 stage1 不适用（门只挂标准路径 mapper）。cashtag 改道票 category='W' 天然不进门（iNu 案拦截语义自持）。旧缓存行无答案门不触发——历史窗口回测前置失效 `scripts/narrative/invalidate-carrier-window.cjs <基底实验ID> --commit`（J1.28 模式：基底 buy signals distinct token → is_valid=false 分块 100）。单测 `node scripts/_test_subject_carrier.cjs`（43 断言：判定矩阵 15 形状/M2 边界/挂位序 D1-D4/审计 E 段/bddd 案锚定 F 段 BNC·bCAT·通透人生·Ants/源码口径 G 段）。
+- **生产链语义**：门命中 → rating 翻 low → 经 rating 门（narrativeRating==2 OR ==3）起作用，与 J1.28 同形式；`stage2_result.reason` 前缀「叙事主体无形象载体」即判别位。
 
 ### C60 0fed29f9——早晚票语料滞后门（lag<300 OR er≥100）+ J1.28 指代 meme 低档门：三臂配对回测终局（2026-10-08 用户裁定「早票正常买，晚票要求更高——确定用户认同（或强庄）才入场」+「币安汽车/日产类要拦，JACKET/永生类不敢一棒子打死→只上低档门」）★
 
@@ -1124,6 +1137,7 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源）→ �
 
 | 版本 | 日期 | 改动 | 触发 Case / 依据 | commit |
 |---|---|---|---|---|
+| J1.29 | 2026-10-09 | 新增第 16 题 `subject_carrier`（形象载体存在性 choice 三档：existing_entity 已真实出现 / improvised_entity 脑补许愿形象 / no_visual_entity 非形象存在形式）**恒带**（dry-run opt-in 参数 `carrier` 废弃，传不传均含——J1.28 先例）；superIP 快车道复用同题集但不消费本题答案；题面钉死三判别（形象须真实出现/名字含形象词≠载体/人物公司产品事件不以形象为存在形式）；mapper `subjectCarrierBlock`（M2）：C/D+非existing 拦、E+no_visual 拦、A/B/F/G/W 不进门，挂 rmBlock 后、量级 D/E 门前；审计 `subjectCarrier` 恒落（旧缓存行 null）/ `subjectCarrierBlock {carrier}` 命中才落；历史窗口回测前置失效 `scripts/narrative/invalidate-carrier-window.cjs`；单测 `node scripts/_test_subject_carrier.cjs`（43 断言） | C61 bddd3578 案（用户裁定病根「叙事主体没有具体的形象/梗载体」+ 否决 5 个外围代理方向「没有针对这个问题」+「可以按照你的想法挂门…292 票全部跑一遍过滤后虚拟算总收益」；dry-run 236 票：existing 140 票 winR 39% +11.694 / improvised 24 票 8% −1.111 / no_visual 72 票 24% −3.784；虚拟收益 +21.895 → +26.225 净效应 +4.33，winR 35%→41%；E 只拦 no_visual 依据 = E+improvised 6 票 +1.19 Ants 戏谑票有肉；已知误伤 = 「XX人生」概念梗家族 ~+1.6） | 本 commit |
 | J1.28 | 2026-10-08 | `referent_memeability`（J1.21 superIP 条件题）改**标准路径恒带**；mapper `referentMemeabilityLowBlock`：mem≤1（人名/账号/周边人物、严肃对象/事务性名称——无梗无二创空间）→ blocked「不适合成为meme币（指代对象meme价值X分≤1）」，挂 nameReferentBlock 后、量级门前；生产链形式 = rating 翻 low 经 rating 门起作用；中间档 1.5-2.5（币安汽车 1.75/2.35、隔音舱 1.77、日产途乐 2.12）无单调性**刻意不设门**；审计 `referentMemeabilityScore` 恒落（旧缓存行无此题→null，校准免重跑）/ `referentMemeabilityBlock {score}` 命中才落；历史窗口回测前置失效 `scripts/narrative/invalidate-referent-window.cjs`；单测 `node scripts/_test_referent_memeability.cjs`（39 断言，G 段低档门矩阵） | C60 0fed29f9 早晚票+低档门双门案（用户裁定「币安汽车/日产这些蹭得过头根本不可能成为 meme 币要拦，但 JACKET/永生/Taigan/皮草类不敢一棒子打死——只上低档门」；dry-run 96 票：mem≤1 拦 4 票净 −0.354 避亏、误拦仅卷王 +0.013；三臂终局见 C60：meme 门实锤 +0.3138，重析方差成本 −0.72 单窗口吃掉收益，多窗口期望归零） | 73e0e21 |
 | （C60 交易侧，题集不动） | 2026-10-08 | `narrativeCorpusLagSec` 早晚票语料滞后因子（lag = FA 出生锚 − corpusTs，null→晚票严格门 fail-closed）+ `earlyReturn` 注入 preBuy context；买腿门 `(narrativeCorpusLagSec < 300 OR earlyReturn >= 100)` | C60（用户裁定「早票正常买，晚票要求更高——确定用户认同（或强庄）才入场」；R1 vs R0 配对回测 +0.9784 = 避亏 +3.0155 − 晚票追高推迟 −2.0371；早票桶共同漂移 0.0000 = 回放确定性机器证明） | 888adb8 |
 | （C59 mapper-only，题集 J1.27 不动） | 2026-10-07 | superIP 通道「指代载体在图」豁免 `imgReferentExempt`：三门全中（①analyzer 传 imageEvidence = twitterInfo.image_analysis 存在 ②0<relevance≤10 ③referent_memeability≥3，J1.21 阈）豁免 Stage3 关联≤10 截断，relevance 分照常计入总分（J1.24 同款计分语义）；不绕任何阻断门（web3 unfit/negative/news/rcp/nrBlock 照拦）；标准路径零触达；审计 `jev.imgReferentExempt {relType,relScore,memeScore}` 命中才落 + reason 前缀「指代载体在图豁免(C59)｜」 | C59 现金猫续二案 0x56dc26bd…7777（用户裁定「恐怕这里还是要修一下。我认为关联应该很强了」——C58 图分析后 relevance 0→10 恰触截断线的口径错位；182 扫描 336 可解析行三门全中恰 1 行零外溢，无图门会误放 8 行文化词蹭票；本案预测 76.03 high） | 本 commit |

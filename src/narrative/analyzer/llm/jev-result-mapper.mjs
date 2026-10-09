@@ -229,6 +229,52 @@ function referentMemeabilityLowBlock(answers) {
 }
 
 /**
+ * J1.29 形象载体门（2026-10-09 用户裁定挂门 M2，bddd3578 C/D/E 亏损票分析案）：
+ * 「叙事主体没有具体的形象/梗载体」是 C/D 35 票（净 -2.85）的共同病根——叙事
+ * 讲得再好（C/D 29/35 票 strong_fit≥0.9 而 winR 仅 7%），主体抓不住一个「东西」
+ * （角色/动物/吉祥物/meme图）拿去玩梗，web3 用户就没有可参与的创作载体。配套
+ * 新题 subject_carrier（J1.29 恒带，choice 三档：existing_entity/improvised_
+ * entity/no_visual_entity），本门按类别×档位切分拦截：
+ *
+ * 门形状（M2，用户裁定）：C/D 类 + carrier∈{improvised_entity, no_visual_entity}
+ * → 拦；E 类 + carrier=no_visual_entity → 拦；A/B/W/F/G 不碰。
+ *
+ * dry-run 实证（bddd3578 全 292 票标准路径 236 票，scripts/narrative/
+ * _carrier-dryrun-bddd.mjs，state 保真复用线上 stage1_prompt.state）：全域判别力
+ * existing 140 票 winR 39% 净 +11.69 / improvised 24 票 winR 8% 净 -1.11 /
+ * no_visual 72 票 winR 24% 净 -3.78；冒烟 12/12 方向全对。虚拟收益：M2 过滤后
+ * 实验净额 +21.90→+26.23 BNB（净效应 +4.33，winR 35%→41%）。
+ *
+ * 边界裁定依据：①E+improvised 有肉（6 票 +1.19，Ants +1.42「Anthropic 员工
+ * 自称蚂蚁」型戏谑票）——E 类对脑补形象的容忍度高于 C/D（热点梗可自带传播），
+ * 故 E 只拦 no_visual（M3 E 全拦净效应反而 -1.19）；②A 类（形象 IP）不进门——
+ * 类别本身就是形象载体判定，量级门已把关；③W/F/G 样本内无此病根信号不碰。
+ *
+ * 仅标准路径（mapStandardAnswers）；superIP 快车道 mapSuperIPAnswers 不消费
+ * subject_carrier 答案（零影响）；56 票 prestage/superIP 无 stage1 不适用。
+ * 答案缺失（旧缓存行/旧题集手写 fixture）→ 不拦——生产链 JevClient.ask 对缺
+ * 答案 id 直接 throw，缺失形状只在旧缓存/fixture；窗口回测要触发门须先失效
+ * 缓存（scripts/narrative/invalidate-carrier-window.cjs，照 J1.28 模式）。
+ */
+const CARRIER_LABELS = {
+  improvised_entity: '脑补形象',
+  no_visual_entity: '无形象实体',
+};
+
+function subjectCarrierBlock(answers, category) {
+  const carrier = answers?.subject_carrier?.choice;
+  if (!carrier) return null;
+  if (category === 'C' || category === 'D') {
+    if (carrier === 'improvised_entity' || carrier === 'no_visual_entity') {
+      return { label: `叙事主体无形象载体（${CARRIER_LABELS[carrier]}）`, carrier };
+    }
+  } else if (category === 'E' && carrier === 'no_visual_entity') {
+    return { label: `叙事主体无形象载体（${CARRIER_LABELS[carrier]}）`, carrier };
+  }
+  return null;
+}
+
+/**
  * 负面硬新闻质量门（J1.11，2026-09-26 用户裁定，C9 bitget被盗案 0x0e323198：
  * 蹭 Bitget 热钱包被盗 3.516 亿官方公告命名，D 类 + A 档量级直接喂饱事件分 74.65
  * → 80.32 high 放行后 -55%。裁定原文「第一，这是一个负面事件；第二，它没有啥
@@ -698,6 +744,7 @@ export function mapStandardAnswers(answers, context) {
   let w3Block = null; // web3_fit 质量门信息 {label, mass}（J1.19，Web3用户偏好）
   let peBlock = null; // 产品实体接纳门信息 {label, subject, fitMass}（J1.27/C55）
   let rmBlock = null; // 指代对象 meme 价值低档门信息 {label, score}（J1.28）
+  let scBlock = null; // 形象载体门信息 {label, carrier}（J1.29）
   let tierScore = 0;
   let timeliness = 0;
   let stage2Total = null;
@@ -774,6 +821,12 @@ export function mapStandardAnswers(answers, context) {
     // 分数门，finalReason 的 P 段落 '-'（stage2BlockReason 已含分数）
     stage2Blocked = true;
     stage2BlockReason = rmBlock.label;
+  } else if ((scBlock = subjectCarrierBlock(answers, category))) {
+    // J1.29 形象载体门（M2）：C/D+非existing / E+no_visual → 叙事主体无形象载体。
+    // 挂 rmBlock 之后（指代层门链尾，nr/rm 先拦的票 label 归属前者）、量级门
+    // 之前（载体缺失是主体层缺陷，先于量级判定）；无概率 mass（choice 档位门）
+    stage2Blocked = true;
+    stage2BlockReason = scBlock.label;
   } else if (!isW && (effTier === 'E' || effTier === 'D')) {
     // 量级 D/E 档：主体量级不足，直接阻断（原各类 prompt 的 D/E 处理）
     stage2Blocked = true;
@@ -868,6 +921,10 @@ export function mapStandardAnswers(answers, context) {
         referentMemeabilityScore: answers.referent_memeability?.score ?? null,
         referentMemeabilityBlock: rmBlock ? { score: rmBlock.score } : null,
         subjectEntity: answers.subject_entity?.choice ?? null,
+        // J1.29 审计标记：形象载体门。档位恒落（门形状事后校准免重跑，旧缓存行
+        // 无此题 → null）；block 命中才落（referentMemeabilityBlock 同款模式）
+        subjectCarrier: answers.subject_carrier?.choice ?? null,
+        subjectCarrierBlock: scBlock ? { carrier: scBlock.carrier } : null,
         probabilities: {
           event_timing: answers.event_timing?.probabilities,
           dimension2: answers.dimension2?.probabilities,
@@ -875,6 +932,7 @@ export function mapStandardAnswers(answers, context) {
           w_binance_interaction: answers.w_binance_interaction?.probabilities,
           web3_fit: answers.web3_fit?.probabilities,
           subject_entity: answers.subject_entity?.probabilities,
+          subject_carrier: answers.subject_carrier?.probabilities,
         },
       },
     },

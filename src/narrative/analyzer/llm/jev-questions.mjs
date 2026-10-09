@@ -284,9 +284,27 @@
  *       ⚠️ 行中性化（超级IP→超级IP/大V）。superIP 快车道 J1.21 豁免语义不动
  *       （mapSuperIPAnswers 原样读取）。旧缓存行无此答案不触发门——窗口级缓存
  *       失效脚本配套（scripts/narrative/invalidate-referent-window.cjs）
+ * J1.29（2026-10-09 用户裁定挂门）：新增第 16 题 subject_carrier（形象载体存在性，
+ *       choice 3 档，恒带——superIP 快车道 mapSuperIPAnswers 不消费本题答案，零影响）
+ *       ——bddd3578 C/D/E 亏损票分析案：C/D 35 票净 -2.85 的共同病根=叙事主体无
+ *       形象/梗载体（se 无形象桶全域 70 票 winR 17% 净 -5.37；C/D 29/35 票
+ *       strong_fit≥0.9 而 winR 7%——web3_fit 在蹭票上语义反向，J1.27 接纳门
+ *       fitMass 判据失效）。三档：existing_entity（形象已在事件/语料/官方本体中
+ *       真实出现）/ improvised_entity（脑补许愿形象——BNC「binance cat」型，官方
+ *       从未展示）/ no_visual_entity（人物言行/公司/功能产品/事件/概念/缩写）。
+ *       dry-run（bddd3578 全 292 票标准路径 236 票，scripts/narrative/
+ *       _carrier-dryrun-bddd.mjs，state 保真复用线上 stage1_prompt.state）：冒烟
+ *       12/12 方向全对；全域判别力 existing 140 票 winR39% 净+11.69 / improvised
+ *       24 票 winR8% 净-1.11 / no_visual 72 票 winR24% 净-3.78。用户裁定挂门 M2
+ *       （C/D+非existing 拦、E+no_visual 拦、A/B/W/F/G 不碰）：实验净额 +21.90→
+ *       +26.23 BNB（净效应 +4.33，winR 35%→41%）；E+improvised 有肉（6 票 +1.19，
+ *       Ants +1.42「Anthropic 员工自称蚂蚁」型戏谑票）故 E 只拦 no_visual——M3
+ *       （E 全拦）净效应反而 -1.19。56 票 prestage/superIP 路径无 stage1 state
+ *       不适用（门只挂标准路径 mapper）。旧缓存行无此答案 → 门不触发，窗口级
+ *       缓存失效照 J1.28 模式配套（scripts/narrative/invalidate-carrier-window.cjs）
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.28';
+export const JEV_QUESTIONS_VERSION = 'J1.29';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -343,6 +361,9 @@ export const TIMING_OPTIONS = [
  * @param {boolean} [options.referentMemeability] - 已废弃（J1.28 起恒带，传不传
  *   均包含）：J1.21 时仅 superIP 快车道携带（nameReferentBlock 豁免评分）；
  *   J1.28 起标准路径恒带——mapper 低档门（memScore≤1 → 不适合成为meme币）判据源
+ * @param {boolean} [options.carrier] - 已废弃（J1.29 起恒带，传不传均包含）：
+ *   dry-run 阶段的 opt-in 参数（题面验证期），J1.29 转正式恒带——mapper 载体门
+ *   （C/D+非existing / E+no_visual 拦）判据源
  * @returns {Object} questions {id: {type, instructions, criteria}}
  */
 export function buildStandardQuestions(options = {}) {
@@ -590,6 +611,25 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
         '5分：已是圈内文化符号/病毒式传播/大规模二创 + web3 强契合',
       ],
     },
+
+    // ── 10.6 形象载体存在性（J1.29 恒带：mapper 载体门判据源——C/D+非existing
+    //     拦、E+no_visual 拦；superIP 快车道不消费本题答案）──
+    subject_carrier: {
+      type: 'choice',
+      instructions: `形象载体存在性（subject carrier）。评估对象=代币名（Symbol/Name）所指代的那个实体本身（与 name_referent/subject_entity 同对象口径——指代对象，不是事件整体、不是发推人/陈述者）。
+判定：该指代对象是否是一个具体的、已经存在的、可视化/可形象化的形象实体——即 web3 meme 玩家能不能真的抓住一个「东西」（角色/动物/真人玩梗形象/吉祥物/表情包/meme图/实物形象）拿去做头像、二次创作、玩梗。
+⚠️ 只判载体的事实存在性，与热度/量级/时效无关（另有题评）。
+三个关键判别：
+①形象必须已在事件/语料/配图/官方渠道中真实出现——只存在于代币名或发币者的联想/许愿/想象中的形象不算存在；
+②名字含形象词（cat/inu/狗/猫/动物词根）不等于载体存在——要看指代对象本身是否真是那个形象实体（如「XX猫」许愿票：官方从未展示过这只猫→脑补形象；而官方 APP 页面里真实置顶展示的吉祥物→已存在）；
+③人物/公司/产品功能/事件/抽象概念/缩写不以形象为存在形式——即便其名字广为人知（真人人物通常玩的是其言行/观点而非形象；但语料/事件本体就是该人物形象玩梗的除外）`,
+      criteria: {
+        existing_entity: '已存在的形象实体——指代对象是一个真实存在的具体形象：动物/角色/吉祥物/表情包/meme图/虚拟形象/实物玩偶等，且在事件语料/推文配图/官方渠道展示中真实出现过（如语料本体就是那只动物的视频、推文配图里出现的玩偶/动物、官方产品页面置顶展示的吉祥物形象、知名meme角色）',
+        improvised_entity: '脑补/许愿的形象——代币名暗示了一个形象（如「XX猫」「XX INU」「要是叫XX就好了」），但该形象并非已存在的实体：是发币者/第三方的联想、谐音嫁接、许愿（"should be"/"why not"）或对尚未发布/从未展示之物的想象，事件/官方本体中从未出现该形象（官方只提到概念/名字，从未画出或展示过这个形象）',
+        no_visual_entity: '无形象载体——指代对象不以形象实体为存在形式：真人人物（叙事玩的是其言行/观点/事件，非形象玩梗）、公司/机构名、产品功能/型号/服务、事件/新闻/热点、抽象概念、梗词、缩写代号',
+      },
+    },
+
 
     // ── 10. 品牌劫持（原 Stage3 1.0 节，仅预检命中时加入）────────────
     ...(includeBrandHijack ? {
