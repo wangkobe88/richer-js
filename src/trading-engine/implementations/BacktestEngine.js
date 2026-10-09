@@ -34,12 +34,12 @@ const baseConfig = require('../../../config/default.json');
 const TICK_PAGE_SIZE = 500;       // 分页读取页大小（必须 < Supabase 默认 max rows 1000，
                                   // 否则响应被服务端截断、终止条件误判数据到尾）
 const MAX_TICK_PAGES = 2000;      // 分页保护上限（全局累计 100 万 tick）
-const TOKEN_CHUNK_SIZE = 50;      // .in('token_address') 地址批量护栏（PostgREST URL 长度）。
-                                  // 2026-10-09 降 100→50：in(100)+platform+gt(id)+order id+limit 500
-                                  // 形状 planner 被 LIMIT 误导选 id 顺序扫（flap 低 id 死段扫无关行
-                                  // 8s statement timeout；(token,platform,id) 索引建成后依旧——
-                                  // LIMIT 偏好与索引无关）；in(50) 实测 129ms 稳定快，chunk0 完整
-                                  // keyset 装载 282ms/5 页/最慢页 109ms（36a2c12a flap 首批死 token）
+const TOKEN_CHUNK_SIZE = 50;      // 探针 _probeIncrementalTickId 的 .in 批大小（数据拉取已改
+                                  // 逐 token 单查，本常量不再用于数据装载）。2026-10-09 沿革：
+                                  // in(100)/in(50)+gt(id)+order id+limit 500 形状 planner 稳定选
+                                  // id 顺序扫（36a2c12a 四启全死于 8s statement timeout，页级
+                                  // 重试 3 次仍死=计划本身坏，与 (token,platform,id) 索引无关）；
+                                  // 探针的无序 LIMIT 1 形状不受影响（无 top-k 可贪，实测稳定快）
 const PAGE_ATTEMPTS = 3;          // 单页拉取重试上限（探针 PROBE_ATTEMPTS 同款；连续失败 throw）
 const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐实时引擎 30s）
 // ticks 拉取列清单单一事实源：拉取查询与 BacktestTickCache columnsTag 同源
@@ -574,14 +574,10 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 单 platform 分块 keyset 分页拉取（MISS 传 afterId=0，STALE 增量传缓存 meta.maxId）。
-   * 100 地址/批（PostgREST .in 护栏）+ platform 单值 .eq（而非 .in 多值：两平台全集
-   * 等价无过滤，planner 放弃索引转大范围扫描——62 token 双平台回测即触发 statement
-   * timeout，2026-09-27 182 实测）+ id 升序 keyset 分页（.gt('id', cursor)，P2-3：语义
-   * 与 OFFSET 严格等价——id 升序、无重复无遗漏）；禁 spread push。
+   * 单 platform 逐 token keyset 分页拉取（MISS 传 afterId=0，STALE 增量传缓存 meta.maxId）。
+   * 逐 token 单查（token_address eq + platform eq + id 升序 keyset 分页 .gt('id', cursor)，
+   * 语义与 OFFSET 严格等价——id 升序、无重复无遗漏）；禁 spread push。
    * priorRowCount 保持「全局累计 100 万 tick」护栏口径（跨 platform 累计）。
-   * 建议索引 scripts/sql/create-index-wss-ticks-token-platform-id.sql（token_address,
-   * platform, id）——无索引也能跑（keyset 语义不依赖索引），有索引才拿全部收益。
    */
   async _fetchPlatformTicksRows(supabase, addresses, platform, afterId, priorRowCount) {
     // 全局累计护栏上限 config 可配（backtest.maxTickRows）：默认 100 万防「拉错集合」
@@ -589,20 +585,29 @@ class BacktestEngine extends AbstractTradingEngine {
     // 放宽——护栏是防意外不是正确性机制（keyset 分页无重复无遗漏）。
     const maxTickRows = this._experiment.config?.backtest?.maxTickRows || MAX_TICK_PAGES * TICK_PAGE_SIZE;
     const rows = [];
-    for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
-      const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
+    // 逐 token 单查（2026-10-09 终版，36a2c12a 四启实证）：in(N)+gt(id)+order id+limit
+    // 形状 planner 稳定选 id 顺序扫（in(100)/in(50) 皆 8s statement timeout，页级重试
+    // 3 次仍死=非偶发负载，是计划本身坏；实测快慢取决于 chunk 内 id 分布，不可依赖）。
+    // 单 token eq 实测 24-35ms 稳定、0 行死 token 秒回——token 前缀索引天然匹配无
+    // IN 列表歧义。成本：per-platform 全集逐查（95,727 token × ~30ms ≈ 48min 一次性
+    // MISS 全量；此后走 BacktestTickCache STALE 增量不再全量拉）
+    for (let ti = 0; ti < addresses.length; ti++) {
+      if (ti > 0 && ti % 5000 === 0) {
+        this.logger.info(this._experimentId, 'BacktestEngine',
+          `⏳ ${platform} ticks 逐 token 拉取进度: ${ti}/${addresses.length}（已取 ${rows.length} 行）`);
+      }
       let cursor = afterId;
       for (let page = 0; page < MAX_TICK_PAGES; page++) {
-        // 单页重试（探针 PROBE_ATTEMPTS 同款，d46b1b6c 案先例）：~2000 chunk 长循环里
-        // 撞 DB 负载抖动/偶发坏计划（同形状实测 47ms~8s+ 波动，36a2c12a 三启即死于此）
-        // 不该让整个装载 throw；连续 3 次失败仍 throw 保持 fail-loud（真故障不掩盖）
+        // 单页重试（探针 PROBE_ATTEMPTS 同款，d46b1b6c 案先例）：长循环里单次撞
+        // 负载抖动（实测同形状 47ms~8s+ 波动）不该让整个装载 throw；连续 3 次失败
+        // 仍 throw 保持 fail-loud（真故障不掩盖）
         let data = null;
         let error = null;
         for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
           const res = await supabase
             .from('wss_price_ticks')
             .select(TICK_SELECT_COLUMNS)
-            .in('token_address', chunk)
+            .eq('token_address', addresses[ti])
             .eq('platform', platform)
             .gt('id', cursor)
             .order('id', { ascending: true })
