@@ -4,11 +4,11 @@
  * 继承 FourMemeWssTradingEngine：买/卖管线、去抖、守护 intervals、重启恢复、时序快照
  * 全部复用父类；仅覆盖平台差异点：
  *   - 配置节：flapWs（config/default.json，实验级 config.flapWs 浅合并覆盖）
- *   - 消费平台：_wsPlatforms()=['flap']（SharedTickConsumer 本地过滤 watcher 双平台流中的
- *     flap 行；WSS 订阅由常驻 watcher 统一持有，事件口径见 flap collector 头注释）
- *   - 新代币落库：无 override——基类 _handleNewToken(info, platform) 按 row.platform
+ *   - 采集平台：_wsPlatforms()=['flap']（直连架构 2026-10-09：基类 _createCollectors
+ *     按此构造一枚 FlapAnkrWsCollector 内嵌本进程持有订阅，事件口径见 flap collector 头注释）
+ *   - 新代币落库：无 override——基类 _handleNewToken(info, platform) 按 platform
  *     分派 _buildFlapTokenRecord（platform='flap' + flap TokenCreated 字段存档，与旧
- *     override 逐字段一致）；本子类消费集合只放行 flap 行，实参恒 'flap'
+ *     override 逐字段一致）；本子类采集集合只有 flap，实参恒 'flap'
  *   - innerPair 后缀：_buildTokenInfo override 保留（flap 版无 name 字段——不给
  *     存量 flap 实验的预检查新增 AVE 同名检查输入，行为零变化）
  *   - live：FlapPortalTrader（Portal swapExactInput/quoteExactInput，ABI 与官方
@@ -30,14 +30,14 @@ class FlapWssTradingEngine extends FourMemeWssTradingEngine {
     this._name = 'Flap WSS Trading Engine';
   }
 
-  /** flapWs 配置节（引擎参数 + consumer 轮询参数） */
+  /** flapWs 配置节（引擎参数 + 内嵌 flap collector 段） */
   _wsConfigSectionName() {
     return 'flapWs';
   }
 
-  /** 消费平台集合：恒 ['flap']（显式子类身份，防 flap 引擎类被误配非 flap 实验；
-   *  SharedTickConsumer 本地过滤 ticks/events，flap token_create 的 registerToken
-   *  totalSupply 由 consumer 内部按行 platform 取 FLAP_TOTAL_SUPPLY） */
+  /** 采集平台集合：恒 ['flap']（显式子类身份，防 flap 引擎类被误配非 flap 实验；
+   *  基类 _createCollectors 按此构造 FlapAnkrWsCollector（flapWs 段），flap
+   *  token_create 的 registerToken totalSupply 由 collector 恒取 FLAP_TOTAL_SUPPLY） */
   _wsPlatforms() {
     return ['flap'];
   }

@@ -21,7 +21,8 @@ const path = require('path');
 const fs = require('fs');
 
 const FA_PATH = path.join(__dirname, '..', 'src', 'services', 'FourMemeFactorAggregator.js');
-const CONSUMER_PATH = path.join(__dirname, '..', 'src', 'trading-engine', 'core', 'SharedTickConsumer.js');
+const COLLECTOR_FM_PATH = path.join(__dirname, '..', 'src', 'collectors', 'fourmeme-ankr-ws-collector.js');
+const COLLECTOR_FL_PATH = path.join(__dirname, '..', 'src', 'collectors', 'flap-ankr-ws-collector.js');
 const BACKTEST_PATH = path.join(__dirname, '..', 'src', 'trading-engine', 'implementations', 'BacktestEngine.js');
 const OPB_PATH = path.join(__dirname, '..', 'src', 'services', 'OnlineProfileBuilder.js');
 const TPA_PATH = path.join(__dirname, '..', 'src', 'services', 'TokenPositionAnalyzer.js');
@@ -199,11 +200,15 @@ console.log('\nD 节：读取时聚合（buildFactorMap 出口）');
 // ═══════════ E 节：链路透传（源码口径断言） ═══════════
 console.log('\nE 节：链路透传');
 {
-  const consumerSrc = fs.readFileSync(CONSUMER_PATH, 'utf8');
-  check('E1 SharedTickConsumer TICK_COLUMNS 含 sender_address',
-    () => assert.ok(/TICK_COLUMNS = '[^']*sender_address/.test(consumerSrc)));
-  check('E2 consumer processTick 透传 sender_address（NULL 归一）',
-    () => assert.ok(/sender_address: row\.sender_address \|\| null/.test(consumerSrc)));
+  // 实时链透传点已从 SharedTickConsumer 换到 collector（直连架构 2026-10-09 watcher 废除）：
+  // tickRow 构造带 sender_address 位（resolver 回推定值）+ _feedFa 透传给 FA（NULL 归一）
+  const fmColSrc = fs.readFileSync(COLLECTOR_FM_PATH, 'utf8');
+  const flColSrc = fs.readFileSync(COLLECTOR_FL_PATH, 'utf8');
+  check('E1 两 collector tickRow 构造含 sender_address（resolver 回推定值位）',
+    () => assert.ok(/sender_address: null/.test(fmColSrc) && /sender_address: null/.test(flColSrc)));
+  check('E2 collector _feedFa 透传 sender_address（NULL 归一，FA COALESCE 输入）',
+    () => assert.ok(/sender_address: tickRow\.sender_address \|\| null/.test(fmColSrc)
+      && /sender_address: tickRow\.sender_address \|\| null/.test(flColSrc)));
 
   const backtestSrc = fs.readFileSync(BACKTEST_PATH, 'utf8');
   check('E3 BacktestEngine _loadWssTicks 透传 sender_address（既有，09-30；H0 开关内真臂）',

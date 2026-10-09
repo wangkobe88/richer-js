@@ -20,6 +20,9 @@
  *   6) 防前视 _alignClassifiedAsOf：category_visible_at>asOf → 视为未分类（bad_action 不计）
  *   7) FA 联动：setHoldingFactors→buildFactorMap TPAAnalyzed 0→1、setRetentionBasis→retention 随 tick 重算、
  *      setAsofMs 冻结 asofRelFirst、getFactorKeys 含全部 TPA 键
+ *   8) live 缓冲三件套（直连架构 2026-10-09 回迁）：init/ingest 守卫与分组、preload 窗口形状
+ *      （-1 关闭/fail-fast/显式分钟/auto 对齐 offline+30min margin+clamp/空表）、id 倒序分页 +
+ *      block_time 升序灌入、_fetchWalletTicksBatch 缺口计数（回测路径 inert）、MAX_PAGES 护栏口径
  *
  * 用法：node scripts/_test_tpa.cjs
  */
@@ -531,6 +534,148 @@ function ctor(overrides = {}, deps = {}) {
     const s2 = buildTpaFactorSnapshot(null);
     eq(s2.TPAPre_tokenScore, null, 'null 输入 → 全 null 不炸');
     eq(Object.keys(s2).length, expectedKeys.length, 'null 输入键集仍完整');
+}
+
+// ═══════════════ 8. live 缓冲三件套（initLiveTicksBuffer / ingestLiveTick / preloadRecentTicks）═══════════════
+{
+    // —— 8a init + ingest 守卫/分组 ——
+    const tpa = ctor();
+    ok(tpa._liveTicksBufferStartMs === null, '8a1 ctor 默认 startMs=null（回测/web 路径缺口计数 inert 的前提）');
+    const t1 = wtick('0xLW', '0xLT', T0, true, 1, 100);
+    tpa._walletTicksPreloaded = null; // 模拟 web 路径（从未 init）
+    tpa.ingestLiveTick(t1);
+    ok(tpa._walletTicksPreloaded === null, '8a2 未 init ingest no-op 不炸（不建 Map）');
+    tpa.initLiveTicksBuffer();
+    ok(tpa._walletTicksPreloaded instanceof Map && typeof tpa._liveTicksBufferStartMs === 'number'
+        && Math.abs(tpa._liveTicksBufferStartMs - Date.now()) < 5000, '8a3 init 置空 Map + startMs=启动时刻');
+    tpa.ingestLiveTick(null);
+    tpa.ingestLiveTick({ ...t1, trader_address: null });
+    tpa.ingestLiveTick({ ...t1, trader_address: undefined });
+    ok(tpa._walletTicksPreloaded.size === 0, '8a4 null tick / 缺 trader_address 全 no-op');
+    tpa.ingestLiveTick(t1);
+    tpa.ingestLiveTick(wtick('0xLW', '0xLT2', T0 + 1000, false, 0.5, 101));
+    tpa.ingestLiveTick(wtick('0xLW2', '0xLT', T0 + 2000, true, 2, 102));
+    const lw = tpa._walletTicksPreloaded.get('0xLW');
+    ok(lw && lw.length === 2 && lw[0].token_address === '0xLT' && lw[1].token_address === '0xLT2',
+        '8a5 按 trader_address 分组且保到达序');
+
+    // —— 8b preload 窗口形状 ——
+    // preload 读的是 DB 行形状（block_time ISO 字符串），与 wtick 的数字毫秒区分
+    const dbTick = (id, trader, btMs, isBuy, bnb) => ({
+        id, trader_address: trader, token_address: `0xPT${id}`,
+        trade_type: isBuy ? 'buy' : 'sell', bnb_amount: bnb, price_usd: 1,
+        block_time: new Date(btMs).toISOString(), block_number: 100,
+    });
+    /** 语义桩：select('id') 首查出 max id；select(COLS)+lt 倒序分页（真代码同款游标） */
+    const mkClient = (allRows) => {
+        const cli = { calls: 0 };
+        const chain = () => {
+            const c = {
+                _cols: null, _lt: Infinity, _lim: Infinity,
+                select(x) { c._cols = x; return c; },
+                order() { return c; },
+                lt(_col, v) { c._lt = v; return c; },
+                limit(n) { c._lim = n; return c; },
+                then(resolve) {
+                    const rows = allRows.filter(r => r.id < c._lt).sort((a, b) => b.id - a.id).slice(0, c._lim);
+                    resolve({ data: c._cols === 'id' ? (rows.length ? [{ id: rows[0].id }] : []) : rows, error: null });
+                },
+            };
+            return c;
+        };
+        cli.from = () => { cli.calls++; return chain(); };
+        return cli;
+    };
+
+    let m = null;
+    try { await new TokenPositionAnalyzer({ trigger: TRIGGER }, { logger: QUIET }).preloadRecentTicks(mkClient([])); }
+    catch (e) { m = e.message; }
+    ok(m != null && m.includes('未初始化'), '8b1 未 init → throw fail-fast', m);
+    const t2 = ctor(); t2.initLiveTicksBuffer();
+    m = null; try { await t2.preloadRecentTicks(null); } catch (e) { m = e.message; }
+    ok(m != null && m.includes('supabase'), '8b2 无 supabase → throw', m);
+
+    const cli3 = mkClient([dbTick(1, '0xA', Date.now(), true, 1)]);
+    const t3 = ctor({ liveTicksPreloadMinutes: -1 }); t3.initLiveTicksBuffer();
+    const r3 = await t3.preloadRecentTicks(cli3);
+    ok(r3 === null && cli3.calls === 0, '8b3 liveTicksPreloadMinutes=-1 → null 零查询（关闭）');
+
+    const t4 = ctor(); t4.initLiveTicksBuffer();
+    const r4 = await t4.preloadRecentTicks(mkClient([]));
+    ok(r4 != null && r4.rows === 0 && r4.pages === 0, '8b4 空表 → rows:0/pages:0 不炸', r4);
+
+    const t5 = ctor({ liveTicksPreloadMinutes: 10 }); t5.initLiveTicksBuffer();
+    const startAt5 = t5._liveTicksBufferStartMs;
+    const now5 = Date.now();
+    const r5 = await t5.preloadRecentTicks(mkClient([
+        dbTick(1, '0xA', now5 - 5 * 60000, true, 1),
+        dbTick(2, '0xB', now5 - 8 * 60000, true, 2),
+        dbTick(3, '0xC', now5 - 15 * 60000, true, 3), // 窗外
+    ]));
+    ok(r5 != null && r5.rows === 2, '8b5 显式 10min 窗只灌窗内 2 行', r5);
+    ok(t5._walletTicksPreloaded.size === 2 && !t5._walletTicksPreloaded.has('0xC'), '8b5b 窗外行不进缓冲');
+    ok(t5._liveTicksBufferStartMs < startAt5
+        && Math.abs(t5._liveTicksBufferStartMs - (now5 - 10 * 60000)) < 2000,
+        '8b5c startMs 前扩到窗口起点（Math.min 向前）', t5._liveTicksBufferStartMs - (now5 - 10 * 60000));
+
+    const t6 = ctor({ liveTicksPreloadMaxMinutes: 60 }); t6.initLiveTicksBuffer();
+    const r6 = await t6.preloadRecentTicks(mkClient([dbTick(1, '0xA', Date.now() - 60000, true, 1)]));
+    ok(r6 != null && Date.now() - Date.parse(r6.sinceIso) > 59 * 60000,
+        '8b6 auto + offline 空 → 回退 maxMinutes 窗', r6 && r6.sinceIso);
+
+    const t7 = ctor(); t7.initLiveTicksBuffer();
+    const through7 = Date.now() - 2 * HOUR;
+    t7._offlineProfilePreloaded.set('0xW', { dataThroughMs: through7, profile: mkOffline() });
+    const r7 = await t7.preloadRecentTicks(mkClient([dbTick(1, '0xA', Date.now() - 60000, true, 1)]));
+    ok(r7 != null && Math.abs(Date.parse(r7.sinceIso) - (through7 - 30 * 60000)) < 2000,
+        '8b7 auto + offline 预载 → 窗起点 = data_through − 30min margin', r7 && r7.sinceIso);
+
+    const t8 = ctor({ liveTicksPreloadMaxMinutes: 60 }); t8.initLiveTicksBuffer();
+    t8._offlineProfilePreloaded.set('0xW', { dataThroughMs: Date.now() - 5 * 24 * HOUR, profile: mkOffline() });
+    const r8 = await t8.preloadRecentTicks(mkClient([dbTick(1, '0xA', Date.now() - 60000, true, 1)]));
+    ok(r8 != null && Date.now() - Date.parse(r8.sinceIso) < 61 * 60000,
+        '8b8 offline 陈旧超上限 → clamp 到 maxMinutes', r8 && r8.sinceIso);
+
+    // —— 8c id 倒序分页 + block_time 升序灌入 ——
+    // 1002 行窗内（id 与时间倒挂：id 大时间新）+ 1 行窗外（id 在页 1 范围内，走窗口过滤路径）
+    const t9 = ctor({ liveTicksPreloadMinutes: 30 }); t9.initLiveTicksBuffer();
+    const n9 = 1002, base9 = Date.now();
+    const rows9 = [];
+    for (let i = 0; i < n9; i++) rows9.push(dbTick(n9 - i, '0xPAGE', base9 - i * 1000, true, 0.1));
+    rows9.push(dbTick(1500, '0xOLDPAGE', base9 - 40 * 60000, true, 0.1));
+    const r9 = await t9.preloadRecentTicks(mkClient(rows9));
+    ok(r9 != null && r9.pages === 2, '8c1 1003 行 → 2 页（1000/页游标 + 空页 break）', r9);
+    const arr9 = t9._walletTicksPreloaded.get('0xPAGE');
+    ok(arr9 != null && arr9.length === n9, '8c2 窗内 1002 行全灌（id 倒挂行不丢）', arr9 && arr9.length);
+    let ascOk = true;
+    for (let i = 1; i < arr9.length; i++) {
+        if (new Date(arr9[i].block_time).getTime() < new Date(arr9[i - 1].block_time).getTime()) { ascOk = false; break; }
+    }
+    ok(ascOk, '8c3 per-trader 数组按 block_time 升序（预载排序后灌入，非 id 序）');
+    ok(!t9._walletTicksPreloaded.has('0xOLDPAGE'), '8c4 越窗行不进缓冲（bt < sinceMs 过滤）');
+
+    // —— 8d _fetchWalletTicksBatch 缺口计数（live 生效 / 回测 inert）——
+    const t10 = ctor(); t10.initLiveTicksBuffer();
+    const bufStart = t10._liveTicksBufferStartMs;
+    t10.ingestLiveTick(wtick('0xA', '0xT', bufStart + 60000, true, 1, 100));
+    await t10._fetchWalletTicksBatch(null, ['0xA'], new Date(bufStart - 10 * 60000).toISOString(), new Date(bufStart + 120000).toISOString());
+    eq(t10._fetchTicksPreBufferN, 1, '8d1 请求窗口早于缓冲起点 → 计数 1（缺口暴露不静默）');
+    await t10._fetchWalletTicksBatch(null, ['0xA'], new Date(bufStart + 30000).toISOString(), new Date(bufStart + 120000).toISOString());
+    eq(t10._fetchTicksPreBufferN, 1, '8d2 窗口在缓冲内 → 不计数');
+    const byAddr = await t10._fetchWalletTicksBatch(null, ['0xA'], new Date(bufStart + 30000).toISOString(), new Date(bufStart + 120000).toISOString());
+    ok(byAddr != null && byAddr.get('0xA') != null && byAddr.get('0xA').length === 1,
+        '8d3 内存路径窗口过滤照常（起点严格 > sinceMs）');
+    const t11 = ctor(); // 回测路径：setHistoricalTicks 不调 init → startMs=null
+    ok(t11._liveTicksBufferStartMs === null, '8d4 回测路径 startMs=null');
+    await t11._fetchWalletTicksBatch(null, ['0xNOPE'], new Date(T0 - 100 * HOUR).toISOString(), new Date(T0).toISOString());
+    ok(!t11._fetchTicksPreBufferN, '8d5 回测路径缺口计数 inert（null 不计数不 warn）');
+
+    // —— 8e MAX_PAGES 护栏（源码口径；400 万行不实跑）——
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'TokenPositionAnalyzer.js'), 'utf8');
+    ok(/MAX_PAGES = 4000/.test(src), '8e1 MAX_PAGES=4000 护栏常量在位');
+    ok(/sinceMs = oldestCoveredMs;/.test(src)
+        && /this\._liveTicksBufferStartMs = Math\.min\(this\._liveTicksBufferStartMs, sinceMs\)/.test(src),
+        '8e2 触顶收缩 oldestCoveredMs + startMs Math.min 前扩口径');
 }
 
 // ═══════════════ 汇总 ═══════════════

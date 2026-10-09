@@ -67,7 +67,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     // 组件（_initializeDataSources 中创建）
     this._factorAggregator = null;
-    this._consumer = null;              // SharedTickConsumer（watcher 架构：DB 增量消费，无 WSS 连接）
+    this._collectors = [];              // 内嵌 ANKR WSS collectors（直连架构 2026-10-09：per-platform 一枚，watcher 已废除）
+    this._senderResolver = null;        // 共享 sender 解析器（config.senderResolve.enabled 才构造，单实例传各 collector）
+    this._eventWriter = null;           // wss_events 写入器（token_create/graduation/token_quote_set + 重试队列）
     this._preBuyCheckService = null;
     this._strategyEngine = null;
 
@@ -155,6 +157,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._timeSeriesIntervalMs = this._wsConfig.timeSeriesIntervalMs ?? 30 * 1000;
     this._timeSeriesActiveWindowMs = this._wsConfig.timeSeriesActiveWindowMs ?? 60 * 1000;
     this._wssDownThresholdMs = this._wsConfig.wssDownGuardMs ?? 15 * 60 * 1000;
+    // 断流自愈阈值（消息静默 ≥ 此值每轮踢 forceReconnect；自 watcher 迁回实验进程，2026-10-09）
+    this._wssSelfHealMs = this._wsConfig.downGuardSelfHealMs ?? 5 * 60 * 1000;
 
     // live 执行层参数（实验级覆盖在 _initializeLiveTrader 中重读 trading 段）
     const liveConfig = this._wsConfig.live || {};
@@ -322,8 +326,24 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const pre = await this._tokenPositionAnalyzer.preloadOfflineProfiles(supabase);
       this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
         `TPA offline 画像预载: ${pre.rows} 行 / ${(pre.ms / 1000).toFixed(1)}s (${pre.source || 'fail-open'})`);
-      // live token 分类预热（BSC live 无 ticks 缓冲恒 no-op——watcher 架构 DB 即真相；保留结构对齐母版）
+      // live ticks 缓冲初始化 + 近期预载（直连架构 2026-10-09，母版同款时序）：init 先于预载，
+      //   预载 await + fail-open（失败仅性能退化+窗口缺口由 fetchTicksPreBuffer 计数暴露，不阻断启动），
+      //   且都在 _runMainLoop 的 collector.start() 之前完成 → 预载灌入与 collector tick 累积无交错
+      this._tokenPositionAnalyzer.initLiveTicksBuffer();
+      try {
+        const _rt = await this._tokenPositionAnalyzer.preloadRecentTicks(supabase);
+        if (_rt) this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+          `TPA live ticks 预加载: ${_rt.rows} 行 / ${(_rt.ms / 1000).toFixed(1)}s (窗口自 ${_rt.sinceIso})`);
+      } catch (e) {
+        this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine',
+          `TPA live ticks 预加载失败(fail-open): ${e.message}`);
+      }
+      // live token 分类预热（fire-and-forget：缓冲窗口 distinct token 一次预载，消除首分析冷查）
       this._tokenPositionAnalyzer.prewarmLiveTokenProfiles(supabase)
+        .then((_tp) => {
+          if (_tp) this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+            `TPA token_profile 预加载（窗口 distinct ${_tp.tokens}）→ 缓存 ${_tp.cached} / ${(_tp.ms / 1000).toFixed(1)}s`);
+        })
         .catch(e => this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine',
           `TPA prewarm 异常: ${e.message}`));
     }
@@ -341,21 +361,11 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         : null);
     this._onlineProfileBuilder.start({ factorAggregator: this._factorAggregator });
 
-    // 4. 共享流消费者（watcher 架构：实验不再持有 WSS 连接，从 wss_events / wss_price_ticks
-    //    增量消费常驻 watcher 落库的同一份数据流；FA/pool 分发与旧 collector 内嵌路径等价）
-    const { SharedTickConsumer } = require('../core/SharedTickConsumer');
-    this._consumer = new SharedTickConsumer({
-      platforms: this._wsPlatforms(),
-      pollIntervalMs: this._mergedWsConfig().consumer?.pollIntervalMs,
-      minTickBnb: this._mergedWsConfig().minTickBnb,
-      factorAggregator: this._factorAggregator,
-      tokenPool: this._tokenPool,
-      onTokenCreate: (info, platform) => this._handleNewToken(info, platform),
-      onGraduation: (info) => this._handleGraduation(info),
-      logger: this.logger,
-      experimentId: this._experimentId,
-    });
-    this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '✅ SharedTickConsumer 初始化完成');
+    // 4. 内嵌 WSS collectors（直连架构 2026-10-09：实验进程自己持有订阅，watcher 已废除；
+    //    collector 内存回调直喂 FA/pool→factorsUpdated→买卖管线，DB 落库仅作持久化）
+    this._createCollectors();
+    this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+      `✅ 内嵌 WSS collectors 初始化完成 | platforms=[${this._collectors.map(c => c._platformLabel).join(',')}]`);
 
     // 5. 策略引擎（buyStrategies/sellStrategies → 扁平数组，与 Virtual 同构）
     const { StrategyEngine } = require('../../strategies/StrategyEngine');
@@ -491,15 +501,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   /** WSS 配置节名（子类覆盖：flap 引擎用 'flapWs'；双平台 'both' 走基类 fourmemeWs 段——
-   *  引擎级单值参数（debounce 等）不按平台合并，flapWs 独有键全是 watcher 侧消费） */
+   *  引擎级单值参数（debounce 等）不按平台合并；collector 侧配置在 _createCollectors
+   *  内 per-platform 分段读各自 section（fourmeme→fourmemeWs / flap→flapWs）） */
   _wsConfigSectionName() {
     return 'fourmemeWs';
   }
 
   /**
-   * 消费平台集合（SharedTickConsumer 本地过滤 ticks/events 用）。
+   * 消费平台集合（内嵌 collector 构造维度 + router 平台分门）。
    * 基类按 experiment.config.platform 归一化（'both' → 双平台；flap 子类覆盖为 ['flap']）。
-   * 构造期 _experiment 未注入时返回 ['fourmeme']，与旧行为一致；consumer 在
+   * 构造期 _experiment 未注入时返回 ['fourmeme']，与旧行为一致；collectors 在
    * _initializeDataSources 中构造，彼时 _experiment 已由 AbstractTradingEngine.initialize 注入。
    */
   _wsPlatforms() {
@@ -514,6 +525,87 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       ...(baseConfig[section] || {}),
       ...(this._experiment?.config?.[section] || {}),
     };
+  }
+
+  /**
+   * 内嵌 WSS collectors 构造（直连架构 2026-10-09，watcher 废除）：per _wsPlatforms()
+   * 一枚（both = 双 collector，watcher 单进程双 collector 同型已验证数周），共享一个
+   * SenderResolver 与 WssEventWriter。FA/tokenPool 传引擎实例（tick 三路输出在 collector
+   * `_emitTick`：pool.updatePrice / tickBuffer 批量落库 / FA.processTick）。
+   *
+   * ★ 08-27 防线：绝不调 collector.setExperimentId——tick 行 experiment_id 恒 NULL，
+   *   删实验级联永不带走 wss_price_ticks 行（用户裁定 2026-10-09 维持）。
+   * 实验级 collector 配置覆盖恢复生效（watcher 时代失效）：per-platform section 浅合并。
+   */
+  _createCollectors() {
+    const { SenderResolver } = require('../../collectors/sender-resolver.js');
+    const { WssEventWriter } = require('../../collectors/wss-event-writer.js');
+
+    // 共享 sender 解析器（单实例传各 collector：同钱包跨平台交易，kind 缓存利用率更高）。
+    // 段缺失/enabled≠true → 不构造，collector 收 null 走直推路径（sender=NULL 回退 trader）
+    const senderCfg = baseConfig.senderResolve;
+    if (senderCfg && senderCfg.enabled === true) {
+      this._senderResolver = new SenderResolver(senderCfg, this.logger);
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        'sender 解析已启用（真实买家 tx.from；公共路由行 sender≠trader）');
+    }
+
+    // wss_events 写入器（token_create/graduation/token_quote_set 持续供行 + 重试队列；
+    // heartbeat 不写——watcher 专属人工查活，直连架构判据回到 collector 消息心跳）
+    this._eventWriter = new WssEventWriter(this.logger);
+    this._eventWriter.start();
+
+    const PLATFORMS = {
+      fourmeme: {
+        section: 'fourmemeWs',
+        Ctor: require('../../collectors/fourmeme-ankr-ws-collector.js').FourMemeAnkrWsCollector,
+      },
+      flap: {
+        section: 'flapWs',
+        Ctor: require('../../collectors/flap-ankr-ws-collector.js').FlapAnkrWsCollector,
+      },
+    };
+
+    for (const platform of this._wsPlatforms()) {
+      const p = PLATFORMS[platform];
+      // collector 段配置：base 段浅合并实验级（flap collector 读 flapWs、fourmeme 读 fourmemeWs，
+      // 与引擎级 _mergedWsConfig 的单 section 无关——both 实验两段各自合并）
+      const sectionCfg = {
+        ...(baseConfig[p.section] || {}),
+        ...(this._experiment?.config?.[p.section] || {}),
+      };
+      const collector = new p.Ctor(
+        { [p.section]: sectionCfg },
+        this.logger,
+        this._tokenPool,
+        this._factorAggregator,
+        {
+          // 事件双投：wss_events 持久化（叙事年龄锚/回测 totalSupply/flap quote 水位供数源）
+          // + 引擎既有句柄（experiment_tokens 落库/毕业卖出）。collector 已先做
+          // FA.registerToken + pool.addToken（meta 自带 platform 键）
+          onTokenCreate: (info) => {
+            this._eventWriter.enqueue('token_create', platform, info);
+            this._handleNewToken(info, platform);
+          },
+          onGraduation: (info) => {
+            this._eventWriter.enqueue('graduation', platform, info);
+            this._handleGraduation(info);
+          },
+          // flap 专属：QuoteSet 持久化（重启用——_loadQuoteMapFromDb 水位驱动增量补停机缺口）
+          onQuoteSet: platform === 'flap'
+            ? (info) => this._eventWriter.enqueue('token_quote_set', 'flap', info)
+            : null,
+        },
+        this._senderResolver,
+      );
+      // ★不调 setExperimentId（08-27 防线，见方法头注）
+      // TPA live 缓冲钩子（pumpfun 同款）：tick 行 push 后同步喂（sender 已定值）；TPA 未启用不挂
+      if (this._tokenPositionAnalyzer) {
+        collector._onTickBuffered = (tickRow) => this._tokenPositionAnalyzer.ingestLiveTick(tickRow);
+      }
+      collector._platformLabel = platform; // 日志/getStats 标签
+      this._collectors.push(collector);
+    }
   }
 
   // ==================== live 执行层（Phase 5：FourMemeDirectTrader / FlapPortalTrader）====================
@@ -606,8 +698,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
   }
 
-  /** 当前 BNB/USD（live：60s interval 刷新 _lastKnownBnbUsd；virtual：无 collector 后不再用此价） */
+  /**
+   * 当前 BNB/USD（collector 60s 自刷优先——price_usd 换算与 live 锚定同源；
+   * live 启动锚定 _fetchBnbUsdOnce 兜底，全部 miss 回落最近已知值）
+   */
   _getBnbUsd() {
+    for (const c of this._collectors) {
+      const v = c.getBnbUsd();
+      if (v > 0) {
+        this._lastKnownBnbUsd = v;
+        return v;
+      }
+    }
     return this._lastKnownBnbUsd;
   }
 
@@ -663,15 +765,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   async _runMainLoop() {
-    await this._consumer.start();
-
-    // live BNB/USD 接力刷新（60s；watcher 架构下 collector 不在实验进程，由本引擎承担——
-    // virtual 无 _trader 不需要，价格 USD 换算已在 watcher 侧完成随 tick 行下发）
-    if (this._isLive) {
-      this._fetchBnbUsdOnce();
-      this._intervals.bnbUsd = setInterval(() => {
-        this._fetchBnbUsdOnce();
-      }, 60 * 1000);
+    // 内嵌 collectors 启动（直连架构：WSS 订阅随实验起停；BNB/USD 60s 自刷由 collector 承担，
+    // live 启动锚定在 _initializeLiveTrader 内 _fetchBnbUsdOnce 已做，此处不再挂 interval）
+    for (const c of this._collectors) {
+      c.start();
     }
 
     // 30s 时序快照（experiment_time_series_data 30s 节奏 + 组合快照）
@@ -688,7 +785,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       });
     }, this._statsInterval || 30 * 60 * 1000);
 
-    // [wss-down-guard] 数据断供守护（60s）：消费心跳停滞 ≥ 阈值 → status='wss_down'（自愈已迁 watcher）
+    // [wss-down-guard] 断流守护（60s）：collector 消息心跳静默 ≥ 5min 踢自愈 / ≥ 15min 置 wss_down
     this._intervals.wssDownGuard = setInterval(() => {
       this._checkWssDownGuard().catch(err => {
         this.logger.error(this._experimentId, 'WssDownGuard', `检查失败: ${err.message}`);
@@ -827,11 +924,32 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this._sellConfirmDebouncer.clearAll();
     }
 
-    // 停消费者（清轮询 interval；WSS 由常驻 watcher 持有，不随实验停启）
-    if (this._consumer) {
-      await this._consumer.stop();
-      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', '⏹️ SharedTickConsumer 已停止');
+    // 停采集链（顺序镜像 watcher.stop，各自独立 try/catch 不互相阻断）：
+    // ① eventWriter 冲刷（create 行丢失 = token 对所有消费方永久不可见）
+    // ② senderResolver（NULL 回推必须进 tickBuffer 有人收）
+    // ③ collectors 逐个 stop（flush tickBuffer 落库 + 关 WSS）
+    if (this._eventWriter) {
+      try {
+        await this._eventWriter.stop();
+      } catch (e) {
+        this.logger.error(this._experimentId, 'FourMemeWssTradingEngine', `eventWriter 停止失败: ${e.message}`);
+      }
     }
+    if (this._senderResolver) {
+      try {
+        await this._senderResolver.stop();
+      } catch (e) {
+        this.logger.error(this._experimentId, 'FourMemeWssTradingEngine', `senderResolver 停止失败: ${e.message}`);
+      }
+    }
+    for (const c of this._collectors) {
+      try {
+        await c.stop();
+      } catch (e) {
+        this.logger.error(this._experimentId, 'FourMemeWssTradingEngine', `collector(${c._platformLabel}) 停止失败: ${e.message}`);
+      }
+    }
+    this._collectors = [];
 
     // 市场截面 feed 关闭 + 模块级单例清除（main.js 同进程起下一实验不继承旧截面）
     require('../../services/FourMemeFactorAggregator').setMarketFeedEnabled(false);
@@ -1171,7 +1289,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
               tweetAuthorType: factorResults.tweetAuthorType ?? 0,
               dataCollectionRound: factorResults.dataCollectionRound ?? 0,
               totalSupply: totalSupply,
-              // 平台标签（router 平台分门）：FA state（SharedTickConsumer registerToken
+              // 平台标签（router 平台分门）：FA state（collector registerToken meta
               // 传入）优先，factorResults（buildFactorMap platform 键）双保险
               platform: faState?.platform || factorResults.platform || null,
               // router 门观察史（2026-10-03）：截至上次 fire 的状态——本次 fire 的 rp
@@ -2227,31 +2345,51 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   // ==================== 守护 intervals ====================
 
   /**
-   * [wss-down-guard]（60s）：以 consumer 消费心跳为准（lastIngestAt——任意表读到新行，
-   * watcher 60s 心跳行保证市场安静时也持续刷新；停滞 = watcher 挂了/两表均无写入/DB 断），
-   * ≥ 阈值 → status='wss_down'；恢复且曾由本守护置位 → 回写 'running'（本地标志绑定，
-   * 绝不覆盖 stopped/error 等其他来源状态）。自愈（forceReconnect）已迁 watcher 侧
-   * （5min 消息静默守护），实验进程只检测告警不重连——WSS 连接不在本进程。
+   * [wss-down-guard]（60s）：以 collector 消息心跳为准（getLastMessageAt——newHeads 持续
+   * 推送，市场安静时也刷新；socket "已连接"可能僵尸，静默 = WSS 僵尸连接/RPC 断）。
+   * 两级（自 watcher 迁回实验进程，2026-10-09）：
+   *   ≥ downGuardSelfHealMs（默认 5min）→ 每轮踢 forceReconnect（幂等自愈）
+   *   ≥ wssDownGuardMs（默认 15min）→ status='wss_down'；全部恢复且曾由本守护置位
+   *   → 回写 'running'（本地标志绑定，绝不覆盖 stopped/error 等其他来源状态）
    */
   async _checkWssDownGuard() {
     if (this._status !== EngineStatus.RUNNING || this._isStopped) return;
+    if (!this._collectors.length) return;
 
-    const lastIngest = this._consumer ? this._consumer.getLastIngestAt() : null;
-    const since = lastIngest || this._consumer?.stats?.startedAt || null;
-    if (!since) return;
+    let worstSilentMs = 0;
+    let anyLast = false;   // 至少一个 collector 曾收到消息（区分「从未连接」与「断流后恢复」）
+    let anyAnchor = false;
+    for (const c of this._collectors) {
+      const last = c.getLastMessageAt();
+      const since = last || c.stats?.startTime || null;
+      if (last) anyLast = true;
+      if (!since) continue;
+      anyAnchor = true;
+      const silentMs = Date.now() - since;
+      if (silentMs > worstSilentMs) worstSilentMs = silentMs;
+      if (silentMs >= this._wssSelfHealMs) {
+        // 静默超自愈阈值 = 僵尸连接（无 close 事件）：每轮守护主动踢一次强制重连（幂等）
+        try {
+          c.forceReconnect();
+        } catch (e) {
+          this.logger.error(this._experimentId, 'WssDownGuard', `强制重连失败: ${e.message}`);
+        }
+      }
+    }
+    if (!anyAnchor) return;
 
-    const silentMs = Date.now() - since;
-    if (silentMs >= this._wssDownThresholdMs) {
+    if (worstSilentMs >= this._wssDownThresholdMs) {
       if (!this._wssDownFlagged) {
         this._wssDownFlagged = true;
         this.logger.error(this._experimentId, 'WssDownGuard',
-          `数据消费停滞超过阈值（watcher 断供或其心跳停跳），实验状态置为 wss_down`,
-          { silentMs, thresholdMs: this._wssDownThresholdMs });
+          `WSS 断流（无消息心跳）超过阈值，实验状态置为 wss_down`,
+          { silentMs: worstSilentMs, thresholdMs: this._wssDownThresholdMs });
         await this._updateExperimentStatus('wss_down');
       }
-    } else if (this._wssDownFlagged && lastIngest) {
+    } else if (this._wssDownFlagged && anyLast) {
+      // 最差静默已回落到阈值之下 = 消息恢复流动（last 粘性，靠 silentMs 判恢复而非 last 非空）
       this._wssDownFlagged = false;
-      this.logger.info(this._experimentId, 'WssDownGuard', '数据消费已恢复，实验状态回写 running');
+      this.logger.info(this._experimentId, 'WssDownGuard', 'WSS 已恢复收数，实验状态回写 running');
       await this._updateExperimentStatus('running');
     }
   }
@@ -2562,7 +2700,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
   }
 
-  /** 引擎运行状态（consumer/FA/组合，监控用） */
+  /** 引擎运行状态（collectors/FA/组合，监控用） */
   getStats() {
     return {
       engine: {
@@ -2576,7 +2714,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         sellCooldown: this._isLive ? this._sellCooldownUntil.size : 0,
       },
       metrics: { ...this.metrics },
-      consumer: this._consumer ? this._consumer.getStats() : null,
+      collectors: this._collectors.map(c => ({
+        platform: c._platformLabel,
+        lastMessageAt: c.getLastMessageAt(),
+        stats: c.getStats(),
+      })),
+      senderResolver: this._senderResolver ? this._senderResolver.getStats() : null,
+      eventWriter: this._eventWriter ? this._eventWriter.getStats() : null,
       factorAggregator: this._factorAggregator ? this._factorAggregator.getStats() : null,
       tokenPool: this._tokenPool ? this._tokenPool.getStats() : null,
       debouncePending: this._buyDebouncer ? this._buyDebouncer.size : 0,

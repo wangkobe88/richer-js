@@ -20,11 +20,12 @@
       "maxDelayMs": 60000
     },
     "tickBuffer": {
-      "flushIntervalMs": 2000,
+      "flushIntervalMs": 500,
       "flushThreshold": 100,
       "batchSize": 500
     },
     "wssDownGuardMs": 900000,
+    "downGuardSelfHealMs": 300000,
     "bnbUsd": {
       "refreshMs": 60000
     },
@@ -119,11 +120,12 @@
       "maxDelayMs": 60000
     },
     "tickBuffer": {
-      "flushIntervalMs": 2000,
+      "flushIntervalMs": 500,
       "flushThreshold": 100,
       "batchSize": 500
     },
     "wssDownGuardMs": 900000,
+    "downGuardSelfHealMs": 300000,
     "bnbUsd": {
       "refreshMs": 60000
     },

@@ -1033,6 +1033,9 @@ class FlapAnkrWsCollector {
                 name: info.name,
                 symbol: info.symbol,
                 creatorAddress: info.creator,
+                // 平台维度（factors.platform 路由门 / FA per-token 毕业锚判 state.platform==='flap'）：
+                // watcher 时代由 SharedTickConsumer._applyEvent 注入，collector 直喂 FA 后自带
+                platform: 'flap',
             });
         }
 
@@ -1102,40 +1105,20 @@ class FlapAnkrWsCollector {
             quote_token: decoded.quoteToken ?? null,
         };
         if (this._senderResolver) {
-            // 合约/未知钱包延迟入 buffer（单次 upsert 全字段，省回填 UPDATE）；EOA 缓存
-            // 命中在 submit 内同步回推，与旧路径零差异
+            // 合约/未知钱包延迟喂 FA + 入 buffer（单次 upsert 全字段，省回填 UPDATE）；EOA 缓存
+            // 命中在 submit 内同步回推，与直连路径零差异。回推时 sender_address 已定值 →
+            // FA 钱包口径（sender||trader，GMGN 案 A/B）与落库行一致
             this._senderResolver.submit({
                 tickRow,
                 trader: decoded.trader,
                 txHash: decoded.txHash,
-                pushRow: (row) => this._pushTickRow(row),
+                // 回推统一经 _feedFa→_pushTickRow：priceOutlier 在行入 buffer 前定值 →
+                // INSERT 携带最终 flag（优于「落库 false + 事后 UPDATE」）
+                pushRow: (row) => { this._feedFa(decoded, row, priceUsd); this._pushTickRow(row); },
             });
         } else {
+            this._feedFa(decoded, tickRow, priceUsd);
             this._pushTickRow(tickRow);
-        }
-
-        // 3) FactorAggregator（小额尘 tick 不参与因子计算，仍落表）
-        let faResult = null;
-        if (this._factorAggregator && decoded.bnbAmount >= this._minTickBnb) {
-            faResult = this._factorAggregator.processTick({
-                token_address: decoded.token,
-                trade_type: decoded.tradeType,
-                trader_address: decoded.trader,
-                price_bnb: decoded.priceBnb,
-                price_usd: priceUsd,
-                bnb_amount: decoded.bnbAmount,
-                token_amount: decoded.tokenAmount,
-                // flap 事件无 offers/funds 字段：不传（undefined 守卫容忍，tvl 恒 0）
-                block_number: decoded.blockNumber,
-                timestamp: decoded.blockTimeMs,
-                tx_hash: decoded.txHash,
-                log_index: decoded.logIndex,
-            });
-        }
-
-        // FA 离群价判定回写落表行（flush 前生效）
-        if (faResult && faResult.priceOutlier) {
-            tickRow.price_outlier = true;
         }
 
         if (this._callbacks.onTick) {
@@ -1149,10 +1132,42 @@ class FlapAnkrWsCollector {
         }
     }
 
+    /**
+     * FA 喂食 + 离群价回写（自 _emitTick 抽取，resolver 回推与直推共用）。
+     * 回推路径 tickRow.sender_address 已定值——FA 钱包口径（sender||trader，GMGN 案 A/B）
+     * 与落库行一致；直推路径 sender=null 回退 trader（= 旧 collector 行为）。
+     * 尘 tick（< minTickBnb）不进因子计算，仍照常落表；flap 事件无 offers/funds
+     * 字段不传（tvl 恒 0，与回测口径一致）。
+     */
+    _feedFa(decoded, tickRow, priceUsd) {
+        if (!this._factorAggregator || decoded.bnbAmount < this._minTickBnb) return null;
+        const faResult = this._factorAggregator.processTick({
+            token_address: decoded.token,
+            trade_type: decoded.tradeType,
+            trader_address: decoded.trader,
+            sender_address: tickRow.sender_address || null,
+            price_bnb: decoded.priceBnb,
+            price_usd: priceUsd,
+            bnb_amount: decoded.bnbAmount,
+            token_amount: decoded.tokenAmount,
+            block_number: decoded.blockNumber,
+            timestamp: decoded.blockTimeMs,
+            tx_hash: decoded.txHash,
+            log_index: decoded.logIndex,
+        });
+        // FA 离群价判定回写落表行（行入 buffer 前定值 → INSERT 携带最终 flag）
+        if (faResult && faResult.priceOutlier) {
+            tickRow.price_outlier = true;
+        }
+        return faResult;
+    }
+
     /** tick 行进缓冲（resolver 回推与直推共用的单一咽喉点） */
     _pushTickRow(tickRow) {
         this.stats.ticksBuffered++;
         this._tickBuffer.push(tickRow);
+        // TPA live 缓冲钩子（pumpfun 同款）：行 push 后同步喂，此时 sender_address 已定值
+        if (this._onTickBuffered) this._onTickBuffered(tickRow);
         if (this._tickBuffer.length >= this._tickFlushThreshold) {
             this._flushTickBuffer();
         }

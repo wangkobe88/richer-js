@@ -309,10 +309,13 @@ console.log('D. 源码口径断言（透传链 5 处接线）');
     assert.ok(wl && !/['"]platform['"]\s*:/.test(wl[0]), 'platform 不得进时序快照白名单');
   });
 
-  check('D6 SharedTickConsumer registerToken 已带 platform（实时链 FA state.platform 有值的前提，零改动回归）', () => {
-    const src = read('src/trading-engine/core/SharedTickConsumer.js');
-    assert.ok(/platform:\s*row\.platform/.test(src) || /platform:\s*info\.platform/.test(src)
-      || /platform/.test(src.match(/registerToken[\s\S]{0,500}/)[0]));
+  check('D6 两 collector registerToken 已带 platform（直连架构实时链 FA state.platform 有值的前提；watcher consumer 版已废）', () => {
+    const fm = read('src/collectors/fourmeme-ankr-ws-collector.js');
+    const fl = read('src/collectors/flap-ankr-ws-collector.js');
+    const fmReg = fm.match(/registerToken\([\s\S]{0,600}/);
+    const flReg = fl.match(/registerToken\([\s\S]{0,600}/);
+    assert.ok(fmReg && /platform:\s*'fourmeme'/.test(fmReg[0]), 'fourmeme registerToken meta 缺 platform 键');
+    assert.ok(flReg && /platform:\s*'flap'/.test(flReg[0]), 'flap registerToken meta 缺 platform 键');
   });
 
   check('D7 ConditionEvaluator 字符串分支（parse/evaluate 两处）', () => {

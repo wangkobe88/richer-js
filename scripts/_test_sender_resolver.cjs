@@ -7,7 +7,9 @@
  *
  * 节：
  *   A  resolver 纯逻辑（快路/getCode 三态/反查/重试/缓存/failover/ankrFromEnv/溢出/stop）
- *   B  collector 分流接线（无 resolver 旧路径 / submit 回推 / EOA 快路 price_outlier 时序）
+ *   B  collector 分流接线（无 resolver 旧路径 / submit 回推 / EOA 快路 price_outlier 时序 /
+ *      B5-B10 直连回迁补丁：延迟喂 FA / 直推 sender=null / 尘 tick 门 / offers 不传（tvl 口径）/
+ *      _onTickBuffered 钩子 / registerToken platform 键）
  *   C  源码口径防回归（grep 断言）
  */
 
@@ -298,6 +300,71 @@ async function testB() {
             ok(c2._tickBuffer[0].price_outlier === true, `B3[${name}] FA outlier 回写在 flush 前生效（对象引用机制）`);
             ok(c2._tickBuffer[0].sender_address === '0xtrader', `B3[${name}] 快路 sender=trader`);
         }
+
+        // B5 resolver 慢路延迟喂 FA（回迁补丁）：未回推前 FA 零调用；回推后 FA 收到已定值 sender
+        {
+            const c = new Ctor({ [cfgKey]: {} }, quietLogger);
+            const got = [];
+            c._senderResolver = { submit: (p) => got.push(p) };
+            const faTicks = [];
+            c._factorAggregator = { processTick: (t) => faTicks.push(t), registerToken: () => {} };
+            c._minTickBnb = 0;
+            c._emitTick(decoded('0xb5'));
+            ok(got.length === 1 && faTicks.length === 0, `B5[${name}] 未回推 FA 零调用（合约行延迟喂食）`);
+            got[0].tickRow.sender_address = '0xresolved';
+            got[0].pushRow(got[0].tickRow);
+            ok(faTicks.length === 1 && faTicks[0].sender_address === '0xresolved' && faTicks[0].trader_address === '0xtrader', `B5[${name}] 回推后 FA 收已解析 sender（钱包口径 sender||trader）`);
+            ok(c._tickBuffer.length === 1, `B5[${name}] 回推行进 buffer`);
+        }
+
+        // B6 直推路径（无 resolver）FA 收 sender_address=null（回退 trader = 旧 collector 行为）
+        {
+            const c = new Ctor({ [cfgKey]: {} }, quietLogger);
+            const faTicks = [];
+            c._factorAggregator = { processTick: (t) => faTicks.push(t), registerToken: () => {} };
+            c._minTickBnb = 0;
+            c._emitTick(decoded('0xb6'));
+            ok(faTicks.length === 1 && faTicks[0].sender_address === null, `B6[${name}] 直推 FA sender=null`);
+        }
+
+        // B7 尘 tick（< minTickBnb）不喂 FA，仍照常落 buffer
+        {
+            const c = new Ctor({ [cfgKey]: {} }, quietLogger);
+            const faTicks = [];
+            c._factorAggregator = { processTick: (t) => faTicks.push(t), registerToken: () => {} };
+            c._minTickBnb = 2; // decoded.bnbAmount=1 < 2 → 尘 tick
+            c._emitTick(decoded('0xb7'));
+            ok(faTicks.length === 0 && c._tickBuffer.length === 1, `B7[${name}] 尘 tick 不喂 FA 仍落 buffer`);
+        }
+
+        // B9 _onTickBuffered 钩子（TPA live 缓冲，pumpfun 同款）：push 后同步触发，行引用=buffer 行
+        {
+            const c = new Ctor({ [cfgKey]: {} }, quietLogger);
+            const hooked = [];
+            c._onTickBuffered = (row) => hooked.push(row);
+            c._emitTick(decoded('0xb9'));
+            ok(hooked.length === 1 && hooked[0] === c._tickBuffer[0] && hooked[0].sender_address === null, `B9[${name}] _onTickBuffered 同步触发（行引用=buffer 行）`);
+        }
+
+        // B10 registerToken meta 带 platform 键（直喂 FA 后路由门/毕业锚维度自带，此前由 consumer 注入）
+        {
+            const c = new Ctor({ [cfgKey]: {} }, quietLogger);
+            let meta = null;
+            c._factorAggregator = { processTick: () => ({}), registerToken: (_t, m) => { meta = m; } };
+            c._handleTokenCreate({ creator: '0xc', token: '0xt', name: 'n', symbol: 's', totalSupply: 1e9, blockTimeMs: 1700000000000, blockNumber: 1, txHash: '0xz' });
+            ok(meta && meta.platform === name, `B10[${name}] registerToken meta.platform=${name}`);
+        }
+    }
+
+    // B8 fourmeme FA tick 刻意不含 offers/funds_bnb（对齐 SharedTickConsumer/回测口径：DB 行无
+    //    这两列 tvl 恒 0——直连恢复后若重新传入会造成虚拟/回测 tvl 因子分叉）
+    {
+        const c = new FourMemeAnkrWsCollector({ fourmemeWs: {} }, quietLogger);
+        const faTicks = [];
+        c._factorAggregator = { processTick: (t) => faTicks.push(t), registerToken: () => {} };
+        c._minTickBnb = 0;
+        c._emitTick(decodedFm('0xb8'));
+        ok(faTicks.length === 1 && !('offers' in faTicks[0]) && !('funds_bnb' in faTicks[0]), 'B8[fourmeme] FA tick 无 offers/funds_bnb（tvl 口径对齐回测）');
     }
 
     // B4 resolver 停机竞态口径：stop 后到货（kind 未知，需 RPC 才能判）→ NULL 直推保行；
@@ -325,7 +392,8 @@ function testC() {
     for (const [name, src] of [['fourmeme', fm], ['flap', fl]]) {
         ok(src.includes('sender_address: null'), `C1[${name}] tickRow 显式 sender_address 占位`);
         ok(/this\._senderResolver\.submit\(\{/.test(src), `C1[${name}] _emitTick 走 resolver.submit 分流`);
-        ok(/pushRow: \(row\) => this\._pushTickRow\(row\)/.test(src), `C1[${name}] pushRow 回推咽喉 _pushTickRow`);
+        ok(/pushRow: \(row\) => \{ this\._feedFa\(decoded, row, priceUsd\); this\._pushTickRow\(row\); \}/.test(src), `C1[${name}] pushRow 回推统一经 _feedFa→_pushTickRow（sender 定值后进 FA/buffer）`);
+        ok(/sender_address: tickRow\.sender_address \|\| null/.test(src), `C1[${name}] _feedFA 钱包口径 sender||trader`);
         ok(/constructor\(config, logger, tokenPool = null, factorAggregator = null, callbacks = \{\}, senderResolver = null\)/.test(src), `C1[${name}] 构造第 6 参 senderResolver`);
     }
 

@@ -23,13 +23,11 @@
  *      + 落 token_position_analyses 表
  *
  * ═══════════════ BSC 架构性偏离（其余逐字对齐母版）═══════════════
- *   1. ★live 三件套不迁（initLiveTicksBuffer/preloadRecentTicks/ingestLiveTick +
- *      liveTicksPreload* 配置）：watcher 架构 DB 即真相——母版 live 内存缓冲是为消除实时 _analyze
- *      的 DB ticks 往返（139 直连 WSS 架构下 DB 只有自己的 tick）；richer-js 的 wss_price_ticks
- *      由常驻 watcher 全局落库，live 直查 as-of 窗口永远完整，缓冲无必要。live miss/stale 路径
- *      直查 DB（批量 IN 100 + id 游标），延迟 ~1-2s 量级（TPA verdict 非阻塞路径，可接受）。
- *      prewarmLiveTokenProfiles 保留函数体但 live 恒 no-op（无缓冲可收集）；回测 setHistoricalTicks
- *      注入路径照常生效。若未来 live 改直连 WSS 需补回三件套。
+ *   1. live 三件套已回迁（2026-10-09 直连架构：watcher 废除，实验进程自持 WSS，collector
+ *      _onTickBuffered 同步喂缓冲 → 运行期零 DB ticks 查询，TPA 触发点画像从 DB 查询级 ~1-2s
+ *      降回内存级——watcher 时代的「不迁」偏离就此兑现收回）。BSC 适配仅两处：COLS
+ *      bnb_amount/block_number；预载 id 倒序全表扫无 platform 过滤（钱包画像跨平台全局，
+ *      与 DB 直查路径同口径）。回测 setHistoricalTicks / web 不调三件套，行为不变。
  *   2. walletHoldingPct 分母 = faState.totalSupply（four.meme=TokenCreate d[5] / flap=1e9 固定，
  *      registerToken 回填），缺失(=0) → null fail-closed——FA 偏离 #1 先例（母版用常数 1e9 分母）。
  *   3. enforce 默认 false（母版 true）：richer-js 上线姿态 shadow 先行（策略条件暂不引用 TPAPre_*，
@@ -133,6 +131,12 @@ const DEFAULT_CONFIG = {
   // tiny-level bad_action 独立特性：0.2/0.2 BNB 档恶意行为检测（卡线军团绕过 low 0.6 档补口），
   //   与 bad_action/lowLevelBadAction 平级独立、不影响已有机制。阈值/开关改 tiny-level-bad-action.js。
   tinyLevelBadAction: { ...TINY_LEVEL_DEFAULT_CONFIG },
+  // live ticks 缓冲预载（直连架构回迁 2026-10-09；母版 2026-08-15 用户拍板机制：运行期零 DB
+  //   ticks 查询——启动一次性加载 + collector tick 增量补充）。0=auto：窗口=[max(offline
+  //   data_through)-30min margin, now]（补上次 step4 build 后的全部缺口）；>0=固定分钟；-1=关闭。
+  //   liveTicksPreloadMaxMinutes：auto 护栏上限（防 offline 表异常陈旧拖爆内存），触顶 warn。
+  liveTicksPreloadMinutes: 0,
+  liveTicksPreloadMaxMinutes: 1440,
 };
 
 // 显式声明「本调用不消费 trigger」：非引擎复用点（web PositionAnalysisService）只用
@@ -278,7 +282,10 @@ class TokenPositionAnalyzer {
     this._walletProfileCache = new Map(); // cacheKey=address → { ts(asOfTime), profile }，TTL=walletProfileCacheTtlMs(10min)
     this._tokenProfileCache = new Map(); // token → { category, flashCrashPeriod, firstTickTime } | null（token_profiles 表，bad_action 消费；分类属性稳定，缓存不过期）
     this._offlineProfilePreloaded = null; // Map<address,{dataThroughMs,dataThroughIso,profile}>|null：启动时 preloadOfflineProfiles() 一次 SELECT wallet_offline_profiles 全表填充（回测与 live 均 preload；web 保持 null → fetch 函数 fallback DB）。★单独 Map 不碰 _walletProfileCache（后者 TTL 命中会短路 fresh/stale/miss 分类 → 丢 stale 增量合并）。
-    this._walletTicksPreloaded = null; // Map<trader_address,tick[]>|null：仅回测 setHistoricalTicks（本实验全量 ticks）一次填充；live 不缓冲（架构性偏离 #1，DB 即真相）；web 保持 null → 走 DB 分支。★单独 Map 不碰 _walletProfileCache。
+    this._walletTicksPreloaded = null; // Map<trader_address,tick[]>|null：回测 setHistoricalTicks（本实验全量 ticks）一次填充 / 实时引擎 initLiveTicksBuffer 空表起步 + preloadRecentTicks 预载 + collector tick 逐笔累积（直连架构 2026-10-09）；web 保持 null → 走 DB 分支。★单独 Map 不碰 _walletProfileCache。
+    this._liveTicksBufferStartMs = null; // live 缓冲覆盖起点（initLiveTicksBuffer 置启动时刻，preloadRecentTicks 向前扩）。null=非 live 缓冲路径（回测/web）→ 缺口计数不生效
+    this._liveTicksPreloadMinutes = config.liveTicksPreloadMinutes != null ? Number(config.liveTicksPreloadMinutes) : 0; // 0=auto/-1=off/>0=固定分钟
+    this._liveTicksPreloadMaxMinutes = config.liveTicksPreloadMaxMinutes != null ? Number(config.liveTicksPreloadMaxMinutes) : 1440;
 
     _logger = deps.logger || null;
 
@@ -486,16 +493,124 @@ class TokenPositionAnalyzer {
     return idx.size;
   }
 
-  // （live 三件套 initLiveTicksBuffer/preloadRecentTicks/ingestLiveTick 不迁——架构性偏离 #1，
-  //   见文件头注。watcher 架构 DB 即真相，live 直查 as-of 窗口永远完整。）
+  /**
+   * 实时引擎（virtual/live 同一引擎类）：初始化内存 ticks 缓冲（直连架构 2026-10-09 回迁）。
+   * 启动后 collector 每笔落表 tick 经 _onTickBuffered 回调累积到此，_fetchWalletTicksBatch
+   * 命中内存零 DB round-trip（根治实时 miss/stale 路径 per-batch ~1-2s DB 往返）。
+   * 口径=回测 setHistoricalTicks（trader→ticks[]），区别：回测一次灌本实验全量（platform 过滤后），
+   * 实时逐笔累积 [启动,now] 全平台 + preloadRecentTicks 向前补重启前窗口。
+   * 回测走 setHistoricalTicks 不调本方法；web 不调 → _walletTicksPreloaded 保持 null 走 DB。
+   */
+  initLiveTicksBuffer() {
+    this._walletTicksPreloaded = new Map();
+    this._liveTicksBufferStartMs = Date.now();
+  }
+
+  /**
+   * 实时引擎：累积一笔 collector tick 到内存索引。由引擎经 collector._onTickBuffered 回调逐笔
+   * 调用（同步 Map push，µs 级不阻塞 WSS 解析）。
+   * ⚠️累积源=collector _tickBuffer 落表行（bnb_amount 原始 BNB 值，含 < minTickBnb 尘 tick），
+   *   非 FA processTick tick（后者经尘 tick 门过滤）——离线画像/DB 直查路径口径=全量落表行，
+   *   用 FA tick 会让缓冲与两者口径漂移（尘 tick 计数丢失）。分组键 trader_address（TPA 基准
+   *   仍 trader 口径，GMGN 路由行在 TPA 里呈现为单一巨户——二期整套切 sender 时一并改）。
+   */
+  ingestLiveTick(tick) {
+    if (!this._walletTicksPreloaded || !tick?.trader_address) return;
+    let arr = this._walletTicksPreloaded.get(tick.trader_address);
+    if (!arr) { arr = []; this._walletTicksPreloaded.set(tick.trader_address, arr); }
+    arr.push(tick);
+  }
+
+  /**
+   * 实时引擎：启动预载近期 DB ticks 到内存缓冲（重启连续性：无此预载时跨重启存活 token 的
+   * holder 增量 / miss 钱包历史全丢——内存缓冲只盖 [启动,now]）。
+   * 设计原则（母版 2026-08-15 用户拍板）：运行期零 DB ticks 查询——启动一次性加载 + collector
+   * tick 增量补充，画像构建只读内存。
+   * 窗口（auto，默认）：[max(offline data_through) - 30min margin, now]——offline profile 是
+   *   HF 钱包全历史聚合，max(data_through)≈上次 step4 build 扫描时点，其后 ticks 全不在 offline
+   *   → 预载 [build, now] 即补全 stale 增量与 miss 钱包。残余缺口=子阈值 miss 钱包在窗口前的
+   *   散 tick，由 _fetchWalletTicksBatch 的 fetchTicksPreBuffer 计数暴露（不静默吞）。
+   * 扫描方式：主键 id 倒序游标分页（id 与写入时序单调，走 PK 索引比按 block_time 过滤扫全表快
+   *   一个量级）；全表扫无 platform 过滤——钱包画像跨平台全局，与 DB 直查路径同口径（BSC 适配点）。
+   * COLS 与 _fetchWalletTicksBatch DB 路径逐字一致（BSC：bnb_amount/block_number）。
+   * @param {Object} supabase 引擎持有的 supabase client
+   * @returns {Promise<{rows:number,pages:number,ms:number,sinceIso:string}|null>} null=已关闭(-1)
+   */
+  async preloadRecentTicks(supabase) {
+    if (this._liveTicksPreloadMinutes < 0) return null;
+    if (!this._walletTicksPreloaded) throw new Error('preloadRecentTicks: live ticks 缓冲未初始化（须先 initLiveTicksBuffer）');
+    if (!supabase) throw new Error('preloadRecentTicks: supabase client 未传入');
+    const t0 = Date.now();
+    const nowMs = Date.now();
+    let sinceMs;
+    if (this._liveTicksPreloadMinutes > 0) {
+      sinceMs = nowMs - this._liveTicksPreloadMinutes * 60000;
+    } else {
+      // auto：max(data_through) - 30min margin（margin 盖 build 扫描期间的并发写入/时钟偏差）
+      let maxThrough = 0;
+      if (this._offlineProfilePreloaded && this._offlineProfilePreloaded.size) {
+        for (const v of this._offlineProfilePreloaded.values()) {
+          if (v.dataThroughMs > maxThrough) maxThrough = v.dataThroughMs;
+        }
+      } else {
+        log('warn', 'preloadRecentTicks: offline 表未预载/为空，auto 窗口回退 liveTicksPreloadMaxMinutes');
+      }
+      sinceMs = maxThrough > 0 ? maxThrough - 30 * 60000 : nowMs - this._liveTicksPreloadMaxMinutes * 60000;
+    }
+    const floorMs = nowMs - this._liveTicksPreloadMaxMinutes * 60000;
+    if (sinceMs < floorMs) {
+      log('warn', `preloadRecentTicks: 窗口起点 ${new Date(sinceMs).toISOString()} 超上限 → clamp 到 ${this._liveTicksPreloadMaxMinutes}min（offline build 可能陈旧，缺口由 fetchTicksPreBuffer 计数暴露）`);
+      sinceMs = floorMs;
+    }
+    const sinceIso = new Date(sinceMs).toISOString();
+    const COLS = 'id,trader_address,token_address,bnb_amount,price_usd,trade_type,block_time,block_number';
+    const rows = [];
+    let lastId = null;
+    let pages = 0;
+    const MAX_PAGES = 4000; // 护栏：4000 页 × 1000 = 400 万行（BSC 双平台 ~300 万 ticks/天量级，24h gap 可覆盖；触顶如实收缩+warn）
+    {
+      const { data, error } = await supabase.from('wss_price_ticks').select('id').order('id', { ascending: false }).limit(1);
+      if (error) throw error;
+      if (!data || !data.length) return { rows: 0, pages: 0, ms: Date.now() - t0, sinceIso };
+      lastId = data[0].id;
+    }
+    let oldestCoveredMs = nowMs;
+    while (pages < MAX_PAGES) {
+      const { data, error } = await supabase.from('wss_price_ticks').select(COLS)
+        .lt('id', lastId).order('id', { ascending: false }).limit(1000);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      pages++;
+      lastId = data[data.length - 1].id;
+      let pageOldest = Infinity;
+      for (const r of data) {
+        const bt = new Date(r.block_time).getTime();
+        if (bt < pageOldest) pageOldest = bt;
+        if (bt >= sinceMs) rows.push(r);
+      }
+      if (pageOldest !== Infinity && pageOldest < oldestCoveredMs) oldestCoveredMs = pageOldest;
+      if (pageOldest < sinceMs) break; // 本页已越过窗口起点 → 覆盖完毕
+    }
+    if (pages >= MAX_PAGES) {
+      log('warn', `preloadRecentTicks: 触顶 MAX_PAGES=${MAX_PAGES}，窗口收缩到实际覆盖 ${new Date(oldestCoveredMs).toISOString()}（如实记录不静默）`);
+      sinceMs = oldestCoveredMs;
+    }
+    // block_time 升序灌入（保持 per-trader 数组时序；引擎侧调用时序保证预载先于 collector.start，无 live tick 交错）
+    rows.sort((a, b) => new Date(a.block_time).getTime() - new Date(b.block_time).getTime());
+    for (const r of rows) this.ingestLiveTick(r);
+    this._liveTicksBufferStartMs = Math.min(this._liveTicksBufferStartMs, sinceMs);
+    const ms = Date.now() - t0;
+    log('info', `preloadRecentTicks: ${rows.length} 行 / ${pages} 页 / ${(ms / 1000).toFixed(1)}s（窗口自 ${new Date(sinceMs).toISOString()}）`);
+    return { rows: rows.length, pages, ms, sinceIso: new Date(sinceMs).toISOString() };
+  }
 
   /**
    * 批量预加载 token profile 塞满 _tokenProfileCache（两条路径共用）：
    * - 回测：BacktestEngine._initializeDataSources 在 setHistoricalTicks 后调一次（本实验全部 token
    *   一次预载 → 之后触发的 _fetchTokenProfiles 全 cache 命中零 DB）。回测数据冻结，token 分类
    *   （category/闪崩段/firstTickTime）客观稳定（缓存不过期），启动期一次覆盖整个回测期。
-   * - live 预热：WssTradingEngine 启动 fire-and-forget 调 prewarmLiveTokenProfiles（BSC live 无
-   *   ticks 缓冲恒 no-op，见下）。
+   * - live 预热：WssTradingEngine 启动 fire-and-forget 调 prewarmLiveTokenProfiles（直连架构
+   *   2026-10-09 起生效：缓冲=预载窗口 + collector tick 增量的 distinct token 一次预载）。
    * .has() 过滤已缓存 token（幂等：OPB 已喂入的新分类不会被旧 DB 快照覆盖）。
    * @param {string[]} tokenAddrs unique token_address 数组
    * @param {object} supabase
@@ -525,10 +640,11 @@ class TokenPositionAnalyzer {
   }
 
   /**
-   * live 预热：从 _walletTicksPreloaded 收集 distinct token_address → preloadTokenProfiles 一次预载。
-   * ★BSC live 无 ticks 缓冲（架构性偏离 #1，initLiveTicksBuffer 不迁）→ _walletTicksPreloaded 仅回测
-   *   setHistoricalTicks 填充 → live 调用恒返 null（干净 no-op，保留函数体对齐母版结构，未来 live 补
-   *   缓冲即生效）；回测已直接用 token 集合 preloadTokenProfiles，本函数回测也无需调。
+   * live 预热：从 _walletTicksPreloaded 收集 distinct token_address → preloadTokenProfiles 一次预载
+   * （消除首分析 _fetchTokenProfiles 冷 token 串行 DB 往返；fire-and-forget，与首批分析并发安全）。
+   * 直连架构 2026-10-09 起生效（此前 watcher 时代无缓冲恒 no-op）：缓冲=preloadRecentTicks 预载窗口
+   * + collector tick 增量；窗口后全新 token 运行期按需冷查，OPB 在线分类经 upsertTokenProfileCache
+   * 喂入。回测已直接用 token 集合 preloadTokenProfiles，本函数回测无需调。
    * @param {object} supabase
    * @returns {Promise<{tokens:number,cached:number,ms:number}|null>} null=缓冲未初始化/无 token
    */
@@ -1038,11 +1154,21 @@ class TokenPositionAnalyzer {
    */
   async _fetchWalletTicksBatch(supabase, addresses, sinceIso, asOfIso) {
     const _t0 = this._prof ? Date.now() : 0;
-    // 注入索引命中 → 内存读零 DB round-trip（仅回测：setHistoricalTicks 注入本实验全量 ticks）。
-    //   live 不缓冲（架构性偏离 #1）→ DB 直查 as-of 窗口（watcher 落库全局流，永远完整）。
+    // 索引命中 → 内存读零 DB round-trip。回测注入本实验全量 ticks（setHistoricalTicks）；
+    //   live=启动预载 + collector tick 逐笔累积（initLiveTicksBuffer，直连架构 2026-10-09），
+    //   miss/stale 增量全在缓冲内，窗口外请求不回退 DB、只计数暴露（见下方缺口段）。
     if (this._walletTicksPreloaded) {
+      // live 缓冲窗口缺口可视化（用户设计原则：运行期零 DB ticks 查询，缺口不补只计数暴露）。
+      //   预载窗口=auto 对齐 offline build 时点，正常应为 0；>0 说明预载窗口不足（manual 窗口
+      //   clamp / offline 陈旧 / MAX_PAGES 触顶收缩）。回测路径 _liveTicksBufferStartMs===null 天然 inert。
+      const sinceMs = new Date(sinceIso).getTime(); // 声明须在下方缺口检查之前
+      if (this._liveTicksBufferStartMs != null && sinceMs < this._liveTicksBufferStartMs) {
+        this._fetchTicksPreBufferN = (this._fetchTicksPreBufferN || 0) + 1;
+        if (this._fetchTicksPreBufferN <= 5 || this._fetchTicksPreBufferN % 100 === 0) {
+          log('warn', `_fetchWalletTicksBatch: 请求窗口起点 ${sinceIso} 早于缓冲覆盖起点 ${new Date(this._liveTicksBufferStartMs).toISOString()}，缺口段被截断（第 ${this._fetchTicksPreBufferN} 次）`);
+        }
+      }
       const byAddr = new Map();
-      const sinceMs = new Date(sinceIso).getTime();
       const asOfMs = new Date(asOfIso).getTime();
       for (const a of addresses) {
         const all = this._walletTicksPreloaded.get(a);
