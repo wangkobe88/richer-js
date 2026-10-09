@@ -889,10 +889,26 @@ class ExperimentSignals {
    * 避免窗口外信号锚定 X 轴导致轴范围不随过滤收缩）
    */
   _buildSignalAnnotations(tokenSignals, trimStart, trimEnd) {
-    const annotations = [];
+    // 同刻信号（回测 created_at=block_time 秒精度，BSC 0.75s 出块同秒先买后卖常见）
+    // 垂直线会完全重叠、标签叠在同一位置互相覆盖 → 只见后画的那条（case
+    // 0xcc4d7275…7777 只见 SELL 不见 BUY）。处理：窗口内信号先排序（时间升序、
+    // 同刻 buy 在前，与信号列表 tie-break 同口径），同刻第 idx 条标签 yAdjust
+    // 逐条下移 18px 错开，两条都可见；线保持各自颜色。非同刻 idx=0 与旧行为一致。
+    const inWindow = [];
     tokenSignals.forEach(signal => {
       const signalTime = new Date(signal.timestamp || signal.created_at).getTime();
+      if (Number.isNaN(signalTime)) return;
       if (trimStart != null && trimEnd != null && (signalTime < trimStart || signalTime > trimEnd)) return;
+      inWindow.push({ signal, signalTime });
+    });
+    inWindow.sort((a, b) =>
+      (a.signalTime - b.signalTime)
+      || ((a.signal.action === 'buy' ? 0 : 1) - (b.signal.action === 'buy' ? 0 : 1))
+    );
+
+    const stackCount = new Map(); // signalTime -> 已画条数（同刻错位用）
+    const annotations = [];
+    for (const { signal, signalTime } of inWindow) {
       const signalType = signal.signal_type || signal.action?.toUpperCase();
       const isBuy = signalType === 'BUY';
       const isExecuted = signal.executed === true || signal.executed === 'true';
@@ -900,6 +916,8 @@ class ExperimentSignals {
         ? (isBuy ? '#22c55e' : '#dc2626')
         : (isBuy ? '#86efac' : '#fca5a5');
       const labelText = (isBuy ? 'BUY' : 'SELL') + (isExecuted ? ' ✓' : ' ✗');
+      const idx = stackCount.get(signalTime) || 0;
+      stackCount.set(signalTime, idx + 1);
       annotations.push({
         type: 'line',
         xMin: signalTime,
@@ -911,12 +929,13 @@ class ExperimentSignals {
           display: true,
           content: labelText,
           position: 'start',
+          yAdjust: idx * 18, // 同刻逐条下移，防标签互相覆盖
           backgroundColor: borderColor,
           color: '#fff',
           font: { size: 11, weight: isExecuted ? 'bold' : 'normal' },
         },
       });
-    });
+    }
     return annotations;
   }
 

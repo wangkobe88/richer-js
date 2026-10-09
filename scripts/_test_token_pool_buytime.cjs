@@ -140,5 +140,17 @@ check('comparator 含同秒 tie-break（时间相等时 buy 排前）', () => {
   assert.ok(/a\.action\s*===\s*'buy'\s*\?\s*0\s*:\s*1/.test(m[0]), "tie 分支应为 buy=0 买在前");
 });
 
+console.log('━━━ T5 图表标注同刻错位源码口径（散点图/K线图共用 helper）━━━');
+check('_buildSignalAnnotations 含同刻 yAdjust 逐条下移（同秒标签不再互相覆盖）', () => {
+  assert.ok(/yAdjust:\s*idx\s*\*\s*18/.test(sigSrc), '标签应含 yAdjust: idx * 18 同刻错位');
+  assert.ok(/stackCount\.get\(signalTime\)/.test(sigSrc), '应以 signalTime 维护同刻计数');
+});
+check('标注构造前排序：时间升序 + 同刻 buy 在前（与列表 tie-break 同口径）', () => {
+  const m = sigSrc.match(/_buildSignalAnnotations[\s\S]{0,2000}?inWindow\.sort\(\(a,\s*b\)\s*=>[\s\S]{0,300}?\)\)/);
+  assert.ok(m, '_buildSignalAnnotations 应含 inWindow.sort');
+  assert.ok(/a\.signalTime\s*-\s*b\.signalTime/.test(m[0]), '主键应为时间升序');
+  assert.ok(/a\.signal\.action\s*===\s*'buy'/.test(m[0]), '同刻 tie-break 应 buy 在前');
+});
+
 console.log(`\n${'━'.repeat(50)}\n结果：${passed} 通过 / ${failed} 失败`);
 process.exit(failed ? 1 : 0);
