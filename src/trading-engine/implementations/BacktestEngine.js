@@ -600,7 +600,7 @@ class BacktestEngine extends AbstractTradingEngine {
         for (const row of data) rows.push(row);
         this.metrics.processedDataPoints += data.length;
         if (priorRowCount + rows.length > maxTickRows) {
-          throw new Error();
+          throw new Error(`回放 tick 总量超出分页保护上限（${maxTickRows}）`);
         }
         if (data.length < TICK_PAGE_SIZE) break;
         cursor = data[data.length - 1].id;
