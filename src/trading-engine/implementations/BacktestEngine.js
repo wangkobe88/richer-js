@@ -31,15 +31,18 @@ const Decimal = require('decimal.js');
 
 const baseConfig = require('../../../config/default.json');
 
-const TICK_PAGE_SIZE = 500;       // 分页读取页大小（必须 < Supabase 默认 max rows 1000，
-                                  // 否则响应被服务端截断、终止条件误判数据到尾）
+const TICK_PAGE_SIZE = 500;       // keyset 分页页大小（单 token 长尾路径；必须 < Supabase
+                                  // 默认 max rows 1000，否则响应被服务端截断、终止条件误判）
+const TICK_UNORDERED_LIMIT = 1000; // 无序合一拉取上限（对齐 Supabase max rows 硬上限——
+                                  // 服务端 max-rows 截断恰在此值，limit 再大也拿不到更多）
 const MAX_TICK_PAGES = 2000;      // 分页保护上限（全局累计 100 万 tick）
-const TOKEN_CHUNK_SIZE = 50;      // 探针 _probeIncrementalTickId 的 .in 批大小（数据拉取已改
-                                  // 逐 token 单查，本常量不再用于数据装载）。2026-10-09 沿革：
-                                  // in(100)/in(50)+gt(id)+order id+limit 500 形状 planner 稳定选
+const TOKEN_CHUNK_SIZE = 50;      // .in 批大小（探针 + 数据装载合一请求共用）。2026-10-09
+                                  // 沿革：in(N)+gt(id)+ORDER BY id+limit 形状 planner 稳定选
                                   // id 顺序扫（36a2c12a 四启全死于 8s statement timeout，页级
                                   // 重试 3 次仍死=计划本身坏，与 (token,platform,id) 索引无关）；
-                                  // 探针的无序 LIMIT 1 形状不受影响（无 top-k 可贪，实测稳定快）
+                                  // 无序形状（无 ORDER BY）无 top-k 可贪、稳定走 token 索引
+                                  //（探针 LIMIT 1 / count exact 实测皆 <100ms），装载已切锚定
+                                  // 无序拉取（_fetchPlatformTicksRows）
 const PAGE_ATTEMPTS = 3;          // 单页拉取重试上限（探针 PROBE_ATTEMPTS 同款；连续失败 throw）
 const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐实时引擎 30s）
 // ticks 拉取列清单单一事实源：拉取查询与 BacktestTickCache columnsTag 同源
@@ -574,60 +577,154 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 单 platform 逐 token keyset 分页拉取（MISS 传 afterId=0，STALE 增量传缓存 meta.maxId）。
-   * 逐 token 单查（token_address eq + platform eq + id 升序 keyset 分页 .gt('id', cursor)，
-   * 语义与 OFFSET 严格等价——id 升序、无重复无遗漏）；禁 spread push。
-   * priorRowCount 保持「全局累计 100 万 tick」护栏口径（跨 platform 累计）。
+   * 单 platform 锚定无序拉取（2026-10-09 终版，36a2c12a 五连折教训）。
+   * MISS 传 afterId=0，STALE 增量传缓存 meta.maxId。
+   *
+   * 形状沿革：in(N)+gt(id)+ORDER BY id+limit 形状 planner 稳定选 pkey 顺序扫
+   * （ORDER BY id 的 top-k 贪心；in(100)/in(50) 皆 8s statement timeout 且页级
+   * 重试 3 次仍死=计划本身坏，与 (token,platform,id) 索引无关）；逐 token eq 稳定
+   * 但 95k token 串行 ~48min/平台不可接受。无序形状（count exact 79-91ms / 无序
+   * limit 49-71ms，182 实测）无 top-k 可贪、planner 稳定走 token 索引——本方法
+   * 全部请求无 ORDER BY（唯一例外：单 token eq keyset，等值选择性强制索引）。
+   *
+   * headAnchor 时变竞态封死：装载开始锚表头 id，全部请求 .lte(id, headAnchor)
+   * 闭区间——count 与 fetch 之间采集器新写的行（id > headAnchor）不进区间，
+   * 行数对账在固定区间上确定性一致（无序 limit N=count 数学无损）；锚后新行由
+   * 下次 STALE 增量正常补齐（探针 gt(meta.maxId)）。
+   *
+   * 每 chunk(50) 合一请求（count exact + 无序 limit 1000）：count=0 → 跳过；
+   * count≤1000 且 len==count → 一次拉全；count>1000（热门聚集）或对账失配 →
+   * 拆半递归；单 token（长尾/失配定位）→ eq+keyset 拉全并对账 count，失配
+   * throw fail-loud。禁 spread push。
    */
   async _fetchPlatformTicksRows(supabase, addresses, platform, afterId, priorRowCount) {
     // 全局累计护栏上限 config 可配（backtest.maxTickRows）：默认 100 万防「拉错集合」
     // 意外；多天大窗口（36a2c12a 4 天 both 全窗口回测 flap 即 90 万+）按实验显式
-    // 放宽——护栏是防意外不是正确性机制（keyset 分页无重复无遗漏）。
+    // 放宽——护栏是防意外不是正确性机制（行数对账保证无重复无遗漏）。
     const maxTickRows = this._experiment.config?.backtest?.maxTickRows || MAX_TICK_PAGES * TICK_PAGE_SIZE;
     const rows = [];
-    // 逐 token 单查（2026-10-09 终版，36a2c12a 四启实证）：in(N)+gt(id)+order id+limit
-    // 形状 planner 稳定选 id 顺序扫（in(100)/in(50) 皆 8s statement timeout，页级重试
-    // 3 次仍死=非偶发负载，是计划本身坏；实测快慢取决于 chunk 内 id 分布，不可依赖）。
-    // 单 token eq 实测 24-35ms 稳定、0 行死 token 秒回——token 前缀索引天然匹配无
-    // IN 列表歧义。成本：per-platform 全集逐查（95,727 token × ~30ms ≈ 48min 一次性
-    // MISS 全量；此后走 BacktestTickCache STALE 增量不再全量拉）
-    for (let ti = 0; ti < addresses.length; ti++) {
-      if (ti > 0 && ti % 5000 === 0) {
-        this.logger.info(this._experimentId, 'BacktestEngine',
-          `⏳ ${platform} ticks 逐 token 拉取进度: ${ti}/${addresses.length}（已取 ${rows.length} 行）`);
+    const headAnchor = await this._fetchHeadTickId(supabase);
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `${platform} ticks 装载锚定 headId=${headAnchor}（闭区间 (${afterId}, ${headAnchor}]，${addresses.length} token）`);
+
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const guardMaxRows = () => {
+      if (priorRowCount + rows.length > maxTickRows) {
+        throw new Error(`回放 tick 总量超出分页保护上限（${maxTickRows}）`);
       }
+    };
+
+    // 合一请求：count exact + 无序 limit（无 ORDER BY——planner 无 top-k 可贪）
+    const countFetch = async (chunk) => {
+      for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
+        const res = await supabase
+          .from('wss_price_ticks')
+          .select(TICK_SELECT_COLUMNS, { count: 'exact' })
+          .in('token_address', chunk)
+          .eq('platform', platform)
+          .gt('id', afterId)
+          .lte('id', headAnchor)
+          .limit(TICK_UNORDERED_LIMIT);
+        if (!res.error) return res;
+        if (attempt === PAGE_ATTEMPTS) {
+          throw new Error(`读取 wss_price_ticks 失败（连续 ${PAGE_ATTEMPTS} 次）: ${res.error.message}`);
+        }
+        await sleep(1000);
+      }
+    };
+
+    // 单 token keyset（eq 等值形状，唯一允许 ORDER BY：等值选择性强制 token 索引）
+    const keysetFetchToken = async (token, expectedCount) => {
       let cursor = afterId;
+      let got = 0;
       for (let page = 0; page < MAX_TICK_PAGES; page++) {
-        // 单页重试（探针 PROBE_ATTEMPTS 同款，d46b1b6c 案先例）：长循环里单次撞
-        // 负载抖动（实测同形状 47ms~8s+ 波动）不该让整个装载 throw；连续 3 次失败
-        // 仍 throw 保持 fail-loud（真故障不掩盖）
         let data = null;
         let error = null;
         for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
-          const res = await supabase
+          const r = await supabase
             .from('wss_price_ticks')
             .select(TICK_SELECT_COLUMNS)
-            .eq('token_address', addresses[ti])
+            .eq('token_address', token)
             .eq('platform', platform)
             .gt('id', cursor)
+            .lte('id', headAnchor)
             .order('id', { ascending: true })
             .limit(TICK_PAGE_SIZE);
-          if (!res.error) { data = res.data; break; }
-          error = res.error;
-          if (attempt < PAGE_ATTEMPTS) await new Promise(r => setTimeout(r, 1000));
+          if (!r.error) { data = r.data; break; }
+          error = r.error;
+          if (attempt < PAGE_ATTEMPTS) await sleep(1000);
         }
         if (error) throw new Error(`读取 wss_price_ticks 失败（连续 ${PAGE_ATTEMPTS} 次）: ${error.message}`);
         if (!data || data.length === 0) break;
         for (const row of data) rows.push(row);
+        got += data.length;
         this.metrics.processedDataPoints += data.length;
-        if (priorRowCount + rows.length > maxTickRows) {
-          throw new Error(`回放 tick 总量超出分页保护上限（${maxTickRows}）`);
-        }
+        guardMaxRows();
         if (data.length < TICK_PAGE_SIZE) break;
         cursor = data[data.length - 1].id;
       }
+      if (got !== expectedCount) {
+        throw new Error(`wss_price_ticks 单 token 对账失配（keyset 拉到 ${got} ≠ count ${expectedCount}）: ${token}`);
+      }
+    };
+
+    // 自适应拆分：count≤limit 且对账一致（len==count）→ 一次拉全（含单 token 小批，
+    // 省一次 keyset）；count>limit（热门聚集）或对账失配（闭区间下不该发生）→ 多
+    // token 拆半递归 / 单 token 走 keyset 拉全并对账 count，仍失配 throw fail-loud
+    const loadChunk = async (chunk) => {
+      const res = await countFetch(chunk);
+      if (res.count == null) {
+        throw new Error(`wss_price_ticks count 形状异常（null）: platform=${platform}${res.error ? ' ' + res.error.message : ''}`);
+      }
+      const count = res.count;
+      if (count === 0) return;
+      const data = res.data || [];
+      if (count <= TICK_UNORDERED_LIMIT && data.length === count) {
+        for (const row of data) rows.push(row);
+        this.metrics.processedDataPoints += data.length;
+        guardMaxRows();
+        return;
+      }
+      if (chunk.length === 1) {
+        await keysetFetchToken(chunk[0], count);
+        return;
+      }
+      const mid = chunk.length >> 1;
+      await loadChunk(chunk.slice(0, mid));
+      await loadChunk(chunk.slice(mid));
+    };
+
+    for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
+      if (ci > 0 && (ci / TOKEN_CHUNK_SIZE) % 200 === 0) {
+        this.logger.info(this._experimentId, 'BacktestEngine',
+          `⏳ ${platform} ticks 无序拉取进度: token ${ci}/${addresses.length}（已取 ${rows.length} 行）`);
+      }
+      await loadChunk(addresses.slice(ci, ci + TOKEN_CHUNK_SIZE));
     }
     return rows;
+  }
+
+  /**
+   * 表头锚（锚定无序拉取配套）：无 where 的 ORDER BY id DESC LIMIT 1，pkey
+   * 反向树最右叶子恒毫秒级（死的形状是「IN 列表 + 过滤 + ORDER BY DESC」的
+   * top-k 贪心；无过滤表头 top-1 不扫区间）。空表返回 0（lte(id,0) 匹配 0 行
+   * = 空装载，空表语义而非兜底）。
+   */
+  async _fetchHeadTickId(supabase) {
+    for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
+      const res = await supabase
+        .from('wss_price_ticks')
+        .select('id')
+        .order('id', { ascending: false })
+        .limit(1);
+      if (!res.error) {
+        return res.data && res.data[0] ? Number(res.data[0].id) : 0;
+      }
+      if (attempt === PAGE_ATTEMPTS) {
+        throw new Error(`wss_price_ticks 表头锚获取失败（连续 ${PAGE_ATTEMPTS} 次）: ${res.error.message}`);
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
   }
 
   /**

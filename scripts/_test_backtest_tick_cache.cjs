@@ -21,8 +21,12 @@
  *  P. columnsTag 漂移 → 判废 MISS 重拉
  *  Q. 锚定探针形状（2026-10-08 计划翻转事故）：探针 desc 查询带 gt(meta.maxId) 锚、
  *     FRESH 路径锚行 PK 核验恰一次、STALE 增量拉取 afterId=锚
+ *  R. 锚定无序拉取矩阵（2026-10-09 装载重写）：0 行 chunk 跳过 / count≤1000 一次
+ *     拉全 / count>1000 拆半递归 / 单 token keyset 分页+对账 / headAnchor 闭区间
+ *     封死装载中途新写入 / 对账失配 fail-loud / maxTickRows 护栏
  *
- * 零 DB：fake supabase（v2：order desc 生效 + 探针失败注入）打桩 + tmp 目录真实文件读写。
+ * 零 DB：fake supabase（v4：order desc 生效 + 探针失败注入 + count exact + lte +
+ * 多 eq 链 + countPad 失配注入）打桩 + tmp 目录真实文件读写。
  */
 
 'use strict';
@@ -36,41 +40,52 @@ const { mkdtempSync } = fs;
 const { BacktestEngine } = require('../src/trading-engine/implementations/BacktestEngine');
 const { BacktestTickCache } = require('../src/trading-engine/core/BacktestTickCache');
 
-// ==================== stub supabase（v2） ====================
+// ==================== stub supabase（v4） ====================
 
 /**
- * 行集 → 链式 query builder（过滤语义对齐 PostgREST：in/eq/gt + order by id 升/降 + limit）。
- * 相比 _test_backtest_keyset_paging.cjs 的 v1：① order 的 asc 标志真实生效；
- * ② opts.failProbe=true 时探针形状查询（无 order + in 过滤，2026-10-08 无序探针形状）
- * 返回 error（bypass 用例注入；PK 核验 eq 查询无 in 不误伤）；
+ * 行集 → 链式 query builder（过滤语义对齐 PostgREST：in/eq/gt/lte + order by id
+ * 升/降 + limit）。相比 v1：① order 的 asc 标志真实生效；
+ * ② opts.failProbe=true 时探针形状查询（无 order + in 过滤、无 count——2026-10-08
+ * 无序探针形状）返回 error（bypass 用例注入；PK 核验 eq 查询无 in 不误伤；装载
+ * 合一请求带 count exact 不误伤——2026-10-09 同为无序形状但语义不同）；
  * ③ opts.onExec(asc, q) 每次查询执行回调（FRESH 零拉取计数/锚定形状断言用）；
- * ④ 无 order 的查询（探针/锚行 PK 核验）不排序直接过滤（v3）。
+ * ④ 无 order 的查询（探针/锚行 PK 核验）不排序直接过滤（v3）；
+ * ⑤ v4（锚定无序拉取）：select(cols,{count:'exact'}) 返回 count=过滤后总数
+ * （pre-limit，PostgREST exact 语义）；lte 过滤；多 eq 链全生效（_eq 保留首个
+ * 供 Q 段断言）；opts.countPad 让 count 请求虚增 N（对账失配注入）。
  */
 function makeFakeSupabaseV2(rows, opts = {}) {
   return {
     from() { return this._b(); },
     _b() {
       const q = {
-        _in: null, _eq: null, _gt: null, _limit: null, _order: null,
-        select() { return this; },
+        _in: null, _eq: null, _eqs: [], _gt: null, _lte: null, _limit: null, _order: null, _countExact: false,
+        select(cols, selectOpts) {
+          this._countExact = !!(selectOpts && selectOpts.count === 'exact');
+          return this;
+        },
         in(col, vals) { this._in = { col, vals }; return this; },
-        eq(col, val) { this._eq = { col, val }; return this; },
+        eq(col, val) { this._eqs.push({ col, val }); if (!this._eq) this._eq = { col, val }; return this; },
         gt(col, val) { this._gt = { col, val }; return this; },
+        lte(col, val) { this._lte = { col, val }; return this; },
         order(col, o) { this._order = { col, asc: !o || o.ascending !== false }; return this; },
         limit(n) { this._limit = n; return this._exec(); },
         _exec() {
-          if (opts.failProbe && !q._order && q._in) {
+          if (opts.failProbe && !q._order && q._in && !q._countExact) {
             return { data: null, error: { message: 'probe boom (injected)' } };
           }
           if (opts.onExec) opts.onExec(!!(q._order && q._order.asc), q);
           let out = rows.filter(r =>
             (!q._in || q._in.vals.includes(r[q._in.col]))
-            && (!q._eq || r[q._eq.col] === q._eq.val)
-            && (!q._gt || r[q._gt.col] > q._gt.val));
+            && q._eqs.every(e => r[e.col] === e.val)
+            && (!q._gt || r[q._gt.col] > q._gt.val)
+            && (!q._lte || r[q._lte.col] <= q._lte.val));
           if (q._order) {
             out.sort((a, b) => (q._order.asc ? a[q._order.col] - b[q._order.col] : b[q._order.col] - a[q._order.col]));
           }
-          return { data: out.slice(0, q._limit), error: null };
+          const res = { data: out.slice(0, q._limit), error: null };
+          if (q._countExact) res.count = out.length + (opts.countPad || 0);
+          return res;
         },
       };
       return q;
@@ -127,6 +142,7 @@ function makeEngineStub({ rows, platforms, startFilter = null, endFilter = null,
     _tickCache: new BacktestTickCache({ logger, experimentId: 'exp-bt', cacheDir }),
     _loadRawTickRows: BacktestEngine.prototype._loadRawTickRows,
     _fetchPlatformTicksRows: BacktestEngine.prototype._fetchPlatformTicksRows,
+    _fetchHeadTickId: BacktestEngine.prototype._fetchHeadTickId,
     _probeIncrementalTickId: BacktestEngine.prototype._probeIncrementalTickId,
     _anchorRowExists: BacktestEngine.prototype._anchorRowExists,
     _getClient: () => makeFakeSupabaseV2(rows, supabaseOpts),
@@ -560,6 +576,119 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
     ok(stub4._ticks.length === 83 && staleFetchAfterIds.length === 1 && staleFetchAfterIds[0] === 80,
       `Q4. STALE 增量拉取恰一次且 afterId=锚 80（afterIds=${JSON.stringify(staleFetchAfterIds)}, ticks=${stub4._ticks.length}）`);
     ok(readMeta(dir2, 'exp-src', 'fourmeme').maxId === 83, 'Q5. STALE 合并后 meta.maxId=83');
+  }
+
+  // ---------- R：锚定无序拉取矩阵（2026-10-09 装载重写） ----------
+  console.log('R. 锚定无序拉取：合一请求 + 拆半 + keyset + 对账 + headAnchor 闭区间');
+  {
+    /** 直接调 _fetchPlatformTicksRows 的最小 stub（不经 cache 层） */
+    const makeFetchStub = (rows, supabaseOpts = {}, backtestCfg = {}) => {
+      const logger = mkLogger();
+      return {
+        _experiment: { config: { backtest: backtestCfg } },
+        _experimentId: 'exp-bt',
+        logger,
+        metrics: { processedDataPoints: 0 },
+        _fetchPlatformTicksRows: BacktestEngine.prototype._fetchPlatformTicksRows,
+        _fetchHeadTickId: BacktestEngine.prototype._fetchHeadTickId,
+        _getClient: () => makeFakeSupabaseV2(rows, supabaseOpts),
+      };
+    };
+    /** 查询分类计数：count 合一（count exact + in 无序）/ keyset（order asc + eq token） */
+    const mkQueryCounter = () => {
+      const c = { countFetch: 0, keyset: 0 };
+      return { c, onExec: (asc, q) => {
+        if (q._countExact && q._in) c.countFetch++;
+        else if (asc && q._eqs.some(e => e.col === 'token_address')) c.keyset++;
+      } };
+    };
+
+    // R1: 0 行 chunk → count=0 跳过，零 keyset 查询
+    {
+      const rows = [mkRow(1, '0xOTHER', 'flap', T0)];   // 仅其它平台行（fourmeme 查询 0 匹配）
+      const { c, onExec } = mkQueryCounter();
+      const stub = makeFetchStub(rows, { onExec });
+      const out = await stub._fetchPlatformTicksRows(stub._getClient(), ['0xA'], 'fourmeme', 0, 0);
+      ok(out.length === 0 && c.countFetch === 1 && c.keyset === 0,
+        `R1. 0 行 chunk：1 次合一 count 即跳过、零 keyset（count=${c.countFetch} keyset=${c.keyset}）`);
+    }
+
+    // R2: count≤1000 一次拉全（合一请求即完成，行数对账 len==count）
+    {
+      const rows = [];
+      for (let i = 1; i <= 500; i++) rows.push(mkRow(i, '0xA', 'fourmeme', T0 + i));
+      const { c, onExec } = mkQueryCounter();
+      const stub = makeFetchStub(rows, { onExec });
+      const out = await stub._fetchPlatformTicksRows(stub._getClient(), ['0xA'], 'fourmeme', 0, 0);
+      ok(out.length === 500 && c.countFetch === 1 && c.keyset === 0 && stub.metrics.processedDataPoints === 500,
+        `R2. count≤1000 一次拉全（rows=${out.length} 合一=${c.countFetch} keyset=${c.keyset}）`);
+    }
+
+    // R3: count>1000 chunk 拆半递归（两 token 各 600 → 合一 1200 → 拆半后各 ≤1000 拉全）
+    {
+      const rows = [];
+      let id = 0;
+      for (const tok of ['0xA', '0xB']) for (let i = 0; i < 600; i++) rows.push(mkRow(++id, tok, 'fourmeme', T0 + i));
+      const { c, onExec } = mkQueryCounter();
+      const stub = makeFetchStub(rows, { onExec });
+      const out = await stub._fetchPlatformTicksRows(stub._getClient(), ['0xA', '0xB'], 'fourmeme', 0, 0);
+      ok(out.length === 1200 && c.countFetch === 3 && c.keyset === 0,
+        `R3. count>1000 拆半递归（rows=${out.length} 合一=${c.countFetch}=1 根+2 半）`);
+    }
+
+    // R4: 单 token >1000 → keyset 分页拉全（500×2+200 三页）+ count 对账
+    {
+      const rows = [];
+      for (let i = 1; i <= 1200; i++) rows.push(mkRow(i, '0xA', 'fourmeme', T0 + i));
+      const { c, onExec } = mkQueryCounter();
+      const stub = makeFetchStub(rows, { onExec });
+      const out = await stub._fetchPlatformTicksRows(stub._getClient(), ['0xA'], 'fourmeme', 0, 0);
+      const ids = new Set(out.map(r => r.id));
+      ok(out.length === 1200 && ids.size === 1200 && c.keyset === 3 && c.countFetch === 1,
+        `R4. 单 token keyset 三页拉全无重复（rows=${out.length} distinct=${ids.size} 页=${c.keyset}）`);
+    }
+
+    // R5: headAnchor 闭区间——装载中途新写入（id>锚）被 lte 封死，不进本批
+    {
+      const rows = [];
+      for (let i = 1; i <= 40; i++) rows.push(mkRow(i, '0xA', 'fourmeme', T0 + i));
+      let injected = false;
+      const stub = makeFetchStub(rows, { onExec: (asc, q) => {
+        if (!injected && q._countExact && q._in) {   // 首次合一请求执行时模拟采集器写入表头
+          injected = true;
+          rows.push(mkRow(41, '0xA', 'fourmeme', T0 + 41));
+        }
+      } });
+      const out = await stub._fetchPlatformTicksRows(stub._getClient(), ['0xA'], 'fourmeme', 0, 0);
+      ok(out.length === 40 && !out.some(r => r.id === 41),
+        `R5. headAnchor 闭区间：装载中途写入 id=41>锚40 不进本批（rows=${out.length} 含41=${out.some(r => r.id === 41)}）`);
+    }
+
+    // R6: 对账失配 fail-loud——count 虚增（countPad）→ 拆半定位 → 单 token keyset 对账仍失配 → throw
+    {
+      const rows = [];
+      for (let i = 1; i <= 30; i++) rows.push(mkRow(i, '0xA', 'fourmeme', T0 + i));
+      const stub = makeFetchStub(rows, { countPad: 3 });
+      let threw = null;
+      try {
+        await stub._fetchPlatformTicksRows(stub._getClient(), ['0xA'], 'fourmeme', 0, 0);
+      } catch (e) { threw = e; }
+      ok(threw && /对账失配/.test(threw.message),
+        `R6. 对账失配 throw fail-loud（${threw ? threw.message.slice(0, 46) : '未 throw'}）`);
+    }
+
+    // R7: maxTickRows 护栏（实验级上限 10，实际 40 行 → throw）
+    {
+      const rows = [];
+      for (let i = 1; i <= 40; i++) rows.push(mkRow(i, '0xA', 'fourmeme', T0 + i));
+      const stub = makeFetchStub(rows, {}, { maxTickRows: 10 });
+      let threw = null;
+      try {
+        await stub._fetchPlatformTicksRows(stub._getClient(), ['0xA'], 'fourmeme', 0, 0);
+      } catch (e) { threw = e; }
+      ok(threw && /上限/.test(threw.message),
+        `R7. maxTickRows 护栏 throw（${threw ? threw.message.slice(0, 40) : '未 throw'}）`);
+    }
   }
 
   console.log(`\n全部通过：${passed} 断言`);
