@@ -69,6 +69,9 @@ node scripts/_test_tweet_pull_optimization.cjs
 # 条件表达式未知因子 fail-fast 零 DB 单测（hg55 事故防线：validateCondition IS_NULL 补检/loadStrategies throw/键集真相源/库入库校验）
 node scripts/_test_unknown_factor_reject.cjs
 
+# markAsBought 虚拟时钟 buyTime + signals 页同秒排序 tie-break 零 DB 单测（case 0xcc4d7275…7777）
+node scripts/_test_token_pool_buytime.cjs
+
 # 存量条件字段未知因子扫描（防线上线前置：experiments + strategy_library 全量，退出码 1=有命中）
 node scripts/scan-unknown-factor-conditions.cjs
 ```

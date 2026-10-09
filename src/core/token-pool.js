@@ -246,7 +246,10 @@ class TokenPool {
             token.status = 'bought';
             token.buyDecision = buyDecision;
             token.buyPrice = buyDecision.buyPrice;
-            token.buyTime = Date.now();
+            // buyTime 尊重调用方传入（回测传虚拟时钟；缺省回退墙钟=旧行为）。
+            // 曾写死 Date.now()：回测 token.buyTime 落墙钟 → 卖信号 holdDuration =
+            // 虚拟 now − 墙钟 buyTime = 负 4 天级脏值（case 0xcc4d7275…7777）
+            token.buyTime = buyDecision.buyTime ?? Date.now();
             token.currentPrice = buyDecision.buyPrice;
             // 重置最近一次购买后的最高价（用于止损/止盈）
             token.highestPriceSinceLastBuy = buyDecision.buyPrice;

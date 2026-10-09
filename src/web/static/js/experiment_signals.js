@@ -2112,10 +2112,13 @@ class ExperimentSignals {
       signalsToRender = signalsToRender.filter(s => !this.isSignalRejected(s));
     }
 
-    // 按时间倒序排列
-    const sortedSignals = [...signalsToRender].sort((a, b) =>
-      new Date(b.signal_timestamp) - new Date(a.signal_timestamp)
-    );
+    // 按时间倒序排列；同秒时间戳（回测 created_at=block_time 秒精度，BSC 0.75s 出块
+    // 同秒先买后卖常见）tie 时买在前，防止对倒显示成「卖在买入前」（case 0xcc4d7275…7777）
+    const sortedSignals = [...signalsToRender].sort((a, b) => {
+      const timeDiff = new Date(b.signal_timestamp) - new Date(a.signal_timestamp);
+      if (timeDiff !== 0) return timeDiff;
+      return (a.action === 'buy' ? 0 : 1) - (b.action === 'buy' ? 0 : 1);
+    });
 
     sortedSignals.forEach(signal => {
       const signalCard = this.createSignalCard(signal);
