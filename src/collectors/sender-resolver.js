@@ -364,9 +364,13 @@ class SenderResolver {
         return new ethers.JsonRpcProvider(rpcUrl, 56, { batchMaxCount: 1, staticNetwork: true });
     }
 
-    _logInfo(msg) { (this._logger.info || this._logger.log)?.('', 'SenderResolver', msg); }
-    _logWarn(msg) { (this._logger.warn || this._logger.log)?.('', 'SenderResolver', msg); }
-    _logError(msg) { (this._logger.error || this._logger.log)?.('', 'SenderResolver', msg); }
+    // .call 保接收者：Logger 类实例的 info/warn/error 是依赖 this 的普通方法，
+    // 解引用裸调用会 TypeError（2026-10-09 a21fa102 崩溃案：首次 RPC 失败 → _logWarn
+    // 炸 → reject → _pump catch → _logError 再炸 → unhandledRejection 崩进程；
+    // watcher 不炸只因它的 logger 是箭头字面量无 this 依赖）
+    _logInfo(msg) { (this._logger.info || this._logger.log)?.call(this._logger, '', 'SenderResolver', msg); }
+    _logWarn(msg) { (this._logger.warn || this._logger.log)?.call(this._logger, '', 'SenderResolver', msg); }
+    _logError(msg) { (this._logger.error || this._logger.log)?.call(this._logger, '', 'SenderResolver', msg); }
 }
 
 module.exports = { SenderResolver, resolveAnkrHttpUrlFromEnv, DEFAULT_RPC_URLS };

@@ -122,6 +122,32 @@ async function testA() {
         ok(r.kindSync('0xunknown4b') === null, 'A4b 失败不落 kind 缓存（下次有机会重试 getCode）');
     }
 
+    // A4c（2026-10-09 a21fa102 崩溃案防线）：Logger 类实例形状（方法依赖 this）——
+    // 修复前 `_logWarn/_logError` 把方法解引用裸调用 `(this._logger.warn||...)?.(...)`
+    // → this=undefined → TypeError；事故链：_ensureProviders/_logInfo 炸 → getCode
+    // catch 的 _logWarn 再炸（从 catch 块抛出 reject）→ _pump catch 的 _logError 三炸
+    // → unhandledRejection 崩进程（watcher 几周不炸只因其 logger 是箭头字面量桩同款
+    // 无 this 依赖；quietLogger 桩同盲区——桩方法体内必须用 this 才能暴露解引用丢失）。
+    // 修复 = .call(this._logger)。本用例桩方法体内 this.warnN++ 自带 this 探针。
+    {
+        class ClassLogger {
+            constructor() { this.infoN = 0; this.warnN = 0; this.errN = 0; }
+            log() {}
+            info() { this.log('INFO'); this.infoN++; }
+            warn() { this.log('WARN'); this.warnN++; }
+            error() { this.log('ERROR'); this.errN++; }
+        }
+        const clog = new ClassLogger();
+        const r = new SenderResolver({ concurrency: 1, retryLimit: 0 }, clog);
+        makeStub(r, { codeOf: () => { throw new Error('rpc down'); }, txOf: () => { throw new Error('rpc down'); } });
+        const pushed = [];
+        r.submit({ tickRow: { tx_hash: '0x4c' }, trader: '0xunknown4c', txHash: '0x4c', pushRow: (row) => pushed.push(row) });
+        await sleep(20);
+        ok(pushed.length === 1 && pushed[0].sender_address === null, 'A4c 类实例 logger 全错误链不炸（NULL 回推照常）');
+        ok(clog.infoN >= 1, 'A4c _logInfo（RPC 池就绪）this 绑定正常');
+        ok(clog.warnN >= 2, 'A4c 真实走过 _logWarn 路径（getCode 失败 + 反查失败/耗尽）');
+    }
+
     // A5 反查 null → 重试 → 耗尽 NULL（重试保留 kind 不再 getCode）
     {
         const r = new SenderResolver({ concurrency: 1, retryLimit: 1, retryDelayMs: 10 }, quietLogger);
