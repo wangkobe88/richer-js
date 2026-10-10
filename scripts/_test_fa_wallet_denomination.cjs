@@ -7,10 +7,11 @@
  *     holderCount(holders)/_holderSeries(holderTrend)/_walletNetTokens(P 组 top3/top5、
  *     sniperHolderShare top20、bigHolder 交叉)/K 组(_buyerAddresses/_buyerVolume/
  *     _sellerAddresses 等)/_walletBoughtTokens(cumBuy)/滑窗(_slideTraderCounts)/smartBot
- *   trader 口径（刻意锁定）：
- *     _traderNetTokens/_traderMaxNetTokens（TPA 基准——wallet_offline_profiles 画像库
- *     trader 口径，单切持仓侧会画像 miss 错配，二期整套切）
+ *     _walletMaxNetTokens（TPA retention 峰值基准——二期 2026-10-10 与画像库同批切；
+ *     分子 _walletNetTokens 同批，键域一致防分子分母错位）
+ *   trader 口径（刻意锁定，仅剩一处）：
  *     uniqueTraders（classifier metrics 契约，与离线 classifyToken/token-classifier 锁定）
+ *   二期已删：_traderNetTokens/_traderMaxNetTokens（TPA 基准随画像库整套切 sender）
  *
  * 运行：node scripts/_test_fa_wallet_denomination.cjs
  */
@@ -63,12 +64,15 @@ const T0 = 1790802000000;
 // ═══════════ A 节：COALESCE 矩阵（wallet = sender || trader） ═══════════
 console.log('\nA 节：COALESCE 矩阵');
 {
-  // A1：sender 存在 → wallet 聚合按 sender；trader map 仍按 trader
+  // A1：sender 存在 → wallet 聚合按 sender；trader 双 map 已删（二期）
   const fa = newFA();
   fa.processTick(mkTick({ trader_address: GMGN, sender_address: '0xE1', timestamp: T0 }));
   const st = fa._states.get('0xtoken');
   check('A1 sender 聚合：_walletNetTokens 键 = sender', () => assert.strictEqual(st._walletNetTokens.get('0xE1'), 1000));
-  check('A1 trader 基准不动：_traderNetTokens 键 = trader(GMGN)', () => assert.strictEqual(st._traderNetTokens.get(GMGN), 1000));
+  check('A1 max map 同键 running max：_walletMaxNetTokens.get(sender)=1000 且 GMGN 键不存在',
+    () => assert.strictEqual(st._walletMaxNetTokens.get('0xE1'), 1000) && assert.ok(!st._walletMaxNetTokens.has(GMGN)));
+  check('A1 trader 双 map 已删（二期随画像库同批切）',
+    () => assert.ok(!('_traderNetTokens' in st) && !('_traderMaxNetTokens' in st)));
   check('A1 holders = 1（wallet 口径）', () => assert.strictEqual(st.holderCount, 1));
   check('A1 uniqueTraders = trader 契约（GMGN 在册）', () => assert.ok(st.uniqueTraders.has(GMGN) && !st.uniqueTraders.has('0xE1')));
 
@@ -107,9 +111,9 @@ console.log('\nB 节：GMGN 合并复现');
   const st = fa._states.get('0xtoken');
 
   check('B1 修正后 holders = N+M = 10（真实分散度）', () => assert.strictEqual(st.holderCount, 10));
-  check('B2 修正前口径对照：trader 净持仓键数 = 1(GMGN)+3 = 4（TPA 基准仍 trader，合并像）',
-    () => assert.strictEqual(st._traderNetTokens.size, 4));
-  check('B3 uniqueTraders 契约口径 = 4（trader 去重）', () => assert.strictEqual(st.uniqueTraders.size, 4));
+  check('B2 TPA 双 map 同口径拆散：wallet/max 键数 = 10（GMGN 合并像消失，二期）',
+    () => assert.strictEqual(st._walletNetTokens.size, 10) && assert.strictEqual(st._walletMaxNetTokens.size, 10));
+  check('B3 uniqueTraders 契约口径 = 4（trader 去重，刻意保留）', () => assert.strictEqual(st.uniqueTraders.size, 4));
 
   // B4：同票零 sender 数据（watcher 旧行/回填前）→ 与历史行为 bit-identical
   const faOld = newFA();
@@ -118,13 +122,16 @@ console.log('\nB 节：GMGN 合并复现');
   for (let i = 0; i < M_DIRECT; i++) faOld.processTick(mkTick({ trader_address: `0xDIRECT${i}`, timestamp: ++ts }));
   check('B4 零 sender 数据 = 旧行为（holders 4）', () => assert.strictEqual(faOld._states.get('0xtoken').holderCount, 4));
 
-  // B5：GMGN 净卖出（散户经路由出货）→ wallet 口径各自减仓、TPA 口径 GMGN 总净
+  // B5：GMGN 净卖出（散户经路由出货）→ wallet 口径各自减仓；max map 峰值保留（retention 语义）
   const fa5 = newFA();
   fa5.processTick(mkTick({ trader_address: GMGN, sender_address: '0xR0', timestamp: T0, token_amount: 100 }));
   fa5.processTick(mkTick({ trader_address: GMGN, sender_address: '0xR0', timestamp: T0 + 1, token_amount: 100, trade_type: 'sell' }));
   const st5 = fa5._states.get('0xtoken');
   check('B5 清仓者出 holders（净 0 不计）', () => assert.strictEqual(st5.holderCount, 0));
-  check('B5 TPA 基准：GMGN 净 0（trader 层合并后净额）', () => assert.strictEqual(st5._traderNetTokens.get(GMGN), 0));
+  check('B5 wallet 口径：GMGN 键不存在（拆散）、0xR0 净 0 且 max 峰值保留（retention 分母）',
+    () => assert.ok(!st5._walletNetTokens.has(GMGN))
+      && assert.strictEqual(st5._walletNetTokens.get('0xR0'), 0)
+      && assert.strictEqual(st5._walletMaxNetTokens.get('0xR0'), 100));
 }
 
 // ═══════════ C 节：K 组 / 滑窗 / smartBot / cumBuy 口径 ═══════════
@@ -222,10 +229,11 @@ console.log('\nE 节：链路透传');
   check('E6 P 组集中度遍历 _walletNetTokens',
     () => assert.ok(/for \(const v of state\._walletNetTokens\.values\(\)\)/.test(faSrc)));
 
-  // E7：TPA 基准与 uniqueTraders 的锁定不受切口径影响（外部读者契约）
+  // E7：TPA 基准已切 wallet 双 map（二期 2026-10-10 与画像库同批）——旧 trader map 名不得复活
   const tpaSrc = fs.readFileSync(TPA_PATH, 'utf8');
-  check('E7 TPA 仍读 _traderNetTokens（minHolders/retention 基准口径锁定）',
-    () => assert.ok(tpaSrc.includes('faState._traderNetTokens') && tpaSrc.includes('faState._traderMaxNetTokens')));
+  check('E7 TPA 读 _walletNetTokens/_walletMaxNetTokens（minHolders/top20/retention 全 wallet 口径）且旧 trader map 名零残留',
+    () => assert.ok(tpaSrc.includes('faState._walletNetTokens') && tpaSrc.includes('faState._walletMaxNetTokens')
+      && !tpaSrc.includes('_traderNetTokens') && !tpaSrc.includes('_traderMaxNetTokens')));
   const opbSrc = fs.readFileSync(OPB_PATH, 'utf8');
   check('E8 OPB 仍读 uniqueTraders（classifier metrics 契约锁定）',
     () => assert.ok(/tokenState\.uniqueTraders/.test(opbSrc)));

@@ -23,6 +23,10 @@
  *   8) live 缓冲三件套（直连架构 2026-10-09 回迁）：init/ingest 守卫与分组、preload 窗口形状
  *      （-1 关闭/fail-fast/显式分钟/auto 对齐 offline+30min margin+clamp/空表）、id 倒序分页 +
  *      block_time 升序灌入、_fetchWalletTicksBatch 缺口计数（回测路径 inert）、MAX_PAGES 护栏口径
+ *   9) wallet 口径（二期 2026-10-10 与画像库同批切）：mkFaState 双 map=_walletNetTokens/
+ *      _walletMaxNetTokens；ingestLiveTick 分组键 sender||trader（sender 优先）；现算 SQL
+ *      .or() COALESCE 形状（PostgREST 无 COALESCE：旧行 sender NULL 回退 trader）与
+ *      _fetchWalletTicksBatch DB 路径按 sender||trader 分组
  *
  * 用法：node scripts/_test_tpa.cjs
  */
@@ -65,11 +69,11 @@ function mkOffline(o = {}) {
     }, o);
 }
 // TPA 消费的 wss_price_ticks 行（builder 读 token_address/bnb_amount/price_usd/trade_type/block_time/block_number；
-// setHistoricalTicks 索引读 trader_address）
+// setHistoricalTicks 索引按 wallet=sender||trader 分组——二期 2026-10-10；sender 缺省 null=旧行回退 trader）
 let txSeq = 0;
-function wtick(trader, token, btMs, isBuy, bnb, block) {
+function wtick(trader, token, btMs, isBuy, bnb, block, sender) {
     return {
-        id: ++txSeq, trader_address: trader, token_address: token,
+        id: ++txSeq, trader_address: trader, sender_address: sender || null, token_address: token,
         trade_type: isBuy ? 'buy' : 'sell', bnb_amount: bnb, price_usd: 1,
         block_time: btMs, block_number: block, tx_hash: '0x' + txSeq.toString(16), log_index: 0,
     };
@@ -82,13 +86,14 @@ function faTick(token, ts, isBuy, priceBnb, bnbAmount, trader, block, tokenAmoun
         block_number: block, timestamp: ts, tx_hash: '0xf' + (++txSeq).toString(16), log_index: 0,
     };
 }
-// faState（checkAndTrigger/_analyze 消费的字段）
+// faState（checkAndTrigger/_analyze 消费的字段）。双 map 用 wallet 口径键（二期 2026-10-10：
+// TPA 触发门/top20/retention 全链与画像库同批切 sender——GMGN 路由行按真实买家 EOA 归户）
 function mkFaState(o = {}) {
     return Object.assign({
         tradeCount: 20, totalBuyBnb: 10, totalBuyTokens: 900, totalSellTokens: 100,
         totalSupply: 1000, firstBlockNumber: 100, firstTickAt: T0, creatorAddress: null,
-        _traderNetTokens: new Map([['0xA', 500], ['0xB', 300], ['0xC', 200], ['0xD', 100]]),
-        _traderMaxNetTokens: new Map([['0xA', 600], ['0xB', 300], ['0xC', 200], ['0xD', 100]]),
+        _walletNetTokens: new Map([['0xA', 500], ['0xB', 300], ['0xC', 200], ['0xD', 100]]),
+        _walletMaxNetTokens: new Map([['0xA', 600], ['0xB', 300], ['0xC', 200], ['0xD', 100]]),
     }, o);
 }
 const FAKE_CLIENT = { from() { throw new Error('测试禁止触碰 DB'); } };
@@ -161,7 +166,7 @@ function ctor(overrides = {}, deps = {}) {
         'tradeCount 门：10 ≤ 10（严格 >）→ 不触发');
     eq(tpa.checkAndTrigger('0xT1', factors, mkFaState({ totalBuyBnb: 6 }), tick, T0 + 6000), null,
         'buyBnb 门：6 ≤ 6 → 不触发');
-    eq(tpa.checkAndTrigger('0xT1', factors, mkFaState({ _traderNetTokens: new Map([['0xA', 500], ['0xB', 300], ['0xC', 0], ['0xD', 100]]) }), tick, T0 + 6000), null,
+    eq(tpa.checkAndTrigger('0xT1', factors, mkFaState({ _walletNetTokens: new Map([['0xA', 500], ['0xB', 300], ['0xC', 0], ['0xD', 100]]) }), tick, T0 + 6000), null,
         'minHolders 门：net>0 仅 3 < 4 → 不触发');
     eq(tpa.getVerdict('0xT1').verdict, 'pending', '未触发 → pending');
 
@@ -294,7 +299,7 @@ function ctor(overrides = {}, deps = {}) {
     tpa._queryTokenProfileChunk = async () => new Map();
 
     const faState = mkFaState({
-        _traderMaxNetTokens: new Map([['0xA', 600], ['0xB', 300], ['0xC', 200], ['0xD', 100], ['0xGONE', 400]]),
+        _walletMaxNetTokens: new Map([['0xA', 600], ['0xB', 300], ['0xC', 200], ['0xD', 100], ['0xGONE', 400]]),
     });
     const tick = { block_number: 101, block_time: AS_OF };
     await tpa.checkAndTrigger(TOK, { currentPriceBnb: 6 }, faState, tick, AS_OF);
@@ -400,8 +405,8 @@ function ctor(overrides = {}, deps = {}) {
         ['0xE', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline() }],
     ]);
     await tpa.checkAndTrigger(TOK3, { currentPriceBnb: 1 }, mkFaState({
-        _traderNetTokens: new Map([['0xA', 500], ['0xC', 200], ['0xD', 100], ['0xE', 50]]),
-        _traderMaxNetTokens: new Map([['0xA', 600], ['0xC', 200], ['0xD', 100], ['0xE', 50]]),
+        _walletNetTokens: new Map([['0xA', 500], ['0xC', 200], ['0xD', 100], ['0xE', 50]]),
+        _walletMaxNetTokens: new Map([['0xA', 600], ['0xC', 200], ['0xD', 100], ['0xE', 50]]),
     }), { block_number: 106, block_time: AS_OF + 2000 }, AS_OF + 2000);
     const row3 = persisted[2];
     eq(row3.holding_factors.TPAPre_retailPct, 0, 'retailPct=0');
@@ -549,15 +554,20 @@ function ctor(overrides = {}, deps = {}) {
     ok(tpa._walletTicksPreloaded instanceof Map && typeof tpa._liveTicksBufferStartMs === 'number'
         && Math.abs(tpa._liveTicksBufferStartMs - Date.now()) < 5000, '8a3 init 置空 Map + startMs=启动时刻');
     tpa.ingestLiveTick(null);
-    tpa.ingestLiveTick({ ...t1, trader_address: null });
-    tpa.ingestLiveTick({ ...t1, trader_address: undefined });
-    ok(tpa._walletTicksPreloaded.size === 0, '8a4 null tick / 缺 trader_address 全 no-op');
+    tpa.ingestLiveTick({ ...t1, trader_address: null });        // wtick 缺省 sender=null → 双空
+    tpa.ingestLiveTick({ ...t1, trader_address: undefined });   // 同上（spread 展开后仍 null）
+    ok(tpa._walletTicksPreloaded.size === 0, '8a4 null tick / 缺钱包（sender+trader 双空）全 no-op');
+    // sender 优先（二期 wallet 口径）：trader=GMGN 路由壳 + sender=真实买家 EOA → 归 EOA 名下
+    tpa.ingestLiveTick(wtick('0x1de460f363af910f51726def188f9004276bf4bc', '0xLROUTER', T0, true, 1, 100, '0xE1'));
+    ok(tpa._walletTicksPreloaded.has('0xE1') && !tpa._walletTicksPreloaded.has('0x1de460f363af910f51726def188f9004276bf4bc'),
+        '8a4b sender 优先分组：路由壳 tick 归真实买家 EOA（GMGN 合并像不出现）');
+    tpa._walletTicksPreloaded.clear(); // 隔离后续到达序断言
     tpa.ingestLiveTick(t1);
     tpa.ingestLiveTick(wtick('0xLW', '0xLT2', T0 + 1000, false, 0.5, 101));
     tpa.ingestLiveTick(wtick('0xLW2', '0xLT', T0 + 2000, true, 2, 102));
     const lw = tpa._walletTicksPreloaded.get('0xLW');
     ok(lw && lw.length === 2 && lw[0].token_address === '0xLT' && lw[1].token_address === '0xLT2',
-        '8a5 按 trader_address 分组且保到达序');
+        '8a5 按 wallet（sender||trader，无 sender 回退 trader）分组且保到达序');
 
     // —— 8b preload 窗口形状 ——
     // preload 读的是 DB 行形状（block_time ISO 字符串），与 wtick 的数字毫秒区分
@@ -676,6 +686,50 @@ function ctor(overrides = {}, deps = {}) {
     ok(/sinceMs = oldestCoveredMs;/.test(src)
         && /this\._liveTicksBufferStartMs = Math\.min\(this\._liveTicksBufferStartMs, sinceMs\)/.test(src),
         '8e2 触顶收缩 oldestCoveredMs + startMs Math.min 前扩口径');
+
+    // —— 8f wallet 口径现算 SQL 形状（二期 2026-10-10；PostgREST 无 COALESCE 用 .or() 表达）——
+    // 链式桩：select→or→gt→lt→gt→order→limit→then（真代码同链）；首页 data<1000 即 break 单页返回
+    const mkOrStub = (rows = []) => {
+        const cap = { cols: null, or: null, gts: [], lt: null, ord: null, lim: null };
+        const c = {
+            select(x) { cap.cols = x; return c; },
+            or(x) { cap.or = x; return c; },
+            gt(k, v) { cap.gts.push([k, v]); return c; },
+            lt(k, v) { cap.lt = v; return c; },
+            order(k, o) { cap.ord = [k, o]; return c; },
+            limit(n) { cap.lim = n; return c; },
+            then(resolve) { resolve({ data: rows, error: null }); },
+        };
+        return { cap, from: () => c };
+    };
+    const SINCE_ISO = new Date(T0).toISOString(), ASOF_ISO = new Date(T0 + HOUR).toISOString();
+
+    // 单钱包 _fetchWalletTicks：.or() 精确表达 + COLS 无地址列（归户由 or 谓词在 DB 侧承载）
+    const stub1 = mkOrStub([]);
+    const rows1 = await ctor()._fetchWalletTicks(stub1, '0xW', SINCE_ISO, ASOF_ISO);
+    eq(rows1.length, 0, '8f1 空首页单页返回');
+    eq(stub1.cap.or, 'and(sender_address.is.null,trader_address.eq.0xW),sender_address.eq.0xW',
+        '8f2 单钱包 .or() COALESCE 表达（旧行 sender NULL → 回退 trader 命中）', stub1.cap.or);
+    eq(stub1.cap.cols, 'id,token_address,bnb_amount,price_usd,trade_type,block_time,block_number',
+        '8f3 单钱包 COLS 无地址列');
+    ok(JSON.stringify(stub1.cap.gts) === JSON.stringify([['block_time', SINCE_ISO], ['id', 0]])
+        && stub1.cap.lt === ASOF_ISO, '8f3b block_time 窗 + id 游标（首页 gt id 0 起全量）');
+
+    // 批量 _fetchWalletTicksBatch DB 分支：裸构造（无索引）走 DB；.or() 嵌套 in 形状 + 分组行为
+    const tB = new TokenPositionAnalyzer({ trigger: TRIGGER }, { logger: QUIET });
+    eq(tB._walletTicksPreloaded, null, '8f4 裸构造无索引（DB 分支前提）');
+    const GMGN = '0x1de460f363af910f51726def188f9004276bf4bc';
+    const stub2 = mkOrStub([
+        { id: 1, sender_address: '0xS1', trader_address: GMGN, token_address: '0xT', bnb_amount: 1, trade_type: 'buy', block_time: SINCE_ISO, block_number: 100 },
+        { id: 2, sender_address: null, trader_address: '0xT2', token_address: '0xT', bnb_amount: 2, trade_type: 'sell', block_time: SINCE_ISO, block_number: 101 },
+    ]);
+    const byAddr8f = await tB._fetchWalletTicksBatch(stub2, ['0xS1', '0xT2'], SINCE_ISO, ASOF_ISO);
+    ok(byAddr8f.get('0xS1')?.length === 1 && byAddr8f.get('0xT2')?.length === 1 && !byAddr8f.has(GMGN),
+        '8f5 批量分组：sender 行归 sender、旧行（sender NULL）回退 trader，GMGN 壳键不出现');
+    eq(stub2.cap.or, 'and(sender_address.is.null,trader_address.in.(0xS1,0xT2)),sender_address.in.(0xS1,0xT2)',
+        '8f6 批量 .or() COALESCE 表达（嵌套 in）', stub2.cap.or);
+    ok(stub2.cap.cols.includes('sender_address') && stub2.cap.cols.includes('trader_address'),
+        '8f7 批量 COLS 含双地址列（DB 行分组键原料）');
 }
 
 // ═══════════════ 汇总 ═══════════════

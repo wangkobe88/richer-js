@@ -4,10 +4,15 @@
  * （pumpfun 回迁批 4；母版 pumpfun-wss-trader/scripts/build-wallet-profiles.cjs，结构对齐 + BSC 全表口径改造）
  *
  * 两阶段全表聚合（阈值 threshold=3 笔 tick 以上钱包 = HF）：
- *   阶段1 count：全表流式遍历计数 per-trader {count, maxBt} → 筛 HF 集
+ *   阶段1 count：全表流式遍历计数 per-wallet {count} → 筛 HF 集
  *   阶段2 spill：二遍遍历，HF 钱包 ticks 哈希分 64 磁盘桶（防 byWallet 全内存爆 heap，母版 22GB 教训）
  *   然后批量预查 token_profiles → 逐桶聚合 → buildProfileFromTicks(asOfMs:null 全历史口径)
  *   + 三特性 compute（lowLevelBadAction/goodAction/tinyLevelBadAction，纯观察） → upsert。
+ *
+ * ★钱包口径（二期 2026-10-10 与 TPA/FA 消费侧同批切）：wallet = sender_address || trader_address
+ *   （单点 walletKey()）。存量旧行 sender NULL 自动回退 trader（语义正确不回填）；GMGN 聚合路由
+ *   0x1de460 行按真实买家 EOA 归户——画像库键域与 TPA 实时三路径/FA holders 族一致，根治
+ *   「库查键 miss → GMGN 散户画像缺失」。upsert 覆盖旧 trader 键行外的死行由部署序列删除。
  *
  * ★拉数口径（plan 核实裁定）：wss_price_ticks 全表 id 游标（GlobalTickCache，见 lib/tick-data-cache.js）。
  *   不按 experiment_id（watcher 架构后新行 experiment_id=NULL 会全部漏行）、不带 platform 过滤
@@ -42,7 +47,7 @@ const { Readable, once } = require('stream');
 require('dotenv').config({ path: path.join(__dirname, '..', 'config', '.env') });
 
 const GlobalTickCache = require('./wallet-profiles/lib/tick-data-cache');
-const { fetchTicksPageAfter, fetchMaxTickId, queryWithRetry } = require('./wallet-profiles/lib/data-fetcher');
+const { fetchTicksPageAfter, fetchMaxTickId, queryWithRetry, SELECT_COLS } = require('./wallet-profiles/lib/data-fetcher');
 const { buildProfileFromTicks } = require('../src/services/wallet-profile-builder');
 const { computeLowLevelBadAction } = require('../src/services/low-level-bad-action');
 const { computeGoodAction } = require('../src/services/good-action');
@@ -94,8 +99,17 @@ function bucketOf(addr) {
 }
 
 /**
- * 遍历包装：护栏计数（读到的原始行）→ 脏行过滤（缺地址/price_outlier）→ days 窗过滤 → onTick(t, btMs)。
- * 母版 forEachTick 同款脏行口径：!trader_address || !token_address || price_outlier 跳过。
+ * 钱包口径单点（二期 2026-10-10 与 TPA/FA 同批切 sender）：wallet = sender_address || trader_address。
+ * 存量旧行 sender NULL 回退 trader = 旧行为等价；GMGN 聚合路由行按真实买家 EOA 归户。
+ * 与 FA processTick / TPA 预载分组 / _fetchWalletTicks .or() 过滤四处同一语义，勿单点漂移。
+ */
+function walletKey(t) {
+  return t.sender_address || t.trader_address;
+}
+
+/**
+ * 遍历包装：护栏计数（读到的原始行）→ 脏行过滤（缺钱包/price_outlier）→ days 窗过滤 → onTick(t, btMs, wallet)。
+ * 脏行口径 wallet 口径化：sender/trader 双缺才跳（旧行 sender NULL 回退 trader 仍有效）。
  */
 function makeVisitor(sinceMs, onTick, label) {
   let seen = 0;
@@ -105,10 +119,11 @@ function makeVisitor(sinceMs, onTick, label) {
       throw new Error(`护栏触发：${label} 遍历读到 ${seen} 行 > MAX_TOTAL_TICKS=${MAX_TOTAL_TICKS} —— 全表体量超预期，中止（优化方案见脚本头注 R2）`);
     }
     if (seen % PROGRESS_EVERY === 0) console.log(`  [${label}] 已读 ${seen / 10000} 万行…`);
-    if (!t.trader_address || !t.token_address || t.price_outlier) return;
+    const w = walletKey(t);
+    if (!w || !t.token_address || t.price_outlier) return;
     const btMs = new Date(t.block_time).getTime();
     if (sinceMs != null && btMs < sinceMs) return;
-    onTick(t, btMs);
+    onTick(t, btMs, w);
   };
 }
 
@@ -202,24 +217,25 @@ async function main() {
 
   const tickCache = new GlobalTickCache();
 
-  // ── 阶段1：全表流式 count（per-trader {count,maxBt}）→ 筛 HF ──
+  // ── 阶段1：全表流式 count（per-wallet {count}）→ 筛 HF ──
   console.log('[阶段1] 全表遍历 count 筛 HF…');
   const t1 = Date.now();
-  const traderStat = new Map(); // trader → {count, maxBt}
+  const walletStat = new Map(); // wallet(sender||trader) → {count}
   const c1 = await tickCache.forEachTick({
     fetchPage: (afterId) => fetchTicksPageAfter(sb(), afterId),
     dbMaxId: () => fetchMaxTickId(sb()),
-    visit: makeVisitor(sinceMs, (t, btMs) => {
-      let s = traderStat.get(t.trader_address);
-      if (!s) { s = { count: 0 }; traderStat.set(t.trader_address, s); }
+    columnsTag: SELECT_COLS, // 列集漂移防线（cache 行须含 sender_address）
+    visit: makeVisitor(sinceMs, (t, btMs, w) => {
+      let s = walletStat.get(w);
+      if (!s) { s = { count: 0 }; walletStat.set(w, s); }
       s.count++;
     }, 'count'),
   });
   const hfSet = new Set();
-  for (const [addr, s] of traderStat) {
+  for (const [addr, s] of walletStat) {
     if (s.count >= THRESHOLD) hfSet.add(addr);
   }
-  console.log(`[阶段1] ${c1.source} ${c1.rows} 行 / ${(traderStat.size / 10000).toFixed(1)} 万 trader / HF(count≥${THRESHOLD})=${hfSet.size} / ${((Date.now() - t1) / 1000).toFixed(0)}s`);
+  console.log(`[阶段1] ${c1.source} ${c1.rows} 行 / ${(walletStat.size / 10000).toFixed(1)} 万 wallet / HF(count≥${THRESHOLD})=${hfSet.size} / ${((Date.now() - t1) / 1000).toFixed(0)}s`);
 
   // ── 阶段2：二遍遍历 spill HF ticks 到 64 磁盘桶 ──
   console.log('[阶段2] spill HF ticks → 64 桶…');
@@ -247,12 +263,14 @@ async function main() {
   const c2 = await tickCache.forEachTick({
     fetchPage: (afterId) => fetchTicksPageAfter(sb(), afterId),
     dbMaxId: () => fetchMaxTickId(sb()),
-    visit: makeVisitor(sinceMs, (t, btMs) => {
-      if (!hfSet.has(t.trader_address)) return;
+    columnsTag: SELECT_COLS,
+    visit: makeVisitor(sinceMs, (t, btMs, w) => {
+      if (!hfSet.has(w)) return;
       allTokens.add(t.token_address); // 阶段3 预查集合（曾漏此行：Set 恒空 → tpMap 空 → bad_action 族全按无分类低估）
-      // 紧凑数组行（BSC 列名：bnb_amount / block_number；builder 消费 {token_address,bnb_amount,price_usd,trade_type,block_time,block_number,trader_address}）
-      bucketStreams[bucketOf(t.trader_address)].write(
-        JSON.stringify([t.token_address, t.bnb_amount, t.price_usd, t.trade_type, t.block_time, t.block_number, t.trader_address]) + '\n'
+      // 紧凑数组行（BSC 列名：bnb_amount / block_number；builder 消费六字段，末位 = 分组键 wallet(sender||trader)，
+      //   与阶段4 byWallet 分组同键——二期 2026-10-10 与 TPA/画像消费侧同批切）
+      bucketStreams[bucketOf(w)].write(
+        JSON.stringify([t.token_address, t.bnb_amount, t.price_usd, t.trade_type, t.block_time, t.block_number, w]) + '\n'
       );
     }, 'spill'),
     onPageGap: drainBuckets,
@@ -280,9 +298,9 @@ async function main() {
     const byWallet = new Map();
     for await (const line of rl) {
       if (!line) continue;
-      const [token_address, bnb_amount, price_usd, trade_type, block_time, block_number, trader_address] = JSON.parse(line);
-      let arr = byWallet.get(trader_address);
-      if (!arr) { arr = []; byWallet.set(trader_address, arr); }
+      const [token_address, bnb_amount, price_usd, trade_type, block_time, block_number, wallet] = JSON.parse(line);
+      let arr = byWallet.get(wallet);
+      if (!arr) { arr = []; byWallet.set(wallet, arr); }
       arr.push({ token_address, bnb_amount, price_usd, trade_type, block_time, block_number });
     }
     for (const [addr, ticks] of byWallet) {

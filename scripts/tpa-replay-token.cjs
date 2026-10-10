@@ -6,8 +6,9 @@
  *
  * 口径对齐（与引擎运行时逐步同源）：
  *   - faState 用 wss_price_ticks 全史 [创建, asOf) 重放 FA processTick 的累加语义：
- *     tradeCount / totalBuyBnb / totalBuyTokens/totalSellTokens / _traderNetTokens /
- *     _traderMaxNetTokens(running max) / firstBlockNumber / firstTickAt
+ *     tradeCount / totalBuyBnb / totalBuyTokens/totalSellTokens / _walletNetTokens /
+ *     _walletMaxNetTokens(running max) / firstBlockNumber / firstTickAt（钱包键 =
+ *     sender||trader，二期 2026-10-10 与 FA/TPA/画像库同批切——GMGN 路由行按真实买家 EOA 归户）
  *   - creatorAddress / totalSupply 取 wss_events kind='token_create' payload（flap 恒 1e9）
  *   - 画像三路径（offline fresh/stale 增量/miss 实时 14d 窗）走 TPA 原方法，不做任何捷径
  *
@@ -44,7 +45,7 @@ function fmtTokens(n) {
 }
 
 async function fetchAllTicks(sb, token, asOfIso) {
-  const COLS = 'id,trade_type,trader_address,bnb_amount,token_amount,block_number,block_time';
+  const COLS = 'id,trade_type,trader_address,sender_address,bnb_amount,token_amount,block_number,block_time';
   const rows = [];
   let lastId = 0;
   let guard = 0;
@@ -85,9 +86,9 @@ function initState(createEv) {
     totalSellBnb: 0,
     totalBuyTokens: 0,
     totalSellTokens: 0,
-    _traderNetTokens: new Map(),
-    _traderMaxNetTokens: new Map(),
-    _traderBoughtTokens: new Map(),
+    _walletNetTokens: new Map(),
+    _walletMaxNetTokens: new Map(),
+    _walletBoughtTokens: new Map(),
     holderCount: 0,
     creatorAddress: null,
     totalSupply: 0,
@@ -111,15 +112,16 @@ function feedTick(st, t) {
   const tok = +t.token_amount || 0;
   st.tradeCount++;
   if (isBuy) { st.totalBuyBnb += bnb; st.totalBuyTokens += tok; } else { st.totalSellBnb += bnb; st.totalSellTokens += tok; }
-  if (t.trader_address && tok > 0) {
-    const cur = (st._traderNetTokens.get(t.trader_address) || 0) + (isBuy ? tok : -tok);
-    st._traderNetTokens.set(t.trader_address, cur);
-    const mx = st._traderMaxNetTokens.get(t.trader_address) || 0;
-    if (cur > mx) st._traderMaxNetTokens.set(t.trader_address, cur);
-    if (isBuy) st._traderBoughtTokens.set(t.trader_address, (st._traderBoughtTokens.get(t.trader_address) || 0) + tok);
+  const w = t.sender_address || t.trader_address; // wallet 口径（与 FA processTick 同批切，二期）
+  if (w && tok > 0) {
+    const cur = (st._walletNetTokens.get(w) || 0) + (isBuy ? tok : -tok);
+    st._walletNetTokens.set(w, cur);
+    const mx = st._walletMaxNetTokens.get(w) || 0;
+    if (cur > mx) st._walletMaxNetTokens.set(w, cur);
+    if (isBuy) st._walletBoughtTokens.set(w, (st._walletBoughtTokens.get(w) || 0) + tok);
   }
   st.holderCount = 0;
-  for (const net of st._traderNetTokens.values()) if (net > 0) st.holderCount++;
+  for (const net of st._walletNetTokens.values()) if (net > 0) st.holderCount++;
 }
 
 function buildFaState(ticks, createEv) {
@@ -235,7 +237,7 @@ function gatesPass(st, tick, trigger) {
       console.log(
         String(idx + 1).padStart(2) + ' ' + (p.address || '').slice(0, 12).padEnd(14)
         + String(p.floatPct ?? '-').padStart(6) + '% '
-        + (fmtTokens(p.netTokens) + '(' + fmtTokens(fa._traderMaxNetTokens.get(p.address)) + ')').padEnd(14)
+        + (fmtTokens(p.netTokens) + '(' + fmtTokens(fa._walletMaxNetTokens.get(p.address)) + ')').padEnd(14)
         + String(p.score ?? 'null').padStart(6).slice(0, 6) + '  '
         + String(d.bucket ?? '?').padEnd(10) + String(sub).padEnd(10)
         + String(p.source ?? '?').padEnd(10)

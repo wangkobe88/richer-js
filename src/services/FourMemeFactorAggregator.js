@@ -46,7 +46,7 @@
  *
  * 不迁（母版特定装置）：zz25、w0ShareB/_w0bWin、k0 latch、maxEarlyBuySol、afterFirst3s、
  * _cumulativeBuy/SellTokens、preFilter、ML/GMGN、smartBot/sniper（批 3.3）。
- * TPA 注入装置 + _traderMaxNetTokens（retention 峰值基准）已随回迁批 4 落地：
+ * TPA 注入装置 + _walletMaxNetTokens（retention 峰值基准）已随回迁批 4 落地：
  * TokenPositionAnalyzer 触发点 as-of 画像 → setHoldingFactors/setRetentionBasis 回填
  * → buildFactorMap 直读注入（TPAPre_* 17 键 + TPAAnalyzed/retention/asofRelFirst，
  * 键集见 tpa-factor-keys.js；触发前 null → ConditionEvaluator 恒 false fail-closed）。
@@ -195,7 +195,7 @@ let _sniperLoadPromise = null;
 //   buildFactorMap 直读注入（触发前 null → 不注入，TPAPre_* 因子缺省 fail-closed）。
 // _retentionBasis（tokenAddress → { zhuangAddresses:[], netZAtDecision:number }）：TPA 在触发点
 //   冻结「哪些钱包是大户」+ Σ 大户建仓峰值净持仓；buildFactorMap 每 tick 用 running
-//   _traderNetTokens 对冻结大户集求和得 netZ@T → TPAPre_retention=netZ@T/netZ@D（live 因子）。
+//   _walletNetTokens 对冻结大户集求和得 netZ@T → TPAPre_retention=netZ@T/netZ@D（live 因子）。
 //   ★netZ@D=Σ 大户 maxNetTokens（建仓峰值，含触发前已清仓的）——旧口径用触发时刻净持仓，
 //   清仓大户 floatPct≈0 被漏（retention 恒 1.0 盲区）。
 // 模块级是有意设计（对齐 _marketRegime/_smartBotWallets 先例：pruneStaleTokens 不清，跨 FA 实例
@@ -527,13 +527,13 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (!tokenAddress || !tick.timestamp) return null;
         this._stats.ticksProcessed++;
 
-        // 钱包口径单点 COALESCE（2026-10-01 GMGN 案 B，bSTOCKS 0x0ad6…7777 案衍生）：
+        // 钱包口径单点 COALESCE（2026-10-01 GMGN 案 B + 2026-10-10 二期 TPA 整链同批切换）：
         // 公共聚合路由（GMGN 0x1de460，flap 27.9% 行）把 N 个真实买家在 trader 层合并成
         // 单一地址——holders/K 组/滑窗/名单族全部失真（该票 holders 6 vs 独立钱包 48）。
-        // 这些聚合改用 sender（真实买家 EOA，NULL 回退 trader = 旧行为）。刻意不切两处：
-        // _traderNetTokens/_traderMaxNetTokens（TPA 基准——wallet_offline_profiles 画像库
-        // 是 trader 口径建的，单切持仓侧会画像 miss 错配，二期整套切）与 uniqueTraders
-        // （classifier metrics 契约字段，与离线 classifyToken/token-classifier 口径锁定）。
+        // 二期起 TPA 基准（_walletNetTokens/_walletMaxNetTokens）与画像库
+        // wallet_offline_profiles 同批切 sender 口径。仍刻意保留 trader 口径的仅剩
+        // uniqueTraders（classifier metrics 契约字段，与离线 classifyToken/
+        // token-classifier 口径锁定）。
         const walletAddr = tick.sender_address || tick.trader_address || null;
 
         const ts = tick.timestamp;
@@ -591,25 +591,21 @@ class FourMemeFactorAggregator extends EventEmitter {
 
         if (tick.trader_address) {
             state.uniqueTraders.add(tick.trader_address);
-            // TPA 基准（trader 口径锁定，见 processTick 头 walletAddr 注释）：minHolders
-            // 触发门 / zhuang-retail 分类 / retention 大户集的数据源，与画像库口径一致
-            if (tokenAmount > 0) {
-                const delta = isBuy ? tokenAmount : -tokenAmount;
-                const _cur = (state._traderNetTokens.get(tick.trader_address) || 0) + delta;
-                state._traderNetTokens.set(tick.trader_address, _cur);
-                // 建仓峰值净持仓（TPA retention 基准分母，回迁批 4）：仅 running 上升时更新，
-                // 单调不减 → 触发前已清仓的大户 maxNet 仍保留（母版 :487-488 同款）
-                const _mx = state._traderMaxNetTokens.get(tick.trader_address) || 0;
-                if (_cur > _mx) state._traderMaxNetTokens.set(tick.trader_address, _cur);
-            }
+            // uniqueTraders 是 classifier metrics 契约字段（与离线 classifyToken/
+            // token-classifier 口径锁定）——刻意保留 trader 口径，勿混 wallet 聚合
         }
-        // holders/K 组（wallet 口径，sender||trader）：GMGN 合并修正的主切口——
-        // holderCount 与 holderTrend 原料、cumBuy 集中度（出货后留痕）
+        // holders/K 组/TPA 基准（wallet 口径，sender||trader）：GMGN 合并修正的主切口——
+        // holderCount 与 holderTrend 原料、cumBuy 集中度（出货后留痕）、TPA 触发门/
+        // top20 取集/retention 双 map（二期 2026-10-10 与画像库同批切 sender）
         if (walletAddr) {
             if (tokenAmount > 0) {
                 const delta = isBuy ? tokenAmount : -tokenAmount;
                 const _cur = (state._walletNetTokens.get(walletAddr) || 0) + delta;
                 state._walletNetTokens.set(walletAddr, _cur);
+                // 建仓峰值净持仓（TPA retention 基准分母，回迁批 4 → 二期随键域切 wallet）：
+                // 仅 running 上升时更新，单调不减 → 触发前已清仓的大户 maxNet 仍保留
+                const _mx = state._walletMaxNetTokens.get(walletAddr) || 0;
+                if (_cur > _mx) state._walletMaxNetTokens.set(walletAddr, _cur);
                 state.holderCount = 0;
                 for (const net of state._walletNetTokens.values()) {
                     if (net > 0) state.holderCount++;
@@ -1148,9 +1144,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             totalBuyTokens: 0,
             totalSellTokens: 0,
             uniqueTraders: new Set(),
-            _traderNetTokens: new Map(), // trader(msg.sender) → 净持仓（TPA 基准口径锁定，2026-10-01 GMGN 案 B）
-            _traderMaxNetTokens: new Map(), // trader → 建仓峰值净持仓（running max 单调不减；TPA retention 基准，回迁批 4）
             _walletNetTokens: new Map(), // wallet(sender||trader) → 净持仓（holders/holderTrend/P 组集中度原料；GMGN 合并修正）
+            _walletMaxNetTokens: new Map(), // wallet → 建仓峰值净持仓（running max 单调不减；TPA retention 基准，二期 2026-10-10 键域随 TPA 整链切 sender）
             _smartBotBuyBnb: new Map(), // wallet → 名单内累计可靠买额 BNB（回迁批 3.3；只累不减——参与留痕）
             holderCount: 0,
 
@@ -2586,16 +2581,18 @@ class FourMemeFactorAggregator extends EventEmitter {
         factors.TPAAnalyzed = holdingCache ? 1 : 0;
 
         // retention（大户走没走 live 因子）：TPA 在触发点冻结大户集 + netZ@D=Σ 大户建仓峰值净持仓
-        //   （setRetentionBasis），每 tick 用 running _traderNetTokens 对冻结集求和得 netZ@T →
+        //   （setRetentionBasis），每 tick 用 running _walletNetTokens 对冻结集求和得 netZ@T →
         //   retention=netZ@T/netZ@D。★netZ@D 用峰值（含触发前已清仓的）：netZ@T(running)≤netZ@D(峰值)
         //   → 触发刻即反映大户已部分出货。未冻结（TPA 未触发）→ null（fail-closed，与 holdingCache 同语义）。
         //   不 sanitize 负值：大户净卖超买 → retention≤0 = 强"走"信号；Infinity 不可能
+        //   （分子 _walletNetTokens 与分母 _walletMaxNetTokens 同批切 wallet 口径——二期 2026-10-10，
+        //   键域必须一致防分子分母错位）
         {
             const _retBasis = state.tokenAddress && _retentionBasis
                 ? _retentionBasis.get(state.tokenAddress) : null;
             if (_retBasis && _retBasis.netZAtDecision > 0 && Array.isArray(_retBasis.zhuangAddresses)) {
                 let _netZNow = 0;
-                const _nmap = state._traderNetTokens;
+                const _nmap = state._walletNetTokens;
                 if (_nmap) {
                     for (const _a of _retBasis.zhuangAddresses) _netZNow += (_nmap.get(_a) || 0);
                 }
@@ -2631,11 +2628,11 @@ class FourMemeFactorAggregator extends EventEmitter {
 
     /**
      * 冻结某 token 的 retention（大户走没走）基准。TokenPositionAnalyzer._analyze 触发后调用
-     * （与 setHoldingFactors 同位点）。buildFactorMap 每 tick 据 state._traderNetTokens 对
+     * （与 setHoldingFactors 同位点）。buildFactorMap 每 tick 据 state._walletNetTokens 对
      * zhuangAddresses 求和得 netZ@T → retention=netZ@T/netZAtDecision。
      * @param {string} tokenAddress
      * @param {{zhuangAddresses:string[], netZAtDecision:number}} basis
-     *   zhuangAddresses = 大户集（独立从 _traderMaxNetTokens 枚举 maxNet>0 + classifyHolder='zhuang'，
+     *   zhuangAddresses = 大户集（独立从 _walletMaxNetTokens 枚举 maxNet>0 + classifyHolder='zhuang'，
      *   含触发前已清仓的；D 冻结）；netZAtDecision = Σ 大户 maxNetTokens（建仓峰值净持仓和，>0 才有 retention）
      */
     static setRetentionBasis(tokenAddress, basis) {

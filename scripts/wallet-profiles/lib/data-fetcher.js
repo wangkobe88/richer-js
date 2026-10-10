@@ -21,8 +21,11 @@ const PAGE_SIZE = 1000;
 const DB_SLEEP_MS = 200; // 页间歇，减轻 Supabase 网关压力（母版/批 3.2 同款）
 const MAX_RETRIES = 6;   // 批 3.2 同款：退避 1/2/4/8/16/32s（fetch failed 瞬断护栏）
 
-// 列集对齐批 3.2 smart-wallet-mining/lib/data-fetcher.js（cache 存全列作复用资产；spill 只消费 7 字段）
-const SELECT_COLS = 'id, token_address, trade_type, trader_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, received_at, tx_hash, price_outlier';
+// 列集对齐批 3.2 smart-wallet-mining/lib/data-fetcher.js（cache 存全列作复用资产；spill 只消费所需字段）。
+// ★加列防 FRESH 静默复用旧行（二期 sender 2026-10-10）：SELECT_COLS 变更后旧 cache 行缺新列且 maxId
+//   不变 → GlobalTickCache 判 FRESH 复用缺列行。调用方须把本常量作 columnsTag 传入 forEachTick
+//   （tag 漂移 → MISS 全量重拉；导出供此用，勿在调用方手抄字符串）。
+const SELECT_COLS = 'id, token_address, trade_type, trader_address, sender_address, price_bnb, price_usd, bnb_amount, token_amount, block_number, block_time, received_at, tx_hash, price_outlier';
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
@@ -93,4 +96,5 @@ module.exports = {
   queryWithRetry,
   sleep,
   PAGE_SIZE,
+  SELECT_COLS,
 };

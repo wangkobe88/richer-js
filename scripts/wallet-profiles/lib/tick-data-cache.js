@@ -12,9 +12,12 @@
  *   3. STALE 判据 = max(id)（PK 反取一条，恒走索引 O(1)）；增量 .gt('id', cachedMaxId)。
  *      id 是 bigserial 唯一键，天然无批 3.2 版「同 received_at 边界漏拉」问题，不需要复合
  *      游标拆双查。
- *   4. meta sidecar（global-wallet-profiles.meta.json：{maxId, rows, gzipBytes, savedAt}）：
+ *   4. meta sidecar（global-wallet-profiles.meta.json：{maxId, rows, gzipBytes, savedAt, columnsTag}）：
  *      STALE 判据 O(1) 读 meta，不流式扫数据文件找高水位。gzipBytes 与数据文件实际 size
  *      不符 = 上次写入 crash 在 rename 与 meta 落盘之间 → 删数据文件全量重拉（安全方向）。
+ *      columnsTag（2026-10-10 二期 sender 加列引入，照 BacktestTickCache）：SELECT_COLS 变更后
+ *      旧 cache 行缺新列且 maxId 不变 → FRESH 会静默复用缺列行，tag 漂移 → 判废全量重拉。
+ *      旧 meta 无此字段（首次引入前落盘）同样判废。
  *
  * 损坏语义（fail-loud，不留半成品）：
  *   - 读路径损坏（gunzip CRC / JSON.parse / 流 error）→ 删 cache（数据+meta）后 throw：
@@ -97,9 +100,12 @@ class GlobalTickCache {
    * @param {Function} deps.visit      (row) => void：同步消费（计数/spill；throw 会中断并清 tmp）
    * @param {Function} [deps.onPageGap] async () => void：页/行批间隙钩子（每页尾或每 2000 行调
    *   一次并 await）——消费侧磁盘写流（spill 桶）在此做背压 drain，防 write queue 无界膨胀。
+   * @param {string} [deps.columnsTag] 列清单标记（调用方 SELECT_COLS 字符串；漂移 → 判废全量重拉。
+   *   防「加列后旧 cache 行不含新列且 maxId 不变 → FRESH 静默复用缺列行」——二期 sender 2026-10-10
+   *   加列踩点，照 BacktestTickCache 同款防线）。
    * @returns {Promise<{source:'miss'|'fresh'|'stale', rows:number, maxId:number}>}
    */
-  async forEachTick({ fetchPage, dbMaxId, visit, onPageGap }) {
+  async forEachTick({ fetchPage, dbMaxId, visit, onPageGap, columnsTag }) {
     if (typeof fetchPage !== 'function' || typeof visit !== 'function') {
       throw new Error('GlobalTickCache.forEachTick: fetchPage/visit 必传');
     }
@@ -117,7 +123,15 @@ class GlobalTickCache {
         this._logger.info(`[GlobalTickCache] 缓存失配（data=${dataExists}, meta=${!!meta}, sizeOk=${sizeOk}）→ 删除全量重拉`);
         this._dropCache();
       }
-      return this._fullFetch({ fetchPage, visit, label: 'MISS', gap });
+      return this._fullFetch({ fetchPage, visit, label: 'MISS', gap, columnsTag });
+    }
+
+    // columnsTag 漂移：SELECT_COLS 变更（加列/改列）后旧 cache 行不含新列，maxId 不变仍会判 FRESH
+    //   静默复用缺列行 → 判废全量重拉（旧 meta 无 columnsTag 字段 = 首次引入前落盘，同样判废）
+    if (columnsTag != null && meta.columnsTag !== columnsTag) {
+      this._logger.info(`[GlobalTickCache] columnsTag 漂移（cache='${meta.columnsTag}' → 本次='${columnsTag}'）→ 删除全量重拉`);
+      this._dropCache();
+      return this._fullFetch({ fetchPage, visit, label: 'MISS', gap, columnsTag });
     }
 
     // dbMaxId 校验失败（网络长断）→ 保守用缓存（对齐批 3.2 语义；重拉也必然失败）
@@ -147,14 +161,14 @@ class GlobalTickCache {
     if (dbMax === meta.maxId) {
       return this._streamOnly(visit, meta, gap);
     }
-    return this._staleRewrite({ fetchPage, visit, oldMeta: meta, dbMax, gap });
+    return this._staleRewrite({ fetchPage, visit, oldMeta: meta, dbMax, gap, columnsTag });
   }
 
   /**
    * MISS：全量分页拉取，逐行 visit + 写 tmp；完成后 rename + meta。
    * visit throw（如护栏超限）→ 清 tmp 后 rethrow（cache 保持无文件态，下次重拉）。
    */
-  async _fullFetch({ fetchPage, visit, label, gap }) {
+  async _fullFetch({ fetchPage, visit, label, gap, columnsTag }) {
     this._ensureDir();
     const t0 = Date.now();
     const tmp = this._dataPath() + '.tmp';
@@ -179,7 +193,7 @@ class GlobalTickCache {
         if (gap) await gap();
       }
       const st = await this._finishWriter(gz, finished, tmp);
-      this._writeMetaAtomic({ maxId, rows, gzipBytes: st, savedAt: new Date().toISOString() });
+      this._writeMetaAtomic({ maxId, rows, gzipBytes: st, savedAt: new Date().toISOString(), columnsTag: columnsTag || null });
       this._logger.info(`[GlobalTickCache] ${label}: DB 全量拉取 ${rows} 行 / ${(st / 1048576).toFixed(1)}MB / ${((Date.now() - t0) / 1000).toFixed(0)}s → cache 落盘`);
       return { source: 'miss', rows, maxId };
     } catch (e) {
@@ -209,7 +223,7 @@ class GlobalTickCache {
    * 损坏分阶段：旧行读阶段失败 → 删 cache（下次 MISS 重拉，防撞同一损坏行死循环）；增量阶段失败
    * → 只清 tmp（cache 原文件未动，下次再增量）。
    */
-  async _staleRewrite({ fetchPage, visit, oldMeta, dbMax, gap }) {
+  async _staleRewrite({ fetchPage, visit, oldMeta, dbMax, gap, columnsTag }) {
     this._ensureDir();
     const t0 = Date.now();
     const tmp = this._dataPath() + '.tmp';
@@ -249,7 +263,7 @@ class GlobalTickCache {
         if (gap) await gap();
       }
       const st = await this._finishWriter(gz, finished, tmp);
-      this._writeMetaAtomic({ maxId, rows, gzipBytes: st, savedAt: new Date().toISOString() });
+      this._writeMetaAtomic({ maxId, rows, gzipBytes: st, savedAt: new Date().toISOString(), columnsTag: columnsTag || null });
       this._logger.info(`[GlobalTickCache] STALE: cacheMax=${oldMeta.maxId} → DB=${dbMax} | 旧行透传 + 增量至 maxId=${maxId} | 共 ${rows} 行 / ${((Date.now() - t0) / 1000).toFixed(0)}s`);
       return { source: 'stale', rows, maxId };
     } catch (e) {

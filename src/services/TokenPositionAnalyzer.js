@@ -6,15 +6,18 @@
  *   as-of 时间的实时钱包画像算一次、缓存、并给出 verdict」。
  *
  * as-of 画像数据源：wss_price_ticks 表全局流（watcher 写入行 experiment_id=NULL，跨实验共享），
- *   按 trader_address 查 `block_time < asOf` = 该钱包截至 asOf 的完整历史 → live 与 backtest
+ *   按钱包口径查 `block_time < asOf` = 该钱包截至 asOf 的完整历史 → live 与 backtest
  *   完全同构、天然 as-of 正确、无 leak、无冷启动 seed。离线 cache 只是同一件事的预计算。
+ *   钱包口径 = sender_address || trader_address（二期 2026-10-10：TPA 基准/取集/画像查询链与
+ *   wallet_offline_profiles 画像库同批切 sender——GMGN 聚合路由 0x1de460 把 N 个真实买家在
+ *   trader 层合并成单一巨户，top20/retention/tokenScore 全失真；FA holders 族一期案 B 已同口径）。
  *
  * 触发条件（FA 全量计数器，richer-js state.tradeCount/totalBuyBnb 本就无 skip 守卫）：
  *   时间门二选一（blocks=BSC 生产口径 / ageSeconds=复现口径）
  *   AND tradeCount > trigger.tradeCount AND totalBuyBnb > trigger.buyBnb AND holders(net>0) ≥ minHolders
  *
  * 触发后异步分析（fire-and-forget；backtest await 保证同 tick verdict 就绪）：
- *   1. 取 holders（faState._traderNetTokens 中 net>0 者，cap maxHolders）
+ *   1. 取 holders（faState._walletNetTokens 中 net>0 者，cap maxHolders）
  *   2. per-holder as-of 画像三路径：fresh（asOf≤data_through 用 offline）/ stale（增量
  *      [data_through,asOf) mergeOfflineProfile）/ miss（实时全量 [asOf−lookback,asOf)）
  *   3. floatPct/isCreator 打标 → wallet-scorer 评分 + 庄散四桶聚合
@@ -282,7 +285,7 @@ class TokenPositionAnalyzer {
     this._walletProfileCache = new Map(); // cacheKey=address → { ts(asOfTime), profile }，TTL=walletProfileCacheTtlMs(10min)
     this._tokenProfileCache = new Map(); // token → { category, flashCrashPeriod, firstTickTime } | null（token_profiles 表，bad_action 消费；分类属性稳定，缓存不过期）
     this._offlineProfilePreloaded = null; // Map<address,{dataThroughMs,dataThroughIso,profile}>|null：启动时 preloadOfflineProfiles() 一次 SELECT wallet_offline_profiles 全表填充（回测与 live 均 preload；web 保持 null → fetch 函数 fallback DB）。★单独 Map 不碰 _walletProfileCache（后者 TTL 命中会短路 fresh/stale/miss 分类 → 丢 stale 增量合并）。
-    this._walletTicksPreloaded = null; // Map<trader_address,tick[]>|null：回测 setHistoricalTicks（本实验全量 ticks）一次填充 / 实时引擎 initLiveTicksBuffer 空表起步 + preloadRecentTicks 预载 + collector tick 逐笔累积（直连架构 2026-10-09）；web 保持 null → 走 DB 分支。★单独 Map 不碰 _walletProfileCache。
+    this._walletTicksPreloaded = null; // Map<wallet(sender||trader),tick[]>|null：回测 setHistoricalTicks（本实验全量 ticks）一次填充 / 实时引擎 initLiveTicksBuffer 空表起步 + preloadRecentTicks 预载 + collector tick 逐笔累积（直连架构 2026-10-09）；web 保持 null → 走 DB 分支。★单独 Map 不碰 _walletProfileCache。
     this._liveTicksBufferStartMs = null; // live 缓冲覆盖起点（initLiveTicksBuffer 置启动时刻，preloadRecentTicks 向前扩）。null=非 live 缓冲路径（回测/web）→ 缺口计数不生效
     this._liveTicksPreloadMinutes = config.liveTicksPreloadMinutes != null ? Number(config.liveTicksPreloadMinutes) : 0; // 0=auto/-1=off/>0=固定分钟
     this._liveTicksPreloadMaxMinutes = config.liveTicksPreloadMaxMinutes != null ? Number(config.liveTicksPreloadMaxMinutes) : 1440;
@@ -466,7 +469,7 @@ class TokenPositionAnalyzer {
   }
 
   /**
-   * 注入本实验 historical ticks，预建 trader→ticks 索引（仅回测 BacktestEngine）。
+   * 注入本实验 historical ticks，预建 wallet(sender||trader)→ticks 索引（仅回测 BacktestEngine）。
    * 之后 _fetchWalletTicksBatch 读索引零 DB round-trip（miss/stale 路 ticks 全在本实验内）。
    * 口径注记（架构性偏离 #4）：注入 = BacktestEngine._loadWssTicks 的实验口径（platform 过滤后）；
    *   DB 直查路径（live/web）天然跨平台（钱包画像跨平台全局）。增量段缺异平台 tick，已接受。
@@ -474,21 +477,22 @@ class TokenPositionAnalyzer {
    * BacktestEngine._initializeDataSources 在 preloadOfflineProfiles 后调一次（同步，启动期一次性建索引）。
    * @param {Array<Object>} ticks 本实验全量 ticks（按 block_time 序；buildProfileFromTicks bad_action
    *   用绝对 block_time 判定，不依赖数组序）
-   * @returns {number} 索引内 trader 数
+   * @returns {number} 索引内钱包数（wallet 口径，二期 2026-10-10）
    */
   setHistoricalTicks(ticks) {
     if (!Array.isArray(ticks) || !ticks.length) { this._walletTicksPreloaded = null; return 0; }
     const idx = new Map();
     for (const t of ticks) {
-      if (!t.trader_address) continue;
-      let arr = idx.get(t.trader_address);
-      if (!arr) { arr = []; idx.set(t.trader_address, arr); }
+      const w = t.sender_address || t.trader_address; // wallet 口径（与 FA:537/画像库同批切）
+      if (!w) continue;
+      let arr = idx.get(w);
+      if (!arr) { arr = []; idx.set(w, arr); }
       arr.push(t);
     }
     this._walletTicksPreloaded = idx;
     if (process.env.DBG_WALLET) {
       const _a = idx.get(process.env.DBG_WALLET);
-      console.error(`[DBG_SETHIST] ${process.env.DBG_WALLET.slice(0, 10)} injected=${_a ? _a.length : 0} ticks / ${idx.size} traders`);
+      console.error(`[DBG_SETHIST] ${process.env.DBG_WALLET.slice(0, 10)} injected=${_a ? _a.length : 0} ticks / ${idx.size} wallets`);
     }
     return idx.size;
   }
@@ -497,8 +501,8 @@ class TokenPositionAnalyzer {
    * 实时引擎（virtual/live 同一引擎类）：初始化内存 ticks 缓冲（直连架构 2026-10-09 回迁）。
    * 启动后 collector 每笔落表 tick 经 _onTickBuffered 回调累积到此，_fetchWalletTicksBatch
    * 命中内存零 DB round-trip（根治实时 miss/stale 路径 per-batch ~1-2s DB 往返）。
-   * 口径=回测 setHistoricalTicks（trader→ticks[]），区别：回测一次灌本实验全量（platform 过滤后），
-   * 实时逐笔累积 [启动,now] 全平台 + preloadRecentTicks 向前补重启前窗口。
+   * 口径=回测 setHistoricalTicks（wallet→ticks[]，二期 sender||trader），区别：回测一次灌本实验
+   * 全量（platform 过滤后），实时逐笔累积 [启动,now] 全平台 + preloadRecentTicks 向前补重启前窗口。
    * 回测走 setHistoricalTicks 不调本方法；web 不调 → _walletTicksPreloaded 保持 null 走 DB。
    */
   initLiveTicksBuffer() {
@@ -511,13 +515,15 @@ class TokenPositionAnalyzer {
    * 调用（同步 Map push，µs 级不阻塞 WSS 解析）。
    * ⚠️累积源=collector _tickBuffer 落表行（bnb_amount 原始 BNB 值，含 < minTickBnb 尘 tick），
    *   非 FA processTick tick（后者经尘 tick 门过滤）——离线画像/DB 直查路径口径=全量落表行，
-   *   用 FA tick 会让缓冲与两者口径漂移（尘 tick 计数丢失）。分组键 trader_address（TPA 基准
-   *   仍 trader 口径，GMGN 路由行在 TPA 里呈现为单一巨户——二期整套切 sender 时一并改）。
+   *   用 FA tick 会让缓冲与两者口径漂移（尘 tick 计数丢失）。分组键 = sender||trader（二期
+   *   2026-10-10 与 FA/画像库同批切——GMGN 路由行按真实买家 EOA 归户）。
    */
   ingestLiveTick(tick) {
-    if (!this._walletTicksPreloaded || !tick?.trader_address) return;
-    let arr = this._walletTicksPreloaded.get(tick.trader_address);
-    if (!arr) { arr = []; this._walletTicksPreloaded.set(tick.trader_address, arr); }
+    if (!this._walletTicksPreloaded) return;
+    const w = tick?.sender_address || tick?.trader_address;
+    if (!w) return;
+    let arr = this._walletTicksPreloaded.get(w);
+    if (!arr) { arr = []; this._walletTicksPreloaded.set(w, arr); }
     arr.push(tick);
   }
 
@@ -563,7 +569,7 @@ class TokenPositionAnalyzer {
       sinceMs = floorMs;
     }
     const sinceIso = new Date(sinceMs).toISOString();
-    const COLS = 'id,trader_address,token_address,bnb_amount,price_usd,trade_type,block_time,block_number';
+    const COLS = 'id,trader_address,sender_address,token_address,bnb_amount,price_usd,trade_type,block_time,block_number';
     const rows = [];
     let lastId = null;
     let pages = 0;
@@ -595,7 +601,7 @@ class TokenPositionAnalyzer {
       log('warn', `preloadRecentTicks: 触顶 MAX_PAGES=${MAX_PAGES}，窗口收缩到实际覆盖 ${new Date(oldestCoveredMs).toISOString()}（如实记录不静默）`);
       sinceMs = oldestCoveredMs;
     }
-    // block_time 升序灌入（保持 per-trader 数组时序；引擎侧调用时序保证预载先于 collector.start，无 live tick 交错）
+    // block_time 升序灌入（保持 per-wallet 数组时序；引擎侧调用时序保证预载先于 collector.start，无 live tick 交错）
     rows.sort((a, b) => new Date(a.block_time).getTime() - new Date(b.block_time).getTime());
     for (const r of rows) this.ingestLiveTick(r);
     this._liveTicksBufferStartMs = Math.min(this._liveTicksBufferStartMs, sinceMs);
@@ -685,7 +691,7 @@ class TokenPositionAnalyzer {
    *
    * @param {string} tokenAddress
    * @param {Object} factors 当前 tick 因子快照（取 currentPriceBnb 喂触发快照观察）
-   * @param {Object} faState FactorAggregator token state（tradeCount/totalBuyBnb/firstBlockNumber/firstTickAt/_traderNetTokens/...）
+   * @param {Object} faState FactorAggregator token state（tradeCount/totalBuyBnb/firstBlockNumber/firstTickAt/_walletNetTokens/...）
    * @param {Object} tick 当前 tick（live=factorsUpdated payload 的 tick（含 block_number）；backtest=wss_price_ticks 行（含 block_number+block_time））
    * @param {number} asOfTime as-of 毫秒时间戳（live=tick.timestamp/now；backtest=tick block_time ms）
    */
@@ -714,10 +720,12 @@ class TokenPositionAnalyzer {
     if (rawTradeCount <= this._trigger.tradeCount) return null;
     if (rawBuyBnb <= this._trigger.buyBnb) return null;
 
-    // 持仓人数门：当前 net>0 持仓者 < minHolders 不触发（拦 holder 缩减的死盘，详见构造器 trigger 注释）
+    // 持仓人数门：当前 net>0 持仓者 < minHolders 不触发（拦 holder 缩减的死盘，详见构造器 trigger 注释）。
+    //   wallet 口径（_walletNetTokens）：GMGN 主导盘触发不再被路由合并像拖晚（CRO 案 trader 口径
+    //   10s 才数到 4，sender 口径远早于此）
     let holderCount = 0;
-    if (faState._traderNetTokens) {
-      for (const net of faState._traderNetTokens.values()) if (net > 0) holderCount++;
+    if (faState._walletNetTokens) {
+      for (const net of faState._walletNetTokens.values()) if (net > 0) holderCount++;
     }
     if (holderCount < this._trigger.minHolders) return null;
 
@@ -814,18 +822,20 @@ class TokenPositionAnalyzer {
     // 7. 回填 holding 因子到 FA 缓存（供 scorer/condition 读）
     this._faClass?.setHoldingFactors?.(tokenAddress, holdingFactors);
 
-    // 7b. 冻结 retention（大户走没走）基准：buildFactorMap 每 tick 据 state._traderNetTokens 算
+    // 7b. 冻结 retention（大户走没走）基准：buildFactorMap 每 tick 据 state._walletNetTokens 算
     //     netZ@T → retention=netZ@T/netZ@D。
-    //   ★新口径：大户集独立从 faState._traderMaxNetTokens(maxNet>0) 枚举 —— 不复用 verdict
+    //   ★新口径：大户集独立从 faState._walletMaxNetTokens(maxNet>0) 枚举 —— 不复用 verdict
     //     holders(walletProfiles/net>0)，因清仓大户触发时 netTokens≈0 被漏，但其 maxNet 保留 →
     //     独立枚举才不丢"触发前已跑路的庄"。
     //   netZ@D = Σ 大户 maxNetTokens（建仓峰值，含清仓大户）；classifyHolder 仅依赖 offline profile
     //   字段（不读 netTokens/floatPct）。verdict/tokenScore/庄散比/floatPct 仍用上方 walletProfiles
     //   （步骤 4-6），此处只动 retention，互不影响。
+    //   wallet 口径（二期 2026-10-10）：max map 与 running map（FA 分子）同批切——分子分母键域
+    //   必须一致，单切一侧会让 retention 对 GMGN 盘读错键恒 0/恒满。
     {
       const retCandidates = [];
-      if (faState._traderMaxNetTokens) {
-        for (const [addr, maxNet] of faState._traderMaxNetTokens) {
+      if (faState._walletMaxNetTokens) {
+        for (const [addr, maxNet] of faState._walletMaxNetTokens) {
           if (maxNet > 0) retCandidates.push({ address: addr, net: maxNet });
         }
       }
@@ -837,7 +847,7 @@ class TokenPositionAnalyzer {
 
       const zhuangAddresses = [];
       let netZAtDecision = 0;
-      const _maxMap = faState._traderMaxNetTokens;
+      const _maxMap = faState._walletMaxNetTokens;
       for (const p of retProfiles) {
         if (classifyHolder(p) !== 'zhuang') continue;  // 行为大户判定，去 floatPct>0 门（清仓大户 floatPct≈0 仍纳入）
         if (p.address) zhuangAddresses.push(p.address);
@@ -868,11 +878,13 @@ class TokenPositionAnalyzer {
 
   // ── 共享 holder 指标管线（_analyze[TPAPre_] 消费；输出无前缀标量，调用方自行映射 TPAPre_ 前缀）──
 
-  /** 步骤1：holders（net>0）按持仓量降序取 top N（maxHoldersToAnalyze，默认 20）。 */
+  /** 步骤1：holders（net>0）按持仓量降序取 top N（maxHoldersToAnalyze，默认 20）。
+   *  wallet 口径（二期）：GMGN 路由行拆散成真实买家 EOA——trader 口径下 top20 被路由合并像
+   *  独占，散户画像全部缺席，tokenScore/庄散比失真。 */
   _collectTopHolders(faState) {
     const holders = [];
-    if (faState._traderNetTokens) {
-      for (const [addr, net] of faState._traderNetTokens) {
+    if (faState._walletNetTokens) {
+      for (const [addr, net] of faState._walletNetTokens) {
         if (net > 0) holders.push({ address: addr, net });
       }
     }
@@ -1079,6 +1091,9 @@ class TokenPositionAnalyzer {
    * 只取算画像所需列（bnb_amount BNB 浮点 + block_number Tier2 用）。跨平台全局：无 platform 过滤
    *   （钱包画像是地址属性，与离线表/三路径口径严格同构）。
    * 全量取（不短路）：实时路径只服务小钱包（高频钱包离线表已覆盖）；增量路径窗口= step4 间隔（ticks 少）。
+   * 钱包口径过滤（二期 2026-10-10）：sender 非空行按 sender 归、旧行（sender NULL）按 trader 归——
+   *   PostgREST 无 COALESCE，用 .or(and(sender.is.null,trader.eq.X),sender.eq.X) 表达，语义与
+   *   FA:537 `sender||trader` 单点一致。性能与旧 .eq 等价（两列均无索引，本就 id 游标全表扫）。
    * @param {string} sinceIso 起始 block_time（实时路径=asOf-lookback；增量路径=data_through）
    * @param {string} asOfIso 截止 block_time（exclusive，防泄漏）
    * @returns {Promise<Array>} ticks
@@ -1092,7 +1107,7 @@ class TokenPositionAnalyzer {
       const page = await supabase
         .from('wss_price_ticks')
         .select(COLS)
-        .eq('trader_address', address)
+        .or(`and(sender_address.is.null,trader_address.eq.${address}),sender_address.eq.${address}`)
         .gt('block_time', sinceIso)
         .lt('block_time', asOfIso)
         .gt('id', lastId)
@@ -1147,9 +1162,10 @@ class TokenPositionAnalyzer {
   }
 
   /**
-   * 批量 id 游标分页取多钱包 ticks（trader_address IN + block_time 窗口，batch 100 防 URL 超长）。
+   * 批量 id 游标分页取多钱包 ticks（钱包口径 IN + block_time 窗口，batch 100 防 URL 超长）。
    * 替代 per-holder 串行 _fetchWalletTicks（_analyze 多 holder 场景）：N 次往返 → ⌈N/100⌉ × 页数。
-   * 返回按 trader_address 分组的 ticks（COLS 含 trader_address 供分组）。
+   * 返回按钱包口径分组的 ticks（COLS 含 sender/trader 供分组：sender 非空行归 sender、
+   *   旧行 sender NULL 归 trader——与 FA:537/画像库二期口径一致；.or() 形状同 _fetchWalletTicks）。
    * @returns {Promise<Map<string,Array>>} address → ticks[]
    */
   async _fetchWalletTicksBatch(supabase, addresses, sinceIso, asOfIso) {
@@ -1184,14 +1200,15 @@ class TokenPositionAnalyzer {
       if (this._prof) this._profTock('fetchTicks', _t0);
       return byAddr;
     }
-    const COLS = 'id,trader_address,token_address,bnb_amount,price_usd,trade_type,block_time,block_number';
+    const COLS = 'id,trader_address,sender_address,token_address,bnb_amount,price_usd,trade_type,block_time,block_number';
     const byAddr = new Map();
     for (let i = 0; i < addresses.length; i += 100) {
       const batch = addresses.slice(i, i + 100);
+      const addrList = batch.join(',');
       let lastId = 0; let guard = 0;
       while (guard++ < 200) {
         const page = await supabase.from('wss_price_ticks').select(COLS)
-          .in('trader_address', batch)
+          .or(`and(sender_address.is.null,trader_address.in.(${addrList})),sender_address.in.(${addrList})`)
           .gt('block_time', sinceIso).lt('block_time', asOfIso)
           .gt('id', lastId).order('id', { ascending: true }).limit(1000);
         // 查询失败显式 throw（同 _fetchWalletTicks：吞错会把超时伪装成"窗口内 0 笔"）
@@ -1199,8 +1216,10 @@ class TokenPositionAnalyzer {
         const data = page.data || [];
         if (data.length === 0) break;
         for (const r of data) {
-          let arr = byAddr.get(r.trader_address);
-          if (!arr) { arr = []; byAddr.set(r.trader_address, arr); }
+          const w = r.sender_address || r.trader_address; // wallet 口径（与查询过滤同一语义）
+          if (!w) continue;
+          let arr = byAddr.get(w);
+          if (!arr) { arr = []; byAddr.set(w, arr); }
           arr.push(r);
         }
         lastId = data[data.length - 1].id;
