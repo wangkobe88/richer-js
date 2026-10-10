@@ -41,9 +41,9 @@ const strip = (cfg, restore) => {
   delete s.name;
   delete s.description;
   if (restore) {
-    s.strategiesConfig.buyStrategies[0].condition = restore.cond;
-    s.strategiesConfig.buyStrategies[0].preBuyCheckCondition = restore.pre;
-    s.backtest = restore.backtest;
+    if (restore.cond != null) s.strategiesConfig.buyStrategies[0].condition = restore.cond;
+    if (restore.pre != null) s.strategiesConfig.buyStrategies[0].preBuyCheckCondition = restore.pre;
+    if (restore.backtest != null) s.backtest = restore.backtest;
   }
   return JSON.stringify(s);
 };
