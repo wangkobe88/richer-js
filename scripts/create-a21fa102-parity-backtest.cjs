@@ -23,8 +23,12 @@ const args = process.argv.slice(2);
 const COMMIT = args.includes('--commit');
 // --reuse-window <btId>：复用指定回测实验的窗口（数据点 B/C 控制变量——与 A 同窗，
 // 唯一变量是引擎补丁；缺省 = 起点=基底创建时刻、终点=当前时刻）
+// --suffix <str>：name/description 尾缀（默认按 REUSE_WINDOW 有无给 '-B止损毕业补齐'；
+// 数据点 C 起显式传，如 --suffix '-C前视修复'）
 const rwIdx = args.indexOf('--reuse-window');
 const REUSE_WINDOW_ID = rwIdx > -1 ? args[rwIdx + 1] : null;
+const sfxIdx = args.indexOf('--suffix');
+const SUFFIX = sfxIdx > -1 ? args[sfxIdx + 1] : (REUSE_WINDOW_ID ? '-B止损毕业补齐' : '');
 
 async function main() {
   const { ExperimentFactory } = require('../src/trading-engine/factories/ExperimentFactory');
@@ -54,11 +58,11 @@ async function main() {
     startTime,
     endTime,
   };
-  cfg.name = '回测-虚拟一致性对拍-a21fa102同窗同源-1010' + (REUSE_WINDOW_ID ? '-B止损毕业补齐' : '');
+  cfg.name = '回测-虚拟一致性对拍-a21fa102同窗同源-1010' + SUFFIX;
   cfg.description = '虚拟↔回测一致性配对：a21fa102 整包克隆（v6+hg55+corpusLag 门策略 / both / '
     + 'PM 卡牌 / stopLoss / TPA），sourceExperimentId=自身 → token 集合与 ticks 完全同源；'
     + '窗口 ' + startTime + ' → ' + endTime + '。'
-    + (REUSE_WINDOW_ID ? '数据点 B：与 ' + REUSE_WINDOW_ID.slice(0, 8) + ' 同窗（引擎止损+graduation 补齐后重跑）。' : '对拍虚拟实跑 21 买 20 卖净 -1.09 BNB。');
+    + (REUSE_WINDOW_ID ? '同窗数据点：复用 ' + REUSE_WINDOW_ID.slice(0, 8) + ' 窗口（引擎补丁变量隔离重跑）。' : '对拍虚拟实跑 21 买 20 卖净 -1.09 BNB。');
 
   // 差异唯一性自检：除 name/description/backtest 外与基底逐字节全同
   const stripped = JSON.parse(JSON.stringify(cfg));
