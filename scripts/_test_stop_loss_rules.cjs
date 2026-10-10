@@ -407,6 +407,10 @@ console.log('F. BacktestEngine graduation 事件回放');
     buyPath.includes('_graduatedTokens.has(token.token)') && buyPath.includes('_emitGraduationSell'), true);
   const initSrc = src.slice(src.indexOf('async _initializeDataSources'), src.indexOf('async _loadTokenMetadata'));
   check('F4 装载挂点在 ticks 装载后', initSrc.includes('await this._loadGraduationEvents();'), true);
+  // 74444a0c 首启事故：.in() 走 URL，批 500 → 21.5KB 超网关 8KB 限制 fetch failed
+  const gradSrc = src.slice(src.indexOf('async _loadGraduationEvents'), src.indexOf('async _consumeGraduationEvents'));
+  check('F4 装载批大小 ≤ 50（URL 长度防线，74444a0c 首启事故）',
+    /const BATCH = (\d+)/.exec(gradSrc) && Number(/const BATCH = (\d+)/.exec(gradSrc)[1]) <= 50, true);
 }
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);

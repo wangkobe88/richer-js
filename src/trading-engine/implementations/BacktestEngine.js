@@ -1034,7 +1034,9 @@ class BacktestEngine extends AbstractTradingEngine {
   async _loadGraduationEvents() {
     const supabase = this._getClient();
     const addresses = [...this._tokenMeta.keys()];
-    const BATCH = 500;
+    // 批 50（对齐 TOKEN_CHUNK_SIZE）：.in() 参数走 URL，批 500 时 500×43 字符 ≈ 21.5KB
+    // 超网关 8KB 限制 → fetch failed（74444a0c 首启实证：连续 3 次重试全死）
+    const BATCH = 50;
     let total = 0;
     for (let i = 0; i < addresses.length; i += BATCH) {
       let data = null;
