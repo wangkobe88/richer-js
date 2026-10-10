@@ -21,7 +21,10 @@
  */
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const { FourMemeWssTradingEngine } = require('../src/trading-engine/implementations/FourMemeWssTradingEngine');
+const { BacktestEngine } = require('../src/trading-engine/implementations/BacktestEngine');
 
 let pass = 0, fail = 0;
 function check(name, actual, expected) {
@@ -208,6 +211,202 @@ console.log('D. tick 路径：止损命中优先于策略腿');
 
   const notBought = await runOnFactors({ factors: { profitPercent: -70, holdDuration: 100 }, status: 'monitoring' });
   check('非持有状态 → 卖路径整体不进', [notBought.stopCalls.length, notBought.strategyCalls, notBought.buyCalls > 0], [0, 0, true]);
+}
+
+// ═══ E. BacktestEngine 止损双腿（虚拟↔回测一致性 2026-10-10 对齐）═══
+// 覆盖：判定矩阵（与实时引擎同款语义）/ nowTs 签名 / 扫描虚拟时钟 / 主循环挂点源码口径
+console.log('E. BacktestEngine 止损双腿（回测版，虚拟时钟）');
+{
+
+  function makeBacktestEngine(fields = {}) {
+    const eng = Object.create(BacktestEngine.prototype);
+    return Object.assign(eng, {
+      _experimentId: 'test-bt',
+      logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+      _stopLossEnabled: false,
+      _stopLossTimeSec: null,
+      _stopLossPricePct: null,
+      _stopLossScanMs: null,
+      _lastStopLossScanTs: null,
+      _cycleEnforce: false,
+      ...fields,
+    });
+  }
+
+  // E1 判定矩阵（与实时引擎逐字一致）
+  const btEng = makeBacktestEngine({ _stopLossEnabled: true, _stopLossTimeSec: 3600, _stopLossPricePct: -50 });
+  check('回测·价格命中 -51', btEng._stopLossHit({ profitPercent: -51, holdDuration: 100 }).kind, 'price');
+  check('回测·时间命中 61min 亏 0%（<=0 盘古案）', btEng._stopLossHit({ profitPercent: 0, holdDuration: 3700 }).kind, 'time');
+  check('回测·超时盈利 null', btEng._stopLossHit({ profitPercent: 5, holdDuration: 3700 }), null);
+  check('回测·未启用 null', makeBacktestEngine()._stopLossHit({ profitPercent: -90, holdDuration: 99999 }), null);
+  check('回测·双命中取 price', btEng._stopLossHit({ profitPercent: -60, holdDuration: 3700 }).kind, 'price');
+
+  // E2 _emitStopLossSell：nowTs 签名（5 参）+ 全清语义
+  let captured = null;
+  const eng2 = makeBacktestEngine({
+    _stopLossEnabled: true, _stopLossTimeSec: 3600, _stopLossPricePct: -50,
+    _emitSellSignal: async (token, strategy, factors, nowTs, tick) => { captured = { strategy, nowTs, tick }; return { success: true }; },
+  });
+  const tok = { token: '0xbbb', symbol: 'BT' };
+  eng2._emitStopLossSell(tok, { profitPercent: -45 }, { kind: 'time', profitPercent: -45, holdDuration: 3800 }, 12345, { ts: 1 });
+  check('回测·时间腿 id/name', [captured.strategy.id, captured.strategy.name], ['stopLossTime', '止损-持有超时仍亏损(60min)']);
+  check('回测·nowTs 透传 + tick 透传', [captured.nowTs, captured.tick], [12345, { ts: 1 }]);
+  check('回测·全清 cards=all/sellPct=1/bypass', [captured.strategy.cards, captured.strategy.sellPercentage, captured.strategy.bypassDebounce], ['all', 1, true]);
+
+  // E3 扫描：虚拟时钟 nowTs 传参 + 断流票触发
+  let scanNow = null; const scanCalls = [];
+  const eng3 = makeBacktestEngine({
+    _stopLossEnabled: true, _stopLossPricePct: -50,
+    _getAllHoldings: () => [{ tokenAddress: '0xdead' }],
+    _tokenPool: { getToken: () => ({ token: '0xdead', status: 'bought' }) },
+    _factorAggregator: { buildFactorMap: (addr, now) => { scanNow = now; return { profitPercent: -70, holdDuration: 99999 }; } },
+    _sellingTokens: new Set(), _buyingTokens: new Set(),
+    _emitStopLossSell: async (t, f, hit, nowTs) => { scanCalls.push({ hit: hit.kind, nowTs }); },
+  });
+  eng3._scanHoldingsStopLoss(98765);
+  check('回测·扫描断流票触发 price', scanCalls.map(c => c.hit), ['price']);
+  check('回测·扫描传虚拟时钟 nowTs（非 Date.now）', [scanNow, scanCalls[0].nowTs], [98765, 98765]);
+
+  // E4 源码口径：主循环挂点 + 扫描节流 + 构造解析
+  const src = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
+  const mainLoop = src.slice(src.indexOf('_runMainLoop'), src.indexOf('_forceSellAllRemaining'));
+  const hookIdx = mainLoop.indexOf('_stopLossHit(factors)');
+  const sellIdx = mainLoop.indexOf('await this._evaluateSellPath(token, factors, tick)');
+  check('回测·主循环止损判定存在且先于策略腿', hookIdx > -1 && hookIdx < sellIdx, true);
+  check('回测·主循环扫描节流块存在（_scanHoldingsStopLoss(tickTs)）', mainLoop.includes('this._scanHoldingsStopLoss(tickTs)'), true);
+  check('回测·构造解析 stopLoss 段（timeStopMinutes/priceStopPercent/scanIntervalSec）',
+    ['timeStopMinutes', 'priceStopPercent', 'scanIntervalSec'].every(k => src.includes(k)), true);
+  check('回测·graduation 事件流已嵌（2026-10-10 对齐，旧「不嵌」口径废除）',
+    src.includes('不嵌实时版的毕业兜底段'), false);
+}
+
+// ═══ F. BacktestEngine graduation 事件回放（虚拟↔回测一致性 2026-10-10）═══
+// 覆盖：_loadGraduationEvents 窗口过滤/时间锚/排序 / _consumeGraduationEvents
+// 消费指针·失败重试·未持仓仅标记 / _emitGraduationSell 等价 strategy·幂等后置 /
+// 主循环消费点·尾部 drain·买入成功点补卖源码口径
+console.log('F. BacktestEngine graduation 事件回放');
+{
+  function makeGradEngine(fields = {}) {
+    const eng = Object.create(BacktestEngine.prototype);
+    return Object.assign(eng, {
+      _experimentId: 'test-grad',
+      logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+      _graduationEvents: [],
+      _gradEvtIdx: 0,
+      _graduationSoldTokens: new Set(),
+      _graduatedTokens: new Set(),
+      _sellingTokens: new Set(),
+      ...fields,
+    });
+  }
+  const mkStubClient = (rows) => ({
+    from: (table) => {
+      if (table !== 'wss_events') throw new Error('非预期表: ' + table);
+      return {
+        select: () => ({ eq: () => ({ in: async () => ({ data: rows }) }) }),
+      };
+    },
+  });
+
+  // F1 事件装载：时间锚优先级（payload.blockTimeMs > block_time 列）+ 窗口过滤 + 缺锚跳过 + 升序
+  const eng = makeGradEngine({
+    _startTimeFilter: new Date('2026-10-09T00:00:00Z').getTime(),
+    _endTimeFilter: new Date('2026-10-10T00:00:00Z').getTime(),
+    _tokenMeta: new Map([['0xa', {}], ['0xb', {}], ['0xc', {}], ['0xd', {}]]),
+  });
+  const warns = [];
+  eng.logger.warn = (id, tag, msg) => warns.push(msg);
+  eng._getClient = () => mkStubClient([
+    { token_address: '0xa', payload: { blockTimeMs: new Date('2026-10-09T10:00:00Z').getTime(), fundsBnb: 72.5 }, block_time: '2026-10-09T23:00:00Z' },
+    { token_address: '0xb', payload: { blockTimeMs: new Date('2026-10-08T10:00:00Z').getTime() }, block_time: null },
+    { token_address: '0xc', payload: {}, block_time: '2026-10-10T05:00:00Z' },
+    { token_address: '0xd', payload: {}, block_time: null },
+  ]);
+  await eng._loadGraduationEvents();
+  check('F1 窗口过滤后仅留 a（b 窗口前/c 窗口后）', eng._graduationEvents.map(e => e.token), ['0xa']);
+  check('F1 payload.blockTimeMs 优先于 block_time 列（tsMs=10:00 非 23:00）',
+    eng._graduationEvents[0].tsMs === new Date('2026-10-09T10:00:00Z').getTime(), true);
+  check('F1 fundsBnb 透传', eng._graduationEvents[0].fundsBnb, 72.5);
+  check('F1 缺锚跳过留 WARN', warns.some(m => m.includes('缺时间锚')), true);
+  check('F1 _graduatedTokens 只含窗口内 token', [...eng._graduatedTokens], ['0xa']);
+
+  const eng2 = makeGradEngine({
+    _startTimeFilter: null, _endTimeFilter: null,
+    _tokenMeta: new Map([['0x1', {}], ['0x2', {}]]),
+  });
+  eng2._getClient = () => mkStubClient([
+    { token_address: '0x2', payload: {}, block_time: '2026-10-09T12:00:00Z' },
+    { token_address: '0x1', payload: { blockTimeMs: new Date('2026-10-09T08:00:00Z').getTime() }, block_time: null },
+  ]);
+  await eng2._loadGraduationEvents();
+  check('F1 升序排序 + block_time 列兜底锚',
+    [eng2._graduationEvents[0].token, eng2._graduationEvents[1].token], ['0x1', '0x2']);
+
+  // F2 消费指针：未到期不动 / 到期未持仓仅标记推进 / 卖出失败不推进（重试语义）
+  const mkConsume = (over = {}) => makeGradEngine({
+    _graduationEvents: [
+      { token: '0xA', tsMs: 1000, fundsBnb: 70 },
+      { token: '0xB', tsMs: 2000, fundsBnb: 80 },
+    ],
+    _factorAggregator: { markGraduated: () => {} },
+    _tokenPool: { getToken: (a) => (a === '0xA' ? { token: a, status: 'bought', symbol: 'A' } : null) },
+    _emitGraduationSell: async () => ({ success: true }),
+    ...over,
+  });
+
+  const c1 = mkConsume();
+  await c1._consumeGraduationEvents(999);
+  check('F2 未到期零消费', c1._gradEvtIdx, 0);
+  await c1._consumeGraduationEvents(1500);
+  check('F2 到期未持仓（getToken null）仅标记推进', c1._gradEvtIdx, 1);
+  await c1._consumeGraduationEvents(Infinity);
+  check('F2 后续事件继续消费（持仓卖成功推进）', c1._gradEvtIdx, 2);
+
+  const c2 = mkConsume({
+    _tokenPool: { getToken: (a) => ({ token: a, status: 'bought', symbol: 'A' }) },
+    _emitGraduationSell: async () => ({ success: false, reason: '卖出执行中' }),
+  });
+  await c2._consumeGraduationEvents(5000);
+  check('F2 卖出失败不推进指针（下轮重试=虚拟扫描兜底等价）', c2._gradEvtIdx, 0);
+
+  // F3 _emitGraduationSell：等价 strategy + evtTs 虚拟时钟 + 幂等后置
+  let sellCall = null;
+  const e3 = makeGradEngine({
+    _factorAggregator: { buildFactorMap: () => ({ graduationProgress: 0.98, currentPrice: 1 }) },
+    _emitSellSignal: async (token, strategy, factors, nowTs, tick) => { sellCall = { strategy, nowTs, tick }; return { success: true }; },
+  });
+  const r3 = await e3._emitGraduationSell({ token: '0xA', symbol: 'A' }, { token: '0xA', tsMs: 7777, fundsBnb: 70 });
+  check('F3 等价 strategy（id/name/cards/sellPct/bypass）',
+    [sellCall.strategy.id, sellCall.strategy.name, sellCall.strategy.cards, sellCall.strategy.sellPercentage, sellCall.strategy.bypassDebounce],
+    ['graduationSell', '毕业事件全清', 'all', 1, true]);
+  check('F3 evtTs 虚拟时钟传入 _emitSellSignal（断流前最后可靠价）', sellCall.nowTs, 7777);
+  check('F3 tick=null（事件路径无 tick）', sellCall.tick, null);
+  check('F3 幂等标记后置到成功', [r3.success, e3._graduationSoldTokens.has('0xA')], [true, true]);
+
+  const e3b = makeGradEngine({ _factorAggregator: { buildFactorMap: () => null } });
+  const r3b = await e3b._emitGraduationSell({ token: '0xB', symbol: 'B' }, { token: '0xB', tsMs: 1 });
+  check('F3b 无因子（价格史空）→ success:false 不标记', [r3b.success, e3b._graduationSoldTokens.size], [false, 0]);
+
+  const e3c = makeGradEngine({
+    _graduationSoldTokens: new Set(['0xC']),
+    _emitSellSignal: async () => { throw new Error('不应到达'); },
+  });
+  const r3c = await e3c._emitGraduationSell({ token: '0xC', symbol: 'C' }, { token: '0xC', tsMs: 1 });
+  check('F3c 幂等标记命中直接返回（事件重复派发）', r3c.success, true);
+
+  // F4 源码口径：主循环消费点 + 尾部 drain + 买入成功点补卖 + 装载挂点
+  const src = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
+  const mainLoop = src.slice(src.indexOf('_runMainLoop'), src.indexOf('_forceSellAllRemaining'));
+  const consumeIdx = mainLoop.indexOf('await this._consumeGraduationEvents(tickTs)');
+  const scanIdx = mainLoop.indexOf('this._scanHoldingsStopLoss(tickTs)');
+  check('F4 主循环消费点存在且在扫描块之后（tick 处理尾部）', consumeIdx > -1 && consumeIdx > scanIdx, true);
+  check('F4 尾部 drain 存在（强平前，毕业后 ticks 停止的兜底）',
+    mainLoop.includes('await this._consumeGraduationEvents(Infinity)'), true);
+  const buyPath = src.slice(src.indexOf('async _evaluateBuyPath'), src.indexOf('async _stopLossHit'));
+  check('F4 买入成功点补卖存在（三挂点竞态修复，盘古案）',
+    buyPath.includes('_graduatedTokens.has(token.token)') && buyPath.includes('_emitGraduationSell'), true);
+  const initSrc = src.slice(src.indexOf('async _initializeDataSources'), src.indexOf('async _loadTokenMetadata'));
+  check('F4 装载挂点在 ticks 装载后', initSrc.includes('await this._loadGraduationEvents();'), true);
 }
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);

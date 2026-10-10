@@ -83,6 +83,17 @@ class BacktestEngine extends AbstractTradingEngine {
     this._inflightEvals = new Set();    // 回放中 fire-and-forget 的评估 promise（买评估/卖去抖 fire；drain 用）
     this._finalStatusSet = false;       // 回放终态已写（stop 保护用）
 
+    // graduation 事件回放（2026-10-10 虚拟↔回测一致性对齐，a21fa102 CZ 毕业票案）：
+    // 毕业后 token ticks 停止，虚拟引擎有事件驱动全清（_handleGraduation →
+    // _emitGraduationSell，断流前最后可靠价落袋），回测缺事件流时毕业持仓只能靠
+    // 回放结束强平——同 token 同策略下卖出路径系统性分叉。此处从 wss_events
+    // kind='graduation' 拉事件，按 tsMs 插入 tick 流回放（消费点/买入补卖/幂等
+    // 标记后置三挂点对齐虚拟引擎，见各方法注释）
+    this._graduationEvents = [];        // { token, tsMs, fundsBnb } 按 tsMs 升序
+    this._gradEvtIdx = 0;               // 消费指针（卖出失败不推进 = 下轮重试，虚拟扫描兜底等价物）
+    this._graduationSoldTokens = new Set(); // 幂等标记（后置到卖出成功，虚拟竞态修复同款）
+    this._graduatedTokens = new Set();  // 事件已到达集合（买入成功点补卖判据——先于 FA 注册的边缘）
+
     // pumpfun 回迁批 2 闩锁 + 卖出确认去抖（token 级降维，语义同实时引擎）
     this._tokenLocks = new Set();       // 止损闩锁：lockTokenAfterSell 卖腿成交 → 该 token 永久禁买
     this._cumLossTotals = new Map();    // token → 已平仓轮 profitPercent 累计（盈亏同记）
@@ -356,6 +367,28 @@ class BacktestEngine extends AbstractTradingEngine {
         `🔁 周期路由已启用（enforce）| 标注 groups 的腿=${_cycled}/${this._strategyEngine.getStrategyCount()}`);
     }
 
+    // 6.7 引擎级止损双腿（虚拟↔回测一致性 2026-10-10 对齐，a21fa102 配对案）：语义
+    //     与实时引擎 FourMemeWssTradingEngine 完全一致——不配 stopLoss 段 = 机制完全
+    //     关闭（存量回测实验零变化）。回测形态差异：触发时刻全部用 tick 虚拟时钟
+    //     （tick 路径=tickTs；扫描路径=当前回放到的 tickTs，等价实时的墙钟扫描）；
+    //     毕业兜底不走扫描（虚拟的扫描挂点在回放里由事件消费指针的重试语义等价
+    //     覆盖——卖出失败不推进指针每 tick 重试，见 _consumeGraduationEvents）
+    const _sl = experimentConfig.stopLoss || {};
+    const _slTimeMin = Number(_sl.timeStopMinutes);
+    const _slPricePct = Number(_sl.priceStopPercent);
+    this._stopLossTimeSec = Number.isFinite(_slTimeMin) && _slTimeMin > 0 ? _slTimeMin * 60 : null;
+    this._stopLossPricePct = Number.isFinite(_slPricePct) && _slPricePct < 0 ? _slPricePct : null;
+    const _slScanSec = Number(_sl.scanIntervalSec);
+    this._stopLossScanMs = Number.isFinite(_slScanSec) && _slScanSec > 0 ? _slScanSec * 1000 : null;
+    this._stopLossEnabled = !!(this._stopLossTimeSec || this._stopLossPricePct);
+    this._lastStopLossScanTs = null;
+    if (this._stopLossEnabled) {
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `🛡️ 止损双腿已启用(回测) | ${this._stopLossTimeSec != null ? `时间止损: 持有>${Math.round(this._stopLossTimeSec / 60)}min仍浮亏或持平全清 ` : ''}` +
+        `${this._stopLossPricePct != null ? `价格止损: 现价≤成本${this._stopLossPricePct}%全清 ` : ''}` +
+        `| 持仓扫描=${this._stopLossScanMs != null ? this._stopLossScanMs / 1000 + 's(虚拟时钟)' : '未配置（仅 tick 路径）'}`);
+    }
+
     // 7. 批量写入缓冲区
     const { BacktestWriteBuffer } = require('../backtest/BacktestWriteBuffer');
     this._writeBuffer = new BacktestWriteBuffer(supabase, this.logger);
@@ -412,6 +445,11 @@ class BacktestEngine extends AbstractTradingEngine {
     await this._loadWssTicks();
     this.logger.info(this._experimentId, 'BacktestEngine',
       `📊 回放数据就绪: ${this._ticks.length} 笔 tick，${this._tokenMeta.size} 个代币元数据`);
+
+    // 9.2 graduation 事件装载（虚拟↔回测一致性 2026-10-10）：wss_events kind='graduation'
+    //     按 token 集合批量拉取，窗口过滤后按 tsMs 升序待回放（主循环消费见
+    //     _consumeGraduationEvents）
+    await this._loadGraduationEvents();
 
     // 9.4 EarlyParticipant 回放 ticks 索引（bc4f756e 性能案 2026-09-28）：回测期每触发
     // 买信号的早期参与者检查原本现查 wss_price_ticks（90s 窗，一 signal 一次 DB 往返）；
@@ -851,11 +889,31 @@ class BacktestEngine extends AbstractTradingEngine {
 
         // 分腿路由（与实时引擎 _onFactorsUpdated 同构）
         if (token.status === 'bought' && !this._buyingTokens.has(tick.token_address)) {
-          await this._evaluateSellPath(token, factors, tick);
+          // 引擎级止损双腿（tick 即时路径，对齐实时挂点）：命中优先于策略腿——保命腿不等策略评估
+          const _slHit = this._stopLossHit(factors);
+          if (_slHit) {
+            await this._emitStopLossSell(token, factors, _slHit, tickTs, tick);
+          } else {
+            await this._evaluateSellPath(token, factors, tick);
+          }
         } else if (!this._buyingTokens.has(tick.token_address) && token.status !== 'bought') {
           if (this._buyDebouncer.pending.has(tick.token_address)) this.metrics.debounceSuppressed++;
           this._buyDebouncer.touch(tick.token_address, tick);
         }
+
+        // 止损持仓扫描（虚拟时钟节流，断流票兜底——对齐实时 setInterval(scanIntervalSec)）：
+        // 无 tick 的持仓在 tick 路径永不评估；到达扫描周期时以当前 tickTs 全持仓扫一遍，
+        // buildFactorMap(addr, tickTs) 保证断流期 holdDuration 继续走（实时扫描用墙钟，
+        // 回放里 tickTs 即墙钟等价物）
+        if (this._stopLossEnabled && this._stopLossScanMs != null &&
+            (this._lastStopLossScanTs === null || tickTs - this._lastStopLossScanTs >= this._stopLossScanMs)) {
+          this._lastStopLossScanTs = tickTs;
+          await this._scanHoldingsStopLoss(tickTs);
+        }
+
+        // graduation 事件消费（tick 尾部：本 tick 已注册/进 FA，毕业断流前最后价就绪）。
+        // 毕业后 ticks 停止 → 下一 tick 可能几小时后或不来，尾部 drain 兜底（见下）
+        await this._consumeGraduationEvents(tickTs);
 
         processed++;
         if (processed % 5000 === 0) {
@@ -878,6 +936,11 @@ class BacktestEngine extends AbstractTradingEngine {
       if (this._inflightEvals.size > 0) {
         await Promise.all([...this._inflightEvals]);
       }
+
+      // graduation 尾部 drain：毕业后 ticks 停止，尾部事件（tsMs > 最后一笔 tick）
+      // 在 tick 循环里永远等不到消费点——窗口内的剩余事件全部处理后再强平
+      //（强平前最后一次毕业卖出尝试，语义对齐虚拟「断流前最后可靠价落袋」）
+      await this._consumeGraduationEvents(Infinity);
 
       // 回放结束：强平所有持仓（沿用旧回测语义）
       await this._forceSellAllRemaining();
@@ -957,6 +1020,110 @@ class BacktestEngine extends AbstractTradingEngine {
 
   async _syncHoldings() {
     // 回测持仓由 PortfolioManager 在回放中记账，无需外部同步
+  }
+
+  // ==================== graduation 事件回放（虚拟↔回测一致性 2026-10-10）====================
+
+  /**
+   * 拉取回放 token 集合内的毕业事件（wss_events kind='graduation'，token 级全局
+   * 表不挂实验维度；both 采集器写的行全量可见）。行 payload 形状（collector
+   * onGraduation info 原样）：{ token, offers, quote, fundsBnb, blockNumber,
+   * blockTimeMs, txHash }；block_time 列兜底定时锚。窗口 [startTime, endTime]
+   * 过滤后按 tsMs 升序——回放消费按时序插入 tick 流。
+   */
+  async _loadGraduationEvents() {
+    const supabase = this._getClient();
+    const addresses = [...this._tokenMeta.keys()];
+    const BATCH = 500;
+    let total = 0;
+    for (let i = 0; i < addresses.length; i += BATCH) {
+      let data = null;
+      for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
+        const res = await supabase
+          .from('wss_events')
+          .select('token_address, payload, block_time')
+          .eq('kind', 'graduation')
+          .in('token_address', addresses.slice(i, i + BATCH));
+        if (!res.error) { data = res.data; break; }
+        if (attempt === PAGE_ATTEMPTS) {
+          throw new Error(`读取 wss_events graduation 失败（连续 ${PAGE_ATTEMPTS} 次）: ${res.error.message}`);
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      for (const row of data || []) {
+        const payload = row.payload || {};
+        const tsMs = Number(payload.blockTimeMs)
+          || (row.block_time ? new Date(row.block_time).getTime() : 0);
+        if (!tsMs) {
+          this.logger.warn(this._experimentId, 'BacktestEngine',
+            `graduation 事件缺时间锚，跳过 | ${row.token_address}`);
+          continue;
+        }
+        if (this._startTimeFilter && tsMs < this._startTimeFilter) continue;
+        if (this._endTimeFilter && tsMs > this._endTimeFilter) continue;
+        this._graduationEvents.push({
+          token: row.token_address,
+          tsMs,
+          fundsBnb: Number(payload.fundsBnb) || null,
+        });
+        this._graduatedTokens.add(row.token_address);
+        total++;
+      }
+    }
+    this._graduationEvents.sort((a, b) => a.tsMs - b.tsMs);
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `🎓 graduation 事件装载: ${total} 个（token 集合 ${addresses.length}，窗口内）`);
+  }
+
+  /**
+   * 消费到期毕业事件（主循环每 tick 尾部 + 回放收尾 drain 调用）：
+   *   - 事件时刻 ≤ upToTs 的依次处理：markGraduated（FA 防前视：此后的
+   *     graduationProgress 判定不受影响，毕业臂策略腿语义不变）
+   *   - 持仓票 → _emitGraduationSell 全清（断流前最后可靠价 = buildFactorMap(evtTs)，
+   *     毕业后无新 tick，evtTs 时刻取值即最后价格史——虚拟引擎同款）
+   *   - 未持仓 → 仅标记推进（后续买入由买入成功点补卖覆盖）
+   *   - 卖出失败不推进指针（每 tick 重试，虚拟「扫描兜底」的回放等价物）；
+   *     持续失败最终由回放结束强平收尾
+   * 消费点在 tick 处理之后：同块「首 tick + 毕业事件」时首见注册已完成
+   * （markGraduated 需要 FA state 存在）。
+   */
+  async _consumeGraduationEvents(upToTs) {
+    while (this._gradEvtIdx < this._graduationEvents.length) {
+      const evt = this._graduationEvents[this._gradEvtIdx];
+      if (evt.tsMs > upToTs) break;
+      this._factorAggregator.markGraduated(evt.token);
+      const token = this._tokenPool.getToken(evt.token, 'bsc');
+      if (token && token.status === 'bought' && !this._graduationSoldTokens.has(evt.token)) {
+        const result = await this._emitGraduationSell(token, evt);
+        if (!result || !result.success) break;   // 失败不推进指针，下轮重试
+      }
+      this._gradEvtIdx++;
+    }
+  }
+
+  /**
+   * 毕业事件驱动全清（虚拟引擎 _emitGraduationSell 的回放版，语义逐字对齐）：
+   * 构造等价 strategy（与止损腿同构：cards='all'/sellPercentage=1/bypassDebounce）
+   * 走 _emitSellSignal 全清链——signals/trades/卡账本/累亏记账副作用全复用。
+   * 卖出价 = 断流前最后可靠价（buildFactorMap(evtTs)）。幂等标记后置到卖出成功；
+   * 并发双调被 _emitSellSignal 内 _sellingTokens 挡住。
+   */
+  async _emitGraduationSell(token, evt) {
+    const tokenAddress = token.token;
+    if (this._graduationSoldTokens.has(tokenAddress)) return { success: true };
+    const factors = this._factorAggregator.buildFactorMap(tokenAddress, evt.tsMs);
+    if (!factors) return { success: false, reason: '无因子（价格史空）' };
+    const strategy = {
+      id: 'graduationSell', name: '毕业事件全清',
+      action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
+      priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+    };
+    this.logger.info(this._experimentId, 'Graduation',
+      `${token.symbol || tokenAddress.slice(0, 10)} 毕业事件驱动全清(回放) | funds=${evt.fundsBnb} BNB ` +
+      `余仓按断流前最后可靠价落袋 graduationProgress=${factors.graduationProgress?.toFixed(3)}`);
+    const result = await this._emitSellSignal(token, strategy, factors, evt.tsMs, null);
+    if (result && result.success) this._graduationSoldTokens.add(tokenAddress);
+    return result;
   }
 
   /**
@@ -1436,6 +1603,18 @@ class BacktestEngine extends AbstractTradingEngine {
         this.metrics.executedSignals++;
         this.logger.info(this._experimentId, 'BuyEval',
           `✅ 买入成功(回放) | ${token.symbol} price=${latestPrice.toExponential(4)} amount=${buyAmt}${this._cardsEnabled ? `(${signal.cards ?? 1}卡)` : ''} 余额=${this.currentBalance.toFixed(4)}`);
+
+        // 毕业事件先于买入的消费竞态补卖（虚拟引擎三挂点之一，盘古案 2026-09-28）：
+        // graduation 事件消费时 status!=='bought' no-op，买入成功点查 FA graduated
+        // 标记（或事件集合——事件先于首 tick 的边缘 markGraduated 会 no-op）直接补
+        // 毕业全清。回放串行直接 await（虚拟为 fire-and-forget，效果等价）
+        if (faState?.graduated || this._graduatedTokens.has(token.token)) {
+          if (!this._graduationSoldTokens.has(token.token)) {
+            await this._emitGraduationSell(token, {
+              token: token.token, tsMs: nowTs, fundsBnb: faState?.lastFundsBnb ?? null,
+            });
+          }
+        }
         return { success: true };
       }
 
@@ -1447,6 +1626,69 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   // ==================== 卖路径（虚拟时钟版）====================
+
+  /**
+   * 引擎级止损双腿判定（与实时引擎 FourMemeWssTradingEngine._stopLossHit 逐字一致；
+   * 配置 stopLoss 段启用；纯读 factors 不动状态）。返回命中描述或 null；price 先判
+   * （两条同时命中时标注更深的那条，全清同效）。因子口径与策略腿同源：
+   * profitPercent=相对 FA buyState 成本（%）/ holdDuration=秒。时间腿 <=0 而非 <0。
+   */
+  _stopLossHit(factors) {
+    if (!this._stopLossEnabled) return null;
+    const profit = factors.profitPercent;
+    const hold = factors.holdDuration;
+    if (this._stopLossPricePct != null && Number.isFinite(profit) && profit <= this._stopLossPricePct) {
+      return { kind: 'price', profitPercent: profit };
+    }
+    if (this._stopLossTimeSec != null && Number.isFinite(hold) && hold > this._stopLossTimeSec
+        && Number.isFinite(profit) && profit <= 0) {
+      return { kind: 'time', profitPercent: profit, holdDuration: hold };
+    }
+    return null;
+  }
+
+  /**
+   * 止损卖出：构造等价 strategy 走 _emitSellSignal 全清链——signals/trades/卡账本
+   * （cards='all'→全清 sellPct=1）/累亏记账副作用全复用（实时引擎同款，零新执行逻辑）。
+   * 回测签名差异：多 nowTs（虚拟时钟，去抖/评估路径统一传法）。
+   */
+  async _emitStopLossSell(token, factors, hit, nowTs, tick) {
+    const common = {
+      action: 'sell', sellPercentage: 1, cards: 'all', bypassDebounce: true,
+      priority: 0, lockTokenAfterSell: false, maxExecutions: null, cumulativeLossLockPct: null,
+    };
+    const strategy = hit.kind === 'price'
+      ? { id: 'stopLossPrice', name: `止损-价格跌破成本线(${this._stopLossPricePct}%)`, ...common }
+      : { id: 'stopLossTime', name: `止损-持有超时仍亏损(${Math.round(this._stopLossTimeSec / 60)}min)`, ...common };
+    this.logger.info(this._experimentId, 'StopLoss',
+      `${token.symbol || token.token.slice(0, 10)} 触发${strategy.name}(回放) | profitPercent=${hit.profitPercent?.toFixed(1)}%` +
+      `${hit.kind === 'time' ? ` holdDuration=${(hit.holdDuration / 60).toFixed(1)}min` : ''}`);
+    return this._emitSellSignal(token, strategy, factors, nowTs, tick);
+  }
+
+  /**
+   * 持仓止损扫描（虚拟时钟版，实时 _scanHoldingsStopLoss 的回放等价）：主循环按
+   * scanIntervalMs 虚拟节流调用，断流持仓在此兜底。只判止损双腿不跑策略腿
+   * （P 腿断流「不评估」语义维持）。串行逐 token await（对齐实时，避免卖出风暴）。
+   * 毕业兜底不在扫描嵌（虚拟版有）：回放的毕业事件消费指针自带重试语义等价覆盖。
+   */
+  async _scanHoldingsStopLoss(nowTs) {
+    for (const holding of this._getAllHoldings()) {
+      const tokenAddress = holding.tokenAddress;
+      if (!tokenAddress) continue;
+      const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+      if (!token || token.status !== 'bought') continue;
+      if (this._sellingTokens.has(tokenAddress) || this._buyingTokens.has(tokenAddress)) continue;
+      const factors = this._factorAggregator.buildFactorMap(tokenAddress, nowTs);
+      if (!factors) continue;
+      // 周期路由同步（断流票 stale 降档；对齐实时扫描点）
+      if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
+      const hit = this._stopLossHit(factors);
+      if (hit) {
+        await this._emitStopLossSell(token, factors, hit, nowTs, null);
+      }
+    }
+  }
 
   /**
    * 卖腿评估（pumpfun 回迁批 2，与实时引擎同构）：每 tick 实时评估不去抖，
