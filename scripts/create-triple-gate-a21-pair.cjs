@@ -18,7 +18,12 @@
 //   双跑 Jev 非确定性，差分被污染）。
 //
 // 用法（182）：node scripts/create-triple-gate-a21-pair.cjs [--commit]
-//   默认 dry-run 打印配置；--commit 真建（一次建两臂）。
+//   [--end <ISO>] [--suffix <str>] [--arm r0|r1|both]
+//   默认 dry-run 打印配置；--commit 真建（--arm 缺省 both 一次建两臂）。
+//   --end：显式窗口终点——重跑臂必须复用既有臂的 endTime（两臂窗口
+//     bit-identical 红线；缺省 = 建臂时刻 − 2min 动态定死）。
+//   --suffix：name 尾缀（重跑臂显式区分，如 --suffix -R0b修复版重跑）。
+//   --arm：只建指定臂（重跑场景只建基底，三门臂不动）。
 // ============================================================================
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
@@ -34,6 +39,9 @@ const PREBUY_APPEND = ' AND strictSameNameTokenCount >= 3'
 
 const args = process.argv.slice(2);
 const COMMIT = args.includes('--commit');
+const endIdx = args.indexOf('--end');
+const sfxIdx = args.indexOf('--suffix');
+const armIdx = args.indexOf('--arm');
 
 /** strip 出可比 JSON（删 name/description，可选还原两条条件/backtest） */
 const strip = (cfg, restore) => {
@@ -58,13 +66,21 @@ async function main() {
   const origPre = base.config.strategiesConfig.buyStrategies[0].preBuyCheckCondition;
   const origBacktest = base.config.backtest;
 
-  // endTime 建臂时刻定死（两臂共用；−2min 缓冲防窗口边界竞态）
-  const END = new Date(Date.now() - 120000).toISOString();
+  // endTime 建臂时刻定死（两臂共用；−2min 缓冲防窗口边界竞态）；
+  // --end 显式传入时复用既有臂窗口（重跑臂 bit-identical 红线）
+  const END = endIdx > -1
+    ? args[endIdx + 1]
+    : new Date(Date.now() - 120000).toISOString();
+  const SUFFIX = sfxIdx > -1 ? ' ' + args[sfxIdx + 1] : '';
+  const ARM = armIdx > -1 ? args[armIdx + 1] : 'both';
+  if (ARM !== 'r0' && ARM !== 'r1' && ARM !== 'both') {
+    throw new Error('--arm 只接受 r0|r1|both，收到: ' + ARM);
+  }
 
   // R0' 基底：换窗口
   const r0 = JSON.parse(JSON.stringify(base.config));
   r0.backtest = { ...r0.backtest, sourceExperimentId: A21_ID, startTime: START, endTime: END };
-  r0.name = '回测-三门窗口2-基底-a21fa102-1010';
+  r0.name = '回测-三门窗口2-基底-a21fa102-1010' + SUFFIX;
   r0.description = '三门验证窗口 2 基底（无三门）：config 源 7bee34f9 仅换窗口 = '
     + 'a21fa102 采集时段（10-08 14:37 → ' + END + '）；窗口内旧叙事缓存 55 行已失效，'
     + '本臂叙事全真调（Jev J1.29 统一口径 + C58 视觉 + GMGN enrich 落缓存）；'
@@ -75,7 +91,7 @@ async function main() {
   const buy1 = r1.strategiesConfig.buyStrategies[0];
   buy1.condition = origCond + COND_APPEND;
   buy1.preBuyCheckCondition = origPre + PREBUY_APPEND;
-  r1.name = '回测-三门窗口2-三门臂-a21fa102-1010';
+  r1.name = '回测-三门窗口2-三门臂-a21fa102-1010' + SUFFIX;
   r1.description = '三门验证窗口 2 三门臂（G1 低名 + G7 slope + G4 bundler，子句与窗口 1 '
     + '3e57ed75 逐字相同）：窗口/其余 config 与基底臂 bit-identical；叙事缓存读窗口 2 '
     + '基底臂真调落的 J1.29 行（跑序：必须等基底臂 completed 后再启动本臂）；'
@@ -102,20 +118,35 @@ async function main() {
   console.log('  R1\' preBuy:', r1.strategiesConfig.buyStrategies[0].preBuyCheckCondition);
   console.log('  backtest:', JSON.stringify(r1.backtest));
 
-  if (!COMMIT) { console.log('\n[dry-run] 未建实验；加 --commit 真建（一次建两臂）'); process.exit(0); }
+  if (!COMMIT) {
+    console.log('\n[dry-run] 未建实验；加 --commit 真建（--arm=' + ARM + '）');
+    process.exit(0);
+  }
 
-  const c0 = await factory.createFromConfig(r0, 'backtest');
-  const c1 = await factory.createFromConfig(r1, 'backtest');
   console.log('\n========================================');
-  console.log('R0_BASE_ID=' + c0.id);
-  console.log('R1_GATED_ID=' + c1.id);
+  let c0id = null, c1id = null;
+  if (ARM === 'r0' || ARM === 'both') {
+    const c0 = await factory.createFromConfig(r0, 'backtest');
+    c0id = c0.id;
+    console.log('R0_BASE_ID=' + c0id);
+  }
+  if (ARM === 'r1' || ARM === 'both') {
+    const c1 = await factory.createFromConfig(r1, 'backtest');
+    c1id = c1.id;
+    console.log('R1_GATED_ID=' + c1id);
+  }
   console.log('========================================');
-  console.log('下一步（182，严格按序串行）：');
-  console.log('  1) nohup node src/run-engine.js ' + c0.id + ' > /tmp/triple-a21-r0.log 2>&1 &');
-  console.log('     # 叙事真调（Jev/视觉/GMGN）+ tick-cache 首拉，预计 1-2h');
-  console.log('  2) 等 R0 completed 后：nohup node src/run-engine.js ' + c1.id + ' > /tmp/triple-a21-r1.log 2>&1 &');
-  console.log('     # 叙事缓存全命中，仅回放');
-  console.log('  3) node scripts/compare-triple-gate-pair.cjs ' + c1.id + ' ' + c0.id);
+  if (c0id && !c1id) {
+    console.log('下一步（182）：nohup node src/run-engine.js ' + c0id
+      + ' > /tmp/triple-a21-r0b.log 2>&1 &   # 只建了基底臂（重跑）');
+  } else if (c0id && c1id) {
+    console.log('下一步（182，严格按序串行）：');
+    console.log('  1) nohup node src/run-engine.js ' + c0id + ' > /tmp/triple-a21-r0.log 2>&1 &');
+    console.log('     # 叙事真调（Jev/视觉/GMGN）+ tick-cache 首拉，预计 1-2h');
+    console.log('  2) 等 R0 completed 后：nohup node src/run-engine.js ' + c1id + ' > /tmp/triple-a21-r1.log 2>&1 &');
+    console.log('     # 叙事缓存全命中，仅回放');
+    console.log('  3) node scripts/compare-triple-gate-pair.cjs ' + c1id + ' ' + c0id);
+  }
   process.exit(0);
 }
 
