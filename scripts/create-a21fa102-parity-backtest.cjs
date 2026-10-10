@@ -21,6 +21,10 @@ const BASE_ID = 'a21fa102-aa00-4d98-b0d9-65f4a2323459';
 
 const args = process.argv.slice(2);
 const COMMIT = args.includes('--commit');
+// --reuse-window <btId>：复用指定回测实验的窗口（数据点 B/C 控制变量——与 A 同窗，
+// 唯一变量是引擎补丁；缺省 = 起点=基底创建时刻、终点=当前时刻）
+const rwIdx = args.indexOf('--reuse-window');
+const REUSE_WINDOW_ID = rwIdx > -1 ? args[rwIdx + 1] : null;
 
 async function main() {
   const { ExperimentFactory } = require('../src/trading-engine/factories/ExperimentFactory');
@@ -29,21 +33,32 @@ async function main() {
   if (!base) throw new Error('基底实验不存在: ' + BASE_ID);
 
   const cfg = JSON.parse(JSON.stringify(base.config));
-  // 窗口：起点 = 基底创建时刻（其首 token 14:38:13 晚 43s，覆盖完整）；终点 = 当前时刻
   const { dbManager } = require('../src/services/dbManager');
-  const { data: expRow } = await dbManager.getClient().from('experiments').select('created_at').eq('id', BASE_ID).single();
-  if (!expRow?.created_at) throw new Error('查不到基底 created_at');
-  const startTime = expRow.created_at;
-  const endTime = new Date().toISOString();
+  const client = dbManager.getClient();
+  let startTime, endTime;
+  if (REUSE_WINDOW_ID) {
+    const { data: rw, error } = await client.from('experiments').select('config').eq('id', REUSE_WINDOW_ID).single();
+    if (error || !rw?.config?.backtest) throw new Error('复用窗口实验不存在或无 backtest 段: ' + REUSE_WINDOW_ID);
+    startTime = rw.config.backtest.startTime;
+    endTime = rw.config.backtest.endTime;
+    console.log('复用窗口自', REUSE_WINDOW_ID, ':', startTime, '→', endTime);
+  } else {
+    // 窗口：起点 = 基底创建时刻（其首 token 14:38:13 晚 43s，覆盖完整）；终点 = 当前时刻
+    const { data: expRow } = await client.from('experiments').select('created_at').eq('id', BASE_ID).single();
+    if (!expRow?.created_at) throw new Error('查不到基底 created_at');
+    startTime = expRow.created_at;
+    endTime = new Date().toISOString();
+  }
   cfg.backtest = {
     sourceExperimentId: BASE_ID,
     startTime,
     endTime,
   };
-  cfg.name = '回测-虚拟一致性对拍-a21fa102同窗同源-1010';
+  cfg.name = '回测-虚拟一致性对拍-a21fa102同窗同源-1010' + (REUSE_WINDOW_ID ? '-B止损毕业补齐' : '');
   cfg.description = '虚拟↔回测一致性配对：a21fa102 整包克隆（v6+hg55+corpusLag 门策略 / both / '
     + 'PM 卡牌 / stopLoss / TPA），sourceExperimentId=自身 → token 集合与 ticks 完全同源；'
-    + '窗口 ' + startTime + ' → ' + endTime + '。对拍虚拟实跑 21 买 20 卖净 -1.09 BNB。';
+    + '窗口 ' + startTime + ' → ' + endTime + '。'
+    + (REUSE_WINDOW_ID ? '数据点 B：与 ' + REUSE_WINDOW_ID.slice(0, 8) + ' 同窗（引擎止损+graduation 补齐后重跑）。' : '对拍虚拟实跑 21 买 20 卖净 -1.09 BNB。');
 
   // 差异唯一性自检：除 name/description/backtest 外与基底逐字节全同
   const stripped = JSON.parse(JSON.stringify(cfg));
