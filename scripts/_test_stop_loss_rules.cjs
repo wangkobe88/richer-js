@@ -328,7 +328,7 @@ console.log('F. BacktestEngine graduation 事件回放');
     eng._graduationEvents[0].tsMs === new Date('2026-10-09T10:00:00Z').getTime(), true);
   check('F1 fundsBnb 透传', eng._graduationEvents[0].fundsBnb, 72.5);
   check('F1 缺锚跳过留 WARN', warns.some(m => m.includes('缺时间锚')), true);
-  check('F1 _graduatedTokens 只含窗口内 token', [...eng._graduatedTokens], ['0xa']);
+  check('F1 装载后 _graduatedTokens 为空（消费点填充，74444a0c 数据点 B 前视事故）', eng._graduatedTokens.size, 0);
 
   const eng2 = makeGradEngine({
     _startTimeFilter: null, _endTimeFilter: null,
@@ -359,8 +359,10 @@ console.log('F. BacktestEngine graduation 事件回放');
   check('F2 未到期零消费', c1._gradEvtIdx, 0);
   await c1._consumeGraduationEvents(1500);
   check('F2 到期未持仓（getToken null）仅标记推进', c1._gradEvtIdx, 1);
+  check('F2 消费点填充 _graduatedTokens（0xA 事件已到达）', c1._graduatedTokens.has('0xA'), true);
   await c1._consumeGraduationEvents(Infinity);
   check('F2 后续事件继续消费（持仓卖成功推进）', c1._gradEvtIdx, 2);
+  check('F2 消费两个事件后集合含 0xA/0xB', [c1._graduatedTokens.has('0xA'), c1._graduatedTokens.has('0xB')], [true, true]);
 
   const c2 = mkConsume({
     _tokenPool: { getToken: (a) => ({ token: a, status: 'bought', symbol: 'A' }) },

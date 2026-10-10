@@ -1068,7 +1068,6 @@ class BacktestEngine extends AbstractTradingEngine {
           tsMs,
           fundsBnb: Number(payload.fundsBnb) || null,
         });
-        this._graduatedTokens.add(row.token_address);
         total++;
       }
     }
@@ -1094,6 +1093,11 @@ class BacktestEngine extends AbstractTradingEngine {
       const evt = this._graduationEvents[this._gradEvtIdx];
       if (evt.tsMs > upToTs) break;
       this._factorAggregator.markGraduated(evt.token);
+      // 事件到达标记在消费点填充（74444a0c 数据点 B 前视事故：装载即填会把「未来
+      // 毕业」提前暴露给买入成功点补卖判据——CZ 买入 fireTs 16:39:04 查到 14s 后
+      // 才毕业的标记直接补卖@买价 0%，虚拟引擎对应标记是事件墙钟到达才置。
+      // 挪到消费点后「事件先于首 tick」边缘仍覆盖：集合独立于 FA state 存在性）
+      this._graduatedTokens.add(evt.token);
       const token = this._tokenPool.getToken(evt.token, 'bsc');
       if (token && token.status === 'bought' && !this._graduationSoldTokens.has(evt.token)) {
         const result = await this._emitGraduationSell(token, evt);
