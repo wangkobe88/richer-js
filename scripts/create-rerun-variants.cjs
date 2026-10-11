@@ -25,7 +25,7 @@
 // 跑序无依赖，可串行跑；⚠️ 必须等画像库重建完成 + 删死行之后再启动 run-engine
 // （回测启动时读画像库，混杂期数据脏）。
 //
-// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20 [--commit]
+// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|mh8 [--commit]
 //   默认 dry-run 打印各臂 diff 摘要；--commit 真建。
 // ============================================================================
 const path = require('path');
@@ -40,6 +40,12 @@ const UW_OLD = 'earlyTradesUniqueWallets >= 15';
 // TPA tokenScore 门（condition 内；t 臂 2026-10-11 追加：wallet 口径拆散 GMGN 合并像后
 // 分布整体下移——3.5+ 档 1223→259、approve 率 64.6%→46.5%，2.5 门等效变严，重校准对照）
 const TS_OLD = 'TPAPre_tokenScore > 2.5';
+// tokenScore 门整条子句（含前导 AND，tnote 去除用；TPA 机制照跑落表，仅不拦买）
+const TS_CLAUSE = ' AND TPAPre_tokenScore > 2.5';
+// minHolders 触发门（tokenPositionAnalyzer.trigger 内；mh 臂 2026-10-11 追加：
+// wallet 口径 holderCount 膨胀致触发提前——1293 票提前触发 + 889 票独有触发 tc p50=11
+// 刚过 tradeCount 门就触发、画像窗口极短 miss 增多，4→8 翻倍推迟到真实买家更多时）
+const MH_OLD = 4;
 
 const ARMS = {
     b1: { src: E15401A9, suffix: '-TPAwallet重跑', desc: 'TPA wallet 口径修复后重跑（b1）' },
@@ -49,6 +55,8 @@ const ARMS = {
     d5: { src: E15401A9, suffix: '-uw5', desc: 'earlyTradesUniqueWallets 15→5 放宽臂（d5）' },
     t22: { src: E3E57ED75, suffix: '-tpa22', desc: 'TPA tokenScore 门 2.5→2.2 降档臂（t22，与中性分对齐）' },
     t20: { src: E3E57ED75, suffix: '-tpa20', desc: 'TPA tokenScore 门 2.5→2.0 降档臂（t20，夹逼下界）' },
+    tnone: { src: E3E57ED75, suffix: '-去TPA门', desc: '去 TPA tokenScore 门整条臂（tnone，TPA 照跑落表仅不拦买）' },
+    mh8: { src: E3E57ED75, suffix: '-mh8', desc: 'TPA 触发门 minHolders 4→8 臂（mh8，推迟触发等画像更全）' },
 };
 
 const args = process.argv.slice(2);
@@ -105,6 +113,20 @@ async function main() {
             }
             buy.condition = buy.condition.replace(TS_OLD,
                 'TPAPre_tokenScore > ' + (arm === 't22' ? '2.2' : '2.0'));
+        } else if (arm === 'tnone') {
+            if (!buy.condition.includes(TS_CLAUSE)) {
+                throw new Error(`[${arm}] 源 condition 未含 tokenScore 门整条（替换落空防静默），condition=${buy.condition}`);
+            }
+            buy.condition = buy.condition.replace(TS_CLAUSE, '');
+            if (buy.condition.includes('TPAPre_tokenScore') || buy.condition === src.config.strategiesConfig.buyStrategies[0].condition) {
+                throw new Error(`[${arm}] tokenScore 门整条去除后校验失败`);
+            }
+        } else if (arm === 'mh8') {
+            const trig = cfg.tokenPositionAnalyzer && cfg.tokenPositionAnalyzer.trigger;
+            if (!trig || trig.minHolders !== MH_OLD) {
+                throw new Error(`[${arm}] 源 trigger.minHolders != ${MH_OLD}（替换落空防静默），trigger=${JSON.stringify(trig)}`);
+            }
+            trig.minHolders = 8;
         }
 
         // diff 校验：b1/b2 与源零差异；c/d10/d5 除 pbc 外零差异；t22/t20 除 condition 外零差异
@@ -119,11 +141,15 @@ async function main() {
             delete base.name; delete base.description;
             if (arm === 'c' || arm === 'd10' || arm === 'd5') {
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
-            } else { // t22/t20：差异仅 condition
+            } else if (arm === 'mh8') { // 差异仅 trigger.minHolders
+                base.tokenPositionAnalyzer.trigger.minHolders = 8;
+            } else { // t22/t20/tnone：差异仅 condition
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
             }
             if (JSON.stringify(chk) !== JSON.stringify(base)) {
-                throw new Error(`[${arm}] 与源实验差异超出 name/description/${arm.startsWith('t') ? 'condition' : 'pbc'}——应零差异`);
+                const field = (arm === 'c' || arm === 'd10' || arm === 'd5') ? 'pbc'
+                    : (arm === 'mh8' ? 'trigger.minHolders' : 'condition');
+                throw new Error(`[${arm}] 与源实验差异超出 name/description/${field}——应零差异`);
             }
         }
 
@@ -134,7 +160,11 @@ async function main() {
                 ? '去 lag 门整条 (narrativeCorpusLagSec < 300 OR earlyReturn >= 100)——晚票不再要盘面确认（用户裁定 2026-10-10）'
                 : (arm === 't22' || arm === 't20'
                     ? `condition ${TS_OLD} 降档（用户裁定 2026-10-11：wallet 口径分布下移致 2.5 门等效变严，重校准对照）`
-                    : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`)))
+                    : (arm === 'tnone'
+                        ? `condition 去 ${TS_OLD} 整条（用户裁定 2026-10-11：TPA 照跑落表仅不拦买）`
+                        : (arm === 'mh8'
+                            ? `TPA 触发门 minHolders 4→8（用户裁定 2026-10-11：wallet 口径触发提前画像窗口过短）`
+                            : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`)))))
             + `；画像库 = 二期 sender 口径重建版。`;
 
         console.log(`\n===== 臂 ${arm}（源 ${def.src}）=====`);
