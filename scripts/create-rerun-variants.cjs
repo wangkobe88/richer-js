@@ -28,7 +28,7 @@
 // 跑序无依赖，可串行跑；⚠️ 必须等画像库重建完成 + 删死行之后再启动 run-engine
 // （回测启动时读画像库，混杂期数据脏）。
 //
-// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm|v0|e50|eno|enl [--gm-pct <50-100>] [--commit]
+// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm|v0|e50|eno|enl|ec0 [--gm-pct <50-100>] [--commit]
 //   默认 dry-run 打印各臂 diff 摘要；--commit 真建。gm 臂须显式 --gm-pct（dry-run 定档值）。
 // ============================================================================
 const path = require('path');
@@ -64,6 +64,10 @@ const TOP1_CLAUSE = ' AND earlyTradesTop1BuySharePct < 60';
 const COVERED_CLAUSE = ' AND earlyTradesTop1BuyCovered == 1';
 const ROUTER_OLD = 'earlyTradesRouterPct >= 50';
 const ER_OLD = 'earlyReturn >= 100';
+// 买腿 cycle 冷档门子句（ec0 臂 2026-10-11：用户裁定 tokenCycle 机制已算废除——卖侧
+// 路由腿已全无 groups，机制只剩此买侧子句 + enforce 开关；删子句 + 删 config 段 = 彻底关，
+// v0 vs ec0 差分 = 冷档门纯效应）
+const CYCLE_CLAUSE = ' AND (tokenCycle != 1 OR tokenCycle IS NULL)';
 /** tnone 源 pbc → v0 基线（删 top1/covered 子句 + router 50→30），返回新 pbc */
 function pbcToV0(pbc) {
     for (const c of [TOP1_CLAUSE, COVERED_CLAUSE]) {
@@ -90,6 +94,7 @@ const ARMS = {
     e50: { src: ETNONE, suffix: '-er50', desc: 'v0 + lag 门右臂 earlyReturn 100→50（更早进场）' },
     eno: { src: ETNONE, suffix: '-去er右臂', desc: 'v0 + lag 门删右臂（lag<300 单臂，晚票全拦）' },
     enl: { src: ETNONE, suffix: '-去lag门整条', desc: 'v0 + lag 门整条去除（时间锚与 er 全不筛）' },
+    ec0: { src: ETNONE, suffix: '-去cycle门', desc: 'v0 + condition 删 cycle 子句 + config 删 tokenCycle 段（cycle 门纯效应）' },
 };
 
 const args = process.argv.slice(2);
@@ -220,6 +225,25 @@ async function main() {
                 throw new Error(`[${arm}] v0 基线校验失败（top1/covered/router 残留）`);
             }
             buy.preBuyCheckCondition = pbc;
+        } else if (arm === 'ec0') {
+            // cycle 门纯效应臂：v0 的 pbc + condition 删 cycle 子句 + config 删 tokenCycle 段。
+            // 卖腿 5 条 condition 均不引用 tokenCycle（2026-10-11 查证）→ 删段对卖腿零影响。
+            if (buy.condition.includes('TPAPre_tokenScore')) {
+                throw new Error(`[${arm}] 源应为 tnone（condition 无 TPA 门），condition=${buy.condition}`);
+            }
+            if (!buy.condition.includes(CYCLE_CLAUSE)) {
+                throw new Error(`[${arm}] 源 condition 未含 cycle 子句（替换落空防静默），condition=${buy.condition}`);
+            }
+            buy.condition = buy.condition.replace(CYCLE_CLAUSE, '');
+            if (buy.condition.includes('tokenCycle') || !cfg.tokenCycle) {
+                throw new Error(`[${arm}] 校验失败：condition 残留 tokenCycle 或源 config 无 tokenCycle 段`);
+            }
+            delete cfg.tokenCycle;
+            const pbc = pbcToV0(origPbc);
+            if (pbc.includes('earlyTradesTop1Buy') || pbc.includes(ROUTER_OLD)) {
+                throw new Error(`[${arm}] v0 基线校验失败（top1/covered/router 残留）`);
+            }
+            buy.preBuyCheckCondition = pbc;
         }
 
         // diff 校验：b1/b2 与源零差异；c/d10/d5 除 pbc 外零差异；t22/t20 除 condition 外零差异
@@ -239,6 +263,10 @@ async function main() {
             } else if (arm === 'notpa') { // 差异仅 condition + 删 tokenPositionAnalyzer 段
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
                 delete base.tokenPositionAnalyzer;
+            } else if (arm === 'ec0') { // 差异仅 pbc + condition + 删 tokenCycle 段
+                base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
+                base.strategiesConfig.buyStrategies[0].condition = buy.condition;
+                delete base.tokenCycle;
             } else if (arm === 'gm') { // 差异仅 condition + gmgnFilter
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
                 base.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
@@ -251,7 +279,8 @@ async function main() {
                 const field = (arm === 'c' || arm === 'd10' || arm === 'd5' || arm === 'v0' || arm === 'e50' || arm === 'eno' || arm === 'enl') ? 'pbc'
                     : (arm === 'mh8' ? 'trigger.minHolders'
                         : (arm === 'notpa' ? 'condition+去tokenPositionAnalyzer段'
-                            : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition')));
+                            : (arm === 'ec0' ? 'pbc+condition+去tokenCycle段'
+                                : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition'))));
                 throw new Error(`[${arm}] 与源实验差异超出 name/description/${field}——应零差异`);
             }
         }
@@ -279,7 +308,9 @@ async function main() {
                                             ? 'v0 基础 + lag 门删右臂：lag<300 单臂（lag null fail-closed 拦），lag>=300 晚票全拦对照'
                                             : (arm === 'enl'
                                                 ? 'v0 基础 + lag 门整条去除：时间锚与 er 均不筛（c 臂同款删法，新基线上重测）'
-                                                : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`)))))))))))
+                                                : (arm === 'ec0'
+                                                    ? 'v0 基础 + condition 删 (tokenCycle != 1 OR tokenCycle IS NULL) + config 删 tokenCycle 段（用户裁定 2026-10-11：机制已算废除，卖侧无 groups 仅剩买侧此门；v0 vs ec0 差分 = cycle 门纯效应）'
+                                                    : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`))))))))))))
             + `；画像库 = 二期 sender 口径重建版。`;
 
         console.log(`\n===== 臂 ${arm}（源 ${def.src}）=====`);
