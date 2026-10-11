@@ -28,7 +28,7 @@
 // 跑序无依赖，可串行跑；⚠️ 必须等画像库重建完成 + 删死行之后再启动 run-engine
 // （回测启动时读画像库，混杂期数据脏）。
 //
-// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|mh8|gm [--gm-pct <50-100>] [--commit]
+// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm [--gm-pct <50-100>] [--commit]
 //   默认 dry-run 打印各臂 diff 摘要；--commit 真建。gm 臂须显式 --gm-pct（dry-run 定档值）。
 // ============================================================================
 const path = require('path');
@@ -63,6 +63,7 @@ const ARMS = {
     t22: { src: E3E57ED75, suffix: '-tpa22', desc: 'TPA tokenScore 门 2.5→2.2 降档臂（t22，与中性分对齐）' },
     t20: { src: E3E57ED75, suffix: '-tpa20', desc: 'TPA tokenScore 门 2.5→2.0 降档臂（t20，夹逼下界）' },
     tnone: { src: E3E57ED75, suffix: '-去TPA门', desc: '去 TPA tokenScore 门整条臂（tnone，TPA 照跑落表仅不拦买）' },
+    notpa: { src: E3E57ED75, suffix: '-不激活TPA', desc: 'TPA 模块整体不激活臂（notpa，config 删 tokenPositionAnalyzer 段+condition 删 TPAPre 子句）' },
     mh8: { src: E3E57ED75, suffix: '-mh8', desc: 'TPA 触发门 minHolders 4→8 臂（mh8，推迟触发等画像更全）' },
     gm: { src: E3E57ED75, suffix: '-gmgn豁免', desc: 'TPA GMGN 用户剔除+主导盘豁免臂（gm）' },
 };
@@ -137,6 +138,18 @@ async function main() {
             if (buy.condition.includes('TPAPre_tokenScore') || buy.condition === src.config.strategiesConfig.buyStrategies[0].condition) {
                 throw new Error(`[${arm}] tokenScore 门整条去除后校验失败`);
             }
+        } else if (arm === 'notpa') {
+            // 2026-10-11 用户裁定：tokenScore 分桶矩阵各段胜率 70-88% 趋平无区分度，
+            // 倾向整体不激活 TPA——config 删段（零构造/零触发/零落表/零画像现算）
+            // + condition 删 TPAPre 子句（tnone 同款删法，防未知因子拒启）。
+            if (!buy.condition.includes(TS_CLAUSE)) {
+                throw new Error(`[${arm}] 源 condition 未含 tokenScore 门整条（替换落空防静默），condition=${buy.condition}`);
+            }
+            buy.condition = buy.condition.replace(TS_CLAUSE, '');
+            if (buy.condition.includes('TPAPre_') || !cfg.tokenPositionAnalyzer) {
+                throw new Error(`[${arm}] 校验失败：condition 残留 TPAPre_ 或源 config 无 tokenPositionAnalyzer 段`);
+            }
+            delete cfg.tokenPositionAnalyzer;
         } else if (arm === 'mh8') {
             const trig = cfg.tokenPositionAnalyzer && cfg.tokenPositionAnalyzer.trigger;
             if (!trig || trig.minHolders !== MH_OLD) {
@@ -173,6 +186,9 @@ async function main() {
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
             } else if (arm === 'mh8') { // 差异仅 trigger.minHolders
                 base.tokenPositionAnalyzer.trigger.minHolders = 8;
+            } else if (arm === 'notpa') { // 差异仅 condition + 删 tokenPositionAnalyzer 段
+                base.strategiesConfig.buyStrategies[0].condition = buy.condition;
+                delete base.tokenPositionAnalyzer;
             } else if (arm === 'gm') { // 差异仅 condition + gmgnFilter
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
                 base.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
@@ -182,7 +198,8 @@ async function main() {
             if (JSON.stringify(chk) !== JSON.stringify(base)) {
                 const field = (arm === 'c' || arm === 'd10' || arm === 'd5') ? 'pbc'
                     : (arm === 'mh8' ? 'trigger.minHolders'
-                        : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition'));
+                        : (arm === 'notpa' ? 'condition+去tokenPositionAnalyzer段'
+                            : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition')));
                 throw new Error(`[${arm}] 与源实验差异超出 name/description/${field}——应零差异`);
             }
         }
@@ -196,11 +213,13 @@ async function main() {
                     ? `condition ${TS_OLD} 降档（用户裁定 2026-10-11：wallet 口径分布下移致 2.5 门等效变严，重校准对照）`
                     : (arm === 'tnone'
                         ? `condition 去 ${TS_OLD} 整条（用户裁定 2026-10-11：TPA 照跑落表仅不拦买）`
-                        : (arm === 'mh8'
+                        : (arm === 'notpa'
+                            ? `config 删 tokenPositionAnalyzer 段（TPA 不构造）+ condition 删 TPAPre 子句（用户裁定 2026-10-11：分桶矩阵分数无区分度，整体不激活对照）`
+                            : (arm === 'mh8'
                             ? `TPA 触发门 minHolders 4→8（用户裁定 2026-10-11：wallet 口径触发提前画像窗口过短）`
                             : (arm === 'gm'
                                 ? `condition ${TS_OLD} → (… OR TPAPre_gmgnExempt == 1) + gmgnFilter{enabled,exemptPct:${GM_PCT}}（用户裁定 2026-10-11：GMGN 用户剔除+主导盘豁免；触发门/top20 剔除+占比 ≥${GM_PCT}% verdict 改写 approve）`
-                                : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`))))))
+                                : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`)))))))
             + `；画像库 = 二期 sender 口径重建版。`;
 
         console.log(`\n===== 臂 ${arm}（源 ${def.src}）=====`);
