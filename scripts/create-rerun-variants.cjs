@@ -19,14 +19,17 @@
 //   c   b1 + pbc 去掉整条 lag 门子句（narrativeCorpusLagSec 与 earlyReturn 两键全退场）
 //   d10 b1 + pbc 的 earlyTradesUniqueWallets >= 15 → >= 10
 //   d5  b1 + earlyTradesUniqueWallets >= 15 → >= 5
+//   gm  b2 基础 + tokenScore 门加 OR 豁免臂 + gmgnFilter{enabled,exemptPct}（2026-10-11
+//       用户裁定：GMGN 用户不参与 TPA 分数——触发门/top20 剔除 + 占比达标主导盘豁免；
+//       exemptPct 须 tmp_gmgn_dryrun_b2 预演定档后 --gm-pct 显式传入，all 不含 gm）
 //
 // 叙事缓存：两窗口 J1.29 口径缓存均已落（R0b/载体门臂真调落缓存），全部臂
 // 缓存命中零 Jev 真调 → 各臂叙事口径一致，差分纯来自画像库/门子句。
 // 跑序无依赖，可串行跑；⚠️ 必须等画像库重建完成 + 删死行之后再启动 run-engine
 // （回测启动时读画像库，混杂期数据脏）。
 //
-// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|mh8 [--commit]
-//   默认 dry-run 打印各臂 diff 摘要；--commit 真建。
+// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|mh8|gm [--gm-pct <50-100>] [--commit]
+//   默认 dry-run 打印各臂 diff 摘要；--commit 真建。gm 臂须显式 --gm-pct（dry-run 定档值）。
 // ============================================================================
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
@@ -46,6 +49,10 @@ const TS_CLAUSE = ' AND TPAPre_tokenScore > 2.5';
 // wallet 口径 holderCount 膨胀致触发提前——1293 票提前触发 + 889 票独有触发 tc p50=11
 // 刚过 tradeCount 门就触发、画像窗口极短 miss 增多，4→8 翻倍推迟到真实买家更多时）
 const MH_OLD = 4;
+// GMGN 豁免臂（gm，2026-10-11 用户裁定）：TPAPre_tokenScore 门加 OR 豁免臂 + gmgnFilter 开启。
+//   TS 门替换为 (TS_OLD OR TPAPre_gmgnExempt == 1)——GMGN 主导盘（占比 ≥ exemptPct 量加权）
+//   verdict 改写 approve 放行；exemptPct 由 tmp_gmgn_dryrun_b2 预演定档（--gm-pct 必传）。
+const TS_EXEMPT = '(TPAPre_tokenScore > 2.5 OR TPAPre_gmgnExempt == 1)';
 
 const ARMS = {
     b1: { src: E15401A9, suffix: '-TPAwallet重跑', desc: 'TPA wallet 口径修复后重跑（b1）' },
@@ -57,6 +64,7 @@ const ARMS = {
     t20: { src: E3E57ED75, suffix: '-tpa20', desc: 'TPA tokenScore 门 2.5→2.0 降档臂（t20，夹逼下界）' },
     tnone: { src: E3E57ED75, suffix: '-去TPA门', desc: '去 TPA tokenScore 门整条臂（tnone，TPA 照跑落表仅不拦买）' },
     mh8: { src: E3E57ED75, suffix: '-mh8', desc: 'TPA 触发门 minHolders 4→8 臂（mh8，推迟触发等画像更全）' },
+    gm: { src: E3E57ED75, suffix: '-gmgn豁免', desc: 'TPA GMGN 用户剔除+主导盘豁免臂（gm）' },
 };
 
 const args = process.argv.slice(2);
@@ -65,6 +73,14 @@ const armIdx = args.indexOf('--arm');
 const ARM = armIdx > -1 ? args[armIdx + 1] : 'all';
 if (ARM !== 'all' && !Object.keys(ARMS).includes(ARM)) {
     throw new Error('--arm 只接受 all|' + Object.keys(ARMS).join('|') + '，收到: ' + ARM);
+}
+// gm 臂 exemptPct（dry-run 定档）：'all' 不含 gm（防误建未定档臂），单建 gm 须显式传
+const GM_PCT_IDX = args.indexOf('--gm-pct');
+const GM_PCT = GM_PCT_IDX > -1 ? Number(args[GM_PCT_IDX + 1]) : null;
+if (ARM === 'gm') {
+    if (!Number.isFinite(GM_PCT) || GM_PCT < 50 || GM_PCT > 100) {
+        throw new Error('gm 臂须 --gm-pct <50-100>（tmp_gmgn_dryrun_b2 定档值）');
+    }
 }
 
 /** 还原 name/description 后 JSON 串（diff 校验用） */
@@ -82,7 +98,7 @@ async function main() {
     if (!srcA) throw new Error('源实验不存在: ' + E15401A9);
     if (!srcB) throw new Error('源实验不存在: ' + E3E57ED75);
 
-    const toRun = ARM === 'all' ? Object.keys(ARMS) : [ARM];
+    const toRun = ARM === 'all' ? Object.keys(ARMS).filter(a => a !== 'gm') : [ARM]; // all 不含 gm（须单建+定档）
     const created = [];
 
     for (const arm of toRun) {
@@ -127,6 +143,20 @@ async function main() {
                 throw new Error(`[${arm}] 源 trigger.minHolders != ${MH_OLD}（替换落空防静默），trigger=${JSON.stringify(trig)}`);
             }
             trig.minHolders = 8;
+        } else if (arm === 'gm') {
+            // ① condition：tokenScore 门加 OR 豁免臂（括号防优先级歧义）
+            if (!buy.condition.includes(TS_OLD)) {
+                throw new Error(`[${arm}] 源 condition 未含 ${TS_OLD}（替换落空防静默），condition=${buy.condition}`);
+            }
+            buy.condition = buy.condition.replace(TS_OLD, TS_EXEMPT);
+            if (!buy.condition.includes('TPAPre_gmgnExempt == 1')) {
+                throw new Error(`[${arm}] 豁免臂替换后校验失败`);
+            }
+            // ② tokenPositionAnalyzer.gmgnFilter 开启（触发门剔除 + top20 剔除 + 主导盘豁免）
+            if (!cfg.tokenPositionAnalyzer || !cfg.tokenPositionAnalyzer.trigger) {
+                throw new Error(`[${arm}] 源 config 无 tokenPositionAnalyzer.trigger 段`);
+            }
+            cfg.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
         }
 
         // diff 校验：b1/b2 与源零差异；c/d10/d5 除 pbc 外零差异；t22/t20 除 condition 外零差异
@@ -143,12 +173,16 @@ async function main() {
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
             } else if (arm === 'mh8') { // 差异仅 trigger.minHolders
                 base.tokenPositionAnalyzer.trigger.minHolders = 8;
+            } else if (arm === 'gm') { // 差异仅 condition + gmgnFilter
+                base.strategiesConfig.buyStrategies[0].condition = buy.condition;
+                base.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
             } else { // t22/t20/tnone：差异仅 condition
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
             }
             if (JSON.stringify(chk) !== JSON.stringify(base)) {
                 const field = (arm === 'c' || arm === 'd10' || arm === 'd5') ? 'pbc'
-                    : (arm === 'mh8' ? 'trigger.minHolders' : 'condition');
+                    : (arm === 'mh8' ? 'trigger.minHolders'
+                        : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition'));
                 throw new Error(`[${arm}] 与源实验差异超出 name/description/${field}——应零差异`);
             }
         }
@@ -164,13 +198,16 @@ async function main() {
                         ? `condition 去 ${TS_OLD} 整条（用户裁定 2026-10-11：TPA 照跑落表仅不拦买）`
                         : (arm === 'mh8'
                             ? `TPA 触发门 minHolders 4→8（用户裁定 2026-10-11：wallet 口径触发提前画像窗口过短）`
-                            : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`)))))
+                            : (arm === 'gm'
+                                ? `condition ${TS_OLD} → (… OR TPAPre_gmgnExempt == 1) + gmgnFilter{enabled,exemptPct:${GM_PCT}}（用户裁定 2026-10-11：GMGN 用户剔除+主导盘豁免；触发门/top20 剔除+占比 ≥${GM_PCT}% verdict 改写 approve）`
+                                : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`))))))
             + `；画像库 = 二期 sender 口径重建版。`;
 
         console.log(`\n===== 臂 ${arm}（源 ${def.src}）=====`);
         console.log('  name:', cfg.name);
         console.log('  condition:', buy.condition);
         console.log('  preBuy:', buy.preBuyCheckCondition);
+        if (cfg.tokenPositionAnalyzer) console.log('  tpa:', JSON.stringify(cfg.tokenPositionAnalyzer));
         console.log('  backtest:', JSON.stringify(cfg.backtest));
         created.push({ arm, cfg });
     }
