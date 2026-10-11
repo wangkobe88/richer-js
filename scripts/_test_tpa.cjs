@@ -27,6 +27,11 @@
  *      _walletMaxNetTokens；ingestLiveTick 分组键 sender||trader（sender 优先）；现算 SQL
  *      .or() COALESCE 形状（PostgREST 无 COALESCE：旧行 sender NULL 回退 trader）与
  *      _fetchWalletTicksBatch DB 路径按 sender||trader 分组
+ *  10) GMGN 用户剔除 + 主导盘豁免（2026-10-11 用户裁定 gmgnFilter）：构造期 exemptPct 校验/
+ *      _gmgnShareStats 量加权/触发门剔除矩阵（disabled 全口径 bit-identical、豁免触发、routed
+ *      缺失 fail-safe）/top20 剔除（retention 刻意不剔）/豁免 verdict 改写 approve（低分被压过
+ *      tokenScore 照常算）/审计键 TPAPre_gmgnUserPct·TPAPre_gmgnExempt（disabled 现算观察、
+ *      旧 FA 形状 null fail-closed）
  *
  * 用法：node scripts/_test_tpa.cjs
  */
@@ -321,7 +326,7 @@ function ctor(overrides = {}, deps = {}) {
 
     // ── holding_factors 17 键齐（HOLDING_FACTOR_KEYS 全集）──
     const hfKeys = Object.keys(row.holding_factors).sort();
-    eq(JSON.stringify(hfKeys), JSON.stringify([...HOLDING_FACTOR_KEYS].sort()), 'holding_factors 键集=HOLDING_FACTOR_KEYS 17 键');
+    eq(JSON.stringify(hfKeys), JSON.stringify([...HOLDING_FACTOR_KEYS].sort()), 'holding_factors 键集=HOLDING_FACTOR_KEYS 19 键');
 
     // ── 因子值 ──
     eq(row.holding_factors.TPAPre_walletHoldingPct, 80, 'walletHoldingPct=(900-100)/1000×100=80');
@@ -418,6 +423,233 @@ function ctor(overrides = {}, deps = {}) {
     // destroy
     tpa.destroy();
     eq(tpa.isEnabled(), false, 'destroy 后 disabled');
+}
+
+// ═══════════════ 4b. GMGN 用户剔除 + 主导盘豁免（gmgnFilter，2026-10-11 用户裁定）═══════════════
+// 用户裁定三条：①GMGN 用户钱包不参与 TPA 分数计算（判定=本盘行为：本盘经聚合路由买入>0）
+// ②前期参与者都是 GMGN 用户（占比很大）时 TPA 分数不参考 → 豁免放行（TPAPre_gmgnExempt，
+//   不能做成 null：null 在 tokenScore 门下 fail-closed 拦死）③触发门 minHolders 同步剔除。
+{
+    const GMGN_ROUTED = { '0xG1': 9, '0xG2': 4 }; // routedBuy BNB（>0 即 GMGN 用户）
+    // 形状一：6 钱包 net>0，非 GMGN=4（A/B/C/D），GMGN 占比 = 1000/1690 = 59.17%
+    const mkGmgnState = (o = {}) => mkFaState({
+        _walletNetTokens: new Map([['0xG1', 700], ['0xG2', 300], ['0xA', 500], ['0xB', 100], ['0xC', 50], ['0xD', 40]]),
+        _walletMaxNetTokens: new Map([['0xG1', 700], ['0xG2', 300], ['0xA', 500], ['0xB', 100], ['0xC', 50], ['0xD', 40]]),
+        _walletRoutedBuyBnb: new Map(Object.entries(GMGN_ROUTED)),
+        ...o,
+    });
+
+    // ── 构造期校验 + mergeConfig ──
+    {
+        const throws = (fn, needle, msg) => {
+            let m = null;
+            try { fn(); } catch (e) { m = e.message; }
+            ok(m != null && m.includes(needle), msg, m);
+        };
+        throws(() => new TokenPositionAnalyzer({ trigger: TRIGGER, gmgnFilter: { enabled: true, exemptPct: 101 } }, { logger: QUIET }),
+            'exemptPct 非法', 'exemptPct>100 → 构造期 throw');
+        throws(() => new TokenPositionAnalyzer({ trigger: TRIGGER, gmgnFilter: { enabled: true, exemptPct: -1 } }, { logger: QUIET }),
+            'exemptPct 非法', 'exemptPct<0 → 构造期 throw');
+        throws(() => new TokenPositionAnalyzer({ trigger: TRIGGER, gmgnFilter: { enabled: true, exemptPct: 'abc' } }, { logger: QUIET }),
+            'exemptPct 非法', 'exemptPct 非数字 → 构造期 throw');
+        const dirty = new TokenPositionAnalyzer({ trigger: TRIGGER, gmgnFilter: { enabled: 'yes' } }, { logger: QUIET });
+        eq(dirty._gmgnFilter, null, 'enabled 非严格 true（脏值）→ 保守关');
+        const on = new TokenPositionAnalyzer({ trigger: TRIGGER, gmgnFilter: { enabled: true, exemptPct: 60 } }, { logger: QUIET });
+        eq(JSON.stringify(on._gmgnFilter), JSON.stringify({ enabled: true, exemptPct: 60 }), '合法配置 → _gmgnFilter 就位');
+        eq(ctor()._gmgnFilter, null, '缺省（无段）→ null（存量零变化）');
+        const mc = mergeConfig({ trigger: TRIGGER, gmgnFilter: { enabled: true } });
+        eq(mc.gmgnFilter.exemptPct, 60, 'mergeConfig 浅合并：enabled-only 补 DEFAULT exemptPct=60');
+    }
+
+    // ── _gmgnShareStats 直测（量加权占比） ──
+    {
+        const tpa = ctor({ gmgnFilter: { enabled: true, exemptPct: 60 } });
+        const s = tpa._gmgnShareStats(mkGmgnState());
+        eq(s.nonGmgnCount, 4, 'stats：非 GMGN 净持仓者 = 4');
+        approx(s.gmgnUserPct, 59.17, 0.01, 'stats：GMGN 占比量加权 = 1000/1690');
+        const cleared = tpa._gmgnShareStats(mkFaState({
+            _walletNetTokens: new Map([['0xG1', 0], ['0xA', 0]]),
+            _walletRoutedBuyBnb: new Map([['0xG1', 5]]),
+        }));
+        eq(cleared.nonGmgnCount, 0, '全员清仓：nonGmgnCount=0');
+        eq(cleared.gmgnUserPct, 0, '全员清仓：posTotal=0 → 占比 0（非 NaN）');
+        eq(tpa._gmgnShareStats(mkFaState()), null, 'routed map 缺失（旧 FA 形状）→ null fail-closed');
+        eq(tpa._gmgnShareStats({ _walletRoutedBuyBnb: new Map() }), null, 'net map 缺失 → null');
+    }
+
+    // ── 触发门剔除矩阵（checkAndTrigger 返回 null=不触发 / promise=触发） ──
+    {
+        const tick = { block_number: 101, block_time: T0 + 6000 };
+        const factors = { currentPriceBnb: 0.000000005 };
+
+        // disabled：全口径计数 bit-identical（routed map 在场也不剔——存量语义锁死）
+        const off = ctor();
+        ok(off.checkAndTrigger('0xOFF1', factors, mkGmgnState(), tick, T0 + 6000) != null, 'disabled：全口径 6 ≥ 4 → 触发（routed map 在场不剔）');
+        eq(off.checkAndTrigger('0xOFF2', factors, mkGmgnState({
+            _walletNetTokens: new Map([['0xG1', 700], ['0xG2', 300], ['0xA', 500]]),
+        }), tick, T0 + 6000), null, 'disabled：全口径 3 < 4 → 不触发（GMGN 照数，存量语义）');
+
+        // enabled：数非 GMGN
+        const on = ctor({ gmgnFilter: { enabled: true, exemptPct: 60 } });
+        ok(on.checkAndTrigger('0xON1', factors, mkGmgnState(), tick, T0 + 6000) != null, 'enabled：非 GMGN=4 ≥ 4 → 触发');
+        // 非 GMGN 不足且占比不足 → 不触发（exemptPct=70：占比 66.67 < 70）
+        const on2 = ctor({ gmgnFilter: { enabled: true, exemptPct: 70 } });
+        eq(on2.checkAndTrigger('0xON3', factors, mkGmgnState({
+            _walletNetTokens: new Map([['0xG1', 700], ['0xG2', 300], ['0xA', 500]]),
+            _walletMaxNetTokens: new Map([['0xG1', 700], ['0xG2', 300], ['0xA', 500]]),
+        }), tick, T0 + 6000), null, 'enabled：非 GMGN=1 < 4 且占比 66.67 < 70 → 不触发（return null）');
+        ok(on.checkAndTrigger('0xON4', factors, mkGmgnState({
+            _walletNetTokens: new Map([['0xG1', 700], ['0xG2', 300], ['0xA', 500]]),
+            _walletMaxNetTokens: new Map([['0xG1', 700], ['0xG2', 300], ['0xA', 500]]),
+        }), tick, T0 + 6000) != null, 'enabled：非 GMGN=1 < 4 但占比 66.67 ≥ 60 → 豁免触发（不 return null）');
+
+        // enabled + routed map 缺失（旧 FA 实例跨版本窗口）→ 全口径 fail-safe
+        const onOld = ctor({ gmgnFilter: { enabled: true, exemptPct: 60 } });
+        const noRouted = mkGmgnState(); delete noRouted._walletRoutedBuyBnb;
+        ok(onOld.checkAndTrigger('0xON5', factors, noRouted, tick, T0 + 6000) != null, 'enabled+routed 缺失：全口径 6 ≥ 4 → 触发（fail-safe 同存量）');
+        eq(onOld.checkAndTrigger('0xON6', factors, mkFaState({
+            _walletNetTokens: new Map([['0xG1', 700], ['0xG2', 300], ['0xA', 500]]),
+        }), tick, T0 + 6000), null, 'enabled+routed 缺失：全口径 3 < 4 → 不触发（无豁免证据不豁免）');
+    }
+
+    // ── _collectTopHolders 剔除（enabled 剔 / disabled 全留 / routed 缺失全留） ──
+    {
+        const on = ctor({ gmgnFilter: { enabled: true, exemptPct: 60 } });
+        const holders = on._collectTopHolders(mkGmgnState()).map(h => h.address);
+        eq(JSON.stringify(holders), JSON.stringify(['0xA', '0xB', '0xC', '0xD']), 'enabled：top20 剔除 GMGN 用户（0xG1/0xG2 不在）');
+        const off = ctor();
+        eq(off._collectTopHolders(mkGmgnState()).length, 6, 'disabled：top20 全保留（6）');
+        const noRouted = mkGmgnState(); delete noRouted._walletRoutedBuyBnb;
+        eq(on._collectTopHolders(noRouted).length, 6, 'enabled+routed 缺失：全保留（旧 FA 形状）');
+        eq(on._isGmgnUser(mkGmgnState(), '0xG1'), true, '_isGmgnUser：routedBuy>0 → true');
+        eq(on._isGmgnUser(mkGmgnState(), '0xA'), false, '_isGmgnUser：直连钱包 → false');
+        eq(off._isGmgnUser(mkGmgnState(), '0xG1'), false, '_isGmgnUser：disabled 恒 false');
+    }
+
+    // ── _analyze 端到端：豁免 verdict 改写（低分画像被豁免压过）+ 审计键 + retention 不剔 ──
+    {
+        const FA = FourMemeFactorAggregator;
+        const fa = new FA({});
+        const tpa = new TokenPositionAnalyzer({
+            trigger: TRIGGER, gmgnFilter: { enabled: true, exemptPct: 60 },
+        }, { logger: QUIET, factorAggregator: fa });
+        tpa._getClient = () => FAKE_CLIENT;
+        tpa._offlineProfilePreloaded = new Map();
+        tpa.setHistoricalTicks([wtick('0xNOPE', 'TOK_NONE', T0 - 60000, true, 0.5, 50)]);
+        tpa._queryTokenProfileChunk = async () => new Map();
+
+        const AS_OF = T0 + 6000;
+        const TOK = '0xGMGNTOK';
+        fa.registerToken(TOK, { createdAtMs: T0 - 1000, totalSupply: 20000, symbol: 'GM' });
+        // 形状：GMGN 净持仓 10000/11650=85.84%（≥60 豁免线）——正常触发（全口径 6≥4）但占比达标 → 统一判据豁免
+        const st8 = {
+            tradeCount: 20, totalBuyBnb: 10, totalBuyTokens: 900, totalSellTokens: 100,
+            totalSupply: 20000, firstBlockNumber: 100, firstTickAt: T0, creatorAddress: null,
+            _walletNetTokens: new Map([['0xG1', 7000], ['0xG2', 3000], ['0xA', 1500], ['0xB', 100], ['0xC', 50]]),
+            _walletMaxNetTokens: new Map([['0xG1', 7000], ['0xG2', 3000], ['0xA', 1500], ['0xB', 100], ['0xC', 50]]),
+            _walletRoutedBuyBnb: new Map([['0xG1', 9], ['0xG2', 4]]),
+        };
+        // 画像全低分（block 方向 0.25 档）：G1/G2 庄画像但被 top20 剔除不参与评分；A/B/C 低分 → 原 verdict=block
+        tpa._offlineProfilePreloaded = new Map([
+            ['0xG1', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ lowTinyRatio: 0.6 }) }],
+            ['0xG2', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ lowTinyRatio: 0.6 }) }],
+            ['0xA', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ totalBnb: 0, avgBnb: 0 }) }],
+            ['0xB', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ totalBnb: 0, avgBnb: 0 }) }],
+            ['0xC', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ totalBnb: 0, avgBnb: 0 }) }],
+        ]);
+        await tpa.checkAndTrigger(TOK, { currentPriceBnb: 1 }, st8, { block_number: 101, block_time: AS_OF }, AS_OF);
+
+        const v = tpa.getVerdict(TOK);
+        eq(v.verdict, 'approve', '豁免命中：低分被改写 approve（verdict 改写在 _decideVerdict 之后）');
+        eq(JSON.stringify(v.reasons), JSON.stringify(['gmgn_exempt']), 'blockReasons=[gmgn_exempt]');
+        eq(v.factors.TPAPre_gmgnExempt, 1, 'TPAPre_gmgnExempt=1（恒落 0/1）');
+        approx(v.factors.TPAPre_gmgnUserPct, 85.84, 0.01, 'TPAPre_gmgnUserPct=85.84（snapshot 优先）');
+        ok(v.factors.TPAPre_tokenScore != null && v.factors.TPAPre_tokenScore < 2,
+            'tokenScore 照常计算仅审计（<2 不足门但被豁免压过）', v.factors.TPAPre_tokenScore);
+        // retention 基准不剔（独立机制走 _walletMaxNetTokens 全量枚举）：G1 庄画像仍进庄集
+        const basis = FA.getRetentionBasis(TOK);
+        ok(basis != null && basis.zhuangAddresses.includes('0xG1'),
+            'retention 庄集含 GMGN 钱包 0xG1（刻意不剔——大户走没走对 retention 有意义）', basis && basis.zhuangAddresses);
+        eq(basis.netZAtDecision, 10000, 'netZAtDecision=ΣmaxNet(G1+G2 峰值)');
+
+        // 豁免触发路径（非 GMGN < minHolders + 占比达标）同样改写：豁免触发票 snapshot.gmgnExempt=true
+        const TOK2 = '0xGMGNTOK2';
+        fa.registerToken(TOK2, { createdAtMs: T0 - 1000, totalSupply: 20000, symbol: 'G2' });
+        tpa._offlineProfilePreloaded = new Map([
+            ['0xG1', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ lowTinyRatio: 0.6 }) }],
+            ['0xG2', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ lowTinyRatio: 0.6 }) }],
+            ['0xA', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ totalBnb: 0, avgBnb: 0 }) }],
+        ]);
+        const st9 = {
+            tradeCount: 20, totalBuyBnb: 10, totalBuyTokens: 900, totalSellTokens: 100,
+            totalSupply: 20000, firstBlockNumber: 100, firstTickAt: T0, creatorAddress: null,
+            _walletNetTokens: new Map([['0xG1', 700], ['0xG2', 300], ['0xA', 500]]),
+            _walletMaxNetTokens: new Map([['0xG1', 700], ['0xG2', 300], ['0xA', 500]]),
+            _walletRoutedBuyBnb: new Map([['0xG1', 9], ['0xG2', 4]]),
+        };
+        const p2 = tpa.checkAndTrigger(TOK2, { currentPriceBnb: 1 }, st9, { block_number: 101, block_time: AS_OF + 1000 }, AS_OF + 1000);
+        ok(p2 != null, '豁免触发路径：非 GMGN=1 < 4 但占比 66.67 ≥ 60 → 触发（promise 非 null）');
+        await p2;
+        const v2 = tpa.getVerdict(TOK2);
+        eq(v2.verdict, 'approve', '豁免触发票：verdict 同样改写 approve（统一判据=占比达标）');
+        eq(v2.factors.TPAPre_gmgnExempt, 1, '豁免触发票：TPAPre_gmgnExempt=1');
+        approx(v2.factors.TPAPre_gmgnUserPct, 66.67, 0.01, '豁免触发票：gmgnUserPct=66.67');
+        eq(v2.snapshot.gmgnExempt, true, '豁免触发票 snapshot.gmgnExempt=true（标记传递通道）');
+
+        // 占比不达标（exemptPct=90）：正常触发 + 低分 → block（无豁免改写）
+        const TOK3 = '0xGMGNTOK3';
+        fa.registerToken(TOK3, { createdAtMs: T0 - 1000, totalSupply: 20000, symbol: 'G3' });
+        const tpa90 = new TokenPositionAnalyzer({
+            trigger: TRIGGER, gmgnFilter: { enabled: true, exemptPct: 90 },
+        }, { logger: QUIET, factorAggregator: fa });
+        tpa90._getClient = () => FAKE_CLIENT;
+        tpa90._offlineProfilePreloaded = new Map([
+            ['0xA', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ totalBnb: 0, avgBnb: 0 }) }],
+            ['0xB', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ totalBnb: 0, avgBnb: 0 }) }],
+            ['0xC', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ totalBnb: 0, avgBnb: 0 }) }],
+            ['0xD', { dataThroughMs: AS_OF, dataThroughIso: new Date(AS_OF).toISOString(), profile: mkOffline({ totalBnb: 0, avgBnb: 0 }) }],
+        ]);
+        tpa90.setHistoricalTicks([wtick('0xNOPE', 'TOK_NONE', T0 - 60000, true, 0.5, 50)]);
+        tpa90._queryTokenProfileChunk = async () => new Map();
+        await tpa90.checkAndTrigger(TOK3, { currentPriceBnb: 1 }, mkGmgnState(), { block_number: 101, block_time: AS_OF + 2000 }, AS_OF + 2000);
+        const v3 = tpa90.getVerdict(TOK3);
+        eq(v3.verdict, 'block', '占比 59.17 < 90：无豁免改写，低分 → block（剔除后剩几个算几个）');
+        eq(v3.factors.TPAPre_gmgnExempt, 0, 'TPAPre_gmgnExempt=0（恒落）');
+        approx(v3.factors.TPAPre_gmgnUserPct, 59.17, 0.01, 'TPAPre_gmgnUserPct=59.17（enabled 恒落审计）');
+
+        tpa.destroy(); tpa90.destroy();
+    }
+
+    // ── disabled 审计键：现算落值（纯观察）+ 旧 FA 形状 null ──
+    {
+        const FA = FourMemeFactorAggregator;
+        const fa = new FA({});
+        const tpa = new TokenPositionAnalyzer({ trigger: TRIGGER }, { logger: QUIET, factorAggregator: fa });
+        tpa._getClient = () => FAKE_CLIENT;
+        tpa._offlineProfilePreloaded = new Map([
+            ['0xA', { dataThroughMs: T0 + 6000, dataThroughIso: new Date(T0 + 6000).toISOString(), profile: mkOffline() }],
+            ['0xB', { dataThroughMs: T0 + 6000, dataThroughIso: new Date(T0 + 6000).toISOString(), profile: mkOffline() }],
+            ['0xC', { dataThroughMs: T0 + 6000, dataThroughIso: new Date(T0 + 6000).toISOString(), profile: mkOffline() }],
+            ['0xD', { dataThroughMs: T0 + 6000, dataThroughIso: new Date(T0 + 6000).toISOString(), profile: mkOffline() }],
+        ]);
+        tpa.setHistoricalTicks([wtick('0xNOPE', 'TOK_NONE', T0 - 60000, true, 0.5, 50)]);
+        tpa._queryTokenProfileChunk = async () => new Map();
+        const TOK = '0xOFFAUDIT';
+        fa.registerToken(TOK, { createdAtMs: T0 - 1000, totalSupply: 1690, symbol: 'OA' });
+        await tpa.checkAndTrigger(TOK, { currentPriceBnb: 1 }, mkGmgnState(), { block_number: 101, block_time: T0 + 6000 }, T0 + 6000);
+        const v = tpa.getVerdict(TOK);
+        approx(v.factors.TPAPre_gmgnUserPct, 59.17, 0.01, 'disabled：TPAPre_gmgnUserPct 现算落值（fallback 纯审计观察）');
+        eq(v.factors.TPAPre_gmgnExempt, 0, 'disabled：TPAPre_gmgnExempt 恒 0');
+        ok(!('gmgnUserPct' in v.snapshot), 'disabled：snapshot 不带 gmgnUserPct（enabled 才落）');
+
+        // 旧 FA 形状（无 routed map）：占比 null fail-closed
+        const TOK2 = '0xOFFAUDIT2';
+        fa.registerToken(TOK2, { createdAtMs: T0 - 1000, totalSupply: 1690, symbol: 'OB' });
+        const noRouted = mkGmgnState(); delete noRouted._walletRoutedBuyBnb;
+        await tpa.checkAndTrigger(TOK2, { currentPriceBnb: 1 }, noRouted, { block_number: 101, block_time: T0 + 7000 }, T0 + 7000);
+        eq(tpa.getVerdict(TOK2).factors.TPAPre_gmgnUserPct, null, '旧 FA 形状：TPAPre_gmgnUserPct=null（值缺失不冒充）');
+        tpa.destroy();
+    }
 }
 
 // ═══════════════ 5. 防前视 _alignClassifiedAsOf ═══════════════

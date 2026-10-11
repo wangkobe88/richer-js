@@ -140,6 +140,14 @@ const DEFAULT_CONFIG = {
   //   liveTicksPreloadMaxMinutes：auto 护栏上限（防 offline 表异常陈旧拖爆内存），触顶 warn。
   liveTicksPreloadMinutes: 0,
   liveTicksPreloadMaxMinutes: 1440,
+  // GMGN 用户剔除 + 主导盘豁免（2026-10-11 用户裁定）：TPA 本意 = 防早期流动性来自
+  //   习惯性作恶的庄家（有人接盘后立即砸盘）；GMGN 用户是第一大交易站的正常散户，
+  //   非 TPA 判定对象。三机制（判定口径 = 本盘行为：本盘内经聚合路由买入 >0 的钱包，
+  //   FA `_walletRoutedBuyBnb`，零画像库依赖）：①触发门 minHolders 同步剔除 GMGN 用户
+  //   ②top20 取集剔除（下游评分/庄散比/floatPct 全链纯化）③GMGN 占比（净持仓量加权）
+  //   ≥ exemptPct 的主导盘豁免 = verdict 改写 approve 放行（TPAPre_gmgnExempt=1，
+  //   condition OR 豁免臂）。缺省关 = 存量实验零变化；retention 基准刻意不剔（独立机制）。
+  gmgnFilter: { enabled: false, exemptPct: 60 },
 };
 
 // 显式声明「本调用不消费 trigger」：非引擎复用点（web PositionAnalysisService）只用
@@ -176,6 +184,10 @@ function mergeConfig(exp) {
   // tiny-level bad_action 独立特性：浅合并（enabled + 阈值数组整体覆盖）
   if (exp.tinyLevelBadAction !== undefined) {
     merged.tinyLevelBadAction = { ...DEFAULT_CONFIG.tinyLevelBadAction, ...exp.tinyLevelBadAction };
+  }
+  // GMGN 用户剔除 + 主导盘豁免：浅合并（enabled + exemptPct 整体覆盖，tiny-level 同款）
+  if (exp.gmgnFilter !== undefined) {
+    merged.gmgnFilter = { ...DEFAULT_CONFIG.gmgnFilter, ...exp.gmgnFilter };
   }
   return merged;
 }
@@ -269,6 +281,18 @@ class TokenPositionAnalyzer {
     this._goodAction = config.goodAction || null;
     // tiny-level bad_action 独立特性配置（0.2/0.2 档；enabled 生成+落库+展示）
     this._tinyLevelBadAction = config.tinyLevelBadAction || null;
+
+    // GMGN 用户剔除 + 主导盘豁免配置（2026-10-11 用户裁定）。disabled 存 null（falsy——
+    //   判定/取集/豁免全链 `!!this._gmgnFilter` 短路 = 存量零变化）；enabled 判定显式
+    //   `=== true`（脏值保守关）；exemptPct 数值校验 0-100 fail-fast（构造期暴露配置错误）。
+    this._gmgnFilter = null;
+    if (config.gmgnFilter && config.gmgnFilter.enabled === true) {
+      const pct = Number(config.gmgnFilter.exemptPct);
+      if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+        throw new Error(`[TokenPositionAnalyzer] gmgnFilter.exemptPct 非法（=${config.gmgnFilter.exemptPct}，须 0-100）`);
+      }
+      this._gmgnFilter = { enabled: true, exemptPct: pct };
+    }
 
     this._experimentId = deps.experimentId || null;
     this._factorAggregator = deps.factorAggregator || null;
@@ -722,12 +746,30 @@ class TokenPositionAnalyzer {
 
     // 持仓人数门：当前 net>0 持仓者 < minHolders 不触发（拦 holder 缩减的死盘，详见构造器 trigger 注释）。
     //   wallet 口径（_walletNetTokens）：GMGN 主导盘触发不再被路由合并像拖晚（CRO 案 trader 口径
-    //   10s 才数到 4，sender 口径远早于此）
+    //   10s 才数到 4，sender 口径远早于此）。
+    //   gmgnFilter 开启（2026-10-11 用户裁定）时同步剔除 GMGN 用户——GMGN 用户是第一大交易站
+    //   正常散户、非 TPA 判定对象，数「非 GMGN 净持仓者」；非 GMGN < minHolders 且 GMGN 占比
+    //   （净持仓量加权）≥ exemptPct → 豁免触发（gmgnExempt=true 走 _analyze 豁免改写，不 return null）。
+    //   disabled 或 routed map 缺失（旧 FA 实例）→ 全口径计数，与存量行为 bit-identical。
     let holderCount = 0;
+    let gmgnUserPct = null;
+    let gmgnExempt = false;
     if (faState._walletNetTokens) {
-      for (const net of faState._walletNetTokens.values()) if (net > 0) holderCount++;
+      if (this._gmgnFilter && faState._walletRoutedBuyBnb) {
+        const stats = this._gmgnShareStats(faState);
+        holderCount = stats.nonGmgnCount;
+        gmgnUserPct = stats.gmgnUserPct;
+      } else {
+        for (const net of faState._walletNetTokens.values()) if (net > 0) holderCount++;
+      }
     }
-    if (holderCount < this._trigger.minHolders) return null;
+    if (holderCount < this._trigger.minHolders) {
+      if (gmgnUserPct != null && gmgnUserPct >= this._gmgnFilter.exemptPct) {
+        gmgnExempt = true;
+      } else {
+        return null;
+      }
+    }
 
     // 命中 → 标记 + 异步分析
     this._analyzed.add(tokenAddress);
@@ -737,6 +779,8 @@ class TokenPositionAnalyzer {
       buyBnb: Number(rawBuyBnb.toFixed(4)),
       currentPriceBnb: factors?.currentPriceBnb ?? null, // BSC 原生价（USD 输出仅 blockLowMcapUsd，FA 偏离 #4）
     };
+    if (this._gmgnFilter) snapshot.gmgnUserPct = gmgnUserPct; // 审计恒落（enabled；_analyze TPAPre_gmgnUserPct 优先读）
+    if (gmgnExempt) snapshot.gmgnExempt = true;               // 豁免触发标记 → _analyze 豁免改写（占比达标正常触发的票由统一判据覆盖）
     if (this._trigger.blocks != null && faState.firstBlockNumber != null && tick?.block_number != null) {
       snapshot.blockDiff = Number(tick.block_number) - Number(faState.firstBlockNumber); // blocks 门触发时点观察（落表 trigger_snapshot）
     }
@@ -811,7 +855,26 @@ class TokenPositionAnalyzer {
     }
 
     // 6. verdict（评分体系收口后唯一路径：tokenScore + 庄散比；holdingFactors 供可选 whp 放宽路径引用）
-    const { verdict, blockReasons } = this._decideVerdict(walletScoreSummary, zhuangRetail, holdingFactors);
+    let { verdict, blockReasons } = this._decideVerdict(walletScoreSummary, zhuangRetail, holdingFactors);
+
+    // 6a. GMGN 主导盘豁免（2026-10-11 用户裁定）：前期参与者基本都是 GMGN 用户（占比 ≥ exemptPct，
+    //     净持仓量加权）时 TPA 分数不参考——verdict 改写 approve 放行（tokenScore 照常计算仅审计：
+    //     top20 剔除后剩几个算几个，空集 null；condition 侧靠 `OR TPAPre_gmgnExempt == 1` 豁免臂放行）。
+    //     统一判据 = 占比达标即豁免（豁免触发的票 gmgnUserPct 必 ≥ exemptPct，触发门豁免分支与
+    //     正常触发但占比达标两分支汇合同一判据无死角）；disabled（_gmgnFilter=null）恒不触发。
+    const gmgnExemptHit = !!(this._gmgnFilter
+      && snapshot.gmgnUserPct != null
+      && snapshot.gmgnUserPct >= this._gmgnFilter.exemptPct);
+    // 审计两键恒落（键集完整性优先，_test_tpa.cjs 全集断言）：占比 snapshot 优先（enabled 时触发门
+    //   已算），否则现算（disabled / 旧调用形状）——routed map 缺失 → null（值缺失 fail-closed，不冒充）。
+    holdingFactors.TPAPre_gmgnUserPct = snapshot.gmgnUserPct != null
+      ? snapshot.gmgnUserPct
+      : (this._gmgnShareStats(faState)?.gmgnUserPct ?? null);
+    holdingFactors.TPAPre_gmgnExempt = gmgnExemptHit ? 1 : 0;
+    if (gmgnExemptHit) {
+      verdict = 'approve';
+      blockReasons = ['gmgn_exempt'];
+    }
 
     // 6b. 运行耗时观察因子：触发→完成 wall clock 耗时 + 画像就绪时代币年龄（early 竞态实锤用，
     //     随 holdingFactors 落表三路；analyzedAgeSec=触发年龄+耗时近似）。
@@ -880,16 +943,46 @@ class TokenPositionAnalyzer {
 
   /** 步骤1：holders（net>0）按持仓量降序取 top N（maxHoldersToAnalyze，默认 20）。
    *  wallet 口径（二期）：GMGN 路由行拆散成真实买家 EOA——trader 口径下 top20 被路由合并像
-   *  独占，散户画像全部缺席，tokenScore/庄散比失真。 */
+   *  独占，散户画像全部缺席，tokenScore/庄散比失真。
+   *  gmgnFilter 开启（2026-10-11 用户裁定）时剔除 GMGN 用户：TPA 本意是防习惯性作恶庄家，
+   *  GMGN 用户（本盘经聚合路由买入 >0）是第一大交易站的正常散户，非 TPA 判定对象——
+   *  下游评分/庄散比/floatPct 全链自动纯化（_computeHolderMetrics 共享管线）。
+   *  retention 基准刻意不剔（走 _walletMaxNetTokens 独立机制，不经 topHolders）。 */
   _collectTopHolders(faState) {
     const holders = [];
     if (faState._walletNetTokens) {
       for (const [addr, net] of faState._walletNetTokens) {
-        if (net > 0) holders.push({ address: addr, net });
+        if (net > 0 && !this._isGmgnUser(faState, addr)) holders.push({ address: addr, net });
       }
     }
     holders.sort((a, b) => b.net - a.net);
     return holders.slice(0, this._maxHolders);
+  }
+
+  /** GMGN 用户判定（本盘行为口径，2026-10-11 用户裁定）：本盘内经聚合路由买入 >0 的钱包。
+   *  disabled（_gmgnFilter=null）或 routed map 缺失恒 false = 全保留（存量零变化）。
+   *  sender NULL 回退行 walletAddr=trader=路由地址 → 路由地址自身的残留合并像天然命中剔除。 */
+  _isGmgnUser(faState, addr) {
+    if (!this._gmgnFilter || !addr || !faState._walletRoutedBuyBnb) return false;
+    return (faState._walletRoutedBuyBnb.get(addr) || 0) > 0;
+  }
+
+  /** GMGN 用户占比（净持仓量加权）+ 非 GMGN 净持仓者计数：Σ(GMGN 用户 net>0)/Σ(net>0)×100。
+   *  量加权非钱包计数（大户 10 BNB 与尘埃 0.01 BNB 不同权）；posTotal=0（全员清仓）→ 0。
+   *  双 map 缺一 → null（判定证据不足：触发门走全口径、不豁免）。 */
+  _gmgnShareStats(faState) {
+    if (!faState._walletNetTokens || !faState._walletRoutedBuyBnb) return null;
+    let posTotal = 0, gmgnPos = 0, nonGmgnCount = 0;
+    for (const [addr, net] of faState._walletNetTokens) {
+      if (net <= 0) continue;
+      posTotal += net;
+      if ((faState._walletRoutedBuyBnb.get(addr) || 0) > 0) gmgnPos += net;
+      else nonGmgnCount++;
+    }
+    return {
+      nonGmgnCount,
+      gmgnUserPct: posTotal > 0 ? Number(((gmgnPos / posTotal) * 100).toFixed(2)) : 0,
+    };
   }
 
   /**

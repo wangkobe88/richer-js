@@ -15,6 +15,9 @@
  *   TPAPre_zhuangScore 等     庄散四桶 floatPct 加权均分 + minZR/gapZR（computeZhuangRetail 附属）
  *   TPAPre_zhuangRetailRatio  (庄+新钱包)/散户 占比比（verdict 决策口径；散户=0 → Infinity + Infinite 标记）
  *   TPAPre_zhuangPct 等       四桶占比 % + 庄桶计数
+ *   TPAPre_gmgnUserPct        GMGN 用户净持仓占比 %（量加权）——恒落（routed map 缺失=旧 FA 形状 → null
+ *                             fail-closed；disabled 实验也落实际占比，纯审计观察，门不消费）
+ *   TPAPre_gmgnExempt         GMGN 主导盘豁免标记 0/1（enabled 且占比 ≥ exemptPct 时 1，verdict 改写 approve）——恒落
  *   TPAAnalyzed               FA 侧 0/1（TPA 是否已对本 token 产出因子）
  *   TPAPre_retention          冻结 asof 庄集当前净持仓 token / 冻结时净持仓（FA 随 tick 重算）
  *   TPAPre_asofRelFirst       asof 价 / 首价（TPA 冻结时点相对涨幅基准）
@@ -32,6 +35,11 @@ const HOLDING_FACTOR_KEYS = [
   'TPAPre_zhuangScore', 'TPAPre_retailScore', 'TPAPre_newWalletScore', 'TPAPre_neutralScore', 'TPAPre_minZR', 'TPAPre_gapZR',
   // 庄散比 + 4 桶占比（verdict 决策口径持久化，供 web 读落表；retail=0 时 ratio=Infinity+infinite=true）
   'TPAPre_zhuangRetailRatio', 'TPAPre_zhuangRetailRatioInfinite', 'TPAPre_zhuangPct', 'TPAPre_newWalletPct', 'TPAPre_retailPct', 'TPAPre_neutralPct', 'TPAPre_zhuangHolderCount',
+  // GMGN 用户剔除 + 主导盘豁免（2026-10-11 用户裁定）：占比恒落（审计；routed map 缺失=旧 FA
+  // 形状 → null fail-closed，disabled 实验落实际占比纯观察）；豁免标记恒落 0/1（=1 时 verdict
+  // 已改写 approve，condition 侧 `OR TPAPre_gmgnExempt == 1` 豁免臂放行——不能做成 null：null
+  // 在 tokenScore 门下 fail-closed 拦死，与「GMGN 散户盘不该被 TPA 拦」语义相反）。
+  'TPAPre_gmgnUserPct', 'TPAPre_gmgnExempt',
 ];
 
 // FA 自产键（FourMemeFactorAggregator._buildFactorMap 尾部注入，非 TPA 写入）

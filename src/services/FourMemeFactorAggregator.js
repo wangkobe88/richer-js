@@ -56,6 +56,9 @@ const EventEmitter = require('events');
 const TrendDetector = require('../trading-engine/TrendDetector');
 const HolderTrendDetector = require('../trading-engine/HolderTrendDetector');
 const { HOLDING_FACTOR_KEYS, FA_TPA_KEYS } = require('./tpa-factor-keys');
+// 公共聚合路由地址集（GMGN 等）——_walletRoutedBuyBnb（GMGN 用户判定）的写入判据，
+// 与 EarlyParticipantCheckService routerPct 因子同层同源（trader=msg.sender 层）
+const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
 
 // 趋势序列时间桶宽度：8 点 × 10s ≈ 旧轮询时代（10s 采样 × 8 点）窗口语义
 const SERIES_BUCKET_SEC = 10;
@@ -613,6 +616,16 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (isBuy) {
                     state._walletBoughtTokens.set(walletAddr,
                         (state._walletBoughtTokens.get(walletAddr) || 0) + tokenAmount);
+                    // GMGN 用户判定原料（2026-10-11 用户裁定）：本盘经聚合路由买入的 BNB 按钱包归集。
+                    // trader 层判定与 EarlyParticipantCheckService routerPct 因子同层同源（AGGREGATOR_ROUTER_ADDRS
+                    // 单一真相源；Set 条目小写，trader 归一 lower-case 后比对——checksum 形态行不漏记）；
+                    // sender NULL 回退行 walletAddr=trader=路由地址 → routedBuy 记到路由地址名下
+                    //（TPA 剔除判定天然涵盖路由地址本身的残留合并像）。卖腿不记：「参与者」= 买入者。
+                    // TPA 消费：触发门 minHolders 剔除 + top20 评分剔除 + 主导盘豁免（gmgnFilter）
+                    if (tick.trader_address && AGGREGATOR_ROUTER_ADDRS.has(String(tick.trader_address).toLowerCase())) {
+                        state._walletRoutedBuyBnb.set(walletAddr,
+                            (state._walletRoutedBuyBnb.get(walletAddr) || 0) + bnbAmount);
+                    }
                 }
             }
         }
@@ -1146,6 +1159,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             uniqueTraders: new Set(),
             _walletNetTokens: new Map(), // wallet(sender||trader) → 净持仓（holders/holderTrend/P 组集中度原料；GMGN 合并修正）
             _walletMaxNetTokens: new Map(), // wallet → 建仓峰值净持仓（running max 单调不减；TPA retention 基准，二期 2026-10-10 键域随 TPA 整链切 sender）
+            _walletRoutedBuyBnb: new Map(), // wallet → 本盘经聚合路由（GMGN 等）买入 BNB（TPA GMGN 用户判定原料，2026-10-11 用户裁定；写入判据=trader 层 AGGREGATOR_ROUTER_ADDRS）
             _smartBotBuyBnb: new Map(), // wallet → 名单内累计可靠买额 BNB（回迁批 3.3；只累不减——参与留痕）
             holderCount: 0,
 

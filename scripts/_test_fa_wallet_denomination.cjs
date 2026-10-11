@@ -204,6 +204,47 @@ console.log('\nD 节：读取时聚合（buildFactorMap 出口）');
   check('D5 bigHolderPresent = 1 且来自 wallet 净持仓交叉', () => assert.strictEqual(factors.bigHolderPresent, 1));
 }
 
+// ═══════════ D2 节：_walletRoutedBuyBnb 写入矩阵（GMGN 用户判定原料，2026-10-11 用户裁定） ═══════════
+console.log('\nD2 节：_walletRoutedBuyBnb 写入（TPA GMGN 用户判定原料）');
+{
+  // D2-1/2/3：GMGN 行归 sender EOA / 直连行不记 / 卖腿不记
+  const fa = newFA();
+  fa.processTick(mkTick({ trader_address: GMGN, sender_address: '0xE1', timestamp: T0, bnb_amount: 2, token_amount: 1000 }));
+  fa.processTick(mkTick({ trader_address: GMGN, sender_address: '0xE1', timestamp: T0 + 1, bnb_amount: 3, token_amount: 1500 })); // 累加
+  fa.processTick(mkTick({ trader_address: '0xDIRECT', sender_address: '0xE2', timestamp: T0 + 2, bnb_amount: 5, token_amount: 2500 })); // 直连不记
+  fa.processTick(mkTick({ trader_address: GMGN, sender_address: '0xE1', timestamp: T0 + 3, bnb_amount: 1, token_amount: 500, trade_type: 'sell' })); // 卖腿不记
+  const st = fa._states.get('0xtoken');
+  check('D2-1 GMGN 行 routed 记 sender EOA 名下且累加（2+3=5，非路由合约键）',
+    () => assert.strictEqual(st._walletRoutedBuyBnb.get('0xE1'), 5) && assert.ok(!st._walletRoutedBuyBnb.has(GMGN)));
+  check('D2-2 直连行不记（0xE2 无 routed 键）', () => assert.ok(!st._walletRoutedBuyBnb.has('0xE2')));
+  check('D2-3 卖腿不记（卖 1 BNB 不入 routed）',
+    () => assert.strictEqual(st._walletRoutedBuyBnb.get('0xE1'), 5));
+
+  // D2-4：sender NULL 回退行 → walletAddr=trader=GMGN → routed 记路由地址名下
+  //   （TPA 剔除判定天然涵盖路由地址自身的残留合并像）
+  const fa4 = newFA();
+  fa4.processTick(mkTick({ trader_address: GMGN, sender_address: null, timestamp: T0, bnb_amount: 1.5, token_amount: 750 }));
+  const st4 = fa4._states.get('0xtoken');
+  check('D2-4 sender NULL 回退行：routed 记路由地址名下（GMGN 键=1.5）',
+    () => assert.strictEqual(st4._walletRoutedBuyBnb.get(GMGN), 1.5));
+
+  // D2-5：checksum 大写 GMGN 形态（trader lower-case 归一后命中，不漏记）
+  const fa5 = newFA();
+  fa5.processTick(mkTick({ trader_address: GMGN.toUpperCase(), sender_address: '0xE5', timestamp: T0, bnb_amount: 1 }));
+  check('D2-5 checksum 大写路由地址归一命中（0xE5=1）',
+    () => assert.strictEqual(fa5._states.get('0xtoken')._walletRoutedBuyBnb.get('0xE5'), 1));
+
+  // D2-6：非 GMGN 聚合路由之外的一切 trader（普通合约/EOA）不记
+  const fa6 = newFA();
+  fa6.processTick(mkTick({ trader_address: '0xSOMECONTRACT', sender_address: '0xE6', timestamp: T0, bnb_amount: 4 }));
+  check('D2-6 非名单合约不记（map 空）',
+    () => assert.strictEqual(fa6._states.get('0xtoken')._walletRoutedBuyBnb.size, 0));
+
+  // D2-7：_createEmptyState 初始化（新 state 恒有 map，旧代码 TPA 判定不 null 路径）
+  check('D2-7 _createEmptyState 初始化 _walletRoutedBuyBnb = 空 Map',
+    () => { const s = fa._createEmptyState('0xnew', T0); return assert.ok(s._walletRoutedBuyBnb instanceof Map && s._walletRoutedBuyBnb.size === 0); });
+}
+
 // ═══════════ E 节：链路透传（源码口径断言） ═══════════
 console.log('\nE 节：链路透传');
 {

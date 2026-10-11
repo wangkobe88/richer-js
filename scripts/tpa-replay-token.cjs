@@ -16,6 +16,8 @@
  *   手动时点:  node scripts/tpa-replay-token.cjs <token> <asOfIso> [token2 asOfIso2 ...]
  *   真实触发:  node scripts/tpa-replay-token.cjs --at-trigger <token> [token2 ...]
  *              ↑ 全史扫描首次过门 tick，在该 tick 时点复算（生产语义：verdict 就绪于此 tick 后数秒）
+ *   GMGN 模拟: 任一形状追加 --gmgn-exempt <pct>（2026-10-11 用户裁定 dry-run 工具化：TPA gmgnFilter
+ *              全链按剔除口径——触发门数非 GMGN + top20 剔除 GMGN 用户 + 占比 ≥ pct 豁免改写 approve）
  *   可选环境变量：TPA_REPLAY_TRIGGER='{"blocks":1,"tradeCount":10,"buyBnb":1,"minHolders":4}'
  *                 TPA_REPLAY_ZHUANG='TPAPre_tokenScore > 2'（默认=2026-09-28 裁定：只用 tokenScore）
  *   （buyBnb=1 为 BSC 口径裁定 2026-09-28：母版 6 是 SOL 面额不可直迁）
@@ -29,6 +31,7 @@ require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
 const { dbManager } = require('../src/services/dbManager');
 const { TokenPositionAnalyzer } = require('../src/services/TokenPositionAnalyzer');
 const { classifyHolderDetail } = require('../src/services/wallet-scorer');
+const { AGGREGATOR_ROUTER_ADDRS } = require('../src/trading-engine/pre-check/aggregator-routers');
 
 // buyBnb=1：BSC 口径裁定（2026-09-28 用户拍板）——母版 6 是 SOL 面额，SOL/BNB 价差大不可直迁。
 //   参照系：good-action/low-level-bad-action 的 SOL→BNB 换算系数 ×0.4（5/10 SOL→2/4 BNB、1.5→0.6）。
@@ -89,6 +92,7 @@ function initState(createEv) {
     _walletNetTokens: new Map(),
     _walletMaxNetTokens: new Map(),
     _walletBoughtTokens: new Map(),
+    _walletRoutedBuyBnb: new Map(), // 本盘经聚合路由买入 BNB（GMGN 用户判定原料，与 FA 同段）
     holderCount: 0,
     creatorAddress: null,
     totalSupply: 0,
@@ -118,10 +122,28 @@ function feedTick(st, t) {
     st._walletNetTokens.set(w, cur);
     const mx = st._walletMaxNetTokens.get(w) || 0;
     if (cur > mx) st._walletMaxNetTokens.set(w, cur);
-    if (isBuy) st._walletBoughtTokens.set(w, (st._walletBoughtTokens.get(w) || 0) + tok);
+    if (isBuy) {
+      st._walletBoughtTokens.set(w, (st._walletBoughtTokens.get(w) || 0) + tok);
+      // GMGN 用户判定原料（与 FA processTick 同段同源；trader 层 lower-case 判定）
+      if (t.trader_address && AGGREGATOR_ROUTER_ADDRS.has(String(t.trader_address).toLowerCase())) {
+        st._walletRoutedBuyBnb.set(w, (st._walletRoutedBuyBnb.get(w) || 0) + bnb);
+      }
+    }
   }
   st.holderCount = 0;
   for (const net of st._walletNetTokens.values()) if (net > 0) st.holderCount++;
+}
+
+/** GMGN 占比统计（TPA._gmgnShareStats 同口径副本——脚本 faState 不走 TPA 实例方法，此处独立复刻）。 */
+function gmgnStats(st) {
+  if (!st._walletNetTokens || !st._walletRoutedBuyBnb) return null;
+  let posTotal = 0, gmgnPos = 0, nonGmgnCount = 0;
+  for (const [a, net] of st._walletNetTokens) {
+    if (net <= 0) continue;
+    posTotal += net;
+    if ((st._walletRoutedBuyBnb.get(a) || 0) > 0) gmgnPos += net; else nonGmgnCount++;
+  }
+  return { nonGmgnCount, gmgnUserPct: posTotal > 0 ? Number(((gmgnPos / posTotal) * 100).toFixed(2)) : 0 };
 }
 
 function buildFaState(ticks, createEv) {
@@ -130,33 +152,55 @@ function buildFaState(ticks, createEv) {
   return st;
 }
 
-/** 触发门判定（checkAndTrigger 同口径：严格 > / ≥；blocks 需当前 tick 与首块都有块证据）。 */
-function gatesPass(st, tick, trigger) {
+/** 触发门判定（checkAndTrigger 同口径：严格 > / ≥；blocks 需当前 tick 与首块都有块证据）。
+ *  gmgnFilter 开启时持仓人数门切非 GMGN 口径（豁免触发的票也算过门——生产语义：走分析豁免改写）。 */
+function gatesPass(st, tick, trigger, gmgnFilter) {
   if (trigger.blocks != null) {
     if (st.firstBlockNumber == null || tick?.block_number == null) return false;
     if (Number(tick.block_number) - st.firstBlockNumber < trigger.blocks) return false;
   } else if (st.firstTickAt == null || (Date.parse(tick.block_time) - st.firstTickAt) / 1000 <= (trigger.ageSeconds ?? 0)) {
     return false;
   }
-  return st.tradeCount > trigger.tradeCount && st.totalBuyBnb > trigger.buyBnb && st.holderCount >= trigger.minHolders;
+  if (!(st.tradeCount > trigger.tradeCount && st.totalBuyBnb > trigger.buyBnb)) return false;
+  if (!gmgnFilter) return st.holderCount >= trigger.minHolders;
+  const gs = gmgnStats(st);
+  if (!gs) return st.holderCount >= trigger.minHolders; // routed map 缺失 → 全口径（fail-safe 同生产行为）
+  if (gs.nonGmgnCount >= trigger.minHolders) return true;
+  return gs.gmgnUserPct >= gmgnFilter.exemptPct; // 豁免触发（占比达标）
 }
 
 (async () => {
   const argv = process.argv.slice(2);
+  // --gmgn-exempt <pct>：模拟 TPA gmgnFilter（GMGN 用户剔除 + 主导盘豁免），dry-run 工具化
+  let gmgnExemptPct = null;
+  {
+    const i = argv.indexOf('--gmgn-exempt');
+    if (i !== -1) {
+      gmgnExemptPct = Number(argv[i + 1]);
+      if (!Number.isFinite(gmgnExemptPct) || gmgnExemptPct < 0 || gmgnExemptPct > 100) {
+        console.error('--gmgn-exempt <pct> 须 0-100');
+        process.exit(1);
+      }
+      argv.splice(i, 2);
+    }
+  }
   const atTrigger = argv[0] === '--at-trigger';
   const rest = atTrigger ? argv.slice(1) : argv;
   if (!rest.length || (!atTrigger && rest.length % 2 !== 0)) {
     console.error('用法:');
     console.error('  手动时点:  node scripts/tpa-replay-token.cjs <token> <asOfIso> [token2 asOfIso2 ...]');
     console.error('  真实触发:  node scripts/tpa-replay-token.cjs --at-trigger <token> [token2 ...]   ← 全史扫描首次过门 tick，在该时点复算（生产语义）');
+    console.error('  GMGN 模拟: 任一形状追加 --gmgn-exempt <pct>（触发门/top20/verdict 全链按剔除口径）');
     process.exit(1);
   }
   const trigger = process.env.TPA_REPLAY_TRIGGER ? JSON.parse(process.env.TPA_REPLAY_TRIGGER) : DEFAULT_TRIGGER;
   const zhuangCondition = process.env.TPA_REPLAY_ZHUANG || DEFAULT_ZHUANG;
   const sb = dbManager.getClient();
 
+  const tpaCfg = { enabled: true, trigger, zhuangCondition };
+  if (gmgnExemptPct != null) tpaCfg.gmgnFilter = { enabled: true, exemptPct: gmgnExemptPct };
   const tpa = new TokenPositionAnalyzer(
-    { enabled: true, trigger, zhuangCondition },
+    tpaCfg,
     { logger: { info: () => {}, error: (m, d) => console.error('[TPA]', m, d || '') } },
   );
 
@@ -176,7 +220,7 @@ function gatesPass(st, tick, trigger) {
       let trig = null;
       for (const t of ticks) {
         feedTick(st, t);
-        if (gatesPass(st, t, trigger)) { trig = t; break; }
+        if (gatesPass(st, t, trigger, tpa._gmgnFilter)) { trig = t; break; }
       }
       if (!trig) {
         console.log(`  ticks(全史)=${ticks.length}  platform=${createEv?.platform ?? '?'}  creator=${(createEv?.payload?.creator || '').slice(0, 12) || '无'}`);
@@ -188,8 +232,9 @@ function gatesPass(st, tick, trigger) {
       fa = st;
       asOfMs = Date.parse(trig.block_time);
       const age = fa.firstTickAt != null ? ((asOfMs - fa.firstTickAt) / 1000).toFixed(0) : '?';
+      const _gs0 = gmgnStats(fa);
       console.log(`  ticks(全史)=${ticks.length}  platform=${createEv?.platform ?? '?'}  creator=${(createEv?.payload?.creator || '').slice(0, 12) || '无'}`);
-      console.log(`  ★ 首次过门 tick: ${trig.block_time} (id=${trig.id}, age=${age}s)  门状态: tradeCount=${fa.tradeCount} buyBnb=${fa.totalBuyBnb.toFixed(3)} holders=${fa.holderCount} blockDiff=${Number(trig.block_number) - fa.firstBlockNumber}`);
+      console.log(`  ★ 首次过门 tick: ${trig.block_time} (id=${trig.id}, age=${age}s)  门状态: tradeCount=${fa.tradeCount} buyBnb=${fa.totalBuyBnb.toFixed(3)} holders=${fa.holderCount}${_gs0 ? `（非GMGN=${_gs0.nonGmgnCount} GMGN占比=${_gs0.gmgnUserPct}%）` : ''} blockDiff=${Number(trig.block_number) - fa.firstBlockNumber}`);
       console.log(`  → 生产语义：TPA 在此刻触发，verdict 于此 tick 后数秒就绪（画像 asOf=此刻）`);
     } else {
       const asOfMs0 = Date.parse(manualAsOf);
@@ -258,7 +303,17 @@ function gatesPass(st, tick, trigger) {
       console.log('  庄散: null（holderCount=0 → ratio null → fail-closed）');
     }
     const { verdict, blockReasons } = tpa._decideVerdict(walletScoreSummary, zhuangRetail, holdingFactors);
-    console.log(`\n  ★ verdict = ${verdict.toUpperCase()}${blockReasons.length ? '  block: [' + blockReasons.join(' ; ') + ']' : ''}`);
+    // GMGN 主导盘豁免改写模拟（_analyze 6a 段同口径：占比达标 → verdict 改写 approve）
+    const _gs = gmgnStats(fa);
+    let finalVerdict = verdict, finalReasons = blockReasons;
+    if (tpa._gmgnFilter && _gs && _gs.gmgnUserPct >= tpa._gmgnFilter.exemptPct) {
+      finalVerdict = 'approve';
+      finalReasons = ['gmgn_exempt'];
+      console.log(`  ⚡ GMGN 主导盘豁免命中（占比=${_gs.gmgnUserPct}% ≥ ${tpa._gmgnFilter.exemptPct}%）→ verdict 改写 APPROVE（TPAPre_gmgnExempt=1）`);
+    } else if (tpa._gmgnFilter && _gs) {
+      console.log(`  GMGN 占比=${_gs.gmgnUserPct}% < ${tpa._gmgnFilter.exemptPct}%（豁免未命中，verdict 按剔除后 top${topHolders.length} 评分）`);
+    }
+    console.log(`\n  ★ verdict = ${finalVerdict.toUpperCase()}${finalReasons.length ? '  block: [' + finalReasons.join(' ; ') + ']' : ''}`);
     console.log(`  默认 zhuangCondition = ${tpa._zhuangCondition}`);
   }
   process.exit(0);
