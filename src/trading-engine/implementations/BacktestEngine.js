@@ -1135,6 +1135,11 @@ class BacktestEngine extends AbstractTradingEngine {
   /**
    * 重写：回放已终态（completed/failed）后到达的停机信号不再覆盖状态、
    * 不补写真实时间快照（回放快照均已按虚拟时间落库）。
+   * 中途停机（finalStatusSet=false，回放进行中）：先刷残留写缓冲（周期 flush
+   * 间隔内积累的 pending 行，随进程退出即丢）再走基类写 stopped——信号处理器
+   * 在回放期间即已注册（run-engine.js 2026-10-11 修复，此前注册在 start()
+   * 之后，回测回放期间形同虚设）。flush 失败原样上抛（fail-loud，由信号
+   * 处理器留痕后退出，stopped 不落库提示停机不完整）。
    */
   async stop() {
     if (this._finalStatusSet) {
@@ -1142,6 +1147,9 @@ class BacktestEngine extends AbstractTradingEngine {
       this._status = EngineStatus.STOPPED;
       this.logger.info(this._experimentId, 'BacktestEngine', '回放已终态，停机信号仅置本地标志');
       return;
+    }
+    if (this._writeBufferEnabled && this._writeBuffer && this._writeBuffer.pendingCount > 0) {
+      await this._writeBuffer.flush(this._experimentId);
     }
     await super.stop();
   }

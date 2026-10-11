@@ -43,6 +43,24 @@ async function runEngine(experimentId) {
       : (experiment.config?.platform === 'flap' ? FlapWssTradingEngine : FourMemeWssTradingEngine);
     const engine = new EngineClass({ tradingMode: isBacktest ? 'backtest' : 'virtual' });
 
+    // 优雅关闭：注册必须在 initialize/start 之前——回测的 start() 要等整个回放
+    // 跑完才返回，注册放在其后等于回放期间（数小时）进程没有任何信号处理器，
+    // SIGTERM 走默认硬杀：不写 stopped、不刷写缓冲（2026-10-11 tnone 37bd7349
+    // 停机实录：行状态卡 running，需人工修 DB）
+    const gracefulShutdown = async (signal) => {
+      console.log(`\n👋 收到 ${signal}，正在停止引擎...`);
+      try {
+        await engine.stop();
+      } catch (error) {
+        // 停机链异常留痕后仍退出——进程必须死，但状态可能停在 running 需人工核对
+        console.error(`❌ 引擎停止失败: ${error.message}`);
+        console.error(error.stack);
+      }
+      process.exit(0);
+    };
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
     // 初始化引擎（加载实验）
     console.log(`🔍 启动实验: ${experimentId}`);
     await engine.initialize(experimentId);
@@ -60,19 +78,6 @@ async function runEngine(experimentId) {
     }
     console.log('========================================');
     console.log('');
-
-    // 设置优雅关闭
-    process.on('SIGINT', async () => {
-      console.log('\n👋 收到关闭信号，正在停止引擎...');
-      await engine.stop();
-      process.exit(0);
-    });
-
-    process.on('SIGTERM', async () => {
-      console.log('\n👋 收到关闭信号，正在停止引擎...');
-      await engine.stop();
-      process.exit(0);
-    });
 
   } catch (error) {
     console.error('❌ 启动引擎失败:', error.message);

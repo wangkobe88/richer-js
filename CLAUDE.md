@@ -27,6 +27,9 @@ npm run narrative-engine
 # 直连架构（内嵌 collector）零 DB 单测（引擎接线/stop 顺序/setExperimentId 防线/guard 判据）
 node scripts/_test_embedded_collector_architecture.cjs
 
+# run-engine 优雅停机零 DB 单测（信号注册先于 start + 回测中途停机刷写缓冲，tnone 37bd7349 停机事故）
+node scripts/_test_run_engine_graceful_stop.cjs
+
 # sender_address 解析（真实买家 tx.from）零 DB 零网络单测（打桩 provider/collector）
 node scripts/_test_sender_resolver.cjs
 
