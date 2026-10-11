@@ -170,6 +170,80 @@
             border-radius: 0.25rem;
             padding: 0.125rem 0.5rem;
         }
+        /* TPA 触发条件只读展示（2026-10-11）：复制链路携带的 tokenPositionAnalyzer 段
+           可视化，视觉语言同腿快照卡（等宽条件块/徽章/子条件块） */
+        #tpa-section .tpa-cond {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.8125rem;
+            background: #1f2937;
+            color: #10b981;
+            padding: 0.5rem 0.625rem;
+            border-radius: 0.375rem;
+            word-break: break-all;
+        }
+        #tpa-section .tpa-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            margin-top: 0.5rem;
+        }
+        #tpa-section .tpa-badge {
+            font-size: 0.75rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 0.25rem;
+            background: #eef2ff;
+            color: #4338ca;
+            border: 1px solid #c7d2fe;
+            white-space: nowrap;
+        }
+        #tpa-section .tpa-subconds {
+            display: grid;
+            gap: 0.375rem;
+            margin-top: 0.5rem;
+        }
+        #tpa-section .tpa-subconds:empty {
+            display: none;
+        }
+        #tpa-section .tpa-subcond {
+            border-left: 3px solid #f59e0b;
+            background: #fffbeb;
+            border-radius: 0.375rem;
+            padding: 0.375rem 0.625rem;
+        }
+        #tpa-section .tpa-subcond .sc-label {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            color: #92400e;
+            letter-spacing: 0.02em;
+            margin-bottom: 0.125rem;
+        }
+        #tpa-section .tpa-subcond .sc-expr {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.8125rem;
+            color: #78350f;
+            word-break: break-all;
+        }
+        #tpa-section .tpa-json {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.75rem;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.375rem;
+            padding: 0.5rem 0.625rem;
+            margin-top: 0.375rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: #374151;
+        }
+        #tpa-section .tpa-ro {
+            font-size: 0.75rem;
+            color: #6b7280;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.25rem;
+            padding: 0.125rem 0.5rem;
+            white-space: nowrap;
+        }
         .empty-hint {
             font-size: 0.8125rem;
             color: #9ca3af;
@@ -791,6 +865,32 @@
                     </p>
                 </div>
 
+                <!-- TPA 触发条件（2026-10-11 只读展示）：tokenPositionAnalyzer 是实验级配置
+                     （触发门 blocks|ageSeconds 二选一 + tradeCount/buyBnb/minHolders，无代码
+                     默认值须显式配置），复制链路经 window._copyAdvancedConfig 整包携带。本区
+                     只读可视化触发门——不可编辑，提交时原样透传；调整请改源实验 config -->
+                <div class="border border-gray-200 rounded-lg p-3" id="tpa-section" hidden>
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">🔍 TPA 触发条件（Token Position Analyzer）</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">实验级配置——复制链路整包携带，触发门如下（全部满足才触发 TPA 画像）</p>
+                        </div>
+                        <span class="tpa-ro shrink-0">只读快照</span>
+                    </div>
+                    <div class="tpa-cond" id="tpa-trigger-cond"></div>
+                    <div class="tpa-badges" id="tpa-badges"></div>
+                    <div class="tpa-subconds" id="tpa-subconds"></div>
+                    <details class="mt-2">
+                        <summary class="text-sm text-gray-600 cursor-pointer">完整 tokenPositionAnalyzer 配置（JSON）</summary>
+                        <pre class="tpa-json" id="tpa-raw-json"></pre>
+                    </details>
+                    <p class="text-xs text-gray-500 mt-2">
+                        触发后对 top20 净持仓者做 as-of 画像，产出 TPAPre_* 因子族注入买腿（write-once，一 token 一次）；
+                        verdict 由「verdict 收口」表达式决定（null 恒 false = fail-closed 拦）。未配 TPA 的实验买腿引用
+                        TPAPre_* 恒 null = 不买（去门控化）。本区纯展示——提交时配置原样透传，不编辑。
+                    </p>
+                </div>
+
                 <!-- 卖出策略配置（同上：只读快照，仅库引用） -->
                 <div class="border border-gray-200 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
@@ -1164,6 +1264,13 @@
                     ...(copyData.tokenPositionAnalyzer ? { tokenPositionAnalyzer: copyData.tokenPositionAnalyzer } : {}),
                     ...(copyData.fourmemeWs ? { fourmemeWs: copyData.fourmemeWs } : {}),
                 };
+
+                // TPA 触发条件只读展示（2026-10-11）：复制携带段可视化（纯展示零数据面
+                // 改动——提交仍走上方 _copyAdvancedConfig 整包透传；源实验无 TPA 段则
+                // 区块保持隐藏）
+                if (copyData.tokenPositionAnalyzer) {
+                    renderTpaSnapshot(copyData.tokenPositionAnalyzer);
+                }
 
                 // 行为周期判定回填（表单化）：enforce 勾选 + params 逐键回填输入框；
                 // 旧格式仅 enforce 无 params → 输入框保持默认值（值等价默认，行为零变化）
@@ -1641,6 +1748,71 @@
         }
 
         // === 腿只读渲染（2026-09-28 裁定：创建页=策略库选择器，不可编辑策略）===
+        // TPA 触发条件只读快照渲染（2026-10-11）：复制链路携带的 tokenPositionAnalyzer
+        // 段可视化。纯展示零数据面改动——提交仍走 _copyAdvancedConfig 整包透传；
+        // 比较口径与 TokenPositionAnalyzer.checkAndTrigger 逐字对齐（≥/>/>/≥）；
+        // 全程 textContent 填充防注入（同腿快照卡纪律）
+        function renderTpaSnapshot(tpa) {
+            const section = document.getElementById('tpa-section');
+            if (!section || !tpa || typeof tpa !== 'object') return;
+            section.hidden = false;
+
+            const trig = (tpa.trigger && typeof tpa.trigger === 'object') ? tpa.trigger : null;
+            const hasBlocks = trig != null && trig.blocks != null && trig.blocks !== '';
+            const hasAge = trig != null && !hasBlocks && trig.ageSeconds != null && trig.ageSeconds !== '';
+            const gmgnOn = !!(tpa.gmgnFilter && tpa.gmgnFilter.enabled);
+
+            // 触发门条件块：时间门（blocks XOR ageSeconds）+ 数量门
+            const condEl = document.getElementById('tpa-trigger-cond');
+            if (!trig) {
+                condEl.textContent = '⚠️ 缺 trigger 段（引擎构造期 fail-fast 拒启：blocks|ageSeconds 二选一 + tradeCount/buyBnb/minHolders 须显式配置）';
+            } else {
+                const parts = [];
+                if (hasBlocks) parts.push(`tick块号 − FA首块 ≥ ${trig.blocks}`);
+                else if (hasAge) parts.push(`代币年龄 > ${trig.ageSeconds}s`);
+                else parts.push('⚠️ 无时间门');
+                parts.push(`tradeCount > ${trig.tradeCount}`);
+                parts.push(`totalBuyBnb > ${trig.buyBnb}`);
+                parts.push(`净持仓者(net>0${gmgnOn ? '，非GMGN' : ''}) ≥ ${trig.minHolders}`);
+                condEl.textContent = parts.join('  AND  ');
+            }
+
+            // 徽章：时间门口径 / enforce（落表标记）/ GMGN 过滤
+            const badges = [];
+            if (trig) {
+                if (hasBlocks) badges.push('时间门=blocks（BSC 生产口径）');
+                else if (hasAge) badges.push('时间门=ageSeconds（复现口径）');
+            }
+            badges.push(`enforce=${tpa.enforce === true ? 'true' : 'false（shadow）'}`);
+            if (tpa.gmgnFilter) {
+                badges.push(gmgnOn ? `GMGN剔除+豁免@${tpa.gmgnFilter.exemptPct}%` : 'GMGN过滤关');
+            }
+            const badgesEl = document.getElementById('tpa-badges');
+            badgesEl.innerHTML = badges.map(() => '<span class="tpa-badge"></span>').join('');
+            badgesEl.querySelectorAll('.tpa-badge').forEach((el, i) => { el.textContent = badges[i]; });
+
+            // 子条件块：verdict 收口 / GMGN 主导盘豁免语义
+            const subConds = [];
+            if (tpa.zhuangCondition != null) {
+                subConds.push(['verdict 收口（approve 唯一条件）', String(tpa.zhuangCondition)]);
+            } else {
+                // 缺席 → 引擎 mergeConfig 走默认条件；刻意不硬编码默认值（双源漂移），只提示来源
+                subConds.push(['verdict 收口（approve 唯一条件）', '（源 config 未覆盖——运行期走引擎默认 zhuangCondition）']);
+            }
+            if (gmgnOn) {
+                subConds.push(['GMGN 主导盘豁免', `非GMGN净持仓者 < ${trig ? trig.minHolders : '?'} 且 GMGN 占比（净持仓量加权）≥ ${tpa.gmgnFilter.exemptPct}% → 触发豁免（TPAPre_gmgnExempt=1，verdict 改写 approve 放行）`]);
+            }
+            const subBox = document.getElementById('tpa-subconds');
+            subBox.innerHTML = subConds.map(([label]) =>
+                `<div class="tpa-subcond"><div class="sc-label">${label}</div><div class="sc-expr"></div></div>`).join('');
+            subBox.querySelectorAll('.tpa-subcond').forEach((el, i) => {
+                el.querySelector('.sc-expr').textContent = subConds[i][1];
+            });
+
+            // 完整配置 JSON（details 折叠）：其余键（walletScore/liveTicksPreload/…）全量可见
+            document.getElementById('tpa-raw-json').textContent = JSON.stringify(tpa, null, 2);
+        }
+
         // 卡片 = 库条目/源实验腿的只读快照；rawConfig 整包存储，提交时零损取回。
         // 调整腿参数一律到 /strategy-library 页
         function renderLegReadonly(card, cfg) {
