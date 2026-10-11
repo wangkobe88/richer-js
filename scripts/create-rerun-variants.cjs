@@ -25,7 +25,7 @@
 // 跑序无依赖，可串行跑；⚠️ 必须等画像库重建完成 + 删死行之后再启动 run-engine
 // （回测启动时读画像库，混杂期数据脏）。
 //
-// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5 [--commit]
+// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20 [--commit]
 //   默认 dry-run 打印各臂 diff 摘要；--commit 真建。
 // ============================================================================
 const path = require('path');
@@ -37,6 +37,9 @@ const E3E57ED75 = '3e57ed75-133e-497d-b8c8-b190eca2a6b8'; // 窗口 1 三门臂
 // lag 门整条子句（含前导 AND，与源 pbc 逐字对齐）
 const LAG_CLAUSE = ' AND (narrativeCorpusLagSec < 300 OR earlyReturn >= 100)';
 const UW_OLD = 'earlyTradesUniqueWallets >= 15';
+// TPA tokenScore 门（condition 内；t 臂 2026-10-11 追加：wallet 口径拆散 GMGN 合并像后
+// 分布整体下移——3.5+ 档 1223→259、approve 率 64.6%→46.5%，2.5 门等效变严，重校准对照）
+const TS_OLD = 'TPAPre_tokenScore > 2.5';
 
 const ARMS = {
     b1: { src: E15401A9, suffix: '-TPAwallet重跑', desc: 'TPA wallet 口径修复后重跑（b1）' },
@@ -44,6 +47,8 @@ const ARMS = {
     c: { src: E15401A9, suffix: '-去lag门', desc: 'lag 门整条去除对照臂（c）' },
     d10: { src: E15401A9, suffix: '-uw10', desc: 'earlyTradesUniqueWallets 15→10 放宽臂（d10）' },
     d5: { src: E15401A9, suffix: '-uw5', desc: 'earlyTradesUniqueWallets 15→5 放宽臂（d5）' },
+    t22: { src: E3E57ED75, suffix: '-tpa22', desc: 'TPA tokenScore 门 2.5→2.2 降档臂（t22，与中性分对齐）' },
+    t20: { src: E3E57ED75, suffix: '-tpa20', desc: 'TPA tokenScore 门 2.5→2.0 降档臂（t20，夹逼下界）' },
 };
 
 const args = process.argv.slice(2);
@@ -94,9 +99,15 @@ async function main() {
             }
             buy.preBuyCheckCondition = origPbc.replace(UW_OLD,
                 'earlyTradesUniqueWallets >= ' + (arm === 'd10' ? '10' : '5'));
+        } else if (arm === 't22' || arm === 't20') {
+            if (!buy.condition.includes(TS_OLD)) {
+                throw new Error(`[${arm}] 源 condition 未含 ${TS_OLD}（替换落空防静默），condition=${buy.condition}`);
+            }
+            buy.condition = buy.condition.replace(TS_OLD,
+                'TPAPre_tokenScore > ' + (arm === 't22' ? '2.2' : '2.0'));
         }
 
-        // diff 校验：b1/b2 与源零差异；c/d10/d5 除 pbc 外零差异
+        // diff 校验：b1/b2 与源零差异；c/d10/d5 除 pbc 外零差异；t22/t20 除 condition 外零差异
         const chk = JSON.parse(JSON.stringify(cfg));
         delete chk.name; delete chk.description;
         if (arm === 'b1' || arm === 'b2') {
@@ -106,9 +117,13 @@ async function main() {
         } else {
             const base = JSON.parse(JSON.stringify(src.config));
             delete base.name; delete base.description;
-            base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
+            if (arm === 'c' || arm === 'd10' || arm === 'd5') {
+                base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
+            } else { // t22/t20：差异仅 condition
+                base.strategiesConfig.buyStrategies[0].condition = buy.condition;
+            }
             if (JSON.stringify(chk) !== JSON.stringify(base)) {
-                throw new Error(`[${arm}] 与源实验差异超出 name/description/pbc——应零差异`);
+                throw new Error(`[${arm}] 与源实验差异超出 name/description/${arm.startsWith('t') ? 'condition' : 'pbc'}——应零差异`);
             }
         }
 
@@ -117,7 +132,9 @@ async function main() {
             ? 'bit-identical（同窗口同源），唯一变量 = TPA 链路+画像库二期切 wallet 口径（9d18253）'
             : (arm === 'c'
                 ? '去 lag 门整条 (narrativeCorpusLagSec < 300 OR earlyReturn >= 100)——晚票不再要盘面确认（用户裁定 2026-10-10）'
-                : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`))
+                : (arm === 't22' || arm === 't20'
+                    ? `condition ${TS_OLD} 降档（用户裁定 2026-10-11：wallet 口径分布下移致 2.5 门等效变严，重校准对照）`
+                    : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`)))
             + `；画像库 = 二期 sender 口径重建版。`;
 
         console.log(`\n===== 臂 ${arm}（源 ${def.src}）=====`);
