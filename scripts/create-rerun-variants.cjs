@@ -28,7 +28,7 @@
 // 跑序无依赖，可串行跑；⚠️ 必须等画像库重建完成 + 删死行之后再启动 run-engine
 // （回测启动时读画像库，混杂期数据脏）。
 //
-// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm [--gm-pct <50-100>] [--commit]
+// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm|v0|e50|eno|enl [--gm-pct <50-100>] [--commit]
 //   默认 dry-run 打印各臂 diff 摘要；--commit 真建。gm 臂须显式 --gm-pct（dry-run 定档值）。
 // ============================================================================
 const path = require('path');
@@ -36,6 +36,7 @@ require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
 
 const E15401A9 = 'e15401a9-ddf9-4760-8ecc-b7b7b75815bc'; // 窗口 2 基底 R0b
 const E3E57ED75 = '3e57ed75-133e-497d-b8c8-b190eca2a6b8'; // 窗口 1 三门臂
+const ETNONE = '37bd7349-b3b7-4fb5-80af-f9f81615349c'; // 窗口 1 去TPA门臂（2026-10-11 消融链基底）
 
 // lag 门整条子句（含前导 AND，与源 pbc 逐字对齐）
 const LAG_CLAUSE = ' AND (narrativeCorpusLagSec < 300 OR earlyReturn >= 100)';
@@ -54,6 +55,25 @@ const MH_OLD = 4;
 //   verdict 改写 approve 放行；exemptPct 由 tmp_gmgn_dryrun_b2 预演定档（--gm-pct 必传）。
 const TS_EXEMPT = '(TPAPre_tokenScore > 2.5 OR TPAPre_gmgnExempt == 1)';
 
+// ── pbc 门消融臂（2026-10-11 用户裁定，基底=tnone：删 covered/top1 + router 放宽 → er 变体）──
+// 门消融数据（tnone 11,106 评估 metadata 重判）：covered 首拦=0（tokenAgeSec<90 保证恒 1，死代码）、
+// top1 唯一阻断=0（纯冗余）、router 唯一阻断 30 token maxRet p50 124.6%（与实买票 192% 同档）→ 放宽
+// 50→30（[30,50) 质量好且与 9-30 先验冲突最小）；er 右臂直接证据 lag>=300 组 36 票 +11.12 胜率 78%，
+// 但右臂强制等 er 涨到 100% 才进场 = 进场价 ≥ 出生价×2（用户裁定：折扣不小要回测定档）。
+const TOP1_CLAUSE = ' AND earlyTradesTop1BuySharePct < 60';
+const COVERED_CLAUSE = ' AND earlyTradesTop1BuyCovered == 1';
+const ROUTER_OLD = 'earlyTradesRouterPct >= 50';
+const ER_OLD = 'earlyReturn >= 100';
+/** tnone 源 pbc → v0 基线（删 top1/covered 子句 + router 50→30），返回新 pbc */
+function pbcToV0(pbc) {
+    for (const c of [TOP1_CLAUSE, COVERED_CLAUSE]) {
+        if (!pbc.includes(c)) throw new Error('源 pbc 未含子句（替换落空防静默）: ' + c);
+        pbc = pbc.replace(c, '');
+    }
+    if (!pbc.includes(ROUTER_OLD)) throw new Error('源 pbc 未含 ' + ROUTER_OLD);
+    return pbc.replace(ROUTER_OLD, 'earlyTradesRouterPct >= 30');
+}
+
 const ARMS = {
     b1: { src: E15401A9, suffix: '-TPAwallet重跑', desc: 'TPA wallet 口径修复后重跑（b1）' },
     b2: { src: E3E57ED75, suffix: '-TPAwallet重跑', desc: 'TPA wallet 口径修复后重跑（b2）' },
@@ -66,6 +86,10 @@ const ARMS = {
     notpa: { src: E3E57ED75, suffix: '-不激活TPA', desc: 'TPA 模块整体不激活臂（notpa，config 删 tokenPositionAnalyzer 段+condition 删 TPAPre 子句）' },
     mh8: { src: E3E57ED75, suffix: '-mh8', desc: 'TPA 触发门 minHolders 4→8 臂（mh8，推迟触发等画像更全）' },
     gm: { src: E3E57ED75, suffix: '-gmgn豁免', desc: 'TPA GMGN 用户剔除+主导盘豁免臂（gm）' },
+    v0: { src: ETNONE, suffix: '-门基线v0', desc: 'pbc 门基线 v0（删 covered/top1 + router 50→30）' },
+    e50: { src: ETNONE, suffix: '-er50', desc: 'v0 + lag 门右臂 earlyReturn 100→50（更早进场）' },
+    eno: { src: ETNONE, suffix: '-去er右臂', desc: 'v0 + lag 门删右臂（lag<300 单臂，晚票全拦）' },
+    enl: { src: ETNONE, suffix: '-去lag门整条', desc: 'v0 + lag 门整条去除（时间锚与 er 全不筛）' },
 };
 
 const args = process.argv.slice(2);
@@ -95,16 +119,17 @@ function strip(cfg) {
 async function main() {
     const { ExperimentFactory } = require('../src/trading-engine/factories/ExperimentFactory');
     const factory = ExperimentFactory.getInstance();
-    const [srcA, srcB] = await Promise.all([factory.load(E15401A9), factory.load(E3E57ED75)]);
+    const [srcA, srcB, srcT] = await Promise.all([factory.load(E15401A9), factory.load(E3E57ED75), factory.load(ETNONE)]);
     if (!srcA) throw new Error('源实验不存在: ' + E15401A9);
     if (!srcB) throw new Error('源实验不存在: ' + E3E57ED75);
+    if (!srcT) throw new Error('源实验不存在: ' + ETNONE);
 
     const toRun = ARM === 'all' ? Object.keys(ARMS).filter(a => a !== 'gm') : [ARM]; // all 不含 gm（须单建+定档）
     const created = [];
 
     for (const arm of toRun) {
         const def = ARMS[arm];
-        const src = def.src === E15401A9 ? srcA : srcB;
+        const src = def.src === E15401A9 ? srcA : (def.src === ETNONE ? srcT : srcB);
         const cfg = JSON.parse(JSON.stringify(src.config));
         const buy = cfg.strategiesConfig.buyStrategies[0];
         const origPbc = buy.preBuyCheckCondition;
@@ -170,6 +195,31 @@ async function main() {
                 throw new Error(`[${arm}] 源 config 无 tokenPositionAnalyzer.trigger 段`);
             }
             cfg.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
+        } else if (arm === 'v0' || arm === 'e50' || arm === 'eno' || arm === 'enl') {
+            // pbc 门消融链（2026-10-11 用户裁定）：v0=删 covered/top1 + router 50→30；
+            // e50/eno/enl 在 v0 上叠加 er 变体。源=tnone（去 TPA 门，pbc 与 3e57ed75 逐字同）。
+            if (buy.condition.includes('TPAPre_tokenScore')) {
+                throw new Error(`[${arm}] 源应为 tnone（condition 无 TPA 门），condition=${buy.condition}`);
+            }
+            let pbc = pbcToV0(origPbc);
+            if (arm === 'e50') {
+                if (!pbc.includes(ER_OLD)) throw new Error(`[${arm}] pbc 未含 ${ER_OLD}`);
+                pbc = pbc.replace(ER_OLD, 'earlyReturn >= 50');
+            } else if (arm === 'eno') {
+                if (!pbc.includes(LAG_CLAUSE)) throw new Error(`[${arm}] pbc 未含 lag 门子句`);
+                pbc = pbc.replace(LAG_CLAUSE, ' AND (narrativeCorpusLagSec < 300)');
+                if (pbc.includes('earlyReturn')) throw new Error(`[${arm}] eno 后 pbc 残留 earlyReturn`);
+            } else if (arm === 'enl') {
+                if (!pbc.includes(LAG_CLAUSE)) throw new Error(`[${arm}] pbc 未含 lag 门子句`);
+                pbc = pbc.replace(LAG_CLAUSE, '');
+                if (pbc.includes('narrativeCorpusLagSec') || pbc.includes('earlyReturn')) {
+                    throw new Error(`[${arm}] enl 后 pbc 残留 lag/er 键`);
+                }
+            }
+            if (pbc.includes('earlyTradesTop1Buy') || pbc.includes(ROUTER_OLD)) {
+                throw new Error(`[${arm}] v0 基线校验失败（top1/covered/router 残留）`);
+            }
+            buy.preBuyCheckCondition = pbc;
         }
 
         // diff 校验：b1/b2 与源零差异；c/d10/d5 除 pbc 外零差异；t22/t20 除 condition 外零差异
@@ -192,11 +242,13 @@ async function main() {
             } else if (arm === 'gm') { // 差异仅 condition + gmgnFilter
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
                 base.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
+            } else if (arm === 'v0' || arm === 'e50' || arm === 'eno' || arm === 'enl') { // 差异仅 pbc
+                base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
             } else { // t22/t20/tnone：差异仅 condition
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
             }
             if (JSON.stringify(chk) !== JSON.stringify(base)) {
-                const field = (arm === 'c' || arm === 'd10' || arm === 'd5') ? 'pbc'
+                const field = (arm === 'c' || arm === 'd10' || arm === 'd5' || arm === 'v0' || arm === 'e50' || arm === 'eno' || arm === 'enl') ? 'pbc'
                     : (arm === 'mh8' ? 'trigger.minHolders'
                         : (arm === 'notpa' ? 'condition+去tokenPositionAnalyzer段'
                             : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition')));
@@ -219,7 +271,15 @@ async function main() {
                             ? `TPA 触发门 minHolders 4→8（用户裁定 2026-10-11：wallet 口径触发提前画像窗口过短）`
                             : (arm === 'gm'
                                 ? `condition ${TS_OLD} → (… OR TPAPre_gmgnExempt == 1) + gmgnFilter{enabled,exemptPct:${GM_PCT}}（用户裁定 2026-10-11：GMGN 用户剔除+主导盘豁免；触发门/top20 剔除+占比 ≥${GM_PCT}% verdict 改写 approve）`
-                                : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`)))))))
+                                : (arm === 'v0'
+                                    ? 'pbc 删 covered（死代码，首拦=0）+ 删 top1（唯一阻断=0 纯冗余）+ router 50→30（唯一阻断 30 token maxRet p50 124.6% 与实买票同档）（用户裁定 2026-10-11）'
+                                    : (arm === 'e50'
+                                        ? 'v0 基础 + lag 门右臂 earlyReturn >= 100 → >= 50：lag>=300 晚票更早进场（用户裁定 2026-10-11：er>=100 等待期进场价 ≥ 出生价×2 折扣不小）'
+                                        : (arm === 'eno'
+                                            ? 'v0 基础 + lag 门删右臂：lag<300 单臂（lag null fail-closed 拦），lag>=300 晚票全拦对照'
+                                            : (arm === 'enl'
+                                                ? 'v0 基础 + lag 门整条去除：时间锚与 er 均不筛（c 臂同款删法，新基线上重测）'
+                                                : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`)))))))))))
             + `；画像库 = 二期 sender 口径重建版。`;
 
         console.log(`\n===== 臂 ${arm}（源 ${def.src}）=====`);
