@@ -297,7 +297,7 @@ async function main() {
             } else if (arm === 'gm') { // 差异仅 condition + gmgnFilter
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
                 base.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
-            } else if (arm === 'v0' || arm === 'perf' || arm === 'perf2' || arm === 'e50' || arm === 'eno' || arm === 'enl') { // 差异仅 pbc
+            } else if (arm === 'v0' || arm === 'perf' || arm === 'e50' || arm === 'eno' || arm === 'enl') { // 差异仅 pbc
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
             } else if (arm === 'perf2') { // 差异仅 pbc + preBuyCheck.sameNameSearchCacheTtlSec
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
