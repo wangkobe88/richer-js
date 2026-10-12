@@ -40,10 +40,15 @@ const ARMS = {
 const f2 = (x) => (Math.round(x * 10000) / 10000).toFixed(4);
 const sum = (a) => a.reduce((s, x) => s + x, 0);
 
-/** FIFO per-token PnL（tmp_gmgn_pair 同款；trades 行带 created_at 供窗口对齐） */
+/** FIFO per-token PnL（tmp_gmgn_pair 同款；trades 行带 created_at 供窗口对齐）
+ *  ★ 时间序（2026-10-12 0x6b973c 案）：trades 行 id=bigserial 分配序≠提交序（回测
+ *  攒批落库），sell id 可先于 buy → FIFO 卖出时 queue 空 → 净额虚高（notpa 实测
+ *  +30.6 虚高）——一律 (created_at,id) 时间序重排后再 FIFO。 */
 function pnlByToken(trades) {
+    const rows = [...trades].sort((a, b) =>
+        String(a.created_at).localeCompare(String(b.created_at)) || (a.id - b.id));
     const by = new Map();
-    for (const t of trades) {
+    for (const t of rows) {
         if (!(t.success === true || t.trade_status === 'success')) continue;
         const isBuy = t.trade_direction === 'buy' || t.trade_direction === 'BUY';
         const rec = by.get(t.token_address) || { spent: 0, received: 0, buys: 0, sells: 0, queue: [] };
