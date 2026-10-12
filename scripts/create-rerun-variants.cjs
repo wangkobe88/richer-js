@@ -313,7 +313,9 @@ async function main() {
                                 : (arm === 'pf0' ? 'pbc+faPreFilter'
                                 : (arm === 'perf2' ? 'pbc+sameNameTTL'
                                 : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition'))))));
-                throw new Error(`[${arm}] 与源实验差异超出 name/description/${field}——应零差异`);
+                require('fs').writeFileSync(`/tmp/arm_diff_chk_${arm}.json`, JSON.stringify(chk, null, 1));
+                require('fs').writeFileSync(`/tmp/arm_diff_base_${arm}.json`, JSON.stringify(base, null, 1));
+                throw new Error(`[${arm}] 与源实验差异超出 name/description/${field}——应零差异（两侧已写 /tmp/arm_diff_{chk,base}_${arm}.json 可 diff）`);
             }
         }
 
