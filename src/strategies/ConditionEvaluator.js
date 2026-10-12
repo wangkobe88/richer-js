@@ -67,7 +67,14 @@ class ConditionEvaluator {
         }
     }
 
-    /** 递归提取 age 范围；AND 取最紧（上界取小/下界取大），OR → null（安全降级） */
+    /** 递归提取 age 范围；AND 取最紧（上界取小/下界取大）；OR 取并包络（2026-10-12 修复：
+     *  原遇 OR 整体 null 降级——主流 condition 全带 IS NULL 豁免 OR 臂（如
+     *  `holderTrendGrowthRatio >= 55 OR … IS NULL`，与 age 无关）→ 提取恒 null，
+     *  preFilter 名存实亡（e50 3fcea181 实测日志「无可提取 age 区间」）。
+     *  安全语义：preFilter 跳过 age ∉「condition 可能为真的 age 包络」——
+     *  OR 为真的集合 ⊆ 各臂包络之并（下界取小/上界取大）；任一臂无 age 约束
+     *  （IS_NULL/非 age 比较臂）→ 该 OR 对任意 age 可能真 → 不贡献约束（返回 null，
+     *  AND 侧既有逻辑忽略之，其余 AND 臂的约束仍生效） */
     static _walkBuyRange(node) {
         if (!node) return null;
         if (node.type === 'AND') {
@@ -85,7 +92,18 @@ class ConditionEvaluator {
             }
             return out;
         }
-        if (node.type === 'OR') return null; // OR 无法确定单一范围，安全降级
+        if (node.type === 'OR') {
+            const l = ConditionEvaluator._walkBuyRange(node.left);
+            const r = ConditionEvaluator._walkBuyRange(node.right);
+            if (!l || !r) return null;
+            // 并包络：两侧均有区间才可能收紧「恒假补集」；±∞ 侧不设键（= 该侧无界）
+            const out = {};
+            const lo = Math.min(l.minAgeMinutes ?? -Infinity, r.minAgeMinutes ?? -Infinity);
+            const hi = Math.max(l.maxAgeMinutes ?? Infinity, r.maxAgeMinutes ?? Infinity);
+            if (Number.isFinite(lo)) out.minAgeMinutes = lo;
+            if (Number.isFinite(hi)) out.maxAgeMinutes = hi;
+            return out; // 空对象 = 完全无约束（AND 合并时不贡献键，语义安全）
+        }
         if (node.type === 'COMPARISON') {
             const num = Number(node.right);
             if (!Number.isFinite(num)) return null;

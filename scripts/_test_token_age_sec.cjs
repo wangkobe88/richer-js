@@ -80,7 +80,15 @@ console.log('D. extractBuyRangeFromCondition（preFilter 年龄区间提取，�
   check('D3 tokenAgeSec > 30 → minAgeMinutes 0.5', ex('tokenAgeSec > 30'), { minAgeMinutes: 0.5 });
   check('D4 AND 取最紧（age<30 AND tokenAgeSec<90）', ex('age < 30 AND tokenAgeSec < 90'),
     { maxAgeMinutes: 1.5 });
-  check('D5 OR → null（安全降级）', ex('tokenAgeSec < 90 OR age < 5'), null);
+  check('D5 OR 双 age 臂并包络（2026-10-12 修复：tokenAgeSec<90 OR age<5 → max=5）',
+    ex('tokenAgeSec < 90 OR age < 5'), { maxAgeMinutes: 5 });
+  check('D5b OR 含无 age 约束臂 → 不贡献（AND 链其余约束仍生效）',
+    ex('age < 30 AND (buyVolumeBnb >= 5 OR age < 45)'), { maxAgeMinutes: 30 });
+  check('D5c IS NULL 豁免 OR 臂不毒化（e50 3fcea181 实测形状）',
+    ex('tokenAgeSec < 90 AND (holderTrendGrowthRatio >= 55 OR holderTrendGrowthRatio IS NULL)'),
+    { maxAgeMinutes: 1.5 });
+  check('D5d OR 双臂均无 age 键 → null',
+    ex('buyVolumeBnb >= 5 OR holders > 3'), null);
   check('D6 age >= 5 回归（下界提取保留 >=）', ex('age >= 5'), { minAgeMinutes: 5 });
   check('D7 age > 3 → 下界 3', ex('age > 3'), { minAgeMinutes: 3 });
   check('D8 语法错 → null', ex('tokenAgeSec <'), null);
