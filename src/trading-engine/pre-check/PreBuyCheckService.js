@@ -583,35 +583,50 @@ class PreBuyCheckService {
         }
       }
 
+      // P10 早发并发（2026-10-13 perf11 画像：preBuy 109.2s = early 65.8s 与五项
+      // 45.4s 顺序串行堆叠，其中 sameName 的 AVE 网络 44.9s 与 early 内的 sniper
+      // 画像查询/六族因子计算互不依赖却互相等待）：holder/creator/sameName 三项
+      // 不消费 early 产物，与 early 同时发起；cluster/strong 消费
+      // earlyParticipantCheck._trades 必须等 early 完成后再发。决策输入零变化——
+      // 同一批 service 调用仅发起时点提前（_performEarlyParticipantCheck 无 throw
+      // 路径：performCheck 内部 catch 返回空统计），早发 promise 仍由 Promise.all
+      // 原样收集；catch sink 是旁支防结构性不可达的 unhandled rejection，不影响
+      // Promise.all 的拒绝传播
+      const _timed = (key, p) => {
+        const t0 = Date.now();
+        const done = () => this._seg(key, Date.now() - t0);
+        return Promise.resolve(p).then(r => { done(); return r; }, e => { done(); throw e; });
+      };
+      const holderP = _timed('parHolder', this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck));
+      holderP.catch(() => {});
+      const creatorP = _timed('parCreator', this._checkCreatorIsNotBadDevWallet(creatorAddress));
+      creatorP.catch(() => {});
+      const sameNameP = _timed('parSameName', this._performSameNameCheck(tokenAddress, tokenInfo, { checkTime, sourceExperimentId }));
+      sameNameP.catch(() => {});
+
       // 先执行早期参与者检查（获取交易数据）
       // P7 分段计时（2026-10-13 preBuy 284s 定因）：early=早期参与者全链（含回放
-      // 切片+因子计算，子服务另有 fetch 拆分）/ parallel=五项并发（同名 AVE 网络
-      // 调用落此段）/ eval=黑白名单+条件评估。三段+短路计数汇入 getPerfStats，
-      // 回放收尾与六段分布一起打印；纯 Date.now 计时零行为变化
+      // 切片+因子计算，子服务另有 fetch 拆分）/ parallel=early 完成后的余量段
+      //（P10 后三项已与 early 重叠，此段≈cluster/strong CPU+残余等待）/ eval=
+      // 黑白名单+条件评估。三段+短路计数汇入 getPerfStats，回放收尾与六段分布
+      // 一起打印；纯 Date.now 计时零行为变化
       const _segT0 = Date.now();
       const earlyParticipantCheck = await this._performEarlyParticipantCheck(
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant, totalSupply
       );
       this._seg('earlyMs', Date.now() - _segT0);
 
+      // 并行收集五项：holder/creator/sameName 已在 early 前发起（见上），此处仅
+      // 补发依赖 early 产物的 cluster/strong 并等待全部完成。P8 五项各自计时
+      // 保留（wrapper 从发起点计到完成，早发三项的耗时大部分落在 early 重叠区，
+      // parallelMs 不再包含它们——诊断口径变化，决策零影响）
       const _parT0 = Date.now();
-      // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查、严格同名代币检查
-      // P8 五项各自计时（2026-10-13 perf9 画像：parallel 254s 中 AVE 仅 31.5s，剩
-      // ~222s 未定因——四项纯 CPU 聚合各扫一遍同一份 _trades）。wrapper 只包 then
-      // 计时，调用仍在数组字面量内同步发起（并发结构不变）。注：多 token 买评估
-      // 并发下 Date.now 差值含其它协程墙钟（同步 CPU 段因 event loop 串行不重叠，
-      // 网络等待段可重叠低估）——定性定位够用，不求精确归因
-      const _timed = (key, p) => {
-        const t0 = Date.now();
-        const done = () => this._seg(key, Date.now() - t0);
-        return Promise.resolve(p).then(r => { done(); return r; }, e => { done(); throw e; });
-      };
       const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck, sameNameCheck] = await Promise.all([
-        _timed('parHolder', this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck)),
+        holderP,
         _timed('parCluster', this._performWalletClusterCheck(earlyParticipantCheck, tokenAddress)),
-        _timed('parCreator', this._checkCreatorIsNotBadDevWallet(creatorAddress)),
+        creatorP,
         _timed('parStrong', this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck)),
-        _timed('parSameName', this._performSameNameCheck(tokenAddress, tokenInfo, { checkTime, sourceExperimentId })),
+        sameNameP,
       ]);
       this._seg('parallelMs', Date.now() - _parT0);
 
