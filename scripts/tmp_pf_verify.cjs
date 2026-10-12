@@ -96,8 +96,8 @@ async function main() {
 
     // ⑤ 耗时（experiments 表）
     for (const [tag, id] of [['v0', V0], ['pf0', pf0Id]]) {
-        const { data } = await sb.from('experiments').select('name,started_at,completed_at').eq('id', id).single();
-        const dur = data.started_at && data.completed_at ? ((new Date(data.completed_at) - new Date(data.started_at)) / 60000).toFixed(1) : 'n/a';
+        const { data } = await sb.from('experiments').select('name,started_at,stopped_at').eq('id', id).single();
+        const dur = data.started_at && data.stopped_at ? ((new Date(data.stopped_at) - new Date(data.started_at)) / 60000).toFixed(1) : 'n/a';
         console.log(`⑤ ${tag}: ${dur}min  ${data.name}`);
     }
 
