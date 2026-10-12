@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// P13 装载段预载流水线并行化单测（2026-10-13 perf13 装载画像定因：9-9.5 预载
-// 串行链 74s 相互独立）。_runLoadPipeline 编排：组 A（叙事预载/AVE 快照/sniper
-// 画像，不依赖 _ticks）与 _loadWssTicks 并行；组 B（graduation + 回放索引）在
-// ticks 后；TPA 三连最后。零 DB 零网络：Object.create(BacktestEngine.prototype)
-// 绕过 constructor（P5 _test_backtest_load_pool 先例），挂起门受控 resolve 证明
-// 并行发起时序。用法：node scripts/_test_backtest_preload_overlap.cjs
+// P13/P14 装载段流水线并行化单测（perf13 定因：9-9.5 预载串行链 74s 相互独立；
+// P14a：TPA tpa1/tpa3 进组 A）。_runLoadPipeline 编排：组 A（叙事预载/AVE 快照/
+// sniper 画像 + TPA offline/分类预载，不依赖 _ticks）与 _loadWssTicks 并行；
+// 组 B（graduation + 回放索引）在 ticks 后；TPA 注入（tpa2，消费 _ticks）最后。
+// 零 DB 零网络：Object.create(BacktestEngine.prototype) 绕过 constructor（P5
+// _test_backtest_load_pool 先例），挂起门受控 resolve 证明并行发起时序。
+// 用法：node scripts/_test_backtest_preload_overlap.cjs
 'use strict';
 
 const fs = require('fs');
@@ -83,7 +84,7 @@ function wireDeps(e, events, opts = {}) {
 }
 
 async function main() {
-  // ── A. 组 A 与 ticks 并行（挂起 ticks 门，组 A 三项已发起；组 B 未发起）──
+  // ── A. 组 A 与 ticks 并行（挂起 ticks 门，组 A 六项已发起；组 B/TPA 注入未发起）──
   console.log('A. 组 A 并行发起');
   {
     const { e, events } = mkEngine();
@@ -94,6 +95,16 @@ async function main() {
     e._loadSameNameSnapshots = () => aveGate.start();
     const gradGate = gate(events, 'graduation');
     e._loadGraduationEvents = () => gradGate.start();
+    // P14a：TPA tpa1/tpa3 进组 A（挂起门证明与 ticks 并行发起）；tpa2 注入留组 B 后
+    const tpa1Gate = gate(events, 'tpa1');
+    const tpa3Gate = gate(events, 'tpa3');
+    const tpaCalls = [];
+    let tpa1Client = null;
+    e._tokenPositionAnalyzer = {
+      preloadOfflineProfiles: (client) => { tpaCalls.push('tpa1'); tpa1Client = client; return tpa1Gate.start(); },
+      setHistoricalTicks: (ticks) => { tpaCalls.push(['tpa2', ticks === e._ticks]); return 7; },
+      preloadTokenProfiles: () => { tpaCalls.push('tpa3'); return tpa3Gate.start(); },
+    };
 
     const p = e._runLoadPipeline();
     await flush();
@@ -105,35 +116,35 @@ async function main() {
     check('A5 graduation 未发起（依赖 ticks）', starts.includes('graduation'), false);
     check('A6 回放索引未构建（组 B 未跑）', events.some(x => x[0] === 'setIdx'), false);
     check('A7 「回放数据就绪」未打', events.some(x => x[0] === 'log' && String(x[2]).includes('回放数据就绪')), false);
+    check('A8 TPA offline 预载已发起（组 A，ticks 未完成时在飞）', starts.includes('tpa1'), true);
+    check('A9 TPA 分类预载已发起（组 A）', starts.includes('tpa3'), true);
+    check('A10 TPA 注入未跑（依赖 _ticks）', tpaCalls.some(x => Array.isArray(x)), false);
 
     // ── B. ticks 放行 → 就绪日志 → 组 B 并行（graduation 挂起时索引已注入）──
     console.log('B. 组 B 依赖序');
+    tpa1Gate.finish({ rows: 0, ms: 0 });
+    tpa3Gate.finish(0);
     aveGate.finish();
     ticksGate.finish();
     await flush();
     check('B1 「回放数据就绪」已打', events.some(x => x[0] === 'log' && String(x[2]).includes('回放数据就绪')), true);
     check('B2 graduation 已发起', events.filter(x => x[0] === 'start' && x[1] === 'graduation').length, 1);
     check('B3 回放索引已注入（与 graduation 并行，不等其完成）', events.some(x => x[0] === 'setIdx'), true);
+    check('B4 组 B 挂起时 TPA 注入仍未跑', tpaCalls.some(x => Array.isArray(x)), false);
 
-    // ── C. TPA 三连最后（组 B 挂起时未跑；graduation 放行后按序执行）──
-    console.log('C. TPA 三连最后');
-    const tpaOrder = [];
-    e._tokenPositionAnalyzer = {
-      preloadOfflineProfiles: async (client) => { tpaOrder.push(['tpa1', client.__fake]); events.push(['tpa', 1]); return { rows: 0, ms: 0 }; },
-      setHistoricalTicks: (ticks) => { tpaOrder.push(['tpa2', ticks]); events.push(['tpa', 2]); return 7; },
-      preloadTokenProfiles: async (keys, client) => { tpaOrder.push(['tpa3', keys.length]); events.push(['tpa', 3]); return 0; },
-    };
-    await flush();
-    check('C1 组 B 挂起时 TPA 未跑', tpaOrder.length, 0);
+    // ── C. TPA 注入最后（graduation 放行后执行；P14a 后仅 tpa2 消费 _ticks）──
+    console.log('C. TPA 注入末位');
     gradGate.finish();
     await p;
-    eq('C2 TPA 三连按序执行', tpaOrder.map(x => x[0]), ['tpa1', 'tpa2', 'tpa3']);
-    check('C3 TPA 收到引擎 client 透传', tpaOrder[0][1], 'client');
-    check('C4 setHistoricalTicks 收到 _ticks 本体', tpaOrder[1][1] === e._ticks, true);
-    eq('C5 preloadTokenProfiles 收到 tokenMeta 键集', tpaOrder[2][1], 2);
+    eq('C1 TPA 组 A 两项均已执行', tpaCalls.filter(x => typeof x === 'string').sort(), ['tpa1', 'tpa3']);
+    check('C2 tpa2 注入在 graduation 放行后执行', tpaCalls.filter(x => Array.isArray(x)).length, 1);
+    check('C3 setHistoricalTicks 收到 _ticks 本体', tpaCalls.find(x => Array.isArray(x))[1], true);
     const iSetIdx = events.findIndex(x => x[0] === 'setIdx');
-    const iTpa = events.findIndex(x => x[0] === 'tpa');
-    check('C6 TPA 注入在回放索引之后（同一事件流）', iSetIdx >= 0 && iTpa > iSetIdx, true);
+    const iTpaLog = events.findIndex(x => x[0] === 'log' && String(x[2]).includes('TPA historical ticks 注入'));
+    check('C4 TPA 注入日志在回放索引之后（同一事件流）', iSetIdx >= 0 && iTpaLog > iSetIdx, true);
+    check('C5 offline 预载日志透传 rows/ms', events.some(x => x[0] === 'log' && String(x[2]).includes('TPA offline 画像预载')), true);
+    check('C6 分类预载日志透传 cache 数', events.some(x => x[0] === 'log' && String(x[2]).includes('TPA token 分类预载')), true);
+    check('C7 offline 预载收到引擎 client 透传', tpa1Client && tpa1Client.__fake, 'client');
   }
 
   // ── D. 失败语义：叙事 reject 传播阻断 / graduation reject 传播 / sniper fail-open 不阻断 ──
@@ -173,6 +184,25 @@ async function main() {
     check('D4 sniper 失败不阻断', ok, true);
     check('D5 fail-open warn 留痕',
       events.some(x => x[0] === 'warn' && String(x[2]).includes('sniper 画像预载失败') && String(x[2]).includes('fail-open')), true);
+  }
+  {
+    // D6 TPA 预载意外 reject → 整体 reject 阻断（fail-loud 对齐串行版：真实
+    //    preloadOfflineProfiles/preloadTokenProfiles 内部 fail-open 不 reject，
+    //    引擎层不加 catch——意外异常不吞，红线 13 事故现场防线同族口径）
+    const { e, events } = mkEngine();
+    wireDeps(e, events);
+    e._loadWssTicks = async () => {};
+    e._loadSameNameSnapshots = async () => {};
+    e._loadGraduationEvents = async () => {};
+    e._tokenPositionAnalyzer = {
+      preloadOfflineProfiles: () => Promise.reject(new Error('tpa unexpected')),
+      setHistoricalTicks: () => 0,
+      preloadTokenProfiles: async () => 0,
+    };
+    let caught = null;
+    await e._runLoadPipeline().catch(err => caught = err);
+    check('D6 TPA 预载意外 reject 传播阻断', caught && caught.message.includes('tpa unexpected'), true);
+    check('D7 TPA 注入未跑（首层 reject 即停）', events.some(x => x[0] === 'log' && String(x[2]).includes('TPA historical ticks 注入')), false);
   }
 
   // ── E. _preloadNarrativeRows 真实逻辑：无 narrativeCallCondition 零预载 / 有条件按 tokenMeta 键集 ──
@@ -233,8 +263,8 @@ async function main() {
     const iPipe = src.indexOf('async _runLoadPipeline()');
     const iNext = src.indexOf('async _preloadNarrativeRows()', iPipe);
     const pipeBody = src.slice(iPipe, iNext);
-    check('G7 组 A 四项同一 Promise.all（ticks + 叙事/AVE/sniper）',
-      /Promise\.all\(\[\s*this\._loadWssTicks\(\),\s*this\._preloadNarrativeRows\(\),\s*this\._loadSameNameSnapshots\(\),\s*this\._preloadSniperFlagsSafe\(\),\s*\]\)/.test(pipeBody), true);
+    check('G7 组 A：四项字面量数组 + TPA 条件 push 两项 + 单点 Promise.all(groupA)',
+      /const groupA = \[\s*this\._loadWssTicks\(\),\s*this\._preloadNarrativeRows\(\),\s*this\._loadSameNameSnapshots\(\),\s*this\._preloadSniperFlagsSafe\(\),\s*\];\s*if \(tpa\) \{\s*groupA\.push\(this\._preloadTpaOfflineProfiles\(tpa\)\);\s*groupA\.push\(this\._preloadTpaTokenProfiles\(tpa\)\);\s*\}\s*await Promise\.all\(groupA\);/.test(pipeBody), true);
     check('G8 组 B 两项同一 Promise.all（graduation + 索引）',
       /Promise\.all\(\[\s*this\._loadGraduationEvents\(\),\s*this\._buildEarlyReplayIndex\(\),\s*\]\)/.test(pipeBody), true);
     const iReady = pipeBody.indexOf('回放数据就绪');

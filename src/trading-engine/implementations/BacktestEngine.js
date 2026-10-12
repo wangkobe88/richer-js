@@ -481,22 +481,34 @@ class BacktestEngine extends AbstractTradingEngine {
 
   /**
    * 装载段流水线（P13，2026-10-13）：_loadTokenMetadata 之后的全装载编排。
-   * 组 A（不依赖 _ticks：叙事预载 9.1 / AVE 快照 9.3 / sniper 画像 9.4.5——各自
-   * 方法头有完整背景注释）与 ticks 拉取并行；组 B（graduation 批间 IO +
-   * EarlyParticipant 回放索引纯 CPU，两项互补）在 ticks 完成后并行；TPA 三连
-   * 最后（setHistoricalTicks 消费 _ticks）。失败语义与串行版逐字一致：叙事
-   * 预载/graduation/TPA 失败 throw 阻断启动，AVE/sniper 内部 fail-open 不
-   * reject；Promise.all 对每个输入挂 handler，无 unhandled rejection 面。
-   * DB 并发峰值 = ticks 装载 5 并发 + 三条连续分页流 ≈ 8（与 P3d 龙头 5 并发
-   * + P5 装载 5 并发共存的实跑同量级，全只读页查询）
+   * 组 A（不依赖 _ticks：叙事预载 9.1 / AVE 快照 9.3 / sniper 画像 9.4.5 / TPA
+   * offline 画像 + token 分类预载——各自方法头有完整背景注释）与 ticks 拉取并行；
+   * 组 B（graduation 批间 IO + EarlyParticipant 回放索引纯 CPU，两项互补）在 ticks
+   * 完成后并行；TPA historical ticks 注入最后（setHistoricalTicks 消费 _ticks，
+   * 纯 CPU 建索引）。失败语义与串行版逐字一致：叙事预载/graduation 失败 throw
+   * 阻断启动，AVE/sniper/TPA 预载内部 fail-open 不 reject（preloadOfflineProfiles
+   * 内部 catch 回退按需查、preloadTokenProfiles 单批失败 warn 不写 cache——两方法
+   * 语义见 TokenPositionAnalyzer）；TPA 三连灌三个独立 Map
+   * （_offlineProfilePreloaded/_walletTicksPreloaded/_tokenProfileCache，源码注释
+   * 明示互不触碰），tpa1/tpa3 与 tpa2 注入无数据依赖，P14 挪入组 A 安全。
+   * Promise.all 对每个输入挂 handler，无 unhandled rejection 面。
+   * DB 并发峰值 = ticks 装载（双平台并行后 5+5）+ 五条预载分页流 ≈ 15（全部
+   * 只读页查询；P5 实证 5 并发安全、P3d 龙头 5 并发共存，双平台并发翻倍属
+   * P14b 实证范围，超时重试 PAGE_ATTEMPTS=3 兜底 fail-loud 不静默）
    */
   async _runLoadPipeline() {
-    await Promise.all([
+    const tpa = this._tokenPositionAnalyzer;
+    const groupA = [
       this._loadWssTicks(),
       this._preloadNarrativeRows(),
       this._loadSameNameSnapshots(),
       this._preloadSniperFlagsSafe(),
-    ]);
+    ];
+    if (tpa) {
+      groupA.push(this._preloadTpaOfflineProfiles(tpa));
+      groupA.push(this._preloadTpaTokenProfiles(tpa));
+    }
+    await Promise.all(groupA);
     this.logger.info(this._experimentId, 'BacktestEngine',
       `📊 回放数据就绪: ${this._ticks.length} 笔 tick，${this._tokenMeta.size} 个代币元数据`);
 
@@ -505,22 +517,30 @@ class BacktestEngine extends AbstractTradingEngine {
       this._buildEarlyReplayIndex(),
     ]);
 
-    // 9.5 TPA 预载三连（回迁批 4，回测启动期一次性成本换回放期零 DB 往返）：
-    //     offline 画像全表预载（内存 Map）→ 本实验全量 ticks 注入 trader→ticks 索引
-    //     （miss/stale 路径零查询；口径=注入实验口径 ticks，平台过滤后——架构性偏离 #4
-    //     已接受）→ token 分类预载（token_profiles 批量入 cache，运行期触发全命中）
-    if (this._tokenPositionAnalyzer) {
-      const supabase = this._getClient();
-      const pre = await this._tokenPositionAnalyzer.preloadOfflineProfiles(supabase);
-      this.logger.info(this._experimentId, 'BacktestEngine',
-        `TPA offline 画像预载: ${pre.rows} 行 / ${(pre.ms / 1000).toFixed(1)}s (${pre.source || 'fail-open'})`);
-      const traders = this._tokenPositionAnalyzer.setHistoricalTicks(this._ticks);
+    // TPA historical ticks 注入（回迁批 4，唯一消费 _ticks 的 TPA 步）：本实验全量
+    // ticks 建 trader→ticks 索引（miss/stale 路径零查询；口径=注入实验口径 ticks，
+    // 平台过滤后——架构性偏离 #4 已接受）
+    if (tpa) {
+      const traders = tpa.setHistoricalTicks(this._ticks);
       this.logger.info(this._experimentId, 'BacktestEngine',
         `TPA historical ticks 注入: ${this._ticks.length} 笔 → ${traders} traders`);
-      const cachedTps = await this._tokenPositionAnalyzer.preloadTokenProfiles([...this._tokenMeta.keys()], supabase);
-      this.logger.info(this._experimentId, 'BacktestEngine',
-        `TPA token 分类预载: ${this._tokenMeta.size} token → cache ${cachedTps}`);
     }
+  }
+
+  /** TPA 预载 ①③（P14 抽方法入组 A）：offline 画像全表预载（内存 Map，启动期一次
+   *  SELECT 换回放期零 DB 往返）。失败内部 catch warn 回退运行期按需查（fail-open） */
+  async _preloadTpaOfflineProfiles(tpa) {
+    const pre = await tpa.preloadOfflineProfiles(this._getClient());
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `TPA offline 画像预载: ${pre.rows} 行 / ${(pre.ms / 1000).toFixed(1)}s (${pre.source || 'fail-open'})`);
+  }
+
+  /** TPA 预载 ③（P14 抽方法入组 A）：token 分类预载（token_profiles 批量入 cache，
+   *  运行期触发全命中）。单批失败 warn 不写 cache 该批运行期按需重查（fail-open） */
+  async _preloadTpaTokenProfiles(tpa) {
+    const cachedTps = await tpa.preloadTokenProfiles([...this._tokenMeta.keys()], this._getClient());
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `TPA token 分类预载: ${this._tokenMeta.size} token → cache ${cachedTps}`);
   }
 
   /**
@@ -670,18 +690,21 @@ class BacktestEngine extends AbstractTradingEngine {
   }
 
   /**
-   * raw 行装载路由：缓存（默认）或直拉。
-   * 开关：config.backtest.cacheEnabled（默认开启，=== false 才直拉）+
+   * raw 行装载路由：缓存（默认）或直拉。双平台并行（P14b，2026-10-13 perf14 装载
+   * 画像：fourmeme 64s + flap 83s 串行 = ticks 拉取窗 166s，两平台缓存文件/查询
+   * 全独立）。开关：config.backtest.cacheEnabled（默认开启，=== false 才直拉）+
    * backtest.forceRefreshCache（默认 false，跳过缓存读强制重拉重建）。
+   * 并行护栏口径：maxTickRows 原「全局累计」在双平台并行下退化为「每平台独立
+   * 起算」（fetchRows 闭包创建时 raw 尚空）——护栏防「拉错集合」意外非正确性
+   * 机制（行数对账保证无重复无遗漏），上限放宽 ×平台数可接受。
    */
   async _loadRawTickRows(supabase, addresses) {
     const btConfig = this._experiment?.config?.backtest || {};
     if (btConfig.cacheEnabled === false) {
+      const perPlatform = await Promise.all(this._platforms.map(platform =>
+        this._fetchPlatformTicksRows(supabase, addresses, platform, 0, 0)));
       const raw = [];
-      for (const platform of this._platforms) {
-        const rows = await this._fetchPlatformTicksRows(supabase, addresses, platform, 0, raw.length);
-        for (const r of rows) raw.push(r);   // 禁 spread（大数组展开参数溢出风险）
-      }
+      for (const rows of perPlatform) for (const r of rows) raw.push(r);   // 禁 spread（大数组展开参数溢出风险）
       return raw;
     }
     if (!this._tickCache) {
@@ -689,15 +712,14 @@ class BacktestEngine extends AbstractTradingEngine {
       this._tickCache = new BacktestTickCache({ logger: this.logger, experimentId: this._experimentId });
     }
     const forceRefresh = btConfig.forceRefreshCache === true;
-    const raw = [];
-    for (const platform of this._platforms) {   // both → 两 platform 文件独立装载
+    const perPlatform = await Promise.all(this._platforms.map(async (platform) => {   // both → 两 platform 并行（缓存文件独立）
       const { rows, source } = await this._tickCache.getOrFetch({
         sourceExperimentId: this._sourceExperimentId,
         platform,
         addresses,
         forceRefresh,
         columnsTag: TICK_SELECT_COLUMNS,
-        fetchRows: (afterId) => this._fetchPlatformTicksRows(supabase, addresses, platform, afterId, raw.length),
+        fetchRows: (afterId) => this._fetchPlatformTicksRows(supabase, addresses, platform, afterId, 0),
         probeMaxId: (anchor) => this._probeIncrementalTickId(supabase, addresses, platform, anchor),
         anchorExists: (id) => this._anchorRowExists(supabase, id),
       });
@@ -706,8 +728,10 @@ class BacktestEngine extends AbstractTradingEngine {
       if (source === 'fresh') this.metrics.processedDataPoints += rows.length;
       this.logger.info(this._experimentId, 'BacktestEngine',
         `${platform}: raw ticks 装载 source=${source}, ${rows.length} 行`);
-      for (const r of rows) raw.push(r);
-    }
+      return rows;
+    }));
+    const raw = [];
+    for (const rows of perPlatform) for (const r of rows) raw.push(r);
     return raw;
   }
 
