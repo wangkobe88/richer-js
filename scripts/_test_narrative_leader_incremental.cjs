@@ -1,16 +1,18 @@
 /**
- * SameNarrativeLeaderService 增量缓存单测（2026-10-12 回测性能案 P3a）
+ * SameNarrativeLeaderService 增量缓存单测（2026-10-12 回测性能案 P3a + P3d）
  *
- * 零 DB 零网络：mock supabase 链式打桩（from/select/eq/neq/gte/lte/order/limit/range，
- * await thenable 触发执行），内存数据集过滤。六节：
+ * 零 DB 零网络：mock supabase 链式打桩（from/select/eq/neq/gte/lte/in/order/limit/range，
+ * await thenable 触发执行），内存数据集过滤。七节：
  *  A 基线全量语义（对照原版）：首价/峰值/首达/truncated/尘门/outlier 服务端过滤
- *  B 增量 vs 全量 bit-identical：同数据同 checkTime 序列，两实例（cache on/off）
- *    逐字段对拍（含 firstTickAt/firstReachAt/peakMultiple/inWindow/truncated）
- *  C 增量查询形状：同候选第二次 check 只拉增量（查询次数断言）；
- *    hardDone（首达/封顶）后零查询
+ *  B 三实例 bit-identical 对拍（全量 / 逐候选增量 / P3d 批量聚合）：同数据同
+ *    checkTime 序列逐字段对拍（含 firstTickAt/firstReachAt/peakMultiple/inWindow/truncated）
+ *  C 增量查询形状：逐候选增量第二次 check 每候选 1 次增量；P3d 批量聚合第二次
+ *    check 全组仅 1 次 .in 查询；hardDone（首达/封顶）后零查询
  *  D 候选集缓存 L1：同 tweet 二次 check 零候选查询；使用点排除自身
  *  E checkTime 倒退 → 弃缓存全量重算（warn）
  *  F 火窗语义：首达后 24h 内 hot=1，窗外 hot=0（增量纯函数路径）
+ *  G 失败自愈：首查失败候选（无 state）在聚合 check 中走 needInit 全量首查，
+ *    终态与全量实例 bit 一致；跨 tweet 状态复用（候选级 state 不回退）
  */
 
 'use strict';
@@ -38,6 +40,7 @@ function mkSupabase(rows, counters) {
       neq: (k, v) => { state.conds.push([k, 'neq', v]); return b; },
       gte: (k, v) => { state.conds.push([k, 'gte', v]); return b; },
       lte: (k, v) => { state.conds.push([k, 'lte', v]); return b; },
+      in: (k, arr) => { state.conds.push([k, 'in', arr]); return b; },
       order: (k, o) => { state.orders.push([k, !o || o.ascending]); return b; },
       limit: (n) => { state.limitN = n; return b; },
       range: (from, to) => { state.range = [from, to]; return b; },
@@ -47,12 +50,30 @@ function mkSupabase(rows, counters) {
   };
   function exec(state) {
     if (counters) counters.queries.push(state);
+    // 可选失败注入：rows.failTokens = { addr: 剩余失败次数 }——对单候选地址查询抛错
+    if (rows.failTokens && state.table === 'wss_price_ticks') {
+      const addrCond = state.conds.find(([k, op]) => k === 'token_address' && op === 'eq');
+      if (addrCond && rows.failTokens[addrCond[2]] > 0) {
+        rows.failTokens[addrCond[2]]--;
+        return { data: null, error: { message: 'mock 注入失败' } };
+      }
+    }
+    // 可选失败注入：rows.failBatchAt = N——第 N 次 P3d 批量 .in 查询抛错（计次式，
+    // 可造「页 0 成功页 1 失败」的中途页失败形状）
+    if (rows.failBatchAt != null && state.table === 'wss_price_ticks'
+      && state.conds.some(([k, op]) => k === 'token_address' && op === 'in')) {
+      rows._inCount = (rows._inCount || 0) + 1;
+      if (rows.failBatchAt === rows._inCount) {
+        return { data: null, error: { message: 'mock 批量注入失败' } };
+      }
+    }
     let data = state.table === 'wss_price_ticks' ? rows.wssPriceTicks : rows.experimentTokens;
     for (const [k, op, v] of state.conds) {
       data = data.filter(r => {
         const rv = r[k];
         if (op === 'eq') return String(rv) === String(v);
         if (op === 'neq') return String(rv) !== String(v);
+        if (op === 'in') return v.map(String).includes(String(rv));
         if (op === 'gte') return rv != null && rv >= v;
         if (op === 'lte') return rv != null && rv <= v;
         return true;
@@ -106,10 +127,12 @@ function baseRows() {
   };
 }
 
-// 服务工厂（数据共享同一 rows 对象——对拍两实例看到同库）
-function mkSvc(rows, counters, incremental, extra) {
-  return new SameNarrativeLeaderService(mkSupabase(rows, counters), incremental ? warnLogger : noopLogger, {
-    incrementalCache: incremental,
+// 服务工厂（数据共享同一 rows 对象——对拍实例看到同库）。mode: 'off'=全量对照 /
+// 'inc'=逐候选增量（P3a） / 'agg'=增量+批量聚合（P3d，默认 true 的生产行为）
+function mkSvc(rows, counters, mode, extra) {
+  return new SameNarrativeLeaderService(mkSupabase(rows, counters), mode === 'off' ? noopLogger : warnLogger, {
+    incrementalCache: mode !== 'off',
+    ...(mode === 'inc' ? { tweetAggregate: false } : {}),
     ...extra,
   });
 }
@@ -120,7 +143,7 @@ async function main() {
   {
     const rows = baseRows();
     const counters = { queries: [] };
-    const svc = mkSvc(rows, counters, false);
+    const svc = mkSvc(rows, counters, 'off');
     const r = await svc.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 });
     ok(r.success === true, 'A1. 成功');
     ok(r.factors.narrativeLeaderCount === 3, 'A2. 候选数 3（排除自身/异推文行）', `count=${r.factors.narrativeLeaderCount}`);
@@ -134,8 +157,8 @@ async function main() {
     ok(r0.success === false && r0.factors.narrativeLeaderHot === 0, 'A7. 无 tweet → fail-open 空');
   }
 
-  // ═══ B. 增量 vs 全量 bit-identical ═══
-  console.log('B. 增量 vs 全量 bit-identical（同数据同 checkTime 序列）');
+  // ═══ B. 三实例 bit-identical（全量 / 逐候选增量 / P3d 批量聚合）═══
+  console.log('B. 三实例 bit-identical 对拍（同数据同 checkTime 序列）');
   {
     const rows = baseRows();
     // 追加时间上渐进的行（增量路径才有新数据可拼）
@@ -143,31 +166,35 @@ async function main() {
     rows.wssPriceTicks.push(tick(CAND_B, 350, 2.5, 1, 0)); // B 新峰（仍 <5x）
     rows.wssPriceTicks.push(tick(CAND_C, 300, 2, 5, 0));   // C 后来出现非尘行 → 有首价
     const times = [150, 310, 450, 800];
-    const cOn = { queries: [] }, cOff = { queries: [] };
-    const svcOn = mkSvc(rows, cOn, true);
-    const svcOff = mkSvc(rows, cOff, false);
+    const cOff = { queries: [] }, cInc = { queries: [] }, cAgg = { queries: [] };
+    const svcOff = mkSvc(rows, cOff, 'off');
+    const svcInc = mkSvc(rows, cInc, 'inc');
+    const svcAgg = mkSvc(rows, cAgg, 'agg');
     for (const t of times) {
-      const rOn = await svcOn.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: t });
       const rOff = await svcOff.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: t });
+      const rInc = await svcInc.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: t });
+      const rAgg = await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: t });
       const strip = (r) => JSON.stringify({ f: r.factors, l: r.detail.leaders });
-      ok(strip(rOn) === strip(rOff), `B[${t}]. factors+leaders bit 一致`, `\non : ${strip(rOn)}\noff: ${strip(rOff)}`);
+      ok(strip(rInc) === strip(rOff) && strip(rAgg) === strip(rOff),
+        `B[${t}]. factors+leaders 三实例 bit 一致`,
+        `\noff: ${strip(rOff)}\ninc: ${strip(rInc)}\nagg: ${strip(rAgg)}`);
     }
     // 最终态抽查
-    const rFinal = await svcOn.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+    const rFinal = await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
     ok(rFinal.factors.narrativeLeaderMaxMultiple === 7, 'B1. 终态 maxMultiple=7（700s 新峰经增量拼入）', `max=${rFinal.factors.narrativeLeaderMaxMultiple}`);
     // C 的内部增量状态直接验证（factors 不含未首达候选峰值，对拍覆盖不到）
-    const cState = svcOn._peakCache.get(CAND_C);
+    const cState = svcAgg._peakCache.get(CAND_C);
     ok(cState && cState.firstPrice === 2 && cState.rowCount === 3,
       'B2. C 尘行×2 + 后来非尘行 300s 增量拼接（firstPrice=2, rowCount=3）',
       `state=${cState && JSON.stringify({ f: cState.firstPrice, n: cState.rowCount })}`);
   }
 
-  // ═══ C. 增量查询形状 ═══
+  // ═══ C. 增量查询形状（逐候选增量 vs 批量聚合）═══
   console.log('C. 增量查询形状（查询次数）');
   {
     const rows = baseRows();
     const counters = { queries: [] };
-    const svc = mkSvc(rows, counters, true);
+    const svc = mkSvc(rows, counters, 'inc');
     await svc.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 });
     const q1 = counters.queries.length;
     ok(q1 === 1 + 3, 'C1. 首查 = 1 候选查询 + 3 候选 ticks 查询', `q=${q1}`);
@@ -181,6 +208,22 @@ async function main() {
     const gteQ = counters.queries.filter(q => q.conds.some(([k, op]) => k === 'block_time' && op === 'gte'));
     ok(gteQ.every(q => q.conds.some(([k, , v]) => k === 'block_time' && v === T(500) || v === T(250) || v === T(120))),
       'C4. 增量查询带水位 gte（B 水位 250s / C 水位 120s）');
+
+    // P3d 批量聚合：同场景第 2 次 check 全组合并为 1 次 .in 查询
+    const cAgg = { queries: [] };
+    const svcAgg = mkSvc(rows, cAgg, 'agg');
+    await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 });
+    cAgg.queries.length = 0;
+    await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 630 });
+    const aggTick = cAgg.queries.filter(q => q.table === 'wss_price_ticks');
+    const inQ = aggTick.filter(q => q.conds.some(([k, op]) => k === 'token_address' && op === 'in'));
+    ok(aggTick.length === 1 && inQ.length === 1, 'C5. P3d 第 2 次 check = 1 次批量 .in 查询（非每候选 1 次）',
+      `ticks=${aggTick.length} in=${inQ.length}`);
+    ok(inQ[0] && inQ[0].conds.some(([k, , v]) => k === 'block_time' && v === T(600)),
+      'C6. 批量查询 gte tweet 时间水位（上次 check 时刻 600s）');
+    ok(inQ[0] && inQ[0].conds.some(([k, , v]) => k === 'token_address' && v.length === 3),
+      'C7. 批量 .in 含全部未 hardDone 候选（A/B/C）',
+      `addrs=${inQ[0] && inQ[0].conds.filter(c => c[0] === 'token_address').map(c => c[2])}`);
   }
 
   // ═══ D. 候选集缓存使用点排除自身 ═══
@@ -188,7 +231,7 @@ async function main() {
   {
     const rows = baseRows();
     const counters = { queries: [] };
-    const svc = mkSvc(rows, counters, true);
+    const svc = mkSvc(rows, counters, 'agg');
     const r1 = await svc.check({ tokenAddress: CAND_A, sourceTweetId: TWEET, checkTimeSec: 600 });
     ok(r1.factors.narrativeLeaderCount === 3, 'D1. 以 A 为 self → 候选含 SELF/B/C（缓存含自身行）', `count=${r1.factors.narrativeLeaderCount}`);
     counters.queries.length = 0;
@@ -203,7 +246,7 @@ async function main() {
     const rows = baseRows();
     const counters = { queries: [] };
     warnCalls = [];
-    const svc = mkSvc(rows, counters, true);
+    const svc = mkSvc(rows, counters, 'agg');
     await svc.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 });
     counters.queries.length = 0;
     const r = await svc.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 500 });
@@ -212,7 +255,7 @@ async function main() {
     const tickQ = counters.queries.filter(q => q.table === 'wss_price_ticks');
     // A 全量重查（lte 500 → 4 行 1 页）；倒退后 500s 时刻 A 未回落仍 6x 峰
     ok(r.factors.narrativeLeaderMaxMultiple === 6, 'E3. 倒退到 500s → maxMultiple 回到 6（无 700s 峰）');
-    ok(tickQ.length === 3, 'E4. 三候选全量重查', `q=${tickQ.length}`);
+    ok(tickQ.length === 3, 'E4. 三候选全量重查（弃 tweet 水位 + 弃候选 state 后）', `q=${tickQ.length}`);
   }
 
   // ═══ F. 火窗语义 + hardDone 页界封顶（tinyConfig 快速达界）═══
@@ -222,7 +265,7 @@ async function main() {
     // 全量首查 rowCount=4 → 立即 hardDone（此后 max 冻结 6，500s 行永不进统计=原版页 break）
     const rows = baseRows();
     const counters = { queries: [] };
-    const svc = mkSvc(rows, counters, true, { tickPageSize: 2, maxTickPages: 3 });
+    const svc = mkSvc(rows, counters, 'inc', { tickPageSize: 2, maxTickPages: 3 });
     await svc.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 86400 + 299 }); // 首达+24h-1s
     const r1 = (await svc.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 86400 + 299 })).factors;
     ok(r1.narrativeLeaderHot === 1, 'F1. 窗内最后一秒仍 hot');
@@ -235,11 +278,125 @@ async function main() {
     const qAddrs = tickQF.map(q => q.conds.find(([k, op]) => k === 'token_address' && op === 'eq')?.[2]);
     ok(tickQF.length === 2 && !qAddrs.includes(CAND_A),
       'F4. A hardDone 零查询；未达界候选 B/C 各 1 增量', `q=${JSON.stringify(qAddrs)}`);
+    // P3d 聚合同场景：hardDone 排除出批量，B/C 合并为 1 次 .in（不含 A）
+    const cAggF = { queries: [] };
+    const svcAggF = mkSvc(rows, cAggF, 'agg', { tickPageSize: 2, maxTickPages: 3 });
+    await svcAggF.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 86400 + 299 });
+    cAggF.queries.length = 0;
+    const rAggF = (await svcAggF.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 86400 + 301 })).factors;
+    const inQF = cAggF.queries.filter(q => q.table === 'wss_price_ticks' && q.conds.some(([k, op]) => k === 'token_address' && op === 'in'));
+    const inAddrs = inQF.length ? inQF[0].conds.find(([k, op]) => k === 'token_address' && op === 'in')[2] : [];
+    ok(rAggF.narrativeLeaderHot === 0 && rAggF.narrativeLeaderMaxMultiple === 6,
+      'F4b. 聚合路径 hardDone 语义一致（max 冻结 6 / 窗外 hot=0）',
+      `hot=${rAggF.narrativeLeaderHot} max=${rAggF.narrativeLeaderMaxMultiple}`);
+    ok(cAggF.queries.filter(q => q.table === 'wss_price_ticks').length === 1
+      && inQF.length === 1 && !inAddrs.includes(CAND_A) && inAddrs.length === 2,
+      'F4c. 聚合 = 1 次 .in 且不含 hardDone 的 A', `q=${JSON.stringify(inAddrs)}`);
     // 对照：全量实例同数据同配置，max 同为 6（页界语义与原版 break 一致）
-    const svcOff = mkSvc(rows, { queries: [] }, false, { tickPageSize: 2, maxTickPages: 3 });
+    const svcOff = mkSvc(rows, { queries: [] }, 'off', { tickPageSize: 2, maxTickPages: 3 });
     const rOff = await svcOff.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 86400 + 301 });
     ok(rOff.factors.narrativeLeaderMaxMultiple === 6 && rOff.factors.narrativeLeaderHot === 0,
       'F5. 全量对照同结果（原版首达页 break 语义 = 增量页界封顶）');
+  }
+
+  // ═══ G. P3d 失败自愈 + 跨 tweet 状态复用 ═══
+  console.log('G. P3d needInit 失败自愈 + 跨 tweet 状态复用');
+  {
+    const strip = (r) => JSON.stringify({ f: r.factors, l: r.detail.leaders });
+    // G1-G3 首查失败 → 聚合 check 中 needInit 全量首查自愈，终态与全量实例 bit 一致
+    const rows = baseRows();
+    rows.wssPriceTicks.push(tick(CAND_A, 700, 7, 1, 0));
+    rows.failTokens = { [CAND_B]: 1 };
+    const svcAgg = mkSvc(rows, { queries: [] }, 'agg');
+    const svcOff = mkSvc(rows, { queries: [] }, 'off');
+    const r1 = await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 300 });
+    ok(r1.detail.candidateErrors.length === 1, 'G1. 首查失败候选进 candidateErrors（fail-open 其余照常）',
+      `errs=${JSON.stringify(r1.detail.candidateErrors)}`);
+    const r2 = await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 });
+    const rOff = await svcOff.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 });
+    ok(strip(r2) === strip(rOff), 'G2. 失败自愈后（needInit 全量首查）终态与全量 bit 一致',
+      `\nagg: ${strip(r2)}\noff: ${strip(rOff)}`);
+    ok(r2.detail.candidateErrors.length === 0, 'G3. 自愈后无残留错误');
+
+    // G4-G6 跨 tweet 状态复用：tweet2 候选 = 已建 state 的 A + 新 D。tweet2 首查时
+    // A 的 state lastCheckSec=800（tweet1 建）→ checkTime 须 > 800 才走增量复用
+    const TWEET2 = '888';
+    const CAND_D = '0xcand00000000000000000000000000000000d4';
+    rows.experimentTokens.push({ token_address: CAND_D, token_symbol: 'D', discovered_at: T(1006), narrative_material_id: TWEET2 });
+    rows.experimentTokens.push({ token_address: CAND_A, token_symbol: 'A2', discovered_at: T(1007), narrative_material_id: TWEET2 });
+    rows.wssPriceTicks.push(tick(CAND_D, 50, 1, 1, 0), tick(CAND_D, 600, 9, 1, 0)); // D 9x 首达
+    const cA2 = { queries: [] }, cO2 = { queries: [] };
+    const svcAgg2 = mkSvc(rows, cA2, 'agg');
+    const svcOff2 = mkSvc(rows, cO2, 'off');
+    await svcAgg2.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 }); // A/B/C 状态已建（水位 800）
+    cA2.queries.length = 0;
+    const t2a = await svcAgg2.check({ tokenAddress: SELF, sourceTweetId: TWEET2, checkTimeSec: 850 });
+    const o2a = await svcOff2.check({ tokenAddress: SELF, sourceTweetId: TWEET2, checkTimeSec: 850 });
+    ok(strip(t2a) === strip(o2a), 'G4. tweet2 首查（逐候选；A 复用跨 tweet 的既有 state 增量）与全量一致',
+      `\nagg: ${strip(t2a)}\noff: ${strip(o2a)}`);
+    cA2.queries.length = 0;
+    const t2b = await svcAgg2.check({ tokenAddress: SELF, sourceTweetId: TWEET2, checkTimeSec: 900 });
+    const o2b = await svcOff2.check({ tokenAddress: SELF, sourceTweetId: TWEET2, checkTimeSec: 900 });
+    ok(strip(t2b) === strip(o2b), 'G5. tweet2 第 2 查（聚合批量）与全量一致',
+      `\nagg: ${strip(t2b)}\noff: ${strip(o2b)}`);
+    const inQ2 = cA2.queries.filter(q => q.table === 'wss_price_ticks' && q.conds.some(([k, op]) => k === 'token_address' && op === 'in'));
+    ok(inQ2.length === 1, 'G6. tweet2 第 2 查 = 1 次批量 .in 查询', `n=${cA2.queries.filter(q => q.table === 'wss_price_ticks').length}`);
+  }
+
+  // ═══ H. P3d 批量失败自愈（tweet 水位不推进 + state 副本不残留半推进）═══
+  // H1-H3 首查即失败形状：水位误推进 → r3 从 T(800) 拉起漏 620/700s 行 → max=6≠7
+  // H4-H6 中途页失败形状（tinyConfig 满页翻页）：state 原地残留半推进 → 失败的
+  // 那次 check 把页 0 半截首达报进 leaders（偏拦，违反 fail-open）且 r3 幂等跳过
+  console.log('H. P3d 批量失败自愈（failBatchAt 计次注入）');
+  {
+    const strip = (r) => JSON.stringify({ f: r.factors, l: r.detail.leaders });
+    const rows = baseRows();
+    const svcAgg = mkSvc(rows, { queries: [] }, 'agg');
+    const svcOff = mkSvc(rows, { queries: [] }, 'off');
+    await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 }); // 逐候选首查建 state（A wm=500s）
+    rows.wssPriceTicks.push(tick(CAND_A, 620, 6.5, 1, 0), tick(CAND_A, 700, 7, 1, 0));  // 水位后新行（模拟回放推进）
+    rows.failBatchAt = 1; // 第 1 次批量 .in 查询失败
+    const r2 = await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 });
+    ok(r2.success === true && r2.detail.candidateErrors.length === 3,
+      'H1. 批量失败 → 整批进 candidateErrors（fail-open），结果仍成功', `errs=${r2.detail.candidateErrors.length}`);
+    const r3 = await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+    const rOff = await svcOff.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+    ok(strip(r3) === strip(rOff) && r3.factors.narrativeLeaderMaxMultiple === 7,
+      'H2. 失败后下次聚合自愈无漏行（620/700s 行重新拉到，max=7 与全量 bit 一致）',
+      `\nagg: ${strip(r3)}\noff: ${strip(rOff)}`);
+    ok(r3.detail.candidateErrors.length === 0, 'H3. 自愈后无残留错误');
+  }
+  {
+    // 中途页失败：tickPageSize=2 下批量页 0 = [B620, B700] 满页，页 1 查询失败。
+    // B 620=5.5 首达——若 state 原地残留，r2 失败的 check 仍把 B 报进 leaders（hot 抬升）
+    const strip = (r) => JSON.stringify({ f: r.factors, l: r.detail.leaders });
+    const rows = baseRows();
+    const svcAgg = mkSvc(rows, { queries: [] }, 'agg', { tickPageSize: 2, maxTickPages: 3 });
+    const svcOff = mkSvc(rows, { queries: [] }, 'off', { tickPageSize: 2, maxTickPages: 3 });
+    await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 }); // A hardDone（页界4）；B wm=150 rowCount=3
+    rows.wssPriceTicks.push(tick(CAND_B, 620, 5.5, 1, 0), tick(CAND_B, 700, 6, 1, 0));  // B 首达 620s
+    rows.failBatchAt = 2; // 第 1 次 .in（页 0）成功，第 2 次（页 1）失败
+    const r2 = await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 });
+    ok(r2.detail.candidateErrors.length === 2 && !r2.detail.leaders.some(l => l.tokenAddress === CAND_B),
+      'H4. 中途页失败：整批进 errors，页 0 半截首达**不**报进 leaders（副本丢弃，fail-open 方向）',
+      `errs=${r2.detail.candidateErrors.length} leaders=${JSON.stringify(r2.detail.leaders.map(l => l.tokenAddress))}`);
+    const r3 = await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+    const rOff = await svcOff.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+    const leadB = r3.detail.leaders.find(l => l.tokenAddress === CAND_B);
+    ok(strip(r3) === strip(rOff) && leadB && leadB.firstReachAt === T(620) && leadB.peakMultiple === 5.5,
+      'H5. 自愈后 B 首达 620s 拼入且 cap 收紧到首达页界（peak=5.5：700s 行在页界外不进 max，与全量页 break bit 一致）',
+      `\nagg: ${strip(r3)}\noff: ${strip(rOff)}`);
+    ok(r3.detail.candidateErrors.length === 0, 'H6. 自愈后无残留错误');
+    // 同形状走逐候选增量（非聚合）：首达在增量阶段的 cap 收紧是 _evalCandidateIncremental
+    // 的 P3a 遗留缺陷本尊，同数据锁定（inc 不发 .in 查询，不受 failBatchAt 影响）
+    const svcInc2 = mkSvc(rows, { queries: [] }, 'inc', { tickPageSize: 2, maxTickPages: 3 });
+    await svcInc2.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 });
+    await svcInc2.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 });
+    const r3inc = await svcInc2.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+    const leadBinc = r3inc.detail.leaders.find(l => l.tokenAddress === CAND_B);
+    ok(strip(r3inc) === strip(rOff) && leadBinc && leadBinc.peakMultiple === 5.5,
+      'H7. 逐候选增量同形状 cap 收紧一致（B peak=5.5，与全量/聚合 bit 一致）',
+      `\ninc: ${strip(r3inc)}\noff: ${strip(rOff)}`);
   }
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

@@ -29,6 +29,16 @@
  * _evalCandidateIncremental 注释）。L1 候选集缓存把候选集钉在首次查询时点
  * =消除并发实验写行带来的运行内漂移（更决定性）；cacheEnabled=false 保留
  * 全量路径（对拍/单测对照）。
+ *
+ * P3d tweet 级聚合批量（2026-10-12 perf2 中期画像定因）：L2 增量把每候选 3 页
+ * 削成 1 页，但每次 check 仍「每候选 ≥1 次查询」——50 候选 ÷ 并发 5 × RTT
+ * ≈ 241ms/check 实测（龙头 sum 占回放段 57%，仍是阻塞主导）。同 tweet 的
+ * hot/maxMultiple 因子与 self 无关（count 仅差自身一行），N 个 token 重复检查
+ * 的是同一候选集 → 批量形状：一次 .in(未hardDone候选) + gte(tweet 时间水位)
+ * 拉全组增量行，客户端按 token 分组逐行走与 _evalCandidateIncremental 完全
+ * 同款的处理（幂等跳过/cap 截断/truncated 语义逐行照搬）；全局 (block_time,
+ * log_index) 排序下组内子序列 = 该候选自身升序，等价性同 L2 论证。查询次数
+ * 50 RTT → 1 RTT。新候选首查/hardDone 纯函数/checkTime 倒退回退现有路径。
  */
 
 const { MIN_PRICE_UPDATE_BNB } = require('../../../scripts/shared/classifier-constants');
@@ -42,6 +52,8 @@ const DEFAULT_CONFIG = {
   maxTickPages: 3,              // 页数上限：首达 5x 几乎必然在头几页（拉升在早期），截断只影响 maxMultiple 观测精度
   candidateConcurrency: 5,      // 候选间并发拉取上限
   incrementalCache: true,       // L1 候选集 + L2 涨幅 keyset 增量（见头注释；false=原全量路径）
+  tweetAggregate: true,         // P3d tweet 级批量聚合（增量之上的批量形状；false=回退逐候选增量）
+  aggregateMaxPages: 10,        // 批量分页护栏（正常增量 <100 行；触顶 warn，少算龙头=fail-open 方向）
 };
 
 class SameNarrativeLeaderService {
@@ -56,6 +68,7 @@ class SameNarrativeLeaderService {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this._candidateCache = new Map(); // sourceTweetId → 去重后候选数组（含各 token 自身行；排除自身在使用点做）
     this._peakCache = new Map();      // candidate address → L2 增量状态（见 _evalCandidateIncremental）
+    this._tweetWm = new Map();        // sourceTweetId → { lastCheckSec, wmIso }（P3d 批量聚合水位）
   }
 
   /**
@@ -111,6 +124,22 @@ class SameNarrativeLeaderService {
         .filter(c => c.address !== String(tokenAddress).toLowerCase())
         .slice(0, this.config.maxCandidates);
 
+      // P3d 批量聚合路由：tweet 水位存在且 checkTime 单调 → 整组一次批量查询
+      // （等价性见 _checkAggregated 注释）；倒退 = 弃水位回退逐候选路径（与 L2
+      // 单候选倒退语义同构）
+      if (this.config.incrementalCache && this.config.tweetAggregate) {
+        const agg = this._tweetWm.get(String(sourceTweetId));
+        if (agg && checkTimeSec >= agg.lastCheckSec) {
+          return await this._checkAggregated(agg, candidates, tokenAddress, sourceTweetId, checkTimeSec, startedAt);
+        }
+        if (agg) {
+          this.logger.warn('[SameNarrativeLeaderService] checkTime 倒退，弃 tweet 批量水位回退逐候选', {
+            tweet: String(sourceTweetId), last: agg.lastCheckSec, now: checkTimeSec,
+          });
+          this._tweetWm.delete(String(sourceTweetId));
+        }
+      }
+
       const candidateErrors = [];
       const leaders = [];
       let truncated = false;
@@ -137,6 +166,14 @@ class SameNarrativeLeaderService {
             });
           }
         }
+      }
+
+      // 逐候选路径成功收尾 → 写/推进 tweet 批量水位（下次同 tweet check 走批量）
+      if (this.config.incrementalCache && this.config.tweetAggregate) {
+        this._tweetWm.set(String(sourceTweetId), {
+          lastCheckSec: checkTimeSec,
+          wmIso: new Date(checkTimeSec * 1000).toISOString(),
+        });
       }
 
       const hot = leaders.some(l => l.inWindow === 1) ? 1 : 0;
@@ -204,6 +241,202 @@ class SameNarrativeLeaderService {
     }
     return this._evalCandidate(candidate, checkTimeSec,
       (st) => this._peakCache.set(candidate.address, st));
+  }
+
+  /**
+   * P3d 批量聚合检查：同 tweet 的未 hardDone 候选合并为一次 .in 批量增量查询，
+   * 50 RTT → 1 RTT。等价性（与逐候选 _evalCandidateIncremental bit-identical）：
+   *   - 批量查询全局 (block_time, log_index) 升序，按 token 分组后的组内子序列
+   *     = 该候选自身升序流 → 逐行处理（首价/峰值/首达）与单候选增量完全同序
+   *   - 行级幂等跳过（wmTs/wmIdx）与 cap 截断（rowCount >= maxRowForMax 后新行
+   *     不进统计）逐行照搬；truncated 语义同款（未首达 + 行数达 3 满页）
+   *   - 查询下界 = tweet 时间水位（上次 check 时刻），上次 check 已处理全部
+   *     <= 水位的行（cap 内），本次只需 (水位, t]——无漏行；边界行重拉由幂等跳过吸收
+   *   - hardDone 候选零查询（纯函数）；新候选（无 state）单独走全量首查写 state
+   * 失败语义：批量查询失败 → 整批进 candidateErrors（fail-open 少算龙头，与
+   * 原版单候选失败同向）；**state 与 tweet 水位都不动**（下次从旧水位重拉自愈，
+   * 与 L2 单候选「副本不写回」同构——中途页失败不残留半推进状态）；
+   * 成功 → 全组 state 推进 + tweet 水位推进。needInit 单候选首查失败不影响
+   * tweet 水位（无 state 候选下次聚合仍走全量首查，不依赖水位）。
+   * @private
+   */
+  async _checkAggregated(agg, candidates, tokenAddress, sourceTweetId, checkTimeSec, startedAt) {
+    const toIso = new Date(checkTimeSec * 1000).toISOString();
+    const candidateErrors = [];
+    const leaders = [];
+    let truncated = false;
+    let maxMultiple = 0;
+
+    // 分流：无 state → 全量首查；有 state 未 hardDone → 批量；hardDone → 零查询
+    const needInit = [];
+    const batchList = [];
+    for (const c of candidates) {
+      const st = this._peakCache.get(c.address);
+      if (!st) needInit.push(c);
+      else if (!st.hardDone) batchList.push({ candidate: c, state: st });
+    }
+
+    let batchFailed = false;
+    if (batchList.length) {
+      const batchError = await this._batchIncremental(batchList, agg.wmIso, toIso);
+      if (batchError) {
+        batchFailed = true;
+        for (const { candidate } of batchList) {
+          candidateErrors.push({ address: candidate.address, error: batchError });
+        }
+      } else {
+        // 收尾同 L2：lastCheckSec 推进 + hardDone 标记（rowCount 达封顶边界）
+        const maxRows = this.config.maxTickPages * this.config.tickPageSize;
+        for (const { state: st } of batchList) {
+          st.lastCheckSec = checkTimeSec;
+          const cap = st.maxRowForMax || maxRows;
+          if (st.rowCount >= cap) st.hardDone = true;
+        }
+      }
+    }
+    // 新候选全量首查（复用现有路由：写 state 供下次批量并入）
+    for (const c of needInit) {
+      const res = await this._evalCandidateRouted(c, checkTimeSec);
+      if (!res.success) candidateErrors.push({ address: c.address, error: res.error });
+    }
+
+    // 汇总：纯内存从 state 拼（与原版 res 字段同构；首查失败无 state 的候选已进 errors）
+    for (const c of candidates) {
+      const st = this._peakCache.get(c.address);
+      if (!st) continue;
+      if (st.truncated) truncated = true;
+      const peak = (st.firstPrice > 0) ? st.maxPrice / st.firstPrice : 0;
+      if (peak > maxMultiple) maxMultiple = peak;
+      if (st.firstReachAt) {
+        const inWindow = (checkTimeSec * 1000 - new Date(st.firstReachAt).getTime())
+          <= this.config.rejectWindowSeconds * 1000;
+        leaders.push({
+          tokenAddress: c.address,
+          symbol: c.symbol,
+          firstTickAt: st.firstTickAt,
+          firstReachAt: st.firstReachAt,
+          peakMultiple: Number(peak.toFixed(1)),
+          inWindow: inWindow ? 1 : 0,
+        });
+      }
+    }
+
+    if (!batchFailed) {
+      agg.lastCheckSec = checkTimeSec;
+      agg.wmIso = toIso;
+    }
+
+    const hot = leaders.some(l => l.inWindow === 1) ? 1 : 0;
+    const detail = {
+      sourceTweetId: String(sourceTweetId),
+      durationMs: Date.now() - startedAt,
+      error: null,
+      truncated,
+      leaders,
+      candidateErrors,
+      aggregated: true,
+    };
+    this.logger.info('[SameNarrativeLeaderService] 同叙事龙头检查完成', {
+      token: String(tokenAddress).slice(0, 10),
+      tweet: String(sourceTweetId),
+      hot, count: candidates.length,
+      maxMultiple: Number(maxMultiple.toFixed(1)),
+      leaders: leaders.length,
+      durationMs: detail.durationMs,
+      ...(truncated ? { truncated: true } : {}),
+      ...(candidateErrors.length ? { candidateErrors: candidateErrors.length } : {}),
+    });
+    return {
+      success: true,
+      factors: {
+        narrativeLeaderHot: hot,
+        narrativeLeaderCount: candidates.length,
+        narrativeLeaderMaxMultiple: Number(maxMultiple.toFixed(1)),
+      },
+      detail,
+    };
+  }
+
+  /**
+   * 批量增量拉取（P3d）：一次 .in(≤50 地址，URL 8KB 红线内) + gte(tweet 水位) +
+   * lte(checkTime)，(block_time, log_index) 升序 limit 分页拉尽（keyset 游标 =
+   * 上页末行 block_time；同刻行重拉由行级幂等跳过吸收）。正常增量 <100 行单页
+   * 即尽；aggregateMaxPages 护栏触顶 warn（少算龙头=fail-open 方向）。
+   * 逐候选 state 在**工作副本**上推进，全部页拉尽无错才写回原缓存对象——中途页
+   * 失败不残留半推进状态（下次从旧水位重拉，与 _evalCandidateIncremental 的
+   * 副本语义同构）。成功返回 null；失败返回 error 串（调用方整批进
+   * candidateErrors，state 不动）。
+   * @private
+   */
+  async _batchIncremental(batchList, fromIso, toIso) {
+    const addrs = batchList.map(b => b.candidate.address);
+    const work = batchList.map(b => ({ candidate: b.candidate, state: { ...b.state } }));
+    const stateByAddr = new Map(work.map(b => [b.candidate.address, b.state]));
+    const pageSize = this.config.tickPageSize;
+    const maxRows = this.config.maxTickPages * this.config.tickPageSize;
+    let cursorTs = null;
+    for (let page = 0; page < this.config.aggregateMaxPages; page++) {
+      let q = this.supabase
+        .from('wss_price_ticks')
+        .select('token_address, price_bnb, bnb_amount, block_time, log_index')
+        .in('token_address', addrs)
+        .eq('price_outlier', false)
+        .gte('block_time', cursorTs != null ? cursorTs : fromIso);
+      const { data: rows, error } = await q
+        .lte('block_time', toIso)
+        .order('block_time', { ascending: true })
+        .order('log_index', { ascending: true })
+        .limit(pageSize);
+
+      if (error) return `批量增量查询失败: ${error.message}`;
+      if (!rows || rows.length === 0) break;
+
+      for (const t of rows) {
+        const st = stateByAddr.get(String(t.token_address || '').toLowerCase());
+        if (!st) continue; // in 限定外的行理论不至（防御）
+        const ts = t.block_time;
+        const idx = t.log_index ?? 0;
+        if (ts < st.wmTs || (ts === st.wmTs && idx <= st.wmIdx)) continue; // 行级幂等跳过
+        const cap = st.maxRowForMax || maxRows;
+        if (st.rowCount >= cap) continue; // 封顶边界外新行不进统计（=原版页 break）
+        st.rowCount++;
+        st.wmTs = ts;
+        st.wmIdx = idx;
+        // truncated 只在未首达 + 3 满页耗尽时成立（rowCount 达 maxRows 即封顶，
+        // 后续行由 cap continue 挡——与单候选增量 break 等价）
+        if (st.rowCount >= maxRows && !st.firstReachAt) st.truncated = true;
+        const price = Number(t.price_bnb);
+        const bnbAmount = Number(t.bnb_amount);
+        if (!(price > 0) || !(bnbAmount >= MIN_PRICE_UPDATE_BNB)) continue;
+        if (st.firstPrice === null || st.firstPrice === undefined) {
+          st.firstPrice = price;
+          st.firstTickAt = ts;
+          st.maxPrice = price;
+          continue;
+        }
+        if (price > st.maxPrice) st.maxPrice = price;
+        if (!st.firstReachAt && st.firstPrice > 0
+          && price >= this.config.hotMultipleThreshold * st.firstPrice) {
+          st.firstReachAt = ts;
+          // 首达发生在增量阶段：cap 即时收紧到首达页界（= 全量重查在同数据上的
+          // 页 break 点；不收紧会多收首达页界外的行进 max——P3a 遗留缺陷，
+          // 由「首达在增量阶段」形状的 bit 对拍抓出）
+          st.maxRowForMax = (Math.floor((st.rowCount - 1) / pageSize) + 1) * pageSize;
+        }
+      }
+
+      if (rows.length < pageSize) break; // 拉尽
+      cursorTs = rows[rows.length - 1].block_time; // 续页游标（keyset，同刻行幂等跳过）
+      if (page === this.config.aggregateMaxPages - 1) {
+        this.logger.warn('[SameNarrativeLeaderService] 批量增量达分页护栏，未拉尽（少算龙头 fail-open）', {
+          batch: batchList.length, pages: this.config.aggregateMaxPages,
+        });
+      }
+    }
+    for (let i = 0; i < work.length; i++) {
+      Object.assign(batchList[i].state, work[i].state); // 无错收尾才写回缓存对象
+    }
+    return null;
   }
 
   /**
@@ -339,8 +572,9 @@ class SameNarrativeLeaderService {
         };
       }
       const st = { ...state };   // 不原地改：本次查询失败时缓存保留旧水位
-      const cap = st.maxRowForMax || maxRows; // max 封顶边界（首达=页界 / 未首达=3 满页）
-      for (let page = 0; page < this.config.maxTickPages && st.rowCount < cap; page++) {
+      // max 封顶边界（首达=页界 / 未首达=3 满页）。比较点每行重取 st.maxRowForMax：
+      // 首达发生在增量阶段时页界即时收紧（见行内注释）
+      for (let page = 0; page < this.config.maxTickPages && st.rowCount < (st.maxRowForMax || maxRows); page++) {
         const off = page * this.config.tickPageSize;
         // wmTs=null（全量时 0 行——候选 tick 全在 checkTime 之后，后续可能出现）：
         // 无水位可 keyset，从头拉（等价全量形状）
@@ -366,7 +600,8 @@ class SameNarrativeLeaderService {
           const idx = t.log_index ?? 0;
           // 水位行及之前的行已处理过（gte 含边界），幂等跳过
           if (ts < st.wmTs || (ts === st.wmTs && idx <= st.wmIdx)) continue;
-          if (st.rowCount >= cap) break; // 封顶边界外新行不进统计（=原版页 break）
+          // cap 每行重取：首达发生在增量阶段时 maxRowForMax 即时收紧（见下）
+          if (st.rowCount >= (st.maxRowForMax || maxRows)) break; // 封顶边界外新行不进统计（=原版页 break）
           st.rowCount++;
           st.wmTs = ts;
           st.wmIdx = idx;
@@ -384,15 +619,20 @@ class SameNarrativeLeaderService {
           if (price > st.maxPrice) st.maxPrice = price;
           if (!st.firstReachAt && st.firstPrice > 0 && price >= threshold * st.firstPrice) {
             st.firstReachAt = ts;
+            // 首达发生在增量阶段：cap 即时收紧到首达页界（= 全量重查在同数据上的
+            // 页 break 点；不收紧会多收首达页界外的行进 max——P3a 遗留缺陷，
+            // 由「首达在增量阶段」形状的 bit 对拍抓出）
+            st.maxRowForMax = (Math.floor((st.rowCount - 1) / this.config.tickPageSize) + 1)
+              * this.config.tickPageSize;
           }
         }
 
         // 首达后本批剩余新行继续进 max（原版页内不 break），拉完本批再停
-        if (st.rowCount >= cap) break;
+        if (st.rowCount >= (st.maxRowForMax || maxRows)) break;
         if (ticks.length < this.config.tickPageSize) break; // 增量拉尽
       }
       st.lastCheckSec = checkTimeSec;
-      if (st.rowCount >= cap) st.hardDone = true;
+      if (st.rowCount >= (st.maxRowForMax || maxRows)) st.hardDone = true;
       this._peakCache.set(candidate.address, st);
 
       const inWindow = st.firstReachAt
