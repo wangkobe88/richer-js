@@ -78,6 +78,13 @@ class NarrativeDirectCaller {
      * 命中路径的 findByAddress DB 往返由此消除。null = 未预载（实时链路原行为）
      */
     this._rowCache = null;
+    /**
+     * 直调计时子计数器（P1 探针 2026-10-12 回测性能案）：getRating 三条路径
+     * （内存缓存命中/成功/超时异常）累计调用数与耗时，回放收尾与主循环六段
+     * 分布一起打印——advance 段减直调/preBuy ≈ 策略评估+执行
+     */
+    this._totalCalls = 0;
+    this._totalDurationMs = 0;
   }
 
   /**
@@ -175,6 +182,8 @@ class NarrativeDirectCaller {
    */
   async getRating(tokenAddress) {
     const cacheKey = tokenAddress.toLowerCase();
+    // 直调计时子计数器（P1 探针）：三条 return 路径都累计
+    this._totalCalls++;
     // 内存缓存命中（回测 opt-in）：浅拷贝 + 观测标记；durationMs 归 0（本次零开销）
     if (this._memoryCacheResults) {
       const cached = this._resultCache.get(cacheKey);
@@ -218,8 +227,10 @@ class NarrativeDirectCaller {
       if (this._memoryCacheResults && this._isCacheableRatingResult(ratingResult)) {
         this._resultCache.set(cacheKey, ratingResult);
       }
+      this._totalDurationMs += ratingResult.durationMs;
       return ratingResult;
     } catch (error) {
+      this._totalDurationMs += Date.now() - startedAt;
       return {
         numericRating: 9,
         rating: 'unrated',
@@ -239,6 +250,11 @@ class NarrativeDirectCaller {
   /** 内存缓存命中计数（性能探针，回放收尾汇总用；未启用恒 0） */
   getMemoryCacheHits() {
     return this._memoryCacheHits || 0;
+  }
+
+  /** 直调计时子计数器（P1 探针 2026-10-12 回测性能案，回放收尾汇总用） */
+  getCallStats() {
+    return { calls: this._totalCalls || 0, ms: this._totalDurationMs || 0 };
   }
 
   /**

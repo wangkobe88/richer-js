@@ -726,7 +726,17 @@ class PreBuyCheckService {
         // 强势交易者持仓检查失败时的空值
         ...this.strongTraderPositionService.getEmptyFactorValues(),
       };
+    } finally {
+      // P1 计时子计数器（2026-10-12 回测性能案）：performAllChecks 全链耗时累计
+      //（含全部子检查 await；成功/失败两路径都计），回放收尾与主循环六段分布一起打印
+      this._perfMs = (this._perfMs || 0) + (Date.now() - startTime);
+      this._perfCalls = (this._perfCalls || 0) + 1;
     }
+  }
+
+  /** preBuy 计时子计数器（P1 探针 2026-10-12 回测性能案，回放收尾汇总用） */
+  getPerfStats() {
+    return { calls: this._perfCalls || 0, ms: this._perfMs || 0 };
   }
 
   /**

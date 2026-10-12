@@ -863,13 +863,24 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, 'BacktestEngine',
         `📊 开始回放：${this._ticks.length} 笔 tick，${this._strategyEngine.getStrategyCount()} 个策略`);
 
+      // P1 分段计时探针（2026-10-12 回测性能案）：六段累计定位 130 万 tick 回放的耗时
+      // 分布。advance=debounce fire 全链（买/卖评估+叙事直调+preBuy+执行，直调与
+      // preBuy 各有子计数器分解，见 NarrativeDirectCaller/PreBuyCheckService）；
+      // other=快照/注册/touch/扫描/毕业等主循环杂项；六段总和对账回放总时长。
+      // 探针开销：每 tick 6 次 Date.now()（~780 万次 ≈ 0.5s），70min 回放可忽略
+      const perf = this._perf = { advance: 0, processTick: 0, buildFactorMap: 0, sell: 0, tpa: 0, other: 0 };
+      let _p0;
+
       let processed = 0;
       for (const tick of this._ticks) {
         const tickTs = tick.timestamp;
 
         // 虚拟时钟推进：fire 到期的买评估（用截至上一笔 tick 的状态 + 本 tick 时刻）
+        _p0 = Date.now();
         await this._advanceDebouncer(tickTs);
+        perf.advance += Date.now() - _p0;
 
+        _p0 = Date.now();
         // 组合快照 30s 虚拟桶（loopCount 随桶自增，对齐实时引擎时序轮次语义）
         if (this._lastSnapshotTs === null || tickTs - this._lastSnapshotTs >= SNAPSHOT_INTERVAL_MS) {
           this._lastSnapshotTs = tickTs;
@@ -881,31 +892,41 @@ class BacktestEngine extends AbstractTradingEngine {
         if (!this._seenTokens.has(tick.token_address)) {
           await this._registerToken(tick);
         }
+        perf.other += Date.now() - _p0;
 
         // 因子增量（emitFactors:false 只推进状态不构建），随后 buildFactorMap 按
         // tick 虚拟时刻取因子快照——与实时引擎 _runBuyEvaluation 同一取数路径
+        _p0 = Date.now();
         this._factorAggregator.processTick(tick, { emitFactors: false });
+        perf.processTick += Date.now() - _p0;
+        _p0 = Date.now();
         const factors = this._factorAggregator.buildFactorMap(tick.token_address, tick.timestamp);
+        perf.buildFactorMap += Date.now() - _p0;
         if (!factors) continue;
 
         // TPA 触发检查（回迁批 4）：await 保证同 tick verdict 就绪（回放串行语义，
         // 后续 buildFactorMap 立即可读 setHoldingFactors 回填的 TPAPre_* 因子；
         // asOf=tick.timestamp，tick 行含 block_number 供 blocks 时间门）
         if (this._tokenPositionAnalyzer) {
+          _p0 = Date.now();
           await this._tokenPositionAnalyzer.checkAndTrigger(
             tick.token_address, factors,
             this._factorAggregator.getTokenState(tick.token_address),
             tick, tick.timestamp);
+          perf.tpa += Date.now() - _p0;
         }
 
+        _p0 = Date.now();
         const token = this._tokenPool.getToken(tick.token_address, 'bsc');
-        if (!token) continue;
+        if (!token) { perf.other += Date.now() - _p0; continue; }
 
         // 周期路由同步（2026-09-28）：buildFactorMap(tick.timestamp) 已按虚拟时刻推进
         // _cycleLatch（防前视），此处写 token.cycleTag 供 evaluate 桶路由
         if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
+        perf.other += Date.now() - _p0;
 
         // 分腿路由（与实时引擎 _onFactorsUpdated 同构）
+        _p0 = Date.now();
         if (token.status === 'bought' && !this._buyingTokens.has(tick.token_address)) {
           // 引擎级止损双腿（tick 即时路径，对齐实时挂点）：命中优先于策略腿——保命腿不等策略评估
           const _slHit = this._stopLossHit(factors);
@@ -914,15 +935,18 @@ class BacktestEngine extends AbstractTradingEngine {
           } else {
             await this._evaluateSellPath(token, factors, tick);
           }
+          perf.sell += Date.now() - _p0;
         } else if (!this._buyingTokens.has(tick.token_address) && token.status !== 'bought') {
           if (this._buyDebouncer.pending.has(tick.token_address)) this.metrics.debounceSuppressed++;
           this._buyDebouncer.touch(tick.token_address, tick);
+          perf.other += Date.now() - _p0;
         }
 
         // 止损持仓扫描（虚拟时钟节流，断流票兜底——对齐实时 setInterval(scanIntervalSec)）：
         // 无 tick 的持仓在 tick 路径永不评估；到达扫描周期时以当前 tickTs 全持仓扫一遍，
         // buildFactorMap(addr, tickTs) 保证断流期 holdDuration 继续走（实时扫描用墙钟，
         // 回放里 tickTs 即墙钟等价物）
+        _p0 = Date.now();
         if (this._stopLossEnabled && this._stopLossScanMs != null &&
             (this._lastStopLossScanTs === null || tickTs - this._lastStopLossScanTs >= this._stopLossScanMs)) {
           this._lastStopLossScanTs = tickTs;
@@ -932,6 +956,7 @@ class BacktestEngine extends AbstractTradingEngine {
         // graduation 事件消费（tick 尾部：本 tick 已注册/进 FA，毕业断流前最后价就绪）。
         // 毕业后 ticks 停止 → 下一 tick 可能几小时后或不来，尾部 drain 兜底（见下）
         await this._consumeGraduationEvents(tickTs);
+        perf.other += Date.now() - _p0;
 
         processed++;
         if (processed % 5000 === 0) {
@@ -994,6 +1019,20 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.error(this._experimentId, 'BacktestEngine', `❌ 回放执行失败: ${error.message}`);
       this.logger.error(this._experimentId, 'BacktestEngine', 'Stack trace', { stack: error.stack });
     } finally {
+      // P1 分段计时汇总（2026-10-12 回测性能案）：失败路径也打（半程分布同样有诊断
+      // 价值）；直调/preBuy 子计数器从各自服务读——advance 段减去两者 ≈ 策略评估+执行
+      if (this._perf) {
+        const p = this._perf;
+        const nc = this._narrativeCaller.getCallStats();
+        const pc = this._preBuyCheckService.getPerfStats();
+        const perfTotal = p.advance + p.processTick + p.buildFactorMap + p.sell + p.tpa + p.other;
+        this.logger.info(this._experimentId, 'BacktestEngine',
+          `⏱️ 回放耗时分布（段合计 ${perfTotal}ms）: advance=${p.advance}（debounce fire 全链）` +
+          ` processTick=${p.processTick} buildFactorMap=${p.buildFactorMap} sell=${p.sell}` +
+          ` tpa=${p.tpa} other=${p.other}` +
+          ` | 叙事直调 ${nc.calls} 次 ${nc.ms}ms | preBuy ${pc.calls} 次 ${pc.ms}ms`);
+      }
+
       // 市场截面 feed 关闭 + 模块级单例清除（防同进程下一实验继承回放累积的截面）
       require('../../services/FourMemeFactorAggregator').setMarketFeedEnabled(false);
 
