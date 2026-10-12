@@ -319,6 +319,12 @@ class BacktestEngine extends AbstractTradingEngine {
     const preBuyCheckConfig = {
       ...baseConfig.preBuyCheck,
       ...(this._experiment?.config?.preBuyCheck || {}),
+      // P4a 已知因子合取项短路（2026-10-12 回测性能第三层画像）：回测默认开
+      // （44.5% 检查 rating=1 恒拦仍走全链 ≈墙钟 23% 纯浪费）；live 默认关
+      // 零变化。优先级：backtest.knownFactorShortCircuit > preBuyCheck.
+      // knownFactorShortCircuit > 默认 true
+      knownFactorShortCircuit: backtestConfig.knownFactorShortCircuit
+        ?? this._experiment?.config?.preBuyCheck?.knownFactorShortCircuit ?? true,
     };
     // P1-2 日志降噪（bc4f756e 性能案：PreBuyCheck+EarlyParticipant per-signal 明细
     // 占日志量 73%、其中严格同名 DEBUG 大对象行占墙钟 15.2%）：config.backtest.

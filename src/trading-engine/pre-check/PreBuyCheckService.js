@@ -447,7 +447,11 @@ const DEFAULT_CONFIG = {
     volumePerMinThreshold: 1610,
     countPerMinThreshold: 14,
     highValuePerMinThreshold: 8
-  }
+  },
+  // 已知因子合取项短路（2026-10-12 P4a 回测性能案，第三层画像定因）：默认 false
+  // （实时引擎零变化）；BacktestEngine 构造时按 backtest.knownFactorShortCircuit
+  // ?? true 传入。语义见 _evaluateKnownFalseTerm 头注释
+  knownFactorShortCircuit: false,
 };
 
 class PreBuyCheckService {
@@ -561,6 +565,25 @@ class PreBuyCheckService {
     });
 
     try {
+      // ── 已知因子合取项短路（P4a，2026-10-12 回测性能第三层画像）──
+      // 条件顶层 AND 链中存在「全部因子检查前已知且当次评估为 false」的合取项 →
+      // 整条条件恒 false，检查结果必然 canBuy=false → 跳过全部子检查直接拒绝
+      // （等价性论证见 _evaluateKnownFalseTerm 头注释）。典型形状：rating=1 的
+      // 宣告竞态盘在豁免窗内每 fire 重走全链，而 (narrativeRating == 2 OR == 3)
+      // 恒 false——83ms/次全链纯浪费（perf3 实测 44.5% 检查属此形）
+      if (String(preBuyCheckCondition || '').trim() !== '') {
+        const shortCircuitTerm = this._evaluateKnownFalseTerm(preBuyCheckCondition, options);
+        if (shortCircuitTerm) {
+          this.logger.info('[PreBuyCheckService] 已知因子合取项短路（跳过全链检查）', {
+            token_address: tokenAddress, term: shortCircuitTerm,
+          });
+          return {
+            ...this._buildFailedResult(startTime, `已知因子恒假短路: ${shortCircuitTerm}`, options),
+            shortCircuited: true,
+          };
+        }
+      }
+
       // 先执行早期参与者检查（获取交易数据）
       const earlyParticipantCheck = await this._performEarlyParticipantCheck(
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant, totalSupply, useEarlyTradesCache, sourceExperimentId
@@ -676,65 +699,7 @@ class PreBuyCheckService {
       });
 
       // 出错时返回不可购买的结果
-      return {
-        preBuyCheck: 1,
-        checkTimestamp: Date.now(),
-        checkDuration: Date.now() - startTime,
-
-        // [已停用] 持有者检查因子
-        // holdersCount: 0,
-        // devHoldingRatio: 0,
-        // maxHoldingRatio: 0,
-        // holderCanBuy: false,
-
-        // 早期交易者黑白名单因子
-        earlyTraderBlacklistCount: 0,
-        earlyTraderWhitelistCount: 0,
-        earlyTraderUniqueParticipants: 0,
-        earlyTraderBlacklistRatio: 0,
-        earlyTraderCanBuy: false,
-
-        holderCheckReason: `检查失败: ${errorMessage}`,
-        blacklistReason: `检查失败: ${errorMessage}`,
-        devCheckReason: `检查失败: ${errorMessage}`,
-
-        canBuy: false,
-        checkReason: `购买前检查失败: ${errorMessage}`,
-
-        // 多次交易因子（默认值）
-        buyRound: options.buyRound || 1,
-        lastPairReturnRate: options.lastPairReturnRate ?? 0,
-        // 同叙事龙头因子（默认 0=未查/无源推文；fail-open 放行，默认值用 0 不用 null——
-        // ConditionEvaluator null 比较恒 false，null 会让 ==0 门误拒）
-        narrativeRating: options.narrativeRating ?? 9,
-        // 早晚票语料滞后秒（检查失败空值；null → 晚票门 fail-closed 同正常路径语义）
-        narrativeCorpusLagSec: options.narrativeCorpusLagSec ?? null,
-        earlyReturn: options.earlyReturn ?? null,
-        narrativeLeaderHot: options.narrativeLeaderHot ?? 0,
-        narrativeLeaderCount: options.narrativeLeaderCount ?? 0,
-        narrativeLeaderMaxMultiple: options.narrativeLeaderMaxMultiple ?? 0,
-        // GMGN 风险因子（默认 0 放行——未触发/失败/未索引，fail-open 与龙头门同方向）
-        gmgnIssuerTokenCount: options.gmgnIssuerTokenCount ?? 0,
-        gmgnBundlerWalletRatio: options.gmgnBundlerWalletRatio ?? 0,
-        gmgnRiskCovered: options.gmgnRiskCovered ?? 0,
-        // 推文作者类型因子
-        tweetAuthorType: options.tweetAuthorType ?? 0,
-        // 数据采集轮数因子
-        dataCollectionRound: options.dataCollectionRound ?? 0,
-
-        // 严格同名代币因子（检查整体失败时空值；maxFDV=0 → 条件门放行）
-        strictSameNameTokenCount: 0,
-        strictSameNameSearchCount: 0,
-        strictSameNameFilteredCount: 0,
-        strictSameNameMaxFDV: 0,
-
-        // 早期参与者检查失败时的空值
-        ...this.earlyParticipantService.getEmptyFactorValues(),
-        // 钱包簇检查失败时的空值
-        ...this.walletClusterService.getEmptyFactorValues(),
-        // 强势交易者持仓检查失败时的空值
-        ...this.strongTraderPositionService.getEmptyFactorValues(),
-      };
+      return this._buildFailedResult(startTime, `购买前检查失败: ${errorMessage}`, options, errorMessage);
     } finally {
       // P1 计时子计数器（2026-10-12 回测性能案）：performAllChecks 全链耗时累计
       //（含全部子检查 await；成功/失败两路径都计），回放收尾与主循环六段分布一起打印
@@ -746,6 +711,186 @@ class PreBuyCheckService {
   /** preBuy 计时子计数器（P1 探针 2026-10-12 回测性能案，回放收尾汇总用） */
   getPerfStats() {
     return { calls: this._perfCalls || 0, ms: this._perfMs || 0 };
+  }
+
+  /**
+   * 检查失败/短路的统一返回形状（P4a 从 performAllChecks catch 分支抽出共用：
+   * canBuy=false + 全因子空值——下游 buildPreBuyCheckFactorValues / router 门
+   * 回填（earlyTradesRouterPct 不存在→不回填）对两路径行为一致）
+   * @private
+   */
+  _buildFailedResult(startTime, reason, options = {}, detail = reason) {
+    return {
+      preBuyCheck: 1,
+      checkTimestamp: Date.now(),
+      checkDuration: Date.now() - startTime,
+
+      // [已停用] 持有者检查因子
+      // holdersCount: 0,
+      // devHoldingRatio: 0,
+      // maxHoldingRatio: 0,
+      // holderCanBuy: false,
+
+      // 早期交易者黑白名单因子
+      earlyTraderBlacklistCount: 0,
+      earlyTraderWhitelistCount: 0,
+      earlyTraderUniqueParticipants: 0,
+      earlyTraderBlacklistRatio: 0,
+      earlyTraderCanBuy: false,
+
+      holderCheckReason: `检查失败: ${detail}`,
+      blacklistReason: `检查失败: ${detail}`,
+      devCheckReason: `检查失败: ${detail}`,
+
+      canBuy: false,
+      checkReason: reason,
+
+      // 多次交易因子（默认值）
+      buyRound: options.buyRound || 1,
+      lastPairReturnRate: options.lastPairReturnRate ?? 0,
+      // 同叙事龙头因子（默认 0=未查/无源推文；fail-open 放行，默认值用 0 不用 null——
+      // ConditionEvaluator null 比较恒 false，null 会让 ==0 门误拒）
+      narrativeRating: options.narrativeRating ?? 9,
+      // 早晚票语料滞后秒（检查失败空值；null → 晚票门 fail-closed 同正常路径语义）
+      narrativeCorpusLagSec: options.narrativeCorpusLagSec ?? null,
+      earlyReturn: options.earlyReturn ?? null,
+      narrativeLeaderHot: options.narrativeLeaderHot ?? 0,
+      narrativeLeaderCount: options.narrativeLeaderCount ?? 0,
+      narrativeLeaderMaxMultiple: options.narrativeLeaderMaxMultiple ?? 0,
+      // GMGN 风险因子（默认 0 放行——未触发/失败/未索引，fail-open 与龙头门同方向）
+      gmgnIssuerTokenCount: options.gmgnIssuerTokenCount ?? 0,
+      gmgnBundlerWalletRatio: options.gmgnBundlerWalletRatio ?? 0,
+      gmgnRiskCovered: options.gmgnRiskCovered ?? 0,
+      // 推文作者类型因子
+      tweetAuthorType: options.tweetAuthorType ?? 0,
+      // 数据采集轮数因子
+      dataCollectionRound: options.dataCollectionRound ?? 0,
+
+      // 严格同名代币因子（检查整体失败时空值；maxFDV=0 → 条件门放行）
+      strictSameNameTokenCount: 0,
+      strictSameNameSearchCount: 0,
+      strictSameNameFilteredCount: 0,
+      strictSameNameMaxFDV: 0,
+
+      // 早期参与者检查失败时的空值
+      ...this.earlyParticipantService.getEmptyFactorValues(),
+      // 钱包簇检查失败时的空值
+      ...this.walletClusterService.getEmptyFactorValues(),
+      // 强势交易者持仓检查失败时的空值
+      ...this.strongTraderPositionService.getEmptyFactorValues(),
+    };
+  }
+
+  /**
+   * 已知因子合取项短路判定（P4a，2026-10-12 回测性能第三层画像）。
+   *
+   * 动机：perf3 实测 44.5% 的 preBuy 检查 rating=1 恒拦（条件首项
+   * `(narrativeRating == 2 OR == 3)` 恒 false）仍每 fire 走全链（龙头+AVE+
+   * EarlyParticipant，83ms/次）；宣告竞态盘（precheckStage='address' 豁免
+   * 拉黑、保留重试窗）是重复主体（top 86 次/fire）。
+   *
+   * 机制与等价性：条件顶层 AND 链拆成合取项；若某项引用的**全部**因子都属
+   * 「检查前已知」（引擎透传 options：直调结果/平台标签/fire 因子等，检查
+   * 不产生也不改写它们），则该项的值与是否跑检查无关——当次评估 false ⇒
+   * AND 语义下整条条件必 false ⇒ 检查结果必然 canBuy=false。跳过检查与走
+   * 全链在决策上 bit 等价；rating 翻正（宣告竞态重析）时透传值即变，短路
+   * 自动解除。已知因子值时变（earlyReturn 每 fire 不同）不影响：当次值
+   * 就是终值。
+   *
+   * 安全边界：项内混有未知因子（检查产物，如 earlyTrades*）一律不评——
+   * ConditionEvaluator 对未知值比较恒 false，会把「实际可真」的项误评成
+   * false 造成误拦；常数项（无因子引用）不评（保守）。解析失败 fail-open
+   * 返回 null（走正常路径）。
+   *
+   * 副作用差异（声明，无决策影响）：被短路的检查不产生 early_trades 存档、
+   * AVE 同名快照、router 门观察史——恒 false 期间这些 token 永远不会买，
+   * 翻正后首检的观察史为空（fail-closed 方向）。
+   *
+   * @param {string} condition - preBuy/repeatBuy 条件表达式
+   * @param {Object} options - performAllChecks 的 options（已知因子来源）
+   * @returns {string|null} 命中的恒假合取项原文（短路），null=不短路
+   * @private
+   */
+  _evaluateKnownFalseTerm(condition, options) {
+    if (!this.config.knownFactorShortCircuit) return null;
+    const condText = String(condition || '').trim();
+    if (!condText) return null;
+    let ast;
+    try {
+      ast = this._conditionEvaluator.parseCondition(condText);
+    } catch {
+      return null; // 语法错交给正常路径诊断（loadStrategies 已 fail-fast，此处防御）
+    }
+    // 顶层 AND 链拆合取项（parseOr > parseAnd 优先级下根以下的 AND 链即顶层合取项）
+    const terms = [];
+    (function splitTerm(node) {
+      if (node && node.type === 'AND') { splitTerm(node.left); splitTerm(node.right); }
+      else if (node) terms.push(node);
+    })(ast);
+    if (terms.length === 0) return null;
+    const known = this._buildKnownFactorContext(options);
+    for (const term of terms) {
+      const factors = [];
+      (function collect(node) {
+        if (!node) return;
+        if (node.type === 'AND' || node.type === 'OR') { collect(node.left); collect(node.right); }
+        else if (node.type === 'IS_NULL' || node.type === 'IS_NOT_NULL') factors.push(node.operand);
+        else if (node.type === 'COMPARISON') {
+          // 两侧都可能是因子引用（右操作数字面量：数字 parseFloat 命中、字符串 rightString 标记）
+          if (node.left != null && isNaN(parseFloat(node.left))) factors.push(node.left);
+          if (node.rightString !== true && node.right != null && isNaN(parseFloat(String(node.right)))) factors.push(node.right);
+        }
+      })(term);
+      if (factors.length === 0) continue; // 常数项不评（保守）
+      const allKnown = factors.every(f => Object.prototype.hasOwnProperty.call(known, f));
+      if (!allKnown) continue;
+      if (!this._conditionEvaluator._evaluateNode(term, known)) {
+        return this._stringifyTerm(term);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 已知因子求值上下文：与 _evaluateWithCondition 正常 context 中「引擎透传键」
+   * 的键集与取值默认逐字对齐（buyRound 用 || 其余 ??；null 语义 = 同正常路径）。
+   * 防漂移：单测用 getConditionFactorKeys 空壳捕获的 context 对拍同名键值。
+   * @private
+   */
+  _buildKnownFactorContext(options = {}) {
+    return {
+      buyRound: options.buyRound || 1,
+      lastPairReturnRate: options.lastPairReturnRate ?? 0,
+      platform: options.platform ?? null,
+      narrativeRating: options.narrativeRating ?? 9,
+      narrativeCorpusLagSec: options.narrativeCorpusLagSec ?? null,
+      earlyReturn: options.earlyReturn ?? null,
+      narrativeLeaderHot: options.narrativeLeaderHot ?? 0,
+      narrativeLeaderCount: options.narrativeLeaderCount ?? 0,
+      narrativeLeaderMaxMultiple: options.narrativeLeaderMaxMultiple ?? 0,
+      gmgnIssuerTokenCount: options.gmgnIssuerTokenCount ?? 0,
+      gmgnBundlerWalletRatio: options.gmgnBundlerWalletRatio ?? 0,
+      gmgnRiskCovered: options.gmgnRiskCovered ?? 0,
+      tweetAuthorType: options.tweetAuthorType ?? 0,
+      dataCollectionRound: options.dataCollectionRound ?? 0,
+      drawdownFromHighest: options.drawdownFromHighest ?? 0,
+      earlyTradesRouterLowSideSeen: options.earlyTradesRouterLowSideSeen ?? null,
+      earlyTradesRouterRejectCount: options.earlyTradesRouterRejectCount ?? null,
+    };
+  }
+
+  /** 合取项还原为可读文本（短路日志/原因展示用）@private */
+  _stringifyTerm(node) {
+    if (!node) return '';
+    switch (node.type) {
+      case 'AND': return `${this._stringifyTerm(node.left)} AND ${this._stringifyTerm(node.right)}`;
+      case 'OR': return `(${this._stringifyTerm(node.left)} OR ${this._stringifyTerm(node.right)})`;
+      case 'IS_NULL': return `${node.operand} IS NULL`;
+      case 'IS_NOT_NULL': return `${node.operand} IS NOT NULL`;
+      case 'COMPARISON':
+        return `${node.left} ${node.operator} ${node.rightString === true ? `'${node.right}'` : node.right}`;
+      default: return '';
+    }
   }
 
   /**
