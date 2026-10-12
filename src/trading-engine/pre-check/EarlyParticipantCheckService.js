@@ -83,6 +83,11 @@ class EarlyParticipantCheckService {
     return this._replayHits || 0;
   }
 
+  /** P12 sniper 画像全表预载转发（回测启动期一次；见 SniperFlagCache.preloadAll） */
+  preloadSniperFlags(supabase) {
+    return this._sniperFlagCache.preloadAll(supabase);
+  }
+
   /**
    * 执行早期参与者检查
    * @param {string} tokenAddress - 代币地址（wss_price_ticks 查询键）

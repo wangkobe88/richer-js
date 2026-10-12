@@ -521,6 +521,25 @@ class BacktestEngine extends AbstractTradingEngine {
         `EarlyParticipant 回放索引注入: ${this._ticks.length} 笔 → ${_epIdx.size} 个 token 桶`);
     }
 
+    // 9.4.5 sniper 画像全表预载（P12，2026-10-13 perf12 探针定因）：回放期 early
+    //     检查的 sniper 标志 miss 现查是碎 RTT 堆积（perf12 实测 1626 批 / 5072 址
+    //     / 52428ms = earlySvc 96.5%，纯 CPU 仅 ~1.2s）。启动期一次全表 SELECT
+    //     （TPA preloadOfflineProfiles 同款 cursor 分页形状）灌 boolean 缓存，
+    //     运行期 miss 集归零（miss=不在表=无行=非 sniper，与现查空行 bit 一致）。
+    //     失败 fail-open 运行期现查（不设全表标志=行为同未优化）；实时引擎不
+    //     注入（单 token 低频 miss，实例缓存已够）
+    {
+      const _spT0 = Date.now();
+      try {
+        const _sp = await this._preBuyCheckService.earlyParticipantService.preloadSniperFlags(supabase);
+        this.logger.info(this._experimentId, 'BacktestEngine',
+          `sniper 画像预载: ${_sp.rows} 行（${Date.now() - _spT0}ms）→ 运行期 miss 零查询`);
+      } catch (e) {
+        this.logger.warn(this._experimentId, 'BacktestEngine',
+          `sniper 画像预载失败（fail-open，运行期现查）: ${e.message}`);
+      }
+    }
+
     // 9.5 TPA 预载三连（回迁批 4，回测启动期一次性成本换回放期零 DB 往返）：
     //     offline 画像全表预载（内存 Map）→ 本实验全量 ticks 注入 trader→ticks 索引
     //     （miss/stale 路径零查询；口径=注入实验口径 ticks，平台过滤后——架构性偏离 #4
@@ -1125,7 +1144,8 @@ class BacktestEngine extends AbstractTradingEngine {
           ` | 五项 holder=${pc.parHolder} cluster=${pc.parCluster} creator=${pc.parCreator}` +
           ` strong=${pc.parStrong} sameName=${pc.parSameName} label=${pc.labelMs}` +
           ` | earlySvc ${es.calls} 次 ${es.ms}ms（fetch ${es.fetchMs} | replayHits ${es.replayHits}）` +
-          ` | sniper画像 ${es.sniper.queryMs}ms（批 ${es.sniper.batches} / 址 ${es.sniper.queriedAddrs} / 败 ${es.sniper.failures} / 缓存 ${es.sniper.cached}）` +
+          ` | sniper画像 ${es.sniper.queryMs}ms（批 ${es.sniper.batches} / 址 ${es.sniper.queriedAddrs} / 败 ${es.sniper.failures} / 缓存 ${es.sniper.cached}` +
+          `${es.sniper.fullyLoaded ? ` / 预载 ${es.sniper.preloadedRows} 行` : ''}）` +
           ` | sameName AVE ${ss.aveCalls || 0} 次 ${ss.aveMs || 0}ms（snapHit ${ss.snapshotHits} / fallback ${ss.fallbacks}）`);
       }
 

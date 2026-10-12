@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-// P11 SniperFlagCache 查询探针单测（2026-10-13 perf11 后定因）：earlyMs 的
-// 「六族因子纯 CPU」归因未经实测——flagsFor 是计算段唯一 await。计数器
-// queryMs/batches/queriedAddrs/failures 经 EarlyParticipantCheckService.
-// getPerfStats.sniper 透出，回放收尾打印。零 DB 零网络：mock supabase
-// busy-wait 延迟 + 查询计数。用法：node scripts/_test_sniper_cache_probe.cjs
+// P11 SniperFlagCache 查询探针 + P12 全表预载单测（2026-10-13 perf12 定因：
+// sniper 画像查询 52.4s = earlySvc 96.5%，纯碎 RTT 堆积）。P11 计数器
+// queryMs/batches/queriedAddrs/failures 经 getPerfStats.sniper 透出；P12
+// preloadAll 全表预载后 miss 直判 false（bit 等价于现查空行）。零 DB 零网络：
+// mock supabase（in() 单查 + cursor 分页双形状）busy-wait 延迟 + 查询计数。
+// 用法：node scripts/_test_sniper_cache_probe.cjs
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const { SniperFlagCache } = require('../src/trading-engine/pre-check/sniper-detector');
 const { EarlyParticipantCheckService } = require('../src/trading-engine/pre-check/EarlyParticipantCheckService');
 
@@ -17,17 +20,20 @@ function check(name, actual, expected) {
 }
 const eq = (name, v, expected) => check(name, v, expected);
 
-/** mock supabase：profile 行集可控 / 每查询 busy-wait delayMs / failNext 注入 */
+/** mock supabase：profile 行集可控 / in() 单查与 preload cursor 分页两种形状 /
+ *  每查询 busy-wait delayMs / failNext（单查）/ failPreloadPage（预载第 N 页失败） */
 function mkDb(rows, opts = {}) {
-  const state = { queries: 0 };
+  const state = { queries: 0, preloadPages: 0 };
   state.failNext = false;
+  state.failPreloadPage = opts.failPreloadPage || 0;
+  const sorted = [...rows].sort((a, b) => (a.address < b.address ? -1 : 1));
   const db = {
     from(table) {
       if (table !== 'wallet_offline_profiles') throw new Error(`意外表: ${table}`);
       return {
         select(cols) {
           if (cols !== 'address, profile') throw new Error(`意外列: ${cols}`);
-          return {
+          const chain = {
             in(field, batch) {
               if (field !== 'address') throw new Error(`意外过滤键: ${field}`);
               return (async () => {
@@ -40,7 +46,36 @@ function mkDb(rows, opts = {}) {
                 return { data: rows.filter(r => set.has(r.address)), error: null };
               })();
             },
+            order(field) {
+              if (field !== 'address') throw new Error(`意外排序键: ${field}`);
+              return chain;
+            },
+            limit(n) {
+              if (n !== 1000) throw new Error(`意外页大小: ${n}`);
+              return chain;
+            },
+            gt(field, val) {
+              if (field !== 'address') throw new Error(`意外 gt 键: ${field}`);
+              return (async () => {
+                state.preloadPages++;
+                if (state.preloadPages === state.failPreloadPage) {
+                  return { data: null, error: { message: 'preload page down' } };
+                }
+                return { data: sorted.filter(r => r.address > val).slice(0, 1000), error: null };
+              })();
+            },
+            // 首页（无 gt）：order+limit 后直接 await 走 thenable
+            then(onF, onR) {
+              return (async () => {
+                state.preloadPages++;
+                if (state.preloadPages === state.failPreloadPage) {
+                  return { data: null, error: { message: 'preload page down' } };
+                }
+                return { data: sorted.slice(0, 1000), error: null };
+              })().then(onF, onR);
+            },
           };
+          return chain;
         },
       };
     },
@@ -137,10 +172,72 @@ async function main() {
     const svc = new EarlyParticipantCheckService({ info() {}, warn() {}, error() {} }, {}, mkDb(rows));
     const p = svc.getPerfStats();
     check('F1 sniper 键集', Object.keys(p.sniper).sort(),
-      ['batches', 'cached', 'failures', 'queriedAddrs', 'queryMs'].sort());
+      ['batches', 'cached', 'failures', 'fullyLoaded', 'preloadedRows', 'queriedAddrs', 'queryMs'].sort());
     eq('F2 初始全零', p.sniper.batches + p.sniper.queriedAddrs + p.sniper.queryMs + p.sniper.failures, 0);
     await svc._sniperFlagCache.flagsFor(svc.supabase, [addr(1)]);
     eq('F3 透传计数', svc.getPerfStats().sniper.batches, 1);
+  }
+
+  // ── G. 全表预载（P12）：在表地址判定透传 / 不在表地址 false / 零 DB 查询 ──
+  console.log('G. 全表预载');
+  {
+    const db = mkDb(rows);
+    const cache = new SniperFlagCache(null);
+    const pre = await cache.preloadAll(db);
+    eq('G1 预载行数', pre.rows, 3);
+    check('G2 预载页数（3 行单页 + 空页终止）', db._state.preloadPages, 2);
+    const s0 = cache.getStats();
+    check('G3 fullyLoaded 置位', s0.fullyLoaded, true);
+    eq('G4 preloadedRows', s0.preloadedRows, 3);
+    const flags = await cache.flagsFor(db, [addr(1), addr(99)]);
+    eq('G5 在表地址判定透传（sniper）', flags.get(addr(1)), true);
+    eq('G6 不在表地址 false（=无行=非 sniper）', flags.get(addr(99)), false);
+    eq('G7 零 DB 单查', db._state.queries, 0);
+    const s = cache.getStats();
+    eq('G8 短路不计 queriedAddrs', s.queriedAddrs, 0);
+    eq('G9 短路不计批数', s.batches, 0);
+    eq('G10 缓存含短路写入的无行地址', s.cached, 4);
+    // 短路后命中同走内存
+    const flags2 = await cache.flagsFor(db, [addr(99)]);
+    eq('G11 二查命中', flags2.get(addr(99)), false);
+    eq('G12 仍零 DB 单查', db._state.queries, 0);
+  }
+
+  // ── H. 预载中途失败：throw / 不设全表标志 / 已写行保留 / 未载地址回退现查 ──
+  console.log('H. 预载失败 fail-open');
+  {
+    const bigRows = [
+      ...rows,
+      ...Array.from({ length: 1000 }, (_, i) => ({ address: addr(100 + i), profile: { tokenCount: 5 } })),
+    ];
+    const db = mkDb(bigRows, { failPreloadPage: 2 });
+    const cache = new SniperFlagCache(null);
+    let threw = null;
+    try { await cache.preloadAll(db); } catch (e) { threw = e.message; }
+    check('H1 预载失败 throw', threw !== null && threw.includes('预载'), true);
+    check('H2 不设全表标志', cache.getStats().fullyLoaded, false);
+    // 首页已写入的行保留（真实表行判定值，bit 与现查相同）→ 该地址零重查
+    const flags = await cache.flagsFor(db, [addr(2)]);
+    eq('H3 首页行缓存命中（零单查）', [flags.get(addr(2)), db._state.queries], [false, 0]);
+    // 未载入地址（第二页起）回退现查路径
+    const flags2 = await cache.flagsFor(db, [addr(1099)]);
+    eq('H4 未载地址回退现查', [flags2.get(addr(1099)), db._state.queries], [false, 1]);
+    eq('H5 现查批数计数恢复', cache.getStats().batches, 1);
+  }
+
+  // ── I. 源码口径（红线 13：短路位置/预载形状锁定） ──
+  console.log('I. 源码口径');
+  {
+    const src = fs.readFileSync(path.join(__dirname, '../src/trading-engine/pre-check/sniper-detector.js'), 'utf8');
+    const iShort = src.indexOf('if (this._fullyLoaded)');
+    const iNoClient = src.indexOf("if (!supabase) {");
+    check('I1 短路锚点齐全', iShort > 0 && iNoClient > 0, true);
+    eq('I2 全表短路在 !supabase 早退之前', iShort < iNoClient, true);
+    check('I3 预载 cursor 形状（gt+order+limit）',
+      /\.gt\('address', lastAddress\)/.test(src) && /\.order\('address'\)/.test(src) && /\.limit\(PAGE\)/.test(src), true);
+    eq('I4 仅空页终止（部分页不 break）', src.includes('data.length === 0) break'), true);
+    eq('I5 预载成功才置位（置于循环后）',
+      src.indexOf('this._fullyLoaded = true;') > src.indexOf('data.length === 0) break'), true);
   }
 
   console.log(`\n结果: ${pass} 通过, ${fail} 失败`);

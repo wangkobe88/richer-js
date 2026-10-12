@@ -68,6 +68,15 @@ class SniperFlagCache {
     this._queryBatches = 0;
     this._queriedAddrs = 0;
     this._queryFailures = 0;
+    // P12 全表预载（2026-10-13 perf12 探针定因）：queryMs 52428ms = earlySvc 的
+    // 96.5%（1626 批 / 5072 址 ≈ 32ms/批纯 RTT 堆积，纯 CPU 段仅 ~1.2s）。回测
+    // 启动期全表 SELECT 一次灌 boolean 缓存（表仅数千行，画像几天一更），
+    // 运行期 miss 集归零。_fullyLoaded 后 flagsFor 的 miss 直判 false——全表已
+    // 进缓存，miss = 不在表 = 无行 = isSniperProfile(null) = false，与现查返回
+    // 空行 set(addr,false) bit 一致，仅省 RTT。预载失败不设标志（fail-open
+    // 运行期现查，行为同未优化）
+    this._fullyLoaded = false;
+    this._preloadedRows = 0;
   }
 
   /** 缓存条数（测试探针） */
@@ -83,7 +92,44 @@ class SniperFlagCache {
       queriedAddrs: this._queriedAddrs,
       failures: this._queryFailures,
       cached: this._flags.size,
+      fullyLoaded: this._fullyLoaded,
+      preloadedRows: this._preloadedRows,
     };
+  }
+
+  /**
+   * 全表预载（P12，回测启动期一次性；实时引擎不注入）。cursor 分页形状对齐
+   * TPA preloadOfflineProfiles 先例：.gt(address)+order+limit，仅空页终止
+   * （中间页 timeout 截断返部分行不误 break，lastAddress 续传到真正末尾）。
+   * 成功置 _fullyLoaded；失败 throw（调用方 fail-open）。中途失败已写入的行
+   * 保留——皆为真实表行判定值，与运行期查到 bit 相同。
+   * @param {Object} supabase - Supabase客户端（null 时不预载不设标志）
+   * @returns {Promise<{rows: number, ms: number}>}
+   */
+  async preloadAll(supabase) {
+    if (!supabase) return { rows: 0, ms: 0 };
+    const t0 = Date.now();
+    const PAGE = 1000;
+    let lastAddress = null;
+    let rows = 0;
+    for (;;) {
+      let q = supabase.from('wallet_offline_profiles')
+        .select('address, profile').order('address').limit(PAGE);
+      if (lastAddress) q = q.gt('address', lastAddress);
+      const { data, error } = await q;
+      if (error) throw new Error(`预载 wallet_offline_profiles 失败: ${error.message}`);
+      for (const r of data || []) {
+        if (r && r.address) {
+          this._flags.set(String(r.address).toLowerCase(), isSniperProfile(r.profile || null));
+          rows++;
+        }
+      }
+      if (!data || data.length === 0) break;
+      lastAddress = data[data.length - 1].address;
+    }
+    this._fullyLoaded = true;
+    this._preloadedRows = rows;
+    return { rows, ms: Date.now() - t0 };
   }
 
   /**
@@ -105,6 +151,16 @@ class SniperFlagCache {
       }
     }
     if (missing.length === 0) return out;
+
+    // P12 全表预载后短路：miss = 不在表（全表已进缓存）→ 非 sniper。与现查
+    // 返回空行后 set(addr,false) bit 一致，仅省 RTT（零查询零计数）
+    if (this._fullyLoaded) {
+      for (const addr of missing) {
+        this._flags.set(addr, false);
+        out.set(addr, false);
+      }
+      return out;
+    }
 
     if (!supabase) {
       this._warn('Supabase 客户端未注入，sniper 画像查询跳过（全按非 sniper 放行）');
