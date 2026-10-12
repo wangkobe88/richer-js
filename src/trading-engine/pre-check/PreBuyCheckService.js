@@ -542,12 +542,11 @@ class PreBuyCheckService {
    * @param {boolean} options.skipEarlyParticipant - 是否跳过早期参与者检查
    * @param {number} options.tokenBuyTime - 代币首次买入时间戳（毫秒），用于判断是否有历史交易记录
    * @param {number} options.drawdownFromHighest - 从最高价跌幅（%），负数表示下跌
-   * @param {boolean} options.useEarlyTradesCache - 是否使用早期交易者数据库缓存（仅回测使用）
    * @returns {Promise<Object>} 检查结果
    */
   async performAllChecks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', tokenInfo = null, preBuyCheckCondition = null, options = {}) {
     const startTime = Date.now();
-    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeCorpusLagSec, earlyReturn, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, useEarlyTradesCache, skipEarlyTradesCacheWrite, sourceExperimentId, earlyTradesCacheCallback, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered, earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount } = options;
+    const { checkTime, skipHolderCheck, skipEarlyParticipant, tokenBuyTime, drawdownFromHighest, buyRound, lastPairReturnRate, narrativeRating, narrativeCorpusLagSec, earlyReturn, narrativeLeaderHot, narrativeLeaderCount, narrativeLeaderMaxMultiple, tweetAuthorType, dataCollectionRound, totalSupply, sourceExperimentId, gmgnIssuerTokenCount, gmgnBundlerWalletRatio, gmgnRiskCovered, earlyTradesRouterLowSideSeen, earlyTradesRouterRejectCount } = options;
 
     this.logger.info('[PreBuyCheckService] 开始执行购买前检查', {
       token_address: tokenAddress,
@@ -586,7 +585,7 @@ class PreBuyCheckService {
 
       // 先执行早期参与者检查（获取交易数据）
       const earlyParticipantCheck = await this._performEarlyParticipantCheck(
-        tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant, totalSupply, useEarlyTradesCache, sourceExperimentId
+        tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant, totalSupply
       );
 
 
@@ -608,40 +607,6 @@ class PreBuyCheckService {
         preBuyCheckCondition = 'true';  // 设置为 true 以便后续通过评估
       } else {
         preBuyCheckCondition = String(preBuyCheckCondition).trim();
-      }
-
-      // 存储早期交易者数据（如果有 signalId 和交易数据，且非缓存数据，且未禁止写缓存）
-      if (signalId && earlyParticipantCheck._trades && earlyParticipantCheck._trades.length > 0 && !earlyParticipantCheck._fromCache && !skipEarlyTradesCacheWrite) {
-        const cacheData = {
-          signal_id: signalId,
-          token_address: tokenAddress,
-          experiment_id: experimentId,
-          chain: chain,
-          trades_data: earlyParticipantCheck._trades,
-          inner_pair: tokenInfo?.innerPair || null,
-          check_time: checkTime || Math.floor(Date.now() / 1000),
-          window_seconds: this.earlyParticipantService.config.fixedWindowSeconds
-        };
-
-        if (earlyTradesCacheCallback) {
-          // 回调模式：将数据交给调用方缓冲
-          earlyTradesCacheCallback(cacheData);
-        } else {
-          // 直接写入模式
-          const storeSuccess = await this.earlyParticipantService.storeEarlyParticipantTrades(
-            tokenAddress,
-            signalId,
-            experimentId,
-            tokenInfo?.innerPair || null,
-            chain,
-            earlyParticipantCheck._trades,
-            checkTime || Math.floor(Date.now() / 1000)
-          );
-          this.logger.info('[PreBuyCheckService] 早期交易数据存储完成', {
-            signal_id: signalId,
-            success: storeSuccess
-          });
-        }
       }
 
       // 早期交易者黑白名单检查（基于交易参与者，而非持有者）
@@ -1722,7 +1687,7 @@ class PreBuyCheckService {
    * @param {number} checkTime - 检查时间戳（秒），用于回测时指定历史时间点
    * @param {boolean} skipEarlyParticipant - 是否跳过检查
    */
-  async _performEarlyParticipantCheck(tokenAddress, chain, tokenInfo, checkTime = null, skipEarlyParticipant = false, totalSupply = 0, useCache = false, sourceExperimentId = null) {
+  async _performEarlyParticipantCheck(tokenAddress, chain, tokenInfo, checkTime = null, skipEarlyParticipant = false, totalSupply = 0) {
     if (skipEarlyParticipant || !this.config.earlyParticipantCheckEnabled) {
       return this.earlyParticipantService.getEmptyFactorValues();
     }
@@ -1746,8 +1711,7 @@ class PreBuyCheckService {
       chain,
       tokenInfo.launchAt || null,  // 创建时间（秒）——净流入因子创建锚定窗口用（共合案 2026-09-27 恢复传参）
       effectiveCheckTime,
-      totalSupply,
-      { useCache, sourceExperimentId }
+      totalSupply
     );
   }
 

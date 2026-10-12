@@ -86,16 +86,14 @@ class EarlyParticipantCheckService {
   /**
    * 执行早期参与者检查
    * @param {string} tokenAddress - 代币地址（wss_price_ticks 查询键）
-   * @param {string} innerPair - 内盘交易对标识（如 0x..._fo，仅用于日志与 early_participant_trades 存档，不参与查询）
-   * @param {string} chain - 区块链（仅用于日志与存档，tick 表已按 BSC 全市场组织）
+   * @param {string} innerPair - 内盘交易对标识（如 0x..._fo，仅用于日志，不参与查询）
+   * @param {string} chain - 区块链（仅用于日志，tick 表已按 BSC 全市场组织）
    * @param {number|null} launchAt - 代币创建时间戳（秒）——净流入因子的创建锚定窗口基准（共合案 2026-09-27 起使用）
    * @param {number} checkTime - 当前检查时间戳（秒）（实时=当前墙钟；回测=回放时钟）
    * @param {number} totalSupply - 代币总供应量（可选，用于计算净持仓占比）
-   * @param {Object} options - 可选配置
-   * @param {boolean} options.useCache - 是否使用数据库缓存（仅回测使用，虚拟/实盘不缓存）
    * @returns {Promise<Object>} 检查结果
    */
-  async performCheck(tokenAddress, innerPair, chain, launchAt, checkTime, totalSupply = 0, options = {}) {
+  async performCheck(tokenAddress, innerPair, chain, launchAt, checkTime, totalSupply = 0) {
     const startTime = Date.now();
 
     this.logger.info('[EarlyParticipantCheckService] 开始早期参与者检查', {
@@ -106,26 +104,8 @@ class EarlyParticipantCheckService {
     });
 
     try {
-      // 0. 尝试从数据库缓存获取（仅回测模式，且时间戳差异不超过2秒时复用）
-      let trades = null;
-      let fromCache = false;
-      if (options.useCache) {
-        const cachedTrades = await this._loadTradesFromDB(tokenAddress, checkTime, options.sourceExperimentId);
-        if (cachedTrades) {
-          trades = cachedTrades;
-          fromCache = true;
-          this.logger.info('[EarlyParticipantCheckService] 复用数据库缓存的交易数据', {
-            token_address: tokenAddress,
-            trades_count: trades.length,
-            cached_check_time: trades._cachedCheckTime
-          });
-        }
-      }
-
-      // 1. 获取交易数据（固定90秒回溯窗口，wss_price_ticks 源）
-      if (!trades) {
-        trades = await this._fetchEarlyTrades(tokenAddress, checkTime);
-      }
+      // 获取交易数据（固定90秒回溯窗口，wss_price_ticks 源；回测走 replayTicksIndex 内存索引）
+      let trades = await this._fetchEarlyTrades(tokenAddress, checkTime);
 
       // WSS 源下查空是真实市场状态（窗口内无成交或 flush 竞态），
       // 走正常空统计（全 0 值 → evaluateBuyEligibility 自然拒绝），
@@ -238,10 +218,7 @@ class EarlyParticipantCheckService {
         earlyTradesNoInnerData: trades.length === 0 ? 1 : 0,
 
         // 内部数据（供钱包簇检查复用）
-        _trades: trades,
-
-        // 标记数据来源，缓存数据不重复存储（防止级联缓存）
-        _fromCache: fromCache
+        _trades: trades
       };
 
       this.logger.info('[EarlyParticipantCheckService] 早期参与者检查完成', {
@@ -280,38 +257,6 @@ class EarlyParticipantCheckService {
 
       // 出错时返回空结果，不影响整体购买流程
       return this._getEmptyResult();
-    }
-  }
-
-  /**
-   * 从数据库缓存加载交易数据
-   * 同一代币在相近时间（2秒内）已获取过的数据可直接复用（仅回测模式）
-   * @private
-   */
-  async _loadTradesFromDB(tokenAddress, checkTime, sourceExperimentId = null) {
-    if (!this.supabase) return null;
-
-    try {
-      const query = this.supabase
-        .from('early_participant_trades')
-        .select('trades_data, check_time')
-        .eq('token_address', tokenAddress)
-        .gte('check_time', checkTime - 1)
-        .lte('check_time', checkTime + 1);
-      const { data, error } = await query
-        .order('check_time', { ascending: true })
-        .limit(1);
-
-      if (error || !data || data.length === 0) return null;
-
-      const cached = data[0];
-      if (!cached.trades_data || cached.trades_data.length === 0) return null;
-
-      // 标记缓存来源的 checkTime，供日志使用
-      cached.trades_data._cachedCheckTime = cached.check_time;
-      return cached.trades_data;
-    } catch (e) {
-      return null;
     }
   }
 
@@ -434,7 +379,7 @@ class EarlyParticipantCheckService {
    * - WalletCluster: to_token/to_amount/from_token（买入手数累计）、from_usd、wallet_address
    * - WalletLabel: from_token/from_token_symbol 判 isBuy（BNB 为计价货币方）
    * - TokenHolder: wallet_address/from_address
-   * 同时保留 tick 原始字段（trade_type/price_usd/bnb_amount/token_amount），随 trades_data 落 early_participant_trades
+   * 同时保留 tick 原始字段（trade_type/price_usd/bnb_amount/token_amount）
    * @private
    */
   _mapTickRow(row, tokenAddress) {
@@ -1146,75 +1091,6 @@ class EarlyParticipantCheckService {
         volumePerMin: checkResult.earlyTradesVolumePerMin || 0
       }
     };
-  }
-
-  /**
-   * 存储早期交易者数据（裸数据）
-   * @param {string} tokenAddress - 代币地址
-   * @param {string} signalId - 信号ID
-   * @param {string} experimentId - 实验ID
-   * @param {string} innerPair - 内盘交易对
-   * @param {string} chain - 区块链
-   * @param {Array} tradesData - 原始交易数据（_trades字段）
-   * @param {number} checkTime - 检查时间戳（秒）
-   * @returns {Promise<boolean>} 是否存储成功
-   */
-  async storeEarlyParticipantTrades(tokenAddress, signalId, experimentId, innerPair, chain, tradesData, checkTime) {
-    if (!this.supabase) {
-      this.logger.warn('[EarlyParticipantCheckService] Supabase 客户端未初始化，跳过存储早期交易数据');
-      return false;
-    }
-
-    if (!signalId) {
-      this.logger.warn('[EarlyParticipantCheckService] signalId 为空，跳过存储早期交易数据');
-      return false;
-    }
-
-    if (!tradesData || tradesData.length === 0) {
-      this.logger.debug('[EarlyParticipantCheckService] 早期交易数据为空，跳过存储');
-      return false;
-    }
-
-    try {
-      const { error } = await this.supabase
-        .from('early_participant_trades')
-        .insert({
-          signal_id: signalId,
-          token_address: tokenAddress,
-          experiment_id: experimentId,
-          chain: chain,
-          trades_data: tradesData,    // 裸数据，不做任何处理
-          inner_pair: innerPair,
-          check_time: checkTime,
-          window_seconds: this.config.fixedWindowSeconds
-        });
-
-      if (error) {
-        this.logger.error('[EarlyParticipantCheckService] 存储早期交易数据失败', {
-          token_address: tokenAddress,
-          signal_id: signalId,
-          error: error.message,
-          details: error.hint || error.details || error.code
-        });
-        return false;
-      }
-
-      this.logger.info('[EarlyParticipantCheckService] 早期交易数据存储成功', {
-        token_address: tokenAddress,
-        signal_id: signalId,
-        trades_count: tradesData.length
-      });
-
-      return true;
-    } catch (error) {
-      const errorMessage = this._safeGetErrorMessage(error);
-      this.logger.error('[EarlyParticipantCheckService] 存储早期交易数据异常', {
-        token_address: tokenAddress,
-        signal_id: signalId,
-        error: errorMessage
-      });
-      return false;
-    }
   }
 
   /**

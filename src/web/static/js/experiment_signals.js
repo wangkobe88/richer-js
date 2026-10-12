@@ -2259,9 +2259,6 @@ class ExperimentSignals {
               <div class="text-xs">
                 <span class="font-semibold text-amber-900">🔍 预检查条件配置 (第${buyRound}轮${buyRound > 1 ? '购买' : ''}):</span>
                 <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(preBuyCheckCondition)}</code>
-                ${pf.earlyTradesChecked === 1 ? `
-                  <a href="/signal/${signal.id}/early-trades" target="_blank" class="ml-2 text-xs px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded no-underline">📋 原始交易数据</a>
-                ` : ''}
                 ${this._renderConditionFactorChips(preBuyCheckCondition, metadata)}
               </div>
             ` : ''}

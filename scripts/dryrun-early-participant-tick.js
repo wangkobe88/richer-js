@@ -9,7 +9,6 @@
  *  3. performCheck 有数据路径统计断言
  *  4. performCheck 空数据路径（真实空统计 → evaluateBuyEligibility 拒绝，不再走通过值兜底）
  *  5. 查询异常路径（_getEmptyResult 通过值，既有行为保留）
- *  6. 回测缓存路径（useCache 命中时不查 wss_price_ticks）
  */
 
 const { EarlyParticipantCheckService } = require('../src/trading-engine/pre-check/EarlyParticipantCheckService');
@@ -206,26 +205,6 @@ async function testErrorPath() {
   assert('evaluateBuyEligibility 通过（canBuy=true）', elig.canBuy === true);
 }
 
-// ═══════════════ 6. 回测缓存路径 ═══════════════
-
-async function testCachePath() {
-  console.log('\n[6] 回测缓存路径（useCache 命中时不查 wss_price_ticks）');
-  const svcForBuild = new EarlyParticipantCheckService(console, {}, {});
-  const tradesData = [svcForBuild._mapTickRow(makeTick(), TOKEN)];
-
-  const queried = [];
-  const supabase = makeMockSupabase(
-    { early_participant_trades: { rows: [{ trades_data: tradesData, check_time: 1000 }] } },
-    { onQuery: (table) => queried.push(table) }
-  );
-  const svc = new EarlyParticipantCheckService(console, {}, supabase);
-  const result = await svc.performCheck(TOKEN, `${TOKEN}_fo`, 'bsc', 800, 1000, 0, { useCache: true });
-
-  assert('_fromCache = true', result._fromCache === true);
-  assert('缓存数据参与统计', result.earlyTradesTotalCount === 1);
-  assert('未查询 wss_price_ticks', !queried.includes('wss_price_ticks'), `queried: ${queried.join(',')}`);
-}
-
 // ═══════════════ 主流程 ═══════════════
 
 (async () => {
@@ -234,7 +213,6 @@ async function testCachePath() {
   await testPerformWithData();
   await testEmptyPath();
   await testErrorPath();
-  await testCachePath();
 
   console.log('\n══════════════════════════════');
   console.log(`结果: ${passed} 通过, ${failed} 失败`);

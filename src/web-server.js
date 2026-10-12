@@ -313,11 +313,6 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/monitor.html'));
     });
 
-    // 信号早期交易数据页面
-    this.app.get('/signal/:id/early-trades', (req, res) => {
-      res.sendFile(path.join(__dirname, 'web/templates/signal_early_trades.html'));
-    });
-
     // 市场截面 Regime 监控页（pumpfun 回迁批 2.6 观察版，纯只读）
     this.app.get('/market-regime', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/market_regime.html'));
@@ -2180,115 +2175,6 @@ class RicherJsWebServer {
         });
       } catch (error) {
         this.logger.error('WebServer', '获取拒绝统计失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // 获取早期交易者数据（按信号ID）
-    this.app.get('/api/signal/:id/early-trades', async (req, res) => {
-      try {
-        // 获取强势交易者列表
-        const { STRONG_TRADERS } = require('./trading-engine/pre-check/STRONG_TRADERS');
-        const { WalletClusterService } = require('./trading-engine/pre-check/WalletClusterService');
-
-        // 获取信号数据以获取 token_address 和 metadata（包含preBuyCheckResult）
-        const { data: signalData, error: signalError } = await this.dataService.supabase
-          .from('strategy_signals')
-          .select('token_address, metadata')
-          .eq('id', req.params.id)
-          .single();
-
-        if (signalError) {
-          throw signalError;
-        }
-
-        // 获取早期交易数据
-        const { data, error } = await this.dataService.supabase
-          .from('early_participant_trades')
-          .select('*')
-          .eq('signal_id', req.params.id)
-          .single();
-
-        // 执行聚簇分析
-        let clusterAnalysis = null;
-        let clustersWithTrades = null;
-
-        if (data && data.trades_data && data.trades_data.length > 0) {
-          const clusterService = new WalletClusterService(console, { mode: 'block', clusterBlockThreshold: 7 });
-          clusterAnalysis = clusterService.performClusterAnalysis(data.trades_data, signalData?.token_address);
-
-          // 构建带交易的簇数据（按区块窗口分组）
-          const trades = data.trades_data;
-          const BLOCK_WINDOW = 7;
-          const detectedClusters = [];
-          let currentCluster = [0];
-
-          for (let i = 1; i < trades.length; i++) {
-            const prevBlock = trades[i - 1].block_number || 0;
-            const curBlock = trades[i].block_number || 0;
-            if (curBlock - prevBlock <= BLOCK_WINDOW) {
-              currentCluster.push(i);
-            } else {
-              if (currentCluster.length > 1) detectedClusters.push(currentCluster);
-              currentCluster = [i];
-            }
-          }
-          if (currentCluster.length > 1) detectedClusters.push(currentCluster);
-
-          clustersWithTrades = detectedClusters.map((clusterIndices, idx) => {
-            const clusterTrades = clusterIndices.map(i => trades[i]);
-            const blocks = clusterTrades.map(t => t.block_number).filter(b => b != null);
-            const uniqueWallets = new Set();
-            clusterTrades.forEach(t => {
-              if (t.from_address) uniqueWallets.add(t.from_address.toLowerCase());
-              if (t.to_address) uniqueWallets.add(t.to_address.toLowerCase());
-            });
-
-            // 计算Mega簇阈值
-            const avgClusterSize = detectedClusters.reduce((sum, c) => sum + c.length, 0) / detectedClusters.length;
-            const megaThreshold = Math.max(5, Math.floor(avgClusterSize * 2));
-            const isMega = clusterIndices.length >= megaThreshold;
-
-            return {
-              id: idx + 1,
-              size: clusterIndices.length,
-              minBlock: blocks.length > 0 ? Math.min(...blocks) : null,
-              maxBlock: blocks.length > 0 ? Math.max(...blocks) : null,
-              uniqueWallets: uniqueWallets.size,
-              isMega: isMega,
-              trades: clusterTrades
-            };
-          });
-        }
-
-        if (error) {
-          if (error.code === 'PGRST116') {
-            // 未找到数据
-            res.json({
-              success: true,
-              data: null,
-              token_address: signalData?.token_address || null,
-              signal_metadata: signalData?.metadata || null,
-              strong_traders: Array.from(STRONG_TRADERS),
-              cluster_analysis: clusterAnalysis,
-              clusters: clustersWithTrades
-            });
-          } else {
-            throw error;
-          }
-        } else {
-          res.json({
-            success: true,
-            data: data,
-            token_address: signalData?.token_address || null,
-            signal_metadata: signalData?.metadata || null,
-            strong_traders: Array.from(STRONG_TRADERS),
-            cluster_analysis: clusterAnalysis,
-            clusters: clustersWithTrades
-          });
-        }
-      } catch (error) {
-        this.logger.error('WebServer', '获取早期交易数据失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });

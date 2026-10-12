@@ -14,7 +14,6 @@ class BacktestWriteBuffer {
     this._pendingTradeInserts = [];
     this._pendingSnapshotInserts = [];
     this._pendingSignalUpdates = []; // { signalId, updateData }
-    this._pendingEarlyTradesInserts = [];
     this._pendingAnalysisInserts = []; // TPA token_position_analyses 行（回迁批 4；upsert 通道）
     this._pendingTokenInserts = [];           // experiment_tokens INSERT 行（P1-3）
     this._pendingTokenStatusUpdates = [];     // { experimentId, tokenAddress, status }（P1-3，按入队序重放）
@@ -42,13 +41,6 @@ class BacktestWriteBuffer {
    */
   addSnapshotInsert(snapshotData) {
     this._pendingSnapshotInserts.push(snapshotData);
-  }
-
-  /**
-   * 添加早期交易者缓存插入记录
-   */
-  addEarlyTradesInsert(dbData) {
-    this._pendingEarlyTradesInserts.push(dbData);
   }
 
   /**
@@ -124,7 +116,6 @@ class BacktestWriteBuffer {
       + this._pendingTradeInserts.length
       + this._pendingSnapshotInserts.length
       + this._pendingSignalUpdates.length
-      + this._pendingEarlyTradesInserts.length
       + this._pendingAnalysisInserts.length
       + this._pendingTokenInserts.length
       + this._pendingTokenStatusUpdates.length;
@@ -141,14 +132,13 @@ class BacktestWriteBuffer {
       tradesInserted: 0,
       snapshotsInserted: 0,
       signalsUpdated: 0,
-      earlyTradesInserted: 0,
       analysesUpserted: 0,
       tokensInserted: 0,
       tokenStatusUpdated: 0,
       errors: []
     };
 
-    // 第一阶段：信号先落库（trades.signal_id / early_participant_trades 外键引用
+    // 第一阶段：信号先落库（trades.signal_id 外键引用
     // strategy_signals，并行发出时 trades 请求可能先到 → FK 23503 整批丢弃，
     // 降级单条也在同一竞态窗口内失败——必须等 signals INSERT 完成后再插其余）
     if (this._pendingSignalInserts.length > 0) {
@@ -178,15 +168,6 @@ class BacktestWriteBuffer {
         this._pendingSnapshotInserts,
         experimentId
       ).then(count => { stats.snapshotsInserted = count; }));
-    }
-
-    // 批量插入早期交易者缓存
-    if (this._pendingEarlyTradesInserts.length > 0) {
-      insertTasks.push(this._batchInsert(
-        'early_participant_trades',
-        this._pendingEarlyTradesInserts,
-        experimentId
-      ).then(count => { stats.earlyTradesInserted = count; }));
     }
 
     // 批量 upsert TPA 持仓分析行（回迁批 4；与其他表无外键依赖，同段并行）
@@ -228,14 +209,13 @@ class BacktestWriteBuffer {
     this._pendingTradeInserts = [];
     this._pendingSnapshotInserts = [];
     this._pendingSignalUpdates = [];
-    this._pendingEarlyTradesInserts = [];
     this._pendingAnalysisInserts = [];
     this._pendingTokenInserts = [];
     this._pendingTokenStatusUpdates = [];
 
-    if (this._logger && (stats.signalsInserted || stats.tradesInserted || stats.snapshotsInserted || stats.signalsUpdated || stats.earlyTradesInserted || stats.analysesUpserted || stats.tokensInserted || stats.tokenStatusUpdated)) {
+    if (this._logger && (stats.signalsInserted || stats.tradesInserted || stats.snapshotsInserted || stats.signalsUpdated || stats.analysesUpserted || stats.tokensInserted || stats.tokenStatusUpdated)) {
       this._logger.info(experimentId, 'BacktestWriteBuffer',
-        `flush 完成 | signals=${stats.signalsInserted}, trades=${stats.tradesInserted}, snapshots=${stats.snapshotsInserted}, signalUpdates=${stats.signalsUpdated}, earlyTrades=${stats.earlyTradesInserted}, analyses=${stats.analysesUpserted}, tokens=${stats.tokensInserted}, tokenStatus=${stats.tokenStatusUpdated}`);
+        `flush 完成 | signals=${stats.signalsInserted}, trades=${stats.tradesInserted}, snapshots=${stats.snapshotsInserted}, signalUpdates=${stats.signalsUpdated}, analyses=${stats.analysesUpserted}, tokens=${stats.tokensInserted}, tokenStatus=${stats.tokenStatusUpdated}`);
     }
 
     return stats;

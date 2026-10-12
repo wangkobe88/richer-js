@@ -1644,11 +1644,6 @@ class BacktestEngine extends AbstractTradingEngine {
               drawdownFromHighest: factorResults.drawdownFromHighest || null,
               buyRound: currentRound + 1,
               lastPairReturnRate: lastPairReturnRate ?? 0,
-              // early trades 存档走 buffer 批量（通道+flush FK 顺序 signals→early_trades
-              // 已就绪；buffer 关时 undefined 落回直写，P1-4 接线）
-              earlyTradesCacheCallback: this._writeBufferEnabled && this._writeBuffer
-                ? (d) => this._writeBuffer.addEarlyTradesInsert(d)
-                : undefined,
               narrativeRating: narrativeCallInfo?.numericRating ?? 9, // 直调链路（时序穿越：当前语料分析历史 token）；未配置/未触发/失败/超时=9
               narrativeCorpusLagSec, // 早晚票分级（上方注释）；null=晚票门 fail-closed
               // earlyReturn 注入 preBuy context（实时引擎同款；晚票门右臂证据）
