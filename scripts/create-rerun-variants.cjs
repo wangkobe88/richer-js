@@ -96,6 +96,7 @@ const ARMS = {
     enl: { src: ETNONE, suffix: '-去lag门整条', desc: 'v0 + lag 门整条去除（时间锚与 er 全不筛）' },
     ec0: { src: ETNONE, suffix: '-去cycle门', desc: 'v0 + condition 删 cycle 子句 + config 删 tokenCycle 段（cycle 门纯效应）' },
     pf0: { src: ETNONE, suffix: '-pf验证', desc: 'v0 + backtest.faPreFilter=true（P2-1 双跑验证：超龄未持仓 tick 跳过因子构建，开/关 trades 须 bit-identical）' },
+    perf: { src: ETNONE, suffix: '-perf基准', desc: '性能基准臂（v0 config 逐字复刻：P1 探针 + P2a/b/c + 叙事预载 + preFilter 修复后首次实跑；对拍 5517e3db=同 config 旧代码 64.4min/129.97 万 tick）' },
 };
 
 const args = process.argv.slice(2);
@@ -130,7 +131,7 @@ async function main() {
     if (!srcB) throw new Error('源实验不存在: ' + E3E57ED75);
     if (!srcT) throw new Error('源实验不存在: ' + ETNONE);
 
-    const toRun = ARM === 'all' ? Object.keys(ARMS).filter(a => a !== 'gm') : [ARM]; // all 不含 gm（须单建+定档）
+    const toRun = ARM === 'all' ? Object.keys(ARMS).filter(a => a !== 'gm' && a !== 'perf') : [ARM]; // all 不含 gm（须单建+定档）/perf（须单建）
     const created = [];
 
     for (const arm of toRun) {
@@ -201,9 +202,10 @@ async function main() {
                 throw new Error(`[${arm}] 源 config 无 tokenPositionAnalyzer.trigger 段`);
             }
             cfg.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
-        } else if (arm === 'v0' || arm === 'e50' || arm === 'eno' || arm === 'enl') {
+        } else if (arm === 'v0' || arm === 'perf' || arm === 'e50' || arm === 'eno' || arm === 'enl') {
             // pbc 门消融链（2026-10-11 用户裁定）：v0=删 covered/top1 + router 50→30；
             // e50/eno/enl 在 v0 上叠加 er 变体。源=tnone（去 TPA 门，pbc 与 3e57ed75 逐字同）。
+            // perf=v0 config 逐字复刻（2026-10-12 性能基准臂：唯一变量 = 代码版本）。
             if (buy.condition.includes('TPAPre_tokenScore')) {
                 throw new Error(`[${arm}] 源应为 tnone（condition 无 TPA 门），condition=${buy.condition}`);
             }
@@ -288,13 +290,13 @@ async function main() {
             } else if (arm === 'gm') { // 差异仅 condition + gmgnFilter
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
                 base.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
-            } else if (arm === 'v0' || arm === 'e50' || arm === 'eno' || arm === 'enl') { // 差异仅 pbc
+            } else if (arm === 'v0' || arm === 'perf' || arm === 'e50' || arm === 'eno' || arm === 'enl') { // 差异仅 pbc
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
             } else { // t22/t20/tnone：差异仅 condition
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
             }
             if (JSON.stringify(chk) !== JSON.stringify(base)) {
-                const field = (arm === 'c' || arm === 'd10' || arm === 'd5' || arm === 'v0' || arm === 'e50' || arm === 'eno' || arm === 'enl') ? 'pbc'
+                const field = (arm === 'c' || arm === 'd10' || arm === 'd5' || arm === 'v0' || arm === 'perf' || arm === 'e50' || arm === 'eno' || arm === 'enl') ? 'pbc'
                     : (arm === 'mh8' ? 'trigger.minHolders'
                         : (arm === 'notpa' ? 'condition+去tokenPositionAnalyzer段'
                             : (arm === 'ec0' ? 'pbc+condition+去tokenCycle段'
