@@ -33,7 +33,7 @@ async function main() {
     const c = new NarrativeDirectCaller({ memoryCacheResults: true });
     c._getAnalyzer = async () => FakeAnalyzer;
 
-    eq('A1 初始计数 0', c.getCallStats(), { calls: 0, ms: 0 });
+    eq('A1 初始计数 0', c.getCallStats(), { calls: 0, ms: 0, dbCacheHits: 0, realRuns: 0 });
     await c.getRating('0xabc');
     await c.getRating('0xslow');
     await c.getRating('0xerr');

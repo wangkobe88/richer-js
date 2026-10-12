@@ -1119,8 +1119,11 @@ class BacktestEngine extends AbstractTradingEngine {
           `⏱️ 回放耗时分布（段合计 ${perfTotal}ms）: advance=${p.advance}（debounce fire 全链）` +
           ` processTick=${p.processTick} buildFactorMap=${p.buildFactorMap} sell=${p.sell}` +
           ` tpa=${p.tpa} other=${p.other}` +
-          ` | 叙事直调 ${nc.calls} 次 ${nc.ms}ms | preBuy ${pc.calls} 次 ${pc.ms}ms` +
+          ` | 叙事直调 ${nc.calls} 次 ${nc.ms}ms（dbCache ${nc.dbCacheHits || 0} / 真跑 ${nc.realRuns || 0}）` +
+          ` | preBuy ${pc.calls} 次 ${pc.ms}ms` +
           `（短路 ${pc.shortCircuits} | early ${pc.earlyMs} | 五项并发 ${pc.parallelMs} | 评估 ${pc.evalMs}）` +
+          ` | 五项 holder=${pc.parHolder} cluster=${pc.parCluster} creator=${pc.parCreator}` +
+          ` strong=${pc.parStrong} sameName=${pc.parSameName} label=${pc.labelMs}` +
           ` | earlySvc ${es.calls} 次 ${es.ms}ms（fetch ${es.fetchMs} | replayHits ${es.replayHits}）` +
           ` | sameName AVE ${ss.aveCalls || 0} 次 ${ss.aveMs || 0}ms（snapHit ${ss.snapshotHits} / fallback ${ss.fallbacks}）`);
       }

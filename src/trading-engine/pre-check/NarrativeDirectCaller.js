@@ -228,6 +228,11 @@ class NarrativeDirectCaller {
         this._resultCache.set(cacheKey, ratingResult);
       }
       this._totalDurationMs += ratingResult.durationMs;
+      // P8 计时拆分（2026-10-13 perf9 定因：6073 次 miss 贡献全部 179s，avg 29.5ms
+      // ——dbCache=analyze 内 token_narrative 行命中（应≈preload 后纯内存），真跑=
+      // 数据抓取+Jev 全链；两计数把 miss 耗时归到正确一侧）
+      if (result?.meta?.fromCache) this._dbCacheHits = (this._dbCacheHits || 0) + 1;
+      else this._realRuns = (this._realRuns || 0) + 1;
       return ratingResult;
     } catch (error) {
       this._totalDurationMs += Date.now() - startedAt;
@@ -254,7 +259,11 @@ class NarrativeDirectCaller {
 
   /** 直调计时子计数器（P1 探针 2026-10-12 回测性能案，回放收尾汇总用） */
   getCallStats() {
-    return { calls: this._totalCalls || 0, ms: this._totalDurationMs || 0 };
+    return {
+      calls: this._totalCalls || 0, ms: this._totalDurationMs || 0,
+      // P8 miss 拆分：dbCache=analyze 缓存行命中 / realRun=数据抓取+Jev 真跑
+      dbCacheHits: this._dbCacheHits || 0, realRuns: this._realRuns || 0,
+    };
   }
 
   /**

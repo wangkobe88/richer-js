@@ -597,17 +597,29 @@ class PreBuyCheckService {
 
       const _parT0 = Date.now();
       // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查、严格同名代币检查
+      // P8 五项各自计时（2026-10-13 perf9 画像：parallel 254s 中 AVE 仅 31.5s，剩
+      // ~222s 未定因——四项纯 CPU 聚合各扫一遍同一份 _trades）。wrapper 只包 then
+      // 计时，调用仍在数组字面量内同步发起（并发结构不变）。注：多 token 买评估
+      // 并发下 Date.now 差值含其它协程墙钟（同步 CPU 段因 event loop 串行不重叠，
+      // 网络等待段可重叠低估）——定性定位够用，不求精确归因
+      const _timed = (key, p) => {
+        const t0 = Date.now();
+        const done = () => this._seg(key, Date.now() - t0);
+        return Promise.resolve(p).then(r => { done(); return r; }, e => { done(); throw e; });
+      };
       const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck, sameNameCheck] = await Promise.all([
-        this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck),
-        this._performWalletClusterCheck(earlyParticipantCheck, tokenAddress),
-        this._checkCreatorIsNotBadDevWallet(creatorAddress),
-        this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck),
-        this._performSameNameCheck(tokenAddress, tokenInfo, { checkTime, sourceExperimentId }),
+        _timed('parHolder', this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck)),
+        _timed('parCluster', this._performWalletClusterCheck(earlyParticipantCheck, tokenAddress)),
+        _timed('parCreator', this._checkCreatorIsNotBadDevWallet(creatorAddress)),
+        _timed('parStrong', this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck)),
+        _timed('parSameName', this._performSameNameCheck(tokenAddress, tokenInfo, { checkTime, sourceExperimentId })),
       ]);
       this._seg('parallelMs', Date.now() - _parT0);
 
-      // 钱包标签因子（纯内存计算，无 IO）
+      // 钱包标签因子（纯内存计算，无 IO）——P8 同样计时（P7 三段外的漏计段）
+      const _labT0 = Date.now();
       const walletLabelCheck = this.walletLabelService.calculateLabelFactors(earlyParticipantCheck._trades);
+      this._seg('labelMs', Date.now() - _labT0);
 
       // 如果没有提供条件表达式，默认通过（不执行任何检查）
       // 确保 preBuyCheckCondition 是字符串类型，防止 .trim() 调用失败
@@ -691,13 +703,16 @@ class PreBuyCheckService {
       calls: this._perfCalls || 0, ms: this._perfMs || 0,
       shortCircuits: s.shortCircuits || 0,
       earlyMs: s.earlyMs || 0, parallelMs: s.parallelMs || 0, evalMs: s.evalMs || 0,
+      // P8 五项拆分 + label（...s 兜底透传未列新键）
+      parHolder: s.parHolder || 0, parCluster: s.parCluster || 0, parCreator: s.parCreator || 0,
+      parStrong: s.parStrong || 0, parSameName: s.parSameName || 0, labelMs: s.labelMs || 0,
     };
   }
 
   /** P7 分段计时累计器（见 performAllChecks 内注释；短路计数 delta 传 0） */
   _seg(key, delta) {
     if (!this._perfSeg) this._perfSeg = { shortCircuits: 0, earlyMs: 0, parallelMs: 0, evalMs: 0 };
-    if (delta > 0) this._perfSeg[key] += delta;
+    if (delta > 0) this._perfSeg[key] = (this._perfSeg[key] || 0) + delta;
     else this._perfSeg[key]++;
   }
 
