@@ -430,7 +430,7 @@ class BacktestEngine extends AbstractTradingEngine {
     //     tokenPositionAnalyzer → 不构造（存量实验零影响）；段存在才构造（trigger fail-fast）。
     //     回测三点差异：persistSink 走 writeBuffer 攒批（决策不依赖落表，仅写库时机后移）；
     //     _alignClassifiedAsOf=true（防前视：分类可见时刻>asOf 的 token 不计 bad_action）；
-    //     启动后预载三连（见 _loadWssTicks 之后）
+    //     启动后预载三连（见 _runLoadPipeline，ticks 装载完成后）
     this._tokenPositionAnalyzer = null;
     const tpaExpConfig = experimentConfig.tokenPositionAnalyzer;
     if (tpaExpConfig != null) {
@@ -472,79 +472,45 @@ class BacktestEngine extends AbstractTradingEngine {
       `交易金额配置 | tradeAmount=${this._tradeAmount}，debounce=${wsConfig.signalDebounceMs ?? 1500}ms` +
       `，sellDebounce=${this._sellDebounceMs}ms`);
 
-    // 9. 加载回放数据
+    // 9. 加载回放数据 + 预载流水线（P13，2026-10-13 perf13 装载画像定因：9-9.5
+    //     预载串行链 74s——叙事 29.7 + graduation 17.1 + 索引/sniper 25.5 + TPA 1.3，
+    //     其中三项不依赖 ticks，可与 ticks 拉取 165s 并行藏入）
     await this._loadTokenMetadata();
-    await this._loadWssTicks();
+    await this._runLoadPipeline();
+  }
+
+  /**
+   * 装载段流水线（P13，2026-10-13）：_loadTokenMetadata 之后的全装载编排。
+   * 组 A（不依赖 _ticks：叙事预载 9.1 / AVE 快照 9.3 / sniper 画像 9.4.5——各自
+   * 方法头有完整背景注释）与 ticks 拉取并行；组 B（graduation 批间 IO +
+   * EarlyParticipant 回放索引纯 CPU，两项互补）在 ticks 完成后并行；TPA 三连
+   * 最后（setHistoricalTicks 消费 _ticks）。失败语义与串行版逐字一致：叙事
+   * 预载/graduation/TPA 失败 throw 阻断启动，AVE/sniper 内部 fail-open 不
+   * reject；Promise.all 对每个输入挂 handler，无 unhandled rejection 面。
+   * DB 并发峰值 = ticks 装载 5 并发 + 三条连续分页流 ≈ 8（与 P3d 龙头 5 并发
+   * + P5 装载 5 并发共存的实跑同量级，全只读页查询）
+   */
+  async _runLoadPipeline() {
+    await Promise.all([
+      this._loadWssTicks(),
+      this._preloadNarrativeRows(),
+      this._loadSameNameSnapshots(),
+      this._preloadSniperFlagsSafe(),
+    ]);
     this.logger.info(this._experimentId, 'BacktestEngine',
       `📊 回放数据就绪: ${this._ticks.length} 笔 tick，${this._tokenMeta.size} 个代币元数据`);
 
-    // 9.1 叙事结果预载（回测性能 2026-10-12）：带 narrativeCallCondition 的实验回放中
-    //     每 token 首次直调走 analyze 缓存命中路径 = 2 次 DB 往返（token_narrative 行 +
-    //     语料推文缓存行）≈34ms×N 串行（e50 实测 4007 次命中=137s）。装载时按 token
-    //     集合批量预拉灌内存层，组装代码不变只换数据源——行为 bit-identical；无
-    //     narrativeCallCondition 的实验不预载（无直调 = 预载白拉）
-    if (this._strategyEngine.getAllStrategies().some(s => s.action === 'buy' && s.narrativeCallCondition)) {
-      const _npT0 = Date.now();
-      const _np = await this._narrativeCaller.preload([...this._tokenMeta.keys()]);
-      this.logger.info(this._experimentId, 'BacktestEngine',
-        `叙事预载: ${_np.rowCache.size}/${this._tokenMeta.size} 行 + 语料推文 ${_np.tweetRows} 行（${Date.now() - _npT0}ms）`);
-    }
-
-    // 9.2 graduation 事件装载（虚拟↔回测一致性 2026-10-10）：wss_events kind='graduation'
-    //     按 token 集合批量拉取，窗口过滤后按 tsMs 升序待回放（主循环消费见
-    //     _consumeGraduationEvents）
-    await this._loadGraduationEvents();
-
-    // 9.3 AVE 同名快照装载（2026-10-12 用户裁定，SI 0xbc97c27f 对拍事故）：回测期
-    //     strictSameName 因子以 ave_same_name_snapshots 历史快照 as-of 为主——AVE
-    //     实时索引在两次运行间漂移会翻转 preBuy 决策（v0 簇≥3 放行 vs 旧 perf 臂
-    //     簇 2 拦下）；miss 才兜底实时调用（service 侧行级过滤到被检 token 发布前）
-    await this._loadSameNameSnapshots();
-
-    // 9.4 EarlyParticipant 回放 ticks 索引（bc4f756e 性能案 2026-09-28）：回测期每触发
-    // 买信号的早期参与者检查原本现查 wss_price_ticks（90s 窗，一 signal 一次 DB 往返）；
-    // 回放数据已全量在内存——按 token 分桶预建索引注入检查服务（TPA setHistoricalTicks
-    // 同款形态）。桶内 (timestamp, log_index) 升序对齐 SQL order by block_time, log_index；
-    // 查询语义（闭区间/outlier=false/usd 非空/过滤后截断/桶 miss=空统计）见服务侧注释
-    {
-      const _epIdx = new Map();
-      for (const t of this._ticks) {
-        let arr = _epIdx.get(t.token_address);
-        if (!arr) { arr = []; _epIdx.set(t.token_address, arr); }
-        arr.push(t);
-      }
-      for (const arr of _epIdx.values()) {
-        arr.sort((a, b) => (a.timestamp - b.timestamp) || ((a.log_index ?? 0) - (b.log_index ?? 0)));
-      }
-      this._preBuyCheckService.earlyParticipantService.setReplayTicksIndex(_epIdx);
-      this.logger.info(this._experimentId, 'BacktestEngine',
-        `EarlyParticipant 回放索引注入: ${this._ticks.length} 笔 → ${_epIdx.size} 个 token 桶`);
-    }
-
-    // 9.4.5 sniper 画像全表预载（P12，2026-10-13 perf12 探针定因）：回放期 early
-    //     检查的 sniper 标志 miss 现查是碎 RTT 堆积（perf12 实测 1626 批 / 5072 址
-    //     / 52428ms = earlySvc 96.5%，纯 CPU 仅 ~1.2s）。启动期一次全表 SELECT
-    //     （TPA preloadOfflineProfiles 同款 cursor 分页形状）灌 boolean 缓存，
-    //     运行期 miss 集归零（miss=不在表=无行=非 sniper，与现查空行 bit 一致）。
-    //     失败 fail-open 运行期现查（不设全表标志=行为同未优化）；实时引擎不
-    //     注入（单 token 低频 miss，实例缓存已够）
-    {
-      const _spT0 = Date.now();
-      try {
-        const _sp = await this._preBuyCheckService.earlyParticipantService.preloadSniperFlags(supabase);
-        this.logger.info(this._experimentId, 'BacktestEngine',
-          `sniper 画像预载: ${_sp.rows} 行（${Date.now() - _spT0}ms）→ 运行期 miss 零查询`);
-      } catch (e) {
-        this.logger.warn(this._experimentId, 'BacktestEngine',
-          `sniper 画像预载失败（fail-open，运行期现查）: ${e.message}`);
-      }
-    }
+    await Promise.all([
+      this._loadGraduationEvents(),
+      this._buildEarlyReplayIndex(),
+    ]);
 
     // 9.5 TPA 预载三连（回迁批 4，回测启动期一次性成本换回放期零 DB 往返）：
     //     offline 画像全表预载（内存 Map）→ 本实验全量 ticks 注入 trader→ticks 索引
     //     （miss/stale 路径零查询；口径=注入实验口径 ticks，平台过滤后——架构性偏离 #4
     //     已接受）→ token 分类预载（token_profiles 批量入 cache，运行期触发全命中）
     if (this._tokenPositionAnalyzer) {
+      const supabase = this._getClient();
       const pre = await this._tokenPositionAnalyzer.preloadOfflineProfiles(supabase);
       this.logger.info(this._experimentId, 'BacktestEngine',
         `TPA offline 画像预载: ${pre.rows} 行 / ${(pre.ms / 1000).toFixed(1)}s (${pre.source || 'fail-open'})`);
@@ -555,6 +521,68 @@ class BacktestEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, 'BacktestEngine',
         `TPA token 分类预载: ${this._tokenMeta.size} token → cache ${cachedTps}`);
     }
+  }
+
+  /**
+   * 9.1 叙事结果预载（回测性能 2026-10-12；P13 抽方法入组 A）：带
+   * narrativeCallCondition 的实验回放中每 token 首次直调走 analyze 缓存命中
+   * 路径 = 2 次 DB 往返（token_narrative 行 + 语料推文缓存行）≈34ms×N 串行
+   * （e50 实测 4007 次命中=137s）。装载时按 token 集合批量预拉灌内存层，
+   * 组装代码不变只换数据源——行为 bit-identical；无 narrativeCallCondition
+   * 的实验不预载（无直调 = 预载白拉）
+   */
+  async _preloadNarrativeRows() {
+    if (!this._strategyEngine.getAllStrategies().some(s => s.action === 'buy' && s.narrativeCallCondition)) {
+      return;
+    }
+    const _npT0 = Date.now();
+    const _np = await this._narrativeCaller.preload([...this._tokenMeta.keys()]);
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `叙事预载: ${_np.rowCache.size}/${this._tokenMeta.size} 行 + 语料推文 ${_np.tweetRows} 行（${Date.now() - _npT0}ms）`);
+  }
+
+  /**
+   * 9.4.5 sniper 画像全表预载（P12，2026-10-13 perf12 探针定因；P13 抽方法入
+   * 组 A）：回放期 early 检查的 sniper 标志 miss 现查是碎 RTT 堆积（perf12
+   * 实测 1626 批 / 5072 址 / 52428ms = earlySvc 96.5%，纯 CPU 仅 ~1.2s）。
+   * 启动期一次全表 SELECT（TPA preloadOfflineProfiles 同款 cursor 分页形状）
+   * 灌 boolean 缓存，运行期 miss 集归零（miss=不在表=无行=非 sniper，与现查
+   * 空行 bit 一致）。失败 fail-open 运行期现查（不设全表标志=行为同未优化）；
+   * 实时引擎不注入（单 token 低频 miss，实例缓存已够）
+   */
+  async _preloadSniperFlagsSafe() {
+    const _spT0 = Date.now();
+    try {
+      const _sp = await this._preBuyCheckService.earlyParticipantService.preloadSniperFlags(this._getClient());
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `sniper 画像预载: ${_sp.rows} 行（${Date.now() - _spT0}ms）→ 运行期 miss 零查询`);
+    } catch (e) {
+      this.logger.warn(this._experimentId, 'BacktestEngine',
+        `sniper 画像预载失败（fail-open，运行期现查）: ${e.message}`);
+    }
+  }
+
+  /**
+   * 9.4 EarlyParticipant 回放 ticks 索引（bc4f756e 性能案 2026-09-28；P13 抽方法
+   * 入组 B）：回测期每触发买信号的早期参与者检查原本现查 wss_price_ticks（90s
+   * 窗，一 signal 一次 DB 往返）；回放数据已全量在内存——按 token 分桶预建索引
+   * 注入检查服务（TPA setHistoricalTicks 同款形态）。桶内 (timestamp, log_index)
+   * 升序对齐 SQL order by block_time, log_index；查询语义（闭区间/outlier=false/
+   * usd 非空/过滤后截断/桶 miss=空统计）见服务侧注释
+   */
+  async _buildEarlyReplayIndex() {
+    const _epIdx = new Map();
+    for (const t of this._ticks) {
+      let arr = _epIdx.get(t.token_address);
+      if (!arr) { arr = []; _epIdx.set(t.token_address, arr); }
+      arr.push(t);
+    }
+    for (const arr of _epIdx.values()) {
+      arr.sort((a, b) => (a.timestamp - b.timestamp) || ((a.log_index ?? 0) - (b.log_index ?? 0)));
+    }
+    this._preBuyCheckService.earlyParticipantService.setReplayTicksIndex(_epIdx);
+    this.logger.info(this._experimentId, 'BacktestEngine',
+      `EarlyParticipant 回放索引注入: ${this._ticks.length} 笔 → ${_epIdx.size} 个 token 桶`);
   }
 
   /** 源实验 experiment_tokens → 代币元数据（FA registerToken / 落库 / totalSupply 用） */
