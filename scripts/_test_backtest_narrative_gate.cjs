@@ -48,7 +48,13 @@ function makeStub(opts) {
     _tokenPool: {
       initStrategyExecutions: () => {},
       getCurrentRound: () => 0,
+      // P4b 上移（2026-10-12）：lastPairReturnRate 计算从 preBuy 块上移到直调块前
+      // （引擎层短路判定与 preBuy options 单源），每 fire 无条件取——stub 补桩
+      getLastPairReturnRate: () => 0,
     },
+    // P4b 上移同款：FA 出生锚（getTokenState=null → narrativeCorpusLagSec=null，
+    // 与直调未进的 null 语义一致）
+    _factorAggregator: { getTokenState: () => null },
     logger: { info: () => {}, warn: () => {}, error: () => {} },
     _narrativeCaller: {
       getRatingCalls: 0,

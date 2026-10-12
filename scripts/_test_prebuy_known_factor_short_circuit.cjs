@@ -288,6 +288,72 @@ console.log('6. BacktestEngine options 键名源码防线');
   }
 }
 
+// ═══ 7. P4b 引擎层排除键语义（龙头检查之前判定）═══
+console.log('7. excludeKeys：龙头三键无值时的防线');
+{
+  const svc = mkSvc();
+  const LEADER = ['narrativeLeaderHot', 'narrativeLeaderCount', 'narrativeLeaderMaxMultiple'];
+  // 7a: 龙头键排除后不在 knownCtx；其余 14 键在
+  const ctx = svc._buildKnownFactorContext({ narrativeRating: 1 }, LEADER);
+  ok(LEADER.every(k => !(k in ctx)), '7a1. 排除键不进 knownCtx（hasOwnProperty 不中）');
+  ok(Object.keys(ctx).length === 14, '7a2. 其余 14 键保留', `n=${Object.keys(ctx).length}`);
+  // 7b 核心反证：龙头键无值（引擎层形状 undefined）+ 条件 `narrativeLeaderHot != 0`
+  // ——不排除时默认 0 → 项恒假 → 误短路（演示风险）；排除 → 不短路（防线生效）
+  const COND_LEADER = 'narrativeLeaderHot != 0 AND earlyReturn >= 100';
+  ok(svc._evaluateKnownFalseTerm(COND_LEADER, { earlyReturn: 200 }) !== null,
+    '7b. 不排除：默认 0 把 != 0 项误评恒假 → 短路（误拦风险现场）');
+  ok(svc._evaluateKnownFalseTerm(COND_LEADER, { earlyReturn: 200 }, LEADER) === null,
+    '7c. 排除龙头键：该项视为混未知因子不评 → 不短路（fail-open 走全链）');
+  // 7d: 条件不含龙头键时排除无影响（perf 链形状全额收益）
+  ok(svc._evaluateKnownFalseTerm(COND_REAL, { narrativeRating: 1 }, LEADER) !== null,
+    '7d. 条件不含龙头键 → 排除集不影响短路（引擎层全额收益）');
+  // 7e: 混合——龙头项 + 已知恒假项共存：排除后仍能命中已知项（评级门照常短路）
+  const COND_MIX = 'narrativeLeaderHot == 1 AND (narrativeRating == 2 OR narrativeRating == 3)';
+  const t = svc._evaluateKnownFalseTerm(COND_MIX, { narrativeRating: 1 }, LEADER);
+  ok(t !== null && t.includes('narrativeRating'), '7e. 龙头项不评但评级项恒假 → 仍短路（两项互补）', `t=${t}`);
+}
+
+// ═══ 8. P4b 源码口径防线：判定点位置/排除键/options 单源 ═══
+console.log('8. BacktestEngine P4b 接线源码防线');
+{
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
+  // 8a: 引擎层调用存在且带三键排除数组
+  const p4bCall = src.indexOf('_evaluateKnownFalseTerm(');
+  ok(p4bCall > 0, '8a1. 引擎层 _evaluateKnownFalseTerm 调用存在');
+  const block = src.slice(p4bCall, p4bCall + 1600);
+  ok(block.includes("'narrativeLeaderHot', 'narrativeLeaderCount', 'narrativeLeaderMaxMultiple'"),
+    '8a2. 调用带龙头三键排除数组');
+  // 8b: 顺序断言——P4b 判定 < 龙头检查 < performAllChecks 调用（锚定各自唯一
+  // 日志/调用字符串；「同叙事龙头」词组在装载段早有出现不能用）
+  const posP4b = src.indexOf('已知因子恒假短路(引擎层,跳过龙头+preBuy)');
+  const posLeader = src.indexOf('同叙事龙头检查(回放)');
+  const posPreBuy = src.indexOf('this._preBuyCheckService.performAllChecks(');
+  ok(posP4b > 0 && posLeader > posP4b && posPreBuy > posLeader,
+    '8b. 顺序：P4b 判定 < 龙头检查 < performAllChecks（P4a 挡不住的龙头由 P4b 前置拦截）',
+    `p4b=${posP4b} leader=${posLeader} preBuy=${posPreBuy}`);
+  // 8c: 龙头检查 gated on preCheckPassed（P4b 命中后龙头零执行的机制防线）
+  ok(/if \(preCheckPassed && narrativeCallInfo\.sourceTweetId\) \{/.test(src),
+    '8c. 龙头检查前置 preCheckPassed（短路后不跑龙头）');
+  // 8d: P4b options 块键与 performAllChecks options 单源对齐——9 个字面键 +
+  // GMGN/router 两族展开（与第 6 节同口径，排除龙头三键）
+  const SPREAD = ['gmgnIssuerTokenCount', 'gmgnBundlerWalletRatio', 'gmgnRiskCovered',
+    'earlyTradesRouterLowSideSeen', 'earlyTradesRouterRejectCount'];
+  const literal = ['drawdownFromHighest', 'buyRound', 'lastPairReturnRate', 'narrativeRating',
+    'narrativeCorpusLagSec', 'earlyReturn', 'tweetAuthorType', 'dataCollectionRound', 'platform'];
+  const missing = literal.filter(k => !block.includes(`${k}:`) && !block.includes(`${k},`));
+  ok(missing.length === 0, `8d. P4b options 块字面传 ${literal.length} 个 known 键（与 performAllChecks 同源）`, `missing=${missing}`);
+  ok(block.includes('_mapGmgnRiskFactors(') && block.includes('routerGateFactors('),
+    '8e. GMGN/router 两族展开注入与 performAllChecks 同款');
+  // 8f: 单源防线——lastPairReturnRate/faBirthMs 计算只出现一次（P4b 判定与 preBuy
+  // options 共享外层变量；重复计算=两处漂移风险）
+  ok((src.match(/getLastPairReturnRate\(token\.token/g) || []).length === 1,
+    '8f. lastPairReturnRate 计算单源（上移后仅一处）');
+  ok((src.match(/getTokenState\(token\.token\)\?\.createdAtMs/g) || []).length === 1,
+    '8g. faBirthMs 计算单源');
+}
+
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
 process.exit(fail ? 1 : 0);
 }

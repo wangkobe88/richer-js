@@ -808,10 +808,12 @@ class PreBuyCheckService {
    *
    * @param {string} condition - preBuy/repeatBuy 条件表达式
    * @param {Object} options - performAllChecks 的 options（已知因子来源）
+   * @param {string[]} [excludeKeys] - 从已知集排除的键（P4b 引擎层调用：龙头三键
+   *   在龙头检查之前无值，含它们的项按「混未知因子」不评 fail-open，防默认值 0 误短路）
    * @returns {string|null} 命中的恒假合取项原文（短路），null=不短路
    * @private
    */
-  _evaluateKnownFalseTerm(condition, options) {
+  _evaluateKnownFalseTerm(condition, options, excludeKeys = []) {
     if (!this.config.knownFactorShortCircuit) return null;
     const condText = String(condition || '').trim();
     if (!condText) return null;
@@ -828,7 +830,7 @@ class PreBuyCheckService {
       else if (node) terms.push(node);
     })(ast);
     if (terms.length === 0) return null;
-    const known = this._buildKnownFactorContext(options);
+    const known = this._buildKnownFactorContext(options, excludeKeys);
     for (const term of terms) {
       const factors = [];
       (function collect(node) {
@@ -855,10 +857,14 @@ class PreBuyCheckService {
    * 已知因子求值上下文：与 _evaluateWithCondition 正常 context 中「引擎透传键」
    * 的键集与取值默认逐字对齐（buyRound 用 || 其余 ??；null 语义 = 同正常路径）。
    * 防漂移：单测用 getConditionFactorKeys 空壳捕获的 context 对拍同名键值。
+   * @param {Object} options - 已知因子来源
+   * @param {string[]} [excludeKeys] - 排除出已知集的键（P4b 引擎层：龙头三键无值
+   *   时排除——排除键不进返回对象，hasOwnProperty 不中 → 引用它的项 allKnown
+   *   false 不评 → fail-open 走全链，与「混未知因子」同防线）
    * @private
    */
-  _buildKnownFactorContext(options = {}) {
-    return {
+  _buildKnownFactorContext(options = {}, excludeKeys = []) {
+    const full = {
       buyRound: options.buyRound || 1,
       lastPairReturnRate: options.lastPairReturnRate ?? 0,
       platform: options.platform ?? null,
@@ -877,6 +883,9 @@ class PreBuyCheckService {
       earlyTradesRouterLowSideSeen: options.earlyTradesRouterLowSideSeen ?? null,
       earlyTradesRouterRejectCount: options.earlyTradesRouterRejectCount ?? null,
     };
+    if (excludeKeys.length === 0) return full;
+    for (const k of excludeKeys) delete full[k];
+    return full;
   }
 
   /** 合取项还原为可读文本（短路日志/原因展示用）@private */

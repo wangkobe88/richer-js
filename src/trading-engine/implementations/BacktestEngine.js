@@ -1511,6 +1511,13 @@ class BacktestEngine extends AbstractTradingEngine {
       // 失败/超时=9 放行）──
       let narrativeCallInfo = null;
       let narrativeLeaderInfo = null;
+      // P4b 单源上移（2026-10-12）：lastPairReturnRate / 早晚票语料滞后秒的计算从
+      // preBuy options 组装处上移——引擎层短路判定与 preBuy options 两处消费同一份
+      // （纯内存读，上移零行为差异；防两处计算逻辑漂移）。narrativeCorpusLagSec
+      // 依赖直调结果，直调块内赋值，preBuy 块消费；直调未进/缺锚保持 null 同原版
+      const lastPairReturnRate = this._tokenPool.getLastPairReturnRate(token.token, token.chain || 'bsc');
+      const faBirthMs = this._factorAggregator.getTokenState(token.token)?.createdAtMs ?? null;
+      let narrativeCorpusLagSec = null;
       const narrativeCallCondition = strategy.narrativeCallCondition && String(strategy.narrativeCallCondition).trim() !== ''
         ? String(strategy.narrativeCallCondition).trim() : null;
       if (narrativeCallCondition && preCheckPassed
@@ -1536,9 +1543,55 @@ class BacktestEngine extends AbstractTradingEngine {
             ' → 后续买信号短路（address-fail 重试窗内已豁免的除外）');
         }
 
+        // 早晚票语料滞后秒（0fed29f9 案，与实时引擎同口径）：FA 出生锚（回测 =
+        // discovered_at）− corpusTs。时序穿越声明同 narrativeRating：语料是当前
+        // 快照分析历史 token，lag 只看相对增量。null = 晚票门 fail-closed
+        narrativeCorpusLagSec = faBirthMs && narrativeCallInfo.corpusTs
+          ? Math.round((faBirthMs - narrativeCallInfo.corpusTs) / 1000)
+          : null;
+
+        // ── P4b 引擎层已知因子恒假短路（2026-10-12，龙头检查之前）──
+        // P4a 短路在 performAllChecks 内部，挡不住引擎层同叙事龙头检查（perf4 实测
+        // 龙头 6767 次与 perf3 全等 avg 72ms ≈ 段墙钟 23% 纯浪费）。此处判定上移到
+        // 龙头之前：命中恒假项 → 跳过龙头+preBuy 直接拒绝。等价性：判定所用键值
+        // 全部在直调后定型（narrativeRating/lag/GMGN=直调产物、fire 因子快照、
+        // router 观察史本 fire 内无回填），龙头检查只读不写这些键 → 此处评估与
+        // performAllChecks 处评估 bit 相同。龙头三键此时无值——从已知集排除
+        // （含龙头键的项不评 fail-open 走全链，由 P4a 内层在龙头跑完后接管），
+        // 防 narrativeLeaderHot == 0 类条件被默认值 0 误短路。直调块内判定恰好
+        // 与龙头检查的先行条件对齐（有直调才有龙头检查）
+        if (shouldPerformPreCheck && this._preBuyCheckService) {
+          const { routerGateFactors } = require('../pre-check/router-gate-state');
+          const engineShortCircuitTerm = this._preBuyCheckService._evaluateKnownFalseTerm(
+            String(currentRound === 0
+              ? strategy.preBuyCheckCondition
+              : strategy.repeatBuyCheckCondition || '').trim(),
+            {
+              drawdownFromHighest: factorResults.drawdownFromHighest || null,
+              buyRound: currentRound + 1,
+              lastPairReturnRate: lastPairReturnRate ?? 0,
+              narrativeRating: narrativeCallInfo.numericRating,
+              narrativeCorpusLagSec,
+              earlyReturn: factorResults.earlyReturn ?? null,
+              ...this._mapGmgnRiskFactors(narrativeCallInfo.gmgnRisk),
+              tweetAuthorType: factorResults.tweetAuthorType ?? 0,
+              dataCollectionRound: factorResults.dataCollectionRound ?? 0,
+              platform: token.platform || factorResults.platform || null,
+              ...routerGateFactors(this._routerGateState.get(token.token)),
+            },
+            ['narrativeLeaderHot', 'narrativeLeaderCount', 'narrativeLeaderMaxMultiple'],
+          );
+          if (engineShortCircuitTerm) {
+            preCheckPassed = false;
+            blockReason = `已知因子恒假短路(引擎层): ${engineShortCircuitTerm}`;
+            this.logger.info(this._experimentId, 'BuyEval',
+              `已知因子恒假短路(引擎层,跳过龙头+preBuy) | ${token.symbol} term=${engineShortCircuitTerm}`);
+          }
+        }
+
         // ── 同叙事龙头已火检查（回放：checkTimeSec 用回放时点，与下方 performAllChecks checkTime 同源；
         // 无 sourceTweetId→因子 0 放行；候选 material_id 映射为当前状态属已知穿越，涨幅计算无前视）──
-        if (narrativeCallInfo.sourceTweetId) {
+        if (preCheckPassed && narrativeCallInfo.sourceTweetId) {
           narrativeLeaderInfo = await this._sameNarrativeLeaderService.check({
             tokenAddress: token.token,
             sourceTweetId: narrativeCallInfo.sourceTweetId,
@@ -1571,15 +1624,6 @@ class BacktestEngine extends AbstractTradingEngine {
             : strategy.repeatBuyCheckCondition;
           preBuyCheckCondition = String(preBuyCheckCondition).trim();
 
-          const lastPairReturnRate = this._tokenPool.getLastPairReturnRate(token.token, token.chain || 'bsc');
-
-          // 早晚票语料滞后秒（0fed29f9 案 2026-10-08，与实时引擎同口径）：FA 出生锚
-          // （回测 = discovered_at）− corpusTs。时序穿越声明同 narrativeRating：语料是
-          // 当前快照分析历史 token，lag 只看相对增量。null = 晚票门 fail-closed。
-          const faBirthMs = this._factorAggregator.getTokenState(token.token)?.createdAtMs ?? null;
-          const narrativeCorpusLagSec = faBirthMs && narrativeCallInfo?.corpusTs
-            ? Math.round((faBirthMs - narrativeCallInfo.corpusTs) / 1000)
-            : null;
           const meta = this._tokenMeta.get(token.token) || {};
           let totalSupply = meta.totalSupply || 0;
           if (totalSupply <= 0 && factorResults.fdv > 0 && factorResults.currentPrice > 0) {
