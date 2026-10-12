@@ -28,7 +28,7 @@
 // 跑序无依赖，可串行跑；⚠️ 必须等画像库重建完成 + 删死行之后再启动 run-engine
 // （回测启动时读画像库，混杂期数据脏）。
 //
-// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm|v0|e50|eno|enl|ec0 [--gm-pct <50-100>] [--commit]
+// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm|v0|e50|eno|enl|ec0|pf0 [--gm-pct <50-100>] [--commit]
 //   默认 dry-run 打印各臂 diff 摘要；--commit 真建。gm 臂须显式 --gm-pct（dry-run 定档值）。
 // ============================================================================
 const path = require('path');
@@ -95,6 +95,7 @@ const ARMS = {
     eno: { src: ETNONE, suffix: '-去er右臂', desc: 'v0 + lag 门删右臂（lag<300 单臂，晚票全拦）' },
     enl: { src: ETNONE, suffix: '-去lag门整条', desc: 'v0 + lag 门整条去除（时间锚与 er 全不筛）' },
     ec0: { src: ETNONE, suffix: '-去cycle门', desc: 'v0 + condition 删 cycle 子句 + config 删 tokenCycle 段（cycle 门纯效应）' },
+    pf0: { src: ETNONE, suffix: '-pf验证', desc: 'v0 + backtest.faPreFilter=true（P2-1 双跑验证：超龄未持仓 tick 跳过因子构建，开/关 trades 须 bit-identical）' },
 };
 
 const args = process.argv.slice(2);
@@ -244,6 +245,20 @@ async function main() {
                 throw new Error(`[${arm}] v0 基线校验失败（top1/covered/router 残留）`);
             }
             buy.preBuyCheckCondition = pbc;
+        } else if (arm === 'pf0') {
+            // P2-1 双跑验证臂（2026-10-12）：v0 的 pbc/condition 逐字同 + backtest.faPreFilter=true。
+            // FA preFilter 默认关（红线注释：跳过连带跳过 TPA 触发与 cycle latch 推进 = 决策
+            // 行为变化，开启前须开/关双跑 trades 一致）。本臂即「开」侧，对拍 v0（关侧）。
+            if (buy.condition.includes('TPAPre_tokenScore')) {
+                throw new Error(`[${arm}] 源应为 tnone（condition 无 TPA 门），condition=${buy.condition}`);
+            }
+            if (!cfg.backtest) throw new Error(`[${arm}] 源 config 无 backtest 段`);
+            const pbc = pbcToV0(origPbc);
+            if (pbc.includes('earlyTradesTop1Buy') || pbc.includes(ROUTER_OLD)) {
+                throw new Error(`[${arm}] v0 基线校验失败（top1/covered/router 残留）`);
+            }
+            buy.preBuyCheckCondition = pbc;
+            cfg.backtest.faPreFilter = true;
         }
 
         // diff 校验：b1/b2 与源零差异；c/d10/d5 除 pbc 外零差异；t22/t20 除 condition 外零差异
@@ -267,6 +282,9 @@ async function main() {
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
                 delete base.tokenCycle;
+            } else if (arm === 'pf0') { // 差异仅 pbc + backtest.faPreFilter
+                base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
+                base.backtest.faPreFilter = true;
             } else if (arm === 'gm') { // 差异仅 condition + gmgnFilter
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
                 base.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
@@ -280,7 +298,8 @@ async function main() {
                     : (arm === 'mh8' ? 'trigger.minHolders'
                         : (arm === 'notpa' ? 'condition+去tokenPositionAnalyzer段'
                             : (arm === 'ec0' ? 'pbc+condition+去tokenCycle段'
-                                : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition'))));
+                                : (arm === 'pf0' ? 'pbc+faPreFilter'
+                                : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition')))));
                 throw new Error(`[${arm}] 与源实验差异超出 name/description/${field}——应零差异`);
             }
         }
@@ -310,7 +329,9 @@ async function main() {
                                                 ? 'v0 基础 + lag 门整条去除：时间锚与 er 均不筛（c 臂同款删法，新基线上重测）'
                                                 : (arm === 'ec0'
                                                     ? 'v0 基础 + condition 删 (tokenCycle != 1 OR tokenCycle IS NULL) + config 删 tokenCycle 段（用户裁定 2026-10-11：机制已算废除，卖侧无 groups 仅剩买侧此门；v0 vs ec0 差分 = cycle 门纯效应）'
-                                                    : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`))))))))))))
+                                                    : (arm === 'pf0'
+                                                        ? 'v0 基础 + backtest.faPreFilter=true（2026-10-12 P2-1 双跑验证：超龄未持仓 tick 跳过因子构建；v0=关侧对照，trades 须 bit-identical + TPA 行数差 = 超龄触发损失面）'
+                                                        : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`)))))))))))))
             + `；画像库 = 二期 sender 口径重建版。`;
 
         console.log(`\n===== 臂 ${arm}（源 ${def.src}）=====`);
