@@ -5,7 +5,8 @@
  *  A. MISS：空目录全量拉取 → data+meta 落盘，行 deep-equal（price 字符串原样），fetchRows 以 afterId=0 调用
  *  B. FRESH：命中零分页拉取（探针除外），返回行 deep-equal
  *  C. STALE 增量：DB 追加 id>maxId（跨 chunk、含 id 洞）→ 旧行+增量合并，meta 更新，再读 FRESH deep-equal
- *  D. STALE 全局排序：105 地址双 chunk 增量块间 id 交错 → 重写文件逐行 id 严格升序
+ *  D. STALE delta 侧车（P15）：base 逐字节不动（未重压缩）+ delta 恰增量行数逐行
+ *     id 严格升序 + meta 侧车字段口径 + FRESH 合并读全量
  *  E. 探针失败 → bypass：WARN 日志、fetchRows(0) 直拉、缓存目录无任何文件
  *  F. forceRefresh：跳过缓存读强制重拉重建
  *  G. 损坏-数据：坏 gzip / 坏 JSON 行 → 自动删缓存 MISS 重拉不中断
@@ -24,6 +25,10 @@
  *  R. 锚定无序拉取矩阵（2026-10-09 装载重写）：0 行 chunk 跳过 / count≤1000 一次
  *     拉全 / count>1000 拆半递归 / 单 token keyset 分页+对账 / headAnchor 闭区间
  *     封死装载中途新写入 / 对账失配 fail-loud / maxTickRows 护栏
+ *  S. delta 侧车 + 投机读矩阵（P15，2026-10-13）：两次追加累积 / 撕裂尾读满即停
+ *     + STALE 重写自愈 / delta 外部删除→失配 / 外部截短→损坏重拉 / 压缩阈值全量
+ *     重写 / v1 meta 缺省无 delta / 投机读先于探针发起 / bypass+损坏 base 零
+ *     unhandled rejection / delta 写失败 fail-loud meta 原状
  *
  * 零 DB：fake supabase（v4：order desc 生效 + 探针失败注入 + count exact + lte +
  * 多 eq 链 + countPad 失配注入）打桩 + tmp 目录真实文件读写。
@@ -117,7 +122,7 @@ function mkLogger() {
 
 /** 引擎级 stub：预注入 tmp cacheDir 的 BacktestTickCache 实例 + 原型方法借用链。
  *  _tokenMeta 自动从 rows 收集全部 token（引擎真实行为就是 token 全集驱动拉取）。 */
-function makeEngineStub({ rows, platforms, startFilter = null, endFilter = null, cacheDir, useCache = true, forceRefresh = false, supabaseOpts = {} }) {
+function makeEngineStub({ rows, platforms, startFilter = null, endFilter = null, cacheDir, useCache = true, forceRefresh = false, supabaseOpts = {}, deltaCompactionRows }) {
   const logger = mkLogger();
   const tokenMeta = new Map();
   for (const r of rows) tokenMeta.set(r.token_address, {});
@@ -139,7 +144,7 @@ function makeEngineStub({ rows, platforms, startFilter = null, endFilter = null,
       },
     },
     logger,
-    _tickCache: new BacktestTickCache({ logger, experimentId: 'exp-bt', cacheDir }),
+    _tickCache: new BacktestTickCache({ logger, experimentId: 'exp-bt', cacheDir, deltaCompactionRows }),
     _loadRawTickRows: BacktestEngine.prototype._loadRawTickRows,
     _fetchPlatformTicksRows: BacktestEngine.prototype._fetchPlatformTicksRows,
     _fetchHeadTickId: BacktestEngine.prototype._fetchHeadTickId,
@@ -258,11 +263,11 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
       'C4. 增量后再读 FRESH 与 DB 全量对拍 deep-equal');
   }
 
-  // ---------- D：STALE 重写文件全局 id 升序 ----------
-  console.log('D. STALE 合并后文件逐行 id 严格升序');
+  // ---------- D：STALE delta 侧车（P15） ----------
+  console.log('D. STALE 增量走 delta 侧车：base 逐字节不动 + delta 严格升序');
   {
     const dir = mkTmpDir();
-    // 首轮：105 地址（两 chunk）各 5 行
+    // 首轮：105 地址（两 chunk）各 5 行 = 525 行落 base
     const rows = [];
     let id = 0;
     const addrs = [];
@@ -273,6 +278,9 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
     }
     const stub1 = makeEngineStub({ rows, platforms: ['fourmeme'], cacheDir: dir });
     await BacktestEngine.prototype._loadWssTicks.call(stub1);
+    const baseFile = path.join(dir, 'exp-src', 'fourmeme.jsonl.gz');
+    const baseBefore = fs.readFileSync(baseFile);
+    const baseMtimeMs = fs.statSync(baseFile).mtimeMs;
     // 追加：交错 id 形态（新行 id 递增但 token 分布交错——chunk 间拉取顺序与 id 序无关）
     const grown = rows.slice();
     for (let i = 0; i < 50; i++) {
@@ -280,9 +288,22 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
     }
     const stub2 = makeEngineStub({ rows: grown, platforms: ['fourmeme'], cacheDir: dir });
     await BacktestEngine.prototype._loadWssTicks.call(stub2);
-    const cached = readCacheRows(dir, 'exp-src', 'fourmeme');
-    ok(cached.length === grown.length, `D. 文件行数 = 全量 ${grown.length} = ${cached.length}`);
-    ok(cached.every((r, i) => i === 0 || cached[i - 1].id < r.id), 'D2. 文件逐行 id 严格升序');
+    ok(stub2._ticks.length === grown.length, `D. 返回行数 = 全量 ${grown.length} = ${stub2._ticks.length}`);
+    ok(fs.readFileSync(baseFile).equals(baseBefore) && fs.statSync(baseFile).mtimeMs === baseMtimeMs,
+      'D2. base 文件逐字节未动（P15：未重压缩，mtime 原值）');
+    const deltaFile = path.join(dir, 'exp-src', 'fourmeme.delta.jsonl');
+    ok(fs.existsSync(deltaFile), 'D3. delta 侧车落盘');
+    const deltaRowsArr = fs.readFileSync(deltaFile, 'utf8').split('\n').filter(l => l).map(l => JSON.parse(l));
+    ok(deltaRowsArr.length === 50, `D4. delta 恰 50 行增量（${deltaRowsArr.length}）`);
+    ok(deltaRowsArr.every((r, i) => i === 0 || deltaRowsArr[i - 1].id < r.id), 'D5. delta 逐行 id 严格升序（chunk 交错被排序）');
+    const meta = readMeta(dir, 'exp-src', 'fourmeme');
+    ok(meta.deltaRows === 50 && meta.baseRows === 525 && meta.rows === 575
+      && meta.baseMaxId === 525 && meta.maxId === id,
+      `D6. meta 侧车口径（delta=${meta.deltaRows} base=${meta.baseRows} total=${meta.rows} maxId=${meta.maxId}）`);
+    // 再读 FRESH：base+delta 合并 = 全量（与 DB 对拍）
+    const stub3 = makeEngineStub({ rows: grown, platforms: ['fourmeme'], cacheDir: dir });
+    await BacktestEngine.prototype._loadWssTicks.call(stub3);
+    ok(stub3._ticks.length === grown.length, `D7. FRESH 再读 base+delta 合并 = 全量 ${grown.length}`);
   }
 
   // ---------- E：探针失败 bypass ----------
@@ -690,6 +711,178 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
       } catch (e) { threw = e; }
       ok(threw && /上限/.test(threw.message),
         `R7. maxTickRows 护栏 throw（${threw ? threw.message.slice(0, 40) : '未 throw'}）`);
+    }
+  }
+
+  // ---------- S：delta 侧车 + 投机读矩阵（P15） ----------
+  console.log('S. delta 侧车：二次追加 / 撕裂尾自愈 / 外部删改 / 压缩 / v1 meta / 投机读');
+  {
+    // S1-S4：两次 STALE 追加累积同一 delta 文件，base 两轮都未动
+    const dir = mkTmpDir();
+    const rows = [];
+    for (let i = 1; i <= 30; i++) rows.push(mkRow(i, '0xAAA', 'fourmeme', T0 + i * 1000));
+    const stub1 = makeEngineStub({ rows, platforms: ['fourmeme'], cacheDir: dir });
+    await BacktestEngine.prototype._loadWssTicks.call(stub1);
+    const baseFile = path.join(dir, 'exp-src', 'fourmeme.jsonl.gz');
+    const baseBefore = fs.readFileSync(baseFile);
+    const grown1 = rows.concat([
+      mkRow(31, '0xAAA', 'fourmeme', T0 + 31 * 1000),
+      mkRow(32, '0xAAA', 'fourmeme', T0 + 32 * 1000),
+    ]);
+    const stub2 = makeEngineStub({ rows: grown1, platforms: ['fourmeme'], cacheDir: dir });
+    await BacktestEngine.prototype._loadWssTicks.call(stub2);
+    const grown2 = grown1.concat([mkRow(33, '0xAAA', 'fourmeme', T0 + 33 * 1000)]);
+    const stub3 = makeEngineStub({ rows: grown2, platforms: ['fourmeme'], cacheDir: dir });
+    await BacktestEngine.prototype._loadWssTicks.call(stub3);
+    const deltaFile = path.join(dir, 'exp-src', 'fourmeme.delta.jsonl');
+    const dLines = fs.readFileSync(deltaFile, 'utf8').split('\n').filter(l => l);
+    ok(dLines.length === 3, `S. 两次追加累积 delta 3 行（${dLines.length}）`);
+    ok(fs.readFileSync(baseFile).equals(baseBefore), 'S2. base 两轮追加均逐字节未动');
+    const meta3 = readMeta(dir, 'exp-src', 'fourmeme');
+    ok(meta3.deltaRows === 3 && meta3.rows === 33 && meta3.maxId === 33 && meta3.baseRows === 30,
+      `S3. meta 累积口径（delta=${meta3.deltaRows} rows=${meta3.rows} maxId=${meta3.maxId} base=${meta3.baseRows}）`);
+    const stub4 = makeEngineStub({ rows: grown2, platforms: ['fourmeme'], cacheDir: dir });
+    await BacktestEngine.prototype._loadWssTicks.call(stub4);
+    ok(stub4._ticks.length === 33, `S4. FRESH 读含 delta 全量 33 行 = ${stub4._ticks.length}`);
+
+    // S5-S6：撕裂尾（crash：rename 后 meta 写前中断 → 文件行数 > meta.deltaRows）
+    fs.appendFileSync(deltaFile, '{"id":999,"torn":truncated');   // 无换行撕裂行
+    const stub5 = makeEngineStub({ rows: grown2, platforms: ['fourmeme'], cacheDir: dir });
+    await BacktestEngine.prototype._loadWssTicks.call(stub5);
+    ok(stub5._ticks.length === 33,
+      `S5. 撕裂尾不解析：读满 meta.deltaRows 即停（${stub5._ticks.length} 行 = 30 base + 3 delta，撕裂第 4 行未进）`);
+    const grown3 = grown2.concat([mkRow(34, '0xAAA', 'fourmeme', T0 + 34 * 1000)]);
+    const stub6 = makeEngineStub({ rows: grown3, platforms: ['fourmeme'], cacheDir: dir });
+    await BacktestEngine.prototype._loadWssTicks.call(stub6);
+    const healed = fs.readFileSync(deltaFile, 'utf8').split('\n').filter(l => l);
+    ok(healed.length === 4 && healed.every(l => { try { JSON.parse(l); return true; } catch (_) { return false; } }),
+      `S6. STALE 重写后撕裂尾清除（恰 4 行全合法 JSON）`);
+
+    // S7-S8：delta 文件被外部删除但 meta.deltaRows>0 → 失配 drop + MISS
+    fs.rmSync(deltaFile);
+    const stub7 = makeEngineStub({ rows: grown3, platforms: ['fourmeme'], cacheDir: dir });
+    await BacktestEngine.prototype._loadWssTicks.call(stub7);
+    ok(stub7._ticks.length === 34 && stub7.logger.logs.info.some(m => m.includes('缓存失配')),
+      `S7. delta 缺失 → 失配 drop + MISS 重拉 34 行 = ${stub7._ticks.length}`);
+    const meta7 = readMeta(dir, 'exp-src', 'fourmeme');
+    ok(!fs.existsSync(deltaFile) && meta7.deltaRows === 0 && meta7.rows === 34,
+      `S8. MISS 重建后 meta 归零无 delta（rows=${meta7.rows}）`);
+
+    // S9-S10：delta 被外部截短（行数 < meta.deltaRows）→ 损坏 drop + MISS
+    const dir9 = mkTmpDir();
+    const stub9a = makeEngineStub({ rows, platforms: ['fourmeme'], cacheDir: dir9 });
+    await BacktestEngine.prototype._loadWssTicks.call(stub9a);   // 30 落 base
+    const stub9b = makeEngineStub({ rows: grown2, platforms: ['fourmeme'], cacheDir: dir9 });
+    await BacktestEngine.prototype._loadWssTicks.call(stub9b);   // +3 进 delta（meta.deltaRows=3）
+    const deltaFile9 = path.join(dir9, 'exp-src', 'fourmeme.delta.jsonl');
+    const lines9 = fs.readFileSync(deltaFile9, 'utf8').split('\n').filter(l => l);
+    fs.writeFileSync(deltaFile9, lines9.slice(0, 1).join('\n') + '\n');   // 截短到 1 行
+    const stub9c = makeEngineStub({ rows: grown2, platforms: ['fourmeme'], cacheDir: dir9 });
+    await BacktestEngine.prototype._loadWssTicks.call(stub9c);
+    ok(stub9c._ticks.length === 33 && stub9c.logger.logs.info.some(m => m.includes('缓存读损坏')),
+      `S9. delta 截短 → 读损坏 drop + MISS 重拉 33 行 = ${stub9c._ticks.length}`);
+
+    // S11-S12：压缩阈值（注入 deltaCompactionRows=2）→ stale→compact 全量重写
+    const dir11 = mkTmpDir();
+    const stub11a = makeEngineStub({ rows, platforms: ['fourmeme'], cacheDir: dir11 });
+    await BacktestEngine.prototype._loadWssTicks.call(stub11a);
+    const stub11b = makeEngineStub({ rows: grown1, platforms: ['fourmeme'], cacheDir: dir11, deltaCompactionRows: 2 });
+    await BacktestEngine.prototype._loadWssTicks.call(stub11b);   // 增量 2 行 ≥ 阈值 2 → 压缩
+    const compactLog = stub11b.logger.logs.info.find(m => m.includes('stale→compact'));
+    ok(!!compactLog, 'S11. 压缩路径日志发出（delta ≥ 阈值）');
+    ok(!fs.existsSync(path.join(dir11, 'exp-src', 'fourmeme.delta.jsonl')), 'S12. 压缩后 delta 文件清除');
+    const meta11 = readMeta(dir11, 'exp-src', 'fourmeme');
+    const compactRows = readCacheRows(dir11, 'exp-src', 'fourmeme');
+    ok(meta11.deltaRows === 0 && meta11.rows === 32 && meta11.baseRows === 32
+      && compactRows.length === 32 && compactRows.every((r, i) => i === 0 || compactRows[i - 1].id < r.id),
+      `S13. 压缩后 base 全量重写升序（rows=${compactRows.length} meta=${meta11.rows}）`);
+
+    // S14-S15：v1 旧 meta（无 delta 字段）→ 读作无 delta；再 STALE 正常建侧车（不强制重建）
+    const dir14 = mkTmpDir();
+    const stub14a = makeEngineStub({ rows, platforms: ['fourmeme'], cacheDir: dir14 });
+    await BacktestEngine.prototype._loadWssTicks.call(stub14a);
+    const metaPath14 = path.join(dir14, 'exp-src', 'fourmeme.meta.json');
+    const m14 = readMeta(dir14, 'exp-src', 'fourmeme');
+    for (const k of ['baseMaxId', 'baseRows', 'deltaRows']) delete m14[k];   // 剥离成 v1 形状
+    fs.writeFileSync(metaPath14, JSON.stringify(m14));
+    const stub14b = makeEngineStub({ rows: grown1, platforms: ['fourmeme'], cacheDir: dir14 });
+    await BacktestEngine.prototype._loadWssTicks.call(stub14b);
+    ok(stub14b._ticks.length === 32 && !stub14b.logger.logs.info.some(m => m.includes('缓存失配')),
+      `S14. v1 meta 缺省无 delta：STALE 直接追加不重建（${stub14b._ticks.length} 行）`);
+    const meta14 = readMeta(dir14, 'exp-src', 'fourmeme');
+    ok(meta14.deltaRows === 2 && meta14.baseRows === 30 && fs.existsSync(path.join(dir14, 'exp-src', 'fourmeme.delta.jsonl')),
+      `S15. v1 meta 迁移：追加后 delta 字段出现（delta=${meta14.deltaRows}）`);
+
+    // S16：投机读先于探针发起（wrapper 顺序断言——读在探针 await 前已启动）
+    {
+      const dir16 = mkTmpDir();
+      const logger16 = mkLogger();
+      const cache16 = new BacktestTickCache({ logger: logger16, cacheDir: dir16 });
+      await cache16.getOrFetch({
+        sourceExperimentId: 's16', platform: 'fourmeme', addresses: ['0xAAA'],
+        fetchRows: async () => rows.slice(),
+        probeMaxId: async () => null,
+        anchorExists: async () => true,
+      });
+      const order = [];
+      const origRead = cache16._readBaseAndDelta.bind(cache16);
+      cache16._readBaseAndDelta = function (...a) { order.push('read'); return origRead(...a); };
+      await cache16.getOrFetch({
+        sourceExperimentId: 's16', platform: 'fourmeme', addresses: ['0xAAA'],
+        fetchRows: async () => { order.push('fetch'); return rows.slice(); },
+        probeMaxId: async () => { order.push('probe'); return null; },
+        anchorExists: async () => { order.push('anchor'); return true; },
+      });
+      ok(order[0] === 'read' && order[1] === 'probe',
+        `S16. 投机读先于探针发起（${order.join('→')}）`);
+    }
+
+    // S17：bypass + 损坏 base → 投机读 rejection 被兜住零 unhandledRejection
+    {
+      const unhandled = [];
+      const onUn = (e) => unhandled.push(e);
+      process.on('unhandledRejection', onUn);
+      try {
+        const dir17 = mkTmpDir();
+        const stub17a = makeEngineStub({ rows, platforms: ['fourmeme'], cacheDir: dir17 });
+        await BacktestEngine.prototype._loadWssTicks.call(stub17a);
+        fs.writeFileSync(path.join(dir17, 'exp-src', 'fourmeme.jsonl.gz'), Buffer.from('corrupt'));
+        const stub17b = makeEngineStub({ rows, platforms: ['fourmeme'], cacheDir: dir17, supabaseOpts: { failProbe: true } });
+        await BacktestEngine.prototype._loadWssTicks.call(stub17b);   // bypass（不 await 投机读）
+        await new Promise((r) => setImmediate(r));   // 走一轮事件循环给 rejection 暴露窗口
+      } finally {
+        process.removeListener('unhandledRejection', onUn);
+      }
+      ok(unhandled.length === 0, `S17. bypass+损坏 base：投机读 catch sink 兜住零 unhandled（${unhandled.length}）`);
+    }
+
+    // S18-S20：delta 写失败 fail-loud（tmp 被 目录占位 → EISDIR）+ meta 原状
+    {
+      const dir18 = mkTmpDir();
+      const logger18 = mkLogger();
+      const cache18 = new BacktestTickCache({ logger: logger18, cacheDir: dir18 });
+      await cache18.getOrFetch({
+        sourceExperimentId: 's18', platform: 'fourmeme', addresses: ['0xAAA'],
+        fetchRows: async () => rows.slice(),
+        probeMaxId: async () => null,
+        anchorExists: async () => true,
+      });
+      const deltaPath18 = path.join(dir18, 's18', 'fourmeme.delta.jsonl');
+      fs.mkdirSync(`${deltaPath18}.${process.pid}.tmp`);   // tmp 名占位为目录 → writeFileSync EISDIR
+      let threw18 = null;
+      try {
+        await cache18.getOrFetch({
+          sourceExperimentId: 's18', platform: 'fourmeme', addresses: ['0xAAA'],
+          fetchRows: async () => grown1.slice(),
+          probeMaxId: async () => 32,
+          anchorExists: async () => true,
+        });
+      } catch (e) { threw18 = e; }
+      ok(threw18 && /EISDIR/.test(threw18.message),
+        `S18. delta 写失败 throw fail-loud（${threw18 ? threw18.message.slice(0, 30) : '未 throw'}）`);
+      ok(!fs.existsSync(deltaPath18), 'S19. 失败后无 delta 半成品（rename 未发生）');
+      const meta18 = readMeta(dir18, 's18', 'fourmeme');
+      ok(meta18.maxId === 30 && meta18.deltaRows === 0, `S20. 失败后 meta 原状（maxId=${meta18.maxId}，下次再增量）`);
     }
   }
 

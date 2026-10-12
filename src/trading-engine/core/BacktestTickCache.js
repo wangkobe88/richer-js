@@ -21,7 +21,8 @@
  *   FRESH  锚定探针 null（增量区间无行）且锚行 PK 核验存在 → 纯读文件零拉取
  *          （空集形态 {0,0} 锚=0 探针退无锚形状，null = DB 无行，同样 FRESH 空数组）
  *   STALE  锚定探针返回行 id（增量区间有行；观测值仅日志用，真 max 由增量拉取后
- *          _writeSorted 重算）→ 读旧文件 + fetchRows(meta.maxId) 增量补拉 → 合并重写
+ *          重算）→ 读旧文件 + fetchRows(meta.maxId) 增量补拉 → 小增量走 delta 侧车
+ *          追加（P15：base 不重压缩，见下「delta 侧车」）
  *   回缩   锚定探针 null 且锚行 PK 核验不存在（清表/删行使 meta.maxId 行消失——gt 锚
  *          形状下旧行「probeMax < meta.maxId」分支结构性不可达，检测责任移交锚行核验）→ drop → MISS
  *   bypass 探针 throw → WARN + fetchRows(0) 直拉，本次完全不读写缓存（数据正确性优先，
@@ -33,6 +34,23 @@
  * 写路径：JSON Lines 逐行 + gzip 流式（绕 V8 单字符串上限）；tmp 带 pid 后缀（两进程并发
  * 写同 key 只浪费不损坏）；先 rename 数据文件后写 meta（保住 gzipBytes crash 检测语义）；
  * 4MB 背压 drain；行 id > Number.MAX_SAFE_INTEGER → throw（fail-loud 防 bigint 静默丢精度）。
+ *
+ * delta 侧车（P15，2026-10-13）：STALE 增量不再触发 base 全量重压缩（perf15 装载画像：
+ * flap 旧行 128.7 万 + 增量 7 行 → 读+解压+重压缩+写回 ~72s 静默纯 CPU = ticks 慢臂主导）。
+ * `<platform>.delta.jsonl` 明文小文件重写（tmp+rename 原子）；meta 真源记 baseMaxId/
+ * baseRows/deltaRows/deltaBytes（v1 旧 meta 缺键 → 读侧缺省「无 delta」= 旧行为，不强制
+ * 重建缓存）。不变量：delta 行 id 全部 > baseMaxId（fetchRows(afterId=meta.maxId) 起点
+ * 保证），base(升序)++delta(升序) = 全局 id 升序，与旧「重写排序」返回口径一致。
+ * crash 窗口：rename 后 meta 写前中断 → delta 实际行数 > meta.deltaRows → 读侧只读前
+ * meta.deltaRows 行（_streamRead maxRows 读满即停，撕裂尾不解析），下次 STALE 重拉增量
+ * 幂等自愈；delta 行数 < meta.deltaRows（外部删改）→ 判损坏 drop + MISS。deltaRows ≥
+ * deltaCompactionRows（默认 30 万）→ 一次性全量合并重压缩摊销。
+ *
+ * 投机读（P15）：一致性校验通过后、探针发出前即启 _readBaseAndDelta（FRESH/STALE 两分支
+ * 都需要全量行；MISS/bypass/回缩丢弃——MISS 本身分钟级网络拉取，读重叠成本可忽略）。探针
+ * ~40s chunk 存在性 RTT 与 gunzip+parse ~25s 并行，STALE 慢臂 = max(探针, 读) + 增量。
+ * 读失败仍在 FRESH/STALE 的 await 点按原语义处理（不提前暴露）；创建即附 catch sink 防
+ * MISS/bypass/回缩分支不 await 时的 unhandled rejection（P10 早发并发同款防线）。
  *
  * 原语（_streamRead 坑防护 / _makeWriter / _drainIfNeeded / _finishWriter / _abortWriter）
  * 平移自 scripts/wallet-profiles/lib/tick-data-cache.js（GlobalTickCache，生产验证母版）。
@@ -53,6 +71,7 @@ const { once } = require('events');
 const CACHE_VERSION = 1;
 const DEFAULT_CACHE_DIR = path.join(process.cwd(), 'data', 'tick-cache', 'backtest');
 const DRAIN_THRESHOLD_BYTES = 1 << 22; // 4MB 背压阈值
+const DELTA_COMPACTION_ROWS = 300000; // delta 侧车行数阈值：≥ 则全量合并重压缩（182 量级 base flap 128 万行，~25% 摊销点）
 
 class BacktestTickCache {
   /**
@@ -62,6 +81,8 @@ class BacktestTickCache {
    * @param {string} [opts.experimentId]  日志归属实验（回测实验 id，非源实验）
    * @param {string} [opts.cacheDir]      覆盖缓存根目录（单测注入 tmp 用；默认
    *                                      cwd/data/tick-cache/backtest）
+   * @param {number} [opts.deltaCompactionRows] delta 侧车压缩阈值（单测注入小值
+   *                                      强制走压缩路径；默认 DELTA_COMPACTION_ROWS）
    */
   constructor(opts = {}) {
     this._logger = opts.logger || {
@@ -71,6 +92,7 @@ class BacktestTickCache {
     };
     this._experimentId = opts.experimentId || null;
     this._cacheDir = opts.cacheDir || DEFAULT_CACHE_DIR;
+    this._deltaCompactionRows = opts.deltaCompactionRows || DELTA_COMPACTION_ROWS;
     this._pendingWrites = new Map(); // `<srcExpId>::<platform>` → Promise（进程内并发去重）
   }
 
@@ -83,6 +105,9 @@ class BacktestTickCache {
   _metaPath(sourceExperimentId, platform) {
     return path.join(this._dirFor(sourceExperimentId), `${platform}.meta.json`);
   }
+  _deltaPath(sourceExperimentId, platform) {
+    return path.join(this._dirFor(sourceExperimentId), `${platform}.delta.jsonl`);
+  }
 
   _ensureDir(dir) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -93,6 +118,9 @@ class BacktestTickCache {
   /**
    * 读并校验 meta：version 匹配、maxId/rows 有限数、columnsTag 与本次一致；
    * 任何不合格（含文件缺失/JSON 损坏）返回 null（调用方按失配分支处理）。
+   * P15 delta 字段（baseMaxId/baseRows/deltaRows）：v1 旧 meta 缺键 → 缺省
+   * 「无 delta」（= 旧版行为，存量缓存不强制重建）；存在但非法（负/NaN/总数
+   * 不自洽）→ 判损坏 null（drop + MISS fail-loud）。
    */
   _readMeta(metaPath, columnsTag) {
     let m;
@@ -104,6 +132,15 @@ class BacktestTickCache {
     if (!m || m.version !== CACHE_VERSION) return null;
     if (!Number.isFinite(m.maxId) || !Number.isFinite(m.rows)) return null;
     if (columnsTag != null && m.columnsTag !== columnsTag) return null;
+    const hasDeltaFields = m.baseMaxId != null || m.baseRows != null || m.deltaRows != null;
+    if (hasDeltaFields) {
+      const nonNeg = (v) => Number.isFinite(v) && v >= 0;
+      if (!nonNeg(m.baseMaxId) || !nonNeg(m.baseRows) || !nonNeg(m.deltaRows)) return null;
+      if (m.baseRows + m.deltaRows !== m.rows) return null; // 总数自洽（写路径不变量）
+    }
+    m.baseMaxId = m.baseMaxId != null ? m.baseMaxId : m.maxId;
+    m.baseRows = m.baseRows != null ? m.baseRows : m.rows;
+    m.deltaRows = m.deltaRows != null ? m.deltaRows : 0;
     return m;
   }
 
@@ -113,9 +150,10 @@ class BacktestTickCache {
     fs.renameSync(tmp, metaPath);
   }
 
-  _dropCache(dataPath, metaPath) {
+  _dropCache(dataPath, metaPath, deltaPath) {
     try { fs.rmSync(dataPath, { force: true }); } catch (_) { /* ignore */ }
     try { fs.rmSync(metaPath, { force: true }); } catch (_) { /* ignore */ }
+    if (deltaPath) { try { fs.rmSync(deltaPath, { force: true }); } catch (_) { /* ignore */ } }
   }
 
   // ── 主入口 ──
@@ -162,25 +200,33 @@ class BacktestTickCache {
     const { sourceExperimentId, platform, fetchRows, probeMaxId, anchorExists, forceRefresh } = d;
     const dataPath = this._dataPath(sourceExperimentId, platform);
     const metaPath = this._metaPath(sourceExperimentId, platform);
+    const deltaPath = this._deltaPath(sourceExperimentId, platform);
 
-    // ① 一致性校验：data/meta 同在且 gzipBytes 匹配（crash 窗口）+ columnsTag 匹配
+    // ① 一致性校验：data/meta 同在且 gzipBytes 匹配（crash 窗口）+ columnsTag 匹配；
+    //    meta 声明有 delta 行但 delta 文件缺失（外部删改）同判失配
     const meta = this._readMeta(metaPath, d.columnsTag);
     const dataExists = fs.existsSync(dataPath);
     let sizeOk = false;
     if (dataExists && meta) {
       try { sizeOk = meta.gzipBytes === fs.statSync(dataPath).size; } catch (_) { sizeOk = false; }
     }
-    if (!dataExists || !meta || !sizeOk) {
+    const deltaOk = !(meta && meta.deltaRows > 0) || fs.existsSync(deltaPath);
+    if (!dataExists || !meta || !sizeOk || !deltaOk) {
       if (dataExists || meta) {
-        this._log('info', `${platform}: 缓存失配（data=${dataExists}, meta=${!!meta}, sizeOk=${sizeOk}）→ 删除全量重拉`);
-        this._dropCache(dataPath, metaPath);
+        this._log('info', `${platform}: 缓存失配（data=${dataExists}, meta=${!!meta}, sizeOk=${sizeOk}, deltaOk=${deltaOk}）→ 删除全量重拉`);
+        this._dropCache(dataPath, metaPath, deltaPath);
       }
-      return this._miss({ dataPath, metaPath, ...d });
+      return this._miss({ dataPath, metaPath, deltaPath, ...d });
     }
     if (forceRefresh) {
-      this._dropCache(dataPath, metaPath);
-      return this._miss({ dataPath, metaPath, ...d });
+      this._dropCache(dataPath, metaPath, deltaPath);
+      return this._miss({ dataPath, metaPath, deltaPath, ...d });
     }
+
+    // ①.5 投机读（P15）：FRESH/STALE 都需要 base+delta 全量行，与探针并行发起；
+    //     MISS/bypass/回缩分支不 await → 创建即附 catch sink 防 unhandled rejection
+    const baseRead = this._readBaseAndDelta(dataPath, deltaPath, meta.deltaRows);
+    baseRead.catch(() => {});
 
     // ② 新鲜度探针（锚定无序形状，2026-10-08）：锚 = meta.maxId，判 id > 锚 增量
     //    区间有无行。失败 → bypass 直拉（不读写缓存，数据正确性优先不掩盖问题）
@@ -212,100 +258,169 @@ class BacktestTickCache {
       }
       if (!alive) {
         this._log('info', `${platform}: 锚行 id=${meta.maxId} 不存在（表空/回缩/删行）→ 删除缓存全量重拉`);
-        this._dropCache(dataPath, metaPath);
-        return this._miss({ dataPath, metaPath, ...d });
+        this._dropCache(dataPath, metaPath, deltaPath);
+        return this._miss({ dataPath, metaPath, deltaPath, ...d });
       }
-      // FRESH：纯读文件。损坏 → drop + 本次继续 MISS 重拉（不中断回测）
+      // FRESH：纯读文件（base+delta）。损坏 → drop + 本次继续 MISS 重拉（不中断回测）
       try {
         const t0 = Date.now();
-        const rows = await this._readAllRows(dataPath);
-        this._log('info', `${platform}: fresh → ${rows.length} 行 / maxId=${meta.maxId} / ${((Date.now() - t0) / 1000).toFixed(1)}s（零 DB 拉取）`);
+        const { base, delta } = await baseRead;
+        const rows = base;
+        for (const r of delta) rows.push(r);   // 禁 spread（大数组）
+        this._log('info', `${platform}: fresh → ${rows.length} 行 / maxId=${meta.maxId} / ${((Date.now() - t0) / 1000).toFixed(1)}s（零 DB 拉取${meta.deltaRows ? `，含 delta ${meta.deltaRows} 行` : ''}）`);
         return { rows, source: 'fresh' };
       } catch (e) {
         this._log('info', `${platform}: 缓存读损坏(${e.message}) → 删除缓存，本次全量重拉`);
-        this._dropCache(dataPath, metaPath);
-        return this._miss({ dataPath, metaPath, ...d });
+        this._dropCache(dataPath, metaPath, deltaPath);
+        return this._miss({ dataPath, metaPath, deltaPath, ...d });
       }
     }
 
-    // 探针命中（gt 锚保证返回 id > 锚）：STALE 增量补拉 → 合并重写
-    return this._stale({ dataPath, metaPath, meta, probeMax, ...d });
+    // 探针命中（gt 锚保证返回 id > 锚）：STALE 增量补拉 → delta 侧车追加（或阈值压缩）
+    return this._stale({ dataPath, metaPath, deltaPath, meta, probeMax, baseRead, ...d });
   }
 
-  /** MISS：全量拉取 → 排序落盘。fetchRows/写失败 → 清 tmp + rethrow（缓存保持无文件态）。 */
-  async _miss({ dataPath, metaPath, platform, addresses, fetchRows, columnsTag }) {
+  /** MISS：全量拉取 → 排序落盘（meta delta 字段归零 + 清除残留 delta）。fetchRows/写失败
+   *  → 清 tmp + rethrow（缓存保持无文件态）。 */
+  async _miss({ dataPath, metaPath, deltaPath, platform, addresses, fetchRows, columnsTag }) {
     const t0 = Date.now();
     const rows = await fetchRows(0);
     const { rows: n, maxId } = await this._writeSorted(dataPath, metaPath, rows, {
-      addresses, columnsTag,
+      addresses, columnsTag, deltaPath,
     });
     this._log('info', `${platform}: miss → 全量拉取 ${n} 行 / maxId=${maxId} / ${((Date.now() - t0) / 1000).toFixed(1)}s → 缓存落盘`);
     return { rows, source: 'miss' };
   }
 
   /**
-   * STALE：读旧文件全部行 + fetchRows(meta.maxId) 增量合并 → 排序重写。
+   * STALE：base+delta 投机读 + fetchRows(meta.maxId) 增量 → delta 侧车追加（P15：
+   * base 不重压缩；delta 行数 ≥ 阈值 → 全量合并重压缩摊销）。
    * 旧文件读失败（损坏）→ drop + MISS 重拉；增量拉取/写失败 → 清 tmp + rethrow
    * （原文件未动，下次再增量）。
    */
-  async _stale({ dataPath, metaPath, platform, addresses, fetchRows, columnsTag, meta, probeMax }) {
+  async _stale({ dataPath, metaPath, deltaPath, platform, addresses, fetchRows, columnsTag, meta, probeMax, baseRead }) {
     const t0 = Date.now();
-    let oldRows;
+    let base, delta;
     try {
-      oldRows = await this._readAllRows(dataPath);
+      ({ base, delta } = await baseRead);
     } catch (e) {
       this._log('info', `${platform}: STALE 旧缓存读损坏(${e.message}) → 删除缓存全量重拉`);
-      this._dropCache(dataPath, metaPath);
-      return this._miss({ dataPath, metaPath, platform, addresses, fetchRows, columnsTag });
+      this._dropCache(dataPath, metaPath, deltaPath);
+      return this._miss({ dataPath, metaPath, deltaPath, platform, addresses, fetchRows, columnsTag });
     }
-    const oldCount = oldRows.length; // push 前快照：rows 是 oldRows 同一引用，push 后 length=合并总数（2026-10-03 R0 双实例事故排查中被此显示误导）
+    const oldCount = base.length + delta.length; // push 前快照：合并总数（2026-10-03 R0 双实例事故排查中被此显示误导）
     const incRows = await fetchRows(meta.maxId);
-    // for 循环 push 合并（禁 spread：28 万行展开爆栈教训）
-    const rows = oldRows;
-    for (const r of incRows) rows.push(r);
-    const { rows: n, maxId } = await this._writeSorted(dataPath, metaPath, rows, {
-      addresses, columnsTag,
+    // delta 批 = 旧 delta + 增量（增量跨 chunk 无序 → 批内全局 id 排序；不变量：
+    // 全部 id > baseMaxId，base(升序)++deltaBatch(升序) = 全局升序 = 旧重写口径）
+    const deltaBatch = delta;
+    for (const r of incRows) deltaBatch.push(r);
+    deltaBatch.sort((a, b) => a.id - b.id);
+
+    if (deltaBatch.length >= this._deltaCompactionRows) {
+      // 压缩：base+delta 全量合并重写（_writeSorted 内清 delta + meta 归零）
+      const rows = base;
+      for (const r of deltaBatch) rows.push(r);
+      const { rows: n, maxId } = await this._writeSorted(dataPath, metaPath, rows, {
+        addresses, columnsTag, deltaPath,
+      });
+      this._log('info', `${platform}: stale→compact（delta ${deltaBatch.length} 行 ≥ 阈值 ${this._deltaCompactionRows}）| cacheMax=${meta.maxId} → probeObserved=${probeMax} | 旧行 ${oldCount} + 增量 ${incRows.length} = ${n} 行 / maxId=${maxId} / ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+      return { rows, source: 'stale' };
+    }
+
+    // 侧车追加：小文件全量重写（tmp+rename 原子；读侧按 meta.deltaRows 截尾，撕裂
+    // 尾不进入）。行 id 校验与 _writeSorted 同款 fail-loud。
+    let maxId = meta.maxId;
+    const parts = new Array(deltaBatch.length);
+    for (let i = 0; i < deltaBatch.length; i++) {
+      const id = this._validateRowId(deltaBatch[i]);
+      if (id > maxId) maxId = id;
+      parts[i] = JSON.stringify(deltaBatch[i]);
+    }
+    const deltaBytes = this._writeDeltaAtomic(deltaPath, parts);
+    this._writeMetaAtomic(metaPath, {
+      version: CACHE_VERSION,
+      maxId,
+      rows: base.length + deltaBatch.length,
+      gzipBytes: meta.gzipBytes,          // base 未动
+      savedAt: new Date().toISOString(),
+      tokenCount: Array.isArray(addresses) ? addresses.length : null,
+      columnsTag: columnsTag || null,
+      baseMaxId: meta.baseMaxId,
+      baseRows: meta.baseRows,
+      deltaRows: deltaBatch.length,
+      deltaBytes,
     });
-    this._log('info', `${platform}: stale → cacheMax=${meta.maxId} → probeObserved=${probeMax} | 旧行 ${oldCount} + 增量 ${incRows.length} = ${n} 行 / maxId=${maxId} / ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    this._log('info', `${platform}: stale → cacheMax=${meta.maxId} → probeObserved=${probeMax} | 旧行 ${oldCount} + 增量 ${incRows.length} = ${base.length + deltaBatch.length} 行 / maxId=${maxId} / ${((Date.now() - t0) / 1000).toFixed(1)}s（增量走 delta 侧车 ${deltaBatch.length} 行，base 未重压缩）`);
+    const rows = base;
+    for (const r of deltaBatch) rows.push(r);
     return { rows, source: 'stale' };
   }
 
   // ── 流式读写原语（平移自 GlobalTickCache）──
 
   /** 全部行读进数组（回测本就全量物化 raw，内存画像与直拉一致）。 */
-  async _readAllRows(dataPath) {
+  async _readAllRows(file) {
     const rows = [];
-    await this._streamRead(dataPath, (row) => rows.push(row));
+    await this._streamRead(file, (row) => rows.push(row));
     return rows;
   }
 
   /**
-   * 流式读 gzip jsonl，逐行回调 onRow(row)。
+   * base + delta 侧车合并读（P15）。delta 只读前 meta.deltaRows 行：crash 窗口下
+   * rename 后 meta 写前中断会留下多余/撕裂尾行，meta 是行数真源（读满即停不解析）；
+   * 实际行数 < meta.deltaRows（外部删改）→ throw（调用方按损坏处理 drop + MISS）。
+   */
+  async _readBaseAndDelta(dataPath, deltaPath, deltaRows) {
+    const base = await this._readAllRows(dataPath);
+    const delta = [];
+    if (deltaRows > 0) {
+      const n = await this._streamRead(deltaPath, (row) => delta.push(row), deltaRows, { plain: true });
+      if (n < deltaRows) {
+        throw new Error(`delta 行数不足（实际 ${n} < meta ${deltaRows}）`);
+      }
+    }
+    return { base, delta };
+  }
+
+  /**
+   * 流式读 gzip jsonl（opts.plain=true 读明文 jsonl——delta 侧车），逐行回调
+   * onRow(row)；maxRows 给定则读满即停（delta 截尾用，未到达的尾行不解析）。
    * ★readline 坑防护：input 流（gunzip）error 时 async iterator 可能不 reject 而是
    *   静默正常结束（截断当成功）——显式监听 source/gunzip error，close rl 并循环尾检查抛出。
    */
-  async _streamRead(file, onRow) {
+  async _streamRead(file, onRow, maxRows, opts) {
+    const plain = !!(opts && opts.plain);
     const source = fs.createReadStream(file);
-    const gun = zlib.createGunzip();
-    source.pipe(gun);
-    const rl = readline.createInterface({ input: gun, crlfDelay: Infinity });
+    const gun = plain ? null : zlib.createGunzip();
+    if (gun) source.pipe(gun);
+    const rl = readline.createInterface({ input: gun || source, crlfDelay: Infinity });
     let streamErr = null;
     source.on('error', (e) => { if (!streamErr) streamErr = e; rl.close(); });
-    gun.on('error', (e) => { if (!streamErr) streamErr = e; rl.close(); });
+    if (gun) gun.on('error', (e) => { if (!streamErr) streamErr = e; rl.close(); });
+    let n = 0;
     for await (const line of rl) {
       if (streamErr) throw streamErr;
       if (!line) continue;
       onRow(JSON.parse(line));
+      n += 1;
+      if (maxRows != null && n >= maxRows) {
+        rl.close();          // 读满即停：后续尾行（撕裂/多余）不进入解析
+        source.destroy();
+        if (gun) gun.destroy();
+        return n;
+      }
     }
     if (streamErr) throw streamErr;
+    return n;
   }
 
   /**
-   * 排序 + 流式落盘：全局 id 升序是文件不变量的执行点（不依赖调用方有序——STALE 合并的
-   * 增量块间本就无序）；行间 4MB 背压 drain；先 rename 数据文件、后写 meta（保住
-   * gzipBytes crash 检测语义）。返回 { rows, maxId }。
+   * 排序 + 流式落盘（base 全量重压缩路径：MISS / forceRefresh / delta 压缩）：全局
+   * id 升序是文件不变量的执行点（不依赖调用方有序——STALE 合并的增量块间本就无序）；
+   * 行间 4MB 背压 drain；先 rename 数据文件、后写 meta（保住 gzipBytes crash 检测
+   * 语义）；meta delta 字段归零 + 清除残留 delta 文件。返回 { rows, maxId }。
    */
-  async _writeSorted(dataPath, metaPath, rows, { addresses, columnsTag }) {
+  async _writeSorted(dataPath, metaPath, rows, { addresses, columnsTag, deltaPath }) {
     this._ensureDir(path.dirname(dataPath));
     const tmp = `${dataPath}.${process.pid}.tmp`;
     const { gz, finished, writeLine } = this._makeWriter(tmp);
@@ -327,12 +442,34 @@ class BacktestTickCache {
         savedAt: new Date().toISOString(),
         tokenCount: Array.isArray(addresses) ? addresses.length : null,
         columnsTag: columnsTag || null,
+        baseMaxId: maxId,
+        baseRows: rows.length,
+        deltaRows: 0,
       });
+      if (deltaPath) { try { fs.rmSync(deltaPath, { force: true }); } catch (_) { /* ignore */ } }
       return { rows: rows.length, maxId };
     } catch (e) {
       this._abortWriter(gz, tmp);
       throw e;
     }
+  }
+
+  /**
+   * delta 侧车整文件原子重写（明文 jsonl；行已在调用方排序+校验）。tmp 带 pid 后缀
+   * + rename（与 base 写路径同款原子性：中途 crash 留 tmp 垃圾、原 delta 未动，meta
+   * 未写 → 下次按旧 deltaRows 读 + STALE 重拉增量幂等自愈）。失败清 tmp + rethrow。
+   */
+  _writeDeltaAtomic(deltaPath, parts) {
+    this._ensureDir(path.dirname(deltaPath));
+    const tmp = `${deltaPath}.${process.pid}.tmp`;
+    try {
+      fs.writeFileSync(tmp, parts.length ? parts.join('\n') + '\n' : '');
+      fs.renameSync(tmp, deltaPath);
+    } catch (e) {
+      try { fs.rmSync(tmp, { force: true }); } catch (_) { /* ignore */ }
+      throw e;
+    }
+    return fs.statSync(deltaPath).size;
   }
 
   /** 行 id 校验：非有限数或超安全整数 → throw（fail-loud 防 bigint 静默丢精度）。 */
@@ -390,11 +527,12 @@ class BacktestTickCache {
     return fs.existsSync(this._dataPath(sourceExperimentId, platform));
   }
 
-  /** 删除指定缓存；platform 缺省删整个源实验目录。 */
+  /** 删除指定缓存（含 delta 侧车）；platform 缺省删整个源实验目录。 */
   clear(sourceExperimentId, platform) {
     if (platform) {
       this._dropCache(this._dataPath(sourceExperimentId, platform),
-        this._metaPath(sourceExperimentId, platform));
+        this._metaPath(sourceExperimentId, platform),
+        this._deltaPath(sourceExperimentId, platform));
       return;
     }
     try { fs.rmSync(this._dirFor(sourceExperimentId), { recursive: true, force: true }); } catch (_) { /* ignore */ }
