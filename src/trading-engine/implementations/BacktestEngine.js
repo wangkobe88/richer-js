@@ -983,9 +983,17 @@ class BacktestEngine extends AbstractTradingEngine {
           this.logger.info(this._experimentId, 'BacktestEngine',
             `回放进度: ${processed}/${this._ticks.length}（${(processed / this._ticks.length * 100).toFixed(1)}%）` +
             ` 信号=${this.metrics.totalSignals} 交易=${this.metrics.totalTrades}`);
-          // 定期冲刷：长回放不能只在结束时 flush（内存堆积 + 中途崩溃全丢）
+          // 定期冲刷：长回放不能只在结束时 flush（内存堆积 + 中途崩溃全丢）。
+          // P4c 异步化（2026-10-12 perf5 画像）：96 次段边界同步 await flush 等待
+          // 254.9s ≈ 有效墙钟 25%——writeBuffer 侧 swap-then-write 后 DB 写入与
+          // 回放并行，此处 fire-and-forget 零等待；尾部/停机点的 await flush 兜底
+          // 收尾（writeBuffer 内部串行化，inflight 批先落库）。flush 内部已逐批
+          // 处理 DB 错误（降级单条+日志），catch 仅兜意外异常防 unhandled rejection
           if (this._writeBufferEnabled && this._writeBuffer && this._writeBuffer.pendingCount > 0) {
-            await this._writeBuffer.flush(this._experimentId);
+            this._writeBuffer.flush(this._experimentId).catch(err => {
+              this.logger.error(this._experimentId, 'BacktestEngine',
+                `段边界异步 flush 意外异常: ${err.message}`);
+            });
           }
         }
       }

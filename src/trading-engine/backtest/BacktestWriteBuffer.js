@@ -17,6 +17,7 @@ class BacktestWriteBuffer {
     this._pendingAnalysisInserts = []; // TPA token_position_analyses 行（回迁批 4；upsert 通道）
     this._pendingTokenInserts = [];           // experiment_tokens INSERT 行（P1-3）
     this._pendingTokenStatusUpdates = [];     // { experimentId, tokenAddress, status }（P1-3，按入队序重放）
+    this._flushChain = null;                  // inflight flush promise（串行化用，见 flush）
   }
 
   /**
@@ -122,11 +123,68 @@ class BacktestWriteBuffer {
   }
 
   /**
-   * 批量刷新所有缓冲数据到数据库
+   * 批量刷新所有缓冲数据到数据库（P4c 异步化，2026-10-12 perf5 画像）
+   *
+   * perf5 定因：回放主循环每 5000 ticks 段边界同步 await flush，96 次等待共
+   * 254.9s ≈ 有效回放墙钟 25%。本方法改为 swap-then-write：调用点可
+   * fire-and-forget（引擎段边界已切，见 BacktestEngine），DB 写入与回放并行。
+   *
+   * 两道防线：
+   * - 串行化：并发 flush 排队（while 等 inflight）——批与批之间保持
+   *   「signals INSERT → 其余 → updates → token status」全序，DB 慢于生产时
+   *   退化为背压等待（与旧同步语义等价，故障窗不再放大）
+   * - swap：开头同步摘走全部 pending 数组再写库。主循环此后的新 add 落在新
+   *   数组进下一批，与本批无竞争。旧版「flush 期间 add 的行在尾部清空时被
+   *   丢弃」窗口在旧同步 await 调用序下不可达；swap 使其在任何调用序下
+   *   structurally 不可达
+   *
+   * insert/update 同批性前提（已核实，勿破坏）：引擎 _advanceDebouncer 每 tick
+   * drain inflight 评估，signal 的 insert+update 恒同 tick 入队 → 进同一
+   * pending 批 → addSignalUpdate 的「合并进 pending insert 行」锚点不受 swap
+   * 影响（跨批分离 = update 部分键覆盖丢 metadata，理论不可达形状）
+   *
    * @param {string} experimentId - 用于日志
-   * @returns {Promise<Object>} flush 结果统计
+   * @returns {Promise<Object>} flush 结果统计（await 返回 = 本调用时点的全部
+   *   pending 连同此前 inflight 批已写完——尾部/停机点依赖此语义收尾）
    */
   async flush(experimentId) {
+    // 串行化：等 inflight 批完成（正常时早已完成零等待）
+    while (this._flushChain) await this._flushChain;
+
+    // 同步 swap：摘走当前全部 pending（微秒级，无 await）
+    const batch = {
+      signalInserts: this._pendingSignalInserts,
+      tradeInserts: this._pendingTradeInserts,
+      snapshotInserts: this._pendingSnapshotInserts,
+      signalUpdates: this._pendingSignalUpdates,
+      analysisInserts: this._pendingAnalysisInserts,
+      tokenInserts: this._pendingTokenInserts,
+      tokenStatusUpdates: this._pendingTokenStatusUpdates,
+    };
+    this._pendingSignalInserts = [];
+    this._pendingTradeInserts = [];
+    this._pendingSnapshotInserts = [];
+    this._pendingSignalUpdates = [];
+    this._pendingAnalysisInserts = [];
+    this._pendingTokenInserts = [];
+    this._pendingTokenStatusUpdates = [];
+
+    let release;
+    this._flushChain = new Promise(r => { release = r; });
+    try {
+      return await this._doFlush(batch, experimentId);
+    } finally {
+      release();
+      this._flushChain = null;
+    }
+  }
+
+  /**
+   * 实际写库（flush 摘走的批快照上执行；数组引用全部来自 batch，不触碰
+   * this._pending* —— 与主循环后续 add 无共享可变状态）
+   * @private
+   */
+  async _doFlush(batch, experimentId) {
     const stats = {
       signalsInserted: 0,
       tradesInserted: 0,
@@ -141,10 +199,10 @@ class BacktestWriteBuffer {
     // 第一阶段：信号先落库（trades.signal_id 外键引用
     // strategy_signals，并行发出时 trades 请求可能先到 → FK 23503 整批丢弃，
     // 降级单条也在同一竞态窗口内失败——必须等 signals INSERT 完成后再插其余）
-    if (this._pendingSignalInserts.length > 0) {
+    if (batch.signalInserts.length > 0) {
       stats.signalsInserted = await this._batchInsert(
         'strategy_signals',
-        this._pendingSignalInserts,
+        batch.signalInserts,
         experimentId
       );
     }
@@ -153,28 +211,28 @@ class BacktestWriteBuffer {
     const insertTasks = [];
 
     // 批量插入交易
-    if (this._pendingTradeInserts.length > 0) {
+    if (batch.tradeInserts.length > 0) {
       insertTasks.push(this._batchInsert(
         'trades',
-        this._pendingTradeInserts,
+        batch.tradeInserts,
         experimentId
       ).then(count => { stats.tradesInserted = count; }));
     }
 
     // 批量插入快照
-    if (this._pendingSnapshotInserts.length > 0) {
+    if (batch.snapshotInserts.length > 0) {
       insertTasks.push(this._batchInsert(
         'portfolio_snapshots',
-        this._pendingSnapshotInserts,
+        batch.snapshotInserts,
         experimentId
       ).then(count => { stats.snapshotsInserted = count; }));
     }
 
     // 批量 upsert TPA 持仓分析行（回迁批 4；与其他表无外键依赖，同段并行）
-    if (this._pendingAnalysisInserts.length > 0) {
+    if (batch.analysisInserts.length > 0) {
       insertTasks.push(this._batchUpsert(
         'token_position_analyses',
-        this._pendingAnalysisInserts,
+        batch.analysisInserts,
         'experiment_id,token_address,trigger_no',
         experimentId
       ).then(count => { stats.analysesUpserted = count; }));
@@ -182,10 +240,10 @@ class BacktestWriteBuffer {
 
     // 批量插入 experiment_tokens 行（P1-3；experiment_id FK 指向早已存在的实验行，
     // 与其他表无依赖，同段并行；状态 UPDATE 在末段等 INSERT 完成后按序重放）
-    if (this._pendingTokenInserts.length > 0) {
+    if (batch.tokenInserts.length > 0) {
       insertTasks.push(this._batchInsert(
         'experiment_tokens',
-        this._pendingTokenInserts,
+        batch.tokenInserts,
         experimentId
       ).then(count => { stats.tokensInserted = count; }));
     }
@@ -193,25 +251,16 @@ class BacktestWriteBuffer {
     await Promise.all(insertTasks);
 
     // 第三阶段：信号更新（必须等 INSERT 完成，否则 UPDATE 找不到记录）
-    if (this._pendingSignalUpdates.length > 0) {
-      const count = await this._batchSignalUpdates(experimentId);
+    if (batch.signalUpdates.length > 0) {
+      const count = await this._batchSignalUpdates(batch.signalUpdates, experimentId);
       stats.signalsUpdated = count;
     }
 
     // 第四阶段：token 状态更新——按入队序串行重放（同 token 多轮迁移保序；
     // 且必须等 experiment_tokens INSERT 落地，否则 UPDATE 空匹配）
-    if (this._pendingTokenStatusUpdates.length > 0) {
-      stats.tokenStatusUpdated = await this._batchTokenStatusUpdates(experimentId);
+    if (batch.tokenStatusUpdates.length > 0) {
+      stats.tokenStatusUpdated = await this._batchTokenStatusUpdates(batch.tokenStatusUpdates, experimentId);
     }
-
-    // 清空缓冲区
-    this._pendingSignalInserts = [];
-    this._pendingTradeInserts = [];
-    this._pendingSnapshotInserts = [];
-    this._pendingSignalUpdates = [];
-    this._pendingAnalysisInserts = [];
-    this._pendingTokenInserts = [];
-    this._pendingTokenStatusUpdates = [];
 
     if (this._logger && (stats.signalsInserted || stats.tradesInserted || stats.snapshotsInserted || stats.signalsUpdated || stats.analysesUpserted || stats.tokensInserted || stats.tokenStatusUpdated)) {
       this._logger.info(experimentId, 'BacktestWriteBuffer',
@@ -264,9 +313,9 @@ class BacktestWriteBuffer {
    * ~每买卖轮 2 条，串行无性能压力）。失败仅记日志不中断（与直写路径的
    * updateTokenStatus 吞错返回 false 语义一致）
    */
-  async _batchTokenStatusUpdates(experimentId) {
+  async _batchTokenStatusUpdates(tokenStatusUpdates, experimentId) {
     let updated = 0;
-    for (const u of this._pendingTokenStatusUpdates) {
+    for (const u of tokenStatusUpdates) {
       const { error } = await this._supabase
         .from('experiment_tokens')
         .update({ status: u.status, updated_at: new Date().toISOString() })
@@ -335,11 +384,11 @@ class BacktestWriteBuffer {
   }
 
   /**
-   * 批量信号更新（并行）
+   * 批量信号更新（并行；操作 flush 摘走的批快照，不触碰 this._pending*）
    */
-  async _batchSignalUpdates(experimentId) {
+  async _batchSignalUpdates(signalUpdates, experimentId) {
     let updated = 0;
-    const updatePromises = this._pendingSignalUpdates.map(({ signalId, updateData }) => {
+    const updatePromises = signalUpdates.map(({ signalId, updateData }) => {
       return this._supabase
         .from('strategy_signals')
         .update(updateData)
