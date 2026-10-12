@@ -1453,6 +1453,59 @@ class FourMemeFactorAggregator extends EventEmitter {
     }
 
     /**
+     * _recentTicks 单趟扫描（P2c，2026-10-12 回测性能案）：五个读取方原先各自遍历
+     * （_rateFactors filter / _cycleFactors filter / crashSpeed 窗高点 / risePct5m 谷 /
+     * _computePriceTrendFactors reliable 提取）——百万 tick 回放下每 tick 5 趟是固定
+     * 成本大头。本方法单趟产出共享中间结构，消费方判定逻辑逐字搬入（对拍等价红线）：
+     *
+     * - winTicks：5min 窗内子数组，**保持原数组序（到达序）**——rate 的 spanMin 用
+     *   inWindow[0].ts（乱序下≠时间最早 tick）、cycle 尾部 gap 丢弃负间隔、crashSpeed
+     *   `_p > _wh` 严格大于=首达峰、risePct `<= _trough`=最近触谷，全部遍历序敏感
+     * - reliable：全数组（非 5min 窗）priceReliable && priceBnb>0 的 {t,p}，原序收集
+     *   ——trend 的 widened 全历史分支要用全量 reliable，不可预切窗；sort 留在消费方
+     *   （V8 稳定排序，输入序不变 → 与旧「提取后 sort」bit-identical）
+     * - csWh/csWhT：crashSpeed 窗（crashSpeedWindowMs，窄于 5min 窗）高点与首达时刻
+     * - rise 谷三件：rsCut = max(now-5min, buyTs)；buyTs<=0 → Infinity 哨兵（旧代码
+     *   `if (_buyTs > 0)` 整块跳过，等价于不累积任何谷样本）
+     * - 窗口全部读取时 now 相关（防前视红线：now 由 buildFactorMap(state, asOf) 传入；
+     *   禁 Date.now / 禁移到 processTick 写入侧）
+     */
+    _scanRecentTicks(state, now, buyTs) {
+        const rateCut = now - RATE_WINDOW_MS;
+        const csCut = now - this._fp.crashSpeedWindowMs;
+        const rsCut = buyTs > 0 ? Math.max(rateCut, buyTs) : Infinity;
+        const ticks = state._recentTicks;
+        const winTicks = [];
+        const reliable = [];
+        let csWh = 0, csWhT = 0;
+        let riseTrough = Infinity, riseTroughTs = 0, riseRn = 0;
+        for (const tk of ticks) {
+            // rate/cycle 窗（两处原 filter 同式：now - t.ts <= RATE_WINDOW_MS，保原序）
+            if (now - tk.ts <= RATE_WINDOW_MS) winTicks.push(tk);
+            // trend reliable 提取（原 _computePriceTrendFactors 内部循环逐字）
+            if (tk.priceReliable && Number(tk.priceBnb) > 0) {
+                reliable.push({ t: Number(tk.ts), p: Number(tk.priceBnb) });
+            }
+            // crashSpeed 窗高点（原：!priceReliable || ts < cut → continue；`>` 严格大于=首达优先）
+            if (tk.priceReliable && tk.ts >= csCut) {
+                const _p = Number(tk.priceBnb);
+                if (_p > csWh) { csWh = _p; csWhT = tk.ts; }
+            }
+            // rise 谷（原：ts < rsCut → continue；!priceReliable || !(p>0) → continue；
+            // `<=` = 最近触及；_rn 计数在谷判定前）
+            if (tk.ts >= rsCut && tk.priceReliable && Number(tk.priceBnb) > 0) {
+                riseRn++;
+                if (Number(tk.priceBnb) <= riseTrough) { riseTrough = Number(tk.priceBnb); riseTroughTs = tk.ts; }
+            }
+        }
+        // trend 升序归一（b24879e0 乱序崩案修复的排序假设）：与旧实现「原序收集 →
+        // sort」同式稳定排序，逐元素恒等；共享结构恒以时间升序终态存在（消费方
+        // 直接用，无「首个消费方原地 sort 污染」的隐性状态依赖）
+        reliable.sort((a, b) => a.t - b.t);
+        return { winTicks, reliable, csWh, csWhT, riseTrough, riseTroughTs, riseRn };
+    }
+
+    /**
      * 分类器轨迹修剪（回迁批 3.1，母版 _pruneRecentTicks 动态窗同构）：
      * 有可靠价峰时从峰起保留全部（供 OPB 闪崩检测看完整 peak→crash 路径——修固定短窗
      * 「crash 不落在分类时刻窗口内就漏判闪崩」），无峰时用最小窗口兜底；超上限截断。
@@ -1640,7 +1693,7 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 可靠 tick 不足（<trendAbsMinTicks）→ 全 null（fail-closed）。主窗最近 min(trendWindowMs, age)，
      * 不足 trendMinReliableTicks 且总数 >=trendAbsMinTicks → widened 全历史（新币苗子自适应）。
      */
-    _computePriceTrendFactors(recentTicks, now, firstTickAt) {
+    _computePriceTrendFactors(reliable, now, firstTickAt) {
         const NULL_RESULT = {
             priceTrendSlope: null,
             recentDrawdownFromWindowHighPct: null,
@@ -1648,20 +1701,14 @@ class FourMemeFactorAggregator extends EventEmitter {
             spikeCurveRatio: null,
             riseFromLow6s: null,
         };
-        if (!Array.isArray(recentTicks) || recentTicks.length === 0) return NULL_RESULT;
+        if (!Array.isArray(reliable) || reliable.length === 0) return NULL_RESULT;
 
-        const reliable = [];
-        for (const tk of recentTicks) {
-            if (tk.priceReliable && Number(tk.priceBnb) > 0) {
-                reliable.push({ t: Number(tk.ts), p: Number(tk.priceBnb) });
-            }
-        }
-        if (reliable.length === 0) return NULL_RESULT;
+        // P2c（2026-10-12）：reliable 提取 + 升序 sort 均上移到 _scanRecentTicks 单趟
+        //（判据逐字同式）；本函数只保留窗口/回归计算。
         // 到达序 ≠ 时间序（watcher 双写者 bigserial 分配序≠提交序，迟到的更早 blockTime 行）：
-        // 本函数升序假设（t0=window[0]、window[n-1] 当现价、分桶 idx∈[0,B)）在乱序输入下
-        // idx 变负 → buckets[-k].push 崩进程（2026-09-28 b24879e0 裸崩实案，QSAFU 盘）。
-        // 归一为时间升序——修复排序假设，非行为兜底
-        reliable.sort((a, b) => a.t - b.t);
+        // 升序假设（t0=window[0]、window[n-1] 当现价、分桶 idx∈[0,B)）在乱序输入下
+        // idx 变负 → buckets[-k].push 崩进程（2026-09-28 b24879e0 裸崩实案，QSAFU 盘）——
+        // 归一在扫描器内完成，本函数恒收到时间升序输入。
 
         const age = firstTickAt !== null && firstTickAt > 0
             ? Math.max(0, now - firstTickAt) : this._fp.trendWindowMs;
@@ -1743,9 +1790,8 @@ class FourMemeFactorAggregator extends EventEmitter {
         };
     }
 
-    /** 滑窗速率与量能因子 */
-    _rateFactors(state, now) {
-        const inWindow = state._recentTicks.filter(t => now - t.ts <= RATE_WINDOW_MS);
+    /** 滑窗速率与量能因子（P2c：5min 窗过滤上移 _scanRecentTicks，收 winTicks 原序子数组） */
+    _rateFactors(inWindow, now) {
         const spanMin = Math.max(
             (now - (inWindow.length > 0 ? inWindow[0].ts : now)) / 60000,
             0.2 // 避免除零：窗口过短时按 12s 折算
@@ -1782,7 +1828,7 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 断流增长，stale 时 raw 压回 1 不进升档候选）。tokenCycleRaw 为本帧原始判定。
      * ★红线：内部禁 Date.now——now 由 buildFactorMap(state, asOf) 传入，回测虚拟时钟防前视。
      */
-    _cycleFactors(state, now) {
+    _cycleFactors(state, winTicks, now) {
         const fp = this._fp;
         const ageSec = state.createdAtMs ? (now - state.createdAtMs) / 1000 : null;
         const slideCutoff = now - fp.slideWinMs;
@@ -1798,7 +1844,7 @@ class FourMemeFactorAggregator extends EventEmitter {
             ? Math.max(ageMs, 1000)
             : fp.slideWinMs;
         const tps30s = hotCount / (tpsDenomMs / 1000);
-        const winTicks = state._recentTicks.filter(t => now - t.ts <= RATE_WINDOW_MS);
+        // P2c：winTicks 由 _scanRecentTicks 单趟产出（5min 窗原序子数组）传入
         const gaps = [];
         for (let i = Math.max(1, winTicks.length - fp.cycleGapSamples); i < winTicks.length; i++) {
             const g = winTicks[i].ts - winTicks[i - 1].ts;
@@ -2246,18 +2292,19 @@ class FourMemeFactorAggregator extends EventEmitter {
         const secondsSinceDeepDrop70 = state.deepDrop70At != null
             ? Math.max((now - state.deepDrop70At) / 1000, 0) : null;
 
+        // P2c 单趟扫描（2026-10-12 回测性能案）：本函数内原先五个消费方各自遍历
+        // _recentTicks（rate/cycle filter ×2、crashSpeed 窗高点、risePct5m 谷、trend
+        // reliable 提取）合并为一趟；rise 的 buyTs 在此提前解析（纯读 state._positions）
+        const _rsPos = state._lastPositionKey ? state._positions.get(state._lastPositionKey) : null;
+        const _rsBuyTs = Number(_rsPos?.buyTime) || 0;
+        const _scan = this._scanRecentTicks(state, now, _rsBuyTs);
+
         // 近期砸速 %/s：crashSpeedWindowMs 窗内自「窗内高点」的下跌速度（横盘/反弹收复 → null）。
         // 分母钳 >= crashSpeedMinDtMs/1000 防同块毫秒连砸把速度放大到不可解释量级。
         // 现价用 _relPriceBnb（母版 currentPriceUsd 本身就是可靠价链产物）。
         let crashSpeedPctPerSec = null;
         {
-            const _csCut = now - this._fp.crashSpeedWindowMs;
-            let _wh = 0, _whT = 0;
-            for (const tk of state._recentTicks) {
-                if (!tk.priceReliable || tk.ts < _csCut) continue;
-                const _p = Number(tk.priceBnb);
-                if (_p > _wh) { _wh = _p; _whT = tk.ts; }
-            }
+            const _wh = _scan.csWh, _whT = _scan.csWhT;
             if (_wh > 0 && _whT > 0 && now > _whT) {
                 const _ddW = ((state._relPriceBnb - _wh) / _wh) * 100;
                 if (_ddW < 0) {
@@ -2289,17 +2336,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         // risePct5m 可为负（现价贴谷）——条件都是 > 阈值，fail-closed 方向安全。
         let risePct5m = null, riseVel5m = null;
         {
-            const _pos = state._lastPositionKey ? state._positions.get(state._lastPositionKey) : null;
-            const _buyTs = Number(_pos?.buyTime) || 0;
+            const _buyTs = _rsBuyTs;
             if (_buyTs > 0) {
-                const _rsCut = Math.max(now - RATE_WINDOW_MS, _buyTs);
-                let _trough = Infinity, _troughTs = 0, _rn = 0;
-                for (const tk of state._recentTicks) {
-                    if (tk.ts < _rsCut) continue;
-                    if (!tk.priceReliable || !(Number(tk.priceBnb) > 0)) continue;
-                    _rn++;
-                    if (Number(tk.priceBnb) <= _trough) { _trough = Number(tk.priceBnb); _troughTs = tk.ts; }
-                }
+                const _trough = _scan.riseTrough, _troughTs = _scan.riseTroughTs, _rn = _scan.riseRn;
                 if (_rn >= this._fp.riseMinTicks && _trough > 0 && _troughTs > 0
                     && state._relPriceBnb > 0) {
                     risePct5m = (state._relPriceBnb / _trough - 1) * 100;
@@ -2309,8 +2348,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
 
-        // 趋势窗 5 因子（可靠价切片）
-        const trendFactors = this._computePriceTrendFactors(state._recentTicks, now, state.firstTickAt);
+        // 趋势窗 5 因子（可靠价切片；P2c reliable 升序数组来自 _scanRecentTicks）
+        const trendFactors = this._computePriceTrendFactors(_scan.reliable, now, state.firstTickAt);
 
         // m3 实时外延：未闭合序列拼出第 4 块收盘（>0 且更深才覆盖存量最大值）
         let max3BlockDropPct = state._max3BlockDrop === null ? null : state._max3BlockDrop * 100;
@@ -2386,10 +2425,10 @@ class FourMemeFactorAggregator extends EventEmitter {
             uniqueTraderCount: state.uniqueTraders.size,
             buyVolumeBnb: state.totalBuyBnb,
             sellVolumeBnb: state.totalSellBnb,
-            ...this._rateFactors(state, now),
+            ...this._rateFactors(_scan.winTicks, now),
             // 行为周期分桶（卖出臂周期路由，2026-09-28）：tokenCycle/tokenCycleRaw/tokenCycleAgeSec/
             // cycleTps30s/cycleGapMedianMs——latch 推进副作用在读取路径（hysteresis 需状态）
-            ...this._cycleFactors(state, now),
+            ...this._cycleFactors(state, _scan.winTicks, now),
 
             trendDataPoints: prices.length,
 

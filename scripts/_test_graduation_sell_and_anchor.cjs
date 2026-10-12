@@ -211,30 +211,37 @@ console.log('C. 毕业事件驱动卖出（virtual 全清 / 幂等 / live 告警
   process.exitCode = fail === 0 ? 0 : 1;
 })();
 
-// ═══ D. _computePriceTrendFactors 乱序输入崩溃修复 ═══
+// ═══ D. _recentTicks 乱序输入崩溃修复（P2c 后经 _scanRecentTicks 管线）═══
 // b24879e0 2026-09-27 19:53Z 裸崩实案：迟到的更早 blockTime tick（watcher 双写者
 // bigserial 分配序≠提交序）使 _recentTicks 到达序≠时间序 → 分桶 idx 为负 →
 // buckets[-k].push TypeError → uncaught → 进程死。修复 = reliable 归一时间升序。
+// P2c（2026-10-12）提取+升序 sort 上移到 _scanRecentTicks 单趟——本节按新架构
+// 走 scan→trend 真实管线（乱序到达序直接进 state._recentTicks）。
 console.log('D. 趋势因子乱序输入（b24879e0 崩溃复现）');
 {
   const fa = new FourMemeFactorAggregator({}, console);
   const now = 1790000000000;
   // 乱序：末位 tick 的 ts 早于首位（迟到的更早 blockTime 行）且数量 ≥8 触发分桶 OLS 分支
-  const mk = (dtMs, p) => ({ ts: now - dtMs, priceBnb: p, priceReliable: true });
+  const mk = (dtMs, p) => ({ ts: now - dtMs, isBuy: true, bnb: 1, priceBnb: p, priceReliable: true, blockNumber: null });
+  const mkSt = (arr) => { const st = fa._createEmptyState('0xD', now); st._recentTicks.push(...arr); return st; };
+  const trendOf = (arr, firstTickAt) => {
+    const s = fa._scanRecentTicks(mkSt(arr), now, 0);
+    return fa._computePriceTrendFactors(s.reliable, now, firstTickAt);
+  };
   const outOfOrder = [
     mk(1000, 5.0e-9), mk(2000, 5.1e-9), mk(3000, 5.2e-9), mk(4000, 5.3e-9),
     mk(5000, 5.4e-9), mk(6000, 5.5e-9), mk(7000, 5.6e-9), mk(8000, 5.7e-9),
     mk(15000, 4.0e-9), // 迟到行：ts 比首位早 14s —— 修复前 idx=Math.floor((t-t0)/span*B) 为负 → 崩
   ];
   let threw = null, factors = null;
-  try { factors = fa._computePriceTrendFactors(outOfOrder, now, now - 20000); }
+  try { factors = trendOf(outOfOrder, now - 20000); }
   catch (e) { threw = e.message; }
   check('乱序输入不再抛异常（修复前 Cannot read push）', threw, null);
   check('乱序输入产出完整 5 因子（非 null 降级）', factors && Object.values(factors).every(v => v !== null && Number.isFinite(v)), true);
 
   // 升序输入回归：同一组按时间排好 → 不崩且 slope 有限
   const inOrder = [...outOfOrder].sort((a, b) => a.ts - b.ts);
-  const f2 = fa._computePriceTrendFactors(inOrder, now, now - 20000);
+  const f2 = trendOf(inOrder, now - 20000);
   check('升序输入回归正常', f2 && Number.isFinite(f2.priceTrendSlope), true);
 
   // 乱序后现价语义：window[n-1] 应取时间最新（ts 最大）而非到达序末位
@@ -243,7 +250,7 @@ console.log('D. 趋势因子乱序输入（b24879e0 崩溃复现）');
     mk(30000, 3e-9), mk(20000, 4e-9), mk(1000, 9e-9) /* 时间最新 */, mk(25000, 3.5e-9),
     mk(29000, 3.2e-9), mk(28000, 3.3e-9), mk(27000, 3.4e-9), mk(26000, 3.6e-9),
   ];
-  const f3 = fa._computePriceTrendFactors(lastArrivedOldest, now, now - 40000);
+  const f3 = trendOf(lastArrivedOldest, now - 40000);
   // riseFromLow6s / drawdown 以时间最新价 9e-9 为现价：距窗内低点 3e-9 拉起 = (9-3)/3*100 = 200%
   approx('乱序归一后现价=时间最新（拉起 200%）', f3.recentRiseFromWindowLowPct, 200, 1e-6);
 
