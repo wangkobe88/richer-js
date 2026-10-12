@@ -203,7 +203,7 @@ async function main() {
                 throw new Error(`[${arm}] 源 config 无 tokenPositionAnalyzer.trigger 段`);
             }
             cfg.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
-        } else if (arm === 'v0' || arm === 'perf' || arm === 'e50' || arm === 'eno' || arm === 'enl') {
+        } else if (arm === 'v0' || arm === 'perf' || arm === 'perf2' || arm === 'e50' || arm === 'eno' || arm === 'enl') {
             // pbc 门消融链（2026-10-11 用户裁定）：v0=删 covered/top1 + router 50→30；
             // e50/eno/enl 在 v0 上叠加 er 变体。源=tnone（去 TPA 门，pbc 与 3e57ed75 逐字同）。
             // perf=v0 config 逐字复刻（2026-10-12 性能基准臂：唯一变量 = 代码版本）。
@@ -297,7 +297,7 @@ async function main() {
             } else if (arm === 'gm') { // 差异仅 condition + gmgnFilter
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
                 base.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
-            } else if (arm === 'v0' || arm === 'perf' || arm === 'e50' || arm === 'eno' || arm === 'enl') { // 差异仅 pbc
+            } else if (arm === 'v0' || arm === 'perf' || arm === 'perf2' || arm === 'e50' || arm === 'eno' || arm === 'enl') { // 差异仅 pbc
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
             } else if (arm === 'perf2') { // 差异仅 pbc + preBuyCheck.sameNameSearchCacheTtlSec
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
