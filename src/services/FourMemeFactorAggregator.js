@@ -603,16 +603,19 @@ class FourMemeFactorAggregator extends EventEmitter {
         if (walletAddr) {
             if (tokenAmount > 0) {
                 const delta = isBuy ? tokenAmount : -tokenAmount;
-                const _cur = (state._walletNetTokens.get(walletAddr) || 0) + delta;
+                const _prev = state._walletNetTokens.get(walletAddr) || 0;
+                const _cur = _prev + delta;
                 state._walletNetTokens.set(walletAddr, _cur);
+                // holderCount 增量维护（P2a 2026-10-12 回测性能案）：跨 0 边界 ±1，
+                // 与全 map 重数 #{net>0} 逐 tick 等价（归纳：每步只动一个钱包的净持仓，
+                // 正↔正/负↔负 计数不变；holderCount 单写点在此、初值 0）——替代每
+                // tick 清零重数 O(map)（130 万 tick 回放 x 万钱包 map 的线性热点）
+                if (_prev <= 0 && _cur > 0) state.holderCount++;
+                else if (_prev > 0 && _cur <= 0) state.holderCount--;
                 // 建仓峰值净持仓（TPA retention 基准分母，回迁批 4 → 二期随键域切 wallet）：
                 // 仅 running 上升时更新，单调不减 → 触发前已清仓的大户 maxNet 仍保留
                 const _mx = state._walletMaxNetTokens.get(walletAddr) || 0;
                 if (_cur > _mx) state._walletMaxNetTokens.set(walletAddr, _cur);
-                state.holderCount = 0;
-                for (const net of state._walletNetTokens.values()) {
-                    if (net > 0) state.holderCount++;
-                }
                 if (isBuy) {
                     state._walletBoughtTokens.set(walletAddr,
                         (state._walletBoughtTokens.get(walletAddr) || 0) + tokenAmount);

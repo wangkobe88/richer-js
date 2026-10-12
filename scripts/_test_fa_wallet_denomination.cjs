@@ -265,8 +265,9 @@ console.log('\nE 节：链路透传');
   const faSrc = fs.readFileSync(FA_PATH, 'utf8');
   check('E4 FA 单点 COALESCE（walletAddr = sender || trader）',
     () => assert.ok(/const walletAddr = tick\.sender_address \|\| tick\.trader_address \|\| null/.test(faSrc)));
-  check('E5 holderCount 由 _walletNetTokens 派生',
-    () => assert.ok(/for \(const net of state\._walletNetTokens\.values\(\)\)/.test(faSrc)));
+  check('E5 holderCount 由 _walletNetTokens 派生（P2a 起增量维护：_prev/_cur 跨 0 边界 ±1，等价性对拍见 G 节）',
+    () => assert.ok(/const _prev = state\._walletNetTokens\.get\(walletAddr\) \|\| 0;/.test(faSrc)
+      && /if \(_prev <= 0 && _cur > 0\) state\.holderCount\+\+;/.test(faSrc)));
   check('E6 P 组集中度遍历 _walletNetTokens',
     () => assert.ok(/for \(const v of state\._walletNetTokens\.values\(\)\)/.test(faSrc)));
 
@@ -305,6 +306,49 @@ console.log('\nF 节：买门翻案形状');
   check('F1 修正前 holders=2（GMGN 合并 → buy-v2 `holders > 5` 拦截）', () => assert.strictEqual(hOld, 2));
   check('F2 修正后 holders=11（真实分散 → 放行）', () => assert.strictEqual(hNew, 11));
   check('F3 门语义翻案（2 → 11 跨过 5 阈值）', () => assert.ok(hOld <= 5 && hNew > 5));
+}
+
+// ═══════════ G 节：holderCount 增量维护等价性对拍（P2a 2026-10-12 回测性能案） ═══════════
+console.log('\nG 节：holderCount 增量维护等价性');
+{
+  // 随机 tick 序列（买卖混合/清仓跨 0/重复钱包），周期对拍增量 holderCount ===
+  // #{_walletNetTokens > 0}（全量重数 = 旧实现口径）——归纳等价性的机器证明
+  const fa = newFA();
+  let seed = 42;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  let mismatches = 0, checked = 0, ts = T0;
+  for (let i = 0; i < 3000; i++) {
+    const w = `0xW${Math.floor(rnd() * 8)}`;
+    const amt = Math.round(rnd() * 900) + 1;
+    fa.processTick(mkTick({ trader_address: w, sender_address: w, timestamp: ++ts,
+      token_amount: amt, bnb_amount: 0.1, trade_type: rnd() < 0.55 ? 'buy' : 'sell' }));
+    if (i % 97 === 0) {
+      checked++;
+      const st = fa._states.get('0xtoken');
+      let cnt = 0; for (const net of st._walletNetTokens.values()) if (net > 0) cnt++;
+      if (st.holderCount !== cnt) mismatches++;
+    }
+  }
+  check('G1 随机 3000 tick 每 97 笔对拍（增量 === 全量重数）', () => assert.strictEqual(mismatches, 0));
+
+  // G2 精确归零：同量买卖 → _cur 恰 0 → 计数回 0
+  const fa2 = newFA();
+  fa2.processTick(mkTick({ trader_address: '0xZ', sender_address: '0xZ', timestamp: T0, token_amount: 500 }));
+  fa2.processTick(mkTick({ trader_address: '0xZ', sender_address: '0xZ', timestamp: T0 + 1, token_amount: 500, trade_type: 'sell' }));
+  check('G2 同量买卖净持仓恰归零 → holderCount 0', () => assert.strictEqual(fa2._states.get('0xtoken').holderCount, 0));
+
+  // G3 负穿再回升：无仓卖出 → 负净持仓（不计），再买回正（计 1）
+  const fa3 = newFA();
+  fa3.processTick(mkTick({ trader_address: '0xZ', sender_address: '0xZ', timestamp: T0, token_amount: 400, trade_type: 'sell' }));
+  fa3.processTick(mkTick({ trader_address: '0xZ', sender_address: '0xZ', timestamp: T0 + 1, token_amount: 500 }));
+  check('G3 负净持仓不计、回正计 1', () => assert.strictEqual(fa3._states.get('0xtoken').holderCount, 1));
+
+  // G4 源码口径：全量重数写点已删，单写点 = 跨 0 边界 ±1
+  const faSrc = fs.readFileSync(FA_PATH, 'utf8');
+  check('G4 全量重数写点已删（增量 ±1 单写点）',
+    () => assert.ok(!/state\.holderCount = 0;/.test(faSrc)
+      && /if \(_prev <= 0 && _cur > 0\) state\.holderCount\+\+;/.test(faSrc)
+      && /else if \(_prev > 0 && _cur <= 0\) state\.holderCount--;/.test(faSrc)));
 }
 
 (async () => {
