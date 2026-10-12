@@ -60,11 +60,30 @@ class SniperFlagCache {
   constructor(logger) {
     this.logger = logger;
     this._flags = new Map();
+    // P11 探针（2026-10-13 perf11 后定因）：earlyMs 里「六族因子纯 CPU」的归因
+    // 未经实测——flagsFor 是计算段唯一 await，若 miss 面大则 DB roundtrip 才是
+    // 大头。queryMs=查询墙钟 / batches=批次数（批 100）/ queriedAddrs=进过
+    // miss 集的地址数（含重复计入当次 missing）/ failures=查询失败次数
+    this._queryMs = 0;
+    this._queryBatches = 0;
+    this._queriedAddrs = 0;
+    this._queryFailures = 0;
   }
 
   /** 缓存条数（测试探针） */
   get size() {
     return this._flags.size;
+  }
+
+  /** P11 查询探针（回放收尾经 EarlyParticipantCheckService.getPerfStats 打印） */
+  getStats() {
+    return {
+      queryMs: this._queryMs,
+      batches: this._queryBatches,
+      queriedAddrs: this._queriedAddrs,
+      failures: this._queryFailures,
+      cached: this._flags.size,
+    };
   }
 
   /**
@@ -93,10 +112,12 @@ class SniperFlagCache {
       return out;
     }
 
+    const _t0 = Date.now();
     try {
       // 批 100（TPA _fetchOfflineProfileBatch 同款；地址小写与库存储一致）
       for (let i = 0; i < missing.length; i += 100) {
         const batch = missing.slice(i, i + 100);
+        this._queryBatches++;
         const { data, error } = await supabase
           .from('wallet_offline_profiles')
           .select('address, profile')
@@ -114,9 +135,14 @@ class SniperFlagCache {
       }
       return out;
     } catch (e) {
+      this._queryFailures++;
       this._warn('sniper 画像查询失败，本次全按非 sniper 放行（不写缓存）', { error: this._errMsg(e) });
       for (const addr of missing) out.set(addr, false);
       return out;
+    } finally {
+      // P11 探针：成功/失败两路径都计时（失败路径同样消耗墙钟）
+      this._queryMs += Date.now() - _t0;
+      this._queriedAddrs += missing.length;
     }
   }
 

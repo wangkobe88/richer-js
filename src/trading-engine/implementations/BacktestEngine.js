@@ -1125,6 +1125,7 @@ class BacktestEngine extends AbstractTradingEngine {
           ` | 五项 holder=${pc.parHolder} cluster=${pc.parCluster} creator=${pc.parCreator}` +
           ` strong=${pc.parStrong} sameName=${pc.parSameName} label=${pc.labelMs}` +
           ` | earlySvc ${es.calls} 次 ${es.ms}ms（fetch ${es.fetchMs} | replayHits ${es.replayHits}）` +
+          ` | sniper画像 ${es.sniper.queryMs}ms（批 ${es.sniper.batches} / 址 ${es.sniper.queriedAddrs} / 败 ${es.sniper.failures} / 缓存 ${es.sniper.cached}）` +
           ` | sameName AVE ${ss.aveCalls || 0} 次 ${ss.aveMs || 0}ms（snapHit ${ss.snapshotHits} / fallback ${ss.fallbacks}）`);
       }
 

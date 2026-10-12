@@ -268,11 +268,12 @@ class EarlyParticipantCheckService {
     }
   }
 
-  /** P7 计时探针（回放收尾汇总用）：全链/取数拆分 + 回放命中计数 */
+  /** P7 计时探针（回放收尾汇总用）：全链/取数拆分 + 回放命中计数 + sniper 画像查询拆分（P11） */
   getPerfStats() {
     return {
       calls: this._perfCalls || 0, ms: this._perfMs || 0,
       fetchMs: this._fetchMs || 0, replayHits: this._replayHits || 0,
+      sniper: this._sniperFlagCache.getStats(),
     };
   }
 
