@@ -235,6 +235,19 @@ class FourMemeFactorAggregator extends EventEmitter {
         // 回迁批 1 因子参数（默认值 ← config.factorParams 覆盖）
         this._fp = Object.assign({}, FACTOR_PARAM_DEFAULTS, this._config.factorParams || {});
 
+        // P2b 死重维护开关（2026-10-12 回测性能案）：默认 true = 存量零变化。
+        //   maintainClassifierTracks=false → 跳过 OPB 专用维护（_clsTicks push/prune、
+        //     _lastBigTickAt、_relHighestPriceUsd 快照、afterFirst9s 族）——OPB enabled=false
+        //     时 start/扫描早退对 cls 字段零读，维护纯死重（BacktestEngine 结构性不嵌 OPB 恒关；
+        //     Wss 引擎按 onlineProfile.enabled 判定）。★不在跳过清单：_relHighestPriceBnb/
+        //     _relHighestAt/_relHighestBlock（crashSpeed/drawdownFromHighest 核心因子原料）、
+        //     uniqueTraders（因子键 uniqueTraderCount + classifier metrics 契约）
+        //   maintainTpaTracks=false → 跳过 TPA 专用双 map 维护（_walletMaxNetTokens retention
+        //     基准、_walletRoutedBuyBnb GMGN 用户判定原料）——TPA 不构造（config 无段）时零读。
+        //     引擎按「段存在才构造 TPA」同判据注入，FA 先于 TPA 构造故用 config 判定
+        this._maintainCls = config.maintainClassifierTracks !== false;
+        this._maintainTpa = config.maintainTpaTracks !== false;
+
         this._states = new Map(); // tokenAddress → state
 
         // preFilter（pumpfun 回迁，回测专属默认关）：age 区间数组（并集语义），
@@ -613,9 +626,12 @@ class FourMemeFactorAggregator extends EventEmitter {
                 if (_prev <= 0 && _cur > 0) state.holderCount++;
                 else if (_prev > 0 && _cur <= 0) state.holderCount--;
                 // 建仓峰值净持仓（TPA retention 基准分母，回迁批 4 → 二期随键域切 wallet）：
-                // 仅 running 上升时更新，单调不减 → 触发前已清仓的大户 maxNet 仍保留
-                const _mx = state._walletMaxNetTokens.get(walletAddr) || 0;
-                if (_cur > _mx) state._walletMaxNetTokens.set(walletAddr, _cur);
+                // 仅 running 上升时更新，单调不减 → 触发前已清仓的大户 maxNet 仍保留。
+                // P2b：TPA 不构造时双 map 零读 → 跳过维护
+                if (this._maintainTpa) {
+                    const _mx = state._walletMaxNetTokens.get(walletAddr) || 0;
+                    if (_cur > _mx) state._walletMaxNetTokens.set(walletAddr, _cur);
+                }
                 if (isBuy) {
                     state._walletBoughtTokens.set(walletAddr,
                         (state._walletBoughtTokens.get(walletAddr) || 0) + tokenAmount);
@@ -625,7 +641,9 @@ class FourMemeFactorAggregator extends EventEmitter {
                     // sender NULL 回退行 walletAddr=trader=路由地址 → routedBuy 记到路由地址名下
                     //（TPA 剔除判定天然涵盖路由地址本身的残留合并像）。卖腿不记：「参与者」= 买入者。
                     // TPA 消费：触发门 minHolders 剔除 + top20 评分剔除 + 主导盘豁免（gmgnFilter）
-                    if (tick.trader_address && AGGREGATOR_ROUTER_ADDRS.has(String(tick.trader_address).toLowerCase())) {
+                    // P2b：routed map 仅 TPA gmgnFilter/minHolders 剔除消费，TPA 不构造零读
+                    if (this._maintainTpa && tick.trader_address
+                        && AGGREGATOR_ROUTER_ADDRS.has(String(tick.trader_address).toLowerCase())) {
                         state._walletRoutedBuyBnb.set(walletAddr,
                             (state._walletRoutedBuyBnb.get(walletAddr) || 0) + bnbAmount);
                     }
@@ -720,12 +738,15 @@ class FourMemeFactorAggregator extends EventEmitter {
             // ── 分类器 running 标量（回迁批 3.1：OPB 专用；与 token-classifier computeTickMetrics 同口径）──
             // USD 峰快照：仅在新 BNB 峰 tick 覆写（对齐离线「highestPriceUsd 在 BNB 峰 tick 处快照」；
             // 峰 tick 缺 USD → 0，其后非峰 tick 不回填——保守方向与离线一致）
-            if (priceBnb > state._relHighestPriceBnb) {
+            // P2b：该 if 只写 USD 快照不写 Bnb 峰（BNB 峰链在下方可靠价峰值链，因子原料不动）
+            if (this._maintainCls && priceBnb > state._relHighestPriceBnb) {
                 state._relHighestPriceUsd = Number(tick.price_usd) > 0 ? tick.price_usd : 0;
             }
             // afterFirst9s（ts ≥ firstTickAt+9s；母版扣前3s=7.5 slot 的 BSC 3 block 版）达标 tick 的
             // peak + 峰值前 min（砸盘地板在峰值后不计入 min；创新高时锁定 running min 为分母）
-            if (state.firstTickAt !== null && ts - state.firstTickAt >= this._fp.clsFirstWindowMs) {
+            // P2b：afterFirst9s 族仅 OPB 分类路径消费（high_mcap_wash ratio），零读跳过
+            if (this._maintainCls && state.firstTickAt !== null
+                && ts - state.firstTickAt >= this._fp.clsFirstWindowMs) {
                 state._afterFirst9sReliableCount++;
                 if (priceBnb < state._runningMinAfterFirst9sBnb) state._runningMinAfterFirst9sBnb = priceBnb;
                 if (priceBnb > state._afterFirst9sPeakPriceBnb) {
@@ -933,13 +954,17 @@ class FourMemeFactorAggregator extends EventEmitter {
         // ── 分类器轨迹（回迁批 3.1：OPB/离线挖掘共用 slim shape，全量 tick 记录——
         //    大额断流/活跃度判定需全 tick，价格判定由消费方按 priceReliable 过滤。
         //    母版 recentTicks 同构：peak 后动态保留（见 _pruneClsTicks），与速率滑窗分离互不干扰）──
-        state._clsTicks.push({
-            ts, isBuy, bnbAmount, priceBnb,
-            priceUsd: Number(tick.price_usd) > 0 ? tick.price_usd : null,
-            blockNumber, priceReliable,
-        });
-        if (bnbAmount >= this._fp.clsBigTickBnb) state._lastBigTickAt = ts;
-        this._pruneClsTicks(state, ts);
+        // P2b：分类器轨迹维护仅 OPB 消费（idle/bigTickIdle 触发 + 分类时刻读 _clsTicks），
+        // 关闭时跳过 push/lastBigTickAt/prune（含窗满后 slice(1500) 新数组分配）
+        if (this._maintainCls) {
+            state._clsTicks.push({
+                ts, isBuy, bnbAmount, priceBnb,
+                priceUsd: Number(tick.price_usd) > 0 ? tick.price_usd : null,
+                blockNumber, priceReliable,
+            });
+            if (bnbAmount >= this._fp.clsBigTickBnb) state._lastBigTickAt = ts;
+            this._pruneClsTicks(state, ts);
+        }
 
         // ── 市场截面：全量 tick 口径累积（流量环 + registry 价格/存活推进 + FIFO 写时裁剪；
         //    市场状态与挂载策略无关。尘 tick 计流量不计价——priceReliable 守卫，S8）──

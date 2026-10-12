@@ -25,6 +25,7 @@ const FA_PATH = path.join(__dirname, '..', 'src', 'services', 'FourMemeFactorAgg
 const COLLECTOR_FM_PATH = path.join(__dirname, '..', 'src', 'collectors', 'fourmeme-ankr-ws-collector.js');
 const COLLECTOR_FL_PATH = path.join(__dirname, '..', 'src', 'collectors', 'flap-ankr-ws-collector.js');
 const BACKTEST_PATH = path.join(__dirname, '..', 'src', 'trading-engine', 'implementations', 'BacktestEngine.js');
+const WSS_ENGINE_PATH = path.join(__dirname, '..', 'src', 'trading-engine', 'implementations', 'FourMemeWssTradingEngine.js');
 const OPB_PATH = path.join(__dirname, '..', 'src', 'services', 'OnlineProfileBuilder.js');
 const TPA_PATH = path.join(__dirname, '..', 'src', 'services', 'TokenPositionAnalyzer.js');
 
@@ -285,6 +286,17 @@ console.log('\nE 节：链路透传');
     () => assert.ok(/stripSender \? null : \(row\.sender_address \|\| null\)/.test(backtestSrc)));
   check('E10 开关读 config.backtest.stripSenderAddress === true（缺省 false = 新口径默认）',
     () => assert.ok(/config\?\.backtest\?\.stripSenderAddress === true/.test(backtestSrc)));
+
+  // E11/E12：P2b 死重维护开关注入链（2026-10-12 回测性能案）
+  const wssEngineSrc = fs.readFileSync(WSS_ENGINE_PATH, 'utf8');
+  check('E11 引擎注入：BacktestEngine cls 恒关 + tpa 按 config 段；Wss 引擎 cls 按 onlineProfile.enabled + tpa 按 config 段（与各自 TPA/OPB 构造条件同判据）',
+    () => assert.ok(/maintainClassifierTracks: false,/.test(backtestSrc)
+      && /maintainTpaTracks: this\._experiment\?\.config\?\.tokenPositionAnalyzer != null,/.test(backtestSrc)
+      && /maintainClassifierTracks: \(wsMerged\.onlineProfile \|\| \{\}\)\.enabled === true,/.test(wssEngineSrc)
+      && /maintainTpaTracks: this\._experiment\?\.config\?\.tokenPositionAnalyzer != null,/.test(wssEngineSrc)));
+  check('E12 FA 开关默认 true（config 不传 = 存量零变化；web 裸 FA/单测不受影响）',
+    () => assert.ok(/this\._maintainCls = config\.maintainClassifierTracks !== false;/.test(faSrc)
+      && /this\._maintainTpa = config\.maintainTpaTracks !== false;/.test(faSrc)));
 }
 
 // ═══════════ F 节：buy-v2 买门语义（holders > 5 在 GMGN 盘的翻案形状） ═══════════
@@ -349,6 +361,68 @@ console.log('\nG 节：holderCount 增量维护等价性');
     () => assert.ok(!/state\.holderCount = 0;/.test(faSrc)
       && /if \(_prev <= 0 && _cur > 0\) state\.holderCount\+\+;/.test(faSrc)
       && /else if \(_prev > 0 && _cur <= 0\) state\.holderCount--;/.test(faSrc)));
+}
+
+// ═══════════ H 节：P2b 死重维护开关（2026-10-12 回测性能案） ═══════════
+console.log('\nH 节：P2b 死重维护开关');
+{
+  const mkFa = (cfg) => new FourMemeFactorAggregator(cfg, { info() {}, warn() {}, error() {} });
+  // 两笔可靠价大额 tick（1 BNB ≥ clsBigTickBnb 0.05 / minPriceUpdateBnb 0.002）：
+  // T0 首 tick + T0+10s（过 afterFirst9s 窗 9s）
+  const feed = (fa) => {
+    fa.processTick(mkTick({ trader_address: '0xH1', sender_address: '0xH1', timestamp: T0, price_bnb: 0.00001, price_usd: 5, bnb_amount: 1, token_amount: 1000 }));
+    fa.processTick(mkTick({ trader_address: '0xH1', sender_address: '0xH1', timestamp: T0 + 10000, price_bnb: 0.00002, price_usd: 10, bnb_amount: 1, token_amount: 500 }));
+  };
+
+  // H1 默认（不传开关）：全维护——存量零变化的机器证明
+  const fa1 = mkFa({});
+  feed(fa1);
+  const st1 = fa1._states.get('0xtoken');
+  check('H1 默认全维护：_clsTicks=2 / _lastBigTickAt=T0+10s / afterFirst9s 达标计数=1',
+    () => assert.strictEqual(st1._clsTicks.length, 2) && assert.strictEqual(st1._lastBigTickAt, T0 + 10000)
+      && assert.strictEqual(st1._afterFirst9sReliableCount, 1));
+  check('H1 默认 USD 峰快照 + TPA max map（两笔 buy 净 1500）',
+    () => assert.strictEqual(st1._relHighestPriceUsd, 10)
+      && assert.strictEqual(st1._walletMaxNetTokens.get('0xH1'), 1500));
+
+  // H2 maintainClassifierTracks=false：cls 轨迹零维护
+  const fa2 = mkFa({ maintainClassifierTracks: false });
+  feed(fa2);
+  const st2 = fa2._states.get('0xtoken');
+  check('H2 cls 关：_clsTicks 空 / _lastBigTickAt null / afterFirst9s 计数 0 / USD 快照 0',
+    () => assert.strictEqual(st2._clsTicks.length, 0) && assert.strictEqual(st2._lastBigTickAt, null)
+      && assert.strictEqual(st2._afterFirst9sReliableCount, 0)
+      && assert.strictEqual(st2._relHighestPriceUsd, 0));
+
+  // H3 maintainTpaTracks=false：TPA 双 map 零维护，因子原料不受影响
+  const fa3 = mkFa({ maintainTpaTracks: false });
+  feed(fa3);
+  const st3 = fa3._states.get('0xtoken');
+  check('H3 tpa 关：_walletMaxNetTokens 空', () => assert.strictEqual(st3._walletMaxNetTokens.size, 0));
+  check('H3 tpa 关：_walletNetTokens/holderCount 照常（holders 因子不受影响）',
+    () => assert.strictEqual(st3._walletNetTokens.get('0xH1'), 1500) && assert.strictEqual(st3.holderCount, 1));
+  const fa3b = mkFa({ maintainTpaTracks: false });
+  fa3b.processTick(mkTick({ trader_address: GMGN, sender_address: '0xE1', timestamp: T0, bnb_amount: 2, token_amount: 1000 }));
+  check('H3b tpa 关：GMGN 行不记 _walletRoutedBuyBnb',
+    () => assert.strictEqual(fa3b._states.get('0xtoken')._walletRoutedBuyBnb.size, 0));
+
+  // H4 关键不变量：cls 关不影响可靠价峰值链/任意接受价链（因子原料在跳过清单外）
+  check('H4 cls 关不影响 _relHighestPriceBnb/_relHighestAt（crashSpeed/drawdown 原料）',
+    () => assert.strictEqual(st2._relHighestPriceBnb, 0.00002) && assert.strictEqual(st2._relHighestAt, T0 + 10000));
+  check('H4b cls 关不影响任意接受价链（firstPrice/currentPrice/highestPrice）',
+    () => assert.strictEqual(st2.firstPriceBnb, 0.00001) && assert.strictEqual(st2.currentPriceBnb, 0.00002)
+      && assert.strictEqual(st2.highestPriceBnb, 0.00002));
+
+  // H5 最强证明：cls+tpa 双关时 buildFactorMap 出口与默认逐键恒等（维护面不进因子图）
+  const fa5a = mkFa({}), fa5b = mkFa({ maintainClassifierTracks: false, maintainTpaTracks: false });
+  feed(fa5a); feed(fa5b);
+  const f5a = fa5a.buildFactorMap('0xtoken', T0 + 20000);
+  const f5b = fa5b.buildFactorMap('0xtoken', T0 + 20000);
+  const diff = [];
+  for (const k of new Set([...Object.keys(f5a), ...Object.keys(f5b)])) {
+    if (JSON.stringify(f5a[k]) !== JSON.stringify(f5b[k])) diff.push(`${k}: ${JSON.stringify(f5a[k])} vs ${JSON.stringify(f5b[k])}`);
+  }
+  check('H5 双关时因子图与默认逐键恒等', () => assert.strictEqual(diff.length, 0, diff.join('; ')));
 }
 
 (async () => {

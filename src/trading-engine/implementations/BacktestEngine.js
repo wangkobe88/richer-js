@@ -193,7 +193,15 @@ class BacktestEngine extends AbstractTradingEngine {
       ...(wsConfig.factorParams || {}),
       ...mapCycleParams(this._experiment?.config?.tokenCycle?.params),
     };
-    this._factorAggregator = new FourMemeFactorAggregator({ fourmemeWs: wsConfig }, this.logger);
+    // P2b 死重维护开关（2026-10-12 回测性能案）：回测结构性不嵌 OPB（无写表副作用）→
+    // 分类器轨迹（_clsTicks/_lastBigTickAt/afterFirst9s 族/_relHighestPriceUsd）恒零读关闭；
+    // TPA 双 map（_walletMaxNetTokens/_walletRoutedBuyBnb）按实验配置判定——与下方 TPA
+    // 构造条件（tokenPositionAnalyzer 段存在才构造）同判据
+    this._factorAggregator = new FourMemeFactorAggregator({
+      fourmemeWs: wsConfig,
+      maintainClassifierTracks: false,
+      maintainTpaTracks: this._experiment?.config?.tokenPositionAnalyzer != null,
+    }, this.logger);
     // 市场 regime 截面 feed 显式 opt-in（回迁批 2.6 观察版：与 WSS 引擎同入口同截面口径，
     // 回放 tick ts 自动成为决策时钟；回测不落表（不污染观察史）。红线同 WSS 引擎：condition 不引用 market*）
     FourMemeFactorAggregator.setMarketFeedEnabled(true);

@@ -279,8 +279,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       ...(wsMerged.factorParams || {}),
       ...mapCycleParams(this._experiment?.config?.tokenCycle?.params),
     };
-    this._factorAggregator = new FourMemeFactorAggregator(
-      { fourmemeWs: wsMerged }, this.logger);
+    // P2b 死重维护开关（2026-10-12 回测性能案）：FA 先于 TPA/OPB 构造 → 用 config 判定
+    // 而非实例存在性。cls 轨迹跟随 OPB enabled（false 时 OPB start/扫描早退对 cls 字段零读，
+    // 与 3.5 节 OPB 构造段同判据）；TPA 双 map 跟随 3.4 节 TPA 构造条件（config 段存在）
+    this._factorAggregator = new FourMemeFactorAggregator({
+      fourmemeWs: wsMerged,
+      maintainClassifierTracks: (wsMerged.onlineProfile || {}).enabled === true,
+      maintainTpaTracks: this._experiment?.config?.tokenPositionAnalyzer != null,
+    }, this.logger);
     this._factorAggregator.on('factorsUpdated', (data) => this._onFactorsUpdated(data));
     // 市场 regime 截面 feed 显式 opt-in（回迁批 2.6 观察版：web 侧裸 FA 不 feed → 读恒 null 零污染；
     // 红线：任何交易策略 condition 不得引用 market* 键。stop() 关 feed 防同进程下一实验继承）
