@@ -363,8 +363,16 @@ class BacktestEngine extends AbstractTradingEngine {
 
     // 5.6 同叙事龙头已火检查（同实时引擎：narrativeLeaderHot 因子，火门槛 5x + 首达后 24h 窗；
     // checkTimeSec 用回放时点，涨幅只算 block_time<=t 的 ticks，无未来函数）
+    // P6 回测内存行源（2026-10-13，perf7 画像：龙头 3049 次 sum 178s≈回放段 25%，
+    // 其中 ~75% 是 p50 40ms 级纯 RTT 空转）：候选集首次确定时预拉全窗口 ticks 进
+    // 内存，此后首查/批量增量零 RTT（行处理循环逐字不动）。装载上界=回放终点；
+    // 无终点实验不设上界=装载时点快照（迟到行不可见，fail-open 方向，与叙事预载
+    // /负缓存同族口径）。实时引擎不注入=零变化
     const { SameNarrativeLeaderService } = require('../pre-check/SameNarrativeLeaderService');
     this._sameNarrativeLeaderService = new SameNarrativeLeaderService(supabase, this.logger);
+    this._sameNarrativeLeaderService.enableReplayRowSource({
+      endTimeIso: this._endTimeFilter ? new Date(this._endTimeFilter).toISOString() : null,
+    });
 
     // 6. 交易金额 / 永久阻断 / 卡牌仓位
     const experimentConfig = this._experiment?.config || {};

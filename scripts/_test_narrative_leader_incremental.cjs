@@ -87,6 +87,13 @@ function mkSupabase(rows, counters) {
     }
     if (state.limitN != null) data = data.slice(0, state.limitN);
     if (state.range) data = data.slice(state.range[0], state.range[1] + 1);
+    // 列裁剪（对齐 PostgREST select 语义：select 什么返回什么）。首查 select 3 字段
+    // 不含 log_index → wmIdx 伪 0 是真实 DB 口径——I5 剥离防线断言依赖此形状
+    // （mock 全行返回会把 DB 版也变成 log_index 真值 = 防线测不到）
+    if (state.cols) {
+      const keys = state.cols.split(',').map(s => s.trim());
+      data = data.map(r => Object.fromEntries(keys.map(k => [k, r[k]])));
+    }
     return { data: JSON.parse(JSON.stringify(data)), error: null };
   }
   return { from: builder };
@@ -397,6 +404,178 @@ async function main() {
     ok(strip(r3inc) === strip(rOff) && leadBinc && leadBinc.peakMultiple === 5.5,
       'H7. 逐候选增量同形状 cap 收紧一致（B peak=5.5，与全量/聚合 bit 一致）',
       `\ninc: ${strip(r3inc)}\noff: ${strip(rOff)}`);
+  }
+
+  // ═══ I. P6 回放内存行源（enableReplayRowSource）对拍 ═══
+  // I1-I3 全量/聚合/回放三实例同数据同序列 bit 一致 + 装载查询形状 + 装载后零
+  //      wss_price_ticks DB 查询（核心性能断言）
+  // I4 迟到行口径：装载后外部进程新写的行不可见（fail-open 方向，文档化）
+  // I5 首查切片剥离 log_index：wmIdx 伪 0 口径 bit 保真（携带真值→增量幂等跳过分叉）
+  // I6 tinyConfig 首达在增量阶段 cap 收紧 + 页切片分页跨页（pageSize=2）
+  // I7 装载失败退路：warn + 整 tweet 退 DB 行源，终态与全量 bit 一致
+  // I8 跨 tweet 装载：已入桶地址跳过；tweet2 首查（A 逐候选增量 idx 路径 + D 首查）零 DB
+  console.log('I. P6 回放内存行源对拍');
+  {
+    // 场景 1：B 节同款数据全预置（历史行全在 = 回测真实形态，checkTime 推进只是虚拟时钟）
+    const strip = (r) => JSON.stringify({ f: r.factors, l: r.detail.leaders });
+    const rows = baseRows();
+    rows.wssPriceTicks.push(tick(CAND_A, 700, 7, 1, 0));
+    rows.wssPriceTicks.push(tick(CAND_B, 350, 2.5, 1, 0));
+    rows.wssPriceTicks.push(tick(CAND_C, 300, 2, 5, 0));
+    const cAgg = { queries: [] }, cRep = { queries: [] };
+    const svcOff = mkSvc(rows, { queries: [] }, 'off');
+    const svcAgg = mkSvc(rows, cAgg, 'agg');
+    const svcRep = mkSvc(rows, cRep, 'agg');
+    svcRep.enableReplayRowSource({ endTimeIso: T(2000) });
+
+    const rRep150 = await svcRep.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 150 });
+    const rOff150 = await svcOff.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 150 });
+    ok(strip(rRep150) === strip(rOff150), 'I1a. 首查（@150）回放行源与全量 bit 一致',
+      `\noff: ${strip(rOff150)}\nrep: ${strip(rRep150)}`);
+
+    // I2 装载查询形状（@150 唯一一次 wss ticks DB 查询 = 装载；首查本身走 idx）
+    const loadQs = cRep.queries.filter(q => q.table === 'wss_price_ticks');
+    ok(loadQs.length === 1, 'I2a. 首查仅 1 次 wss ticks 查询（装载；首查零 DB）', `n=${loadQs.length}`);
+    const inCond = loadQs[0] && loadQs[0].conds.find(([k, op]) => k === 'token_address' && op === 'in');
+    ok(inCond && inCond[2].length === 4, 'I2b. 装载 .in 全候选（SELF/A/B/C 单 chunk）',
+      `addrs=${JSON.stringify(inCond && inCond[2])}`);
+    ok(loadQs[0].conds.some(([k, op, v]) => k === 'price_outlier' && op === 'eq' && v === false),
+      'I2c. outlier 服务端过滤（对齐生产查询形状）');
+    ok(loadQs[0].conds.some(([k, op, v]) => k === 'block_time' && op === 'lte' && v === T(2000)),
+      'I2d. 装载上界 lte(endTimeIso)');
+
+    cRep.queries.length = 0; cAgg.queries.length = 0;
+    let allSame = true, diffDetail = '';
+    for (const t of [310, 450, 800, 900]) {
+      const rO = await svcOff.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: t });
+      const rA = await svcAgg.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: t });
+      const rR = await svcRep.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: t });
+      if (strip(rO) !== strip(rR) || strip(rA) !== strip(rR)) {
+        allSame = false; diffDetail = `t=${t}\noff:${strip(rO)}\nagg:${strip(rA)}\nrep:${strip(rR)}`;
+      }
+    }
+    ok(allSame, 'I1b. 续查（310-900）三实例 bit 一致', diffDetail);
+    const repTicks = cRep.queries.filter(q => q.table === 'wss_price_ticks').length;
+    const aggTicks = cAgg.queries.filter(q => q.table === 'wss_price_ticks').length;
+    ok(repTicks === 0 && aggTicks === 6,
+      'I3. 装载后回放实例 wss_price_ticks DB 查询 = 0（DB 版 agg：@310 首查 3 eq + @450/800/900 聚合 3 次 .in）',
+      `rep=${repTicks} agg=${aggTicks}`);
+    const rRepFin = await svcRep.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 950 });
+    ok(rRepFin.factors.narrativeLeaderMaxMultiple === 7, 'I1c. 终态 maxMultiple=7（增量拼入与全量一致）',
+      `max=${rRepFin.factors.narrativeLeaderMaxMultiple}`);
+
+    // 场景 2（I4）：迟到行——装载后外部进程新写的行不可见（回测 endTime=回放终点时
+    // 窗内行装载时已全在，本形状仅文档化 fail-open 声明口径）
+    {
+      const rows2 = baseRows();
+      rows2.wssPriceTicks.push(tick(CAND_A, 700, 7, 1, 0));
+      const svcOff2 = mkSvc(rows2, { queries: [] }, 'off');
+      const svcRep2 = mkSvc(rows2, { queries: [] }, 'agg');
+      svcRep2.enableReplayRowSource({ endTimeIso: T(2000) });
+      await svcRep2.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 }); // 装载时点
+      rows2.wssPriceTicks.push(tick(CAND_A, 850, 8, 1, 0)); // 装载后追加（迟到行）
+      const rO = await svcOff2.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+      const rR = await svcRep2.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+      ok(rR.factors.narrativeLeaderMaxMultiple === 7 && rO.factors.narrativeLeaderMaxMultiple === 8,
+        'I4. 迟到行回放行源不可见（max=7 vs DB 版 8）——少算龙头=fail-open 方向，口径声明',
+        `rep=${rR.factors.narrativeLeaderMaxMultiple} db=${rO.factors.narrativeLeaderMaxMultiple}`);
+    }
+
+    // 场景 3（I5）：首查末行 logIdx≠0 + 增量首行同刻——剥离防线（携带真值→wmIdx=5
+    // → 同刻水位行被幂等跳过 → rowCount 7≠8 分叉；剥离后两版都重复处理 rowCount=8）
+    {
+      const rows3 = baseRows();
+      rows3.wssPriceTicks.push(tick(CAND_A, 600, 5.5, 1, 5)); // 首查末行（logIdx=5）
+      rows3.wssPriceTicks.push(tick(CAND_A, 700, 7, 1, 0));
+      const svcAgg3 = mkSvc(rows3, { queries: [] }, 'agg');
+      const svcRep3 = mkSvc(rows3, { queries: [] }, 'agg');
+      svcRep3.enableReplayRowSource({ endTimeIso: T(2000) });
+      await svcAgg3.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 });
+      await svcRep3.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 });
+      await svcAgg3.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 });
+      await svcRep3.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 });
+      const stD = svcAgg3._peakCache.get(CAND_A);
+      const stR = svcRep3._peakCache.get(CAND_A);
+      ok(JSON.stringify(stR) === JSON.stringify(stD) && stD.rowCount === 8 && stD.wmIdx === 0,
+        'I5. 首查切片剥离 log_index：state 与 DB 版深度一致（wmIdx 伪 0、rowCount=8 含同刻水位行重复多计）',
+        `\ndb: ${JSON.stringify(stD)}\nrep: ${JSON.stringify(stR)}`);
+    }
+
+    // 场景 4（I6）：tinyConfig pageSize=2 首达在增量阶段 cap 收紧 + idxRows 页切片分页跨页
+    {
+      const rows4 = baseRows();
+      rows4.wssPriceTicks.push(tick(CAND_B, 620, 5.5, 1, 0), tick(CAND_B, 700, 6, 1, 0)); // 全预置（回测形态）
+      const svcOff4 = mkSvc(rows4, { queries: [] }, 'off', { tickPageSize: 2, maxTickPages: 3 });
+      const svcRep4 = mkSvc(rows4, { queries: [] }, 'agg', { tickPageSize: 2, maxTickPages: 3 });
+      svcRep4.enableReplayRowSource({ endTimeIso: T(2000) });
+      await svcOff4.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 });
+      await svcRep4.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 });
+      const rO8 = await svcOff4.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 });
+      const rR8 = await svcRep4.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 });
+      const rO9 = await svcOff4.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+      const rR9 = await svcRep4.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+      const leadB = rR9.detail.leaders.find(l => l.tokenAddress === CAND_B);
+      ok(strip(rR8) === strip(rO8) && strip(rR9) === strip(rO9)
+        && leadB && leadB.peakMultiple === 5.5 && leadB.firstReachAt === T(620),
+        'I6. tinyConfig 首达在增量阶段：cap 收紧到首达页界（B peak=5.5）+ 页切片分页，与全量 bit 一致',
+        `\noff9: ${strip(rO9)}\nrep9: ${strip(rR9)}`);
+    }
+
+    // 场景 5（I7）：装载失败退路（第 1 次 .in = 装载查询注入失败）
+    {
+      warnCalls = [];
+      const rows5 = baseRows();
+      rows5.wssPriceTicks.push(tick(CAND_A, 700, 7, 1, 0));
+      rows5.failBatchAt = 1;
+      const svcOff5 = mkSvc(rows5, { queries: [] }, 'off');
+      const svcRep5 = mkSvc(rows5, { queries: [] }, 'agg');
+      svcRep5.enableReplayRowSource({ endTimeIso: T(2000) });
+      const r1 = await svcRep5.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 600 });
+      ok(r1.success === true && warnCalls.some(a => String(a[0]).includes('回放 idx 装载失败')),
+        'I7a. 装载失败 warn 留痕 + check 仍成功（fail-open）',
+        `success=${r1.success} warns=${JSON.stringify(warnCalls.map(a => String(a[0])))}`);
+      ok(svcRep5._replayIdx.size === 0, 'I7b. 失败 tweet 零桶（首查/增量退回 DB 路径）',
+        `buckets=${svcRep5._replayIdx.size}`);
+      const rR = await svcRep5.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+      const rO = await svcOff5.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 900 });
+      ok(strip(rR) === strip(rO) && rR.factors.narrativeLeaderMaxMultiple === 7,
+        'I7c. 退 DB 路径终态与全量 bit 一致', `\noff: ${strip(rO)}\nrep: ${strip(rR)}`);
+    }
+
+    // 场景 6（I8）：跨 tweet 装载——已入桶地址跳过；tweet2 逐候选增量亦走 idx（零 DB）
+    {
+      const TWEET2 = '888';
+      const CAND_D = '0xcand00000000000000000000000000000000d4';
+      const rows6 = baseRows();
+      rows6.wssPriceTicks.push(tick(CAND_A, 700, 7, 1, 0));
+      rows6.experimentTokens.push({ token_address: CAND_D, token_symbol: 'D', discovered_at: T(1006), narrative_material_id: TWEET2 });
+      rows6.experimentTokens.push({ token_address: CAND_A, token_symbol: 'A2', discovered_at: T(1007), narrative_material_id: TWEET2 });
+      rows6.wssPriceTicks.push(tick(CAND_D, 50, 1, 1, 0), tick(CAND_D, 600, 9, 1, 0)); // D 9x 首达
+      const cRep6 = { queries: [] };
+      const svcOff6 = mkSvc(rows6, { queries: [] }, 'off');
+      const svcRep6 = mkSvc(rows6, cRep6, 'agg');
+      svcRep6.enableReplayRowSource({ endTimeIso: T(2000) });
+      await svcRep6.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 800 }); // tweet1 装载 A/B/C/SELF
+      await svcRep6.check({ tokenAddress: SELF, sourceTweetId: TWEET, checkTimeSec: 810 });
+      cRep6.queries.length = 0;
+      const t2a = await svcRep6.check({ tokenAddress: SELF, sourceTweetId: TWEET2, checkTimeSec: 850 });
+      const o2a = await svcOff6.check({ tokenAddress: SELF, sourceTweetId: TWEET2, checkTimeSec: 850 });
+      ok(strip(t2a) === strip(o2a), 'I8a. tweet2 首查（A 跨 tweet 复用 state 的逐候选增量走 idx + D idx 首查）与全量一致',
+        `\noff: ${strip(o2a)}\nrep: ${strip(t2a)}`);
+      const t2Loads = cRep6.queries.filter(q => q.table === 'wss_price_ticks' && q.conds.some(([k, op]) => k === 'token_address' && op === 'in'));
+      const t2Addrs = t2Loads.length ? t2Loads[0].conds.find(([k, op]) => k === 'token_address' && op === 'in')[2] : [];
+      ok(t2Loads.length === 1 && t2Addrs.length === 1 && String(t2Addrs[0]).toLowerCase() === CAND_D,
+        'I8b. tweet2 装载 .in 只含新地址 D（A 已入桶跳过）', `addrs=${JSON.stringify(t2Addrs)}`);
+      ok(cRep6.queries.filter(q => q.table === 'wss_price_ticks'
+        && q.conds.some(([k, op]) => k === 'token_address' && op === 'eq')).length === 0,
+        'I8c. tweet2 首查零逐候选 eq 查询（A 增量/D 首查全走 idx 切片）');
+      cRep6.queries.length = 0;
+      const t2b = await svcRep6.check({ tokenAddress: SELF, sourceTweetId: TWEET2, checkTimeSec: 900 });
+      const o2b = await svcOff6.check({ tokenAddress: SELF, sourceTweetId: TWEET2, checkTimeSec: 900 });
+      ok(strip(t2b) === strip(o2b)
+        && cRep6.queries.filter(q => q.table === 'wss_price_ticks').length === 0,
+        'I8d. tweet2 聚合批量零 DB 且与全量一致', `\noff: ${strip(o2b)}\nrep: ${strip(t2b)}`);
+    }
   }
 
   console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

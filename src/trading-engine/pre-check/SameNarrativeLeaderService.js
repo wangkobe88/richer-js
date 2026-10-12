@@ -39,6 +39,19 @@
  * 同款的处理（幂等跳过/cap 截断/truncated 语义逐行照搬）；全局 (block_time,
  * log_index) 排序下组内子序列 = 该候选自身升序，等价性同 L2 论证。查询次数
  * 50 RTT → 1 RTT。新候选首查/hardDone 纯函数/checkTime 倒退回退现有路径。
+ *
+ * P6 回测内存行源（2026-10-13，perf7 画像定因）：聚合后每次 check 仍 1 RTT
+ * 增量查询，3049 次 sum 178s ≈ 回放段 25%（p50 ~40ms 纯 RTT 空转）。回测注入
+ * enableReplayRowSource 后：候选集首次确定（L1 miss）时把该 tweet 候选的全
+ * 窗口 ticks（block_time <= 回放终点、无下界对齐全量首查口径）按 .in(50) 批
+ * keyset 拉进内存 idx（token → (block_time,log_index) 升序桶），此后首查/批量
+ * 增量的取行全部走 idx 切片零 RTT——行处理循环（幂等跳过/cap 截断/首达收紧）
+ * 逐字不动，只是行源从 DB 换内存。装载成本：perf7 口径 172 tweet × ~1 批 ×
+ * 1 页（候选 2000 token、窗内 4.3 万行、chunk 均值 1072 行单页拉尽）。
+ * 口径声明（与 P3e 负缓存/叙事预载同族）：idx 是装载时点快照，回放中段外部
+ * 进程新写的迟到行不再可见（DB 版可见）——方向少算龙头 = fail-open，与 L1
+ * 候选集「钉首查时点更决定性」裁定精神一致。装载失败仅 warn：失败 token 不
+ * 进 idx → 后续首查/批量自动退回 DB 路径（现状行为）。实时引擎不注入 = 零变化。
  */
 
 const { MIN_PRICE_UPDATE_BNB } = require('../../../scripts/shared/classifier-constants');
@@ -54,6 +67,7 @@ const DEFAULT_CONFIG = {
   incrementalCache: true,       // L1 候选集 + L2 涨幅 keyset 增量（见头注释；false=原全量路径）
   tweetAggregate: true,         // P3d tweet 级批量聚合（增量之上的批量形状；false=回退逐候选增量）
   aggregateMaxPages: 10,        // 批量分页护栏（正常增量 <100 行；触顶 warn，少算龙头=fail-open 方向）
+  replayIdxMaxPages: 10,        // P6 回放 idx 装载分页护栏（chunk50 均值 ~1 页；触顶 warn 截断=fail-open 方向）
 };
 
 class SameNarrativeLeaderService {
@@ -69,6 +83,21 @@ class SameNarrativeLeaderService {
     this._candidateCache = new Map(); // sourceTweetId → 去重后候选数组（含各 token 自身行；排除自身在使用点做）
     this._peakCache = new Map();      // candidate address → L2 增量状态（见 _evalCandidateIncremental）
     this._tweetWm = new Map();        // sourceTweetId → { lastCheckSec, wmIso }（P3d 批量聚合水位）
+    this._replayIdx = null;          // P6 回放内存行源：token → (block_time,log_index) 升序行桶（enableReplayRowSource 注入）
+    this._replayEndIso = null;       // P6 装载上界（回放终点 ISO；null=无终点拉全量=装载时点快照）
+  }
+
+  /**
+   * P6 回测内存行源开关（实时引擎不调用 = 零变化）：开启后候选集首次确定时
+   * 预拉候选全窗口 ticks 进内存 idx，首查/批量增量的取行走 idx 切片（DB 查询
+   * 零次）。装载/切片语义见类头 P6 注释。
+   * @param {Object} opts
+   * @param {string|null} opts.endTimeIso - 行装载上界（回放终点；checkTime ≤ 终点恒成立）
+   */
+  enableReplayRowSource({ endTimeIso = null } = {}) {
+    this._replayIdx = new Map();
+    this._replayEndIso = endTimeIso || null;
+    return this;
   }
 
   /**
@@ -117,6 +146,17 @@ class SameNarrativeLeaderService {
           .map(([addr, r]) => ({ address: addr, symbol: r.token_symbol || '' }));
         if (this.config.incrementalCache) {
           this._candidateCache.set(String(sourceTweetId), candidates);
+        }
+        // P6 回放行源装载：候选集首次确定（每 tweet 一次）即预拉全窗口 ticks 进
+        // idx，此后该 tweet 的全部检查（首查+批量增量）零 RTT。失败仅 warn——
+        // 失败 token 不进 idx，后续自动退回 DB 路径（现状行为，fail-open）
+        if (this._replayIdx) {
+          const loadError = await this._loadReplayIdx(candidates);
+          if (loadError) {
+            this.logger.warn('[SameNarrativeLeaderService] 回放 idx 装载失败（该 tweet 退回 DB 行源）', {
+              tweet: String(sourceTweetId), error: loadError,
+            });
+          }
         }
       }
       // 排除自身统一在使用点做（缓存与 miss 查询共用，miss 查询含各 token 自身行）
@@ -294,10 +334,15 @@ class SameNarrativeLeaderService {
         }
       }
     }
-    // 新候选全量首查（复用现有路由：写 state 供下次批量并入）
-    for (const c of needInit) {
-      const res = await this._evalCandidateRouted(c, checkTimeSec);
-      if (!res.success) candidateErrors.push({ address: c.address, error: res.error });
+    // 新候选全量首查（复用现有路由：写 state 供下次批量并入）。批并发
+    // candidateConcurrency（P6：原串行循环是 P3d 引入的遗漏——逐候选路径本就
+    // 5 并发，查询次数不变只提速；不同候选写不同 _peakCache key 无竞争）
+    for (let i = 0; i < needInit.length; i += this.config.candidateConcurrency) {
+      const batch = needInit.slice(i, i + this.config.candidateConcurrency);
+      const results = await Promise.all(batch.map(c => this._evalCandidateRouted(c, checkTimeSec)));
+      for (let j = 0; j < results.length; j++) {
+        if (!results[j].success) candidateErrors.push({ address: batch[j].address, error: results[j].error });
+      }
     }
 
     // 汇总：纯内存从 state 拼（与原版 res 字段同构；首查失败无 state 的候选已进 errors）
@@ -358,6 +403,94 @@ class SameNarrativeLeaderService {
   }
 
   /**
+   * P6 回放 idx 装载：候选集全窗口 ticks 预拉进内存桶（token → 升序行）。
+   * 查询形状与 _batchIncremental 同款（.in(≤50) + price_outlier=false +
+   * (block_time,log_index) 升序 limit 2000 keyset 分页——planner 健康形状已被
+   * P3d 3049 次实证）；上界 = 回放终点（checkTime ≤ 终点恒成立），无下界对齐
+   * _evalCandidate 全量首查口径。keyset 同刻行重拉由灌桶行级幂等跳过吸收
+   * （与批量增量同款）。跨 tweet 重复 token 跳过已入桶地址。
+   * 单批失败不重试（与现有候选/tick 查询同族）：整体返回 error 串，调用方
+   * warn——失败 token 不进 idx，后续取行自动退回 DB 路径。
+   * 桶行结构 { tsMs, logIndex, row }（tsMs 预解析：切片窗口比较走数值，
+   * 免跨 ISO 字符串形状字典序坑）；row 为 DB 裸行（含 log_index 供批量增量；
+   * _evalCandidate 首查切片时按 DB select 三字段裁剪——wmIdx 伪 0 现状口径
+   * bit 保真，见该处注释）。
+   * @private
+   */
+  async _loadReplayIdx(candidates) {
+    const addrs = [...new Set(candidates.map(c => c.address))].filter(a => !this._replayIdx.has(a));
+    const pageSize = this.config.tickPageSize;
+    for (let i = 0; i < addrs.length; i += 50) {
+      const chunk = addrs.slice(i, i + 50);
+      let cursorTs = null;
+      const tail = new Map(); // addr → 末行 { ts, idx }（灌桶幂等跳过游标）
+      try {
+        for (let page = 0; page < this.config.replayIdxMaxPages; page++) {
+          let q = this.supabase
+            .from('wss_price_ticks')
+            .select('token_address, price_bnb, bnb_amount, block_time, log_index')
+            .in('token_address', chunk)
+            .eq('price_outlier', false);
+          if (cursorTs != null) q = q.gte('block_time', cursorTs); // keyset 续页（同刻重拉灌桶跳过吸收）
+          let rq = q;
+          if (this._replayEndIso) rq = rq.lte('block_time', this._replayEndIso);
+          const { data: rows, error } = await rq
+            .order('block_time', { ascending: true })
+            .order('log_index', { ascending: true })
+            .limit(pageSize);
+          if (error) return `idx 装载查询失败: ${error.message}`;
+          if (!rows || rows.length === 0) break;
+          for (const t of rows) {
+            const addr = String(t.token_address || '').toLowerCase();
+            const ts = t.block_time;
+            const idx = t.log_index ?? 0;
+            let bucket = this._replayIdx.get(addr);
+            if (!bucket) { bucket = []; this._replayIdx.set(addr, bucket); }
+            const tl = tail.get(addr);
+            if (tl && (ts < tl.ts || (ts === tl.ts && idx <= tl.idx))) continue; // keyset 同刻重拉跳过
+            bucket.push({ tsMs: new Date(ts).getTime(), logIndex: idx, row: t });
+            tail.set(addr, { ts, idx });
+          }
+          if (rows.length < pageSize) break;
+          cursorTs = rows[rows.length - 1].block_time;
+          if (page === this.config.replayIdxMaxPages - 1) {
+            this.logger.warn('[SameNarrativeLeaderService] idx 装载达分页护栏，未拉尽（截断 fail-open 方向）', {
+              batch: chunk.length, pages: this.config.replayIdxMaxPages,
+            });
+          }
+        }
+      } catch (e) {
+        return `idx 装载异常: ${e.message}`;
+      }
+      // 空桶也要占位：0 行候选（窗内无行）set 空数组——取行侧 has() 判桶存在性，
+      // 缺桶=装载未覆盖退 DB，空桶=合法零行纯内存
+      for (const a of chunk) {
+        if (!this._replayIdx.has(a)) this._replayIdx.set(a, []);
+      }
+    }
+    return null;
+  }
+
+  /**
+   * P6 桶窗口切片：桶行按 [fromIso, toIso] 过滤（fromIso=null 无下界，对齐全量
+   * 首查口径；两端含边界——gte/lte 语义，边界行重复由行处理幂等跳过吸收），
+   * 返回裸行数组（升序）。桶行 max ~1300 线性扫描足够。
+   * @private
+   */
+  _idxWindowRows(addr, fromIso, toIso) {
+    const bucket = this._replayIdx.get(addr) || [];
+    const fromMs = fromIso != null ? new Date(fromIso).getTime() : -Infinity;
+    const toMs = new Date(toIso).getTime();
+    const out = [];
+    for (const e of bucket) {
+      if (e.tsMs < fromMs) continue;
+      if (e.tsMs > toMs) break;
+      out.push(e.row);
+    }
+    return out;
+  }
+
+  /**
    * 批量增量拉取（P3d）：一次 .in(≤50 地址，URL 8KB 红线内) + gte(tweet 水位) +
    * lte(checkTime)，(block_time, log_index) 升序 limit 分页拉尽（keyset 游标 =
    * 上页末行 block_time；同刻行重拉由行级幂等跳过吸收）。正常增量 <100 行单页
@@ -374,21 +507,36 @@ class SameNarrativeLeaderService {
     const stateByAddr = new Map(work.map(b => [b.candidate.address, b.state]));
     const pageSize = this.config.tickPageSize;
     const maxRows = this.config.maxTickPages * this.config.tickPageSize;
+    // P6 内存行源：batchList 全部 token 有桶 → 取行零 RTT。窗口行合并后全局
+    // (block_time, log_index) 排序 = DB 查询返回序（各桶升序子序列归并等价，
+    // 增量窗口行数正常 <100，sort 开销可忽略）。任一缺桶（装载失败/未覆盖）
+    // → 整批退 DB（现状路径，不搞半内存半 DB 混合）
+    const useIdx = this._replayIdx && addrs.every(a => this._replayIdx.has(a));
+    const idxRows = useIdx
+      ? addrs.flatMap(a => this._idxWindowRows(a, fromIso, toIso))
+          .sort((x, y) => (x.block_time < y.block_time ? -1 : x.block_time > y.block_time ? 1
+            : ((x.log_index ?? 0) - (y.log_index ?? 0))))
+      : null;
     let cursorTs = null;
     for (let page = 0; page < this.config.aggregateMaxPages; page++) {
-      let q = this.supabase
-        .from('wss_price_ticks')
-        .select('token_address, price_bnb, bnb_amount, block_time, log_index')
-        .in('token_address', addrs)
-        .eq('price_outlier', false)
-        .gte('block_time', cursorTs != null ? cursorTs : fromIso);
-      const { data: rows, error } = await q
-        .lte('block_time', toIso)
-        .order('block_time', { ascending: true })
-        .order('log_index', { ascending: true })
-        .limit(pageSize);
-
-      if (error) return `批量增量查询失败: ${error.message}`;
+      let rows;
+      if (useIdx) {
+        rows = idxRows.slice(page * pageSize, (page + 1) * pageSize); // 页切片=分页语义 bit 保真（护栏触顶形状同 DB 版）
+      } else {
+        let q = this.supabase
+          .from('wss_price_ticks')
+          .select('token_address, price_bnb, bnb_amount, block_time, log_index')
+          .in('token_address', addrs)
+          .eq('price_outlier', false)
+          .gte('block_time', cursorTs != null ? cursorTs : fromIso);
+        const res = await q
+          .lte('block_time', toIso)
+          .order('block_time', { ascending: true })
+          .order('log_index', { ascending: true })
+          .limit(pageSize);
+        if (res.error) return `批量增量查询失败: ${res.error.message}`;
+        rows = res.data;
+      }
       if (!rows || rows.length === 0) break;
 
       for (const t of rows) {
@@ -460,18 +608,28 @@ class SameNarrativeLeaderService {
 
       for (let page = 0; page < this.config.maxTickPages; page++) {
         const off = page * this.config.tickPageSize;
-        const { data: ticks, error } = await this.supabase
-          .from('wss_price_ticks')
-          .select('price_bnb, bnb_amount, block_time')
-          .eq('token_address', candidate.address)
-          .eq('price_outlier', false)
-          .lte('block_time', toIso)
-          .order('block_time', { ascending: true })
-          .order('log_index', { ascending: true })
-          .range(off, off + this.config.tickPageSize - 1);
-
-        if (error) {
-          return { success: false, error: `tick 查询失败: ${error.message}` };
+        let ticks;
+        if (this._replayIdx && this._replayIdx.has(candidate.address)) {
+          // P6 内存行源：桶窗切片 [null, toIso] + 按原 DB select 三字段裁剪——
+          // log_index 刻意剥离（DB 首查不拉该列，wmIdx 伪 0 是现状口径；携带真值
+          // 会改变后续增量幂等跳过行为 = 首↔增量对拍分叉，性能优化不夹带行为变化）
+          ticks = this._idxWindowRows(candidate.address, null, toIso)
+            .slice(off, off + this.config.tickPageSize)
+            .map(r => ({ price_bnb: r.price_bnb, bnb_amount: r.bnb_amount, block_time: r.block_time }));
+        } else {
+          const res = await this.supabase
+            .from('wss_price_ticks')
+            .select('price_bnb, bnb_amount, block_time')
+            .eq('token_address', candidate.address)
+            .eq('price_outlier', false)
+            .lte('block_time', toIso)
+            .order('block_time', { ascending: true })
+            .order('log_index', { ascending: true })
+            .range(off, off + this.config.tickPageSize - 1);
+          if (res.error) {
+            return { success: false, error: `tick 查询失败: ${res.error.message}` };
+          }
+          ticks = res.data;
         }
         if (!ticks || ticks.length === 0) break;
 
@@ -578,20 +736,29 @@ class SameNarrativeLeaderService {
         const off = page * this.config.tickPageSize;
         // wmTs=null（全量时 0 行——候选 tick 全在 checkTime 之后，后续可能出现）：
         // 无水位可 keyset，从头拉（等价全量形状）
-        let q = this.supabase
-          .from('wss_price_ticks')
-          .select('price_bnb, bnb_amount, block_time, log_index')
-          .eq('token_address', candidate.address)
-          .eq('price_outlier', false);
-        if (st.wmTs != null) q = q.gte('block_time', st.wmTs);  // 含水位行（幂等重处理，见头注释）
-        const { data: ticks, error } = await q
-          .lte('block_time', toIso)
-          .order('block_time', { ascending: true })
-          .order('log_index', { ascending: true })
-          .range(off, off + this.config.tickPageSize - 1);
-
-        if (error) {
-          return { success: false, error: `tick 查询失败: ${error.message}` };
+        let ticks;
+        if (this._replayIdx && this._replayIdx.has(candidate.address)) {
+          // P6 内存行源：桶窗切片 [wmTs, toIso]（fromIso null=从头，对齐无水位形状；
+          // 含水位边界=幂等重处理口径）。4 字段全保留——增量 select 本就含
+          // log_index（wmIdx 真值是本路径口径，与首查 3 字段剥离不同，勿混）
+          ticks = this._idxWindowRows(candidate.address, st.wmTs != null ? st.wmTs : null, toIso)
+            .slice(off, off + this.config.tickPageSize);
+        } else {
+          let q = this.supabase
+            .from('wss_price_ticks')
+            .select('price_bnb, bnb_amount, block_time, log_index')
+            .eq('token_address', candidate.address)
+            .eq('price_outlier', false);
+          if (st.wmTs != null) q = q.gte('block_time', st.wmTs);  // 含水位行（幂等重处理，见头注释）
+          const res = await q
+            .lte('block_time', toIso)
+            .order('block_time', { ascending: true })
+            .order('log_index', { ascending: true })
+            .range(off, off + this.config.tickPageSize - 1);
+          if (res.error) {
+            return { success: false, error: `tick 查询失败: ${res.error.message}` };
+          }
+          ticks = res.data;
         }
         if (!ticks || ticks.length === 0) break;
 
