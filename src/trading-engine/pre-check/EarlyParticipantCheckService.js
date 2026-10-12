@@ -105,7 +105,11 @@ class EarlyParticipantCheckService {
 
     try {
       // 获取交易数据（固定90秒回溯窗口，wss_price_ticks 源；回测走 replayTicksIndex 内存索引）
+      // P7 计时（2026-10-13 preBuy 定因）：fetch 单独累计（回测=回放桶二分切片+行映射；
+      // total-fetch ≈ 六族因子纯 CPU），与 performCheck 总耗时一起暴露给回放收尾
+      const _fetchT0 = Date.now();
       let trades = await this._fetchEarlyTrades(tokenAddress, checkTime);
+      this._fetchMs = (this._fetchMs || 0) + (Date.now() - _fetchT0);
 
       // WSS 源下查空是真实市场状态（窗口内无成交或 flush 竞态），
       // 走正常空统计（全 0 值 → evaluateBuyEligibility 自然拒绝），
@@ -257,7 +261,19 @@ class EarlyParticipantCheckService {
 
       // 出错时返回空结果，不影响整体购买流程
       return this._getEmptyResult();
+    } finally {
+      // P7 计时：全链耗时（fetch 拆分见上），回放收尾汇总用；纯 Date.now 零行为变化
+      this._perfMs = (this._perfMs || 0) + (Date.now() - startTime);
+      this._perfCalls = (this._perfCalls || 0) + 1;
     }
+  }
+
+  /** P7 计时探针（回放收尾汇总用）：全链/取数拆分 + 回放命中计数 */
+  getPerfStats() {
+    return {
+      calls: this._perfCalls || 0, ms: this._perfMs || 0,
+      fetchMs: this._fetchMs || 0, replayHits: this._replayHits || 0,
+    };
   }
 
   /**

@@ -573,6 +573,7 @@ class PreBuyCheckService {
       if (String(preBuyCheckCondition || '').trim() !== '') {
         const shortCircuitTerm = this._evaluateKnownFalseTerm(preBuyCheckCondition, options);
         if (shortCircuitTerm) {
+          this._seg('shortCircuits', 0);
           this.logger.info('[PreBuyCheckService] 已知因子合取项短路（跳过全链检查）', {
             token_address: tokenAddress, term: shortCircuitTerm,
           });
@@ -584,11 +585,17 @@ class PreBuyCheckService {
       }
 
       // 先执行早期参与者检查（获取交易数据）
+      // P7 分段计时（2026-10-13 preBuy 284s 定因）：early=早期参与者全链（含回放
+      // 切片+因子计算，子服务另有 fetch 拆分）/ parallel=五项并发（同名 AVE 网络
+      // 调用落此段）/ eval=黑白名单+条件评估。三段+短路计数汇入 getPerfStats，
+      // 回放收尾与六段分布一起打印；纯 Date.now 计时零行为变化
+      const _segT0 = Date.now();
       const earlyParticipantCheck = await this._performEarlyParticipantCheck(
         tokenAddress, chain, tokenInfo, checkTime, skipEarlyParticipant, totalSupply
       );
+      this._seg('earlyMs', Date.now() - _segT0);
 
-
+      const _parT0 = Date.now();
       // 并行执行持有者检查、钱包簇检查、创建者Dev钱包检查、强势交易者持仓检查、严格同名代币检查
       const [holderCheck, walletClusterCheck, creatorDevCheck, strongTraderCheck, sameNameCheck] = await Promise.all([
         this._performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck),
@@ -597,6 +604,7 @@ class PreBuyCheckService {
         this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck),
         this._performSameNameCheck(tokenAddress, tokenInfo, { checkTime, sourceExperimentId }),
       ]);
+      this._seg('parallelMs', Date.now() - _parT0);
 
       // 钱包标签因子（纯内存计算，无 IO）
       const walletLabelCheck = this.walletLabelService.calculateLabelFactors(earlyParticipantCheck._trades);
@@ -610,10 +618,11 @@ class PreBuyCheckService {
       }
 
       // 早期交易者黑白名单检查（基于交易参与者，而非持有者）
+      const _evalT0 = Date.now();
       const earlyTraderCheck = await this.holderService.checkEarlyTradersRisk(earlyParticipantCheck._trades);
 
       // 使用条件表达式评估
-      return this._evaluateWithCondition(
+      const _evalResult = this._evaluateWithCondition(
         holderCheck,
         earlyParticipantCheck,
         walletClusterCheck,
@@ -654,6 +663,8 @@ class PreBuyCheckService {
           earlyTradesRouterRejectCount: earlyTradesRouterRejectCount ?? null,
         }
       );
+      this._seg('evalMs', Date.now() - _evalT0);
+      return _evalResult;
     } catch (error) {
       const errorMessage = this._safeGetErrorMessage(error);
 
@@ -675,7 +686,19 @@ class PreBuyCheckService {
 
   /** preBuy 计时子计数器（P1 探针 2026-10-12 回测性能案，回放收尾汇总用） */
   getPerfStats() {
-    return { calls: this._perfCalls || 0, ms: this._perfMs || 0 };
+    const s = this._perfSeg || {};
+    return {
+      calls: this._perfCalls || 0, ms: this._perfMs || 0,
+      shortCircuits: s.shortCircuits || 0,
+      earlyMs: s.earlyMs || 0, parallelMs: s.parallelMs || 0, evalMs: s.evalMs || 0,
+    };
+  }
+
+  /** P7 分段计时累计器（见 performAllChecks 内注释；短路计数 delta 传 0） */
+  _seg(key, delta) {
+    if (!this._perfSeg) this._perfSeg = { shortCircuits: 0, earlyMs: 0, parallelMs: 0, evalMs: 0 };
+    if (delta > 0) this._perfSeg[key] += delta;
+    else this._perfSeg[key]++;
   }
 
   /**

@@ -1109,12 +1109,20 @@ class BacktestEngine extends AbstractTradingEngine {
         const p = this._perf;
         const nc = this._narrativeCaller.getCallStats();
         const pc = this._preBuyCheckService.getPerfStats();
+        // P7 子服务拆分（2026-10-13 preBuy 284s 定因）：earlySvc=早期参与者全链
+        //（fetch=回放桶切片+映射，ms-fetch≈因子纯 CPU）/ sameName AVE 真调次数与
+        // 耗时（快照 hit/fallback 与 TTL 缓存命中的分布见 _stats）
+        const es = this._preBuyCheckService.earlyParticipantService.getPerfStats();
+        const ss = this._preBuyCheckService.sameNameTokenService.getSnapshotStats();
         const perfTotal = p.advance + p.processTick + p.buildFactorMap + p.sell + p.tpa + p.other;
         this.logger.info(this._experimentId, 'BacktestEngine',
           `⏱️ 回放耗时分布（段合计 ${perfTotal}ms）: advance=${p.advance}（debounce fire 全链）` +
           ` processTick=${p.processTick} buildFactorMap=${p.buildFactorMap} sell=${p.sell}` +
           ` tpa=${p.tpa} other=${p.other}` +
-          ` | 叙事直调 ${nc.calls} 次 ${nc.ms}ms | preBuy ${pc.calls} 次 ${pc.ms}ms`);
+          ` | 叙事直调 ${nc.calls} 次 ${nc.ms}ms | preBuy ${pc.calls} 次 ${pc.ms}ms` +
+          `（短路 ${pc.shortCircuits} | early ${pc.earlyMs} | 五项并发 ${pc.parallelMs} | 评估 ${pc.evalMs}）` +
+          ` | earlySvc ${es.calls} 次 ${es.ms}ms（fetch ${es.fetchMs} | replayHits ${es.replayHits}）` +
+          ` | sameName AVE ${ss.aveCalls || 0} 次 ${ss.aveMs || 0}ms（snapHit ${ss.snapshotHits} / fallback ${ss.fallbacks}）`);
       }
 
       // 市场截面 feed 关闭 + 模块级单例清除（防同进程下一实验继承回放累积的截面）

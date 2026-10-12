@@ -143,7 +143,12 @@ class SameNameTokenService {
           const api = new AveTokenAPI(baseURL, timeout, apiKey);
 
           // 搜索同名代币（固定BSC链；归一化 symbol 搜索，避免隐形字符搜不到同名代币）
+          // P7 计时（2026-10-13 preBuy 定因）：AVE 真调单独累计（TTL 缓存挡掉的
+          // 重复搜索零成本，真调次数 ≈ unique symbol 数），回放收尾汇总用
+          const _aveT0 = Date.now();
           results = await api.searchTokens(searchTerm, chain, 300, 'fdv');
+          this._stats.aveMs = (this._stats.aveMs || 0) + (Date.now() - _aveT0);
+          this._stats.aveCalls = (this._stats.aveCalls || 0) + 1;
           rowCount = results.length;
           if (this._searchCacheTtlMs > 0) {
             this._searchCache.set(cacheKey, { results, cachedAt: Date.now() });
