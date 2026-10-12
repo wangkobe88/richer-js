@@ -496,6 +496,15 @@ class PreBuyCheckService {
     // 时同 symbol 搜索 ~47:1 重复，省外部 API roundtrip
     this.sameNameTokenService = new SameNameTokenService(logger, {
       searchCacheTtlSec: this.config?.sameNameSearchCacheTtlSec,
+      // 快照写端（AVE 同名 as-of 存档，2026-10-12 用户裁定）：实时/实盘引擎每次
+      // 真调 AVE 成功后 append 写 ave_same_name_snapshots（全局资产），回测同名
+      // 因子改以历史快照为主数据源。写失败在 service 内 warn 不抛（不阻断决策）
+      snapshotWriter: this.supabase ? {
+        insert: async (row) => {
+          const { error } = await this.supabase.from('ave_same_name_snapshots').insert(row);
+          if (error) throw new Error(error.message);
+        },
+      } : null,
     });
 
     // 初始化条件评估器
@@ -564,7 +573,7 @@ class PreBuyCheckService {
         this._performWalletClusterCheck(earlyParticipantCheck, tokenAddress),
         this._checkCreatorIsNotBadDevWallet(creatorAddress),
         this._performStrongTraderPositionCheck(tokenAddress, earlyParticipantCheck),
-        this._performSameNameCheck(tokenAddress, tokenInfo),
+        this._performSameNameCheck(tokenAddress, tokenInfo, { checkTime, sourceExperimentId }),
       ]);
 
       // 钱包标签因子（纯内存计算，无 IO）
@@ -1447,10 +1456,13 @@ class PreBuyCheckService {
    * 无 symbol（tokenInfo 缺失）时返回空因子（maxFDV=0 → 条件门放行）
    * @private
    * @param {string} tokenAddress - 代币地址
-   * @param {Object} tokenInfo - 代币信息（需要 symbol/name）
+   * @param {Object} tokenInfo - 代币信息（需要 symbol/name；回测还读 launchAt=发布锚秒）
+   * @param {Object} [options] - { checkTime: 回放虚拟时刻秒（回测传入；实时引擎不传），
+   *   sourceExperimentId: 快照 provenance }
    * @returns {Promise<Object>} 检查结果 { success, factors }
    */
-  async _performSameNameCheck(tokenAddress, tokenInfo) {
+  async _performSameNameCheck(tokenAddress, tokenInfo, options = {}) {
+    const { checkTime, sourceExperimentId } = options;
     const symbol = tokenInfo?.symbol;
     if (!symbol) {
       this.logger.info('[PreBuyCheckService] 缺少 symbol，跳过严格同名代币检查', {
@@ -1463,13 +1475,24 @@ class PreBuyCheckService {
       const result = await this.sameNameTokenService.performCheck(
         symbol,
         tokenInfo?.name || '', // name 缺失时传空 → 严格匹配全不命中 → maxFDV=0 放行（保守方向，与 AVE 错误处理一致）
-        { selfAddress: tokenAddress }
+        {
+          selfAddress: tokenAddress,
+          // 回测语义（checkTime=回放虚拟时刻秒，2026-10-12 用户裁定）：AVE 同名检查
+          // 以历史快照 as-of 为主，miss 才兜底实时调用，且行级过滤到被检 token
+          // 发布之前（launchAt 秒锚）。实时引擎不传 checkTime → asOfMs=null →
+          // 现状行为零变化（实时调用 + 不过滤 + 照写快照）
+          asOfMs: checkTime != null ? checkTime * 1000 : null,
+          targetCreatedAtSec: tokenInfo?.launchAt ?? null,
+          sourceExperimentId,
+        }
       );
       this.logger.info('[PreBuyCheckService] 严格同名代币检查完成', {
         token_address: tokenAddress,
         symbol,
         count: result.factors.strictSameNameTokenCount,
         maxFDV: result.factors.strictSameNameMaxFDV,
+        snapshotHit: result.snapshotHit,
+        fallback: result.fallback,
         error: result.error || null
       });
       return result;

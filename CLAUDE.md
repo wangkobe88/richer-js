@@ -25,7 +25,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 - **采集/直连**：`_test_embedded_collector_architecture`（引擎接线/stop 顺序/setExperimentId 防线）、`_test_run_engine_graceful_stop`（信号注册先于 start+回测停机刷缓冲）、`_test_sender_resolver`（sender=tx.from 解析）、`_test_watcher_quote_conversion`（flap quote 映射持久化/回放）、`_test_recent_ticks_scan`、`_test_early_replay_index`
 - **回测**：`_test_backtest_tick_cache`（装载缓存状态机/锚定无序拉取）、`_test_backtest_chain_order`（链上真序回放）、`_test_backtest_keyset_paging`、`_test_backtest_narrative_gate`、`_test_backtest_perf_probe`、`_test_fa_prefilter`
 - **引擎机制**：`_test_card_position_mechanisms`、`_test_holdings_replay_precision`（重放精度钳制+单票隔离）、`_test_stop_loss_rules`（止损+graduation 回放矩阵）、`_test_graduation_sell_and_anchor`、`_test_sell_debounce_mechanisms`、`_test_token_pool_buytime`、`_test_token_age_sec`、`_test_token_cycle_routing`、`_test_fourmeme_fa_factors`、`_test_fa_wallet_denomination`（holders 族 wallet 口径）、`_test_market_regime`
-- **pre-buy/钱包**：`_test_sniper_factor`、`_test_top1_buy_share`、`_test_sender_switch_and_router`（sender COALESCE+router 因子）、`_test_corpus_lag_factor`、`_test_wallet_profile_builder`、`_test_wallet_scorer`、`_test_tpa`、`_test_token_classifier`
+- **pre-buy/钱包**：`_test_sniper_factor`、`_test_top1_buy_share`、`_test_sender_switch_and_router`（sender COALESCE+router 因子）、`_test_corpus_lag_factor`、`_test_same_name_snapshot`（AVE 同名快照 as-of/发布前过滤/SI 事故反证）、`_test_wallet_profile_builder`、`_test_wallet_scorer`、`_test_tpa`、`_test_token_classifier`
 - **策略/条件**：`_test_strategy_library_groups`（groups 转换/等价/validateLegs）、`_test_unknown_factor_reject`（未知因子 fail-fast 三层防线）
 - **live**：`_test_live_hardening`（assertMinOut/_awaitReceipt/FlapPortalTrader）
 - **叙事链路**：`_test_precheck_fail_retry`、`_test_narrative_signal_gate`、`_test_narrative_memcache`、`_test_narrative_preload`、`_test_tweet_pull_optimization`（CA 早停+userId 缓存）、`_test_same_name_appendix_shortcut`、`_test_rule5_pass_through`、`_test_data_fetch_failed_rating`、`_test_issuer_ca_detection`、`_test_narrator_two_shapes`、`_test_unrated_elimination`、`_test_daily_parse_summary`、`_test_news_monitor`
@@ -99,6 +99,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 | `earlyTradesRouterPct`（+Covered） | **trader 层**落聚合路由合约的买入占比 | `< 60` |
 | `earlyTradesSniperHoldingPct`（+SniperWallets/SniperHolders/Covered） | sniper（`isSniperProfile`：`tokenCount>=100 AND (medianHoldSeconds∈[0,300) OR (null AND sym<0.1 AND 笔数>=40))`，协议地址排除，画像 miss=非 sniper；`src/trading-engine/pre-check/sniper-detector.js`）正持仓 Σ/正持仓池 Σ×100 | `< 50`（伴随 SnipersWallets ≥2） |
 | `narrativeCorpusLagSec` | FA 出生锚（live=TokenCreate 块时间/回测=discovered_at）−语料最早推文时间（主推与父推取更早）；负值=宣告竞态按早票放行；**null=无语料/无锚 → 落晚票严格门 fail-closed**（早票是证据门，无证据不放行） | `lag < 300 OR earlyReturn >= 100` |
+| `strictSameNameTokenCount`（AVE 同名簇） | **回测=as-of 快照优先**：实时引擎真调 AVE 成功后 append 写 `ave_same_name_snapshots`（6h 节流/7 字段裁剪，全局资产不挂实验 FK）；回测取 `searched_at<=asOf` 最近快照，miss 才兜底实时且行级过滤 `created_at>0 && <=launchAt`（未来同名盘不计入，宁拦不冒充）；实时路径零变化。写端 snapshotWriter 由 PreBuyCheckService 注入（supabase 缺=不写） | `>= 3` |
 
 - **covered 语义**（top1/router/sniper 同构）：age>90s 或 launchAt 缺失 → 0 值放行（null 会让 `<N` 恒 false 误拦）
 - 因子注入链（narrativeCorpusLagSec 同款五步）：service → 引擎 → PreBuyCheckService context（键集真相源=空壳跑 `_evaluateWithCondition` 捕获实收键）→ FactorBuilder 时序快照

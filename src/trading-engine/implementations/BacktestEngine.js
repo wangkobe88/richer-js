@@ -477,6 +477,12 @@ class BacktestEngine extends AbstractTradingEngine {
     //     _consumeGraduationEvents）
     await this._loadGraduationEvents();
 
+    // 9.3 AVE 同名快照装载（2026-10-12 用户裁定，SI 0xbc97c27f 对拍事故）：回测期
+    //     strictSameName 因子以 ave_same_name_snapshots 历史快照 as-of 为主——AVE
+    //     实时索引在两次运行间漂移会翻转 preBuy 决策（v0 簇≥3 放行 vs 旧 perf 臂
+    //     簇 2 拦下）；miss 才兜底实时调用（service 侧行级过滤到被检 token 发布前）
+    await this._loadSameNameSnapshots();
+
     // 9.4 EarlyParticipant 回放 ticks 索引（bc4f756e 性能案 2026-09-28）：回测期每触发
     // 买信号的早期参与者检查原本现查 wss_price_ticks（90s 窗，一 signal 一次 DB 往返）；
     // 回放数据已全量在内存——按 token 分桶预建索引注入检查服务（TPA setHistoricalTicks
@@ -1139,6 +1145,57 @@ class BacktestEngine extends AbstractTradingEngine {
     this._graduationEvents.sort((a, b) => a.tsMs - b.tsMs);
     this.logger.info(this._experimentId, 'BacktestEngine',
       `🎓 graduation 事件装载: ${total} 个（token 集合 ${addresses.length}，窗口内）`);
+  }
+
+  /**
+   * AVE 同名快照装载（9.3，2026-10-12 用户裁定）：拉 ave_same_name_snapshots
+   * searched_at <= 回放终点的全量行（表级全局资产，与 token 集合无关——兜底实时
+   * 调用写入的行同样供未来回测 as-of），(chain, search_term) 分桶、桶内
+   * searchedAtMs 升序注入 SameNameTokenService。fail-open：装载失败只 warn
+   * （表未建/网络异常 → 同名检查退回兜底实时+发布前过滤，不阻断回测启动）。
+   */
+  async _loadSameNameSnapshots() {
+    const t0 = Date.now();
+    try {
+      const supabase = this._getClient();
+      const untilIso = this._endTimeFilter ? new Date(this._endTimeFilter).toISOString() : null;
+      const idx = new Map();
+      let from = 0;
+      let rows = 0;
+      for (;;) {
+        // (searched_at, id) 双键稳定排序：同刻多行时分页边界不漂移
+        let q = supabase
+          .from('ave_same_name_snapshots')
+          .select('chain, search_term, searched_at, row_count, results')
+          .order('searched_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, from + 999);
+        if (untilIso) q = q.lte('searched_at', untilIso);
+        const { data, error } = await q;
+        if (error) throw new Error(error.message);
+        for (const r of data || []) {
+          const key = `${r.chain}:${r.search_term}`;
+          let arr = idx.get(key);
+          if (!arr) { arr = []; idx.set(key, arr); }
+          arr.push({
+            searchedAtMs: new Date(r.searched_at).getTime(),
+            rowCount: r.row_count,
+            results: r.results || [],
+          });
+        }
+        rows += (data || []).length;
+        if (!data || data.length < 1000) break;
+        from += 1000;
+      }
+      this._preBuyCheckService.sameNameTokenService.setHistoricalSnapshots(idx);
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `AVE 同名快照装载: ${rows} 行 → ${idx.size} 桶（${Date.now() - t0}ms` +
+        `${untilIso ? `，截止 ${untilIso}` : '，全表'}）`);
+    } catch (e) {
+      this._preBuyCheckService.sameNameTokenService.setHistoricalSnapshots(null);
+      this.logger.warn(this._experimentId, 'BacktestEngine',
+        `AVE 同名快照装载失败（fail-open 退回兜底实时调用）: ${e.message}`);
+    }
   }
 
   /**
