@@ -261,6 +261,33 @@ console.log('5. perf3 事故形状（rating=1 重复 fire + 翻正恢复）');
   ok(r3.shortCircuited === true, '5c. rating 回落 → 再拦（无粘滞状态）');
 }
 
+// ═══ 6. 源码口径防线：引擎 options 键名漂移告警 ═══
+// knownCtx 的值来自 performAllChecks options——若 BacktestEngine 调用点停传某键
+// （改名/重构遗漏），knownCtx 恒取默认值（如 narrativeRating 恒 9 → 评级门恒假
+// → 全部检查短路=误拦全灭）。断言调用点源文本包含全部 17 键的字面传参。
+console.log('6. BacktestEngine options 键名源码防线');
+{
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
+  const m = src.match(/performAllChecks\([\s\S]*?\n\s*\{[\s\S]*?\n\s*\},\s*\n\s*\);/);
+  ok(m !== null, '6a. 定位到 performAllChecks 调用块');
+  if (m) {
+    const block = m[0];
+    const keys = Object.keys(mkSvc()._buildKnownFactorContext({}));
+    // GMGN 三键/router 两键经展开注入（...mapGmgnRiskFactors / ...routerGateFactors），
+    // 调用块无字面键名——单独断言两处展开存在，其余键断言字面传参
+    const SPREAD = ['gmgnIssuerTokenCount', 'gmgnBundlerWalletRatio', 'gmgnRiskCovered',
+      'earlyTradesRouterLowSideSeen', 'earlyTradesRouterRejectCount'];
+    const literal = keys.filter(k => !SPREAD.includes(k));
+    const missing = literal.filter(k => !block.includes(`${k}:`) && !block.includes(`${k},`));
+    ok(missing.length === 0,
+      `6b. 调用点字面传 ${literal.length} 个 known 键（含简写）+ 展开注入 ${SPREAD.length} 个`, `missing=${missing}`);
+    ok(block.includes('_mapGmgnRiskFactors(') && block.includes('routerGateFactors('),
+      '6c. GMGN/router 两族展开注入存在');
+  }
+}
+
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
 process.exit(fail ? 1 : 0);
 }
