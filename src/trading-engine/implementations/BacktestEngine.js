@@ -273,13 +273,15 @@ class BacktestEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'BacktestEngine',
       `✅ 策略引擎初始化完成，加载了 ${this._strategyEngine.getStrategyCount()} 个策略`);
 
-    // 6.1 FA preFilter（pumpfun 回迁，**默认关**）：backtest.faPreFilter===true 时从每个
-    // 买腿 condition AST 提取 age 区间（分钟，与 FA age 因子同锚同单位），多策略取
-    // 【并集】注入 FA——未持仓 token 的 age 落在全部区间外 → buildFactorMap 跳过因子
-    // 构建（纯提效：AND 链 condition 出 age 区间必 false，不漏买）。红线：跳过会连带
-    // 跳过 TPA checkAndTrigger 与 cycle latch 推进 = 决策行为变化（触发数/分桶演化可能
-    // 漂移），故默认关；开启前须开/关双跑 trades 一致才允许实验级启用
-    if (backtestConfig.faPreFilter === true) {
+    // 6.1 FA preFilter（pumpfun 回迁；**默认开**——2026-10-12 用户裁定，显式
+    // backtest.faPreFilter===false 关闭）：从每个买腿 condition AST 提取 age 区间
+    // （分钟，与 FA age 因子同锚同单位），多策略取【并集】注入 FA——未持仓 token 的
+    // age 落在全部区间外 → buildFactorMap 跳过因子构建（纯提效：AND 链 condition 出
+    // age 区间必 false，不漏买；持仓票豁免 = 卖腿/止损因子不受影响）。已知代价：跳过
+    // 连带跳过超龄未持仓 token 的 TPA checkAndTrigger 与 cycle latch 推进——仅观察数据
+    // 损失（该 token 已出买窗永不再买，notpa 消融实测 TPA 机制扰动 −0.80≈0）；双跑
+    // 验证臂 pf0（69b43310，faPreFilter=true vs v0 关侧）trades 对拍进行中
+    if (backtestConfig.faPreFilter !== false) {
       const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
       const ranges = [];
       for (const s of this._strategyEngine.getAllStrategies()) {
@@ -291,7 +293,7 @@ class BacktestEngine extends AbstractTradingEngine {
       if (ranges.length > 0) {
         const fmt = pf => `age∈[${pf.minAgeMinutes ?? 0},${pf.maxAgeMinutes ?? '∞'})`;
         this.logger.info(this._experimentId, 'preFilter',
-          `FA preFilter 已启用（默认关，实验级显式开启）：${ranges.length} 个买腿区间并集 ${ranges.map(fmt).join(' | ')}`);
+          `FA preFilter 已启用（默认开，backtest.faPreFilter=false 可关）：${ranges.length} 个买腿区间并集 ${ranges.map(fmt).join(' | ')}`);
       } else {
         this.logger.info(this._experimentId, 'preFilter',
           'FA preFilter 开启但无可提取 age 区间的买腿（OR 结构/无 age 子句）→ 不过滤');

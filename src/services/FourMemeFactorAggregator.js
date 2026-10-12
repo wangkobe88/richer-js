@@ -980,15 +980,16 @@ class FourMemeFactorAggregator extends EventEmitter {
 
     /**
      * 注入 buy condition age 区间粗筛（pumpfun 回迁；回测专属，引擎侧
-     * config.backtest.faPreFilter===true 才调用，live 恒不注入零变化）。
+     * BacktestEngine 默认调用——2026-10-12 用户裁定默认开，backtest.faPreFilter
+     * ===false 显式关闭；live 恒不注入零变化）。
      * 多买策略并行：传区间数组（每策略一个，从各自 buy condition AST 提取），
      * token 落在【任一】区间内即计算（并集）；数组元素字段缺省填 0/Infinity；
      * 传 null/undefined/空数组清除（不过滤）。
      *
-     * ⚠红线（plan 裁定）：跳过 = buildFactorMap 返回 null → 引擎侧 TPA
-     * checkAndTrigger / cycle latch 推进一并跳过 = 决策行为变化（TPA 触发数、
-     * cycleTag 演化可能与未开启时不一致），故默认关；开启前须开/关双跑
-     * trades 一致才允许实验级启用
+     * ⚠语义边界：跳过 = buildFactorMap 返回 null → 引擎侧超龄未持仓 token 的
+     * TPA checkAndTrigger / cycle latch 推进一并跳过（仅观察数据损失——token 已
+     * 出买窗永不再买，notpa 消融实测 TPA 机制扰动 −0.80≈0）；买卖零影响由
+     * AND 链出 age 区间必 false 保证；双跑对拍臂 pf0（69b43310）验证中
      * @param {Array<{minAgeMinutes?:number, maxAgeMinutes?:number}>|null} ranges
      */
     setPreFilter(ranges) {
