@@ -175,15 +175,23 @@ export class NarrativeAnalyzer {
    * @param {boolean} options.enrichSocialByGmgn - GMGN 社媒补源（BRF 案，仅叙事
    *   直调传 true）：元数据无社交链接时调 GMGN 补语料入口；且 no_public_info
    *   拦截的缓存行视为失真，穿透重析（见缓存命中分支）
+   * @param {Map|null} options.rowCache - 预载行缓存（回测叙事预载 2026-10-12）：
+   *   小写地址 → token_narrative 行快照（仅含「命中路径无网络调用」的行——
+   *   is_valid && 非 no_public_info 穿透域 && gmgn_info 已写，见 preloadCache）。
+   *   命中 → 跳过 findByAddress DB 往返；无键/未预载 → 现场 DB 查原路径。
+   *   真析 upsert 的新行只会发生在非预载行上（预载行命中路径不重析），无快照
+   *   覆盖竞态
    */
   static async analyze(address, options = {}) {
-    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false } = options;
+    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null } = options;
 
     // 标准化地址
     const normalizedAddress = address.toLowerCase();
 
-    // 1. 检查缓存（查询最新的记录，任何实验的都可以）
-    const cached = await NarrativeRepository.findByAddress(normalizedAddress);
+    // 1. 检查缓存（查询最新的记录，任何实验的都可以）——预载行优先（回测装载时
+    //    批量拉的快照）；miss/未预载 → 现场 DB 查原路径
+    const cached = (rowCache && rowCache.get(normalizedAddress))
+      || await NarrativeRepository.findByAddress(normalizedAddress);
 
     // 2. 判断是否可以使用缓存（代币级全局：命中有效缓存即复用，ignoreCache=true 才强制重分析）
     // GMGN 补源链路例外（BRF 案）：no_public_info 拦截行的根因是语料缺失（元数据+
@@ -842,6 +850,48 @@ export class NarrativeAnalyzer {
    */
   static formatResult(record) {
     return formatResult(record);
+  }
+
+  /**
+   * 回测叙事预载（2026-10-12 回测性能案）：按 token 集合批量预拉叙事缓存行，
+   * 消除回放中每次直调的 2 次 DB 往返（token_narrative 行 + reassembleTwitterInfo
+   * 的 external_resource_cache 推文行；e50 实测 4007 次命中 × 34ms = 137s 串行）。
+   *
+   * 返回的 rowCache 直接透传给 analyze({rowCache})——组装代码零改动，只把数据源
+   * 从现场 DB 查换成内存行快照，行为 bit-identical。
+   *
+   * 可预载行判定与 analyze 缓存命中分支的「无网络调用」条件逐条对齐（缺一即排除，
+   * 排除行回放时现场查 DB 走原路径）：
+   * - is_valid=false → 命中分支不进 → 重析（排除）
+   * - no_public_info 拦截行（enrichSocialByGmgn 直调语境）→ 穿透重析（排除）
+   * - gmgn_info 缺行 → 命中分支补调 GMGN 网络（排除；补写后下次 fire 现场查即命中）
+   *
+   * @param {string[]} tokenAddresses - 回测窗口 token 集合（大小写任意）
+   * @returns {Promise<{rowCache: Map, tweetRows: number}>}
+   *   rowCache: 小写地址 → token_narrative 最新行（analyzed_at 升序遍历 Map.set
+   *   覆盖保留每地址最新，与 findByAddress 的 desc nullsLast 口径一致）
+   */
+  static async preloadCache(tokenAddresses) {
+    const tokenSet = new Set((tokenAddresses || []).map(a => String(a).toLowerCase()));
+    if (!tokenSet.size) return { rowCache: new Map(), tweetRows: 0 };
+
+    const rows = await NarrativeRepository.fetchAllRows();
+    const rowCache = new Map();
+    const tweetKeys = [];
+    for (const row of rows) { // fetchAllRows analyzed_at 升序 → 后写覆盖留最新
+      if (!tokenSet.has(row.token_address)) continue;
+      const isNoPublicInfoBlock = row.pre_check_result?.details?.ruleName === 'no_public_info';
+      if (!row.is_valid || isNoPublicInfoBlock || row.gmgn_info == null) continue;
+      rowCache.set(row.token_address, row);
+      // 语料推文行键（reassembleTwitterInfo 同款 resourceType 映射：community →
+      // twitter_community，其余一律 tweet；主推/次推都在 twitter 桶内）
+      for (const t of (row.classified_urls?.twitter || [])) {
+        if (!t?.url) continue;
+        tweetKeys.push([t.type === 'community' ? 'twitter_community' : 'tweet', t.url]);
+      }
+    }
+    const tweetRows = await ExternalResourceCache.preloadByKeys(tweetKeys);
+    return { rowCache, tweetRows };
   }
 
   /**

@@ -9,6 +9,41 @@ import { dbManager } from '../../services/dbManager.js';
 export class ExternalResourceCache {
 
   /**
+   * 预载层（回测叙事预载 2026-10-12）：`${resourceType}\u0000${url}` → 行快照
+   * （{url, resource_type, status, content, expires_at}）。回测装载时按 token 集合
+   * 批量预拉推文缓存行灌入，analyze 缓存命中路径的 reassembleTwitterInfo → get
+   * 由此短路（每 token 首次直调省一次 external_resource_cache DB 往返）。
+   * 进程内快照：仅回测语境灌入，实时链路空 Map 行为不变
+   */
+  static _preloadStore = new Map();
+
+  /**
+   * 批量预拉缓存行灌预载层（回测叙事预载专用）
+   * @param {Array<[string, string]>} keys - [resourceType, url] 对数组
+   * @returns {Promise<number>} 灌入行数
+   */
+  static async preloadByKeys(keys) {
+    if (!keys || !keys.length) return 0;
+    const urlSet = new Set(keys.map(([, u]) => u));
+    const urls = [...urlSet];
+    const CHUNK = 100; // .in() URL 长度坑（8KB）——既有批 100 先例
+    let loaded = 0;
+    for (let i = 0; i < urls.length; i += CHUNK) {
+      const { data, error } = await dbManager.getSupabase()
+        .from('external_resource_cache')
+        .select('url,resource_type,status,content,expires_at')
+        .eq('status', 'success')
+        .in('url', urls.slice(i, i + CHUNK));
+      if (error) throw error;
+      for (const row of data || []) {
+        this._preloadStore.set(`${row.resource_type}\u0000${row.url}`, row);
+        loaded++;
+      }
+    }
+    return loaded;
+  }
+
+  /**
    * 从缓存获取资源
    * @param {string} url - 资源URL
    * @param {string} resourceType - 资源类型
@@ -18,6 +53,15 @@ export class ExternalResourceCache {
    */
   static async get(url, resourceType, options = {}) {
     const { maxAge = 30 * 24 * 60 * 60 } = options; // 默认30天
+
+    // 预载层短路（回测叙事预载 2026-10-12）：命中且未过期 → 直接返回行 content 零 DB；
+    // 过期 → null（DB 行同样会被下方 or(expires_at...) 条件排除，miss 语义一致）；
+    // 无键 → 走原 DB 路径（预载集合外 URL 行为不变）
+    const pre = this._preloadStore.get(`${resourceType}\u0000${url}`);
+    if (pre) {
+      const expiresBefore = new Date(Date.now() - maxAge * 1000);
+      return (!pre.expires_at || new Date(pre.expires_at) >= expiresBefore) ? pre.content : null;
+    }
 
     try {
       const supabase = dbManager.getSupabase();

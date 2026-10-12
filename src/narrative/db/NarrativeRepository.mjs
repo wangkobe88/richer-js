@@ -87,6 +87,35 @@ export class NarrativeRepository {
   }
 
   /**
+   * 全表分页拉取（回测叙事预载专用，2026-10-12）
+   *
+   * 依据：token_narrative 为代币级全局缓存表（2026-10-12 全表 23,477 行），回测窗口
+   * token 集合（e50 实测 9.5 万地址）与之做交集若走 .in 过滤需 ~950 次往返（批 100
+   * URL 长度坑口径）；全表 47 批分页一次拉完、JS 端交集更省。行按 analyzed_at 升序
+   * （nullsFirst：null 视为最旧，与 findByAddress 的 nullsLast desc 取最新口径互补）
+   * ——调用方按序 Map.set 覆盖即天然保留每地址最新行。
+   *
+   * ⚠️ 仅离线回测装载语境调用：表涨到十万行级时全列快照内存不可承受，需改
+   * 「窄列探针 + 命中地址全列」两段式
+   */
+  static async fetchAllRows() {
+    const rows = [];
+    let offset = 0;
+    while (true) {
+      const { data, error } = await this.getSupabase()
+        .from('token_narrative')
+        .select('*')
+        .order('analyzed_at', { ascending: true, nullsFirst: true })
+        .range(offset, offset + 499);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < 500) break;
+      offset += 500;
+    }
+    return rows;
+  }
+
+  /**
    * 保存或更新分析结果
    */
   static async save(result) {

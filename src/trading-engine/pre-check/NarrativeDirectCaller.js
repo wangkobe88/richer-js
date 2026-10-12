@@ -72,6 +72,12 @@ class NarrativeDirectCaller {
     this._memoryCacheResults = !!options.memoryCacheResults;
     /** tokenAddress(小写) → 已缓存 getRating 结果（终态 PASS 形状，见 constructor 注释） */
     this._resultCache = new Map();
+    /**
+     * token_narrative 预载行缓存（回测叙事预载 2026-10-12）：小写地址 → 行快照，
+     * 经 preload() 批量拉取灌入、_startAnalysis 透传给 analyze({rowCache})——
+     * 命中路径的 findByAddress DB 往返由此消除。null = 未预载（实时链路原行为）
+     */
+    this._rowCache = null;
   }
 
   /**
@@ -84,6 +90,22 @@ class NarrativeDirectCaller {
       this._Analyzer = mod.NarrativeAnalyzer;
     }
     return this._Analyzer;
+  }
+
+  /**
+   * 叙事结果预载（回测专属，2026-10-12 性能案）：装载阶段按窗口 token 集合批量拉
+   * token_narrative 缓存行（+语料推文缓存行）灌内存层——否则回放中每 token 首次
+   * 直调走 analyze 缓存命中路径 = 2 次 DB 往返 ≈34ms 串行（e50 实测 4007 次命中
+   * =137s）。行为零变化：预载行 = 命中路径会原样返回的行，组装代码不变只换数据源
+   *
+   * @param {string[]} tokenAddresses - 回测窗口 token 集合
+   * @returns {Promise<{rowCache: Map, tweetRows: number}>} 预载统计（行数/推文行数）
+   */
+  async preload(tokenAddresses) {
+    const Analyzer = await this._getAnalyzer();
+    const r = await Analyzer.preloadCache(tokenAddresses);
+    this._rowCache = r.rowCache;
+    return r;
   }
 
   /**
@@ -102,7 +124,12 @@ class NarrativeDirectCaller {
     let p = this._inflight.get(key);
     if (!p) {
       p = this._getAnalyzer()
-        .then(Analyzer => Analyzer.analyze(tokenAddress, { enrichSocialByGmgn: true }));
+        .then(Analyzer => Analyzer.analyze(tokenAddress, {
+          enrichSocialByGmgn: true,
+          // 预载行透传（回测叙事预载 2026-10-12）：命中 → analyze 跳过 findByAddress；
+          // null/无键 → 现场 DB 查原路径
+          rowCache: this._rowCache || undefined,
+        }));
       // settle 后移出 inflight；then 第二参承接 rejection 防 unhandled rejection
       const cleanup = () => this._inflight.delete(key);
       p.then(cleanup, cleanup);

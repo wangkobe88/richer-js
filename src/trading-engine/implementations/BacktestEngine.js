@@ -452,6 +452,18 @@ class BacktestEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, 'BacktestEngine',
       `📊 回放数据就绪: ${this._ticks.length} 笔 tick，${this._tokenMeta.size} 个代币元数据`);
 
+    // 9.1 叙事结果预载（回测性能 2026-10-12）：带 narrativeCallCondition 的实验回放中
+    //     每 token 首次直调走 analyze 缓存命中路径 = 2 次 DB 往返（token_narrative 行 +
+    //     语料推文缓存行）≈34ms×N 串行（e50 实测 4007 次命中=137s）。装载时按 token
+    //     集合批量预拉灌内存层，组装代码不变只换数据源——行为 bit-identical；无
+    //     narrativeCallCondition 的实验不预载（无直调 = 预载白拉）
+    if (this._strategyEngine.getAllStrategies().some(s => s.action === 'buy' && s.narrativeCallCondition)) {
+      const _npT0 = Date.now();
+      const _np = await this._narrativeCaller.preload([...this._tokenMeta.keys()]);
+      this.logger.info(this._experimentId, 'BacktestEngine',
+        `叙事预载: ${_np.rowCache.size}/${this._tokenMeta.size} 行 + 语料推文 ${_np.tweetRows} 行（${Date.now() - _npT0}ms）`);
+    }
+
     // 9.2 graduation 事件装载（虚拟↔回测一致性 2026-10-10）：wss_events kind='graduation'
     //     按 token 集合批量拉取，窗口过滤后按 tsMs 升序待回放（主循环消费见
     //     _consumeGraduationEvents）
