@@ -201,6 +201,21 @@ class BacktestEngine extends AbstractTradingEngine {
     // 分类器轨迹（_clsTicks/_lastBigTickAt/afterFirst9s 族/_relHighestPriceUsd）恒零读关闭；
     // TPA 双 map（_walletMaxNetTokens/_walletRoutedBuyBnb）按实验配置判定——与下方 TPA
     // 构造条件（tokenPositionAnalyzer 段存在才构造）同判据
+    // P17 虚拟时钟 prune（2026-10-13 OOM 根治）：live 引擎 5min setInterval 调
+    // pruneStaleTokens（FourMemeWssTradingEngine._runMainLoop），回测全文无调用——
+    // 去世 token 的全史钱包结构（9 Map+3 Set per state）永久驻留，perf3/perf4 双双
+    // 死于 2G heap。回测按 tick 虚拟时刻 prune（挂 30s 快照桶内、内部 5min 虚拟节流），
+    // 时钟参数对齐 live 30min/5min 缺省。faPruneMaxAgeSec=0 关闭（回滚开关）。
+    // ★maxTrackedTokens 必须对齐：live 默认 300 的容量上限淘汰逻辑在 prune 内部，
+    // 回测窗口 token 数千起、不对齐会把活票按「最久未动」清掉（构造前注入——
+    // FA 构造函数即刻读取该键）
+    const btPrune = this._experiment?.config?.backtest || {};
+    wsConfig.maxTrackedTokens = btPrune.maxTrackedTokens ?? 100000;
+    this._faPruneMaxAgeMs = btPrune.faPruneMaxAgeSec != null ? btPrune.faPruneMaxAgeSec * 1000 : 30 * 60 * 1000;
+    this._faPruneIntervalMs = btPrune.faPruneIntervalSec != null ? btPrune.faPruneIntervalSec * 1000 : 5 * 60 * 1000;
+    this._lastFaPruneTs = null;
+    this._faPrunedTotal = 0;
+
     this._factorAggregator = new FourMemeFactorAggregator({
       fourmemeWs: wsConfig,
       maintainClassifierTracks: false,
@@ -1033,6 +1048,22 @@ class BacktestEngine extends AbstractTradingEngine {
           this._lastSnapshotTs = tickTs;
           this._loopCount++;
           await this._createPortfolioSnapshot(tickTs);
+
+          // P17 虚拟时钟 prune（OOM 根治，见 _initializeDataSources 构造注释）：挂 30s
+          // 快照桶、内部 _faPruneIntervalMs 虚拟节流（对齐 live 5min setInterval），
+          // 判定时钟=tickTs 虚拟时刻（非墙钟——5 天回放窗口若按墙钟 5min 节流会退化成
+          // ~10 次 prune 挂一漏万）。失败 fail-open 对齐 live（:809 同款 catch 不中断回放）
+          if (this._faPruneMaxAgeMs > 0 &&
+              (this._lastFaPruneTs === null || tickTs - this._lastFaPruneTs >= this._faPruneIntervalMs)) {
+            this._lastFaPruneTs = tickTs;
+            try {
+              const pruned = this._factorAggregator.pruneStaleTokens(
+                this._faPruneMaxAgeMs, this._buildFaPruneProtectedSet(), tickTs);
+              if (pruned > 0) this._faPrunedTotal += pruned;
+            } catch (err) {
+              this.logger.error(this._experimentId, 'Prune', `FA 清理失败: ${err.message}`);
+            }
+          }
         }
 
         // 首见代币：FA 注册 + 入池 + 落库
@@ -1163,6 +1194,7 @@ class BacktestEngine extends AbstractTradingEngine {
         ` | memCacheHit=${this._narrativeCaller.getMemoryCacheHits()}` +
         ` | earlyReplayHit=${this._preBuyCheckService.earlyParticipantService.getReplayHits()}` +
         ` | preFilterSkipped=${this._factorAggregator.getPreFilterSkipped()}` +
+        ` | faPruned=${this._faPrunedTotal}` +
         (this._tokenPositionAnalyzer
           ? ` | TPA: ${JSON.stringify(this._tokenPositionAnalyzer.getStats())}` +
             (this._tokenPositionAnalyzer.getProfileStats()
@@ -2027,6 +2059,35 @@ class BacktestEngine extends AbstractTradingEngine {
         await this._emitStopLossSell(token, factors, hit, nowTs, null);
       }
     }
+  }
+
+  /**
+   * FA prune 保护集（P17 虚拟时钟 prune 配套）：state 被 prune 的 token 在后续
+   * buildFactorMap 会拿 null——凡「回放中仍可能对该 token 取因子」的形状必须保护。
+   *
+   * 构成（FA 内部另有 `_positions.size > 0` 自查，与引擎侧互补）：
+   * 1. 全部账面持仓（_getAllHoldings，与 live prune 保护集同源同 API）——止损扫描/
+   *    毕业卖/卖腿评估都是持仓票全量 buildFactorMap；
+   * 2. 买入/卖出执行中（_buyingTokens/_sellingTokens）——执行链 await 完成后仍要
+   *    走卖腿/止损路径（fire 评估链的 buildFactorMap 在虚拟时刻 dequeue 点附近，
+   *    30min 窗内不受 prune 影响，此两项是执行期防御）；
+   * 3. 未消费 graduation 事件涉及 token（_gradEvtIdx 起）——毕业卖
+   *    buildFactorMap(evt.tsMs) 在事件消费点调用。对「未持仓票」事件消费仅推进
+   *    指针不取因子（正确性上与持仓保护重叠），此项是防御性冗余：毕业卖出失败
+   *    不推进指针跨 tick 重试期间票恒为持仓（被 1 覆盖），保留是为防未来消费路径
+   *    改动引入的 state 依赖（成本=每 5min 一次 O(未消费事件数) 收集）。
+   *
+   * 复流语义：死票 prune 后若再收 tick，processTick 自动重建空 state（首 tick 锚
+   * 重置）——与 live 同行为，非回测特例。
+   */
+  _buildFaPruneProtectedSet() {
+    const held = new Set(this._getAllHoldings().map(h => h.tokenAddress?.toLowerCase()));
+    for (const addr of this._buyingTokens) held.add(addr.toLowerCase());
+    for (const addr of this._sellingTokens) held.add(addr.toLowerCase());
+    for (let i = this._gradEvtIdx; i < this._graduationEvents.length; i++) {
+      held.add(String(this._graduationEvents[i].token).toLowerCase());
+    }
+    return held;
   }
 
   /**

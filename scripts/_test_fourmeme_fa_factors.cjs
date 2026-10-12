@@ -605,6 +605,8 @@ function scenarioFactorKeys(FA, baselineKeys) {
         // 平台标签（2026-10-02 router 平台豁免）+ 行为周期 5 键（2026-09-28）
         'tokenAgeSec', 'platform',
         'tokenCycle', 'tokenCycleRaw', 'tokenCycleAgeSec', 'cycleTps30s', 'cycleGapMedianMs',
+        // 拱形止损因子（da3ea70，2026-10 峰值市值分档回撤全清；上线时漏同步本清单）
+        'peakMarketCapSinceLastBuy',
     ];
     const missing = NEW_KEYS.filter(k => !keys.has(k));
     ok(missing.length === 0, `getFactorKeys 含全部 ${NEW_KEYS.length} 新键`, missing);

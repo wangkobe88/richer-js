@@ -1117,9 +1117,12 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 清理陈旧 token 状态（有持仓/受保护集合内的不清理）。
      * @param {number} maxAgeMs - 最后 tick 距今超过此值的清理
      * @param {Set<string>} heldTokens - 引擎持仓地址集合（额外保护）
+     * @param {number} [nowMs] - 判定时钟（P17 回测虚拟时钟 prune，2026-10-13）：回放
+     *   传入 tick 虚拟时刻，缺省墙钟——实时 setInterval 调用点不传零变化（同
+     *   buildFactorMap(state, asOf) 的禁 Date.now 前视红线家族）
      */
-    pruneStaleTokens(maxAgeMs, heldTokens = new Set()) {
-        const now = Date.now();
+    pruneStaleTokens(maxAgeMs, heldTokens = new Set(), nowMs) {
+        const now = nowMs != null ? nowMs : Date.now();
         let pruned = 0;
         for (const [addr, state] of this._states) {
             if (state._positions.size > 0) continue;

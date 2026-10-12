@@ -407,8 +407,14 @@ console.log('F. BacktestEngine graduation 事件回放');
   const buyPath = src.slice(src.indexOf('async _evaluateBuyPath'), src.indexOf('async _stopLossHit'));
   check('F4 买入成功点补卖存在（三挂点竞态修复，盘古案）',
     buyPath.includes('_graduatedTokens.has(token.token)') && buyPath.includes('_emitGraduationSell'), true);
-  const initSrc = src.slice(src.indexOf('async _initializeDataSources'), src.indexOf('async _loadTokenMetadata'));
-  check('F4 装载挂点在 ticks 装载后', initSrc.includes('await this._loadGraduationEvents();'), true);
+  // P13 装载流水线（b8d6d06）重排后：graduation 在 _runLoadPipeline 组 B——组 A
+  //（含 _loadWssTicks）await 完成后才发起（回放主循环前装载完毕的语义不变）
+  const initSrc = src.slice(src.indexOf('async _runLoadPipeline'), src.indexOf('async _runMainLoop'));
+  const groupAWait = initSrc.indexOf('await Promise.all(groupA)');
+  const gradCall = initSrc.indexOf('this._loadGraduationEvents(),');
+  const ticksCall = initSrc.indexOf('this._loadWssTicks(),');
+  check('F4 装载挂点在 ticks 装载后（组 B 随组 A await 后发起）',
+    ticksCall > -1 && groupAWait > -1 && gradCall > groupAWait, true);
   // 74444a0c 首启事故：.in() 走 URL，批 500 → 21.5KB 超网关 8KB 限制 fetch failed
   const gradSrc = src.slice(src.indexOf('async _loadGraduationEvents'), src.indexOf('async _consumeGraduationEvents'));
   check('F4 装载批大小 ≤ 50（URL 长度防线，74444a0c 首启事故）',
