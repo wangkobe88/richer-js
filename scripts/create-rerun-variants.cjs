@@ -97,6 +97,7 @@ const ARMS = {
     ec0: { src: ETNONE, suffix: '-去cycle门', desc: 'v0 + condition 删 cycle 子句 + config 删 tokenCycle 段（cycle 门纯效应）' },
     pf0: { src: ETNONE, suffix: '-pf验证', desc: 'v0 + backtest.faPreFilter=true（P2-1 双跑验证：超龄未持仓 tick 跳过因子构建，开/关 trades 须 bit-identical）' },
     perf: { src: ETNONE, suffix: '-perf基准', desc: '性能基准臂（v0 config 逐字复刻：P1 探针 + P2a/b/c + 叙事预载 + preFilter 修复后首次实跑；对拍 5517e3db=同 config 旧代码 64.4min/129.97 万 tick）' },
+    perf2: { src: ETNONE, suffix: '-perf2快照缓存', desc: '性能臂二代（2026-10-12：perf config + AVE 同名搜索 TTL 缓存 300s + 快照化代码 b5eccae。perf 实测定因：preBuy 拦截 token 每 fire 重走全链，AVE 实时搜索 ~2.7×调用量成主耗时；TTL 内同 symbol 复用搜索结果省 95%+ 网络往返，同 symbol 窗口内数据一致=回测决定性更强）' },
 };
 
 const args = process.argv.slice(2);
@@ -131,7 +132,7 @@ async function main() {
     if (!srcB) throw new Error('源实验不存在: ' + E3E57ED75);
     if (!srcT) throw new Error('源实验不存在: ' + ETNONE);
 
-    const toRun = ARM === 'all' ? Object.keys(ARMS).filter(a => a !== 'gm' && a !== 'perf') : [ARM]; // all 不含 gm（须单建+定档）/perf（须单建）
+    const toRun = ARM === 'all' ? Object.keys(ARMS).filter(a => a !== 'gm' && a !== 'perf' && a !== 'perf2') : [ARM]; // all 不含 gm（须单建+定档）/perf/perf2（须单建）
     const created = [];
 
     for (const arm of toRun) {
@@ -228,6 +229,12 @@ async function main() {
                 throw new Error(`[${arm}] v0 基线校验失败（top1/covered/router 残留）`);
             }
             buy.preBuyCheckCondition = pbc;
+            if (arm === 'perf2') {
+                // 唯一增量变量：AVE 同名搜索 TTL 缓存（perf 臂定因——AVE 实时调用
+                // ~2.7× 是主耗时；TTL 300s 同 symbol 复用原始搜索结果，行级
+                // 发布前过滤仍 per-token 重跑，缓存后过滤=语义不变）
+                cfg.preBuyCheck = { ...(cfg.preBuyCheck || {}), sameNameSearchCacheTtlSec: 300 };
+            }
         } else if (arm === 'ec0') {
             // cycle 门纯效应臂：v0 的 pbc + condition 删 cycle 子句 + config 删 tokenCycle 段。
             // 卖腿 5 条 condition 均不引用 tokenCycle（2026-10-11 查证）→ 删段对卖腿零影响。
@@ -292,6 +299,9 @@ async function main() {
                 base.tokenPositionAnalyzer.gmgnFilter = { enabled: true, exemptPct: GM_PCT };
             } else if (arm === 'v0' || arm === 'perf' || arm === 'e50' || arm === 'eno' || arm === 'enl') { // 差异仅 pbc
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
+            } else if (arm === 'perf2') { // 差异仅 pbc + preBuyCheck.sameNameSearchCacheTtlSec
+                base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
+                base.preBuyCheck = { ...(base.preBuyCheck || {}), sameNameSearchCacheTtlSec: 300 };
             } else { // t22/t20/tnone：差异仅 condition
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
             }
@@ -301,7 +311,8 @@ async function main() {
                         : (arm === 'notpa' ? 'condition+去tokenPositionAnalyzer段'
                             : (arm === 'ec0' ? 'pbc+condition+去tokenCycle段'
                                 : (arm === 'pf0' ? 'pbc+faPreFilter'
-                                : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition')))));
+                                : (arm === 'perf2' ? 'pbc+sameNameTTL'
+                                : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition'))))));
                 throw new Error(`[${arm}] 与源实验差异超出 name/description/${field}——应零差异`);
             }
         }
