@@ -303,7 +303,7 @@ class BacktestEngine extends AbstractTradingEngine {
       }
       this._factorAggregator.setPreFilter(ranges.length > 0 ? ranges : null);
       if (ranges.length > 0) {
-        const fmt = pf => `age∈[${pf.minAgeMinutes ?? 0},${pf.maxAgeMinutes ?? '∞'})`;
+        const fmt = pf => `age∈[${pf.minAgeMinutes ?? '-∞'},${pf.maxAgeMinutes ?? '∞'})`;
         this.logger.info(this._experimentId, 'preFilter',
           `FA preFilter 已启用（默认开，backtest.faPreFilter=false 可关）：${ranges.length} 个买腿区间并集 ${ranges.map(fmt).join(' | ')}`);
       } else {

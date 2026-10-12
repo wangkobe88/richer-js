@@ -102,8 +102,8 @@ FA.processTick(tickAt(T0 + 1000), { emitFactors: false });
   ok(buildAt(3) === null && FA.getPreFilterSkipped() === 1, 'B4b. 并集间隙 age=3 → 跳过');
 
   // B5：字段缺省归一 + 清除
-  FA.setPreFilter([{ maxAgeMinutes: 2 }]); // min 缺省 0
-  ok(buildAt(0.1) != null && buildAt(2.1) === null, 'B5. minAgeMinutes 缺省 0：低龄不误杀，上界仍生效');
+  FA.setPreFilter([{ maxAgeMinutes: 2 }]); // min 缺省 -Infinity（2026-10-12 事故修正，原 0 误杀负 age）
+  ok(buildAt(0.1) != null && buildAt(2.1) === null, 'B5. minAgeMinutes 缺省 -∞：低龄不误杀，上界仍生效');
   FA.setPreFilter([]);
   ok(buildAt(9999) != null, 'B5b. 空数组 → 清除不过滤');
   FA.setPreFilter(null);
@@ -113,6 +113,34 @@ FA.processTick(tickAt(T0 + 1000), { emitFactors: false });
   // B6：跳过返回的 null 与「state 不存在」的 null 在引擎侧同路径（不炸）
   FA.setPreFilter([{ minAgeMinutes: 100, maxAgeMinutes: 200 }]);
   ok(buildAt(1) === null && buildAt(1) === undefined ? false : true, 'B6. 重复跳过幂等（连续 null 无异常）');
+}
+
+// ---------- C. 负 age 事故现场反证（2026-10-12 perf 臂 17da408e 信号 2s 漂移） ----------
+// 根因：age 锚 = experiment_tokens.created_at（发现墙钟）晚于链上首 tick → token 出生
+// 头几秒 age 为负且 tokenAgeSec<90 对负值为真；setPreFilter 原把无下界子句缺省填 0
+// → 负 age tick 全部被跳过因子构建 → 首真信号调度晚 → fire/信号时刻系统性漂移
+// （SJ 0x0474e64e…7777：锚+1.57s，condition 首真 li225→li719，fire 26.2s→27.8s）
+console.log('C. 负 age 事故现场反证（缺省下界 -∞）');
+{
+  const E = ConditionEvaluator.extractBuyRangeFromCondition;
+  // C1 提取端：单上界子句不产出下界键（-∞ 语义由 FA 消费端填）
+  const ex = E('buyVolumeBnb >= 1.5 AND tokenAgeSec < 90 AND holders > 5');
+  ok(ex?.maxAgeMinutes === 1.5 && !('minAgeMinutes' in ex), 'C1. 事故 condition 提取：只有上界键 1.5，无下界键');
+
+  // C2 消费端：注入后负 age（出生头几秒）不跳过——事故核心反证
+  FA.setPreFilter([ex]);
+  FA._preFilterSkipped = 0;
+  ok(buildAt(-0.026) != null, 'C2. age=-0.026min（锚+1.57s 事故参数）→ 构建不跳过（原缺省 0 此处 null=事故）');
+  ok(buildAt(0) != null, 'C3. age=0 恰=旧缺省下界 → 不跳过');
+  ok(buildAt(1.49) != null, 'C4. 窗内正常构建');
+  ok(buildAt(1.6) === null, 'C5. age=1.6 > 上界 1.5 → 跳过（设计内：出买窗）');
+  ok(FA.getPreFilterSkipped() === 1, 'C6. 仅 C5 计一次跳过');
+
+  // C7 显式下界子句不受修复影响（收紧语义保留）
+  const ex2 = E('tokenAgeSec > 120 AND buyVolumeBnb >= 1');
+  FA.setPreFilter([ex2]);
+  ok(buildAt(1) === null, 'C7. 显式下界 tokenAgeSec>120：age=1min（60s<120s）仍跳过（收紧不被修复放宽）');
+  FA.setPreFilter(null);
 }
 
 console.log(`\n全部通过：${passed} 断言`);

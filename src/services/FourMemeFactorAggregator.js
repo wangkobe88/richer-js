@@ -1026,7 +1026,13 @@ class FourMemeFactorAggregator extends EventEmitter {
             return;
         }
         this._preFilter = (Array.isArray(ranges) ? ranges : [ranges]).map(r => ({
-            minAgeMinutes: r.minAgeMinutes ?? 0,
+            // 无下界子句（如 tokenAgeSec < 90 单上界）缺省 -Infinity 而非 0：age 锚是
+            // experiment_tokens.created_at（发现墙钟，晚于链上首 tick）→ 负 age tick 真实
+            // 普遍存在且 tokenAgeSec<90 对负值为真——填 0 会误杀出生头几秒的 fire 评估
+            // （2026-10-12 perf 臂 17da408e vs v0 5517e3db 信号 2s 漂移事故：SJ 0x0474…7777
+            // 锚+1.57s，li225→li719 首真漂移，双版本对拍归因）。-Infinity 时判定
+            // age < r.minAgeMinutes 恒 false = 零跳过，语义精确等价「无下界」
+            minAgeMinutes: r.minAgeMinutes ?? -Infinity,
             maxAgeMinutes: r.maxAgeMinutes ?? Infinity,
         }));
     }

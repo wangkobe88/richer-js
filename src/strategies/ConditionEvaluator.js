@@ -61,7 +61,8 @@ class ConditionEvaluator {
      *        （e50 3fcea181 三次实测日志均此形状，preFilterSkipped=0）。此处直接
      *        接受 AST（有 type 字段的对象视为已解析），字符串照旧走 parse。
      * @returns {{minAgeMinutes?:number, maxAgeMinutes?:number}|null}
-     *          整体 null 表示无法提取（不过滤）；字段缺省由调用方填 0/Infinity
+     *          整体 null 表示无法提取（不过滤）；字段缺省由调用方填 -Infinity/Infinity
+     *          （下界绝不能填 0——age 锚是发现墙钟，负 age tick 真实存在）
      */
     static extractBuyRangeFromCondition(condition) {
         if (!condition) return null;
