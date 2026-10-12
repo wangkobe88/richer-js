@@ -1,493 +1,226 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Richer-js：BSC four.meme + flap meme 币自动交易引擎（BSC-only）。代币发现与价格 = **实验进程内嵌 ANKR WSS collector 直连**（订阅 four.meme TokenManager + flap Portal，全事件驱动无轮询）：实验进程自己持有 WSS 订阅，引擎直接消费 collector 内存回调，DB 落库（`wss_price_ticks`/`wss_events`）仅作持久化（回测/web/离线分析数据源）。支持虚拟（模拟盘）、回测（tick 回放）、live 实盘；内含叙事分析引擎（Jev 结构化决策模型）。
 
-## Project Overview
+**本文只留现行机制、铁律与操作入口。** 决策过程、case 复盘、验证数据不写入：
+- 叙事 case 全档案：`docs/叙事引擎改进与Case台账.md`（卷二，C36 起）+ `docs/叙事引擎改进与Case台账-卷一归档.md`（C1-C35）；**每个新 case/改进须同步追加台账**
+- 交易机制案档案：auto-memory（`~/.claude/.../memory/`，索引 MEMORY.md）
+- 历史实现：git 历史
 
-Richer-js is an automated trading engine for **BSC four.meme + flap tokens** (BSC-only). Token discovery and prices come from **实验进程内嵌 ANKR WSS collector 直连**（subscription on four.meme TokenManager + flap Portal, fully event-driven, no polling；watcher 常驻架构 2026-10-09 废除，回迁 pumpfun-wss-trader 同款直连）: 虚拟实验进程自己持有 WSS 订阅，引擎直接消费 collector 内存回调，DB 落库（`wss_price_ticks`/`wss_events`，experiment_id 恒 NULL）仅持久化（回测/web/离线分析数据源）. It supports virtual trading (simulation), backtesting (tick replay), and live trading modes. It also includes a **narrative analysis engine** (Jev structured decision model) that evaluates meme coin events.
-
-## Common Commands
+## 常用命令
 
 ```bash
-# Experiment runner (interactive CLI; start/stop experiments)
-npm start
-
-# Dev mode
+npm start                                  # 实验管理 CLI（交互式 start/stop）
 npm run dev
-
-# Web server (port 3010)
-npm run web
-
-# Run engine for one experiment directly (virtual mode)
-node src/run-engine.js <experiment_id>
-
-# Narrative analysis engine (standalone worker)
-npm run narrative-engine
-
-# 直连架构（内嵌 collector）零 DB 单测（引擎接线/stop 顺序/setExperimentId 防线/guard 判据）
-node scripts/_test_embedded_collector_architecture.cjs
-
-# run-engine 优雅停机零 DB 单测（信号注册先于 start + 回测中途停机刷写缓冲，tnone 37bd7349 停机事故）
-node scripts/_test_run_engine_graceful_stop.cjs
-
-# sender_address 解析（真实买家 tx.from）零 DB 零网络单测（打桩 provider/collector）
-node scripts/_test_sender_resolver.cjs
-
-# TPA 离线画像构建（step4；只在 182 跑，须在 build-token-profiles 之后——依赖 flash_crash_period）
+npm run web                                # Web 界面（端口 3010）
+node src/run-engine.js <experiment_id>     # 单实验直跑（virtual；live 显式拒绝）
+npm run narrative-engine                   # 叙事分析 worker
+node scripts/scan-unknown-factor-conditions.cjs   # 存量条件未知因子扫描（退出码 1=有命中）
 NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs --threshold 3 --days 14
-
-# TPA 本地零 DB 单测（builder/scorer/TPA 三件）
-node scripts/_test_wallet_profile_builder.cjs && node scripts/_test_wallet_scorer.cjs && node scripts/_test_tpa.cjs
-
-# IG 链路三处死链修复 + 影响力兜底锚零 DB 零网络单测（打桩 fetch，fixture=C44 真实响应）
-node scripts/_test_instagram_pipeline.cjs
-
-# notable_other 全域退出阻断侧零 DB 单测（J1.26 mapper-only，C54 狮鹫案）
-node scripts/_test_notable_other_exit.cjs
-
-# Twitter Community 链路两处死链修复零 DB 零网络单测（C48 CREPE 案；含全库 twitter-validation import 逐条 resolve）
-node scripts/_test_twitter_community_pipeline.cjs
-
-# 叙事 precheck fail 重试 + 分类提取本地零 DB 单测（打桩 dbManager/analyze）
-node scripts/_test_precheck_fail_retry.cjs
-
-# live 加固层零 DB 单测（assertMinOut/_awaitReceipt/FlapPortalTrader 打桩）
-node scripts/_test_live_hardening.cjs
-
-# sender 口径切换 + 聚合路由占比因子零 DB 单测（0x1de460 GMGN 案）
-node scripts/_test_sender_switch_and_router.cjs
-
-# FA holders 族钱包口径切换零 DB 单测（GMGN 案 B，bSTOCKS 案衍生）
-node scripts/_test_fa_wallet_denomination.cjs
-
-# 回测 ticks 装载缓存零 DB 单测（BacktestTickCache 状态机/引擎级对拍）
-node scripts/_test_backtest_tick_cache.cjs
-
-# 回测链上真序回放零 DB 单测（compareByChainOrder/凑凑案乱序形状/源码口径）
-node scripts/_test_backtest_chain_order.cjs
-
-# 推文拉取优化（CA 惰性早停 + userId 级全量缓存）零 DB 零网络单测（打桩 dbManager + global fetch）
-node scripts/_test_tweet_pull_optimization.cjs
-
-# 条件表达式未知因子 fail-fast 零 DB 单测（hg55 事故防线：validateCondition IS_NULL 补检/loadStrategies throw/键集真相源/库入库校验）
-node scripts/_test_unknown_factor_reject.cjs
-
-# markAsBought 虚拟时钟 buyTime + signals 页同秒排序 tie-break 零 DB 单测（case 0xcc4d7275…7777）
-node scripts/_test_token_pool_buytime.cjs
-
-# J1.29 形象载体门零 DB 单测（subject_carrier 三档 × 类别矩阵/M2 边界/挂位序/审计字段）
-node scripts/_test_subject_carrier.cjs
-
-# 存量条件字段未知因子扫描（防线上线前置：experiments + strategy_library 全量，退出码 1=有命中）
-node scripts/scan-unknown-factor-conditions.cjs
+                                           # TPA 离线画像（只在 182 跑；须在 build-token-profiles 之后，依赖 flash_crash_period）
 ```
 
-No test framework or CI is configured.
+无测试框架/CI。单测 = `scripts/_test_*.cjs`（69 个），**零 DB 零网络**（打桩 dbManager/provider/fetch），`node scripts/_test_xxx.cjs` 直接跑，断言失败退出非零；改到哪块跑哪块。分组速查（名字自述的不再注释）：
 
-## Architecture Overview
+- **采集/直连**：`_test_embedded_collector_architecture`（引擎接线/stop 顺序/setExperimentId 防线）、`_test_run_engine_graceful_stop`（信号注册先于 start+回测停机刷缓冲）、`_test_sender_resolver`（sender=tx.from 解析）、`_test_watcher_quote_conversion`（flap quote 映射持久化/回放）、`_test_recent_ticks_scan`、`_test_early_replay_index`
+- **回测**：`_test_backtest_tick_cache`（装载缓存状态机/锚定无序拉取）、`_test_backtest_chain_order`（链上真序回放）、`_test_backtest_keyset_paging`、`_test_backtest_narrative_gate`、`_test_backtest_perf_probe`、`_test_fa_prefilter`
+- **引擎机制**：`_test_card_position_mechanisms`、`_test_holdings_replay_precision`（重放精度钳制+单票隔离）、`_test_stop_loss_rules`（止损+graduation 回放矩阵）、`_test_graduation_sell_and_anchor`、`_test_sell_debounce_mechanisms`、`_test_token_pool_buytime`、`_test_token_age_sec`、`_test_token_cycle_routing`、`_test_fourmeme_fa_factors`、`_test_fa_wallet_denomination`（holders 族 wallet 口径）、`_test_market_regime`
+- **pre-buy/钱包**：`_test_sniper_factor`、`_test_top1_buy_share`、`_test_sender_switch_and_router`（sender COALESCE+router 因子）、`_test_corpus_lag_factor`、`_test_wallet_profile_builder`、`_test_wallet_scorer`、`_test_tpa`、`_test_token_classifier`
+- **策略/条件**：`_test_strategy_library_groups`（groups 转换/等价/validateLegs）、`_test_unknown_factor_reject`（未知因子 fail-fast 三层防线）
+- **live**：`_test_live_hardening`（assertMinOut/_awaitReceipt/FlapPortalTrader）
+- **叙事链路**：`_test_precheck_fail_retry`、`_test_narrative_signal_gate`、`_test_narrative_memcache`、`_test_narrative_preload`、`_test_tweet_pull_optimization`（CA 早停+userId 缓存）、`_test_same_name_appendix_shortcut`、`_test_rule5_pass_through`、`_test_data_fetch_failed_rating`、`_test_issuer_ca_detection`、`_test_narrator_two_shapes`、`_test_unrated_elimination`、`_test_daily_parse_summary`、`_test_news_monitor`
+- **Jev 门/豁免**：`_test_publisher_proxy`、`_test_web3_fit`、`_test_web3_fit_anchor`、`_test_cashtag_w_route`、`_test_jev_product_entity`、`_test_notable_other_exit`、`_test_referent_memeability`、`_test_subject_carrier`、`_test_brand_hijack_pun_exemption`、`_test_w_interaction_exempt`、`_test_superip_relevance_exempt`、`_test_community_name_exemption`、`_test_gmgn_risk_factors`、`_test_gmgn_superip_tweet_enrich`
+- **抓取器**：`_test_instagram_pipeline`、`_test_twitter_community_pipeline`、`_test_tweet_image_analysis`、`_test_web_fetcher_jina_fallback`、`_test_youtube_fetcher`
 
-### Main Entry Points
+## 架构总览
 
-- **`main.js`** - Experiment runner (interactive CLI)
-- **`src/run-engine.js`** - Run a single experiment's engine directly (virtual mode)
-- **`src/web-server.js`** - Web interface (Express.js, port 3010)
-- **`src/narrative/engine/start.mjs`** - Narrative analysis engine
+### 入口
 
-### Trading Engine Flow (直连架构：collector 内嵌实验进程，2026-10-09 回迁)
+`main.js`（实验 CLI）/ `src/run-engine.js`（单实验）/ `src/web-server.js`（Web 3010）/ `src/narrative/engine/start.mjs`（叙事 worker）。
 
-WSS 订阅由**实验进程自己持有**（`_createCollectors()` per `_wsPlatforms()`，both=双 collector，pumpfun-wss-trader 同款）：引擎直接消费 collector 内存回调（零 DB 中转延迟），DB 落库仅持久化（回测/web/离线分析数据源）。watcher 常驻架构（2026-09-24~2026-10-09）已废除删除（`src/watcher/`、`SharedTickConsumer.js` 退役，git 历史即回滚源）：
+### 引擎与采集（直连架构）
 
-```
-┌ 实验进程（FourMemeWssTradingEngine / FlapWssTradingEngine）───────────┐
-│ collectors（per _wsPlatforms()；fourmeme/flap 各一枚，both=双枚）：      │
-│   tick 三路输出（_emitTick，实时）：pool.updatePrice / tickBuffer 批量    │
-│     落库(500ms flush，experiment_id 恒 NULL★08-27 防线) / FA.processTick │
-│     → price_outlier 在行入 buffer 前定值（INSERT 携带最终 flag，首写者   │
-│     口径）尘 tick（< minTickBnb）只落表不进因子                          │
-│   token_create → FA.registerToken(meta 带 platform 键)+pool.addToken →  │
-│     引擎._handleNewToken(info, platform)（experiment_tokens+语料补采）  │
-│   graduation → 引擎._handleGraduation（毕业事件驱动卖出）               │
-│   WssEventWriter（src/collectors/wss-event-writer.js，共享单实例）：     │
-│     token_create/graduation/token_quote_set 持续写 wss_events（30s 重试 │
-│     队列，create 行丢失=token 永久不可见）；heartbeat 停写（watcher 专属）│
-│   SenderResolver（共享单实例传各 collector，config.senderResolve 默认开）：│
-│     新行 sender_address = tx.from（真实发起 EOA）。trader 参数是          │
-│     msg.sender——公共路由（flap 0x1de460 占 27.9% 行）落的是 router 合约。│
-│     EOA kind 缓存命中同步进 buffer 零延迟；合约/未知走 getCode +          │
-│     getTransactionByHash 反查后回推（RPC=dataseed 池轮询，可切            │
-│     ankrFromEnv）；失败/溢出/停机 → NULL 保行不丢（绝不冒充）。           │
-│     消费侧已切 sender 口径（2026-09-30 案 A）：早期窗口因子 wallet 聚合    │
-│     COALESCE(sender, trader)；TPA/离线画像仍 trader（二期裁定）          │
-│   TPA live 三件套（initLiveTicksBuffer/preloadRecentTicks/ingestLiveTick）│
-│     + collector._onTickBuffered 钩子（行 push 后同步喂）→ 运行期零 DB    │
-│     ticks 查询（182 实测触发 2ms~114ms vs watcher 时代 1-2s/批）；缺口   │
-│     只计数不回退 DB（设计内 R6）                                          │
-│   60s 断流自愈（消息静默≥5min → forceReconnect，引擎侧自踢）+ 15min      │
-│     wss_down 告警（判据 collector.getLastMessageAt()）                   │
-│   logs 订阅带 topic0 白名单（TOPIC0_MAP，2026-09-28 ANKR 降费 flap -74%/  │
-│   fourmeme -42%；unknownTopic0 计数归零=新事件类型发现盲化，诊断时临时    │
-│   去掉订阅 params 的 topics 字段重订阅一天）                              │
-│ 引擎既有 factorsUpdated → OPB/卖腿实时/买腿 debounce 管线零改动         │
-│ stop 顺序：eventWriter → senderResolver → collectors（回推行进 buffer   │
-│   有人收再 flush；★尾两步顺序错误=丢行）                                 │
-└─────────────────────────────────────────────────────────────────────────┘
-     │ wss_price_ticks (exp_id=NULL)        │ wss_events
-     ▼                                      ▼
-   回测/web K 线/离线分析（BacktestEngine 按 token 集合+platform 拉取，
-   不按 experiment_id；UNIQUE(tx_hash,log_index) 吸收多实验并发双写）
-```
+- 三引擎（`src/trading-engine/implementations/`）：`FourMemeWssTradingEngine`（virtual+live 同体）、`FlapWssTradingEngine`（extends 前者）、`BacktestEngine`（回放同一因子-策略管线）
+- WSS 订阅由实验进程自己持有：`_createCollectors()` per `_wsPlatforms()`（both=双 collector）。引擎直接消费 collector 内存回调（零 DB 中转），既有 `factorsUpdated → OPB/卖腿实时/买腿 debounce` 管线零改动
+- collector 要点：
+  - tick 三路输出（`_emitTick` 实时）：pool.updatePrice / tickBuffer 批量落库（500ms flush）/ FA.processTick；price_outlier 在行入 buffer 前定值（首写者口径）；尘 tick（< minTickBnb）只落表不进因子
+  - `token_create` → FA.registerToken（meta 带 platform 键）+ `_handleNewToken`；`graduation` → `_handleGraduation` 毕业卖
+  - `WssEventWriter`（共享单实例）持续写 wss_events（30s 重试队列，create 行丢=token 永久不可见）；`SenderResolver`（共享单实例，`config.senderResolve` 默认开）解析 `sender_address`=tx.from：EOA 缓存命中同步进 buffer，合约/未知走 RPC 回查，失败/溢出/停机 → NULL 保行不丢（绝不冒充）
+  - TPA live 三件套（initLiveTicksBuffer/preloadRecentTicks/ingestLiveTick）+ `_onTickBuffered` 钩子 → 运行期零 DB ticks 查询；缺口只计数不回退 DB
+  - 60s 断流自愈（静默≥5min forceReconnect）+ 15min wss_down 告警（判据 `collector.getLastMessageAt()`）
+  - logs 订阅带 topic0 白名单（TOPIC0_MAP）；unknownTopic0 计数归零=新事件类型发现盲化，诊断时临时去掉 topics 字段重订阅
+- **stop 顺序：eventWriter → senderResolver → collectors（★尾两步顺序错误=丢行）**
+- 采集覆盖口径（用户裁定）：现役 both 实跑实验即事实采集器（单平台实验只持单 collector，兜底实验必须是 both）；无实验运行期接受采集空洞；实验进程崩溃=采集断流，接受风险不加 watchdog；flap quote 缺口由下次 flap collector 启动 getLogs 增量回放自动补齐
 
-**采集覆盖口径（用户裁定 2026-10-09）**：常驻记录实验兜底——现役 both 实跑实验即事实采集器（单平台实验只持单 collector，另一平台无采集，**兜底实验必须是 both**）；无实验运行期接受采集空洞；实验进程崩溃=采集断流，**接受风险，不加 watchdog/watcher 并存兜底**（flap quote 映射缺口由下次 flap collector 启动 getLogs 增量回放自动补齐）。
+### 直连口径
 
-Two engines via `src/trading-engine/implementations/`:
-- **FourMemeWssTradingEngine** - virtual (simulated accounting) and live (`FourMemeDirectTrader` on-chain trades) modes in one engine; platform via `_wsConfigSectionName()`/`_wsPlatforms()`（flap 子类覆盖）
-- **BacktestEngine** - replays `wss_price_ticks` through the same factor-strategy pipeline（**token 集合 + platform 口径**：`_tokenMeta` 全集 100 地址/批 `.in` + platform 按单值 `.eq` 循环（`.in` 多值等价无过滤，planner 弃索引致 statement timeout），分块拉取后全局**链上真序 `(block_number, log_index)` 归并排序**（2026-10-08 凑凑 0x8ea2…7777 案：原 `raw.sort(id)` 的 bigserial 分配序≠提交序，watcher 时代延迟落库让 38s 峰行 id<35s 行，乱序回放把未来峰提前喂进 FA 价格史、P11 据此算回撤 -35% 提前全清；真序下 block_time 应单调，倒退行 WARN 留痕；缓存文件行序不变无需重建；单测 `node scripts/_test_backtest_chain_order.cjs`）；不再按 experiment_id——新行 exp_id 恒 NULL）
-  - **ticks 装载本地缓存**（`src/trading-engine/core/BacktestTickCache.js`，2026-09-29 参照 pumpfun TickDataCache 机制）：raw 行装载默认经缓存——粒度 `(sourceExperimentId, platform)` 一文件 `data/tick-cache/backtest/<src>/<platform>.jsonl.gz` + `.meta.json`；**缓存存全量、运行期过滤**（存原始 DB 行原样 JSON，时间窗/映射维持内存层零改动 → 任意窗口回测共用、结果与直拉 bit-identical）。状态机：MISS（data/meta 缺、gzipBytes 失配=crash 窗口、columnsTag 漂移→全量拉，不经探针）/ FRESH（锚定探针 null + 锚行 PK 核验存在 → 纯读零拉）/ STALE（探针命中 → 增量 `.gt(id, meta.maxId)` 补拉合并重写，真 max 由 `_writeSorted` 重算）/ bypass（探针失败→WARN+直拉不读写缓存，数据正确性优先）；表回缩（锚行 PK 核验不存在 → drop 重拉）；读损坏自动删缓存重拉不中断。**探针形状（2026-10-08 计划翻转事故两轮改造）= 锚定 + 无序存在性**：`id > meta.maxId` 锚 + 无 ORDER BY 的 LIMIT 1（`_probeIncrementalTickId`）——旧无锚 `ORDER BY id DESC LIMIT 1` 表涨 150 万行后 planner 稳定 id 反向扫描扫无关行 8s 超时（in20/in50 同死）；锚定 DESC 只救活 token 集仍活跃（锚近表头）的平台，死集（锚=集内最后行 id）区间全为无关行照样超时；无序 LIMIT 1 无 top-k 排序可贪，稳定走 (token,platform,id) 索引 probe 与区间长度无关（死集旧锚最坏情形实测 242 批 0 错、最慢 132ms）。**装载拉取同切无序形状（2026-10-09 36a2c12a 五连折终版）**：`in(N)+gt+ORDER BY id+limit` 装载形状 planner 稳定 pkey 顺序扫（ORDER BY id top-k 贪心，in(100)/in(50) 皆 8s statement timeout 且页级重试 3 次仍死=计划本身坏；逐 token eq 稳定但 95k token ~48min/平台不可接受）→ `_fetchPlatformTicksRows` 重写为**锚定无序拉取**：headAnchor 表头 id（无 where DESC LIMIT 1 恒毫秒级）→ 每 chunk(50) 合一请求（count exact + 无序 limit 1000，**全部请求 `.lte(id, headAnchor)` 闭区间封死装载中途新写入**——count/fetch 在固定区间确定性一致，锚后新行由下次 STALE 增量补齐）→ count=0 跳过 / count≤1000 且 len==count 一次拉全 / count>1000 拆半递归 / 单 token eq+keyset（唯一允许 ORDER BY：等值选择性强制索引）对账 count 失配 throw fail-loud。`maxTickRows` 护栏默认 100 万（`MAX_TICK_PAGES×TICK_PAGE_SIZE`），**多天大窗口须实验级显式放宽**（36a2 四天窗口 fourmeme 9.5 万+flap 125 万=130 万行，六启触默认护栏 throw，DB 补 `backtest.maxTickRows=8000000` 后七启通过）。实战：flap MISS 全量 1,254,370 行 5min56s（vs 逐 token 48min/平台），130 万 tick 回放+叙事重析 5.5h completed。开关 `backtest.cacheEnabled`（默认开）+ `backtest.forceRefreshCache`；`_fetchPlatformTicksRows` MISS/STALE 共用（afterId 起点参数化）；pid 后缀 tmp+rename 原子写、4MB 背压、行 id 超 MAX_SAFE_INTEGER fail-loud throw。磁盘无自动清理（clear() 手动）。单测 `node scripts/_test_backtest_tick_cache.cjs`（59 断言，R 段=锚定无序拉取矩阵）
-  - **graduation 事件回放 + 止损双腿（虚拟↔回测一致性 2026-10-10 对齐，a21fa102 配对案）**：毕业后 token ticks 停止，虚拟引擎有事件驱动全清而回测缺事件流时毕业持仓只能靠回放结束强平——同 token 同策略卖出路径系统性分叉（CZ 毕业票单票 -0.53 BNB 差距的主根因之一）。`_loadGraduationEvents`（wss_events kind='graduation' 批 500 `.in` token 集合，tsMs 锚=`payload.blockTimeMs||block_time` 列，窗口过滤+升序，缺锚跳过 WARN）→ 主循环 tick 尾部 `_consumeGraduationEvents(tickTs)` 消费指针（未到期不动/未持仓仅 markGraduated 推进/卖出失败不推进=每 tick 重试，虚拟扫描兜底的重放等价物）+ 回放收尾 `_consumeGraduationEvents(Infinity)` drain（强平前，毕业后无 tick 的事件唯一消费点）+ 买入成功点补卖（`_graduatedTokens` 集合判据，虚拟三挂点对齐）→ `_emitGraduationSell`（等价 strategy `id:'graduationSell'` cards='all' 全清，卖出价=buildFactorMap(evtTs) 断流前最后可靠价，幂等标记 `_graduationSoldTokens` 后置到卖出成功）。**`_graduatedTokens` 事件到达标记在消费点填充，禁止装载即填（commit 88d1416 前视事故：装载即填把「未来才毕业」提前暴露给买入成功点补卖判据——CZ 买入 fireTs 查到 14s 后才毕业的标记直接补卖@买价 0%；挪到消费点后「事件先于首 tick」边缘仍覆盖）**。止损双腿同日对齐：`_stopLossHit`/`_emitStopLossSell`（回测版 5 参多 nowTs 虚拟时钟）+ 主循环 tick 路径命中优先于策略腿 + `_scanHoldingsStopLoss(tickTs)` 虚拟时钟节流扫描（断流票兜底）。单测 `node scripts/_test_stop_loss_rules.cjs`（66 断言，E 段=回测止损、F 段=graduation 回放矩阵含前视防线）
-- **FlapWssTradingEngine** - extends FourMemeWssTradingEngine（virtual + live：`FlapPortalTrader` Portal `swapExactInput`，见 Live Trading 节）
+1. `wss_price_ticks` 新行 `experiment_id=NULL`（免疫删实验级联；删历史实验仍级联删其名下旧行）；引擎**绝不调 `collector.setExperimentId`**（单测源码口径锁定）
+2. tvl 因子恒 0（对齐 DB 行/回测口径，虚拟/回测不分叉）
+3. price_outlier INSERT 携带最终 flag（多实验并发 UNIQUE first-writer-wins）
+4. 实验级 collector 配置覆盖生效：实验 config 的 `fourmemeWs/flapWs` 段（contracts/tickBuffer/reconnect/endpoint）per-platform 浅合并
+5. 端到端延迟实时（内存回调零中转；尾部新鲜度由 tickBuffer 500ms 对齐）
+6. wss-down-guard 判据 `collector.getLastMessageAt()`（≥5min 每轮踢 forceReconnect，≥15min status='wss_down'）
+7. flap QuoteSet 映射持久化：非 BNB 计价盘 token→quote 映射实时落 wss_events（kind='token_quote_set'）；collector 启动先 `_loadQuoteMapFromDb` 重建终态（乱序行按 blockNumber,logIndex 排序应用），回放窗 [水位-100, head] 增量补停机缺口，回放结果不落库；DB 空首启走 `flapWs.quoteRate.fullBackfillMinutes`（默认 43200）。汇率换算三级源（PCS V2 reserves → PCS V3 最深池 slot0 → V3 quote/USDT ÷ bnbUsd）；零流动性 V3 池挂价不可信必须拦；三级全 miss 跳行宁跳不冒充；BNB 盘 quote_token=NULL
 
-### 双平台实验（config.platform='both'，2026-09-27 上线）
+### BacktestEngine
 
-一个实验同时交易 fourmeme+flap 两平台代币：**单引擎实例 per-token 分派**（基类 `_handleNewToken(info, platform)` 按 collector 回调平台分派 `_buildFourMemeTokenRecord`/`_buildFlapTokenRecord`），共用同一套买/卖策略与单一资金池（PM 单组合）；FlapWssTradingEngine 改薄（`_handleNewToken` 逻辑入基类，保留 constructor/`flapWs` 段/`_buildTokenInfo` 无 name 版/live throw）。
+- **token 集合 + platform 口径**（不按 experiment_id）：token 地址 100/批 `.in` + platform **单值 `.eq` 循环**（`.in` 多值等价无过滤，planner 弃索引 statement timeout）；分块拉取后全局**链上真序 `(block_number, log_index)` 归并排序**（bigserial 分配序≠提交序，`sort(id)` 会把未来行提前喂进 FA=前视；真序下 block_time 应单调，倒退行 WARN）
+- **ticks 装载缓存** `src/trading-engine/core/BacktestTickCache.js`：粒度 `(sourceExperimentId, platform)` 一文件 `data/tick-cache/backtest/<src>/<platform>.jsonl.gz` + .meta.json；**缓存存全量、运行期过滤**（时间窗/映射在内存层，任意窗口共用、与直拉 bit-identical）。状态机 MISS/FRESH/STALE（锚定探针+锚行 PK 核验→增量 `.gt(id, maxId)`）/bypass（探针失败 WARN+直拉）/表回缩（drop 重拉）。**探针与装载拉取都必须锚定无序形状**（`id > 锚` + 无 ORDER BY LIMIT 1 / 无序 limit N；`ORDER BY id DESC` 和 `ORDER BY id + in(N)` 形状 planner 稳定弃索引 8s 超时——两轮事故终版）；装载闭区间 `.lte(id, headAnchor)` 封死中途新写入；`maxTickRows` 护栏默认 100 万，**多天大窗口须实验级显式放宽**；加列（columnsTag 漂移）→ 缓存全量重拉一次（设计内）；磁盘无自动清理
+- **graduation 事件回放 + 止损双腿**（虚拟↔回测一致性）：`_loadGraduationEvents`（wss_events kind='graduation'，tsMs 锚=payload.blockTimeMs||block_time）→ 主循环 `_consumeGraduationEvents(tickTs)` 消费指针（未持仓仅推进；卖出失败不推进=每 tick 重试）+ 回放收尾 drain(Infinity) + 买入成功点补卖 → `_emitGraduationSell` 等价 `graduationSell` 全清（幂等标记 `_graduationSoldTokens` 后置到卖出成功）。**`_graduatedTokens` 事件到达标记在消费点填充，禁止装载即填**（前视事故防线：装载即填把「未来才毕业」提前暴露给补卖判据）。止损 `_stopLossHit`/`_emitStopLossSell`（5 参虚拟时钟）tick 路径优先于策略腿 + `_scanHoldingsStopLoss(tickTs)` 节流扫描兜底断流票
+- **`backtest.stripSenderAddress` 对照臂开关**：剥内存 tick 的 sender → 消费侧 COALESCE 点全部回退 trader（=修正前行为 bit-identical；只剥内存 tick 不动缓存 raw 行）
+- 回测不嵌 OPB（无写表副作用）；`_alignClassifiedAsOf=true`（category_visible_at > asOf 的分类视为未见，TPA 防前视）；回测侧叙事直调同链路（时漏已知，只比相对增量）
 
-- **归一化唯一入口** `resolvePlatforms(platform)`（`src/trading-engine/core/platforms.js`）：`'both'`→`['fourmeme','flap']`、`'flap'`→`['flap']`、其余→`['fourmeme']`
-- **范围 virtual + backtest + 单平台 live（fourmeme/flap 各自）**；双平台 live 三重防线禁止：web-server POST 400（live && platform='both'）/ main.js `_createEngine` throw / 前端提交拦截
-- **引擎级配置恒读 fourmemeWs 段**（`_wsConfigSectionName()` 基类返回值，flap 子类才覆盖 flapWs）；FA 构造键名固定 fourmemeWs；corpusEnrich per-token 分派
-- **创建页平台选择 = 多选 checkbox**（结构保证至少一勾；双勾 POST 标量 `'both'`；live 模式 flap 禁用联动；复制链路 both→双勾回填）
-- 存量单平台实验零行为变化（182 重启回归验证：引擎身份/配置段/水位对齐保持）
-### 直连架构口径（2026-10-09 回迁；watcher 时代 2026-09-24~10-09 七条口径随废除归档）
+### 双平台实验（platform='both'）
 
-1. **`wss_price_ticks` 新行 `experiment_id=NULL`**（watcher 时代延续）：免疫删实验级联；删历史实验仍级联删其名下旧行（FK 仍在，混合保留语义）。引擎**绝不调 `collector.setExperimentId`**（★08-27 防线，单测源码口径断言锁定）
-2. **tvl 因子恒 0**：FA tick 刻意不含 offers/funds_bnb（对齐 DB 行/回测口径，虚拟/回测不分叉）
-3. **price_outlier INSERT 时携带最终 flag**：collector `_emitTick` 内 FA 判定 → 回写 tickRow 引用 → flush 前生效（首写者实验口径；多实验并发 UNIQUE first-writer-wins；consumer 事后 UPDATE 已随 SharedTickConsumer 退役消失）
-4. **实验级 collector 配置覆盖恢复生效**（watcher 时代失效的反转）：实验 config 的 `fourmemeWs/flapWs` 段 contracts/tickBuffer/reconnect/endpoint 经 per-platform 浅合并生效
-5. **端到端延迟回归实时**：内存回调零中转（watcher 时代 DB 中转 +~1.5s 已消除；EarlyParticipant 90s 窗 fire 时刻 DB 读的尾部新鲜度由 `tickBuffer.flushIntervalMs=500` 对齐）
-6. **wss-down-guard 判据 `collector.getLastMessageAt()`**：任一 collector 静默 ≥ `downGuardSelfHealMs`（5min）每轮踢 `forceReconnect()` 自愈；≥15min → status='wss_down'，恢复回写 running（心跳行判据随 watcher 退役，wss_events 不再新增 heartbeat 行）
-7. **flap QuoteSet 映射持久化（2026-09-27 事故根治，1920701，语义随迁）**：flap 非 BNB 计价盘的 token→quote 映射实时落 `wss_events`（kind='token_quote_set'，WssEventWriter 重试队列）；collector 启动先 `_loadQuoteMapFromDb` 重建终态（乱序行按 (blockNumber,logIndex) 排序应用、零地址压制更早非零记录），回放窗缩为 [水位-100, head] 增量补停机缺口，**回放结果不落库**（水位驱动下次重启自动重拉）；DB 空首启走 `flapWs.quoteRate.fullBackfillMinutes`（默认 43200=30 天）全量窗。单测 `node scripts/_test_watcher_quote_conversion.cjs`（85 断言，T15 覆盖持久化分支）。事故档案见记忆 flap-quote-impersonation-incident
+- 单引擎实例 per-token 分派：`_handleNewToken(info, platform)` 按 collector 回调平台分派 `_buildFourMemeTokenRecord`/`_buildFlapTokenRecord`，共用买/卖策略与单一资金池（PM 单组合）
+- 归一化唯一入口 `resolvePlatforms(platform)`（`src/trading-engine/core/platforms.js`）：'both'→两平台，其余→fourmeme
+- 范围 virtual+backtest+单平台 live；**双平台 live 三重防线禁止**（web 400 / main `_createEngine` throw / 前端拦截）
+- 引擎级配置恒读 fourmemeWs 段（`_wsConfigSectionName()`，flap 子类才覆盖 flapWs）；创建页平台选择=多选 checkbox
 
-### Narrative Analyzer (Jev Structured Decision Engine)
+### 钱包口径地图（sender/trader——改任何聚合前先查）
 
-**Location**: `src/narrative/`
+`trader_address` = 事件 msg.sender（公共路由 0x1de460…4bc = **GMGN BSC 聚合路由**，flap 27.9% 行落它）；`sender_address` = 真实发起 EOA（tx.from，BSC 恒 EOA）；NULL = 未解析回退 trader（=EOA 直连旧行为等价）。
 
-The narrative analyzer evaluates whether a meme coin's underlying event has narrative value. All LLM decisions run through **Jev** (TypeSafe System One, `api.typesafe.ai`): a structured decision model with three primitives (Choice/Score/Noul), no text generation, one speculative fan-out call per token (~seconds). The former 3-stage generative pipeline (Stage 1 preprocessing → Stage 2 category scoring → Stage 3 token analysis) was fully replaced.
+- **wallet = `sender_address || trader_address` 已切**：EarlyParticipant 90s 窗全部因子（top1/sniper/netBuy/uniform/WalletCluster）、FA holders 族（holderCount/P 组集中度/bigHolder 交叉/K 组对敲/cumBuy/滑窗/smartBot 名单）
+- **TPA + 离线画像库：wallet 口径**（二期起，含 retention 基准 `_walletNetTokens` 双 map；GMGN 用户刻意不剔 retention）
+- **刻意不切**：`uniqueTraders`（classifier metrics 契约字段，与离线 classifyToken 口径锁定防漂移）；routerPct 因子判 **trader 层**（`AGGREGATOR_ROUTER_ADDRS`，`src/trading-engine/pre-check/aggregator-routers.js`，Set 便于扩展）
+- GMGN 行为 map：FA `processTick` 写 `_walletRoutedBuyBnb`（GMGN 行归 sender EOA 累加，只记买腿）→ TPA gmgnFilter 消费
+- OPB 全史路径/离线 build-token-profiles 不动（trader 口径链）
 
-```
-Token URL → URL Classification (incl. IPFS metadata unpack) → Data Fetching → Pre-Check (rules, no LLM)
-                                                        ↓
-                              account/community token? ── yes → prestage Jev (4 questions, P1.2)
-                                                        │       rules validation first (account-community-rules.mjs)
-                                                        │       → account_based_meme / web3_native_ip_early / project
-                                                        │         (rating math in jev-prestage-mapper.mjs)
-                              issuer self-launch? ────── yes → prestage Jev (same flow)
-                              (brand identity + announcement fingerprint, code-only)
-                                                        ↓ no
-                              super-IP account? ── yes → super-IP fast track (standard question set + code pre-scores)
-                                                        ↓ no
-                              standard path: single Jev call (13 questions, J1.10)
-                              classification/magnitude/timing/block/W-class/relevance/quality asked atomically;
-                              aggregation/thresholds/truncation in jev-result-mapper.mjs (code-side)
-```
+### Pre-Buy 检查（`src/trading-engine/pre-check/`）
 
-**Two-path model (user decision 2026-09-24)**: rider coins (issued by a third party riding an influential product) stay on the standard path where W-class math requires the *ridden product* to have extreme influence; issuer self-launched coins (announced by the brand owner's own account) must NOT be gated on current influence — `detectIssuerSelfLaunch` (narrative-utils.mjs, code-only: token symbol/name bidirectionally contains the tweet author's handle/nickname + the author's own text mentions the brand) reroutes them to prestage account judgment. Word-extraction rider coins (C3/CONVICTION class: word from a tweet but unrelated to the author's identity) fail brand identity and stay on W-math. **Cashtag detour (user decision 2026-09-28, C28 iNu case, J1.17)**: when the corpus tweet (incl. in_reply_to parent) contains a `$TICKER` cashtag exactly matching the token symbol/name (normalized equality, `detectCorpusCashtag` code-only), the event is by definition about an existing web3 asset — category is force-routed to W in the mapper regardless of Jev's event_category argmax (iNu case: KOL reply "$INU" about another chain's INU token, token minted 14s later, passed as C-class 67.4 → now W math 25.66 < 60 blocked).
+`PreBuyCheckService.performAllChecks()` → EarlyParticipantCheckService（首 90s 窗，查 `wss_price_ticks`，行映射 AVE-trade 形状供 WalletCluster/WalletLabel/TokenHolder 复用）+ TokenHolderService（AVE holder 黑名单）。**因子恒算无开关**，落 signal metadata `preBuyCheckFactors`；只在买策略定义 `preBuyCheckCondition`/`repeatBuyCheckCondition` 时生效（老克隆实验无此字段=裸买）。空窗返回真实零统计（拒绝语义），查询错误才走宽松值。
 
-**Publisher proxy (user decision 2026-09-29, C29 Cue/Manus case, J1.18)**: riding a third-party product requires ① an independent new-product launch (or major upgrade — version updates/feature improvements/platform ports don't count, Muse desktop semantics stays blocked) and ② the product's influence is proxied by its publisher (domain-known publisher counts as big IP, e.g. Manus in AI). Question-set wording carries the semantics (super_ip publisher-proxy branch + event_magnitude/dimension2 B-class anchoring), but the effective layer is the code gate `detectPublisherProxy` (four code-readable criteria: expanded-link domain stem equals token name + corpus author followers ≥100k + token name mutually exclusive with author name + no version-fingerprint words) — wording experiments topped out at super_ip 0.31 <0.5, J1.16 precedent. When pubProxyActive (B/C domain only, cashtag detour takes precedence): nameReferentBlock / ride-detour / marketing_gimmick-argmax are exempted, magnitude is anchored to tier A (effTier; S never downgraded, A untouched, Jev's original verdict kept in `magnitudeTier`, anchoring audited in `tierAnchored`); rcp/negativeHardNews gates are NOT exempted (content products keep the C12 ruling). Unit test: `node scripts/_test_publisher_proxy.cjs`.
+90s 窗因子族（同一窗 trades 零额外查询）：
 
-**Character-IP exemption (user decision 2026-09-28, C25 久留美案, J1.16)**: tokens named after a CHARACTER inside a work (including transliterations, くるみ↔久留美) route to category A (visual IP) — the work's official promo tweet is only corpus for the character, NOT a product announcement; the `routine_content_product` gate is exempted for category A in the standard path (`routineContentProductBlock` category param + argmax gate; superIP channel keeps the gate). Gatekeeping moves to A-class magnitude math: unknown/not-yet-aired characters stay blocked on tier or <60 event score (the C25 case itself: 56.04), known/memed characters (B tier ≈61) can pass. Work-title coins (绣春刀3) are unaffected (category B, gate still blocks).
+| 因子族 | 口径 | 拦截写法（策略侧） |
+|---|---|---|
+| `earlyTradesTop1BuySharePct`（+Top1BuyBnb/BuyBnb/Covered） | 首窗**纯买入** BNB 按钱包聚合最大占比；协议地址双地址层剔除；刻意不含卖腿 | `tokenAgeSec < 90 AND pct < 60 AND covered == 1`（90s 窗+covered 必须带，过期洞事故修正版） |
+| `earlyTradesRouterPct`（+Covered） | **trader 层**落聚合路由合约的买入占比 | `< 60` |
+| `earlyTradesSniperHoldingPct`（+SniperWallets/SniperHolders/Covered） | sniper（`isSniperProfile`：`tokenCount>=100 AND (medianHoldSeconds∈[0,300) OR (null AND sym<0.1 AND 笔数>=40))`，协议地址排除，画像 miss=非 sniper；`src/trading-engine/pre-check/sniper-detector.js`）正持仓 Σ/正持仓池 Σ×100 | `< 50`（伴随 SnipersWallets ≥2） |
+| `narrativeCorpusLagSec` | FA 出生锚（live=TokenCreate 块时间/回测=discovered_at）−语料最早推文时间（主推与父推取更早）；负值=宣告竞态按早票放行；**null=无语料/无锚 → 落晚票严格门 fail-closed**（早票是证据门，无证据不放行） | `lag < 300 OR earlyReturn >= 100` |
 
-**Web3-buyer-view magnitude anchor (user decision 2026-10-01, C38 久留美续案, J1.23)**: A-class magnitude is evaluated from the Web3 meme buyer's standpoint ("占到用户角度看叙事"), NOT mass popularity — cute/moe style, geek style (AI/programming/sci-fi/trading-culture themes), and weird/quirky things are native Web3 preferences (style fit alone can reach B tier even pre-air/unknown to the general public); traditional serious style (正剧/历史/文艺) does NOT convert mass fame into Web3 appeal (usually ≤C — a heavily-promoted serious film ranks BELOW a niche cute IP). Question-side rewording proved insufficient (Jev kept C-tier at 0.94 confidence while web3_fit gave strong_fit 0.88 on the same run), so the mapper adds the symmetric positive gate `web3FitAnchored`: category A + strong_fit ≥0.5 + tier <B → effTier anchored to B (J1.18 tierAnchored pattern; never boosts to A/S; D/E tier blocks are bypassed — preference evidence overrides "insufficient magnitude"; A-class only). web3_fit's "niche" boundary is now judged from the buyer's view (anime/game/geek themes are NOT niche for crypto). Unit test: `node scripts/_test_web3_fit_anchor.cjs`.
+- **covered 语义**（top1/router/sniper 同构）：age>90s 或 launchAt 缺失 → 0 值放行（null 会让 `<N` 恒 false 误拦）
+- 因子注入链（narrativeCorpusLagSec 同款五步）：service → 引擎 → PreBuyCheckService context（键集真相源=空壳跑 `_evaluateWithCondition` 捕获实收键）→ FactorBuilder 时序快照
 
-**Product-entity subject split + web3 acceptance gate (user decision 2026-10-03, C56 中国公司产品发布簇案, J1.27)**: for current-affairs tickets the subject is NOT the parent company (华为/网易/腾讯) but the product entity it launched — "要不就是事件形成了大影响力（并不需要一定是顶级IP），要不就是玩梗/有趣，对应着一个可爱的形象，本质上还是web3用户能不能喜欢与接纳的问题". Four layers: ① event_magnitude 形状③ narrowed — company-product launches are sized by the product entity's own event influence (third-party organic spread counts; official announcement matrix doesn't), parent-company fame does NOT transfer; ② new 15th question `subject_entity` (8 choices: product_functional/product_character/person/event_hotspot/character_ip/organization/crypto_native/account); ③ dimension2 形状③ companion; ④ mapper `productEntityAcceptanceBlock`: se∈{product_functional,product_character} && (strong_fit+fit)<0.5 → blocked 「产品实体未被web3买家接纳(J1.27)」; exemption chain pubProxyActive/isW/rideMass/binanceCorpus (`detectBinanceCorpus`: binance/币安 in corpus tweet+parent+token name)/superIP fast-track — fit≥0.5 product tickets pass via the cute-image/strong-fit path (火腿肠笔/波兰球 high). **Binance exemption** (mid-turn ruling 「要豁免币安」, three question-side sentences + mapper code gate): crypto-native institution self-launches are sized by the institution's own magnitude and are natively strong-fit — 币安 5 票 all high (72.51-79.36, double-run stable) in final calibration. **C42 condition-③ J1.27 adaptation**: newProductP is now 1−P(0)−P(1) — under 形状③ Jev moves world-class product-launch mass to P4/P5 (RedCoin P2+P3=0.47<0.5 → exemption accidentally failed → 43.17 one-off low; fixed, double-run 79.05/77.41). **Final calibration (online state verbatim, 156/161 valid)**: matrix high→high 125 / →low 27 / →mid 2; product gate caught exactly its design targets (腾讯微笑×3 fit 16-18%, 麒麟 19%, 狗剩×3 45-48%, EB 39%, 多多进宝 5%, Express 12%, 大吉 10%); known costs: 金六根 (win-ticket, E-class 59.32-59.56 stable borderline low — real tightening, not variance). **Calibration methodology lesson (state fidelity gap)**: `token_narrative` persists only twitter_info/classified_urls/extracted_info columns — binance_square_info/instagram_info/website_info/douyin/xiaohongshu/weixin/youtube are NOT persisted, so rebuilt states miss those corpus sections (94/161 tickets affected; 币安智能 case: online 675 chars vs rebuilt 466 → mag tier drop). ALWAYS reuse the online `stage1_prompt.state` verbatim (buildCallPromptMeta full=true) + replicate full context keys (credibleEventAnchor three sources incl. square-official-account regex derivation / instagramLinked/InfoFetched / tweetClassification) when re-running for calibration — `scripts/narrative/_calib-product-entity.mjs` is the reference implementation. **Platform-official-source exemption** (mid-turn ruling 「flap 是 币安链的meme币发布平台，也是我们交易代币主要来源，跟币安链一个道理」, mapper-only): `detectPlatformOfficial` — corpus main-tweet author handle hard-set `PLATFORM_OFFICIAL_HANDLES={binance, flapdotsh}` (case-normalized; deliberately does NOT check in_reply_to parent; author field dual-shape tweet `author_screen_name` / account `screen_name`). Three exemption sites: ① rcp probability gate (`routineContentProductBlock` opts.platformOfficial) ② **block_reason argmax chain institution_routine/routine_content_product clause — FlapGuy's actual interception point** (argmax 0.55 / none 0.30 while rcp prob only 0.10 — the probability gate alone doesn't cover it; same semantics as the superIP-channel institution_routine exemption) ③ product-entity acceptance gate. Audit `rcpPlatformExempt` (logged true only when the exemption actually rescues, incl. a faithful recompute of the argmax chain); superIP channel passes no opts (C23 domain semantics unchanged — Binance's official accounts ride the registry fast-track, this is the standard-path fallback site). 182 double-run: FlapGuy `0x2fb77ad0…7777` low→high 74.42/75.87; BOB `0xf2fca4cf…7777` requalified as a 228-follower passerby @zhangxuanhui replying to CZ's banana meme (parent tweet is cz_binance) — NOT official-source, stays blocked via common_word; RedCoin 77.52/81.75 & 金六根 borderline unchanged. Unit test: `node scripts/_test_jev_product_entity.cjs` (41 assertions).
+### 条件未知因子 fail-fast（三层防线，hg55 事故）
 
-**notable_other full-domain exit from name_referent blocking (user decision 2026-10-02, C54 狮鹫案 `0xcb808ef1…7777`, J1.26 mapper-only under J1.25)**: two-step ruling — ① "超级IP就那么几个，名字不是它们就不行吗" (B-category exit), then ② "CONVICTION/YAYA 案的核心问题并不是实体不够知名，而是实体根本没有被接纳为 Web3 meme 币的可能" (fame gradient is the WRONG axis → full-domain exit, all categories + superIP channel). The correct axis (Web3 meme acceptability) is already carried by the web3_fit unfit negative gate (J1.19, global): 狮鹫 strong_fit 0.96 passes, serious words/plain person names unfit-block. Only minor_other (unnamed object, YAYA) and common_word (pure word-extraction, CONVICTION) retain independent blocking information — `nameReferentBlock` blocking mass now accumulates just those two keys unconditionally. Interception responsibility moves to web3_fit unfit + minor/common + magnitude/tier; freed tickets still face category event-score 60 line + quality gates + preBuy checks. Audit field `stage1.jev.nrNotableExempt {minorCommon, notable}` records the old-block-new-pass shape (minor+common < 0.5 ≤ +notable). Measured impact: B 143 tickets 98→52 blocked (46 freed), W 88→60 (28 freed incl. Manus family), F 26→20; market cost of the old false block: 狮鹫 graduated in 7.8 min at 12.3x. E2E: griffin low→high 74.44; CONVICTION still low via common_word 0.98 alone; YAYA still low via minor_other 0.51; Muse low→high 76.41 (KNOWN cost — web3_fit didn't catch the version-update ticket). Legacy invalidation script `scripts/narrative/invalidate-notable-blocked.cjs` (182, --commit). Unit test: `node scripts/_test_notable_other_exit.cjs` (22 assertions).
+写错因子名的条件子句静默恒真/恒假（比较恒 false / IS NULL 恒 true），必须拒启而非 warn：① `ConditionEvaluator.validateCondition` 含 IS NULL/IS NOT NULL operand 检查；② `StrategyEngine.loadStrategies` 校验失败 **throw**（`condition`/`narrativeCallCondition` 用 FA 因子集，`preBuyCheckCondition`/`repeatBuyCheckCondition` 用 PreBuy 键集，分集防双向误报）；③ `StrategyLibraryService.validateLegs` 入库同口径 400。上线前跑 `scan-unknown-factor-conditions.cjs`。
 
-**指代对象 meme 低档门（user decision 2026-10-08, 0fed29f9 亏损票分析续案, J1.28）**: 「币安汽车」「日产」类蹭得过头、根本不可能成为 meme 币的票要拦（依然是 web3 用户接纳/是否适合成为 meme 币的问题），但 JACKET/永生/Taigan/皮草类不敢一棒子打死——只上低档门。`referent_memeability`（J1.21 superIP 条件题）改**标准路径恒带**（`buildStandardQuestions` 的 `referentMemeability` 选项废弃，传不传均含；superIP 调用点零改动，J1.21 豁免语义自洽不动）；mapper `referentMemeabilityLowBlock`：mem≤1（人名/账号/周边人物、严肃对象/事务性名称——无梗无二创空间）→ blocked「不适合成为meme币（指代对象meme价值X分≤1）」，挂位 nameReferentBlock 之后、量级门之前（指代层门，nr 先拦的票 label 归属 nr；分数门无概率 mass）。dry-run（96 票 182 实跑）验证：mem≤1 拦 4 票净 -0.354（避亏，误拦仅 卷王+0.013）、mem>1 合计 +3.035。**三臂配对回测终局（基底 3473dbc0，2026-10-08）**：R0 基线 +7.5416 / R1 +lag门（lag<300 OR er≥100）+8.5200（净 +0.978 = 避亏 +3.016 − 晚票追高推迟 −2.037）/ R2 +lag门+J1.28 重析 +8.1881（vs R1 −0.332，其中 meme 门实锤 3 张避亏 +0.314、J1.28 换题集重析方差 −0.72[放行 5 亏票 −0.556 + 共同漂移 −0.160] 单窗口吃掉收益——方差多窗口期望归零；永生被拦是重析「截词」翻转非 meme 门；生产链形式 = rating 翻 low 经 rating 门起作用，`stage2_result.reason` 列即拦截文案判别位）。**语义边界（刻意）**：本题量「指代对象本身的梗性」非「组合体可接纳性」——点名亏票（币安汽车 1.75/2.35、隔音舱 1.77、日产途乐 2.12）中间档 1.5-2.5 无单调性不设门。审计 `referentMemeabilityScore` 恒落（旧缓存行无此题 → null，事后校准免重跑）/ `referentMemeabilityBlock {score}` 命中才落；旧缓存行缺答案门不触发（生产链 JevClient.ask 缺答案 id 直接 throw，缺失形状只在旧缓存/手写 fixture）——历史窗口回测要先失效缓存：`scripts/narrative/invalidate-referent-window.cjs <基底实验ID> --commit`（基底 strategy_signals(action='buy') distinct token → token_narrative is_valid=false，分块 100，范围刻意收窄不动全表）。Unit test: `node scripts/_test_referent_memeability.cjs`（39 断言；G 段=低档门矩阵，A2/H4 断言随恒带翻转）。
+### FA（`src/services/FourMemeFactorAggregator.js`）
 
-**形象载体门（user decision 2026-10-09 挂门 M2, bddd3578 C/D/E 亏损票分析案, J1.29）**: C/D 35 票净 -2.85 的共同病根=「**叙事主体没有具体的形象/梗载体**」——叙事讲得再好，主体抓不住一个「东西」（角色/动物/吉祥物/meme图）拿去玩梗/二创，web3 用户就没有可参与的创作载体；C/D 29/35 票 strong_fit≥0.9 而 winR 仅 7%——web3_fit 在蹭票上语义反向（判「组合体风格契合」非「主体被接纳」），J1.27 接纳门 fitMass 判据失效。新第 16 题 `subject_carrier`（choice 三档：existing_entity 形象已在事件/语料/配图/官方本体真实出现 / improvised_entity 脑补许愿形象（BNC「binance cat」型，官方从未展示）/ no_visual_entity 人物言行/公司/功能产品/事件/概念/缩写）恒带（照 J1.28 先例：dry-run opt-in 参数 `carrier` 废弃，传不传均含；superIP 快车道复用同题集但不消费本题答案）；关键判别钉死题面：①形象须在事件/语料/配图/官方渠道真实出现（只在币名或发币者想象中不算）②名字含形象词（cat/inu/狗/猫）≠载体存在（看指代对象本身是否真是那个形象实体）③人物/公司/产品功能/事件/概念不以形象为存在形式。mapper `subjectCarrierBlock`（M2 形状）：**C/D 类 + carrier∈{improvised, no_visual} → 拦「叙事主体无形象载体」；E 类 + no_visual → 拦；A/B/W/F/G 不碰**（A 类本身即形象判定由量级门把关；E+improvised 有肉——6 票 +1.19 Ants +1.42「Anthropic 员工自称蚂蚁」型戏谑票，M3 E 全拦净效应反亏 -1.19，故 E 只拦 no_visual）。挂位 rmBlock（J1.28）之后、量级 D/E 门之前（指代层门链尾）。dry-run（bddd3578 全 292 票标准路径 236 票，state 保真复用线上 stage1_prompt.state，`scripts/narrative/_carrier-dryrun-bddd.mjs`）：冒烟 12/12 方向全对；全域判别力 existing 140 票 winR 39% +11.69 / improvised 24 票 winR 8% -1.11 / no_visual 72 票 winR 24% -3.78。虚拟收益（用户裁定口径 292 票全跑过滤）：M2 后净额 **+21.895→+26.225 BNB**（净效应 +4.33 = 避亏 +7.41 − 放弃赢 3.08，winR 35%→41%）；误伤面 13 张大头「XX人生」概念梗家族（通透人生 +0.55 等，~+1.6）；56 票 prestage/superIP 无 stage1 不适用（门只挂标准路径）。审计 `subjectCarrier` 恒落 / `subjectCarrierBlock {carrier}` 命中才落；旧缓存行无答案门不触发——历史窗口回测先失效缓存：`scripts/narrative/invalidate-carrier-window.cjs <基底实验ID> --commit`（照 J1.28 模式）。Unit test: `node scripts/_test_subject_carrier.cjs`（43 断言：判定矩阵/M2 边界/挂位序/审计/bddd 案锚定/源码口径）。
+- `_buildFactorMap` 字面量键（getFactorKeys 探针自动收键，策略 condition 直接引用）；`tokenAgeSec`=`age×60` 同源双路径（FA 字面量 + FactorBuilder 推导），preFilter 提取 /60 归并 age 区间，快照白名单落库
+- **周期分桶路由**：双主量 `tps30s`（30s 滑窗密度，分母=min(存活,30s)）/`gapMedianMs`（5min 窗间隔中位数）→ 3 热（tps≥0.5 或 gap≤2000）/2 中（≥0.08 或 ≤12000）/1 冷（有证据但低于中档，**或证据不足但已过 warmup=判冷不判 null**）；null 仅 warmup(<15s)/无锚点。hysteresis `_cycleLatch`：升降档驻留 30s；存活<90s（cycleEarlySec）升档免驻留 earlyUp；断流>30s 立即降 1（stale）。**判定内 now 由 `buildFactorMap(state, asOf)` 传入，禁 Date.now（防前视红线）**。参数 11 键三级合并：`FACTOR_PARAM_DEFAULTS < fourmemeWs.factorParams < tokenCycle.params`（`mapCycleParams`，键清单单一事实源 group-variables.js）；开关=`tokenCycle.enforce`（缺段=不写 cycleTag=路由不生效）；带 cycle/groups 腿在 token 无档时 **fail-closed 隐身**（低优腿可顶上，桶切换计数跨桶保留）；切换打 `[CycleSwitch]` 固定格式日志
+- 新因子键 5 个：`tokenCycle/tokenCycleRaw/tokenCycleAgeSec/cycleTps30s/cycleGapMedianMs`
 
-**Pun/playful-association hijack exemption (user decision 2026-10-01, C40 Binance Inu 案 `0xcaf66eb2…7777`, J1.24)**: "这里我觉得不是『劫持』，而是一种web3用户特有的戏谑/趣味性关联。当然它也必须得是当前的热门新鲜事，否则就成了无病呻吟了" — abbreviation-pun/name-mashup tokens (BI = Binance Intelligence 缩写 × Inu 狗形象) riding a fresh hot event are meme craft, not brand hijacking: they ride the event's incremental heat, not the brand's存量认知. Two-layer fix: ① brand_hijack exemption ③ wording expanded (pun/homophone/image-mashup + fresh-event anchor semantics); ② mapper `punExempt` deterministic gate (J1.16/J1.23 lesson: question-side anchors don't move Jev's scores — 0.72→0.69 — code splitting is decisive). Exemption requires ALL: includeBrandHijack && brandHijackP≥0.5 (only rescues tickets the gate would block) + timing within_7d (当前) + effTier S/A (热门) + `credibleEventAnchor` (analyzer-computed: superIP corpus anchor / issuer self-launch / Binance-Square officially-verified source — event authenticity must be backed). Exempted gates: brand-hijack truncation AND relevance≤10 truncation (weak literal association is intrinsic to pun association — semantic/lv1 = 10 pts still counts into the total); misspelling/quality gates NOT exempt. Audit: `jev.punExempt {timing,tier}` + reason prefix 「戏谑关联豁免(J1.24)」. Legacy impact: 12 stock candidates (P≥0.5+within_7d+S/A) all blocked by the anchor gate (corpora are no-name accounts / phish sites) — zero overturns. superIP fast-track not covered (phase 1). Unit test: `node scripts/_test_brand_hijack_pun_exemption.cjs` (18 assertions).
+### 策略库 + groups 组路由
 
-**World-class-entity Binance-interaction exemption (user decision 2026-10-01, C41/C42 RedCoin 案 `0xe2881a7ac454c473a8b4c858732402154e107777`, mapper-only under J1.24)**: "世界级主体发布产品（不是版本更新），可以豁免跟币安交互" — HSBC naming its HKD stablecoin RedCoin is a world-class entity's product launch; the W-math interaction axis (0-40, its largest weight, designed for Binance-ecosystem narrative tickets) factually scores 0 for non-Binance institutions and structurally drowns such tickets (41.45 < 60 while every other dimension is world-class). Mapper `wInteractionExempt` gate in the W-math branch, ALL four required: ① native W only (isW && not rideDetour && not cashtagForced — detoured tickets keep their own blocking semantics, iNu cashtag detour is meant to block); ② effTier S/A; ③ new-product band P(2)+P(3)≥0.5 (product launch, excluding tier-0 minor updates/version bumps and tier-1 ordinary features); ④ interaction already in the no-interaction band (wInteraction<10 — tickets with ≥10 keep all three axes; removing a positive axis would lose points). Effect: product+timeliness two-axis renormalized to percent ((wProduct+timeliness)/60×100), pass line 60 unchanged; wInteraction still computed and persisted for audit but excluded from the total. Audit `jev.wInteractionExempt {tier,newProductP}` + reason prefix 「世界级主体产品豁免币安交互(C42)」. Unit test: `node scripts/_test_w_interaction_exempt.cjs` (17 assertions). E2E re-run: low 41.45 → high 77.39 PASS.
+- `strategy_library` 表（全局，name UNIQUE/side 锁死/legs jsonb/version 乐观并发 409）：腿集合包条目；创建页「📚 从库引用」浮层展开**只读快照卡**（copy-in：实验 config 自包含，改库不影响已建实验，改库须重启实验进程）；`strategiesConfig.libraryRefs` 纯 provenance 元数据
+- **routes 必须走 `dbManager.getClient()`（service key）**——anon 被 RLS 静默过滤（wss_price_ticks 同款坑）
+- **部署红线：DDL 先于新 web-server 重启存在**（新表/新列同口径）
+- groups 表达式（`cycle==3`，支持 AND/OR）：`parseGroupsExpression`（AST 级拒 IS NULL/非数字字面量/未知变量 throw——变量集是注册表闭集）；**脏 groups → 实验拒绝启动**；v1 `cycle` 数字永久接受（loadStrategies 单点转 `cycle==N`）；引用变量任一 null → 腿隐 fail-closed
+- 创建页只读化：腿只能来自库引用，无手写入口；`card.dataset.rawConfig` 整包存取（机制字段零损失）；复制链路高级段（tokenCycle/stopLoss/tokenPositionAnalyzer/fourmemeWs）经 `window._copyAdvancedConfig` 表单回填保真；卖腿按桶分组展示但提交序=插入序（`dataset.seq`）
 
-**Subject-qualification criterion fix (user decision 2026-10-01, C43 土豪猫猫案 `0xfade76ef97ada757be21a4a1aba87d576eda7777`, J1.25)**: block_reason `subject_unqualified` was judging the *narrating account* (anonymous poster) as the subject; the subject is the core entity the token name refers to (image/person/IP/event protagonist) — the posting account's follower count never constitutes subject disqualification, and image-type subjects are judged by the image's own fame (source account followers are a proxy). Semantic-fix-class question edits DO move Jev (unlike score-anchoring edits, J1.23 contrast): re-run flipped block argmax to none; the ticket then died on 事件分 51.7<60 (dim2 9.7 — IG data unfetchable), which led to C44.
+### 卡牌 / 止损 / 毕业卖（引擎级机制，实验 opt-in）
 
-**Instagram pipeline fix + two-layer influence handling (user decision 2026-10-01, C44 土豪猫猫案, mapper-only under J1.25)**: "因为我们无法知道在Ins上这个猫的影响力多大…如果引用了Insgram的链接，就认为影响力达标" + mid-turn upgrade to fetch real data via JustOneAPI IG endpoints first. **Three dead links fixed** (the IG data path had NEVER worked): ① `classifyAllUrls` switch missing `case 'instagram'` — classifyUrl identified IG correctly but it fell into the websites bucket → `selectFirstUrl('instagram')` always null → fetcher never invoked (root cause); ② fetcher used dead endpoints (`post-details/v1`/`user-profile/v1` → path 404; real endpoints `get-post-detail/v1`/`get-user-detail/v1` — doc slug ≠ API path); ③ parser read flat `metrics.like_count`/`user`/`taken_at` but the real response is native IG GraphQL shape (`edge_media_preview_like.count`/`owner`/`taken_at_timestamp`/`edge_media_to_caption`; user is triple-nested `{data:{data:{user:{}}}}` + `edge_followed_by.count`). Output shape preserved (buildInstagramSection + pre-check rule 3.5.5 unchanged — the latter now actually fires for the first time). Existing key covers both IG endpoints (code:0, unlike web/html/v1's code:300 package gap). **Two-layer design**: ① real data fetched → goes into state, Jev scores on real evidence (NO anchor); ② IG link present but data unfetched → mapper `igDim2Anchor = A类 && instagramLinked && instagramInfoFetched!==true && dim2<18` → effDim2=18 (J1.23 A-class style-fit band floor; raise-only). Boundaries: doesn't rescue the magnitude gate; W-math untouched (no dim2); web3FitBlock unfit negative gate still blocks; superIP fast-track not covered (phase 1); non-A categories not anchored. Analyzer passes `instagramLinked`/`instagramInfoFetched`. Audit `jev.instagramDim2Anchor {from}` + reason prefix 「IG影响力豁免(C44)」. Unit test: `node scripts/_test_instagram_pipeline.cjs` (31 assertions, fixtures = the case's real API responses). E2E re-run: 51.7 low → high 72.29 PASS via the REAL-DATA layer (dim2 9.7→22.32 on 19,596 likes + 128,737 followers; fallback anchor never triggered).
+- **卡牌**：开关=`positionManagement.perCardBNB` 存在且 >0（不配=字段全忽略）。策略级 `cards`（卖腿额外接受 'all'）+`cooldownSec`（独立于卡牌）。买入=perCardBNB×cards（virtual 现金门不足=买失败不降张）；卖 sizing soldN/tokenCards（全清腿恒精确 1）；卡账本 `_tokenCards` 维护在 `_executeSell` 成功分支，trades.metadata `cardTrade:{cards,before,after}` 绝对值重放恢复。**重放精度钳制**：遇 `Insufficient token balance` 且差异≤相对 1e-9 → 钳到持有量重试（double 往返固有误差）；真超卖照常失败且**单票失败只跳过不中断其余恢复**
+- **止损双腿**：开关=`stopLoss` 段存在任一腿参数。时间止损（持有超 N 分钟仍 `profitPercent <= 0`——`<=` 刻意：断流冻结票 profit 恒 0）/价格止损（`<= 负阈值`）全清，双命中标 price。双挂点=tick 即时（`_stopLossHit` 优先于策略腿）+ `scanIntervalSec` 扫描（**断流票唯一触发路径**，buildFactorMap 必传 Date.now()）；`_emitStopLossSell` 等价策略 `stopLossPrice/stopLossTime` 复用全清链；仅虚拟系引擎（回测有自己的版本）
+- **毕业事件驱动卖**：virtual 持仓票 `_handleGraduation` 直接 `_emitGraduationSell` 全清（余仓按断流前最后可靠价落袋；`graduationSell` 幂等，graduation 事件会重复派发）。三挂点：事件路径 + 买入成功点补卖（查 FA `graduated` 标记，事件先于买入的竞态）+ `_scanHoldingsStopLoss` 扫描兜底（事件路径失败的唯一重试）。**flap 毕业锚 per-token**：`graduationProgress` 分母=首市值×`graduationAnchorRatio`(12.5)，仅首 tick 距创建<60s 启用否则退 72 默认锚；platform 经 registerToken meta.platform 键注入（迟到 registerToken 回填更早 createdAt → 窗变大自动退锚）；BacktestEngine 不传 platform=恒 72。live 毕业=Telegram 告警人工处置（TM2 毕业卖出必 revert）
 
-**Twitter Community pipeline dead-link fix (user decision 2026-10-01, C48 CREPE case `0xeb2b7d5691878627eff20492ca7c9a71228d931d`)**: the community fetch path had NEVER worked — two import-level bugs silently zeroed `twitterInfo` for every token whose twitterUrl is a community link (they all fell to the standard path blind, e.g. CREPE: state twitter section 0 chars → magnitude D + name_referent truncation low, while the community actually has 4,145 members): ① `data-fetch-service.mjs` main community branch dynamic-imported `'../../utils/twitter-validation/communities-api.js'` (resolves to nonexistent `src/narrative/utils/…`; the fallback branch at line ~432 has the correct `'../../../…'`) — fetch threw → `markFailed` → 60min isFailed cooldown meant re-runs didn't retry either; ② `account-community-rules.mjs` `getCommunityWithFullTweets` dynamic-imported a three-level path from a four-level-deep file → always null → every prestage community ticket died `data_fetch_failed` (fixing ① alone would just move the failure). Fix: ① aligned to `'../../../utils/…'`; ② replaced the dynamic import with a top-level static import straight from `communities-api.js` (index.js requires `fetchCommunityById` but never re-exports it; the CJS shorthand module.exports of communities-api.js IS statically analyzable for named imports). E2E re-run: low → mid(2) via prestage P1.9 `web3_native_ip_early` («成员4145，活跃度?»). Unit test: `node scripts/_test_twitter_community_pipeline.cjs` (14 assertions; includes a repo-wide scan that resolves every twitter-validation relative import from its file location — closes the "dynamic import never parsed until executed" blind spot).
+### 信号机制
 
-**Jev layer** (`analyzer/llm/`):
-- `JevClient.mjs` - HTTP client; `ask(state, questions, {label})` → answers (throws on missing answer ids — no error swallowing); 429/5xx backoff
-- `jev-questions.mjs` - Standard 13-question set (`buildStandardQuestions({includeBrandHijack})`; version = `JEV_QUESTIONS_VERSION`, per-change bump — history in the file header)
-- `jev-prestage-questions.mjs` - Prestage 5-question set `P1.9` (token type / abm name link / abm web3 traffic / community activity / project quality 0-5——P1.5 项目实度题（2026-10-01 WIRED 案裁定）：恒带，账号新(<30d)+实度≥3 豁免 P1.3 年龄降档走粉丝带、<3/缺分 fail-closed 维持 low、推文<5 保留拦；P1.8 判据尺度校准（THESIS 案）：一篇产品陈述即达标 + 链上新币相对尺度；P1.9（C46 MarsCoin 案）：token 类型「币本身即IP」双形状（新称号 OR 社区/文化 meme 主账号，账号随币而生/社区后建、年龄非反证），project 侧显式反例（社区 meme 主账号有官网/品牌/认证不算 project），配套 mapper web3ip 评级不吃年龄门/实度门（`rateProject` opts.accountAgeGate，推文<5 保留拦）+ state 预计算措辞中性化)
-- `jev-state-builder.mjs` - `buildJevState` (60k budget) + `buildPrestageState` (20k budget): state assembly with section quotas
-- `jev-result-mapper.mjs` - Standard/super-IP answer mapping: stage1/2/3 result construction, scale calibration constants (MAGNITUDE_TIER_SCORES, DIM2_BANDS)
-- `jev-prestage-mapper.mjs` - Prestage mapping: project rating table (followers/members floors), abm two-condition verdict, all deterministic math code-side
+- **去抖**：买腿 `signalDebounceMs 200 / signalDebounceMaxWaitMs 1000`（slot 级合并：200ms≈0.25×BSC 0.75s 出块，同 slot burst 并成一个、slot 结束即评）；卖腿确认窗 `sellDebounceMs 200`（与买腿语义相反：首真起计**不重置**、窗口内恢复 clear 不卖、fire 重评仍真才卖——「怕被震下去」防线）；bypassDebounce 腿/止损/毕业卖/强平走立即路径。实验级 fourmemeWs 键可覆盖，跑中实验须重启进程生效
+- **叙事直调** `narrativeCallCondition`（策略字段）：fire 因子满足（不含 narrativeRating 自身）→ 买腿黑名单检查后、pre-buy 前同步 `NarrativeAnalyzer.analyze()`（`src/trading-engine/pre-check/NarrativeDirectCaller.js`）；Jev 秒级，30s Promise.race 超时（超时的分析后台续跑落缓存，下轮命中）；失败/超时 normalize 9 放行——由 `preBuyCheckCondition` 里 `narrativeRating` 决断；未配置/未触发=恒 9 旧行为。**语法 AND/OR only，`&&`/`||` 被静默截断**。触发轨迹落 metadata `narrativeCall`
+- **叙事一票否决**：直调返回 `numericRating=1` → 引擎内存 `_narrativeBlockedTokens` 拉黑（后续 fire 在写 signal 行前短路：无信号无重复调用）；豁免=`precheckStage === 'address'`（宣告竞态）且 age<300s 保留重试窗；rating 9（未知）永不拉黑；内存态重启丢、首 fire 经缓存重建
+- **叙事结果=token 级全局缓存**：`token_narrative` 按 token_address upsert，跨实验共享；失效=行删或 `NarrativeRepository.updateIsValid(addr,false)`；**历史窗口回测前先失效缓存**（题集变更后旧缓存行缺新题答案）：`scripts/narrative/invalidate-referent-window.cjs` / `invalidate-carrier-window.cjs`（&lt;基底实验ID&gt; --commit，范围刻意只收窄基底买过的 token）
+- `token_category` 列写入：`deriveTokenCategory(prestage, stage1)`；NULL（precheck fail/no_data）**不写键**——失败重析不会抹掉已存分类
 
-**Version rule**: editing any question's instructions/criteria requires bumping its version constant (`JEV_QUESTIONS_VERSION` / `JEV_PRESTAGE_QUESTIONS_VERSION`); prompt_type/prompt_version columns identify them (`jev(J1.10/…)`, `prestage-jev(P1.2/…)`).
+### TPA / OPB
 
-**Super IP** (`prompts/super-ip/super-ip-registry.mjs`): Known high-influence accounts (CZ, Elon Musk, Binance official, etc.) reuse the standard question set with code pre-scores; tier S (world-class) / A (known). **C59 指代载体在图豁免（2026-10-07 现金猫续二案 `0x56dc26bd…7777`，mapper-only 题集不动）**：图分析（C58）开启后 Jev 拿到真图证据但 relevance 题纯文本判据最高只给弱语义档 10 分，恰触 Stage3 关联≤10 截断——`imgReferentExempt` 三门全中（analyzer 传 `imageEvidence = !!twitterInfo?.image_analysis` + `0 < relevance ≤ 10` + `referent_memeability ≥ 3` [J1.21 阈]）豁免该截断，relevance 分照常计入总分（J1.24 同款计分语义）；不绕任何阻断门、标准路径零触达；审计 `jev.imgReferentExempt {relType,relScore,memeScore}` 命中才落。182 存量扫描（336 可解析行）三门全中恰本案 1 行零外溢——无图门会误放 8 行「文化词蹭 superIP 语料」票，图门是必要条件。单测 `node scripts/_test_superip_relevance_exempt.cjs`（23 断言）。
+- **TPA**（`src/services/TokenPositionAnalyzer.js`，`config.tokenPositionAnalyzer` 段存在才构造）：触发门命中（write-once）对 top20 持仓 as-of 画像，`TPAPre_*` 因子族注入 FA；策略引用未触发的 `TPAPre_*` 恒 null → ConditionEvaluator false=**fail-closed 不买（去门控化）**；触发门校验 fail-fast（时间门 blocks/ageSeconds 恰一，数量门 tradeCount/buyBnb/minHolders 非负）。三路径画像：离线画像 fresh 直用/stale 增量合并/miss 实时拉窗现算。retention 基准=触发刻峰值枚举大户集冻结，此后 running 净持仓重算（净卖<1=走人）。**gmgnFilter**（`{enabled, exemptPct}` 缺省关=存量零变化）：①GMGN 用户钱包（本盘内经聚合路由买入>0）不参与 TPA 分数计算 ②前期参与者 GMGN 占比≥exemptPct → **豁免放行**（不能做成 null——null 在 `TPAPre_tokenScore > 2.5` 下 fail-closed 拦死，与散户盘语义相反）③触发门 minHolders 同步剔非 GMGN；豁免救回时 `TPAPre_gmgnExempt=1` + verdict 改写 approve（blockReasons=['gmgn_exempt']）；`TPAPre_gmgnUserPct` 恒落（disabled 也落纯观察）。BSC 新钱包中性分 2.2（`scoreTokenFromHolders`，非 creator 只升不降——BSC 节奏刻意偏离 pumpfun 母版裁定，观察期后去留用户再定）
+- **OPB**（`src/services/OnlineProfileBuilder.js`，`fourmemeWs.onlineProfile.enabled` 默认 false）：实时代币分类，双门触发（idle 60s 无 tick / bigTickIdle 600s 无大额 tick）+ 60s 扫描补救，写 `token_profiles`（token_address 全局 PK，source='online'，不挂实验防级联删）；阈值判定与离线 classifyToken 共用 `scripts/shared/token-classifier.js`（单一真相）；TPA 联动 `onProfileClassified` 喂分类缓存。**重启过渡期全史路径**：水位对齐前的存量活跃 token（FA tick 自动建 state）价格史不完整 → 分类时自动改走 wss_price_ticks 全史 + classifyToken（防涨幅失真）；失败 fail-closed 不写失真行、待扫描重试
 
-**Key supporting services** (`analyzer/services/`):
-- `tweet-type-classifier.mjs` - Pre-classifies tweets (feeds Jev standard path context)
-- `frequent-issuers.mjs` - Registry of ~94 accounts that frequently create tokens
-- `pre-check-service.mjs` - Validates data quality before analysis (rules, no LLM). **Time-base rule (user decision 2026-09-23)**: staleness is measured against the **token creation time** (`raw_api_data.created_at`), never wall-clock analysis time — "was the corpus fresh at mint". This applies to expired tweet (10min) / expired video (365d) pre-checks, Jev state timeliness (`buildJevState({now})`), prestage state, and super-IP `calculateTimeliness` — making re-runs/backtests/delayed analysis idempotent. Missing creation time: pre-check skips the expiry rules; Jev state falls back to wall clock. **Same-name rules created_at fallback (2026-09-28, 富贵案)**: rules 0.5/0.55/0.58 read `tokenData.tokenCreatedAtSec || raw_api_data?.created_at` — wss-assembled rows have no `created_at` in raw_api_data (only row-level column + flap's archived `eventTs`), the bare read made ALL watcher-era tokens silently skip the same-name rules. **Rule 0.52 same_name_blue_chip ABOLISHED (2026-10-01, C47 AST 案 `0x265b3982…ffff`, user decision 「A跟C，根治——该怎么样怎么样」)**: the rule (2026-09-28 富贵案立规: AVE normalized-symbol match + blue-chip gate → low hard block) conflated 同名 with 蹭名 — ast.fun vs Alpha Struct Token are entirely different tokens that merely share the symbol "AST" by abbreviation coincidence. A+ C 裁定：**C 为体**——0.52 分支与 `checkBlueChipConflict`（含 C29 同事件 ±1h / C37 叙事锚 / C45 绝对体量 / C34 名实不符四层豁免补丁，全部随之成死代码）已整体删除；蹭名判定移交叙事层（prestage account 路径评级挂 CA 自发宣告票 / nameReferentBlock 截词蹭名 / brand_hijack / cashtag 改道）。**A 的语义由叙事层既有防线天然承载**。验证：族三 10 票重跑——AST 翻案 high（prestage project 4274 粉+实度4.3 自发宣告票）、CREPE 被 Jev「截词蹭名」拦、其余 8 票换正确理由维持 low（no_public_info×4 / abm no_traffic×2 / 13 粉底线 / fetch_failed）。规则 0.5/0.55/0.58 不受影响；`narrative.sameNameCheck.blueChip` config 段与专用单测 `scripts/_test_blue_chip_check.cjs` 一并移除。**Rule 0.5 SameNameCheck appendix 短路（2026-10-02，d46b1b6c 叙事耗时案）**：duplicateNarrative 过滤要求目标 token `raw_api_data.appendix` 非空——appendix 是 AVE API 发现链路专属字段，watcher 时代 wss 组装行没有 → isCopycat 恒 false（d46b1b6c 回测日志实证 960/960 次重复叙事=0），而 AVE BSC 300 条 + Solana 逐关键词 300 条搜索（多词 token 单次分析 5-15s）纯死重。修改：`same-name-check-service.mjs` 把 targetAppendix 解析提前到 AVE 搜索之前，null → 短路返回等价结果（`details.skipped='no_target_appendix'`）；AVE 时代老票（appendix 存在）仍走完整链。单测 `node scripts/_test_same_name_appendix_shortcut.cjs`。**Rule 5 high_influence_with_media 直发废除（2026-10-06 NIGGALON 案 `0xb62ec51d…7777`，方案 A 用户裁定）**：原语义「高影响力账号（HIGH_INFLUENCE_ACCOUNTS 名单）或高交互（赞>5000/转>2000）+ 带媒体推文 → 直发 mid(pass=true) 短路 Jev」——直发的存在理由是「图片识别耗时久」旧逻辑弃用后的速度补丁，Jev 秒级后理由消失。盲区实测（`scripts/scan-high-influence-media-tokens.cjs`，776 行 A 集）：twitterUrl 是发币者自填的，贴一条高影响力账号带媒体推文即白拿 mid，与内容无关——语料 74% 币安系、79% 票集中在 133 个同推文复蹭簇（×32「what are we calling this emoji?」/×14 CZ「Soon...」等存量推文库）、被买 147 票 win rate 28% 净 -1.718 BNB vs Jev 路径 mid 均值 +0.303（差 25 倍）、被买 mid 票 65% 来自本规则；反例 TradersLeague 活动梗簇 +14.9 说明一刀切全废有代价，但放行后真关联票仍可凭叙事过 Jev。改动：规则 5 块不再 return（放行走 Jev；语料作者 elonmusk/cz/binance 系在 super-ip-registry 走 fast-track + J1.21 referent 判定）。存量 776 行批量失效 `scripts/narrative/invalidate-high-influence-media.cjs`（182 --commit）。单测 `node scripts/_test_rule5_pass_through.cjs`。
-- `data-fetch-service.mjs` - Coordinates multi-platform data fetching; includes four.meme IPFS metadata unpacking (`ipfs-metadata-fetcher.mjs`): when API twitterUrl/webUrl are empty, real social links live only in the on-chain metadata JSON (`raw_api_data.meta` IPFS URL) — fetched via multi-gateway (pinata primary, ipfs.io is sunset) and merged into URL classification; unpack success removes the meta URL from the websites bucket
-- `web-fetcher.mjs` - Generic website content fetcher (**C41 2026-10-01, jina fallback**): direct fetch (Chrome UA) fails (403/Cloudflare JS challenge/timeout/extraction <50 chars) → fallback to `https://r.jina.ai/<url>` once — free, no key, bypasses Cloudflare (SCMP etc.); **jina requests must NOT carry a browser UA** (r.jina.ai 403s spoofed-Chrome UA, anti-abuse; use `richer-js-narrative/1.0`). `parseJinaReaderOutput` extracts Title/Published Time/Markdown Content; Published Time is prepended into content (`[发布时间: …]`, twitter-section pattern) so the timing question has time info; return shape identical to direct + `fetchedVia: 'r.jina.ai'` audit field; fallback also failing → null (fail-closed = old behavior). Success is cached in ExternalResourceCache as usual. Unit test: `node scripts/_test_web_fetcher_jina_fallback.cjs`
-- `account-analysis-service.mjs` - Account/community prestage flow (rules validation → Jev prestage)
-- `image-analysis-service.mjs` - 推文配图视觉分析（**C58 2026-10-07 现金猫案 `0x56dc26bd…7777` 用户裁定开启**；同日三模型 A/B + 亲眼看图仲裁终选 **Qwen/Qwen3-Omni-30B-A3B-Captioner @ SiliconFlow**——图片真相=白猫举金币，Qwen 描述全对，glm-4.6v「排行榜截图」是文字脑补编造，glm-5.3 是文本模型看不到图且智谱端点对 webp 图块静默丢弃 [downloader 压缩默认 webp 是首跑根因，调用恒传 format jpeg]；OpenAI 兼容端点 /v1/chat/completions + Bearer + image_url data URI，key=182 `.env` 的 SILICONFLOW_FALLBACK_KEY [SILICONFLOW_API_KEY 两端均 401 且被 llm-client 别处消费]）：C51/现金猫形状——代币名指代映射唯一载体是配图（推文文本零关联字样），Jev 纯文本判 none_related 自洽但漏判。挂点在 NarrativeAnalyzer 正常流程分支（pre-check 通过后、state 构建前，superIP/标准两路径共用；预检拦截票不烧视觉调用）：主推文**第一张图** → `twitterInfo.image_analysis`（twitter-section 既有【图片内容分析】渲染块进 Jev state，渲染层零改动）。用户两点约束落地：①同图缓存（`external_resource_cache` 按图片 URL 键控 resourceType=`tweet_image`、TTL 90 天、promptVersion 版本校验 + 进程内 in-flight 去重——复蹭簇同分钟并发同图只打一次 API）；②多图只取其一。**★视觉层 token 无关（跨 token 缓存健全性）**：prompt 只含推文作者/文字/图，不含 token 名——缓存跨 token 共享，掺 token 名会让 token B 拿到为 token A 算的关联结论；指代判定留给 Jev name_referent 题。失败语义：下载/API/解析失败 → warn + 无图证据（= 开启前行为）+ 不写缓存（刻意不走 CachedFetcher.fetchWithCache，失败冷却会灭宣告竞态重试窗）；配置 enabled 但 key/baseUrl 残缺 → throw fail-loud。配置节 `config/narrative-engine.json → vision`。只修「载体在图」子形状（纯世界知识代称不覆盖）；prestage 账号路径无 twitterInfo 位不进图。单测 `node scripts/_test_tweet_image_analysis.cjs`（34 断言）
+### 叙事引擎（`src/narrative/`）
 
-**Rules (no LLM)**: `prompts/account/account-community-rules.mjs` - account quality gates, address verification, name matching; `getAccountWithFullTweets` 带两层 ExternalResourceCache（2026-10-02 d46b1b6c 叙事耗时案 + 同日用户三点方案再升级）：层1 userInfo handle 级（小写归一，跨 token 复用消除同作者连环发币重复拉取——回测实测 985 次调用 vs 302 唯一 handle ≈3.3 倍冗余）、层2 tweets **userId 级全量 key + CA 早停专属 key 双 key**（离散窗口 key `(userId, untilSec)` 的根因：untilSec 由各 token 创建锚推导，同作者不同 token 锚不同→key 不同→跨 token 永不命中，B2 实测 651 真拉/259 唯一作者，@binance 37 次居首）。全量 key `twitter_user_tweets:<userId>` 只存翻满窗口的完整列表 `{tweets, oldestSec}`（oldestSec = 跳过第 0 条后最老推文秒——头部可能是置顶推，计入会高估覆盖深度），复用时 oldestSec ≤ untilSec 判覆盖足够 → 截断（第 0 条恒留 = 直拉置顶推恒 unshift 语义；其余按窗口过滤，解析失败保守保留）；覆盖不足/凑数口径条数不够 → 重拉。**CA 惰性早停**（用户三点方案核心，`getUserTweets` options.matchAddress）：每页拉完对窗口内推文+置顶推做地址匹配（`textContainsAddress` 去 0x 双形态，与 verifyTokenAddress 同算法单一真相）命中即停——项目方 CA 公告通常在最新几条/置顶 → 项目票通常 1 页停；非项目票翻满窗口与原行为一致（早停点恒 ≤ 原停点，crossedWindow/cursor/10 页兜底全保留，零覆盖损失）。早停截断列表落 CA 专属 key `…:ca:<addr小写>`（同 token 三调用点 collectAllAccountsWithFullInfo → detectIssuerByCaTimeline → prestage 规则验证共享，`tokenAddress` 从 NarrativeAnalyzer `tweetsWindowOptions` 一路透传）；跨 token 不共享——截断覆盖深度只对本 token CA 语义有效，共享会漏其它 token 更深处 CA 推。命中标记挂数组属性 `addressMatched`（JSON 序列化天然丢，不落缓存行）。TTL 档 `cache-ttl-config.mjs`：`twitter_user_info`{30d,365d} / `twitter_user_tweets`{6h,90d}（6h 内同作者新发 CA 推的漏验由 PrecheckFailRetryService no_public_info 重试窗兜底）。**刻意手工 get/set 不走 CachedFetcher.fetchWithCache**：其失败 1h 冷却会静默灭掉宣告竞态重试（PrecheckFailRetryService 300s 窗内重试全被冷却挡掉）；只缓存成功（userInfo 需 screen_name 非空防 C53 空 stub 毒缓存、tweets 需 Array.isArray），失败零缓存痕迹 = 重试语义与无缓存时一致; `prompt-builder.mjs` only provides `getPromptTypeDesc`.
-
-**Platform data fetchers** (`utils/`): twitter, weibo, github, youtube, douyin, bilibili, xiaohongshu, instagram, tiktok, weixin, amazon, binance-square, web
-
-**Narrative Analysis Engine** (`engine/`): Multi-threaded worker architecture with task queue, polling from DB, concurrency 30. Config in `config/narrative-engine.json` (`engine` + `jev` sections; JSON is the single source of truth — env overrides were removed). Worker task timeout = `engine.taskTimeout`.
-
-### Pre-Buy Check System
-
-`src/trading-engine/pre-check/` — evaluates token risk before purchase:
+所有 LLM 决策走 **Jev**（api.typesafe.ai，结构化三原语 Choice/Score/Noul，无文本生成，一票一次 fan-out 调用秒级）。
 
 ```
-PreBuyCheckService.performAllChecks()
-    ├── EarlyParticipantCheckService (first 90 seconds trades, from `wss_price_ticks`)
-    │   └── WalletClusterService (cluster detection, reuses trades data)
-    └── TokenHolderService (holder blacklist via AVE API)
+Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-Check（纯规则）
+   ├─ 账号/社区 token 或自发宣告（detectIssuerSelfLaunch 代码判）→ prestage Jev（5 题 P1.9）
+   ├─ superIP（prompts/super-ip/super-ip-registry.mjs）→ 快车道（标准题集+代码预分）
+   └─ 标准路径：单次 Jev 调用（16 题，J1.29）
 ```
 
-EarlyParticipantCheckService queries `wss_price_ticks` (market-wide per token, rows mapped to AVE-trade-compatible shape so WalletCluster/WalletLabel/TokenHolder are unchanged). An empty window returns real zero stats (reject semantics), not the legacy "probably graduated" pass-through values — those remain only for query errors.
-
-All pre-buy factors stored in signal metadata under `preBuyCheckFactors`. Pre-buy checks only run when the buy strategy defines `preBuyCheckCondition` (first round) / `repeatBuyCheckCondition` (later rounds) — strategies cloned from legacy configs without these fields buy without pre-checks.
-
-**Sniper holding factors**（虚假流动性拦截，2026-09-29 显化之歌 0x1684e8f4…17777 案衍生，用户裁定防线分工：作弊票 TPA / sniper 聚集票 sniperPct / uniformBuyCluster 已弃用——因子保留计算不被策略引用）：
-
-- **sniper 判定 = 运行时条件判断纯函数**（`src/trading-engine/pre-check/sniper-detector.js` `isSniperProfile`，不落 wallets 标签——打标签方案已否决回滚）：`tokenCount >= 100 AND (medianHoldSeconds ∈ [0,300) OR (null AND sym < 0.1 AND 笔数>=40))`，sym = |buy−sell|/(buy+sell)；排除 hold>=300（库存调仓/CEX 热钱包）与协议地址 0x000006b7…0091（four.meme 内盘官方，`PROTOCOL_ADDRS`）。画像源 `wallet_offline_profiles.profile`（step4 预计算几天一更）；画像 miss = 非 sniper。与 wallet-scorer `_isSniperLike`（tc>=300，TPA 豁免大户判定的机器人检测）语义不同勿混
-- **因子口径**（`EarlyParticipantCheckService._calculateSniperHolding`，复用 90s 窗 trades 零新 tick 查询）：每钱包净持仓 = Σ买 token_amount − Σ卖 token_amount，只留正持仓池；`earlyTradesSniperHoldingPct` = Σ(sniper 正持仓)/Σ(正持仓)×100（拦截写法 `< 50`），伴随 `earlyTradesSniperWallets`（次要门 ≥2 有效）/ `earlyTradesSniperHolders` / `earlyTradesSniperCovered`。covered 语义与 netBuy/uniform 同构：age>90s 或 launchAt 缺失 → 0 值放行（null 会让 `<50` 恒 false 误拦）
-- **画像查询缓存**：`SniperFlagCache` 实例级 Map（进程生命周期，miss 也缓存为 false；查询失败 fail-open 全放行且不写缓存），批 100 IN 查询走注入 supabase（两引擎均 dbManager service key）；回测 bc4f756e 性能口径——缓存命中后零重查
-- **验证结论**（182 创建锚定口径 354 closed 票）：拦 pct>=50 → 拦 201 票（亏率 78.6%），避免亏 22.50 / 放弃赢 11.56 BNB，留票净额 −6.7 → +4.2；已知盲区：协同簇小号（tc<100）归 TPA/uniformBuyCluster，画像 miss 低频钱包
-- **单测**：`node scripts/_test_sniper_factor.cjs`（59 断言零 DB：判定矩阵/缓存/净持仓聚合/performCheck 集成/源码口径五节）
-
-**Top1 买入集中度因子**（单钱包主导拦截，2026-09-29 buy-dominance 扫描案上线；用户裁定「买的时候就一个钱包占据绝大多数流动性（购买量）」才拦——叙事好、后期多人稀释的不算）：
-
-- **口径**（`EarlyParticipantCheckService._calculateTop1BuyShare`，复用 90s 窗 trades 零新 tick 查询）：首窗**纯买入量**（BNB）按钱包聚合，`earlyTradesTop1BuySharePct` = 最大钱包买入/窗口总买入×100，伴随 `earlyTradesTop1BuyBnb` / `earlyTradesBuyBnb` / `earlyTradesTop1BuyCovered`。**刻意不含卖腿**（既有 `walletTop1VolumeRatio` 是买卖混合口径，不重复）；协议地址**双地址层剔除**（wallet 层 COALESCE 后协议行落 tx.from EOA，trader 裸字段层恒可识别）。扫描脚本 `scripts/find-buy-dominance-tokens.cjs`（182，75 万买行 0.5min）。**钱包口径已切 sender（2026-09-30 案 A，0x1de460 GMGN 路由案）**：`_mapTickRow` 单点 `wallet_address = sender_address || trader_address`（NULL 回退 = 旧行为等价），top1/sniper/netBuy/uniform/WalletCluster 全下游自动生效——公共路由行不再聚成单一巨型钱包虚抬集中度；GMGN 主导盘负信号由下述 routerPct 因子显式接管
-- **拦截写法**：`earlyTradesTop1BuySharePct < 60 OR earlyTradesBuyBnb < 1`——OR 腿复刻验证口径的 1 BNB 尘埃豁免（首窗买入不足 1 BNB 份额噪声大不拦）。covered 语义与 sniper 同构：age>90s 或 launchAt 缺失 → 0 值放行
-- **验证结论**（share≥0.6 且首窗≥1 BNB，109 closed 票）：亏率 86.2%，避免亏 12.684 / 放弃赢 0.559 BNB（22:1）；单实验 9e413cbe 55 票拦 28 票净额 +0.198→+2.072。**与 sniperPct 互补**：7777 家族（top1 sniper 率 69%）画像门可拦，4444 家族（低频新钱包 sniper 率 3%、单笔可占 98%）只靠本因子；叙事 2/3 级命中 0 张零误伤。0.6→0.7 少拦的 59 票净 -6.6 BNB（0.6 是正确档）
-- **单测**：`node scripts/_test_top1_buy_share.cjs`（33 断言零 DB：聚合矩阵/0x01bf 案数值锚定/performCheck 集成/源码口径四节）
-- **配对回测 expired 洞（2026-09-29，a7e34059 基线 vs 8bd5ef0b 加门，9e413cbe 克隆同窗并发）**：净额打平（拦 5 亏票 +0.658 vs 20 张「过期票」晚进车 −0.914 恰好抵消）——根因 = top1 因子 covered=0（>90s 窗过期）0 值放行语义 × 买腿 30min 年龄窗错配，主导票 35-115s 高价接盘。象限验证：全部盈利买点 ≤74s（early_clean +1.611），90s 上限零误伤。修正写法 `tokenAgeSec < 90 AND earlyTradesTop1BuySharePct < 60 AND earlyTradesTop1BuyCovered == 1`（修正版回测 120caca6 预测 ≈ +2.23）
-
-**聚合路由买入占比因子**（GMGN 主导盘拦截，2026-09-30 0x1de460 案上线，与 sender 口径切换配套——单切口径不配套新门会放走差票）：
-
-- **身份鉴定**：`0x1de460f363af910f51726def188f9004276bf4bc` = **GMGN BSC 聚合路由**（TransparentUpgradeableProxy 代理壳 1810 万 tx 多链部署；init data 内嵌 GMGN fee collector `0xb8159b…931c9c8` 自证 + impl 选择器 pancakeV3SwapCallback/algebraSwapCallback/V4 swapCallback/多协议结构化 swap 聚合路由指纹 + Dune GMGN dashboard 直接引用）。flap 27.9% 成交行 trader 落它——GMGN 是 BSC meme 盘最大散户流量入口之一，用户自有钱包直连路由下单（tx.from = 真实买家）
-- **口径**（`EarlyParticipantCheckService._calculateRouterShare`，复用同一 90s 窗 trades 零新查询）：首窗纯买入量（BNB，与 top1 同窗同构）中 `trader_address`（msg.sender 层，**与 wallet COALESCE 无关**）落在 `AGGREGATOR_ROUTER_ADDRS`（现仅 GMGN 一址，Set 便于扩展）的行占比×100 → `earlyTradesRouterPct` / `earlyTradesRouterCovered`。covered 语义与 top1 同构（age>90s 或 launchAt 缺失 → 0 值放行）
-- **对拍依据**（8aca25e2 回填 16,393 行后双口径终审）：被拦 signal 459/token 192；sender 口径翻案 174（top1 62-87 → 4.9-20.5），但假想放行 TP **-8.566 BNB**（亏票 114/173=66%、单票均值 -0.0495；峰值 +45 是 7777 家族对倒深 V 幻觉）——router 主导盘 = 散户热度/bot 蜂拥盘，top1 门歪打正着当「bot 盘代理」；仍拦 4 票（真实主导）TP +0.019。拦截写法 `earlyTradesRouterPct < 60`（对拍锚定档）
-- **配对回测验证（2026-09-30，R0 `8e9fa667` top1 门 vs R1 `21fe0e8b` top1+router 门，同窗 09-29 14:51Z→09-30 10:00Z both、同 sender 新口径引擎，差分 = router 门净效应）**：R0 73 票净 -0.709 vs R1 48 票净 **+1.099 BNB**，**净效应 +1.808**；拦掉 25 token 全部 routerPct 63-86% 且 top1 全 <60（sender 翻案票形状，门精确接管）、亏 20/赢 5（亏率 80%）、避亏 -1.680 BNB；唯一显著代价 BM +1.016（放弃）。共同票差异仅 2 个（时序扰动 ±0.1 量级）
-- **回测装载链**：BacktestEngine `TICK_SELECT_COLUMNS` 加 `sender_address`（columnsTag 漂移 → 缓存全量重拉一次，设计内）+ `_loadWssTicks` tick 对象透传 + replay 索引伪行透传
-- **单测**：`node scripts/_test_sender_switch_and_router.cjs`（46 断言零 DB 六节：COALESCE 矩阵/router 矩阵/翻案票形状集成/协议双地址层剔除/回测装载链/源码口径）；旧 `_test_top1_buy_share.cjs` 零改动仍过（无 sender 输入 COALESCE 等价旧行为的机器证明）
-
-**早晚票语料滞后因子 narrativeCorpusLagSec**（0fed29f9 案 2026-10-08 用户裁定：早票（相对事件时点）正常买；晚票要求更高——比较确定用户认同（或强庄）才入场）：
-
-- **口径**：`lag = FA 出生锚（live=TokenCreate 块时间/回测=discovered_at）− corpusTs`，corpusTs = 语料最早推文时间（主推 `created_at` 与父推 `in_reply_to.created_at` 取更早，`NarrativeDirectCaller.extractCorpusTs`；analyze 三条 return 路径顶层 `twitter` 字段统一携带，缓存路径为 reassembleTwitterInfo 重组的同形状 tweet 对象）。0fed29f9 实测分化最锐的切点是 **lag<300s**：早票 50 张净 +6.57 / 晚票 50 张净 +0.30（34 亏）
-- **语义**：负值 = 宣告竞态（token 先于推文出生 = 事件原创点）按早票放行；**null = 无推文语料/无出生锚/直调未触发 → ConditionEvaluator null 比较恒 false → 落晚票严格门 fail-closed**（5 张无语料时间票实测 4/5 亏损；早票是证据门，无证据不放行——与龙头门 fail-open 方向刻意相反）
-- **注入链**（narrativeRating 同款五步）：getRating `corpusTs` → 两引擎 `(faBirthMs − corpusTs)/1000` → PreBuyCheckService extraContext/baseResult/评估 context（键集真相源自动收键，77+ 键）→ FactorBuilder 时序快照。配套 **fire 因子 `earlyReturn` 注入 preBuy context**（drawdownFromHighest 同款先例——晚票门右臂「用户认同」证据 `lag < 300 OR earlyReturn >= 100` 写法需要；与 FA fire 因子同名同值同刻，platform 键同款双域存在）
-- **单测**：`node scripts/_test_corpus_lag_factor.cjs`（31 断言零 DB 六节：解析矩阵/getRating 接线/lag 公式与 null 语义/晚票门 fail-closed 真值表/context 携带/FactorBuilder）
-
-**FA 钱包口径切换——holders 族**（GMGN 案 B，2026-10-01，bSTOCKS 0x0ad6…7777 案衍生；案 A 只切了 EarlyParticipantCheck 的 90s 窗因子，FA 层聚合漏在审视清单缝里——42 个真实散户被 GMGN 合并成 1 个「持有人」，`holders > 5` 买门严重失真）：
-
-- **改动**：FA `processTick` 单点 `walletAddr = sender_address || trader_address || null`（NULL 回退 = 旧行为等价）；切 wallet 口径的聚合：`holderCount`（holders 因子/`_holderSeries` holderTrend 原料，新增 `_walletNetTokens` map）、P 组 top3/top5 净持仓集中度、sniperHolderShare top20、bigHolder 族交叉（`_buyerVolume` × 净持仓）、K 组对敲重叠（`_buyerAddresses`/`_sellerAddresses`/`_buyerVolume` 等——trader 口径下经路由的对倒反成「GMGN 买 GMGN 卖」假重叠）、cumBuy（`_traderBoughtTokens` 改名 `_walletBoughtTokens`）、滑窗（`_slideTraderCounts`/`_walletFirstTs`）、smartBot 名单匹配（EOA 维度名单）
-- **刻意不切两处**：①`_traderNetTokens`/`_traderMaxNetTokens`（TPA 基准——`wallet_offline_profiles` 画像库是 trader 口径建的，单切持仓侧会画像 miss 错配，二期整套切；GMGN 在 TPA 里仍呈现为单一巨户合并像）②`uniqueTraders`（classifier metrics 契约字段，与离线 classifyToken/token-classifier `tick.traderAddress` 口径锁定，防在线/离线分类输入漂移）
-- **链路**：当时实时链＝SharedTickConsumer `TICK_COLUMNS` 加 `sender_address` + processTick 透传（2026-10-09 直连回迁后透传点在 collector `_emitTick`/`_feedFa`，sender 随 tickRow 直喂 FA）；BacktestEngine `_loadWssTicks` 09-30 已透传（回测链零改动、columnsTag 不漂移）+ **`backtest.stripSenderAddress` 对照臂开关**（H0 臂剥回放对象 sender → 消费侧全部 COALESCE 点回退 trader = 修正前行为 bit-identical；只剥内存 tick 不动 BacktestTickCache raw 行，H0/H1 两臂共用同一缓存文件）；OPB 全史路径/离线 build-token-profiles 不动（trader 口径链）
-- **实证**（bSTOCKS 79 ticks 重放对拍）：修正前 holders=6（与实跑 BUY 信号逐位吻合）→ 修正后 holders=44（`_walletNetTokens` 48 键 44 净持仓>0）；`holders > 5` 从「险过」变「明确放行」，GMGN 高占比盘从「误拦」变「正确评估分散度」
-- **配对回测**：`scripts/create-holders-denomination-pair.cjs`（H0 旧 trader 口径 vs H1 wallet 口径，基底=02c60e50 buy-v2 v4 实跑；182 串行启动）
-- **单测**：`node scripts/_test_fa_wallet_denomination.cjs`（40 断言零 DB 六节：COALESCE 矩阵/GMGN 合并复现（含零 sender 旧行为 bit-identical）/K 组·滑窗·smartBot·cumBuy/读取时聚合出口/链路透传源码口径（含 strip 开关接线）/买门翻案形状）
-
-**tokenAgeSec 秒口径年龄因子**（2026-09-29 同案上线；用户裁定方案 B——`age` 单位是分钟、改单位会静默翻转存量实验条件语义（红线），故新增独立秒键）：
-
-- **口径**：`(now − createdAtMs)/1000`，与 `age` 同创建锚 ×60 关系；FA `_buildFactorMap` 字面量键（getFactorKeys 探针自动收 → 策略 condition 可直接引用）+ FactorBuilder `buildFactorsFromTimeSeries` 同源推导（`age * 60`，两条路径一致）。秒级买窗写 `tokenAgeSec < 90`（ConditionEvaluator 字面量 parseFloat 支持小数，`age < 1.5` 亦等价）。缺锚 → `_createEmptyState` 注册时刻 `Date.now()` 兜底（age 同行为）
-- **preFilter 提取**：`ConditionEvaluator._walkBuyRange` 识别 tokenAgeSec 比较子句，/60 归一到分钟区间与 age 子句合并（AND 取最紧/OR → null 降级）；FA preFilter 越界跳过对新键同等生效
-- **勿混 E 组 `_ageSec`**（首 tick 锚点，tickFlow 分档内部量）：锚点不同，非倍数换算关系
-- **时序快照落库**（2026-10-01 裁定 A/B 都做）：`buildFactorValuesForTimeSeries` 白名单含 tokenAgeSec（新信号 trendFactors 直读，signals 页因子 chip 用；值 = age×60 同源）；旧信号由 signals 页前端 age×60 推导兜底（`_renderConditionFactorChips`，chip 标注「age×60 推导」）；tokenCycleAgeSec 仍不落（可差分推）
-- **单测**：`node scripts/_test_token_age_sec.cjs`（31 断言零 DB：FA 发射/键审计/真值表/preFilter 提取/集成/时序重建/快照白名单/前端推导源码口径八节）
-
-**signals 页因子 chip 条件驱动化**（2026-10-01，experiment_signals.js）：买/预检查条件有啥因子展示啥——`_renderConditionFactorChips(condition, metadata)` 内部 `_parseConditionClauses` 逐子句解析（同名因子多子句各自成 chip，如 narrativeRating == 2 OR == 3；支持 `!=` 与 `IS [NOT] NULL` 子句），值查找 trendFactors → tpaFactors → preBuyCheckFactors → metadata 顶层；预检查区块删除四个废弃硬编码块（趋势因子网格/黑白名单持有者/早期参与者明细/强势交易者），保留条件检查详情、TPA 明细块与原始交易数据链接（挂在预检查条件行）。
-
-
-**Narrative rating direct call** (`narrativeCallCondition`, strategy field): when a buy strategy defines it and the condition holds at fire time (evaluated over the same fire factors as the strategy condition — `age`/`earlyReturn`/activity/trend, NOT narrativeRating itself), the buy leg synchronously calls `NarrativeAnalyzer.analyze()` via `NarrativeDirectCaller` (`src/trading-engine/pre-check/NarrativeDirectCaller.js`) after the blacklist check and before the pre-buy check. Jev is seconds-fast; 30s timeout via Promise.race (the timed-out analysis keeps running in the background, upserts, and the next round hits the cache), failure/timeout normalize to 9 and pass through — the strategy decides via `narrativeRating` in `preBuyCheckCondition`. Not configured / not triggered = always 9, identical to legacy behavior. BacktestEngine uses the same direct-call path (temporal leakage: analyze uses current corpus on historical tokens — absolute returns are not real-time achievable, compare relative increments only). Trigger trail lands in signal metadata as `narrativeCall`. Condition syntax: AND/OR only — `&&`/`||` are silently truncated (rest of the expression is dropped, no error).
-
-**Narrative-veto signal short-circuit** (2026-09-27, user decision): once the direct call returns `numericRating=1` (low = terminal narrative veto), the token is registered in the engine's in-memory `_narrativeBlockedTokens` set — subsequent buy-leg fires return before the signal row is written (no signal, no repeated narrative call / pre-buy checks). Exemption (`shouldBlockOnNarrative` in NarrativeDirectCaller.js): `precheckStage === 'address'` (announcement-race shape, the PrecheckFailRetryService retry domain) AND token age < 300s keeps the token un-blocked so the 5min re-analysis window can still rescue it — window expiry aligns with the retry service stop, so no rescue-after-block race. Only applies to strategies that define `narrativeCallCondition`; rating 9 (unknown, non-terminal) is never blocked. In-memory only — restart loses the set, first fire re-checks via cache and re-registers (cost: one signal row). Unit test: `node scripts/_test_narrative_signal_gate.cjs`.
-
-**Narrative results are token-level global cache**: `token_narrative` is keyed by `token_address` (global upsert) and is NOT attached to experiments — the same token shares one result across all experiments/callers; `analyze()` reuses any valid (`is_valid`) cache hit regardless of experiment, `ignoreCache: true` forces re-analysis. `experiment_id` is no longer written on save (legacy values in old rows are left as-is); to invalidate stale results use row delete or `NarrativeRepository.updateIsValid(address, false)` — a cleanup mechanism (e.g. invalidate all rows when the narrative module changes) is planned but not built yet.
-
-**Token category output** (`token_narrative.token_category`, 2026-09-27): narrative analysis writes the token's classification via `deriveTokenCategory(prestageDataToSave, stage1DataToSave)` (NarrativeAnalyzer) — three mutually exclusive sources: prestage path `project`/`account_based_meme`/`web3_native_ip_early`, superIP channel `super_ip_fast` (same prestage slot), standard path `event:<A~W>` (stage1 eventClassification.primaryCategory). NULL (precheck fail / no_data) does NOT write the key — repository keeps the old value, so a failed re-analysis never erases an already-saved category. DDL: `scripts/sql/add-token-narrative-token-category.sql` (⚠️ deploy-order red line: column must exist before process restart, same as gmgn_info).
-
-**Precheck-fail retry service** (`src/narrative/engine/PrecheckFailRetryService.mjs`, 2026-09-27 fPay/FOMOPAY announcement-race cases; 2026-09-28 no_public_info domain added, FOMOON case): a resident scanner on the engine main thread (`config/narrative-engine.json` → `engine.precheckFailRetry`) rescues two fail shapes (details shapes are mutually exclusive, resolved by `classifyFailShape`): `address` (announcement race — issuer mints first, posts the CA tweet seconds later) and `no_public_info` (corpus arrives late — tweet/website added minutes after mint; four.meme metadata & IPFS are immutable-empty, GMGN link aggregation is the only mutable source, C10/BRF conclusion). Retry fires when ALL hold: row shape hits either domain; token age (wss_events earliest token_create, missing anchor = no retry, fail-closed) < per-domain window — address `retryWindowSec` 300s / no_public_info `noPublicInfoRetryWindowSec` 1800s (FOMOON: tweet 12m38s after mint; independent windows, address semantics unchanged), hard stop out of window; new ticks since `analyzed_at` ≥ `tradeSurgeThreshold` (20 — incremental, not total, so it self-throttles); per-token attempts < 5, ≤2 per scan. no_public_info retries additionally: `ExternalResourceCache.invalidate('gmgn:token:bsc:<addr>')` first (the GMGN success cache maxAge is 1d — without invalidation every retry hits the stale empty-socials cache and spins; invalidate failure → skip this round, no analyze burn, no attempt counted) and pass `enrichSocialByGmgn: true` to `analyze` (without it the GMGN enrichment chain never runs — retries would always re-fail). GMGN paid-quota policy extended by user ruling from "direct-call only" to include retries (low frequency: ticks gate + attempts cap + per-scan cap). Success = trigger shape no longer failing (corpus arrived then Jev rated low counts as resolved). DB access goes through **dbManager (service key)** — wss_price_ticks/wss_events are RLS-empty for the anon key used by NarrativeRepository. Unit test: `node scripts/_test_precheck_fail_retry.cjs` (35 assertions, zero DB).
-
-### OnlineProfileBuilder（在线代币分类；pumpfun 批 3.1 回迁）
-
-`src/services/OnlineProfileBuilder.js` — 内嵌 FourMemeWssTradingEngine 的实时代币分类器，交易活跃度下降时触发（双门：idle 60s 无 tick / bigTickIdle 600s 无 ≥clsBigTickBnb 大额 tick；`_onFactorsUpdated` tick 入口 + 60s `_scanIdleTokens` 扫描补救死后零 tick token），写 `token_profiles` 表（token_address 全局 PK upsert，source='online'，不挂实验维度防级联删）。阈值判定与离线 classifyToken 共用 `scripts/shared/token-classifier.js`（单一真相）；metrics 直接读 FA state 标量（`_clsTicks`/`_relHighest*`/`_lastBigTickAt`/afterFirst9s 三元组），maxMarketCap = 可靠价峰 USD × totalSupply。
-
-- **opt-in**：`config.fourmemeWs.onlineProfile.enabled` 默认 false（default.json 与实验级均可配；both 实验引擎级配置恒读 fourmemeWs 段）；启动时构造——改 config 须重启实验进程。BacktestEngine 不嵌（回测无写表副作用）
-- **TPA 联动**：落库成功回调 `onProfileClassified` → `TokenPositionAnalyzer.upsertTokenProfileCache` 喂分类缓存（修 stuck-null；TPA 未启用时传 null 不挂钩）
-- **重启过渡期全史路径（2026-09-27 修复，失真首例 0x125a…17777 真实 +292% 落库 0.05%）**：水位对齐之前的存量活跃 token 不派发 create → FA tick 自动建 state（`registered!==true`）→ FA 价格史不完整（`_relFirstPriceBnb` 锚在重启后中途价、totalSupply=0 mcap 恒 0）。此类 token 分类时**自动改走全史 DB 路径**：wss_price_ticks 全史（`mapDbTickRow` 共享映射）+ classifyToken（与离线同口径，base=真实首价）、totalSupply 取 wss_events token_create（flap 固定 1e9）；minTicks 门放行给 classifyToken 自带 MIN_TICKS 判（FA tradeCount 只计重启后 tick）。失败 fail-closed：不写失真行、解除 `_profiled` 标记待扫描重试，token 被 prune 后由离线 build-token-profiles.cjs 重跑兜底。registered=true 的常规路径零变化
-- **单测**：`node scripts/_test_token_classifier.cjs`（分类阈值/visible_at/FA 对拍/触发门/扫描/过渡期全史路径 dbManager 打桩，零 DB）；2026-09-27 起在虚拟实验 c5945f36 实跑开启
-
-### Token Position Analyzer（TPA，触发点 as-of 钱包画像；pumpfun 批 4 回迁）
-
-`src/services/TokenPositionAnalyzer.js` — 代币触发门命中时（write-once，一 token 一次）对 top20 持仓者做 as-of 画像，产出 `TPAPre_*` 因子族（17 持仓键）注入 FA（`setHoldingFactors`/`setRetentionBasis` 静态注入 + `setAsofMs` 冻结审批价），FA `buildFactorMap` 尾部 spread 后 `TPAAnalyzed`/`TPAPre_retention`/`TPAPre_asofRelFirst` 可读；策略 condition 引用未触发的 `TPAPre_*` 恒 null → ConditionEvaluator false = **fail-closed 不买（去门控化）**。verdict 收口 `zhuangCondition`（默认 `TPAPre_tokenScore > 2 AND TPAPre_zhuangRetailRatio > 0.3`；`∞` 庄散比落表 null + `TPAPre_zhuangRetailRatioInfinite` 布尔）。
-
-- **BSC 新钱包中性分 2.2（2026-09-29 用户裁定，先观察再定）**：`wallet-scorer.js` `scoreTokenFromHolders` 内（TPA 落表链专用；web 手动评分不走）非 creator 新钱包——`source==='realtime' && tokenCount<=1`（与 creator 门同源同阈值）且 `!isCreator`（creator 维持 1.5 档不叠加）——分数 < `NEW_WALLET_NEUTRAL_SCORE`(2.2) 抬到 2.2，只升不降，breakdown 打 `newWalletNeutral`+`scoreBefore`。★与 pumpfun 母版的有意偏离：母版 2026-08-19 明确否决一般新钱包豁免（FfeDVN2n 同秒 burner 簇案，solana 节奏）；BSC 节奏不同（gas 廉价 + 单块 3s 装整簇），触发源 = THESIS 0xa21bb591…7777 案（158s 死盘后 44 新钱包单块 burst 拉爆毕业，burner 画像被排他上界切空 0.27 分把 tokenScore 拖到 1.445 被 2.2 门拦；豁免后 ≈2.56 过门）。观察期后去留由用户再定，回滚 = 删该块。单测 `_test_wallet_scorer.cjs` 第 12 节 F-J + THESIS 形状锚定。
-
-- **GMGN 用户剔除 + 主导盘豁免（gmgnFilter，2026-10-11 用户裁定三条）**：TPA 二期（9d18253）切 wallet 口径后 GMGN 路由拆散真实散户 EOA 画像 miss 吃 2.2 中性分、触发提前画像窗口短 → tokenScore 分布整体下移（3.5+ 档 1223→259），2.5 门等效变严金狗被拦。裁定：①GMGN 用户钱包不参与 TPA 分数计算（判定=**本盘行为**：本盘内经聚合路由买入 >0，`AGGREGATOR_ROUTER_ADDRS` trader 层判定）②前期参与者都是 GMGN 用户（占比很大）时 TPA 分数不参考 → **豁免放行**（不能做成因子 null：null 在 `TPAPre_tokenScore > 2.5` 下 fail-closed 拦死，与「散户盘不该被 TPA 拦」语义相反）③触发门 minHolders 数 holders 同步剔除。落地：FA `processTick` 写 `_walletRoutedBuyBnb` map（GMGN 行归 sender EOA 累加，卖腿不记）；TPA `gmgnFilter: {enabled, exemptPct}` 缺省关=存量零变化——触发门数**非 GMGN** 净持仓者（不足时 `gmgnUserPct >= exemptPct` → 豁免触发不 return null）、`_collectTopHolders` 剔除 GMGN 用户、`_analyze` 统一判据（占比 ≥ exemptPct → `TPAPre_gmgnExempt=1` + verdict 改写 approve `blockReasons=['gmgn_exempt']`）；`TPAPre_gmgnUserPct` 恒落（disabled 实验也落实际占比纯观察；routed map 缺失=旧 FA 形状 → null fail-closed）。占比=量加权 `Σ(GMGN 用户 net>0)/Σ(net>0)`。**刻意不剔 retention 基准**（大户走没走对 retention 有意义）。**exemptPct=60 定档**（`scripts/tmp_gmgn_dryrun_b2.cjs` 182 预演 b2 全 5253 TPA 行：p50=32.7/p75=63.1；60 档命中 1458 票 27.8%，b2 已买命中票胜率 83% vs 未命中 75% 正验证；点名票 0xea075d64 占比 64.22 需 60 档救回，70 档漏；50 档 36% 过宽）。gm 臂 `944292d6`（b2 源+condition 加 `(TS OR TPAPre_gmgnExempt == 1)`+gmgnFilter 开启，`create-rerun-variants.cjs --arm gm --gm-pct 60`）。单测 `_test_tpa.cjs` 4b 节（249 断言）+ `_test_fa_wallet_denomination.cjs` D2 节。
-
-- **opt-in 挂载**：`config.tokenPositionAnalyzer == null` → 不构造（存量实验零影响）；段存在才构造并走 trigger fail-fast（时间门 blocks/ageSeconds 恰一，数量门 tradeCount/buyBnb/minHolders 非负）。live/回测引擎 `_onFactorsUpdated`/主循环触发，落表 `token_position_analyses`（enforce 落表标记；**shadow 姿态默认 enforce=false，策略条件暂不引用 TPAPre_*，纯观察**）
-- **三路径画像**（钱包=地址属性，跨平台无过滤）：`wallet_offline_profiles`（step4 预计算）fresh 直用 / stale 增量 `mergeOfflineProfile` 合并 / miss 实时拉 `[asOf-14d, asOf]` ticks 现算（`wallet-profile-builder.js`，bad_action 口径单一源）
-- **retention 基准**：触发刻从 `faState._walletMaxNetTokens` 峰值枚举大户集（含已清仓）冻结 `netZAtDecision`，此后每 tick 用 running `_walletNetTokens` 求和重算（净卖 → <1 走人实锤；二期 2026-10-10 与画像库同批切 wallet 双 map，GMGN 用户刻意不剔）
-- **回测防前视**：BacktestEngine `_alignClassifiedAsOf=true` — `category_visible_at`（回退 `classified_at`）> asOf 的 token_profiles 分类视为未见（bad_action 不计）；回测侧 `setHistoricalTicks` 内存索引 + `persistSink` 走 BacktestWriteBuffer 批量落表
-- **离线构建（step4）**：`build-wallet-profiles.cjs`（182 专用，`--threshold 3 --days 14`）两阶段聚合（HF 筛选 → 64 磁盘桶 → token_profiles 预查 → buildProfileFromTicks(asOfMs:null)），跑完删 `data/offline-cache/wallet_offline_profiles.jsonl.gz`；**必须在 build-token-profiles 之后跑**（依赖 flash_crash_period）；上线读侧前必须先全量跑完（`mergeOfflineProfile` 的 `aggregatedTradeCount` 哨兵 throw 防错配）
-- **web 展示**：`/experiment/:id/position-analysis`（PositionAnalysisService + `experiment_position_analysis.*`），verdict/holding_factors/分类对照/表达式过滤
-
-### Chain Support (BSC-only)
-
-`src/utils/BlockchainConfig`: BSC only. Historical experiments on other chains (solana/base/ethereum) remain readable for display — unknown chain IDs fall through `normalizeBlockchainId` as lowercase originals instead of throwing; trading/config lookups throw for non-BSC.
-
-### Web Interface
-
-`src/web/` + `src/web-server.js`:
-- Trading engine dashboard
-- Narrative analyzer UI (`/narrative-analyzer`, `/narrative-tasks`)
-- API: `/api/narrative/analyze`, `/api/narrative/tasks`, `/api/narrative/result/:address`
-- K-line / current prices come from `wss_price_ticks` (via `src/web/services/tick-kline-service.js`); AVE tool endpoints (`/api/ave-*`) are kept for ad-hoc analysis
-
-### Database
-
-Supabase backend via `src/services/dbManager.js`. Key tables: `experiments`, `strategy_signals`, `trades`, `token_holders`, `wallets`, `experiment_tokens`, `experiment_time_series_data`, `token_monitoring_pool`, `wss_price_ticks` (raw trade ticks; UNIQUE(tx_hash, log_index), first writer owns the row; 实验进程 collector 写入行 experiment_id=NULL（08-27 级联防线）；`sender_address` = 真实交易发起者 tx.from（BSC 恒 EOA，实验进程 SenderResolver 解析，2026-09-30 0x1de460 公共路由案——`trader_address` 是事件 msg.sender，0x1de460f3…4bc = **GMGN BSC 聚合路由**（代理壳 + init data 内嵌 GMGN fee collector 0xb8159b…9c8 自证），flap 27.9% 行落它；消费侧已切 sender 口径（案 A 同日）：早期窗口因子 wallet 聚合 COALESCE(sender, trader)、router 因子判 trader 层、协议地址双地址层剔除；FA holders 族已切（案 B 2026-10-01，见 Pre-Buy 节）；TPA 基准/离线画像仍 trader（二期）；NULL=未解析回退 trader（= EOA 直连旧行为等价）；8aca25e2 被拦窗 16,393 行已回填（备份 data/backfill-8aca-sender-backup.json）；存量全量回填 42 万行暂缓；DDL `scripts/sql/add-wss-ticks-sender-address.sql`）；`quote_token` 标记 flap 非 BNB 计价盘——collector 按三级汇率源换算 price_bnb/bnb_amount 后落库（2026-09-30 wTCENTx 案：① PCS V2 quote/WBNB reserves ② PCS V3 quote/WBNB 各 fee 档 liquidity>0 最深池 slot0 ③ PCS V3 quote/USDT 同门槛 → ÷ bnbUsd 中转；零流动性 V3 池挂价不可信必须拦——同案 WBNB 对挂价偏离真值 20%），三级全 miss 跳行（宁跳不冒充），BNB 盘为 NULL，历史 ~10,971 盘未回填), `wss_events` (token_create/graduation/heartbeat/token_quote_set 低频事件通道，token 级全局表不挂 experiment 维度；token_quote_set 为 flap quote 映射持久化行，payload 含 blockNumber/logIndex 供水位增量回放), `wallet_offline_profiles` (step4 钱包离线画像，address PK 全局无 platform), `token_position_analyses` (TPA 触发落表，UNIQUE(experiment_id,token_address,trigger_no); CASCADE 挂 experiments), plus narrative-specific tables managed by `src/narrative/db/NarrativeRepository.mjs`.
-
-Experiment deletion is DB-level: every experiment-owned table carries `experiment_id → experiments(id) ON DELETE CASCADE` (see `scripts/sql/migrate-experiment-cascade-delete.sql`), so deleting the experiments row removes all its data — the web layer just deletes the row, no per-table cleanup.
-
-## Configuration
-
-- **`config/default.json`** - `fourmemeWs` section (contracts, reconnect, tickBuffer, debounce, live execution params) + strategy defaults (buyTimeMinutes: 1.33, earlyReturnMin: 80, earlyReturnMax: 120)
-- **买/卖腿去抖（2026-10-01 修正 1500/5000/0 → 200/1000/200，fourmemeWs+flapWs 两段）**：`signalDebounceMs` 1500 是 pumpfun 母版 08-18 重复买入事故的临时补丁值（母版当天 v3.10.1 因「去抖饥饿事故」9a86E7n2 案已降 100ms≈0.25 slot；`signalDebounceMaxWaitMs` 兜底母版从未上线），BSC 迁移 Phase 3 误抄成默认——热门票全程连续 tick 静默分支永不满足，被饿到 5s 强制采样一次（0x7e3b…7777 案：条件 21:01:26 已全齐、fire 拖到 21:01:29，TPA as-of→fire 价差 +23%）。修正语义 = slot 级合并：200ms≈0.25×BSC 0.75s 出块，同 slot 批量推送并成一个 burst、slot 结束即评；maxWait 1000 退化为极端兜底。`sellDebounceMs` 0→200：走去抖的默认卖腿（TP/移动止盈/保本/时间衰减）进 SellConfirmDebouncer 200ms 确认窗（与买腿语义相反：首真起计**不重置**、窗口内恢复 clear 不卖、fire 重评仍真才卖——「卖的时候怕被震下去」防线）；bypassDebounce 腿（P1-P9 针臂/硬底/RSI/毕业臂）、止损双腿、毕业卖、强平全走立即路径不受影响。实验级 `fourmemeWs.signalDebounceMs` 等键可覆盖（引擎参数）；跑中实验须重启进程才生效
-- **`config/narrative-engine.json`** - Jev client settings (`jev` section: endpoint/model/TYPESAFE_API_KEY env/timeout) + engine concurrency/timeouts
-- **`config/.env`** - Environment variables (ANKR_WS_URL, AVE_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY, MINIMAX_API_KEY, ENCRYPTION_KEY for live wallet private keys, etc.)
-
-## Strategy Parameters
-
-- **Buy timing**: 1.33 minutes after token creation
-- **earlyReturn range**: 80-120% (key buy signal)
-- **Take profit**: +30% sell 50%, +50% sell remaining
-- **Observation window**: 30 minutes
-
-## Card Position Management (migrated from rich-js, 2026-09-27)
-
-Token-level card ledger（用户裁定：组合级现金卡不迁）。**机制开关 = `experiment.config.positionManagement.perCardBNB` 存在且 >0**；不配 → 卡牌字段全忽略，存量实验零变化。
-
-- **策略级字段**（买/卖腿均可）：`cards`（正整数；卖腿额外接受 `"all"`=全清）+ `cooldownSec`（正数秒，独立于卡牌，任何实验可用）。归一化在 `StrategyEngine.loadStrategies` 的 `normalizeCards`（脏值→null=旧语义）
-- **买入**：金额 = `perCardBNB × (strategy.cards ?? 1)`（Decimal；virtual 现金门不足返 0=买失败不降张；live 用 `_buyAmountFor(signal)` 不走 PM cash 门，链上余额才是真门）。买成功 `_tokenCards[addr] += cards`
-- **卖出 sizing**（`_emitSellSignal` 解析进 signal）：`soldN = cards==='all' ? tokenCards : min(cards, tokenCards)`；`sellPct = soldN >= tokenCards ? 1 : soldN/tokenCards`（全清腿恒精确 1 → PM `remainingAmount.eq(0)` 删仓判据成立）。未启用/未配 cards → 旧 `sellPercentage ?? 1` 路径
-- **卡账本**：引擎实例 `_tokenCards = Map()`（原始地址 key，同 `_roundLedger` 口径）；维护在 `_executeSell` 成功分支——`cardTrade ? (after>0 ? set : delete) : (fullyClosed ? delete : 不动)`（强平腿/sellPct=1 腿不带 cardTrade 但全清→delete 防重买后卡数虚高）
-- **重启恢复**：trades.metadata 记 `cardTrade: { cards, before, after }`（信号构造时点的绝对值）；`_loadHoldings`/`_loadHoldingsLive` 重放读 `after` 绝对值 set/delete。**重放精度钳制 + 单票隔离（2026-09-29 Adventures 案）**：DB 金额列是 double，实时链路 PM 20 位 Decimal 余量 Number 化落库后与重放 Decimal 累加值有 ~1e-12 相对尾差——全清腿卖量恰好略超持有量被 PM 严格 `lt` 校验拒绝，旧代码此 throw 逃出循环 →「加载持仓失败」→ 一票尾差全灭 49 票持仓恢复。修复（E5d 同族）：重放卖单遇 `Insufficient token balance` 且差异 ≤ 相对 1e-9（double 往返固有误差量级）→ 钳到持有量重试（余量归零删仓 = 实时全清语义）；真超卖（更大差异 = 数据异常）不钳制照常失败，且单票失败只跳过该票（error log 留痕）不中断其余恢复。单测 `node scripts/_test_holdings_replay_precision.cjs`（21 断言零 DB，T0 案发现场反证/T1 钳制/T2 真超卖/T3 隔离/T4 回归/T5 卡账本独立）
-- **冷却**：`StrategyEngine.evaluate` 内 maxExecutions 检查后；期内腿返回 null→低优先级腿可顶上（与 maxExecutions 跳过语义一致）。回测传虚拟时钟（`recordStrategyExecution` 第 4 参），实时墙钟缺省
-- **UI**：create_experiment.html 表单键 `cards`/`cooldownSec`/`per_card_bnb`；`card.dataset.rawConfig` 整包存复制源策略，collectFormData 的 `mergeRawConfig` 合并表单白名单外键（复制链路保真 bypassDebounce/sellPercentage 等无 UI 输入字段）
-- **单测**：`node scripts/_test_card_position_mechanisms.cjs`（归一化/冷却/Decimal 精度边界三节，零 DB）
-
-## 引擎级止损双腿（2026-09-27，c5945f36 11 买 0 卖冻结实跑触发）
-
-E5c 8 腿对「不冲毕业的 flap 小票」结构性盲区的保命兜底（f3ae56d3 回测 / E5e 回测 / c5945f36 实跑三次实证：grad<0.05 够不着 P1 硬底、市值门/毕业臂/RSI warmup 全不可达，断流票 tick 驱动卖腿整体冻结）。**机制开关 = `experiment.config.stopLoss` 段存在任一腿参数**；不配段 = 完全关闭（存量实验零变化），不占策略位。
-
-- **配置**：`stopLoss: { timeStopMinutes: 60, priceStopPercent: -50, scanIntervalSec: 30 }`——① 时间止损：持有超 60min 仍 `profitPercent <= 0`（浮亏或持平）全清（2026-09-28 盘古案改 `<=0`：断流冻结票 FA 价格不动 profit 恒 0，`<0` 永不触发）；② 价格止损：`profitPercent <= -50` 全清（FA 因子，相对 buyState 成本）；双腿独立可配，双命中标注 price
-- **双挂点**：tick 即时路径（`_onFactorsUpdated` 卖腿分支 `_stopLossHit` 优先于策略腿判定）+ 持仓扫描 `_scanHoldingsStopLoss`（scanIntervalSec 驱动，**断流票唯一触发路径**——无 tick 永不进 `_onFactorsUpdated`）；扫描只判止损双腿不跑策略腿（P1-P8 断流「不评估」语义维持），`buildFactorMap(addr, Date.now())` 必传 Date.now()（断流期 holdDuration 继续走）
-- **执行**：`_emitStopLossSell` 构造等价 strategy（`id: stopLossPrice/stopLossTime`、`cards: 'all'`、`sellPercentage: 1`、`bypassDebounce: true`、`lockTokenAfterSell: false`）直接走 `_emitSellSignal` 全清链——signals/trades/卡账本/累亏记账副作用全复用零新逻辑；卖出失败下周期扫描自然重试
-- **范围**：仅 FourMemeWssTradingEngine（含 flap/both 子类）；BacktestEngine 不动（回测已有强平兜底）
-- **单测**：`node scripts/_test_stop_loss_rules.cjs`（29 断言零 DB：判定矩阵/构造/扫描链/tick 挂点四节）
-
-## 毕业事件驱动卖出 + flap per-token 毕业锚（2026-09-28，王之蔑视 0x7abcc1 案，用户裁定「2+1」）
-
-王之蔑视（flap funds=14.2 非标准盘）毕业断流后余 3 卡冻结 4 天：progress 峰值 88.9%（72 固定锚失真）→ P3(≥0.9)/P8(≥0.98) 全程够不着，断流后 tick 驱动卖腿整体冻结。两项改动：
-
-- **②毕业事件驱动卖出**：`_handleGraduation` virtual 持仓票直接 `_emitGraduationSell` 全清（等价 strategy `id: graduationSell` 与止损腿同构，余仓按断流前最后可靠价落袋；选全清而非等价 P3+P8 卖 3/4——virtual 冻结与全清估值同价只差 0.5% 费，全清释放 PM 资金与卡牌）。`_graduationSoldTokens` Set 幂等（graduation 事件实测重复派发两遍）；**竞态修复（2026-09-28 盘古案，graduation 事件先于买入到达 1.9s → `_handleGraduation` 因 status!=='bought' no-op 买入即冻结）三挂点**：幂等标记后置到卖出成功（失败不标记可重试；并发双调被 `_sellingTokens` 挡住）+ 买入成功点补卖（查 FA `graduated` 标记 fire-and-forget，virtual-only，不依赖 stopLoss 段）+ `_scanHoldingsStopLoss` 扫描兜底（virtual-only，先于止损判定，事件路径卖出失败的唯一重试路径）；live 维持 Telegram 告警人工处置不动；BacktestEngine 不动（无 graduation 事件消费路径）
-- **①flap 专属毕业锚**：`graduationProgress` 分母经 `FA._graduationAnchorBnb(state)` per-token 化——flap 盘 = 首市值（`_relFirstPriceBnb × totalSupply`）× `graduationAnchorRatio`(12.5，R 恒比：断流市值/funds≈4.50 与初始/funds≈0.36 两恒比合成，182 实测 4/5 样本 ±2%，funds 跨 10.9~17.3 固定锚数学无解)；**仅当首 tick 距 token 创建 < `graduationAnchorFirstTickMaxMs`**(60s，首 tick≈开盘锚有效；脏样本 0x84439e 首价 5.8 倍开盘 R=2.17) 才启用，否则退 72 默认锚。platform 注入 FA state（SharedTickConsumer token_create 时代；2026-10-09 直连回迁后由 collector `_handleTokenCreate` registerToken meta.platform 键承载，乱序自愈语义同）——乱序自愈：迟到 registerToken 回填更早 createdAt → 窗变大自动退锚；BacktestEngine 不传 platform → 恒 72，回测行为零变化
-- **附带修复（b24879e0 09-28 03:53 裸崩根因）**：`_computePriceTrendFactors` 分桶 OLS 假设输入升序，但 `_recentTicks` 是 FIFO 到达序且 tick 行存在「bigserial 分配序≠提交序」乱序（watcher 双写者竞态）→ 负 idx `buckets[-k].push` TypeError 进程死。修复 = `reliable` 归一时间升序（排序假设修复非兜底）
-- **单测**：`node scripts/_test_graduation_sell_and_anchor.cjs`（35 断言零 DB：锚矩阵/progress 端到端/毕业卖幂等·live 门/乱序崩溃复现四节；旧代码崩溃用例 git stash 反向复现验证）
-
-## 行为周期分桶·周期路由（2026-09-28，用户思路 v1；51ea69e7 20 买 14 割肉 1 止盈触发）
-
-结构性盲区：8 条卖腿全是暴涨型条件（针臂要 5m 涨 15%、RSI 梯队要涨速、毕业臂要 progress 0.9+），**会割肉不会止盈**——普通代币涨 20-50% 回落无腿可接。用户思路：按盘面交易热度判「用户行为周期」（K 线因子周期：秒级/分钟级/5-15min 级），代币分桶到不同策略集合、可自动切换；「毕业」保留捕捉金狗，普通代币靠普通因子。
-
-- **判定（FA `_cycleFactors` 读取时聚合，与 `_rateFactors` 并列 spread 进 `_buildFactorMap`）**：双主量 `tps30s`（30s 滑窗 tick 密度，读取时按 now 过滤防断流残留虚高；**分母 = min(实际存活时长, 滑窗)——2026-10-04 修正**：固定 30s 分母对 <30s 新票天然减半，15s 新票 9 tick 真速率 0.6 被算成 0.30 误判非热；1s 下限防除零，成熟 token 与无锚点票分母不变）OR `gapMedianMs`（5min 窗相邻 tick 间隔中位数，尾部 `cycleGapSamples` 个样本，乱序负间隔丢弃）→ 三档：**3 热桶**（tps≥0.5 或 gap≤2000ms）/ **2 中桶**（tps≥0.08 或 gap≤12000ms）/ **1 冷桶**（有证据但低于中桶门槛，**或证据不足：5min 窗 tick<12 且已过 warmup → 判冷不判 null**）；**null 仅 warmup 期**（tokenAge<15s，新票未分桶多为火票早买，短窗代价小；无 createdAtMs 锚点同 null）。**2026-09-28 修正（1c68478f 回测 36 强平票 -6.27 BNB 根因）**：原「5min 窗 tick<12 → null 全隐」拦掉的恰是「从热到冷的衰减必经段」——熄火票冷桶时间衰减腿隐身无人接管，回放结束强平收尸；改判冷桶后稀疏衰减段（tick 未全断、每笔稀疏 tick 仍触发评估）保护腿上线接管，tick 全断后回测仍无评估时机（主循环纯 tick 驱动，强平收尾不变）。warmup 60→15s 同日（用户裁定「甚至可以更短」：tps30s 按 30s 窗归一、age=15s 时分子天然减半自带保守性）
-- **hysteresis `_cycleLatch`**（state 字段 `{current, since, candidate, candidateSince}`，每次 buildFactorMap 推进）：升/降档驻留均 30s（**2026-09-29 用户裁定 120→30**：8bd5ef0b 断流票案——flap 7777 票暴跌全程 gap 中位数钉热桶无腿可接，衰减段首判冷 02:15 后驻留差 60s 遇断流，拖到 04:11 孤儿 tick 才完成降档补卖 -58.5%；降档太慢的代价 > 瞬抖误降档）；**早期升档免驻留（2026-10-04 0xe5e15117…7777 案裁定）**：存活 < `cycleEarlySec`(90) 内升档即时生效（reason=earlyUp）——新票 warmup 后证据不足 init=1 冷档起步，升热若还等 30s 驻留，90s 买窗内最早可买点被推到 ~48s；对齐买窗 tokenAgeSec<90，降档驻留不豁免（瞬抖误降档防线语义不变），成熟 token 升档照旧走驻留；stale 快速通道（now−lastTickAt>30s 且 current>1 → 立即降 1，断流即冷；同案 120s→30s）；切换打 `[CycleSwitch] token=… from=… to=… tps30s=… gapMedMs=… reason=init/upDwell/downDwell/earlyUp/stale` 固定格式日志（console.log 非 logger）
-- **5 新因子键**：`tokenCycle/tokenCycleRaw/tokenCycleAgeSec/cycleTps30s/cycleGapMedianMs`（getFactorKeys 探针自动收键，策略 condition 可直接引用）；11 个 `cycle*` 参数进 `FACTOR_PARAM_DEFAULTS`（`config.fourmemeWs.factorParams` 浅合并覆盖；第 11 键 cycleEarlySec 2026-10-04 加入）；**防前视红线：判定内 now 由 `buildFactorMap(state, asOf)` 传入，禁 Date.now**——回测虚拟时钟天然防前视
-- **路由（方案 A：evaluate 内过滤）**：strategy 字段 `cycle`（1|2|3，脏值→null=全周期=旧语义）× `token.cycleTag` 等值匹配；带 cycle 腿在 cycleTag null 时不可见（fail-closed），不带 cycle 腿恒可见（存量零变化）；与 maxExecutions/cooldown 同构——被隐高优腿不遮蔽低优腿，`strategyExecutions` 按 strategyId 分桶跨桶保留。**同日 v2 泛化**：字段升级为 `groups` 表达式（`cycle: 3` → `groups: 'cycle==3'`，见策略库节）——loadStrategies 单点转换，存量 config.cycle 永久接受
-- **开关 = `experiment.config.tokenCycle.enforce`**（缺段=不写 cycleTag=路由不生效）；cycleTag 同步点 7 处：实时 4（`_onFactorsUpdated`/`_runBuyEvaluation`/`_onSellDebounceFire`/`_scanHoldingsStopLoss`——扫描点是断流票 stale 降档同步）+ 回测 3（主循环/买去抖 fire/卖去抖 fire）
-- **判定参数配置化（2026-09-28 同日，用户裁定「cycle 判定是实验层面的策略」）**：`tokenCycle.params`（11 键去 cycle 前缀：hotTps/midTps/hotGapMs/midGapMs/minTicks/warmupSec/earlySec/upDwellSec/downDwellSec/staleMs/gapSamples）成为实验级显式配置——**三级合并优先级** `FACTOR_PARAM_DEFAULTS < fourmemeWs.factorParams（旧入口保留）< tokenCycle.params（最高）`，注入在两引擎 FA 构造点（`mapCycleParams` 纯函数，group-variables.js；CYCLE_PARAM_KEY_MAP 键清单单一事实源，web-server 校验复用）；FA 零改动（`_fp` 合并链天然吃到）；flap/both 实验经基类构造点同注入。存量不带 params 实验 mapCycleParams 返回 {} 行为零变化。创建页「🌡️ 行为周期判定」配置区（enforce 开关 + 11 参数输入框预填默认值，`_test_strategy_library_groups` H2 段锁「模板预填 ≡ FACTOR_PARAM_DEFAULTS」防双源漂移）；tokenCycle 从复制链路 `_copyAdvancedConfig` 暂存移出改表单回填（暂存只剩 stopLoss/tokenPositionAnalyzer/fourmemeWs 三段）
-- **创建页卖腿按桶分组展示（同日，纯展示层零数据形状改动）**：`cycleGroupOf`（groups/v1 cycle 归一后全等 `cycle==N` → 桶 N；无表达式 → none；其他 → cross）× `reflowSellGroups`（组序 3→2→1→cross→none，组标题带腿数，空组清理，全局编号跨组连续）；挂点 addSellStrategy/removeStrategy 卖侧。**提交腿序保插入序**：`dataset.seq` 单调计数，collectFormData 卖侧按 seq 排序回插序——DOM 分组重排不改变 `sellStrategies` 数组序（同 priority 平局胜者由插入序决出的复制保真语义）
-- **时序快照**：FactorBuilder `buildFactorValuesForTimeSeries` 白名单 +4 键（tokenCycleAgeSec 可差分推不进）——档位快照进 `experiment_time_series_data` 供阈值事后校准；旧 FA 无键 → null 不掩盖
-- **token-returns 页展示（2026-09-28 同日）**：主行「行为周期」列（叙事评级与最高涨幅之间）= 各笔**卖信号** fire 时刻的 cycle 档位徽章序列（3=🔥 2=🌤️ 1=❄️ null=∅），hover title 逐笔 `北京时间 档位 tps gap 触发腿名`；数据源 `strategy_signals.metadata.trendFactors` cycle 键（同白名单落库，实时/回测全覆盖，引擎侧零改动），新轻量端点 `GET /api/experiment/:id/cycle-signals`（`getCycleSellSignals`：action='sell' + jsonb 路径窄列 `metadata->trendFactors->>tokenCycle` 不拉 metadata 大字段 + URL 原始 experimentId 不跳源实验——回测的 signals 挂回测实验名下）；`experiment_time_series_data` 对回测不可用（`_shouldRecordTimeSeries` false）故不走时序
-- **生效矩阵**：腿无 cycle + 无段 → 零行为变化；带 cycle 腿 + 无段 → 腿隐身（fail-closed）；带 cycle 腿 + enforce=true → 生效。**直接 enforce 无 shadow 期**（用户裁定：快照/日志照常收集事后纠偏）
-- **单测**：`node scripts/_test_token_cycle_routing.cjs`（59 断言零 DB：判定三档+双 null 门/hysteresis 升降档驻留/stale/归一/路由矩阵/桶切换计数保留/键集/遗留修复 G 段/H 段注入链三级合并优先级；2026-09-28 v2：C 段改 groups 断言 + 单一事实源断言 `'cycle' in strategy === false`）+ `_test_strategy_library_groups.cjs` H 段（mapCycleParams 键映射矩阵 + H2 模板预填防漂移）
-
-## 策略库 + 组路由泛化（2026-09-28，rich-js 参照落地）
-
-策略定义从「每实验 config 内嵌整包复制」升级为**可复用库条目**：`strategy_library` 表（全局无实验维度）存「腿集合包」条目（「热桶卖侧 9 腿」「V2 买门」各成条目），创建页「📚 从库引用」展开进表单混搭组装；组路由同期从 cycle 数字标签泛化为 **groups 表达式**（`cycle: 3` → `groups: 'cycle==3'`，求值支持 AND/OR 为多维度铺路）。四项用户裁定：条目粒度=腿集合包 / 一期组维度=cycle 泛化 / UI=库管理页+创建页引用 / 热更一期不做。
-
-- **表结构**（`scripts/sql/create-strategy-library.sql`）：id uuid PK / name UNIQUE（人读维度，引用走 id）/ side CHECK('buy','sell') 编辑锁死 / legs jsonb（形状 = strategiesConfig.buy/sellStrategies 数组元素同构，快照展开=纯数组拼接零转换，CHECK 空腿拒绝）/ version int（PUT 成功 +1 乐观并发，前端带 expectedVersion 不匹配 409）。RLS service_role-only——**routes 必须走 `dbManager.getClient()`（service key），勿照抄 narrative.routes 的 anon 客户端**（wss_price_ticks anon 静默过滤的同款坑）。**部署红线：表必须先于新 web-server 重启存在**（新 routes 启动即查询），同 token_category 列先于进程的口径
-- **groups 机制（v2）**：`src/strategies/group-variables.js` 变量注册表（`GROUP_VARIABLES.cycle`，一期单变量二期加键即扩展）+ `parseGroupsExpression`（内部复用 ConditionEvaluator parseCondition；**AST 级拒绝** `IS NULL`/`IS NOT NULL`——一期不开放「专门处理无档 token」逃生口、右操作数非数字字面量拒绝、未知变量 throw——变量集是注册表闭集，只可能是书写错，warn 会导致腿永远隐身）+ `buildTagContext`（cycle 取 tokenData.cycleTag）；`StrategyEngine.loadStrategies` 单点转换（groups 非空串 > cycle∈{1,2,3} 转 `cycle==N` > null=恒可见），**脏 groups → throw 实验拒绝启动**（condition 语法错同款 re-throw 链；warn+降 null=腿恒可见，危险方向静默变化）；`evaluate` 内 null 门先于表达式求值（引用变量任一 null → 腿隐 fail-closed；比较类操作数 null→false 双保险）；strategy 对象 `groups/groupAst/groupVars` 三字段替 `cycle`，`_groupEvaluator` 独立 AST 缓存域；两引擎日志过滤 `s.cycle != null` → `s.groups != null`
-- **快照语义（copy-in）**：展开发生在前端（创建页浮层逐腿 addXxxStrategy 插只读快照卡，见下方「创建页只读化」），服务端只存 `strategiesConfig.libraryRefs` 元数据（`{libId,name,side,version,legCount,snapshotAt}` 纯 provenance，POST 校验形状后透传，运行链零消费）；实验 config 自包含——改库/删库不影响已建实验运行，改库重启实验进程才生效（热更一期不做的自然推论）；groups 不在 STRATEGY_FORM_KEYS 白名单 → rawConfig 整包保真机制自动携带零改动；腿序稳定（strategyId 下标派生强耦合）：库引用固定追加尾部、priority 冲突不重排
-- **Web 层**：`src/web/services/StrategyLibraryService.js`（list 带 usageCount / create / update 409 / remove / getUsage——扫近 200 条 experiments config JS 端过滤 libId / `validateLegs`——每腿 condition 必填 + groups 过 parseGroupsExpression，**库是 groups 第一编辑面，脏 groups 入库前拦截 400 带腿序号**；side 与腿字段错配放行——引擎本就「携带不生效」）+ `src/web/routes/strategy-library.routes.js` 七端点（GET 列表 `?side=` / GET :id / POST / PUT 409 / DELETE / GET :id/usage / GET meta/variables 注册表下发前端帮助单源）+ web-server 挂载与 `/strategy-library` 页面路由；「从实验导入」无专用端点——`GET /api/experiment/:id` 取 config 客户端勾腿入库（复用同一 validateLegs 防双路径校验漂移）
-- **前端**：`strategy-library.html` 单文件页（条目卡片列表 side 徽章/version/被引用数、编辑表单 side 锁死、腿 repeater 复刻创建页全量字段含 groups 输入、从实验导入面板——腿上 cycle 数字自动转 `groups:"cycle==N"` 预填，转换语义与 loadStrategies 单点一致）；create_experiment.html 买/卖区头「从库引用」按钮 + 浮层 + `libraryRefs` 页级数组进提交载荷 + 帮助面板「组路由」节；experiments.html nav 加链接
-- **seed v1**（`scripts/sql/seed-strategy-library-v1.sql`，ON CONFLICT (name) DO NOTHING 幂等）：51ea69e7 实跑 19 腿导出 4 条目——**buy-v2**（1 腿：量价门 + TPA tokenScore>2.2 + 叙事门评级∈{2,3}，cards:4）/ **sell-hot-v1**（9 腿 cycle==3，P1-P9：硬底/针臂两档/毕业臂两档/RSI 三互斥带/快速移动止盈，全 bypassDebounce）/ **sell-mid-v1**（5 腿 cycle==2，P10-P14：TP1 冷却 600s/TP2/移动止盈/保本/时间衰减，走去抖）/ **sell-cold-v1**（4 腿 cycle==1，P15-P18：紧移动止盈/保本/时间衰减两档）。⚠️ seed SQL 字符串字面量必须**单引号**定界（PG 双引号是标识符引用会报 column does not exist）
-- **buy-v2 v2（2026-09-29 上线，182 DB 直改 + git pull）**：condition/narrativeCallCondition `age < 30` → `tokenAgeSec < 90`（90s 买窗，过期洞修复）；preBuyCheckCondition 追加 `earlyTradesTop1BuySharePct < 60 AND earlyTradesTop1BuyCovered == 1`（top1 门，120caca6 验证 +2.11 vs 基线 +1.171）。seed SQL 保留 v1 措辞（ON CONFLICT DO NOTHING 不覆盖存量库）——全新环境重 seed 得 v1，需再跑同款升级
-- **buy-v2 v3（2026-09-29 上线，182 DB 直改，零代码）**：condition 追加买侧冷档门 `AND (tokenCycle != 1 OR tokenCycle IS NULL)`（不买冷档：warmup null/中/热放行、冷档 1 拦截；narrativeCallCondition 不加——condition 不过根本不触发叙事调用）。G 系列配对验证（同窗 unified 口径）：G1(90s+冷档) +4.7861 vs G0(90s 基线) +2.4335 净效应 **+2.3526**（不烧心误标病例票 +2.2873 大头 + 拦 5 小亏票 +0.13）；**90s 窗与 30min 窗在冷档门下 trades 51/51 逐笔一致**、全部买点 ≤74s——90s 窗够不用扩 30min；四态真值表 + loadStrategies + 89/91s 边界全校验过。实验须配 `tokenCycle.enforce`（无段则 tokenCycle 恒 null=冷档门恒放行，无害但不生效）
-- **单测**：`node scripts/_test_strategy_library_groups.cjs`（53 断言零 DB，A-G 七节：normalizeGroups 转换矩阵 / parseGroupsExpression 脏值矩阵 / evaluate 过滤矩阵 / **v1⇔v2 全积等价**（cycle∈{1,2,3} × cycleTag∈{1,2,3,null} 12 组合逐一相等——存量实验零变化的机器证明）/ 无配置恒可见 / maxExecutions·桶切换计数保留 / validateLegs）
-- **创建页只读化（2026-09-28 用户裁定，两条）**：①「之后实验所有的买入/卖出策略都要来自于策略库」；②「实验创建页面应该是从策略库中选择交易策略，创建页面本身不能编辑交易策略」。落地：create_experiment.html 删「+ 添加」手写入口 / preset 模板 / 腿编辑输入框，只留「📚 从库引用」——腿 = **只读快照卡**（condition 等宽块 + badges 徽章组 P{priority}/执行≤N/🃏cards/⏱️cooldown/卖N%/旁路去抖/🏷️groups + 高级字段 details 折叠，textContent 填充防注入）；机制 = `card.dataset.rawConfig` 整包存储，`collectFormData` 从 DOM 卡整包取回（取代旧「表单白名单收集 + mergeRawConfig 合并」双轨——bypassDebounce/sellPercentage/groups/description/cards 等机制字段零损失，description 白名单误删 bug 的类别整体消失）；`permanentBlockCondition` 从首买腿快照提取放 strategiesConfig 顶层（引擎读点）后从腿上删除保持旧提交形状；删除腿只重编号不重渲染。**复制链路腿同样整包只读回填**（51ea69e7 源 v1 `cycle` 数字格式原样保留——loadStrategies 永久接受，运行等价，不做迁移转换）
-- **复制链路高级段保真（2026-09-28）**：此前复制丢 `tokenCycle/stopLoss/tokenPositionAnalyzer/fourmemeWs` 四引擎级段（copyData 组装白名单 + 服务端 POST 白名单双重丢弃——复制 51ea69e7 出的实验 18 cycle 腿全隐/无止损/TPA 买腿 fail-closed/OPB 不采集）。修复链：experiments.js copyData 组装四段 → 创建页 `window._copyAdvancedConfig` 暂存（表单无输入 UI）→ collectFormData 顶层 spread → web-server POST 解构+形状校验（非对象 400；tokenCycle.enforce 非布尔 400；fourmemeWs 与 live 分支已写的 {live} 段合并且 live 优先）→ config 顶层 → Experiment.fromConfig 无损；非复制路径 `window._copyAdvancedConfig` undefined → 无段与现状一致
-
-## 条件未知因子 fail-fast（2026-10-03 hg55 门事故，用户裁定「发现没有因子，实验直接失败停止」）
-
-hg55 门配对首版（5efaff23/20b5b439，已作废 completed 终态留行）门子句误写裸键 `holderTrendGrowth`（真名 `holderTrendGrowthRatio`），当时 `loadStrategies` 校验失败只 `console.warn` 放行 + `validateCondition` 不检 `IS_NULL` 节点 → `(X >= 55 OR X IS NULL)` 对未知 X **恒真**，门零拦截跑完才发现。三层防线：
-
-- **① ConditionEvaluator.validateCondition 补 `IS_NULL`/`IS_NOT_NULL` operand 检查**（原只遍历 COMPARISON 节点，IS NULL 系子句的因子引用完全绕过校验）
-- **② StrategyEngine.loadStrategies 校验失败 throw**（原 warn 放行）；分集口径：`condition`/`narrativeCallCondition` 用 `getAvailableFactorIds()`（FA 因子集，评估上下文 = fire factors）；`preBuyCheckCondition`/`repeatBuyCheckCondition` 用 `PreBuyCheckService.getConditionFactorKeys()`（**真相源 = 空壳跑 `_evaluateWithCondition` 捕获 `_safeEvaluate` 实收 context 取键**，74 键零清单漂移；preBuy 评估上下文无 FA 因子，分集防误报双向）；不传集合 = 不校验（constructor 便捷路径/单测兼容），两引擎调用点显式传双集。写错名的条件子句静默失效形状：比较恒 false / IS NULL 恒 true，OR 组合可成恒真门——这正是拒启而非 warn 的理由
-- **③ StrategyLibraryService.validateLegs 同口径入库校验**（库是条件第一编辑面，写错腿 400 带腿序号；语法错同拦）
-- **存量扫描**：`scripts/scan-unknown-factor-conditions.cjs`（experiments 全表 + strategy_library 全条目，上线前置检查；2026-10-03 实扫 45 实验 + 6 条目仅命中作废 R1 自身 = 零拒启风险）
-- **单测**：`node scripts/_test_unknown_factor_reject.cjs`（24 断言零 DB：validateCondition 矩阵含事故形状 / loadStrategies throw 矩阵四条件字段 / 键集同源对拍（实跑捕获 context 键集与静态方法恒等）/ validateLegs 入库矩阵）
-- **hg55 v2 重跑**：`create-hg55-pair.cjs` 门子句改真名 `holderTrendGrowthRatio`（实验名 v2 后缀），叙事直接复用首版 R1 已落的 J1.27 重析缓存；`compare-hg55-pair.cjs` hgOf 同步真名
-
-## Live Trading（实盘加固，2026-09-27）
-
-双平台 live 全链路已通：four.meme 走 `FourMemeDirectTrader`（TokenManager2），flap 走 `FlapPortalTrader`（Portal `swapExactInput`；**live 只买 BNB 计价盘**——非 BNB 盘合约 revert = 天然 fail-closed；卖出 token→0x0 全盘支持）。live 实验只能 `node main.js start-experiment -e <id>` 启动（`src/run-engine.js` 对 live 显式拒绝，防被静默当虚拟盘）。实收解析用**余额差法**（买入 token `balanceOf` 前后差 = 税后真相；卖出 BNB `getBalance` 差 + `gasUsed×gasPrice` 补偿），对税币/非 BNB quote 盘免疫（TokenSold 事件 `eth` 字段非 BNB 盘记 quote 币，事件解析不可用）。
-
-防御分层（参数在 default.json `fourmemeWs.live`/`flapWs.live`，验收 runbook `docs/live-acceptance-runbook.md`）：
-
-- **L1 预成交校验 `assertMinOut`**（`traders/core/preTradeCheck.js` 纯函数）：trader 签名前校验「报价到手 vs 引擎信号价预期」，ratio < `minOutRatio`(默认 0.5) 拒单——BURNIE 报价错位/尘埃报价防线（相对滑点对尘埃失效）。`expectedTokenOut`/`expectedNativeOut` **契约必传**（缺即 throw，逼调用方显式表态）；卖出侧预估失败（trySell/quote）且有预期锚 → fail-closed 拒绝裸奔卖出（无锚独立工具路径保留旧行为）。事前/事后 ratio 语义刻意不统一，勿"统一"
-- **L3 卖出熔断**：引擎 `_sellFailStreak` 连败 ≥ `sellCircuitBreakerFailures`(5) → `sellCircuitBreakerCooldownMs`(30min) 长冷却 + Telegram 告警；成功清零
-- **L5 `_awaitReceipt`**：`waitForTransaction(hash,1,txWaitTimeoutMs 120s)` 超时回查一次 `getTransactionReceipt`，仍未上链 throw 带 txHash——**绝不自动重发防双买**；reverted throw
-- **持仓数上限 `maxPositionTokens`**（0=不限，只拦新开仓）；**毕业告警**：live+bought 毕业 → Telegram 告警人工去 PCS 处置（TM2 毕业卖出必 revert）
-- **多态 `_liveTraderType()`**：基类 'fourmeme' / FlapWssTradingEngine 覆盖 'flap'（`_initializeLiveTrader` 走 `traderFactory.createTrader`）；钱包解密/余额门/BNB-USD 锚定/恢复全复用父类
-- **钱包复用（轻量版钱包管理）**：web 创建 live 实验时「复用历史钱包」下拉（`GET /api/live-wallets` 去重地址列表，不含私钥）→ 提交 `wallet.reuseExperimentId` → 服务端从源实验拷贝加密私钥密文（地址一致性校验 400），私钥永不回传前端；要求两端 ENCRYPTION_KEY 一致
-- **单测**：`node scripts/_test_live_hardening.cjs`（零 DB：assertMinOut 全分支含 BURNIE 数值复现、`_awaitReceipt` 超时语义、FlapPortalTrader quote 方向/拒单在签名前/余额差记账/钳制/approve/实收=余额差+gas 补偿——真实 JsonRpcProvider+Wallet 实例 + 实例级 RPC 方法覆盖打桩；ethers v6 导出属性 getter-only，`ethers.Contract` 不可 monkey-patch）
-- **真实资金验收未做**（需用户钱包，见 live-acceptance-deferred 记忆与 runbook）；flap 毕业/非 BNB 盘卖出 revert 属预期 fail-closed 行为
-
-## Important Notes
-
-- **Pre-buy check factors are always calculated** - No enable/disable configuration
-- **Wallet cluster data reuse** - WalletClusterService reuses trades from EarlyParticipantCheckService
-- **AVE API token format**: `{address}-{chain}` (e.g., `0x1234...abcd-bsc`) — AVE is now only used for holder/pre-check tooling and `/api/ave-*` analysis endpoints, not for discovery or prices
-- **Snapshot ID format**: `{token_address}_{timestamp}`
-- **Case sensitivity**: Wallet addresses are case-sensitive when querying database
-- **Factor building**: Use `FactorBuilder.buildPreBuyCheckFactorValues()` when adding new pre-buy factors
-- **Narrative prompts are ESM** (`.mjs`) while trading engine is CommonJS (`.js`) — don't mix import styles
-- **Never delete experiment rows that have produced data** — deleting cascades to `wss_price_ticks` rows (race-owned by experiment_id) and loses them globally forever（watcher 时代起（2026-09-24）新行 exp_id=NULL 免疫级联，但历史行仍级联——删历史实验前必须用户裁定）
-- **smart-wallet-mining 待迁**（watcher 架构遗留批次）：`scripts/smart-wallet-mining/` 仍按 experiment_id 口径拉 ticks（data-fetcher.js / mine-smart-wallets.cjs pickSources / verify-smart-wallets.cjs）——对新实验（exp_id=NULL ticks）会静默拉空，需改 token 集合或 received_at 全局窗口+platform 口径
-- **采集覆盖 = 常驻 both 实验兜底（用户裁定 2026-10-09）**：watcher 常驻进程已废除（`src/watcher/` 删除，git 历史即回滚源）——无实验运行期采集空洞可接受、实验进程崩溃=采集断流风险接受、不加 watchdog；保持一个 platform='both' 虚拟实验常跑即事实采集器（单平台实验只持单 collector，另一平台无采集）；flap quote 缺口由下次 flap collector 启动 getLogs 增量回放自动补齐
-
-## Adding New Pre-Buy Factors
-
-1. Add factor calculation to appropriate service (e.g., `WalletClusterService`)
-2. Add factor to `getEmptyFactorValues()` in the service
-3. Add factor to `PreBuyCheckService._evaluateWithCondition()` context
-4. Add factor to `FactorBuilder.buildPreBuyCheckFactorValues()` (for backtest compatibility)
-5. Add factor to `FourMemeWssTradingEngine.js` preBuyCheckFactors construction (for virtual/live trading)
-
-## Modifying Jev Question Sets
-
-1. Edit the question's `instructions`/`criteria` in `src/narrative/analyzer/llm/jev-questions.mjs` (standard path) or `jev-prestage-questions.mjs` (prestage)
-2. Bump `JEV_QUESTIONS_VERSION` / `JEV_PRESTAGE_QUESTIONS_VERSION`
-3. If aggregation semantics change, update the mapping in `jev-result-mapper.mjs` / `jev-prestage-mapper.mjs`
-4. Validate with `node scripts/narrative/jev_calibration.mjs` (standard) or `jev_prestage_calibration.mjs` (prestage) — check rating agreement and that no rating flips cross the buy boundary
+- **文件**（`analyzer/llm/`）：`JevClient.mjs`（缺答案 id 直接 throw 无吞错；429/5xx 退避）/ `jev-questions.mjs`（标准题集，`buildStandardQuestions`）/ `jev-prestage-questions.mjs`（P1.9）/ `jev-state-builder.mjs`（60k/20k 预算）/ `jev-result-mapper.mjs` / `jev-prestage-mapper.mjs`（**聚合/阈值/截断全在代码侧**）
+- **版本规则**：改任何题面必须 bump `JEV_QUESTIONS_VERSION` / `JEV_PRESTAGE_QUESTIONS_VERSION`（prompt_type/prompt_version 落库标识）；校准验证 `scripts/narrative/jev_calibration.mjs` / `jev_prestage_calibration.mjs`（评级一致性+无买线翻转）
+- **时间基准**：新鲜度对 **token 创建时间**（`raw_api_data.created_at`）计，绝不用墙钟——重跑/回测/延迟分析幂等；缺创建时间 pre-check 跳过时效规则、Jev state 退墙钟
+- **修正教训（改校准必读）**：①题面改锚分不动（J1.16/J1.23 反复实证）——语义修正类措辞能翻 argmax，分数锚定类必须代码侧 mapper 门；②校准重跑必须**逐字复用线上 stage1_prompt.state**（token_narrative 只持久化 twitter_info/classified_urls/extracted_info，binance_square/instagram/website 等语料段不落库，重建 state 会缺语料致档位漂移）
+- **图分析**（vision，C58 开启）：主推文第一张图 → Qwen/Qwen3-Omni-30B-A3B-Captioner @ SiliconFlow（OpenAI 兼容端点，key=182 `.env` SILICONFLOW_FALLBACK_KEY；调用恒传 format jpeg）。**prompt 不含 token 名**（视觉层 token 无关=跨 token 缓存健全性；指代判定留给 Jev）；同图缓存（external_resource_cache，resourceType=tweet_image，TTL 90 天）+ in-flight 去重；失败=warn+无图证据（=开启前行为）+不写缓存（失败冷却会灭宣告竞态重试窗）；配置 `config/narrative-engine.json → vision`，enabled 但 key/baseUrl 残缺 throw fail-loud
+- **web-fetcher**：直抓失败（403/Cloudflare/超时/抽取<50 字）→ `https://r.jina.ai/<url>` 回退一次（**不得带浏览器 UA**——r.jina.ai 403 伪装 UA，用 `richer-js-narrative/1.0`）；发布时间前插正文供时效题；失败 fail-closed=null 旧行为；单测 `_test_web_fetcher_jina_fallback`
+- **推文拉取缓存**（getAccountWithFullTweets 两层）：userInfo handle 级（跨 token 复用）+ tweets **userId 级全量 key**（只存翻满窗口的完整列表，oldestSec≤untilSec 判覆盖）+ **CA 惰性早停**（每页推文地址匹配命中即停，截断列表落 `…:ca:<addr>` 专属 key **不跨 token 共享**；同 token 三调用点共享）；**刻意手工 get/set 不走 CachedFetcher.fetchWithCache**（失败 1h 冷却会灭宣告竞态重试窗）；只缓存成功（防空 stub 毒缓存）
+- **PrecheckFailRetryService**（`engine/PrecheckFailRetryService.mjs`，`engine.precheckFailRetry` 配置）：两域重试——`address`（宣告竞态，窗 300s）/`no_public_info`（语料晚到，窗 1800s，先 invalidate GMGN 成功缓存再 `enrichSocialByGmgn:true`）；门：token age（wss_events 最早 token_create 锚，缺锚不重试 fail-closed）+ 新 ticks 增量≥20 自节流 + 尝试<5；DB 一律 dbManager（service key）
+- **已定案规则**：规则 5 高影响力+媒体直发**已废**（自填 twitterUrl 白拿 mid 的攻击面，放行走 Jev）；rule 0.52 同名蓝筹**整体废除**（同名≠蹭名，移交叙事层）；规则 0.5 duplicateNarrative appendix 短路（无 appendix 跳 AVE 搜索）；expired_tweet 窗 6h
+
+**叙事门/豁免速查**（判据全文见台账对应 case；审计字段落 stage1.jev.*）：
+
+| 门/豁免 | 判据一句话 | case |
+|---|---|---|
+| cashtag 改道 W（J1.17） | 语料（含父推）$TICKER 全等 token symbol → 强制 W 数学 | C28 |
+| 发布者代理（J1.18） | 骑乘产品影响力由发布者代理：域名词根=token 名+粉丝≥10万+名互斥+非版本词（detectPublisherProxy 代码门） | C29 |
+| 角色 IP 豁免（J1.16） | 作品内角色（含音译）归 A 类，routine_content_product 门豁免；作品名币不豁免 | C25 |
+| web3 买家视角锚（J1.23） | A 类 strong_fit≥0.5 且 tier<B → effTier 锚 B（正门，只升不封顶 A/S；D/E 档阻断被绕过） | C38 |
+| 戏谑关联豁免（J1.24） | 缩写/谐音/拼名梗蹭新鲜热点：brandHijackP≥0.5+within_7d+effTier S/A+可信事件锚全中 → 豁免劫持与关联≤10 截断（关联分照常计入） | C40 |
+| W 交互豁免（C42） | native W+effTier S/A+新产品带 P(2)+P(3)≥0.5+wInteraction<10 → 产品/时效双轴归一百分制 | C42 |
+| IG 影响力两层（C44） | IG 真数据进 state 评分（无锚）；有链接没抓到数据：A 类+dim2<18 → 锚 18 | C44 |
+| notable_other 退出（J1.26） | 知名度是错误轴：nameReferent 阻断质量只留 minor_other+common_word；全类+superIP 通道退出 | C54 |
+| 产品实体+接纳门（J1.27） | 主体=产品实体非母公司；se∈{product_functional,product_character} 且 (strong_fit+fit)<0.5 拦；豁免链 pubProxy/rideMass/binanceCorpus/平台官方账号（PLATFORM_OFFICIAL_HANDLES={binance,flapdotsh}）/superIP | C56 |
+| 指代 meme 低档门（J1.28） | referent_memeability 标准路径恒带；mem≤1（人名/账号/严肃事务性名称）拦；挂 nameReferent 后、量级门前 | C60 |
+| 形象载体门（J1.29） | subject_carrier 三档恒带；C/D 类+carrier∈{improvised,no_visual} 拦；E 类只拦 no_visual；A/B/W/F/G 不碰 | C61 |
+| superIP 指代豁免（J1.21） | superIP 语料里的无名对象按类型分流：人名 0 档拦/内容作品 ≥3 双达标豁免 | C33 |
+| 图载体豁免（C59） | 图证据（image_analysis 存在）+0&lt;关联≤10+referent_memeability≥3 → 豁免 Stage3 关联截断（分照常计入） | C59 |
+
+### Live 交易
+
+- four.meme 走 `FourMemeDirectTrader`（TokenManager2），flap 走 `FlapPortalTrader`（Portal swapExactInput）；**live 只买 BNB 计价盘**（非 BNB 盘 revert=天然 fail-closed；卖出 token→0x0 全盘支持）
+- live 实验只能 `node main.js start-experiment -e <id>` 启动（run-engine 对 live 显式拒绝）
+- 实收解析**余额差法**（买入 balanceOf 前后差=税后真相；卖出 BNB 差+gasUsed×gasPrice 补偿）——对税币/非 BNB quote 盘免疫
+- 防御层（参数在 default.json `fourmemeWs.live`/`flapWs.live`）：L1 `assertMinOut`（报价/预期 ratio<0.5 拒单；expected 契约必传缺即 throw；卖出无锚 fail-closed 拒裸奔）/ L3 卖出熔断（连败≥5 → 30min 冷却+Telegram）/ L5 `_awaitReceipt`（超时回查一次，**绝不自动重发防双买**；reverted throw）/ `maxPositionTokens`（0=不限只拦新开仓）/ 毕业告警人工处置
+- 钱包复用：web 创建 live 实验「复用历史钱包」下拉（`GET /api/live-wallets`，私钥永不回传；两端 ENCRYPTION_KEY 一致）
+- runbook `docs/live-acceptance-runbook.md`；**真实资金验收未做**（0.001 BNB 闭环待用户执行）；flap 毕业/非 BNB 盘卖出 revert 属预期 fail-closed
+
+### Web / 数据库 / 配置
+
+- Web：`src/web/` + `src/web-server.js`（3010）；K 线/现价走 wss_price_ticks（tick-kline-service）；AVE 工具端点（/api/ave-*）保留；叙事 UI /narrative-analyzer、/narrative-tasks；TPA 展示 /experiment/:id/position-analysis；signals 页因子 chip 条件驱动（买/预检查条件有啥因子展示啥）
+- **RLS 坑**：SUPABASE_ANON_KEY 对 wss_price_ticks/wss_events/strategy_library 被 RLS **静默过滤成空**——远程脚本/routes 一律 `dbManager.getClient()`（service key）
+- 删实验=DB 级联（每张实验归属表 experiment_id → experiments ON DELETE CASCADE，web 层只删行）
+- 关键表：experiments / strategy_signals / trades / experiment_tokens / experiment_time_series_data / token_monitoring_pool / `wss_price_ticks`（UNIQUE(tx_hash,log_index) 首写者持有行；sender_address=tx.from；quote_token 标记 flap 非 BNB 计价盘）/ `wss_events`（token_create/graduation/token_quote_set 低频事件通道，token 级全局不挂实验）/ strategy_library / token_profiles / wallet_offline_profiles（address PK 全局）/ token_position_analyses（CASCADE 挂 experiments）/ token_narrative（叙事侧 NarrativeRepository 管）
+- 链支持 BSC-only：其它链历史实验可读（未知 chain id 原样落穿），交易/配置查询非 BSC throw
+- 配置：`config/default.json`（fourmemeWs/flapWs 段：contracts/reconnect/tickBuffer/debounce/live 执行参数 + 策略默认 buyTimeMinutes 1.33 / earlyReturn 80-120 / TP +30% 卖 50%、+50% 清 / 观察窗 30min）；`config/narrative-engine.json`（jev+engine 段，JSON 单一真相源，env 覆盖已移除）；`config/.env`（ANKR_WS_URL / AVE_API_KEY / SUPABASE_URL / SUPABASE_ANON_KEY / ENCRYPTION_KEY / SILICONFLOW_FALLBACK_KEY 等）
+- AVE API token 格式 `{address}-{chain}`（如 0x123…abc-bsc）；AVE 只用于 holder/预检工具与分析端点，不用于发现或价格
+- `scripts/smart-wallet-mining/` 仍按 experiment_id 口径拉 ticks——对新实验（exp_id=NULL）会**静默拉空**，待改 token 集合口径
+
+## 红线汇总
+
+1. **绝不删有数据的实验行**——删=级联删 wss_price_ticks 历史行（按 experiment_id 竞速归属），全局永久丢；误跑/污染实验只停进程+置 stopped 留行，是否删除必须用户裁定
+2. **引擎绝不调 `collector.setExperimentId`**（exp_id=NULL 防线，单测锁定）
+3. **远程脚本/routes 查 wss_price_ticks/wss_events/strategy_library 一律 dbManager service key**（anon RLS 静默空）
+4. **DDL 先于进程重启**（新列/新表在引用它的代码上线前存在）
+5. **回测查询 platform 单值 `.eq` 循环勿 `.in` 多值**；token 地址批 `.in` ≤100；Supabase `.in()` URL 超 8KB（批 50 上限）
+6. **FA 周期判定/回测路径禁 Date.now**（now 由 buildFactorMap(state, asOf) 传入，防前视）；`_graduatedTokens` 禁装载即填
+7. **narrative 是 ESM（.mjs），交易引擎是 CJS（.js）**——勿混 import
+8. BSC-only；双平台 live 三重防线禁止；live 只能 main.js start-experiment 启动
+9. **本地不跑重查询/重实验**（直连 Supabase 全表聚合/全史扫描本地 VPN 必超时）——去远程服务器跑；本地只做单条/小结果读取
+10. 历史窗口回测先失效叙事缓存（invalidate-*-window.cjs）；校准重跑逐字复用线上 state
+11. BacktestTickCache 探针/装载保持锚定无序形状（ORDER BY id 形状会 planner 超时）；maxTickRows 默认 100 万，大窗口显式放宽
+12. collector stop 顺序 eventWriter → senderResolver → collectors，不可换
+13. 新机制一律配零 DB 零网络单测；事故修复配「事故现场反证」断言（源码口径断言锁定防线）
+
+## 操作指南
+
+### 新增 pre-buy 因子（五步）
+
+1. 因子计算加进对应 service（如 WalletClusterService）；2. 加进该 service `getEmptyFactorValues()`；3. 加进 `PreBuyCheckService._evaluateWithCondition()` context；4. 加进 `FactorBuilder.buildPreBuyCheckFactorValues()`（回测兼容）；5. 加进 `FourMemeWssTradingEngine.js` preBuyCheckFactors 构造（virtual/live）
+
+### 修改 Jev 题集
+
+1. 改 `jev-questions.mjs`/`jev-prestage-questions.mjs` 题面；2. bump 版本常量；3. 聚合语义变了同步对应 mapper；4. 跑校准脚本验证评级一致且无买线翻转；5. **case 与裁定同步台账**（docs/叙事引擎改进与Case台账.md 卷二倒序追加）
