@@ -868,27 +868,45 @@ export class NarrativeAnalyzer {
    *
    * @param {string[]} tokenAddresses - 回测窗口 token 集合（大小写任意）
    * @returns {Promise<{rowCache: Map, tweetRows: number}>}
-   *   rowCache: 小写地址 → token_narrative 最新行（analyzed_at 升序遍历 Map.set
-   *   覆盖保留每地址最新，与 findByAddress 的 desc nullsLast 口径一致）
+   *   rowCache: 小写地址 → token_narrative 最新过票行（两段式：轻列扫描内存判
+   *   胜负后按 id 批拉全列，2026-10-12 起；胜负口径与 findByAddress 的 desc
+   *   nullsLast 取最新一致）
    */
   static async preloadCache(tokenAddresses) {
     const tokenSet = new Set((tokenAddresses || []).map(a => String(a).toLowerCase()));
     if (!tokenSet.size) return { rowCache: new Map(), tweetRows: 0 };
 
-    const rows = await NarrativeRepository.fetchAllRows();
-    const rowCache = new Map();
+    // 两段式（2026-10-12 statement timeout 修复，查询形状见 NarrativeRepository）：
+    // ① 轻列键集全表扫（is_valid/gmgn 非空 DB 层已过）→ 客户端复刻余下过滤
+    // （tokenSet 交集 + no_public_info）决出每地址最新过票行；② 仅有票行按 id
+    // 批拉全列。与原「analyzed_at 升序全量遍历 Map.set 覆盖」等价性的两个关键点：
+    //  - 胜负 = analyzed_at 最新（null 视最早）的「过票」行（前身未过票行不覆盖
+    //    已置条目，即留的是最新过票行而非最新行）；平局 id 大者胜（后写）
+    //  - 语料推文键从全部过票行收集（含已被更新行覆盖的旧行——前身逐行收集不撤销）
+    const lightRows = await NarrativeRepository.fetchPreloadLightRows();
+    const winnerByAddr = new Map(); // 小写地址 → {id, ts}
     const tweetKeys = [];
-    for (const row of rows) { // fetchAllRows analyzed_at 升序 → 后写覆盖留最新
-      if (!tokenSet.has(row.token_address)) continue;
-      const isNoPublicInfoBlock = row.pre_check_result?.details?.ruleName === 'no_public_info';
-      if (!row.is_valid || isNoPublicInfoBlock || row.gmgn_info == null) continue;
-      rowCache.set(row.token_address, row);
+    for (const row of lightRows) {
+      const addr = String(row.token_address || '').toLowerCase();
+      if (!tokenSet.has(addr)) continue;
+      if (row.pre_check_result?.details?.ruleName === 'no_public_info') continue;
+      const ts = row.analyzed_at ? new Date(row.analyzed_at).getTime() : -Infinity;
+      const prev = winnerByAddr.get(addr);
+      if (!prev || ts > prev.ts || (ts === prev.ts && row.id > prev.id)) {
+        winnerByAddr.set(addr, { id: row.id, ts });
+      }
       // 语料推文行键（reassembleTwitterInfo 同款 resourceType 映射：community →
       // twitter_community，其余一律 tweet；主推/次推都在 twitter 桶内）
       for (const t of (row.classified_urls?.twitter || [])) {
         if (!t?.url) continue;
         tweetKeys.push([t.type === 'community' ? 'twitter_community' : 'tweet', t.url]);
       }
+    }
+    const fullRows = await NarrativeRepository.fetchRowsByIds(
+      [...winnerByAddr.values()].map(w => w.id));
+    const rowCache = new Map();
+    for (const row of fullRows) {
+      rowCache.set(String(row.token_address).toLowerCase(), row);
     }
     const tweetRows = await ExternalResourceCache.preloadByKeys(tweetKeys);
     return { rowCache, tweetRows };

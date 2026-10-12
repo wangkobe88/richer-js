@@ -87,30 +87,61 @@ export class NarrativeRepository {
   }
 
   /**
-   * 全表分页拉取（回测叙事预载专用，2026-10-12）
+   * 预载轻列键集扫描（回测叙事预载专用；2026-10-12 statement timeout 修复）
    *
-   * 依据：token_narrative 为代币级全局缓存表（2026-10-12 全表 23,477 行），回测窗口
-   * token 集合（e50 实测 9.5 万地址）与之做交集若走 .in 过滤需 ~950 次往返（批 100
-   * URL 长度坑口径）；全表 47 批分页一次拉完、JS 端交集更省。行按 analyzed_at 升序
-   * （nullsFirst：null 视为最旧，与 findByAddress 的 nullsLast desc 取最新口径互补）
-   * ——调用方按序 Map.set 覆盖即天然保留每地址最新行。
+   * 前身 fetchAllRows 的 select * offset 分页在 ~23.5k 行时已不可用：35 列 jsonb
+   * （stage*_prompt/raw_output 审计列最肥）单页 500 行载荷 3-4.5s，肥行页顶穿
+   * PostgREST statement timeout（8s）——perf2 臂两连崩现场（窄列深页实测 67-378ms，
+   * 证明慢在全列载荷非 offset 扫描）。改：id PK 键集分页（走索引无 Sort，
+   * PositionAnalysisService._fetchAllRows 同款形状）+ 只拉过滤/胜负判定所需轻列，
+   * is_valid 与 gmgn_info 非空两个纯列谓词 DB 层先过。
    *
-   * ⚠️ 仅离线回测装载语境调用：表涨到十万行级时全列快照内存不可承受，需改
-   * 「窄列探针 + 命中地址全列」两段式
+   * gmgn_info 谓词用 SQL IS NOT NULL：jsonb 'null' 字面量行会通过 DB 过滤但 JS
+   * `== null` 为真——前身会排除该行；该行进预载对决策零影响（analyze 命中分支
+   * 对 falsy gmgn_info 照样补调 GMGN，只是多预载一行），刻意不为此拉全列复查。
+   * no_public_info 是 jsonb 路径断言（pre_check_result 为 NULL 的行必须通过，
+   * PostgREST .neq 会把 NULL 行排掉=语义破坏）留在调用方客户端判。
+   *
+   * 行序 id 升序（非 analyzed_at）：每地址最新过票行的胜负由 preloadCache 在
+   * 内存判（analyzed_at null 视最早 + id 决胜平），与原升序覆盖口径等价。
    */
-  static async fetchAllRows() {
+  static async fetchPreloadLightRows() {
     const rows = [];
-    let offset = 0;
+    let lastId = null;
+    const PAGE = 1000;
     while (true) {
+      let q = this.getSupabase()
+        .from('token_narrative')
+        .select('id,token_address,analyzed_at,pre_check_result,classified_urls')
+        .eq('is_valid', true)
+        .not('gmgn_info', 'is', null)
+        .order('id', { ascending: true })
+        .limit(PAGE);
+      if (lastId != null) q = q.gt('id', lastId);
+      const { data, error } = await q;
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < PAGE) break;
+      lastId = data[data.length - 1].id;
+    }
+    return rows;
+  }
+
+  /**
+   * 按主键批量拉全列行（预载第二段）：ids 由轻列扫描的过票行决出（实际可预载
+   * 行 ~3k，而非全表 ~23k）；批 50 防肥 jsonb 载荷单查超 statement timeout
+   * （.in URL 8KB 上限同口径）。返回行序 = 请求 id 顺序无关（调用方按地址装 Map）。
+   */
+  static async fetchRowsByIds(ids) {
+    const rows = [];
+    const CHUNK = 50;
+    for (let i = 0; i < ids.length; i += CHUNK) {
       const { data, error } = await this.getSupabase()
         .from('token_narrative')
         .select('*')
-        .order('analyzed_at', { ascending: true, nullsFirst: true })
-        .range(offset, offset + 499);
+        .in('id', ids.slice(i, i + CHUNK));
       if (error) throw error;
       rows.push(...(data || []));
-      if (!data || data.length < 500) break;
-      offset += 500;
     }
     return rows;
   }

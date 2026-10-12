@@ -80,47 +80,75 @@ async function main() {
     eq('B5 未 preload → rowCache undefined（实时链路原行为）', capturedOpts.rowCache, undefined);
   }
 
-  // ── C. preloadCache 过滤矩阵（真 NarrativeAnalyzer + 静态方法打桩） ──
+  // ── C. preloadCache 过滤矩阵（真 NarrativeAnalyzer + 两段式方法打桩） ──
   console.log('C. NarrativeAnalyzer.preloadCache 可预载行判定');
   {
     const { NarrativeAnalyzer } = await import('../src/narrative/analyzer/NarrativeAnalyzer.mjs');
     const { NarrativeRepository } = await import('../src/narrative/db/NarrativeRepository.mjs');
-    const mk = (addr, over = {}) => ({ token_address: addr, is_valid: true, gmgn_info: { risk: null }, pre_check_result: null, classified_urls: null, analyzed_at: '2026-10-01T00:00:00Z', ...over });
-    const rows = [
-      mk('0xok'), // 三条件齐 → 进
-      mk('0xinvalid', { is_valid: false }), // 排除：invalid → 回放重析
-      mk('0xnopub', { pre_check_result: { details: { ruleName: 'no_public_info' } } }), // 排除：穿透重析域
-      mk('0xnogmgn', { gmgn_info: null }), // 排除：命中分支补调 GMGN
-      // 同地址双行：升序遍历后写覆盖 → 留 analyzed_at 最新
-      mk('0xdup', { analyzed_at: '2026-10-01T00:00:00Z', is_valid: false }),
-      mk('0xdup', { analyzed_at: '2026-10-02T00:00:00Z' }),
-      mk('0xtw', { classified_urls: { twitter: [
+    const mk = (addr, over = {}) => ({ id: 0, token_address: addr, analyzed_at: '2026-10-01T00:00:00Z', pre_check_result: null, classified_urls: null, ...over });
+    // 轻列行（fetchPreloadLightRows 形状：id/token_address/analyzed_at/pre_check_result/classified_urls）
+    const lightRows = [
+      mk('0xok', { id: 1 }),
+      // 同地址双过票行：旧行带语料键，新行无 → 胜者=新行，但旧行键仍收集（前身逐行收集不撤销）
+      mk('0xdup', { id: 2, analyzed_at: '2026-10-01T00:00:00Z', classified_urls: { twitter: [{ url: 'https://x.com/d/status/old', type: 'tweet' }] } }),
+      mk('0xdup', { id: 3, analyzed_at: '2026-10-02T00:00:00Z' }),
+      // 同地址 analyzed_at 平局 → id 大者胜（后写）
+      mk('0xtie', { id: 4, analyzed_at: '2026-10-03T00:00:00Z' }),
+      mk('0xtie', { id: 5, analyzed_at: '2026-10-03T00:00:00Z' }),
+      // 未过票行不夺胜：旧过票行后到一行 no_public_info（未过票不覆盖）→ 胜者仍是旧过票行
+      mk('0xkeep', { id: 6, analyzed_at: '2026-10-01T00:00:00Z' }),
+      mk('0xkeep', { id: 7, analyzed_at: '2026-10-02T00:00:00Z', pre_check_result: { details: { ruleName: 'no_public_info' } } }),
+      // no_public_info 客户端排除（jsonb 路径断言留在 JS：pre_check_result NULL 行必须通过）
+      mk('0xnopub', { id: 8, pre_check_result: { details: { ruleName: 'no_public_info' } } }),
+      // analyzed_at NULL 视最早：同地址 NULL 行不夺非 NULL 胜者
+      mk('0xnullts', { id: 9, analyzed_at: null }),
+      mk('0xnullts', { id: 10, analyzed_at: '2026-09-01T00:00:00Z' }),
+      mk('0xtw', { id: 11, classified_urls: { twitter: [
         { url: 'https://x.com/t/status/9', type: 'tweet' },
         { url: 'https://x.com/i/communities/77', type: 'community' },
         { url: 'https://x.com/t/status/10', type: 'tweet' }, // 第二推文 get('tweet')
       ] } }),
-      mk('0xother'), // 不在 token 集合 → 交集外
+      mk('0xother', { id: 12 }), // 不在 token 集合 → 交集外
     ];
-    const origFetch = NarrativeRepository.fetchAllRows;
+    // 全列行仓库（fetchRowsByIds 按胜者 id 回填）：轻列 id → 全列行（带 is_valid 等全字段）
+    const fullById = new Map([
+      [1, { id: 1, token_address: '0xok', is_valid: true, analyzed_at: '2026-10-01T00:00:00Z' }],
+      [3, { id: 3, token_address: '0xdup', is_valid: true, analyzed_at: '2026-10-02T00:00:00Z' }],
+      [5, { id: 5, token_address: '0xtie', is_valid: true, analyzed_at: '2026-10-03T00:00:00Z' }],
+      [6, { id: 6, token_address: '0xkeep', is_valid: true, analyzed_at: '2026-10-01T00:00:00Z' }],
+      [10, { id: 10, token_address: '0xnullts', is_valid: true, analyzed_at: '2026-09-01T00:00:00Z' }],
+      [11, { id: 11, token_address: '0xtw', is_valid: true, classified_urls: lightRows[10].classified_urls }],
+    ]);
+    const origLight = NarrativeRepository.fetchPreloadLightRows;
+    const origByIds = NarrativeRepository.fetchRowsByIds;
     const origPreloadKeys = ERC.preloadByKeys;
-    let preloadKeysArg = null;
-    NarrativeRepository.fetchAllRows = async () => rows;
+    let lightCallCount = 0, idsArg = null, preloadKeysArg = null;
+    NarrativeRepository.fetchPreloadLightRows = async () => { lightCallCount++; return lightRows; };
+    NarrativeRepository.fetchRowsByIds = async (ids) => { idsArg = ids; return ids.map(id => fullById.get(id)).filter(Boolean); };
     ERC.preloadByKeys = async (keys) => { preloadKeysArg = keys; return keys.length; };
     try {
-      const r = await NarrativeAnalyzer.preloadCache(['0xOK', '0xinvalid', '0xnopub', '0xnogmgn', '0xdup', '0xtw']);
-      eq('C1 可预载 4 行（ok/dup最新/tw + 排除 3 形状）', [...r.rowCache.keys()].sort(), ['0xdup', '0xok', '0xtw']);
-      eq('C2 同地址留最新行（升序覆盖）', r.rowCache.get('0xdup').analyzed_at, '2026-10-02T00:00:00Z');
-      eq('C3 语料键收集（community→twitter_community 映射）', preloadKeysArg, [
+      const r = await NarrativeAnalyzer.preloadCache(['0xOK', '0xinvalid', '0xnopub', '0xnogmgn', '0xdup', '0xtie', '0xkeep', '0xnullts', '0xtw']);
+      eq('C1 胜者装 rowCache（ok/dup新/tie id大/keep旧行/nullts 非空）', [...r.rowCache.keys()].sort(), ['0xdup', '0xkeep', '0xnullts', '0xok', '0xtie', '0xtw']);
+      eq('C2 同地址留最新过票行', r.rowCache.get('0xdup').analyzed_at, '2026-10-02T00:00:00Z');
+      eq('C2b analyzed_at 平局 id 大者胜', r.rowCache.get('0xtie').id, 5);
+      eq('C2c 未过票行不夺胜（no_public_info 不覆盖旧过票行）', r.rowCache.get('0xkeep').analyzed_at, '2026-10-01T00:00:00Z');
+      eq('C2d analyzed_at NULL 视最早不夺胜', r.rowCache.get('0xnullts').id, 10);
+      eq('C3 仅按胜者 id 拉全列（第二段不去全表）', idsArg.sort((a, b) => a - b), [1, 3, 5, 6, 10, 11]);
+      eq('C3b 轻列扫描恰一次（键集全表扫）', lightCallCount, 1);
+      eq('C4 语料键收集（含被覆盖旧行 + community→twitter_community 映射）', preloadKeysArg, [
+        ['tweet', 'https://x.com/d/status/old'],
         ['tweet', 'https://x.com/t/status/9'],
         ['twitter_community', 'https://x.com/i/communities/77'],
         ['tweet', 'https://x.com/t/status/10'],
       ]);
-      eq('C4 tweetRows 透传', r.tweetRows, 3);
-      // 空集合早退
+      eq('C5 tweetRows 透传', r.tweetRows, 4);
+      // 空集合早退（零查询）
+      lightCallCount = 0;
       const r2 = await NarrativeAnalyzer.preloadCache([]);
-      eq('C5 空 token 集合 → 空 rowCache 不拉全表', [r2.rowCache.size, r2.tweetRows], [0, 0]);
+      eq('C6 空 token 集合 → 空 rowCache 零扫描', [r2.rowCache.size, r2.tweetRows, lightCallCount], [0, 0, 0]);
     } finally {
-      NarrativeRepository.fetchAllRows = origFetch;
+      NarrativeRepository.fetchPreloadLightRows = origLight;
+      NarrativeRepository.fetchRowsByIds = origByIds;
       ERC.preloadByKeys = origPreloadKeys;
     }
   }
@@ -133,9 +161,15 @@ async function main() {
       /const cached = \(rowCache && rowCache\.get\(normalizedAddress\)\)\n\s*\|\| await NarrativeRepository\.findByAddress\(normalizedAddress\);/.test(analyzerSrc), true);
     eq('D2 analyze options 解构 rowCache', /rowCache = null \} = options/.test(analyzerSrc), true);
     const repSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/db/NarrativeRepository.mjs'), 'utf8');
-    eq('D3 fetchAllRows 分页 500 + analyzed_at 升序 nullsFirst（覆盖留最新口径）',
-      /order\('analyzed_at', \{ ascending: true, nullsFirst: true \}\)/.test(repSrc)
-      && repSrc.includes('range(offset, offset + 499)'), true);
+    eq('D3 两段式查询形状：轻列键集（id 升序 + .gt 键集 + is_valid/gmgn DB 谓词）+ 全列按 id 批 50',
+      /fetchPreloadLightRows[\s\S]*?\.select\('id,token_address,analyzed_at,pre_check_result,classified_urls'\)[\s\S]*?\.eq\('is_valid', true\)[\s\S]*?\.not\('gmgn_info', 'is', null\)[\s\S]*?\.order\('id', \{ ascending: true \}\)[\s\S]*?q\.gt\('id', lastId\)/.test(repSrc)
+      && /fetchRowsByIds[\s\S]*?\.select\('\*'\)[\s\S]*?\.in\('id', ids\.slice\(i, i \+ CHUNK\)\)/.test(repSrc)
+      && repSrc.includes('const CHUNK = 50;'), true);
+    // 事故形状 = fetchAllRows 的「循环 offset 翻页 + select *」。findByAddress（单行
+    // maybeSingle）/findAll（web 路由单页 limit）是合法保留的 select('*')，不作跨方法
+    // 宽匹配——只断言前身方法与 preload 调用点双双不存在
+    eq('D3b offset 循环全列拉取已移除（statement timeout 事故形状防回归）',
+      /static\s+async\s+fetchAllRows/.test(repSrc) || analyzerSrc.includes('fetchAllRows'), false);
     const beSrc = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
     eq('D4 BacktestEngine 挂点：仅 narrativeCallCondition 实验预载',
       /getAllStrategies\(\)\.some\(s => s\.action === 'buy' && s\.narrativeCallCondition\)/.test(beSrc)
