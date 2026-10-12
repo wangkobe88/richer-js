@@ -92,6 +92,21 @@ console.log('D. extractBuyRangeFromCondition（preFilter 年龄区间提取，�
   check('D6 age >= 5 回归（下界提取保留 >=）', ex('age >= 5'), { minAgeMinutes: 5 });
   check('D7 age > 3 → 下界 3', ex('age > 3'), { minAgeMinutes: 3 });
   check('D8 语法错 → null', ex('tokenAgeSec <'), null);
+
+  // D9-D10（2026-10-12 修复）：引擎链路真相——loadStrategies 存进 strategy.condition 的
+  // 是 AST 对象非字符串（BacktestEngine preFilter 注入点原 String(s.condition) 化成
+  // "[object Object]" → 恒 null，preFilter 从未生效，e50 3fcea181 三次实测均此形状）
+  const { StrategyEngine } = require('../src/strategies/StrategyEngine');
+  const e50Shape = 'tokenAgeSec < 90 AND (holderTrendGrowthRatio >= 55 OR holderTrendGrowthRatio IS NULL)';
+  const se = new StrategyEngine({ strategies: [
+    { id: 'buy_0', name: 'e50买腿', action: 'buy', priority: 1, condition: e50Shape },
+  ] });
+  const loaded = se.getAllStrategies()[0];
+  check('D9 loadStrategies 后 condition 是 AST 对象（引擎链路真相）', typeof loaded.condition, 'object');
+  check('D10 AST 直传提取成功（e50 实测形状 → max=1.5）', ex(loaded.condition), { maxAgeMinutes: 1.5 });
+  check('D11 旧死链形状反证：String(AST) 提取 null（修复前的引擎行为）',
+    ex(String(loaded.condition)), null);
+  check('D12 非字符串非 AST（如数字）→ null 不 throw', ex(12345), null);
 }
 
 console.log('E. FA preFilter 集成（tokenAgeSec 策略的越界 token 跳过因子构建）');

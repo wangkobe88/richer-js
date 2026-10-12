@@ -44,10 +44,10 @@ async function main() {
     let pf0Id = argId;
     if (!pf0Id) {
         const { data: exps } = await sb.from('experiments')
-            .select('id,name').like('name', '%pf验证%').order('created_at', { ascending: false }).limit(3);
+            .select('id,experiment_name').like('experiment_name', '%pf验证%').order('created_at', { ascending: false }).limit(3);
         if (!exps || !exps.length) throw new Error('未找到 pf验证 实验；用法 node tmp_pf_verify.cjs <pf0实验id>');
         pf0Id = exps[0].id;
-        console.log(`按名找到 pf0: ${exps[0].name} ${pf0Id}`);
+        console.log(`按名找到 pf0: ${exps[0].experiment_name} ${pf0Id}`);
     }
 
     // ① trades bit-identical
@@ -94,11 +94,11 @@ async function main() {
     const lost = [...ps0].filter(t => !ps1.has(t));
     console.log(`\n④ TPA：v0=${p0.length} 行 / pf0=${p1.length} 行（丢失 ${lost.length} = 超龄触发损失面，买卖零影响）`);
 
-    // ⑤ 耗时（experiments 表）
+    // ⑤ 耗时（experiments 表；列名 experiment_name / stopped_at——experiments 表无 name/completed_at 列）
     for (const [tag, id] of [['v0', V0], ['pf0', pf0Id]]) {
-        const { data } = await sb.from('experiments').select('name,started_at,stopped_at').eq('id', id).single();
+        const { data } = await sb.from('experiments').select('experiment_name,started_at,stopped_at').eq('id', id).single();
         const dur = data.started_at && data.stopped_at ? ((new Date(data.stopped_at) - new Date(data.started_at)) / 60000).toFixed(1) : 'n/a';
-        console.log(`⑤ ${tag}: ${dur}min  ${data.name}`);
+        console.log(`⑤ ${tag}: ${dur}min  ${data.experiment_name}`);
     }
 
     process.exit(0);

@@ -53,14 +53,23 @@ class ConditionEvaluator {
      * 调用方（FA）用「严格大于上界 / 严格小于下界」判定跳过，保证对 < 与
      * <= operator 都不漏买（边界值交回 condition 评估）。
      *
-     * @param {string} condition - 条件表达式字符串
+     * @param {string|Object} condition - 条件表达式字符串或已解析 AST。
+     *        ★AST 输入兼容（2026-10-12 修复）：StrategyEngine.loadStrategies 存进
+     *        strategy.condition 的是 parseCondition 产物（AST 对象非字符串）——
+     *        BacktestEngine preFilter 注入点原 `String(s.condition)` 把 AST 化成
+     *        "[object Object]" → parse 抛错 → 恒 null，任何 condition 都「无可提取」
+     *        （e50 3fcea181 三次实测日志均此形状，preFilterSkipped=0）。此处直接
+     *        接受 AST（有 type 字段的对象视为已解析），字符串照旧走 parse。
      * @returns {{minAgeMinutes?:number, maxAgeMinutes?:number}|null}
      *          整体 null 表示无法提取（不过滤）；字段缺省由调用方填 0/Infinity
      */
     static extractBuyRangeFromCondition(condition) {
-        if (!condition || typeof condition !== 'string') return null;
+        if (!condition) return null;
         try {
-            const ast = new ConditionEvaluator().parseCondition(condition);
+            const ast = typeof condition === 'string'
+                ? new ConditionEvaluator().parseCondition(condition)
+                : (condition.type ? condition : null);
+            if (!ast) return null;
             return ConditionEvaluator._walkBuyRange(ast);
         } catch {
             return null; // 语法错/认不出 → 不过滤（fail-open 方向）

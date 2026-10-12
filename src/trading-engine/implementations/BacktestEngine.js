@@ -286,7 +286,11 @@ class BacktestEngine extends AbstractTradingEngine {
       const ranges = [];
       for (const s of this._strategyEngine.getAllStrategies()) {
         if (s.action !== 'buy') continue;
-        const pf = s.condition ? ConditionEvaluator.extractBuyRangeFromCondition(String(s.condition)) : null;
+        // ★s.condition 是 loadStrategies 存的 AST 对象（非字符串）——原 String(s.condition)
+        // 化成 "[object Object]" → parse 恒 throw → 提取恒 null，任何 condition 都「无可提取」
+        // （e50 3fcea181 三次实测均此形状，preFilter 从未生效）。extractBuyRangeFromCondition
+        // 已改双形状入口（string|AST），此处直传
+        const pf = s.condition ? ConditionEvaluator.extractBuyRangeFromCondition(s.condition) : null;
         if (pf) ranges.push(pf);
       }
       this._factorAggregator.setPreFilter(ranges.length > 0 ? ranges : null);
