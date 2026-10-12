@@ -12,7 +12,6 @@ const { TokenHolderService } = require('../holders/TokenHolderService');
 const { EarlyParticipantCheckService } = require('./EarlyParticipantCheckService');
 const { WalletClusterService } = require('./WalletClusterService');
 const { WalletLabelService } = require('./WalletLabelService');
-const { WalletDataService } = require('../../web/services/WalletDataService');
 const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
 const { SameNameTokenService } = require('./SameNameTokenService');
 
@@ -1923,33 +1922,44 @@ class PreBuyCheckService {
       return { creatorIsNotBadDevWallet: 1 };
     }
 
-    try {
-      const walletService = new WalletDataService();
-      const allWallets = await walletService.getWallets();
-      const devWallets = allWallets.filter(w => w.category === 'dev');
-
-      const isBadDevWallet = devWallets.some(
-        w => w.address.toLowerCase() === creatorAddress.toLowerCase()
-      );
-
-      // 1 = 不在Dev列表中（好）, 0 = 在Dev列表中（坏）
-      const result = isBadDevWallet ? 0 : 1;
-
-      this.logger.info('[PreBuyCheckService] 创建者Dev钱包检查完成', {
-        creator_address: creatorAddress,
-        is_bad_dev_wallet: isBadDevWallet,
-        creatorIsNotBadDevWallet: result
-      });
-
-      return { creatorIsNotBadDevWallet: result };
-    } catch (error) {
-      this.logger.error('[PreBuyCheckService] 创建者Dev钱包检查失败', {
-        creator_address: creatorAddress,
-        error: error.message
-      });
-      // 检查失败时保守处理，返回 1（不拒绝）
-      return { creatorIsNotBadDevWallet: 1 };
+    // P9 dev 名单进程内缓存（2026-10-13 回测性能案）：前身每次检查
+    // `new WalletDataService()` + getWallets() = select * from wallets 全表
+    // roundtrip（3699 次 preBuy ≈ parCreator 全额，钱包静态人工名单）。
+    // 语义先例：WalletLabelService.initLabelCache 对同一张 wallets 表就是
+    // 进程加载一次、不中途刷新（改名单重启实验生效）。失败不缓存——下次调用
+    // 自然重试，与前身每调用重试行为一致；成功即缓存（真空表也缓存，与失败
+    // 在显式 error 处分流）。select 收窄 address/category 两列：行集不变载荷更轻
+    if (!this._devWalletSet) {
+      try {
+        const { data, error } = await this.supabase
+          .from('wallets')
+          .select('address, category');
+        if (error) throw new Error(error.message);
+        const set = new Set();
+        for (const w of (data || [])) {
+          if (w?.category === 'dev' && w.address) set.add(String(w.address).toLowerCase());
+        }
+        this._devWalletSet = set;
+      } catch (error) {
+        this.logger.error('[PreBuyCheckService] dev钱包名单加载失败（下次检查重试）', {
+          creator_address: creatorAddress,
+          error: error.message
+        });
+        // 与前身失败路径一致：保守放行（不缓存，后续调用重试）
+        return { creatorIsNotBadDevWallet: 1 };
+      }
     }
+
+    // 1 = 不在Dev列表中（好）, 0 = 在Dev列表中（坏）
+    const result = this._devWalletSet.has(creatorAddress.toLowerCase()) ? 0 : 1;
+
+    this.logger.info('[PreBuyCheckService] 创建者Dev钱包检查完成', {
+      creator_address: creatorAddress,
+      is_bad_dev_wallet: result === 0,
+      creatorIsNotBadDevWallet: result
+    });
+
+    return { creatorIsNotBadDevWallet: result };
   }
 
   /**
