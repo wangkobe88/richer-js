@@ -1688,7 +1688,7 @@ class PreBuyCheckService {
    * @param {boolean} skipHolderCheck - 是否跳过检查（回测时为 true）
    */
   async _performHolderCheck(tokenAddress, creatorAddress, experimentId, signalId, chain, skipHolderCheck = false) {
-    // [已停用] 持有者检查 — 回测时获取的是最新数据而非历史快照
+    // [已停用] 持有者检查 — 回测时获取的是最新数据而非历史快照（原始 AVE 实现已随 P5 清理删除）
     return {
       canBuy: true,
       whitelistCount: 0,
@@ -1701,33 +1701,6 @@ class PreBuyCheckService {
       devReason: '检查已停用',
       largeHoldingReason: '检查已停用'
     };
-    /* 原始实现：
-    if (skipHolderCheck || !this.config.holderCheckEnabled) {
-      const reason = skipHolderCheck ? '持有者检查已跳过（回测模式）' : '持有者检查已禁用';
-      return {
-        canBuy: true,
-        whitelistCount: 0,
-        blacklistCount: 0,
-        holdersCount: 0,
-        devHoldingRatio: 0,
-        maxHoldingRatio: 0,
-        reason: reason,
-        blacklistReason: '检查已跳过',
-        devReason: '检查已跳过',
-        largeHoldingReason: '检查已跳过'
-      };
-    }
-
-    return await this.holderService.checkAllHolderRisks(
-      tokenAddress,
-      creatorAddress,
-      experimentId,
-      signalId,
-      chain,
-      this.config.devHoldingThreshold,
-      this.config.largeHoldingThreshold
-    );
-    */
   }
 
   /**

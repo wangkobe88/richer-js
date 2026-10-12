@@ -1,9 +1,12 @@
 /**
  * 代币持有者服务
  * 用于检测代币持有者是否包含黑名单钱包
+ *
+ * P5 清理（2026-10-13）：AVE 持有者检查族（fetchAndStoreHolders/checkAllHolderRisks/
+ * checkDevHoldingRatio/_getHoldersFromAVE 等）已随原始实现尸体一并删除——回测拿到的是
+ * 最新数据而非历史快照，该族自停用起从未被任何链路调用。存活链路只有钱包黑白名单
+ * 缓存（initWalletCache）与早期交易者名单匹配（checkEarlyTradersRisk）。
  */
-
-const config = require('../../../config/default.json');
 
 /**
  * 安全地获取错误消息
@@ -19,37 +22,6 @@ function _safeGetErrorMessage(error) {
   return String(error);
 }
 
-/**
- * 安全地解析 balance_ratio 为数字
- * AVE API 返回的 balance_ratio 可能是：
- * - 数字（如 0.0525）
- * - 字符串百分比（如 "5.25%"）
- * - 字符串小数（如 "0.0525"）
- * - 空字符串或其他无效值
- * @private
- * @param {*} ratio - balance_ratio 值
- * @returns {number} 解析后的百分比（0-100）
- */
-function _parseBalanceRatio(ratio) {
-  if (ratio === null || ratio === undefined) return 0;
-  if (typeof ratio === 'number') {
-    // 如果已经是数字，可能是小数（0.0525）或百分比（5.25）
-    // 假设 <= 1 的值是小数形式，需要 * 100
-    return ratio <= 1 ? ratio * 100 : ratio;
-  }
-  if (typeof ratio === 'string') {
-    const trimmed = ratio.trim();
-    if (trimmed === '') return 0;
-    // 移除可能的 % 符号
-    const numericStr = trimmed.replace('%', '');
-    const parsed = parseFloat(numericStr);
-    if (isNaN(parsed)) return 0;
-    // 如果 <= 1，假设是小数形式，需要 * 100
-    return parsed <= 1 ? parsed * 100 : parsed;
-  }
-  return 0;
-}
-
 class TokenHolderService {
   /**
    * @param {Object} supabase - Supabase客户端
@@ -58,18 +30,11 @@ class TokenHolderService {
   constructor(supabase, logger) {
     this.supabase = supabase;
     this.logger = logger;
-    this.aveApi = null;
 
     // 黑白名单缓存（初始化时加载一次，不更新）
     this._blacklistAddresses = new Set(); // 黑名单地址（不含白名单）
     this._whitelistAddresses = new Set();  // 白名单地址
-    this._lpAddresses = new Set();         // LP地址（用于排除）
     this._cacheLoaded = false;
-
-    // 常用DEX LP地址（BSC）
-    this._commonLPAddresses = new Set([
-      '0x5c952063c7fc8610ffdb798152d69f0b9550762b'  // 4meme LP
-    ]);
   }
 
   /**
@@ -93,16 +58,12 @@ class TokenHolderService {
       this._blacklistAddresses = new Set(blacklistResult.map(w => w.address.toLowerCase()));
       this._whitelistAddresses = new Set(whitelistResult.map(w => w.address.toLowerCase()));
 
-      // LP地址直接使用硬编码列表
-      this._lpAddresses = new Set(this._commonLPAddresses);
-
       this._cacheLoaded = true;
 
       this.logger.info('[TokenHolderService] 钱包缓存加载完成', {
         chain,
         blacklistCount: this._blacklistAddresses.size,
-        whitelistCount: this._whitelistAddresses.size,
-        lpCount: this._lpAddresses.size
+        whitelistCount: this._whitelistAddresses.size
       });
     } catch (error) {
       this.logger.error('[TokenHolderService] 钱包缓存加载失败', error);
@@ -162,339 +123,6 @@ class TokenHolderService {
   }
 
   /**
-   * 获取并存储代币持有者信息
-   * @param {string} tokenAddress - 代币地址
-   * @param {string} experimentId - 实验ID，可为 null
-   * @param {string} signalId - 信号ID，可为 null
-   * @param {string} chain - 区块链，默认 'bsc'
-   * @returns {Promise<Object>} { snapshotId, holders }
-   */
-  async fetchAndStoreHolders(tokenAddress, experimentId, signalId, chain = 'bsc') {
-    // [已停用] 持有者数据获取 — 回测时获取的是最新数据而非历史快照
-    return { snapshotId: null, holders: [], token: tokenAddress };
-    /* 原始实现：
-    try {
-      const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
-      const snapshotId = `${tokenAddress}_${Date.now()}`;
-      await this._storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData);
-      return {
-        snapshotId,
-        holders: holderData.holders || [],
-        token: holderData.token
-      };
-    } catch (error) {
-      this.logger.error(null, 'TokenHolderService',
-        `获取持有者失败: ${tokenAddress} - ${_safeGetErrorMessage(error)}`);
-      throw error;
-    }
-    */
-  }
-
-  /**
-   * 检查持有者风险（基于黑白名单缓存）
-   * @param {string} tokenAddress - 代币地址
-   * @param {string} experimentId - 实验ID，可为 null
-   * @param {string} signalId - 信号ID，可为 null
-   * @param {string} chain - 区块链，默认 'bsc'
-   * @returns {Promise<Object>} { canBuy, whitelistCount, blacklistCount, reason }
-   */
-  async checkHolderRisk(tokenAddress, experimentId, signalId, chain = 'bsc') {
-    // [已停用] 持有者检查 — 回测时获取的是最新数据而非历史快照，不适合作为回测因子
-    return { canBuy: true, whitelistCount: 0, blacklistCount: 0, reason: '持有者检查已停用' };
-    /* 原始实现：
-    try {
-      await this._ensureCacheLoaded();
-      const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
-      const snapshotId = `${tokenAddress}_${Date.now()}`;
-      await this._storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData);
-      return this._checkHoldersWithCache(holderData.holders);
-    } catch (error) {
-      this.logger.error(null, 'TokenHolderService',
-        `检查持有者风险失败: ${tokenAddress} - ${_safeGetErrorMessage(error)}`);
-      return {
-        canBuy: false,
-        whitelistCount: 0,
-        blacklistCount: 0,
-        reason: `检查失败: ${_safeGetErrorMessage(error)}`
-      };
-    }
-    */
-  }
-
-  /**
-   * 综合持有者检查（一次性完成所有检查）
-   * 包括：黑/白名单检查 + Dev持仓比例检查 + 大额持仓检查
-   * @param {string} tokenAddress - 代币地址
-   * @param {string} creatorAddress - 创建者地址（可为null）
-   * @param {string} experimentId - 实验ID，可为null
-   * @param {string} signalId - 信号ID，可为null
-   * @param {string} chain - 区块链，默认 'bsc'
-   * @param {number} devThreshold - Dev持仓阈值（百分比），默认 15
-   * @param {number} largeHoldingThreshold - 大额持仓阈值（百分比），默认 18
-   * @returns {Promise<Object>} 综合检查结果
-   */
-  async checkAllHolderRisks(tokenAddress, creatorAddress, experimentId, signalId, chain = 'bsc', devThreshold = 15, largeHoldingThreshold = 18) {
-    // [已停用] 持有者检查 — 回测时获取的是最新数据而非历史快照，不适合作为回测因子
-    return { canBuy: true, whitelistCount: 0, blacklistCount: 0, devHoldingRatio: 0, maxHoldingRatio: 0, reason: '持有者检查已停用', blacklistReason: '', devReason: '', largeHoldingReason: '', holdersCount: 0 };
-    /* 原始实现：
-    try {
-      // 确保缓存已加载
-      await this._ensureCacheLoaded();
-
-      // 获取持有者数据（只调用一次 API）
-      const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
-
-      // 存储到数据库
-      const snapshotId = `${tokenAddress}_${Date.now()}`;
-      await this._storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData);
-
-      // 1. 黑/白名单检查
-      const blacklistCheck = this._checkHoldersWithCache(holderData.holders);
-
-      // 2. Dev 持仓检查
-      let devCheck = { canBuy: true, devHoldingRatio: 0, reason: '无创建者地址，跳过' };
-      if (creatorAddress) {
-        const creator = holderData.holders?.find(
-          h => h.address && h.address.toLowerCase() === creatorAddress.toLowerCase()
-        );
-        if (creator) {
-          const devHoldingRatio = _parseBalanceRatio(creator.balance_ratio);
-          const canBuy = devHoldingRatio < devThreshold;
-          devCheck = {
-            canBuy,
-            devHoldingRatio,
-            reason: canBuy
-              ? `Dev持仓比例${devHoldingRatio.toFixed(1)}%正常`
-              : `Dev持仓比例${devHoldingRatio.toFixed(1)}%超过阈值${devThreshold}%`
-          };
-        } else {
-          devCheck = { canBuy: true, devHoldingRatio: 0, reason: 'Dev不在持有者中' };
-        }
-      }
-
-      // 3. 大额持仓检查（排除LP地址）
-      const largeHoldingCheck = this._checkLargeHolding(holderData.holders, largeHoldingThreshold);
-
-      // 合并结果
-      const canBuy = blacklistCheck.canBuy && devCheck.canBuy && largeHoldingCheck.canBuy;
-      const reasons = [];
-      if (!blacklistCheck.canBuy) reasons.push(`黑/白名单: ${blacklistCheck.reason}`);
-      if (!devCheck.canBuy) reasons.push(`Dev持仓: ${devCheck.reason}`);
-      if (!largeHoldingCheck.canBuy) reasons.push(`大额持仓: ${largeHoldingCheck.reason}`);
-      if (canBuy && reasons.length === 0) {
-        reasons.push('所有持有者检查通过');
-      }
-
-      this.logger.info('[TokenHolderService] 综合持有者检查完成', {
-        token_address: tokenAddress,
-        creator_address: creatorAddress || 'none',
-        canBuy,
-        blacklistCheck,
-        devCheck,
-        largeHoldingCheck
-      });
-
-      return {
-        canBuy,
-        whitelistCount: blacklistCheck.whitelistCount,
-        blacklistCount: blacklistCheck.blacklistCount,
-        devHoldingRatio: devCheck.devHoldingRatio,
-        maxHoldingRatio: largeHoldingCheck.maxHoldingRatio,
-        reason: reasons.join('; '),
-        blacklistReason: blacklistCheck.reason,
-        devReason: devCheck.reason,
-        largeHoldingReason: largeHoldingCheck.reason,
-        // 返回持有者数据供后续使用（如果需要）
-        holdersCount: holderData.holders?.length || 0
-      };
-
-    } catch (error) {
-      const errorMessage = _safeGetErrorMessage(error);
-      this.logger.error('[TokenHolderService] 综合持有者检查失败', {
-        token_address: tokenAddress,
-        creator_address: creatorAddress,
-        error: errorMessage
-      });
-      // 出错时保守处理，拒绝购买
-      return {
-        canBuy: false,
-        whitelistCount: 0,
-        blacklistCount: 0,
-        devHoldingRatio: 0,
-        maxHoldingRatio: 0,
-        reason: `持有者检查失败: ${errorMessage}`,
-        blacklistReason: `检查失败: ${errorMessage}`,
-        devReason: `检查失败: ${errorMessage}`,
-        largeHoldingReason: `检查失败: ${errorMessage}`,
-        holdersCount: 0
-      };
-    }
-    */
-  }
-
-  /**
-   * 从AVE获取持有者数据
-   * @private
-   */
-  async _getHoldersFromAVE(tokenAddress, chain = 'bsc') {
-    // [已停用] 不再获取持有者数据
-    return { holders: [], token: tokenAddress };
-    /* 原始实现：
-    if (!this.aveApi) {
-      const { AveTokenAPI } = require('../../core/ave-api');
-      const apiKey = process.env.AVE_API_KEY;
-
-      this.aveApi = new AveTokenAPI(
-        config.ave.apiUrl,
-        config.ave.timeout,
-        apiKey
-      );
-    }
-
-    const tokenId = `${tokenAddress}-${chain}`;
-    const holders = await this.aveApi.getTokenTop100Holders(tokenId);
-
-    if (!holders || !Array.isArray(holders)) {
-      throw new Error('AVE API返回数据格式错误');
-    }
-
-    return {
-      holders: holders,
-      token: tokenAddress
-    };
-    */
-  }
-
-  /**
-   * 私有方法：存储持有者数据（总是插入新记录）
-   * @private
-   */
-  async _storeHolders(tokenAddress, experimentId, signalId, snapshotId, holderData) {
-    // [已停用] 持有者数据存储
-    return;
-    /* 原始实现：
-    this.logger.info('[TokenHolderService] 准备存储持有者数据', {
-      token_address: tokenAddress,
-      experiment_id: experimentId,
-      signal_id: signalId,
-      holders_count: holderData.holders?.length || 0
-    });
-
-    const { error, data } = await this.supabase
-      .from('token_holders')
-      .insert({
-        token_address: tokenAddress,
-        experiment_id: experimentId,
-        signal_id: signalId,
-        holder_data: holderData,
-        snapshot_id: snapshotId
-      })
-      .select()
-      .single();
-
-    if (error) {
-      this.logger.error('[TokenHolderService] 插入失败', {
-        error: _safeGetErrorMessage(error),
-        details: error.hint || error.details || error.code,
-        token_address: tokenAddress,
-        experiment_id: experimentId,
-        signal_id: signalId
-      });
-      throw new Error(`存储持有者数据失败: ${_safeGetErrorMessage(error)}`);
-    }
-
-    this.logger.info('[TokenHolderService] 插入成功', {
-      token_address: tokenAddress,
-      experiment_id: experimentId,
-      signal_id: signalId,
-      inserted_id: data?.id
-    });
-    */
-  }
-
-  /**
-   * 私有方法：获取最新持有者数据
-   * @private
-   */
-  async _getLatestHolders(tokenAddress) {
-    // [已停用] 持有者数据查询
-    return null;
-    /* 原始实现：
-    const { data, error } = await this.supabase
-      .from('token_holders')
-      .select('holder_data')
-      .eq('token_address', tokenAddress)
-      .order('checked_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`查询持有者数据失败: ${_safeGetErrorMessage(error)}`);
-    }
-
-    return data?.holder_data;
-    */
-  }
-
-  /**
-   * 使用缓存检查持有者（新逻辑）
-   * @private
-   * @param {Array} holders - 持有者数组
-   * @returns {Object} { canBuy, whitelistCount, blacklistCount, reason }
-   */
-  _checkHoldersWithCache(holders) {
-    // [已停用] 持有者缓存检查
-    return { canBuy: true, whitelistCount: 0, blacklistCount: 0, reason: '持有者检查已停用' };
-    /* 原始实现：
-    if (!holders || holders.length === 0) {
-      return {
-        canBuy: true,
-        whitelistCount: 0,
-        blacklistCount: 0,
-        reason: '无持有者数据'
-      };
-    }
-
-    let whitelistCount = 0;
-    let blacklistCount = 0;
-    const matchedBlacklist = [];
-    const matchedWhitelist = [];
-
-    holders.forEach(holder => {
-      const addr = holder.address?.toLowerCase();
-      if (!addr) return;
-
-      if (this._whitelistAddresses.has(addr)) {
-        whitelistCount++;
-        matchedWhitelist.push(addr);
-      } else if (this._blacklistAddresses.has(addr)) {
-        blacklistCount++;
-        matchedBlacklist.push(addr);
-      }
-    });
-
-    const canBuy = this._evaluateCanBuy(whitelistCount, blacklistCount);
-    const reason = this._getReason(whitelistCount, blacklistCount, canBuy);
-
-    this.logger.info('[TokenHolderService] 持有者检查结果', {
-      whitelistCount,
-      blacklistCount,
-      canBuy,
-      reason,
-      matchedBlacklist: matchedBlacklist.slice(0, 5),
-      matchedWhitelist: matchedWhitelist.slice(0, 5)
-    });
-
-    return {
-      canBuy,
-      whitelistCount,
-      blacklistCount,
-      reason
-    };
-    */
-  }
-
-  /**
    * 评估是否可以购买
    * @private
    * @param {number} whitelistCount - 白名单数量
@@ -503,38 +131,6 @@ class TokenHolderService {
    */
   _evaluateCanBuy(whitelistCount, blacklistCount) {
     return true;
-  }
-
-  /**
-   * 生成原因说明
-   * @private
-   * @param {number} whitelistCount - 白名单数量
-   * @param {number} blacklistCount - 黑名单数量
-   * @param {boolean} canBuy - 是否可以购买
-   * @returns {string}
-   */
-  _getReason(whitelistCount, blacklistCount, canBuy) {
-    // [已停用] 持有者原因描述
-    return '持有者检查已停用';
-    /* 原始实现：
-    if (canBuy) {
-      if (whitelistCount === 0 && blacklistCount === 0) {
-        return '无黑白名单命中';
-      }
-      return `白名单${whitelistCount}个 >= 黑名单${blacklistCount}个 × 2，且黑名单 ≤ 10`;
-    }
-
-    if (blacklistCount > 10) {
-      return `黑名单持有者过多(${blacklistCount}个 > 10)`;
-    }
-    if (blacklistCount > 0 && whitelistCount < blacklistCount * 2) {
-      return `白名单不足(${whitelistCount}个 < 黑名单${blacklistCount}个 × 2)`;
-    }
-    if (blacklistCount > 0 && whitelistCount === 0) {
-      return `命中黑名单但无白名单抵消(${blacklistCount}个黑名单)`;
-    }
-    return '未知原因';
-    */
   }
 
   /**
@@ -631,153 +227,6 @@ class TokenHolderService {
       return '早期交易者无黑白名单命中';
     }
     return `早期交易者黑白名单: 白名单${whitelistCount}个, 黑名单${blacklistCount}个`;
-  }
-
-  /**
-   * 检查Dev持仓比例是否超过阈值
-   * @param {string} tokenAddress - 代币地址
-   * @param {string} creatorAddress - 创建者地址
-   * @param {string} chain - 区块链
-   * @param {number} threshold - 阈值（百分比，如15表示15%）
-   * @returns {Promise<Object>} { canBuy, devHoldingRatio, reason }
-   */
-  async checkDevHoldingRatio(tokenAddress, creatorAddress, chain = 'bsc', threshold = 15) {
-    // [已停用] Dev持仓检查 — 依赖持有者数据
-    return { canBuy: true, devHoldingRatio: 0, reason: 'Dev持仓检查已停用' };
-    /* 原始实现：
-    try {
-      this.logger.info('[TokenHolderService] 开始Dev持仓检查', {
-        token_address: tokenAddress,
-        creator_address: creatorAddress,
-        threshold: `${threshold}%`
-      });
-
-      if (!creatorAddress) {
-        return {
-          canBuy: true,
-          devHoldingRatio: 0,
-          reason: '无创建者地址，跳过Dev持仓检查'
-        };
-      }
-
-      const holderData = await this._getHoldersFromAVE(tokenAddress, chain);
-
-      if (!holderData.holders || holderData.holders.length === 0) {
-        return {
-          canBuy: true,
-          devHoldingRatio: 0,
-          reason: '无持有者数据，跳过Dev持仓检查'
-        };
-      }
-
-      const creator = holderData.holders.find(
-        h => h.address && h.address.toLowerCase() === creatorAddress.toLowerCase()
-      );
-
-      if (!creator) {
-        this.logger.info('[TokenHolderService] Dev不在持有者中', {
-          token_address: tokenAddress,
-          creator_address: creatorAddress
-        });
-        return {
-          canBuy: true,
-          devHoldingRatio: 0,
-          reason: 'Dev不在持有者中'
-        };
-      }
-
-      const devHoldingRatio = _parseBalanceRatio(creator.balance_ratio);
-      const canBuy = devHoldingRatio < threshold;
-
-      this.logger.info('[TokenHolderService] Dev持仓检查结果', {
-        token_address: tokenAddress,
-        creator_address: creatorAddress,
-        devHoldingRatio: `${devHoldingRatio.toFixed(1)}%`,
-        threshold: `${threshold}%`,
-        canBuy
-      });
-
-      return {
-        canBuy,
-        devHoldingRatio,
-        reason: canBuy
-          ? `Dev持仓比例${devHoldingRatio.toFixed(1)}%正常`
-          : `Dev持仓比例${devHoldingRatio.toFixed(1)}%超过阈值${threshold}%`
-      };
-
-    } catch (error) {
-      const errorMessage = error?.message || error?.error || String(error);
-      this.logger.error('[TokenHolderService] Dev持仓检查失败', {
-        token_address: tokenAddress,
-        creator_address: creatorAddress,
-        error: errorMessage,
-        errorType: error?.constructor?.name || typeof error
-      });
-      return {
-        canBuy: false,
-        devHoldingRatio: 0,
-        reason: `Dev持仓检查失败: ${errorMessage}`
-      };
-    }
-    */
-  }
-
-  /**
-   * 检查是否有任何持有者（排除LP地址）持仓比例超过阈值
-   * @param {Array} holders - 持有者数组
-   * @param {number} threshold - 阈值（百分比，如18表示18%），默认 18
-   * @returns {Object} { canBuy, maxHoldingRatio, maxHolderAddress, reason }
-   */
-  _checkLargeHolding(holders, threshold = 18) {
-    // [已停用] 大额持仓检查 — 依赖持有者数据
-    return { canBuy: true, maxHoldingRatio: 0, maxHolderAddress: null, reason: '大额持仓检查已停用' };
-    /* 原始实现：
-    if (!holders || holders.length === 0) {
-      return {
-        canBuy: true,
-        maxHoldingRatio: 0,
-        maxHolderAddress: null,
-        reason: '无持有者数据'
-      };
-    }
-
-    let maxHoldingRatio = 0;
-    let maxHolderAddress = null;
-
-    holders.forEach(holder => {
-      const addr = holder.address?.toLowerCase();
-      if (!addr) return;
-
-      if (this._lpAddresses.has(addr)) {
-        return;
-      }
-
-      const holdingRatio = _parseBalanceRatio(holder.balance_ratio);
-      if (holdingRatio > maxHoldingRatio) {
-        maxHoldingRatio = holdingRatio;
-        maxHolderAddress = addr;
-      }
-    });
-
-    const canBuy = maxHoldingRatio < threshold;
-    const reason = canBuy
-      ? `最大持仓比例${maxHoldingRatio.toFixed(1)}%正常`
-      : `最大持仓比例${maxHoldingRatio.toFixed(1)}%超过阈值${threshold}% (地址:${maxHolderAddress})`;
-
-    this.logger.info('[TokenHolderService] 大额持仓检查结果', {
-      maxHoldingRatio: `${maxHoldingRatio.toFixed(1)}%`,
-      maxHolderAddress,
-      threshold: `${threshold}%`,
-      canBuy
-    });
-
-    return {
-      canBuy,
-      maxHoldingRatio,
-      maxHolderAddress,
-      reason
-    };
-    */
   }
 }
 
