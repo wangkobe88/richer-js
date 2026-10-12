@@ -145,6 +145,7 @@ function makeEngineStub({ rows, platforms, startFilter = null, endFilter = null,
     _fetchHeadTickId: BacktestEngine.prototype._fetchHeadTickId,
     _probeIncrementalTickId: BacktestEngine.prototype._probeIncrementalTickId,
     _anchorRowExists: BacktestEngine.prototype._anchorRowExists,
+    _mapPool: BacktestEngine.prototype._mapPool,   // P5 装载段并发池（探针/fetch 内部调用）
     _getClient: () => makeFakeSupabaseV2(rows, supabaseOpts),
   };
   return stub;
@@ -591,6 +592,7 @@ function ok(cond, label) { assert.ok(cond, label); passed++; console.log(`  ✓ 
         metrics: { processedDataPoints: 0 },
         _fetchPlatformTicksRows: BacktestEngine.prototype._fetchPlatformTicksRows,
         _fetchHeadTickId: BacktestEngine.prototype._fetchHeadTickId,
+        _mapPool: BacktestEngine.prototype._mapPool,   // P5 装载段并发池
         _getClient: () => makeFakeSupabaseV2(rows, supabaseOpts),
       };
     };

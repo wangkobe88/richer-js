@@ -44,6 +44,10 @@ const TOKEN_CHUNK_SIZE = 50;      // .in 批大小（探针 + 数据装载合一
                                   //（探针 LIMIT 1 / count exact 实测皆 <100ms），装载已切锚定
                                   // 无序拉取（_fetchPlatformTicksRows）
 const PAGE_ATTEMPTS = 3;          // 单页拉取重试上限（探针 PROBE_ATTEMPTS 同款；连续失败 throw）
+const LOAD_POOL_CONCURRENCY = 5;  // 装载段批并发（P5，2026-10-12）：探针/fetch 外层 chunk/
+                                  // graduation 三处共用（perf6 实测 fourmeme 探针 152s + fetch
+                                  // 92s 全是 1915 批串行 RTT，flap 同构；5 与 P3d 龙头
+                                  // candidateConcurrency 同值，对同一 Supabase 已实证安全）
 const SNAPSHOT_INTERVAL_MS = 30 * 1000; // 组合快照虚拟时间桶（对齐实时引擎 30s）
 // ticks 拉取列清单单一事实源：拉取查询与 BacktestTickCache columnsTag 同源
 //（列变更时旧缓存自动判废重拉，不静默缺列）
@@ -770,13 +774,23 @@ class BacktestEngine extends AbstractTradingEngine {
       await loadChunk(chunk.slice(mid));
     };
 
+    // 外层 chunk 并发（P5）：chunk 间独立（共享 rows 数组只 push，行序由调用方全局
+    // 排序兜底）；单 chunk 内部递归拆分/keyset 仍串行。maxTickRows 护栏在并发下
+    // 允许 ≤ limit×1000 行的过冲才触发（护栏防「拉错集合」意外，非正确性机制——
+    // 行数对账保证无重复无遗漏，见方法头注释）
+    const chunks = [];
     for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
-      if (ci > 0 && (ci / TOKEN_CHUNK_SIZE) % 200 === 0) {
-        this.logger.info(this._experimentId, 'BacktestEngine',
-          `⏳ ${platform} ticks 无序拉取进度: token ${ci}/${addresses.length}（已取 ${rows.length} 行）`);
-      }
-      await loadChunk(addresses.slice(ci, ci + TOKEN_CHUNK_SIZE));
+      chunks.push(addresses.slice(ci, ci + TOKEN_CHUNK_SIZE));
     }
+    let doneChunks = 0;
+    await this._mapPool(chunks, LOAD_POOL_CONCURRENCY, async (chunk) => {
+      await loadChunk(chunk);
+      doneChunks++;
+      if (doneChunks % 200 === 0) {
+        this.logger.info(this._experimentId, 'BacktestEngine',
+          `⏳ ${platform} ticks 无序拉取进度: token ${doneChunks * TOKEN_CHUNK_SIZE}/${addresses.length}（已取 ${rows.length} 行）`);
+      }
+    });
     return rows;
   }
 
@@ -823,11 +837,10 @@ class BacktestEngine extends AbstractTradingEngine {
    * 超时）；连续 3 次失败仍 throw 保持 bypass 语义（真故障不掩盖）。
    */
   async _probeIncrementalTickId(supabase, addresses, platform, afterId) {
-    let maxId = null;
     const anchored = Number.isFinite(afterId) && afterId > 0;
     const PROBE_ATTEMPTS = 3;
-    for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
-      const chunk = addresses.slice(ci, ci + TOKEN_CHUNK_SIZE);
+    // 单批探测（P5：批间并发，批内重试语义不变——锚定无序 LIMIT 1 形状逐请求不动）
+    const probeChunk = async (chunk) => {
       let data = null;
       for (let attempt = 1; attempt <= PROBE_ATTEMPTS; attempt++) {
         let q = supabase
@@ -843,10 +856,17 @@ class BacktestEngine extends AbstractTradingEngine {
         }
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      if (data && data.length > 0) {
-        const id = Number(data[0].id);
-        if (maxId === null || id > maxId) maxId = id;
-      }
+      return data && data.length > 0 ? Number(data[0].id) : null;
+    };
+    const chunks = [];
+    for (let ci = 0; ci < addresses.length; ci += TOKEN_CHUNK_SIZE) {
+      chunks.push(addresses.slice(ci, ci + TOKEN_CHUNK_SIZE));
+    }
+    // 聚合取 max 与串行版等价（结果按输入序返回 + max 可交换）
+    const observed = await this._mapPool(chunks, LOAD_POOL_CONCURRENCY, probeChunk);
+    let maxId = null;
+    for (const id of observed) {
+      if (id != null && (maxId === null || id > maxId)) maxId = id;
     }
     return maxId;
   }
@@ -869,6 +889,34 @@ class BacktestEngine extends AbstractTradingEngine {
   _getClient() {
     const { dbManager } = require('../../services/dbManager');
     return dbManager.getClient();
+  }
+
+  /**
+   * 有界并发池（P5 装载段并发化，2026-10-12）：items 经 fn 逐个处理，任意时刻
+   * 在飞任务 ≤ limit；结果按输入序返回（与串行 map 等价，调用方排序/聚合不感知
+   * 并发——装载三处全部 order-independent：fetch 行序由 _loadWssTicks 全局排序、
+   * 探针聚合取 max、graduation 装载后按 tsMs 排序）。
+   * 错误语义对齐串行版 fail-loud：首个错误停止派发新任务、等在飞任务 settle
+   * （全部只读请求无副作用需取消）后 rethrow 首错。
+   */
+  async _mapPool(items, limit, fn) {
+    const results = new Array(items.length);
+    let next = 0;
+    let firstErr = null;
+    const worker = async () => {
+      while (next < items.length && !firstErr) {
+        const i = next++;
+        try {
+          results[i] = await fn(items[i], i);
+        } catch (e) {
+          if (!firstErr) firstErr = e;
+        }
+      }
+    };
+    const n = Math.max(1, Math.min(limit, items.length));
+    await Promise.all(Array.from({ length: n }, () => worker()));
+    if (firstErr) throw firstErr;
+    return results;
   }
 
   /**
@@ -1120,24 +1168,34 @@ class BacktestEngine extends AbstractTradingEngine {
     const supabase = this._getClient();
     const addresses = [...this._tokenMeta.keys()];
     // 批 50（对齐 TOKEN_CHUNK_SIZE）：.in() 参数走 URL，批 500 时 500×43 字符 ≈ 21.5KB
-    // 超网关 8KB 限制 → fetch failed（74444a0c 首启实证：连续 3 次重试全死）
+    // 超网关 8KB 限制 → fetch failed（74444a0c 首启实证：连续 3 次重试全死）。
+    // 批间并发（P5，2026-10-12）：kind 无索引的全局形状 8s 超时毙掉（3.95M 行顺序扫），
+    // 现行 .in(50)+kind 形状每批 ~40ms 健康只是串行 RTT 堆积（1915 批 ≈ 85s 取 311 行）
     const BATCH = 50;
-    let total = 0;
-    for (let i = 0; i < addresses.length; i += BATCH) {
+    const fetchGradBatch = async (batch) => {
       let data = null;
       for (let attempt = 1; attempt <= PAGE_ATTEMPTS; attempt++) {
         const res = await supabase
           .from('wss_events')
           .select('token_address, payload, block_time')
           .eq('kind', 'graduation')
-          .in('token_address', addresses.slice(i, i + BATCH));
+          .in('token_address', batch);
         if (!res.error) { data = res.data; break; }
         if (attempt === PAGE_ATTEMPTS) {
           throw new Error(`读取 wss_events graduation 失败（连续 ${PAGE_ATTEMPTS} 次）: ${res.error.message}`);
         }
         await new Promise(r => setTimeout(r, 1000));
       }
-      for (const row of data || []) {
+      return data || [];
+    };
+    const batches = [];
+    for (let i = 0; i < addresses.length; i += BATCH) {
+      batches.push(addresses.slice(i, i + BATCH));
+    }
+    const batchRows = await this._mapPool(batches, LOAD_POOL_CONCURRENCY, fetchGradBatch);
+    let total = 0;
+    for (const rows of batchRows) {
+      for (const row of rows) {
         const payload = row.payload || {};
         const tsMs = Number(payload.blockTimeMs)
           || (row.block_time ? new Date(row.block_time).getTime() : 0);
