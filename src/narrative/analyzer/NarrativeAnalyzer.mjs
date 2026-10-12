@@ -873,6 +873,12 @@ export class NarrativeAnalyzer {
    *   nullsLast 取最新一致）
    */
   static async preloadCache(tokenAddresses) {
+    // 回测预载语境开启 external_resource_cache miss 负缓存（回测 = 装载时点快照
+    // 口径，与 token_narrative 预载同族）：预载集合外的 miss URL 不再每次直调
+    // 重打一次 DB miss（perf5 实测 2994 次 × ~25ms ≈ 75s 纯浪费）。实时链路
+    // 不走 preloadCache，开关恒关行为零变化
+    ExternalResourceCache.setNegativeCacheEnabled(true);
+
     const tokenSet = new Set((tokenAddresses || []).map(a => String(a).toLowerCase()));
     if (!tokenSet.size) return { rowCache: new Map(), tweetRows: 0 };
 

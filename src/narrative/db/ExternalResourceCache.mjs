@@ -18,6 +18,24 @@ export class ExternalResourceCache {
   static _preloadStore = new Map();
 
   /**
+   * miss 负缓存（回测叙事预载 2026-10-12，perf5 终验画像）：analyze 缓存命中路径的
+   * reassembleTwitterInfo → get 在预载集合外/无行 URL 上每次直调重打一次 DB miss
+   * （perf5 实测 2994 次 × ~25ms ≈ 75s 纯浪费）。启用后 DB miss 登记键，后续 get
+   * 直接 null 零 DB；set 写入成功即清除该键（真析 fetch→set→下次命中的闭环自洽）。
+   * 口径统一（与 token_narrative 预载快照 25c02dd 同族）：回放中段外部进程新写入的
+   * 行不再被回测读到——回测 = 装载时点快照。默认关：实时链路每查 DB 的行为不变
+   * （失败冷却/竞态窗口语义保留）。preloadCache 开启，进程生命周期有效。
+   */
+  static _negativeCacheEnabled = false;
+  static _missStore = new Set();
+
+  /** 回测预载语境开关（NarrativeAnalyzer.preloadCache 开启；关时清空登记） */
+  static setNegativeCacheEnabled(v) {
+    this._negativeCacheEnabled = !!v;
+    if (!v) this._missStore.clear();
+  }
+
+  /**
    * 批量预拉缓存行灌预载层（回测叙事预载专用）
    * @param {Array<[string, string]>} keys - [resourceType, url] 对数组
    * @returns {Promise<number>} 灌入行数
@@ -28,6 +46,7 @@ export class ExternalResourceCache {
     const urls = [...urlSet];
     const CHUNK = 100; // .in() URL 长度坑（8KB）——既有批 100 先例
     let loaded = 0;
+    const returned = new Set();
     for (let i = 0; i < urls.length; i += CHUNK) {
       const { data, error } = await dbManager.getSupabase()
         .from('external_resource_cache')
@@ -37,7 +56,16 @@ export class ExternalResourceCache {
       if (error) throw error;
       for (const row of data || []) {
         this._preloadStore.set(`${row.resource_type}\u0000${row.url}`, row);
+        returned.add(`${row.resource_type}\u0000${row.url}`);
         loaded++;
+      }
+    }
+    // 预载时无行的键直接登记 miss（启用语境下首次 get 也零 DB；
+    // 未启用不登记——实时链路行为不变）
+    if (this._negativeCacheEnabled) {
+      for (const [rt, u] of keys) {
+        const k = `${rt}\u0000${u}`;
+        if (!returned.has(k) && !this._preloadStore.has(k)) this._missStore.add(k);
       }
     }
     return loaded;
@@ -61,6 +89,13 @@ export class ExternalResourceCache {
     if (pre) {
       const expiresBefore = new Date(Date.now() - maxAge * 1000);
       return (!pre.expires_at || new Date(pre.expires_at) >= expiresBefore) ? pre.content : null;
+    }
+
+    // miss 负缓存短路（回测预载语境，同日）：已确认无行的键直接 null 零 DB——
+    // 未启用（实时链路）永不短路，每查 DB 的原行为保留
+    const missKey = `${resourceType}\u0000${url}`;
+    if (this._negativeCacheEnabled && this._missStore.has(missKey)) {
+      return null;
     }
 
     try {
@@ -91,6 +126,8 @@ export class ExternalResourceCache {
       }
 
       console.log(`[ExternalResourceCache] 缓存未命中: ${resourceType} - ${url}`);
+      // DB miss 登记（启用语境；error 异常路径不登记——瞬时故障不固化）
+      if (this._negativeCacheEnabled) this._missStore.add(missKey);
       return null;
     } catch (error) {
       console.error('[ExternalResourceCache] 查询缓存异常:', error.message);
@@ -135,6 +172,9 @@ export class ExternalResourceCache {
         console.error('[ExternalResourceCache] 设置缓存失败:', error.message);
         return false;
       }
+
+      // 写入成功即解除 miss 登记（负缓存闭环：真析 fetch→set→下次 get 命中）
+      this._missStore.delete(`${resourceType}\u0000${url}`);
 
       console.log(`[ExternalResourceCache] 缓存已保存: ${resourceType} - ${url}`);
       return true;
@@ -232,6 +272,8 @@ export class ExternalResourceCache {
         console.error('[ExternalResourceCache] 删除缓存失败:', error.message);
         return false;
       }
+      // 显式失效同步清 miss 登记（下次 get 重查 DB 而非吃负缓存）
+      this._missStore.delete(`${resourceType}\u0000${url}`);
       return true;
     } catch (error) {
       console.error('[ExternalResourceCache] 删除缓存异常:', error.message);
