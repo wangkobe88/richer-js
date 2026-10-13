@@ -100,12 +100,24 @@ class ExperimentStatsService {
 
   /**
    * 计算单个代币的盈亏（复用交易页面的计算方法）
+   *
+   * 排序 tie-breaker（2026-10-13 pr1b 对拍案）：回测 trades 的 created_at 是虚拟
+   * 回放时间，「买入成功点补毕业卖」等竞态形状会产生 buy/sell 同 created_at 的行。
+   * 原排序只按 created_at——Postgres 对相同 order key 的行顺序无契约（跨查询形状
+   * /跨实验漂移），FIFO 配对顺序随之漂移（perf16 vs pr1b trades 七字段 bit 一致却
+   * stats 差 1 票胜负 ±0.3 BNB，0xcc4d…7777 组 sell-buy 排列翻转实证）。次级键
+   * executed_at（真实执行墙钟，同刻虚拟时间的两行毫秒级分差）恢复业务执行序，
+   * id 作终极 tie 使 stats 成为 trades 的确定函数。live 实验同受益（createdAt
+   * 秒级精度下同秒多笔同构漂移）。
    */
   calculateTokenPnL(tokenAddress, tradesData) {
-    // 获取该代币的所有成功交易，按时间排序
+    // 获取该代币的所有成功交易，按时间排序（created_at → executed_at → id 三级）
     const tokenTrades = tradesData
       .filter(t => t.token_address === tokenAddress && (t.status === 'success' || t.trade_status === 'success'))
-      .sort((a, b) => new Date(a.created_at || a.executed_at) - new Date(b.created_at || b.executed_at));
+      .sort((a, b) =>
+        (new Date(a.created_at || a.executed_at) - new Date(b.created_at || b.executed_at)) ||
+        (new Date(a.executed_at || 0) - new Date(b.executed_at || 0)) ||
+        String(a.id).localeCompare(String(b.id)));
 
     if (tokenTrades.length === 0) {
       return null;
