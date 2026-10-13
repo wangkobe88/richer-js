@@ -86,15 +86,21 @@ async function main() {
     const src = fs.readFileSync(path.join(__dirname, '../src/trading-engine/implementations/BacktestEngine.js'), 'utf8');
     eq('C1 六段累计器键集',
       /const perf = this\._perf = \{ advance: 0, processTick: 0, buildFactorMap: 0, sell: 0, tpa: 0, other: 0 \};/.test(src), true);
-    // 六段每段都有配对的计时对（perf.X += Date.now() - _p0）
-    for (const seg of ['advance', 'processTick', 'buildFactorMap', 'sell', 'tpa', 'other']) {
+    // 六段每段都有配对的计时对（perf.X += Date.now() - _p0；P18 后 buildFactorMap
+    // 改独立 _b0 计时器——只包 build 本体，分支路由/谓词耗时归 other，防止
+    // buildFactorMap 段虚高吞掉 other）
+    for (const seg of ['advance', 'processTick', 'sell', 'tpa', 'other']) {
       eq(`C2 段 ${seg} 累计点存在`, new RegExp(`perf\\.${seg} \\+= Date\\.now\\(\\) - _p0;`).test(src), true);
     }
+    eq('C2 段 buildFactorMap 累计点存在（P18 独立 _b0 计时）',
+      /perf\.buildFactorMap \+= Date\.now\(\) - _b0;/.test(src), true);
     eq('C3 finally 汇总打印（直调/preBuy 子计数器接入）',
       /⏱️ 回放耗时分布/.test(src) && /this\._narrativeCaller\.getCallStats\(\)/.test(src)
       && /this\._preBuyCheckService\.getPerfStats\(\)/.test(src), true);
     eq('C4 buildFactorMap 后 continue 不丢段（计时先于 continue）',
-      /perf\.buildFactorMap \+= Date\.now\(\) - _p0;\n        if \(!factors\) continue;/.test(src), true);
+      /perf\.buildFactorMap \+= Date\.now\(\) - _b0;\n          if \(!factors\) continue;/.test(src), true);
+    eq('C4 P18 skip 路径 continue 先结算 other（谓词耗时归 other 不丢段）',
+      /\} else if \(this\._factorAggregator\.shouldSkipTickBuild\(tick\.token_address, tick\.timestamp\)\) \{\n          perf\.other \+= Date\.now\(\) - _p0;\n          continue;/.test(src), true);
     eq('C5 无 token continue 同样先结算 other',
       /if \(!token\) \{ perf\.other \+= Date\.now\(\) - _p0; continue; \}/.test(src), true);
   }
