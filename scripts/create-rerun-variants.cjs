@@ -28,7 +28,7 @@
 // 跑序无依赖，可串行跑；⚠️ 必须等画像库重建完成 + 删死行之后再启动 run-engine
 // （回测启动时读画像库，混杂期数据脏）。
 //
-// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm|v0|e50|eno|enl|ec0|pf0 [--gm-pct <50-100>] [--commit]
+// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm|v0|e50|eno|enl|ec0|pf0|pr1|tb0 [--gm-pct <50-100>] [--commit]
 //   默认 dry-run 打印各臂 diff 摘要；--commit 真建。gm 臂须显式 --gm-pct（dry-run 定档值）。
 // ============================================================================
 const path = require('path');
@@ -37,6 +37,7 @@ require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
 const E15401A9 = 'e15401a9-ddf9-4760-8ecc-b7b7b75815bc'; // 窗口 2 基底 R0b
 const E3E57ED75 = '3e57ed75-133e-497d-b8c8-b190eca2a6b8'; // 窗口 1 三门臂
 const ETNONE = '37bd7349-b3b7-4fb5-80af-f9f81615349c'; // 窗口 1 去TPA门臂（2026-10-11 消融链基底）
+const EPERF16 = '598a1a73-c509-499e-99f3-326991b9b75a'; // perf16（2026-10-12 perf 链终点，代码=80a591e P15）
 
 // lag 门整条子句（含前导 AND，与源 pbc 逐字对齐）
 const LAG_CLAUSE = ' AND (narrativeCorpusLagSec < 300 OR earlyReturn >= 100)';
@@ -98,6 +99,9 @@ const ARMS = {
     pf0: { src: ETNONE, suffix: '-pf验证', desc: 'v0 + backtest.faPreFilter=true（P2-1 双跑验证：超龄未持仓 tick 跳过因子构建，开/关 trades 须 bit-identical）' },
     perf: { src: ETNONE, suffix: '-perf基准', desc: '性能基准臂（v0 config 逐字复刻：P1 探针 + P2a/b/c + 叙事预载 + preFilter 修复后首次实跑；对拍 5517e3db=同 config 旧代码 64.4min/129.97 万 tick）' },
     perf2: { src: ETNONE, suffix: '-perf2快照缓存', desc: '性能臂二代（2026-10-12：perf config + AVE 同名搜索 TTL 缓存 300s + 快照化代码 b5eccae。perf 实测定因：preBuy 拦截 token 每 fire 重走全链，AVE 实时搜索 ~2.7×调用量成主耗时；TTL 内同 symbol 复用搜索结果省 95%+ 网络往返，同 symbol 窗口内数据一致=回测决定性更强）' },
+    // ── P17/P18 验证臂（2026-10-13，源=perf16 逐字克隆，见 main 里独立分支）──
+    pr1: { src: EPERF16, suffix: '-pr1-P17prune', desc: 'P17 虚拟时钟 prune 对拍臂（perf16 config 逐字复刻，唯一变量=代码 80a591e→HEAD：P5 死删+P17 prune+P18 关侧三批联合；验收=trades/signals 对拍 perf16 bit 一致 + --max-old-space-size=2048 全窗存活（此前 2G 双崩）+ faPruned>0）' },
+    tb0: { src: EPERF16, suffix: '-tb0-P18tickBuildSkip', desc: 'P18 tick 路径 build 条件化对拍臂（perf16 config + backtest.tickBuildSkip=true；对拍 pr1（同代码）trades/signals bit 一致后翻默认 true；与 pr1 唯一差异=开关）' },
 };
 
 const args = process.argv.slice(2);
@@ -127,17 +131,20 @@ function strip(cfg) {
 async function main() {
     const { ExperimentFactory } = require('../src/trading-engine/factories/ExperimentFactory');
     const factory = ExperimentFactory.getInstance();
-    const [srcA, srcB, srcT] = await Promise.all([factory.load(E15401A9), factory.load(E3E57ED75), factory.load(ETNONE)]);
+    const [srcA, srcB, srcT, srcP] = await Promise.all([
+        factory.load(E15401A9), factory.load(E3E57ED75), factory.load(ETNONE), factory.load(EPERF16),
+    ]);
     if (!srcA) throw new Error('源实验不存在: ' + E15401A9);
     if (!srcB) throw new Error('源实验不存在: ' + E3E57ED75);
     if (!srcT) throw new Error('源实验不存在: ' + ETNONE);
+    if (!srcP) throw new Error('源实验不存在: ' + EPERF16);
 
-    const toRun = ARM === 'all' ? Object.keys(ARMS).filter(a => a !== 'gm' && a !== 'perf' && a !== 'perf2') : [ARM]; // all 不含 gm（须单建+定档）/perf/perf2（须单建）
+    const toRun = ARM === 'all' ? Object.keys(ARMS).filter(a => a !== 'gm' && a !== 'perf' && a !== 'perf2' && a !== 'pr1' && a !== 'tb0') : [ARM]; // all 不含 gm（须单建+定档）/perf/perf2/pr1/tb0（须单建）
     const created = [];
 
     for (const arm of toRun) {
         const def = ARMS[arm];
-        const src = def.src === E15401A9 ? srcA : (def.src === ETNONE ? srcT : srcB);
+        const src = def.src === E15401A9 ? srcA : (def.src === ETNONE ? srcT : (def.src === EPERF16 ? srcP : srcB));
         const cfg = JSON.parse(JSON.stringify(src.config));
         const buy = cfg.strategiesConfig.buyStrategies[0];
         const origPbc = buy.preBuyCheckCondition;
@@ -268,12 +275,24 @@ async function main() {
             }
             buy.preBuyCheckCondition = pbc;
             cfg.backtest.faPreFilter = true;
+        } else if (arm === 'pr1' || arm === 'tb0') {
+            // P17/P18 验证臂（2026-10-13）：perf16 config 逐字克隆零改动（pr1）/
+            // 仅叠 backtest.tickBuildSkip=true（tb0）。pbc/condition 不动——源已是
+            // perf 链终态 config，唯一变量=代码版本（pr1 对拍 perf16）/代码+开关
+            //（tb0 对拍 pr1）
+            if (!cfg.backtest) throw new Error(`[${arm}] 源 config 无 backtest 段`);
+            if (arm === 'tb0') {
+                if (cfg.backtest.tickBuildSkip !== undefined) {
+                    throw new Error(`[${arm}] 源 backtest 已含 tickBuildSkip（意外形状防静默覆盖）`);
+                }
+                cfg.backtest.tickBuildSkip = true;
+            }
         }
 
         // diff 校验：b1/b2 与源零差异；c/d10/d5 除 pbc 外零差异；t22/t20 除 condition 外零差异
         const chk = JSON.parse(JSON.stringify(cfg));
         delete chk.name; delete chk.description;
-        if (arm === 'b1' || arm === 'b2') {
+        if (arm === 'b1' || arm === 'b2' || arm === 'pr1') {
             if (JSON.stringify(chk) !== JSON.stringify((({ name, description, ...rest }) => rest)(src.config))) {
                 throw new Error(`[${arm}] 与源实验差异超出 name/description——应零差异`);
             }
@@ -302,6 +321,8 @@ async function main() {
             } else if (arm === 'perf2') { // 差异仅 pbc + preBuyCheck.sameNameSearchCacheTtlSec
                 base.strategiesConfig.buyStrategies[0].preBuyCheckCondition = buy.preBuyCheckCondition;
                 base.preBuyCheck = { ...(base.preBuyCheck || {}), sameNameSearchCacheTtlSec: 300 };
+            } else if (arm === 'tb0') { // 差异仅 backtest.tickBuildSkip
+                base.backtest.tickBuildSkip = true;
             } else { // t22/t20/tnone：差异仅 condition
                 base.strategiesConfig.buyStrategies[0].condition = buy.condition;
             }
@@ -312,7 +333,8 @@ async function main() {
                             : (arm === 'ec0' ? 'pbc+condition+去tokenCycle段'
                                 : (arm === 'pf0' ? 'pbc+faPreFilter'
                                 : (arm === 'perf2' ? 'pbc+sameNameTTL'
-                                : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition'))))));
+                                : (arm === 'tb0' ? 'backtest.tickBuildSkip'
+                                : (arm === 'gm' ? 'condition+gmgnFilter' : 'condition')))))));
                 require('fs').writeFileSync(`/tmp/arm_diff_chk_${arm}.json`, JSON.stringify(chk, null, 1));
                 require('fs').writeFileSync(`/tmp/arm_diff_base_${arm}.json`, JSON.stringify(base, null, 1));
                 throw new Error(`[${arm}] 与源实验差异超出 name/description/${field}——应零差异（两侧已写 /tmp/arm_diff_{chk,base}_${arm}.json 可 diff）`);
@@ -320,6 +342,11 @@ async function main() {
         }
 
         cfg.name = (src.config.name || src.config.experiment_name || '回测') + def.suffix;
+        if (arm === 'pr1' || arm === 'tb0') {
+            cfg.description = `${def.desc}（perf16 config ${
+                arm === 'pr1' ? 'bit-identical 逐字复刻' : '唯一增量 backtest.tickBuildSkip=true'
+            }；跑法 NODE_OPTIONS=--max-old-space-size=2048 node src/run-engine.js <id>）`;
+        } else {
         cfg.description = `${def.desc}：源 ${def.src} config ` + (arm === 'b1' || arm === 'b2'
             ? 'bit-identical（同窗口同源），唯一变量 = TPA 链路+画像库二期切 wallet 口径（9d18253）'
             : (arm === 'c'
@@ -348,6 +375,7 @@ async function main() {
                                                         ? 'v0 基础 + backtest.faPreFilter=true（2026-10-12 P2-1 双跑验证：超龄未持仓 tick 跳过因子构建；v0=关侧对照，trades 须 bit-identical + TPA 行数差 = 超龄触发损失面）'
                                                         : `pbc ${UW_OLD} 放宽（用户裁定 2026-10-10）`)))))))))))))
             + `；画像库 = 二期 sender 口径重建版。`;
+        }
 
         console.log(`\n===== 臂 ${arm}（源 ${def.src}）=====`);
         console.log('  name:', cfg.name);
