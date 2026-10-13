@@ -11,6 +11,12 @@
  * F. 毕业卖事故反证（plan P7 最大坑：state 被 prune → buildFactorMap null → 毕业卖
  *    「无因子」失败每 tick 重试）——保护集含毕业 token 时必须存活
  * G. 源码口径防线（红线 6：回测路径禁 Date.now——prune 判定时钟必须传 tickTs）
+ * H. P17 复流重锚（2026-10-13 pr1 分叉根因修复）：prune 后复流首 tick 引擎侧按
+ *    源实验 meta 权威锚重注册——防 processTick 自动建 state 锚=复流时刻 → age
+ *    归零回进买窗（卡骆驰 0x2d145db9 案：46min 断流复流出 perf16 没有的信号
+ *    +121，build 成功不 continue 连带止损扫描网格相位漂移 → 7 笔时间止损卖出
+ *    时刻差 2-21s）。买窗 max ≪ prune 窗 → 复流票真实 age 恒出窗 → 与无 prune
+ *    行为 bit 一致
  */
 
 const assert = require('assert');
@@ -53,6 +59,10 @@ function mkTick(addr, ts, extra = {}) {
 }
 
 const MIN = 60 * 1000;
+
+// 整体包 async IIFE：H5 节 await 驱动 _runMainLoop，必须等它完成再跑 H6 与汇总
+//（否则同步流先打汇总，H5 断言迟到——_test_backtest_tick_build_skip 同款结构）
+(async () => {
 
 // ── A. 第三参 nowMs 语义 ─────────────────────────────────────────────────
 console.log('A. pruneStaleTokens 虚拟时钟参数');
@@ -256,7 +266,235 @@ console.log('G. 源码口径断言');
   ok(pruneBlock.includes('catch (err)'), 'G8 prune 失败 catch 不中断回放（对齐 live）');
 }
 
+// ── H. P17 复流重锚（pr1 分叉根因修复）───────────────────────────────────
+console.log('H. 复流重锚（prune 后复流首 tick 权威锚重注册）');
+{
+  const T0 = 1_700_000_000_000;
+
+  // H1: 引擎侧重注册——prune 后 state 缺失 → registerToken(权威锚) → 锚保持
+  {
+    const fa = newFa();
+    fa.registerToken('0xre1', { createdAtMs: T0, totalSupply: 1e9 });
+    fa.processTick(mkTick('0xre1', T0, { price_bnb: 2e-9 }), { emitFactors: false });
+    fa.pruneStaleTokens(30 * MIN, new Set(), T0 + 31 * MIN);
+    ok(!fa.getTokenState('0xre1'), 'H1 prune 后 state 缺失（引擎检测点 getTokenState 语义）');
+    // 引擎主循环 else-if 分支同款重注册（meta 权威锚）
+    fa.registerToken('0xre1', { createdAtMs: T0, totalSupply: 1e9 });
+    fa.processTick(mkTick('0xre1', T0 + 46 * MIN, { price_bnb: 3e-9 }), { emitFactors: false });
+    const st = fa.getTokenState('0xre1');
+    ok(!!st && st.createdAtMs === T0,
+      'H1 重注册后 createdAtMs=权威锚（非复流 tick 时刻，age 不归零）');
+  }
+
+  // H2: 事故现场反证（卡骆驰 0x2d145db9 形状：活跃 35s → 46min 断流被 prune →
+  //     复流）——不重注册则 processTick 自动建 state 锚=复流时刻 → age≈0 回进
+  //     买窗（pr1 比 perf16 多出 121 信号的根因形状，实证：复流 17s 后 fire）
+  {
+    const fa = newFa();
+    fa.registerToken('0xbug', { createdAtMs: T0, totalSupply: 1e9 });
+    fa.processTick(mkTick('0xbug', T0), { emitFactors: false });
+    fa.pruneStaleTokens(30 * MIN, new Set(), T0 + 31 * MIN);
+    fa.processTick(mkTick('0xbug', T0 + 46 * MIN), { emitFactors: false }); // 事故路径：无重注册
+    const st = fa.getTokenState('0xbug');
+    ok(!!st && st.createdAtMs === T0 + 46 * MIN,
+      'H2 事故形状：不重注册 → processTick 自动建 state 锚=复流 tick 时刻（age 归零）');
+    fa.setPreFilter([{ minAgeMinutes: -Infinity, maxAgeMinutes: 1.5 }]); // perf16 买窗 [-∞,1.5) 同款
+    ok(fa.shouldSkipTickBuild('0xbug', T0 + 46 * MIN + 17 * 1000) === false,
+      'H2 事故形状：复流 17s 后 age≈0.28min 窗内 → build+fire 全链（卡骆驰 14:19:46 信号根因）');
+  }
+
+  // H3: 修复后出窗——复流票断流必 >prune 窗 30min，真实 age >30min ≫ 买窗 max
+  //     1.5min → 恒出窗 build-null continue → 与无 prune 行为 bit 一致（数学保证）
+  {
+    const fa = newFa();
+    fa.registerToken('0xfix', { createdAtMs: T0, totalSupply: 1e9 });
+    fa.processTick(mkTick('0xfix', T0), { emitFactors: false });
+    fa.setPreFilter([{ minAgeMinutes: -Infinity, maxAgeMinutes: 1.5 }]);
+    fa.pruneStaleTokens(30 * MIN, new Set(), T0 + 31 * MIN);
+    fa.registerToken('0xfix', { createdAtMs: T0, totalSupply: 1e9 }); // 引擎侧重注册
+    fa.processTick(mkTick('0xfix', T0 + 46 * MIN), { emitFactors: false });
+    ok(fa.shouldSkipTickBuild('0xfix', T0 + 46 * MIN) === true,
+      'H3 重注册后复流首 tick 出窗（真实 age 46min > 1.5min → skip）');
+    ok(fa.buildFactorMap('0xfix', T0 + 46 * MIN) === null,
+      'H3 build-null（与无 prune 行为同副作用序列——continue 链等价，价格史丢失面零暴露）');
+  }
+
+  // H4: FA 迟到回填语义保持（修复依赖的既有语义，live 零变化）：state 已存在 +
+  //     更早 createdAtMs 注册 → 回填（live token_create 迟到注册同路径）
+  {
+    const fa = newFa();
+    fa.processTick(mkTick('0xlate', T0 + 5 * MIN), { emitFactors: false }); // 自动建 state 锚=T0+5min
+    fa.registerToken('0xlate', { createdAtMs: T0, totalSupply: 1e9 });     // 迟到注册带权威锚
+    const st = fa.getTokenState('0xlate');
+    ok(!!st && st.createdAtMs === T0, 'H4 state 已存在时迟到注册回填更早锚（live 语义保持）');
+  }
+
+  // H5: 引擎级行为（打桩驱动主循环，零 DB 零网络）：已见 token + state 缺失 +
+  //     prune 开 → 以 meta 权威锚重注册；state 存在 / prune 关闭 → 零重注册
+  {
+    const { BacktestEngine: BE } = require(BE_PATH);
+    const mkEngine = (fields) => {
+      const eng = Object.create(BE.prototype);
+      return Object.assign(eng, {
+        _experimentId: 'test-revive',
+        logger: { info() {}, warn() {}, error() {}, debug() {} },
+        _ticks: [], _strategyEngine: { getStrategyCount: () => 0, getAllStrategies: () => [] },
+        _advanceDebouncer: async () => {},
+        _lastSnapshotTs: null, _loopCount: 0,
+        _createPortfolioSnapshot: async () => {},
+        _lastFaPruneTs: null, _faPrunedTotal: 0,
+        _seenTokens: new Set(), _tokenMeta: new Map(),
+        _tickBuildSkip: false, _cycleEnforce: false,
+        _tokenPositionAnalyzer: null,
+        _buyingTokens: new Set(), _sellingTokens: new Set(),
+        _buyDebouncer: { pending: new Set(), touch: () => {}, advance: () => {} },
+        _sellConfirmDebouncer: { advance: () => {} },
+        _sellDebounceMs: 0,
+        _stopLossEnabled: false, _stopLossScanMs: null, _lastStopLossScanTs: null,
+        _consumeGraduationEvents: async () => {},
+        _inflightEvals: new Set(),
+        _forceSellAllRemaining: async () => {},
+        _writeBufferEnabled: false, _writeBuffer: null,
+        _portfolioManager: { getPortfolio: () => ({ totalValue: 100 }) },
+        _portfolioId: 'p0', initialBalance: 100,
+        _narrativeBlockedTokens: new Set(),
+        _narrativeCaller: { getMemoryCacheHits: () => 0, getCallStats: () => ({ calls: 0, ms: 0 }) },
+        _preBuyCheckService: {
+          getPerfStats: () => ({ calls: 0, ms: 0, shortCircuits: 0, earlyMs: 0, parallelMs: 0, evalMs: 0, parHolder: 0, parCluster: 0, parCreator: 0, parStrong: 0, parSameName: 0, labelMs: 0 }),
+          earlyParticipantService: {
+            getPerfStats: () => ({ calls: 0, ms: 0, fetchMs: 0, replayHits: 0, sniper: { queryMs: 0, batches: 0, queriedAddrs: 0, failures: 0, cached: 0, fullyLoaded: false, preloadedRows: 0 } }),
+            getReplayHits: () => 0,
+          },
+          sameNameTokenService: { getSnapshotStats: () => ({}) },
+        },
+        // stub throw：finally 状态更新失败被 catch 吞 → stats 段跳过，零 DB
+        _updateExperimentStatus: async () => { throw new Error('stub: 绕 stats 段真 DB 写'); },
+        metrics: { debounceSuppressed: 0, totalSignals: 0, totalTrades: 0 },
+        ...fields,
+      });
+    };
+    const T1 = 1_700_000_000_000;
+    const loopTick = { token_address: '0xRE', timestamp: T1, platform: 'fourmeme' };
+
+    // a) 已见 + state 缺失 + prune 开 → 重注册（权威锚 meta.createdAtSec*1000）
+    {
+      const regCalls = [];
+      const eng = mkEngine({
+        _ticks: [loopTick],
+        _faPruneMaxAgeMs: 30 * MIN,
+        _seenTokens: new Set(['0xRE']),
+        _tokenMeta: new Map([['0xRE', { createdAtSec: T1 / 1000 - 2760, totalSupply: 1e9, symbol: 'RE', creator: null }]]),
+        _factorAggregator: {
+          getTokenState: () => undefined,
+          registerToken: (addr, info) => { regCalls.push({ addr, info }); },
+          processTick: () => {},
+          getPreFilterSkipped: () => 0,
+        },
+        _tokenPool: { getToken: () => null }, // 重注册段之后 continue（本节只测注册段）
+        _registerToken: async () => { throw new Error('已见票不该走 _registerToken'); },
+      });
+      await eng._runMainLoop();
+      ok(regCalls.length === 1 && regCalls[0].addr === '0xRE'
+        && regCalls[0].info.createdAtMs === (T1 / 1000 - 2760) * 1000,
+        'H5a 已见+state 缺失 → 以 meta 权威锚重注册（createdAtSec*1000）');
+      ok(regCalls[0].info.platform === 'fourmeme' && regCalls[0].info.symbol === 'RE',
+        'H5a 重注册参数形状（platform=tick 行级/symbol=meta）');
+    }
+    // b) state 存在 → 零重注册
+    {
+      const regCalls = [];
+      const eng = mkEngine({
+        _ticks: [loopTick],
+        _faPruneMaxAgeMs: 30 * MIN,
+        _seenTokens: new Set(['0xRE']),
+        _tokenMeta: new Map([['0xRE', { createdAtSec: T1 / 1000 }]]),
+        _factorAggregator: {
+          getTokenState: () => ({ createdAtMs: T1 }),
+          registerToken: (addr, info) => { regCalls.push({ addr, info }); },
+          processTick: () => {},
+          getPreFilterSkipped: () => 0,
+        },
+        _tokenPool: { getToken: () => null },
+      });
+      await eng._runMainLoop();
+      ok(regCalls.length === 0, 'H5b state 存在（未 prune）→ 零重注册');
+    }
+    // c) prune 关闭（faPruneMaxAgeSec=0 回滚开关）→ 零检测零重注册
+    {
+      const regCalls = [];
+      const eng = mkEngine({
+        _ticks: [loopTick],
+        _faPruneMaxAgeMs: 0,
+        _seenTokens: new Set(['0xRE']),
+        _tokenMeta: new Map([['0xRE', { createdAtSec: T1 / 1000 }]]),
+        _factorAggregator: {
+          getTokenState: () => undefined,
+          registerToken: (addr, info) => { regCalls.push({ addr, info }); },
+          processTick: () => {},
+          getPreFilterSkipped: () => 0,
+        },
+        _tokenPool: { getToken: () => null },
+      });
+      await eng._runMainLoop();
+      ok(regCalls.length === 0, 'H5c prune 关闭 → 复流检测不触发（回滚开关语义）');
+    }
+    // d) 首见票走 _registerToken 不走复流分支（互斥形状）
+    {
+      const regCalls = [];
+      const eng = mkEngine({
+        _ticks: [loopTick],
+        _faPruneMaxAgeMs: 30 * MIN,
+        _seenTokens: new Set(),
+        _tokenMeta: new Map([['0xRE', { createdAtSec: T1 / 1000 }]]),
+        _factorAggregator: {
+          getTokenState: () => undefined,
+          registerToken: (addr, info) => { regCalls.push({ addr, info }); },
+          processTick: () => {},
+          getPreFilterSkipped: () => 0,
+        },
+        _tokenPool: { getToken: () => null },
+        _registerToken: async (tick) => {
+          eng._seenTokens.add(tick.token_address);
+          // 首见注册真实路径里 registerToken 也会被调——此处打桩区分来源
+          regCalls.push({ addr: tick.token_address, info: { firstSeen: true } });
+        },
+      });
+      await eng._runMainLoop();
+      ok(regCalls.length === 1 && regCalls[0].info.firstSeen === true,
+        'H5d 首见票走 _registerToken（复流分支不触发）');
+    }
+  }
+
+  // H6: 源码口径防线
+  {
+    const beSrc = fs.readFileSync(BE_PATH, 'utf8');
+    const mainLoop = beSrc.slice(beSrc.indexOf('async _runMainLoop'), beSrc.indexOf('async _syncHoldings'));
+    const reRegIdx = mainLoop.indexOf('else if (this._faPruneMaxAgeMs > 0');
+    const ptIdx = mainLoop.indexOf('this._factorAggregator.processTick(tick, { emitFactors: false })');
+
+    ok(reRegIdx > -1
+      && mainLoop.includes('else if (this._faPruneMaxAgeMs > 0 && !this._factorAggregator.getTokenState(tick.token_address))'),
+      'H6 复流检测分支（prune 门 + getTokenState 缺失判定）');
+    ok(ptIdx > reRegIdx,
+      'H6 重注册在 processTick 之前（防 FA 自动建 state 抢锚=复流时刻）');
+    ok(/createdAtMs: \(meta\.createdAtSec \|\| Math\.floor\(tick\.timestamp \/ 1000\)\) \* 1000/.test(mainLoop),
+      'H6 权威锚链 meta.createdAtSec（源实验 created_at）');
+    const branchBlock = mainLoop.slice(reRegIdx, reRegIdx + 1100);
+    ok(!branchBlock.includes('this._registerToken(tick)'),
+      'H6 复流分支不调 _registerToken（不重复落库/tokenPool——_seenTokens 门）');
+    ok(branchBlock.includes('platform: tick.platform || null'),
+      'H6 platform=tick 行级权威（与 _registerToken 同口径，flap 票不被错标）');
+    // live 零变化：live 引擎无复流重锚（复流票由 token_create 事件带锚注册）
+    const livePath = path.join(__dirname, '..', 'src', 'trading-engine', 'implementations', 'FourMemeWssTradingEngine.js');
+    const liveSrc = fs.readFileSync(livePath, 'utf8');
+    ok(!liveSrc.includes('复流重锚'),
+      'H6 live 引擎零复流重锚分支（live 复流票 token_create 事件带锚注册）');
+  }
+}
+
 // ── 汇总 ─────────────────────────────────────────────────────────────────
 console.log(`\n${'_'.repeat(50)}`);
 console.log(`P17 虚拟时钟 prune 单测: ${passed} 通过, ${failed} 失败`);
 if (failed > 0) process.exit(1);
+
+})();  // async IIFE

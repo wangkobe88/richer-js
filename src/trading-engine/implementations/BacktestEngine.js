@@ -1129,9 +1129,26 @@ class BacktestEngine extends AbstractTradingEngine {
           }
         }
 
-        // 首见代币：FA 注册 + 入池 + 落库
+        // 首见代币：FA 注册 + 入池 + 落库；已见但 FA state 缺失 = prune 后复流首 tick
+        //（P17 复流重锚，2026-10-13 pr1 分叉根因修复）：processTick 自动建 state 的锚
+        // = 复流 tick 时刻 → age 归零回进买窗（卡骆驰 0x2d145db9 案：46min 断流复流后
+        // 14:19:46 出 perf16 没有的信号 +121；且 build 成功不 continue 连带止损扫描
+        // 网格相位漂移 → 7 笔时间止损卖出时刻差 2-21s）。此处按源实验 meta 权威锚
+        // 重新 registerToken：买窗 max（preFilter 提取，perf16 系 1.5min）≪ prune 窗
+        // 30min → 复流票真实 age 恒出窗 → build-null continue → 与无 prune 行为
+        // bit 一致。tokenPool/落库不重复（_seenTokens 门）；live 零变化（live 复流票
+        // 由 token_create 事件带锚注册，不走本分支）
         if (!this._seenTokens.has(tick.token_address)) {
           await this._registerToken(tick);
+        } else if (this._faPruneMaxAgeMs > 0 && !this._factorAggregator.getTokenState(tick.token_address)) {
+          const meta = this._tokenMeta.get(tick.token_address) || {};
+          this._factorAggregator.registerToken(tick.token_address, {
+            createdAtMs: (meta.createdAtSec || Math.floor(tick.timestamp / 1000)) * 1000,
+            totalSupply: meta.totalSupply || 0,
+            symbol: meta.symbol || '',
+            creatorAddress: meta.creator || null,
+            platform: tick.platform || null,
+          });
         }
         perf.other += Date.now() - _p0;
 
@@ -2161,8 +2178,11 @@ class BacktestEngine extends AbstractTradingEngine {
    *    不推进指针跨 tick 重试期间票恒为持仓（被 1 覆盖），保留是为防未来消费路径
    *    改动引入的 state 依赖（成本=每 5min 一次 O(未消费事件数) 收集）。
    *
-   * 复流语义：死票 prune 后若再收 tick，processTick 自动重建空 state（首 tick 锚
-   * 重置）——与 live 同行为，非回测特例。
+   * 复流重锚（2026-10-13 pr1 分叉根因修复）：死票 prune 后复流首 tick，主循环
+   * 首见注册段按源实验 meta 权威锚重新 registerToken（见 _runMainLoop）——防
+   * processTick 自动建 state 的锚=复流 tick 时刻导致 age 归零回进买窗（卡骆驰
+   * 0x2d145db9 案：46min 断流复流出 +121 信号 + 止损扫描网格相位漂移 7 笔卖出
+   * 时刻差 2-21s）。live 复流票由 token_create 事件带锚注册，无此问题。
    */
   _buildFaPruneProtectedSet() {
     const held = new Set(this._getAllHoldings().map(h => h.tokenAddress?.toLowerCase()));
