@@ -420,6 +420,15 @@ class BacktestEngine extends AbstractTradingEngine {
       throw new Error('配置互斥：backtest.tickBuildSkip 与 tokenCycle.enforce 不可同启'
         + '（cycle latch 推进是 tick build 的读取副作用，skip 会造成 fire 时 tokenCycle 档位漂移）');
     }
+    // 互斥防线 2（同族 fail-fast）：condition/narrativeCallCondition 直引 cycle 族键
+    // 同样不可与 skip 同启——latch 的 candidateSince 置位时刻依赖 build 调用史
+    // （per-tick 评估 vs fire-only 评估相差 δ → 30s 驻留完成晚 δ，该窗内 fire 的
+    // tokenCycle 档不同；raw 抖动时 per-tick 会清候选、fire-only 可能整个错过抖动
+    // = latch 持续分叉）。enforce 互斥只覆盖 groups 路由（cycleTag 写入），直引
+    // 无 enforce 段的 config 此前会静默漏过（perf16 实测形状：直引+enforce 双有）
+    if (this._tickBuildSkip) {
+      this._assertNoCycleKeyReference(this._strategyEngine.getAllStrategies());
+    }
     if (this._cycleEnforce) {
       const _cycled = this._strategyEngine.getAllStrategies().filter(s => s.groups != null).length;
       this.logger.info(this._experimentId, 'BacktestEngine',
@@ -504,6 +513,48 @@ class BacktestEngine extends AbstractTradingEngine {
     //     其中三项不依赖 ticks，可与 ticks 拉取 165s 并行藏入）
     await this._loadTokenMetadata();
     await this._runLoadPipeline();
+  }
+
+  /**
+   * P18 互斥防线 2（见 6.6 调用点注释）：tickBuildSkip 开启时扫描全部腿的
+   * condition/narrativeCallCondition（FA 因子上下文两字段；preBuy/repeatBuy 是
+   * PreBuy 键集不含 cycle 键、groups 路由已被 enforce 互斥覆盖），直引 cycle 族
+   * 5 键任一 → throw 拒启。双形状入口（string|AST，extractBuyRangeFromCondition
+   * 同款）：loadStrategies 后 condition 恒为 AST，字符串形状为防御性直传。
+   */
+  _assertNoCycleKeyReference(strategies) {
+    const cycleKeys = ['tokenCycle', 'tokenCycleRaw', 'tokenCycleAgeSec', 'cycleTps30s', 'cycleGapMedianMs'];
+    const hit = new Set();
+    const walk = (node) => {
+      if (!node || typeof node !== 'object') return;
+      if (node.type === 'Identifier' && typeof node.name === 'string' && cycleKeys.includes(node.name)) {
+        hit.add(node.name);
+      }
+      for (const key of Object.keys(node)) {
+        const v = node[key];
+        if (Array.isArray(v)) { for (const item of v) walk(item); }
+        else if (v && typeof v === 'object') walk(v);
+      }
+    };
+    const collect = (cond) => {
+      if (!cond) return;
+      if (typeof cond === 'string') {
+        for (const k of cycleKeys) {
+          if (new RegExp('\\b' + k + '\\b').test(cond)) hit.add(k);
+        }
+      } else {
+        walk(cond);
+      }
+    };
+    for (const s of strategies || []) {
+      collect(s.condition);
+      collect(s.narrativeCallCondition);
+    }
+    if (hit.size > 0) {
+      throw new Error('配置互斥：backtest.tickBuildSkip 与条件直引 cycle 因子（'
+        + [...hit].join(',') + '）不可同启'
+        + '（cycle latch 推进是 tick build 的读取副作用，skip 会造成 fire 时 tokenCycle 档位漂移）');
+    }
   }
 
   /**

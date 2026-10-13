@@ -340,6 +340,35 @@ console.log('C. 源码口径防线');
   ok(beSrc.includes('if (this._tickBuildSkip && this._cycleEnforce)')
     && beSrc.includes('不可同启'),
     'C1 tickBuildSkip × cycleEnforce 启动互斥 throw');
+  ok(beSrc.includes('this._assertNoCycleKeyReference(this._strategyEngine.getAllStrategies());'),
+    'C1 防线 2 调用点（condition 直引 cycle 键扫描挂在 enforce 互斥后）');
+
+  // C1b 防线 2 行为矩阵：直引 cycle 族键（condition/narrativeCall、string/AST、
+  // IS NULL 形状）→ throw；无关键/null → 放行（perf16 形状=直引+enforce 双有，
+  // 直引无 enforce 段的 config 靠防线 2 拦，2026-10-13 建臂时实测发现）
+  {
+    const { BacktestEngine: BE2 } = require(BE_PATH);
+    const guard = (strategies) => BE2.prototype._assertNoCycleKeyReference.call({}, strategies);
+    const throwsWith = (strategies, label) => {
+      try { guard(strategies); ok(false, label); }
+      catch (e) { ok(e.message.includes('不可同启') && /cycle/.test(e.message), label); }
+    };
+    throwsWith([{ condition: { type: 'BinaryExpression', left: { type: 'Identifier', name: 'tokenCycle' }, operator: '!=', right: { type: 'Literal', value: 1 } } }],
+      'C1b AST condition 引 tokenCycle → throw');
+    throwsWith([{ condition: 'tokenCycleRaw > 2' }], 'C1b string condition 引 tokenCycleRaw → throw');
+    throwsWith([{ condition: 'buyVolumeBnb >= 1.5', narrativeCallCondition: 'cycleTps30s >= 0.5' }],
+      'C1b narrativeCallCondition 引 cycleTps30s → throw');
+    throwsWith([{ condition: '(tokenCycle != 1 OR tokenCycle IS NULL)' }],
+      'C1b IS NULL 形状（perf16 cycle 冷档门原句）→ throw');
+    let passClean = true;
+    try { guard([{ condition: 'buyVolumeBnb >= 1.5 AND holders > 5', narrativeCallCondition: 'earlyReturn >= 100' }]); }
+    catch { passClean = false; }
+    ok(passClean, 'C1b 无 cycle 键 → 放行');
+    let passNull = true;
+    try { guard([{ condition: null }, { condition: '' }]); }
+    catch { passNull = false; }
+    ok(passNull, 'C1b null/空条件 → 放行');
+  }
 
   // C2 cycleTag 行 factors 门（C 类票 factors=null 防线；互斥下双保险）
   ok(mainLoop.includes('if (this._cycleEnforce && factors) token.cycleTag'),
