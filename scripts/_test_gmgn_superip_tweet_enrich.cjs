@@ -84,24 +84,26 @@ const run = async () => {
   const dfs = readFileSync(resolve(ROOT,
     'src/narrative/analyzer/services/data-fetch-service.mjs'), 'utf8');
 
+  // N2（2026-10-13 叙事提速）：IPFS+GMGN 并行后补源段 socials → gmgnSocials 改名
+  // （块缩进随 if (gmgnSocials) 少一层），C51 语义逐字保留——断言按新形状锚定
   check('B1 isSuperIpTweetUrl 已 import 并在补源段消费',
-    /import \{ isSuperIpTweetUrl \}/.test(dfs) && /isSuperIpTweetUrl\(socials\?\.twitterUrl \|\| null\)/.test(dfs));
+    /import \{ isSuperIpTweetUrl \}/.test(dfs) && /isSuperIpTweetUrl\(gmgnSocials\.twitterUrl \|\| null\)/.test(dfs));
 
   check('B2 例外分支：已有 twitter 链接时 superIP 推文仍并入（else if superIpTweet）',
-    /else if \(superIpTweet && !allUrls\.includes\(socials\.twitterUrl\)\)/.test(dfs));
+    /else if \(superIpTweet && !allUrls\.includes\(gmgnSocials\.twitterUrl\)\)/.test(dfs));
 
   check('B3 例外路径只并入推文 URL（websiteUrl 不随例外并入——C10 对它不变）',
     (() => {
       // 例外分支体（else if superIpTweet {...}）：剥掉注释行后，代码层只 push twitterUrl
       // （分支注释本身写着「websiteUrl 不随例外并入」，字面匹配会被注释击中）
-      const m = dfs.match(/else if \(superIpTweet && !allUrls\.includes\(socials\.twitterUrl\)\) \{([\s\S]*?)\n      \}/);
+      const m = dfs.match(/else if \(superIpTweet && !allUrls\.includes\(gmgnSocials\.twitterUrl\)\) \{([\s\S]*?)\n    \}/);
       if (!m) return false;
       const codeOnly = m[1].split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
-      return /allUrls\.push\(socials\.twitterUrl\)/.test(codeOnly) && !/websiteUrl/.test(codeOnly);
+      return /allUrls\.push\(gmgnSocials\.twitterUrl\)/.test(codeOnly) && !/websiteUrl/.test(codeOnly);
     })());
 
   check('B4 C10 原路径零回归（无 twitter 链接时 twitterUrl+websiteUrl 都补）',
-    /if \(!hasTwitterUrl\) \{[\s\S]*?const addUrls = \[socials\?\.twitterUrl, socials\?\.websiteUrl\]/.test(dfs));
+    /if \(!hasTwitterUrl\) \{[\s\S]*?const addUrls = \[gmgnSocials\.twitterUrl, gmgnSocials\.websiteUrl\]/.test(dfs));
 
   check('B5 并入后选择层 tweet 优先（selectTwitterUrl find type===tweet 先于 account）',
     (() => {

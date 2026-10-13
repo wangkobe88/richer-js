@@ -159,7 +159,8 @@ async function main() {
     const analyzerSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
     eq('D1 analyze 预载行优先（miss 现场 DB 查原路径）',
       /const cached = \(rowCache && rowCache\.get\(normalizedAddress\)\)\n\s*\|\| await timing\.wrap\('cacheLookup', \(\) => NarrativeRepository\.findByAddress\(normalizedAddress\)\);/.test(analyzerSrc), true);
-    eq('D2 analyze options 解构 rowCache', /rowCache = null \} = options/.test(analyzerSrc), true);
+    // N2（2026-10-13 叙事提速）在解构尾加 skipIntermediateSave = false——rowCache 键保持
+    eq('D2 analyze options 解构 rowCache', /rowCache = null, skipIntermediateSave = false \} = options/.test(analyzerSrc), true);
     const repSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/db/NarrativeRepository.mjs'), 'utf8');
     eq('D3 两段式查询形状：轻列键集（id 升序 + .gt 键集 + is_valid/gmgn DB 谓词）+ 全列按 id 批 50',
       /fetchPreloadLightRows[\s\S]*?\.select\('id,token_address,analyzed_at,pre_check_result,classified_urls'\)[\s\S]*?\.eq\('is_valid', true\)[\s\S]*?\.not\('gmgn_info', 'is', null\)[\s\S]*?\.order\('id', \{ ascending: true \}\)[\s\S]*?q\.gt\('id', lastId\)/.test(repSrc)

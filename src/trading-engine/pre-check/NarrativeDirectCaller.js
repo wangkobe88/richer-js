@@ -142,6 +142,9 @@ class NarrativeDirectCaller {
           // 预载行透传（回测叙事预载 2026-10-12）：命中 → analyze 跳过 findByAddress；
           // null/无键 → 现场 DB 查原路径
           rowCache: this._rowCache || undefined,
+          // 直调语境跳过中段 save（N2 叙事提速案 2026-10-13）：无前端轮询，
+          // 字段由最终 save / fallback 补 save 落库，省一次 DB 往返
+          skipIntermediateSave: true,
           _timing: timingSink,
         }));
       entry = { promise, timing: timingSink };

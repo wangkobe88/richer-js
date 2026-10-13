@@ -82,18 +82,22 @@ export async function fetchIpfsMetadata(metaUrl) {
   if (!cid) return null;
 
   return CachedFetcher.fetchWithCache(metaUrl, 'ipfs_metadata', async () => {
-    for (const gateway of IPFS_GATEWAYS) {
-      try {
-        const json = await fetchGatewayJson(`${gateway}${cid}`);
-        if (json) {
+    // N2（2026-10-13 叙事提速案）：4 网关并发 first-success（原逐网关串行轮询
+    // 8s×N 最坏 32s）；同 CID 内容寻址一致，单网关 null/异常 → 该 promise reject
+    // → any 取第一个成功，语义与「轮询到第一个可用」等价；全失败保原 warn + null
+    try {
+      const json = await Promise.any(IPFS_GATEWAYS.map(async (gateway) => {
+        const j = await fetchGatewayJson(`${gateway}${cid}`);
+        if (j) {
           console.log(`[IpfsMetadataFetcher] metadata 获取成功（${gateway}）: ${metaUrl}`);
-          return json;
+          return j;
         }
-      } catch (_) {
-        // 单网关失败，轮询下一个
-      }
+        throw new Error(`网关返回空/无效: ${gateway}`);
+      }));
+      return json;
+    } catch (_) {
+      console.warn(`[IpfsMetadataFetcher] metadata 所有网关均失败: ${metaUrl}`);
+      return null;
     }
-    console.warn(`[IpfsMetadataFetcher] metadata 所有网关均失败: ${metaUrl}`);
-    return null;
   }, getCacheTTL('ipfs_metadata'));
 }

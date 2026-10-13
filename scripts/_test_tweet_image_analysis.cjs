@@ -257,8 +257,9 @@ async function main() {
     const fs = require('fs');
     const src = fs.readFileSync('src/narrative/analyzer/NarrativeAnalyzer.mjs', 'utf8');
     check('L1: import 存在', src.includes("import { analyzeTweetImage } from './services/image-analysis-service.mjs'"));
-    const hookIdx = src.indexOf('await analyzeTweetImage(twitterInfo);');
-    const precheckIdx = src.indexOf('const preCheckResult = await performPreCheck');
+    // N1 探针（3918e4d）后挂点包 timing.wrap('vision')/precheck 包 wrap——位置语义不变
+    const hookIdx = src.indexOf("timing.wrap('vision', () => analyzeTweetImage(twitterInfo))");
+    const precheckIdx = src.indexOf("timing.wrap('precheck', () => performPreCheck");
     check('L2: 挂点在 pre-check 之后（预检拦截票不烧视觉调用）', hookIdx > precheckIdx && hookIdx > 0);
     const svcSrc = fs.readFileSync('src/narrative/analyzer/services/image-analysis-service.mjs', 'utf8');
     check('L3: downloadAsBase64 显式传 format jpeg（downloader 默认 webp；webp 在智谱端点实测被静默丢弃，jpeg 是 A/B 实测正常格式）',

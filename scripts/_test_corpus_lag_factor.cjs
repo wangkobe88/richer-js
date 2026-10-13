@@ -47,17 +47,23 @@ console.log('\n═══ B. getRating corpusTs 接线 ═══');
 {
   const caller = new NarrativeDirectCaller();
   const twitter = { created_at: 'Sun Oct 04 09:00:06 +0000 2026', in_reply_to: { created_at: 'Sun Oct 04 08:40:12 +0000 2026' } };
+  // 桩契约对齐 N1 探针后 _startAnalysis(token, timingSink) 返回 { promise, timing }
+  // entry 形状（旧桩直返结果对象 → entry.promise=undefined → race 静默 undefined）
+  const stub = (result, rejectErr) => () => ({
+    promise: rejectErr ? Promise.reject(rejectErr) : Promise.resolve(result),
+    timing: [],
+  });
   // 成功路径：analyze 结果顶层 twitter 字段（三条 return 路径均带）
-  caller._startAnalysis = async () => ({ numericRating: 3, rating: 'high', classifiedUrls: null, twitter });
+  caller._startAnalysis = stub({ numericRating: 3, rating: 'high', classifiedUrls: null, twitter });
   // _startAnalysis 已打桩，getRating 不会触 _getAnalyzer
   const r1 = await caller.getRating('0xabc');
   ok(r1.corpusTs === Date.parse('Sun Oct 04 08:40:12 +0000 2026'), 'B1 成功路径取语料最早时间（父推）');
   // 无 twitter 字段（如超时被兜底前的异常路径形状）
-  caller._startAnalysis = async () => ({ numericRating: 3, rating: 'high', classifiedUrls: null, twitter: null });
+  caller._startAnalysis = stub({ numericRating: 3, rating: 'high', classifiedUrls: null, twitter: null });
   const r2 = await caller.getRating('0xabc');
   ok(r2.corpusTs === null, 'B2 analyze 无语料 → corpusTs null');
-  // 异常路径（打桩 throw）→ catch 分支返回体带 corpusTs:null
-  caller._startAnalysis = async () => { throw new Error('boom'); };
+  // 异常路径（promise reject）→ catch 分支返回体带 corpusTs:null
+  caller._startAnalysis = stub(null, new Error('boom'));
   const r3 = await caller.getRating('0xabc');
   ok(r3.corpusTs === null && r3.numericRating === 9, 'B3 异常路径 → corpusTs null + rating 9（fail-closed 输入形状）');
 }

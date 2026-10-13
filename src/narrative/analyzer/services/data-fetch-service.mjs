@@ -131,22 +131,37 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   // 解包位于 0-URL 早退之前（BRF 案前移，2026-09-27）：meta 可能是 extractAllUrls
   // 不识别的裸 CID（BRF：meta="bafkreigaw…"），0-URL 的 token 也要解包——
   // IPFS 解包免费，先于 GMGN 付费补源
+  //
+  // N2 前缀并行（2026-10-13 叙事提速案）：IPFS 与 GMGN 互不依赖同发（原串行
+  // 8s+10s → max 并行）；两者的 links/metadata 都要先于 URL 分类，但相互无依赖。
+  // **应用顺序刻意保持 IPFS → GMGN**（串行版同序）：GMGN 段的 hasTwitterUrl
+  // 判定基于含 IPFS 新增 URL 的 allUrls，URL 并入顺序影响 classifiedUrls 桶内
+  // 顺序与 selectTwitterUrl 选择——顺序变即内容变，此处 bit 一致
   const metaUrl = normalizeIpfsRef(typeof rawData.meta === 'string' ? rawData.meta : null);
-  if (metaUrl) {
-    const metadata = await timing.wrap('ipfs', () => fetchIpfsMetadata(metaUrl));
-    if (metadata) {
-      const metaUrls = extractAllUrls(metadata);
-      const newUrls = metaUrls.filter(u => !allUrls.includes(u));
-      if (newUrls.length > 0) {
-        console.log(`[NarrativeAnalyzer] IPFS metadata 解包新增 ${newUrls.length} 个URL: ${newUrls.join(', ')}`);
-        allUrls.push(...newUrls);
-      }
-      // 解包成功：meta URL 本身不再作为 website 抓取（内容已展开，JSON 非网页）
-      const metaIdx = allUrls.indexOf(metaUrl);
-      if (metaIdx >= 0) allUrls.splice(metaIdx, 1);
-    } else {
-      console.warn('[NarrativeAnalyzer] IPFS metadata 解包失败，meta 链接按原流程作为 website 处理');
+  const [metadata, gmgnSocials] = await Promise.all([
+    metaUrl ? timing.wrap('ipfs', () => fetchIpfsMetadata(metaUrl)) : Promise.resolve(null),
+    options.enrichSocialByGmgn
+      ? timing.wrap('gmgn', () => fetchGmgnSocialLinks('bsc', tokenData.address)
+        .catch(e => {
+          // 串行版同款 warn：失败按无补源、无风险因子继续，行为与现状一致
+          console.warn('[NarrativeAnalyzer] GMGN 补源/风险获取失败（按无补源继续）:', e.message);
+          return null;
+        }))
+      : Promise.resolve(null),
+  ]);
+
+  if (metadata) {
+    const metaUrls = extractAllUrls(metadata);
+    const newUrls = metaUrls.filter(u => !allUrls.includes(u));
+    if (newUrls.length > 0) {
+      console.log(`[NarrativeAnalyzer] IPFS metadata 解包新增 ${newUrls.length} 个URL: ${newUrls.join(', ')}`);
+      allUrls.push(...newUrls);
     }
+    // 解包成功：meta URL 本身不再作为 website 抓取（内容已展开，JSON 非网页）
+    const metaIdx = allUrls.indexOf(metaUrl);
+    if (metaIdx >= 0) allUrls.splice(metaIdx, 1);
+  } else if (metaUrl) {
+    console.warn('[NarrativeAnalyzer] IPFS metadata 解包失败，meta 链接按原流程作为 website 处理');
   }
 
   // 3.5 GMGN token info（BRF 社媒补源 + x-0 风险因子，2026-09-27）：
@@ -163,30 +178,25 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   // selectTwitterUrl 的 tweet 类型优先保证它被选中而非自挂账号链接。
   // GMGN 也拿不到 / 调用失败 → 按无补源、无风险因子继续，行为与现状一致
   let gmgnRisk = null;
-  if (options.enrichSocialByGmgn) {
-    try {
-      const socials = await timing.wrap('gmgn', () => fetchGmgnSocialLinks('bsc', tokenData.address));
-      gmgnRisk = socials?.risk ?? null;
-      const superIpTweet = isSuperIpTweetUrl(socials?.twitterUrl || null);
-      if (superIpTweet) {
-        console.log(`[NarrativeAnalyzer] GMGN 超级IP推文命中(C51): ${socials.twitterUrl} → ${superIpTweet.name}（tier ${superIpTweet.tier}）`);
+  if (gmgnSocials) {
+    gmgnRisk = gmgnSocials.risk ?? null;
+    const superIpTweet = isSuperIpTweetUrl(gmgnSocials.twitterUrl || null);
+    if (superIpTweet) {
+      console.log(`[NarrativeAnalyzer] GMGN 超级IP推文命中(C51): ${gmgnSocials.twitterUrl} → ${superIpTweet.name}（tier ${superIpTweet.tier}）`);
+    }
+    const hasTwitterUrl = allUrls.some(u => /^https?:\/\/(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com)\//i.test(u));
+    if (!hasTwitterUrl) {
+      const addUrls = [gmgnSocials.twitterUrl, gmgnSocials.websiteUrl]
+        .filter(u => u && !allUrls.includes(u));
+      if (addUrls.length > 0) {
+        console.log(`[NarrativeAnalyzer] GMGN 社媒补源新增 ${addUrls.length} 个URL: ${addUrls.join(', ')}`);
+        allUrls.push(...addUrls);
       }
-      const hasTwitterUrl = allUrls.some(u => /^https?:\/\/(?:[a-z0-9-]+\.)*(?:twitter\.com|x\.com)\//i.test(u));
-      if (!hasTwitterUrl) {
-        const addUrls = [socials?.twitterUrl, socials?.websiteUrl]
-          .filter(u => u && !allUrls.includes(u));
-        if (addUrls.length > 0) {
-          console.log(`[NarrativeAnalyzer] GMGN 社媒补源新增 ${addUrls.length} 个URL: ${addUrls.join(', ')}`);
-          allUrls.push(...addUrls);
-        }
-      } else if (superIpTweet && !allUrls.includes(socials.twitterUrl)) {
-        // C51 例外：已有 twitter 链接，但 GMGN 给出 superIP 推文 URL——只并入该推文
-        // （websiteUrl 不随例外路径并入，C10 语义对它不变）
-        console.log(`[NarrativeAnalyzer] GMGN 超级IP推文补源新增(C51): ${socials.twitterUrl}（${superIpTweet.name}，自挂链接保留但 tweet 优先）`);
-        allUrls.push(socials.twitterUrl);
-      }
-    } catch (e) {
-      console.warn('[NarrativeAnalyzer] GMGN 补源/风险获取失败（按无补源继续）:', e.message);
+    } else if (superIpTweet && !allUrls.includes(gmgnSocials.twitterUrl)) {
+      // C51 例外：已有 twitter 链接，但 GMGN 给出 superIP 推文 URL——只并入该推文
+      // （websiteUrl 不随例外路径并入，C10 语义对它不变）
+      console.log(`[NarrativeAnalyzer] GMGN 超级IP推文补源新增(C51): ${gmgnSocials.twitterUrl}（${superIpTweet.name}，自挂链接保留但 tweet 优先）`);
+      allUrls.push(gmgnSocials.twitterUrl);
     }
   }
 
@@ -329,6 +339,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
   };
 
   // === 1. Twitter数据（最高优先级）===
+  const runTwitter = async () => {
   const twitterUrlInfo = selectTwitterUrl();
   if (twitterUrlInfo) {
     const twitterFetch = await recordDataFetch(
@@ -497,8 +508,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       results.fetchErrors.twitterError = twitterFetch.record.error;
     }
   }
+  };
 
   // === 2. 微博数据（作为背景信息）===
+  const runWeibo = async () => {
   if (classifiedUrls.weibo.length > 0) {
     const weiboUrlInfo = classifiedUrls.weibo[0];
     console.log(`[NarrativeAnalyzer] 获取微博数据作为背景信息: ${weiboUrlInfo.url}`);
@@ -524,8 +537,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       console.warn('[NarrativeAnalyzer] 微博数据获取失败:', error.message);
     }
   }
+  };
 
   // === 3. GitHub数据 ===
+  const runGithub = async () => {
   const githubUrlInfo = selectFirstUrl('github');
   if (githubUrlInfo) {
     const githubFetch = await recordDataFetch(
@@ -546,8 +561,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
     results.githubInfo = githubFetch.data;
     dataFetchResults.github = githubFetch.record;
   }
+  };
 
   // === 4. YouTube数据 ===
+  const runYoutube = async () => {
   const youtubeUrlInfo = selectFirstUrl('youtube');
   if (youtubeUrlInfo) {
     const youtubeFetch = await recordDataFetch(
@@ -579,8 +596,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       results.fetchErrors.videoErrors.youtube = youtubeFetch.record.error;
     }
   }
+  };
 
   // === 5. 抖音数据 ===
+  const runDouyin = async () => {
   const douyinUrlInfo = selectFirstUrl('douyin');
   if (douyinUrlInfo) {
     const douyinFetch = await recordDataFetch(
@@ -612,8 +631,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       results.fetchErrors.videoErrors.douyin = douyinFetch.record.error;
     }
   }
+  };
 
   // === 6. TikTok数据 ===
+  const runTiktok = async () => {
   const tiktokUrlInfo = selectFirstUrl('tiktok');
   if (tiktokUrlInfo) {
     const tiktokFetch = await recordDataFetch(
@@ -645,8 +666,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       results.fetchErrors.videoErrors.tiktok = tiktokFetch.record.error;
     }
   }
+  };
 
   // === 7. Bilibili数据 ===
+  const runBilibili = async () => {
   const bilibiliUrlInfo = selectFirstUrl('bilibili');
   if (bilibiliUrlInfo) {
     const bilibiliFetch = await recordDataFetch(
@@ -669,8 +692,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       results.fetchErrors.videoErrors.bilibili = bilibiliFetch.record.error;
     }
   }
+  };
 
   // === 8. 币安广场数据 ===
+  const runBinanceSquare = async () => {
   const binanceSquareUrlInfo = selectFirstUrl('binanceSquare');
   if (binanceSquareUrlInfo) {
     const bsFetch = await recordDataFetch(
@@ -690,8 +715,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
     results.binanceSquareInfo = bsFetch.data;
     dataFetchResults.binanceSquare = bsFetch.record;
   }
+  };
 
   // === 9. 微信文章数据 ===
+  const runWeixin = async () => {
   const weixinUrlInfo = selectFirstUrl('weixin');
   if (weixinUrlInfo) {
     const weixinFetch = await recordDataFetch(
@@ -711,8 +738,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       results.fetchErrors.videoErrors.weixin = weixinFetch.record.error;
     }
   }
+  };
 
   // === 9. Amazon数据 ===
+  const runAmazon = async () => {
   const amazonUrlInfo = selectFirstUrl('amazon');
   if (amazonUrlInfo) {
     const amazonFetch = await recordDataFetch(
@@ -735,8 +764,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       results.fetchErrors.videoErrors.amazon = amazonFetch.record.error;
     }
   }
+  };
 
   // === 10. 小红书数据 ===
+  const runXiaohongshu = async () => {
   const xiaohongshuUrlInfo = selectFirstUrl('xiaohongshu');
   if (xiaohongshuUrlInfo) {
     const xiaohongshuFetch = await recordDataFetch(
@@ -769,8 +800,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       results.fetchErrors.videoErrors.xiaohongshu = xiaohongshuFetch.record.error;
     }
   }
+  };
 
   // === 10.5. Instagram 数据 ===
+  const runInstagram = async () => {
   const instagramUrlInfo = selectFirstUrl('instagram');
   if (instagramUrlInfo) {
     const instagramFetch = await recordDataFetch(
@@ -798,8 +831,10 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       results.fetchErrors.videoErrors.instagram = instagramFetch.record.error;
     }
   }
+  };
 
   // === 11. 普通网站数据 ===
+  const runWebsite = async () => {
   const websiteUrlInfo = selectFirstUrl('websites');
   if (websiteUrlInfo) {
     const websiteUrl = websiteUrlInfo.url;
@@ -822,6 +857,35 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       }
     }
   }
+  };
+
+  // ── N2 平台桶并发（2026-10-13 叙事提速案）──
+  // 13 平台按真实上游域分四桶，桶间并发、桶内保持原串行顺序（同上游防限流）；
+  // 各段代码体与输出键逐字不变（只改等待顺序，抓取内容 bit 一致）：
+  //   apidance：twitter（含社区/第二推文/enrich）
+  //   justoneapi：weibo→youtube→douyin→tiktok→bilibili→binanceSquare→weixin→
+  //              amazon→xiaohongshu→instagram（桶内序 = 原全局序）
+  //   github：api.github.com 独立域
+  //   websites：目标网站各异（互不同域天然并发）
+  // allSettled：单桶异常不拖死其它桶（各段自带 recordDataFetch 吞错，与串行版
+  // 「单平台失败继续下一段」的鲁棒性对齐）
+  await Promise.allSettled([
+    runTwitter(),
+    (async () => {
+      await runWeibo();
+      await runYoutube();
+      await runDouyin();
+      await runTiktok();
+      await runBilibili();
+      await runBinanceSquare();
+      await runWeixin();
+      await runAmazon();
+      await runXiaohongshu();
+      await runInstagram();
+    })(),
+    runGithub(),
+    runWebsite(),
+  ]);
 
   return { ...results, classifiedUrls, dataFetchResults };
 }

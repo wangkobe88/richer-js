@@ -485,10 +485,16 @@ export class TwitterFetcher {
    * @returns {Promise<string>} 展开后的URL
    */
   static async expandShortUrl(shortUrl) {
+    // N2（2026-10-13 叙事提速案）：5s 总超时——原两段 fetch 均无超时，挂死场景
+    // 只能靠外层 30s race 掐死；显式超时后失败走本函数既有 catch（返回 null =
+    // 展开失败分支），行为与「fetch 抛错」一致
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
     try {
       const response = await fetch(shortUrl, {
         method: 'HEAD',
         redirect: 'manual', // 手动处理重定向
+        signal: controller.signal,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
@@ -503,6 +509,7 @@ export class TwitterFetcher {
       // 如果HEAD请求没有返回location，尝试GET请求
       const getResponse = await fetch(shortUrl, {
         redirect: 'manual',
+        signal: controller.signal,
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
@@ -512,6 +519,8 @@ export class TwitterFetcher {
     } catch (error) {
       console.log(`[TwitterFetcher] 展开短链接失败: ${error.message}`);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
 

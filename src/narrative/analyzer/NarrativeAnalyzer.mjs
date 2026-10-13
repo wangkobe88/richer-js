@@ -184,7 +184,7 @@ export class NarrativeAnalyzer {
    *   覆盖竞态
    */
   static async analyze(address, options = {}) {
-    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null } = options;
+    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null, skipIntermediateSave = false } = options;
 
     // 分段计时（N1 探针，2026-10-13 叙事提速案）：options._timing 为调用方持有的
     // 收集数组 → 各段 push { seg, ms }；缺省旁路模式（不计时，零行为变化）
@@ -300,11 +300,15 @@ export class NarrativeAnalyzer {
     dataFetchResults = data_fetch_results;
 
     // 立即保存URL提取结果到数据库，供前端轮询使用
-    await timing.wrap('dbSave.intermediate', () => NarrativeRepository.save({
-      token_address: tokenData.address,
-      url_extraction_result: url_extraction_result,
-      classified_urls: classifiedUrls
-    }));
+    // 直调语境跳过（N2 叙事提速案 2026-10-13）：无前端轮询，字段由最终 save /
+    // fallback 早退的补 save 落库，库内终态一致，省一次 DB 往返
+    if (!skipIntermediateSave) {
+      await timing.wrap('dbSave.intermediate', () => NarrativeRepository.save({
+        token_address: tokenData.address,
+        url_extraction_result: url_extraction_result,
+        classified_urls: classifiedUrls
+      }));
+    }
 
     logger.info('NarrativeAnalyzer', 'URL提取结果已保存到数据库');
 
@@ -704,6 +708,16 @@ export class NarrativeAnalyzer {
     // 9. 如果分析失败且有缓存，使用缓存作为fallback
     if (analysisFailed && cached && cached.is_valid) {
       console.log(`分析失败，使用已有缓存作为fallback | address=${normalizedAddress}`);
+      // skip 中段 save 的等价搬运（N2 叙事提速案）：此路径不经过最终 save，
+      // 现状靠中段 save 落 url_extraction_result/classified_urls——直调语境在
+      // 此补一次同形状 save，字段落库语义 bit 一致（仅时点从分析前移到失败后）
+      if (skipIntermediateSave) {
+        await timing.wrap('dbSave.intermediate', () => NarrativeRepository.save({
+          token_address: tokenData.address,
+          url_extraction_result: url_extraction_result,
+          classified_urls: classifiedUrls
+        }));
+      }
       return {
         ...formatResult(cached),
         // GMGN 风险字段：本次已拿到优先（fetchAllDataViaClassifier 成功过），否则读行内

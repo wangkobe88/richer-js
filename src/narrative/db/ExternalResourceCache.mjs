@@ -222,34 +222,45 @@ export class ExternalResourceCache {
   }
 
   /**
-   * 检查是否是失败的缓存
+   * 单次拉行（任意 status，N2 叙事提速案 2026-10-13）：fetchWithCache 的
+   * isFailed+get 两次 DB 往返合一——(url,resource_type) 唯一行由 upsert
+   * onConflict 保证，一次 select 拿全行由调用方行内判定失败冷却/缓存过期。
+   * 预载层短路返回 preload 行（preloadByKeys 恒拉 success 行，行内判定等价）；
+   * miss 负缓存短路返回 null（已确认无行=无 failed 行=不在冷却，miss 语义一致）；
+   * DB 无行 → 登记负缓存（启用语境，与 get 同口径）
    * @param {string} url - 资源URL
    * @param {string} resourceType - 资源类型
-   * @param {number} cooldown - 失败冷却时间（秒），默认1小时
-   * @returns {Promise<boolean>} 是否在失败冷却期内
+   * @returns {Promise<Object|null>} 行对象（status/cached_at/expires_at/content 等）；无行 null
    */
-  static async isFailed(url, resourceType, cooldown = 60 * 60) {
+  static async getRow(url, resourceType) {
+    const pre = this._preloadStore.get(`${resourceType}\u0000${url}`);
+    if (pre) return pre;
+
+    const missKey = `${resourceType}\u0000${url}`;
+    if (this._negativeCacheEnabled && this._missStore.has(missKey)) {
+      return null;
+    }
+
     try {
-      const supabase = dbManager.getSupabase();
-
-      const cooldownAfter = new Date(Date.now() - cooldown * 1000).toISOString();
-
-      const { data, error } = await supabase
+      const { data, error } = await dbManager.getSupabase()
         .from('external_resource_cache')
-        .select('cached_at')
+        .select('url,resource_type,status,cached_at,expires_at,content')
         .eq('url', url)
         .eq('resource_type', resourceType)
-        .eq('status', 'failed')
-        .gte('cached_at', cooldownAfter)
         .maybeSingle();
 
       if (error) {
-        return false;
+        console.error('[ExternalResourceCache] getRow 查询失败:', error.message);
+        return null;
       }
-
-      return !!data;
+      if (!data) {
+        if (this._negativeCacheEnabled) this._missStore.add(missKey);
+        return null;
+      }
+      return data;
     } catch (error) {
-      return false;
+      console.error('[ExternalResourceCache] getRow 查询异常:', error.message);
+      return null;
     }
   }
 
@@ -371,17 +382,27 @@ export class CachedFetcher {
   static async fetchWithCache(url, resourceType, fetchFn, options = {}) {
     const { maxAge = 30 * 24 * 60 * 60, ttl = 30 * 24 * 60 * 60 } = options;
 
-    // 1. 检查是否在失败冷却期内
-    const isFailed = await ExternalResourceCache.isFailed(url, resourceType);
-    if (isFailed) {
-      console.log(`[CachedFetcher] 资源在失败冷却期内，跳过: ${url}`);
-      return null;
-    }
-
-    // 2. 尝试从缓存获取
-    const cached = await ExternalResourceCache.get(url, resourceType, { maxAge });
-    if (cached) {
-      return cached;
+    // 1+2. 单次拉行 + 行内判定（N2 合一 2026-10-13 叙事提速案）：原 isFailed
+    // +get 两次 DB 往返 → getRow 一次。语义逐条对齐原两查：failed 行且
+    // cached_at ≥ now-1h → 冷却跳过（原 isFailed 默认 cooldown=3600s，NULL
+    // cached_at 的 gte 恒 false 不冷却）；success 行且（expires_at null 或
+    // ≥ now-maxAge）→ 命中（原 get 的 status + or(expires_at) 条件）；
+    // 其余（无行/过冷却/过期/其他 status）→ 真析
+    const row = await ExternalResourceCache.getRow(url, resourceType);
+    if (row) {
+      if (row.status === 'failed') {
+        const cooldownAfter = new Date(Date.now() - 60 * 60 * 1000);
+        if (row.cached_at && new Date(row.cached_at) >= cooldownAfter) {
+          console.log(`[CachedFetcher] 资源在失败冷却期内，跳过: ${url}`);
+          return null;
+        }
+      } else if (row.status === 'success') {
+        const expiresBefore = new Date(Date.now() - maxAge * 1000);
+        if (!row.expires_at || new Date(row.expires_at) >= expiresBefore) {
+          console.log(`[ExternalResourceCache] 缓存命中: ${resourceType} - ${url}`);
+          return row.content;
+        }
+      }
     }
 
     // 3. 执行实际获取
