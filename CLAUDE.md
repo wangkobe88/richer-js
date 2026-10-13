@@ -200,7 +200,6 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 - 链支持 BSC-only：其它链历史实验可读（未知 chain id 原样落穿），交易/配置查询非 BSC throw
 - 配置：`config/default.json`（fourmemeWs/flapWs 段：contracts/reconnect/tickBuffer/debounce/live 执行参数 + 策略默认 buyTimeMinutes 1.33 / earlyReturn 80-120 / TP +30% 卖 50%、+50% 清 / 观察窗 30min）；`config/narrative-engine.json`（jev+engine 段，JSON 单一真相源，env 覆盖已移除）；`config/.env`（ANKR_WS_URL / AVE_API_KEY / SUPABASE_URL / SUPABASE_ANON_KEY / ENCRYPTION_KEY / SILICONFLOW_FALLBACK_KEY 等）
 - AVE API token 格式 `{address}-{chain}`（如 0x123…abc-bsc）；AVE 只用于 holder/预检工具与分析端点，不用于发现或价格
-- `scripts/smart-wallet-mining/` 仍按 experiment_id 口径拉 ticks——对新实验（exp_id=NULL）会**静默拉空**，待改 token 集合口径
 
 ## 红线汇总
 

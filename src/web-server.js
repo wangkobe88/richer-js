@@ -18,7 +18,6 @@ const { ExperimentDataService } = require('./web/services/ExperimentDataService'
 const { WalletDataService } = require('./web/services/WalletDataService');
 const { TokenHolderDataService } = require('./web/services/TokenHolderDataService');
 const { WalletAnalysisDataService } = require('./web/services/WalletAnalysisDataService');
-const { BayesModelService } = require('./services/BayesModelService');
 const { TwitterService } = require('./services/TwitterService');
 const PriceRefreshService = require('./web/services/price-refresh-service');
 const { CryptoUtils } = require('./utils/CryptoUtils');
@@ -142,7 +141,6 @@ class RicherJsWebServer {
     this.walletService = new WalletDataService();
     this.tokenHolderService = new TokenHolderDataService();
     this.walletAnalysisService = new WalletAnalysisDataService();
-    this.bayesModelService = new BayesModelService();
     this.twitterService = new TwitterService(console);
     this.priceRefreshService = new PriceRefreshService(
       console,
@@ -1601,68 +1599,6 @@ class RicherJsWebServer {
         res.json({ success: true, data: stats });
       } catch (error) {
         this.logger.error('WebServer', '获取统计失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // ============ API路由：贝叶斯模型 ============
-
-    // 训练模型
-    this.app.post('/api/bayes/train', async (req, res) => {
-      try {
-        const taskId = Date.now().toString();
-
-        // 异步执行训练
-        this.bayesModelService.trainModel((progress) => {
-          this.logger.info('WebServer', `[贝叶斯训练] ${progress.progress}% - ${progress.message}`);
-        }).then(result => {
-          this.logger.info('WebServer', `[贝叶斯训练] 完成`, { stats: result.stats });
-        }).catch(error => {
-          this.logger.error('WebServer', '[贝叶斯训练] 失败:', { details: error });
-        });
-
-        res.json({ success: true, taskId });
-      } catch (error) {
-        this.logger.error('WebServer', '训练贝叶斯模型失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // 预测代币性质
-    this.app.post('/api/bayes/predict', async (req, res) => {
-      try {
-        const { tokenAddress, chain = 'bsc' } = req.body;
-
-        if (!tokenAddress) {
-          return res.status(400).json({ success: false, error: '代币地址不能为空' });
-        }
-
-        const result = await this.bayesModelService.predictToken(tokenAddress, chain);
-        res.json({ success: true, data: result });
-      } catch (error) {
-        this.logger.error('WebServer', '贝叶斯预测失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // 获取模型信息
-    this.app.get('/api/bayes/model', async (req, res) => {
-      try {
-        const info = await this.bayesModelService.getModelInfo();
-        res.json({ success: true, data: info });
-      } catch (error) {
-        this.logger.error('WebServer', '获取贝叶斯模型信息失败:', { details: error });
-        res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // 评估训练集准确率
-    this.app.get('/api/bayes/evaluate', async (req, res) => {
-      try {
-        const evaluation = await this.bayesModelService.evaluateTrainingSet();
-        res.json({ success: true, data: evaluation });
-      } catch (error) {
-        this.logger.error('WebServer', '评估训练集失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });

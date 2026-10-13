@@ -146,9 +146,6 @@
                         <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-600 transition-colors text-gray-300 hover:text-white" data-tab="label">
                             🏷️ 生成标签
                         </button>
-                        <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-600 transition-colors text-gray-300 hover:text-white" data-tab="bayes">
-                            🤖 贝叶斯模型
-                        </button>
                         <button class="tab-btn px-6 py-4 text-sm font-medium border-b-2 border-transparent hover:border-gray-600 transition-colors text-gray-300 hover:text-white" data-tab="view">
                             📋 查看画像
                         </button>
@@ -229,109 +226,6 @@
                 </div>
 
                 <!-- 贝叶斯模型 Tab -->
-                <div id="tab-bayes" class="tab-content p-6">
-                    <h2 class="text-lg font-semibold mb-4 text-white">🤖 贝叶斯推断模型</h2>
-                    <p class="text-gray-400 mb-6">基于钱包画像预测代币性质。通过历史标注数据训练模型，使用贝叶斯推断预测新代币是流水盘/高质量等的概率。</p>
-
-                    <!-- 模型状态卡片 -->
-                    <div class="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                            <h3 class="text-sm font-medium text-gray-400 mb-2">模型状态</h3>
-                            <div id="bayes-status" class="text-sm font-semibold">-</div>
-                        </div>
-                        <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                            <h3 class="text-sm font-medium text-gray-400 mb-2">训练代币数</h3>
-                            <div id="bayes-tokens" class="text-sm font-semibold text-blue-400">-</div>
-                        </div>
-                        <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                            <h3 class="text-sm font-medium text-gray-400 mb-2">最后更新</h3>
-                            <div id="bayes-updated" class="text-sm text-gray-400">-</div>
-                        </div>
-                        <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                            <button id="refresh-bayes-btn" class="text-xs px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded text-gray-300">
-                                刷新状态
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- 训练模型 -->
-                    <div class="mb-8">
-                        <h3 class="text-md font-semibold text-gray-300 mb-3">训练模型</h3>
-                        <p class="text-sm text-gray-500 mb-4">基于所有标注代币和钱包画像数据训练贝叶斯模型。此过程可能需要较长时间（约10-30分钟，取决于代币数量）。</p>
-
-                        <button id="train-bayes-btn" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md text-sm font-medium text-white transition-colors">
-                            🚀 开始训练模型
-                        </button>
-
-                        <!-- 训练进度 -->
-                        <div id="train-bayes-progress" class="hidden mt-4">
-                            <div class="flex items-center justify-between mb-2">
-                                <span id="train-bayes-message" class="text-sm text-gray-400">准备中...</span>
-                                <span id="train-bayes-percent" class="text-sm font-medium text-indigo-400">0%</span>
-                            </div>
-                            <div class="w-full bg-gray-700 rounded-full h-2">
-                                <div id="train-bayes-bar" class="progress-bar bg-indigo-600 h-2 rounded-full" style="width: 0%"></div>
-                            </div>
-                        </div>
-
-                        <!-- 训练结果 -->
-                        <div id="train-bayes-result" class="hidden mt-4 p-4 bg-indigo-900 rounded-md border border-indigo-800">
-                            <h3 class="font-semibold text-indigo-200 mb-2">训练完成！</h3>
-                            <div id="train-bayes-stats" class="text-sm text-indigo-300"></div>
-                        </div>
-                    </div>
-
-                    <!-- 预测代币 -->
-                    <div>
-                        <h3 class="text-md font-semibold text-gray-300 mb-3">预测代币性质</h3>
-                        <p class="text-sm text-gray-500 mb-4">输入代币地址，使用贝叶斯模型预测代币性质。</p>
-
-                        <div class="flex items-center gap-3 mb-4">
-                            <input type="text" id="predict-token-address" placeholder="0x123..."
-                                   class="flex-1 px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white text-sm">
-                            <button id="predict-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-md text-sm font-medium text-white transition-colors">
-                                🔮 预测
-                            </button>
-                        </div>
-
-                        <!-- 预测结果 -->
-                        <div id="predict-result" class="hidden mt-4">
-                            <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                                <h4 class="text-sm font-semibold text-gray-300 mb-3" id="predict-token-title">预测结果</h4>
-
-                                <!-- 预测条形图 -->
-                                <div id="predict-bars" class="space-y-2 mb-4">
-                                    <!-- 动态生成 -->
-                                </div>
-
-                                <!-- 详情 -->
-                                <div id="predict-details" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                                    <div class="bg-gray-800 rounded p-3 border border-gray-700">
-                                        <div class="text-gray-400 mb-1">预测性质</div>
-                                        <div id="predict-category" class="text-lg font-bold text-blue-400">-</div>
-                                    </div>
-                                    <div class="bg-gray-800 rounded p-3 border border-gray-700">
-                                        <div class="text-gray-400 mb-1">置信度</div>
-                                        <div id="predict-confidence" class="text-lg font-bold text-purple-400">-</div>
-                                    </div>
-                                    <div class="bg-gray-800 rounded p-3 border border-gray-700">
-                                        <div class="text-gray-400 mb-1">数据来源</div>
-                                        <div id="predict-method" class="text-sm text-gray-300">-</div>
-                                    </div>
-                                </div>
-
-                                <!-- 关键钱包 -->
-                                <div class="mt-4">
-                                    <h5 class="text-xs font-medium text-gray-400 mb-2">关键钱包贡献</h5>
-                                    <div id="predict-wallets" class="space-y-1">
-                                        <!-- 动态生成 -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- 查看画像 Tab -->
                 <div id="tab-view" class="tab-content p-6">
                     <h2 class="text-lg font-semibold mb-4 text-white">查看钱包画像</h2>
