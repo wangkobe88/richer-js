@@ -48,6 +48,7 @@ import { XiaohongshuFetcher } from '../../utils/xiaohongshu-fetcher.mjs';
 import { InstagramFetcher } from '../../utils/instagram-fetcher.mjs';
 import { BinanceSquareFetcher } from '../../utils/binance-square-fetcher.mjs';
 import { fetchWebsiteContent, isFetchableUrl } from '../../utils/web-fetcher.mjs';
+import { createSegmentTimer } from '../../utils/segment-timer.mjs';
 import { CachedFetcher } from '../../db/ExternalResourceCache.mjs';
 import { getCacheTTL } from '../../db/cache-ttl-config.mjs';
 import { TwitterMediaExtractor } from '../../utils/twitter-media-extractor.mjs';
@@ -75,9 +76,13 @@ const NARRATIVE_CONFIG = config.narrative || {
  * @param {boolean} [options.enrichSocialByGmgn] - GMGN 社媒补源开关（BRF 案，
  *   2026-09-27 用户裁定）：仅交易引擎叙事直调传 true（买门已 fire 才花 GMGN 配额）；
  *   narrative engine 队列链路不传，零行为变化
+ * @param {Object} [options.timing] - 分段计时器（N1 探针 2026-10-13 叙事提速案）：
+ *   createSegmentTimer 产物，不传 → 旁路模式零行为变化；ipfs/gmgn/各平台 fetch 段
+ *   落 { seg: 'ipfs'|'gmgn'|'fetch.<platform>', ms }
  * @returns {Promise<Object>} 所有获取到的数据
  */
 export async function fetchAllDataViaClassifier(tokenData, extractedInfo, options = {}) {
+  const timing = options.timing || createSegmentTimer(null);
   // 1. 从appendix和raw_api_data中提取所有URL
   const rawData = tokenData.raw_api_data || {};
   let appendix = {};
@@ -128,7 +133,7 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   // IPFS 解包免费，先于 GMGN 付费补源
   const metaUrl = normalizeIpfsRef(typeof rawData.meta === 'string' ? rawData.meta : null);
   if (metaUrl) {
-    const metadata = await fetchIpfsMetadata(metaUrl);
+    const metadata = await timing.wrap('ipfs', () => fetchIpfsMetadata(metaUrl));
     if (metadata) {
       const metaUrls = extractAllUrls(metadata);
       const newUrls = metaUrls.filter(u => !allUrls.includes(u));
@@ -160,7 +165,7 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   let gmgnRisk = null;
   if (options.enrichSocialByGmgn) {
     try {
-      const socials = await fetchGmgnSocialLinks('bsc', tokenData.address);
+      const socials = await timing.wrap('gmgn', () => fetchGmgnSocialLinks('bsc', tokenData.address));
       gmgnRisk = socials?.risk ?? null;
       const superIpTweet = isSuperIpTweetUrl(socials?.twitterUrl || null);
       if (superIpTweet) {
@@ -258,7 +263,7 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
   };
 
   // 4. 顺序获取数据（按优先级）
-  const fetchData = await fetchDataSequentially(classifiedUrls, tokenData, extractedInfo);
+  const fetchData = await fetchDataSequentially(classifiedUrls, tokenData, extractedInfo, timing);
 
   return {
     ...fetchData,
@@ -272,9 +277,12 @@ export async function fetchAllDataViaClassifier(tokenData, extractedInfo, option
  * @param {Object} classifiedUrls - 分类后的所有URL
  * @param {Object} tokenData - 代币数据
  * @param {Object} extractedInfo - 提取的结构化信息
+ * @param {Object} [timing] - 分段计时器（N1 探针；各平台段名 fetch.<platform>，
+ *   recordDataFetch 内统一包裹——微博段非 recordDataFetch 形状，手动 wrap）
  * @returns {Promise<Object>} 获取到的所有数据
  */
-export async function fetchDataSequentially(classifiedUrls, tokenData, extractedInfo) {
+export async function fetchDataSequentially(classifiedUrls, tokenData, extractedInfo, timing) {
+  timing = timing || createSegmentTimer(null);
   const results = {
     twitterInfo: null,
     websiteInfo: null,
@@ -481,7 +489,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         return info;
       },
       'twitter',
-      twitterUrlInfo.url
+      twitterUrlInfo.url, timing
     );
     results.twitterInfo = twitterFetch.data;
     dataFetchResults.twitter = twitterFetch.record;
@@ -495,21 +503,23 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
     const weiboUrlInfo = classifiedUrls.weibo[0];
     console.log(`[NarrativeAnalyzer] 获取微博数据作为背景信息: ${weiboUrlInfo.url}`);
     try {
-      if (weiboUrlInfo.type === 'user_profile') {
-        // 用户主页
-        results.backgroundInfo = await WeiboFetcher.fetchUserProfile(weiboUrlInfo.url);
-        if (results.backgroundInfo) {
-          results.backgroundInfo.source = 'weibo';
-          console.log(`[NarrativeAnalyzer] 微博用户主页获取成功: ${results.backgroundInfo.screen_name}`);
+      await timing.wrap('fetch.weibo', async () => {
+        if (weiboUrlInfo.type === 'user_profile') {
+          // 用户主页
+          results.backgroundInfo = await WeiboFetcher.fetchUserProfile(weiboUrlInfo.url);
+          if (results.backgroundInfo) {
+            results.backgroundInfo.source = 'weibo';
+            console.log(`[NarrativeAnalyzer] 微博用户主页获取成功: ${results.backgroundInfo.screen_name}`);
+          }
+        } else {
+          // 微博帖子
+          results.backgroundInfo = await WeiboFetcher.fetchFromUrl(weiboUrlInfo.url);
+          if (results.backgroundInfo) {
+            results.backgroundInfo.source = 'weibo';
+            console.log('[NarrativeAnalyzer] 微博数据获取成功');
+          }
         }
-      } else {
-        // 微博帖子
-        results.backgroundInfo = await WeiboFetcher.fetchFromUrl(weiboUrlInfo.url);
-        if (results.backgroundInfo) {
-          results.backgroundInfo.source = 'weibo';
-          console.log('[NarrativeAnalyzer] 微博数据获取成功');
-        }
-      }
+      });
     } catch (error) {
       console.warn('[NarrativeAnalyzer] 微博数据获取失败:', error.message);
     }
@@ -531,7 +541,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         return info;
       },
       'github',
-      githubUrlInfo.url
+      githubUrlInfo.url, timing
     );
     results.githubInfo = githubFetch.data;
     dataFetchResults.github = githubFetch.record;
@@ -561,7 +571,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         return info;
       },
       'youtube',
-      youtubeUrlInfo.url
+      youtubeUrlInfo.url, timing
     );
     results.youtubeInfo = youtubeFetch.data;
     dataFetchResults.youtube = youtubeFetch.record;
@@ -594,7 +604,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         return info;
       },
       'douyin',
-      douyinUrlInfo.url
+      douyinUrlInfo.url, timing
     );
     results.douyinInfo = douyinFetch.data;
     dataFetchResults.douyin = douyinFetch.record;
@@ -627,7 +637,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         return info;
       },
       'tiktok',
-      tiktokUrlInfo.url
+      tiktokUrlInfo.url, timing
     );
     results.tiktokInfo = tiktokFetch.data;
     dataFetchResults.tiktok = tiktokFetch.record;
@@ -651,7 +661,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         return info;
       },
       'bilibili',
-      bilibiliUrlInfo.url
+      bilibiliUrlInfo.url, timing
     );
     results.bilibiliInfo = bilibiliFetch.data;
     dataFetchResults.bilibili = bilibiliFetch.record;
@@ -675,7 +685,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         return info;
       },
       'binanceSquare',
-      binanceSquareUrlInfo.url
+      binanceSquareUrlInfo.url, timing
     );
     results.binanceSquareInfo = bsFetch.data;
     dataFetchResults.binanceSquare = bsFetch.record;
@@ -693,7 +703,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         return info;
       },
       'weixin',
-      weixinUrlInfo.url
+      weixinUrlInfo.url, timing
     );
     results.weixinInfo = weixinFetch.data;
     dataFetchResults.weixin = weixinFetch.record;
@@ -717,7 +727,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         return info;
       },
       'amazon',
-      amazonUrlInfo.url
+      amazonUrlInfo.url, timing
     );
     results.amazonInfo = amazonFetch.data;
     dataFetchResults.amazon = amazonFetch.record;
@@ -751,7 +761,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         }
       },
       'xiaohongshu',
-      xiaohongshuUrlInfo.url
+      xiaohongshuUrlInfo.url, timing
     );
     results.xiaohongshuInfo = xiaohongshuFetch.data;
     dataFetchResults.xiaohongshu = xiaohongshuFetch.record;
@@ -780,7 +790,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
         }
       },
       'instagram',
-      instagramUrlInfo.url
+      instagramUrlInfo.url, timing
     );
     results.instagramInfo = instagramFetch.data;
     dataFetchResults.instagram = instagramFetch.record;
@@ -803,7 +813,7 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       const websiteFetch = await recordDataFetch(
         () => fetchWebsiteContent(websiteUrl, { maxLength: 5000 }),
         'website',
-        websiteUrl
+        websiteUrl, timing
       );
       results.websiteInfo = websiteFetch.data;
       dataFetchResults.website = websiteFetch.record;
@@ -821,18 +831,22 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
  * @param {Function} fetcherFn - 数据获取函数
  * @param {string} platform - 平台名称
  * @param {string} url - 请求的URL
+ * @param {Object} [timing] - 分段计时器（N1 探针）：段名 fetch.<platform>，
+ *   成功/失败两路径都落（失败段耗时同样是探针数据）
  * @returns {Promise<Object>} { data, record } - data是获取的数据，record是元数据
  */
-export async function recordDataFetch(fetcherFn, platform, url) {
+export async function recordDataFetch(fetcherFn, platform, url, timing) {
   if (!url) {
     return { data: null, record: null };
   }
 
   const startedAt = new Date().toISOString();
+  if (timing) timing.start(`fetch.${platform}`);
   let data, error;
 
   try {
     data = await fetcherFn();
+    if (timing) timing.end(`fetch.${platform}`);
     return {
       data,
       record: {
@@ -845,6 +859,7 @@ export async function recordDataFetch(fetcherFn, platform, url) {
     };
   } catch (e) {
     error = e.message;
+    if (timing) timing.end(`fetch.${platform}`);
     return {
       data: null,
       record: {

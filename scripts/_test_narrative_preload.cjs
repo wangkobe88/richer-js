@@ -158,7 +158,7 @@ async function main() {
   {
     const analyzerSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/analyzer/NarrativeAnalyzer.mjs'), 'utf8');
     eq('D1 analyze 预载行优先（miss 现场 DB 查原路径）',
-      /const cached = \(rowCache && rowCache\.get\(normalizedAddress\)\)\n\s*\|\| await NarrativeRepository\.findByAddress\(normalizedAddress\);/.test(analyzerSrc), true);
+      /const cached = \(rowCache && rowCache\.get\(normalizedAddress\)\)\n\s*\|\| await timing\.wrap\('cacheLookup', \(\) => NarrativeRepository\.findByAddress\(normalizedAddress\)\);/.test(analyzerSrc), true);
     eq('D2 analyze options 解构 rowCache', /rowCache = null \} = options/.test(analyzerSrc), true);
     const repSrc = fs.readFileSync(path.join(__dirname, '../src/narrative/db/NarrativeRepository.mjs'), 'utf8');
     eq('D3 两段式查询形状：轻列键集（id 升序 + .gt 键集 + is_valid/gmgn DB 谓词）+ 全列按 id 批 50',

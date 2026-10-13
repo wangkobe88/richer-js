@@ -13,6 +13,7 @@ import { getLogger } from '../core/logger.mjs';
 
 // 新增：从拆分的模块导入
 import { hasValidDataForAnalysis, hasIndependentWebsite, shouldUseAccountCommunityAnalysis, isProjectCoin, extractScreenNameFromTwitterUrl, detectIssuerSelfLaunch } from './utils/narrative-utils.mjs';
+import { createSegmentTimer } from '../utils/segment-timer.mjs';
 import { cleanDataForDB } from './utils/data-cleaner.mjs';
 import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
 import { performPreCheck } from './services/pre-check-service.mjs';
@@ -185,13 +186,17 @@ export class NarrativeAnalyzer {
   static async analyze(address, options = {}) {
     const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null } = options;
 
+    // 分段计时（N1 探针，2026-10-13 叙事提速案）：options._timing 为调用方持有的
+    // 收集数组 → 各段 push { seg, ms }；缺省旁路模式（不计时，零行为变化）
+    const timing = createSegmentTimer(options._timing);
+
     // 标准化地址
     const normalizedAddress = address.toLowerCase();
 
     // 1. 检查缓存（查询最新的记录，任何实验的都可以）——预载行优先（回测装载时
     //    批量拉的快照）；miss/未预载 → 现场 DB 查原路径
     const cached = (rowCache && rowCache.get(normalizedAddress))
-      || await NarrativeRepository.findByAddress(normalizedAddress);
+      || await timing.wrap('cacheLookup', () => NarrativeRepository.findByAddress(normalizedAddress));
 
     // 2. 判断是否可以使用缓存（代币级全局：命中有效缓存即复用，ignoreCache=true 才强制重分析）
     // GMGN 补源链路例外（BRF 案）：no_public_info 拦截行的根因是语料缺失（元数据+
@@ -231,7 +236,7 @@ export class NarrativeAnalyzer {
         llmAnalysis: llmAnalysis,  // 添加 llmAnalysis 字段
         gmgnRisk,
         classifiedUrls: cached.classified_urls || null,
-        twitter: await ExternalResourceCache.reassembleTwitterInfo(cached.classified_urls?.twitter),
+        twitter: await timing.wrap('reassemble', () => ExternalResourceCache.reassembleTwitterInfo(cached.classified_urls?.twitter)),
         fetchErrors: null,
         debugInfo: {
           urlExtractionResult: cached.url_extraction_result || null,
@@ -253,7 +258,7 @@ export class NarrativeAnalyzer {
     // 结果按 token_address 全局 upsert，供所有调用方复用
 
     // 2. 从数据库获取代币数据
-    const tokenData = await fetchTokenData(normalizedAddress);
+    const tokenData = await timing.wrap('tokenData', () => fetchTokenData(normalizedAddress));
     if (!tokenData) {
       throw new Error('代币不存在');
     }
@@ -288,18 +293,18 @@ export class NarrativeAnalyzer {
       data_fetch_results,  // 数据获取结果
       binanceSquareInfo,
       gmgnRisk  // GMGN dev 风险字段（x-0 案：发币史/捆绑钱包，直调语境才有值）
-    } = await fetchAllDataViaClassifier(tokenData, extractedInfo, { enrichSocialByGmgn });
+    } = await fetchAllDataViaClassifier(tokenData, extractedInfo, { enrichSocialByGmgn, timing });
 
     // 保存URL提取和数据获取结果
     urlExtractionResult = url_extraction_result;
     dataFetchResults = data_fetch_results;
 
     // 立即保存URL提取结果到数据库，供前端轮询使用
-    await NarrativeRepository.save({
+    await timing.wrap('dbSave.intermediate', () => NarrativeRepository.save({
       token_address: tokenData.address,
       url_extraction_result: url_extraction_result,
       classified_urls: classifiedUrls
-    });
+    }));
 
     logger.info('NarrativeAnalyzer', 'URL提取结果已保存到数据库');
 
@@ -347,7 +352,7 @@ export class NarrativeAnalyzer {
         twitterScreenName: twitterInfo.screen_name,
         hasInReplyTo: !!twitterInfo.in_reply_to
       });
-      relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions);
+      relatedAccounts = await timing.wrap('accountCollect', () => collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions));
       logger.info('NarrativeAnalyzer', '账号信息收集完成', { count: relatedAccounts.length });
     }
 
@@ -362,14 +367,14 @@ export class NarrativeAnalyzer {
       if (twitterInfo) {
         // 有twitterInfo，从推文作者收集
         logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过twitterInfo）');
-        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions);
+        relatedAccounts = await timing.wrap('accountCollect', () => collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions));
       } else if (classifiedUrls?.twitter?.length > 0) {
         // 推文被删/获取失败，但URL中有screen_name，直接获取账号信息
         for (const tw of classifiedUrls.twitter) {
           const screenName = extractScreenNameFromTwitterUrl(tw.url);
           if (screenName) {
             logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过URL提取）', { screenName });
-            const accountInfo = await getFullAccountInfo(screenName, tweetsWindowOptions);
+            const accountInfo = await timing.wrap('accountCollect', () => getFullAccountInfo(screenName, tweetsWindowOptions));
             if (accountInfo) {
               relatedAccounts.push({ ...accountInfo, role: 'primary' });
             }
@@ -388,7 +393,7 @@ export class NarrativeAnalyzer {
       logger.info('NarrativeAnalyzer', '检测到发行方自发宣告（品牌同一性+宣告指纹）→ 转账号判定路径', issuerSelfLaunch);
       // 账号判定需要作者账号：独立网站/项目币路径未收集时补收（推文作者 → primary）
       if (relatedAccounts.length === 0) {
-        relatedAccounts = await collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions);
+        relatedAccounts = await timing.wrap('accountCollect', () => collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions));
         logger.info('NarrativeAnalyzer', '自发币路径补充收集作者账号', { count: relatedAccounts.length });
       }
     }
@@ -399,7 +404,7 @@ export class NarrativeAnalyzer {
     // 品牌词）；fail-open：拉取失败/宣告竞态未发 → 不改道，维持标准路径 W 数学
     let issuerCaTimeline = null;
     if (!issuerSelfLaunch && twitterInfo?.type === 'tweet') {
-      issuerCaTimeline = await detectIssuerByCaTimeline(normalizedAddress, twitterInfo, tweetsWindowOptions);
+      issuerCaTimeline = await timing.wrap('issuerCa', () => detectIssuerByCaTimeline(normalizedAddress, twitterInfo, tweetsWindowOptions));
       if (issuerCaTimeline) {
         logger.info('NarrativeAnalyzer', '检测到发行方 CA 宣告（作者时间线含合约地址）→ 转账号判定路径', {
           screenName: issuerCaTimeline.screenName, tweetId: issuerCaTimeline.tweetId,
@@ -413,7 +418,7 @@ export class NarrativeAnalyzer {
     const issuerDetected = issuerSelfLaunch || issuerCaTimeline;
 
     // 7. 预检查规则（不调用LLM，直接返回结果）
-    const preCheckResult = await performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo }, githubInfo, backgroundInfo, { ignoreExpired });
+    const preCheckResult = await timing.wrap('precheck', () => performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo }, githubInfo, backgroundInfo, { ignoreExpired }));
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;
@@ -456,7 +461,7 @@ export class NarrativeAnalyzer {
         // 同图 90 天缓存 + 进程内并发去重，分析 token 无关可跨 token 复用）。挂在 pre-check
         // 之后——预检拦截票不烧视觉调用；下载/API 失败在服务内降级为无图证据（= 开启前
         // 行为），配置残缺 throw fail-loud。
-        await analyzeTweetImage(twitterInfo);
+        await timing.wrap('vision', () => analyzeTweetImage(twitterInfo));
 
         // Jev 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，
         // 与何时分析无关——补跑/回测/延迟分析的结果幂等；创建时间缺失时回退当前时刻）
@@ -496,11 +501,11 @@ export class NarrativeAnalyzer {
 
           if (shouldUseAccountCommunity) {
             logger.info('NarrativeAnalyzer', '使用账号/社区代币分析流程');
-            const analysisResult = await analyzeAccountCommunityToken(tokenData, fetchResults, {
+            const analysisResult = await timing.wrap('jev.prestage', () => analyzeAccountCommunityToken(tokenData, fetchResults, {
               // CA 实锤与项目币网站验证同级：地址已被作者时间线宣告，prestage 规则走
               // 项目币通道（名称只记录不拦截——蝴蝶轮回↔熔炉 名称不匹配不能拦 project 评级）
               skipAddressValidation: isProjectCoinResult || !!issuerCaTimeline
-            });
+            }));
 
             // 检查是否是规则验证失败（返回preCheckData）
             if (analysisResult.preCheckData) {
@@ -564,7 +569,7 @@ export class NarrativeAnalyzer {
             // 命中时的内容作品豁免评分，标准路径不问）
             const questions = buildStandardQuestions({ includeBrandHijack, referentMemeability: true });
             const startedAt = new Date().toISOString();
-            const result = await JevClient.ask(state, questions, { label: `jev-superip:${tokenData.symbol}` });
+            const result = await timing.wrap('jev.superip', () => JevClient.ask(state, questions, { label: `jev-superip:${tokenData.symbol}` }));
             const finishedAt = new Date().toISOString();
 
             const mapped = mapSuperIPAnswers(result.answers, {
@@ -609,7 +614,7 @@ export class NarrativeAnalyzer {
             const { state, stats } = buildJevState(tokenData, fetchResults, { now: jevNowMs });
             const questions = buildStandardQuestions({ includeBrandHijack });
             const startedAt = new Date().toISOString();
-            const result = await JevClient.ask(state, questions, { label: `jev:${tokenData.symbol}` });
+            const result = await timing.wrap('jev.standard', () => JevClient.ask(state, questions, { label: `jev:${tokenData.symbol}` }));
             const finishedAt = new Date().toISOString();
 
             const mapped = mapStandardAnswers(result.answers, {
@@ -704,7 +709,7 @@ export class NarrativeAnalyzer {
         // GMGN 风险字段：本次已拿到优先（fetchAllDataViaClassifier 成功过），否则读行内
         gmgnRisk: gmgnRisk ?? cached.gmgn_info?.risk ?? null,
         classifiedUrls: cached.classified_urls || null,
-        twitter: await ExternalResourceCache.reassembleTwitterInfo(cached.classified_urls?.twitter),
+        twitter: await timing.wrap('reassemble', () => ExternalResourceCache.reassembleTwitterInfo(cached.classified_urls?.twitter)),
         fetchErrors: null,
         debugInfo: {
           urlExtractionResult: cached.url_extraction_result || null,
@@ -755,7 +760,7 @@ export class NarrativeAnalyzer {
       }
     } : {};
 
-    const saveResult = await NarrativeRepository.save({
+    const saveResult = await timing.wrap('dbSave.final', () => NarrativeRepository.save({
       // === 基础字段 ===
       token_address: normalizedAddress,
       token_symbol: tokenData.symbol,
@@ -789,7 +794,7 @@ export class NarrativeAnalyzer {
 
       // === 代币分类（2026-09-27 裁定）===：prestage tokenType / super_ip_fast / event:X
       ...(tokenCategory ? { token_category: tokenCategory } : {})
-    });
+    }));
 
     // 构造 llmAnalysis 对象供前端使用（扁平格式，与缓存路径 buildLLMAnalysis 一致）
     const llmAnalysis = {

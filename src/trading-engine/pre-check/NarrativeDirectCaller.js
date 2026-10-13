@@ -122,27 +122,35 @@ class NarrativeDirectCaller {
    * （其他购买条件已满足），才允许元数据无社交链接的 token 调 GMGN 补语料入口
    * （付费配额控制——narrative engine 队列链路不传此开关，零调用）；
    * 且 no_public_info 拦截的缓存行穿透重析（空语料行已失真，见 NarrativeAnalyzer）
+   *
+   * N1 探针（2026-10-13 叙事提速案）：timingSink（调用方创建的数组）经 options._timing
+   * 传入 analyze 分段填充；inflight 复用时后到 join 者共享首发的同一数组引用
+   * （数组按引用共享，settle 后读取即已填充，无需结果对象透传）
    * @private
    * @param {string} tokenAddress - 代币地址
-   * @returns {Promise<Object>} analyze 的结果 promise（不设超时，由调用方 race）
+   * @param {Array} timingSink - 分段计时收集数组（N1 探针）
+   * @returns {{ promise: Promise<Object>, timing: Array }} analyze 的结果 promise
+   *   （不设超时，由调用方 race）+ 其 timing 数组
    */
-  _startAnalysis(tokenAddress) {
+  _startAnalysis(tokenAddress, timingSink) {
     const key = tokenAddress.toLowerCase();
-    let p = this._inflight.get(key);
-    if (!p) {
-      p = this._getAnalyzer()
+    let entry = this._inflight.get(key);
+    if (!entry) {
+      const promise = this._getAnalyzer()
         .then(Analyzer => Analyzer.analyze(tokenAddress, {
           enrichSocialByGmgn: true,
           // 预载行透传（回测叙事预载 2026-10-12）：命中 → analyze 跳过 findByAddress；
           // null/无键 → 现场 DB 查原路径
           rowCache: this._rowCache || undefined,
+          _timing: timingSink,
         }));
+      entry = { promise, timing: timingSink };
       // settle 后移出 inflight；then 第二参承接 rejection 防 unhandled rejection
       const cleanup = () => this._inflight.delete(key);
-      p.then(cleanup, cleanup);
-      this._inflight.set(key, p);
+      promise.then(cleanup, cleanup);
+      this._inflight.set(key, entry);
     }
-    return p;
+    return entry;
   }
 
   /**
@@ -179,6 +187,9 @@ class NarrativeDirectCaller {
    *   分级事件锚）；null = 无推文语料/超时/异常（下游 narrativeCorpusLagSec=null
    *   → null 比较恒 false → 落晚票严格门，fail-closed）
    *   precheckStage：precheck 挂点（'address'=宣告竞态，叙事否决短路豁免判据）
+   *   timing：分段计时快照 [{seg, ms}]（N1 探针 2026-10-13 叙事提速案；analyze 全链
+   *     ipfs、gmgn、fetch.<platform>、accountCollect、precheck、jev.*、dbSave.* 段）；
+   *     fromCache 命中只含 cacheLookup/reassemble；超时/异常 → null（数组此刻不完整）
    */
   async getRating(tokenAddress) {
     const cacheKey = tokenAddress.toLowerCase();
@@ -193,6 +204,9 @@ class NarrativeDirectCaller {
       }
     }
     const startedAt = Date.now();
+    // N1 探针：本调用的分段计时数组（数组按引用传给 analyze，settle 后即已填充；
+    // inflight join 时共享首发的数组）
+    const timingSink = [];
     try {
       let timer = null;
       const timeout = new Promise((_, reject) => {
@@ -201,8 +215,9 @@ class NarrativeDirectCaller {
           { code: TIMEOUT_CODE },
         )), DIRECT_CALL_TIMEOUT_MS);
       });
+      const entry = this._startAnalysis(tokenAddress, timingSink);
       const result = await Promise.race([
-        this._startAnalysis(tokenAddress),
+        entry.promise,
         timeout,
       ]).finally(() => clearTimeout(timer));
 
@@ -214,6 +229,8 @@ class NarrativeDirectCaller {
         durationMs: Date.now() - startedAt,
         timedOut: false,
         error: null,
+        // 分段计时快照（N1 探针）：fromCache 命中路径只含 cacheLookup/reassemble 段
+        timing: entry.timing.slice(),
         sourceTweetId: this._extractSourceTweetId(result?.classifiedUrls),
         gmgnRisk: result?.gmgnRisk ?? null,
         // 语料最早推文时间（主推/父推取更早；三条 return 路径顶层均带 twitter 字段）：
@@ -244,6 +261,8 @@ class NarrativeDirectCaller {
         durationMs: Date.now() - startedAt,
         timedOut: error?.code === TIMEOUT_CODE,
         error: error?.message || String(error),
+        // 超时/异常不带分段计时：底层 analyze 多半仍在后台跑，数组此刻不完整
+        timing: null,
         sourceTweetId: null,
         gmgnRisk: null,
         corpusTs: null,

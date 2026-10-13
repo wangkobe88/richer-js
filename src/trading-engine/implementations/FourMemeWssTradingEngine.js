@@ -1206,6 +1206,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           `叙事评级直调 | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
           ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +
           (narrativeCallInfo.error ? ` error=${narrativeCallInfo.error}` : ''));
+        // N1 探针（2026-10-13 叙事提速案）：慢调用（≥3s 真跑）现场打印 top3 耗时段，
+        // 全量分段在 signal metadata narrativeCall.timing（182 tmp 脚本统计用）
+        if (narrativeCallInfo.durationMs >= 3000 && Array.isArray(narrativeCallInfo.timing)
+            && narrativeCallInfo.timing.length > 0) {
+          const top = [...narrativeCallInfo.timing].sort((a, b) => b.ms - a.ms).slice(0, 3)
+            .map(s => `${s.seg}=${s.ms}ms`).join(' ');
+          this.logger.info(this._experimentId, 'BuyEval', `叙事直调分段 | ${token.symbol} ${top}`);
+        }
 
         // ── 叙事否决短路登记 ──
         // rating=low（终态）→ 登记短路集，本 token 后续 fire 不再生成买信号；
