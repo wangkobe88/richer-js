@@ -415,8 +415,8 @@ function buildFactorsFromTimeSeries(factorValues, tokenState = {}, priceUsd = 0,
  * 注意：购买前置检查因子不在此列表中，它们只存储在信号 metadata 中
  *
  * 上述硬编码清单并上 FourMemeFactorAggregator.getFactorKeys()（权威单一事实源）：
- * FA 键集含 tick 原生活跃度键（tradeCount/buyVolumeBnb/tradesPerMin 等，原硬编码清单
- * 一直缺）与 pumpfun 回迁批 1 的 68 新键。策略 condition 引用键 ∉ 此集合会被
+ * FA 键集含 tick 原生活跃度键（tradeCount/buyVolumeBnb 等，原硬编码清单一直缺）。
+ * 策略 condition 引用键 ∉ 此集合会被
  * StrategyEngine 拒载，并入后新键可直接进条件表达式。
  * @returns {Set<string>} 常规因子ID集合
  */

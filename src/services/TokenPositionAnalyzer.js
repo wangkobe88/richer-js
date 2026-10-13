@@ -777,7 +777,7 @@ class TokenPositionAnalyzer {
       ageSeconds: Number(ageSeconds.toFixed(2)),
       tradeCount: rawTradeCount,
       buyBnb: Number(rawBuyBnb.toFixed(4)),
-      currentPriceBnb: factors?.currentPriceBnb ?? null, // BSC 原生价（USD 输出仅 blockLowMcapUsd，FA 偏离 #4）
+      currentPriceBnb: factors?.currentPriceBnb ?? null, // BSC 原生价（FA 新链全程 BNB 原生，偏离 #4；blockLowMcapUsd 已随 2026-10-13 因子清理删除）
     };
     if (this._gmgnFilter) snapshot.gmgnUserPct = gmgnUserPct; // 审计恒落（enabled；_analyze TPAPre_gmgnUserPct 优先读）
     if (gmgnExempt) snapshot.gmgnExempt = true;               // 豁免触发标记 → _analyze 豁免改写（占比达标正常触发的票由统一判据覆盖）

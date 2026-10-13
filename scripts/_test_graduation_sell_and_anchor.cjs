@@ -251,7 +251,7 @@ console.log('D. 趋势因子乱序输入（b24879e0 崩溃复现）');
     mk(29000, 3.2e-9), mk(28000, 3.3e-9), mk(27000, 3.4e-9), mk(26000, 3.6e-9),
   ];
   const f3 = trendOf(lastArrivedOldest, now - 40000);
-  // riseFromLow6s / drawdown 以时间最新价 9e-9 为现价：距窗内低点 3e-9 拉起 = (9-3)/3*100 = 200%
+  // recentRiseFromWindowLowPct 以时间最新价 9e-9 为现价：距窗内低点 3e-9 拉起 = (9-3)/3*100 = 200%
   approx('乱序归一后现价=时间最新（拉起 200%）', f3.recentRiseFromWindowLowPct, 200, 1e-6);
 
   console.log(`\n（含 D 节）总结果: ${pass} 通过, ${fail} 失败`);

@@ -6,7 +6,8 @@
  *   wallet 口径（sender||trader，NULL 回退 = 旧行为等价）：
  *     holderCount(holders)/_holderSeries(holderTrend)/_walletNetTokens(P 组 top3/top5、
  *     sniperHolderShare top20、bigHolder 交叉)/K 组(_buyerAddresses/_buyerVolume/
- *     _sellerAddresses 等)/_walletBoughtTokens(cumBuy)/滑窗(_slideTraderCounts)/smartBot
+ *     _sellerAddresses 等)/smartBot（_walletBoughtTokens(cumBuy)/滑窗(_slideTraderCounts)
+ *     两死桶已随 2026-10-13 因子清理删除——其喂给的 cumBuyTop5/newWalletsSlide 族键零引用）
  *     _walletMaxNetTokens（TPA retention 峰值基准——二期 2026-10-10 与画像库同批切；
  *     分子 _walletNetTokens 同批，键域一致防分子分母错位）
  *   trader 口径（刻意锁定，仅剩一处）：
@@ -151,8 +152,10 @@ console.log('\nC 节：K 组/滑窗/smartBot/cumBuy');
   check('C2 K 组累计买额按 wallet 分账（0xR1=3）', () => assert.strictEqual(st._buyerVolume.get('0xR1'), 3));
   check('C3 卖方 = 0xR0（同一 EOA 两栖 → 对敲重叠可检；trader 口径下会记成 GMGN 自买自卖）',
     () => assert.deepStrictEqual([...st._sellerAddresses], ['0xR0']));
-  check('C4 滑窗 wallet 计数键 = 2（不含 GMGN）', () => assert.strictEqual(st._slideTraderCounts.size, 2));
-  check('C5 cumBuy 按 wallet（_walletBoughtTokens 0xR0=1000）', () => assert.strictEqual(st._walletBoughtTokens.get('0xR0'), 1000));
+  check('C4 死桶 _slideTraderCounts 已删（newWalletsSlide 族随 2026-10-13 因子清理删除）',
+    () => assert.ok(!('_slideTraderCounts' in st)));
+  check('C5 死桶 _walletBoughtTokens 已删（cumBuyTop5 族随 2026-10-13 因子清理删除）',
+    () => assert.ok(!('_walletBoughtTokens' in st)));
   check('C6 旧名 _traderBoughtTokens 已不存在（改名防口径混淆）', () => assert.ok(!('_traderBoughtTokens' in st)));
 }
 
