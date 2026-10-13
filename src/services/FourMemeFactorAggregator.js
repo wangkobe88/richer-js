@@ -1042,6 +1042,28 @@ class FourMemeFactorAggregator extends EventEmitter {
         return this._preFilterSkipped;
     }
 
+    /**
+     * preFilter 出窗纯判定（P18 tick 路径 build 条件化配套，2026-10-13 回测性能案）：
+     * 逐字复刻 _buildFactorMap 内 preFilter 判定（age 算式 + inAnyRange 同形），skip 时
+     * 与 build-null 路径同点累计 _preFilterSkipped（探针口径不变）。引擎侧
+     * backtest.tickBuildSkip 开启时，未持仓票先走本谓词——出窗票免掉整次 build 调用
+     * （等价性：谓词 true ⇔ buildFactorMap 返回 null，单测对拍锁定）。
+     * state 缺失 / preFilter 未注入 / 持仓票 → false（交回 buildFactorMap 的
+     * state-null / 内部判定现状路径）。live 引擎不调用（零变化）。
+     */
+    shouldSkipTickBuild(tokenAddress, now) {
+        if (!this._preFilter) return false;
+        const state = this._states.get(tokenAddress);
+        if (!state || state._positions.size > 0) return false;
+        const age = state.createdAtMs ? (now - state.createdAtMs) / 60000 : 0;
+        const inAnyRange = this._preFilter.some(r => !(age < r.minAgeMinutes || age > r.maxAgeMinutes));
+        if (!inAnyRange) {
+            this._preFilterSkipped++;
+            return true;
+        }
+        return false;
+    }
+
     // ═══════════════ 持仓状态（per-position）═══════════════
 
     /**

@@ -408,6 +408,18 @@ class BacktestEngine extends AbstractTradingEngine {
     //     enforce=true → 主循环 buildFactorMap 后写 token.cycleTag（tick 虚拟时刻，
     //     _cycleFactors 防前视：判定只用 asOf 前数据）；缺段 = 带 cycle 腿全隐 fail-closed
     this._cycleEnforce = !!(experimentConfig.tokenCycle && experimentConfig.tokenCycle.enforce);
+    // P18 tick 路径 build 条件化（2026-10-13 回测性能案）：未持仓票中「买窗内」票
+    // 不再全量 build（buildFactorMap 段主体 ~49 万次全量构建是纯 CPU 大头）。
+    // 默认 false=现状恒 build；出窗票走 FA.shouldSkipTickBuild（与现状 build-null
+    // continue 副作用序列等价）。★与 cycleEnforce 启动互斥：cycle latch 推进是
+    // _buildFactorMap 的读取副作用（:2440 _cycleFactors 无条件展开），skip 窗内票
+    // = 中途不推进 latch = fire 时 tokenCycle 档位漂移（candidateSince 晚置位）——
+    // fail-fast 拒启而非静默分叉（unknown-factor fail-fast 同族裁定）
+    this._tickBuildSkip = backtestConfig.tickBuildSkip === true;
+    if (this._tickBuildSkip && this._cycleEnforce) {
+      throw new Error('配置互斥：backtest.tickBuildSkip 与 tokenCycle.enforce 不可同启'
+        + '（cycle latch 推进是 tick build 的读取副作用，skip 会造成 fire 时 tokenCycle 档位漂移）');
+    }
     if (this._cycleEnforce) {
       const _cycled = this._strategyEngine.getAllStrategies().filter(s => s.groups != null).length;
       this.logger.info(this._experimentId, 'BacktestEngine',
@@ -1077,35 +1089,56 @@ class BacktestEngine extends AbstractTradingEngine {
         _p0 = Date.now();
         this._factorAggregator.processTick(tick, { emitFactors: false });
         perf.processTick += Date.now() - _p0;
+
+        // P18 tick 路径 build 条件化（backtest.tickBuildSkip，默认 false=现状恒
+        // build）：held 票恒全量（卖腿/止损/信号快照链）；未持仓票先过
+        // shouldSkipTickBuild——出窗票 continue（与现状 build-null 的副作用序列
+        // 等价：TPA/touch/止损扫描/graduation 消费全跳），买窗内票不再全量 build
+        // （buildFactorMap 段主体 = ~49 万次窗内未持仓全量构建，纯 CPU 大头）。
+        // C 类（窗内未持仓）票现状也走 touch/止损扫描/毕业消费（三段均不读
+        // factors），下方保留防行为分叉；TPA 唯一 factors 消费是 currentPriceBnb
+        // （TokenPositionAnalyzer :780 可选链），喂最小 factors bit 等价。
+        // getToken 提前（纯 Map 读，registerToken 保证首见入池；现状在 TPA 后的
+        // 防御性 continue 挪前零差异——TPA 不读 tokenPool）
         _p0 = Date.now();
-        const factors = this._factorAggregator.buildFactorMap(tick.token_address, tick.timestamp);
-        perf.buildFactorMap += Date.now() - _p0;
-        if (!factors) continue;
+        const token = this._tokenPool.getToken(tick.token_address, 'bsc');
+        if (!token) { perf.other += Date.now() - _p0; continue; }
+        const heldTick = token.status === 'bought';
+        let factors = null;
+        if (heldTick || !this._tickBuildSkip) {
+          const _b0 = Date.now();
+          factors = this._factorAggregator.buildFactorMap(tick.token_address, tick.timestamp);
+          perf.buildFactorMap += Date.now() - _b0;
+          if (!factors) continue;
+        } else if (this._factorAggregator.shouldSkipTickBuild(tick.token_address, tick.timestamp)) {
+          perf.other += Date.now() - _p0;
+          continue;
+        }
+        perf.other += Date.now() - _p0;
 
         // TPA 触发检查（回迁批 4）：await 保证同 tick verdict 就绪（回放串行语义，
         // 后续 buildFactorMap 立即可读 setHoldingFactors 回填的 TPAPre_* 因子；
         // asOf=tick.timestamp，tick 行含 block_number 供 blocks 时间门）
         if (this._tokenPositionAnalyzer) {
           _p0 = Date.now();
+          const _st = this._factorAggregator.getTokenState(tick.token_address);
           await this._tokenPositionAnalyzer.checkAndTrigger(
-            tick.token_address, factors,
-            this._factorAggregator.getTokenState(tick.token_address),
+            tick.token_address,
+            factors || { currentPriceBnb: _st?.currentPriceBnb || 0 },
+            _st,
             tick, tick.timestamp);
           perf.tpa += Date.now() - _p0;
         }
 
-        _p0 = Date.now();
-        const token = this._tokenPool.getToken(tick.token_address, 'bsc');
-        if (!token) { perf.other += Date.now() - _p0; continue; }
-
         // 周期路由同步（2026-09-28）：buildFactorMap(tick.timestamp) 已按虚拟时刻推进
-        // _cycleLatch（防前视），此处写 token.cycleTag 供 evaluate 桶路由
-        if (this._cycleEnforce) token.cycleTag = factors.tokenCycle ?? null;
-        perf.other += Date.now() - _p0;
+        // _cycleLatch（防前视），此处写 token.cycleTag 供 evaluate 桶路由。
+        // factors 门：C 类票（tickBuildSkip）factors=null 不写——tickBuildSkip 与
+        // cycleEnforce 启动互斥（enforce 时恒走全量分支 factors 非空），门为双保险
+        if (this._cycleEnforce && factors) token.cycleTag = factors.tokenCycle ?? null;
 
         // 分腿路由（与实时引擎 _onFactorsUpdated 同构）
         _p0 = Date.now();
-        if (token.status === 'bought' && !this._buyingTokens.has(tick.token_address)) {
+        if (heldTick && !this._buyingTokens.has(tick.token_address)) {
           // 引擎级止损双腿（tick 即时路径，对齐实时挂点）：命中优先于策略腿——保命腿不等策略评估
           const _slHit = this._stopLossHit(factors);
           if (_slHit) {
