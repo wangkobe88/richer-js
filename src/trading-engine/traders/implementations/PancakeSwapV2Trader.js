@@ -500,15 +500,16 @@ class PancakeSwapV2Trader extends BaseTrader {
             console.log(`  spender: ${PANCAKE_V2_ROUTER}`);
             console.log(`  amount: ${approveAmount.toString()}`);
 
-            const signedTx = await this.wallet.sendTransaction({
+            const approveGasPrice = await this.getOptimalGasPrice();
+            const signedTx = await this._nonceGuard(() => this.signer.sendTransaction({
                 to: tokenAddress,
                 data: tokenContract.interface.encodeFunctionData("approve", [
                     PANCAKE_V2_ROUTER,
                     approveAmount
                 ]),
                 gasLimit: bufferedGasLimit,
-                gasPrice: await this.getOptimalGasPrice()
-            });
+                gasPrice: approveGasPrice
+            }));
 
             const receipt = await signedTx.wait();
 
@@ -756,19 +757,12 @@ class PancakeSwapV2Trader extends BaseTrader {
             throw new Error('钱包未设置');
         }
 
-        const {
-            slippage = this.defaultSlippage,
-            gasLimit = this.defaultGasLimit,
-            deadline = this.defaultDeadline,
-            maxRetries = 3 // 新增：最大重试次数
-        } = options;
+        // B5 decimals 断言（fail-closed：≠18 拒绝交易防数量错乱）
+        await this._assertDecimals18(tokenAddress);
 
-        // 包装重试逻辑
-        return await this._executeWithRetry(
-            async () => await this._buyTokenInternal(tokenAddress, bnbAmount, options),
-            maxRetries,
-            'buyToken'
-        );
+        // 禁自动重试（P0-C）：_executeWithRetry 在 tx 已广播后等待失败（超时/网络）会
+        // 重新构建发单 = 双买/双卖；对齐 _awaitReceipt「绝不重发防双买」语义，失败直接返回
+        return await this._buyTokenInternal(tokenAddress, bnbAmount, options);
     }
 
     /**
@@ -866,7 +860,7 @@ class PancakeSwapV2Trader extends BaseTrader {
             console.log(`  gasLimit: ${txParams.gasLimit}, 类型: ${typeof txParams.gasLimit}`);
             console.log(`  gasPrice: ${txParams.gasPrice}, 类型: ${typeof txParams.gasPrice}`);
 
-            const signedTx = await this.wallet.sendTransaction(txParams);
+            const signedTx = await this._nonceGuard(() => this.signer.sendTransaction(txParams));
 
             console.log(`📤 交易已发送: ${signedTx.hash}`);
             console.log('⏳ 等待交易确认...');
@@ -915,19 +909,11 @@ class PancakeSwapV2Trader extends BaseTrader {
             throw new Error('钱包未设置');
         }
 
-        const {
-            slippage = this.defaultSlippage,
-            gasLimit = this.defaultGasLimit,
-            deadline = this.defaultDeadline,
-            maxRetries = 3 // 新增：最大重试次数
-        } = options;
+        // B5 decimals 断言（fail-closed：≠18 拒绝交易防数量错乱）
+        await this._assertDecimals18(tokenAddress);
 
-        // 包装重试逻辑
-        return await this._executeWithRetry(
-            async () => await this._sellTokenInternal(tokenAddress, tokenAmount, options),
-            maxRetries,
-            'sellToken'
-        );
+        // 禁自动重试（P0-C）：双卖防线，语义见 buyToken
+        return await this._sellTokenInternal(tokenAddress, tokenAmount, options);
     }
 
     /**
@@ -949,16 +935,17 @@ class PancakeSwapV2Trader extends BaseTrader {
         } = options;
 
         console.log(`💰 开始卖出代币: ${tokenAddress}`);
-        console.log(`🪙 代币数量: ${tokenAmount}`);
-        console.log(`🔍 代币数量类型: ${typeof tokenAmount}`);
+        console.log(`🪙 代币数量: ${tokenAmount}（类型 ${typeof tokenAmount}）`);
 
-        // 转换 tokenAmount 为字符串格式（parseUnits 需要字符串）
-        let tokenAmountStr = tokenAmount;
+        // 归一化到 wei 域 bigint（P0-C 修复：bigint 直通——旧路径 bigint→string→
+        // parseUnits 会把 wei 数再乘 10^18 错一个量级；UI 单位字符串按 18 位转 wei，
+        // decimals 已由 sellToken 入口断言锁 18）
+        let amountIn;
         if (typeof tokenAmount === 'bigint') {
-            // 如果是 BigInt，转换为字符串
-            tokenAmountStr = tokenAmount.toString();
+            amountIn = tokenAmount;
+        } else {
+            amountIn = ethers.parseUnits(String(tokenAmount), 18);
         }
-        console.log(`🔍 转换后代币数量: ${tokenAmountStr}`);
 
         // 详细钱包检查
         console.log(`🔍 钱包地址: ${this.wallet.address}`);
@@ -976,12 +963,10 @@ class PancakeSwapV2Trader extends BaseTrader {
             }
         }
 
-        // 1. 获取代币精度
+        // 1. 获取代币精度（辅助口径：入口断言已锁 18，此处取缓存值供 formatUnits 使用）
         const decimals = await this.getTokenDecimals(tokenAddress);
         console.log(`🔢 代币精度: ${decimals}`);
-
-        let amountIn = ethers.parseUnits(tokenAmountStr, decimals);
-        console.log(`📝 解析后的 amountIn: ${amountIn.toString()}`);
+        console.log(`📝 amountIn(wei): ${amountIn.toString()}`);
 
         // 2. 详细检查代币余额
         console.log('🔍 检查代币余额...');
@@ -1002,16 +987,13 @@ class PancakeSwapV2Trader extends BaseTrader {
             const adjustedAmountFormatted = ethers.formatUnits(adjustedAmount, decimals);
 
             console.warn(`⚠️ 代币余额略不足，自动调整交易金额:`);
-            console.warn(`   原始请求: ${tokenAmountStr}`);
+            console.warn(`   原始请求: ${ethers.formatUnits(amountIn, 18)}`);
             console.warn(`   实际余额: ${tokenBalance}`);
             console.warn(`   调整后: ${adjustedAmountFormatted}`);
 
             // 更新amountIn为调整后的金额
             if (adjustedAmount > 0n) {
                 console.log(`✅ 使用调整后的交易金额: ${adjustedAmountFormatted}`);
-                // 重新解析tokenAmount为调整后的值
-                tokenAmount = adjustedAmountFormatted;
-                // 更新amountIn（现在可以重新赋值，因为声明为let）
                 amountIn = adjustedAmount;
             } else {
                 throw new Error(`代币余额严重不足: 实际 ${tokenBalance}, 差额 ${ethers.formatUnits(difference, decimals)}`);
@@ -1052,7 +1034,7 @@ class PancakeSwapV2Trader extends BaseTrader {
 
         // 检查流动性
         if (tokenReserve < amountIn) {
-            console.warn(`⚠️ 池子流动性可能不足: 储备 ${ethers.formatUnits(tokenReserve, decimals)}, 交易 ${tokenAmountStr}`);
+            console.warn(`⚠️ 池子流动性可能不足: 储备 ${ethers.formatUnits(tokenReserve, decimals)}, 交易 ${ethers.formatUnits(amountIn, 18)}`);
         }
 
         // 7. 计算预期输出
@@ -1073,6 +1055,9 @@ class PancakeSwapV2Trader extends BaseTrader {
         // 9. 进行详细的交易前验证
         console.log('🔍 进行交易前验证...');
         await this._preTransactionValidation(tokenAddress, amountIn, PANCAKE_V2_ROUTER);
+
+        // 余额差基准（P0-C）：approve 完成后取——approve 的 gas 不混入卖出实收
+        const bnbBefore = await this.provider.getBalance(this.wallet.address);
 
         // 10. 发送交易
         console.log('🔧 开始构建交易数据...');
@@ -1099,12 +1084,12 @@ class PancakeSwapV2Trader extends BaseTrader {
         console.log(`⛽ 最终Gas限制: ${bufferedGasLimit}`);
         console.log(`⛽ Gas价格: ${gasPrice}`);
 
-        const signedTx = await this.wallet.sendTransaction({
+        const signedTx = await this._nonceGuard(() => this.signer.sendTransaction({
             to: PANCAKE_V2_ROUTER,
             data: swapData,
             gasLimit: bufferedGasLimit,
             gasPrice
-        });
+        }));
 
         console.log(`📤 交易已发送: ${signedTx.hash}`);
         console.log('⏳ 等待交易确认...');
@@ -1115,11 +1100,18 @@ class PancakeSwapV2Trader extends BaseTrader {
         if (receipt.status === 1) {
             console.log(`✅ 交易成功! Gas 使用: ${receipt.gasUsed}`);
 
+            // 实收 BNB（P0-C 余额差 + gas 补偿——链上到账真相，与 four.meme/flap 同口径；
+            // 旧 amountOut 只是 reserves 推导预估）
+            const bnbAfter = await this.provider.getBalance(this.wallet.address);
+            const gasCost = (receipt.gasUsed || 0n) * (receipt.gasPrice || gasPrice);
+            const actualReceived = ethers.formatEther(bnbAfter - bnbBefore + gasCost);
+
             return {
                 success: true,
                 txHash: signedTx.hash,
                 amountOut: expectedOut.toString(),
                 amountOutMin: amountOutMin.toString(),
+                actualReceived,
                 gasUsed: receipt.gasUsed,
                 error: null
             };
@@ -1244,118 +1236,6 @@ class PancakeSwapV2Trader extends BaseTrader {
             console.error('❌ 交易前验证失败:', error.message);
             throw error;
         }
-    }
-
-    /**
-     * 带重试机制的执行器
-     * @param {Function} operation - 要执行的操作
-     * @param {number} maxRetries - 最大重试次数
-     * @param {string} operationName - 操作名称（用于日志）
-     * @returns {Promise<Object>} 执行结果
-     */
-    async _executeWithRetry(operation, maxRetries = 3, operationName = 'operation') {
-        let lastError;
-
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                console.log(`🔄 ${operationName} 尝试 #${attempt}/${maxRetries}...`);
-
-                const result = await operation();
-
-                if (attempt > 1) {
-                    console.log(`✅ ${operationName} 重试成功! (尝试 #${attempt})`);
-                }
-
-                return result;
-
-            } catch (error) {
-                lastError = error;
-                console.error(`❌ ${operationName} 尝试 #${attempt} 失败: ${error.message}`);
-
-                // 分析错误类型，决定是否应该重试
-                const errorMessage = error.message.toLowerCase();
-                const shouldRetry = this._shouldRetryError(errorMessage);
-
-                if (!shouldRetry) {
-                    console.error(`💡 错误类型不适合重试，直接返回失败`);
-                    break;
-                }
-
-                // 如果还有重试机会，等待后重试
-                if (attempt < maxRetries) {
-                    const waitTime = attempt * 3000; // 递增等待时间：3s, 6s, 9s...
-                    console.log(`⏳ 等待 ${waitTime/1000} 秒后重试...`);
-                    await new Promise(resolve => setTimeout(resolve, waitTime));
-
-                    // 在重试前，如果是授权相关错误，尝试重新授权
-                    if (errorMessage.includes('transfer_from_failed') ||
-                        errorMessage.includes('insufficient allowance')) {
-                        console.log('🔄 检测到授权问题，尝试重新授权...');
-                        // 这里可以添加重新授权的逻辑
-                    }
-                }
-            }
-        }
-
-        console.error(`❌ ${operationName} 最终失败，已尝试 ${maxRetries} 次`);
-        return {
-            success: false,
-            txHash: null,
-            error: `重试 ${maxRetries} 次后仍失败: ${lastError.message}`
-        };
-    }
-
-    /**
-     * 判断错误是否应该重试
-     * @param {string} errorMessage - 错误消息
-     * @returns {boolean} 是否应该重试
-     */
-    _shouldRetryError(errorMessage) {
-        // 不应该重试的错误类型
-        const nonRetryableErrors = [
-            'insufficient balance', // 余额不足
-            'invalid address',      // 无效地址
-            'invalid signature',    // 无效签名
-            'nonce too low',        // nonce过低
-            'nonce too high',       // nonce过高
-            'gas price too low',    // gas价格过低（网络拥堵）
-            'underflow',            // 数值下溢
-            'overflow',             // 数值上溢
-            'division by zero',     // 除零错误
-            'invalid jump',         // 无效跳转
-            'stack too deep',       // 栈太深
-            'out of gas',           // 超出gas（这个可以重试但需要更高gas）
-            'execution reverted'    // 交易执行失败（某些情况下可重试）
-        ];
-
-        // 检查是否包含不应该重试的错误
-        for (const nonRetryableError of nonRetryableErrors) {
-            if (errorMessage.includes(nonRetryableError)) {
-                // 某些错误类型在特定条件下可以重试
-                if (nonRetryableError === 'execution reverted') {
-                    // 只有当错误消息包含特定可重试的错误时才重试
-                    const retryableRevertErrors = [
-                        'transfer_from_failed',
-                        'insufficient allowance',
-                        'unauthorized'
-                    ];
-                    return retryableRevertErrors.some(retryableError =>
-                        errorMessage.includes(retryableError)
-                    );
-                }
-
-                if (nonRetryableError === 'out of gas') {
-                    // Gas不足可以通过提高gas来重试
-                    return true;
-                }
-
-                // 其他错误不重试
-                return false;
-            }
-        }
-
-        // 默认允许重试
-        return true;
     }
 
     /**

@@ -289,6 +289,14 @@ class ExperimentDetail {
     if (linkPosition) {
       linkPosition.href = `/experiment/${this.experimentId}/position-analysis`;
     }
+    // 手工交易入口（P0-C 实盘前置批）：仅 live 实验显示（页面/命令 API 均仅 live 语义）
+    const linkManual = document.getElementById('link-manual');
+    if (linkManual) {
+      linkManual.href = `/experiment/${this.experimentId}/manual`;
+      if (tradingMode === 'live') {
+        linkManual.classList.remove('hidden');
+      }
+    }
 
     // 显示回测实验的源实验ID
     const sourceInfoElement = document.getElementById('source-experiment-info');

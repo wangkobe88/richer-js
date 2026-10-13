@@ -13,6 +13,7 @@ const { BlockchainConfig } = require('../../utils/BlockchainConfig');
 const Logger = require('../../services/logger');
 const TelegramNotifier = require('../../services/TelegramNotifier');
 const ExperimentEventService = require('../../web/services/ExperimentEventService');
+const baseConfig = require('../../../config/default.json');
 
 // 延迟导入以避免循环依赖
 let TokenPool = null;
@@ -313,41 +314,28 @@ class AbstractTradingEngine extends ITradingEngine {
   }
 
   /**
-   * 初始化 Telegram 通知器
-   * @private
-   * @returns {Promise<void>}
+   * 初始化 Telegram 通知器（实盘前置批 2026-10-13 重接）
+   *
+   * 仅 live 模式 + config/default.json telegram.liveAlerts.enabled=true + env
+   * 凭证齐全时构造；virtual/backtest 恒 null（_notifyLiveAlert 判空跳过，行为
+   * 与死链期一致）。凭证读 env TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID（TelegramNotifier
+   * 构造内），缺失时 notifier.enabled=false 只 warn 不 throw——告警通道尽最大努力
+   * 不阻断交易流。
    */
   async _initializeTelegramNotifier() {
-    // [DECOUPLED] 电报通知已禁用
-    return;
-    if (!this._experiment || !this._experiment.config) {
-      // 没有实验配置，不初始化通知器
-      return;
+    const telegramConfig = (baseConfig.telegram || {}).liveAlerts || {};
+    if (this._mode !== TradingMode.LIVE || telegramConfig.enabled !== true) {
+      return; // virtual/backtest/未配置：通知器保持 null
     }
 
-    // 获取通知配置（从实验配置的 strategiesConfig 中读取）
-    const strategiesConfig = this._experiment.config.strategiesConfig || {};
-    const telegramConfig = strategiesConfig.telegramNotifications || {};
-
-    // 获取引擎类型的默认配置
-    const mode = this._mode;
-    if (telegramConfig.enabled === undefined) {
-      // 如果没有显式设置，根据引擎类型设置默认值
-      if (mode === TradingMode.BACKTEST) {
-        telegramConfig.enabled = false; // 回测默认关闭
-      } else {
-        telegramConfig.enabled = true; // 虚拟和实盘默认开启
-      }
-    }
-
-    // 创建通知器实例
-    this._telegramNotifier = new TelegramNotifier(telegramConfig);
+    this._telegramNotifier = new TelegramNotifier({ enabled: true });
     this._telegramNotifier.setDbManager(dbManager);
 
-    if (telegramConfig.enabled) {
+    if (this._telegramNotifier.enabled) {
       this._logger.info('Telegram 通知已启用');
     } else {
-      this._logger.debug('Telegram 通知已禁用');
+      // enabled 显式要求但凭证缺失：降级 warn（notifier 构造内已 console.warn 一次）
+      this._logger.warn('Telegram', 'telegram.liveAlerts.enabled=true 但缺少凭证 env（TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID），live 告警不可达');
     }
   }
 

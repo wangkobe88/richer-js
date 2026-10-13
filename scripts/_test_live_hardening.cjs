@@ -73,7 +73,10 @@ async function main() {
     const trader = new FourMemeDirectTrader({ network: { rpcUrl: 'http://localhost:1' } }); // JsonRpcProvider 构造不发请求
     trader.txWaitTimeoutMs = 1000;
 
-    // 2a. 超时 + 回查 null → throw 带 txHash（绝不重发）
+    // 2a. 超时 + 回查 null → throw 带 txHash（绝不重发）；B2 新语义：throw 前
+    // reset NonceManager（防超时后 nonce 计数漂移连环拒收）——打桩 signer 验证
+    let resetCalls = 0;
+    trader.signer = { reset: () => { resetCalls++; } };
     trader.provider = {
       waitForTransaction: async () => { throw new Error('timeout'); },
       getTransactionReceipt: async () => null,
@@ -82,7 +85,7 @@ async function main() {
       () => trader._awaitReceipt({ hash: '0xabc' }, '买入'),
       /确认超时\(1s\)，txHash=0xabc/,
     );
-    ok(true, '超时未上链 → throw 带 txHash（不重发）');
+    ok(resetCalls === 1, '超时未上链 → throw 带 txHash 且 reset NonceManager（不重发）');
 
     // 2b. 超时 + 回查已上链成功 → 返回 receipt
     const receiptStub = { status: 1, hash: '0xabc', blockNumber: 123, gasUsed: 21000n, logs: [] };
@@ -127,6 +130,7 @@ async function main() {
     const coder = ethers.AbiCoder.defaultAbiCoder();
     const SEL_BALANCE_OF = '0x70a08231';
     const SEL_ALLOWANCE = '0xdd62ed3e';
+    const SEL_DECIMALS = '0x313ce567';
     const st = {
       tokenBalance: 0n,       // token balanceOf 应答（闭包，测试随时改）
       tokenAllowance: 0n,     // allowance 应答
@@ -138,6 +142,7 @@ async function main() {
       const sel = data.slice(0, 10);
       if (sel === SEL_BALANCE_OF) return coder.encode(['uint256'], [st.tokenBalance]);
       if (sel === SEL_ALLOWANCE) return coder.encode(['uint256'], [st.tokenAllowance]);
+      if (sel === SEL_DECIMALS) return coder.encode(['uint8'], [18]);
       throw new Error(`stub provider.call: unexpected selector ${sel}`);
     };
     provider.broadcastTransaction = async () => { st.broadcastCount++; return { hash: '0xtx-ap' }; };
@@ -151,13 +156,19 @@ async function main() {
 
     trader.provider = provider;
     trader.wallet = ethers.Wallet.createRandom().connect(provider); // 真实 Signer（Contract runner 校验需要）
+    trader.signer = new ethers.NonceManager(trader.wallet);         // B2：与生产 setWallet 同款包装
 
     // ---- 3a. quote 方向参数（buy: 0x0→token；sell: token→0x0）----
+    // Portal 合约桩工厂：B4 动态 gas 需要 interface.encodeFunctionData（数据仅作
+    // estimateGas 入参，桩 provider 不校验内容）
+    const portalStub = (overrides) => Object.assign({
+      interface: { encodeFunctionData: () => '0xswapdata' },
+    }, overrides);
     let quoteCalls = [];
-    trader.portalContract = {
+    trader.portalContract = portalStub({
       quoteExactInput: { staticCall: async (params) => { quoteCalls.push(params); return Q('100'); } },
       swapExactInput: async () => { throw new Error('should not be called'); },
-    };
+    });
     await trader.quote(TOKEN, Q('1'), 'buy');
     await trader.quote(TOKEN, Q('100'), 'sell');
     ok(quoteCalls[0].inputToken === ethers.ZeroAddress && quoteCalls[0].outputToken === TOKEN, 'buy 方向 0x0→token');
@@ -165,10 +176,10 @@ async function main() {
 
     // ---- 3b. buyToken 校验拒绝：拒单必须发生在发交易之前 ----
     let swapSent = false;
-    trader.portalContract = {
+    trader.portalContract = portalStub({
       quoteExactInput: { staticCall: async () => Q('139.34') }, // BURNIE 报价
       swapExactInput: async () => { swapSent = true; throw new Error('MUST NOT SEND TX'); },
-    };
+    });
     const buyReject = await trader.buyToken(TOKEN, Q('0.001'), { expectedTokenOut: 98855, minOutRatio: 0.5 });
     ok(buyReject.success === false && /拒绝执行/.test(buyReject.error), 'buyToken 灾难报价拒单');
     ok(swapSent === false, '拒单发生在签名之前（swapExactInput 未被调用）');
@@ -176,14 +187,14 @@ async function main() {
     // ---- 3c. buyToken 成功路径：余额差记账（税后到手）----
     let swapParams = null, swapOpts = null;
     st.tokenBalance = 0n;
-    trader.portalContract = {
+    trader.portalContract = portalStub({
       quoteExactInput: { staticCall: async () => Q('1000') },
       swapExactInput: async (params, opts) => {
         swapParams = params; swapOpts = opts;
         st.tokenBalance = Q('990'); // 模拟链上：报价 1000 被 1% 税扣到 990 到账
         return { hash: '0xtx1' };
       },
-    };
+    });
     const broadcastBefore = st.broadcastCount;
     const buyOk = await trader.buyToken(TOKEN, Q('0.001'), { expectedTokenOut: '900', minOutRatio: 0.5 });
     ok(buyOk.success === true, 'buyToken 成功');
@@ -196,10 +207,10 @@ async function main() {
 
     // ---- 3d. sellToken fail-closed：有锚 + quote 失败 → 拒绝（不裸奔）----
     swapSent = false;
-    trader.portalContract = {
+    trader.portalContract = portalStub({
       quoteExactInput: { staticCall: async () => { throw new Error('portal quote reverted'); } },
       swapExactInput: async () => { swapSent = true; throw new Error('MUST NOT SEND TX'); },
-    };
+    });
     st.tokenBalance = Q('500');
     st.tokenAllowance = Q('500'); // 足额：approve 不触发
     const bcBefore3d = st.broadcastCount;
@@ -209,10 +220,10 @@ async function main() {
 
     // ---- 3e. sellToken 灾难报价拒绝（尘埃报价，相对滑点失效场景）----
     swapSent = false;
-    trader.portalContract = {
+    trader.portalContract = portalStub({
       quoteExactInput: { staticCall: async () => Q('0.0001') },
       swapExactInput: async () => { swapSent = true; throw new Error('MUST NOT SEND TX'); },
-    };
+    });
     st.tokenBalance = Q('500');
     st.tokenAllowance = Q('500');
     const sellDust = await trader.sellToken(TOKEN, Q('100'), { expectedNativeOut: '0.5', minOutRatio: 0.5 });
@@ -221,10 +232,10 @@ async function main() {
 
     // ---- 3f. sellToken 余额钳制 + approve 决策 + 实收=BNB余额差+gas 补偿 ----
     swapSent = false; swapParams = null;
-    trader.portalContract = {
+    trader.portalContract = portalStub({
       quoteExactInput: { staticCall: async () => Q('0.3') }, // 锚 0.25 → ratio 1.2 放行
       swapExactInput: async (params) => { swapSent = true; swapParams = params; return { hash: '0xtx2' }; },
-    };
+    });
     st.tokenBalance = Q('500'); // 余额 < 请求的 600 → 钳制
     st.tokenAllowance = 0n;     // 不足 → 触发 approve
     const bcBefore3f = st.broadcastCount;

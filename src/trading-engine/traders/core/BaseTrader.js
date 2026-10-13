@@ -32,6 +32,14 @@ class BaseTrader extends ITrader {
             confirmations: 1
         };
 
+        // gas 策略（B4）：'dynamic'（默认，链上价+估算限额）| 'pinned'（恒上限价，
+        // 旧行为回滚开关）
+        this.gasStrategy = (this.config.trading && this.config.trading.gasStrategy)
+            || this.config.gasStrategy || 'dynamic';
+
+        // per-token decimals 缓存（B5：_assertDecimals18 首笔交易查一次）
+        this._tokenDecimalsCache = new Map();
+
         this.initProvider();
     }
 
@@ -68,7 +76,11 @@ class BaseTrader extends ITrader {
             }
 
             this.wallet = new ethers.Wallet(privateKey, this.provider);
-            this.signer = this.wallet;
+            // NonceManager 包装（B2 实盘加固）：发送走 this.signer——进程内串行分配 pending
+            // nonce，根治跨 token 并发买 nonce 竞争。this.wallet 保持 raw Wallet 不变：
+            // 引擎多处同步读 trader.wallet.address（地址校验/余额对账），NonceManager
+            // 的 getAddress 是 async，不能顶替 this.wallet。
+            this.signer = new ethers.NonceManager(this.wallet);
 
             console.log(`👛 ${this.constructor.name}: Wallet set: ${this.wallet.address}`);
 
@@ -78,6 +90,109 @@ class BaseTrader extends ITrader {
         } catch (error) {
             throw new Error(`Failed to set wallet: ${error.message}`);
         }
+    }
+
+    /**
+     * nonce 类错误识别（B2）：交易因 nonce 竞争被节点拒收的典型错误短语。
+     * 只匹配 nonce 语义明确的短语，不用裸 'too low'（会误伤 'gas price too low'）
+     */
+    _isNonceError(error) {
+        const msg = String((error && error.message) || error || '');
+        return /nonce too low|nonce has already been used|replacement transaction|already known|incorrect nonce/i.test(msg);
+    }
+
+    /**
+     * nonce 守卫（B2）：包装发单调用——catch 到 nonce 类拒收错误时 reset NonceManager
+     * 重新从链上取 nonce，重试一次。交易未被上链（拒收）故重试无双花风险；非 nonce
+     * 错误原样抛出不重试。
+     */
+    async _nonceGuard(fn) {
+        try {
+            return await fn();
+        } catch (error) {
+            if (!this._isNonceError(error)) throw error;
+            console.warn(`🔁 ${this.constructor.name}: nonce 冲突拒收（${error.message}），reset 后重试一次`);
+            this.signer.reset();
+            return await fn();
+        }
+    }
+
+    /**
+     * 动态 gas 价解析（B4 实盘加固）
+     *
+     * 旧行为=恒用 maxGasPrice 精确值（上限被当保底价，gas 费系统性高估）。新行为：
+     * feeData.gasPrice ≤ max 用链上价，超 max 钳到 max，异常低（<1 gwei）或查询失败
+     * 回落 max（=旧行为，永不因 gas 解析阻断发单）。
+     * gasStrategy='pinned' 回滚开关：恒用 maxGwei（完全旧行为）。
+     */
+    async _resolveGasPrice(maxGasPriceGwei) {
+        const maxGwei = Number(maxGasPriceGwei) || this.tradingConfig.maxGasPrice;
+        const maxWei = ethers.parseUnits(String(maxGwei), 'gwei');
+        if (this.gasStrategy === 'pinned') {
+            return maxWei;
+        }
+        let chainPrice = null;
+        try {
+            const fee = await this.provider.getFeeData();
+            chainPrice = fee.gasPrice;
+        } catch (error) {
+            console.warn(`⚠️ ${this.constructor.name}: getFeeData 失败，gasPrice 回落上限 ${maxGwei} gwei: ${error.message}`);
+        }
+        if (chainPrice == null || chainPrice < 10n ** 9n) {
+            // 查询失败/链上价异常低（<1 gwei，BSC 不现实）：回落 max
+            return maxWei;
+        }
+        return chainPrice > maxWei ? maxWei : chainPrice;
+    }
+
+    /**
+     * 动态 gasLimit 解析（B4）：estimateGas × 1.3 缓冲，钳 hardCap；估算失败回落
+     * 固定值（=旧行为，不阻断发单——链上 revert 语义与旧行为一致）
+     */
+    async _resolveGasLimit(txRequest, fallbackLimit, hardCapLimit) {
+        const fallback = BigInt(fallbackLimit);
+        try {
+            const est = await this.provider.estimateGas({ from: this.wallet.address, ...txRequest });
+            const buffered = (est * 13n) / 10n;
+            const cap = BigInt(hardCapLimit);
+            const resolved = buffered > cap ? cap : buffered;
+            console.log(`⛽ ${this.constructor.name}: gasLimit estimate=${est} ×1.3 → ${resolved}（cap ${cap}）`);
+            return resolved;
+        } catch (error) {
+            console.warn(`⚠️ ${this.constructor.name}: estimateGas 失败，gasLimit 回落固定值 ${fallback}: ${error.message}`);
+            return fallback;
+        }
+    }
+
+    /**
+     * decimals=18 断言（B5 实盘加固）：four.meme/flap 模板代币 decimals 恒 18，
+     * 采集（WSS tick）→因子→PM 记账→L1 预成交锚全链按 18 假设换算；≠18 时数量/
+     * 价格会错 10^n 倍（余额钳制只会把它变成意外全仓卖）——fail-closed 拒绝交易
+     * （宁可错过不可买错，与 L1 预成交校验同向）。查询失败同样拒绝（fail-loud，
+     * 不静默回落 18）。per-token 缓存：首笔交易一次 eth_call。
+     */
+    async _assertDecimals18(tokenAddress) {
+        const addr = ethers.getAddress(tokenAddress);
+        if (this._tokenDecimalsCache.has(addr)) {
+            const dec = this._tokenDecimalsCache.get(addr);
+            if (dec !== 18) {
+                throw new Error(`代币 decimals=${dec} ≠ 18（全链按 18 假设换算，拒绝交易防数量错乱）: ${addr}`);
+            }
+            return 18;
+        }
+        const tokenContract = new ethers.Contract(
+            addr, ['function decimals() view returns (uint8)'], this.provider);
+        let dec;
+        try {
+            dec = Number(await tokenContract.decimals());
+        } catch (error) {
+            throw new Error(`decimals 查询失败（fail-closed 拒绝交易）: ${addr} ${error.message}`);
+        }
+        this._tokenDecimalsCache.set(addr, dec);
+        if (dec !== 18) {
+            throw new Error(`代币 decimals=${dec} ≠ 18（全链按 18 假设换算，拒绝交易防数量错乱）: ${addr}`);
+        }
+        return 18;
     }
 
     /**

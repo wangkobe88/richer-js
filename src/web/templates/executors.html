@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Richer 交易系统 - 执行器（交易钱包）</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/static/css/light-theme.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link href="/static/css/main.css" rel="stylesheet">
+    <style>
+        .hidden { display: none; }
+        select option { background-color: #374151; color: white; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="min-h-screen">
+        <!-- 导航栏（复制 experiments.html，深色） -->
+        <nav class="bg-gray-800 border-b border-gray-700">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-14">
+                    <div class="flex items-center space-x-1.5">
+                        <a href="/experiments" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">实验监控</a>
+                        <a href="/platform-tokens" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">平台代币</a>
+                        <a href="/token-holders" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">持有者</a>
+                        <a href="/monitor" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">事件监控</a>
+                        <a href="/model-metrics" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">Daily更新</a>
+                        <a href="/strategy-library" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">策略库</a>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <a href="/executors" target="_blank" class="px-2 py-1.5 bg-amber-600 hover:bg-amber-700 rounded-md text-xs font-medium text-white transition-colors">执行器</a>
+                        <a href="/wallets" target="_blank" class="px-2 py-1.5 bg-purple-600 hover:bg-purple-700 rounded-md text-xs font-medium text-white transition-colors">钱包</a>
+                        <a href="/wallet-analysis" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">钱包分析</a>
+                        <a href="/wallet-ave-query" target="_blank" class="px-2 py-1.5 rounded-md text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors">AVE查询</a>
+                        <a href="/create-experiment" target="_blank" class="px-2 py-1.5 bg-green-600 hover:bg-green-700 rounded-md text-xs font-medium text-white transition-colors">创建实验</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+            <!-- 标题 + 操作条 -->
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">🔐 执行器（交易钱包）</h1>
+                    <p class="text-sm text-gray-500 mt-1">
+                        live 实盘交易钱包的集中管理：私钥密文（AES-256）唯一存放处，创建 live 实验时按引用绑定（实验 config 不再携带密文）。
+                        与「钱包」页（观察名单，无私钥）用途不同。BSC-only。删除前会检查 live 实验引用。
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="btn-refresh"
+                            class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md text-sm font-medium">
+                        刷新
+                    </button>
+                    <button type="button" id="btn-new"
+                            class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">
+                        + 新建执行器
+                    </button>
+                </div>
+            </div>
+
+            <!-- 列表 -->
+            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-600">名称</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-600">地址</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-600">链</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-600">gas 保留 (BNB)</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-600">创建时间</th>
+                            <th class="px-4 py-3 text-right font-semibold text-gray-600">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="executor-tbody" class="divide-y divide-gray-100">
+                        <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">加载中…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- 新建/编辑弹层 -->
+    <div id="modal-backdrop" class="hidden fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-5 space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-semibold text-gray-800" id="modal-title">新建执行器</h2>
+                <button type="button" id="btn-modal-close" class="text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
+            </div>
+            <input type="hidden" id="f-id">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">名称 <span class="text-red-500">*</span></label>
+                <input type="text" id="f-name" placeholder="如 live-main-01"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">钱包地址 <span class="text-red-500">*</span></label>
+                <input type="text" id="f-address" placeholder="0x…（40 hex）"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono">
+                <p class="text-xs text-gray-400 mt-1">必须与私钥推导地址一致（引擎启动时校验，不一致拒绝启动）</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    私钥 <span class="text-red-500" id="f-pk-required">*</span>
+                    <span class="text-xs text-gray-400 hidden" id="f-pk-optional-hint">（留空 = 不更换）</span>
+                </label>
+                <input type="password" id="f-auth-token" placeholder="0x…（64 hex，服务端加密后落库）" autocomplete="new-password"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-mono">
+                <p class="text-xs text-gray-400 mt-1">仅创建/更换时输入；密文存库，任何页面与 API 永不回显</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">gas 保留 (BNB)</label>
+                <input type="number" id="f-reserve" value="0.01" min="0" step="0.001"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                <p class="text-xs text-gray-400 mt-1">买入余额门保留的 BNB 下限（实验级 live.reserveNative 显式配置时以实验为准）</p>
+            </div>
+            <div id="modal-error" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"></div>
+            <div class="flex justify-end gap-2 pt-1">
+                <button type="button" id="btn-modal-cancel" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-sm">取消</button>
+                <button type="button" id="btn-modal-save" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-medium">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认弹层 -->
+    <div id="delete-backdrop" class="hidden fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-5 space-y-4">
+            <h2 class="text-base font-semibold text-gray-800">删除执行器</h2>
+            <p class="text-sm text-gray-600" id="delete-message">确认删除？</p>
+            <div id="delete-linked" class="hidden text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2"></div>
+            <div class="flex justify-end gap-2">
+                <button type="button" id="btn-delete-cancel" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-sm">取消</button>
+                <button type="button" id="btn-delete-confirm" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-medium">删除</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        function esc(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        async function loadList() {
+            const tbody = $('executor-tbody');
+            tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">加载中…</td></tr>';
+            try {
+                const resp = await fetch('/api/executors');
+                const body = await resp.json();
+                if (!body.success) throw new Error(body.error || '加载失败');
+                if (!body.data.length) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">暂无执行器——点击右上「+ 新建执行器」</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = body.data.map(e => `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium">${esc(e.name)}</td>
+                        <td class="px-4 py-3 font-mono text-xs">${esc(e.address)}</td>
+                        <td class="px-4 py-3">${esc(e.blockchain)}</td>
+                        <td class="px-4 py-3">${Number(e.reserve_native ?? 0).toFixed(3)}</td>
+                        <td class="px-4 py-3 text-xs text-gray-500">${esc(new Date(e.created_at).toLocaleString())}</td>
+                        <td class="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                            <button data-edit="${esc(e.id)}" class="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-xs">编辑</button>
+                            <button data-del="${esc(e.id)}" data-name="${esc(e.name)}" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded text-xs">删除</button>
+                        </td>
+                    </tr>`).join('');
+                tbody.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openModal(b.dataset.edit)));
+                tbody.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => openDelete(b.dataset.del, b.dataset.name)));
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-red-500">${esc(err.message)}</td></tr>`;
+            }
+        }
+
+        function openModal(editId) {
+            $('modal-error').classList.add('hidden');
+            if (editId) {
+                // 编辑模式：回显安全字段（私钥永不可见，留空=不更换）
+                const row = document.querySelector(`[data-edit="${editId}"]`).closest('tr');
+                // 安全字段从 API 单查拿（列表行 DOM 不含 reserve 精度保障）
+                fetch(`/api/executors/${editId}`).then(r => r.json()).then(body => {
+                    if (!body.success) throw new Error(body.error);
+                    $('f-id').value = body.data.id;
+                    $('f-name').value = body.data.name;
+                    $('f-address').value = body.data.address;
+                    $('f-reserve').value = Number(body.data.reserve_native ?? 0.01);
+                    $('f-auth-token').value = '';
+                    $('modal-title').textContent = '编辑执行器';
+                    $('f-pk-required').classList.add('hidden');
+                    $('f-pk-optional-hint').classList.remove('hidden');
+                    $('modal-backdrop').classList.remove('hidden');
+                }).catch(err => {
+                    $('modal-error').textContent = err.message;
+                    $('modal-error').classList.remove('hidden');
+                    $('modal-backdrop').classList.remove('hidden');
+                });
+            } else {
+                $('f-id').value = '';
+                $('f-name').value = '';
+                $('f-address').value = '';
+                $('f-auth-token').value = '';
+                $('f-reserve').value = '0.01';
+                $('modal-title').textContent = '新建执行器';
+                $('f-pk-required').classList.remove('hidden');
+                $('f-pk-optional-hint').classList.add('hidden');
+                $('modal-backdrop').classList.remove('hidden');
+            }
+        }
+
+        function closeModal() {
+            $('modal-backdrop').classList.add('hidden');
+        }
+
+        async function saveModal() {
+            const errBox = $('modal-error');
+            errBox.classList.add('hidden');
+            const id = $('f-id').value;
+            const payload = {
+                name: $('f-name').value.trim(),
+                address: $('f-address').value.trim(),
+                reserve_native: parseFloat($('f-reserve').value),
+            };
+            const pk = $('f-auth-token').value.trim();
+            if (pk) payload.auth_token = pk;
+            if (!id && !pk) {
+                errBox.textContent = '私钥必填（新建执行器）';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            try {
+                const resp = await fetch(id ? `/api/executors/${id}` : '/api/executors', {
+                    method: id ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const body = await resp.json();
+                if (!body.success) throw new Error(body.error || '保存失败');
+                closeModal();
+                loadList();
+            } catch (err) {
+                errBox.textContent = err.message;
+                errBox.classList.remove('hidden');
+            }
+        }
+
+        function openDelete(id, name) {
+            $('delete-message').textContent = `确认删除执行器「${name}」？（若有关联 live 实验会被拒绝）`;
+            $('delete-linked').classList.add('hidden');
+            $('delete-backdrop').classList.remove('hidden');
+            $('btn-delete-confirm').dataset.id = id;
+        }
+
+        async function confirmDelete() {
+            const id = $('btn-delete-confirm').dataset.id;
+            try {
+                const resp = await fetch(`/api/executors/${id}`, { method: 'DELETE' });
+                const body = await resp.json();
+                if (!body.success) {
+                    if (Array.isArray(body.linked) && body.linked.length) {
+                        const box = $('delete-linked');
+                        box.innerHTML = '有关联 live 实验，请先在实验中解除引用：<br>' +
+                            body.linked.map(l => `• ${esc(l.name || l.id)}`).join('<br>');
+                        box.classList.remove('hidden');
+                    }
+                    throw new Error(body.error || '删除失败');
+                }
+                $('delete-backdrop').classList.add('hidden');
+                loadList();
+            } catch (err) {
+                if ($('delete-linked').classList.contains('hidden')) {
+                    alert(err.message);
+                }
+            }
+        }
+
+        $('btn-new').addEventListener('click', () => openModal(null));
+        $('btn-refresh').addEventListener('click', loadList);
+        $('btn-modal-close').addEventListener('click', closeModal);
+        $('btn-modal-cancel').addEventListener('click', closeModal);
+        $('btn-modal-save').addEventListener('click', saveModal);
+        $('btn-delete-cancel').addEventListener('click', () => $('delete-backdrop').classList.add('hidden'));
+        $('btn-delete-confirm').addEventListener('click', confirmDelete);
+
+        loadList();
+    </script>
+</body>
+</html>

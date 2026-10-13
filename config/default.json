@@ -3,6 +3,11 @@
     "apiUrl": "https://prod.ave-api.com",
     "timeout": 30000
   },
+  "telegram": {
+    "liveAlerts": {
+      "enabled": false
+    }
+  },
   "fourmeme": {
     "apiUrl": "https://four.meme",
     "timeout": 30000

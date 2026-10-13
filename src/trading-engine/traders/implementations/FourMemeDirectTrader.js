@@ -30,7 +30,8 @@ class FourMemeDirectTrader extends BaseTrader {
             v1PurchaseMethodId: '0x0240f3d2', // purchase 方法签名 (V1)
             v2PurchaseMethodId: '0x0da74935', // buyToken 方法签名 (V2)
             // Gas 配置
-            gasLimit: 300000, // 根据实际交易记录调整
+            gasLimit: 300000, // 根据实际交易记录调整（B4：作为 estimateGas 失败的回落值）
+            gasLimitHardCap: 600000, // B4：动态 gasLimit 上限（estimate×1.3 钳制）
             gasPrice: ethers.parseUnits('10', 'gwei') // 根据实际交易记录调整
         };
 
@@ -203,6 +204,9 @@ class FourMemeDirectTrader extends BaseTrader {
             // 超时回查：receipt 可能刚好已上链（waitForTransaction 的轮询间隙）
             receipt = await this.provider.getTransactionReceipt(tx.hash);
             if (!receipt) {
+                // 超时交易可能已发出也可能未发出：reset 让后续发单从链上重取 nonce，
+                // 防 NonceManager 内部计数与链上状态漂移后连环拒收（B2）
+                this.signer.reset();
                 throw new Error(
                     `${label}确认超时(${timeoutMs / 1000}s)，txHash=${tx.hash} —— 请人工核查链上终态（已停止等待，未重发防双买）`);
             }
@@ -472,29 +476,6 @@ class FourMemeDirectTrader extends BaseTrader {
     }
 
     /**
-     * 获取流动性（对于 FourMeme 是检查代币是否可交易）
-     */
-    async getLiquidity(tokenAddress) {
-        try {
-            // 尝试获取代币价格来验证流动性
-            const priceCheck = await this.platformContract.getTokenPrice(tokenAddress);
-            return {
-                success: true,
-                liquidity: priceCheck.toString(),
-                hasLiquidity: priceCheck > 0,
-                type: 'bonding_curve'
-            };
-        } catch (error) {
-            // 如果无法获取价格，可能不支持该代币
-            return {
-                success: false,
-                error: `无法获取代币流动性: ${error.message}`,
-                hasLiquidity: false
-            };
-        }
-    }
-
-    /**
      * 获取价格报价（使用 TokenManagerHelper3）
      */
     async quotePrice(tokenAddress, amountIn) {
@@ -551,80 +532,15 @@ class FourMemeDirectTrader extends BaseTrader {
                 quote: quoteResult.quote,
                 route: {
                     protocol: 'FourMeme TokenManager2',
-                    method: 'buyTokenAMAP',
-                    methodId: this.fourMemeConfig.purchaseMethodId
+                    method: 'buyTokenAMAP'
                 }
             };
         } catch (error) {
-            // 如果 tryBuy 失败，尝试使用 getLastPrice 方法
-            try {
-                const lastPrice = await this.platformContract.lastPrice(tokenAddress);
-                if (lastPrice > 0) {
-                    const estimatedAmount = (amountIn * BigInt(1e18)) / lastPrice;
-                    this.log(`使用 lastPrice 计算价格: ${ethers.formatEther(lastPrice)} BNB per token`);
-
-                    return {
-                        success: true,
-                        amountOut: estimatedAmount,
-                        price: Number(lastPrice) / Number(1e18),
-                        route: {
-                            protocol: 'FourMeme TokenManager2',
-                            method: 'buyToken (estimated)',
-                            methodId: this.fourMemeConfig.purchaseMethodId
-                        }
-                    };
-                }
-            } catch (priceError) {
-                this.log(`lastPrice 查询也失败: ${priceError.message}`, 'warning');
-            }
-
+            // tryBuy 失败即报价失败（B3：删旧 lastPrice fallback——它引用从未定义的
+            // this.platformContract，恒 TypeError 从未真正生效，是死代码不是兜底）
             return {
                 success: false,
                 error: `价格查询失败: ${error.message}`
-            };
-        }
-    }
-
-    /**
-     * 估算 Gas 费用
-     */
-    async estimateGas(tokenAddress, amountIn, operation = 'buy') {
-        try {
-            let gasEstimate;
-
-            if (operation === 'buy') {
-                // 估算购买 Gas
-                try {
-                    gasEstimate = await this.platformContract.purchase.estimateGas(tokenAddress, {
-                        value: amountIn
-                    });
-                } catch (error) {
-                    // 如果估算失败，使用默认值
-                    gasEstimate = BigInt(this.fourMemeConfig.gasLimit);
-                }
-            } else {
-                // 卖出操作通过 PancakeSwap（代币需要先添加到流动性池）
-                return {
-                    success: false,
-                    error: 'FourMeme Direct 不支持直接卖出，请使用 PancakeSwap'
-                };
-            }
-
-            const gasPrice = this.fourMemeConfig.gasPrice;
-            const estimatedCost = (gasEstimate * gasPrice) / BigInt(1e18);
-
-            return {
-                success: true,
-                gasFee: {
-                    gasLimit: gasEstimate.toString(),
-                    gasPrice: ethers.formatUnits(gasPrice, 'gwei'),
-                    estimatedCost: ethers.formatEther(estimatedCost)
-                }
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: `Gas 估算失败: ${error.message}`
             };
         }
     }
@@ -651,6 +567,9 @@ class FourMemeDirectTrader extends BaseTrader {
             this.log(`准备通过 FourMeme TokenManager2 购买代币: ${tokenAddress}`);
             this.log(`购买金额: ${ethers.formatEther(amountInWei)} BNB`);
 
+            // B5 decimals 断言（fail-closed：≠18 拒绝交易防数量错乱）
+            await this._assertDecimals18(tokenAddress);
+
             // 首先获取价格报价
             const priceQuote = await this.quotePrice(tokenAddress, amountInWei);
             if (!priceQuote.success) {
@@ -669,16 +588,10 @@ class FourMemeDirectTrader extends BaseTrader {
             });
             this.log(`[预成交校验通过] ratio=${assertRes.ratio} 报价到手=${assertRes.quoteOutUi}（minOutRatio=${minOutRatio}）`);
 
-            // 准备交易参数
-            const gasLimit = options.gasLimit || this.fourMemeConfig.gasLimit;
-            const gasPrice = options.maxGasPrice ?
-                ethers.parseUnits(options.maxGasPrice.toString(), 'gwei') :
-                this.fourMemeConfig.gasPrice;
-
-            // 动态创建正确的平台合约
+            // 动态创建正确的平台合约（B2：runner=NonceManager signer，发单串行取 nonce）
             const platformAddress = this.currentPlatformAddress || this.fourMemeConfig.v2PlatformAddress;
             const platformAbi = this.currentVersion === 1 ? this.v1PlatformAbi : this.v2PlatformAbi;
-            const platformContract = new ethers.Contract(platformAddress, platformAbi, this.wallet);
+            const platformContract = new ethers.Contract(platformAddress, platformAbi, this.signer);
 
             this.log(`使用 TokenManager${this.currentVersion || 2} 合约: ${platformAddress}`);
 
@@ -687,15 +600,32 @@ class FourMemeDirectTrader extends BaseTrader {
                 (priceQuote.amountOut * BigInt(10000 - options.slippageTolerance * 100)) / BigInt(10000) :
                 (priceQuote.amountOut * BigInt(9500)) / BigInt(10000); // 默认5%滑点
 
+            // 准备交易参数（B4 动态 gas：链上价≤上限用链上价；gasLimit=估算×1.3 钳 cap）
+            const gasPrice = await this._resolveGasPrice(options.maxGasPrice);
+            const buyData = platformContract.interface.encodeFunctionData(
+                'buyTokenAMAP(address,uint256,uint256)',
+                [tokenAddress, priceQuote.amountMsgValue || amountIn, minAmountOut]
+            );
+            const gasLimit = await this._resolveGasLimit(
+                { to: platformAddress, data: buyData, value: priceQuote.amountMsgValue || amountIn },
+                options.gasLimit || this.fourMemeConfig.gasLimit,
+                this.fourMemeConfig.gasLimitHardCap
+            );
+
             this.log(`执行购买:`);
             this.log(`   预期获得: ${ethers.formatUnits(priceQuote.amountOut, 18)} tokens`);
             this.log(`   最小获得: ${ethers.formatUnits(minAmountOut, 18)} tokens`);
             this.log(`   实际需发送: ${ethers.formatEther(priceQuote.amountMsgValue || amountIn)} BNB`);
 
+            // 余额差法基准：发送前 token 余额（B3：实收=链上到账真相，替代「块内最后
+            // Transfer」启发式——对税币到手量天然免疫）
+            const tokenContract = new ethers.Contract(tokenAddress, this.erc20Abi, this.provider);
+            const tokenBalanceBefore = await tokenContract.balanceOf(this.wallet.address);
+
             let tx;
             try {
-                // 使用 buyTokenAMAP 函数 - 明确指定重载版本
-                tx = await platformContract['buyTokenAMAP(address,uint256,uint256)'](
+                // 使用 buyTokenAMAP 函数 - 明确指定重载版本（B2：nonce 守卫）
+                tx = await this._nonceGuard(() => platformContract['buyTokenAMAP(address,uint256,uint256)'](
                     tokenAddress,
                     priceQuote.amountMsgValue || amountIn,
                     minAmountOut,
@@ -704,12 +634,12 @@ class FourMemeDirectTrader extends BaseTrader {
                         gasLimit,
                         gasPrice
                     }
-                );
+                ));
             } catch (error) {
                 this.log(`buyTokenAMAP 失败，尝试 buyToken: ${error.message}`, 'warning');
 
                 // 如果 buyTokenAMAP 失败，尝试使用 buyToken (指定代币数量)
-                tx = await platformContract['buyToken(address,uint256,uint256)'](
+                tx = await this._nonceGuard(() => platformContract['buyToken(address,uint256,uint256)'](
                     tokenAddress,
                     priceQuote.amountOut,
                     (priceQuote.estimatedCost || amountIn) + BigInt(1000000000000000), // 添加一点缓冲
@@ -718,7 +648,7 @@ class FourMemeDirectTrader extends BaseTrader {
                         gasLimit,
                         gasPrice
                     }
-                );
+                ));
             }
 
             this.log(`交易已发送，哈希: ${tx.hash}`);
@@ -732,8 +662,10 @@ class FourMemeDirectTrader extends BaseTrader {
                 this.log(`   Gas 使用: ${receipt.gasUsed.toString()}`);
                 this.log(`   Gas 价格: ${ethers.formatUnits(receipt.gasPrice || gasPrice, 'gwei')} Gwei`);
 
-                // 计算实际获得的代币数量
-                const actualAmountOut = await this.calculateActualTokensReceived(tokenAddress, receipt);
+                // 实得 token（B3 余额差法：税后真相）
+                const tokenBalanceAfter = await tokenContract.balanceOf(this.wallet.address);
+                const actualAmountOut = tokenBalanceAfter - tokenBalanceBefore;
+                this.log(`   实得: ${ethers.formatUnits(actualAmountOut, 18)} tokens`);
 
                 return {
                     success: true,
@@ -742,11 +674,10 @@ class FourMemeDirectTrader extends BaseTrader {
                     gasUsed: receipt.gasUsed.toString(),
                     gasPrice: ethers.formatUnits(receipt.gasPrice || gasPrice, 'gwei'),
                     amountIn: ethers.formatEther(priceQuote.amountMsgValue || amountIn),
-                    actualAmountOut,
+                    actualAmountOut: ethers.formatUnits(actualAmountOut, 18),
                     expectedAmount: ethers.formatUnits(priceQuote.amountOut, 18),
                     protocol: 'FourMeme TokenManager2',
-                    method: 'buyTokenAMAP',
-                    methodId: this.fourMemeConfig.purchaseMethodId
+                    method: 'buyTokenAMAP'
                 };
             }
         } catch (error) {
@@ -769,41 +700,34 @@ class FourMemeDirectTrader extends BaseTrader {
 
         try {
             // 确保 tokenAddress 是 checksum 格式（ethers.js v6 要求）
-            this.log(`准备转换 tokenAddress 为 checksum 格式`);
             tokenAddress = ethers.getAddress(tokenAddress);
-            this.log(`tokenAddress checksum 完成: ${tokenAddress}`);
 
-            // 确保 amountOut 是 BigInt 格式（代币最小单位）
+            // B5 decimals 断言（fail-closed：≠18 拒绝交易防数量错乱）
+            await this._assertDecimals18(tokenAddress);
+
+            // 归一化到 wei 域 bigint（B5 重构：三分支统一先归一，单点做 6 位舍入）
             let amountOutWei = amountOut;
             if (typeof amountOut === 'string') {
                 try {
                     amountOutWei = BigInt(amountOut);
                 } catch {
-                    // 如果转换失败，可能是代币数量（非 wei），需要转换
-                    // 对于 ERC20 代币，假设是 18 位小数
+                    // 字符串非 wei 整数：按 UI 数量转 wei（18 位口径）
                     amountOutWei = ethers.parseUnits(amountOut, 18);
                 }
             } else if (typeof amountOut === 'number') {
-                // 对于数字，需要先获取 decimals，然后转换为 wei 格式
-                this.log(`amountOut 是数字，获取代币 decimals 进行转换: amountOut=${amountOut}`);
-                const decimals = await this.getTokenDecimals(tokenAddress);
-                // 舍入到 6 位小数（FourMeme 合约要求）
-                const amountRounded = Math.round(amountOut * 1000000) / 1000000;
-                amountOutWei = ethers.parseUnits(amountRounded.toFixed(6), decimals);
-                this.log(`转换后 amountOutWei=${amountOutWei}, decimals=${decimals}, 舍入到6位小数`);
-            } else if (typeof amountOut === 'bigint') {
-                // 对于 bigint，也需要舍入到 6 位小数
-                const decimals = await this.getTokenDecimals(tokenAddress);
-                const amountFormatted = parseFloat(ethers.formatUnits(amountOut, decimals));
-                const amountRounded = Math.round(amountFormatted * 1000000) / 1000000;
-                amountOutWei = ethers.parseUnits(amountRounded.toFixed(6), decimals);
-                this.log(`BigInt 舍入: ${amountFormatted} -> ${amountRounded.toFixed(6)} (wei: ${amountOutWei})`);
+                // toFixed 展开防科学计数法（parseUnits 不接受指数记法）
+                amountOutWei = ethers.parseUnits(amountOut.toFixed(18), 18);
             }
+
+            // 6 位小数舍入（B5：bigint 域向下截断——FourMeme 合约要求；不经 float
+            // 往返，大数量 float 精度丢失会错尾数；向下取整保守不超卖）
+            const ROUND_STEP = 10n ** BigInt(18 - 6);
+            amountOutWei = amountOutWei - (amountOutWei % ROUND_STEP);
 
             this.log(`准备通过 FourMeme TokenManager2 卖出代币: ${tokenAddress}`);
             this.log(`卖出数量: ${ethers.formatUnits(amountOutWei, 18)} tokens (假设18位小数)`);
 
-            // 首先需要授权 TokenManager2 使用我们的代币
+            // 首先需要授权 TokenManager2 使用我们的代币（B2：runner=NonceManager signer）
             const tokenContract = new ethers.Contract(tokenAddress, [
                 'function balanceOf(address) view returns (uint256)',
                 'function transfer(address to, uint256 amount) returns (bool)',
@@ -813,7 +737,7 @@ class FourMemeDirectTrader extends BaseTrader {
                 'function symbol() view returns (string)',
                 'function decimals() view returns (uint8)',
                 'function totalSupply() view returns (uint256)'
-            ], this.wallet);
+            ], this.signer);
 
             // 检查当前授权
             const platformAddress = this.currentPlatformAddress || this.fourMemeConfig.v2PlatformAddress;
@@ -834,18 +758,32 @@ class FourMemeDirectTrader extends BaseTrader {
                 this.log(`   调整后卖出数量: ${ethers.formatUnits(amountOutWei, 18)} tokens`);
             }
 
+            // 卖0防护（B5，对齐 FlapPortalTrader）：6 位舍入/钳制后为 0 但链上有
+            // 余额 → 卖全额（残仓 <1e-6 token 的整清，防死账）；仍为 0 → throw
+            if (amountOutWei === 0n && tokenBalance > 0n) {
+                amountOutWei = tokenBalance;
+                this.log(`⚠️ 6位舍入后为 0，改卖链上全额 ${ethers.formatUnits(tokenBalance, 18)} tokens（残仓整清）`, 'warning');
+            }
+            if (amountOutWei <= 0n) {
+                throw new Error('卖出数量钳制/舍入后为 0（链上无余额）');
+            }
+
             const currentAllowance = await tokenContract.allowance(this.wallet.address, platformAddress);
             this.log(`当前授权额度: ${currentAllowance} (${ethers.formatUnits(currentAllowance, 18)} tokens)`);
             this.log(`需要授权额度: ${amountOutWei} (${ethers.formatUnits(amountOutWei, 18)} tokens)`);
 
             if (currentAllowance < amountOutWei) {
                 this.log('授权 TokenManager2 使用代币...');
-                const approveTx = await tokenContract.approve(platformAddress, amountOutWei);
+                const approveTx = await this._nonceGuard(() => tokenContract.approve(platformAddress, amountOutWei));
                 await this._awaitReceipt(approveTx, 'approve');
                 this.log('✅ 授权完成');
             } else {
                 this.log('✅ 授权额度充足，无需重新授权');
             }
+
+            // 余额差法基准（B3）：approve 完成后快照 BNB 余额——approve 的 gas 不混入
+            // 卖出实收；后续若 4 参数失败转 7 参数，期间无其他发单，快照仍有效
+            const bnbBefore = await this.provider.getBalance(this.wallet.address);
 
             // 使用 TokenManagerHelper3 预估卖出结果
             let sellEstimate;
@@ -905,12 +843,6 @@ class FourMemeDirectTrader extends BaseTrader {
                 this.log(`[预成交校验通过] ratio=${assertRes.ratio} 报价净得=${assertRes.quoteOutUi} BNB（minOutRatio=${minOutRatio}）`);
             }
 
-            // 准备交易参数
-            const gasLimit = options.gasLimit || 300000;
-            const gasPrice = options.maxGasPrice ?
-                ethers.parseUnits(options.maxGasPrice.toString(), 'gwei') :
-                this.fourMemeConfig.gasPrice;
-
             // 设置最小接收金额 (考虑滑点)
             // 注意：minFunds 不能为 0，否则 FourMeme 合约会 revert
             let minFunds;
@@ -929,21 +861,30 @@ class FourMemeDirectTrader extends BaseTrader {
                 minFunds = 1n;
             }
 
-            // 确定使用哪个版本的ABI
-            const platformAbi = this.currentVersion === 1 ? this.v1PlatformAbi : this.v2PlatformAbi;
+            let tx;
+
+            // 首先尝试使用 4 参数版本（这是成功交易使用的版本）
+            // function sellToken(uint256 origin, address token, uint256 amount, uint256 minFunds) external
+            const fourParamSellAbi = ['function sellToken(uint256 origin, address token, uint256 amount, uint256 minFunds) external'];
+            const platformContract4Param = new ethers.Contract(platformAddress, fourParamSellAbi, this.signer);
+
+            // 准备交易参数（B4 动态 gas；估算放在 approve 完成后——allowance 就绪才能估准）
+            const gasPrice = await this._resolveGasPrice(options.maxGasPrice);
+            const sellData = platformContract4Param.interface.encodeFunctionData(
+                'sellToken(uint256,address,uint256,uint256)',
+                [0, tokenAddress, amountOutWei, minFunds]
+            );
+            const gasLimit = await this._resolveGasLimit(
+                { to: platformAddress, data: sellData },
+                options.gasLimit || 300000,
+                this.fourMemeConfig.gasLimitHardCap
+            );
 
             this.log(`执行卖出:`);
             this.log(`   最小接收: ${ethers.formatEther(minFunds)} BNB`);
             this.log(`   使用平台合约: ${platformAddress}`);
             this.log(`   Gas Limit: ${gasLimit}`);
             this.log(`   Gas Price: ${gasPrice} (${ethers.formatUnits(gasPrice, 'gwei')} Gwei)`);
-
-            let tx;
-
-            // 首先尝试使用 4 参数版本（这是成功交易使用的版本）
-            // function sellToken(uint256 origin, address token, uint256 amount, uint256 minFunds) external
-            const fourParamSellAbi = ['function sellToken(uint256 origin, address token, uint256 amount, uint256 minFunds) external'];
-            const platformContract4Param = new ethers.Contract(platformAddress, fourParamSellAbi, this.wallet);
 
             this.log(`调用参数 (4参数版本):`);
             this.log(`   origin: 0`);
@@ -952,7 +893,7 @@ class FourMemeDirectTrader extends BaseTrader {
             this.log(`   minFunds: ${minFunds} (${ethers.formatEther(minFunds)} BNB)`);
 
             try {
-                tx = await platformContract4Param.sellToken(
+                tx = await this._nonceGuard(() => platformContract4Param.sellToken(
                     0,              // origin
                     tokenAddress,
                     amountOutWei,
@@ -961,7 +902,7 @@ class FourMemeDirectTrader extends BaseTrader {
                         gasLimit,
                         gasPrice
                     }
-                );
+                ));
                 this.log(`✅ 4参数版本调用成功`);
             } catch (error4) {
                 this.log(`4参数版本失败: ${error4.message}`, 'warning');
@@ -969,10 +910,10 @@ class FourMemeDirectTrader extends BaseTrader {
                 // 尝试 7 参数版本
                 this.log(`尝试 7 参数版本...`);
                 const sevenParamSellAbi = ['function sellToken(uint256 origin, address token, address from, uint256 amount, uint256 minFunds, uint256 feeRate, address feeRecipient) external'];
-                const platformContract7Param = new ethers.Contract(platformAddress, sevenParamSellAbi, this.wallet);
+                const platformContract7Param = new ethers.Contract(platformAddress, sevenParamSellAbi, this.signer);
 
                 try {
-                    tx = await platformContract7Param.sellToken(
+                    tx = await this._nonceGuard(() => platformContract7Param.sellToken(
                         0,                      // origin
                         tokenAddress,           // token
                         this.wallet.address,    // from
@@ -984,7 +925,7 @@ class FourMemeDirectTrader extends BaseTrader {
                             gasLimit,
                             gasPrice
                         }
-                    );
+                    ));
                     this.log(`✅ 7参数版本调用成功`);
                 } catch (error7) {
                     this.log(`7参数版本也失败: ${error7.message}`, 'warning');
@@ -1002,8 +943,13 @@ class FourMemeDirectTrader extends BaseTrader {
                 this.log(`   区块号: ${receipt.blockNumber}`);
                 this.log(`   Gas 使用: ${receipt.gasUsed.toString()}`);
 
-                // 计算实际收到的 BNB 数量
-                const actualBnbReceived = await this.calculateActualBnbReceived(receipt);
+                // 实收 BNB（B3 余额差法：bnbAfter−bnbBefore+gasCost——链上到账真相，
+                // 替代旧 calculateActualBnbReceived 的「日志启发式+receipt.value」死代码路径，
+                // receipt.value 对卖出交易恒 0）
+                const bnbAfter = await this.provider.getBalance(this.wallet.address);
+                const gasCost = (receipt.gasUsed || 0n) * (receipt.gasPrice || gasPrice);
+                const actualBnbReceived = bnbAfter - bnbBefore + gasCost;
+                this.log(`   实收: ${ethers.formatEther(actualBnbReceived)} BNB`);
 
                 return {
                     success: true,
@@ -1011,7 +957,7 @@ class FourMemeDirectTrader extends BaseTrader {
                     blockNumber: receipt.blockNumber,
                     gasUsed: receipt.gasUsed.toString(),
                     amountOut: ethers.formatUnits(amountOutWei, 18),
-                    actualReceived: actualBnbReceived,
+                    actualReceived: ethers.formatEther(actualBnbReceived),
                     protocol: 'FourMeme TokenManager2',
                     method: 'sellToken'
                 };
@@ -1030,72 +976,14 @@ class FourMemeDirectTrader extends BaseTrader {
     }
 
     /**
-     * 计算实际收到的代币数量
-     */
-    async calculateActualTokensReceived(tokenAddress, receipt) {
-        try {
-            // 查找 Transfer 事件来计算实际收到的代币数量
-            const tokenContract = new ethers.Contract(tokenAddress, this.erc20Abi, this.provider);
-            const transferFilter = tokenContract.filters.Transfer(null, this.wallet.address);
-            const events = await tokenContract.queryFilter(transferFilter, receipt.blockNumber, receipt.blockNumber);
-
-            if (events.length > 0) {
-                const transferEvent = events[events.length - 1]; // 使用最后一个事件
-                return ethers.formatUnits(transferEvent.args.value, 18);
-            }
-
-            return '未知';
-        } catch (error) {
-            this.log(`无法计算实际代币数量: ${error.message}`, 'warning');
-            return '未知';
-        }
-    }
-
-    /**
-     * 计算实际收到的 BNB 数量
-     */
-    async calculateActualBnbReceived(receipt) {
-        try {
-            // 检查交易日志中的 BNB 转入事件
-            if (receipt.logs && receipt.logs.length > 0) {
-                // 查找可能的 BNB 转入日志 (通常来自 TokenManager2)
-                for (const log of receipt.logs) {
-                    // 检查是否是 TokenManager2 发出的事件
-                    if (log.address.toLowerCase() === this.fourMemeConfig.platformAddress.toLowerCase()) {
-                        // 检查主题是否匹配卖出事件
-                        if (log.topics[0] && log.topics[0].includes('sell')) {
-                            // 解析日志数据获取 BNB 数量
-                            try {
-                                const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
-                                    ['uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-                                    log.data
-                                );
-                                return ethers.formatEther(decoded[3] || decoded[1]); // 尝试不同的位置
-                            } catch (decodeError) {
-                                this.log(`日志解析失败: ${decodeError.message}`, 'warning');
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 如果无法从日志解析，使用交易的 value 字段（对于卖出交易，这是收到的 BNB）
-            return ethers.formatEther(receipt.value || 0);
-        } catch (error) {
-            this.log(`无法计算实际 BNB 数量: ${error.message}`, 'warning');
-            return '未知';
-        }
-    }
-
-    /**
      * 检查流动性（针对 FourMeme 的特殊检查）
      */
     async checkLiquidity(tokenAddress, amountIn, isBuy = true) {
         if (!isBuy) {
             return {
                 hasLiquidity: false,
-                message: 'FourMeme Direct 不支持卖出操作',
-                suggestion: '请使用 PancakeSwap 进行卖出'
+                message: '卖出前流动性检查不适用于 bonding curve（按余额+trySell 预估走 sellToken）',
+                suggestion: '直接调用 sellToken（trySell 预估 + minFunds 滑点锚）'
             };
         }
 
@@ -1179,9 +1067,9 @@ class FourMemeDirectTrader extends BaseTrader {
     getInfo() {
         return {
             ...super.getInfo(),
-            platformAddress: this.fourMemeConfig.platformAddress,
+            v1PlatformAddress: this.fourMemeConfig.v1PlatformAddress,
+            v2PlatformAddress: this.fourMemeConfig.v2PlatformAddress,
             helperAddress: this.fourMemeConfig.helperAddress,
-            purchaseMethodId: this.fourMemeConfig.purchaseMethodId,
             supportedOperations: ['buy', 'sell'],
             contractVersion: 'TokenManager2 V2',
             notes: 'FourMeme TokenManager2 V2 - 支持通过 BNB 购买和卖出代币，使用官方 ABI'

@@ -1,17 +1,31 @@
 /**
  * Telegram 通知服务
  * 用于发送交易信号通知到 Telegram 频道
+ *
+ * 凭证从环境变量读取（TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID）——实盘前置批
+ * 2026-10-13 移除源码硬编码（密钥入 git 是泄面）。缺失时 enabled=false + 一次性
+ * warn，不 throw：告警通道尽最大努力，不阻断交易流。
  */
 
 class TelegramNotifier {
   constructor(config = {}) {
-    // Bot Token 和 Channel ID（硬编码）
-    this.botToken = '7584677994:AAG_5OA64yzHxqLAuI44ROCL3PLAkMtFfes';
-    this.channelId = '-5116043189';
-    this.apiUrl = `https://api.telegram.org/bot${this.botToken}`;
+    // Bot Token 和 Chat ID（env 注入；config 可覆盖）
+    this.botToken = config.botToken || process.env.TELEGRAM_BOT_TOKEN || null;
+    this.channelId = config.channelId || config.chatId || process.env.TELEGRAM_CHAT_ID || null;
 
-    // 通知开关（从配置读取）
-    this.enabled = config.enabled !== undefined ? config.enabled : false;
+    // 通知开关：显式 enabled 且凭证齐全才真正可用
+    this.enabled = (config.enabled === true) && !!(this.botToken && this.channelId);
+    this._warnedNoCreds = false;
+    if (config.enabled === true && !(this.botToken && this.channelId)) {
+      console.warn('[TelegramNotifier] 已启用通知但缺少 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID 环境变量——通知静默禁用');
+      this._warnedNoCreds = true;
+    }
+    if (!this.botToken || !this.channelId) {
+      // apiUrl 占位（enabled=false 时不会走到 sendMessage）
+      this.apiUrl = 'https://api.telegram.org/bot<missing-credentials>';
+    } else {
+      this.apiUrl = `https://api.telegram.org/bot${this.botToken}`;
+    }
 
     // 链接模板
     this.gmgnBaseUrl = 'https://gmgn.ai';
@@ -335,6 +349,10 @@ class TelegramNotifier {
    * 发送消息到 Telegram
    */
   async sendMessage(message) {
+    if (!this.enabled || !this.botToken || !this.channelId) {
+      // 凭证缺失/未启用：静默跳过（构造时已 warn 过一次）
+      return null;
+    }
     const url = `${this.apiUrl}/sendMessage`;
 
     const payload = {

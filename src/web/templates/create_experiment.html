@@ -480,6 +480,16 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium text-gray-700 mb-1">
+                                选择执行器（推荐）
+                            </label>
+                            <select id="wallet_executor"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">不使用（选择复用历史 / 手动输入私钥）</option>
+                            </select>
+                            <span id="wallet_executor_hint" class="text-xs text-gray-500">执行器 = 集中管理的交易钱包（<a href="/executors" target="_blank" class="text-blue-600 underline">执行器管理页</a> 创建）；选择后本实验只保存引用，私钥单一真相源在执行器表，地址自动填充</span>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
                                 复用历史钱包（可选）
                             </label>
                             <select id="wallet_reuse"
@@ -522,6 +532,19 @@
                                    value="0.1"
                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <span id="reserve_amount_hint" class="text-xs text-gray-500">保留用于支付 GAS 费用（最小 0.01）</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                持仓代币数上限 <span class="text-gray-500">- 实盘安全阀</span>
+                            </label>
+                            <input type="number"
+                                   name="max_position_tokens"
+                                   id="max_position_tokens"
+                                   step="1"
+                                   min="0"
+                                   value="0"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <span class="text-xs text-gray-500">同时持仓代币数上限，0=不限；只拦新开仓不碰已有持仓。实盘建议设小值（如 5）控制风险敞口</span>
                         </div>
                     </div>
                     <div class="mt-2 bg-blue-50 border border-blue-200 rounded-lg p-2">
@@ -1635,26 +1658,68 @@
             }
         }
 
+        // ==== 执行器下拉（实盘前置批 2026-10-13：集中管理交易钱包，推荐源）====
+        async function loadExecutors() {
+            const select = document.getElementById('wallet_executor');
+            if (!select || select.dataset.loaded === 'true') return;
+            try {
+                const response = await fetch('/api/executors');
+                const result = await response.json();
+                if (!result.success || !Array.isArray(result.data)) return;
+                result.data.forEach(e => {
+                    const option = document.createElement('option');
+                    option.value = e.id;
+                    option.textContent = `${e.name} — ${e.address}（reserve ${Number(e.reserve_native ?? 0)}）`;
+                    option.dataset.address = e.address;
+                    select.appendChild(option);
+                });
+                select.dataset.loaded = 'true';
+            } catch (error) {
+                console.warn('⚠️ 加载执行器列表失败:', error.message);
+            }
+        }
+
+        // 三态互斥：执行器 / 复用历史 / 手输明文——先选者锁定地址并禁用其余源
         function applyWalletReuseState() {
-            const select = document.getElementById('wallet_reuse');
+            const executorSelect = document.getElementById('wallet_executor');
+            const reuseSelect = document.getElementById('wallet_reuse');
             const walletAddressInput = document.getElementById('wallet_address');
             const privateKeyInput = document.getElementById('private_key');
-            if (!select || !walletAddressInput || !privateKeyInput) return;
-            const chosen = select.selectedOptions[0];
+            if (!reuseSelect || !walletAddressInput || !privateKeyInput) return;
+
+            const execChosen = executorSelect ? executorSelect.selectedOptions[0] : null;
+            const usingExecutor = !!(execChosen && execChosen.value);
+            const chosen = reuseSelect.selectedOptions[0];
             const reusing = !!(chosen && chosen.value);
-            if (reusing) {
-                walletAddressInput.value = chosen.dataset.address || '';
+
+            if (usingExecutor) {
+                // 执行器优先：地址自动填+只读；复用下拉与私钥禁用
+                walletAddressInput.value = execChosen.dataset.address || '';
                 walletAddressInput.readOnly = true;
                 privateKeyInput.value = '';
                 privateKeyInput.disabled = true;
                 privateKeyInput.removeAttribute('required');
+                reuseSelect.disabled = true;
                 walletAddressInput.setAttribute('required', 'required');
             } else {
-                walletAddressInput.readOnly = false;
-                privateKeyInput.disabled = false;
+                reuseSelect.disabled = false;
+                if (reusing) {
+                    walletAddressInput.value = chosen.dataset.address || '';
+                    walletAddressInput.readOnly = true;
+                    privateKeyInput.value = '';
+                    privateKeyInput.disabled = true;
+                    privateKeyInput.removeAttribute('required');
+                    walletAddressInput.setAttribute('required', 'required');
+                    executorSelect.disabled = true;
+                } else {
+                    walletAddressInput.readOnly = false;
+                    privateKeyInput.disabled = false;
+                    if (executorSelect) executorSelect.disabled = false;
+                }
             }
         }
         document.getElementById('wallet_reuse')?.addEventListener('change', applyWalletReuseState);
+        document.getElementById('wallet_executor')?.addEventListener('change', applyWalletReuseState);
 
         // 交易模式切换处理
         async function handleTradingModeChange() {
@@ -1704,6 +1769,7 @@
                     initialBalanceContainer.style.display = 'none';
                 }
                 loadLiveWallets();
+                loadExecutors();
             } else {
                 // 恢复默认初始余额
                 if (initialBalanceInput.value === '100') {
@@ -2175,16 +2241,21 @@
                     minMaxChangePercent: parseFloat(formData.get('min_max_change_percent')) || 0
                 };
             } else if (tradingMode === 'live') {
+                const executorSelect = document.getElementById('wallet_executor');
+                const executorId = executorSelect?.value || null;
                 const reuseSelect = document.getElementById('wallet_reuse');
                 const reuseExperimentId = reuseSelect?.value || null;
-                config.wallet = reuseExperimentId
+                config.wallet = executorId
+                    ? { executorId, address: formData.get('wallet_address') } // 私钥单一真相源在执行器表
+                    : reuseExperimentId
                     ? { address: formData.get('wallet_address'), reuseExperimentId } // 服务端拷贝源实验加密私钥
                     : {
                         address: formData.get('wallet_address'),
                         privateKey: formData.get('private_key')  // 将在服务器端加密
                     };
-                // 实盘交易：保留用于 GAS 的金额
+                // 实盘交易：保留用于 GAS 的金额 + 持仓数上限（安全阀）
                 config.reserveNative = parseFloat(formData.get('reserve_amount')) || 0.1;
+                config.maxPositionTokens = parseInt(formData.get('max_position_tokens'), 10) || 0;
             }
 
             return config;
@@ -2229,6 +2300,8 @@
                 const walletAddress = document.getElementById('wallet_address').value;
                 const privateKey = document.getElementById('private_key').value;
                 const reuseSelect = document.getElementById('wallet_reuse');
+                const executorSelect = document.getElementById('wallet_executor');
+                const usingExecutor = !!(executorSelect && executorSelect.value);
                 const reusingWallet = !!(reuseSelect && reuseSelect.value);
                 const reserveAmount = parseFloat(document.getElementById('reserve_amount').value);
                 const blockchain = document.getElementById('blockchain_select').value;
@@ -2245,8 +2318,8 @@
                     alert('请输入钱包地址');
                     return;
                 }
-                if (!reusingWallet && !privateKey) {
-                    alert('请输入私钥，或选择复用历史钱包');
+                if (!usingExecutor && !reusingWallet && !privateKey) {
+                    alert('请选择执行器，或输入私钥，或选择复用历史钱包');
                     return;
                 }
 
@@ -2255,7 +2328,7 @@
                     alert('钱包地址格式不正确，应为0x开头的40位十六进制字符');
                     return;
                 }
-                if (!reusingWallet && !/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
+                if (!usingExecutor && !reusingWallet && !/^0x[a-fA-F0-9]{64}$/.test(privateKey)) {
                     alert('私钥格式不正确，应为0x开头的64位十六进制字符');
                     return;
                 }

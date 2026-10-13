@@ -41,7 +41,8 @@ class FlapPortalTrader extends BaseTrader {
             // Portal 代理合约（配置可覆盖；默认对齐 config/default.json flapWs.contracts.portal）
             portalAddress: (config.contracts && config.contracts.portal)
                 || '0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0',
-            gasLimit: 350000, // swap + 潜在内部换路径（rich-js PCS 同级）
+            gasLimit: 350000, // swap + 潜在内部换路径（B4：作为 estimateGas 失败的回落值）
+            gasLimitHardCap: 700000, // B4：动态 gasLimit 上限（estimate×1.3 钳制）
             gasPrice: ethers.parseUnits('10', 'gwei'),
         };
 
@@ -102,7 +103,9 @@ class FlapPortalTrader extends BaseTrader {
         if (code === '0x') {
             throw new Error(`Flap Portal 合约不存在于地址: ${this.flapConfig.portalAddress}`);
         }
-        this.portalContract = new ethers.Contract(this.flapConfig.portalAddress, this.portalAbi, this.wallet);
+        // B2：runner=NonceManager signer——swap 发单串行取 nonce（this.wallet 保持 raw
+        // Wallet，余额差法/日志里的同步 address 用法不受影响）
+        this.portalContract = new ethers.Contract(this.flapConfig.portalAddress, this.portalAbi, this.signer);
         this.log(`✅ Flap Portal 连接成功: ${this.flapConfig.portalAddress}`);
         return { success: true, message: 'Flap Portal Trader 准备完成' };
     }
@@ -140,6 +143,8 @@ class FlapPortalTrader extends BaseTrader {
             if (!isTimeout) throw error;
             receipt = await this.provider.getTransactionReceipt(tx.hash);
             if (!receipt) {
+                // 超时 reset：防 NonceManager 计数与链上状态漂移后连环拒收（B2）
+                this.signer.reset();
                 throw new Error(
                     `${label}确认超时(${timeoutMs / 1000}s)，txHash=${tx.hash} —— 请人工核查链上终态（已停止等待，未重发防双买）`);
             }
@@ -165,6 +170,9 @@ class FlapPortalTrader extends BaseTrader {
 
             this.log(`准备通过 Flap Portal 购买: ${tokenAddress} 金额 ${ethers.formatEther(amountInWei)} BNB`);
 
+            // B5 decimals 断言（fail-closed：≠18 拒绝交易防数量错乱）
+            await this._assertDecimals18(tokenAddress);
+
             // 报价（staticCall；毕业盘/未启用的非 BNB 盘在此 revert = fail-closed）
             const quoteOut = await this.quote(tokenAddress, amountInWei, 'buy');
 
@@ -183,20 +191,26 @@ class FlapPortalTrader extends BaseTrader {
                 ? (quoteOut * BigInt(10000 - Math.round(options.slippageTolerance * 100))) / BigInt(10000)
                 : (quoteOut * BigInt(9900)) / BigInt(10000); // 默认 1% 滑点容忍（fee 已在报价内）
 
-            const gasLimit = options.gasLimit || this.flapConfig.gasLimit;
-            const gasPrice = options.maxGasPrice
-                ? ethers.parseUnits(options.maxGasPrice.toString(), 'gwei')
-                : this.flapConfig.gasPrice;
+            // B4 动态 gas：链上价≤上限用链上价；gasLimit=估算×1.3 钳 cap
+            const gasPrice = await this._resolveGasPrice(options.maxGasPrice);
+            const buySwapData = this.portalContract.interface.encodeFunctionData('swapExactInput', [
+                { inputToken: BNB_ADDRESS, outputToken: tokenAddress, inputAmount: amountInWei, minOutputAmount, permitData: '0x' },
+            ]);
+            const gasLimit = await this._resolveGasLimit(
+                { to: this.flapConfig.portalAddress, data: buySwapData, value: amountInWei },
+                options.gasLimit || this.flapConfig.gasLimit,
+                this.flapConfig.gasLimitHardCap
+            );
 
             // 余额差法基准：买入前 token 余额（税币到手量 = 税后）
             const tokenContract = new ethers.Contract(tokenAddress, this.erc20Abi, this.provider);
             const balanceBefore = await tokenContract.balanceOf(this.wallet.address);
 
             this.log(`执行 swapExactInput: BNB→token value=${ethers.formatEther(amountInWei)} minOut=${ethers.formatUnits(minOutputAmount, 18)}`);
-            const tx = await this.portalContract.swapExactInput(
+            const tx = await this._nonceGuard(() => this.portalContract.swapExactInput(
                 { inputToken: BNB_ADDRESS, outputToken: tokenAddress, inputAmount: amountInWei, minOutputAmount, permitData: '0x' },
                 { value: amountInWei, gasLimit, gasPrice },
-            );
+            ));
             this.log(`交易已发送，哈希: ${tx.hash}`);
 
             const receipt = await this._awaitReceipt(tx, '买入');
@@ -238,7 +252,11 @@ class FlapPortalTrader extends BaseTrader {
 
             this.log(`准备通过 Flap Portal 卖出: ${tokenAddress} 数量 ${ethers.formatUnits(amountOutWei, 18)}`);
 
-            const tokenContract = new ethers.Contract(tokenAddress, this.erc20Abi, this.wallet);
+            // B5 decimals 断言（fail-closed：≠18 拒绝交易防数量错乱）
+            await this._assertDecimals18(tokenAddress);
+
+            // B2：runner=NonceManager signer（approve 走签名发单）
+            const tokenContract = new ethers.Contract(tokenAddress, this.erc20Abi, this.signer);
 
             // 余额钳制（rich-js 防线：三层权威钳制中的余额层；税币可卖量=余额）
             const tokenBalance = await tokenContract.balanceOf(this.wallet.address);
@@ -254,7 +272,7 @@ class FlapPortalTrader extends BaseTrader {
             const currentAllowance = await tokenContract.allowance(this.wallet.address, this.flapConfig.portalAddress);
             if (currentAllowance < amountOutWei) {
                 this.log('授权 Portal 使用代币...');
-                const approveTx = await tokenContract.approve(this.flapConfig.portalAddress, amountOutWei);
+                const approveTx = await this._nonceGuard(() => tokenContract.approve(this.flapConfig.portalAddress, amountOutWei));
                 await this._awaitReceipt(approveTx, 'approve');
                 this.log('✅ 授权完成');
             }
@@ -290,19 +308,25 @@ class FlapPortalTrader extends BaseTrader {
                     : (quoteOut * BigInt(9900)) / BigInt(10000))
                 : 1n; // 无报价（预估失败且无锚）：最小非零值，合约语义 minOutput>0
 
-            const gasLimit = options.gasLimit || this.flapConfig.gasLimit;
-            const gasPrice = options.maxGasPrice
-                ? ethers.parseUnits(options.maxGasPrice.toString(), 'gwei')
-                : this.flapConfig.gasPrice;
+            // B4 动态 gas（approve 完成后估算——allowance 就绪才能估准）
+            const gasPrice = await this._resolveGasPrice(options.maxGasPrice);
+            const sellSwapData = this.portalContract.interface.encodeFunctionData('swapExactInput', [
+                { inputToken: tokenAddress, outputToken: BNB_ADDRESS, inputAmount: amountOutWei, minOutputAmount, permitData: '0x' },
+            ]);
+            const gasLimit = await this._resolveGasLimit(
+                { to: this.flapConfig.portalAddress, data: sellSwapData },
+                options.gasLimit || this.flapConfig.gasLimit,
+                this.flapConfig.gasLimitHardCap
+            );
 
             // 余额差法基准：卖出前 BNB 余额
             const bnbBefore = await this.provider.getBalance(this.wallet.address);
 
             this.log(`执行 swapExactInput: token→BNB amount=${ethers.formatUnits(amountOutWei, 18)} minOut=${ethers.formatEther(minOutputAmount)}`);
-            const tx = await this.portalContract.swapExactInput(
+            const tx = await this._nonceGuard(() => this.portalContract.swapExactInput(
                 { inputToken: tokenAddress, outputToken: BNB_ADDRESS, inputAmount: amountOutWei, minOutputAmount, permitData: '0x' },
                 { gasLimit, gasPrice },
-            );
+            ));
             this.log(`交易已发送，哈希: ${tx.hash}`);
 
             const receipt = await this._awaitReceipt(tx, '卖出');

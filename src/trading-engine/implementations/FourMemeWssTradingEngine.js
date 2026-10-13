@@ -88,6 +88,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._lastKnownBnbUsd = 0;           // 最近一次 BNB/USD（live 60s interval 刷新，启动时 trader 直读一次）
     this._sellCooldownUntil = new Map(); // 卖出失败冷却 tokenAddress → untilTs（live 防 gas 消耗风暴）
     this._sellFailStreak = new Map();    // 卖出连续失败计数 tokenAddress → 连败数（熔断判定输入）
+    this._pcsTrader = null;              // PCS V2 trader（P0-C 懒加载：毕业票手工卖专用，TM2 毕业后 sellToken 必 revert）
 
     // 引擎级配置（fourmemeWs 段；实验级覆盖在 _initializeDataSources 中重读）
     this._applyWsConfig(baseConfig[this._wsConfigSectionName()] || {});
@@ -700,10 +701,25 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     const traderFactory = require('../traders');
     const traderConfig = { blockchain: 'bsc', chain: 'bsc' };
-    // 发单 RPC：ankr（与 WSS 同源账号）优先，否则 BaseTrader 内置公共节点
-    if (process.env.ANKR_API_KEY) {
-      traderConfig.network = { rpcUrl: `https://rpc.ankr.com/bsc/${process.env.ANKR_API_KEY}` };
+    // 发单 RPC（B4）：ANKR_HTTP_RPC_URL 显式 > ANKR_API_KEY > 从 ANKR_WS_URL 末段提取
+    // key 构造（wss://rpc.ankr.com/bsc/ws/<key> → https://rpc.ankr.com/bsc/<key>，与
+    // WSS 同源账号付费连接，免公共节点限流）；皆无则 BaseTrader 内置公共节点
+    const ankrHttpRpc = process.env.ANKR_HTTP_RPC_URL
+      || (process.env.ANKR_API_KEY && `https://rpc.ankr.com/bsc/${process.env.ANKR_API_KEY}`)
+      || (() => {
+        const wsUrl = process.env.ANKR_WS_URL || '';
+        const m = wsUrl.match(/^wss:\/\/rpc\.ankr\.com\/bsc\/ws\/([0-9a-f]+)\/?$/);
+        return m ? `https://rpc.ankr.com/bsc/${m[1]}` : null;
+      })();
+    if (ankrHttpRpc) {
+      traderConfig.network = { rpcUrl: ankrHttpRpc };
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine', `发单 RPC: ANKR HTTP（与 WSS 同源账号）`);
+    } else {
+      this.logger.warn(this._experimentId, 'FourMemeWssTradingEngine', '发单 RPC: 公共节点（未配置 ANKR_HTTP_RPC_URL/ANKR_API_KEY/ANKR_WS_URL，有限流风险）');
     }
+    // B4 gas 策略透传（'pinned'=恒上限价旧行为回滚开关）
+    const liveGasStrategy = (this._wsConfig.live || {}).gasStrategy;
+    if (liveGasStrategy) traderConfig.gasStrategy = liveGasStrategy;
     this._trader = traderFactory.createTrader(this._liveTraderType(), traderConfig);
     this._trader.txWaitTimeoutMs = this._liveTxWaitTimeoutMs;
     await this._trader.setWallet(privateKey);
@@ -879,6 +895,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           this.logger.error(this._experimentId, 'LiveSync', `live 持仓对账失败: ${err.message}`);
         });
       }, this._liveHoldingsSyncMs);
+
+      // 手工交易命令消费（P0-C，5s）：manual_trade_requests 命令队列——web 进程绝不
+      // 直接建 trader 交易（会与本引擎内存账本冲突），命令由本进程 CAS 抢占后走与
+      // 策略交易同一执行路径；停机期命令滞留 pending（不执行不丢）
+      this._intervals.manualTrade = setInterval(() => {
+        this._consumeManualTrades().catch(err => {
+          this.logger.error(this._experimentId, 'ManualTrade', `手工交易消费异常: ${err.message}`);
+        });
+      }, 5000);
     }
 
     // 止损双腿持仓扫描（断流兜底）：断流 token 无 tick → tick 驱动的止损/卖腿全部冻结，
@@ -1873,7 +1898,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     }
   }
 
-  async _executeSell(signal, signalId = null, metadata = {}) {
+  async _executeSell(signal, signalId = null, metadata = {}, traderOverride = null) {
     try {
       const holding = this._getHolding(signal.tokenAddress);
       if (!holding || holding.amount <= 0) {
@@ -1887,7 +1912,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       let result;
       let virtualAmountDec = null; // 虚拟腿精确卖出量（Decimal），qtySold 回退用
       if (this._isLive) {
-        result = await this._executeSellLive(signal, signalId, metadata, holding, sellPct);
+        result = await this._executeSellLive(signal, signalId, metadata, holding, sellPct, traderOverride);
       } else {
         // E5d 修复（精度，与 BacktestEngine 同构）：amountToSell 保持 Decimal 精确值，
         // 不经 Number 往返——部分卖后余仓 Number 化可能向上失真，全清腿会被 PM 以
@@ -1973,6 +1998,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             `部分卖出 ${(sellPct * 100).toFixed(0)}% | ${signal.symbol} 腿所得=${legProceedsUsd.toFixed(6)} 余仓=${Number(this._getHolding(signal.tokenAddress)?.amount ?? 0).toFixed(4)}${signal.cardTrade ? ` 余卡=${signal.cardTrade.after}` : ''}`);
         }
       } else if (this._isLive) {
+        // 外部处置分流（P1）：链上余额为 0 = 钱包外已卖出/转走，重试必然失败——
+        // 不计连败（熔断会误伤），长冷却静音 + 告警人工处置（账面仓位对账亦同源告警）
+        if (result?.externalDisposal) {
+          this._sellCooldownUntil.set(signal.tokenAddress, Date.now() + this._sellCbCooldownMs);
+          this.logger.error(this._experimentId, '_executeSell',
+            `⛓️ 链上余额为 0（外部处置，不计熔断连败）| ${signal.symbol} 账面 ${result.reason}，` +
+            `长冷却 ${this._sellCbCooldownMs / 60000}min，请人工核查仓位`);
+          this._notifyLiveAlert('⛓️ 外部处置仓位',
+            `${signal.symbol} 链上余额为 0（可能钱包外已卖出/转走），账面仍记持仓。` +
+            `已长冷却 ${this._sellCbCooldownMs / 60000}min（不计熔断）。请人工核查持仓 ${signal.tokenAddress}`);
+          return result;
+        }
         // 卖出失败冷却：防每 tick 高频重试烧 gas（成功后清除）
         // 连续失败熔断（迁自 rich-js 卖腿防线）：同一 token 连败达阈值 → 长冷却 + 告警
         // （rich-js 事故面：flap 税币 "Pancake: K" 持续 revert，短冷却下反复烧 gas）
@@ -2015,9 +2052,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: 'tradeAmount 未配置或为 0' };
       }
 
-      // 卡账本（迁自 rich-js）：after 绝对值先写 trade metadata，成交才落 Map
+      // 卡账本（迁自 rich-js）：after 绝对值先写 trade metadata，成交才落 Map。
+      // 手工显式金额（manualAmountBnb）不记卡——金额非 perCard 计价，记卡必然失真
       let cardTrade = null;
-      if (this._cardsEnabled) {
+      if (this._cardsEnabled && signal.manualAmountBnb == null) {
         const cardsN = signal.cards != null ? signal.cards : 1;
         const before = this._tokenCards.get(signal.tokenAddress) || 0;
         cardTrade = { cards: cardsN, before, after: before + cardsN };
@@ -2143,7 +2181,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    * sellToken（trader 内自动 approve + 余额截断 + minFunds 滑点保护）→
    * 实收 BNB 换算 USD 记账（fee=0）→ Trade 落库。
    */
-  async _executeSellLive(signal, signalId = null, metadata = {}, holding, sellPct = 1) {
+  async _executeSellLive(signal, signalId = null, metadata = {}, holding, sellPct = 1, traderOverride = null) {
     const { ethers } = require('ethers');
     // E5：按腿比例卖执行时点余仓（holding.amount 此刻尚未被改写，无需额外快照——
     // PM 部分卖改写在交易返回之后）
@@ -2153,7 +2191,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     let qtySold = amountToSell;
     if (onChainQty !== null && onChainQty < amountToSell) {
       if (onChainQty <= 0) {
-        return { success: false, reason: `链上余额为 0（可能已外部处置），账面 ${amountToSell}` };
+        // externalDisposal：链上 0 = 钱包外已处置（人工卖出/转走），重试必然失败——
+        // 上游熔断计数分流不计连败（P1 裁定：外部处置非交易故障，熔断会误伤）
+        return { success: false, reason: `链上余额为 0（可能已外部处置），账面 ${amountToSell}`, externalDisposal: true };
       }
       this.logger.warn(this._experimentId, '_executeSellLive',
         `账面 ${amountToSell} > 链上 ${onChainQty}，按链上数量卖出 | ${signal.symbol}`);
@@ -2181,7 +2221,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, '_executeSellLive',
       `📡 live 卖出 | ${signal.symbol} ${qtySold}（滑点 ${this._liveSlippagePct}%）`);
 
-    const sellResult = await this._trader.sellToken(signal.tokenAddress, amountOutWei, options);
+    const sellResult = await (traderOverride || this._trader).sellToken(signal.tokenAddress, amountOutWei, options);
     if (!sellResult.success) {
       return { success: false, reason: sellResult.error || 'live 卖出交易失败' };
     }
@@ -2241,10 +2281,221 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     return { success: true, tradeId, txHash: trade.txHash, trade, priceUsd: actualPriceUsd, bnbReceived, qtySold };
   }
 
+  // ==================== 手工交易命令消费（P0-C） ====================
+
+  /**
+   * 手工交易命令队列消费（5s interval，live only）：web 落 manual_trade_requests 行，
+   * 本进程 CAS 抢占（pending→executing）后走与策略交易同一执行路径。
+   * 架构红线：web 进程绝不直接建 trader 交易——会与本引擎内存账本冲突（手工卖出后
+   * 引擎仍触发卖腿→链上0→计连败→熔断误伤）；停机期命令滞留 pending（不执行不丢）。
+   * 滞留清理：pending >10min 未消费 → expired；executing >10min（进程崩溃在执行中，
+   * 一次链上操作上限 ~2min）→ failed（执行中断）。
+   */
+  async _consumeManualTrades() {
+    if (this._isStopped || !this._trader) return;
+    const { dbManager } = require('../../services/dbManager');
+    const client = dbManager.getClient(); // service key（manual_trade_requests RLS 对 anon 全拒，红线③）
+    const { data: rows, error } = await client
+      .from('manual_trade_requests')
+      .select('id, token_address, direction, amount_bnb, sell_pct, status, requested_at')
+      .eq('experiment_id', this._experimentId)
+      .in('status', ['pending', 'executing'])
+      .order('requested_at', { ascending: true })
+      .limit(10);
+    if (error) throw new Error(`手工交易队列查询失败: ${error.message}`);
+    if (!rows || rows.length === 0) return;
+
+    const TTL_MS = 10 * 60 * 1000;
+    for (const row of rows) {
+      if (Date.now() - new Date(row.requested_at).getTime() > TTL_MS) {
+        // 滞留清理（CAS 防并发误改）：pending 未消费 → expired；executing 滞留（进程
+        // 崩溃残留，一次链上操作上限 ~2min）→ failed，分开归因
+        const isCrashed = row.status === 'executing';
+        const { error: upErr } = await client.from('manual_trade_requests')
+          .update({
+            status: isCrashed ? 'failed' : 'expired',
+            executed_at: new Date().toISOString(),
+            error: isCrashed ? '执行中断（引擎进程崩溃残留）' : '排队超时未执行（>10min）',
+          })
+          .eq('id', row.id)
+          .eq('status', row.status);
+        if (!upErr) {
+          this.logger.warn(this._experimentId, 'ManualTrade',
+            `手工交易命令滞留清理 | ${row.direction} ${row.token_address} → ${isCrashed ? 'failed' : 'expired'}`);
+        }
+        continue;
+      }
+      // executing 且未超时：本进程上一轮可能正在执行（interval 异步并发），跳过防重复
+      if (row.status !== 'pending') continue;
+      await this._processManualTradeRequest(row, client);
+    }
+  }
+
+  /** 单条手工命令执行：互斥检查 → CAS 抢占 → 构造 signal 等价物执行 → 终态写回 */
+  async _processManualTradeRequest(row, client) {
+    const tokenAddress = row.token_address;
+    const meta = { isManualTrade: true, manualRequestId: row.id };
+
+    // 策略执行互斥：买/卖执行中的 token 本轮跳过（留 pending 下轮重试，不判失败）
+    if (this._buyingTokens.has(tokenAddress) || this._sellingTokens.has(tokenAddress)) return;
+
+    const { data: claimed } = await client.from('manual_trade_requests')
+      .update({ status: 'executing' })
+      .eq('id', row.id)
+      .eq('status', 'pending')
+      .select('id');
+    if (!claimed || claimed.length === 0) return; // 已被抢/已被清理
+
+    const token = this._tokenPool.getToken(tokenAddress, 'bsc');
+    const symbol = token?.symbol
+      || this._factorAggregator.getTokenState(tokenAddress)?.symbol
+      || tokenAddress.slice(0, 10);
+    const priceUsd = this._manualTradePriceUsd(tokenAddress);
+
+    let result;
+    try {
+      if (row.direction === 'buy') {
+        // 手工买 fail-closed：FA 无该票价格状态（引擎未见过）→ 拒绝（L1 预成交锚缺失，
+        // 与策略路径「宁可错过不可买错」同语义）；pool 无该票（买后状态无法推进）同样拒绝
+        if (!(priceUsd > 0)) {
+          result = { success: false, reason: 'FA 无该 token 价格状态（引擎未见过该票），手工买拒绝：L1 预成交锚缺失' };
+        } else if (!token) {
+          result = { success: false, reason: 'token 不在本实验监控池，手工买拒绝（买后状态无法推进）' };
+        } else {
+          result = await this._executeManualBuy(row, token, symbol, priceUsd, meta);
+        }
+      } else {
+        result = await this._executeManualSell(row, symbol, priceUsd, meta);
+      }
+    } catch (error) {
+      result = { success: false, reason: error.message || '手工交易执行异常' };
+    }
+
+    const patch = {
+      status: result.success ? 'success' : 'failed',
+      executed_at: new Date().toISOString(),
+    };
+    if (result.success) {
+      patch.result = {
+        tradeId: result.tradeId ?? null,
+        txHash: result.txHash ?? null,
+        qtySold: result.qtySold ?? null,
+        bnbReceived: result.bnbReceived ?? null,
+        priceUsd: result.priceUsd ?? null,
+      };
+    } else {
+      patch.error = String(result.reason || '未知失败').slice(0, 2000);
+    }
+    await client.from('manual_trade_requests').update(patch).eq('id', row.id);
+
+    if (result.success) {
+      this.logger.info(this._experimentId, 'ManualTrade',
+        `✅ 手工${row.direction === 'buy' ? '买' : '卖'}成交 | ${symbol} tx=${result.txHash}`);
+    } else {
+      this.logger.warn(this._experimentId, 'ManualTrade',
+        `❌ 手工${row.direction === 'buy' ? '买' : '卖'}失败 | ${symbol} ${result.reason}`);
+    }
+  }
+
+  /** FA 当前价（USD/token）：手工交易 L1 锚来源。无状态/无价返回 0（buildFactorMap 的
+   * cycleLatch 推进副作用无害——纯观察标签） */
+  _manualTradePriceUsd(tokenAddress) {
+    const factors = this._factorAggregator.buildFactorMap(tokenAddress, Date.now());
+    return Number(factors?.currentPrice) || 0;
+  }
+
+  /** 手工买：manualAmountBnb 显式金额走 _executeBuyLive，成功后补状态推进
+   * （对齐 _evaluateBuyPath 成功分支；recordStrategyExecution/毕业竞态补卖不适用——
+   * 手工买无策略、live 毕业走人工告警） */
+  async _executeManualBuy(row, token, symbol, priceUsd, meta) {
+    const tokenAddress = token.token;
+    const signal = {
+      action: 'buy',
+      tokenAddress,
+      symbol,
+      chain: 'bsc',
+      price: priceUsd,
+      manualAmountBnb: Number(row.amount_bnb), // _buyAmountFor 最高优先（卡牌/tradeAmount 不经）
+      strategyId: null,
+      strategyName: '手工交易',
+    };
+    this._buyingTokens.add(tokenAddress);
+    try {
+      const result = await this._executeBuyLive(signal, null, meta);
+      if (result.success) {
+        const execPriceUsd = result.priceUsd || priceUsd;
+        this._tokenPool.markAsBought(tokenAddress, 'bsc', {
+          buyPrice: execPriceUsd,
+          buyTime: Date.now(),
+        });
+        await this.dataService.updateTokenStatus(this._experimentId, tokenAddress, 'bought');
+        const faState = this._factorAggregator.getTokenState(tokenAddress);
+        this._factorAggregator.setBuyState(tokenAddress, {
+          buyPriceBnb: faState?.currentPriceBnb || 0,
+          buyPriceUsd: execPriceUsd,
+          buyTime: Date.now(),
+        });
+      }
+      return result;
+    } finally {
+      this._buyingTokens.delete(tokenAddress);
+    }
+  }
+
+  /** 手工卖：_executeSell 完整复用（全清判定/卡账本/轮账本/markAsSold 熔断计数全套）；
+   * 价格锚缺省容忍（断流票 FA 无价传 0 → 无绝对锚走 trader 相对滑点锚降级——应急清仓
+   * 不能因无价拒绝）。毕业票（FA graduated）路由 PCS V2 外盘：TM2 毕业后 sellToken 必 revert */
+  async _executeManualSell(row, symbol, priceUsd, meta) {
+    const tokenAddress = row.token_address;
+    const sellPct = Number(row.sell_pct);
+    const signal = {
+      action: 'sell',
+      tokenAddress,
+      symbol,
+      chain: 'bsc',
+      price: priceUsd || 0,
+      sellPercentage: (Number.isFinite(sellPct) && sellPct > 0 && sellPct <= 1) ? sellPct : 1,
+      strategyId: null,
+      strategyName: '手工交易',
+    };
+
+    let traderOverride = null;
+    const st = this._factorAggregator.getTokenState(tokenAddress);
+    if (st?.graduated) {
+      traderOverride = await this._ensurePcsTrader();
+      this.logger.info(this._experimentId, 'ManualTrade', `毕业票手工卖路由 PCS V2 外盘 | ${symbol}`);
+    }
+
+    this._sellingTokens.add(tokenAddress);
+    try {
+      return await this._executeSell(signal, null, meta, traderOverride);
+    } finally {
+      this._sellingTokens.delete(tokenAddress);
+    }
+  }
+
+  /** PCS V2 trader 懒加载（毕业票手工卖专用）：与主 trader 同钱包同发单 RPC——
+   * 私钥从既有 wallet 对象取，不新增明文存储点 */
+  async _ensurePcsTrader() {
+    if (this._pcsTrader) return this._pcsTrader;
+    const traderFactory = require('../traders');
+    const rpcUrl = this._trader.network?.rpcUrl;
+    this._pcsTrader = traderFactory.createTrader('pancakeswap-v2', rpcUrl ? { network: { rpcUrl } } : {});
+    await this._pcsTrader.setWallet(this._trader.wallet.privateKey);
+    this.logger.info(this._experimentId, 'ManualTrade',
+      `PCS V2 trader 就绪（毕业票外盘卖）: ${this._pcsTrader.wallet.address}`);
+    return this._pcsTrader;
+  }
+
   /** 本腿买入金额（迁自 rich-js）：卡牌模式 = perCardBNB × 张数（cards ?? 1，现金门
    * 不足在 _calculateBuyAmount 返 0=买失败不降张）；旧模式 = 固定 tradeAmount。live
-   * 用本方法取金额（链上余额门才是真门，不走 PM cash 镜像门） */
+   * 用本方法取金额（链上余额门才是真门，不走 PM cash 镜像门）。
+   * manualAmountBnb（P0-C 手工交易）最高优先：显式金额不经卡牌/tradeAmount 计价，
+   * 配套卡账本跳过（金额非 perCard 计价，记卡必然失真） */
   _buyAmountFor(signal) {
+    if (Number.isFinite(signal.manualAmountBnb) && signal.manualAmountBnb > 0) {
+      return signal.manualAmountBnb;
+    }
     if (this._cardsEnabled) {
       return new Decimal(this._perCardBNB).mul(signal.cards != null ? signal.cards : 1).toNumber();
     }

@@ -25,6 +25,8 @@ const { CYCLE_PARAM_KEY_MAP } = require('./strategies/group-variables');
 const narrativeRoutes = require('./web/routes/narrative.routes');
 const strategyLibraryRoutes = require('./web/routes/strategy-library.routes');
 const newsRoutes = require('./web/routes/news.routes');
+const executorsRoutes = require('./web/routes/executors.routes');
+const manualTradeRoutes = require('./web/routes/manual-trades.routes');
 
 // buildLLMAnalysis 是 ESM 模块，首次使用时动态导入并缓存
 let _buildLLMAnalysis = null;
@@ -331,8 +333,18 @@ class RicherJsWebServer {
       res.sendFile(path.join(__dirname, 'web/templates/news-monitor.html'));
     });
 
+    // 执行器（交易钱包）管理页面（实盘前置批，2026-10-13，迁移自 rich-js）
+    this.app.get('/executors', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/executors.html'));
+    });
+
     this.app.get('/news-accounts', (req, res) => {
       res.sendFile(path.join(__dirname, 'web/templates/news-accounts.html'));
+    });
+
+    // 手工交易面板（P0-C 实盘前置批，live 实验应急处置：持仓卖/手工买/命令历史）
+    this.app.get('/experiment/:id/manual', (req, res) => {
+      res.sendFile(path.join(__dirname, 'web/templates/experiment_manual.html'));
     });
 
     // 实验详情页面（必须放在最后，作为默认路由）
@@ -348,6 +360,12 @@ class RicherJsWebServer {
 
     // ============ API路由：新闻监控（news_monitor 收编，2026-09-30）============
     this.app.use('/api/news', newsRoutes);
+
+    // ============ API路由：执行器（交易钱包，实盘前置批 2026-10-13）============
+    this.app.use('/api/executors', executorsRoutes);
+
+    // ============ API路由：手工交易命令队列（P0-C 实盘前置批，路径含 /experiment/:id 前缀）============
+    this.app.use('/api', manualTradeRoutes);
 
     // ============ API路由：事件监控 ============
 
@@ -763,6 +781,7 @@ class RicherJsWebServer {
           backtest,
           wallet,
           reserveNative,
+          maxPositionTokens,
           // 引擎级高级段（2026-09-28 复制保真）：表单无输入 UI，由复制链路携带
           tokenCycle,
           stopLoss,
@@ -801,13 +820,33 @@ class RicherJsWebServer {
           if (platform === 'both') {
             return res.status(400).json({ success: false, error: '双平台实验不支持 live（仅 virtual/backtest）' });
           }
-          // 实盘交易配置：私钥二选一——前端明文（服务端加密）或复用历史 live 实验
-          // 的已加密私钥（reuseExperimentId；密文服务端拷贝，私钥永不回传前端）
+          // 实盘交易配置：钱包三源择一——执行器 executorId（推荐，私钥单一真相源在
+          // executors 表，实验 config 只落引用+地址）/ 复用历史 live 实验的已加密私钥
+          // （reuseExperimentId；密文服务端拷贝）/ 前端明文（服务端加密）。私钥永不回传前端
           const { CryptoUtils } = require('../src/utils/CryptoUtils');
           const cryptoUtils = new CryptoUtils();
           let encryptedPrivateKey = null;
 
-          if (wallet?.reuseExperimentId) {
+          if (wallet?.executorId) {
+            // 执行器表校验（service key——executors 表 RLS 对 anon 全拒，红线③）
+            const { dbManager } = require('../src/services/dbManager');
+            const { data: executor, error: execError } = await dbManager.getClient()
+              .from('executors')
+              .select('name, address, blockchain, reserve_native')
+              .eq('id', wallet.executorId)
+              .single();
+            if (execError || !executor) {
+              return res.status(400).json({ success: false, error: `执行器不存在: ${wallet.executorId}` });
+            }
+            if (executor.blockchain !== 'bsc') {
+              return res.status(400).json({ success: false, error: `执行器区块链不符: ${executor.blockchain}（BSC-only）` });
+            }
+            if (wallet.address && wallet.address.toLowerCase() !== executor.address.toLowerCase()) {
+              return res.status(400).json({ success: false, error: `执行器地址不匹配: 表 ${executor.address} ≠ 提交 ${wallet.address}` });
+            }
+            // 私钥密文不落实验 config——引擎启动时按 executorId 现查现解
+            config.wallet = { executorId: wallet.executorId, address: executor.address };
+          } else if (wallet?.reuseExperimentId) {
             const sourceExperiment = await this.experimentFactory.load(wallet.reuseExperimentId);
             const sourceWallet = sourceExperiment?.config?.wallet;
             if (!sourceWallet?.privateKey || !sourceWallet?.address) {
@@ -822,7 +861,7 @@ class RicherJsWebServer {
             encryptedPrivateKey = cryptoUtils.encrypt(wallet.privateKey); // 只加密私钥
             config.wallet = { address: wallet.address, privateKey: encryptedPrivateKey };
           } else {
-            return res.status(400).json({ success: false, error: '实盘交易需要提供钱包私钥（或选择复用历史钱包）' });
+            return res.status(400).json({ success: false, error: '实盘交易需要选择执行器（或提供钱包私钥/复用历史钱包）' });
           }
 
           // live 执行层参数（引擎读实验 config 的对应平台 ws 段 live；仅落用户可调项，
@@ -830,7 +869,8 @@ class RicherJsWebServer {
           const liveParams = {
             reserveNative: reserveNative !== undefined ? parseFloat(reserveNative) : 0.1,
             slippageTolerance: strategy?.live?.slippageTolerance || 5,
-            maxGasPrice: strategy?.live?.maxGasPrice || 10
+            maxGasPrice: strategy?.live?.maxGasPrice || 10,
+            maxPositionTokens: maxPositionTokens !== undefined ? parseInt(maxPositionTokens, 10) || 0 : 0
           };
           if (resolvedPlatform === 'flap') {
             config.flapWs = { live: liveParams };
