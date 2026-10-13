@@ -28,7 +28,7 @@
 // 跑序无依赖，可串行跑；⚠️ 必须等画像库重建完成 + 删死行之后再启动 run-engine
 // （回测启动时读画像库，混杂期数据脏）。
 //
-// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm|v0|e50|eno|enl|ec0|pf0|pr1|pr2|tb0 [--gm-pct <50-100>] [--commit]
+// 用法（182）：node scripts/create-rerun-variants.cjs --arm all|b1|b2|c|d10|d5|t22|t20|tnone|notpa|mh8|gm|v0|e50|eno|enl|ec0|pf0|pr1|pr1b|pr2|tb0 [--gm-pct <50-100>] [--commit]
 //   默认 dry-run 打印各臂 diff 摘要；--commit 真建。gm 臂须显式 --gm-pct（dry-run 定档值）。
 // ============================================================================
 const path = require('path');
@@ -100,7 +100,8 @@ const ARMS = {
     perf: { src: ETNONE, suffix: '-perf基准', desc: '性能基准臂（v0 config 逐字复刻：P1 探针 + P2a/b/c + 叙事预载 + preFilter 修复后首次实跑；对拍 5517e3db=同 config 旧代码 64.4min/129.97 万 tick）' },
     perf2: { src: ETNONE, suffix: '-perf2快照缓存', desc: '性能臂二代（2026-10-12：perf config + AVE 同名搜索 TTL 缓存 300s + 快照化代码 b5eccae。perf 实测定因：preBuy 拦截 token 每 fire 重走全链，AVE 实时搜索 ~2.7×调用量成主耗时；TTL 内同 symbol 复用搜索结果省 95%+ 网络往返，同 symbol 窗口内数据一致=回测决定性更强）' },
     // ── P17/P18 验证臂（2026-10-13，源=perf16；pr1 逐字克隆 / pr2·tb0 cycle 手术，见 main 里独立分支）──
-    pr1: { src: EPERF16, suffix: '-pr1-P17prune', desc: 'P17 虚拟时钟 prune 对拍臂（perf16 config 逐字复刻，唯一变量=代码 80a591e→HEAD：P5 死删+P17 prune+P18 关侧三批联合；验收=trades/signals 对拍 perf16 bit 一致 + --max-old-space-size=2048 全窗存活（此前 2G 双崩）+ faPruned>0）' },
+    pr1: { src: EPERF16, suffix: '-pr1-P17prune', desc: 'P17 虚拟时钟 prune 对拍臂（perf16 config 逐字复刻，唯一变量=代码 80a591e→HEAD：P5 死删+P17 prune+P18 关侧三批联合；验收=trades/signals 对拍 perf16 bit 一致 + --max-old-space-size=2048 全窗存活（此前 2G 双崩）+ faPruned>0。已跑：分叉 +121 信号/7 笔卖出时刻差 → 428e82a 复流重锚修复，行保留）' },
+    pr1b: { src: EPERF16, suffix: '-pr1b-复流重锚修复', desc: 'P17 复流重锚修复后重跑臂（2026-10-13 428e82a：pr1 分叉根因=prune 后复流首 tick processTick 自动建 state 锚=复流时刻→age 归零回进买窗，卡骆驰 0x2d145db9 案 +121 信号+7 笔时间止损时刻差；修复=主循环复流检测按源实验 meta 权威锚重注册；验收=对拍 perf16 trades/signals bit 一致 + faPruned>0 + 2048 存活 + 回放段恢复 ~327s 量级）' },
     pr2: { src: EPERF16, suffix: '-pr2-去cycle基底', desc: 'P18 验证基底臂（perf16 config − cycle 冷档门子句 − tokenCycle 段=ec0 同款手术；对拍 tb0 的 skip 关侧；经 pr1 中性验证后 vs perf16 = cycle 门纯效应，恰好补上卡死 initializing 的 ec0）' },
     tb0: { src: EPERF16, suffix: '-tb0-P18tickBuildSkip', desc: 'P18 tick 路径 build 条件化对拍臂（pr2 + backtest.tickBuildSkip=true；与 pr2 同代码同 config 唯一差异=开关，trades/signals bit 一致后翻默认 true。perf16 原 config 直引 tokenCycle+enforce=true 与 skip 启动互斥（latch candidateSince 置位依赖 build 调用史），故用去 cycle 基底）' },
 };
@@ -140,7 +141,7 @@ async function main() {
     if (!srcT) throw new Error('源实验不存在: ' + ETNONE);
     if (!srcP) throw new Error('源实验不存在: ' + EPERF16);
 
-    const toRun = ARM === 'all' ? Object.keys(ARMS).filter(a => a !== 'gm' && a !== 'perf' && a !== 'perf2' && a !== 'pr1' && a !== 'pr2' && a !== 'tb0') : [ARM]; // all 不含 gm（须单建+定档）/perf/perf2/pr1/pr2/tb0（须单建）
+    const toRun = ARM === 'all' ? Object.keys(ARMS).filter(a => a !== 'gm' && a !== 'perf' && a !== 'perf2' && a !== 'pr1' && a !== 'pr1b' && a !== 'pr2' && a !== 'tb0') : [ARM]; // all 不含 gm（须单建+定档）/perf/perf2/pr1/pr1b/pr2/tb0（须单建）
     const created = [];
 
     for (const arm of toRun) {
@@ -276,18 +277,21 @@ async function main() {
             }
             buy.preBuyCheckCondition = pbc;
             cfg.backtest.faPreFilter = true;
-        } else if (arm === 'pr1' || arm === 'pr2' || arm === 'tb0') {
+        } else if (arm === 'pr1' || arm === 'pr1b' || arm === 'pr2' || arm === 'tb0') {
             // P17/P18 验证臂（2026-10-13）：
-            //   pr1 = perf16 config 逐字克隆零改动——唯一变量=代码版本（80a591e→HEAD，
-            //         P5 死删+P17 prune+P18 关侧三批联合中性验证，对拍 perf16）
-            //   pr2 = perf16 − cycle 冷档门子句 − tokenCycle 段（ec0 同款手术）——
-            //         tb0 的 skip 关侧基底；perf16 直引 tokenCycle 且 enforce=true，
-            //         与 tickBuildSkip 启动互斥（latch candidateSince 置位依赖 build
-            //         调用史，直引下 skip 与全量不可 bit 一致）
-            //   tb0 = pr2 + backtest.tickBuildSkip=true——与 pr2 唯一差异=开关，
-            //         bit 一致后翻默认；pr2 vs perf16（经 pr1 中性验证）= cycle 门纯效应
+            //   pr1  = perf16 config 逐字克隆零改动——唯一变量=代码版本（80a591e→HEAD，
+            //          P5 死删+P17 prune+P18 关侧三批联合中性验证，对拍 perf16）。
+            //          已跑分叉（复流重锚 age 归零），行保留；由 pr1b 修复后重跑收口
+            //   pr1b = pr1 同款逐字克隆 + 复流重锚修复（428e82a）——对拍 perf16 bit
+            //          一致即证明修复中性；分叉根因与修复详见 pr1b desc
+            //   pr2  = perf16 − cycle 冷档门子句 − tokenCycle 段（ec0 同款手术）——
+            //          tb0 的 skip 关侧基底；perf16 直引 tokenCycle 且 enforce=true，
+            //          与 tickBuildSkip 启动互斥（latch candidateSince 置位依赖 build
+            //          调用史，直引下 skip 与全量不可 bit 一致）
+            //   tb0  = pr2 + backtest.tickBuildSkip=true——与 pr2 唯一差异=开关，
+            //          bit 一致后翻默认；pr2 vs perf16（经 pr1b 中性验证）= cycle 门纯效应
             if (!cfg.backtest) throw new Error(`[${arm}] 源 config 无 backtest 段`);
-            if (arm !== 'pr1') {
+            if (arm !== 'pr1' && arm !== 'pr1b') {
                 if (!buy.condition.includes(CYCLE_CLAUSE)) {
                     throw new Error(`[${arm}] 源 condition 未含 cycle 子句（替换落空防静默），condition=${buy.condition}`);
                 }
@@ -308,7 +312,7 @@ async function main() {
         // diff 校验：b1/b2 与源零差异；c/d10/d5 除 pbc 外零差异；t22/t20 除 condition 外零差异
         const chk = JSON.parse(JSON.stringify(cfg));
         delete chk.name; delete chk.description;
-        if (arm === 'b1' || arm === 'b2' || arm === 'pr1') {
+        if (arm === 'b1' || arm === 'b2' || arm === 'pr1' || arm === 'pr1b') {
             if (JSON.stringify(chk) !== JSON.stringify((({ name, description, ...rest }) => rest)(src.config))) {
                 throw new Error(`[${arm}] 与源实验差异超出 name/description——应零差异`);
             }
@@ -364,8 +368,8 @@ async function main() {
         }
 
         cfg.name = (src.config.name || src.config.experiment_name || '回测') + def.suffix;
-        if (arm === 'pr1' || arm === 'pr2' || arm === 'tb0') {
-            const shape = arm === 'pr1'
+        if (arm === 'pr1' || arm === 'pr1b' || arm === 'pr2' || arm === 'tb0') {
+            const shape = (arm === 'pr1' || arm === 'pr1b')
                 ? 'bit-identical 逐字复刻'
                 : (arm === 'pr2' ? '去 cycle 手术（− 冷档门子句 − tokenCycle 段）'
                     : '去 cycle 手术 + 唯一增量 backtest.tickBuildSkip=true');
