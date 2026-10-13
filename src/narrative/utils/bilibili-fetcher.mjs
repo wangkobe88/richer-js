@@ -28,13 +28,17 @@ export class BilibiliFetcher {
 
     // 检查是否是短链接（b23.tv）
     if (url.includes('b23.tv')) {
+      // 3c（2026-10-13 叙事提速第二批）：短链解析超时防线（原理论挂 300s）
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
       try {
         console.log('[BilibiliFetcher] 检测到短链接，尝试解析...');
         const response = await fetch(url, {
           redirect: 'follow',
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
+          },
+          signal: controller.signal
         });
 
         // 获取重定向后的真实URL
@@ -46,6 +50,8 @@ export class BilibiliFetcher {
       } catch (error) {
         console.warn('[BilibiliFetcher] 短链接解析失败:', error.message);
         return null;
+      } finally {
+        clearTimeout(timer);
       }
     }
 
@@ -92,11 +98,14 @@ export class BilibiliFetcher {
       return null;
     }
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     try {
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -150,6 +159,8 @@ export class BilibiliFetcher {
     } catch (error) {
       console.error('[BilibiliFetcher] JustOneAPI 获取失败:', error.message);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
 

@@ -41,6 +41,29 @@ const RESULT_ONLY_FIELDS = [
   'stage_final',
 ];
 
+// save 回读瘦列清单（3b，2026-10-13 叙事提速第二批）：upsert 后 .select() 原样拉回
+// 35 列肥行（stage*_prompt/raw_output 审计列最肥）。回读值唯一消费点 =
+// formatResult(saveResult)（resolveFinalRating 阶段链 + reason/score 链 + token 段
+// + metadata）与 saveResult.analyzed_at——列清单按消费点闭集锁定，肥列
+// （*_prompt/*_raw_output/twitter_info/classified_urls/extracted_info/
+// url_extraction_result/data_fetch_results/gmgn_info 等）一律不回读。
+// 单测 _test_narrative_repo_save_thin 锁清单防漂移；新增消费列须同步此处。
+const SAVE_RETURN_COLS = [
+  'id',
+  'token_address',
+  'token_symbol',
+  'raw_api_data',
+  'analyzed_at',
+  'is_valid',
+  'prompt_version',
+  'pre_check_result',
+  'prestage_result',
+  'stage1_result',
+  'stage2_result',
+  'stage3_result',
+  'stage_final_result',
+].join(',');
+
 export class NarrativeRepository {
 
   /**
@@ -148,19 +171,31 @@ export class NarrativeRepository {
 
   /**
    * 保存或更新分析结果
+   * @param {Object} [options]
+   * @param {Object|null} [options.existing] 3b（2026-10-13 叙事提速第二批）：调用方
+   *   已持有的旧行快照（analyze 入口 cacheLookup/rowCache 拿到）。非 null 时跳过
+   *   save 内 pre-select（35 列肥行往返）。刻意只在非 null 时跳过——null（入口已
+   *   查明无行）保留现查：空结果查询本就廉价，且并发窗口内新插入行的
+   *   gmgn_info/未产阶段列不会被 null 假设清掉（x-0「重析不清掉已积累数据」语义
+   *   保持）。快照与分析期间的并发写存在竞态（合并读旧值）——接受：该参数只在
+   *   强制/穿透重析路径触发，同 token 双进程秒级并发写同一行属罕见。
    */
-  static async save(result) {
+  static async save(result, { existing: existingHint } = {}) {
     const tokenAddress = result.token_address.toLowerCase();
 
-    // 检查是否已存在记录
-    const { data: existing, error: existError } = await supabase
-      .from('token_narrative')
-      .select('*')
-      .eq('token_address', tokenAddress)
-      .maybeSingle();
+    // 检查是否已存在记录（3b：非 null 快照跳过该往返）
+    let existing = existingHint || null;
+    if (!existing) {
+      const { data, error: existError } = await this.getSupabase()
+        .from('token_narrative')
+        .select('*')
+        .eq('token_address', tokenAddress)
+        .maybeSingle();
 
-    if (existError) {
-      console.error('[NarrativeRepository] save 查询已有记录失败:', JSON.stringify(existError));
+      if (existError) {
+        console.error('[NarrativeRepository] save 查询已有记录失败:', JSON.stringify(existError));
+      }
+      existing = data || null;
     }
 
     // 构建记录对象
@@ -231,13 +266,13 @@ export class NarrativeRepository {
       }
     }
 
-    // 使用 upsert (insert or update)
-    const { data, error } = await supabase
+    // 使用 upsert (insert or update)；回读瘦列（3b，见文件头 SAVE_RETURN_COLS 注释）
+    const { data, error } = await this.getSupabase()
       .from('token_narrative')
       .upsert(record, {
         onConflict: 'token_address'
       })
-      .select()
+      .select(SAVE_RETURN_COLS)
       .single();
 
     if (error) {

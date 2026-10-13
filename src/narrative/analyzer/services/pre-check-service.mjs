@@ -15,6 +15,12 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// SameName 服务模块级单例（2026-10-13 叙事提速第二批 2a）：AVE BSC 搜索缓存
+// （实例级 _bscSearchCache：同 keyword 60s 内不重复搜）——原每次 performPreCheck
+// new 一份实例，缓存跨调用永不命中，复蹭簇同 symbol 每 token 真拉 AVE（10s 超时）。
+// constructor 纯内存（存 logger + AveTokenAPI 配置包装），模块级实例化零 IO
+const sameNameService = new SameNameCheckService(console);
+
 // 读取配置文件
 const configPath = join(__dirname, '../../../../config/default.json');
 const config = JSON.parse(readFileSync(configPath, 'utf-8'));
@@ -162,8 +168,7 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 规则0.5：同名代币检查（检测蹭热度作弊币）
   // 检查代币发布前是否存在大量同名代币，这通常是蹭热度行为
   const sameNameConfig = NARRATIVE_CONFIG.sameNameCheck || { enabled: true };
-  // 0.5/0.52 共用实例：AVE BSC 搜索走实例级缓存（同 keyword 60s 内不重复搜）
-  const sameNameService = new SameNameCheckService(console);
+  // sameNameService 用模块级单例（文件头 2a 注释：实例级 60s AVE 搜索缓存跨调用生效）
 
   if (sameNameConfig.enabled) {
     // 获取代币创建时间——wss 行 raw_api_data 无 created_at（flap builder 只存
@@ -202,63 +207,125 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // nameReferentBlock / brand_hijack / cashtag 改道门。C29/C34/C37/C45 四层
   // 豁免补丁随之成为死代码一并移除；规则 0.5/0.55/0.58 不受影响）
 
+  // 规则0.55-0.7：四条 DB 查询互不依赖（各自只读 tokenData 输入），原串行 await
+  // 三段白付 ~75ms；并行发起后按原顺序消费，判定输入/优先级/返回形状与原 bit 一致
+  // （2026-10-13 叙事提速第二批 2b）。代价 = 高优先规则命中时低优先查询已发出
+  // （轻查询浪费换常态并行收益）。各规则失败语义（warn 文案+视为不触发继续）与原
+  // 分规则 try/catch 一致——reject 由 safeQuery 归一为 error 形状消费（同时防后位
+  // 规则的 rejection 在前位消费 await 前悬空 unhandled）
+  const safeQuery = (promise, label) => promise.catch(err => {
+    console.warn(`[NarrativeAnalyzer] ${label}:`, err?.message || err);
+    return { data: null, error: err };
+  });
+
+  // ── 同步前置（0.55/0.6 共解析一次 appendix；0.55/0.58 创建时间同口径回退）──
+  let appendixTwitterId = null;
+  const currentAppendix = tokenData.raw_api_data?.appendix;
+  if (currentAppendix) {
+    try {
+      const parsedCurrentAppendix = typeof currentAppendix === 'string'
+        ? JSON.parse(currentAppendix)
+        : currentAppendix;
+      appendixTwitterId = extractTwitterStatusId(parsedCurrentAppendix?.twitter);
+    } catch (err) {
+      // 原分规则 catch 语义：两规则各自 parse 同一 appendix，坏 JSON 双 warn 后跳过
+      console.warn('[NarrativeAnalyzer] 同名+同推文重复叙事检查失败:', err.message);
+      console.warn('[NarrativeAnalyzer] 近期重复叙事检查失败:', err.message);
+    }
+  }
+  // wss 行 created_at 口径回退（与规则0.5 同修复，2026-09-28）
+  const createdAtSec = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
+  // 0.7 原口径：只用 raw_api_data.created_at（无 tokenCreatedAtSec 回退——wss 行
+  // 跳过 0.7，与 0.55/0.58 的回退口径刻意不同，勿合并）
+  const createdAtSec70 = tokenData.raw_api_data?.created_at;
+  const normalizedAddress = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
+  let currentMaterialId = null;
+  if (tokenData.raw_api_data) {
+    try {
+      currentMaterialId = extractNarrativeMaterialId(tokenData.raw_api_data);
+    } catch (err) {
+      console.warn('[NarrativeAnalyzer] 叙事语料去重检查失败:', err.message);
+    }
+  }
+
+  // ── 四查询并行发起（前置满足才发；查询形状与原各规则逐字一致）──
+  const supabase = NarrativeRepository.getSupabase();
+  // 规则0.55：同 narrative_material_id 的更早代币，再用归一化 symbol 过滤同名
+  // 归一化处理隐形字符（如韩文填充符 U+3164）规避同名检测的情况
+  const normalizedCurrentSymbol = (appendixTwitterId && tokenSymbol && createdAtSec)
+    ? SameNameCheckService._normalizeName(tokenSymbol)
+    : null;
+  const q55Promise = (appendixTwitterId && tokenSymbol && createdAtSec)
+    ? safeQuery(Promise.resolve(supabase
+        .from('experiment_tokens')
+        .select('token_address, token_symbol, discovered_at')
+        .eq('narrative_material_id', appendixTwitterId)
+        .neq('token_address', normalizedAddress)
+        .lt('discovered_at', new Date((createdAtSec - 2 * 60) * 1000).toISOString())
+        .gte('discovered_at', new Date((createdAtSec - 7 * 24 * 3600) * 1000).toISOString())
+        .order('discovered_at', { ascending: true })
+        .limit(10)), '同名+同推文重复叙事检查失败')
+    : null;
+  // 规则0.58：同时查询原始 symbol 和归一化后的 symbol（处理隐形字符规避）
+  const normalizedSymbol58 = tokenSymbol ? SameNameCheckService._normalizeName(tokenSymbol) : null;
+  const q58Promise = (tokenSymbol && createdAtSec)
+    ? safeQuery(Promise.resolve(supabase
+        .from('experiment_tokens')
+        .select('token_address, token_symbol, discovered_at, raw_api_data')
+        .in('token_symbol', normalizedSymbol58 !== tokenSymbol ? [tokenSymbol, normalizedSymbol58] : [tokenSymbol])
+        .neq('token_address', normalizedAddress)
+        .lt('discovered_at', new Date((createdAtSec - 10 * 60) * 1000).toISOString())
+        .gte('discovered_at', new Date((createdAtSec - 2 * 60 * 60) * 1000).toISOString())
+        .order('discovered_at', { ascending: true })
+        .limit(10)), '同名代币活跃跟风检查失败')
+    : null;
+  // 规则0.6：近期被 copycat_token 阻断的代币（Date.now 提前几 ms 无语义影响）
+  const q60Promise = appendixTwitterId
+    ? safeQuery(Promise.resolve(supabase
+        .from('token_narrative')
+        .select('token_address, token_symbol, raw_api_data')
+        .contains('pre_check_result', { details: { ruleName: 'copycat_token' } })
+        .gte('analyzed_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())), '近期重复叙事检查失败')
+    : null;
+  // 规则0.7：同 narrative_material_id 的更早代币
+  const q70Promise = (currentMaterialId && createdAtSec70)
+    ? safeQuery(Promise.resolve(supabase
+        .from('experiment_tokens')
+        .select('token_address, token_symbol, discovered_at')
+        .eq('narrative_material_id', currentMaterialId)
+        .neq('token_address', normalizedAddress)
+        .lt('discovered_at', new Date((createdAtSec70 - 1 * 60) * 1000).toISOString())
+        .gte('discovered_at', new Date((createdAtSec70 - 7 * 24 * 3600) * 1000).toISOString())
+        .order('discovered_at', { ascending: true })
+        .limit(5)), '叙事语料去重检查失败')
+    : null;
+
   // 规则0.55：同名+同推文重复叙事检查
   // 当两个代币使用相同推文（相同Twitter Status ID）且代币Symbol相同时，后者应被阻断为重复叙事
   // 与规则0.5（同名检查，需"起来过"）和规则0.7（语料复用，3分钟豁免）互补
   // 豁免窗口：2分钟（同一叙事素材在2分钟内的多个代币视为同时发现，不阻断）
   try {
-    const currentAppendix = tokenData.raw_api_data?.appendix;
-    if (currentAppendix && tokenSymbol) {
-      const parsedCurrentAppendix = typeof currentAppendix === 'string'
-        ? JSON.parse(currentAppendix)
-        : currentAppendix;
-      const currentTwitterId = extractTwitterStatusId(parsedCurrentAppendix?.twitter);
+    const { data: earlierTokensRaw, error: queryError } = (await q55Promise) || {};
 
-      if (currentTwitterId) {
-        const normalizedAddress = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
-        // wss 行 created_at 口径回退（与规则0.5 同修复，2026-09-28）
-        const currentCreatedAt = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
+    // 在 JS 中用归一化后的 symbol 过滤同名代币
+    const earlierTokens = (earlierTokensRaw || []).filter(t =>
+      SameNameCheckService._normalizeName(t.token_symbol) === normalizedCurrentSymbol
+    );
 
-        if (currentCreatedAt) {
-          const twoMinBeforeToken = new Date((currentCreatedAt - 2 * 60) * 1000).toISOString();
-          const oneWeekBeforeToken = new Date((currentCreatedAt - 7 * 24 * 3600) * 1000).toISOString();
+    if (!queryError && earlierTokens.length > 0) {
+      const matched = earlierTokens[0];
+      console.log(`[NarrativeAnalyzer] 预检查触发: 同名+同推文重复叙事 (symbol: ${tokenSymbol}, normalized: ${normalizedCurrentSymbol}, Twitter Status: ${appendixTwitterId}, 匹配代币: ${matched.token_symbol || ''} ${matched.token_address})`);
 
-          const supabase = NarrativeRepository.getSupabase();
-          // 查询同 narrative_material_id 的更早代币，再用归一化 symbol 过滤同名
-          // 归一化处理隐形字符（如韩文填充符 U+3164）规避同名检测的情况
-          const normalizedCurrentSymbol = SameNameCheckService._normalizeName(tokenSymbol);
-          const { data: earlierTokensRaw, error: queryError } = await supabase
-            .from('experiment_tokens')
-            .select('token_address, token_symbol, discovered_at')
-            .eq('narrative_material_id', currentTwitterId)
-            .neq('token_address', normalizedAddress)
-            .lt('discovered_at', twoMinBeforeToken)
-            .gte('discovered_at', oneWeekBeforeToken)
-            .order('discovered_at', { ascending: true })
-            .limit(10);
-
-          // 在 JS 中用归一化后的 symbol 过滤同名代币
-          const earlierTokens = (earlierTokensRaw || []).filter(t =>
-            SameNameCheckService._normalizeName(t.token_symbol) === normalizedCurrentSymbol
-          );
-
-          if (!queryError && earlierTokens.length > 0) {
-            const matched = earlierTokens[0];
-            console.log(`[NarrativeAnalyzer] 预检查触发: 同名+同推文重复叙事 (symbol: ${tokenSymbol}, normalized: ${normalizedCurrentSymbol}, Twitter Status: ${currentTwitterId}, 匹配代币: ${matched.token_symbol || ''} ${matched.token_address})`);
-
-            return buildPreCheckResult('low',
-              `检测到同名+同推文重复叙事：代币"${tokenSymbol}"使用的推文(${currentTwitterId})在一周内已被同名代币${matched.token_symbol || ''}(${matched.token_address.slice(0, 10)}...)使用过，判定为重复叙事`,
-              'same_name_same_tweet_duplicate',
-              {
-                scores: { credibility: 0, virality: 0 },
-                total_score: 0,
-                matchedTokenAddress: matched.token_address,
-                matchedTokenSymbol: matched.token_symbol,
-                matchedTwitterId: currentTwitterId
-              });
-          }
-        }
-      }
+      return buildPreCheckResult('low',
+        `检测到同名+同推文重复叙事：代币"${tokenSymbol}"使用的推文(${appendixTwitterId})在一周内已被同名代币${matched.token_symbol || ''}(${matched.token_address.slice(0, 10)}...)使用过，判定为重复叙事`,
+        'same_name_same_tweet_duplicate',
+        {
+          scores: { credibility: 0, virality: 0 },
+          total_score: 0,
+          matchedTokenAddress: matched.token_address,
+          matchedTokenSymbol: matched.token_symbol,
+          matchedTwitterId: appendixTwitterId
+        });
     }
   } catch (err) {
     console.warn('[NarrativeAnalyzer] 同名+同推文重复叙事检查失败:', err.message);
@@ -269,58 +336,36 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 与规则0.5（需"起来过"，1周窗口，高阈值）互补：此规则用更短时间窗口+更低阈值捕捉早期跟风者
   // 活跃度阈值低于"起来过"：txCount>=30 或 txVolume>=3000 即视为有基础活跃度
   try {
-    // wss 行 created_at 口径回退（与规则0.5 同修复，2026-09-28）
-    const currentCreatedAt58 = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
-    if (tokenSymbol && currentCreatedAt58) {
-      const normalizedAddress58 = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
-      const tenMinBefore = new Date((currentCreatedAt58 - 10 * 60) * 1000).toISOString();
-      const twoHoursBefore = new Date((currentCreatedAt58 - 2 * 60 * 60) * 1000).toISOString();
+    const { data: earlierSameNameTokensRaw, error: queryError58 } = (await q58Promise) || {};
 
-      const supabase58 = NarrativeRepository.getSupabase();
-      // 同时查询原始 symbol 和归一化后的 symbol（处理隐形字符规避）
-      const normalizedSymbol58 = SameNameCheckService._normalizeName(tokenSymbol);
-      const querySymbols58 = normalizedSymbol58 !== tokenSymbol
-        ? [tokenSymbol, normalizedSymbol58]
-        : [tokenSymbol];
-      const { data: earlierSameNameTokensRaw, error: queryError58 } = await supabase58
-        .from('experiment_tokens')
-        .select('token_address, token_symbol, discovered_at, raw_api_data')
-        .in('token_symbol', querySymbols58)
-        .neq('token_address', normalizedAddress58)
-        .lt('discovered_at', tenMinBefore)
-        .gte('discovered_at', twoHoursBefore)
-        .order('discovered_at', { ascending: true })
-        .limit(10);
+    // 用归一化后的 symbol 二次过滤
+    const earlierSameNameTokens = (earlierSameNameTokensRaw || []).filter(t =>
+      SameNameCheckService._normalizeName(t.token_symbol) === normalizedSymbol58
+    );
 
-      // 用归一化后的 symbol 二次过滤
-      const earlierSameNameTokens = (earlierSameNameTokensRaw || []).filter(t =>
-        SameNameCheckService._normalizeName(t.token_symbol) === normalizedSymbol58
-      );
+    if (!queryError58 && earlierSameNameTokens && earlierSameNameTokens.length > 0) {
+      const BASIC_TX_COUNT_THRESHOLD = 30;
+      const BASIC_TX_VOLUME_THRESHOLD = 3000;
 
-      if (!queryError58 && earlierSameNameTokens && earlierSameNameTokens.length > 0) {
-        const BASIC_TX_COUNT_THRESHOLD = 30;
-        const BASIC_TX_VOLUME_THRESHOLD = 3000;
+      for (const earlier of earlierSameNameTokens) {
+        const raw = earlier.raw_api_data || {};
+        const txCount = parseInt(raw.tx_count_24h) || 0;
+        const txVolume = parseFloat(raw.tx_volume_u_24h) || 0;
 
-        for (const earlier of earlierSameNameTokens) {
-          const raw = earlier.raw_api_data || {};
-          const txCount = parseInt(raw.tx_count_24h) || 0;
-          const txVolume = parseFloat(raw.tx_volume_u_24h) || 0;
+        if (txCount >= BASIC_TX_COUNT_THRESHOLD || txVolume >= BASIC_TX_VOLUME_THRESHOLD) {
+          console.log(`[NarrativeAnalyzer] 预检查触发: 同名代币活跃跟风 (symbol: ${tokenSymbol}, 匹配: ${earlier.token_symbol} ${earlier.token_address}, txCount: ${txCount}, txVolume: ${txVolume})`);
 
-          if (txCount >= BASIC_TX_COUNT_THRESHOLD || txVolume >= BASIC_TX_VOLUME_THRESHOLD) {
-            console.log(`[NarrativeAnalyzer] 预检查触发: 同名代币活跃跟风 (symbol: ${tokenSymbol}, 匹配: ${earlier.token_symbol} ${earlier.token_address}, txCount: ${txCount}, txVolume: ${txVolume})`);
-
-            return buildPreCheckResult('low',
-              `检测到同名代币活跃跟风：代币"${tokenSymbol}"在10分钟-2小时前已有活跃同名代币${earlier.token_symbol || ''}(${earlier.token_address.slice(0, 10)}..., ${txCount}笔交易/$${txVolume.toFixed(0)}交易量)，判定为跟风作弊`,
-              'same_name_active_copycat',
-              {
-                scores: { credibility: 0, virality: 0 },
-                total_score: 0,
-                matchedTokenAddress: earlier.token_address,
-                matchedTokenSymbol: earlier.token_symbol,
-                matchedTxCount: txCount,
-                matchedTxVolume: txVolume
-              });
-          }
+          return buildPreCheckResult('low',
+            `检测到同名代币活跃跟风：代币"${tokenSymbol}"在10分钟-2小时前已有活跃同名代币${earlier.token_symbol || ''}(${earlier.token_address.slice(0, 10)}..., ${txCount}笔交易/$${txVolume.toFixed(0)}交易量)，判定为跟风作弊`,
+            'same_name_active_copycat',
+            {
+              scores: { credibility: 0, virality: 0 },
+              total_score: 0,
+              matchedTokenAddress: earlier.token_address,
+              matchedTokenSymbol: earlier.token_symbol,
+              matchedTxCount: txCount,
+              matchedTxVolume: txVolume
+            });
         }
       }
     }
@@ -332,50 +377,32 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 查询近期被 copycat_token 阻断的代币，如果当前代币共享相同的 Twitter Status ID，也阻断
   // 解决全中文名代币无法通过 Solana 搜索发现蹭热度的问题
   try {
-    const currentAppendix = tokenData.raw_api_data?.appendix;
-    if (currentAppendix) {
-      const parsedCurrentAppendix = typeof currentAppendix === 'string'
-        ? JSON.parse(currentAppendix)
-        : currentAppendix;
-      const currentTwitterId = extractTwitterStatusId(parsedCurrentAppendix?.twitter);
+    const { data: recentBlocked, error: queryError } = (await q60Promise) || {};
 
-      if (currentTwitterId) {
-        const normalizedAddress = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
-        const supabase = NarrativeRepository.getSupabase();
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    if (!queryError && recentBlocked && recentBlocked.length > 0) {
+      for (const blocked of recentBlocked) {
+        // 跳过自身
+        if (blocked.token_address === normalizedAddress) continue;
 
-        const { data: recentBlocked, error: queryError } = await supabase
-          .from('token_narrative')
-          .select('token_address, token_symbol, raw_api_data')
-          .contains('pre_check_result', { details: { ruleName: 'copycat_token' } })
-          .gte('analyzed_at', oneDayAgo);
+        const blockedAppendix = blocked.raw_api_data?.appendix;
+        if (!blockedAppendix) continue;
+        const parsedBlockedAppendix = typeof blockedAppendix === 'string'
+          ? JSON.parse(blockedAppendix)
+          : blockedAppendix;
+        const blockedTwitterId = extractTwitterStatusId(parsedBlockedAppendix?.twitter);
 
-        if (!queryError && recentBlocked && recentBlocked.length > 0) {
-          for (const blocked of recentBlocked) {
-            // 跳过自身
-            if (blocked.token_address === normalizedAddress) continue;
-
-            const blockedAppendix = blocked.raw_api_data?.appendix;
-            if (!blockedAppendix) continue;
-            const parsedBlockedAppendix = typeof blockedAppendix === 'string'
-              ? JSON.parse(blockedAppendix)
-              : blockedAppendix;
-            const blockedTwitterId = extractTwitterStatusId(parsedBlockedAppendix?.twitter);
-
-            if (currentTwitterId === blockedTwitterId) {
-              // 只在匹配代币创建更早时才阻断（当前代币是后来者）
-              const blockedCreatedAt = blocked.raw_api_data?.created_at;
-              const currentCreatedAt = tokenData.raw_api_data?.created_at;
-              if (blockedCreatedAt && currentCreatedAt && blockedCreatedAt >= currentCreatedAt) {
-                continue; // 匹配代币创建更晚或同时，不能用它阻断当前代币
-              }
-              const timeDiff = currentCreatedAt && blockedCreatedAt
-                ? `当前代币创建于 ${new Date(currentCreatedAt * 1000).toISOString()}, 匹配代币创建于 ${new Date(blockedCreatedAt * 1000).toISOString()}`
-                : '';
-              console.log(`[NarrativeAnalyzer] 预检查触发: 近期重复叙事 (Twitter Status: ${currentTwitterId}, 匹配代币: ${blocked.token_symbol || ''} ${blocked.token_address}, ${timeDiff})`);
-              return buildPreCheckResult('low', `近期已有代币 ${blocked.token_symbol || ''}(${blocked.token_address.slice(0, 10)}...) 因蹭热度被阻断，且共享同一推特链接，判定为重复叙事`, 'recent_duplicate_narrative', { scores: { credibility: 0, virality: 0 }, total_score: 0, matchedTokenAddress: blocked.token_address, matchedTokenSymbol: blocked.token_symbol, matchedTwitterId: currentTwitterId });
-            }
+        if (appendixTwitterId === blockedTwitterId) {
+          // 只在匹配代币创建更早时才阻断（当前代币是后来者）
+          const blockedCreatedAt = blocked.raw_api_data?.created_at;
+          const currentCreatedAt = tokenData.raw_api_data?.created_at;
+          if (blockedCreatedAt && currentCreatedAt && blockedCreatedAt >= currentCreatedAt) {
+            continue; // 匹配代币创建更晚或同时，不能用它阻断当前代币
           }
+          const timeDiff = currentCreatedAt && blockedCreatedAt
+            ? `当前代币创建于 ${new Date(currentCreatedAt * 1000).toISOString()}, 匹配代币创建于 ${new Date(blockedCreatedAt * 1000).toISOString()}`
+            : '';
+          console.log(`[NarrativeAnalyzer] 预检查触发: 近期重复叙事 (Twitter Status: ${appendixTwitterId}, 匹配代币: ${blocked.token_symbol || ''} ${blocked.token_address}, ${timeDiff})`);
+          return buildPreCheckResult('low', `近期已有代币 ${blocked.token_symbol || ''}(${blocked.token_address.slice(0, 10)}...) 因蹭热度被阻断，且共享同一推特链接，判定为重复叙事`, 'recent_duplicate_narrative', { scores: { credibility: 0, virality: 0 }, total_score: 0, matchedTokenAddress: blocked.token_address, matchedTokenSymbol: blocked.token_symbol, matchedTwitterId: appendixTwitterId });
         }
       }
     }
@@ -386,71 +413,45 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 规则0.7：叙事表征语料去重检查
   // 基于 narrative_material_id 检测同一叙事素材被反复使用的"叙事复用"行为
   try {
-    const currentRawApiData = tokenData.raw_api_data;
-    if (currentRawApiData) {
-      const currentMaterialId = extractNarrativeMaterialId(currentRawApiData);
+    const { data: earlierTokens, error: queryError } = (await q70Promise) || {};
 
-      if (currentMaterialId) {
-        const normalizedAddress = (tokenData.raw_api_data?.token || tokenData.address || '').toLowerCase();
-        const supabase = NarrativeRepository.getSupabase();
+    if (!queryError && earlierTokens && earlierTokens.length > 0) {
+      const matchedInfo = earlierTokens.map(t =>
+        `${t.token_symbol || '?'}(${t.token_address.slice(0, 10)}...)`
+      ).join(', ');
 
-        const currentCreatedAt = tokenData.raw_api_data?.created_at;
-        if (currentCreatedAt) {
-          // 当前代币创建前一周
-          const oneWeekBeforeToken = new Date((currentCreatedAt - 7 * 24 * 3600) * 1000).toISOString();
-          // 豁免1分钟内的同时使用：只匹配当前代币创建前1分钟以上的
-          const oneMinBeforeToken = new Date((currentCreatedAt - 1 * 60) * 1000).toISOString();
+      console.log(`[NarrativeAnalyzer] 预检查触发: 叙事语料复用 (material_id: ${currentMaterialId}, 匹配${earlierTokens.length}个更早代币: ${matchedInfo})`);
 
-          const { data: earlierTokens, error: queryError } = await supabase
-            .from('experiment_tokens')
-            .select('token_address, token_symbol, discovered_at')
-            .eq('narrative_material_id', currentMaterialId)
-            .neq('token_address', normalizedAddress)
-            .lt('discovered_at', oneMinBeforeToken)
-            .gte('discovered_at', oneWeekBeforeToken)
-            .order('discovered_at', { ascending: true })
-            .limit(5);
-
-          if (!queryError && earlierTokens && earlierTokens.length > 0) {
-            const matchedInfo = earlierTokens.map(t =>
-              `${t.token_symbol || '?'}(${t.token_address.slice(0, 10)}...)`
-            ).join(', ');
-
-            console.log(`[NarrativeAnalyzer] 预检查触发: 叙事语料复用 (material_id: ${currentMaterialId}, 匹配${earlierTokens.length}个更早代币: ${matchedInfo})`);
-
-            return buildPreCheckResult('low',
-              `检测到叙事语料复用：当前代币使用的叙事素材（${currentMaterialId}）在一周内已被${earlierTokens.length}个代币使用过（${matchedInfo}），该叙事已被反复使用`,
-              'narrative_material_reuse',
-              {
-                scores: { credibility: 0, virality: 0 },
-                total_score: 0,
-                materialId: currentMaterialId,
-                reuseCount: earlierTokens.length,
-                currentTokenCreatedAt: currentCreatedAt ? new Date(currentCreatedAt * 1000).toISOString() : null,
-                earlierTokens: earlierTokens.map(t => {
-                  const discoveredAtDate = new Date(t.discovered_at);
-                  const currentCreatedAtDate = currentCreatedAt ? new Date(currentCreatedAt * 1000) : null;
-                  let timeDiffText = '';
-                  if (currentCreatedAtDate) {
-                    const diffMs = currentCreatedAtDate - discoveredAtDate;
-                    const diffMin = Math.floor(diffMs / 60000);
-                    const diffHours = Math.floor(diffMin / 60);
-                    const diffDays = Math.floor(diffHours / 24);
-                    if (diffDays > 0) {
-                      timeDiffText = `${diffDays}天${diffHours % 24}小时前`;
-                    } else if (diffHours > 0) {
-                      timeDiffText = `${diffHours}小时${diffMin % 60}分钟前`;
-                    } else {
-                      timeDiffText = `${diffMin}分钟前`;
-                    }
-                  }
-                  return { address: t.token_address, symbol: t.token_symbol, discoveredAt: t.discovered_at, timeDiffText };
-                })
+      return buildPreCheckResult('low',
+        `检测到叙事语料复用：当前代币使用的叙事素材（${currentMaterialId}）在一周内已被${earlierTokens.length}个代币使用过（${matchedInfo}），该叙事已被反复使用`,
+        'narrative_material_reuse',
+        {
+          scores: { credibility: 0, virality: 0 },
+          total_score: 0,
+          materialId: currentMaterialId,
+          reuseCount: earlierTokens.length,
+          currentTokenCreatedAt: createdAtSec70 ? new Date(createdAtSec70 * 1000).toISOString() : null,
+          earlierTokens: earlierTokens.map(t => {
+            const discoveredAtDate = new Date(t.discovered_at);
+            const currentCreatedAtDate = createdAtSec70 ? new Date(createdAtSec70 * 1000) : null;
+            let timeDiffText = '';
+            if (currentCreatedAtDate) {
+              const diffMs = currentCreatedAtDate - discoveredAtDate;
+              const diffMin = Math.floor(diffMs / 60000);
+              const diffHours = Math.floor(diffMin / 60);
+              const diffDays = Math.floor(diffHours / 24);
+              if (diffDays > 0) {
+                timeDiffText = `${diffDays}天${diffHours % 24}小时前`;
+              } else if (diffHours > 0) {
+                timeDiffText = `${diffHours}小时${diffMin % 60}分钟前`;
+              } else {
+                timeDiffText = `${diffMin}分钟前`;
               }
-            );
-          }
+            }
+            return { address: t.token_address, symbol: t.token_symbol, discoveredAt: t.discovered_at, timeDiffText };
+          })
         }
-      }
+      );
     }
   } catch (err) {
     console.warn('[NarrativeAnalyzer] 叙事语料去重检查失败:', err.message);

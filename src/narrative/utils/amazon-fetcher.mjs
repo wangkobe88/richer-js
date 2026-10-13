@@ -56,9 +56,14 @@ async function _fetchProductInfoInternal(url) {
 
   console.log(`[AmazonFetcher] 获取Amazon产品: ASIN=${asin}`);
 
+  // 3c（2026-10-13 叙事提速第二批）：JustOneAPI 超时防线——原无 AbortController，
+  // 理论挂 undici 默认 300s；超时走 abort → 既有 catch 链
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
   try {
     const response = await fetch(`${JUSTONEAPI_URL}?token=${JUSTONEAPI_KEY}&asin=${asin}`, {
-      method: 'GET'
+      method: 'GET',
+      signal: controller.signal
     });
 
     if (!response.ok) {
@@ -122,6 +127,8 @@ async function _fetchProductInfoInternal(url) {
   } catch (error) {
     console.error('[AmazonFetcher] 获取产品信息失败:', error.message);
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

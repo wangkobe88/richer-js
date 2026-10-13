@@ -132,11 +132,16 @@ export class WeixinFetcher {
   static async fetchArticleDetail(articleUrl) {
     const url = `${ARTICLE_DETAIL_URL}?token=${JUSTONEAPI_KEY}&articleUrl=${encodeURIComponent(articleUrl)}`;
 
+    // 3c（2026-10-13 叙事提速第二批）：JustOneAPI 超时防线——原无 AbortController，
+    // 理论挂 undici 默认 300s，尾部从分钟级压到 15s；超时走 abort → 既有 catch null
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     try {
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -157,6 +162,8 @@ export class WeixinFetcher {
     } catch (error) {
       console.error('[WeixinFetcher] 文章详情API获取失败:', error.message);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -168,11 +175,14 @@ export class WeixinFetcher {
   static async fetchArticleFeedback(articleUrl) {
     const url = `${ARTICLE_FEEDBACK_URL}?token=${JUSTONEAPI_KEY}&articleUrl=${encodeURIComponent(articleUrl)}`;
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
     try {
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -193,6 +203,8 @@ export class WeixinFetcher {
     } catch (error) {
       console.error('[WeixinFetcher] 文章反馈API获取失败:', error.message);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
 

@@ -8,6 +8,7 @@ import { fetchWebsiteContent, isFetchableUrl } from './web-fetcher.mjs';
 import { TwitterMediaExtractor } from './twitter-media-extractor.mjs';
 import { CachedFetcher, ExternalResourceCache } from '../db/ExternalResourceCache.mjs';
 import { getCacheTTL } from '../db/cache-ttl-config.mjs';
+import { getConfig } from '../engine/config.mjs';
 
 /**
  * 叙事分析Twitter用户黑名单
@@ -153,6 +154,8 @@ export class TwitterFetcher {
         },
         // 媒体信息（统一格式）
         media: normalizedMedia,
+        // (t.co, 终链) 原始对（2c：fetchTweetLinks 优先 pair 展开免 HEAD）
+        url_entities: tweetData.url_entities || null,
         // Community数据（保留原始格式用于后续分析）
         community_results: tweetData.community_results || null
       };
@@ -425,6 +428,11 @@ export class TwitterFetcher {
 
     console.log(`[TwitterFetcher] 推文中发现 ${urls.length} 个链接`);
 
+    // website 内容抓取总开关（2026-10-13 叙事提速第二批，用户裁定去除）：关 → 只
+    // 保留 t.co 展开（pubProxy J1.18 域名判据 / URL 分类实体 / twitter-section 渲染
+    // 都吃 expanded_urls），不做链接内容抓取
+    const websiteEnabled = (getConfig().websiteFetch || {}).enabled === true;
+
     // 只获取第一个有效的URL内容（避免耗时过长）
     for (const url of urls) {
       // 跳过Twitter/X自身的链接（但需要展开t.co短链接）
@@ -433,9 +441,16 @@ export class TwitterFetcher {
       }
       // 对于t.co短链接，展开后再判断
       if (url.includes('t.co/')) {
+        // 2c（2026-10-13 叙事提速第二批）：apidance url_entities 已带 (t.co, 终链)
+        // 对——命中零 HTTP；pair 缺项（旧缓存行/实体缺失/text 尾标点致不匹配）才
+        // 回退 HEAD 展开（每条 5s 超时）
+        const pair = (tweetInfo.url_entities || []).find(p => p && p.url === url);
+        let expandedUrl = pair?.expanded_url || null;
         try {
-          console.log(`[TwitterFetcher] 展开t.co短链接: ${url}`);
-          const expandedUrl = await this.expandShortUrl(url);
+          if (!expandedUrl) {
+            console.log(`[TwitterFetcher] 展开t.co短链接: ${url}`);
+            expandedUrl = await this.expandShortUrl(url);
+          }
           if (expandedUrl) {
             console.log(`[TwitterFetcher] 短链接展开为: ${expandedUrl}`);
             // 将展开后的URL添加到推文文本中（用于实体提取）
@@ -465,6 +480,8 @@ export class TwitterFetcher {
         console.log(`[TwitterFetcher] 跳过不可获取的URL: ${url}`);
         continue;
       }
+
+      if (!websiteEnabled) continue; // 网站内容抓取已去除（开关见函数头）；t.co 展开不受影响
 
       console.log(`[TwitterFetcher] 尝试获取推文链接内容: ${url}`);
       const linkContent = await fetchWebsiteContent(url, { maxLength: 3000, timeout: 10000 });

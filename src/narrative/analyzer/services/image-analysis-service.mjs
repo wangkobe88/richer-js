@@ -41,6 +41,10 @@ import { ExternalResourceCache } from '../../db/ExternalResourceCache.mjs';
 /** 缓存 resourceType（external_resource_cache.url + resource_type 联合键） */
 const CACHE_RESOURCE_TYPE = 'tweet_image';
 
+/** 图片本体缓存 resourceType（与结论缓存分离：结论过期重析 / prompt 升版全量重析
+ *  （img-v2→v3 最大场景）时图片不必重新下载；跨进程共享——inflight Map 只护本进程） */
+const RAW_CACHE_TYPE = 'tweet_image_raw';
+
 /**
  * 图片分析 prompt 版本：prompt 措辞 / 输出形状 / 模型改动时 bump。
  * 缓存行带版本号，版本不符视为 miss 重析（防旧形状毒缓存）。
@@ -49,6 +53,13 @@ const CACHE_RESOURCE_TYPE = 'tweet_image';
  * 全部需要重析（img-v2 未部署过 182，无需 v3）。
  */
 const IMAGE_PROMPT_VERSION = 'img-v2';
+
+/**
+ * 图片下载版本：downloadAsBase64 压缩参数（maxWidth/maxHeight/quality/targetSize/
+ * format）变更时 bump。缓存行带 v，版本不符视为 miss 重下载（防旧形状毒缓存，
+ * 与 IMAGE_PROMPT_VERSION 同机制）。dl-v1：format jpeg / maxWidth 1024 / quality 85。
+ */
+const IMAGE_DL_VERSION = 'dl-v1';
 
 const RETRY_BACKOFF_MS = [500, 1500];
 
@@ -119,13 +130,46 @@ export async function analyzeTweetImage(twitterInfo, options = {}) {
 }
 
 /**
+ * 下载图片本体（缓存优先，1D 2026-10-13 用户裁定：图片资源下载与结论同为外部
+ * 资源，已下载的不再下载）。命中且 v 匹配 → 直接用（省下载+压缩）；miss →
+ * downloadAsBase64 真下载；失败 → null 不写缓存（下次自然重试，与结论缓存同
+ * 语义）。成功写 {v, base64, mimeType, size, compressed}（压缩后 jpeg ~133KB/行；
+ * dataUrl 不存——与 base64 冗余翻倍）。TTL 跟结论缓存同源（vision.cacheTtlSec）。
+ * 返回 downloadAsBase64 同形状对象（消费侧 mimeType/base64/compressed 零改动）。
+ */
+async function _downloadForAnalysis(imageUrl, vision) {
+  const ttl = vision.cacheTtlSec || 90 * 24 * 60 * 60;
+  const cached = await ExternalResourceCache.get(imageUrl, RAW_CACHE_TYPE, { maxAge: ttl });
+  if (cached && cached.v === IMAGE_DL_VERSION && cached.base64 && cached.mimeType) {
+    return {
+      base64: cached.base64,
+      mimeType: cached.mimeType,
+      size: cached.size,
+      compressed: cached.compressed === true,
+    };
+  }
+  // format:'jpeg'——压缩输出必须是 jpeg（webp 被智谱端点静默丢弃，见头注释）
+  const imageData = await ImageDownloader.downloadAsBase64(imageUrl, { format: 'jpeg' });
+  if (!imageData) return null;
+  await ExternalResourceCache.set(imageUrl, RAW_CACHE_TYPE, {
+    v: IMAGE_DL_VERSION,
+    base64: imageData.base64,
+    mimeType: imageData.mimeType,
+    size: imageData.size,
+    compressed: imageData.compressed === true,
+  }, { ttl });
+  return imageData;
+}
+
+/**
  * 单次完整分析（下载 → 视觉 API → 解析）；任何一步失败返回 null（不 throw）
  */
 async function _analyzeOnce(imageUrl, twitterInfo, vision, apiKey) {
   const startedAt = Date.now();
   try {
-    // format:'jpeg'——压缩输出必须是 jpeg（webp 被智谱端点静默丢弃，见头注释）
-    const imageData = await ImageDownloader.downloadAsBase64(imageUrl, { format: 'jpeg' });
+    // 图片本体缓存优先（1D）：结论缓存 miss 时（TTL 过期 / prompt 升版全量重析）
+    // 图片不再重新下载；_downloadForAnalysis 失败返回 null 与原直调同分支
+    const imageData = await _downloadForAnalysis(imageUrl, vision);
     if (!imageData) {
       logger.warn('ImageAnalysis', `图片下载失败，跳过（语料不含图片证据）: ${imageUrl}`);
       return null;

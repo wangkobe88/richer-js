@@ -74,6 +74,10 @@ export class GithubFetcher {
 
     console.log(`[GithubFetcher] 获取仓库信息: ${repoInfo.owner}/${repoInfo.repo}`);
 
+    // 3c（2026-10-13 叙事提速第二批）：GitHub API 超时防线——原无 AbortController，
+    // 理论挂 undici 默认 300s；超时走 abort → 既有 catch 链网页解析回退
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
     try {
       // 使用 GitHub API 获取仓库信息（无需认证的公开请求）
       const apiUrl = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}`;
@@ -82,7 +86,8 @@ export class GithubFetcher {
         headers: {
           'Accept': 'application/vnd.github.v3+json',
           'User-Agent': 'Mozilla/5.0'
-        }
+        },
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -125,6 +130,8 @@ export class GithubFetcher {
       console.error('[GithubFetcher] API 请求失败:', error.message);
       // 备用方案：尝试从网页解析
       return await this._parseFromWebPage(url);
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -134,11 +141,16 @@ export class GithubFetcher {
    * @returns {Promise<Object|null>} 仓库信息
    */
   static async _parseFromWebPage(url) {
+    // 3c（2026-10-13 叙事提速第二批）：网页解析超时防线（同 API 段，
+    // 超时走 abort → 既有 catch 链返回 null）
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
     try {
       const response = await fetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0'
-        }
+        },
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -180,6 +192,8 @@ export class GithubFetcher {
     } catch (error) {
       console.error('[GithubFetcher] 网页解析失败:', error.message);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
 

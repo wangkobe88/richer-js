@@ -9,7 +9,8 @@
  *   { endpoint, model, apiKeyEnv, timeoutMs, retryCount }
  *
  * 错误语义（无跨模型 fallback，经用户确认）：
- *   - 429 / 5xx / 网络错误：同模型短退避重试（默认 2 次，500/1500ms）
+ *   - 429 / 5xx / 网络错误：同模型短退避重试（默认 2 次，500/1500ms；429/5xx 带
+ *     Retry-After 头时优先按头等待，钳 [500, 15000]ms——3d，2026-10-13 叙事提速第二批）
  *   - 4xx（除 429）：直接抛错（请求本身有错，重试无意义）
  *   - 响应缺少任何请求的问题 id：抛 SCHEMA 错（不吞错、不兼容降级）
  */
@@ -26,6 +27,11 @@ const __dirname = dirname(__filename);
 dotenv.config({ path: join(__dirname, '../../../config/.env') });
 
 const RETRY_BACKOFF_MS = [500, 1500];
+// 3d：Retry-After 头优先于固定退避表，钳制区间 [500, 15000]ms——上界防买门同步
+// 路径被服务器长冷却拖死（显式冷却 >15s 说明此刻本就不该重试，照固定表打点大概率
+// 再 429 后抛错 = 原路径语义）；下界与表底对齐（过短的自定义值无意义）
+const RETRY_AFTER_MIN_MS = 500;
+const RETRY_AFTER_MAX_MS = 15000;
 
 /** 读取 jev 配置节（config.mjs 已加载同一份 .env） */
 function _jevConfig() {
@@ -66,9 +72,14 @@ export class JevClient {
     }
 
     let lastError = null;
+    let lastRetryAfterMs = null;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       if (attempt > 0) {
-        const backoff = RETRY_BACKOFF_MS[Math.min(attempt - 1, RETRY_BACKOFF_MS.length - 1)];
+        // 3d：上次失败带 Retry-After 头（有效且未在过去）→ 钳制后优先于固定表
+        const headerBackoff = lastRetryAfterMs != null
+          ? Math.min(Math.max(lastRetryAfterMs, RETRY_AFTER_MIN_MS), RETRY_AFTER_MAX_MS)
+          : null;
+        const backoff = headerBackoff ?? RETRY_BACKOFF_MS[Math.min(attempt - 1, RETRY_BACKOFF_MS.length - 1)];
         logger.warn('JevClient', `第 ${attempt} 次重试（${backoff}ms 后）: ${lastError.message}`);
         await new Promise(r => setTimeout(r, backoff));
       }
@@ -82,6 +93,7 @@ export class JevClient {
       }
 
       lastError = result.error;
+      lastRetryAfterMs = result.retryAfterMs ?? null;
       const retryable = result.retryable;
       logger.warn('JevClient', `调用失败[${label}] attempt=${attempt} retryable=${retryable}: ${lastError.message}`);
       if (!retryable) {
@@ -116,7 +128,12 @@ export class JevClient {
         const errorText = await response.text();
         const error = new Error(`HTTP ${response.status}: ${errorText.substring(0, 500)}`);
         // 429 限速与 5xx 服务端错误可重试；其余 4xx 是请求本身错误
-        return { ok: false, error, retryable: response.status === 429 || response.status >= 500 };
+        const retryable = response.status === 429 || response.status >= 500;
+        // 3d：可重试类带出 Retry-After（ask 侧重试间隔优先按头等待）
+        const retryAfterMs = retryable
+          ? this._parseRetryAfterMs(response.headers.get('retry-after'))
+          : null;
+        return { ok: false, error, retryable, retryAfterMs };
       }
 
       const body = await response.json();
@@ -130,6 +147,24 @@ export class JevClient {
       // 网络抖动（fetch 异常）与超时可重试
       return { ok: false, error, retryable: true };
     }
+  }
+
+  /**
+   * 解析 Retry-After 头（3d）：delta-seconds（容错小数）或 HTTP-date → 等待 ms。
+   * 无效值 / 过去时间（等待无意义）→ null（ask 侧回落固定退避表）。
+   */
+  static _parseRetryAfterMs(headerValue, nowMs = Date.now()) {
+    if (!headerValue) return null;
+    const trimmed = String(headerValue).trim();
+    if (/^\d+(\.\d+)?$/.test(trimmed)) {
+      return Math.round(parseFloat(trimmed) * 1000);
+    }
+    const parsed = Date.parse(trimmed);
+    if (!Number.isNaN(parsed)) {
+      const delta = parsed - nowMs;
+      return delta > 0 ? delta : null;
+    }
+    return null;
   }
 
   /**

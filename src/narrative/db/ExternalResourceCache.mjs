@@ -310,6 +310,20 @@ export class ExternalResourceCache {
     if (!mainUrlInfo) return null;
 
     const resourceType = mainUrlInfo.type === 'community' ? 'twitter_community' : 'tweet';
+
+    // 3e（2026-10-13 叙事提速第二批）：第二推文 get 与主推 get 并发——第二 URL 同步
+    // 可判（只依赖 mainUrlInfo），原串行等主推返回才发（缓存路径多 ~25ms）；get 全
+    // 吞错返 null 无悬空 rejection 风险。投机发起，主推 miss 或已带 website_tweet
+    // 时弃用结果
+    const secondUrlInfo = classifiedTwitterUrls.length > 1
+      ? classifiedTwitterUrls.find(t => t.url !== mainUrlInfo.url && t.type === 'tweet')
+      : null;
+    const secondPromise = secondUrlInfo
+      ? ExternalResourceCache.get(secondUrlInfo.url, 'tweet', {
+          maxAge: 365 * 24 * 60 * 60 // 推文缓存有效期1年
+        })
+      : null;
+
     const mainInfo = await ExternalResourceCache.get(mainUrlInfo.url, resourceType, {
       maxAge: 365 * 24 * 60 * 60 // 推文缓存有效期1年
     });
@@ -317,18 +331,10 @@ export class ExternalResourceCache {
     if (!mainInfo) return null;
 
     // 检查是否有第二推文（website_tweet）
-    if (classifiedTwitterUrls.length > 1) {
-      const mainUrl = mainUrlInfo.url;
-      const secondUrlInfo = classifiedTwitterUrls.find(
-        t => t.url !== mainUrl && t.type === 'tweet'
-      );
-      if (secondUrlInfo && !mainInfo.website_tweet) {
-        const secondTweet = await ExternalResourceCache.get(secondUrlInfo.url, 'tweet', {
-          maxAge: 365 * 24 * 60 * 60
-        });
-        if (secondTweet) {
-          mainInfo.website_tweet = secondTweet;
-        }
+    if (secondPromise && !mainInfo.website_tweet) {
+      const secondTweet = await secondPromise;
+      if (secondTweet) {
+        mainInfo.website_tweet = secondTweet;
       }
     }
 

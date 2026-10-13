@@ -28,7 +28,7 @@ export async function collectAllAccountsWithFullInfo(twitterInfo, options = {}) 
   const accounts = [];
   const screenNames = new Set(); // 用于去重
 
-  // 1. 添加主账号（根据类型获取）
+  // 1. 主账号（根据类型获取）
   let primaryScreenName = null;
   if (twitterInfo.type === 'account' && twitterInfo.screen_name) {
     primaryScreenName = twitterInfo.screen_name;
@@ -39,24 +39,25 @@ export async function collectAllAccountsWithFullInfo(twitterInfo, options = {}) 
     }
   }
 
-  if (primaryScreenName && !screenNames.has(primaryScreenName)) {
-    const fullAccount = await getFullAccountInfo(primaryScreenName, options);
-    if (fullAccount) {
-      accounts.push({ ...fullAccount, role: 'primary' });
-      screenNames.add(primaryScreenName);
-    }
-  }
+  // 2. 原始作者账号（in_reply_to）——与主账号并发拉取（2e，2026-10-13 叙事提速
+  // 第二批：回复票冷路径省 1-3s）。两个名字都来自 twitterInfo 同步输入，去重判定
+  // 静态化（同名 → 只拉主账号，与原「拉完 primary 再查 Set 跳过」等价）；
+  // getFullAccountInfo 内部 catch 返回 null 不 throw，Promise.all 安全
+  const originalAuthor = twitterInfo.in_reply_to?.author_screen_name || null;
+  const pullOriginal = !!originalAuthor && originalAuthor !== primaryScreenName;
 
-  // 2. 添加原始作者账号（in_reply_to）
-  if (twitterInfo.in_reply_to && twitterInfo.in_reply_to.author_screen_name) {
-    const originalAuthor = twitterInfo.in_reply_to.author_screen_name;
-    if (!screenNames.has(originalAuthor)) {
-      const fullAccount = await getFullAccountInfo(originalAuthor, options);
-      if (fullAccount) {
-        accounts.push({ ...fullAccount, role: 'original_author' });
-        screenNames.add(originalAuthor);
-      }
-    }
+  const [primaryAccount, originalAccount] = await Promise.all([
+    primaryScreenName ? getFullAccountInfo(primaryScreenName, options) : Promise.resolve(null),
+    pullOriginal ? getFullAccountInfo(originalAuthor, options) : Promise.resolve(null),
+  ]);
+
+  if (primaryAccount) {
+    accounts.push({ ...primaryAccount, role: 'primary' });
+    screenNames.add(primaryScreenName);
+  }
+  if (originalAccount) {
+    accounts.push({ ...originalAccount, role: 'original_author' });
+    screenNames.add(originalAuthor);
   }
 
   // 3. 未来可以添加更多账号类型（如 retweeted_status 等）

@@ -79,6 +79,13 @@ class NarrativeDirectCaller {
      */
     this._rowCache = null;
     /**
+     * analyze options 透传集（vision 预启动，2026-10-13 叙事提速第二批）：引擎构造点
+     * 经 analyzeOptions 注入（如 { visionPrefetch: true }），_startAnalysis 原样展开进
+     * analyze options——开关语义与默认值在 analyze 侧定义；不传 = 空对象 = analyze
+     * 全默认（worker / web routes / 回测零变化）
+     */
+    this._analyzeOptions = options.analyzeOptions || {};
+    /**
      * 直调计时子计数器（P1 探针 2026-10-12 回测性能案）：getRating 三条路径
      * （内存缓存命中/成功/超时异常）累计调用数与耗时，回放收尾与主循环六段
      * 分布一起打印——advance 段减直调/preBuy ≈ 策略评估+执行
@@ -145,6 +152,9 @@ class NarrativeDirectCaller {
           // 直调语境跳过中段 save（N2 叙事提速案 2026-10-13）：无前端轮询，
           // 字段由最终 save / fallback 补 save 落库，省一次 DB 往返
           skipIntermediateSave: true,
+          // 引擎级 analyze options 透传（vision 预启动等；后展开覆盖同键默认，
+          // 未配置键零影响——构造点注入集合见 constructor._analyzeOptions 注释）
+          ...this._analyzeOptions,
           _timing: timingSink,
         }));
       entry = { promise, timing: timingSink };

@@ -30,5 +30,8 @@
     "maxTokens": 1500,
     "retryCount": 2,
     "cacheTtlSec": 7776000
+  },
+  "websiteFetch": {
+    "enabled": false
   }
 }

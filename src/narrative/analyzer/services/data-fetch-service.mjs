@@ -54,6 +54,11 @@ import { getCacheTTL } from '../../db/cache-ttl-config.mjs';
 import { TwitterMediaExtractor } from '../../utils/twitter-media-extractor.mjs';
 import { ImageDownloader } from '../../utils/image-downloader.mjs';
 import { detectLanguage, standardizeTranslatedNames } from '../utils/language-utils.mjs';
+import { getConfig } from '../../engine/config.mjs';
+// 3a：全局 keepAlive——模块加载即生效（叙事大链必经此模块，早于任何 fetch 调用；
+// 幂等守卫在 http-keepalive 模块内）
+import { installKeepAlive } from '../utils/http-keepalive.mjs';
+installKeepAlive();
 
 // 获取叙事配置
 import { readFileSync } from 'fs';
@@ -346,6 +351,32 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
       async () => {
         let info;
 
+        // 2d（2026-10-13 叙事提速第二批）：第二个推文 URL 只读 classifiedUrls
+        // （同步可判）——与主推获取并发发起，挂载保持在 enrich 后（原顺序语义）；
+        // 双推文票省主推链 0.5-5.5s（原串行等主推+enrich 完才发第二推）
+        let secondTweetUrl = null;
+        if (classifiedUrls.twitter && classifiedUrls.twitter.length > 1) {
+          const mainUrl = twitterUrlInfo.url;
+          // 第一个是主推文，查找第二个不同的推文
+          const secondTweetInfo = classifiedUrls.twitter.find(t => t.url !== mainUrl && t.type === 'tweet');
+          // 如果没有第二个推文，查找第二个账号（作为补充）
+          const secondInfo = secondTweetInfo || classifiedUrls.twitter.find(t => t.url !== mainUrl);
+          if (secondInfo) {
+            secondTweetUrl = secondInfo.url;
+          }
+        }
+        const secondTweetPromise = secondTweetUrl
+          ? (async () => {
+              console.log('[NarrativeAnalyzer] 检测到第二个推文链接，获取中...');
+              try {
+                return await TwitterFetcher.fetchFromUrls(secondTweetUrl, null);
+              } catch (error) {
+                console.warn('[NarrativeAnalyzer] 获取第二个推文失败:', error.message);
+                return null;
+              }
+            })()
+          : null;
+
         // 特殊处理：Twitter Community 链接
         if (twitterUrlInfo.type === 'community') {
           console.log('[NarrativeAnalyzer] 检测到Twitter Community链接，获取社区信息');
@@ -427,32 +458,12 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
 
         // （非中英文推文翻译已删除——Jev 迁移裁定：原文直接进 state）
 
-        // 检查是否有第二个推文（classifiedUrls中的第二个twitter URL）
-        let secondTweetUrl = null;
-
-        // 检查classifiedUrls.twitter中是否有多个推文
-        if (classifiedUrls.twitter && classifiedUrls.twitter.length > 1) {
-          // 第一个是主推文，查找第二个不同的推文
-          const mainUrl = twitterUrlInfo.url;
-          const secondTweetInfo = classifiedUrls.twitter.find(t => t.url !== mainUrl && t.type === 'tweet');
-          // 如果没有第二个推文，查找第二个账号（作为补充）
-          const secondInfo = secondTweetInfo || classifiedUrls.twitter.find(t => t.url !== mainUrl);
-          if (secondInfo) {
-            secondTweetUrl = secondInfo.url;
-          }
-        }
-
-        // 获取第二个推文
-        if (secondTweetUrl) {
-          console.log('[NarrativeAnalyzer] 检测到第二个推文链接，获取中...');
-          try {
-            const websiteTweet = await TwitterFetcher.fetchFromUrls(secondTweetUrl, null);
-            if (websiteTweet && websiteTweet.type === 'tweet' && websiteTweet.text) {
-              info.website_tweet = websiteTweet;
-              console.log('[NarrativeAnalyzer] 成功获取第二个推文');
-            }
-          } catch (error) {
-            console.warn('[NarrativeAnalyzer] 获取第二个推文失败:', error.message);
+        // 消费第二个推文（2d：已在主推发起时刻并发拉取，此处仅 await 挂载）
+        if (secondTweetPromise) {
+          const websiteTweet = await secondTweetPromise;
+          if (websiteTweet && websiteTweet.type === 'tweet' && websiteTweet.text) {
+            info.website_tweet = websiteTweet;
+            console.log('[NarrativeAnalyzer] 成功获取第二个推文');
           }
         }
 
@@ -835,6 +846,13 @@ export async function fetchDataSequentially(classifiedUrls, tokenData, extracted
 
   // === 11. 普通网站数据 ===
   const runWebsite = async () => {
+  // website 内容抓取总开关（2026-10-13 叙事提速第二批，用户裁定「网站内容现在基本
+  // 上没用到，网站的信息下载可以去除」）：narrative-engine.json websiteFetch.enabled
+  // 缺省/false → 整段跳过——websiteInfo 自然缺省（= 与今天「网站抓取失败」同形状，
+  // 消费点零改动；纯 website 语料票落「无语料 low」属预期漂移）。注意
+  // hasIndependentWebsite / URL 分类只看 classifiedUrls.websites 的 URL 域名不看
+  // 内容 → shouldCollectAccounts 门不受影响；回滚 = 配置改 true 重启，无代码回滚
+  if ((getConfig().websiteFetch || {}).enabled !== true) return;
   const websiteUrlInfo = selectFirstUrl('websites');
   if (websiteUrlInfo) {
     const websiteUrl = websiteUrlInfo.url;

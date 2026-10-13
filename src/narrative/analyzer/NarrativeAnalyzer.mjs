@@ -184,7 +184,7 @@ export class NarrativeAnalyzer {
    *   覆盖竞态
    */
   static async analyze(address, options = {}) {
-    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null, skipIntermediateSave = false } = options;
+    const { ignoreCache = false, ignoreExpired = false, enrichSocialByGmgn = false, rowCache = null, skipIntermediateSave = false, visionPrefetch = false } = options;
 
     // 分段计时（N1 探针，2026-10-13 叙事提速案）：options._timing 为调用方持有的
     // 收集数组 → 各段 push { seg, ms }；缺省旁路模式（不计时，零行为变化）
@@ -295,6 +295,21 @@ export class NarrativeAnalyzer {
       gmgnRisk  // GMGN dev 风险字段（x-0 案：发币史/捆绑钱包，直调语境才有值）
     } = await fetchAllDataViaClassifier(tokenData, extractedInfo, { enrichSocialByGmgn, timing });
 
+    // ── 泳道 0：vision 预启动（2026-10-13 叙事提速第二批）──
+    // 图 URL 在数据抓取返回时即已知，但下载+压缩+视觉 API 原挂 pre-check 后串行
+    // （N1 实测 20 次真拉均值 5.9s 全在临界路径）。开关开（引擎构造点
+    // visionPrefetch 注入，默认 false）且主推文有图 → 立即后台发起完整链
+    // （缓存查→下载→API；analyzeTweetImage 三层幂等：已挂门/inflight join/
+    // 90 天外部缓存），主链 pre-check 后 join（原挂点 visionPromise ?? 直调）。
+    // 开启 = 该实验显式放弃 C58「预检拦截票不烧视觉调用」约束（isPreCheck-
+    // Triggered 分支不 await 此 promise → 挂 catch 防悬空 rejection；join 点
+    // 配置残缺 throw 语义与原路径一致）
+    let visionPromise = null;
+    if (visionPrefetch && twitterInfo?.type === 'tweet' && twitterInfo.media?.images?.[0]?.url && !twitterInfo.image_analysis) {
+      visionPromise = analyzeTweetImage(twitterInfo);
+      visionPromise.catch(() => { /* 悬空防护：被预检拦截时无 join 点消费 */ });
+    }
+
     // 保存URL提取和数据获取结果
     urlExtractionResult = url_extraction_result;
     dataFetchResults = data_fetch_results;
@@ -350,79 +365,114 @@ export class NarrativeAnalyzer {
       ? { untilSec: tweetWindowUntilSec, tokenAddress: normalizedAddress }
       : { tokenAddress: normalizedAddress };
 
-    if (shouldCollectAccounts) {
-      logger.info('NarrativeAnalyzer', '检测到独立网站，开始收集所有账号信息', {
-        twitterType: twitterInfo.type,
-        twitterScreenName: twitterInfo.screen_name,
-        hasInReplyTo: !!twitterInfo.in_reply_to
-      });
-      relatedAccounts = await timing.wrap('accountCollect', () => collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions));
-      logger.info('NarrativeAnalyzer', '账号信息收集完成', { count: relatedAccounts.length });
-    }
+    // ── 三泳道并发（2026-10-13 叙事提速第二批）──
+    // 值层面互不消费已核验：performPreCheck 入参不含 relatedAccounts；issuerCa 的
+    // push 判定只读 relatedAccounts.length → 移 join 后。唯一强耦合在缓存层：账号
+    // 链与 issuerCa 都对同一推文作者调 getAccountWithFullTweets（无 inflight 去重、
+    // 双 key：全量 userId 级 vs `:ca:` 专属）——盲并行 = 同作者双真拉（N1 实测
+    // 28/38 issuerCa 缓存命中正来自今天串行 handoff）。解法 = issuerCa 按
+    // chainPullsAuthor 同步预判分派：链会拉作者 → 排链后吃全量 key 缓存 handoff
+    // （= 今天顺序）；链不拉 → 立即发起与 precheck 并行。
 
+    // 同步预判（isProjectCoin / detectIssuerSelfLaunch 均纯同步函数，判定语义与
+    // 原串行判定点一致，只把「值」提前算出供泳道分派）
     // 项目币检测（代币地址出现在推文/网站/账号内容中 → 项目方自己发的币）
     const isProjectCoinResult = isProjectCoin(normalizedAddress, { twitterInfo, websiteInfo, classifiedUrls });
     if (isProjectCoinResult) {
       logger.info('NarrativeAnalyzer', '检测到项目币（地址出现在内容中）');
     }
-
-    // 如果是项目币但还没收集过账号，尝试收集
-    if (isProjectCoinResult && relatedAccounts.length === 0) {
-      if (twitterInfo) {
-        // 有twitterInfo，从推文作者收集
-        logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过twitterInfo）');
-        relatedAccounts = await timing.wrap('accountCollect', () => collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions));
-      } else if (classifiedUrls?.twitter?.length > 0) {
-        // 推文被删/获取失败，但URL中有screen_name，直接获取账号信息
-        for (const tw of classifiedUrls.twitter) {
-          const screenName = extractScreenNameFromTwitterUrl(tw.url);
-          if (screenName) {
-            logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过URL提取）', { screenName });
-            const accountInfo = await timing.wrap('accountCollect', () => getFullAccountInfo(screenName, tweetsWindowOptions));
-            if (accountInfo) {
-              relatedAccounts.push({ ...accountInfo, role: 'primary' });
-            }
-            break; // 只需取第一个有效的
-          }
-        }
-      }
-      logger.info('NarrativeAnalyzer', '项目币账号信息收集完成', { count: relatedAccounts.length });
-    }
-
     // 发行方自发币检测（路径二，方案 A，2026-09-24）：推文作者与代币品牌同一且
     // 作者自己宣告了该品牌 → 转账号判定（不要求当前影响力；截词借势盘不满足
     // 品牌同一性，仍走标准路径 W 数学）
     const issuerSelfLaunch = detectIssuerSelfLaunch(tokenData, { twitterInfo });
     if (issuerSelfLaunch) {
       logger.info('NarrativeAnalyzer', '检测到发行方自发宣告（品牌同一性+宣告指纹）→ 转账号判定路径', issuerSelfLaunch);
-      // 账号判定需要作者账号：独立网站/项目币路径未收集时补收（推文作者 → primary）
-      if (relatedAccounts.length === 0) {
-        relatedAccounts = await timing.wrap('accountCollect', () => collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions));
-        logger.info('NarrativeAnalyzer', '自发币路径补充收集作者账号', { count: relatedAccounts.length });
-      }
     }
 
-    // 发行方 CA 宣告检测（2026-09-27 蝴蝶轮回/GMGNPaid 案）：字面法未命中时拉作者
-    // 时间线找含合约地址的宣告推文——地址在铸币时刻才存在，出现在谁的时间线里谁就是
-    // 发行方。覆盖字面法两臂失灵形态（币名与作者身份无关 / 同名但挂链推文纯短链无
-    // 品牌词）；fail-open：拉取失败/宣告竞态未发 → 不改道，维持标准路径 W 数学
-    let issuerCaTimeline = null;
-    if (!issuerSelfLaunch && twitterInfo?.type === 'tweet') {
-      issuerCaTimeline = await timing.wrap('issuerCa', () => detectIssuerByCaTimeline(normalizedAddress, twitterInfo, tweetsWindowOptions));
-      if (issuerCaTimeline) {
-        logger.info('NarrativeAnalyzer', '检测到发行方 CA 宣告（作者时间线含合约地址）→ 转账号判定路径', {
-          screenName: issuerCaTimeline.screenName, tweetId: issuerCaTimeline.tweetId,
+    // 泳道 1：账号链（内部三调用点顺序与判定 = 原串行顺序，抓取内容 bit 一致；
+    // 相关 fetch 段计时 accountCollect 键名不变）
+    const accountChainPromise = (async () => {
+      const accounts = [];
+      if (shouldCollectAccounts) {
+        logger.info('NarrativeAnalyzer', '检测到独立网站，开始收集所有账号信息', {
+          twitterType: twitterInfo.type,
+          twitterScreenName: twitterInfo.screen_name,
+          hasInReplyTo: !!twitterInfo.in_reply_to
         });
-        // 检测拉到的完整账号直接作 primary 复用（prestage 账号选择用；推文内部会按同窗口重拉）
-        if (relatedAccounts.length === 0 && issuerCaTimeline.account) {
-          relatedAccounts.push({ ...issuerCaTimeline.account, role: 'primary' });
+        accounts.push(...await timing.wrap('accountCollect', () => collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions)));
+        logger.info('NarrativeAnalyzer', '账号信息收集完成', { count: accounts.length });
+      }
+
+      // 如果是项目币但还没收集过账号，尝试收集
+      if (isProjectCoinResult && accounts.length === 0) {
+        if (twitterInfo) {
+          // 有twitterInfo，从推文作者收集
+          logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过twitterInfo）');
+          accounts.push(...await timing.wrap('accountCollect', () => collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions)));
+        } else if (classifiedUrls?.twitter?.length > 0) {
+          // 推文被删/获取失败，但URL中有screen_name，直接获取账号信息
+          for (const tw of classifiedUrls.twitter) {
+            const screenName = extractScreenNameFromTwitterUrl(tw.url);
+            if (screenName) {
+              logger.info('NarrativeAnalyzer', '项目币补充收集账号信息（通过URL提取）', { screenName });
+              const accountInfo = await timing.wrap('accountCollect', () => getFullAccountInfo(screenName, tweetsWindowOptions));
+              if (accountInfo) {
+                accounts.push({ ...accountInfo, role: 'primary' });
+              }
+              break; // 只需取第一个有效的
+            }
+          }
         }
+        logger.info('NarrativeAnalyzer', '项目币账号信息收集完成', { count: accounts.length });
+      }
+
+      // 发行方自发币路径（issuerSelfLaunch）：账号判定需要作者账号——独立网站/
+      // 项目币路径未收集时补收（推文作者 → primary）
+      if (issuerSelfLaunch && accounts.length === 0) {
+        accounts.push(...await timing.wrap('accountCollect', () => collectAllAccountsWithFullInfo(twitterInfo, tweetsWindowOptions)));
+        logger.info('NarrativeAnalyzer', '自发币路径补充收集作者账号', { count: accounts.length });
+      }
+      return accounts;
+    })();
+
+    // chainPullsAuthor 宽判：账号链是否可能真拉推文作者（覆盖链内全部四个调用点：
+    // 主路径 collect / 项目币-twitterInfo collect / 项目币-URL getFullAccountInfo /
+    // issuerSelfLaunch collect）。宽判 = 宁排链后损失并行度，不立发双真拉
+    const chainPullsAuthor = shouldCollectAccounts
+      || (isProjectCoinResult && (twitterInfo || (classifiedUrls?.twitter?.length || 0) > 0))
+      || !!issuerSelfLaunch;
+
+    // 泳道 2：precheck 立即发起（入参全在数据抓取后就绪，不消费链产物）
+    const precheckPromise = timing.wrap('precheck', () => performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo }, githubInfo, backgroundInfo, { ignoreExpired }));
+
+    // 泳道 3：issuerCa 条件分派（发行方 CA 宣告检测，2026-09-27 蝴蝶轮回/GMGNPaid
+    // 案：字面法未命中时拉作者时间线找含合约地址的宣告推文——地址在铸币时刻才
+    // 存在，出现在谁的时间线里谁就是发行方。覆盖字面法两臂失灵形态（币名与作者
+    // 身份无关 / 同名但挂链推文纯短链无品牌词）；fail-open：拉取失败/宣告竞态未发
+    // → 不改道，维持标准路径 W 数学）
+    const runIssuerCa = () => timing.wrap('issuerCa', () => detectIssuerByCaTimeline(normalizedAddress, twitterInfo, tweetsWindowOptions));
+    const issuerCaPromise = (!issuerSelfLaunch && twitterInfo?.type === 'tweet')
+      ? (chainPullsAuthor ? accountChainPromise.then(() => runIssuerCa()) : runIssuerCa())
+      : null;
+
+    // join（null 成员 Promise.all 直接透过；链 reject 时 issuerCa 的 .then 链传播
+    // 同因，precheck/issuerCa 的 rejection 均被 Promise.all 内部 handler 观察，
+    // 无 unhandled rejection 面）
+    const [chainAccounts, preCheckResult, issuerCaTimeline] = await Promise.all([
+      accountChainPromise, precheckPromise, issuerCaPromise,
+    ]);
+    relatedAccounts = chainAccounts;
+
+    if (issuerCaTimeline) {
+      logger.info('NarrativeAnalyzer', '检测到发行方 CA 宣告（作者时间线含合约地址）→ 转账号判定路径', {
+        screenName: issuerCaTimeline.screenName, tweetId: issuerCaTimeline.tweetId,
+      });
+      // 检测拉到的完整账号直接作 primary 复用（prestage 账号选择用；推文内部会按同窗口重拉）
+      if (relatedAccounts.length === 0 && issuerCaTimeline.account) {
+        relatedAccounts.push({ ...issuerCaTimeline.account, role: 'primary' });
       }
     }
     const issuerDetected = issuerSelfLaunch || issuerCaTimeline;
-
-    // 7. 预检查规则（不调用LLM，直接返回结果）
-    const preCheckResult = await timing.wrap('precheck', () => performPreCheck(tokenData, twitterInfo, extractedInfo, websiteInfo, classifiedUrls, { youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo }, githubInfo, backgroundInfo, { ignoreExpired }));
     let isPreCheckTriggered = preCheckResult !== null;
 
     let llmResult;
@@ -463,9 +513,12 @@ export class NarrativeAnalyzer {
         // 推文配图视觉分析（2026-10-07 现金猫案 0x56dc26bd…7777 裁定开启，智谱 glm-5.3）：
         // 主推文首图 → twitterInfo.image_analysis（twitter-section 既有渲染块进 Jev state；
         // 同图 90 天缓存 + 进程内并发去重，分析 token 无关可跨 token 复用）。挂在 pre-check
-        // 之后——预检拦截票不烧视觉调用；下载/API 失败在服务内降级为无图证据（= 开启前
-        // 行为），配置残缺 throw fail-loud。
-        await timing.wrap('vision', () => analyzeTweetImage(twitterInfo));
+        // 之后——预检拦截票不烧视觉调用（visionPrefetch 开启的实验显式放弃此约束，见
+        // 泳道 0 注释）；下载/API 失败在服务内降级为无图证据（= 开启前行为），配置残缺
+        // throw fail-loud。join：泳道 0 预启动的 promise 优先（同 twitterInfo 引用，三层
+        // 幂等保证双调安全；未预启动 null ?? 直调 = 原路径——配置残缺时 await reject
+        // 与原直调 throw 语义一致）
+        await timing.wrap('vision', () => visionPromise ?? analyzeTweetImage(twitterInfo));
 
         // Jev 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，
         // 与何时分析无关——补跑/回测/延迟分析的结果幂等；创建时间缺失时回退当前时刻）
@@ -808,6 +861,10 @@ export class NarrativeAnalyzer {
 
       // === 代币分类（2026-09-27 裁定）===：prestage tokenType / super_ip_fast / event:X
       ...(tokenCategory ? { token_category: tokenCategory } : {})
+    }, {
+      // 3b（2026-10-13 叙事提速第二批）：入口 cacheLookup/rowCache 已持有的行快照
+      // 直传——非 null 行跳过 save 内 pre-select 肥行往返；null 传 falsy 仍走现查
+      existing: cached
     }));
 
     // 构造 llmAnalysis 对象供前端使用（扁平格式，与缓存路径 buildLLMAnalysis 一致）

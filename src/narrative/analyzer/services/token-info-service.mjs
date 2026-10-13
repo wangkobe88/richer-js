@@ -41,6 +41,18 @@ function rawCorpusScore(raw) {
  */
 export async function fetchTokenData(address) {
   const supabase = dbManager.getSupabase();
+
+  // 3e（2026-10-13 叙事提速第二批）：wss_events 回退查询与主查询并发——它只依赖
+  // address（与择优行无关），原串行等主查询返回才发（flap 盘多 ~20ms）；投机
+  // 发起，仅择优行缺 created_at 时消费（four.meme 行自带 created_at，结果弃用）
+  const evPromise = supabase
+    .from('wss_events')
+    .select('created_at')
+    .eq('token_address', address)
+    .eq('kind', 'token_create')
+    .order('created_at', { ascending: true })
+    .limit(1);
+
   const { data, error } = await supabase
     .from('experiment_tokens')
     .select('token_symbol, raw_api_data, blockchain, platform')
@@ -63,13 +75,7 @@ export async function fetchTokenData(address) {
   // + 推文时间窗/时效基准共用——flap 盘原先回退墙钟/跳过，现拿到真实创建时间）
   let tokenCreatedAtSec = best.raw_api_data?.created_at || null;
   if (!tokenCreatedAtSec) {
-    const { data: ev } = await supabase
-      .from('wss_events')
-      .select('created_at')
-      .eq('token_address', address)
-      .eq('kind', 'token_create')
-      .order('created_at', { ascending: true })
-      .limit(1);
+    const { data: ev } = await evPromise;
     if (ev && ev[0]?.created_at) {
       tokenCreatedAtSec = Math.floor(new Date(ev[0].created_at).getTime() / 1000);
     }

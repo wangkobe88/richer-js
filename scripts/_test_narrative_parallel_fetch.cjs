@@ -227,7 +227,9 @@ async function main() {
       'C7 t.co 展开 5s AbortController 总超时（HEAD+GET 两段共用）');
 
     const na = src('src/narrative/analyzer/NarrativeAnalyzer.mjs');
-    assert(na.includes('skipIntermediateSave = false } = options'), 'C8a analyze 解构 skipIntermediateSave');
+    // 2026-10-13 叙事提速第二批（1B）后解构行尾新增 visionPrefetch 键
+    assert(na.includes('skipIntermediateSave = false, visionPrefetch = false } = options'),
+      'C8a analyze 解构 skipIntermediateSave + visionPrefetch（1B 穿透链）');
     assert(/if \(!skipIntermediateSave\) \{\s*\n\s*await timing\.wrap\('dbSave\.intermediate'/.test(na),
       'C8b 中段 save 条件化');
     assert((na.match(/if \(skipIntermediateSave\) \{/g) || []).length === 1

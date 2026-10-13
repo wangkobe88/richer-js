@@ -11,6 +11,14 @@ const API_CONFIG = {
   retryDelay: 2000
 };
 
+// 3e（2026-10-13 叙事提速第二批）：高频过程日志降 debug——apidance 每次调用打
+// 3-6 行（用户信息/翻页/推文详情），叙事大链每票几十次调用刷屏且有 I/O 开销；
+// APIDANCE_DEBUG=1 恢复全量过程日志（排障开关）。error/warn 路径不受影响
+const DEBUG_LOG = process.env.APIDANCE_DEBUG === '1';
+function debugLog(...args) {
+  if (DEBUG_LOG) console.log(...args);
+}
+
 // 新增API端点
 const NEW_ENDPOINTS = {
   userByScreenName: `${API_CONFIG.baseUrl}/graphql/UserByScreenName`,
@@ -57,7 +65,7 @@ async function makeRequest(url, options = {}) {
  * @returns {Promise<Object>} 用户信息
  */
 async function getUserByScreenName(screenName) {
-  console.log(`🔍 获取用户信息: @${screenName}`);
+  debugLog(`🔍 获取用户信息: @${screenName}`);
 
   try {
     const variables = {
@@ -114,9 +122,9 @@ async function getUserByScreenName(screenName) {
       throw new Error(`用户不存在（apidance 空响应骨架，@${screenName} 可能已停封/不存在）`);
     }
 
-    console.log(`✅ 成功获取用户信息: ${userInfo.name} (@${userInfo.screen_name})`);
-    console.log(`   粉丝数: ${userInfo.followers_count.toLocaleString()}`);
-    console.log(`   推文数: ${userInfo.statuses_count.toLocaleString()}`);
+    debugLog(`✅ 成功获取用户信息: ${userInfo.name} (@${userInfo.screen_name})`);
+    debugLog(`   粉丝数: ${userInfo.followers_count.toLocaleString()}`);
+    debugLog(`   推文数: ${userInfo.statuses_count.toLocaleString()}`);
 
     return userInfo;
 
@@ -156,7 +164,7 @@ function textContainsAddress(text, address) {
  * @returns {Promise<Array>} 推文列表
  */
 async function getUserTweets(userId, options = {}) {
-  console.log(`📝 获取用户推文列表: userId=${userId}${options.untilSec ? ` untilSec=${options.untilSec}` : ''}${options.matchAddress ? ' matchAddress=on' : ''}`);
+  debugLog(`📝 获取用户推文列表: userId=${userId}${options.untilSec ? ` untilSec=${options.untilSec}` : ''}${options.matchAddress ? ' matchAddress=on' : ''}`);
 
   try {
     const requested = parseInt(options.count || '10', 10) || 10;
@@ -223,16 +231,16 @@ async function getUserTweets(userId, options = {}) {
     }
 
     if (addressMatched) {
-      console.log(`🎯 推文含目标合约地址，提前停止翻页（已拉 ${allTweets.length + (pinnedTweet ? 1 : 0)} 条）`);
+      debugLog(`🎯 推文含目标合约地址，提前停止翻页（已拉 ${allTweets.length + (pinnedTweet ? 1 : 0)} 条）`);
     }
 
     // 如果有置顶推文，将其合并到结果中
     if (pinnedTweet) {
       allTweets.unshift(pinnedTweet);
-      console.log(`📌 发现置顶推文: ${pinnedTweet.tweet_id}`);
+      debugLog(`📌 发现置顶推文: ${pinnedTweet.tweet_id}`);
     }
 
-    console.log(`✅ 成功获取 ${allTweets.length} 条推文`);
+    debugLog(`✅ 成功获取 ${allTweets.length} 条推文`);
 
     // CA 早停标记（挂属性：JSON.stringify 数组只序列化索引元素，属性天然不落缓存行；
     // 调用方据此外流「本列表是命中截断而非翻满全量」）
@@ -254,7 +262,7 @@ async function getUserTweets(userId, options = {}) {
  * @returns {Promise<Object>} 推文详情
  */
 async function getTweetDetail(tweetId) {
-  console.log(`📄 获取推文详情: ${tweetId}`);
+  debugLog(`📄 获取推文详情: ${tweetId}`);
 
   try {
     const params = new URLSearchParams({
@@ -308,7 +316,7 @@ async function getTweetDetail(tweetId) {
       }
     }
 
-    console.log(`✅ 成功获取推文详情: ID=${tweetDetail.tweet_id}, ${tweetDetail.text?.substring(0, 50)}...`);
+    debugLog(`✅ 成功获取推文详情: ID=${tweetDetail.tweet_id}, ${tweetDetail.text?.substring(0, 50)}...`);
 
     return tweetDetail;
 
@@ -324,7 +332,7 @@ async function getTweetDetail(tweetId) {
  * @returns {Promise<Object>} 推文详情（包含 article 字段）
  */
 async function getTweetDetailGraphQL(tweetId) {
-  console.log(`📄 获取推文详情 (GraphQL): ${tweetId}`);
+  debugLog(`📄 获取推文详情 (GraphQL): ${tweetId}`);
 
   try {
     const variables = {
@@ -374,10 +382,10 @@ async function getTweetDetailGraphQL(tweetId) {
 
     // 调试：检查是否有转发/引用信息
     if (tweetResult.legacy?.retweeted_status || tweetResult.retweeted_status_result) {
-      console.log('[GraphQL] 检测到转发推文');
+      debugLog('[GraphQL] 检测到转发推文');
     }
     if (tweetResult.quoted_status_result || tweetResult.legacy?.quoted_status_id) {
-      console.log('[GraphQL] 检测到引用推文');
+      debugLog('[GraphQL] 检测到引用推文');
     }
 
     // 解析推文数据
@@ -399,10 +407,10 @@ async function getTweetDetailGraphQL(tweetId) {
 
     // 调试：检查articleResultRaw
     if (articleResultRaw) {
-      console.log('[GraphQL] articleResultRaw keys:', Object.keys(articleResultRaw));
-      console.log('[GraphQL] articleResultRaw has rich_content_state:', 'rich_content_state' in articleResultRaw);
+      debugLog('[GraphQL] articleResultRaw keys:', Object.keys(articleResultRaw));
+      debugLog('[GraphQL] articleResultRaw has rich_content_state:', 'rich_content_state' in articleResultRaw);
     } else {
-      console.log('[GraphQL] articleResultRaw is null/undefined');
+      debugLog('[GraphQL] articleResultRaw is null/undefined');
     }
 
     // 如果有article数据，尝试从多个路径获取plain_text
@@ -419,35 +427,35 @@ async function getTweetDetailGraphQL(tweetId) {
       if (!plainText && articleResultRaw.rich_content_state) {
         try {
           const rcs = articleResultRaw.rich_content_state;
-          console.log('[GraphQL] rich_content_state type:', typeof rcs);
-          console.log('[GraphQL] rich_content_state preview:', typeof rcs === 'string' ? rcs.substring(0, 200) : JSON.stringify(rcs).substring(0, 200));
+          debugLog('[GraphQL] rich_content_state type:', typeof rcs);
+          debugLog('[GraphQL] rich_content_state preview:', typeof rcs === 'string' ? rcs.substring(0, 200) : JSON.stringify(rcs).substring(0, 200));
 
           if (typeof rcs === 'string') {
             const parsed = JSON.parse(rcs);
-            console.log('[GraphQL] rich_content_state parsed keys:', Object.keys(parsed));
+            debugLog('[GraphQL] rich_content_state parsed keys:', Object.keys(parsed));
             // rich_content_state 通常包含 paragraphs 数组
             if (parsed.paragraphs && Array.isArray(parsed.paragraphs)) {
-              console.log('[GraphQL] paragraphs count:', parsed.paragraphs.length);
+              debugLog('[GraphQL] paragraphs count:', parsed.paragraphs.length);
               plainText = parsed.paragraphs
                 .map(p => p.text || '')
                 .filter(text => text)
                 .join('\n\n');
-              console.log('[GraphQL] 从 rich_content_state.paragraphs 提取文本，长度:', plainText.length);
+              debugLog('[GraphQL] 从 rich_content_state.paragraphs 提取文本，长度:', plainText.length);
             } else {
-              console.log('[GraphQL] No paragraphs array in rich_content_state');
+              debugLog('[GraphQL] No paragraphs array in rich_content_state');
             }
           }
         } catch (e) {
-          console.log('[GraphQL] 解析 rich_content_state 失败:', e.message);
+          debugLog('[GraphQL] 解析 rich_content_state 失败:', e.message);
         }
       }
 
       // 如果找到了plain_text，更新articleResultRaw
       if (plainText) {
         articleResultRaw = { ...articleResultRaw, plain_text: plainText };
-        console.log('[GraphQL] 成功提取Article plain_text，长度:', plainText.length);
+        debugLog('[GraphQL] 成功提取Article plain_text，长度:', plainText.length);
       } else {
-        console.log('[GraphQL] Article plain_text未找到，尝试的路径: plain_text, text, legacy.text, note_tweet, rich_content_state');
+        debugLog('[GraphQL] Article plain_text未找到，尝试的路径: plain_text, text, legacy.text, note_tweet, rich_content_state');
       }
     }
 
@@ -455,20 +463,20 @@ async function getTweetDetailGraphQL(tweetId) {
 
     // 调试：打印article结构
     if (tweetResult.article) {
-      console.log('[GraphQL] 检测到 article 字段');
-      console.log('[GraphQL] article keys:', Object.keys(tweetResult.article));
+      debugLog('[GraphQL] 检测到 article 字段');
+      debugLog('[GraphQL] article keys:', Object.keys(tweetResult.article));
       if (tweetResult.article.article_results) {
-        console.log('[GraphQL] article_results type:', typeof tweetResult.article.article_results);
+        debugLog('[GraphQL] article_results type:', typeof tweetResult.article.article_results);
         const ar = tweetResult.article.article_results;
         if (typeof ar === 'object') {
-          console.log('[GraphQL] article_results keys:', Object.keys(ar));
+          debugLog('[GraphQL] article_results keys:', Object.keys(ar));
           if (ar.result) {
-            console.log('[GraphQL] article_results.result keys:', Object.keys(ar.result));
-            console.log('[GraphQL] article_results.result has plain_text:', 'plain_text' in ar.result);
+            debugLog('[GraphQL] article_results.result keys:', Object.keys(ar.result));
+            debugLog('[GraphQL] article_results.result has plain_text:', 'plain_text' in ar.result);
             // 检查是否有 note_tweet（Article可能使用Note Tweet存储内容）
             if (ar.result.note_tweet) {
-              console.log('[GraphQL] 检测到 note_tweet 字段');
-              console.log('[GraphQL] note_tweet keys:', Object.keys(ar.result.note_tweet));
+              debugLog('[GraphQL] 检测到 note_tweet 字段');
+              debugLog('[GraphQL] note_tweet keys:', Object.keys(ar.result.note_tweet));
             }
           }
         }
@@ -525,6 +533,10 @@ async function getTweetDetailGraphQL(tweetId) {
 
       // URL
       urls: legacy.entities?.urls?.map(u => u.expanded_url || u.url) || [],
+      // (t.co 短链, 终链) 原始对（2026-10-13 叙事提速第二批 2c）：上面 urls 只留
+      // expanded 丢了短链——fetchTweetLinks 靠它免 t.co HEAD 展开（每条 5s 超时，
+      // 死链 N×5s 白付）；缺项消费端回退 HEAD
+      url_entities: legacy.entities?.urls?.map(u => ({ url: u.url, expanded_url: u.expanded_url || u.url })) || [],
 
       // 媒体信息
       media: {
@@ -580,18 +592,18 @@ async function getTweetDetailGraphQL(tweetId) {
       } : null
     };
 
-    console.log(`✅ 成功获取推文详情 (GraphQL): ID=${tweetDetail.tweet_id}`);
+    debugLog(`✅ 成功获取推文详情 (GraphQL): ID=${tweetDetail.tweet_id}`);
     if (tweetDetail.article) {
-      console.log(`   📰 Article: "${tweetDetail.article.title}"`);
+      debugLog(`   📰 Article: "${tweetDetail.article.title}"`);
     }
     if (tweetDetail.media.has_media) {
-      console.log(`   📷 媒体: ${tweetDetail.media.images.length} 张图片, ${tweetDetail.media.videos.length} 个视频`);
+      debugLog(`   📷 媒体: ${tweetDetail.media.images.length} 张图片, ${tweetDetail.media.videos.length} 个视频`);
     }
     if (tweetDetail.quoted_status) {
-      console.log(`   💬 引用推文: @${tweetDetail.quoted_status.user.screen_name} - ${tweetDetail.quoted_status.text.substring(0, 50)}...`);
+      debugLog(`   💬 引用推文: @${tweetDetail.quoted_status.user.screen_name} - ${tweetDetail.quoted_status.text.substring(0, 50)}...`);
     }
     if (tweetDetail.retweeted_status) {
-      console.log(`   🔄 转发推文: @${tweetDetail.retweeted_status.user.screen_name} - ${tweetDetail.retweeted_status.text.substring(0, 50)}...`);
+      debugLog(`   🔄 转发推文: @${tweetDetail.retweeted_status.user.screen_name} - ${tweetDetail.retweeted_status.text.substring(0, 50)}...`);
     }
 
     return tweetDetail;

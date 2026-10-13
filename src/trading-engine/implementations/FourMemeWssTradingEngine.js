@@ -238,7 +238,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     // 1.5 叙事评级直调（策略 narrativeCallCondition 触发时同步调 NarrativeAnalyzer.analyze，Jev 秒级）
     const { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative } = require('../pre-check/NarrativeDirectCaller');
-    this._narrativeCaller = new NarrativeDirectCaller();
+    // vision 预启动（2026-10-13 叙事提速第二批）：图 URL 就绪即后台发起视觉分析，
+    // 主链 pre-check 后 join——真调用从串行段折叠进数据抓取窗（20 次真拉均值 5.9s）。
+    // 实验级开关 fourmemeWs.visionPrefetch.enabled 默认 false（flap 实验配 flapWs
+    // 段同键；N3 narrativePrefetch 同款缺省段形状）；开启 = 该实验显式放弃 C58
+    // 「预检拦截票不烧视觉调用」约束（配额消耗观察 24-48h 后再定默认值）
+    this._narrativeCaller = new NarrativeDirectCaller({
+      analyzeOptions: { visionPrefetch: (this._mergedWsConfig().visionPrefetch || {}).enabled === true },
+    });
     // 叙事否决短路集（2026-09-27 用户裁定：叙事评级确认为 low 的代币不再重复生成
     // 买信号——每次 fire 白落 signal 行 + 全套 preBuyCheck；address-fail 宣告竞态
     // 盘的豁免见 shouldBlockOnNarrative。内存语义：重启丢失后首个 fire 重新调叙事
