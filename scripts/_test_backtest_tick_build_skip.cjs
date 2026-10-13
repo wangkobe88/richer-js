@@ -8,9 +8,12 @@
  * 窗内票（C 类）不再全量 build（TPA 唯一 factors 消费是 currentPriceBnb 可选链
  * → 喂最小 factors；touch 不读 factors；fire 时 _runBuyEvaluation 独立全量重建）。
  * C 类票现状也走 touch/止损扫描/毕业消费（三段不读 factors），主循环保留防分叉。
- * 开关 backtest.tickBuildSkip 默认 false=现状恒 build；与 tokenCycle.enforce
+ * 开关 backtest.tickBuildSkip：tb0 对拍收口（2026-10-13，trades/signals bit 一致
+ * + 回放段 808.6→316.0s）后**默认开**，显式 false 才关；与 tokenCycle.enforce
  * 启动互斥（cycle latch 推进是 tick build 的读取副作用，skip 窗内票 = fire 时
- * tokenCycle 档位漂移）——fail-fast 拒启（unknown-factor fail-fast 同族裁定）。
+ * tokenCycle 档位漂移）——fail-fast 拒启（unknown-factor fail-fast 同族裁定）；
+ * 默认开后存量 cycle 耦合实验重跑撞拒启，显式 tickBuildSkip:false 走老口径
+ * （不加自动降级兜底，2026-10-13 裁定）。
  *
  * 覆盖：
  *   A. FA.shouldSkipTickBuild 谓词矩阵（无 preFilter/state 缺失/持仓/出窗计数/
@@ -335,8 +338,8 @@ console.log('C. 源码口径防线');
   const mainLoop = beSrc.slice(beSrc.indexOf('async _runMainLoop'), beSrc.indexOf('async _syncHoldings'));
 
   // C1 互斥 throw（cycle latch 是 tick build 的读取副作用 → skip 窗内票 = fire 时档位漂移）
-  ok(beSrc.includes('this._tickBuildSkip = backtestConfig.tickBuildSkip === true;'),
-    'C1 开关默认 false（=== true 才启用）');
+  ok(beSrc.includes('this._tickBuildSkip = backtestConfig.tickBuildSkip !== false;'),
+    'C1 开关默认开（tb0 对拍收口 2026-10-13 翻默认；显式 false 才关）');
   ok(beSrc.includes('if (this._tickBuildSkip && this._cycleEnforce)')
     && beSrc.includes('不可同启'),
     'C1 tickBuildSkip × cycleEnforce 启动互斥 throw');

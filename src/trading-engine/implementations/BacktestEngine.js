@@ -410,15 +410,18 @@ class BacktestEngine extends AbstractTradingEngine {
     this._cycleEnforce = !!(experimentConfig.tokenCycle && experimentConfig.tokenCycle.enforce);
     // P18 tick 路径 build 条件化（2026-10-13 回测性能案）：未持仓票中「买窗内」票
     // 不再全量 build（buildFactorMap 段主体 ~49 万次全量构建是纯 CPU 大头）。
-    // 默认 false=现状恒 build；出窗票走 FA.shouldSkipTickBuild（与现状 build-null
-    // continue 副作用序列等价）。★与 cycleEnforce 启动互斥：cycle latch 推进是
-    // _buildFactorMap 的读取副作用（:2440 _cycleFactors 无条件展开），skip 窗内票
-    // = 中途不推进 latch = fire 时 tokenCycle 档位漂移（candidateSince 晚置位）——
-    // fail-fast 拒启而非静默分叉（unknown-factor fail-fast 同族裁定）
-    this._tickBuildSkip = backtestConfig.tickBuildSkip === true;
+    // tb0 对拍收口（2026-10-13）后**默认开**：显式 tickBuildSkip:false 恢复恒 build
+    // 旧行为；出窗票走 FA.shouldSkipTickBuild（与现状 build-null continue 副作用
+    // 序列等价）。★与 cycleEnforce 启动互斥：cycle latch 推进是 _buildFactorMap 的
+    // 读取副作用（:2440 _cycleFactors 无条件展开），skip 窗内票 = 中途不推进 latch
+    // = fire 时 tokenCycle 档位漂移（candidateSince 晚置位）——fail-fast 拒启而非
+    // 静默分叉（unknown-factor fail-fast 同族裁定）；默认开后存量 cycle 耦合实验
+    // 重跑会撞拒启，裁定=不加自动降级兜底，显式 tickBuildSkip:false 走老口径
+    this._tickBuildSkip = backtestConfig.tickBuildSkip !== false;
     if (this._tickBuildSkip && this._cycleEnforce) {
-      throw new Error('配置互斥：backtest.tickBuildSkip 与 tokenCycle.enforce 不可同启'
-        + '（cycle latch 推进是 tick build 的读取副作用，skip 会造成 fire 时 tokenCycle 档位漂移）');
+      throw new Error('配置互斥：backtest.tickBuildSkip（现默认开）与 tokenCycle.enforce 不可同启'
+        + '（cycle latch 推进是 tick build 的读取副作用，skip 会造成 fire 时 tokenCycle 档位漂移；'
+        + '显式 backtest.tickBuildSkip:false 可恢复恒 build 旧行为）');
     }
     // 互斥防线 2（同族 fail-fast）：condition/narrativeCallCondition 直引 cycle 族键
     // 同样不可与 skip 同启——latch 的 candidateSince 置位时刻依赖 build 调用史
@@ -551,9 +554,10 @@ class BacktestEngine extends AbstractTradingEngine {
       collect(s.narrativeCallCondition);
     }
     if (hit.size > 0) {
-      throw new Error('配置互斥：backtest.tickBuildSkip 与条件直引 cycle 因子（'
+      throw new Error('配置互斥：backtest.tickBuildSkip（现默认开）与条件直引 cycle 因子（'
         + [...hit].join(',') + '）不可同启'
-        + '（cycle latch 推进是 tick build 的读取副作用，skip 会造成 fire 时 tokenCycle 档位漂移）');
+        + '（cycle latch 推进是 tick build 的读取副作用，skip 会造成 fire 时 tokenCycle 档位漂移；'
+        + '显式 backtest.tickBuildSkip:false 可恢复恒 build 旧行为）');
     }
   }
 
