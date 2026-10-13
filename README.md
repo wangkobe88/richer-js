@@ -48,10 +48,8 @@ richer-js/
 ├── src/
 │   ├── core/              # 核心组件
 │   │   ├── ave-api/       # AVE API 客户端
-│   │   ├── token-pool.js  # 代币监控池
-│   │   └── strategy-engine.js  # 策略引擎
+│   │   └── token-pool.js  # 代币监控池
 │   ├── collectors/        # 数据收集器
-│   ├── monitors/          # 监控器
 │   └── utils/             # 工具类
 ├── logs/                  # 日志目录
 └── data/                  # 数据缓存目录

@@ -8,10 +8,7 @@
     "start": "node main.js",
     "dev": "node main.js --dev",
     "web": "node src/web-server.js",
-    "web:dev": "node src/web-server.js",
     "experiment": "node main.js",
-    "cleanup:holders": "node scripts/cleanup_orphaned_token_holders.js --dry-run",
-    "cleanup:holders:exec": "node scripts/cleanup_orphaned_token_holders.js --execute",
     "narrative-engine": "node src/narrative/engine/start.mjs",
     "news-daemon": "node src/news-monitor/index.js",
     "news-cli": "node src/news-monitor/cli.js"
@@ -26,9 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@supabase/supabase-js": "^2.93.3",
-    "@types/uuid": "^10.0.0",
     "axios": "^1.6.0",
-    "bn.js": "^5.2.3",
     "commander": "^14.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -37,7 +32,6 @@
     "ethers": "^6.16.0",
     "express": "^5.2.1",
     "sharp": "^0.34.5",
-    "socks": "^2.8.7",
     "socks-proxy-agent": "^10.0.0",
     "uuid": "^13.0.0",
     "ws": "^8.19.0"
