@@ -43,6 +43,7 @@ function makeEngine(fields = {}) {
     _stopLossTimeSec: null,
     _stopLossPricePct: null,
     _stopLossScanMs: null,
+    _sellLegScanEnabled: false,           // 卖腿兜底扫描未启用（2026-10-13 改造后存量语义）
     _cycleEnforce: false,                 // 周期路由未启用（扫描内 cycleTag 同步分支跳过）
     _graduationSoldTokens: new Set(),     // 毕业兜底分支（virtual）读取
     ...fields,
@@ -161,7 +162,8 @@ console.log('C. 持仓扫描（断流兜底路径）');
   });
   check('prune(null)/未命中 → 零触发零异常', quiet.calls, []);
 
-  // 扫描只判止损、不跑策略腿：_evaluateSellPath 无此方法也不该被调（打桩计数验证）
+  // 卖腿兜底扫描未启用（无卖腿的引擎）→ 扫描不触碰策略腿评估（存量语义维持；
+  // 2026-10-13 改造：启用后断流票评卖腿的覆盖在 _test_sell_leg_scan_fallback）
   const noStrategyLeg = await (async () => {
     let strategyLegCalls = 0;
     const eng = makeEngine({
@@ -176,7 +178,7 @@ console.log('C. 持仓扫描（断流兜底路径）');
     await eng._scanHoldingsStopLoss();
     return strategyLegCalls;
   })();
-  check('扫描不触碰策略腿评估（P1-P8 断流不评估语义维持）', noStrategyLeg, 0);
+  check('卖腿扫描未启用 → 不触碰策略腿评估（存量语义维持）', noStrategyLeg, 0);
 }
 
 // ═══ D. _onFactorsUpdated 挂点（tick 即时路径）═══

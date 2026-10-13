@@ -496,6 +496,26 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         `| 持仓扫描=${this._stopLossScanMs != null ? this._stopLossScanMs / 1000 + 's' : '未配置（仅 tick 路径）'}（断流兜底）`);
     }
 
+    // 6.5b 持仓卖腿兜底扫描（2026-10-13 用户裁定「所有卖出归卖出策略管」的断流侧
+    //   配套）：引擎级 stopLoss 迁移为卖腿后，删 stopLoss 段的实验若不补此路径，
+    //   断流票（无 tick → tick 驱动卖腿冻结）的止损臂永远不评估。启用 = 存在卖腿
+    //   或 引擎级止损启用；周期 = stopLoss.scanIntervalSec ?? sellScanIntervalSec
+    //   ?? 30s 缺省。stopLoss 段启用但未配 scanIntervalSec 的存量实验：引擎级止损
+    //   仍仅 tick 路径（存量语义不变），卖腿评估按缺省周期起（新机制只做加法）
+    const _sellLegs = this._strategyEngine ? this._strategyEngine.getAllStrategies().filter(s => s.action === 'sell') : [];
+    this._sellLegScanEnabled = _sellLegs.length > 0;
+    const _sellScanSec = Number(experimentConfig.sellScanIntervalSec);
+    this._holdingsScanMs = this._stopLossScanMs != null ? this._stopLossScanMs
+      : (Number.isFinite(_sellScanSec) && _sellScanSec > 0 ? _sellScanSec * 1000 : 30000);
+    // 断流判据：60s 无 tick 视为冻结（BSC 0.75s 出块，健康票秒级 tick；活跃票每
+    // tick 已实时评估卖腿，扫描重复评估徒增噪音且与 tick 路径竞态）
+    this._sellLegStallMs = 60 * 1000;
+    if (this._sellLegScanEnabled) {
+      this.logger.info(this._experimentId, 'FourMemeWssTradingEngine',
+        `🛡️ 持仓卖腿兜底扫描已启用 | 周期=${this._holdingsScanMs / 1000}s 断流判据=${this._sellLegStallMs / 1000}s无tick` +
+        `${this._stopLossEnabled ? '' : '（stopLoss 段未配置，引擎级止损关闭）'}`);
+    }
+
     // 6.6 行为周期分桶（卖出臂周期路由，2026-09-28 用户思路 v1）：tokenCycle 段存在且
     //   enforce=true → 每 tick 把 factors.tokenCycle 写进 token.cycleTag，带 cycle 腿按桶
     //   路由（evaluate 内过滤）；缺段 = 不写 cycleTag = 带 cycle 腿全隐（fail-closed，
@@ -906,14 +926,16 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       }, 5000);
     }
 
-    // 止损双腿持仓扫描（断流兜底）：断流 token 无 tick → tick 驱动的止损/卖腿全部冻结，
-    // 扫描周期性重建因子判止损。stopLoss 段配置才起（存量实验零变化）
-    if (this._stopLossEnabled && this._stopLossScanMs != null) {
+    // 持仓兜底扫描（断流兜底）：断流 token 无 tick → tick 驱动的止损/卖腿全部冻结，
+    // 扫描周期性重建因子判引擎级止损 + 评估卖腿（2026-10-13 裁定：卖腿存在即启用
+    // 扫描，引擎级止损部分维持 stopLoss 段配置语义——配 scanIntervalSec 才扫）
+    if ((this._stopLossEnabled && this._stopLossScanMs != null) || this._sellLegScanEnabled) {
+      const _scanMs = this._stopLossScanMs != null ? this._stopLossScanMs : this._holdingsScanMs;
       this._intervals.stopLossScan = setInterval(() => {
         this._scanHoldingsStopLoss().catch(err => {
-          this.logger.error(this._experimentId, 'StopLoss', `持仓止损扫描异常: ${err.message}`);
+          this.logger.error(this._experimentId, 'StopLoss', `持仓兜底扫描异常: ${err.message}`);
         });
-      }, this._stopLossScanMs);
+      }, _scanMs);
     }
 
     // 不阻塞：main.js 在 start() 返回后注册优雅退出；WSS 连接 + intervals 保活事件循环
@@ -1277,6 +1299,13 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: '无有效价格（USD 换算未就绪）' };
       }
 
+      // 口径统一锚（2026-10-13 用户裁定）：捕获 fire 时刻 BNB 价——预检/叙事直调可
+      // 耗时十几秒（어피치案 17s 内对倒拉盘 +20%），FA 成本锚 buyPriceBnb 须定在
+      // 信号触发时刻而非执行时刻，profitPercent/peakProfitPct/drawdown 族因子全程
+      // 按 fire 价起算；记账锚 buyPriceUsd 不变（live=实际成交价，虚拟=signal.price）
+      const firePriceBnb = Number.isFinite(factorResults.currentPriceBnb) && factorResults.currentPriceBnb > 0
+        ? factorResults.currentPriceBnb : null;
+
       // ── 信号先落库 ──
       const signal = {
         action: 'buy',
@@ -1576,10 +1605,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         this._tokenPool.recordStrategyExecution(token.token, token.chain, strategy.id);
         await this.dataService.updateTokenStatus(this._experimentId, token.token, 'bought');
 
-        // FA 持仓锚点（per-position 止盈/止损因子原料；单仓 'default'）
+        // FA 持仓锚点（per-position 止盈/止损因子原料；单仓 'default'）。
+        // buyPriceBnb = fire 时刻因子价（2026-10-13 口径统一裁定；fire 后市场移动
+        // 不再漂移成本锚）；fire 价缺失（quote 映射未就绪等）回落执行时刻价旧口径。
+        // highestPriceSinceBuyBnb 在 setBuyState 内以 max(成本, 现价) 初始化——
+        // fire→执行间的真实价格史不回撤（peakProfitPct 含 preBuy 窗内冲高）
         const faState = this._factorAggregator.getTokenState(token.token);
         this._factorAggregator.setBuyState(token.token, {
-          buyPriceBnb: faState?.currentPriceBnb || 0,
+          buyPriceBnb: firePriceBnb || faState?.currentPriceBnb || 0,
           buyPriceUsd: execPriceUsd,
           buyTime: Date.now(),
         });
@@ -1648,12 +1681,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * 持仓止损扫描（stopLoss.scanIntervalSec 驱动）：断流 token 无 tick →
-   * _onFactorsUpdated 永不进 → tick 驱动的止损/策略腿全部冻结（c5945f36 11 票
-   * 冻结实跑实证）。扫描只判止损双腿、不跑策略腿——P1-P8 在断流票上维持
-   * 「不评估」现状语义。buildFactorMap 必须传 Date.now()：断流期 holdDuration
-   * 继续走（回落 lastTickAt 会冻结时钟因子，见 _onSellDebounceFire 注释）。
-   * 串行执行（一次扫描内逐 token await，避免卖出风暴）
+   * 持仓兜底扫描（stopLoss.scanIntervalSec / 卖腿存在时 30s 缺省驱动）：
+   * 断流 token 无 tick → _onFactorsUpdated 永不进 → tick 驱动的止损/卖腿全部
+   * 冻结（c5945f36 11 票冻结实跑实证）。扫描做三件事：毕业补卖重试（virtual）→
+   * 引擎级止损双腿（stopLoss 段配置时）→ 卖腿评估（2026-10-13 用户裁定「所有
+   * 卖出归卖出策略管」：止损臂迁为卖腿后，断流票的卖腿覆盖由扫描承担；只对
+   * 断流票评——活跃票每 tick 已实时评估）。buildFactorMap 必须传 Date.now()：
+   * 断流期 holdDuration 继续走（回落 lastTickAt 会冻结时钟因子，见
+   * _onSellDebounceFire 注释）。串行执行（一次扫描内逐 token await，避免卖出风暴）
    */
   async _scanHoldingsStopLoss() {
     for (const holding of this._getAllHoldings()) {
@@ -1680,6 +1715,18 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       const hit = this._stopLossHit(factors);
       if (hit) {
         await this._emitStopLossSell(token, factors, hit, null);
+        continue; // 保命腿已触发（卖出执行中/已清仓），本轮不再评卖腿
+      }
+      // 卖腿兜底评估（2026-10-13）：只对断流票评（>stallMs 无 tick）。bypass 腿立即
+      // 卖；默认腿 touch 卖出确认去抖（real 模式 setTimeout 驱动，200ms 后 fire 重读
+      // 因子重评，无 tick 也能到点）。时间类因子随 Date.now() 推进——时间止损腿在
+      // 断流票上按预期走钟；价格类因子冻结在末 tick（与 tick 路径同源无分叉）
+      if (this._sellLegScanEnabled) {
+        const st = this._factorAggregator.getTokenState(tokenAddress);
+        const lastTickAt = st ? st.lastTickAt : null;
+        if (lastTickAt == null || Date.now() - lastTickAt > this._sellLegStallMs) {
+          await this._evaluateSellPath(tokenAddress, factors, null);
+        }
       }
     }
   }
