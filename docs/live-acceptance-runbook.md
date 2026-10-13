@@ -23,7 +23,7 @@ flap 收窄口径：**live 只买 BNB 计价盘**（非 BNB 盘 `swapExactInput`
 
 ## 1. 前置准备
 
-1. **182 ENCRYPTION_KEY**：`config/.env` 里必须已有（与历史 live 实验一致；本地与 182 key 已核对一致，sha256 前 12 位 `cb09b8757a55`）。
+1. **182 ENCRYPTION_KEY**：`config/.env` 里必须已有（与历史 live 实验一致；本地与 182 key 已核对一致，2026-10-13 实测 sha256 前 12 位 `1e256969297e`）。
 2. **创建执行器（推荐钱包管理方式）**：新建一个只放验收资金的 EOA 钱包，转入 **0.05 BNB**（保留 0.01 + 买入 0.001×若干次 + gas 余量），绝不使用主钱包。然后 web「执行器」页（`/executors`）录入：名称 + 地址 + 私钥（明文只在录入时传输一次，服务端嗅探后 AES-256 加密落 `executors.auth_token`，任何 API 响应绝不回传密文）。私钥唯一真源=执行器表，实验 config 只存 `executorId`。
    - 兼容：创建实验仍支持「复用历史钱包/手输私钥」直配路径（密文落实验 config），存量习惯不变；`executorId` 与 `privateKey` 并存会被拒（防歧义）。
    - 删除保护：执行器被 live 实验 `config.wallet.executorId` 引用时不可删除（400 + 关联清单）；仅 virtual 引用可删。
