@@ -243,6 +243,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 盘的豁免见 shouldBlockOnNarrative。内存语义：重启丢失后首个 fire 重新调叙事
     // （缓存命中秒回）重新登记，代价一条 signal 行）
     this._narrativeBlockedTokens = new Set();
+    // 叙事预触发（N3，2026-10-13 叙事提速案）：tick 先于买门 fire 后台发起直调，
+    // fire 时 inflight join 同一 promise / 已完成则行缓存命中秒回（直调路径零改动）。
+    // 实验级开关 fourmemeWs.narrativePrefetch.enabled（默认 false；flap 实验配
+    // flapWs 段同键）；回测不适用（BacktestEngine 有 preloadCache 预载机制）
+    this._narrativePrefetchEnabled = (this._mergedWsConfig().narrativePrefetch || {}).enabled === true;
+    this._narrativePrefetchedTokens = new Set();   // write-once per-token（无论成败，失败由 fire 直调兜底）
+    this._narrativePrefetchStartedAt = new Map();  // token → 预触发发起时刻（prefetchLeadMs 度量）
+    this._narrativePrefetchCond = undefined;       // 惰性解析的预触发条件（undefined=未算过）
     // 毕业事件全清幂等集（2026-09-28 王之蔑视案裁定「2+1」）：graduation 事件实测重复
     // 派发两遍 → Set 挡第二次触发；内存语义与 _narrativeBlockedTokens 同款——重启丢失
     // 安全（事件不重放，重启后无仓则不触发、已卖则 status 已变）
@@ -395,6 +403,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           preBuyCheckCondition: s.preBuyCheckCondition || null,
           repeatBuyCheckCondition: s.repeatBuyCheckCondition || null,
           narrativeCallCondition: s.narrativeCallCondition || null,
+          // N3 叙事预触发条件（2026-10-13）：不配 = 预触发用 narrativeCallCondition
+          narrativePrefetchCondition: s.narrativePrefetchCondition || null,
           // 卡牌仓位（迁自 rich-js）：cards/cooldownSec 原样透传，loadStrategies 内归一化
           //（正整数/卖腿 'all'，脏值 → null=旧语义）；cooldownSec 独立于卡牌机制生效
           cards: s.cards,
@@ -622,9 +632,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
   }
 
   /**
-   * live 交易器初始化：钱包配置校验 → 私钥解密 → trader（类型按平台分派）→
-   * 地址一致性校验（私钥推导地址 ≠ 配置地址 = 配置错误，fail-fast）→
-   * 链上连通性探测 + BNB/USD 启动锚定。
+   * live 交易器初始化：钱包配置解析（executorId 表加载 | privateKey 直配，二选一）→
+   * 私钥解密 → trader（类型按平台分派）→ 地址一致性校验（私钥推导地址 ≠ 配置地址 =
+   * 配置错误，fail-fast）→ 链上连通性探测 + BNB/USD 启动锚定。
+   *
+   * 钱包双源（实盘前置批 2026-10-13，迁移自 rich-js）：
+   *   - executorId：executors 表集中管理（auth_token 密文解密，私钥单一真相源在表），
+   *     executor 的 reserve_native 覆盖 config 默认（钱包自带 gas 保留值）
+   *   - privateKey：存量实验直配（config.wallet 私钥密文），路径零改动
+   *   - 两源并存 → throw（防歧义）；皆无 → 现行报错
    */
   async _initializeLiveTrader() {
     // 双平台 live 禁止（防线三：web-server 400 / main.js throw 之外的兜底，防未来新入口；
@@ -633,17 +649,53 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       throw new Error('双平台实验不支持 live（仅 virtual/backtest）');
     }
     const walletConfig = this._experiment?.config?.wallet;
-    if (!walletConfig?.address || !walletConfig?.privateKey) {
-      throw new Error('live 实验缺少钱包配置 (config.wallet.address / config.wallet.privateKey)');
+    if (!walletConfig) {
+      throw new Error('live 实验缺少钱包配置 (config.wallet)');
     }
-    this._walletAddress = walletConfig.address;
+    if (walletConfig.executorId && walletConfig.privateKey) {
+      throw new Error('config.wallet.executorId 与 privateKey 互斥（钱包双源只能选一）');
+    }
 
     const { CryptoUtils } = require('../../utils/CryptoUtils');
     let privateKey;
-    try {
-      privateKey = new CryptoUtils().decrypt(walletConfig.privateKey);
-    } catch (error) {
-      throw new Error(`钱包私钥解密失败: ${error.message}`);
+    if (walletConfig.executorId) {
+      // 执行器表加载（service key——executors 表 RLS 对 anon 全拒，红线③）
+      const { dbManager } = require('../../services/dbManager');
+      const { data: executor, error } = await dbManager.getClient()
+        .from('executors')
+        .select('name, address, auth_token, blockchain, reserve_native')
+        .eq('id', walletConfig.executorId)
+        .single();
+      if (error || !executor) {
+        throw new Error(`执行器加载失败: ${walletConfig.executorId} ${error?.message || '不存在'}`);
+      }
+      if (executor.blockchain !== 'bsc') {
+        throw new Error(`执行器区块链不符: ${executor.blockchain}（BSC-only）`);
+      }
+      this._walletAddress = executor.address;
+      this._walletSource = `executor:${executor.name}`;
+      try {
+        privateKey = new CryptoUtils().decrypt(executor.auth_token);
+      } catch (err) {
+        throw new Error(`执行器私钥解密失败（auth_token 可能损坏）: ${err.message}`);
+      }
+      // executor 的 reserve_native 覆盖 config 默认（钱包自带保留值；实验级 live.reserveNative
+      // 显式配置仍最高优先——三级：实验 live 段 > executors 行 > base 默认）
+      if (!(this._wsConfig.live || {}).hasOwnProperty('reserveNative')
+          && executor.reserve_native != null && Number(executor.reserve_native) >= 0) {
+        this._reserveNative = new Decimal(executor.reserve_native);
+      }
+    } else {
+      if (!walletConfig.address || !walletConfig.privateKey) {
+        throw new Error('live 实验缺少钱包配置 (config.wallet.address / config.wallet.privateKey 或 config.wallet.executorId)');
+      }
+      this._walletAddress = walletConfig.address;
+      this._walletSource = 'config';
+      try {
+        privateKey = new CryptoUtils().decrypt(walletConfig.privateKey);
+      } catch (error) {
+        throw new Error(`钱包私钥解密失败: ${error.message}`);
+      }
     }
 
     const traderFactory = require('../traders');
@@ -659,7 +711,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const derivedAddress = this._trader.wallet?.address;
     if (!derivedAddress || derivedAddress.toLowerCase() !== this._walletAddress.toLowerCase()) {
       throw new Error(
-        `钱包地址不一致: 私钥推导 ${derivedAddress} ≠ 配置 ${this._walletAddress}（检查 config.wallet）`);
+        `钱包地址不一致: 私钥推导 ${derivedAddress} ≠ 配置 ${this._walletAddress}` +
+        `${this._walletSource.startsWith('executor') ? '（执行器表数据损坏，检查 executors 行）' : '（检查 config.wallet）'}`);
     }
 
     // 连通性探测 + 启动时 BNB/USD 锚定（collector 尚未启动，getBnbUsd 为 0）
@@ -1040,8 +1093,79 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     // 买腿：未持有（单仓语义）→ 去抖买评估
     if (!this._buyingTokens.has(tokenAddress) && token.status !== 'bought') {
+      // 叙事预触发（N3，2026-10-13 叙事提速案）：tick 时刻后台提前发起 fire 时会做的
+      // 叙事直调（fire 前置 ~200-1000ms 去抖窗 + 条件先满足的 token 更早），见方法头注
+      this._narrativePrefetchCheck(tokenAddress, factors, token);
       this._scheduleDebouncedBuy(tokenAddress, tick);
     }
+  }
+
+  /**
+   * 叙事预触发检查（N3，2026-10-13 叙事提速案）：买门 fire 前后台发起叙事直调。
+   *
+   * 机制：与 fire 直调共用同一 NarrativeDirectCaller 实例——预触发仍在跑时 fire 的
+   * getRating join 同一 inflight promise（等待=剩余时间）；已完成时 analyze 命中
+   * token_narrative 行缓存秒回。fire 侧直调代码零改动。
+   *
+   * 条件 = 首条买腿 narrativePrefetchCondition ?? narrativeCallCondition（新可选
+   * 字段不配=用现有条件；配更宽松条件=更早发起，API 消耗与提前量的权衡由策略侧定；
+   * 叙事直调 per-token 幂等缓存，多腿命中同 token 只析一次）；tick 时刻因子评估
+   * （fire 评估是 buildFactorMap 重读快照——预触发用本 tick 因子，条件不满足不标
+   * write-once，后续 tick 满足再发起）。
+   *
+   * write-once per-token 无论成败（失败由 fire 时直调兜底重试）；rating=low（终态）
+   * 提前登记否决短路集 _narrativeBlockedTokens（address-fail 宣告竞态重试窗豁免
+   * 与 fire 侧同款 shouldBlockOnNarrative 判定）——fire 到来直接短路不落 signal 行。
+   *
+   * 回测不适用（BacktestEngine 装载时 preloadCache 全量预载）；实验级开关
+   * fourmemeWs.narrativePrefetch.enabled 默认 false（live/虚拟通用）。
+   * fire-and-forget + catch（OPB/TPA 同款先例），不阻塞 tick 管线。
+   */
+  _narrativePrefetchCheck(tokenAddress, factors, token) {
+    if (!this._narrativePrefetchEnabled) return;
+    if (this._narrativePrefetchedTokens.has(tokenAddress)) return;
+    const cond = this._narrativePrefetchCondition();
+    if (!cond) return;
+    if (!this._strategyEngine.evaluateCondition(cond, factors)) return;
+    this._narrativePrefetchedTokens.add(tokenAddress);
+    this._narrativePrefetchStartedAt.set(tokenAddress, Date.now());
+    const sym = token.symbol || tokenAddress.slice(0, 10);
+    this.logger.info(this._experimentId, 'NarrativePrefetch', `${sym} 预触发发起（tick 先于买门 fire）`);
+    // 预触发完成：rating=low 终态提前登记短路集（fire 侧 gate 仍按
+    // narrativeCallCondition 启用——只配 prefetch 不配 call 的腿不短路，语义照实）
+    this._narrativeCaller.getRating(tokenAddress)
+      .then(r => {
+        if (this._shouldBlockOnNarrative(r.numericRating, r.precheckStage ?? null, factors.age ?? null)) {
+          this._narrativeBlockedTokens.add(tokenAddress);
+          this.logger.info(this._experimentId, 'NarrativePrefetch',
+            `${sym} 预触发否决登记 | rating=low${r.precheckStage ? `(${r.precheckStage})` : ''} → 后续买信号短路`);
+        }
+        this.logger.info(this._experimentId, 'NarrativePrefetch',
+          `${sym} 预触发完成 | rating=${r.numericRating}(${r.rating}) ${r.durationMs}ms` +
+          ` fromCache=${r.fromCache}` + (r.error ? ` error=${r.error}` : ''));
+      })
+      .catch(e => this.logger.warn(this._experimentId, 'NarrativePrefetch',
+        `${sym} 预触发失败（fire 时直调兜底重试）: ${e.message}`));
+  }
+
+  /**
+   * 预触发条件（惰性解析缓存）：首条带叙事条件的买腿，narrativePrefetchCondition
+   * 优先、缺省回落 narrativeCallCondition。策略启动后不变（重启进程才换策略）
+   * @private
+   */
+  _narrativePrefetchCondition() {
+    if (this._narrativePrefetchCond !== undefined) return this._narrativePrefetchCond;
+    this._narrativePrefetchCond = null;
+    for (const s of this._strategyEngine.getAllStrategies()) {
+      if (s.action !== 'buy') continue;
+      const c = (typeof s.narrativePrefetchCondition === 'string' && s.narrativePrefetchCondition.trim() !== '')
+        ? s.narrativePrefetchCondition.trim()
+        : (typeof s.narrativeCallCondition === 'string' && s.narrativeCallCondition.trim() !== '')
+          ? s.narrativeCallCondition.trim()
+          : null;
+      if (c) { this._narrativePrefetchCond = c; break; }
+    }
+    return this._narrativePrefetchCond;
   }
 
   /**
@@ -1202,6 +1326,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       if (narrativeCallCondition && preCheckPassed
           && this._strategyEngine.evaluateCondition(narrativeCallCondition, factorResults)) {
         narrativeCallInfo = await this._narrativeCaller.getRating(token.token);
+        // N3 预触发提前量（2026-10-13 叙事提速案）：fire 直调与预触发共用实例
+        //（inflight join / 行缓存命中），lead = fire 时刻 − 预触发发起时刻，
+        // 随 narrativeCall 落 signal metadata 供 182 实跑统计真实提前量
+        const prefetchStartedAt = this._narrativePrefetchStartedAt.get(tokenAddress);
+        if (prefetchStartedAt) {
+          narrativeCallInfo.prefetchLeadMs = Date.now() - prefetchStartedAt;
+          this._narrativePrefetchStartedAt.delete(tokenAddress);
+        }
         this.logger.info(this._experimentId, 'BuyEval',
           `叙事评级直调 | ${token.symbol} rating=${narrativeCallInfo.numericRating}(${narrativeCallInfo.rating})` +
           ` ${narrativeCallInfo.durationMs}ms fromCache=${narrativeCallInfo.fromCache}` +

@@ -116,12 +116,16 @@ class StrategyEngine {
                     }
                 }
                 if (availableFactorIds) {
-                    const raw = config.narrativeCallCondition;
-                    if (typeof raw === 'string' && raw.trim() !== '') {
-                        const v = this._evaluator.validateCondition(
-                            this._evaluator.parseCondition(raw), availableFactorIds);
-                        if (!v.valid) {
-                            throw new Error(`策略[${config.id}] narrativeCallCondition 引用未知因子: ${v.errors.join(', ')}——因子名写错会让子句静默失效，拒绝启动`);
+                    // narrativePrefetchCondition（N3 预触发，2026-10-13 叙事提速案）：
+                    // 评估上下文与 narrativeCallCondition 同为 fire factors，同集校验
+                    for (const field of ['narrativeCallCondition', 'narrativePrefetchCondition']) {
+                        const raw = config[field];
+                        if (typeof raw === 'string' && raw.trim() !== '') {
+                            const v = this._evaluator.validateCondition(
+                                this._evaluator.parseCondition(raw), availableFactorIds);
+                            if (!v.valid) {
+                                throw new Error(`策略[${config.id}] ${field} 引用未知因子: ${v.errors.join(', ')}——因子名写错会让子句静默失效，拒绝启动`);
+                            }
                         }
                     }
                 }
@@ -139,6 +143,10 @@ class StrategyEngine {
                     preBuyCheckCondition: config.preBuyCheckCondition || null,
                     repeatBuyCheckCondition: config.repeatBuyCheckCondition || null,
                     narrativeCallCondition: config.narrativeCallCondition || null,
+                    // 叙事预触发条件（N3，2026-10-13 叙事提速案）：不配 = 预触发用
+                    // narrativeCallCondition；配更宽松条件 = 更早发起（API 消耗与提前量
+                    // 由策略侧权衡）；fire 时直调仍按 narrativeCallCondition
+                    narrativePrefetchCondition: config.narrativePrefetchCondition || null,
                     // pumpfun 回迁批 2 卖腿机制字段（引擎侧消费：去抖分流/止损闩锁/累亏闩锁）
                     bypassDebounce: !!config.bypassDebounce,
                     lockTokenAfterSell: !!config.lockTokenAfterSell,
