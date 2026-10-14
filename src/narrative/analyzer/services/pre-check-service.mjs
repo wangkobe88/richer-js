@@ -510,7 +510,13 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
   // 时间基准 = 代币创建时间（raw_api_data.created_at）而非分析时刻（用户裁定 2026-09-23）：
   // 过期语义是"发币时推文/视频是否新鲜"，与何时分析无关——补跑/回测/延迟分析的结果幂等
   if (!ignoreExpired) {
-    const tokenCreatedAtSec = tokenData.raw_api_data?.created_at;
+    // 锚回退（C68 제로案 0x0a27c1232ffe46f296af9afb68448dff7ad37777 修复①，
+    // 2026-10-14 用户裁定）：IPFS/flap 语料行无平台 created_at → 过期检查静默跳过，
+    // 11.5 天 lag 的找角度推文漏网拿 high（叙事 high 与买门 narrativeCorpusLagSec
+    // 拦截语义分裂，earlyReturn≥100 通道翻入买入）。回退 tokenCreatedAtSec
+    // （fetchTokenData 的 wss_events token_create 回退锚）——与上方 0.5/0.55/0.58
+    // 规则同链，原裸读是同文件内不一致
+    const tokenCreatedAtSec = tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at;
 
     if (!tokenCreatedAtSec) {
       // 代币无创建时间数据时跳过过期检查（与规则0.5 无创建时间跳过同名检查的模式一致）

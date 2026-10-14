@@ -39,6 +39,46 @@ const TIMING_SCORES_W = {
   expected_within_30d: 15, expected_beyond_30d: 0, unknown: 0,
 };
 
+/** 找角度载体推文时效窗（秒）——C68 제로案（2026-10-14 用户裁定「找角度推文都是
+ * 发出来后立马发币的」）：angle_seeking/interpretive_reply 语料的时效锚=载体推文
+ * 发布时间（角度曝光窗口），不是叙事首次发生时间——叙事再热、载体推文过期=角度
+ * 已死。与 pre-check-service expiredTweetMinutesThreshold（config 默认 360min）同窗：
+ * precheck 规则2 是第一道（6h 窗直接拦 low），本 override 是 Jev 层兜底（precheck
+ * 放行残例：tweetSources 任一新即放 / 锚缺失跳过）。改窗须两处同步。 */
+const ANGLE_TWEET_STALE_SEC = 6 * 3600;
+
+/**
+ * C68 找角度时效 override 判定（纯代码，mapper-only，题集版本不动——时效分本来就
+ * 是代码查表，J1.16/J1.23/J1.24 教训：分数锚定类必须代码侧）：
+ * tweet_type=angle_seeking/interpretive_reply 且载体推文 lag 超 ANGLE_TWEET_STALE_SEC
+ * → 返回 { lagSec, rawTiming }（调用方把 timing 归 older=0 分）；否则 null 不干预。
+ * 载体时间取主推/website_tweet/quoted/retweeted 最新一条（与 precheck tweetSources
+ * 同集，「任一新即活」对称）；锚=tokenCreatedAtSec||raw_api_data.created_at
+ * （fetchTokenData wss_events 回退链）；任一不可得不 override（fail-open，与 precheck
+ * 锚缺失跳过语义对称，不误伤数据缺失票）。分类器保证 type 命中集合时语料必为
+ * tweet 型（account/community → unknown），无需再查 twitterInfo.type。
+ */
+function overrideAngleTiming(tweetClassification, twitterInfo, tokenData, rawTiming) {
+  if (!tweetClassification
+    || (tweetClassification.type !== 'angle_seeking' && tweetClassification.type !== 'interpretive_reply')) {
+    return null;
+  }
+  const anchorSec = tokenData?.tokenCreatedAtSec || tokenData?.raw_api_data?.created_at || null;
+  if (!anchorSec || !twitterInfo) return null;
+  const sources = [twitterInfo, twitterInfo.website_tweet, twitterInfo.quoted_tweet, twitterInfo.retweeted_status];
+  let latestMs = NaN;
+  for (const t of sources) {
+    if (!t?.created_at) continue;
+    const ms = new Date(t.created_at).getTime();
+    if (!Number.isFinite(ms)) continue;
+    if (!Number.isFinite(latestMs) || ms > latestMs) latestMs = ms;
+  }
+  if (!Number.isFinite(latestMs)) return null;
+  const lagSec = anchorSec - latestMs / 1000;
+  if (!Number.isFinite(lagSec) || lagSec <= ANGLE_TWEET_STALE_SEC) return null;
+  return { lagSec: Math.round(lagSec), rawTiming: rawTiming || null };
+}
+
 /**
  * dimension2 校准带（108 样本远程校准定参，2026-09-20）：
  * Jev 档位与旧 LLM 维度二分几乎不相关（旧量表 P25=18/P50=22/P75=25，近似恒 20-25
@@ -653,7 +693,14 @@ export function mapStandardAnswers(answers, context) {
   const web3FitAnchored = !tierAnchored && category === 'A' && web3FitStrongP >= 0.5
     && tier !== 'S' && tier !== 'A' && tier !== 'B';
   const effTier = tierAnchored ? 'A' : (web3FitAnchored ? 'B' : tier);
-  const timing = answers.event_timing?.choice || 'unknown';
+  // C68 找角度时效 override：Jev event_timing 锚「叙事首次发生时间」（제로案判
+  // within_30d=10 分压线过），找角度推文的时效语义是「载体推文→发币」的 lag——
+  // override 在 timing 变量源头生效，W/标准数学 + J1.24 punExempt 全下游一致消费
+  const angleTiming = overrideAngleTiming(tweetClassification, twitterInfo, tokenData, answers.event_timing?.choice);
+  const angleTimingOverride = angleTiming
+    ? { lagSec: angleTiming.lagSec, staleSec: ANGLE_TWEET_STALE_SEC, rawTiming: angleTiming.rawTiming }
+    : null;
+  const timing = angleTiming ? 'older' : (answers.event_timing?.choice || 'unknown');
   const dim2 = bandInterpolate(answers.dimension2?.score ?? 0, DIM2_BANDS);
   // C44 IG 影响力兜底锚（2026-10-01 用户裁定「对，因为我们无法知道在Ins上这个猫
   // 的影响力多大，这里我觉得豁免一下吧，如果引用了Insgram的链接，就认为影响力
@@ -703,6 +750,9 @@ export function mapStandardAnswers(answers, context) {
       eventDescription: null, // Jev 不生成文本，叙事细节由 details 概率承载
       jev: {
         tweetType: tweetClassification?.type || null,
+        // C68 审计标记：找角度时效 override 命中详情（载体推文 lag/窗/Jev 原判档
+        // 可追溯；null=未命中——形态不符/窗内/锚或载体时间缺失）
+        angleTimingOverride,
         magnitudeTier: tier,
         timing,
         blockChoice,

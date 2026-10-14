@@ -68,6 +68,17 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C68 제로案 0x0a27c1232ffe46f296af9afb68448dff7ad37777——找角度推文时效门（双层）：「找角度推文都是发出来后立马发币的」——载体推文→发币 lag 是 angle_seeking 的时效锚，不是叙事首次发生时间；IPFS 语料行锚缺失静默跳过=漏网根因（2026-10-14 用户裁定「1/2 都做」）★
+
+- **案发**：fourmeme 盘 제로(Zero) 2026-10-14 14:00 发币，依托推文是 @rega_sport 2026-10-03 02:04 的「陈述韩国网红猫 Zero 叙事」找角度推文（`tweetType=angle_seeking`，Jev 判 A 类 character_ip 0.99 / B 档 3.4 / within_30d 0.96）——**载体推文 lag=993367s≈11.5 天**。叙事评级 high 73.89（stage2 事件 27+传播 26.8+时效 10=63.8 压线过）；实跑 8e271a2d 买门 `narrativeCorpusLagSec<300 OR earlyReturn>=100` 前几轮拦截（lag 993367），**earlyReturn 涨破 100 从 OR 通道翻入买入**（0.004 BNB，31 秒后 +6.8% 卖出——结果侥幸，机制漏网坐实）。
+- **漏网链（两层叠加）**：①precheck `expired_tweet` 6h 窗本该拦（11.5 天必判 low），但 `raw_api_data.created_at` 缺失（IPFS 语料行无平台创建时间）→ 规则**静默跳过**——而同文件 0.5/0.55/0.58 规则早已用 `tokenCreatedAtSec ||` 回退链（fetchTokenData 的 wss_events token_create 回退锚，token-info-service 73-82 行现成算好），唯独规则 2 裸读，同文件内不一致；②Jev `event_timing` 锚「叙事首次发生时间」（猫走红 within_30d→10 分），对找角度形态语义错位——发币者蹭的是**载体推文的曝光窗口**，叙事再热、载体推文过期=角度已死。
+- **用户裁定**：「angle_seeking 也就是找角度推文的实效性也需要有要求，找角度推文都是发出来后立马发币的」——找角度票的时效锚=「载体推文发布→发币」lag（分钟级为正常形态）；「陈述某个叙事」不豁免时效，反而要求更严。
+- **改动面（修复①pre-check-service 规则 2）**：锚改 `tokenData.tokenCreatedAtSec || tokenData.raw_api_data?.created_at`（一行回退链对齐，零新查询——锚 fetchTokenData 已投机并发算好）。
+- **改动面（修复②jev-result-mapper，mapper-only 题集版本不动——时效分本来就是代码查表，J1.16/J1.23/J1.24 教训分数锚定类必须代码侧）**：`overrideAngleTiming`（纯代码）——`tweetClassification.type ∈ {angle_seeking, interpretive_reply}`（解读型蹭大 IP 事件窗口同构，纳入）且载体推文 lag > `ANGLE_TWEET_STALE_SEC`(6h，与 precheck `expiredTweetMinutesThreshold` 同窗，改窗两处同步) → timing 归 `older`=0 分，覆盖 Jev 原判档。**direct_tweet 不动**（推文即事件，event_timing 锚事件发生时间语义本就正确）。载体时间取主推/website_tweet/quoted/retweeted **最新一条**（与 precheck tweetSources 同集，「任一新即活」对称——主推老但引用新推=角度窗口仍活）；锚或载体时间缺失不 override（fail-open，与 precheck 锚缺失跳过语义对称）。审计落 stage1.jev.`angleTimingOverride`={lagSec, staleSec, rawTiming}（Jev 原判档可追溯）。override 在 timing 变量源头生效：W/标准数学 + J1.24 punExempt 全下游一致消费（时效死票豁免无意义，punExempt 自然不命中）。
+- **事故现场反证（单测 A1）**：제로 形状（A 类 B 档 3.4→27 分 + dim2 4.1→25 分 + within_30d）angle_seeking lag 993367 → override → stage2 27+25+0=52<60 **翻不过线**，终评不再 high；对照组（同形状非找角度形态）62>60 压线过——同票翻转锁定。
+- **单测**：`scripts/_test_angle_timing_override.cjs` 20 断言全绿——A mapper 矩阵（事故反证/窗内 1h 不干预/direct_tweet 不干预/interpretive_reply 命中/锚缺失 fail-open/载体时间缺失 fail-open/主推老+quoted 新/6h 边界 21601|21599/rawTiming 审计）+ B precheck 锚回退（tokenCreatedAtSec 回退拦/窗内放/两锚皆缺跳过现状回归/raw created_at 在仍拦原行为）+ C 源码口径（回退链字符串锁定/两窗同源共存）。回归：web3_fit 29 / notable_other 22 / pun 18 / referent 39 / carrier 43 / superip 23 / name_image 36 / community 16 / precheck_parallel 20 / cashtag / publisher / narrator_two_shapes 全绿。
+- **生效面与缓存**：182 pull + 叙事 worker/实验进程重启后生效；**本案存量 high 缓存行不自动重评**（token_narrative 行龄已 11.5 天 lag、载体时间客观存在，重跑会被新门拦——需要重评须手工失效该行）。
+
 ### C67 Virusking 案 0xa25cad994ca02755f0d9b6fe451077401b397777——账号型未过缓存 10s TTL 穿透重析：「如果叙事分析基于的信息是账号且没有通过，那么缓存10秒过期即10秒后可以再次分析，最多分析三次」（2026-10-14 用户裁定）★
 
 - **案发**：flap 税币盘 07:19:00 创建（@Virusking_bsc 主页入口），事后 5 分钟 +230%（4.35e-6→1.44e-5 USD），实验全程未买。时间线复盘：07:19:0x 首析时宣告推**未发**（07:19:45 才发，正文含完整 CA）→ 账号质量门不达标 + verifyTokenAddress 未命中 → precheckStage='address' rating=1 落行（07:19:05.75）→ 此后 35 轮买评估（07:19:05→07:20:10）全部命中该缓存行（`is_valid=true` 短路，rating 恒 1）→ worker PrecheckFailRetry 两次重析：第 2 次 07:20:09.7 发起（07:20:10.9 resolved:true，宣告推已发 CA 验证过）→ 但 prestage 快车道 web3_native_ip_early **粉丝 15<20 底线门** → 仍 low；最后一轮买评估 07:20:10.335 比重析完成早 0.6s，此后买窗走完无信号。
