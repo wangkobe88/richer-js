@@ -188,7 +188,7 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ### Live 交易
 
-- four.meme 走 `FourMemeDirectTrader`（TokenManager2），flap 走 `FlapPortalTrader`（Portal swapExactInput）；双平台（both）live=单引擎 per-platform 双 trader 同一钱包（`_liveTraderMap`+共享 NonceManager，2026-10-14 改造；live 参数恒读 fourmemeWs.live）；**live 只买 BNB 计价盘**（非 BNB 盘 revert=天然 fail-closed；卖出 token→0x0 全盘支持）
+- four.meme 走 `FourMemeDirectTrader`（TokenManager2），flap 走 `FlapPortalTrader`（Portal swapExactInput）；双平台（both）live=单引擎 per-platform 双 trader 同一钱包（`_liveTraderMap`+共享 NonceManager，2026-10-14 改造；live 参数恒读 fourmemeWs.live）；**live 只买 BNB 计价盘**（flap 票 `_executeBuyLive` 首块查 `getNonBnbQuoteToken` 主动拒买 fail-closed——우땅이 案 2026-10-14：「非 BNB 盘买入天然 revert」假设实证破产，多跳买入可成交而池死后卖出双向 revert 持仓归零；four.meme 票不查=TokenManager2 既有天然拦截；卖出 token→0x0 全盘支持）
 - live 实验只能 `node main.js start-experiment -e <id>` 启动（run-engine 对 live 显式拒绝）
 - 实收解析**余额差法**（买入 balanceOf 前后差=税后真相；卖出 BNB 差+gasUsed×gasPrice 补偿）——对税币/非 BNB quote 盘免疫
 - 防御层（参数在 default.json `fourmemeWs.live`/`flapWs.live`）：L1 `assertMinOut`（报价/预期 ratio<0.5 拒单；expected 契约必传缺即 throw；卖出无锚 fail-closed 拒裸奔）/ L3 卖出熔断（连败≥5 → 30min 冷却+Telegram）/ L5 `_awaitReceipt`（超时回查一次，**绝不自动重发防双买**；reverted throw）/ `maxPositionTokens`（0=不限只拦新开仓）/ 毕业告警人工处置
