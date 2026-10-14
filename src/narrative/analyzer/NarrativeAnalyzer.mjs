@@ -669,7 +669,12 @@ export class NarrativeAnalyzer {
             const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
             const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
             const { state, stats } = buildJevState(tokenData, fetchResults, { now: jevNowMs });
-            const questions = buildStandardQuestions({ includeBrandHijack });
+            // J1.30 条件题 name_image_consistency：主推配图分析成功挂载才问
+            // （无图不问防幻觉作答；与 mapper imageEvidence 同源）
+            const questions = buildStandardQuestions({
+              includeBrandHijack,
+              imageConsistency: !!twitterInfo?.image_analysis,
+            });
             const startedAt = new Date().toISOString();
             const result = await timing.wrap('jev.standard', () => JevClient.ask(state, questions, { label: `jev:${tokenData.symbol}` }));
             const finishedAt = new Date().toISOString();
@@ -688,6 +693,9 @@ export class NarrativeAnalyzer {
               // （buildInstagramSection），Jev 按真证据判分不兜底
               instagramLinked: !!(classifiedUrls?.instagram?.length > 0),
               instagramInfoFetched: instagramInfo != null,
+              // J1.30 名图一致豁免条件①（C64 巴巴鸡案）：配图视觉证据存在
+              // （analyzeTweetImage 已在上方正常流程分支挂载 image_analysis）
+              imageEvidence: !!twitterInfo?.image_analysis,
               tweetClassification: classifyTweetType(twitterInfo),
               twitterInfo, // J1.17 cashtag 改道判据（detectCorpusCashtag）用
               callInfo: {

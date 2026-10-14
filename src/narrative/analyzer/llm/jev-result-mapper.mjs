@@ -570,6 +570,9 @@ function buildCallPromptMeta(questions, stateStats, state, { full = false } = {}
  *   兜底锚条件①，analyzer 层按 classifiedUrls.instagram 算好传入）
  * @param {boolean} [context.instagramInfoFetched] - IG 数据是否已抓到（false=数据不可得，
  *   走兜底锚；true=真数据已进 state 由 Jev 按真证据判分）
+ * @param {boolean} [context.imageEvidence] - 配图视觉证据是否存在（J1.30 名图一致豁免
+ *   条件①，analyzer 传 imageEvidence = twitterInfo.image_analysis 存在；与题集
+ *   imageConsistency 条件同源——答案缺失/无图票豁免 fail-closed 不触发）
  * @param {Object} context.callInfo - {model, questions, state, stateStats, usage, startedAt, finishedAt}
  * @param {Object|null} [context.tweetClassification] - 推文预分类
  * @returns {Object} { stage1DataToSave, stage2DataToSave, stage3DataToSave,
@@ -961,6 +964,26 @@ export function mapStandardAnswers(answers, context) {
     && (effTier === 'S' || effTier === 'A')
     && !!context.credibleEventAnchor;
 
+  // J1.30 名图一致豁免（C64 巴巴鸡案 0x1ea2152c…7777，2026-10-14 用户裁定「如果
+  // 名字是一只鸡，图片也是一只鸡，恐怕认为这俩有关联就好了，因为给的信息可能很难
+  // 判断」）：配图与币名视觉一致时豁免 Stage3 关联≤10 截断——弱字面关联的根源常
+  // 是证据缺失（本案梗名「巴巴鸡」只在配图的图内文字里，旧版图分析无转写指令且
+  // maxTokens 截断，Jev 只剩「名字含鸡+图是鸡形角色」弱证据判 cultural 5 分），
+  // 配图与名字同类视觉主体是更直接的一手关联证据。三门全中才豁免（relevance 分
+  // 照常计入总分——弱字面关联的代价在分数上体现，J1.24/C59 同款计分语义）：
+  //   ① 图证据（context.imageEvidence = twitterInfo.image_analysis 存在，与 C59
+  //     条件①同源）且题已问（name_image_consistency 条件题与 imageEvidence 同源，
+  //     答案缺失 → nicMatchP=0 → 不豁免——旧缓存行/无图票 fail-closed 零影响）
+  //   ② same_entity+same_visual_category 合并质量 ≥0.5（合并对抗跨 run 抖动，
+  //     nameReferentBlock 同思路；阈值与 punExempt/阻断侧惯例一致）
+  //   ③ 0 < relevance ≤ 10（只救会被本截断拦的票；纯零关联 none 0 分不救，
+  //     与 C59 条件②同——图再像也救不了与事件毫无关系的名字）
+  // 与 punExempt 正交并存；superIP 快车道不消费（C59 的 meme≥3 门语义自洽不动）。
+  const nicProbs = answers.name_image_consistency?.probabilities ?? {};
+  const nicMatchP = (nicProbs.same_entity ?? 0) + (nicProbs.same_visual_category ?? 0);
+  const imgNameExempt = !!context.imageEvidence && nicMatchP >= 0.5
+    && relevance.score > 0 && relevance.score <= 10;
+
   let stage3Blocked = false;
   let stage3BlockReason = null;
   if (brandHijackP >= 0.5 && !punExempt) {
@@ -969,7 +992,7 @@ export function mapStandardAnswers(answers, context) {
   } else if (misspellingP >= 0.5) {
     stage3Blocked = true;
     stage3BlockReason = '无背景拼写错误';
-  } else if (relevance.score <= 10 && !punExempt) {
+  } else if (relevance.score <= 10 && !punExempt && !imgNameExempt) {
     stage3Blocked = true;
     stage3BlockReason = `关联性不足（${relevance.score}分/${relevance.type}）`;
   } else if (quality.total <= 4) {
@@ -994,7 +1017,7 @@ export function mapStandardAnswers(answers, context) {
     ? `阻断:${stage2BlockReason}｜P=${(w3Block ?? nrBlock)?.mass ?? (rideMass ?? blockProb ?? '-')}`
     : stage3Blocked
       ? `截断:${stage3BlockReason}｜品牌劫持P=${round2(brandHijackP)} 拼写P=${round2(misspellingP)}`
-      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
+      : `${punExempt ? '戏谑关联豁免(J1.24)｜' : ''}${imgNameExempt ? '名图一致豁免(J1.30)｜' : ''}${wInteractionExempt ? '世界级主体产品豁免币安交互(C42)｜' : ''}${igDim2Anchor ? 'IG影响力豁免(C44)｜' : ''}事件分${eventScore}(${stage2Total}×0.6)｜关联${relevance.score}(${relevance.type}/lv${relevance.levelIdx})｜质量${quality.total}(长${quality.length}+拼${quality.spelling}+合${quality.reasonability})｜总分${aggregatedTotalScore}→${aggregatedCategory}`;
 
   const stage3DataToSave = stage2Blocked
     ? { __clear: true }  // 对齐原流程：Stage2 未通过 → Stage3 被跳过，清旧数据
@@ -1020,12 +1043,17 @@ export function mapStandardAnswers(answers, context) {
             // J1.24 审计标记：戏谑关联豁免命中详情（timing/档位可追溯，Jev 原判
             // brandHijackP 保留在上一键不受豁免影响）
             punExempt: punExempt ? { timing, tier: effTier } : null,
+            // J1.30 审计标记：名图一致豁免命中详情（关联档位/一致性质量可追溯，
+            // brand_hijack 同款「命中才落」模式——未触发不落键）
+            imgNameExempt: imgNameExempt ? { relType: relevance.type, relScore: relevance.score, matchP: round2(nicMatchP) } : null,
             misspellingP,
             probabilities: {
               relevance_type: answers.relevance_type?.probabilities,
               relevance_level: answers.relevance_level?.probabilities,
               block_misspelling: answers.block_misspelling?.probabilities,
               ...(includeBrandHijack ? { brand_hijack: answers.brand_hijack } : {}),
+              // J1.30 条件题：题已问才落（无图票题集无此题， probabilities 缺省）
+              ...(answers.name_image_consistency ? { name_image_consistency: answers.name_image_consistency.probabilities } : {}),
             },
           },
         },

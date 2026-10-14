@@ -77,7 +77,7 @@ async function main() {
 
   // ═══ A. 问卷形状 ═══
   console.log('\n── A. 问卷形状（J1.29 恒带；carrier 选项废弃）──');
-  check('A1 版本号 = J1.29', JEV_QUESTIONS_VERSION === 'J1.29', JEV_QUESTIONS_VERSION);
+  check('A1 版本号 ≥ J1.29（J1.29 载体门起；现 J1.30=name_image_consistency 条件题 bump）', parseInt(JEV_QUESTIONS_VERSION.replace('J1.', ''), 10) >= 29, JEV_QUESTIONS_VERSION);
   const qsDefault = buildStandardQuestions();
   check('A2 默认恒带 subject_carrier（生产题集判据源）', 'subject_carrier' in qsDefault, Object.keys(qsDefault).length);
   const qsOpt = buildStandardQuestions({ carrier: true });

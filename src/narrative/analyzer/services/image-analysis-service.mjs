@@ -51,8 +51,14 @@ const RAW_CACHE_TYPE = 'tweet_image_raw';
  * img-v2（2026-10-07）：glm-5.3 → Qwen3-Omni-30B-A3B-Captioner @ SiliconFlow
  * 切换——v1 行全部是 glm-5.3「看不到图」废结果（webp 被智谱端点静默丢弃），
  * 全部需要重析（img-v2 未部署过 182，无需 v3）。
+ * img-v3（2026-10-14，C64 巴巴鸡案 0x1ea2152c…7777）：①prompt 新增 visible_text
+ * 字段（图内可见文字逐字转写：标题/搜索框/水印/对话气泡/界面文字——梗名常只在
+ * 配图的图内文字里，本案「巴巴鸡给鸡给」在抖音截图标题中，旧版只塞进 key_elements
+ * 且被 maxTokens 截断成垃圾，字面证据没进 Jev state）；②默认 maxTokens 1500→2500
+ * （旧版巴巴鸡案 key_elements 被截断——多一个字段后 1500 更不够）。img-v2 行全部
+ * 重析（图片本体 tweet_image_raw dl-v1 不受影响不重下载，只有 API 调用）。
  */
-const IMAGE_PROMPT_VERSION = 'img-v2';
+const IMAGE_PROMPT_VERSION = 'img-v3';
 
 /**
  * 图片下载版本：downloadAsBase64 压缩参数（maxWidth/maxHeight/quality/targetSize/
@@ -195,7 +201,7 @@ async function _analyzeOnce(imageUrl, twitterInfo, vision, apiKey) {
 
 /**
  * 视觉分析 prompt：推文文字 + 配图，产出与 twitter-section 渲染块同构的结构化字段
- * （description/key_elements/meme_type/meme_meaning）。
+ * （description/key_elements/visible_text/meme_type/meme_meaning）。
  *
  * ★刻意不含 token 名（跨 token 缓存健全性）：缓存按图片 URL 键控，复蹭簇里多个
  * token 共享同一张图——分析一旦掺入 token 名，token B 会拿到为 token A 算的关联
@@ -217,6 +223,7 @@ function _buildPrompt(twitterInfo) {
 {
   "description": "图片内容一段话描述",
   "key_elements": ["图中的关键元素/形象/可读文字，逐项列出"],
+  "visible_text": "图内可见文字逐字转写：标题、搜索框、水印、对话气泡、界面按钮/菜单等一切图中出现的文字，原样照抄（含错别字/颜文字/emoji），按出现位置标注；图内无任何文字写'无'",
   "meme_type": "梗图类型（POV/对比图/排行榜截图/表情包等，非梗图写'非梗图'）",
   "meme_meaning": "这张图在传播的情绪或含义"
 }`;
@@ -238,7 +245,10 @@ async function _callVision(vision, apiKey, imageData, prompt) {
       logger.warn('ImageAnalysis', `第 ${attempt} 次重试: ${lastError.message}`);
     }
 
-    const result = await _singleVisionCall(vision.baseUrl, vision.model, apiKey, imageData, prompt, timeoutMs, vision.maxTokens || 1500);
+    // 默认 2500（img-v3，C64 巴巴鸡案：1500 下 key_elements 被截断成「猪八'"垃圾
+    // ——visible_text 转写字段加入后 1500 更不够；config/narrative-engine.json 的
+    // 显式 maxTokens 若未同步会覆盖此默认，部署时须一并改）
+    const result = await _singleVisionCall(vision.baseUrl, vision.model, apiKey, imageData, prompt, timeoutMs, vision.maxTokens || 2500);
     if (result.ok) return result.text;
 
     lastError = result.error;
@@ -316,11 +326,12 @@ function _parseAnalysis(rawText) {
     return {
       description: typeof parsed.description === 'string' ? parsed.description : '',
       key_elements: Array.isArray(parsed.key_elements) ? parsed.key_elements.map(String) : [],
+      visible_text: typeof parsed.visible_text === 'string' ? parsed.visible_text : '',
       meme_type: typeof parsed.meme_type === 'string' ? parsed.meme_type : '',
       meme_meaning: typeof parsed.meme_meaning === 'string' ? parsed.meme_meaning : '',
     };
   } catch {
     logger.warn('ImageAnalysis', `JSON 解析失败，整段原文进 description: ${stripped.slice(0, 100)}`);
-    return { description: stripped, key_elements: [], meme_type: '', meme_meaning: '' };
+    return { description: stripped, key_elements: [], visible_text: '', meme_type: '', meme_meaning: '' };
   }
 }

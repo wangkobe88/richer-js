@@ -169,7 +169,11 @@ async function main() {
       && superipSeg.includes('referentMemeScore >= REFERENT_MEME_EXEMPT_MIN'), null);
   check('H3 标准路径零触达（imgReferentExempt 不在 mapStandardAnswers 域）',
     !stdSeg.includes('imgReferentExempt'), null);
-  check('H4 标准路径关联截断无豁免子句（旧语义不变）', stdSeg.includes('relevance.score <= 10 && !punExempt'), null);
+  // J1.30（2026-10-14 C64 巴巴鸡案）更新：标准路径关联截断新增名图一致豁免子句
+  // （imgNameExempt，三门：imageEvidence+一致性≥0.5+0<rel≤10——C59 只挂 superIP 的
+  // 空位由它补上）；C59 的 superIP 版语义不变（H1/H2 继续锁定）
+  check('H4 标准路径关联截断 = !punExempt && !imgNameExempt（J1.30 名图一致豁免并存）',
+    stdSeg.includes('relevance.score <= 10 && !punExempt && !imgNameExempt'), null);
   const analyzerSrc = readFileSync(join(root, 'src', 'narrative', 'analyzer', 'NarrativeAnalyzer.mjs'), 'utf8');
   check('H5 analyzer superIP 分支传递 imageEvidence = !!twitterInfo?.image_analysis',
     /imageEvidence: !!twitterInfo\?\.image_analysis/.test(analyzerSrc), null);

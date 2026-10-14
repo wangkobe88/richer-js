@@ -302,9 +302,32 @@
  *       （E 全拦）净效应反而 -1.19。56 票 prestage/superIP 路径无 stage1 state
  *       不适用（门只挂标准路径 mapper）。旧缓存行无此答案 → 门不触发，窗口级
  *       缓存失效照 J1.28 模式配套（scripts/narrative/invalidate-carrier-window.cjs）
+ * J1.30（2026-10-14 用户裁定，C64 巴巴鸡案 0x1ea2152c68a3cba1cd3ffe68abd97d95f9ac7777）：
+ *       新增第 17 题name_image_consistency（名字与配图主体一致性，choice 3 档，
+ *       条件题——仅语料含【图片内容分析】块（imageConsistency=主推配图分析成功
+ *       挂载）时问，与 brand_hijack 同款条件题模式，无图不问防幻觉作答）。用户
+ *       裁定原话：「这种情况，如果名字是一只鸡，图片也是一只鸡，恐怕认为这俩有
+ *       关联就好了，因为给的信息可能很难判断。」——巴巴鸡案 stage1 A 类
+ *       （character_ip 0.84、strong_fit 0.92→web3FitAnchored B）/stage2 66.32 过线，
+ *       stage3 关联 cultural lv1=5 分 ≤10 截断 low。根因=梗名「巴巴鸡」只在配图
+ *       （抖音截图）的图内文字里（搜索框「巴巴鸡给鸡给巴巴视频」、视频标题），
+ *       推文正文未写名；旧版图分析（img-v2）无文字转写指令且 maxTokens 1500 截断
+ *       （key_elements 断成「猪八'"垃圾），字面证据没进 Jev state → Jev 只剩
+ *       「名字含鸡+图是鸡形角色」弱证据判 cultural；C59 图豁免又只挂 superIP 快车
+ *       道（标准路径无豁免位）且 referent_memeability 1.86<3 也不满足（低估同样
+ *       源于证据缺失）。两改动（用户裁定「都做」）：①P1 根因修复 image-analysis-
+ *       service img-v3（visible_text 逐字转写 + maxTokens 2500——图内文字进 state
+ *       后 exact_match 档自然判出）；②P2 本题兜「图里没有文字、只有视觉主体」的
+ *       形状（现金猫型），mapper（mapStandardAnswers）名图一致豁免 imgNameExempt
+ *       三门：imageEvidence + same_entity/same_visual_category 合并 ≥0.5 +
+ *       0<relevance≤10 → 豁免 Stage3 关联截断（relevance 分照常计入总分——弱字面
+ *       关联的代价在分数上体现，J1.24/C59 同款计分语义）。superIP 快车道不消费
+ *       本题（C59 的 meme≥3 门语义自洽不动）。旧缓存行无此答案 → 豁免不触发
+ *       （fail-closed），窗口级缓存失效配套 scripts/narrative/
+ *       invalidate-nameimage-window.cjs
  */
 
-export const JEV_QUESTIONS_VERSION = 'J1.29';
+export const JEV_QUESTIONS_VERSION = 'J1.30';
 
 /**
  * 品牌劫持关键词预检表（自 stage3-token-analysis.mjs V21.0 迁入，规则原样）
@@ -364,10 +387,15 @@ export const TIMING_OPTIONS = [
  * @param {boolean} [options.carrier] - 已废弃（J1.29 起恒带，传不传均包含）：
  *   dry-run 阶段的 opt-in 参数（题面验证期），J1.29 转正式恒带——mapper 载体门
  *   （C/D+非existing / E+no_visual 拦）判据源
+ * @param {boolean} [options.imageConsistency] - 是否包含名字与配图主体一致性题
+ *   （J1.30，仅语料含【图片内容分析】块——主推配图分析成功挂载——时为 true）：
+ *   mapper 名图一致豁免（imgNameExempt）判据源。条件题与 brand_hijack 同模式：
+ *   无图不问（防幻觉作答），题集形状按语料有无图分叉
  * @returns {Object} questions {id: {type, instructions, criteria}}
  */
 export function buildStandardQuestions(options = {}) {
   const includeBrandHijack = options.includeBrandHijack === true;
+  const imageConsistency = options.imageConsistency === true;
 
   const questions = {
 
@@ -630,6 +658,24 @@ E类（社会热点）按发酵状态定档：正在发酵/传播进行中→wit
       },
     },
 
+
+    // ── 10.7 名字与配图主体一致性（J1.30 条件题，仅 imageConsistency（语料含
+    //     【图片内容分析】块）时问；mapper 名图一致豁免 imgNameExempt 判据源；
+    //     superIP 快车道不消费本题答案）──────────────────────────────────
+    ...(imageConsistency ? {
+      name_image_consistency: {
+        type: 'choice',
+        instructions: `名字与配图主体一致性（name-image consistency）。比较代币名（Symbol/Name，去emoji/数字/特殊字符后）所指的对象/形象，与【图片内容分析】块描述的配图主体（角色/动物/人物/形象/实物）的关系。
+⚠️ 事实性对应判断，不是质量判断——视觉对应本身不加分不减分（关联强度/质量另有题评），本题只回答「名字说的东西」与「图里画的东西」是否同一/同类。
+⚠️ meme 盘惯例锚：主推配图通常是名字的视觉锚——名字是动物/角色词、图主体恰是该类形象（名字含鸡、图就是鸡形角色；名字是猫、图就是猫）→ 至少 same_visual_category。图内文字（标题/搜索框/水印/界面文字）中出现的词与币名的关系也计入——图内文字属于图的内容（梗名可能只写在图里）。
+⚠️ 反例锚：图是通用背景/界面截图/风景，或图主体与币名所指完全不相干 → unrelated。`,
+        criteria: {
+          same_entity: '同一对象——币名所指的具体实体就是配图主体本身：图中出现的就是那个具名角色/形象/动物/实物，名字是它的名字或称呼（含图内文字写明其名的形状，如截图标题/搜索框里的词恰是币名）',
+          same_visual_category: '同类视觉主体——币名所指与配图主体不是同一实体，但属同一类可视形象/物种/角色类型（名字是鸡、图是鸡形角色；名字含猫、图是猫；名字指某角色、图是该角色的同类形象）',
+          unrelated: '无视觉对应——币名所指与配图主体无对象/视觉对应（图是无关背景/界面/风景，或币名是抽象词/事件词/人名而图主体与之不沾边）',
+        },
+      },
+    } : {}),
 
     // ── 10. 品牌劫持（原 Stage3 1.0 节，仅预检命中时加入）────────────
     ...(includeBrandHijack ? {

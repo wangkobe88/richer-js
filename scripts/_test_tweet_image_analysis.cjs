@@ -119,7 +119,7 @@ async function main() {
   // ═══ B. miss 全链 ═══
   {
     fetchCalls.length = 0; cacheState.gets.length = 0; cacheState.sets.length = 0; cacheState.next = null;
-    apiResponse = okApi('```json\n{"description":"排行榜截图，榜首有一只卡通猫","key_elements":["排行榜","猫","Binance logo"],"meme_type":"POV梗图","meme_meaning":"登顶的得意"}\n```');
+    apiResponse = okApi('```json\n{"description":"排行榜截图，榜首有一只卡通猫","key_elements":["排行榜","猫","Binance logo"],"visible_text":"TradersLeague S4（图内标题）","meme_type":"POV梗图","meme_meaning":"登顶的得意"}\n```');
     const tw = makeTweet();
     const r = await analyzeTweetImage(tw, OPTS);
     check('B1: 返回 true 且挂载 image_analysis', r === true && !!tw.image_analysis);
@@ -146,7 +146,7 @@ async function main() {
       && cacheState.sets[0].ttl === 7776000
       && cacheState.sets[1].url === 'https://pbs.twimg.com/media/FIRST.jpg'
       && cacheState.sets[1].type === 'tweet_image'
-      && cacheState.sets[1].content.promptVersion === 'img-v2'
+      && cacheState.sets[1].content.promptVersion === 'img-v3'
       && cacheState.sets[1].content.analysis.description === '排行榜截图，榜首有一只卡通猫'
       && cacheState.sets[1].content.analysis.key_elements.length === 3
       && cacheState.sets[1].ttl === 7776000);
@@ -161,13 +161,19 @@ async function main() {
       && body.messages[0].content[0].type === 'image_url'
       && body.messages[0].content[0].image_url.url.startsWith('data:image/jpeg;base64,'));
     check('B9: ```json 围栏剥离解析成功', tw.image_analysis.analysis.meme_type === 'POV梗图');
+    // img-v3（C64 巴巴鸡案 0x1ea2152c…7777，2026-10-14）：图内可见文字逐字转写——
+    // 梗名常只在配图的图内文字里（本案搜索框「巴巴鸡给鸡给巴巴视频」），旧版
+    // 只塞 key_elements 且被 maxTokens 1500 截断，字面证据没进 Jev state
+    check('B10: prompt 含 visible_text 逐字转写指令（标题/搜索框/水印/气泡/界面文字）',
+      prompt.includes('visible_text') && prompt.includes('图内可见文字逐字转写'));
+    check('B11: visible_text 透传挂载（转写进 state）', tw.image_analysis.analysis.visible_text === 'TradersLeague S4（图内标题）');
     console.log('B. miss 全链 ✓');
   }
 
   // ═══ C. 缓存命中 ═══
   {
     fetchCalls.length = 0; cacheState.gets.length = 0; cacheState.sets.length = 0;
-    cacheState.next = { url: 'https://pbs.twimg.com/media/FIRST.jpg', analysis: { description: '缓存里的描述' }, promptVersion: 'img-v2' };
+    cacheState.next = { url: 'https://pbs.twimg.com/media/FIRST.jpg', analysis: { description: '缓存里的描述' }, promptVersion: 'img-v3' };
     const tw = makeTweet();
     const r = await analyzeTweetImage(tw, OPTS);
     check('C1: 命中直接挂载零 fetch 零 set', r === true && fetchCalls.length === 0 && cacheState.sets.length === 0
@@ -246,7 +252,8 @@ async function main() {
     const tw = makeTweet();
     const r = await analyzeTweetImage(tw, OPTS);
     check('I1: 原文进 description 不丢证据', r === true && tw.image_analysis.analysis.description === '这不是JSON，模型直接输出了描述文字。'
-      && Array.isArray(tw.image_analysis.analysis.key_elements) && tw.image_analysis.analysis.key_elements.length === 0);
+      && Array.isArray(tw.image_analysis.analysis.key_elements) && tw.image_analysis.analysis.key_elements.length === 0
+      && tw.image_analysis.analysis.visible_text === '');
     console.log('I. 解析降级 ✓');
   }
 
@@ -274,10 +281,12 @@ async function main() {
   {
     const { buildTwitterSection } = await import('../src/narrative/analyzer/prompts/sections/twitter-section.mjs');
     const tw = makeTweet();
-    tw.image_analysis = { url: 'https://pbs.twimg.com/media/FIRST.jpg', analysis: { description: '排行榜截图，榜首有一只卡通猫', key_elements: ['排行榜', '猫'], meme_type: 'POV梗图', meme_meaning: '登顶的得意' } };
+    tw.image_analysis = { url: 'https://pbs.twimg.com/media/FIRST.jpg', analysis: { description: '排行榜截图，榜首有一只卡通猫', key_elements: ['排行榜', '猫'], visible_text: '巴巴鸡给鸡给巴巴视频（搜索框）', meme_type: 'POV梗图', meme_meaning: '登顶的得意' } };
     const section = buildTwitterSection(tw, { now: 1759900000000 });
     check('K1: 渲染含【图片内容分析】块', section.includes('【图片内容分析】'));
     check('K2: 渲染含描述/元素/梗图含义', section.includes('排行榜截图，榜首有一只卡通猫') && section.includes('排行榜, 猫') && section.includes('登顶的得意'));
+    check('K3: 渲染含图内文字转写行（img-v3；旧缓存行缺字段不渲染=渲染块对旧形状兼容）',
+      section.includes('图内文字（逐字转写）：巴巴鸡给鸡给巴巴视频（搜索框）'));
     console.log('K. state 渲染 ✓');
   }
 
