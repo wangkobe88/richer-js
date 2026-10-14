@@ -100,7 +100,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 | `earlyTradesTop1BuySharePct`（+Top1BuyBnb/BuyBnb/Covered） | 首窗**纯买入** BNB 按钱包聚合最大占比；协议地址双地址层剔除；刻意不含卖腿 | `tokenAgeSec < 90 AND pct < 60 AND covered == 1`（90s 窗+covered 必须带，过期洞事故修正版） |
 | `earlyTradesRouterPct`（+Covered） | **trader 层**落聚合路由合约的买入占比 | `< 60` |
 | `earlyTradesSniperHoldingPct`（+SniperWallets/SniperHolders/Covered） | sniper（`isSniperProfile`：`tokenCount>=100 AND (medianHoldSeconds∈[0,300) OR (null AND sym<0.1 AND 笔数>=40))`，协议地址排除，画像 miss=非 sniper；`src/trading-engine/pre-check/sniper-detector.js`）正持仓 Σ/正持仓池 Σ×100 | `< 50`（伴随 SnipersWallets ≥2） |
-| `narrativeCorpusLagSec` | FA 出生锚（live=TokenCreate 块时间/回测=discovered_at）−语料最早推文时间（主推与父推取更早）；负值=宣告竞态按早票放行；**null=无语料/无锚 → 落晚票严格门 fail-closed**（早票是证据门，无证据不放行） | `lag < 300 OR earlyReturn >= 100` |
+| `narrativeCorpusLagSec` | FA 出生锚（live=TokenCreate 块时间/回测=discovered_at）−语料**最新**推文时间（主推/父推/第二推文 website_tweet 取 Math.max——2026-10-14 朴蛋案裁定「卡最新的不卡老的」：旧口径取更早把旧梗新盘误判预热盘）；负值=宣告竞态按早票放行；**null=无语料/无锚 → 落晚票严格门 fail-closed**（早票是证据门，无证据不放行） | `lag < 300 OR earlyReturn >= 100` |
 | `strictSameNameTokenCount`（AVE 同名簇） | **回测=as-of 快照优先**：实时引擎真调 AVE 成功后 append 写 `ave_same_name_snapshots`（6h 节流/7 字段裁剪，全局资产不挂实验 FK）；回测取 `searched_at<=asOf` 最近快照，miss 才兜底实时且行级过滤 `created_at>0 && <=launchAt`（未来同名盘不计入，宁拦不冒充）；实时路径零变化。写端 snapshotWriter 由 PreBuyCheckService 注入（supabase 缺=不写） | `>= 3` |
 
 - **covered 语义**（top1/router/sniper 同构）：age>90s 或 launchAt 缺失 → 0 值放行（null 会让 `<N` 恒 false 误拦）

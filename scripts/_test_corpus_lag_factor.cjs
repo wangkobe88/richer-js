@@ -2,8 +2,9 @@
 /**
  * 早晚票分级 narrativeCorpusLagSec 因子单测（0fed29f9 案 2026-10-08，零 DB 零网络）
  *
- * 链路：NarrativeDirectCaller.getRating 提取语料最早推文时间 corpusTs（主推/父推
- * 取更早）→ 两引擎用 FA 出生锚算 narrativeCorpusLagSec = (birth − corpusTs)/1000 →
+ * 链路：NarrativeDirectCaller.getRating 提取语料最新推文时间 corpusTs（主推/父推/
+ * 第二推文取最新——2026-10-14 用户裁定「lag 卡最新的不要卡老的」，朴蛋案旧口径
+ * 取更早把旧梗新盘误判预热盘）→ 两引擎用 FA 出生锚算 narrativeCorpusLagSec = (birth − corpusTs)/1000 →
  * PreBuyCheckService 评估 context（null=晚票门 fail-closed）→ FactorBuilder 时序快照。
  *
  * 节：
@@ -33,11 +34,16 @@ console.log('\n═══ A. parseTwitterTs / extractCorpusTs ═══');
 {
   const MAIN = 'Sun Oct 04 09:00:06 +0000 2026';   // 0fed29f9 xSI 主推
   const PARENT = 'Sun Oct 04 08:40:12 +0000 2026'; // Elon 父推（事件锚）
+  const PUDAN_MAIN = 'Tue Oct 13 12:42:42 +0000 2026';    // 朴蛋案原梗推（byeol_ice，54min 前）
+  const PUDAN_ANNOUNCE = 'Tue Oct 13 13:36:58 +0000 2026'; // 朴蛋案宣告推（Gap2026_Dev，开盘前 7s）
   ok(parseTwitterTs(MAIN) === Date.parse(MAIN), 'A1 twitter 日期 JS 可解析');
   ok(parseTwitterTs(null) === null && parseTwitterTs('') === null && parseTwitterTs('garbage') === null, 'A2 空/垃圾输入 → null');
-  ok(extractCorpusTs({ created_at: MAIN, in_reply_to: { created_at: PARENT } }) === Date.parse(PARENT), 'A3 主推+父推取更早（superIP 语料形状 → 父推）');
+  ok(extractCorpusTs({ created_at: MAIN, in_reply_to: { created_at: PARENT } }) === Date.parse(MAIN), 'A3 主推+父推取最新（父推更早 → 主推，superIP 语料形状）');
   ok(extractCorpusTs({ created_at: MAIN }) === Date.parse(MAIN), 'A4 仅主推');
   ok(extractCorpusTs({ created_at: MAIN, in_reply_to: {} }) === Date.parse(MAIN), 'A5 父推缺 created_at 忽略');
+  ok(extractCorpusTs({ created_at: PUDAN_MAIN, website_tweet: { created_at: PUDAN_ANNOUNCE } }) === Date.parse(PUDAN_ANNOUNCE), 'A5b 朴蛋案形状：主推（旧梗）+第二推文（宣告推）→ 取宣告推（旧梗新盘不再误判预热盘）');
+  ok(extractCorpusTs({ created_at: PARENT, in_reply_to: { created_at: MAIN } }) === Date.parse(MAIN), 'A5c 父推晚于主推 → 取父推（max 对任意候选对称）');
+  ok(extractCorpusTs({ created_at: PUDAN_MAIN, in_reply_to: { created_at: 'Mon Oct 12 00:00:00 +0000 2026' } }) === Date.parse(PUDAN_MAIN), 'A5d 旧梗+更旧父推、无新推 → 仍取最新=旧梗（纯预热盘照卡）');
   ok(extractCorpusTs({ screen_name: 'foo', followers: 100 }) === null, 'A6 account 型语料（无 created_at）→ null');
   ok(extractCorpusTs(null) === null && extractCorpusTs({}) === null, 'A7 空语料 → null');
 }
@@ -57,7 +63,7 @@ console.log('\n═══ B. getRating corpusTs 接线 ═══');
   caller._startAnalysis = stub({ numericRating: 3, rating: 'high', classifiedUrls: null, twitter });
   // _startAnalysis 已打桩，getRating 不会触 _getAnalyzer
   const r1 = await caller.getRating('0xabc');
-  ok(r1.corpusTs === Date.parse('Sun Oct 04 08:40:12 +0000 2026'), 'B1 成功路径取语料最早时间（父推）');
+  ok(r1.corpusTs === Date.parse('Sun Oct 04 09:00:06 +0000 2026'), 'B1 成功路径取语料最新时间（父推更早 → 主推）');
   // 无 twitter 字段（如超时被兜底前的异常路径形状）
   caller._startAnalysis = stub({ numericRating: 3, rating: 'high', classifiedUrls: null, twitter: null });
   const r2 = await caller.getRating('0xabc');

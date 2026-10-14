@@ -55,6 +55,13 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷二自 C36 起）
 
+### C64 朴蛋案 0x3c4c…7777——narrativeCorpusLagSec 锚点语义反转：取最新不取更早（「lag 卡最新的不要卡老的」）+ 价格口径分裂疑云查否（2026-10-14 用户裁定）★
+
+- **案发**：2ad6a39b flap 票 0x3c4ca09c642541ffbcef0ae7310b420485627777（朴蛋）开盘后持续被 `narrativeCorpusLagSec < 300 OR earlyReturn >= 100` 左臂拦截（lag=3263s）。复盘语料：**主推=原梗推（byeol_ice 12:42:42，开盘前 54 分钟）+ 第二推文=宣告推（Gap2026_Dev 13:36:58，开盘前 7 秒）**——旧口径「主推/父推取更早 Math.min」把锚定在旧梗推上，「旧梗新盘/热点二次发酵」形状被机制性误判为预热盘；右臂 earlyReturn 在买窗内峰值 77（fire 价口径）够不着 100，整窗拦死。0fed29f9（C60）立门时的语料形状是「事件锚（父推）早于开盘=晚票」，朴蛋是「最新推（宣告）贴开盘=早票」——min 语义只对前者成立。
+- **裁定与修复（2026-10-14 用户原话「lag 卡最新的不要卡老的」）**：`extractCorpusTs` 改 **Math.max**（主推/父推/**第二推文 website_tweet** 三候选取最新；website_tweet 候选为本案权威来源——宣告推挂在第二推文位）。语义边界：有新鲜宣告即按早票放行；纯预热盘（旧梗+更旧父推、无新推）仍取最新=旧梗照卡（A5d 反证锁定）。改动面：`NarrativeDirectCaller.extractCorpusTs` + corpusTs 注释；`_test_corpus_lag_factor.cjs` A3/B1 改主推锚 + 新增 A5b/A5c/A5d 三断言（34 通过 0 失败）。**null 语义不变**（无语料→晚票严格门 fail-closed）；负值=宣告竞态保留。
+- **价格口径分裂疑云（查否留档）**：同案排查中我一度判「FA 吃 raw quote 价冒充 BNB（失真 479 倍）、DB 落换算价，两口径分裂」——**复查推翻**：信号快照里的 `firstPrice=4.0377e-6` 是 **USD 因子**（=firstPriceBnb 5.459e-9 × impliedBnbUsd 739.65，逐位吻合），我误当 `firstPriceBnb` 读。交叉验证两票（朴蛋 + 0xc079662f…7777）：快照 currentPrice/fdv 与 DB price_usd/换算价序列逐位同量纲（开盘 fdv $6.2k/$4.2k 正常 flap 量级），**引擎消费的确实是换算后 BNB 价，主干单喂食管（`_emitTick`→`_feedFa` 同一 decoded.priceBnb）无分裂无 bug**。教训（与 [[flap-usd-bnb-denomination]] 同族量纲坑）：快照/因子里 `firstPrice/currentPrice/fdv/marketCap` 全是 USD 口径，`*Bnb` 后缀键才是 BNB——对比 DB `price_bnb` 列前必须先对键名，且快照白名单本就不含 *Bnb 键（推导须借 impliedBnbUsd）。另：同秒多块票按 block_time 排序会打乱 log 序（li 按块重置），对拍须按 (block_number, log_index)。
+- **部署**：跑中实验（d32f9d96 v9）须重启进程才吃到新 lag 语义（内存态语料缓存不回填，重启后新 fire 即新口径；存量 token_narrative 缓存行不含 corpusTs，无失效需求）。
+
 ### C63 叙事直调提速第二批（代码实现层）——N2 后基线 avg 6.2s 再压：三泳道并发 / vision 预启动 / website 去除 / keepAlive 等 15 项三批落地（2026-10-13 用户裁定「除了这种方法层面的提速，我想请再深度的分析一下代码实现，看看还能不能让耗时再短一点。毫无疑问，每节约一点时间，都能多赚一些」）★
 
 - **基线实测**（182 a21fa102 新进程，N1+N2 代码，首跑 47 样本）：**avg 6.2s / p50 4.0s / p90 13.0s / max 25.6s**（N2 兑现 11.5→6.2s 预期）；缓存命中 55/102。分段画像：vision 2889ms（双峰：21 次同图缓存 ~0ms + **20 次真调用均值 5.9s 全在主链串行**）> fetch.website 3803ms（12/47 票，15s 超时+jina 长尾）> fetch.twitter 1138 > accountCollect 918 > issuerCa 385（28/38 缓存命中正来自与账号链的串行 handoff）> ipfs∥gmgn ~400（N2 已兑现）> jev 349 > DB 小头 ~190。两项 Explore agent 扫链产出 16 候选 + 「已确认不能再压」清单（IPFS 竞速/四桶并发/翻页最优/Jev 单调用等 14 项封死，防重复劳动）。

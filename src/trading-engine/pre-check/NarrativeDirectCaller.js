@@ -196,8 +196,9 @@ class NarrativeDirectCaller {
    *   gmgnRisk：GMGN dev 风险字段（x-0 案——直调语境 analyze 内同次 getTokenInfo
    *   带出发币史/捆绑钱包统计；超时/异常/未索引 → null，下游 gmgnRiskCovered=0
    *   放行——宁漏拦不误杀）
-   *   corpusTs：语料最早推文时间 ms（主推/父推取更早；0fed29f9 案 2026-10-08 早晚票
-   *   分级事件锚）；null = 无推文语料/超时/异常（下游 narrativeCorpusLagSec=null
+   *   corpusTs：语料最新推文时间 ms（主推/父推/第二推文取最新；0fed29f9 案 2026-10-08
+   *   早晚票分级事件锚；2026-10-14 用户裁定取最新不取更早——旧口径对旧梗新盘误判预热盘）；
+   *   null = 无推文语料/超时/异常（下游 narrativeCorpusLagSec=null
    *   → null 比较恒 false → 落晚票严格门，fail-closed）
    *   precheckStage：precheck 挂点（'address'=宣告竞态，叙事否决短路豁免判据）
    *   timing：分段计时快照 [{seg, ms}]（N1 探针 2026-10-13 叙事提速案；analyze 全链
@@ -330,18 +331,26 @@ function parseTwitterTs(s) {
 }
 
 /**
- * 从 analyze 结果的 twitter 字段提取语料最早推文时间（主推/父推取更早）
+ * 从 analyze 结果的 twitter 字段提取语料最新推文时间（主推/父推/第二推文取最新）
  * 早晚票分级的「事件锚」：narrativeCorpusLagSec = token 出生锚 − corpusTs
+ * 2026-10-14 用户裁定「lag 卡最新的不要卡老的」（朴蛋案 0x3c4c…7777：语料含 54 分钟前
+ * 原梗推 + 开盘前 7s 宣告推，旧口径取更早 → 旧梗新盘被判预热盘卡 earlyReturn≥100 右臂；
+ * 取最新 → 有新鲜宣告即按早票放行，纯预热盘无新推仍照卡）
  * @param {Object|null} twitter - analyze 返回的 twitterInfo（tweet 型含 created_at；
+ *   website_tweet = 第二推文（token URL 指向的宣告推等，data-fetch-service 挂载）；
  *   account/community 型/无推文语料 → null = 无事件锚）
  * @returns {number|null} 毫秒时间戳；null = 无推文语料（下游按晚票 fail-closed）
  */
 function extractCorpusTs(twitter) {
-  const candidates = [twitter?.created_at, twitter?.in_reply_to?.created_at]
+  const candidates = [
+    twitter?.created_at,
+    twitter?.in_reply_to?.created_at,
+    twitter?.website_tweet?.created_at,
+  ]
     .map(parseTwitterTs)
     .filter(v => typeof v === 'number');
   if (!candidates.length) return null;
-  return Math.min(...candidates);
+  return Math.max(...candidates);
 }
 
 /**
