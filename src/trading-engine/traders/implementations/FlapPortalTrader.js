@@ -42,7 +42,10 @@ class FlapPortalTrader extends BaseTrader {
             portalAddress: (config.contracts && config.contracts.portal)
                 || '0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0',
             gasLimit: 350000, // swap + 潜在内部换路径（B4：作为 estimateGas 失败的回落值）
-            gasLimitHardCap: 700000, // B4：动态 gasLimit 上限（estimate×1.3 钳制）
+            gasLimitHardCap: 2000000, // B4：动态 gasLimit 上限（estimate×1.3 钳制）。2026-10-14
+            // 700000→2000000：非 BNB 计价盘卖出多跳路径实测 estimate 811k-889k（우땅이 案，
+            // estimateGas 模拟成功但被 cap 钳 700k → 子调用 OOG 假 revert 连败熔断）；
+            // gas 0.05gwei 下 2M cap 满用成本 0.0001 BNB
             gasPrice: ethers.parseUnits('10', 'gwei'),
         };
 
