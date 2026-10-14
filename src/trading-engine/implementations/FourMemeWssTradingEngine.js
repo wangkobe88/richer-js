@@ -90,7 +90,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._sellCooldownUntil = new Map(); // 卖出失败冷却 tokenAddress → untilTs（live 防 gas 消耗风暴）
     this._sellFailStreak = new Map();    // 卖出连续失败计数 tokenAddress → 连败数（熔断判定输入）
     this._pcsTrader = null;              // PCS V2 trader（P0-C 懒加载：毕业票手工卖专用，TM2 毕业后 sellToken 必 revert）
-    this._nonBnbQuoteBlockedTokens = new Set(); // 非 BNB 计价盘拒买拉黑（write-once，live only；防线命中登记，_runBuyEvaluation 短路后续 fire）
 
     // 引擎级配置（fourmemeWs 段；实验级覆盖在 _initializeDataSources 中重读）
     this._applyWsConfig(baseConfig[this._wsConfigSectionName()] || {});
@@ -1294,13 +1293,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
     if (this._tokenBlacklist.has(tokenAddress)) return;
 
-    // 非 BNB 计价盘拒买拉黑（元宝拒买风暴案 2026-10-14，live only）：_executeBuyLive
-    // 防线首次命中即 write-once 登记；拒买是终态事实（quote 计价不会翻回 BNB），拉黑后
-    // fire 在策略评估前静默短路——否则每 tick 重评落 signal 行 + 白跑叙事直调/preBuyCheck
-    //（元宝 36+ 次/分钟级刷屏实证）。virtual 不拦（虚拟不真买，保留实验观察数据）；
-    // 执行点防线保留兜底（手工买路径不经本方法）
-    if (this._isLive && this._nonBnbQuoteBlockedTokens.has(tokenAddress)) return;
-
     // pumpfun 回迁批 2 买腿门：止损闩锁（lockTokenAfterSell 成交置锁）/
     // 累亏闩锁（该 token 已平仓轮 profitPercent 累计 ≤ 阈值）→ 永久禁买。
     // 置锁与记账在 _emitSellSignal 卖出成功处，日志 tag [stopLossLock]/[cumLossLock]
@@ -2149,21 +2141,9 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    */
   async _executeBuyLive(signal, signalId = null, metadata = {}) {
     try {
-      // 红线防线：live 只买 BNB 计价盘（우땅이 案 2026-10-14）：flap 非 BNB 盘买入多跳
-      // 路径当时有流动性即可成交（Portal「天然 fail-closed」假设实证破产），quote 币池
-      // 死后卖出双向 revert 持仓归零。map miss=BNB 盘常态，miss 放行；four.meme 盘
-      // TokenManager2 语义维持既有天然拦截，不在此拦
-      if (this._platformForToken(signal.tokenAddress) === 'flap') {
-        const { FlapAnkrWsCollector } = require('../../collectors/flap-ankr-ws-collector.js');
-        const flapCollector = this._collectors.find(c => c instanceof FlapAnkrWsCollector);
-        const quoteToken = flapCollector ? flapCollector.getNonBnbQuoteToken(signal.tokenAddress) : null;
-        if (quoteToken) {
-          this._nonBnbQuoteBlockedTokens.add(signal.tokenAddress); // write-once 拉黑：_runBuyEvaluation 短路后续 fire（拒买风暴案）
-          this.logger.warn(this._experimentId, '_executeBuyLive',
-            `🚫 非 BNB 计价盘拒买 | ${signal.symbol} quote=${quoteToken}（live 只买 BNB 计价盘，后续 fire 评估层短路）`);
-          return { success: false, reason: `非 BNB 计价盘拒买（quote=${quoteToken}）| ${signal.symbol}` };
-        }
-      }
+      // 非 BNB 计价盘不再拒买（2026-10-14 用户裁定「所有非 BNB 盘都可以买，只要能正常
+      // 买入」——推翻同日早些的 BNB-only 防线；买入可行性由 estimateGas 天然保证：多跳
+      // 路径不通 estimate 失败即买入失败，不发垃圾 tx。卖出侧 quote 池风险由用户自担）
 
       // 卡牌模式：逐腿金额 = perCardBNB × 张数（不走 _calculateBuyAmount 的 PM cash 门，
       // live 真金白银以链上余额检查为准）

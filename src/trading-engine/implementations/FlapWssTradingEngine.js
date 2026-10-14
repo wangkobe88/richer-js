@@ -15,9 +15,9 @@
  *     文档 docs.flap.sh trade-tokens 对齐；traders/index.js 注册名 'flap'）。
  *     钱包/解密/余额门/BNB-USD 锚定/对账/恢复全部复用父类 _initializeLiveTrader，
  *     仅 trader 类型经 _liveTraderType() 分派。live 参数读 flapWs.live 段。
- *     收窄口径：BNB 计价盘买入（基类 _executeBuyLive 首块查 getNonBnbQuoteToken
- *     主动拒买——우땅이 案 2026-10-14：「非 BNB 盘买入天然 revert」实证破产，多跳
- *     买入可成交而池死后卖出双向 revert）；卖出 token→BNB 全盘支持。
+ *     买入不再区分计价盘（2026-10-14 用户裁定「所有非 BNB 盘都可以买，只要能正常
+ *     买入」——推翻同日早些的 BNB-only 拒买防线，买入可行性由 estimateGas 天然保证）；
+ *     卖出 token→BNB 全盘支持。
  *
  * 范围：virtual 虚拟交易 + backtest（BacktestEngine 平台无关，tick 同表回放）+ live。
  */

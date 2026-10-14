@@ -701,15 +701,6 @@ class FlapAnkrWsCollector {
     }
 
     /**
-     * 非 BNB 计价标记查询（live 买入防线消费，우땅이 案 2026-10-14）：返回该 token 的
-     * quote ERC20 地址（lowercase）；BNB 计价/未知 = null（BNB 计价不进 map 是常态，
-     * miss 放行——QuoteSet 与 token_create 同 WSS 通道，丢事件概率等同断流，可接受）。
-     */
-    getNonBnbQuoteToken(tokenAddress) {
-        return this._nonBnbQuoteTokens.get(lowerAddr(tokenAddress)) || null;
-    }
-
-    /**
      * 取 quote→BNB 汇率（TTL 缓存 + stale-while-revalidate + 负缓存 + inflight 去重）。
      * @returns {Promise<{rate:number}|null>} null=无池/无储备/负缓存期内（调用方跳过该 tick）
      */
