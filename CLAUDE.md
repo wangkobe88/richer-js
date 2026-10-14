@@ -115,6 +115,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 - `_buildFactorMap` 字面量键（getFactorKeys 探针自动收键，策略 condition 直接引用）；`tokenAgeSec`=`age×60` 同源双路径（FA 字面量 + FactorBuilder 推导），preFilter 提取 /60 归并 age 区间，快照白名单落库
 - **周期分桶路由**：双主量 `tps30s`（30s 滑窗密度，分母=min(存活,30s)）/`gapMedianMs`（5min 窗间隔中位数）→ 3 热（tps≥0.5 或 gap≤2000）/2 中（≥0.08 或 ≤12000）/1 冷（有证据但低于中档，**或证据不足但已过 warmup=判冷不判 null**）；null 仅 warmup(<15s)/无锚点。hysteresis `_cycleLatch`：升降档驻留 30s；存活<90s（cycleEarlySec）升档免驻留 earlyUp；断流>30s 立即降 1（stale）。**判定内 now 由 `buildFactorMap(state, asOf)` 传入，禁 Date.now（防前视红线）**。参数 11 键三级合并：`FACTOR_PARAM_DEFAULTS < fourmemeWs.factorParams < tokenCycle.params`（`mapCycleParams`，键清单单一事实源 group-variables.js）；开关=`tokenCycle.enforce`（缺段=不写 cycleTag=路由不生效）；带 cycle/groups 腿在 token 无档时 **fail-closed 隐身**（低优腿可顶上，桶切换计数跨桶保留）；切换打 `[CycleSwitch]` 固定格式日志
 - 新因子键 5 个：`tokenCycle/tokenCycleRaw/tokenCycleAgeSec/cycleTps30s/cycleGapMedianMs`
+- **holderTrend 族 slot 化**（2026-10-14，11 键语义原地改·历史断代）：原料序列=**blockNumber 桶×8 块≈4s 窗**（`_pushHolderSeriesPoint`，同块覆盖/新块追加/8 块封顶；W=8 为 48h 全量数据定长甜点；与 HolderTrendDetector 内部 maxPoints=8 必须同改）；与价格接受链**解耦**（离群/零价 tick 照样推进持有者桶）、blockNumber 缺失不推进；价格 `_priceSeries` 10s 桶不变（trend 族）。门槛不变：growthRatio 族 ≥2 点、slope/direction 族 ≥4 点（≈2s 出值）。slim 快照含 11 键（序列不可重建，不落库即丢）；web 时序直读快照不重算。旧值断代：改造前信号 metadata/回测不可比
 
 ### 策略库 + groups 组路由
 
