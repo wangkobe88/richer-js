@@ -321,7 +321,7 @@
                         </div>
                     </div>
                     <details class="text-xs">
-                        <summary class="cursor-pointer text-gray-500">高级条件（买腿预检/叙事直调/再检；展开编辑）</summary>
+                        <summary class="cursor-pointer text-gray-500">高级条件（买腿预检/叙事直调/再检/GMGN 门；展开编辑）</summary>
                         <div class="grid grid-cols-1 gap-2 mt-2">
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-0.5">首次购买检查条件</label>
@@ -336,6 +336,11 @@
                             <div>
                                 <label class="block text-xs font-medium text-gray-600 mb-0.5">叙事评级直调触发条件</label>
                                 <input type="text" data-k="narrativeCallCondition" value="${escapeAttr(leg.narrativeCallCondition || '')}" placeholder="留空=不调用"
+                                       class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-0.5">GMGN 检查条件（第三层：前两层全过、下单前实时调 GMGN；调不到数据=拒买）</label>
+                                <input type="text" data-k="gmgnCheckCondition" value="${escapeAttr(leg.gmgnCheckCondition || '')}" placeholder="留空=不检查；可用因子 gmgnBundlerWalletRatio / gmgnIssuerTokenCount / gmgnRiskCovered"
                                        class="w-full px-2 py-1.5 border border-gray-300 rounded-md text-xs">
                             </div>
                         </div>
@@ -378,7 +383,7 @@
                 merged.bypassDebounce = get('bypassDebounce').checked; // 勾选才落 true
                 if (!merged.bypassDebounce) delete merged.bypassDebounce;
 
-                for (const k of ['preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition']) {
+                for (const k of ['preBuyCheckCondition', 'repeatBuyCheckCondition', 'narrativeCallCondition', 'gmgnCheckCondition']) {
                     const v = get(k).value.trim();
                     if (v === '') delete merged[k]; else merged[k] = v;
                 }

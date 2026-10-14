@@ -1889,6 +1889,7 @@
             const subConds = [];
             if (cfg.preBuyCheckCondition) subConds.push(['预检查', cfg.preBuyCheckCondition]);
             if (cfg.repeatBuyCheckCondition) subConds.push(['复购检查', cfg.repeatBuyCheckCondition]);
+            if (cfg.gmgnCheckCondition) subConds.push(['GMGN 检查（第三层，买前实时调）', cfg.gmgnCheckCondition]);
             if (cfg.narrativeCallCondition) subConds.push(['叙事直调', cfg.narrativeCallCondition]);
             if (cfg.permanentBlockCondition) subConds.push(['永久阻断', cfg.permanentBlockCondition]);
             const subBox = card.querySelector('.leg-subconds');
