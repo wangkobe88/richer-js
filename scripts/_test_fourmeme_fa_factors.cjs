@@ -442,9 +442,13 @@ function scenarioListFactors(FA) {
 function scenarioFactorKeys(FA, baselineKeys) {
     const fa = new FA({});
     const keys = fa.getFactorKeys();
-    // 2026-10-13 清理后键集契约：相对删除前基线（7cbbdee），新增 0、丢失恰 = 68 删除键
+    // 2026-10-13 清理后键集契约：相对删除前基线（7cbbdee），新增恰 = 白名单新键、丢失恰 = 68 删除键。
+    // ADDED_KEYS：清理后新增因子（拼写防回归）——2026-10-14 gmgnUserPct（GMGN 用户实时占比，
+    // 小王子案替换 TPAPre 快照口径，详见 _test_gmgn_user_pct_factor.cjs）
+    const ADDED_KEYS = ['gmgnUserPct'];
     const added = [...keys].filter(k => !baselineKeys.has(k));
-    ok(added.length === 0, '键集新增 0（无意外键）', added);
+    const addedOk = added.length === ADDED_KEYS.length && ADDED_KEYS.every(k => added.includes(k));
+    ok(addedOk, `键集新增恰 = ${ADDED_KEYS.length} 白名单键（无意外键）`, added);
     const lost = [...baselineKeys].filter(k => !keys.has(k)).sort();
     const expect = [...DELETED_KEYS].sort();
     const same = lost.length === expect.length && lost.every((k, i) => k === expect[i]);

@@ -416,16 +416,21 @@ console.log('\nH 节：P2b 死重维护开关');
     () => assert.strictEqual(st2.firstPriceBnb, 0.00001) && assert.strictEqual(st2.currentPriceBnb, 0.00002)
       && assert.strictEqual(st2.highestPriceBnb, 0.00002));
 
-  // H5 最强证明：cls+tpa 双关时 buildFactorMap 出口与默认逐键恒等（维护面不进因子图）
+  // H5 最强证明：cls+tpa 双关时 buildFactorMap 出口与默认逐键恒等（维护面不进因子图）。
+  // 2026-10-14 例外键 gmgnUserPct（小王子案实时因子）：唯一合法消费 _walletRoutedBuyBnb
+  // 维护面的因子——双关（maintainTpa=false）时 null fail-closed（引用键的门拦，区别于
+  // 0=有证据零占比）；其余键仍须逐键恒等（维护面零泄漏）
   const fa5a = mkFa({}), fa5b = mkFa({ maintainClassifierTracks: false, maintainTpaTracks: false });
   feed(fa5a); feed(fa5b);
   const f5a = fa5a.buildFactorMap('0xtoken', T0 + 20000);
   const f5b = fa5b.buildFactorMap('0xtoken', T0 + 20000);
   const diff = [];
   for (const k of new Set([...Object.keys(f5a), ...Object.keys(f5b)])) {
+    if (k === 'gmgnUserPct') continue; // 唯一例外：TPA 维护面因子（下方显式断言）
     if (JSON.stringify(f5a[k]) !== JSON.stringify(f5b[k])) diff.push(`${k}: ${JSON.stringify(f5a[k])} vs ${JSON.stringify(f5b[k])}`);
   }
-  check('H5 双关时因子图与默认逐键恒等', () => assert.strictEqual(diff.length, 0, diff.join('; ')));
+  check('H5 双关时因子图与默认逐键恒等（除 gmgnUserPct 例外键）', () => assert.strictEqual(diff.length, 0, diff.join('; ')));
+  check('H5b 双关时 gmgnUserPct=null（TPA 维护面因子 fail-closed）', () => assert.strictEqual(f5b.gmgnUserPct, null));
 }
 
 (async () => {

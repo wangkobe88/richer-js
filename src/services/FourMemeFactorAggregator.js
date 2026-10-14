@@ -1668,6 +1668,22 @@ class FourMemeFactorAggregator extends EventEmitter {
         const _holderTop3 = _nA + _nB + _nC;
         const _holderTop5 = _nA + _nB + _nC + _nD + _nE;
 
+        // GMGN 用户实时占比（2026-10-14 小王子案用户裁定，替换 TPAPre_gmgnUserPct 快照口径）：
+        // Σ(GMGN 用户 net>0)/Σ(net>0)×100，量加权——公式与 TPA _gmgnShareStats 逐字一致；TPA 消费点
+        // 在触发/分析时刻（write-once 快照），对后期 GMGN 流入盲视（好票前期 GMGN 用户少、后面
+        // 涨上来快照也不翻案）。此处每 tick 实时重算。_maintainTpa=false（实验无 TPA 段，
+        // _walletRoutedBuyBnb 零写入）→ null fail-closed——区别于 0=「有证据零占比」（纯直连盘）
+        let _gmgnUserPct = null;
+        if (this._maintainTpa) {
+            let _posTotal = 0, _gmgnPos = 0;
+            for (const [_addr, _net] of state._walletNetTokens) {
+                if (_net <= 0) continue;
+                _posTotal += _net;
+                if ((state._walletRoutedBuyBnb.get(_addr) || 0) > 0) _gmgnPos += _net;
+            }
+            _gmgnUserPct = _posTotal > 0 ? Number(((_gmgnPos / _posTotal) * 100).toFixed(2)) : 0;
+        }
+
         // 名单因子（回迁批 3.3）：sniperHolderShare = top20 净持仓中 sniper 占比×100
         // （20 槽插入排序，v<=0 跳过；分母=_sum20 top20 净和【非 totalSupply】——母版口径；
         //   creator 豁免；名单 null 或 _sum20<=0 → null fail-closed=引用键的门不放行）
@@ -1819,6 +1835,8 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             // ── WSS 事件流口径的「AVE 替代」因子 ──
             holders: state.holderCount,
+            // GMGN 用户净持仓占比实时值（小写无前缀=FA 实时层；TPAPre_ 前缀=TPA 触发时快照层）
+            gmgnUserPct: _gmgnUserPct,
             txVolumeU24h: bnbUsd > 0 ? (state.totalBuyBnb + state.totalSellBnb) * bnbUsd : 0,
             tvl: bnbUsd > 0 ? state.lastFundsBnb * bnbUsd : 0,
             fdv: 0,        // 见下（与 marketCap 同值）

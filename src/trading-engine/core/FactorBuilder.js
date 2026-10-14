@@ -50,6 +50,9 @@ function buildFactorValuesForTimeSeries(factorResults) {
     holderDrawdownFromHighestSinceLastBuy: factorResults.holderDrawdownFromHighestSinceLastBuy,
     txVolumeU24h: factorResults.txVolumeU24h,
     holders: factorResults.holders,
+    // GMGN 用户净持仓占比实时值（2026-10-14 小王子案：TPAPre 快照不翻案换 FA 实时因子）——
+    // signals 页/信号复盘直读；旧 FA 无此键 → null 不掩盖
+    gmgnUserPct: factorResults.gmgnUserPct ?? null,
     // 累计买入量 BNB（FA state.totalBuyBnb；买腿 condition 量能主键）——signals 页
     // 买入条件复盘用；旧 FA/历史信号无此键 → null 不掩盖
     buyVolumeBnb: factorResults.buyVolumeBnb ?? null,
@@ -462,6 +465,9 @@ function buildSlimFactorValues(factorResults) {
     currentPrice: factorResults.currentPrice,
     txVolumeU24h: factorResults.txVolumeU24h,
     holders: factorResults.holders,
+    // GMGN 用户净持仓占比实时值（观察层）：门拦截复盘唯一数据源（本案诊断靠它）；
+    // 旧 FA 无此键 → null 不掩盖
+    gmgnUserPct: factorResults.gmgnUserPct ?? null,
     tvl: factorResults.tvl,
     fdv: factorResults.fdv,
     marketCap: factorResults.marketCap,
