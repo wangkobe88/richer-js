@@ -2141,6 +2141,21 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    */
   async _executeBuyLive(signal, signalId = null, metadata = {}) {
     try {
+      // 红线防线：live 只买 BNB 计价盘（우땅이 案 2026-10-14）：flap 非 BNB 盘买入多跳
+      // 路径当时有流动性即可成交（Portal「天然 fail-closed」假设实证破产），quote 币池
+      // 死后卖出双向 revert 持仓归零。map miss=BNB 盘常态，miss 放行；four.meme 盘
+      // TokenManager2 语义维持既有天然拦截，不在此拦
+      if (this._platformForToken(signal.tokenAddress) === 'flap') {
+        const { FlapAnkrWsCollector } = require('../../collectors/flap-ankr-ws-collector.js');
+        const flapCollector = this._collectors.find(c => c instanceof FlapAnkrWsCollector);
+        const quoteToken = flapCollector ? flapCollector.getNonBnbQuoteToken(signal.tokenAddress) : null;
+        if (quoteToken) {
+          this.logger.warn(this._experimentId, '_executeBuyLive',
+            `🚫 非 BNB 计价盘拒买 | ${signal.symbol} quote=${quoteToken}（live 只买 BNB 计价盘）`);
+          return { success: false, reason: `非 BNB 计价盘拒买（quote=${quoteToken}）| ${signal.symbol}` };
+        }
+      }
+
       // 卡牌模式：逐腿金额 = perCardBNB × 张数（不走 _calculateBuyAmount 的 PM cash 门，
       // live 真金白银以链上余额检查为准）
       const amountInBNB = this._buyAmountFor(signal);
