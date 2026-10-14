@@ -6,6 +6,15 @@
 
 const { dbManager } = require('../../services/dbManager');
 
+// holderTrend* 族（2026-10-14 引擎侧 slot 化改造）：序列是 FA blockNumber 桶状态机产物，
+// 30s 快照行无块级分辨率、不可重算——这些键只直读 factor_values（改造后 slim 落键 /
+// rich-js 旧全量行原样），miss 返回空。键集真相源=FA _buildFactorMap（勿在此扩键）
+const HOLDER_TREND_FACTOR_KEYS = new Set([
+  'holderTrendDataPoints', 'holderTrendGrowthRatio', 'holderTrendRiseRatio', 'holderTrendCV',
+  'holderTrendRecentDecreaseCount', 'holderTrendRecentDecreaseRatio', 'holderTrendConsecutiveDecreases',
+  'holderTrendHolderCountUp', 'holderTrendMedianUp', 'holderTrendSlope', 'holderTrendStrengthScore',
+]);
+
 /**
  * 实验时序数据服务类
  * @class
@@ -371,6 +380,18 @@ class ExperimentTimeSeriesService {
       const data = await this.getExperimentTimeSeries(experimentId, tokenAddress);
       if (!data || data.length === 0) return [];
 
+      // holderTrend* 族只直读快照：不可重算（blockNumber 桶状态机产物，30s 行无块级
+      // 分辨率），旧数据（改造前 slim 不落键）返回空曲线
+      if (HOLDER_TREND_FACTOR_KEYS.has(factorName)) {
+        return data
+          .map(record => ({
+            timestamp: record.timestamp,
+            loopCount: record.loop_count,
+            value: record.factor_values?.[factorName] ?? null,
+          }))
+          .filter(item => item.value !== null);
+      }
+
       // 检查数据中是否直接包含该因子（兼容旧数据）
       const firstRecord = data.find(r => r.factor_values && Object.keys(r.factor_values).length > 0);
       const hasDirectFactor = firstRecord?.factor_values?.[factorName] !== undefined;
@@ -411,7 +432,6 @@ class ExperimentTimeSeriesService {
 
     const results = [];
     const priceHistory = [];
-    const holderHistory = [];
     let highestPrice = 0;
     let firstPrice = 0;
     let tokenCreatedAt = null;
@@ -431,10 +451,6 @@ class ExperimentTimeSeriesService {
         priceHistory.push(priceUsd);
         if (priceUsd > highestPrice) highestPrice = priceUsd;
       }
-
-      // 维护持有者历史
-      const holders = fv.holders ?? 0;
-      holderHistory.push(holders);
 
       // 计算因子值
       const age = tokenCreatedAt
@@ -516,60 +532,7 @@ class ExperimentTimeSeriesService {
         }
       }
 
-      // 持有者趋势因子
-      const _holders = holderHistory.slice(-maxPoints);
-      let holderTrendGrowthRatio = null, holderTrendRiseRatio = null, holderTrendCV = null;
-      let holderTrendRecentDecreaseCount = null, holderTrendRecentDecreaseRatio = null;
-      let holderTrendConsecutiveDecreases = null;
-      let holderTrendHolderCountUp = 0, holderTrendMedianUp = 0, holderTrendSlope = null, holderTrendStrengthScore = null;
-      const holderTrendDataPoints = _holders.length;
-
-      if (_holders.length >= 2) {
-        const firstH = _holders[0], lastH = _holders[_holders.length - 1];
-        holderTrendGrowthRatio = firstH > 0 ? ((lastH - firstH) / firstH) * 100 : 0;
-
-        let hRiseCount = 0;
-        for (let i = 1; i < _holders.length; i++) {
-          if (_holders[i] > _holders[i - 1]) hRiseCount++;
-        }
-        holderTrendRiseRatio = hRiseCount / Math.max(1, _holders.length - 1);
-
-        const hMean = _holders.reduce((a, b) => a + b, 0) / _holders.length;
-        if (hMean > 0) {
-          const hVariance = _holders.reduce((sum, h) => sum + Math.pow(h - hMean, 2), 0) / _holders.length;
-          holderTrendCV = Math.sqrt(hVariance) / hMean;
-        }
-
-        const _hCheckSize = Math.min(5, _holders.length);
-        const _recentHolders = _holders.slice(-_hCheckSize);
-        let _decreaseCount = 0;
-        for (let i = 1; i < _recentHolders.length; i++) {
-          if (_recentHolders[i] < _recentHolders[i - 1]) _decreaseCount++;
-        }
-        holderTrendRecentDecreaseCount = _decreaseCount;
-        holderTrendRecentDecreaseRatio = _decreaseCount / Math.max(1, _recentHolders.length - 1);
-
-        let _hConsecutiveDecreases = 0;
-        for (let i = _holders.length - 1; i > 0; i--) {
-          if (_holders[i] < _holders[i - 1]) _hConsecutiveDecreases++;
-          else break;
-        }
-        holderTrendConsecutiveDecreases = _hConsecutiveDecreases;
-
-        if (_holders.length >= 4) {
-          const hDiffs = [];
-          for (let i = 1; i < _holders.length; i++) hDiffs.push(_holders[i] - _holders[i - 1]);
-          const hUpCount = hDiffs.filter(d => d > 0).length;
-          holderTrendHolderCountUp = hUpCount > hDiffs.length / 2 ? 1 : 0;
-          holderTrendStrengthScore = Math.round((hUpCount / Math.max(1, hDiffs.length)) * 100);
-
-          if (firstH > 0) {
-            holderTrendSlope = ((_holders[_holders.length - 1] - _holders[0]) / firstH) * 100;
-          }
-        }
-      }
-
-      // 因子映射表
+      // 因子映射表（holderTrend* 族不在此重算：直读快照分支已在 getFactorTimeSeries 前置拦截）
       const factorMap = {
         age, currentPrice: priceUsd, firstPrice,
         earlyReturn, riseSpeed, highestPrice,
@@ -584,10 +547,6 @@ class ExperimentTimeSeriesService {
         trendCV, trendPriceUp, trendMedianUp, trendStrengthScore, trendTotalReturn,
         trendRiseRatio, trendSlope, trendDataPoints,
         trendRecentDownCount, trendRecentDownRatio, trendConsecutiveDowns,
-        // 持有者趋势因子
-        holderTrendCV, holderTrendHolderCountUp, holderTrendMedianUp, holderTrendStrengthScore,
-        holderTrendGrowthRatio, holderTrendRiseRatio, holderTrendSlope, holderTrendDataPoints,
-        holderTrendRecentDecreaseCount, holderTrendRecentDecreaseRatio, holderTrendConsecutiveDecreases,
       };
 
       const value = factorMap[factorName];

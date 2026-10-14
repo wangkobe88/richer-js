@@ -12,7 +12,9 @@
  *   - txVolumeU24h  → 累计成交额（totalBuyBnb+totalSellBnb）× BNB/USD（观察窗内代币全生命周期）
  *   - tvl           → 最近一笔事件的 curve funds × BNB/USD
  *   - fdv/marketCap → currentPrice × totalSupply（TokenCreate 事件）
- *   - trend 族 / holderTrend 族 → 10s 时间桶价格/持有者序列（8 点窗，TrendDetector/HolderTrendDetector 复用）
+ *   - trend 族 → 10s 时间桶价格序列（8 点窗，TrendDetector 消费）
+ *   - holderTrend 族 → blockNumber 桶持有者序列（8 块窗 ≈4s，HolderTrendDetector 消费；
+ *     2026-10-14 改造：适配新盘秒级节奏，旧 10s 桶 80s 窗对新 meme 币出值太慢）
  *
  * 价格以 BNB 为原生单位追踪（决策因子均为比值，免汇率漂移）；USD 值在 buildFactorMap
  * 时用最近 tick 的隐含 BNB/USD（price_usd/price_bnb）换算。
@@ -59,9 +61,14 @@ const { HOLDING_FACTOR_KEYS, FA_TPA_KEYS } = require('./tpa-factor-keys');
 // 与 EarlyParticipantCheckService routerPct 因子同层同源（trader=msg.sender 层）
 const { AGGREGATOR_ROUTER_ADDRS } = require('../trading-engine/pre-check/aggregator-routers');
 
-// 趋势序列时间桶宽度：8 点 × 10s ≈ 旧轮询时代（10s 采样 × 8 点）窗口语义
+// 趋势序列时间桶宽度（价格臂）：8 点 × 10s ≈ 旧轮询时代（10s 采样 × 8 点）窗口语义
 const SERIES_BUCKET_SEC = 10;
 const SERIES_MAX_POINTS = 8;
+// 持有者趋势序列窗口（holderTrend 族，2026-10-14 用户裁定）：blockNumber 桶 × 8 块
+// ≈ 4s 窗（BSC 出块 0.5s 中位；48h 全量 6000 盘数据定长：区分度 23.1pp 最高点、翻转率
+// 较 4 块窗减半）。★与 HolderTrendDetector._confirmDirection/_calculateTrendStrength 内部
+// maxPoints=8 保持一致——改一处必须同改另一处。
+const HOLDER_SERIES_MAX_POINTS = 8;
 
 // 滑窗速率窗口（分钟）
 const RATE_WINDOW_MS = 5 * 60 * 1000;
@@ -613,6 +620,11 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
 
+        // ── holderTrend 原料（2026-10-14 slot 化改造）：blockNumber 桶持有者序列——
+        //    holderCount 上方已维护完毕，与价格接受链解耦（离群/零价 tick 照样推进持有者桶）；
+        //    blockNumber 缺失不推进（collector null 丢行/回测透传恒非空，不造兜底）──
+        if (blockNumber !== null) this._pushHolderSeriesPoint(state, blockNumber);
+
         // ── 价格追踪（离群剔除）──
         const priceOutlier = priceBnb > 0 && !this._acceptPrice(state, priceBnb);
         let priceAccepted = false;
@@ -639,7 +651,7 @@ class FourMemeFactorAggregator extends EventEmitter {
                     pos.highestHoldersSinceBuyAt = ts;
                 }
             }
-            this._pushSeriesPoint(state, ts);
+            this._pushPriceSeriesPoint(state, ts);
         } else if (priceOutlier) {
             this._stats.pricesRejectedOutlier++;
         }
@@ -999,7 +1011,7 @@ class FourMemeFactorAggregator extends EventEmitter {
 
             _recentPrices: [],   // 最近 5 笔已接受价（离群中位基准）
             _priceSeries: [],    // 10s 桶价格序列（trend* 因子，8 点）
-            _holderSeries: [],   // 10s 桶持有者序列（holderTrend* 因子，8 点）
+            _holderSeries: [],   // blockNumber 桶持有者序列（holderTrend* 因子，8 块 ≈4s，2026-10-14 slot 化）
 
             // 计数
             tradeCount: 0,
@@ -1204,8 +1216,8 @@ class FourMemeFactorAggregator extends EventEmitter {
         return true;
     }
 
-    /** 10s 时间桶推进价格/持有者序列（同桶后写覆盖，新桶追加，8 点封顶） */
-    _pushSeriesPoint(state, ts) {
+    /** 10s 时间桶推进价格序列（trend* 因子；同桶后写覆盖，新桶追加，8 点封顶） */
+    _pushPriceSeriesPoint(state, ts) {
         const bucket = Math.floor(ts / 1000 / SERIES_BUCKET_SEC);
         const lastP = state._priceSeries[state._priceSeries.length - 1];
         if (lastP && lastP.bucket === bucket) {
@@ -1214,13 +1226,21 @@ class FourMemeFactorAggregator extends EventEmitter {
             state._priceSeries.push({ bucket, price: state.currentPriceBnb });
             if (state._priceSeries.length > SERIES_MAX_POINTS) state._priceSeries.shift();
         }
+    }
 
+    /**
+     * blockNumber 桶推进持有者序列（holderTrend* 因子；2026-10-14 slot 化改造）：
+     * 同块后写覆盖（块内末笔 tick 时刻的 holderCount 快照），新块追加，8 块封顶（≈4s 窗，
+     * BSC 出块 0.5s 中位）。与价格臂的 10s 时间桶机制互不相关——本方法只消费 holderCount，
+     * 调用方负责 blockNumber 非空守卫（缺失不推进，不造兜底）。
+     */
+    _pushHolderSeriesPoint(state, blockNumber) {
         const lastH = state._holderSeries[state._holderSeries.length - 1];
-        if (lastH && lastH.bucket === bucket) {
+        if (lastH && lastH.block === blockNumber) {
             lastH.count = state.holderCount;
         } else {
-            state._holderSeries.push({ bucket, count: state.holderCount });
-            if (state._holderSeries.length > SERIES_MAX_POINTS) state._holderSeries.shift();
+            state._holderSeries.push({ block: blockNumber, count: state.holderCount });
+            if (state._holderSeries.length > HOLDER_SERIES_MAX_POINTS) state._holderSeries.shift();
         }
     }
 
@@ -1969,7 +1989,8 @@ class FourMemeFactorAggregator extends EventEmitter {
             }
         }
 
-        // holderTrend*：10s 桶持有者序列
+        // holderTrend*：blockNumber 桶持有者序列（8 块窗 ≈4s，2026-10-14 slot 化；
+        // 门槛不变：growthRatio 族 ≥2 点、slope/direction 族 ≥4 点）
         const holderCounts = state._holderSeries.map(h => h.count);
         factors.holderTrendDataPoints = holderCounts.length;
         if (holderCounts.length >= 2) {

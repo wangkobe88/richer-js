@@ -480,6 +480,21 @@ function buildSlimFactorValues(factorResults) {
     tokenCycleRaw: factorResults.tokenCycleRaw ?? null,
     cycleTps30s: factorResults.cycleTps30s ?? null,
     cycleGapMedianMs: factorResults.cycleGapMedianMs ?? null,
+    // holderTrend 11 键（2026-10-14 slot 化）：blockNumber 桶序列是 FA 状态机产物，
+    // 回测 FactorReplayEngine 与 web 时序重算均不可重建（30s 快照行无块级分辨率），
+    // 不落库即丢；本表是买门（holderTrendSlope > 0 fail-closed）复盘唯一数据源。
+    // null 显式保留（<2/<4 活跃块的 warmup 期），不掩盖。键集真相源=FA _buildFactorMap
+    holderTrendDataPoints: factorResults.holderTrendDataPoints ?? null,
+    holderTrendGrowthRatio: factorResults.holderTrendGrowthRatio ?? null,
+    holderTrendRiseRatio: factorResults.holderTrendRiseRatio ?? null,
+    holderTrendCV: factorResults.holderTrendCV ?? null,
+    holderTrendRecentDecreaseCount: factorResults.holderTrendRecentDecreaseCount ?? null,
+    holderTrendRecentDecreaseRatio: factorResults.holderTrendRecentDecreaseRatio ?? null,
+    holderTrendConsecutiveDecreases: factorResults.holderTrendConsecutiveDecreases ?? null,
+    holderTrendHolderCountUp: factorResults.holderTrendHolderCountUp ?? null,
+    holderTrendMedianUp: factorResults.holderTrendMedianUp ?? null,
+    holderTrendSlope: factorResults.holderTrendSlope ?? null,
+    holderTrendStrengthScore: factorResults.holderTrendStrengthScore ?? null,
   };
 }
 

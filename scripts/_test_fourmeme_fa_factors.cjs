@@ -132,6 +132,15 @@ function runZeroDiff(baselineMod, currentMod) {
     // 存活键集（当前 FA 全量键探针）：零 diff 只对比基线输出中仍存活的键——
     // 删除键在当前输出恒缺席（其缺席由 scenarioFactorKeys 的丢失集断言锁定）
     const surviving = new CurrentFA({}).getFactorKeys();
+    // 2026-10-14 holderTrend slot 化（用户裁定①原地改语义：10s 墙钟桶 → blockNumber 桶
+    // ≈4s 窗）：11 键有意断代，不参与基线零 diff（本序列 tick 间隔 0.5-3s 与块推进
+    // 不同步，两机制必产生不同序列）；行为契约由 _test_holder_trend_slot_series 专属锁定
+    const HOLDER_TREND_KEYS = new Set([
+        'holderTrendDataPoints', 'holderTrendGrowthRatio', 'holderTrendRiseRatio', 'holderTrendCV',
+        'holderTrendRecentDecreaseCount', 'holderTrendRecentDecreaseRatio', 'holderTrendConsecutiveDecreases',
+        'holderTrendHolderCountUp', 'holderTrendMedianUp', 'holderTrendSlope', 'holderTrendStrengthScore',
+    ]);
+    for (const k of HOLDER_TREND_KEYS) surviving.delete(k);
 
     const { ticks, tokens } = makeSyntheticSequence();
     const base = new BaselineFA({});
