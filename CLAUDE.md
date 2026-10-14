@@ -76,7 +76,7 @@ NODE_OPTIONS=--max-old-space-size=12288 node scripts/build-wallet-profiles.cjs -
 
 - 单引擎实例 per-token 分派：`_handleNewToken(info, platform)` 按 collector 回调平台分派 `_buildFourMemeTokenRecord`/`_buildFlapTokenRecord`，共用买/卖策略与单一资金池（PM 单组合）
 - 归一化唯一入口 `resolvePlatforms(platform)`（`src/trading-engine/core/platforms.js`）：'both'→两平台，其余→fourmeme
-- 范围 virtual+backtest+单平台 live；**双平台 live 三重防线禁止**（web 400 / main `_createEngine` throw / 前端拦截）
+- 范围 virtual+backtest+live 全支持（**双平台 live 2026-10-14 改造放开**：单引擎 per-platform trader map——fourmeme→FourMemeDirectTrader / flap→FlapPortalTrader 同一钱包，非首 trader `shareSignerFrom` 共享 wallet+NonceManager=同地址单一 nonce 分配源；买/卖点 `_liveTraderFor(tokenAddress)` 按 token 池/FA 平台标记分派，未知平台 throw fail-closed 拒跨协议盲发；单测 `_test_live_dual_platform`）
 - 引擎级配置恒读 fourmemeWs 段（`_wsConfigSectionName()`，flap 子类才覆盖 flapWs）；创建页平台选择=多选 checkbox
 
 ### 钱包口径地图（sender/trader——改任何聚合前先查）
@@ -188,7 +188,7 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ### Live 交易
 
-- four.meme 走 `FourMemeDirectTrader`（TokenManager2），flap 走 `FlapPortalTrader`（Portal swapExactInput）；**live 只买 BNB 计价盘**（非 BNB 盘 revert=天然 fail-closed；卖出 token→0x0 全盘支持）
+- four.meme 走 `FourMemeDirectTrader`（TokenManager2），flap 走 `FlapPortalTrader`（Portal swapExactInput）；双平台（both）live=单引擎 per-platform 双 trader 同一钱包（`_liveTraderMap`+共享 NonceManager，2026-10-14 改造；live 参数恒读 fourmemeWs.live）；**live 只买 BNB 计价盘**（非 BNB 盘 revert=天然 fail-closed；卖出 token→0x0 全盘支持）
 - live 实验只能 `node main.js start-experiment -e <id>` 启动（run-engine 对 live 显式拒绝）
 - 实收解析**余额差法**（买入 balanceOf 前后差=税后真相；卖出 BNB 差+gasUsed×gasPrice 补偿）——对税币/非 BNB quote 盘免疫
 - 防御层（参数在 default.json `fourmemeWs.live`/`flapWs.live`）：L1 `assertMinOut`（报价/预期 ratio<0.5 拒单；expected 契约必传缺即 throw；卖出无锚 fail-closed 拒裸奔）/ L3 卖出熔断（连败≥5 → 30min 冷却+Telegram）/ L5 `_awaitReceipt`（超时回查一次，**绝不自动重发防双买**；reverted throw）/ `maxPositionTokens`（0=不限只拦新开仓）/ 毕业告警人工处置
@@ -214,7 +214,7 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 5. **回测查询 platform 单值 `.eq` 循环勿 `.in` 多值**；token 地址批 `.in` ≤100；Supabase `.in()` URL 超 8KB（批 50 上限）
 6. **FA 周期判定/回测路径禁 Date.now**（now 由 buildFactorMap(state, asOf) 传入，防前视）；`_graduatedTokens` 禁装载即填
 7. **narrative 是 ESM（.mjs），交易引擎是 CJS（.js）**——勿混 import
-8. BSC-only；双平台 live 三重防线禁止；live 只能 main.js start-experiment 启动
+8. BSC-only；live 只能 main.js start-experiment 启动；双平台 live 的 nonce 唯一性靠共享 NonceManager（shareSignerFrom），新 trader 接入必须走它不得自建
 9. **本地不跑重查询/重实验**（直连 Supabase 全表聚合/全史扫描本地 VPN 必超时）——去远程服务器跑；本地只做单条/小结果读取
 10. 历史窗口回测先失效叙事缓存（invalidate-*-window.cjs）；校准重跑逐字复用线上 state
 11. BacktestTickCache 探针/装载保持锚定无序形状（ORDER BY id 形状会 planner 超时）；maxTickRows 默认 100 万，大窗口显式放宽

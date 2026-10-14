@@ -83,7 +83,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._wssDownFlagged = false;
 
     // live 执行层状态（Phase 5）
-    this._trader = null;                 // FourMemeDirectTrader（live 专用）
+    this._trader = null;                 // 主 trader（单平台=唯一；双平台=map 首个——余额检查/holdings 对账/PCS 懒加载等平台无关读点走它）
+    this._liveTraderMap = null;          // per-platform live trader（platform → trader，2026-10-14 双平台 live；单平台 size=1）
     this._walletAddress = null;
     this._lastKnownBnbUsd = 0;           // 最近一次 BNB/USD（live 60s interval 刷新，启动时 trader 直读一次）
     this._sellCooldownUntil = new Map(); // 卖出失败冷却 tokenAddress → untilTs（live 防 gas 消耗风暴）
@@ -659,9 +660,42 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     return 'fourmeme';
   }
 
+  /** per-platform live trader 类型分派（双平台 live 2026-10-14）：flap 平台恒
+   *  FlapPortalTrader（'flap'，与子类覆盖无关）；其余走 _liveTraderType()（基类
+   *  'fourmeme'；flap 子类恒单平台不会走到本分支） */
+  _liveTraderTypeFor(platform) {
+    if (platform === 'flap') return 'flap';
+    return this._liveTraderType();
+  }
+
+  /** token → live trader 分派（双平台核心路由）：单 trader 直返（单平台实验零行为
+   *  变化）；双平台按 token 所属平台查 map——平台未知 fail-closed throw，真实资金
+   *  绝不能把 fourmeme token 发给 flap Portal swap（或反之，协议/地址空间完全不同） */
+  _liveTraderFor(tokenAddress) {
+    if (!this._liveTraderMap) return this._trader;
+    if (this._liveTraderMap.size === 1) return this._trader;
+    const platform = this._platformForToken(tokenAddress);
+    const trader = platform ? this._liveTraderMap.get(platform) : null;
+    if (!trader) {
+      throw new Error(`live trader 分派失败: ${tokenAddress} platform=${platform}（token 池/FA 均无平台标记，拒绝跨协议盲发）`);
+    }
+    return trader;
+  }
+
+  /** token 平台归属：token 池 record.platform（_buildFourMemeTokenRecord/
+   *  _buildFlapTokenRecord 写入）优先，FA state.platform（collector registerToken
+   *  meta，write-once）兜底；均无 → null */
+  _platformForToken(tokenAddress) {
+    const record = this._tokenPool?.getToken(tokenAddress, 'bsc');
+    if (record?.platform) return record.platform;
+    return this._factorAggregator.getTokenState(tokenAddress)?.platform || null;
+  }
+
   /**
    * live 交易器初始化：钱包配置解析（executorId 表加载 | privateKey 直配，二选一）→
-   * 私钥解密 → trader（类型按平台分派）→ 地址一致性校验（私钥推导地址 ≠ 配置地址 =
+   * 私钥解密 → per-platform trader map（fourmeme→FourMemeDirectTrader / flap→
+   * FlapPortalTrader，双平台 live 2026-10-14 改造：单引擎双 trader 同一钱包，nonce 由
+   * 共享 NonceManager 串行分配）→ 地址一致性校验（私钥推导地址 ≠ 配置地址 =
    * 配置错误，fail-fast）→ 链上连通性探测 + BNB/USD 启动锚定。
    *
    * 钱包双源（实盘前置批 2026-10-13，迁移自 rich-js）：
@@ -671,11 +705,6 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
    *   - 两源并存 → throw（防歧义）；皆无 → 现行报错
    */
   async _initializeLiveTrader() {
-    // 双平台 live 禁止（防线三：web-server 400 / main.js throw 之外的兜底，防未来新入口；
-    // trader 引擎级单例也无法承载双平台）
-    if (this._wsPlatforms().length > 1) {
-      throw new Error('双平台实验不支持 live（仅 virtual/backtest）');
-    }
     const walletConfig = this._experiment?.config?.wallet;
     if (!walletConfig) {
       throw new Error('live 实验缺少钱包配置 (config.wallet)');
@@ -747,9 +776,22 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // B4 gas 策略透传（'pinned'=恒上限价旧行为回滚开关）
     const liveGasStrategy = (this._wsConfig.live || {}).gasStrategy;
     if (liveGasStrategy) traderConfig.gasStrategy = liveGasStrategy;
-    this._trader = traderFactory.createTrader(this._liveTraderType(), traderConfig);
-    this._trader.txWaitTimeoutMs = this._liveTxWaitTimeoutMs;
-    await this._trader.setWallet(privateKey);
+    // per-platform trader 构造（2026-10-14 双平台 live）：每平台一枚（fourmeme/flap
+    // 各自合约交互协议不同），同一私钥；首个 trader 建钱包，其余 setWallet 各自跑通
+    // 校验路径后 shareSignerFrom 共享 wallet+NonceManager——同地址进程内单一 nonce
+    // 分配源，双 trader 并发发单不互抢 nonce。this._trader=首个（平台无关读点兼容）
+    this._liveTraderMap = new Map();
+    for (const platform of this._wsPlatforms()) {
+      const trader = traderFactory.createTrader(this._liveTraderTypeFor(platform), traderConfig);
+      trader.txWaitTimeoutMs = this._liveTxWaitTimeoutMs;
+      await trader.setWallet(privateKey);
+      if (this._liveTraderMap.size > 0) {
+        await trader.shareSignerFrom(this._trader);
+      } else {
+        this._trader = trader;
+      }
+      this._liveTraderMap.set(platform, trader);
+    }
 
     const derivedAddress = this._trader.wallet?.address;
     if (!derivedAddress || derivedAddress.toLowerCase() !== this._walletAddress.toLowerCase()) {
@@ -2157,7 +2199,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       this.logger.info(this._experimentId, '_executeBuyLive',
         `📡 live 买入 | ${signal.symbol} ${amountInBNB} BNB（滑点 ${this._liveSlippagePct}% gas≤${this._liveMaxGasPriceGwei}gwei）`);
 
-      const buyResult = await this._trader.buyToken(signal.tokenAddress, amountInWei, options);
+      const buyResult = await this._liveTraderFor(signal.tokenAddress).buyToken(signal.tokenAddress, amountInWei, options);
       if (!buyResult.success) {
         return { success: false, reason: buyResult.error || 'live 买入交易失败' };
       }
@@ -2275,7 +2317,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this.logger.info(this._experimentId, '_executeSellLive',
       `📡 live 卖出 | ${signal.symbol} ${qtySold}（滑点 ${this._liveSlippagePct}%）`);
 
-    const sellResult = await (traderOverride || this._trader).sellToken(signal.tokenAddress, amountOutWei, options);
+    const sellResult = await (traderOverride || this._liveTraderFor(signal.tokenAddress)).sellToken(signal.tokenAddress, amountOutWei, options);
     if (!sellResult.success) {
       return { success: false, reason: sellResult.error || 'live 卖出交易失败' };
     }

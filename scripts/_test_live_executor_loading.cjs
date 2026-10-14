@@ -253,9 +253,11 @@ async function main() {
         // 8b. select 列集显式（不 select *——最小权限）
         ok(seg.includes(".select('name, address, auth_token, blockchain, reserve_native')"),
             'executor 查询列集显式');
-        // 8c. 双平台 live 兜底防线在方法首行
-        const dualIdx = seg.indexOf('双平台实验不支持 live');
-        ok(dualIdx > 0 && dualIdx < seg.indexOf('walletConfig'), '双平台 live 兜底 throw 在钱包解析前');
+        // 8c. 双平台 live 兜底防线已废（2026-10-14 改造：per-platform trader map 支持 both，
+        // 详见 _test_live_dual_platform.cjs）；钱包双源互斥防线仍在
+        ok(!seg.includes('双平台实验不支持 live'), '双平台 live 兜底 throw 已移除（防线废除）');
+        ok(seg.indexOf('互斥') > 0 && seg.indexOf('互斥') < seg.indexOf('traderFactory'),
+            'executorId × privateKey 互斥 throw 仍在钱包解析段');
     }
 
     console.log(`\n结果: ${passed} 通过, ${failed} 失败`);

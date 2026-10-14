@@ -57,14 +57,14 @@ class VirtualTradingSystem {
       }
 
       case 'live':
-        if (platform === 'both') {
-          throw new Error('双平台实验不支持 live（仅 virtual/backtest）');
-        }
+        // 双平台 live（2026-10-14 用户裁定改造）：基类引擎 per-platform trader map
+        // （fourmeme→FourMemeDirectTrader / flap→FlapPortalTrader，同一钱包共享 nonce）
         if (platform === 'flap') {
           console.log(`🔴 创建实盘交易引擎（WSS 事件驱动 + FlapPortalTrader）`);
           return new FlapWssTradingEngine({ tradingMode: 'live' });
         }
-        console.log(`🔴 创建实盘交易引擎（WSS 事件驱动 + FourMemeDirectTrader）`);
+        const dualLiveNote = platform === 'both' ? '（双平台 fourmeme+flap 双 trader）' : '';
+        console.log(`🔴 创建实盘交易引擎（WSS 事件驱动 + FourMemeDirectTrader）${dualLiveNote}`);
         return new FourMemeWssTradingEngine({ tradingMode: 'live' });
 
       case 'backtest':

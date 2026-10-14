@@ -817,9 +817,8 @@ class RicherJsWebServer {
             minMaxChangePercent: backtest?.minMaxChangePercent || 0
           };
         } else if (trading_mode === 'live') {
-          if (platform === 'both') {
-            return res.status(400).json({ success: false, error: '双平台实验不支持 live（仅 virtual/backtest）' });
-          }
+          // 双平台 live（2026-10-14 改造放开）：per-platform 双 trader 同一钱包，
+          // live 执行参数 both 时落 fourmemeWs.live（引擎恒读该段，见 _wsConfigSectionName）
           // 实盘交易配置：钱包三源择一——执行器 executorId（推荐，私钥单一真相源在
           // executors 表，实验 config 只落引用+地址）/ 复用历史 live 实验的已加密私钥
           // （reuseExperimentId；密文服务端拷贝）/ 前端明文（服务端加密）。私钥永不回传前端

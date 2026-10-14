@@ -93,6 +93,22 @@ class BaseTrader extends ITrader {
     }
 
     /**
+     * 共享钱包/nonce（双平台 live，2026-10-14）：复用另一 trader 的 wallet 与
+     * NonceManager signer——同一地址在进程内只允许一个 nonce 分配源，双 trader 各持
+     * NonceManager 并发发单会互取相同 nonce 拒收。this.wallet 同步替换（引擎多处同步
+     * 读 trader.wallet.address）。子类若在 prepare 里把合约绑到 this.signer（如
+     * FlapPortalTrader 的 portalContract），覆写本方法并在共享后重建合约绑定。
+     * 调用前置条件：本 trader 已 setWallet（各自校验路径跑通），再共享覆盖。
+     */
+    shareSignerFrom(other) {
+        if (!other || !other.wallet || !other.signer) {
+            throw new Error('shareSignerFrom: 源 trader 未初始化钱包（缺 wallet/signer）');
+        }
+        this.wallet = other.wallet;
+        this.signer = other.signer;
+    }
+
+    /**
      * nonce 类错误识别（B2）：交易因 nonce 竞争被节点拒收的典型错误短语。
      * 只匹配 nonce 语义明确的短语，不用裸 'too low'（会误伤 'gas price too low'）
      */

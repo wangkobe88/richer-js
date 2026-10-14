@@ -119,6 +119,13 @@ class FlapPortalTrader extends BaseTrader {
         }
     }
 
+    /** 共享钱包/nonce（双平台 live）：portalContract 绑定 this.signer 在 prepare——
+     * 共享覆盖 signer 后必须重建合约绑定，否则 portal 发单仍走旧 NonceManager */
+    async shareSignerFrom(other) {
+        super.shareSignerFrom(other);
+        await this.prepare();
+    }
+
     /**
      * 报价（staticCall 模拟，不上链）：买入 direction='buy' 即 BNB→token，
      * 卖出 direction='sell' 即 token→BNB
