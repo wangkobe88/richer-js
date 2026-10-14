@@ -742,13 +742,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
           'instagram_viral_post', { pass: true });
       }
 
-      // 低传播帖子：点赞<50 且 评论<10 → low
+      // 2026-10-14 用户裁定（C66）：帖子互动终判删除——主体不是陈述者，单帖交互
+      // 低不代表叙事主体传播力低，交互数据随语料进 state 由 Jev 结合主体综合评
       if (likeCount < 50 && commentCount < 10) {
-        console.log(`[NarrativeAnalyzer] 规则3.5.5触发: Instagram${typeLabel}互动数据极低（点赞${likeCount}，评论${commentCount}），返回low`);
-        return buildPreCheckResult('low',
-          `Instagram${typeLabel}互动数据极低（点赞${likeCount}，评论${commentCount}），传播力不足`,
-          'instagram_low_engagement_post',
-          { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+        console.log(`[NarrativeAnalyzer] Instagram${typeLabel}互动数据低（点赞${likeCount}，评论${commentCount}），不再终判，交给Jev综合评估`);
       }
 
       console.log(`[NarrativeAnalyzer] Instagram${typeLabel}互动数据中等（点赞${likeCount}，评论${commentCount}），进入LLM分析`);
@@ -812,12 +809,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
         'youtube_high_influence_channel', { pass: true });
     }
 
+    // 2026-10-14 用户裁定（C66）：播放量终判删除——主体不是陈述者，频道数据只代表
+    // 陈述者触达不代表叙事主体传播力，交给 Jev 结合主体综合评
     if (!youtubeInfo.recent_videos?.length || recentViews < 1000) {
-      console.log(`[NarrativeAnalyzer] 规则3.5.8触发: YouTube频道"${youtubeInfo.channel_title}"视频播放量极低（${recentViews}），返回low`);
-      return buildPreCheckResult('low',
-        `YouTube频道"${youtubeInfo.channel_title}"视频播放量极低（${recentViews}），传播力不足`,
-        'youtube_low_influence_channel',
-        { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+      console.log(`[NarrativeAnalyzer] YouTube频道"${youtubeInfo.channel_title}"视频播放量低（${recentViews}），不再终判，交给Jev综合评估`);
     }
 
     console.log(`[NarrativeAnalyzer] YouTube频道"${youtubeInfo.channel_title}"影响力中等（最近视频总播放${recentViews}），进入LLM分析`);
@@ -851,10 +846,10 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     const readCount = weixinInfo.read_num || 0;
     const likeCount = weixinInfo.like_num || 0;
 
-    // 阅读数低于1000 → low
+    // 2026-10-14 用户裁定（C66）：阅读数终判删除——主体不是陈述者，单篇文章阅读低
+    // 不代表叙事主体传播力低，交给 Jev 结合主体综合评
     if (readCount > 0 && readCount < 1000) {
-      console.log(`[NarrativeAnalyzer] 规则3.6触发: 微信文章阅读数(${readCount})低于1000，返回low`);
-      return buildPreCheckResult('low', `微信文章阅读数仅${readCount}，传播力不足（阈值：1000）`, 'weixin_low_reads', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
+      console.log(`[NarrativeAnalyzer] 微信文章阅读数低（${readCount}），不再终判，交给Jev综合评估`);
     }
 
     // 阅读数为0但有文章内容 → 无法获取统计数据，跳过此检查，交给LLM评估
@@ -863,8 +858,11 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     }
   }
 
-  // 规则3.7：微博交互数据检查
-  // 如果引用微博且微博交互数据不高，直接返回 low
+  // 规则3.7：微博交互数据检查（2026-10-14 用户裁定 C66：终判删除——主体不是陈述者）
+  // 红山动物园案：同叙事三票，推特源评 high 买入、微博源被单帖交互 17<150 硬拦后
+  // 毕业 13.26 BNB；「土谛」引新华社帖（交互 104）同被拦。单帖交互只代表该帖触达，
+  // 不代表叙事主体（机构/事件本身）的传播力——交互数据随语料进 state 由 Jev 综合
+  // 主体知名度和量级评级，precheck 不再用陈述者数据毙票
   if (backgroundInfo && backgroundInfo.source === 'weibo' && backgroundInfo.metrics) {
     const repostsCount = backgroundInfo.metrics.reposts_count || 0;
     const commentsCount = backgroundInfo.metrics.comments_count || 0;
@@ -873,24 +871,8 @@ export async function performPreCheck(tokenData, twitterInfo, extractedInfo, web
     // 总交互数 = 转发 + 评论 + 点赞
     const totalEngagement = repostsCount + commentsCount + attitudesCount;
 
-    // 阈值：总交互数 < 150 认为传播力不足
-    const LOW_ENGAGEMENT_THRESHOLD = 150;
-
-    if (totalEngagement < LOW_ENGAGEMENT_THRESHOLD) {
-      const authorName = backgroundInfo.author_name || '未知';
-      const engagementDetails = [];
-      if (repostsCount > 0) engagementDetails.push(`转发${repostsCount}`);
-      if (commentsCount > 0) engagementDetails.push(`评论${commentsCount}`);
-      if (attitudesCount > 0) engagementDetails.push(`点赞${attitudesCount}`);
-
-      const engagementStr = engagementDetails.length > 0
-        ? engagementDetails.join('、')
-        : '无交互数据';
-
-      console.log(`[NarrativeAnalyzer] 规则3.7触发: 微博总交互数(${totalEngagement})低于阈值(${LOW_ENGAGEMENT_THRESHOLD})，返回low`);
-      return buildPreCheckResult('low', `微博作者"${authorName}"的交互数据过低（${engagementStr}，总交互${totalEngagement}），传播力不足（阈值：${LOW_ENGAGEMENT_THRESHOLD}）`, 'weibo_low_engagement', { scores: { credibility: 10, virality: 10 }, total_score: 20 });
-
-      console.log(`[NarrativeAnalyzer] 微博交互数据检查通过: 总交互数=${totalEngagement}（转发${repostsCount}+评论${commentsCount}+点赞${attitudesCount}）`);
+    if (totalEngagement < 150) {
+      console.log(`[NarrativeAnalyzer] 微博总交互数(${totalEngagement})较低，不再终判，交给Jev综合评估`);
     }
   }
 

@@ -68,6 +68,14 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C66 红山动物园案 0xd73292fc…7777 / 0x05fec7c0…7777——陈述者交互终判四条删除（主体不是陈述者）：precheck 不再用「单帖交互数」代表「叙事主体传播力」毙票，交给 Jev 结合主体综合评（2026-10-14 用户裁定「四条全删」）★
+
+- **案发**：同叙事（南京红山森林动物园梗）三票命运分叉——0x4360e611（twitter 源）评 high 买入 +21.2% 落袋；0xd73292fc / 0x05fec7c0（微博源，作者「南京市红山森林动物园」单帖交互 17<150）被规则 3.7 `weibo_low_engagement` 硬拦 rating=1 引擎拉黑，其中 0xd73292fc 随后**毕业（funds 13.26 BNB）**。同叙事评级由「token 网站恰好贴了哪个平台的链接」这一偶然性决定，与叙事主体价值无关。佐证案：土谛 0x20e4c2b7…7777 引**新华社**帖（转发11+评论1+点赞92=104<150）同被拦——官媒信源主体的传播力被单帖交互代表。
+- **用户裁定（原话「同一个叙事，不同的陈述者，为啥有的过有的不过，这个叙事跟陈述者没关系，主体不是陈述者」→ 方案选定「四条全删」）**：precheck 的陈述者**帖子交互类**终判整体废除——①规则 3.7 微博帖交互 <150→low；②规则 3.6 微信阅读数 <1000→low；③规则 3.5.5 Instagram 帖点赞<50 且评论<10→low；④规则 3.5.8 YouTube 频道播放 <1000→low。四处的 low 分支删除改为放行日志（「不再终判，交给Jev综合评估」）；**高影响 mid 分支与中间分支保留不动**（放行性质不误拦）；**主页类三条刻意保留**（3.5.6 抖音 / 3.5.7 微博用户 / 3.5.9 TikTok 粉丝<100 且作品<5→low）——门槛语义=死号/刚注册小号，真实机构（新华社粉丝千万）不会命中，不产生本案形态的误拦。
+- **语义归位**：陈述者交互数据（微博 metrics / 微信阅读数等）**本来就渲染进 Jev state**（weibo-section 等平台 section），Jev 层有 event_magnitude / subject_entity / 影响力轴可以结合主体知名度综合评——precheck 用陈述者单帖数据终判叙事主体传播力，是把「叙事价值判断」从 LLM 抢到代码侧的越权（违反卷三分工原则「LLM 管叙事价值判断，代码管市场事实」）。删终判后：主体知名（新华社/红山动物园类）Jev 自然给高档，无名小号自述帖 Jev 仍会评 low（语料交互数据在 state 里可见），不是无脑放行。
+- **改动面**：仅 `pre-check-service.mjs` 四处 low 分支（纯代码侧，**无题集改动 J1.30 不 bump、无版本号变化**）；四个 fail code（weibo_low_engagement / weixin_low_reads / instagram_low_engagement_post / youtube_low_influence_channel）全库无单测断言无外部引用，影响面封闭。precheck 族单测 109 断言全绿（_test_precheck_fail_retry 35 / _test_data_fetch_failed_rating 30 / _test_precheck_parallel_queries 20 / _test_justoneapi_timeouts 24）。
+- **生效面**：新分析即时生效；存量 low 缓存行不自动重评（is_valid 不动）——历史被拦票要重评须失效缓存（token_narrative 行删 / updateIsValid(addr,false)）。今日该规则共拦 5 票（红山×2 / 八元引印象新闻交互0 / 土谛引新华社104 / 가나디引一兜满星29），其中 genuinely 死帖（印象新闻交互 0）预期 Jev 仍评 low——删终判不是放垃圾，是把「垃圾/非垃圾」的判断权还给 Jev。
+
 ### C65 巴巴鸡案 0x1ea2…7777——J1.30 名图一致豁免 + img-v3 图内文字转写：「名字是一只鸡、图片也是一只鸡，恐怕认为这俩有关联就好了」——梗名只在配图的图内文字里，字面证据被图分析截断吞掉（2026-10-14 用户裁定「都做」）★
 
 - **案发**：0x1ea2152c68a3cba1cd3ffe68abd97d95f9ac7777（巴巴鸡）叙事评级 low 被引擎 `_narrativeBlockedTokens` 拉黑。链路复盘：stage1 A 类（character_ip 0.84、strong_fit 0.92→web3FitAnchored B）→ stage2 66.32 过线 → **stage3 关联 cultural lv1=5 分 ≤10 截断 low**。语料：@in927772（1852 粉）2026-10-14 03:10 UTC「抖音新梗，无敌了，全网火了……」+2 图（mcp analyze_image 视觉核实图 1 = 抖音 APP 截图：**搜索框「巴巴鸡给鸡给巴巴视频」、视频标题「巴巴🤔鸡给鸡给😍鸡给鸡给😡哇哇🥵 #第五人格 #偷鸡舞 #律师」**、大萌芽 1 天前 9.8万赞——角色=第五人格律师戴红鸡冠皮肤跳偷鸡舞）。**误拦定性**：梗的本名就叫「巴巴鸡」（图内文字实证），Jev 判 cultural 弱关联是证据缺失下的自洽误判。
