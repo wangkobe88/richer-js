@@ -3,7 +3,7 @@
 Richer-js：BSC four.meme + flap meme 币自动交易引擎（BSC-only）。代币发现与价格 = **实验进程内嵌 ANKR WSS collector 直连**（订阅 four.meme TokenManager + flap Portal，全事件驱动无轮询）：实验进程自己持有 WSS 订阅，引擎直接消费 collector 内存回调，DB 落库（`wss_price_ticks`/`wss_events`）仅作持久化（回测/web/离线分析数据源）。支持虚拟（模拟盘）、回测（tick 回放）、live 实盘；内含叙事分析引擎（Jev 结构化决策模型）。
 
 **本文只留现行机制、铁律与操作入口。** 决策过程、case 复盘、验证数据不写入：
-- 叙事 case 全档案：`docs/叙事引擎改进与Case台账.md`（卷二，C36 起）+ `docs/叙事引擎改进与Case台账-卷一归档.md`（C1-C35）；**每个新 case/改进须同步追加台账**
+- 叙事 case 全档案：`docs/叙事引擎改进与Case台账.md`（卷三，C56 起）+ `docs/叙事引擎改进与Case台账-卷二归档.md`（C36-C54，C55 跳号）+ `docs/叙事引擎改进与Case台账-卷一归档.md`（C1-C35）；**每个新 case/改进须同步追加台账**
 - 交易机制案档案：auto-memory（`~/.claude/.../memory/`，索引 MEMORY.md）
 - 历史实现：git 历史
 
@@ -230,4 +230,4 @@ Token URL → URL 分类（含 IPFS metadata 解包）→ 数据抓取 → Pre-C
 
 ### 修改 Jev 题集
 
-1. 改 `jev-questions.mjs`/`jev-prestage-questions.mjs` 题面；2. bump 版本常量；3. 聚合语义变了同步对应 mapper；4. 跑校准脚本验证评级一致且无买线翻转；5. **case 与裁定同步台账**（docs/叙事引擎改进与Case台账.md 卷二倒序追加）
+1. 改 `jev-questions.mjs`/`jev-prestage-questions.mjs` 题面；2. bump 版本常量；3. 聚合语义变了同步对应 mapper；4. 跑校准脚本验证评级一致且无买线翻转；5. **case 与裁定同步台账**（docs/叙事引擎改进与Case台账.md 卷三倒序追加）
