@@ -4,7 +4,8 @@
  *
  * 覆盖 BaseTrader._resolveGasPrice / _resolveGasLimit / gasStrategy 读取链：
  *   1. gasPrice 动态分支：链上价 ≤ max 用链上价 / 超 max 钳 max / getFeeData
- *      失败回落 max（=旧行为）/ 链上价异常低（<1 gwei）回落 max
+ *      失败回落 max（=旧行为）/ 链上价异常低（<0.01 gwei）回落 max；现实低价
+ *      （0.5 gwei，BSC 2026-10 常驻 0.05-0.3 gwei）直用链价（10-14 修复）
  *   2. pinned 回滚开关：恒用 max（完全旧行为）
  *   3. gasLimit：estimate × 1.3 缓冲 / 超 hardCap 钳 cap / estimateGas 失败回落固定值
  *   4. gasStrategy 配置链：trading.gasStrategy > config.gasStrategy > 默认 dynamic
@@ -68,9 +69,14 @@ async function main() {
         t = mkTrader({ feeDataThrows: true });
         ok((await t._resolveGasPrice(10)) === gwei(10), 'getFeeData 失败 → 回落 max');
 
-        // 1d. 链上价异常低（0.5 gwei < 1 gwei）→ 回落 max（防脏数据）
+        // 1d. 链上价 0.5 gwei（BSC 现实低价，2026-10 常驻 0.05-0.3 gwei）→ 直用链价
+        //     （2026-10-14 修复：旧 <1 gwei 下限误判现实低价回落满格 max，v11 首回合实证）
         t = mkTrader({ feeDataGasPrice: gwei(0.5) });
-        ok((await t._resolveGasPrice(10)) === gwei(10), '链上价异常低 <1gwei → 回落 max');
+        ok((await t._resolveGasPrice(10)) === gwei(0.5), '链上价 0.5gwei 现实低价 → 直用链价');
+
+        // 1d-2. 链上价 <0.01 gwei → 回落 max（防脏数据/零价）
+        t = mkTrader({ feeDataGasPrice: gwei(0.005) });
+        ok((await t._resolveGasPrice(10)) === gwei(10), '链上价 0.005gwei <0.01gwei → 回落 max');
 
         // 1e. maxGasPriceGwei 参数缺省回落 tradingConfig.maxGasPrice
         t = mkTrader({ feeDataGasPrice: gwei(50) });

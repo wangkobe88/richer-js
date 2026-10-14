@@ -137,9 +137,12 @@ class BaseTrader extends ITrader {
      * 动态 gas 价解析（B4 实盘加固）
      *
      * 旧行为=恒用 maxGasPrice 精确值（上限被当保底价，gas 费系统性高估）。新行为：
-     * feeData.gasPrice ≤ max 用链上价，超 max 钳到 max，异常低（<1 gwei）或查询失败
-     * 回落 max（=旧行为，永不因 gas 解析阻断发单）。
+     * feeData.gasPrice ≤ max 用链上价，超 max 钳到 max，异常低（<0.01 gwei，防脏数据/
+     * 零价）或查询失败回落 max（=旧行为，永不因 gas 解析阻断发单）。
      * gasStrategy='pinned' 回滚开关：恒用 maxGwei（完全旧行为）。
+     * 注：下限 2026-10-14 由 1 gwei 降 0.01 gwei——BSC 实际 gas 价常驻 0.05-0.3 gwei，
+     * 旧 1 gwei 下限把现实低价误判为异常回落满格 max（v11 首回合实证：approve 0.05 gwei
+     * 上链成功而 swap 被顶到 10 gwei，单笔多付 ~200 倍 ≈ 0.0099 BNB）。
      */
     async _resolveGasPrice(maxGasPriceGwei) {
         const maxGwei = Number(maxGasPriceGwei) || this.tradingConfig.maxGasPrice;
@@ -154,8 +157,8 @@ class BaseTrader extends ITrader {
         } catch (error) {
             console.warn(`⚠️ ${this.constructor.name}: getFeeData 失败，gasPrice 回落上限 ${maxGwei} gwei: ${error.message}`);
         }
-        if (chainPrice == null || chainPrice < 10n ** 9n) {
-            // 查询失败/链上价异常低（<1 gwei，BSC 不现实）：回落 max
+        if (chainPrice == null || chainPrice < 10n ** 7n) {
+            // 查询失败/链上价异常低（<0.01 gwei，防脏数据/零价）：回落 max
             return maxWei;
         }
         return chainPrice > maxWei ? maxWei : chainPrice;
