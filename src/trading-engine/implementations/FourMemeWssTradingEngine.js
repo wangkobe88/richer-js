@@ -89,6 +89,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._lastKnownBnbUsd = 0;           // 最近一次 BNB/USD（live 60s interval 刷新，启动时 trader 直读一次）
     this._sellCooldownUntil = new Map(); // 卖出失败冷却 tokenAddress → untilTs（live 防 gas 消耗风暴）
     this._sellFailStreak = new Map();    // 卖出连续失败计数 tokenAddress → 连败数（熔断判定输入）
+    this._buyFailStreak = new Map();     // 买入连续失败计数 tokenAddress → 连败数（熔断判定输入，只计发单后链上失败）
+    this._buyBlockedTokens = new Set();  // 买入熔断拉黑（连败达标 token；内存态重启丢，与 _narrativeBlockedTokens 同款）
     this._pcsTrader = null;              // PCS V2 trader（P0-C 懒加载：毕业票手工卖专用，TM2 毕业后 sellToken 必 revert）
 
     // 引擎级配置（fourmemeWs 段；实验级覆盖在 _initializeDataSources 中重读）
@@ -175,6 +177,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     this._sellCbFailures = liveConfig.sellCircuitBreakerFailures ?? 5;   // 卖出连续失败熔断阈值
     this._sellCbCooldownMs = liveConfig.sellCircuitBreakerCooldownMs ?? 30 * 60 * 1000; // 熔断后长冷却
     this._liveTxWaitTimeoutMs = liveConfig.txWaitTimeoutMs ?? 120000;    // trader 交易回执等待超时（防 pending 永久挂起）
+    this._buyCbFailures = liveConfig.buyCircuitBreakerFailures ?? 3;     // 买入连续失败熔断阈值（2026-10-14 龙龙币二 0x2831fdfa revert 死循环案用户裁定：连败 3 拉黑；前置拒绝不计——只计发单后失败）
   }
 
   /** 当前可用余额（PortfolioManager 真实余额优先） */
@@ -246,6 +249,10 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // 「预检拦截票不烧视觉调用」约束（配额消耗观察 24-48h 后再定默认值）
     this._narrativeCaller = new NarrativeDirectCaller({
       analyzeOptions: { visionPrefetch: (this._mergedWsConfig().visionPrefetch || {}).enabled === true },
+      // 账号型未过缓存 10s TTL 穿透重析（2026-10-14 用户裁定，Virusking 案）：宣告推
+      // 晚发场景直调 ~10s 内重析翻案，不等 worker PrecheckFailRetry ~30s 周期；仅实时
+      // 链路开——回测禁穿透（历史行 analyzed_at 恒老，开了=语料前视）
+      accountFailTtlReanalyze: true,
     });
     // 叙事否决短路集（2026-09-27 用户裁定：叙事评级确认为 low 的代币不再重复生成
     // 买信号——每次 fire 白落 signal 行 + 全套 preBuyCheck；address-fail 宣告竞态
@@ -1343,6 +1350,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: '叙事否决短路（评级 low 终态，不再生成信号）' };
       }
 
+      // ── 买入熔断短路（2026-10-14 用户裁定，龙龙币二 revert 死循环案）──
+      // 同一 token 连续 3 次买入执行失败（发单后链上 revert/estimate 失败；preBuy 拒、
+      // 资金不足等前置拒绝不计——不是 token 买不进）→ 内存拉黑至进程重启，不再生成
+      // 买信号（省叙事直调/preBuy 重复成本与 revert gas）。手工买不走此检查（人工指令）
+      if (this._buyBlockedTokens.has(tokenAddress)) {
+        return { success: false, reason: '买入熔断短路（连续链上买入失败已拉黑）' };
+      }
+
       const latestPrice = factorResults.currentPrice || 0;
       if (!(latestPrice > 0)) {
         return { success: false, reason: '无有效价格（USD 换算未就绪）' };
@@ -2205,6 +2220,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
 
       const buyResult = await this._liveTraderFor(signal.tokenAddress).buyToken(signal.tokenAddress, amountInWei, options);
       if (!buyResult.success) {
+        this._registerBuyFailure(signal, buyResult.error);
         return { success: false, reason: buyResult.error || 'live 买入交易失败' };
       }
 
@@ -2269,10 +2285,37 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         sellUsdGross: 0, buyTime: Date.now(), legCount: 0,
       });
 
+      // 成功清零连败（竞争型「2 败 1 成」翻正不拉黑——喝水小猴/龙龙币一实证模式）
+      this._buyFailStreak.delete(signal.tokenAddress);
+
       return { success: true, tradeId, txHash: trade.txHash, trade, priceUsd: actualPriceUsd };
     } catch (error) {
       this.logger.error(this._experimentId, '_executeBuyLive', `异常 | ${error.message}`);
+      this._registerBuyFailure(signal, error.message);
       return { success: false, reason: error.message || 'live 买入执行异常', error: error.message };
+    }
+  }
+
+  /**
+   * 买入连续失败登记（live 熔断输入）：发单后失败才计（链上 revert/estimate 失败/
+   * 执行异常）；前置拒绝（金额 0/持仓上限/链上余额不足）在早退分支不计——那是资金
+   * 问题不是 token 买不进。达阈值 → 内存拉黑至进程重启 + 告警（与卖出熔断同款机制，
+   * 2026-10-14 用户裁定阈值 3；龙龙币二 0x2831fdfa 连败 6+ 烧 gas 案）
+   */
+  _registerBuyFailure(signal, failReason) {
+    const addr = signal.tokenAddress;
+    const streak = (this._buyFailStreak.get(addr) || 0) + 1;
+    if (streak >= this._buyCbFailures) {
+      this._buyFailStreak.delete(addr);
+      this._buyBlockedTokens.add(addr);
+      this.logger.error(this._experimentId, '_executeBuyLive',
+        `🛑 买入熔断 | ${signal.symbol} 连续买入失败 ${streak} 次（阈值 ${this._buyCbFailures}），` +
+        `已拉黑至进程重启 | 最后失败: ${String(failReason || '').slice(0, 120)}`);
+      this._notifyLiveAlert('🛑 买入熔断',
+        `${signal.symbol} 连续买入失败 ${streak} 次（阈值 ${this._buyCbFailures}），已拉黑至进程重启。\n` +
+        `token: ${addr}\n最后失败: ${String(failReason || '').slice(0, 200)}`);
+    } else {
+      this._buyFailStreak.set(addr, streak);
     }
   }
 

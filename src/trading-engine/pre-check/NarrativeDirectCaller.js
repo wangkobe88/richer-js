@@ -32,6 +32,29 @@ const TIMEOUT_CODE = 'NARRATIVE_DIRECT_TIMEOUT';
 const PRECHECK_FAIL_RETRY_WINDOW_SEC = 300;
 
 /**
+ * 账号型未过缓存的穿透重析 TTL（毫秒）——2026-10-14 用户裁定（Virusking 案
+ * 0xa25cad99…7777：宣告推开盘 45s 后才发，直调全程消费 address-fail 缓存行，
+ * worker PrecheckFailRetry ~30s 周期重析翻正时买窗已走完）
+ *
+ * 形状=语料入口**只有账号**（classifiedUrls.twitter 全部 type==='account'）且
+ * rating=1：账号时间线是动态语料（宣告推随时可能发出），缓存行 10s 过期，
+ * 过期后的首次直调当次穿透重析（不等 worker 慢周期）。推文型/website 型语料
+ * 静态，无此语义。
+ */
+const ACCOUNT_FAIL_REANALYZE_TTL_MS = 10000;
+
+/**
+ * per-token 完整分析次数上限（账号型 TTL 穿透域）：本进程口径、只数**真跑**
+ * （缓存命中 ~70ms DB 读不烧 Jev/抓取配额，不计）。计费点两处：穿透发起即计
+ * （ignoreCache 恒真跑，失败/超时配额已烧——防穿透失败风暴绕过上限）；常规调用
+ * 真跑完成补计（首析/缓存 miss 重跑）。达上限后回到终态缓存行为。重启归零、
+ * 与 worker PrecheckFailRetry 计数不共享——防线主目的是防单进程按 TTL 反复
+ * 穿透烧 Jev/抓取配额，跨进程最坏合计 N+3 次属接受范围（单实验进程裁定下
+ * 直调是唯一稳定入口，worker 重析另有尝试<5 自限）
+ */
+const MAX_ANALYSES_PER_TOKEN = 3;
+
+/**
  * 叙事否决短路判定（纯函数，2026-09-27 用户裁定：叙事分析没过的代币不再重复
  * 生成买信号——检测多少次都没用；项目币 address-fail 重试窗内豁免）
  *
@@ -86,6 +109,16 @@ class NarrativeDirectCaller {
      */
     this._analyzeOptions = options.analyzeOptions || {};
     /**
+     * 账号型未过缓存 10s TTL 穿透重析（2026-10-14 用户裁定，Virusking 案）：
+     * **默认 false**——回测构造点不传即零穿透。这是前视防线：历史窗口回放中
+     * token_narrative 行的 analyzed_at 恒早于墙钟，开启即每 token 命中都判
+     * 「TTL 已过」→ 用「现在」抓的推文重评历史时点 = 语料前视。仅实时引擎
+     * （virtual/live）构造点显式开 true
+     */
+    this._accountFailTtl = options.accountFailTtlReanalyze === true;
+    /** tokenAddress(小写) → 本进程真跑 analyze 次数（缓存命中不计；TTL 穿透域上限判据） */
+    this._analysisCounts = new Map();
+    /**
      * 直调计时子计数器（P1 探针 2026-10-12 回测性能案）：getRating 三条路径
      * （内存缓存命中/成功/超时异常）累计调用数与耗时，回放收尾与主循环六段
      * 分布一起打印——advance 段减直调/preBuy ≈ 策略评估+执行
@@ -136,12 +169,17 @@ class NarrativeDirectCaller {
    * @private
    * @param {string} tokenAddress - 代币地址
    * @param {Array} timingSink - 分段计时收集数组（N1 探针）
+   * @param {Object} [overrideOptions] - 覆盖选项（当前唯一消费：账号型 TTL 穿透
+   *   传 { ignoreCache: true }），展开在默认 options 之后覆盖同键
    * @returns {{ promise: Promise<Object>, timing: Array }} analyze 的结果 promise
    *   （不设超时，由调用方 race）+ 其 timing 数组
    */
-  _startAnalysis(tokenAddress, timingSink) {
+  _startAnalysis(tokenAddress, timingSink, overrideOptions) {
     const key = tokenAddress.toLowerCase();
-    let entry = this._inflight.get(key);
+    // TTL 穿透调用独立 inflight 槽（'!ttl' 后缀）：与常规调用互不 join——穿透要
+    // 的是强制重跑，join 到常规缓存命中 promise 上等于没穿透；并发穿透互相 join
+    const inflightKey = overrideOptions?.ignoreCache ? key + '!ttl' : key;
+    let entry = this._inflight.get(inflightKey);
     if (!entry) {
       const promise = this._getAnalyzer()
         .then(Analyzer => Analyzer.analyze(tokenAddress, {
@@ -155,13 +193,20 @@ class NarrativeDirectCaller {
           // 引擎级 analyze options 透传（vision 预启动等；后展开覆盖同键默认，
           // 未配置键零影响——构造点注入集合见 constructor._analyzeOptions 注释）
           ...this._analyzeOptions,
+          ...overrideOptions,
           _timing: timingSink,
         }));
       entry = { promise, timing: timingSink };
       // settle 后移出 inflight；then 第二参承接 rejection 防 unhandled rejection
-      const cleanup = () => this._inflight.delete(key);
+      const cleanup = () => this._inflight.delete(inflightKey);
       promise.then(cleanup, cleanup);
-      this._inflight.set(key, entry);
+      this._inflight.set(inflightKey, entry);
+      // 穿透发起即计费（ignoreCache 恒真跑，失败/超时配额已烧——防穿透失败风暴
+      // 绕过上限）；join 到既有穿透不重复计。常规调用不在此计——命中/真跑要等
+      // analyze 返回才能区分（meta.fromCache），完成点在 getRating 补计
+      if (overrideOptions?.ignoreCache) {
+        this._analysisCounts.set(key, (this._analysisCounts.get(key) || 0) + 1);
+      }
     }
     return entry;
   }
@@ -229,11 +274,31 @@ class NarrativeDirectCaller {
           { code: TIMEOUT_CODE },
         )), DIRECT_CALL_TIMEOUT_MS);
       });
-      const entry = this._startAnalysis(tokenAddress, timingSink);
-      const result = await Promise.race([
+      let entry = this._startAnalysis(tokenAddress, timingSink);
+      let result = await Promise.race([
         entry.promise,
         timeout,
       ]).finally(() => clearTimeout(timer));
+
+      // 账号型未过缓存 10s TTL 穿透（2026-10-14 用户裁定，Virusking 案）：首次调用
+      // 命中该形状缓存行且行龄≥10s、本进程分析计数<3 → 当次强制重析（不等 worker
+      // PrecheckFailRetry ~30s 周期，宣告推晚发场景 ~10s 内可翻案）。穿透结果
+      // 覆盖 result 走下方统一构造；穿透超时抛进外层 catch = 既有 9 语义不变
+      let ttlReanalyzed = false;
+      if (result?.meta?.fromCache && this._shouldTtlReanalyze(result, cacheKey)) {
+        const timingSink2 = [];
+        const entry2 = this._startAnalysis(tokenAddress, timingSink2, { ignoreCache: true });
+        let timer2 = null;
+        const timeout2 = new Promise((_, reject) => {
+          timer2 = setTimeout(() => reject(Object.assign(
+            new Error(`叙事分析直调超时(${DIRECT_CALL_TIMEOUT_MS}ms)`),
+            { code: TIMEOUT_CODE },
+          )), DIRECT_CALL_TIMEOUT_MS);
+        });
+        result = await Promise.race([entry2.promise, timeout2]).finally(() => clearTimeout(timer2));
+        entry = entry2;
+        ttlReanalyzed = true;
+      }
 
       const ratingResult = {
         numericRating: [1, 2, 3].includes(result?.numericRating) ? result.numericRating : 9,
@@ -254,6 +319,8 @@ class NarrativeDirectCaller {
         // = 宣告竞态形状（PrecheckFailRetryService 重试域），引擎侧叙事否决短路的
         // 豁免判据；非 precheck fail / 超时 / 异常 → null
         precheckStage: result?.llmAnalysis?.preCheck?.details?.validationStage ?? null,
+        // 账号型 TTL 穿透观测标记：本次评级来自 10s 过期后的强制重析（仅穿透轮带）
+        ...(ttlReanalyzed ? { ttlReanalyze: true } : {}),
       };
       if (this._memoryCacheResults && this._isCacheableRatingResult(ratingResult)) {
         this._resultCache.set(cacheKey, ratingResult);
@@ -263,7 +330,14 @@ class NarrativeDirectCaller {
       // ——dbCache=analyze 内 token_narrative 行命中（应≈preload 后纯内存），真跑=
       // 数据抓取+Jev 全链；两计数把 miss 耗时归到正确一侧）
       if (result?.meta?.fromCache) this._dbCacheHits = (this._dbCacheHits || 0) + 1;
-      else this._realRuns = (this._realRuns || 0) + 1;
+      else {
+        this._realRuns = (this._realRuns || 0) + 1;
+        // 常规真跑完成补计（首析/缓存 miss 重跑占穿透预算名额）；穿透轮已在
+        // 发起时计过（_startAnalysis !ttl 分支），此处跳过防双计
+        if (!ttlReanalyzed) {
+          this._analysisCounts.set(cacheKey, (this._analysisCounts.get(cacheKey) || 0) + 1);
+        }
+      }
       return ratingResult;
     } catch (error) {
       this._totalDurationMs += Date.now() - startedAt;
@@ -316,6 +390,30 @@ class NarrativeDirectCaller {
     if (r.precheckStage != null) return false;
     return true;
   }
+
+  /**
+   * 账号型未过缓存 TTL 穿透判定（2026-10-14 用户裁定，Virusking 案）：
+   * 语料入口只有账号（账号时间线=动态语料，宣告推随时可能发出）且 rating=1
+   * 的缓存行，行龄≥10s 且本进程分析计数<3 → 穿透重析
+   *
+   * - 开关 accountFailTtlReanalyze 默认 false（回测禁穿透——历史行 analyzed_at
+   *   恒早于墙钟，开了等于每 token 穿透 + 用「现在」的推文重评历史时点=前视）
+   * - analyzedAt 缺失/不可解析 → 不穿透（保守：形状不完整宁不烧配额）
+   * @private
+   * @param {Object} result - analyze 缓存命中返回（meta.fromCache=true 路径）
+   * @param {string} cacheKey - 小写 token 地址
+   * @returns {boolean}
+   */
+  _shouldTtlReanalyze(result, cacheKey) {
+    if (!this._accountFailTtl) return false;
+    if (result?.numericRating !== 1) return false;
+    if (!isAccountOnlySource(result?.classifiedUrls)) return false;
+    const analyzedAt = Date.parse(result?.meta?.analyzedAt ?? '');
+    if (isNaN(analyzedAt)) return false;
+    if (Date.now() - analyzedAt < ACCOUNT_FAIL_REANALYZE_TTL_MS) return false;
+    if ((this._analysisCounts.get(cacheKey) || 0) >= MAX_ANALYSES_PER_TOKEN) return false;
+    return true;
+  }
 }
 
 /**
@@ -354,6 +452,18 @@ function extractCorpusTs(twitter) {
 }
 
 /**
+ * 语料入口判定：twitter 桶非空且全部为账号型（type==='account'）
+ * 账号型 TTL 穿透域的形状判据——账号主页入口的分析语料=账号时间线（动态：
+ * 宣告推随时可能发出，缓存会失真）；推文型/website 型语料静态，穿透无意义
+ * @param {Object|null} classifiedUrls - analyze 返回的 classifiedUrls
+ * @returns {boolean}
+ */
+function isAccountOnlySource(classifiedUrls) {
+  const tw = classifiedUrls?.twitter;
+  return Array.isArray(tw) && tw.length > 0 && tw.every(t => t?.type === 'account');
+}
+
+/**
  * GMGN 风险字段 → preBuyCheckCondition 因子（x-0 案，2026-09-27）
  * 交易引擎/回测两路径共用映射，单点维护：
  * - gmgnIssuerTokenCount：推特维度发币总数（serial issuer 核心信号——链上 EOA 每
@@ -376,4 +486,4 @@ function mapGmgnRiskFactors(risk) {
   };
 }
 
-module.exports = { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative, extractCorpusTs, parseTwitterTs };
+module.exports = { NarrativeDirectCaller, mapGmgnRiskFactors, shouldBlockOnNarrative, extractCorpusTs, parseTwitterTs, isAccountOnlySource };

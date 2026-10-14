@@ -68,6 +68,17 @@ Token URL → URL 分类（含 IPFS metadata 解包 + GMGN 社媒补源 + 推文
 
 ## 二、Case 研究（倒序，卷三自 C56 起——卷二后段 C56-C65 并入）
 
+### C67 Virusking 案 0xa25cad994ca02755f0d9b6fe451077401b397777——账号型未过缓存 10s TTL 穿透重析：「如果叙事分析基于的信息是账号且没有通过，那么缓存10秒过期即10秒后可以再次分析，最多分析三次」（2026-10-14 用户裁定）★
+
+- **案发**：flap 税币盘 07:19:00 创建（@Virusking_bsc 主页入口），事后 5 分钟 +230%（4.35e-6→1.44e-5 USD），实验全程未买。时间线复盘：07:19:0x 首析时宣告推**未发**（07:19:45 才发，正文含完整 CA）→ 账号质量门不达标 + verifyTokenAddress 未命中 → precheckStage='address' rating=1 落行（07:19:05.75）→ 此后 35 轮买评估（07:19:05→07:20:10）全部命中该缓存行（`is_valid=true` 短路，rating 恒 1）→ worker PrecheckFailRetry 两次重析：第 2 次 07:20:09.7 发起（07:20:10.9 resolved:true，宣告推已发 CA 验证过）→ 但 prestage 快车道 web3_native_ip_early **粉丝 15<20 底线门** → 仍 low；最后一轮买评估 07:20:10.335 比重析完成早 0.6s，此后买窗走完无信号。
+- **两层归因（如实）**：首拦=宣告竞态（address fail，重试机制正常工作）；终拦=粉丝底线（独立门，重析翻正了 CA 验证也过不了）。本案形态下 10s TTL 穿透也难直接救回（3 次预算约 30s 内耗尽在宣告推发出前，且粉丝底线照拦）——机制救的是**宣告竞态+账号质量达标**的常见形态：首析 fail 落行后不等 worker ~30s 慢周期，~10s 即穿透拉到刚发出的宣告推翻案，买窗内放行。
+- **用户裁定**（机制语义）：账号型语料=**动态**（账号时间线随时可能出新推），low 缓存行会失真；10s 过期即穿透重析，最多 3 次。推文型/website 型语料静态，无此语义（形状判据排除）。
+- **改动面**：`src/trading-engine/pre-check/NarrativeDirectCaller.js`——①形状判据 `isAccountOnlySource`（classifiedUrls.twitter 非空且全部 type==='account'，导出纯函数）；②穿透块：getRating 首次结果 `meta.fromCache && rating=1 && account-only && 行龄≥10s && 真跑计数<3` → 当次 `_startAnalysis(..., { ignoreCache: true })` 强制重析（独立 `'!ttl'` inflight 槽：与常规调用互不 join——join 到缓存命中 promise 等于没穿透；并发穿透互相 join）；③`MAX_ANALYSES_PER_TOKEN=3` 双计费点：穿透发起即计（ignoreCache 恒真跑，失败/超时配额已烧——防穿透失败风暴绕过上限）+ 常规真跑完成补计（首析/miss 重跑；缓存命中 ~70ms DB 读不计）；④观测标记 `ttlReanalyze: true` 落 ratingResult。引擎构造点 `accountFailTtlReanalyze: true`（FourMemeWssTradingEngine）。
+- **前视防线（回测禁穿透）**：开关默认 **false**——历史行 analyzed_at 恒早于墙钟，开了=每 token 命中都判「TTL 已过」→ 用「现在」抓的推文重评历史时点=语料前视。BacktestEngine 构造点不传=零穿透（fail-closed 方向：漏改也不会出前视事故）。
+- **单测**：`scripts/_test_narrative_account_ttl.cjs` 32 断言全绿——A 纯函数五形状 / B 默认关零变化 / C 回测形状事故反证（memoryCacheResults 不带开关历史行恒老不穿透）/ D TTL 未到 / E 穿透翻正+标记 / F 计数封顶（穿透恰 3 次后回终态缓存行为，缓存命中不烧预算）/ F2 首析占名额（穿透仅 2 次）/ G 非目标形状三反证 / H 并发穿透 join（analyze 恰 2 次、计费恰 1 次）/ I Virusking 事故现场反证（首析 address-fail low → 次轮穿透翻正 3 → shouldBlockOnNarrative 不拉黑）。回归：_test_narrative_memcache 20 / _test_narrative_prefetch 38 / _test_narrative_timing_probe 42 / _test_narrative_vision_prefetch 18 / _test_narrative_leader_incremental 66 / _test_narrative_signal_gate 13 全绿。
+- **计费口径修正过程**（首版 bug）：发起时无条件计数把缓存命中的常规调用（~70ms DB 读不烧 Jev/抓取配额）也计入预算 → 每轮命中 +1、3 次预算两轮耗尽、穿透实际只发生 1 次；修正为双计费点（穿透发起+常规真跑完成）后「防的是配额消耗不是结果」语义成立。
+- **生效面**：182 pull + 实验进程重启后生效（机制在引擎进程内）；worker/回测/web routes 零变化。
+
 ### C66 红山动物园案 0xd73292fc…7777 / 0x05fec7c0…7777——陈述者交互终判四条删除（主体不是陈述者）：precheck 不再用「单帖交互数」代表「叙事主体传播力」毙票，交给 Jev 结合主体综合评（2026-10-14 用户裁定「四条全删」）★
 
 - **案发**：同叙事（南京红山森林动物园梗）三票命运分叉——0x4360e611（twitter 源）评 high 买入 +21.2% 落袋；0xd73292fc / 0x05fec7c0（微博源，作者「南京市红山森林动物园」单帖交互 17<150）被规则 3.7 `weibo_low_engagement` 硬拦 rating=1 引擎拉黑，其中 0xd73292fc 随后**毕业（funds 13.26 BNB）**。同叙事评级由「token 网站恰好贴了哪个平台的链接」这一偶然性决定，与叙事主体价值无关。佐证案：土谛 0x20e4c2b7…7777 引**新华社**帖（转发11+评论1+点赞92=104<150）同被拦——官媒信源主体的传播力被单帖交互代表。
