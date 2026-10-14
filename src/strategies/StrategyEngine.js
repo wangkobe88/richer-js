@@ -58,7 +58,7 @@ class StrategyEngine {
      *   fail-fast throw 拒绝启动——原 console.warn 放行让 (X >= 55 OR X IS NULL)
      *   形状的写错门恒真，hg55 门配对回测整组作废。
      */
-    loadStrategies(strategyConfigs, availableFactorIds = null, preBuyAvailableFactorIds = null) {
+    loadStrategies(strategyConfigs, availableFactorIds = null, preBuyAvailableFactorIds = null, gmgnAvailableFactorIds = null) {
         this._strategies = [];
 
         for (let i = 0; i < strategyConfigs.length; i++) {
@@ -130,6 +130,20 @@ class StrategyEngine {
                     }
                 }
 
+                // gmgnCheckCondition（买腿第三层 GMGN 条件，FAKER 团伙盘案 2026-10-14）：
+                // 评估上下文是 GmgnRiskCheckService 的固定三键（gmgnIssuerTokenCount /
+                // gmgnBundlerWalletRatio / gmgnRiskCovered），独立键集校验；未传集则跳过
+                if (gmgnAvailableFactorIds) {
+                    const raw = config.gmgnCheckCondition;
+                    if (typeof raw === 'string' && raw.trim() !== '') {
+                        const v = this._evaluator.validateCondition(
+                            this._evaluator.parseCondition(raw), gmgnAvailableFactorIds);
+                        if (!v.valid) {
+                            throw new Error(`策略[${config.id}] gmgnCheckCondition 引用未知因子: ${v.errors.join(', ')}——因子名写错会让子句静默失效，拒绝启动`);
+                        }
+                    }
+                }
+
                 // 构建策略对象
                 const strategy = {
                     id: config.id,
@@ -142,6 +156,9 @@ class StrategyEngine {
                     maxExecutions: config.maxExecutions || null,
                     preBuyCheckCondition: config.preBuyCheckCondition || null,
                     repeatBuyCheckCondition: config.repeatBuyCheckCondition || null,
+                    // 买腿第三层 GMGN 条件（FAKER 团伙盘案 2026-10-14）：前两层全过、
+                    // 下单前实时调 GMGN API 构建因子评估；fail-closed 拒买。null=零调用
+                    gmgnCheckCondition: config.gmgnCheckCondition || null,
                     narrativeCallCondition: config.narrativeCallCondition || null,
                     // 叙事预触发条件（N3，2026-10-13 叙事提速案）：不配 = 预触发用
                     // narrativeCallCondition；配更宽松条件 = 更早发起（API 消耗与提前量

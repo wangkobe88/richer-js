@@ -16,14 +16,17 @@ require('dotenv').config({ path: path.join(__dirname, '../config/.env') });
 const { ConditionEvaluator } = require('../src/strategies/ConditionEvaluator');
 const { getAvailableFactorIds } = require('../src/trading-engine/core/FactorBuilder');
 const { PreBuyCheckService } = require('../src/trading-engine/pre-check/PreBuyCheckService');
+const { GmgnRiskCheckService } = require('../src/trading-engine/pre-check/GmgnRiskCheckService');
 
 const ev = new ConditionEvaluator();
 const FA = getAvailableFactorIds();
 const PB = new Set(PreBuyCheckService.getConditionFactorKeys());
+const GM = new Set(GmgnRiskCheckService.getConditionFactorKeys());
 // [字段, 校验集]——与 StrategyEngine.loadStrategies 同一分集口径
 const FIELDS = [
     ['condition', FA], ['narrativeCallCondition', FA],
     ['preBuyCheckCondition', PB], ['repeatBuyCheckCondition', PB],
+    ['gmgnCheckCondition', GM],
 ];
 
 function* checkLeg(scope, leg) {

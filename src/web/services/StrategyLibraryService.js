@@ -40,15 +40,18 @@ function validateLegs(side, legs) {
     const { ConditionEvaluator } = require('../../strategies/ConditionEvaluator');
     const { getAvailableFactorIds } = require('../../trading-engine/core/FactorBuilder');
     const { PreBuyCheckService } = require('../../trading-engine/pre-check/PreBuyCheckService');
+    const { GmgnRiskCheckService } = require('../../trading-engine/pre-check/GmgnRiskCheckService');
     const evaluator = new ConditionEvaluator();
     const faIds = getAvailableFactorIds();
     const preBuyIds = new Set(PreBuyCheckService.getConditionFactorKeys());
+    const gmgnIds = new Set(GmgnRiskCheckService.getConditionFactorKeys());
     // [字段, 校验集]：与 StrategyEngine.loadStrategies 同一分集口径
     const CONDITION_FIELDS = [
         ['condition', faIds],
         ['narrativeCallCondition', faIds],
         ['preBuyCheckCondition', preBuyIds],
         ['repeatBuyCheckCondition', preBuyIds],
+        ['gmgnCheckCondition', gmgnIds],
     ];
     const errors = [];
     legs.forEach((leg, i) => {

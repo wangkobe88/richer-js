@@ -284,11 +284,14 @@ class BacktestEngine extends AbstractTradingEngine {
       });
     }
     // 未知因子 fail-fast（2026-10-03 hg55 事故裁定）：condition/narrativeCall 用 FA
-    // 因子集校验；preBuy/repeat 买检查用 PreBuyCheckService 评估上下文键集校验
+    // 因子集校验；preBuy/repeat 买检查用 PreBuyCheckService 评估上下文键集校验；
+    // gmgnCheckCondition 用第三层固定三键集校验（FAKER 团伙盘案 2026-10-14）
     //（别名防与第 5 步的 PreBuyCheckService 声明重复）
     const { PreBuyCheckService: _PreBuyCheckService } = require('../pre-check/PreBuyCheckService');
+    const { GmgnRiskCheckService: _GmgnRiskCheckService } = require('../pre-check/GmgnRiskCheckService');
     this._strategyEngine.loadStrategies(strategyArray, availableFactorIds,
-      new Set(_PreBuyCheckService.getConditionFactorKeys()));
+      new Set(_PreBuyCheckService.getConditionFactorKeys()),
+      new Set(_GmgnRiskCheckService.getConditionFactorKeys()));
 
     // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存最严者先锁，fail-closed 方向）；
     // 未配置任何腿 = null = 机制关闭（存量实验零变化，语义同实时引擎）
@@ -2025,6 +2028,33 @@ class BacktestEngine extends AbstractTradingEngine {
         return { success: false, reason: `预检查失败: ${blockReason}` };
       }
 
+      // ── 第三层：GMGN 条件（FAKER 0xc6ee…7777 团伙盘案，同实时引擎 2026-10-14）：
+      // 回测**不真调 API**——数据=叙事直调 gmgnRisk 快照映射（预载行 gmgn_info 优先、
+      // 缺行时直调链路已真打且有既有时序穿越声明，偏拦方向）；直调未触发/GMGN 未拿到
+      // → covered=0 同款 fail-closed 硬拒。回放同一管线：同层同键同拒语义，差异仅
+      // 「实时多一次新鲜调用」。repeat 轮与首轮统一同一条件串 ──
+      let gmgnCheckInfo = null;
+      const gmgnCheckCondition = String(strategy.gmgnCheckCondition || '').trim();
+      if (gmgnCheckCondition) {
+        const { GmgnRiskCheckService } = require('../pre-check/GmgnRiskCheckService');
+        gmgnCheckInfo = {
+          ...GmgnRiskCheckService.evaluateFactors(
+            this._mapGmgnRiskFactors(narrativeCallInfo?.gmgnRisk), gmgnCheckCondition),
+          condition: gmgnCheckCondition,
+        };
+        if (!gmgnCheckInfo.passed) {
+          this.logger.info(this._experimentId, 'BuyEval',
+            `GMGN 条件拒买(回放) | ${token.symbol} ${gmgnCheckInfo.reason}`);
+          if (signalId) {
+            this._bufferSignalUpdate(signalId, {
+              metadata: { gmgnCheck: { ...gmgnCheckInfo, execution_status: 'failed' } },
+              executed: false,
+            });
+          }
+          return { success: false, reason: `GMGN 条件未过: ${gmgnCheckInfo.reason}` };
+        }
+      }
+
       // 预检查通过：补全元数据后执行
       if (signalId) {
         this._bufferSignalUpdate(signalId, {
@@ -2034,6 +2064,8 @@ class BacktestEngine extends AbstractTradingEngine {
             tpaFactors: buildTpaFactorSnapshot(factorResults),
             narrativeCall: narrativeCallInfo,
             narrativeLeaderCheck: narrativeLeaderInfo,
+            // 第三层轨迹（通过路径；拒买路径在上方已单独落；回测无新鲜调用=快照口径）
+            gmgnCheck: gmgnCheckInfo,
             preBuyCheckFactors: buildPreBuyCheckFactorValues(preBuyCheckResult),
             preBuyCheckResult: {
               canBuy: true,

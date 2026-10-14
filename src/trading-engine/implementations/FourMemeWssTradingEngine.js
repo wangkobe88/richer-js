@@ -276,6 +276,15 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     // ReferenceError（2026-09-27 蝴蝶轮回案：60 次 BUY 信号全挂「mapGmgnRiskFactors is not defined」）
     this._mapGmgnRiskFactors = mapGmgnRiskFactors;
 
+    // 1.5.2 买腿第三层 GMGN 条件（FAKER 0xc6ee…7777 团伙盘案，2026-10-14 用户裁定）：
+    // 触发→预检查→GMGN 三层；第三层因子在前两层全过后才构建（=此刻才真调 GMGN
+    // getTokenInfo，与直调快照刻意隔离——只认自己 fetch 的结果）。fail-closed：
+    // 调不到数据=拒买，机制硬保证。配置 fourmemeWs.gmgnCheck（flap 实验同键；
+    // perTokenTtlMs 短窗复用 / failCooldownMs 失败冷却）
+    const { GmgnRiskCheckService } = require('../pre-check/GmgnRiskCheckService');
+    this._gmgnRiskCheckService = new GmgnRiskCheckService(
+      this._mergedWsConfig().gmgnCheck || {}, this.logger);
+
     // 1.5.1 同叙事龙头已火检查（narrativeLeaderHot 因子：直调拿到 sourceTweetId 后查
     // 同源推文其余代币的峰值涨幅，火门槛 5x + 首达后 24h 拒绝窗口；详见 SameNarrativeLeaderService 头注）
     const { SameNarrativeLeaderService } = require('../pre-check/SameNarrativeLeaderService');
@@ -460,11 +469,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       });
     }
     // 未知因子 fail-fast（2026-10-03 hg55 事故裁定）：condition/narrativeCall 用 FA
-    // 因子集校验；preBuy/repeat 买检查用 PreBuyCheckService 评估上下文键集校验
+    // 因子集校验；preBuy/repeat 买检查用 PreBuyCheckService 评估上下文键集校验；
+    // gmgnCheckCondition 用第三层固定三键集校验（FAKER 团伙盘案 2026-10-14）
     //（别名防与本方法早前第 2 步的 PreBuyCheckService 声明重复）
     const { PreBuyCheckService: _PreBuyCheckService } = require('../pre-check/PreBuyCheckService');
+    const { GmgnRiskCheckService: _GmgnRiskCheckService } = require('../pre-check/GmgnRiskCheckService');
     this._strategyEngine.loadStrategies(strategyArray, availableFactorIds,
-      new Set(_PreBuyCheckService.getConditionFactorKeys()));
+      new Set(_PreBuyCheckService.getConditionFactorKeys()),
+      new Set(_GmgnRiskCheckService.getConditionFactorKeys()));
 
     // 累亏闩锁阈值：取卖腿 cumulativeLossLockPct 最大值（多腿并存时最严者先锁，fail-closed 方向）；
     // 未配置任何腿 = null = 机制关闭（存量实验零变化）
@@ -1635,6 +1647,38 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         return { success: false, reason: `预检查失败: ${blockReason}` };
       }
 
+      // ── 第三层：GMGN 条件（FAKER 0xc6ee…7777 团伙盘案，2026-10-14 用户裁定）：
+      // 前两层全过、下单前才真调 GMGN getTokenInfo 构建因子（配额最小化+数据天然
+      // 新鲜，与直调快照隔离——只认本层 fetch 的结果）。covered=0（失败/超时/未
+      // 索引/key 缺失/冷却）→ 机制硬拒不评表达式；repeat 轮与首轮统一同一条件串 ──
+      let gmgnCheckInfo = null;
+      const gmgnCheckCondition = String(strategy.gmgnCheckCondition || '').trim();
+      if (gmgnCheckCondition && this._gmgnRiskCheckService) {
+        try {
+          gmgnCheckInfo = await this._gmgnRiskCheckService.checkAndEvaluate(
+            token.token, token.chain || 'bsc', gmgnCheckCondition);
+        } catch (e) {
+          // check 本身不抛（归一 covered=0）；此处兜 service 接线级异常，同 fail-closed
+          gmgnCheckInfo = { passed: false, evaluated: false, reason: `gmgn_check_error(${e?.message || e})` };
+        }
+        if (!gmgnCheckInfo.passed) {
+          this.logger.info(this._experimentId, 'BuyEval',
+            `GMGN 条件拒买 | ${token.symbol} ${gmgnCheckInfo.reason}` +
+            (gmgnCheckInfo.factors ? ` bundler=${gmgnCheckInfo.factors.gmgnBundlerWalletRatio}` : ''));
+          if (signalId) {
+            try {
+              await this._updateSignalMetadata(signalId, { gmgnCheck: gmgnCheckInfo });
+            } catch (updateError) {
+              this.logger.warn(this._experimentId, 'BuyEval',
+                `更新信号元数据失败 | ${token.symbol} ${updateError.message}`);
+            }
+          }
+          await this._updateSignalStatus(signalId, 'failed',
+            { message: `GMGN 条件未过: ${gmgnCheckInfo.reason}`, reason: gmgnCheckInfo.reason });
+          return { success: false, reason: `GMGN 条件未过: ${gmgnCheckInfo.reason}` };
+        }
+      }
+
       // ── 预检查通过：补全信号元数据后执行 ──
       if (preBuyCheckResult && signalId) {
         try {
@@ -1644,6 +1688,8 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
             tpaFactors: buildTpaFactorSnapshot(factorResults),
             narrativeCall: narrativeCallInfo,
             narrativeLeaderCheck: narrativeLeaderInfo,
+            // 第三层轨迹（通过路径；拒买路径在上方已单独落）
+            gmgnCheck: gmgnCheckInfo,
             preBuyCheckFactors: buildPreBuyCheckFactorValues(preBuyCheckResult),
             preBuyCheckResult: {
               canBuy: preBuyCheckResult.canBuy,

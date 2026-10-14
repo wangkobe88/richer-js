@@ -91,6 +91,11 @@
         "https://{cid}.ipfs.4everland.io/",
         "https://gateway.pinata.cloud/ipfs/"
       ]
+    },
+    "gmgnCheck": {
+      "timeoutMs": 5000,
+      "perTokenTtlMs": 5000,
+      "failCooldownMs": 10000
     }
   },
   "flapWs": {
