@@ -44,8 +44,8 @@ async function main() {
   if (!buy) throw new Error('买腿缺失');
   if (!buy.condition.includes(OLD_SEGMENT))
     throw new Error('源 fire condition 不含 v9 旧 holderTrend 双括号项（克隆源不对）: ' + buy.condition);
-  if (cfg.positionManagement?.perCardBNB !== 0.0025)
-    throw new Error('源 perCardBNB != 0.0025（克隆源不对）');
+  if (!(cfg.positionManagement?.perCardBNB > 0))
+    throw new Error('源 perCardBNB 缺失/未启用卡牌（克隆源不对）: ' + JSON.stringify(cfg.positionManagement));
   if (!cfg.wallet?.executorId) throw new Error('源无 wallet.executorId（克隆源不对）');
 
   buy.condition = libCond;
@@ -58,7 +58,7 @@ async function main() {
   cfg.description = 'v12 换行（2026-10-14 holderTrend slot 化）：唯一改动=买腿 condition 换库 buy-v2 v10'
     + '——旧 growthRatio>=55/slope<0.55 双 OR-NULL 门在 8 块≈4s 新语义（blockNumber 桶，d0cf735）下'
     + ' OR NULL 臂近乎恒真=门不存在，换 `holderTrendSlope > 0` NULL fail-closed（持有者趋势微向上才买，'
-    + '用户裁定③）；其余零改动（u40+市值门 15K+卖腿 P0/P1+拱形v2-A+perCardBNB 0.0025×4+executor 继承）。'
+    + '用户裁定③）；其余零改动（u40+市值门 15K+卖腿 P0/P1+拱形v2-A+perCardBNB/卡数/executor 全继承）。'
     + '历史信号 metadata 旧值断代（裁定①）。源=v12 94924a30';
 
   console.log('platform:', cfg.platform, '| perCardBNB:', cfg.positionManagement.perCardBNB);
