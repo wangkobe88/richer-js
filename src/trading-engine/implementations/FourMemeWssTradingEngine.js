@@ -3182,7 +3182,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
     const supabase = dbManager.getClient();
     const { data: metaRows } = await supabase
       .from('experiment_tokens')
-      .select('token_address, token_symbol, created_at, raw_api_data, creator_address')
+      .select('token_address, token_symbol, created_at, raw_api_data, creator_address, platform')
       .eq('experiment_id', this._experimentId)
       .in('token_address', anchorSources.map(a => a.tokenAddress));
     const metaByAddr = new Map((metaRows || []).map(r => [r.token_address, r]));
@@ -3196,11 +3196,20 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         totalSupply: Number(meta.raw_api_data?.totalSupply) || 0,
         symbol: meta.token_symbol || '',
         creatorAddress: meta.creator_address || meta.raw_api_data?.creator || null,
+        platform: meta.platform || undefined, // 平台真值（write-once；DB 缺列=不写与旧行为一致）
       });
+      // platform 口径（우땅이 卖出分派错案 2026-10-14）：恢复持仓的平台归属取 DB 真值
+      // （experiment_tokens.platform，买入落库时写入）——此前恒 _wsPlatforms()[0]，双平台
+      // 实验把 flap 票冒充 fourmeme → _liveTraderFor 卖出分派 FourMemeDirectTrader →
+      // four.meme 合约 revert「代币由不同的 TokenManager 管理」（对 flap token 查询
+      // manager=0x0）。DB 缺 platform 且单平台实验才回退首平台（=唯一平台，语义无损）；
+      // 双平台缺列 → null 不冒充（卖侧分派 fail-closed throw 拒盲发，绝不发错协议）
+      const restorePlatform = meta.platform
+        || (this._wsPlatforms().length === 1 ? this._wsPlatforms()[0] : null);
       this._tokenPool.addToken({
         token: tokenAddress,
         chain: 'bsc',
-        platform: this._wsPlatforms()[0],
+        platform: restorePlatform,
         data_source: 'wss',
         name: meta.raw_api_data?.name || '',
         symbol: meta.token_symbol || '',
