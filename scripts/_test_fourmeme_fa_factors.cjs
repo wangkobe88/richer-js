@@ -86,7 +86,10 @@ function mkTick(token, ts, isBuy, priceBnb, bnbAmount, trader, block, tokenAmoun
         block_number: block,
         timestamp: ts,
         tx_hash: '0x' + (++txSeq).toString(16).padStart(8, '0'),
-        log_index: 0,
+        // 真实 log_index 是块内全局严格递增（UNIQUE(tx_hash,log_index)）——合成数据用全局
+        // 递增序对齐该不变量（2026-10-14 鸡蛋案 chainLate 判据上线后，恒 0 的旧形状会把
+        // 同块第二笔误判迟到拦出价格链）；跨块时 block 比较先行短路，li 数值本身无约束
+        log_index: txSeq,
     };
 }
 

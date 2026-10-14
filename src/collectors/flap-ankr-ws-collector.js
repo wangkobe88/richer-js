@@ -1105,16 +1105,20 @@ class FlapAnkrWsCollector {
             quote_token: decoded.quoteToken ?? null,
         };
         if (this._senderResolver) {
-            // 合约/未知钱包延迟喂 FA + 入 buffer（单次 upsert 全字段，省回填 UPDATE）；EOA 缓存
-            // 命中在 submit 内同步回推，与直连路径零差异。回推时 sender_address 已定值 →
-            // FA 钱包口径（sender||trader，GMGN 案 A/B）与落库行一致
+            // 两阶段喂食（2026-10-14 鸡蛋案）：价格段 WSS 到达即喂（零回查依赖——fire 价/
+            // lastTickAt 不再被 RPC 回查延迟与乱序污染，迟到旧价由 FA chainLate 判据拦）；
+            // wallet 段等 sender 定值后补喂（holders/K 组/holderTrend/GMGN routedBuy 用真
+            // sender 精确计数）。EOA 缓存命中在 submit 内同步回推——两段同 tick 先后执行，
+            // 与旧单段零时序差；合约行按回查完成序回推，wallet 段乱序无害（holderCount
+            // 任意序重放收敛同终值——P2a 归纳等价）
+            const priceFa = this._feedFa(decoded, tickRow, priceUsd, { deferWallet: true });
             this._senderResolver.submit({
                 tickRow,
                 trader: decoded.trader,
                 txHash: decoded.txHash,
-                // 回推统一经 _feedFa→_pushTickRow：priceOutlier 在行入 buffer 前定值 →
-                // INSERT 携带最终 flag（优于「落库 false + 事后 UPDATE」）
-                pushRow: (row) => { this._feedFa(decoded, row, priceUsd); this._pushTickRow(row); },
+                // 回推统一经 _feedWallet→_pushTickRow：sender_address 已定值；price_outlier
+                // 价格段已定值回写行上 → INSERT 携带最终 flag（优于「落库 false + 事后 UPDATE」）
+                pushRow: (row) => { this._feedWallet(decoded, row, priceUsd, priceFa); this._pushTickRow(row); },
             });
         } else {
             this._feedFa(decoded, tickRow, priceUsd);
@@ -1133,13 +1137,15 @@ class FlapAnkrWsCollector {
     }
 
     /**
-     * FA 喂食 + 离群价回写（自 _emitTick 抽取，resolver 回推与直推共用）。
-     * 回推路径 tickRow.sender_address 已定值——FA 钱包口径（sender||trader，GMGN 案 A/B）
-     * 与落库行一致；直推路径 sender=null 回退 trader（= 旧 collector 行为）。
+     * FA 喂食价格段 + 离群价回写（自 _emitTick 抽取，resolver 回推与直推共用）。
+     * opts.deferWallet=true（两阶段喂食 2026-10-14 鸡蛋案）：只喂价格/流量段，wallet 聚合段
+     * 由 _feedWallet 在 sender 定值后补——本阶段行 sender 未定（NULL 回退 trader 假值），
+     * 价格段无 wallet 依赖（smartBot 除外，defer 时跳过由补喂段还原）。
+     * 直推路径（无 resolver/回测）不 defer：sender=null 回退 trader（= 旧 collector 行为）。
      * 尘 tick（< minTickBnb）不进因子计算，仍照常落表；flap 事件无 offers/funds
      * 字段不传（tvl 恒 0，与回测口径一致）。
      */
-    _feedFa(decoded, tickRow, priceUsd) {
+    _feedFa(decoded, tickRow, priceUsd, opts = {}) {
         if (!this._factorAggregator || decoded.bnbAmount < this._minTickBnb) return null;
         const faResult = this._factorAggregator.processTick({
             token_address: decoded.token,
@@ -1154,12 +1160,37 @@ class FlapAnkrWsCollector {
             timestamp: decoded.blockTimeMs,
             tx_hash: decoded.txHash,
             log_index: decoded.logIndex,
-        });
+        }, opts);
         // FA 离群价判定回写落表行（行入 buffer 前定值 → INSERT 携带最终 flag）
         if (faResult && faResult.priceOutlier) {
             tickRow.price_outlier = true;
         }
         return faResult;
+    }
+
+    /**
+     * FA 喂食 wallet 段（两阶段喂食第二段，2026-10-14 鸡蛋案）：sender 定值后补喂
+     * holders/K 组/holderTrend/GMGN routedBuy。priceFa=价格段 faResult（priceAccepted
+     * 透传，smartBot 补跑资格 priceReliable 等价重算的原料）；price_outlier 价格段已
+     * 回写行上；尘 tick 与价格段同口径跳过。state 缺失 FA 侧 fail-loud throw（时序错乱）。
+     */
+    _feedWallet(decoded, tickRow, priceUsd, priceFa) {
+        if (!this._factorAggregator || decoded.bnbAmount < this._minTickBnb) return null;
+        return this._factorAggregator.applyWalletTick({
+            token_address: decoded.token,
+            trade_type: decoded.tradeType,
+            trader_address: decoded.trader,
+            sender_address: tickRow.sender_address || null,
+            price_bnb: decoded.priceBnb,
+            price_usd: priceUsd,
+            bnb_amount: decoded.bnbAmount,
+            token_amount: decoded.tokenAmount,
+            block_number: decoded.blockNumber,
+            timestamp: decoded.blockTimeMs,
+            tx_hash: decoded.txHash,
+            log_index: decoded.logIndex,
+            price_accepted: priceFa ? priceFa.priceAccepted === true : false,
+        });
     }
 
     /** tick 行进缓冲（resolver 回推与直推共用的单一咽喉点） */

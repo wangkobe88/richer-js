@@ -320,7 +320,7 @@ async function testB() {
             c2._senderResolver = {
                 submit: (p) => { p.tickRow.sender_address = p.trader; p.pushRow(p.tickRow); }, // EOA 快路同步回推
             };
-            c2._factorAggregator = { processTick: () => ({ priceOutlier: true }), registerToken: () => {} };
+            c2._factorAggregator = { processTick: () => ({ priceOutlier: true }), applyWalletTick: () => ({}), registerToken: () => {} };
             c2._minTickBnb = 0;
             c2._emitTick(decoded('0xb3'));
             ok(c2._tickBuffer.length === 1, `B3[${name}] EOA 快路同步进 buffer`);
@@ -328,19 +328,27 @@ async function testB() {
             ok(c2._tickBuffer[0].sender_address === '0xtrader', `B3[${name}] 快路 sender=trader`);
         }
 
-        // B5 resolver 慢路延迟喂 FA（回迁补丁）：未回推前 FA 零调用；回推后 FA 收到已定值 sender
+        // B5 resolver 慢路两阶段喂食（2026-10-14 鸡蛋案改造）：emitTick 即喂价格段
+        //    （deferWallet，零回查依赖——fire 价不被 RPC 回查延迟污染）；wallet 段等回推：
+        //    未回推 applyWalletTick 零调用；回推后收到已定值 sender（钱包口径 sender||trader）
         {
             const c = new Ctor({ [cfgKey]: {} }, quietLogger);
             const got = [];
             c._senderResolver = { submit: (p) => got.push(p) };
-            const faTicks = [];
-            c._factorAggregator = { processTick: (t) => faTicks.push(t), registerToken: () => {} };
+            const faFeeds = [];
+            const walletFeeds = [];
+            c._factorAggregator = {
+                processTick: (t, opts) => faFeeds.push({ t, opts }),
+                applyWalletTick: (t) => walletFeeds.push(t),
+                registerToken: () => {},
+            };
             c._minTickBnb = 0;
             c._emitTick(decoded('0xb5'));
-            ok(got.length === 1 && faTicks.length === 0, `B5[${name}] 未回推 FA 零调用（合约行延迟喂食）`);
+            ok(got.length === 1 && faFeeds.length === 1 && faFeeds[0].opts.deferWallet === true, `B5[${name}] 价格段 emitTick 即喂（deferWallet 透传）`);
+            ok(walletFeeds.length === 0, `B5[${name}] 未回推 wallet 段零调用`);
             got[0].tickRow.sender_address = '0xresolved';
             got[0].pushRow(got[0].tickRow);
-            ok(faTicks.length === 1 && faTicks[0].sender_address === '0xresolved' && faTicks[0].trader_address === '0xtrader', `B5[${name}] 回推后 FA 收已解析 sender（钱包口径 sender||trader）`);
+            ok(walletFeeds.length === 1 && walletFeeds[0].sender_address === '0xresolved' && walletFeeds[0].trader_address === '0xtrader', `B5[${name}] 回推后 wallet 段收已解析 sender`);
             ok(c._tickBuffer.length === 1, `B5[${name}] 回推行进 buffer`);
         }
 
@@ -419,7 +427,8 @@ function testC() {
     for (const [name, src] of [['fourmeme', fm], ['flap', fl]]) {
         ok(src.includes('sender_address: null'), `C1[${name}] tickRow 显式 sender_address 占位`);
         ok(/this\._senderResolver\.submit\(\{/.test(src), `C1[${name}] _emitTick 走 resolver.submit 分流`);
-        ok(/pushRow: \(row\) => \{ this\._feedFa\(decoded, row, priceUsd\); this\._pushTickRow\(row\); \}/.test(src), `C1[${name}] pushRow 回推统一经 _feedFa→_pushTickRow（sender 定值后进 FA/buffer）`);
+        ok(/const priceFa = this\._feedFa\(decoded, tickRow, priceUsd, \{ deferWallet: true \}\);/.test(src), `C1[${name}] resolver 分支价格段先喂（deferWallet 两阶段，先于 submit）`);
+        ok(/pushRow: \(row\) => \{ this\._feedWallet\(decoded, row, priceUsd, priceFa\); this\._pushTickRow\(row\); \}/.test(src), `C1[${name}] pushRow 回推统一经 _feedWallet→_pushTickRow（sender 定值后补 wallet 段再进 buffer）`);
         ok(/sender_address: tickRow\.sender_address \|\| null/.test(src), `C1[${name}] _feedFA 钱包口径 sender||trader`);
         ok(/constructor\(config, logger, tokenPool = null, factorAggregator = null, callbacks = \{\}, senderResolver = null\)/.test(src), `C1[${name}] 构造第 6 参 senderResolver`);
     }

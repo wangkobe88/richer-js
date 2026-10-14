@@ -68,6 +68,7 @@ function slim(sec, priceBnb, o = {}) {
 
 /** FA 原生 tick（processTick 输入 shape） */
 let txSeq = 0;
+let liSeq = 0; // log_index 全局递增（链上块内严格递增；恒 0 会被 FA chainLate 复合水位误拦）
 function native(sec, priceBnb, o = {}) {
     return {
         token_address: o.token ?? 'TOK_TEST',
@@ -80,7 +81,7 @@ function native(sec, priceBnb, o = {}) {
         block_number: o.block ?? Math.floor(sec / 3),
         timestamp: s(sec),
         tx_hash: '0x' + (++txSeq).toString(16).padStart(8, '0'),
-        log_index: 0,
+        log_index: ++liSeq,
     };
 }
 

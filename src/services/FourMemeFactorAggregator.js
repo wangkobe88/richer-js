@@ -503,11 +503,16 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 处理一笔 tick（实时或回放共用入口）。
      * @param {Object} tick - { token_address, trade_type, trader_address, sender_address, price_bnb, price_usd,
      *                          bnb_amount, token_amount, offers, funds_bnb, block_number, timestamp(ms), tx_hash, log_index }
-     * @param {Object} [opts] - { emitFactors: true } 回放场景可置 false 只累计状态不触发决策
+     * @param {Object} [opts] - { emitFactors: true } 回放场景可置 false 只累计状态不触发决策；
+     *                          { deferWallet: true } 两阶段喂食（2026-10-14 鸡蛋案）：只跑价格/流量段，
+     *                          wallet 聚合段由 collector 在 sender 回查完成后经 applyWalletTick 补——
+     *                          价格零回查依赖（fire 价失真/lastTickAt 回拨根除），holders 用真 sender 精确计数。
+     *                          回放路径（行 sender 已定值）不 defer，行为与旧版 bit 一致。
      * @returns {{factors: Object|null, priceAccepted: boolean, priceOutlier: boolean}|null}
      */
     processTick(tick, opts = {}) {
         const emitFactors = opts.emitFactors !== false;
+        const deferWallet = opts.deferWallet === true;
         const tokenAddress = tick.token_address;
         if (!tokenAddress || !tick.timestamp) return null;
         this._stats.ticksProcessed++;
@@ -568,67 +573,36 @@ class FourMemeFactorAggregator extends EventEmitter {
             // uniqueTraders 是 classifier metrics 契约字段（与离线 classifyToken/
             // token-classifier 口径锁定）——刻意保留 trader 口径，勿混 wallet 聚合
         }
-        // holders/K 组/TPA 基准（wallet 口径，sender||trader）：GMGN 合并修正的主切口——
-        // holderCount 与 holderTrend 原料、cumBuy 集中度（出货后留痕）、TPA 触发门/
-        // top20 取集/retention 双 map（二期 2026-10-10 与画像库同批切 sender）
-        if (walletAddr) {
-            if (tokenAmount > 0) {
-                const delta = isBuy ? tokenAmount : -tokenAmount;
-                const _prev = state._walletNetTokens.get(walletAddr) || 0;
-                const _cur = _prev + delta;
-                state._walletNetTokens.set(walletAddr, _cur);
-                // holderCount 增量维护（P2a 2026-10-12 回测性能案）：跨 0 边界 ±1，
-                // 与全 map 重数 #{net>0} 逐 tick 等价（归纳：每步只动一个钱包的净持仓，
-                // 正↔正/负↔负 计数不变；holderCount 单写点在此、初值 0）——替代每
-                // tick 清零重数 O(map)（130 万 tick 回放 x 万钱包 map 的线性热点）
-                if (_prev <= 0 && _cur > 0) state.holderCount++;
-                else if (_prev > 0 && _cur <= 0) state.holderCount--;
-                // 建仓峰值净持仓（TPA retention 基准分母，回迁批 4 → 二期随键域切 wallet）：
-                // 仅 running 上升时更新，单调不减 → 触发前已清仓的大户 maxNet 仍保留。
-                // P2b：TPA 不构造时双 map 零读 → 跳过维护
-                if (this._maintainTpa) {
-                    const _mx = state._walletMaxNetTokens.get(walletAddr) || 0;
-                    if (_cur > _mx) state._walletMaxNetTokens.set(walletAddr, _cur);
-                }
-                if (isBuy) {
-                    // GMGN 用户判定原料（2026-10-11 用户裁定）：本盘经聚合路由买入的 BNB 按钱包归集。
-                    // trader 层判定与 EarlyParticipantCheckService routerPct 因子同层同源（AGGREGATOR_ROUTER_ADDRS
-                    // 单一真相源；Set 条目小写，trader 归一 lower-case 后比对——checksum 形态行不漏记）；
-                    // sender NULL 回退行 walletAddr=trader=路由地址 → routedBuy 记到路由地址名下
-                    //（TPA 剔除判定天然涵盖路由地址本身的残留合并像）。卖腿不记：「参与者」= 买入者。
-                    // TPA 消费：触发门 minHolders 剔除 + top20 评分剔除 + 主导盘豁免（gmgnFilter）
-                    // P2b：routed map 仅 TPA gmgnFilter/minHolders 剔除消费，TPA 不构造零读
-                    if (this._maintainTpa && tick.trader_address
-                        && AGGREGATOR_ROUTER_ADDRS.has(String(tick.trader_address).toLowerCase())) {
-                        state._walletRoutedBuyBnb.set(walletAddr,
-                            (state._walletRoutedBuyBnb.get(walletAddr) || 0) + bnbAmount);
-                    }
-                }
-            }
+        // ── wallet 聚合段（2026-10-14 鸡蛋案两阶段喂食抽出 → _applyWalletAggregation）：holders/
+        //    K 组/TPA 基准/GMGN routedBuy/holderTrend 桶——全部依赖 sender 真值。defer 时整段
+        //    推迟到 applyWalletTick 补喂（collector sender 回查完成后），价格段零 wallet 依赖 ──
+        if (!deferWallet) {
+            this._applyWalletAggregation(state, tick, { isBuy, bnbAmount, tokenAmount, blockNumber });
         }
 
-        // ── K 组：双边地址/累计量（对敲重叠族原料，全史 Sets/Maps；wallet 口径——
-        //    对倒是同一 EOA 自买自卖，trader 口径下经路由的对倒反成「GMGN 买 GMGN 卖」假重叠）──
-        if (walletAddr) {
-            const addr = walletAddr;
-            if (isBuy) {
-                state._buyerAddresses.add(addr);
-                state._buyerVolume.set(addr, (state._buyerVolume.get(addr) || 0) + bnbAmount);
+        // ── 链上序迟到判据（2026-10-14 鸡蛋案）：resolver 回查乱序让 FA 先吃晚块再吃早块，
+        //    迟到旧价覆盖 currentPrice=fire 价 61% 低锚的根因。blockNumber+logIndex 复合水位
+        //    （同块内 block_time 相同判不出倒挂——li=547 先喂 li=393 后到的 20ms 倒挂实测）；
+        //    迟到 tick 计流量/滑窗照旧，跳过 outlier 判定与价格接受链；链证据缺失 fail-open ──
+        const logIdx = tick.log_index != null ? Number(tick.log_index) : null;
+        let chainLate = false;
+        if (blockNumber !== null && logIdx !== null) {
+            if (state._lastChainBlock !== null
+                && (blockNumber < state._lastChainBlock
+                    || (blockNumber === state._lastChainBlock && logIdx <= state._lastChainLogIdx))) {
+                chainLate = true;
+                this._stats.chainLateTicks = (this._stats.chainLateTicks || 0) + 1;
             } else {
-                state._sellerAddresses.add(addr);
-                state._sellerVolume.set(addr, (state._sellerVolume.get(addr) || 0) + bnbAmount);
+                state._lastChainBlock = blockNumber;
+                state._lastChainLogIdx = logIdx;
             }
         }
 
-        // ── holderTrend 原料（2026-10-14 slot 化改造）：blockNumber 桶持有者序列——
-        //    holderCount 上方已维护完毕，与价格接受链解耦（离群/零价 tick 照样推进持有者桶）；
-        //    blockNumber 缺失不推进（collector null 丢行/回测透传恒非空，不造兜底）──
-        if (blockNumber !== null) this._pushHolderSeriesPoint(state, blockNumber);
-
-        // ── 价格追踪（离群剔除）──
-        const priceOutlier = priceBnb > 0 && !this._acceptPrice(state, priceBnb);
+        // ── 价格追踪（离群剔除；chainLate 时跳过——_acceptPrice 有副作用（recentPrices 窗
+        //    push/shift），迟到旧价喂窗会污染离群基线）──
+        const priceOutlier = !chainLate && priceBnb > 0 && !this._acceptPrice(state, priceBnb);
         let priceAccepted = false;
-        if (priceBnb > 0 && !priceOutlier) {
+        if (!chainLate && priceBnb > 0 && !priceOutlier) {
             priceAccepted = true;
             this._stats.pricesAccepted++;
             if (!state.firstPriceBnb) {
@@ -656,8 +630,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             this._stats.pricesRejectedOutlier++;
         }
 
-        // ── 可靠价链（回迁批 1：priceReliable 驱动秒桶/宽bar/峰值链/dd/ddConfirm/块链）──
-        const priceReliable = priceBnb > 0 && !priceOutlier && bnbAmount >= this._fp.minPriceUpdateBnb;
+        // ── 可靠价链（回迁批 1：priceReliable 驱动秒桶/宽bar/峰值链/dd/ddConfirm/块链；
+        //    chainLate 迟到 tick 不进链——秒桶/宽bar/峰值/块链全部只吃链上序递进的新价）──
+        const priceReliable = !chainLate && priceBnb > 0 && !priceOutlier && bnbAmount >= this._fp.minPriceUpdateBnb;
         if (priceReliable) {
             state._relPriceBnb = priceBnb;
             if (state._relFirstPriceBnb === 0) state._relFirstPriceBnb = priceBnb; // 涨幅基准：首值冻结（priceBnb>0 由 priceReliable 保证，0 哨兵安全）
@@ -665,7 +640,9 @@ class FourMemeFactorAggregator extends EventEmitter {
             // ── 名单因子（回迁批 3.3）：smart_bot 名单内地址的可靠买额累计
             //   （参与=累计 buyBnb ≥ smartBotMinBuyBnb，对齐挖掘 qualify 口径；母版 _smartBotBuySol→BNB。
             //    只累不减：卖出不清——"参与过"留痕；名单 null（未加载/失败）整段跳过=因子恒 0 fail-open）
-            if (isBuy && _smartBotWallets && walletAddr && _smartBotWallets.has(walletAddr)) {
+            //   defer 时价格段 walletAddr=sender 未知的假值（NULL 回退 trader）——跳过，
+            //   由 wallet 段 applyWalletTick 用真 sender + price_accepted 透传补跑
+            if (!deferWallet && isBuy && _smartBotWallets && walletAddr && _smartBotWallets.has(walletAddr)) {
                 state._smartBotBuyBnb.set(walletAddr,
                     (state._smartBotBuyBnb.get(walletAddr) || 0) + bnbAmount);
             }
@@ -781,7 +758,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         //    市场状态与挂载策略无关。尘 tick 计流量不计价——priceReliable 守卫，S8）──
         this._marketOnTick(tokenAddress, ts, isBuy, bnbAmount, priceBnb, priceReliable);
 
-        state.lastTickAt = ts;
+        // Math.max 防回拨（2026-10-14 鸡蛋案）：迟到旧 tick 的 ts 会把 lastTickAt 拉回
+        // （实测 50.0→48.0 → idleSecSinceLastTick 虚高 3.593 假断流触发 P11 全清）
+        state.lastTickAt = state.lastTickAt === null ? ts : Math.max(state.lastTickAt, ts);
 
         // ── 因子构建与事件发射 ──
         let factors = null;
@@ -806,6 +785,151 @@ class FourMemeFactorAggregator extends EventEmitter {
         }
 
         return { factors, priceAccepted, priceOutlier };
+    }
+
+    /**
+     * wallet 聚合段（2026-10-14 鸡蛋案两阶段喂食自 processTick 抽出，逐行原样迁移）：
+     * holders 净持仓/holderCount（P2a 增量维护单写点）/TPA 双 map/GMGN routedBuy/
+     * K 组/holderTrend 桶——全部依赖 sender 真值（wallet 口径，sender||trader）。
+     * 两个调用方：processTick 非 defer（行序与抽出前 bit 一致——wallet 段先于价格段）；
+     * applyWalletTick defer 补喂（blockNumber 归桶，晚到不错桶；holderCount 任意序重放
+     * 收敛同终值——P2a 归纳等价性保证）。
+     * @param {Object} vars - { isBuy, bnbAmount, tokenAmount, blockNumber, smartBotEligible, deferred }
+     *   smartBotEligible：defer 补跑时 true=价格段跳过的 smartBot 累计在此补（priceReliable
+     *   由 applyWalletTick 按 price_accepted 透传重算）；非 defer 调用恒 undefined=不跑（价格段原位已跑）。
+     *   deferred：true=defer 补喂（holderTrend 走事件缓冲+重放）；缺省=非 defer 正序路径
+     */
+    _applyWalletAggregation(state, tick, vars) {
+        const walletAddr = tick.sender_address || tick.trader_address || null;
+        const { isBuy, bnbAmount, tokenAmount, blockNumber } = vars;
+
+        if (walletAddr) {
+            if (tokenAmount > 0) {
+                const delta = isBuy ? tokenAmount : -tokenAmount;
+                const _prev = state._walletNetTokens.get(walletAddr) || 0;
+                const _cur = _prev + delta;
+                state._walletNetTokens.set(walletAddr, _cur);
+                // holderCount 增量维护（P2a 2026-10-12 回测性能案）：跨 0 边界 ±1，
+                // 与全 map 重数 #{net>0} 逐 tick 等价（归纳：每步只动一个钱包的净持仓，
+                // 正↔正/负↔负 计数不变；holderCount 单写点在此、初值 0）——替代每
+                // tick 清零重数 O(map)（130 万 tick 回放 x 万钱包 map 的线性热点）
+                if (_prev <= 0 && _cur > 0) state.holderCount++;
+                else if (_prev > 0 && _cur <= 0) state.holderCount--;
+                // 建仓峰值净持仓（TPA retention 基准分母，回迁批 4 → 二期随键域切 wallet）：
+                // 仅 running 上升时更新，单调不减 → 触发前已清仓的大户 maxNet 仍保留。
+                // P2b：TPA 不构造时双 map 零读 → 跳过维护
+                if (this._maintainTpa) {
+                    const _mx = state._walletMaxNetTokens.get(walletAddr) || 0;
+                    if (_cur > _mx) state._walletMaxNetTokens.set(walletAddr, _cur);
+                }
+                if (isBuy) {
+                    // GMGN 用户判定原料（2026-10-11 用户裁定）：本盘经聚合路由买入的 BNB 按钱包归集。
+                    // trader 层判定与 EarlyParticipantCheckService routerPct 因子同层同源（AGGREGATOR_ROUTER_ADDRS
+                    // 单一真相源；Set 条目小写，trader 归一 lower-case 后比对——checksum 形态行不漏记）；
+                    // sender NULL 回退行 walletAddr=trader=路由地址 → routedBuy 记到路由地址名下
+                    //（TPA 剔除判定天然涵盖路由地址本身的残留合并像）。卖腿不记：「参与者」= 买入者。
+                    // TPA 消费：触发门 minHolders 剔除 + top20 评分剔除 + 主导盘豁免（gmgnFilter）
+                    // P2b：routed map 仅 TPA gmgnFilter/minHolders 剔除消费，TPA 不构造零读
+                    if (this._maintainTpa && tick.trader_address
+                        && AGGREGATOR_ROUTER_ADDRS.has(String(tick.trader_address).toLowerCase())) {
+                        state._walletRoutedBuyBnb.set(walletAddr,
+                            (state._walletRoutedBuyBnb.get(walletAddr) || 0) + bnbAmount);
+                    }
+                }
+            }
+        }
+
+        // ── K 组：双边地址/累计量（对敲重叠族原料，全史 Sets/Maps；wallet 口径——
+        //    对倒是同一 EOA 自买自卖，trader 口径下经路由的对倒反成「GMGN 买 GMGN 卖」假重叠）──
+        if (walletAddr) {
+            const addr = walletAddr;
+            if (isBuy) {
+                state._buyerAddresses.add(addr);
+                state._buyerVolume.set(addr, (state._buyerVolume.get(addr) || 0) + bnbAmount);
+            } else {
+                state._sellerAddresses.add(addr);
+                state._sellerVolume.set(addr, (state._sellerVolume.get(addr) || 0) + bnbAmount);
+            }
+        }
+
+        // ── smartBot 补跑（defer 专属）：价格段 deferWallet 跳过的名单累计在此用真 sender 补。
+        //    priceReliable 重算不碰 _acceptPrice（副作用窗）——按价格段已定值的 price_outlier
+        //    flag（collector 回写行透传）等价还原：priceBnb>0 && !outlier && bnb≥minPriceUpdateBnb ──
+        if (vars.smartBotEligible === true && isBuy
+            && _smartBotWallets && walletAddr && _smartBotWallets.has(walletAddr)) {
+            state._smartBotBuyBnb.set(walletAddr,
+                (state._smartBotBuyBnb.get(walletAddr) || 0) + bnbAmount);
+        }
+
+        // ── holderTrend 原料（2026-10-14 slot 化改造）：blockNumber 桶持有者序列——
+        //    与价格接受链解耦（离群/零价 tick 照样推进持有者桶）；blockNumber 缺失不推进
+        //    （collector null 丢行/回测透传恒非空，不造兜底）。非 defer（正序）走覆盖快照
+        //    （链序即喂序）；defer 乱序回推走事件缓冲+读取时重放（覆盖写=未来 holderCount
+        //    前视、delta 前缀和的跨 0 事件集也随回放序漂移——重放是唯一序无关解）──
+        if (blockNumber !== null) {
+            if (vars.deferred === true) {
+                this._recordHolderEvent(state, blockNumber, tokenAmount > 0 ? walletAddr : null, isBuy, tokenAmount);
+            } else {
+                this._pushHolderSeriesPoint(state, blockNumber);
+            }
+        }
+    }
+
+    /**
+     * 两阶段喂食第二段（2026-10-14 鸡蛋案）：collector sender 回查完成后补喂 wallet 聚合段。
+     * 价格段已由 processTick({deferWallet:true}) 即时喂过（价格/流量/滑窗/市场截面），
+     * 此处只补 wallet 段 + smartBot（price_accepted 透传重算）+ holderTrend 桶，再发一次
+     * factorsUpdated（引擎买腿 debounce 天然合并双发，价格版先到先评）。
+     * @param {Object} tick - 同 processTick 形状，另带 price_accepted（价格段 faResult 透传，
+     *                          smartBot 补跑资格=priceReliable 等价重算的原料；缺省不补跑 smartBot）
+     * @returns {Object|null} 补喂后的因子快照
+     */
+    applyWalletTick(tick, opts = {}) {
+        const tokenAddress = tick.token_address;
+        if (!tokenAddress || !tick.timestamp) return null;
+        // fail-loud：wallet 段先于价格段=调用序错乱（两阶段契约被破坏），绝不静默建裸 state
+        // （裸 state 无价格史 → currentPrice null → 消费侧全线失真）
+        const state = this._states.get(tokenAddress);
+        if (!state) {
+            throw new Error(`[FA] applyWalletTick: token ${tokenAddress} 无 state——价格段必须先行（processTick deferWallet）`);
+        }
+        this._stats.walletDeferredApplied = (this._stats.walletDeferredApplied || 0) + 1;
+
+        const isBuy = tick.trade_type === 'buy';
+        const bnbAmount = tick.bnb_amount || 0;
+        const tokenAmount = tick.token_amount || 0;
+        const blockNumber = tick.block_number != null ? Number(tick.block_number) : null;
+        const priceBnb = tick.price_bnb || 0;
+        // smartBot 补跑资格 = 价格段 priceReliable 的等价重算。priceReliable = priceAccepted
+        // && bnb≥minPriceUpdateBnb（priceAccepted 已含 !chainLate && !outlier && priceBnb>0）——
+        // 价格段 faResult.priceAccepted 经 collector 透传，flag 缺省不跑（保守，观察因子）
+        const smartBotEligible = tick.price_accepted === true
+            && bnbAmount >= this._fp.minPriceUpdateBnb;
+
+        this._applyWalletAggregation(state, tick,
+            { isBuy, bnbAmount, tokenAmount, blockNumber, smartBotEligible, deferred: true });
+
+        let factors = null;
+        if (opts.emitFactors !== false) {
+            factors = this._buildFactorMap(state, tick.timestamp);
+            if (factors) {
+                this._stats.factorsEmitted++;
+                this.emit('factorsUpdated', {
+                    tokenAddress,
+                    factors,
+                    tick: {
+                        token_address: tokenAddress,
+                        trade_type: tick.trade_type,
+                        price_bnb: priceBnb,
+                        price_usd: tick.price_usd || null,
+                        block_number: blockNumber,
+                        timestamp: tick.timestamp,
+                    },
+                    tokenState: state,
+                });
+            }
+        }
+        return factors;
     }
 
     /**
@@ -1065,6 +1189,12 @@ class FourMemeFactorAggregator extends EventEmitter {
             _prevBlockClose: null,      // 前块收盘（相邻对结算；断链=null）
             _maxBlockDropPct: null,     // 单块最大跌幅 %（null=从无跌幅证据）
 
+            _lastChainBlock: null,      // 链上序迟到水位（2026-10-14 鸡蛋案）：已见的最大
+            _lastChainLogIdx: null,     // (blockNumber, log_index)——早于此的 tick 判 chainLate 不进价格链
+
+            _holderEvents: [],          // holderTrend 事件缓冲（defer 乱序回推路径）：{block,wallet,buy,amt}
+            _holderSeriesDirty: false,  // 重放脏标记（buildFactorMap 消费前刷新）
+
             _slideTicks: [],            // 30s 滑窗 {ts}（_cycleFactors tps30s 原料，写时进出窗）
 
             // ── 分类器轨迹与 running 标量（回迁批 3.1：OPB 专用，不进因子键/时序存储。
@@ -1233,6 +1363,10 @@ class FourMemeFactorAggregator extends EventEmitter {
      * 同块后写覆盖（块内末笔 tick 时刻的 holderCount 快照），新块追加，8 块封顶（≈4s 窗，
      * BSC 出块 0.5s 中位）。与价格臂的 10s 时间桶机制互不相关——本方法只消费 holderCount，
      * 调用方负责 blockNumber 非空守卫（缺失不推进，不造兜底）。
+     * ⚠ 仅非 defer（正序喂）路径调用：回测=链上真序、live 无 resolver=WSS 推送序，
+     * blockNumber 单调 → 覆盖快照即链序快照。defer 两阶段的 wallet 段按回查完成序
+     * 乱序回推——覆盖写会把未来 holderCount 写进旧块桶（前视），由 _recordHolderEvent
+     * 事件缓冲 + _rebuildHolderSeries 读取时重放接管（见 _applyWalletAggregation）。
      */
     _pushHolderSeriesPoint(state, blockNumber) {
         const lastH = state._holderSeries[state._holderSeries.length - 1];
@@ -1242,6 +1376,90 @@ class FourMemeFactorAggregator extends EventEmitter {
             state._holderSeries.push({ block: blockNumber, count: state.holderCount });
             if (state._holderSeries.length > HOLDER_SERIES_MAX_POINTS) state._holderSeries.shift();
         }
+    }
+
+    /**
+     * holderTrend 事件入环形缓冲（defer 两阶段路径，2026-10-14 鸡蛋案）：wallet 段
+     * 乱序回推下「覆盖快照」会前视、delta 前缀和的跨 0 事件集也随回放序变化（数学上
+     * per-block 净 delta 不收敛）——唯一序无关解=存原始事件、读取时按 block 重放。
+     * 事件含无 wallet 变动的占位（wallet=null：该块有 tick 出现过，桶集口径与非 defer
+     * 一致）。缓冲按块裁剪（保最近 HOLDER_SERIES_MAX_POINTS+2 块），重放在
+     * _rebuildHolderSeries（脏标记驱动，buildFactorMap 消费前刷新）。
+     */
+    _recordHolderEvent(state, blockNumber, walletAddr, isBuy, tokenAmount) {
+        const events = state._holderEvents;
+        events.push({ block: blockNumber, wallet: walletAddr, buy: isBuy, amt: tokenAmount });
+        // 裁剪：按 block 降序保窗（+2 块余量），一次前缀扫描 O(n) 摊销
+        if (events.length > 64) {
+            const blocksSeen = new Set();
+            let cutAt = events.length;
+            for (let i = events.length - 1; i >= 0; i--) {
+                blocksSeen.add(events[i].block);
+                if (blocksSeen.size > HOLDER_SERIES_MAX_POINTS + 2) { cutAt = i + 1; break; }
+            }
+            if (cutAt > 0) events.splice(0, cutAt);
+        }
+        state._holderSeriesDirty = true;
+    }
+
+    /**
+     * 重放 holderTrend 序列（脏标记驱动）：窗前态 = P2a 收敛的终态 holderCount +
+     * _walletNetTokens 逆向撤销窗内事件（只动 touched 钱包，O(窗内事件)），再按 block
+     * 正放得每块末快照——与回推序完全无关。块内事件顺序无关（块末快照=块内事件
+     * map 终态），排序键 block 单字段即可。
+     */
+    _rebuildHolderSeries(state) {
+        const events = state._holderEvents;
+        if (events.length === 0) { state._holderSeriesDirty = false; return; }
+        // 稳定排序按 block（同 block 保到达序——块内顺序不影响块末快照）
+        events.sort((a, b) => a.block - b.block);
+        // 窗=最近 HOLDER_SERIES_MAX_POINTS 个不同 block
+        const blocksDesc = [];
+        for (let i = events.length - 1; i >= 0; i--) {
+            if (blocksDesc.length === 0 || events[i].block !== blocksDesc[blocksDesc.length - 1]) {
+                blocksDesc.push(events[i].block);
+                if (blocksDesc.length >= HOLDER_SERIES_MAX_POINTS) break;
+            }
+        }
+        const windowMinBlock = blocksDesc[blocksDesc.length - 1];
+        // 窗内事件 + touched 钱包
+        const winEvents = events.filter(e => e.block >= windowMinBlock && e.wallet);
+        const touched = new Map(); // wallet → 窗内事件累计 token（正向）
+        for (const e of winEvents) {
+            touched.set(e.wallet, (touched.get(e.wallet) || 0) + (e.buy ? e.amt : -e.amt));
+        }
+        // 窗前态：终态 map 逆向撤销 touched 钱包的窗内事件；起点 count 同步修正
+        let startCount = state.holderCount;
+        const startNet = new Map();
+        for (const [w, deltaWin] of touched) {
+            const finalNet = state._walletNetTokens.get(w) || 0;
+            const before = finalNet - deltaWin;
+            startNet.set(w, before);
+            if (finalNet > 0) startCount--;
+            if (before > 0) startCount++;
+        }
+        // 正放：按 block 分组推进
+        const series = [];
+        const netNow = new Map(startNet);
+        let cnt = startCount;
+        let curBlock = null;
+        const flushBlock = () => {
+            if (curBlock !== null) series.push({ block: curBlock, count: cnt });
+        };
+        for (const e of events) {
+            if (e.block < windowMinBlock) continue;
+            if (e.block !== curBlock) { flushBlock(); curBlock = e.block; }
+            if (!e.wallet) continue;
+            const prev = netNow.get(e.wallet) || 0;
+            const cur = prev + (e.buy ? e.amt : -e.amt);
+            netNow.set(e.wallet, cur);
+            if (prev <= 0 && cur > 0) cnt++;
+            else if (prev > 0 && cur <= 0) cnt--;
+        }
+        flushBlock();
+        if (series.length > HOLDER_SERIES_MAX_POINTS) series.splice(0, series.length - HOLDER_SERIES_MAX_POINTS);
+        state._holderSeries = series;
+        state._holderSeriesDirty = false;
     }
 
     _pruneRecentTicks(state, now) {
@@ -1990,7 +2208,9 @@ class FourMemeFactorAggregator extends EventEmitter {
         }
 
         // holderTrend*：blockNumber 桶持有者序列（8 块窗 ≈4s，2026-10-14 slot 化；
-        // 门槛不变：growthRatio 族 ≥2 点、slope/direction 族 ≥4 点）
+        // 门槛不变：growthRatio 族 ≥2 点、slope/direction 族 ≥4 点）。
+        // defer 路径序列由事件缓冲重放维护（乱序回推免疫）——消费前脏刷新
+        if (state._holderSeriesDirty) this._rebuildHolderSeries(state);
         const holderCounts = state._holderSeries.map(h => h.count);
         factors.holderTrendDataPoints = holderCounts.length;
         if (holderCounts.length >= 2) {

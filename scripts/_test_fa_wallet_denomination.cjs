@@ -38,7 +38,10 @@ function check(name, fn) {
   catch (e) { failed++; console.log(`  ✗ ${name}\n    ${e.message}`); }
 }
 
-/** 造一笔 tick（真实 shape 对齐 SharedTickConsumer.processTick 透传） */
+/** 造一笔 tick（真实 shape 对齐 SharedTickConsumer.processTick 透传）。
+ *  log_index 全局递增：真实链上 li 块内严格递增（UNIQUE(tx_hash,log_index)），
+ *  恒 0 的旧形状在 2026-10-14 chainLate 判据下会把同块第二笔误判迟到拦出价格链 */
+let _liSeq = 0;
 function mkTick(overrides) {
   return Object.assign({
     token_address: '0xtoken',
@@ -52,7 +55,7 @@ function mkTick(overrides) {
     block_number: 100,
     timestamp: Date.now(),
     tx_hash: '0xtx',
-    log_index: 0,
+    log_index: ++_liSeq,
   }, overrides);
 }
 

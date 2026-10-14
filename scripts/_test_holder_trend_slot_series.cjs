@@ -182,12 +182,15 @@ console.log('\nC 节：源码口径断言');
   check('C1 HOLDER_SERIES_MAX_POINTS = 8 常量在（价格臂常量独立不混）',
     () => assert.ok(/const HOLDER_SERIES_MAX_POINTS = 8;/.test(faSrc))
       && assert.ok(/const SERIES_MAX_POINTS = 8;/.test(faSrc)));
-  check('C2 holder 臂点形状 push({block 在 / push({bucket 仅价格臂',
-    () => assert.ok(/state\._holderSeries\.push\(\{ block: blockNumber, count: state\.holderCount \}\);/.test(faSrc))
-      && assert.ok(/state\._priceSeries\.push\(\{ bucket, price: state\.currentPriceBnb \}\);/.test(faSrc)));
-  check('C3 两调用点形状：holder 臂带 null 守卫（K 组后独立段）/ 价格臂在价格接受分支内',
-    () => assert.ok(/if \(blockNumber !== null\) this\._pushHolderSeriesPoint\(state, blockNumber\);/.test(faSrc))
-      && assert.ok(/this\._pushPriceSeriesPoint\(state, ts\);/.test(faSrc)));
+  check('C2 holder 臂点形状：覆盖快照（非 defer）+ 事件缓冲（defer）双路径 / push({bucket 仅价格臂',
+    () => assert.ok(/_pushHolderSeriesPoint\(state, blockNumber\) \{/.test(faSrc)
+      && /state\._holderSeries\.push\(\{ block: blockNumber, count: state\.holderCount \}\);/.test(faSrc)
+      && /_recordHolderEvent\(state, blockNumber, tokenAmount > 0 \? walletAddr : null, isBuy, tokenAmount\)/.test(faSrc)
+      && /state\._priceSeries\.push\(\{ bucket, price: state\.currentPriceBnb \}\);/.test(faSrc)));
+  check('C3 两调用点形状：deferred 派发分支（wallet 段）/ 价格臂在价格接受分支内',
+    () => assert.ok(/if \(vars\.deferred === true\) \{/.test(faSrc)
+      && /this\._pushHolderSeriesPoint\(state, blockNumber\);/.test(faSrc)
+      && /this\._pushPriceSeriesPoint\(state, ts\);/.test(faSrc)));
   check('C3b 旧合体方法名 _pushSeriesPoint 零残留',
     () => assert.ok(!faSrc.includes('_pushSeriesPoint(')));
   check('C3c 消费侧只读 h.count（不改点形状）',
@@ -220,17 +223,18 @@ console.log('\nC 节：源码口径断言');
       && assert.ok(/const HOLDER_SERIES_MAX_POINTS = 8;/.test(faSrc)));
 }
 
-// ═══════════ D 节：乱序块行为锁定（live WSS 偶发，无守卫=对齐旧时钟偏移行为） ═══════════
+// ═══════════ D 节：乱序块行为锁定（2026-10-14 两阶段喂食：wallet 段乱序回推 → 有序视图+链序正确快照） ═══════════
 console.log('\nD 节：乱序块行为');
 {
   const fa = newFA();
   fa.processTick(mkTick({ trader_address: '0xA', sender_address: '0xA', timestamp: T0, block_number: 105 }));
   fa.processTick(mkTick({ trader_address: '0xB', sender_address: '0xB', timestamp: T0 + 100, block_number: 104 })); // 乱序迟到
   const st = fa._states.get('0xtoken');
-  check('D1 乱序块按 append 处理（105 后到 104 → 2 点，无守卫无重排，行为与旧时间桶时钟偏移等价）',
-    () => assert.strictEqual(st._holderSeries.length, 2)
-      && assert.strictEqual(st._holderSeries[0].block, 105)
-      && assert.strictEqual(st._holderSeries[1].block, 104));
+  check('D1 乱序块按 append 处理（105 后到 104 → 2 点，无守卫无重排，行为与旧时间桶时钟偏移等价；'
+    + ' defer 路径的乱序免疫由 _test_fa_deferred_wallet_feeding 重放断言锁定）',
+    () => assert.ok(st._holderSeries.length === 2
+      && st._holderSeries[0].block === 105
+      && st._holderSeries[1].block === 104));
 }
 
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`);
