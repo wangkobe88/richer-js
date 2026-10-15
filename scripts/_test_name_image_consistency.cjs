@@ -212,10 +212,11 @@ async function main() {
   check('F2 superIP 快车道不消费 name_image_consistency（C59 的 meme≥3 门语义不动）',
     !superFnBody.includes('name_image_consistency') && !superFnBody.includes('imgNameExempt'), null);
   const analyzerSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'NarrativeAnalyzer.mjs'), 'utf8');
+  // C72 vision 预判门：布尔前缀 !visionSkipped &&（门跳过=确定性无图语义，J1.30 不问）
   check('F3 analyzer 标准分支接线：buildStandardQuestions imageConsistency 条件',
-    analyzerSrc.includes('imageConsistency: !!twitterInfo?.image_analysis'), null);
+    analyzerSrc.includes('imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis'), null);
   check('F4 analyzer 标准分支接线：mapStandardAnswers imageEvidence（题集与证据同源）',
-    /imageEvidence: !!twitterInfo\?\.image_analysis,\s*\n\s*tweetClassification/.test(analyzerSrc), null);
+    /imageEvidence: !visionSkipped && !!twitterInfo\?\.image_analysis,\s*\n\s*tweetClassification/.test(analyzerSrc), null);
   const qsSrc = readFileSync(join(__dirname, '..', 'src', 'narrative', 'analyzer', 'llm', 'jev-questions.mjs'), 'utf8');
   check('F5 题集头部含 J1.30 条目（巴巴鸡案档案+地址）',
     qsSrc.includes('* J1.30（2026-10-14') && qsSrc.includes(TOKEN_ADDR), null);

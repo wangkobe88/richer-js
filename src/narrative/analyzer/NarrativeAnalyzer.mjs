@@ -18,6 +18,7 @@ import { cleanDataForDB } from './utils/data-cleaner.mjs';
 import { formatResult, buildLLMAnalysis } from './parsers/response-parser.mjs';
 import { performPreCheck } from './services/pre-check-service.mjs';
 import { analyzeTweetImage } from './services/image-analysis-service.mjs';
+import { runVisionGate, shouldAskVisionGate } from './services/vision-gate-service.mjs';
 import { fetchAllDataViaClassifier } from './services/data-fetch-service.mjs';
 import { fetchGmgnSocialLinks } from '../utils/gmgn-social-fetcher.mjs';
 import { fetchTokenData, extractInfo } from './services/token-info-service.mjs';
@@ -525,6 +526,25 @@ export class NarrativeAnalyzer {
         // twitterInfo已包含website_tweet（如果有第二个推文）
         const fetchResults = { twitterInfo, websiteInfo, extractedInfo, backgroundInfo, githubInfo, youtubeInfo, douyinInfo, tiktokInfo, bilibiliInfo, weixinInfo, amazonInfo, xiaohongshuInfo, instagramInfo, binanceSquareInfo, classifiedUrls, relatedAccounts };
 
+        // Jev 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，
+        // 与何时分析无关——补跑/回测/延迟分析的结果幂等；创建时间缺失时回退当前时刻）
+        // tokenCreatedAtSec 已在账号收集前声明（兼作推文时间窗基准）
+        const jevNowMs = tokenCreatedAtSec ? tokenCreatedAtSec * 1000 : undefined;
+
+        // ── vision 前置 Jev 预判门（C72，2026-10-15 用户裁定）──
+        // 主推文有首图且未挂 image_analysis 时，先 1 题 Choice 预判「文字语料是否已
+        // 足够确认叙事」，sufficient 且概率 ≥ minSufficientProb 则整段跳过 vision——
+        // 本票无图语义（state 无图块 / J1.30 不问 / C59/J1.30 豁免不触发 = 偏拦
+        // fail-safe，与无配图票/vision 失败票同语义）。已挂载（缓存命中/预取完成
+        // 零耗时）/ 门关 / need_image / Jev 失败 → 原行为。预取链完全不动（门只挡
+        // 这次 await，预取照常写缓存）。跳过时 timing 只余 vision.gate 段（无 vision
+        // 段，跳过占比高时不污染 vision 延迟统计）。
+        let visionSkipped = false;
+        if (shouldAskVisionGate(twitterInfo)) {
+          const gate = await timing.wrap('vision.gate', () => runVisionGate(tokenData, fetchResults, { now: jevNowMs }));
+          visionSkipped = gate.skipped === true;
+        }
+
         // 推文配图视觉分析（2026-10-07 现金猫案 0x56dc26bd…7777 裁定开启，智谱 glm-5.3）：
         // 主推文首图 → twitterInfo.image_analysis（twitter-section 既有渲染块进 Jev state；
         // 同图 90 天缓存 + 进程内并发去重，分析 token 无关可跨 token 复用）。挂在 pre-check
@@ -532,13 +552,19 @@ export class NarrativeAnalyzer {
         // 泳道 0 注释）；下载/API 失败在服务内降级为无图证据（= 开启前行为），配置残缺
         // throw fail-loud。join：泳道 0 预启动的 promise 优先（同 twitterInfo 引用，三层
         // 幂等保证双调安全；未预启动 null ?? 直调 = 原路径——配置残缺时 await reject
-        // 与原直调 throw 语义一致）
-        await timing.wrap('vision', () => visionPromise ?? analyzeTweetImage(twitterInfo));
+        // 与原直调 throw 语义一致）。C72 门跳过时整个 await 不执行
+        if (!visionSkipped) {
+          await timing.wrap('vision', () => visionPromise ?? analyzeTweetImage(twitterInfo));
+        }
 
-        // Jev 时效基准 = 代币创建时间（与 pre-check 规则2 同裁定：发币时语料是否新鲜，
-        // 与何时分析无关——补跑/回测/延迟分析的结果幂等；创建时间缺失时回退当前时刻）
-        // tokenCreatedAtSec 已在账号收集前声明（兼作推文时间窗基准）
-        const jevNowMs = tokenCreatedAtSec ? tokenCreatedAtSec * 1000 : undefined;
+        // 竞态屏蔽拷贝（C72）：跳过时 visionPrefetch 预启动的 visionPromise 仍会在后台
+        // 跑完并原地挂 twitterInfo.image_analysis——下游 state 构建/条件题/豁免统一走
+        // 本拷贝（image_analysis 剥除），保证门跳过 = 本票确定性无图语义；浅拷贝不动
+        // 原对象（后台挂载/预取写缓存/DB 快照不受影响，下次重析 reassemble 复原后
+        // 幂等门直接放行用图 = 重析时图免费）
+        const jevFetchResults = visionSkipped && twitterInfo
+          ? { ...fetchResults, twitterInfo: { ...twitterInfo, image_analysis: undefined } }
+          : fetchResults;
 
         // 检查是否有任何有效数据供分析
         const hasAnyData = hasValidDataForAnalysis(fetchResults);
@@ -639,7 +665,7 @@ export class NarrativeAnalyzer {
 
             const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
             const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
-            const { state, stats } = buildJevState(tokenData, fetchResults, { superIPInfo, preScores, now: jevNowMs });
+            const { state, stats } = buildJevState(tokenData, jevFetchResults, { superIPInfo, preScores, now: jevNowMs });
             // J1.21：superIP 通道携带 referent_memeability 条件题（nameReferentBlock
             // 命中时的内容作品豁免评分，标准路径不问）
             const questions = buildStandardQuestions({ includeBrandHijack, referentMemeability: true });
@@ -653,8 +679,8 @@ export class NarrativeAnalyzer {
               symbol: tokenData.symbol,
               includeBrandHijack,
               // C59 指代载体在图豁免条件①：配图视觉证据存在（analyzeTweetImage
-              // 已在上方正常流程分支挂载 image_analysis）
-              imageEvidence: !!twitterInfo?.image_analysis,
+              // 已在上方正常流程分支挂载 image_analysis）；C72 门跳过时恒 false
+              imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis,
               callInfo: {
                 model: result.model, questions, state, stateStats: stats,
                 usage: result.usage, startedAt, finishedAt,
@@ -686,12 +712,12 @@ export class NarrativeAnalyzer {
             // Jev 单次 speculative fan-out：全部原子问题一次问完，代码端聚合
             const tokenName = tokenData.name || tokenData.raw_api_data?.name || '';
             const includeBrandHijack = shouldIncludeBrandHijackCheck(tokenData.symbol, tokenName);
-            const { state, stats } = buildJevState(tokenData, fetchResults, { now: jevNowMs });
+            const { state, stats } = buildJevState(tokenData, jevFetchResults, { now: jevNowMs });
             // J1.30 条件题 name_image_consistency：主推配图分析成功挂载才问
             // （无图不问防幻觉作答；与 mapper imageEvidence 同源）
             const questions = buildStandardQuestions({
               includeBrandHijack,
-              imageConsistency: !!twitterInfo?.image_analysis,
+              imageConsistency: !visionSkipped && !!twitterInfo?.image_analysis,
             });
             const startedAt = new Date().toISOString();
             const result = await timing.wrap('jev.standard', () => JevClient.ask(state, questions, { label: `jev:${tokenData.symbol}` }));
@@ -712,8 +738,9 @@ export class NarrativeAnalyzer {
               instagramLinked: !!(classifiedUrls?.instagram?.length > 0),
               instagramInfoFetched: instagramInfo != null,
               // J1.30 名图一致豁免条件①（C64 巴巴鸡案）：配图视觉证据存在
-              // （analyzeTweetImage 已在上方正常流程分支挂载 image_analysis）
-              imageEvidence: !!twitterInfo?.image_analysis,
+              // （analyzeTweetImage 已在上方正常流程分支挂载 image_analysis）；
+              // C72 门跳过时恒 false
+              imageEvidence: !visionSkipped && !!twitterInfo?.image_analysis,
               tweetClassification: classifyTweetType(twitterInfo),
               twitterInfo, // J1.17 cashtag 改道判据（detectCorpusCashtag）用
               callInfo: {

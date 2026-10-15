@@ -29,7 +29,11 @@
     "timeoutMs": 30000,
     "maxTokens": 2500,
     "retryCount": 2,
-    "cacheTtlSec": 63072000
+    "cacheTtlSec": 63072000,
+    "gate": {
+      "enabled": true,
+      "minSufficientProb": 0.6
+    }
   },
   "websiteFetch": {
     "enabled": false
