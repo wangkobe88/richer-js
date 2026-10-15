@@ -2232,6 +2232,9 @@ class ExperimentSignals {
       // 获取购买轮次，用于显示对应的预检查条件
       const buyRound = pf.buyRound || 1;
       const preBuyCheckCondition = this._getPreBuyCheckCondition('buy', buyRound);
+      // 第三层 GMGN 条件（FAKER 团伙盘案 2026-10-14）：因子实时快照在 metadata.gmgnCheck
+      const gmgnCheckCondition = this._getGmgnCheckCondition(strategyId);
+      const gmgnCheckInfo = metadata.gmgnCheck || null;
 
       // 购买前置检查结果
       const checkResultBadge = pr.canBuy === false ?
@@ -2245,7 +2248,7 @@ class ExperimentSignals {
 
       // 显示实验配置的策略条件
       let strategyConfigHtml = '';
-      if (buyCondition || preBuyCheckCondition || pf.permanentBlockCondition) {
+      if (buyCondition || preBuyCheckCondition || gmgnCheckCondition || pf.permanentBlockCondition) {
         strategyConfigHtml = `
           <div class="mb-2 pb-2 border-b border-amber-300">
             ${buyCondition ? `
@@ -2260,6 +2263,13 @@ class ExperimentSignals {
                 <span class="font-semibold text-amber-900">🔍 预检查条件配置 (第${buyRound}轮${buyRound > 1 ? '购买' : ''}):</span>
                 <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(preBuyCheckCondition)}</code>
                 ${this._renderConditionFactorChips(preBuyCheckCondition, metadata)}
+              </div>
+            ` : ''}
+            ${gmgnCheckCondition ? `
+              <div class="text-xs mt-1">
+                <span class="font-semibold text-amber-900">🛡️ GMGN 条件配置 (买前第三层实时):</span>
+                <code class="ml-2 px-2 py-0.5 bg-amber-200 rounded text-xs text-amber-900 break-all">${this._escapeHtml(gmgnCheckCondition)}</code>
+                ${this._renderGmgnCheckChips(gmgnCheckCondition, gmgnCheckInfo, metadata)}
               </div>
             ` : ''}
             ${pf.permanentBlockCondition ? `
@@ -2381,6 +2391,37 @@ class ExperimentSignals {
         failedConditionsHtml = `<div class="text-xs text-amber-800 mt-2 border-t border-amber-300 pt-2">${this._escapeHtml(pr.reason)}</div>`;
       }
 
+      // 第三层 GMGN 检查审计块（metadata.gmgnCheck：拒/过两路径引擎都落；
+      // 因子值是下单前实时调 GMGN getTokenInfo 的结果，与 preBuy 直调快照口径不同）
+      let gmgnCheckHtml = '';
+      if (gmgnCheckInfo) {
+        const gf = gmgnCheckInfo.factors || {};
+        const covered = gf.gmgnRiskCovered === 1;
+        const gmgnPassBadge = gmgnCheckInfo.passed
+          ? '<span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">✅ 通过</span>'
+          : '<span class="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">❌ 未过</span>';
+        const num = (v, d = 1) => v == null ? 'null' : Number(v).toFixed(d);
+        const valueCls = covered ? 'text-gray-900' : 'text-gray-400';
+        const auditBits = [];
+        if (gf.durationMs != null) auditBits.push(`耗时 ${num(gf.durationMs, 0)}ms`);
+        if (gf.fromCache != null) auditBits.push(`cache=${gf.fromCache ? '1' : '0'}`);
+        gmgnCheckHtml = `
+          <div class="mt-2 pt-2 border-t border-amber-300">
+            <div class="flex items-center justify-between mb-1">
+              <div class="text-xs font-semibold text-amber-900">🛡️ GMGN 风险检查（买前第三层实时）</div>
+              ${gmgnPassBadge}
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <div><span class="text-amber-800">bundler 钱包占比:</span> <span class="${valueCls}">${num(gf.gmgnBundlerWalletRatio)}%</span></div>
+              <div><span class="text-amber-800">推特关联发币数:</span> <span class="${valueCls}">${num(gf.gmgnIssuerTokenCount, 0)}</span></div>
+              <div><span class="text-amber-800">covered:</span> <span class="${covered ? 'text-green-600' : 'text-red-600'}">${covered ? '1（有数据）' : '0（无数据 fail-closed）'}</span></div>
+              ${auditBits.length > 0 ? `<div class="col-span-3 text-gray-500">${auditBits.join(' · ')}</div>` : ''}
+              ${gmgnCheckInfo.reason ? `<div class="col-span-3 text-red-700">📝 ${this._escapeHtml(gmgnCheckInfo.reason)}</div>` : ''}
+            </div>
+          </div>
+        `;
+      }
+
       preBuyCheckHtml = `
         <div class="mt-2 p-3 bg-amber-100 rounded-lg border border-amber-300">
           <div class="flex items-center justify-between mb-2">
@@ -2392,6 +2433,7 @@ class ExperimentSignals {
           </div>
           ${strategyConfigHtml}
           ${failedConditionsHtml}
+          ${gmgnCheckHtml}
           ${tpaFactorsHtml}
         </div>
       `;
@@ -2877,19 +2919,23 @@ class ExperimentSignals {
    * 渲染条件表达式各因子子句的触发时刻值（chip 行，紧贴条件表达式展示）。
    * 条件里有啥因子就展示啥（买入/预检查条件共用）；同名因子多子句逐子句展示
    * （如 narrativeRating == 2 OR == 3 两枚 chip），支持 IS [NOT] NULL 子句。
-   * 值查找顺序：metadata.trendFactors → metadata.tpaFactors → metadata.preBuyCheckFactors → metadata 顶层。
+   * 值查找顺序：extraSources → metadata.trendFactors → metadata.tpaFactors → metadata.preBuyCheckFactors → metadata 顶层
+   * （extraSources 供 GMGN 第三层实时快照优先——preBuyCheckFactors 里的 gmgn 三键来自
+   * 直调 1d TTL 快照，与第三层下单前实时调取口径不同，不可混用）。
    * 着色：满足阈值=绿 / 不满足=红 / null（TPA 未触发等 fail-closed）=红底「null」/
    * 快照段缺失（历史信号）=灰「无快照」——tokenAgeSec 例外：2026-09-29~09-30 的
    * 旧信号白名单无此键，由 age×60 前端推导兜底（与引擎同源换算）。
    * @private
    * @param {string} condition - 条件表达式
    * @param {Object} metadata - 信号 metadata
+   * @param {Array} [extraSources] - 额外因子源（优先于默认链查找）
    * @returns {string} HTML
    */
-  _renderConditionFactorChips(condition, metadata) {
+  _renderConditionFactorChips(condition, metadata, extraSources = []) {
     const clauses = this._parseConditionClauses(condition);
     if (clauses.length === 0) return '';
     const sources = [
+      ...extraSources,
       metadata && metadata.trendFactors,
       metadata && metadata.tpaFactors,
       metadata && metadata.preBuyCheckFactors,
@@ -3049,6 +3095,49 @@ class ExperimentSignals {
       // 后续购买：使用 repeatBuyCheckCondition
       return strategy.repeatBuyCheckCondition || null;
     }
+  }
+
+  /**
+   * 从实验配置中获取买腿第三层 GMGN 条件（FAKER 0xc6ee…7777 团伙盘案 2026-10-14；
+   * strategyId 未命中回退第一条，id 形状与 _getBuyCondition 的 enriched id 同构）
+   * @private
+   * @param {string} strategyId - 策略ID (可选，如 'buy_0_1')
+   * @returns {string|null} 条件表达式
+   */
+  _getGmgnCheckCondition(strategyId = null) {
+    if (!this.experimentConfig || !this.experimentConfig.strategiesConfig) {
+      return null;
+    }
+    const strategies = this.experimentConfig.strategiesConfig.buyStrategies;
+    if (!strategies || !Array.isArray(strategies) || strategies.length === 0) {
+      return null;
+    }
+    const strategy = strategyId
+      ? strategies.find((s, idx) => (s.id || `buy_${idx}_${s.priority || 0}`) === strategyId) || strategies[0]
+      : strategies[0];
+    return String(strategy.gmgnCheckCondition || '').trim() || null;
+  }
+
+  /**
+   * 渲染 GMGN 条件的因子 chip（买前第三层实时快照）。
+   * 三态防误读：无 gmgnCheck 轨迹=灰注（未到第三层/元数据缺失）；covered=0=红注
+   * fail-closed 拒（零值因子若照常渲染会显示绿 ✓，与机制语义相反——表达式未评估）；
+   * 有数据=正常 chip，值取 metadata.gmgnCheck.factors 实时快照。
+   * @private
+   * @param {string} condition - GMGN 条件表达式
+   * @param {Object|null} gmgnCheckInfo - metadata.gmgnCheck
+   * @param {Object} metadata - 信号 metadata
+   * @returns {string} HTML
+   */
+  _renderGmgnCheckChips(condition, gmgnCheckInfo, metadata) {
+    if (!gmgnCheckInfo) {
+      return '<span class="inline-block ml-2 text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">GMGN 检查无快照（未到第三层/元数据缺失）</span>';
+    }
+    const f = gmgnCheckInfo.factors;
+    if (!f || f.gmgnRiskCovered !== 1) {
+      return `<span class="inline-block ml-2 text-xs px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">GMGN 无数据（${this._escapeHtml(gmgnCheckInfo.reason || 'gmgn_check_no_data')}）→ fail-closed 拒，表达式未评估</span>`;
+    }
+    return this._renderConditionFactorChips(condition, metadata, [f]);
   }
 
   /**
