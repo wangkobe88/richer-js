@@ -313,6 +313,14 @@ class TokenPositionAnalyzer {
     this._liveTicksBufferStartMs = null; // live 缓冲覆盖起点（initLiveTicksBuffer 置启动时刻，preloadRecentTicks 向前扩）。null=非 live 缓冲路径（回测/web）→ 缺口计数不生效
     this._liveTicksPreloadMinutes = config.liveTicksPreloadMinutes != null ? Number(config.liveTicksPreloadMinutes) : 0; // 0=auto/-1=off/>0=固定分钟
     this._liveTicksPreloadMaxMinutes = config.liveTicksPreloadMaxMinutes != null ? Number(config.liveTicksPreloadMaxMinutes) : 1440;
+    // live ticks 缓冲窗口裁剪（批次 3b，2026-10-15 长跑内存防线）：null=不裁（默认）；
+    //   >0=保留窗小时数（建议 24），引擎 5min prune 周期调 trimLiveTicksBuffer 生效。
+    //   非法值（非正数/非有限）fail-fast 构造期暴露
+    this._liveTicksRetainHours = config.liveTicksRetainHours != null ? Number(config.liveTicksRetainHours) : null;
+    if (this._liveTicksRetainHours != null && (!Number.isFinite(this._liveTicksRetainHours) || this._liveTicksRetainHours <= 0)) {
+      throw new Error(`[TokenPositionAnalyzer] liveTicksRetainHours 非法（=${config.liveTicksRetainHours}，须正数小时或 null 不裁）`);
+    }
+    this._liveTicksTrimmedRows = 0; // 累计裁掉行数（观察计数，stats 通道）
 
     _logger = deps.logger || null;
 
@@ -549,6 +557,43 @@ class TokenPositionAnalyzer {
     let arr = this._walletTicksPreloaded.get(w);
     if (!arr) { arr = []; this._walletTicksPreloaded.set(w, arr); }
     arr.push(tick);
+  }
+
+  /**
+   * 实时引擎：live ticks 缓冲窗口裁剪（批次 3b，2026-10-15；默认 null 不裁）。
+   * 长跑实验 _walletTicksPreloaded 无界增长——liveTicksRetainHours 显式配置时由引擎
+   * 5min prune 周期调用，删各钱包数组中 block_time 早于 [now - retainHours] 的行
+   * （filter 重建，乱序晚到旧行一并清理）；删空的钱包条目从 Map 移除（与
+   * _fetchWalletTicksBatch「仅非空 set」的读取口径一致）。★同步推进
+   * _liveTicksBufferStartMs 至裁剪线：不推进=后续 since 早于旧起点的请求不再触发
+   * 缺口计数（_fetchTicksPreBufferN）=裁剪造成的缺口被掩盖。miss 请求走既有缺口
+   * 计数分支 fail-loud（不回退 DB——被裁窗口的画像按缺口如实降级）。
+   * 回测/网页路径天然 inert：_liveTicksBufferStartMs===null 早返（setHistoricalTicks
+   * 注入的实验全量缓冲绝不能裁）。
+   * @param {number} [nowMs] 当前时刻（默认 Date.now；collector/实时组件，非 FA 回测路径）
+   * @returns {{rows:number,wallets:number}|null} null=未生效（未配置/非 live 缓冲路径/裁剪线未过起点）
+   */
+  trimLiveTicksBuffer(nowMs = Date.now()) {
+    if (this._liveTicksRetainHours == null) return null;
+    if (this._walletTicksPreloaded == null || this._liveTicksBufferStartMs == null) return null;
+    const cutoffMs = nowMs - this._liveTicksRetainHours * 3600000;
+    if (cutoffMs <= this._liveTicksBufferStartMs) return { rows: 0, wallets: 0 }; // 裁剪线未过覆盖起点（buffer 内无更老行）
+    let removedRows = 0, removedWallets = 0;
+    for (const [w, arr] of this._walletTicksPreloaded) {
+      const kept = arr.filter(t => new Date(t.block_time).getTime() >= cutoffMs);
+      const removed = arr.length - kept.length;
+      if (removed === 0) continue; // 零裁剪：保留原数组引用（ingest 进行中的 push 目标不变）
+      removedRows += removed;
+      if (kept.length) this._walletTicksPreloaded.set(w, kept);
+      else { this._walletTicksPreloaded.delete(w); removedWallets++; }
+    }
+    // ★起点推进到裁剪线（max 单调：preload 向前扩的窗口不因空裁剪回拨）
+    this._liveTicksBufferStartMs = Math.max(this._liveTicksBufferStartMs, cutoffMs);
+    this._liveTicksTrimmedRows += removedRows;
+    if (removedRows > 0 || removedWallets > 0) {
+      log('info', `trimLiveTicksBuffer: 删 ${removedRows} 行 / 清 ${removedWallets} 空钱包，缓冲起点推进至 ${new Date(cutoffMs).toISOString()}（累计删 ${this._liveTicksTrimmedRows} 行）`);
+    }
+    return { rows: removedRows, wallets: removedWallets };
   }
 
   /**

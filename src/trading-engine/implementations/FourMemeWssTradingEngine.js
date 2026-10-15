@@ -952,7 +952,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       });
     }, 60 * 1000);
 
-    // FA 陈旧状态清理（持仓保护）
+    // FA 陈旧状态清理（持仓保护）+ TPA live ticks 缓冲裁剪（批次 3b，默认关）
     this._intervals.prune = setInterval(() => {
       try {
         const held = new Set(this._getAllHoldings().map(h => h.tokenAddress?.toLowerCase()));
@@ -962,6 +962,14 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
         }
       } catch (err) {
         this.logger.error(this._experimentId, 'Prune', `FA 清理失败: ${err.message}`);
+      }
+      // TPA live ticks 窗口裁剪（liveTicksRetainHours 缺省 null=no-op；回测引擎无本 interval）
+      if (this._tokenPositionAnalyzer) {
+        try {
+          this._tokenPositionAnalyzer.trimLiveTicksBuffer();
+        } catch (err) {
+          this.logger.error(this._experimentId, 'Prune', `TPA live ticks 裁剪失败: ${err.message}`);
+        }
       }
     }, this._pruneIntervalMs);
 
