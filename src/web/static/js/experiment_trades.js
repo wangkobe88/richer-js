@@ -122,6 +122,9 @@ class ExperimentTrades {
             console.log('✅ 已自动选择代币:', tokenAddress);
           }
 
+          // 加载该代币的价格线图（与下拉框选择逻辑一致；ticks 重建版）
+          await this.loadKlineForToken(selectedToken);
+
           // 过滤并渲染交易记录
           this.filterAndRenderTrades();
         } else {
@@ -516,8 +519,13 @@ class ExperimentTrades {
       this.selectedToken = selectedTokenAddress;
       console.log('🔄 选择代币:', this.selectedToken);
 
-      // 如果选择了具体代币（不是'all'），仅过滤交易记录
-      // （时序价格线图随 experiment_time_series_data 停写移除）
+      // 选择具体代币时加载该代币的价格线图（ticks 重建版）；选回 'all' 保持当前图表
+      if (selectedTokenAddress !== 'all') {
+        const selectedToken = this.availableTokens.find(t => t.address === selectedTokenAddress);
+        if (selectedToken) {
+          await this.loadKlineForToken(selectedToken);
+        }
+      }
 
       // 过滤并渲染交易记录
       this.filterAndRenderTrades();
@@ -1289,6 +1297,219 @@ class ExperimentTrades {
     document.getElementById('trade-chart-time-range').textContent = `${timeRange.start_date} 至 ${timeRange.end_date}`;
 
     console.log(`📊 交易图表配置更新: ${tokenSymbol}, ${interval}分钟, ${timeRange.start_date} 到 ${timeRange.end_date}`);
+  }
+
+  /**
+   * 🔥 加载特定代币的价格线数据（ticks 重建版，2026-10-15 恢复）
+   * 原时序表版链路随停写移除，数据源改 /api/tokens/price-series
+   * （wss_price_ticks 投影 + 服务端降采样，全局按 token 不挂实验——
+   * 回测实验不再借源实验数据）。
+   * @param {Object} token - 代币对象 { address, symbol, priority }
+   */
+  async loadKlineForToken(token) {
+    try {
+      console.log(`🔄 加载代币 ${token.symbol} (${token.address}) 的价格线数据...`);
+
+      // 显示加载状态
+      const chartStatus = document.getElementById('trade-chart-status');
+      if (chartStatus) {
+        chartStatus.textContent = '加载中...';
+        chartStatus.className = 'px-3 py-1 bg-yellow-900 text-yellow-200 rounded-full text-sm font-medium';
+      }
+
+      // 获取价格点序列（[{t, p}]，服务端已降采样 ≤2000 点）
+      const points = await this.fetchPriceSeries(token.address);
+
+      if (!points || points.length === 0) {
+        // 显示友好提示
+        if (chartStatus) {
+          chartStatus.textContent = '暂无价格数据';
+          chartStatus.className = 'px-3 py-1 bg-gray-700 text-gray-300 rounded-full text-sm font-medium';
+        }
+        // 仍然创建空图表显示占位
+        this.initPriceLineChart([], token);
+        return;
+      }
+
+      // 初始化价格折线图并标记交易
+      this.initPriceLineChart(points, token);
+
+      console.log(`✅ 代币 ${token.symbol} 的价格线图表加载完成`);
+
+      // 更新状态
+      if (chartStatus) {
+        chartStatus.textContent = '数据就绪';
+        chartStatus.className = 'px-3 py-1 bg-green-900 text-green-200 rounded-full text-sm font-medium';
+      }
+
+    } catch (error) {
+      console.error(`❌ 加载代币 ${token.symbol} 的价格线数据失败:`, error);
+
+      // 更新状态
+      const chartStatus = document.getElementById('trade-chart-status');
+      if (chartStatus) {
+        chartStatus.textContent = '加载失败';
+        chartStatus.className = 'px-3 py-1 bg-red-900 text-red-200 rounded-full text-sm font-medium';
+      }
+    }
+  }
+
+  /**
+   * 获取特定代币的价格点序列（ticks 重建版）
+   * @param {string} tokenAddress - 代币地址
+   * @returns {Promise<Array>} 价格点数组 [{t, p}]
+   */
+  async fetchPriceSeries(tokenAddress) {
+    try {
+      const response = await fetch(`/api/tokens/price-series?tokenAddress=${encodeURIComponent(tokenAddress)}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result = await response.json();
+      return (result.success && Array.isArray(result.data)) ? result.data : [];
+    } catch (error) {
+      console.error('❌ 获取价格线数据失败:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 初始化价格折线图（ticks 重建版，标记交易）
+   * @param {Array} points - 价格点数组 [{t, p}]（p=price_usd，服务端已降采样）
+   * @param {Object} token - 代币对象
+   */
+  initPriceLineChart(points, token) {
+    const canvas = document.getElementById('trade-kline-chart');
+    if (!canvas) return;
+
+    // 销毁旧图表
+    if (this.chart) {
+      this.chart.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+
+    // 🔥 价格乘以10亿得到市值（参考信号页面，four.meme 标准盘 1B supply）
+    const MARKET_CAP_MULTIPLIER = 1e9; // 10亿
+
+    // 准备数据
+    const labels = points.map(pt => new Date(pt.t));
+    const marketCaps = points.map(pt => Number.isFinite(pt.p) ? pt.p * MARKET_CAP_MULTIPLIER : null);
+
+    // 准备交易标记点：直接画垂直线（xMin=xMax=交易时刻），不绑数据点宿主——
+    // 原 30s 宿主匹配在降采样后（点距 > 交易间隔）会丢标注
+    const tradeAnnotations = [];
+    const tokenTrades = this.tradesData.filter(t =>
+      (t.token_address || t.tokenAddress) === token.address
+    );
+
+    tokenTrades.forEach(trade => {
+      const tradeTime = new Date(trade.timestamp || trade.created_at || trade.executed_at);
+      if (!Number.isFinite(tradeTime.getTime())) return; // 防坏时间戳注解炸图
+      const direction = trade.direction || 'buy';
+      const isBuy = direction === 'buy';
+
+      tradeAnnotations.push({
+        type: 'line',
+        xMin: tradeTime,
+        xMax: tradeTime,
+        yMin: 0,
+        yMax: 'max',
+        borderColor: isBuy ? '#52c41a' : '#ff4d4f',
+        borderWidth: 2,
+        borderDash: [5, 5],
+        label: {
+          display: true,
+          content: isBuy ? '买入' : '卖出',
+          position: 'start',
+          backgroundColor: isBuy ? '#52c41a' : '#ff4d4f',
+          color: '#fff',
+          font: {
+            size: 11
+          }
+        }
+      });
+    });
+
+    // 创建图表
+    this.chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: `${token.symbol} 市值`,
+          data: marketCaps,
+          borderColor: '#1890ff',
+          backgroundColor: 'rgba(24, 144, 255, 0.1)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: true,
+          tension: 0.1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          annotation: {
+            annotations: tradeAnnotations
+          },
+          legend: {
+            display: true,
+            position: 'top'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const value = context.parsed.y;
+                if (value !== null) {
+                  // 市值格式化为K（千）为单位
+                  const marketCapInK = value / 1e3; // 转换为千
+                  return `市值: ${marketCapInK.toFixed(1)}K`;
+                }
+                return '市值: N/A';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              displayFormats: {
+                minute: 'HH:mm',
+                hour: 'MM-dd HH:mm'
+              }
+            },
+            title: {
+              display: true,
+              text: '时间'
+            }
+          },
+          y: {
+            type: 'linear',
+            display: true,
+            title: {
+              display: true,
+              text: '市值 (K)'
+            },
+            ticks: {
+              callback: function(value) {
+                // Y轴刻度显示为K（千）
+                return (value / 1e3).toFixed(1) + 'K';
+              }
+            }
+          }
+        }
+      }
+    });
+
+    console.log(`📊 市值折线图已初始化，包含 ${points.length} 个数据点和 ${tradeAnnotations.length} 个交易标记`);
   }
 
   /**

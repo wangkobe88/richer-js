@@ -121,8 +121,10 @@ console.log('E 节：前端消费链零残留');
     if (signalsHtml.includes('time-series')) throw new Error('时序端点引用残留');
   });
   const trades = read('src/web/static/js/experiment_trades.js');
-  check('E3 trades 页时序价格线图链零残留（trades-K线链 initTradeKlineChart 刻意保留）', () => {
-    for (const pat of ['loadKlineForToken', 'fetchTimeSeriesData', 'initPriceLineChart']) {
+  // 2026-10-15 trades 页价格线图按用户裁定恢复（ticks 重建版，数据源=/api/tokens/price-series，
+  // 见 _test_price_series_rebuild.cjs）——此处只锁时序表依赖零回流，不再锁价格线重建链
+  check('E3 trades 页时序表 API 依赖零残留（价格线图已改 ticks 重建源）+ K线链保留', () => {
+    for (const pat of ['fetchTimeSeriesData', '/api/experiment/time-series']) {
       if (trades.includes(pat)) throw new Error(`残留: ${pat}`);
     }
     if (!/initTradeKlineChart/.test(trades)) throw new Error('trades K线链被误删');

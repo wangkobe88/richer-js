@@ -21,6 +21,7 @@ const { WalletAnalysisDataService } = require('./web/services/WalletAnalysisData
 const { TwitterService } = require('./services/TwitterService');
 const PriceRefreshService = require('./web/services/price-refresh-service');
 const { buildHolderSeries } = require('./web/services/holder-series');
+const { buildPriceSeries } = require('./web/services/price-series');
 const { CryptoUtils } = require('./utils/CryptoUtils');
 const narrativeRoutes = require('./web/routes/narrative.routes');
 const strategyLibraryRoutes = require('./web/routes/strategy-library.routes');
@@ -2554,6 +2555,60 @@ class RicherJsWebServer {
         });
       } catch (error) {
         this.logger.error('WebServer', 'holder-series 重建失败:', { details: error });
+        res.status(500).json({ success: false, error: error.message });
+      }
+    });
+
+    // 价格线序列（2026-10-15 ticks 化重建）：trades 页时序价格线图数据源，
+    // 价格图口径（price_outlier=false + price_usd 非空，与 /api/ticks 同），
+    // 全局按 token 不挂实验 + 服务端降采样（瘦传输：≤2000 点而非全量行）。
+    this.app.get('/api/tokens/price-series', async (req, res) => {
+      try {
+        const { tokenAddress } = req.query;
+        if (!tokenAddress) {
+          return res.status(400).json({ success: false, error: '缺少必需参数: tokenAddress' });
+        }
+
+        const supabase = this.dataService.supabase; // dbManager service key（RLS 红线）
+
+        const PAGE = 5000;
+        const MAX_ROWS = 500000; // 行数护栏 fail-loud：静默截断会画失真曲线
+        const rows = [];
+        let offset = 0;
+        while (true) {
+          // offset 按实际返回推进 + count total 终止（分页坑同 holder-series 端点头注）
+          const { data, error, count } = await supabase
+            .from('wss_price_ticks')
+            .select('block_time, price_usd', { count: 'exact' })
+            .eq('token_address', tokenAddress)
+            .eq('price_outlier', false)
+            .not('price_usd', 'is', null)
+            .order('block_time', { ascending: true })
+            .range(offset, offset + PAGE - 1);
+          if (error) throw error;
+
+          const page = data || [];
+          rows.push(...page);
+          offset += page.length;
+          const total = Number.isFinite(count) ? count : null;
+          if (!page.length || (total !== null && rows.length >= total)) break;
+          if (rows.length > MAX_ROWS) {
+            return res.status(400).json({
+              success: false,
+              error: `token ticks 行数超护栏 ${MAX_ROWS}（已拉 ${rows.length}），拒绝重建`,
+            });
+          }
+        }
+
+        const series = buildPriceSeries(rows);
+        this.logger.info('WebServer', `price-series 重建: ${tokenAddress} rows=${series.totalRows} points=${series.points.length}`);
+        res.json({
+          success: true,
+          data: series.points,
+          meta: { totalRows: series.totalRows },
+        });
+      } catch (error) {
+        this.logger.error('WebServer', 'price-series 重建失败:', { details: error });
         res.status(500).json({ success: false, error: error.message });
       }
     });
