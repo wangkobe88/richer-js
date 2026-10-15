@@ -87,6 +87,12 @@ class AbstractTradingEngine extends ITradingEngine {
     // key: tokenAddress(lowercase), value: { buySignalCount }
     this._tokenBuyNotificationState = new Map();
 
+    // signal 行进程内缓存（批次 4a）：key: signalId, value: 完整行（INSERT 回读）
+    // 登记点=save 后；_updateSignalMetadata/_updateSignalStatus 缓存命中免 SELECT 基底读；
+    // UPDATE 失败 delete（绝不以缓存遮蔽落库失败）；终态（_updateSignalStatus）通知后
+    // delete。前提：实验进程是 signal 行唯一写者（单进程直连架构，web 只读）
+    this._signalRowCache = new Map();
+
     // 事件写入服务
     this._eventService = new ExperimentEventService();
 
@@ -497,6 +503,7 @@ class AbstractTradingEngine extends ITradingEngine {
 
     // 保存信号到数据库
     const signalId = await tradeSignal.save();
+    this._registerSignalRow(signalId, tradeSignal._insertedRow);
     this._logger.info('信号已保存', { symbol: signal.symbol, action: signal.action, signalId });
     this._logger.info('信号已保存', {
       signalId,
@@ -579,16 +586,24 @@ class AbstractTradingEngine extends ITradingEngine {
       result = { success: false, message: 'Invalid result object' };
     }
 
-    // 先获取当前信号数据（包括 metadata）
-    const { data: currentSignal, error: fetchError } = await supabase
-      .from('strategy_signals')
-      .select('metadata')
-      .eq('id', signalId)
-      .single();
+    // 当前 metadata 基底：进程内缓存命中免 SELECT（批次 4a；本方法即终态更新，
+    // 通知后 delete——买腿 fire 链的 2-3 轮 _updateSignalMetadata 已把缓存行喂热）
+    const cachedRow = this._signalRowCache.get(signalId);
+    let currentMetadata;
+    if (cachedRow) {
+      currentMetadata = cachedRow.metadata || {};
+    } else {
+      const { data: currentSignal, error: fetchError } = await supabase
+        .from('strategy_signals')
+        .select('metadata')
+        .eq('id', signalId)
+        .single();
 
-    if (fetchError) {
-      this._logger.error('获取信号数据失败', { signalId, error: fetchError.message });
-      return;
+      if (fetchError) {
+        this._logger.error('获取信号数据失败', { signalId, error: fetchError.message });
+        return;
+      }
+      currentMetadata = currentSignal.metadata || {};
     }
 
     // 准备更新数据
@@ -597,7 +612,7 @@ class AbstractTradingEngine extends ITradingEngine {
     };
 
     // 合并 metadata 并添加 execution_reason
-    const newMetadata = { ...(currentSignal.metadata || {}) };
+    const newMetadata = { ...currentMetadata };
 
     // 将执行原因记录到 metadata 中（安全访问）
     if (result && result.message) {
@@ -639,17 +654,22 @@ class AbstractTradingEngine extends ITradingEngine {
 
     if (error) {
       this._logger.error('更新信号状态失败', { signalId, error: error.message });
+      // 缓存失效：绝不以缓存遮蔽落库失败，下次回退 SELECT
+      this._signalRowCache.delete(signalId);
       return;
     }
 
-    // 数据库更新成功后，发送 Telegram 通知（带过滤逻辑）。signalRow 已知时本地
-    // 组装完整行（消费字段闭包：metadata/action/executed/token_address/token_symbol/
-    // chain/experiment_id/created_at——createEvent/_shouldSendBuyNotification 已核）
-    // 免去通知侧 SELECT * 重复读（该行刚 UPDATE 完，值即 updateData+newMetadata）
-    const composedSignal = signalRow
-      ? { ...signalRow, metadata: newMetadata, executed: updateData.executed }
+    // 数据库更新成功后，发送 Telegram 通知（带过滤逻辑）。signalRow 已知（或缓存
+    // 命中）时本地组装完整行（消费字段闭包：metadata/action/executed/token_address/
+    // token_symbol/chain/experiment_id/created_at——createEvent/_shouldSendBuyNotification
+    // 已核）免去通知侧 SELECT * 重复读（该行刚 UPDATE 完，值即 updateData+newMetadata）
+    const baseRow = signalRow || cachedRow || null;
+    const composedSignal = baseRow
+      ? { ...baseRow, metadata: newMetadata, executed: updateData.executed }
       : null;
     await this._sendSignalNotificationWithFilter(signalId, newMetadata, composedSignal);
+    // 终态：通知后 delete（缓存有界；signal 行至此不再有本进程写点）
+    this._signalRowCache.delete(signalId);
   }
 
   /**
@@ -903,6 +923,22 @@ class AbstractTradingEngine extends ITradingEngine {
   }
 
   /**
+   * 登记 signal 完整行进进程内缓存（save 后调用；批次 4a）
+   * @private
+   * @param {string} signalId - 信号ID
+   * @param {Object|null} row - INSERT .select() 回读行
+   */
+  _registerSignalRow(signalId, row) {
+    if (!signalId || !row || typeof row !== 'object') return;
+    // FIFO 有界防线：极端滞留路径（网络异常 throw 双失败未走到终态 delete）下
+    // 最多积压 1024 条，淘汰后自动回退 SELECT 零正确性影响
+    if (this._signalRowCache.size >= 1024) {
+      this._signalRowCache.delete(this._signalRowCache.keys().next().value);
+    }
+    this._signalRowCache.set(signalId, row);
+  }
+
+  /**
    * 更新信号元数据（用于添加预检查因子等）
    * @private
    * @param {string} signalId - 信号ID
@@ -918,20 +954,28 @@ class AbstractTradingEngine extends ITradingEngine {
       return;
     }
 
-    // 先获取当前信号数据（包括 metadata）
-    const { data: currentSignal, error: fetchError } = await supabase
-      .from('strategy_signals')
-      .select('metadata')
-      .eq('id', signalId)
-      .single();
+    // 当前 metadata 基底：进程内缓存命中免 SELECT（批次 4a；命中行由本进程 save 登记，
+    // 值与 DB 行一致——实验进程是 signal 行唯一写者）
+    const cachedRow = this._signalRowCache.get(signalId);
+    let currentMetadata;
+    if (cachedRow) {
+      currentMetadata = cachedRow.metadata || {};
+    } else {
+      const { data: currentSignal, error: fetchError } = await supabase
+        .from('strategy_signals')
+        .select('metadata')
+        .eq('id', signalId)
+        .single();
 
-    if (fetchError) {
-      this._logger.error('获取信号数据失败', { signalId, error: fetchError.message });
-      return;
+      if (fetchError) {
+        this._logger.error('获取信号数据失败', { signalId, error: fetchError.message });
+        return;
+      }
+      currentMetadata = currentSignal.metadata || {};
     }
 
     // 合并 metadata
-    const newMetadata = { ...(currentSignal.metadata || {}), ...additionalMetadata };
+    const newMetadata = { ...currentMetadata, ...additionalMetadata };
 
     // 构建更新数据
     const updateData = { metadata: newMetadata };
@@ -953,6 +997,17 @@ class AbstractTradingEngine extends ITradingEngine {
 
     if (error) {
       this._logger.error('更新信号元数据失败', { signalId, error: error.message });
+      // 缓存失效：绝不以缓存遮蔽落库失败，下次回退 SELECT
+      this._signalRowCache.delete(signalId);
+      return;
+    }
+
+    // UPDATE 成功才提交缓存（缓存条目与 DB 终态同步）
+    if (cachedRow) {
+      cachedRow.metadata = newMetadata;
+      for (const k of ['gmgn_security_raw_data', 'gmgn_token_info_raw_data']) {
+        if (updateData[k] !== undefined) cachedRow[k] = updateData[k];
+      }
     }
   }
 

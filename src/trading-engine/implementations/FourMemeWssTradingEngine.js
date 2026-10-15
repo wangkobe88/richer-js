@@ -1421,6 +1421,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
           },
         });
         signalId = await tradeSignal.save();
+        this._registerSignalRow(signalId, tradeSignal._insertedRow);
       } catch (saveError) {
         this.logger.error(this._experimentId, 'BuyEval', `信号保存失败 | ${token.symbol} ${saveError.message}`);
         return { success: false, reason: `信号保存失败: ${saveError.message}` };
@@ -2782,6 +2783,7 @@ class FourMemeWssTradingEngine extends AbstractTradingEngine {
       });
       signalId = await tradeSignal.save();
       signalRow = tradeSignal._insertedRow || null;
+      this._registerSignalRow(signalId, tradeSignal._insertedRow);
     }
 
     const signalTime = signal.timestamp || new Date();

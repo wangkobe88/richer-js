@@ -78,6 +78,7 @@ function mkEngine({ onlyExecuted = false } = {}) {
   eng._experiment = { experimentName: 'T' };
   eng._blockchain = 'bsc';
   eng._tokenBuyNotificationState = new Map();
+  eng._signalRowCache = new Map();
   eng._events = [];
   eng._eventService = { createEvent: (signal, info) => { eng._events.push({ signal, info }); } };
   return eng;
@@ -203,6 +204,131 @@ const FIXED = { id: '00000000-0000-4000-8000-000000000001', createdAt: new Date(
     check('D4 UPDATE error→不通知', eng3._events.length, 0);
   }
 
+  console.log('F. _updateSignalMetadata：缓存命中跳 SELECT / 写回 / 失败 invalidate');
+  {
+    // F1-2 命中链：登记→两轮 metadata 更新链式合并，全程零 SELECT 基底读
+    resetDb();
+    const eng = mkEngine();
+    const { ts, id } = await seedSignal();
+    eng._registerSignalRow(id, ts._insertedRow);
+    db.calls = [];
+    await eng._updateSignalMetadata(id, { round1: 'a' });
+    await eng._updateSignalMetadata(id, { round2: 'b' });
+    check('F1 两轮更新零 SELECT 基底读', db.calls.filter(c => c.op === 'select').length, 0);
+    check('F2 UPDATE 恰 2 次 + DB 链式合并',
+      [db.calls.filter(c => c.op === 'update').length, db.tables.strategy_signals[0].metadata.round1, db.tables.strategy_signals[0].metadata.round2],
+      [2, 'a', 'b']);
+    check('F3 缓存条目同步（下轮合并基底=DB 终态）', eng._signalRowCache.get(id).metadata, db.tables.strategy_signals[0].metadata);
+
+    // F4 miss 链（未登记/已 invalidate）：SELECT 基底照旧（既有行为）
+    resetDb();
+    const eng2 = mkEngine();
+    const s2 = await seedSignal();
+    db.calls = [];
+    await eng2._updateSignalMetadata(s2.id, { k: 1 });
+    check('F4 缓存 miss→SELECT(metadata) 1 次 + UPDATE 落库',
+      [db.calls.filter(c => c.op === 'select').length, db.tables.strategy_signals[0].metadata.k], [1, 1]);
+
+    // F5 UPDATE error→缓存 invalidate+下次回退 SELECT（★事故现场反证：缓存遮蔽落库失败）
+    resetDb();
+    const eng3 = mkEngine();
+    const s3 = await seedSignal();
+    eng3._registerSignalRow(s3.id, s3.ts._insertedRow);
+    const origUpdate = MockQuery.prototype.update;
+    MockQuery.prototype.update = function () { return { eq: () => ({ then: (r) => r({ data: null, error: { message: 'db down' } }) }) }; };
+    await eng3._updateSignalMetadata(s3.id, { bad: 1 });
+    MockQuery.prototype.update = origUpdate;
+    check('F5 UPDATE error→缓存条目已删', eng3._signalRowCache.has(s3.id), false);
+    db.calls = [];
+    await eng3._updateSignalMetadata(s3.id, { good: 1 });
+    check('F6 下轮回退 SELECT（error 未被缓存遮蔽）',
+      [db.calls.filter(c => c.op === 'select').length, db.tables.strategy_signals[0].metadata.good], [1, 1]);
+
+    // F7 directFields 写回缓存条目（通知组装行携带）
+    resetDb();
+    const eng4 = mkEngine();
+    const s4 = await seedSignal();
+    eng4._registerSignalRow(s4.id, s4.ts._insertedRow);
+    const rawSec = { bundled: 7 };
+    await eng4._updateSignalMetadata(s4.id, { k: 1 }, { gmgn_security_raw_data: rawSec });
+    await eng4._updateSignalStatus(s4.id, 'executed', { success: true, message: 'ok' }); // signalRow 刻意不传
+    check('F7 组装行携带 directFields 列（经缓存条目）',
+      eng4._events[0].signal.gmgn_security_raw_data, rawSec);
+    check('F8 终态后缓存清空', eng4._signalRowCache.size, 0);
+  }
+
+  console.log('G. _updateSignalStatus：缓存命中组装 / 终态 delete / UPDATE error invalidate');
+  {
+    // G1 缓存行组装（signalRow=null 传入但缓存命中）→ 零 SELECT（metadata 基底 + * 全零）
+    resetDb();
+    const eng = mkEngine();
+    const { ts, id } = await seedSignal();
+    eng._registerSignalRow(id, ts._insertedRow);
+    db.calls = [];
+    await eng._updateSignalStatus(id, 'executed', { success: true, message: 'ok' });
+    check('G1 缓存命中→全程零 SELECT（基底+*）', db.calls.filter(c => c.op === 'select').length, 0);
+    check('G2 组装行完整（消费闭包键经缓存条目）',
+      ['token_address', 'action', 'experiment_id'].every(k => k in eng._events[0].signal), true);
+    check('G3 终态 delete', eng._signalRowCache.has(id), false);
+
+    // G4 UPDATE error→delete（下次回退 SELECT）
+    resetDb();
+    const eng2 = mkEngine();
+    const s2 = await seedSignal();
+    eng2._registerSignalRow(s2.id, s2.ts._insertedRow);
+    const origUpdate = MockQuery.prototype.update;
+    MockQuery.prototype.update = function () { return { eq: () => ({ then: (r) => r({ data: null, error: { message: 'db down' } }) }) }; };
+    await eng2._updateSignalStatus(s2.id, 'executed', { success: true, message: 'ok' });
+    MockQuery.prototype.update = origUpdate;
+    check('G4 UPDATE error→缓存删+不通知', [eng2._signalRowCache.has(s2.id), eng2._events.length], [false, 0]);
+    db.calls = [];
+    await eng2._updateSignalStatus(s2.id, 'executed', { success: true, message: 'ok2' });
+    check('G5 下次回退 SELECT 基底（通知组装亦无缓存行→* 兜底，共 2 读）',
+      [db.calls.filter(c => c.op === 'select' && c.cols === 'metadata').length,
+       db.calls.filter(c => c.op === 'select' && c.cols === '*').length], [1, 1]);
+  }
+
+  console.log('H. ★fire 链全链对拍：缓存实现 ≡ 每-SELECT 基底实现（DB 终态 deep-equal）');
+  {
+    const runChain = async (useCache) => {
+      resetDb();
+      const eng = mkEngine();
+      const s = await seedSignal({ note: '原语料' }, FIXED);
+      if (useCache) eng._registerSignalRow(s.id, s.ts._insertedRow);
+      db.calls = [];
+      // 买腿 fire 链形状：拒绝轨迹 3 轮 metadata 更新 → 终态 failed
+      await eng._updateSignalMetadata(s.id, { narrativeCall: { rating: 2 } });
+      await eng._updateSignalMetadata(s.id, { gmgnCheck: { passed: true } });
+      await eng._updateSignalMetadata(s.id, { preBuyCheckFactors: { top1: 12 } },
+        { gmgn_security_raw_data: { bundled: 7 }, gmgn_token_info_raw_data: null });
+      await eng._updateSignalStatus(s.id, 'failed', { message: '预检查失败: top1', reason: 'top1' });
+      const selects = db.calls.filter(c => c.op === 'select').length;
+      const row = JSON.parse(JSON.stringify(db.tables.strategy_signals[0]));
+      delete row.metadata.executed_at;
+      return { selects, row, cachedLeft: eng._signalRowCache.size };
+    };
+    const ref = await runChain(false);
+    const cached = await runChain(true);
+    let equal = true;
+    try { assert.deepStrictEqual(cached.row, ref.row); } catch { equal = false; }
+    check('H1 ★DB 终态逐键 deep-equal（metadata/directFields/executed 全链）', equal, true);
+    check('H2 缓存臂全程零 SELECT', cached.selects, 0);
+    check('H3 参考臂 SELECT 恰 5 次（3 metadata 基底+1 status 基底+1 通知兜底=旧实现形状）', ref.selects, 5);
+    check('H4 终态后缓存空', cached.cachedLeft, 0);
+  }
+
+  console.log('I. FIFO 有界防线（极端滞留路径：网络异常双失败未到终态）');
+  {
+    const eng = mkEngine();
+    for (let i = 0; i < 1030; i++) eng._registerSignalRow(`sig-${i}`, { id: `sig-${i}` });
+    check('I1 上限 1024（最旧淘汰）', eng._signalRowCache.size, 1024);
+    check('I2 最旧 6 条被淘汰', [eng._signalRowCache.has('sig-0'), eng._signalRowCache.has('sig-6')], [false, true]);
+    check('I3 最新在', eng._signalRowCache.has('sig-1029'), true);
+    // I4 非法入参不登记
+    eng._registerSignalRow(null, { id: 1 }); eng._registerSignalRow('x', null);
+    check('I4 null id/row 不登记', eng._signalRowCache.size, 1024);
+  }
+
   console.log('E. 源码口径（防回流）');
   {
     const abs = fs.readFileSync(path.join(ROOT, 'src/trading-engine/core/AbstractTradingEngine.js'), 'utf8');
@@ -210,8 +336,10 @@ const FIXED = { id: '00000000-0000-4000-8000-000000000001', createdAt: new Date(
       (abs.match(/_updateSignalStatus\(signalId,[^)]*?tradeSignal\._insertedRow \|\| null\)/g) || []).length, 2);
     check('E2 _updateSignalStatus 第四参 signalRow（缺省 null）',
       /_updateSignalStatus\(signalId, status, result, signalRow = null\) \{/.test(abs), true);
-    check('E3 组装行形状（metadata=newMetadata + executed=updateData.executed）',
-      /signalRow\s*\?\s*\{ \.\.\.signalRow, metadata: newMetadata, executed: updateData\.executed \}\s*\n\s*: null;/.test(abs), true);
+    check('E3 组装行形状（三源基底 + metadata=newMetadata + executed=updateData.executed）',
+      [/const baseRow = signalRow \|\| cachedRow \|\| null;/,
+       /const composedSignal = baseRow\s*\?\s*\{ \.\.\.baseRow, metadata: newMetadata, executed: updateData\.executed \}\s*\n\s*: null;/]
+        .every(r => r.test(abs)), true);
     check('E4 SELECT 兜底保留（composedSignal 缺省分支）',
       /let signal = composedSignal;\s*\n\s*if \(!signal\) \{/.test(abs), true);
     const tsSrc = fs.readFileSync(path.join(ROOT, 'src/trading-engine/entities/TradeSignal.js'), 'utf8');
@@ -225,6 +353,20 @@ const FIXED = { id: '00000000-0000-4000-8000-000000000001', createdAt: new Date(
     // existingSignalId 分支（买腿 fire 链）signalRow=null 走兜底——步骤②缓存接管前形状
     const m = fm.match(/async processSignal\(signal, existingSignalId = null\) \{[\s\S]{0,2500}?let signalId/);
     check('E8 existingSignalId 免二次 save 分支保留', m !== null, true);
+    // 步骤②口径
+    check('E9 构造初始化 _signalRowCache',
+      /this\._signalRowCache = new Map\(\);/.test(abs), true);
+    check('E10 _registerSignalRow FIFO 上限（1024）',
+      /this\._signalRowCache\.size >= 1024\) \{\s*\n\s*this\._signalRowCache\.delete\(this\._signalRowCache\.keys\(\)\.next\(\)\.value\);/.test(abs), true);
+    check('E11 两方法 UPDATE error 均 delete 缓存（遮蔽防线）',
+      (abs.match(/this\._signalRowCache\.delete\(signalId\);/g) || []).length >= 3, true);
+    check('E12 组装基底三源（signalRow || cachedRow || SELECT 兜底）',
+      /const baseRow = signalRow \|\| cachedRow \|\| null;/.test(abs), true);
+    check('E13 三登记点（Abstract processSignal/FourMeme 两处）',
+      (abs.match(/this\._registerSignalRow\(signalId, tradeSignal\._insertedRow\);/g) || []).length
+      + (fm.match(/this\._registerSignalRow\(signalId, tradeSignal\._insertedRow\);/g) || []).length, 3);
+    check('E14 终态 delete 在通知调用后',
+      /await this\._sendSignalNotificationWithFilter\(signalId, newMetadata, composedSignal\);\s*\n\s*\/\/ 终态[\s\S]*?this\._signalRowCache\.delete\(signalId\);/.test(abs), true);
   }
 
   console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
